@@ -1,0 +1,9 @@
+syntax: glob
+*.~*
+\*.*
+logs\*
+data\*.*
+*.map
+*.exe
+*.dll
+*.bak
