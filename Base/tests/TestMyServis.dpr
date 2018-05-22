@@ -5,7 +5,7 @@
 //    b) automatic mode
 {$APPTYPE CONSOLE}
 {$R+}
-program UMyServis;
+program TestMyServis;
 uses
   windows,
   variants,
@@ -33,6 +33,7 @@ uses
   Geom2d in '..\Geom2d.pas',
   geom3d in '..\geom3d.pas',
   LongMath in '..\LongMath.pas',
+  profiling in '..\profiling.pas',
   RSA in '..\RSA.pas';
 
 var
@@ -878,7 +879,7 @@ end;
    writeln(GetCountryByIP(StrToIp('93.170.184.83')));
    time:=MyTickCount;
    for i:=1 to 1000000 do begin
-    ip:=random(65500) shl 16+random(65500);
+    ip:=cardinal(random(65500)) shl 16 + random(65500);
     GetCountryByIP(ip)
 //    writeln(IpToStr(ip),' - ',GetCountryByIP(ip));
    end;
@@ -944,7 +945,7 @@ procedure TestRLE;
   writeln('== TestRLE ==');
   SetLength(sour,1024);
   // Test 1
-  for i:=0 to high(sour) do sour[i]:=i;
+  for i:=0 to high(sour) do sour[i]:=byte(i);
   dest:=PackRLE(@sour[0],length(sour),false);
   res:=UnpackRLE(dest,length(dest));
   Check;
@@ -1270,6 +1271,7 @@ procedure TestLock;
    Writeln('OK');
   end;
 
+{
  procedure TestHuffman;
   var
    sour1,dest1:ByteArray;
@@ -1285,7 +1287,7 @@ procedure TestLock;
     sour1[i]:=10+random(random(200));
    alphabet:=CreateAlphabetForBytes(sour1);
 
-  end;
+  end;    }
 
 var
  ar:array of cardinal;
@@ -1297,9 +1299,7 @@ begin
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
-  TestHuffman;
-
-{  TestSortStrings;
+  TestSortStrings;
   TestB64;
   TestPublics;
   TestEval;
@@ -1324,14 +1324,11 @@ begin
   TestSort;
   TestSplitCombine;
   TestTime;
-  }
+  
 //  TestEvents;
  except
   on e:exception do writeln('ERROR: ',ExceptionMsg(e));
-//  on e:ERangeError do writeln('RANGEERROR: ',PtrToStr(e.ExceptionRecord.ExceptionAddress));
-
  end;
- readln;
  if testsFailed then begin
   writeln('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
   writeln('!!!!!!!!!! TESTS FAILED !!!!!!!!!!!!!!');
