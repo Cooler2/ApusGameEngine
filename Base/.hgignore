@@ -11,3 +11,4 @@ data\*.*
 log.txt
 *.cfg
 *.dsk
+*.identcache
