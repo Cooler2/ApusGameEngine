@@ -12,3 +12,9 @@ log.txt
 *.cfg
 *.dsk
 *.identcache
+*.o
+*.a
+*.ppu
+*.compiled
+*\backup\*.*
+*.lps
