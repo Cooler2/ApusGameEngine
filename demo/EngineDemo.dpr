@@ -5,7 +5,6 @@ uses
   windows,
   sysutils,
   myservis,
-  directtext,
   DirectXGraphics,
   geom2d,
   geom3d,
@@ -15,8 +14,6 @@ uses
   eventMan,
   FastGfx,
   FreeTypeFont,
-  ZLIBEX,
-  PasLibVlcUnit,
   EngineCls in '..\EngineCls.pas',
   UIClasses in '..\UIClasses.pas',
   PainterGL in '..\PainterGL.pas',
@@ -38,7 +35,6 @@ uses
   Painter8 in '..\Painter8.pas',
   BasicGame in '..\BasicGame.pas',
   GLImages in '..\GLImages.pas',
-  SDLmini in '..\SDLmini.pas',
   BasicPainter in '..\BasicPainter.pas',
   dxgame8 in '..\dxgame8.pas',
   GLgame in '..\GLgame.pas',
@@ -59,7 +55,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 9;       
+ testnum:integer = 3;       
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -640,7 +636,7 @@ begin
  painter.LoadFont('goodfish1.fnt');
  painter.LoadFont('goodfish2.fnt');
  //fnt:=painter.LoadFromFile('test');
- LoadRasterFont('test.fnt');
+ //LoadRasterFont('test.fnt');
  fnt:=painter.PrepareFont(1);
  painter.MatchFont(1,painter.GetFont('Times New Roman',11));
  font:=painter.GetFont('Times New Roman',12);
@@ -964,10 +960,10 @@ var
 begin
 // LoadRasterFont('test.fnt');
 // SetTXTFonts(1,1);
- tex1:=LoadImageFromFile('image.tga',liffMH256);
- tex2:=LoadImageFromFile('image.dds');
- tex3:=LoadImageFromFile('test3');
- tex4:=LoadImageFromFile('logo');
+ tex1:=LoadImageFromFile('res\image.tga',liffMH256);
+ tex2:=LoadImageFromFile('res\image.dds');
+ tex3:=LoadImageFromFile('res\test3');
+ tex4:=LoadImageFromFile('res\logo');
  //tex1:=LoadTexture('circle',0);
 { painter.SetTexMode(fltTrilinear);
  f:=0.5;
@@ -1574,7 +1570,7 @@ end;
 
 procedure TVideoTest.Init;
 begin
- libvlc_dynamic_dll_init;
+{ libvlc_dynamic_dll_init;
  if (libvlc_dynamic_dll_error <> '') then begin
     ShowMessage(libvlc_dynamic_dll_error,'Error');
     exit;
@@ -1585,19 +1581,18 @@ begin
   ShowMessage(libvlc_errmsg,'ERROR');
 // mp:=libvlc_media_player_new(vlc);
  media := libvlc_media_new_path(vlc, 'video.avi');
- mp := libvlc_media_player_new_from_media(media);
-
+ mp := libvlc_media_player_new_from_media(media);    }
 end;
 
 procedure TVideoTest.RenderFrame;
 begin
  if frame=1 then begin
 {  libvlc_video_set_key_input(vlc, 1);
-  libvlc_video_set_mouse_input(vlc, 1);}
+  libvlc_video_set_mouse_input(vlc, 1);
   libvlc_media_player_set_display_window(mp, game.window);
 
   libvlc_media_player_play(mp);
-  libvlc_media_release(media);
+  libvlc_media_release(media);         }
  end;
  inc(frame);
  painter.Clear($FF000040);

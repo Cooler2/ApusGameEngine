@@ -10,7 +10,7 @@ interface
  procedure StoreFrame(img:TRAWImage);
 
 implementation
- uses windows,SysUtils,MyServis,classes,AVS,gfxformats;
+ uses windows,SysUtils,MyServis,classes,{AVS,}gfxformats;
  const
   MAX_FRAMES = 50000;
  type
