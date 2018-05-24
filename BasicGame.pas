@@ -217,7 +217,7 @@ type
 
 implementation
  uses types,SysUtils,cmdproc{$IFDEF DELPHI},graphics{$ENDIF}
-     {$IFDEF MSWINDOWS},VideoCapture{$ENDIF},BasicPainter,
+     {$IFDEF VIDEOCAPTURE},VideoCapture{$ENDIF},BasicPainter,
      EventMan,ImageMan,UIClasses,CommonUI,Console,EngineTools,publics,gfxFormats;
 
 type
@@ -669,7 +669,7 @@ end;
 
 procedure TBasicGame.StartVideoCap(filename: string);
 begin
- {$IFDEF MSWINDOWS}
+ {$IFDEF VIDEOCAPTURE}
  if videoCaptureMode then exit;
  videoCaptureMode:=true;
  if pos('\',filename)=0 then filename:=videoCapturePath+filename;
@@ -679,7 +679,7 @@ end;
 
 procedure TBasicGame.FinishVideoCap;
 begin
- {$IFDEF MSWINDOWS}
+ {$IFDEF VIDEOCAPTURE}
  if videoCaptureMode then FinishVideoCapture;
  videoCaptureMode:=false;
  {$ENDIF}
@@ -753,7 +753,7 @@ var
  ext:string;
 begin
  if screenshotDataRAW=nil then exit; // объект с данными должен быть создан потомками этого класса
- {$IFDEF MSWINDOWS}
+ {$IFDEF VIDEOCAPTURE}
  if videoCaptureMode then begin
   // Передача данных потоку видеосжатия
   if screenshotDataRAW<>nil then StoreFrame(screenshotDataRAW);
