@@ -222,7 +222,7 @@ function StrToAlign(s:string):TTextAlignment;
   if s='JUSTIFY' then result:=taJustify;
  end;
 
-function EvalInt(st:string):integer;
+function EvalInt(st:string):int64;
  begin
   result:=round(Eval(st,nil,curObj,curObjClass));
  end; 
