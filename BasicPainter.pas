@@ -2664,6 +2664,7 @@ end;
 procedure TBasicPainter.SetFontOption(font:cardinal;option:cardinal;value:single);
 begin
  font:=font and $FF;
+ ASSERT(font>0,'Invalid font handle');
  if newfonts[font] is TUnicodeFontEx then
   case option of
    foDownscaleFactor:TUnicodeFontEx(newfonts[font]).downscaleFactor:=value;
