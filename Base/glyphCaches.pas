@@ -492,7 +492,7 @@ begin
  result.y:=bands[best].y;
  result.x:=aWidth-bands[best].freeSpace;
  dec(bands[best].freeSpace,width);
- r:=width+height shl 8+byte(dx+128) shl 16+byte(dy+128) shl 24;
+ r:=byte(width)+byte(height) shl 8+byte(dx+128) shl 16+byte(dy+128) shl 24;
  hash1.Put(chardata,r);
  r:=result.Y shl 16+result.x;
  hash2.Put(chardata,r);
