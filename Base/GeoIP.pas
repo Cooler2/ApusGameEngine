@@ -1,3 +1,4 @@
+{$R-}
 unit GeoIP;
 interface
 
