@@ -669,6 +669,16 @@ begin
  result:=false;
 end;
 
+// tag: low 8 bit - new shadow value, next 16 bit - duration in ms
+function onSetFocus(event:eventstr;tag:integer):boolean;
+begin
+ delete(event,1,length('UI\SETFOCUS\'));
+ if (event<>'') and (event<>'NIL') then
+  FindControl(event,true).setFocus
+ else
+  SetFocusTo(nil);
+end;
+
 function onItemCreated(event:eventstr;tag:integer):boolean;
 var
  c:TUIControl;
@@ -764,6 +774,7 @@ begin
  SetEventHandler('UI\SetGlobalShadow',onSetGlobalShadow,async);
  SetEventHandler('UI\ItemCreated',onItemCreated,async);
  SetEventHandler('UI\ItemRenamed',onItemRenamed,async);
+ SetEventHandler('UI\SetFocus',onSetFocus,async);
 
  PublishFunction('GetFont',fGetFontHandle);
 
