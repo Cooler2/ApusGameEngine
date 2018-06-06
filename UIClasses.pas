@@ -208,7 +208,7 @@ type
   // Функция определения прозрачности точки в режиме tmCustom (к-ты задаются относительно начала эл-та)
   function IsTransparent(x,y:integer):boolean; virtual;
  protected
-  focusedChild:TUIControl; // вложенный элемент, который должен получить фокус, когда получает фокус данный
+  focusedChild:TUIControl;
   rLeft,rTop,rRight,rBottom:single; // точное положение элемента в предке
 
  private
@@ -1203,13 +1203,6 @@ var
  i:integer;
 begin
  if not (enabled and visible) then exit;
- // Если есть модальный элемент, а фокус выводится вне его - сделать это отложенно
- if (modalControl<>nil) and (not fControl.HasParent(modalControl)) then begin
-   c:=self;
-   while (c.parent<>nil) and not (c is TUIWindow) do c:=c.parent;
-   c.focusedChild:=self;
-   exit;
- end;
  // Сигнал о потере фокуса
  if (fControl<>nil) and (fControl<>self) then with fControl do begin
   onLostFocus;
@@ -1228,28 +1221,24 @@ begin
  while (c.parent<>nil) and not (c is TUIWindow) do c:=c.parent;
  if c is TUIWindow then begin
   activeWND:=c as TUIWindow;
-  {$IFNDEF MOBILE}  // don't auto set focus for mobile devices
-  if activeWnd.focusedChild=nil then begin
+  if self=c then begin // установка фокуса на окно
+   if focusedChild<>nil then begin
+    focusedChild.SetFocus; exit
+   end else // установка фокуса на первый доступный элемент
+    {$IFNDEF IOS}  // don't auto set focus for mobile devices
     for i:=0 to length(children)-1 do
      if children[i].canHaveFocus then begin
       children[i].SetFocus;
       exit;
      end;
-  end;
-  {$ENDIF}
+    {$ENDIF}
+//   fControl:=self;
+   exit;
+  end
+   else fControl:=self;
  end else begin
   activeWND:=nil;
   fControl:=self;
- end;
-
- c:=self;
- while c.parent<>nil do begin
-  c:=c.parent;
-  if (c.focusedChild<>nil) and (c.focusedChild<>self) then begin
-   c.focusedChild.SetFocus;
-   c.focusedChild:=nil;
-   break;
-  end;
  end;
 
  // Сигнал о получении фокуса
