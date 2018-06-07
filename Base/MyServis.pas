@@ -295,6 +295,9 @@ interface
  // Соединяет значения (преобразованные из исходных типов в строковый вид) указанным разделителем
  function Join(items:array of const;divider:string):string; overload;
 
+ // Проверяет, начинается ли строка st с подстроки
+ function HasPrefix(st,prefix:string):boolean;
+
  // Возвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
  function SafeStrItem(sa:StringArr;idx:integer):string;
 
@@ -359,7 +362,7 @@ interface
  function HowLong(time:TDateTime):string;
 
  // UTF8 routines
- function IsUTF8(st:string):boolean; inline;
+ function IsUTF8(st:string):boolean; inline; // Check if string starts with BOM
  function EncodeUTF8(st:widestring;addBOM:boolean=false):string;
  function DecodeUTF8(st:string):widestring;
  function DecodeUTF8A(sa:StringArr):WStringArr;
@@ -3012,6 +3015,17 @@ function BinToStr;
     inc(i);
    end;
    SetLength(result,n-1);
+  end;
+
+ function HasPrefix(st,prefix:string):boolean;
+  var
+   i:integer;
+  begin
+   result:=false;
+   if length(st)<length(prefix) then exit;
+   for i:=1 to length(prefix) do
+    if st[i]<>prefix[i] then exit;
+   result:=true; 
   end;
 
  function SafeStrItem(sa:StringArr;idx:integer):string;
