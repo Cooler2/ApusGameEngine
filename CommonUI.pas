@@ -834,7 +834,7 @@ var
  hint:TUIHint;
  i:integer;
 begin
- ForceLogMessage('ShowHint');
+ LogMessage('ShowHint: '+msg);
  msg:=translate(msg);
  if (x=-1) or (y=-1) then begin
   x:=CurX; y:=CurY;
@@ -852,7 +852,7 @@ begin
   end else parent:=parent.GetParent;
  end;
  if curhint<>nil then begin
-  ForceLogMessage('Free previous hint');
+  LogMessage('Free previous hint');
   curHint.Free;
   curHint:=nil;
  end;
@@ -862,7 +862,7 @@ begin
  hint.timer:=time;
  hint.order:=1000;
  curhint:=hint;
- ForceLogMessage('Hint created '+inttohex(cardinal(hint),8));
+ LogMessage('Hint created '+inttohex(cardinal(hint),8));
 end;
 
 procedure DumpUIdata;
