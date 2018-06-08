@@ -1330,7 +1330,7 @@ begin
    end;
   end;
   if sc[i].effect<>nil then begin
-   FLog('Drawing eff on '+sc[i].ClassName);
+   FLog('Drawing eff on '+sc[i].name);
    sc[i].effect.DrawScene;
    FLog('Drawing ret');
   end else begin
