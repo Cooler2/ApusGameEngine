@@ -3623,15 +3623,20 @@ procedure DumpDir(path:string);
   var
    f:file;
   begin
-   {$IFDEF ANDROID}
-   result:=AndroidLoadFile(fname);
-   if result<>'' then exit;
-   {$ENDIF}
-   assignFile(f,fname);
-   reset(f,1);
-   SetLength(result,filesize(f));
-   blockread(f,result[1],filesize(f));
-   closefile(f);
+   try
+    {$IFDEF ANDROID}
+    result:=AndroidLoadFile(fname);
+    if result<>'' then exit;
+    {$ENDIF}
+    assignFile(f,fname);
+    reset(f,1);
+    SetLength(result,filesize(f));
+    blockread(f,result[1],filesize(f));
+    closefile(f);
+   except
+    on e:exception do
+     raise EError.Create('Failed to load file '+fname+': '+ExceptionMsg(e));
+   end;
   end;
 
  function LoadFile2(fname:string):ByteArray;
