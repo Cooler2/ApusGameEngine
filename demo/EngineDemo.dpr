@@ -1149,8 +1149,9 @@ end;
 
 procedure TParticlesTest.Init;
 var
- i,j,n,x,y:integer;
+ i,j,n,x,y,v:integer;
  pb:PByte;
+ pc:PCardinal;
 begin
  tex:=texman.AllocImage(19*2,19,ipfARGB,0,'particles') as TTextureImage;
  tex.Lock;
@@ -1178,6 +1179,16 @@ begin
   end;
  end;
  tex.Unlock;
+
+ tex2:=texman.AllocImage(16,16,ipfARGB,0,'particles2') as TTextureImage;
+ EditImage(tex2);
+ for y:=0 to tex2.height-1 do
+  for x:=0 to tex2.width-1 do begin
+   pc:=GetPixelAddr(tex2.data,tex2.pitch,x,y);
+   v:=round(24*sqrt(sqr(y-8)+sqr(x-8)));
+   pc^:=$F08050+Sat(150-v,0,255) shl 24;
+  end;
+ tex2.Unlock;
 end;
 
 procedure TParticlesTest.RenderFrame;
@@ -1190,12 +1201,8 @@ begin
  painter.Clear($FF000000,-1,-1);
  painter.BeginPaint(nil);
  painter.DrawImage(10,10,tex,$FF808080);
+ painter.DrawImage(50,10,tex2,$FF808080);
  for i:=1 to 500 do with particles[i] do begin
-{  x:=(200-i/3)*cos(frame/100+i/9);
-  y:=(200-i/3)*sin(frame/100+i/9);
-  z:=sin(frame/100);//3*sin(i*2+frame/100);
-  color:=$FF808080;
-  scale:=1.2-i/700;}
   x:=120*cos(frame/100+i/9);
   y:=120*sin(frame/100+i/9);
   z:=sqr(1+i/200)/2-1.5+1.4*sin(frame/80);
@@ -1205,6 +1212,18 @@ begin
   index:=i mod 2;
  end;
  painter.DrawParticles(500,400,@particles,500,tex,19,3);
+ for i:=1 to 50 do with particles[i] do begin
+  x:=20*sin(frame/100+i*1.2)+25*cos(frame/130+i*1.04+2);
+  y:=20*cos(frame/110+i*1.93)+25*sin(frame/120-i*1.56+4);
+  z:=0;
+  color:=$FF808080;
+  scale:=3.5;
+  angle:=0;
+  index:=0;
+ end;
+ painter.SetMode(blAdd);
+ painter.DrawParticles(100,100,@particles,50,tex2,19,1);
+ painter.SetMode(blAlpha);
  painter.EndPaint;
 end;
 
