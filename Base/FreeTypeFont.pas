@@ -159,8 +159,9 @@ var
  h,s:integer;
 begin
  // Lookup hash
- s:=round(size*4);
- h:=((word(ch1) shl 6)+word(ch2)+s*47) and $FFF;
+ s:=round(size*4*47);
+ // Как-то не особо эффективно это по памяти - хэш весьма разрежен. Но тут надо хорошенько подумать как сделать лучше
+ h:=((word(ch1)*61)+word(ch2)+s) and $FFF;
  if (intervalHash[h].ch1=ch1) and
     (intervalHash[h].ch2=ch2) and
     (intervalHash[h].size=s) then begin
