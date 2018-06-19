@@ -32,6 +32,7 @@ uses
   geom3d in '..\geom3d.pas',
   LongMath in '..\LongMath.pas',
   profiling in '..\profiling.pas',
+  colors in '..\colors.pas',
   RSA in '..\RSA.pas';
 
 var
