@@ -740,10 +740,10 @@ end;
 
 procedure TFontTest2.Init;
 begin
- font:=TFreeTypeFont.LoadFromFile('res\arial.ttf');
+ //font:=TFreeTypeFont.LoadFromFile('res\arial.ttf');
 // font:=TFreeTypeFont.LoadFromFile('12460.ttf');
  buf:=texman.AllocImage(400,50,ipfARGB,0,'txtbuf') as TTextureImage;
- painter.LoadFont('arial.ttf');
+ painter.LoadFont('res\arial.ttf');
 end;
 
 procedure TFontTest2.RenderFrame;
@@ -833,7 +833,7 @@ begin
  painter.Rect(120,320,120+w,400,$60FFFFFF);
  painter.TextOutW(f,120,340,$FFC0C0C0,st);
 
- if frame mod 40<10 then begin
+ if getTickCount mod 1200<800 then begin
   painter.FillRect(512,0,1023,511,$FFFFFFFF);
   painter.TextOut(MAGIC_TEXTCACHE,512,0,$FFFFFFFF,'');
  end;
