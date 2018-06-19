@@ -13,6 +13,7 @@ uses
   dglOpenGl,
   eventMan,
   FastGfx,
+  DirectText,
   FreeTypeFont,
   EngineCls in '..\EngineCls.pas',
   UIClasses in '..\UIClasses.pas',
@@ -55,7 +56,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 3;       
+ testnum:integer = 12;       
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -167,7 +168,7 @@ type
  end;
 
  TParticlesTest=class(TTest)
-  tex:TTextureImage;
+  tex,tex2:TTextureImage;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -630,13 +631,13 @@ procedure TFontTest.Init;
 var
  font:cardinal;
 begin
- painter.LoadFont('times1.fnt');
- painter.LoadFont('times2.fnt');
- painter.LoadFont('times3.fnt');
- painter.LoadFont('goodfish1.fnt');
- painter.LoadFont('goodfish2.fnt');
+ painter.LoadFont('res\times1.fnt');
+ painter.LoadFont('res\times2.fnt');
+ painter.LoadFont('res\times3.fnt');
+ painter.LoadFont('res\goodfish1.fnt');
+ painter.LoadFont('res\goodfish2.fnt');
  //fnt:=painter.LoadFromFile('test');
- //LoadRasterFont('test.fnt');
+ LoadRasterFont('res\test.fnt');
  fnt:=painter.PrepareFont(1);
  painter.MatchFont(1,painter.GetFont('Times New Roman',11));
  font:=painter.GetFont('Times New Roman',12);
@@ -731,15 +732,15 @@ begin
  end;
 
 // painter.FillRect(0,0,511,511,$FFFFFFFF);
- if frame mod 40<10 then
-  painter.TextOut(MAGIC_TEXTCACHE,0,0,$FFFFFFFF,'');
+{ if frame mod 40<10 then
+  painter.TextOut(MAGIC_TEXTCACHE,0,0,$FFFFFFFF,'');}
 
  painter.EndPaint;
 end;
 
 procedure TFontTest2.Init;
 begin
- font:=TFreeTypeFont.LoadFromFile('arial.ttf');
+ font:=TFreeTypeFont.LoadFromFile('res\arial.ttf');
 // font:=TFreeTypeFont.LoadFromFile('12460.ttf');
  buf:=texman.AllocImage(400,50,ipfARGB,0,'txtbuf') as TTextureImage;
  painter.LoadFont('arial.ttf');
