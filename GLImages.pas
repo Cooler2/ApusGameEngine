@@ -30,7 +30,7 @@ type
  end;
 
  TGLTextureMan=class(TTextureMan)
-  maxFBwidth,maxFBheight:integer;
+  maxFBwidth,maxFBheight,maxRBsize:integer;
   constructor Create(MemoryLimit:integer); // Лимит видеопамяти в килобайтах (not used)
   destructor Destroy; override;
 
@@ -510,6 +510,7 @@ begin
    if tex<>nil then tex.Free;
    result:=nil;
    LogMessage('AllocImage error: '+ExceptionMsg(e));
+   raise;
   end;
  end;
 end;
@@ -544,13 +545,17 @@ begin
  glGetIntegerv(GL_MAX_TEXTURE_SIZE, @maxTextureSize);
  maxFBWidth:=maxTextureSize;
  maxFBheight:=maxTextureSize;
+ maxRBsize:=maxTextureSize;
  {$ELSE}
  glGetIntegerv(GL_MAX_TEXTURE_SIZE, @maxTextureSize);
  glGetIntegerv(GL_MAX_FRAMEBUFFER_WIDTH, @maxFBwidth);
  glGetIntegerv(GL_MAX_FRAMEBUFFER_HEIGHT, @maxFBheight);
+ glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, @maxRBsize);
  {$ENDIF}
  maxRTTextureSize:=min2(maxFBwidth,maxFBheight);
- LogMessage(Format('Maximal texture sizes: %d (FB: %d x %d)',[maxTextureSize,maxFBwidth,maxFBheight]));
+ LogMessage(Format('Maximal texture sizes: %d (FB: %d x %d, RB: %d)',[maxTextureSize,maxFBwidth,maxFBheight,maxRBsize]));
+ if maxFBwidth=0 then maxFBwidth:=Max2(maxRBsize,1024);
+ if maxFBheight=0 then maxFBheight:=Max2(maxRBsize,1024); 
  except
   on e:Exception do begin
    ForceLogMessage('Error in GLTexMan constructor: '+ExceptionMsg(e));
