@@ -486,7 +486,7 @@ procedure LoadConfig;
       // создать сэмпл
       smp:=TSample.Create;
       smp.fname:=param[1];
-      smp.handle:=-1;
+      smp.handle:=0;
       smpHash.Put(smp.fname,smp);
       evt.sample:=smp;
      end;
