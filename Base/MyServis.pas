@@ -413,6 +413,7 @@ interface
 
  // Получить ближайшую степень двойки, не меньшую данного числа
  function GetPow2(v:integer):integer;
+ // Get power of 2
  function Pow2(e:integer):int64;
 
  // Minimum / Maximum

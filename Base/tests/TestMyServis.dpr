@@ -805,6 +805,32 @@ end;
    if e>0 then testsFailed:=true;
   end;
 
+ procedure TestTStrHash;
+  var
+   sa:StringArr;
+   hash:TStrHash;
+   key:string;
+   v,sum:integer;
+  begin
+   writeln('== Test TStrHash ==');
+   hash:=TStrHash.Create;
+   setLength(sa,321);
+   sum:=0;
+   for i:=0 to high(sa) do begin
+    sum:=sum+i;
+    sa[i]:=IntToStr(i);
+    hash.Put(sa[i],pointer(i));
+   end;
+   key:=hash.FirstKey;
+   while hash.LastError<>esNoMoreItems do begin
+    v:=StrToInt(key);
+    if (v<0) or (v>high(sa)) then raise EWarning.Create('Invalid key');
+    dec(sum,v);
+    key:=hash.NextKey;
+   end;
+   if sum<>0 then raise EWarning.Create('Not all keys iterated');
+  end;
+
   {$R-}
   function HashValueS(const k:string):cardinal;
    var
@@ -1298,6 +1324,7 @@ begin
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
+  TestTStrHash;
   TestSortStrings;
   TestB64;
   TestPublics;
@@ -1322,17 +1349,20 @@ begin
   TestSortStrings;
   TestSort;
   TestSplitCombine;
-  TestTime;
+  TestTime;       
   
 //  TestEvents;
  except
-  on e:exception do writeln('ERROR: ',ExceptionMsg(e));
+  on e:exception do begin
+   writeln('ERROR: ',ExceptionMsg(e));
+   testsFailed:=true;
+  end;
  end;
  if testsFailed then begin
   writeln('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
   writeln('!!!!!!!!!! TESTS FAILED !!!!!!!!!!!!!!');
   writeln('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
  end else
-  writeln('Everything is OK!');
+  writeln('--------------------- DONE! ---------------------'#13#10' Everything is OK!');
  readln;
 end.

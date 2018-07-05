@@ -1,4 +1,4 @@
-// This is universal unit containing implementation
+﻿// This is universal unit containing implementation
 // of basic structures on common types: trees, hashes etc...
 // Copyright (C) 2002-2015 Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
 
@@ -140,6 +140,7 @@ type
   destructor Destroy; override;
  private
   CurCell,CurItem:integer;
+  mask:cardinal;
   function HashValue(str:string):integer;
  end;
 
@@ -411,7 +412,8 @@ implementation
   var
    i:integer;
   begin
-   Hsize:=newsize;
+   Hsize:=GetPow2(newsize);
+   mask:=hSize-1;
    SetLength(cells,Hsize);
    Hcount:=0;
    LastError:=esNoError;
@@ -424,12 +426,12 @@ implementation
 
  function TStrHash.HashValue;
   var
-   i,s:integer;
+   i,s:cardinal;
   begin
    s:=0;
    for i:=1 to length(str) do
-    s:=s+byte(str[i]);
-   result:=s mod Hsize;
+    s:=s*$20844 xor byte(str[i]);
+   result:=s and mask;
   end;
 
  procedure TStrHash.Put;
@@ -445,7 +447,7 @@ implementation
       exit;
      end;
     if count=size then begin
-     inc(size,8+size div 4);
+     inc(size,3+size div 2);
      SetLength(items,size);
     end;
     items[count].key:=addr(key);
@@ -510,10 +512,15 @@ implementation
   end;
 
  function TStrHash.NextKey;
+  var
+   found:boolean;
   begin
    result:='';
-   if (CurCell<HSize) and (curItem<cells[curCell].count) then
+   found:=false;
+   if (CurCell<HSize) and (curItem<cells[curCell].count) then begin
     result:=cells[CurCell].items[CurItem].key^;
+    found:=true;
+   end;
    inc(CurItem);
    if CurItem>=cells[curCell].count then
     repeat
@@ -521,12 +528,15 @@ implementation
      if curCell>=hSize then break;
      CurItem:=0;
      if cells[CurCell].count>0 then begin
-      result:=cells[curCell].items[0].key^;
-      inc(curItem);                          
+      if not found then begin
+       result:=cells[curCell].items[0].key^;
+       inc(curItem);
+      end;
       exit;
      end;
     until false;
-   LastError:=esNoMoreItems;
+   if not found then
+    LastError:=esNoMoreItems;
   end;
 
  destructor TStrHash.Destroy;
