@@ -390,6 +390,7 @@ type
   rValue:TAnimatedValue;
   function GetValue:integer;
   procedure SetValue(v:integer);
+  function GetAnimating:boolean;
  public
   min,max:integer; // границы диапазона
   pagesize,step:integer; // положение и размер ползунка (в пределах диапазона)
@@ -409,7 +410,7 @@ type
   procedure onMouseButtons(button:byte;state:boolean); override;
   procedure onLostFocus; override;
   property value:integer read GetValue write SetValue;
-
+  property isAnimating:boolean read GetAnimating;
  protected
   linkedControl:TUIControl;
   delta:integer; // смещение точки курсора относительно точки начала ползунка (если hooked)
@@ -1968,6 +1969,11 @@ end;
 procedure TUIScrollBar.SetValue(v: integer);
 begin
  rValue.Assign(v);
+end;
+
+function TUIScrollBar.GetAnimating;
+begin
+  result:=rValue.isAnimating;
 end;
 
 procedure TUIScrollBar.MoveRel(delta: integer;smooth:boolean=false);
