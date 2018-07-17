@@ -1,0 +1,399 @@
+// Class hierarchy for image objects
+//
+// Copyright (C) 2003 Apus Software (www.games4win.com)
+// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+
+unit Images;
+
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
+interface
+ uses FastGFX;
+
+type
+ // Форматы представления изображения
+ ImagePixelFormat=(ipfNone,     // формат по умолчанию
+                   ipf1Bit,     // 1bpp (2 colors) - monochrome
+                   ipf4Bit,     // 4bpp (16 colors)
+                   ipf8Bit,     // 8bpp (256 colors)
+                   ipf555,      // 16bpp (5-5-5 format)
+                   ipf1555,     // 16bpp (5-5-5 format with 1-bit alpha)
+                   ipf565,      // 16bpp (5-6-5 format)
+                   ipf4444,     // 16bpp (4-4-4 format with 4-bit alpha)
+                   ipfRGB,      // 24bpp
+                   ipfXRGB,     // 32bpp (last byte is not used)
+                   ipfARGB,     // 32bpp (last byte is alpha channel)
+                   ipfDXT1,     // DXT1
+                   ipfDXT2,     // DXT2 (premultiplied colors, explicit alpha)
+                   ipfDXT3,     // DXT3 (explicit alpha)
+                   ipfDXT5,     // DXT5 (interpolated alpha)
+                   ipfPVRTC,    // PVR TC (compressed 4bpp texture)
+                   ipfA4,       // 4bpp (alpha)
+                   ipfA8,       // 8bpp (альфаканал)
+                   ipfL4A4,     // 8bpp (luminance+alpha)
+                   ipf4444r,    // 16bpp 4-4-4-4 format with $BGRA structure
+                   ipfABGR,     // 32bpp
+                   ipfXBGR,     // 32bpp
+                   ipf32bpp);   // generic 32bpp: XRGB or ARGB
+
+ // Форматы представления палитры
+ ImagePaletteFormat=(palNone,   // Палитры нет
+                     palRGB,    // Палитра из триад
+                     palXRGB,   // Палитра с 4-байтными эл-тами, последний байт не используется
+                     palARGB);  // Палитра с 4-байтными эл-ми, 4-й байт содержит альфа
+
+type
+ TPaletteEntry=record
+ case boolean of
+  true:(color:cardinal);
+  false:(b,g,r,a:byte);     
+ end;
+ TPalette=array[0..255] of TPaletteEntry;
+
+ TRawImage=class; // предопределение типа
+
+
+ // Это базовый класс для описания изображений различных типов
+ // Изображения могут иметь различное представление, быть упакованными и
+ // т.п.
+ // Общие свойства всех изображений: размер и метод рисования по умолчанию
+ TBaseImage=class
+  width,height:integer;
+  tag:cardinal;
+ end;
+
+ // Абстрактный класс, определяющий анимированное изображение
+ // Основными методами являются NextFrame/ChangePos и Draw, конкретные
+ // форматы могут иметь свои, более оптимальные способы рисования
+ TAnimatedImage=class(TBaseImage)
+  // true если формат поддерживает случайный доступ к кадрам
+  class function RandomAccess:boolean; virtual; abstract;
+  // true если можно переходить по кадрам как вперед, так и назад
+  class function RevDirection:boolean; virtual; abstract;
+
+  // Перейти к указанной позиции относительно начала анимации
+  procedure SetPos(time:single); virtual; abstract;
+  // Переместить позицию относительно текущего момента
+  procedure ChangePos(delta:single); virtual; abstract;
+  // Перейти к следующему/предыдущему кадрам
+  procedure NextFrame; virtual; abstract;
+  procedure PrevFrame; virtual; abstract;
+
+  // Управление нелинейной анимацией (зависит от формата):
+  // --------------------------------
+  // установить положение указанной развилки: развилка - это триггер на кадре,
+  // который указывает на следующий кадр
+  // Существует две развилки по умолчанию:
+  // 0 - на 1-м кадре (по умолчанию указывает на 2-й кадр)
+  // 1 - на последнем (по умолчанию указывает на 1-й кадр)
+  // Значения развилки - это не номера кадров, а номера возможных вариантов:
+  // 0 - оставаться на месте, -1 - двигаться в обратном направлении, 1..n - ветви
+  procedure SetFork(fork,value:byte); virtual; abstract;
+ end;
+
+ // RawImage - это статическое изображение, имеющее линейную неупакованную структуру
+ // Основная особенность таких изображений - на них можно рисовать (в.т.ч. используя
+ // прямой доступ к памяти и формат пикселя)
+ // Это тоже абстрактный класс, который не определяет конкретного способа создания
+ // и хранения изображения
+ TRawImage=class(TBaseImage)
+  PixelFormat:ImagePixelFormat;
+  paletteFormat:ImagePaletteFormat;
+
+  // Следующие данные не обязательно всегда доступны, это зависит от типа изображения
+  data:pointer;  // Указатель на данные (пиксель 0,0)
+  pitch:integer; // смещение к очередной строке
+  palette:pointer; // указатель на палитру, nil если ее нет
+  palSize:integer; // размер палитры (число эл-тов)
+
+  class function NeedLock:boolean; virtual;  // true - если нужно лочить для доступа к данным
+  procedure Lock; virtual;  // заполняет поля действующими значениями
+  procedure Unlock; virtual;
+  procedure Clear(color:cardinal); virtual;
+  function ScanLine(y:integer):pointer;
+ end;
+
+ // TBitmapImage - это уже конкретный вид изображения: bitmap, хранящийся в памяти
+ TBitmapImage=class(TRawImage)
+
+  constructor Create(w,h:integer;pf:ImagePixelFormat=ipfARGB;
+                     pal:ImagePaletteFormat=palNone;pSize:integer=256);
+  constructor Assign(w,h:integer;_data:pointer;_pitch:integer;_pf:ImagePixelFormat);
+  destructor Destroy; override;
+
+  class function NeedLock:boolean; override; // true - если нужно лочить для доступа к данным
+  procedure Lock; override;
+  procedure Unlock; override;
+ end;
+
+ var
+  // Преобразование цвета из RGBA в заданный формат
+  ColorTo:array[ImagePixelFormat] of TColorConv;
+
+ const
+  // Размер пикселя в битах
+  PixelSize:array[ImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,32,32,64,128,128,128,4,4,8,8,16,32,32,32);
+  PalEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
+
+ procedure ConvertLine(var sour,dest;sourformat,destformat:ImagePixelFormat;
+                 var palette;palformat:ImagePaletteFormat;count:integer);
+
+ // Swap red<->blue channels for xRGB<->xBGR conversion
+ procedure SwapRB(var data;count:integer);
+
+ function PixFmt2Str(ipf:ImagePixelFormat):string;
+
+implementation
+ uses CrossPlatform,MyServis;
+
+function PixFmt2Str(ipf:ImagePixelFormat):string;
+ begin
+  result:='unknown';
+  case ipf of
+   ipfARGB:result:='ARGB';
+   ipfXRGB:result:='XRGB';
+   ipfRGB:result:='RGB';
+   ipf1555:result:='1555';
+   ipf4444:result:='4444';
+   ipf565:result:='565';
+   ipf555:result:='555';
+   ipf8bit:result:='8bit';
+   ipfDXT1:result:='DXT1';
+   ipfDXT2:result:='DXT2';
+   ipfDXT3:result:='DXT3';
+   ipfPVRTC:result:='PVRTC';
+   ipfABGR:result:='ABGR';
+   ipfXBGR:result:='xBGR';
+   ipf4444r:result:='4444r';
+   ipf32bpp:result:='32bpp';
+   ipfA4:result:='A4';
+   ipfA8:result:='A8';
+   ipfL4A4:result:='L4A4';
+  end;
+ end;
+
+procedure SwapRB(var data;count:integer);
+ var
+  pc:PCardinal;
+ begin
+  pc:=@data;
+  while count>0 do begin
+   pc^:=pc^ and $FF00FF00 or (pc^ and $FF shl 16) or (pc^ and $FF0000 shr 16);
+   inc(pc);
+   dec(count);
+  end;
+ end;
+
+procedure ConvertLine;
+ var
+  buf:array[0..2047] of cardinal;
+  sp,dp:PByte;
+  n:integer;
+ begin
+  // А нужна ли вообще конверсия?
+  if (sourformat=destformat) or
+     (PixelSize[sourformat]=32) and (PixelSize[destformat]=32) then begin
+   move(sour,dest,count*PixelSize[sourformat] div 8);
+
+   if sourFormat<>destFormat then begin
+    // Add constant alpha?
+    if (destFormat in [ipfARGB,ipfABGR]) and (sourformat in [ipfXRGB,ipfXBGR]) then begin
+     dp:=@dest;
+     for n:=0 to count-1 do begin
+      PCardinal(dp)^:=PCardinal(dp)^ or $FF000000;
+      inc(dp,4);
+     end;
+    end;
+    // RGB<->BGR?
+    if (sourFormat in [ipfARGB,ipfXRGB]) and (destFormat in [ipfABGR,ipfXBGR]) or
+       (destFormat in [ipfARGB,ipfXRGB]) and (sourFormat in [ipfABGR,ipfXBGR]) then
+      SwapRB(dest,count);
+   end;
+   exit;
+  end;
+  // По возможности используем оптимизированные процедуры блиттинга
+  if sourformat in [ipfARGB,ipfXRGB] then begin
+   if destFormat=ipfRGB then begin
+    PixelsTo24(sour,dest,count); exit;
+   end;
+   if destformat=ipf565 then begin
+    PixelsTo16(sour,dest,count); exit;
+   end;
+   if destformat=ipf555 then begin
+    PixelsTo15(sour,dest,count); exit;
+   end;
+  end;
+  // Если ничего не подошло, конвертируем через промежуточный 32-битный формат
+  sp:=@sour; dp:=@dest;
+  while count>0 do begin
+   n:=count;
+   if n>2048 then n:=2048;
+   if destformat in [ipfARGB,ipfXRGB,ipfABGR,ipfXBGR] then begin
+    // Можно конвертировать сразу в приемник
+    case sourformat of
+     ipf555:PixelsFrom15(sp^,dp^,n);
+     ipf1555:PixelsFrom15A(sp^,dp^,n);
+     ipf565:PixelsFrom16(sp^,dp^,n);
+     ipf4444:PixelsFrom12(sp^,dp^,n);
+     ipfRGB:PixelsFrom24(sp^,dp^,n);
+     ipf8Bit:if PalFormat=palRGB then
+       PixelsFrom8P24(sp^,dp^,palette,n) else
+       PixelsFrom8P(sp^,dp^,palette,n);
+    end;
+    if destFormat in [ipfABGR,ipfXBGR] then SwapRB(dp^,n);
+   end else
+   if sourformat in [ipfARGB,ipfXRGB] then begin
+    // Можно конвертировать прямо из источника
+    case destformat of
+     ipf555:PixelsTo15(sp^,dp^,n);
+     ipf1555:PixelsTo15A(sp^,dp^,n);
+     ipf565:PixelsTo16(sp^,dp^,n);
+     ipf4444:PixelsTo12(sp^,dp^,n);
+     ipfRGB:PixelsTo24(sp^,dp^,n);
+    end;
+   end else begin
+    case sourformat of
+     ipf555:PixelsFrom15(sp^,buf,n);
+     ipf1555:PixelsFrom15A(sp^,buf,n);
+     ipf565:PixelsFrom16(sp^,buf,n);
+     ipf4444:PixelsFrom12(sp^,buf,n);
+     ipfRGB:PixelsFrom24(sp^,buf,n);
+     ipf8Bit:if PalFormat=palRGB then
+       PixelsFrom8P24(sp^,buf,palette,n) else
+       PixelsFrom8P(sp^,buf,palette,n);
+    end;
+    case destformat of
+     ipf555:PixelsTo15(buf,dp^,n);
+     ipf1555:PixelsTo15A(buf,dp^,n);
+     ipf565:PixelsTo16(buf,dp^,n);
+     ipf4444:PixelsTo12(buf,dp^,n);
+     ipfRGB:PixelsTo24(buf,dp^,n);
+    end;
+   end;
+   if count<=2048 then exit;
+   dec(count,2048);
+   inc(sp,2048*PixelSize[sourformat] div 8);
+   inc(dp,2048*PixelSize[destformat] div 8);
+  end;
+ end;
+
+{ TBitmapImage }
+
+constructor TBitmapImage.Assign(w,h:integer;_data: pointer; _pitch: integer;
+  _pf: ImagePixelFormat);
+begin
+ width:=w; height:=h;
+ data:=_data;
+ pitch:=_pitch;
+ PixelFormat:=_pf;
+end;
+
+constructor TBitmapImage.Create(w, h: integer; pf: ImagePixelFormat;
+  pal: ImagePaletteFormat; pSize: integer);
+var
+ size,palElSize:integer;
+begin
+ if (w<=0) or (h<=0) or (psize<0) then
+  raise EError.Create('Images: Invalid parameters in TBMI.Create');
+ case pf of
+  ipf1bit: pitch:=(1+(w-1) div 32)*4;  // Выравнивание по 32бита
+  ipf4bit: pitch:=(1+(w-1) div 8)*4;
+  ipf8bit: pitch:=(1+(w-1) div 8)*8;   // Выравнивание по 64 бита
+  ipf555,ipf1555,ipf565,ipf4444: pitch:=(1+(w-1) div 4)*8;
+  ipfRGB: pitch:=(1+(w-1) div 4)*12;
+  ipfXRGB,ipfARGB,ipfXBGR,ipfABGR: pitch:=(1+(w-1) div 2)*8;
+  ipfDXT1: pitch:=w*8;
+  ipfDXT2,ipfDXT3: pitch:=w*16;
+ end;
+ PixelFormat:=pf;
+ PaletteFormat:=pal;
+ size:=pitch*h;
+ GetMem(data,size);
+
+ if pal<>palNone then begin
+  case pal of
+   palRGB: palElSize:=3;
+   palARGB,palxRGB: palElSize:=4;
+  end;
+  palSize:=psize;
+  GetMem(palette,psize*PalElSize);
+ end else palette:=nil;
+
+ width:=w;
+ height:=h;
+end;
+
+destructor TBitmapImage.Destroy;
+begin
+  FreeMem(data);
+  if palette<>nil then FreeMem(palette);
+  inherited;
+end;
+
+procedure TBitmapImage.Lock;
+begin
+ // Lock isn't needed: no action
+end;
+
+class function TBitmapImage.NeedLock: boolean;
+begin
+ result:=false;
+end;
+
+procedure TBitmapImage.Unlock;
+begin
+ // Lock isn't needed: no action
+end;
+
+{ TRawImage }
+
+procedure TRawImage.Clear(color: cardinal);
+var
+ x,y:integer;
+ p1:PByte;
+ p2:PCardinal;
+begin
+ p1:=data;
+ for y:=0 to height-1 do begin
+  if PixelSize[pixelFormat]=32 then begin // 32 bit image
+   p2:=PCardinal(p1);
+   for x:=0 to width-1 do begin
+    p2^:=color; inc(p2);
+   end;
+  end else begin
+   // conversion required
+   // ...
+  end;
+  inc(p1,pitch);
+ end;
+end;
+
+procedure TRawImage.Lock;
+begin
+end;
+
+class function TRawImage.NeedLock: boolean;
+begin
+ result:=false;
+end;
+
+function TRawImage.ScanLine(y: integer): pointer;
+begin
+ result:=pointer( PtrUInt(data)+y*pitch);
+end;
+
+procedure TRawImage.Unlock;
+begin
+end;
+
+initialization
+ ColorTo[ipfARGB]:=ColorTo32;
+ ColorTo[ipfXRGB]:=ColorTo32;
+ ColorTo[ipfRGB]:=ColorTo24;
+ ColorTo[ipf4444]:=ColorTo12;
+ ColorTo[ipf565]:=ColorTo16;
+ ColorTo[ipf1555]:=ColorTo15A;
+ ColorTo[ipf555]:=ColorTo15;
+end.

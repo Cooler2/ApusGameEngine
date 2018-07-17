@@ -295,6 +295,9 @@ interface
  // —оедин€ет значени€ (преобразованные из исходных типов в строковый вид) указанным разделителем
  function Join(items:array of const;divider:string):string; overload;
 
+ // ѕровер€ет, начинаетс€ ли строка st с подстроки
+ function HasPrefix(st,prefix:string):boolean;
+
  // ¬озвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
  function SafeStrItem(sa:StringArr;idx:integer):string;
 
@@ -359,7 +362,7 @@ interface
  function HowLong(time:TDateTime):string;
 
  // UTF8 routines
- function IsUTF8(st:string):boolean; inline;
+ function IsUTF8(st:string):boolean; inline; // Check if string starts with BOM
  function EncodeUTF8(st:widestring;addBOM:boolean=false):string;
  function DecodeUTF8(st:string):widestring;
  function DecodeUTF8A(sa:StringArr):WStringArr;
@@ -410,6 +413,7 @@ interface
 
  // ѕолучить ближайшую степень двойки, не меньшую данного числа
  function GetPow2(v:integer):integer;
+ // Get power of 2
  function Pow2(e:integer):int64;
 
  // Minimum / Maximum
@@ -3014,6 +3018,17 @@ function BinToStr;
    SetLength(result,n-1);
   end;
 
+ function HasPrefix(st,prefix:string):boolean;
+  var
+   i:integer;
+  begin
+   result:=false;
+   if length(st)<length(prefix) then exit;
+   for i:=1 to length(prefix) do
+    if st[i]<>prefix[i] then exit;
+   result:=true; 
+  end;
+
  function SafeStrItem(sa:StringArr;idx:integer):string;
   begin
    result:='';
@@ -3609,15 +3624,20 @@ procedure DumpDir(path:string);
   var
    f:file;
   begin
-   {$IFDEF ANDROID}
-   result:=AndroidLoadFile(fname);
-   if result<>'' then exit;
-   {$ENDIF}
-   assignFile(f,fname);
-   reset(f,1);
-   SetLength(result,filesize(f));
-   blockread(f,result[1],filesize(f));
-   closefile(f);
+   try
+    {$IFDEF ANDROID}
+    result:=AndroidLoadFile(fname);
+    if result<>'' then exit;
+    {$ENDIF}
+    assignFile(f,fname);
+    reset(f,1);
+    SetLength(result,filesize(f));
+    blockread(f,result[1],filesize(f));
+    closefile(f);
+   except
+    on e:exception do
+     raise EError.Create('Failed to load file '+fname+': '+ExceptionMsg(e));
+   end;
   end;
 
  function LoadFile2(fname:string):ByteArray;

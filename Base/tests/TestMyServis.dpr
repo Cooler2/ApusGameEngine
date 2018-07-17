@@ -5,7 +5,7 @@
 //    b) automatic mode
 {$APPTYPE CONSOLE}
 {$R+}
-program UMyServis;
+program TestMyServis;
 uses
   windows,
   variants,
@@ -13,32 +13,27 @@ uses
   SysUtils,
   classes,
   Math,
-  MyServis in 'MyServis.pas',
-  keyboard in 'keyboard.pas',
-  structs in 'structs.pas',
-  skale in 'skale.pas',
-  clipboard in 'clipboard.pas',
-  myADPCM in 'myADPCM.pas',
-  CrossPlatform in 'CrossPlatform.pas',
-  network in 'network.pas',
-  translation in 'translation.pas',
-  publics in 'publics.pas',
-  eventman in 'eventman.pas',
-  profiling in 'profiling.pas',
-  Logging in 'Logging.pas',
-  TextUtils in 'TextUtils.pas',
-  ControlFiles2 in 'ControlFiles2.pas',
-  crypto in 'crypto.pas',
-  database in 'database.pas',
-  DCPmd5a in 'DCPmd5a.pas',
-  GeoIP in 'GeoIP.pas',
-  Geom2d in 'Geom2d.pas',
-  geom3d in 'geom3d.pas',
-  LongMath in 'LongMath.pas',
-  QStrings in 'QStrings.pas',
-  RSA in 'RSA.pas',
-  UDictOld in 'UDictOld.pas',
-  myHuffman in 'myHuffman.pas';
+  DCPmd5a,
+  MyServis in '..\MyServis.pas',
+  structs in '..\structs.pas',
+  clipboard in '..\clipboard.pas',
+  myADPCM in '..\myADPCM.pas',
+  CrossPlatform in '..\CrossPlatform.pas',
+  network in '..\network.pas',
+  translation in '..\translation.pas',
+  publics in '..\publics.pas',
+  eventman in '..\eventman.pas',
+  Logging in '..\Logging.pas',
+  TextUtils in '..\TextUtils.pas',
+  ControlFiles2 in '..\ControlFiles2.pas',
+  crypto in '..\crypto.pas',
+  GeoIP in '..\GeoIP.pas',
+  Geom2d in '..\Geom2d.pas',
+  geom3d in '..\geom3d.pas',
+  LongMath in '..\LongMath.pas',
+  profiling in '..\profiling.pas',
+  colors in '..\colors.pas',
+  RSA in '..\RSA.pas';
 
 var
  sa:StringArr;
@@ -810,6 +805,32 @@ end;
    if e>0 then testsFailed:=true;
   end;
 
+ procedure TestTStrHash;
+  var
+   sa:StringArr;
+   hash:TStrHash;
+   key:string;
+   v,sum:integer;
+  begin
+   writeln('== Test TStrHash ==');
+   hash:=TStrHash.Create;
+   setLength(sa,321);
+   sum:=0;
+   for i:=0 to high(sa) do begin
+    sum:=sum+i;
+    sa[i]:=IntToStr(i);
+    hash.Put(sa[i],pointer(i));
+   end;
+   key:=hash.FirstKey;
+   while hash.LastError<>esNoMoreItems do begin
+    v:=StrToInt(key);
+    if (v<0) or (v>high(sa)) then raise EWarning.Create('Invalid key');
+    dec(sum,v);
+    key:=hash.NextKey;
+   end;
+   if sum<>0 then raise EWarning.Create('Not all keys iterated');
+  end;
+
   {$R-}
   function HashValueS(const k:string):cardinal;
    var
@@ -883,7 +904,7 @@ end;
    writeln(GetCountryByIP(StrToIp('93.170.184.83')));
    time:=MyTickCount;
    for i:=1 to 1000000 do begin
-    ip:=random(65500) shl 16+random(65500);
+    ip:=cardinal(random(65500)) shl 16 + random(65500);
     GetCountryByIP(ip)
 //    writeln(IpToStr(ip),' - ',GetCountryByIP(ip));
    end;
@@ -949,7 +970,7 @@ procedure TestRLE;
   writeln('== TestRLE ==');
   SetLength(sour,1024);
   // Test 1
-  for i:=0 to high(sour) do sour[i]:=i;
+  for i:=0 to high(sour) do sour[i]:=byte(i);
   dest:=PackRLE(@sour[0],length(sour),false);
   res:=UnpackRLE(dest,length(dest));
   Check;
@@ -1275,6 +1296,7 @@ procedure TestLock;
    Writeln('OK');
   end;
 
+{
  procedure TestHuffman;
   var
    sour1,dest1:ByteArray;
@@ -1290,7 +1312,7 @@ procedure TestLock;
     sour1[i]:=10+random(random(200));
    alphabet:=CreateAlphabetForBytes(sour1);
 
-  end;
+  end;    }
 
 var
  ar:array of cardinal;
@@ -1302,9 +1324,8 @@ begin
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
-  TestHuffman;
-
-{  TestSortStrings;
+  TestTStrHash;
+  TestSortStrings;
   TestB64;
   TestPublics;
   TestEval;
@@ -1328,20 +1349,20 @@ begin
   TestSortStrings;
   TestSort;
   TestSplitCombine;
-  TestTime;
-  }
+  TestTime;       
+  
 //  TestEvents;
  except
-  on e:exception do writeln('ERROR: ',ExceptionMsg(e));
-//  on e:ERangeError do writeln('RANGEERROR: ',PtrToStr(e.ExceptionRecord.ExceptionAddress));
-
+  on e:exception do begin
+   writeln('ERROR: ',ExceptionMsg(e));
+   testsFailed:=true;
+  end;
  end;
- readln;
  if testsFailed then begin
   writeln('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
   writeln('!!!!!!!!!! TESTS FAILED !!!!!!!!!!!!!!');
   writeln('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
  end else
-  writeln('Everything is OK!');
+  writeln('--------------------- DONE! ---------------------'#13#10' Everything is OK!');
  readln;
 end.
