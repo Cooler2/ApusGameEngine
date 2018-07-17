@@ -13,6 +13,7 @@ uses
   dglOpenGl,
   eventMan,
   FastGfx,
+  DirectText,
   FreeTypeFont,
   EngineCls in '..\EngineCls.pas',
   UIClasses in '..\UIClasses.pas',
@@ -55,7 +56,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 3;       
+ testnum:integer = 12;       
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -167,7 +168,7 @@ type
  end;
 
  TParticlesTest=class(TTest)
-  tex:TTextureImage;
+  tex,tex2:TTextureImage;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -630,13 +631,13 @@ procedure TFontTest.Init;
 var
  font:cardinal;
 begin
- painter.LoadFont('times1.fnt');
- painter.LoadFont('times2.fnt');
- painter.LoadFont('times3.fnt');
- painter.LoadFont('goodfish1.fnt');
- painter.LoadFont('goodfish2.fnt');
+ painter.LoadFont('res\times1.fnt');
+ painter.LoadFont('res\times2.fnt');
+ painter.LoadFont('res\times3.fnt');
+ painter.LoadFont('res\goodfish1.fnt');
+ painter.LoadFont('res\goodfish2.fnt');
  //fnt:=painter.LoadFromFile('test');
- //LoadRasterFont('test.fnt');
+ LoadRasterFont('res\test.fnt');
  fnt:=painter.PrepareFont(1);
  painter.MatchFont(1,painter.GetFont('Times New Roman',11));
  font:=painter.GetFont('Times New Roman',12);
@@ -731,18 +732,18 @@ begin
  end;
 
 // painter.FillRect(0,0,511,511,$FFFFFFFF);
- if frame mod 40<10 then
-  painter.TextOut(MAGIC_TEXTCACHE,0,0,$FFFFFFFF,'');
+{ if frame mod 40<10 then
+  painter.TextOut(MAGIC_TEXTCACHE,0,0,$FFFFFFFF,'');}
 
  painter.EndPaint;
 end;
 
 procedure TFontTest2.Init;
 begin
- font:=TFreeTypeFont.LoadFromFile('arial.ttf');
+ //font:=TFreeTypeFont.LoadFromFile('res\arial.ttf');
 // font:=TFreeTypeFont.LoadFromFile('12460.ttf');
  buf:=texman.AllocImage(400,50,ipfARGB,0,'txtbuf') as TTextureImage;
- painter.LoadFont('arial.ttf');
+ painter.LoadFont('res\arial.ttf');
 end;
 
 procedure TFontTest2.RenderFrame;
@@ -832,7 +833,7 @@ begin
  painter.Rect(120,320,120+w,400,$60FFFFFF);
  painter.TextOutW(f,120,340,$FFC0C0C0,st);
 
- if frame mod 40<10 then begin
+ if getTickCount mod 1200<800 then begin
   painter.FillRect(512,0,1023,511,$FFFFFFFF);
   painter.TextOut(MAGIC_TEXTCACHE,512,0,$FFFFFFFF,'');
  end;
@@ -1148,8 +1149,9 @@ end;
 
 procedure TParticlesTest.Init;
 var
- i,j,n,x,y:integer;
+ i,j,n,x,y,v:integer;
  pb:PByte;
+ pc:PCardinal;
 begin
  tex:=texman.AllocImage(19*2,19,ipfARGB,0,'particles') as TTextureImage;
  tex.Lock;
@@ -1177,6 +1179,16 @@ begin
   end;
  end;
  tex.Unlock;
+
+ tex2:=texman.AllocImage(16,16,ipfARGB,0,'particles2') as TTextureImage;
+ EditImage(tex2);
+ for y:=0 to tex2.height-1 do
+  for x:=0 to tex2.width-1 do begin
+   pc:=GetPixelAddr(tex2.data,tex2.pitch,x,y);
+   v:=round(24*sqrt(sqr(y-8)+sqr(x-8)));
+   pc^:=$F08050+Sat(150-v,0,255) shl 24;
+  end;
+ tex2.Unlock;
 end;
 
 procedure TParticlesTest.RenderFrame;
@@ -1189,12 +1201,8 @@ begin
  painter.Clear($FF000000,-1,-1);
  painter.BeginPaint(nil);
  painter.DrawImage(10,10,tex,$FF808080);
+ painter.DrawImage(50,10,tex2,$FF808080);
  for i:=1 to 500 do with particles[i] do begin
-{  x:=(200-i/3)*cos(frame/100+i/9);
-  y:=(200-i/3)*sin(frame/100+i/9);
-  z:=sin(frame/100);//3*sin(i*2+frame/100);
-  color:=$FF808080;
-  scale:=1.2-i/700;}
   x:=120*cos(frame/100+i/9);
   y:=120*sin(frame/100+i/9);
   z:=sqr(1+i/200)/2-1.5+1.4*sin(frame/80);
@@ -1204,6 +1212,18 @@ begin
   index:=i mod 2;
  end;
  painter.DrawParticles(500,400,@particles,500,tex,19,3);
+ for i:=1 to 50 do with particles[i] do begin
+  x:=20*sin(frame/100+i*1.2)+25*cos(frame/130+i*1.04+2);
+  y:=20*cos(frame/110+i*1.93)+25*sin(frame/120-i*1.56+4);
+  z:=0;
+  color:=$FF808080;
+  scale:=3.5;
+  angle:=0;
+  index:=0;
+ end;
+ painter.SetMode(blAdd);
+ painter.DrawParticles(100,100,@particles,50,tex2,19,1);
+ painter.SetMode(blAlpha);
  painter.EndPaint;
 end;
 

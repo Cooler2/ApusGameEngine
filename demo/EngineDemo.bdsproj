@@ -125,7 +125,7 @@
 			<Directories Name="PackageDCPOutputDir"></Directories>
 			<Directories Name="SearchPath">..;..\extra;..\deprecated;..\base;..\base\extra;..\base\deprecated</Directories>
 			<Directories Name="Packages"></Directories>
-			<Directories Name="Conditionals">DELPHI;OPENGL</Directories>
+			<Directories Name="Conditionals">DELPHI;OPENGL;FREETYPE</Directories>
 			<Directories Name="DebugSourceDirs"></Directories>
 			<Directories Name="UsePackages">False</Directories>
 		</Directories>

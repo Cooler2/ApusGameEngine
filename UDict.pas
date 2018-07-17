@@ -236,6 +236,7 @@ var f:text;
     s:string;
     q,w,e:integer;
 begin
+ LogMessage('DictInit: '+fname);
  sorttime:=getcurtime;
  languageID:=0;
  langCreatedBy:='';

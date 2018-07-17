@@ -82,10 +82,6 @@ var
 const
 
  // Флаги для LoadImageFromFile
-{ liffTexture = -1;
- liffTexturePow2 = -2;
- liffTexturePow2Mips = -3;}
-
  liffSysMem  = aiSysMem; // Image will be allocated in system memory only and can't be used for accelerated rendering!
  liffTexture = aiTexture; // Image will be allocated as a whole texture (wrap UV enabled, otherwise - disabled!)
  liffPow2    = aiPow2; // Image dimensions will be increased to the nearest pow2
@@ -125,11 +121,11 @@ const
  // Сохраняет изображение в файл (mostly for debug purposes)
  procedure SaveImage(img:TTextureImage;fName:string);
 
- // Создать новую текстуру из куска данной. Новая текстура размещается в доступной для
+ // Создать новую текстуру из куска данной (copy pixel data). Новая текстура размещается в доступной для
  // рендеринга памяти, тогда как источник может быть где угодно
  function CreateSubImage(source:TTextureImage;x,y,width,height:integer;flags:integer=0):TTextureImage;
 
- // Частный случай - копия изображения (данные копируются)
+ // Частный случай - копия изображения целиком (данные копируются)
  function CreateImageCopy(source:TTextureImage):TTextureImage;
 
  // Обёртка для CopyRect
@@ -217,8 +213,6 @@ const
  // Shapes
  // Draw circle using band particles (
  procedure DrawCircle(x,y,r,width:single;n:integer;color:cardinal;tex:TTexture;rec:TRect;idx:integer);
-
-// procedure BuildHintImage(width,height:integer;cornerRadius:single;
 
  // добавляет в хэш предварительно загруженный JPEG объект
  procedure AddJPEGImage(filename:string;obj:TObject);

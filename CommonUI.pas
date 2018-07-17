@@ -222,7 +222,7 @@ function StrToAlign(s:string):TTextAlignment;
   if s='JUSTIFY' then result:=taJustify;
  end;
 
-function EvalInt(st:string):integer;
+function EvalInt(st:string):int64;
  begin
   result:=round(Eval(st,nil,curObj,curObjClass));
  end; 
@@ -669,6 +669,16 @@ begin
  result:=false;
 end;
 
+// tag: low 8 bit - new shadow value, next 16 bit - duration in ms
+function onSetFocus(event:eventstr;tag:integer):boolean;
+begin
+ delete(event,1,length('UI\SETFOCUS\'));
+ if (event<>'') and (event<>'NIL') then
+  FindControl(event,true).setFocus
+ else
+  SetFocusTo(nil);
+end;
+
 function onItemCreated(event:eventstr;tag:integer):boolean;
 var
  c:TUIControl;
@@ -764,6 +774,7 @@ begin
  SetEventHandler('UI\SetGlobalShadow',onSetGlobalShadow,async);
  SetEventHandler('UI\ItemCreated',onItemCreated,async);
  SetEventHandler('UI\ItemRenamed',onItemRenamed,async);
+ SetEventHandler('UI\SetFocus',onSetFocus,async);
 
  PublishFunction('GetFont',fGetFontHandle);
 
@@ -823,7 +834,7 @@ var
  hint:TUIHint;
  i:integer;
 begin
- ForceLogMessage('ShowHint');
+ LogMessage('ShowHint: '+msg);
  msg:=translate(msg);
  if (x=-1) or (y=-1) then begin
   x:=CurX; y:=CurY;
@@ -841,7 +852,7 @@ begin
   end else parent:=parent.GetParent;
  end;
  if curhint<>nil then begin
-  ForceLogMessage('Free previous hint');
+  LogMessage('Free previous hint');
   curHint.Free;
   curHint:=nil;
  end;
@@ -851,7 +862,7 @@ begin
  hint.timer:=time;
  hint.order:=1000;
  curhint:=hint;
- ForceLogMessage('Hint created '+inttohex(cardinal(hint),8));
+ LogMessage('Hint created '+inttohex(cardinal(hint),8));
 end;
 
 procedure DumpUIdata;
