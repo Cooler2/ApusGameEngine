@@ -15,8 +15,8 @@ unit EventMan;
 interface
 type
  // Режим обработки (режим привязывается обработчиком событий)
- TEventMode=(sync,   // события помещаются в очередь потока
-             async,  // обработчик вызывается немедленно в контексте того потока, где произошло событие
+ TEventMode=(queue,   // события помещаются в очередь потока
+             instant,  // обработчик вызывается немедленно в контексте того потока, где произошло событие
              mixed); // если событие произошло в том же потоке - обрабатывается немедленно, иначе - в очередь
 
  // Строка, определяющая событие
@@ -30,7 +30,7 @@ type
 
  // Установить обработчик для категории событий
  // При возникновении события, сперва вызываются более конкретные обработчики, а затем более общие
- procedure SetEventHandler(event:EventStr;handler:TEventHandler;mode:TEventMode=ASync);
+ procedure SetEventHandler(event:EventStr;handler:TEventHandler;mode:TEventMode=instant);
  // Убрать обработчик
  procedure RemoveEventHandler(handler:TEventHandler;event:EventStr='');
 
@@ -143,7 +143,7 @@ var
     inc(result,byte(st[i]));
   end;
 
- procedure SetEventHandler(event:EventStr;handler:TEventHandler;mode:TEventMode=ASync);
+ procedure SetEventHandler(event:EventStr;handler:TEventHandler;mode:TEventMode=instant);
   var
    ThreadID:TThreadID;
    i,n:integer;
@@ -154,7 +154,7 @@ var
     EnterCriticalSection(CritSect);
     if event[length(event)]='\' then setlength(event,length(event)-1);
 
-    if mode<>async then begin
+    if mode<>instant then begin
      ThreadID:=GetCurrentThreadID;
      n:=-1;
      for i:=1 to threadCnt do
@@ -246,7 +246,7 @@ var
     hnd:=handlers[h];
     while hnd<>nil do begin
      if hnd.event=event then
-      if (hnd.mode=sync) or ((hnd.mode=mixed) and (threads[hnd.threadNum].Thread<>trID)) then
+      if (hnd.mode=queue) or ((hnd.mode=mixed) and (threads[hnd.threadNum].Thread<>trID)) then
           with threads[hnd.threadNum] do begin
         if time>0 then begin
          if delcnt>=31 then begin

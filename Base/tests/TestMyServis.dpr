@@ -1273,7 +1273,7 @@ procedure TestLock;
 
  function ThreadProc(param:pointer):cardinal; stdcall;
   begin
-   SetEventHandler('TESTEVENT',eventHandler,sync);
+   SetEventHandler('TESTEVENT',eventHandler,queue);
    repeat
     sleep(0);
     HandleSignals;
