@@ -231,7 +231,7 @@ implementation
  procedure TUnicodeFont.CalculateAdvKerning(index:integer);
   var
    i,y,y1,y2,x:integer;
-   l,r:cardinal;
+   l,r:integer;
    step:single;
   begin
    advKerning[index].kernLeft:=0;
@@ -256,8 +256,8 @@ implementation
          r:=x; break;
         end;
       end;
-     inc(advKerning[index].kernLeft,l shl (i*3));
-     inc(advKerning[index].kernRight,r shl (i*3));
+     inc(advKerning[index].kernLeft,cardinal(l) shl (i*3));
+     inc(advKerning[index].kernRight,cardinal(r) shl (i*3));
     end;
   end;
 
