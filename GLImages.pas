@@ -273,13 +273,13 @@ begin
    raise EWarning.Create('Can''t lock texture '+name+' for reading');
  if (caps and tfNoWrite>0) and (mode<>lmReadOnly) then
    raise EWarning.Create('Can''t lock texture '+name+' for writing');
- inc(locked);
  if r=nil then lockRect:=Rect(0,0,(width-1) shr mipLevel,(height-1) shr mipLevel)
   else lockRect:=r^;
  if (mode=lmCustomUpdate) and (r<>nil) then raise EWarning.Create('GLI: partial lock with custom update');
  ASSERT(length(realdata)>0);
  if r=nil then data:=realData
   else data:=@realData[lockRect.left*PixelSize[pixelFormat] shr 3+lockRect.Top*pitch];
+ inc(locked);
 
  if mode=lmReadWrite then begin
   online:=false;
@@ -353,7 +353,8 @@ var
 // sx,sy:single;
  dataSize:integer;
 begin
- ASSERT((width>0) AND (height>0),'Zero width or height: '+name); 
+ ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
+ ASSERT(pixFmt<>ipfNone,'Invalid pixel format for '+name);
  if (width>maxTextureSize) or (height>maxTextureSize) then raise EWarning.Create('AI: Texture too large');
  try
  EnterCriticalSection(cSect);

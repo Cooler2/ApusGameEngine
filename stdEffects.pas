@@ -40,7 +40,7 @@ type
             sweHide);      // спрятать
  TShowWindowEffect=class(TSceneEffect)
   // показать или спрятать сцену
-  constructor Create(scene:TUIScene;TotalTime:integer;effMode:TShowMode;effect:integer);
+  constructor Create(scene:TUIScene;duration:integer;effMode:TShowMode;effect:integer);
   procedure Initialize;
   procedure DrawScene; override;
   destructor Destroy; override;
@@ -142,7 +142,7 @@ begin
   on e:exception do begin
    LogMessage('ERROR: eff allocation - '+ExceptionMsg(e));
    dontPlay:=true;
-   time:=1;
+   duration:=1;
   end;
  end;
  initialized:=true;
@@ -171,7 +171,7 @@ begin
   painter.BeginPaint(buffer);
   forscene.Render;
   painter.EndPaint;
-  color:=round(255*timer/time);
+  color:=round(255*timer/duration);
   DebugMessage('EffStage: '+inttostr(color));
   if color>255 then begin
    color:=255;
@@ -241,7 +241,7 @@ begin
   on e:exception do begin
    LogMessage('ERROR: RSE initialization - '+ExceptionMsg(e));
    dontPlay:=true;
-   time:=1;
+   duration:=1;
   end;
  end;
  initialized:=true;
@@ -261,7 +261,7 @@ begin
   if not initialized then begin
    Initialize;
   end;
-  t:=round(255*timer/time);
+  t:=round(255*timer/duration);
   if t>=255 then begin
    done:=true;
    forscene.SetStatus(ssFrozen);
@@ -322,7 +322,7 @@ end;
 
 
 { TShowWindowEffect }
-constructor TShowWindowEffect.Create(scene: TUIScene; TotalTime: integer;
+constructor TShowWindowEffect.Create(scene: TUIScene; duration: integer;
   effMode: TShowMode;effect:integer);
 var
  c:TUIControl;
@@ -333,14 +333,18 @@ begin
   LogMessage('SWE for active scene IGNORED! '+scene.name+' : '+scene.UI.name);
   exit;
  end;
+ if (effMode=sweHide) and (not scene.activated) then begin
+  LogMessage('sweHide for inactive scene IGNORED! '+scene.name+' : '+scene.UI.name);
+  exit;
+ end;
  initialized:=false;
  buffer:=nil;
  // Показ модального окна
  EnterCriticalSection(UICritSect);
  try
-  PutMsg(Format('WndEffStart(%s,%d,%d,%d)',[scene.UI.name,totalTime,ord(effMode),effect]));
-  inherited Create(scene,totaltime);
-  DontPlay:=DisableEffects;
+  PutMsg(Format('WndEffStart(%s,%d,%d,%d)',[scene.UI.name,duration,ord(effMode),effect]));
+  inherited Create(scene,duration);
+  DontPlay:=DisableEffects or (duration<=0);
   if pfRTAlphaNorm=ipfNone then DontPlay:=true;
   mode:=effMode; buffer:=nil;
   shadow:=scene.shadowColor;
@@ -367,7 +371,7 @@ begin
    if (c.order and $FF0000=scene.UI.order and $FF0000) and
       (c.order>scene.UI.order) then scene.UI.order:=c.order+1;
   end else
-   Signal('UI\SetGlobalShadow',$FF+totalTime shl 8);
+   Signal('UI\SetGlobalShadow',$FF+duration shl 8);
 
   if scene.zorder<scene.UI.order then scene.zorder:=scene.ui.order
    else scene.UI.order:=scene.zorder;
@@ -411,12 +415,12 @@ begin
   end;
   LogModalStack;
   if modalControl=nil then
-    Signal('UI\SetGlobalShadow',totalTime shl 8);
+    Signal('UI\SetGlobalShadow',duration shl 8);
  end;
 
  eff:=effect;
 
- if TotalTime=0 then onDone; // Immediate action
+ if duration=0 then onDone; // Immediate action
 
  finally
   LeaveCriticalSection(UICritSect);
@@ -449,6 +453,8 @@ begin
 {  dec(UI.x,x);
   dec(UI.y,y);}
  end;
+ if w=0 then
+  r:=TUIScene(forScene).GetArea;
 
  try
   LogMessage(Format('WndEffect: allocating %d x %d buffer',[w,h]));
@@ -458,7 +464,7 @@ begin
    on e:exception do begin
     LogMessage('ERROR: eff allocation - '+ExceptionMsg(e));
     dontPlay:=true;
-    time:=1;
+    duration:=1;
    end;
  end;
 // painter.SetTargetToTexture(buffer);
@@ -488,10 +494,10 @@ var
  cx,cy,dx,dy:integer;
  scaleX,scaleY,centerX,centerY:double;
 begin
- if not initialized then Initialize;
  if DontPlay then begin
   onDone; exit;
  end;
+ if not initialized then Initialize;
  with forscene as TUIScene do begin
   //ui.x:=0; ui.y:=0;
   dec(ui.x,x); dec(ui.y,y); // offset scene so it's visible part starts at 0,0
@@ -519,7 +525,7 @@ begin
   end;
  end;
 
- stage:=round(255*timer/time);
+ stage:=round(255*timer/duration);
  if stage<0 then stage:=0;
  if stage>255 then begin
   stage:=255;
