@@ -355,7 +355,7 @@ var
 begin
  ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
  ASSERT(pixFmt<>ipfNone,'Invalid pixel format for '+name);
- if (width>maxTextureSize) or (height>maxTextureSize) then raise EWarning.Create('AI: Texture too large');
+ if (flags and aiSysMem=0) and (width>maxTextureSize) or (height>maxTextureSize) then raise EWarning.Create('AI: Texture too large');
  try
  EnterCriticalSection(cSect);
  try
@@ -491,11 +491,6 @@ begin
   tex.caps:=tex.caps or tfDirectAccess; // Can be locked
   if flags and aiClampUV>0 then
    tex.caps:=tex.caps or tfClamped;
-
-{  if flags and aiWriteOnly=0 then
-   SetLength(tex.realData,datasize) // текстура не только для записи
-  else
-   tex.caps:=tex.caps or tfNoRead; // текстура только для записи - читать из неё нельзя}
  end;
 
 // tex.stepU:=0.5/width;
