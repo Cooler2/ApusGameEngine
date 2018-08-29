@@ -86,7 +86,7 @@ type
   width,height:integer; // Размеры элемента (могут быть больше экрана)
                         // DO NOT CHANGE AFTER BEING DISPLAYED! Use Resize() instead!
   ncLeft,ncTop,ncRight,ncBottom:integer; // рамка отсечения при отрисовке вложенных эл-тов (может также использоваться для других целей)
-  transpmode:TTranspMode;  // Режим прозрачности
+  transpmode:TTranspMode;  // Режим прозрачности для событий ввода
   region:TRegion;   // задает область непрозрачности в режиме tmCustom (поведение по умолчанию)
   scrollX,scrollY:integer; // смещение (используется для вложенных эл-тов!)
   scrollerH,scrollerV:TUIScrollBar;  // если для прокрутки используются скроллбары - здесь можно их определить
@@ -98,9 +98,11 @@ type
   visible:boolean; // должен ли элемент рисоваться
   customDraw:boolean; // Указывает на то, что элемент рисуется специальным кодом, а DrawUI его игнорирует
   cursor:integer; // Идентификатор курсора (0 - default)
-  order:integer; // Определяет порядок отрисовки ($10000 - база для StayOnTop-эл-тов)
+  order:integer; // Определяет порядок отрисовки ($10000 - база для StayOnTop-эл-тов), отрицательные значения - специальные
+  // Define how the element should be displayed
   style:byte;    // Стиль для отрисовки (0 - использует отрисовщик по умолчанию)
   styleinfo:string; // дополнительные сведения для стиля
+
   canHaveFocus:boolean; // может ли элемент обладать фокусом ввода
   hint,hintIfDisabled:string; // текст всплывающей подсказки (отдельный вариант - для ситуации, когда элемент disabled, причем именно этот элемент, а не за счёт предков)
   hintDelay:integer; // время (в мс), через которое элемент должен показать hint (в режиме показа hint'ов это время значительно меньше)
@@ -121,7 +123,7 @@ type
   globalRect:TRect;  // положение элемента на экране (может быть устаревшим! для точного положения - GetPosOnScreen)
 
   class var
-   handleMouseIfDisabled:boolean; 
+   handleMouseIfDisabled:boolean; // следует ли передавать события мыши элементу, если он отключен
 
   // Создает независимый элемент
   constructor Create(cx,cy,w,h:integer;parent_:TUIControl;name_:string='');
