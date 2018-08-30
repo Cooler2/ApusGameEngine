@@ -355,7 +355,7 @@ var
 begin
  ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
  ASSERT(pixFmt<>ipfNone,'Invalid pixel format for '+name);
- if (flags and aiSysMem=0) and (width>maxTextureSize) or (height>maxTextureSize) then raise EWarning.Create('AI: Texture too large');
+ if (flags and aiSysMem=0) and ((width>maxTextureSize) or (height>maxTextureSize)) then raise EWarning.Create('AI: Texture too large');
  try
  EnterCriticalSection(cSect);
  try
