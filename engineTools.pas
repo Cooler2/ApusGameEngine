@@ -217,6 +217,10 @@ const
  // добавляет в хэш предварительно загруженный JPEG объект
  procedure AddJPEGImage(filename:string;obj:TObject);
 
+ // Формирует значение, содержащее координаты курсора для передачи в painter.TextOut
+ function EncodeMousePos:cardinal;
+
+
  // FOR INTERNAL USE ----------------------------------------------------------
 
 implementation
@@ -243,6 +247,11 @@ var
   cSect:TMyCriticalSection;
   // "имя файла" -> cardinal(TJpegImage) - для предзагрузки jpeg'ов
   jpegImageHash:THash;
+
+function EncodeMousePos:cardinal;
+begin
+  result:=word(game.mouseX) and $FFFF+word(game.mouseY) shl 16;
+end;
 
 procedure AddJPEGImage(filename:string;obj:TObject);
 begin

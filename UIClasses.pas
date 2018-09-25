@@ -451,7 +451,7 @@ type
   popup:TUIListBox;
   maxlines:integer; // max lines to show without scrolling
   constructor Create(x_,y_,width_,height_:integer;bFont:cardinal;list:WStringArr;parent_:TUIControl;name:string);
-  procedure AddItem(item:WideString;tag:cardinal=0;hint:string=''); virtual;
+  procedure AddItem(item:WideString;tag:cardinal=0;hint:WideString=''); virtual;
   procedure SetItem(index:integer;item:WideString;tag:cardinal=0;hint:string=''); virtual;
   procedure ClearItems;
   procedure onDropDown; virtual;
@@ -2318,7 +2318,7 @@ end;
 
 { TUIConboBox }
 
-procedure TUIComboBox.AddItem(item: WideString; tag: cardinal; hint: string);
+procedure TUIComboBox.AddItem(item: WideString; tag: cardinal; hint: WideString);
 var
  n:integer;
 begin
