@@ -530,7 +530,7 @@ procedure LoadTGA;
    assign(f,fname);
    reset(f,1);
    if filesize(f)>=30 then begin
-    blockread(f,buf,30);
+    blockread(f,buf,30);          // !! WTF?
     result:=CheckImageFormat(@buf);
    end;
    close(f);
