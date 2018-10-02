@@ -473,12 +473,12 @@ begin
  end;
 end;
 
-procedure LockObjects;
+procedure LockObjects; inline;
 begin
  EnterCriticalSection(crSect);
 end;
 
-procedure UnlockObjects; 
+procedure UnlockObjects; inline; 
 begin
  LeaveCriticalSection(crSect);
 end;
