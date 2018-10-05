@@ -1749,9 +1749,6 @@ begin
    if shiftstate and sscCtrl>0 then begin // Сдвиг более чем на 1 символ
     while (cursorpos-step>0) and (realtext[cursorpos-step]>='A') do inc(step);
    end;
-   // Многобайтовый спецсимвол
-   if (cursorpos>1) and (realtext[cursorpos]=#2) then
-    while (cursorpos+1-step>0) and (realtext[cursorpos+1-step]<>#1) do inc(step);
 
    if shiftstate and sscShift>0 then begin
     if (selcount>0) and (cursorpos>=selstart) then dec(selcount,step)
@@ -1772,9 +1769,6 @@ begin
     while (cursorpos+step<length(realtext)) and not ((realtext[cursorpos+step+1]>='A')
      and not (realtext[cursorpos+step]>='A')) do inc(step);
    end;
-   // Многобайтовый спецсимвол
-   if (realtext[cursorpos]=#1) and (cursorpos<length(realtext)-1) then
-    while (cursorpos+step<=length(realtext)) and (realtext[cursorpos+step]<>#2) do inc(step);
 
    if shiftstate and sscShift>0 then begin
     if (selcount>0) and (cursorpos<length(realtext)) and (cursorpos>=selstart) then inc(selcount,step)
@@ -1807,10 +1801,7 @@ begin
    if selcount>0 then
     begin delete(realtext,selstart,selcount); selcount:=0; cursorpos:=selstart-1; end
    else begin
-    step:=1;
-    if (cursorpos>1) and (realtext[cursorpos]=#2) then
-     while (cursorpos-step>0) and (realtext[cursorpos-step]<>#1) do inc(step);
-    if cursorpos>0 then begin delete(realtext,cursorpos+1-step,step); dec(cursorpos); end;
+    if cursorpos>0 then begin delete(realtext,cursorpos,1); dec(cursorpos); end;
    end;
   end;
 
@@ -1843,10 +1834,7 @@ begin
      end;
    end else begin
     if (cursorpos<length(realtext)) then begin
-     step:=1;
-     if realtext[cursorpos+1]=#1 then
-      while (cursorpos+step<length(realtext)) and (realtext[cursorpos+1+step]<>#2) do inc(step);
-     delete(realtext,cursorpos+1,step);
+     delete(realtext,cursorpos+1,1);
     end;
    end;
   end;
