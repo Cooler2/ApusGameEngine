@@ -33,7 +33,9 @@ uses
   LongMath in '..\LongMath.pas',
   profiling in '..\profiling.pas',
   colors in '..\colors.pas',
-  RSA in '..\RSA.pas';
+  RSA in '..\RSA.pas',
+  Images in '..\Images.pas',
+  gfxFormats in '..\gfxFormats.pas';
 
 var
  sa:StringArr;
