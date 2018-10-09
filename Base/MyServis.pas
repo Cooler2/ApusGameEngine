@@ -2843,7 +2843,7 @@ function BinToStr;
      end;
      Resize(result,n+1);
      result[n]:=copy(st,2,j-2);
-     delete(st,1,j+1);
+     delete(st,1,j+length(divider));
      inc(n);
     end else begin
      // simply get first divider
