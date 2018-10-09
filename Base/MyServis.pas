@@ -140,6 +140,7 @@ interface
  // Возвращает e.message вместе с адресом ошибки
  function ExceptionMsg(const e:Exception):string;
  function GetCallStack:string;
+ function GetCaller:pointer;
 
  // Проверяет наличие параметра (non case-sensitive) в командной строке
  function HasParam(name:string):boolean;
@@ -507,7 +508,7 @@ interface
  // Т.о. чем ниже уровень кода, тем ВЫШЕ должно быть значение level в секции, которой этот код оперирует  
  procedure InitCritSect(var cr:TMyCriticalSection;name:string;level:integer=100); // Создать и зарегить критсекцию
  procedure DeleteCritSect(var cr:TMyCriticalSection);
- procedure EnterCriticalSection(var cr:TMyCriticalSection);
+ procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
  procedure LeaveCriticalSection(var cr:TMyCriticalSection);
 // procedure SafeEnterCriticalSection(var cr:TMyCriticalSection); // Осторожно войти в критсекцию
  procedure DumpCritSects; // Вывести в лог состояние всех критсекций
@@ -3881,6 +3882,17 @@ begin
 {$ENDIF}
 end;
 
+function GetCaller:pointer;
+{$IFDEF CPU386}
+asm
+ mov eax,[ebp+4]
+end;
+{$ELSE}
+begin
+ result:=pointer($FFFFFFFF);
+end;
+{$ENDIF}
+
 { TBaseException }
 constructor TBaseException.Create(const msg: string);
 var
@@ -3970,27 +3982,23 @@ procedure DeleteCritSect(var cr:TMyCriticalSection);
   end;
  end;
 
-procedure EnterCriticalSection(var cr:TMyCriticalSection);
+procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
  var
-  threadID,caller:cardinal;
+  threadID:cardinal;
   i,lastLevel,trIdx:integer;
   prevSection:PCriticalSection;
  begin
   {$IFDEF MSWINDOWS}
   {$IFDEF CPU386}
   if cr.caller=0 then
-   asm
-    mov edx,[ebp+offset cr]
-    mov eax,[ebp+4]
-    mov caller,eax
-   end;
+   if caller=nil then caller:=GetCaller;
   {$ENDIF}
   if cr.lockCount>0 then begin
    threadID:=GetCurrentThreadID;
    trIdx:=-1;
    if threadID<>cr.crs.OwningThread then begin // from different thread?
     cr.thread:=threadID;
-    cr.caller:=caller;
+    cr.caller:=PtrUInt(caller);
    end;
    if cr.time=0 then cr.time:=MyTickCount+5000;
   end else // first attempt
@@ -4018,13 +4026,8 @@ procedure EnterCriticalSection(var cr:TMyCriticalSection);
   cr.thread:=0;
   cr.time:=0;
   inc(cr.lockCount);
-  {$IFDEF CPU386}
-  asm
-   mov edx,[ebp+offset cr]
-   mov eax,[ebp+4]
-   mov TMyCriticalSection[edx].owner,eax
-  end;
-  {$ENDIF}
+  if caller=nil then caller:=GetCaller;
+  cr.owner:=cardinal(caller);
   if debugCriticalSections and (cr.lockCount=1) then begin
    MyEnterCriticalSection(crSection);
    for i:=1 to high(threads) do
