@@ -8,7 +8,7 @@ unit engineTools;
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 interface
  uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineCls,images,UIClasses,regions,
-    CrossPlatform,BasicGame;
+    UnicodeFont,CrossPlatform,BasicGame;
 
 var
  rootDir:string='';
@@ -60,6 +60,10 @@ var
  texman:TTextureMan;
  painter:TPainter;
 
+ {$IFDEF TXTIMAGES}
+ txtFontNormal,txtFontSmall:TUnicodeFont;
+ {$ENDIF}
+
  // Используемые форматы пикселя (в какие форматы грузить графику)
  // Они определяются исходя из доступного объема видеопамяти и кол-ва графики в игре
  pfIndexedAlpha:ImagePixelFormat; // формат для 8-битных картинок с прозрачностью
@@ -102,7 +106,6 @@ const
  liffMH4096  = aiMH4096;
 
  function MTFlags(mtWidth,mtHeight:integer):cardinal; // build liffMxxx flags for given width/height values
-
 
  // Common purpose routines
 
@@ -181,8 +184,6 @@ const
  // установить заданное изображение в качестве фона данного окна
  procedure SetupWindow(wnd:TUISkinnedWindow;img:TLargeImage); overload;
  procedure SetupWindow(wnd:TUISkinnedWindow;img:TTexture); overload;
-
- procedure SetTXTfonts(normal,small:integer);
 
  // Open URL in a browser window (or smth)
  procedure ShellOpen(url:string);
@@ -287,12 +288,6 @@ var
 begin
  result:=0;
  for i:=1 to length(st) do inc(result,byte(st[i]) shl (i and 20));
-end;
-
-procedure SetTXTfonts(normal,small:integer);
-begin
- txtSmallFont:=small;
- txtNormalFont:=normal;
 end;
 
 function ScaleFont(fontHandle:cardinal;scale:single):cardinal;
@@ -682,13 +677,15 @@ begin
    raise EError.Create('image format not supported');
 
   // Загрузка TXT
+  {$IFDEF TXTIMAGES}
   if format=ifTXT then begin
-   LoadTXT(data,txtImage); 
+   LoadTXT(data,txtImage,txtFontSmall,txtFontNormal);
    imgInfo.width:=txtImage.width;
    imgInfo.height:=txtImage.height;
    imgInfo.format:=ipfARGB;
    imgInfo.palformat:=palNone;
   end;
+  {$ENDIF}
 
   // 2.5 FOR JPEG: LOAD SEPARATE ALPHA CHANNEL (IF EXISTS)
   if format=ifJPEG then begin
