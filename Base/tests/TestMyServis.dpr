@@ -35,7 +35,8 @@ uses
   colors in '..\colors.pas',
   RSA in '..\RSA.pas',
   Images in '..\Images.pas',
-  gfxFormats in '..\gfxFormats.pas';
+  gfxFormats in '..\gfxFormats.pas',
+  UnicodeFont in '..\UnicodeFont.pas';
 
 var
  sa:StringArr;

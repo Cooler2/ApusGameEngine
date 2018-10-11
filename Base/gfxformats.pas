@@ -654,8 +654,8 @@ procedure LoadTGA;
 
    // check for txt
    fl:=true;
-   for i:=1 to 5 do begin
-    if not (pb^ in [$30..$39,32,10,13,8]) then fl:=false;
+   for i:=1 to min2(10,length(data)) do begin
+    if not (data[i] in [$30..$39,32,10,13,8]) then fl:=false;
    end;
    if fl then result:=ifTXT;
   end;
@@ -788,52 +788,6 @@ procedure LoadTGA;
  begin
   LoadImageUsingReader(TFPReaderJPEG.Create,data,false,image);
  end;
-
-{ var
-  reader:TFPReaderJPEG;
-  img:TMyFPImage;
-  src:TMemoryStream;
-  sp,dp:PByte;
-  i,j,w,h:integer;
-  c:cardinal;
- begin
-  // Source data as TMemoryStream
-  src:=TMemoryStream.Create;
-  src.Write(data[0],length(data));
-  src.Seek(0,soFromBeginning);
-
-  // Load JPEG image
-  reader:=TFPReaderJPEG.Create;
-  img:=TMyFPImage.create(0,0);
-  img.LoadFromStream(src,reader);
-  src.Free;
-
-  // Allocate dest image if needed
-  if image=nil then
-   image:=TBitmapImage.Create(img.Width,img.Height,ipfRGB);
-
-  // Copy/convert bitmap data
-  w:=min2(image.width,img.Width);
-  h:=min2(image.height,img.Height);
-  for i:=0 to h-1 do begin
-   sp:=img.GetScanline(i);
-   inc(sp);
-   dp:=image.data;
-   inc(dp,image.pitch*i);
-   for j:=0 to w-1 do begin
-    // BGR to RGB conversion
-    c:=$FF00+sp^;
-    inc(sp,2);
-    c:=c shl 8+sp^;
-    inc(sp,2);
-    c:=c shl 8+sp^;
-    inc(sp,4);
-    PCardinal(dp)^:=c;
-    inc(dp,4);
-   end;
-  end;
-  img.Free;
- end;}
  {$ENDIF}
 
  {$IFDEF DELPHI}
