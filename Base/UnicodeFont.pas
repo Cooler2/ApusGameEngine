@@ -62,19 +62,13 @@ type
   kernLeft,kernRight:cardinal; // 10 fields * 3 bit
  end;
 
-{ TBasicFont=class
-  function Interval(ch1,ch2:WideChar):integer; virtual; abstract; // интервал между точкой начала символа ch1 и следующего за ним ch2
-  function GetTextWidth(st:WideString;size:single):integer; virtual; abstract;
-  function GetHeight(size:single):integer; virtual; abstract;
- end; }
-
  TUnicodeFont=class
   header:TFontHeader;
   chars:array of TCharDesc; // описани€ символов
   advKerning:array of TKernPair; // расширенный кернинг
   glyphs:array of byte; // данные глифов
   overPairs:array of cardinal; // character pairs (sorted, C1C1C2C2)
-  overValues:array of byte;    // override values 
+  overValues:array of byte;    // override values
   defaultCharIdx:integer;      // индекс символа, замен€ющего отсутствующие в шрифте символы
   advancedKerning:boolean;
   maxY,minY:integer; // max and min lines occupied by any glyphs (+Y = top, -Y = bottom)
@@ -84,7 +78,6 @@ type
   procedure InitDefaults; virtual;
   function IndexOfChar(ch:WideChar):integer; 
   function Interval(ch1,ch2:WideChar):integer; // интервал между точкой начала символа ch1 и следующего за ним ch2
-//  function MiddlePos(ch1,ch2:WideChar):integer; //
   procedure CalculateAdvKerning(index:integer);
   function GetTextWidth(st:WideString):integer;
   function GetHeight:integer; // Height of characters like '0' or 'A'
@@ -266,70 +259,9 @@ implementation
    result:=LoadFontFromMemory(LoadFile2(fname),useAdvKerning);
   end;
 
-
  function LoadFontFromMemory(data:array of byte;UseAdvKerning:boolean=false):TUnicodeFont;
-  var
-   font:TUnicodeFont;
-   i,j,s,ofs,metadata,size:integer;
-   ch:WideChar;
-   w:word;
-   src:integer;
   begin
    result:=TUnicodeFont.LoadFromMemory(data,UseAdvKerning);
-//   try
-{    font:=TUnicodeFont.Create;
-    src:=0;
-    move(data[src],font.header,sizeof(font.header));
-    inc(src,sizeof(font.header));
-    if font.header.id<>UnicodeFontSignature then
-     raise EError.Create('Invalid font data!');
-    // Skip metadata
-    if font.header.flags and fMetadata>0 then begin
-     move(data[src],metadata,4);
-     src:=sizeof(font.header)+metadata;
-    end else
-     metadata:=0;
-    // Load descriptions
-    setLength(font.chars,font.header.charCount);
-    s:=0; font.minY:=0; font.maxY:=0;
-    ofs:=sizeof(TFontHeader)+sizeof(TCharDesc)*font.header.charCount+metadata;
-    size:=sizeof(TCharDesc)*font.header.charCount;
-    move(data[src],font.chars[0],size);
-    inc(src,size);
-    for i:=0 to font.header.charCount-1 do begin
-     inc(s,((font.chars[i].imageWidth+1) div 2)*font.chars[i].imageHeight);
-     dec(font.chars[i].offset,ofs);
-     ch:=font.chars[i].charcode;
-     font.hash[ord(ch) and 4095]:=i;
-     with font.chars[i] do begin
-      if imageY>font.maxY then font.maxY:=imageY;
-      if imageY-imageHeight<font.minY then font.minY:=imageY-imageHeight;
-     end;
-    end;
-    // Load glyph data
-    s:=length(data)-sizeof(font.header)-metadata-
-       font.header.charCount*sizeof(TCharDesc)-font.header.overridesCount*5;
-    setLength(font.glyphs,s);
-    move(data[src],font.glyphs[0],s);
-    inc(src,s);
-    // Load overrides
-    i:=font.header.overridesCount;
-    SetLength(font.overPairs,i);
-    SetLength(font.overValues,i);
-    move(data[src],font.overPairs[0],i*4);
-    inc(src,i*4);
-    for i:=0 to length(font.overpairs)-1 do
-     font.overpairs[i]:=font.overpairs[i] and $FFFF shl 16+font.overpairs[i] shr 16;
-    move(data[src],font.overValues[0],i);
-    inc(src,i);
-
-    result:=font;
-    font.defaultCharIdx:=font.IndexOfChar('#');
-   if UseAdvKerning then begin
-    font.advancedKerning:=true;
-    SetLength(font.advkerning,length(font.chars));
-    fillchar(font.advKerning[0],length(font.chars)*sizeof(TKernPair),$FF);
-   end;}
   end;
 
 { TUnicodeFont }

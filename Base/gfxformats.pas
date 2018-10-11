@@ -511,10 +511,7 @@ procedure LoadTGA;
     if (txtSmallFont=nil) or (txtNormalFont=nil) then
      raise EWarning.Create('TXT: undefined fonts');
 
-    //directtext.color:=text;
-    //SetBuffer(img.data,img.width,img.height,img.pitch,4);
-    //SetClipping(0,0,img.width-1,img.height-1);
-
+    //  TODO: IMPORTANT! Add clipping!
     for i:=1 to lcnt do begin
      if pos('!',lines[i])=1 then begin
       delete(lines[i],1,1);
@@ -524,8 +521,6 @@ procedure LoadTGA;
      curFont.RenderText(img.data,img.pitch,
       lx[i]-curFont.GetTextWidth(lines[i]) div 2,ly[i],lines[i],text);
     end;
-
-    //RestoreClipping;
    end;
    {$ENDIF}
 
@@ -536,16 +531,19 @@ procedure LoadTGA;
  function CheckFileFormat(fname:string):TImageFormat;
   var
    f:file;
-   buf:array[1..50] of byte;
+   buf:ByteArray;
+   size:integer;
   begin
    result:=ifUnknown;
-   assign(f,fname);
-   reset(f,1);
-   if filesize(f)>=30 then begin
-    blockread(f,buf,30);          // !! WTF?
-    result:=CheckImageFormat(@buf);
+   Assign(f,fname);
+   Reset(f,1);
+   size:=min2(length(buf),filesize(f));
+   if size>30 then begin
+    SetLength(buf,size);
+    BlockRead(f,buf[0],size);
+    result:=CheckImageFormat(buf);
    end;
-   close(f);
+   Close(f);
   end;
 
  function CheckImageFormat(data:ByteArray):TImageFormat;
