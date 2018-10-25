@@ -22,6 +22,8 @@ type
   procedure SetStatus(st:TSceneStatus); override;
   function Process:boolean; override;
   procedure Render; override;
+  procedure DrawBeforeUI; virtual; // To be implemented by inherited classes
+  procedure DrawAfterUI; virtual; // To be implemented by inherited classes
   procedure onResize(width,height:integer); override;
   function GetArea:TRect; // screen area occupied by any non-transparent UI elements (i.e. which part of screen can't be ignored)
  private
@@ -540,6 +542,14 @@ begin
  game.AddScene(self);
 end;
 
+procedure TUIScene.DrawAfterUI;
+begin
+end;
+
+procedure TUIScene.DrawBeforeUI;
+begin
+end;
+
 function TUIScene.GetArea:TRect;
 var
  i:integer;
@@ -713,21 +723,9 @@ begin
    ForceLogMessage('Kosyak! '+inttostr(t)+' '+inttostr(lastRenderTime));
   end;
  lastRenderTime:=t;
-{ try
- if (curShadowValue<>needShadowValue) and
-    (lastRenderTime>startShadowChange) then begin
-  s:=(lastRenderTime-startShadowChange)/shadowChangeDuration;
-  if s>1 then s:=1;
-  curShadowValue:=round(oldShadowValue*(1-s)+needShadowValue*s);
- end;
- except
-  on e:Exception do ForceLogMessage('UIScene.Render: '+e.message);
- end;
- if (modalShadowColor<>0) and (curShadowValue>0) then
-  DrawGlobalShadow(ModalShadowColor and $FFFFFF+
-   ((modalShadowColor shr 24)*CurShadowValue and $FF00) shl 16);}
 
  UIRender.Frametime:=frametime;
+ DrawBeforeUI;
  Signal('Scenes\'+name+'\BeforeRender');
  StartMeasure(11);
  if UI<>nil then begin
@@ -742,6 +740,7 @@ begin
   finally
    LeaveCriticalSection(UICritSect);
   end;
+  DrawAfterUI;
   Signal('Scenes\'+name+'\AfterUIRender');
  end;
  EndMeasure2(11);
