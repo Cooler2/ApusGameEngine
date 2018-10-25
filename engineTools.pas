@@ -80,13 +80,13 @@ var
  loadingJPEGTime:integer; // суммарное время загрузки JPEG в мс
 
 const
-
  // Флаги для LoadImageFromFile
  liffSysMem  = aiSysMem; // Image will be allocated in system memory only and can't be used for accelerated rendering!
  liffTexture = aiTexture; // Image will be allocated as a whole texture (wrap UV enabled, otherwise - disabled!)
  liffPow2    = aiPow2; // Image dimensions will be increased to the nearest pow2
  liffMipMaps = aiMipMapping; // Image will be loaded with mip-maps (auto-generated if no mips in the file)
  liffAllowChange = $100;
+ liffDefault = $FFFFFFFF;
 
  // width and height of meta-texture
  liffMW256   = aiMW256;
@@ -100,6 +100,9 @@ const
  liffMH1024  = aiMH1024;
  liffMH2048  = aiMH2048;
  liffMH4096  = aiMH4096;
+
+var
+ defaultLoadImageFlags:cardinal=0;
 
  function MTFlags(mtWidth,mtHeight:integer):cardinal; // build liffMxxx flags for given width/height values
 
@@ -116,7 +119,7 @@ const
  function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:ImagePixelFormat=ipfNone):TTexture;
 
  // (пере)загружает картинку из файла, т.е. освобождает если она была ранее загружена
- procedure LoadImage(var img:TTextureImage;fName:string;flags:cardinal=liffSysMem);
+ procedure LoadImage(var img:TTextureImage;fName:string;flags:cardinal=liffDefault);
 
  // Сохраняет изображение в файл (mostly for debug purposes)
  procedure SaveImage(img:TTextureImage;fName:string);
@@ -1066,8 +1069,9 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    end;
   end;
 
- procedure LoadImage(var img:TTextureImage;fName:string;flags:cardinal=liffSysMem);
+ procedure LoadImage(var img:TTextureImage;fName:string;flags:cardinal=liffDefault);
   begin
+   if flags=liffDefault then flags:=defaultLoadImageFlags;
    if img<>nil then texman.FreeImage(TTexture(img));
    img:=LoadImageFromFile(FileName('Images\'+fName),flags,ipf32bpp) as TTextureImage;
   end;
