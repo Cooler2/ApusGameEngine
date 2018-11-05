@@ -81,7 +81,8 @@ interface
    value1,value2:single;
    spline:TSplineFunc;
   end;
-  // Произвольная анимация значения
+
+  // Произвольная анимация значения (20 bytes per instance) 
   TAnimatedValue=object
    logName:string; // Если строка не пустая - все операции будут логироваться
    constructor Init(initValue:single=0); // Init object with given value (НЕ ДЛЯ ПРИСВАИВАНИЯ!)
@@ -111,6 +112,9 @@ interface
    // Запоминает последние значения чтобы не вычислять повторно
    lastValue:single;
    lastTime:cardinal;
+   // For multithread use
+   lock:integer;
+   function InternalValueAt(time:int64):single;
   end;
 
   TSortableObject=class
@@ -634,27 +638,39 @@ implementation
 
  constructor TAnimatedValue.Assign(initValue:single);
   begin
+   SpinLock(lock);
+   try
    SetLength(animations,0);
    initialValue:=initValue;
    if logName<>'' then LogMessage(logName+' := '+floatToStrF(initialValue,ffGeneral,5,0));
    lastTime:=0; lastValue:=0;
+   finally lock:=0;
+   end;
   end;
 
  constructor TAnimatedValue.Clone(var v: TAnimatedValue);
   var
    i:integer;
   begin
+   SpinLock(lock);
+   try
    initialValue:=v.initialValue;
    SetLength(animations,length(v.animations));
    for i:=0 to high(animations) do
     animations[i]:=v.animations[i];
-   logName:=v.logName;            
+   logName:=v.logName;
    lastTime:=0; lastValue:=0;
+   finally lock:=0;
+   end;
   end;
 
  procedure TAnimatedValue.Free;
   begin
+   SpinLock(lock);
+   try
    SetLength(animations,0);
+   finally lock:=0;
+   end;
   end;
 
  function TAnimatedValue.Derivative:double;
@@ -664,18 +680,35 @@ implementation
 
  function TAnimatedValue.DerivativeAt(time:int64):double;
   begin
-   result:=(ValueAt(time+1)-ValueAt(time))*1000;
+   SpinLock(lock);
+   try
+   result:=(InternalValueAt(time+1)-InternalValueAt(time))*1000;
+   finally lock:=0;
+   end;
   end;
 
  function TAnimatedValue.FinalValue:single;
   begin
+   SpinLock(lock);
+   try
    if length(animations)>0 then
     result:=animations[length(animations)-1].value2
    else
     result:=initialValue;
+   finally lock:=0;
+   end;
   end;
 
 function TAnimatedValue.ValueAt(time:int64):single;
+ begin
+   SpinLock(lock);
+   try
+    result:=InternalValueAt(time);
+   finally lock:=0;
+   end;
+ end;
+
+function TAnimatedValue.InternalValueAt(time:int64):single;
   var
    i:integer;
    v,r,k:double;
@@ -744,10 +777,14 @@ function TAnimatedValue.Value:single;
 
 function TAnimatedValue.IsAnimating: boolean;
  begin
+  SpinLock(lock);
+  try
   if length(animations)>0 then begin
    result:=MyTickCount<animations[length(animations)-1].endTime;
   end else
    result:=false;
+  finally lock:=0;
+  end;
  end;
 
 procedure TAnimatedValue.AnimateIf(newValue:single;duration:cardinal;spline:TSplineFunc;delay:integer=0);
@@ -764,6 +801,8 @@ procedure TAnimatedValue.Animate(newValue:Single; duration:cardinal; spline:TSpl
   t:int64;
  begin
   if PtrUInt(@Self)<4096 then raise EError.Create('Animating invalid object');
+  SpinLock(lock);
+  try
   try
   if (duration=0) and (delay=0) then begin
    if logName<>'' then LogMessage(logName+' := '+floattostrF(newvalue,ffGeneral,5,0));
@@ -777,8 +816,8 @@ procedure TAnimatedValue.Animate(newValue:Single; duration:cardinal; spline:TSpl
   if (n>0) and (animations[n-1].value2=newValue) then exit; // animation to the same value
   t:=MyTickCount+delay;
   if n=0 then v:=initialValue else
-  if delay=0 then v:=Value else
-   v:=ValueAt(t); // особый случай - анимация после начала других анимаций, т.е. не с текущего значения
+  if delay=0 then v:=InternalValueAt(0) else
+   v:=InternalValueAt(t); // особый случай - анимация после начала других анимаций, т.е. не с текущего значения
 
   SetLength(animations,n+1);
   animations[n].startTime:=t;
@@ -791,6 +830,8 @@ procedure TAnimatedValue.Animate(newValue:Single; duration:cardinal; spline:TSpl
     Format(' %d %d',[animations[n].startTime mod 1000,animations[n].endTime mod 1000]));
   except
    on e:Exception do raise EError.Create('Animate '+inttohex(PtrUInt(@self),8)+' error: '+e.message);
+  end;
+  finally lock:=0;
   end;
  end;
 
