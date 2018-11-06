@@ -2838,6 +2838,7 @@ var
    tagMode:boolean;
    v:cardinal;
    vst:string[8];
+   isColor:boolean;
   begin
    lpCount:=0;
    len:=length(st);
@@ -2864,6 +2865,7 @@ var
         'F','f':v:=5;
         'L','l':v:=6;
        end;
+       isColor:=v=4;
        cmdList[cmdPos]:=prefix shl 8+v; inc(cmdPos);
        if (i+2<=len) and (st[i+1]='=') then begin
         inc(i,2); vst:='';
@@ -2872,6 +2874,13 @@ var
          inc(i);
         end;
         v:=HexToInt(vst);
+        if isColor then begin
+         if length(vst)=3 then begin                  // 'rgb' -> FFrrggbb
+          v:=v and $F+(v and $F0) shl 4+(v and $F00) shl 8;
+          v:=v or v shl 4 or $FF000000;
+         end else
+         if length(vst)=6 then v:=$FF000000 or v; // 'rrggbb' -> FFrrggbb, '00rrggbb' -> 00rrggbb
+        end; 
         dec(i);
        end else
         v:=0;
