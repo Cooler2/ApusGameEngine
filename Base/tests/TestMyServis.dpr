@@ -1314,6 +1314,22 @@ procedure TestLock;
 
   end;    }
 
+ procedure TestPerf;
+  var
+   i:integer;
+   sa:StringArr;
+   time:int64;
+  begin
+   time:=MyTickCount;
+   // ----------------------
+   for i:=1 to 2000000 do
+    sa:=split(';','62.249.146.16;RU;1010;867F36AB0D;04806AB2;W;4FA;300;w0306;ru;37;4.5.0 NVI; GeForce GTX 760/PCIe/SSE2;WIN;ST=xxx');
+   // ----------------------
+   time:=MyTickCount-time;
+   writeln('Time = ',time);
+   readln;
+  end;
+
 var
  ar:array of cardinal;
  st:string;
@@ -1324,6 +1340,8 @@ begin
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
+{  TestPerf;
+  exit;}
   TestTStrHash;
   TestSortStrings;
   TestB64;
