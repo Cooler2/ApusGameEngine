@@ -2910,31 +2910,36 @@ function BinToStr;
 
  function Split(divider,st:string):StringArr;
   var
-   i,j,n:integer;
+   i,j,n,divLen,maxIdx:integer;
    fl:boolean;
    idx:array of integer;
   begin
    if st='' then begin
     SetLength(result,0); exit;
    end;
-   setLength(idx,100);
+   setLength(idx,15);
    idx[0]:=1;
    // count dividers
    n:=0;
-   i:=1; 
-   while i<=length(st)-length(divider)+1 do begin
-    fl:=true;
-    for j:=1 to length(divider) do
-     if st[i+j-1]<>divider[j] then begin
-      fl:=false; break;
-     end;
-    if fl then begin
-     j:=length(divider);
-     inc(n);
-     if n>=length(idx) then SetLength(idx,length(idx)*4);
-     idx[n]:=i+j;
-     inc(i,j);
-    end else inc(i);
+   i:=1;
+   divLen:=length(divider);
+   maxIdx:=length(st)-divLen+1;
+   while i<=maxIdx do begin
+    if st[i]<>divider[1] then
+     inc(i)
+    else begin
+     fl:=true;
+     for j:=2 to divLen do
+      if st[i+j-1]<>divider[j] then begin
+       fl:=false; break;
+      end;
+     if fl then begin
+      inc(n);
+      if n>=length(idx)-1 then SetLength(idx,length(idx)*4);
+      idx[n]:=i+divLen;
+      inc(i,divLen);
+     end else inc(i);
+    end;
    end;
    inc(n);
    idx[n]:=length(st)+length(divider)+1;
@@ -2943,7 +2948,7 @@ function BinToStr;
     j:=idx[i+1]-length(divider)-idx[i];
     SetLength(result[i],j);
     if j>0 then move(st[idx[i]],result[i][1],j);
-   end;
+   end;    
   end;
 
  function SplitW(divider,st:WideString):WStringArr;
