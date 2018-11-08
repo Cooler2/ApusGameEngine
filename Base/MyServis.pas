@@ -2913,6 +2913,7 @@ function BinToStr;
    i,j,n,divLen,maxIdx:integer;
    fl:boolean;
    idx:array of integer;
+   ch:char;
   begin
    if st='' then begin
     SetLength(result,0); exit;
@@ -2924,8 +2925,9 @@ function BinToStr;
    i:=1;
    divLen:=length(divider);
    maxIdx:=length(st)-divLen+1;
+   ch:=divider[1];
    while i<=maxIdx do begin
-    if st[i]<>divider[1] then
+    if st[i]<>ch then
      inc(i)
     else begin
      fl:=true;
@@ -2945,7 +2947,7 @@ function BinToStr;
    idx[n]:=length(st)+length(divider)+1;
    SetLength(result,n);
    for i:=0 to n-1 do begin
-    j:=idx[i+1]-length(divider)-idx[i];
+    j:=idx[i+1]-divLen-idx[i];
     SetLength(result[i],j);
     if j>0 then move(st[idx[i]],result[i][1],j);
    end;    
