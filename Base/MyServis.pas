@@ -927,7 +927,7 @@ procedure TAnimatedValue.Animate(newValue:Single; duration:cardinal; spline:TSpl
   begin
    SetLength(result,l);
    for i:=1 to l do
-    result[i]:=c[1+random(62)];
+    result[i]:=char(c[1+random(62)]);
   end;
 
  function RealDump(buf:pointer;size:integer;hex:boolean):string;
@@ -1612,8 +1612,6 @@ procedure SimpleEncrypt2;
  end;
 
  function PrintableStr(st:string):string;
-  const
-   hex:string[16]='0123456789ABCDEF';
   var
    i,max,p:integer;
   begin
@@ -1623,8 +1621,8 @@ procedure SimpleEncrypt2;
    for i:=1 to length(st) do
     if st[i]<' ' then begin
      inc(p); result[p]:='#';
-     inc(p); result[p]:=hex[1+ord(st[i]) div 16];
-     inc(p); result[p]:=hex[1+ord(st[i]) mod 16];
+     inc(p); result[p]:=char(hexchar[1+ord(st[i]) div 16]);
+     inc(p); result[p]:=char(hexchar[1+ord(st[i]) mod 16]);
     end else begin
      inc(p); result[p]:=st[i];
     end;
@@ -1684,8 +1682,6 @@ procedure SimpleEncrypt2;
   end;
 
  function EncodeHex(st:string):string;
-  const
-   hex:string[16]='0123456789ABCDEF';
   var
    i:integer;
    b:byte;
@@ -1693,14 +1689,12 @@ procedure SimpleEncrypt2;
    SetLength(result,length(st)*2);
    for i:=1 to length(st) do begin
     b:=byte(st[i]);
-    result[i*2-1]:=hex[1+b shr 4];
-    result[i*2]:=hex[1+b and 15];
+    result[i*2-1]:=char(hexchar[1+b shr 4]);
+    result[i*2]:=char(hexchar[1+b and 15]);
    end;
   end;
 
  function EncodeHex(data:pointer;size:integer):string; overload;
-  const
-   hex:string[16]='0123456789ABCDEF';
   var
    i:integer;
    pb:PByte;
@@ -1708,8 +1702,8 @@ procedure SimpleEncrypt2;
    SetLength(result,size*2);
    pb:=data;
    for i:=1 to size do begin
-    result[i*2-1]:=hex[1+pb^ shr 4];
-    result[i*2]:=hex[1+pb^ and 15];
+    result[i*2-1]:=char(hexchar[1+pb^ shr 4]);
+    result[i*2]:=char(hexchar[1+pb^ and 15]);
     inc(pb);
    end;
   end;
@@ -3583,7 +3577,7 @@ procedure DumpDir(path:string);
   begin
    result:=-1;
    try
-    h:=OpenFile(PChar(fname),openBuff,0);
+    h:=OpenFile(PAnsiChar(fname),openBuff,0);
     if h=HFILE_ERROR then exit;
     data[0]:=windows.GetFileSize(h,@data[1]);
     move(data,result,8);
@@ -4344,7 +4338,7 @@ procedure ChangeBlock(old,new:pointer;newsize:integer);
     exit;
    end;
  end;
-function DebugGetMem(size:integer):pointer;
+function DebugGetMem(size:NativeInt):pointer;
  var
   c:pointer;
  begin
@@ -4356,12 +4350,12 @@ function DebugFreeMem(p:pointer):integer;
   UnregisterBlock(p);
   result:=memmgr.FreeMem(p);
  end;
-function DebugReallocMem(p:pointer;size:integer):pointer;
+function DebugReallocMem(p:pointer;size:NativeInt):pointer;
  begin
   result:=memMgr.ReallocMem(p,size);
   ChangeBlock(p,result,size);
  end;
-function DebugAllocMem(size:cardinal):pointer;
+function DebugAllocMem(size:NativeInt):pointer;
  var
   c:pointer;
  begin
