@@ -328,7 +328,7 @@ implementation
 
  procedure FlushLogs;
   var
-   date:string[7];
+   date:string;
    f:text;
    fname:string;
   begin
