@@ -14,7 +14,12 @@ implementation
  type
   TSample=record
    thread:integer;
+   {$IFDEF CPU386}
    eip,caller:cardinal;
+   {$ENDIF}
+   {$IFDEF CPUX64}
+   rip,caller:UInt64;
+   {$ENDIF}
    res:cardinal;
   end;
   TProfiler=class(TThread)
@@ -119,8 +124,14 @@ implementation
      if GetThreadContext(h,context) then
       try
        samples[sCnt].thread:=i;
+       {$IFDEF CPU386}
        samples[sCnt].eip:=context.Eip;
        samples[sCnt].caller:=PCardinal(context.Ebp+4)^;
+       {$ENDIF}
+       {$IFDEF CPUX64}
+       samples[sCnt].rip:=context.rip;
+       samples[sCnt].caller:=PCardinal(context.rbp+4)^;
+       {$ENDIF}
        inc(sCnt);
       except
       end;
