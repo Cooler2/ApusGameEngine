@@ -397,7 +397,7 @@ begin
       Result := True;
       Exit;
     end;
-    if P^ = DecimalSeparator then
+    if P^ = FormatSettings.DecimalSeparator then
     begin
       Dec(L);
       Inc(P);
@@ -715,7 +715,7 @@ function UseControlFile;
       end;
 
       // Иначе - данные, нужно проверить тип
-      DecimalSeparator:='.';
+      FormatSettings.DecimalSeparator:='.';
       uArg:=UpperCase(arg);
       if (uArg='ON') or (uArg='OFF') or (uArg='YES') or (uArg='NO') then begin
        // boolean
@@ -973,7 +973,7 @@ var
     o:TObject;
     pad,st:string;
    begin
-    DecimalSeparator:='.';
+    FormatSettings.DecimalSeparator:='.';
     for i:=0 to item.GetChildrenCount-1 do begin
      o:=item.GetChild(i).data;
      SetLength(pad,indent);

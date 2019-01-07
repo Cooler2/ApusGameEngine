@@ -850,7 +850,7 @@ begin
  end; // for
  except
   on e:exception do begin
-   LogError('Error in PB.ApplyC: '+e.message+' DecSep='+DecimalSeparator);
+   LogError('Error in PB.ApplyC: '+e.message+' DecSep='+FormatSettings.DecimalSeparator);
   end;
  end;
 end;
@@ -982,7 +982,7 @@ initialization
  PublishFunction('sin',fFunc,11);
  PublishFunction('cos',fFunc,12);
  PublishFunction('tan',fFunc,13);
- DecimalSeparator:='.';
+ FormatSettings.DecimalSeparator:='.';
 finalization
  DeleteCritSect(crSection);
 end.
