@@ -1,6 +1,10 @@
 {$A+,B-,C+,D+,H+,I+,J+,K-,M-,O+,P+,Q-,R-,S-,T-,U-,V+,W-,X+,Y+,Z1}
 {$IFDEF FPC}{$MODE DELPHI}{$ENDIF}
 {$IFDEF IOS}{$modeswitch objectivec1}{$ENDIF}
+{$IFNDEF FPC}{$IFNDEF DELPHI}
+For Delphi - please define global symbol "DELPHI"!
+{$ENDIF}{$ENDIF}
+
 
 // Модуль, содержащий очень полезные функции общего назначения
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
@@ -184,7 +188,7 @@ interface
  function GetFileSize(fname:string):int64;
  function WaitForFile(fname:string;delayLimit:integer;exists:boolean=true):boolean; // Подождать (не дольше delayLimit) до появления (или удаления) файла, возвращает false если не дождались
  function MyFileExists(fname:string):boolean; // Cross-platform version
- function LoadFile(fname:string):string; // Load file content into string
+ function LoadFile(fname:string):AnsiString; // Load file content into string
  function LoadFile2(fname:string):ByteArray; // Load file content into byte array
  procedure SaveFile(fname:string;buf:pointer;size:integer); overload; // rewrite file with given data
  procedure SaveFile(fname:string;buf:ByteArray); overload; // rewrite file with given data
@@ -222,16 +226,6 @@ interface
  procedure ShiftArray(const arr;sizeInBytes,shiftValue:integer);
  // Поиск в массиве arr значения item
 // procedure Find(const arr;const item;itemSize,itemsCount:integer);
-
-
- // Процедуры для выслеживания утечек памяти (Delphi-only)
- {$IFDEF DELPHI}
- procedure BeginMemoryCheck(id:string);
- procedure EndMemoryCheck;
-
- procedure StartMemoryLeaksTracking;
- procedure StopMemoryLeaksTracking;
- {$ENDIF}
 
  // Возвращает строку с описанием распределения памяти
  function GetMemoryState:string;
@@ -530,10 +524,6 @@ implementation
  const
   hexchar='0123456789ABCDEF';
  type
-  TMemLeak=record
-   value:cardinal;
-   name:string;
-  end;
   {$IFDEF MSWINDOWS}
   TThreadID=cardinal;
   {$ENDIF}
@@ -562,8 +552,6 @@ implementation
   //cachesize:integer;
   cacheenabled,forceCacheUsage:boolean;  // forceCacheUsage - писать в кэш даже
 
-  memleaks:array[1..40] of TMemLeak;
-  memleakcnt:integer=0;
   crSection:TRTLCriticalSection; // используется для доступа к глобальным переменным
   startTime,startTimeMS:int64;
 
@@ -2195,31 +2183,6 @@ procedure SimpleEncrypt2;
    FreeMem(pointer(c));
   end;  }
 
-{$IFDEF DELPHI}
- procedure BeginMemoryCheck(id:string);
-  begin
-   if memleakcnt=40 then
-    raise EError.Create('Stack of memory leaks is overflow!');
-   inc(memleakcnt);
-   with memleaks[memleakcnt] do begin
-    name:=id;
-    value:=AllocMemSize;
-   end;
-  end;
-
- procedure EndMemoryCheck;
-  begin
-   if memleakcnt=0 then
-    raise EError.Create('Stack of memory leaks is empty!');
-   if AllocMemSize<>MemLeaks[memleakcnt].value then
-    raise EError.Create('Memory leak found - '+MemLeaks[memleakcnt].name+
-     ': was - '+inttostr(MemLeaks[memleakcnt].value)+' bytes, now - '+
-     inttostr(AllocMemSize)+' bytes allocated.');
-   memleaks[memleakcnt].name:='';
-   dec(memleakcnt);
-  end;
-{$ENDIF}
-
  function ConvertToWindows(ch:char):char;
   var
    b:byte;
@@ -2894,7 +2857,7 @@ function BinToStr;
    for i:=0 to n-1 do begin
     j:=idx[i+1]-length(divider)-idx[i];
     SetLength(result[i],j);
-    if j>0 then move(st[idx[i]],result[i][1],j);
+    if j>0 then result[i]:=copy(st,idx[i],j);
    end;
   end;
 
@@ -2987,7 +2950,7 @@ function BinToStr;
    i:=0;
    s:=1000; SetLength(result,s);
    n:=1;
-   dl:=length(divider);
+   dl:=length(divider)*sizeof(char);
    while i<length(strings) do begin
     if i>0 then begin
      move(divider[1],result[n],dl);
@@ -2997,9 +2960,6 @@ function BinToStr;
     l:=length(strings[i]);
     src:=@strings[i][1];
     while j<=l do begin
-{     if src^=divider then begin
-      result[n]:=divider; inc(n);
-     end;}
      result[n]:=src^; inc(n);
      if n+1+dl>=s then begin
       s:=s*2; SetLength(result,s);
@@ -3226,8 +3186,6 @@ function BinToStr;
       // режим "писать только в кэш", а кэш переполнен
       if length(cacheBuf)<65500 then begin
        cacheBuf:=cacheBuf+'Cache overflow!'#13#10; // сообщение заменяется на это
-{       move(msg[1],cachebuf[cachesize+1],length(msg));
-       inc(cachesize,length(msg));}
       end;
      end;
     end;
@@ -3275,8 +3233,6 @@ function BinToStr;
       // режим "писать только в кэш", а кэш переполнен
       if length(cacheBuf)<65500 then begin
        cacheBuf:=cacheBuf+'Cache overflow!'#13#10;
-       {move(msg[1],cachebuf[cachesize+1],length(msg));
-       inc(cachesize,length(msg));}
       end;
      end;
     end else begin
@@ -3320,29 +3276,12 @@ function BinToStr;
    try
     try
      IntFlushLog;
-
-{     if not forceCacheUsage then
-      IntFlushLog
-     else begin
-      setLength(data,cachesize);
-      move(cachebuf[1],data[0],cachesize);
-     end;}
     except
      on e:exception do ForceLogMessage('Error flushing Log: '+e.message);
     end;
    finally
     MyLeaveCriticalSection(crSection);
    end;
-{   if forceCacheUsage and (logfilename<>'') then try
-    assign(f,LogFileName);
-    reset(f,1);
-    seek(f,filesize(f));
-    blockwrite(f,data[0],cachesize);
-    close(f);
-    cachesize:=0;
-   except
-    on e:exception do ErrorMessage('Can''t flush log: '+e.message);
-   end;}
   end;
 
  procedure LogCacheMode(enable:boolean;enforceCache:boolean=false;runThread:boolean=false);
@@ -3614,7 +3553,7 @@ procedure DumpDir(path:string);
    {$ENDIF}
   end;
 
- function LoadFile(fname:string):string;
+ function LoadFile(fname:string):AnsiString;
   var
    f:file;
   begin
@@ -3916,7 +3855,11 @@ begin
   mov [eax].FAddress,edx
  end;
  {$ELSE}
- inherited create(msg+' caller: '+inttohex(cardinal(get_caller_addr(get_frame)),8));
+  {$IFDEF FPC}
+  inherited create(msg+' caller: '+inttohex(cardinal(get_caller_addr(get_frame)),8));
+  {$ELSE}
+  inherited create(msg);
+  {$ENDIF}
  {$ENDIF}
 end;
 
@@ -4279,123 +4222,6 @@ function GetThreadName(threadID:cardinal=0):string; // вернуть имя (0=текущего) 
   result:=GetNameOfThread(threadID);
  end;
 
-{$IFDEF DELPHI}
-type
- memBlock=record
-  subcaller,caller,data:pointer;
-  size:integer;
- end;
-var
-  memmgr:TMemoryManagerEx;
-  blocks:array[0..4095] of memblock;
-
-procedure RegisterBlock(d:pointer;size:integer);
- var
-  i:integer;
-  adrs:array[0..3] of pointer;
- begin
-  asm
-    mov edx,ebp
-    lea ecx,adrs
-    mov eax,[edx+4]
-    mov [ecx],eax
-    mov edx,[edx]
-    add ecx,4
-    mov eax,[edx+4]
-    mov [ecx],eax
-    mov edx,[edx]
-    add ecx,4
-    mov eax,[edx+4]
-    mov [ecx],eax
-  end;
-  for i:=0 to 4095 do
-   if blocks[i].data=nil then begin
-    blocks[i].data:=d;
-    blocks[i].caller:=adrs[1];
-    blocks[i].subcaller:=adrs[2];
-    blocks[i].size:=size;
-    exit;
-   end;
- end;
-procedure UnregisterBlock(d:pointer);
- var
-  i:integer;
- begin
-   for i:=0 to 4095 do
-     if blocks[i].data=d then begin
-       blocks[i].data:=nil;
-       exit;
-     end;
- end;
-procedure ChangeBlock(old,new:pointer;newsize:integer);
- var
-  i:integer;
- begin
-  for i:=0 to 4095 do
-   if blocks[i].data=old then begin
-    blocks[i].data:=new;
-    blocks[i].size:=newsize;
-    exit;
-   end;
- end;
-function DebugGetMem(size:NativeInt):pointer;
- var
-  c:pointer;
- begin
-  result:=memmgr.GetMem(size);
-  RegisterBlock(result,size);
- end;
-function DebugFreeMem(p:pointer):integer;
- begin
-  UnregisterBlock(p);
-  result:=memmgr.FreeMem(p);
- end;
-function DebugReallocMem(p:pointer;size:NativeInt):pointer;
- begin
-  result:=memMgr.ReallocMem(p,size);
-  ChangeBlock(p,result,size);
- end;
-function DebugAllocMem(size:NativeInt):pointer;
- var
-  c:pointer;
- begin
-  result:=memmgr.AllocMem(size);
-  registerBlock(result,size);
- end;
-
-procedure StartMemoryLeaksTracking;
- var
-  newmgr:TMemoryManagerEx;
- begin
-  GetMemoryManager(memmgr);
-  newmgr:=memmgr;
-  newmgr.GetMem:=debugGetMem;
-  newmgr.FreeMem:=debugFreeMem;
-  newmgr.AllocMem:=debugAllocMem;
-  newmgr.ReallocMem:=DebugReallocMem;
-  SetMemoryManager(newmgr);
- end;
-procedure StopMemoryLeaksTracking;
- var
-  f:text;
-  i:integer;
- begin
-  SetMemoryManager(memmgr);
-  assign(f,'mem.txt');
-  rewrite(f);
-  for i:=0 to 4095 do
-    if blocks[i].data<>nil then
-      writeln(f,inttoHex(cardinal(blocks[i].subcaller),8)+'->'+
-         inttoHex(cardinal(blocks[i].caller),8)+': '+
-         inttoHex(cardinal(blocks[i].data),8),
-         blocks[i].size:9);
-  close(f);
- end;
-{$ENDIF}
-
-var
- v:Int64;
-
 { TLogThread }
 
 procedure TLogThread.Execute;
@@ -4470,6 +4296,8 @@ function GetParam(name:string):string;
   end;
  end;
 
+var
+ v:Int64;
 initialization
  QueryPerformanceFrequency(v);
  if v<>0 then
@@ -4492,11 +4320,5 @@ finalization
  {$ELSE}
  DoneCriticalSection(crSection);
  {$ENDIF}
-
-{$IFNDEF FPC}
-{$IFNDEF DELPHI}
-For Delphi - define global symbol "DELPHI"!
-{$ENDIF}
-{$ENDIF}
 end.
 
