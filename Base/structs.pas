@@ -714,6 +714,7 @@ constructor THash.Init(allowMultiple:boolean=false);
  var
   i:integer;
  begin
+  if not initialized then lock:=0;
   SpinLock(lock);
   count:=0; vCount:=0;
   lastIndex:=-1;
