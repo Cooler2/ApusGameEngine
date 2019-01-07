@@ -33,7 +33,8 @@ uses
   LongMath in '..\LongMath.pas',
   profiling in '..\profiling.pas',
   colors in '..\colors.pas',
-  RSA in '..\RSA.pas';
+  RSA in '..\RSA.pas',
+  MemoryLeakUtils in '..\MemoryLeakUtils.pas';
 
 var
  sa:StringArr;
@@ -1061,7 +1062,6 @@ procedure TTestThread.execute;
    sleep(1);
    write('*');
   end;
-
  end;
 
 procedure TestProfiling;
@@ -1181,7 +1181,6 @@ procedure TestMemoryStat;
     st:=lowercase(data[i]);
     for j:=i+1 to n do
      if st=lowercase(data[j]) then begin
-//     if AnsiSameText(data[i],data[j]) then begin
       writeln(data[i],' = ',data[j],i:5,j:5); inc(c);
      end;
    end;
@@ -1226,39 +1225,10 @@ procedure TestMemoryStat;
    writeln('Time2 = ',t);
   end;
 
-procedure TestLock;
- var
-  t:int64;
-  i,l:integer;
- begin
-  t:=MyTickCount;
-  l:=0;
-{  for i:=1 to 100000000 do begin
-   InterlockedCompareExchange(l,1,0);
-   InterlockedCompareExchange(l,0,1);
-  end;}
-  asm
-   pushad
-   lea edx,l
-   mov ebx,1
-   mov esi,0
-   mov ecx,100000000
-@01:
-   lock cmpxchg [edx],ebx
-   lock cmpxchg [edx],esi
-   //mov [edx],ebx
-   //mov [edx],esi
-   loop @01
-   popad
-  end;  
-  t:=MyTickCount-t;
-  writeln('Time: ',t/200:2:2,' ns');
- end;
-
  var
   handled:integer=0;
   sent:integer=0;
-  trID:THANDLE;
+  trID:DWORD;
 
  function EventHandler(event:eventStr;tag:integer):boolean;
   var
@@ -1273,7 +1243,7 @@ procedure TestLock;
 
  function ThreadProc(param:pointer):cardinal; stdcall;
   begin
-   SetEventHandler('TESTEVENT',eventHandler,queue);
+   SetEventHandler('TESTEVENT',eventHandler,emQueued);
    repeat
     sleep(0);
     HandleSignals;
@@ -1343,7 +1313,6 @@ begin
   TestProfiling;
   TestMemoryStat;
   TestDateTime;
-  TestLock;
   TestTextUtils;
   TestStringTools;
   TestSortStrings;
