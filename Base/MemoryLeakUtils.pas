@@ -49,6 +49,13 @@ implementation
 {$IFDEF DELPHI}
 {$IFDEF CPU386}
 type
+ {$IF CompilerVersion >= 22.0}
+ MyInt=NativeInt; // API changed at some point for 64-bit support
+ MyCardinal=NativeInt;
+ {$ELSE}
+ MyInt=integer;
+ MyCardinal=cardinal;
+ {$IFEND}
  memBlock=record
   subcaller,caller,data:pointer;
   size:integer;
@@ -106,7 +113,7 @@ procedure ChangeBlock(old,new:pointer;newsize:integer);
     exit;
    end;
  end;
-function DebugGetMem(size:NativeInt):pointer;
+function DebugGetMem(size:MyInt):pointer;
  var
   c:pointer;
  begin
@@ -118,12 +125,12 @@ function DebugFreeMem(p:pointer):integer;
   UnregisterBlock(p);
   result:=memmgr.FreeMem(p);
  end;
-function DebugReallocMem(p:pointer;size:NativeInt):pointer;
+function DebugReallocMem(p:pointer;size:MyInt):pointer;
  begin
   result:=memMgr.ReallocMem(p,size);
   ChangeBlock(p,result,size);
  end;
-function DebugAllocMem(size:NativeInt):pointer;
+function DebugAllocMem(size:MyCardinal):pointer;
  var
   c:pointer;
  begin

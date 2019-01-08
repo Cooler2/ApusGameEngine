@@ -122,6 +122,9 @@ interface
  function ExecAndCapture(const ACmdLine: string; var AOutput: string): Integer;
  {$ENDIF}
 
+ function GetDecimalSeparator:char; inline;
+ procedure SetDecimalSeparator(c:char);
+
 implementation
 
 {$IFnDEF FPC}
@@ -516,5 +519,21 @@ function GetLastError:cardinal;
  end;
 {$ENDIF}
 
+ function GetDecimalSeparator:char;
+  begin
+   result:=
+   {$IF Declared(FormatSettings)}
+   FormatSettings.
+   {$IFEND}
+   DecimalSeparator;
+  end;
+
+ procedure SetDecimalSeparator(c:char);
+  begin
+   {$IF Declared(FormatSettings)}
+   FormatSettings.
+   {$IFEND}
+   DecimalSeparator:=c;
+  end;
 
 end.

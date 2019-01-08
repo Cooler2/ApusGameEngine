@@ -25,6 +25,12 @@
 unit Translation;
 interface
  uses MyServis;
+ type
+  {$IFNDEF UNICODE}
+  MyString=WideString;
+  {$ELSE}
+  MyString=UnicodeString;
+  {$ENDIF}
  var
   languageID:string;
   defaultEncoding:TTextEncoding=teUTF8;
@@ -32,16 +38,16 @@ interface
   // for statistics
   trRuleFault:cardinal=0;
   trRuleSuccess:cardinal=0;
-  
+
 
  // Load dictionary file
  procedure LoadDictionary(filename:string);
  // Add translation rule (ruleset=0..99)
- procedure AddTranslationRule(sour,dest:UnicodeString;ruleset:integer);
+ procedure AddTranslationRule(sour,dest:MyString;ruleset:integer);
 
  // Translate string using given set of rules (teUnknown = use default encoding)
  function Translate8(st:string;ruleset:integer=0;encoding:TTextEncoding=teUnknown):string;
- function Translate(st:UnicodeString;ruleset:integer=0):UnicodeString;
+ function Translate(st:MyString;ruleset:integer=0):MyString;
 
 implementation
  uses SysUtils,StrUtils;
@@ -50,14 +56,14 @@ implementation
   // Special characters: E1FA-E1FF - in sour (типы спецсимволов подстрок, %*, %w, %d ...)
   // E1E0-E1E9,E1F0-E1F9 - in dest (X or XY, where X is substr index, Y - translation rule)
   TRule=record
-   sour,dest:UnicodeString;
+   sour,dest:MyString;
    sPos:array[0..9] of smallint;
    sCnt:integer; // кол-во спецсимволов в sour
    mask1,mask2:cardinal;
   end;
 
   TCache=record
-   sour,dest:array[0..31] of UnicodeString;
+   sour,dest:array[0..31] of MyString;
    first,last:integer; // первый занятый элемент, первый свободный
   end;
 
@@ -67,14 +73,14 @@ implementation
    cache:TCache;
    constructor Create;
    destructor Destroy;
-   procedure AddRule(sour,dest:UnicodeString);
-   function Translate(st:UnicodeString):UnicodeString;
+   procedure AddRule(sour,dest:MyString);
+   function Translate(st:MyString):MyString;
   end;
 
  var
   sets:array[0..99] of TRulesSet;
 
- procedure AddTranslationRule(sour,dest:UnicodeString;ruleset:integer);
+ procedure AddTranslationRule(sour,dest:MyString;ruleset:integer);
   begin
    if sets[ruleset]=nil then
     sets[ruleset]:=TRulesSet.Create;
@@ -85,7 +91,7 @@ implementation
   var
    f:text;
    st8:string;
-   st,sour:UnicodeString;
+   st,sour:MyString;
    i,curSet,localSet:integer;
    utf8:boolean;
   begin
@@ -144,7 +150,7 @@ implementation
 
  function Translate8(st:string;ruleset:integer=0;encoding:TTextEncoding=teUnknown):string;
   var
-   wst:UnicodeString;
+   wst:MyString;
   begin
    if sets[ruleset]=nil then begin
     result:=st; exit;
@@ -155,12 +161,12 @@ implementation
    result:=UnicodeTo(wst,encoding);
   end;
 
- function Translate(st:UnicodeString;ruleset:integer=0):UnicodeString;
+ function Translate(st:MyString;ruleset:integer=0):MyString;
   begin
    result:=sets[ruleset].Translate(st);
   end;
 
- procedure CalcBitmask(st:UnicodeString;var m1,m2:cardinal); // inline;
+ procedure CalcBitmask(st:MyString;var m1,m2:cardinal); // inline;
   var
    i,h:integer;
    w,wPrv:word;
@@ -182,7 +188,7 @@ implementation
 
 { TRulesSet }
 
-procedure TRulesSet.AddRule(sour, dest: UnicodeString);
+procedure TRulesSet.AddRule(sour, dest: MyString);
  var
   b:byte;
   i,c,l:integer;
@@ -279,7 +285,7 @@ destructor TRulesSet.Destroy;
  end;
 
 // Locate substr in str starting from index, returns index of substr or 0 if not found
-function WStrPos(substr,str:UnicodeString;index:integer):integer; inline;
+function WStrPos(substr,str:MyString;index:integer):integer; inline;
  var
   c,m,l:integer;
  begin
@@ -299,14 +305,14 @@ function WStrPos(substr,str:UnicodeString;index:integer):integer; inline;
   end;
  end;
 
-function TRulesSet.Translate(st: UnicodeString): UnicodeString;
+function TRulesSet.Translate(st: MyString): MyString;
  var
   i,j,k,r,p1,p2:integer;
   m1,m2:cardinal;
   mPos,mEnd:array[0..10] of integer;
   mCnt:integer;
   w,w2:word;
-  tmp:UnicodeString;
+  tmp:MyString;
  begin
   result:=st;
   if self=nil then exit;

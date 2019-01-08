@@ -98,7 +98,6 @@ end;
   begin
    result:='';
   end;
-
 {$ENDIF}
 
 end.

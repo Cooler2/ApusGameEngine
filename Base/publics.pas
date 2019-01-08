@@ -133,7 +133,7 @@ interface
  function GetOverriddenValue(varName:string;forContext:string):string;
 
 implementation
- uses SysUtils,Math,types;
+ uses CrossPlatform,SysUtils,Math,types;
  type
   TPublicFunction=record
    name:string;
@@ -850,7 +850,7 @@ begin
  end; // for
  except
   on e:exception do begin
-   LogError('Error in PB.ApplyC: '+e.message+' DecSep='+FormatSettings.DecimalSeparator);
+   LogError('Error in PB.ApplyC: '+e.message+' DecSep='+GetDecimalSeparator);
   end;
  end;
 end;
@@ -982,7 +982,7 @@ initialization
  PublishFunction('sin',fFunc,11);
  PublishFunction('cos',fFunc,12);
  PublishFunction('tan',fFunc,13);
- FormatSettings.DecimalSeparator:='.';
+ SetDecimalSeparator('.');
 finalization
  DeleteCritSect(crSection);
 end.
