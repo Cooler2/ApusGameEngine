@@ -120,7 +120,8 @@ interface
   TSortableObject=class
    function Compare(obj:TSortableObject):integer; virtual; // Stub
   end;
-  TSortableObjects=array[0..1] of TSortableObject;
+  PSortableObject=^TSortableObject;
+  TSortableObjects=array of TSortableObject;
   PSortableObjects=^TSortableObjects;
 
   // Режимы работы с лог-файлом
@@ -480,7 +481,7 @@ interface
  function RandomName(minlen,maxlen:byte):string;
 
  // Сортировки
- procedure SortObjects(var obj:array of TSortableObject);
+ procedure SortObjects(obj:PSortableObjects;count:integer);
 // procedure SortObjects(var obj:array of TObject;comparator:TObjComparator); overload;
  procedure SortStrings(var sa:StringArr); overload;
  procedure SortStrings(var sa:WStringArr); overload;
@@ -532,6 +533,8 @@ implementation
     {$IFDEF MSWINDOWS},mmsystem{$ENDIF}
     {$IFDEF IOS},iphoneAll{$ENDIF}
     {$IFDEF ANDROID},dateutils,Android{$ENDIF};
+
+ {$IFOPT R+}{$DEFINE RANGECHECK}{$ENDIF} // Used to disable range check when needed and restore it back
  const
   hexchar='0123456789ABCDEF';
  type
@@ -2366,8 +2369,9 @@ const
    result[1]:=UpCase(result[1]);
   end;
 
- procedure SortObjects(var obj:array of TSortableObject);
-  procedure QuickSort(var obj:array of TSortableObject;a,b:integer);
+ {$IFDEF RANGECHECK}{$R-}{$ENDIF}
+ procedure SortObjects(obj:PSortableObjects;count:integer);
+  procedure QuickSort(var obj:TSortableObjects;a,b:integer);
    var
     lo,hi,mid:integer;
     o,midobj:TSortableObject;
@@ -2390,9 +2394,10 @@ const
     if lo<b then QuickSort(obj,lo,b);
    end;
   begin
-   if length(obj)<2 then exit;
-   QuickSort(obj,low(obj),high(obj));
+   if count<2 then exit;
+   QuickSort(obj^,0,count-1);
   end;
+  {$IFDEF RANGECHECK}{$R+}{$ENDIF}
 
  procedure SortStrings(var sa:StringArr); overload;
   procedure QuickSort(a,b:integer);
