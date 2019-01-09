@@ -621,7 +621,7 @@ begin
  if true or not sorted then begin
   stage:=200000;
   if objCount>1 then
-   SortObjects(Slice(PSortableObjects(objList)^,objCount));
+   SortObjects(@objList,objCount);
   sorted:=true;
  end;
  // Draw
