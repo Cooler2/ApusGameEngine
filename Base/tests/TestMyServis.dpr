@@ -11,7 +11,6 @@ uses
   variants,
   DateUtils,
   SysUtils,
-  classes,
   Math,
   DCPmd5a,
   MyServis in '..\MyServis.pas',
@@ -1284,6 +1283,17 @@ procedure TestMemoryStat;
 
   end;    }
 
+ procedure TestClipboard;
+  const
+   TEST:UTF8String='[Привет!]';
+   TEST_W:WideString='[Привет!]';
+  begin
+   CopyStrToClipboard(TEST);
+   ASSERT(PasteStrFromClipboard=TEST,'Clipboard test 1');
+   CopyStrToClipboard(TEST_W);
+   ASSERT(PasteStrFromClipboardW=TEST_W,'Clipboard test 2');
+  end;
+
 var
  ar:array of cardinal;
  st:string;
@@ -1291,9 +1301,11 @@ var
  rc:array[1..10] of integer;
  wst:WideString;
 begin
+
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
+  TestClipboard;
   TestTStrHash;
   TestSortStrings;
   TestB64;
@@ -1318,8 +1330,8 @@ begin
   TestSortStrings;
   TestSort;
   TestSplitCombine;
-  TestTime;       
-  
+  TestTime;
+
 //  TestEvents;
  except
   on e:exception do begin
