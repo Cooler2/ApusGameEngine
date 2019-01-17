@@ -10,7 +10,7 @@ unit structs;
 {$ENDIF}
 
 interface
- uses classes,MyServis;
+ uses MyServis,classes;
 type
  TErrorState=(
   esNoError       =  0,
@@ -155,7 +155,7 @@ type
   count:integer; // number of keys (can be less than length of keys array!)
   values:array of variant;
   vcount:integer; // number of values (can be less than length of values array!)
-  constructor Init(allowMultiple:boolean=false); // or clear
+  constructor Init(allowMultiple:boolean=false); // not thread-safe!
   // Добавить значение, соответствующее ключу
   // replace - только для режима multi: добавляет новое значение к ключу, либо перезаписывает существующее
   procedure Put(const key:string;value:variant;replace:boolean=false);
@@ -167,7 +167,6 @@ type
   procedure SortKeys; // ключи без значений удаляются
   function HasKey(const key:string):boolean;
  private
-  initialized:boolean;
   lock:integer;
   multi:boolean; // допускается несколько значений для любого ключа
   links:array of integer; // ссылки на ключи по значению хэша (голова списка)
@@ -714,7 +713,7 @@ constructor THash.Init(allowMultiple:boolean=false);
  var
   i:integer;
  begin
-  if not initialized then lock:=0;
+  lock:=0;
   SpinLock(lock);
   count:=0; vCount:=0;
   lastIndex:=-1;
@@ -733,7 +732,6 @@ constructor THash.Init(allowMultiple:boolean=false);
   SetLength(links,64);
   hMask:=$3F;
   BuildHash;
-  initialized:=true;
   lock:=0;
  end;
 

@@ -33,7 +33,7 @@ interface
    // Проверка наличия поля с заданным именем (возвращает класс типа и адрес собственно значения)
    class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; virtual;
    // Возвращает список всех полей (через запятую)
-   class function ListFields:String; virtual;
+   class function ListFields:string; virtual;
   end;
 
   TVarTypeInteger=class(TVarType)
@@ -71,7 +71,7 @@ interface
 
   TVarTypeRect=class(TVarTypeStruct)
    class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
-   class function ListFields:String; override;
+   class function ListFields:string; override;
   end;
 
   TVarFunc=function(name:string):double; // ф-ция для получения значения переменной по имени (для Eval)
@@ -666,7 +666,7 @@ class function TVarType.GetValue(variable: pointer): string;
  end;
 
 
-class function TVarTypeStruct.ListFields: String;
+class function TVarTypeStruct.ListFields: string;
  begin
   result:='';
  end;
@@ -687,7 +687,7 @@ begin
  result:=nil;
 end;
 
-class function TVarTypeRect.ListFields: String;
+class function TVarTypeRect.ListFields: string;
 begin
  result:='left,top,right,bottom';
 end;

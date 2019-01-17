@@ -12,6 +12,7 @@ uses
   DateUtils,
   SysUtils,
   Math,
+  classes,
   DCPmd5a,
   MyServis in '..\MyServis.pas',
   structs in '..\structs.pas',
@@ -33,7 +34,8 @@ uses
   profiling in '..\profiling.pas',
   colors in '..\colors.pas',
   RSA in '..\RSA.pas',
-  MemoryLeakUtils in '..\MemoryLeakUtils.pas';
+  MemoryLeakUtils in '..\MemoryLeakUtils.pas',
+  AnimatedValues in '..\AnimatedValues.pas';
 
 var
  sa:StringArr;
@@ -434,6 +436,7 @@ procedure TestQuotes;
    v:variant;
    sa,keys:StringArr;
   begin
+   writeln('=== TestHashEx ===');
    errors:=0;
    t:=MyTickCount;
    SetLength(keys,length(table));
@@ -508,9 +511,10 @@ procedure TestQuotes;
    i,j,n,errors:integer;
    t:int64;
   begin
+   writeln('== Sort Strings ==');
    t:=MyTickCount;
    errors:=0;
-   for i:=1 to 100 do begin
+   for i:=1 to 300 do begin
     n:=10+random(10000);
     SetLength(sa,n);
     for j:=0 to high(sa) do
@@ -731,7 +735,7 @@ end;
    i,j,n,e:integer;
    t:cardinal;
    a:array of integer;
-   id1,id2:cardinal;
+   id1,id2:TThreadID;
   begin
    writeln('== TestSimpleHash ==');
 
@@ -792,8 +796,8 @@ end;
 
    hMT.Init(200);
    t:=MyTickCount; gCount:=0;
-   BeginThread(nil,65536,@TestThread,nil,0,id1);
-   BeginThread(nil,65536,@TestThread,nil,0,id2);
+   BeginThread(@TestThread,nil,id1,65536);
+   BeginThread(@TestThread,nil,id2,65536);
    sleep(10);
    repeat
     sleep(0);
@@ -814,7 +818,7 @@ end;
   begin
    writeln('== Test TStrHash ==');
    hash:=TStrHash.Create;
-   setLength(sa,321);
+   SetLength(sa,321);
    sum:=0;
    for i:=0 to high(sa) do begin
     sum:=sum+i;
@@ -1296,29 +1300,28 @@ procedure TestMemoryStat;
 
 var
  ar:array of cardinal;
- st:string;
+ st:WideString;
  pc:PChar;
  rc:array[1..10] of integer;
  wst:WideString;
 begin
-
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
+  TestAnimations;
+  TestEval;
   TestClipboard;
-  TestTStrHash;
   TestSortStrings;
+  TestTStrHash;
   TestB64;
   TestPublics;
-  TestEval;
   TestHash;
   TestHashEx;
-  TestAnimations;
   TestTranslation;
   testQuotes;
   TestSplitCombine;
-  TestSimpleHash;
   TestStrHash;
+  TestSimpleHash;
   TestGeoIP;
   TestSplines;
   TestRLE;

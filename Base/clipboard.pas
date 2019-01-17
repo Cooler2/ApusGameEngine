@@ -19,9 +19,13 @@ implementation
   uses Windows,MyServis,SysUtils;
 
   procedure Open;
+    var
+     counter:integer;
     begin
-      if not OpenClipboard(0) then
-          raise EWarning.Create('Failed to open Clipboard');
+      for counter:=1 to 20 do
+       if OpenClipboard(0) then exit
+         else sleep(10);
+      raise EWarning.Create('Failed to open Clipboard');
     end;
 
   procedure SetBuffer(Format:Word; var Buffer; Size:Integer);
@@ -72,20 +76,26 @@ implementation
 
   function GetTextBuf(buffer:Pointer; bufSize:Integer; Format:UINT):Integer;
     var
-      Data:THandle;
+      data:THandle;
+      p:pointer;
+      size:integer;
     begin
       Open;
       try
-        Data:=GetClipboardData(Format);
+        data:=GetClipboardData(Format);
         result:=0;
-        if Data<>0 then begin
+        if data<>0 then begin
           if format=CF_TEXT then begin
             result:=StrLen(StrLCopy(PAnsiChar(buffer),GlobalLock(Data),bufSize-1));
-            GlobalUnlock(Data);
+            GlobalUnlock(data);
           end;
           if format=CF_UNICODETEXT then begin
-            result:=StrLen(StrLCopy(PWideChar(buffer),GlobalLock(Data),bufSize-1));
-            GlobalUnlock(Data);
+            p:=GlobalLock(Data);
+            size:=GlobalSize(Data);
+            if size>bufSize then size:=bufSize;
+            move(p^,buffer^,size);
+            result:=size;
+            GlobalUnlock(data);
           end;
         end;
       finally
@@ -108,7 +118,7 @@ implementation
       size:Integer;
       buf:array [0..250] of AnsiChar;
     begin
-      OpenClipboard(0);
+      Open;
       size:=GetTextBuf(PChar(@buf),250,CF_TEXT);
       result:='';
       if size>0 then begin
@@ -127,7 +137,8 @@ implementation
       size:=GetTextBuf(PChar(@buf),250,CF_UNICODETEXT);
       Result:='';
       if size>0 then
-          result:=PChar(@buf);
+          result:=PWideChar(@buf);
+      if result[length(result)]=#0 then SetLength(result,length(result)-1);
       CloseClipboard;
     end;
 
