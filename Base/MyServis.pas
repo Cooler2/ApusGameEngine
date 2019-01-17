@@ -19,7 +19,11 @@ interface
   PathSeparator='/';
   {$ENDIF}
  type
+  {$IFNDEF UNICODE}
+  UnicodeString=WideString;
+  {$ENDIF}
   StringArr=array of string;
+  AStringArr=array of AnsiString;
   WStringArr=array of WideString;
   ByteArray=array of byte;
   WordArray=array of word;
@@ -78,44 +82,6 @@ interface
 
   // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
   TSplineFunc=function(x,x0,x1,y0,y1:single):single;
-
-  // Одиночная анимация значения
-  TSingleAnimation=record
-   startTime,endTime:int64;
-   value1,value2:single;
-   spline:TSplineFunc;
-  end;
-  // Произвольная анимация значения
-  TAnimatedValue=object
-   logName:string; // Если строка не пустая - все операции будут логироваться
-   constructor Init(initValue:single=0); // Init object with given value (НЕ ДЛЯ ПРИСВАИВАНИЯ!)
-   constructor Clone(var v:TAnimatedValue); // Init object by copying another object
-   constructor Assign(initValue:single); // Моментальное присваивание нового значения (эквивалентно Animate с duration=0)
-   procedure Free; // no need to call this if value is not animating now 
-   // Начать новую анимацию: к указанному значению в течение указанного времени
-   // Если текущая анимация приводит к тому же значению - новая не создаётся
-   // Если конечное значение совпадает с начальным - анимация не создаётся
-   procedure Animate(newValue:single;duration:cardinal;spline:TSplineFunc;delay:integer=0);
-   // То же самое, что animate, но сработает только если finalvalue<>newValue
-   procedure AnimateIf(newValue:single;duration:cardinal;spline:TSplineFunc;delay:integer=0);
-   // Возвращает значение анимируемой величины в текущий момент времени
-   function Value:single;
-   function IntValue:integer; inline;
-   // Возвращает значение величины в указанный момент (0 - текущий момент)
-   function ValueAt(time:int64):single;
-   function FinalValue:single; // What the value will be when animation finished?
-   function IsAnimating:boolean; // Is value animating now?
-   // Производная (скорость изменения) в текущий (указанный) момент времени
-   // Если анимации нет - то 0 
-   function Derivative:double;
-   function DerivativeAt(time:int64):double;
-  private
-   initialValue:single;
-   animations:array of TSingleAnimation;
-   // Запоминает последние значения чтобы не вычислять повторно
-   lastValue:single;
-   lastTime:cardinal;
-  end;
 
   TSortableObject=class
    function Compare(obj:TSortableObject):integer; virtual; // Stub
@@ -224,8 +190,6 @@ interface
  // ------------------------------
  // Shift array/data pointed by ptr by shiftValue bytes (positive - right, negative - left)
  procedure ShiftArray(const arr;sizeInBytes,shiftValue:integer);
- // Поиск в массиве arr значения item
-// procedure Find(const arr;const item;itemSize,itemsCount:integer);
 
  // Возвращает строку с описанием распределения памяти
  function GetMemoryState:string;
@@ -233,9 +197,6 @@ interface
  // Возвращает объем выделенной памяти
  function GetMemoryAllocated:int64;
 
- // Выделение памяти с выравниванием по параграфу
-// function MyGetMem(size:integer):pointer;
-// procedure MyFreeMem(p:pointer);
 
  // Функции для работы с массивами
  // ------------------------------
@@ -356,17 +317,17 @@ interface
  function HowLong(time:TDateTime):string;
 
  // UTF8 routines
- function IsUTF8(st:string):boolean; inline; // Check if string starts with BOM
- function EncodeUTF8(st:widestring;addBOM:boolean=false):string;
- function DecodeUTF8(st:string):widestring;
- function DecodeUTF8A(sa:StringArr):WStringArr;
- function UTF8toWin1251(st:string):string;
- function Win1251toUTF8(st:string):string;
- function UpperCaseUtf8(st:string):string;
- function LowerCaseUtf8(st:string):string;
+ function IsUTF8(st:AnsiString):boolean; inline; // Check if string starts with BOM
+ function EncodeUTF8(st:widestring;addBOM:boolean=false):AnsiString;
+ function DecodeUTF8(st:AnsiString):widestring;
+ function DecodeUTF8A(sa:AStringArr):WStringArr;
+ function UTF8toWin1251(st:AnsiString):AnsiString;
+ function Win1251toUTF8(st:AnsiString):AnsiString;
+ function UpperCaseUtf8(st:AnsiString):AnsiString;
+ function LowerCaseUtf8(st:AnsiString):AnsiString;
  // UTF-16 routines (Unicode)
- function UnicodeTo(st:WideString;encoding:TTextEncoding):string;
- function UnicodeFrom(st:string;encoding:TTextEncoding):WideString;
+ function UnicodeTo(st:WideString;encoding:TTextEncoding):AnsiString;
+ function UnicodeFrom(st:AnsiString;encoding:TTextEncoding):WideString;
 
 // function CopyUTF8(S:string; Index:Integer; Count:Integer):string; // analog of Copy which works with UTF8
 
@@ -423,6 +384,9 @@ interface
  procedure Swap(var a,b:byte); overload; inline;
  procedure Swap(var a,b:single); overload; inline;
  procedure Swap(var a,b:string); overload; inline;
+ {$IFDEF UNICODE}
+ procedure Swap(var a,b:AnsiString); overload; inline;
+ {$ENDIF}
  procedure Swap(var a,b:WideString); overload; inline;
  procedure Swap(var a,b;size:integer); overload; inline;
 
@@ -441,11 +405,11 @@ interface
  // Преобразование кодировок
  //---------------
  // Преобразование Windows-1251 <=> DOS 866
- function ConvertToWindows(ch:char):char;
- function ConvertFromWindows(ch:char):char;
+ function ConvertToWindows(ch:AnsiChar):AnsiChar;
+ function ConvertFromWindows(ch:AnsiChar):AnsiChar;
  // Преобразование Windows-1251 <=> Unicode-16 (UTF-16)
- function ConvertWindowsToUnicode(ch:char):widechar;
- function ConvertUnicodeToWindows(ch:widechar):char;
+ function ConvertWindowsToUnicode(ch:AnsiChar):widechar;
+ function ConvertUnicodeToWindows(ch:WideChar):AnsiChar;
 
  // Преобразование типов данных
  // ---------------------------
@@ -463,10 +427,6 @@ interface
 
  function ListIntegers(a:array of integer;separator:char=','):string; overload; // array of integer => 'a[1],a[2],...,a[n]'
  function ListIntegers(a:system.PInteger;count:integer;separator:char=','):string; overload;
-
-
- // Генератор случайных имён (англ)
- function RandomName(minlen,maxlen:byte):string;
 
  // Сортировки
  procedure SortObjects(var obj:array of TSortableObject);
@@ -517,7 +477,7 @@ interface
  procedure DisableDEP;
 
 implementation
- uses Classes,math,CrossPlatform
+ uses classes,math,CrossPlatform
     {$IFDEF MSWINDOWS},mmsystem{$ENDIF}
     {$IFDEF IOS},iphoneAll{$ENDIF}
     {$IFDEF ANDROID},dateutils,Android{$ENDIF};
@@ -579,12 +539,6 @@ implementation
   perfKoef:double; // длительность одного тика в мс
   timers:array[1..16] of int64;
 
- procedure SpinLock(var lock:integer); inline;
-  begin
-   // LOCK CMPXCHG is very slow (~20-50 cycles) so no need for additional spin rounds for quick operations
-   while InterlockedCompareExchange(lock,1,0)<>0 do sleep(0);
-  end;
-
  {$IFDEF IOS}
 { function GetResourcePath(fname:string):string;
   var
@@ -610,177 +564,6 @@ implementation
   begin
    result:=0;
   end;
-
- // TAnimatedValue - numeric interpolation class
- constructor TAnimatedValue.Init(initValue:single=0);
-  begin
-   SetLength(animations,0);
-   initialValue:=initValue;
-   logName:='';
-   lastTime:=0; lastValue:=0;
-  end;
-
- constructor TAnimatedValue.Assign(initValue:single);
-  begin
-   SetLength(animations,0);
-   initialValue:=initValue;
-   if logName<>'' then LogMessage(logName+' := '+floatToStrF(initialValue,ffGeneral,5,0));
-   lastTime:=0; lastValue:=0;
-  end;
-
- constructor TAnimatedValue.Clone(var v: TAnimatedValue);
-  var
-   i:integer;
-  begin
-   initialValue:=v.initialValue;
-   SetLength(animations,length(v.animations));
-   for i:=0 to high(animations) do
-    animations[i]:=v.animations[i];
-   logName:=v.logName;            
-   lastTime:=0; lastValue:=0;
-  end;
-
- procedure TAnimatedValue.Free;
-  begin
-   SetLength(animations,0);
-  end;
-
- function TAnimatedValue.Derivative:double;
-  begin
-   result:=DerivativeAt(MyTickCount);
-  end;
-
- function TAnimatedValue.DerivativeAt(time:int64):double;
-  begin
-   result:=(ValueAt(time+1)-ValueAt(time))*1000;
-  end;
-
- function TAnimatedValue.FinalValue:single;
-  begin
-   if length(animations)>0 then
-    result:=animations[length(animations)-1].value2
-   else
-    result:=initialValue;
-  end;
-
-function TAnimatedValue.ValueAt(time:int64):single;
-  var
-   i:integer;
-   v,r,k:double;
-   t:int64;
-  begin
-   result:=initialValue;
-   i:=length(animations)-1;
-   if i<0 then exit;
-   if time=0 then t:=MyTickCount
-    else t:=time;
-
-   if (t>=animations[i].endTime) then
-    if time=0 then begin // все анимации уже в прошлом
-     initialValue:=animations[i].value2;
-     if logName<>'' then LogMessage(IntToStr(MyTickCount mod 1000)+'>'+IntToStr(animations[i].endTime mod 1000)+
-      ' '+logName+' finish at '+floatToStrF(initialValue,ffGeneral,5,0));
-     SetLength(animations,0);
-     result:=initialValue;
-     exit;
-    end else begin
-     result:=animations[i].value2; exit;
-    end;
-   if cardinal(t)=lastTime then begin
-    result:=lastValue; exit;
-   end;
-   // Вычисление значения из текущих анимаций
-   for i:=0 to length(animations)-1 do
-    with animations[i] do begin
-     if t>=endTime then v:=value2
-      else if t<=startTime then v:=value1
-       else begin
-        v:=Spline(t-startTime,0,endTime-StartTime,value1,value2);
-//        if LogName<>'' then LogMessage(' '+logName+' '+Format('%f %d %d %f',[t,startTime,endTime,v]));
-       end;
-     // Overlap?
-     if (i>0) and (animations[i-1].endTime>startTime) and (t<animations[i-1].endTime) then begin
-      r:=animations[i-1].endTime;
-      if endTime<r then r:=endTime;
-      if (r-animations[i-1].startTime)<>0 then // почему так?
-       k:=(startTime-animations[i-1].startTime)/(r-animations[i-1].startTime)
-      else k:=0;
-      if k>1 then k:=1;
-      if r-StartTime=0 then k:=1 // zero overlap size (never occurs)
-//       else k:=k*(r-t)/(r-startTime);
-       else k:=Spline1((r-t)/(r-startTime),0,1,0,k);
-      if k>1 then k:=1;
-      result:=result*k+v*(1-k);
-//      result:=v;
-     end else
-      if t>=startTime then result:=v;
-    end;
-   lastTime:=cardinal(t);
-   lastValue:=result;
-   if logName<>'' then LogMessage(IntToStr(t mod 1000)+' '+logName+' '+Format('%f',[result]));
-  end;
-
-function TAnimatedValue.IntValue: integer;
- begin
-  result:=round(ValueAt(0));
- end;
-
-function TAnimatedValue.Value:single;
- begin
-  result:=ValueAt(0);
- end;
-
-function TAnimatedValue.IsAnimating: boolean;
- begin
-  if length(animations)>0 then begin
-   result:=MyTickCount<animations[length(animations)-1].endTime;
-  end else
-   result:=false;
- end;
-
-procedure TAnimatedValue.AnimateIf(newValue:single;duration:cardinal;spline:TSplineFunc;delay:integer=0);
- begin
-  if finalValue<>newValue then
-   Animate(newValue,duration,spline,delay);
- end;
-
-
-procedure TAnimatedValue.Animate(newValue:Single; duration:cardinal; spline:TSplineFunc; delay:integer=0);
- var
-  n:integer;
-  v:single;
-  t:int64;
- begin
-  if PtrUInt(@Self)<4096 then raise EError.Create('Animating invalid object');
-  try
-  if (duration=0) and (delay=0) then begin
-   if logName<>'' then LogMessage(logName+' := '+floattostrF(newvalue,ffGeneral,5,0));
-   initialValue:=newValue;
-   SetLength(animations,0);
-   exit;
-  end;
-  lastTime:=0; lastValue:=0;
-  n:=length(animations);
-  if (n=0) and (initialValue=newValue) then exit; // no change
-  if (n>0) and (animations[n-1].value2=newValue) then exit; // animation to the same value
-  t:=MyTickCount+delay;
-  if n=0 then v:=initialValue else
-  if delay=0 then v:=Value else
-   v:=ValueAt(t); // особый случай - анимация после начала других анимаций, т.е. не с текущего значения
-
-  SetLength(animations,n+1);
-  animations[n].startTime:=t;
-  animations[n].endTime:=t+duration;
-  animations[n].value1:=v;
-  animations[n].value2:=newValue;
-  animations[n].spline:=spline;
-  if logName<>'' then LogMessage(logname+'['+IntToStr(n)+'] '+floattostrF(v,ffGeneral,5,0)+
-   ' --> '+floattostrF(newvalue,ffGeneral,5,0)+' '+inttostr(delay)+'+'+inttostr(duration)+
-    Format(' %d %d',[animations[n].startTime mod 1000,animations[n].endTime mod 1000]));
-  except
-   on e:Exception do raise EError.Create('Animate '+inttohex(PtrUInt(@self),8)+' error: '+e.message);
-  end;
- end;
 
  procedure MyEnterCriticalSection(var cr:TRTLCriticalSection); inline;
   begin
@@ -853,6 +636,14 @@ procedure TAnimatedValue.Animate(newValue:Single; duration:cardinal; spline:TSpl
   begin
    c:=a; a:=b; b:=c;
   end;
+ {$IFDEF UNICODE}
+ procedure Swap(var a,b:AnsiString); overload; inline;
+  var
+   c:AnsiString;
+  begin
+   c:=a; a:=b; b:=c;
+  end;
+ {$ENDIF}
  procedure Swap(var a,b:WideString); overload; inline;
   var
    c:WideString;
@@ -915,7 +706,7 @@ procedure TAnimatedValue.Animate(newValue:Single; duration:cardinal; spline:TSpl
   begin
    SetLength(result,l);
    for i:=1 to l do
-    result[i]:=char(c[1+random(62)]);
+    result[i]:=Char(c[1+random(62)]);
   end;
 
  function RealDump(buf:pointer;size:integer;hex:boolean):string;
@@ -1708,13 +1499,13 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function IsUTF8(st:string):boolean; inline;
+ function IsUTF8(st:AnsiString):boolean; inline;
   begin
    if (length(st)>=3) and (st[1]=#$EF) and (st[2]=#$BB) and (st[3]=#$BF) then result:=true
     else result:=false;
   end;
 
- function EncodeUTF8(st:widestring;addBOM:boolean=false):string;
+ function EncodeUTF8(st:widestring;addBOM:boolean=false):AnsiString;
   var
    l,i:integer;
    w:word;
@@ -1730,21 +1521,21 @@ procedure SimpleEncrypt2;
    for i:=1 to length(st) do begin
     w:=word(st[i]);
     if w<$80 then begin
-     inc(l); result[l]:=chr(w);
+     inc(l); result[l]:=AnsiChar(w);
     end else
     if w<$800 then begin
-     inc(l); result[l]:=chr($C0+w shr 6);
-     inc(l); result[l]:=chr($80+w and $3F);
+     inc(l); result[l]:=AnsiChar($C0+w shr 6);
+     inc(l); result[l]:=AnsiChar($80+w and $3F);
     end else begin
-     inc(l); result[l]:=chr($E0+w shr 12);
-     inc(l); result[l]:=chr($80+(w shr 6) and $3F);
-     inc(l); result[l]:=chr($80+w and $3F);
+     inc(l); result[l]:=AnsiChar($E0+w shr 12);
+     inc(l); result[l]:=AnsiChar($80+(w shr 6) and $3F);
+     inc(l); result[l]:=AnsiChar($80+w and $3F);
     end;
    end;
    setLength(result,l);
   end;
 
- function DecodeUTF8(st:string):widestring;
+ function DecodeUTF8(st:AnsiString):WideString;
   var
    i,l:integer;
    w:word;
@@ -1787,7 +1578,7 @@ procedure SimpleEncrypt2;
    setLength(result,l);
   end;
 
- function DecodeUTF8A(sa:StringArr):WStringArr;
+ function DecodeUTF8A(sa:AStringArr):WStringArr;
   var
    i:integer;
   begin
@@ -1796,7 +1587,7 @@ procedure SimpleEncrypt2;
     result[i]:=DecodeUTF8(sa[i]);
   end;
 
- function UTF8toWin1251(st:string):string;
+ function UTF8toWin1251(st:AnsiString):AnsiString;
   var
    ws:widestring;
    i:integer;
@@ -1807,7 +1598,7 @@ procedure SimpleEncrypt2;
     result[i]:=ConvertUnicodeToWindows(ws[i]);
   end;
 
- function Win1251toUTF8(st:string):string;
+ function Win1251toUTF8(st:AnsiString):AnsiString;
   var
    ws:widestring;
    i:integer;
@@ -1818,7 +1609,7 @@ procedure SimpleEncrypt2;
    result:=EncodeUTF8(ws);
   end;
 
- function UpperCaseUtf8(st:string):string;
+ function UpperCaseUtf8(st:AnsiString):AnsiString;
   var
    wst:WideString;
   begin
@@ -1827,7 +1618,7 @@ procedure SimpleEncrypt2;
    result:=EncodeUTF8(wst);
   end;
 
- function LowerCaseUtf8(st:string):string;
+ function LowerCaseUtf8(st:AnsiString):AnsiString;
   var
    wst:WideString;
   begin
@@ -1836,7 +1627,7 @@ procedure SimpleEncrypt2;
    result:=EncodeUTF8(wst);
   end;
 
- function UnicodeTo(st:WideString;encoding:TTextEncoding):string;
+ function UnicodeTo(st:WideString;encoding:TTextEncoding):AnsiString;
   var
    i:integer;
   begin
@@ -1853,14 +1644,14 @@ procedure SimpleEncrypt2;
     teANSI:begin
      setLength(result,length(st));
      for i:=1 to length(st) do
-      if word(st[i])<256 then result[i]:=chr(word(st[i]))
+      if word(st[i])<256 then result[i]:=AnsiChar(word(st[i]))
        else result[i]:='?';
     end;
     else raise EWarning.Create('Encoding not supported 1');
    end;
   end;
 
- function UnicodeFrom(st:string;encoding:TTextEncoding):WideString;
+ function UnicodeFrom(st:AnsiString;encoding:TTextEncoding):WideString;
   var
    i:integer;
   begin
@@ -2143,47 +1934,7 @@ procedure SimpleEncrypt2;
   end;
 {$ENDIF}
 
-{ type
-  BlockInfo=record
-   magic:cardinal; // must be $C78A35D2
-   blockSize:integer; // размер полного выделенного блока
-   offset:integer; // начало полного блока относительно точки начала данных
-   reserved:integer;
-  end;
-
- function MyGetMem;
-  var
-   bi:^BlockInfo;
-   s:integer;
-   p:pointer;
-   c,c2:cardinal;
-  begin
-   s:=size+32;
-   GetMem(p,s);
-   c:=cardinal(p);
-   c2:=(c-1) and $FFFFFFF0+16; // выравнивание до границы параграфа
-   bi:=pointer(c2);
-   bi^.magic:=$C78A35D2;
-   bi^.blockSize:=s;
-   bi^.offset:=c2-c+16;
-   c2:=c2+16;
-   result:=pointer(c2);
-  end;
-
- procedure MyFreeMem;
-  var
-   bi:^BlockInfo;
-   c:cardinal;
-  begin
-   c:=cardinal(p)-16;
-   bi:=pointer(c);
-   if bi^.magic<>$C78A35D2 then
-    raise EWarning.Create('Cannot release memory block: invalid pointer');
-   c:=cardinal(p)-bi^.offset;
-   FreeMem(pointer(c));
-  end;  }
-
- function ConvertToWindows(ch:char):char;
+ function ConvertToWindows(ch:AnsiChar):AnsiChar;
   var
    b:byte;
   begin
@@ -2195,10 +1946,10 @@ procedure SimpleEncrypt2;
    if b=240 then b:=168
    else
    if b=241 then b:=184;
-   result:=chr(b);
+   result:=AnsiChar(b);
   end;
 
- function ConvertFromWindows(ch:char):char;
+ function ConvertFromWindows(ch:AnsiChar):AnsiChar;
   var
    b:byte;
   begin
@@ -2210,7 +1961,7 @@ procedure SimpleEncrypt2;
    if b=168 then b:=240
    else
    if b=184 then b:=241;
-   result:=chr(b);
+   result:=AnsiChar(b);
   end;
 
 const
@@ -2227,7 +1978,7 @@ const
     $0446,$0447,$0448,$0449,$044A,$044B,$044C,$044D,$044E,$044F);
 
 
- function ConvertWindowsToUnicode(ch:char):widechar;
+ function ConvertWindowsToUnicode(ch:AnsiChar):WideChar;
   var
    b:byte;
   begin
@@ -2236,49 +1987,23 @@ const
     else result:=WideChar(win1251cp[b]);
   end;
 
- function ConvertUnicodeToWindows(ch:widechar):char;
+ function ConvertUnicodeToWindows(ch:WideChar):AnsiChar;
   var
    i:integer;
    w:word;
   begin
    w:=word(ch);
-   if w<$80 then result:=chr(w)
+   if w<$80 then result:=AnsiChar(w)
     else begin
      if (w>=$410) and (w<=$44F) then begin
-      result:=chr(192+w-$410); exit;
+      result:=AnsiChar(192+w-$410); exit;
      end;
      result:=' ';
      for i:=$80 to $BF do
       if win1251cp[i]=w then begin
-       result:=chr(i); exit;
+       result:=AnsiChar(i); exit;
       end;
     end;
-  end;
-
- const
-  namedata:string='john steve peter mark mary steve smith dennis alice alex jane joan baker albert henry jim helen charles diana white brown williams emily anny robert margaret victor thomas george richard';
- function RandomName(minlen,maxlen:byte):string;
-  var
-   i,j,l,c:integer;
-   ch:char;
-  begin
-   result:='';
-   l:=minlen+random(maxlen-minlen+1);
-   ch:=' ';
-   for i:=1 to l do begin
-    j:=1+random(length(namedata));
-    c:=0;
-    while (namedata[j]<>ch) or (namedata[j+1]=' ') do begin
-     inc(j);
-     if j>=length(namedata) then j:=1;
-     inc(c);
-     if (c>300) and (namedata[j+1]<>' ') then
-      break;
-    end;
-    ch:=namedata[j+1];
-    result:=result+ch;
-   end;
-   result[1]:=UpCase(result[1]);
   end;
 
  procedure SortObjects(var obj:array of TSortableObject);
@@ -2348,7 +2073,7 @@ const
      while sa[lo]<midval do inc(lo);
      while sa[hi]>midval do dec(hi);
      if lo<=hi then begin
-      Swap(WideString(sa[lo]),WideString(sa[hi]));
+      Swap(sa[lo],sa[hi]);
       inc(lo);
       dec(hi);
      end;
@@ -3290,8 +3015,7 @@ function BinToStr;
    if enable then forceCacheUsage:=enforceCache;
    if not enable and (cacheBuf<>'') then flushLog;
    if runThread then begin
-    if logThread=nil then
-     logThread:=TLogThread.Create(false);
+    if logThread=nil then logThread:=TLogThread.Create(false);
    end;
   end;
 
@@ -4240,6 +3964,7 @@ end;
 procedure StopLogThread;
  begin
   logThread.terminate;
+  logThread.WaitFor;
  end;
 
 procedure DisableDEP;
