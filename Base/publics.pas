@@ -837,7 +837,7 @@ begin
   end;
   // Cardinal
   if j in [12..15] then begin
-   if context.ovrMask and (1 shl j)=0 then vC:=StrToInt(value)
+   if context.ovrMask and (1 shl j)=0 then vC:=StrToInt64(value)
      else vC:=context.ovrValues[j].DWordValue;
    case j of
     12:gC0:=vC;

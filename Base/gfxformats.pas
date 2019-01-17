@@ -530,7 +530,7 @@ procedure LoadTGA;
    assign(f,fname);
    reset(f,1);
    if filesize(f)>=30 then begin
-    blockread(f,buf,30);
+    blockread(f,buf,30);          // !! WTF?
     result:=CheckImageFormat(@buf);
    end;
    close(f);
@@ -546,7 +546,7 @@ procedure LoadTGA;
    {$IFDEF DELPHI}
    jpeg:TJPEGimage;
    {$ENDIF}
-   i:integer;
+   i,j:integer;
    fl:boolean;
   begin
    result:=ifUnknown;
@@ -600,22 +600,24 @@ procedure LoadTGA;
     exit;
    end;
    // Check for jpeg
-   if data[0]=$ff then begin
+   if (data[0]=$ff) and (data[1]=$D8) then begin
     result:=ifJPEG;
     fillchar(imginfo,sizeof(imginfo),0);
     imgInfo.format:=ipfRGB;
     imgInfo.palformat:=palNone;
     imgInfo.miplevels:=0;
-    for i:=4 to length(data)-20 do begin
+    i:=2;
+    while i<length(data) do begin
      if data[i]=$FF then begin
-      if (data[i+1] shr 4=$C) and (data[i+2]=0) and (data[i+3]=$11) then begin
+      j:=data[i+2]*256+data[i+3];
+      if data[i+1] in [$C0,$C2] then begin // SOF0 or SOF2
        imgInfo.height:=max2(imgInfo.height,data[i+5] shl 8+data[i+6]);
        imgInfo.width:=max2(imgInfo.width,data[i+7] shl 8+data[i+8]);
       end;
-     end;
-     if i>80000 then break;
+      inc(i,j+2);
+     end else
+      inc(i);
     end;
-
     exit;
    end;
    // check for tga

@@ -36,7 +36,8 @@ interface
  procedure InitLogging(memsize:integer;path:string;fileFilter:integer=logNormal);
 
  // level: 0 - debug, 1 - info, 2 - normal, 3 - warning, 4 - error, 5 - critical
- procedure LogMsg(st:string;level:byte=logNormal;msgtype:byte=0);
+ procedure LogMsg(st:string;level:byte=logNormal;msgtype:byte=0); overload;
+ procedure LogMsg(st:string;params:array of const;level:byte=logNormal;msgtype:byte=0); overload;
 
  // Cброс накопленных сообщений в файл
  procedure FlushLogs;
@@ -359,36 +360,12 @@ implementation
    end;
   end;
 
- procedure LogMsg;
+ procedure LogMsg(st:string;level:byte=logNormal;msgtype:byte=0);
   var
    date:string[19];
    time:TSystemTime;
-//   time:TMMTime;
    hdr:TMsgHeader;
    size:word;
-  // write data to the cyclic FIFO buffer
-{  procedure WriteData(data:pointer;size:integer);
-   var
-    pb:PByte;
-    bufSize,l:integer;
-   begin
-    pb:=data;
-    bufSize:=length(buffer);
-    // partial?
-    if firstFreeByte+size>bufSize then begin
-     l:=bufSize-firstFreeByte;
-     move(pb^,buffer[firstFreeByte],l);
-     inc(pb,l);
-     dec(size,l);
-     firstFreeByte:=0;
-     dec(freeSpace,l);
-    end;
-    // the rest
-    move(pb^,buffer[firstFreeByte],size);
-    inc(firstFreeByte,size);
-    dec(freeSpace,size);
-    if firstFreeByte>=bufSize then dec(firstFreeByte,bufSize);
-   end;}
   begin
    if level>=logError then inc(numFailures);
    if level<minLogMemlevel then exit;
@@ -397,7 +374,6 @@ implementation
    if level>=logError then ForceLogMessage(st);
    EnterCriticalSection(logSect);
    try
-//    timeGetSystemTime(@time,sizeof(time));
     getSystemTime(time); // UTC
     if (time.wDay<>lastTime.wDay) and (logCache<>'') then FlushLogs; // day changed
     if time.wSecond<>lastTime.wSecond then begin
@@ -420,16 +396,6 @@ implementation
     hdr.size:=sizeof(hdr)+length(st);
     hdr.level:=level;
     hdr.kind:=msgtype;
-{    while FreeSpace<65536 do begin // Free some space if needed
-     ReadData(firstUsedByte,2,@size);
-     inc(firstUsedByte,size);
-     if firstUsedByte>=length(buffer) then
-      dec(firstUsedByte,length(buffer));
-     inc(freeSpace,size);
-    end;}
-    // Store message
-{    WriteData(@hdr,sizeof(hdr));
-    WriteData(@st[1],length(st));}
 
     AddLogMsg(hdr.date,level,msgtype,st);
 
@@ -447,6 +413,11 @@ implementation
    finally
     LeaveCriticalSection(logSect);
    end;
+  end;
+
+ procedure LogMsg(st:string;params:array of const;level:byte=logNormal;msgtype:byte=0);
+  begin
+   LogMsg(Format(st,params),level,msgtype);
   end;
 
  // Аварийный сброс лога в файл (amount килобайт)

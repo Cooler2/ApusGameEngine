@@ -83,10 +83,16 @@ interface
   // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
   TSplineFunc=function(x,x0,x1,y0,y1:single):single;
 
+  // Произвольная анимация значения
+  // Произвольная анимация значения (20 bytes per instance) 
+   // For multithread use
+   lock:integer;
+   function InternalValueAt(time:int64):single;
   TSortableObject=class
    function Compare(obj:TSortableObject):integer; virtual; // Stub
   end;
-  TSortableObjects=array[0..1] of TSortableObject;
+  PSortableObject=^TSortableObject;
+  TSortableObjects=array of TSortableObject;
   PSortableObjects=^TSortableObjects;
 
   // Режимы работы с лог-файлом
@@ -110,6 +116,7 @@ interface
  // Возвращает e.message вместе с адресом ошибки
  function ExceptionMsg(const e:Exception):string;
  function GetCallStack:string;
+ function GetCaller:pointer;
 
  // Проверяет наличие параметра (non case-sensitive) в командной строке
  function HasParam(name:string):boolean;
@@ -429,7 +436,7 @@ interface
  function ListIntegers(a:system.PInteger;count:integer;separator:char=','):string; overload;
 
  // Сортировки
- procedure SortObjects(var obj:array of TSortableObject);
+ procedure SortObjects(obj:PSortableObjects;count:integer);
 // procedure SortObjects(var obj:array of TObject;comparator:TObjComparator); overload;
  procedure SortStrings(var sa:StringArr); overload;
  procedure SortStrings(var sa:WStringArr); overload;
@@ -461,7 +468,7 @@ interface
  // Т.о. чем ниже уровень кода, тем ВЫШЕ должно быть значение level в секции, которой этот код оперирует  
  procedure InitCritSect(var cr:TMyCriticalSection;name:string;level:integer=100); // Создать и зарегить критсекцию
  procedure DeleteCritSect(var cr:TMyCriticalSection);
- procedure EnterCriticalSection(var cr:TMyCriticalSection);
+ procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
  procedure LeaveCriticalSection(var cr:TMyCriticalSection);
 // procedure SafeEnterCriticalSection(var cr:TMyCriticalSection); // Осторожно войти в критсекцию
  procedure DumpCritSects; // Вывести в лог состояние всех критсекций
@@ -481,6 +488,8 @@ implementation
     {$IFDEF MSWINDOWS},mmsystem{$ENDIF}
     {$IFDEF IOS},iphoneAll{$ENDIF}
     {$IFDEF ANDROID},dateutils,Android{$ENDIF};
+
+ {$IFOPT R+}{$DEFINE RANGECHECK}{$ENDIF} // Used to disable range check when needed and restore it back
  const
   hexchar='0123456789ABCDEF';
  type
@@ -565,6 +574,47 @@ implementation
    result:=0;
   end;
 
+   SpinLock(lock);
+   try
+   finally lock:=0;
+   end;
+   SpinLock(lock);
+   try
+   logName:=v.logName;
+   finally lock:=0;
+   end;
+   SpinLock(lock);
+   try
+   finally lock:=0;
+   end;
+   SpinLock(lock);
+   try
+   result:=(InternalValueAt(time+1)-InternalValueAt(time))*1000;
+   finally lock:=0;
+   end;
+   SpinLock(lock);
+   try
+   finally lock:=0;
+   end;
+ begin
+   SpinLock(lock);
+   try
+    result:=InternalValueAt(time);
+   finally lock:=0;
+   end;
+ end;
+
+function TAnimatedValue.InternalValueAt(time:int64):single;
+  SpinLock(lock);
+  try
+  finally lock:=0;
+  end;
+  SpinLock(lock);
+  try
+  if delay=0 then v:=InternalValueAt(0) else
+   v:=InternalValueAt(t); // особый случай - анимация после начала других анимаций, т.е. не с текущего значения
+  finally lock:=0;
+  end;
  procedure MyEnterCriticalSection(var cr:TRTLCriticalSection); inline;
   begin
    {$IFDEF MSWINDOWS}
@@ -2006,8 +2056,9 @@ const
     end;
   end;
 
- procedure SortObjects(var obj:array of TSortableObject);
-  procedure QuickSort(var obj:array of TSortableObject;a,b:integer);
+ {$IFDEF RANGECHECK}{$R-}{$ENDIF}
+ procedure SortObjects(obj:PSortableObjects;count:integer);
+  procedure QuickSort(var obj:TSortableObjects;a,b:integer);
    var
     lo,hi,mid:integer;
     o,midobj:TSortableObject;
@@ -2030,9 +2081,10 @@ const
     if lo<b then QuickSort(obj,lo,b);
    end;
   begin
-   if length(obj)<2 then exit;
-   QuickSort(obj,low(obj),high(obj));
+   if count<2 then exit;
+   QuickSort(obj^,0,count-1);
   end;
+  {$IFDEF RANGECHECK}{$R+}{$ENDIF}
 
  procedure SortStrings(var sa:StringArr); overload;
   procedure QuickSort(a,b:integer);
@@ -2525,7 +2577,7 @@ function BinToStr;
      end;
      Resize(result,n+1);
      result[n]:=copy(st,2,j-2);
-     delete(st,1,j+1);
+     delete(st,1,j+length(divider));
      inc(n);
     end else begin
      // simply get first divider
@@ -2550,40 +2602,47 @@ function BinToStr;
 
  function Split(divider,st:string):StringArr;
   var
-   i,j,n:integer;
+   i,j,n,divLen,maxIdx:integer;
    fl:boolean;
    idx:array of integer;
+   ch:char;
   begin
    if st='' then begin
     SetLength(result,0); exit;
    end;
-   setLength(idx,100);
+   setLength(idx,15);
    idx[0]:=1;
    // count dividers
    n:=0;
-   i:=1; 
-   while i<=length(st)-length(divider)+1 do begin
-    fl:=true;
-    for j:=1 to length(divider) do
-     if st[i+j-1]<>divider[j] then begin
-      fl:=false; break;
-     end;
-    if fl then begin
-     j:=length(divider);
-     inc(n);
-     if n>=length(idx) then SetLength(idx,length(idx)*4);
-     idx[n]:=i+j;
-     inc(i,j);
-    end else inc(i);
+   i:=1;
+   divLen:=length(divider);
+   maxIdx:=length(st)-divLen+1;
+   ch:=divider[1];
+   while i<=maxIdx do begin
+    if st[i]<>ch then
+     inc(i)
+    else begin
+     fl:=true;
+     for j:=2 to divLen do
+      if st[i+j-1]<>divider[j] then begin
+       fl:=false; break;
+      end;
+     if fl then begin
+      inc(n);
+      if n>=length(idx)-1 then SetLength(idx,length(idx)*4);
+      idx[n]:=i+divLen;
+      inc(i,divLen);
+     end else inc(i);
+    end;
    end;
    inc(n);
    idx[n]:=length(st)+length(divider)+1;
    SetLength(result,n);
    for i:=0 to n-1 do begin
-    j:=idx[i+1]-length(divider)-idx[i];
+    j:=idx[i+1]-divLen-idx[i];
     SetLength(result[i],j);
     if j>0 then result[i]:=copy(st,idx[i],j);
-   end;
+   end;    
   end;
 
  function SplitW(divider,st:WideString):WStringArr;
@@ -3538,6 +3597,17 @@ begin
 {$ENDIF}
 end;
 
+function GetCaller:pointer;
+{$IFDEF CPU386}
+asm
+ mov eax,[ebp+4]
+end;
+{$ELSE}
+begin
+ result:=pointer($FFFFFFFF);
+end;
+{$ENDIF}
+
 { TBaseException }
 constructor TBaseException.Create(const msg: string);
 var
@@ -3631,27 +3701,23 @@ procedure DeleteCritSect(var cr:TMyCriticalSection);
   end;
  end;
 
-procedure EnterCriticalSection(var cr:TMyCriticalSection);
+procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
  var
-  threadID,caller:cardinal;
+  threadID:cardinal;
   i,lastLevel,trIdx:integer;
   prevSection:PCriticalSection;
  begin
   {$IFDEF MSWINDOWS}
   {$IFDEF CPU386}
   if cr.caller=0 then
-   asm
-    mov edx,[ebp+offset cr]
-    mov eax,[ebp+4]
-    mov caller,eax
-   end;
+   if caller=nil then caller:=GetCaller;
   {$ENDIF}
   if cr.lockCount>0 then begin
    threadID:=GetCurrentThreadID;
    trIdx:=-1;
    if threadID<>cr.crs.OwningThread then begin // from different thread?
     cr.thread:=threadID;
-    cr.caller:=caller;
+    cr.caller:=PtrUInt(caller);
    end;
    if cr.time=0 then cr.time:=MyTickCount+5000;
   end else // first attempt
@@ -3679,13 +3745,8 @@ procedure EnterCriticalSection(var cr:TMyCriticalSection);
   cr.thread:=0;
   cr.time:=0;
   inc(cr.lockCount);
-  {$IFDEF CPU386}
-  asm
-   mov edx,[ebp+offset cr]
-   mov eax,[ebp+4]
-   mov TMyCriticalSection[edx].owner,eax
-  end;
-  {$ENDIF}
+  if caller=nil then caller:=GetCaller;
+  cr.owner:=cardinal(caller);
   if debugCriticalSections and (cr.lockCount=1) then begin
    MyEnterCriticalSection(crSection);
    for i:=1 to high(threads) do

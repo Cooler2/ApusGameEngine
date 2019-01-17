@@ -34,15 +34,17 @@ interface
    // В случае ошибки возвращает массив из одной строки: ERROR: <текст ошибки>
    // Если запрос не подразумевает возврат данных и выполняется успешно - возвращает
    //   пустой массив (0 строк)
-   function Query(DBquery:string):StringArr; virtual; abstract;
+   function Query(DBquery:string):StringArr; overload; virtual; abstract;
+   function Query(DBquery:string;params:array of const):StringArr; overload; virtual;
    // Для каждого ключа хэша H, соответствующего полю keyField в таблице table
    // запрашивает значение поля valueField (можно перечислить несколько полей через запятую, тогда будут выбраны все)
    // quoteKeys используется чтобы заключать значения ключей в " " (необходимо если ключи - строкового типа)
    procedure QueryValues(var h:THash;table,keyField,valueField:string;quoteKeys:boolean=false;condition:string=''); virtual;
    // Запрашивает строки (поля в fields) из таблицы, соответствующие заданному условию, и заносит их в хэш
    // Условие может также содержать сортировку и т.п.
-   // Хэш переинициализируется, если в нём уже было содержимое - оно теряется 
+   // Хэш переинициализируется, т.е. если в нём уже было содержимое - оно теряется
    procedure QueryHash(var h:THash;table,keyField,fields,condition:string); virtual;
+
    procedure Disconnect; virtual; abstract;
    destructor Destroy; virtual;
   private
@@ -157,6 +159,11 @@ begin
    h.Put(sa[i*colCount],sa[i*colCount+j]);
   end;
  end;
+end;
+
+function TDatabase.Query(DBquery:string;params:array of const):StringArr;
+begin
+ result:=Query(Format(DBQuery,params));
 end;
 
 { TMySQLDatabase }
