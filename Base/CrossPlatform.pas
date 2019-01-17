@@ -31,8 +31,8 @@ interface
   TPoint=windows.TPoint;
   HCursor=windows.HCURSOR;
   HWND=windows.HWND;
-  TThreadID=cardinal;
   {$IFDEF DELPHI}
+  TThreadID=cardinal;
   PtrUInt=cardinal;
   {$ENDIF}
  const
@@ -98,8 +98,9 @@ interface
  procedure QueryPerformanceCounter(out value:int64);
  procedure QueryPerformanceFrequency(out value:int64);
 
- function GetCurrentThreadID:TThreadId;
  procedure Sleep(time:integer);
+ function BeginThread(ThreadFunction:TThreadFunc; p:pointer; var ThreadId:TThreadID; stackSize:integer=1024*1024):THandle;
+ function GetCurrentThreadID:TThreadId;
  procedure TerminateThread(threadHandle:TThreadID;exitCode:cardinal);
 
  function GetSystemInfo:string;
@@ -210,7 +211,19 @@ uses
   end;
 
  {$ENDIF}
- 
+
+ function BeginThread(threadFunction:TThreadFunc; p:pointer; var threadId:TThreadID; stackSize:integer=1024*1024):THandle;
+  begin
+   {$IFDEF FPC}
+   result:=system.BeginThread(ThreadFunction,p,ThreadID,stackSize);
+   {$ENDIF}
+   {$IFDEF DELPHI}
+   result:=system.BeginThread(nil,stackSize,ThreadFunction,p,
+    {$IF DECLARED(STACK_SIZE_PARAM_IS_A_RESERVATION)}STACK_SIZE_PARAM_IS_A_RESERVATION{$ELSE}0{$IFEND},threadID);
+   {$ENDIF}
+   if result=0 then raise Exception.Create('Failed to start a thread: '+IntToHex(UInt64(@threadFunction),12));
+  end;
+
 // WINDOWS SET ===========================
 {$IFDEF MSWINDOWS}
  procedure OpenURL(url:string);
@@ -348,7 +361,7 @@ begin
   end;
 end;
 
- function GetCurrentThreadID:cardinal;
+ function GetCurrentThreadID:TThreadID;
   begin
    result:=windows.GetCurrentThreadId;
   end;
