@@ -1298,11 +1298,6 @@ procedure TestMemoryStat;
    ASSERT(PasteStrFromClipboardW=TEST_W,'Clipboard test 2');
   end;
 
-   time:=MyTickCount-time;
-   writeln('Time = ',time);
-   readln;
-  end;
-
 var
  ar:array of cardinal;
  st:WideString;

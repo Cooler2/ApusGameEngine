@@ -83,11 +83,6 @@ interface
   // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
   TSplineFunc=function(x,x0,x1,y0,y1:single):single;
 
-  // Произвольная анимация значения
-  // Произвольная анимация значения (20 bytes per instance) 
-   // For multithread use
-   lock:integer;
-   function InternalValueAt(time:int64):single;
   TSortableObject=class
    function Compare(obj:TSortableObject):integer; virtual; // Stub
   end;
@@ -574,47 +569,6 @@ implementation
    result:=0;
   end;
 
-   SpinLock(lock);
-   try
-   finally lock:=0;
-   end;
-   SpinLock(lock);
-   try
-   logName:=v.logName;
-   finally lock:=0;
-   end;
-   SpinLock(lock);
-   try
-   finally lock:=0;
-   end;
-   SpinLock(lock);
-   try
-   result:=(InternalValueAt(time+1)-InternalValueAt(time))*1000;
-   finally lock:=0;
-   end;
-   SpinLock(lock);
-   try
-   finally lock:=0;
-   end;
- begin
-   SpinLock(lock);
-   try
-    result:=InternalValueAt(time);
-   finally lock:=0;
-   end;
- end;
-
-function TAnimatedValue.InternalValueAt(time:int64):single;
-  SpinLock(lock);
-  try
-  finally lock:=0;
-  end;
-  SpinLock(lock);
-  try
-  if delay=0 then v:=InternalValueAt(0) else
-   v:=InternalValueAt(t); // особый случай - анимация после начала других анимаций, т.е. не с текущего значения
-  finally lock:=0;
-  end;
  procedure MyEnterCriticalSection(var cr:TRTLCriticalSection); inline;
   begin
    {$IFDEF MSWINDOWS}
