@@ -791,8 +791,20 @@ procedure LoadTGA;
  {$ENDIF}
 
  {$IFDEF DELPHI}
- {$LINK lodepng.obj}
- function _lodepng_decode32(out image:pointer;out width,height:cardinal;source:pointer;sourSize:integer):cardinal; cdecl; external;
+ {$IFDEF CPU386}
+  {$LINK lodepng.obj}
+  function lodepng_decode32(out image:pointer;out width,height:cardinal;source:pointer;
+    sourSize:integer):cardinal; cdecl; external name '_lodepng_decode32';
+  function lodepng_encode32(out image:pointer;out outsize:cardinal;source:pointer;
+    width,height:cardinal):cardinal; cdecl; external name '_lodepng_encode32';
+ {$ENDIF}
+ {$IFDEF CPUX64}
+  function lodepng_decode32(out image:pointer;out width,height:cardinal;source:pointer;
+    sourSize:integer):cardinal; cdecl; external 'LodePNG64.dll';
+  function lodepng_encode32(out image:pointer;out outsize:int64;source:pointer;
+    width,height:cardinal):cardinal; cdecl; external 'LodePNG64.dll';
+  procedure free_mem(buf:pointer); external 'LodePNG64.dll';
+ {$ENDIF}
 
  procedure LoadPNG(data:ByteArray;var image:TRawImage);
   var
@@ -803,7 +815,7 @@ procedure LoadTGA;
    sour,dest:PByte;
    c:cardinal;
   begin
-   err:=_lodepng_decode32(buf,width,height,@data[0],length(data));
+   err:=lodepng_decode32(buf,width,height,@data[0],length(data));
    if err<>0 then raise EWarning.Create('LodePNG error code '+inttostr(err));
 
    // Allocate dest image if needed
@@ -818,10 +830,15 @@ procedure LoadTGA;
    end;
    image.Unlock;
 
+   {$IFDEF CPUX64}
+   free_mem(buf);
+   {$ELSE}
    freemem(buf);
+   {$ENDIF}
   end;
+ {$IFDEF CPU386}
  // C RTL stub
- function _fopen(fname:PChar;mode:PChar):integer; cdecl;
+ function _fopen(fname:PAnsiChar;mode:PAnsiChar):integer; cdecl;
   begin
    result:=FileOpen(fName,fmOpenRead);
   end;
@@ -844,7 +861,7 @@ procedure LoadTGA;
  function _fwrite(data:pointer;size,count,f:integer):integer; cdecl;
   begin
    result:=FileWrite(f,data^,size*count) div size;
-  end;  
+  end;
  function _malloc(size:integer):pointer; cdecl;
   begin
    GetMem(result,size);
@@ -863,11 +880,11 @@ procedure LoadTGA;
    move(sour^,dest^,size);
    result:=dest;
   end;
- function _strlen(s:PChar):integer; cdecl;
+ function _strlen(s:PAnsiChar):integer; cdecl;
   begin
    result:=StrLen(s);
   end;
- function _strcmp(s1,s2:PChar):integer; cdecl;
+ function _strcmp(s1,s2:PAnsiChar):integer; cdecl;
   begin
    result:=StrComp(s1,s2);
   end;
@@ -879,8 +896,10 @@ procedure LoadTGA;
  function _abs(n:integer):integer; cdecl;
   begin
    result:=abs(n);
-  end; 
+  end;
+ {$ENDIF}
  {$ELSE}
+ // FPC version doesn't use LodePNG
  procedure LoadPNG(data:ByteArray;var image:TRawImage);
   begin
    LoadImageUsingReader(TFPReaderPNG.Create,data,true,image);
@@ -888,14 +907,12 @@ procedure LoadTGA;
  {$ENDIF}
 
  {$IFDEF DELPHI}
- function _lodepng_encode32(out image:pointer;out outsize:cardinal;source:pointer;width,height:cardinal):cardinal; cdecl; external;
-
  function SavePNG(image:TRawImage):ByteArray;
   var
    data:array of cardinal;
    err:cardinal;
    png:pointer;
-   size:cardinal;
+   size:{$IFDEF CPUX64}int64{$ELSE}cardinal{$ENDIF};
    y:integer;
   begin
    SetLength(data,image.width*image.height);
@@ -905,11 +922,16 @@ procedure LoadTGA;
     ConvertLine(image.scanline(y)^,data[y*image.width],image.PixelFormat,ipfABGR,y,palNone,image.width);
    image.Unlock;
    // Pack and save
-   err:=_lodepng_encode32(png,size,data,image.width,image.height);
+   png:=nil;
+   err:=lodepng_encode32(png,size,data,image.width,image.height);
    if err<>0 then raise EWarning.Create('LodePNG error code '+inttostr(err));
    SetLength(result,size);
    move(png^,result[0],size);
+   {$IFDEF CPUX64}
+   free_mem(png);
+   {$ELSE}
    FreeMem(png);
+   {$ENDIF}
   end;
  {$ELSE}
  function SavePNG(image:TRawImage):ByteArray;

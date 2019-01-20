@@ -1302,6 +1302,17 @@ procedure TestMemoryStat;
    ASSERT(PasteStrFromClipboardW=TEST_W,'Clipboard test 2');
   end;
 
+ procedure TestPNG;
+  var
+   img:TRawImage;
+   data,res:ByteArray;
+  begin
+   data:=LoadFileAsBytes('test.png');
+   LoadPNG(data,img);
+   res:=SavePNG(img);
+   SaveFile('test_out.png',res);
+  end;
+
 var
  ar:array of cardinal;
  st:WideString;
@@ -1312,6 +1323,7 @@ begin
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
+  TestPNG;
   TestAnimations;
   TestEval;
   TestClipboard;
