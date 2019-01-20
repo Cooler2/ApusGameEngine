@@ -34,6 +34,9 @@ uses
   profiling in '..\profiling.pas',
   colors in '..\colors.pas',
   RSA in '..\RSA.pas',
+  Images in '..\Images.pas',
+  gfxFormats in '..\gfxFormats.pas',
+  UnicodeFont in '..\UnicodeFont.pas',
   MemoryLeakUtils in '..\MemoryLeakUtils.pas',
   AnimatedValues in '..\AnimatedValues.pas',
   myHuffman in '..\myHuffman.pas';

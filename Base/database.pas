@@ -35,6 +35,7 @@ interface
    // ≈сли запрос не подразумевает возврат данных и выполн€етс€ успешно - возвращает
    //   пустой массив (0 строк)
    function Query(DBquery:string):StringArr; overload; virtual; abstract;
+   // Sugar for Query(Format(DBQuery,params))
    function Query(DBquery:string;params:array of const):StringArr; overload; virtual;
    // ƒл€ каждого ключа хэша H, соответствующего полю keyField в таблице table
    // запрашивает значение пол€ valueField (можно перечислить несколько полей через зап€тую, тогда будут выбраны все)

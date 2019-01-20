@@ -81,9 +81,8 @@ interface
   // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
   TSplineFunc=function(x,x0,x1,y0,y1:single):single;
 
-  TSortableObject=class
-   function Compare(obj:TSortableObject):integer; virtual; // Stub
-  end;
+
+
   PSortableObject=^TSortableObject;
   TSortableObjects=array of TSortableObject;
   PSortableObjects=^TSortableObjects;
@@ -569,6 +568,7 @@ implementation
    result:=0;
   end;
 
+ 
  procedure MyEnterCriticalSection(var cr:TRTLCriticalSection); inline;
   begin
    {$IFDEF MSWINDOWS}
@@ -2027,6 +2027,7 @@ const
  procedure SortObjects(obj:PSortableObjects;count:integer);
   procedure QuickSort(var obj:TSortableObjects;a,b:integer);
    var
+
     lo,hi,mid:integer;
     o,midobj:TSortableObject;
    begin

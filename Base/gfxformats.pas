@@ -4,7 +4,9 @@
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
 unit gfxformats;
 interface
- uses MyServis,{$IFDEF DELPHI}graphics,{$ENDIF}
+ uses MyServis,
+     {$IFDEF DELPHI}graphics,{$ENDIF}
+     {$IFDEF TXTIMAGES}UnicodeFont,{$ENDIF}
      images;
  type
   TImageFormat=(ifUnknown,ifTGA,ifJPEG,ifPJPEG,ifBMP,ifPCX,ifTXT,ifDDS,ifPVR,ifPNG);
@@ -15,8 +17,6 @@ interface
    miplevels:integer;
   end;
 
- var
-  txtSmallFont,txtNormalFont:integer;
  threadvar
   ImgInfo:TImageInfo; // info about last checked image
 
@@ -28,7 +28,11 @@ interface
  // Write image in TGA format into buffer, return size of TGA data
  function SaveTGA(image:TRawImage):ByteArray;
 
- procedure LoadTXT(data:ByteArray;var image:TRawImage);
+ {$IFDEF TXTIMAGES}
+ // TXT is a dummy image format for prototyping (specify text drawing func!)
+ procedure LoadTXT(data:ByteArray;var image:TRawImage;txtSmallFont,txtNormalFont:TUnicodeFont);
+ {$ENDIF}
+ // DirectDrawSurface
  procedure LoadDDS(data:ByteArray;var image:TRawImage;allocate:boolean=false);
 
  // Always allocates new image object
@@ -52,7 +56,6 @@ interface
 implementation
  uses {$IFDEF DELPHI}jpeg,{$ENDIF}
      {$IFDEF FPC}fpimage,fpreadjpeg,fpreadpng,{$ENDIF}
-     {$IFDEF CPU386}DirectText,{$ENDIF}
      classes,SysUtils,math,colors;
 
 type
@@ -68,6 +71,7 @@ type
   bpp:byte;
   descript:byte;
  end;
+
  // DDS Header is DDSURFACEDESC2
  DWORD=cardinal;
  TDDColorKey=record
@@ -422,7 +426,8 @@ procedure LoadTGA;
    end;
   end;
 
- procedure LoadTXT(data:ByteArray;var image:TRawImage);
+ {$IFDEF TXTIMAGES}
+ procedure LoadTXT(data:ByteArray;var image:TRawImage;txtSmallFont,txtNormalFont:TUnicodeFont);
   var
    size:integer;
    w,h,i,line,word,mode,r,g,b,x,y:integer;
@@ -434,6 +439,7 @@ procedure LoadTGA;
    lx,ly:array[1..100] of integer;
    lcnt:integer;
    pixel:PCardinal;
+   curfont:TUnicodeFont;
   procedure HandleWord;
    begin
     if st='' then exit;
@@ -502,39 +508,42 @@ procedure LoadTGA;
    end;
    {$IFDEF CPU386}
    if lcnt>0 then begin
-    if (txtSmallFont=0) or (txtNormalFont=0) then
+    if (txtSmallFont=nil) or (txtNormalFont=nil) then
      raise EWarning.Create('TXT: undefined fonts');
-    directtext.color:=text;
-    SetBuffer(img.data,img.width,img.height,img.pitch,4);
-    SetClipping(0,0,img.width-1,img.height-1);
+
+    //  TODO: IMPORTANT! Add clipping!
     for i:=1 to lcnt do begin
      if pos('!',lines[i])=1 then begin
       delete(lines[i],1,1);
       curfont:=txtSmallFont;
      end else curfont:=txtNormalFont;
-     WrtBest(lx[i]-GetStrLen2(lines[i]) div 2,ly[i],lines[i]);
+
+     curFont.RenderText(img.data,img.pitch,
+      lx[i]-curFont.GetTextWidth(lines[i]) div 2,ly[i],lines[i],text);
     end;
-    RestoreClipping;
    end;
    {$ENDIF}
 
    image:=img;
   end;
+ {$ENDIF}
 
  function CheckFileFormat(fname:string):TImageFormat;
   var
    f:file;
    buf:ByteArray;
+   size:integer;
   begin
    result:=ifUnknown;
-   assign(f,fname);
-   reset(f,1);
-   if filesize(f)>=30 then begin
-    SetLength(buf,30);
-    blockread(f,buf[0],30);
+   Assign(f,fname);
+   Reset(f,1);
+   size:=min2(length(buf),filesize(f));
+   if size>30 then begin
+    SetLength(buf,size);
+    BlockRead(f,buf[0],size);
     result:=CheckImageFormat(buf);
    end;
-   close(f);
+   Close(f);
   end;
 
  function CheckImageFormat(data:ByteArray):TImageFormat;
@@ -645,8 +654,8 @@ procedure LoadTGA;
 
    // check for txt
    fl:=true;
-   for i:=1 to 5 do begin
-    if not (pb^ in [$30..$39,32,10,13,8]) then fl:=false;
+   for i:=1 to min2(10,length(data)) do begin
+    if not (data[i] in [$30..$39,32,10,13,8]) then fl:=false;
    end;
    if fl then result:=ifTXT;
   end;
@@ -779,52 +788,6 @@ procedure LoadTGA;
  begin
   LoadImageUsingReader(TFPReaderJPEG.Create,data,false,image);
  end;
-
-{ var
-  reader:TFPReaderJPEG;
-  img:TMyFPImage;
-  src:TMemoryStream;
-  sp,dp:PByte;
-  i,j,w,h:integer;
-  c:cardinal;
- begin
-  // Source data as TMemoryStream
-  src:=TMemoryStream.Create;
-  src.Write(data[0],length(data));
-  src.Seek(0,soFromBeginning);
-
-  // Load JPEG image
-  reader:=TFPReaderJPEG.Create;
-  img:=TMyFPImage.create(0,0);
-  img.LoadFromStream(src,reader);
-  src.Free;
-
-  // Allocate dest image if needed
-  if image=nil then
-   image:=TBitmapImage.Create(img.Width,img.Height,ipfRGB);
-
-  // Copy/convert bitmap data
-  w:=min2(image.width,img.Width);
-  h:=min2(image.height,img.Height);
-  for i:=0 to h-1 do begin
-   sp:=img.GetScanline(i);
-   inc(sp);
-   dp:=image.data;
-   inc(dp,image.pitch*i);
-   for j:=0 to w-1 do begin
-    // BGR to RGB conversion
-    c:=$FF00+sp^;
-    inc(sp,2);
-    c:=c shl 8+sp^;
-    inc(sp,2);
-    c:=c shl 8+sp^;
-    inc(sp,4);
-    PCardinal(dp)^:=c;
-    inc(dp,4);
-   end;
-  end;
-  img.Free;
- end;}
  {$ENDIF}
 
  {$IFDEF DELPHI}
