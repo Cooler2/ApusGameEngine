@@ -126,6 +126,10 @@ interface
  function GetDecimalSeparator:char; inline;
  procedure SetDecimalSeparator(c:char);
 
+ {$IFNDEF UNICODE}
+ function AnsiStrAlloc(size:integer):PAnsiChar;    
+ {$ENDIF}
+
 implementation
 
 {$IFnDEF FPC}
@@ -548,5 +552,12 @@ function GetLastError:cardinal;
    {$IFEND}
    DecimalSeparator:=c;
   end;
+
+ {$IFNDEF UNICODE}
+ function AnsiStrAlloc(size:integer):PAnsiChar;
+  begin
+   result:=StrAlloc(size);
+  end;
+ {$ENDIF}
 
 end.

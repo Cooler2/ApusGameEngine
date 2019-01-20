@@ -19,15 +19,13 @@ interface
   PathSeparator='/';
   {$ENDIF}
  type
-  {$IFNDEF UNICODE}
-  UnicodeString=WideString;
-  {$ENDIF}
   StringArr=array of string;
   AStringArr=array of AnsiString;
   WStringArr=array of WideString;
   ByteArray=array of byte;
   WordArray=array of word;
   IntArray=array of integer;
+  UIntArray=array of cardinal;
   FloatArray=array of double;
   ShortStr=string[31];
 
@@ -156,8 +154,8 @@ interface
  function GetFileSize(fname:string):int64;
  function WaitForFile(fname:string;delayLimit:integer;exists:boolean=true):boolean; // Подождать (не дольше delayLimit) до появления (или удаления) файла, возвращает false если не дождались
  function MyFileExists(fname:string):boolean; // Cross-platform version
- function LoadFile(fname:string):AnsiString; // Load file content into string
- function LoadFile2(fname:string):ByteArray; // Load file content into byte array
+ function LoadFileAsString(fname:string):AnsiString; // Load file content into string
+ function LoadFileAsBytes(fname:string):ByteArray; // Load file content into byte array
  procedure SaveFile(fname:string;buf:pointer;size:integer); overload; // rewrite file with given data
  procedure SaveFile(fname:string;buf:ByteArray); overload; // rewrite file with given data
  procedure ReadFile(fname:string;buf:pointer;posit,size:integer); // Read data block from file
@@ -233,6 +231,7 @@ interface
  function Split(divider,st:string;quotes:char):StringArr; overload;
  // Разделяет строку на подстроки без каких-либо потерь
  function Split(divider,st:string):StringArr; overload;
+ function SplitA(divider,st:AnsiString):AStringArr;
  function SplitW(divider,st:WideString):WStringArr;
  // Search for a substring from specified point
  function PosFrom(substr,str:string;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
@@ -304,8 +303,8 @@ interface
  procedure SimpleEncrypt2(var data;size,code:integer);
 
  // Простое сжатие (simplified LZ method, works good only for texts or similar strings)
- function SimpleCompress(data:string):string;
- function SimpleDecompress(data:string):string;
+ function SimpleCompress(data:AnsiString):AnsiString;
+ function SimpleDecompress(data:AnsiString):AnsiString;
 
  // Простое сжатие методом RLE
  function PackRLE(buf:pointer;size:integer;addHeader:boolean=true):ByteArray;
@@ -322,7 +321,8 @@ interface
  function IsUTF8(st:AnsiString):boolean; inline; // Check if string starts with BOM
  function EncodeUTF8(st:widestring;addBOM:boolean=false):AnsiString;
  function DecodeUTF8(st:AnsiString):widestring;
- function DecodeUTF8A(sa:AStringArr):WStringArr;
+ function DecodeUTF8A(sa:AStringArr):WStringArr; overload;
+ function DecodeUTF8A(sa:StringArr):WStringArr; overload;
  function UTF8toWin1251(st:AnsiString):AnsiString;
  function Win1251toUTF8(st:AnsiString):AnsiString;
  function UpperCaseUtf8(st:AnsiString):AnsiString;
@@ -1104,10 +1104,10 @@ function ListIntegers(a:array of integer;separator:char=','):string;
   end;
  end;
 
-function SimpleCompress(data:string):string;
+function SimpleCompress(data:AnsiString):AnsiString;
  var
   i,j,curpos,outpos,foundStart,foundLength,ofs,max:integer;
-  res:string;
+  res:AnsiString;
   prev:array of integer; // array of backreferences: index of previous byte with the same value
   last:array[0..255] of integer; // index of last byte of given value
   b:byte;
@@ -1118,7 +1118,7 @@ function SimpleCompress(data:string):string;
    for i:=count-1 downto 0 do begin
     if v and (1 shl i)>0 then begin
      o:=1+outpos shr 3;
-     res[o]:=char(byte(res[o]) or (1 shl (7-(outpos and 7))));
+     res[o]:=AnsiChar(byte(res[o]) or (1 shl (7-(outpos and 7))));
     end;
     inc(outpos);
    end
@@ -1185,10 +1185,10 @@ function SimpleCompress(data:string):string;
   result:=res;
  end;
 
-function SimpleDecompress(data:string):string;
+function SimpleDecompress(data:AnsiString):AnsiString;
  var
   i,curpos,outpos,rsize,bCount,ofs,L,M:integer;
-  res:string;
+  res:AnsiString;
  function GetBits(cnt:integer):cardinal;
   var
    i:integer;
@@ -1203,7 +1203,7 @@ function SimpleDecompress(data:string):string;
   end;
  procedure Output(v:byte);
   begin
-   res[outpos]:=char(v);
+   res[outpos]:=AnsiChar(v);
    inc(outpos);
    if outpos>=rsize then begin
     rsize:=rsize*2;
@@ -1582,13 +1582,26 @@ procedure SimpleEncrypt2;
    setLength(result,l);
   end;
 
- function DecodeUTF8A(sa:AStringArr):WStringArr;
+ function DecodeUTF8A(sa:AStringArr):WStringArr; overload;
   var
    i:integer;
   begin
    SetLength(result,length(sa));
    for i:=0 to high(sa) do
     result[i]:=DecodeUTF8(sa[i]);
+  end;
+
+ function DecodeUTF8A(sa:StringArr):WStringArr; overload;
+  var
+   i:integer;
+  begin
+   SetLength(result,length(sa));
+   for i:=0 to high(sa) do
+   {$IFDEF UNICODE}
+    result[i]:=sa[i];
+   {$ELSE}
+    result[i]:=DecodeUTF8(sa[i]);
+   {$ENDIF}
   end;
 
  function UTF8toWin1251(st:AnsiString):AnsiString;
@@ -2599,6 +2612,51 @@ function BinToStr;
    end;    
   end;
 
+ function SplitA(divider,st:AnsiString):AStringArr;
+  var
+   i,j,n,divLen,maxIdx:integer;
+   fl:boolean;
+   idx:array of integer;
+   ch:AnsiChar;
+  begin
+   if st='' then begin
+    SetLength(result,0); exit;
+   end;
+   setLength(idx,15);
+   idx[0]:=1;
+   // count dividers
+   n:=0;
+   i:=1;
+   divLen:=length(divider);
+   maxIdx:=length(st)-divLen+1;
+   ch:=divider[1];
+   while i<=maxIdx do begin
+    if st[i]<>ch then
+     inc(i)
+    else begin
+     fl:=true;
+     for j:=2 to divLen do
+      if st[i+j-1]<>divider[j] then begin
+       fl:=false; break;
+      end;
+     if fl then begin
+      inc(n);
+      if n>=length(idx)-1 then SetLength(idx,length(idx)*4);
+      idx[n]:=i+divLen;
+      inc(i,divLen);
+     end else inc(i);
+    end;
+   end;
+   inc(n);
+   idx[n]:=length(st)+length(divider)+1;
+   SetLength(result,n);
+   for i:=0 to n-1 do begin
+    j:=idx[i+1]-divLen-idx[i];
+    SetLength(result[i],j);
+    if j>0 then result[i]:=copy(st,idx[i],j);
+   end;
+  end;
+
  function SplitW(divider,st:WideString):WStringArr;
   var
    i,j,n:integer;
@@ -3290,9 +3348,18 @@ procedure DumpDir(path:string);
    {$ENDIF}
   end;
 
- function LoadFile(fname:string):AnsiString;
+ function LoadFileAsString(fname:string):AnsiString;
   var
-   f:file;
+   buf:ByteArray;
+  begin
+   buf:=LoadFileAsBytes(fname);
+   SetLength(result,length(buf));
+   move(buf[0],result[1],length(buf));
+  end;
+
+ function LoadFileAsBytes(fname:string):ByteArray;
+  var
+    f:file;
   begin
    try
     {$IFDEF ANDROID}
@@ -3302,21 +3369,12 @@ procedure DumpDir(path:string);
     assignFile(f,fname);
     reset(f,1);
     SetLength(result,filesize(f));
-    blockread(f,result[1],filesize(f));
+    blockread(f,result[0],filesize(f));
     closefile(f);
    except
     on e:exception do
      raise EError.Create('Failed to load file '+fname+': '+ExceptionMsg(e));
    end;
-  end;
-
- function LoadFile2(fname:string):ByteArray;
-  var
-    st:string;
-  begin
-   st:=LoadFile(fname);
-   SetLength(result,length(st));
-   move(st[1],result[0],length(st));
   end;
 
  procedure ReadFile;

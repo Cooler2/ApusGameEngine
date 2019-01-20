@@ -192,7 +192,7 @@ implementation
   begin
    try
     fname:=logDir+'logDump.log';
-    dump:=LoadFile2(fname);
+    dump:=LoadFileAsBytes(fname);
     EnterCriticalSection(logSect);
     try
     p:=0;

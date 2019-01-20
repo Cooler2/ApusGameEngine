@@ -524,14 +524,15 @@ procedure LoadTGA;
  function CheckFileFormat(fname:string):TImageFormat;
   var
    f:file;
-   buf:array[1..50] of byte;
+   buf:ByteArray;
   begin
    result:=ifUnknown;
    assign(f,fname);
    reset(f,1);
    if filesize(f)>=30 then begin
-    blockread(f,buf,30);          // !! WTF?
-    result:=CheckImageFormat(@buf);
+    SetLength(buf,30);
+    blockread(f,buf[0],30);
+    result:=CheckImageFormat(buf);
    end;
    close(f);
   end;

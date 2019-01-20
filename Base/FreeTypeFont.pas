@@ -221,7 +221,7 @@ constructor TFreeTypeFont.LoadFromFile(fname: string;index:integer=0);
    initialized:=true;
   end;
   LogMessage('Loading Freetype font from '+fname);
-  data:=LoadFile2(fname);
+  data:=LoadFileAsBytes(fname);
   GetMem(buf,length(data));
   move(data[0],buf^,length(data));
   err:=FT_New_Memory_Face(FTLibrary,buf,length(data),index,Face);

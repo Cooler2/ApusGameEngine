@@ -263,7 +263,7 @@ implementation
 
  function LoadFontFromFile(fname:string;UseAdvKerning:boolean=false):TUnicodeFont;
   begin
-   result:=LoadFontFromMemory(LoadFile2(fname),useAdvKerning);
+   result:=LoadFontFromMemory(LoadFileAsBytes(fname),useAdvKerning);
   end;
 
 
@@ -347,7 +347,7 @@ procedure TUnicodeFont.InitDefaults;
 
 constructor TUnicodeFont.LoadFromFile(fname: string; UseAdvKerning: boolean);
  begin
-  LoadFromMemory(LoadFile2(fname),UseAdvKerning);
+  LoadFromMemory(LoadFileAsBytes(fname),UseAdvKerning);
  end;
 
 constructor TUnicodeFont.LoadFromMemory(data: array of byte;

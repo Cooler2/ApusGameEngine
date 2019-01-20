@@ -35,7 +35,8 @@ uses
   colors in '..\colors.pas',
   RSA in '..\RSA.pas',
   MemoryLeakUtils in '..\MemoryLeakUtils.pas',
-  AnimatedValues in '..\AnimatedValues.pas';
+  AnimatedValues in '..\AnimatedValues.pas',
+  myHuffman in '..\myHuffman.pas';
 
 var
  sa:StringArr;
@@ -138,7 +139,7 @@ procedure TestQuotes;
    dest:array of byte;
   begin
    writeln('== Test Compression ==');
-   st:=LoadFile(paramStr(1));
+   st:=LoadFileAsString(paramStr(1));
    if pos('.packed',paramstr(1))>0 then begin
     st:=SimpleDecompress(st);
     WriteFile(StringReplace(paramstr(1),'.packed','.unpacked',[]),@st[1],0,length(st));
