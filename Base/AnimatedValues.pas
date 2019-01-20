@@ -70,6 +70,7 @@ implementation
       logName:='';
       lastTime:=0;
       lastValue:=0;
+      lock:=0;
     end;
 
   constructor TAnimatedValue.Assign(initValue:single);

@@ -4,6 +4,7 @@
 {$IFNDEF FPC}{$IFNDEF DELPHI}
 For Delphi - please define global symbol "DELPHI"!
 {$ENDIF}{$ENDIF}
+{$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 
 
 // Модуль, содержащий очень полезные функции общего назначения
@@ -81,7 +82,9 @@ interface
   // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
   TSplineFunc=function(x,x0,x1,y0,y1:single):single;
 
-
+  TSortableObject=class
+   function Compare(obj:TSortableObject):integer; virtual; // Stub
+  end;
 
   PSortableObject=^TSortableObject;
   TSortableObjects=array of TSortableObject;
