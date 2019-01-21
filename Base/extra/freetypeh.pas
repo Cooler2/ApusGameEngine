@@ -52,7 +52,8 @@ const
 {$endif}
 
 type
-  FT_Encoding = array[0..3] of char;
+  PChar = PAnsiChar; // Delphi unicode compatibility
+  FT_Encoding = array[0..3] of AnsiChar;
 
 const
   FT_FACE_FLAG_SCALABLE = 1 shl 0;
@@ -122,9 +123,9 @@ type
   FT_Bool = boolean;
   FT_FWord = smallint;
   FT_UFWord = word;
-  FT_Char = char;
+  FT_Char = AnsiChar;
   FT_Byte = byte;
-  FT_String = char;
+  FT_String = AnsiChar;
   FT_Short = smallint;
   FT_UShort = word;
   FT_Int = longint;
@@ -212,8 +213,8 @@ type
     pitch : integer;
     buffer : pointer;
     num_grays : shortint;
-    pixel_mode : char;
-    palette_mode : char;
+    pixel_mode : AnsiChar;
+    palette_mode : AnsiChar;
     palette : pointer;
   end;
 
