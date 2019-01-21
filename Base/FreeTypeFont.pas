@@ -149,7 +149,7 @@ begin
   end;
   result:=result+Interval(st[i],st[i+1],size);
  end;
- result:=max2(maxLineWidth,result+lastCharW);
+ result:=max2(maxLineWidth,result+lastCharW)-1;
 end;
 
 function TFreeTypeFont.Interval(ch1, ch2: WideChar;size:single): integer;

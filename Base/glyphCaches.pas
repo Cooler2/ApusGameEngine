@@ -4,9 +4,6 @@ unit glyphCaches;
 interface
  uses types,structs;
 
-// 1-st variant: grid cache
-//------------------------------
-
 type
  // Item of text cache area
  TGlyphCacheBlock=record
@@ -23,6 +20,7 @@ type
   dx,dy:integer; // glyph position relative to output (cursor) point
  end;
 
+ // Абстрактный интерфейс для кэширования глифов или других мелких картинок в одной большой текстуре
  TGlyphCache=class
   lastTimeStamp:cardinal;
   relX,relY:integer; // положение, относительно которого возвращаются результаты
