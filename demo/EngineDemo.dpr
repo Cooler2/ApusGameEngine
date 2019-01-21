@@ -60,7 +60,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 9;
+ testnum:integer = 12;
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -744,7 +744,7 @@ end;
 
 procedure TFontTest2.Init;
 begin
- //font:=TFreeTypeFont.LoadFromFile('res\arial.ttf');
+ font:=TFreeTypeFont.LoadFromFile('res\arial.ttf');
 // font:=TFreeTypeFont.LoadFromFile('12460.ttf');
  buf:=texman.AllocImage(400,50,ipfARGB,0,'txtbuf') as TTextureImage;
  painter.LoadFont('res\arial.ttf');
@@ -759,12 +759,10 @@ var
  size:single;
  st:string;
 begin
-// if frame>0 then exit;
  inc(frame);
  painter.Clear($FF000080 { $ FF000000+frame and 127},-1,-1);
  painter.BeginPaint(nil);
  // Unicode text output
-
 
  f:=painter.GetFont('Arial',30);
  painter.TextOutW(f,10,40,$FFFFA080,'Première tentative de l''écriture!',taLeft);
@@ -824,9 +822,9 @@ begin
  painter.TextOutW(f,150,750,$FFC0C0C0,IntToStr(frame));
 
  painter.DrawLine(700,672,700,730,$80FFFF50);
- painter.FillRect(700-22,700,700+22,725,$60000000);
- painter.TextOutW(f,700,690,$FFC0C0C0,'Center',taRight);
- painter.TextOutW(f,700,720,$FFC0C0C0,'Right',taCenter);
+ painter.FillRect(700-29,700,700+29,725,$60000000);
+ painter.TextOutW(f,700,690,$FFC0C0C0,'Right',taRight);
+ painter.TextOutW(f,700,720,$FFC0C0C0,'Center',taCenter);
  painter.FillRect(600,732,600+290,757,$60000000);
  painter.TextOutW(f,600,750,$FFC0C0C0,'Justify {i}this{/i} {u}simple and small{/u} text',
    taJustify,toComplexText,290);
@@ -1542,7 +1540,7 @@ var
  x,y:integer;
 begin
  try
- prog:=TGLPainter(painter).BuildShaderProgram(LoadFileAsString('shader.vert'),LoadFileAsString('shader.frag'));
+ prog:=TGLPainter(painter).BuildShaderProgram(LoadFileAsString('res\shader.vert'),LoadFileAsString('res\shader.frag'));
  loc1:=glGetUniformLocation(prog,'offset');
 
  tex:=texman.AllocImage(256,256,ipfARGB,0,'tex') as TTextureImage;
@@ -1576,12 +1574,12 @@ begin
  painter.DrawImage(600,10,tex);
  glUseProgram(prog);
  d:=1+sin(0.003*(myTickCount mod $FFFFFF));
- glUniform1f(loc1,0.003*d);
+ //glUniform1f(loc1,0.003*d);
  painter.DrawImage(600,300,tex);
  painter.Restore;
  //glUseProgram(0);
- painter.FillGradrect(50,50,300,200,$FFF04000,$FF60C000,false);
- painter.FillRect(30,100,500,120,$FF000000);
+ //painter.FillGradrect(50,50,300,200,$FFF04000,$FF60C000,false);
+ //painter.FillRect(30,100,500,120,$FF000000);
  painter.EndPaint;
 end;
 
