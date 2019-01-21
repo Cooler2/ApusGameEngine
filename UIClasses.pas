@@ -86,7 +86,7 @@ type
   width,height:integer; // Размеры элемента (могут быть больше экрана)
                         // DO NOT CHANGE AFTER BEING DISPLAYED! Use Resize() instead!
   ncLeft,ncTop,ncRight,ncBottom:integer; // рамка отсечения при отрисовке вложенных эл-тов (может также использоваться для других целей)
-  transpmode:TTranspMode;  // Режим прозрачности
+  transpmode:TTranspMode;  // Режим прозрачности для событий ввода
   region:TRegion;   // задает область непрозрачности в режиме tmCustom (поведение по умолчанию)
   scrollX,scrollY:integer; // смещение (используется для вложенных эл-тов!)
   scrollerH,scrollerV:TUIScrollBar;  // если для прокрутки используются скроллбары - здесь можно их определить
@@ -98,9 +98,11 @@ type
   visible:boolean; // должен ли элемент рисоваться
   customDraw:boolean; // Указывает на то, что элемент рисуется специальным кодом, а DrawUI его игнорирует
   cursor:integer; // Идентификатор курсора (0 - default)
-  order:integer; // Определяет порядок отрисовки ($10000 - база для StayOnTop-эл-тов)
+  order:integer; // Определяет порядок отрисовки ($10000 - база для StayOnTop-эл-тов), отрицательные значения - специальные
+  // Define how the element should be displayed
   style:byte;    // Стиль для отрисовки (0 - использует отрисовщик по умолчанию)
   styleinfo:string; // дополнительные сведения для стиля
+
   canHaveFocus:boolean; // может ли элемент обладать фокусом ввода
   hint,hintIfDisabled:string; // текст всплывающей подсказки (отдельный вариант - для ситуации, когда элемент disabled, причем именно этот элемент, а не за счёт предков)
   hintDelay:integer; // время (в мс), через которое элемент должен показать hint (в режиме показа hint'ов это время значительно меньше)
@@ -121,7 +123,7 @@ type
   globalRect:TRect;  // положение элемента на экране (может быть устаревшим! для точного положения - GetPosOnScreen)
 
   class var
-   handleMouseIfDisabled:boolean; 
+   handleMouseIfDisabled:boolean; // следует ли передавать события мыши элементу, если он отключен
 
   // Создает независимый элемент
   constructor Create(cx,cy,w,h:integer;parent_:TUIControl;name_:string='');
@@ -449,7 +451,7 @@ type
   popup:TUIListBox;
   maxlines:integer; // max lines to show without scrolling
   constructor Create(x_,y_,width_,height_:integer;bFont:cardinal;list:WStringArr;parent_:TUIControl;name:string);
-  procedure AddItem(item:WideString;tag:cardinal=0;hint:string=''); virtual;
+  procedure AddItem(item:WideString;tag:cardinal=0;hint:WideString=''); virtual;
   procedure SetItem(index:integer;item:WideString;tag:cardinal=0;hint:string=''); virtual;
   procedure ClearItems;
   procedure onDropDown; virtual;
@@ -1747,9 +1749,6 @@ begin
    if shiftstate and sscCtrl>0 then begin // Сдвиг более чем на 1 символ
     while (cursorpos-step>0) and (realtext[cursorpos-step]>='A') do inc(step);
    end;
-   // Многобайтовый спецсимвол
-   if (cursorpos>1) and (realtext[cursorpos]=#2) then
-    while (cursorpos+1-step>0) and (realtext[cursorpos+1-step]<>#1) do inc(step);
 
    if shiftstate and sscShift>0 then begin
     if (selcount>0) and (cursorpos>=selstart) then dec(selcount,step)
@@ -1770,9 +1769,6 @@ begin
     while (cursorpos+step<length(realtext)) and not ((realtext[cursorpos+step+1]>='A')
      and not (realtext[cursorpos+step]>='A')) do inc(step);
    end;
-   // Многобайтовый спецсимвол
-   if (realtext[cursorpos]=#1) and (cursorpos<length(realtext)-1) then
-    while (cursorpos+step<=length(realtext)) and (realtext[cursorpos+step]<>#2) do inc(step);
 
    if shiftstate and sscShift>0 then begin
     if (selcount>0) and (cursorpos<length(realtext)) and (cursorpos>=selstart) then inc(selcount,step)
@@ -1805,10 +1801,7 @@ begin
    if selcount>0 then
     begin delete(realtext,selstart,selcount); selcount:=0; cursorpos:=selstart-1; end
    else begin
-    step:=1;
-    if (cursorpos>1) and (realtext[cursorpos]=#2) then
-     while (cursorpos-step>0) and (realtext[cursorpos-step]<>#1) do inc(step);
-    if cursorpos>0 then begin delete(realtext,cursorpos+1-step,step); dec(cursorpos); end;
+    if cursorpos>0 then begin delete(realtext,cursorpos,1); dec(cursorpos); end;
    end;
   end;
 
@@ -1841,10 +1834,7 @@ begin
      end;
    end else begin
     if (cursorpos<length(realtext)) then begin
-     step:=1;
-     if realtext[cursorpos+1]=#1 then
-      while (cursorpos+step<length(realtext)) and (realtext[cursorpos+1+step]<>#2) do inc(step);
-     delete(realtext,cursorpos+1,step);
+     delete(realtext,cursorpos+1,1);
     end;
    end;
   end;
@@ -2316,7 +2306,7 @@ end;
 
 { TUIConboBox }
 
-procedure TUIComboBox.AddItem(item: WideString; tag: cardinal; hint: string);
+procedure TUIComboBox.AddItem(item: WideString; tag: cardinal; hint: WideString);
 var
  n:integer;
 begin

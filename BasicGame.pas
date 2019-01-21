@@ -196,7 +196,8 @@ type
   mouseMoved:int64; // Момент времени, когда положение мыши изменилось
   mouseButtons:byte;     // Флаги "нажатости" кнопок мыши (0-левая, 1-правая, 2-средняя)
   oldMouseButtons:byte;  // предыдущее (отличающееся) значение mouseButtons
-  textLink:cardinal; // Вычисленный на предыдущем кадре номер ссылки под мышью записывается здесь (сам по себе он не вычисляется, для этого надо запускать отрисовку текста особым образом) 
+  textLink:cardinal; // Вычисленный на предыдущем кадре номер ссылки под мышью записывается здесь (сам по себе он не вычисляется, для этого надо запускать отрисовку текста особым образом)
+                     // TODO: плохо, что этот параметр глобальный, надо сделать его свойством сцен либо элементов UI, чтобы можно было проверять объект под мышью с учётом наложений
   textLinkRect:TRect; // область ссылки, по номеру textLink
 
   // параметры выставляются при смене режима, указыают что именно изменялось
@@ -777,9 +778,7 @@ begin
    if not DirectoryExists('Screenshots') then
     CreateDir('Screenshots');
    if SaveScreenshotsToJPEG then ext:='.jpg' else ext:='.tga';
-   while (n<200) and
-         (FileExists('Screenshots\scr'+inttostr(n div 10)+inttostr(n mod 10)+ext)) do inc(n);
-   st:='Screenshots\scr'+inttostr(n div 10)+inttostr(n mod 10)+ext;
+   st:='Screenshots\'+FormatDateTime('yymmdd_hhnnss',Now)+ext;
    img:=screenshotDataRAW;
    if SaveScreenshotsToJPEG then
      SaveJPEG(img,st,95)

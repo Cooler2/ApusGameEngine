@@ -442,7 +442,6 @@ type
   multisampling:byte; // включить мультисэмплинг (fs-антиалиасинг) - кол-во сэмплов (<2 - отключен)
   slowmotion:boolean; // true - если преобладают медленные сцены или если есть большой разброс
                       // в скорости - тогда возможна (но не гарантируется) оптимизация перерисовки
-//  customCursor:boolean; // если truе, то курсор рисуется движком программно 
  end;
 
 
@@ -451,7 +450,7 @@ type
  // Базовый эффект для background-сцены
  TSceneEffect=class
   timer:integer; // время (в тысячных секунды), прошедшее с момента начала эффекта
-  time:integer;  // время, за которое эффект должен выполнится
+  duration:integer;  // время, за которое эффект должен выполнится
   done:boolean;  // Флаг, сигнализирующий о том, что эффект завершен
   forScene:TGameScene;
   name:string; // description for debug reasons
@@ -524,6 +523,9 @@ type
   procedure onMouseMove(x,y:integer); virtual;
   procedure onMouseBtn(btn:byte;pressed:boolean); virtual;
   procedure onMouseWheel(delta:integer); virtual;
+
+  // For non-fullscreen scenes return occupied area
+  function GetArea:TRect; virtual; abstract;
  private
   // Ввод
   KeyBuffer:array[0..63] of cardinal;
@@ -654,8 +656,8 @@ end;
 constructor TSceneEffect.Create(scene:TGameScene;TotalTime:integer);
 begin
  done:=false;
- time:=TotalTime;
- if time=0 then time:=10;
+ duration:=TotalTime;
+ if duration=0 then duration:=10;
  timer:=0;
  if scene.effect<>nil then begin
   ForceLogMessage('New scene effect replaces old one! '+scene.name+' previous='+scene.effect.name);
