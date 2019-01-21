@@ -677,7 +677,7 @@ begin
  {$ENDIF}
 
  ctl:=UseControlFile('sounds.ctl','');
- SetEventHandler('SOUND',EventHandler,sync);
+ SetEventHandler('SOUND',EventHandler,emQueued);
  if not waitForPreload then initialized:=true;
  LoadConfig;
  needmusic:=nil;

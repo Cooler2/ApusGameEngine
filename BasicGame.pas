@@ -634,11 +634,11 @@ begin
   {$ENDIF}
  end else begin
   loopThread:=nil;
-  SetEventHandler('Engine\Cmd',EngineCmdEvent,sync);
-  SetEventHandler('Engine\',EngineEvent,async);
+  SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
+  SetEventHandler('Engine\',EngineEvent,emInstant);
   Signal('Engine\MainLoopInit');
  end;
- SetEventHandler('Kbd\KeyDown',EngineKbdEvent,async);
+ SetEventHandler('Kbd\KeyDown',EngineKbdEvent,emInstant);
 
  for i:=1 to 400 do
   if not running then sleep(50) else break;
@@ -2044,7 +2044,7 @@ begin
   {$IFDEF MSWINDOWS}
   owner.CreateMainWindow;
   {$ENDIF}
-  SetEventHandler('Engine\Cmd',EngineCmdEvent,sync);
+  SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
   owner.InitMainLoop; // вызывает InitGraph
   owner.running:=true; // Это как-бы семафор для завершения функции Run
   LogMessage('MainLoop started');

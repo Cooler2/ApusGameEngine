@@ -28,7 +28,7 @@ interface
   procedure DeleteAllButtonImages;
 
 implementation
- uses SysUtils,myservis,EventMan,EngineTools,UIRender,colors,structs,publics;
+ uses SysUtils,MyServis,AnimatedValues,EventMan,EngineTools,UIRender,colors,structs,publics;
 
  type
   // Для каждого элемента UI хранится такая структура с картинками и прочими сведениями
@@ -86,7 +86,7 @@ implementation
   begin
    LogMessage('Init bitmap style');
    InitCritSect(crSect,'BitmapStyle',70);
-   SetEventHandler('BitmapStyle',@eventHandler,sync);  /// заменить sync на mixed!
+   SetEventHandler('BitmapStyle',@eventHandler,emMixed);  /// заменить sync на mixed!
    styleCls:=style;
    RegisterUIStyle(styleID,BitmapStyleHandler);
    btnHash.Init;

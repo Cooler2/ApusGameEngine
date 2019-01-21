@@ -768,13 +768,13 @@ begin
  if initialized then exit;
  // асинхронная обработка: сигналы обрабатываются в том же потоке, что и вызываются,
  // независимо от того из какого потока вызывается ф-ция InitUI
- SetEventHandler('Mouse',MouseEventHandler,async);
- SetEventHandler('Kbd',KbdEventHandler,async);
- SetEventHandler('Engine\ActivateWnd',ActivateEventHandler,async);
- SetEventHandler('UI\SetGlobalShadow',onSetGlobalShadow,async);
- SetEventHandler('UI\ItemCreated',onItemCreated,async);
- SetEventHandler('UI\ItemRenamed',onItemRenamed,async);
- SetEventHandler('UI\SetFocus',onSetFocus,async);
+ SetEventHandler('Mouse',MouseEventHandler,emInstant);
+ SetEventHandler('Kbd',KbdEventHandler,emInstant);
+ SetEventHandler('Engine\ActivateWnd',ActivateEventHandler,emInstant);
+ SetEventHandler('UI\SetGlobalShadow',onSetGlobalShadow,emInstant);
+ SetEventHandler('UI\ItemCreated',onItemCreated,emInstant);
+ SetEventHandler('UI\ItemRenamed',onItemRenamed,emInstant);
+ SetEventHandler('UI\SetFocus',onSetFocus,emInstant);
 
  PublishFunction('GetFont',fGetFontHandle);
 

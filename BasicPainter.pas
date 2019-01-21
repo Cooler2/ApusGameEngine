@@ -2569,7 +2569,7 @@ var
  {$ENDIF}
 begin
  if pos('.fnt',fname)>0 then begin
-  font:=LoadFile2(FileName(fname));
+  font:=LoadFileAsBytes(FileName(fname));
   result:=LoadFont(font,asName);
  end else begin
   {$IFDEF FREETYPE}
@@ -3457,7 +3457,7 @@ begin // -----------------------------------------------------------
  if (font and fhDontTranslate=0) and (options and toDontTranslate=0) then st:=translate(st);
 
  // Multiline?
- if pos(#13#10,st)>0 then begin
+ if pos(WideString(#13#10),st)>0 then begin
   DrawMultiline;
   exit;
  end;

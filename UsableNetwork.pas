@@ -144,8 +144,8 @@ begin
 // ForceWANmode:=true;
 // ConnectionsOnly:=true;
  GamePointer:=GamePt as TBasicGame;
- SetEventHandler('Net',EventHandler,sync);
- SetEventHandler('Engine\',EventHandler,sync);
+ SetEventHandler('Net',EventHandler,emQueued);
+ SetEventHandler('Engine\',EventHandler,emQueued);
  wasinit:=true;
  lanlogging:=false;
  onlinelogging:=false;

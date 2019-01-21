@@ -56,7 +56,7 @@ type
 
   // Extended shader functionality
   // attribNames='aName1,aName2,...aNameN' - attribute names bound to indices 0..n-1
-  function BuildShaderProgram(vSrc,fSrc:string;attribNames:string=''):integer;
+  function BuildShaderProgram(vSrc,fSrc:AnsiString;attribNames:AnsiString=''):integer;
   // Set predefined shader for color transformation (nil - go back to default shader)
   procedure SetColorTransform(mat:PMatrix43s);
 
@@ -129,7 +129,7 @@ var
  glDebug:boolean = {$IFDEF MSWINDOWS} false {$ELSE} true {$ENDIF};
 
 implementation
- uses MyServis,SysUtils,
+ uses CrossPlatform,MyServis,SysUtils,
     {$IFDEF GLES11}gles11,glext,{$ENDIF}
     {$IFDEF GLES20}gles20,{$ENDIF}
     {$IFNDEF GLES}dglOpenGl,{$ENDIF}
@@ -259,20 +259,20 @@ begin
  inherited;
 end;
 
-function TGLPainter.BuildShaderProgram(vSrc,fSrc:string;attribNames:string=''):integer;
+function TGLPainter.BuildShaderProgram(vSrc,fSrc:AnsiString;attribNames:AnsiString=''):integer;
 var
  vsh,fsh:GLuint;
- str:PChar;
+ str:PAnsiChar;
  i,len,res:integer;
  prog:integer;
- sa:StringArr;
+ sa:AStringArr;
 function GetShaderError(shader:GLuint):string;
  var
   maxlen:integer;
-  errorLog:PChar;
+  errorLog:PAnsiChar;
  begin
   glGetShaderiv(shader,GL_INFO_LOG_LENGTH,@maxlen);
-  errorLog:=StrAlloc(maxlen);
+  errorLog:=AnsiStrAlloc(maxlen);
   {$IFDEF GLES}
   glGetShaderInfoLog(shader,maxLen,@maxLen,errorLog);
   {$ELSE}
@@ -286,8 +286,8 @@ begin
   result:=0; exit;
  end;
  vsh:=glCreateShader(GL_VERTEX_SHADER);
- str:=PChar(vSrc);
- len:=length(str);
+ str:=PAnsiChar(vSrc);
+ len:=length(vSrc);
  glShaderSource(vsh,1,@str,@len);
  glCompileShader(vsh);
  glGetShaderiv(vsh,GL_COMPILE_STATUS,@res);
@@ -295,8 +295,8 @@ begin
 
  // Fragment shader
  fsh:=glCreateShader(GL_FRAGMENT_SHADER);
- str:=PChar(fSrc);
- len:=length(str);
+ str:=PAnsiChar(fSrc);
+ len:=length(fSrc);
  glShaderSource(fsh,1,@str,@len);
  glCompileShader(fsh);
  glGetShaderiv(fsh,GL_COMPILE_STATUS,@res);
@@ -307,9 +307,9 @@ begin
  glAttachShader(prog,vsh);
  glAttachShader(prog,fsh);
  if attribNames>'' then begin
-  sa:=split(',',attribNames);
+  sa:=splitA(',',attribNames);
   for i:=0 to high(sa) do
-   glBindAttribLocation(prog,i,PChar(sa[i])); // Link attribute index i to attribute named sa[i]
+   glBindAttribLocation(prog,i,PAnsiChar(sa[i])); // Link attribute index i to attribute named sa[i]
  end;
  glLinkProgram(prog);
  glGetProgramiv(prog,GL_LINK_STATUS,@res);

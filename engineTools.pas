@@ -473,7 +473,7 @@ var
  i,j:integer;
  tex:TTextureImage;
  f:file;
- buf:pointer;
+ buf:ByteArray;
  size:integer;
  conversion:boolean;
  srcformat:TImageFormat;
@@ -494,12 +494,7 @@ begin
  // этап 1 - загрузка исходного файла и его параметров в буфер
  if ftype=1 then begin
   // загружаем DDS
-  assign(f,fname);
-  reset(f,1);
-  size:=filesize(f);
-  getmem(buf,size);
-  blockread(f,buf^,size);
-  close(f);
+  buf:=LoadFileAsBytes(fname);
   CheckImageFormat(buf);
   srcformat:=ifDDS;
   if format=ipfNone then format:=imgInfo.format;
@@ -512,7 +507,7 @@ begin
     width:=width div 4;
     height:=height div 4;
    end;
-   sp:=buf; inc(sp,128);
+   sp:=@buf[0]; inc(sp,128);
    for i:=0 to imginfo.miplevels-1 do begin
     if width=0 then width:=1;
     if height=0 then height:=1;
@@ -665,10 +660,10 @@ begin
 
   // 2. LOAD DATA FILE AND CHECK IT'S FORMAT
   LogMessage('Loading '+fname);
-  data:=LoadFile2(fname);
+  data:=LoadFileAsBytes(fname);
   if length(data)<30 then raise EError.Create('Bad image file: '+fname);
 
-  format:=CheckImageFormat(@data[0]);
+  format:=CheckImageFormat(data);
   if not (format in [ifTGA,ifJPEG,ifPNG,ifTXT,ifDDS,ifPVR]) then
    raise EError.Create('image format not supported');
 
@@ -688,7 +683,7 @@ begin
    DebugMessage('Checking '+st);
    if MyFileExists(st) then begin
     DebugMessage('Loading RAW alpha ');
-    rawData:=LoadFile2(st);
+    rawData:=LoadFileAsBytes(st);
     if CheckRLEHeader(@rawdata[0],length(rawData))>0 then
       rawData:=UnpackRLE(@rawdata[0],length(rawData));
     forceFormat:=ipfARGB;

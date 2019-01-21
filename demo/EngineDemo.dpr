@@ -5,16 +5,20 @@ uses
   windows,
   sysutils,
   myservis,
-  DirectXGraphics,
   geom2d,
   geom3d,
   images,
   Types,
-  dglOpenGl,
   eventMan,
   FastGfx,
   DirectText,
   FreeTypeFont,
+  {$IFDEF OPENGL}
+  dglOpenGl,
+  {$ENDIF}
+  {$IFDEF DIRECTX}
+  DirectXGraphics,
+  {$ENDIF}
   EngineCls in '..\EngineCls.pas',
   UIClasses in '..\UIClasses.pas',
   PainterGL in '..\PainterGL.pas',
@@ -56,7 +60,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 12;       
+ testnum:integer = 9;
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -72,8 +76,8 @@ const
  // 13 - тест шейдеров OpenGL
  // 14 - тест видео
 
- TexVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR+D3DFVF_TEX1+D3DFVF_TEXTUREFORMAT2;
- ColVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR;
+ //TexVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR+D3DFVF_TEX1+D3DFVF_TEXTUREFORMAT2;
+ //ColVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR;
 
 var
  savetime:cardinal;
@@ -1538,7 +1542,7 @@ var
  x,y:integer;
 begin
  try
- prog:=TGLPainter(painter).BuildShaderProgram(LoadFile('shader.vert'),LoadFile('shader.frag'));
+ prog:=TGLPainter(painter).BuildShaderProgram(LoadFileAsString('shader.vert'),LoadFileAsString('shader.frag'));
  loc1:=glGetUniformLocation(prog,'offset');
 
  tex:=texman.AllocImage(256,256,ipfARGB,0,'tex') as TTextureImage;

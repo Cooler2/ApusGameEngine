@@ -66,7 +66,7 @@ var
 
  // Парсит и ресолвит (если необходимо) адрес, заданный в виде строки
  // Внимание!!! Может занять много времени!
- procedure GetInternetAddress(address:string;var ip:cardinal;var port:word);
+ procedure GetInternetAddress(address:AnsiString;var ip:cardinal;var port:word);
 
  // Is internet connection available? positive - yes, negative - no
  function CheckInternetConnection:integer;
@@ -197,7 +197,7 @@ implementation
 var
  WSAInit:boolean;
 
-procedure GetInternetAddress(address:string;var ip:cardinal;var port:word);
+procedure GetInternetAddress(address:AnsiString;var ip:cardinal;var port:word);
  var
   i:integer;
   h:PHostEnt;
@@ -225,11 +225,11 @@ procedure GetInternetAddress(address:string;var ip:cardinal;var port:word);
     for i:=1 to length(address) do
      if not (address[i] in ['0'..'9','.']) then fl:=false;
     if fl then begin
-     ip:=inet_addr(PChar(address));
+     ip:=inet_addr(PAnsiChar(address));
     end else begin
      LogMessage('Resolving host address: '+address);
      sleep(10);
-     h:=GetHostByName(PChar(address));
+     h:=GetHostByName(PAnsiChar(address));
      if h=nil then begin
       {$IFDEF MSWINDOWS}
       port:=WSAGetLastError;
@@ -469,7 +469,7 @@ procedure TMainThread.Execute;
   serial:=0;
   MD5pwd:=ShortMD5(password);
   LogMessage('NW3: HTTP thread started');
-  SetEventHandler('HTTP_Event',EventHandler,sync);
+  SetEventHandler('HTTP_Event',EventHandler,emQueued);
   try
    state:=csNone;
    // Главный цикл
@@ -595,7 +595,7 @@ procedure CreateAccount(server,login,password,name,extras:string);
   i:integer;
  begin
   RemoveEventHandler(EventHandler2);
-  SetEventHandler('HTTP_Event2',EventHandler2,async);
+  SetEventHandler('HTTP_Event2',EventHandler2,emInstant);
   query:=name+#9+login+#9+ShortMD5(password)+#9+extras;
   b:=47;
   for i:=1 to length(query) do begin

@@ -127,7 +127,7 @@ begin
   // Not running in NT or program is not Delphi itself ?
   AppName[0] := #0;
   lstrcat(AppName, PChar(ParamStr(0)));  // ParamStr(0) = Application.ExeName
-  CharUpperBuff(AppName, SizeOf(AppName));
+  CharUpperBuff(AppName, length(AppName));
   result := ( (OSVersion.dwPlatformID = VER_PLATFORM_WIN32_NT) and
               (Pos('DELPHI32.EXE', AppName) = Length(AppName) - Length('DELPHI32.EXE') + 1) );
 end;

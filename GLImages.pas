@@ -540,7 +540,7 @@ begin
  fillChar(texNames,sizeof(texnames),0);
  mainThreadID:=GetCurrentThreadId;
  texman:=self;
- SetEventHandler('GLImages',EventHandler,mixed);
+ SetEventHandler('GLImages',EventHandler,emMixed);
  {$IFDEF GLES}
  glGetIntegerv(GL_MAX_TEXTURE_SIZE, @maxTextureSize);
  maxFBWidth:=maxTextureSize;

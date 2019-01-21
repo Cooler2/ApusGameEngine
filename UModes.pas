@@ -535,8 +535,8 @@ begin
  {$ENDIF}
  CheckProgress;
 
- SetEventHandler('UI\LANGUAGECHANGED',@EventHandler,sync);
- SetEventHandler('UI\SCREENSIZECHANGED',@EventHandler,sync);
+ SetEventHandler('UI\LANGUAGECHANGED',@EventHandler,emQueued);
+ SetEventHandler('UI\SCREENSIZECHANGED',@EventHandler,emQueued);
 
  AddConsoleScene;
  CreateTweakerScene(painter.GetFont('Default',6),painter.GetFont('Default',7));
@@ -887,8 +887,8 @@ begin
  wasinit:=true;
  minimized:=false;
  lastdrawtime:=GetCurTime;
- SetEventHandler('UI\'+name+'\',CommonHandler,sync);
- SetEventHandler('SCENES\'+name+'\',CommonHandler,async);
+ SetEventHandler('UI\'+name+'\',CommonHandler,emQueued);
+ SetEventHandler('SCENES\'+name+'\',CommonHandler,emQueued);
 
  if windowed=false then
  begin

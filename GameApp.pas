@@ -26,19 +26,25 @@ interface
 
  type
   TGameApplication=class
+   // Call these methods from external code to launch the game
+   // Basic initialization: logs, configs, settings
    constructor Create;
-   destructor Destroy; override;
+   // Creates game objects, window, starts render, create scenes and launch infinite main loop
    procedure Run; virtual;
-   procedure LoadOptions; virtual;   // Load configuration
-   procedure SaveOptions; virtual;
+   // Finalization (you can use Free to call this indirectly)
+   destructor Destroy; override;
+
+   // These methods provide default functionality. Override them to add extra functions
    procedure HandleParam(param:string); virtual;    // Handle each command line option
+   procedure LoadOptions; virtual;   // Load settings (may add default values)
+   procedure SaveOptions; virtual;   // Save settings
    procedure SetupScreen; virtual; // Setup window size and output options
    // Initialization routines: override with actual functionality
    procedure LoadFonts; virtual;   // Load font files (called once)
    procedure SelectFonts; virtual;  // Select font constants (may be called many times)
    procedure InitStyles; virtual; // Which styles to add?
    procedure CreateScenes; virtual; // Create and add game scenes
-   procedure InitCursors; virtual; 
+   procedure InitCursors; virtual;
   end;
   TGameApplicationClass=class of TGameApplication;
 
@@ -63,7 +69,7 @@ implementation
  uses
   {$IFDEF MSWINDOWS}windows,{$ENDIF}
   {$IFDEF ANDROID}android,androidGame,{$ENDIF}
-   SysUtils,MyServis,ControlFiles2,UDict,FastGFX,eventMan,
+   SysUtils,MyServis,AnimatedValues,ControlFiles2,UDict,FastGFX,eventMan,
    UIClasses,BasicGame,EngineTools,ConScene,TweakScene,customstyle,BitmapStyle
   {$IFDEF DIRECTX},DXgame8{$ENDIF}
   {$IFDEF OPENGL},GLgame{$ENDIF}

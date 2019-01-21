@@ -407,7 +407,7 @@ begin
 
  ctl:=UseControlFIle('sounds.ctl','');
  LoadConfig;
- SetEventHandler('SOUND',EventHandler,sync);
+ SetEventHandler('SOUND',EventHandler,emQueued);
  needmusic:=nil;
  initialized:=true;
  // Main loop
