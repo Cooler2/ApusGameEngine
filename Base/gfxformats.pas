@@ -790,13 +790,12 @@ procedure LoadTGA;
  end;
  {$ENDIF}
 
- {$IFDEF DELPHI}
  {$IFDEF CPU386}
-  {$LINK lodepng.obj}
   function lodepng_decode32(out image:pointer;out width,height:cardinal;source:pointer;
-    sourSize:integer):cardinal; cdecl; external name '_lodepng_decode32';
+    sourSize:integer):cardinal; cdecl; external 'LodePNG.dll';
   function lodepng_encode32(out image:pointer;out outsize:cardinal;source:pointer;
-    width,height:cardinal):cardinal; cdecl; external name '_lodepng_encode32';
+    width,height:cardinal):cardinal; cdecl; external 'LodePNG.dll';
+  procedure free_mem(buf:pointer); external 'LodePNG.dll';
  {$ENDIF}
  {$IFDEF CPUX64}
   function lodepng_decode32(out image:pointer;out width,height:cardinal;source:pointer;
@@ -830,83 +829,9 @@ procedure LoadTGA;
    end;
    image.Unlock;
 
-   {$IFDEF CPUX64}
    free_mem(buf);
-   {$ELSE}
-   freemem(buf);
-   {$ENDIF}
   end;
- {$IFDEF CPU386}
- // C RTL stub
- function _fopen(fname:PAnsiChar;mode:PAnsiChar):integer; cdecl;
-  begin
-   result:=FileOpen(fName,fmOpenRead);
-  end;
- procedure _fclose(f:integer); cdecl;
-  begin
-   FileClose(f);
-  end;
- procedure _fseek(f:integer;pos,origin:integer); cdecl;
-  begin
-   FileSeek(f,pos,0);
-  end;
- function _ftell(f:integer):integer; cdecl;
-  begin
-   result:=FileSeek(f,0,1);
-  end;
- function _fread(data:pointer;size,count,f:integer):integer; cdecl;
-  begin
-   result:=FileWrite(f,data^,size*count) div size;
-  end;
- function _fwrite(data:pointer;size,count,f:integer):integer; cdecl;
-  begin
-   result:=FileWrite(f,data^,size*count) div size;
-  end;
- function _malloc(size:integer):pointer; cdecl;
-  begin
-   GetMem(result,size);
-  end;
- procedure _free(p:pointer); cdecl;
-  begin
-   FreeMem(p);
-  end;
- function _realloc(p:pointer;size:integer):pointer; cdecl;
-  begin
-   ReallocMem(p,size);
-   result:=p;
-  end;
- function _memcpy(dest,sour:pointer;size:integer):pointer; cdecl;
-  begin
-   move(sour^,dest^,size);
-   result:=dest;
-  end;
- function _strlen(s:PAnsiChar):integer; cdecl;
-  begin
-   result:=StrLen(s);
-  end;
- function _strcmp(s1,s2:PAnsiChar):integer; cdecl;
-  begin
-   result:=StrComp(s1,s2);
-  end;
- function _memset(p:pointer;val,size:integer):pointer; cdecl;
-  begin
-   FillChar(p^,size,val);
-   result:=p;
-  end;
- function _abs(n:integer):integer; cdecl;
-  begin
-   result:=abs(n);
-  end;
- {$ENDIF}
- {$ELSE}
- // FPC version doesn't use LodePNG
- procedure LoadPNG(data:ByteArray;var image:TRawImage);
-  begin
-   LoadImageUsingReader(TFPReaderPNG.Create,data,true,image);
-  end;
- {$ENDIF}
 
- {$IFDEF DELPHI}
  function SavePNG(image:TRawImage):ByteArray;
   var
    data:array of cardinal;
@@ -927,17 +852,14 @@ procedure LoadTGA;
    if err<>0 then raise EWarning.Create('LodePNG error code '+inttostr(err));
    SetLength(result,size);
    move(png^,result[0],size);
-   {$IFDEF CPUX64}
    free_mem(png);
-   {$ELSE}
-   FreeMem(png);
-   {$ENDIF}
   end;
- {$ELSE}
- function SavePNG(image:TRawImage):ByteArray;
+
+{
+ // Alternative version: FPC version doesn't use LodePNG
+ procedure LoadPNG(data:ByteArray;var image:TRawImage);
   begin
-   raise Exception.Create('Sorry, not yet implemented!');
-  end;
- {$ENDIF}
+   LoadImageUsingReader(TFPReaderPNG.Create,data,true,image);
+  end; }
 
 end.
