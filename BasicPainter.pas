@@ -126,10 +126,10 @@ interface
   function LoadFont(fName:string;asName:string=''):string; override; // загрузка из файла, возвращает имя шрифта
   function LoadFont(font:array of byte;asName:string=''):string; override; // загрузка из памяти, возвращает имя шрифта
   function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):cardinal; override; // возвращает хэндл шрифта
-  function TextWidth(font:cardinal;st:string):integer; override;
+  function TextWidth(font:cardinal;st:AnsiString):integer; override;
   function TextWidthW(font:cardinal;st:wideString):integer; override;
   function FontHeight(font:cardinal):integer; override;
-  procedure TextOut(font:cardinal;x,y:integer;color:cardinal;st:string;align:TTextAlignment=taLeft;
+  procedure TextOut(font:cardinal;x,y:integer;color:cardinal;st:AnsiString;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0); override;
   procedure TextOutW(font:cardinal;x,y:integer;color:cardinal;st:widestring;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0); override;
@@ -1547,7 +1547,7 @@ begin
  textCaching:=false;
 end;
 
-function TBasicPainter.TextWidth(font:cardinal;st:string):integer;
+function TBasicPainter.TextWidth(font:cardinal;st:AnsiString):integer;
 begin
  result:=TextWidthW(font,DecodeUTF8(st));
 end;
@@ -1623,7 +1623,7 @@ type
   data:pointer; // glyph bitmap data
  end;
 
-procedure TBasicPainter.TextOut(font:cardinal;x,y:integer;color:cardinal;st:string;
+procedure TBasicPainter.TextOut(font:cardinal;x,y:integer;color:cardinal;st:AnsiString;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
 begin
  TextOutW(font,x,y,color,DecodeUTF8(st),align,options,targetWidth,query);
@@ -1816,7 +1816,7 @@ var
      if targetWidth>0 then x:=x+targetWidth;
      dec(x,width);
     end;
-    taCenter:x:=x+(targetWidth-width)div 2;
+    taCenter:x:=x+(targetWidth-width) div 2;
     taJustify:if not (st[length(st)] in [#10,#13]) then begin
      i:=width;
      if i<round(targetWidth*0.95-10) then SpaceSpacing:=0
