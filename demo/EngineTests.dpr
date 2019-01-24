@@ -1,5 +1,5 @@
 ﻿//{$DEFINE OPENGL}
-program EngineDemo;
+program EngineTests;
 
 uses
   windows,
@@ -60,7 +60,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 12;
+ testnum:integer = 13;
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -1573,13 +1573,14 @@ begin
  painter.Clear($FF000040);
  painter.DrawImage(600,10,tex);
  glUseProgram(prog);
+ ASSERT(glGetError=0);
  d:=1+sin(0.003*(myTickCount mod $FFFFFF));
- //glUniform1f(loc1,0.003*d);
+ glUniform1f(loc1,0.003*d);
  painter.DrawImage(600,300,tex);
  painter.Restore;
- //glUseProgram(0);
- //painter.FillGradrect(50,50,300,200,$FFF04000,$FF60C000,false);
- //painter.FillRect(30,100,500,120,$FF000000);
+ glUseProgram(0);
+ painter.FillGradrect(50,50,300,200,$FFF04000,$FF60C000,false);
+ painter.FillRect(30,100,500,120,$FF000000);
  painter.EndPaint;
 end;
 
@@ -1669,7 +1670,7 @@ begin
  end;
 
  {$IFDEF OPENGL}
- game:=MyGame.Create(true); // Создаем объект
+ game:=MyGame.Create(false); // Создаем объект
  {$ELSE}
  game:=MyGame.Create(0); // Создаем объект
  {$ENDIF}
