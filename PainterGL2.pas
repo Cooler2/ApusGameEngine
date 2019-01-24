@@ -28,9 +28,8 @@ type
 
  protected
    defaultShader:integer;
-   uMVP:integer;
    MVP:T3DMatrix;
-   uTex1,uTexmode:integer; // uniform locations
+   uMVP,uTex1,uTexmode:integer; // uniform locations
 
    curTexMode:int64; // описание режима текстурирования, установленного клиентским кодом
    actualTexMode:int64; // фактически установленный режим текстурирования

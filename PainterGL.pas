@@ -183,24 +183,24 @@ end;
 
 const
  vColorMatrix=
-  'void main(void)'+
-  '{'+
-  '    gl_TexCoord[0] = gl_MultiTexCoord0;                           '+
-  '    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;       '+
+  'void main(void)'#13#10+
+  '{'#13#10+
+  '    gl_TexCoord[0] = gl_MultiTexCoord0;                           '#13#10+
+  '    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;       '#13#10+
   '}';
 
  fColorMatrix=
-  'uniform sampler2D tex1;    '+
-  'uniform vec3 newRed;   '+
-  'uniform vec3 newGreen;   '+
-  'uniform vec3 newBlue;   '+
-  'void main(void)                         '+
-  '{                                       '+
-  '    vec4 value = texture2D(tex1, vec2(gl_TexCoord[0]));  '+
-	'    float red = dot(value, vec4(newRed, 0));     '+
-	'    float green = dot(value, vec4(newGreen, 0)); '+
-	'    float blue = dot(value, vec4(newBlue,0));    '+
-	'    gl_FragColor = vec4(red,green,blue,value.a); '+
+  'uniform sampler2D tex1;    '#13#10+
+  'uniform vec3 newRed;   '#13#10+
+  'uniform vec3 newGreen;   '#13#10+
+  'uniform vec3 newBlue;   '#13#10+
+  'void main(void)                         '#13#10+
+  '{                                       '#13#10+
+  '    vec4 value = texture2D(tex1, vec2(gl_TexCoord[0]));  '#13#10+
+	'    float red = dot(value, vec4(newRed, 0));     '#13#10+
+	'    float green = dot(value, vec4(newGreen, 0)); '#13#10+
+	'    float blue = dot(value, vec4(newBlue,0));    '#13#10+
+	'    gl_FragColor = vec4(red,green,blue,value.a); '#13#10+
   '}';
 
 
@@ -537,37 +537,12 @@ begin
   glDisableClientState(GL_TEXTURE_COORD_ARRAY);
  end;
 
- // Вообще-то это должен делать вызывающий код 
+ // Вообще-то это должен делать вызывающий код
  glActiveTexture(GL_TEXTURE1);
  glDisable(GL_TEXTURE_2D);
  glActiveTexture(GL_TEXTURE0);
  glClientActiveTexture(GL_TEXTURE0);
 end;
-
-{procedure TGLPainter.SetTexInterpolationMode(stage:byte;intMode:TTexInterpolateMode;factor:single);
-var
- color:array[0..3] of single;
- v:single;
-begin
- if texIntMode[stage]<>intMode then begin
-  glActiveTexture(GL_TEXTURE0+stage);
-  case texIntMode[stage] of
-   tintFactor:begin
-    glTexEnvi(GL_TEXTURE_ENV, GL_SRC2_RGB, GL_CONSTANT);
-    glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND2_RGB, GL_SRC_COLOR);
-   end;
-   else raise EWarning.Create('Texture interpolation mode not supported');
-  end;
-  texIntMode[stage]:=intMode;
- end;
- if (intMode=tintFactor) and (factor<>texIntFactor[stage]) then begin
-  glActiveTexture(GL_TEXTURE0+stage);
-  v:=factor;
-  color[0]:=v; color[1]:=v; color[2]:=v; color[3]:=v;
-  glTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, @color);
-  texIntFactor[stage]:=factor;
- end;
-end;}
 
 procedure TGLPainter.SetTexMode;
 var
@@ -818,7 +793,7 @@ begin
  CheckForGLError(1);
 end;
 
-procedure TGLPainter.Set3DView(view:T3DMatrix); 
+procedure TGLPainter.Set3DView(view:T3DMatrix);
 var
  x,y,z:double;
 begin
@@ -851,10 +826,6 @@ var
 begin
  objMatrix:=mat;
  MultMat4(mat,viewMatrix,ms);
-{ m[0]:=ms[0,0];  m[1]:=ms[0,1];  m[2]:=ms[0,2];  m[3]:=0;
- m[4]:=ms[1,0];  m[5]:=ms[1,1];  m[6]:=ms[1,2];  m[7]:=0;
- m[8]:=ms[2,0];  m[9]:=ms[2,1];  m[10]:=ms[2,2]; m[11]:=0;
- m[12]:=ms[3,0]; m[13]:=ms[3,1]; m[14]:=ms[3,2]; m[15]:=1;}
  SetGLMatrix(mtModelView,@ms);
 end;
 
