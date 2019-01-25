@@ -34,7 +34,7 @@ uses
   profiling in '..\profiling.pas',
   colors in '..\colors.pas',
   RSA in '..\RSA.pas',
-  Images in '..\Images.pas',
+  StackTrace in '..\StackTrace.pas',
   gfxFormats in '..\gfxFormats.pas',
   UnicodeFont in '..\UnicodeFont.pas',
   MemoryLeakUtils in '..\MemoryLeakUtils.pas',
@@ -1313,6 +1313,30 @@ procedure TestMemoryStat;
    SaveFile('test_out.png',res);
   end;
 
+ procedure TestStackTrace;
+  procedure p2;
+   var
+    a:array of integer;
+   begin
+    writeln('Hello from p2');
+    SetLength(a,4);
+    a[1]:=0;
+    //a[0]:=a[0] div a[1];
+    a[6]:=1;
+   end;
+  procedure p1;
+   var
+    a,b,c,d:integer;
+   begin
+    writeln('Hello from p1');
+    a:=1; b:=2; c:=3; d:=4;
+    if a+b+c+d>0 then p2;
+   end;
+  begin
+   EnableStackTrace;
+   p1;
+  end;
+
 var
  ar:array of cardinal;
  st:WideString;
@@ -1323,8 +1347,10 @@ begin
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
+ 
   TestPNG;
   TestAnimations;
+  TestStackTrace;
   TestEval;
   TestClipboard;
   TestSortStrings;
