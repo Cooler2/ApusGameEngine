@@ -529,7 +529,7 @@ interface
  procedure DisableDEP;
 
 implementation
- uses Classes,math,CrossPlatform
+ uses Classes,math,CrossPlatform,StackTrace
     {$IFDEF MSWINDOWS},mmsystem{$ENDIF}
     {$IFDEF IOS},iphoneAll{$ENDIF}
     {$IFDEF ANDROID},dateutils,Android{$ENDIF};
@@ -3476,7 +3476,7 @@ function BinToStr;
   end;
  {$ELSE}
  begin
-  result:=e.Message;
+  result:=e.Message+' '+GetStackTrace;
   result:='['+PtrToStr(ExceptAddr)+'] '+result;
  end;
  {$ENDIF}
