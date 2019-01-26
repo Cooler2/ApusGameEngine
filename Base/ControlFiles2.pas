@@ -224,7 +224,7 @@ var
  hash:TStrHash;
  lasthandle:integer=0;
 
- CritSect:TMyCriticalSection; // синхронизация для много поточного доступа
+ CritSect:TMyCriticalSection; // синхронизация для многопоточного доступа
 
 //----------------- Copypasted from QStrings.pas since it can't be compiled by FPC
 type
@@ -435,11 +435,11 @@ end;
 
 // ------------------------------- End of QStrings
 
-// Удаление именованного эл-та
 constructor TNamedValue.Create;
 begin
 end;
 
+// Удаление именованного эл-та
 destructor TNamedValue.Destroy;
 begin
  // Попаытаемся удалить из хэша:
