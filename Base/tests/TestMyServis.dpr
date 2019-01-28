@@ -39,7 +39,8 @@ uses
   UnicodeFont in '..\UnicodeFont.pas',
   MemoryLeakUtils in '..\MemoryLeakUtils.pas',
   AnimatedValues in '..\AnimatedValues.pas',
-  myHuffman in '..\myHuffman.pas';
+  myHuffman in '..\myHuffman.pas',
+  Images in '..\Images.pas';
 
 var
  sa:StringArr;
@@ -1321,8 +1322,8 @@ procedure TestMemoryStat;
     writeln('Hello from p2');
     SetLength(a,4);
     a[1]:=0;
-    //a[0]:=a[0] div a[1];
-    a[6]:=1;
+    a[0]:=a[0] div a[1];
+    //a[6]:=1;
    end;
   procedure p1;
    var
@@ -1347,10 +1348,10 @@ begin
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
- 
+  TestStackTrace;
+
   TestPNG;
   TestAnimations;
-  TestStackTrace;
   TestEval;
   TestClipboard;
   TestSortStrings;

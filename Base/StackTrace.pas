@@ -6,10 +6,14 @@ interface
  function GetStackTrace:string;
 
 implementation
- uses CrossPlatform,MyServis;
+ uses CrossPlatform,MyServis,Windows;
  var
   saveExceptionProc:pointer;
   stack:array[0..15] of pointer;
+
+{$IFDEF WIN64}
+ function RtlCaptureStackBackTrace(framesSkip,framesCapture:longint;const trace:pointer;const hash:pointer):shortint; external 'kernel32.dll';
+{$ENDIF}
 
  procedure MyExceptProc;
  {$IFDEF WIN32}
@@ -37,7 +41,34 @@ implementation
 {$ENDIF}
 {$IFDEF WIN64}
  asm
-  jmp saveExceptionProc
+{  xor rcx,rcx
+  mov edx,5
+  lea r8,stack
+  xor r9,r9
+  add rsp,$20
+  call RTLCaptureStackBackTrace}
+{  mov rsi,rbp
+  sub rsi,16
+  mov rcx,rbp
+  add rcx,$100000 // Upper stack limit: EBP+1Mb
+  mov rdx,6
+  lea rdi,stack
+@01:
+  mov rax,[rsi+8]
+  stosq
+  mov rsi,[rsi]
+  cmp rsi,rbp
+  jb @02
+  cmp rsi,rcx
+  ja @02
+  dec rdx
+  jnz @01
+@02:
+  pop rdi
+  pop rsi
+  pop rdx
+  pop rcx}
+  jmp [saveExceptionProc]
  end;
 {$ENDIF}
 {  asm
@@ -65,6 +96,7 @@ implementation
  procedure EnableStackTrace;
   begin
    {$IFDEF MSWINDOWS}
+   //RtlCaptureStackBackTrace(0,5,@stack,nil);
    if saveExceptionProc<>nil then exit;
    saveExceptionProc:=ExceptClsProc;
    ExceptClsProc:=@myExceptProc;
