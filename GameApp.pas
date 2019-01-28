@@ -7,10 +7,11 @@ interface
  uses
   {$IFDEF ANDROID}jni,{$ENDIF}
   EngineCls;
-  
+
  var
    // Global settings
    gameTitle:string='Engine3 Game Template';
+   configFileName:string='';
    usedAPI:TGraphicsAPI=gaOpenGL;
    useSystemCursor:boolean=true;
    windowedMode:boolean=true;
@@ -27,8 +28,9 @@ interface
  type
   TGameApplication=class
    // Call these methods from external code to launch the game
-   // Basic initialization: logs, configs, settings
    constructor Create;
+   // Basic initialization (non-visual): logs, configs, settings
+   procedure Prepare; virtual;
    // Creates game objects, window, starts render, create scenes and launch infinite main loop
    procedure Run; virtual;
    // Finalization (you can use Free to call this indirectly)
@@ -45,12 +47,11 @@ interface
    procedure InitStyles; virtual; // Which styles to add?
    procedure CreateScenes; virtual; // Create and add game scenes
    procedure InitCursors; virtual;
-  end;
-  TGameApplicationClass=class of TGameApplication;
 
+   procedure FatalError(msg:string); virtual;
+  end;
  var
-  myGameAppClass:TGameApplicationClass;
-  myGameApp:TGameApplication; // Store game launcher object here!
+  //myGameApp:TGameApplication; // Store game launcher object here!
   initGame:procedure;
 
  {$IFDEF ANDROID}
@@ -271,57 +272,6 @@ constructor TGameApplication.Create;
   i:integer;
   st:string;
  begin
-  try
-   RegisterThread('ControlThread');
-   SetCurrentDir(ExtractFileDir(ParamStr(0)));
-   Randomize;
-   
-   if DirectoryExists('Logs') then begin
-    configDir:='Logs\';
-    UseLogFile('Logs\game.log');
-   end else
-    UseLogFile('game.log');
-   LogCacheMode(true,false,true);
-   SetLogMode(lmVerbose);
-
-   UseControlFile('game.ctl');
-   LoadOptions;
-   SaveOptions; // Save modified settings
-
-   for i:=1 to paramCount do HandleParam(paramstr(i));
-
-   // PreloadFiles;
-   //QueryServerVersion;
-   //TryToUpdateUpdater;
-
-  {$IFDEF STEAM}
-  if checkForSteam then InitSteamAPI;
-  if steamAvailable then
-   // Выбор языка при установке из Стима
-   if FileExists('Inf\DefaultLang') and (steamID<>0) then begin
-    st:=lowercase(steamGameLang);
-    if st='russian' then langCode:='ru';
-    if st='english' then langCode:='en';
-    LogMessage('First time launch: Steam language is '+langCode);
-    SaveOptions;
-    DeleteFile('Inf\DefaultLang');
-   end;
-   {$ENDIF}
-
-   // Language and translation dictionary
-   st:=ctlGetStr('game.ctl:\Options\LangFile','language.'+langCode);
-   DictInit(st);
-   uDict.unicode:=true;
-   UIClasses.defaultEncoding:=teUTF8;
-
-   SetupScreen;
-  except
-   on e:exception do begin
-    ForceLogMessage('AppCreate error: '+ExceptionMsg(e));
-    ErrorMessage('Fatal error: '#13#10+ExceptionMsg(e));
-    halt;
-   end;
-  end;
  end;
 
 procedure TGameApplication.CreateScenes;
@@ -335,6 +285,12 @@ destructor TGameApplication.Destroy;
   inherited;
  end;
 
+
+procedure TGameApplication.FatalError(msg: string);
+begin
+ ErrorMessage(msg);
+ halt;
+end;
 
 procedure TGameApplication.HandleParam(param: string);
  begin
@@ -376,21 +332,83 @@ procedure TGameApplication.LoadOptions;
  begin
   try
    // InstanceID = random constant
-   instanceID:=CtlGetInt('game.ctl:\InstanceID',0);
+   instanceID:=CtlGetInt('\InstanceID',0);
    if instanceID=0 then begin
     instanceID:=(1000*random(50000)+MyTickCount shl 8+round(now*1000)) mod 100000000;
-    CtlSetInt('game.ctl:\InstanceID',instanceID);
+    CtlSetInt('InstanceID',instanceID);
    end;
 
    // Window size
-   i:=CtlGetInt('game.ctl:\Options\WindowWidth',-1);
+   i:=CtlGetInt('\Options\WindowWidth',-1);
    if i>0 then begin 
     windowWidth:=i;
-    windowHeight:=CtlGetInt('game.ctl:\Options\WindowHeight',windowHeight);
+    windowHeight:=CtlGetInt('Options\WindowHeight',windowHeight);
    end;
 
   except
    on e:exception do ForceLogMessage('Options error: '+ExceptionMsg(e));
+  end;
+ end;
+
+procedure TGameApplication.Prepare;
+ var
+  i:integer;
+  st:string;
+ begin
+  try
+   RegisterThread('ControlThread');
+   SetCurrentDir(ExtractFileDir(ParamStr(0)));
+   Randomize;
+
+   if DirectoryExists('Logs') then begin
+    configDir:='Logs\';
+    UseLogFile('Logs\game.log');
+   end else
+    UseLogFile('game.log');
+   LogCacheMode(true,false,true);
+   SetLogMode(lmVerbose);
+
+   if configFileName<>'' then begin
+    if not FileExists(configFileName) then
+     FatalError('Config file not found: '+configFileName);
+    UseControlFile(configFileName);
+    LoadOptions;
+    SaveOptions; // Save modified settings
+   end;
+
+   for i:=1 to paramCount do HandleParam(paramstr(i));
+
+   // PreloadFiles;
+   //QueryServerVersion;
+   //TryToUpdateUpdater;
+
+  {$IFDEF STEAM}
+  if checkForSteam then InitSteamAPI;
+  if steamAvailable then
+   // Выбор языка при установке из Стима
+   if FileExists('SelectLang') and (steamID<>0) then begin
+    st:=lowercase(steamGameLang);
+    if st='russian' then langCode:='ru';
+    if st='english' then langCode:='en';
+    LogMessage('First time launch: Steam language is '+langCode);
+    SaveOptions;
+    DeleteFile('SelectLang');
+   end;
+   {$ENDIF}
+
+   // Language and translation dictionary
+{   st:=ctlGetStr('Options\LangFile','language.'+langCode);
+   DictInit(st);
+   uDict.unicode:=true;
+   UIClasses.defaultEncoding:=teUTF8;}
+
+   SetupScreen;
+  except
+   on e:exception do begin
+    ForceLogMessage('AppCreate error: '+ExceptionMsg(e));
+    ErrorMessage('Fatal error: '#13#10+ExceptionMsg(e));
+    halt;
+   end;
   end;
  end;
 
