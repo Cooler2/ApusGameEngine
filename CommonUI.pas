@@ -37,10 +37,8 @@ var
  // Поэтому для обеспечения работы контролов, необходимо генерировать события
  procedure InitUI;
 
- // Установка области вывода в окне:
- // r - прямоугольник области вывода в оконных к-тах
- // width, height - размер
- procedure SetWindowArea(width,height:integer);
+ // Установка размера (виртуального) экрана для UI
+ procedure SetDisplaySize(width,height:integer);
 
  // Убирает обработчики событий тем самым отключая всякую обработку интерфейса
  procedure DoneUI;
@@ -89,7 +87,7 @@ type
 var
  curCursor:integer;
  initialized:boolean=false;
- areaWidth,areaHeight,oldAreaWidth,oldAreaHeight:integer; // размер области отрисовки
+ rootWidth,rootHeight,oldRootWidth,oldAreaHeight:integer; // размер области отрисовки
 
  LastHandleTime:int64;
 
@@ -120,14 +118,13 @@ var
 
  lastShiftState:byte;
 
-procedure SetWindowArea(width,height:integer);
+procedure SetDisplaySize(width,height:integer);
  begin
-  oldAreaWidth:=areaWidth;
-  oldAreaHeight:=areaHeight;
-  areaWidth:=width;
-  areaHeight:=height;
-  screenWidth:=width;
-  screenHeight:=height;
+  oldRootWidth:=rootWidth;
+  oldAreaHeight:=rootHeight;
+  rootWidth:=width;
+  rootHeight:=height;
+  UIClasses.SetDisplaySize(width,height);
  end;
 
 procedure UseParentCmd(cmd:string);
@@ -319,41 +316,41 @@ begin
   end;
   // Движение
   if event='MOVE' then begin
-   oldX:=curX; oldY:=curY;
-   curX:=tag and $FFFF; curY:=(tag shr 16) and $FFFF;
+   oldMouseX:=curMouseX; oldMouseY:=curMouseY;
+   curMouseX:=SmallInt(tag and $FFFF); curMouseY:=SmallInt((tag shr 16) and $FFFF);
    if ClipMouse<>cmNo then with clipMouseRect do begin
-    x:=curx; y:=cury;
+    x:=curMouseX; y:=curMouseY;
     if X<left then x:=left;
     if X>=right then x:=right-1;
     if Y<top then y:=top;
     if Y>=bottom then y:=bottom-1;
-    if (clipMouse in [cmReal,cmLimited]) and ((curx<>x) or (cury<>y)) then begin
+    if (clipMouse in [cmReal,cmLimited]) and ((curMouseX<>x) or (curMouseY<>y)) then begin
      if clipMouse=cmReal then exit;
     end;
     if clipmouse=cmVirtual then begin
-     curx:=x; cury:=y;
+     curMouseX:=x; curMouseY:=y;
     end;
    end;
-   if (curX=oldX) and (curY=oldY) then exit;
+   if (curMouseX=oldMouseX) and (curMouseY=oldMouseY) then exit;
 
    // если мышь покинула прямоугольник хинта - стереть его
    {$IFNDEF IOS}
    if (curhint<>nil) and (curhint.visible) and
-      not PtInRect(hintRect,types.Point(curX,curY)) then curhint.Hide;
+      not PtInRect(hintRect,types.Point(curMouseX,curMouseY)) then curhint.Hide;
    {$ENDIF}
 
    if hookedItem<>nil then begin
-    inc(hookedItem.x,curX-oldX);
-    inc(hookedItem.y,curY-oldY);
+    inc(hookedItem.x,curMouseX-oldMouseX);
+    inc(hookedItem.y,curMouseY-oldMouseY);
    end;
 
-   e1:=FindControlAt(oldX,oldY,c);
-   e2:=FindControlAt(curX,curY,c2);
+   e1:=FindControlAt(oldMouseX,oldMouseY,c);
+   e2:=FindControlAt(curMouseX,curMouseY,c2);
    if e2 then underMouse:=c2
     else undermouse:=nil;
    if e1 then c.onMouseMove;
    if e2 and (c2<>c) then c2.onMouseMove;
-   e2:=FindControlAt(curX,curY,c2);
+   e2:=FindControlAt(curMouseX,curMouseY,c2);
 
    // Курсор
    if e2 and (c2.cursor<>curCursor) then begin
@@ -398,13 +395,13 @@ begin
 
 
    if clipMouse=cmLimited then begin // запомним скорректированное положение, чтобы не "прыгать" назад
-    curx:=x; cury:=y;
+    curMouseX:=x; curMouseY:=y;
    end;
   end;
   // Нажатие кнопки
   if copy(event,1,7)='BTNDOWN' then begin
    c:=nil;
-   e:=FindControlAt(curX,curY,c);
+   e:=FindControlAt(curMouseX,curMouseY,c);
    if e and (c<>nil) then begin
     if tag and 1>0 then c.onMouseButtons(1,true);
     if tag and 2>0 then c.onMouseButtons(2,true);
@@ -441,7 +438,7 @@ begin
     PutMsg('x='+inttostr(hookeditem.x)+' y='+inttostr(hookeditem.y));
     hookedItem:=nil;
    end;
-   if FindControlAt(curX,curY,c) then begin
+   if FindControlAt(curMouseX,curMouseY,c) then begin
     if tag and 1>0 then c.onMouseButtons(1,false);
     if tag and 2>0 then c.onMouseButtons(2,false);
     if tag and 4>0 then c.onMouseButtons(3,false);
@@ -449,7 +446,7 @@ begin
   end;
   // Скроллинг
   if copy(event,1,6)='SCROLL' then
-   if FindControlAt(curX,curY,c) then
+   if FindControlAt(curMouseX,curMouseY,c) then
     c.onMouseScroll(tag);
 
   result:=false; // Не обрабатывать на более высоком уровне (корне)
@@ -532,7 +529,7 @@ begin
  if fullscreen then sceneType:=stBackground
   else sceneType:=stForeground;
 
- UI:=TUIControl.Create(0,0,areaWidth,areaHeight,nil,sceneName);
+ UI:=TUIControl.Create(0,0,rootWidth,rootHeight,nil,sceneName);
  UI.enabled:=false;
  UI.visible:=false;
  if not fullscreen then UI.transpMode:=tmTransparent;
@@ -565,7 +562,7 @@ procedure TUIScene.onResize;
 begin
   inherited;
   if UI=nil then exit;
-  UI.Resize(areaWidth,areaHeight);
+  UI.Resize(rootWidth,rootHeight);
 end;
 
 function TUIScene.Process: boolean;
@@ -602,7 +599,7 @@ begin
  end;}
 
  try
-  FindControlAt(curX,curY,underMouse);
+  FindControlAt(curMouseX,curMouseY,underMouse);
 
   // Обработка фокуса: если элемент с фокусом невидим или недоступен - убрать с него фокус
   // Исключение: корневой UI-элемент (при закрытии сцены фокус должен убрать эффект перехода)
@@ -777,15 +774,11 @@ begin
  SetEventHandler('UI\SetFocus',onSetFocus,emInstant);
 
  PublishFunction('GetFont',fGetFontHandle);
-
-// SetCmdFunc('USE ',opFirst,UseCmd);
  SetCmdFunc('USEPARENT ',opFirst,UseParentCmd);
  SetCmdFunc('CREATE ',opFirst,CreateCmd);
  SetCmdFunc('DEFAULT',opFirst,DefaultCmd);
  SetCmdFunc('SETFOCUS',opLast,SetFocusCmd);
  SetCmdFunc('SETHOTKEY',opFirst,setHotKeyCmd);
-{ SetCmdFunc('?',opLast,AskCmd);
- SetCmdFunc('=',opMiddle,AssignCmd);}
  with defaults do begin
   x:=0; y:=0; width:=100; height:=20;
   color:=$FFFFFFFF; backgnd:=$80000000;
@@ -793,8 +786,8 @@ begin
   caption:='';
   hintDelay:=0; hintDuration:=0;
  end;
- PublishVar(@areaWidth,'RenderWidth',TVarTypeInteger);
- PublishVar(@areaHeight,'RenderHeight',TVarTypeInteger);
+ PublishVar(@rootWidth,'RenderWidth',TVarTypeInteger);
+ PublishVar(@rootHeight,'RenderHeight',TVarTypeInteger);
  initialized:=true;
 end;
 
@@ -837,7 +830,7 @@ begin
  LogMessage('ShowHint: '+msg);
  msg:=translate(msg);
  if (x=-1) or (y=-1) then begin
-  x:=CurX; y:=CurY;
+  x:=curMouseX; y:=curMouseY;
   hintRect:=rect(x-8,y-8,x+8,y+8);
  end else begin
   hintRect:=rect(0,0,4000,4000);

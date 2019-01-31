@@ -19,7 +19,7 @@ type
   procedure SetupRenderArea; override;
 
   procedure PresentFrame; override;
-  procedure CalcPixelFormats(needMem:integer); override;
+  procedure ChoosePixelFormats(needMem:integer); override;
   function OnRestore:boolean; virtual; // Этот метод должен восстановить девайс и вернуть true если это удалось
   procedure InitObjects; override;
   {$IFDEF MSWINDOWS}
@@ -182,7 +182,7 @@ procedure TDXGame8.PresentFrame;
  begin
   if device=nil then exit;
   if params.mode<>dmSwitchResolution then begin
-   adr:=@RenderRect;
+   adr:=@displayRect;
    //SetWindowArea(params.width,params.height);
   end else adr:=nil;
   FLog('Present');
@@ -206,7 +206,7 @@ begin
    TDXPainter8(painter).Reset;
 end;
 
-procedure TDXGame8.CalcPixelFormats(needMem:integer);
+procedure TDXGame8.ChoosePixelFormats(needMem:integer);
 var
  list:array[1..10] of ImagePixelFormat;
  i,n:integer;

@@ -196,7 +196,7 @@ begin
  frequency:=12;
 
  font:=painter.GetFont('Default',7);
- h:=round(screenHeight*0.7);
+ h:=round(game.renderHeight*0.7);
  wnd:=TUIWindow.Create(10,10,480,h,true,'ConsoleWnd','Console',font,UI);
  wnd.moveable:=true;
  wnd.minW:=120; wnd.minH:=160;

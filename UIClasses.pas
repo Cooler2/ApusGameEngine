@@ -471,14 +471,13 @@ var
  modalControl:TUIControl;   // Если есть модальный эл-т - он тут
  comboPop:TUIComboBox;      // если существует выпавший комбобокс - он тут 
  hooked:TUIControl;         // если установлен - теряет фокус даже если не обладал им
- screenWidth,screenHeight:integer; // размеры области отрисовки, устанавливается через CommonUI.SetWindowArea, обычно равен размеру виртуального экрана (renderWidth/Height)
 
  defaultEncoding:TTextEncoding=teUnknown; // кодировка элементов ввода по умолчанию
 
  clipMouse:TClipMouse;   // Ограничивать ли движение мыши
  clipMouseRect:TRect;    // Область допустимого перемещения мыши
 
- curX,curY,oldX,oldY:smallint; // координаты курсора мыши (для onMouseMove!)
+ curMouseX,curMouseY,oldMouseX,oldMouseY:integer; // координаты курсора мыши (для onMouseMove!)
 
  // Корневые элементы (не имеющие предка)
  // Список используется для передачи (обработки) первичных событий строго
@@ -491,6 +490,7 @@ var
 
  UICritSect:TMyCriticalSection; // для многопоточного доступа к глобальным переменным UI
 
+ procedure SetDisplaySize(width,height:integer);
  function DescribeControl(c:TUIControl):string;
  function FocusedControl:TUIControl;
  procedure SetFocusTo(control:TUIControl);
@@ -539,6 +539,14 @@ var
 
  fControl:TUIControl; // элемент, имеющий фокус ввода (с клавиатуры)
                       // устанавливается автоматически либо вручную
+ // Display area size (since this unit doesn't depend on other Engine units)
+ rootWidth,rootHeight:integer;
+
+procedure SetDisplaySize(width,height:integer);
+begin
+ rootWidth:=width;
+ rootHeight:=height;
+end;
 
 function DescribeControl(c:TUIControl):string;
 begin
@@ -673,8 +681,8 @@ begin
   pW:=parent.width;
   pH:=parent.height;
  end else begin
-  pW:=screenWidth;
-  pH:=screenHeight;
+  pW:=rootWidth;
+  pH:=rootHeight;
  end;
  x:=(pW-width) div 2;
  y:=(pH-height) div 2;
@@ -690,7 +698,7 @@ var
  c:TUIControl;
 begin
  if (x>0) or (y>0) or
-    (width<screenWidth) or (height<screenHeight) then begin
+    (width<rootWidth) or (height<rootHeight) then begin
   x:=round(x*sX);
   y:=round(y*sY);
   width:=round(width*sX);
@@ -1552,8 +1560,8 @@ begin
    // Don't allow window center to be moved outside screen
    if x+width<width div 2 then x:=-width div 2;
    if y+height<height div 2 then y:=-height div 2;
-   if x>screenWidth-width div 2 then x:=screenWidth-width div 2;
-   if y>screenHeight-height div 2 then y:=screenHeight-height div 2;
+   if x>rootWidth-width div 2 then x:=rootWidth-width div 2;
+   if y>rootHeight-height div 2 then y:=rootHeight-height div 2;
   end;
  end;
 end;
@@ -1561,15 +1569,15 @@ end;
 procedure TUIWindow.onMouseMove;
 begin
  if hooked then begin
-  if area=wcHeader then begin inc(x,curX-oldX); inc(y,curY-oldY); end;
-  if area and wcRightFrame>0 then Resize(width+curX-oldX,-1);
-  if area and wcBottomFrame>0 then Resize(-1,height+curY-oldY);
-  if area and wcLeftFrame>0 then begin Resize(width+oldX-curX,-1); inc(x,curX-OldX); end;
-  if area and wcTopFrame>0 then begin Resize(-1,height+oldY-curY); inc(y,curY-OldY); end;
+  if area=wcHeader then begin inc(x,curMouseX-oldMouseX); inc(y,curMouseY-oldMouseY); end;
+  if area and wcRightFrame>0 then Resize(width+curMouseX-oldMouseX,-1);
+  if area and wcBottomFrame>0 then Resize(-1,height+curMouseY-oldMouseY);
+  if area and wcLeftFrame>0 then begin Resize(width+oldMouseX-curMouseX,-1); inc(x,curMouseX-oldMouseX); end;
+  if area and wcTopFrame>0 then begin Resize(-1,height+oldMouseY-curMouseY); inc(y,curMouseY-oldMouseY); end;
  end;
 
  inherited;
- area:=GetAreaType(curX-globalRect.Left,curY-globalRect.Top,cursor);
+ area:=GetAreaType(curMouseX-globalRect.Left,curMouseY-globalRect.Top,cursor);
  if area in [0,wcClient] then hooked:=false;
 end;
 
@@ -1856,7 +1864,7 @@ begin
  end;
  AdjustState;
  inherited;
- needpos:=curx-globalrect.Left-offset;
+ needpos:=curMouseX-globalrect.Left-offset;
  if (selcount>0) and (button=1) and state then begin
   selcount:=0; selStart:=0;
  end;
@@ -1890,7 +1898,7 @@ begin
      selcount:=cursorPos-msSelStart;
     end;
   end;
-  needpos:=curx-globalrect.Left-offset;
+  needpos:=curMouseX-globalrect.Left-offset;
  end;
 end;
 
@@ -2009,11 +2017,11 @@ begin
   clipmouse:=cmNo;
   signal('Mouse\UpdatePos');
  end;
- if not (over or (hooked=self)) and state and PtInRect(globalrect,Point(curX,curY)) then begin
+ if not (over or (hooked=self)) and state and PtInRect(globalrect,Point(curMouseX,curMouseY)) then begin
   if horizontal then
-   p:=(curX-globalrect.Left-5)/(width-10)
+   p:=(curMouseX-globalrect.Left-5)/(width-10)
   else
-   p:=(curY-globalrect.Top-5)/(height-10);
+   p:=(curMouseY-globalrect.Top-5)/(height-10);
   if p<0 then p:=0;
   if p>1 then p:=1;
   MoveTo(min+round((max-min-pagesize)*p));
@@ -2032,14 +2040,14 @@ begin
  if delta=-1 then begin
   p1:=(value-min)/(max-min);
   if p1<0 then p1:=0;
-  if horizontal then delta:=curX-globalrect.Left-round(p1*(width-10))
-   else delta:=curY-globalrect.top-round(p1*(height-10));
+  if horizontal then delta:=curMouseX-globalrect.Left-round(p1*(width-10))
+   else delta:=curMouseY-globalrect.top-round(p1*(height-10));
  end;
 
 // posChanged:=false;
  if hooked=self then
   if horizontal then begin
-   p1:=(curX-delta-globalrect.Left)/(width-10);
+   p1:=(curMouseX-delta-globalrect.Left)/(width-10);
    if p1<0 then p1:=0; if p1>1 then p1:=1;
    v:=round(min+(max-min)*p1);
    if v<>value then begin
@@ -2047,7 +2055,7 @@ begin
 //    posChanged:=true;
    end;
   end else begin
-   p1:=(curY-delta-globalrect.top)/(height-10);
+   p1:=(curMouseY-delta-globalrect.top)/(height-10);
    if p1<0 then p1:=0; if p1>1 then p1:=1;
    v:=round(min+(max-min)*p1);
    if v<>value then begin
@@ -2063,14 +2071,14 @@ begin
  if p2>1 then p2:=1;
  if horizontal then begin
 //  if posChanged then
-  over:=(cury>=globalrect.Top) and (cury<globalrect.Bottom) and
-        (CurX>=globalrect.Left+round(p1*(width-10))) and
-        (curx<globalrect.Left+10+round(p2*(width-10)));
+  over:=(curMouseY>=globalrect.Top) and (curMouseY<globalrect.Bottom) and
+        (curMouseX>=globalrect.Left+round(p1*(width-10))) and
+        (curMouseX<globalrect.Left+10+round(p2*(width-10)));
  end else begin
 //  if posChanged then
-  over:=(curx>=globalrect.Left) and (curx<globalrect.Right) and
-        (CurY>=globalrect.Top+round(p1*(height-10))) and
-        (cury<globalrect.top+10+round(p2*(height-10)));
+  over:=(curMouseX>=globalrect.Left) and (curMouseX<globalrect.Right) and
+        (curMouseY>=globalrect.Top+round(p1*(height-10))) and
+        (curMouseY<globalrect.top+10+round(p2*(height-10)));
  end;
 end;
 
@@ -2248,8 +2256,8 @@ var
  cx,cy,n:integer;
 begin
  inherited;
- cx:=curX-(globalRect.Left+1);
- cy:=curY-(globalRect.Top+1);
+ cx:=curMouseX-(globalRect.Left+1);
+ cy:=curMouseY-(globalRect.Top+1);
  if (cx>=0) and (cy>=0) and (cx<width-1) and (cy<height-1) then begin
   n:=(cy+scrollerV.value) div lineHeight;
   if (n>=0) and (n<length(lines)) then hoverLine:=n
@@ -2392,7 +2400,7 @@ begin
   popup.height:=lHeight*lcount;
   popup.width:=frame.width-2*frame.borderWidth;
   frame.height:=popup.height+frame.borderWidth*2;
-  if r.Bottom+frame.height>=screenHeight then
+  if r.Bottom+frame.height>=rootHeight then
    frame.y:=r.Top-1-frame.height;
   // Content
   popUp.ClearLines;

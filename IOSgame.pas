@@ -17,7 +17,7 @@ type
   procedure DoneGraph; override; // Финализация графической части
 
   procedure PresentFrame; override;
-  procedure CalcPixelFormats(needMem:integer); override;
+  procedure ChoosePixelFormats(needMem:integer); override;
   procedure InitObjects; override;
  public
   function GetStatus(n:integer):string; override;
@@ -72,7 +72,7 @@ begin
 //   (painter as TGLPainter).outputPos:=Point(0,0);
 end;
 
-procedure TIOSGame.CalcPixelFormats(needMem:integer);
+procedure TIOSGame.ChoosePixelFormats(needMem:integer);
 begin
  pfTrueColor:=ipf565;
  pfTrueColorAlpha:=ipfARGB;

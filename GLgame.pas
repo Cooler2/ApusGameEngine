@@ -21,7 +21,7 @@ type
   procedure SetupRenderArea; override;
 
   procedure PresentFrame; override;
-  procedure CalcPixelFormats(needMem:integer); override;
+  procedure ChoosePixelFormats(needMem:integer); override;
   procedure InitObjects; override;
   {$IFDEF MSWINDOWS}
   procedure CaptureFrame; override;
@@ -47,13 +47,10 @@ var
  i:integer;
 begin
  if running then begin // смена параметров во время работы
-  //if texman<>nil then (texman as TDXTextureMan).releaseAll;
   Signal('Debug\Settings Changing');
- end;
- if running then begin
-  InitGraph;
-  //if texman<>nil then (texman as TDXTextureMan).ReCreateAll;
+  ConfigureMainWindow;
   if painter<>nil then (painter as TGLPainter).Reset;
+  SetupRenderArea;
   for i:=1 to length(scenes) do
    if scenes[i]<>nil then scenes[i].ModeChanged;
  end;
@@ -108,15 +105,15 @@ begin
  LogMessage('Create GL context');
  RC:=wglCreateContext(DC);
  if RC=0 then
-  raise EError.Create('Can'' t create RC!');
+  raise EError.Create('Can''t create RC!');
  LogMessage('Activate GL context');
  ActivateRenderingContext(DC,RC); // Здесь происходит загрузка основных функций OpenGL
  glVersion:=glGetString(GL_VERSION);
  glRenderer:=glGetString(GL_RENDERER);
  ForceLogMessage('OpenGL version: '+glVersion);
- ForceLogMessage('OpenGL vendor: '+PChar(glGetString(GL_VENDOR)));
+ ForceLogMessage('OpenGL vendor: '+PAnsiChar(glGetString(GL_VENDOR)));
  ForceLogMessage('OpenGL renderer: '+glRenderer);
- ForceLogMessage('OpenGL extensions: '+#13#10+StringReplace(PChar(glGetString(GL_EXTENSIONS)),' ',#13#10,[rfReplaceAll]));
+ ForceLogMessage('OpenGL extensions: '+#13#10+StringReplace(PAnsiChar(glGetString(GL_EXTENSIONS)),' ',#13#10,[rfReplaceAll]));
 // ForceLogMessage('GL Functions: '#13#10+loadedOpenGLFunctions);
  if not GL_VERSION_1_4 then
   raise Exception.Create('OpenGL 1.4 or higher required!'#13#10'Please update your video drivers.');
@@ -136,8 +133,6 @@ begin
 
  if WGL_EXT_swap_control then
   wglSwapIntervalEXT(params.VSync);
-
-// wglChoosePixelFormatARB(DC,
 
  AfterInitGraph;
 end;
@@ -162,8 +157,7 @@ begin
    LogMessage('Switching to the modern rendering model');
    dRT:=texman.AllocImage(params.width,params.height,pfRTHigh,aiRenderTarget,'DefaultRT');
    (painter as TGLPainter).SetDefaultRenderTarget(dRT);
-  end else
-   SetupRenderArea;
+  end;
  except
   on e:exception do begin
    ForceLogMessage('Error in GLG:IO '+ExceptionMsg(e));
@@ -185,10 +179,10 @@ begin
     BeginPaint(nil);
     try
     // Если есть неиспользуемые полосы - очистить их (но не каждый кадр, чтобы не тормозило)
-    if not types.EqualRect(renderRect,types.Rect(0,0,windowWidth,windowHeight)) and
+    if not types.EqualRect(displayRect,types.Rect(0,0,windowWidth,windowHeight)) and
        ((frameNum mod 5=0) or (frameNum<3)) then painter.Clear($FF000000);
 
-    with renderRect do begin
+    with displayRect do begin
      TexturedRect(Left,Top,right-1,bottom-1,DRT,0,1,1,1,1,0,$FF808080);
     end;
     finally
@@ -212,14 +206,24 @@ begin
   inherited;
   if painter<>nil then begin
    if dRT=nil then begin
-    TGLPainter(painter).SetDefaultRenderArea(renderRect.Left,windowHeight-renderRect.Bottom,
-      renderRect.right-renderRect.Left,renderRect.bottom-renderRect.top,
+    // Rendering directly to the framebuffer
+    TGLPainter(painter).SetDefaultRenderArea(displayRect.Left,windowHeight-displayRect.Bottom,
+      displayRect.right-displayRect.Left,displayRect.bottom-displayRect.top,
       settings.width,settings.height);
+   end else begin
+    // Rendering to a framebuffer texture
+    with params.mode do
+     if (displayFitMode in [dfmStretch,dfmKeepAspectRatio]) and
+        (displayScaleMode in [dsmDontScale,dsmScale]) and
+        ((dRT.width<>displayRect.Width) or (dRT.height<>displayRect.Height)) then begin
+      LogMessage('Resizing framebuffer');
+      texman.ResizeTexture(dRT,displayRect.Width,displayRect.Height);
+     end;
    end;
   end;
 end;
 
-procedure TGLGame.CalcPixelFormats(needMem:integer);
+procedure TGLGame.ChoosePixelFormats(needMem:integer);
 begin
  pfTrueColor:=ipfXRGB;
  pfTrueColorAlpha:=ipfARGB;
@@ -247,7 +251,7 @@ var
  buf:PByte;
 begin
 //  GetClientRect(window,r);
-  r:=renderRect;
+  r:=displayRect;
   w:=r.Right-r.Left;
   h:=r.Bottom-r.top;
   GetMem(buf,w*h*4);

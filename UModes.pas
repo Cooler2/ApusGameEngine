@@ -519,7 +519,7 @@ begin
  {$IFDEF IOS}
  filemode:=0;
  {$ENDIF}
- if retinaScreen or (game.RenderRect.Right>=1024) then
+ if retinaScreen or (game.displayRect.Right>=1024) then
   (painter as TBasicPainter).PFTexWidth:=512; // more space for fonts
 
 // InitUsableNetwork(game,rootDir);
@@ -746,11 +746,11 @@ procedure tmode.Draw(x,y:integer);
 begin
  lastdrawtime:=getcurtime;
  if background<>nil then begin
-  if (background.width=screenWidth) and
-     (background.height=screenHeight) then
+  if (background.width=rootWidth) and
+     (background.height=rootHeight) then
    painter.DrawImage(0,0,background)
   else
-   painter.DrawScaled(0,0,screenWidth,screenHeight,background);
+   painter.DrawScaled(0,0,rootWidth,rootHeight,background);
  end;
 end;
 
@@ -872,7 +872,7 @@ procedure TMode.Preload;
 begin
  if (windowed=false) and (background=nil) then
   try
-   if screenWidth/ScreenHeight>1.5 then
+   if rootWidth/rootHeight>1.5 then
     background:=CreateImage('IMAGES\'+name+'\BACKGROUNDWIDE',false)
    else
     background:=CreateImage('IMAGES\'+name+'\BACKGROUND',false);

@@ -51,7 +51,7 @@ implementation
 
  procedure DrawGlobalShadow(color:cardinal);
   begin
-   painter.FillRect(0,0,screenWidth,screenHeight,color);
+   painter.FillRect(0,0,game.renderWidth,game.renderHeight,color);
   end;  
 
  procedure DrawUI(root:TUIControl;customDraw:boolean=false);
@@ -178,9 +178,9 @@ implementation
   begin
    with hnt do begin
     adjusted:=true;
-    if (sx+width+2<screenWidth) then inc(x,4)
-     else dec(x,sx+width-screenWidth);
-    if (sy+height*2+4>screenHeight) then dec(y,height+4)
+    if (sx+width+2<game.renderWidth) then inc(x,4)
+     else dec(x,sx+width-game.renderWidth);
+    if (sy+height*2+4>game.renderHeight) then dec(y,height+4)
      else inc(y,20);
    end;
   end;

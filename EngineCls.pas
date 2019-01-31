@@ -188,7 +188,8 @@ type
   // Создать изображение (в случае ошибки будет исключение)
   function AllocImage(width,height:integer;PixFmt:ImagePixelFormat;
      flags:integer;name:texnamestr):TTexture; virtual; abstract;
-
+  // Change size of texture if it supports it (render target etc)
+  procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer); virtual; abstract;
   function Clone(img:TTexture):TTexture; virtual; abstract;
   // Освободить изображение
   procedure FreeImage(var image:TTexture); overload; virtual; abstract;
@@ -411,31 +412,43 @@ type
 
  end;
 
+ // Display target
  TDisplayMode=(dmNone,             // not specified
                dmSwitchResolution, // Fullscreen: switch to desired display mode (change screen resolution)
                dmFullScreen,       // Use current resolution with fullscreen window
                dmFixedWindow,      // Use fixed-size window
-               dmWindow);          // use resizeable window
+               dmWindow);          // Use resizeable window
 
- TDisplayFitMode=(dfmCenter,           // размер области вывода фиксирован и равен размеру бэкбуфера - он центрируется в окне
-                  dfmStretch,          // размер области всегда равен полному размеру окна (бэкбуфер растягивается на всё окно)
-                  dfmKeepAspectRatio); // область вывода растягивается с сохранением исходных пропорций (бэкбуфер растягивается)
+ // How the default render target should appear in the output area
+ TDisplayFitMode=(dfmCenter,           // render target is centered in the output window rect (1:1) (DisplayScaleMode is ignored)
+                  dfmStretch,          // render target is stretched to fill the whole output window rect
+                  dfmKeepAspectRatio); // render target is stretched to fill the output window rect while keeping it's aspect ratio
+
+ // How rendering is processed if back buffer size doesn't match the output rect
+ TDisplayScaleMode=(dsmDontScale,   // Ignore the back buffer size and set it to match the output rect size
+                    dsmStretch,     // Render to the back buffer size and then stretch to the output rect
+                    dsmScale);      // Render to the output rect size using scale transformation matrix
+
+ TDisplaySettings=record
+  displayMode:TDisplayMode;
+  displayFitMode:TDisplayFitMode;
+  displayScaleMode:TDisplayScaleMode;
+ end;
 
  // Это важная структура, задающая параметры работы движка
  // На ее основе движок будет конфигурировать другие объекты, например device
  // Важно понимать смысл каждого ее поля, хотя не обязательно каждое из них будет учтено
  TGameSettings=record
   title:string;  // Заголовок окна/программы
-  width,height:integer; // Размер BackBuffer'а и области вывода (окна/экрана), фактический размер окна может отличаться от запрошенного
+  width,height:integer; // Размер BackBuffer'а и (вероятно) области вывода (окна/экрана), фактический размер окна может отличаться от запрошенного
                         // если mode=dmFullScreen, то эти параметры игнорируются и устанавливаются в текущее разрешение
                         // В процессе работы область вывода может меняться (например при изменении размеров окна или переключении режима)
                         // В данной версии размер backBuffer всегда равен размеру области вывода (нет масштабирования), но в принципе
                         // они могут и отличаться
-  colorDepth:integer; // глубина цвета (16/24/32)
+  colorDepth:integer; // Желаемый формат бэкбуфера (16/24/32)
   refresh:integer;   // Частота регенерации экрана (0 - default)
   VSync:integer;     // Синхронизация с обновлением монитора (0 - максимальный FPS, N - FPS = refresh/N
-  mode,altMode:TDisplayMode; // Основной режим запуска и альтернативный режим (для переключения по Alt+Enter)
-  fitMode:TDisplayFitMode;  // Как формировать изображение в игровом окне
+  mode,altMode:TDisplaySettings; // Основной режим запуска и альтернативный режим (для переключения по Alt+Enter)
   showSystemCursor:boolean; // Показывать ли системный курсор? если false - курсор рисуется движком программно
   zbuffer:byte; // желательная глубина z-буфера (0 - не нужен)
   stencil:boolean; // нужен ли stencil-буфер (8-bit)
@@ -484,7 +497,7 @@ type
   // Внутренние величины
   accumTime:integer; // накопленное время (в мс)
 
-  constructor Create(fullscreen:boolean);
+  constructor Create(fullscreen:boolean=true);
   destructor Destroy; override;
 
   // Вызывается из конструктора, можно переопределить для инициализации без влезания в конструктор
@@ -568,7 +581,7 @@ begin
  first:=0; last:=0;
 end;
 
-constructor TGameScene.Create(fullScreen:boolean);
+constructor TGameScene.Create(fullScreen:boolean=true);
 begin
  status:=ssFrozen;
  if fullscreen then
@@ -616,7 +629,7 @@ end;
 
 function TGameScene.Process: boolean;
 begin
-
+ result:=true;
 end;
 
 procedure TGameScene.onCreate;
