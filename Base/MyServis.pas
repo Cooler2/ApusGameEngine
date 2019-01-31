@@ -422,8 +422,8 @@ interface
  function FormatTime(time:int64):string; // строка с временным интервалом (time - в ms)
  function FormatInt(int:int64):string; // строка с числом (пробел разделяет группы цифр)
  function FormatMoney(v:double;digits:integer=2):string; // строка с суммой денег (digits знаков после запятой)
- function IpToStr(ip:cardinal):string; // IP-адрес в строку (младший байт - первый)
  function PtrToStr(p:pointer):string; // Pointer to string
+ function IpToStr(ip:cardinal):string; // IP-адрес в строку (младший байт - первый)
  function StrToIp(ip:string):cardinal; // Строка в IP-адрес (младший байт - первый)
  function VarToStr(v:TVarRec):string; // Variant -> String
  function ParseInt(st:string):int64; inline; // wrong characters ignored
