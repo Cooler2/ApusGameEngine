@@ -175,6 +175,12 @@ begin
        s1:=copy(s1,1,q-1)+''''{+''''}+copy(s1,q+1);
        q:=pos('^',s1);
       end;
+      q:=pos('^',s2);
+      while q>0 do
+      begin
+       s2:=copy(s2,1,q-1)+''''{+''''}+copy(s2,q+1);
+       q:=pos('^',s2);
+      end;
       conv[numconv].def:=s1;
       conv[numconv].new:=s2;
       if unicode then begin
