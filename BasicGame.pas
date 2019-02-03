@@ -97,6 +97,7 @@ type
   canExitNow:boolean; // флаг того, что теперь можно начать деинициализацию
   params:TGameSettings;
   aspectRatio:single;  // Initial aspect ratio (width/height)
+  altWidth,altHeight:integer; // saved window size for Alt+Enter
   loopThread:TThread;
   controlThread:TThreadID;
   BestVidMem,VidmemLimit:integer;
@@ -389,14 +390,12 @@ procedure TBasicGame.InitGraph;
 begin
  LogMessage('InitGraph');
  Signal('Engine\BeforeInitGraph');
+ aspectRatio:=params.width/params.height;
 end;
 
 
 procedure TBasicGame.AfterInitGraph;
 begin
- if aspectRatio=0 then begin
-  aspectRatio:=params.width/params.height;
- end;
  ChoosePixelFormats(BestVidMem);
 
  LogMessage('Selected pixel formats:');
@@ -524,6 +523,9 @@ begin
    if (code=VK_RETURN) and (shiftstate and sscAlt>0) then
      if (params.mode.displayMode<>params.altMode.displayMode) and
         (params.altMode.displayMode<>dmNone) then begin
+       LogMessage('Alt+Enter!');
+       Swap(params.width,altWidth);
+       Swap(params.height,altHeight);
        ds:=params.mode;
        params.mode:=params.altMode;
        params.altMode:=ds;
@@ -1947,6 +1949,7 @@ procedure TBasicGame.FrameLoop;
    style:cardinal;
    w,h:integer;
   begin
+   LogMessage('Configure main window');
    style:=ws_popup;
    if params.mode.displayMode=dmWindow then inc(style,WS_SIZEBOX+WS_MAXIMIZEBOX);
    if params.mode.displayMode in [dmWindow,dmFixedWindow] then

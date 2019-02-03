@@ -351,7 +351,6 @@ var
  tex:TGlTexture;
  status:cardinal;
  format,SubFormat,internalFormat:cardinal;
-// sx,sy:single;
  dataSize:integer;
 begin
  ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
