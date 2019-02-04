@@ -2,7 +2,7 @@
 //
 // Copyright (C) 2003-2004 Apus Software (www.games4win.com)
 // Author: Ivan Polyacov (ivan@apus-software.com)
-unit CommonUI;
+unit UIScene;
 interface
  uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineCls,UIClasses,CrossPlatform,ImageMan,types;
 
@@ -24,6 +24,11 @@ type
   procedure Render; override;
   procedure onResize(width,height:integer); override;
   function GetArea:TRect; override; // screen area occupied by any non-transparent UI elements (i.e. which part of screen can't be ignored)
+  procedure WriteKey(key:cardinal); override;
+  procedure onMouseMove(x,y:integer); override;
+  procedure onMouseBtn(btn:byte;pressed:boolean); override;
+  procedure onMouseWheel(delta:integer); override;
+
  private
   lastRenderTime:int64;
 //  prevModal:TUIControl;
@@ -120,6 +125,7 @@ var
 
 procedure SetDisplaySize(width,height:integer);
  begin
+  LogMessage('UIScene.SDS');
   oldRootWidth:=rootWidth;
   oldAreaHeight:=rootHeight;
   rootWidth:=width;
@@ -558,6 +564,29 @@ begin
  OffsetRect(result,UI.x,UI.y);  
 end;
 
+procedure TUIScene.onMouseBtn(btn: byte; pressed: boolean);
+begin
+ if (UI<>nil) and (not UI.enabled) then exit;
+ inherited;
+
+end;
+
+procedure TUIScene.onMouseMove(x, y: integer);
+begin
+ if (UI<>nil) and (not UI.enabled) then exit;
+ inherited;
+
+end;
+
+procedure TUIScene.onMouseWheel(delta: integer);
+begin
+ if (UI<>nil) and (not UI.enabled) then exit;
+ inherited;
+ if (modalcontrol=nil) or (modalcontrol=UI) then begin
+   Signal('UI\'+name+'\MouseWheel',delta);
+ end;
+end;
+
 procedure TUIScene.onResize;
 begin
   inherited;
@@ -786,8 +815,8 @@ begin
   caption:='';
   hintDelay:=0; hintDuration:=0;
  end;
- PublishVar(@rootWidth,'RenderWidth',TVarTypeInteger);
- PublishVar(@rootHeight,'RenderHeight',TVarTypeInteger);
+ PublishVar(@rootWidth,'rootWidth',TVarTypeInteger);
+ PublishVar(@rootHeight,'rootHeight',TVarTypeInteger);
  initialized:=true;
 end;
 
@@ -809,7 +838,7 @@ begin
   end;
  end;}
  if (status=ssActive) and (UI=nil) then begin
-  UI:=TUIControl.Create(0,0,2000,1200,nil);
+  UI:=TUIControl.Create(0,0,rootWidth,rootHeight,nil);
   UI.name:=name;
   UI.enabled:=false;
   UI.visible:=false;
@@ -820,6 +849,12 @@ begin
   if ui.enabled and (UI is TUIWindow) then
    UI.SetFocus;
  end;
+end;
+
+procedure TUIScene.WriteKey(key: cardinal);
+begin
+ if (UI<>nil) and (not UI.enabled) then exit;
+ inherited;
 end;
 
 procedure ShowSimpleHint;
@@ -884,7 +919,7 @@ begin
  assign(f,'UIdata.log');
  rewrite(f);
  writeln(f,'Scenes:');
- for i:=1 to high(game.scenes) do DumpScene(game.scenes[i]);
+ for i:=0 to high(game.scenes) do DumpScene(game.scenes[i]);
  writeln(f,'Topmost scene = ',game.TopmostVisibleScene(false).name);
  writeln(f,'Topmost fullscreen scene = ',game.TopmostVisibleScene(true).name);
  writeln(f);

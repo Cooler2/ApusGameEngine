@@ -223,7 +223,7 @@ type
 implementation
  uses types,SysUtils,cmdproc{$IFDEF DELPHI},graphics{$ENDIF}
      {$IFDEF VIDEOCAPTURE},VideoCapture{$ENDIF},BasicPainter,
-     EventMan,ImageMan,UIClasses,CommonUI,Console,EngineTools,publics,gfxFormats;
+     EventMan,ImageMan,UIClasses,UIScene,Console,EngineTools,publics,gfxFormats;
 
 type
  TMainThread=class(TThread)

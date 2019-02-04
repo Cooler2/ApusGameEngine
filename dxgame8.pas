@@ -32,7 +32,7 @@ type
 
 implementation
  uses messages,SysUtils,DirectXGraphics,D3d8,cmdproc{$IFDEF DELPHI},graphics{$ENDIF},
-     DxImages8,Painter8,EventMan,ImageMan,UIClasses,CommonUI,gfxformats,Console;
+     DxImages8,Painter8,EventMan,ImageMan,UIClasses,UIScene,gfxformats,Console;
 
 { TDXGame8 }
 

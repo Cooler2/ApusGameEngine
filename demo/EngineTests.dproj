@@ -187,7 +187,7 @@
         <DCCReference Include="..\UIClasses.pas"/>
         <DCCReference Include="..\PainterGL.pas"/>
         <DCCReference Include="..\ImageMan.pas"/>
-        <DCCReference Include="..\CommonUI.pas"/>
+        <DCCReference Include="..\UIScene.pas"/>
         <DCCReference Include="..\UIRender.pas"/>
         <DCCReference Include="..\engineTools.pas"/>
         <DCCReference Include="..\console.pas"/>

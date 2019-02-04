@@ -10,7 +10,7 @@ interface
  procedure CreateTweakerScene(tinyFont,normalFont:cardinal);
 
 implementation
- uses SysUtils,MyServis,publics,Math,UIClasses,CommonUI,EventMan,UIRender,engineTools;
+ uses SysUtils,MyServis,publics,Math,UIClasses,UIScene,EventMan,UIRender,engineTools;
 
  type
   TTweakerScene=class(TUIScene)

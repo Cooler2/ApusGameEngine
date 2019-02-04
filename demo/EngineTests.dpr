@@ -23,7 +23,7 @@ uses
   UIClasses in '..\UIClasses.pas',
   PainterGL in '..\PainterGL.pas',
   ImageMan in '..\ImageMan.pas',
-  CommonUI in '..\CommonUI.pas',
+  UIScene in '..\UIScene.pas',
   UIRender in '..\UIRender.pas',
   engineTools in '..\engineTools.pas',
   console in '..\console.pas',

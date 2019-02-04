@@ -1,7 +1,7 @@
 ﻿unit UsableNetwork;
 
 interface
-uses SysUtils,EventMan,networking2,MyServis,Classes,EngineCls,CommonUI,BasicGame;
+uses SysUtils,EventMan,networking2,MyServis,Classes,EngineCls,UIScene,BasicGame;
 type
  tNetData=array[0..39999] of byte;
  pNetData=^TNetData;
