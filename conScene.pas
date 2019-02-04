@@ -103,7 +103,6 @@ procedure AddConsoleScene;
   i:=wcTitleHeight;
   wcTitleHeight:=20;
   consoleScene:=TConsoleScene.Create;
-  game.AddScene(consoleScene);
   wcTitleHeight:=i;
   SetEventHandler('KBD\KeyDown',KbdHandler);
   cmdList:=TStringList.Create;

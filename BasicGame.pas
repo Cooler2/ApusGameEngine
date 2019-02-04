@@ -1052,40 +1052,19 @@ end;
 
 function TBasicGame.OnFrame:boolean;
 var
- i,cnt,v,n:integer;
+ i,j,v,n:integer;
  deltaTime,time:int64;
  p:pointer;
 begin
  result:=false;
  EnterCriticalSection(crSect);
  try
- // Выбор курсора с наименьшим приоритетом (но >0)
-{ v:=10000000; n:=0;
- for i:=1 to 32 do
-  if cursors[i]<>nil then with cursors[i] as TGameCursor do
-   if (priority<v) and (priority>0) then begin
-    v:=priority; n:=i;
-   end;
- if v<10000000 then begin
-  (cursors[n] as TGameCursor).visible:=true;
-  if (v>curPrior) and params.customCursor then changed:=true;
- end;}
  // Сортировка сцен
- cnt:=0;
- for i:=low(scenes) to high(scenes) do
-  if scenes[i]<>nil then inc(cnt);
-
- if cnt>0 then begin
-  for i:=high(scenes)-1 downto low(scenes) do
-   for n:=1 to i do
-    if (scenes[n]=nil) and (scenes[n+1]<>nil) then begin
-     scenes[n]:=scenes[n+1];                                
-     scenes[n+1]:=nil;
-    end;
-  for i:=1 to cnt-1 do
-   for n:=cnt downto i+1 do
-    if scenes[n].zorder>scenes[n-1].zorder then begin
-     p:=scenes[n]; scenes[n]:=scenes[n-1]; scenes[n-1]:=p;
+ if high(scenes)>1 then begin
+  for n:=1 to high(scenes) do
+   for i:=0 to n-1 do
+    if scenes[i].zorder>scenes[i-1].zorder then begin
+     p:=scenes[i]; scenes[i]:=scenes[i-1]; scenes[i-1]:=p;
     end;
  end;
  finally
@@ -1095,15 +1074,11 @@ begin
  try
   // Перечисление корневых эл-тов UI в соответствии со сценами
   // (связь сцен и UI)
-//  rootControlsCnt:=0;
-  for i:=1 to cnt do begin
+  for i:=0 to high(scenes) do begin
    if (scenes[i] is TUIScene) then
     with scenes[i] as TUIScene do
      if (UI<>nil) then begin
-//      inc(rootControlsCnt);
-//      UI.visible:=scenes[i].status=ssActive;
       ui.order:=scenes[i].zorder;
-//      rootControls[rootControlsCnt]:=UI;
      end;
   end;
  finally
@@ -1118,12 +1093,12 @@ begin
    if scenes[i].frequency>0 then begin // Сцена обрабатывается с заданной частотой
     time:=1000 div scenes[i].frequency;
     inc(scenes[i].accumTime,DeltaTime);
-    cnt:=0;
+    n:=0;
     while scenes[i].accumTime>0 do begin
      result:=scenes[i].Process or result;
      dec(scenes[i].accumTime,time);
-     inc(cnt);
-     if cnt>5 then begin
+     inc(n);
+     if n>5 then begin
       scenes[i].accumTime:=0;
       break; // запрет слишком высокой частоты обработки
      end;
@@ -1132,7 +1107,6 @@ begin
     result:=scenes[i].Process or result;  // обрабатывать каждый раз
    end;
   end;
-// LastOnFrameTime:=MyTickCount;
 end;
 
 // Устанавливает область отрисовки внутри окна в соответствии с текущими настройками
@@ -1254,7 +1228,7 @@ begin
    if (scenes[i]<>nil) and (scenes[i].sceneType=stBackground) and (scenes[i].status=ssActive)
     then fl:=false;
   FLog('Clear '+booltostr(fl));
-  if fl or (frameNum and 15=0) then begin
+  if fl then begin
    if params.zbuffer>0 then z:=0 else z:=-1;
    if params.stencil then s:=0 else s:=-1;
    painter.Clear($FF000000,z,s);
@@ -1424,7 +1398,8 @@ begin
  try
   // Already added?
   for i:=low(scenes) to high(scenes) do
-   if scenes[i]=scene then exit;
+   if scenes[i]=scene then
+    raise EWarning.Create('Scene already added: '+scene.name);
   // Add
   LogMessage('Adding scene: '+scene.name);
   scene.accumTime:=0;
@@ -1447,6 +1422,7 @@ begin
    n:=length(scenes)-1;
    scenes[i]:=scenes[n];
    SetLength(scenes,n);
+   LogMessage('Scene removed: '+scene.name);
    exit;
   end;
  finally
