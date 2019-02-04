@@ -1708,7 +1708,6 @@ begin
  InitUI;
  // А можно и не делать - можно это сделать в обработчике события
 
- game.initialized:=true;
  savetime:=GetTickCount;
  repeat
   delay(50);

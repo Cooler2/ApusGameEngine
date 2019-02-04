@@ -514,7 +514,6 @@ begin
  end;
  ForceLogMessage('RUN');
  DetermineSettings;
- game.initialized:=true;
  InitUI;
  {$IFDEF IOS}
  filemode:=0;

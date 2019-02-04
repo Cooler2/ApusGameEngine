@@ -480,7 +480,6 @@ procedure TGameApplication.Run;
   if useDefaultLoaderScene then begin
    loadingScene:=TLoadingScene.Create;
    game.AddScene(loadingScene);
-   game.initialized:=true;
   end;
 
   // More initialization

@@ -175,7 +175,6 @@ type
   windowWidth,windowHeight:integer; // размеры клиентской части окна в реальных пикселях
   active:boolean;       // Окно активно, цикл перерисовки выполняется
   paused:boolean;       // Режим паузы (изначально сброшен, движком не изменяется и не используется)
-  initialized:boolean;  // Завершена ли инициализация (если нет - перерисовка запрещена)
   unicode:boolean;      // unicode mode ON?
   window:cardinal;      // main window handle
   terminated:boolean;   // Работа цикла завершена, можно начинать деинициализацию и выходить
@@ -310,7 +309,6 @@ begin
  controlThread:=GetCurrentThreadId;
  active:=false;
  paused:=false;
- initialized:=false;
  loopThread:=nil;
  FrameNum:=0;
  fps:=0;
@@ -1835,7 +1833,7 @@ procedure TBasicGame.FrameLoop;
 
     if active or (params.mode.displayMode<>dmSwitchResolution) then begin
      // Если программа активна, то выполним отрисовку кадра
-     if changed and initialized then begin
+     if changed then begin
       try
        PrevFrameLog:=frameLog;
        frameLog:='';
@@ -1872,8 +1870,7 @@ procedure TBasicGame.FrameLoop;
 
     // Теперь нужно вывести кадр на экран
     if (active or (params.mode.displayMode<>dmSwitchResolution)) and
-       changed and
-       initialized then begin
+       changed then begin
      PresentFrame;
      {$IFDEF DELPHI}
      if captureSingleFrame or videoCaptureMode then
