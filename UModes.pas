@@ -469,17 +469,18 @@ begin
   refresh:=RefreshRate;
   if WindowedMode then begin
    if windowFullScreen then begin
-    altmode:=dmNone;
-    mode:=dmFullScreen;
+    altmode.displayMode:=dmNone;
+    mode.displayMode:=dmFullScreen;
    end else begin
-    mode:=dmFixedWindow;
-    altMode:=dmNone;
+    mode.displayMode:=dmFixedWindow;
+    altMode.displayMode:=dmNone;
    end;
   end else begin
-   mode:=dmSwitchResolution;
-   altMode:=dmFixedWindow;
+   mode.displayMode:=dmSwitchResolution;
+   altMode.displayMode:=dmFixedWindow;
   end;
-  fitmode:=dfmKeepAspectRatio;
+  mode.displayFitMode:=dfmKeepAspectRatio;
+  mode.displayScaleMode:=dsmDontScale;
   showSystemCursor:=useSystemCursor;
   zbuffer:=16;
   stencil:=false;
@@ -492,7 +493,7 @@ begin
   end else
    VSync:=1;
  end;
- if settings.mode<>dmSwitchResolution then
+ if settings.mode.displayMode<>dmSwitchResolution then
   ForceLogMessage('Running in cooperative mode')
  else
   ForceLogMessage('Running in exclusive mode');
@@ -745,11 +746,11 @@ procedure tmode.Draw(x,y:integer);
 begin
  lastdrawtime:=getcurtime;
  if background<>nil then begin
-  if (background.width=rootWidth) and
-     (background.height=rootHeight) then
+  if (background.width=game.renderWidth) and
+     (background.height=game.renderHeight) then
    painter.DrawImage(0,0,background)
   else
-   painter.DrawScaled(0,0,rootWidth,rootHeight,background);
+   painter.DrawScaled(0,0,game.renderWidth,game.renderHeight,background);
  end;
 end;
 
@@ -871,7 +872,7 @@ procedure TMode.Preload;
 begin
  if (windowed=false) and (background=nil) then
   try
-   if rootWidth/rootHeight>1.5 then
+   if game.renderWidth/game.renderHeight>1.5 then
     background:=CreateImage('IMAGES\'+name+'\BACKGROUNDWIDE',false)
    else
     background:=CreateImage('IMAGES\'+name+'\BACKGROUND',false);

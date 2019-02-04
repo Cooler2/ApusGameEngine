@@ -15,10 +15,10 @@ uses
   FreeTypeFont,
   {$IFDEF OPENGL}
   dglOpenGl,
-  {$ENDIF}
+  {$ENDIF }
   {$IFDEF DIRECTX}
   DirectXGraphics,
-  {$ENDIF}
+  {$ENDIF }
   EngineCls in '..\EngineCls.pas',
   UIClasses in '..\UIClasses.pas',
   PainterGL in '..\PainterGL.pas',
@@ -1684,15 +1684,15 @@ begin
   colorDepth:=32;
   refresh:=0;
   if wnd then begin
-   mode:=dmWindow;
-   altMode:=dmSwitchResolution;
+   mode.displayMode:=dmWindow;
+   altMode.displayMode:=dmSwitchResolution;
   end else begin
-   mode:=dmSwitchResolution;
-   altMode:=dmFixedWindow;
+   mode.displayMode:=dmSwitchResolution;
+   altMode.displayMode:=dmFixedWindow;
   end;
 //  mode:=dmFullScreen;
-  fitMode:=dfmCenter;
-  fitMode:=dfmKeepAspectRatio;
+  mode.displayFitMode:=dfmKeepAspectRatio;
+  mode.displayScaleMode:=dsmDontScale;
   showsystemcursor:=true;
   zbuffer:=16;
   stencil:=false;

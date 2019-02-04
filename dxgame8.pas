@@ -59,12 +59,12 @@ var
  res:integer;
 begin
  inherited;
- if params.mode=dmFullScreen then begin
+ if params.mode.displayMode=dmFullScreen then begin
   params.width:=DisplayMode.Width;
   params.height:=displayMode.Height;
  end;
  // Заполним структуру параметров презентации
- if params.mode<>dmSwitchResolution then begin
+ if params.mode.displayMode<>dmSwitchResolution then begin
   pparam:=WindowedMode(window,params.width,params.height,0);
   pparam.SwapEffect:=D3DSWAPEFFECT_COPY;
 {  pparam.SwapEffect:=D3DSWAPEFFECT_DISCARD;}
@@ -181,7 +181,7 @@ procedure TDXGame8.PresentFrame;
   adr:pointer;
  begin
   if device=nil then exit;
-  if params.mode<>dmSwitchResolution then begin
+  if params.mode.displayMode<>dmSwitchResolution then begin
    adr:=@displayRect;
    //SetWindowArea(params.width,params.height);
   end else adr:=nil;
