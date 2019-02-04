@@ -158,7 +158,7 @@ begin
   InitGraph;
   if texman<>nil then (texman as TDXTextureMan).ReCreateAll;
   if painter<>nil then (painter as TDXPainter8).Reset;
-  for i:=1 to length(scenes) do
+  for i:=low(scenes) to high(scenes) do
    if scenes[i]<>nil then scenes[i].ModeChanged;
  end;
 end;

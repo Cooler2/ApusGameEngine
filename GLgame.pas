@@ -51,7 +51,7 @@ begin
   ConfigureMainWindow;
   if painter<>nil then (painter as TGLPainter).Reset;
   SetupRenderArea;
-  for i:=1 to length(scenes) do
+  for i:=low(scenes) to high(scenes) do
    if scenes[i]<>nil then scenes[i].ModeChanged;
  end;
 end;

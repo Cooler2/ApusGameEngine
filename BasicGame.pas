@@ -206,7 +206,7 @@ type
 
   // параметры выставляются при смене режима, указыают что именно изменялось
   resChanged,pfChanged:boolean;
-  scenes:array[1..60] of TGameScene;
+  scenes:array of TGameScene;
   topmostScene:TGameScene;
 
   // properties
@@ -329,7 +329,7 @@ begin
 
  PublishVar(@showDebugInfo,'ShowDebugInfo',TVarTypeInteger);
  PublishVar(@showFPS,'showFPS',TVarTypeBool);
- fillchar(scenes,sizeof(scenes),0);
+ SetLength(scenes,0);
  PublishVar(@renderWidth,'RenderWidth',TVarTypeInteger);
  PublishVar(@renderHeight,'RenderHeight',TVarTypeInteger);
  PublishVar(@windowWidth,'WindowWidth',TVarTypeInteger);
@@ -800,13 +800,9 @@ procedure TBasicGame.NotifyScenesAboutMouseMove;
 var
   i:integer;
 begin
- for i:=1 to High(scenes) do
+ for i:=low(scenes) to High(scenes) do
   if (game.scenes[i]<>nil) and
-     (game.scenes[i].status=ssActive) and
-     not (game.scenes[i] is TUIScene) or
-     ((game.scenes[i] is TUIScene) and
-      (TUIScene(game.scenes[i]).UI<>nil) and
-      (TUIScene(game.scenes[i]).UI.enabled)) then
+     (game.scenes[i].status=ssActive) then
    game.scenes[i].onMouseMove(mouseX,mouseY);
 end;
 
@@ -814,10 +810,8 @@ procedure TBasicGame.NotifyScenesAboutMouseBtn(c:byte;pressed:boolean);
 var
   i:integer;
 begin
- for i:=1 to length(scenes) do
-  if (game.scenes[i]<>nil) and (game.scenes[i].status=ssActive) and
-     (game.scenes[i] is TUIScene) and
-     (TUIScene(game.scenes[i]).UI.enabled) then
+ for i:=low(scenes) to high(scenes) do
+  if (game.scenes[i]<>nil) and (game.scenes[i].status=ssActive) then
    game.scenes[i].onMouseBtn(c,pressed);
 end;
 
@@ -880,12 +874,9 @@ begin
     // Младший байт - код символа, старший - сканкод
     key:=wparam and $FF+(lparam shr 8) and $FF00+wparam shl 16;
     if shiftstate=2 then exit; 
-    for i:=1 to length(scenes) do
+    for i:=low(scenes) to high(scenes) do
       if (game.scenes[i]<>nil) and
-         (game.scenes[i].status=ssActive) and
-         (game.scenes[i] is TUIScene) and
-         (TUIScene(game.scenes[i]).UI.enabled) then
-           game.scenes[i].WriteKey(key);
+         (game.scenes[i].status=ssActive) then game.scenes[i].WriteKey(key);
     if not unicode then begin
       // Символ в 8-битной кодировке
       Signal('Kbd\Char',key);
@@ -955,18 +946,9 @@ begin
   WM_MOUSEWHEEL:begin
     Signal('Mouse\Scroll',wParam div 65536);
     if game<>nil then with game do begin
-     for i:=1 to length(scenes) do
+     for i:=low(scenes) to high(scenes) do
       if (game.scenes[i]<>nil) and
-         (game.scenes[i].status=ssActive) and
-         (game.scenes[i] is TUIScene) and
-         (TUIScene(game.scenes[i]).UI.enabled) then
-        with scenes[i] as TUIScene do begin
-          onMouseWheel(wParam div 65536);
-          if (modalcontrol=nil)or(modalcontrol=UI) then begin
-            Signal('UI\'+name+'\MouseWheel',wparam div 65536);
-            break;
-          end;
-        end;
+         (game.scenes[i].status=ssActive) then scenes[i].onMouseWheel(wParam div 65536);
     end;
   end;
 
@@ -1092,11 +1074,11 @@ begin
  end;}
  // Сортировка сцен
  cnt:=0;
- for i:=1 to length(scenes) do
+ for i:=low(scenes) to high(scenes) do
   if scenes[i]<>nil then inc(cnt);
 
  if cnt>0 then begin
-  for i:=length(scenes)-1 downto 1 do
+  for i:=high(scenes)-1 downto low(scenes) do
    for n:=1 to i do
     if (scenes[n]=nil) and (scenes[n+1]<>nil) then begin
      scenes[n]:=scenes[n+1];                                
@@ -1132,7 +1114,7 @@ begin
  deltaTime:=MyTickCount-LastOnFrameTime;
  LastOnFrameTime:=MyTickCount;
  // Обработка всех активных сцен
- for i:=1 to length(scenes) do
+ for i:=low(scenes) to high(scenes) do
   if (scenes[i]<>nil) and (scenes[i].status<>ssFrozen) then begin
    // Обработка сцены
    if scenes[i].frequency>0 then begin // Сцена обрабатывается с заданной частотой
@@ -1270,7 +1252,7 @@ begin
   try
   // Очистим экран если нет ни одной background-сцены или они не покрывают всю область вывода
   fl:=true;
-  for i:=1 to length(scenes) do
+  for i:=low(scenes) to high(scenes) do
    if (scenes[i]<>nil) and (scenes[i].sceneType=stBackground) and (scenes[i].status=ssActive)
     then fl:=false;
   FLog('Clear '+booltostr(fl));
@@ -1285,7 +1267,7 @@ begin
   FLog('Eff');
   try
   // Обработка эффектов на ВСЕХ сценах
-  for i:=1 to length(scenes) do
+  for i:=low(scenes) to high(scenes) do
    if (scenes[i]<>nil) and (scenes[i].effect<>nil) then begin
     FLog('Eff on '+scenes[i].ClassName+' is '+scenes[i].effect.ClassName+' : '+
      inttostr(scenes[i].effect.timer)+','+booltostr(scenes[i].effect.done));
@@ -1307,7 +1289,7 @@ begin
   FLog('Sorting');
   try
   n:=0;
-  for i:=1 to length(scenes) do
+  for i:=low(scenes) to high(scenes) do
    if (scenes[i]<>nil) and (scenes[i].status=ssActive) then begin
     // Сортировка вставкой. Найдем положение для вставки и вставим туда
     if n=0 then begin
@@ -1442,15 +1424,15 @@ var
 begin
  EnterCriticalSection(crSect);
  try
- // Already added?
- for i:=1 to high(scenes) do
-  if scenes[i]=scene then exit;
- // Add
- scene.accumTime:=0;
- for i:=1 to high(scenes) do
-  if scenes[i]=nil then begin
-   scenes[i]:=scene; exit;
-  end;
+  // Already added?
+  for i:=low(scenes) to high(scenes) do
+   if scenes[i]=scene then exit;
+  // Add
+  LogMessage('Adding scene: '+scene.name);
+  scene.accumTime:=0;
+  i:=length(scenes);
+  SetLength(scenes,i+1);
+  scenes[i]:=scene;
  finally
   LeaveCriticalSection(crSect);
  end;
@@ -1458,13 +1440,16 @@ end;
 
 procedure TBasicGame.RemoveScene(scene: TGameScene);
 var
- i:integer;
+ i,n:integer;
 begin
  EnterCriticalSection(crSect);
  try
- for i:=1 to length(scenes) do
+ for i:=low(scenes) to high(scenes) do
   if scenes[i]=scene then begin
-   scenes[i]:=nil; exit;
+   n:=length(scenes)-1;
+   scenes[i]:=scenes[n];
+   SetLength(scenes,n);
+   exit;
   end;
  finally
   LeaveCriticalSection(crSect);
@@ -1478,7 +1463,7 @@ begin
  EnterCriticalSection(crSect);
  try
  result:=nil;
- for i:=1 to length(scenes) do
+ for i:=low(scenes) to high(scenes) do
   if (scenes[i]<>nil) and (scenes[i].status=ssActive) then begin
    if fullscreenOnly and (scenes[i].sceneType=stForeground) then continue;
    if result=nil then
@@ -1711,7 +1696,7 @@ begin
  try
   result:=nil;
   maxZ:=-10000000;
-  for i:=1 to length(scenes) do
+  for i:=low(scenes) to high(scenes) do
    if (scenes[i]<>nil) and
       (scenes[i].status=ssActive) and
       not scenes[i].ignoreKeyboardEvents then begin

@@ -50,7 +50,7 @@ begin
  n:=0;
  with GamePointer do
  begin
-  for i:=1 to 50 do
+  for i:=low(scenes) to high(scenes) do
    if (scenes[i]<>nil) and (scenes[i].Activated) then
   with scenes[i] as TUIScene do
   begin
