@@ -40,7 +40,8 @@ uses
   MemoryLeakUtils in '..\MemoryLeakUtils.pas',
   AnimatedValues in '..\AnimatedValues.pas',
   myHuffman in '..\myHuffman.pas',
-  Images in '..\Images.pas';
+  Images in '..\Images.pas',
+  httpRequests in '..\httpRequests.pas';
 
 var
  sa:StringArr;
