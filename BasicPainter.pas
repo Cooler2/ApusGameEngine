@@ -87,7 +87,6 @@ interface
 
   procedure UseCustomShader; override;
 
-
 //  procedure ScreenOffset(x, y: integer); override;
 
   // Drawing methods
@@ -108,6 +107,9 @@ interface
   procedure DrawImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer); override;
   procedure DrawScaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080); override;
   procedure DrawRotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080); override; // x,y - центр
+  function DrawImageCover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; override;
+  function DrawImageInside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; override;
+
   // Рисует два изображения за один проход (путем мультитекстурирования)
   procedure DrawDouble(x_,y_:integer;image1,image2:TTexture;color:cardinal=$FF808080); override;
   procedure DrawDoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
@@ -2348,6 +2350,29 @@ begin // -----------------------------------------------------------
  if (lpCount>0) and (options and toDontDraw=0) then DrawUnderlines;
 end;
 
+function TBasicPainter.DrawImageCover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
+var
+ w,h:integer;
+ u,v,r1,r2:single;
+begin
+ u:=0; v:=0;
+ if (x2=x1) or (y2=y1) then exit;
+ r1:=texture.width/texture.height;
+ r2:=(x2-x1)/(y2-y1);
+ if r1>r2 then begin // texture is wider
+  u:=0.5*(1-r2/r1);
+ end else begin // texture is taller
+  v:=0.5*(1-r1/r2);
+ end;
+ TexturedRect(x1,y1,x2-1,y2-1,texture,u,v,1-u,v,1-u,1-v,color);
+ result:=Max2d((x2-x1)/texture.width,(y2-y1)/texture.height);
+end;
+
+function TBasicPainter.DrawImageInside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
+begin
+ result:=Min2d((x2-x1)/texture.width,(y2-y1)/texture.height);
+ DrawRotScaled(x1+x2/2,y1+y2/2,result,result,0,texture,color);
+end;
 
 initialization
  InitCritSect(crSect,'Painter',95);

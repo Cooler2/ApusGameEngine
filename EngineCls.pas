@@ -347,7 +347,11 @@ type
   procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal); virtual; abstract;
   procedure DrawScaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080); virtual; abstract;
   procedure DrawRotScaled(x,y,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080); virtual; abstract; // x,y - центр
-  
+
+  // Returns scale
+  function DrawImageCover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; virtual; abstract;
+  function DrawImageInside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; virtual; abstract;
+
   // Meshes ------------------
   // Draw textured tri-mesh
   procedure DrawTrgListTex(pnts:PScrPoint;trgcount:integer;tex:TTexture); virtual; abstract;
@@ -593,6 +597,7 @@ begin
  zorder:=0;
  activated:=false;
  effect:=nil;
+ name:=ClassName;
  ignoreKeyboardEvents:=false;
  if classType=TGameScene then onCreate; // each generic child class must call this in the constructors last string
 end;
