@@ -799,8 +799,7 @@ var
   i:integer;
 begin
  for i:=low(scenes) to High(scenes) do
-  if (game.scenes[i]<>nil) and
-     (game.scenes[i].status=ssActive) then
+  if game.scenes[i].status=ssActive then
    game.scenes[i].onMouseMove(mouseX,mouseY);
 end;
 
@@ -809,7 +808,7 @@ var
   i:integer;
 begin
  for i:=low(scenes) to high(scenes) do
-  if (game.scenes[i]<>nil) and (game.scenes[i].status=ssActive) then
+  if game.scenes[i].status=ssActive then
    game.scenes[i].onMouseBtn(c,pressed);
 end;
 
@@ -831,13 +830,6 @@ begin
  result:=0;
  case Message of
   wm_Destroy: if game<>nil then Signal('Engine\Cmd\Exit',0);
-
-//  WM_SYSKEYUP:begin result:=0; exit; end;
-{  WM_SYSKEYDOWN:if game<>nil then with game do begin
-    scancode:=(lParam shr 16) and $FF;
-    keyState[scanCode]:=keyState[scanCode] or 1;
-    Signal('KBD\KeyDown',scancode+shiftstate shl 16);
-  end;}
 
   WM_MOUSEMOVE:if game<>nil then with game do begin
     if not game.params.showSystemCursor then SetCursor(0);
@@ -873,8 +865,8 @@ begin
     key:=wparam and $FF+(lparam shr 8) and $FF00+wparam shl 16;
     if shiftstate=2 then exit; 
     for i:=low(scenes) to high(scenes) do
-      if (game.scenes[i]<>nil) and
-         (game.scenes[i].status=ssActive) then game.scenes[i].WriteKey(key);
+      if game.scenes[i].status=ssActive then
+       game.scenes[i].WriteKey(key);
     if not unicode then begin
       // Символ в 8-битной кодировке
       Signal('Kbd\Char',key);
@@ -945,8 +937,8 @@ begin
     Signal('Mouse\Scroll',wParam div 65536);
     if game<>nil then with game do begin
      for i:=low(scenes) to high(scenes) do
-      if (game.scenes[i]<>nil) and
-         (game.scenes[i].status=ssActive) then scenes[i].onMouseWheel(wParam div 65536);
+      if game.scenes[i].status=ssActive then
+       scenes[i].onMouseWheel(wParam div 65536);
     end;
   end;
 
@@ -1088,7 +1080,7 @@ begin
  LastOnFrameTime:=MyTickCount;
  // Обработка всех активных сцен
  for i:=low(scenes) to high(scenes) do
-  if (scenes[i]<>nil) and (scenes[i].status<>ssFrozen) then begin
+  if scenes[i].status<>ssFrozen then begin
    // Обработка сцены
    if scenes[i].frequency>0 then begin // Сцена обрабатывается с заданной частотой
     time:=1000 div scenes[i].frequency;
@@ -1225,7 +1217,7 @@ begin
   // Очистим экран если нет ни одной background-сцены или они не покрывают всю область вывода
   fl:=true;
   for i:=low(scenes) to high(scenes) do
-   if (scenes[i]<>nil) and (scenes[i].sceneType=stBackground) and (scenes[i].status=ssActive)
+   if (scenes[i].sceneType=stBackground) and (scenes[i].status=ssActive)
     then fl:=false;
   FLog('Clear '+booltostr(fl));
   if fl then begin
@@ -1240,7 +1232,7 @@ begin
   try
   // Обработка эффектов на ВСЕХ сценах
   for i:=low(scenes) to high(scenes) do
-   if (scenes[i]<>nil) and (scenes[i].effect<>nil) then begin
+   if scenes[i].effect<>nil then begin
     FLog('Eff on '+scenes[i].ClassName+' is '+scenes[i].effect.ClassName+' : '+
      inttostr(scenes[i].effect.timer)+','+booltostr(scenes[i].effect.done));
     effect:=scenes[i].effect;
@@ -1262,7 +1254,7 @@ begin
   try
   n:=0;
   for i:=low(scenes) to high(scenes) do
-   if (scenes[i]<>nil) and (scenes[i].status=ssActive) then begin
+   if scenes[i].status=ssActive then begin
     // Сортировка вставкой. Найдем положение для вставки и вставим туда
     if n=0 then begin
      sc[1]:=scenes[i]; inc(n); continue;
@@ -1438,7 +1430,7 @@ begin
  try
  result:=nil;
  for i:=low(scenes) to high(scenes) do
-  if (scenes[i]<>nil) and (scenes[i].status=ssActive) then begin
+  if scenes[i].status=ssActive then begin
    if fullscreenOnly and (scenes[i].sceneType=stForeground) then continue;
    if result=nil then
     result:=scenes[i]
@@ -1671,8 +1663,7 @@ begin
   result:=nil;
   maxZ:=-10000000;
   for i:=low(scenes) to high(scenes) do
-   if (scenes[i]<>nil) and
-      (scenes[i].status=ssActive) and
+   if (scenes[i].status=ssActive) and
       not scenes[i].ignoreKeyboardEvents then begin
     // UI Scene?
     if scenes[i] is TUIScene then begin

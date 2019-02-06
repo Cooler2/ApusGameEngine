@@ -52,7 +52,7 @@ begin
   if painter<>nil then (painter as TGLPainter).Reset;
   SetupRenderArea;
   for i:=low(scenes) to high(scenes) do
-   if scenes[i]<>nil then scenes[i].ModeChanged;
+   scenes[i].ModeChanged;
  end;
 end;
 
