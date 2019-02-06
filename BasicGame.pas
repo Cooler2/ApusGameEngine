@@ -1055,8 +1055,8 @@ begin
  if high(scenes)>1 then begin
   for n:=1 to high(scenes) do
    for i:=0 to n-1 do
-    if scenes[i].zorder>scenes[i-1].zorder then begin
-     p:=scenes[i]; scenes[i]:=scenes[i-1]; scenes[i-1]:=p;
+    if scenes[i+1].zorder>scenes[i].zorder then begin
+     Swap(scenes[i],scenes[i+1],sizeof(scenes[i]));
     end;
  end;
  finally
