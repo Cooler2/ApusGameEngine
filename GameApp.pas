@@ -533,10 +533,12 @@ begin
     gamUseFullWindow:begin
       if windowedMode then mode.displayMode:=dmFixedWindow
        else mode.displayMode:=dmFullScreen;
+      mode.displayFitMode:=dfmStretch;
       mode.displayScaleMode:=dsmDontScale;
       if windowedMode then altMode.displayMode:=dmFullScreen
        else altMode.displayMode:=dmFixedWindow;
       altMode.displayScaleMode:=dsmDontScale;
+      altMode.displayFitMode:=dfmStretch;
     end;
     // Для отрисовки используется часть окна в масштабе 1:1
     gamKeepAspectRatio:begin
