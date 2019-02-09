@@ -88,7 +88,7 @@ type
   procedure FinishVideoCap; virtual;
 
   // При включенной видеозаписи вызывается видеокодером для освобождения памяти кадра
-  procedure ReleaseFrameData(obj:TRAWImage); virtual; 
+  procedure ReleaseFrameData(obj:TRAWImage); virtual;
   
  protected
   running:boolean;
@@ -166,13 +166,14 @@ type
 
   // находит сцену, которая должна получать сигналы о клавиатурном вводе
   function TopmostSceneForKbd:TGameScene; virtual;
-
+  procedure onEngineEvent(event:string;tag:cardinal); virtual;
  public
   // Глобально доступные переменные
   renderWidth,renderHeight:integer; // Size of render area in virtual pixels (primitive of this size fills the whole renderRect)
   displayRect:Trect;     // область вывода в окне (после инициализации - все окно) в реальных экранных пикселях
   screenWidth,screenHeight:integer; // реальный размер всего экрана
   windowWidth,windowHeight:integer; // размеры клиентской части окна в реальных пикселях
+  screenDPI:integer;    // According to system settings
   active:boolean;       // Окно активно, цикл перерисовки выполняется
   paused:boolean;       // Режим паузы (изначально сброшен, движком не изменяется и не используется)
   unicode:boolean;      // unicode mode ON?
@@ -332,6 +333,7 @@ begin
  PublishVar(@renderHeight,'RenderHeight',TVarTypeInteger);
  PublishVar(@windowWidth,'WindowWidth',TVarTypeInteger);
  PublishVar(@windowHeight,'WindowHeight',TVarTypeInteger);    
+ PublishVar(@screenDPI,'ScreenDPI',TVarTypeInteger);
 end;
 
 procedure TBasicGame.Delay(time: integer);
@@ -534,85 +536,12 @@ end;
 
 
 function EngineEvent(Event:EventStr;tag:integer):boolean;
-var
-  t,fr:int64;
-  p:TPoint;
-procedure Timing;
- var
-  t2:int64;
- begin
-  t2:=MyTickCount;
-  fr:=t2 div 1000;
-  if game.timerFrame<>fr then begin
-   game.avgTime2:=0;
-   game.timerFrame:=fr;
-  end;
-  game.avgTime2:=game.avgTime2+(t2-t);
- end;
-
 begin
  result:=false;
  if game=nil then exit;
  delete(event,1,7);
  event:=UpperCase(event);
- if event='ONFRAME' then begin
-  try
-   game.FrameLoop;
-  except
-   on e:Exception do CritMsg('Error in main loop: '+ExceptionMsg(e));
-  end;
- end else
- if event='MAINLOOPINIT' then begin
-  game.InitMainLoop;
- end else
- if event='MAINLOOPDONE' then begin
-  game.DoneGraph;
- end else
- if event='SINGLETOUCHSTART' then with game do begin
-   t:=MyTickCount;
-   OldMouseX:=mouseX;
-   OldMouseY:=MouseY;
-   p:=Point(tag and $FFFF,tag shr 16);
-   ScreenToGame(p);
-   MouseX:=p.x;
-   MouseY:=p.y;
-   mouseMoved:=MyTickCount;
-   Signal('Mouse\Move',mouseX+mouseY shl 16);
-   game.NotifyScenesAboutMouseMove;
-   Signal('Mouse\BtnDown\Left',1);
-   game.NotifyScenesAboutMouseBtn(1,true);
-   sleep(0);
-   Timing;
- end else
- if event='SINGLETOUCHMOVE' then with game do begin
-   t:=MyTickCount;
-   OldMouseX:=mouseX;
-   OldMouseY:=MouseY;
-   p:=Point(tag and $FFFF,tag shr 16);
-   ScreenToGame(p);
-   MouseX:=p.x;
-   MouseY:=p.y;
-   mouseMoved:=MyTickCount;
-   Signal('Mouse\Move',mouseX+mouseY shl 16);
-   game.NotifyScenesAboutMouseMove;
-   Timing;
- end else
- if event='SINGLETOUCHRELEASE' then with game do begin
-   t:=MyTickCount;
-   Signal('Mouse\BtnUp\Left',1);
-   game.NotifyScenesAboutMouseBtn(1,false);
-   OldMouseX:=mouseX;
-   OldMouseY:=MouseY;
-   mouseX:=4095; mouseY:=4095;
-   mouseMoved:=MyTickCount;
-   Signal('Mouse\Move',mouseX+mouseY shl 16);
-   game.NotifyScenesAboutMouseMove;
-   Timing;
- end else
- if event='ACTIVATEWND' then begin
-  game.active:=(tag<>0);
- end;
-
+ game.onEngineEvent(event,tag);
  result:=false;
 end;
 
@@ -622,6 +551,9 @@ var
 begin
  if running then exit;
  game:=self;
+ {$IFDEF MSWINDOWS}
+ SetProcessDPIAware;
+ {$ENDIF}
 
  if useMainThread then begin
   {$IFDEF MSWINDOWS}
@@ -690,6 +622,7 @@ var
  h:TThreadID;
  fl:boolean;
 begin
+ ForceLogMessage('GameStop');
  if not running then exit;
  active:=false;
 
@@ -704,6 +637,7 @@ begin
   for j:=1 to 16 do
    if (threads[j]<>nil) and (threads[j].running) then fl:=true;
   if not fl then break;
+  LogMessage('Waiting for threads...');
   sleep(50);
  end;
 
@@ -711,8 +645,10 @@ begin
  {$IFDEF MSWINDOWS}
  if fl then
   for i:=1 to 16 do
-   if (threads[i]<>nil) and (threads[i].running) then
+   if (threads[i]<>nil) and (threads[i].running) then begin
+    ForceLogMessage('Killing thread: '+PtrToStr(@threads[i].func));
     TerminateThread(threads[i].Handle,0);
+   end;
  {$ENDIF}
 
  if LoopThread=nil then
@@ -727,10 +663,11 @@ begin
   if h<>loopThread.ThreadID then begin
    // Ждем 2 секунды пока поток не завершится по-хорошему
    for i:=1 to 40 do
-    if running then sleep(50);
+    if running then sleep(50) else break;
    // Иначе прибиваем силой
    if running then begin
     Signal('Error\MainThreadHangs');
+    ForceLogMessage('Killing main thread');
     TerminateThread(loopThread.Handle,0);
    end;
   end;
@@ -738,6 +675,7 @@ begin
  end;
 
  active:=false;
+ ForceLogMessage('Can exit now');
 end;
 
 procedure TBasicGame.CaptureFrame;
@@ -801,6 +739,82 @@ begin
  for i:=low(scenes) to High(scenes) do
   if game.scenes[i].status=ssActive then
    game.scenes[i].onMouseMove(mouseX,mouseY);
+end;
+
+procedure TBasicGame.onEngineEvent(event: string; tag: cardinal);
+var
+  t,fr:int64;
+  p:TPoint;
+procedure Timing;
+ var
+  t2:int64;
+ begin
+  t2:=MyTickCount;
+  fr:=t2 div 1000;
+  if game.timerFrame<>fr then begin
+   game.avgTime2:=0;
+   game.timerFrame:=fr;
+  end;
+  game.avgTime2:=game.avgTime2+(t2-t);
+ end;
+begin
+ if event='ONFRAME' then begin
+  try
+   FrameLoop;
+  except
+   on e:Exception do CritMsg('Error in main loop: '+ExceptionMsg(e));
+  end;
+ end else
+ if event='MAINLOOPINIT' then begin
+  InitMainLoop;
+ end else
+ if event='MAINLOOPDONE' then begin
+  DoneGraph;
+ end else
+ if event='SINGLETOUCHSTART' then begin
+   t:=MyTickCount;
+   OldMouseX:=mouseX;
+   OldMouseY:=MouseY;
+   p:=Point(tag and $FFFF,tag shr 16);
+   ScreenToGame(p);
+   MouseX:=p.x;
+   MouseY:=p.y;
+   mouseMoved:=MyTickCount;
+   Signal('Mouse\Move',mouseX+mouseY shl 16);
+   game.NotifyScenesAboutMouseMove;
+   Signal('Mouse\BtnDown\Left',1);
+   game.NotifyScenesAboutMouseBtn(1,true);
+   sleep(0);
+   Timing;
+ end else
+ if event='SINGLETOUCHMOVE' then with game do begin
+   t:=MyTickCount;
+   OldMouseX:=mouseX;
+   OldMouseY:=MouseY;
+   p:=Point(tag and $FFFF,tag shr 16);
+   ScreenToGame(p);
+   MouseX:=p.x;
+   MouseY:=p.y;
+   mouseMoved:=MyTickCount;
+   Signal('Mouse\Move',mouseX+mouseY shl 16);
+   game.NotifyScenesAboutMouseMove;
+   Timing;
+ end else
+ if event='SINGLETOUCHRELEASE' then with game do begin
+   t:=MyTickCount;
+   Signal('Mouse\BtnUp\Left',1);
+   game.NotifyScenesAboutMouseBtn(1,false);
+   OldMouseX:=mouseX;
+   OldMouseY:=MouseY;
+   mouseX:=4095; mouseY:=4095;
+   mouseMoved:=MyTickCount;
+   Signal('Mouse\Move',mouseX+mouseY shl 16);
+   game.NotifyScenesAboutMouseMove;
+   Timing;
+ end else
+ if event='ACTIVATEWND' then begin
+  game.active:=(tag<>0);
+ end;
 end;
 
 procedure TBasicGame.NotifyScenesAboutMouseBtn(c:byte;pressed:boolean);
@@ -1144,9 +1158,9 @@ begin
  LogMessage(Format('Set render area: %d,%d -> %d,%d,%d,%d',
    [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Width,displayRect.Height]));
  SetDisplaySize(renderWidth,renderHeight);
-{ for i:=1 to High(scenes) do
-  if scenes[i]<>nil then
-   scenes[i].onResize(w,h);}
+ Signal('ENGINE\BEFORERESIZE');
+ for i:=low(scenes) to High(scenes) do
+  scenes[i].onResize;
  Signal('ENGINE\RESIZED');
 end;
 
@@ -1217,7 +1231,7 @@ begin
   // Очистим экран если нет ни одной background-сцены или они не покрывают всю область вывода
   fl:=true;
   for i:=low(scenes) to high(scenes) do
-   if (scenes[i].sceneType=stBackground) and (scenes[i].status=ssActive)
+   if scenes[i].fullscreen and (scenes[i].status=ssActive)
     then fl:=false;
   FLog('Clear '+booltostr(fl));
   if fl then begin
@@ -1360,7 +1374,6 @@ begin
   if (CapturedTime>0) and (MyTickCount<CapturedTime+3000) and (painter<>nil) then begin
    painter.BeginPaint(nil);
    try
-    painter.SetFont(1);
     x:=game.params.width div 2;
     y:=game.params.height div 2;
     painter.FillRect(x-200,y-40,x+200,y+40,$60000000);
@@ -1431,7 +1444,7 @@ begin
  result:=nil;
  for i:=low(scenes) to high(scenes) do
   if scenes[i].status=ssActive then begin
-   if fullscreenOnly and (scenes[i].sceneType=stForeground) then continue;
+   if fullscreenOnly and not scenes[i].fullscreen then continue;
    if result=nil then
     result:=scenes[i]
    else
@@ -1545,8 +1558,9 @@ begin
  if game=nil then exit;
  if event='CHANGESETTINGS' then game.ApplySettings;
  if event='EXIT' then
-  if game.loopThread<>nil then
+  if game.loopThread<>nil then begin
    game.loopThread.Terminate;
+  end;
 
  {$IFDEF DELPHI}
  if event='MAKESCREENSHOT' then begin
@@ -1857,6 +1871,7 @@ procedure TBasicGame.FrameLoop;
    WindowClass:TWndClass;
    style:cardinal;
    i:integer;
+   dc:HDC;
   begin
    LogMessage('CreateMainWindow');
    with WindowClass do begin
@@ -1883,8 +1898,11 @@ procedure TBasicGame.FrameLoop;
     SetWindowLongW(window,GWL_WNDPROC,cardinal(@WindowProc));
     SetWindowCaption(settings.title);
    end;
-
    Layouts:=GetKeyboardLayoutList(10,LayoutList);
+
+   dc:=GetDC(window);
+   screenDPI:=GetDeviceCaps(dc,LOGPIXELSX);
+   ReleaseDC(window,dc);
   end;
   {$ELSE}
   begin
@@ -2009,11 +2027,13 @@ begin
     on e:Exception do CritMsg('Error in main loop: '+ExceptionMsg(e));
    end;
   until terminated;
+  ForceLogMessage('Main loop exit');
   owner.terminated:=true;
   Signal('Engine\AfterMainLoop');
 
   // Состояние ожидания команды остановки потока из безопасного места
   while not owner.canExitNow do sleep(20);
+  ForceLogMessage('Finalization');
 
   // Финализация
   {$IFDEF MSWINDOWS}
@@ -2028,6 +2048,7 @@ begin
  end;
 
  UnregisterThread;
+ ForceLogMessage('Main thread done');
  owner.running:=false; // Эта строчка должна быть ПОСЛЕДНЕЙ!
 end;
 
