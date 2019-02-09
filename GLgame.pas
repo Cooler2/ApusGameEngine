@@ -23,6 +23,7 @@ type
   procedure PresentFrame; override;
   procedure ChoosePixelFormats(needMem:integer); override;
   procedure InitObjects; override;
+  procedure onEngineEvent(event:string;tag:cardinal); override;
   {$IFDEF MSWINDOWS}
   procedure CaptureFrame; override;
   procedure ReleaseFrameData(obj:TRAWImage); override;
@@ -30,6 +31,7 @@ type
  public
   glVersion,glRenderer:string; // версия OpenGL и название видеокарты
   glVersionNum:single; // like 3.1 or 1.4
+  globalTintColor:cardinal; // global color used to display framebuffer (multiply2X)
   function GetStatus(n:integer):string; override;
  end;
 
@@ -80,6 +82,7 @@ var
  v:integer;
 begin
  inherited;
+ globalTintColor:=$FF808080;
  ConfigureMainWindow;
  SetEventHandler('GLGAME',EventHandler);
 
@@ -167,6 +170,12 @@ begin
  end;
 end;
 
+procedure TGLGame.onEngineEvent(event: string; tag: cardinal);
+begin
+ inherited;
+ if event='SETGLOBALTINTCOLOR' then globalTintColor:=tag;
+end;
+
 procedure TGLGame.PresentFrame;
 var
  DC:HDC;
@@ -183,7 +192,7 @@ begin
        ((frameNum mod 5=0) or (frameNum<3)) then painter.Clear($FF000000);
 
     with displayRect do begin
-     TexturedRect(Left,Top,right-1,bottom-1,DRT,0,1,1,1,1,0,$FF808080);
+     TexturedRect(Left,Top,right-1,bottom-1,DRT,0,1,1,1,1,0,globalTintColor);
     end;
     finally
      EndPaint;
