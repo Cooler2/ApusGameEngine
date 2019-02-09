@@ -585,7 +585,6 @@ begin
  if mustExist and (result=nil) then raise EWarning.Create('Control '+name+' not found');
 end;
 
-{$O-}
 function FindControlAt(x,y:integer;out c:TUIControl):boolean;
 var
  i,maxZ:integer;
@@ -608,7 +607,6 @@ begin
  end;
  result:=(c<>nil) and c.enabled;
 end;
-{$O+}
 
 procedure SetControlState(name:string;visible:boolean;enabled:boolean=true);
 var
