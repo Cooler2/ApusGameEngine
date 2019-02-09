@@ -4,7 +4,7 @@
 // Copyright (C) 2006 Apus Software (www.astralmasters.com)
 // Author: Ivan Polyacov (cooler@tut.by)
 {$R-}
-unit customstyle;
+unit CustomStyle;
 interface
  uses UIClasses;
 
@@ -33,7 +33,6 @@ implementation
    alphamode:TAlphaMode;
    alignment:TTextAlignment;
    underline:boolean;
-   xRes,yRes:integer; // button images are for this resolution (0,0 - not scaled)
    scaleX,scaleY:single; // scale button images 
    procedure InitWithDefaultValues(bsName:string);
   end;
@@ -419,7 +418,6 @@ procedure TButtonStyle.InitWithDefaultValues(bsName:string);
   imageColorDown:=$FF808080;
   imageColorDisabled:=$FF808080;
   alignment:=taJustify;
-  xRes:=0; yRes:=0;
   scaleX:=1; scaleY:=1;
  end;
 
@@ -443,6 +441,7 @@ var
  st:string;
 begin
  // varname = "group\property" либо "groupName"
+ result:=nil;
  i:=pos('\',fieldname);
  if i=0 then begin
   fieldname:=lowercase(fieldname);
@@ -451,10 +450,12 @@ begin
     result:=@btnStyles[i];
     varClass:=TVarTypeBtnStyle;
    end;
-  // группы с таким именем нет => создать
-  n:=NewButtonStyle(fieldname);
-  result:=@btnStyles[n];
-  varClass:=TVarTypeBtnStyle;
+  if result=nil then begin
+   // группы с таким именем нет => создать
+   n:=NewButtonStyle(fieldname);
+   result:=@btnStyles[n];
+   varClass:=TVarTypeBtnStyle;
+  end;
  end else begin
   grp:=copy(fieldname,1,i-1);
   prop:=copy(fieldname,i+1,length(fieldname)-i);
@@ -585,14 +586,6 @@ begin
        result:=@item^.underline; varClass:=TVarTypeBool;
      end;
    end;
-   'X':
-     if prop='XRES' then begin
-       result:=@item^.xRes; varClass:=TVarTypeInteger;
-     end;
-   'Y':
-     if prop='YRES' then begin
-       result:=@item^.yRes; varClass:=TVarTypeInteger;
-     end;
   end; // case
  end;
 end;
