@@ -4042,6 +4042,7 @@ procedure StopLogThread;
  begin
   logThread.terminate;
   logThread.WaitFor;
+  logThread:=nil;
  end;
 
 procedure DisableDEP;
@@ -4116,6 +4117,7 @@ initialization
  {$ENDIF}
  startTime:=MyTickCount;
 finalization
+ if logThread<>nil then StopLogThread;
  {$IFDEF MSWINDOWS}
  DeleteCriticalSection(crSection);
 // timeEndPeriod(1);
