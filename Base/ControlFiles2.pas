@@ -32,7 +32,7 @@ type
  TControlFile=class
   path:string; // Key names can be relative
 
-  constructor Create(fname,password:string); // Create object and load specified file
+  constructor Create(fname:string;password:string=''); // Create object and load specified file
   procedure Save; // Save control file
   destructor Destroy; override; // Free object
   // Query methods
@@ -224,7 +224,7 @@ var
  hash:TStrHash;
  lasthandle:integer=0;
 
- CritSect:TMyCriticalSection; // синхронизация для многопоточного доступа
+ critSect:TMyCriticalSection; // синхронизация для многопоточного доступа
 
 //----------------- Copypasted from QStrings.pas since it can't be compiled by FPC
 type
@@ -1205,11 +1205,14 @@ var
  i:integer;
  item:TNamedValue;
 begin
+ critSect.Enter;
+ try
  for i:=0 to items.GetChildrenCount-1 do begin
   item:=items.GetChild(i).data;
   if (item is TCtlFile) and ((item as TCtlFile).modified) then
    SaveControlFile(TCtlFile(item).handle);
  end;
+ finally critSect.Leave; end;
 end;
 
 procedure FreeControlFile;
@@ -1217,6 +1220,8 @@ var
  ctl:TCtlFile;
  item:TGenericTree;
 begin
+ critSect.Enter;
+ try
  item:=FileByHandle(handle);
  if item<>nil then begin
   ctl:=item.data;
@@ -1224,6 +1229,7 @@ begin
   if ctl.RefCounter<=0 then
    item.Free;
  end;
+ finally critSect.Leave; end;
 end;
 
 function IsKeyExists(key:String):Boolean;
@@ -1245,6 +1251,8 @@ function ctlGetKeyType(key:String):ctlKeyTypes;
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   result:=cktNone;
   o:=FindItem(key);
   if o=nil then exit;
@@ -1254,6 +1262,7 @@ function ctlGetKeyType(key:String):ctlKeyTypes;
   if o is TStringValue then result:=cktString;
   if o is TStringListValue then result:=cktArray;
   if o is TSection then result:=cktSection;
+  finally critSect.Leave; end;
  end;
 
 const
@@ -1265,16 +1274,22 @@ function ctlGetBool(key:string):boolean;
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o<>nil) and (o is TBoolValue) then
    result:=(o as TBoolValue).value
   else
    raise EWarning.Create(MessageKeyIncorrect+key);
+  finally critSect.Leave; end;
  end;
+
 function ctlGetInt(key:string):integer;
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o<>nil) and (o is TIntValue) then
    result:=(o as TIntValue).value
@@ -1283,94 +1298,130 @@ function ctlGetInt(key:string):integer;
    result:=StrToIntDef((o as TStringValue).value,0)
   else
    raise EWarning.Create(MessageKeyIncorrect+key);
+  finally critSect.Leave; end;
  end;
+
 function ctlGetReal(key:string):double;
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o<>nil) and (o is TFloatValue) then
    result:=(o as TFloatValue).value
   else
    raise EWarning.Create(MessageKeyIncorrect+key);
+  finally critSect.Leave; end;
  end;
+
 function ctlGetStr(key:string):string;
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o<>nil) and ((o is TStringValue) or (o is TIntValue)) then begin
    if (o is TStringValue) then result:=(o as TStringValue).value else
    if (o is TIntValue) then result:=inttostr((o as TIntValue).value);
   end else
    raise EWarning.Create(MessageKeyIncorrect+key);
+  finally critSect.Leave; end;
  end;
+
 function ctlGetBool(key:string;default:boolean):boolean;
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o<>nil) and (o is TBoolValue) then
    result:=(o as TBoolValue).value
   else
    result:=default;
+  finally critSect.Leave; end;
  end;
+
 function ctlGetInt(key:string;default:integer):integer;
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o<>nil) and (o is TIntValue) then
    result:=(o as TIntValue).value
   else
    result:=default;
+  finally critSect.Leave; end;
  end;
+
 function ctlGetReal(key:string;default:double):double;
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o<>nil) and (o is TFloatValue) then
    result:=(o as TFloatValue).value
   else
    result:=default;
+  finally critSect.Leave; end;
  end;
+
 function ctlGetStr(key:string;default:string):string;
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o<>nil) and (o is TStringValue) then
    result:=(o as TStringValue).value
   else
    result:=default;
+  finally critSect.Leave; end;
  end;
+
 function ctlGetStrInd(key:String;index:Integer):String;
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o<>nil) and (o is TStringListValue) then
    result:=(o as TStringListValue).value[index]
   else
    raise EWarning.Create(MessageKeyIncorrect+key);
+  finally critSect.Leave; end;
  end;
+
 function ctlGetStrCnt(key:String):Integer;
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o<>nil) and (o is TStringListValue) then
    result:=(o as TStringListValue).count
   else
    raise EWarning.Create(MessageKeyIncorrect+key);
+  finally critSect.Leave; end;
  end;
+
 function ctlGetKeys(key:string):String;
  var
   item:TGenericTree;
   o:TObject;
   i:integer;
  begin
+  critSect.Enter;
+  try
   item:=hash.get(UpperCase(key));
   if item=nil then
    raise EWarning.Create(MessageKeyIncorrect+key);
@@ -1385,6 +1436,7 @@ function ctlGetKeys(key:string):String;
     result:=result+(o as TNamedValue).name;
    end;
   end;
+  finally critSect.Leave; end;
  end;
 
 // Write functions
@@ -1398,6 +1450,8 @@ procedure ctlCreateSection(key:string);
   fname,sname:string;
   fl:boolean;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o<>nil) and (o is TSection) then exit; // Section already exists
   if (o<>nil) and not (o is TSection) then
@@ -1440,6 +1494,7 @@ procedure ctlCreateSection(key:string);
     hash.Put(s.fullname,item);
    end
   until length(key)=0;
+  finally critSect.Leave; end;
  end;
 
 // Создает элемент заданного типа, возвращает объект (но не лист дерева!)
@@ -1450,13 +1505,15 @@ function CreateKey(key:string;KeyType:TNamedValueClass):TObject;
   o:TNamedValue;
   item:TGenericTree;
  begin
+  critSect.Enter;
+  try
   result:=nil;
   for i:=length(key) downto 1 do
    if key[i]='\' then begin
     s:=copy(key,1,i-1);
     ctlCreateSection(s);
     item:=hash.Get(UpperCase(s));
-    o:=item.data;                         
+    o:=item.data;
     if o is TCtlFile then TCtlFile(o).modified:=true;
     o:=KeyType.Create;
     o.name:=Copy(key,i+1,length(key)-i);
@@ -1466,12 +1523,15 @@ function CreateKey(key:string;KeyType:TNamedValueClass):TObject;
     result:=o;
     exit;
    end;
+  finally critSect.Leave; end;
  end;
 
 procedure ctlSetBool(key:string;value:boolean);
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if o=nil then begin // Create key
    o:=CreateKey(key,TBoolValue);
@@ -1481,12 +1541,15 @@ procedure ctlSetBool(key:string;value:boolean);
    (o as TBoolValue).value:=value
   else
    raise EWarning.Create(MessageWrongType+key);
+  finally critSect.Leave; end;
  end;
 
 procedure ctlSetInt(key:string;value:integer);
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if o=nil then begin // Create key
    o:=CreateKey(key,TIntValue);
@@ -1496,11 +1559,15 @@ procedure ctlSetInt(key:string;value:integer);
    (o as TIntValue).value:=value
   else
    raise EWarning.Create(MessageWrongType+key);
+  finally critSect.Leave; end;
  end;
+
 procedure ctlSetReal(key:string;value:double);
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if o=nil then begin // Create key
    o:=CreateKey(key,TFloatValue);
@@ -1510,11 +1577,15 @@ procedure ctlSetReal(key:string;value:double);
    (o as TFloatValue).value:=value
   else
    raise EWarning.Create(MessageWrongType+key);
+  finally critSect.Leave; end;
  end;
+
 procedure ctlSetStr(key:string;value:string);
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if o=nil then begin // Create key
    o:=CreateKey(key,TStringValue);
@@ -1524,20 +1595,28 @@ procedure ctlSetStr(key:string;value:string);
    (o as TStringValue).value:=value
   else
    raise EWarning.Create(MessageWrongType+key);
+  finally critSect.Leave; end;
  end;
+
 procedure ctlSetStrInd(key:String;index:Integer;value:string);
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o=nil) or not (o is TStringListValue) then
    raise EWarning.Create(MessageKeyIncorrect+key);
   (o as TStringListValue).value[index]:=value;
+  finally critSect.Leave; end;
  end;
+
 procedure ctlSetStrCnt(key:String;count:integer);
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if o=nil then begin // Create key
    o:=CreateKey(key,TStringListValue);
@@ -1546,11 +1625,15 @@ procedure ctlSetStrCnt(key:String;count:integer);
   if not (o is TStringListValue) then
    raise EWarning.Create(MessageWrongType+key);
   (o as TStringListValue).Allocate(count);
+  finally critSect.Leave; end;
  end;
+
 procedure ctlAddStr(key:String;newvalue:string);
  var
   o:TObject;
  begin
+  critSect.Enter;
+  try
   o:=FindItem(key);
   if (o=nil) or not (o is TStringListValue) then
    raise EWarning.Create(MessageKeyIncorrect+key);
@@ -1558,144 +1641,88 @@ procedure ctlAddStr(key:String;newvalue:string);
    Allocate(count+1);
    value[count-1]:=newvalue;
   end;
+  finally critSect.Leave; end;
  end;
 
 procedure ctlDeleteKey(key:string);
  var
   item:TGenericTree;
  begin
+  critSect.Enter;
+  try
   item:=hash.Get(uppercase(key));
   if item=nil then
    raise EWarning.Create(MessageKeyIncorrect+key);
   if item.GetParent=nil then
    raise EWarning.Create('Can''t delete root section!');
   item.Free;
+  finally critSect.Leave; end;
  end;
 
 { TControlFile }
 
 procedure TControlFile.AddStr(key, newvalue: string);
 begin
- EnterCriticalSection(critSect);
- try
-  ctlAddStr(GetAbsPath(key),newvalue);
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ ctlAddStr(GetAbsPath(key),newvalue);
 end;
 
-constructor TControlFile.Create(fname,password:string);
+constructor TControlFile.Create(fname:string;password:string='');
 begin
  handle:=-1;
- EnterCriticalSection(critSect);
- try
-  handle:=UseControlFile(fname,password);
-  path:=ExtractFileName(fname)+':';
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ handle:=UseControlFile(fname,password);
+ path:=ExtractFileName(fname)+':';
 end;
 
 procedure TControlFile.CreateSection(key: string);
 begin
- EnterCriticalSection(critSect);
- try
-  ctlCreateSection(GetAbsPath(key));
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ ctlCreateSection(GetAbsPath(key));
 end;
 
 destructor TControlFile.Destroy;
 begin
  if handle=-1 then exit;
- EnterCriticalSection(critSect);
- try
 //  SaveControlFile(handle);
-  FreeControlFile(handle);
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ FreeControlFile(handle);
 end;
 
 function TControlFile.GetBool(key: string): boolean;
 begin
- EnterCriticalSection(critSect);
- try
-  result:=ctlGetBool(GetAbsPath(key));
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ result:=ctlGetBool(GetAbsPath(key));
 end;
 
 function TControlFile.GetInt(key: string): integer;
 begin
- EnterCriticalSection(critSect);
- try
-  result:=ctlGetInt(GetAbsPath(key));
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ result:=ctlGetInt(GetAbsPath(key));
 end;
 
 function TControlFile.GetKeyType(key: String): ctlKeyTypes;
 begin
- EnterCriticalSection(critSect);
- try
-  result:=ctlGetKeyType(GetAbsPath(key));
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ result:=ctlGetKeyType(GetAbsPath(key));
 end;
 
 function TControlFile.GetReal(key: string): double;
 begin
- EnterCriticalSection(critSect);
- try
-  result:=ctlGetReal(GetAbsPath(key));
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ result:=ctlGetReal(GetAbsPath(key));
 end;
 
 function TControlFile.GetStr(key: string): string;
 begin
- EnterCriticalSection(critSect);
- try
-  result:=ctlGetStr(GetAbsPath(key));
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ result:=ctlGetStr(GetAbsPath(key));
 end;
 
 function TControlFile.GetStrCnt(key: String): Integer;
 begin
- EnterCriticalSection(critSect);
- try
-  result:=ctlGetStrCnt(GetAbsPath(key));
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ result:=ctlGetStrCnt(GetAbsPath(key));
 end;
 
 function TControlFile.GetStrInd(key: String; index: Integer): String;
 begin
- EnterCriticalSection(critSect);
- try
-  result:=ctlGetStrInd(GetAbsPath(key),index);
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ result:=ctlGetStrInd(GetAbsPath(key),index);
 end;
 
 function TControlFile.KeyExists(key: String): Boolean;
 begin
- EnterCriticalSection(critSect);
- try
-  result:=IsKeyExists(GetAbsPath(key));
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ result:=IsKeyExists(GetAbsPath(key));
 end;
 
 function TControlFile.GetAbsPath(key:string):string;
@@ -1720,127 +1747,68 @@ end;
 
 procedure TControlFile.Save;
 begin
- EnterCriticalSection(critSect);
  SaveControlFile(handle);
- LeaveCriticalSection(CritSect);
 end;
 
 procedure TControlFile.SetBool(key: string; value: boolean);
 begin
- EnterCriticalSection(critSect);
- try
-  ctlSetBool(GetAbsPath(key),value);
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ ctlSetBool(GetAbsPath(key),value);
 end;
 
 procedure TControlFile.SetInt(key: string; value: integer);
 begin
- EnterCriticalSection(critSect);
- try
-  ctlSetInt(GetAbsPath(key),value);
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ ctlSetInt(GetAbsPath(key),value);
 end;
 
 procedure TControlFile.SetReal(key: string; value: double);
 begin
- EnterCriticalSection(critSect);
- try
-  ctlSetReal(GetAbsPath(key),value);
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ ctlSetReal(GetAbsPath(key),value);
 end;
 
 procedure TControlFile.SetStr(key, value: string);
 begin
- EnterCriticalSection(critSect);
- try
-  ctlSetStr(GetAbsPath(key),value);
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ ctlSetStr(GetAbsPath(key),value);
 end;
 
 procedure TControlFile.SetStrCnt(key: String; count: integer);
 begin
- EnterCriticalSection(critSect);
- try
-  ctlSetStrCnt(GetAbsPath(key),count);
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ ctlSetStrCnt(GetAbsPath(key),count);
 end;
 
 procedure TControlFile.SetStrInd(key: String; index: Integer;
   value: string);
 begin
- EnterCriticalSection(critSect);
- try
-  ctlSetStrInd(GetAbsPath(key),index,value);
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ ctlSetStrInd(GetAbsPath(key),index,value);
 end;
 
 function TControlFile.GetKeys(key: string): String;
 begin
- EnterCriticalSection(critSect);
- try
-  result:=ctlGetKeys(GetAbsPath(key));
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ result:=ctlGetKeys(GetAbsPath(key));
 end;
 
 procedure TControlFile.DeleteKey(key: string);
 begin
- EnterCriticalSection(critSect);
- try
-  ctlDeleteKey(key);
- finally
-  LeaveCriticalSection(CritSect);
- end;
+ ctlDeleteKey(key);
 end;
 
 function TControlFile.GetBool(key: string; default: boolean): boolean;
 begin
- try
-  result:=GetBool(key);
- except
-  result:=default;
- end;
+ result:=CtlGetBool(GetAbsPath(key),default);
 end;
 
 function TControlFile.GetInt(key: string; default: integer): integer;
 begin
- try
-  result:=GetInt(key);
- except
-  result:=default;
- end;
+ result:=CtlGetInt(GetAbsPath(key),default);
 end;
 
 function TControlFile.GetReal(key: string; default: double): double;
 begin
- try
-  result:=GetReal(key);
- except
-  result:=default;
- end;
+ result:=CtlGetReal(GetAbsPath(key),default);
 end;
 
 function TControlFile.GetStr(key, default: string): string;
 begin
- try
-  result:=GetStr(key);
- except
-  result:=default;
- end;
-
+ result:=CtlGetStr(GetAbsPath(key),default);
 end;
 
 initialization
