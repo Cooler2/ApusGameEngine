@@ -62,10 +62,9 @@ interface
    procedure InitCursors; virtual;
 
    procedure FatalError(msg:string); virtual;
+
+   procedure onResize; virtual;
   end;
- var
-  //myGameApp:TGameApplication; // Store game launcher object here!
-  initGame:procedure;
 
  {$IFDEF ANDROID}
   // Binding functions (to be exported)
@@ -97,6 +96,9 @@ type
   constructor Create; 
   procedure Render; override;
  end;
+
+var
+ app:TGameApplication;
 
 {$IFDEF ANDROID}
 {Android bindings}
@@ -283,6 +285,7 @@ procedure AppKey(env:PJNIEnv;this:jobject; keyCode,UChar:jint; event: jobject);
 
 constructor TGameApplication.Create;
  begin
+  app:=self;
  end;
 
 procedure TGameApplication.CreateScenes;
@@ -292,7 +295,7 @@ procedure TGameApplication.CreateScenes;
 
 destructor TGameApplication.Destroy;
  begin
-
+  if game<>nil then game.Stop;
   inherited;
  end;
 
@@ -364,6 +367,10 @@ procedure TGameApplication.LoadOptions;
   end;
  end;
 
+procedure TGameApplication.onResize;
+begin
+end;
+
 procedure TGameApplication.Prepare;
  var
   i:integer;
@@ -426,6 +433,14 @@ procedure TGameApplication.Prepare;
   end;
  end;
 
+function EngineEventHandler(event:EventStr;tag:integer):boolean;
+ begin
+  if app<>nil then begin
+   if event='ENGINE\BEFORERESIZE' then app.onResize;
+  end;
+ end;
+
+
 procedure TGameApplication.Run;
  var
   settings:TGameSettings;
@@ -462,6 +477,8 @@ procedure TGameApplication.Run;
    ForceLogMessage('Running in exclusive mode');
 
   if DebugMode then game.ShowDebugInfo:=3;
+
+  SetEventHandler('ENGINE',EngineEventHandler);
 
   // LAUNCH GAME OBJECT
   // ------------------------
@@ -505,6 +522,7 @@ procedure TGameApplication.Run;
     on e:exception do ForceLogMessage('Error in Control Thread: '+e.message);
    end;
   until game.terminated;
+  ForceLogMessage('Control thread exit');
  end;
 
 procedure TGameApplication.SaveOptions;

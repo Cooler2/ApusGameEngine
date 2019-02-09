@@ -29,7 +29,6 @@ const
  aiMH2048  = $400000;
  aiMH4096  = $500000;
 
-
  // Флаги возможностей (фич) текстур
  tfCanBeLost      = 1;  // Данные на текстуре могут потеряться в любой момент
  tfDirectAccess   = 2;  // Допускает прямой доступ к данным (можно лочить)
@@ -484,13 +483,10 @@ type
                              // (живет где-то в фоновом режиме и не влияет на экран)
                ssActive);    // сцена активна, т.е. обрабатывается и рисуется
 
- TSceneType=(stBackground,   // Сцена непрозрачна и всегда занимает весь экран
-             stForeground);  // "Оконная" сцена, рисуемая поверх чего-то другого 
-
  TGameScene=class
   status:TSceneStatus;
   name:string;
-  sceneType:TSceneType;
+  fullscreen:boolean; // true - opaque scene, no any underlying scenes can be seen, false - scene layer is drawn above underlying image
   frequency:integer; // Сколько раз в секунду нужно вызывать обработчик сцены (0 - каждый кадр)
   effect:TSceneEffect; // Эффект, применяемый при выводе сцены
   zorder:integer; // Определяет порядок отрисовки сцен
@@ -533,9 +529,9 @@ type
 
   // Смена режима (что именно изменилось - можно узнать косвенно)
   procedure ModeChanged; virtual;
-  // Сообщение о том, что область отрисовки (она может быть частью окна) изменила размер, сцена может отреагировать на это
-  procedure onResize(newWidth,newHeight:integer); virtual;
 
+  // Сообщение о том, что область отрисовки (она может быть частью окна) изменила размер, сцена может отреагировать на это
+  procedure onResize; virtual;
   // События мыши
   procedure onMouseMove(x,y:integer); virtual;
   procedure onMouseBtn(btn:byte;pressed:boolean); virtual;
@@ -588,10 +584,7 @@ end;
 constructor TGameScene.Create(fullScreen:boolean=true);
 begin
  status:=ssFrozen;
- if fullscreen then
-  sceneType:=stBackground
- else
-  sceneType:=stForeground;
+ self.fullscreen:=fullscreen;
  frequency:=60;
  first:=0; last:=0;
  zorder:=0;
@@ -628,7 +621,7 @@ procedure TGameScene.onMouseWheel(delta:integer);
 begin
 end;
 
-procedure TGameScene.onResize(newWidth, newHeight:integer);
+procedure TGameScene.onResize;
 begin
 end;
 

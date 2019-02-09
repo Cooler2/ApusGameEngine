@@ -22,7 +22,7 @@ type
   procedure SetStatus(st:TSceneStatus); override;
   function Process:boolean; override;
   procedure Render; override;
-  procedure onResize(width,height:integer); override;
+  procedure onResize; override;
   function GetArea:TRect; override; // screen area occupied by any non-transparent UI elements (i.e. which part of screen can't be ignored)
   procedure WriteKey(key:cardinal); override;
   procedure onMouseMove(x,y:integer); override;
@@ -96,7 +96,6 @@ var
 
  LastHandleTime:int64;
 
-// curObj:TUIControl; // Текущий объект для операций командного процессора
  curobjname:string; // Имя в верхнем регистре
  parentObj:TUICOntrol; // Объект-предок для операции создания эл-тов
 
@@ -108,15 +107,11 @@ var
  itemShowHintTime:cardinal; // момент времени, когда элемент должен показать хинт
  lastHint:string; // текст хинта, соответствующего элементу, над которым была мышь в предыдущем кадре
 
-// editText:string; // место для записи текста editbox'ов
-
  designMode:boolean; // режим "дизайна", в котором можно таскать элементы по экрану правой кнопкой мыши
  hookedItem:TUIControl;
 
  // Глобальные переменные командного процессора
  defaults:TDefaults; // значения параметров по умолчанию
-{ varaddr:pointer;  // адрес аттрибута
- vartype:TVarType; // тип атрибута}
 
  curShadowValue,oldShadowValue,needShadowValue:integer; // 0..255
  startShadowChange,shadowChangeDuration:int64;
@@ -532,9 +527,6 @@ begin
  if sceneName='' then sceneName:=ClassName;
  name:=scenename;
  modal:=modalWnd;
- if fullscreen then sceneType:=stBackground
-  else sceneType:=stForeground;
-
  UI:=TUIControl.Create(0,0,rootWidth,rootHeight,nil,sceneName);
  UI.enabled:=false;
  UI.visible:=false;
@@ -590,8 +582,9 @@ end;
 procedure TUIScene.onResize;
 begin
   inherited;
-  if UI=nil then exit;
-  UI.Resize(rootWidth,rootHeight);
+  rootWidth:=game.renderWidth;
+  rootHeight:=game.renderHeight;
+  if UI<>nil then UI.Resize(rootWidth,rootHeight);
 end;
 
 function TUIScene.Process: boolean;
@@ -912,7 +905,7 @@ var
   begin
    if s=nil then exit;
    writeln(f,Format('  %-20s Z=%-10d  status=%-2d type=%-2d eff=%-8x',
-     [s.name,s.zorder,ord(s.status),ord(s.sceneType),cardinal(s.effect)]));
+     [s.name,s.zorder,ord(s.status),s.fullscreen,cardinal(s.effect)]));
   end; 
 begin
  try

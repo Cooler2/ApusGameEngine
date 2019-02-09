@@ -106,7 +106,6 @@ implementation
    tweakerScene:=TTweakerScene.Create(tinyFont,normalFont);
    tweakerScene.tinyFont:=tinyFont;
    tweakerScene.normalFont:=normalFont;
-   game.AddScene(tweakerScene);
    SetEventHandler('KBD\KeyDown',EventHandler);
    SetEventHandler('UI\Tweaker',EventHandler);
   end;
