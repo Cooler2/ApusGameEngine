@@ -194,32 +194,23 @@ implementation
   end;
 
  {$R-}
-
  // styleinfo="00000000 11111111 22222222 33333333" - list of colors (hex)
  function GetColor(control:TUIControl;index:integer=0):cardinal;
   var
-   st:string;
-   i:integer;
+   i,v:integer;
   begin
    result:=0;
-   st:=control.styleinfo;
-   if st='' then exit;
-   try
-    i:=0;
-    if index>0 then
-     while i<length(st) do begin
-      inc(i);
-      if st[i]=' ' then begin
-       dec(index);
-       if index=0 then break;
-      end;
-     end;
-    if i>=length(st) then exit;
-    delete(st,1,i);
-    i:=pos(' ',st);
-    if i>0 then result:=StrToInt('$'+copy(st,1,i-1))
-     else result:=StrToInt('$'+st);
-   except
+   for i:=1 to length(control.styleinfo) do begin
+    if control.styleinfo[i]<'0' then begin
+     dec(index);
+     if index<0 then exit;
+     continue;
+    end;
+    if index=0 then begin
+     v:=(ord(control.styleinfo[i]) and $1F)-$10;
+     if v<0 then inc(v,25);
+     result:=result shl 4+v;
+    end;
    end;
   end;
 
