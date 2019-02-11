@@ -6,7 +6,7 @@ unit GameApp;
 interface
  uses
   {$IFDEF ANDROID}jni,{$ENDIF}
-  EngineCls;
+  EngineAPI;
 
  type
   TGameAppMode=(gamScaleWithAspectRatio,  // Scale W/H of the render area to output rect while keeping its aspect ratio (fixed design)

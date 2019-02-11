@@ -183,7 +183,7 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="..\EngineCls.pas"/>
+        <DCCReference Include="..\EngineAPI.pas"/>
         <DCCReference Include="..\UIClasses.pas"/>
         <DCCReference Include="..\PainterGL.pas"/>
         <DCCReference Include="..\ImageMan.pas"/>

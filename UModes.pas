@@ -2,7 +2,7 @@
 unit UModes;
 
 interface
-uses EngineCls,BasicGame,ImageMan,UIScene,UIClasses,EventMan,
+uses EngineAPI,BasicGame,ImageMan,UIScene,UIClasses,EventMan,
      enginetools,Images,TweakScene,
   {$IFDEF MSWINDOWS}
     {$IFDEF DIRECTX}d3d8,DxImages8,dxGame8,{$ENDIF}

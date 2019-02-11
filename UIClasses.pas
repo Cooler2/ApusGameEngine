@@ -7,7 +7,7 @@
 // ------------------------------------------------------
 unit UIClasses;
 interface
- uses contnrs,CrossPlatform,MyServis,AnimatedValues,types,regions,EngineCls;
+ uses EngineAPI,contnrs,CrossPlatform,MyServis,AnimatedValues,types,regions;
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
 const

@@ -19,7 +19,7 @@ uses
   {$IFDEF DIRECTX}
   DirectXGraphics,
   {$ENDIF }
-  EngineCls in '..\EngineCls.pas',
+  EngineAPI in '..\EngineAPI.pas',
   UIClasses in '..\UIClasses.pas',
   PainterGL in '..\PainterGL.pas',
   ImageMan in '..\ImageMan.pas',

@@ -16,7 +16,7 @@ interface
  procedure InitCustomStyle(imgpath:string='Images\cstyle\';id:integer=1);
 
 implementation
- uses classes,SysUtils,myservis,EngineCls,EngineTools,UIRender,colors,
+ uses classes,SysUtils,myservis,EngineAPI,EngineTools,UIRender,colors,
       images,publics,uDict;
  type
   TAlphaMode=(amAuto,amSkip,amWrite);

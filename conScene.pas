@@ -4,7 +4,7 @@
 // Author: Ivan Polyacov (ivan@apus-software.com)
 unit conScene;
 interface
- uses EngineCls,UIClasses,UIScene;
+ uses EngineAPI,UIClasses,UIScene;
 type
  TConsoleScene=class(TUIScene)
   constructor Create;

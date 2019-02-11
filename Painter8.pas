@@ -6,7 +6,7 @@
 // Author: Ivan Polyacov (cooler@tut.by)
 unit Painter8;
 interface
- uses types,geom2d,Images,EngineCls,DxImages8,BasicPainter,DirectXGraphics;
+ uses types,geom2d,Images,EngineAPI,DxImages8,BasicPainter,DirectXGraphics;
 
 type
 

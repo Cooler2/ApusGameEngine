@@ -4,7 +4,7 @@
 // Author: Ivan Polyacov (ivan@apus-software.com)
 unit UIScene;
 interface
- uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineCls,UIClasses,CrossPlatform,ImageMan,types;
+ uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineAPI,UIClasses,CrossPlatform,ImageMan,types;
 
 const
  defaultHintStyle:integer=0; // style of hints, can be changed

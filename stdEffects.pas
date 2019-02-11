@@ -5,7 +5,7 @@
 {$R-}
 unit stdEffects;
 interface
- uses types,EngineCls,EventMan,UIScene,MyServis,AnimatedValues;
+ uses types,EngineAPI,EventMan,UIScene,MyServis,AnimatedValues;
 
 type
  // Эффект простой прозрачности: сцена набирает прозрачность

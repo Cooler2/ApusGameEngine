@@ -4,7 +4,7 @@
 // Author: Ivan Polyacov (cooler@tut.by)
 unit DxImages8;
 interface
- uses EngineCls,Images,DirectXGraphics,d3d8,windows,myservis;
+ uses EngineAPI,Images,DirectXGraphics,d3d8,windows,myservis;
 
 type
  // Текстура DirectX

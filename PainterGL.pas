@@ -7,7 +7,7 @@
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit PainterGL;
 interface
- uses types,EngineCls,BasicPainter,geom3D;
+ uses types,EngineAPI,BasicPainter,geom3D;
 
 type
  TMatrixType=(mtModelView,mtProjection);

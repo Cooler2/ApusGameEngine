@@ -5,7 +5,7 @@
 // Author: Ivan Polyacov (cooler@tut.by)
 unit dxgame8;
 interface
- uses EngineCls,Images,engineTools,windows,classes,myservis,BasicGame;
+ uses EngineAPI,Images,engineTools,windows,classes,myservis,BasicGame;
 
 type
  // Основной класс. Можно использовать его напрямую, но лучше унаследовать

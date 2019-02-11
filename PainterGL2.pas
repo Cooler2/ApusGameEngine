@@ -6,8 +6,7 @@
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit PainterGL2;
 interface
- uses types,EngineCls,BasicPainter,PainterGL,geom3D;
-
+ uses types,EngineAPI,BasicPainter,PainterGL,geom3D;
 type
 
  { TGLPainter2 }

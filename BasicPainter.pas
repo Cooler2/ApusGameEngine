@@ -5,7 +5,7 @@
 {$R-}
 unit BasicPainter;
 interface
- uses EngineCls,Types,geom2D,geom3D;
+ uses EngineAPI,Types,geom2D,geom3D;
  const
   MAGIC_TEXTCACHE = $01FF;
   DEFAULT_FONT_DOWNSCALE = 0.93;

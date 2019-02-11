@@ -4,7 +4,7 @@
 // Author: Ivan Polyacov (cooler@tut.by)
 unit IOSgame;
 interface
- uses EngineCls,Images,engineTools,classes,myservis,BasicGame;
+ uses EngineAPI,Images,engineTools,classes,myservis,BasicGame;
 
 type
  TIOSGame=class(TBasicGame)

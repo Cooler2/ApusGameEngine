@@ -12,7 +12,7 @@
 {$R-}
 unit BasicGame;
 interface
- uses {$IFDEF MSWINDOWS}windows,messages,{$ENDIF}EngineCls,Images,classes,CrossPlatform,MyServis;
+ uses {$IFDEF MSWINDOWS}windows,messages,{$ENDIF}EngineAPI,Images,classes,CrossPlatform,MyServis;
 
 var
  HookKbdLayout:boolean=false; // Перехват переключения раскладки клавиатуры (защита от зависания, теперь уже не требуется, т.к. баг устранен)
@@ -1379,8 +1379,8 @@ begin
     painter.FillRect(x-200,y-40,x+200,y+40,$60000000);
     painter.Rect(x-200,y-40,x+200,y+40,$A0FFFFFF);
     font:=painter.GetFont('Default',7);
-    painter.TextOut(font,x,y-24,$FFFFFFFF,'Screen captured to:',engineCls.taCenter);
-    painter.TextOut(font,x,y+4,$FFFFFFFF,capturedName,engineCls.taCenter);
+    painter.TextOut(font,x,y-24,$FFFFFFFF,'Screen captured to:',engineAPI.taCenter);
+    painter.TextOut(font,x,y+4,$FFFFFFFF,capturedName,engineAPI.taCenter);
    finally
     painter.EndPaint;
    end;

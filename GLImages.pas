@@ -4,7 +4,7 @@
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
 unit GLImages;
 interface
- uses EngineCls,Images,myservis,types;
+ uses EngineAPI,Images,myservis,types;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE GLES11} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE GLES20} {$DEFINE OPENGL} {$ENDIF}
 type

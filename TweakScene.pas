@@ -5,12 +5,11 @@
 // Author: Ivan Polyacov (ivan@apus-software.com)
 unit TweakScene;
 interface
- uses EngineCls;
 
  procedure CreateTweakerScene(tinyFont,normalFont:cardinal);
 
 implementation
- uses SysUtils,MyServis,publics,Math,UIClasses,UIScene,EventMan,UIRender,engineTools;
+ uses SysUtils,MyServis,EngineAPI,publics,Math,UIClasses,UIScene,EventMan,UIRender,engineTools;
 
  type
   TTweakerScene=class(TUIScene)

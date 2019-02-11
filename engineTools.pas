@@ -7,7 +7,7 @@ unit engineTools;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 interface
- uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineCls,images,UIClasses,regions,
+ uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineAPI,images,UIClasses,regions,
     UnicodeFont,CrossPlatform,BasicGame;
 
 var
@@ -1103,7 +1103,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    GetMem(tmp,w*h*4);
    fillchar(tmp^,w*h*4,0);
    painter.SetTextTarget(tmp,w*4);
-   painter.TextOutW(font,w div 2,round(h*0.77)-d,textColor,st,EngineCls.taCenter,toDrawToBitmap);
+   painter.TextOutW(font,w div 2,round(h*0.77)-d,textColor,st,EngineAPI.taCenter,toDrawToBitmap);
    dec(x,round(w/2));
    dec(y,round(h/2));
    if glowColor>$FFFFFF then begin

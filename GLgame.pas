@@ -4,7 +4,7 @@
 // Author: Ivan Polyacov (cooler@tut.by)
 unit GLgame;
 interface
- uses EngineCls,Images,engineTools,classes,myservis,BasicGame;
+ uses EngineAPI,Images,engineTools,classes,myservis,BasicGame;
 
 type
  TGLGame=class(TBasicGame)

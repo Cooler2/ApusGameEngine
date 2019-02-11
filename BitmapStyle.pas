@@ -6,7 +6,7 @@
 {$R-}
 unit BitmapStyle;
 interface
- uses EngineCls,UIClasses;
+ uses EngineAPI,UIClasses;
 
  type
   TButtonState=(bsNormal,bsOver,bsDown,bsDisabled);

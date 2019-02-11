@@ -2,7 +2,7 @@
 //
 // Copyright (C) 2003 Apus Software (www.games4win.com, www.apus-software.com)
 // Author: Ivan Polyacov (cooler@tut.by)
-unit EngineCls;
+unit EngineAPI;
 interface
  uses Images,Geom2d,geom3D,types,EventMan,publics;
 

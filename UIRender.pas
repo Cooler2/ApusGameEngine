@@ -6,7 +6,7 @@
 // ------------------------------------------------------
 unit UIRender;
 interface
- uses EngineCls,UIClasses;
+ uses EngineAPI,UIClasses;
  type
   // процедура отрисовки элемента
   TUIDrawer=procedure(control:TUIControl);
@@ -418,13 +418,14 @@ implementation
       lname:=lowercase(FileName(src));
       p:=imgHash.Get(lname);
       if p=0 then begin
-       tex:=LoadImageFromFile(lname);
+       tex:=nil;
+       LoadImage(tex,lname);
        imgHash.Put(lname,cardinal(tex),true);
       end else
        tex:=pointer(p);
       painter.DrawScaled(x1,y1,x1+control.width-1,y1+control.height-1,tex,control.color);
      end else begin
-      img:=GetImageHandle('images\'+name);
+      img:=GetImageHandle('Images\'+name);
       DrawImage(img,x1,y1,color,width,height,0,0);
      end;
     end;
