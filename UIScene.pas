@@ -895,24 +895,26 @@ var
    i:integer;
   begin
    writeln(f,indent,c.ClassName+':'+c.name+' = '+inttohex(cardinal(c),8));
-   writeln(f,indent,c.order,' E=',c.enabled,' V=',c.visible,' ',ord(c.transpmode));
-   writeln(f,indent,c.x,',',c.y,' - ',c.width,',',c.height);
+   writeln(f,indent,c.order,' En=',c.enabled,' Vis=',c.visible,' trM=',ord(c.transpmode));
+   writeln(f,indent,Format('x=%d, y=%d, w=%d, h=%d, left=%d, top=%d',[c.x,c.y,c.width,c.height,c.globalRect.Left,c.globalRect.Top]));
    writeln(f);
    for i:=0 to length(c.children)-1 do
     DumpControl(c.children[i],indent+'  ');
   end;
- procedure DumpScene(s:TGameScene);
+ function SceneInfo(s:TGameScene):string;
   begin
    if s=nil then exit;
-   writeln(f,Format('  %-20s Z=%-10d  status=%-2d type=%-2d eff=%-8x',
-     [s.name,s.zorder,ord(s.status),s.fullscreen,cardinal(s.effect)]));
+   result:=Format('  %-20s Z=%-10d  status=%-2d type=%-2d eff=%s',
+     [s.name,s.zorder,ord(s.status),byte(s.fullscreen),PtrToStr(s.effect)]);
+   if s is TUIScene then
+    result:=result+' UI='+PtrToStr(TUIScene(s).UI);
   end; 
 begin
  try
  assign(f,'UIdata.log');
  rewrite(f);
  writeln(f,'Scenes:');
- for i:=0 to high(game.scenes) do DumpScene(game.scenes[i]);
+ for i:=0 to high(game.scenes) do writeln(f,i:3,SceneInfo(game.scenes[i]));
  writeln(f,'Topmost scene = ',game.TopmostVisibleScene(false).name);
  writeln(f,'Topmost fullscreen scene = ',game.TopmostVisibleScene(true).name);
  writeln(f);
