@@ -10,9 +10,6 @@ interface
   TVarClassStruct=class of TVarTypeStruct;
   // Простой тип данных (обычная переменная какого-либо типа)
   TVarType=class
-{   class var
-    IsStruct:boolean; // индикатор структурного типа (такой тип содержит поля и должен
-                      // реализовывать метод GetField}
    // Запись значения (из строки) в переменную
    class procedure SetValue(variable:pointer;v:string); virtual; abstract;
    // Чтение значения переменной в виде строки
@@ -29,7 +26,6 @@ interface
   TVarTypeStruct=class(TVarType)
    // Чтение значения переменной в виде строки
    class function GetValue(variable:pointer):string; override;
-   // Следующие методы - только для структурированных типов (IsStruct=true)
    // Проверка наличия поля с заданным именем (возвращает класс типа и адрес собственно значения)
    class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; virtual;
    // Возвращает список всех полей (через запятую)
