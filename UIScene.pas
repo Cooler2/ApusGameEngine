@@ -194,7 +194,10 @@ procedure CreateCmd(cmd:string);
     end else
     if sa[0]='UICONTROL' then begin
      c:=TUIControl.Create(x,y,width,height,parentobj,sa[1]);
-    end;
+    end else
+    if sa[0]='UILISTBOX' then c:=TUIListBox.Create(x,y,width,height,20,sa[1],font,parentobj) else
+    if sa[0]='UICOMBOBOX' then c:=TUIComboBox.Create(x,y,width,height,font,nil,parentobj,sa[1]);
+
 
     if c=nil then raise EError.Create('Unknown class - '+sa[0]);
     // Доп. св-ва
@@ -560,14 +563,12 @@ procedure TUIScene.onMouseBtn(btn: byte; pressed: boolean);
 begin
  if (UI<>nil) and (not UI.enabled) then exit;
  inherited;
-
 end;
 
 procedure TUIScene.onMouseMove(x, y: integer);
 begin
  if (UI<>nil) and (not UI.enabled) then exit;
  inherited;
-
 end;
 
 procedure TUIScene.onMouseWheel(delta: integer);
@@ -1007,6 +1008,9 @@ begin
       end else
       if fieldname='hintduration' then begin
        result:=@obj.hintduration; varClass:=TVarTypeInteger;
+      end;
+  'l':if (fieldname='lineheight') and (obj is TUIListBox) then begin
+       varClass:=TVarTypeInteger; result:=@TUIListBox(obj).lineHeight;
       end;
   'm':if (fieldname='maxlength') and (obj is TUIEditBox) then begin
        varClass:=TVarTypeInteger; result:=@TUIEditBox(obj).maxlength;
