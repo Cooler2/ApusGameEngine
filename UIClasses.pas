@@ -214,7 +214,7 @@ type
   rLeft,rTop,rRight,rBottom:single; // точное положение элемента в предке
 
  private
-  procedure RemoveFromRootControls; 
+  procedure RemoveFromRootControls;
  end;
 
  // Элемент с ограничениями размера
@@ -227,7 +227,7 @@ type
  // Элемент "изображение". Содержит простое статическое изображение
  TUIImage=class(TUIControl)
   color:cardinal;  // drawing color (default is $FF808080)
-  src:string; // здесь может быть имя файла или строка "event:xxx" 
+  src:string; // здесь может быть имя файла или строка "event:xxx"
   constructor Create(cx,cy,w,h:integer;imgname:string;parent_:TUIControl);
  end;
 
@@ -242,7 +242,7 @@ type
  protected
   speedX,speedY:single;
   lastTime:cardinal;
-  isHooked:boolean; 
+  isHooked:boolean;
  end;
 
  // Окошко хинта
@@ -329,7 +329,6 @@ type
   procedure onLostFocus; override;
   procedure SetFocus; override;
   procedure Resize(newWidth,newHeight:integer); override;
-//  procedure Center; virtual; // размещает окно по центру экрана
  private
   hooked:boolean;
   area:integer;   // тип области под курсором
@@ -718,7 +717,7 @@ var
 begin
  x:=cx; y:=cy; width:=w; height:=h;
  ncLeft:=0; ncRight:=0; ncTop:=0; ncBottom:=0;
- transpmode:=tmOpaque;
+ transpmode:=tmTransparent;
  timer:=0;
  parent:=parent_;
  parentClip:=true;
@@ -1316,6 +1315,7 @@ begin
  inherited Create(cx,cy,w,h,parent_,imgName);
  color:=$FF808080;
  src:='';
+ transpmode:=tmOpaque;
 end;
 
 
@@ -1326,6 +1326,7 @@ var
  i,n:integer;
 begin
  inherited Create(cx,cy,w,h,btnName,parent_);
+ transpmode:=tmOpaque;
  font:=BtnFont;
  btnStyle:=bsNormal;
  group:=0;
@@ -1471,6 +1472,7 @@ constructor TUILabel.Create(cx,cy,w,h: integer;labelname,text:string;color_,bFon
   parent_: TUIControl);
 begin
  inherited Create(cx,cy,w,h,parent_,labelName);
+ transpmode:=tmOpaque;
  color:=color_;
  align:=taLeft;
  sendSignals:=ssMajor;
@@ -1629,6 +1631,7 @@ constructor TUIEditBox.Create(cx,cy,w,h: integer; boxName: string;
   boxFont:cardinal;color_:cardinal;parent_:TUIControl);
 begin
  inherited Create(cx,cy,w,h,parent_,boxName);
+ transpmode:=tmOpaque;
  cursor:=crInput;
  encoding:=defaultEncoding;
  realtext:='';
@@ -1943,6 +1946,7 @@ constructor TUIScrollBar.Create(cx, cy, w, h: integer; barName: string; min_,
   max_, value_: integer; parent_: TUIControl);
 begin
  inherited Create(cx,cy,w,h,parent_,barName);
+ transpmode:=tmOpaque;
  min:=min_; max:=max_; rValue.Init(value_); pagesize:=0;
  linkedControl:=nil; step:=1;
  color:=$FFB0B0B0;
@@ -2119,6 +2123,7 @@ constructor TUIHint.Create(cx,cy: integer; stext: string;
   act: boolean; parent_: TUIControl);
 begin
  inherited Create(cx,cy,1,1,'hint',parent_);
+ transpmode:=tmOpaque;
  font:=0;
  simpleText:=stext;
  active:=act;
@@ -2158,6 +2163,7 @@ constructor TUIScrollArea.Create(cx, cy, w, h, fullW, fullH: integer;
   dir: TUIScrollDirection;parent_:TUIControl);
 begin
  inherited Create(cx,cy,w,h,parent_);
+ transpmode:=tmOpaque;
  fullWidth:=fullW;
  fullHeight:=fullH;
  direction:=dir;
@@ -2206,6 +2212,7 @@ end;
 constructor TUIListBox.Create(cx, cy, w, h, lHeight: integer; listName:string; font_:cardinal; parent: TUIControl);
 begin
  inherited Create(cx,cy,w,h,parent,listName);
+ transpmode:=tmOpaque;
  font:=font_;
  lineHeight:=lHeight;
  selectedLine:=-1;
@@ -2304,6 +2311,7 @@ end;
 constructor TUIFrame.Create(cx, cy, w, h, depth,style_: integer; parent_: TUIControl);
 begin
  inherited Create(cx,cy,w,h,parent_,'UIFrame');
+ transpmode:=tmOpaque;
  borderWidth:=depth;
  style:=style_;
  ncLeft:=depth; ncTop:=depth;
@@ -2339,6 +2347,7 @@ var
  i,j:integer;
 begin
  inherited Create(x_,y_,width_,height_,name,'',bFont,parent_);
+ transpmode:=tmOpaque;
  font:=bFont;
  items:=Copy(list);
  SetLength(tags,length(items));

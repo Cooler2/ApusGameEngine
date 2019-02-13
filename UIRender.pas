@@ -458,9 +458,6 @@ implementation
     ty:=y1+round(header*0.7);
     painter.TextOut(font,tx+1,ty+1,$B0000000,DecodeUTF8(caption),taCenter);
     painter.TextOut(font,tx,ty,$FFFFFFD0,DecodeUTF8(caption),taCenter);
-{    painter.SetFont(font);
-    painter.WriteSimple((x1+x2) div 2+1,y1+(header-painter.GetFontHeight) div 2+1,$B0000000,caption,taCenter);
-    painter.WriteSimple((x1+x2) div 2,y1+(header-painter.GetFontHeight) div 2,$FFFFFFD0,caption,taCenter);}
     painter.ResetClipping;
    end;
   end;
