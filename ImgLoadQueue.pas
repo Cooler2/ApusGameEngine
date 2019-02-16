@@ -6,6 +6,24 @@
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
 unit ImgLoadQueue;
 interface
+ uses Images;
+
+ // Queue file for loading, name must be with extension
+ procedure QueueFileLoad(fname:string);
+ // Starts one loading thread and 1..4 unpacking threads
+ procedure StartLoadingThreads(unpackThreadsNum:integer=2);
+ // Get raw image from queue if exists or nil elsewere
+ // Waits if image is queued, but not yet processed
+ function GetImageFromQueue(fname:string;wait:boolean=true):TRawImage;
+
+ procedure LockImgQueue;
+ procedure UnlockImgQueue;
+
+
+implementation
+ uses MyServis,SysUtils,Classes,gfxFormats;
+
+ // Queue
  type
   TLoadQueueStatus=(lqsNone,        // No entry
                     lqsWaiting,     // Load operation queued
@@ -15,18 +33,6 @@ interface
                     lqsReady,       // All done! Final RAW image data is ready
                     lqsError);      // Failed to load the image
 
- procedure QueueFileLoad(fname:string);
- procedure StartLoadingThreads(unpackThreadsNum:integer=2);
-
- procedure LockImgQueue;
- procedure UnlockImgQueue;
-
-
-implementation
- uses MyServis,SysUtils,Classes,gfxFormats,Images;
-
- // Queue
- type
   TQueueEntry=record
    status:TLoadQueueStatus;
    fname:string;
@@ -51,10 +57,51 @@ implementation
   loadingThread:TLoadingThread;
   unpackThreads:array[1..4] of TUnpackThread;
 
+ function GetImageFromQueue(fname:string;wait:boolean=true):TRawImage;
+  var
+   i,n:integer;
+  begin
+   result:=nil;
+   if length(loadQueue)=0 then exit;
+   cSect.Enter;
+   try
+    n:=-1;
+    for i:=0 to high(loadQueue) do
+     if CompareText(fname,loadQueue[i].fname)=0 then begin
+      n:=i; break;
+     end;
+    if n>=0 then begin
+     if loadQueue[n].status=lqsReady then begin
+      result:=loadQueue[n].img;
+      exit;
+     end;
+     if wait and (loadQueue[n].status in [lqsWaiting,lqsLoaded]) then begin
+      // Try to load this earlier
+      for i:=0 to n-1 do
+       if loadQueue[i].status in [lqsWaiting,lqsLoaded] then begin
+        Swap(loadQueue[i],loadQueue[n],sizeof(loadQueue[i]));
+        n:=i;
+        break;
+       end;
+     end;
+    end else
+     exit;
+   finally
+    cSect.Leave;
+   end;
+   if (n>=0) then begin
+    repeat
+      sleep(1);
+    until loadQueue[n].status in [lqsReady,lqsError];
+    result:=GetImageFromQueue(fname,true); // try once again because N may become obsolete at this point
+   end;
+  end;
+
  procedure QueueFileLoad(fname:string);
   var
    i:integer;
   begin
+   fname:=FileName(fname);
    cSect.Enter;
    try
     i:=length(loadQueue);
@@ -110,6 +157,7 @@ procedure TLoadingThread.Execute;
    end;
    // Load file data
    with loadQueue[n] do begin
+    LogMessage('Preloading '+fname);
     srcData:=LoadFileAsBytes(fname);
     if length(srcData)<30 then begin
      ForceLogMessage('Failed to load file: '+fname);
@@ -131,6 +179,8 @@ procedure TLoadingThread.Execute;
 procedure TUnpackThread.Execute;
  var
   i,n:integer;
+  shouldWait:boolean;
+  t:int64;
  begin
   try
   repeat
@@ -138,30 +188,39 @@ procedure TUnpackThread.Execute;
    cSect.Enter;
    try
     n:=-1;
+    shouldWait:=false;
     for i:=0 to high(loadQueue) do
      if loadQueue[i].status=lqsLoaded then begin
       n:=i;
       break;
-     end;
-    if n<0 then break; // No more unprocessed items
+     end else
+     if loadQueue[i].status in [lqsWaiting,lqsLoading] then shouldWait:=true;
+    if n<0 then begin
+     if shouldWait then begin
+      sleep(1); continue;
+     end else
+      break; // No more unprocessed items and no items to wait
+    end;
     loadQueue[n].status:=lqsUnpacking;
    finally
     cSect.Leave;
    end;
    // Unpack image
+   t:=MyTickCount;
    with loadQueue[n] do begin
     try
-     if format=ifTGA then LoadTGA(srcData,img) else
+     img:=nil;
+     if format=ifTGA then LoadTGA(srcData,img,true) else
      if format=ifJPEG then LoadJPEG(srcData,img) else
      if format=ifPNG then LoadPNG(srcData,img) else
-     if format=ifPVR then LoadPVR(srcData,img) else
-     if format=ifDDS then LoadDDS(srcData,img) else begin
+     if format=ifPVR then LoadPVR(srcData,img,true) else
+     if format=ifDDS then LoadDDS(srcData,img,true) else begin
       ForceLogMessage('Image format not supported for async load: '+fname);
       Setlength(srcData,0);
       status:=lqsError;
       continue;
      end;
-     LogMessage('Preloaded: '+fname);
+     LogMessage('Preloaded: '+fname+', time='+IntToStr(MyTickCount-t));
      Setlength(srcData,0);
      status:=lqsReady;
     except

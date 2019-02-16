@@ -230,7 +230,7 @@ implementation
     {$IFDEF OPENGL}GLImages,{$ENDIF}
     {$IFDEF MSWINDOWS}ShellAPI,{$ENDIF}
     {$IFDEF ANDROID}Android,{$ENDIF}
-    gfxformats,classes,structs,geom3d,FastGFX,Filters,UDict;
+    gfxformats,classes,structs,geom3d,FastGFX,Filters,UDict,ImgLoadQueue;
 
 const
   max_subimages = 5000;
@@ -618,7 +618,7 @@ function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:ImagePixelF
 var
  i,j,k:integer;
  tex:TTextureImage;
- img,txtImage:TRawImage;
+ img,txtImage,preloaded:TRawImage;
  aFlags,mtWidth,mtHeight:integer;
  f:file;
  data,rawData:ByteArray;
@@ -662,37 +662,44 @@ begin
   end;
   {$ENDIF}
 
-  // 2. LOAD DATA FILE AND CHECK IT'S FORMAT
-  LogMessage('Loading '+fname);
-  data:=LoadFileAsBytes(fname);
-  if length(data)<30 then raise EError.Create('Bad image file: '+fname);
+  preloaded:=GetImageFromQueue(fname);
+  if preloaded<>nil then begin
+   imgInfo.format:=preloaded.PixelFormat;
+   imgInfo.width:=preloaded.width;
+   imgInfo.height:=preloaded.height;
+  end else begin
+   // 2. LOAD DATA FILE AND CHECK IT'S FORMAT
+   LogMessage('Loading '+fname);
+   data:=LoadFileAsBytes(fname);
+   if length(data)<30 then raise EError.Create('Bad image file: '+fname);
 
-  format:=CheckImageFormat(data);
-  if not (format in [ifTGA,ifJPEG,ifPNG,ifTXT,ifDDS,ifPVR]) then
-   raise EError.Create('image format not supported');
+   format:=CheckImageFormat(data);
+   if not (format in [ifTGA,ifJPEG,ifPNG,ifTXT,ifDDS,ifPVR]) then
+    raise EError.Create('image format not supported');
 
-  // Загрузка TXT
-  {$IFDEF TXTIMAGES}
-  if format=ifTXT then begin
-   LoadTXT(data,txtImage,txtFontSmall,txtFontNormal);
-   imgInfo.width:=txtImage.width;
-   imgInfo.height:=txtImage.height;
-   imgInfo.format:=ipfARGB;
-   imgInfo.palformat:=palNone;
-  end;
-  {$ENDIF}
+   // Загрузка TXT
+   {$IFDEF TXTIMAGES}
+   if format=ifTXT then begin
+    LoadTXT(data,txtImage,txtFontSmall,txtFontNormal);
+    imgInfo.width:=txtImage.width;
+    imgInfo.height:=txtImage.height;
+    imgInfo.format:=ipfARGB;
+    imgInfo.palformat:=palNone;
+   end;
+   {$ENDIF}
 
-  // 2.5 FOR JPEG: LOAD SEPARATE ALPHA CHANNEL (IF EXISTS)
-  if format=ifJPEG then begin
-   timeJ:=MyTickCount; 
-   st:=StringReplace(fname,ExtractFileExt(fname),'.raw',[]);
-   DebugMessage('Checking '+st);
-   if MyFileExists(st) then begin
-    DebugMessage('Loading RAW alpha ');
-    rawData:=LoadFileAsBytes(st);
-    if CheckRLEHeader(@rawdata[0],length(rawData))>0 then
-      rawData:=UnpackRLE(@rawdata[0],length(rawData));
-    forceFormat:=ipfARGB;
+   // 2.5 FOR JPEG: LOAD SEPARATE ALPHA CHANNEL (IF EXISTS)
+   if format=ifJPEG then begin
+    timeJ:=MyTickCount;
+    st:=StringReplace(fname,ExtractFileExt(fname),'.raw',[]);
+    DebugMessage('Checking '+st);
+    if MyFileExists(st) then begin
+     DebugMessage('Loading RAW alpha ');
+     rawData:=LoadFileAsBytes(st);
+     if CheckRLEHeader(@rawdata[0],length(rawData))>0 then
+       rawData:=UnpackRLE(@rawdata[0],length(rawData));
+     forceFormat:=ipfARGB;
+    end;
    end;
   end;
 
@@ -715,34 +722,33 @@ begin
   tex.Lock(0);
   img:=tex.GetRawImage; // получить объект типа RAW Image для доступа к данным текстуры
 
-  // 5. LOAD SOURCE IMAGE FORMAT INTO TEXTURE MEMORY
-  if format=ifTGA then LoadTGA(data,img) else
-  if format=ifJPEG then LoadJPEG(data,img) else
-  if format=ifPNG then LoadPNG(data,img) else
-  if format=ifPVR then LoadPVR(data,img) else
-  if format=ifDDS then LoadDDS(data,img) else
-  if format=ifTXT then begin
-   // скопировать загруженное изображение из SRC в IMG
-   sp:=txtImage.data;
-   dp:=tex.data;
-   for i:=0 to txtImage.Height-1 do begin
-    ConvertLine(sp^,dp^,ipfARGB,ForceFormat,dp^,palNone,txtImage.width);
-    inc(sp,txtImage.pitch);
-    inc(dp,tex.pitch);
+  if preloaded<>nil then begin
+   img.CopyPixelDataFrom(preloaded); // don't free preloaded as it is kept in the queue
+   LogMessage('Copied from preloaded: '+fname);
+  end else begin
+   // 5. LOAD SOURCE IMAGE FORMAT INTO TEXTURE MEMORY
+   if format=ifTGA then LoadTGA(data,img) else
+   if format=ifJPEG then LoadJPEG(data,img) else
+   if format=ifPNG then LoadPNG(data,img) else
+   if format=ifPVR then LoadPVR(data,img) else
+   if format=ifDDS then LoadDDS(data,img) else
+   if format=ifTXT then begin
+    // скопировать загруженное изображение из SRC в IMG
+    img.CopyPixelDataFrom(txtImage);
+    txtImage.Free;
    end;
-   txtImage.Free;
-  end;
 
-  // 6. ADD ALPHA CHANNEL FROM A SEPARATE RLE/RAW IMAGE IF EXISTS (JPEG-ONLY)
-  if (length(rawData)>0) and (tex.PixelFormat=ipfARGB) then begin
-   DebugMessage('Adding separate alpha');
-   k:=0;
-   for i:=0 to tex.height-1 do begin
-    dp:=tex.data; inc(dp,i*tex.pitch+3);
-    for j:=0 to tex.width-1 do begin
-     dp^:=rawData[k];
-     inc(dp,4);
-     inc(k);
+   // 6. ADD ALPHA CHANNEL FROM A SEPARATE RLE/RAW IMAGE IF EXISTS (JPEG-ONLY)
+   if (length(rawData)>0) and (tex.PixelFormat=ipfARGB) then begin
+    DebugMessage('Adding separate alpha');
+    k:=0;
+    for i:=0 to tex.height-1 do begin
+     dp:=tex.data; inc(dp,i*tex.pitch+3);
+     for j:=0 to tex.width-1 do begin
+      dp^:=rawData[k];
+      inc(dp,4);
+      inc(k);
+     end;
     end;
    end;
   end;
