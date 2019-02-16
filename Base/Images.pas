@@ -1,4 +1,4 @@
-// Class hierarchy for image objects
+﻿// Class hierarchy for image objects
 //
 // Copyright (C) 2003 Apus Software (www.games4win.com)
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
@@ -113,6 +113,7 @@ type
   procedure Unlock; virtual;
   procedure Clear(color:cardinal); virtual;
   function ScanLine(y:integer):pointer;
+  procedure CopyPixelDataFrom(src:TRawImage); // copy from another image with pixel format conversion (if needed)
  end;
 
  // TBitmapImage - это уже конкретный вид изображения: bitmap, хранящийся в памяти
@@ -124,8 +125,6 @@ type
   destructor Destroy; override;
 
   class function NeedLock:boolean; override; // true - если нужно лочить для доступа к данным
-  procedure Lock; override;
-  procedure Unlock; override;
  end;
 
  var
@@ -332,19 +331,9 @@ begin
   inherited;
 end;
 
-procedure TBitmapImage.Lock;
-begin
- // Lock isn't needed: no action
-end;
-
 class function TBitmapImage.NeedLock: boolean;
 begin
  result:=false;
-end;
-
-procedure TBitmapImage.Unlock;
-begin
- // Lock isn't needed: no action
 end;
 
 { TRawImage }
@@ -367,6 +356,28 @@ begin
    // ...
   end;
   inc(p1,pitch);
+ end;
+end;
+
+procedure TRawImage.CopyPixelDataFrom(src: TRawImage);
+var
+ sp,dp:PByte;
+ i:integer;
+begin
+ ASSERT((src.width>=width) and (src.height>=height));
+ src.Lock;
+ Lock;
+ try
+  sp:=src.data;
+  dp:=data;
+  for i:=0 to height-1 do begin
+   ConvertLine(sp^,dp^,src.PixelFormat,pixelFormat,dp^,palNone,width);
+   inc(sp,src.pitch);
+   inc(dp,pitch);
+  end;
+ finally
+  Unlock;
+  src.Unlock;
  end;
 end;
 
