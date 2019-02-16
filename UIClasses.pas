@@ -520,7 +520,8 @@ var
  function UILabel(name:string;mustExist:boolean=false):TUILabel;
  function UIScrollBar(name:string;mustExist:boolean=false):TUIScrollBar;
  function UIComboBox(name:string;mustExist:boolean=false):TUIComboBox;
- 
+ function UIListBox(name:string;mustExist:boolean=false):TUIListBox;
+
 
 implementation
  uses classes,SysUtils,EventMan,clipboard;
@@ -665,6 +666,16 @@ begin
  if not (c is TUIComboBox) then c:=nil;
  if c=nil then c:=TUIComboBox.Create(0,0,0,0,0,nil,nil,name);
  result:=c as TUIComboBox;
+end;
+
+function UIListBox(name:string;mustExist:boolean=false):TUIListBox;
+var
+ c:TUIControl;
+begin
+ c:=FindControl(name,mustExist);
+ if not (c is TUIListBox) then c:=nil;
+ if c=nil then c:=TUIListBox.Create(0,0,0,0,0,name,0,nil);
+ result:=c as TUIListBox;
 end;
 
 

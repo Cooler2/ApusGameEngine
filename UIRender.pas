@@ -615,7 +615,7 @@ implementation
        c:=hoverTextColor;
       end else
        c:=textColor;
-      painter.TextOut(font,x1+4,lY+round(lineHeight*0.71),c,lines[i],taLeft,toComplexText);
+      painter.TextOut(font,x1+4,lY+round(lineHeight*0.73),c,lines[i],taLeft,toComplexText);
      end;
      painter.ResetClipping;
     end;

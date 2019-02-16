@@ -987,6 +987,8 @@ begin
        if obj is TUIButton then result:=@TUIButton(obj).font else
        if obj is TUILabel then result:=@TUILabel(obj).font else
        if obj is TUIEditBox then result:=@TUIEditBox(obj).font else
+       if obj is TUIListBox then result:=@TUIListBox(obj).font else
+       if obj is TUIComboBox then result:=@TUIComboBox(obj).font else
        if obj is TUIWindow then result:=@TUIWindow(obj).font else
         exit;
        varClass:=TVarTypeCardinal;
