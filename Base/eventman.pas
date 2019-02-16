@@ -78,7 +78,7 @@ type
   handler:TEventHandler; // кто должен его обработать
   tag:integer;
   callerThread:TThreadID; // поток, из которого было
-  callerIP:cardinal; // точка вызова Signal
+  callerIP:UIntPtr; // точка вызова Signal
   time:int64; // когда событие должно быть обработано (только для отложенных сигналов)
  end;
 
@@ -221,7 +221,7 @@ var
   end;
 
  // Для внутреннего использования
- procedure HandleEvent(event:EventStr;tag:integer;time:int64;caller:cardinal=0);
+ procedure HandleEvent(event:EventStr;tag:integer;time:int64;caller:UIntPtr=0);
   var
    i,h:integer;
    fl:boolean;
