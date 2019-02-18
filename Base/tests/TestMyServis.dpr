@@ -34,7 +34,8 @@ uses
   profiling in '..\profiling.pas',
   colors in '..\colors.pas',
   RSA in '..\RSA.pas',
-  StackTrace in '..\StackTrace.pas';
+  StackTrace in '..\StackTrace.pas',
+  httpRequests in '..\httpRequests.pas';
 
 var
  sa:StringArr;
