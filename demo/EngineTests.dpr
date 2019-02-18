@@ -52,7 +52,8 @@ uses
   ComplexText in '..\ComplexText.pas',
   steamAPI in '..\steamAPI.pas',
   PainterGL2 in '..\PainterGL2.pas',
-  GameApp in '..\GameApp.pas';
+  GameApp in '..\GameApp.pas',
+  ImgLoadQueue in '..\ImgLoadQueue.pas';
 
 const
  wnd:boolean=true;

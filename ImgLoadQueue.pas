@@ -16,10 +16,6 @@ interface
  // Waits if image is queued, but not yet processed
  function GetImageFromQueue(fname:string;wait:boolean=true):TRawImage;
 
- procedure LockImgQueue;
- procedure UnlockImgQueue;
-
-
 implementation
  uses MyServis,SysUtils,Classes,gfxFormats;
 
@@ -128,8 +124,7 @@ implementation
    i:integer;
   begin
    loadingThread:=TLoadingThread.Create;
-   if unpackThreadsNum>=high(unpackThreads) then unpackThreadsNum:=high(unpackThreads);
-   for i:=1 to unpackThreadsNum do
+   for i:=1 to min2(unpackThreadsNum,high(unpackThreads)) do
     unpackThreads[i]:=TUnpackThread.Create;
   end;
 
@@ -232,6 +227,7 @@ procedure TUnpackThread.Execute;
     end;
    end;
   until terminated;
+  LogMessage('Preloading thread done!');
   except
    on e:Exception do ErrorMessage('Error in UnpackingThread: '+ExceptionMsg(e));
   end;
