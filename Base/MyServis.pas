@@ -45,8 +45,8 @@ interface
    lockCount:integer; // how many times locked (recursion)
    level:integer;     // it's not allowed to enter section with lower level from section with higher level
    prevSection:PCriticalSection;
-   procedure Enter; // for compatibility
-   procedure Leave; // for compatibility
+   procedure Enter; inline; // for compatibility
+   procedure Leave; inline; // for compatibility
   end;
 
   // Base exception with stack trace support
