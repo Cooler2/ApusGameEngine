@@ -55,9 +55,10 @@ type
   function TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene; virtual; // Find the topmost active scene
 
   // Курсоры
-  procedure RegisterCursor(CursorID,priority:integer;cursorHandle:cardinal); virtual; // Объявить курсор, сопоставить ему системный хэндл
+  procedure RegisterCursor(CursorID,priority:integer;cursorHandle:HCursor); virtual; // Объявить курсор, сопоставить ему системный хэндл
   procedure ToggleCursor(CursorID:integer;state:boolean=true); virtual; // Включить/выключить указанный курсор
   procedure HideAllCursors; virtual; // Выключить все курсоры
+  function GetCursorForID(cursorID:integer):HCursor; virtual;
 
   // Трансляция координат
   procedure ScreenToGame(var p:TPoint); virtual;
@@ -101,7 +102,7 @@ type
   loopThread:TThread;
   controlThread:TThreadID;
   BestVidMem,VidmemLimit:integer;
-  cursors:array[1..32] of TObject;
+  cursors:array of TObject;
 
   LastOnFrameTime:int64; // момент последнего вызова обработки кадра
   LastRenderTime:int64; // Момент последней отрисовки кадра
@@ -246,7 +247,7 @@ type
  TGameCursor=class
   ID:integer;
   priority:integer;
-  handle:cardinal;
+  handle:HCursor;
   visible:boolean;
  end;
 
@@ -1170,15 +1171,15 @@ var
  c:cardinal;
 begin
  with game do begin
-  n:=0; j:=-10000;
+  n:=-1; j:=-10000;
   if mouseVisible then begin
-   for i:=1 to 32 do
-    if cursors[i]<>nil then with cursors[i] as TGameCursor do
+   for i:=0 to high(cursors) do
+    with cursors[i] as TGameCursor do
      if visible and (priority>j) then begin
       j:=priority; n:=i;
      end;
 
-   if not params.showSystemCursor and (n>0) then begin
+   if not params.showSystemCursor and (n>=0) then begin
     // check if cursor is visible
     {$IFDEF MSWINDOWS}
 
@@ -1193,7 +1194,7 @@ begin
   end;
   if params.showSystemCursor then begin
    c:=wndCursor;
-   if n=0 then wndCursor:=0
+   if n<0 then wndCursor:=0
     else wndCursor:=TGameCursor(cursors[n]).handle;
    {$IFDEF MSWINDOWS}
    SetCursor(wndCursor);
@@ -1601,35 +1602,50 @@ begin
  if not params.showSystemCursor then changed:=true;
 end;
 
+function TBasicGame.GetCursorForID(cursorID:integer):HCursor;
+var
+ i:integer;
+begin
+ result:=0;
+ EnterCriticalSection(crSect);
+ try
+  for i:=0 to high(cursors) do
+   with TGameCursor(cursors[i]) do
+   if ID=cursorID then begin
+    result:=handle; exit;
+   end;
+ finally
+  LeaveCriticalSection(crSect);
+ end;
+end;
+
+
 procedure TBasicGame.RegisterCursor(CursorID, priority: integer;
-  cursorHandle: cardinal);
+  cursorHandle: HCursor);
 var
  i,n:integer;
  cursor:TGameCursor;
 begin
  EnterCriticalSection(crSect);
  try
- n:=0;
- for i:=1 to 32 do
-  if (cursors[i]<>nil) and
-     (TGameCursor(cursors[i]).ID=cursorID) then begin
+ n:=-1;
+ for i:=0 to high(cursors) do
+  if TGameCursor(cursors[i]).ID=cursorID then begin
     n:=i; break;
   end;
- if n=0 then
-  for i:=1 to 32 do
-   if (cursors[i]=nil) then begin
-    n:=i; break;
-   end;
-
- if cursors[n]=nil then begin
+ if n<0 then begin
+  n:=length(cursors);
+  SetLength(cursors,n+1);
   cursor:=TGameCursor.Create;
   cursors[n]:=cursor;
  end else
   cursor:=TGameCursor(cursors[i]);
+
  cursor.ID:=CursorID;
  cursor.priority:=priority;
  cursor.handle:=cursorHandle;
- cursor.visible:=false;
+ if cursorID<>crDefault then
+  cursor.visible:=false;
  finally
   LeaveCriticalSection(crSect);
  end;
@@ -1641,10 +1657,9 @@ var
 begin
  EnterCriticalSection(crSect);
  try
- for i:=1 to 32 do
-  if cursors[i]<>nil then
-   with cursors[i] as TGameCursor do
-    visible:=false;
+ for i:=0 to high(cursors) do
+  with cursors[i] as TGameCursor do
+   visible:=false;
  finally
   LeaveCriticalSection(crSect);
  end;
@@ -1656,10 +1671,9 @@ var
 begin
  EnterCriticalSection(crSect);
  try
- for i:=1 to 32 do
-  if cursors[i]<>nil then
-   with cursors[i] as TGameCursor do
-    if ID=CursorID then visible:=state;
+ for i:=0 to high(cursors) do
+  with cursors[i] as TGameCursor do
+   if ID=CursorID then visible:=state;
  if not params.showSystemCursor then changed:=true;
  finally
   LeaveCriticalSection(crSect);
