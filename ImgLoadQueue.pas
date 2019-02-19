@@ -87,9 +87,10 @@ implementation
     cSect.Leave;
    end;
    if (n>=0) then begin
-    repeat
-      sleep(1);
-    until loadQueue[n].status in [lqsReady,lqsError];
+    LogMessage('Queued image not ready: '+IntToStr(ord(loadQueue[n].status)));
+    while not (loadQueue[n].status in [lqsReady,lqsError]) do begin
+     sleep(1);
+    end;
     result:=GetImageFromQueue(fname,true); // try once again because N may become obsolete at this point
    end;
   end;
@@ -135,6 +136,7 @@ procedure TLoadingThread.Execute;
  var
   i,n:integer;
  begin
+  RegisterThread('QLoading');
   try
   repeat
    // Find the first waiting entry
@@ -166,10 +168,10 @@ procedure TLoadingThread.Execute;
    end;
    sleep(0);
   until terminated;
-  LogMessage('Preloading thread done');
   except
    on e:Exception do ErrorMessage('Error in LoadingThread: '+ExceptionMsg(e));
   end;
+  UnregisterThread;
  end;
 
 { TUnpackThread }
@@ -180,8 +182,10 @@ procedure TUnpackThread.Execute;
   shouldWait:boolean;
   t:int64;
  begin
+  RegisterThread('QUnpack');
   try
   repeat
+   sleep(1); // Never wait inside CS!
    // Find the first waiting entry
    cSect.Enter;
    try
@@ -195,7 +199,7 @@ procedure TUnpackThread.Execute;
      if loadQueue[i].status in [lqsWaiting,lqsLoading] then shouldWait:=true;
     if n<0 then begin
      if shouldWait then begin
-      sleep(1); continue;
+      continue;
      end else
       break; // No more unprocessed items and no items to wait
     end;
@@ -231,10 +235,10 @@ procedure TUnpackThread.Execute;
     end;
    end;
   until terminated;
-  LogMessage('Unpacking thread done!');
   except
    on e:Exception do ErrorMessage('Error in UnpackingThread: '+ExceptionMsg(e));
   end;
+  UnregisterThread;
  end;
 
 procedure TerminateThreads;
