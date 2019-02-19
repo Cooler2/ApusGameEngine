@@ -72,6 +72,7 @@ implementation
       exit;
      end;
      if wait and (loadQueue[n].status in [lqsWaiting,lqsLoaded]) then begin
+      LogMessage('Waiting for '+fname);
       // Try to load this earlier
       for i:=0 to n-1 do
        if loadQueue[i].status in [lqsWaiting,lqsLoaded] then begin
@@ -163,7 +164,9 @@ procedure TLoadingThread.Execute;
     info:=imgInfo;
     status:=lqsLoaded; // unlocked
    end;
+   sleep(0);
   until terminated;
+  LogMessage('Preloading thread done');
   except
    on e:Exception do ErrorMessage('Error in LoadingThread: '+ExceptionMsg(e));
   end;
@@ -218,6 +221,7 @@ procedure TUnpackThread.Execute;
      LogMessage('Preloaded: '+fname+', time='+IntToStr(MyTickCount-t));
      Setlength(srcData,0);
      status:=lqsReady;
+     sleep(0);
     except
      on e:exception do begin
       ForceLogMessage('Error unpacking '+fname+': '+ExceptionMsg(e));
@@ -227,7 +231,7 @@ procedure TUnpackThread.Execute;
     end;
    end;
   until terminated;
-  LogMessage('Preloading thread done!');
+  LogMessage('Unpacking thread done!');
   except
    on e:Exception do ErrorMessage('Error in UnpackingThread: '+ExceptionMsg(e));
   end;

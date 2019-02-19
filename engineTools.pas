@@ -662,6 +662,7 @@ begin
   end;
   {$ENDIF}
 
+  LogMessage('Loading '+fname);
   preloaded:=GetImageFromQueue(fname);
   if preloaded<>nil then begin
    imgInfo.format:=preloaded.PixelFormat;
@@ -669,7 +670,6 @@ begin
    imgInfo.height:=preloaded.height;
   end else begin
    // 2. LOAD DATA FILE AND CHECK IT'S FORMAT
-   LogMessage('Loading '+fname);
    data:=LoadFileAsBytes(fname);
    if length(data)<30 then raise EError.Create('Bad image file: '+fname);
 
@@ -766,7 +766,7 @@ begin
  // 8. TIME CALCULATIONS
  time:=MyTickCount-time+random(2);
  if (time>0) and (time<50000) then inc(LoadingTime,time);
- if time>30 then LogMessage('Slow image loading: '+inttostr(time)); 
+ if time>30 then LogMessage('Slow image loading: '+inttostr(time)+' - '+fname);
  result:=tex;
 end;
 
