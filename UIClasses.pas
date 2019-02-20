@@ -214,6 +214,7 @@ type
   rLeft,rTop,rRight,rBottom:single; // точное положение элемента в предке
 
  private
+  procedure AddToRootControls;
   procedure RemoveFromRootControls;
  end;
 
@@ -481,8 +482,7 @@ var
  // Корневые элементы (не имеющие предка)
  // Список используется для передачи (обработки) первичных событий строго
  // по порядку, начиная с 1-го
- rootControls:array[1..100] of TUIControl;
- rootControlsCnt:integer;
+ rootControls:array of TUIControl;
 
  // элементы для отложенного удаления. Нужно периодически их удалять
  toDelete:TObjectList;
@@ -578,7 +578,7 @@ var
  i:integer;
 begin
  result:=nil;
- for i:=1 to RootControlsCnt do begin
+ for i:=0 to high(rootControls) do begin
   result:=rootControls[i].FindByName(name);
   if result<>nil then exit;
  end;
@@ -593,7 +593,7 @@ var
 begin
  c:=nil; maxZ:=-1;
  // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
- for i:=1 to RootControlsCnt do begin
+ for i:=0 to high(rootControls) do begin
   enabl:=rootControls[i].FindItemAt(x,y,ct);
   if ct<>nil then begin
    c2:=ct; // найдем корневого предка ct (вдруг это не rootControls[i]?)
@@ -753,13 +753,7 @@ begin
   parent.children[n-1]:=self;
  end else begin
   // Элемент без предка -> занести в список
-  if rootControlsCnt<high(rootControls) then begin
-   inc(rootControlsCnt);
-   rootControls[rootControlsCnt]:=self;
-  end else begin
-   LogMessage('Too many root controls! Last: '+rootControls[rootControlsCnt].fName);
-   raise EWarning.Create('Too many root controls!');
-  end;
+  AddToRootControls;
   order:=1;
  end;
  style:=0;
@@ -814,11 +808,7 @@ begin
   end;
  dec(n);
  SetLength(parent.children,n);
- if rootControlsCnt<high(rootControls) then begin
-  inc(rootControlsCnt);
-  rootControls[rootControlsCnt]:=self;
- end else
-  LogMessage('Too many root controls! Last: '+rootControls[rootControlsCnt].fName);
+ AddToRootControls;
 end;
 
 procedure TUIControl.AttachTo(newParent: TUIControl);
@@ -1169,15 +1159,31 @@ begin
   end;
 end;
 
+procedure TUIControl.AddToRootControls;
+begin
+ UICritSect.Enter;
+ try
+  SetLength(rootControls,length(rootControls)+1);
+  rootControls[high(rootControls)]:=self;
+ finally
+  UICritSect.Leave;
+ end;
+end;
+
 procedure TUIControl.RemoveFromRootControls;
 var
  i:integer;
 begin
- for i:=1 to rootControlsCnt do
+ UICritSect.Enter;
+ try
+ for i:=0 to high(rootControls) do
   if rootControls[i]=self then begin
-   rootControls[i]:=rootControls[rootControlsCnt];
-   dec(rootControlsCnt);
+   rootControls[i]:=rootControls[high(rootControls)];
+   SetLength(rootControls,length(rootControls)-1);
   end;
+ finally
+  UICritSect.Leave;
+ end;
 end;
 
 procedure TUIControl.Resize(newWidth, newHeight: integer);

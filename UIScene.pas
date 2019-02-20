@@ -654,10 +654,7 @@ begin
   end;
   time:=MyTickCount;
   delta:=time-LastHandleTime;
-  // обход всех эл-тов и обработку таймеров
-  for i:=1 to RootControlsCnt do
-   if rootControls[i]<>nil then
-    ProcessControl(rootControls[i]);
+  if UI<>nil then ProcessControl(UI);
 
   // обработка хинтов
   if (itemShowHintTime>LastHandleTime) and (itemShowHintTime<=Time) then begin
@@ -867,7 +864,7 @@ begin
  if parent=nil then begin
   findControlAt(x,y,parent);
   if parent=nil then begin
-   for i:=1 to rootControlsCnt do
+   for i:=0 to high(rootControls) do
     if RootControls[i].visible then begin
      parent:=rootControls[i]; break;
     end;
@@ -923,7 +920,7 @@ begin
  writeln(f,'Focused: '+inttohex(cardinal(focusedControl),8));
  writeln(f,'Hooked: '+inttohex(cardinal(hooked),8));
  writeln(f);
- for i:=1 to rootControlsCnt do
+ for i:=0 to high(rootControls) do
   DumpControl(rootControls[i],'');
  close(f);
  except
