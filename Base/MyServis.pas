@@ -27,6 +27,7 @@ interface
   WordArray=array of word;
   IntArray=array of integer;
   UIntArray=array of cardinal;
+  SingleArray=array of single;
   FloatArray=array of double;
   ShortStr=string[31];
 
