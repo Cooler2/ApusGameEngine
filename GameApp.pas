@@ -321,17 +321,8 @@ procedure TGameApplication.HandleParam(param: string);
 
 procedure TGameApplication.InitCursors;
  begin
-  {$IFDEF MSWINDOWS}
-  if game.GetCursorForID(crLink)=0 then
-   game.RegisterCursor(crLink,2,LoadCursor(0,IDC_HAND));
-  if game.GetCursorForID(crWait)=0 then
-   game.RegisterCursor(crWait,9,LoadCursor(0,IDC_WAIT));
-  if game.GetCursorForID(crDefault)=0 then
-   game.RegisterCursor(crDefault,1,LoadCursor(0,IDC_ARROW));
-
   game.ToggleCursor(crDefault);
   game.ToggleCursor(crWait);
-  {$ENDIF}
  end;
 
 procedure TGameApplication.InitStyles;
