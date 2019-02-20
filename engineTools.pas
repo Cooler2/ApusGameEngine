@@ -7,7 +7,7 @@ unit engineTools;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 interface
- uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineAPI,images,UIClasses,regions,
+ uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineAPI,images,UIClasses,regions,MyServis,
     UnicodeFont,CrossPlatform,BasicGame;
 
 var
@@ -211,6 +211,8 @@ const
  function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices;
  procedure DrawIndexedMesh(img:TTexture;vertices:TVertices;indices:TIndices);
 
+// procedure BuildNPatchMesh(img:TTexture;splitU,splitV,weightU,weightW:SingleArray;var vertices:TVertices;var indices:TIndices);
+
  // Shapes
  // Draw circle using band particles (
  procedure DrawCircle(x,y,r,width:single;n:integer;color:cardinal;tex:TTexture;rec:TRect;idx:integer);
@@ -225,7 +227,7 @@ const
  // FOR INTERNAL USE ----------------------------------------------------------
 
 implementation
- uses SysUtils,MyServis,{$IFDEF DIRECTX}DirectXGraphics,d3d8,DxImages8,{$ENDIF}
+ uses SysUtils,{$IFDEF DIRECTX}DirectXGraphics,d3d8,DxImages8,{$ENDIF}
     {$IFDEF DELPHI}graphics,jpeg,{$ENDIF}
     {$IFDEF OPENGL}GLImages,{$ENDIF}
     {$IFDEF MSWINDOWS}ShellAPI,{$ENDIF}
