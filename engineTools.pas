@@ -122,7 +122,7 @@ var
  function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:ImagePixelFormat=ipfNone):TTexture;
 
  // (пере)загружает картинку из файла, т.е. освобождает если она была ранее загружена
- procedure LoadImage(var img:TTextureImage;fName:string;flags:cardinal=liffDefault);
+ procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
 
  // Сохраняет изображение в файл (mostly for debug purposes)
  procedure SaveImage(img:TTextureImage;fName:string);
@@ -1077,7 +1077,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    end;
   end;
 
- procedure LoadImage(var img:TTextureImage;fName:string;flags:cardinal=liffDefault);
+ procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
   begin
    if flags=liffDefault then flags:=defaultLoadImageFlags;
    if img<>nil then texman.FreeImage(TTexture(img));
