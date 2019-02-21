@@ -1,25 +1,29 @@
 ﻿//{$DEFINE OPENGL}
-program EngineDemo;
+program EngineTests;
 
 uses
   windows,
   sysutils,
   myservis,
-  DirectXGraphics,
   geom2d,
   geom3d,
   images,
   Types,
-  dglOpenGl,
   eventMan,
   FastGfx,
   DirectText,
   FreeTypeFont,
-  EngineCls in '..\EngineCls.pas',
+  {$IFDEF OPENGL}
+  dglOpenGl,
+  {$ENDIF }
+  {$IFDEF DIRECTX}
+  DirectXGraphics,
+  {$ENDIF }
+  EngineAPI in '..\EngineAPI.pas',
   UIClasses in '..\UIClasses.pas',
   PainterGL in '..\PainterGL.pas',
   ImageMan in '..\ImageMan.pas',
-  CommonUI in '..\CommonUI.pas',
+  UIScene in '..\UIScene.pas',
   UIRender in '..\UIRender.pas',
   engineTools in '..\engineTools.pas',
   console in '..\console.pas',
@@ -48,7 +52,8 @@ uses
   ComplexText in '..\ComplexText.pas',
   steamAPI in '..\steamAPI.pas',
   PainterGL2 in '..\PainterGL2.pas',
-  GameApp in '..\GameApp.pas';
+  GameApp in '..\GameApp.pas',
+  ImgLoadQueue in '..\ImgLoadQueue.pas';
 
 const
  wnd:boolean=true;
@@ -56,7 +61,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 12;       
+ testnum:integer = 13;
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -72,8 +77,8 @@ const
  // 13 - тест шейдеров OpenGL
  // 14 - тест видео
 
- TexVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR+D3DFVF_TEX1+D3DFVF_TEXTUREFORMAT2;
- ColVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR;
+ //TexVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR+D3DFVF_TEX1+D3DFVF_TEXTUREFORMAT2;
+ //ColVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR;
 
 var
  savetime:cardinal;
@@ -624,21 +629,21 @@ end;
 
 procedure TFontTest.Done;
 begin
- //painter.FreeFont(fnt);
+ painter.FreeFont(fnt);
 end;
 
 procedure TFontTest.Init;
 var
  font:cardinal;
 begin
-{ painter.LoadFont('res\times1.fnt');
+ painter.LoadFont('res\times1.fnt');
  painter.LoadFont('res\times2.fnt');
  painter.LoadFont('res\times3.fnt');
  painter.LoadFont('res\goodfish1.fnt');
- painter.LoadFont('res\goodfish2.fnt');}
+ painter.LoadFont('res\goodfish2.fnt');
  //fnt:=painter.LoadFromFile('test');
-{ LoadRasterFont('res\test.fnt');
- fnt:=painter.PrepareFont(1);}
+ LoadRasterFont('res\test.fnt');
+ fnt:=painter.PrepareFont(1);
  painter.MatchFont(1,painter.GetFont('Times New Roman',11));
  font:=painter.GetFont('Times New Roman',12);
  painter.SetFontOption(font,foDownscaleFactor,1);
@@ -694,12 +699,12 @@ begin
  painter.TextOut(1,10,690,$FFFFFF40,'Hello World! Привет всем! Première tentative de l''écriture!');
 
  // Legacy text output
-{ painter.SetFont(fnt);
+ painter.SetFont(fnt);
  painter.WriteSimple(10,10,$FFFFFFFF,'Hello');
  for i:=20 downto 4 do begin
   painter.FillRect(9,i*20+2,10+i*8,i*20+20,$C0404090);
   painter.WriteSimple(10,i*20,$FFFFFF00+i*12-(i*12) shl 16,copy('я 12345678901234567890',1,i));
- end;}
+ end;
 
  painter.FillRect(500,10,640,50,$FF8080F0);
  painter.FillRect(500,70,640,120,$FF000064);
@@ -710,7 +715,7 @@ begin
  painter.DrawLine(570,10,570,110,$50FFFFFF);
  painter.DrawLine(524,10,524,110,$50FFFFFF);
  painter.DrawLine(616,10,616,110,$50FFFFFF);
-{ fillchar(painter.textEffects,sizeof(painter.textEffects),0);
+ fillchar(painter.textEffects,sizeof(painter.textEffects),0);
  with painter do begin
   textEffects[1].enabled:=true;
   textEffects[1].blur:=1;
@@ -729,7 +734,7 @@ begin
   textEffects[1].dy:=0;
   textEffects[1].power:=3;
   WriteEx(570,80,$FF500000,'Тест блура!',taCenter);
- end;}
+ end;
 
 // painter.FillRect(0,0,511,511,$FFFFFFFF);
 { if frame mod 40<10 then
@@ -740,7 +745,7 @@ end;
 
 procedure TFontTest2.Init;
 begin
- //font:=TFreeTypeFont.LoadFromFile('res\arial.ttf');
+ font:=TFreeTypeFont.LoadFromFile('res\arial.ttf');
 // font:=TFreeTypeFont.LoadFromFile('12460.ttf');
  buf:=texman.AllocImage(400,50,ipfARGB,0,'txtbuf') as TTextureImage;
  painter.LoadFont('res\arial.ttf');
@@ -755,12 +760,10 @@ var
  size:single;
  st:string;
 begin
-// if frame>0 then exit;
  inc(frame);
  painter.Clear($FF000080 { $ FF000000+frame and 127},-1,-1);
  painter.BeginPaint(nil);
  // Unicode text output
-
 
  f:=painter.GetFont('Arial',30);
  painter.TextOutW(f,10,40,$FFFFA080,'Première tentative de l''écriture!',taLeft);
@@ -820,9 +823,9 @@ begin
  painter.TextOutW(f,150,750,$FFC0C0C0,IntToStr(frame));
 
  painter.DrawLine(700,672,700,730,$80FFFF50);
- painter.FillRect(700-22,700,700+22,725,$60000000);
- painter.TextOutW(f,700,690,$FFC0C0C0,'Center',taRight);
- painter.TextOutW(f,700,720,$FFC0C0C0,'Right',taCenter);
+ painter.FillRect(700-29,700,700+29,725,$60000000);
+ painter.TextOutW(f,700,690,$FFC0C0C0,'Right',taRight);
+ painter.TextOutW(f,700,720,$FFC0C0C0,'Center',taCenter);
  painter.FillRect(600,732,600+290,757,$60000000);
  painter.TextOutW(f,600,750,$FFC0C0C0,'Justify {i}this{/i} {u}simple and small{/u} text',
    taJustify,toComplexText,290);
@@ -1538,7 +1541,7 @@ var
  x,y:integer;
 begin
  try
- prog:=TGLPainter(painter).BuildShaderProgram(LoadFile('shader.vert'),LoadFile('shader.frag'));
+ prog:=TGLPainter(painter).BuildShaderProgram(LoadFileAsString('res\shader.vert'),LoadFileAsString('res\shader.frag'));
  loc1:=glGetUniformLocation(prog,'offset');
 
  tex:=texman.AllocImage(256,256,ipfARGB,0,'tex') as TTextureImage;
@@ -1571,11 +1574,12 @@ begin
  painter.Clear($FF000040);
  painter.DrawImage(600,10,tex);
  glUseProgram(prog);
+ ASSERT(glGetError=0);
  d:=1+sin(0.003*(myTickCount mod $FFFFFF));
  glUniform1f(loc1,0.003*d);
  painter.DrawImage(600,300,tex);
  painter.Restore;
- //glUseProgram(0);
+ glUseProgram(0);
  painter.FillGradrect(50,50,300,200,$FFF04000,$FF60C000,false);
  painter.FillRect(30,100,500,120,$FF000000);
  painter.EndPaint;
@@ -1667,7 +1671,7 @@ begin
  end;
 
  {$IFDEF OPENGL}
- game:=MyGame.Create(true); // Создаем объект
+ game:=MyGame.Create(false); // Создаем объект
  {$ELSE}
  game:=MyGame.Create(0); // Создаем объект
  {$ENDIF}
@@ -1681,15 +1685,15 @@ begin
   colorDepth:=32;
   refresh:=0;
   if wnd then begin
-   mode:=dmWindow;
-   altMode:=dmSwitchResolution;
+   mode.displayMode:=dmWindow;
+   altMode.displayMode:=dmSwitchResolution;
   end else begin
-   mode:=dmSwitchResolution;
-   altMode:=dmFixedWindow;
+   mode.displayMode:=dmSwitchResolution;
+   altMode.displayMode:=dmFixedWindow;
   end;
 //  mode:=dmFullScreen;
-  fitMode:=dfmCenter;
-  fitMode:=dfmKeepAspectRatio;
+  mode.displayFitMode:=dfmKeepAspectRatio;
+  mode.displayScaleMode:=dsmDontScale;
   showsystemcursor:=true;
   zbuffer:=16;
   stencil:=false;
@@ -1705,7 +1709,6 @@ begin
  InitUI;
  // А можно и не делать - можно это сделать в обработчике события
 
- game.initialized:=true;
  savetime:=GetTickCount;
  repeat
   delay(50);

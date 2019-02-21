@@ -4,7 +4,7 @@
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
 unit GLImages;
 interface
- uses EngineCls,Images,myservis,types;
+ uses EngineAPI,Images,myservis,types;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE GLES11} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE GLES20} {$DEFINE OPENGL} {$ENDIF}
 type
@@ -36,6 +36,7 @@ type
 
   function AllocImage(width,height:integer;PixFmt:ImagePixelFormat;
                 Flags:integer;name:texnamestr):TTexture; override;
+  procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer); override;
   function Clone(img:TTexture):TTexture; override;
   procedure FreeImage(var image:TTexture); override;
   procedure FreeImage(var image:TTextureImage); override;
@@ -350,7 +351,6 @@ var
  tex:TGlTexture;
  status:cardinal;
  format,SubFormat,internalFormat:cardinal;
-// sx,sy:single;
  dataSize:integer;
 begin
  ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
@@ -389,10 +389,6 @@ begin
    width:=round(width*scaleX);
    height:=round(height*scaleY);
    if (width>maxFBwidth) or (height>maxFBheight) then raise EWarning.Create('AI: RT texture too large');
-   //tex.caps:=tex.caps or tfScaled;
-{   tex.scaleX:=scaleX;
-   tex.scaleY:=scaleY;
-   sx:=scaleX; sy:=scaleY;}
   end;
   {$IFDEF GLES}
   {$IFDEF GLES11}
@@ -536,7 +532,7 @@ begin
  fillChar(texNames,sizeof(texnames),0);
  mainThreadID:=GetCurrentThreadId;
  texman:=self;
- SetEventHandler('GLImages',EventHandler,mixed);
+ SetEventHandler('GLImages',EventHandler,emMixed);
  {$IFDEF GLES}
  glGetIntegerv(GL_MAX_TEXTURE_SIZE, @maxTextureSize);
  maxFBWidth:=maxTextureSize;
@@ -791,6 +787,28 @@ begin
  CheckForGLError('21');
  if res=0 then result:=false;
  {$ENDIF}
+end;
+
+procedure TGLTextureMan.ResizeTexture(var img: TTexture; newWidth,
+  newHeight: integer);
+var
+ glFormat,subFormat,internalFormat:cardinal;
+ old:TTexture;
+begin
+ if img.caps and tfRenderTarget>0 then
+  with img as TGLTexture do begin
+   glBindTexture(GL_TEXTURE_2D, texname);
+   GetGLFormat(img.PixelFormat,glFormat,subFormat,internalFormat);
+   width:=newWidth;
+   height:=newHeight;
+   glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,glFormat,subFormat,nil);
+   CheckForGLError('31');
+   exit;
+  end;
+  // Delete and allocate again
+  old:=img;
+  img:=AllocImage(newWidth,newHeight,img.PixelFormat,img.caps,img.name);
+  FreeImage(old);
 end;
 
 begin

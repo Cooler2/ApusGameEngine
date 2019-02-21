@@ -161,7 +161,7 @@ implementation
   begin
    try
     DebugMessage('Run file script: '+FileName(fname));
-    st:=LoadFile(FileName(fname));
+    st:=LoadFileAsString(FileName(fname));
     sa:=split(#13#10,st);
     curFile:=ExtractFileName(fname);
     curLine:=1;

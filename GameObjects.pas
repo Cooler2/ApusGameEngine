@@ -4,7 +4,7 @@
 // Author: Ivan Polyacov (ivan@apus-software.com, cooler@tut.by)
 unit GameObjects;
 interface
- uses MyServis,EngineCls;
+ uses MyServis,AnimatedValues,EngineAPI;
  const
   DONT_CHANGE = -9987; // magic value which means "keep previous value"
   LIVE_OBJECT = $2468; // magic value for live object  
@@ -621,7 +621,7 @@ begin
  if true or not sorted then begin
   stage:=200000;
   if objCount>1 then
-   SortObjects(Slice(PSortableObjects(objList)^,objCount));
+   SortObjects(@objList,objCount);
   sorted:=true;
  end;
  // Draw

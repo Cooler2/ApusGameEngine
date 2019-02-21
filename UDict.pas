@@ -10,18 +10,18 @@ var
     languageID:integer;
     langCode,langName,langNameEn,langFileName:string;
     unicode,translated:boolean;
-    langCreatedBy:string; // Creator/contributor name
-    langBaseDir:string; // base directory for the language-specific files (default = langCode)
+    langCreatedBy:UTF8String; // Creator/contributor name
+    langBaseDir:UTF8String; // base directory for the language-specific files (default = langCode)
 
 
-procedure DictInit(fname:string='';fname2:string='');
-function Translate(s:string):string; overload;
+procedure DictInit(fname:UTF8String='';fname2:UTF8String='');
+function Translate(s:UTF8String):UTF8String; overload;
 function Translate(s:widestring):widestring; overload;
-function Tr(s:string):string;
-function Simply(s:string):string;
-// Decode string from UTF8 to 8bit if dictionary is in UTF8
-function Decode(s:string):string;
-function Simplify(s:string):string; overload;
+function Tr(s:UTF8String):UTF8String;
+function Simply(s:UTF8String):UTF8String;
+// Decode UTF8String from UTF8 to 8bit if dictionary is in UTF8
+function Decode(s:UTF8String):UTF8String;
+function Simplify(s:UTF8String):UTF8String; overload;
 function Simplify(s:widestring):widestring; overload;
 
 implementation
@@ -30,7 +30,7 @@ uses sysutils,MyServis;
 type
 
  tconv=object
-  def,new:string;
+  def,new:UTF8String;
   defW,newW:widestring;
   age:integer;
  end;
@@ -42,9 +42,9 @@ var conv:array of tconv;
     sorttime:integer;
     curage:integer;
 
-function Simply(s:string):string;
+function Simply(s:UTF8String):UTF8String;
 var q:integer;
-    c:char;
+    c:AnsiChar;
 begin
  q:=1;
  while q<=length(s) do
@@ -89,8 +89,8 @@ begin
  end;
 end;
 
-procedure processString(s:string);
-var s1,s2:string;
+procedure processString(s:UTF8String);
+var s1,s2:UTF8String;
     i,q,w,e:integer;
     sa:StringArr;
 begin
@@ -175,6 +175,12 @@ begin
        s1:=copy(s1,1,q-1)+''''{+''''}+copy(s1,q+1);
        q:=pos('^',s1);
       end;
+      q:=pos('^',s2);
+      while q>0 do
+      begin
+       s2:=copy(s2,1,q-1)+''''{+''''}+copy(s2,q+1);
+       q:=pos('^',s2);
+      end;
       conv[numconv].def:=s1;
       conv[numconv].new:=s2;
       if unicode then begin
@@ -231,9 +237,9 @@ begin
 end;
 
 
-procedure DictInit(fname:string='';fname2:string='');
+procedure DictInit(fname:UTF8String='';fname2:UTF8String='');
 var f:text;
-    s:string;
+    s:UTF8String;
     q,w,e:integer;
 begin
  LogMessage('DictInit: '+fname);
@@ -297,11 +303,11 @@ begin
  if langBaseDir='' then langBaseDir:=langCode;
 end;
 
-function SimpleTranslate(s:string):string;
-var s1,s2:string;
+function SimpleTranslate(s:UTF8String):UTF8String;
+var s1,s2:UTF8String;
     q:integer;
 
-function subtranslate(s:string):string;
+function subtranslate(s:UTF8String):UTF8String;
 var q,cur,min,max:integer;
 begin
  if numconv>0 then
@@ -396,7 +402,7 @@ begin
 //  result:=s;
 end;
 
-function Simplify(s:string):string;
+function Simplify(s:UTF8String):UTF8String;
 begin
  while (length(s)>0)and(s[1]='^') do
   s:=copy(s,2,16384);
@@ -415,8 +421,8 @@ begin
 end;
 
 
-function Translate(s:string):string;
-var ss:array[0..5] of string;
+function Translate(s:UTF8String):UTF8String;
+var ss:array[0..5] of UTF8String;
     q,w:integer;
 
 begin
@@ -468,18 +474,18 @@ begin
  if (q>0)and(s[q]='%') then
   s:=s+' ';
  s:=s+'%%';
- q:=pos('%%',s);
+ q:=pos(WideString('%%'),s);
  while q>0 do
  begin
   ss[w]:=Simplify(copy(s,1,q-1));
   inc(w);
   s:=copy(s,q+2,16384);
-  q:=pos('%%',s);
+  q:=pos(WideString('%%'),s);
  end;
  s:=simpletranslateW(ss[0]);
  for q:=1 to 5 do
  begin
-  w:=pos('%'+inttostr(q),s);
+  w:=pos(WideString('%'+inttostr(q)),s);
   if w>0 then
   begin
    ss[0]:=copy(s,w+2,16384);
@@ -500,13 +506,13 @@ begin
  result:=s;
 end;
 
-function Tr(s:string):string;
+function Tr(s:UTF8String):UTF8String;
 begin
 // result:=Translate('^'+s+'^');
  result:=Translate(s);
 end;
 
-function Decode(s:string):string;
+function Decode(s:UTF8String):UTF8String;
 var
  wst:WideString;
 begin

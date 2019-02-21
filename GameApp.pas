@@ -6,19 +6,32 @@ unit GameApp;
 interface
  uses
   {$IFDEF ANDROID}jni,{$ENDIF}
-  EngineCls;
-  
+  EngineAPI;
+
+ type
+  TGameAppMode=(gamScaleWithAspectRatio,  // Scale W/H of the render area to output rect while keeping its aspect ratio (fixed design)
+                gamScaleWithFixedHeight,  // Scale width of the render area to match the output rect (fixed height design)
+                gamKeepAspectRatio,       // Modify W/H of the render area to fit the output rect keeping its aspect ratio (fixed design with flexible scale)
+                gamUseFullWindow);        // Modify W/H of the render area to match the output rect (flexible design)
+
  var
    // Global settings
    gameTitle:string='Engine3 Game Template';
+   configFileName:string='';
+
    usedAPI:TGraphicsAPI=gaOpenGL;
    useSystemCursor:boolean=true;
    windowedMode:boolean=true;
    windowWidth:integer=1024;
    windowHeight:integer=768;
+   gameMode:TGameAppMode=gamUseFullWindow;
+
    deviceDPI:integer=96; // mobile only
    noVSync:boolean=false;
    checkForSteam:boolean=false; // Check if STEAM client is running and get AppID
+   useConsoleScene:boolean=true;
+   useTweakerScene:boolean=false;
+   useDefaultLoaderScene:boolean=true;
    configDir:string;
    instanceID:integer=0;
    langCode:string='en';
@@ -26,26 +39,32 @@ interface
 
  type
   TGameApplication=class
+   // Call these methods from external code to launch the game
    constructor Create;
-   destructor Destroy; override;
+   // Basic initialization (non-visual): logs, configs, settings
+   procedure Prepare; virtual;
+   // Creates game objects, window, starts render, create scenes and launch infinite main loop
    procedure Run; virtual;
-   procedure LoadOptions; virtual;   // Load configuration
-   procedure SaveOptions; virtual;
+   // Finalization (you can use Free to call this indirectly)
+   destructor Destroy; override;
+
+   // These methods provide default functionality. Override them to add extra functions
    procedure HandleParam(param:string); virtual;    // Handle each command line option
+   procedure LoadOptions; virtual;   // Load settings (may add default values)
+   procedure SaveOptions; virtual;   // Save settings
+   procedure SetGameSettings(var settings:TGameSettings); virtual;
    procedure SetupScreen; virtual; // Setup window size and output options
    // Initialization routines: override with actual functionality
    procedure LoadFonts; virtual;   // Load font files (called once)
    procedure SelectFonts; virtual;  // Select font constants (may be called many times)
    procedure InitStyles; virtual; // Which styles to add?
    procedure CreateScenes; virtual; // Create and add game scenes
-   procedure InitCursors; virtual; 
-  end;
-  TGameApplicationClass=class of TGameApplication;
+   procedure InitCursors; virtual;
 
- var
-  myGameAppClass:TGameApplicationClass;
-  myGameApp:TGameApplication; // Store game launcher object here!
-  initGame:procedure;
+   procedure FatalError(msg:string); virtual;
+
+   procedure onResize; virtual;
+  end;
 
  {$IFDEF ANDROID}
   // Binding functions (to be exported)
@@ -63,19 +82,23 @@ implementation
  uses
   {$IFDEF MSWINDOWS}windows,{$ENDIF}
   {$IFDEF ANDROID}android,androidGame,{$ENDIF}
-   SysUtils,MyServis,ControlFiles2,UDict,FastGFX,eventMan,
+   SysUtils,MyServis,AnimatedValues,ControlFiles2,UDict,FastGFX,eventMan,
    UIClasses,BasicGame,EngineTools,ConScene,TweakScene,customstyle,BitmapStyle
   {$IFDEF DIRECTX},DXgame8{$ENDIF}
   {$IFDEF OPENGL},GLgame{$ENDIF}
   {$IFDEF STEAM},SteamAPI{$ENDIF};
 
 type
+ // Default loading scene displaying spinner
  TLoadingScene=class(TGameScene)
   v:TAnimatedValue;
   tex:TTextureImage;
   constructor Create; 
   procedure Render; override;
  end;
+
+var
+ app:TGameApplication;
 
 {$IFDEF ANDROID}
 {Android bindings}
@@ -261,74 +284,27 @@ procedure AppKey(env:PJNIEnv;this:jobject; keyCode,UChar:jint; event: jobject);
 { TGameApplication }
 
 constructor TGameApplication.Create;
- var
-  i:integer;
-  st:string;
  begin
-  try
-   RegisterThread('ControlThread');
-   SetCurrentDir(ExtractFileDir(ParamStr(0)));
-   Randomize;
-   
-   if DirectoryExists('Logs') then begin
-    configDir:='Logs\';
-    UseLogFile('Logs\game.log');
-   end else
-    UseLogFile('game.log');
-   LogCacheMode(true,false,true);
-   SetLogMode(lmVerbose);
-
-   UseControlFile('game.ctl');
-   LoadOptions;
-   SaveOptions; // Save modified settings
-
-   for i:=1 to paramCount do HandleParam(paramstr(i));
-
-   // PreloadFiles;
-   //QueryServerVersion;
-   //TryToUpdateUpdater;
-
-  {$IFDEF STEAM}
-  if checkForSteam then InitSteamAPI;
-  if steamAvailable then
-   // Выбор языка при установке из Стима
-   if FileExists('Inf\DefaultLang') and (steamID<>0) then begin
-    st:=lowercase(steamGameLang);
-    if st='russian' then langCode:='ru';
-    if st='english' then langCode:='en';
-    LogMessage('First time launch: Steam language is '+langCode);
-    SaveOptions;
-    DeleteFile('Inf\DefaultLang');
-   end;
-   {$ENDIF}
-
-   // Language and translation dictionary
-   st:=ctlGetStr('game.ctl:\Options\LangFile','language.'+langCode);
-   DictInit(st);
-   uDict.unicode:=true;
-   UIClasses.defaultEncoding:=teUTF8;
-
-   SetupScreen;
-  except
-   on e:exception do begin
-    ForceLogMessage('AppCreate error: '+ExceptionMsg(e));
-    ErrorMessage('Fatal error: '#13#10+ExceptionMsg(e));
-    halt;
-   end;
-  end;
+  app:=self;
  end;
 
 procedure TGameApplication.CreateScenes;
-begin
+ begin
 
-end;
+ end;
 
 destructor TGameApplication.Destroy;
  begin
-
+  if game<>nil then game.Stop;
   inherited;
  end;
 
+
+procedure TGameApplication.FatalError(msg: string);
+begin
+ ErrorMessage(msg);
+ halt;
+end;
 
 procedure TGameApplication.HandleParam(param: string);
  begin
@@ -344,25 +320,20 @@ procedure TGameApplication.HandleParam(param: string);
  end;
 
 procedure TGameApplication.InitCursors;
-begin
- {$IFDEF MSWINDOWS}
- game.RegisterCursor(crLink,2,LoadCursor(0,IDC_HAND));
- game.RegisterCursor(crWait,9,LoadCursor(0,IDC_WAIT));
- game.RegisterCursor(crDefault,1,LoadCursor(0,IDC_ARROW));
- game.ToggleCursor(crDefault);
- game.ToggleCursor(crWait);
- {$ENDIF}
-end;
+ begin
+  game.ToggleCursor(crDefault);
+  game.ToggleCursor(crWait);
+ end;
 
 procedure TGameApplication.InitStyles;
-begin
- InitCustomStyle('Images\');
-end;
+ begin
+  InitCustomStyle('Images\');
+ end;
 
 procedure TGameApplication.LoadFonts;
-begin
- LogMessage('Loading fonts');
-end;
+ begin
+  LogMessage('Loading fonts');
+ end;
 
 procedure TGameApplication.LoadOptions;
  var
@@ -370,17 +341,20 @@ procedure TGameApplication.LoadOptions;
  begin
   try
    // InstanceID = random constant
-   instanceID:=CtlGetInt('game.ctl:\InstanceID',0);
+   instanceID:=CtlGetInt(configFileName+':\InstanceID',0);
    if instanceID=0 then begin
     instanceID:=(1000*random(50000)+MyTickCount shl 8+round(now*1000)) mod 100000000;
-    CtlSetInt('game.ctl:\InstanceID',instanceID);
+    CtlSetInt(configFileName+':\InstanceID',instanceID);
    end;
 
+   // Window or Fullscreen
+   if ctlGetBool(configFileName+':\Options\FullScreen',false) then windowedMode:=false;
+
    // Window size
-   i:=CtlGetInt('game.ctl:\Options\WindowWidth',-1);
-   if i>0 then begin 
+   i:=CtlGetInt(configFileName+':\Options\WindowWidth',-1);
+   if i>0 then begin
     windowWidth:=i;
-    windowHeight:=CtlGetInt('game.ctl:\Options\WindowHeight',windowHeight);
+    windowHeight:=CtlGetInt(configFileName+':\Options\WindowHeight',windowHeight);
    end;
 
   except
@@ -388,9 +362,84 @@ procedure TGameApplication.LoadOptions;
   end;
  end;
 
+procedure TGameApplication.onResize;
+begin
+end;
+
+procedure TGameApplication.Prepare;
+ var
+  i:integer;
+  st:string;
+ begin
+  try
+   RegisterThread('ControlThread');
+   SetCurrentDir(ExtractFileDir(ParamStr(0)));
+   Randomize;
+
+   if DirectoryExists('Logs') then begin
+    configDir:='Logs\';
+    UseLogFile('Logs\game.log');
+   end else
+    UseLogFile('game.log');
+   LogCacheMode(true,false,true);
+   SetLogMode(lmVerbose);
+
+   if configFileName<>'' then begin
+    if not FileExists(configFileName) then
+     FatalError('Config file not found: '+configFileName);
+    UseControlFile(configFileName);
+    LoadOptions;
+    SaveOptions; // Save modified settings (if default values were added)
+   end;
+
+   for i:=1 to paramCount do HandleParam(paramstr(i));
+
+   // PreloadFiles;
+   //QueryServerVersion;
+   //TryToUpdateUpdater;
+
+  {$IFDEF STEAM}
+  if checkForSteam then InitSteamAPI;
+  if steamAvailable then
+   // Выбор языка при установке из Стима
+   if FileExists('SelectLang') and (steamID<>0) then begin
+    st:=lowercase(steamGameLang);
+    if st='russian' then langCode:='ru';
+    if st='english' then langCode:='en';
+    LogMessage('First time launch: Steam language is '+langCode);
+    SaveOptions;
+    DeleteFile('SelectLang');
+   end;
+   {$ENDIF}
+
+   // Language and translation dictionary
+{   st:=ctlGetStr('Options\LangFile','language.'+langCode);
+   DictInit(st);
+   uDict.unicode:=true;
+   UIClasses.defaultEncoding:=teUTF8;}
+
+   SetupScreen;
+  except
+   on e:exception do begin
+    ForceLogMessage('AppCreate error: '+ExceptionMsg(e));
+    ErrorMessage('Fatal error: '#13#10+ExceptionMsg(e));
+    halt;
+   end;
+  end;
+ end;
+
+function EngineEventHandler(event:EventStr;tag:integer):boolean;
+ begin
+  if app<>nil then begin
+   if event='ENGINE\BEFORERESIZE' then app.onResize;
+  end;
+ end;
+
+
 procedure TGameApplication.Run;
  var
   settings:TGameSettings;
+  loadingScene:TGameScene;
  begin
   // CREATE GAME OBJECT
   // ------------------------
@@ -413,39 +462,18 @@ procedure TGameApplication.Run;
 
   // CONFIGURE GAME OBJECT
   // ------------------------
-  with settings do begin
-   title:=GameTitle;
-   width:=windowWidth;
-   height:=windowHeight;
-   colorDepth:=32;
-   refresh:=0;
-   if WindowedMode then begin
-    mode:=dmFixedWindow;
-    altMode:=dmFullScreen;
-   end else begin
-    mode:=dmFullScreen;
-    altmode:=dmFixedWindow;
-   end;
-   fitmode:=dfmKeepAspectRatio;
-   showSystemCursor:=useSystemCursor;
-   zbuffer:=16;
-   stencil:=false;
-   multisampling:=0;
-   slowmotion:=false;
-   if noVSync then begin
-    VSync:=0;
-    game.showFPS:=true;
-   end else
-    VSync:=1;
-  end;
-  if settings.mode<>dmSwitchResolution then
+  game.unicode:=true;
+  SetGameSettings(settings);
+  game.Settings:=settings;
+
+  if settings.mode.displayMode<>dmSwitchResolution then
    ForceLogMessage('Running in cooperative mode')
   else
    ForceLogMessage('Running in exclusive mode');
 
-  game.unicode:=true;
-  game.Settings:=settings;
   if DebugMode then game.ShowDebugInfo:=3;
+
+  SetEventHandler('ENGINE',EngineEventHandler);
 
   // LAUNCH GAME OBJECT
   // ------------------------
@@ -458,17 +486,21 @@ procedure TGameApplication.Run;
    end;
   end;
   ForceLogMessage('RUN');
-  game.initialized:=true;
 
   // LOADER SCENE
   // ------------------------
-  game.AddScene(TLoadingScene.Create);
+  if useDefaultLoaderScene then begin
+   loadingScene:=TLoadingScene.Create;
+   game.AddScene(loadingScene);
+  end;
+
+  // More initialization
   InitCursors;
   LoadFonts;
   SelectFonts;
   InitStyles;
-  AddConsoleScene;
-  CreateTweakerScene(painter.GetFont('Default',6),painter.GetFont('Default',7));
+  if useConsoleScene then AddConsoleScene;
+  if useTweakerScene then CreateTweakerScene(painter.GetFont('Default',6),painter.GetFont('Default',7));
   CreateScenes;
 
   game.ToggleCursor(crWait,false);
@@ -485,20 +517,68 @@ procedure TGameApplication.Run;
     on e:exception do ForceLogMessage('Error in Control Thread: '+e.message);
    end;
   until game.terminated;
+  ForceLogMessage('Control thread exit');
  end;
 
 procedure TGameApplication.SaveOptions;
-begin
- try
-  SaveAllControlFiles;
- except
-  on e:exception do ForceLogMessage('Error in options saving:'+ExceptionMsg(e));
+ begin
+  try
+   SaveAllControlFiles;
+  except
+   on e:exception do ForceLogMessage('Error in options saving:'+ExceptionMsg(e));
+  end;
  end;
-end;
 
 procedure TGameApplication.SelectFonts;
-begin
+ begin
+ end;
 
+procedure TGameApplication.SetGameSettings(var settings: TGameSettings);
+begin
+  with settings do begin
+   title:=GameTitle;
+   width:=windowWidth;
+   height:=windowHeight;
+   colorDepth:=32;
+   refresh:=0;
+   case gameMode of
+    // Для отрисовки используется вся область окна в масштабе реальных пикселей (1:1)
+    gamUseFullWindow:begin
+      if windowedMode then mode.displayMode:=dmFixedWindow
+       else mode.displayMode:=dmFullScreen;
+      mode.displayFitMode:=dfmStretch;
+      mode.displayScaleMode:=dsmDontScale;
+      if windowedMode then altMode.displayMode:=dmFullScreen
+       else altMode.displayMode:=dmFixedWindow;
+      altMode.displayScaleMode:=dsmDontScale;
+      altMode.displayFitMode:=dfmStretch;
+    end;
+    // Для отрисовки используется часть окна в масштабе 1:1
+    gamKeepAspectRatio:begin
+      if windowedMode then mode.displayMode:=dmFixedWindow
+       else mode.displayMode:=dmFullScreen;
+      mode.displayScaleMode:=dsmScale;
+      mode.displayFitMode:=dfmKeepAspectRatio;
+      if windowedMode then altMode.displayMode:=dmFullScreen
+       else altMode.displayMode:=dmFixedWindow;
+      altMode.displayScaleMode:=dsmScale;
+      altMode.displayFitMode:=dfmKeepAspectRatio;
+     end;
+    else
+     raise EError.Create('Game Mode not yet implemented');
+   end;
+
+   showSystemCursor:=useSystemCursor;
+   zbuffer:=16;
+   stencil:=false;
+   multisampling:=0;
+   slowmotion:=false;
+   if noVSync then begin
+    VSync:=0;
+    game.showFPS:=true;
+   end else
+    VSync:=1;
+  end;
 end;
 
 procedure TGameApplication.SetupScreen;
@@ -522,7 +602,7 @@ begin
   if abs(windowWidth-displayWidth)<2 then windowWidth:=displayWidth;
   if abs(windowHeight-displayHeight)<2 then windowHeight:=displayHeight;
 
-  if (displayWidth>2560) or (displayHeight>1600) then begin
+  if (displayWidth>3840) and (displayHeight>2160) then begin
    LogMessage('Screen size too large => will use upscaling');
    windowWidth:=1920;
    windowHeight:=1080;
@@ -571,11 +651,11 @@ begin
  painter.Clear($FF000000);
  for i:=0 to 12 do begin
   a:=i*3.1416/6.5;
-  x:=screenWidth/2+32*cos(a);
-  y:=screenHeight/2-32*sin(a);
+  x:=game.renderWidth/2+32*cos(a);
+  y:=game.renderHeight/2-32*sin(a);
   L:=50+round(-256*i/13-MyTickCount*0.3) and 255;
   L:=round(v.Value*L);
-  painter.DrawRotScaled(x,y,1,1,-a,tex,L shl 24+$FFFFFF);
+  painter.DrawRotScaled(x,y,1,1,-a,tex,cardinal(L shl 24)+$FFFFFF);
  end;
 end;
 

@@ -2,9 +2,9 @@
 //
 // Copyright (C) 2003-2004 Apus Software (www.games4win.com)
 // Author: Ivan Polyacov (ivan@apus-software.com)
-unit CommonUI;
+unit UIScene;
 interface
- uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineCls,UIClasses,CrossPlatform,ImageMan,types;
+ uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineAPI,UIClasses,CrossPlatform,ImageMan,types;
 
 const
  defaultHintStyle:integer=0; // style of hints, can be changed
@@ -22,10 +22,13 @@ type
   procedure SetStatus(st:TSceneStatus); override;
   function Process:boolean; override;
   procedure Render; override;
-  procedure DrawBeforeUI; virtual; // To be implemented by inherited classes
-  procedure DrawAfterUI; virtual; // To be implemented by inherited classes
-  procedure onResize(width,height:integer); override;
+  procedure onResize; override;
   function GetArea:TRect; override; // screen area occupied by any non-transparent UI elements (i.e. which part of screen can't be ignored)
+  procedure WriteKey(key:cardinal); override;
+  procedure onMouseMove(x,y:integer); override;
+  procedure onMouseBtn(btn:byte;pressed:boolean); override;
+  procedure onMouseWheel(delta:integer); override;
+
  private
   lastRenderTime:int64;
 //  prevModal:TUIControl;
@@ -39,10 +42,8 @@ var
  // Поэтому для обеспечения работы контролов, необходимо генерировать события
  procedure InitUI;
 
- // Установка области вывода в окне:
- // r - прямоугольник области вывода в оконных к-тах
- // width, height - размер
- procedure SetWindowArea(width,height:integer);
+ // Установка размера (виртуального) экрана для UI
+ procedure SetDisplaySize(width,height:integer);
 
  // Убирает обработчики событий тем самым отключая всякую обработку интерфейса
  procedure DoneUI;
@@ -91,11 +92,10 @@ type
 var
  curCursor:integer;
  initialized:boolean=false;
- areaWidth,areaHeight,oldAreaWidth,oldAreaHeight:integer; // размер области отрисовки
+ rootWidth,rootHeight,oldRootWidth,oldAreaHeight:integer; // размер области отрисовки
 
  LastHandleTime:int64;
 
-// curObj:TUIControl; // Текущий объект для операций командного процессора
  curobjname:string; // Имя в верхнем регистре
  parentObj:TUICOntrol; // Объект-предок для операции создания эл-тов
 
@@ -107,29 +107,25 @@ var
  itemShowHintTime:cardinal; // момент времени, когда элемент должен показать хинт
  lastHint:string; // текст хинта, соответствующего элементу, над которым была мышь в предыдущем кадре
 
-// editText:string; // место для записи текста editbox'ов
-
  designMode:boolean; // режим "дизайна", в котором можно таскать элементы по экрану правой кнопкой мыши
  hookedItem:TUIControl;
 
  // Глобальные переменные командного процессора
  defaults:TDefaults; // значения параметров по умолчанию
-{ varaddr:pointer;  // адрес аттрибута
- vartype:TVarType; // тип атрибута}
 
  curShadowValue,oldShadowValue,needShadowValue:integer; // 0..255
  startShadowChange,shadowChangeDuration:int64;
 
  lastShiftState:byte;
 
-procedure SetWindowArea(width,height:integer);
+procedure SetDisplaySize(width,height:integer);
  begin
-  oldAreaWidth:=areaWidth;
-  oldAreaHeight:=areaHeight;
-  areaWidth:=width;
-  areaHeight:=height;
-  screenWidth:=width;
-  screenHeight:=height;
+  LogMessage('UIScene.SDS');
+  oldRootWidth:=rootWidth;
+  oldAreaHeight:=rootHeight;
+  rootWidth:=width;
+  rootHeight:=height;
+  UIClasses.SetDisplaySize(width,height);
  end;
 
 procedure UseParentCmd(cmd:string);
@@ -198,7 +194,10 @@ procedure CreateCmd(cmd:string);
     end else
     if sa[0]='UICONTROL' then begin
      c:=TUIControl.Create(x,y,width,height,parentobj,sa[1]);
-    end;
+    end else
+    if sa[0]='UILISTBOX' then c:=TUIListBox.Create(x,y,width,height,20,sa[1],font,parentobj) else
+    if sa[0]='UICOMBOBOX' then c:=TUIComboBox.Create(x,y,width,height,font,nil,parentobj,sa[1]);
+
 
     if c=nil then raise EError.Create('Unknown class - '+sa[0]);
     // Доп. св-ва
@@ -321,41 +320,41 @@ begin
   end;
   // Движение
   if event='MOVE' then begin
-   oldX:=curX; oldY:=curY;
-   curX:=tag and $FFFF; curY:=(tag shr 16) and $FFFF;
+   oldMouseX:=curMouseX; oldMouseY:=curMouseY;
+   curMouseX:=SmallInt(tag and $FFFF); curMouseY:=SmallInt((tag shr 16) and $FFFF);
    if ClipMouse<>cmNo then with clipMouseRect do begin
-    x:=curx; y:=cury;
+    x:=curMouseX; y:=curMouseY;
     if X<left then x:=left;
     if X>=right then x:=right-1;
     if Y<top then y:=top;
     if Y>=bottom then y:=bottom-1;
-    if (clipMouse in [cmReal,cmLimited]) and ((curx<>x) or (cury<>y)) then begin
+    if (clipMouse in [cmReal,cmLimited]) and ((curMouseX<>x) or (curMouseY<>y)) then begin
      if clipMouse=cmReal then exit;
     end;
     if clipmouse=cmVirtual then begin
-     curx:=x; cury:=y;
+     curMouseX:=x; curMouseY:=y;
     end;
    end;
-   if (curX=oldX) and (curY=oldY) then exit;
+   if (curMouseX=oldMouseX) and (curMouseY=oldMouseY) then exit;
 
    // если мышь покинула прямоугольник хинта - стереть его
    {$IFNDEF IOS}
    if (curhint<>nil) and (curhint.visible) and
-      not PtInRect(hintRect,types.Point(curX,curY)) then curhint.Hide;
+      not PtInRect(hintRect,types.Point(curMouseX,curMouseY)) then curhint.Hide;
    {$ENDIF}
 
    if hookedItem<>nil then begin
-    inc(hookedItem.x,curX-oldX);
-    inc(hookedItem.y,curY-oldY);
+    inc(hookedItem.x,curMouseX-oldMouseX);
+    inc(hookedItem.y,curMouseY-oldMouseY);
    end;
 
-   e1:=FindControlAt(oldX,oldY,c);
-   e2:=FindControlAt(curX,curY,c2);
+   e1:=FindControlAt(oldMouseX,oldMouseY,c);
+   e2:=FindControlAt(curMouseX,curMouseY,c2);
    if e2 then underMouse:=c2
     else undermouse:=nil;
    if e1 then c.onMouseMove;
    if e2 and (c2<>c) then c2.onMouseMove;
-   e2:=FindControlAt(curX,curY,c2);
+   e2:=FindControlAt(curMouseX,curMouseY,c2);
 
    // Курсор
    if e2 and (c2.cursor<>curCursor) then begin
@@ -400,13 +399,13 @@ begin
 
 
    if clipMouse=cmLimited then begin // запомним скорректированное положение, чтобы не "прыгать" назад
-    curx:=x; cury:=y;
+    curMouseX:=x; curMouseY:=y;
    end;
   end;
   // Нажатие кнопки
   if copy(event,1,7)='BTNDOWN' then begin
    c:=nil;
-   e:=FindControlAt(curX,curY,c);
+   e:=FindControlAt(curMouseX,curMouseY,c);
    if e and (c<>nil) then begin
     if tag and 1>0 then c.onMouseButtons(1,true);
     if tag and 2>0 then c.onMouseButtons(2,true);
@@ -443,7 +442,7 @@ begin
     PutMsg('x='+inttostr(hookeditem.x)+' y='+inttostr(hookeditem.y));
     hookedItem:=nil;
    end;
-   if FindControlAt(curX,curY,c) then begin
+   if FindControlAt(curMouseX,curMouseY,c) then begin
     if tag and 1>0 then c.onMouseButtons(1,false);
     if tag and 2>0 then c.onMouseButtons(2,false);
     if tag and 4>0 then c.onMouseButtons(3,false);
@@ -451,7 +450,7 @@ begin
   end;
   // Скроллинг
   if copy(event,1,6)='SCROLL' then
-   if FindControlAt(curX,curY,c) then
+   if FindControlAt(curMouseX,curMouseY,c) then
     c.onMouseScroll(tag);
 
   result:=false; // Не обрабатывать на более высоком уровне (корне)
@@ -531,23 +530,12 @@ begin
  if sceneName='' then sceneName:=ClassName;
  name:=scenename;
  modal:=modalWnd;
- if fullscreen then sceneType:=stBackground
-  else sceneType:=stForeground;
-
- UI:=TUIControl.Create(0,0,areaWidth,areaHeight,nil,sceneName);
+ UI:=TUIControl.Create(0,0,rootWidth,rootHeight,nil,sceneName);
  UI.enabled:=false;
  UI.visible:=false;
  if not fullscreen then UI.transpMode:=tmTransparent;
  onCreate;
  game.AddScene(self);
-end;
-
-procedure TUIScene.DrawAfterUI;
-begin
-end;
-
-procedure TUIScene.DrawBeforeUI;
-begin
 end;
 
 function TUIScene.GetArea:TRect;
@@ -571,11 +559,33 @@ begin
  OffsetRect(result,UI.x,UI.y);  
 end;
 
+procedure TUIScene.onMouseBtn(btn: byte; pressed: boolean);
+begin
+ if (UI<>nil) and (not UI.enabled) then exit;
+ inherited;
+end;
+
+procedure TUIScene.onMouseMove(x, y: integer);
+begin
+ if (UI<>nil) and (not UI.enabled) then exit;
+ inherited;
+end;
+
+procedure TUIScene.onMouseWheel(delta: integer);
+begin
+ if (UI<>nil) and (not UI.enabled) then exit;
+ inherited;
+ if (modalcontrol=nil) or (modalcontrol=UI) then begin
+   Signal('UI\'+name+'\MouseWheel',delta);
+ end;
+end;
+
 procedure TUIScene.onResize;
 begin
   inherited;
-  if UI=nil then exit;
-  UI.Resize(areaWidth,areaHeight);
+  rootWidth:=game.renderWidth;
+  rootHeight:=game.renderHeight;
+  if UI<>nil then UI.Resize(rootWidth,rootHeight);
 end;
 
 function TUIScene.Process: boolean;
@@ -612,7 +622,7 @@ begin
  end;}
 
  try
-  FindControlAt(curX,curY,underMouse);
+  FindControlAt(curMouseX,curMouseY,underMouse);
 
   // Обработка фокуса: если элемент с фокусом невидим или недоступен - убрать с него фокус
   // Исключение: корневой UI-элемент (при закрытии сцены фокус должен убрать эффект перехода)
@@ -644,10 +654,7 @@ begin
   end;
   time:=MyTickCount;
   delta:=time-LastHandleTime;
-  // обход всех эл-тов и обработку таймеров
-  for i:=1 to RootControlsCnt do
-   if rootControls[i]<>nil then
-    ProcessControl(rootControls[i]);
+  if UI<>nil then ProcessControl(UI);
 
   // обработка хинтов
   if (itemShowHintTime>LastHandleTime) and (itemShowHintTime<=Time) then begin
@@ -723,9 +730,21 @@ begin
    ForceLogMessage('Kosyak! '+inttostr(t)+' '+inttostr(lastRenderTime));
   end;
  lastRenderTime:=t;
+{ try
+ if (curShadowValue<>needShadowValue) and
+    (lastRenderTime>startShadowChange) then begin
+  s:=(lastRenderTime-startShadowChange)/shadowChangeDuration;
+  if s>1 then s:=1;
+  curShadowValue:=round(oldShadowValue*(1-s)+needShadowValue*s);
+ end;
+ except
+  on e:Exception do ForceLogMessage('UIScene.Render: '+e.message);
+ end;
+ if (modalShadowColor<>0) and (curShadowValue>0) then
+  DrawGlobalShadow(ModalShadowColor and $FFFFFF+
+   ((modalShadowColor shr 24)*CurShadowValue and $FF00) shl 16);}
 
  UIRender.Frametime:=frametime;
- DrawBeforeUI;
  Signal('Scenes\'+name+'\BeforeRender');
  StartMeasure(11);
  if UI<>nil then begin
@@ -740,7 +759,6 @@ begin
   finally
    LeaveCriticalSection(UICritSect);
   end;
-  DrawAfterUI;
   Signal('Scenes\'+name+'\AfterUIRender');
  end;
  EndMeasure2(11);
@@ -767,24 +785,20 @@ begin
  if initialized then exit;
  // асинхронная обработка: сигналы обрабатываются в том же потоке, что и вызываются,
  // независимо от того из какого потока вызывается ф-ция InitUI
- SetEventHandler('Mouse',MouseEventHandler,async);
- SetEventHandler('Kbd',KbdEventHandler,async);
- SetEventHandler('Engine\ActivateWnd',ActivateEventHandler,async);
- SetEventHandler('UI\SetGlobalShadow',onSetGlobalShadow,async);
- SetEventHandler('UI\ItemCreated',onItemCreated,async);
- SetEventHandler('UI\ItemRenamed',onItemRenamed,async);
- SetEventHandler('UI\SetFocus',onSetFocus,async);
+ SetEventHandler('Mouse',MouseEventHandler,emInstant);
+ SetEventHandler('Kbd',KbdEventHandler,emInstant);
+ SetEventHandler('Engine\ActivateWnd',ActivateEventHandler,emInstant);
+ SetEventHandler('UI\SetGlobalShadow',onSetGlobalShadow,emInstant);
+ SetEventHandler('UI\ItemCreated',onItemCreated,emInstant);
+ SetEventHandler('UI\ItemRenamed',onItemRenamed,emInstant);
+ SetEventHandler('UI\SetFocus',onSetFocus,emInstant);
 
  PublishFunction('GetFont',fGetFontHandle);
-
-// SetCmdFunc('USE ',opFirst,UseCmd);
  SetCmdFunc('USEPARENT ',opFirst,UseParentCmd);
  SetCmdFunc('CREATE ',opFirst,CreateCmd);
  SetCmdFunc('DEFAULT',opFirst,DefaultCmd);
  SetCmdFunc('SETFOCUS',opLast,SetFocusCmd);
  SetCmdFunc('SETHOTKEY',opFirst,setHotKeyCmd);
-{ SetCmdFunc('?',opLast,AskCmd);
- SetCmdFunc('=',opMiddle,AssignCmd);}
  with defaults do begin
   x:=0; y:=0; width:=100; height:=20;
   color:=$FFFFFFFF; backgnd:=$80000000;
@@ -792,8 +806,8 @@ begin
   caption:='';
   hintDelay:=0; hintDuration:=0;
  end;
- PublishVar(@areaWidth,'RenderWidth',TVarTypeInteger);
- PublishVar(@areaHeight,'RenderHeight',TVarTypeInteger);
+ PublishVar(@rootWidth,'rootWidth',TVarTypeInteger);
+ PublishVar(@rootHeight,'rootHeight',TVarTypeInteger);
  initialized:=true;
 end;
 
@@ -815,7 +829,7 @@ begin
   end;
  end;}
  if (status=ssActive) and (UI=nil) then begin
-  UI:=TUIControl.Create(0,0,2000,1200,nil);
+  UI:=TUIControl.Create(0,0,rootWidth,rootHeight,nil);
   UI.name:=name;
   UI.enabled:=false;
   UI.visible:=false;
@@ -828,6 +842,12 @@ begin
  end;
 end;
 
+procedure TUIScene.WriteKey(key: cardinal);
+begin
+ if (UI<>nil) and (not UI.enabled) then exit;
+ inherited;
+end;
+
 procedure ShowSimpleHint;
 var
  hint:TUIHint;
@@ -836,7 +856,7 @@ begin
  LogMessage('ShowHint: '+msg);
  msg:=translate(msg);
  if (x=-1) or (y=-1) then begin
-  x:=CurX; y:=CurY;
+  x:=curMouseX; y:=curMouseY;
   hintRect:=rect(x-8,y-8,x+8,y+8);
  end else begin
   hintRect:=rect(0,0,4000,4000);
@@ -844,7 +864,7 @@ begin
  if parent=nil then begin
   findControlAt(x,y,parent);
   if parent=nil then begin
-   for i:=1 to rootControlsCnt do
+   for i:=0 to high(rootControls) do
     if RootControls[i].visible then begin
      parent:=rootControls[i]; break;
     end;
@@ -873,24 +893,26 @@ var
    i:integer;
   begin
    writeln(f,indent,c.ClassName+':'+c.name+' = '+inttohex(cardinal(c),8));
-   writeln(f,indent,c.order,' E=',c.enabled,' V=',c.visible,' ',ord(c.transpmode));
-   writeln(f,indent,c.x,',',c.y,' - ',c.width,',',c.height);
+   writeln(f,indent,c.order,' En=',c.enabled,' Vis=',c.visible,' trM=',ord(c.transpmode));
+   writeln(f,indent,Format('x=%d, y=%d, w=%d, h=%d, left=%d, top=%d',[c.x,c.y,c.width,c.height,c.globalRect.Left,c.globalRect.Top]));
    writeln(f);
    for i:=0 to length(c.children)-1 do
     DumpControl(c.children[i],indent+'  ');
   end;
- procedure DumpScene(s:TGameScene);
+ function SceneInfo(s:TGameScene):string;
   begin
    if s=nil then exit;
-   writeln(f,Format('  %-20s Z=%-10d  status=%-2d type=%-2d eff=%-8x',
-     [s.name,s.zorder,ord(s.status),ord(s.sceneType),cardinal(s.effect)]));
+   result:=Format('  %-20s Z=%-10d  status=%-2d type=%-2d eff=%s',
+     [s.name,s.zorder,ord(s.status),byte(s.fullscreen),PtrToStr(s.effect)]);
+   if s is TUIScene then
+    result:=result+' UI='+PtrToStr(TUIScene(s).UI);
   end; 
 begin
  try
  assign(f,'UIdata.log');
  rewrite(f);
  writeln(f,'Scenes:');
- for i:=1 to high(game.scenes) do DumpScene(game.scenes[i]);
+ for i:=0 to high(game.scenes) do writeln(f,i:3,SceneInfo(game.scenes[i]));
  writeln(f,'Topmost scene = ',game.TopmostVisibleScene(false).name);
  writeln(f,'Topmost fullscreen scene = ',game.TopmostVisibleScene(true).name);
  writeln(f);
@@ -898,7 +920,7 @@ begin
  writeln(f,'Focused: '+inttohex(cardinal(focusedControl),8));
  writeln(f,'Hooked: '+inttohex(cardinal(hooked),8));
  writeln(f);
- for i:=1 to rootControlsCnt do
+ for i:=0 to high(rootControls) do
   DumpControl(rootControls[i],'');
  close(f);
  except
@@ -962,6 +984,8 @@ begin
        if obj is TUIButton then result:=@TUIButton(obj).font else
        if obj is TUILabel then result:=@TUILabel(obj).font else
        if obj is TUIEditBox then result:=@TUIEditBox(obj).font else
+       if obj is TUIListBox then result:=@TUIListBox(obj).font else
+       if obj is TUIComboBox then result:=@TUIComboBox(obj).font else
        if obj is TUIWindow then result:=@TUIWindow(obj).font else
         exit;
        varClass:=TVarTypeCardinal;
@@ -983,6 +1007,9 @@ begin
       end else
       if fieldname='hintduration' then begin
        result:=@obj.hintduration; varClass:=TVarTypeInteger;
+      end;
+  'l':if (fieldname='lineheight') and (obj is TUIListBox) then begin
+       varClass:=TVarTypeInteger; result:=@TUIListBox(obj).lineHeight;
       end;
   'm':if (fieldname='maxlength') and (obj is TUIEditBox) then begin
        varClass:=TVarTypeInteger; result:=@TUIEditBox(obj).maxlength;

@@ -6,8 +6,7 @@
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit PainterGL2;
 interface
- uses types,EngineCls,BasicPainter,PainterGL,geom3D;
-
+ uses types,EngineAPI,BasicPainter,PainterGL,geom3D;
 type
 
  { TGLPainter2 }
@@ -28,9 +27,8 @@ type
 
  protected
    defaultShader:integer;
-   uMVP:integer;
    MVP:T3DMatrix;
-   uTex1,uTexmode:integer; // uniform locations
+   uMVP,uTex1,uTexmode:integer; // uniform locations
 
    curTexMode:int64; // описание режима текстурирования, установленного клиентским кодом
    actualTexMode:int64; // фактически установленный режим текстурирования
@@ -225,7 +223,7 @@ begin
    glUseProgram(result);
    // Set uniforms: texture indices
    for i:=1 to n do
-    glUniform1i(glGetUniformLocation(result,PChar('tex'+inttostr(i))),i-1);
+    glUniform1i(glGetUniformLocation(result,PAnsiChar(AnsiString('tex'+inttostr(i)))),i-1);
   end else begin
    result:=defaultShader;
    glUseProgram(result);
@@ -273,7 +271,7 @@ begin
    for i:=1 to 4 do begin
     if (tm and $0f=ord(tblInterpolate)) or
        (tm and $f0=ord(tblInterpolate) shl 4) then
-     glUniform1f(glGetUniformLocation(prog,PChar('uFactor'+inttostr(i))),1-1/255*((tm shr 8) and $FF));
+     glUniform1f(glGetUniformLocation(prog,PAnsiChar(AnsiString('uFactor'+inttostr(i)))),1-1/255*((tm shr 8) and $FF));
     tm:=tm shr 16;
    end;
   end;

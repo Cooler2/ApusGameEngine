@@ -7,7 +7,7 @@
 // ------------------------------------------------------
 unit UIClasses;
 interface
- uses contnrs,CrossPlatform,MyServis,types,regions,EngineCls;
+ uses EngineAPI,contnrs,CrossPlatform,MyServis,AnimatedValues,types,regions;
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
 const
@@ -214,7 +214,8 @@ type
   rLeft,rTop,rRight,rBottom:single; // точное положение элемента в предке
 
  private
-  procedure RemoveFromRootControls; 
+  procedure AddToRootControls;
+  procedure RemoveFromRootControls;
  end;
 
  // Элемент с ограничениями размера
@@ -227,7 +228,7 @@ type
  // Элемент "изображение". Содержит простое статическое изображение
  TUIImage=class(TUIControl)
   color:cardinal;  // drawing color (default is $FF808080)
-  src:string; // здесь может быть имя файла или строка "event:xxx" 
+  src:string; // здесь может быть имя файла или строка "event:xxx"
   constructor Create(cx,cy,w,h:integer;imgname:string;parent_:TUIControl);
  end;
 
@@ -242,7 +243,7 @@ type
  protected
   speedX,speedY:single;
   lastTime:cardinal;
-  isHooked:boolean; 
+  isHooked:boolean;
  end;
 
  // Окошко хинта
@@ -329,7 +330,6 @@ type
   procedure onLostFocus; override;
   procedure SetFocus; override;
   procedure Resize(newWidth,newHeight:integer); override;
-//  procedure Center; virtual; // размещает окно по центру экрана
  private
   hooked:boolean;
   area:integer;   // тип области под курсором
@@ -471,26 +471,25 @@ var
  modalControl:TUIControl;   // Если есть модальный эл-т - он тут
  comboPop:TUIComboBox;      // если существует выпавший комбобокс - он тут 
  hooked:TUIControl;         // если установлен - теряет фокус даже если не обладал им
- screenWidth,screenHeight:integer; // размеры области отрисовки, устанавливается через CommonUI.SetWindowArea, обычно равен размеру виртуального экрана (renderWidth/Height)
 
  defaultEncoding:TTextEncoding=teUnknown; // кодировка элементов ввода по умолчанию
 
  clipMouse:TClipMouse;   // Ограничивать ли движение мыши
  clipMouseRect:TRect;    // Область допустимого перемещения мыши
 
- curX,curY,oldX,oldY:smallint; // координаты курсора мыши (для onMouseMove!)
+ curMouseX,curMouseY,oldMouseX,oldMouseY:integer; // координаты курсора мыши (для onMouseMove!)
 
  // Корневые элементы (не имеющие предка)
  // Список используется для передачи (обработки) первичных событий строго
  // по порядку, начиная с 1-го
- rootControls:array[1..100] of TUIControl;
- rootControlsCnt:integer;
+ rootControls:array of TUIControl;
 
  // элементы для отложенного удаления. Нужно периодически их удалять
  toDelete:TObjectList;
 
  UICritSect:TMyCriticalSection; // для многопоточного доступа к глобальным переменным UI
 
+ procedure SetDisplaySize(width,height:integer);
  function DescribeControl(c:TUIControl):string;
  function FocusedControl:TUIControl;
  procedure SetFocusTo(control:TUIControl);
@@ -521,7 +520,8 @@ var
  function UILabel(name:string;mustExist:boolean=false):TUILabel;
  function UIScrollBar(name:string;mustExist:boolean=false):TUIScrollBar;
  function UIComboBox(name:string;mustExist:boolean=false):TUIComboBox;
- 
+ function UIListBox(name:string;mustExist:boolean=false):TUIListBox;
+
 
 implementation
  uses classes,SysUtils,EventMan,clipboard;
@@ -539,6 +539,14 @@ var
 
  fControl:TUIControl; // элемент, имеющий фокус ввода (с клавиатуры)
                       // устанавливается автоматически либо вручную
+ // Display area size (since this unit doesn't depend on other Engine units)
+ rootWidth,rootHeight:integer;
+
+procedure SetDisplaySize(width,height:integer);
+begin
+ rootWidth:=width;
+ rootHeight:=height;
+end;
 
 function DescribeControl(c:TUIControl):string;
 begin
@@ -570,14 +578,13 @@ var
  i:integer;
 begin
  result:=nil;
- for i:=1 to RootControlsCnt do begin
+ for i:=0 to high(rootControls) do begin
   result:=rootControls[i].FindByName(name);
   if result<>nil then exit;
  end;
  if mustExist and (result=nil) then raise EWarning.Create('Control '+name+' not found');
 end;
 
-{$O-}
 function FindControlAt(x,y:integer;out c:TUIControl):boolean;
 var
  i,maxZ:integer;
@@ -586,7 +593,7 @@ var
 begin
  c:=nil; maxZ:=-1;
  // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
- for i:=1 to RootControlsCnt do begin
+ for i:=0 to high(rootControls) do begin
   enabl:=rootControls[i].FindItemAt(x,y,ct);
   if ct<>nil then begin
    c2:=ct; // найдем корневого предка ct (вдруг это не rootControls[i]?)
@@ -600,7 +607,6 @@ begin
  end;
  result:=(c<>nil) and c.enabled;
 end;
-{$O+}
 
 procedure SetControlState(name:string;visible:boolean;enabled:boolean=true);
 var
@@ -662,6 +668,16 @@ begin
  result:=c as TUIComboBox;
 end;
 
+function UIListBox(name:string;mustExist:boolean=false):TUIListBox;
+var
+ c:TUIControl;
+begin
+ c:=FindControl(name,mustExist);
+ if not (c is TUIListBox) then c:=nil;
+ if c=nil then c:=TUIListBox.Create(0,0,0,0,0,name,0,nil);
+ result:=c as TUIListBox;
+end;
+
 
 { TUIControl }
 
@@ -673,8 +689,8 @@ begin
   pW:=parent.width;
   pH:=parent.height;
  end else begin
-  pW:=screenWidth;
-  pH:=screenHeight;
+  pW:=rootWidth;
+  pH:=rootHeight;
  end;
  x:=(pW-width) div 2;
  y:=(pH-height) div 2;
@@ -690,7 +706,7 @@ var
  c:TUIControl;
 begin
  if (x>0) or (y>0) or
-    (width<screenWidth) or (height<screenHeight) then begin
+    (width<rootWidth) or (height<rootHeight) then begin
   x:=round(x*sX);
   y:=round(y*sY);
   width:=round(width*sX);
@@ -712,7 +728,7 @@ var
 begin
  x:=cx; y:=cy; width:=w; height:=h;
  ncLeft:=0; ncRight:=0; ncTop:=0; ncBottom:=0;
- transpmode:=tmOpaque;
+ transpmode:=tmTransparent;
  timer:=0;
  parent:=parent_;
  parentClip:=true;
@@ -737,13 +753,7 @@ begin
   parent.children[n-1]:=self;
  end else begin
   // Элемент без предка -> занести в список
-  if rootControlsCnt<high(rootControls) then begin
-   inc(rootControlsCnt);
-   rootControls[rootControlsCnt]:=self;
-  end else begin
-   LogMessage('Too many root controls! Last: '+rootControls[rootControlsCnt].fName);
-   raise EWarning.Create('Too many root controls!');
-  end;
+  AddToRootControls;
   order:=1;
  end;
  style:=0;
@@ -798,11 +808,7 @@ begin
   end;
  dec(n);
  SetLength(parent.children,n);
- if rootControlsCnt<high(rootControls) then begin
-  inc(rootControlsCnt);
-  rootControls[rootControlsCnt]:=self;
- end else
-  LogMessage('Too many root controls! Last: '+rootControls[rootControlsCnt].fName);
+ AddToRootControls;
 end;
 
 procedure TUIControl.AttachTo(newParent: TUIControl);
@@ -1153,15 +1159,31 @@ begin
   end;
 end;
 
+procedure TUIControl.AddToRootControls;
+begin
+ UICritSect.Enter;
+ try
+  SetLength(rootControls,length(rootControls)+1);
+  rootControls[high(rootControls)]:=self;
+ finally
+  UICritSect.Leave;
+ end;
+end;
+
 procedure TUIControl.RemoveFromRootControls;
 var
  i:integer;
 begin
- for i:=1 to rootControlsCnt do
+ UICritSect.Enter;
+ try
+ for i:=0 to high(rootControls) do
   if rootControls[i]=self then begin
-   rootControls[i]:=rootControls[rootControlsCnt];
-   dec(rootControlsCnt);
+   rootControls[i]:=rootControls[high(rootControls)];
+   SetLength(rootControls,length(rootControls)-1);
   end;
+ finally
+  UICritSect.Leave;
+ end;
 end;
 
 procedure TUIControl.Resize(newWidth, newHeight: integer);
@@ -1310,6 +1332,7 @@ begin
  inherited Create(cx,cy,w,h,parent_,imgName);
  color:=$FF808080;
  src:='';
+ transpmode:=tmOpaque;
 end;
 
 
@@ -1320,6 +1343,7 @@ var
  i,n:integer;
 begin
  inherited Create(cx,cy,w,h,btnName,parent_);
+ transpmode:=tmOpaque;
  font:=BtnFont;
  btnStyle:=bsNormal;
  group:=0;
@@ -1465,6 +1489,7 @@ constructor TUILabel.Create(cx,cy,w,h: integer;labelname,text:string;color_,bFon
   parent_: TUIControl);
 begin
  inherited Create(cx,cy,w,h,parent_,labelName);
+ transpmode:=tmOpaque;
  color:=color_;
  align:=taLeft;
  sendSignals:=ssMajor;
@@ -1552,8 +1577,8 @@ begin
    // Don't allow window center to be moved outside screen
    if x+width<width div 2 then x:=-width div 2;
    if y+height<height div 2 then y:=-height div 2;
-   if x>screenWidth-width div 2 then x:=screenWidth-width div 2;
-   if y>screenHeight-height div 2 then y:=screenHeight-height div 2;
+   if x>rootWidth-width div 2 then x:=rootWidth-width div 2;
+   if y>rootHeight-height div 2 then y:=rootHeight-height div 2;
   end;
  end;
 end;
@@ -1561,15 +1586,15 @@ end;
 procedure TUIWindow.onMouseMove;
 begin
  if hooked then begin
-  if area=wcHeader then begin inc(x,curX-oldX); inc(y,curY-oldY); end;
-  if area and wcRightFrame>0 then Resize(width+curX-oldX,-1);
-  if area and wcBottomFrame>0 then Resize(-1,height+curY-oldY);
-  if area and wcLeftFrame>0 then begin Resize(width+oldX-curX,-1); inc(x,curX-OldX); end;
-  if area and wcTopFrame>0 then begin Resize(-1,height+oldY-curY); inc(y,curY-OldY); end;
+  if area=wcHeader then begin inc(x,curMouseX-oldMouseX); inc(y,curMouseY-oldMouseY); end;
+  if area and wcRightFrame>0 then Resize(width+curMouseX-oldMouseX,-1);
+  if area and wcBottomFrame>0 then Resize(-1,height+curMouseY-oldMouseY);
+  if area and wcLeftFrame>0 then begin Resize(width+oldMouseX-curMouseX,-1); inc(x,curMouseX-oldMouseX); end;
+  if area and wcTopFrame>0 then begin Resize(-1,height+oldMouseY-curMouseY); inc(y,curMouseY-oldMouseY); end;
  end;
 
  inherited;
- area:=GetAreaType(curX-globalRect.Left,curY-globalRect.Top,cursor);
+ area:=GetAreaType(curMouseX-globalRect.Left,curMouseY-globalRect.Top,cursor);
  if area in [0,wcClient] then hooked:=false;
 end;
 
@@ -1623,6 +1648,7 @@ constructor TUIEditBox.Create(cx,cy,w,h: integer; boxName: string;
   boxFont:cardinal;color_:cardinal;parent_:TUIControl);
 begin
  inherited Create(cx,cy,w,h,parent_,boxName);
+ transpmode:=tmOpaque;
  cursor:=crInput;
  encoding:=defaultEncoding;
  realtext:='';
@@ -1856,7 +1882,7 @@ begin
  end;
  AdjustState;
  inherited;
- needpos:=curx-globalrect.Left-offset;
+ needpos:=curMouseX-globalrect.Left-offset;
  if (selcount>0) and (button=1) and state then begin
   selcount:=0; selStart:=0;
  end;
@@ -1890,7 +1916,7 @@ begin
      selcount:=cursorPos-msSelStart;
     end;
   end;
-  needpos:=curx-globalrect.Left-offset;
+  needpos:=curMouseX-globalrect.Left-offset;
  end;
 end;
 
@@ -1937,6 +1963,7 @@ constructor TUIScrollBar.Create(cx, cy, w, h: integer; barName: string; min_,
   max_, value_: integer; parent_: TUIControl);
 begin
  inherited Create(cx,cy,w,h,parent_,barName);
+ transpmode:=tmOpaque;
  min:=min_; max:=max_; rValue.Init(value_); pagesize:=0;
  linkedControl:=nil; step:=1;
  color:=$FFB0B0B0;
@@ -2009,11 +2036,11 @@ begin
   clipmouse:=cmNo;
   signal('Mouse\UpdatePos');
  end;
- if not (over or (hooked=self)) and state and PtInRect(globalrect,Point(curX,curY)) then begin
+ if not (over or (hooked=self)) and state and PtInRect(globalrect,Point(curMouseX,curMouseY)) then begin
   if horizontal then
-   p:=(curX-globalrect.Left-5)/(width-10)
+   p:=(curMouseX-globalrect.Left-5)/(width-10)
   else
-   p:=(curY-globalrect.Top-5)/(height-10);
+   p:=(curMouseY-globalrect.Top-5)/(height-10);
   if p<0 then p:=0;
   if p>1 then p:=1;
   MoveTo(min+round((max-min-pagesize)*p));
@@ -2032,14 +2059,14 @@ begin
  if delta=-1 then begin
   p1:=(value-min)/(max-min);
   if p1<0 then p1:=0;
-  if horizontal then delta:=curX-globalrect.Left-round(p1*(width-10))
-   else delta:=curY-globalrect.top-round(p1*(height-10));
+  if horizontal then delta:=curMouseX-globalrect.Left-round(p1*(width-10))
+   else delta:=curMouseY-globalrect.top-round(p1*(height-10));
  end;
 
 // posChanged:=false;
  if hooked=self then
   if horizontal then begin
-   p1:=(curX-delta-globalrect.Left)/(width-10);
+   p1:=(curMouseX-delta-globalrect.Left)/(width-10);
    if p1<0 then p1:=0; if p1>1 then p1:=1;
    v:=round(min+(max-min)*p1);
    if v<>value then begin
@@ -2047,7 +2074,7 @@ begin
 //    posChanged:=true;
    end;
   end else begin
-   p1:=(curY-delta-globalrect.top)/(height-10);
+   p1:=(curMouseY-delta-globalrect.top)/(height-10);
    if p1<0 then p1:=0; if p1>1 then p1:=1;
    v:=round(min+(max-min)*p1);
    if v<>value then begin
@@ -2063,14 +2090,14 @@ begin
  if p2>1 then p2:=1;
  if horizontal then begin
 //  if posChanged then
-  over:=(cury>=globalrect.Top) and (cury<globalrect.Bottom) and
-        (CurX>=globalrect.Left+round(p1*(width-10))) and
-        (curx<globalrect.Left+10+round(p2*(width-10)));
+  over:=(curMouseY>=globalrect.Top) and (curMouseY<globalrect.Bottom) and
+        (curMouseX>=globalrect.Left+round(p1*(width-10))) and
+        (curMouseX<globalrect.Left+10+round(p2*(width-10)));
  end else begin
 //  if posChanged then
-  over:=(curx>=globalrect.Left) and (curx<globalrect.Right) and
-        (CurY>=globalrect.Top+round(p1*(height-10))) and
-        (cury<globalrect.top+10+round(p2*(height-10)));
+  over:=(curMouseX>=globalrect.Left) and (curMouseX<globalrect.Right) and
+        (curMouseY>=globalrect.Top+round(p1*(height-10))) and
+        (curMouseY<globalrect.top+10+round(p2*(height-10)));
  end;
 end;
 
@@ -2113,6 +2140,7 @@ constructor TUIHint.Create(cx,cy: integer; stext: string;
   act: boolean; parent_: TUIControl);
 begin
  inherited Create(cx,cy,1,1,'hint',parent_);
+ transpmode:=tmOpaque;
  font:=0;
  simpleText:=stext;
  active:=act;
@@ -2152,6 +2180,7 @@ constructor TUIScrollArea.Create(cx, cy, w, h, fullW, fullH: integer;
   dir: TUIScrollDirection;parent_:TUIControl);
 begin
  inherited Create(cx,cy,w,h,parent_);
+ transpmode:=tmOpaque;
  fullWidth:=fullW;
  fullHeight:=fullH;
  direction:=dir;
@@ -2200,6 +2229,7 @@ end;
 constructor TUIListBox.Create(cx, cy, w, h, lHeight: integer; listName:string; font_:cardinal; parent: TUIControl);
 begin
  inherited Create(cx,cy,w,h,parent,listName);
+ transpmode:=tmOpaque;
  font:=font_;
  lineHeight:=lHeight;
  selectedLine:=-1;
@@ -2248,8 +2278,8 @@ var
  cx,cy,n:integer;
 begin
  inherited;
- cx:=curX-(globalRect.Left+1);
- cy:=curY-(globalRect.Top+1);
+ cx:=curMouseX-(globalRect.Left+1);
+ cy:=curMouseY-(globalRect.Top+1);
  if (cx>=0) and (cy>=0) and (cx<width-1) and (cy<height-1) then begin
   n:=(cy+scrollerV.value) div lineHeight;
   if (n>=0) and (n<length(lines)) then hoverLine:=n
@@ -2298,6 +2328,7 @@ end;
 constructor TUIFrame.Create(cx, cy, w, h, depth,style_: integer; parent_: TUIControl);
 begin
  inherited Create(cx,cy,w,h,parent_,'UIFrame');
+ transpmode:=tmOpaque;
  borderWidth:=depth;
  style:=style_;
  ncLeft:=depth; ncTop:=depth;
@@ -2333,6 +2364,7 @@ var
  i,j:integer;
 begin
  inherited Create(x_,y_,width_,height_,name,'',bFont,parent_);
+ transpmode:=tmOpaque;
  font:=bFont;
  items:=Copy(list);
  SetLength(tags,length(items));
@@ -2392,7 +2424,7 @@ begin
   popup.height:=lHeight*lcount;
   popup.width:=frame.width-2*frame.borderWidth;
   frame.height:=popup.height+frame.borderWidth*2;
-  if r.Bottom+frame.height>=screenHeight then
+  if r.Bottom+frame.height>=rootHeight then
    frame.y:=r.Top-1-frame.height;
   // Content
   popUp.ClearLines;

@@ -5,7 +5,7 @@
 {$R-}
 unit BasicPainter;
 interface
- uses EngineCls,Types,geom2D,geom3D;
+ uses EngineAPI,Types,geom2D,geom3D;
  const
   MAGIC_TEXTCACHE = $01FF;
   DEFAULT_FONT_DOWNSCALE = 0.93;
@@ -87,7 +87,6 @@ interface
 
   procedure UseCustomShader; override;
 
-
 //  procedure ScreenOffset(x, y: integer); override;
 
   // Drawing methods
@@ -108,6 +107,9 @@ interface
   procedure DrawImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer); override;
   procedure DrawScaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080); override;
   procedure DrawRotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080); override; // x,y - центр
+  function DrawImageCover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; override;
+  function DrawImageInside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; override;
+
   // Рисует два изображения за один проход (путем мультитекстурирования)
   procedure DrawDouble(x_,y_:integer;image1,image2:TTexture;color:cardinal=$FF808080); override;
   procedure DrawDoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
@@ -126,10 +128,10 @@ interface
   function LoadFont(fName:string;asName:string=''):string; override; // загрузка из файла, возвращает имя шрифта
   function LoadFont(font:array of byte;asName:string=''):string; override; // загрузка из памяти, возвращает имя шрифта
   function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):cardinal; override; // возвращает хэндл шрифта
-  function TextWidth(font:cardinal;st:string):integer; override;
+  function TextWidth(font:cardinal;st:AnsiString):integer; override;
   function TextWidthW(font:cardinal;st:wideString):integer; override;
   function FontHeight(font:cardinal):integer; override;
-  procedure TextOut(font:cardinal;x,y:integer;color:cardinal;st:string;align:TTextAlignment=taLeft;
+  procedure TextOut(font:cardinal;x,y:integer;color:cardinal;st:AnsiString;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0); override;
   procedure TextOutW(font:cardinal;x,y:integer;color:cardinal;st:widestring;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0); override;
@@ -1397,7 +1399,7 @@ var
  {$ENDIF}
 begin
  if pos('.fnt',fname)>0 then begin
-  font:=LoadFile2(FileName(fname));
+  font:=LoadFileAsBytes(FileName(fname));
   result:=LoadFont(font,asName);
  end else begin
   {$IFDEF FREETYPE}
@@ -1547,7 +1549,7 @@ begin
  textCaching:=false;
 end;
 
-function TBasicPainter.TextWidth(font:cardinal;st:string):integer;
+function TBasicPainter.TextWidth(font:cardinal;st:AnsiString):integer;
 begin
  result:=TextWidthW(font,DecodeUTF8(st));
 end;
@@ -1623,7 +1625,7 @@ type
   data:pointer; // glyph bitmap data
  end;
 
-procedure TBasicPainter.TextOut(font:cardinal;x,y:integer;color:cardinal;st:string;
+procedure TBasicPainter.TextOut(font:cardinal;x,y:integer;color:cardinal;st:AnsiString;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
 begin
  TextOutW(font,x,y,color,DecodeUTF8(st),align,options,targetWidth,query);
@@ -1666,6 +1668,7 @@ var
    tagMode:boolean;
    v:cardinal;
    vst:string[8];
+   isColor:boolean;
   begin
    lpCount:=0;
    len:=length(st);
@@ -1692,6 +1695,7 @@ var
         'F','f':v:=5;
         'L','l':v:=6;
        end;
+       isColor:=v=4;
        cmdList[cmdPos]:=prefix shl 8+v; inc(cmdPos);
        if (i+2<=len) and (st[i+1]='=') then begin
         inc(i,2); vst:='';
@@ -1700,6 +1704,13 @@ var
          inc(i);
         end;
         v:=HexToInt(vst);
+        if isColor then begin
+         if length(vst)=3 then begin                  // 'rgb' -> FFrrggbb
+          v:=v and $F+(v and $F0) shl 4+(v and $F00) shl 8;
+          v:=v or v shl 4 or $FF000000;
+         end else
+         if length(vst)=6 then v:=$FF000000 or v; // 'rrggbb' -> FFrrggbb, '00rrggbb' -> 00rrggbb
+        end; 
         dec(i);
        end else
         v:=0;
@@ -1816,7 +1827,7 @@ var
      if targetWidth>0 then x:=x+targetWidth;
      dec(x,width);
     end;
-    taCenter:x:=x+(targetWidth-width)div 2;
+    taCenter:x:=x+(targetWidth-width) div 2;
     taJustify:if not (st[length(st)] in [#10,#13]) then begin
      i:=width;
      if i<round(targetWidth*0.95-10) then SpaceSpacing:=0
@@ -2285,7 +2296,7 @@ begin // -----------------------------------------------------------
  if (font and fhDontTranslate=0) and (options and toDontTranslate=0) then st:=translate(st);
 
  // Multiline?
- if pos(#13#10,st)>0 then begin
+ if pos(WideString(#13#10),st)>0 then begin
   DrawMultiline;
   exit;
  end;
@@ -2339,6 +2350,29 @@ begin // -----------------------------------------------------------
  if (lpCount>0) and (options and toDontDraw=0) then DrawUnderlines;
 end;
 
+function TBasicPainter.DrawImageCover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
+var
+ w,h:integer;
+ u,v,r1,r2:single;
+begin
+ u:=0; v:=0;
+ if (x2=x1) or (y2=y1) then exit;
+ r1:=texture.width/texture.height;
+ r2:=(x2-x1)/(y2-y1);
+ if r1>r2 then begin // texture is wider
+  u:=0.5*(1-r2/r1);
+ end else begin // texture is taller
+  v:=0.5*(1-r1/r2);
+ end;
+ TexturedRect(x1,y1,x2-1,y2-1,texture,u,v,1-u,v,1-u,1-v,color);
+ result:=Max2d((x2-x1)/texture.width,(y2-y1)/texture.height);
+end;
+
+function TBasicPainter.DrawImageInside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
+begin
+ result:=Min2d((x2-x1)/texture.width,(y2-y1)/texture.height);
+ DrawRotScaled(x1+x2/2,y1+y2/2,result,result,0,texture,color);
+end;
 
 initialization
  InitCritSect(crSect,'Painter',95);

@@ -4,7 +4,7 @@
 // Author: Ivan Polyacov (cooler@tut.by)
 unit IOSgame;
 interface
- uses EngineCls,Images,engineTools,classes,myservis,BasicGame;
+ uses EngineAPI,Images,engineTools,classes,myservis,BasicGame;
 
 type
  TIOSGame=class(TBasicGame)
@@ -17,7 +17,7 @@ type
   procedure DoneGraph; override; // Финализация графической части
 
   procedure PresentFrame; override;
-  procedure CalcPixelFormats(needMem:integer); override;
+  procedure ChoosePixelFormats(needMem:integer); override;
   procedure InitObjects; override;
  public
   function GetStatus(n:integer):string; override;
@@ -25,7 +25,7 @@ type
 
 implementation
  uses SysUtils,{$IFDEF IOS}gles11,{$ENDIF}cmdproc{$IFDEF DELPHI},graphics{$ENDIF},
-     GLImages,EventMan,ImageMan,UIClasses,CommonUI,gfxformats,
+     GLImages,EventMan,ImageMan,UIClasses,UIScene,gfxformats,
      Console,PainterGL;
 
 { TGlGame }
@@ -42,7 +42,7 @@ begin
   InitGraph;
   //if texman<>nil then (texman as TDXTextureMan).ReCreateAll;
   if painter<>nil then (painter as TGLPainter).Reset;
-  for i:=1 to length(scenes) do
+  for i:=low(scenes) to high(scenes) do
    if scenes[i]<>nil then scenes[i].ModeChanged;
  end;
 end;
@@ -72,7 +72,7 @@ begin
 //   (painter as TGLPainter).outputPos:=Point(0,0);
 end;
 
-procedure TIOSGame.CalcPixelFormats(needMem:integer);
+procedure TIOSGame.ChoosePixelFormats(needMem:integer);
 begin
  pfTrueColor:=ipf565;
  pfTrueColorAlpha:=ipfARGB;

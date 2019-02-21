@@ -7,7 +7,7 @@ unit engineTools;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 interface
- uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineCls,images,UIClasses,regions,
+ uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineAPI,images,UIClasses,regions,MyServis,
     UnicodeFont,CrossPlatform,BasicGame;
 
 var
@@ -185,8 +185,7 @@ var
  procedure ImageHueSaturation(image:TTextureImage;hue,saturation:single);
 
  // установить заданное изображение в качестве фона данного окна
- procedure SetupWindow(wnd:TUISkinnedWindow;img:TLargeImage); overload;
- procedure SetupWindow(wnd:TUISkinnedWindow;img:TTexture); overload;
+ procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture); overload;
 
  // Open URL in a browser window (or smth)
  procedure ShellOpen(url:string);
@@ -214,6 +213,8 @@ var
  function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices;
  procedure DrawIndexedMesh(img:TTexture;vertices:TVertices;indices:TIndices);
 
+// procedure BuildNPatchMesh(img:TTexture;splitU,splitV,weightU,weightW:SingleArray;var vertices:TVertices;var indices:TIndices);
+
  // Shapes
  // Draw circle using band particles (
  procedure DrawCircle(x,y,r,width:single;n:integer;color:cardinal;tex:TTexture;rec:TRect;idx:integer);
@@ -228,12 +229,12 @@ var
  // FOR INTERNAL USE ----------------------------------------------------------
 
 implementation
- uses SysUtils,MyServis,{$IFDEF DIRECTX}DirectXGraphics,d3d8,DxImages8,{$ENDIF}
+ uses SysUtils,{$IFDEF DIRECTX}DirectXGraphics,d3d8,DxImages8,{$ENDIF}
     {$IFDEF DELPHI}graphics,jpeg,{$ENDIF}
     {$IFDEF OPENGL}GLImages,{$ENDIF}
     {$IFDEF MSWINDOWS}ShellAPI,{$ENDIF}
     {$IFDEF ANDROID}Android,{$ENDIF}
-    gfxformats,classes,structs,geom3d,FastGFX,Filters,UDict;
+    gfxformats,classes,structs,geom3d,FastGFX,Filters,UDict,ImgLoadQueue;
 
 const
   max_subimages = 5000;
@@ -480,7 +481,7 @@ var
  i,j:integer;
  tex:TTextureImage;
  f:file;
- buf:pointer;
+ buf:ByteArray;
  size:integer;
  conversion:boolean;
  srcformat:TImageFormat;
@@ -501,12 +502,7 @@ begin
  // этап 1 - загрузка исходного файла и его параметров в буфер
  if ftype=1 then begin
   // загружаем DDS
-  assign(f,fname);
-  reset(f,1);
-  size:=filesize(f);
-  getmem(buf,size);
-  blockread(f,buf^,size);
-  close(f);
+  buf:=LoadFileAsBytes(fname);
   CheckImageFormat(buf);
   srcformat:=ifDDS;
   if format=ipfNone then format:=imgInfo.format;
@@ -519,7 +515,7 @@ begin
     width:=width div 4;
     height:=height div 4;
    end;
-   sp:=buf; inc(sp,128);
+   sp:=@buf[0]; inc(sp,128);
    for i:=0 to imginfo.miplevels-1 do begin
     if width=0 then width:=1;
     if height=0 then height:=1;
@@ -626,7 +622,7 @@ function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:ImagePixelF
 var
  i,j,k:integer;
  tex:TTextureImage;
- img,txtImage:TRawImage;
+ img,txtImage,preloaded:TRawImage;
  aFlags,mtWidth,mtHeight:integer;
  f:file;
  data,rawData:ByteArray;
@@ -670,37 +666,44 @@ begin
   end;
   {$ENDIF}
 
-  // 2. LOAD DATA FILE AND CHECK IT'S FORMAT
   LogMessage('Loading '+fname);
-  data:=LoadFile2(fname);
-  if length(data)<30 then raise EError.Create('Bad image file: '+fname);
+  preloaded:=GetImageFromQueue(fname);
+  if preloaded<>nil then begin
+   imgInfo.format:=preloaded.PixelFormat;
+   imgInfo.width:=preloaded.width;
+   imgInfo.height:=preloaded.height;
+  end else begin
+   // 2. LOAD DATA FILE AND CHECK IT'S FORMAT
+   data:=LoadFileAsBytes(fname);
+   if length(data)<30 then raise EError.Create('Bad image file: '+fname);
 
-  format:=CheckImageFormat(@data[0]);
-  if not (format in [ifTGA,ifJPEG,ifPNG,ifTXT,ifDDS,ifPVR]) then
-   raise EError.Create('image format not supported');
+   format:=CheckImageFormat(data);
+   if not (format in [ifTGA,ifJPEG,ifPNG,ifTXT,ifDDS,ifPVR]) then
+    raise EError.Create('image format not supported');
 
-  // Загрузка TXT
-  {$IFDEF TXTIMAGES}
-  if format=ifTXT then begin
-   LoadTXT(data,txtImage,txtFontSmall,txtFontNormal);
-   imgInfo.width:=txtImage.width;
-   imgInfo.height:=txtImage.height;
-   imgInfo.format:=ipfARGB;
-   imgInfo.palformat:=palNone;
-  end;
-  {$ENDIF}
+   // Загрузка TXT
+   {$IFDEF TXTIMAGES}
+   if format=ifTXT then begin
+    LoadTXT(data,txtImage,txtFontSmall,txtFontNormal);
+    imgInfo.width:=txtImage.width;
+    imgInfo.height:=txtImage.height;
+    imgInfo.format:=ipfARGB;
+    imgInfo.palformat:=palNone;
+   end;
+   {$ENDIF}
 
-  // 2.5 FOR JPEG: LOAD SEPARATE ALPHA CHANNEL (IF EXISTS)
-  if format=ifJPEG then begin
-   timeJ:=MyTickCount; 
-   st:=StringReplace(fname,ExtractFileExt(fname),'.raw',[]);
-   DebugMessage('Checking '+st);
-   if MyFileExists(st) then begin
-    DebugMessage('Loading RAW alpha ');
-    rawData:=LoadFile2(st);
-    if CheckRLEHeader(@rawdata[0],length(rawData))>0 then
-      rawData:=UnpackRLE(@rawdata[0],length(rawData));
-    forceFormat:=ipfARGB;
+   // 2.5 FOR JPEG: LOAD SEPARATE ALPHA CHANNEL (IF EXISTS)
+   if format=ifJPEG then begin
+    timeJ:=MyTickCount;
+    st:=StringReplace(fname,ExtractFileExt(fname),'.raw',[]);
+    DebugMessage('Checking '+st);
+    if MyFileExists(st) then begin
+     DebugMessage('Loading RAW alpha ');
+     rawData:=LoadFileAsBytes(st);
+     if CheckRLEHeader(@rawdata[0],length(rawData))>0 then
+       rawData:=UnpackRLE(@rawdata[0],length(rawData));
+     forceFormat:=ipfARGB;
+    end;
    end;
   end;
 
@@ -723,34 +726,33 @@ begin
   tex.Lock(0);
   img:=tex.GetRawImage; // получить объект типа RAW Image для доступа к данным текстуры
 
-  // 5. LOAD SOURCE IMAGE FORMAT INTO TEXTURE MEMORY
-  if format=ifTGA then LoadTGA(data,img) else
-  if format=ifJPEG then LoadJPEG(data,img) else
-  if format=ifPNG then LoadPNG(data,img) else
-  if format=ifPVR then LoadPVR(data,img) else
-  if format=ifDDS then LoadDDS(data,img) else
-  if format=ifTXT then begin
-   // скопировать загруженное изображение из SRC в IMG
-   sp:=txtImage.data;
-   dp:=tex.data;
-   for i:=0 to txtImage.Height-1 do begin
-    ConvertLine(sp^,dp^,ipfARGB,ForceFormat,dp^,palNone,txtImage.width);
-    inc(sp,txtImage.pitch);
-    inc(dp,tex.pitch);
+  if preloaded<>nil then begin
+   img.CopyPixelDataFrom(preloaded); // don't free preloaded as it is kept in the queue
+   LogMessage('Copied from preloaded: '+fname);
+  end else begin
+   // 5. LOAD SOURCE IMAGE FORMAT INTO TEXTURE MEMORY
+   if format=ifTGA then LoadTGA(data,img) else
+   if format=ifJPEG then LoadJPEG(data,img) else
+   if format=ifPNG then LoadPNG(data,img) else
+   if format=ifPVR then LoadPVR(data,img) else
+   if format=ifDDS then LoadDDS(data,img) else
+   if format=ifTXT then begin
+    // скопировать загруженное изображение из SRC в IMG
+    img.CopyPixelDataFrom(txtImage);
+    txtImage.Free;
    end;
-   txtImage.Free;
-  end;
 
-  // 6. ADD ALPHA CHANNEL FROM A SEPARATE RLE/RAW IMAGE IF EXISTS (JPEG-ONLY)
-  if (length(rawData)>0) and (tex.PixelFormat=ipfARGB) then begin
-   DebugMessage('Adding separate alpha');
-   k:=0;
-   for i:=0 to tex.height-1 do begin
-    dp:=tex.data; inc(dp,i*tex.pitch+3);
-    for j:=0 to tex.width-1 do begin
-     dp^:=rawData[k];
-     inc(dp,4);
-     inc(k);
+   // 6. ADD ALPHA CHANNEL FROM A SEPARATE RLE/RAW IMAGE IF EXISTS (JPEG-ONLY)
+   if (length(rawData)>0) and (tex.PixelFormat=ipfARGB) then begin
+    DebugMessage('Adding separate alpha');
+    k:=0;
+    for i:=0 to tex.height-1 do begin
+     dp:=tex.data; inc(dp,i*tex.pitch+3);
+     for j:=0 to tex.width-1 do begin
+      dp^:=rawData[k];
+      inc(dp,4);
+      inc(k);
+     end;
     end;
    end;
   end;
@@ -768,7 +770,7 @@ begin
  // 8. TIME CALCULATIONS
  time:=MyTickCount-time+random(2);
  if (time>0) and (time<50000) then inc(LoadingTime,time);
- if time>30 then LogMessage('Slow image loading: '+inttostr(time)); 
+ if time>30 then LogMessage('Slow image loading: '+inttostr(time)+' - '+fname);
  result:=tex;
 end;
 
@@ -926,7 +928,7 @@ procedure SetupWindow(wnd:TUISkinnedWindow;img:TLargeImage);
 //  wnd.region:=TRegion.CreateFrom(img);
  end;
 
-procedure SetupWindow(wnd:TUISkinnedWindow;img:TTexture);
+procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture);
  begin
   wnd.background:=img;
   wnd.width:=img.width;
@@ -1079,7 +1081,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
   begin
    if flags=liffDefault then flags:=defaultLoadImageFlags;
    if img<>nil then texman.FreeImage(TTexture(img));
-   img:=LoadImageFromFile(FileName('Images\'+fName),flags,ipf32bpp) as TTextureImage;
+   img:=LoadImageFromFile(FileName('Images\'+fName),flags,ipf32bpp);
   end;
 
  procedure SaveImage(img:TTextureImage;fName:string);
@@ -1112,7 +1114,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    GetMem(tmp,w*h*4);
    fillchar(tmp^,w*h*4,0);
    painter.SetTextTarget(tmp,w*4);
-   painter.TextOutW(font,w div 2,round(h*0.77)-d,textColor,st,EngineCls.taCenter,toDrawToBitmap);
+   painter.TextOutW(font,w div 2,round(h*0.77)-d,textColor,st,EngineAPI.taCenter,toDrawToBitmap);
    dec(x,round(w/2));
    dec(y,round(h/2));
    if glowColor>$FFFFFF then begin

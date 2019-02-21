@@ -5,7 +5,7 @@
 // Author: Ivan Polyacov (cooler@tut.by)
 unit dxgame8;
 interface
- uses EngineCls,Images,engineTools,windows,classes,myservis,BasicGame;
+ uses EngineAPI,Images,engineTools,windows,classes,myservis,BasicGame;
 
 type
  // Основной класс. Можно использовать его напрямую, но лучше унаследовать
@@ -19,7 +19,7 @@ type
   procedure SetupRenderArea; override;
 
   procedure PresentFrame; override;
-  procedure CalcPixelFormats(needMem:integer); override;
+  procedure ChoosePixelFormats(needMem:integer); override;
   function OnRestore:boolean; virtual; // Этот метод должен восстановить девайс и вернуть true если это удалось
   procedure InitObjects; override;
   {$IFDEF MSWINDOWS}
@@ -32,7 +32,7 @@ type
 
 implementation
  uses messages,SysUtils,DirectXGraphics,D3d8,cmdproc{$IFDEF DELPHI},graphics{$ENDIF},
-     DxImages8,Painter8,EventMan,ImageMan,UIClasses,CommonUI,gfxformats,Console;
+     DxImages8,Painter8,EventMan,ImageMan,UIClasses,UIScene,gfxformats,Console;
 
 { TDXGame8 }
 
@@ -59,12 +59,12 @@ var
  res:integer;
 begin
  inherited;
- if params.mode=dmFullScreen then begin
+ if params.mode.displayMode=dmFullScreen then begin
   params.width:=DisplayMode.Width;
   params.height:=displayMode.Height;
  end;
  // Заполним структуру параметров презентации
- if params.mode<>dmSwitchResolution then begin
+ if params.mode.displayMode<>dmSwitchResolution then begin
   pparam:=WindowedMode(window,params.width,params.height,0);
   pparam.SwapEffect:=D3DSWAPEFFECT_COPY;
 {  pparam.SwapEffect:=D3DSWAPEFFECT_DISCARD;}
@@ -158,8 +158,8 @@ begin
   InitGraph;
   if texman<>nil then (texman as TDXTextureMan).ReCreateAll;
   if painter<>nil then (painter as TDXPainter8).Reset;
-  for i:=1 to length(scenes) do
-   if scenes[i]<>nil then scenes[i].ModeChanged;
+  for i:=low(scenes) to high(scenes) do
+   scenes[i].ModeChanged;
  end;
 end;
 
@@ -181,8 +181,8 @@ procedure TDXGame8.PresentFrame;
   adr:pointer;
  begin
   if device=nil then exit;
-  if params.mode<>dmSwitchResolution then begin
-   adr:=@RenderRect;
+  if params.mode.displayMode<>dmSwitchResolution then begin
+   adr:=@displayRect;
    //SetWindowArea(params.width,params.height);
   end else adr:=nil;
   FLog('Present');
@@ -206,7 +206,7 @@ begin
    TDXPainter8(painter).Reset;
 end;
 
-procedure TDXGame8.CalcPixelFormats(needMem:integer);
+procedure TDXGame8.ChoosePixelFormats(needMem:integer);
 var
  list:array[1..10] of ImagePixelFormat;
  i,n:integer;

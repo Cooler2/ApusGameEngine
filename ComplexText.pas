@@ -16,7 +16,7 @@ interface
  function SMLLength(st:WideString):integer;
  // Returns plain text from the SML string
  function SMLExtract(st:WideString):WideString;
- function SMLExtractUTF8(st:string):string; // UTF-8 version
+ function SMLExtractUTF8(st:AnsiString):AnsiString; // UTF-8 version
  // Build index for the string ([plain text character index] -> SML character index)
  function SMLIndex(st:WideString):IntArray;
 
@@ -122,7 +122,7 @@ implementation
     result[i]:=st[index[i]];
   end;
 
- function SMLExtractUTF8(st:String):String;
+ function SMLExtractUTF8(st:AnsiString):AnsiString;
   begin
    result:=EncodeUTF8(SMLExtract(DecodeUTF8(st)),false);
   end;

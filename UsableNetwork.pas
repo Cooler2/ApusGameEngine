@@ -1,7 +1,7 @@
 ﻿unit UsableNetwork;
 
 interface
-uses SysUtils,EventMan,networking2,MyServis,Classes,EngineCls,CommonUI,BasicGame;
+uses SysUtils,EventMan,networking2,MyServis,Classes,EngineAPI,UIScene,BasicGame;
 type
  tNetData=array[0..39999] of byte;
  pNetData=^TNetData;
@@ -50,7 +50,7 @@ begin
  n:=0;
  with GamePointer do
  begin
-  for i:=1 to 50 do
+  for i:=low(scenes) to high(scenes) do
    if (scenes[i]<>nil) and (scenes[i].Activated) then
   with scenes[i] as TUIScene do
   begin
@@ -144,8 +144,8 @@ begin
 // ForceWANmode:=true;
 // ConnectionsOnly:=true;
  GamePointer:=GamePt as TBasicGame;
- SetEventHandler('Net',EventHandler,sync);
- SetEventHandler('Engine\',EventHandler,sync);
+ SetEventHandler('Net',EventHandler,emQueued);
+ SetEventHandler('Engine\',EventHandler,emQueued);
  wasinit:=true;
  lanlogging:=false;
  onlinelogging:=false;

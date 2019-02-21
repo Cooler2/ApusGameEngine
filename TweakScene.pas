@@ -5,12 +5,11 @@
 // Author: Ivan Polyacov (ivan@apus-software.com)
 unit TweakScene;
 interface
- uses EngineCls;
 
  procedure CreateTweakerScene(tinyFont,normalFont:cardinal);
 
 implementation
- uses SysUtils,MyServis,publics,Math,UIClasses,CommonUI,EngineTools,EventMan,UIRender;
+ uses SysUtils,MyServis,EngineAPI,publics,Math,UIClasses,UIScene,EventMan,UIRender,engineTools;
 
  type
   TTweakerScene=class(TUIScene)
@@ -106,7 +105,6 @@ implementation
    tweakerScene:=TTweakerScene.Create(tinyFont,normalFont);
    tweakerScene.tinyFont:=tinyFont;
    tweakerScene.normalFont:=normalFont;
-   game.AddScene(tweakerScene);
    SetEventHandler('KBD\KeyDown',EventHandler);
    SetEventHandler('UI\Tweaker',EventHandler);
   end;
@@ -127,7 +125,7 @@ begin
  UI.styleinfo:='60404040';
  edCount:=0;
 
- h:=round(11+screenHeight*0.01);
+ h:=round(11+game.renderHeight*0.01);
  listbox:=TUIListbox.Create(10,10,300,h*3+2,h,'Tweaker\List',normalFont,ui);
  listbox.bgColor:=$60303030;
  listbox.AnchorRight:=true;
@@ -174,7 +172,7 @@ begin
 
  // Adjust vertical position
  if not keepPos then ui.y:=game.mouseY-ui.height div 2;
- if ui.y+ui.height>screenHeight then ui.y:=screenHeight-ui.height;
+ if ui.y+ui.height>game.renderHeight then ui.y:=game.renderHeight-ui.height;
  if ui.y<5 then ui.y:=5;
 end;
 
@@ -185,10 +183,10 @@ var
 begin
  if st=ssActive then begin
   // Update UI Layout
-  ui.Resize(round(200+screenWidth*0.1),-1);
+  ui.Resize(round(200+game.renderWidth*0.1),-1);
   ui.x:=game.mouseX-ui.width div 2;
   if ui.x<5 then ui.x:=5;
-  if ui.x+ui.width>screenWidth-5 then ui.x:=screenWidth-5-ui.width;
+  if ui.x+ui.width>game.renderWidth-5 then ui.x:=game.renderWidth-5-ui.width;
   ui.height:=listBox.height+20;
 
   sa:=GetGlobalContexts(lastIdx);
@@ -208,7 +206,7 @@ end;
 
 constructor TTracker.Create(x,y:integer;parent: TUIControl; mode:integer;iValue,initValue:single);
 begin
- inherited Create(x,y,parent.width-x-5-5*byte(mode in [3..6]),18+screenHeight div 50,parent);
+ inherited Create(x,y,parent.width-x-5-5*byte(mode in [3..6]),18+game.renderHeight div 50,parent);
  style:=3;
  value:=iValue;
  initialValue:=initValue;
@@ -272,7 +270,7 @@ begin
  if vType>1 then xx:=ValueToX(round(value))
   else xx:=ValueToX(value);
  if (xx>=0) and (xx<width) then begin
-  j:=4+screenHeight div 80;
+  j:=4+game.renderHeight div 80;
   c:=$FFD8D0C0;
   if vType=4 then c:=$FFE0A0A0;
   if vType=5 then c:=$FFA0D0A0;
@@ -309,7 +307,7 @@ var
 begin
   inherited;
   if moving then begin
-   xx:=curX-globalRect.Left;
+   xx:=curMouseX-globalRect.Left;
    value:=XToValue(xx);
    if value<min then value:=min;
    if value>max then value:=max;
@@ -357,7 +355,7 @@ var
  i:integer;
  btn:TUIButton;
 begin
- inherited Create(10,parent.height-5,parent.width-20,24+screenHeight div 40,parent,'Editor_'+vName);
+ inherited Create(10,parent.height-5,parent.width-20,24+game.renderHeight div 40,parent,'Editor_'+vName);
  varName:=vName;
  style:=3;
  varName[1]:='g';

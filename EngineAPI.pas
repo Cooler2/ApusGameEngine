@@ -2,7 +2,7 @@
 //
 // Copyright (C) 2003 Apus Software (www.games4win.com, www.apus-software.com)
 // Author: Ivan Polyacov (cooler@tut.by)
-unit EngineCls;
+unit EngineAPI;
 interface
  uses Images,Geom2d,geom3D,types,EventMan,publics;
 
@@ -28,7 +28,6 @@ const
  aiMH1024  = $300000;
  aiMH2048  = $400000;
  aiMH4096  = $500000;
-
 
  // Флаги возможностей (фич) текстур
  tfCanBeLost      = 1;  // Данные на текстуре могут потеряться в любой момент
@@ -145,7 +144,7 @@ type
  // -------------------------------------------------------------------
  // Textures - классы текстурных изображений
  // -------------------------------------------------------------------
- texnamestr=string[31];
+ texnamestr=string;
 
  // Базовый абстрактный класс - текстура или ее часть
  TTexture=class
@@ -188,7 +187,8 @@ type
   // Создать изображение (в случае ошибки будет исключение)
   function AllocImage(width,height:integer;PixFmt:ImagePixelFormat;
      flags:integer;name:texnamestr):TTexture; virtual; abstract;
-
+  // Change size of texture if it supports it (render target etc)
+  procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer); virtual; abstract;
   function Clone(img:TTexture):TTexture; virtual; abstract;
   // Освободить изображение
   procedure FreeImage(var image:TTexture); overload; virtual; abstract;
@@ -264,6 +264,7 @@ type
  // Drawing interface
  TPainter=class
   TextColorX2:boolean; // true: white=FF808080 range, false: white=FFFFFFFF
+  textEffects:array[1..4] of TTextEffectLayer;
   textMetrics:array of TRect; // results of text measurement (if requested)
   zPlane:double; // default Z value for all primitives
 
@@ -345,7 +346,11 @@ type
   procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal); virtual; abstract;
   procedure DrawScaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080); virtual; abstract;
   procedure DrawRotScaled(x,y,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080); virtual; abstract; // x,y - центр
-  
+
+  // Returns scale
+  function DrawImageCover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; virtual; abstract;
+  function DrawImageInside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; virtual; abstract;
+
   // Meshes ------------------
   // Draw textured tri-mesh
   procedure DrawTrgListTex(pnts:PScrPoint;trgcount:integer;tex:TTexture); virtual; abstract;
@@ -363,15 +368,29 @@ type
   // Заполнение прямоугольника несколькими текстурами (из списка)
   procedure DrawMultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080); virtual; abstract;
 
+  // Deprecated Text functions (Legacy Text Protocol 2003) ---------------------
+  function PrepareFont(fontNum:integer;border:integer=0):THandle; virtual; abstract;  // Подготовить шрифт (из DirectText) к использованию
+  procedure SetFontScale(font:THandle;scale:single); virtual; abstract;
+  procedure SaveToFile(font:THandle;name:string); virtual; abstract;  // Сохранить шрифт
+  function LoadFontFromFile(name:string):THandle; virtual; abstract;  // Загрузить из файла
+  procedure FreeFont(font:THandle); virtual; abstract;   // Удалить подготовленный шрифт
+  procedure SetFont(font:THandle); virtual; abstract;  // Выбрать шрифт
+  procedure SetTextOverlay(tex:TTexture;scale:single=1.0;relative:boolean=true); virtual; abstract; 
+  function GetTextWidth(st:string;font:integer=0):integer; virtual; abstract;  // Определить ширину текста в пикселях (spacing=0)
+  function GetFontHeight:byte; virtual; abstract;  // Определить высоту шрифта в пикселях
+  procedure WriteSimple(x,y:integer;color:cardinal;st:string;align:TTextAlignment=taLeft;spacing:integer=0); virtual; abstract;  // Простейший вывод текста
+  // Навороченный вывод текста с применением эффектов
+  procedure WriteEx(x,y:integer;color:cardinal;st:string;align:TTextAlignment=taLeft;spacing:integer=0); virtual; abstract;
+
   // Recent Text functions (Text Protocol 2011) ---------------------------
   // font handle structure: xxxxxxxx ssssssss yyyyyyyy 00ffffff (f - font object index, s - scale, x - realtime effects, y - renderable effects and styles)
   function LoadFont(fname:string;asName:string=''):string; overload; virtual; abstract; // возвращает имя шрифта
   function LoadFont(font:array of byte;asName:string=''):string; overload; virtual; abstract; // возвращает имя шрифта
   function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):cardinal; virtual; abstract; // возвращает хэндл шрифта
-  function TextWidth(font:cardinal;st:string):integer; virtual; abstract; // text width in pixels
+  function TextWidth(font:cardinal;st:AnsiString):integer; virtual; abstract; // text width in pixels
   function TextWidthW(font:cardinal;st:WideString):integer; virtual; abstract; // text width in pixels
   function FontHeight(font:cardinal):integer; virtual; abstract; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
-  procedure TextOut(font:cardinal;x,y:integer;color:cardinal;st:string;align:TTextAlignment=taLeft;
+  procedure TextOut(font:cardinal;x,y:integer;color:cardinal;st:AnsiString;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0); virtual; abstract;
   procedure TextOutW(font:cardinal;x,y:integer;color:cardinal;st:WideString;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0); virtual; abstract;
@@ -396,31 +415,43 @@ type
 
  end;
 
+ // Display target
  TDisplayMode=(dmNone,             // not specified
                dmSwitchResolution, // Fullscreen: switch to desired display mode (change screen resolution)
                dmFullScreen,       // Use current resolution with fullscreen window
                dmFixedWindow,      // Use fixed-size window
-               dmWindow);          // use resizeable window
+               dmWindow);          // Use resizeable window
 
- TDisplayFitMode=(dfmCenter,           // размер области вывода фиксирован и равен размеру бэкбуфера - он центрируется в окне
-                  dfmStretch,          // размер области всегда равен полному размеру окна (бэкбуфер растягивается на всё окно)
-                  dfmKeepAspectRatio); // область вывода растягивается с сохранением исходных пропорций (бэкбуфер растягивается)
+ // How the default render target should appear in the output area
+ TDisplayFitMode=(dfmCenter,           // render target is centered in the output window rect (1:1) (DisplayScaleMode is ignored)
+                  dfmStretch,          // render target is stretched to fill the whole output window rect
+                  dfmKeepAspectRatio); // render target is stretched to fill the output window rect while keeping it's aspect ratio
+
+ // How rendering is processed if back buffer size doesn't match the output rect
+ TDisplayScaleMode=(dsmDontScale,   // Ignore the back buffer size and set it to match the output rect size
+                    dsmStretch,     // Render to the back buffer size and then stretch to the output rect
+                    dsmScale);      // Render to the output rect size using scale transformation matrix
+
+ TDisplaySettings=record
+  displayMode:TDisplayMode;
+  displayFitMode:TDisplayFitMode;
+  displayScaleMode:TDisplayScaleMode;
+ end;
 
  // Это важная структура, задающая параметры работы движка
  // На ее основе движок будет конфигурировать другие объекты, например device
  // Важно понимать смысл каждого ее поля, хотя не обязательно каждое из них будет учтено
  TGameSettings=record
   title:string;  // Заголовок окна/программы
-  width,height:integer; // Размер BackBuffer'а и области вывода (окна/экрана), фактический размер окна может отличаться от запрошенного
+  width,height:integer; // Размер BackBuffer'а и (вероятно) области вывода (окна/экрана), фактический размер окна может отличаться от запрошенного
                         // если mode=dmFullScreen, то эти параметры игнорируются и устанавливаются в текущее разрешение
                         // В процессе работы область вывода может меняться (например при изменении размеров окна или переключении режима)
                         // В данной версии размер backBuffer всегда равен размеру области вывода (нет масштабирования), но в принципе
                         // они могут и отличаться
-  colorDepth:integer; // глубина цвета (16/24/32)
+  colorDepth:integer; // Желаемый формат бэкбуфера (16/24/32)
   refresh:integer;   // Частота регенерации экрана (0 - default)
   VSync:integer;     // Синхронизация с обновлением монитора (0 - максимальный FPS, N - FPS = refresh/N
-  mode,altMode:TDisplayMode; // Основной режим запуска и альтернативный режим (для переключения по Alt+Enter)
-  fitMode:TDisplayFitMode;  // Как формировать изображение в игровом окне
+  mode,altMode:TDisplaySettings; // Основной режим запуска и альтернативный режим (для переключения по Alt+Enter)
   showSystemCursor:boolean; // Показывать ли системный курсор? если false - курсор рисуется движком программно
   zbuffer:byte; // желательная глубина z-буфера (0 - не нужен)
   stencil:boolean; // нужен ли stencil-буфер (8-bit)
@@ -452,13 +483,10 @@ type
                              // (живет где-то в фоновом режиме и не влияет на экран)
                ssActive);    // сцена активна, т.е. обрабатывается и рисуется
 
- TSceneType=(stBackground,   // Сцена непрозрачна и всегда занимает весь экран
-             stForeground);  // "Оконная" сцена, рисуемая поверх чего-то другого 
-
  TGameScene=class
   status:TSceneStatus;
   name:string;
-  sceneType:TSceneType;
+  fullscreen:boolean; // true - opaque scene, no any underlying scenes can be seen, false - scene layer is drawn above underlying image
   frequency:integer; // Сколько раз в секунду нужно вызывать обработчик сцены (0 - каждый кадр)
   effect:TSceneEffect; // Эффект, применяемый при выводе сцены
   zorder:integer; // Определяет порядок отрисовки сцен
@@ -469,7 +497,7 @@ type
   // Внутренние величины
   accumTime:integer; // накопленное время (в мс)
 
-  constructor Create(fullscreen:boolean);
+  constructor Create(fullscreen:boolean=true);
   destructor Destroy; override;
 
   // Вызывается из конструктора, можно переопределить для инициализации без влезания в конструктор
@@ -501,9 +529,9 @@ type
 
   // Смена режима (что именно изменилось - можно узнать косвенно)
   procedure ModeChanged; virtual;
-  // Сообщение о том, что область отрисовки (она может быть частью окна) изменила размер, сцена может отреагировать на это
-  procedure onResize(newWidth,newHeight:integer); virtual;
 
+  // Сообщение о том, что область отрисовки (она может быть частью окна) изменила размер, сцена может отреагировать на это
+  procedure onResize; virtual;
   // События мыши
   procedure onMouseMove(x,y:integer); virtual;
   procedure onMouseBtn(btn:byte;pressed:boolean); virtual;
@@ -553,18 +581,16 @@ begin
  first:=0; last:=0;
 end;
 
-constructor TGameScene.Create(fullScreen:boolean);
+constructor TGameScene.Create(fullScreen:boolean=true);
 begin
  status:=ssFrozen;
- if fullscreen then
-  sceneType:=stBackground
- else
-  sceneType:=stForeground;
+ self.fullscreen:=fullscreen;
  frequency:=60;
  first:=0; last:=0;
  zorder:=0;
  activated:=false;
  effect:=nil;
+ name:=ClassName;
  ignoreKeyboardEvents:=false;
  if classType=TGameScene then onCreate; // each generic child class must call this in the constructors last string
 end;
@@ -595,13 +621,13 @@ procedure TGameScene.onMouseWheel(delta:integer);
 begin
 end;
 
-procedure TGameScene.onResize(newWidth, newHeight:integer);
+procedure TGameScene.onResize;
 begin
 end;
 
 function TGameScene.Process: boolean;
 begin
-
+ result:=true;
 end;
 
 procedure TGameScene.onCreate;

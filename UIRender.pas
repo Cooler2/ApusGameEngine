@@ -6,7 +6,7 @@
 // ------------------------------------------------------
 unit UIRender;
 interface
- uses EngineCls,UIClasses;
+ uses EngineAPI,UIClasses;
  type
   // процедура отрисовки элемента
   TUIDrawer=procedure(control:TUIControl);
@@ -51,7 +51,7 @@ implementation
 
  procedure DrawGlobalShadow(color:cardinal);
   begin
-   painter.FillRect(0,0,screenWidth,screenHeight,color);
+   painter.FillRect(0,0,game.renderWidth,game.renderHeight,color);
   end;  
 
  procedure DrawUI(root:TUIControl;customDraw:boolean=false);
@@ -178,9 +178,9 @@ implementation
   begin
    with hnt do begin
     adjusted:=true;
-    if (sx+width+2<screenWidth) then inc(x,4)
-     else dec(x,sx+width-screenWidth);
-    if (sy+height*2+4>screenHeight) then dec(y,height+4)
+    if (sx+width+2<game.renderWidth) then inc(x,4)
+     else dec(x,sx+width-game.renderWidth);
+    if (sy+height*2+4>game.renderHeight) then dec(y,height+4)
      else inc(y,20);
    end;
   end;
@@ -194,32 +194,23 @@ implementation
   end;
 
  {$R-}
-
  // styleinfo="00000000 11111111 22222222 33333333" - list of colors (hex)
  function GetColor(control:TUIControl;index:integer=0):cardinal;
   var
-   st:string;
-   i:integer;
+   i,v:integer;
   begin
    result:=0;
-   st:=control.styleinfo;
-   if st='' then exit;
-   try
-    i:=0;
-    if index>0 then
-     while i<length(st) do begin
-      inc(i);
-      if st[i]=' ' then begin
-       dec(index);
-       if index=0 then break;
-      end;
-     end;
-    if i>=length(st) then exit;
-    delete(st,1,i);
-    i:=pos(' ',st);
-    if i>0 then result:=StrToInt('$'+copy(st,1,i-1))
-     else result:=StrToInt('$'+st);
-   except
+   for i:=1 to length(control.styleinfo) do begin
+    if control.styleinfo[i]<'0' then begin
+     dec(index);
+     if index<0 then exit;
+     continue;
+    end;
+    if index=0 then begin
+     v:=(ord(control.styleinfo[i]) and $1F)-$10;
+     if v<0 then inc(v,25);
+     result:=result shl 4+v;
+    end;
    end;
   end;
 
@@ -427,13 +418,14 @@ implementation
       lname:=lowercase(FileName(src));
       p:=imgHash.Get(lname);
       if p=0 then begin
-       tex:=LoadImageFromFile(lname);
+       tex:=nil;
+       LoadImage(tex,lname);
        imgHash.Put(lname,cardinal(tex),true);
       end else
        tex:=pointer(p);
       painter.DrawScaled(x1,y1,x1+control.width-1,y1+control.height-1,tex,control.color);
      end else begin
-      img:=GetImageHandle('images\'+name);
+      img:=GetImageHandle('Images\'+name);
       DrawImage(img,x1,y1,color,width,height,0,0);
      end;
     end;
@@ -466,9 +458,6 @@ implementation
     ty:=y1+round(header*0.7);
     painter.TextOut(font,tx+1,ty+1,$B0000000,DecodeUTF8(caption),taCenter);
     painter.TextOut(font,tx,ty,$FFFFFFD0,DecodeUTF8(caption),taCenter);
-{    painter.SetFont(font);
-    painter.WriteSimple((x1+x2) div 2+1,y1+(header-painter.GetFontHeight) div 2+1,$B0000000,caption,taCenter);
-    painter.WriteSimple((x1+x2) div 2,y1+(header-painter.GetFontHeight) div 2,$FFFFFFD0,caption,taCenter);}
     painter.ResetClipping;
    end;
   end;
@@ -626,7 +615,7 @@ implementation
        c:=hoverTextColor;
       end else
        c:=textColor;
-      painter.TextOut(font,x1+4,lY+round(lineHeight*0.71),c,lines[i],taLeft,toComplexText);
+      painter.TextOut(font,x1+4,lY+round(lineHeight*0.73),c,lines[i],taLeft,toComplexText);
      end;
      painter.ResetClipping;
     end;
