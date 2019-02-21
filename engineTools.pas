@@ -182,8 +182,7 @@ const
  procedure ImageHueSaturation(image:TTextureImage;hue,saturation:single);
 
  // установить заданное изображение в качестве фона данного окна
- procedure SetupWindow(wnd:TUISkinnedWindow;img:TLargeImage); overload;
- procedure SetupWindow(wnd:TUISkinnedWindow;img:TTexture); overload;
+ procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture); overload;
 
  // Open URL in a browser window (or smth)
  procedure ShellOpen(url:string);
@@ -926,7 +925,7 @@ procedure SetupWindow(wnd:TUISkinnedWindow;img:TLargeImage);
 //  wnd.region:=TRegion.CreateFrom(img);
  end;
 
-procedure SetupWindow(wnd:TUISkinnedWindow;img:TTexture);
+procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture);
  begin
   wnd.background:=img;
   wnd.width:=img.width;
