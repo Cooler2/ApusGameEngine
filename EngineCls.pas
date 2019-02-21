@@ -264,7 +264,6 @@ type
  // Drawing interface
  TPainter=class
   TextColorX2:boolean; // true: white=FF808080 range, false: white=FFFFFFFF
-  textEffects:array[1..4] of TTextEffectLayer;
   textMetrics:array of TRect; // results of text measurement (if requested)
   zPlane:double; // default Z value for all primitives
 
@@ -364,20 +363,6 @@ type
   // Заполнение прямоугольника несколькими текстурами (из списка)
   procedure DrawMultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080); virtual; abstract;
 
-  // Deprecated Text functions (Legacy Text Protocol 2003) ---------------------
-  function PrepareFont(fontNum:integer;border:integer=0):THandle; virtual; abstract;  // Подготовить шрифт (из DirectText) к использованию
-  procedure SetFontScale(font:THandle;scale:single); virtual; abstract;
-  procedure SaveToFile(font:THandle;name:string); virtual; abstract;  // Сохранить шрифт
-  function LoadFontFromFile(name:string):THandle; virtual; abstract;  // Загрузить из файла
-  procedure FreeFont(font:THandle); virtual; abstract;   // Удалить подготовленный шрифт
-  procedure SetFont(font:THandle); virtual; abstract;  // Выбрать шрифт
-  procedure SetTextOverlay(tex:TTexture;scale:single=1.0;relative:boolean=true); virtual; abstract; 
-  function GetTextWidth(st:string;font:integer=0):integer; virtual; abstract;  // Определить ширину текста в пикселях (spacing=0)
-  function GetFontHeight:byte; virtual; abstract;  // Определить высоту шрифта в пикселях
-  procedure WriteSimple(x,y:integer;color:cardinal;st:string;align:TTextAlignment=taLeft;spacing:integer=0); virtual; abstract;  // Простейший вывод текста
-  // Навороченный вывод текста с применением эффектов
-  procedure WriteEx(x,y:integer;color:cardinal;st:string;align:TTextAlignment=taLeft;spacing:integer=0); virtual; abstract;
-
   // Recent Text functions (Text Protocol 2011) ---------------------------
   // font handle structure: xxxxxxxx ssssssss yyyyyyyy 00ffffff (f - font object index, s - scale, x - realtime effects, y - renderable effects and styles)
   function LoadFont(fname:string;asName:string=''):string; overload; virtual; abstract; // возвращает имя шрифта
@@ -442,7 +427,6 @@ type
   multisampling:byte; // включить мультисэмплинг (fs-антиалиасинг) - кол-во сэмплов (<2 - отключен)
   slowmotion:boolean; // true - если преобладают медленные сцены или если есть большой разброс
                       // в скорости - тогда возможна (но не гарантируется) оптимизация перерисовки
-//  customCursor:boolean; // если truе, то курсор рисуется движком программно 
  end;
 
 
@@ -451,7 +435,7 @@ type
  // Базовый эффект для background-сцены
  TSceneEffect=class
   timer:integer; // время (в тысячных секунды), прошедшее с момента начала эффекта
-  time:integer;  // время, за которое эффект должен выполнится
+  duration:integer;  // время, за которое эффект должен выполнится
   done:boolean;  // Флаг, сигнализирующий о том, что эффект завершен
   forScene:TGameScene;
   name:string; // description for debug reasons
@@ -524,6 +508,9 @@ type
   procedure onMouseMove(x,y:integer); virtual;
   procedure onMouseBtn(btn:byte;pressed:boolean); virtual;
   procedure onMouseWheel(delta:integer); virtual;
+
+  // For non-fullscreen scenes return occupied area
+  function GetArea:TRect; virtual; abstract;
  private
   // Ввод
   KeyBuffer:array[0..63] of cardinal;
@@ -654,8 +641,8 @@ end;
 constructor TSceneEffect.Create(scene:TGameScene;TotalTime:integer);
 begin
  done:=false;
- time:=TotalTime;
- if time=0 then time:=10;
+ duration:=TotalTime;
+ if duration=0 then duration:=10;
  timer:=0;
  if scene.effect<>nil then begin
   ForceLogMessage('New scene effect replaces old one! '+scene.name+' previous='+scene.effect.name);

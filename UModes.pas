@@ -71,7 +71,7 @@ end;
 
 tregisteredmode=object
  mode:tmode;
- preinitrequired:boolean;                 
+ preinitrequired:boolean;
 end;
 
 tstepsinfo=object
@@ -86,7 +86,6 @@ procedure InitModes;
 procedure PreloadModes;
 procedure CheckProgress;
 function CreateImage(filename:string;transparent:boolean=true;allowModify:boolean=false):TTextureImage;
-function LoadFont(filename:string):integer;
 function GetProgressValue:integer;
 procedure DetermineSettings;
 {procedure CursorLoader(reason:TReason;var image:TImgDescriptor);
@@ -209,24 +208,6 @@ begin
  {$ENDIF}
 end;
 
-function LoadFont(filename:string):integer;
-var
- q:integer;
- font2x:string;
- scale:boolean;
-begin
- {$IFDEF ANDROID}
- result:=0; exit;
- {$ENDIF}
- font2x:=StringReplace(filename,'.fnt','2x.fnt',[rfIgnoreCase]);
- scale:=false;
- if retinaScreen and FileExists(font2x) then begin
-  filename:=font2x; scale:=true;
- end;
- q:=LoadRasterFont(filename);
- result:=painter.PrepareFont(q);
- if scale then painter.SetFontScale(result,2);
-end;
 
 function CreateImage(filename:string;transparent:boolean=true;allowModify:boolean=false):TTextureImage;
 var

@@ -56,9 +56,10 @@ implementation
 
  procedure DrawUI(root:TUIControl;customDraw:boolean=false);
   var
-   i,j,n:integer;
+   i,j,n,cnt:integer;
    tmp:pointer;
    r:TRect;
+   list:array of TUIControl;
   begin
    if not root.visible then exit;
    if (root.width<=0) or (root.height<=0) then exit;
@@ -84,28 +85,39 @@ implementation
      sleep(0);
     end;
    end;
+   // List of child elements to draw
    n:=length(root.children);
-   if n>0 then begin
+   cnt:=0;
+   for i:=0 to n-1 do
+    if root.children[i].visible then inc(cnt);
+   SetLength(list,cnt);
+   cnt:=0;
+   for i:=0 to n-1 do
+    if root.children[i].visible then begin
+     list[cnt]:=root.children[i]; inc(cnt);
+    end;
+
+   if cnt>0 then begin
     r:=root.globalRect;
     inc(r.Left,root.ncLeft); inc(r.top,root.ncTop);
     dec(r.Right,root.ncRight); dec(r.Bottom,root.ncBottom);
     painter.SetClipping(r);
     // Затем отсортировать и нарисовать вложенные эл-ты
-    for i:=0 to n-2 do
-     for j:=n-1 downto i+1 do
-      if root.children[j].order<root.children[j-1].order then begin
-       tmp:=root.children[j];
-       root.children[j]:=root.children[j-1];
-       root.children[j-1]:=tmp;
+    for i:=0 to cnt-2 do
+     for j:=cnt-1 downto i+1 do
+      if list[j].order<list[j-1].order then begin
+       tmp:=list[j];
+       list[j]:=list[j-1];
+       list[j-1]:=tmp;
       end;
-    for i:=0 to n-1 do begin
+    for i:=0 to cnt-1 do begin
      // если элемент не клипится и фон - не прозрачный - нарисовать без отсечения
-     if not root.children[i].parentClip and not transpBgnd then begin
+     if not list[i].parentClip and not transpBgnd then begin
       painter.OverrideClipping;
-      DrawUI(root.children[i]);
+      DrawUI(list[i]);
       painter.ResetClipping;
      end else
-      DrawUI(root.children[i]);
+      DrawUI(list[i]);
     end;
     painter.ResetClipping;
    end;

@@ -25,7 +25,7 @@ type
   procedure DrawBeforeUI; virtual; // To be implemented by inherited classes
   procedure DrawAfterUI; virtual; // To be implemented by inherited classes
   procedure onResize(width,height:integer); override;
-  function GetArea:TRect; // screen area occupied by any non-transparent UI elements (i.e. which part of screen can't be ignored)
+  function GetArea:TRect; override; // screen area occupied by any non-transparent UI elements (i.e. which part of screen can't be ignored)
  private
   lastRenderTime:int64;
 //  prevModal:TUIControl;

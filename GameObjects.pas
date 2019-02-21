@@ -475,7 +475,7 @@ end;
 
 procedure LockObjects;
 begin
- EnterCriticalSection(crSect);
+ EnterCriticalSection(crSect,GetCaller);
 end;
 
 procedure UnlockObjects; 
