@@ -35,7 +35,7 @@ interface
   // предыдущей отрисовки (время кадра), но может содержать и 0
   frameTime:int64;
 
-  transpBgnd:boolean=false; // Отрисовка на прозрачный фон?
+  transpBgnd:boolean=false; // render target is (probably) transparent so blMove should be used to fill it
 
   defaultHintFont:cardinal=0; // Шрифт, которым показываются хинты
 

@@ -506,6 +506,8 @@ begin
   if buffer=nil then  raise EError.Create('WndEffect failure: buffer not allocated!');
   painter.BeginPaint(buffer);
   try
+   // Background is set to opaque for debug purpose: in transpBgnd mode scene MUST overwrite
+   // alpha channel, not blend into it! If the background is transparent it's very easy to miss this mistake
    painter.Clear($FF808080,-1,-1);
    forscene.Process;
    transpBgnd:=true;
