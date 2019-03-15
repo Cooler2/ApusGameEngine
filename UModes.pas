@@ -883,7 +883,7 @@ begin
   if (baseimagefile<>'') and (baseimagefile<>'empty') then
   begin
    SkinnedWnd:=TUISkinnedWindow.Create(name+'\WND','',MainFont,nil);
-   SetupWindow(SkinnedWnd,LoadImageFromFile(baseimagefile));
+   SetupSkinnedWindow(SkinnedWnd,LoadImageFromFile(baseimagefile));
    mainwnd:=skinnedwnd;
    MainWnd.style:=1;
    MainWnd.color:=$FF808080;

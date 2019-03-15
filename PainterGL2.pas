@@ -150,7 +150,7 @@ end;
 // Возвращает шейдер для заданного режима текстурирования (из кэша либо формирует новый)
 function TGLPainter2.SetCustomProgram(mode:int64):integer;
 var
- vs,fs:string;
+ vs,fs:AnsiString;
  i,n:integer;
  tm:PTexMode;
 begin
@@ -458,7 +458,8 @@ const
   '}';
 
  mainFragmentShader=
-  'precision mediump float;           '+
+  '#version 130'#13#10+
+  'precision mediump float;           '#13#10+
   'uniform sampler2D tex1;   '#13#10+
   'uniform int texmode;      '#13#10+
   'varying vec2 vTexcoord;   '#13#10+

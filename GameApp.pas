@@ -55,6 +55,7 @@ interface
    procedure SetGameSettings(var settings:TGameSettings); virtual;
    procedure SetupScreen; virtual; // Setup window size and output options
    // Initialization routines: override with actual functionality
+   procedure InitSound; virtual;
    procedure LoadFonts; virtual;   // Load font files (called once)
    procedure SelectFonts; virtual;  // Select font constants (may be called many times)
    procedure InitStyles; virtual; // Which styles to add?
@@ -62,6 +63,9 @@ interface
    procedure InitCursors; virtual;
 
    procedure FatalError(msg:string); virtual;
+
+   // Finalization
+   procedure DoneSound; virtual;
 
    procedure onResize; virtual;
   end;
@@ -80,7 +84,7 @@ interface
 
 implementation
  uses
-  {$IFDEF MSWINDOWS}windows,{$ENDIF}
+  {$IFDEF MSWINDOWS}windows,Sound,{$ENDIF}
   {$IFDEF ANDROID}android,androidGame,{$ENDIF}
    SysUtils,MyServis,AnimatedValues,ControlFiles2,UDict,FastGFX,eventMan,
    UIClasses,BasicGame,EngineTools,ConScene,TweakScene,customstyle,BitmapStyle
@@ -296,9 +300,15 @@ procedure TGameApplication.CreateScenes;
 destructor TGameApplication.Destroy;
  begin
   if game<>nil then game.Stop;
+  DoneSound;
   inherited;
  end;
 
+
+procedure TGameApplication.DoneSound;
+begin
+ Sound.Finalize;
+end;
 
 procedure TGameApplication.FatalError(msg: string);
 begin
@@ -428,6 +438,13 @@ procedure TGameApplication.Prepare;
   end;
  end;
 
+procedure TGameApplication.InitSound;
+begin
+ {$IFDEF MSWINDOWS}
+ Sound.Initialize(game.window,false);
+ {$ENDIF}
+end;
+
 function EngineEventHandler(event:EventStr;tag:integer):boolean;
  begin
   if app<>nil then begin
@@ -495,6 +512,7 @@ procedure TGameApplication.Run;
   end;
 
   // More initialization
+  InitSound;
   InitCursors;
   LoadFonts;
   SelectFonts;

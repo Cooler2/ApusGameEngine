@@ -103,7 +103,7 @@ function LoadSample(s:TSample):boolean;
   if s=nil then exit;
   if s.handle>0 then exit;
   {$IFDEF IMX}
-  s.handle:=IMXSampleLoad(false,PChar('AUDIO\'+s.fname));
+  s.handle:=IMXSampleLoad(false,PAnsiChar(AnsiString('AUDIO\'+s.fname)));
   {$ENDIF}
   {$IFDEF ANDROID}
   try
@@ -519,7 +519,7 @@ procedure LoadConfig;
    if (fExt='.OGG') or (fExt='.MP3') or (fExt='.WAW') then begin
     // load as stream
     {$IFDEF IMX}
-    item.handle:=IMXStreamOpenFile(false,PChar('Audio\'+fname),0,0,IMX_STREAM_LOOP*byte(loop));
+    item.handle:=IMXStreamOpenFile(false,PAnsiChar(AnsiString('Audio\'+fname)),0,0,IMX_STREAM_LOOP*byte(loop));
     item.isModule:=false;
     item.loopPos:=loopPos;
     if LoopPos>0 then
@@ -549,7 +549,7 @@ procedure LoadConfig;
    end else begin
     // load as module
     {$IFDEF IMX}
-    item.handle:=IMXModuleLoad(false,PChar('Audio\'+fname),0,0,IMX_MODULE_LOOP*byte(loop));
+    item.handle:=IMXModuleLoad(false,PAnsiChar(AnsiString('Audio\'+fname)),0,0,IMX_MODULE_LOOP*byte(loop));
     if item.handle=0 then
      LogMessage('[Sound] Warning: cannot open module '+fname);
     item.isModule:=true;
@@ -564,7 +564,7 @@ procedure LoadConfig;
       inc(sampleLibCnt); i:=SampleLibCnt;
       sampleLib[i]:=TMusic.Create;
       sampleLib[i].name:=lname;
-      sampleLib[i].handle:=IMXModuleLoad(false,PChar('audio\'+lname),0,0,0);
+      sampleLib[i].handle:=IMXModuleLoad(false,PAnsiChar(AnsiString('Audio\'+lname)),0,0,0);
      end;
      IMXModuleAttachInstruments(item.handle,samplelib[i].handle);
     end;
