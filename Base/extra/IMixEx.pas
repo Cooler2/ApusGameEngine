@@ -78,7 +78,7 @@ const
  procedure IMXSet3DAlgorithm(Algorithm:cardinal=IMX_3DALG_DEFAULT); cdecl; external 'IMxEx.dll';
 
  //      Sample
- function IMXSampleLoad(FromMem:longbool;FileName:PChar;Offset:DWORD=0;
+ function IMXSampleLoad(FromMem:longbool;FileName:PAnsiChar;Offset:DWORD=0;
                         Length:DWord=0;res2:DWORD=0;Flags:DWORD=0):HSample; cdecl; external 'IMxEx.dll';
  function IMXSamplePlay(hsmp:HSAMPLE;vol:integer=100;pan:integer=0;
                         freq:DWORD=0;start:DWORD=0):HChannel; cdecl; external 'IMxEx.dll';
@@ -89,7 +89,7 @@ const
  function IMXSampleUnload(hsmp:HSample):longbool; cdecl; external 'IMxEx.dll';
 
  //      Module
- function IMXModuleLoad(FromMem:longbool;FileName:PChar;Offset:DWORD=0;
+ function IMXModuleLoad(FromMem:longbool;FileName:PAnsiChar;Offset:DWORD=0;
                         Length:DWORD=0;res2:DWORD=0):HMod; cdecl; external 'IMxEx.dll';
  function IMXModulePlay(hmod:HMod;flags:integer=-1):longbool; cdecl; external 'IMxEx.dll';
  function IMXModuleUnload(hmod:HMod):longbool; cdecl; external 'IMxEx.dll';
@@ -97,7 +97,7 @@ const
  function IMXModuleAdjustBPM(hmod:HMod;bpm:double=1):longbool; cdecl; external 'IMxEx.dll';
 
  //      Stream
- function IMXStreamOpenFile(fromMem:longbool;filename:PChar;offset:DWORD=0;
+ function IMXStreamOpenFile(fromMem:longbool;filename:PAnsiChar;offset:DWORD=0;
             length:DWORD=0;flags:DWORD=0):HStream; cdecl; external 'IMxEx.dll';
  function IMXStreamPlay(hstream:HStream;flags:integer=-1):longbool; cdecl; external 'IMxEx.dll';
  function IMXStreamClose(hstream:HStream):longbool; cdecl; external 'IMxEx.dll';
