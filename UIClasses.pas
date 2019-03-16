@@ -274,7 +274,7 @@ type
 
  // Тип кнопок
  TButtonStyle=(bsNormal,   // обычная кнопка
-               bsSwitch,   // кнопка-переключатель (фиксирующаяся в нажатом положении
+               bsSwitch,   // кнопка-переключатель (фиксирующаяся в нажатом положении)
                bsCheckbox);    // кнопка-надпись (чекбокс)
  TUIButton=class(TUIImage)
   caption:string;

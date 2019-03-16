@@ -43,6 +43,7 @@ type
   procedure SetWindowCaption(text:string); virtual; // Сменить заголовок (оконный режим)
   procedure Minimize; virtual; // свернуть окно (полезно в полноэкранном режиме)
   procedure FlashWindow(count:integer); virtual; // помигать кнопкой окна (0 - мигать пока юзер не переключится в окно, -1 - остановить)
+  procedure SwitchToAltSettings; // Alt+Enter
 
   // Events
   // Этот метод вызывается из главного цикла всякий раз перед попыткой рендеринга кадра, даже если программа неактивна или девайс потерян
@@ -523,15 +524,8 @@ begin
    // Alt+Enter
    if (code=VK_RETURN) and (shiftstate and sscAlt>0) then
      if (params.mode.displayMode<>params.altMode.displayMode) and
-        (params.altMode.displayMode<>dmNone) then begin
-       LogMessage('Alt+Enter!');
-       Swap(params.width,altWidth);
-       Swap(params.height,altHeight);
-       ds:=params.mode;
-       params.mode:=params.altMode;
-       params.altMode:=ds;
-       ChangeSettings(params);
-     end;
+        (params.altMode.displayMode<>dmNone) then
+       SwitchToAltSettings;
   end;
 end;
 
@@ -1491,6 +1485,19 @@ end;
 procedure TBasicGame.FlashWindow(count: integer);
 begin
  Signal('Engine\Cmd\Flash',count);
+end;
+
+procedure TBasicGame.SwitchToAltSettings; // Alt+Enter
+var
+ ds:TDisplaySettings;
+begin
+  LogMessage('Alt+Enter!');
+  Swap(params.width,altWidth);
+  Swap(params.height,altHeight);
+  ds:=params.mode;
+  params.mode:=params.altMode;
+  params.altMode:=ds;
+  ChangeSettings(params);
 end;
 
 procedure TBasicGame.SetWindowCaption(text: string);
