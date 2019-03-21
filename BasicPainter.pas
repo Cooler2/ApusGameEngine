@@ -233,7 +233,7 @@ var
  textColorFunc:TColorFunc=nil; // not thread-safe!
  textLinkStyleProc:TTextLinkStyleProc=nil; // not thread-safe!
  // Если при отрисовке текста передан запрос с координатами точки, и эта точка приходится на рисуемую ссылку -
- // то сюда записывается номер этой ссылки. Обнулять нужно самостоятельно.
+ // то сюда записывается номер этой ссылки. Обнуляется перед отрисовкой кадра
  curTextLink:cardinal;
  curTextLinkRect:TRect; 
 
@@ -3371,7 +3371,7 @@ var
     if (link>0) and
        (queryX>=textMetrics[length(st)-1].left) and (queryX<px+dx+imgW) and
        (queryY<y+fHeight shr 1) and (queryY>=y-fHeight) then begin
-      curTextLink:=oldLink;
+      curTextLink:=link;
       curTextLinkRect.Left:=linkStart;
       curTextLinkRect.Right:=round(px+dx+imgW-1);
       curTextLinkRect.Top:=y-fHeight;
