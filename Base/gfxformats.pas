@@ -1,4 +1,4 @@
-// Support for common graphic formats
+// Support for common image file formats
 //
 // Copyright (C) 2004 Apus Software (www.games4win.com)
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
