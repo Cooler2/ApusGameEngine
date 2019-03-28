@@ -48,10 +48,6 @@ type
   function GetRegion:TRegion; override;
  end;
 
- // vertex and index arrays
- TVertices=array of TScrPoint;
- TIndices=array of word;
-
  TVertexHandler=procedure(var vertex:TScrPoint);
 
 var
@@ -209,7 +205,8 @@ var
  procedure Reset2DTransform;
 
  // Meshes
- procedure BuildMeshForImage(img:TTexture;splitX,splitY:integer;var vertices:TVertices;var indices:TIndices);
+ function LoadMesh(fname:string):TMesh;
+ function BuildMeshForImage(img:TTexture;splitX,splitY:integer):TMesh;
  function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices;
  procedure DrawIndexedMesh(img:TTexture;vertices:TVertices;indices:TIndices);
 
@@ -234,7 +231,7 @@ implementation
     {$IFDEF OPENGL}GLImages,{$ENDIF}
     {$IFDEF MSWINDOWS}ShellAPI,{$ENDIF}
     {$IFDEF ANDROID}Android,{$ENDIF}
-    gfxformats,classes,structs,geom3d,FastGFX,Filters,UDict,ImgLoadQueue;
+    gfxformats,classes,structs,geom3d,FastGFX,Filters,UDict,ImgLoadQueue,GfxFormats3D;
 
 const
   max_subimages = 5000;
@@ -1275,13 +1272,24 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    Set2DTransform(0,0,1,1);
   end;
 
- procedure BuildMeshForImage(img:TTexture;splitX,splitY:integer;var vertices:TVertices;var indices:TIndices);
+ function LoadMesh(fname:string):TMesh;
+  var
+   ext:string;
+  begin
+   fname:=FileName(fName);
+   ext:=lowerCase(ExtractFileExt(fname));
+   if ext='.obj' then result:=LoadOBJ(fName);
+  end;
+
+ function BuildMeshForImage(img:TTexture;splitX,splitY:integer):TMesh;
   var
    i,j,n,v:integer;
    du,dv,dx,dy:single;
   begin
+   result:=TMesh.Create;
    texman.MakeOnline(img);
    // Fill vertices
+   with result do begin
    SetLength(vertices,(splitX+1)*(splitY+1));
    du:=(img.u2-img.u1)/splitX;
    dv:=(img.v2-img.v1)/splitY;
@@ -1313,6 +1321,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
      indices[n+2]:=v;
      inc(n,3);
     end;
+   end;
   end;
 
  procedure DrawIndexedMesh(img:TTexture;vertices:TVertices;indices:TIndices);

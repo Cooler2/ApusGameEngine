@@ -124,6 +124,7 @@ type
  TTexturesTest=class(TTest)
   prog,uTex:integer;
   tex1,tex2,tex3,tex4,texA,tex5,tex6:TTextureImage;
+  mesh:TMesh;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -544,7 +545,7 @@ begin
   u:=1; v:=1;
  end;
 
- BuildMeshForImage(tex1,32,32,vertices,indices);
+ if mesh=nil then mesh:=BuildMeshForImage(tex1,32,32);
  globalS:=MyTickCount/200;
  transformed:=TransformVertices(vertices,shader1);
 { for i:=0 to length(vertices)-1 do

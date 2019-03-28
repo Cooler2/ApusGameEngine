@@ -4,7 +4,7 @@
 // Author: Ivan Polyacov (cooler@tut.by)
 unit EngineAPI;
 interface
- uses Images,Geom2d,geom3D,types,EventMan,publics;
+ uses Images,Geom2D,Geom3D,types,EventMan,publics;
 
 const
  // Флаги для создания изображений (ai - AllocImage)
@@ -250,6 +250,17 @@ type
   u3,v3:single;
  end;
 
+ // vertex and index arrays
+ TVertices=array of TScrPoint;
+ TIndices=array of word;
+
+ TMesh=class
+  vertices:TVertices;
+{  vertices,normals:array of TPoint3;
+  uv:array of TPoint2;}
+  indices:TIndices;
+ end;
+
  PMultiTexLayer=^TMultiTexLayer;
  TMultiTexLayer=record
   texture:TTexture;
@@ -307,7 +318,7 @@ type
   procedure Set3DView(view:T3DMatrix); virtual; abstract;
   // Alternate way to set camera position and orientation (origin - camera center, target - point to look, up - any point, so plane OTU is vertical), turnCW - camera turn angle (along view axis, CW direction)
   procedure SetupCamera(origin,target,up:TPoint3;turnCW:double=0); virtual; abstract;
-  // Set Model->World transformation matrix (MUST BE USED AFTER setting the view/camera)
+  // Set Model (model to world) transformation matrix (MUST BE USED AFTER setting the view/camera)
   procedure Set3DTransform(mat:T3DMatrix); virtual; abstract;
   // Set cull mode
   procedure SetCullMode(mode:TCullMode); virtual; abstract;
