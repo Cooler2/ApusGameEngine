@@ -157,7 +157,7 @@ interface
 
  var
   trgIndices:array of integer; // результат триангул€ции
- // триангул€ци€ замкнутого многоугольника (строит n-2 трг).
+ // триангул€ци€ замкнутого многоугольника (строит n-2 трг). !!! CLOCKWISE!
  procedure Triangulate(pnts:PPoint2;count:integer);
 
 implementation
