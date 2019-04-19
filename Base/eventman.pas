@@ -23,10 +23,11 @@ type
  // Имеет формат: category\subcategory\..\sub..subcategory\name
 // EventStr=string[127];
  EventStr=string;
+ TTag=NativeInt;
 
  // Функция обработки события. Для блокировки обработки на более общих уровнях, должна вернуть false
  // In fact, return value is ignored
- TEventHandler=function(event:EventStr;tag:integer):boolean;
+ TEventHandler=function(event:EventStr;tag:TTag):boolean;
 
  // Установить обработчик для категории событий
  // При возникновении события, сперва вызываются более конкретные обработчики, а затем более общие
@@ -35,15 +36,15 @@ type
  procedure RemoveEventHandler(handler:TEventHandler;event:EventStr='');
 
  // Сигнал о возникновении события (обрабатывается немедленно - в контексте текущего потока)
- procedure Signal(event:EventStr;tag:integer=0);
- procedure DelayedSignal(event:EventStr;delay:integer;tag:integer=0);
+ procedure Signal(event:EventStr;tag:TTag=0);
+ procedure DelayedSignal(event:EventStr;delay:integer;tag:TTag=0);
 
  // Обработать сигналы синхронно (если поток регистрирует синхронные обработчики, то он обязан регулярно вызывать эту функцию)
  procedure HandleSignals;
 
  // Связать событие с другим событием (тэг при этом может быть новым, но если это -1, то сохраняется старый)
  // Если redirect=true - при наличии линка отменет обработку сигнала на более общих уровнях
- procedure Link(event,newEvent:EventStr;tag:integer=-1;redirect:boolean=false);
+ procedure Link(event,newEvent:EventStr;tag:TTag=-1;redirect:boolean=false);
  // Удалить связь между событиями
  procedure Unlink(event,linkedEvent:EventStr);
  // Удалить все связанные события (втч для всех подсобытий)
@@ -67,7 +68,7 @@ type
  TLink=record
   event:EventStr;
   LinkedEvent:EventStr;
-  tag:integer;
+  tag:TTag;
   next:PLink;
   redirect,keepOriginalTag:boolean;
  end;
@@ -76,7 +77,7 @@ type
  TQueuedEvent=record
   event:EventStr; // событие
   handler:TEventHandler; // кто должен его обработать
-  tag:integer;
+  tag:TTag;
   callerThread:TThreadID; // поток, из которого было
   callerIP:UIntPtr; // точка вызова Signal
   time:int64; // когда событие должно быть обработано (только для отложенных сигналов)
@@ -152,7 +153,7 @@ var
    // Если обработчик уже есть - повторно установлен не будет
    try
     EnterCriticalSection(CritSect);
-    if event[length(event)]='\' then setlength(event,length(event)-1);
+    if event[length(event)]='\' then SetLength(event,length(event)-1);
 
     if mode<>emInstant then begin
      ThreadID:=GetCurrentThreadID;
@@ -221,7 +222,7 @@ var
   end;
 
  // Для внутреннего использования
- procedure HandleEvent(event:EventStr;tag:integer;time:int64;caller:UIntPtr=0);
+ procedure HandleEvent(event:EventStr;tag:TTag;time:int64;caller:UIntPtr=0);
   var
    i,h:integer;
    fl:boolean;
@@ -349,7 +350,7 @@ var
   end;
 
 
- procedure Signal(event:EventStr;tag:integer=0);
+ procedure Signal(event:EventStr;tag:TTag=0);
   var
    callerIP:cardinal; // адрес, откуда вызвана процедура
   begin
@@ -371,7 +372,7 @@ var
    end;
   end;
 
- procedure DelayedSignal(event:EventStr;delay:integer;tag:integer=0);
+ procedure DelayedSignal(event:EventStr;delay:integer;tag:TTag=0);
   var
    callerIP:cardinal; // адрес, откуда вызвана процедура
   begin
@@ -396,7 +397,7 @@ var
    TCall=record
     proc:TEventHandler;
     event:Eventstr;
-    tag:integer;
+    tag:TTag;
    end;
    { TThreadQueue }
   var
@@ -447,7 +448,7 @@ var
     end;
   end;
 
- procedure Link(event,newEvent:EventStr;tag:integer=-1;redirect:boolean=false);
+ procedure Link(event,newEvent:EventStr;tag:TTag=-1;redirect:boolean=false);
   var
    n:byte;
    link:PLink;
