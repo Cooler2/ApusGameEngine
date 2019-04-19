@@ -162,7 +162,7 @@ procedure LoopMusicProc(sync,chan,data,user:cardinal); stdcall;
  end;
 
 
-function EventHandler(event:EventStr;tag:integer):boolean;
+function EventHandler(event:EventStr;tag:TTag):boolean;
  var
   evt:TSoundEvent;
   sa,sa2:stringarr;

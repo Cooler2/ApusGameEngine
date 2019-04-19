@@ -459,9 +459,9 @@ begin
  end;
 end;
 
-function EngineCmdEvent(Event:EventStr;tag:integer):boolean; forward;
+function EngineCmdEvent(Event:EventStr;tag:TTag):boolean; forward;
 
-function EngineKbdEvent(Event:EventStr;tag:integer):boolean;
+function EngineKbdEvent(Event:EventStr;tag:TTag):boolean;
 var
  code,shiftState,d:integer;
  f:text;
@@ -530,7 +530,7 @@ begin
 end;
 
 
-function EngineEvent(Event:EventStr;tag:integer):boolean;
+function EngineEvent(Event:EventStr;tag:TTag):boolean;
 begin
  result:=false;
  if game=nil then exit;
@@ -1553,7 +1553,7 @@ function FlashWindowEx(var pfwi: TFlashWInfo): LongBool; stdcall; external 'user
 {$ENDIF}
 
 // Обработка событий, являющихся командами движку
-function EngineCmdEvent(event:EventStr;tag:integer):boolean;
+function EngineCmdEvent(event:EventStr;tag:TTag):boolean;
 var
 {$IFDEF MSWINDOWS}
  fi:TFlashWInfo;

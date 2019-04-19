@@ -51,7 +51,7 @@ implementation
  var
   tweakerScene:TTweakerScene;
 
- function EventHandler(event:eventStr;tag:integer):boolean;
+ function EventHandler(event:eventStr;tag:TTag):boolean;
   begin
    result:=false;
    event:=UpperCase(event);

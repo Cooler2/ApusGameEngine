@@ -58,7 +58,7 @@ begin
  end;
 end;
 
-function EventHandler(event:EventStr;tag:integer):boolean;
+function EventHandler(event:EventStr;tag:TTag):boolean;
 begin
  result:=true;
  event:=UpperCase(copy(event,8,500));

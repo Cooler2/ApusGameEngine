@@ -289,7 +289,7 @@ procedure SetHotKeyCmd(cmd:string);
   end;
  end;
 
-function ActivateEventHandler(event:EventStr;tag:integer):boolean;
+function ActivateEventHandler(event:EventStr;tag:TTag):boolean;
 begin
  result:=true;
  EnterCriticalSection(UICritSect);
@@ -301,7 +301,7 @@ begin
  end;
 end;
 
-function MouseEventHandler(event:EventStr;tag:integer):boolean;
+function MouseEventHandler(event:EventStr;tag:TTag):boolean;
 var
  c,c2:TUIControl;
  e1,e2,e:boolean;
@@ -472,7 +472,7 @@ begin
  ForceLogMessage('UI state'#13#10+st);
 end;
 
-function KbdEventHandler(event:EventStr;tag:integer):boolean;
+function KbdEventHandler(event:EventStr;tag:TTag):boolean;
 var
  c:TUIControl;
  shift:byte;
@@ -677,7 +677,7 @@ begin
 end;
 
 // tag: low 8 bit - new shadow value, next 16 bit - duration in ms
-function onSetGlobalShadow(event:eventstr;tag:integer):boolean;
+function onSetGlobalShadow(event:eventstr;tag:TTag):boolean;
 begin
  startShadowChange:=MyTickCount;
  shadowChangeDuration:=tag shr 8;
@@ -687,7 +687,7 @@ begin
 end;
 
 // tag: low 8 bit - new shadow value, next 16 bit - duration in ms
-function onSetFocus(event:eventstr;tag:integer):boolean;
+function onSetFocus(event:eventstr;tag:TTag):boolean;
 begin
  delete(event,1,length('UI\SETFOCUS\'));
  if (event<>'') and (event<>'NIL') then
@@ -696,7 +696,7 @@ begin
   SetFocusTo(nil);
 end;
 
-function onItemCreated(event:eventstr;tag:integer):boolean;
+function onItemCreated(event:eventstr;tag:TTag):boolean;
 var
  c:TUIControl;
 begin
@@ -706,7 +706,7 @@ begin
  result:=false;
 end;
 
-function onItemRenamed(event:eventstr;tag:integer):boolean;
+function onItemRenamed(event:eventstr;tag:TTag):boolean;
 var
  c:TUIControl;
 begin
