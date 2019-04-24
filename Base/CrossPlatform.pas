@@ -33,7 +33,8 @@ interface
   HWND=windows.HWND;
   {$IFDEF DELPHI}
   TThreadID=cardinal;
-  PtrUInt=NativeUInt;
+  UIntPtr=NativeUInt;
+  PtrUInt=UIntPtr;
   {$ENDIF}
  const
   VK_SPACE=windows.VK_SPACE;
