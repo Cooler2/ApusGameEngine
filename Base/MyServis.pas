@@ -4063,7 +4063,7 @@ procedure DisableDEP;
  end;
 {$ENDIF}
 
-procedure TMyCriticalSection.Enter; // for compatibility
+procedure TMyCriticalSection.Enter;  // for compatibility
  begin
   EnterCriticalSection(self);
  end;
