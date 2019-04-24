@@ -1239,7 +1239,7 @@ procedure TestMemoryStat;
   sent:integer=0;
   trID:DWORD;
 
- function EventHandler(event:eventStr;tag:integer):boolean;
+ function EventHandler(event:eventStr;tag:TTag):boolean;
   var
    i,j:integer;
   begin
