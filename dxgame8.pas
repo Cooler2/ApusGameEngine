@@ -324,7 +324,7 @@ begin
   img.paletteFormat:=palNone;
   img.data:=r.pBits;
   img.pitch:=r.Pitch;
-  img.tag:=cardinal(surf);
+  img.tag:=UIntPtr(surf);
   surf._AddRef;
   screenshotDataRAW:=img;
   inherited;

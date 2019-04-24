@@ -22,9 +22,9 @@ function IsNTandDelphiRunning : boolean;
 function RegGetStringValue(Hive: HKEY; const KeyName, ValueName: string): string;
 function ExistFile(const FileName: string): Boolean;
 
-function Trunc(const x : Single) : Integer;
-function Frac(const x : Single) : Single;
-function Round(const x : Single) : Integer;
+//function Trunc(const x : Single) : Integer;
+//function Frac(const x : Single) : Single;
+//function Round(const x : Single) : Integer;
 
 {$IFDEF ERRORFUNCS}
 function DXErrorString(Error: HResult): string;
@@ -132,6 +132,7 @@ begin
               (Pos('DELPHI32.EXE', AppName) = Length(AppName) - Length('DELPHI32.EXE') + 1) );
 end;
 
+(*
 function Trunc(const x : Single) : Integer; register;
 const cwChop : Word = $1F3F;
 asm
@@ -157,6 +158,6 @@ asm
       FISTP   dword ptr [ESP]
       POP     EAX
 end;
-
+*)
 
 end.
