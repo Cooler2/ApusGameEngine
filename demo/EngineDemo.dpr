@@ -15,11 +15,11 @@ uses
   FastGfx,
   DirectText,
   FreeTypeFont,
-  EngineCls in '..\EngineCls.pas',
+  EngineAPI in '..\EngineAPI.pas',
   UIClasses in '..\UIClasses.pas',
   PainterGL in '..\PainterGL.pas',
   ImageMan in '..\ImageMan.pas',
-  CommonUI in '..\CommonUI.pas',
+  UIScene in '..\UIScene.pas',
   UIRender in '..\UIRender.pas',
   engineTools in '..\engineTools.pas',
   console in '..\console.pas',
@@ -56,7 +56,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 12;       
+ testnum:integer = 4;
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -431,6 +431,7 @@ var
  v,s:single;
  x,y,i,t:integer;
  r:TRect;
+ mesh:TMesh;
  vertices,transformed:TVertices;
  indices:TIndices;
  data:array of cardinal;
@@ -519,7 +520,7 @@ begin
  painter.DrawImage(800,160,texA,$FFFF6000);
  painter.DrawImage(900,160,texA,$FF008000);
 
- {$IFNDEF OPENGL}
+ {$IFDEF DIRECTX}
  if frame=10 then d3d8.DumpD3D;
  {$ENDIF}
 
@@ -539,9 +540,9 @@ begin
   u:=1; v:=1;
  end;
 
- BuildMeshForImage(tex1,32,32,vertices,indices);
+ mesh:=BuildMeshForImage(tex1,32,32);
  globalS:=MyTickCount/200;
- transformed:=TransformVertices(vertices,shader1);
+ mesh.vertices:=TransformVertices(mesh.vertices,shader1);
 { for i:=0 to length(vertices)-1 do
   with vertices[i] do begin
    //ou:=x/tex1.width; ov:=y/tex1.height;
@@ -554,7 +555,7 @@ begin
 { if getTickCount mod 1000<500 then
   painter.DrawImage(0,0,tex1)
  else}
- DrawIndexedMesh(tex1,transformed,indices);
+ DrawIndexedMesh(tex1,mesh.vertices,mesh.indices);
  Reset2DTransform;
  //(painter as TDXPainter8).DrawTrgListTex(@vrt,1,tex2);
 
@@ -1538,7 +1539,7 @@ var
  x,y:integer;
 begin
  try
- prog:=TGLPainter(painter).BuildShaderProgram(LoadFile('shader.vert'),LoadFile('shader.frag'));
+ prog:=TGLPainter(painter).BuildShaderProgram(LoadFileAsString('shader.vert'),LoadFileAsString('shader.frag'));
  loc1:=glGetUniformLocation(prog,'offset');
 
  tex:=texman.AllocImage(256,256,ipfARGB,0,'tex') as TTextureImage;
@@ -1681,15 +1682,14 @@ begin
   colorDepth:=32;
   refresh:=0;
   if wnd then begin
-   mode:=dmWindow;
-   altMode:=dmSwitchResolution;
+   mode.displayMode:=dmWindow;
+   altMode.displayMode:=dmSwitchResolution;
   end else begin
-   mode:=dmSwitchResolution;
-   altMode:=dmFixedWindow;
+   mode.displayMode:=dmSwitchResolution;
+   altMode.displayMode:=dmFixedWindow;
   end;
 //  mode:=dmFullScreen;
-  fitMode:=dfmCenter;
-  fitMode:=dfmKeepAspectRatio;
+  mode.displayFitMode:=dfmCenter;
   showsystemcursor:=true;
   zbuffer:=16;
   stencil:=false;
@@ -1705,7 +1705,6 @@ begin
  InitUI;
  // А можно и не делать - можно это сделать в обработчике события
 
- game.initialized:=true;
  savetime:=GetTickCount;
  repeat
   delay(50);
