@@ -163,7 +163,7 @@ var
  function GetIPF(pixfmt:integer):ImagePixelFormat;
 
 implementation
- uses windows,MyServis,SysUtils;
+ uses CrossPlatform,windows,MyServis,SysUtils;
 
 type
  PalData=record
@@ -617,7 +617,7 @@ procedure DumpD3D(name:integer=1);
    writeln(f);
    writeln(f,' Stage ',i);
    device.GetTexture(i,tex);
-   writeln(f,'  Texture:   ',UIntPtr(tex));
+   writeln(f,'  Texture:   ',UIntPtr(pointer(tex)));
    device.GetTextureStageState(i,D3DTSS_COLOROP,c);
    writeln(f,'  ColorOP:   ',c);
    device.GetTextureStageState(i,D3DTSS_COLORARG1,c);

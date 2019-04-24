@@ -338,9 +338,8 @@ end;
 function EventHandler(event:EventStr;tag:TTag):boolean;
 begin
  result:=false;
- event:=UpperCase(event);
- if event='GLIMAGES\DELETETEXTURE' then
-  texman.FreeImage(TTexture(PtrUInt(tag)));
+ if SameText(event,'GLImages\DeleteTexture') then
+  texman.FreeImage(TTexture(UIntPtr(tag)));
 end;
 
 { TGLTextureMan }

@@ -31,7 +31,7 @@ type
  end;
 
 implementation
- uses messages,SysUtils,DirectXGraphics,D3d8,cmdproc{$IFDEF DELPHI},graphics{$ENDIF},
+ uses CrossPlatform,messages,SysUtils,DirectXGraphics,D3d8,cmdproc{$IFDEF DELPHI},graphics{$ENDIF},
      DxImages8,Painter8,EventMan,ImageMan,UIClasses,UIScene,gfxformats,Console;
 
 { TDXGame8 }
@@ -324,7 +324,7 @@ begin
   img.paletteFormat:=palNone;
   img.data:=r.pBits;
   img.pitch:=r.Pitch;
-  img.tag:=UIntPtr(surf);
+  img.tag:=UIntPtr(pointer(surf));
   surf._AddRef;
   screenshotDataRAW:=img;
   inherited;

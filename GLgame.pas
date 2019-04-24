@@ -211,22 +211,25 @@ begin
 end;
 
 procedure TGLGame.SetupRenderArea;
+var
+ w,h:integer;
 begin
   inherited;
   if painter<>nil then begin
+   w:=displayRect.right-displayRect.Left;
+   h:=displayRect.bottom-displayRect.top;
    if dRT=nil then begin
     // Rendering directly to the framebuffer
     TGLPainter(painter).SetDefaultRenderArea(displayRect.Left,windowHeight-displayRect.Bottom,
-      displayRect.right-displayRect.Left,displayRect.bottom-displayRect.top,
-      settings.width,settings.height);
+      w,h,settings.width,settings.height);
    end else begin
     // Rendering to a framebuffer texture
     with params.mode do
      if (displayFitMode in [dfmStretch,dfmKeepAspectRatio]) and
         (displayScaleMode in [dsmDontScale,dsmScale]) and
-        ((dRT.width<>displayRect.Width) or (dRT.height<>displayRect.Height)) then begin
+        ((dRT.width<>w) or (dRT.height<>h)) then begin
       LogMessage('Resizing framebuffer');
-      texman.ResizeTexture(dRT,displayRect.Width,displayRect.Height);
+      texman.ResizeTexture(dRT,w,h);
      end;
    end;
   end;

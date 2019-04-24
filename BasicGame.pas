@@ -172,7 +172,7 @@ type
  public
   // Глобально доступные переменные
   renderWidth,renderHeight:integer; // Size of render area in virtual pixels (primitive of this size fills the whole renderRect)
-  displayRect:Trect;     // область вывода в окне (после инициализации - все окно) в реальных экранных пикселях
+  displayRect:TRect;     // область вывода в окне (после инициализации - все окно) в реальных экранных пикселях
   screenWidth,screenHeight:integer; // реальный размер всего экрана
   windowWidth,windowHeight:integer; // размеры клиентской части окна в реальных пикселях
   screenDPI:integer;    // According to system settings
@@ -542,7 +542,7 @@ end;
 
 {$IF Declared(SetProcessDPIAware)} {$ELSE}
 function SetProcessDPIAware:BOOL; external user32 name 'SetProcessDPIAware';
-{$ENDIF}
+{$IFEND}
 
 procedure TBasicGame.Run;
 var
@@ -1155,7 +1155,7 @@ begin
  renderWidth:=params.width;
  renderHeight:=params.height;
  LogMessage(Format('Set render area: %d,%d -> %d,%d,%d,%d',
-   [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Width,displayRect.Height]));
+   [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Right,displayRect.Bottom]));
  SetDisplaySize(renderWidth,renderHeight);
  Signal('ENGINE\BEFORERESIZE');
  for i:=low(scenes) to High(scenes) do
