@@ -84,10 +84,12 @@ interface
 
 implementation
  uses
-  {$IFDEF MSWINDOWS}windows,Sound,{$ENDIF}
+  {$IFDEF MSWINDOWS}windows,{$ENDIF}
   {$IFDEF ANDROID}android,androidGame,{$ENDIF}
    SysUtils,MyServis,AnimatedValues,ControlFiles2,UDict,FastGFX,eventMan,
    UIClasses,BasicGame,EngineTools,ConScene,TweakScene,customstyle,BitmapStyle
+  {$IFDEF IMX},Sound{$ENDIF}
+  {$IFDEF BASS},SoundB{$ENDIF}
   {$IFDEF DIRECTX},DXgame8{$ENDIF}
   {$IFDEF OPENGL},GLgame{$ENDIF}
   {$IFDEF STEAM},SteamAPI{$ENDIF};
@@ -300,14 +302,18 @@ procedure TGameApplication.CreateScenes;
 destructor TGameApplication.Destroy;
  begin
   if game<>nil then game.Stop;
+  {$IFDEF IMX}
   DoneSound;
+  {$ENDIF}
   inherited;
  end;
 
 
 procedure TGameApplication.DoneSound;
 begin
+ {$IFDEF IMX}
  Sound.Finalize;
+ {$ENDIF}
 end;
 
 procedure TGameApplication.FatalError(msg: string);
@@ -440,7 +446,7 @@ procedure TGameApplication.Prepare;
 
 procedure TGameApplication.InitSound;
 begin
- {$IFDEF MSWINDOWS}
+ {$IFDEF IMX}
  Sound.Initialize(game.window,false);
  {$ENDIF}
 end;

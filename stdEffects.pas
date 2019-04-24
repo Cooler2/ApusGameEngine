@@ -54,7 +54,7 @@ type
   shadow:cardinal;
  end;
 
- {$IFNDEF DIRECTX}
+ {$IFDEF OPENGL}
  TBlurEffect=class(TSceneEffect)
    constructor Create(scene:TUIScene;strength:single;time:integer;colorAdd,colorMult:cardinal);
    procedure Remove(time:integer);
@@ -634,7 +634,7 @@ begin
  done:=true;
 end;
 
-{$IFNDEF DIRECTX}
+{$IFDEF OPENGL}
 const
  // version for GLPainter
  vBlurShader=
