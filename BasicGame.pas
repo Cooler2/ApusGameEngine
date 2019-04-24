@@ -540,6 +540,10 @@ begin
  result:=false;
 end;
 
+{$IF Declared(SetProcessDPIAware)} {$ELSE}
+function SetProcessDPIAware:BOOL; external user32 name 'SetProcessDPIAware';
+{$ENDIF}
+
 procedure TBasicGame.Run;
 var
  i:integer;
