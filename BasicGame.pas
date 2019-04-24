@@ -289,6 +289,11 @@ begin
  resChanged:=(s.width<>params.width) or (s.height<>params.height);
  pfChanged:=s.colorDepth<>params.colorDepth;
  params:=s;
+ if (params.mode.displayMode=dmFullScreen) and (altWidth=0) or (altHeight=0) then begin
+  // save size for windowed mode
+  altWidth:=params.width;
+  altHeight:=params.height;
+ end;
 
  {$IFNDEF IOS} // no realtime settings change for IOS
  if running and
@@ -1498,9 +1503,7 @@ begin
   LogMessage('Alt+Enter!');
   Swap(params.width,altWidth);
   Swap(params.height,altHeight);
-  ds:=params.mode;
-  params.mode:=params.altMode;
-  params.altMode:=ds;
+  Swap(params.mode,params.altMode,sizeof(params.mode));
   ChangeSettings(params);
 end;
 

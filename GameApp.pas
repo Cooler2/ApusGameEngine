@@ -618,7 +618,8 @@ begin
   displayWidth:=GetSystemMetrics(SM_CXSCREEN);
   displayHeight:=GetSystemMetrics(SM_CYSCREEN);
 
-  windowWidth:=displayWidth;
+  // Ќельз€ портить размеры окна, т.к. они нужны дл€ переключени€ в оконный режим, а в фулскрине не должны использоватьс€
+{  windowWidth:=displayWidth;
   windowHeight:=displayHeight;
 
   if displayWidth>=displayHeight*aspect then windowWidth:=round(displayHeight*aspect)
@@ -630,7 +631,7 @@ begin
    LogMessage('Screen size too large => will use upscaling');
    windowWidth:=1920;
    windowHeight:=1080;
-  end;
+  end;}
 
  end else begin
   // windowed
