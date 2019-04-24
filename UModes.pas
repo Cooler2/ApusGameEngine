@@ -764,7 +764,7 @@ begin
  end;
 end;
 
-function CommonHandler(event:EventStr;tag:integer):boolean;
+function CommonHandler(event:EventStr;tag:TTag):boolean;
 var q,w:integer;
     s,s2:string;
     x,y:integer;

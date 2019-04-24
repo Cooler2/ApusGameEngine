@@ -82,7 +82,7 @@ begin
  ForceLogMessage('KillConn done');
 end;
 
-function EventHandler(event:EventStr;tag:integer):boolean;
+function EventHandler(event:EventStr;tag:TTag):boolean;
 var q,n,l:integer;
     pdata:pNetData;
     s:string;

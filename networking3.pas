@@ -250,7 +250,7 @@ function ShortMD5(st:string):string;
   result:=copy(MD5(st),1,10);
  end;
 
-function EventHandler(event:eventstr;tag:integer):boolean;
+function EventHandler(event:eventstr;tag:TTag):boolean;
  var
   i,code,t,e1,e2,httpStatus:integer;
   response:string;
@@ -563,7 +563,7 @@ procedure Connect(server,login,password,clientinfo:string);
  end;
 
 // Создание аккаунта
-function EventHandler2(event:eventstr;tag:integer):boolean;
+function EventHandler2(event:eventstr;tag:TTag):boolean;
  var
   code:integer;
   response:string;

@@ -115,7 +115,7 @@ function StreamProc(handle:integer;buf:pointer;size,user:cardinal):cardinal; std
   result:=sp(buf,size);
  end;
 
-function EventHandler(event:EventStr;tag:integer):boolean;
+function EventHandler(event:EventStr;tag:TTag):boolean;
  var
   evt:TSoundEvent;
   mus:TMusic;

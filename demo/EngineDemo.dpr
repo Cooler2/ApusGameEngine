@@ -234,7 +234,7 @@ begin
  end;}
 end;
 
-function HEvent(event:EventStr;tag:integer):boolean;
+function HEvent(event:EventStr;tag:NativeInt):boolean;
  var
   i,x,y:integer;
   w:^cardinal;
