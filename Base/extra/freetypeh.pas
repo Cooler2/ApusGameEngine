@@ -26,8 +26,13 @@ const
 
 // Windows
 {$ifdef win32}
-  freetypedll = 'libfreetype-6.dll';  
-//  freetypedll = 'freetype6.dll';            
+  freetypedll = 'freetype32.dll';
+//  freetypedll = 'freetype6.dll';
+  {$define ft_found_platform}
+{$endif}
+{$ifdef win64}
+  freetypedll = 'freetype64.dll';
+//  freetypedll = 'freetype6.dll';
   {$define ft_found_platform}
 {$endif}
 // Mac OS X
