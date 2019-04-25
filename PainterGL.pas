@@ -91,7 +91,7 @@ type
   outputPos:TPoint; // output area in the default render target (bottom-left corner, relative to bottom-left RT corner)
   renderWidth,renderHeight:integer; // size of render area for default target (virtual screen size)
   VPwidth,VPheight:integer; // viewport size for backbuffer
-  targetScaleX,targetScaleY:single; // VPwidth/renderWidth 
+  targetScaleX,targetScaleY:single; // VPwidth/renderWidth
   
   defaultRenderTarget:TTexture; // Texture to render into
   defaultFramebuffer:cardinal;  // Default render target for OpenGL ES (GL resource)
@@ -1128,8 +1128,10 @@ begin
  end else begin
   screenRect:=types.Rect(0,0,renderWidth,renderHeight);
   glScissor(outputPos.x,outputPos.y,outputPos.x+VPwidth,outputPos.y+VPheight);
-  targetScaleX:=VPwidth/renderWidth;
-  targetScaleY:=VPheight/renderheight;
+  if renderWidth*renderHeight>0 then begin
+   targetScaleX:=VPwidth/renderWidth;
+   targetScaleY:=VPheight/renderheight;
+  end;
  end;
  actualClip:=screenRect;
  CheckForGLError(7);

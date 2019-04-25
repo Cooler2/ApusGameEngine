@@ -521,7 +521,7 @@ begin
  painter.DrawImage(900,160,texA,$FF008000);
 
  {$IFDEF DIRECTX}
- if frame=10 then d3d8.DumpD3D;
+// if frame=10 then d3d8.DumpD3D;
  {$ENDIF}
 
  with vrt[0] do begin
