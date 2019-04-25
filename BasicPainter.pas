@@ -1413,6 +1413,7 @@ begin
    end;
   {$ENDIF}
  end;
+ raise EError.Create('Failed to load font: '+fname);
 end;
 
 function TBasicPainter.LoadFont(font:array of byte;asName:string=''):string;
