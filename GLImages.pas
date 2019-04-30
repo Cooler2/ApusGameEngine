@@ -336,10 +336,14 @@ begin
 end;
 
 function EventHandler(event:EventStr;tag:TTag):boolean;
+var
+ tex:TTexture;
 begin
  result:=false;
- if SameText(event,'GLImages\DeleteTexture') then
-  texman.FreeImage(TTexture(UIntPtr(tag)));
+ if SameText(event,'GLImages\DeleteTexture') then begin
+  tex:=TTexture(UIntPtr(tag));
+  texman.FreeImage(tex);
+ end;
 end;
 
 { TGLTextureMan }
