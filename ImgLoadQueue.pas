@@ -125,9 +125,9 @@ implementation
   var
    i:integer;
   begin
-   loadingThread:=TLoadingThread.Create;
+   loadingThread:=TLoadingThread.Create(false);
    for i:=1 to min2(unpackThreadsNum,high(unpackThreads)) do
-    unpackThreads[i]:=TUnpackThread.Create;
+    unpackThreads[i]:=TUnpackThread.Create(false);
   end;
 
 { TLoadingThread }
