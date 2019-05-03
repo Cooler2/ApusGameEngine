@@ -489,7 +489,7 @@ implementation
  function TranslationMat(x,y:double):TMatrix32;
   begin
    result[0,0]:=1;   result[1,0]:=0;   result[2,0]:=x;
-   result[0,1]:=0;   result[1,0]:=1;   result[2,1]:=y;
+   result[0,1]:=0;   result[1,1]:=1;   result[2,1]:=y;
   end;
 
  function RotationMat(angle:double):TMatrix32;
