@@ -598,6 +598,7 @@ begin
   RegisterCursor(crResizeH,5,LoadCursor(0,IDC_SIZENS));
   RegisterCursor(crResizeW,5,LoadCursor(0,IDC_SIZEWE));
   RegisterCursor(crResizeHW,6,LoadCursor(0,IDC_SIZEALL));
+  RegisterCursor(crNone,99,0);
  end;
  {$ENDIF}
 end;
