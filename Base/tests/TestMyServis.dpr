@@ -41,7 +41,10 @@ uses
   AnimatedValues in '..\AnimatedValues.pas',
   myHuffman in '..\myHuffman.pas',
   Images in '..\Images.pas',
-  httpRequests in '..\httpRequests.pas';
+  httpRequests in '..\httpRequests.pas',
+  FastGFX in '..\FastGFX.pas',
+  filters in '..\filters.pas',
+  FreeTypeFont in '..\FreeTypeFont.pas';
 
 var
  sa:StringArr;
