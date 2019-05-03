@@ -275,7 +275,7 @@ begin
   img.height:=h;
   img.PixelFormat:=ipfXRGB;
   img.paletteFormat:=palNone;
-  img.tag:=cardinal(buf);
+  img.tag:=UIntPtr(buf);
   inc(buf,w*4*(h-1));
   img.data:=buf;
   img.pitch:=-w*4;
