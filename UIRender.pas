@@ -11,6 +11,9 @@ interface
   // процедура отрисовки элемента
   TUIDrawer=procedure(control:TUIControl);
 
+ var
+  defaultBtnColor:cardinal=$FFB0A0C0;
+
  // Процедура выполняет отрисовку элемента интерфейса (включая все вложенные элементы)
  // в соответствиии с их стилями и установленными отрисовщиками
  procedure DrawUI(root:TUIControl;customDraw:boolean=false);
@@ -313,7 +316,7 @@ implementation
      if btnStyle<>bsCheckbox then begin
       // обычная кнопка
       c:=GetColor(control,0); // main (background) color
-      if c=0 then c:=$FFB0A0C0;
+      if c=0 then c:=defaultBtnColor;
       d:=byte(pressed);
       if not enabled then c:=ColorMix(c,$FFA0A0A0,128);
       if enabled and (underMouse=control) then inc(c,$101010);
