@@ -91,6 +91,7 @@ interface
 
   // Drawing methods
   procedure DrawLine(x1,y1,x2,y2:single;color:cardinal); override;
+  procedure DrawPolyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false); override;
   procedure DrawPolygon(points:PPoint2;cnt:integer;color:cardinal); override;
   procedure Rect(x1,y1,x2,y2:integer;color:cardinal); override;
   procedure RRect(x1,y1,x2,y2:integer;color:cardinal;r:integer=2); override;
@@ -567,6 +568,36 @@ begin
   diffuse:=color;
  end;
  DrawPrimitives(LINE_LIST,1,@vrt,sizeof(ScrPointNoTex));
+end;
+
+procedure TBasicPainter.DrawPolyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
+var
+ vrt:array of ScrPointNoTex;
+ i:integer;
+ pnt:PPoint2;
+ minX,minY,maxX,maxY:integer;
+begin
+ pnt:=points;
+ minX:=10000; minY:=10000; maxX:=-10000; maxY:=-10000;
+ SetLength(vrt,cnt+1);
+ pnt:=points;
+ for i:=0 to cnt-1 do begin
+  vrt[i].x:=pnt.x;
+  vrt[i].y:=pnt.y;
+  vrt[i].z:=zPlane;
+  vrt[i].rhw:=1;
+  vrt[i].diffuse:=color;
+  if pnt.x<minX then minX:=trunc(pnt.x);
+  if pnt.y<minY then minY:=trunc(pnt.y);
+  if pnt.x>maxX then maxX:=trunc(pnt.x)+1;
+  if pnt.y>maxY then maxY:=trunc(pnt.y)+1;
+  inc(pnt);
+ end;
+ if not SetStates(STATE_COLORED,types.Rect(minX,minY,maxX,maxY)) then exit; // Colored, normal viewport
+ ConvertColor(color);
+ if closed then vrt[cnt]:=vrt[0];
+// DrawPrimitives(LINE_LIST,cnt div 2,@vrt[0],sizeof(ScrPointNoTex));
+ DrawPrimitives(LINE_STRIP,cnt-1+byte(closed),@vrt[0],sizeof(ScrPointNoTex));
 end;
 
 procedure TBasicPainter.DrawDouble(x_, y_: integer; image1, image2: TTexture;color: cardinal);
