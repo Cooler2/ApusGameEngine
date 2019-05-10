@@ -303,12 +303,15 @@ type
   // -------------------------
   // Switch to default 2D view (use screen coordinates, no T&L)
   procedure SetDefaultView; virtual; abstract;
-  // Switch to 3D view - set perspective projection (in camera space)
+  // Switch to 3D view - set perspective projection (in camera space, camera pos = 0,0,0, Z-front, X-right, Y-down)
   // zMin, zMax - near and far Z plane
   // xMin,xMax - x coordinate range on the zScreen Z plane
   // yMin,yMax - y coordinate range on the zScreen Z plane
   // Т.е. точки (x,y,zScreen), где xMin <= x <= xMax, yMin <= y <= yMax - покрывают всю область вывода и только её
   procedure SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); virtual; abstract;
+  // Set orthographic projection matrix
+  // For example: scale=3 means that 1 unit in the world space is mapped to 3 pixels (in backbuffer)
+  procedure SetOrthographic(scale,zMin,zMax:double); virtual; abstract;
   // Set view transformation matrix (camera position)
   // View matrix is (R - right, D - down, F - forward, O - origin):
   // Rx Ry Rz
@@ -363,9 +366,9 @@ type
   function DrawImageInside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; virtual; abstract;
 
   // Meshes ------------------
-  // Draw textured tri-mesh
+  // Draw textured tri-mesh (tex=nil -> colored mode)
   procedure DrawTrgListTex(pnts:PScrPoint;trgcount:integer;tex:TTexture); virtual; abstract;
-  // Draw indexed tri-mesh  
+  // Draw indexed tri-mesh (tex=nil -> colored mode)
   procedure DrawIndexedMesh(vertices:PScrPoint;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); virtual; abstract;
 
   // Multitexturing functions ------------------

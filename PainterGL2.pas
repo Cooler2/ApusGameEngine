@@ -24,6 +24,7 @@ type
    procedure UseCustomShader; override;
    procedure ResetTexMode; override; 
    procedure Restore; override;
+   function TestTransformation(source:TPoint3):TPoint3;
 
  protected
    defaultShader:integer;
@@ -141,6 +142,22 @@ procedure TGLPainter2.SetTexMode(stage: byte; colorMode, alphaMode: TTexBlending
   if alphaMode<>tblNone then b:=(b and $0F)+ord(alphaMode) shl 4;
   tm[stage]:=word(b)+round(intFactor*255) shl 8;
  end;
+
+function TGLPainter2.TestTransformation(source: TPoint3): TPoint3;
+var
+ x,y,z,t:double;
+begin
+   x:=source.x*mvp[0,0]+source.y*mvp[1,0]+source.z*mvp[2,0]+mvp[3,0];
+   y:=source.x*mvp[0,1]+source.y*mvp[1,1]+source.z*mvp[2,1]+mvp[3,1];
+   z:=source.x*mvp[0,2]+source.y*mvp[1,2]+source.z*mvp[2,2]+mvp[3,2];
+   t:=source.x*mvp[0,3]+source.y*mvp[1,3]+source.z*mvp[2,3]+mvp[3,3];
+   if (t<>1) and (t<>0) then begin
+    x:=x/t; y:=y/t; z:=z/t;
+   end;
+   result.x:=x;
+   result.y:=y;
+   result.z:=z;
+end;
 
 procedure TGLPainter2.UseCustomShader;
 begin

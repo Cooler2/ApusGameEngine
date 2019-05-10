@@ -48,6 +48,7 @@ type
 
   // Setup projection
   procedure SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); override;
+  procedure SetOrthographic(scale,zMin,zMax:double); override;
   procedure SetDefaultView; override;
 
   procedure SetCullMode(mode:TCullMode); override;
@@ -797,13 +798,14 @@ procedure TGLPainter.Set3DView(view:T3DMatrix);
 var
  x,y,z:double;
 begin
+ Invert4Full(view,viewMatrix);
  // Последний вектор: положение начала координат мировой системы в СК камеры
- x:=view[3,0]; y:=view[3,1]; z:=view[3,2];
+ {x:=view[3,0]; y:=view[3,1]; z:=view[3,2];
  view[3,0]:=-(x*view[0,0]+y*view[0,1]+z*view[0,2]);
  view[3,1]:=-(x*view[1,0]+y*view[1,1]+z*view[1,2]);
  view[3,2]:=-(x*view[2,0]+y*view[2,1]+z*view[2,2]);
- viewmatrix:=view;
-// Set3DTransform(objMatrix);
+ viewmatrix:=view;}
+ Set3DTransform(objMatrix);
 end;
 
 procedure TGlPainter.SetGLMatrix(mType:TMatrixType;mat:PDouble);
@@ -880,6 +882,25 @@ begin
  SetGLMatrix(mtModelView,nil);
 end;
 
+procedure TGlPainter.SetOrthographic(scale,zMin,zMax:double);
+var
+ w,h:integer;
+begin
+ w:=(screenRect.Right-screenRect.Left);
+ h:=(screenRect.Bottom-screenRect.top);
+
+ projMatrix[0,0]:=scale*2/w;  projMatrix[1,0]:=0; projMatrix[2,0]:=0; projMatrix[3,0]:=0;
+ if (curtarget<>defaultRenderTarget) then begin
+  projMatrix[0,1]:=0;  projMatrix[1,1]:=scale*2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=0;
+ end else begin
+  projMatrix[0,1]:=0;  projMatrix[1,1]:=-scale*2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=0;
+ end;
+ projMatrix[0,2]:=0;  projMatrix[1,2]:=0; projMatrix[2,2]:=2/(zMax-zMin); projMatrix[3,2]:=-(zMax+zMin)/(zMax-zMin);
+ projMatrix[0,3]:=0;  projMatrix[1,3]:=0; projMatrix[2,3]:=0; projMatrix[3,3]:=1;
+
+ SetGLMatrix(mtProjection,@projMatrix);
+end;
+
 procedure TGlPainter.SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double);
 var
  A,B,C,D:double;
@@ -895,7 +916,7 @@ begin
   projMatrix[0,1]:=0;      projMatrix[1,1]:=-2*zScreen/(yMax-yMin);  projMatrix[2,1]:=-B;       projMatrix[3,1]:=0;
  end;
  projMatrix[0,2]:=0;      projMatrix[1,2]:=0;     projMatrix[2,2]:=-C;      projMatrix[3,2]:=D;
- projMatrix[0,3]:=0;      projMatrix[1,3]:=0;     projMatrix[2,3]:=1;       projMatrix[2,2]:=0;
+ projMatrix[0,3]:=0;      projMatrix[1,3]:=0;     projMatrix[2,3]:=1;       projMatrix[3,3]:=0;
  SetGLMatrix(mtProjection,@projMatrix);
 end;
 
