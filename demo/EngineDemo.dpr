@@ -56,7 +56,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 4;
+ testnum:integer = 11;
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -555,7 +555,7 @@ begin
 { if getTickCount mod 1000<500 then
   painter.DrawImage(0,0,tex1)
  else}
- DrawIndexedMesh(tex1,mesh.vertices,mesh.indices);
+ DrawIndexedMesh(mesh.vertices,mesh.indices,tex1);
  Reset2DTransform;
  //(painter as TDXPainter8).DrawTrgListTex(@vrt,1,tex2);
 
@@ -1403,46 +1403,125 @@ const
 var
 // mat:TMatrix4f;
  t:single;
- vertices:array[0..11] of TScrPoint;
+ vertices:TVertices;
  i:integer;
  x,y,z:double;
+ pnt:array[1..3] of TPoint3;
 begin
  inc(frame);
  sleep(1);
- painter.Clear($FF000000+frame and 127,-1,-1);
+ painter.Clear($FF000000+frame and 127,1,-1);
  painter.BeginPaint(nil);
 // painter.FillRect(10,10,20,20,$FF709090);
 
 // painter.SetDefaultView;
  x:=1024/2; y:=768/2; z:=500;
-{ painter.SetupCamera(Point3(x,y,z),
-    Point3(x,y,z+1),
-    Point3(x,y-1,z));}
+ t:=frame/100;
 
- painter.SetPerspective(-1024/2,1024/2,-768/2,768/2,z,z/10,10*z);
-{ glMatrixMode(GL_MODELVIEW);
- glLoadIdentity;
- gluLookAt(x,y,z,x,y,0,0,-10,0);}
+ painter.SetPerspective(-30,30,-20,20,40,1,100);
+// painter.SetOrthographic(30,0,100);
 
- painter.SetupCamera(Point3(x,y+50*sin(frame/200),z),
-    Point3(x,y,0),
-    Point3(x,y-1000,z));
+// painter.SetupCamera(Point3(20*sin(frame/100),-10,20*cos(frame/100)),Point3(0,0,0),Point3(0,1000,0));
+// t:=1;
+ painter.SetupCamera(Point3(20*cos(t),7,20*sin(t)),Point3(0,3,0),Point3(0,1000,00));
+// if frame mod 200<100 then
+// painter.SetupCamera(Point3(20,5,0),Point3(0,0,0),Point3(0,-1000,0));
 
  painter.Set3DTransform(IdentMatrix4); // вызывать обязательно!
-
-
-{ fillchar(mat,sizeof(mat),0);
- glMatrixMode(GL_MODELVIEW);
- mat[0,0]:=1; mat[1,1]:=1; mat[2,2]:=1; mat[3,3]:=1;
- mat[3,0]:=frame mod 100;
- glLoadMatrixF(@mat);}
-
  glDisable(GL_CULL_FACE);
 
+ glEnable(GL_DEPTH_TEST);
+ glDepthFunc(GL_LESS);
 
- painter.Set3DTransform(Matrix4(MultMat4(RotationYMat(frame/150),TranslationMat(490+20*sin(frame/500),390,350))));
+ pnt[1]:=TGLPainter2(painter).TestTransformation(Point3(0,3,0));
+ pnt[2]:=TGLPainter2(painter).TestTransformation(Point3(0,10,0));
+ pnt[3]:=TGLPainter2(painter).TestTransformation(Point3(0,0,10));
 
- vertices[0]:=MakeVertex(-10,-10,0,$FF00C000);
+ // X axis
+ AddVertex(vertices,0,-1,0,0,0,$FF0000C0);
+ AddVertex(vertices,0,1,0,0,0,$FF0000C0);
+ AddVertex(vertices,10,0,0,0,0,$FF0000C0);
+ AddVertex(vertices,0,0,-1,0,0,$FF0000C0);
+ AddVertex(vertices,0,0,1,0,0,$FF0000C0);
+ AddVertex(vertices,10,0,0,0,0,$FF0000C0);
+
+ // Y axis
+ AddVertex(vertices,-1, 0, 0,0,0,$FF00C000);
+ AddVertex(vertices, 1, 0, 0,0,0,$FF00C000);
+ AddVertex(vertices, 0,10, 0,0,0,$FF00C000);
+ AddVertex(vertices, 0, 0,-1,0,0,$FF00C000);
+ AddVertex(vertices, 0, 0, 1,0,0,$FF00C000);
+ AddVertex(vertices, 0,10, 0,0,0,$FF00C000);
+
+ // Z axis
+ AddVertex(vertices,-1, 0, 0,0,0,$FFC00000);
+ AddVertex(vertices, 1, 0, 0,0,0,$FFC00000);
+ AddVertex(vertices, 0, 0,10,0,0,$FFC00000);
+ AddVertex(vertices, 0,-1, 0,0,0,$FFC00000);
+ AddVertex(vertices, 0, 1, 0,0,0,$FFC00000);
+ AddVertex(vertices, 0, 0,10,0,0,$FFC00000);
+
+ // Cube
+ AddVertex(vertices, -1, -1, 1, 0,0,$FF400000);
+ AddVertex(vertices,  1, -1, 1, 0,0,$FF400000);
+ AddVertex(vertices,  1,  1, 1, 0,0,$FF400000);
+ AddVertex(vertices, -1, -1, 1, 0,0,$FF400000);
+ AddVertex(vertices,  1,  1, 1, 0,0,$FF400000);
+ AddVertex(vertices, -1,  1, 1, 0,0,$FF400000);
+
+ AddVertex(vertices, -1, -1,-1, 0,0,$FF600000);
+ AddVertex(vertices,  1, -1,-1, 0,0,$FF600000);
+ AddVertex(vertices,  1,  1,-1, 0,0,$FF600000);
+ AddVertex(vertices, -1, -1,-1, 0,0,$FF600000);
+ AddVertex(vertices,  1,  1,-1, 0,0,$FF600000);
+ AddVertex(vertices, -1,  1,-1, 0,0,$FF600000);
+
+ AddVertex(vertices, 1,-1, -1,  0,0,$FF000040);
+ AddVertex(vertices, 1, 1, -1,  0,0,$FF000040);
+ AddVertex(vertices, 1, 1,  1,  0,0,$FF000040);
+ AddVertex(vertices, 1,-1, -1,  0,0,$FF000040);
+ AddVertex(vertices, 1, 1,  1,  0,0,$FF000040);
+ AddVertex(vertices, 1,-1,  1,  0,0,$FF000040);
+
+ AddVertex(vertices,-1, -1, -1, 0,0,$FF000060);
+ AddVertex(vertices,-1,  1, -1, 0,0,$FF000060);
+ AddVertex(vertices,-1,  1,  1, 0,0,$FF000060);
+ AddVertex(vertices,-1, -1, -1, 0,0,$FF000060);
+ AddVertex(vertices,-1,  1,  1, 0,0,$FF000060);
+ AddVertex(vertices,-1, -1,  1, 0,0,$FF000060);
+
+ AddVertex(vertices, -1, 1, -1,  0,0,$FF004000);
+ AddVertex(vertices,  1, 1, -1,  0,0,$FF004000);
+ AddVertex(vertices,  1, 1,  1,  0,0,$FF004000);
+ AddVertex(vertices, -1, 1, -1,  0,0,$FF004000);
+ AddVertex(vertices,  1, 1,  1,  0,0,$FF004000);
+ AddVertex(vertices, -1, 1,  1,  0,0,$FF004000);
+
+ AddVertex(vertices, -1,-1, -1, 0,0,$FF006000);
+ AddVertex(vertices,  1,-1, -1, 0,0,$FF006000);
+ AddVertex(vertices,  1,-1,  1, 0,0,$FF006000);
+ AddVertex(vertices, -1,-1, -1, 0,0,$FF006000);
+ AddVertex(vertices,  1,-1,  1, 0,0,$FF006000);
+ AddVertex(vertices, -1,-1,  1, 0,0,$FF006000);
+
+ // Ground
+ AddVertex(vertices, -4, -4,-4, 0,0,$4F603060);
+ AddVertex(vertices,  4, -4,-4, 0,0,$4F603060);
+ AddVertex(vertices,  4,  4,-4, 0,0,$4F603060);
+ AddVertex(vertices, -4, -4,-4, 0,0,$4F603060);
+ AddVertex(vertices,  4,  4,-4, 0,0,$4F603060);
+ AddVertex(vertices, -4,  4,-4, 0,0,$4F603060);
+
+ AddVertex(vertices, 10, 5, 5, 0,0,$FFFFFFFF);
+ AddVertex(vertices, 10, 6, 5, 0,0,$FFFFFFFF);
+ AddVertex(vertices, 11, 5, 5, 0,0,$FFFFFFFF);
+
+
+ DrawMesh(vertices,nil);
+
+// painter.Set3DTransform(Matrix4(MultMat4(RotationYMat(frame/150),TranslationMat(490+20*sin(frame/500),390,350))));
+
+{ vertices[0]:=MakeVertex(-10,-10,0,$FF00C000);
  vertices[1]:=MakeVertex(30,-10,0,$FF00C080);
  vertices[2]:=MakeVertex(30,30,0,$FFC0C000);
  vertices[3]:=MakeVertex(-10,30,0,$FF0000F0);
@@ -1458,51 +1537,14 @@ begin
  vertices[3]:=MakeVertex(100,200,0,$FFC0C0C0);
  painter.DrawIndexedMesh(@vertices[0],@indices[0],2,4,nil);
 
- painter.FillRect(500,200,700,250,$FFC0B020);
+ painter.FillRect(500,200,700,250,$FFC0B020);    }
 
-(*
- {$IFDEF OPENGL}
- glMatrixMode(GL_PROJECTION);
- glLoadIdentity;
- glFrustum(-3,3,-2,2,5,20);
+{ painter.SetupCamera(Point3(0,0,0),
+    Point3(x,y,0),
+    Point3(x,y-1000,z));}
 
- glMatrixMode(GL_MODELVIEW);
- glLoadIdentity;
- fillchar(mat,sizeof(mat),0);
+ glDisable(GL_DEPTH_TEST);
 
-
- glDisable(GL_CULL_FACE);
-{ glShadeModel(GL_SMOOTH);
- glDisable(GL_LIGHTING);}
-
-{ glBegin(GL_TRIANGLES);
- t:=2+sin(frame/50);
- glColor3f(1,0,1);  glVertex3f(0,0,-t);
- glColor3f(1,1,0);  glVertex3f(1,0,-t);
- glColor3f(0,1,1);  glVertex3f(0,1,-t);
- glEnd;}
-
- glMatrixMode(GL_MODELVIEW);
- glLoadIdentity;
- glTranslatef(4*sin(frame/50),3*cos(frame/80),-7);
- glRotatef(frame,0,1,0);
-
- // Draw Cube
- glEnable(GL_CULL_FACE);
- glBegin(GL_TRIANGLE_FAN);
- glColor3f(0,1,0); glVertex3f(-1,-1,1); glVertex3f(-1,1,1); glVertex3f(1,1,1); glVertex3f(1,-1,1); glEnd;
- glBegin(GL_TRIANGLE_FAN);
- glColor3f(0,0,1); glVertex3f(1,-1,1); glVertex3f(1,1,1);  glVertex3f(1,1,-1); glVertex3f(1,-1,-1);   glEnd;
- glBegin(GL_TRIANGLE_FAN);
- glColor3f(1,0,0); glVertex3f(1,1,-1); glVertex3f(1,1,1); glVertex3f(-1,1,1); glVertex3f(-1,1,-1);  glEnd;
-
- glBegin(GL_TRIANGLE_FAN);
- glColor3f(0,1,0.8); glVertex3f(1,-1,-1); glVertex3f(1,1,-1); glVertex3f(-1,1,-1);  glVertex3f(-1,-1,-1); glEnd;
- glBegin(GL_TRIANGLE_FAN);
- glColor3f(0.8,0,1);  glVertex3f(-1,-1,-1);  glVertex3f(-1,1,-1); glVertex3f(-1,1,1); glVertex3f(-1,-1,1); glEnd;
- glBegin(GL_TRIANGLE_FAN);
- glColor3f(1,0.8,0); glVertex3f(-1,-1,-1); glVertex3f(-1,-1,1); glVertex3f(1,-1,1); glVertex3f(1,-1,-1);  glEnd;
- {$ENDIF} *)
  painter.EndPaint;
 end;
 
