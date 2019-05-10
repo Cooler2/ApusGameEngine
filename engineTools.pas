@@ -208,7 +208,9 @@ var
  function LoadMesh(fname:string):TMesh;
  function BuildMeshForImage(img:TTexture;splitX,splitY:integer):TMesh;
  function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices;
- procedure DrawIndexedMesh(img:TTexture;vertices:TVertices;indices:TIndices);
+ procedure DrawIndexedMesh(vertices:TVertices;indices:TIndices;tex:TTexture);
+ procedure DrawMesh(vertices:TVertices;tex:TTexture);
+ procedure AddVertex(var vertices:TVertices;x,y,z,u,v:single;color:cardinal);
 
 // procedure BuildNPatchMesh(img:TTexture;splitU,splitV,weightU,weightW:SingleArray;var vertices:TVertices;var indices:TIndices);
 
@@ -1324,9 +1326,28 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    end;
   end;
 
- procedure DrawIndexedMesh(img:TTexture;vertices:TVertices;indices:TIndices);
+ procedure DrawIndexedMesh(vertices:TVertices;indices:TIndices;tex:TTexture);
   begin
-   painter.DrawIndexedMesh(@vertices[0],@indices[0],length(indices) div 3,length(vertices),img);
+   painter.DrawIndexedMesh(@vertices[0],@indices[0],length(indices) div 3,length(vertices),tex);
+  end;
+
+ procedure DrawMesh(vertices:TVertices;tex:TTexture);
+  begin
+   painter.DrawTrgListTex(@vertices[0],length(vertices) div 3,tex);
+  end;
+
+ procedure AddVertex(var vertices:TVertices;x,y,z,u,v:single;color:cardinal);
+  var
+   n:integer;
+  begin
+   n:=length(vertices);
+   SetLength(vertices,n+1);
+   vertices[n].x:=x;
+   vertices[n].y:=y;
+   vertices[n].z:=z;
+   vertices[n].u:=u;
+   vertices[n].v:=v;
+   vertices[n].diffuse:=color;
   end;
 
  function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices;
