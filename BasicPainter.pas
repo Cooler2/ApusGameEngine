@@ -303,6 +303,17 @@ var
     color:=color and $FF00FF00+(color and $FF) shl 16+(color and $FF0000) shr 16
   end;
 
+ // Adjust color format if needed
+ procedure ConvertColors(color:PCardinal;count,stride:integer);
+  begin
+   while count>0 do begin
+    color^:=color^ and $FF00FF00+(color^ and $FF) shl 16+(color^ and $FF0000) shr 16;
+    inc(color,stride shr 2);
+    dec(count);
+   end;
+  end;
+
+
 procedure TUnicodeFontEx.InitDefaults;
  begin
   inherited;
@@ -916,8 +927,13 @@ var
  i:integer;
  p:PScrPoint;
 begin
- if not SetStates(STATE_TEXTURED2X,types.Rect(0,0,4096,2048),tex) then exit; // Textured, normal viewport
- UseTexture(tex);
+ if tex<>nil then begin
+  if not SetStates(STATE_TEXTURED2X,types.Rect(0,0,4096,2048),tex) then exit; // Textured, normal viewport
+  UseTexture(tex);
+ end else
+  if not SetStates(STATE_COLORED,types.Rect(0,0,4096,2048),nil) then exit; // Colored, normal viewport
+ if colorFormat>0 then
+  ConvertColors(@(pnts^.diffuse),trgCount*3,sizeof(TScrPoint));
  DrawPrimitives(TRG_LIST,trgcount,pnts,sizeof(TScrPoint));
 end;
 
@@ -930,6 +946,8 @@ begin
  if tex<>nil then mode:=STATE_TEXTURED2X else mode:=STATE_COLORED;
  if not SetStates(mode,types.Rect(0,0,4096,2048),tex) then exit; // Textured, normal viewport
  if tex<>nil then UseTexture(tex);
+ if colorFormat>0 then
+  ConvertColors(@(vertices^.diffuse),vrtCount,sizeof(TScrPoint));
  DrawIndexedPrimitivesDirectly(TRG_LIST,vertices,indices,sizeof(TScrPoint),0,vrtCount,0,trgCount);
 end;
 
