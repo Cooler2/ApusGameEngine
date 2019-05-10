@@ -905,9 +905,9 @@ begin
     scancode:=(lParam shr 16) and $FF;
     keyState[scanCode]:=keyState[scanCode] or 1;
 //    LogMessage('KeyDown: '+IntToStr(wParam));
-    Signal('KBD\KeyDown',wParam and $FFFF+shiftstate shl 16+scancode shr 24);
+    Signal('KBD\KeyDown',wParam and $FFFF+shiftstate shl 16+scancode shl 24);
     scene:=TopmostSceneForKbd;
-    if scene<>nil then Signal('UI\'+scene.name+'\KeyDown',wparam);
+    if scene<>nil then Signal('SCENE\'+scene.name+'\KeyDown',wparam and $FFFF+scanCode shl 24);
   end;
                     
   WM_KEYUP,WM_SYSKEYUP:if game<>nil then begin
@@ -921,7 +921,7 @@ begin
     game.keyState[scanCode]:=game.keyState[scanCode] and $FE;
     Signal('KBD\KeyUp',wParam and $FFFF+game.shiftstate shl 16+scancode shl 24);
     scene:=game.TopmostSceneForKbd;
-    if scene<>nil then Signal('UI\'+scene.name+'\KeyUp',wparam);
+    if scene<>nil then Signal('SCENE\'+scene.name+'\KeyUp',wparam);
     if message=WM_SYSKEYUP then begin
      result:=0; exit;
     end;
