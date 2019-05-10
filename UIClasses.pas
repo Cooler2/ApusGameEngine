@@ -1189,18 +1189,20 @@ end;
 
 procedure TUIControl.Resize(newWidth, newHeight: integer);
 var
- i,dX,dY:integer;
+ i,dX,dY,cw,ch:integer;
 begin
  if newWidth>-1 then dx:=newwidth-width else dx:=0;
  if newHeight>-1 then dy:=newHeight-height else dy:=0;
  inc(width,dx); inc(height,dy);
  for i:=0 to length(children)-1 do with children[i] do begin
-  if not AnchorLeft then begin inc(x,dx); dec(width,dx); end;
-  if not AnchorTop then begin inc(y,dy); dec(height,dy); end;
-  if anchorRight then inc(width,dx);
-  if anchorBottom then inc(height,dy);
-  if width<0 then width:=0;
-  if height<0 then height:=0;
+  cw:=width; ch:=height;
+  if not AnchorLeft then begin inc(x,dx); dec(cw,dx); end;
+  if not AnchorTop then begin inc(y,dy); dec(ch,dy); end;
+  if anchorRight then inc(cw,dx);
+  if anchorBottom then inc(ch,dy);
+  if cw<0 then cw:=0;
+  if ch<0 then ch:=0;
+  Resize(cw,ch);
  end;
  if anchorRight and not anchorLeft then dec(x,dx);
  if anchorBottom and not anchorTop then dec(y,dy);
