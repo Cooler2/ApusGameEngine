@@ -148,7 +148,7 @@ implementation
    i:integer;
   begin
    for i:=0 to 3 do
-    if mm2[i]*mm1[i]<$8000 then mm1[i]:=255
+    if mm2[i]*mm1[i]>$8000 then mm1[i]:=255
      else mm1[i]:=mm2[i]*mm1[i] shr 7;
    result:=c1;
   end;
