@@ -144,6 +144,7 @@ interface
  // ¬ычисление обратной матрицы (осторожно!)
  procedure Invert3(m:TMatrix3;out dest:TMatrix3);
  procedure Invert4(m:TMatrix43;out dest:TMatrix43);
+ procedure Invert4Full(m:TMatrix4;out dest:TMatrix4);
 
  function Det(m:TMatrix3):single;
 
@@ -564,6 +565,50 @@ implementation
    dest[0,0]:=dest[0,0]/la;   dest[1,0]:=dest[1,0]/la;   dest[2,0]:=dest[2,0]/la;   dest[3,0]:=dest[3,0]/la;
    dest[0,1]:=dest[0,1]/lb;   dest[1,1]:=dest[1,1]/lb;   dest[2,1]:=dest[2,1]/lb;   dest[3,1]:=dest[3,1]/lb;
    dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;   dest[3,2]:=dest[3,2]/lc;
+  end;
+
+ procedure Invert4Full(m:TMatrix4;out dest:TMatrix4);
+  var
+   i,k:integer;
+   v:double;
+  procedure AddRow(src,target:integer;factor:double);
+   var
+    i:integer;
+   begin
+    for i:=0 to 3 do begin
+     m[target,i]:=m[target,i]+factor*m[src,i];
+     dest[target,i]:=dest[target,i]+factor*dest[src,i];
+    end;
+   end;
+  procedure MultRow(row:integer;factor:double);
+   var
+    i:integer;
+   begin
+    for i:=0 to 3 do begin
+     m[row,i]:=m[row,i]*factor;
+     dest[row,i]:=dest[row,i]*factor;
+    end;
+   end;
+  begin
+   dest:=IdentMatrix4;
+   for i:=0 to 3 do begin
+     v:=m[i,i];
+     if v=0 then begin
+      for k:=i+1 to 3 do
+       if m[k,i]<>0 then begin
+        AddRow(k,i,1);
+        break;
+       end;
+      v:=m[i,i];
+      if v=0 then raise Exception.Create('Cannot invert matrix!');
+     end;
+     MultRow(i,1/v);
+     for k:=i+1 to 3 do
+      AddRow(i,k,-m[k,i]);
+    end;
+   for i:=3 downto 1 do
+    for k:=i-1 downto 0 do
+     AddRow(i,k,-m[k,i]);
   end;
 
  procedure MultPnt4(m:TMatrix43;v:PPoint3;num,step:integer);
