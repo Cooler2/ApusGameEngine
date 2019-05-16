@@ -133,6 +133,16 @@ begin
    format:=GL_BGRA;
    subFormat:=GL_UNSIGNED_BYTE;
   end;
+  ipfMono8:begin
+   internalFormat:=1;
+   format:=GL_RED;
+   subFormat:=GL_UNSIGNED_BYTE;
+  end;
+  ipfDuo8:begin
+   internalFormat:=2;
+   format:=GL_RG;
+   subFormat:=GL_UNSIGNED_BYTE;
+  end;
   ipf565:begin
    internalFormat:=GL_RGB5;
    format:=GL_RGB;
