@@ -1,3 +1,4 @@
+#version 110
 uniform float offset;
 
 void main(void)

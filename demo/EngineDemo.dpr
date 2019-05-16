@@ -56,7 +56,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 11;
+ testnum:integer = 13;
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -69,7 +69,7 @@ const
  // 10 - полоски
  // 11 - тест 3D
  // 12 - вывод текста FreeType
- // 13 - тест шейдеров OpenGL
+ // 13 - тест шейдеров OpenGL (НЕ ДЛЯ GLPAINTER2!)
  // 14 - тест видео
 
  TexVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR+D3DFVF_TEX1+D3DFVF_TEXTUREFORMAT2;
@@ -1581,7 +1581,9 @@ var
  x,y:integer;
 begin
  try
- prog:=TGLPainter(painter).BuildShaderProgram(LoadFileAsString('shader.vert'),LoadFileAsString('shader.frag'));
+ prog:=TGLPainter(painter).BuildShaderProgram(
+   LoadFileAsString('res\shader.vert'),
+   LoadFileAsString('res\shader.frag'));
  loc1:=glGetUniformLocation(prog,'offset');
 
  tex:=texman.AllocImage(256,256,ipfARGB,0,'tex') as TTextureImage;
@@ -1617,8 +1619,8 @@ begin
  d:=1+sin(0.003*(myTickCount mod $FFFFFF));
  glUniform1f(loc1,0.003*d);
  painter.DrawImage(600,300,tex);
+ glUseProgram(0);
  painter.Restore;
- //glUseProgram(0);
  painter.FillGradrect(50,50,300,200,$FFF04000,$FF60C000,false);
  painter.FillRect(30,100,500,120,$FF000000);
  painter.EndPaint;
