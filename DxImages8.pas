@@ -49,7 +49,7 @@ type
                       PixFmt:ImagePixelFormat;Flags:integer;name:texnamestr):TTexture; override;
   procedure FreeImage(var image:TTexture); override;
   procedure FreeImage(var image:TTextureImage); override;
-  procedure MakeOnline(img:TTexture); override;
+  procedure MakeOnline(img:TTexture;stage:integer=0); override;
   function QueryParams(width,height:integer;format:ImagePixelFormat;aiFlags:integer):boolean; override;
 
   procedure ReleaseAll; virtual;   // Уничтожить все созданные ресурсы в видеопамяти (чтобы можно было восстановить девайс - текстурные объекты и дескрипторы не удаляются!!!)
@@ -723,7 +723,7 @@ begin
   end;
 end;
 
-procedure TDxTextureMan.MakeOnline(img: TTexture);
+procedure TDxTextureMan.MakeOnline(img: TTexture;stage:integer=0);
 var
  desc:TD3DSurfaceDesc;
  i,j,ind,part:integer;

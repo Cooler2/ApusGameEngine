@@ -25,6 +25,7 @@ type
   realData:array of byte; // sysmem instance of texture data
 //  datasize:integer;
   fbo:cardinal;
+  rbo:cardinal;
   dirty:array[0..15] of TRect;
   dCount:integer;
  end;
@@ -40,8 +41,8 @@ type
   function Clone(img:TTexture):TTexture; override;
   procedure FreeImage(var image:TTexture); override;
   procedure FreeImage(var image:TTextureImage); override;
-  procedure MakeOnline(img:TTexture); override;
-  procedure MakeOnlineForStage(img:TTexture;stage:integer); virtual;
+  procedure MakeOnline(img:TTexture;stage:integer=0); override;
+//  procedure MakeOnlineForStage(img:TTexture;stage:integer); virtual;
   procedure SetTexFilter(img:TTexture;filter:TTexFilter); virtual; // Works for ACTIVE texture only!
 
   function QueryParams(width,height:integer;format:ImagePixelFormat;usage:integer):boolean; override;
@@ -105,7 +106,8 @@ begin
    lastErrorTime:=t;
    ForceLogMessage('GLI Error ('+msg+') '+inttostr(error)+' '+GetCallStack);
   end;
- except end;
+ except
+ end;
 end;
 
 
@@ -365,6 +367,8 @@ var
  status:cardinal;
  format,SubFormat,internalFormat:cardinal;
  dataSize:integer;
+ renderBuffer:GLUint;
+ drawBuffers:GLenum;
 begin
  ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
  ASSERT(pixFmt<>ipfNone,'Invalid pixel format for '+name);
@@ -374,6 +378,8 @@ begin
  try
  tex:=TGLTexture.Create;
  result:=tex;
+ tex.rbo:=0;
+ tex.fbo:=0;
  tex.refCounter:=1;
  tex.left:=0;
  tex.top:=0;
@@ -426,7 +432,7 @@ begin
   if status<>GL_FRAMEBUFFER_COMPLETE_OES then
    raise EError.Create('FBO status: '+inttostr(status));
   {$ELSE}
-  glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex.texname,0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,zTex.texname,0);
   status:=glCheckFramebufferStatus(GL_FRAMEBUFFER);
   if status<>GL_FRAMEBUFFER_COMPLETE then
    raise EError.Create('FBO status: '+inttostr(status));
@@ -455,6 +461,17 @@ begin
    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,format,subFormat,nil);
    CheckForGLError('4');
    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex.texname,0);
+
+   if flags and aiUseZBuffer>0 then begin
+    glGenRenderbuffers(1,@renderBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+    glFramebufferRenderBuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
+    tex.rbo:=renderBuffer;
+   end;
+
+   drawBuffers:=GL_COLOR_ATTACHMENT0;
+   glDrawBuffers(1, @drawBuffers);
 
    status:=glCheckFramebufferStatus(GL_FRAMEBUFFER);
    if status<>GL_FRAMEBUFFER_COMPLETE then
@@ -622,6 +639,7 @@ begin
     raise EError.Create('TexMan FI: framebuffers not supported!');
    {$ENDIF}
   end;
+  if tex.rbo<>0 then glDeleteRenderbuffers(1,@tex.rbo);
   if tex.texname<>0 then glDeleteTextures(1,@tex.texname);
   if Length(tex.realData)>0 then SetLength(tex.realData,0);
   tex.Free;
@@ -669,7 +687,7 @@ begin
  TGlTexture(img).filter:=filter;
 end;
 
-procedure TGLTextureMan.MakeOnlineForStage(img: TTexture;stage:integer);
+procedure TGLTextureMan.MakeOnline(img: TTexture;stage:integer=0);
 var
  format,subformat,internalFormat,error:cardinal;
  needInit:boolean;
@@ -773,11 +791,6 @@ begin
  end;
 end;
 
-procedure TGLTextureMan.MakeOnline(img:TTexture);
-begin
- MakeOnlineForStage(img,0);
-end;
-
 function TGLTextureMan.QueryParams(width, height: integer;
   format: ImagePixelFormat; usage: integer): boolean;
 var
@@ -816,6 +829,10 @@ begin
    height:=newHeight;
    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,glFormat,subFormat,nil);
    CheckForGLError('31');
+   if rbo<>0 then begin
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+   end;
    exit;
   end;
   // Delete and allocate again
