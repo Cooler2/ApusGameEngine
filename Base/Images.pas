@@ -16,8 +16,8 @@ type
  // Форматы представления изображения
  ImagePixelFormat=(ipfNone,     // формат по умолчанию
                    ipf1Bit,     // 1bpp (2 colors) - monochrome
-                   ipf4Bit,     // 4bpp (16 colors)
-                   ipf8Bit,     // 8bpp (256 colors)
+                   ipf4Bit,     // 4bpp (16 colors, indexed)
+                   ipf8Bit,     // 8bpp (256 colors, indexed)
                    ipf555,      // 16bpp (5-5-5 format)
                    ipf1555,     // 16bpp (5-5-5 format with 1-bit alpha)
                    ipf565,      // 16bpp (5-6-5 format)
@@ -36,6 +36,8 @@ type
                    ipf4444r,    // 16bpp 4-4-4-4 format with $BGRA structure
                    ipfABGR,     // 32bpp
                    ipfXBGR,     // 32bpp
+                   ipfMono8,    // 1-channel 8 bit image (grayscale or red)
+                   ipfDuo8,     // 2-channels 8 bit image (for example, red-green)
                    ipf32bpp);   // generic 32bpp: XRGB or ARGB
 
  // Форматы представления палитры
@@ -129,11 +131,12 @@ type
 
  var
   // Преобразование цвета из RGBA в заданный формат
-  ColorTo:array[ImagePixelFormat] of TColorConv;
+  colorTo:array[ImagePixelFormat] of TColorConv;
+  colorFrom:array[ImagePixelFormat] of TColorConv;
 
  const
   // Размер пикселя в битах
-  PixelSize:array[ImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,32,32,64,128,128,128,4,4,8,8,16,32,32,32);
+  PixelSize:array[ImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,16,32);
   PalEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
 
  procedure ConvertLine(var sour,dest;sourformat,destformat:ImagePixelFormat;
@@ -407,4 +410,6 @@ initialization
  ColorTo[ipf565]:=ColorTo16;
  ColorTo[ipf1555]:=ColorTo15A;
  ColorTo[ipf555]:=ColorTo15;
-end.
+
+ colorFrom[ipfARGB]:=ColorFrom32;
+ colorFrom[ipfXRGB]:=ColorFrom32; colorFrom[ipfRGB]:=ColorFrom24;end.
