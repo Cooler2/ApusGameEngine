@@ -1240,7 +1240,7 @@ begin
     then fl:=false;
   FLog('Clear '+booltostr(fl));
   if fl then begin
-   if params.zbuffer>0 then z:=0 else z:=-1;
+   if params.zbuffer>0 then z:=1 else z:=-1;
    if params.stencil then s:=0 else s:=-1;
    painter.Clear($FF000000,z,s);
   end;

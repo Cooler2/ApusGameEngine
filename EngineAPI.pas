@@ -15,7 +15,8 @@ const
  aiPow2           = 16; // размеры дополняются до степени 2
 // aiWriteOnly      = 32; // Can be locked, but for write only operation
  aiDontScale      = 64; // Use exact width/height for render target allocation (otherwise they're scaled using current scale factor)
- aiClampUV        = 128; // clamp texture coordinates instead of wrapping them (for aiTexture only) 
+ aiClampUV        = 128; // clamp texture coordinates instead of wrapping them (for aiTexture only)
+ aiUseZBuffer     = 256; // allocate Depth Buffer for this image (for aiRenderTarget only)
 
  // Metatexture dimension flags
  aiMW256   = $010000;
@@ -195,7 +196,7 @@ type
   procedure FreeImage(var image:TTextureImage); overload; virtual; abstract;
   // Сделать текстуру доступной для использования (может использоваться для менеджмента текстур)
   // необходимо вызывать всякий раз перед переключением на текстуру (обычно это делает код рисовалки)
-  procedure MakeOnline(img:TTexture); virtual; abstract;
+  procedure MakeOnline(img:TTexture;stage:integer=0); virtual; abstract;
   // Проверить возможность выделения текстуры в заданном формате с заданными флагами
   // Возвращает true если такую текстуру принципиально можно создать
   function QueryParams(width,height:integer;format:ImagePixelFormat;aiFlags:integer):boolean; virtual; abstract;
@@ -323,6 +324,9 @@ type
   procedure SetupCamera(origin,target,up:TPoint3;turnCW:double=0); virtual; abstract;
   // Set Model (model to world) transformation matrix (MUST BE USED AFTER setting the view/camera)
   procedure Set3DTransform(mat:T3DMatrix); virtual; abstract;
+  // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
+  function GetMVPMatrix:T3DMatrix; virtual; abstract;
+
   // Set cull mode
   procedure SetCullMode(mode:TCullMode); virtual; abstract;
 

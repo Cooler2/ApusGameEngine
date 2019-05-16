@@ -143,6 +143,7 @@ end;
 procedure TGLGame.InitObjects;
 var
  fl:boolean;
+ flags:cardinal;
 begin
  try
   LogMessage('Texman');
@@ -158,7 +159,10 @@ begin
   if fl then LogMessage('Modern rendering model disabled by -noDRT switsh');
   if not fl and GL_VERSION_2_0 and (texman.maxRTTextureSize>=params.width) then begin
    LogMessage('Switching to the modern rendering model');
-   dRT:=texman.AllocImage(params.width,params.height,pfRTHigh,aiRenderTarget,'DefaultRT');
+   flags:=aiRenderTarget;
+   if params.zbuffer>0 then flags:=flags+aiUseZBuffer;
+
+   dRT:=texman.AllocImage(params.width,params.height,pfRTHigh,flags,'DefaultRT');
    (painter as TGLPainter).SetDefaultRenderTarget(dRT);
   end;
  except

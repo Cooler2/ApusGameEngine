@@ -22,9 +22,10 @@ type
    procedure SetTexMode(stage:byte;colorMode,alphaMode:TTexBlendingMode;filter:
      TTexFilter=fltUndefined;intFactor:single=0.0); override; // Режим текстурирования
    procedure UseCustomShader; override;
-   procedure ResetTexMode; override; 
+   procedure ResetTexMode; override;
    procedure Restore; override;
    function TestTransformation(source:TPoint3):TPoint3;
+   function GetMVPMatrix:T3DMatrix; override;
 
  protected
    defaultShader:integer;
@@ -68,7 +69,7 @@ const
 {$ENDIF}
 
 const
- AS_DEFAULT = 0;       // Стандартный шейдер
+ AS_DEFAULT = 0;       // Стандартный шейдер (для основных режимов блендинга)
  AS_CUSTOMIZED = 1;    // Специальный шейдер, созданный под выбранные параметры блендинга
  AS_OWN = 2;           // Внешний (клиентский) шейдер
 
@@ -387,6 +388,11 @@ begin
  end;
 end;
 
+function TGLPainter2.GetMVPMatrix: T3DMatrix;
+begin
+ result:=MVP;
+end;
+
 procedure TGLPainter2.ResetTexMode;
 begin
  actualShader:=AS_DEFAULT;
@@ -486,7 +492,6 @@ const
   '  if (texmode==1) { gl_FragColor = vec4(2.0, 2.0, 2.0, 1.0)*vColor*texture2D(tex1,vTexcoord); } else      '#13#10+
   '  if (texmode==2) { gl_FragColor = vColor; } else      '#13#10+
   '  if (texmode==4) { vec4 value=vColor; value.a=value.a*texture2D(tex1,vTexcoord).a; gl_FragColor = value; };      '#13#10+
-//  '    gl_FragColor = vColor;                   '+
   '}';
 
 constructor TGLPainter2.Create(textureMan: TTextureMan);

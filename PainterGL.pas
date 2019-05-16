@@ -915,7 +915,7 @@ begin
  end else begin
   projMatrix[0,1]:=0;      projMatrix[1,1]:=-2*zScreen/(yMax-yMin);  projMatrix[2,1]:=-B;       projMatrix[3,1]:=0;
  end;
- projMatrix[0,2]:=0;      projMatrix[1,2]:=0;     projMatrix[2,2]:=-C;      projMatrix[3,2]:=D;
+ projMatrix[0,2]:=0;      projMatrix[1,2]:=0;     projMatrix[2,2]:=C;      projMatrix[3,2]:=-D;
  projMatrix[0,3]:=0;      projMatrix[1,3]:=0;     projMatrix[2,3]:=1;       projMatrix[3,3]:=0;
  SetGLMatrix(mtProjection,@projMatrix);
 end;
@@ -1032,9 +1032,9 @@ end;
 procedure TGLPainter.ResetTextures;
 begin
  with texman as TGLTExtureMan do begin
-  MakeOnlineForStage(nil,0);
-  MakeOnlineForStage(nil,1);
-  MakeOnlineForStage(nil,2);
+  MakeOnline(nil,0);
+  MakeOnline(nil,1);
+  MakeOnline(nil,2);
  end;
 end;
 
@@ -1128,7 +1128,7 @@ begin
 //  glActiveTexture(GL_TEXTURE0+stage);
   if tex.atlas<>nil then tex:=tex.atlas;
   //TGLTexture(tex).filter:=curFilters[stage];
-  (texman as TGLTextureMan).MakeOnlineForStage(tex,stage);
+  texman.MakeOnline(tex,stage);
   if curFilters[stage]<>TGLTexture(tex).filter then
    (texman as TGLTextureMan).SetTexFilter(tex,curFilters[stage]);
 
