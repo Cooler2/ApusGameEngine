@@ -93,7 +93,8 @@ interface
  procedure Normalize3(var v:TVector3s); overload;
  procedure VectAdd3(var a:TVector3;b:TVector3);
  procedure VectSub3(var a:TVector3;b:TVector3);
- procedure VectMult(var a:TVector3;k:double);
+ procedure VectMult(var a:TVector3;k:double); overload;
+ procedure VectMult(var a:TVector3s;k:double); overload;
  function Vect3Mult(a:TVector3;k:double):TVector3;
  function PointAdd(p:TPoint3;v:TVector3;factor:double=1.0):TPoint3; inline;
  function Distance(p1,p2:TPoint3):double; overload;
@@ -313,7 +314,13 @@ implementation
    a.y:=a.y*k;
    a.z:=a.z*k;
   end;
- function Vect3Mult(a:TVector3;k:double):TVector3;
+ procedure VectMult(var a:TVector3s;k:double);
+  begin
+   a.x:=a.x*k;
+   a.y:=a.y*k;
+   a.z:=a.z*k;
+  end;
+  function Vect3Mult(a:TVector3;k:double):TVector3;
   begin
    result.x:=a.x*k;
    result.y:=a.y*k;
