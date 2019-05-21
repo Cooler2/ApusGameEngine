@@ -314,6 +314,12 @@ interface
  function UnpackRLE(buf:pointer;size:integer):ByteArray;
  function CheckRLEHeader(buf:pointer;size:integer):integer; // -1 - no header
 
+ // Сравнить два куска памяти и создать патч с набором изменений от sour к dest
+ function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
+
+ // Сравнить два куска памяти и создать патч с набором изменений от sour к dest
+ procedure ApplyDiffPatch(data:pointer;size:integer;patch:pointer;patchSize:integer);
+
  // Преобразует дату из строки в формате DD.MM.YYYY HH:MM:SS (другие форматы тоже понимает и распознаёт)
  function GetDateFromStr(st:string;default:TDateTime=0):TDateTime;
  // Возвращает строку с разницей между указанным временем и текущим моментом (сколько времени прошло с указанного момента)
@@ -1368,6 +1374,125 @@ function UnpackRLE(buf:pointer;size:integer):ByteArray;
     fillchar(result[p],c,pb^);
     inc(p,c);
     inc(pb); dec(size);
+   end;
+  end;
+ end;
+
+// Формат потока:
+// - если 1-й байт >$80, то 7 бит - кол-во следующих за ним байтов данных
+// - иначе 7 бит + 8 бит следующего байта - это 15 бит смещение до начала следующего блока
+function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
+ var
+  i,cnt,pos,sameCnt,diffCnt:integer;
+  sp,dp:PByte;
+  mode:integer;
+ begin
+  sp:=sour; dp:=dest;
+  SetLength(result,size+4+size div 16);
+  cnt:=0; // счётчик байт в выходном потоке
+  pos:=0;
+  sameCnt:=0; mode:=0; // поиск повторяющейся строки
+  for i:=0 to size-1 do begin
+   if mode=0 then begin
+    if sp^<>dp^ then begin
+     if sameCnt>=4 then begin
+      // достаточно длинная цепочка для сохранения - сохраняем и переходим в режим 1
+      result[cnt]:=sameCnt shr 8;
+      result[cnt+1]:=sameCnt and $FF;
+      inc(cnt,2);
+      sameCnt:=0;
+      mode:=1; diffCnt:=1;
+     end else begin
+      // недостаточно длинная цепочка для сохранения - переходим в режим 1 без сохранения
+      diffCnt:=sameCnt+1; sameCnt:=0;
+      mode:=1;
+     end;
+    end else begin
+     // Байты совпадают - продолжаем
+     inc(sameCnt);
+     if sameCnt=32767 then begin
+      // достигнут предел по длине
+      result[cnt]:=$7F;
+      result[cnt+1]:=$FF;
+      inc(cnt,2);
+      sameCnt:=0;
+     end;
+    end;
+   end else begin
+    // Режим 1: сканирование отличающихся данных
+    inc(diffCnt);
+    if diffCnt=127 then begin
+     // достигнут предел по длине - сохраняем и переключаемся в режим 0
+     result[cnt]:=$80+diffCnt;
+     dec(sp,diffCnt-1);
+     move(sp^,result[cnt+1],diffCnt);
+     inc(sp,diffCnt-1);
+     inc(cnt,128);
+     mode:=0;
+     diffCnt:=0;
+     sameCnt:=0;
+    end else begin
+     if sp^<>dp^ then begin
+      sameCnt:=0;
+     end else begin
+      // байты совпадают
+      inc(sameCnt);
+      if sameCnt>5 then begin
+       // Много байт совпадает - пора сохранить и переключиться в режим 0
+       result[cnt]:=$80+diffCnt-sameCnt;
+       dec(sp,diffCnt-1);
+       move(sp^,result[cnt+1],diffCnt-sameCnt);
+       inc(sp,diffCnt-1);
+       inc(cnt,1+diffCnt-sameCnt);
+       diffCnt:=0;
+       mode:=0;
+      end;
+     end;
+    end;
+   end;
+   inc(sp); inc(dp);
+  end;
+  // финализация результата
+  if mode=0 then begin
+   result[cnt]:=sameCnt shr 8;
+   result[cnt+1]:=sameCnt and $FF;
+   inc(cnt,2);
+  end else begin
+   result[cnt]:=$80+diffCnt;
+   dec(sp,diffCnt);
+   move(sp^,result[cnt+1],diffCnt);
+   inc(cnt,1+diffCnt);
+  end;
+
+  SetLength(result,cnt);
+ end;
+
+procedure ApplyDiffPatch(data:pointer;size:integer;patch:pointer;patchSize:integer);
+ var
+  pb,dp:PByte;
+  ofs:integer;
+ begin
+  pb:=patch;
+  dp:=data;
+  while patchSize>0 do begin
+   ofs:=pb^;
+   if ofs and $80>0 then begin
+    ofs:=ofs and $7F;
+    inc(pb);
+    dec(size,ofs);
+    ASSERT(size>=0,'ADP: out of bounds');
+    move(pb^,dp^,ofs);
+    inc(pb,ofs);
+    inc(dp,ofs);
+    dec(patchSize,1+ofs);
+   end else begin
+    inc(pb);
+    ofs:=ofs shl 8+pb^;
+    inc(dp,ofs);
+    dec(size,ofs);
+    inc(pb);
+    dec(patchSize,2);
+    ASSERT(size>=0,'ADP: out of bounds');
    end;
   end;
  end;

@@ -1016,6 +1016,56 @@ procedure TestRLE;
   writeln('Unpack time (100Mb) = ',MyTickCount-t);
  end;
 
+procedure TestPatch;
+var
+ sour,dest,patch:ByteArray;
+ i,size:integer;
+ hash:int64;
+procedure FillDest(r:integer);
+ var
+  i:integer;
+ begin
+  for i:=0 to size-1 do
+   if random(1000)<r then dest[i]:=random(256)
+    else dest[i]:=sour[i];
+ end;
+begin
+ writeln('Test diff patch');
+ size:=1000000;
+// size:=127*228+2;
+ SetLength(sour,size);
+ SetLength(dest,size);
+ for i:=0 to size-1 do
+  sour[i]:=random(256);
+
+ hash:=CheckSum64(@sour[0],size);
+
+ FillDest(1000);
+ patch:=CreateDiffPatch(@sour[0],@dest[0],size);
+ ApplyDiffPatch(@dest[0],size,@patch[0],length(patch));
+ if CheckSum64(@dest[0],size)<>hash then raise EError.Create('PATCH CASE 1 FAILED!')
+  else write('CASE 1 OK ');
+
+ FillDest(100);
+ patch:=CreateDiffPatch(@sour[0],@dest[0],size);
+ ApplyDiffPatch(@dest[0],size,@patch[0],length(patch));
+ if CheckSum64(@dest[0],size)<>hash then raise EError.Create('PATCH CASE 2 FAILED!')
+  else write('CASE 2 OK ');
+
+ FillDest(10);
+ patch:=CreateDiffPatch(@sour[0],@dest[0],size);
+ ApplyDiffPatch(@dest[0],size,@patch[0],length(patch));
+ if CheckSum64(@dest[0],size)<>hash then raise EError.Create('PATCH CASE 3 FAILED!')
+  else write('CASE 3 OK ');
+
+ FillDest(0);
+ patch:=CreateDiffPatch(@sour[0],@dest[0],size);
+ ApplyDiffPatch(@dest[0],size,@patch[0],length(patch));
+ if CheckSum64(@dest[0],size)<>hash then raise EError.Create('PATCH CASE 4 FAILED!')
+  else write('CASE 4 OK ');
+
+end;
+
 procedure TestB64;
 var
  src,dst:array[1..50] of byte;
@@ -1352,6 +1402,9 @@ begin
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
+  TestPatch;
+  readln;
+  exit;
   TestStackTrace;
 
   TestPNG;
