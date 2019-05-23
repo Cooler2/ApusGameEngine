@@ -314,10 +314,10 @@ interface
  function UnpackRLE(buf:pointer;size:integer):ByteArray;
  function CheckRLEHeader(buf:pointer;size:integer):integer; // -1 - no header
 
- // Сравнить два куска памяти и создать патч с набором изменений от sour к dest
+ // Сравнить два куска памяти и создать патч с набором изменений в sour по сравнению с dest
  function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
 
- // Сравнить два куска памяти и создать патч с набором изменений от sour к dest
+ // Применить патч. После применения dest приводится к состоянию sour
  procedure ApplyDiffPatch(data:pointer;size:integer;patch:pointer;patchSize:integer);
 
  // Преобразует дату из строки в формате DD.MM.YYYY HH:MM:SS (другие форматы тоже понимает и распознаёт)
