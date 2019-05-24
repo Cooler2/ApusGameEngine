@@ -50,6 +50,16 @@ interface
    procedure Leave; inline; // for compatibility
   end;
 
+  TSRWLock=packed record
+   lock:SRWLock;
+   name:string;
+   procedure Init(name:string);
+   procedure StartRead;
+   procedure FinishRead;
+   procedure StartWrite;
+   procedure FinishWrite;
+  end;
+
   // Base exception with stack trace support
   TBaseException=class(Exception)
    private
@@ -4227,6 +4237,34 @@ function GetParam(name:string):string;
 
 var
  v:Int64;
+{ TSRWLock }
+
+procedure TSRWLock.Init(name: string);
+begin
+ self.name:=name;
+ InitializeSrwLock(lock);
+end;
+
+procedure TSRWLock.StartRead;
+begin
+ AcquireSRWLockShared(lock);
+end;
+
+procedure TSRWLock.FinishRead;
+begin
+ ReleaseSRWLockShared(lock);
+end;
+
+procedure TSRWLock.StartWrite;
+begin
+ AcquireSRWLockExclusive(lock);
+end;
+
+procedure TSRWLock.FinishWrite;
+begin
+ ReleaseSRWLockExclusive(lock);
+end;
+
 initialization
  QueryPerformanceFrequency(v);
  if v<>0 then
