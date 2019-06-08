@@ -56,7 +56,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 13;
+ testnum:integer = 3;
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -118,7 +118,7 @@ type
 
  TTexturesTest=class(TTest)
   prog,uTex:integer;
-  tex1,tex2,tex3,tex4,texA,tex5,tex6:TTextureImage;
+  tex1,tex2,tex3,tex4,texA,tex5,tex6,texM:TTextureImage;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -315,6 +315,7 @@ begin
  tex3:=texman.AllocImage(64,64,ipfARGB,aiTexture,'test3') as TTextureImage;
  tex4:=texman.AllocImage(128,128,ipfARGB,aiTexture,'test4') as TTextureImage;
  texA:=texman.AllocImage(100,100,ipfA8,aiTexture,'testA') as TTextureImage;
+ texM:=texman.AllocImage(128,128,ipfARGB,aiTexture+aiMipMapping,'testMipMap') as TTextureImage;
 // tex1:=LoadImageFromFile('test1.tga') as TTExtureImage;
  tex1.Lock;
  for i:=0 to tex1.height-1 do begin
@@ -348,6 +349,20 @@ begin
   end;
  end;
  tex2.Unlock;
+
+ texM.Lock;
+ for i:=0 to texM.height-1 do begin
+  pb:=texM.data;
+  inc(pb,texM.pitch*i);
+  for j:=0 to texM.width-1 do begin
+   r:=(j and 1)*180;
+   pb^:=200; inc(pb);
+   pb^:=r; inc(pb);
+   pb^:=r; inc(pb);
+   pb^:=255; inc(pb);
+  end;
+ end;
+ texM.Unlock;
 
  tex3.Lock;
  for i:=0 to tex3.height-1 do begin
@@ -493,6 +508,10 @@ begin
  painter.DrawImagePart90(260,50,tex1,$FF808080,Rect(2,2,20,10),2);
  painter.DrawImagePart90(290,50,tex1,$FF808080,Rect(2,2,20,10),3);
  painter.DrawRotScaled(450,200,2,2,1,tex2,$FF808080);
+
+ s:=0.2+(MyTickCount mod 3000)/3000;
+ painter.SetTexMode(0,tblModulate2X,tblModulate,fltTrilinear);
+ painter.DrawRotScaled(450,420,s,s,0,texM);
 
  if (frame div 100) and 1=0 then
    painter.SetTexMode(0,tblNone,tblNone,fltNearest);

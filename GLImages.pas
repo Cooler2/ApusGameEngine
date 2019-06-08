@@ -23,7 +23,6 @@ type
  private
   online:boolean;
   realData:array of byte; // sysmem instance of texture data
-//  datasize:integer;
   fbo:cardinal;
   rbo:cardinal;
   dirty:array[0..15] of TRect;
@@ -42,7 +41,6 @@ type
   procedure FreeImage(var image:TTexture); override;
   procedure FreeImage(var image:TTextureImage); override;
   procedure MakeOnline(img:TTexture;stage:integer=0); override;
-//  procedure MakeOnlineForStage(img:TTexture;stage:integer); virtual;
   procedure SetTexFilter(img:TTexture;filter:TTexFilter); virtual; // Works for ACTIVE texture only!
 
   function QueryParams(width,height:integer;format:ImagePixelFormat;usage:integer):boolean; override;
@@ -517,10 +515,11 @@ begin
   tex.caps:=tex.caps or tfDirectAccess; // Can be locked
   if flags and aiClampUV>0 then
    tex.caps:=tex.caps or tfClamped;
+  // Mip-maps
+  if flags and aiMipMapping>0 then
+   tex.caps:=tex.caps or tfAutoMipMap;
  end;
 
-// tex.stepU:=0.5/width;
-// tex.stepV:=0.5/height;
  tex.u1:=0; tex.u2:=tex.width/width;
  tex.v1:=0; tex.v2:=tex.height/height;
  tex.stepU:=0.5*(tex.u2-tex.u1)/tex.width;
@@ -774,6 +773,9 @@ begin
    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,data);
    CheckForGLError('16');
    {$ENDIF}
+   if (caps and tfAutoMipMap>0) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then
+    glGenerateMipmap(GL_TEXTURE_2D);
+
    if caps and tfClamped>0 then begin
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
