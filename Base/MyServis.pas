@@ -1920,7 +1920,8 @@ procedure SimpleEncrypt2;
 
  function Unescape(st:string):string;
   var
-   i,c,l:integer;
+   i,c,l,v:integer;
+   tmp:AnsiString;
   begin
    SetLength(result,length(st));
    l:=0; i:=1; c:=0;
@@ -1932,7 +1933,7 @@ procedure SimpleEncrypt2;
       result[l]:='\';
       c:=0;
      end else
-      if (i<length(st)) and (st[i+1] in ['n','r','t','0','1']) then begin
+      if (i<length(st)) and (st[i+1] in ['n','r','t','0','1','u','/']) then begin
        inc(l); c:=0;
        case st[i+1] of
         'n':begin
@@ -1945,6 +1946,21 @@ procedure SimpleEncrypt2;
         't':result[l]:=#9;
         '0':result[l]:=#0;
         '1':result[l]:=#1;
+        '/':result[l]:='/';
+        'u':begin
+             if i+5>length(st) then continue;
+             v:=HexToInt(copy(st,i+2,4));
+             {$IFDEF UNICODE}
+             result[l]:=Char(v);
+             {$ELSE}
+             tmp:=EncodeUTF8(WideChar(v));
+             result[l]:=tmp[1];
+             if length(tmp)>1 then begin
+              inc(l);
+              result[l]:=tmp[2];
+             end;
+             {$ENDIF}
+            end;
        end;
       end;
     end else begin
