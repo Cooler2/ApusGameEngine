@@ -201,7 +201,7 @@ procedure TRulesSet.AddRule(sour, dest: MyString);
   // Заменить %* в sour
   i:=1; c:=0;
   while i<length(sour) do begin
-   if (sour[i]='%') and (sour[i+1] in ['*','d']) then begin
+   if (sour[i]='%') and (sour[i+1] in ['*','d','w','+']) then begin
     if sour[i+1]='*' then sour[i]:=WideChar($E1FA);
     if sour[i+1]='d' then sour[i]:=WideChar($E1FB);
     if sour[i+1]='w' then sour[i]:=WideChar($E1FC);

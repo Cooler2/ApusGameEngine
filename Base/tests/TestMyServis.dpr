@@ -195,7 +195,7 @@ procedure TestQuotes;
   begin
    writeln('== TestTranslations ==');
    LoadDictionary('translate.lng');
-   st:=Translate('Attack: Deals 3 damage to Snow Wolf.');
+   st:=Translate('Goblin Warrior deals 3 damage to Snow Wolf.');
    writeln(st);
    t:=MyTickCount;
    for i:=1 to 100000 do begin
@@ -1402,9 +1402,7 @@ begin
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
-  TestPatch;
-  readln;
-  exit;
+  TestTranslation;
   TestStackTrace;
 
   TestPNG;
@@ -1417,7 +1415,6 @@ begin
   TestPublics;
   TestHash;
   TestHashEx;
-  TestTranslation;
   testQuotes;
   TestSplitCombine;
   TestStrHash;
@@ -1434,6 +1431,7 @@ begin
   TestSort;
   TestSplitCombine;
   TestTime;
+  TestPatch;
 
 //  TestEvents;
  except
