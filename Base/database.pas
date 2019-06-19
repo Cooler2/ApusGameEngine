@@ -3,11 +3,11 @@ interface
  uses MyServis,structs;
  var
   // Credentials and options
-  DB_HOST:string='127.0.0.1';
-  DB_DATABASE:string='';
-  DB_LOGIN:string='';
-  DB_PASSWORD:string='';
-  DB_CHARSET:string='utf8';
+  DB_HOST:AnsiString='127.0.0.1';
+  DB_DATABASE:AnsiString='';
+  DB_LOGIN:AnsiString='';
+  DB_PASSWORD:AnsiString='';
+  DB_CHARSET:AnsiString='utf8';
 
  const
   // Error codes
@@ -19,38 +19,40 @@ interface
 
 
  type
-  TLogProc = procedure(msg:string;level:byte;msgtype:byte);
+  TLogProc = procedure(msg:AnsiString;level:byte;msgtype:byte);
 
   // Basic abstract class
   TDatabase=class
    connected:boolean;
    rowCount,colCount:integer;
    insertID:int64; // value for auto incremented field
-   lastError:string;
+   lastError:AnsiString;
    lastErrorCode:integer;
    constructor Create;
    procedure Connect; virtual; abstract;
-   // Выполняет запрос, возвращает массив строк размером (число строк)*(число столбцов)
-   // В случае ошибки возвращает массив из одной строки: ERROR: <текст ошибки>
+   // Выполняет запрос, возвращает массив строк размером rowCount * colCount
+   // В случае ошибки возвращает массив из одной строки: ERROR: <текст ошибки>, причём rowCount=0
    // Если запрос не подразумевает возврат данных и выполняется успешно - возвращает
-   //   пустой массив (0 строк)
-   function Query(DBquery:string):StringArr; overload; virtual; abstract;
-   // Sugar for Query(Format(DBQuery,params))
-   function Query(DBquery:string;params:array of const):StringArr; overload; virtual;
-   // Для каждого ключа хэша H, соответствующего полю keyField в таблице table
-   // запрашивает значение поля valueField (можно перечислить несколько полей через запятую, тогда будут выбраны все)
-   // quoteKeys используется чтобы заключать значения ключей в " " (необходимо если ключи - строкового типа)
-   procedure QueryValues(var h:THash;table,keyField,valueField:string;quoteKeys:boolean=false;condition:string=''); virtual;
+   // пустой массив (0 строк)
+   function Query(DBquery:AnsiString):StringArr; overload; virtual; abstract;
+   // Sugar: Query(Format(DBQuery,params))
+   function Query(DBquery:AnsiString;params:array of const):StringArr; overload; virtual;
    // Запрашивает строки (поля в fields) из таблицы, соответствующие заданному условию, и заносит их в хэш
    // Условие может также содержать сортировку и т.п.
    // Хэш переинициализируется, т.е. если в нём уже было содержимое - оно теряется
-   procedure QueryHash(var h:THash;table,keyField,fields,condition:string); virtual;
+   procedure QueryHash(var h:THash;table,keyField,fields,condition:AnsiString); virtual;
+   // Для каждого ключа хэша H, соответствующего полю keyField в таблице table
+   // запрашивает значение поля valueField (можно перечислить несколько полей через запятую, тогда будут выбраны все)
+   // quoteKeys используется чтобы заключать значения ключей в " " (необходимо если ключи - строкового типа)
+   // condition - дополнительное условие для WHERE clause
+   // Если значения для ключа не найдено, ключ в хэше остаётся с пустым значением
+   procedure QueryValues(var h:THash;table,keyField,valueField:AnsiString;quoteKeys:boolean=false;condition:AnsiString=''); virtual;
 
    procedure Disconnect; virtual; abstract;
    destructor Destroy; virtual;
   private
     crSect:TMyCriticalSection;
-    name:string;
+    name:AnsiString;
   end;
 
   // MySQL interface
@@ -59,7 +61,7 @@ interface
    time1,time2,time3:integer; // время выполнения real_query и время получения результатов
    constructor Create;
    procedure Connect; override;
-   function Query(DBquery:string):StringArr; override;
+   function Query(DBquery:AnsiString):StringArr; override;
    procedure Disconnect; override;
    destructor Destroy; override;
   private
@@ -69,22 +71,22 @@ interface
 
   TMySQLDatabaseWithLogging=class(TMySQLDatabase)
    constructor Create(customLogProc:TLogProc;minLogLevel_,selectLogLevel_,updatelogLevel_,logGroup_:integer);
-   function Query(DBquery:string):StringArr; override;
+   function Query(DBquery:AnsiString):StringArr; override;
   protected
    logProc:TLogProc;
    minLogLevel,selectLogLevel,updatelogLevel,logGroup:integer;
   end;
 
   // Escape special characters (so string can be used in query)
-  procedure SQLString(var st:string);
-  function SQLSafe(st:string):string;
+  procedure SQLString(var st:AnsiString);
+  function SQLSafe(st:AnsiString):AnsiString;
 
 implementation
  uses SysUtils,mysql,Variants;
  var
   counter:integer=0; // MySQL library usage counter
 
-procedure SQLString(var st:string);
+procedure SQLString(var st:AnsiString);
  var
   i:integer;
  begin
@@ -101,7 +103,7 @@ procedure SQLString(var st:string);
  end;
 
 
-function SQLSafe(st:string):string;
+function SQLSafe(st:AnsiString):AnsiString;
  begin
   SQLString(st);
   result:=st;
@@ -122,11 +124,11 @@ destructor TDatabase.Destroy;
  end;
 
 procedure TDatabase.QueryValues(var h: THash; table, keyField,
-  valueField: string; quoteKeys: boolean=false;condition:string='');
+  valueField: AnsiString; quoteKeys: boolean=false;condition:AnsiString='');
 var
  i,j:integer;
  keys,sa:StringArr;
- list:string;
+ list:AnsiString;
 begin
  if h.count=0 then exit;
  keys:=h.AllKeys;
@@ -145,11 +147,11 @@ begin
    h.Put(sa[i*colCount],sa[i*colCount+j],j=1);
 end;
 
-procedure TDatabase.QueryHash(var h:THash;table,keyField,fields,condition:string); 
+procedure TDatabase.QueryHash(var h:THash;table,keyField,fields,condition:AnsiString);
 var
  sa:StringArr;
  i,j:integer;
- key:string;
+ key:AnsiString;
 begin
  sa:=Query(Format('SELECT %s,%s FROM %s WHERE %s',[keyField,fields,table,condition]));
  h.Init(true);
@@ -162,7 +164,7 @@ begin
  end;
 end;
 
-function TDatabase.Query(DBquery:string;params:array of const):StringArr;
+function TDatabase.Query(DBquery:AnsiString;params:array of const):StringArr;
 begin
  result:=Query(Format(DBQuery,params));
 end;
@@ -195,8 +197,8 @@ procedure TMySQLDatabase.Connect;
   end;
   i:=1;
   ForceLogMessage('Connecting to MySQL server');
-  while (mysql_real_connect(ms,PChar(DB_HOST),PChar(DB_LOGIN),PChar(DB_PASSWORD),
-           PChar(DB_DATABASE),0,'',CLIENT_COMPRESS)<>ms) and
+  while (mysql_real_connect(ms,PAnsiChar(DB_HOST),PAnsiChar(DB_LOGIN),PAnsiChar(DB_PASSWORD),
+           PAnsiChar(DB_DATABASE),0,'',CLIENT_COMPRESS)<>ms) and
         (i<4) do begin
    ForceLogMessage(name+': Error connecting to MySQL server ('+mysql_error(ms)+'), retry in 3 sec');
    sleep(3000); inc(i);
@@ -239,10 +241,10 @@ begin
  end;
 end;
 
-function TMySQLDatabase.Query(DBquery: string): StringArr;
+function TMySQLDatabase.Query(DBquery: AnsiString): StringArr;
 var
  r,flds,rows,i,j:integer;
- st:string;
+ st:AnsiString;
  res:PMYSQL_RES;
  myrow:PMYSQL_ROW;
  t:int64;
@@ -347,7 +349,7 @@ constructor TMySQLDatabaseWithLogging.Create;
   end;
  end;
 
-function TMySQLDatabaseWithLogging.Query(DBquery: string): StringArr;
+function TMySQLDatabaseWithLogging.Query(DBquery: AnsiString): StringArr;
  var
   t:int64;
  begin

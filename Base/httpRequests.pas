@@ -32,16 +32,16 @@ interface
 
  // Return request status (HTTP code or error constant) and response text
  // If request is completed - this destroys request object, so it's ID and data can't be used anymore
- function GetRequestResult(ID:integer;out response:string;httpStatus:PInteger=nil):integer;
+ function GetRequestResult(ID:integer;out response:AnsiString;httpStatus:PInteger=nil):integer;
  // ≈сли статут запроса - Sent или Completed - возвращает кол-во скачанных байт
  function GetRequestState(ID:integer):integer;
  // ¬озвращает код ошибки запроса, который завершилс€ неудачей
  function GetRequestError(ID:integer):integer;
 
  // Format POST body with specified parameters using specified content type
- function FormatPostBody(paramNames,paramValues:StringArr;contentType:TContentType=ctAuto):string;
+ function FormatPostBody(paramNames,paramValues:StringArr;contentType:TContentType=ctAuto):AnsiString;
 
- // both procedures are not required to call
+ // Both procedures are not required to call!
  procedure InitHTTPrequests;
  procedure DoneHTTPrequests;
 
@@ -55,7 +55,7 @@ implementation
    ID:integer;
    status,receivedBytes:integer;
    timeSent:int64;
-   url,postdata,event,response:string;
+   url,postdata,event,response:AnsiString;
    errorCode:integer;
    timeout:integer;
    contentType:TContentType;
@@ -71,7 +71,7 @@ implementation
   {$IFDEF DELPHI}
   THTTPConnection=record
    HCon:HInternet;
-   server:string;
+   server:AnsiString;
    port:word;
    free:boolean; // используетс€ ли в данный момент дл€ запроса?
   end;
@@ -464,7 +464,7 @@ implementation
    LogMessage('Request not found'+inttostr(reqID));
   end;
 
- function GetRequestResult(ID:integer;out response:string;httpStatus:PInteger=nil):integer;
+ function GetRequestResult(ID:integer;out response:AnsiString;httpStatus:PInteger=nil):integer;
   var
    i:integer;
   begin
@@ -546,7 +546,7 @@ procedure THTTPThread.ExecuteGetRequest;
  begin
   // 1. Send request
   LogMessage('GET '+IntToStr(req.ID)+': '+req.url);
-  handle:=InternetOpenUrl(HMain,PChar(req.url),nil,0,
+  handle:=InternetOpenUrlA(HMain,PAnsiChar(req.url),nil,0,
     INTERNET_FLAG_RELOAD+
     INTERNET_FLAG_KEEP_CONNECTION+
     INTERNET_FLAG_PRAGMA_NOCACHE+
@@ -557,14 +557,14 @@ procedure THTTPThread.ExecuteGetRequest;
   EnterCriticalSection(critSect);
   try
   req.handle:=handle;
-  req.status:=httpStatusSent;                  
+  req.status:=httpStatusSent;
   req.timeSent:=MyTickCount;
   req.receivedBytes:=0;
 //  LogMessage('request open '+inttostr(req.ID));
   if handle=nil then begin // failed
    req.status:=httpStatusFailed;
    error:=GetLastError; size:=254;
-   if not InternetGetLastResponseInfo(code,@buf[1],size) then buf:='(too long)'#0;
+   if not InternetGetLastResponseInfoA(code,@buf[1],size) then buf:='(too long)'#0;
    ForceLogMessage(Format('HTTP request %d failed: %s eCode: %d code: %d',[req.ID,req.url,error,code]));
    req.errorCode:=error;
    exit;
@@ -605,7 +605,7 @@ procedure THTTPThread.ExecuteGetRequest;
   // Decompression needed?
   deflate:=false;
   size:=31; extra:=0;
-  if HttpQueryInfo(handle,HTTP_QUERY_CONTENT_ENCODING,@encoding[1],size,extra) then begin
+  if HttpQueryInfoA(handle,HTTP_QUERY_CONTENT_ENCODING,@encoding[1],size,extra) then begin
    SetLength(encoding,size);
    if pos('deflate',lowercase(encoding))>0 then deflate:=true;
   end;
@@ -655,8 +655,8 @@ procedure THTTPThread.ExecutePostRequest;
   buf:string[255];
   handle:HInternet;
   data:array of byte;
-  lines:StringArr;
-  headers,boundary,serverName,request:string;
+  lines:AStringArr;
+  headers,boundary,serverName,request:AnsiString;
   multipart,binary:boolean;
   HConnect:HInternet;
  begin
@@ -698,12 +698,12 @@ procedure THTTPThread.ExecutePostRequest;
 
    // Alloc new
    if HConnect=nil then begin
-    HConnect:=InternetConnect(HMain,PChar(serverName),port,nil,nil,INTERNET_SERVICE_HTTP,0,0);
+    HConnect:=InternetConnectA(HMain,PAnsiChar(serverName),port,nil,nil,INTERNET_SERVICE_HTTP,0,0);
     if HConnect=nil then begin
      req.status:=httpStatusFailed;
      error:=GetLastError; size:=254;
      req.errorCode:=error;
-     if not InternetGetLastResponseInfo(code,@buf[1],size) then buf:='(too long)'#0;
+     if not InternetGetLastResponseInfoA(code,@buf[1],size) then buf:='(too long)'#0;
      ForceLogMessage('HTTP request connect failed: '+req.url+' eCode: '+IntToStr(error)+
        ' code: '+IntToStr(code)+' error: '+PChar(@buf[1]));
      exit;
@@ -735,7 +735,7 @@ procedure THTTPThread.ExecutePostRequest;
    end;
 
    // Open request
-   handle:=HttpOpenRequest(HConnect,'POST',PChar(request),nil,nil,nil,
+   handle:=HttpOpenRequestA(HConnect,'POST',PAnsiChar(request),nil,nil,nil,
      INTERNET_FLAG_KEEP_CONNECTION+
      INTERNET_FLAG_RELOAD+
      INTERNET_FLAG_NO_CACHE_WRITE+
@@ -749,8 +749,8 @@ procedure THTTPThread.ExecutePostRequest;
     exit;
    end;
    if req.timeout>0 then begin
-    InternetSetOption(handle,INTERNET_OPTION_RECEIVE_TIMEOUT,@req.timeout,4);
-    InternetSetOption(handle,INTERNET_OPTION_SEND_TIMEOUT,@req.timeout,4);
+    InternetSetOptionA(handle,INTERNET_OPTION_RECEIVE_TIMEOUT,@req.timeout,4);
+    InternetSetOptionA(handle,INTERNET_OPTION_SEND_TIMEOUT,@req.timeout,4);
    end;
   finally
    LeaveCriticalSection(critSect);
@@ -763,7 +763,7 @@ procedure THTTPThread.ExecutePostRequest;
    ctText:headers:=headers+#13#10+'Content-Type: text/plain';
    ctMultipart:begin // complex case
      multipart:=false;
-     lines:=Split(#13#10,req.postData);
+     lines:=SplitA(#13#10,req.postData);
      for i:=1 to length(lines)-1 do begin
       if length(lines[i])<120 then begin
        if pos('CONTENT-DISPOSITION:',UpperCase(lines[i]))=1 then begin
@@ -784,7 +784,7 @@ procedure THTTPThread.ExecutePostRequest;
   end;
 
   // Send request 
-  if not HttpSendRequest(handle,PChar(headers),length(headers),
+  if not HttpSendRequestA(handle,PAnsiChar(headers),length(headers),
           @req.postdata[1],length(req.postdata)) then begin
    req.status:=httpStatusFailed;
    error:=GetLastError;
@@ -796,7 +796,7 @@ procedure THTTPThread.ExecutePostRequest;
    req.status:=httpStatusSent;
 
   size:=4; i:=0;
-  if HTTPQueryInfo(handle,HTTP_QUERY_STATUS_CODE,@httpCode,size,cardinal(i)) then begin
+  if HTTPQueryInfoA(handle,HTTP_QUERY_STATUS_CODE,@httpCode,size,cardinal(i)) then begin
    req.httpStatus:=httpCode;
   end;
 
@@ -876,14 +876,14 @@ procedure THTTPThread.Execute;
       LogMessage('HTTP Init: '+IntToHex(cardinal(HMain),8));
       sleep(10);
       c:=4000; // 4 sec
-      InternetSetOption(HMain,INTERNET_OPTION_CONNECT_TIMEOUT,@c,4);
+      InternetSetOptionA(HMain,INTERNET_OPTION_CONNECT_TIMEOUT,@c,4);
       c:=30000; // 30 seconds default
-      InternetSetOption(HMain,INTERNET_OPTION_RECEIVE_TIMEOUT,@c,4);
-      InternetSetOption(HMain,INTERNET_OPTION_SEND_TIMEOUT,@c,4);
-      res:=InternetSetOption(HMain,77{INTERNET_OPTION_IGNORE_OFFLINE},nil,0);
+      InternetSetOptionA(HMain,INTERNET_OPTION_RECEIVE_TIMEOUT,@c,4);
+      InternetSetOptionA(HMain,INTERNET_OPTION_SEND_TIMEOUT,@c,4);
+      res:=InternetSetOptionA(HMain,77{INTERNET_OPTION_IGNORE_OFFLINE},nil,0);
       LogMessage('INTERNET_OPTION_IGNORE_OFFLINE - '+BoolToStr(res,true));
       b:=false;
-      res:=InternetSetOption(HMain,65{INTERNET_OPTION_HTTP_DECODING},@b,4);
+      res:=InternetSetOptionA(HMain,65{INTERNET_OPTION_HTTP_DECODING},@b,4);
       LogMessage('INTERNET_OPTION_HTTP_DECODING - '+BoolToStr(res,true));
      end;
      if HMain=nil then begin
@@ -903,20 +903,6 @@ procedure THTTPThread.Execute;
    LogStats;
    EnterCriticalSection(critSect);
    try
-{    for i:=1 to High(requests) do begin
-     if requests[i].handle<>nil then begin
-      ForceLogMessage('Closing HTTP request '+inttostr(requests[i].ID)+' handle');
-      InternetCloseHandle(requests[i].handle);
-      requests[i].handle:=nil;
-      sleep(10);
-     end;
-     if requests[i].thread<>nil then begin
-      ForceLogMessage('Terminating HTTP request '+inttostr(requests[i].ID)+' thread');
-      TerminateThread(requests[i].thread.Handle,0);
-      requests[i].thread:=nil;
-      sleep(10);
-     end;
-    end;}
     for i:=1 to High(connections) do
      if connections[i].HCon<>nil then begin
       InternetCloseHandle(connections[i].HCon);
@@ -932,7 +918,7 @@ procedure THTTPThread.Execute;
    {$ENDIF}
   end;
 
- function FormatPostBody(paramNames,paramValues:StringArr;contentType:TContentType):string;
+ function FormatPostBody(paramNames,paramValues:StringArr;contentType:TContentType):AnsiString;
   var
    i,j,c,s:integer;
    boundary:string;

@@ -36,8 +36,8 @@ interface
  procedure InitLogging(memsize:integer;path:string;fileFilter:integer=logNormal);
 
  // level: 0 - debug, 1 - info, 2 - normal, 3 - warning, 4 - error, 5 - critical
- procedure LogMsg(st:string;level:byte=logNormal;msgtype:byte=0); overload;
- procedure LogMsg(st:string;params:array of const;level:byte=logNormal;msgtype:byte=0); overload;
+ procedure LogMsg(st:AnsiString;level:byte=logNormal;msgtype:byte=0); overload;
+ procedure LogMsg(st:AnsiString;params:array of const;level:byte=logNormal;msgtype:byte=0); overload;
 
  // Cброс накопленных сообщений в файл
  procedure FlushLogs;
@@ -68,7 +68,7 @@ implementation
   TLogMessage=record
    date:TDateTime;
    level,kind:byte;
-   msg:string;
+   msg:AnsiString;
   end;
   //
   TLogBuffer=class
@@ -360,7 +360,7 @@ implementation
    end;
   end;
 
- procedure LogMsg(st:string;level:byte=logNormal;msgtype:byte=0);
+ procedure LogMsg(st:AnsiString;level:byte=logNormal;msgtype:byte=0);
   var
    date:string[19];
    time:TSystemTime;
@@ -415,7 +415,7 @@ implementation
    end;
   end;
 
- procedure LogMsg(st:string;params:array of const;level:byte=logNormal;msgtype:byte=0);
+ procedure LogMsg(st:AnsiString;params:array of const;level:byte=logNormal;msgtype:byte=0);
   begin
    LogMsg(Format(st,params),level,msgtype);
   end;

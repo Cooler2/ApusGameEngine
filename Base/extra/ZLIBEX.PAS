@@ -12,7 +12,7 @@
 *                (and targeting 686+ cpu) and changes to accomodate Borland  *
 *                standards  (C++ v5.6 compiler)                              *
 *    2002.10.15  optimized move mem for not aligned structures  (strings,etc)*
-*    2002.10.15  little changes to avoid system unique string calls          *
+*    2002.10.15  little changes to avoid system unique AnsiString calls          *
 *                                                                            *
 *    2002.03.15  updated to zlib version 1.1.4                               *
 *    2001.11.27  enhanced TZDecompressionStream.Read to adjust source        *
@@ -159,11 +159,11 @@ procedure ZCompress(const inBuffer: Pointer; inSize: Integer;
 procedure ZDecompress(const inBuffer: Pointer; inSize: Integer;
   out outBuffer: Pointer; out outSize: Integer; outEstimate: Integer = 0);
 
-{** string routines *********************************************************}
+{** AnsiString routines *********************************************************}
 
-function ZCompressStr(const s: string; level: TZCompressionLevel = zcDefault): string;
+function ZCompressStr(const s: AnsiString; level: TZCompressionLevel = zcDefault): AnsiString;
 
-function ZDecompressStr(const s: string): string;
+function ZDecompressStr(const s: AnsiString): AnsiString;
 
 {** stream routines *********************************************************}
 
@@ -175,10 +175,10 @@ procedure ZDecompressStream(inStream, outStream: TStream);
 {****************************************************************************}
 
 procedure MoveI32(const Source; var Dest; Count: Integer); register;
-procedure ZFastCompressString(var s: string; level: TZCompressionLevel);
-procedure ZFastDecompressString(var s: string);
-procedure ZSendToBrowser(var s: string);
-procedure ZDecompressHTTP(var s: string);
+procedure ZFastCompressString(var s: AnsiString; level: TZCompressionLevel);
+procedure ZFastDecompressString(var s: AnsiString);
+procedure ZSendToBrowser(var s: AnsiString);
+procedure ZDecompressHTTP(var s: AnsiString);
 
 
 type
@@ -598,9 +598,9 @@ begin
 end;
 
 
-{** string routines *********************************************************}
+{** AnsiString routines *********************************************************}
 
-function ZCompressStr(const s: string; level: TZCompressionLevel): string;
+function ZCompressStr(const s: AnsiString; level: TZCompressionLevel): AnsiString;
 var
   buffer: Pointer;
   size: Integer;
@@ -613,7 +613,7 @@ begin
   FreeMem(buffer);
 end;
 
-procedure ZFastCompressString(var s: string; level: TZCompressionLevel);
+procedure ZFastCompressString(var s: AnsiString; level: TZCompressionLevel);
 var
   outBuf: Pointer;
   outBytes: Integer;
@@ -624,7 +624,7 @@ begin
   FreeMem(outBuf);
 end;
 
-procedure ZFastDecompressString(var s: string);
+procedure ZFastDecompressString(var s: AnsiString);
 var
   outBuf: Pointer;
   outBytes: Integer;
@@ -635,7 +635,7 @@ begin
   FreeMem(outBuf);
 end;
 
-procedure ZDecompressHTTP(var s: string);
+procedure ZDecompressHTTP(var s: AnsiString);
 var
   outBuf: Pointer;
   outBytes: Integer;
@@ -646,7 +646,7 @@ begin
   FreeMem(outBuf);
 end;
 
-procedure ZSendToBrowser(var s: string);
+procedure ZSendToBrowser(var s: AnsiString);
 var
   outBuf: Pointer;
   outBytes: Integer;
@@ -657,7 +657,7 @@ begin
   FreeMem(outBuf);
 end;
 
-function ZDecompressStr(const s: string): string;
+function ZDecompressStr(const s: AnsiString): AnsiString;
 var
   buffer: Pointer;
   size: Integer;
