@@ -62,7 +62,7 @@ procedure TestQuotes;
   s:string;
   i:integer;
  begin
-  writeln(Unescape('\n0\n0\n0\n0'));
+  writeln(Unescape('A\n0\n0\n1\n0\u0430'));
   writeln('== TestQuotes ==');
   writeln(QuoteStr('',false));
   writeln(QuoteStr(' ',false));
@@ -1403,8 +1403,9 @@ begin
 // LogCacheMode(true);
  try
   TestTranslation;
-  TestStackTrace;
+  //TestStackTrace;
 
+  TestQuotes;
   TestPNG;
   TestAnimations;
   TestEval;
@@ -1415,7 +1416,6 @@ begin
   TestPublics;
   TestHash;
   TestHashEx;
-  testQuotes;
   TestSplitCombine;
   TestStrHash;
   TestSimpleHash;

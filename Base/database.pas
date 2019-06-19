@@ -34,9 +34,9 @@ interface
    // В случае ошибки возвращает массив из одной строки: ERROR: <текст ошибки>, причём rowCount=0
    // Если запрос не подразумевает возврат данных и выполняется успешно - возвращает
    // пустой массив (0 строк)
-   function Query(DBquery:AnsiString):StringArr; overload; virtual; abstract;
+   function Query(DBquery:AnsiString):AStringArr; overload; virtual; abstract;
    // Sugar: Query(Format(DBQuery,params))
-   function Query(DBquery:AnsiString;params:array of const):StringArr; overload; virtual;
+   function Query(DBquery:AnsiString;params:array of const):AStringArr; overload; virtual;
    // Запрашивает строки (поля в fields) из таблицы, соответствующие заданному условию, и заносит их в хэш
    // Условие может также содержать сортировку и т.п.
    // Хэш переинициализируется, т.е. если в нём уже было содержимое - оно теряется
@@ -61,7 +61,7 @@ interface
    time1,time2,time3:integer; // время выполнения real_query и время получения результатов
    constructor Create;
    procedure Connect; override;
-   function Query(DBquery:AnsiString):StringArr; override;
+   function Query(DBquery:AnsiString):AStringArr; override;
    procedure Disconnect; override;
    destructor Destroy; override;
   private
@@ -71,7 +71,7 @@ interface
 
   TMySQLDatabaseWithLogging=class(TMySQLDatabase)
    constructor Create(customLogProc:TLogProc;minLogLevel_,selectLogLevel_,updatelogLevel_,logGroup_:integer);
-   function Query(DBquery:AnsiString):StringArr; override;
+   function Query(DBquery:AnsiString):AStringArr; override;
   protected
    logProc:TLogProc;
    minLogLevel,selectLogLevel,updatelogLevel,logGroup:integer;
@@ -127,7 +127,8 @@ procedure TDatabase.QueryValues(var h: THash; table, keyField,
   valueField: AnsiString; quoteKeys: boolean=false;condition:AnsiString='');
 var
  i,j:integer;
- keys,sa:StringArr;
+ keys:StringArr;
+ sa:AStringArr;
  list:AnsiString;
 begin
  if h.count=0 then exit;
@@ -149,7 +150,7 @@ end;
 
 procedure TDatabase.QueryHash(var h:THash;table,keyField,fields,condition:AnsiString);
 var
- sa:StringArr;
+ sa:AStringArr;
  i,j:integer;
  key:AnsiString;
 begin
@@ -164,7 +165,7 @@ begin
  end;
 end;
 
-function TDatabase.Query(DBquery:AnsiString;params:array of const):StringArr;
+function TDatabase.Query(DBquery:AnsiString;params:array of const):AStringArr;
 begin
  result:=Query(Format(DBQuery,params));
 end;
@@ -241,7 +242,7 @@ begin
  end;
 end;
 
-function TMySQLDatabase.Query(DBquery: AnsiString): StringArr;
+function TMySQLDatabase.Query(DBquery: AnsiString): AStringArr;
 var
  r,flds,rows,i,j:integer;
  st:AnsiString;
@@ -349,7 +350,7 @@ constructor TMySQLDatabaseWithLogging.Create;
   end;
  end;
 
-function TMySQLDatabaseWithLogging.Query(DBquery: AnsiString): StringArr;
+function TMySQLDatabaseWithLogging.Query(DBquery: AnsiString): AStringArr;
  var
   t:int64;
  begin

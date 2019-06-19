@@ -46,9 +46,11 @@ implementation
     if (key[1]='"') and (key[length(key)]='"') or
        (key[1]='''') and (key[length(key)]='''') then key:=copy(key,2,length(key)-2);
     if length(key)=0 then continue;
+    key:=Unescape(key);
     if length(value)>=2 then
      if (value[1]='"') and (value[length(value)]='"') or
         (value[1]='''') and (value[length(value)]='''') then value:=copy(value,2,length(value)-2);
+    value:=Unescape(value);
     result.Put(key,value,true);
    end;
   end;

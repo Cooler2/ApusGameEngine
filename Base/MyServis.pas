@@ -413,7 +413,7 @@ interface
 
  // Псевдослучайное число от arg в диапазоне 0..module-1
  function PseudoRand(arg,module:cardinal):cardinal;
- // возвращает слуайное целое число близкое к v так, что его матожидание равно v
+ // возвращает случайное целое число из диапазона [v-1,v+1] так, что его матожидание равно v
  function RandomInt(v:single):integer;
  // Возвращает случайную строку заданной длины из алфаситно-цифровых символов
  function RandomStr(l:integer):string;
@@ -1940,7 +1940,6 @@ procedure SimpleEncrypt2;
              result[l]:=#13;
              inc(l);
              result[l]:=#10;
-             inc(i);
             end;
         'r':result[l]:=#13;
         't':result[l]:=#9;
@@ -1960,8 +1959,10 @@ procedure SimpleEncrypt2;
               result[l]:=tmp[2];
              end;
              {$ENDIF}
+             inc(i,4);
             end;
        end;
+       inc(i);
       end;
     end else begin
      inc(l);
