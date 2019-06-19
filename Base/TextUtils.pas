@@ -3,7 +3,7 @@
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
 unit TextUtils;
 interface
- uses MyServis;
+ uses MyServis,Structs;
 
  // Remove any HTML tags, return plain text
  function ExtractPlainText(const html:string):string;
@@ -16,10 +16,42 @@ interface
  // Find length of the longest common subsequence (returns char indexes in w1) !MAX LENGTH=63!
  function GetMaxSubsequence(const w1,w2:WideString):IntArray;
 
+ // Convert string in JSON format into set of Key->Value pairs
+ function ParseJSON(json:AnsiString):THash;
+
 implementation
  uses SysUtils;
  var
   wordCharMap:array[0..2047] of cardinal;
+
+ function ParseJSON(json:AnsiString):THash;
+  var
+   i,p:integer;
+   sa:AStringArr;
+   key,value:string;
+  begin
+   result.Init;
+   json:=chop(json);
+   if length(json)=0 then exit;
+   if (json[1]='{') and (json[length(json)]='}') then json:=copy(json,2,length(json)-2);
+   sa:=SplitA(',',json);
+   for i:=0 to high(sa) do begin
+    sa[i]:=chop(sa[i]);
+    p:=pos(':',sa[i]);
+    if p=0 then continue;
+    key:=copy(sa[i],1,p-1);
+    value:=copy(sa[i],p+1,length(sa[i]));
+    key:=chop(key);
+    if length(key)=0 then continue;
+    if (key[1]='"') and (key[length(key)]='"') or
+       (key[1]='''') and (key[length(key)]='''') then key:=copy(key,2,length(key)-2);
+    if length(key)=0 then continue;
+    if length(value)>=2 then
+     if (value[1]='"') and (value[length(value)]='"') or
+        (value[1]='''') and (value[length(value)]='''') then value:=copy(value,2,length(value)-2);
+    result.Put(key,value,true);
+   end;
+  end;
 
  function GetMaxSubsequence(const w1,w2:WideString):IntArray;
   var
