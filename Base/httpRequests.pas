@@ -23,6 +23,10 @@ interface
   avgResponseTime,maxResponseTime:integer; // среднее и максимальное время (успешного, если указан таймаут) выполнения запросов в ms
   requestsFailed,requestsSucceed,requestsTime,requestsTimeCount:integer;
 
+ // Perform HTTP GET request and wait for data
+ // Returns true if request is successful
+ function HTTPSyncRequestGet(url:string;var response:AnsiString;timeout:integer=0):boolean;
+
  // Start HTTP request to URL, if postdata='' then request is GET, otherwise - POST
  // Upon completion (or in case of failure), "event" will be signaled with tag=requestID
  // Return value: request ID
@@ -530,6 +534,31 @@ implementation
     LeaveCriticalSection(critSect);
    end;
   end;
+
+function HTTPSyncRequestGet(url:string;var response:AnsiString;timeout:integer=0):boolean;
+ var
+  req,res:integer;
+  time:int64;
+ begin
+  result:=false;
+  time:=MyTickCount+timeout;
+  try
+   req:=HTTPRequest(url,'','',timeout);
+   repeat
+     sleep(1);
+     res:=GetRequestResult(req,response);
+     if MyTickCount>time then begin
+      CancelRequest(req);
+      exit;
+     end;
+   until res>=httpStatusFailed;
+   if res=httpStatusFailed then exit;
+   if res<>httpStatusCompleted then exit;
+  except
+   on e:Exception do ForceLogMessage('Failed to request URL '+url+': '+ExceptionMsg(e));
+  end;
+  result:=true;
+ end;
 
 
 {$IFDEF DELPHI}
