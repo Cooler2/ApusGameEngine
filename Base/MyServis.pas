@@ -445,6 +445,7 @@ interface
  function VarToStr(v:TVarRec):string; // Variant -> String
  function ParseInt(st:string):int64; inline; // wrong characters ignored
  function ParseFloat(st:string):double; inline; // always use '.' as separator - replacement for SysUtils version
+ function ParseIntList(st:string):IntArray; // '123 4,-12;3/5' -> [1234,-12,3,5]
 
  function ListIntegers(a:array of integer;separator:char=','):string; overload; // array of integer => 'a[1],a[2],...,a[n]'
  function ListIntegers(a:system.PInteger;count:integer;separator:char=','):string; overload;
@@ -1101,6 +1102,32 @@ implementation
     if st[i]='-' then result:=-result;
     if st[i] in ['0'..'9'] then break;
    end;
+  end;
+
+ function ParseIntList(st:string):IntArray; // '123 4,-12;3/5' -> [1234,-12,3,5]
+  var
+   i,cnt:integer;
+   neg:boolean;
+  begin
+   SetLength(result,length(st));
+   cnt:=0;
+   neg:=false;
+   for i:=1 to length(st) do begin
+    if (st[i]='-') and (result[cnt]=0) then begin
+     neg:=true; continue;
+    end;
+    if st[i] in ['0'..'9'] then result[cnt]:=result[cnt]*10+(ord(st[i])-ord('0'))
+    else
+    if st[i]<=' ' then continue
+    else begin
+     if neg then result[cnt]:=-result[cnt];
+     inc(cnt);
+     neg:=false;
+    end;
+   end;
+   if neg then result[cnt]:=-result[cnt];
+   inc(cnt);
+   SetLength(result,cnt);
   end;
 
  function ListIntegers(a:system.PInteger;count:integer;separator:char=','):string;

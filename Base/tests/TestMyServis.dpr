@@ -1392,6 +1392,14 @@ procedure TestMemoryStat;
    p1;
   end;
 
+ procedure TestParsers;
+  var
+   ia:IntArray;
+  begin
+   ia:=ParseIntList('123 4,-12;3/-5');
+   ASSERT((length(ia)=4) AND (ia[0]=1234) AND (ia[1]=-12) AND (ia[2]=3) AND (ia[3]=-5),'Test ParseIntList');
+  end;
+
 var
  ar:array of cardinal;
  st:WideString;
@@ -1402,6 +1410,7 @@ begin
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
+  TestParsers;
   TestTranslation;
   //TestStackTrace;
 
