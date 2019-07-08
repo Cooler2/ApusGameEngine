@@ -234,14 +234,33 @@ type
   power:single; // Усиление эффекта
  end;
 
- // стандартный вертекс
+ // Basic vertex format for drawing textured primitives
  PScrPoint=^TScrPoint;
  TScrPoint=packed record
-  x,y,z,rhw:single;
-  diffuse,specular:cardinal;
+  x,y,z:single;
+  {$IFDEF DIRECTX}
+  rhw:single;
+  {$ENDIF}
+  diffuse:cardinal;
+  {$IFDEF DIRECTX}
+  specular:cardinal;
+  {$ENDIF}
   u,v:single;
  end;
 
+ // Basic vertex format for drawing non-textured primitives
+ TScrPointNoTex=record
+  x,y,z:single;
+  {$IFDEF DIRECTX}
+  rhw:single;
+  {$ENDIF}
+  diffuse:cardinal;
+  {$IFDEF DIRECTX}
+  specular:cardinal;
+  {$ENDIF}
+ end;
+
+ // Vertex format for drawing multitextured primitives
  PScrPoint3=^TScrPoint3;
  TScrPoint3=record
   x,y,z,rhw:single;

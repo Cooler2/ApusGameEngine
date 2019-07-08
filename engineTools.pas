@@ -1301,7 +1301,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    for i:=0 to splitY do
     for j:=0 to splitX do begin
      with vertices[n] do begin
-      x:=j*dx-0.5; y:=i*dy-0.5; z:=0; rhw:=1;
+      x:=j*dx-0.5; y:=i*dy-0.5; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
       diffuse:=$FF808080;
       u:=img.u1+du*j;
       v:=img.v1+dv*i;

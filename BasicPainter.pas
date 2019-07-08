@@ -25,11 +25,7 @@ interface
   // ѕроцедура модификации стил€ отрисовки ссылок
   TTextLinkStyleProc=procedure(link:cardinal;var sUnderline:boolean;var color:cardinal);
 
-  ScrPointNoTex=record
-   x,y,z,rhw:single;
-   diffuse,specular:cardinal;
-  end;
-  Point3Lit=record
+{ Point3Lit=record
    x,y,z:single;
    color:cardinal;
    u,v:single;
@@ -39,7 +35,7 @@ interface
    nx,ny,nz:single;
    color,specular:cardinal;
    u,v:single;
-  end;
+  end;}
 
  // “аблица перекодировки:
  // если число >=32 - индекс символа
@@ -419,6 +415,42 @@ begin
  DrawImage(x-tex.width div 2,y-tex.height div 2,tex,color);
 end;
 
+procedure SetVertexT(var vrt:TScrPoint;x,y,z:single;color:cardinal;u,v:single); inline;
+begin
+ vrt.x:=x;
+ vrt.y:=y;
+ vrt.z:=z;
+ {$IFDEF DIRECTX}
+ vrt.rhw:=1;
+ {$ENDIF}
+ vrt.diffuse:=color;
+ vrt.u:=u;
+ vrt.v:=v;
+end;
+
+procedure SetVertex(var vrt:TScrPoint;x,y,z:single;color:cardinal); inline;
+begin
+ vrt.x:=x;
+ vrt.y:=y;
+ vrt.z:=z;
+ {$IFDEF DIRECTX}
+ vrt.rhw:=1;
+ {$ENDIF}
+ vrt.diffuse:=color;
+end;
+
+procedure SetVertexC(var vrt:TScrPointNoTex;x,y,z:single;color:cardinal); inline;
+begin
+ vrt.x:=x;
+ vrt.y:=y;
+ vrt.z:=z;
+ {$IFDEF DIRECTX}
+ vrt.rhw:=1;
+ {$ENDIF}
+ vrt.diffuse:=color;
+end;
+
+
 procedure TBasicPainter.DrawImage(x_, y_: integer; tex: TTexture; color: cardinal);
 var
  vrt:array[0..3] of TScrPoint;
@@ -430,22 +462,11 @@ begin
  UseTexture(tex);
  dx:=tex.width;
  dy:=tex.height;
- with vrt[0] do begin
-  x:=x_-0.5; y:=y_-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=tex.u1; v:=tex.v1;
- end;
- with vrt[1] do begin
-  x:=x_+dx-0.5; y:=y_-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=tex.u2; v:=tex.v1;
- end;
- with vrt[2] do begin
-  x:=x_+dx-0.5; y:=y_+dy-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=tex.u2; v:=tex.v2;
- end;
- with vrt[3] do begin
-  x:=x_-0.5; y:=y_+dy-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=tex.u1; v:=tex.v2{-tex.stepV};
- end;
+
+ SetVertexT(vrt[0], x_-0.5,y_-0.5,      zPlane,color,tex.u1,tex.v1);
+ SetVertexT(vrt[1], x_+dx-0.5,y_-0.5,   zPlane,color,tex.u2,tex.v1);
+ SetVertexT(vrt[2], x_+dx-0.5,y_+dy-0.5,zPlane,color,tex.u2,tex.v2);
+ SetVertexT(vrt[3], x_-0.5,y_+dy-0.5,   zPlane,color,tex.u1,tex.v2);
  DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint));
 end;
 
@@ -460,22 +481,12 @@ begin
  UseTexture(tex);
  dx:=tex.width;
  dy:=tex.height;
- with vrt[0] do begin
-  x:=x_-0.5; y:=y_-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=tex.u1; v:=tex.v1;
- end;
- with vrt[1] do begin
-  x:=x_+dx-0.5; y:=y_-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=tex.u2; v:=tex.v1;
- end;
- with vrt[2] do begin
-  x:=x_+dx-0.5; y:=y_+dy-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=tex.u2; v:=tex.v2;
- end;
- with vrt[3] do begin
-  x:=x_-0.5; y:=y_+dy-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=tex.u1; v:=tex.v2{-tex.stepV};
- end;
+
+ SetVertexT(vrt[0], x_-0.5,y_-0.5,      zPlane,color, tex.u1,tex.v1);
+ SetVertexT(vrt[1], x_+dx-0.5,y_-0.5,   zPlane,color, tex.u2,tex.v1);
+ SetVertexT(vrt[2], x_+dx-0.5,y_+dy-0.5,zPlane,color, tex.u2,tex.v2);
+ SetVertexT(vrt[3], x_-0.5,y_+dy-0.5,   zPlane,color, tex.u1,tex.v2);
+
  if flipHorizontal then begin
   Swap(vrt[0].u,vrt[1].u);
   Swap(vrt[2].u,vrt[3].u);
@@ -502,22 +513,10 @@ begin
  if not SetStates(STATE_TEXTURED2X,types.Rect(x_,y_,x_+w-1,y_+h-1),tex) then exit; // Textured, normal viewport
  ConvertColor(color);
  UseTexture(tex);
- with vrt[0] do begin
-  x:=x_-0.5; y:=y_-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=tex.u1+tex.stepU*2*r.left; v:=tex.v1+tex.stepV*2*r.Top;
- end;
- with vrt[1] do begin
-  x:=x_+w+0.5; y:=y_-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=tex.u1+tex.stepU*r.Right*2; v:=tex.v1+tex.stepV*r.top*2;
- end;
- with vrt[2] do begin
-  x:=x_+w+0.5; y:=y_+h+0.5; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=tex.u1+tex.stepU*r.Right*2; v:=tex.v1+tex.stepV*r.Bottom*2;
- end;
- with vrt[3] do begin
-  x:=x_-0.5; y:=y_+h+0.5; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=tex.u1+tex.stepU*r.left*2; v:=tex.v1+tex.stepV*r.Bottom*2;
- end;
+ SetVertexT(vrt[0], x_-0.5,y_-0.5,     zPlane,color, tex.u1+tex.stepU*2*r.left,tex.v1+tex.stepV*2*r.Top);
+ SetVertexT(vrt[1], x_+w+0.5,y_-0.5,   zPlane,color, tex.u1+tex.stepU*r.Right*2,tex.v1+tex.stepV*r.top*2);
+ SetVertexT(vrt[2], x_+w+0.5,y_+h+0.5, zPlane,color, tex.u1+tex.stepU*r.Right*2,tex.v1+tex.stepV*r.Bottom*2);
+ SetVertexT(vrt[3], x_-0.5,y_+h+0.5,   zPlane,color, tex.u1+tex.stepU*r.left*2,tex.v1+tex.stepV*r.Bottom*2);
  DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint));
 end;
 
@@ -537,26 +536,27 @@ begin
  if not SetStates(STATE_TEXTURED2X,types.Rect(x_,y_,x_+w-1,y_+h-1),tex) then exit; // Textured, normal viewport
  ConvertColor(color);
  UseTexture(tex);
+
  with vrt[(0-ang) and 3] do begin
-  x:=x_-0.5; y:=y_-0.5; z:=zPlane; rhw:=1;
+  x:=x_-0.5; y:=y_-0.5; z:=zPlane; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
  end;
  with vrt[0] do begin
   diffuse:=color; u:=tex.u1+tex.stepU*2*r.left; v:=tex.v1+tex.stepV*2*r.Top;
  end;
  with vrt[(1-ang) and 3] do begin
-  x:=x_+w+0.5; y:=y_-0.5; z:=zPlane; rhw:=1;
+  x:=x_+w+0.5; y:=y_-0.5; z:=zPlane; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
  end;
  with vrt[1] do begin
   diffuse:=color; u:=tex.u1+tex.stepU*r.Right*2; v:=tex.v1+tex.stepV*r.top*2;
  end;
  with vrt[(2-ang) and 3] do begin
-  x:=x_+w+0.5; y:=y_+h+0.5; z:=zPlane; rhw:=1;
+  x:=x_+w+0.5; y:=y_+h+0.5; z:=zPlane; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
  end;
  with vrt[2] do begin
   diffuse:=color; u:=tex.u1+tex.stepU*r.Right*2; v:=tex.v1+tex.stepV*r.Bottom*2;
  end;
  with vrt[(3-ang) and 3] do begin
-  x:=x_-0.5; y:=y_+h+0.5; z:=zPlane; rhw:=1;
+  x:=x_-0.5; y:=y_+h+0.5; z:=zPlane; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
  end;
  with vrt[3] do begin
   diffuse:=color; u:=tex.u1+tex.stepU*r.left*2; v:=tex.v1+tex.stepV*r.Bottom*2;
@@ -566,24 +566,18 @@ end;
 
 procedure TBasicPainter.DrawLine(x1, y1, x2, y2: single; color: cardinal);
 var
- vrt:array[0..1] of ScrPointNoTex;
+ vrt:array[0..1] of TScrPointNoTex;
 begin
  if not SetStates(STATE_COLORED,types.Rect(trunc(x1),trunc(y1),trunc(x2)+1,trunc(y2)+1)) then exit; // Colored, normal viewport
  ConvertColor(color);
- with vrt[0] do begin
-  x:=x1; y:=y1; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[1] do begin
-  x:=x2; y:=y2; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- DrawPrimitives(LINE_LIST,1,@vrt,sizeof(ScrPointNoTex));
+ SetVertexC(vrt[0],x1,y1,zPlane,color);
+ SetVertexC(vrt[1],x2,y2,zPlane,color);
+ DrawPrimitives(LINE_LIST,1,@vrt,sizeof(TScrPointNoTex));
 end;
 
 procedure TBasicPainter.DrawPolyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
 var
- vrt:array of ScrPointNoTex;
+ vrt:array of TScrPointNoTex;
  i:integer;
  pnt:PPoint2;
  minX,minY,maxX,maxY:integer;
@@ -593,11 +587,7 @@ begin
  SetLength(vrt,cnt+1);
  pnt:=points;
  for i:=0 to cnt-1 do begin
-  vrt[i].x:=pnt.x;
-  vrt[i].y:=pnt.y;
-  vrt[i].z:=zPlane;
-  vrt[i].rhw:=1;
-  vrt[i].diffuse:=color;
+  SetVertexC(vrt[i], pnt.x,pnt.y,zPlane,color);
   if pnt.x<minX then minX:=trunc(pnt.x);
   if pnt.y<minY then minY:=trunc(pnt.y);
   if pnt.x>maxX then maxX:=trunc(pnt.x)+1;
@@ -608,7 +598,7 @@ begin
  ConvertColor(color);
  if closed then vrt[cnt]:=vrt[0];
 // DrawPrimitives(LINE_LIST,cnt div 2,@vrt[0],sizeof(ScrPointNoTex));
- DrawPrimitives(LINE_STRIP,cnt-1+byte(closed),@vrt[0],sizeof(ScrPointNoTex));
+ DrawPrimitives(LINE_STRIP,cnt-1+byte(closed),@vrt[0],sizeof(TScrPointNoTex));
 end;
 
 procedure TBasicPainter.DrawDouble(x_, y_: integer; image1, image2: TTexture;color: cardinal);
@@ -805,7 +795,7 @@ procedure TBasicPainter.DrawPolygon(points: PPoint2; cnt: integer; color: cardin
 type
  ta=array[0..5] of TPoint2;
 var
- vrt:array of ScrPointNoTex;
+ vrt:array of TScrPointNoTex;
  i,n:integer;
  pnts:^ta;
  minx,miny,maxx,maxy:single;
@@ -823,15 +813,12 @@ begin
   if pnts[i].y<miny then miny:=pnts[i].y;
   if pnts[i].y>maxy then maxy:=pnts[i].y;
  end;
- for i:=0 to n*3-1 do with pnts^[trgIndices[i]] do begin
-  vrt[i].x:=x;
-  vrt[i].y:=y;
-  vrt[i].z:=zPlane;
-  vrt[i].rhw:=1;
-  vrt[i].diffuse:=color;
- end;
+ for i:=0 to n*3-1 do
+  with pnts^[trgIndices[i]] do
+   SetVertexC(vrt[i],x,y,zPlane,color);
+
  if not SetStates(STATE_COLORED,types.Rect(trunc(minx),trunc(miny),trunc(maxx)+1,trunc(maxy)+1)) then exit; // Colored, normal viewport
- DrawPrimitives(TRG_LIST,n,@vrt[0],sizeof(ScrPointNoTex));
+ DrawPrimitives(TRG_LIST,n,@vrt[0],sizeof(TScrPointNoTex));
 end;
 
 
@@ -861,22 +848,10 @@ begin
  c:=cos(angle); s:=sin(angle);
 
  h:=-h;
- with vrt[0] do begin
-  x:=x0-w*c-h*s; y:=y0+h*c-w*s; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=u1; v:=v1;
- end;
- with vrt[1] do begin
-  x:=x0+w*c-h*s; y:=y0+h*c+w*s;  z:=zPlane; rhw:=1;
-  diffuse:=color; u:=u2; v:=v1;
- end;
- with vrt[2] do begin
-  x:=x0+w*c+h*s; y:=y0-h*c+w*s;  z:=zPlane; rhw:=1;
-  diffuse:=color; u:=u2; v:=v2;
- end;
- with vrt[3] do begin
-  x:=x0-w*c+h*s; y:=y0-h*c-w*s;  z:=zPlane; rhw:=1;
-  diffuse:=color; u:=u1; v:=v2;
- end;
+ SetVertexT(vrt[0], x0-w*c-h*s, y0+h*c-w*s, zPlane, color, u1, v1);
+ SetVertexT(vrt[1], x0+w*c-h*s, y0+h*c+w*s, zPlane, color, u2, v1);
+ SetVertexT(vrt[2], x0+w*c+h*s, y0-h*c+w*s, zPlane, color, u2, v2);
+ SetVertexT(vrt[3], x0-w*c+h*s, y0-h*c-w*s, zPlane, color, u1, v2);
  DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint));
 end;
 
@@ -902,22 +877,11 @@ begin
   v:=y1; y1:=y2; y2:=v;
   v:=v1; v1:=v2; v2:=v;
  end;
- with vrt[0] do begin
-  x:=x1; y:=y1; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=u1; v:=v1;
- end;
- with vrt[1] do begin
-  x:=x2; y:=y1; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=u2; v:=v1;
- end;
- with vrt[2] do begin
-  x:=x2; y:=y2; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=u2; v:=v2;
- end;
- with vrt[3] do begin
-  x:=x1; y:=y2; z:=zPlane; rhw:=1;
-  diffuse:=color; u:=u1; v:=v2;
- end;
+ SetVertexT(vrt[0], x1,y1, zPlane, color, u1, v1);
+ SetVertexT(vrt[1], x2,y1, zPlane, color, u2, v1);
+ SetVertexT(vrt[2], x2,y2, zPlane, color, u2, v2);
+ SetVertexT(vrt[3], x1,y2, zPlane, color, u1, v2);
+
  DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint));
 end;
 
@@ -953,102 +917,57 @@ end;
 
 procedure TBasicPainter.Rect(x1, y1, x2, y2: integer; color: cardinal);
 var
- vrt:array[0..4] of ScrPointNoTex;
+ vrt:array[0..4] of TScrPointNoTex;
 begin
  if not SetStates(STATE_COLORED,types.Rect(x1,y1,x2+1,y2+1)) then exit; // Colored, normal viewport
  ConvertColor(color);
- with vrt[0] do begin
-  x:=x1; y:=y1; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[1] do begin
-  x:=x2; y:=y1; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[2] do begin
-  x:=x2; y:=y2; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[3] do begin
-  x:=x1; y:=y2; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
+ SetVertexC(vrt[0], x1,y1,zPlane,color);
+ SetVertexC(vrt[1], x2,y1,zPlane,color);
+ SetVertexC(vrt[2], x2,y2,zPlane,color);
+ SetVertexC(vrt[3], x1,y2,zPlane,color);
  vrt[4]:=vrt[0];
- DrawPrimitives(LINE_STRIP,4,@vrt,sizeof(ScrPointNoTex));
+ DrawPrimitives(LINE_STRIP,4,@vrt,sizeof(TScrPointNoTex));
 end;
 
 procedure TBasicPainter.RRect(x1,y1,x2,y2:integer;color:cardinal;r:integer=2);
 var
- vrt:array[0..8] of ScrPointNoTex;
+ vrt:array[0..8] of TScrPointNoTex;
 begin
  if not SetStates(STATE_COLORED,types.Rect(x1,y1,x2+1,y2+1)) then exit; // Colored, normal viewport
  ConvertColor(color);
- with vrt[0] do begin
-  x:=x1+r; y:=y1; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[1] do begin
-  x:=x2-r; y:=y1; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[2] do begin
-  x:=x2; y:=y1+r; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[3] do begin
-  x:=x2; y:=y2-r; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[4] do begin
-  x:=x2-r; y:=y2; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[5] do begin
-  x:=x1+r; y:=y2; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[6] do begin
-  x:=x1; y:=y2-r; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[7] do begin
-  x:=x1; y:=y1+r; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
+ SetVertexC(vrt[0],x1+r,y1,zPlane,color);
+ SetVertexC(vrt[1],x2-r,y1,zPlane,color);
+ SetVertexC(vrt[2],x2,y1+r,zPlane,color);
+ SetVertexC(vrt[3],x2,y1-r,zPlane,color);
+ SetVertexC(vrt[4],x2-r,y2,zPlane,color);
+ SetVertexC(vrt[5],x1+r,y2,zPlane,color);
+ SetVertexC(vrt[6],x1,y2-r,zPlane,color);
+ SetVertexC(vrt[7],x1,y1+r,zPlane,color);
  vrt[8]:=vrt[0];
- DrawPrimitives(LINE_STRIP,8,@vrt,sizeof(ScrPointNoTex));
+ DrawPrimitives(LINE_STRIP,8,@vrt,sizeof(TScrPointNoTex));
 end;
 
 procedure TBasicPainter.FillGradrect(x1, y1, x2, y2: integer; color1,
   color2: cardinal; vertical: boolean);
 var
- vrt:array[0..3] of ScrPointNoTex;
+ vrt:array[0..3] of TScrPointNoTex;
 begin
  if not SetStates(STATE_COLORED,types.Rect(x1,y1,x2+1,y2+1)) then exit; // Colored, normal viewport
  ConvertColor(color1);
  ConvertColor(color2);
- with vrt[0] do begin
-  x:=x1-0.5; y:=y1-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color1;
- end;
- with vrt[1] do begin
-  x:=x2+0.5; y:=y1-0.5; z:=zPlane; rhw:=1;
-  if vertical then diffuse:=color1 else diffuse:=color2;
- end;
- with vrt[2] do begin
-  x:=x2+0.5; y:=y2+0.5; z:=zPlane; rhw:=1;
-  diffuse:=color2;
- end;
- with vrt[3] do begin
-  x:=x1-0.5; y:=y2+0.5; z:=zPlane; rhw:=1;
-  if vertical then diffuse:=color2 else diffuse:=color1;
- end;
- DrawPrimitives(TRG_FAN,2,@vrt,sizeof(ScrPointNoTex));
+ SetVertexC(vrt[0], x1-0.5,y1-0.5,zPlane,color1);
+ SetVertexC(vrt[1], x2+0.5,y1-0.5,zPlane,color1);
+ SetVertexC(vrt[2], x2+0.5,y2+0.5,zPlane,color2);
+ SetVertexC(vrt[3], x1-0.5,y2+0.5,zPlane,color1);
+ if vertical then vrt[3].diffuse:=color2
+  else vrt[1].diffuse:=color2;
+
+ DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPointNoTex));
 end;
 
 procedure TBasicPainter.FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
 var
- vrt:array[0..2] of ScrPointNoTex;
+ vrt:array[0..2] of TScrPointNoTex;
  minX,minY,maxX,maxY:integer;
 begin
  minX:=trunc(Min3d(x1,x2,x3));
@@ -1059,55 +978,33 @@ begin
  ConvertColor(color1);
  ConvertColor(color2);
  ConvertColor(color3);
- with vrt[0] do begin
-  x:=x1-0.5; y:=y1-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color1;
- end;
- with vrt[1] do begin
-  x:=x2-0.5; y:=y2-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color2;
- end;
- with vrt[2] do begin
-  x:=x3-0.5; y:=y3-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color3;
- end;
- DrawPrimitives(TRG_LIST,1,@vrt,sizeof(ScrPointNoTex));
+ SetVertexC(vrt[0], x1-0.5,y1-0.5,zPlane,color1);
+ SetVertexC(vrt[1], x2-0.5,y2-0.5,zPlane,color2);
+ SetVertexC(vrt[2], x3-0.5,y3-0.5,zPlane,color3);
+ DrawPrimitives(TRG_LIST,1,@vrt,sizeof(TScrPointNoTex));
 end;
 
 
 procedure TBasicPainter.FillRect(x1, y1, x2, y2: integer; color: cardinal);
 var
- vrt:array[0..3] of ScrPointNoTex;
+ vrt:array[0..3] of TScrPointNoTex;
  sx1,sy1,sx2,sy2:single;
 begin
  if not SetStates(STATE_COLORED,types.Rect(x1,y1,x2+1,y2+1)) then exit; // Colored, normal viewport
  ConvertColor(color);
  sx1:=x1-0.5; sx2:=x2+0.5;
  sy1:=y1-0.5; sy2:=y2+0.5;
-
- with vrt[0] do begin
-  x:=sx1; y:=sy1; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[1] do begin
-  x:=sx2; y:=sy1; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[2] do begin
-  x:=sx2; y:=sy2; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[3] do begin
-  x:=sx1; y:=sy2; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- DrawPrimitives(TRG_FAN,2,@vrt,sizeof(ScrPointNoTex));
+ SetVertexC(vrt[0], sx1,sy1,zPlane,color);
+ SetVertexC(vrt[1], sx2,sy1,zPlane,color);
+ SetVertexC(vrt[2], sx2,sy2,zPlane,color);
+ SetVertexC(vrt[3], sx1,sy2,zPlane,color);
+ DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPointNoTex));
 end;
 
 procedure TBasicPainter.ShadedRect(x1, y1, x2, y2, depth: integer; light,
   dark: cardinal);
 var
- vrt:array[0..23] of ScrPointNoTex;
+ vrt:array[0..23] of TScrPointNoTex;
  i:integer;
  b1,b2:PByte;
 begin
@@ -1120,19 +1017,20 @@ begin
  b1:=@light; b2:=@dark;
  inc(b1,3); inc(b2,3);
  for i:=0 to depth-1 do begin
-  with vrt[i*8+0] do begin x:=x1; y:=y1+1; z:=zPlane; rhw:=1; diffuse:=light; end;
-  with vrt[i*8+1] do begin x:=x1; y:=y2; z:=zPlane; rhw:=1; diffuse:=light; end;
-  with vrt[i*8+2] do begin x:=x1; y:=y1; z:=zPlane; rhw:=1; diffuse:=light; end;
-  with vrt[i*8+3] do begin x:=x2; y:=y1; z:=zPlane; rhw:=1; diffuse:=light; end;
+  SetVertexC(vrt[i*8+0], x1,y1+1,zPlane,light);
+  SetVertexC(vrt[i*8+1], x1,y2,zPlane,light);
+  SetVertexC(vrt[i*8+2], x1,y1,zPlane,light);
+  SetVertexC(vrt[i*8+3], x2,y1,zPlane,light);
 
-  with vrt[i*8+4] do begin x:=x2; y:=y2; z:=zPlane; rhw:=1; diffuse:=dark; end;
-  with vrt[i*8+5] do begin x:=x2; y:=y1; z:=zPlane; rhw:=1; diffuse:=dark; end;
-  with vrt[i*8+6] do begin x:=x2-1; y:=y2; z:=zPlane; rhw:=1; diffuse:=dark; end;
-  with vrt[i*8+7] do begin x:=x1; y:=y2; z:=zPlane; rhw:=1; diffuse:=dark; end;
+  SetVertexC(vrt[i*8+4], x2,y2,  zPlane,dark);
+  SetVertexC(vrt[i*8+5], x2,y1,  zPlane,dark);
+  SetVertexC(vrt[i*8+6], x2-1,y2,zPlane,dark);
+  SetVertexC(vrt[i*8+7], x1,y2,  zPlane,dark);
+
   b1^:=b1^ div 2+32; b2^:=(b2^*3+255) shr 2;
   dec(x1); dec(y1); inc(x2); inc(y2);
  end;
- DrawPrimitives(LINE_LIST,depth*4,@vrt,sizeof(ScrPointNoTex));
+ DrawPrimitives(LINE_LIST,depth*4,@vrt,sizeof(TScrPointNoTex));
 end;
 
 
@@ -1144,22 +1042,10 @@ var
 begin
  if not SetStates(STATE_TEXTURED2X,types.Rect(x1,y1,x2+1,y2+1),texture) then exit;
  ConvertColor(color);
- with vrt[0] do begin
-  x:=x1-0.5; y:=y1-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[1] do begin
-  x:=x2+0.5; y:=y1-0.5; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[2] do begin
-  x:=x2+0.5; y:=y2+0.5; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
- with vrt[3] do begin
-  x:=x1-0.5; y:=y2+0.5; z:=zPlane; rhw:=1;
-  diffuse:=color;
- end;
+ SetVertex(vrt[0], x1-0.5, y1-0.5, zPlane,color);
+ SetVertex(vrt[1], x2+0.5, y1-0.5, zPlane,color);
+ SetVertex(vrt[2], x2+0.5, y2+0.5, zPlane,color);
+ SetVertex(vrt[3], x1-0.5, y2+0.5, zPlane,color);
  if texture.caps and tfTexture=0 then begin
   dx:=texture.u1; dy:=texture.v1;
   sx:=texture.u2-texture.u1; sy:=texture.v2-texture.v1;
@@ -1240,33 +1126,10 @@ begin
   color:=part[n].color;
   ConvertColor(color);
   // перва€ вершина
-  with vrt[i*4] do begin
-   x:=sx-rx+qx;
-   y:=sy-ry+qy;
-   z:=zPlane; rhw:=1; diffuse:=color; specular:=0;
-   u:=uStart; v:=vStart;
-  end;
-  // втора€ вершина
-  with vrt[i*4+1] do begin
-   x:=sx+rx+qx;
-   y:=sy+ry+qy;
-   z:=zPlane; rhw:=1; diffuse:=color; specular:=0;
-   u:=uStart+uSize; v:=vStart;
-  end;
-  // треть€ вершина
-  with vrt[i*4+2] do begin
-   x:=sx+rx-qx;
-   y:=sy+ry-qy;
-   z:=zPlane; rhw:=1; diffuse:=color; specular:=0;
-   u:=uStart+uSize; v:=vStart+vSize;
-  end;
-  // четверта€ вершина
-  with vrt[i*4+3] do begin
-   x:=sx-rx-qx;
-   y:=sy-ry-qy;
-   z:=zPlane; rhw:=1; diffuse:=color; specular:=0;
-   u:=uStart; v:=vStart+vSize;
-  end;
+  SetVertexT(vrt[i*4],   sx-rx+qx, sy-ry+qy, zPlane,color, uStart,      vStart);
+  SetVertexT(vrt[i*4+1], sx+rx+qx, sy+ry+qy, zPlane,color, uStart+uSize,vStart);
+  SetVertexT(vrt[i*4+2], sx+rx-qx, sy+ry-qy, zPlane,color, uStart+uSize,vStart+vSize);
+  SetVertexT(vrt[i*4+3], sx-rx-qx, sy-ry-qy, zPlane,color, uStart,      vStart+vSize);
  end;
  UnlockBuffer(VertBuf);
  DrawIndexedPrimitives(TRG_LIST,VertBuf,partIndBuf,sizeof(TScrPoint),0,count*4,0,count*2);
@@ -1360,19 +1223,8 @@ begin
    color:=part[i].color;
    ConvertColor(color);
    // перва€ вершина
-   with vrt[i*2] do begin
-     x:=sx-rx;
-     y:=sy-ry;
-     z:=zPlane; rhw:=1; diffuse:=color; specular:=0;
-     u:=u1; v:=v1+vStep*(part[i].index and $FF);
-   end;
-   // втора€ вершина
-   with vrt[i*2+1] do begin
-     x:=sx+rx;
-     y:=sy+ry;
-     z:=zPlane; rhw:=1; diffuse:=color; specular:=0;
-     u:=u2; v:=v1+vStep*(part[i].index and $FF);
-   end;
+   SetVertexT(vrt[i*2],   sx-rx,sy-ry, zPlane,color, u1,v1+vStep*(part[i].index and $FF));
+   SetVertexT(vrt[i*2+1], sx+rx,sy+ry, zPlane,color, u2,v1+vStep*(part[i].index and $FF));
    noPrv:=false;
    if (part[i].index and partEndpoint>0) or
       ((i=count-1) and (part[i].index and partLoop=0)) then begin
@@ -2014,7 +1866,7 @@ var
    begin
     data.x:=vx;
     data.y:=vy;
-    data.z:=0; data.rhw:=1;
+    data.z:=0; {$IFDEF DIRECTX} data.rhw:=1; {$ENDIF}
     if @textColorFunc<>nil then
      data.diffuse:=TextColorFunc(data.x,data.y,color)
     else
