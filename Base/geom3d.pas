@@ -22,6 +22,14 @@ interface
   end;
   TVector3s=TPoint3s;
 
+  TQuaternion=record
+   w,x,y,z:double;
+  end;
+
+  TQuaternionS=record
+   w,x,y,z:single;
+  end;
+
   // Infinite plane in space
   TPlane=packed record
    a,b,c,d:extended;
@@ -112,6 +120,7 @@ interface
  function RotationXMat(angle:double):TMatrix43;
  function RotationYMat(angle:double):TMatrix43;
  function RotationZMat(angle:double):TMatrix43;
+ function ScaleMat(scaleX,scaleY,scaleZ:double):TMatrix43;
 
  // ћатрица поворота вокруг вектора единичной длины!
  function RotationAroundVector(v:TVector3;angle:double):TMatrix3; overload;
@@ -281,7 +290,7 @@ implementation
    l:extended;
   begin
    l:=GetLength3(v);
-   if l<Epsilon then exit;
+   ASSERT(l>Epsilon,'Normalize zero-length vector');
    v.x:=v.x/l;
    v.y:=v.y/l;
    v.z:=v.z/l;
@@ -291,7 +300,7 @@ implementation
    l:extended;
   begin
    l:=GetLength3(v);
-   if l<EpsilonS then exit;
+   ASSERT(l>EpsilonS,'Normalize zero-length vector');
    v.x:=v.x/l;
    v.y:=v.y/l;
    v.z:=v.z/l;
@@ -707,6 +716,14 @@ implementation
    result:=IdentMatrix43;
    result[0,0]:=c; result[0,1]:=s;
    result[1,0]:=-s; result[1,1]:=c;
+  end;
+
+ function ScaleMat(scaleX,scaleY,scaleZ:double):TMatrix43;
+  begin
+   result:=IdentMatrix43;
+   result[0,0]:=scaleX;
+   result[1,1]:=scaleY;
+   result[2,2]:=scaleZ;
   end;
 
  function RotationAroundVector(v:TVector3;angle:double):TMatrix3;
