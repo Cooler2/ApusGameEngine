@@ -10,7 +10,7 @@ interface
 
  const
   Epsilon:extended    = 1E-12;  // for double and extended
-  EpsilonS:single     = 0.0001; // for single
+  EpsilonS:single     = 0.00001; // for single
   pi                  = 3.1415926536;
   pi2                 = pi/2;
  type
@@ -206,8 +206,7 @@ implementation
    l:double;
   begin
    l:=GetLength(v);
-   if l=0 then exit;
-//   if l=0 then raise Exception.Create('Normalize failed: zero-length vector');
+   ASSERT(l>Epsilon,'Normalize zero-length vector');
    v.x:=v.x/l;
    v.y:=v.y/l;
   end;
