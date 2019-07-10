@@ -112,6 +112,10 @@ interface
 
  function IsNearS(a,b:TPoint3s):single;
  function IsNear(a,b:TPoint3):double;
+ function IsZero(v:TPoint3):boolean; overload; inline;
+ function IsZero(v:TPoint3s):boolean; overload; inline;
+ function IsIdentity(m:TMatrix43):boolean; overload; inline;
+ function IsIdentity(m:TMatrix43s):boolean; overload; inline;
 
  // Convert matrix to single precision
  procedure ToSingle43(sour:TMatrix43;out dest:TMatrix43s);
@@ -125,6 +129,27 @@ interface
  // Матрица поворота вокруг вектора единичной длины!
  function RotationAroundVector(v:TVector3;angle:double):TMatrix3; overload;
  function RotationAroundVector(v:TVector3s;angle:single):TMatrix3s; overload;
+
+ // Build rotation matrix from a NORMALIZED quaternion
+ procedure MatrixFromQuaternion(q:TQuaternion;out mat:TMatrix3); overload;
+ procedure MatrixFromQuaternion(q:TQuaternionS;out mat:TMatrix3s); overload;
+
+ // Quaternion operations
+ function QLength(q:TQuaternion):double; overload;
+ function QLength(q:TQuaternionS):single; overload;
+
+ procedure QScale(var q:TQuaternion;val:double); overload;
+ procedure QScale(var q:TQuaternionS;val:single); overload;
+
+ procedure QNormalize(var q:TQuaternion); overload;
+ procedure QNormalize(var q:TQuaternionS); overload;
+
+ function QInvert(q:TQuaternion):TQuaternion; overload;
+ function QInvert(q:TQuaternionS):TQuaternionS; overload;
+
+ function QMult(q1,q2:TQuaternion):TQuaternion; overload;
+ function QMult(q1,q2:TQuaternionS):TQuaternionS; overload;
+
 
  // Используется правосторонняя СК, ось Z - вверх.
  // roll - поворот вокруг X
@@ -148,12 +173,15 @@ interface
  procedure MultPnt3(m:TMatrix3s;v:Ppoint3s;num,step:integer); overload;
 
  // Transpose (для ортонормированной матрицы - это будт обратная)
- procedure Transp3(m:TMatrix3;out dest:TMatrix3);
+ procedure Transp3(m:TMatrix3;out dest:TMatrix3); overload;
+ procedure Transp3(m:TMatrix3s;out dest:TMatrix3s); overload;
  procedure Transp4(m:TMatrix43;out dest:TMatrix43); overload;
+ procedure Transp4(m:TMatrix43s;out dest:TMatrix43s); overload;
  procedure Transp4(m:TMatrix4;out dest:TMatrix4); overload;
  // Вычисление обратной матрицы (осторожно!)
  procedure Invert3(m:TMatrix3;out dest:TMatrix3);
- procedure Invert4(m:TMatrix43;out dest:TMatrix43);
+ procedure Invert4(m:TMatrix43;out dest:TMatrix43); overload;
+ procedure Invert4(m:TMatrix43s;out dest:TMatrix43s); overload;
  procedure Invert4Full(m:TMatrix4;out dest:TMatrix4);
 
  function Det(m:TMatrix3):single;
@@ -384,6 +412,37 @@ implementation
    if d>result then result:=d;
   end;
 
+ function IsZero(v:TPoint3):boolean; overload;
+  begin
+   result:=not ((abs(v.x)>Epsilon) and (abs(v.y)>Epsilon) and (abs(v.z)>Epsilon));
+  end;
+ function IsZero(v:TPoint3s):boolean; overload;
+  begin
+   result:=not ((abs(v.x)>EpsilonS) and (abs(v.y)>EpsilonS) and (abs(v.z)>EpsilonS));
+  end;
+ function IsIdentity(m:TMatrix43):boolean; overload;
+  var
+   i,j:integer;
+  begin
+   result:=true;
+   for i:=0 to 3 do
+    for j:=0 to 2 do
+     if abs(m[i,j]-byte(i=j))>Epsilon then begin
+      result:=false;
+     end;
+  end;
+ function IsIdentity(m:TMatrix43s):boolean; overload;
+  var
+   i,j:integer;
+  begin
+   result:=true;
+   for i:=0 to 3 do
+    for j:=0 to 2 do
+     if abs(m[i,j]-byte(i=j))>EpsilonS then begin
+      result:=false;
+     end;
+  end;
+
  // Bounding box routines
  procedure BBoxInclude(var b:TBBox3s;x,y,z:single);
   begin
@@ -520,7 +579,14 @@ implementation
    target[3,2]:=m1[3,0]*m2[0,2] + m1[3,1]*m2[1,2] + m1[3,2]*m2[2,2] + m2[3,2];
   end;
 
- procedure Transp3;
+ procedure Transp3(m:TMatrix3;out dest:TMatrix3);
+  begin
+   dest[0,0]:=m[0,0];   dest[0,1]:=m[1,0];   dest[0,2]:=m[2,0];
+   dest[1,0]:=m[0,1];   dest[1,1]:=m[1,1];   dest[1,2]:=m[2,1];
+   dest[2,0]:=m[0,2];   dest[2,1]:=m[1,2];   dest[2,2]:=m[2,2];
+  end;
+
+ procedure Transp3(m:TMatrix3s;out dest:TMatrix3s);
   begin
    dest[0,0]:=m[0,0];   dest[0,1]:=m[1,0];   dest[0,2]:=m[2,0];
    dest[1,0]:=m[0,1];   dest[1,1]:=m[1,1];   dest[1,2]:=m[2,1];
@@ -532,6 +598,17 @@ implementation
    m1:TMatrix3 absolute m;
    m2:TMatrix3 absolute dest;
    mv:TMatrix43v absolute m;
+  begin
+   Transp3(m1,m2);
+   dest[3,0]:=-DotProduct3(mv[0],mv[3]);
+   dest[3,1]:=-DotProduct3(mv[1],mv[3]);
+   dest[3,2]:=-DotProduct3(mv[2],mv[3]);
+  end;
+ procedure Transp4(m:TMatrix43s;out dest:TMatrix43s);
+  var
+   m1:TMatrix3s absolute m;
+   m2:TMatrix3s absolute dest;
+   mv:TMatrix43vs absolute m;
   begin
    Transp3(m1,m2);
    dest[3,0]:=-DotProduct3(mv[0],mv[3]);
@@ -567,10 +644,26 @@ implementation
    dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;
   end;
 
- procedure Invert4;
+ procedure Invert4(m:TMatrix43;out dest:TMatrix43); overload;
   var
-   la,lb,lc:extended;
+   la,lb,lc:double;
    mv:TMatrix43v absolute m;
+  begin
+   la:=GetSqrLength3(mv[0]);
+   lb:=GetSqrLength3(mv[1]);
+   lc:=GetSqrLength3(mv[2]);
+   if (la=0) or (lb=0) or (lc=0) then
+    raise Exception.Create('Cannot invert matrix!');
+   Transp4(m,dest);
+   dest[0,0]:=dest[0,0]/la;   dest[1,0]:=dest[1,0]/la;   dest[2,0]:=dest[2,0]/la;   dest[3,0]:=dest[3,0]/la;
+   dest[0,1]:=dest[0,1]/lb;   dest[1,1]:=dest[1,1]/lb;   dest[2,1]:=dest[2,1]/lb;   dest[3,1]:=dest[3,1]/lb;
+   dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;   dest[3,2]:=dest[3,2]/lc;
+  end;
+
+ procedure Invert4(m:TMatrix43s;out dest:TMatrix43s); overload;
+  var
+   la,lb,lc:single;
+   mv:TMatrix43vs absolute m;
   begin
    la:=GetSqrLength3(mv[0]);
    lb:=GetSqrLength3(mv[1]);
@@ -762,6 +855,128 @@ implementation
    result[2,0]:=ln*nco-v.y*si; result[2,1]:=mn*nco+v.x*si; result[2,2]:=n2+(l2+m2)*co;
   end;
 
+ procedure MatrixFromQuaternion(q:TQuaternion;out mat:TMatrix3); overload;
+  var
+   wx,wy,wz,xx,yy,yz,xy,xz,zz,x2,y2,z2:double;
+  begin
+   x2:=q.x*2;
+   y2:=q.y*2;
+   z2:=q.z*2;
+   xx:=q.x*x2;   xy:=q.x*y2;   xz:=q.x*z2;
+   yy:=q.y*y2;   yz:=q.y*z2;   zz:=q.z*z2;
+   wx:=q.w*x2;   wy:=q.w*y2;   wz:=q.w*z2;
+
+   mat[0,0]:=1.0-(yy+zz);  mat[0,1]:=xy-wz;        mat[0,2]:=xz+wy;
+   mat[1,0]:=xy+wz;        mat[1,1]:=1.0-(xx+zz);  mat[1,2]:=yz-wx;
+   mat[2,0]:=xz-wy;        mat[2,1]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
+  end;
+
+ procedure MatrixFromQuaternion(q:TQuaternionS;out mat:TMatrix3s); overload;
+  var
+   wx,wy,wz,xx,yy,yz,xy,xz,zz,x2,y2,z2:single;
+  begin
+   x2:=q.x*2;
+   y2:=q.y*2;
+   z2:=q.z*2;
+   xx:=q.x*x2;   xy:=q.x*y2;   xz:=q.x*z2;
+   yy:=q.y*y2;   yz:=q.y*z2;   zz:=q.z*z2;
+   wx:=q.w*x2;   wy:=q.w*y2;   wz:=q.w*z2;
+
+   mat[0,0]:=1.0-(yy+zz);  mat[0,1]:=xy-wz;        mat[0,2]:=xz+wy;
+   mat[1,0]:=xy+wz;        mat[1,1]:=1.0-(xx+zz);  mat[1,2]:=yz-wx;
+   mat[2,0]:=xz-wy;        mat[2,1]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
+  end;
+
+
+ function QLength(q:TQuaternion):double; overload;
+  begin
+   result:=Sqrt(q.w*q.w+q.x*q.x+q.y*q.y+q.z*q.z);
+  end;
+
+ function QLength(q:TQuaternionS):single; overload;
+  begin
+   result:=Sqrt(q.w*q.w+q.x*q.x+q.y*q.y+q.z*q.z);
+  end;
+
+ procedure QScale(var q:TQuaternion;val:double); overload;
+  begin
+   q.w:=q.w*val;
+   q.x:=q.x*val;
+   q.y:=q.y*val;
+   q.z:=q.z*val;
+  end;
+ procedure QScale(var q:TQuaternionS;val:single); overload;
+  begin
+   q.w:=q.w*val;
+   q.x:=q.x*val;
+   q.y:=q.y*val;
+   q.z:=q.z*val;
+  end;
+
+ procedure QNormalize(var q:TQuaternion); overload;
+  begin
+   QScale(q,1/QLength(q));
+  end;
+ procedure QNormalize(var q:TQuaternionS); overload;
+  begin
+   QScale(q,1/QLength(q));
+  end;
+
+ function QInvert(q:TQuaternion):TQuaternion; overload;
+  begin
+   result.w:=q.w;
+   result.x:=-q.x;
+   result.y:=-q.y;
+   result.z:=-q.z;
+   QNormalize(result);
+  end;
+ function QInvert(q:TQuaternionS):TQuaternionS; overload;
+  begin
+   result.w:=q.w;
+   result.x:=-q.x;
+   result.y:=-q.y;
+   result.z:=-q.z;
+   QNormalize(result);
+  end;
+
+ function QMult(q1,q2:TQuaternion):TQuaternion; overload;
+  var
+   a,b,c,d,e,f,g,h:double;
+  begin
+   A:=(q1.w+q1.x) * (q2.w+q2.x);
+   B:=(q1.z-q1.y) * (q2.y-q2.z);
+   C:=(q1.x-q1.w) * (q2.y+q2.z);
+   D:=(q1.y+q1.z) * (q2.x-q2.w);
+   E:=(q1.x+q1.z) * (q2.x+q2.y);
+   F:=(q1.x-q1.z) * (q2.x-q2.y);
+   G:=(q1.w+q1.y) * (q2.w-q2.z);
+   H:=(q1.w-q1.y) * (q2.w+q2.z);
+   result.w:= B+(-E-F+G+H)*0.5;
+   result.x:= A-( E+F+G+H)*0.5;
+   result.y:=-C+( E-F+G-H)*0.5;
+   result.z:=-D+( E-F-G+H)*0.5;
+  end;
+ function QMult(q1,q2:TQuaternionS):TQuaternionS; overload;
+  var
+   a,b,c,d,e,f,g,h:single;
+  begin
+   A:=(q1.w+q1.x) * (q2.w+q2.x);
+   B:=(q1.z-q1.y) * (q2.y-q2.z);
+   C:=(q1.x-q1.w) * (q2.y+q2.z);
+   D:=(q1.y+q1.z) * (q2.x-q2.w);
+   E:=(q1.x+q1.z) * (q2.x+q2.y);
+   F:=(q1.x-q1.z) * (q2.x-q2.y);
+   G:=(q1.w+q1.y) * (q2.w-q2.z);
+   H:=(q1.w-q1.y) * (q2.w+q2.z);
+   result.w:= B+(-E-F+G+H)*0.5;
+   result.x:= A-( E+F+G+H)*0.5;
+   result.y:=-C+( E-F+G-H)*0.5;
+   result.z:=-D+( E-F-G+H)*0.5;
+{  result.w:=q1.w*q2.w - q1.x*q2.x - q1.y*q2.y - q1.z*q2.z;
+   result.x:=q1.w*q2.x + q1.x*q2.w + q1.y*q2.z - q1.z*q2.y;
+   result.y:=q1.w*q2.y - q1.x*q2.z + q1.y*q2.w + q1.z*q2.x;
+   result.z:=q1.w*q2.z + q1.x*q2.y - q1.y*q2.x + q1.z*q2.w;}
+  end;
 
  procedure InitPlane(point,normal:TVector3;var p:TPlane);
   begin
