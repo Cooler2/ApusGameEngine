@@ -17,7 +17,7 @@ implementation
    line:string;
    sa:StringArr;
    points:array of TPoint3s;
-   uv:array of TPoint2s;
+   uv:TTexCoords;
    pCnt,uvCnt:integer;
    vertices:TVertices;
    vCnt:integer;

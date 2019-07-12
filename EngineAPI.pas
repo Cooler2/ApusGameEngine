@@ -273,11 +273,10 @@ type
  // vertex and index arrays
  TVertices=array of TScrPoint;
  TIndices=array of word;
+ TTexCoords=array of TPoint2s;
 
  TMesh=class
   vertices:TVertices;
-{  vertices,normals:array of TPoint3;
-  uv:array of TPoint2;}
   indices:TIndices;
  end;
 
