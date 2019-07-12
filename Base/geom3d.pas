@@ -23,11 +23,11 @@ interface
   TVector3s=TPoint3s;
 
   TQuaternion=record
-   w,x,y,z:double;
+   x,y,z,w:double;
   end;
 
   TQuaternionS=record
-   w,x,y,z:single;
+   x,y,z,w:single;
   end;
 
   // Infinite plane in space
@@ -114,8 +114,9 @@ interface
  function IsNear(a,b:TPoint3):double;
  function IsZero(v:TPoint3):boolean; overload; inline;
  function IsZero(v:TPoint3s):boolean; overload; inline;
- function IsIdentity(m:TMatrix43):boolean; overload; inline;
- function IsIdentity(m:TMatrix43s):boolean; overload; inline;
+ function IsIdentity(v:TVector3s):boolean; overload; inline;
+ function IsIdentity(m:TMatrix43):boolean; overload;
+ function IsIdentity(m:TMatrix43s):boolean; overload;
 
  // Convert matrix to single precision
  procedure ToSingle43(sour:TMatrix43;out dest:TMatrix43s);
@@ -159,32 +160,33 @@ interface
  procedure YawRollPitchFromMatrix(const mat:TMatrix43; var yaw,roll,pitch:double);
 
  // target = M1*M2 (Смысл: перевести репер M1 из системы M2 в ту, где задана M2)
- // Другой смысл: суммарная трансформация: сперва M2, затем M1
- procedure MultMat3(m1,m2:TMatrix3;out target:TMatrix3); overload;
- procedure MultMat3(m1,m2:TMatrix3s;out target:TMatrix3s); overload;
- procedure MultMat4(m1,m2:TMatrix43;out target:TMatrix43); overload;
- procedure MultMat4(m1,m2:TMatrix43s;out target:TMatrix43s); overload;
- procedure MultMat4(m1,m2:TMatrix4;out target:TMatrix4); overload;
- function MultMat4(m1,m2:TMatrix43):TMatrix43; overload;
+ // Другой смысл: суммарная трансформация: сперва M1, затем M2
+ // IMPORTANT! target MUST DIFFER from m1 and m2!
+ procedure MultMat3(const m1,m2:TMatrix3;out target:TMatrix3); overload;
+ procedure MultMat3(const m1,m2:TMatrix3s;out target:TMatrix3s); overload;
+ procedure MultMat4(const m1,m2:TMatrix43;out target:TMatrix43); overload;
+ procedure MultMat4(const m1,m2:TMatrix43s;out target:TMatrix43s); overload;
+ procedure MultMat4(const m1,m2:TMatrix4;out target:TMatrix4); overload;
+ function MultMat4(const m1,m2:TMatrix43):TMatrix43; overload;
 
- procedure MultPnt4(m:TMatrix43;v:PPoint3;num,step:integer); overload;
- procedure MultPnt4(m:TMatrix43s;v:Ppoint3s;num,step:integer); overload;
- procedure MultPnt3(m:TMatrix3;v:PPoint3;num,step:integer); overload;
- procedure MultPnt3(m:TMatrix3s;v:Ppoint3s;num,step:integer); overload;
+ procedure MultPnt4(const m:TMatrix43;v:PPoint3;num,step:integer); overload;
+ procedure MultPnt4(const m:TMatrix43s;v:Ppoint3s;num,step:integer); overload;
+ procedure MultPnt3(const m:TMatrix3;v:PPoint3;num,step:integer); overload;
+ procedure MultPnt3(const m:TMatrix3s;v:Ppoint3s;num,step:integer); overload;
 
  // Transpose (для ортонормированной матрицы - это будт обратная)
- procedure Transp3(m:TMatrix3;out dest:TMatrix3); overload;
- procedure Transp3(m:TMatrix3s;out dest:TMatrix3s); overload;
- procedure Transp4(m:TMatrix43;out dest:TMatrix43); overload;
- procedure Transp4(m:TMatrix43s;out dest:TMatrix43s); overload;
- procedure Transp4(m:TMatrix4;out dest:TMatrix4); overload;
+ procedure Transp3(const m:TMatrix3;out dest:TMatrix3); overload;
+ procedure Transp3(const m:TMatrix3s;out dest:TMatrix3s); overload;
+ procedure Transp4(const m:TMatrix43;out dest:TMatrix43); overload;
+ procedure Transp4(const m:TMatrix43s;out dest:TMatrix43s); overload;
+ procedure Transp4(const m:TMatrix4;out dest:TMatrix4); overload;
  // Вычисление обратной матрицы (осторожно!)
- procedure Invert3(m:TMatrix3;out dest:TMatrix3);
- procedure Invert4(m:TMatrix43;out dest:TMatrix43); overload;
- procedure Invert4(m:TMatrix43s;out dest:TMatrix43s); overload;
+ procedure Invert3(const m:TMatrix3;out dest:TMatrix3);
+ procedure Invert4(const m:TMatrix43;out dest:TMatrix43); overload;
+ procedure Invert4(const m:TMatrix43s;out dest:TMatrix43s); overload;
  procedure Invert4Full(m:TMatrix4;out dest:TMatrix4);
 
- function Det(m:TMatrix3):single;
+ function Det(const m:TMatrix3):single;
 
  // Bounding boxes
  procedure BBoxInclude(var b:TBBox3s;x,y,z:single);
@@ -420,6 +422,12 @@ implementation
   begin
    result:=not ((abs(v.x)>EpsilonS) and (abs(v.y)>EpsilonS) and (abs(v.z)>EpsilonS));
   end;
+
+ function IsIdentity(v:TVector3s):boolean; inline;
+  begin
+   result:=((abs(v.x-1.0)<EpsilonS) and (abs(v.y-1.0)<EpsilonS) and (abs(v.z-1.0)<EpsilonS));
+  end;
+
  function IsIdentity(m:TMatrix43):boolean; overload;
   var
    i,j:integer;
@@ -428,7 +436,7 @@ implementation
    for i:=0 to 3 do
     for j:=0 to 2 do
      if abs(m[i,j]-byte(i=j))>Epsilon then begin
-      result:=false;
+      result:=false; exit;
      end;
   end;
  function IsIdentity(m:TMatrix43s):boolean; overload;
@@ -439,7 +447,7 @@ implementation
    for i:=0 to 3 do
     for j:=0 to 2 do
      if abs(m[i,j]-byte(i=j))>EpsilonS then begin
-      result:=false;
+      result:=false; exit;
      end;
   end;
 
@@ -510,7 +518,7 @@ implementation
      dest[i,j]:=sour[i,j];
   end;
 
- procedure MultMat3(m1,m2:TMatrix3;out target:TMatrix3);
+ procedure MultMat3(const m1,m2:TMatrix3;out target:TMatrix3);
   begin
    target[0,0]:=m1[0,0]*m2[0,0] + m1[0,1]*m2[1,0] + m1[0,2]*m2[2,0];
    target[0,1]:=m1[0,0]*m2[0,1] + m1[0,1]*m2[1,1] + m1[0,2]*m2[2,1];
@@ -525,7 +533,7 @@ implementation
    target[2,2]:=m1[2,0]*m2[0,2] + m1[2,1]*m2[1,2] + m1[2,2]*m2[2,2];
   end;
 
- procedure MultMat3(m1,m2:TMatrix3s;out target:TMatrix3s);
+ procedure MultMat3(const m1,m2:TMatrix3s;out target:TMatrix3s);
   begin
    target[0,0]:=m1[0,0]*m2[0,0] + m1[0,1]*m2[1,0] + m1[0,2]*m2[2,0];
    target[0,1]:=m1[0,0]*m2[0,1] + m1[0,1]*m2[1,1] + m1[0,2]*m2[2,1];
@@ -540,7 +548,7 @@ implementation
    target[2,2]:=m1[2,0]*m2[0,2] + m1[2,1]*m2[1,2] + m1[2,2]*m2[2,2];
   end;
 
- procedure MultMat4(m1,m2:TMatrix43;out target:TMatrix43);
+ procedure MultMat4(const m1,m2:TMatrix43;out target:TMatrix43);
   var
    am1:TMatrix3 absolute m1;
    am2:TMatrix3 absolute m2;
@@ -552,7 +560,7 @@ implementation
    target[3,2]:=m1[3,0]*m2[0,2] + m1[3,1]*m2[1,2] + m1[3,2]*m2[2,2] + m2[3,2];
   end;
 
- procedure MultMat4(m1,m2:TMatrix4;out target:TMatrix4);
+ procedure MultMat4(const m1,m2:TMatrix4;out target:TMatrix4);
   var
    i,j:integer;
   begin
@@ -562,12 +570,12 @@ implementation
   end;
 
 
- function MultMat4(m1,m2:TMatrix43):TMatrix43; overload;
+ function MultMat4(const m1,m2:TMatrix43):TMatrix43; overload;
   begin
    MultMat4(m1,m2,result);
-  end;  
+  end;
 
- procedure MultMat4(m1,m2:TMatrix43s;out target:TMatrix43s);
+ procedure MultMat4(const m1,m2:TMatrix43s;out target:TMatrix43s);
   var
    am1:TMatrix3s absolute m1;
    am2:TMatrix3s absolute m2;
@@ -579,21 +587,21 @@ implementation
    target[3,2]:=m1[3,0]*m2[0,2] + m1[3,1]*m2[1,2] + m1[3,2]*m2[2,2] + m2[3,2];
   end;
 
- procedure Transp3(m:TMatrix3;out dest:TMatrix3);
+ procedure Transp3(const m:TMatrix3;out dest:TMatrix3);
   begin
    dest[0,0]:=m[0,0];   dest[0,1]:=m[1,0];   dest[0,2]:=m[2,0];
    dest[1,0]:=m[0,1];   dest[1,1]:=m[1,1];   dest[1,2]:=m[2,1];
    dest[2,0]:=m[0,2];   dest[2,1]:=m[1,2];   dest[2,2]:=m[2,2];
   end;
 
- procedure Transp3(m:TMatrix3s;out dest:TMatrix3s);
+ procedure Transp3(const m:TMatrix3s;out dest:TMatrix3s);
   begin
    dest[0,0]:=m[0,0];   dest[0,1]:=m[1,0];   dest[0,2]:=m[2,0];
    dest[1,0]:=m[0,1];   dest[1,1]:=m[1,1];   dest[1,2]:=m[2,1];
    dest[2,0]:=m[0,2];   dest[2,1]:=m[1,2];   dest[2,2]:=m[2,2];
   end;
 
- procedure Transp4(m:TMatrix43;out dest:TMatrix43);
+ procedure Transp4(const m:TMatrix43;out dest:TMatrix43);
   var
    m1:TMatrix3 absolute m;
    m2:TMatrix3 absolute dest;
@@ -604,7 +612,7 @@ implementation
    dest[3,1]:=-DotProduct3(mv[1],mv[3]);
    dest[3,2]:=-DotProduct3(mv[2],mv[3]);
   end;
- procedure Transp4(m:TMatrix43s;out dest:TMatrix43s);
+ procedure Transp4(const m:TMatrix43s;out dest:TMatrix43s);
   var
    m1:TMatrix3s absolute m;
    m2:TMatrix3s absolute dest;
@@ -615,8 +623,7 @@ implementation
    dest[3,1]:=-DotProduct3(mv[1],mv[3]);
    dest[3,2]:=-DotProduct3(mv[2],mv[3]);
   end;
-
- procedure Transp4(m:TMatrix4;out dest:TMatrix4);
+ procedure Transp4(const m:TMatrix4;out dest:TMatrix4);
   var
    i:integer;
   begin
@@ -644,7 +651,7 @@ implementation
    dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;
   end;
 
- procedure Invert4(m:TMatrix43;out dest:TMatrix43); overload;
+ procedure Invert4(const m:TMatrix43;out dest:TMatrix43); overload;
   var
    la,lb,lc:double;
    mv:TMatrix43v absolute m;
@@ -660,7 +667,7 @@ implementation
    dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;   dest[3,2]:=dest[3,2]/lc;
   end;
 
- procedure Invert4(m:TMatrix43s;out dest:TMatrix43s); overload;
+ procedure Invert4(const m:TMatrix43s;out dest:TMatrix43s); overload;
   var
    la,lb,lc:single;
    mv:TMatrix43vs absolute m;
@@ -720,7 +727,7 @@ implementation
      AddRow(i,k,-m[k,i]);
   end;
 
- procedure MultPnt4(m:TMatrix43;v:PPoint3;num,step:integer);
+ procedure MultPnt4(const m:TMatrix43;v:PPoint3;num,step:integer);
   var
    i:integer;
    x,y,z:double;
@@ -734,7 +741,7 @@ implementation
    end;
   end;
 
- procedure MultPnt4(m:TMatrix43s;v:PPoint3s;num,step:integer);
+ procedure MultPnt4(const m:TMatrix43s;v:PPoint3s;num,step:integer);
   var
    i:integer;
    x,y,z:single;
@@ -748,7 +755,7 @@ implementation
    end;
   end;
 
- procedure MultPnt3(m:TMatrix3;v:PPoint3;num,step:integer);
+ procedure MultPnt3(const m:TMatrix3;v:PPoint3;num,step:integer);
   var
    i:integer;
    x,y,z:double;
@@ -761,7 +768,7 @@ implementation
     v:=PPoint3(PtrUInt(v)+step);
    end;
   end;
- procedure MultPnt3(m:TMatrix3s;v:Ppoint3s;num,step:integer);
+ procedure MultPnt3(const m:TMatrix3s;v:Ppoint3s;num,step:integer);
   var
    i:integer;
    x,y,z:single;
@@ -992,7 +999,7 @@ implementation
    result:=pnt.x*p.a+pnt.y*p.b+pnt.z*p.c+p.d;
   end;
 
- function Det(m:TMatrix3):single;
+ function Det(const m:TMatrix3):single;
   begin
    result:=m[0,0]*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
            m[0,1]*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
