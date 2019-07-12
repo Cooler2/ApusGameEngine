@@ -166,13 +166,38 @@ implementation
     result:=st;
    end;
 
+  procedure ConvertArray(const va:TIQMVertexArray;dest:PByte;count:integer);
+   var
+    i:integer;
+    sp:PCardinal;
+    spf:PSingle;
+   begin
+    case va.vatype of
+     IQM_BYTE,IQM_UBYTE:move(data[va.offset],dest^,count);
+     IQM_INT,IQM_UINT:begin
+      sp:=@data[va.offset];
+      for i:=0 to count-1 do begin
+       dest^:=sp^;
+       inc(sp); inc(dest);
+      end;
+     end;
+     IQM_FLOAT:begin
+      spf:=@data[va.offset];
+      for i:=0 to count-1 do begin
+       dest^:=round(255*spf^);
+       inc(spf); inc(dest);
+      end;
+     end;
+    end;
+   end;
+
   procedure BuildVertexData;
    var
     i,j,k,count,base:integer;
     bi,bw:array of byte;
     factor:single;
    begin
-    for i:=0 to header.num_vertexarrays-1 do begin
+    for i:=0 to integer(header.num_vertexarrays)-1 do begin
      count:=vertexArray.size*header.num_vertexes; // number of values
      case vertexArray.vatype of
       IQM_POSITION:begin
@@ -196,14 +221,15 @@ implementation
        move(data[vertexArray.offset],model.vc[0],count);
       end;
       IQM_BLENDINDEXES:begin
-       ASSERT((vertexArray.format=IQM_UBYTE) AND (vertexArray.size=4),'Invalid vertex array format: blendIndices');
+       ASSERT((vertexArray.size=4),'Invalid vertex array format: blendIndices');
        SetLength(bi,count);
-       move(data[vertexArray.offset],bi[0],count);
+       ConvertArray(vertexArray^,@bi[0],count);
       end;
       IQM_BLENDWEIGHTS:begin
-       ASSERT((vertexArray.format=IQM_UBYTE) AND (vertexArray.size=4),'Invalid vertex array format: blendWeights');
+       ASSERT((vertexArray.size=4),'Invalid vertex array format: blendWeights');
        SetLength(bw,count);
-       move(data[vertexArray.offset],bw[0],count);
+       if vertexArray.vatype=IQM_UINT then vertexArray.vatype:=IQM_FLOAT; // Noesis produces wrong array type, so fix it
+       ConvertArray(vertexArray^,@bw[0],count);
       end;
      end;
      inc(vertexArray);
@@ -255,7 +281,7 @@ implementation
     end;
     // Create parts
     SetLength(model.parts,header.num_meshes);
-    for i:=0 to header.num_meshes-1 do
+    for i:=0 to integer(header.num_meshes)-1 do
      with model.parts[i] do begin
       partName:=GetString(mesh.name);
       materialName:=GetString(mesh.material);
@@ -277,6 +303,7 @@ implementation
      with model.bones[i] do begin
       boneName:=GetString(joints.name);
       parent:=joints.parent;
+      flags:=0;
       move(joints.translate,pos,sizeof(pos));
       move(joints.rotate,rot,sizeof(rot));
       move(joints.scale,scale,sizeof(scale));
