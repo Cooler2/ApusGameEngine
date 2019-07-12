@@ -298,6 +298,9 @@ type
   textEffects:array[1..4] of TTextEffectLayer;
   textMetrics:array of TRect; // results of text measurement (if requested)
   zPlane:double; // default Z value for all primitives
+  viewMatrix:T3DMatrix; // текущая матрица камеры
+  objMatrix:T3DMatrix; // текущая матрица трансформации объекта (ибо OGL не хранит отдельно матрицы объекта и камеры)
+  projMatrix:T3DMatrix; // текущая матрица проекции
 
   // Начать рисование (использовать указанную текстуру либо основной буфер если она не указана)
   procedure BeginPaint(target:TTexture); virtual; abstract;
@@ -323,7 +326,7 @@ type
   // -------------------------
   // Switch to default 2D view (use screen coordinates, no T&L)
   procedure SetDefaultView; virtual; abstract;
-  // Switch to 3D view - set perspective projection (in camera space, camera pos = 0,0,0, Z-front, X-right, Y-down)
+  // Switch to 3D view - set perspective projection (in camera space: camera pos = 0,0,0, Z-forward, X-right, Y-down)
   // zMin, zMax - near and far Z plane
   // xMin,xMax - x coordinate range on the zScreen Z plane
   // yMin,yMax - y coordinate range on the zScreen Z plane

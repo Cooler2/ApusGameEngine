@@ -73,6 +73,7 @@ interface
 
   // 3D management
   procedure SetupCamera(origin,target,up:TPoint3;turnCW:double=0); override;
+  procedure SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); override;
 
   // State manipulation
   function GetClipping: TRect; override;
@@ -1437,6 +1438,19 @@ begin
  Set3DView(mat);
 end;
 
+procedure TBasicPainter.SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double);
+var
+ A,B,C,D:single;
+begin
+ A:=(xMax+xMin)/(xMax-xMin);
+ B:=(yMin+yMax)/(yMin-yMax);
+ C:=zMax/(zMax-zMin);
+ D:=zMax*zMin/(zMin-zMax);
+ projMatrix[0,0]:=2*zScreen/(xMax-xMin);    projMatrix[1,0]:=0;    projMatrix[2,0]:=A;     projMatrix[3,0]:=0;
+ projMatrix[0,1]:=0;      projMatrix[1,1]:=2*zScreen/(yMax-yMin);  projMatrix[2,1]:=B;     projMatrix[3,1]:=0;
+ projMatrix[0,2]:=0;      projMatrix[1,2]:=0;                      projMatrix[2,2]:=C;     projMatrix[3,2]:=D;
+ projMatrix[0,3]:=0;      projMatrix[1,3]:=0;                      projMatrix[2,3]:=1;     projMatrix[3,3]:=0;
+end;
 
 procedure TBasicPainter.BeginTextBlock;
 begin

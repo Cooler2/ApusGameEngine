@@ -96,11 +96,11 @@ end;
 
 procedure TGLPainter2.SetGLMatrix(mType: TMatrixType; mat: PDouble);
  var
+  tmp:TMatrix4;
   m:TMatrix4s;
  begin
-  MultMat4(objMatrix,viewMatrix,MVP);
-  MultMat4(MVP,projMatrix,MVP);
-//  glUseProgram(actualShader);
+  MultMat4(objMatrix,viewMatrix,tmp);
+  MultMat4(tmp,projMatrix,MVP);
   m:=Matrix4s(MVP);
   if actualShader<>AS_OWN then
    glUniformMatrix4fv(uMVP,1,GL_FALSE,@m);

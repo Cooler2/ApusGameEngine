@@ -85,10 +85,6 @@ type
   charmap:PCharMap;
   chardrawer:integer;
 
-  viewMatrix:T3DMatrix; // текущая матрица камеры (ибо OGL не хранит отдельно матрицы объекта и камеры)
-  objMatrix:T3DMatrix; // текущая матрица трансформации объекта (ибо OGL не хранит отдельно матрицы объекта и камеры)
-  projMatrix:T3DMatrix; // текущая матрица проекции
-  
   outputPos:TPoint; // output area in the default render target (bottom-left corner, relative to bottom-left RT corner)
   renderWidth,renderHeight:integer; // size of render area for default target (virtual screen size)
   VPwidth,VPheight:integer; // viewport size for backbuffer
@@ -903,20 +899,13 @@ end;
 
 procedure TGlPainter.SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double);
 var
- A,B,C,D:double;
+ i:integer;
 begin
- A:=(xMax+xMin)/(xMax-xMin);
- B:=(yMin+yMax)/(yMin-yMax);
- C:=(zMax+zMin)/(zMax-zMin);
- D:=2*zMax*zMin/(zMax-zMin);
- projMatrix[0,0]:=2*zScreen/(xMax-xMin);    projMatrix[1,0]:=0;     projMatrix[2,0]:=A;        projMatrix[3,0]:=0;
- if curtarget<>defaultRenderTarget then begin // при отрисовке в текстуру не нужно переворачивать ось Y
-  projMatrix[0,1]:=0;      projMatrix[1,1]:=2*zScreen/(yMax-yMin);  projMatrix[2,1]:=B;       projMatrix[3,1]:=0;
- end else begin
-  projMatrix[0,1]:=0;      projMatrix[1,1]:=-2*zScreen/(yMax-yMin);  projMatrix[2,1]:=-B;       projMatrix[3,1]:=0;
- end;
- projMatrix[0,2]:=0;      projMatrix[1,2]:=0;     projMatrix[2,2]:=C;      projMatrix[3,2]:=-D;
- projMatrix[0,3]:=0;      projMatrix[1,3]:=0;     projMatrix[2,3]:=1;       projMatrix[3,3]:=0;
+ inherited;
+ if curtarget=defaultRenderTarget then // нужно переворачивать ось Y если только не рисуем в текстуру
+  for i:=0 to 3 do
+   projMatrix[i,1]:=-projMatrix[i,1];
+
  SetGLMatrix(mtProjection,@projMatrix);
 end;
 
