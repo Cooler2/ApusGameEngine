@@ -48,7 +48,9 @@ uses
   ComplexText in '..\ComplexText.pas',
   steamAPI in '..\steamAPI.pas',
   PainterGL2 in '..\PainterGL2.pas',
-  GameApp in '..\GameApp.pas';
+  GameApp in '..\GameApp.pas',
+  Model3D in '..\Model3D.pas',
+  IQMloader in '..\IQMloader.pas';
 
 const
  wnd:boolean=true;
@@ -56,7 +58,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 3;
+ testnum:integer = 15;
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -71,6 +73,7 @@ const
  // 12 - вывод текста FreeType
  // 13 - тест шейдеров OpenGL (НЕ ДЛЯ GLPAINTER2!)
  // 14 - тест видео
+ // 15 - 3D model and animation
 
  TexVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR+D3DFVF_TEX1+D3DFVF_TEXTUREFORMAT2;
  ColVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR;
@@ -199,6 +202,16 @@ type
  TVideoTest=class(TTest)
   tex:TTextureImage;
   vlc,mp,media:pointer;
+  procedure Init; override;
+  procedure RenderFrame; override;
+  procedure Done; override;
+ end;
+
+ T3DCharacterTest=class(TTest)
+  model:TModel3D;
+  vertices:array of T3DModelVertex;
+  indices:TIndices;
+  shader:integer;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -544,17 +557,17 @@ begin
  {$ENDIF}
 
  with vrt[0] do begin
-  x:=600; y:=10; z:=0; rhw:=1;
+  x:=600; y:=10; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
   diffuse:=$FF808080;
   u:=0; v:=0;
  end;
  with vrt[1] do begin
-  x:=750; y:=20; z:=0; rhw:=1;
+  x:=750; y:=20; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
   diffuse:=$FF808080;
   u:=1; v:=0;
  end;
  with vrt[2] do begin
-  x:=730; y:=250; z:=0; rhw:=1;
+  x:=730; y:=250; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
   diffuse:=$FF008000;
   u:=1; v:=1;
  end;
@@ -1410,7 +1423,7 @@ end;
 function MakeVertex(x,y,z:single;color:cardinal):TScrPoint;
 begin
  fillchar(result,sizeof(result),0);
- result.x:=x; result.y:=y; result.z:=z; result.rhw:=1;
+ result.x:=x; result.y:=y; result.z:=z; {$IFDEF DIRECTX} result.rhw:=1; {$ENDIF}
  result.diffuse:=color;
 end;
 
@@ -1686,6 +1699,100 @@ begin
 end;
 
 
+{ T3DCharacterTest }
+
+procedure T3DCharacterTest.Done;
+begin
+
+end;
+
+procedure T3DCharacterTest.Init;
+var
+ modelAnim:TModel3D;
+ count:integer;
+ vSrc,fSrc:AnsiString;
+begin
+ model:=LoadIQM('res\test.iqm');
+ //model:=LoadIQM('res\knight.iqm');
+// model.FlipX;
+ model.UpdateBoneMatrices;
+// model.ConvertToBoneSpace;
+
+ count:=length(model.vp);
+ SetLength(vertices,count);
+ model.FillVertexBuffer(@vertices[0],count,sizeof(vertices[0]),
+  0,-1,32,-1,16,-1,12);
+ SetLength(indices,length(model.trgList));
+ move(model.trgList[0],indices[0],length(indices)*2);
+
+ vSrc:=LoadFileAsString('res\knight.vsh');
+ fSrc:=LoadFileAsString('res\knight.fsh');
+ shader:=TGLPainter(painter).BuildShaderProgram(vSrc,fSrc);
+end;
+
+procedure T3DCharacterTest.RenderFrame;
+var
+ pnt:TPoint3;
+ time:double;
+ objMat:TMatrix43;
+ loc:integer;
+ mvp:TMatrix4s;
+begin
+ time:=MyTickCount/1200;
+ painter.Clear($FF101020,1);
+ painter.SetPerspective(-10,10,-7,7,10,5,1000);
+ painter.SetupCamera(Point3(30,0,15),Point3(0,0,8),Vector3(0,0,1000));
+ painter.Set3DTransform(IdentMatrix4);
+
+ pnt:=TGLPainter2(painter).TestTransformation(Point3(0,0,0));
+ pnt:=TGLPainter2(painter).TestTransformation(Point3(1,1,1));
+
+ painter.SetCullMode(cullNone);
+ glEnable(GL_DEPTH_TEST);
+ glDepthFunc(GL_LEQUAL);
+ painter.FillRect(-15,-15,15,15,$C000A030);
+
+ MultMat4(geom3d.ScaleMat(0.1,0.1,0.1),RotationZMat(time),objMat);
+ painter.Set3DTransform(Matrix4(objMat));
+
+ painter.UseCustomShader;
+ glUseProgram(shader);
+
+ // After shader changing we MUST set uniforms
+ mvp:=Matrix4s(painter.GetMVPMatrix);
+ loc:=glGetUniformLocation(shader,'uMVP');
+ glUniformMatrix4fv(loc,1,FALSE,@mvp);
+ // model matrix
+ loc:=glGetUniformLocation(shader,'uModel');
+ glUniformMatrix4fv(loc,1,FALSE,@objMat);
+
+ glEnableVertexAttribArray(0);
+ glVertexAttribPointer(0,3,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0]);
+ glEnableVertexAttribArray(1);
+ glVertexAttribPointer(1,3,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0].nX);
+ glEnableVertexAttribArray(2);
+ glVertexAttribPointer(2,2,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0].u);
+
+ glDrawElements(GL_TRIANGLES,length(indices),GL_UNSIGNED_SHORT,@indices[0]);
+
+ objMat[3,1]:=7;
+ objMat[3,2]:=-4;
+ painter.Set3DTransform(Matrix4(objMat));
+ mvp:=Matrix4s(painter.GetMVPMatrix);
+ loc:=glGetUniformLocation(shader,'uMVP');
+ glUniformMatrix4fv(loc,1,FALSE,@mvp);
+ // model matrix
+ loc:=glGetUniformLocation(shader,'uModel');
+ glUniformMatrix4fv(loc,1,FALSE,@objMat);
+ glDrawElements(GL_TRIANGLES,length(indices),GL_UNSIGNED_SHORT,@indices[0]);
+
+ glDisable(GL_DEPTH_TEST);
+
+ painter.ResetTexMode;
+ painter.SetDefaultView;
+
+end;
+
 begin
 
  if HasParam('-wnd') then wnd:=true;
@@ -1728,6 +1835,7 @@ begin
   12:test:=TFontTest2.Create;
   13:test:=TShaderTest.Create;
   14:test:=TVideoTest.Create;
+  15:test:=T3DCharacterTest.Create;
  end;
 
  {$IFDEF OPENGL}
