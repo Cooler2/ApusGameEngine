@@ -253,8 +253,8 @@ function ShortMD5(st:string):string;
 function EventHandler(event:eventstr;tag:TTag):boolean;
  var
   i,code,t,e1,e2,httpStatus:integer;
-  response:string;
-  sa:StringArr;
+  response:AnsiString;
+  sa:AStringArr;
  begin
   result:=true;
   if (event='HTTP_Event\ResendPost') and (activePostRequest>0) then begin
@@ -330,7 +330,7 @@ function EventHandler(event:eventstr;tag:TTag):boolean;
          exit;
         end;
         // messages received
-        sa:=Split(#13#10,response);
+        sa:=SplitA(#13#10,response);
         LogMessage('NW3: '+IntToStr(length(sa))+' messages received from request #'+inttostr(tag));
         for i:=0 to length(sa)-1 do begin
          // Здесь был баг, декодировать нужно правильно
@@ -566,7 +566,7 @@ procedure Connect(server,login,password,clientinfo:string);
 function EventHandler2(event:eventstr;tag:TTag):boolean;
  var
   code:integer;
-  response:string;
+  response:AnsiString;
  begin
   code:=GetRequestResult(tag,response);
   if code<>httpStatusCompleted then begin
