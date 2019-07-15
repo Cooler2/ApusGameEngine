@@ -172,7 +172,7 @@ implementation
     sp:PCardinal;
     spf:PSingle;
    begin
-    case va.vatype of
+    case va.format of
      IQM_BYTE,IQM_UBYTE:move(data[va.offset],dest^,count);
      IQM_INT,IQM_UINT:begin
       sp:=@data[va.offset];
@@ -315,7 +315,7 @@ implementation
    var
     i,j,n,count:integer;
     pose:^TIQMPose;
-    frameData:array of TAnimationValue;
+    frameData:TAnimationValues;
    function Unpack(channelID:integer):single;
     begin
      if pose.channelmask and (1 shl channelID)>0 then begin
@@ -374,13 +374,19 @@ implementation
       inc(pose);
      end;
     end;
+    SetLength(frameData,n); // actual count
 
     count:=header.num_anims;
     SetLength(model.animations,count);
     for i:=0 to count-1 do
      with model.animations[i] do begin
       animationName:=GetString(animations.name);
-      //  animations.first_frame;
+      smooth:=true;
+      curFrame:=-1;
+      playing:=false;
+      numFrames:=animations.num_frames;
+      model.fps:=animations.framerate;
+      values:=frameData;
      end;
    end;
 
@@ -393,11 +399,13 @@ implementation
 
     ParseData;
     model:=TModel3D.Create;
+    model.fps:=30;
     BuildVertexData;
     BuildMeshData;
     LoadBones;
     LoadAnimations;
 
+    model.UpdateBoneMatrices(false); // Calculate skeleton matrices
     result:=model;
    except
     on e:Exception do raise EError.Create('Error in LoadIQM('+fname+'): '+ExceptionMsg(e));
