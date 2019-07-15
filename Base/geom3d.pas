@@ -84,6 +84,8 @@ interface
  function Vector3(from,target:TPoint3):TVector3; overload; inline;
  function Vector3s(from,target:TPoint3s):TVector3s; overload; inline;
  function Vector3s(vector:TVector3):TVector3s; overload; inline;
+ function Quaternion(x,y,z,w:double):TQuaternion; overload; inline;
+ function Quaternion(x,y,z,w:single):TQuaternionS; overload; inline;
  function Matrix4(from:TMatrix43):TMatrix4;
  function Matrix4s(from:TMatrix4):TMatrix4s;
 
@@ -99,11 +101,13 @@ interface
  function GetSqrLength3(v:TVector3s):single; overload;
  procedure Normalize3(var v:TVector3); overload;
  procedure Normalize3(var v:TVector3s); overload;
- procedure VectAdd3(var a:TVector3;b:TVector3);
+ procedure VectAdd3(var a:TVector3;b:TVector3); overload;
+ procedure VectAdd3(var a:TVector3s;b:TVector3s); overload;
  procedure VectSub3(var a:TVector3;b:TVector3);
  procedure VectMult(var a:TVector3;k:double); overload;
  procedure VectMult(var a:TVector3s;k:double); overload;
- function Vect3Mult(a:TVector3;k:double):TVector3;
+ function Vect3Mult(a:TVector3;k:double):TVector3; overload;
+ function Vect3Mult(a:TVector3s;k:double):TVector3s; overload;
  function PointAdd(p:TPoint3;v:TVector3;factor:double=1.0):TPoint3; inline;
  function Distance(p1,p2:TPoint3):double; overload;
  function Distance(p1,p2:TPoint3s):single; overload;
@@ -151,6 +155,9 @@ interface
  function QMult(q1,q2:TQuaternion):TQuaternion; overload;
  function QMult(q1,q2:TQuaternionS):TQuaternionS; overload;
 
+ // SLERP interpolation from Q1 to Q2 with factor changing from 0 to 1
+ function QInterpolate(q1,q2:TQuaternionS;factor:single):TQuaternionS;
+
 
  // Используется правосторонняя СК, ось Z - вверх.
  // roll - поворот вокруг X
@@ -160,7 +167,7 @@ interface
  procedure YawRollPitchFromMatrix(const mat:TMatrix43; var yaw,roll,pitch:double);
 
  // target = M1*M2 (Смысл: перевести репер M1 из системы M2 в ту, где задана M2)
- // Другой смысл: суммарная трансформация: сперва M1, затем M2
+ // Другой смысл: суммарная трансформация: сперва M2, затем M1 (именно так!)
  // IMPORTANT! target MUST DIFFER from m1 and m2!
  procedure MultMat3(const m1,m2:TMatrix3;out target:TMatrix3); overload;
  procedure MultMat3(const m1,m2:TMatrix3s;out target:TMatrix3s); overload;
@@ -253,6 +260,20 @@ implementation
    result.y:=vector.y;
    result.z:=vector.z;
   end;
+ function Quaternion(x,y,z,w:double):TQuaternion; overload; inline;
+  begin
+   result.x:=x;
+   result.y:=y;
+   result.z:=z;
+   result.w:=w;
+  end;
+ function Quaternion(x,y,z,w:single):TQuaternionS; overload; inline;
+  begin
+   result.x:=x;
+   result.y:=y;
+   result.z:=z;
+   result.w:=w;
+  end;
 
  function Matrix4(from:TMatrix43):TMatrix4;
   var
@@ -341,6 +362,13 @@ implementation
    a.y:=b.y+a.y;
    a.z:=b.z+a.z;
   end;
+ procedure VectAdd3(var a:TVector3s;b:TVector3s);
+  begin
+   a.x:=b.x+a.x;
+   a.y:=b.y+a.y;
+   a.z:=b.z+a.z;
+  end;
+
  procedure VectSub3(var a:TVector3;b:TVector3);
   begin
    a.x:=a.x-b.x;
@@ -360,6 +388,12 @@ implementation
    a.z:=a.z*k;
   end;
   function Vect3Mult(a:TVector3;k:double):TVector3;
+  begin
+   result.x:=a.x*k;
+   result.y:=a.y*k;
+   result.z:=a.z*k;
+  end;
+  function Vect3Mult(a:TVector3s;k:double):TVector3s;
   begin
    result.x:=a.x*k;
    result.y:=a.y*k;
@@ -568,7 +602,6 @@ implementation
     for j:=0 to 3 do
      target[i,j]:=m1[i,0]*m2[0,j]+m1[i,1]*m2[1,j]+m1[i,2]*m2[2,j]+m1[i,3]*m2[3,j];
   end;
-
 
  function MultMat4(const m1,m2:TMatrix43):TMatrix43; overload;
   begin
@@ -889,9 +922,9 @@ implementation
    yy:=q.y*y2;   yz:=q.y*z2;   zz:=q.z*z2;
    wx:=q.w*x2;   wy:=q.w*y2;   wz:=q.w*z2;
 
-   mat[0,0]:=1.0-(yy+zz);  mat[0,1]:=xy-wz;        mat[0,2]:=xz+wy;
-   mat[1,0]:=xy+wz;        mat[1,1]:=1.0-(xx+zz);  mat[1,2]:=yz-wx;
-   mat[2,0]:=xz-wy;        mat[2,1]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
+   mat[0,0]:=1.0-(yy+zz);  mat[1,0]:=xy-wz;        mat[2,0]:=xz+wy;
+   mat[0,1]:=xy+wz;        mat[1,1]:=1.0-(xx+zz);  mat[2,1]:=yz-wx;
+   mat[0,2]:=xz-wy;        mat[1,2]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
   end;
 
 
@@ -979,10 +1012,16 @@ implementation
    result.x:= A-( E+F+G+H)*0.5;
    result.y:=-C+( E-F+G-H)*0.5;
    result.z:=-D+( E-F-G+H)*0.5;
-{  result.w:=q1.w*q2.w - q1.x*q2.x - q1.y*q2.y - q1.z*q2.z;
-   result.x:=q1.w*q2.x + q1.x*q2.w + q1.y*q2.z - q1.z*q2.y;
-   result.y:=q1.w*q2.y - q1.x*q2.z + q1.y*q2.w + q1.z*q2.x;
-   result.z:=q1.w*q2.z + q1.x*q2.y - q1.y*q2.x + q1.z*q2.w;}
+  end;
+
+ function QInterpolate(q1,q2:TQuaternionS;factor:single):TQuaternionS;
+  begin
+    // result = q1 + t*(q2-q1)
+    result.x:=q1.x+(q2.x-q1.x)*factor;
+    result.y:=q1.y+(q2.y-q1.y)*factor;
+    result.z:=q1.z+(q2.z-q1.z)*factor;
+    result.w:=q1.w+(q2.w-q1.w)*factor;
+    QNormalize(result);
   end;
 
  procedure InitPlane(point,normal:TVector3;var p:TPlane);
