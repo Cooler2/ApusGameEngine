@@ -1711,17 +1711,27 @@ var
  modelAnim:TModel3D;
  count:integer;
  vSrc,fSrc:AnsiString;
+ pnt:TPoint3s;
+ b1,b2,b:TMatrix43s;
 begin
- model:=LoadIQM('res\test.iqm');
- //model:=LoadIQM('res\knight.iqm');
+ model:=LoadIQM('res\test2.iqm');
+// model:=LoadIQM('res\knight.iqm');
 // model.FlipX;
- model.UpdateBoneMatrices;
-// model.ConvertToBoneSpace;
+// model.UpdateBoneMatrices; // Prepare
+ pnt:=Point3s(10,0,0);
+ b1:=IdentMatrix43s;
+ b2:=IdentMatrix43s;
+ b1[3,0]:=3;
+ b2[3,1]:=2;
+ MultMat4(b1,b2,b);
+ MultPnt4(b,@pnt,1,0);
 
  count:=length(model.vp);
  SetLength(vertices,count);
- model.FillVertexBuffer(@vertices[0],count,sizeof(vertices[0]),
-  0,-1,32,-1,16,-1,12);
+ model.FillVertexBuffer(@vertices[0],count,sizeof(vertices[0]),true,
+  0,32,-1,16,12);
+ model.animations[0].loop:=true;
+ model.PlayAnimation;
  SetLength(indices,length(model.trgList));
  move(model.trgList[0],indices[0],length(indices)*2);
 
@@ -1736,7 +1746,7 @@ var
  time:double;
  objMat:TMatrix43;
  loc:integer;
- mvp:TMatrix4s;
+ MVP,uModel:TMatrix4s;
 begin
  time:=MyTickCount/1200;
  painter.Clear($FF101020,1);
@@ -1747,12 +1757,16 @@ begin
  pnt:=TGLPainter2(painter).TestTransformation(Point3(0,0,0));
  pnt:=TGLPainter2(painter).TestTransformation(Point3(1,1,1));
 
+ model.AnimateBones;
+ model.FillVertexBuffer(@vertices[0],length(model.vp),sizeof(vertices[0]),true, 0,32,-1,16,12);
+
  painter.SetCullMode(cullNone);
  glEnable(GL_DEPTH_TEST);
  glDepthFunc(GL_LEQUAL);
  painter.FillRect(-15,-15,15,15,$C000A030);
 
- MultMat4(geom3d.ScaleMat(0.1,0.1,0.1),RotationZMat(time),objMat);
+ MultMat4(geom3d.ScaleMat(2,2,2),RotationZMat(time),objMat);
+ objMat[3,2]:=3;
  painter.Set3DTransform(Matrix4(objMat));
 
  painter.UseCustomShader;
@@ -1764,7 +1778,8 @@ begin
  glUniformMatrix4fv(loc,1,FALSE,@mvp);
  // model matrix
  loc:=glGetUniformLocation(shader,'uModel');
- glUniformMatrix4fv(loc,1,FALSE,@objMat);
+ uModel:=Matrix4s(Matrix4(objMat));
+ glUniformMatrix4fv(loc,1,FALSE,@uModel);
 
  glEnableVertexAttribArray(0);
  glVertexAttribPointer(0,3,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0]);
@@ -1773,17 +1788,6 @@ begin
  glEnableVertexAttribArray(2);
  glVertexAttribPointer(2,2,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0].u);
 
- glDrawElements(GL_TRIANGLES,length(indices),GL_UNSIGNED_SHORT,@indices[0]);
-
- objMat[3,1]:=7;
- objMat[3,2]:=-4;
- painter.Set3DTransform(Matrix4(objMat));
- mvp:=Matrix4s(painter.GetMVPMatrix);
- loc:=glGetUniformLocation(shader,'uMVP');
- glUniformMatrix4fv(loc,1,FALSE,@mvp);
- // model matrix
- loc:=glGetUniformLocation(shader,'uModel');
- glUniformMatrix4fv(loc,1,FALSE,@objMat);
  glDrawElements(GL_TRIANGLES,length(indices),GL_UNSIGNED_SHORT,@indices[0]);
 
  glDisable(GL_DEPTH_TEST);
