@@ -119,27 +119,27 @@ begin
    subFormat:=GL_UNSIGNED_BYTE;
   end;
   ipfRGB:begin
-   internalFormat:=3;
+   internalFormat:=GL_RGB;
    format:=GL_BGR;
    subFormat:=GL_UNSIGNED_BYTE;
   end;
   ipfARGB:begin
-   internalFormat:=4;
+   internalFormat:=GL_RGBA;
    format:=GL_BGRA;
    subFormat:=GL_UNSIGNED_BYTE;
   end;
   ipfXRGB:begin
-   internalFormat:=3;
+   internalFormat:=GL_RGB;
    format:=GL_BGRA;
    subFormat:=GL_UNSIGNED_BYTE;
   end;
   ipfMono8:begin
-   internalFormat:=1;
+   internalFormat:=GL_R8;
    format:=GL_RED;
    subFormat:=GL_UNSIGNED_BYTE;
   end;
   ipfDuo8:begin
-   internalFormat:=2;
+   internalFormat:=GL_RG8;
    format:=GL_RG;
    subFormat:=GL_UNSIGNED_BYTE;
   end;

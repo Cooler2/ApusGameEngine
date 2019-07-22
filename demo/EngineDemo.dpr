@@ -58,7 +58,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 15;
+ testnum:integer = 3;
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -121,7 +121,7 @@ type
 
  TTexturesTest=class(TTest)
   prog,uTex:integer;
-  tex1,tex2,tex3,tex4,texA,tex5,tex6,texM:TTextureImage;
+  tex1,tex2,tex3,tex4,texA,tex5,tex6,texM,texDuo:TTextureImage;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -329,6 +329,7 @@ begin
  tex4:=texman.AllocImage(128,128,ipfARGB,aiTexture,'test4') as TTextureImage;
  texA:=texman.AllocImage(100,100,ipfA8,aiTexture,'testA') as TTextureImage;
  texM:=texman.AllocImage(128,128,ipfARGB,aiTexture+aiMipMapping,'testMipMap') as TTextureImage;
+ texDuo:=texman.AllocImage(32,32,ipfDuo8,aiTexture,'testDuo') as TTextureImage;
 // tex1:=LoadImageFromFile('test1.tga') as TTExtureImage;
  tex1.Lock;
  for i:=0 to tex1.height-1 do begin
@@ -415,6 +416,19 @@ begin
  texA.Unlock;
  tex5:=CreateSubImage(tex1,0,0,35,36,0);
  tex6:=CreateSubImage(tex1,0,0,36,35,0);
+
+ texDuo.Lock;
+ for i:=0 to 32 do begin
+  pb:=texDuo.data;
+  inc(pb,texDuo.pitch*i);
+  for j:=0 to 32 do begin
+   pb^:=i*4;
+   inc(pb);
+   pb^:=j*4;
+   inc(pb);
+  end;
+ end;
+ texDuo.Unlock;
 
  try
  prog:=TGLPainter(painter).BuildShaderProgram(
@@ -551,6 +565,8 @@ begin
 
  painter.DrawImage(800,160,texA,$FFFF6000);
  painter.DrawImage(900,160,texA,$FF008000);
+
+ painter.DrawImage(600,700,texDuo,$FF808080);
 
  {$IFDEF DIRECTX}
 // if frame=10 then d3d8.DumpD3D;
