@@ -259,7 +259,11 @@ interface
 
  // —оедин€ет подстроки в одну строку использу€ символ-разделитель divider
  // ≈сли разделитель встречаетс€ в строках, то он удваиваетс€
- function Join(strings:stringarr;divider:string):string; overload;
+ function Join(strings:StringArr;divider:string):string; overload;
+
+ // —оедин€ет подстроки в одну строку использу€ символ-разделитель divider
+ // ≈сли разделитель встречаетс€ в строках, то он удваиваетс€
+ function Join(strings:AStringArr;divider:string):AnsiString; overload;
 
  // —оедин€ет значени€ (преобразованные из исходных типов в строковый вид) указанным разделителем
  function Join(items:array of const;divider:string):string; overload;
@@ -2952,6 +2956,36 @@ function BinToStr;
    SetLength(result,n-1);
   end;
 
+ function Join(strings:AStringArr;divider:string):AnsiString; overload;
+  var
+   i,j,l,s,n,dl:integer;
+   src:PAnsiChar;
+  begin
+   i:=0;
+   s:=1000; SetLength(result,s);
+   n:=1;
+   dl:=length(divider)*sizeof(char);
+   while i<length(strings) do begin
+    if i>0 then begin
+     move(divider[1],result[n],dl);
+     inc(n,dl);
+    end;
+    j:=1;
+    l:=length(strings[i]);
+    src:=@strings[i][1];
+    while j<=l do begin
+     result[n]:=src^; inc(n);
+     if n+1+dl>=s then begin
+      s:=s*2; SetLength(result,s);
+     end;
+     inc(j);
+     inc(src);
+    end;
+    inc(i);
+   end;
+   SetLength(result,n-1);
+  end;
+
  function HasPrefix(st,prefix:string):boolean;
   var
    i:integer;
@@ -4310,6 +4344,7 @@ begin
 end;
 
 initialization
+ SetDecimalSeparator('.');
  QueryPerformanceFrequency(v);
  if v<>0 then
   PerfKoef:=1000/v
