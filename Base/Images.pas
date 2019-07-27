@@ -302,17 +302,20 @@ begin
  case pf of
   ipf1bit: pitch:=(1+(w-1) div 32)*4;  // Выравнивание по 32бита
   ipf4bit: pitch:=(1+(w-1) div 8)*4;
-  ipf8bit: pitch:=(1+(w-1) div 8)*8;   // Выравнивание по 64 бита
+  ipf8bit,ipfA8,ipfMono8: pitch:=(1+(w-1) div 8)*8;   // Выравнивание по 64 бита
   ipf555,ipf1555,ipf565,ipf4444: pitch:=(1+(w-1) div 4)*8;
   ipfRGB: pitch:=(1+(w-1) div 4)*12;
   ipfXRGB,ipfARGB,ipfXBGR,ipfABGR: pitch:=(1+(w-1) div 2)*8;
   ipfDXT1: pitch:=w*8;
   ipfDXT2,ipfDXT3: pitch:=w*16;
+  else
+   ASSERT(false,'Not implemented');
  end;
  PixelFormat:=pf;
  PaletteFormat:=pal;
  size:=pitch*h;
  GetMem(data,size);
+ fillchar(data^,size,0);
 
  if pal<>palNone then begin
   case pal of
