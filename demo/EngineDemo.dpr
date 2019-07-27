@@ -50,7 +50,8 @@ uses
   PainterGL2 in '..\PainterGL2.pas',
   GameApp in '..\GameApp.pas',
   Model3D in '..\Model3D.pas',
-  IQMloader in '..\IQMloader.pas';
+  IQMloader in '..\IQMloader.pas',
+  SpritePacker in '..\SpritePacker.pas';
 
 const
  wnd:boolean=true;
