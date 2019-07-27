@@ -8,7 +8,7 @@
 {$R-}
 unit fastgfx;
 interface
- uses geom2d;
+ uses geom2d,types;
 type
  // Процедура рисования простой горизонтальной линии (без отсечения, x2>=x1)
  THLine=procedure(buf:pointer;pitch:integer;x1,x2,y:integer;color:cardinal); pascal;
@@ -78,6 +78,11 @@ var
 
  // Calculates address of 32-bit pixel
  function GetPixelAddr(buf:pointer;pitch,x,y:integer):pointer;
+ // Calculates address of 8-bit pixel
+ function GetPixelAddr8(buf:pointer;pitch,x,y:integer):pointer;
+
+ // Calculate cropping rect for an image
+ function CropImage(sour:pointer;sPitch:integer;width,height:integer):TRect;
 
  // Copy rectangular area of 32bpp pixels from one surface to another surface
  // (аналогично SimpleDraw с blMove)
@@ -98,6 +103,13 @@ var
                      dest:pointer;dPitch:integer;
                      x,y,width,height:integer;
                      targetX,targetY:integer);
+
+ // Аналогично, но позволяет делать поворот на 90 и flip за счет указания смещения пикселя в источнике
+ procedure CopyRect8Ex(sour:pointer;sNext,sPitch:integer;
+                       dest:pointer;dPitch:integer;
+                       x,y,width,height:integer;
+                       targetX,targetY:integer);
+
 
  // Заполнение прямоугольника заданным цветом (буфер любой 32-битный)
  // Fills all pixel in range [x1..x2, y1..y2]
@@ -195,7 +207,7 @@ var
  procedure FillPolygon(points:PPoint2s;count:integer;color:cardinal); // not yet implemented
 
 implementation
- uses {$IFDEF ANDROID}MyServis,SysUtils,{$ENDIF}colors,math;
+ uses CrossPlatform,{$IFDEF ANDROID}MyServis,SysUtils,{$ENDIF}colors,math;
 
 threadvar
  // Место для отрисовки по умолчанию
@@ -1377,13 +1389,39 @@ const
   end;
   {$ENDIF}
 
- function GetPixelAddr(buf:pointer;pitch,x,y:integer):pointer;
+ function CropImage(sour:pointer;sPitch:integer;width,height:integer):TRect;
   var
-   pb:PByte;
+   x,y,minX,maxX,minY,maxY:integer;
+   pc:PCardinal;
   begin
-   pb:=buf;
-   inc(pb,y*pitch+x*4);
-   result:=pb;
+   minX:=width; minY:=height; maxX:=0; maxY:=0;
+   for y:=0 to height-1 do begin
+    pc:=sour; inc(pc,y*sPitch div 4);
+    for x:=0 to width-1 do begin
+     if pc^ and $FF000000<>0 then begin
+      if x<minX then minX:=x;
+      if y<minY then minY:=y;
+      if x>maxX then maxX:=x;
+      if y>maxY then maxY:=y;
+     end;
+     inc(pc);
+    end;
+   end;
+   if minX>maxX then begin // empry image -> crop to 1x1 px from center
+    minX:=width div 2; maxX:=minX;
+    minY:=height div 2; maxY:=minY+1;
+   end;
+   result:=Rect(minX,minY,maxX+1,maxY+1);
+  end;
+
+ function GetPixelAddr(buf:pointer;pitch,x,y:integer):pointer;
+  begin
+   result:=pointer(PtrUInt(buf)+pitch*y+x*4);
+  end;
+
+ function GetPixelAddr8(buf:pointer;pitch,x,y:integer):pointer;
+  begin
+   result:=pointer(PtrUInt(buf)+pitch*y+x);
   end;
 
  procedure CopyRect8(sour:pointer;sPitch:integer;
@@ -1431,10 +1469,30 @@ const
    for i:=1 to height do begin
     spp:=sp;
     for j:=1 to width do begin
-     PCardinal(dp)^:=PCardinal(sp)^;
+     PCardinal(dp)^:=PCardinal(spp)^;
      inc(spp,sNext); inc(dp,4);
     end;
-    inc(sp,sPitch); inc(dp,dPitch);
+    inc(sp,sPitch); inc(dp,dPitch-4*width);
+   end;
+  end;
+
+ procedure CopyRect8Ex(sour:pointer;sNext,sPitch:integer;
+                       dest:pointer;dPitch:integer;
+                       x,y,width,height:integer;
+                       targetX,targetY:integer);
+  var
+   sp,spp,dp:PByte;
+   i,j:integer;
+  begin
+   sp:=sour; inc(sp,y*sPitch+x*sNext);
+   dp:=dest; inc(dp,targetY*dPitch+targetX);
+   for i:=1 to height do begin
+    spp:=sp;
+    for j:=1 to width do begin
+     dp^:=spp^;
+     inc(spp,sNext); inc(dp);
+    end;
+    inc(sp,sPitch); inc(dp,dPitch-width);
    end;
   end;
 
