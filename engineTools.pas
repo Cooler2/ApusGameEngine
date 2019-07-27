@@ -404,6 +404,7 @@ begin
    ipfXRGB,ipfRGB:forceFormat:=ipfARGB;
    ipfARGB,ipf4444,ipf4444r,ipf565,ipf1555,ipf555,ipfDXT1,ipfDXT3,ipfDXT5,ipfPVRTC:exit;
    ipf8bit:forceFormat:=ipfARGB;
+   ipfA8,ipfMono8:; // keep as-is
    else
     raise EError.Create('Failed to choose valid pixel format for '+PixFmt2Str(ForceFormat));
   end;
