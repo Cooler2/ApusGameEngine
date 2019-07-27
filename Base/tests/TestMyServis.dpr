@@ -44,7 +44,9 @@ uses
   httpRequests in '..\httpRequests.pas',
   FastGFX in '..\FastGFX.pas',
   filters in '..\filters.pas',
-  FreeTypeFont in '..\FreeTypeFont.pas';
+  FreeTypeFont in '..\FreeTypeFont.pas',
+  glyphCaches in '..\glyphCaches.pas',
+  MyRegExpr in '..\MyRegExpr.pas';
 
 var
  sa:StringArr;

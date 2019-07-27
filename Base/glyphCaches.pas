@@ -1,5 +1,6 @@
 // Copyright (C) Apus Software, 2012-2014. Ivan Polyacov (ivan@apus-software.com)
 // 2D-cache methods for font glyph caching
+// (realtime 2D-rect packing algorithms)
 unit glyphCaches;
 interface
  uses types,structs;
