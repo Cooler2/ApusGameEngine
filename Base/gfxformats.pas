@@ -18,8 +18,9 @@ interface
   end;
 
  threadvar
-  ImgInfo:TImageInfo; // info about last checked image
+  imgInfo:TImageInfo; // info about last checked image
 
+ // Guess image format and extract key image parameters into imgInfo without unpacking the whole image
  function CheckFileFormat(fname:string):TImageFormat;
  function CheckImageFormat(data:ByteArray):TImageFormat;
 
@@ -42,7 +43,7 @@ interface
  procedure LoadJPEG(data:ByteArray;var image:TRawImage);
  procedure SaveJPEG(image:TRAWimage;filename:string;quality:integer);
 
- // PNG import using LodePNG (under Windows)
+ // PNG import using LodePNG (lodePNG.dll under Windows)
  procedure LoadPNG(data:ByteArray;var image:TRawImage);
  function SavePNG(image:TRawImage):ByteArray;
 
@@ -380,7 +381,7 @@ procedure LoadTGA;
    case image.PixelFormat of
     ipfRGB:bpp:=3;
     ipfXRGB,ipfARGB:bpp:=4;
-    ipf8Bit,ipfA8:bpp:=1;
+    ipf8Bit,ipfA8,ipfMono8:bpp:=1;
     else raise EError.Create('SaveTGA: invalid pixel format!');
    end;
    size:=i*bpp;
@@ -537,7 +538,7 @@ procedure LoadTGA;
    result:=ifUnknown;
    Assign(f,fname);
    Reset(f,1);
-   size:=min2(length(buf),filesize(f));
+   size:=filesize(f);
    if size>30 then begin
     SetLength(buf,size);
     BlockRead(f,buf[0],size);
@@ -558,6 +559,7 @@ procedure LoadTGA;
    {$ENDIF}
    i,j:integer;
    fl:boolean;
+   bitdepth:byte;
   begin
    result:=ifUnknown;
    imginfo.miplevels:=1;
@@ -566,12 +568,19 @@ procedure LoadTGA;
     result:=ifPNG;
     imginfo.palformat:=palNone;
     imginfo.miplevels:=0;
-    imginfo.format:=ipfARGB; // any PNG loads as ARGB
     for i:=4 to length(data)-20 do
      if data[i]=$49 then begin
       if (data[i+1]=$48) and (data[i+2]=$44) and (data[i+3]=$52) then begin
        imginfo.width:=data[i+7]+data[i+6]*256;
        imginfo.height:=data[i+11]+data[i+10]*256;
+       bitDepth:=data[i+12];
+       case data[i+13] of
+        0:imginfo.format:=ipfMono8;
+        2:imginfo.format:=ipfXRGB;
+        3:imginfo.format:=ipf8bit;
+        4:imginfo.format:=ipfDuo8;
+        6:imginfo.format:=ipfARGB;
+       end;
        break;
       end;
      end;
@@ -790,28 +799,48 @@ procedure LoadTGA;
  end;
  {$ENDIF}
 
+ const
+  // LodePNG color types
+  LCT_GREY = 0; //*greyscale: 1,2,4,8,16 bit*/
+  LCT_RGB = 2; //*RGB: 8,16 bit*/
+  LCT_PALETTE = 3; //*palette: 1,2,4,8 bit*/
+  LCT_GREY_ALPHA = 4; //*greyscale with alpha: 8,16 bit*/
+  LCT_RGBA = 6; //*RGB with alpha: 8,16 bit*/
+
  {$IFDEF CPU386}
   function lodepng_decode32(out image:pointer;out width,height:cardinal;source:pointer;
     sourSize:integer):cardinal; cdecl; external 'LodePNG.dll';
+  function lodepng_decode_memory(out image:pointer;out width,height:cardinal;source:pointer;
+    sourSize:integer;colortype,bitdepth:cardinal):cardinal; cdecl; external 'lodePNG.dll';
+
   function lodepng_encode32(out image:pointer;out outsize:cardinal;source:pointer;
     width,height:cardinal):cardinal; cdecl; external 'LodePNG.dll';
+  function lodepng_encode_memory(out image:pointer;out outsize:cardinal;source:pointer;
+    width,height,colortype,bitdepth:cardinal):cardinal; cdecl; external 'lodePNG.dll';
+
   procedure free_mem(buf:pointer); external 'LodePNG.dll';
  {$ENDIF}
  {$IFDEF CPUX64}
   function lodepng_decode32(out image:pointer;out width,height:cardinal;source:pointer;
     sourSize:integer):cardinal; cdecl; external 'LodePNG64.dll';
+  function lodepng_decode_memory(out image:pointer;out width,height:cardinal;source:pointer;
+    sourSize:integer;colortype,bitdepth:cardinal):cardinal; cdecl; external 'lodePNG.dll';
+
   function lodepng_encode32(out image:pointer;out outsize:int64;source:pointer;
     width,height:cardinal):cardinal; cdecl; external 'LodePNG64.dll';
+  function lodepng_encode_memory(out image:pointer;out outsize:int64;source:pointer;
+    width,height,colortype,bitdepth:cardinal):cardinal; cdecl; external 'lodePNG.dll';
+
   procedure free_mem(buf:pointer); external 'LodePNG64.dll';
  {$ENDIF}
 
- procedure LoadPNG(data:ByteArray;var image:TRawImage);
+ procedure LoadPNG32(data:ByteArray;var image:TRawImage);
   var
    buf:pointer;
    width,height:cardinal;
    err:cardinal;
    i,j:integer;
-   sour,dest:PByte;
+   sour:PByte;
    c:cardinal;
   begin
    err:=lodepng_decode32(buf,width,height,@data[0],length(data));
@@ -832,7 +861,46 @@ procedure LoadTGA;
    free_mem(buf);
   end;
 
- function SavePNG(image:TRawImage):ByteArray;
+ procedure LoadPNG8(data:ByteArray;var image:TRawImage);
+  var
+   buf:pointer;
+   width,height:cardinal;
+   err:cardinal;
+   i,j:integer;
+   sour,dest:PByte;
+   c:cardinal;
+  begin
+   err:=lodepng_decode_memory(buf,width,height,@data[0],length(data),LCT_GREY,8);
+   if err<>0 then raise EWarning.Create('LodePNG error code '+inttostr(err));
+
+   // Allocate dest image if needed
+   if image=nil then
+     image:=TBitmapImage.Create(width,height,ipfMono8);
+
+   image.Lock;
+   sour:=buf;
+   dest:=image.data;
+   for i:=0 to height-1 do begin
+    move(sour^,dest^,width);
+    inc(sour,width);
+    inc(dest,image.pitch);
+   end;
+   image.Unlock;
+
+   free_mem(buf);
+  end;
+
+ procedure LoadPNG(data:ByteArray;var image:TRawImage);
+  begin
+   CheckImageFormat(data);
+   if imgInfo.format in [ipfA8,ipfMono8] then
+    LoadPNG8(data,image)
+   else
+    LoadPNG32(data,image);
+  end;
+
+
+ function SavePNG32(image:TRawImage):ByteArray;
   var
    data:array of cardinal;
    err:cardinal;
@@ -853,6 +921,34 @@ procedure LoadTGA;
    SetLength(result,size);
    move(png^,result[0],size);
    free_mem(png);
+  end;
+
+ function SavePNG8(image:TRawImage):ByteArray;
+  var
+   err:cardinal;
+   png:pointer;
+   size:{$IFDEF CPUX64}int64{$ELSE}cardinal{$ENDIF};
+   y:integer;
+  begin
+   // Pack and save
+   png:=nil;
+   image.Lock;
+   err:=lodepng_encode_memory(png,size,image.data,image.width,image.height,LCT_GREY,8);
+   image.Unlock;
+   if err<>0 then raise EWarning.Create('LodePNG error code '+inttostr(err));
+   SetLength(result,size);
+   move(png^,result[0],size);
+   free_mem(png);
+  end;
+
+ function SavePNG(image:TRawImage):ByteArray;
+  begin
+   case image.PixelFormat of
+    ipfA8,ipfMono8:result:=SavePNG8(image);
+    ipfARGB,ipfXRGB,ipfRGB,ipf32bpp:result:=SavePNG32(image);
+    else
+     raise EError.Create('PNG: image pixel format not supported');
+   end;
   end;
 
 {
