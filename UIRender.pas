@@ -406,14 +406,22 @@ implementation
   end;
 
  procedure DrawUIImage(control:TUIImage;x1,y1:integer);
+  type
+   TImageDrawProc=procedure(img:TUIImage);
   var
    img:THandle;
    lname:string;
    p:cardinal;
    tex:TTexture;
+   proc:TImageDrawProc;
   begin
     with control do begin
      if src<>'' then begin
+      if copy(src,1,5)='proc:' then begin
+       proc:=pointer(HexToInt(copy(src,6,20)));
+       proc(control);
+       exit;
+      end;
       if copy(src,1,6)='event:' then begin
        Signal(copy(src,7,200),PtrUInt(control));
        exit;
