@@ -1336,7 +1336,7 @@ begin
  inherited Create(cx,cy,w,h,parent_,imgName);
  color:=$FF808080;
  src:='';
- transpmode:=tmOpaque;
+ transpmode:=tmTransparent;
 end;
 
 
