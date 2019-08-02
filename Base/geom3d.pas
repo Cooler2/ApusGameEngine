@@ -181,6 +181,10 @@ interface
  procedure MultPnt3(const m:TMatrix3;v:PPoint3;num,step:integer); overload;
  procedure MultPnt3(const m:TMatrix3s;v:Ppoint3s;num,step:integer); overload;
 
+ // Complete 3D transformation (with normalization)
+ function TransformPoint(const m:TMatrix4s;v:PPoint3s):TPoint3s; overload;
+ function TransformPoint(const m:TMatrix4;v:PPoint3):TPoint3; overload;
+
  // Transpose (для ортонормированной матрицы - это будт обратная)
  procedure Transp3(const m:TMatrix3;out dest:TMatrix3); overload;
  procedure Transp3(const m:TMatrix3s;out dest:TMatrix3s); overload;
@@ -812,6 +816,36 @@ implementation
     z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2];
     v^.x:=x; v^.y:=y; v^.z:=z;
     v:=PPoint3s(cardinal(v)+step);
+   end;
+  end;
+
+ function TransformPoint(const m:TMatrix4s;v:PPoint3s):TPoint3s; overload;
+  var
+   t:single;
+  begin
+   result.x:=v.x*m[0,0]+v.y*m[1,0]+v.z*m[2,0]+m[3,0];
+   result.y:=v.x*m[0,1]+v.y*m[1,1]+v.z*m[2,1]+m[3,1];
+   result.z:=v.x*m[0,2]+v.y*m[1,2]+v.z*m[2,2]+m[3,2];
+          t:=v.x*m[0,3]+v.y*m[1,3]+v.z*m[2,3]+m[3,3];
+   if (t<>1) and (t<>0) then begin
+    result.x:=result.x/t;
+    result.y:=result.y/t;
+    result.z:=result.z/t;
+   end;
+  end;
+
+ function TransformPoint(const m:TMatrix4;v:PPoint3):TPoint3; overload;
+  var
+   t:double;
+  begin
+   result.x:=v.x*m[0,0]+v.y*m[1,0]+v.z*m[2,0]+m[3,0];
+   result.y:=v.x*m[0,1]+v.y*m[1,1]+v.z*m[2,1]+m[3,1];
+   result.z:=v.x*m[0,2]+v.y*m[1,2]+v.z*m[2,2]+m[3,2];
+          t:=v.x*m[0,3]+v.y*m[1,3]+v.z*m[2,3]+m[3,3];
+   if (t<>1) and (t<>0) then begin
+    result.x:=result.x/t;
+    result.y:=result.y/t;
+    result.z:=result.z/t;
    end;
   end;
 
