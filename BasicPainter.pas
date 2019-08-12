@@ -280,7 +280,6 @@ type
 var
  crSect:TMyCriticalSection; // нахрена!?? Почти нигде не используется
 
- fonts:array[1..32] of TFont;
  lastFontTex:TTextureImage; // 256x1024
  FontTexUsage:integer; // y-coord of last used pixel in lastFontTex
  newFonts:array[1..32] of TObject;
@@ -288,7 +287,6 @@ var
  fontMatchAddY:array[1..32] of integer;
 
  glyphCache,altGlyphCache:TGlyphCache;
-// glyphTex:TTextureImage;
 
  textExCache:array[1..24] of TTextExCacheItem;
  textExRecent:integer; // index of the most recent cache item
@@ -888,9 +886,6 @@ end;
 
 procedure TBasicPainter.DrawTrgListTex(pnts: PScrPoint; trgcount: integer;
   tex: TTexture);
-var
- i:integer;
- p:PScrPoint;
 begin
  if tex<>nil then begin
   if not SetStates(STATE_TEXTURED2X,types.Rect(0,0,4096,2048),tex) then exit; // Textured, normal viewport
@@ -904,8 +899,6 @@ end;
 
 procedure TBasicPainter.DrawIndexedMesh(vertices:PScrPoint;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); 
 var
- i:integer;
- p:PScrPoint;
  mode:byte;
 begin
  if tex<>nil then mode:=STATE_TEXTURED2X else mode:=STATE_COLORED;

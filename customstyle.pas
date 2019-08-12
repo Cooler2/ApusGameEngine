@@ -217,13 +217,12 @@ implementation
 
  procedure CustomStyleHandler(control:TUIControl);
   var
-   i,j,k,l:integer;
+   i,j:integer;
    img:TObject;
    timg:TTexture;
    enabl:boolean;
    con:TUIControl;
    x1,y1,x2,y2,ix,iy,v:integer;
-   col,col2:cardinal;
    c,d:cardinal;
    bool:boolean;
    int,sNum:integer;

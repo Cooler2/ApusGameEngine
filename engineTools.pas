@@ -610,7 +610,7 @@ function FindProperFile(fname:string):string;
   st:=fname+'.txt';
   age:=FileAge(st);
   if age>maxAge then begin
-   maxAge:=age; st2:=st;
+   st2:=st;
   end;
   if st2='' then raise EWarning.Create(fname+' not found');
   result:=st2;
@@ -628,8 +628,7 @@ var
  data,rawData:ByteArray;
  size2:integer;
  format:TImageFormat;
- sp,dp,p1,p2:PByte;
- sr:TSearchRec;
+ sp,dp:PByte;
  time,timeJ:cardinal;
  linebuf:pointer;
  doScale:boolean;
