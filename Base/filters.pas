@@ -308,7 +308,7 @@ function Sharpen(buf:pointer;pitch,width,height,strength:integer;inplace:boolean
  var
   pc:PCardinal;
   sour:PARGBArray;
-  x,y,v,i,o:integer;
+  x,y,v,o:integer;
   b:integer;
   c0,c1,c2,c3,c4:integer; // это важно!
  begin
@@ -347,7 +347,7 @@ function Sharpen8(buf:pointer;pitch,width,height,strength:integer;inplace:boolea
  var
   pc:PByte;
   sour:PByteArray;
-  x,y,v,i,o,s:integer;
+  x,y,o,s:integer;
   b:integer;
   c0,c1,c2,c3,c4:byte;
  begin
@@ -491,7 +491,7 @@ function LightBlur8(buf:pointer;pitch,width,height:integer;inplace:boolean=true)
  var
   pb:PByte;
   sour:PByteArray;
-  x,y,v,i,o:integer;
+  x,y,o:integer;
  begin
   GetMem(pb,width*height);
   result:=pb;
@@ -551,7 +551,7 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
  var
   pb:PByte;
   sour:PByteArray;
-  x,y,v,i,o:integer;
+  x,y,v,o:integer;
  begin
   if target=nil then begin
    GetMem(pb,width*height);
@@ -1331,8 +1331,6 @@ procedure MixRGB(buf:pointer;pitch,width,height:integer;mat:TMatrix43s);
 
 // Saturation (0..100)
 procedure Saturate(buf:pointer;pitch,width,height,saturationValue:integer);
- var
-  mat:TMatrix43s;
  begin
   MixRGB(buf,pitch,width,height,Saturation(saturationValue/100));
  end;

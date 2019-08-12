@@ -589,7 +589,6 @@ destructor TGenericTree.Destroy;
   i:integer;
 begin
   // Destroy children
-  i:=0;
   while children.count>0 do begin
    item:=children[children.count-1];
    item.destroy;
@@ -1297,9 +1296,6 @@ procedure THash.SortKeys;
   end;
 
  procedure TBitStream.Get(var buf;count:integer); // read count bits from the stream (from curPos position)
-  var
-   pb:PByte;
-   b:byte;
   begin
    // простая, неэффективная версия
 

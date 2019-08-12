@@ -554,9 +554,6 @@ procedure LoadTGA;
    dds:^DDSheader;
    tga:^TGAheader;
    pvr:^PVRheader;
-   {$IFDEF DELPHI}
-   jpeg:TJPEGimage;
-   {$ENDIF}
    i,j:integer;
    fl:boolean;
    bitdepth:byte;
@@ -839,9 +836,8 @@ procedure LoadTGA;
    buf:pointer;
    width,height:cardinal;
    err:cardinal;
-   i,j:integer;
+   i:integer;
    sour:PByte;
-   c:cardinal;
   begin
    err:=lodepng_decode32(buf,width,height,@data[0],length(data));
    if err<>0 then raise EWarning.Create('LodePNG error code '+inttostr(err));
@@ -866,9 +862,8 @@ procedure LoadTGA;
    buf:pointer;
    width,height:cardinal;
    err:cardinal;
-   i,j:integer;
+   i:integer;
    sour,dest:PByte;
-   c:cardinal;
   begin
    err:=lodepng_decode_memory(buf,width,height,@data[0],length(data),LCT_GREY,8);
    if err<>0 then raise EWarning.Create('LodePNG error code '+inttostr(err));
@@ -912,7 +907,7 @@ procedure LoadTGA;
    // Convert to ABGR
    image.Lock;
    for y:=0 to image.height-1 do
-    ConvertLine(image.scanline(y)^,data[y*image.width],image.PixelFormat,ipfABGR,y,palNone,image.width);
+    ConvertLine(image.scanline(y)^,data[y*image.width],image.PixelFormat,ipfABGR,err,palNone,image.width);
    image.Unlock;
    // Pack and save
    png:=nil;
