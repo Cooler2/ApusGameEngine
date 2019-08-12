@@ -114,6 +114,8 @@ type
   procedure Lock; virtual;  // заполняет поля действующими значениями
   procedure Unlock; virtual;
   procedure Clear(color:cardinal); virtual;
+  function GetPixel(x,y:integer):cardinal; virtual;
+  procedure SetPixel(x,y:integer;value:cardinal); virtual;
   function ScanLine(y:integer):pointer;
   procedure CopyPixelDataFrom(src:TRawImage); // copy from another image with pixel format conversion (if needed)
  end;
@@ -385,6 +387,31 @@ begin
   Unlock;
   src.Unlock;
  end;
+end;
+
+function TRawImage.GetPixel(x,y:integer):cardinal;
+var
+ pb:PByte;
+ size:integer;
+begin
+ result:=0;
+ if (x<0) or (y<0) or (x>=width) or (y>=height) then exit;
+ pb:=data;
+ size:=pixelSize[PixelFormat] shr 3;
+ inc(pb,y*pitch+x*size);
+ move(pb^,result,size);
+end;
+
+procedure TRawImage.SetPixel(x,y:integer;value:cardinal);
+var
+ pb:PByte;
+ size:integer;
+begin
+ if (x<0) or (y<0) or (x>=width) or (y>=height) then exit;
+ pb:=data;
+ size:=pixelSize[PixelFormat] shr 3;
+ inc(pb,y*pitch+x*size);
+ move(value,pb^,size);
 end;
 
 procedure TRawImage.Lock;
