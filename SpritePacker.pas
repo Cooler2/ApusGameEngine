@@ -89,16 +89,18 @@ implementation
       // Adjust free rect
       freeW:=freeRects[bestRect].Width;
       freeH:=freeRects[bestRect].height;
-      if freeW-w>freeH-h then begin
-       // Split free rect vertically
+      if freeW-w<freeH-h then begin
+       // Split best rect with horizontal line
        freeRects[freeCnt]:=freeRects[bestRect];
        freeRects[freeCnt].Left:=freeRects[bestRect].Left+w;
+       freeRects[freeCnt].bottom:=h;
        if freeRects[freeCnt].Width>2 then inc(freeCnt); // don't add too narrow rect
        inc(freeRects[bestRect].Top,h);
       end else begin
-       // Split free rect horizontally
+       // Split best rect with vertical line
        freeRects[freeCnt]:=freeRects[bestRect];
        freeRects[freeCnt].top:=freeRects[bestRect].top+h;
+       freeRects[freeCnt].right:=w;
        if freeRects[freeCnt].height>2 then inc(freeCnt); // don't add too narrow rect
        inc(freeRects[bestRect].left,w);
       end;
