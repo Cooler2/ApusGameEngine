@@ -1,3 +1,4 @@
+
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
 unit SCGI;
 interface
@@ -20,22 +21,22 @@ interface
   temp:THash; // Tempopary values/templates. Cleared/initialized for each request
   // Per-request values
   requestIdx:integer;
-  headers:string;
-  requestBody:string;
-  uri,query:string; // Запрос (до знака ? и после него)
-  clientIP:string;  // remote IP address
-  clientCountry:string;
-  httpMethod:string;
-  setCookies:string; // Сюда заносятся куки, которые нужно установить юзеру (используется в FormatHeaders)
+  headers:AnsiString;    // заголовки из SCGI-запроса (as-is, разделены #0)
+  requestBody:AnsiString;
+  uri,query:AnsiString; // Запрос (до знака ? и после него)
+  clientIP:AnsiString;  // remote IP address
+  clientCountry:AnsiString;
+  httpMethod:AnsiString;   // 'GET', 'POST'
+  setCookies:AnsiString; // Сюда заносятся куки, которые нужно установить юзеру (используется в FormatHeaders)
   userID:integer; // обнуляется при каждом запросе, служит для определения авторизации юзеров (ID профиля)
-  uploadedFileName:string; // при вызове Param() для поля с файлом - сюда заносится исходное имя загруженного файла
-  
+  uploadedFileName:AnsiString; // при вызове Param() для поля с файлом - сюда заносится исходное имя загруженного файла
+
   // Язык клиента (xx) - определяется по куке, либо по заголовкам
-  clientLang:string;
+  clientLang:AnsiString;
 
  type
   // Page builder function type
-  TRequestHandler=function:string; stdcall;
+  TRequestHandler=function:AnsiString; stdcall;
 
   // Exceptions for standard HTTP response codes
   E403=class(Exception) end; // Forbidden
@@ -50,7 +51,7 @@ interface
  // Add page handler (with or without '/', i.e. pass index.cgi for '/index.cgi') (case insensitive)
  // Use xxx* to match first part of URI
  // Use '*' to set default handler
- procedure AddHandler(uri:string;handler:TRequestHandler);
+ procedure AddHandler(uri:AnsiString;handler:TRequestHandler);
 
  // Load configuration
  procedure Initialize;
@@ -64,39 +65,41 @@ interface
 
  // Aux functions for use from request handlers
  // Extract value of parameter [name] from [headers] (name is case insensitive)
- function Param(name:string):string;
- function FloatParam(name:string;default:double=-1):double;
- function IntParam(name:string;default:integer=-1):integer;
+ function Param(name:AnsiString):AnsiString;
+ function IntParam(name:AnsiString;default:integer=-1):integer;
  // Extract value of cookie [name] from [headers] (name is case insensitive)
- function Cookie(name:string):string;
- // Установить куку (будет отправлено при формировании заголовков через FormatHeaders) 
- procedure SetCookie(name,value:string;permanent:boolean;httpOnly:boolean=true);
- procedure DeleteCookie(name:string);
+ function Cookie(name:AnsiString):AnsiString;
+ // Установить куку (будет отправлено при формировании заголовков через FormatHeaders)
+ procedure SetCookie(name,value:AnsiString;permanent:boolean;httpOnly:boolean=true);
+ procedure DeleteCookie(name:AnsiString);
  // Extract value of SCGI request header [name] from [headers] (name is case-insensitive)
- function GetHeader(headers,name:string):string;
+ function GetHeader(headers,name:AnsiString):AnsiString;
 
  // Build page text based on global and local templates
  // template can be name (#NAME) or plain text to be translated
- function BuildTemplate(template:string):string;
+ function BuildTemplate(template:AnsiString):AnsiString;
 
  // Combine values into response header
- function FormatHeaders(contentType,status:string;other:string=''):string;
+ function FormatHeaders(contentType,status:AnsiString;other:AnsiString=''):AnsiString;
 
  // Build headers for Error response
- function FormatError(code:integer;msgToLog:string):string;
+ function FormatError(code:integer;msgToLog:AnsiString):AnsiString;
 
  // Build headers for redirection
- function FormatRedirect(url:string;extra:string=''):string;
+ function FormatRedirect(url:AnsiString;extra:AnsiString=''):AnsiString;
 
  // Ensure that string is number
- function MakeNumber(st:string):string;
+ function MakeNumber(st:AnsiString):AnsiString;
 
  // yyyymmddhhnnss
- function CurrentTimeStamp:string;
- function ParseTimeStamp(timestamp:string):TDateTime;
+ function CurrentTimeStamp:AnsiString;
+ function ParseTimeStamp(timestamp:AnsiString):TDateTime;
 
  // Add task (request, async job) to process (st=url, like received)
- procedure AddTask(st:string);
+ procedure AddTask(st:AnsiString);
+
+ // Test request that output HTTP headers
+ function ListHeaders:AnsiString; stdcall;
 
 implementation
  uses WinSock2,MyServis,classes,ControlFiles2,Logging,GeoIP;
@@ -107,7 +110,7 @@ implementation
    currentRequest:integer;
    procedure Execute; override;
   end;
-  
+
   TRequestStatus=(
    rsFree=0,        // free slot
    rsReading=1,     // receiving request
@@ -122,13 +125,13 @@ implementation
    timestamp:int64; // when status changed last time? (MyTickCount used)
    executionTime:integer;
    socket:TSocket;
-   request,response:string;
+   request,response:AnsiString;
    contentLength,totalLength,bytesSent:integer;
-   headers,body:string;
+   headers,body:AnsiString;
   end;
-  
+
   THandler=record
-   uri:string;
+   uri:AnsiString;
    wildcard:boolean;
    handler:TRequestHandler;
   end;
@@ -143,7 +146,7 @@ implementation
 
   workers:array[1..20] of TWorker;
   liveWorkers:integer;
-  
+
   // Read/Send buffer is here, not on stack
   buffer:array[0..100000] of byte; // Actual request can be larger
   reserve:array[0..10000] of byte;
@@ -180,13 +183,13 @@ implementation
 // AUX CGI functions
 // -------------------------------------------------------
 
- function Param(name:string):string;
+ function Param(name:AnsiString):AnsiString;
   var
    p,e:integer;
-   params,cType:string;
-   function ExtractMultipartValue:string;
+   params,cType:AnsiString;
+   function ExtractMultipartValue:AnsiString;
     var
-     boundary,fHeaders:string;
+     boundary,fHeaders:AnsiString;
      i,p,q:integer;
     begin
      result:='';
@@ -236,25 +239,16 @@ implementation
    end;
   end;
 
- function IntParam(name:string;default:integer=-1):integer;
+ function IntParam(name:AnsiString;default:integer=-1):integer;
   begin
    result:=StrToIntDef(Param(name),default);
   end;
 
- function FloatParam(name:string;default:double=-1):double;
-  begin
-   try
-    result:=ParseFloat(Param(name));
-   except
-    result:=default;
-   end;
-  end;    
-
- function Cookie(name:string):string;
+ function Cookie(name:AnsiString):AnsiString;
   var
    p,e,i:integer;
    cookies,items:StringArr;
-   st:string;
+   st:AnsiString;
   begin
    result:='';
    name:=UpperCase(name);
@@ -268,7 +262,7 @@ implementation
    end;
   end;
 
- procedure SetCookie(name,value:string;permanent:boolean;httpOnly:boolean=true);
+ procedure SetCookie(name,value:AnsiString;permanent:boolean;httpOnly:boolean=true);
   begin
    setCookies:=setCookies+'Set-Cookie: '+name+'='+value;
    if permanent then setCookies:=setCookies+'; Expires=30-Dec-2098 00:00:00 GMT';
@@ -276,12 +270,12 @@ implementation
    setCookies:=setCookies+#13#10;
   end;
 
- procedure DeleteCookie(name:string);
+ procedure DeleteCookie(name:AnsiString);
   begin
    setCookies:=setCookies+'Set-Cookie: '+name+'=; Expires=31-Dec-2000 00:00:00 GMT'#13#10;
-  end;    
+  end;
 
- function GetHeader(headers,name:string):string;
+ function GetHeader(headers,name:AnsiString):AnsiString;
   var
    p,e:integer;
   begin
@@ -295,21 +289,21 @@ implementation
    end;
   end;
 
- function MakeNumber(st:string):string;
+ function MakeNumber(st:AnsiString):AnsiString;
   var
    i:integer;
   begin
    for i:=1 to length(st) do
     if not (st[i] in ['0'..'9','-','.']) then st[i]:=' ';
-   result:=StringReplace(st,' ','',[rfReplaceAll]); 
+   result:=StringReplace(st,' ','',[rfReplaceAll]);
   end;
 
- function CurrentTimeStamp:string;
+ function CurrentTimeStamp:AnsiString;
   begin
    result:=FormatDateTime('yyyymmddhhnnss',NowGMT);
   end;
 
- function ParseTimeStamp(timestamp:string):TDateTime;
+ function ParseTimeStamp(timestamp:AnsiString):TDateTime;
   var
    year,month,day,hour,min,sec:integer;
   begin
@@ -330,7 +324,7 @@ implementation
  // Templates-related functions
  // -------------------------------------------------------
 
- function FormatHeaders(contentType,status:string;other:string=''):string;
+ function FormatHeaders(contentType,status:AnsiString;other:AnsiString=''):AnsiString;
   begin
    result:='';
    if contentType<>'' then result:=result+'Content-type: '+contentType+#13#10;
@@ -340,28 +334,30 @@ implementation
    result:=result+#13#10;
   end;
 
- function FormatRedirect(url:string;extra:string=''):string;
+ function FormatRedirect(url:AnsiString;extra:AnsiString=''):AnsiString;
   begin
    url:='Location: '+url;
    if extra<>'' then url:=url+#13#10+extra;
    result:=FormatHeaders('','303 See Other',url);
   end;
 
- function FormatError(code:integer;msgToLog:string):string;
+ function FormatError(code:integer;msgToLog:AnsiString):AnsiString;
   begin
    LogMsg('ErrorCode '+IntToStr(code)+': '+msgToLog,logNormal);
    result:=FormatHeaders('text/html',IntToStr(code));
-   if code=403 then result:=result+'<h3>403 Forbidden</h3>';
-   if code=404 then result:=result+'<h3>404 Not Found</h3>';
-   if code=405 then result:=result+'<h3>405 Method not allowed</h3>';
-   if code=500 then result:=result+'<h3>500 Internal Server Error</h3>';
+   case code of
+    403:result:=result+'<h3>403 Forbidden</h3>';
+    404:result:=result+'<h3>404 Not Found</h3>';
+    405:result:=result+'<h3>405 Method not allowed</h3>';
+    500:result:=result+'<h3>500 Internal Server Error</h3>';
+   end;
   end;
 
- // Apply templates to a string
- function TranslateString(st:string):string;
+ // Apply templates to a AnsiString
+ function TranslateString(st:AnsiString):AnsiString;
   var
    i,j,k,p,q,r,start,after,action:integer;
-   key,subst,tmp,pName,pValue:string;
+   key,subst,tmp,pName,pValue:AnsiString;
    keep,bad:boolean;
    sa:StringArr;
   begin
@@ -446,7 +442,7 @@ implementation
        delete(st,start,p-start+1);
       end else
        delete(st,start,j-start+length(tmp)+3);
-      p:=start; 
+      p:=start;
       start:=0;
      end;
     end;
@@ -457,7 +453,7 @@ implementation
    result:=st;
   end;
 
- function BuildTemplate(template:string):string;
+ function BuildTemplate(template:AnsiString):AnsiString;
   begin
    EnterCriticalSection(critSect);
    try
@@ -477,10 +473,10 @@ implementation
  // Возможны 2 варианта:
  // 1) файл целиком - один шаблон, имя шаблона = имя файла (uppercase)
  // 2) Файл содержит несколько шаблонов, т.е. содержит строки вида #NAME:
- procedure LoadTemplatesFromFile(fname:string);
+ procedure LoadTemplatesFromFile(fname:AnsiString);
   var
    f:text;
-   st,name,value:string;
+   st,name,value:AnsiString;
    i,j,p:integer;
    fl,firstName:boolean;
   begin
@@ -510,7 +506,7 @@ implementation
        fl:=true; // единственная строка, игнорировать всё, что дальше
        break;
       end;
-     if not fl then value:=''; // no characters in value string
+     if not fl then value:=''; // no characters in value AnsiString
     end else
      // not new template
      if not fl then
@@ -669,7 +665,7 @@ implementation
      with requests[i] do
       if socket=s then begin
        if res>0 then begin
-         LogMsg(Format('Request %d: received %d bytes',[i,res]),logInfo);
+         LogMsg('Request %d: received %d bytes',[i,res],logInfo);
          // copy received data
          size:=length(request);
          SetLength(request,size+res);
@@ -680,7 +676,7 @@ implementation
          if contentLength>=0 then begin
            // Content-length is already known
            if length(request)>=totalLength then begin
-             LogMsg(Format('Request %d ready: %d >= %d',[i,length(request),totalLength]),logDebug);
+             LogMsg('Request %d ready: %d >= %d',[i,length(request),totalLength],logDebug);
              body:=copy(request,length(request)-contentLength+1,contentLength);
              request:=''; // already parsed, so not needed anymore
              status:=rsReceived;
@@ -703,10 +699,10 @@ implementation
    finally
     LeaveCriticalSection(critSect);
    end;
-   if MyTickCount>t+10 then LogMsg('WARN: long socket reading',logWarn); 
+   if MyTickCount>t+10 then LogMsg('WARN: long socket reading',logWarn);
   end;
 
- // Записывает данные в сокет 
+ // Записывает данные в сокет
  procedure WriteData(s:TSocket);
   var
    i,res,size:integer;
@@ -721,7 +717,7 @@ implementation
       size:=length(response)-bytesSent;
       if size>100000 then size:=100000;
       move(response[bytesSent+1],buffer,size);
-      LogMsg(Format('Sending %d bytes to #%d',[size,i]),logInfo);
+      LogMsg('Sending %d bytes to #%d',[size,i],logInfo);
       res:=send(s,buffer,size,0);
       if res=SOCKET_ERROR then begin
        LogMsg('Send error: '+inttostr(WSAGetLastError),logWarn);
@@ -907,13 +903,13 @@ implementation
 
     // Fill status file
     if not FileExists('status') then WriteStatusFile;
-    
+
    except
     on e:exception do LogMsg('Error in External Control: '+ExceptionMsg(e),logError);
    end;
   end;
 
- procedure AddFakeRequest(rType:string);
+ procedure AddFakeRequest(rType:AnsiString);
   var
    i:integer;
   begin
@@ -938,7 +934,7 @@ implementation
 // Main interface functions
 // ---------------------------------------------------------------
 
- procedure AddHandler(uri:string;handler:TRequestHandler);
+ procedure AddHandler(uri:AnsiString;handler:TRequestHandler);
   begin
    EnterCriticalSection(critSect);
    try
@@ -972,7 +968,7 @@ implementation
    port:=ctl.GetInt('PORT',port);
    worker_threads:=ctl.GetInt('WorkerThreads',worker_threads);
    rootDir:=ctl.GetStr('rootDir',GetCurrentDir);
-   if LastChar(rootDir)<>'\' then rootDir:=rootDir+'\'; 
+   if LastChar(rootDir)<>'\' then rootDir:=rootDir+'\';
    DB_HOST:=ctl.GetStr('MySQL\Host',DB_HOST);
    DB_LOGIN:=ctl.GetStr('MySQL\Login',DB_LOGIN);
    DB_PASSWORD:=ctl.GetStr('MySQL\Password',DB_PASSWORD);
@@ -990,7 +986,7 @@ implementation
    startTime:=now;
    if not SetPriorityClass(GetCurrentProcess,NORMAL_PRIORITY_CLASS) then
     LogMsg('Failed to set process priority',logWarn);
-    
+
    if not SetThreadPriority(GetCurrentThread,THREAD_PRIORITY_ABOVE_NORMAL) then
     LogMsg('Failed to set main thread priority',logWarn);
 
@@ -1014,7 +1010,6 @@ implementation
    // Main loop
    repeat
     inc(loopCounter);
-//    LogMsg(inttostr(loopCounter)+' - '+inttostr(MyTickCount));
     try
       EnterCriticalSection(critSect);
       try
@@ -1073,11 +1068,11 @@ implementation
 // -------------------------------------------------------
 
 // Returns: true - request completed, false - pending (process it later again)
-function HandleRequest(out resp:string):boolean;
+function HandleRequest(out resp:AnsiString):boolean;
  var
   i,p:integer;
   found:integer;
-  st,uriUp:string;
+  st,uriUp:AnsiString;
   t:int64;
  begin
   try
@@ -1095,8 +1090,8 @@ function HandleRequest(out resp:string):boolean;
    clientIP:=GetHeader(headers,'REMOTE_ADDR');
    clientCountry:=GetCountryByIP(StrToIp(clientIP));
    httpMethod:=UpperCase(GetHeader(headers,'REQUEST_METHOD'));
-   LogMsg(Format('Handling request %d: %s %s %s %s (%s;%s)',
-     [requestIdx,httpMethod,uri,query,Cookie('VID'),clientIP,ClientCountry]),logNormal);
+   LogMsg('Handling request %d: %s %s %s %s (%s;%s)',
+     [requestIdx,httpMethod,uri,query,Cookie('VID'),clientIP,ClientCountry],logNormal);
    // Exact match
    found:=-1;
    for i:=1 to hCount do
@@ -1111,7 +1106,7 @@ function HandleRequest(out resp:string):boolean;
         (pos(handlers[i].uri,uriUp)=1) then begin
        found:=i; break;
      end;
-   if (found<0) and (handlers[0].uri='*') then found:=0; // default page handler  
+   if (found<0) and (handlers[0].uri='*') then found:=0; // default page handler
    if found>=0 then begin
     temp.Init; // Clear temporary templates
     resp:=handlers[found].handler;
@@ -1165,7 +1160,7 @@ procedure TWorker.Execute;
     exit;
    end;
   end;
-  r:=-1; count:=0; 
+  r:=-1; count:=0;
   repeat
    try
     // process request
@@ -1235,16 +1230,36 @@ procedure TWorker.Execute;
   InterlockedDecrement(liveWorkers);
  end;
 
- procedure AddTask(st:string);
+ procedure AddTask(st:AnsiString);
   begin
    AddFakeRequest(st);
-  end; 
+  end;
+
+ // Test request
+ function ListHeaders:AnsiString; stdcall;
+  var
+   i:integer;
+   sa:stringArr;
+   st:AnsiString;
+  begin
+   sa:=split(#0,headers);
+   st:='<html><body><table cellpadding=3 style="background-color:#e6d8ce">';
+   for i:=0 to length(sa)-2 do begin
+    if i and 3=2 then st:=st+'<tr>';
+    if i and 3=0 then st:=st+'<tr style="background-color:#D8F0F0">';
+    st:=st+'<td>'+sa[i];
+   end;
+   st:=st+'</table></body></html>';
+   result:=FormatHeaders('text/html','','')+st;
+  end;
+
 
 var
- st:string;
+ st:AnsiString;
 begin
  // Default handler
  handlers[0].uri:='';
  handlers[0].handler:=nil;
 
 end.
+
