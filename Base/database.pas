@@ -85,6 +85,7 @@ implementation
  uses SysUtils,mysql,Variants;
  var
   counter:integer=0; // MySQL library usage counter
+  lock:TMyCriticalSection;
 
 procedure SQLString(var st:AnsiString);
  var
@@ -217,8 +218,11 @@ procedure TMySQLDatabase.Connect;
 constructor TMySQLDatabase.Create;
 begin
  inherited;
- if counter=0 then begin
+ if counter=0 then try
+  lock.Enter;
   libmysql_load(nil);
+ finally
+  lock.Leave;
  end;
  inc(counter);
  name:='DB-'+inttostr(counter);
@@ -367,4 +371,6 @@ function TMySQLDatabaseWithLogging.Query(DBquery: AnsiString): AStringArr;
     max2(selectLogLevel,updateLogLevel)+1,logGroup);
  end;
 
+initialization
+ InitCritSect(lock,'DB_LOCK',150);
 end.

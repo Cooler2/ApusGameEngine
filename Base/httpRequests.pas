@@ -350,11 +350,8 @@ implementation
     critSect.Leave;
    end;
 
-   DebugMessage('1');
    client.AddHeader('Accept','*.*');
-   DebugMessage('2');
    client.AddHeader('Content-Length',inttostr(length(req.postdata)));
-   DebugMessage('3');
    client.AddHeader('X-Dont-Compress','1');
    case req.contentType of
     ctUrlencoded:client.AddHeader('Content-Type','application/x-www-form-urlencoded');
@@ -377,9 +374,7 @@ implementation
        end;
       end;
       if multipart then begin
-       DebugMessage('4');
        client.AddHeader('Content-Transfer-Encoding','binary');
-       DebugMessage('5');
        client.AddHeader('Content-Type','multipart/form-data; boundary='+boundary);
       end;
     end;
