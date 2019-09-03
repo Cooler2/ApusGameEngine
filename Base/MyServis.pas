@@ -298,22 +298,22 @@ interface
  function HTMLString(st:string):string;
 
  // Закодировать URL согласно требованиям HTTP
- function UrlEncode(st:string):string;
+ function UrlEncode(st:AnsiString):AnsiString;
  // Раскодировать URL согласно требованиям HTTP
- function UrlDecode(st:string):string;
- // Кодирует url из UTF8 в нормальный ASCII вид !!! WARNING! ОЧЕНЬ странная ф-ция - ХЗ начем она вообще нужна! 
- function URLEncodeUTF8(st:string):string;
+ function UrlDecode(st:AnsiString):AnsiString;
+ // Кодирует url из UTF8 в нормальный ASCII вид !!! WARNING! ОЧЕНЬ странная ф-ция - ХЗ начем она вообще нужна!
+ function URLEncodeUTF8(st:AnsiString):AnsiString;
 
  // Закодировать двоичные данные в строку (this is NOT Base64!)
- function EncodeB64(data:pointer;size:integer):string;
+ function EncodeB64(data:pointer;size:integer):AnsiString;
  // Раскодировать данные из строки
- procedure DecodeB64(st:string;buf:pointer;var size:integer);
+ procedure DecodeB64(st:AnsiString;buf:pointer;var size:integer);
  // Переводит строку к печатаемому варианту (заменяет спецсимволы), операция необратима!
- function PrintableStr(st:string):string;
+ function PrintableStr(st:AnsiString):AnsiString;
  // Закодировать строку в виде HEX
- function EncodeHex(st:string):string; overload;
- function EncodeHex(data:pointer;size:integer):string; overload;
- function DecodeHex(st:string):string;
+ function EncodeHex(st:AnsiString):AnsiString; overload;
+ function EncodeHex(data:pointer;size:integer):AnsiString; overload;
+ function DecodeHex(st:AnsiString):AnsiString;
 
  // Простейшее шифрование/дешифрование (simple XOR)
  procedure SimpleEncrypt(var data;size,code:integer);
@@ -1564,7 +1564,7 @@ procedure SimpleEncrypt2;
   end;
  end;
 
- function PrintableStr(st:string):string;
+ function PrintableStr(st:AnsiString):AnsiString;
   var
    i,max,p:integer;
   begin
@@ -1574,8 +1574,8 @@ procedure SimpleEncrypt2;
    for i:=1 to length(st) do
     if st[i]<' ' then begin
      inc(p); result[p]:='#';
-     inc(p); result[p]:=char(hexchar[1+ord(st[i]) div 16]);
-     inc(p); result[p]:=char(hexchar[1+ord(st[i]) mod 16]);
+     inc(p); result[p]:=AnsiChar(hexchar[1+ord(st[i]) div 16]);
+     inc(p); result[p]:=AnsiChar(hexchar[1+ord(st[i]) mod 16]);
     end else begin
      inc(p); result[p]:=st[i];
     end;
@@ -1599,13 +1599,13 @@ procedure SimpleEncrypt2;
     dest:=byte(dest shl 1) or byte(sour and 1);
     sour:=sour shr 1;
     if i mod 6=5 then begin
-     result:=result+chr(64+dest);
+     result:=result+AnsiChar(64+dest);
      dest:=0;
     end;
    end;
    if (size*8-1) mod 6<>5 then begin
     offset:=(length(result)+1)*6-size*8;
-    result:=result+chr(64+dest shl offset);
+    result:=result+AnsiChar(64+dest shl offset);
    end;
   end;
 
@@ -1634,7 +1634,7 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function EncodeHex(st:string):string;
+ function EncodeHex(st:AnsiString):AnsiString;
   var
    i:integer;
    b:byte;
@@ -1642,12 +1642,12 @@ procedure SimpleEncrypt2;
    SetLength(result,length(st)*2);
    for i:=1 to length(st) do begin
     b:=byte(st[i]);
-    result[i*2-1]:=char(hexchar[1+b shr 4]);
-    result[i*2]:=char(hexchar[1+b and 15]);
+    result[i*2-1]:=AnsiChar(hexchar[1+b shr 4]);
+    result[i*2]:=AnsiChar(hexchar[1+b and 15]);
    end;
   end;
 
- function EncodeHex(data:pointer;size:integer):string; overload;
+ function EncodeHex(data:pointer;size:integer):AnsiString; overload;
   var
    i:integer;
    pb:PByte;
@@ -1655,13 +1655,13 @@ procedure SimpleEncrypt2;
    SetLength(result,size*2);
    pb:=data;
    for i:=1 to size do begin
-    result[i*2-1]:=char(hexchar[1+pb^ shr 4]);
-    result[i*2]:=char(hexchar[1+pb^ and 15]);
+    result[i*2-1]:=AnsiChar(hexchar[1+pb^ shr 4]);
+    result[i*2]:=AnsiChar(hexchar[1+pb^ and 15]);
     inc(pb);
    end;
   end;
 
- function DecodeHex(st:string):string;
+ function DecodeHex(st:AnsiString):AnsiString;
   var
    i:integer;
    b:byte;
@@ -1669,7 +1669,7 @@ procedure SimpleEncrypt2;
    SetLength(result,length(st) div 2);
    for i:=1 to length(result) do begin
     b:=HexToInt(copy(st,i*2-1,2));
-    result[i]:=char(b);
+    result[i]:=AnsiChar(b);
    end;
   end;
 
@@ -1871,7 +1871,7 @@ procedure SimpleEncrypt2;
  function UrlEncode;
   var
    i:integer;
-   ch:char;
+   ch:AnsiChar;
   begin
    result:='';
    for i:=1 to length(st) do begin
@@ -1881,10 +1881,10 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function URLEncodeUTF8(st:string):string;
+ function URLEncodeUTF8(st:Ansistring):Ansistring;
   var
    i:integer;
-   ch:char;
+   ch:ansichar;
   begin
    result:='';
    for i:=1 to length(st) do begin
@@ -1909,7 +1909,7 @@ procedure SimpleEncrypt2;
      b:=b*16; inc(i);
      if st[i] in ['0'..'9'] then b:=b+ord(st[i])-ord('0');
      if st[i] in ['A'..'F'] then b:=b+ord(st[i])-ord('A')+10;
-     result:=result+chr(b);
+     result:=result+AnsiChar(b);
     end else
     if st[i]='+' then result:=result+' '
     else
