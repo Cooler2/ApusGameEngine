@@ -264,7 +264,7 @@ implementation
 
  procedure SetCookie(name,value:AnsiString;permanent:boolean;httpOnly:boolean=true);
   begin
-   setCookies:=setCookies+'Set-Cookie: '+name+'='+value;
+   setCookies:=setCookies+'Set-Cookie: '+name+'='+value+'; Path=/';
    if permanent then setCookies:=setCookies+'; Expires=30-Dec-2098 00:00:00 GMT';
    if httpOnly then setCookies:=setCookies+'; httponly';
    setCookies:=setCookies+#13#10;
