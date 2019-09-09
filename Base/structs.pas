@@ -151,21 +151,21 @@ type
  // в таком режиме структуру можно рассматривать как индексированную таблицу
  TVariants=array of variant;
  THash=object
-  keys:array of string;
+  keys:array of AnsiString;
   count:integer; // number of keys (can be less than length of keys array!)
   values:array of variant;
   vcount:integer; // number of values (can be less than length of values array!)
   constructor Init(allowMultiple:boolean=false); // not thread-safe!
   // Добавить значение, соответствующее ключу
   // replace - только для режима multi: добавляет новое значение к ключу, либо перезаписывает существующее
-  procedure Put(const key:string;value:variant;replace:boolean=false);
+  procedure Put(const key:AnsiString;value:variant;replace:boolean=false);
   // Получить значение, соответствующее ключу. Если разрешено множество значений на ключ, то можно выбрать элемент с номером item (начиная с 0)
-  function Get(const key:string;item:integer=0):variant; // get value associated with the key, or Unassigned if none
-  function GetAll(const key:string):TVariants; // get array of values (not thread-safe!)
+  function Get(const key:AnsiString;item:integer=0):variant; // get value associated with the key, or Unassigned if none
+  function GetAll(const key:AnsiString):TVariants; // get array of values (not thread-safe!)
   function GetNext:variant; // get next value associated with the key, or Unassigned if none (not thread-safe!!!)
-  function AllKeys:StringArr;
+  function AllKeys:AStringArr;
   procedure SortKeys; // ключи без значений удаляются
-  function HasKey(const key:string):boolean;
+  function HasKey(const key:AnsiString):boolean;
  private
   lock:integer;
   multi:boolean; // допускается несколько значений для любого ключа
@@ -176,8 +176,8 @@ type
   vNext:array of integer; // для каждого значения - ссылка на следующее значение, принадлежащее тому же ключу
   lastIndex:integer; // индекс последнего взятого значения (в режиме multi)
   hMask:integer;
-  function HashValue(const v:string):integer;
-  function Find(const key:string):integer;
+  function HashValue(const v:AnsiString):integer;
+  function Find(const key:AnsiString):integer;
   procedure AddValue(const v:variant);
   procedure RemoveKey(index:integer);
   procedure BuildHash; // Заполняет массивы next и links
@@ -734,13 +734,13 @@ constructor THash.Init(allowMultiple:boolean=false);
   lock:=0;
  end;
 
-function THash.Find(const key: string): integer;
+function THash.Find(const key: AnsiString): integer;
  begin
   result:=links[HashValue(key)];
   while (result>=0) and (keys[result]<>key) do result:=next[result];
  end;
 
-function THash.HashValue(const v: string): integer;
+function THash.HashValue(const v: AnsiString): integer;
  var
   i:integer;
  begin
@@ -752,7 +752,7 @@ function THash.HashValue(const v: string): integer;
   result:=result and hMask;
  end;
 
-function THash.HasKey(const key:string):boolean;
+function THash.HasKey(const key:AnsiString):boolean;
  begin
   SpinLock(lock);
   try
@@ -762,7 +762,7 @@ function THash.HasKey(const key:string):boolean;
   end;
  end;
 
-function THash.Get(const key: string;item:integer=0): variant;
+function THash.Get(const key: AnsiString;item:integer=0): variant;
  var
   index:integer;
  begin
@@ -803,7 +803,7 @@ function THash.GetNext:variant; // get next value associated with the key, or Un
   end;
  end;
 
-function THash.GetAll(const key:string):TVariants; // get array of values
+function THash.GetAll(const key:AnsiString):TVariants; // get array of values
  var
   c:integer;
   v:variant;
@@ -864,7 +864,7 @@ procedure THash.RemoveKey(index:integer);
   end;
  end;
 
-procedure THash.Put(const key:string; value:variant; replace:boolean=false);
+procedure THash.Put(const key:AnsiString; value:variant; replace:boolean=false);
  var
   h,index,size,vIdx:integer;
  begin
@@ -936,7 +936,7 @@ procedure THash.BuildHash;
   end;
  end;
 
-function THash.AllKeys:StringArr;
+function THash.AllKeys:AStringArr;
  var
   i:integer;
  begin

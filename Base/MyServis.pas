@@ -459,6 +459,7 @@ interface
  procedure SortObjects(obj:PSortableObjects;count:integer);
 // procedure SortObjects(var obj:array of TObject;comparator:TObjComparator); overload;
  procedure SortStrings(var sa:StringArr); overload;
+ procedure SortStrings(var sa:AStringArr); overload;
  procedure SortStrings(var sa:WStringArr); overload;
 // function SelectUnique(const sa:WStringArr):WStringArr;
 
@@ -2260,6 +2261,32 @@ const
    var
     lo,hi,mid:integer;
     midval:string;
+   begin
+    lo:=a; hi:=b;
+    mid:=(a+b) div 2;
+    midval:=sa[mid];
+    repeat
+     while sa[lo]<midval do inc(lo);
+     while sa[hi]>midval do dec(hi);
+     if lo<=hi then begin
+      Swap(sa[lo],sa[hi]);
+      inc(lo);
+      dec(hi);
+     end;
+    until lo>hi;
+    if hi>a then QuickSort(a,hi);
+    if lo<b then QuickSort(lo,b);
+   end;
+  begin
+   if length(sa)<2 then exit;
+   QuickSort(0,high(sa));
+  end;
+
+ procedure SortStrings(var sa:AStringArr); overload;
+  procedure QuickSort(a,b:integer);
+   var
+    lo,hi,mid:integer;
+    midval:AnsiString;
    begin
     lo:=a; hi:=b;
     mid:=(a+b) div 2;

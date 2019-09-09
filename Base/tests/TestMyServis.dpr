@@ -445,7 +445,7 @@ procedure TestQuotes;
    fl:boolean;
    line:TVariants;
    v:variant;
-   sa,keys:StringArr;
+   sa,keys:AStringArr;
   begin
    writeln('=== TestHashEx ===');
    errors:=0;
