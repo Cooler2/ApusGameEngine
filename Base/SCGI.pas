@@ -131,8 +131,8 @@ implementation
   end;
 
   THandler=record
-   uri:AnsiString;
-   wildcard:boolean;
+   uri:AnsiString;    // always uppercase
+   wildcard:integer;  // URI starts or ends with '*' (1 - prefix, 2 - suffix)
    handler:TRequestHandler;
   end;
 
@@ -942,12 +942,14 @@ implementation
      handlers[0].uri:='*';
      handlers[0].handler:=handler; exit;
     end;
-    if pos('/',uri)<>1 then uri:='/'+uri;
-    if uri[length(uri)]='*' then begin
-     handlers[hCount+1].wildcard:=true;
-     SetLength(uri,length(uri)-1);
-    end else
-     handlers[hCount+1].wildcard:=false;
+    handlers[hCount+1].wildcard:=0;
+    if (uri[1]='*') or (uri[length(uri)]='*') then begin
+     if uri[1]='*' then inc(handlers[hCount+1].wildcard,1);
+     if uri[length(uri)]='*' then inc(handlers[hCount+1].wildcard,2);
+     uri:=StringReplace(uri,'*','',[rfReplaceAll]);
+    end else begin
+     if uri[1]<>'/' then uri:='/'+uri;
+    end;
     handlers[hCount+1].uri:=UpperCase(uri);
     handlers[hCount+1].handler:=handler;
     inc(hCount);
@@ -1095,18 +1097,25 @@ function HandleRequest(out resp:AnsiString):boolean;
    // Exact match
    found:=-1;
    for i:=1 to hCount do
-    if not (handlers[i].wildcard) and
+    if (handlers[i].wildcard=0) and
       (handlers[i].uri=uriUp) then begin
      found:=i; break;
     end;
    // Try wildcard
    if found=-1 then
-    for i:=1 to hCount do
-     if handlers[i].wildcard and
-        (pos(handlers[i].uri,uriUp)=1) then begin
+    for i:=1 to hCount do begin
+     if handlers[i].wildcard>0 then begin
+      p:=pos(handlers[i].uri,uriUp);
+      if (p=1) or (p>1) and (handlers[i].wildcard and 1=1) then begin
        found:=i; break;
+      end;
      end;
-   if (found<0) and (handlers[0].uri='*') then found:=0; // default page handler
+    end;
+   // default page handler
+   if (found<0) and (handlers[0].uri='*') then begin
+    found:=0;
+    LogMsg('No handler for request '+uri+', using default');
+   end;
    if found>=0 then begin
     temp.Init; // Clear temporary templates
     resp:=handlers[found].handler;
