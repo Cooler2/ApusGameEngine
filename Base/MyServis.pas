@@ -447,7 +447,8 @@ interface
  function IpToStr(ip:cardinal):string; // IP-адрес в строку (младший байт - первый)
  function StrToIp(ip:string):cardinal; // Строка в IP-адрес (младший байт - первый)
  function VarToStr(v:TVarRec):string; // Variant -> String
- function ParseInt(st:string):int64; inline; // wrong characters ignored
+ function ParseInt(st:string):int64; inline; overload; // wrong characters ignored
+ function ParseInt(st:AnsiString):int64; inline; overload; // wrong characters ignored
  function ParseFloat(st:string):double; inline; // always use '.' as separator - replacement for SysUtils version
  function ParseIntList(st:string):IntArray; // '123 4,-12;3/5' -> [1234,-12,3,5]
 
@@ -1096,6 +1097,19 @@ implementation
   end;
 
  function ParseInt(st:string):int64; inline; // wrong characters ignored
+  var
+   i:integer;
+  begin
+   result:=0;
+   for i:=1 to length(st) do
+    if st[i] in ['0'..'9'] then result:=result*10+(byte(st[i])-$30);
+   for i:=1 to length(st) do begin
+    if st[i]='-' then result:=-result;
+    if st[i] in ['0'..'9'] then break;
+   end;
+  end;
+
+ function ParseInt(st:AnsiString):int64;  // wrong characters ignored
   var
    i:integer;
   begin
@@ -2938,7 +2952,7 @@ function BinToStr;
    while i<length(strings) do begin
     if i>0 then begin
      move(divider[1],result[n],dl);
-     inc(n,dl);
+     inc(n,length(divider));
     end;
     j:=1;
     l:=length(strings[i]);
