@@ -7,6 +7,7 @@ interface
   MAX_REQUESTS = 1000;
   MAX_RQUEUE = 1023; // 2^n-1
   MAX_HANDLERS = 200;
+  CRLF = #13#10;
  var
   // Global options
   PORT:integer=9000;
@@ -39,6 +40,7 @@ interface
   TRequestHandler=function:AnsiString; stdcall;
 
   // Exceptions for standard HTTP response codes
+  E200=class(Exception) end; // Normal response returned via exception mechanism
   E403=class(Exception) end; // Forbidden
   E404=class(Exception) end; // Not found
   E405=class(Exception) end; // Method not allowed
@@ -80,7 +82,7 @@ interface
  function BuildTemplate(template:AnsiString):AnsiString;
 
  // Combine values into response header
- function FormatHeaders(contentType,status:AnsiString;other:AnsiString=''):AnsiString;
+ function FormatHeaders(contentType:AnsiString;status:AnsiString='';other:AnsiString=''):AnsiString;
 
  // Build headers for Error response
  function FormatError(code:integer;msgToLog:AnsiString):AnsiString;
@@ -324,7 +326,7 @@ implementation
  // Templates-related functions
  // -------------------------------------------------------
 
- function FormatHeaders(contentType,status:AnsiString;other:AnsiString=''):AnsiString;
+ function FormatHeaders(contentType:AnsiString;status:AnsiString='';other:AnsiString=''):AnsiString;
   begin
    result:='';
    if contentType<>'' then result:=result+'Content-type: '+contentType+#13#10;
@@ -962,6 +964,12 @@ implementation
   var
    WSAdata:TWSAData;
   begin
+   // Logging
+   if FileExists('scgi.log') then RenameFile('scgi.log','scgi.old');
+   UseLogFile('scgi.log');
+   LogCacheMode(true,false,false);
+   InitLogging(10,'logs',logInfo);
+
    // Initialization
    InitCritSect(critSect,'SCGI');
    WSAStartup($0202, WSAData);
@@ -1125,6 +1133,7 @@ function HandleRequest(out resp:AnsiString):boolean;
    resp:=FormatHeaders('text/html','404')+'<h1>404 Not Found!<h1>';
    result:=true;
   except
+   on e:E200 do resp:=FormatHeaders('text/html')+e.Message;
    on e:E403 do resp:=FormatError(403,e.Message);
    on e:E404 do resp:=FormatError(404,e.Message);
    on e:E405 do resp:=FormatError(405,e.Message);
