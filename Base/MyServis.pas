@@ -164,11 +164,11 @@ interface
  function SafeFileName(fname:string):string; // Replace all unsafe characters with '_'
  function FileName(const fname:string):string; // исправление разделителей пути и применение case-правил
  procedure AddFileNameRule(const rule:string); // Добавить case-правило (например, правило "MyFile" превращает строки myFiLe или myfile в "MyFile")
- function GetFileSize(fname:string):int64;
- function WaitForFile(fname:string;delayLimit:integer;exists:boolean=true):boolean; // Подождать (не дольше delayLimit) до появления (или удаления) файла, возвращает false если не дождались
- function MyFileExists(fname:string):boolean; // Cross-platform version
- function LoadFileAsString(fname:string):AnsiString; // Load file content into string
- function LoadFileAsBytes(fname:string):ByteArray; // Load file content into byte array
+ function GetFileSize(fname:AnsiString):int64;
+ function WaitForFile(fname:String;delayLimit:integer;exists:boolean=true):boolean; // Подождать (не дольше delayLimit) до появления (или удаления) файла, возвращает false если не дождались
+ function MyFileExists(fname:String):boolean; // Cross-platform version
+ function LoadFileAsString(fname:String):AnsiString; // Load file content into string
+ function LoadFileAsBytes(fname:String):ByteArray; // Load file content into byte array
  procedure SaveFile(fname:string;buf:pointer;size:integer); overload; // rewrite file with given data
  procedure SaveFile(fname:string;buf:ByteArray); overload; // rewrite file with given data
  procedure ReadFile(fname:string;buf:pointer;posit,size:integer); // Read data block from file
@@ -249,6 +249,7 @@ interface
  // Search for a substring from specified point
  function PosFrom(substr,str:string;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
  function PosFrom(substr,str:WideString;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
+ function LastPos(substr,str:AnsiString;ignoreCase:boolean=false):integer; overload;
  // Extract substring "prefix|xxx|suffix"
  function ExtractStr(str,prefix,suffix:string;out prefIndex:integer):string;
 
@@ -263,7 +264,7 @@ interface
 
  // Соединяет подстроки в одну строку используя символ-разделитель divider
  // Если разделитель встречается в строках, то он удваивается
- function Join(strings:AStringArr;divider:string):AnsiString; overload;
+ function Join(strings:AStringArr;divider:AnsiString):AnsiString; overload;
 
  // Соединяет значения (преобразованные из исходных типов в строковый вид) указанным разделителем
  function Join(items:array of const;divider:string):string; overload;
@@ -1079,6 +1080,7 @@ implementation
     vtWideChar:result:=v.VWideChar;
     vtWideString:result:=UTF8Encode(WideString(v.vWideString));
     vtInt64:result:=IntToStr(v.vInt64^);
+    vtUnicodeString:result:=UnicodeString(v.VUnicodeString);
     else raise EWarning.Create('Incorrect variable type: '+inttostr(v.vtype));
    end;
   end;
@@ -2718,6 +2720,28 @@ function BinToStr;
    end;
   end;
 
+ function LastPos(substr,str:AnsiString;ignoreCase:boolean=false):integer; overload;
+  var
+   i,p,l:integer;
+  begin
+   result:=0;
+   if ignoreCase then begin
+    substr:=lowercase(substr);
+    str:=lowercase(str);
+   end;
+   p:=length(str)-length(substr)+1;
+   l:=length(substr);
+   while p>0 do begin
+    i:=0;
+    while (i<l) and (str[p+i]=substr[i+1]) do inc(i);
+    if i=l then begin
+     result:=p; exit;
+    end;
+    dec(p);
+   end;
+  end;
+
+
  function ExtractStr(str,prefix,suffix:string;out prefIndex:integer):string;
   var
    p1,p2:integer;
@@ -2997,7 +3021,7 @@ function BinToStr;
    SetLength(result,n-1);
   end;
 
- function Join(strings:AStringArr;divider:string):AnsiString; overload;
+ function Join(strings:AStringArr;divider:AnsiString):AnsiString; overload;
   var
    i,j,l,s,n,dl:integer;
    src:PAnsiChar;
@@ -3005,7 +3029,7 @@ function BinToStr;
    i:=0;
    s:=1000; SetLength(result,s);
    n:=1;
-   dl:=length(divider)*sizeof(char);
+   dl:=length(divider)*sizeof(AnsiChar);
    while i<length(strings) do begin
     if i>0 then begin
      move(divider[1],result[n],dl);
@@ -3561,7 +3585,7 @@ procedure DumpDir(path:string);
    result:=false;
   end;
 
- function GetFileSize(fname:string):int64;
+ function GetFileSize(fname:AnsiString):int64;
   {$IFDEF MSWINDOWS}
   var
    openbuff:TOFSTRUCT;

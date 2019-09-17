@@ -128,7 +128,7 @@ procedure TDatabase.QueryValues(var h: THash; table, keyField,
   valueField: AnsiString; quoteKeys: boolean=false;condition:AnsiString='');
 var
  i,j:integer;
- keys:StringArr;
+ keys:AStringArr;
  sa:AStringArr;
  list:AnsiString;
 begin

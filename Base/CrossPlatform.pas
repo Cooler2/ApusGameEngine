@@ -110,8 +110,8 @@ interface
  {$IFDEF IOS}
  function NSStrUTF8(st:string):NSString;
  {$ENDIF}
- procedure OpenURL(url:string);
- function LaunchProcess(fname:string;params:string=''):boolean;
+ procedure OpenURL(url:AnsiString);
+ function LaunchProcess(fname:AnsiString;params:AnsiString=''):boolean;
 
  {$IFDEF MSWINDOWS}
  function LoadCursorFromFile(fname:PChar):HCursor;
@@ -121,7 +121,7 @@ interface
 
  function GetWindowRect(window:HWND;out rect:TRect):boolean;
  function MoveWindow(window:HWND;x,y,w,h:integer;repaint:boolean):boolean;
- function ExecAndCapture(const ACmdLine: string; var AOutput: string): Integer;
+ function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString): Integer;
  {$ENDIF}
 
  function GetDecimalSeparator:char; inline;
@@ -199,11 +199,11 @@ uses
    terminated:=true;
   end;    }
 
- procedure OpenURL(url:string);
+ procedure OpenURL(url:AnsiString);
   var
    u:NSURL;
   begin
-   u:=NSURL.UrlWithString(NSSTR(PChar(url)));
+   u:=NSURL.UrlWithString(NSSTR(PAnsiChar(url)));
    UIApplication.sharedApplication.OpenURL(u);
   end;
 
@@ -231,10 +231,10 @@ uses
 
 // WINDOWS SET ===========================
 {$IFDEF MSWINDOWS}
- procedure OpenURL(url:string);
+ procedure OpenURL(url:AnsiString);
   begin
     //OpenDocument(PChar(url)); { *Converted from ShellExecute* }
-   ShellExecute(0,'open',PChar(url),'','',SW_SHOW);
+   ShellExecuteA(0,'open',PAnsiChar(url),'','',SW_SHOW);
   end;
 
  function GetSystemInfo:string;
@@ -250,15 +250,15 @@ uses
      ver and $FF,(ver shr 8) and $FF]);
   end;
 
- function LaunchProcess(fname,params:string):boolean;
+ function LaunchProcess(fname,params:AnsiString):boolean;
  {$IFDEF MSWINDOWS}
   var
-   startupInfo:TStartupInfo;
+   startupInfo:TStartupInfoA;
    processInfo:TProcessInformation;
   begin
    fillchar(startupinfo,sizeof(startupinfo),0);
    startupInfo.cb:=sizeof(startupinfo);
-   result:=CreateProcess(nil,PChar(fname+' '+params),nil,nil,false,0,nil,nil,startupInfo,processInfo);
+   result:=CreateProcessA(nil,PAnsiChar(fname+' '+params),nil,nil,false,0,nil,nil,startupInfo,processInfo);
   end;
  {$ELSE}
   begin
@@ -267,7 +267,7 @@ uses
 
 // This function taken from http://forum.codecall.net/topic/72472-execute-a-console-program-and-capture-its-output/
 // Author: Luthfi
-function ExecAndCapture(const ACmdLine: string; var AOutput: string): Integer;
+function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString): Integer;
 const
   cBufferSize = 2048;
 type
@@ -277,19 +277,19 @@ type
   end;
 var
   vBuffer: Pointer;
-  vStartupInfo: TStartUpInfo;
+  vStartupInfo: TStartUpInfoA;
   vSecurityAttributes: TSecurityAttributes;
   vReadBytes: DWord;
   vProcessInfo: TProcessInformation;
   vStdInPipe : TAnoPipe;
   vStdOutPipe: TAnoPipe;
-  str:string;
+  str:AnsiString;
 begin
   Result := -1;
 
   with vSecurityAttributes do
   begin
-    nlength := SizeOf(TSecurityAttributes);
+    nlength := SizeOf(vSecurityAttributes);
     binherithandle := True;
     lpsecuritydescriptor := nil;
   end;
@@ -307,8 +307,8 @@ begin
       GetMem(vBuffer, cBufferSize);
       try
         // initialize the startup info to match our purpose
-        FillChar(vStartupInfo, Sizeof(TStartUpInfo), #0);
-        vStartupInfo.cb         := SizeOf(TStartUpInfo);
+        FillChar(vStartupInfo, Sizeof(vStartUpInfo), #0);
+        vStartupInfo.cb         := SizeOf(vStartUpInfo);
         vStartupInfo.wShowWindow:= SW_HIDE;  // we don't want to show the process
         // assign our pipe for the process' standard input
         vStartupInfo.hStdInput  := vStdInPipe.Output;
@@ -316,8 +316,8 @@ begin
         vStartupInfo.hStdOutput := vStdOutPipe.Input;
         vStartupInfo.dwFlags    := STARTF_USESTDHANDLES or STARTF_USESHOWWINDOW;
 
-        if not CreateProcess(nil
-                             , PChar(ACmdLine)
+        if not CreateProcessA(nil
+                             , PAnsiChar(ACmdLine)
                              , @vSecurityAttributes
                              , @vSecurityAttributes
                              , True
