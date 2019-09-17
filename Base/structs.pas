@@ -166,6 +166,7 @@ type
   function AllKeys:AStringArr;
   procedure SortKeys; // ключи без значений удаляются
   function HasKey(const key:AnsiString):boolean;
+  procedure Remove(const key:AnsiString);
  private
   lock:integer;
   multi:boolean; // допускается несколько значений для любого ключа
@@ -761,6 +762,19 @@ function THash.HasKey(const key:AnsiString):boolean;
   finally lock:=0;
   end;
  end;
+
+ procedure THash.Remove(const key:AnsiString);
+  var
+   idx:integer;
+  begin
+  SpinLock(lock);
+  try
+   idx:=Find(key);
+   if idx>=0 then RemoveKey(idx);
+  finally lock:=0;
+  end;
+  end;
+
 
 function THash.Get(const key: AnsiString;item:integer=0): variant;
  var
