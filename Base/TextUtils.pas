@@ -28,7 +28,7 @@ implementation
   var
    i,p:integer;
    sa:AStringArr;
-   key,value:string;
+   key,value:AnsiString;
   begin
    result.Init;
    json:=chop(json);

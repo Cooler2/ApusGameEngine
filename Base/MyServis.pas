@@ -280,23 +280,27 @@ interface
  function QuoteStr(const st:string;force:boolean=false;quotes:char='"'):string;
 
  // Раскодировать строку, заключенную в кавычки
- function UnQuoteStr(const st:string;quotes:char='"'):string;
+ function UnQuoteStr(const st:string;quotes:char='"'):string; overload;
+ function UnQuoteStr(const st:AnsiString;quotes:AnsiChar='"'):AnsiString; overload;
 
  // Заменяет \n \t и т.д. на соответствующие символы (а также \\ на \)
- function Unescape(st:string):string;
+ function Unescape(st:AnsiString):AnsiString;
 
  // Убрать пробельные символы в начале и в конце
- function Chop(st:string):string;
+ function Chop(st:string):string; overload;
+ function Chop(st:AnsiString):AnsiString; overload;
 
  // Возвращает последний символ строки (#0 если строка пустая)
- function LastChar(st:string):char;
+ function LastChar(st:string):char; overload;
+ function LastChar(st:AnsiString):AnsiChar; overload;
 
  // Safe string indexing
  function CharAt(st:string;index:integer):char;
  function WCharAt(st:WideString;index:integer):WideChar;
 
  // заменяет служебные символы в строке таким образом, чтобы её можно было вставить в HTML
- function HTMLString(st:string):string;
+ function HTMLString(st:string):string; overload;
+ function HTMLString(st:AnsiString):AnsiString; overload;
 
  // Закодировать URL согласно требованиям HTTP
  function UrlEncode(st:AnsiString):AnsiString;
@@ -1885,6 +1889,14 @@ procedure SimpleEncrypt2;
    result:=st;
   end;
 
+ function HTMLString(st:Ansistring):Ansistring;
+  begin
+   st:=StringReplace(st,'&','&amp;',[rfReplaceAll]);
+   st:=StringReplace(st,'<','&lt;',[rfReplaceAll]);
+   st:=StringReplace(st,'>','&gt;',[rfReplaceAll]);
+   result:=st;
+  end;
+
  function UrlEncode;
   var
    i:integer;
@@ -1954,7 +1966,18 @@ procedure SimpleEncrypt2;
    result:=quotes+StringReplace(st,quotes,quotes+quotes,[rfReplaceAll])+quotes;
   end;
 
- function UnQuoteStr;
+ function UnQuoteStr(const st:AnsiString;quotes:AnsiChar='"'):AnsiString; overload;
+  begin
+   if (length(st)=0) or (st[1]<>quotes) then begin
+    result:=st;
+    exit;
+   end;
+   result:=st;
+   delete(result,1,1);
+   if result[length(result)]=quotes then SetLength(result,length(result)-1);
+   result:=StringReplace(result,quotes+quotes,quotes,[rfReplaceAll]);
+  end;
+ function UnQuoteStr(const st:String;quotes:Char='"'):String; overload;
   begin
    if (length(st)=0) or (st[1]<>quotes) then begin
     result:=st;
@@ -1966,7 +1989,7 @@ procedure SimpleEncrypt2;
    result:=StringReplace(result,quotes+quotes,quotes,[rfReplaceAll]);
   end;
 
- function Unescape(st:string):string;
+ function Unescape(st:AnsiString):AnsiString;
   var
    i,c,l,v:integer;
    tmp:AnsiString;
@@ -1997,16 +2020,12 @@ procedure SimpleEncrypt2;
         'u':begin
              if i+5>length(st) then continue;
              v:=HexToInt(copy(st,i+2,4));
-             {$IFDEF UNICODE}
-             result[l]:=Char(v);
-             {$ELSE}
              tmp:=EncodeUTF8(WideChar(v));
              result[l]:=tmp[1];
              if length(tmp)>1 then begin
               inc(l);
               result[l]:=tmp[2];
              end;
-             {$ENDIF}
              inc(i,4);
             end;
        end;
@@ -3069,7 +3088,18 @@ function BinToStr;
    result:=sa[idx];
   end;
 
- function chop;
+ function Chop(st:AnsiString):AnsiString; overload;
+  var
+   i:integer;
+  begin
+   result:=st;
+   while (length(result)>0) and (result[1]<=' ') do delete(result,1,1);
+   i:=length(result);
+   while (length(result)>0) and (result[i]<=' ') do dec(i);
+   setlength(result,i);
+  end;
+
+ function Chop(st:String):String; overload;
   var
    i:integer;
   begin
@@ -3081,6 +3111,11 @@ function BinToStr;
   end;
 
  function LastChar(st:string):char;
+  begin
+   if st='' then result:=#0
+    else result:=st[length(st)];
+  end;
+ function LastChar(st:AnsiString):AnsiChar;
   begin
    if st='' then result:=#0
     else result:=st[length(st)];
