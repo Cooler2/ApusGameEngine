@@ -35,7 +35,7 @@ interface
    // ≈сли запрос не подразумевает возврат данных и выполн€етс€ успешно - возвращает
    // пустой массив (0 строк)
    function Query(DBquery:AnsiString):AStringArr; overload; virtual; abstract;
-   // Sugar: Query(Format(DBQuery,params))
+   // Sugar: Query(Format(DBQuery,params)) - all string items pass through SQLsafe()
    function Query(DBquery:AnsiString;params:array of const):AStringArr; overload; virtual;
    // «апрашивает строки (пол€ в fields) из таблицы, соответствующие заданному условию, и заносит их в хэш
    // ”словие может также содержать сортировку и т.п.
@@ -93,7 +93,6 @@ procedure SQLString(var st:AnsiString);
  begin
   st:=StringReplace(st,'\','\\',[rfReplaceAll]);
   st:=StringReplace(st,'"','\"',[rfReplaceAll]);
-  st:=StringReplace(st,'@','\@',[rfReplaceAll]);
   st:=StringReplace(st,#13,'\r',[rfReplaceAll]);
   st:=StringReplace(st,#10,'\n',[rfReplaceAll]);
   st:=StringReplace(st,#9,'\t',[rfReplaceAll]);
@@ -167,8 +166,31 @@ begin
 end;
 
 function TDatabase.Query(DBquery:AnsiString;params:array of const):AStringArr;
+var
+ i:integer;
+ p:pointer;
+ astr:^AnsiString;
 begin
- result:=Query(Format(DBQuery,params));
+ for i:=0 to high(params) do
+  case params[i].VType of
+   vtAnsiString: begin
+    AnsiString(params[i].VAnsiString):=SqlSafe(AnsiString(params[i].VAnsiString));
+   end;
+   vtWideString: begin
+    New(aStr);
+    aStr^:=SqlSafe(EncodeUTF8(WideString(params[i].VWideString)));
+    params[i].VAnsiString:=pointer(aStr^);
+    params[i].VType:=vtAnsiString;
+   end;
+   vtUnicodeString: begin
+    New(aStr);
+    aStr^:=SqlSafe(EncodeUTF8(UnicodeString(params[i].VUnicodeString)));
+    params[i].VAnsiString:=pointer(aStr^);
+    params[i].VType:=vtAnsiString;
+   end;
+  end;
+ DBQuery:=Format(DBQuery, params);
+ result:=Query(DBQuery);
 end;
 
 { TMySQLDatabase }
