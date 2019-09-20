@@ -135,7 +135,7 @@ implementation
 
 {$IFnDEF FPC}
 uses
-  ShellAPI;
+  ShellAPI,MyServis;
 {$ELSE}
 {$ENDIF}
 
@@ -286,6 +286,7 @@ var
   str:AnsiString;
 begin
   Result := -1;
+  LogMessage('Exec: '+ACmdLine);
 
   with vSecurityAttributes do
   begin
