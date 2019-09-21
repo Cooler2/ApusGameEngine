@@ -80,6 +80,7 @@ interface
   // Escape special characters (so string can be used in query)
   procedure SQLString(var st:AnsiString);
   function SQLSafe(st:AnsiString):AnsiString;
+  function FormatQuery(query:AnsiString;params:array of const):AnsiString;
 
 implementation
  uses SysUtils,mysql,Variants;
@@ -107,6 +108,37 @@ function SQLSafe(st:AnsiString):AnsiString;
  begin
   SQLString(st);
   result:=st;
+ end;
+
+function FormatQuery(query:AnsiString;params:array of const):AnsiString;
+ var
+  i:integer;
+  st:AnsiString;
+  p:array of TVarRec;
+ begin
+  // Don't modify const array -> create new one!
+  SetLength(p,length(params));
+  for i:=0 to high(params) do
+   case params[i].VType of
+    vtAnsiString: begin
+     st:=SqlSafe(AnsiString(params[i].VAnsiString));
+     p[i].VType:=vtAnsiString;
+     p[i].VAnsiString:=pointer(st);
+    end;
+    vtWideString: begin
+     st:=SqlSafe(EncodeUTF8(WideString(params[i].VWideString)));
+     p[i].VType:=vtAnsiString;
+     p[i].VAnsiString:=pointer(st);
+    end;
+    vtUnicodeString: begin
+     st:=SqlSafe(EncodeUTF8(UnicodeString(params[i].VUnicodeString)));
+     p[i].VType:=vtAnsiString;
+     p[i].VAnsiString:=pointer(st);
+    end;
+    else
+     p[i]:=params[i];
+   end;
+  result:=Format(query,p);
  end;
 
 { TDatabase }
@@ -166,30 +198,8 @@ begin
 end;
 
 function TDatabase.Query(DBquery:AnsiString;params:array of const):AStringArr;
-var
- i:integer;
- p:pointer;
- astr:^AnsiString;
 begin
- for i:=0 to high(params) do
-  case params[i].VType of
-   vtAnsiString: begin
-    AnsiString(params[i].VAnsiString):=SqlSafe(AnsiString(params[i].VAnsiString));
-   end;
-   vtWideString: begin
-    New(aStr);
-    aStr^:=SqlSafe(EncodeUTF8(WideString(params[i].VWideString)));
-    params[i].VAnsiString:=pointer(aStr^);
-    params[i].VType:=vtAnsiString;
-   end;
-   vtUnicodeString: begin
-    New(aStr);
-    aStr^:=SqlSafe(EncodeUTF8(UnicodeString(params[i].VUnicodeString)));
-    params[i].VAnsiString:=pointer(aStr^);
-    params[i].VType:=vtAnsiString;
-   end;
-  end;
- DBQuery:=Format(DBQuery, params);
+ DBQuery:=FormatQuery(DBQuery, params);
  result:=Query(DBQuery);
 end;
 
