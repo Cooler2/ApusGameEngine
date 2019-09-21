@@ -46,7 +46,8 @@ uses
   filters in '..\filters.pas',
   FreeTypeFont in '..\FreeTypeFont.pas',
   glyphCaches in '..\glyphCaches.pas',
-  MyRegExpr in '..\MyRegExpr.pas';
+  MyRegExpr in '..\MyRegExpr.pas',
+  Database in '..\Database.pas';
 
 var
  sa:StringArr;
@@ -1416,10 +1417,13 @@ var
  pc:PChar;
  rc:array[1..10] of integer;
  wst:WideString;
+ ast:AnsiString;
 begin
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
+{  for i:=1 to 1000000 do
+   ast:=FormatQuery('QUERY %s=%d',[String(IntToStr(i)),i]);}
   TestExecute;
   TestParsers;
   TestTranslation;
