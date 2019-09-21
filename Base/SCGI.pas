@@ -98,7 +98,10 @@ interface
  function ParseTimeStamp(timestamp:AnsiString):TDateTime;
 
  // Add task (request, async job) to process (st=url, like received)
- procedure AddTask(st:AnsiString);
+ procedure AddTask(task:AnsiString;data:AnsiString='');
+
+ // Execute DB query in a queued task
+ procedure PostQuery(query:AnsiString;params:array of const);
 
  // Test request that output HTTP headers
  function ListHeaders:AnsiString; stdcall;
@@ -911,7 +914,7 @@ implementation
    end;
   end;
 
- procedure AddFakeRequest(rType:AnsiString);
+ procedure AddFakeRequest(rType,data:AnsiString);
   var
    i:integer;
   begin
@@ -921,6 +924,7 @@ implementation
       requests[i].timestamp:=MyTickCount;
       requests[i].request:=rType;
       requests[i].socket:=0;
+      requests[i].body:=data;
       qPut(i);
       exit;
      end;
@@ -929,7 +933,7 @@ implementation
  procedure CheckForTimer;
   begin
    if (@timerProc<>nil) and (MyTickCount>lastTimerTime+1000) then
-    AddFakeRequest('TIMER');
+    AddFakeRequest('TIMER','');
   end;
 
 // ---------------------------------------------------------------
@@ -1015,7 +1019,7 @@ implementation
     sleep(10);
    end;
 
-   AddFakeRequest('INITIALIZE');
+   AddFakeRequest('INITIALIZE','');
 
    // Main loop
    repeat
@@ -1215,9 +1219,12 @@ procedure TWorker.Execute;
      if r>0 then begin
        requests[r].status:=rsProcessing;
        requests[r].timestamp:=MyTickCount;
-       if (requests[r].request='TIMER') or
-          (requests[r].request='INITIALIZE') then begin // timer
-        if (requests[r].request='TIMER') and (@timerProc<>nil) then timerProc;
+       if (requests[r].socket=0) and
+          ((requests[r].request='TIMER') or
+           (requests[r].request='INITIALIZE') or
+           (requests[r].request='DB')) then begin // special
+        if (requests[r].request='DB') then db.Query(requests[r].body) else
+        if (requests[r].request='TIMER') and (@timerProc<>nil) then timerProc else
         if (requests[r].request='INITIALIZE') and (@initProc<>nil) then initProc;
         lastTimerTime:=MyTickCount;
         requests[r].status:=rsFree;
@@ -1248,9 +1255,15 @@ procedure TWorker.Execute;
   InterlockedDecrement(liveWorkers);
  end;
 
- procedure AddTask(st:AnsiString);
+ procedure AddTask(task:AnsiString;data:AnsiString='');
   begin
-   AddFakeRequest(st);
+   AddFakeRequest(task,data);
+  end;
+
+ procedure PostQuery(query:AnsiString;params:array of const);
+  begin
+   query:=FormatQuery(query,params);
+   AddTask('DB',query);
   end;
 
  // Test request
