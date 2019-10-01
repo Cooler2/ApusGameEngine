@@ -89,8 +89,8 @@ begin
  end;
 end;
 
-procedure processString(s:UTF8String);
-var s1,s2:UTF8String;
+procedure processString(s:AnsiString);
+var s1,s2:AnsiString;
     i,q,w,e:integer;
     sa:StringArr;
 begin
@@ -239,7 +239,7 @@ end;
 
 procedure DictInit(fname:UTF8String='';fname2:UTF8String='');
 var f:text;
-    s:UTF8String;
+    s:AnsiString;
     q,w,e:integer;
 begin
  LogMessage('DictInit: '+fname);
@@ -259,7 +259,7 @@ begin
   reset(f);
   while not eof(f) do
   begin
-   readln(f,s);
+   readln(f,s);  // WARN! Should not be UTF8String!
    processstring(s);
   end;
   close(f);
