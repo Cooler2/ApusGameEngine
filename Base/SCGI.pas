@@ -133,6 +133,7 @@ implementation
    request,response:AnsiString;
    contentLength,totalLength,bytesSent:integer;
    headers,body:AnsiString;
+   timeToProcess:int64; // don't handle before this time (MyTickCOunt)
   end;
 
   THandler=record
@@ -686,6 +687,7 @@ implementation
              request:=''; // already parsed, so not needed anymore
              status:=rsReceived;
              timestamp:=MyTickCount;
+             timeToProcess:=0;
              qPut(i);
            end;
          end
@@ -925,6 +927,7 @@ implementation
       requests[i].request:=rType;
       requests[i].socket:=0;
       requests[i].body:=data;
+      requests[i].timeToProcess:=0;
       qPut(i);
       exit;
      end;
@@ -1209,11 +1212,21 @@ procedure TWorker.Execute;
         if socket=0 then status:=rsFree;
       end else begin
         status:=rsPending;
+        timeToProcess:=MyTickCount+50;
         qPut(r); // Put back to the queue to process later
       end;
      end;
+     sleep(1);
      // get next request to process
-     r:=qGet;
+     repeat
+      r:=qGet;
+      t:=MyTickCount;
+      if (r>0) and (requests[r].timeToProcess>t) then begin
+       sleep(5);
+       qPut(r); // postpone request
+       continue;
+      end;
+     until true;
      currentRequest:=r;
      inc(count);
      if r>0 then begin
@@ -1224,9 +1237,11 @@ procedure TWorker.Execute;
            (requests[r].request='INITIALIZE') or
            (requests[r].request='DB')) then begin // special
         if (requests[r].request='DB') then db.Query(requests[r].body) else
-        if (requests[r].request='TIMER') and (@timerProc<>nil) then timerProc else
+        if (requests[r].request='TIMER') and (@timerProc<>nil) then begin
+         lastTimerTime:=MyTickCount;
+         timerProc;
+        end else
         if (requests[r].request='INITIALIZE') and (@initProc<>nil) then initProc;
-        lastTimerTime:=MyTickCount;
         requests[r].status:=rsFree;
         r:=0;
        end else begin
