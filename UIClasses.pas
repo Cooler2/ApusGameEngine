@@ -575,16 +575,40 @@ begin
  end;
 end;
 
+// Make sure root controls list is sorted
+procedure SortRootControls;
+var
+ i,j:integer;
+ c:TUIControl;
+begin
+ for i:=1 to high(rootControls) do
+  if rootControls[i].order>rootControls[i-1].order then begin
+   j:=i;
+   while (j>0) and (rootControls[j].order>rootControls[j-1].order) do begin
+    c:=rootControls[j-1];
+    rootControls[j-1]:=rootControls[j];
+    rootControls[j]:=c;
+    dec(j);
+   end;
+  end;
+end;
+
 function FindControl(name:string;mustExist:boolean=true):TUIControl;
 var
  i:integer;
 begin
  result:=nil;
+ UICritSect.Enter;
+ try
+ SortRootControls;
  for i:=0 to high(rootControls) do begin
   result:=rootControls[i].FindByName(name);
   if result<>nil then exit;
  end;
  if mustExist and (result=nil) then raise EWarning.Create('Control '+name+' not found');
+ finally
+  UICritSect.Leave;
+ end;
 end;
 
 function FindControlAt(x,y:integer;out c:TUIControl):boolean;
@@ -594,6 +618,9 @@ var
  found,enabl:boolean;
 begin
  c:=nil; maxZ:=-1;
+ UICritSect.Enter;
+ try
+ SortRootControls;
  // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
  for i:=0 to high(rootControls) do begin
   enabl:=rootControls[i].FindItemAt(x,y,ct);
@@ -608,6 +635,9 @@ begin
   end;
  end;
  result:=(c<>nil) and c.enabled;
+ finally
+  UICritSect.Leave;
+ end;
 end;
 
 procedure SetControlState(name:string;visible:boolean;enabled:boolean=true);
@@ -1526,6 +1556,7 @@ begin
  ncLeft:=deltaX; ncTop:=wcTitleHeight;
  ncRight:=deltaX; ncBottom:=deltaY;
 
+ transpMode:=tmOpaque;
  caption:=wndCaption;
  font:=wndFont;
  header:=wcTitleHeight;
