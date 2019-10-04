@@ -86,7 +86,7 @@ const
  liffPow2    = aiPow2; // Image dimensions will be increased to the nearest pow2
  liffMipMaps = aiMipMapping; // Image will be loaded with mip-maps (auto-generated if no mips in the file)
  liffAllowChange = $100;
- liffDefault = $FFFFFFFF;
+ liffDefault = $FFFFFFFF;   // Use defaultLoadImageFlags for default flag values
 
  // width and height of meta-texture
  liffMW256   = aiMW256;
