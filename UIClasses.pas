@@ -1147,9 +1147,9 @@ begin
    end;
  end;
  if (comboPop<>nil) and not (HasParent(comboPop) or HasParent(comboPop.frame)) then comboPop.onDropDown;
- if (sendSignals=ssAll) and (name<>'') then begin
-  if state then Signal('UI\'+name+'\MsBtnDown',button)
-   else Signal('UI\'+name+'\MsBtnUp',button);
+ if name<>'' then begin
+  if state then Signal('UI\'+name+'\MouseDown',button)
+   else Signal('UI\'+name+'\MouseUp',button);
  end;
 end;
 
@@ -1157,13 +1157,13 @@ procedure TUIControl.onMouseMove;
 begin
  globalRect:=GetPosOnScreen;
  if (sendSignals=ssAll) and (name<>'') then
-  Signal('UI\'+name+'\MsMove',0);
+  Signal('UI\'+name+'\MouseMove',0);
 end;
 
 procedure TUIControl.onMouseScroll(value: integer);
 begin
  if (sendSignals=ssAll) and (name<>'') then begin
-  Signal('UI\'+name+'\MsScroll',value);
+  Signal('UI\'+name+'\MouseScroll',value);
  end;
  // Если прикреплен вертикальный скроллбар - использовать его для прокрутки
  if scrollerV<>nil then begin
