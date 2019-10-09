@@ -15,6 +15,7 @@ interface
     end;
 
     // ѕроизвольна€ анимаци€ значени€
+    PAnimatedValue=^TAnimatedValue;
     TAnimatedValue=object
       logName:string; // ≈сли строка не пуста€ - все операции будут логироватьс€
       constructor Init(initValue:single=0);

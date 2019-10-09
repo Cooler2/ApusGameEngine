@@ -1411,6 +1411,19 @@ procedure TestMemoryStat;
    ASSERT(output<>'');
   end;
 
+ procedure TestTimes;
+  var
+   i:integer;
+   time:TSystemTime;
+  begin
+   for i:=1 to 15 do begin
+    time:=GetUTCTime;
+    writeln(i:2, MyTickCount:8, time.wSecond:4,'.',time.wMilliseconds:3);
+    sleep(1);
+   end;
+  end;
+
+
 var
  ar:array of cardinal;
  st:WideString;
@@ -1424,6 +1437,7 @@ begin
  try
 {  for i:=1 to 1000000 do
    ast:=FormatQuery('QUERY %s=%d',[String(IntToStr(i)),i]);}
+  TestTimes;
   TestExecute;
   TestParsers;
   TestTranslation;

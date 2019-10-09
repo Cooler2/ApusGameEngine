@@ -30,7 +30,8 @@ interface
  // Start HTTP request to URL, if postdata='' then request is GET, otherwise - POST
  // Upon completion (or in case of failure), "event" will be signaled with tag=requestID
  // Return value: request ID
- function HTTPRequest(url,postdata,event:string;timeout:integer=0;contentType:TContentType=ctText):integer;
+ function HTTPRequest(url:string;postdata:string='';event:string='';timeout:integer=0;
+   contentType:TContentType=ctText):integer;
 
  procedure CancelRequest(reqID:integer);
 
@@ -408,7 +409,7 @@ implementation
  {$ENDIF}
 
 
- function HTTPrequest(url,postdata,event:string;timeout:integer=0;contentType:TContentType=ctText):integer;
+ function HTTPrequest(url:string;postdata:string='';event:string='';timeout:integer=0;contentType:TContentType=ctText):integer;
   var
    i:integer;
   begin
