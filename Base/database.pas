@@ -211,37 +211,41 @@ procedure TMySQLDatabase.Connect;
   i:integer;
  begin
   try
-  sleep(50);
-  try
-   ms:=mysql_init(nil);
-  except
-   on e:Exception do ForceLogMessage('SQL: error in mysql_init: '+e.message);
-  end;
-  if ms=nil then begin
-   sleep(100);
-   ForceLogMessage('SQL: ms=nil');
-   ms:=mysql_init(nil);
-  end;
-  bool:=true;
-  try
+   lock.Enter;
+   try
+    try
+     ms:=mysql_init(nil);
+    except
+     on e:Exception do ForceLogMessage('SQL: error in mysql_init: '+e.message);
+    end;
+    if ms=nil then begin
+     sleep(100);
+     ForceLogMessage('SQL: ms=nil');
+     ms:=mysql_init(nil);
+    end;
+   finally
+    lock.Leave;
+   end;
+   bool:=true;
+   try
+    mysql_options(ms,MYSQL_OPT_RECONNECT,@bool);
+    mysql_options(ms,MYSQL_SET_CHARSET_NAME,PChar(DB_CHARSET));
+   except
+    on e:exception do ForceLogMessage('SQL: error during option set: '+e.message);
+   end;
+   i:=1;
+   ForceLogMessage('Connecting to MySQL server');
+   while (mysql_real_connect(ms,PAnsiChar(DB_HOST),PAnsiChar(DB_LOGIN),PAnsiChar(DB_PASSWORD),
+            PAnsiChar(DB_DATABASE),0,'',CLIENT_COMPRESS)<>ms) and
+         (i<4) do begin
+    ForceLogMessage(name+': Error connecting to MySQL server ('+mysql_error(ms)+'), retry in 3 sec');
+    sleep(3000); inc(i);
+   end;
+   if i=4 then raise EError.Create(name+': Failed to connect to MySQL server');
+   bool:=true;
    mysql_options(ms,MYSQL_OPT_RECONNECT,@bool);
-   mysql_options(ms,MYSQL_SET_CHARSET_NAME,PChar(DB_CHARSET));
-  except
-   on e:exception do ForceLogMessage('SQL: error during option set: '+e.message);
-  end;
-  i:=1;
-  ForceLogMessage('Connecting to MySQL server');
-  while (mysql_real_connect(ms,PAnsiChar(DB_HOST),PAnsiChar(DB_LOGIN),PAnsiChar(DB_PASSWORD),
-           PAnsiChar(DB_DATABASE),0,'',CLIENT_COMPRESS)<>ms) and
-        (i<4) do begin
-   ForceLogMessage(name+': Error connecting to MySQL server ('+mysql_error(ms)+'), retry in 3 sec');
-   sleep(3000); inc(i);
-  end;
-  if i=4 then raise EError.Create(name+': Failed to connect to MySQL server');
-  bool:=true;
-  mysql_options(ms,MYSQL_OPT_RECONNECT,@bool);
-  connected:=true;
-  ForceLogMessage(name+': MySQL connection established');
+   connected:=true;
+   ForceLogMessage(name+': MySQL connection established');
   except
    on e:exception do ForceLogMessage(name+': error during MySQL Connect: '+e.message);
   end;
@@ -250,14 +254,14 @@ procedure TMySQLDatabase.Connect;
 constructor TMySQLDatabase.Create;
 begin
  inherited;
- if counter=0 then try
-  lock.Enter;
+ lock.Enter;
+ try
   libmysql_load(nil);
+  inc(counter);
+  name:='DB-'+inttostr(counter);
  finally
   lock.Leave;
  end;
- inc(counter);
- name:='DB-'+inttostr(counter);
  logSelects:=false;
  logChanges:=false;
 end;
