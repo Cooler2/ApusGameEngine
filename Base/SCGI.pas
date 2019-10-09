@@ -8,6 +8,12 @@ interface
   MAX_RQUEUE = 1023; // 2^n-1
   MAX_HANDLERS = 200;
   CRLF = #13#10;
+  MAX_COMET_DURATION = 15000; // don't handle any request longer than 15 sec
+  COMET_INTERVAL = 250; // retry to process pending request after 0.25 sec
+
+  // Time constants
+  MINUTE = 1/1440;
+  SECOND = 1/86400;
  var
   // Global options
   PORT:integer=9000;
@@ -20,6 +26,7 @@ interface
   db:TDataBase; // worker's database connection
   templates:THash; // Global site templates (content). Each thread has own copy of template collection
   temp:THash; // Tempopary values/templates. Cleared/initialized for each request
+  workerID:integer;
   // Per-request values
   requestIdx:integer;
   headers:AnsiString;    // заголовки из SCGI-запроса (as-is, разделены #0)
@@ -44,6 +51,7 @@ interface
   E403=class(Exception) end; // Forbidden
   E404=class(Exception) end; // Not found
   E405=class(Exception) end; // Method not allowed
+  E429=class(Exception) end; // Too many requests
   E500=class(Exception) end; // Internal server error
 
  var
@@ -111,8 +119,10 @@ implementation
  type
   // Worker thread
   TWorker=class(TThread)
+   workerID:integer;
    reloadTemplates:boolean;
    currentRequest:integer;
+   constructor Create(id:integer);
    procedure Execute; override;
   end;
 
@@ -121,14 +131,14 @@ implementation
    rsReading=1,     // receiving request
    rsReceived=2,    // request received, but not yet processed. Worker should process it
    rsProcessing=3,  // request is being processed by a worker
-   rsPending=4,     // request can't be completed now, must be processed again later
-   rsCompleted=5    // request processed and response is ready to be sent
+   rsPending=4,     // request defered: can't be completed now, must be processed again later
+   rsCompleted=5    // request processed and response is ready to be sent to the client
   );
 
   TRequest=record
    status:TRequestStatus;
    timestamp:int64; // when status changed last time? (MyTickCount used)
-   executionTime:integer;
+   executionTime:integer;  // total time spent (including pending/waiting) to complete request
    socket:TSocket;
    request,response:AnsiString;
    contentLength,totalLength,bytesSent:integer;
@@ -355,6 +365,7 @@ implementation
     403:result:=result+'<h3>403 Forbidden</h3>';
     404:result:=result+'<h3>404 Not Found</h3>';
     405:result:=result+'<h3>405 Method not allowed</h3>';
+    429:result:=result+'<h3>429 Too many requests</h3>You''ve sent too many requests. Please wait and try again.';
     500:result:=result+'<h3>500 Internal Server Error</h3>';
    end;
   end;
@@ -749,7 +760,7 @@ implementation
   end;
 
  var
-  lastAcceptTime:int64=0;
+  lastAcceptTime:int64=0; // last time when AcceptNewConnection was called
 
  function AcceptNewConnection:boolean;
   var
@@ -792,7 +803,7 @@ implementation
          rHash.Put(s,i);
          exit;
        end;
-       LogMsg('ERROR! Connection not assigned!',logWarn);
+       LogMsg('ERROR! New connection not assigned!',logWarn);
       finally
        LeaveCriticalSection(critSect);
       end;
@@ -935,8 +946,10 @@ implementation
 
  procedure CheckForTimer;
   begin
-   if (@timerProc<>nil) and (MyTickCount>lastTimerTime+1000) then
+   if (@timerProc<>nil) and (MyTickCount>lastTimerTime+1000) then begin
     AddFakeRequest('TIMER','');
+    lastTimerTime:=MyTickCount;
+   end;
   end;
 
 // ---------------------------------------------------------------
@@ -1001,6 +1014,8 @@ implementation
    arg:cardinal;
   begin
    startTime:=now;
+   lastTimerTime:=MyTickCount;
+
    if not SetPriorityClass(GetCurrentProcess,NORMAL_PRIORITY_CLASS) then
     LogMsg('Failed to set process priority',logWarn);
 
@@ -1017,7 +1032,7 @@ implementation
 
    // Start workers
    for i:=1 to WORKER_THREADS do begin
-    workers[i]:=TWorker.Create(false);
+    workers[i]:=TWorker.Create(i);
     workers[i].FreeOnTerminate:=true;
     sleep(10);
    end;
@@ -1031,7 +1046,6 @@ implementation
       EnterCriticalSection(critSect);
       try
         while AcceptNewConnection do;
-
         ReadIncomingData;
         CheckForTimer;
       finally
@@ -1041,12 +1055,11 @@ implementation
       if loopCounter and $FF=0 then begin
        ExternalControl;
       end;
-      if loopCounter and $3FF=0 then begin
+      if loopCounter and $1FF=0 then begin
        FlushLog;
        FlushLogs;
        CheckForTemplatesUpdate;
       end;
-
       sleep(1);
 
       // Send responses if ready
@@ -1085,7 +1098,7 @@ implementation
 // -------------------------------------------------------
 
 // Returns: true - request completed, false - pending (process it later again)
-function HandleRequest(out resp:AnsiString):boolean;
+function HandleRequest(pending:boolean;out resp:AnsiString):boolean;
  var
   i,p:integer;
   found:integer;
@@ -1107,8 +1120,9 @@ function HandleRequest(out resp:AnsiString):boolean;
    clientIP:=GetHeader(headers,'REMOTE_ADDR');
    clientCountry:=GetCountryByIP(StrToIp(clientIP));
    httpMethod:=UpperCase(GetHeader(headers,'REQUEST_METHOD'));
-   LogMsg('Handling request %d: %s %s %s %s (%s;%s)',
-     [requestIdx,httpMethod,uri,query,Cookie('VID'),clientIP,ClientCountry],logNormal);
+   if not pending then
+    LogMsg('[%d] Handling request %d: %s %s %s %s (%s;%s)',
+      [workerID,requestIdx,httpMethod,uri,query,Cookie('VID'),clientIP,ClientCountry],logNormal);
    // Exact match
    found:=-1;
    for i:=1 to hCount do
@@ -1144,6 +1158,7 @@ function HandleRequest(out resp:AnsiString):boolean;
    on e:E403 do resp:=FormatError(403,e.Message);
    on e:E404 do resp:=FormatError(404,e.Message);
    on e:E405 do resp:=FormatError(405,e.Message);
+   on e:E429 do resp:=FormatError(429,e.Message);
    on e:E500 do resp:=FormatError(500,e.Message);
    on e:exception do begin
     LogMsg('Error 500: '+ExceptionMsg(e),logWarn);
@@ -1155,19 +1170,41 @@ function HandleRequest(out resp:AnsiString):boolean;
    st:=copy(resp,1,180);
    st:=StringReplace(st,#13,'\r',[rfReplaceAll]);
    st:=StringReplace(st,#10,'\n',[rfReplaceAll]);
-   LogMsg('Request '+IntToStr(requestIdx)+' handled (t='+inttostr(MyTickCount-t)+'): '+st,logNormal);
+  end;
+  if result then LogMsg('[%d] Request %d handled (t=%d): %s',[workerID,requestIdx,integer(MyTickCount-t),st],logNormal);
+ end;
+
+// special fake requests
+procedure HandleSpecialRequest(r:integer);
+ begin
+  try
+   if (requests[r].request='DB') then db.Query(requests[r].body)
+   else
+   if (requests[r].request='TIMER') and (@timerProc<>nil) then timerProc
+   else
+   if (requests[r].request='INITIALIZE') and (@initProc<>nil) then initProc;
+  except
+   on e:Exception do LogMsg('Error in special request "%s": '+ExceptionMsg(e),[requests[r].request],logWarn);
   end;
  end;
 
 { TWorker }
+constructor TWorker.Create(id: integer);
+ begin
+  inherited Create(false);
+  workerID:=id;
+ end;
+
 procedure TWorker.Execute;
  var
-  r,count:integer;
+  r,count,duration:integer;
   req:TRequest;
-  state:boolean;
+  state,isPending,isSpecial:boolean;
   t:int64;
  begin
   currentRequest:=0;
+  scgi.workerID:=self.workerID;
+  LogMsg('Hello from worker '+inttostr(workerID));
   try
    priority:=tpHigher;
    InterlockedIncrement(liveWorkers);
@@ -1180,7 +1217,7 @@ procedure TWorker.Execute;
    LoadTemplates;
   except
    on e:exception do begin
-    LogMsg('Failed to start worker thread: '+ExceptionMsg(e),logError);
+    LogMsg('Failed to start worker '+inttostr(workerID)+' thread: '+ExceptionMsg(e),logError);
     InterlockedDecrement(liveWorkers);
     exit;
    end;
@@ -1189,7 +1226,13 @@ procedure TWorker.Execute;
   repeat
    try
     // process request
-    if r>0 then state:=HandleRequest(requests[r].response);
+    if r>0 then begin
+     if isSpecial then begin
+      HandleSpecialRequest(r);
+      state:=true;
+     end else
+      state:=HandleRequest(isPending,requests[r].response);
+    end;
     if count>10 then begin
      Sleep(5); // try 10 times, then wait...
      count:=0;
@@ -1211,57 +1254,64 @@ procedure TWorker.Execute;
         timestamp:=t;
         if socket=0 then status:=rsFree;
       end else begin
-        status:=rsPending;
-        timeToProcess:=MyTickCount+50;
-        qPut(r); // Put back to the queue to process later
-      end;
-     end;
-     sleep(1);
-     // get next request to process
-     repeat
-      r:=qGet;
-      t:=MyTickCount;
-      if (r>0) and (requests[r].timeToProcess>t) then begin
-       sleep(5);
-       qPut(r); // postpone request
-       continue;
-      end;
-     until true;
-     currentRequest:=r;
-     inc(count);
-     if r>0 then begin
-       requests[r].status:=rsProcessing;
-       requests[r].timestamp:=MyTickCount;
-       if (requests[r].socket=0) and
-          ((requests[r].request='TIMER') or
-           (requests[r].request='INITIALIZE') or
-           (requests[r].request='DB')) then begin // special
-        if (requests[r].request='DB') then db.Query(requests[r].body) else
-        if (requests[r].request='TIMER') and (@timerProc<>nil) then begin
-         lastTimerTime:=MyTickCount;
-         timerProc;
-        end else
-        if (requests[r].request='INITIALIZE') and (@initProc<>nil) then initProc;
-        requests[r].status:=rsFree;
-        r:=0;
-       end else begin
-        requestIdx:=r;
-        headers:=requests[r].headers;
-        requestBody:=requests[r].body;
-        uri:=''; query:=''; setCookies:='';
-        clientIP:=''; httpMethod:='';
-        userID:=0;
-        if requests[r].request<>'' then begin
-         uri:=requests[r].request;
+        duration:=MyTickCount-timestamp;
+        if duration>MAX_COMET_DURATION then begin
+         // too long waiting - abort
+         requests[r].response:=FormatHeaders('text/html','204 No Content');
+         status:=rsCompleted;
+         LogMsg('[%d] Request %d timeout',[workerId,r]);
+        end else begin
+         if not isPending then LogMsg('[%d] Request %d postponed',[workerId,r]);
+         status:=rsPending;
+         timeToProcess:=MyTickCount+COMET_INTERVAL; // wait some time to process again
+         qPut(r); // Put back to the queue to process later
         end;
-       end;
+      end;
      end;
     finally
-     LeaveCriticalSection(CritSect);
+     LeaveCriticalSection(critSect);
+    end;
+    sleep(1);
+    // get next request to process
+    repeat
+     r:=qGet;
+     if r<0 then break;
+     t:=MyTickCount;
+     if (r>0) and (requests[r].timeToProcess>t) then begin
+      sleep(5);
+      qPut(r); // postpone request
+      continue;
+     end;
+     break;
+    until false;
+    currentRequest:=r;
+    inc(count);
+    if r>0 then begin
+      isPending:=requests[r].status=rsPending;
+      requests[r].status:=rsProcessing;
+      if not isPending then
+       requests[r].timestamp:=MyTickCount;
+
+      isSpecial:=(requests[r].socket=0) and
+         ((requests[r].request='TIMER') or
+          (requests[r].request='INITIALIZE') or
+          (requests[r].request='DB'));
+      if not isSpecial then begin
+       // real request
+       requestIdx:=r;
+       headers:=requests[r].headers;
+       requestBody:=requests[r].body;
+       uri:=''; query:=''; setCookies:='';
+       clientIP:=''; httpMethod:='';
+       userID:=0;
+       if requests[r].request<>'' then begin
+        uri:=requests[r].request;
+       end;
+     end;
     end;
    except
     on e:exception do begin
-     LogMsg('ERROR IN WORKER: '+ExceptionMsg(e),logWarn);
+     LogMsg('ERROR IN WORKER '+inttostr(workerID)+': '+ExceptionMsg(e),logWarn);
      sleep(500);
     end;
    end;
