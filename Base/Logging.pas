@@ -230,7 +230,7 @@ implementation
    p^:=ord('.'); inc(p);
    p^:=48+time.wMilliseconds div 100; inc(p);
    p^:=48+(time.wMilliseconds div 10) mod 10; inc(p);
-   p^:=48+time.wSecond mod 10;
+   p^:=48+time.wMilliseconds mod 10;
   end;
 
  // Read "size" bytes from the cyclic log buffer starting from "posit"
@@ -374,7 +374,8 @@ implementation
    if level>=logError then ForceLogMessage(st);
    EnterCriticalSection(logSect);
    try
-    getSystemTime(time); // UTC
+    //getSystemTime(time); // UTC
+    time:=GetUTCTime;
     if (time.wDay<>lastTime.wDay) and (logCache<>'') then FlushLogs; // day changed
     if time.wSecond<>lastTime.wSecond then begin
      dec(avgMsgCounter,avgMsgPerSecondLimit);
