@@ -194,9 +194,7 @@ interface
  procedure RunTimer(n:integer);
  function GetTimer(n:integer):double;
 
- function MyGetTime:double; // Время в секундах со старта программы
- function MyGetTime2:cardinal; // Время в миллисекундах со старта программы
- function GetCurTime:cardinal;  // just an alias for backward compatibility
+ function GetUTCTime:TSystemTime;
  function MyTickCount:int64; // Аналог GetTickCount, но без переполнения (больше не использует GetTickCount из-за недостаточной точности)
 
  // Функции для работы с массивами
@@ -3246,7 +3244,7 @@ function BinToStr;
   {$ENDIF}
   begin
    {$IFDEF MSWINDOWS}
-   getSystemTime(time);
+   time:=GetUTCTime;
    result:=chr(48+time.wHour div 10)+chr(48+time.wHour mod 10)+':'+
            chr(48+time.wMinute div 10)+chr(48+time.wMinute mod 10)+':'+
            chr(48+time.wSecond div 10)+chr(48+time.wSecond mod 10)+'.'+
@@ -3819,27 +3817,6 @@ procedure DumpDir(path:string);
    result:=(v*PerfKoef*10);
   end;
 
- function MyGetTime;
-  var
-   v:int64;
-  begin
-   QueryPerformanceCounter(v);
-   result:=(v-StartTime)*PerfKoef*0.001;
-  end;
-
- function MyGetTime2;
-  var
-   v:int64;
-  begin
-   QueryPerformanceCounter(v);
-   result:=round((v-StartTime)*PerfKoef);
-  end;
-
- function getcurtime;
- begin
-  result:=cardinal(MyTickCount);
- end;
-
  function MyTickCount:int64;
   var
    t:cardinal;
@@ -3859,6 +3836,41 @@ procedure DumpDir(path:string);
    finally
     MyLeaveCriticalSection(crSection);
    end;
+  end;
+
+ function TryLoadFunction(libName,funcName:string):pointer;
+  var
+   lib:HModule;
+  begin
+   result:=nil;
+   lib:=LoadLibrary(PChar(libName));
+   if lib=0 then exit;
+   result:=GetProcAddress(lib,PChar(funcName));
+  end;
+
+ var
+  preciseTimeSupport:integer=0;
+  GetSystemTimePreciseAsFileTime:procedure(out time:TFileTime); stdcall;
+
+ function GetUTCTime:TSystemTime;
+  var
+   p:pointer;
+   ft:TFileTime;
+  begin
+   if preciseTimeSupport=0 then begin
+    p:=TryLoadFunction('kernel32.dll','GetSystemTimePreciseAsFileTime');
+    if p<>nil then begin
+     preciseTimeSupport:=1;
+     GetSystemTimePreciseAsFileTime:=p;
+    end else
+     preciseTimeSupport:=-1;
+   end;
+
+   if preciseTimeSupport>0 then begin
+    GetSystemTimePreciseAsFileTime(ft);
+    FileTimeToSystemTime(ft,result);
+   end else
+    GetSystemTime(result);
   end;
 
  procedure TestSystemPerformance;
