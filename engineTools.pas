@@ -342,11 +342,13 @@ begin
     q:=pos('HTTP',ss);
   until (q>0) or eof(f);
   if q=0 then begin
+   LogMessage('ShellExecute: '+url);
    ShellExecute(0,'open',PChar(url),'','',SW_SHOW);
    exit;
   end;
   ss:=copy(ss,q,1024);
   close(f);
+  LogMessage('ShellOpen: '+ss);
   ShellOpen(ss);
  end else
  begin
@@ -356,6 +358,7 @@ begin
   close(f);
   FindExecutable('temp312.htm','',s);
   Deletefile('temp312.htm');
+  LogMessage('ShellExecute2: '+url);
   ShellExecute(0,'open',s,PChar(url), nil,SW_SHOW);
  end;
  {$ENDIF}
