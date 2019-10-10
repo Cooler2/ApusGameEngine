@@ -211,16 +211,17 @@ procedure TMySQLDatabase.Connect;
   i:integer;
  begin
   try
+   LogMessage(name+' DB.Connect');
    lock.Enter;
    try
     try
      ms:=mysql_init(nil);
     except
-     on e:Exception do ForceLogMessage('SQL: error in mysql_init: '+e.message);
+     on e:Exception do ForceLogMessage(name+' SQL: error in mysql_init: '+e.message);
     end;
     if ms=nil then begin
      sleep(100);
-     ForceLogMessage('SQL: ms=nil');
+     ForceLogMessage(name+' SQL: ms=nil');
      ms:=mysql_init(nil);
     end;
    finally
@@ -234,7 +235,7 @@ procedure TMySQLDatabase.Connect;
     on e:exception do ForceLogMessage('SQL: error during option set: '+e.message);
    end;
    i:=1;
-   ForceLogMessage('Connecting to MySQL server');
+   ForceLogMessage(name+' Connecting to MySQL server');
    while (mysql_real_connect(ms,PAnsiChar(DB_HOST),PAnsiChar(DB_LOGIN),PAnsiChar(DB_PASSWORD),
             PAnsiChar(DB_DATABASE),0,'',CLIENT_COMPRESS)<>ms) and
          (i<4) do begin
@@ -256,7 +257,7 @@ begin
  inherited;
  lock.Enter;
  try
-  libmysql_load(nil);
+  if counter=0 then libmysql_load(nil);
   inc(counter);
   name:='DB-'+inttostr(counter);
  finally
