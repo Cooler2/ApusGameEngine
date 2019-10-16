@@ -1121,7 +1121,7 @@ function HandleRequest(pending:boolean;out resp:AnsiString):boolean;
    clientCountry:=GetCountryByIP(StrToIp(clientIP));
    httpMethod:=UpperCase(GetHeader(headers,'REQUEST_METHOD'));
    if not pending then
-    LogMsg('[%d] Handling request %d: %s %s %s %s (%s;%s)',
+    LogMsg('[%d] Handling request %d: %s %s %s VID:%s (%s;%s)',
       [workerID,requestIdx,httpMethod,uri,query,Cookie('VID'),clientIP,ClientCountry],logNormal);
    // Exact match
    found:=-1;
@@ -1170,8 +1170,8 @@ function HandleRequest(pending:boolean;out resp:AnsiString):boolean;
    st:=copy(resp,1,180);
    st:=StringReplace(st,#13,'\r',[rfReplaceAll]);
    st:=StringReplace(st,#10,'\n',[rfReplaceAll]);
+   if result then LogMsg('[%d] Request %d handled (t=%d): %s',[workerID,requestIdx,integer(MyTickCount-t),st],logNormal);
   end;
-  if result then LogMsg('[%d] Request %d handled (t=%d): %s',[workerID,requestIdx,integer(MyTickCount-t),st],logNormal);
  end;
 
 // special fake requests
@@ -1259,7 +1259,7 @@ procedure TWorker.Execute;
          // too long waiting - abort
          requests[r].response:=FormatHeaders('text/html','204 No Content');
          status:=rsCompleted;
-         LogMsg('[%d] Request %d timeout',[workerId,r]);
+         LogMsg('[%d] Request %d timeout: ret 204 status',[workerId,r]);
         end else begin
          if not isPending then LogMsg('[%d] Request %d postponed',[workerId,r]);
          status:=rsPending;
