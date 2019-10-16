@@ -50,9 +50,18 @@ interface
 
    procedure Disconnect; virtual; abstract;
    destructor Destroy; virtual;
+
+   // Access data as table
+   function Next:AnsiString;
+   function NextInt:integer;
+   function NextDate:TDateTime;
+   procedure NextRow;
+
   private
     crSect:TMyCriticalSection;
     name:AnsiString;
+    data:AStringArr;
+    row,col,cur:integer; // Current row, column and data index
   end;
 
   // MySQL interface
@@ -293,12 +302,14 @@ var
 begin
   rowCount:=0; colCount:=0; insertID:=0;
   lastError:='';
-  lastErrorCode:=0;  
+  lastErrorCode:=0;
+  col:=0; row:=0; cur:=0;
   if not connected then begin
    SetLength(result,1);
    lastError:='ERROR: Not connected';
    lastErrorCode:=dbeNotConnected;
    result[0]:=lastError;
+   data:=result;
    exit;
   end;
   EnterCriticalSection(crSect);
@@ -375,6 +386,7 @@ begin
   finally
    LeaveCriticalSection(crSect);
   end;
+  data:=result;
 end;
 
 constructor TMySQLDatabaseWithLogging.Create;
@@ -406,6 +418,40 @@ function TMySQLDatabaseWithLogging.Query(DBquery: AnsiString): AStringArr;
   if lastError<>'' then LogProc('SQL Error: '+lastError,updateLogLevel+1,logGroup);
   if t>100 then LogProc(Format('SQL: query time=%d (real_query: %d, use: %d, fetch: %d)',[t,time1,time2,time3]),
     max2(selectLogLevel,updateLogLevel)+1,logGroup);
+ end;
+
+function TDatabase.Next:AnsiString;
+ begin
+  if col<colCount then begin
+   result:=data[cur];
+   inc(cur); inc(col);
+  end else
+   result:='';
+ end;
+
+function TDatabase.NextInt:integer;
+ var
+  s:AnsiString;
+ begin
+  s:=Next;
+  if s<>'' then result:=ParseInt(s) else result:=0;
+ end;
+
+function TDatabase.NextDate:TDateTime;
+ var
+  s:AnsiString;
+ begin
+  s:=Next;
+  if s<>'' then result:=GetDateFromStr(s) else result:=0;
+ end;
+
+
+procedure TDatabase.NextRow;
+ begin
+  inc(row);
+  if row>=rowCount then row:=rowCount-1;
+  col:=0;
+  cur:=row*colCount;
  end;
 
 initialization
