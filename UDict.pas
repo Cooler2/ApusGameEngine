@@ -39,7 +39,7 @@ var conv:array of tconv;
     replaceconv:array of tconv;
     tcv:tconv;
     numconv,curconv,numreplaceconv:integer;
-    sorttime:integer;
+    sorttime:int64;
     curage:integer;
 
 function Simply(s:UTF8String):UTF8String;
@@ -243,7 +243,7 @@ var f:text;
     q,w,e:integer;
 begin
  LogMessage('DictInit: '+fname);
- sorttime:=getcurtime;
+ sorttime:=MyTickCount;
  languageID:=0;
  langCreatedBy:='';
  langBaseDir:='';
@@ -299,7 +299,7 @@ begin
   end;
  end;
  numconv:=w;
- sorttime:=getcurtime-sorttime;
+ sorttime:=MyTickCount-sorttime;
  if langBaseDir='' then langBaseDir:=langCode;
 end;
 
