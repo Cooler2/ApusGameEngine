@@ -250,6 +250,8 @@ interface
  function LastPos(substr,str:AnsiString;ignoreCase:boolean=false):integer; overload;
  // Extract substring "prefix|xxx|suffix"
  function ExtractStr(str,prefix,suffix:string;out prefIndex:integer):string;
+ // Basic uppercase
+ function UpperCase(st:AnsiString):AnsiString;
 
  // Склеивает подстроки в одну строку с использованием разделителя divider
  // Если разделитель присутствует в подстроках, то они берутся в кавычки с
@@ -283,6 +285,8 @@ interface
 
  // Заменяет \n \t и т.д. на соответствующие символы (а также \\ на \)
  function Unescape(st:AnsiString):AnsiString;
+ // Escape all characters #0/#1/CR/LF/TAB/'\'
+ function Escape(st:AnsiString):AnsiString;
 
  // Убрать пробельные символы в начале и в конце
  function Chop(st:string):string; overload;
@@ -338,7 +342,8 @@ interface
  procedure ApplyDiffPatch(data:pointer;size:integer;patch:pointer;patchSize:integer);
 
  // Преобразует дату из строки в формате DD.MM.YYYY HH:MM:SS (другие форматы тоже понимает и распознаёт)
- function GetDateFromStr(st:string;default:TDateTime=0):TDateTime;
+ function ParseDate(st:AnsiString;default:TDateTime=0):TDateTime;
+ function GetDateFromStr(st:string;default:TDateTime=0):TDateTime; // alias for compatibility
  // Возвращает строку с разницей между указанным временем и текущим моментом (сколько времени прошло с указанного момента)
  // Если указанный момент ещё не наступил, то первым символом будет +
  function HowLong(time:TDateTime):string;
@@ -362,8 +367,10 @@ interface
  // Функции для вычисления полезных "ломаных" и сплайновых функций
  // -----------------------------------------------------------------
  // Вернуть "насыщенное" значение, т.е. привести b внутрь допустимого диапазона [min..max]
- function Sat(b,min,max:integer):integer;
- function SatD(b,min,max:double):double;
+ function Sat(b,min,max:integer):integer; deprecated;
+ function SatD(b,min,max:double):double; deprecated;
+ function Clamp(b,min,max:integer):integer; overload; // alias
+ function Clamp(b,min,max:double):double; overload; // alias
 
  // Вычислить ломаную функцию, определенную на отрезке [0..256] имеющую пик (экстремум)
  // в точке arg и принимающую значения a, b и c (a и c - на концах отрезка, b - в экстремуме)
@@ -441,7 +448,8 @@ interface
 
  // Преобразование типов данных
  // ---------------------------
- function HexToInt(st:string):int64;  // Распознать шестнадцатиричное число
+ function HexToInt(st:string):int64; overload;  // Распознать шестнадцатиричное число
+ function HexToInt(st:AnsiString):int64; overload;
  function SizeToStr(size:int64):string; // строка с короткой записью размера, типа 15.3M
  function FormatTime(time:int64):string; // строка с временным интервалом (time - в ms)
  function FormatInt(int:int64):string; // строка с числом (пробел разделяет группы цифр)
@@ -449,11 +457,15 @@ interface
  function PtrToStr(p:pointer):string; // Pointer to string
  function IpToStr(ip:cardinal):string; // IP-адрес в строку (младший байт - первый)
  function StrToIp(ip:string):cardinal; // Строка в IP-адрес (младший байт - первый)
- function VarToStr(v:TVarRec):string; // Variant -> String
+ function VarToStr(v:TVarRec):UnicodeString;  // Variant -> String
+ function VarToAStr(v:TVarRec):AnsiString;
  function ParseInt(st:string):int64; inline; overload; // wrong characters ignored
  function ParseInt(st:AnsiString):int64; inline; overload; // wrong characters ignored
  function ParseFloat(st:string):double; inline; // always use '.' as separator - replacement for SysUtils version
  function ParseIntList(st:string):IntArray; // '123 4,-12;3/5' -> [1234,-12,3,5]
+ function ParseBool(st:string):boolean; overload;
+ function ParseBool(st:AnsiString):boolean; overload;
+ function BoolToAStr(b:boolean;short:boolean=true):AnsiString;
 
  function ListIntegers(a:array of integer;separator:char=','):string; overload; // array of integer => 'a[1],a[2],...,a[n]'
  function ListIntegers(a:system.PInteger;count:integer;separator:char=','):string; overload;
@@ -975,6 +987,27 @@ implementation
    end;
   end;
 
+ function HexToInt(st:AnsiString):int64;
+  var
+   i:integer;
+   v:int64;
+  begin
+   result:=0;
+   v:=1;
+   for i:=length(st) downto 1 do begin
+    if st[i]='-' then begin
+     result:=-result;
+     break;
+    end;
+    if not (st[i] in ['0'..'9','A'..'F','a'..'f']) then continue;
+    if st[i] in ['0'..'9'] then result:=result+(ord(st[i])-ord('0'))*v else
+    if st[i] in ['A'..'F'] then result:=result+(ord(st[i])-ord('A')+10)*v else
+    if st[i] in ['a'..'f'] then result:=result+(ord(st[i])-ord('a')+10)*v;
+    v:=v*16;
+   end;
+  end;
+
+
  function SizeToStr;
   var
    v:single;
@@ -1069,23 +1102,42 @@ implementation
    result:=result shr 8+v shl 24;
   end;
 
- function VarToStr(v:TVarRec):string;
+ function VarToStr(v:TVarRec):UnicodeString;
   begin
    case v.VType of
     vtInteger:result:=IntToStr(v.VInteger);
     vtBoolean:result:=BoolToStr(v.VBoolean,true);
     vtChar:result:=v.VChar;
     vtString:result:=ShortString(v.VString^);
-    vtAnsiString:result:=AnsiString(v.VAnsiString);
+    vtAnsiString:result:=DecodeUTF8(AnsiString(v.VAnsiString));
     vtExtended:result:=FloatToStrF(v.vExtended^,ffGeneral,12,0);
     vtVariant:result:=v.VVariant^;
     vtWideChar:result:=v.VWideChar;
-    vtWideString:result:=UTF8Encode(WideString(v.vWideString));
+    vtWideString:result:=WideString(v.vWideString);
     vtInt64:result:=IntToStr(v.vInt64^);
     vtUnicodeString:result:=UnicodeString(v.VUnicodeString);
     else raise EWarning.Create('Incorrect variable type: '+inttostr(v.vtype));
    end;
   end;
+
+ function VarToAStr(v:TVarRec):AnsiString;
+  begin
+   case v.VType of
+    vtInteger:result:=IntToStr(v.VInteger);
+    vtBoolean:result:=BoolToAStr(v.VBoolean);
+    vtChar:result:=v.VChar;
+    vtString:result:=ShortString(v.VString^);
+    vtAnsiString:result:=AnsiString(v.VAnsiString);
+    vtExtended:result:=FloatToStrF(v.vExtended^,ffGeneral,12,0);
+    vtVariant:result:=v.VVariant^;
+    vtWideChar:result:=v.VWideChar;
+    vtWideString:result:=EncodeUTF8(WideString(v.vWideString));
+    vtInt64:result:=IntToStr(v.vInt64^);
+    vtUnicodeString:result:=EncodeUTF8(UnicodeString(v.VUnicodeString));
+    else raise EWarning.Create('Incorrect variable type: '+inttostr(v.vtype));
+   end;
+  end;
+
 
  function ParseFloat(st:string):double; inline; // always use '.' as separator - replacement for SysUtils version
   var
@@ -1151,6 +1203,27 @@ implementation
    if neg then result[cnt]:=-result[cnt];
    inc(cnt);
    SetLength(result,cnt);
+  end;
+
+ function ParseBool(st:string):boolean; overload;
+  begin
+   st:=UpperCase(st);
+   result:=(st='Y') or (st='TRUE') or (st='1') or (st='-1') or (st='+');
+  end;
+
+ function ParseBool(st:AnsiString):boolean; overload;
+  begin
+   st:=UpperCase(st);
+   result:=(st='Y') or (st='TRUE') or (st='1') or (st='-1') or (st='+');
+  end;
+
+ function BoolToAStr(b:boolean;short:boolean=true):AnsiString;
+  begin
+   if short then begin
+    if b then result:='Y' else result:='N';
+   end else begin
+    if b then result:='TRUE' else result:='FALSE';
+   end;
   end;
 
  function ListIntegers(a:system.PInteger;count:integer;separator:char=','):string;
@@ -2038,23 +2111,49 @@ procedure SimpleEncrypt2;
    SetLength(result,l);
   end;
 
- function GetDateFromStr(st:string;default:TDateTime=0):TDateTime;
+ function Escape(st:AnsiString):AnsiString;
   var
-   s1,s2:StringArr;
-   year,hour,min,sec:integer;
-   splitter:string;
+   i,l:integer;
+  begin
+   l:=length(st);
+   for i:=1 to length(st) do
+    if st[i] in [#0,#1,#9,#10,#13,'\'] then inc(l);
+   SetLength(result,l);
+   l:=1;
+   for i:=1 to length(st) do begin
+    if st[i] in [#0,#1,#9,#10,#13,'\'] then begin
+     result[l]:='\'; inc(l);
+     case st[i] of
+      #0:result[l]:='0';
+      #1:result[l]:='1';
+      #9:result[l]:='t';
+      #10:result[l]:='n';
+      #13:result[l]:='r';
+      '\':result[l]:='\';
+     end;
+    end else
+     result[l]:=st[i];
+    inc(l);
+   end;
+  end;
+
+ function ParseDate(st:AnsiString;default:TDateTime=0):TDateTime;
+  var
+   s1,s2:AStringArr;
+   year,month,day,hour,min,sec:integer;
+   splitter:AnsiString;
   begin
    result:=default;
    try
     st:=chop(st);
     if st='' then exit;
-    s1:=split(' ',st);
+    s1:=splitA(' ',st);
     splitter:='';
     if pos('.',s1[0])>0 then splitter:='.';
     if pos('-',s1[0])>0 then splitter:='-';
     if pos('/',s1[0])>0 then splitter:='/';
     if splitter='' then exit;
-    s2:=split(splitter,s1[0]);
+    s2:=splitA(splitter,s1[0]);
     if length(s2)<>3 then exit;
     if length(s2[0])=4 then Swap(s2[2],s2[0]);
     year:=strtoint(s2[2]);
@@ -2062,9 +2161,11 @@ procedure SimpleEncrypt2;
      if year>70 then year:=1900+year
       else year:=2000+year;
     end;
-    result:=EncodeDate(year,strtoint(s2[1]),strtoint(s2[0]));
+    month:=Clamp(ParseInt(s2[1]),1,12);
+    day:=Clamp(ParseInt(s2[0]),1,31);
+    result:=EncodeDate(year,month,day);
     if length(s1)>1 then begin
-     s2:=split(':',s1[1]);
+     s2:=splitA(':',s1[1]);
      if length(s2)>0 then hour:=strtoint(s2[0]) else hour:=0;
      if length(s2)>1 then min:=strtoint(s2[1]) else min:=0;
      if length(s2)>2 then sec:=strtoint(s2[2]) else sec:=0;
@@ -2073,6 +2174,11 @@ procedure SimpleEncrypt2;
    except
     result:=default;
    end;
+  end;
+
+ function GetDateFromStr(st:string;default:TDateTime):TDateTime;
+  begin
+   result:=ParseDate(st);
   end;
 
  function HowLong(time:TDateTime):string;
@@ -2444,7 +2550,21 @@ function BinToStr;
    result:=b;
    if b>max then result:=max;
    if b<min then result:=min;
-  end;  
+  end;
+
+ function Clamp(b,min,max:integer):integer;
+  begin
+   result:=b;
+   if b>max then result:=max;
+   if b<min then result:=min;
+  end;
+
+ function Clamp(b,min,max:double):double;
+  begin
+   result:=b;
+   if b>max then result:=max;
+   if b<min then result:=min;
+  end;
 
  // Return value of pike function
  function Pike(x,arg,a,b,c:integer):integer;
@@ -2771,6 +2891,19 @@ function BinToStr;
     result:=copy(str,p1,p2-p1);
    end else begin
     result:=''; prefIndex:=0;
+   end;
+  end;
+
+ function UpperCase(st:AnsiString):AnsiString;
+  var
+   i:integer;
+   pb:PByte;
+  begin
+   result:=st;
+   pb:=@result[1];
+   for i:=1 to length(result) do begin
+    if (pb^>=byte('a')) and (pb^<=byte('z')) then dec(pb^,byte('a')-byte('A'));
+    inc(pb);
    end;
   end;
 
@@ -3759,7 +3892,7 @@ procedure DumpDir(path:string);
     inc(sour,shiftValue);
     move(sour^,dest^,sizeInBytes-shiftValue);
    end;
-  end;  
+  end;
 
  procedure StartMeasure;
   begin
