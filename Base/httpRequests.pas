@@ -37,6 +37,7 @@ interface
 
  // Return request status (HTTP code or error constant) and response text
  // If request is completed - this destroys request object, so it's ID and data can't be used anymore
+ // returns request status
  function GetRequestResult(ID:integer;out response:AnsiString;httpStatus:PInteger=nil):integer;
  // Если статут запроса - Sent или Completed - возвращает кол-во скачанных байт
  function GetRequestState(ID:integer):integer;
