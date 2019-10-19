@@ -251,7 +251,7 @@ interface
  // Extract substring "prefix|xxx|suffix"
  function ExtractStr(str,prefix,suffix:string;out prefIndex:integer):string;
  // Basic uppercase
- function UpperCase(st:AnsiString):AnsiString;
+ function UpperCaseA(st:AnsiString):AnsiString;
 
  // —клеивает подстроки в одну строку с использованием разделител€ divider
  // ≈сли разделитель присутствует в подстроках, то они берутс€ в кавычки с
@@ -2894,7 +2894,7 @@ function BinToStr;
    end;
   end;
 
- function UpperCase(st:AnsiString):AnsiString;
+ function UpperCaseA(st:AnsiString):AnsiString;
   var
    i:integer;
    pb:PByte;
