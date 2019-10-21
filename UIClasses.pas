@@ -7,7 +7,7 @@
 // ------------------------------------------------------
 unit UIClasses;
 interface
- uses EngineAPI,contnrs,CrossPlatform,MyServis,AnimatedValues,types,regions;
+ uses EngineAPI,contnrs,CrossPlatform,MyServis,AnimatedValues,types,regions,geom2d;
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
 const
@@ -22,6 +22,12 @@ const
  crResizeHW       = 12;  // Курсор для произвольного изменения размера
  crCross          = 13;  // Перекрестие
  crNone           = 99;
+
+ pivotTopLeft:TPoint2s=(x:0; y:0);
+ pivotTopRight:TPoint2s=(x:1; y:0);
+ pivotBottomLeft:TPoint2s=(x:0; y:1);
+ pivotBottomRight:TPoint2s=(x:1; y:1);
+ pivotCenter:TPoint2s=(x:0.5; y:0.5);
 
  // Константы окна (дефолтное поведение, можно менять)
  wcFrameBorder:integer=5;   // Ширина рамки окна
@@ -84,17 +90,18 @@ type
  // иерархию вложенных элементов
  TUIControl=class
   fName:string;  // Имя - используется при посылке сигналов. Изначально отсутствует, что запрещает посылку сигналов
-  x,y:integer;  // Положение в элементе-предке (если предка нет - положение на экране)
-  width,height:integer; // Размеры элемента (могут быть больше экрана)
-                        // DO NOT CHANGE AFTER BEING DISPLAYED! Use Resize() instead!
-  ncLeft,ncTop,ncRight,ncBottom:integer; // рамка отсечения при отрисовке вложенных эл-тов (может также использоваться для других целей)
+  position:TPoint2s;  // Положение root point in parent's client rect (если предка нет - положение на экране)
+  pivot:TPoint2s; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
+  scale:TVector2s; // scale factor for this element (size) and all children elements
+  size:TVector2s; // dimension of this element
+  paddingLeft,paddingTop,paddingRight,paddingBottom:single; // рамка отсечения при отрисовке вложенных эл-тов (может также использоваться для других целей)
   transpmode:TTranspMode;  // Режим прозрачности для событий ввода
   region:TRegion;   // задает область непрозрачности в режиме tmCustom (поведение по умолчанию)
-  scrollX,scrollY:integer; // смещение (используется для вложенных эл-тов!)
+  scroll:TVector2s; // смещение (используется для вложенных эл-тов!) SUBTRACT from children pos
   scrollerH,scrollerV:TUIScrollBar;  // если для прокрутки используются скроллбары - здесь можно их определить
   placementMode:TUIPlacementMode;  // Реакция на изменение размеров предка
-  AnchorRight,AnchorBottom:boolean; // "якоря" для привязки соответствующих краев к краям предка (при изменении размера предка)
-  AnchorLeft,AnchorTop:boolean; // если эти якоря не установлены, то при изменении размера должны меняться x и y
+  AnchorRight,AnchorBottom:single; // "якоря" для привязки соответствующих краев к краям предка (при изменении размера предка)
+  AnchorLeft,AnchorTop:single; // если эти якоря не установлены, то при изменении размера должны меняться x и y
 
   enabled:boolean; // Должен ли элемент реагировать на пользовательский ввод
   visible:boolean; // должен ли элемент рисоваться
@@ -114,7 +121,7 @@ type
 
   timer:integer; // таймер - указывает время в мс через которое будет вызван onTimer() (но не раньше чем через кадр, 0 - не вызывать)
 
-  tag:integer; // Произвольные данные (могут использоваться отрисовщиком)
+  tag:NativeInt; // Произвольные данные (могут использоваться отрисовщиком)
   customPtr:pointer; // произвольные данные
 
   parent:TUIControl; // Ссылка на элемент-предок
@@ -128,23 +135,18 @@ type
    handleMouseIfDisabled:boolean; // следует ли передавать события мыши элементу, если он отключен
 
   // Создает независимый элемент
-  constructor Create(cx,cy,w,h:integer;parent_:TUIControl;name_:string='');
+  constructor Create(width,height:single;parent_:TUIControl;name_:string='');
   // Удаляет элемент (а также все вложенные в него)
   destructor Destroy; override;
   // Поставить элемент в очередь на удаление
   procedure SafeDelete;
-
-  function GetName:string;
-  procedure SetName(n:string);
-
-  property name:string read fName write SetName;
 
   // Найти следующий по порядку элемент того же уровня
   function GetNext:TUIControl; virtual;
   // Найти предыдущий по порядку элемент того же уровня
   function GetPrev:TUIControl; virtual;
   // Найти самого дальнего предка (корневой элемент)
-  function GetParent:TUIControl;
+  function GetRoot:TUIControl;
   // Виден ли элемент (проверяет видимость всех предков)
   function IsVisible:boolean;
   // Доступен ли элемент (проверяет доступность всех предков)
@@ -156,10 +158,21 @@ type
   // Есть ли у данного элемента указанный потомок (direct or indirect) (HasChild(self)=true)
   function HasChild(c:TUIControl):boolean;
 
-  // Attach to new parent
+  // Attach to a new parent
   procedure AttachTo(newParent:TUIControl);
   // Detach from parent
   procedure Detach;
+
+  // Transformations. Element's coordinate system is (0,0 - clientWidth,clinetHeight) where
+  //   0,0 - is upper-left corner of the client area. This CS is for internal use.
+  function TransformToParent(p:TPoint2s):TPoint2s; overload;
+  function TransformToParent(r:TRect2s):TRect2s; overload;
+  function GetRect:TRect2s; // Get element's area in its own CS (i.e. relative to pivot point)
+  function GetClientRect:TRect2s; // Get element's client area in its own CS
+
+  // получить экранные к-ты элемента
+  function GetPosOnScreen:TRect;
+  function GetClientPosOnScreen:TRect;
 
   // Первичные события (вызываются извне)
   // Сцена (или другой клиент) вызывает эти методы у корневого эл-та, а он
@@ -181,25 +194,31 @@ type
   procedure SetFocus; virtual;
   // Сам элемент или воженный в него владеет фокусом?
   function HasFocus:boolean; virtual;
-  // Перевести фокус на следующий/предыдущий эл-ты      SetPriorityClass
+  // Перевести фокус на следующий/предыдущий эл-ты
   procedure SetFocusToNext;
   procedure SetFocusToPrev;
-  // Корректное изменение размера (с правильной реакцией подчиненных эл-тов)
+
+  // Set element position using new pivot point
+  function SetPos(x,y:single;pivotPoint:TPoint2s):TUIControl; overload;
+  function SetPos(x,y:single):TUIControl; overload;
+  // Move by given screen pixels
+  procedure MoveBy(dx,dy:integer);
+  // Set element position using new pivot point
+  function SetAnchors(left,top,right,bottom:single):TUIControl;
+  // Корректное изменение размера (с правильной реакцией подчиненных эл-тов) !!! new size IN PARENTs scale!
   // Значение -1 сохраняет предыдущее значение
-  procedure Resize(newWidth,newHeight:integer); virtual;
-  // разместить элемент по центру предка либо экрана (если предка нет)
+  procedure Resize(newWidth,newHeight:single); virtual;
+  // разместить элемент по центру клиентской области предка либо экрана (если предка нет)
   procedure Center;
   // Прикрепляет элемент к какой-либо части предка
-  procedure Snap(snapTo:TSnapMode); 
+  procedure Snap(snapTo:TSnapMode);
   // Растягивает элемент включая все вложенные (без Resize)
-  procedure Scale(sX,sY:single);
+  //procedure Rescale(sX,sY:single);
   // Скроллинг в указанную позицию (с обработкой подчиненных скроллбаров если они есть)
   procedure ScrollTo(newX,newY:integer); virtual;
-  // получить экранные к-ты элемента
-  function GetPosOnScreen:TRect;
   // Если данный элемент может обладать фокусом, но ни один другой не имеет фокуса - взять фокус на себя
   procedure CheckAndSetFocus;
-  // Найти элемент в указанной точке (среди потомков текущего)
+  // Найти элемент в указанной точке в экранных координатах (среди потомков текущего)
   // Возвращает true если все элементы начиная с текущего в цепочке вложенности enabled
   function FindItemAt(x,y:integer;out c:TUIControl):boolean;
   // Найти элемент по имени
@@ -211,13 +230,25 @@ type
 
   // Функция определения прозрачности точки в режиме tmCustom (к-ты задаются относительно начала эл-та)
   function IsTransparent(x,y:integer):boolean; virtual;
+
+  // Static method => nil-safe
+  function GetName:string;
+
  protected
   focusedChild:TUIControl;
-  rLeft,rTop,rRight,rBottom:single; // точное положение элемента в предке
-
  private
+  function TransformToScreen(r:TRect2s):TRect2s;
   procedure AddToRootControls;
   procedure RemoveFromRootControls;
+  function GetClientWidth:single;
+  function GetClientHeight:single;
+  function GetGlobalScale:TVector2s;
+  procedure SetName(n:string);
+ public
+  property name:string read fName write SetName;
+  property clientWidth:single read GetClientWidth;
+  property clientHeight:single read GetClientHeight;
+  property globalScale:TVector2s read GetGlobalScale; // element scale in screen pixels
  end;
 
  // Элемент с ограничениями размера
@@ -231,14 +262,15 @@ type
  TUIImage=class(TUIControl)
   color:cardinal;  // drawing color (default is $FF808080)
   src:string; // здесь может быть имя файла или строка "event:xxx"
-  constructor Create(cx,cy,w,h:integer;imgname:string;parent_:TUIControl);
+  constructor Create(width,height:single;imgname:string;parent_:TUIControl);
  end;
 
  // Скроллер для тачскрина - размещается независимо либо поверх другого элемента, который он и скроллит
+ // It captures mouse drag events, but passes clicks through
  TUIScrollArea=class(TUIControl)
-  fullWidth,fullHeight:integer; // full content area
+  fullWidth,fullHeight:single; // full content area
   direction:TUIScrollDirection;
-  constructor Create(cx,cy,w,h,fullW,fullH:integer;dir:TUIScrollDirection;parent_:TUIControl);
+  constructor Create(width,height,fullW,fullH:single;dir:TUIScrollDirection;parent_:TUIControl);
   procedure onMouseMove; override;
   procedure onMouseButtons(button:byte;state:boolean); override;
   procedure onTimer; override;
@@ -258,7 +290,7 @@ type
   created:int64; // момент создания (в мс.)
   adjusted:boolean; // отрисовщик может использовать это для корректировки параметров хинта
 
-  constructor Create(cx,cy:integer;stext:string;act:boolean;parent_:TUIControl);
+  constructor Create(x,y:single;text:string;act:boolean;parent_:TUIControl);
   destructor Destroy; override;
   procedure Hide;
   procedure onMouseButtons(button:byte;state:boolean); override;
@@ -271,7 +303,7 @@ type
   align:TTextAlignment;
   font:cardinal;
   topOffset:integer; // сдвиг текста вверх
-  constructor Create(cx,cy,w,h:integer;labelname,text:string;color_,bFont:cardinal;parent_:TUIControl);
+  constructor Create(width,height:single;labelname,text:string;color_,bFont:cardinal;parent_:TUIControl);
  end;
 
  // Тип кнопок
@@ -288,7 +320,7 @@ type
   btnStyle:TButtonStyle; // тип кнопки (влияет как на отрисовку, так и на поведение)
   group:integer;   // Группа
   font:cardinal;
-  constructor Create(cx,cy,w,h:integer;btnName,btnCaption:string;btnFont:cardinal;parent_:TUIControl);
+  constructor Create(width,height:single;btnName,btnCaption:string;btnFont:cardinal;parent_:TUIControl);
 
   procedure onMouseButtons(button:byte;state:boolean); override;
   procedure onMouseMove; override;
@@ -305,7 +337,7 @@ type
 
  // Рамка
  TUIFrame=class(TUIControl)
-  constructor Create(cx,cy,w,h,depth,style_:integer;parent_:TUIControl);
+  constructor Create(width,height:single;depth,style_:integer;parent_:TUIControl);
   procedure SetBorderWidth(w:integer); virtual;
  protected
   borderWidth:integer; // ширина рамки
@@ -320,9 +352,9 @@ type
   resizeable:boolean;  // окно можно растягивать
   minW,minH,maxW,maxH:integer; // максимальные и минимальные размеры (для растягивающихся окон)
 
-  constructor Create(cx,cy,w,h:integer;sizeable:boolean;wndName,wndCaption:string;wndFont:cardinal;parent_:TUIControl);
+  constructor Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,wndCaption:string;wndFont:cardinal;parent_:TUIControl);
 
-  // Возвращает флаги типа области в указанной точке (к-ты внутри окна!)
+  // Возвращает флаги типа области в указанной точке (к-ты экранные (в пикселях)
   // а также курсор, который нужно заюзать для этой области
   // Эту ф-цию нужно переопределить для создания окон специальной формы или поведения
   function GetAreaType(x,y:integer;out cur:integer):integer; virtual;
@@ -331,7 +363,7 @@ type
   procedure onMouseButtons(button:byte;state:boolean); override;
   procedure onLostFocus; override;
   procedure SetFocus; override;
-  procedure Resize(newWidth,newHeight:integer); override;
+  procedure Resize(newWidth,newHeight:single); override;
  private
   hooked:boolean;
   area:integer;   // тип области под курсором
@@ -346,7 +378,7 @@ type
   background:pointer; // некий указатель на фон окна (т.к. вопросы отрисовки в этом модуле не затрагиваются)
   constructor Create(wndName,wndCaption:string;wndFont:cardinal;parent_:TUIControl;canmove:boolean=true);
   destructor Destroy; override;
-  function GetAreaType(x,y:integer;out cur:integer):integer; override;
+  function GetAreaType(x,y:integer;out cur:integer):integer; override; // x,y - screen space coordinates
  end;
 
  TUIEditBox=class(TUIControl)
@@ -367,7 +399,7 @@ type
   protection:byte;   // xor всех символов с этим числом
   offset:integer; // сдвиг вправо содержимого на столько пикселей
 
-  constructor Create(cx,cy,w,h:integer;boxName:string;boxFont:cardinal;color_:cardinal;parent_:TUIControl);
+  constructor Create(width,height:single;boxName:string;boxFont:cardinal;color_:cardinal;parent_:TUIControl);
   procedure onChar(ch:char;scancode:byte); override;
   procedure onUniChar(ch:WideChar;scancode:byte); override;
   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
@@ -392,19 +424,20 @@ type
  TUIScrollBar=class(TUIControl)
  private
   rValue:TAnimatedValue;
-  function GetValue:integer;
-  procedure SetValue(v:integer);
+  function GetValue:single;
+  procedure SetValue(v:single);
   function GetAnimating:boolean;
  public
-  min,max:integer; // границы диапазона
-  pagesize,step:integer; // положение и размер ползунка (в пределах диапазона)
+  min,max:single; // границы диапазона
+  pagesize:single; // размер ползунка (в пределах диапазона)
+  step:single; // add/subtract this amount with mouse scroll or similar events
   color:cardinal;
   horizontal:boolean;
   over:boolean;
-  constructor Create(cx,cy,w,h:integer;barName:string;min_,max_,value_:integer;parent_:TUIControl);
+  constructor Create(width,height:single;barName:string;min_,max_,value_:single;parent_:TUIControl);
   // Переместить ползунок в указанную позицию
-  procedure MoveTo(val:integer;smooth:boolean=false); virtual;
-  procedure MoveRel(delta:integer;smooth:boolean=false); virtual;
+  procedure MoveTo(val:single;smooth:boolean=false); virtual;
+  procedure MoveRel(delta:single;smooth:boolean=false); virtual;
   // Связать значение с внешней переменной
   procedure Link(ctl:TUIControl); virtual;
   // Сигналы от этих кнопок будут использоваться для перемещения ползунка
@@ -413,7 +446,7 @@ type
   procedure onMouseMove; override;
   procedure onMouseButtons(button:byte;state:boolean); override;
   procedure onLostFocus; override;
-  property value:integer read GetValue write SetValue;
+  property value:single read GetValue write SetValue;
   property isAnimating:boolean read GetAnimating;
  protected
   linkedControl:TUIControl;
@@ -426,12 +459,12 @@ type
   lines:StringArr;
   tags:array of cardinal;
   hints:StringArr; // у каждого элемента может быть свой хинт (показываемый при наведении на него)
-  lineHeight:integer;
+  lineHeight:single; // in self CS
   selectedLine,hoverLine:integer; // выделенная строка, строка под мышью (0..count-1), -1 == отсутствует
   autoSelectMode:boolean; // режим, при котором всегда выделяется строка под мышью (для попапов)
   font:cardinal;
   bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // цвета отрисовки
-  constructor Create(cx,cy,w,h,lHeight:integer;listName:string;font_:cardinal;parent:TUIControl);
+  constructor Create(width,height:single;lHeight:single;listName:string;font_:cardinal;parent:TUIControl);
   destructor Destroy; override;
   procedure AddLine(line:string;tag:cardinal=0;hint:string=''); virtual;
   procedure SetLine(index:integer;line:string;tag:cardinal=0;hint:string=''); virtual;
@@ -452,7 +485,7 @@ type
   frame:TUIFrame;
   popup:TUIListBox;
   maxlines:integer; // max lines to show without scrolling
-  constructor Create(x_,y_,width_,height_:integer;bFont:cardinal;list:WStringArr;parent_:TUIControl;name:string);
+  constructor Create(width,height:single;bFont:cardinal;list:WStringArr;parent_:TUIControl;name:string);
   procedure AddItem(item:WideString;tag:cardinal=0;hint:WideString=''); virtual;
   procedure SetItem(index:integer;item:WideString;tag:cardinal=0;hint:string=''); virtual;
   procedure ClearItems;
@@ -656,7 +689,7 @@ var
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUIButton) then c:=nil;
- if c=nil then c:=TUIButton.Create(0,0,0,0,name,'',0,nil);
+ if c=nil then c:=TUIButton.Create(0,0,name,'',0,nil);
  result:=c as TUIButton;
 end;
 
@@ -666,7 +699,7 @@ var
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUIEditBox) then c:=nil;
- if c=nil then c:=TUIEditBox.Create(0,0,0,0,name,0,0,nil);
+ if c=nil then c:=TUIEditBox.Create(0,0,name,0,0,nil);
  result:=c as TUIEditBox;
 end;
 
@@ -676,7 +709,7 @@ var
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUILabel) then c:=nil;
- if c=nil then c:=TUILabel.Create(0,0,0,0,name,'',0,0,nil);
+ if c=nil then c:=TUILabel.Create(0,0,name,'',0,0,nil);
  result:=c as TUILabel;
 end;
 
@@ -686,7 +719,7 @@ var
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUIScrollBar) then c:=nil;
- if c=nil then c:=TUIScrollBar.Create(0,0,0,0,name,0,0,0,nil);
+ if c=nil then c:=TUIScrollBar.Create(0,0,name,0,0,0,nil);
  result:=c as TUIScrollBar;
 end;
 
@@ -696,7 +729,7 @@ var
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUIComboBox) then c:=nil;
- if c=nil then c:=TUIComboBox.Create(0,0,0,0,0,nil,nil,name);
+ if c=nil then c:=TUIComboBox.Create(0,0,0,nil,nil,name);
  result:=c as TUIComboBox;
 end;
 
@@ -706,34 +739,94 @@ var
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUIListBox) then c:=nil;
- if c=nil then c:=TUIListBox.Create(0,0,0,0,0,name,0,nil);
+ if c=nil then c:=TUIListBox.Create(0,0,0,name,0,nil);
  result:=c as TUIListBox;
 end;
 
 
 { TUIControl }
 
-procedure TUIControl.Center;
+function TUIControl.TransformToParent(p:TPoint2s):TPoint2s;
 var
- pW,pH:integer;
+ parentScrollX,parentScrollY:single;
 begin
  if parent<>nil then begin
-  pW:=parent.width;
-  pH:=parent.height;
+  parentScrollX:=parent.scroll.X;
+  parentScrollY:=parent.scroll.Y;
+ end else begin
+  parentScrollX:=0;
+  parentScrollY:=0;
+ end;
+ // Explanation of transformation:
+ //  result.x:=(p.x+paddingLeft); // теперь относительно угла элемента
+ //  result.x:=result.x-size.x*pivot.x; // теперь относительно pivot point
+ //  result.x:=result.x*scale.x; // теперь в масштабе предка
+ //  result.x:=position.x-parentScrollX+result.x; // теперь относительно верхнего левого угла клиентской области предка
+ result.x:=position.x-parentScrollX+scale.x*((p.x+paddingLeft)-size.x*pivot.x);
+ result.y:=position.y-parentScrollY+scale.y*((p.y+paddingTop)-size.y*pivot.y);
+end;
+
+function TUIControl.TransformToParent(r:TRect2s):TRect2s;
+var
+ parentScrollX,parentScrollY:single;
+ cx,cy:single;
+begin
+ if parent<>nil then begin
+  parentScrollX:=parent.scroll.X;
+  parentScrollY:=parent.scroll.Y;
+ end else begin
+  parentScrollX:=0;
+  parentScrollY:=0;
+ end;
+ cx:=position.x-parentScrollX-scale.x*size.x*pivot.x;
+ cy:=position.y-parentScrollY-scale.y*size.y*pivot.y;
+
+ result.x1:=cx+scale.x*(r.x1+paddingLeft);
+ result.y1:=cy+scale.y*(r.y1+paddingTop);
+ result.x2:=cx+scale.x*(r.x2+paddingLeft);
+ result.y2:=cy+scale.y*(r.y2+paddingTop);
+end;
+
+function TUIControl.GetRect:TRect2s; // Get element's area in own CS
+begin
+ result.x1:=-paddingLeft;
+ result.y1:=-paddingTop;
+ result.x2:=size.x-paddingLeft;
+ result.y2:=size.y-paddingTop;
+end;
+
+function TUIControl.GetClientRect:TRect2s; // Get element's client area in own CS
+begin
+ result.x1:=0;
+ result.y1:=0;
+ result.x2:=size.x-paddingLeft-paddingRight;
+ result.y2:=size.y-paddingTop-paddingBottom;
+end;
+
+procedure TUIControl.Center;
+var
+ r,rP:TRect2s;
+ pW,pH,dx,dy:single;
+begin
+ r:=GetRect;
+ if parent<>nil then begin
+  pW:=parent.size.x;
+  pH:=parent.size.y;
+  r:=TransformToParent(r);
+  rP:=parent.GetClientRect;
+  dx:=-((r.x1-rP.x1)-(rP.x2-r.x2))/2;
+  dy:=-((r.y1-rP.y1)-(rP.y2-r.y2))/2;
  end else begin
   pW:=rootWidth;
   pH:=rootHeight;
+  dx:=(r.x1-(pW-r.x2))/2;
+  dy:=(r.y1-(pH-r.y2))/2;
  end;
- x:=(pW-width) div 2;
- y:=(pH-height) div 2;
-{ nx:=(r.Left+r.Right-width) div 2;
- ny:=(r.Top+r.Bottom-height) div 2;
- r2:=GetPosOnScreen;
- inc(x,nx-r2.Left);
- inc(y,ny-r2.Top);}
+ position.x:=position.x+dx;
+ position.y:=position.y+dy;
 end;
 
-procedure TUIControl.Scale(sX,sY:single);
+{procedure TUIControl.Scale(sX,sY:single);
 var
  c:TUIControl;
 begin
@@ -746,7 +839,7 @@ begin
  end;
  for c in children do
   c.Scale(sx,sy);
-end;
+end;}
 
 procedure TUIControl.CheckAndSetFocus;
 begin
@@ -754,26 +847,28 @@ begin
   SetFocus;
 end;
 
-constructor TUIControl.Create(cx, cy, w, h: integer; parent_:TUIControl;name_:string='');
+constructor TUIControl.Create(width, height: single; parent_:TUIControl;name_:string='');
 var
  n:integer;
 begin
- x:=cx; y:=cy; width:=w; height:=h;
- ncLeft:=0; ncRight:=0; ncTop:=0; ncBottom:=0;
+ position:=Point2s(0,0);
+ size:=Point2s(width,height);
+ scale:=Point2s(1,1);
+ pivot:=Point2s(0,0);
+ paddingLeft:=0; paddingRight:=0; paddingTop:=0; paddingBottom:=0;
  transpmode:=tmTransparent;
  timer:=0;
  parent:=parent_;
  parentClip:=true;
  fName:=name_;
- hint:=''; hintIfDisabled:=''; 
+ hint:=''; hintIfDisabled:='';
  hintDelay:=1000;
  hintDuration:=3000;
- // Верхний левый угол привязан к такому же углу предка
- AnchorLeft:=true;
- AnchorTop:=true;
- // А вот нижний правый угол не привязан
- AnchorRight:=false;
- AnchorBottom:=false;
+ // No anchors: element's size doesn't change when parent is resized
+ anchorLeft:=0;
+ anchorTop:=0;
+ anchorRight:=0;
+ anchorBottom:=0;
  cursor:=crDefault;
  enabled:=true;
  visible:=true;
@@ -791,7 +886,8 @@ begin
  style:=0;
  CanHaveFocus:=false;
  sendSignals:=ssNone;
- scrollX:=0; scrollY:=0; scrollerH:=nil; scrollerV:=nil;
+ scroll:=Point2s(0,0);
+ scrollerH:=nil; scrollerV:=nil;
  globalRect:=GetPosOnScreen;
  focusedChild:=nil;
  region:=nil;
@@ -884,7 +980,7 @@ var
  i,j:integer;
  fl,en:boolean;
  c2:TUIControl;
- ca:array[1..25] of TUIControl;
+ ca:array of TUIControl;
  cnt:byte;
 begin
  // Тут нужно быть предельно внимательным!!!
@@ -901,27 +997,22 @@ begin
  // выполнить поиск по ним в порядке обратном отрисовке.
  // В невидимых и запредельных искать ессно не нужно, а вот в прозрачных - нужно!
  cnt:=0;
+ SetLength(ca,length(children));
  for i:=0 to length(children)-1 do with children[i] do begin
   if not visible then continue;
-  r2.Left:=r.left+self.ncLeft-self.scrollX+x;
-  r2.top:=r.top+self.ncTop-self.scrollY+y;
-  r2.Right:=r2.left+width;
-  r2.Bottom:=r2.Top+height;
-  if PtInRect(r2,p) then begin
-   ASSERT(cnt<25);
-   inc(cnt); ca[cnt]:=self.children[i];
-  end;
+  ca[cnt]:=self.children[i];
+  inc(cnt);
  end;
  // Список создан, теперь его отсортируем
  if cnt>1 then
-  for i:=1 to cnt-1 do
-   for j:=cnt downto i+1 do
+  for i:=0 to cnt-2 do
+   for j:=cnt-1 downto i+1 do
     if ca[j-1].order<ca[j].order then begin
      c2:=ca[j]; ca[j]:=ca[j-1]; ca[j-1]:=c2;
     end;
  // Теперь порядок правильный, нужно искать
  fl:=false;
- for i:=1 to cnt do begin
+ for i:=0 to cnt-1 do begin
   en:=ca[i].FindItemAt(x,y,c2);
   if c2<>nil then begin
    c:=c2; result:=result and en;
@@ -952,19 +1043,47 @@ end;
 
 procedure TUIControl.Snap(snapTo: TSnapMode);
 var
- clientW,clientH:integer;
+ clientW,clientH:single;
+ r,parentRect:TRect2s;
+ dx,dy:single;
+ offset:TVector2s;
 begin
  if parent=nil then exit;
  if snapTo=smNone then exit;
- clientW:=parent.width-parent.ncLeft-parent.ncRight;
- clientH:=parent.height-parent.ncTop-parent.ncBottom;
+ parentRect:=parent.GetClientRect;
+ clientW:=parentRect.x2-parentRect.x1;
+ clientH:=parentRect.y2-parentRect.y1;
  if snapTo in [smTop,smBottom] then Resize(clientW,-1);
  if snapTo in [smLeft,smRight] then Resize(-1,clientH);
  if snapTo=smParent then Resize(clientW,clientH);
- AnchorLeft:=snapTo<>smRight;
- AnchorRight:=snapTo<>smLeft;
- AnchorTop:=snapTo<>smBottom;
- AnchorBottom:=snapTo<>smTop;
+ r:=TransformToParent(GetRect);
+ case snapTo of
+  smTop:begin
+    anchorTop:=0; anchorLeft:=0; anchorRight:=1; anchorBottom:=0;
+  end;
+  smLeft:begin
+    anchorTop:=0; anchorLeft:=0; anchorRight:=0; anchorBottom:=1;
+  end;
+  smRight:begin
+    anchorTop:=0; anchorLeft:=1; anchorRight:=1; anchorBottom:=1;
+  end;
+  smBottom:begin
+    anchorTop:=1; anchorLeft:=0; anchorRight:=1; anchorBottom:=1;
+  end;
+  smParent:begin
+    anchorTop:=0; anchorLeft:=0; anchorRight:=1; anchorBottom:=1;
+  end;
+ end;
+ if snapTo in [smTop,smLeft,smParent] then begin
+  // Make upper-left corner match parent's same corner
+  offset.x:=r.x1-parentRect.x1;
+  offset.y:=r.y1-parentRect.y1;
+ end else begin
+  // Make bottom-right corner match parent's same corner
+  offset.x:=parentRect.x2-r.x2;
+  offset.y:=parentRect.y2-r.y2;
+ end;
+ VectAdd(position,offset);
 end;
 
 function TUIControl.GetNext: TUIControl;
@@ -979,7 +1098,7 @@ begin
    result:=parent.children[(i+1) mod n];
 end;
 
-function TUIControl.GetParent: TUIControl;
+function TUIControl.GetRoot: TUIControl;
 begin
  result:=self;
  if self=nil then exit;
@@ -1026,16 +1145,26 @@ begin
  end;
 end;
 
-function TUIControl.GetPosOnScreen: TRect;
+function TUIControl.TransformToScreen(r:TRect2s):TRect2s;
 var
  c:TUIControl;
 begin
- result:=Rect(x,y,x+width,y+height);
- c:=parent;
+ c:=self;
  while c<>nil do begin
-  OffsetRect(result,c.x+c.ncLeft-c.scrollX,c.y+c.ncTop-c.scrollY);
+  r:=c.TransformToParent(r);
   c:=c.parent;
  end;
+ result:=r;
+end;
+
+function TUIControl.GetPosOnScreen: TRect;
+begin
+ result:=RoundRect(TransformToScreen(GetRect));
+end;
+
+function TUIControl.GetClientPosOnScreen:TRect;
+begin
+ result:=RoundRect(TransformToScreen(GetClientRect));
 end;
 
 function TUIControl.GetPrev: TUIControl;
@@ -1167,7 +1296,7 @@ begin
  end;
  // Если прикреплен вертикальный скроллбар - использовать его для прокрутки
  if scrollerV<>nil then begin
-  scrollerV.MoveRel(-scrollerV.step*value div 100,true);
+  scrollerV.MoveRel(-scrollerV.step*value/100,true);
   onMouseMove;
   exit;
  end;
@@ -1218,27 +1347,82 @@ begin
  end;
 end;
 
-procedure TUIControl.Resize(newWidth, newHeight: integer);
-var
- i,dX,dY,cw,ch:integer;
+function TUIControl.GetClientWidth:single;
 begin
- if newWidth>-1 then dx:=newwidth-width else dx:=0;
- if newHeight>-1 then dy:=newHeight-height else dy:=0;
- inc(width,dx); inc(height,dy);
- for i:=0 to length(children)-1 do with children[i] do begin
-  cw:=width; ch:=height;
-  if not AnchorLeft then begin inc(x,dx); dec(cw,dx); end;
-  if not AnchorTop then begin inc(y,dy); dec(ch,dy); end;
-  if anchorRight then inc(cw,dx);
-  if anchorBottom then inc(ch,dy);
-  if cw<0 then cw:=0;
-  if ch<0 then ch:=0;
-  Resize(cw,ch);
+ result:=size.x-paddingLeft-paddingRight;
+end;
+
+function TUIControl.GetClientHeight:single;
+begin
+ result:=size.y-paddingTop-paddingBottom;
+end;
+
+function TUIControl.GetGlobalScale:TVector2s;
+var
+ c:TUIControl;
+begin
+ result:=scale;
+ c:=parent;
+ while c<>nil do begin
+  result.x:=result.x*c.scale.x;
+  result.y:=result.y*c.scale.y;
+  c:=c.parent;
  end;
- if anchorRight and not anchorLeft then dec(x,dx);
- if anchorBottom and not anchorTop then dec(y,dy);
- if scrollerH<>nil then scrollerH.pagesize:=width;
- if scrollerV<>nil then scrollerV.pagesize:=height;
+end;
+
+function TUIControl.SetPos(x,y:single;pivotPoint:TPoint2s):TUIControl;
+begin
+ position:=Point2s(x,y);
+ pivot:=pivotPoint;
+ globalRect:=GetPosOnScreen;
+ result:=self;
+end;
+
+function TUIControl.SetPos(x,y:single):TUIControl;
+begin
+ result:=SetPos(x,y,pivotTopLeft);
+end;
+
+procedure TUIControl.MoveBy(dx,dy:integer);
+var
+ delta:TVector2s;
+begin
+ delta:=globalScale;
+ VectInv(delta);
+ delta:=VectMult(Point2s(dx,dy),delta);
+ VectAdd(position,delta);
+end;
+
+function TUIControl.SetAnchors(left,top,right,bottom:single):TUIControl;
+begin
+ anchorLeft:=left;
+ anchorTop:=top;
+ anchorBottom:=bottom;
+ anchorRight:=right;
+ result:=self;
+end;
+
+procedure TUIControl.Resize(newWidth, newHeight: single);
+var
+ i:integer;
+ childRect:TRect2s;
+ dW,dH:single;
+begin
+ if newWidth>-1 then dW:=newwidth-size.x else dW:=0;
+ if newHeight>-1 then dH:=newHeight-size.y else dH:=0;
+ VectAdd(size,Point2s(dW,dH));
+ for i:=0 to length(children)-1 do with children[i] do begin
+  childRect:=TransformToParent(GetRect());
+  childRect.x1:=childRect.x1+dW*anchorLeft;
+  childRect.y1:=childRect.y1+dW*anchorTop;
+  childRect.x2:=childRect.x2+dW*anchorRight;
+  childRect.y2:=childRect.y1+dW*anchorBottom;
+  Resize(childRect.width,childRect.height);
+  position.x:=childRect.x1*(1-pivot.x)+childRect.x2*pivot.x;
+  position.y:=childRect.y1*(1-pivot.y)+childRect.y2*pivot.y;
+ end;
+ if scrollerH<>nil then scrollerH.pagesize:=clientWidth;
+ if scrollerV<>nil then scrollerV.pagesize:=clientHeight;
 end;
 
 procedure TUIControl.SafeDelete;
@@ -1249,11 +1433,11 @@ end;
 
 procedure TUIControl.ScrollTo(newX, newY: integer);
 begin
- scrollX:=newX; scrollY:=newY;
+ scroll.X:=newX; scroll.Y:=newY;
  if scrollerH<>nil then
-  scrollerH.value:=scrollX;
+  scrollerH.value:=scroll.X;
  if scrollerV<>nil then
-  scrollerV.value:=scrollY;
+  scrollerV.value:=scroll.Y;
 end;
 
 procedure TUIControl.SetFocus;
@@ -1361,9 +1545,9 @@ end;
 
 { TUIimage }
 
-constructor TUIimage.Create(cx,cy,w,h:integer;imgname:string;parent_: TUIControl);
+constructor TUIimage.Create(width,height:single;imgname:string;parent_: TUIControl);
 begin
- inherited Create(cx,cy,w,h,parent_,imgName);
+ inherited Create(width,height,parent_,imgName);
  color:=$FF808080;
  src:='';
  transpmode:=tmTransparent;
@@ -1376,7 +1560,7 @@ constructor TUIButton.Create;
 var
  i,n:integer;
 begin
- inherited Create(cx,cy,w,h,btnName,parent_);
+ inherited Create(width,height,btnName,parent_);
  transpmode:=tmOpaque;
  font:=BtnFont;
  btnStyle:=bsNormal;
@@ -1519,10 +1703,10 @@ end;
 
 { TUILabel }
 
-constructor TUILabel.Create(cx,cy,w,h: integer;labelname,text:string;color_,bFont:cardinal;
+constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFont:cardinal;
   parent_: TUIControl);
 begin
- inherited Create(cx,cy,w,h,parent_,labelName);
+ inherited Create(width,height,parent_,labelName);
  transpmode:=tmOpaque;
  color:=color_;
  align:=taLeft;
@@ -1535,13 +1719,7 @@ end;
 
 { TUIWindow }
 
-{procedure TUIWindow.Center;
-begin
- x:=(screenWidth-width) div 2;
- y:=(screenHeight-height) div 2;
-end;}
-
-constructor TUIWindow.Create(cx, cy, w, h: integer; sizeable:boolean; wndName,
+constructor TUIWindow.Create(innerWidth,innerHeight:single; sizeable:boolean; wndName,
   wndCaption: string; wndFont: cardinal; parent_: TUIControl);
 var
  deltaX,deltaY:integer;
@@ -1552,9 +1730,9 @@ begin
  end else begin
   deltaX:=2; deltay:=2;
  end;
- inherited Create(cx,cy,w+deltaX*2,h+deltay+wcTitleHeight,wndName,parent_);
- ncLeft:=deltaX; ncTop:=wcTitleHeight;
- ncRight:=deltaX; ncBottom:=deltaY;
+ inherited Create(innerWidth+deltaX*2,innerHeight+deltay+wcTitleHeight,wndName,parent_);
+ paddingLeft:=deltaX; paddingTop:=wcTitleHeight;
+ paddingRight:=deltaX; paddingBottom:=deltaY;
 
  transpMode:=tmOpaque;
  caption:=wndCaption;
@@ -1573,14 +1751,18 @@ end;
 function TUIWindow.GetAreaType(x, y: integer; out cur: integer): integer;
 var
  c:byte;
+ r:TRect;
 begin
  result:=0; cur:=crDefault;
- if (x<0) or (y<0) or (x>=width) or (y>=height) then exit;
+ r:=GetPosOnScreen;
+ if (x<r.left) or (y<r.top) or (x>=r.Right) or (y>=r.Bottom) then exit;
+ dec(x,r.Left);
+ dec(y,r.Top);
  if resizeable then begin
   if x<wcFrameBorder then inc(result,wcLeftFrame);
   if y<wcFrameBorder then inc(result,wcTopFrame);
-  if x+wcFrameBorder>=width then inc(result,wcRightFrame);
-  if y+wcFrameBorder>=height then inc(result,wcBottomFrame);
+  if x+wcFrameBorder>=r.Width then inc(result,wcRightFrame);
+  if y+wcFrameBorder>=r.Height then inc(result,wcBottomFrame);
   if (result=0) and (y<header) then inc(result,wcHeader);
  end else begin
   if y<header then inc(result,wcHeader);
@@ -1603,6 +1785,8 @@ begin
 end;
 
 procedure TUIWindow.onMouseButtons(button: byte; state: boolean);
+var
+ pnt:TPoint;
 begin
  inherited;
  if (button=1) and not (area in [0,wcClient]) then begin
@@ -1610,26 +1794,34 @@ begin
   if hooked and not state then begin
    hooked:=false;
    // Don't allow window center to be moved outside screen
-   if x+width<width div 2 then x:=-width div 2;
-   if y+height<height div 2 then y:=-height div 2;
-   if x>rootWidth-width div 2 then x:=rootWidth-width div 2;
-   if y>rootHeight-height div 2 then y:=rootHeight-height div 2;
+   pnt:=GetPosOnScreen.CenterPoint;
+   /// TODO: implement action
   end;
  end;
 end;
 
 procedure TUIWindow.onMouseMove;
+var
+ iScale:Tvector2s;
+ dx,dy:single;
 begin
  if hooked then begin
-  if area=wcHeader then begin inc(x,curMouseX-oldMouseX); inc(y,curMouseY-oldMouseY); end;
-  if area and wcRightFrame>0 then Resize(width+curMouseX-oldMouseX,-1);
-  if area and wcBottomFrame>0 then Resize(-1,height+curMouseY-oldMouseY);
-  if area and wcLeftFrame>0 then begin Resize(width+oldMouseX-curMouseX,-1); inc(x,curMouseX-oldMouseX); end;
-  if area and wcTopFrame>0 then begin Resize(-1,height+oldMouseY-curMouseY); inc(y,curMouseY-oldMouseY); end;
+  iScale:=VectDiv(scale,globalScale); // pixels to parent's space scale
+  dx:=(curMouseX-oldMouseX)*iScale.x;
+  dy:=(curMouseY-oldMouseY)*iScale.y;
+  // Drag
+  if area=wcHeader then begin
+   position:=PointAdd(position, Point2s(dx,dy));
+  end;
+  // Resize
+  if area and wcRightFrame>0 then Resize(size.x+dx,-1);
+  if area and wcBottomFrame>0 then Resize(-1,size.y+dy);
+  if area and wcLeftFrame>0 then begin Resize(size.x-dx,-1); position.x:=position.x-dx; end;
+  if area and wcTopFrame>0 then begin Resize(-1,size.y-dy); position.y:=position.y-dy; end;
  end;
 
  inherited;
- area:=GetAreaType(curMouseX-globalRect.Left,curMouseY-globalRect.Top,cursor);
+ area:=GetAreaType(curMouseX,curMouseY,cursor);
  if area in [0,wcClient] then hooked:=false;
 end;
 
@@ -1650,7 +1842,7 @@ begin
      end;
 end;
 
-procedure TUIWindow.Resize(newWidth, newHeight: integer);
+procedure TUIWindow.Resize(newWidth, newHeight: single);
 begin
  if newwidth<>-1 then begin
   if newwidth<minW then newwidth:=minW;
@@ -1679,10 +1871,10 @@ begin
  if selstart+selcount>length(realtext)+1 then selcount:=length(realtext)-selstart+1;
 end;
 
-constructor TUIEditBox.Create(cx,cy,w,h: integer; boxName: string;
+constructor TUIEditBox.Create(width,height:single; boxName: string;
   boxFont:cardinal;color_:cardinal;parent_:TUIControl);
 begin
- inherited Create(cx,cy,w,h,parent_,boxName);
+ inherited Create(width,height,parent_,boxName);
  transpmode:=tmOpaque;
  cursor:=crInput;
  encoding:=defaultEncoding;
@@ -1994,21 +2186,21 @@ end;
 
 { TUIScrollBar }
 
-constructor TUIScrollBar.Create(cx, cy, w, h: integer; barName: string; min_,
-  max_, value_: integer; parent_: TUIControl);
+constructor TUIScrollBar.Create(width,height:single; barName: string; min_,
+  max_, value_: single; parent_: TUIControl);
 begin
- inherited Create(cx,cy,w,h,parent_,barName);
+ inherited Create(width,height,parent_,barName);
  transpmode:=tmOpaque;
  min:=min_; max:=max_; rValue.Init(value_); pagesize:=0;
  linkedControl:=nil; step:=1;
  color:=$FFB0B0B0;
- horizontal:=w>h;
+ horizontal:=width>height;
 // hooked:=false;
 end;
 
-function TUIScrollBar.GetValue: integer;
+function TUIScrollBar.GetValue: single;
 begin
- result:=rValue.IntValue;
+ result:=rValue.value;
  if result>max-pagesize then result:=max-pageSize;
  if result<min then result:=min;
 end;
@@ -2018,7 +2210,7 @@ begin
  LinkedControl:=ctl;
 end;
 
-procedure TUIScrollBar.SetValue(v: integer);
+procedure TUIScrollBar.SetValue(v: single);
 begin
  rValue.Assign(v);
 end;
@@ -2028,24 +2220,24 @@ begin
   result:=rValue.isAnimating;
 end;
 
-procedure TUIScrollBar.MoveRel(delta: integer;smooth:boolean=false);
+procedure TUIScrollBar.MoveRel(delta: single;smooth:boolean=false);
 begin
  MoveTo(round(rValue.FinalValue)+delta,smooth);
 end;
 
-procedure TUIScrollBar.MoveTo(val: integer;smooth:boolean=false);
+procedure TUIScrollBar.MoveTo(val: single;smooth:boolean=false);
 begin
  if val<min then val:=min;
  if val+pagesize>max then val:=max-pagesize;
  if smooth then rValue.Animate(val,300,spline1)
   else rValue.Assign(val);
   
- Signal('UI\'+name+'\Changed',val);
+ Signal('UI\'+name+'\Changed',round(val));
  if linkedControl<>nil then begin
   if linkedcontrol.scrollerH=self then
-   linkedControl.scrollX:=value;
+   linkedControl.scroll.X:=value;
   if linkedcontrol.scrollerV=self then
-   linkedControl.scrollY:=value;
+   linkedControl.scroll.Y:=value;
  end;
 end;
 
@@ -2072,10 +2264,11 @@ begin
   signal('Mouse\UpdatePos');
  end;
  if not (over or (hooked=self)) and state and PtInRect(globalrect,Point(curMouseX,curMouseY)) then begin
+  // Assume that 0-sized page trackbar is 8 pixels wide
   if horizontal then
-   p:=(curMouseX-globalrect.Left-5)/(width-10)
+   p:=(curMouseX-globalRect.Left-4)/(globalRect.Width-8)
   else
-   p:=(curMouseY-globalrect.Top-5)/(height-10);
+   p:=(curMouseY-globalRect.Top-4)/(globalRect.Height-8);
   if p<0 then p:=0;
   if p>1 then p:=1;
   MoveTo(min+round((max-min-pagesize)*p));
@@ -2088,51 +2281,44 @@ procedure TUIScrollBar.onMouseMove;
 var
  p1,p2:single;
  v:integer;
-// posChanged:boolean;
 begin
  inherited;
  if delta=-1 then begin
   p1:=(value-min)/(max-min);
   if p1<0 then p1:=0;
-  if horizontal then delta:=curMouseX-globalrect.Left-round(p1*(width-10))
-   else delta:=curMouseY-globalrect.top-round(p1*(height-10));
+  if horizontal then delta:=curMouseX-globalrect.Left-round(p1*(globalRect.width-8))
+   else delta:=curMouseY-globalrect.top-round(p1*(globalRect.height-8));
  end;
 
-// posChanged:=false;
  if hooked=self then
   if horizontal then begin
-   p1:=(curMouseX-delta-globalrect.Left)/(width-10);
+   p1:=(curMouseX-delta-globalrect.Left)/(globalRect.width-8);
    if p1<0 then p1:=0; if p1>1 then p1:=1;
    v:=round(min+(max-min)*p1);
    if v<>value then begin
     MoveTo(v);
-//    posChanged:=true;
    end;
   end else begin
-   p1:=(curMouseY-delta-globalrect.top)/(height-10);
+   p1:=(curMouseY-delta-globalrect.top)/(globalRect.Height-8);
    if p1<0 then p1:=0; if p1>1 then p1:=1;
    v:=round(min+(max-min)*p1);
    if v<>value then begin
     MoveTo(v);
-//    posChanged:=true;
    end;
   end;
-// else posChanged:=true;
 
  p1:=(value-min)/(max-min);
  p2:=(value+pagesize-min)/(max-min);
  if p1<0 then p1:=0;
  if p2>1 then p2:=1;
  if horizontal then begin
-//  if posChanged then
   over:=(curMouseY>=globalrect.Top) and (curMouseY<globalrect.Bottom) and
-        (curMouseX>=globalrect.Left+round(p1*(width-10))) and
-        (curMouseX<globalrect.Left+10+round(p2*(width-10)));
+        (curMouseX>=globalrect.Left+round(p1*(globalRect.width-8))) and
+        (curMouseX<globalrect.Left+8+round(p2*(globalrect.width-8)));
  end else begin
-//  if posChanged then
   over:=(curMouseX>=globalrect.Left) and (curMouseX<globalrect.Right) and
-        (curMouseY>=globalrect.Top+round(p1*(height-10))) and
-        (curMouseY<globalrect.top+10+round(p2*(height-10)));
+        (curMouseY>=globalrect.Top+round(p1*(globalrect.height-8))) and
+        (curMouseY<globalrect.top+8+round(p2*(globalrect.height-8)));
  end;
 end;
 
@@ -2146,12 +2332,12 @@ end;
 constructor TUISkinnedWindow.Create(wndName, wndCaption: string;
   wndFont: cardinal; parent_: TUIControl;canmove:boolean=true);
 begin
- inherited Create(0,0,100,100,false,wndName,wndCaption,wndFont,parent_);
+ inherited Create(100,100,false,wndName,wndCaption,wndFont,parent_);
  dragRegion:=nil;
  background:=nil;
  moveable:=canmove;
- ncTop:=0; ncLeft:=0;
- ncRight:=0; ncBottom:=0;
+ paddingTop:=0; paddingLeft:=0;
+ paddingRight:=0; paddingBottom:=0;
 end;
 
 destructor TUISkinnedWindow.Destroy;
@@ -2163,7 +2349,9 @@ end;
 function TUISkinnedWindow.GetAreaType(x, y: integer; out cur: integer): integer;
 begin
  result:=0; cur:=crDefault;
- if (x<0) or (y<0) or (x>=width) or (y>=height) then exit;
+ dec(x,globalrect.Left);
+ dec(y,globalrect.Right);
+ if (x<0) or (y<0) or (x>=globalrect.width) or (y>=globalrect.height) then exit;
  if moveable then result:=wcHeader else result:=wcClient;
  if (dragRegion<>nil) and not dragRegion.TestPoint(x,y) then
   result:=wcClient;
@@ -2171,13 +2359,14 @@ end;
 
 { TUIHint }
 
-constructor TUIHint.Create(cx,cy: integer; stext: string;
+constructor TUIHint.Create(x,y:single; text: string;
   act: boolean; parent_: TUIControl);
 begin
- inherited Create(cx,cy,1,1,'hint',parent_);
+ inherited Create(1,1,'hint',parent_);
+ SetPos(x,y,pivotTopLeft);
  transpmode:=tmOpaque;
  font:=0;
- simpleText:=stext;
+ simpleText:=text;
  active:=act;
  adjusted:=false;
  created:=MyTickCount;
@@ -2211,10 +2400,10 @@ end;
 
 { TUIScrollArea }
 
-constructor TUIScrollArea.Create(cx, cy, w, h, fullW, fullH: integer;
+constructor TUIScrollArea.Create(width, height, fullW, fullH: single;
   dir: TUIScrollDirection;parent_:TUIControl);
 begin
- inherited Create(cx,cy,w,h,parent_);
+ inherited Create(width,height,parent_);
  transpmode:=tmOpaque;
  fullWidth:=fullW;
  fullHeight:=fullH;
@@ -2261,9 +2450,9 @@ begin
  UpdateScroller;
 end;
 
-constructor TUIListBox.Create(cx, cy, w, h, lHeight: integer; listName:string; font_:cardinal; parent: TUIControl);
+constructor TUIListBox.Create(width,height:single;lHeight:single; listName:string; font_:cardinal; parent: TUIControl);
 begin
- inherited Create(cx,cy,w,h,parent,listName);
+ inherited Create(width,height,parent,listName);
  transpmode:=tmOpaque;
  font:=font_;
  lineHeight:=lHeight;
@@ -2271,11 +2460,9 @@ begin
  hoverLine:=-1;
  canHaveFocus:=true;
  sendSignals:=ssMajor;
- scrollerV:=TUIScrollBar.Create(w-19,0,19,h-2,'lbScroll',0,0,0,self);
- scrollerV.horizontal:=false; 
- scrollerV.AnchorLeft:=false;
- scrollerV.AnchorRight:=true;
- scrollerV.AnchorBottom:=true;
+ scrollerV:=TUIScrollBar.Create(19,height-2,'lbScroll',0,0,0,self);
+ scrollerV.SetPos(width,1,pivotTopLeft).SetAnchors(1,0,1,1);
+ scrollerV.horizontal:=false;
  bgColor:=0;
  textColor:=$E0D0D0D0;
  bgHoverColor:=0;
@@ -2315,8 +2502,8 @@ begin
  inherited;
  cx:=curMouseX-(globalRect.Left+1);
  cy:=curMouseY-(globalRect.Top+1);
- if (cx>=0) and (cy>=0) and (cx<width-1) and (cy<height-1) then begin
-  n:=(cy+scrollerV.value) div lineHeight;
+ if (cx>=0) and (cy>=0) and (cx<globalRect.width-1) and (cy<globalRect.height-1) then begin
+  n:=trunc((cy+scrollerV.value)/lineHeight);
   if (n>=0) and (n<length(lines)) then hoverLine:=n
    else hoverLine:=-1;
  end;
@@ -2352,22 +2539,22 @@ end;
 procedure TUIListBox.UpdateScroller;
 begin
  scrollerV.max:=length(lines)*lineHeight;
- scrollerV.step:=lineheight*(height div 2 div lineHeight);
- scrollerV.pagesize:=height;
- scrollerV.height:=height;
- scrollerV.visible:=scrollerV.max>height;
+ scrollerV.step:=round(clientHeight/2) div round(lineHeight);
+ scrollerV.pagesize:=globalRect.height;
+ scrollerV.size.y:=clientHeight;
+ scrollerV.visible:=scrollerV.max>clientHeight;
 end;
 
 { TUIFrame }
 
-constructor TUIFrame.Create(cx, cy, w, h, depth,style_: integer; parent_: TUIControl);
+constructor TUIFrame.Create(width,height:single;depth,style_: integer; parent_: TUIControl);
 begin
- inherited Create(cx,cy,w,h,parent_,'UIFrame');
+ inherited Create(width,height,parent_,'UIFrame');
  transpmode:=tmOpaque;
  borderWidth:=depth;
  style:=style_;
- ncLeft:=depth; ncTop:=depth;
- ncRight:=depth; ncBottom:=depth;
+ paddingLeft:=depth;  paddingTop:=depth;
+ paddingRight:=depth; paddingBottom:=depth;
 end;
 
 { TUIConboBox }
@@ -2392,13 +2579,13 @@ begin
  SetLength(hints,0);
 end;
 
-constructor TUIComboBox.Create(x_,y_, width_,height_:integer; bFont:cardinal; list: WStringArr;
+constructor TUIComboBox.Create(width,height:single; bFont:cardinal; list: WStringArr;
   parent_: TUIControl;name:string);
 var
  btn:TUIButton;
  i,j:integer;
 begin
- inherited Create(x_,y_,width_,height_,name,'',bFont,parent_);
+ inherited Create(width,height,name,'',bFont,parent_);
  transpmode:=tmOpaque;
  font:=bFont;
  items:=Copy(list);
@@ -2423,9 +2610,10 @@ begin
  maxlines:=15;
 
  // Default properties for child controls
- frame:=TUIFrame.Create(0,0,width,2,1,0,nil);
+ frame:=TUIFrame.Create(size.x,2,1,0,nil);
  frame.visible:=false;
- popup:=TUIListBox.Create(0,0,width-2,0,20,'ComboBoxPopUp',font,frame);
+ frame.parentClip:=false;
+ popup:=TUIListBox.Create(size.x-2,0,20,'ComboBoxPopUp',font,frame);
  popUp.customPtr:=self;
 // popup.autoSelectMode:=true;
  popup.bgColor:=$FFFFFFFF;
@@ -2438,29 +2626,27 @@ end;
 
 procedure TUIComboBox.onDropDown;
 var
- root:TUIControl;
- r:TRect;
+ r:TRect2s;
  lCount,lHeight,i:integer;
  hint:WideString;
  tag:cardinal;
 begin
  if not frame.visible then begin
   if comboPop<>nil then comboPop.onDropDown;
-  root:=GetParent;
-  r:=GetPosOnScreen;
-  frame.x:=r.Left-root.x;
-  frame.y:=r.Bottom+1-root.y;
-  frame.width:=width;
-  frame.AttachTo(root);
+  r:=TransformToParent(GetRect);
+  frame.position:=Point2s(r.x1, r.y2+1);
+  frame.size.x:=size.x;
+  frame.AttachTo(parent);
   lCount:=length(items);
   if lCount>=maxlines then lCount:=round(maxLines*0.75);
   // size and position
-  lHeight:=popup.lineHeight;
-  popup.height:=lHeight*lcount;
-  popup.width:=frame.width-2*frame.borderWidth;
-  frame.height:=popup.height+frame.borderWidth*2;
-  if r.Bottom+frame.height>=rootHeight then
-   frame.y:=r.Top-1-frame.height;
+  /// TODO: simplify and rework this
+  lHeight:=round(popup.lineHeight);
+  popup.size.y:=lHeight*lcount;
+  popup.size.x:=frame.size.x-2*frame.borderWidth;
+  frame.size.y:=popup.size.y+frame.borderWidth*2;
+  if frame.GetPosOnScreen.bottom>=rootHeight then
+   frame.position.y:=r.y1-1;
   // Content
   popUp.ClearLines;
   for i:=0 to high(items) do begin
@@ -2537,7 +2723,7 @@ end;
 procedure TUIFrame.SetBorderWidth(w: integer);
 begin
  borderWidth:=w;
- ncLeft:=w; ncRight:=w; ncBottom:=w; ncTop:=w;
+ paddingLeft:=w; paddingRight:=w; paddingBottom:=w; paddingTop:=w;
 end;
 
 initialization

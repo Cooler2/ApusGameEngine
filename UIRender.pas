@@ -16,7 +16,7 @@ interface
 
  // Процедура выполняет отрисовку элемента интерфейса (включая все вложенные элементы)
  // в соответствиии с их стилями и установленными отрисовщиками
- procedure DrawUI(root:TUIControl;customDraw:boolean=false);
+ procedure DrawUI(item:TUIControl;customDraw:boolean=false);
 
  procedure DrawGlobalShadow(color:cardinal);
 
@@ -43,7 +43,7 @@ interface
   defaultHintFont:cardinal=0; // Шрифт, которым показываются хинты
 
 implementation
- uses CrossPlatform,images,SysUtils,types,myservis,engineTools,ImageMan,colors,structs,EventMan;
+ uses CrossPlatform,images,SysUtils,types,myservis,engineTools,colors,structs,EventMan,geom2d;
 
  var
   StyleDrawers:array[0..50] of TUIDrawer;
@@ -57,53 +57,56 @@ implementation
    painter.FillRect(0,0,game.renderWidth,game.renderHeight,color);
   end;  
 
- procedure DrawUI(root:TUIControl;customDraw:boolean=false);
+ // Render an UI element and all its descendants
+ // Use customDraw=true to draw only elements with customDraw=true, otherwise these elements will be skipped
+ procedure DrawUI(item:TUIControl;customDraw:boolean=false);
   var
    i,j,n,cnt:integer;
    tmp:pointer;
    r:TRect;
    list:array of TUIControl;
+   maskChange:boolean;
   begin
-   if not root.visible then exit;
-   if (root.width<=0) or (root.height<=0) then exit;
-   // Сначала нарисовать себя
-   root.globalRect:=root.GetPosOnScreen;
-   if (root.parent<>nil) and (root.parent.transpmode<>tmTransparent) then
-    painter.SetMask(true,false);
+   if not item.visible then exit;
+   if (item.size.x<=0) or (item.size.y<=0) then exit;
+   // Draw self first
+   item.globalRect:=item.GetPosOnScreen;
+   maskChange:=(item.parent<>nil) and (item.parent.transpmode<>tmTransparent);
+   if maskChange then painter.SetMask(true,false);
    try
     // Draw control
-    if (root.customDraw=customDraw) and
-       (root.style>=0) and
-       (root.style<=high(styleDrawers)) then StyleDrawers[root.style](root);
-    // Highlight
+    if (item.customDraw=customDraw) and
+       (item.style>=0) and
+       (item.style<=high(styleDrawers)) then StyleDrawers[item.style](item);
+    // Debug: Highlight with border when Ctrl+Alt+Win pressed
     if (game.shiftState and $F=$E) then
-     if (root=underMouse) or
-        ((underMouse<>nil) and (root=underMouse.parent)) then
-       with root.globalRect do begin
+     if (item=underMouse) or
+        ((underMouse<>nil) and (item=underMouse.parent)) then
+       with item.globalRect do begin
          painter.Rect(left,top,right-1,bottom-1,$80FFFFFF xor ($FFFFFF*((MyTickCount shr 8) and 1)));
        end;
    except
     on E:Exception do begin
-     ForceLogMessage('Error drawing control '+root.name+' - '+ExceptionMsg(e));
+     ForceLogMessage('Error drawing control '+item.name+' - '+ExceptionMsg(e));
      sleep(0);
     end;
    end;
-   // List of child elements to draw
-   n:=length(root.children);
+
+   // Now prepare list of child elements to draw
+   n:=length(item.children);
    cnt:=0;
    for i:=0 to n-1 do
-    if root.children[i].visible then inc(cnt);
+    if item.children[i].visible then inc(cnt);
    SetLength(list,cnt);
    cnt:=0;
    for i:=0 to n-1 do
-    if root.children[i].visible then begin
-     list[cnt]:=root.children[i]; inc(cnt);
+    if item.children[i].visible then begin
+     list[cnt]:=item.children[i]; inc(cnt);
     end;
 
+   // Process children elements
    if cnt>0 then begin
-    r:=root.globalRect;
-    inc(r.Left,root.ncLeft); inc(r.top,root.ncTop);
-    dec(r.Right,root.ncRight); dec(r.Bottom,root.ncBottom);
+    r:=item.GetClientPosOnScreen;
     painter.SetClipping(r);
     // Затем отсортировать и нарисовать вложенные эл-ты
     for i:=0 to cnt-2 do
@@ -125,8 +128,7 @@ implementation
     painter.ResetClipping;
    end;
    // вернуть маску назад
-   if (root.parent<>nil) and (root.parent.transpmode<>tmTransparent) then
-    painter.ResetMask;
+   if maskChange then painter.ResetMask;
   end;
 
  procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string='');
@@ -140,7 +142,7 @@ implementation
   var
    sa:StringArr;
    wsa:WStringArr;
-   i,h:integer;
+   i,h,width,height:integer;
   begin
    with hnt do begin
     hnt.simpleText:=StringReplace(hnt.simpleText,'~','\n',[rfReplaceAll]);
@@ -160,6 +162,7 @@ implementation
     HintImage:=texman.AllocImage(width,height,pfRTAlphaNorm,aiTexture+aiRenderTarget,'UI_HintImage');
     if hintImage=nil then
       raise EError.Create('Failed to alloc hint image!');
+    size:=Point2s(width,height);
     painter.BeginPaint(hintImage);
     try
      painter.SetMask(true,true); // потенциально может вредить отрисовке следующих элементов
@@ -181,10 +184,11 @@ implementation
   begin
    with hnt do begin
     adjusted:=true;
-    if (sx+width+2<game.renderWidth) then inc(x,4)
-     else dec(x,sx+width-game.renderWidth);
-    if (sy+height*2+4>game.renderHeight) then dec(y,height+4)
-     else inc(y,20);
+    if sx+size.x+2<game.renderWidth then position.x:=position.x+4
+     else position.x:=position.x-(sx+size.x-game.renderWidth);
+
+    if sy+size.y*2+4>game.renderHeight then position.y:=position.y-(size.y+4)
+     else position.y:=position.y+20;
    end;
   end;
 
@@ -235,8 +239,9 @@ implementation
 
  procedure DrawUIHint(control:TUIHint;x1,y1,x2,y2:integer);
   var
-   v,sx,sy:integer;
+   v:integer;
    c:cardinal;
+   savePos:TPoint2s;
   begin
     with control as TUIHint do begin
      if pfRTAlphaNorm=ipfNone then exit;
@@ -253,10 +258,11 @@ implementation
        end;
       end;
       // уточнить положение на экране (чтобы всегда был виден)
-      sx:=x; sy:=y;
+      savePos:=position;
       AdjustHint(x1,y1,control as TUIHint);
-      inc(x1,x-sx); inc(x2,x-sx);
-      inc(y1,y-sy); inc(y2,y-sy);
+      VectSub(savePos,position);
+      inc(x1,round(savepos.x));
+      inc(y1,round(savepos.y));
      end;
      if transpMode=tmOpaque then v:=(MyTickCount-created)*2
       else begin
@@ -298,9 +304,9 @@ implementation
      if align=taRight then
       painter.TextOutW(font,x2,mY,color,wst,taRight);
      if align=taCenter then
-      painter.TextOutW(font,x1+width div 2,mY,color,wst,taCenter);
+      painter.TextOutW(font,(x1+x2) div 2,mY,color,wst,taCenter);
      if align=taJustify then
-      painter.TextOutW(font,x1,mY,color,wst,taJustify,0,width);
+      painter.TextOutW(font,x1,mY,color,wst,taJustify,0,x2-x1);
      painter.ResetClipping;
     end;
   end;
@@ -323,12 +329,12 @@ implementation
       if pressed then c:=c-$181010;
       painter.FillGradRect(x1+1,y1+1,x2-1,y2-1,ColorAdd(c,$303030),ColorSub(c,$303030),true);
       c:=GetColor(control,2); if c=0 then c:=$60000000;
-      c2:=GetColor(control,3); if c=0 then c2:=$80FFFFFF;
+      c2:=GetColor(control,3); if c2=0 then c2:=$80FFFFFF;
       painter.ShadedRect(x1,y1,x2,y2,1,c,c2); // Внешняя рамка
       if pressed then { painter.ShadedRect(x1+2,y1+2,x2-1,y2-1,1,$80FFFFFF,$50000000)}
        else if enabled then begin
          c:=GetColor(control,4); if c=0 then c:=$A0FFFFFF;
-         c2:=GetColor(control,5); if c=0 then c2:=$70000000;
+         c2:=GetColor(control,5); if c2=0 then c2:=$70000000;
          painter.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
        end
          else painter.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,$80FFFFFF,$50000000);
@@ -344,10 +350,10 @@ implementation
        wSt:=DecodeUTF8(caption);
        if underMouse=control then c:=$FF300000;
        if enabled then
-        painter.TextOutW(font,x1+width div 2+d,mY+d,c,wst,taCenter)
+        painter.TextOutW(font,(x1+x2) div 2+d,mY+d,c,wst,taCenter)
        else begin
-        painter.TextOutW(font,x1+width div 2+1,mY+1,$E0FFFFFF,wSt,taCenter);
-        painter.TextOutW(font,x1+width div 2,mY,$80000000,wSt,taCenter);
+        painter.TextOutW(font,(x1+x2) div 2+1,mY+1,$E0FFFFFF,wSt,taCenter);
+        painter.TextOutW(font,(x1+x2) div 2,mY,$80000000,wSt,taCenter);
        end;
        painter.ResetClipping;
       end;
@@ -399,13 +405,13 @@ implementation
    c1:=GetColor(control,0);
    if c1=0 then c1:=$FF000000;
    c2:=GetColor(control,1);
-   for i:=0 to control.ncLeft-1 do begin
+   for i:=0 to round(control.paddingLeft)-1 do begin
     if c2=0 then painter.Rect(x1+i,y1+i,x2-i,y2-i,c1)
      else painter.ShadedRect(x1+i,y1+i,x2-i,y2-i,1,c1,c2);
    end;
   end;
 
- procedure DrawUIImage(control:TUIImage;x1,y1:integer);
+ procedure DrawUIImage(control:TUIImage;x1,y1,x2,y2:integer);
   type
    TImageDrawProc=procedure(img:TUIImage);
   var
@@ -417,15 +423,18 @@ implementation
   begin
     with control do begin
      if src<>'' then begin
+      // SRC = procesure address?
       if copy(src,1,5)='proc:' then begin
        proc:=pointer(HexToInt(copy(src,6,20)));
        proc(control);
        exit;
       end;
+      // SRC = event (must be immediate)
       if copy(src,1,6)='event:' then begin
        Signal(copy(src,7,200),PtrUInt(control));
        exit;
       end;
+      // SRC = filename?
       lname:=lowercase(FileName(src));
       p:=imgHash.Get(lname);
       if p=0 then begin
@@ -434,10 +443,7 @@ implementation
        imgHash.Put(lname,cardinal(tex),true);
       end else
        tex:=pointer(p);
-      painter.DrawScaled(x1,y1,x1+control.width-1,y1+control.height-1,tex,control.color);
-     end else begin
-      img:=GetImageHandle('Images\'+name);
-      DrawImage(img,x1,y1,color,width,height,0,0);
+      painter.DrawScaled(x1,y1,x2-1,y2-1,tex,control.color);
      end;
     end;
   end;
@@ -476,11 +482,13 @@ implementation
  procedure DrawUIScrollbar(control:TUIScrollbar;x1,y1,x2,y2:integer);
   var
    c,d,v:cardinal;
-   i,j:integer;
+   i,j,width,height:integer;
   begin
    with control do begin
     c:=colorAdd(color,$202020);
     d:=ColorSub(color,$202020);
+    width:=x2-x1-1;
+    height:=y2-y1-1;
     if horizontal then begin
      // Horizontal scrollbar
      painter.FillGradrect(x1,y1,x2,y2,d,c,true);
@@ -489,8 +497,8 @@ implementation
       c:=colorMix(v,$FFFFFFFF,160);
       d:=colorMix(v,$FF404040,128);
       if over and not (hooked=control) then v:=ColorAdd(v,$101010);
-      i:=round((width-10)*value/max);
-      j:=9+round((width-10)*(value+pagesize)/max);
+      i:=round((width-8)*value/max);
+      j:=9+round((width-8)*(value+pagesize)/max);
       if i<0 then i:=0;
       if j>=width then j:=width-1;
       if j>i+6 then begin
@@ -530,7 +538,7 @@ implementation
  procedure DrawUIEditBox(control:TUIEditBox;x1,y1,x2,y2:integer);
   var
    wst:WideString;
-   i,j,mY,d,curX:integer;
+   i,j,mY,d,curX,scrollPixels:integer;
    c:cardinal;
   begin
    with control as TUIEditBox do begin
@@ -551,11 +559,11 @@ implementation
     wst:=realtext;
     if password then
       wst:=StringOfChar('*',length(wst));
-    if (scrollX>0) and (painter.TextWidthW(font,wst)<(x2-x1)) then ScrollX:=0;
+    if (scroll.X>0) and (painter.TextWidthW(font,wst)<(x2-x1)) then Scroll.X:=0;
     i:=painter.TextWidthW(font,copy(wst,1,cursorpos)); // позиция курсора
 //    if cursorpos>0 then dec(i);
-    if i-scrollX<0 then scrollX:=i;
-    if i-scrollX>(x2-x1-5-offset) then scrollX:=i-(x2-x1-5-offset);
+    if i-scroll.X<0 then scroll.X:=i;
+    if i-scroll.X>(x2-x1-5-offset) then scroll.X:=i-(x2-x1-5-offset);
     painter.SetClipping(Rect(x1+2,y1,x2-2,y2));
     my:=round(y1*0.47+y2*0.53+painter.FontHeight(font)*0.4);
     // Default text?
@@ -564,21 +572,22 @@ implementation
      painter.ResetClipping;
      exit;
     end;
+    scrollPixels:=round(scroll.X*globalScale.x);
 
     if needpos>=0 then begin
      cursorpos:=0;
      while (cursorpos<length(wst)) and
-           (-scrollX+painter.TextWidthW(font,copy(wst,1,cursorpos))<needPos-3) do
+           (-scroll.X+painter.TextWidthW(font,copy(wst,1,cursorpos))<needPos-3) do
        inc(cursorpos);
      needpos:=-1;
     end;
     if completion<>'' then begin
-     j:=x1+2-scrollX+painter.TextWidthW(font,wst);
+     j:=x1+2-scrollPixels+painter.TextWidthW(font,wst);
      painter.TextOutW(font,j+offset,mY,ColorMix(color,$00808080,160),
        copy(completion,length(wst)+1,length(completion)),taLeft,toDontTranslate);
     end;
     if (selcount>0) and (focusedControl=control) then begin // часть текста выделена
-     j:=x1+2-scrollX+offset;
+     j:=x1+2-scrollPixels+offset;
      painter.TextOutW(font,j,mY,color,copy(wst,1,selstart-1),taLeft,toDontTranslate); // до выделения
      j:=j+painter.TextWidthW(font,copy(wst,1,selstart))-
           painter.TextWidthW(font,copy(wst,selstart,1));
@@ -593,10 +602,10 @@ implementation
          copy(wst,selstart+selcount,length(wst)-selstart-selcount+1),taLeft,toDontTranslate); // остаток
      end;
     end else
-     painter.TextOutW(font,x1+2-scrollX+offset,mY,color,wst,taLeft,toDontTranslate);
+     painter.TextOutW(font,x1+2-scrollPixels+offset,mY,color,wst,taLeft,toDontTranslate);
     painter.ResetClipping;
     if (focusedControl=control) and ((mytickcount-cursortimer) mod 360<200) then begin // курсор
-     curX:=x1+2+i-scrollX+offset; // first pixel of the character
+     curX:=x1+2+i-scrollPixels+offset; // first pixel of the character
      painter.DrawLine(curX,y1+2,curX,y2-2,colorAdd(color,$404040));
 //     painter.DrawLine(x1+4+i-scrollX,y1+2,x1+4+i-scrollX,y2-2,colorAdd(color,$404040));
     end;
@@ -605,8 +614,9 @@ implementation
 
  procedure DrawUIListBox(control:TUIListBox;x1,y1,x2,y2:integer);
   var
-   i,lY,scr:integer;
+   i,lY:integer;
    c,c1,c2:cardinal;
+   scr:single;
   begin
     with control as TUIListBox do begin
      if bgColor<>0 then painter.FillRect(x1,y1,x2,y2,bgColor);
@@ -614,15 +624,15 @@ implementation
       else scr:=0;
      painter.SetClipping(Rect(x1,y1,x2+1,y2+1));
      for i:=0 to length(lines)-1 do begin
-      lY:=y1+i*lineHeight-scr;
+      lY:=y1+round(i*lineHeight-scr); /// TODO: check
       if lY+lineHeight<y1 then continue;
       if lY>y2 then break;
       if i=selectedLine then begin
-       painter.FillRect(x1,lY,x2,lY+lineHeight,bgSelColor);
+       painter.FillRect(x1,lY,x2,round(lY+lineHeight),bgSelColor);
        c:=selTextColor;
       end else
       if i=hoverLine then begin
-       painter.FillRect(x1,lY,x2,lY+lineHeight,bgHoverColor);
+       painter.FillRect(x1,lY,x2,round(lY+lineHeight),bgHoverColor);
        c:=hoverTextColor;
       end else
        c:=textColor;
@@ -656,7 +666,7 @@ implementation
      painter.ResetClipping;
     end;
     // Arrow
-    cx:=x2-round(height*0.4);
+    cx:=x2-round((y2-y1)*0.4);
     cy:=(y1+y2) div 2-1;
     c:=$FF000000;
     for i:=0 to 2 do begin
@@ -703,7 +713,7 @@ implementation
    else
    // Произвольное изображение
    if control.ClassType=TUIImage then
-    DrawUIImage(control as TUIImage,x1,y1)
+    DrawUIImage(control as TUIImage,x1,y1,x2,y2)
    else
    // всплывающий хинт
    if control is TUIHint then

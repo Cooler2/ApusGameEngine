@@ -126,19 +126,18 @@ begin
  edCount:=0;
 
  h:=round(11+game.renderHeight*0.01);
- listbox:=TUIListbox.Create(10,10,300,h*3+2,h,'Tweaker\List',normalFont,ui);
+ listbox:=TUIListbox.Create(300,h*3+2,h,'Tweaker\List',normalFont,ui);
+ listBox.SetPos(10,10);
  listbox.bgColor:=$60303030;
- listbox.AnchorRight:=true;
+ listBox.SetAnchors(0,0,1,0);
 end;
 
 procedure TTweakerScene.onMouseBtn(btn: byte; pressed: boolean);
 begin
-
 end;
 
 procedure TTweakerScene.onMouseWheel(delta: integer);
 begin
-
 end;
 
 procedure TTweakerScene.PlaceTrackers;
@@ -148,7 +147,7 @@ var
  name,value,iValue:string;
 begin
  // Delete old trackers
- ui.height:=listBox.height+20;
+{ ui.height:=listBox.height+20;
  for i:=0 to edCount-1 do
   FreeAndNil(editors[i]);
 
@@ -173,7 +172,7 @@ begin
  // Adjust vertical position
  if not keepPos then ui.y:=game.mouseY-ui.height div 2;
  if ui.y+ui.height>game.renderHeight then ui.y:=game.renderHeight-ui.height;
- if ui.y<5 then ui.y:=5;
+ if ui.y<5 then ui.y:=5;}
 end;
 
 procedure TTweakerScene.SetStatus(st: TSceneStatus);
@@ -181,7 +180,7 @@ var
  sa:StringArr;
  lastIdx:integer;
 begin
- if st=ssActive then begin
+{ if st=ssActive then begin
   // Update UI Layout
   ui.Resize(round(200+game.renderWidth*0.1),-1);
   ui.x:=game.mouseX-ui.width div 2;
@@ -199,14 +198,14 @@ begin
   clipMouse:=cmNo;
   hooked:=nil;
  end;
- inherited;
+ inherited;}
 end;
 
 { TFloatTracker }
 
 constructor TTracker.Create(x,y:integer;parent: TUIControl; mode:integer;iValue,initValue:single);
 begin
- inherited Create(x,y,parent.width-x-5-5*byte(mode in [3..6]),18+game.renderHeight div 50,parent);
+{ inherited Create(x,y,parent.width-x-5-5*byte(mode in [3..6]),18+game.renderHeight div 50,parent);
  style:=3;
  value:=iValue;
  initialValue:=initValue;
@@ -218,7 +217,7 @@ begin
   while value<(min*0.9+max*0.1) do min:=min-abs(max-min);
  end else begin
   min:=0; max:=255;
- end;
+ end;}
 end;
 
 procedure TTracker.Draw(x1, y1, x2, y2: integer);
@@ -230,7 +229,7 @@ var
  c:cardinal;
 begin
  //painter.Rect(x1,y1,x2,y2,$80C0C0C0);
- yy:=y1+round(height*0.48);
+{ yy:=y1+round(height*0.48);
  painter.DrawLine(x1,yy-1,x2,yy-1,$80202020);
  painter.DrawLine(x1,yy+1,x2,yy+1,$80A0A0A0);
  step:=0.0001; j:=0;
@@ -278,7 +277,7 @@ begin
   inc(xx,x1);
   for i:=-4 to 4 do
    painter.DrawLine(xx+i,yy-j,xx+i,yy-abs(i),c-$101010*abs(i));
- end;
+ end;}
 end;
 
 procedure TTracker.onMouseButtons(button: byte; state: boolean);
@@ -339,12 +338,12 @@ end;
 
 function TTracker.ValueToX(v: single): integer;
 begin
- result:=2+round((v-min)/(max-min)*(width-5));
+{ result:=2+round((v-min)/(max-min)*(width-5));}
 end;
 
 function TTracker.XToValue(x: integer): single;
 begin
- result:=min+(max-min)*((x-2)/(width-5));
+{ result:=min+(max-min)*((x-2)/(width-5));}
 end;
 
 { TFloatEditor }
@@ -355,7 +354,7 @@ var
  i:integer;
  btn:TUIButton;
 begin
- inherited Create(10,parent.height-5,parent.width-20,24+game.renderHeight div 40,parent,'Editor_'+vName);
+(* inherited Create(10,parent.height-5,parent.width-20,24+game.renderHeight div 40,parent,'Editor_'+vName);
  varName:=vName;
  style:=3;
  varName[1]:='g';
@@ -379,7 +378,7 @@ begin
  parent.height:=y+height+10;
 { btn:=TUIButton.Create(width-12,0,12,12,'TweakScene\Reset_'+vName,'o',tweakerScene.tinyFont,self);
  btn.style:=3;
- btn.hint:='Revert to initial value';}
+ btn.hint:='Revert to initial value';}   *)
 end;
 
 procedure TValueEditor.Draw(x1, y1, x2, y2: integer);

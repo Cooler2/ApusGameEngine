@@ -182,12 +182,12 @@ implementation
           ix:=x1+24+ix; iy:=y1+2+iy;
           mode:=taLeft;
          end else begin
-          iy:=y1+((height-2-painter.FontHeight(font)*length(sa)) div 2)+byte(pressed)+iy;
+          iy:=y1+((globalrect.height-2-painter.FontHeight(font)*length(sa)) div 2)+byte(pressed)+iy;
           mode:=btnstyles[i].alignment;
           if mode=taJustify then mode:=taCenter;
-          if mode=taCenter then ix:=x1+width div 2+byte(pressed)+ix else
-          if mode=taLeft then ix:=ix+x1+byte(pressed)+width div 6 else
-          if mode=taRight then ix:=ix+x1+byte(pressed)+width*7 div 8;
+          if mode=taCenter then ix:=x1+globalrect.width div 2+byte(pressed)+ix else
+          if mode=taLeft then ix:=ix+x1+byte(pressed)+globalrect.width div 6 else
+          if mode=taRight then ix:=ix+x1+byte(pressed)+globalrect.width*7 div 8;
          end;
           // Вывод обычным текстом (тут всё устаревшее и требует переосмысления)
           for j:=0 to length(sa)-1 do begin
@@ -263,13 +263,13 @@ implementation
     end else begin
      // вертикальная
      painter.FillGradrect(x1,y1,x2,y2,d,c,false);
-     if enabled and (height>=16) and (pagesize<max-min) then begin
+     if enabled and (globalrect.height>=16) and (pagesize<max-min) then begin
       c:=colorMix(color,$FF909090,128);
       if over and not (hooked=control) then c:=ColorAdd(c,$101010);
-      i:=round((height-16)*value/max);
-      j:=15+round((height-16)*(value+pagesize)/max);
+      i:=round((globalrect.height-16)*value/max);
+      j:=15+round((globalrect.height-16)*(value+pagesize)/max);
       if i<0 then i:=0;
-      if j>=height then j:=height-1;
+      if j>=globalrect.height then j:=globalrect.height-1;
       if j>i+15 then begin
        d:=(j-i)*8+round(sqrt((j-i)*10));
        painter.TexturedRect(x1,y1+i,x2,y1+j,scrollTex,0.02,0.5-d/1000,0.98,0.5-d/1000,0.98,0.5+d/1000,c);
@@ -290,8 +290,8 @@ implementation
        ((btnStyles[i].assigned<>'') and (pos(UpperCase(control.name)+',',btnStyles[i].assigned)>0)) or
        ((btnStyles[i].assigned='') and
         (control.styleinfo='') and
-        (btnStyles[i].width=control.width) and
-        (btnStyles[i].height=control.height)) then begin
+        (btnStyles[i].width=control.globalrect.width) and
+        (btnStyles[i].height=control.globalrect.height)) then begin
      sNum:=i;
     end;
    if sNum=0 then
@@ -300,8 +300,8 @@ implementation
        ((btnStyles[i].assigned<>'') and (pos(UpperCase(control.name)+',',btnStyles[i].assigned)>0)) or
        ((btnStyles[i].assigned='') and
         (control.styleinfo='') and
-        (btnStyles[i].width=control.width) and
-        (btnStyles[i].height=control.height)) then begin
+        (btnStyles[i].width=control.globalrect.width) and
+        (btnStyles[i].height=control.globalrect.height)) then begin
      sNum:=i; break;
     end;
    if (sNum>0) then hash[j]:=sNum;

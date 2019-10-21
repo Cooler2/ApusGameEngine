@@ -106,10 +106,10 @@ procedure DrawBtnImage(btn:TUIButton;state:TButtonState;xc,yc:single;var img:TTe
   if img<>nil then begin
    painter.DrawCentered(x,y,img,color);
   end else begin
-   dec(x,btn.width div 2);
-   dec(y,btn.height div 2);
-   painter.FillGradrect(x,y,x+btn.width-1,y+btn.height-1,$FFE0E0EE,$FFB0B0C0,true);
-   painter.Rect(x,y,x+btn.width-1,y+btn.height-1,$A0FFFFFF);
+   dec(x,btn.globalrect.width div 2);
+   dec(y,btn.globalrect.height div 2);
+   painter.FillGradrect(x,y,x+btn.globalrect.width-1,y+btn.globalrect.height-1,$FFE0E0EE,$FFB0B0C0,true);
+   painter.Rect(x,y,x+btn.globalrect.width-1,y+btn.globalrect.height-1,$A0FFFFFF);
   end;
  end;
 
@@ -231,7 +231,7 @@ procedure TBitmapStyle.DrawItem(con: TUIControl);
     end;
     // Разместить кнопку с привязкой к правому краю
     if con.classtype=TUIComboBox then begin
-     xc:=x2-round(con.height/2);
+     xc:=x2-round(con.globalrect.height/2);
     end;
 
     btnColor:=TUIButton(con).color;

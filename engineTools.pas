@@ -922,8 +922,8 @@ procedure TLargeImage.Precache(part: single);
 procedure SetupWindow(wnd:TUISkinnedWindow;img:TLargeImage);
  begin
   wnd.background:=img;
-  wnd.width:=img.width;
-  wnd.height:=img.height;
+  wnd.size.x:=img.width;
+  wnd.size.y:=img.height;
   wnd.color:=$FF808080;
   wnd.visible:=false;
 //  wnd.transpmode:=tmCustom;
@@ -933,8 +933,8 @@ procedure SetupWindow(wnd:TUISkinnedWindow;img:TLargeImage);
 procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture);
  begin
   wnd.background:=img;
-  wnd.width:=img.width;
-  wnd.height:=img.height;
+  wnd.size.x:=img.width;
+  wnd.size.y:=img.height;
   wnd.color:=$FF808080;
   wnd.visible:=false;
  end;

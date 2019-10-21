@@ -227,7 +227,7 @@ var
  textCacheHeight:integer=512;
 
 implementation
-uses SysUtils,MyServis,images,ImageMan,UDict,UnicodeFont,EngineTools,
+uses SysUtils,MyServis,images,UDict,UnicodeFont,EngineTools,
      colors,glyphCaches{$IFDEF FREETYPE},FreeTypeFont{$ENDIF};
 
 const

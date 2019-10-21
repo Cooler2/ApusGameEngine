@@ -18,7 +18,6 @@ uses
   EngineAPI in '..\EngineAPI.pas',
   UIClasses in '..\UIClasses.pas',
   PainterGL in '..\PainterGL.pas',
-  ImageMan in '..\ImageMan.pas',
   UIScene in '..\UIScene.pas',
   UIRender in '..\UIRender.pas',
   engineTools in '..\engineTools.pas',

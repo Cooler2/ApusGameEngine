@@ -25,7 +25,7 @@ type
 
 implementation
  uses SysUtils,{$IFDEF IOS}gles11,{$ENDIF}cmdproc{$IFDEF DELPHI},graphics{$ENDIF},
-     GLImages,EventMan,ImageMan,UIClasses,UIScene,gfxformats,
+     GLImages,EventMan,UIClasses,UIScene,gfxformats,
      Console,PainterGL;
 
 { TGlGame }

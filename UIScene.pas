@@ -4,7 +4,7 @@
 // Author: Ivan Polyacov (ivan@apus-software.com)
 unit UIScene;
 interface
- uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineAPI,UIClasses,CrossPlatform,ImageMan,types;
+ uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineAPI,UIClasses,CrossPlatform,types;
 
 const
  defaultHintStyle:integer=0; // style of hints, can be changed
@@ -57,7 +57,7 @@ var
  procedure DumpUIdata;
 
 implementation
- uses SysUtils,MyServis,EventMan,UIRender,EngineTools,CmdProc,console,UDict,publics;
+ uses SysUtils,MyServis,EventMan,UIRender,EngineTools,CmdProc,console,UDict,publics,geom2d;
 const
  statuses:array[TSceneStatus] of string=('frozen','background','active');
 type
@@ -185,19 +185,19 @@ procedure CreateCmd(cmd:string);
     exit;
    end;
    with defaults do begin
-    if sa[0]='UIBUTTON' then c:=TUIButton.Create(x,y,width,height,sa[1],caption,font,parentobj) else
-    if sa[0]='UIIMAGE' then c:=TUIImage.Create(x,y,width,height,sa[1],parentobj) else
-    if sa[0]='UIEDITBOX' then c:=TUIEditBox.Create(x,y,width,height,sa[1],font,color,parentobj) else
+    if sa[0]='UIBUTTON' then c:=TUIButton.Create(width,height,sa[1],caption,font,parentobj) else
+    if sa[0]='UIIMAGE' then c:=TUIImage.Create(width,height,sa[1],parentobj) else
+    if sa[0]='UIEDITBOX' then c:=TUIEditBox.Create(width,height,sa[1],font,color,parentobj) else
     if sa[0]='UILABEL' then begin
-     c:=TUILabel.Create(x,y,width,height,sa[1],caption,color,font,parentobj);
+     c:=TUILabel.Create(width,height,sa[1],caption,color,font,parentobj);
      (c as TUILabel).align:=align;
      c.transpmode:=tmTransparent;
     end else
     if sa[0]='UICONTROL' then begin
-     c:=TUIControl.Create(x,y,width,height,parentobj,sa[1]);
+     c:=TUIControl.Create(width,height,parentobj,sa[1]);
     end else
-    if sa[0]='UILISTBOX' then c:=TUIListBox.Create(x,y,width,height,20,sa[1],font,parentobj) else
-    if sa[0]='UICOMBOBOX' then c:=TUIComboBox.Create(x,y,width,height,font,nil,parentobj,sa[1]);
+    if sa[0]='UILISTBOX' then c:=TUIListBox.Create(width,height,20,sa[1],font,parentobj) else
+    if sa[0]='UICOMBOBOX' then c:=TUIComboBox.Create(width,height,font,nil,parentobj,sa[1]);
 
 
     if c=nil then raise EError.Create('Unknown class - '+sa[0]);
@@ -344,10 +344,8 @@ begin
       not PtInRect(hintRect,types.Point(curMouseX,curMouseY)) then curhint.Hide;
    {$ENDIF}
 
-   if hookedItem<>nil then begin
-    inc(hookedItem.x,curMouseX-oldMouseX);
-    inc(hookedItem.y,curMouseY-oldMouseY);
-   end;
+   if hookedItem<>nil then
+    hookedItem.MoveBy(curMouseX-oldMouseX,curMouseY-oldMouseY);
 
    e1:=FindControlAt(oldMouseX,oldMouseY,c);
    e2:=FindControlAt(curMouseX,curMouseY,c2);
@@ -430,8 +428,8 @@ begin
        c2:=c2.parent;
        st:=c2.fName+'->'+st;
       end;
-      ShowSimpleHint(c.ClassName+'('+st+')',c.GetParent,-1,-1,5000);
-      PutMsg(Format('%s: %d,%d %d,%d',[c.name,c.x,c.y,c.width,c.height]));
+      ShowSimpleHint(c.ClassName+'('+st+')',c.GetRoot,-1,-1,5000);
+      PutMsg(Format('%s: %.1f,%.1f %.1f,%.1f',[c.name,c.position.x,c.position.y,c.size.x,c.size.y]));
       if game.shiftstate and 2>0 then // Shift pressed => select item
         ExecCmd('use '+c.name);
     end else
@@ -440,7 +438,7 @@ begin
   // Отпускание кнопки
   if copy(event,1,5)='BTNUP' then begin
    if (hookedItem<>nil) and (tag and 2>0) then begin
-    PutMsg('x='+inttostr(hookeditem.x)+' y='+inttostr(hookeditem.y));
+    PutMsg('x='+inttostr(round(hookeditem.position.x))+' y='+inttostr(round(hookeditem.position.y)));
     hookedItem:=nil;
    end;
    if FindControlAt(curMouseX,curMouseY,c) then begin
@@ -531,7 +529,7 @@ begin
  if sceneName='' then sceneName:=ClassName;
  name:=scenename;
  modal:=modalWnd;
- UI:=TUIControl.Create(0,0,rootWidth,rootHeight,nil,sceneName);
+ UI:=TUIControl.Create(rootWidth,rootHeight,nil,sceneName);
  UI.enabled:=false;
  UI.visible:=false;
  if not fullscreen then UI.transpMode:=tmTransparent;
@@ -547,17 +545,17 @@ begin
  result:=Rect(0,0,0,0); // empty
  if UI=nil then exit;
  if UI.transpmode<>tmTransparent then
-  result:=Rect(0,0,UI.width,UI.height);
+  result:=Rect(0,0,round(UI.size.x),round(UI.size.y));
  for i:=0 to high(UI.children) do
   with UI.children[i] do
    if transpmode<>tmTransparent then begin
-    r:=Rect(x,y,x+width,y+height);
+    r:=GetPosOnScreen;
     if IsRectEmpty(result) then
      result:=r
     else
      UnionRect(result,result,r); // именно в таком порядке, иначе - косяк!
    end;
- OffsetRect(result,UI.x,UI.y);  
+ OffsetRect(result,round(UI.position.x),round(UI.position.y)); // actually, UI root shouldn't be displaced, but...
 end;
 
 procedure TUIScene.onMouseBtn(btn: byte; pressed: boolean);
@@ -642,7 +640,7 @@ begin
   // Обработка захвата: если элемент, захвативший мышь, невидим или недоступен - убрать захват и фокус
   if hooked<>nil then begin
    if not (hooked.IsVisible and hooked.IsEnabled) or
-    ((modalcontrol<>nil) and (hooked.GetParent<>modalControl)) then begin
+    ((modalcontrol<>nil) and (hooked.GetRoot<>modalControl)) then begin
     hooked.onLostFocus;
     hooked:=nil;
     clipMouse:=cmNo;
@@ -731,19 +729,6 @@ begin
    ForceLogMessage('Kosyak! '+inttostr(t)+' '+inttostr(lastRenderTime));
   end;
  lastRenderTime:=t;
-{ try
- if (curShadowValue<>needShadowValue) and
-    (lastRenderTime>startShadowChange) then begin
-  s:=(lastRenderTime-startShadowChange)/shadowChangeDuration;
-  if s>1 then s:=1;
-  curShadowValue:=round(oldShadowValue*(1-s)+needShadowValue*s);
- end;
- except
-  on e:Exception do ForceLogMessage('UIScene.Render: '+e.message);
- end;
- if (modalShadowColor<>0) and (curShadowValue>0) then
-  DrawGlobalShadow(ModalShadowColor and $FFFFFF+
-   ((modalShadowColor shr 24)*CurShadowValue and $FF00) shl 16);}
 
  UIRender.Frametime:=frametime;
  Signal('Scenes\'+name+'\BeforeRender');
@@ -821,16 +806,8 @@ begin
  inherited;
  ForceLogMessage('Scene '+name+' status changed to '+statuses[st]);
 // LogMessage('Scene '+name+' status changed to '+statuses[st],5);
-{ if modal then begin
-  if status=ssActive then begin
-   prevModal:=modalControl;
-   modalControl:=ui;
-  end else begin
-   modalcontrol:=prevmodal;
-  end;
- end;}
  if (status=ssActive) and (UI=nil) then begin
-  UI:=TUIControl.Create(0,0,rootWidth,rootHeight,nil);
+  UI:=TUIControl.Create(rootWidth,rootHeight,nil);
   UI.name:=name;
   UI.enabled:=false;
   UI.visible:=false;
@@ -869,14 +846,15 @@ begin
     if RootControls[i].visible then begin
      parent:=rootControls[i]; break;
     end;
-  end else parent:=parent.GetParent;
+  end else
+   parent:=parent.GetRoot;
  end;
  if curhint<>nil then begin
   LogMessage('Free previous hint');
   curHint.Free;
   curHint:=nil;
  end;
- hint:=TUIHint.Create(X-parent.x,Y-parent.y,msg,false,parent);
+ hint:=TUIHint.Create(X,Y,msg,false,parent);
  hint.font:=font;
  hint.style:=defaultHintStyle;
  hint.timer:=time;
@@ -895,7 +873,8 @@ var
   begin
    writeln(f,indent,c.ClassName+':'+c.name+' = '+inttohex(cardinal(c),8));
    writeln(f,indent,c.order,' En=',c.enabled,' Vis=',c.visible,' trM=',ord(c.transpmode));
-   writeln(f,indent,Format('x=%d, y=%d, w=%d, h=%d, left=%d, top=%d',[c.x,c.y,c.width,c.height,c.globalRect.Left,c.globalRect.Top]));
+   writeln(f,indent,Format('x=%.1f, y=%.1f, w=%.1f, h=%.1f, left=%d, top=%d',
+     [c.position.x,c.position.y,c.size.x,c.size.y,c.globalRect.Left,c.globalRect.Top]));
    writeln(f);
    for i:=0 to length(c.children)-1 do
     DumpControl(c.children[i],indent+'  ');
@@ -995,7 +974,7 @@ begin
        result:=@TUIButton(obj).group; varClass:=TVarTypeInteger;
       end;
   'h':if fieldname='height' then begin
-       result:=@obj.height; varClass:=TVarTypeInteger;
+       result:=@obj.size.y; varClass:=TVarTypeSingle;
       end else
       if fieldname='hint' then begin
        result:=@obj.hint; varClass:=TVarTypeString;
@@ -1076,13 +1055,13 @@ begin
        varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).value;}
       end;
   'w':if fieldname='width' then begin
-       result:=@obj.width; varClass:=TVarTypeInteger;
+       result:=@obj.size.x; varClass:=TVarTypeSingle;
       end;
   'x':if fieldname='x' then begin
-       result:=@obj.x; varClass:=TVarTypeInteger;
+       result:=@obj.position.x; varClass:=TVarTypeSingle;
       end;
   'y':if fieldname='y' then begin
-       result:=@obj.y; varClass:=TVarTypeInteger;
+       result:=@obj.position.y; varClass:=TVarTypeSingle;
       end;
  end;
 end;

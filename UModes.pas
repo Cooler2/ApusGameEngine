@@ -2,7 +2,7 @@
 unit UModes;
 
 interface
-uses EngineAPI,BasicGame,ImageMan,UIScene,UIClasses,EventMan,
+uses EngineAPI,BasicGame,UIScene,UIClasses,EventMan,
      enginetools,Images,TweakScene,
   {$IFDEF MSWINDOWS}
     {$IFDEF DIRECTX}d3d8,DxImages8,dxGame8,{$ENDIF}
@@ -114,7 +114,7 @@ var smallfont,mainfont,largefont:cardinal; // to be initialized in project code
     CenterImage:boolean=false; // располагать изображение по центру, если окно больше нужного размера
     useSystemCursor:boolean=true; // Использовать системный курсор
     stepsinfo,stepsout:tstepsinfo;
-    curvalue,firstprogress,larstprogress,larstsleep:integer;
+    curvalue,firstprogress,larstprogress,larstsleep:int64;
     curstep:integer;
     configDir:string='';
 
@@ -126,7 +126,7 @@ uses {$IFDEF MSWINDOWS}windows,{$ELSE}CrossPlatform,{$ENDIF}
 
 var nummodes:integer=0;
     modes:array[1..1024] of tregisteredmode;
-    lasttime:integer;
+    lasttime:int64;
     curorder:integer=1;
 
 function TMode.Visible:boolean;
@@ -163,7 +163,7 @@ begin
  {$IFNDEF IOS}
  if stepsinfo.totalvalue=0 then
  begin
-  firstprogress:=getcurtime;
+  firstprogress:=MyTickCount;
   larstsleep:=firstprogress;
   w:=0;
   if fileexists('Inf\Steps.spe') then
@@ -181,17 +181,17 @@ begin
   begin
    stepsinfo.totalvalue:=100;
   end;
-  lasttime:=getcurtime;
+  lasttime:=MyTickCount;
   curstep:=0;
   curvalue:=0;
  end else
  begin
-  larstprogress:=getcurtime;
+  larstprogress:=MyTickCount;
   inc(curstep);
   inc(curvalue,stepsinfo.steps[curstep]);
 
   e:=lasttime;
-  lasttime:=getcurtime;
+  lasttime:=MyTickCount;
   stepsout.steps[curstep]:=lasttime-e;
   inc(stepsout.totalvalue,stepsout.steps[curstep]);
 
@@ -503,8 +503,6 @@ begin
  if retinaScreen or (game.displayRect.Right>=1024) then
   (painter as TBasicPainter).PFTexWidth:=512; // more space for fonts
 
-// InitUsableNetwork(game,rootDir);
-
  {$IFNDEF IOS}
 { SetDrawer('cursors\',CursorLoader,CursorDrawer);
  game.RegisterCursor(CursorDefault,1,'cursors\default');
@@ -526,7 +524,6 @@ end;
 procedure GameDone;
 begin
  // Остановка и деинициализация
-// DoneUsableNetwork;
  DoneUI;
  // Вероятно game уже завершил работу, однако убедиться в этом нужно!
  game.Stop;
@@ -575,9 +572,9 @@ begin
  else
  begin
   if mode.mainwnd<>nil then begin
-   dec(x,mode.mainwnd.x); dec(y,mode.Mainwnd.y);
+   dec(x,round(mode.mainwnd.position.x)); dec(y,round(mode.Mainwnd.position.y));
    if mode.wndimage<>nil then begin
-    dec(x,mode.wndImage.x); dec(y,mode.wndImage.y);
+    dec(x,round(mode.wndImage.position.x)); dec(y,round(mode.wndImage.position.y));
    end;
   end;
   mode.MouseMove(x,y);
@@ -598,9 +595,9 @@ end;
 
 procedure tInternalScene.Render;
 begin
- if mode.windowed and (mode.baseimagefile='') then mode.Draw(UI.x,UI.y);
+ if mode.windowed and (mode.baseimagefile='') then mode.Draw(round(UI.position.x),round(UI.position.y));
  inherited;
- if mode.windowed and (mode.baseimagefile='') then mode.DrawAfterUI(UI.x,UI.y);
+ if mode.windowed and (mode.baseimagefile='') then mode.DrawAfterUI(round(UI.position.x),round(UI.position.y));
 end;
 
 procedure TInternalScene.SetStatus(st:TSceneStatus);
@@ -725,7 +722,7 @@ end;
 
 procedure tmode.Draw(x,y:integer);
 begin
- lastdrawtime:=getcurtime;
+ lastdrawtime:=MyTickCount;
  if background<>nil then begin
   if (background.width=game.renderWidth) and
      (background.height=game.renderHeight) then
@@ -737,14 +734,11 @@ end;
 
 procedure tmode.DrawAfterUI(x,y:integer);
 begin
- lastdrawtime:=getcurtime;
+ lastdrawtime:=MyTickCount;
 end;
 
-procedure CommonLoader(reason:TReason;var image:TImgDescriptor);
-begin
-end;
 
-procedure CommonDrawer(image:TImgDescriptor;x,y:integer;color:cardinal;p1,p2,p3,p4:single);
+(*procedure CommonDrawer(image:TImgDescriptor;x,y:integer;color:cardinal;p1,p2,p3,p4:single);
 var q:integer;
     s,s2,s3:string;
 begin
@@ -762,6 +756,15 @@ begin
     modes[q].mode.Draw(x,y);
   end;
  end;
+end;     *)
+
+procedure WndImageDrawer(wnd:TUIImage);
+begin
+{ if (modes[q].mode.windowed=false)and(modes[q].mode.background<>nil) then
+   painter.DrawImage(0,0,modes[q].mode.background,$FF808080);
+
+ if (modes[q].mode.windowed) then
+   modes[q].mode.Draw(x,y);}
 end;
 
 function CommonHandler(event:EventStr;tag:TTag):boolean;
@@ -778,15 +781,6 @@ begin
   if copy(event,1,length(s))=s then
   try
    s2:=copy(event,length(s),255);
-   {if (s2='NETDATA') then
-   begin
-    w:=GetNetMsg(tag,pointer(pdata));
-    modes[q].mode.Network(w,pdata);
-   end else
-   if (s2='CONNECTIONBROKEN') then
-    modes[q].mode.Network(0,nil) else
-   if (s2='CONNECTIONESTABLISHED') then
-    modes[q].mode.ConnectionEstablished else}
    modes[q].mode.ProcessSignal(event,tag);
   except
    on e:exception do ForceLogMessage('Error in '+modes[q].mode.name+' event '+event+' handling: '+ExceptionMsg(e));
@@ -794,8 +788,8 @@ begin
 
   with modes[q].mode do
    if (scene<>nil) and (scene.UI<>nil) then begin
-    x:=scene.UI.x;
-    y:=scene.UI.y;
+    x:=round(scene.UI.position.x);
+    y:=round(scene.UI.position.y);
    end else begin
     x:=0; y:=0;
    end;
@@ -867,7 +861,7 @@ begin
  forcelogmessage('Init '+name);
  wasinit:=true;
  minimized:=false;
- lastdrawtime:=GetCurTime;
+ lastdrawtime:=MyTickCount;
  SetEventHandler('UI\'+name+'\',CommonHandler,emQueued);
  SetEventHandler('SCENES\'+name+'\',CommonHandler,emQueued);
 
@@ -903,13 +897,15 @@ begin
 
   if baseimagefile<>'' then begin
    if needcorrectwindow then
-    wndImage:=TUIImage.Create(0,0,300,300,Name+'MAIN',Mainwnd)
-   else
-    wndImage:=TUIImage.Create(5,24,300,300,Name+'MAIN',Mainwnd);
-   wndImage.AnchorRight:=true;
-   wndImage.AnchorBottom:=true;
+    wndImage:=TUIImage.Create(300,300,Name+'MAIN',Mainwnd)
+   else begin
+    wndImage:=TUIImage.Create(300,300,Name+'MAIN',Mainwnd);
+    wndImage.SetPos(5,24);
+   end;
+   wndImage.SetAnchors(0,0,1,1);
    wndImage.transpmode:=tmTransparent;
-   SetDrawer('Images\'+name+'main',CommonLoader,CommonDrawer);
+   wndImage.src:='proc:'+IntToHex(UIntPtr(@WndImageDrawer));
+   //SetDrawer('Images\'+name+'main',CommonLoader,CommonDrawer);
   end;
  end;
 end;

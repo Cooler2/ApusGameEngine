@@ -130,7 +130,7 @@ var
  width,height:integer;
 begin
  if prevscene is TUIScene then begin
-  if FocusedControl.GetParent=(prevscene as TUIscene).UI then
+  if FocusedControl.GetRoot=(prevscene as TUIscene).UI then
    SetFocusTo(nil);
   (prevscene as TUIscene).UI.enabled:=false;
  end;
@@ -392,7 +392,7 @@ begin
  end;
  // сцена закрывается
  if (mode=sweHide) then begin
-  if focusedControl.GetParent=scene.UI then
+  if focusedControl.GetRoot=scene.UI then
     SetFocusTo(nil);
   scene.activated:=false;
   // проверим, есть ли данная сцена в стеке модальности
@@ -493,14 +493,15 @@ var
  color:cardinal;
  cx,cy,dx,dy:integer;
  scaleX,scaleY,centerX,centerY:double;
+ savePos:TPoint2s;
 begin
  if DontPlay then begin
   onDone; exit;
  end;
  if not initialized then Initialize;
  with forscene as TUIScene do begin
-  //ui.x:=0; ui.y:=0;
-  dec(ui.x,x); dec(ui.y,y); // offset scene so it's visible part starts at 0,0
+  savePos:=ui.position;
+  VectAdd(ui.position,Point2s(-x,-y));  // offset scene so it's visible part starts at 0,0
  end;
  try
   if buffer=nil then  raise EError.Create('WndEffect failure: buffer not allocated!');
@@ -515,10 +516,7 @@ begin
    transpBgnd:=false;
   finally
    painter.EndPaint;
-   with forscene as TUIScene do begin
-    //ui.x:=x; ui.y:=y;
-    inc(ui.x,x); inc(ui.y,y);
-   end;
+   TUIScene(forscene).ui.position:=savePos;
   end;
  except
   on e:exception do begin
@@ -727,11 +725,9 @@ begin
  end;
  LogMessage('BlurEff for '+scene.name);
  initialized:=false;
- width:=min2(scene.UI.width,game.settings.width);
- height:=min2(scene.UI.height,game.settings.height);
- // Нельзя так делать, т.к. портится отрисовка сцен (например фона)
-// width:=(width+1) and $FFE; // делится на 2
-// height:=(height+1) and $FFE; // делится на 2
+ width:=min2(round(scene.UI.size.x),game.settings.width);
+ height:=min2(round(scene.UI.size.y),game.settings.height);
+
  power.Init(0);
  power.Animate(strength,time,spline0);
  factor:=strength;

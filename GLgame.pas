@@ -39,7 +39,7 @@ implementation
  uses types,SysUtils,cmdproc{$IFDEF DELPHI},graphics{$ENDIF},
      {$IFDEF MSWINDOWS}windows,{$ENDIF}
      {$IFNDEF GLES}dglOpenGL,{$ENDIF}
-     GlImages,EventMan,ImageMan,UIClasses,UIScene,gfxformats,
+     GlImages,EventMan,UIClasses,UIScene,gfxformats,
      Console,PainterGL,PainterGL2, BasicPainter;
 
 { TGlGame }

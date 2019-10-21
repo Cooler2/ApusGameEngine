@@ -71,7 +71,7 @@ type
 
 implementation
  uses windows,MyServis,d3d8,DirectText,SysUtils,
-   eventman,UDict,colors,imageman;
+   eventman,UDict,colors;
 
 const
  TexVertFmt3=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR+D3DFVF_TEX3+D3DFVF_TEXTUREFORMAT2;

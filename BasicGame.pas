@@ -225,7 +225,7 @@ type
 implementation
  uses types,SysUtils,cmdproc{$IFDEF DELPHI},graphics{$ENDIF}
      {$IFDEF VIDEOCAPTURE},VideoCapture{$ENDIF},BasicPainter,
-     EventMan,ImageMan,UIClasses,UIScene,Console,EngineTools,publics,gfxFormats;
+     EventMan,UIClasses,UIScene,Console,EngineTools,publics,gfxFormats;
 
 type
  TMainThread=class(TThread)
@@ -264,9 +264,10 @@ var
   threads:array[1..16] of TCustomThread;
   RA_sect:TMyCriticalSection;
 
-// Default raster fonts (size 6.2 and 7.5)
+// Default raster fonts (exact sizes are 6.0, 7.0 and 9.0)
 {$I defaultFont8.inc}
 {$I defaultFont10.inc}
+{$I defaultFont12.inc}
 
 { TBasicGame }
 
@@ -439,6 +440,7 @@ begin
   SetupRenderArea;
   painter.LoadFont(defaultFont8);
   painter.LoadFont(defaultFont10);
+  painter.LoadFont(defaultFont12);
   // Set global object references
   engineTools.texman:=texman;
   engineTools.painter:=painter;
@@ -1191,7 +1193,7 @@ begin
     {$ENDIF}
     painter.BeginPaint(nil);
     try
-     DrawImage(TGameCursor(cursors[n]).handle,mouseX,mouseY,$FF808080,0,0,0,0);
+     /// TODO: draw custom cursor here
     finally
      painter.EndPaint;
     end;

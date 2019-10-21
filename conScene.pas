@@ -22,7 +22,7 @@ var
  procedure AddConsoleScene;
 
 implementation
- uses SysUtils,CrossPlatform,myservis,classes,EventMan,ImageMan,cmdproc,engineTools,console;
+ uses SysUtils,CrossPlatform,myservis,classes,EventMan,cmdproc,engineTools,console;
 
  var
   LastMsgNum:cardinal;
@@ -62,6 +62,7 @@ begin
     (game.shiftState=0) and 
     (focusedControl=consoleScene.editbox) then
   with consoleScene do begin
+   // [UP] / {DOWN] - select previous commands
    if (tag and $FF=VK_UP) or (tag and $FF=VK_DOWN) then begin
     if tag and $FF=VK_UP then
      if cmdPos>0 then dec(cmdPos);
@@ -80,17 +81,19 @@ begin
     (curObjClass.ClassNameIs('TVarTypeUIControl')) and
     (tag and $FF in [VK_LEFT,VK_RIGHT,VK_UP,VK_DOWN]) then begin
   c:=curObj;
+  // SHIFT+CTRL+arrows - move
   if game.shiftState and sscCtrl>0 then begin
-   if tag and $FF=VK_LEFT then dec(c.x);
-   if tag and $FF=VK_UP then dec(c.y);
-   if tag and $FF=VK_RIGHT then inc(c.x);
-   if tag and $FF=VK_DOWN then inc(c.y);
+   if tag and $FF=VK_LEFT then c.position.x:=c.position.x-1;
+   if tag and $FF=VK_UP then c.position.y:=c.position.y-1;
+   if tag and $FF=VK_RIGHT then c.position.x:=c.position.x+1;
+   if tag and $FF=VK_DOWN then c.position.y:=c.position.y+1;
   end;
+  // SHIFT+ALT+arrows - resize
   if game.shiftState and sscAlt>0 then begin
-   if tag and $FF=VK_LEFT then dec(c.width);
-   if tag and $FF=VK_UP then dec(c.height);
-   if tag and $FF=VK_RIGHT then inc(c.width);
-   if tag and $FF=VK_DOWN then inc(c.height);
+   if tag and $FF=VK_LEFT then c.size.x:=c.size.x-1;
+   if tag and $FF=VK_UP then c.size.y:=c.size.y-1;
+   if tag and $FF=VK_RIGHT then c.size.x:=c.size.x+1;
+   if tag and $FF=VK_DOWN then c.size.y:=c.size.y+1;
   end;
  end;
 end;
@@ -128,28 +131,25 @@ begin
  e.cursorpos:=0;
 end;
 
-procedure ConsoleImageLoader(reason:TReason;var image:TImgDescriptor);
-begin
-end;
-
-procedure ConsoleImageDrawer(image:TImgDescriptor;x,y:integer;color:cardinal;p1,p2,p3,p4:single);
+procedure DrawContent(item:TUIImage);
 var
+ r:TRect;
  w,h,i,n,cnt,ypos,cls:integer;
  st:string;
  col,font:cardinal;
 begin
- w:=trunc(p1); h:=trunc(p2);
- painter.SetClipping(Rect(x,y,x+w-1,y+h-3));
+ r:=item.globalRect;
+ painter.SetClipping(r);
  // Write all text
  cnt:=GetMsgCount;
  consoleScene.scroll.max:=cnt*16+10;
  consolescene.scroll.pagesize:=h;
- with ConsoleScene.img do begin
-  if cnt*16-scrollY<height-12 then
-   scrollY:=cnt*16-(height-12);
-  if (cnt*16-scrollY>height-12) and (scrollY<0) then
-   inc(ScrollY,cnt*16-scrollY-height+12);
-  consolescene.scroll.value:=scrollY;
+ with item do begin
+  if cnt*16-scroll.Y<r.height-12 then
+   scroll.Y:=cnt*16-(r.height-12);
+  if (cnt*16-scroll.Y>r.height-12) and (scroll.Y<0) then
+   scroll.Y:=scroll.Y+cnt*16-scroll.Y-r.height+12;
+  consolescene.scroll.value:=scroll.Y;
  end;
 
  n:=GetLastMsgNum;
@@ -157,7 +157,7 @@ begin
   consoleScene.ScrollToEnd;
   LastMsgNum:=n;
  end;
- ypos:=cnt*16-consoleScene.img.scrollY+20;
+ ypos:=cnt*16-round(item.scroll.Y)+20;
  font:=painter.GetFont('Default',7);
  painter.BeginTextBlock;
  for i:=1 to cnt do begin
@@ -171,15 +171,11 @@ begin
    41000:col:=$FFA0FFF0;
    else col:=$FFD0D0D0;
   end;
-  painter.TextOut(font,x+2,y+yPos,col,DecodeUTF8(st));
-{  if i and 16=0 then begin
-   painter.EndTextBlock;
-   painter.BeginTextBlock;
-  end;}
+  painter.TextOut(font,r.left+2,r.top+yPos,col,DecodeUTF8(st));
  end;
  painter.EndTextBlock;
  painter.ResetClipping;
- painter.DrawLine(x,y+h-1,x+w+17,y+h-1,$40FFFFFF);
+ painter.DrawLine(r.left,r.bottom-1,r.right+17,r.Bottom-1,$40FFFFFF);
 end;
 
 { TConsoleScene }
@@ -196,31 +192,29 @@ begin
 
  font:=painter.GetFont('Default',7);
  h:=round(game.renderHeight*0.7);
- wnd:=TUIWindow.Create(10,10,480,h,true,'ConsoleWnd','Console',font,UI);
+ wnd:=TUIWindow.Create(480,h,true,'ConsoleWnd','Console',font,UI);
+ wnd.SetPos(10,10,pivotTopLeft);
  wnd.moveable:=true;
  wnd.minW:=120; wnd.minH:=160;
  wnd.color:=$80202020;
  zorder:=$FF0000;
 
- img:=TUIImage.Create(0,0,462,h-18,'ConsoleMain',wnd);
- img.AnchorRight:=true;
- img.AnchorBottom:=true;
- SetDrawer('Images\ConsoleMain',ConsoleImageLoader,ConsoleImageDrawer);
+ img:=TUIImage.Create(462,h-18,'ConsoleMain',wnd);
+ img.SetAnchors(0,0,1,1);
+ img.src:='proc:'+IntToHex(UIntPtr(@DrawContent));
 
- editbox:=TUIEditBox.Create(0,h-18,480,18,'console\input',font,$FFE0FFD0,wnd);
+ editbox:=TUIEditBox.Create(480,18,'console\input',font,$FFE0FFD0,wnd);
+ editBox.SetPos(0,h,pivotBottomLeft);
  editbox.backgnd:=$40000000;
- editbox.AnchorTop:=false;
- editbox.AnchorRight:=true;
- editbox.AnchorBottom:=true;
+ editBox.SetAnchors(0,1,1,1);
  editbox.noborder:=true;
  editbox.encoding:=teUTF8;
 
- scroll:=TUIScrollBar.Create(462,0,18,h-19,'console\scroll',0,0,0,wnd);
+ scroll:=TUIScrollBar.Create(18,h-19,'console\scroll',0,0,0,wnd);
+ scroll.SetPos(480,0,pivotTopRight);
  scroll.color:=$90808090;
  scroll.step:=32;
- scroll.AnchorLeft:=false;
- scroll.AnchorRight:=true;
- scroll.AnchorBottom:=true;
+ scroll.SetAnchors(1,0,1,1);
  scroll.Link(img);
  img.scrollerV:=scroll;
 
@@ -229,7 +223,7 @@ end;
 
 procedure TConsoleScene.ScrollToEnd;
 begin
- img.scrollY:=GetMsgCount*16-(consoleScene.img.height-12);
+ img.scrollY:=GetMsgCount*16-round(consoleScene.img.size.y-12);
 end;
 
 procedure TConsoleScene.SetStatus(status: TSceneStatus);

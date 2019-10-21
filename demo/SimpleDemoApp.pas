@@ -11,10 +11,11 @@ interface
   application:TSimpleDemoApp;
 
 implementation
- uses windows,EngineTools,stdEffects;
+ uses windows,EngineTools,stdEffects,UIClasses,UIScene;
 
  type
-  TMainScene=class(TGameScene)
+  TMainScene=class(TUIScene)
+   procedure CreateUI;
    procedure Render; override;
   end;
 
@@ -35,7 +36,7 @@ begin
   inherited;
   sleep(500);
   mainScene:=TMainScene.Create;
-  game.AddScene(mainScene);
+  mainScene.CreateUI;
   TTransitionEffect.Create(mainScene,game.TopmostVisibleScene(true),0);
 end;
 
@@ -53,13 +54,29 @@ end;
 
 { TMainScene }
 
+procedure TMainScene.CreateUI;
+var
+ c:TUIControl;
+ b:TUIButton;
+ font:cardinal;
+begin
+ c:=TUIControl.Create(400,300,UI,'MainScene\MainMenu');
+ //c.SetPos(1024,0,pivotTopRight);
+ c.SetPos(300,300,pivotCenter);
+ c.Center;
+ c.styleinfo:='E0C0C8D0';
+ font:=painter.GetFont('Default',9);
+ b:=TUIButton.Create(100,35,'MainScene\Close','Exit',font,c);
+ b.SetPos(200,250,pivotCenter);
+end;
+
 procedure TMainScene.Render;
  var
   i,w,h,n:integer;
   x1,y1,x2,y2,x3,y3,x4,y4:integer;
+  font:cardinal;
 begin
   painter.Clear(0);
-  inherited;
   w:=game.renderWidth-1;
   h:=game.renderHeight-1;
   n:=24;
@@ -75,6 +92,10 @@ begin
   end;
   painter.Rect(0,0,w,h, $FFFFC020);
   painter.Rect(10,10,w-10,h-10, $FFC00000);
+
+  font:=painter.GetFont('Default',7);
+  painter.TextOut(font,300,200,$FFFFFFFF,'Id-1');
+  inherited;
 end;
 
 end.
