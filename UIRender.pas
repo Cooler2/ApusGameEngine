@@ -70,6 +70,7 @@ implementation
    if not item.visible then exit;
    if (item.size.x<=0) or (item.size.y<=0) then exit;
    // Draw self first
+   if item.layout<>nil then item.layout.Layout(item);
    item.globalRect:=item.GetPosOnScreen;
    maskChange:=(item.parent<>nil) and (item.parent.transpmode<>tmTransparent);
    if maskChange then painter.SetMask(true,false);
@@ -487,8 +488,8 @@ implementation
    with control do begin
     c:=colorAdd(color,$202020);
     d:=ColorSub(color,$202020);
-    width:=x2-x1-1;
-    height:=y2-y1-1;
+    width:=x2-x1;
+    height:=y2-y1;
     if horizontal then begin
      // Horizontal scrollbar
      painter.FillGradrect(x1,y1,x2,y2,d,c,true);
@@ -518,10 +519,10 @@ implementation
       c:=colorMix(v,$FFFFFFFF,160);
       d:=colorMix(v,$FF404040,128);
       if over and not (hooked=control) then v:=ColorAdd(v,$101010);
-      i:=round((height-10)*value/max);
-      j:=9+round((height-10)*(value+pagesize)/max);
+      i:=round((height-8)*value/max);
+      j:=9+round((height-8)*(value+pagesize)/max);
       if i<0 then i:=0;
-      if j>=height then j:=height-1;
+      if j>height then j:=height;
       if j>i+6 then begin
        painter.FillGradrect(x1,y1+i,x2,y1+j,colorMix(v,$FFC0E0F0,192),colorMix(v,$FF0000A0,192),false);
        if (hooked=control) then painter.ShadedRect(x1,y1+i,x2,y1+j,1,d,d)

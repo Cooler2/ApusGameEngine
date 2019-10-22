@@ -86,6 +86,24 @@ type
                    pmProportional,  // элемент меняется пропорционально изменению контейнера
                    pmCenter);       // размер элемента не меняется, а его центр меняется пропорционально изменению контейнера
 
+ TUIControl=class;
+
+ TLayouter=class
+  procedure Layout(item:TUIControl); virtual; abstract;
+ end;
+
+ // Layout elements in a row/column
+ // spaceBetween - spacing between elements
+ // resizeToContent - make item size match
+ // center - align elements to item's central line
+ TRowLayout=class(TLayouter)
+  constructor Create(horizontal:boolean=true; spaceBetween:single=0; resizeToContent:boolean=false; center:boolean=false);
+  procedure Layout(item:TUIControl); override;
+ private
+  fHorizontal,fResize,fCenter:boolean;
+  fSpaceBetween:single;
+ end;
+
  // Базовый класс для элемента интерфейса, позволяет задать
  // иерархию вложенных элементов
  TUIControl=class
@@ -126,6 +144,7 @@ type
 
   parent:TUIControl; // Ссылка на элемент-предок
   children:array of TUIControl; // Список вложенных элементов
+  layout:TLayouter; // layout child elements
 
   // эти параметры (вторичные св-ва) вычисляются первичными событиями,
   // поэтому пользоваться ими нужно аккуратно
@@ -205,6 +224,11 @@ type
   procedure MoveBy(dx,dy:integer);
   // Set element position using new pivot point
   function SetAnchors(left,top,right,bottom:single):TUIControl;
+  // Set all padding and resize client area
+  function SetPaddings(padding:single):TUIControl; overload;
+  function SetPaddings(left,top,right,bottom:single):TUIControl; overload;
+  // Set same value for X/Y scale
+  function SetScale(newScale:single):TUIControl;
   // Корректное изменение размера (с правильной реакцией подчиненных эл-тов) !!! new size IN PARENTs scale!
   // Значение -1 сохраняет предыдущее значение
   procedure Resize(newWidth,newHeight:single); virtual;
@@ -237,6 +261,7 @@ type
  protected
   focusedChild:TUIControl;
  private
+  fOriginalSize:TVector2s;
   function TransformToScreen(r:TRect2s):TRect2s;
   procedure AddToRootControls;
   procedure RemoveFromRootControls;
@@ -249,6 +274,7 @@ type
   property clientWidth:single read GetClientWidth;
   property clientHeight:single read GetClientHeight;
   property globalScale:TVector2s read GetGlobalScale; // element scale in screen pixels
+  property originalSize:TVector2s read fOriginalSize; // Size when created
  end;
 
  // Элемент с ограничениями размера
@@ -318,7 +344,7 @@ type
   autoPendingTime:integer; // время (в мс) на которое кнопка переводится в состояние pending при нажатии (0 - не переводится)
 
   btnStyle:TButtonStyle; // тип кнопки (влияет как на отрисовку, так и на поведение)
-  group:integer;   // Группа
+  group:integer;   // Группа переключателей
   font:cardinal;
   constructor Create(width,height:single;btnName,btnCaption:string;btnFont:cardinal;parent_:TUIControl);
 
@@ -328,6 +354,7 @@ type
   procedure onHotKey(keycode:byte;shiftstate:byte); override;
   procedure onTimer; override; // отжимает кнопку по таймеру
   procedure SetPressed(pr:boolean); virtual;
+  procedure MakeSwitches(sameGroup:boolean=true); // make all sibling buttons with the same size - switches
  protected
   procedure DoClick;
  private
@@ -853,6 +880,7 @@ var
 begin
  position:=Point2s(0,0);
  size:=Point2s(width,height);
+ fOriginalSize:=size;
  scale:=Point2s(1,1);
  pivot:=Point2s(0,0);
  paddingLeft:=0; paddingRight:=0; paddingTop:=0; paddingBottom:=0;
@@ -1402,6 +1430,28 @@ begin
  result:=self;
 end;
 
+function TUIControl.SetPaddings(left,top,right,bottom:single):TUIControl;
+begin
+ paddingLeft:=left;
+ paddingTop:=top;
+ paddingRight:=right;
+ paddingBottom:=bottom;
+ Resize(size.x,size.y);
+ result:=self;
+end;
+
+function TUIControl.SetPaddings(padding:single):TUIControl;
+begin
+ result:=SetPaddings(padding,padding,padding,padding);
+end;
+
+function TUIControl.SetScale(newScale:single):TUIControl;
+begin
+ scale.x:=newScale;
+ scale.y:=newScale;
+ result:=self;
+end;
+
 procedure TUIControl.Resize(newWidth, newHeight: single);
 var
  i:integer;
@@ -1414,9 +1464,9 @@ begin
  for i:=0 to length(children)-1 do with children[i] do begin
   childRect:=TransformToParent(GetRect());
   childRect.x1:=childRect.x1+dW*anchorLeft;
-  childRect.y1:=childRect.y1+dW*anchorTop;
+  childRect.y1:=childRect.y1+dH*anchorTop;
   childRect.x2:=childRect.x2+dW*anchorRight;
-  childRect.y2:=childRect.y1+dW*anchorBottom;
+  childRect.y2:=childRect.y2+dH*anchorBottom;
   Resize(childRect.width,childRect.height);
   position.x:=childRect.x1*(1-pivot.x)+childRect.x2*pivot.x;
   position.y:=childRect.y1*(1-pivot.y)+childRect.y2*pivot.y;
@@ -1698,6 +1748,31 @@ begin
    if pr then Signal('UI\onButtonDown\'+name)
      else     Signal('UI\onButtonUp\'+name);
   end;
+ end;
+end;
+
+procedure TUIButton.MakeSwitches(sameGroup:boolean=true); // make all sibling buttons with the same size - switches
+var
+ i:integer;
+ b:TUIButton;
+ first:boolean;
+begin
+ if parent=nil then exit;
+ first:=false;
+ for i:=0 to high(parent.children) do begin
+  if not (parent.children[i] is TUIButton) then continue;
+  b:=TUIButton(parent.children[i]);
+  if not b.visible then continue;
+  if abs(b.size.x-size.x)+abs(b.size.y-size.y)>=1 then continue;
+  b.btnStyle:=bsSwitch;
+  if sameGroup then begin
+   b.group:=1;
+   if first then begin
+    b.pressed:=true;
+    first:=false;
+   end;
+  end else
+   b.group:=i+1;
  end;
 end;
 
@@ -2724,6 +2799,47 @@ procedure TUIFrame.SetBorderWidth(w: integer);
 begin
  borderWidth:=w;
  paddingLeft:=w; paddingRight:=w; paddingBottom:=w; paddingTop:=w;
+end;
+
+{ TRowLayout }
+constructor TRowLayout.Create(horizontal: boolean; spaceBetween: single;
+  resizeToContent, center: boolean);
+begin
+ fHorizontal:=horizontal;
+ fSpaceBetween:=spaceBetween;
+ fResize:=resizeToContent;
+ fCenter:=center;
+end;
+
+procedure TRowLayout.Layout(item: TUIControl);
+var
+ i:integer;
+ pos:single;
+ r:TRect2s;
+ delta:TVector2s;
+ c:TUIControl;
+begin
+ pos:=0;
+ for i:=0 to high(item.children) do begin
+  c:=item.children[i];
+  r:=c.TransformToParent(c.GetRect);
+  if fHorizontal then begin
+   delta.x:=pos-r.x1;
+   pos:=pos+r.width+fSpaceBetween;
+   if fCenter then delta.y:=((item.clientHeight-r.y2)-r.y1)/2
+    else delta.y:=0;
+  end else begin
+   delta.y:=pos-r.y1;
+   pos:=pos+r.height+fSpaceBetween;
+   if fCenter then delta.x:=((item.clientWidth-r.x2)-r.x1)/2
+    else delta.x:=0;
+  end;
+  VectAdd(c.position,delta);
+ end;
+ if fResize then begin
+  if fHorizontal then item.size.x:=pos-fSpaceBetween+item.paddingLeft+item.paddingRight
+   else item.size.y:=pos-fSpaceBetween+item.paddingTop+item.paddingBottom;
+ end;
 end;
 
 initialization
