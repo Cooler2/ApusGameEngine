@@ -21,6 +21,7 @@ interface
   local_IP:cardinal=$7F000001; // localhost
 
   rootDir:string; // root dir for site "/" path (ends with '\')
+  URIprefix:Ansistring; // this prefix is removed from URI before request is processed
 
  threadvar
   db:TDataBase; // worker's database connection
@@ -998,6 +999,7 @@ implementation
    port:=ctl.GetInt('PORT',port);
    worker_threads:=ctl.GetInt('WorkerThreads',worker_threads);
    rootDir:=ctl.GetStr('rootDir',GetCurrentDir);
+   URIprefix:=lowercase(ctl.GetStr('URIprefix',''));
    if LastChar(rootDir)<>'\' then rootDir:=rootDir+'\';
    DB_HOST:=ctl.GetStr('MySQL\Host',DB_HOST);
    DB_LOGIN:=ctl.GetStr('MySQL\Login',DB_LOGIN);
@@ -1116,6 +1118,7 @@ function HandleRequest(pending:boolean;out resp:AnsiString):boolean;
     if p>0 then setLength(uri,p-1);
     query:=GetHeader(headers,'QUERY_STRING');
    end;
+   if (URIPrefix<>'') and HasPrefix(uri,URIprefix,true) then Delete(uri,1,length(UriPrefix));
    uriUp:=UpperCase(uri);
    clientIP:=GetHeader(headers,'REMOTE_ADDR');
    clientCountry:=GetCountryByIP(StrToIp(clientIP));
