@@ -836,8 +836,9 @@ procedure LoadTGA;
    buf:pointer;
    width,height:cardinal;
    err:cardinal;
-   i:integer;
+   i,j:integer;
    sour:PByte;
+   pc,oldC:PCardinal;
   begin
    err:=lodepng_decode32(buf,width,height,@data[0],length(data));
    if err<>0 then raise EWarning.Create('LodePNG error code '+inttostr(err));
@@ -848,12 +849,38 @@ procedure LoadTGA;
 
    image.Lock;
    sour:=buf;
+   // Defringe
+   pc:=buf;
+   for i:=0 to height-1 do begin
+    oldC:=pc; inc(pc);
+    for j:=1 to width-1 do begin
+     if (oldC^=0) and (pc^ and $FF000000>0) then
+      oldC^:=pc^ and $FFFFFF;
+     if (oldC^ and $FF000000>0) and (pc^=0) then
+      pc^:=oldC^ and $FFFFFF;
+     inc(pc);
+     inc(oldC);
+    end;
+   end;
+   // vertical pass
+   for i:=0 to width-1 do begin
+    pc:=buf; inc(pc,i);
+    oldC:=pc; inc(pc,width);
+    for j:=1 to height-1 do begin
+     if (oldC^=0) and (pc^ and $FF000000>0) then
+      oldC^:=pc^ and $FFFFFF;
+     if (oldC^ and $FF000000>0) and (pc^=0) then
+      pc^:=oldC^ and $FFFFFF;
+     inc(pc,width);
+     inc(oldC,width);
+    end;
+   end;
+   // Transfer to the target
    for i:=0 to height-1 do begin
     ConvertLine(sour^,image.scanline(i)^,ipfABGR,image.PixelFormat,i,palNone,width);
     inc(sour,width*4);
    end;
    image.Unlock;
-
    free_mem(buf);
   end;
 
