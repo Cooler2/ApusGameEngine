@@ -30,44 +30,44 @@ type
 
  // Interface class for working with ControlFiles2 unit
  TControlFile=class
-  path:string; // Key names can be relative
+  path:AnsiString; // Key names can be relative
 
-  constructor Create(fname:string;password:string=''); // Create object and load specified file
+  constructor Create(fname:AnsiString;password:AnsiString=''); // Create object and load specified file
   procedure Save; // Save control file
   destructor Destroy; override; // Free object
   // Query methods
-  function KeyExists(key:String):Boolean;
-  function GetKeyType(key:String):ctlKeyTypes;
+  function KeyExists(key:AnsiString):Boolean;
+  function GetKeyType(key:AnsiString):ctlKeyTypes;
   // Read methods
-  function GetBool(key:string):boolean; overload;
-  function GetInt(key:string):integer; overload;
-  function GetReal(key:string):double; overload;
-  function GetStr(key:string):string; overload;
-  function GetStrInd(key:String;index:Integer):String;
-  function GetStrCnt(key:String):Integer;
-  function GetKeys(key:string):String;
-  function GetBool(key:string;default:boolean):boolean; overload;
-  function GetInt(key:string;default:integer):integer; overload;
-  function GetReal(key:string;default:double):double; overload;
-  function GetStr(key:string;default:string):string; overload;
+  function GetBool(key:AnsiString):boolean; overload;
+  function GetInt(key:AnsiString):integer; overload;
+  function GetReal(key:AnsiString):double; overload;
+  function GetStr(key:AnsiString):AnsiString; overload;
+  function GetStrInd(key:AnsiString;index:Integer):AnsiString;
+  function GetStrCnt(key:AnsiString):Integer;
+  function GetKeys(key:AnsiString):AnsiString;
+  function GetBool(key:AnsiString;default:boolean):boolean; overload;
+  function GetInt(key:AnsiString;default:integer):integer; overload;
+  function GetReal(key:AnsiString;default:double):double; overload;
+  function GetStr(key:AnsiString;default:AnsiString):AnsiString; overload;
   // Write methods
-  procedure CreateSection(key:string); // Create section with given path
-  procedure SetBool(key:string;value:boolean);
-  procedure SetInt(key:string;value:integer);
-  procedure SetReal(key:string;value:double);
-  procedure SetStr(key:string;value:string);
-  procedure SetStrInd(key:String;index:Integer;value:string);
-  procedure SetStrCnt(key:String;count:integer);
-  procedure AddStr(key:String;newvalue:string);
+  procedure CreateSection(key:AnsiString); // Create section with given path
+  procedure SetBool(key:AnsiString;value:boolean);
+  procedure SetInt(key:AnsiString;value:integer);
+  procedure SetReal(key:AnsiString;value:double);
+  procedure SetStr(key:AnsiString;value:AnsiString);
+  procedure SetStrInd(key:AnsiString;index:Integer;value:AnsiString);
+  procedure SetStrCnt(key:AnsiString;count:integer);
+  procedure AddStr(key:AnsiString;newvalue:AnsiString);
   // Delete
-  procedure DeleteKey(key:string);
+  procedure DeleteKey(key:AnsiString);
  private
   handle:integer;                                 
-  function GetAbsPath(key:string):string;
+  function GetAbsPath(key:AnsiString):AnsiString;
  end;
 
 // Load specified control file (and all linked files), return its handle
-function UseControlFile(filename:string;password:string=''):integer;
+function UseControlFile(filename:AnsiString;password:AnsiString=''):integer;
 // Save control file (and all linked files), specified by its handle
 procedure SaveControlFile(handle:integer;mode:TFileMode=fmDefault);
 // Save all (modified) control files
@@ -76,33 +76,33 @@ procedure SaveAllControlFiles;
 procedure FreeControlFile(handle:integer);
 
 // Query functions
-function IsKeyExists(key:String):Boolean;
-function ctlGetKeyType(key:String):ctlKeyTypes;
+function IsKeyExists(key:AnsiString):Boolean;
+function ctlGetKeyType(key:AnsiString):ctlKeyTypes;
 
 // Read functions
-function ctlGetBool(key:string):boolean; overload;
-function ctlGetBool(key:string;default:boolean):boolean; overload;
-function ctlGetInt(key:string):integer; overload;
-function ctlGetInt(key:string;default:integer):integer; overload;
-function ctlGetReal(key:string):double; overload;
-function ctlGetReal(key:string;default:double):double; overload;
-function ctlGetStr(key:string):string; overload;
-function ctlGetStr(key:string;default:string):string; overload;
-function ctlGetStrInd(key:String;index:Integer):String;
-function ctlGetStrCnt(key:String):Integer;
-function ctlGetKeys(key:string):String;
+function ctlGetBool(key:AnsiString):boolean; overload;
+function ctlGetBool(key:AnsiString;default:boolean):boolean; overload;
+function ctlGetInt(key:AnsiString):integer; overload;
+function ctlGetInt(key:AnsiString;default:integer):integer; overload;
+function ctlGetReal(key:AnsiString):double; overload;
+function ctlGetReal(key:AnsiString;default:double):double; overload;
+function ctlGetStr(key:AnsiString):AnsiString; overload;
+function ctlGetStr(key:AnsiString;default:AnsiString):AnsiString; overload;
+function ctlGetStrInd(key:AnsiString;index:Integer):AnsiString;
+function ctlGetStrCnt(key:AnsiString):Integer;
+function ctlGetKeys(key:AnsiString):AnsiString;
 
 // Write functions
-procedure ctlCreateSection(key:string); // Create section with given path
-procedure ctlSetBool(key:string;value:boolean);
-procedure ctlSetInt(key:string;value:integer);
-procedure ctlSetReal(key:string;value:double);
-procedure ctlSetStr(key:string;value:string);
-procedure ctlSetStrInd(key:String;index:Integer;value:string);
-procedure ctlSetStrCnt(key:String;count:integer);
-procedure ctlAddStr(key:String;newvalue:string);
+procedure ctlCreateSection(key:AnsiString); // Create section with given path
+procedure ctlSetBool(key:AnsiString;value:boolean);
+procedure ctlSetInt(key:AnsiString;value:integer);
+procedure ctlSetReal(key:AnsiString;value:double);
+procedure ctlSetStr(key:AnsiString;value:AnsiString);
+procedure ctlSetStrInd(key:AnsiString;index:Integer;value:AnsiString);
+procedure ctlSetStrCnt(key:AnsiString;count:integer);
+procedure ctlAddStr(key:AnsiString;newvalue:AnsiString);
 
-procedure ctlDeleteKey(key:string);
+procedure ctlDeleteKey(key:AnsiString);
 
 
 implementation
@@ -111,18 +111,18 @@ implementation
 type
  // комментарий
  TCommentLine=class
-  line:string;
+  line:AnsiString;
  end;
 
  TInclude=class
   handle:integer;
-  include:string;
+  include:AnsiString;
   destructor Destroy; override;
  end;
 
  // Базовый класс для именованых элементов
  TNamedValue=class
-  name:string; // item's name
+  name:AnsiString; // item's name
   fullname:string; // full item name (including path), uppercase (for hash)
   constructor Create; virtual;
   destructor Destroy; override;
@@ -162,40 +162,40 @@ type
 
  TStringValue=class(TNamedValue)
   private
-   st:string;
+   st:AnsiString;
    key:integer;
-   function GetStrValue:string;
-   procedure SetStrValue(data:string);
+   function GetStrValue:AnsiString;
+   procedure SetStrValue(data:AnsiString);
   public
    constructor Create; override;
-   property value:string read GetStrValue write SetStrValue;
+   property value:AnsiString read GetStrValue write SetStrValue;
  end;
 
  TStringListValue=class(TNamedValue)
   private
-   strings:array of string;
+   strings:array of AnsiString;
    key:integer;
-   function GetStrValue(index:integer):string;
-   procedure SetStrValue(index:integer;data:string);
+   function GetStrValue(index:integer):AnsiString;
+   procedure SetStrValue(index:integer;data:AnsiString);
    function GetCount:integer;
   public
    constructor Create; override;
    procedure Allocate(count:integer);
    property count:integer read GetCount write Allocate;
-   property value[index:integer]:string read GetStrValue write SetStrValue;
+   property value[index:integer]:AnsiString read GetStrValue write SetStrValue;
  end;
 
  TSection=class(TNamedValue)
  end;
 
  TCtlFile=class(TSection)
-  fname:string;
+  fname:AnsiString;
   modified:boolean;
   curmode:TFileMode;
   handle:integer;
   RefCounter:integer;
   code:cardinal; // encryption code
-  constructor Create(filename:string;filemode:TFileMode);
+  constructor Create(filename:AnsiString;filemode:TFileMode);
 //  procedure Free;
  end;
 
@@ -231,7 +231,7 @@ type
   PLong = ^LongWord;
 
 { Функции для работы с символьной записью чисел. }
-function Q_StrToInt64(const S: string; var V: Int64): Boolean;
+function Q_StrToInt64(const S: AnsiString; var V: Int64): Boolean;
 type
   PArr64 = ^TArr64;
   TArr64 = array[0..7] of Byte;
@@ -317,18 +317,18 @@ begin
   Result := C=0;
 end;
 
-function Q_BetweenInt64(const S: string; LowBound, HighBound: Int64): Boolean;
+function Q_BetweenInt64(const S: AnsiString; LowBound, HighBound: Int64): Boolean;
 var
   N: Int64;
 begin
   Result := Q_StrToInt64(S,N) and (N>=LowBound) and (N<=HighBound);
 end;
 
-function Q_IsInteger(const S: string): Boolean;
+function Q_IsInteger(const S: AnsiString): Boolean;
 var
   L,I: Integer;
-  P: PChar;
-  C: Char;
+  P: PAnsiChar;
+  C: AnsiChar;
 begin
   P := Pointer(S);
   L := Length(S);
@@ -364,10 +364,10 @@ begin
       Result := Q_BetweenInt64(S,-2147483647-1,2147483647);
   end;
 end;
-function Q_IsFloat(const S: string): Boolean;
+function Q_IsFloat(const S: AnsiString): Boolean;
 var
   L: Integer;
-  P: PChar;
+  P: PAnsiChar;
 begin
   P := Pointer(S);
   L := Length(S);
@@ -397,7 +397,7 @@ begin
       Result := True;
       Exit;
     end;
-    if P^ = GetDecimalSeparator then
+    if P^ = '.' then
     begin
       Dec(L);
       Inc(P);
@@ -449,7 +449,7 @@ end;
 
 procedure TNamedValue.MarkFileAsChanged;
 var
- fname,iName:string;
+ fname,iName:AnsiString;
  i,p:integer;
  item:TNamedValue;
 begin
@@ -539,14 +539,14 @@ begin
  key:=random(100000000);
 end;
 
-function TStringValue.GetStrValue: string;
+function TStringValue.GetStrValue: AnsiString;
 begin
  result:=st;
  if length(st)>0 then
   EncryptFast(result[1],length(st),key);
 end;
 
-procedure TStringValue.SetStrValue(data: string);
+procedure TStringValue.SetStrValue(data: AnsiString);
 begin
  if length(data)>0 then
   EncryptFast(data[1],length(data),key);
@@ -570,20 +570,20 @@ begin
  result:=length(strings);
 end;
 
-function TStringListValue.GetStrValue(index: integer): string;
+function TStringListValue.GetStrValue(index: integer): AnsiString;
 begin
  result:='';
  if (index<0) or (index>=Length(strings)) then
-  raise EWarning.Create('CTL2: string index out of bounds');
+  raise EWarning.Create('CTL2: AnsiString index out of bounds');
  result:=strings[index];
  if length(result)<>0 then
   EncryptFast(result[1],length(result),key);
 end;
 
-procedure TStringListValue.SetStrValue(index: integer; data: string);
+procedure TStringListValue.SetStrValue(index: integer; data: AnsiString);
 begin
  if (index<0) or (index>=Length(strings)) then
-  raise EWarning.Create('CTL2: string index out of bounds');
+  raise EWarning.Create('CTL2: AnsiString index out of bounds');
  if length(data)<>0 then
   EncryptFast(data[1],length(data),key);
  strings[index]:=data;
@@ -592,7 +592,7 @@ end;
 
 
 { TCtlFile }
-constructor TCtlFile.Create(filename: string; filemode:TFileMode);
+constructor TCtlFile.Create(filename: AnsiString; filemode:TFileMode);
 begin
  fname:=filename;
  curmode:=filemode;
@@ -635,7 +635,7 @@ function UseControlFile;
   ctl:TCtlFile;
 
  // Загрузить указанный файл, вернуть его handle
- function Load(filename:string;code:cardinal):integer;
+ function Load(filename:AnsiString;code:cardinal):integer;
   var
    f:file;
    h:TBinaryHeader;
@@ -644,14 +644,14 @@ function UseControlFile;
    mode:TFileMode;
 
   // Загрузить файл текстового формата в указанный объект
-  procedure LoadTextual(filename:string;item:TGenericTree);
+  procedure LoadTextual(filename:AnsiString;item:TGenericTree);
    var
     f:TextFile;
 
    // Загрузить секцию в указанный объект, path - путь объекта (без слэша в конце)
-   procedure LoadSection(var f:TextFile;item:TGenericTree;path:string);
+   procedure LoadSection(var f:TextFile;item:TGenericTree;path:AnsiString);
     var
-     st,arg,uArg,st2:string;
+     st,arg,uArg,st2:AnsiString;
      sa:StringArr;
      comment:TCommentLine;
      incl:TInclude;
@@ -732,9 +732,9 @@ function UseControlFile;
        value:=TFloatValue.Create;
        (value as TFloatValue).value:=ParseFloat(arg);
       end else begin
-       // String or string list
+       // AnsiString or AnsiString list
        if arg[1]='(' then begin
-        // string list
+        // AnsiString list
         if arg[length(arg)]<>')' then begin
          // Multiline record
          repeat
@@ -777,7 +777,7 @@ function UseControlFile;
     closefile(f);
    end;
 
-  procedure LoadBinary(filename:string;item:TGenericTree;code:cardinal);
+  procedure LoadBinary(filename:AnsiString;item:TGenericTree;code:cardinal);
    var
     f:file;
     h:TBinaryHeader;
@@ -788,7 +788,7 @@ function UseControlFile;
     size:integer;
 
    // Прочитать содержимое секции из двоичного файла
-   procedure ReadSection(item:TGenericTree;path:string);
+   procedure ReadSection(item:TGenericTree;path:AnsiString);
     var
      cnt,i,j,n:integer;
      b:byte;
@@ -797,7 +797,7 @@ function UseControlFile;
      valI:integer;
      valF:double;
 
-    function ReadString:string;
+    function ReadString:AnsiString;
      var
       w:word;
      begin
@@ -958,11 +958,11 @@ end;
 
 procedure SaveControlFile;
 var
- name:string;
+ name:AnsiString;
  item:TGenericTree;
  ctl:TCtlFile;
 
- procedure SaveTextual(item:TGenericTree;filename:string);
+ procedure SaveTextual(item:TGenericTree;filename:AnsiString);
   var
    f:TextFile;
 
@@ -971,7 +971,7 @@ var
    var
     i,j:integer;
     o:TObject;
-    pad,st:string;
+    pad,st:AnsiString;
    begin
     SetDecimalSeparator('.');
     for i:=0 to item.GetChildrenCount-1 do begin
@@ -996,7 +996,7 @@ var
       writeln(f,pad,'$EndOfSection');
       continue;
      end;
-     // Format string for named value
+     // Format AnsiString for named value
      // Все прочие варианты должны быть обработаны выше!
      if o is TNamedValue then begin
       st:=pad+(o as TNamedValue).name+'    ';
@@ -1021,7 +1021,7 @@ var
       writeln(f,st);
       continue;
      end;
-     // Save string value
+     // Save AnsiString value
      if o is TStringValue then begin
       //st:=st+QuoteStr((o as TStringValue).value);
       // Принудительное заключение в кавычки чтобы избежать конфликта с числами
@@ -1029,7 +1029,7 @@ var
       writeln(f,st);
       continue;
      end;
-     // Save string array value
+     // Save AnsiString array value
      if o is TStringListValue then with o as TStringListValue do begin
       st:=st+'(';
       if count=0 then st:=st+')';
@@ -1059,7 +1059,7 @@ var
    closefile(f);
   end;
 
- procedure SaveBinary(item:TGenericTree;filename:string);
+ procedure SaveBinary(item:TGenericTree;filename:AnsiString);
   var
    f:file;
    h:TBinaryHeader;
@@ -1078,7 +1078,7 @@ var
      valB:boolean;
      valI:integer;
      valF:double;
-    procedure WriteString(st:string);
+    procedure WriteString(st:AnsiString);
      var
       w:word;
      begin
@@ -1140,7 +1140,7 @@ var
        ms.Write(valF,8);
        continue;
       end;
-      // Save string value
+      // Save AnsiString value
       if o is TStringValue then begin
        b:=itStr;
        ms.Write(b,1);
@@ -1148,7 +1148,7 @@ var
        WriteString((o as TStringValue).value);
        continue;
       end;
-      // Save string array value
+      // Save AnsiString array value
       if o is TStringListValue then with o as TStringListValue do begin
        b:=itStrList;
        ms.Write(b,1);
@@ -1232,12 +1232,12 @@ begin
  finally critSect.Leave; end;
 end;
 
-function IsKeyExists(key:String):Boolean;
+function IsKeyExists(key:AnsiString):Boolean;
  begin
   result:=(hash.Get(UpperCase(key))<>nil);
  end;
 
-function FindItem(key:string):TObject;
+function FindItem(key:AnsiString):TObject;
  var
   item:TGenericTree;
  begin
@@ -1247,7 +1247,7 @@ function FindItem(key:string):TObject;
   result:=item.data;
  end;
 
-function ctlGetKeyType(key:String):ctlKeyTypes;
+function ctlGetKeyType(key:AnsiString):ctlKeyTypes;
  var
   o:TObject;
  begin
@@ -1270,7 +1270,7 @@ const
  MessageWrongType='CTL2: operation requires another type of key - ';
  MessageCannotCreateKey='CTL2: cannot create key - ';
 
-function ctlGetBool(key:string):boolean;
+function ctlGetBool(key:AnsiString):boolean;
  var
   o:TObject;
  begin
@@ -1284,7 +1284,7 @@ function ctlGetBool(key:string):boolean;
   finally critSect.Leave; end;
  end;
 
-function ctlGetInt(key:string):integer;
+function ctlGetInt(key:AnsiString):integer;
  var
   o:TObject;
  begin
@@ -1301,7 +1301,7 @@ function ctlGetInt(key:string):integer;
   finally critSect.Leave; end;
  end;
 
-function ctlGetReal(key:string):double;
+function ctlGetReal(key:AnsiString):double;
  var
   o:TObject;
  begin
@@ -1315,7 +1315,7 @@ function ctlGetReal(key:string):double;
   finally critSect.Leave; end;
  end;
 
-function ctlGetStr(key:string):string;
+function ctlGetStr(key:AnsiString):AnsiString;
  var
   o:TObject;
  begin
@@ -1330,7 +1330,7 @@ function ctlGetStr(key:string):string;
   finally critSect.Leave; end;
  end;
 
-function ctlGetBool(key:string;default:boolean):boolean;
+function ctlGetBool(key:AnsiString;default:boolean):boolean;
  var
   o:TObject;
  begin
@@ -1344,7 +1344,7 @@ function ctlGetBool(key:string;default:boolean):boolean;
   finally critSect.Leave; end;
  end;
 
-function ctlGetInt(key:string;default:integer):integer;
+function ctlGetInt(key:AnsiString;default:integer):integer;
  var
   o:TObject;
  begin
@@ -1358,7 +1358,7 @@ function ctlGetInt(key:string;default:integer):integer;
   finally critSect.Leave; end;
  end;
 
-function ctlGetReal(key:string;default:double):double;
+function ctlGetReal(key:AnsiString;default:double):double;
  var
   o:TObject;
  begin
@@ -1372,7 +1372,7 @@ function ctlGetReal(key:string;default:double):double;
   finally critSect.Leave; end;
  end;
 
-function ctlGetStr(key:string;default:string):string;
+function ctlGetStr(key:AnsiString;default:AnsiString):AnsiString;
  var
   o:TObject;
  begin
@@ -1386,7 +1386,7 @@ function ctlGetStr(key:string;default:string):string;
   finally critSect.Leave; end;
  end;
 
-function ctlGetStrInd(key:String;index:Integer):String;
+function ctlGetStrInd(key:AnsiString;index:Integer):AnsiString;
  var
   o:TObject;
  begin
@@ -1400,7 +1400,7 @@ function ctlGetStrInd(key:String;index:Integer):String;
   finally critSect.Leave; end;
  end;
 
-function ctlGetStrCnt(key:String):Integer;
+function ctlGetStrCnt(key:AnsiString):Integer;
  var
   o:TObject;
  begin
@@ -1414,7 +1414,7 @@ function ctlGetStrCnt(key:String):Integer;
   finally critSect.Leave; end;
  end;
 
-function ctlGetKeys(key:string):String;
+function ctlGetKeys(key:AnsiString):AnsiString;
  var
   item:TGenericTree;
   o:TObject;
@@ -1440,14 +1440,14 @@ function ctlGetKeys(key:string):String;
  end;
 
 // Write functions
-procedure ctlCreateSection(key:string);
+procedure ctlCreateSection(key:AnsiString);
  var
   o:TObject;
   s,curS:TSection;
   f:TCtlFile;
   item:TGenericTree;
   i:integer;
-  fname,sname:string;
+  fname,sname:AnsiString;
   fl:boolean;
  begin
   critSect.Enter;
@@ -1498,10 +1498,10 @@ procedure ctlCreateSection(key:string);
  end;
 
 // Создает элемент заданного типа, возвращает объект (но не лист дерева!)
-function CreateKey(key:string;KeyType:TNamedValueClass):TObject;
+function CreateKey(key:AnsiString;KeyType:TNamedValueClass):TObject;
  var
   i,n:integer;
-  s:string;
+  s:AnsiString;
   o:TNamedValue;
   item:TGenericTree;
  begin
@@ -1526,7 +1526,7 @@ function CreateKey(key:string;KeyType:TNamedValueClass):TObject;
   finally critSect.Leave; end;
  end;
 
-procedure ctlSetBool(key:string;value:boolean);
+procedure ctlSetBool(key:AnsiString;value:boolean);
  var
   o:TObject;
  begin
@@ -1544,7 +1544,7 @@ procedure ctlSetBool(key:string;value:boolean);
   finally critSect.Leave; end;
  end;
 
-procedure ctlSetInt(key:string;value:integer);
+procedure ctlSetInt(key:AnsiString;value:integer);
  var
   o:TObject;
  begin
@@ -1562,7 +1562,7 @@ procedure ctlSetInt(key:string;value:integer);
   finally critSect.Leave; end;
  end;
 
-procedure ctlSetReal(key:string;value:double);
+procedure ctlSetReal(key:AnsiString;value:double);
  var
   o:TObject;
  begin
@@ -1580,7 +1580,7 @@ procedure ctlSetReal(key:string;value:double);
   finally critSect.Leave; end;
  end;
 
-procedure ctlSetStr(key:string;value:string);
+procedure ctlSetStr(key:AnsiString;value:AnsiString);
  var
   o:TObject;
  begin
@@ -1598,7 +1598,7 @@ procedure ctlSetStr(key:string;value:string);
   finally critSect.Leave; end;
  end;
 
-procedure ctlSetStrInd(key:String;index:Integer;value:string);
+procedure ctlSetStrInd(key:AnsiString;index:Integer;value:AnsiString);
  var
   o:TObject;
  begin
@@ -1611,7 +1611,7 @@ procedure ctlSetStrInd(key:String;index:Integer;value:string);
   finally critSect.Leave; end;
  end;
 
-procedure ctlSetStrCnt(key:String;count:integer);
+procedure ctlSetStrCnt(key:AnsiString;count:integer);
  var
   o:TObject;
  begin
@@ -1628,7 +1628,7 @@ procedure ctlSetStrCnt(key:String;count:integer);
   finally critSect.Leave; end;
  end;
 
-procedure ctlAddStr(key:String;newvalue:string);
+procedure ctlAddStr(key:AnsiString;newvalue:AnsiString);
  var
   o:TObject;
  begin
@@ -1644,7 +1644,7 @@ procedure ctlAddStr(key:String;newvalue:string);
   finally critSect.Leave; end;
  end;
 
-procedure ctlDeleteKey(key:string);
+procedure ctlDeleteKey(key:AnsiString);
  var
   item:TGenericTree;
  begin
@@ -1661,19 +1661,19 @@ procedure ctlDeleteKey(key:string);
 
 { TControlFile }
 
-procedure TControlFile.AddStr(key, newvalue: string);
+procedure TControlFile.AddStr(key, newvalue: AnsiString);
 begin
  ctlAddStr(GetAbsPath(key),newvalue);
 end;
 
-constructor TControlFile.Create(fname:string;password:string='');
+constructor TControlFile.Create(fname:AnsiString;password:AnsiString='');
 begin
  handle:=-1;
  handle:=UseControlFile(fname,password);
  path:=ExtractFileName(fname)+':';
 end;
 
-procedure TControlFile.CreateSection(key: string);
+procedure TControlFile.CreateSection(key: AnsiString);
 begin
  ctlCreateSection(GetAbsPath(key));
 end;
@@ -1685,47 +1685,47 @@ begin
  FreeControlFile(handle);
 end;
 
-function TControlFile.GetBool(key: string): boolean;
+function TControlFile.GetBool(key: AnsiString): boolean;
 begin
  result:=ctlGetBool(GetAbsPath(key));
 end;
 
-function TControlFile.GetInt(key: string): integer;
+function TControlFile.GetInt(key: AnsiString): integer;
 begin
  result:=ctlGetInt(GetAbsPath(key));
 end;
 
-function TControlFile.GetKeyType(key: String): ctlKeyTypes;
+function TControlFile.GetKeyType(key: AnsiString): ctlKeyTypes;
 begin
  result:=ctlGetKeyType(GetAbsPath(key));
 end;
 
-function TControlFile.GetReal(key: string): double;
+function TControlFile.GetReal(key: AnsiString): double;
 begin
  result:=ctlGetReal(GetAbsPath(key));
 end;
 
-function TControlFile.GetStr(key: string): string;
+function TControlFile.GetStr(key: AnsiString): AnsiString;
 begin
  result:=ctlGetStr(GetAbsPath(key));
 end;
 
-function TControlFile.GetStrCnt(key: String): Integer;
+function TControlFile.GetStrCnt(key: AnsiString): Integer;
 begin
  result:=ctlGetStrCnt(GetAbsPath(key));
 end;
 
-function TControlFile.GetStrInd(key: String; index: Integer): String;
+function TControlFile.GetStrInd(key: AnsiString; index: Integer): AnsiString;
 begin
  result:=ctlGetStrInd(GetAbsPath(key),index);
 end;
 
-function TControlFile.KeyExists(key: String): Boolean;
+function TControlFile.KeyExists(key: AnsiString): Boolean;
 begin
  result:=IsKeyExists(GetAbsPath(key));
 end;
 
-function TControlFile.GetAbsPath(key:string):string;
+function TControlFile.GetAbsPath(key:AnsiString):AnsiString;
 var
  i:integer;
 begin
@@ -1750,63 +1750,63 @@ begin
  SaveControlFile(handle);
 end;
 
-procedure TControlFile.SetBool(key: string; value: boolean);
+procedure TControlFile.SetBool(key: AnsiString; value: boolean);
 begin
  ctlSetBool(GetAbsPath(key),value);
 end;
 
-procedure TControlFile.SetInt(key: string; value: integer);
+procedure TControlFile.SetInt(key: AnsiString; value: integer);
 begin
  ctlSetInt(GetAbsPath(key),value);
 end;
 
-procedure TControlFile.SetReal(key: string; value: double);
+procedure TControlFile.SetReal(key: AnsiString; value: double);
 begin
  ctlSetReal(GetAbsPath(key),value);
 end;
 
-procedure TControlFile.SetStr(key, value: string);
+procedure TControlFile.SetStr(key, value: AnsiString);
 begin
  ctlSetStr(GetAbsPath(key),value);
 end;
 
-procedure TControlFile.SetStrCnt(key: String; count: integer);
+procedure TControlFile.SetStrCnt(key: AnsiString; count: integer);
 begin
  ctlSetStrCnt(GetAbsPath(key),count);
 end;
 
-procedure TControlFile.SetStrInd(key: String; index: Integer;
-  value: string);
+procedure TControlFile.SetStrInd(key: AnsiString; index: Integer;
+  value: AnsiString);
 begin
  ctlSetStrInd(GetAbsPath(key),index,value);
 end;
 
-function TControlFile.GetKeys(key: string): String;
+function TControlFile.GetKeys(key: AnsiString): AnsiString;
 begin
  result:=ctlGetKeys(GetAbsPath(key));
 end;
 
-procedure TControlFile.DeleteKey(key: string);
+procedure TControlFile.DeleteKey(key: AnsiString);
 begin
  ctlDeleteKey(key);
 end;
 
-function TControlFile.GetBool(key: string; default: boolean): boolean;
+function TControlFile.GetBool(key: AnsiString; default: boolean): boolean;
 begin
  result:=CtlGetBool(GetAbsPath(key),default);
 end;
 
-function TControlFile.GetInt(key: string; default: integer): integer;
+function TControlFile.GetInt(key: AnsiString; default: integer): integer;
 begin
  result:=CtlGetInt(GetAbsPath(key),default);
 end;
 
-function TControlFile.GetReal(key: string; default: double): double;
+function TControlFile.GetReal(key: AnsiString; default: double): double;
 begin
  result:=CtlGetReal(GetAbsPath(key),default);
 end;
 
-function TControlFile.GetStr(key, default: string): string;
+function TControlFile.GetStr(key, default: AnsiString): AnsiString;
 begin
  result:=CtlGetStr(GetAbsPath(key),default);
 end;
