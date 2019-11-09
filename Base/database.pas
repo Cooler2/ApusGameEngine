@@ -89,6 +89,7 @@ interface
   // Escape special characters (so string can be used in query)
   procedure SQLString(var st:AnsiString);
   function SQLSafe(st:AnsiString):AnsiString;
+  function SQLdate(date:TDateTime):AnsiString;
   function FormatQuery(query:AnsiString;params:array of const):AnsiString;
 
 implementation
@@ -117,6 +118,11 @@ function SQLSafe(st:AnsiString):AnsiString;
  begin
   SQLString(st);
   result:=st;
+ end;
+
+function SQLdate(date:TDateTime):AnsiString;
+ begin
+  result:=FormatDateTime('YYYY-MM-DD hh:nn:ss',date);
  end;
 
 function FormatQuery(query:AnsiString;params:array of const):AnsiString;
