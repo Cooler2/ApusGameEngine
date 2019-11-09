@@ -52,6 +52,7 @@ type
   eff:integer;
   initialized,dontPlay:boolean;
   shadow:cardinal;
+  savedSceneStatus:TSceneStatus;
  end;
 
  {$IFDEF OPENGL}
@@ -352,7 +353,10 @@ begin
 { if (mode=sweShowModal) or (mode=sweShow) then
   scene.UI.visible:=true;}
 
- if (mode<>sweHide) and (forScene.status<>ssActive) then forScene.SetStatus(ssActive);
+ if (mode<>sweHide) and (forScene.status<>ssActive) then begin
+  savedSceneStatus:=forScene.status;
+  forScene.SetStatus(ssActive);
+ end;
  scene.UI.enabled:=(mode<>sweHide);
 
  if mode=sweShowModal then begin
@@ -627,8 +631,12 @@ begin
 end;
 
 procedure TShowWindowEffect.onDone;
+var
+ needStatus:TSceneStatus;
 begin
- if (mode=sweHide) and (forScene.status<>ssFrozen) then forScene.SetStatus(ssFrozen);
+ needStatus:=savedSceneStatus;
+ if needStatus=ssActive then needStatus:=ssFrozen;
+ if (mode=sweHide) and (forScene.status<>needStatus) then forScene.SetStatus(needStatus);
  done:=true;
 end;
 
