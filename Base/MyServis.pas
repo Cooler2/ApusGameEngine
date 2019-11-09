@@ -252,6 +252,8 @@ interface
  function ExtractStr(str,prefix,suffix:string;out prefIndex:integer):string;
  // Basic uppercase
  function UpperCaseA(st:AnsiString):AnsiString;
+ // Ignore case
+ function SameChar(a,b:AnsiChar):boolean;
 
  // —клеивает подстроки в одну строку с использованием разделител€ divider
  // ≈сли разделитель присутствует в подстроках, то они берутс€ в кавычки с
@@ -270,7 +272,8 @@ interface
  function Join(items:array of const;divider:string):string; overload;
 
  // ѕровер€ет, начинаетс€ ли строка st с подстроки
- function HasPrefix(st,prefix:string):boolean;
+ function HasPrefix(st,prefix:string):boolean; overload;
+ function HasPrefix(st,prefix:AnsiString;ignoreCase:boolean=false):boolean; overload;
 
  // ¬озвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
  function SafeStrItem(sa:StringArr;idx:integer):string;
@@ -450,6 +453,7 @@ interface
  // ---------------------------
  function HexToInt(st:string):int64; overload;  // –аспознать шестнадцатиричное число
  function HexToInt(st:AnsiString):int64; overload;
+ function HexToAStr(v:int64;digits:integer=0):AnsiString;
  function SizeToStr(size:int64):string; // строка с короткой записью размера, типа 15.3M
  function FormatTime(time:int64):string; // строка с временным интервалом (time - в ms)
  function FormatInt(int:int64):string; // строка с числом (пробел раздел€ет группы цифр)
@@ -1007,6 +1011,15 @@ implementation
    end;
   end;
 
+function HexToAStr(v:int64;digits:integer=0):AnsiString;
+ begin
+  result:='';
+  while v<>0 do begin
+   result:=hexchar[v and $F]+result;
+   v:=v div 16;
+  end;
+  while length(result)<digits do result:='0'+result;
+ end;
 
  function SizeToStr;
   var
@@ -2907,6 +2920,13 @@ function BinToStr;
    end;
   end;
 
+ function SameChar(a,b:AnsiChar):boolean;
+  begin
+   if (byte(a)>=byte('a')) and (byte(a)<=byte('z')) then dec(byte(a),byte('a')-byte('A'));
+   if (byte(b)>=byte('a')) and (byte(b)<=byte('z')) then dec(byte(b),byte('a')-byte('A'));
+   result:=a=b;
+  end;
+
  function Split(divider,st:string;quotes:char):StringArr; overload;
   var
    i,j,n:integer;
@@ -3209,7 +3229,21 @@ function BinToStr;
    if length(st)<length(prefix) then exit;
    for i:=1 to length(prefix) do
     if st[i]<>prefix[i] then exit;
-   result:=true; 
+   result:=true;
+  end;
+
+ function HasPrefix(st,prefix:AnsiString;ignoreCase:boolean=false):boolean; overload;
+  var
+   i:integer;
+  begin
+   result:=false;
+   if length(st)<length(prefix) then exit;
+   for i:=1 to length(prefix) do
+    if ignoreCase then begin
+     if st[i]<>prefix[i] then exit;
+    end else
+     if not SameChar(st[i],prefix[i]) then exit;
+   result:=true;
   end;
 
  function SafeStrItem(sa:StringArr;idx:integer):string;
