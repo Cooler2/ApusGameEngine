@@ -134,7 +134,7 @@ end;
 procedure DrawContent(item:TUIImage);
 var
  r:TRect;
- w,h,i,n,cnt,ypos,cls:integer;
+ i,n,cnt,ypos,cls:integer;
  st:string;
  col,font:cardinal;
 begin
@@ -143,7 +143,7 @@ begin
  // Write all text
  cnt:=GetMsgCount;
  consoleScene.scroll.max:=cnt*16+10;
- consolescene.scroll.pagesize:=h;
+ consolescene.scroll.pagesize:=r.height;
  with item do begin
   if cnt*16-scroll.Y<r.height-12 then
    scroll.Y:=cnt*16-(r.height-12);
@@ -162,7 +162,7 @@ begin
  painter.BeginTextBlock;
  for i:=1 to cnt do begin
   dec(n); dec(ypos,16);
-  if (ypos<-15) or (ypos>=h+8) then continue;
+  if (ypos<-15) or (ypos>=r.height+8) then continue;
   st:=GetSavedMsg(n+1,cls);
   case cls of
    -1:col:=$FFFF6060;
@@ -223,7 +223,7 @@ end;
 
 procedure TConsoleScene.ScrollToEnd;
 begin
- img.scrollY:=GetMsgCount*16-round(consoleScene.img.size.y-12);
+ img.scroll.Y:=GetMsgCount*16-round(consoleScene.img.size.y-12);
 end;
 
 procedure TConsoleScene.SetStatus(status: TSceneStatus);

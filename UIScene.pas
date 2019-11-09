@@ -854,7 +854,7 @@ begin
   curHint.Free;
   curHint:=nil;
  end;
- hint:=TUIHint.Create(X,Y,msg,false,parent);
+ hint:=TUIHint.Create(X,Y+10,msg,false,parent);
  hint.font:=font;
  hint.style:=defaultHintStyle;
  hint.timer:=time;

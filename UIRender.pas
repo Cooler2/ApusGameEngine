@@ -143,7 +143,7 @@ implementation
   var
    sa:StringArr;
    wsa:WStringArr;
-   i,h,width,height:integer;
+   i,h,width,height,dw:integer;
   begin
    with hnt do begin
     hnt.simpleText:=StringReplace(hnt.simpleText,'~','\n',[rfReplaceAll]);
@@ -152,12 +152,13 @@ implementation
     if font=0 then font:=defaultHintFont;
     if font=0 then font:=painter.GetFont('Default',7);
     h:=round(painter.FontHeight(font)*1.5);
-    height:=h*length(sa)+8;
+    height:=h*length(sa)+9;
     width:=0;
     for i:=1 to length(sa) do
      if width<painter.TextWidthW(font,wsa[i-1]) then
       width:=painter.TextWidthW(font,wsa[i-1]);
-    inc(width,10);
+    dw:=painter.TextWidthW(font,'M');
+    inc(width,4+dw);
     LogMessage('[Re]alloc hint image');
     if HintImage<>nil then texman.FreeImage(HintImage);
     HintImage:=texman.AllocImage(width,height,pfRTAlphaNorm,aiTexture+aiRenderTarget,'UI_HintImage');
@@ -174,7 +175,7 @@ implementation
      painter.Rect(0,0,width-3,height-3,$FF000000);
      painter.ResetMask;
      for i:=0 to length(sa)-1 do
-      painter.TextOut(font,3,round(2+h div 7+(i+0.75)*h),$D0000000,sa[i]);
+      painter.TextOut(font,1+dw div 2,round(2+h div 7+(i+0.75)*h),$D0000000,sa[i]);
     finally
      painter.EndPaint;
     end;
@@ -189,7 +190,7 @@ implementation
      else position.x:=position.x-(sx+size.x-game.renderWidth);
 
     if sy+size.y*2+4>game.renderHeight then position.y:=position.y-(size.y+4)
-     else position.y:=position.y+20;
+     else position.y:=position.y+10+game.renderHeight div 60;
    end;
   end;
 
@@ -264,6 +265,9 @@ implementation
       VectSub(savePos,position);
       inc(x1,round(savepos.x));
       inc(y1,round(savepos.y));
+      control.globalRect:=control.GetPosOnScreen;
+      x1:=control.globalRect.Left;
+      y1:=control.globalRect.Top;
      end;
      if transpMode=tmOpaque then v:=(MyTickCount-created)*2
       else begin
@@ -298,7 +302,8 @@ implementation
      bg:=GetColor(control);
      if bg<>0 then painter.FillRect(x1,y1,x2,y2,bg);
      painter.SetClipping(globalRect);
-     mY:=round(y1*0.3+y2*0.7)-topOffset;
+     //mY:=round(y1*0.3+y2*0.7)-topOffset;
+     mY:=round((y1+y2)*0.5+painter.FontHeight(font)*0.45)-topOffset;
      wst:=DecodeUTF8(caption);
      if align=taLeft then
       painter.TextOutW(font,x1,mY,color,wst);

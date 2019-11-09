@@ -153,7 +153,7 @@ type
   class var
    handleMouseIfDisabled:boolean; // следует ли передавать события мыши элементу, если он отключен
 
-  // Создает независимый элемент
+  // Создает элемент
   constructor Create(width,height:single;parent_:TUIControl;name_:string='');
   // Удаляет элемент (а также все вложенные в него)
   destructor Destroy; override;
