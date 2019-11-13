@@ -218,6 +218,10 @@ var
  // Draw circle using band particles (
  procedure DrawCircle(x,y,r,width:single;n:integer;color:cardinal;tex:TTexture;rec:TRect;idx:integer);
 
+ // Draw waiting spinner
+ procedure DrawSpinner(x,y,size:integer;color:cardinal;count:integer=12);
+ procedure DrawSolidSpinner(x,y,size,width:integer;color:cardinal);
+
  // добавляет в хэш предварительно загруженный JPEG объект
  procedure AddJPEGImage(filename:string;obj:TObject);
 
@@ -1385,13 +1389,70 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    painter.DrawBand(0,0,@parts[0],n,tex,rec);
   end;
 
+ procedure DrawSpinner(x,y,size:integer;color:cardinal;count:integer=12);
+  var
+   i:integer;
+   a,r,s,srcAlpha:single;
+   data:array[0..47] of TParticle;
+   c,alpha:cardinal;
+  begin
+   if count>24 then count:=24;
+   r:=size/2;
+   s:=size/(12+count*1.2);
+   srcAlpha:=(color shr 24)/255;
+   for i:=0 to count-1 do begin
+    a:=2*Pi*i/count;
+    alpha:=(round(256*i/count)-game.frameStartTime div 3) and $FF;
+    c:=color and $FFFFFF+round(alpha*srcAlpha) shl 24;
+    data[i*2].x:=0.55*r*sin(a);
+    data[i*2].y:=-0.55*r*cos(a);
+    data[i*2].z:=0;
+    data[i*2].color:=c;
+    data[i*2].scale:=s;
+    data[i*2].index:=0;
+
+    data[i*2+1].x:=r*sin(a);
+    data[i*2+1].y:=-r*cos(a);
+    data[i*2+1].z:=0;
+    data[i*2+1].color:=c;
+    data[i*2+1].scale:=s;
+    data[i*2+1].index:=partEndpoint;
+   end;
+   painter.DrawBand(x,y,@data[0],count*2,nil,Rect(x-size,y-size,x+size,y+size));
+  end;
+
+ procedure DrawSolidSpinner(x,y,size,width:integer;color:cardinal);
+  var
+   i,count:integer;
+   a,r,srcAlpha:single;
+   data:array[0..47] of TParticle;
+   c,alpha:cardinal;
+  begin
+   count:=24;
+   r:=size/2;
+   srcAlpha:=(color shr 24)/255;
+   for i:=0 to count-1 do begin
+    a:=2*Pi*i/count;
+    alpha:=(round(256*i/count)-game.frameStartTime div 3) and $FF;
+    c:=color and $FFFFFF+round(alpha*srcAlpha) shl 24;
+    data[i].x:=r*sin(a);
+    data[i].y:=-r*cos(a);
+    data[i].z:=0;
+    data[i].color:=c;
+    data[i].scale:=width/2;
+    data[i].index:=0;
+    if i=count-1 then data[i].index:=partLoop;
+   end;
+   painter.DrawBand(x,y,@data[0],count,nil,Rect(x-size,y-size,x+size,y+size));
+  end;
+
 procedure MainLoop;
 begin
  repeat
   try
    PingThread;
    CheckCritSections;
-   Delay(5); // Handling signals is inside 
+   Delay(5); // Handling signals is inside
    ProcessMessages;
   except
    on e:exception do ForceLogMessage('Error in MainLoop: '+ExceptionMsg(e));
