@@ -531,7 +531,7 @@ implementation
 
  {$IFOPT R+}{$DEFINE RANGECHECK}{$ENDIF} // Used to disable range check when needed and restore it back
  const
-  hexchar='0123456789ABCDEF';
+  hexchar:shortstring='0123456789ABCDEF';
  type
   {$IFDEF MSWINDOWS}
   TThreadID=cardinal;
@@ -1012,13 +1012,26 @@ implementation
   end;
 
 function HexToAStr(v:int64;digits:integer=0):AnsiString;
+ var
+  l:integer;
+  vv:int64;
  begin
-  result:='';
-  while v<>0 do begin
-   result:=hexchar[v and $F]+result;
-   v:=v div 16;
+  vv:=v;
+  if vv=0 then begin
+   result:='0'; exit;
   end;
-  while length(result)<digits do result:='0'+result;
+  l:=0;
+  while vv<>0 do begin
+   inc(l);
+   vv:=vv shr 4;
+  end;
+  if l<digits then l:=digits;
+  SetLength(result,l);
+  while l>0 do begin
+   result[l]:=hexchar[1+v and $F];
+   v:=v shr 4;
+   dec(l);
+  end;
  end;
 
  function SizeToStr;
