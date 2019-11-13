@@ -210,7 +210,7 @@ begin
  editbox.noborder:=true;
  editbox.encoding:=teUTF8;
 
- scroll:=TUIScrollBar.Create(18,h-19,'console\scroll',0,0,0,wnd);
+ scroll:=TUIScrollBar.Create(18,h-19,'console\scroll',wnd);
  scroll.SetPos(480,0,pivotTopRight);
  scroll.color:=$90808090;
  scroll.step:=32;

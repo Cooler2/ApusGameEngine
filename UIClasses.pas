@@ -245,6 +245,7 @@ type
   // Найти элемент в указанной точке в экранных координатах (среди потомков текущего)
   // Возвращает true если все элементы начиная с текущего в цепочке вложенности enabled
   function FindItemAt(x,y:integer;out c:TUIControl):boolean;
+  function FindAnyItemAt(x,y:integer;out c:TUIControl):boolean;
   // Найти элемент по имени
   function FindByName(name:string):TUIControl;
 
@@ -287,8 +288,9 @@ type
  // Элемент "изображение". Содержит простое статическое изображение
  TUIImage=class(TUIControl)
   color:cardinal;  // drawing color (default is $FF808080)
-  src:string; // здесь может быть имя файла или строка "event:xxx"
+  src:string; // здесь может быть имя файла или строка "event:xxx", "proc:XXXXXXXX" etc...
   constructor Create(width,height:single;imgname:string;parent_:TUIControl);
+  procedure SetRenderProc(proc:pointer); // sugar for use "proc:XXX" src for the default style
  end;
 
  // Скроллер для тачскрина - размещается независимо либо поверх другого элемента, который он и скроллит
@@ -461,7 +463,8 @@ type
   color:cardinal;
   horizontal:boolean;
   over:boolean;
-  constructor Create(width,height:single;barName:string;min_,max_,value_:single;parent_:TUIControl);
+  constructor Create(width,height:single;barName:string;parent_:TUIControl);
+  function SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
   // Переместить ползунок в указанную позицию
   procedure MoveTo(val:single;smooth:boolean=false); virtual;
   procedure MoveRel(delta:single;smooth:boolean=false); virtual;
@@ -562,8 +565,10 @@ var
  // Найти элемент по имени
  function FindControl(name:string;mustExist:boolean=true):TUIControl;
  // Найти элемент в заданной точке экрана (возвращает true если элемент найден и он
- // enabled - c учетом всех предков)
+ // enabled - c учетом всех предков), игнорирует "прозрачные" в данной точке элементы
  function FindControlAt(x,y:integer;out c:TUIControl):boolean;
+ // Поиск элемента в данной точке не игнорируя "прозрачные" (полезно для отладки)
+ function FindAnyControlAt(x,y:integer;out c:TUIControl):boolean;
 
  // Controls setup
  procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;btnType:TButtonStyle;
@@ -671,7 +676,7 @@ begin
  end;
 end;
 
-function FindControlAt(x,y:integer;out c:TUIControl):boolean;
+function FindControlAtInternal(x,y:integer;any:boolean;out c:TUIControl):boolean;
 var
  i,maxZ:integer;
  ct,c2:TUIControl;
@@ -683,7 +688,8 @@ begin
  SortRootControls;
  // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
  for i:=0 to high(rootControls) do begin
-  enabl:=rootControls[i].FindItemAt(x,y,ct);
+  if any then enabl:=rootControls[i].FindItemAt(x,y,ct)
+   else enabl:=rootControls[i].FindAnyItemAt(x,y,ct);
   if ct<>nil then begin
    c2:=ct; // найдем корневого предка ct (вдруг это не rootControls[i]?)
    while c2.parent<>nil do c2:=c2.parent;
@@ -691,7 +697,7 @@ begin
     continue;
    end;
    // выбор элемента с максимальным уровнем Z
-   if {found and }(c2.order>maxZ) then begin c:=ct; maxZ:=c2.order; end;
+   if c2.order>maxZ then begin c:=ct; maxZ:=c2.order; end;
   end;
  end;
  result:=(c<>nil) and c.enabled;
@@ -699,6 +705,18 @@ begin
   UICritSect.Leave;
  end;
 end;
+
+
+function FindControlAt(x,y:integer;out c:TUIControl):boolean;
+begin
+ result:=FindControlAtInternal(x,y,false,c);
+end;
+
+function FindAnyControlAt(x,y:integer;out c:TUIControl):boolean;
+begin
+ result:=FindControlAtInternal(x,y,true,c);
+end;
+
 
 procedure SetControlState(name:string;visible:boolean;enabled:boolean=true);
 var
@@ -746,7 +764,7 @@ var
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUIScrollBar) then c:=nil;
- if c=nil then c:=TUIScrollBar.Create(0,0,name,0,0,0,nil);
+ if c=nil then c:=TUIScrollBar.Create(0,0,name,nil);
  result:=c as TUIScrollBar;
 end;
 
@@ -1051,6 +1069,59 @@ begin
  // Ни одного непрозрачного потомка в данной точке, но сам элемент может быть непрозрачен здесь!
  if not fl and (transpmode=tmCustom) then
   if IsTransparent(x-r.Left,y-r.Top) then c:=self;
+
+ if c=nil then result:=false;
+end;
+
+function TUIControl.FindAnyItemAt(x, y: integer; out c: TUIControl): boolean;
+var
+ r,r2:Trect;
+ p:TPoint;
+ i,j:integer;
+ fl,en:boolean;
+ c2:TUIControl;
+ ca:array of TUIControl;
+ cnt:byte;
+begin
+ // Тут нужно быть предельно внимательным!!!
+ result:=enabled and visible;
+ c:=nil;
+ if not visible then exit; // если элемент невидим, то уж точно ничего не спасет!
+ r:=GetPosOnScreen;
+ p:=Point(x,y);
+ if not PtInRect(r,p) then begin result:=false; exit; end; // за пределами эл-та
+ c:=self;
+
+ // На данный момент известно, что точка в пределах текущего эл-та
+ // Но возможно здесь есть кто-то из вложенных эл-тов! Нужно их проверить:
+ // выполнить поиск по ним в порядке обратном отрисовке.
+ // В невидимых и запредельных искать ессно не нужно, а вот в прозрачных - нужно!
+ cnt:=0;
+ SetLength(ca,length(children));
+ for i:=0 to length(children)-1 do with children[i] do begin
+  if not visible then continue;
+  ca[cnt]:=self.children[i];
+  inc(cnt);
+ end;
+ // Список создан, теперь его отсортируем
+ if cnt>1 then
+  for i:=0 to cnt-2 do
+   for j:=cnt-1 downto i+1 do
+    if ca[j-1].order<ca[j].order then begin
+     c2:=ca[j]; ca[j]:=ca[j-1]; ca[j-1]:=c2;
+    end;
+ // Теперь порядок правильный, нужно искать
+ fl:=false;
+ for i:=0 to cnt-1 do begin
+  en:=ca[i].FindItemAt(x,y,c2);
+  if c2<>nil then begin
+   c:=c2; result:=result and en;
+   fl:=true; break;
+  end;
+ end;
+
+ // Ни одного непрозрачного потомка в данной точке, но сам элемент может быть непрозрачен здесь!
+ if not fl then c:=self;
 
  if c=nil then result:=false;
 end;
@@ -1603,6 +1674,11 @@ begin
  transpmode:=tmTransparent;
 end;
 
+procedure TUIImage.SetRenderProc(proc:pointer);
+begin
+ style:=0;
+ src:='proc:'+HexToAStr(UIntPtr(proc));
+end;
 
 { TUIButton }
 
@@ -2261,16 +2337,20 @@ end;
 
 { TUIScrollBar }
 
-constructor TUIScrollBar.Create(width,height:single; barName: string; min_,
-  max_, value_: single; parent_: TUIControl);
+constructor TUIScrollBar.Create(width,height:single; barName: string; parent_: TUIControl);
 begin
  inherited Create(width,height,parent_,barName);
  transpmode:=tmOpaque;
- min:=min_; max:=max_; rValue.Init(value_); pagesize:=0;
+ min:=0; max:=100; rValue.Init(0); pagesize:=0;
  linkedControl:=nil; step:=1;
  color:=$FFB0B0B0;
  horizontal:=width>height;
 // hooked:=false;
+end;
+
+function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
+begin
+ min:=newMin; max:=newMax; pageSize:=newPageSize;
 end;
 
 function TUIScrollBar.GetValue: single;
@@ -2535,7 +2615,7 @@ begin
  hoverLine:=-1;
  canHaveFocus:=true;
  sendSignals:=ssMajor;
- scrollerV:=TUIScrollBar.Create(19,height-2,'lbScroll',0,0,0,self);
+ scrollerV:=TUIScrollBar.Create(19,height-2,'lbScroll',self);
  scrollerV.SetPos(width,1,pivotTopLeft).SetAnchors(1,0,1,1);
  scrollerV.horizontal:=false;
  bgColor:=0;
