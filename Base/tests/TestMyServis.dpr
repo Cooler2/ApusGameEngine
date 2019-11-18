@@ -47,7 +47,8 @@ uses
   FreeTypeFont in '..\FreeTypeFont.pas',
   glyphCaches in '..\glyphCaches.pas',
   MyRegExpr in '..\MyRegExpr.pas',
-  Database in '..\Database.pas';
+  Database in '..\Database.pas',
+  SCGI in '..\SCGI.pas';
 
 var
  sa:StringArr;
@@ -1431,12 +1432,17 @@ var
  rc:array[1..10] of integer;
  wst:WideString;
  ast:AnsiString;
+
 begin
  UseLogFile('log.txt',true);
 // LogCacheMode(true);
  try
-{  for i:=1 to 1000000 do
-   ast:=FormatQuery('QUERY %s=%d',[String(IntToStr(i)),i]);}
+{   ast:=FormatQuery('INSERT INTO messages (topic,prev,msg,author,authorname,ip,created) '+
+       'values(%d,"%s",%d,"%s")',
+       [parentMsgId,text,userID,name]);
+  for i:=1 to 1000000 do
+   ast:=FormatQuery('QUERY "%s"=%d [%s]',[IntToStr(i),i,WideString('Q111')]);   }
+
   TestTimes;
   TestExecute;
   TestParsers;

@@ -44,9 +44,9 @@
                         for dynamic loading of libmySQL.dll
        11-Mar-2002  mf  Added MYSQL_OPT_LOCAL_INFILE to mysql_option   MySQL 3.23.49
        03-Jun-2002  so  result of mysql_row_tell is MYSQL_ROW_OFFSET
-       05-Nov-2006  so  Update for LibMySQL Version 4.00 and 4.10
+       05-Nov-2006  so  Update for LibMySQL Version 4.00 and 4.10      MySql 4.10
                         Different records for the varius versions
-       26-May-2007  so  Update for LibMySQL Version 5.00 and 5.10
+       26-May-2007  so  Update for LibMySQL Version 5.00 and 5.10      MySql 5.10
        29-Mar-2009  so  Remove all const in PAnsiChar-Params to
                         clearify what happend (C don't know "call by
                         reference")
@@ -76,11 +76,16 @@
                         FullFieldname
                         Change FormatIdentifier to QuoteName
        04-Aug-2009  so  Bug in GetVersion fixed
+       18-Oct-2010  so  Added function mysql_field_default
+       23-Feb-2011  so  Added function mysql_get_client_filename
+       22-Jul-2011  so  Corrected function mysql_ssl_set
+       15-Sep-2011  so  Adaptation to Delphi XE2
+       13-Oct-2015  so  Adaptation to FPC
 
    -----------------------------------------------------------------------------------------------
 
                      Latest releases of mysql.pas are made available through the
-                      distribution site at: http:  www.audio-data.de/mysql.html
+                      distribution site at: http://www.audio-data.de/mysql.html
 
                         See readme.txt for an introduction and documentation.
 
@@ -104,10 +109,21 @@
 
 unit mysql;
 
+{$ifdef FPC}
+  {$MODE Delphi}
+  {$define CONDITIONALEXPRESSIONS}
+  {$ALIGN 8}
+  {$ifdef CPUX86_64}
+  {$define CPUX64}
+  {$endif}
+{$else}
+  {$ALIGN ON}
+{$endif}
+
 {$IFNDEF DEBUG}
-{$DEBUGINFO OFF}
-{$LOCALSYMBOLS OFF}
-{$ASSERTIONS OFF}
+  {$DEBUGINFO OFF}
+  {$LOCALSYMBOLS OFF}
+  {$ASSERTIONS OFF}
 {$ENDIF}
 {$RANGECHECKS OFF}
 {$TYPEDADDRESS OFF}
@@ -253,11 +269,11 @@ const
   TIMESTAMP_FLAG = 1024;        // Field is a timestamp
   SET_FLAG = 2048;              // field is a set
   NUM_FLAG = 32768;             // Field is num (for clients)
-  NO_DEFAULT_VALUE_FLAG = 4096;	// Field doesn't have default value
+  NO_DEFAULT_VALUE_FLAG = 4096; // Field doesn't have default value
   PART_KEY_FLAG = 16384;        // Intern; Part of some key
   GROUP_FLAG = 32768;           // Intern: Group field
   UNIQUE_FLAG = 65536;          // Intern: Used by sql_yacc
-  BINCMP_FLAG	= 131072;         // Intern: Used by sql_yacc
+  BINCMP_FLAG = 131072;         // Intern: Used by sql_yacc
 
   REFRESH_GRANT = 1;     // Refresh grant tables
   REFRESH_LOG = 2;       // Start on new log file
@@ -276,7 +292,7 @@ const
   REFRESH_FAST = 32768;       // Intern flag
 
   // RESET (remove all queries) from query cache
-  REFRESH_QUERY_CACHE	= 65536;
+  REFRESH_QUERY_CACHE = 65536;
   REFRESH_QUERY_CACHE_FREE = $20000; // pack query cache
   REFRESH_DES_KEY_FILE = $40000;
   REFRESH_USER_RESOURCES = $80000;
@@ -345,6 +361,7 @@ type
     save_char: AnsiChar;
   end;
 
+type                    
   TNET400 = record
     vio: PVio;
     buff, buff_end, write_pos, read_pos: pByte;
@@ -364,6 +381,7 @@ type
     query_cache_query: gptr;
   end;
 
+type
   TNET401 = record
     vio: PVio;
     buff, buff_end, write_pos, read_pos: pByte;
@@ -387,6 +405,7 @@ type
     return_errno: my_bool;
   end;
 
+type                    
   TNET500 = record
     vio: PVio;
     buff, buff_end, write_pos, read_pos: pByte;
@@ -411,6 +430,7 @@ type
     report_error: my_bool;   //* We should report error (we have unreported error) */
     return_errno: my_bool;
   end;
+type                    
   TNET501 = record
     vio: PVio;
     buff, buff_end, write_pos, read_pos: pByte;
@@ -603,7 +623,7 @@ type
     flags: longword;          // Div flags
     decimals: longword;       // Number of decimals in field
     _type: enum_field_types;  // Type of field. Se mysql_com.h for types
-  end;    
+  end;
   TMYSQL_FIELD401 = record
     name: PAnsiChar;          // Name of column
     org_name: PAnsiChar;      // Original column name, if an alias
@@ -652,17 +672,26 @@ type
   TMYSQL_FIELD = TMYSQL_FIELD401;
   PMYSQL_FIELD = Pointer;
 
+const
+  PackedFIELD323Size = (3*SizeOf(Pointer) + 5*SizeOf(Longword));
+  AlignedFIELD323Size = PackedFIELD323Size + PackedFIELD323Size mod 8;
+  PackedFIELD400Size = 5*SizeOf(Pointer) + 5*SizeOf(Longword);
+  AlignedFIELD400Size = PackedFIELD400Size + PackedFIELD400Size mod 8;
+  PackedFIELD401Size = 7*SizeOf(Pointer) + 13*SizeOf(Longword);
+  AlignedFIELD401Size = PackedFIELD401Size + PackedFIELD401Size mod 8;
+  AlignedFIELD501Size = AlignedFIELD401Size + SizeOf(Pointer);
+
 {$IFDEF CONDITIONALEXPRESSIONS}
-   {$IF SizeOf(TMYSQL_FIELD323)<>32}
+   {$IF SizeOf(TMYSQL_FIELD323)<>AlignedFIELD323Size}
    {$Message Fatal 'Wrong size of TMYSQL_FIELD323'}
    {$IFEND}
-   {$IF SizeOf(TMYSQL_FIELD400)<>40}
+   {$IF SizeOf(TMYSQL_FIELD400)<>AlignedFIELD400Size}
    {$Message Fatal 'Wrong size of TMYSQL_FIELD400'}
    {$IFEND}
-   {$IF SizeOf(TMYSQL_FIELD401)<>80}
+   {$IF SizeOf(TMYSQL_FIELD401)<>AlignedFIELD401Size}
    {$Message Fatal 'Wrong size of TMYSQL_FIELD401'}
    {$IFEND}
-   {$IF SizeOf(TMYSQL_FIELD501)<>84}
+   {$IF SizeOf(TMYSQL_FIELD501)<>AlignedFIELD501Size}
    {$Message Fatal 'Wrong size of TMYSQL_FIELD501'}
    {$IFEND}
 {$ENDIF}
@@ -687,6 +716,9 @@ function mysql_field_name(f: PMYSQL_FIELD): PAnsiChar;
 
 { Get the corresponding tablename of the field }
 function mysql_field_tablename(f: PMYSQL_FIELD): PAnsiChar;
+
+{ Get the default value of the field }
+function mysql_field_default(f: PMYSQL_FIELD): PAnsiChar;
 
 type
   PMYSQL_ROW = ^TMYSQL_ROW;   // return data as array of strings
@@ -907,7 +939,7 @@ type
   TMYSQL401 = record
     net: TNET401;                 // Communication parameters
     connector_fd: gptr;           // ConnectorFd for SSL
-    host, user, passwd, unix_socket, server_version, host_info, info, db: PAnsiChar;     //  260, 264, 268, 272, 276, 280, 284
+    host, user, passwd, unix_socket, server_version, host_info, info, db: PAnsiChar;
     charset: PCHARSET_INFO;
     fields: PMYSQL_FIELDS;
     field_alloc: TMEM_ROOT400;
@@ -1055,22 +1087,22 @@ type
 // Functions to get information from the MYSQL and MYSQL_RES structures
 // Should definitely be used if one uses shared libraries
 
-  function mysql_num_rows(res: PMYSQL_RES): my_ulonglong; stdcall;
-  function mysql_num_fields(res: PMYSQL_RES): longword; stdcall;
-  function mysql_eof(res: PMYSQL_RES): my_bool; stdcall;
-  function mysql_fetch_field_direct(res: PMYSQL_RES; fieldnr: longword): PMYSQL_FIELD; stdcall;
-  function mysql_fetch_fields(res: PMYSQL_RES): PMYSQL_FIELDS; stdcall;
-  function mysql_row_tell(res: PMYSQL_RES): MYSQL_ROW_OFFSET; stdcall;
-  function mysql_field_tell(res: PMYSQL_RES): longword; stdcall;
+  function mysql_num_rows(res: PMYSQL_RES): my_ulonglong;
+  function mysql_num_fields(res: PMYSQL_RES): longword; 
+  function mysql_eof(res: PMYSQL_RES): my_bool; 
+  function mysql_fetch_field_direct(res: PMYSQL_RES; fieldnr: longword): PMYSQL_FIELD; 
+  function mysql_fetch_fields(res: PMYSQL_RES): PMYSQL_FIELDS; 
+  function mysql_row_tell(res: PMYSQL_RES): MYSQL_ROW_OFFSET; 
+  function mysql_field_tell(res: PMYSQL_RES): longword; 
 
-  function mysql_field_count(_mysql: PMYSQL): longword; stdcall;
-  function mysql_affected_rows(_mysql: PMYSQL): my_ulonglong; stdcall;
-  function mysql_insert_id(_mysql: PMYSQL): my_ulonglong; stdcall;
-  function mysql_errno(_mysql: PMYSQL): longword; stdcall;
-  function mysql_error(_mysql: PMYSQL): PAnsiChar; stdcall;
-  function mysql_info(_mysql: PMYSQL): PAnsiChar; stdcall;
-  function mysql_thread_id(_mysql: PMYSQL): longword; stdcall;
-  function mysql_character_set_name(_mysql: PMYSQL): PAnsiChar; stdcall; //since Client 3.23.21
+  function mysql_field_count(_mysql: PMYSQL): longword; 
+  function mysql_affected_rows(_mysql: PMYSQL): my_ulonglong; 
+  function mysql_insert_id(_mysql: PMYSQL): my_ulonglong; 
+  function mysql_errno(_mysql: PMYSQL): longword; 
+  function mysql_error(_mysql: PMYSQL): PAnsiChar; 
+  function mysql_info(_mysql: PMYSQL): PAnsiChar; 
+  function mysql_thread_id(_mysql: PMYSQL): longword; 
+  function mysql_character_set_name(_mysql: PMYSQL): PAnsiChar;  //since Client 3.23.21
 
 type
   PMYSQL_LENGTHS = ^TMYSQL_LENGTHS;
@@ -1079,67 +1111,68 @@ type
 type
   extend_buffer_func = function(void: pointer; _to: PAnsiChar; length: pLongword): PAnsiChar;
 
-  function mysql_init(_mysql: PMYSQL): PMYSQL; stdcall;
-  function mysql_ssl_set(_mysql: PMYSQL; key, cert, ca, capath: PAnsiChar): longint; stdcall;
-  function mysql_ssl_cipher(_mysql: PMYSQL): PAnsiChar; stdcall;
-  function mysql_ssl_clear(_mysql: PMYSQL): longint; stdcall;
-  function mysql_connect(_mysql: PMYSQL; host, user, passwd: PAnsiChar): PMYSQL; stdcall;
-  function mysql_change_user(_mysql: PMYSQL; user, passwd, db: PAnsiChar): my_bool; stdcall;
-  function mysql_real_connect(_mysql: PMYSQL; host, user, passwd, db: PAnsiChar; port: longword; unix_socket: PAnsiChar; clientflag: longword): PMYSQL; stdcall;
-  procedure mysql_close(sock: PMYSQL); stdcall;
-  function mysql_select_db(_mysql: PMYSQL; db: PAnsiChar): longint; stdcall;
-  function mysql_query(_mysql: PMYSQL; q: PAnsiChar): longint; stdcall;
-  function mysql_send_query(_mysql: PMYSQL; q: PAnsiChar; length: longword): longint; stdcall;
-  function mysql_read_query_result(_mysql: PMYSQL): longint; stdcall;
-  function mysql_real_query(_mysql: PMYSQL; q: PAnsiChar; length: longword): longint; stdcall;
-  function mysql_create_db(_mysql: PMYSQL; DB: PAnsiChar): longint; stdcall;
-  function mysql_drop_db(_mysql: PMYSQL; DB: PAnsiChar): longint; stdcall;
-  function mysql_shutdown(_mysql: PMYSQL): longint; stdcall;
-  function mysql_dump_debug_info(_mysql: PMYSQL): longint; stdcall;
-  function mysql_refresh(_mysql: PMYSQL; refresh_options: longword): longint; stdcall;
-  function mysql_kill(_mysql: PMYSQL; pid: longword): longint; stdcall;
-  function mysql_ping(_mysql: PMYSQL): longint; stdcall;
-  function mysql_stat(_mysql: PMYSQL): PAnsiChar; stdcall;
-  function mysql_get_server_info(_mysql: PMYSQL): PAnsiChar; stdcall;
-  function mysql_get_client_info: PAnsiChar; stdcall;
-  function mysql_get_host_info(_mysql: PMYSQL): PAnsiChar; stdcall;
-  function mysql_get_proto_info(_mysql: PMYSQL): longword; stdcall;
-  function mysql_list_dbs(_mysql: PMYSQL; wild: PAnsiChar): PMYSQL_RES; stdcall;
-  function mysql_list_tables(_mysql: PMYSQL; wild: PAnsiChar): PMYSQL_RES; stdcall;
-  function mysql_list_fields(_mysql: PMYSQL; table, wild: PAnsiChar): PMYSQL_RES; stdcall;
-  function mysql_list_processes(_mysql: PMYSQL): PMYSQL_RES; stdcall;
-  function mysql_store_result(_mysql: PMYSQL): PMYSQL_RES; stdcall;
-  function mysql_use_result(_mysql: PMYSQL): PMYSQL_RES; stdcall;
-  function mysql_more_results(_mysql: PMYSQL): my_bool; stdcall;
-  function mysql_next_result(_mysql: PMYSQL): longint; stdcall;
-  function mysql_options(_mysql: PMYSQL; option: mysql_option; arg: Pointer): longint; stdcall;
-  procedure mysql_free_result(_mysql_res: PMYSQL_RES); stdcall;
-  procedure mysql_data_seek(_mysql_res: PMYSQL_RES; offset: my_ulonglong); stdcall;
-  function mysql_row_seek(_mysql_res: PMYSQL_RES; offset: MYSQL_ROW_OFFSET): MYSQL_ROW_OFFSET; stdcall;
-  function mysql_field_seek(_mysql_res: PMYSQL_RES; offset: MYSQL_FIELD_OFFSET): MYSQL_FIELD_OFFSET; stdcall;
-  function mysql_fetch_row(_mysql_res: PMYSQL_RES): PMYSQL_ROW; stdcall;
-  function mysql_fetch_lengths(_mysql_res: PMYSQL_RES): PMYSQL_LENGTHS; stdcall;
-  function mysql_fetch_field(_mysql_res: PMYSQL_RES): PMYSQL_FIELD; stdcall;
+  function mysql_init(_mysql: PMYSQL): PMYSQL; 
+  function mysql_ssl_set(_mysql: PMYSQL; key, cert, ca, capath, cipher: PAnsiChar): longint; 
+  function mysql_ssl_cipher(_mysql: PMYSQL): PAnsiChar; 
+  function mysql_ssl_clear(_mysql: PMYSQL): longint; 
+  function mysql_connect(_mysql: PMYSQL; host, user, passwd: PAnsiChar): PMYSQL; 
+  function mysql_change_user(_mysql: PMYSQL; user, passwd, db: PAnsiChar): my_bool; 
+  function mysql_real_connect(_mysql: PMYSQL; host, user, passwd, db: PAnsiChar; port: longword; unix_socket: PAnsiChar; clientflag: longword): PMYSQL; 
+  procedure mysql_close(sock: PMYSQL); 
+  function mysql_select_db(_mysql: PMYSQL; db: PAnsiChar): longint; 
+  function mysql_query(_mysql: PMYSQL; q: PAnsiChar): longint; 
+  function mysql_send_query(_mysql: PMYSQL; q: PAnsiChar; length: longword): longint; 
+  function mysql_read_query_result(_mysql: PMYSQL): longint; 
+  function mysql_real_query(_mysql: PMYSQL; q: PAnsiChar; length: longword): longint; 
+  function mysql_create_db(_mysql: PMYSQL; DB: PAnsiChar): longint; 
+  function mysql_drop_db(_mysql: PMYSQL; DB: PAnsiChar): longint; 
+  function mysql_shutdown(_mysql: PMYSQL): longint; 
+  function mysql_dump_debug_info(_mysql: PMYSQL): longint; 
+  function mysql_refresh(_mysql: PMYSQL; refresh_options: longword): longint; 
+  function mysql_kill(_mysql: PMYSQL; pid: longword): longint; 
+  function mysql_ping(_mysql: PMYSQL): longint; 
+  function mysql_stat(_mysql: PMYSQL): PAnsiChar; 
+  function mysql_get_server_info(_mysql: PMYSQL): PAnsiChar; 
+  function mysql_get_client_info: PAnsiChar; 
+  function mysql_get_host_info(_mysql: PMYSQL): PAnsiChar; 
+  function mysql_get_proto_info(_mysql: PMYSQL): longword; 
+  function mysql_list_dbs(_mysql: PMYSQL; wild: PAnsiChar): PMYSQL_RES; 
+  function mysql_list_tables(_mysql: PMYSQL; wild: PAnsiChar): PMYSQL_RES; 
+  function mysql_list_fields(_mysql: PMYSQL; table, wild: PAnsiChar): PMYSQL_RES; 
+  function mysql_list_processes(_mysql: PMYSQL): PMYSQL_RES; 
+  function mysql_store_result(_mysql: PMYSQL): PMYSQL_RES; 
+  function mysql_use_result(_mysql: PMYSQL): PMYSQL_RES; 
+  function mysql_more_results(_mysql: PMYSQL): my_bool; 
+  function mysql_next_result(_mysql: PMYSQL): longint; 
+  function mysql_options(_mysql: PMYSQL; option: mysql_option; arg: Pointer): longint; 
+  procedure mysql_free_result(_mysql_res: PMYSQL_RES); 
+  procedure mysql_data_seek(_mysql_res: PMYSQL_RES; offset: my_ulonglong); 
+  function mysql_row_seek(_mysql_res: PMYSQL_RES; offset: MYSQL_ROW_OFFSET): MYSQL_ROW_OFFSET; 
+  function mysql_field_seek(_mysql_res: PMYSQL_RES; offset: MYSQL_FIELD_OFFSET): MYSQL_FIELD_OFFSET; 
+  function mysql_fetch_row(_mysql_res: PMYSQL_RES): PMYSQL_ROW; 
+  function mysql_fetch_lengths(_mysql_res: PMYSQL_RES): PMYSQL_LENGTHS; 
+  function mysql_fetch_field(_mysql_res: PMYSQL_RES): PMYSQL_FIELD; 
   //mysql_escape_string using Latin1 character set
-  function mysql_escape_string(_to: PAnsiChar; from: PAnsiChar; from_length: longword): longword; stdcall;
+  function mysql_escape_string(_to: PAnsiChar; from: PAnsiChar; from_length: longword): longword; 
   //mysql_escape_string using the character set of the established connection
-  function mysql_real_escape_string(_mysql: PMYSQL; _to: PAnsiChar; from: PAnsiChar; length: longword): longword; stdcall;
-  procedure mysql_debug(debug: PAnsiChar); stdcall;
-  function mysql_odbc_escape_string(_mysql: PMYSQL; _to: PAnsiChar; to_length: longword; from: PAnsiChar; from_length: longword; param: pointer; extend_buffer: extend_buffer_func): PAnsiChar; stdcall;
-  procedure myodbc_remove_escape(_mysql: PMYSQL; name: PAnsiChar); stdcall;
-  function mysql_thread_safe: longword; stdcall;
-  function mysql_get_client_version: longword stdcall;
-  function mysql_get_server_version(_mysql: PMYSQL): longword; stdcall;
-  function mysql_set_character_set(_mysql: PMYSQL; csname: PAnsiChar): longint; stdcall;
-  function mysql_autocommit(_mysql: PMYSQL; mode: my_bool ): my_bool; stdcall;
-  function mysql_commit(_mysql: PMYSQL): my_bool; stdcall;
-  function mysql_rollback(_mysql: PMYSQL): my_bool; stdcall;
-  function mysql_set_server_option(_mysql: PMYSQL; option: enum_mysql_set_option): longint; stdcall;
-  function mysql_sqlstate(_mysql: PMYSQL): PAnsiChar; stdcall;
-  function mysql_warning_count(_mysql: PMYSQL): longword; stdcall;
-  function mysql_server_init(argc: Integer; argv, groups: PPAnsiChar): Integer; stdcall;
-  procedure mysql_server_end; stdcall;
-{ "Jeremiah Gowdy" <jgowdycox.net> wrote on 10/11/2005 03:08:40 AM:
+  function mysql_real_escape_string(_mysql: PMYSQL; _to: PAnsiChar; from: PAnsiChar; length: longword): longword; 
+  procedure mysql_debug(debug: PAnsiChar); 
+  function mysql_odbc_escape_string(_mysql: PMYSQL; _to: PAnsiChar; to_length: longword; from: PAnsiChar; from_length: longword; param: pointer; extend_buffer: extend_buffer_func): PAnsiChar; 
+  procedure myodbc_remove_escape(_mysql: PMYSQL; name: PAnsiChar); 
+  function mysql_thread_safe: longword;
+  function mysql_get_client_version: longword;
+  function mysql_get_server_version(_mysql: PMYSQL): longword; 
+  function mysql_set_character_set(_mysql: PMYSQL; csname: PAnsiChar): longint; 
+  function mysql_autocommit(_mysql: PMYSQL; mode: my_bool ): my_bool; 
+  function mysql_commit(_mysql: PMYSQL): my_bool; 
+  function mysql_rollback(_mysql: PMYSQL): my_bool; 
+  function mysql_set_server_option(_mysql: PMYSQL; option: enum_mysql_set_option): longint; 
+  function mysql_sqlstate(_mysql: PMYSQL): PAnsiChar; 
+  function mysql_warning_count(_mysql: PMYSQL): longword; 
+  function mysql_server_init(argc: Integer; argv, groups: PPAnsiChar): Integer; 
+  procedure mysql_server_end;
+{  -----------------------------------------------------------------------------------------------
+  "Jeremiah Gowdy" <jgowdycox.net> wrote on 10/11/2005 03:08:40 AM:
   The Windows DLL is thread safe. You do not have to call my_init()
   and my_thread_init() because Windows DLLs receive events when they
   are attached to a new process and when they are attached to a new
@@ -1147,9 +1180,21 @@ type
   shared libraries. Other than that, you don't have to do anything
   special. I am a heavy user of libmysql under Win32. You simply
   mysql_init() your MYSQL struct, and then mysql_real_connect() and
-  you're ready to mysql_query().}
-  function mysql_thread_init: my_bool; stdcall; //called internal by mysql_init or mysql_server_init
-  procedure mysql_thread_end; stdcall;
+  you're ready to mysql_query().
+  -----------------------------------------------------------------------------------------------
+  New on February 17, 2009 02:27AM: This is true until 5.0.77 -
+  since this version this nice feature ist removed from dll.c.
+  To obtain the previous behavior (DLL initialization code will be
+  called), set the LIBMYSQL_DLLINIT environment variable to
+  any value. http://forums.mysql.com/read.php?3,248207,248207 
+ -----------------------------------------------------------------------------------------------
+}
+  function mysql_thread_init: my_bool;  //called internal by mysql_init or mysql_server_init
+
+{ New on February 17, 2009 02:27AM: Since 5.0.77 mysql_thread_end
+  is not called during DllMain() if the LIBMYSQL_DLLINIT environment variable is
+  not set. So it is necessary to call mysql_thread_end to avoid memory leaks. }
+  procedure mysql_thread_end;
 
   function mysql_reload(_mysql: PMySQL): longint;
   function mysql_fetch_db(_mysql: PMYSQL): PAnsiChar;
@@ -1275,33 +1320,33 @@ type
     time_type: enum_mysql_timestamp_type;
   end;
 
-  function mysql_stmt_affected_rows(stmt: PMYSQL_STMT): my_ulonglong; stdcall;
-  function mysql_stmt_attr_get(stmt: PMYSQL_STMT; option: enum_stmt_attr_type; var arg): Integer; stdcall;
-  function mysql_stmt_attr_set(stmt: PMYSQL_STMT; option: enum_stmt_attr_type; const arg): Integer; stdcall;
-  function mysql_stmt_bind_param(stmt: PMYSQL_STMT; bind: PMYSQL_BIND): my_bool; stdcall;
-  function mysql_stmt_bind_result(stmt: PMYSQL_STMT; bind: PMYSQL_BIND): my_bool; stdcall;
-  function mysql_stmt_close(stmt: PMYSQL_STMT): my_bool; stdcall;
-  procedure mysql_stmt_data_seek(stmt: PMYSQL_STMT; offset: my_ulonglong); stdcall;
-  function mysql_stmt_errno(stmt: PMYSQL_STMT): DWORD; stdcall;
-  function mysql_stmt_error(stmt: PMYSQL_STMT): PAnsiChar; stdcall;
-  function mysql_stmt_execute(stmt: PMYSQL_STMT): Integer; stdcall;
-  function mysql_stmt_fetch(stmt: PMYSQL_STMT): Integer; stdcall;
-  function mysql_stmt_fetch_column(stmt: PMYSQL_STMT; bind: PMYSQL_BIND; column: DWORD; offset: DWORD): Integer; stdcall;
-  function mysql_stmt_field_count(stmt: PMYSQL_STMT): DWORD; stdcall;
-  function mysql_stmt_free_result(stmt: PMYSQL_STMT): my_bool; stdcall;
-  function mysql_stmt_init(_mysql: PMYSQL): PMYSQL_STMT; stdcall;
-  function mysql_stmt_insert_id(stmt: PMYSQL_STMT): my_ulonglong; stdcall;
-  function mysql_stmt_num_rows(stmt: PMYSQL_STMT): my_ulonglong; stdcall;
-  function mysql_stmt_param_count(stmt: PMYSQL_STMT): DWORD; stdcall;
-  function mysql_stmt_param_metadata(stmt: PMYSQL_STMT): PMYSQL_RES; stdcall;
-  function mysql_stmt_prepare(stmt: PMYSQL_STMT; query: PAnsiChar; length: DWORD): Integer; stdcall;
-  function mysql_stmt_reset(stmt: PMYSQL_STMT): my_bool; stdcall;
-  function mysql_stmt_result_metadata(stmt: PMYSQL_STMT): PMYSQL_RES; stdcall;
-  function mysql_stmt_row_seek(stmt: PMYSQL_STMT; offset: MYSQL_ROW_OFFSET): MYSQL_ROW_OFFSET; stdcall;
-  function mysql_stmt_row_tell(stmt: PMYSQL_STMT): MYSQL_ROW_OFFSET; stdcall;
-  function mysql_stmt_send_long_data(stmt: PMYSQL_STMT; parameter_number: DWORD; data: PAnsiChar; length: DWORD): my_bool; stdcall;
-  function mysql_stmt_sqlstate(stmt: PMYSQL_STMT): PAnsiChar; stdcall;
-  function mysql_stmt_store_result(stmt: PMYSQL_STMT): Integer; stdcall;
+  function mysql_stmt_affected_rows(stmt: PMYSQL_STMT): my_ulonglong; 
+  function mysql_stmt_attr_get(stmt: PMYSQL_STMT; option: enum_stmt_attr_type; var arg): Integer; 
+  function mysql_stmt_attr_set(stmt: PMYSQL_STMT; option: enum_stmt_attr_type; const arg): Integer; 
+  function mysql_stmt_bind_param(stmt: PMYSQL_STMT; bind: PMYSQL_BIND): my_bool; 
+  function mysql_stmt_bind_result(stmt: PMYSQL_STMT; bind: PMYSQL_BIND): my_bool; 
+  function mysql_stmt_close(stmt: PMYSQL_STMT): my_bool; 
+  procedure mysql_stmt_data_seek(stmt: PMYSQL_STMT; offset: my_ulonglong); 
+  function mysql_stmt_errno(stmt: PMYSQL_STMT): DWORD; 
+  function mysql_stmt_error(stmt: PMYSQL_STMT): PAnsiChar; 
+  function mysql_stmt_execute(stmt: PMYSQL_STMT): Integer; 
+  function mysql_stmt_fetch(stmt: PMYSQL_STMT): Integer; 
+  function mysql_stmt_fetch_column(stmt: PMYSQL_STMT; bind: PMYSQL_BIND; column: DWORD; offset: DWORD): Integer; 
+  function mysql_stmt_field_count(stmt: PMYSQL_STMT): DWORD; 
+  function mysql_stmt_free_result(stmt: PMYSQL_STMT): my_bool; 
+  function mysql_stmt_init(_mysql: PMYSQL): PMYSQL_STMT; 
+  function mysql_stmt_insert_id(stmt: PMYSQL_STMT): my_ulonglong; 
+  function mysql_stmt_num_rows(stmt: PMYSQL_STMT): my_ulonglong; 
+  function mysql_stmt_param_count(stmt: PMYSQL_STMT): DWORD; 
+  function mysql_stmt_param_metadata(stmt: PMYSQL_STMT): PMYSQL_RES; 
+  function mysql_stmt_prepare(stmt: PMYSQL_STMT; query: PAnsiChar; length: DWORD): Integer; 
+  function mysql_stmt_reset(stmt: PMYSQL_STMT): my_bool; 
+  function mysql_stmt_result_metadata(stmt: PMYSQL_STMT): PMYSQL_RES; 
+  function mysql_stmt_row_seek(stmt: PMYSQL_STMT; offset: MYSQL_ROW_OFFSET): MYSQL_ROW_OFFSET; 
+  function mysql_stmt_row_tell(stmt: PMYSQL_STMT): MYSQL_ROW_OFFSET; 
+  function mysql_stmt_send_long_data(stmt: PMYSQL_STMT; parameter_number: DWORD; data: PAnsiChar; length: DWORD): my_bool; 
+  function mysql_stmt_sqlstate(stmt: PMYSQL_STMT): PAnsiChar; 
+  function mysql_stmt_store_result(stmt: PMYSQL_STMT): Integer;
 
 //-- Functions for library independent BIND handling --
   //Create initialized memory block for Bindings - Free it with FreeMem
@@ -1403,7 +1448,7 @@ function MySql_StrLen(const Str: PAnsiChar): Cardinal;
 
 // ------------------------------- U n i c o d e -------------------------------------------------
 { This Escape functions are native Delphi functions supporting Unicode.
-  There are to different ways for transfering data to the SQL-Sever:
+  There are two different ways for transfering data to the SQL-Sever:
   a) Create SQL-Statement -> EscapeString -> Character Encoding -> mysql_real_query
   b) Create SQL-Statement -> Character Encoding -> mysql_real_escape_string -> mysql_real_query
 }
@@ -1417,13 +1462,13 @@ function QuoteString(const Str: String): String; overload;
 //"BackTick" the Identifier like Tablenames and Fieldnames
 function QuoteName(const Str: String): String; overload; inline;
 
-// Quote "\", "_" and "%" characters and all characters normaly quoted by mysql_escape_string
+// Escape "\", "_" and "%" characters and all characters normaly escaped by mysql_escape_string
 function EscapeForLike(const Str: String): String; overload;
 {$ENDIF}
 
 // ----------------------------- M u l t i b y t e -----------------------------------------------
 { This Escape functions are native Delphi functions supporting the System-Codepage.
-  There are to different ways for transfering data to the SQL-Sever:
+  There are two different ways for transfering data to the SQL-Sever:
   a) Create SQL-Statement -> EscapeString -> [Character Encoding] -> mysql_real_query
   b) Create SQL-Statement -> [Character Encoding] -> mysql_real_escape_string -> mysql_real_query
 }
@@ -1436,7 +1481,7 @@ function QuoteString(const Str: AnsiString): AnsiString; overload;
 
 function QuoteName(const Str: AnsiString): AnsiString; overload;
 {$IFDEF CONDITIONALEXPRESSIONS}
-{$IF CompilerVersion>=18}
+{$IF defined(FPC) or (CompilerVersion>=18)}
 inline;
 {$IFEND}
 {$ENDIF}
@@ -1467,7 +1512,9 @@ function libmysql_load(name: PChar): Tlibmysql_status;
 procedure libmysql_load_check;
 
 //Load library - functions are resolved if needed - Exception if library not loaded
-procedure libmysql_fast_load(name: PChar);
+procedure libmysql_fast_load(name: PChar=nil);
+
+function mysql_get_client_filename: String;
 
 //Unload library
 procedure libmysql_free;
@@ -1492,7 +1539,7 @@ resourcestring
   sLibMySql_Version_Incompatible = 'MySQL: libmysql %s is not compatible';
 
 {$IFNDEF AD}
-  EProcNotFound = 'MySQL: Procedure "%s" not found in library "%s"';
+  EProcNotFound = 'MySQL: Procedure "%1:s"  not found in library "%0:s"';
   ELibraryNotFound = 'MySQL: Library "%s" not found';
 {$ENDIF}
 
@@ -1523,9 +1570,14 @@ begin
   Result := (n and BLOB_FLAG) <> 0;
 end;
 
+function IS_NUM_FLAG(n: longword): boolean;
+begin
+  Result := (n and NUM_FLAG) <> 0
+end;
+
 function IS_NUM(t: enum_field_types): boolean;
 begin
-  Result := (t <= MYSQL_TYPE_INT24) or (t = MYSQL_TYPE_YEAR)  or (t = MYSQL_TYPE_NEWDECIMAL);
+  Result := (t<>MYSQL_TYPE_TIMESTAMP) and ((t <= MYSQL_TYPE_INT24) or (t = MYSQL_TYPE_YEAR) or (t = MYSQL_TYPE_NEWDECIMAL));
 end;
 
 function IS_LONGDATA(t: enum_field_types): boolean;
@@ -1533,13 +1585,9 @@ begin
   Result := (t >= MYSQL_TYPE_TINY_BLOB) and (t <= MYSQL_TYPE_STRING);
 end;
 
-function IS_NUM_FLAG(n: longword): boolean;
-begin
-  Result := (n and NUM_FLAG) <> 0
-end;
-
 function INTERNAL_NUM_FIELD(f: PMYSQL_FIELD): boolean;
 begin
+  {$ifndef CPUX64}
   if internal_libmysql_ClientVersion<40000
   then begin
     with TMYSQL_FIELD323(f^) do
@@ -1552,6 +1600,7 @@ begin
       Result := (((_type <= MYSQL_TYPE_INT24) and ((_type <> MYSQL_TYPE_TIMESTAMP) or (length = 14) or (length = 8))) or (_type = MYSQL_TYPE_YEAR));
   end
   else
+  {$endif}
   if internal_libmysql_ClientVersion<mysql_not_compatible_version
   then begin
     with TMYSQL_FIELD401(f^) do
@@ -1563,51 +1612,25 @@ end;
 
 
 function UpdateField(f: PMYSQL_FIELD): TMYSQL_FIELD;
+{$HINTS OFF}
+  {$IFNDEF CPUX64}
   procedure CopyStr(var dest: PAnsiChar; var DestLen: Cardinal; src: PAnsiChar);
-  //eax: dest edx: DestLen ecx: src
-  asm
-    mov     [dest], src
-    push    Dest
-    push    DestLen
-    xor     edx, edx
-    test    src, src        //src=nil?
-    jz      @NoString
-    cmp     src, $BAADF00D  //special for Client 4.0.27
-    jz      @NoString
-    mov     eax, src
-  @Scan:
-    cmp     dl, [eax+0]
-    jz      @add_0
-    cmp     dl, [eax+1]
-    jz      @add_1
-    cmp     dl, [eax+2]
-    jz      @add_2
-    cmp     dl, [eax+3]
-    jz      @add_3
-    add     eax, 4
-    jmp     @Scan
-  @add_3:
-    inc     eax
-  @add_2:
-    inc     eax
-  @add_1:
-    inc     eax
-  @add_0:
-    sub     eax, src
-    pop     ecx             //DestLen
-    mov     [ecx], eax
-    pop     ecx             //Dest
-    jmp     @out
-  @NoString:
-    pop     ecx             //DestLen
-    mov     [ecx], edx
-    pop     ecx             //Dest
-    mov     [ecx], edx
-  @out:
+  begin
+    if (src<>nil) and (Cardinal(src)<>$BAADF00D)
+    then begin
+      dest := src;
+      DestLen := MySql_StrLen(src);
+    end
+    else begin
+      dest := nil;
+      DestLen := 0;
+    end;
   end;
+  {$ENDIF}
 begin
   if f<>nil
   then begin
+    {$IFNDEF CPUX64}
     if internal_libmysql_ClientVersion<40000
     then begin
       CopyStr(Result.name, Result.name_length, TMYSQL_FIELD323(f^).name);
@@ -1649,11 +1672,13 @@ begin
       Result._type := TMYSQL_FIELD400(f^)._type;
     end
     else
+    {$ENDIF}
     if internal_libmysql_ClientVersion<mysql_not_compatible_version
     then begin
       move(f^, Result, sizeof(TMYSQL_FIELD401));
     end;
   end;
+{$HINTS ON}
 end;
 
 function GetVersion(VersionString: PAnsiChar): longword;
@@ -1787,9 +1812,9 @@ begin
     if proc = nil
     then begin
       internal_libmysql_status := LIBMYSQL_INCOMPATIBLE;
-      SetLength(ModulPath, MAX_PATH);
-      SetLength(ModulPath, GetModuleFileName(libmysql_handle, Pointer(ModulPath), MAX_PATH));
-      raise Exception.CreateFmt(EProcNotFound, [name, ModulPath])
+      SetLength(ModulPath, MAX_PATH+1);
+      SetLength(ModulPath, GetModuleFileName(libmysql_handle, Pointer(ModulPath), Length(ModulPath)));
+      raise Exception.CreateFmt(EProcNotFound, [ModulPath, name])
     end;
     PushProc(@proc);
   end;
@@ -1797,6 +1822,7 @@ end;
 
 function mysql_fetch_db(_mysql: PMYSQL): PAnsiChar;
 begin
+  {$ifndef CPUX64}
   if internal_libmysql_ClientVersion<40000
   then
     Result := TMYSQL323(_mysql^).db
@@ -1805,6 +1831,7 @@ begin
   then
     Result := TMYSQL400(_mysql^).db
   else
+  {$endif}
   if internal_libmysql_ClientVersion<mysql_not_compatible_version
   then
     Result := TMYSQL401(_mysql^).db
@@ -1814,6 +1841,7 @@ end;
 
 function mysql_field_type(f: PMYSQL_FIELD): enum_field_types;
 begin
+  {$ifndef CPUX64}
   if internal_libmysql_ClientVersion<40000
   then
     Result := TMYSQL_FIELD323(f^)._type
@@ -1822,6 +1850,7 @@ begin
   then
     Result := TMYSQL_FIELD400(f^)._type
   else
+  {$endif}
   if internal_libmysql_ClientVersion<mysql_not_compatible_version
   then
     Result := TMYSQL_FIELD401(f^)._type
@@ -1831,6 +1860,7 @@ end;
 
 function mysql_field_flag(f: PMYSQL_FIELD): longword;
 begin
+  {$ifndef CPUX64}
   if internal_libmysql_ClientVersion<40000
   then
     Result := TMYSQL_FIELD323(f^).flags
@@ -1839,6 +1869,7 @@ begin
   then
     Result := TMYSQL_FIELD400(f^).flags
   else
+  {$endif}
   if internal_libmysql_ClientVersion<mysql_not_compatible_version
   then
     Result := TMYSQL_FIELD401(f^).flags
@@ -1848,6 +1879,7 @@ end;
 
 function mysql_field_length(f: PMYSQL_FIELD): longword;
 begin
+  {$ifndef CPUX64}
   if internal_libmysql_ClientVersion<40000
   then
     Result := TMYSQL_FIELD323(f^).length
@@ -1856,6 +1888,7 @@ begin
   then
     Result := TMYSQL_FIELD400(f^).length
   else
+  {$endif}
   if internal_libmysql_ClientVersion<mysql_not_compatible_version
   then
     Result := TMYSQL_FIELD401(f^).length
@@ -1870,10 +1903,12 @@ end;
 
 function mysql_field_tablename(f: PMYSQL_FIELD): PAnsiChar;
 begin
+  {$ifndef CPUX64}
   if internal_libmysql_ClientVersion<40100
   then
     Result := TMYSQL_FIELD400(f^).table
   else
+  {$endif}
   if internal_libmysql_ClientVersion<mysql_not_compatible_version
   then
     Result := TMYSQL_FIELD401(f^).table
@@ -1881,1543 +1916,1150 @@ begin
     raise Exception.Create(sLibMySql_Incompatible);
 end;
 
-{$WARNINGS OFF}
-{.$WARN NO_RETVAL OFF}
+function mysql_field_default(f: PMYSQL_FIELD): PAnsiChar;
+begin
+  {$ifndef CPUX64}
+  if internal_libmysql_ClientVersion<40000
+  then
+    Result := TMYSQL_FIELD323(f^).def
+  else
+  if internal_libmysql_ClientVersion<40100
+  then
+    Result := TMYSQL_FIELD400(f^).def
+  else
+  {$endif}
+  if internal_libmysql_ClientVersion<mysql_not_compatible_version
+  then
+    Result := TMYSQL_FIELD401(f^).def
+  else
+    raise Exception.Create(sLibMySql_Incompatible);
+end;
+
 var
-  _mysql_num_rows: FARPROC;
+  _mysql_num_rows: function (res: PMYSQL_RES): my_ulonglong; stdcall;
 
-function mysql_num_rows(res: PMYSQL_RES): my_ulonglong; stdcall;
+function mysql_num_rows(res: PMYSQL_RES): my_ulonglong;
 begin
-  if _mysql_num_rows=nil
+  if @_mysql_num_rows=nil
   then
-    LoadProcAddress(_mysql_num_rows, 'mysql_num_rows');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_num_rows]
-  end;
+    LoadProcAddress(@_mysql_num_rows, 'mysql_num_rows');
+  Result := _mysql_num_rows(res);
 end;
 
 var
-  _mysql_num_fields: FARPROC;
+  _mysql_num_fields: function (res: PMYSQL_RES): longword; stdcall;
 
-function mysql_num_fields(res: PMYSQL_RES): longword; stdcall;
+function mysql_num_fields(res: PMYSQL_RES): longword;
 begin
-  if _mysql_num_fields=nil
+  if @_mysql_num_fields=nil
   then
-    LoadProcAddress(_mysql_num_fields, 'mysql_num_fields');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_num_fields]
-  end;
+    LoadProcAddress(@_mysql_num_fields, 'mysql_num_fields');
+  Result := _mysql_num_fields(res);
 end;
 
 var
-  _mysql_eof: FARPROC;
+  _mysql_eof: function (res: PMYSQL_RES): my_bool; stdcall;
 
-function mysql_eof(res: PMYSQL_RES): my_bool; stdcall;
+function mysql_eof(res: PMYSQL_RES): my_bool;
 begin
-  if _mysql_eof=nil
+  if @_mysql_eof=nil
   then
-    LoadProcAddress(_mysql_eof, 'mysql_eof');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_eof]
-  end;
+    LoadProcAddress(@_mysql_eof, 'mysql_eof');
+  Result := _mysql_eof(res);
 end;
 
 var
-  _mysql_fetch_field_direct: FARPROC;
+  _mysql_fetch_field_direct: function (res: PMYSQL_RES; fieldnr: longword): PMYSQL_FIELD; stdcall;
 
-function mysql_fetch_field_direct(res: PMYSQL_RES; fieldnr: longword): PMYSQL_FIELD; stdcall;
+function mysql_fetch_field_direct(res: PMYSQL_RES; fieldnr: longword): PMYSQL_FIELD;
 begin
-  if _mysql_fetch_field_direct=nil
+  if @_mysql_fetch_field_direct=nil
   then
-    LoadProcAddress(_mysql_fetch_field_direct, 'mysql_fetch_field_direct');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_fetch_field_direct]
-  end;
+    LoadProcAddress(@_mysql_fetch_field_direct, 'mysql_fetch_field_direct');
+  Result := _mysql_fetch_field_direct(res, fieldnr);
 end;
 
 var
-  _mysql_fetch_fields: FARPROC;
+  _mysql_fetch_fields: function (res: PMYSQL_RES): PMYSQL_FIELDS; stdcall;
 
-function mysql_fetch_fields(res: PMYSQL_RES): PMYSQL_FIELDS; stdcall;
+function mysql_fetch_fields(res: PMYSQL_RES): PMYSQL_FIELDS;
 begin
-  if _mysql_fetch_fields=nil
+  if @_mysql_fetch_fields=nil
   then
-    LoadProcAddress(_mysql_fetch_fields, 'mysql_fetch_fields');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_fetch_fields]
-  end;
+    LoadProcAddress(@_mysql_fetch_fields, 'mysql_fetch_fields');
+  Result := _mysql_fetch_fields(res);
 end;
 
 var
-  _mysql_row_tell: FARPROC;
+  _mysql_row_tell: function (res: PMYSQL_RES): MYSQL_ROW_OFFSET; stdcall;
 
-function mysql_row_tell(res: PMYSQL_RES): MYSQL_ROW_OFFSET; stdcall;
+function mysql_row_tell(res: PMYSQL_RES): MYSQL_ROW_OFFSET;
 begin
-  if _mysql_row_tell=nil
+  if @_mysql_row_tell=nil
   then
-    LoadProcAddress(_mysql_row_tell, 'mysql_row_tell');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_row_tell]
-  end;
+    LoadProcAddress(@_mysql_row_tell, 'mysql_row_tell');
+  Result := _mysql_row_tell(res);
 end;
 
 var
-  _mysql_field_tell: FARPROC;
+  _mysql_field_tell: function (res: PMYSQL_RES): longword; stdcall;
 
-function mysql_field_tell(res: PMYSQL_RES): longword; stdcall;
+function mysql_field_tell(res: PMYSQL_RES): longword;
 begin
-  if _mysql_field_tell=nil
+  if @_mysql_field_tell=nil
   then
-    LoadProcAddress(_mysql_field_tell, 'mysql_field_tell');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_field_tell]
-  end;
+    LoadProcAddress(@_mysql_field_tell, 'mysql_field_tell');
+  Result := _mysql_field_tell(res);
 end;
 
 var
-  _mysql_field_count: FARPROC;
+  _mysql_field_count: function (_mysql: PMYSQL): longword; stdcall;
 
-function mysql_field_count(_mysql: PMYSQL): longword; stdcall;
+function mysql_field_count(_mysql: PMYSQL): longword;
 begin
-  if _mysql_field_count=nil
+  if @_mysql_field_count=nil
   then
-    LoadProcAddress(_mysql_field_count, 'mysql_field_count');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_field_count]
-  end;
+    LoadProcAddress(@_mysql_field_count, 'mysql_field_count');
+  Result := _mysql_field_count(_mysql);
 end;
 
 var
-  _mysql_affected_rows: FARPROC;
+  _mysql_affected_rows: function (_mysql: PMYSQL): my_ulonglong; stdcall;
 
-function mysql_affected_rows(_mysql: PMYSQL): my_ulonglong; stdcall;
+function mysql_affected_rows(_mysql: PMYSQL): my_ulonglong;
 begin
-  if _mysql_affected_rows=nil
+  if @_mysql_affected_rows=nil
   then
-    LoadProcAddress(_mysql_affected_rows, 'mysql_affected_rows');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_affected_rows]
-  end;
+    LoadProcAddress(@_mysql_affected_rows, 'mysql_affected_rows');
+  Result := _mysql_affected_rows(_mysql);
 end;
 
 var
-  _mysql_insert_id: FARPROC;
+  _mysql_insert_id: function (_mysql: PMYSQL): my_ulonglong; stdcall;
 
-function mysql_insert_id(_mysql: PMYSQL): my_ulonglong; stdcall;
+function mysql_insert_id(_mysql: PMYSQL): my_ulonglong;
 begin
-  if _mysql_insert_id=nil
+  if @_mysql_insert_id=nil
   then
-    LoadProcAddress(_mysql_insert_id, 'mysql_insert_id');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_insert_id]
-  end;
+    LoadProcAddress(@_mysql_insert_id, 'mysql_insert_id');
+  Result := _mysql_insert_id(_mysql);
 end;
 
 var
-  _mysql_errno: FARPROC;
+  _mysql_errno: function (_mysql: PMYSQL): longword; stdcall;
 
-function mysql_errno(_mysql: PMYSQL): longword; stdcall;
+function mysql_errno(_mysql: PMYSQL): longword;
 begin
-  if _mysql_errno=nil
+  if @_mysql_errno=nil
   then
-    LoadProcAddress(_mysql_errno, 'mysql_errno');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_errno]
-  end;
+    LoadProcAddress(@_mysql_errno, 'mysql_errno');
+  Result := _mysql_errno(_mysql);
 end;
 
 var
-  _mysql_error: FARPROC;
+  _mysql_error: function (_mysql: PMYSQL): PAnsiChar; stdcall;
 
-function mysql_error(_mysql: PMYSQL): PAnsiChar; stdcall;
+function mysql_error(_mysql: PMYSQL): PAnsiChar;
 begin
-  if _mysql_error=nil
+  if @_mysql_error=nil
   then
-    LoadProcAddress(_mysql_error, 'mysql_error');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_error]
-  end;
+    LoadProcAddress(@_mysql_error, 'mysql_error');
+  Result := _mysql_error(_mysql);
 end;
 
 var
-  _mysql_info: FARPROC;
+  _mysql_info: function (_mysql: PMYSQL): PAnsiChar; stdcall;
 
-function mysql_info(_mysql: PMYSQL): PAnsiChar; stdcall;
+function mysql_info(_mysql: PMYSQL): PAnsiChar;
 begin
-  if _mysql_info=nil
+  if @_mysql_info=nil
   then
-    LoadProcAddress(_mysql_info, 'mysql_info');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_info]
-  end;
+    LoadProcAddress(@_mysql_info, 'mysql_info');
+  Result := _mysql_info(_mysql);
 end;
 
 var
-  _mysql_thread_id: FARPROC;
+  _mysql_thread_id: function (_mysql: PMYSQL): longword; stdcall;
 
-function mysql_thread_id(_mysql: PMYSQL): longword; stdcall;
+function mysql_thread_id(_mysql: PMYSQL): longword;
 begin
-  if _mysql_thread_id=nil
+  if @_mysql_thread_id=nil
   then
-    LoadProcAddress(_mysql_thread_id, 'mysql_thread_id');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_thread_id]
-  end;
+    LoadProcAddress(@_mysql_thread_id, 'mysql_thread_id');
+  Result := _mysql_thread_id(_mysql);
 end;
 
 var
-  _mysql_character_set_name: FARPROC;
+  _mysql_character_set_name: function (_mysql: PMYSQL): PAnsiChar; stdcall;
 
-function mysql_character_set_name(_mysql: PMYSQL): PAnsiChar; stdcall;
+function mysql_character_set_name(_mysql: PMYSQL): PAnsiChar;
 begin
-  if _mysql_character_set_name=nil
+  if @_mysql_character_set_name=nil
   then
-    LoadProcAddress(_mysql_character_set_name, 'mysql_character_set_name');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_character_set_name]
-  end;
+    LoadProcAddress(@_mysql_character_set_name, 'mysql_character_set_name');
+  Result := _mysql_character_set_name(_mysql);
 end;
 
 var
-  _mysql_init: FARPROC;
+  _mysql_init: function (_mysql: PMYSQL): PMYSQL; stdcall;
 
-function mysql_init(_mysql: PMYSQL): PMYSQL; stdcall;
+function mysql_init(_mysql: PMYSQL): PMYSQL;
 begin
-  if _mysql_init=nil
+  if @_mysql_init=nil
   then
-    LoadProcAddress(_mysql_init, 'mysql_init');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_init]
-  end;
+    LoadProcAddress(@_mysql_init, 'mysql_init');
+  Result := _mysql_init(_mysql);
 end;
 
 var
-  _mysql_ssl_set: FARPROC;
+  _mysql_ssl_set: function (_mysql: PMYSQL; key, cert, ca, capath, cipher: PAnsiChar): longint; stdcall;
 
-function mysql_ssl_set(_mysql: PMYSQL; key, cert, ca, capath: PAnsiChar): longint; stdcall;
+function mysql_ssl_set(_mysql: PMYSQL; key, cert, ca, capath, cipher: PAnsiChar): longint;
 begin
-  if _mysql_ssl_set=nil
+  if @_mysql_ssl_set=nil
   then
-    LoadProcAddress(_mysql_ssl_set, 'mysql_ssl_set');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_ssl_set]
-  end;
+    LoadProcAddress(@_mysql_ssl_set, 'mysql_ssl_set');
+  Result := _mysql_ssl_set(_mysql, key, cert, ca, capath, cipher);
 end;
 
 var
-  _mysql_ssl_cipher: FARPROC;
+  _mysql_ssl_cipher: function (_mysql: PMYSQL): PAnsiChar; stdcall;
 
-function mysql_ssl_cipher(_mysql: PMYSQL): PAnsiChar; stdcall;
+function mysql_ssl_cipher(_mysql: PMYSQL): PAnsiChar;
 begin
-  if _mysql_ssl_cipher=nil
+  if @_mysql_ssl_cipher=nil
   then
-    LoadProcAddress(_mysql_ssl_cipher, 'mysql_ssl_cipher');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_ssl_cipher]
-  end;
+    LoadProcAddress(@_mysql_ssl_cipher, 'mysql_ssl_cipher');
+  Result := _mysql_ssl_cipher(_mysql);
 end;
 
 var
-  _mysql_ssl_clear: FARPROC;
+  _mysql_ssl_clear: function (_mysql: PMYSQL): longint; stdcall;
 
-function mysql_ssl_clear(_mysql: PMYSQL): longint; stdcall;
+function mysql_ssl_clear(_mysql: PMYSQL): longint;
 begin
-  if _mysql_ssl_clear=nil
+  if @_mysql_ssl_clear=nil
   then
-    LoadProcAddress(_mysql_ssl_clear, 'mysql_ssl_clear');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_ssl_clear]
-  end;
+    LoadProcAddress(@_mysql_ssl_clear, 'mysql_ssl_clear');
+  Result := _mysql_ssl_clear(_mysql);
 end;
 
 var
-  _mysql_connect: FARPROC;
+  _mysql_connect: function (_mysql: PMYSQL; host, user, passwd: PAnsiChar): PMYSQL; stdcall;
 
-function mysql_connect(_mysql: PMYSQL; host, user, passwd: PAnsiChar): PMYSQL; stdcall;
+function mysql_connect(_mysql: PMYSQL; host, user, passwd: PAnsiChar): PMYSQL;
 begin
-  if _mysql_connect=nil
+  if @_mysql_connect=nil
   then
-    LoadProcAddress(_mysql_connect, 'mysql_connect');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_connect]
-  end;
+    LoadProcAddress(@_mysql_connect, 'mysql_connect');
+  Result := _mysql_connect(_mysql, host, user, passwd);
 end;
 
 var
-  _mysql_change_user: FARPROC;
+  _mysql_change_user: function (_mysql: PMYSQL; user, passwd, db: PAnsiChar): my_bool; stdcall;
 
-function mysql_change_user(_mysql: PMYSQL; user, passwd, db: PAnsiChar): my_bool; stdcall;
+function mysql_change_user(_mysql: PMYSQL; user, passwd, db: PAnsiChar): my_bool;
 begin
-  if _mysql_change_user=nil
+  if @_mysql_change_user=nil
   then
-    LoadProcAddress(_mysql_change_user, 'mysql_change_user');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_change_user]
-  end;
+    LoadProcAddress(@_mysql_change_user, 'mysql_change_user');
+  Result := _mysql_change_user(_mysql, user, passwd, db);
 end;
 
 var
-  _mysql_real_connect: FARPROC;
+  _mysql_real_connect: function (_mysql: PMYSQL; host, user, passwd, db: PAnsiChar; port: longword; unix_socket: PAnsiChar; clientflag: longword): PMYSQL; stdcall;
 
-function mysql_real_connect(_mysql: PMYSQL; host, user, passwd, db: PAnsiChar; port: longword; unix_socket: PAnsiChar; clientflag: longword): PMYSQL; stdcall;
+function mysql_real_connect(_mysql: PMYSQL; host, user, passwd, db: PAnsiChar; port: longword; unix_socket: PAnsiChar; clientflag: longword): PMYSQL;
 begin
-  if _mysql_real_connect=nil
+  if @_mysql_real_connect=nil
   then
-    LoadProcAddress(_mysql_real_connect, 'mysql_real_connect');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_real_connect]
-  end;
+    LoadProcAddress(@_mysql_real_connect, 'mysql_real_connect');
+  Result := _mysql_real_connect(_mysql, host, user, passwd, db, port, unix_socket, clientflag);
 end;
 
 var
-  _mysql_close: FARPROC;
+  _mysql_close: procedure (sock: PMYSQL); stdcall;
 
-procedure mysql_close(sock: PMYSQL); stdcall;
+procedure mysql_close(sock: PMYSQL);
 begin
-  if _mysql_close=nil
+  if @_mysql_close=nil
   then
-    LoadProcAddress(_mysql_close, 'mysql_close');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_close]
-  end;
+    LoadProcAddress(@_mysql_close, 'mysql_close');
+  _mysql_close(sock);
 end;
 
 var
-  _mysql_select_db: FARPROC;
+  _mysql_select_db: function (_mysql: PMYSQL; db: PAnsiChar): longint; stdcall;
 
-function mysql_select_db(_mysql: PMYSQL; db: PAnsiChar): longint; stdcall;
+function mysql_select_db(_mysql: PMYSQL; db: PAnsiChar): longint;
 begin
-  if _mysql_select_db=nil
+  if @_mysql_select_db=nil
   then
-    LoadProcAddress(_mysql_select_db, 'mysql_select_db');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_select_db]
-  end;
+    LoadProcAddress(@_mysql_select_db, 'mysql_select_db');
+  Result := _mysql_select_db(_mysql, db);
 end;
 
 var
-  _mysql_query: FARPROC;
+  _mysql_query: function (_mysql: PMYSQL; q: PAnsiChar): longint; stdcall;
 
-function mysql_query(_mysql: PMYSQL; q: PAnsiChar): longint; stdcall;
+function mysql_query(_mysql: PMYSQL; q: PAnsiChar): longint;
 begin
-  if _mysql_query=nil
+  if @_mysql_query=nil
   then
-    LoadProcAddress(_mysql_query, 'mysql_query');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_query]
-  end;
+    LoadProcAddress(@_mysql_query, 'mysql_query');
+  Result := _mysql_query(_mysql, q);
 end;
 
 var
-  _mysql_send_query: FARPROC;
+  _mysql_send_query: function (_mysql: PMYSQL; q: PAnsiChar; length: longword): longint; stdcall;
 
-function mysql_send_query(_mysql: PMYSQL; q: PAnsiChar; length: longword): longint; stdcall;
+function mysql_send_query(_mysql: PMYSQL; q: PAnsiChar; length: longword): longint;
 begin
-  if _mysql_send_query=nil
+  if @_mysql_send_query=nil
   then
-    LoadProcAddress(_mysql_send_query, 'mysql_send_query');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_send_query]
-  end;
+    LoadProcAddress(@_mysql_send_query, 'mysql_send_query');
+  Result := _mysql_send_query(_mysql, q, length);
 end;
 
 var
-  _mysql_read_query_result: FARPROC;
+  _mysql_read_query_result: function (_mysql: PMYSQL): longint; stdcall;
 
-function mysql_read_query_result(_mysql: PMYSQL): longint; stdcall;
+function mysql_read_query_result(_mysql: PMYSQL): longint;
 begin
-  if _mysql_read_query_result=nil
+  if @_mysql_read_query_result=nil
   then
-    LoadProcAddress(_mysql_read_query_result, 'mysql_read_query_result');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_read_query_result]
-  end;
+    LoadProcAddress(@_mysql_read_query_result, 'mysql_read_query_result');
+  Result := _mysql_read_query_result(_mysql);
 end;
 
 var
-  _mysql_real_query: FARPROC;
+  _mysql_real_query: function (_mysql: PMYSQL; q: PAnsiChar; length: longword): longint; stdcall;
 
-function mysql_real_query(_mysql: PMYSQL; q: PAnsiChar; length: longword): longint; stdcall;
+function mysql_real_query(_mysql: PMYSQL; q: PAnsiChar; length: longword): longint;
 begin
-  if _mysql_real_query=nil
+  if @_mysql_real_query=nil
   then
-    LoadProcAddress(_mysql_real_query, 'mysql_real_query');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_real_query]
-  end;
+    LoadProcAddress(@_mysql_real_query, 'mysql_real_query');
+  Result := _mysql_real_query(_mysql, q, length);
 end;
 
 var
-  _mysql_create_db: FARPROC;
+  _mysql_create_db: function (_mysql: PMYSQL; DB: PAnsiChar): longint; stdcall;
 
-function mysql_create_db(_mysql: PMYSQL; DB: PAnsiChar): longint; stdcall;
+function mysql_create_db(_mysql: PMYSQL; DB: PAnsiChar): longint;
 begin
-  if _mysql_create_db=nil
+  if @_mysql_create_db=nil
   then
-    LoadProcAddress(_mysql_create_db, 'mysql_create_db');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_create_db]
-  end;
+    LoadProcAddress(@_mysql_create_db, 'mysql_create_db');
+  Result := _mysql_create_db(_mysql, DB);
 end;
 
 var
-  _mysql_drop_db: FARPROC;
+  _mysql_drop_db: function (_mysql: PMYSQL; DB: PAnsiChar): longint; stdcall;
 
-function mysql_drop_db(_mysql: PMYSQL; DB: PAnsiChar): longint; stdcall;
+function mysql_drop_db(_mysql: PMYSQL; DB: PAnsiChar): longint;
 begin
-  if _mysql_drop_db=nil
+  if @_mysql_drop_db=nil
   then
-    LoadProcAddress(_mysql_drop_db, 'mysql_drop_db');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_drop_db]
-  end;
+    LoadProcAddress(@_mysql_drop_db, 'mysql_drop_db');
+  Result := _mysql_drop_db(_mysql, DB);
 end;
 
 var
-  _mysql_shutdown: FARPROC;
+  _mysql_shutdown: function (_mysql: PMYSQL): longint; stdcall;
 
-function mysql_shutdown(_mysql: PMYSQL): longint; stdcall;
+function mysql_shutdown(_mysql: PMYSQL): longint;
 begin
-  if _mysql_shutdown=nil
+  if @_mysql_shutdown=nil
   then
-    LoadProcAddress(_mysql_shutdown, 'mysql_shutdown');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_shutdown]
-  end;
+    LoadProcAddress(@_mysql_shutdown, 'mysql_shutdown');
+  Result := _mysql_shutdown(_mysql);
 end;
 
 var
-  _mysql_dump_debug_info: FARPROC;
+  _mysql_dump_debug_info: function (_mysql: PMYSQL): longint; stdcall;
 
-function mysql_dump_debug_info(_mysql: PMYSQL): longint; stdcall;
+function mysql_dump_debug_info(_mysql: PMYSQL): longint;
 begin
-  if _mysql_dump_debug_info=nil
+  if @_mysql_dump_debug_info=nil
   then
-    LoadProcAddress(_mysql_dump_debug_info, 'mysql_dump_debug_info');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_dump_debug_info]
-  end;
+    LoadProcAddress(@_mysql_dump_debug_info, 'mysql_dump_debug_info');
+  Result := _mysql_dump_debug_info(_mysql);
 end;
 
 var
-  _mysql_refresh: FARPROC;
+  _mysql_refresh: function (_mysql: PMYSQL; refresh_options: longword): longint; stdcall;
 
-function mysql_refresh(_mysql: PMYSQL; refresh_options: longword): longint; stdcall;
+function mysql_refresh(_mysql: PMYSQL; refresh_options: longword): longint;
 begin
-  if _mysql_refresh=nil
+  if @_mysql_refresh=nil
   then
-    LoadProcAddress(_mysql_refresh, 'mysql_refresh');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_refresh]
-  end;
+    LoadProcAddress(@_mysql_refresh, 'mysql_refresh');
+  Result := _mysql_refresh(_mysql, refresh_options);
 end;
 
 var
-  _mysql_kill: FARPROC;
+  _mysql_kill: function (_mysql: PMYSQL; pid: longword): longint; stdcall;
 
-function mysql_kill(_mysql: PMYSQL; pid: longword): longint; stdcall;
+function mysql_kill(_mysql: PMYSQL; pid: longword): longint;
 begin
-  if _mysql_kill=nil
+  if @_mysql_kill=nil
   then
-    LoadProcAddress(_mysql_kill, 'mysql_kill');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_kill]
-  end;
+    LoadProcAddress(@_mysql_kill, 'mysql_kill');
+  Result := _mysql_kill(_mysql, pid);
 end;
 
 var
-  _mysql_ping: FARPROC;
+  _mysql_ping: function (_mysql: PMYSQL): longint; stdcall;
 
-function mysql_ping(_mysql: PMYSQL): longint; stdcall;
+function mysql_ping(_mysql: PMYSQL): longint;
 begin
-  if _mysql_ping=nil
+  if @_mysql_ping=nil
   then
-    LoadProcAddress(_mysql_ping, 'mysql_ping');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_ping]
-  end;
+    LoadProcAddress(@_mysql_ping, 'mysql_ping');
+  Result := _mysql_ping(_mysql);
 end;
 
 var
-  _mysql_stat: FARPROC;
+  _mysql_stat: function (_mysql: PMYSQL): PAnsiChar; stdcall;
 
-function mysql_stat(_mysql: PMYSQL): PAnsiChar; stdcall;
+function mysql_stat(_mysql: PMYSQL): PAnsiChar;
 begin
-  if _mysql_stat=nil
+  if @_mysql_stat=nil
   then
-    LoadProcAddress(_mysql_stat, 'mysql_stat');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stat]
-  end;
+    LoadProcAddress(@_mysql_stat, 'mysql_stat');
+  Result := _mysql_stat(_mysql);
 end;
 
 var
-  _mysql_get_server_info: FARPROC;
+  _mysql_get_server_info: function (_mysql: PMYSQL): PAnsiChar; stdcall;
 
-function mysql_get_server_info(_mysql: PMYSQL): PAnsiChar; stdcall;
+function mysql_get_server_info(_mysql: PMYSQL): PAnsiChar;
 begin
-  if _mysql_get_server_info=nil
+  if @_mysql_get_server_info=nil
   then
-    LoadProcAddress(_mysql_get_server_info, 'mysql_get_server_info');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_get_server_info]
-  end;
+    LoadProcAddress(@_mysql_get_server_info, 'mysql_get_server_info');
+  Result := _mysql_get_server_info(_mysql);
 end;
 
 var
-  _mysql_get_client_info: FARPROC;
+  _mysql_get_client_info: function : PAnsiChar; stdcall;
 
-function mysql_get_client_info: PAnsiChar; stdcall;
+function mysql_get_client_info: PAnsiChar;
 begin
-  Result := nil;
-  if _mysql_get_client_info=nil
+  if @_mysql_get_client_info=nil
   then
-    LoadProcAddress(_mysql_get_client_info, 'mysql_get_client_info');
-  if _mysql_get_client_info<>nil
-  then begin
-    asm
-      CALL    [_mysql_get_client_info]
-      MOV     @Result, EAX
-    end;
-  end;
+    LoadProcAddress(@_mysql_get_client_info, 'mysql_get_client_info');
+  if @_mysql_get_client_info<>nil
+  then
+    Result := _mysql_get_client_info
+  else
+    Result := nil;
 end;
 
 var
-  _mysql_get_host_info: FARPROC;
+  _mysql_get_host_info: function (_mysql: PMYSQL): PAnsiChar; stdcall;
 
-function mysql_get_host_info(_mysql: PMYSQL): PAnsiChar; stdcall;
+function mysql_get_host_info(_mysql: PMYSQL): PAnsiChar;
 begin
-  if _mysql_get_host_info=nil
+  if @_mysql_get_host_info=nil
   then
-    LoadProcAddress(_mysql_get_host_info, 'mysql_get_host_info');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_get_host_info]
-  end;
+    LoadProcAddress(@_mysql_get_host_info, 'mysql_get_host_info');
+  Result := _mysql_get_host_info(_mysql);
 end;
 
 var
-  _mysql_get_proto_info: FARPROC;
+  _mysql_get_proto_info: function (_mysql: PMYSQL): longword; stdcall;
 
-function mysql_get_proto_info(_mysql: PMYSQL): longword; stdcall;
+function mysql_get_proto_info(_mysql: PMYSQL): longword;
 begin
-  if _mysql_get_proto_info=nil
+  if @_mysql_get_proto_info=nil
   then
-    LoadProcAddress(_mysql_get_proto_info, 'mysql_get_proto_info');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_get_proto_info]
-  end;
+    LoadProcAddress(@_mysql_get_proto_info, 'mysql_get_proto_info');
+  Result := _mysql_get_proto_info(_mysql);
 end;
 
 var
-  _mysql_list_dbs: FARPROC;
+  _mysql_list_dbs: function (_mysql: PMYSQL; wild: PAnsiChar): PMYSQL_RES; stdcall;
 
-function mysql_list_dbs(_mysql: PMYSQL; wild: PAnsiChar): PMYSQL_RES; stdcall;
+function mysql_list_dbs(_mysql: PMYSQL; wild: PAnsiChar): PMYSQL_RES;
 begin
-  if _mysql_list_dbs=nil
+  if @_mysql_list_dbs=nil
   then
-    LoadProcAddress(_mysql_list_dbs, 'mysql_list_dbs');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_list_dbs]
-  end;
+    LoadProcAddress(@_mysql_list_dbs, 'mysql_list_dbs');
+  Result := _mysql_list_dbs(_mysql, wild);
 end;
 
 var
-  _mysql_list_tables: FARPROC;
+  _mysql_list_tables: function (_mysql: PMYSQL; wild: PAnsiChar): PMYSQL_RES; stdcall;
 
-function mysql_list_tables(_mysql: PMYSQL; wild: PAnsiChar): PMYSQL_RES; stdcall;
+function mysql_list_tables(_mysql: PMYSQL; wild: PAnsiChar): PMYSQL_RES;
 begin
-  if _mysql_list_tables=nil
+  if @_mysql_list_tables=nil
   then
-    LoadProcAddress(_mysql_list_tables, 'mysql_list_tables');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_list_tables]
-  end;
+    LoadProcAddress(@_mysql_list_tables, 'mysql_list_tables');
+  Result := _mysql_list_tables(_mysql, wild);
 end;
 
 var
-  _mysql_list_fields: FARPROC;
+  _mysql_list_fields: function (_mysql: PMYSQL; table, wild: PAnsiChar): PMYSQL_RES; stdcall;
 
-function mysql_list_fields(_mysql: PMYSQL; table, wild: PAnsiChar): PMYSQL_RES; stdcall;
+function mysql_list_fields(_mysql: PMYSQL; table, wild: PAnsiChar): PMYSQL_RES;
 begin
-  if _mysql_list_fields=nil
+  if @_mysql_list_fields=nil
   then
-    LoadProcAddress(_mysql_list_fields, 'mysql_list_fields');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_list_fields]
-  end;
+    LoadProcAddress(@_mysql_list_fields, 'mysql_list_fields');
+  Result := _mysql_list_fields(_mysql, table, wild);
 end;
 
 var
-  _mysql_list_processes: FARPROC;
+  _mysql_list_processes: function (_mysql: PMYSQL): PMYSQL_RES; stdcall;
 
-function mysql_list_processes(_mysql: PMYSQL): PMYSQL_RES; stdcall;
+function mysql_list_processes(_mysql: PMYSQL): PMYSQL_RES;
 begin
-  if _mysql_list_processes=nil
+  if @_mysql_list_processes=nil
   then
-    LoadProcAddress(_mysql_list_processes, 'mysql_list_processes');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_list_processes]
-  end;
+    LoadProcAddress(@_mysql_list_processes, 'mysql_list_processes');
+  Result := _mysql_list_processes(_mysql);
 end;
 
 var
-  _mysql_store_result: FARPROC;
+  _mysql_store_result: function (_mysql: PMYSQL): PMYSQL_RES; stdcall;
 
-function mysql_store_result(_mysql: PMYSQL): PMYSQL_RES; stdcall;
+function mysql_store_result(_mysql: PMYSQL): PMYSQL_RES;
 begin
-  if _mysql_store_result=nil
+  if @_mysql_store_result=nil
   then
-    LoadProcAddress(_mysql_store_result, 'mysql_store_result');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_store_result]
-  end;
+    LoadProcAddress(@_mysql_store_result, 'mysql_store_result');
+  Result := _mysql_store_result(_mysql);
 end;
 
 var
-  _mysql_use_result: FARPROC;
+  _mysql_use_result: function (_mysql: PMYSQL): PMYSQL_RES; stdcall;
 
-function mysql_use_result(_mysql: PMYSQL): PMYSQL_RES; stdcall;
+function mysql_use_result(_mysql: PMYSQL): PMYSQL_RES;
 begin
-  if _mysql_use_result=nil
+  if @_mysql_use_result=nil
   then
-    LoadProcAddress(_mysql_use_result, 'mysql_use_result');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_use_result]
-  end;
+    LoadProcAddress(@_mysql_use_result, 'mysql_use_result');
+  Result := _mysql_use_result(_mysql);
 end;
 
 var
-  _mysql_more_results: FARPROC;
+  _mysql_more_results: function (_mysql: PMYSQL): my_bool; stdcall;
 
-function mysql_more_results(_mysql: PMYSQL): my_bool; stdcall;
+function mysql_more_results(_mysql: PMYSQL): my_bool;
 begin
-  if _mysql_more_results=nil
+  if @_mysql_more_results=nil
   then
-    LoadProcAddress(_mysql_more_results, 'mysql_more_results');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_more_results]
-  end;
+    LoadProcAddress(@_mysql_more_results, 'mysql_more_results');
+  Result := _mysql_more_results(_mysql);
 end;
 
 var
-  _mysql_next_result: FARPROC;
+  _mysql_next_result: function (_mysql: PMYSQL): longint; stdcall;
 
-function mysql_next_result(_mysql: PMYSQL): longint; stdcall;
+function mysql_next_result(_mysql: PMYSQL): longint;
 begin
-  if _mysql_next_result=nil
+  if @_mysql_next_result=nil
   then
-    LoadProcAddress(_mysql_next_result, 'mysql_next_result');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_next_result]
-  end;
+    LoadProcAddress(@_mysql_next_result, 'mysql_next_result');
+  Result := _mysql_next_result(_mysql);
 end;
 
 var
-  _mysql_options: FARPROC;
+  _mysql_options: function (_mysql: PMYSQL; option: mysql_option; arg: Pointer): longint; stdcall;
 
-function mysql_options(_mysql: PMYSQL; option: mysql_option; arg: Pointer): longint; stdcall;
+function mysql_options(_mysql: PMYSQL; option: mysql_option; arg: Pointer): longint;
 begin
-  if _mysql_options=nil
+  if @_mysql_options=nil
   then
-    LoadProcAddress(_mysql_options, 'mysql_options');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_options]
-  end;
+    LoadProcAddress(@_mysql_options, 'mysql_options');
+  Result := _mysql_options(_mysql, option, arg);
 end;
 
 var
-  _mysql_free_result: FARPROC;
+  _mysql_free_result: procedure (_mysql_res: PMYSQL_RES); stdcall;
 
-procedure mysql_free_result(_mysql_res: PMYSQL_RES); stdcall;
+procedure mysql_free_result(_mysql_res: PMYSQL_RES);
 begin
-  if _mysql_free_result=nil
+  if @_mysql_free_result=nil
   then
-    LoadProcAddress(_mysql_free_result, 'mysql_free_result');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_free_result]
-  end;
+    LoadProcAddress(@_mysql_free_result, 'mysql_free_result');
+  _mysql_free_result(_mysql_res);
 end;
 
 var
-  _mysql_data_seek: FARPROC;
+  _mysql_data_seek: procedure (_mysql_res: PMYSQL_RES; offset: my_ulonglong); stdcall;
 
-procedure mysql_data_seek(_mysql_res: PMYSQL_RES; offset: my_ulonglong); stdcall;
+procedure mysql_data_seek(_mysql_res: PMYSQL_RES; offset: my_ulonglong);
 begin
-  if _mysql_data_seek=nil
+  if @_mysql_data_seek=nil
   then
-    LoadProcAddress(_mysql_data_seek, 'mysql_data_seek');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_data_seek]
-  end;
+    LoadProcAddress(@_mysql_data_seek, 'mysql_data_seek');
+  _mysql_data_seek(_mysql_res, offset);
 end;
 
 var
-  _mysql_row_seek: FARPROC;
+  _mysql_row_seek: function (_mysql_res: PMYSQL_RES; offset: MYSQL_ROW_OFFSET): MYSQL_ROW_OFFSET; stdcall;
 
-function mysql_row_seek(_mysql_res: PMYSQL_RES; offset: MYSQL_ROW_OFFSET): MYSQL_ROW_OFFSET; stdcall;
+function mysql_row_seek(_mysql_res: PMYSQL_RES; offset: MYSQL_ROW_OFFSET): MYSQL_ROW_OFFSET;
 begin
-  if _mysql_row_seek=nil
+  if @_mysql_row_seek=nil
   then
-    LoadProcAddress(_mysql_row_seek, 'mysql_row_seek');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_row_seek]
-  end;
+    LoadProcAddress(@_mysql_row_seek, 'mysql_row_seek');
+  Result := _mysql_row_seek(_mysql_res, offset);
 end;
 
 var
-  _mysql_field_seek: FARPROC;
+  _mysql_field_seek: function (_mysql_res: PMYSQL_RES; offset: MYSQL_FIELD_OFFSET): MYSQL_FIELD_OFFSET; stdcall;
 
-function mysql_field_seek(_mysql_res: PMYSQL_RES; offset: MYSQL_FIELD_OFFSET): MYSQL_FIELD_OFFSET; stdcall;
+function mysql_field_seek(_mysql_res: PMYSQL_RES; offset: MYSQL_FIELD_OFFSET): MYSQL_FIELD_OFFSET;
 begin
-  if _mysql_field_seek=nil
+  if @_mysql_field_seek=nil
   then
-    LoadProcAddress(_mysql_field_seek, 'mysql_field_seek');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_field_seek]
-  end;
+    LoadProcAddress(@_mysql_field_seek, 'mysql_field_seek');
+  Result := _mysql_field_seek(_mysql_res, offset);
 end;
 
 var
-  _mysql_fetch_row: FARPROC;
+  _mysql_fetch_row: function (_mysql_res: PMYSQL_RES): PMYSQL_ROW; stdcall;
 
-function mysql_fetch_row(_mysql_res: PMYSQL_RES): PMYSQL_ROW; stdcall;
+function mysql_fetch_row(_mysql_res: PMYSQL_RES): PMYSQL_ROW;
 begin
-  if _mysql_fetch_row=nil
+  if @_mysql_fetch_row=nil
   then
-    LoadProcAddress(_mysql_fetch_row, 'mysql_fetch_row');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_fetch_row]
-  end;
+    LoadProcAddress(@_mysql_fetch_row, 'mysql_fetch_row');
+  Result := _mysql_fetch_row(_mysql_res);
 end;
 
 var
-  _mysql_fetch_lengths: FARPROC;
+  _mysql_fetch_lengths: function (_mysql_res: PMYSQL_RES): PMYSQL_LENGTHS; stdcall;
 
-function mysql_fetch_lengths(_mysql_res: PMYSQL_RES): PMYSQL_LENGTHS; stdcall;
+function mysql_fetch_lengths(_mysql_res: PMYSQL_RES): PMYSQL_LENGTHS;
 begin
-  if _mysql_fetch_lengths=nil
+  if @_mysql_fetch_lengths=nil
   then
-    LoadProcAddress(_mysql_fetch_lengths, 'mysql_fetch_lengths');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_fetch_lengths]
-  end;
+    LoadProcAddress(@_mysql_fetch_lengths, 'mysql_fetch_lengths');
+  Result := _mysql_fetch_lengths(_mysql_res);
 end;
 
 var
-  _mysql_fetch_field: FARPROC;
+  _mysql_fetch_field: function (_mysql_res: PMYSQL_RES): PMYSQL_FIELD; stdcall;
 
-function mysql_fetch_field(_mysql_res: PMYSQL_RES): PMYSQL_FIELD; stdcall;
+function mysql_fetch_field(_mysql_res: PMYSQL_RES): PMYSQL_FIELD;
 begin
-  if _mysql_fetch_field=nil
+  if @_mysql_fetch_field=nil
   then
-    LoadProcAddress(_mysql_fetch_field, 'mysql_fetch_field');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_fetch_field]
-  end;
+    LoadProcAddress(@_mysql_fetch_field, 'mysql_fetch_field');
+  Result := _mysql_fetch_field(_mysql_res);
 end;
 
 var
-  _mysql_escape_string: FARPROC;
+  _mysql_escape_string: function (_to: PAnsiChar; from: PAnsiChar; from_length: longword): longword; stdcall;
 
-function mysql_escape_string(_to: PAnsiChar; from: PAnsiChar; from_length: longword): longword; stdcall;
+function mysql_escape_string(_to: PAnsiChar; from: PAnsiChar; from_length: longword): longword;
 begin
-  if _mysql_escape_string=nil
+  if @_mysql_escape_string=nil
   then
-    LoadProcAddress(_mysql_escape_string, 'mysql_escape_string');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_escape_string]
-  end;
+    LoadProcAddress(@_mysql_escape_string, 'mysql_escape_string');
+  Result := _mysql_escape_string(_to, from, from_length);
 end;
 
 var
-  _mysql_real_escape_string: FARPROC;
+  _mysql_real_escape_string: function (_mysql: PMYSQL; _to: PAnsiChar; from: PAnsiChar; length: longword): longword; stdcall;
 
-function mysql_real_escape_string(_mysql: PMYSQL; _to: PAnsiChar; from: PAnsiChar; length: longword): longword; stdcall;
+function mysql_real_escape_string(_mysql: PMYSQL; _to: PAnsiChar; from: PAnsiChar; length: longword): longword;
 begin
-  if _mysql_real_escape_string=nil
+  if @_mysql_real_escape_string=nil
   then
-    LoadProcAddress(_mysql_real_escape_string, 'mysql_real_escape_string');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_real_escape_string]
-  end;
+    LoadProcAddress(@_mysql_real_escape_string, 'mysql_real_escape_string');
+  Result := _mysql_real_escape_string(_mysql, _to, from, length);
 end;
 
 var
-  _mysql_debug: FARPROC;
+  _mysql_debug: procedure (debug: PAnsiChar); stdcall;
 
-procedure mysql_debug(debug: PAnsiChar); stdcall;
+procedure mysql_debug(debug: PAnsiChar);
 begin
-  if _mysql_debug=nil
+  if @_mysql_debug=nil
   then
-    LoadProcAddress(_mysql_debug, 'mysql_debug');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_debug]
-  end;
+    LoadProcAddress(@_mysql_debug, 'mysql_debug');
+  _mysql_debug(debug);
 end;
 
 var
-  _mysql_odbc_escape_string: FARPROC;
+  _mysql_odbc_escape_string: function (_mysql: PMYSQL; _to: PAnsiChar; to_length: longword; from: PAnsiChar; from_length: longword; param: pointer; extend_buffer: extend_buffer_func): PAnsiChar; stdcall;
 
-function mysql_odbc_escape_string(_mysql: PMYSQL; _to: PAnsiChar; to_length: longword; from: PAnsiChar; from_length: longword; param: pointer; extend_buffer: extend_buffer_func): PAnsiChar; stdcall;
+function mysql_odbc_escape_string(_mysql: PMYSQL; _to: PAnsiChar; to_length: longword; from: PAnsiChar; from_length: longword; param: pointer; extend_buffer: extend_buffer_func): PAnsiChar;
 begin
-  if _mysql_odbc_escape_string=nil
+  if @_mysql_odbc_escape_string=nil
   then
-    LoadProcAddress(_mysql_odbc_escape_string, 'mysql_odbc_escape_string');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_odbc_escape_string]
-  end;
+    LoadProcAddress(@_mysql_odbc_escape_string, 'mysql_odbc_escape_string');
+  Result := _mysql_odbc_escape_string(_mysql, _to, to_length, from, from_length, param, extend_buffer);
 end;
 
 var
-  _myodbc_remove_escape: FARPROC;
+  _myodbc_remove_escape: procedure (_mysql: PMYSQL; name: PAnsiChar); stdcall;
 
-procedure myodbc_remove_escape(_mysql: PMYSQL; name: PAnsiChar); stdcall;
+procedure myodbc_remove_escape(_mysql: PMYSQL; name: PAnsiChar);
 begin
-  if _myodbc_remove_escape=nil
+  if @_myodbc_remove_escape=nil
   then
-    LoadProcAddress(_myodbc_remove_escape, 'myodbc_remove_escape');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_myodbc_remove_escape]
-  end;
+    LoadProcAddress(@_myodbc_remove_escape, 'myodbc_remove_escape');
+  _myodbc_remove_escape(_mysql, name);
 end;
 
 var
-  _mysql_thread_safe: FARPROC;
+  _mysql_thread_safe: function : longword; stdcall;
 
-function mysql_thread_safe: longword; stdcall;
+function mysql_thread_safe: longword;
 begin
-  if _mysql_thread_safe=nil
+  if @_mysql_thread_safe=nil
   then
-    LoadProcAddress(_mysql_thread_safe, 'mysql_thread_safe');
-  asm
-    CALL    [_mysql_thread_safe]
-    MOV     @RESULT, EAX
-  end;
+    LoadProcAddress(@_mysql_thread_safe, 'mysql_thread_safe');
+  Result := _mysql_thread_safe;
 end;
 
 var
-  _mysql_get_client_version: FARPROC;
+  _mysql_get_client_version: function : longword; stdcall;
 
-function mysql_get_client_version: longword; stdcall;
+function mysql_get_client_version: longword;
 begin
-  if _mysql_get_client_version=nil
-  then begin
-    _mysql_get_client_version := GetProcAddress(libmysql_handle, 'mysql_get_client_version');
-    if _mysql_get_client_version=nil
-    then
-      _mysql_get_client_version := @libmysql_ClientVersion_substitute;
-    PushProc(@_mysql_get_client_version);
-  end;
-  asm
-    CALL    [_mysql_get_client_version]
-    MOV     @RESULT, EAX
-  end;
+  if @_mysql_get_client_version=nil
+  then
+    LoadProcAddress(@_mysql_get_client_version, 'mysql_get_client_version');
+  Result := _mysql_get_client_version;
 end;
 
 var
-  _mysql_get_server_version: FARPROC;
+  _mysql_get_server_version: function (_mysql: PMYSQL): longword; stdcall;
 
-function mysql_get_server_version(_mysql: PMYSQL): longword; stdcall;
+function mysql_get_server_version(_mysql: PMYSQL): longword;
 begin
-  if _mysql_get_server_version=nil
-  then begin
-    _mysql_get_server_version := GetProcAddress(libmysql_handle, 'mysql_get_server_version');
-    if (_mysql_get_server_version=nil)
-    then
-      _mysql_get_server_version := @libmysql_ServerVersion_substitute;
-    PushProc(@_mysql_get_server_version);
-  end;
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_get_server_version]
-  end;
+  if @_mysql_get_server_version=nil
+  then
+    LoadProcAddress(@_mysql_get_server_version, 'mysql_get_server_version');
+  Result := _mysql_get_server_version(_mysql);
 end;
 
 var
-  _mysql_set_character_set: FARPROC;
+  _mysql_set_character_set: function (_mysql: PMYSQL; csname: PAnsiChar): longint; stdcall;
 
-function mysql_set_character_set(_mysql: PMYSQL; csname: PAnsiChar): longint; stdcall;
+function mysql_set_character_set(_mysql: PMYSQL; csname: PAnsiChar): longint;
 begin
-  if _mysql_set_character_set=nil
+  if @_mysql_set_character_set=nil
   then
-    LoadProcAddress(_mysql_set_character_set, 'mysql_set_character_set');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_set_character_set]
-  end;
+    LoadProcAddress(@_mysql_set_character_set, 'mysql_set_character_set');
+  Result := _mysql_set_character_set(_mysql, csname);
 end;
 
 var
-  _mysql_autocommit: FARPROC;
+  _mysql_autocommit: function (_mysql: PMYSQL; mode: my_bool ): my_bool; stdcall;
 
-function mysql_autocommit(_mysql: PMYSQL; mode: my_bool ): my_bool; stdcall;
+function mysql_autocommit(_mysql: PMYSQL; mode: my_bool ): my_bool;
 begin
-  if _mysql_autocommit=nil
+  if @_mysql_autocommit=nil
   then
-    LoadProcAddress(_mysql_autocommit, 'mysql_autocommit');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_autocommit]
-  end;
+    LoadProcAddress(@_mysql_autocommit, 'mysql_autocommit');
+  Result := _mysql_autocommit(_mysql, mode);
 end;
 
 var
-  _mysql_commit: FARPROC;
+  _mysql_commit: function (_mysql: PMYSQL): my_bool; stdcall;
 
-function mysql_commit(_mysql: PMYSQL): my_bool; stdcall;
+function mysql_commit(_mysql: PMYSQL): my_bool;
 begin
-  if _mysql_commit=nil
+  if @_mysql_commit=nil
   then
-    LoadProcAddress(_mysql_commit, 'mysql_commit');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_commit]
-  end;
+    LoadProcAddress(@_mysql_commit, 'mysql_commit');
+  Result := _mysql_commit(_mysql);
 end;
 
 var
-  _mysql_rollback: FARPROC;
+  _mysql_rollback: function (_mysql: PMYSQL): my_bool; stdcall;
 
-function mysql_rollback(_mysql: PMYSQL): my_bool; stdcall;
+function mysql_rollback(_mysql: PMYSQL): my_bool;
 begin
-  if _mysql_rollback=nil
+  if @_mysql_rollback=nil
   then
-    LoadProcAddress(_mysql_rollback, 'mysql_rollback');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_rollback]
-  end;
+    LoadProcAddress(@_mysql_rollback, 'mysql_rollback');
+  Result := _mysql_rollback(_mysql);
 end;
 
 var
-  _mysql_set_server_option: FARPROC;
+  _mysql_set_server_option: function (_mysql: PMYSQL; option: enum_mysql_set_option): longint; stdcall;
 
-function mysql_set_server_option(_mysql: PMYSQL; option: enum_mysql_set_option): longint; stdcall;
+function mysql_set_server_option(_mysql: PMYSQL; option: enum_mysql_set_option): longint;
 begin
-  if _mysql_set_server_option=nil
+  if @_mysql_set_server_option=nil
   then
-    LoadProcAddress(_mysql_set_server_option, 'mysql_set_server_option');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_set_server_option]
-  end;
+    LoadProcAddress(@_mysql_set_server_option, 'mysql_set_server_option');
+  Result := _mysql_set_server_option(_mysql, option);
 end;
 
 var
-  _mysql_sqlstate: FARPROC;
+  _mysql_sqlstate: function (_mysql: PMYSQL): PAnsiChar; stdcall;
 
-function mysql_sqlstate(_mysql: PMYSQL): PAnsiChar; stdcall;
+function mysql_sqlstate(_mysql: PMYSQL): PAnsiChar;
 begin
-  if _mysql_sqlstate=nil
+  if @_mysql_sqlstate=nil
   then
-    LoadProcAddress(_mysql_sqlstate, 'mysql_sqlstate');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_sqlstate]
-  end;
+    LoadProcAddress(@_mysql_sqlstate, 'mysql_sqlstate');
+  Result := _mysql_sqlstate(_mysql);
 end;
 
 var
-  _mysql_warning_count: FARPROC;
+  _mysql_warning_count: function (_mysql: PMYSQL): longword; stdcall;
 
-function mysql_warning_count(_mysql: PMYSQL): longword; stdcall;
+function mysql_warning_count(_mysql: PMYSQL): longword;
 begin
-  if _mysql_warning_count=nil
+  if @_mysql_warning_count=nil
   then
-    LoadProcAddress(_mysql_warning_count, 'mysql_warning_count');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_warning_count]
-  end;
+    LoadProcAddress(@_mysql_warning_count, 'mysql_warning_count');
+  Result := _mysql_warning_count(_mysql);
 end;
 
 var
-  _mysql_server_init: FARPROC;
+  _mysql_server_init: function (argc: Integer; argv, groups: PPAnsiChar): Integer; stdcall;
 
-function mysql_server_init(argc: Integer; argv, groups: PPAnsiChar): Integer; stdcall;
+function mysql_server_init(argc: Integer; argv, groups: PPAnsiChar): Integer;
 begin
-  if _mysql_server_init=nil
+  if @_mysql_server_init=nil
   then
-    LoadProcAddress(_mysql_server_init, 'mysql_server_init');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_server_init]
-  end;
+    LoadProcAddress(@_mysql_server_init, 'mysql_server_init');
+  Result := _mysql_server_init(argc, argv, groups);
 end;
 
 var
-  _mysql_server_end: FARPROC;
+  _mysql_server_end: procedure; stdcall;
 
 procedure mysql_server_end;
 begin
-  if _mysql_server_end=nil
+  if @_mysql_server_end=nil
   then
-    LoadProcAddress(_mysql_server_end, 'mysql_server_end');
-  asm
-    CALL     [_mysql_server_end]
-  end;
+    LoadProcAddress(@_mysql_server_end, 'mysql_server_end');
+  _mysql_server_end;
 end;
 
 var
-  _mysql_thread_init: FARPROC;
+  _mysql_thread_init: function: my_bool; stdcall;
 
-function mysql_thread_init: my_bool; stdcall;
+function mysql_thread_init: my_bool;
 begin
-  if _mysql_thread_init=nil
+  if @_mysql_thread_init=nil
   then
-    LoadProcAddress(_mysql_thread_init, 'mysql_thread_init');
-  asm
-    CALL     [_mysql_thread_init]
-  end;
+    LoadProcAddress(@_mysql_thread_init, 'mysql_thread_init');
+  Result := _mysql_thread_init;
 end;
 
 var
-  _mysql_thread_end: FARPROC;
+  _mysql_thread_end: procedure; stdcall;
 
-procedure mysql_thread_end; stdcall;
+procedure mysql_thread_end;
 begin
-  if _mysql_thread_end=nil
+  if @_mysql_thread_end=nil
   then
-    LoadProcAddress(_mysql_thread_end, 'mysql_thread_end');
-  asm
-    CALL     [_mysql_thread_end]
-  end;
+    LoadProcAddress(@_mysql_thread_end, 'mysql_thread_end');
+  _mysql_thread_end;
 end;
 
 var
-  _mysql_stmt_affected_rows: FARPROC;
+  _mysql_stmt_affected_rows: function (stmt: PMYSQL_STMT): my_ulonglong; stdcall;
 
 function mysql_stmt_affected_rows(stmt: PMYSQL_STMT): my_ulonglong;
 begin
-  if _mysql_stmt_affected_rows=nil
+  if @_mysql_stmt_affected_rows=nil
   then
-    LoadProcAddress(_mysql_stmt_affected_rows, 'mysql_stmt_affected_rows');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_affected_rows]
-  end;
+    LoadProcAddress(@_mysql_stmt_affected_rows, 'mysql_stmt_affected_rows');
+  Result := _mysql_stmt_affected_rows(stmt);
 end;
 
 var
-  _mysql_stmt_attr_get: FARPROC;
+  _mysql_stmt_attr_get: function (stmt: PMYSQL_STMT; option: enum_stmt_attr_type; var arg): Integer; stdcall;
 
 function mysql_stmt_attr_get(stmt: PMYSQL_STMT; option: enum_stmt_attr_type; var arg): Integer;
 begin
-  if _mysql_stmt_attr_get=nil
+  if @_mysql_stmt_attr_get=nil
   then
-    LoadProcAddress(_mysql_stmt_attr_get, 'mysql_stmt_attr_get');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_attr_get]
-  end;
+    LoadProcAddress(@_mysql_stmt_attr_get, 'mysql_stmt_attr_get');
+  Result := _mysql_stmt_attr_get(stmt, option, arg);
 end;
 
 var
-  _mysql_stmt_attr_set: FARPROC;
+  _mysql_stmt_attr_set: function (stmt: PMYSQL_STMT; option: enum_stmt_attr_type; const arg): Integer; stdcall;
 
 function mysql_stmt_attr_set(stmt: PMYSQL_STMT; option: enum_stmt_attr_type; const arg): Integer;
 begin
-  if _mysql_stmt_attr_set=nil
+  if @_mysql_stmt_attr_set=nil
   then
-    LoadProcAddress(_mysql_stmt_attr_set, 'mysql_stmt_attr_set');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_attr_set]
-  end;
+    LoadProcAddress(@_mysql_stmt_attr_set, 'mysql_stmt_attr_set');
+  Result := _mysql_stmt_attr_set(stmt, option, arg);
 end;
 
 var
-  _mysql_stmt_bind_param: FARPROC;
+  _mysql_stmt_bind_param: function (stmt: PMYSQL_STMT; bind: PMYSQL_BIND): my_bool; stdcall;
 
 function mysql_stmt_bind_param(stmt: PMYSQL_STMT; bind: PMYSQL_BIND): my_bool;
 begin
-  if _mysql_stmt_bind_param=nil
+  if @_mysql_stmt_bind_param=nil
   then
-    LoadProcAddress(_mysql_stmt_bind_param, 'mysql_stmt_bind_param');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_bind_param]
-  end;
+    LoadProcAddress(@_mysql_stmt_bind_param, 'mysql_stmt_bind_param');
+  Result := _mysql_stmt_bind_param(stmt, bind);
 end;
 
 var
-  _mysql_stmt_bind_result: FARPROC;
+  _mysql_stmt_bind_result: function (stmt: PMYSQL_STMT; bind: PMYSQL_BIND): my_bool; stdcall;
 
 function mysql_stmt_bind_result(stmt: PMYSQL_STMT; bind: PMYSQL_BIND): my_bool;
 begin
-  if _mysql_stmt_bind_result=nil
+  if @_mysql_stmt_bind_result=nil
   then
-    LoadProcAddress(_mysql_stmt_bind_result, 'mysql_stmt_bind_result');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_bind_result]
-  end;
+    LoadProcAddress(@_mysql_stmt_bind_result, 'mysql_stmt_bind_result');
+  Result := _mysql_stmt_bind_result(stmt, bind);
 end;
 
 var
-  _mysql_stmt_close: FARPROC;
+  _mysql_stmt_close: function (stmt: PMYSQL_STMT): my_bool; stdcall;
 
 function mysql_stmt_close(stmt: PMYSQL_STMT): my_bool;
 begin
-  if _mysql_stmt_close=nil
+  if @_mysql_stmt_close=nil
   then
-    LoadProcAddress(_mysql_stmt_close, 'mysql_stmt_close');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_close]
-  end;
+    LoadProcAddress(@_mysql_stmt_close, 'mysql_stmt_close');
+  Result := _mysql_stmt_close(stmt);
 end;
 
 var
-  _mysql_stmt_data_seek: FARPROC;
+  _mysql_stmt_data_seek: procedure (stmt: PMYSQL_STMT; offset: my_ulonglong); stdcall;
 
 procedure mysql_stmt_data_seek(stmt: PMYSQL_STMT; offset: my_ulonglong);
 begin
-  if _mysql_stmt_data_seek=nil
+  if @_mysql_stmt_data_seek=nil
   then
-    LoadProcAddress(_mysql_stmt_data_seek, 'mysql_stmt_data_seek');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_data_seek]
-  end;
+    LoadProcAddress(@_mysql_stmt_data_seek, 'mysql_stmt_data_seek');
+  _mysql_stmt_data_seek(stmt, offset);
 end;
 
 var
-  _mysql_stmt_errno: FARPROC;
+  _mysql_stmt_errno: function (stmt: PMYSQL_STMT): DWORD; stdcall;
 
 function mysql_stmt_errno(stmt: PMYSQL_STMT): DWORD;
 begin
-  if _mysql_stmt_errno=nil
+  if @_mysql_stmt_errno=nil
   then
-    LoadProcAddress(_mysql_stmt_errno, 'mysql_stmt_errno');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_errno]
-  end;
+    LoadProcAddress(@_mysql_stmt_errno, 'mysql_stmt_errno');
+  Result := _mysql_stmt_errno(stmt);
 end;
 
 var
-  _mysql_stmt_error: FARPROC;
+  _mysql_stmt_error: function (stmt: PMYSQL_STMT): PAnsiChar; stdcall;
 
 function mysql_stmt_error(stmt: PMYSQL_STMT): PAnsiChar;
 begin
-  if _mysql_stmt_error=nil
+  if @_mysql_stmt_error=nil
   then
-    LoadProcAddress(_mysql_stmt_error, 'mysql_stmt_error');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_error]
-  end;
+    LoadProcAddress(@_mysql_stmt_error, 'mysql_stmt_error');
+  Result := _mysql_stmt_error(stmt);
 end;
 
 var
-  _mysql_stmt_execute: FARPROC;
+  _mysql_stmt_execute: function (stmt: PMYSQL_STMT): Integer; stdcall;
 
 function mysql_stmt_execute(stmt: PMYSQL_STMT): Integer;
 begin
-  if _mysql_stmt_execute=nil
+  if @_mysql_stmt_execute=nil
   then
-    LoadProcAddress(_mysql_stmt_execute, 'mysql_stmt_execute');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_execute]
-  end;
+    LoadProcAddress(@_mysql_stmt_execute, 'mysql_stmt_execute');
+  Result := _mysql_stmt_execute(stmt);
 end;
 
 var
-  _mysql_stmt_fetch: FARPROC;
+  _mysql_stmt_fetch: function (stmt: PMYSQL_STMT): Integer; stdcall;
 
 function mysql_stmt_fetch(stmt: PMYSQL_STMT): Integer;
 begin
-  if _mysql_stmt_fetch=nil
+  if @_mysql_stmt_fetch=nil
   then
-    LoadProcAddress(_mysql_stmt_fetch, 'mysql_stmt_fetch');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_fetch]
-  end;
+    LoadProcAddress(@_mysql_stmt_fetch, 'mysql_stmt_fetch');
+  Result := _mysql_stmt_fetch(stmt);
 end;
 
 var
-  _mysql_stmt_fetch_column: FARPROC;
+  _mysql_stmt_fetch_column: function (stmt: PMYSQL_STMT; bind: PMYSQL_BIND; column: DWORD; offset: DWORD): Integer; stdcall;
 
 function mysql_stmt_fetch_column(stmt: PMYSQL_STMT; bind: PMYSQL_BIND; column: DWORD; offset: DWORD): Integer;
 begin
-  if _mysql_stmt_fetch_column=nil
+  if @_mysql_stmt_fetch_column=nil
   then
-    LoadProcAddress(_mysql_stmt_fetch_column, 'mysql_stmt_fetch_column');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_fetch_column]
-  end;
+    LoadProcAddress(@_mysql_stmt_fetch_column, 'mysql_stmt_fetch_column');
+  Result := _mysql_stmt_fetch_column(stmt, bind, column, offset);
 end;
 
 var
-  _mysql_stmt_field_count: FARPROC;
+  _mysql_stmt_field_count: function (stmt: PMYSQL_STMT): DWORD; stdcall;
 
 function mysql_stmt_field_count(stmt: PMYSQL_STMT): DWORD;
 begin
-  if _mysql_stmt_field_count=nil
+  if @_mysql_stmt_field_count=nil
   then
-    LoadProcAddress(_mysql_stmt_field_count, 'mysql_stmt_field_count');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_field_count]
-  end;
+    LoadProcAddress(@_mysql_stmt_field_count, 'mysql_stmt_field_count');
+  Result := _mysql_stmt_field_count(stmt);
 end;
 
 var
-  _mysql_stmt_free_result: FARPROC;
+  _mysql_stmt_free_result: function (stmt: PMYSQL_STMT): my_bool; stdcall;
 
 function mysql_stmt_free_result(stmt: PMYSQL_STMT): my_bool;
 begin
-  if _mysql_stmt_free_result=nil
+  if @_mysql_stmt_free_result=nil
   then
-    LoadProcAddress(_mysql_stmt_free_result, 'mysql_stmt_free_result');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_free_result]
-  end;
+    LoadProcAddress(@_mysql_stmt_free_result, 'mysql_stmt_free_result');
+  Result := _mysql_stmt_free_result(stmt);
 end;
 
 var
-  _mysql_stmt_init: FARPROC;
+  _mysql_stmt_init: function (_mysql: PMYSQL): PMYSQL_STMT; stdcall;
 
 function mysql_stmt_init(_mysql: PMYSQL): PMYSQL_STMT;
 begin
-  if _mysql_stmt_init=nil
+  if @_mysql_stmt_init=nil
   then
-    LoadProcAddress(_mysql_stmt_init, 'mysql_stmt_init');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_init]
-  end;
+    LoadProcAddress(@_mysql_stmt_init, 'mysql_stmt_init');
+  Result := _mysql_stmt_init(_mysql);
 end;
 
 var
-  _mysql_stmt_insert_id: FARPROC;
+  _mysql_stmt_insert_id: function (stmt: PMYSQL_STMT): my_ulonglong; stdcall;
 
 function mysql_stmt_insert_id(stmt: PMYSQL_STMT): my_ulonglong;
 begin
-  if _mysql_stmt_insert_id=nil
+  if @_mysql_stmt_insert_id=nil
   then
-    LoadProcAddress(_mysql_stmt_insert_id, 'mysql_stmt_insert_id');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_insert_id]
-  end;
+    LoadProcAddress(@_mysql_stmt_insert_id, 'mysql_stmt_insert_id');
+  Result := _mysql_stmt_insert_id(stmt);
 end;
 
 var
-  _mysql_stmt_num_rows: FARPROC;
+  _mysql_stmt_num_rows: function (stmt: PMYSQL_STMT): my_ulonglong; stdcall;
 
 function mysql_stmt_num_rows(stmt: PMYSQL_STMT): my_ulonglong;
 begin
-  if _mysql_stmt_num_rows=nil
+  if @_mysql_stmt_num_rows=nil
   then
-    LoadProcAddress(_mysql_stmt_num_rows, 'mysql_stmt_num_rows');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_num_rows]
-  end;
+    LoadProcAddress(@_mysql_stmt_num_rows, 'mysql_stmt_num_rows');
+  Result := _mysql_stmt_num_rows(stmt);
 end;
 
 var
-  _mysql_stmt_param_count: FARPROC;
+  _mysql_stmt_param_count: function (stmt: PMYSQL_STMT): DWORD; stdcall;
 
 function mysql_stmt_param_count(stmt: PMYSQL_STMT): DWORD;
 begin
-  if _mysql_stmt_param_count=nil
+  if @_mysql_stmt_param_count=nil
   then
-    LoadProcAddress(_mysql_stmt_param_count, 'mysql_stmt_param_count');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_param_count]
-  end;
+    LoadProcAddress(@_mysql_stmt_param_count, 'mysql_stmt_param_count');
+  Result := _mysql_stmt_param_count(stmt);
 end;
 
 var
-  _mysql_stmt_param_metadata: FARPROC;
+  _mysql_stmt_param_metadata: function (stmt: PMYSQL_STMT): PMYSQL_RES; stdcall;
 
 function mysql_stmt_param_metadata(stmt: PMYSQL_STMT): PMYSQL_RES;
 begin
-  if _mysql_stmt_param_metadata=nil
+  if @_mysql_stmt_param_metadata=nil
   then
-    LoadProcAddress(_mysql_stmt_param_metadata, 'mysql_stmt_param_metadata');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_param_metadata]
-  end;
+    LoadProcAddress(@_mysql_stmt_param_metadata, 'mysql_stmt_param_metadata');
+  Result := _mysql_stmt_param_metadata(stmt);
 end;
 
 var
-  _mysql_stmt_prepare: FARPROC;
+  _mysql_stmt_prepare: function (stmt: PMYSQL_STMT; query: PAnsiChar; length: DWORD): Integer; stdcall;
 
 function mysql_stmt_prepare(stmt: PMYSQL_STMT; query: PAnsiChar; length: DWORD): Integer;
 begin
-  if _mysql_stmt_prepare=nil
+  if @_mysql_stmt_prepare=nil
   then
-    LoadProcAddress(_mysql_stmt_prepare, 'mysql_stmt_prepare');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_prepare]
-  end;
+    LoadProcAddress(@_mysql_stmt_prepare, 'mysql_stmt_prepare');
+  Result := _mysql_stmt_prepare(stmt, query, length);
 end;
 
 var
-  _mysql_stmt_reset: FARPROC;
+  _mysql_stmt_reset: function (stmt: PMYSQL_STMT): my_bool; stdcall;
 
 function mysql_stmt_reset(stmt: PMYSQL_STMT): my_bool;
 begin
-  if _mysql_stmt_reset=nil
+  if @_mysql_stmt_reset=nil
   then
-    LoadProcAddress(_mysql_stmt_reset, 'mysql_stmt_reset');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_reset]
-  end;
+    LoadProcAddress(@_mysql_stmt_reset, 'mysql_stmt_reset');
+  Result := _mysql_stmt_reset(stmt);
 end;
 
 var
-  _mysql_stmt_result_metadata: FARPROC;
+  _mysql_stmt_result_metadata: function (stmt: PMYSQL_STMT): PMYSQL_RES; stdcall;
 
 function mysql_stmt_result_metadata(stmt: PMYSQL_STMT): PMYSQL_RES;
 begin
-  if _mysql_stmt_result_metadata=nil
+  if @_mysql_stmt_result_metadata=nil
   then
-    LoadProcAddress(_mysql_stmt_result_metadata, 'mysql_stmt_result_metadata');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_result_metadata]
-  end;
+    LoadProcAddress(@_mysql_stmt_result_metadata, 'mysql_stmt_result_metadata');
+  Result := _mysql_stmt_result_metadata(stmt);
 end;
 
 var
-  _mysql_stmt_row_seek: FARPROC;
+  _mysql_stmt_row_seek: function (stmt: PMYSQL_STMT; offset: MYSQL_ROW_OFFSET): MYSQL_ROW_OFFSET; stdcall;
 
 function mysql_stmt_row_seek(stmt: PMYSQL_STMT; offset: MYSQL_ROW_OFFSET): MYSQL_ROW_OFFSET;
 begin
-  if _mysql_stmt_row_seek=nil
+  if @_mysql_stmt_row_seek=nil
   then
-    LoadProcAddress(_mysql_stmt_row_seek, 'mysql_stmt_row_seek');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_row_seek]
-  end;
+    LoadProcAddress(@_mysql_stmt_row_seek, 'mysql_stmt_row_seek');
+  Result := _mysql_stmt_row_seek(stmt, offset);
 end;
 
 var
-  _mysql_stmt_row_tell: FARPROC;
+  _mysql_stmt_row_tell: function (stmt: PMYSQL_STMT): MYSQL_ROW_OFFSET; stdcall;
 
 function mysql_stmt_row_tell(stmt: PMYSQL_STMT): MYSQL_ROW_OFFSET;
 begin
-  if _mysql_stmt_row_tell=nil
+  if @_mysql_stmt_row_tell=nil
   then
-    LoadProcAddress(_mysql_stmt_row_tell, 'mysql_stmt_row_tell');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_row_tell]
-  end;
+    LoadProcAddress(@_mysql_stmt_row_tell, 'mysql_stmt_row_tell');
+  Result := _mysql_stmt_row_tell(stmt);
 end;
 
 var
-  _mysql_stmt_send_long_data: FARPROC;
+  _mysql_stmt_send_long_data: function (stmt: PMYSQL_STMT; parameter_number: DWORD; data: PAnsiChar; length: DWORD): my_bool; stdcall;
 
 function mysql_stmt_send_long_data(stmt: PMYSQL_STMT; parameter_number: DWORD; data: PAnsiChar; length: DWORD): my_bool;
 begin
-  if _mysql_stmt_send_long_data=nil
+  if @_mysql_stmt_send_long_data=nil
   then
-    LoadProcAddress(_mysql_stmt_send_long_data, 'mysql_stmt_send_long_data');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_send_long_data]
-  end;
+    LoadProcAddress(@_mysql_stmt_send_long_data, 'mysql_stmt_send_long_data');
+  Result := _mysql_stmt_send_long_data(stmt, parameter_number, data, length);
 end;
 
 var
-  _mysql_stmt_sqlstate: FARPROC;
+  _mysql_stmt_sqlstate: function (stmt: PMYSQL_STMT): PAnsiChar; stdcall;
 
 function mysql_stmt_sqlstate(stmt: PMYSQL_STMT): PAnsiChar;
 begin
-  if _mysql_stmt_sqlstate=nil
+  if @_mysql_stmt_sqlstate=nil
   then
-    LoadProcAddress(_mysql_stmt_sqlstate, 'mysql_stmt_sqlstate');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_sqlstate]
-  end;
+    LoadProcAddress(@_mysql_stmt_sqlstate, 'mysql_stmt_sqlstate');
+  Result := _mysql_stmt_sqlstate(stmt);
 end;
 
 var
-  _mysql_stmt_store_result: FARPROC;
+  _mysql_stmt_store_result: function (stmt: PMYSQL_STMT): Integer; stdcall;
 
 function mysql_stmt_store_result(stmt: PMYSQL_STMT): Integer;
 begin
-  if _mysql_stmt_store_result=nil
+  if @_mysql_stmt_store_result=nil
   then
-    LoadProcAddress(_mysql_stmt_store_result, 'mysql_stmt_store_result');
-  asm
-    MOV     ESP, EBP
-    POP     EBP
-    JMP     [_mysql_stmt_store_result]
-  end;
+    LoadProcAddress(@_mysql_stmt_store_result, 'mysql_stmt_store_result');
+  Result := _mysql_stmt_store_result(stmt);
 end;
-
 
 {$WARNINGS ON}
 {.$WARN NO_RETVAL ON}
@@ -3555,28 +3197,34 @@ begin
   end;
 end;
 
-function MySql_StrLen(const Str: PAnsiChar): Cardinal;
-asm
-        test    Str, Str
-        jz      @NoString
-        mov     edx, Str
-        xor     ecx, ecx
-@Scan:  cmp     cl, [eax+0]
-        jz      @add_0
-        cmp     cl, [eax+1]
-        jz      @add_1
-        cmp     cl, [eax+2]
-        jz      @add_2
-        cmp     cl, [eax+3]
-        jz      @add_3
-        add     eax, 4
-        jmp     @scan
-@add_3: inc     eax
-@add_2: inc     eax
-@add_1: inc     eax
-@add_0: sub     eax, edx
-@NoString:
+{$IFDEF CPUX64}
+function MySql_StrLen(const Str: PAnsiChar): Cardinal; inline;
+begin
+  {$ifdef FPC}
+  Result := StrLen(Str)
+  {$else}
+  Result := Length(Str);
+  {$endif}
 end;
+{$ELSE}
+function MySql_StrLen(const Str: PAnsiChar): Cardinal;
+begin
+  if Str<>nil
+  then
+    {$if defined(FPC) or (CompilerVersion<20.00))}
+    Result := StrLen(Str)
+    {$else}
+    Result := Length(Str)
+    {$ifend}
+  else
+    Result := 0;
+end;
+{$ENDIF}
+
+{$if not defined(FPC) and (CompilerVersion<20.00))}
+type
+  NativeInt = type Integer;     //Override NativeInt -> Wrong size of NativeInt in Delphi2007
+{$IFEND}
 
 {$IFDEF Unicode}
 function EscapeString(const Str: String): String;
@@ -3613,7 +3261,7 @@ begin
     dest^ := ch; inc(dest);
     inc(src); dec(L);
   end;
-  L := (Integer(Dest)-Integer(Result)) shr 1;
+  L := (NativeInt(Dest)-NativeInt(Result)) shr 1;
   SetLength(Result, L);
 end;
 {$ENDIF}
@@ -3641,9 +3289,11 @@ begin
     end
     else begin
       {$IFDEF Unicode}
-      d := Integer(CharNextExA(CP, src, 0))-Integer(src);
+      d := NativeInt(CharNextExA(CP, src, 0))-NativeInt(src);
       {$ELSE}
-      d := Integer(CharNext(src))-Integer(src);
+      {$WARNINGS OFF}{$HINTS OFF}
+      d := NativeInt(CharNext(src))-NativeInt(src);
+      {$WARNINGS ON}{$HINTS ON}
       {$ENDIF}
       if d>1
       then begin
@@ -3681,7 +3331,9 @@ begin
       end;
     end
   end;
-  L := Integer(Dest)-Integer(Result);
+  {$WARNINGS OFF}{$HINTS OFF}
+  L := NativeInt(dest)-NativeInt(Result);
+  {$WARNINGS ON}{$HINTS ON}
   SetLength(Result, L);
 end;
 
@@ -3692,7 +3344,7 @@ begin
 end;
 {$ENDIF}
 
-function QuoteString(const Str: AnsiString): AnsiString; overload;
+function QuoteString(const Str: AnsiString): AnsiString;
 begin
   Result := '"' + EscapeString(Str) + '"';
 end;
@@ -3720,9 +3372,9 @@ end;
 function EscapeForLike(const Str: String): String;
 {   Note: To search for '\', specify it as '\\\\'
     (the backslashes are stripped once by the parser
-    and another time when the pattern match is done, leaving a
-    single backslash to be matched). To search for '%' or '_',
-    specify it as '\%' or '\_'.
+     and another time when the pattern match is done, leaving a
+     single backslash to be matched). To search for '%' or '_',
+     specify it as '\%' or '\_'.
 }
 var
   L: Integer;
@@ -3767,7 +3419,7 @@ begin
     dest^ := ch; inc(dest);
     inc(src); dec(L);
   end;
-  L := (Integer(dest)-Integer(Result)) shr 1;
+  L := (NativeInt(dest)-NativeInt(Result)) shr 1;
   SetLength(Result, L);
 end;
 {$ENDIF}
@@ -3795,9 +3447,11 @@ begin
     end
     else begin
       {$IFDEF Unicode}
-      d := Integer(CharNextExA(CP, src, 0))-Integer(src);
+      d := NativeInt(CharNextExA(CP, src, 0))-NativeInt(src);
       {$ELSE}
-      d := Integer(CharNext(src))-Integer(src);
+      {$WARNINGS OFF}{$HINTS OFF}
+      d := NativeInt(CharNext(src))-NativeInt(src);
+      {$WARNINGS ON}{$HINTS ON}
       {$ENDIF}
       if d>1
       then begin
@@ -3845,7 +3499,9 @@ begin
       end;
     end
   end;
-  L := Integer(dest)-Integer(Result);
+  {$WARNINGS OFF}{$HINTS OFF}
+  L := NativeInt(dest)-NativeInt(Result);
+  {$WARNINGS ON}{$HINTS ON}
   SetLength(Result, L);
 end;
 
@@ -3873,85 +3529,85 @@ begin
     internal_libmysql_status := LIBMYSQL_MISSING
   else begin
     internal_libmysql_status := LIBMYSQL_READY;
-    assign_proc(_mysql_num_rows, 'mysql_num_rows');
-    assign_proc(_mysql_num_fields, 'mysql_num_fields');
-    assign_proc(_mysql_eof, 'mysql_eof');
-    assign_proc(_mysql_fetch_field_direct, 'mysql_fetch_field_direct');
-    assign_proc(_mysql_fetch_fields, 'mysql_fetch_fields');
-    assign_proc(_mysql_row_tell, 'mysql_row_tell');
-    assign_proc(_mysql_field_tell, 'mysql_field_tell');
-    assign_proc(_mysql_field_count, 'mysql_field_count');
-    assign_proc(_mysql_affected_rows, 'mysql_affected_rows');
-    assign_proc(_mysql_insert_id, 'mysql_insert_id');
-    assign_proc(_mysql_errno, 'mysql_errno');
-    assign_proc(_mysql_error, 'mysql_error');
-    assign_proc(_mysql_info, 'mysql_info');
-    assign_proc(_mysql_thread_id, 'mysql_thread_id');
-    assign_proc(_mysql_character_set_name, 'mysql_character_set_name');
-    assign_proc(_mysql_init, 'mysql_init');
+    assign_proc(@_mysql_num_rows, 'mysql_num_rows');
+    assign_proc(@_mysql_num_fields, 'mysql_num_fields');
+    assign_proc(@_mysql_eof, 'mysql_eof');
+    assign_proc(@_mysql_fetch_field_direct, 'mysql_fetch_field_direct');
+    assign_proc(@_mysql_fetch_fields, 'mysql_fetch_fields');
+    assign_proc(@_mysql_row_tell, 'mysql_row_tell');
+    assign_proc(@_mysql_field_tell, 'mysql_field_tell');
+    assign_proc(@_mysql_field_count, 'mysql_field_count');
+    assign_proc(@_mysql_affected_rows, 'mysql_affected_rows');
+    assign_proc(@_mysql_insert_id, 'mysql_insert_id');
+    assign_proc(@_mysql_errno, 'mysql_errno');
+    assign_proc(@_mysql_error, 'mysql_error');
+    assign_proc(@_mysql_info, 'mysql_info');
+    assign_proc(@_mysql_thread_id, 'mysql_thread_id');
+    assign_proc(@_mysql_character_set_name, 'mysql_character_set_name');
+    assign_proc(@_mysql_init, 'mysql_init');
     {$IFDEF HAVE_OPENSSL}
-    assign_proc(_mysql_ssl_set, 'mysql_ssl_set');
-    assign_proc(_mysql_ssl_cipher, 'mysql_ssl_cipher');
-    assign_proc(_mysql_ssl_clear, 'mysql_ssl_clear');
+    assign_proc(@_mysql_ssl_set, 'mysql_ssl_set');
+    assign_proc(@_mysql_ssl_cipher, 'mysql_ssl_cipher');
+    assign_proc(@_mysql_ssl_clear, 'mysql_ssl_clear');
     {$ENDIF} // HAVE_OPENSSL
     {$IFDEF USE_DEPRECATED}
-    assign_proc(_mysql_connect, 'mysql_connect');          //Old Client 3.23
+    assign_proc(@_mysql_connect, 'mysql_connect');          //Old Client 3.23
     {$ENDIF}
-    assign_proc(_mysql_change_user, 'mysql_change_user');
-    assign_proc(_mysql_real_connect, 'mysql_real_connect');
-    assign_proc(_mysql_close, 'mysql_close');
-    assign_proc(_mysql_select_db, 'mysql_select_db');
-    assign_proc(_mysql_query, 'mysql_query');
-    assign_proc(_mysql_send_query, 'mysql_send_query');
-    assign_proc(_mysql_read_query_result, 'mysql_read_query_result');
-    assign_proc(_mysql_real_query, 'mysql_real_query');
+    assign_proc(@_mysql_change_user, 'mysql_change_user');
+    assign_proc(@_mysql_real_connect, 'mysql_real_connect');
+    assign_proc(@_mysql_close, 'mysql_close');
+    assign_proc(@_mysql_select_db, 'mysql_select_db');
+    assign_proc(@_mysql_query, 'mysql_query');
+    assign_proc(@_mysql_send_query, 'mysql_send_query');
+    assign_proc(@_mysql_read_query_result, 'mysql_read_query_result');
+    assign_proc(@_mysql_real_query, 'mysql_real_query');
     {$IFDEF USE_DEPRECATED}
-    assign_proc(_mysql_create_db, 'mysql_create_db');      //Old Client 3.23
-    assign_proc(_mysql_drop_db, 'mysql_drop_db');          //Old Client 3.23
+    assign_proc(@_mysql_create_db, 'mysql_create_db');      //Old Client 3.23
+    assign_proc(@_mysql_drop_db, 'mysql_drop_db');          //Old Client 3.23
     {$ENDIF}
-    assign_proc(_mysql_shutdown, 'mysql_shutdown');
-    assign_proc(_mysql_dump_debug_info, 'mysql_dump_debug_info');
-    assign_proc(_mysql_refresh, 'mysql_refresh');
-    assign_proc(_mysql_kill, 'mysql_kill');
-    assign_proc(_mysql_ping, 'mysql_ping');
-    assign_proc(_mysql_stat, 'mysql_stat');
-    assign_proc(_mysql_get_server_info, 'mysql_get_server_info');
-    assign_proc(_mysql_get_client_info, 'mysql_get_client_info');
-    assign_proc(_mysql_get_host_info, 'mysql_get_host_info');
-    assign_proc(_mysql_get_proto_info, 'mysql_get_proto_info');
-    assign_proc(_mysql_list_dbs, 'mysql_list_dbs');
-    assign_proc(_mysql_list_tables, 'mysql_list_tables');
-    assign_proc(_mysql_list_fields, 'mysql_list_fields');
-    assign_proc(_mysql_list_processes, 'mysql_list_processes');
-    assign_proc(_mysql_store_result, 'mysql_store_result');
-    assign_proc(_mysql_use_result, 'mysql_use_result');
-    assign_proc(_mysql_options, 'mysql_options');
-    assign_proc(_mysql_free_result, 'mysql_free_result');
-    assign_proc(_mysql_data_seek, 'mysql_data_seek');
-    assign_proc(_mysql_row_seek, 'mysql_row_seek');
-    assign_proc(_mysql_field_seek, 'mysql_field_seek');
-    assign_proc(_mysql_fetch_row, 'mysql_fetch_row');
-    assign_proc(_mysql_fetch_lengths, 'mysql_fetch_lengths');
-    assign_proc(_mysql_fetch_field, 'mysql_fetch_field');
-    assign_proc(_mysql_escape_string, 'mysql_escape_string');
-    assign_proc(_mysql_real_escape_string, 'mysql_real_escape_string');
-    assign_proc(_mysql_debug, 'mysql_debug');
+    assign_proc(@_mysql_shutdown, 'mysql_shutdown');
+    assign_proc(@_mysql_dump_debug_info, 'mysql_dump_debug_info');
+    assign_proc(@_mysql_refresh, 'mysql_refresh');
+    assign_proc(@_mysql_kill, 'mysql_kill');
+    assign_proc(@_mysql_ping, 'mysql_ping');
+    assign_proc(@_mysql_stat, 'mysql_stat');
+    assign_proc(@_mysql_get_server_info, 'mysql_get_server_info');
+    assign_proc(@_mysql_get_client_info, 'mysql_get_client_info');
+    assign_proc(@_mysql_get_host_info, 'mysql_get_host_info');
+    assign_proc(@_mysql_get_proto_info, 'mysql_get_proto_info');
+    assign_proc(@_mysql_list_dbs, 'mysql_list_dbs');
+    assign_proc(@_mysql_list_tables, 'mysql_list_tables');
+    assign_proc(@_mysql_list_fields, 'mysql_list_fields');
+    assign_proc(@_mysql_list_processes, 'mysql_list_processes');
+    assign_proc(@_mysql_store_result, 'mysql_store_result');
+    assign_proc(@_mysql_use_result, 'mysql_use_result');
+    assign_proc(@_mysql_options, 'mysql_options');
+    assign_proc(@_mysql_free_result, 'mysql_free_result');
+    assign_proc(@_mysql_data_seek, 'mysql_data_seek');
+    assign_proc(@_mysql_row_seek, 'mysql_row_seek');
+    assign_proc(@_mysql_field_seek, 'mysql_field_seek');
+    assign_proc(@_mysql_fetch_row, 'mysql_fetch_row');
+    assign_proc(@_mysql_fetch_lengths, 'mysql_fetch_lengths');
+    assign_proc(@_mysql_fetch_field, 'mysql_fetch_field');
+    assign_proc(@_mysql_escape_string, 'mysql_escape_string');
+    assign_proc(@_mysql_real_escape_string, 'mysql_real_escape_string');
+    assign_proc(@_mysql_debug, 'mysql_debug');
     {$IFDEF USE_DEPRECATED}
-    assign_proc(_mysql_odbc_escape_string, 'mysql_odbc_escape_string'); //Removed from libmysql 5.0.54
-    assign_proc(_myodbc_remove_escape, 'myodbc_remove_escape');         //Removed - not supported as core-function
+    assign_proc(@_mysql_odbc_escape_string, 'mysql_odbc_escape_string'); //Removed from libmysql 5.0.54
+    assign_proc(@_myodbc_remove_escape, 'myodbc_remove_escape');         //Removed - not supported as core-function
     {$ENDIF}
-    assign_proc(_mysql_thread_safe, 'mysql_thread_safe');
+    assign_proc(@_mysql_thread_safe, 'mysql_thread_safe');
     _mysql_get_client_version := GetProcAddress(libmysql_handle, 'mysql_get_client_version');
-    if (_mysql_get_client_version=nil)
+    if (@_mysql_get_client_version=nil)
     then
-      _mysql_get_client_version := @libmysql_ClientVersion_substitute;
-    PushProc(@_mysql_get_client_version);
+      @_mysql_get_client_version := @libmysql_ClientVersion_substitute;
+    PushProc(ADDR(@_mysql_get_client_version));
     internal_libmysql_ClientVersion := mysql_get_client_version;
     _mysql_get_server_version := GetProcAddress(libmysql_handle, 'mysql_get_server_version');
-    if (_mysql_get_server_version=nil)
+    if (@_mysql_get_server_version=nil)
     then
-      _mysql_get_server_version := @libmysql_ServerVersion_substitute;
-    PushProc(@_mysql_get_server_version);
+      @_mysql_get_server_version := @libmysql_ServerVersion_substitute;
+    PushProc(ADDR(@_mysql_get_server_version));
     if internal_libmysql_ClientVersion>=mysql_not_compatible_version
     then
       internal_libmysql_status := LIBMYSQL_INCOMPATIBLE;
@@ -3966,6 +3622,8 @@ end;
   idea to call this in the mainthread.
 }
 procedure libmysql_fast_load(name: PChar);
+var
+  err: DWORD;
 begin
   libmysql_free;
   if name = nil then name := 'libmysql.dll';
@@ -3973,7 +3631,12 @@ begin
   if libmysql_handle = 0
   then begin
     internal_libmysql_status := LIBMYSQL_MISSING;
-    raise Exception.CreateFmt(ELibraryNotFound, [name]);
+    err := GetLastError;
+    if err=ERROR_MOD_NOT_FOUND
+    then
+      raise Exception.CreateFmt(ELibraryNotFound, [String(name)])
+    else
+      raise Exception.CreateFmt('%s - %s', [SysErrorMessage(err), String(name)]);
   end
   else begin
     internal_libmysql_ClientVersion := mysql_get_client_version;
@@ -4017,6 +3680,15 @@ begin
   end;
 end;
 
+function mysql_get_client_filename: String;
+begin
+  if libmysql_handle <> 0
+  then begin
+    SetLength(Result, 1024);
+    SetLength(Result, GetModuleFileName(libmysql_handle, Pointer(Result), Length(Result)));
+  end;
+end;
+
 function libmysql_status: Tlibmysql_status;
 begin
   Result := internal_libmysql_status;
@@ -4029,25 +3701,36 @@ begin
 end;
 
 {$IFDEF EmbeddedCharacterConvert}
-{$INCLUDE *_emb.inc}
+{$INCLUDE mysql_emb.inc}
 {$ENDIF}
 
 {$IFDEF Win32CharacterConvert}
-{$INCLUDE *_win32.inc}
+{$INCLUDE mysql_win32.inc}
 {$ENDIF}
 
 // -----------------------------------------------------------------------------------------------
 INITIALIZATION
 // -----------------------------------------------------------------------------------------------
 
-  {$IFNDEF DONT_LOAD_DLL}
+{$IFNDEF DONT_LOAD_DLL}
   libmysql_fast_load(nil);
-  {$ENDIF} // DONT_LOAD_DLL
+{$ENDIF} // DONT_LOAD_DLL
 
 {$IFDEF Win32CharacterConvert}
   DefaultMySqlCodePage := GetACP;
 {$ENDIF}
-
+  {$ifdef CPUX64}
+  Assert(SizeOf(TNET500)=664, 'Wrong size of TNET500');
+  Assert(SizeOf(TNET501)=656, 'Wrong size of TNET501');
+  Assert(SizeOf(TMYSQL401)=1192, 'Wrong size of TMYSQL401');
+  Assert(SizeOf(TMYSQL500)=1192, 'Wrong size of TMYSQL500');
+  Assert(SizeOf(TMYSQL501)=1192, 'Wrong size of TMYSQL501');
+  Assert(SizeOf(TMYSQL_FIELD401)=AlignedFIELD401Size, 'Wrong size of TMYSQL_FIELD401');
+  Assert(SizeOf(TMYSQL_FIELD501)=AlignedFIELD501Size, 'Wrong size of TMYSQL_FIELD501');
+  Assert(SizeOf(TMYSQL_BIND401)=88, 'Wrong size of TMYSQL_BIND401');
+  Assert(SizeOf(TMYSQL_BIND500)=96, 'Wrong size of TMYSQL_BIND500');
+  Assert(SizeOf(TMYSQL_BIND501)=104, 'Wrong size of TMYSQL_BIND501');
+  {$else}
   Assert(SizeOf(TNET323)=272, 'Wrong size of TNET323');
   Assert(SizeOf(TNET400)=292, 'Wrong size of TNET400');
   Assert(SizeOf(TNET401)=620, 'Wrong size of TNET401');
@@ -4058,13 +3741,14 @@ INITIALIZATION
   Assert(SizeOf(TMYSQL401)=960, 'Wrong size of TMYSQL401');
   Assert(SizeOf(TMYSQL500)=960, 'Wrong size of TMYSQL500');
   Assert(SizeOf(TMYSQL501)=960, 'Wrong size of TMYSQL501');
-  Assert(SizeOf(TMYSQL_FIELD323)=32, 'Wrong size of TMYSQL_FIELD323');
-  Assert(SizeOf(TMYSQL_FIELD400)=40, 'Wrong size of TMYSQL_FIELD400');
-  Assert(SizeOf(TMYSQL_FIELD401)=80, 'Wrong size of TMYSQL_FIELD401');
-  Assert(SizeOf(TMYSQL_FIELD501)=84, 'Wrong size of TMYSQL_FIELD501');
+  Assert(SizeOf(TMYSQL_FIELD323)=AlignedFIELD323Size, 'Wrong size of TMYSQL_FIELD323');
+  Assert(SizeOf(TMYSQL_FIELD400)=AlignedFIELD400Size, 'Wrong size of TMYSQL_FIELD400');
+  Assert(SizeOf(TMYSQL_FIELD401)=AlignedFIELD401Size, 'Wrong size of TMYSQL_FIELD401');
+  Assert(SizeOf(TMYSQL_FIELD501)=AlignedFIELD501Size, 'Wrong size of TMYSQL_FIELD501');
   Assert(SizeOf(TMYSQL_BIND401)=56, 'Wrong size of TMYSQL_BIND401');
   Assert(SizeOf(TMYSQL_BIND500)=60, 'Wrong size of TMYSQL_BIND500');
   Assert(SizeOf(TMYSQL_BIND501)=64, 'Wrong size of TMYSQL_BIND501');
+  {$endif}
   Assert(SizeOf(TMYSQL_TIME)=36, 'Wrong size of TMYSQL_TIME');
 
 // -----------------------------------------------------------------------------------------------

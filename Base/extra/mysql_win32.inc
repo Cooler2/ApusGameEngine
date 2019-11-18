@@ -163,7 +163,11 @@ begin
       SetLength(Result, DestLen);
       WideCharToMultiByte(CodePage, 0, Pointer(Source), SourceLen, Pointer(Result), DestLen, nil, nil);
 {$IFDEF CONDITIONALEXPRESSIONS}
-  {$IF (CompilerVersion>=20)} {Delphi 2009 and above}
+  {$if defined(FPC)}
+    {$IF defined(FPC_HAS_CPSTRING)}
+      SetCodePage(Result, CodePage, False);
+    {$IFEND}
+  {$elseif (CompilerVersion>=20)} {Delphi 2009 and above}
       SetCodePage(Result, CodePage, False);
   {$IFEND}
 {$ENDIF}

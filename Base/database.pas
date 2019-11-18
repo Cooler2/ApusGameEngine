@@ -1,3 +1,6 @@
+// Database API class and it's implementation for MySQL
+// Copyright (C) Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
+{$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 unit database;
 interface
  uses MyServis,structs;
@@ -137,23 +140,25 @@ function FormatQuery(query:AnsiString;params:array of const):AnsiString;
    case params[i].VType of
     vtAnsiString: begin
      st:=SqlSafe(AnsiString(params[i].VAnsiString));
-     p[i].VType:=vtAnsiString;
-     p[i].VAnsiString:=pointer(st);
+     p[i].VType:=vtPChar;
+     p[i].VPChar:=StrNew(PAnsiChar(st));
     end;
     vtWideString: begin
      st:=SqlSafe(EncodeUTF8(WideString(params[i].VWideString)));
-     p[i].VType:=vtAnsiString;
-     p[i].VAnsiString:=pointer(st);
+     p[i].VType:=vtPChar;
+     p[i].VPChar:=StrNew(PAnsiChar(st));
     end;
     vtUnicodeString: begin
      st:=SqlSafe(EncodeUTF8(UnicodeString(params[i].VUnicodeString)));
-     p[i].VType:=vtAnsiString;
-     p[i].VAnsiString:=pointer(st);
+     p[i].VType:=vtPChar;
+     p[i].VPChar:=StrNew(PAnsiChar(st));
     end;
     else
      p[i]:=params[i];
    end;
   result:=Format(query,p);
+  for i:=0 to high(params) do
+   if params[i].VType in [vtAnsiString,vtWideString,vtUnicodeString] then StrDispose(p[i].VPChar);
  end;
 
 { TDatabase }
@@ -272,7 +277,12 @@ begin
  inherited;
  lock.Enter;
  try
-  if counter=0 then libmysql_load(nil);
+  if counter=0 then
+  {$IFDEF CPU64}
+   libmysql_load('libmysql64.dll');
+  {$ELSE}
+   libmysql_load(nil);
+  {$ENDIF}
   inc(counter);
   name:='DB-'+inttostr(counter);
  finally
