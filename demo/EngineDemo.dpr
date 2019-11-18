@@ -25,7 +25,6 @@ uses
   conScene in '..\conScene.pas',
   stdEffects in '..\stdEffects.pas',
   SoundB in '..\SoundB.pas',
-  UsableNetwork in '..\UsableNetwork.pas',
   BitmapStyle in '..\BitmapStyle.pas',
   Sound in '..\Sound.pas',
   UModes in '..\UModes.pas',
