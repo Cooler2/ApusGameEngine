@@ -51,7 +51,12 @@ type
  end;
 
  function MacToStr(var mac):string;
- procedure ResolveAddress(resolveAdr:string;var resolvedIP:cardinal;var resolvedPort:word);
+
+ // Returns IP in the network byte order
+ procedure ResolveAddress(resolveAdr:AnsiString;var resolvedIP:cardinal;var resolvedPort:word);
+
+ // Text form of WSAGetLasteError() codes
+ function GetWSAerror(c:integer):string;
 
 implementation
  uses {$IFDEF MSWINDOWS}windows,WinSock,{$ENDIF}
@@ -76,11 +81,11 @@ function MacToStr(var mac):string;
           IntToHex(a[5],2);
  end;
 
-procedure ResolveAddress(resolveAdr:string;var resolvedIP:cardinal;var resolvedPort:word);
+procedure ResolveAddress(resolveAdr:AnsiString;var resolvedIP:cardinal;var resolvedPort:word);
  {$IFDEF MSWINDOWS}
  var
   i:integer;
-  address:string;
+  address:AnsiString;
   port:word;
   ip:cardinal;
   h:PHostEnt;
@@ -126,15 +131,16 @@ function GetWSAerror(c:integer):string;
 begin
  case c of
   WSANOTINITIALISED:result:='WSA not initialized';
-  WSAENETDOWN:result:='network down';
-  WSAEFAULT:result:='program fault';
+  WSAENETDOWN:result:='NET DOWN';
+  WSAEFAULT:result:='FAULT';
   WSAENOBUFS:result:='no buffer space';
-  WSAESHUTDOWN:result:='shutdown';
-  WSAEWOULDBLOCK:result:='need to block';
-  WSAEMSGSIZE:result:='wrong message size';
+  WSAESHUTDOWN:result:='SHUTDOWN';
+  WSAEWOULDBLOCK:result:='WOULD BLOCK';
+  WSAEMSGSIZE:result:='MSGSIZE';
   WSAEHOSTUNREACH:result:='host unreacheable';
   WSAECONNRESET:result:='connection reset';
   WSAETIMEDOUT:result:='timeout';
+  WSAECONNREFUSED:result:='connection refused';
   else result:='unknown, code '+inttostr(c);
  end;
 end;
