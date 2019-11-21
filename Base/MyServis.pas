@@ -141,8 +141,9 @@ interface
  procedure UseLogFile(name:string;keepOpened:boolean=false); // Specify log name
  procedure SetLogMode(mode:TLogModes;groups:string=''); //
  procedure LogPhrase(text:string); // without CR
- procedure LogMessage(text:string;group:byte=0); // with CR
- procedure LogError(text:string); 
+ procedure LogMessage(text:string;group:byte=0); overload; // with CR
+ procedure LogMessage(text:string;params:array of const;group:byte=0); overload;
+ procedure LogError(text:string);
  procedure ForceLogMessage(text:string); // то же самое, но с более высоким приоритетом
  procedure DebugMessage(text:string); // альтернативное имя для ForceLogMessage (для удобства поиска по коду)
  procedure LogCacheMode(enable:boolean;enforceCache:boolean=false;runThread:boolean=false);
@@ -3435,7 +3436,7 @@ function BinToStr;
    {$ENDIF}
   end;
 
- procedure LogMessage;
+ procedure LogMessage(text:string;group:byte=0);
   var
    f:TextFile;
   begin
@@ -3485,6 +3486,12 @@ function BinToStr;
    finally
     MyLeaveCriticalSection(crSection);
    end;
+  end;
+
+ procedure LogMessage(text:string;params:array of const;group:byte=0);
+  begin
+   text:=Format(text,params);
+   LogMessage(text,group);
   end;
 
  procedure LogError(text:string);
