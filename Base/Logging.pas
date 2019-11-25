@@ -24,8 +24,8 @@ interface
  var
   maxLogMsgSize:integer=2000; // larger messages will be truncated 
   avgMsgPerSecondLimit:integer = 500; // лимит на скорость поступления сообщений (в среднем в секунду)
-  minLogFileLevel:integer; // min level of message to be stored in log file 
-  minLogMemLevel:integer; // min level of message to be stored in memory
+  minLogFileLevel:integer = logInfo; // min level of message to be stored in log file
+  minLogMemLevel:integer = logInfo; // min level of message to be stored in memory
   logMsgCounter:int64; // global msg counter (сколько вообще сообщений было добавлено, а не сколько хранится)
   numFailures:integer; // счётчик сообщений с уровнем logError и выше
 
@@ -112,7 +112,7 @@ implementation
      inc(result,sizeof(buf.messages));
      for i:=1 to buf.count do
       inc(result,8+length(buf.messages[i].msg));
-     buf:=buf.next; 
+     buf:=buf.next;
     end;
    finally
     LeaveCriticalSection(logSect);
@@ -267,35 +267,6 @@ implementation
      max:=limit; // initial array size
      cnt:=0;
      SetLength(result,max);
-     // Old code
-{     pos:=firstUsedByte;
-     while (pos<>firstFreeByte) and (cnt<limit) do begin
-      pos:=ReadData(pos,sizeof(hdr),@hdr);
-      l:=hdr.size-sizeof(hdr);
-            if (hdr.level>=minLevel) and
-         (hdr.date>=fromDate) and
-         (hdr.date<=ToDate) then begin
-       SetLength(st,l+16);
-       DateTimeToSystemTime(hdr.date,stime);
-       FormatTimeStr(@st[1],sTime);
-       st[13]:=' ';
-       st[14]:=chr(48+hdr.kind);
-       st[15]:=chr(48+hdr.level);
-       st[16]:=' ';
-       pos:=ReadData(pos,l,@st[17]);
-       result[cnt]:=st;
-       inc(cnt);
-       if cnt>=max then begin // allocate more space?
-        max:=max*2;
-        SetLength(result,max);
-       end;
-      end else begin
-       // just skip l bytes
-       inc(pos,l);
-       if pos>=length(buffer) then dec(pos,length(buffer));
-      end;
-     end;}
-
      // New code
      buf:=firstBuffer;
      SetLength(timeStr,12);
@@ -372,9 +343,9 @@ implementation
    if length(st)>maxLogMsgSize then SetLength(st,maxLogMsgSize);
    if level=logWarn then LogMessage(st);
    if level>=logError then ForceLogMessage(st);
+   if not initialized then exit;
    EnterCriticalSection(logSect);
    try
-    //getSystemTime(time); // UTC
     time:=GetUTCTime;
     if (time.wDay<>lastTime.wDay) and (logCache<>'') then FlushLogs; // day changed
     if time.wSecond<>lastTime.wSecond then begin
@@ -483,7 +454,7 @@ implementation
      bufferCount:=0;
      If FileExists(logDir+'logDump.log') then LoadOldMessages;
      initialized:=true;
-   end;
+    end;
    finally
     LeaveCriticalSection(logSect);
    end;

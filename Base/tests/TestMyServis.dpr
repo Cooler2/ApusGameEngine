@@ -1424,6 +1424,58 @@ procedure TestMemoryStat;
    end;
   end;
 
+ procedure TestEncode;
+  var
+   i,j,size:integer;
+   src,dst,res:AnsiString;
+   time:int64;
+  begin
+   // Correctness
+   for i:=1 to 1000 do begin
+    SetLength(src,10+random(100));
+    for j:=1 to high(src) do src[j]:=AnsiChar(random(256));
+    dst:=EncodeHex(src);
+    res:=DecodeHex(dst);
+    ASSERT(res=src);
+    dst:=EncodeB64(@src[1],length(src));
+    SetLength(res,length(src));
+    DecodeB64(dst,@res[1],size);
+    ASSERT((res=src) AND (size=length(src)));
+   end;
+   // Speed
+   time:=MyTickCount;
+   src:=RandomStr(200);
+   for i:=1 to 100000 do dst:=EncodeHex(src);
+   writeln('EncodeHex time: ',MyTickCount-time); time:=MyTickCount;
+   for i:=1 to 100000 do dst:=EncodeHex(@src[1],length(src));
+   writeln('EncodeHex2 time: ',MyTickCount-time); time:=MyTickCount;
+   for i:=1 to 100000 do src:=DecodeHex(dst);
+   writeln('DecodeHex time: ',MyTickCount-time); time:=MyTickCount;
+   for i:=1 to 100000 do DecodeHex(dst,@src[1]);
+   writeln('DecodeHex2 time: ',MyTickCount-time); time:=MyTickCount;
+
+  end;
+
+ procedure TestZeroMem;
+  var
+   i,j,start,size:integer;
+   buf:array[0..200] of byte;
+  begin
+   FillChar(buf,sizeof(buf),0);
+   for i:=1 to 100 do
+    for j:=1 to 10 do
+     ASSERT(IsZeroMem(@buf[j],i));
+
+   for i:=1 to 10000 do begin
+    start:=random(40);
+    size:=1+random(150);
+    j:=start+random(size);
+    buf[j]:=1+random(100);
+    ASSERT(IsZeroMem(@buf[start],size)=false,Format('%d, %d, %d',[i,start,size]));
+    buf[j]:=0;
+   end;
+
+  end;
 
 var
  ar:array of cardinal;
@@ -1444,6 +1496,8 @@ begin
    ast:=FormatQuery('QUERY "%s"=%d [%s]',[IntToStr(i),i,WideString('Q111')]);   }
 
   TestTimes;
+  TestZeroMem;
+  TestEncode;
   TestExecute;
   TestParsers;
   TestTranslation;

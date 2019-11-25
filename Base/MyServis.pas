@@ -323,8 +323,12 @@ interface
  function PrintableStr(st:AnsiString):AnsiString;
  // Закодировать строку в виде HEX
  function EncodeHex(st:AnsiString):AnsiString; overload;
+ // Закодировать в HEX произвольные бинарные данные
  function EncodeHex(data:pointer;size:integer):AnsiString; overload;
- function DecodeHex(st:AnsiString):AnsiString;
+ function DecodeHex(st:AnsiString):AnsiString; overload;
+ procedure DecodeHex(st:AnsiString;buf:pointer); overload;
+
+ function IsZeroMem(buf:pointer;size:integer):boolean;
 
  // Простейшее шифрование/дешифрование (simple XOR)
  procedure SimpleEncrypt(var data;size,code:integer);
@@ -486,9 +490,9 @@ interface
  // Data Dump
  // ---------
  // строка с шестнадцатиричным дампом буфера
- function HexDump(buf:pointer;size:integer):string;
+ function HexDump(buf:pointer;size:integer):AnsiString;
  // строка с десятичным дампом буфера
- function DecDump(buf:pointer;size:integer):string;
+ function DecDump(buf:pointer;size:integer):AnsiString;
 
  procedure TestSystemPerformance;
 
@@ -760,7 +764,7 @@ implementation
     result[i]:=Char(c[1+random(62)]);
   end;
 
- function RealDump(buf:pointer;size:integer;hex:boolean):string;
+ function RealDump(buf:pointer;size:integer;hex:boolean):AnsiString;
   var
    i:integer;
    pb:PByte;
@@ -769,7 +773,7 @@ implementation
    result:=''; pb:=buf; ascii:='';
    for i:=1 to size do begin
     if hex then
-     result:=result+intToHex(pb^,2)+' '
+     result:=result+IntToHex(pb^,2)+' '
     else
      result:=result+
       chr($30+pb^ div 100)+
@@ -790,12 +794,12 @@ implementation
   end;
 
 
- function HexDump(buf:pointer;size:integer):string;
+ function HexDump(buf:pointer;size:integer):AnsiString;
   begin
    result:=RealDump(buf,size,true);
   end;
 
- function DecDump(buf:pointer;size:integer):string;
+ function DecDump(buf:pointer;size:integer):AnsiString;
   begin
    result:=RealDump(buf,size,false);
   end;
@@ -972,6 +976,14 @@ implementation
     else result:=Spline1(x,0.7,1,yMax,y1);
   end;
 
+ function HexCharToInt(ch:AnsiChar):integer; inline;
+  begin
+   result:=0;
+   if ch in ['0'..'9'] then result:=ord(ch)-ord('0') else
+   if ch in ['A'..'F'] then result:=ord(ch)-ord('A')+10 else
+   if ch in ['a'..'f'] then result:=ord(ch)-ord('a')+10;
+  end;
+
  function HexToInt(st:string):int64;
   var
    i:integer;
@@ -985,9 +997,7 @@ implementation
      break;
     end;
     if not (st[i] in ['0'..'9','A'..'F','a'..'f']) then continue;
-    if st[i] in ['0'..'9'] then result:=result+(ord(st[i])-ord('0'))*v else
-    if st[i] in ['A'..'F'] then result:=result+(ord(st[i])-ord('A')+10)*v else
-    if st[i] in ['a'..'f'] then result:=result+(ord(st[i])-ord('a')+10)*v;
+    result:=result+HexCharToInt(AnsiChar(st[i]))*v;
     v:=v*16;
    end;
   end;
@@ -1005,9 +1015,7 @@ implementation
      break;
     end;
     if not (st[i] in ['0'..'9','A'..'F','a'..'f']) then continue;
-    if st[i] in ['0'..'9'] then result:=result+(ord(st[i])-ord('0'))*v else
-    if st[i] in ['A'..'F'] then result:=result+(ord(st[i])-ord('A')+10)*v else
-    if st[i] in ['a'..'f'] then result:=result+(ord(st[i])-ord('a')+10)*v;
+    result:=result+HexCharToInt(st[i])*v;
     v:=v*16;
    end;
   end;
@@ -1097,7 +1105,7 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
  function PtrToStr(p:pointer):string; // Pointer to string
   begin
    {$IFDEF CPU64}
-   result:=IntToHex(cardinal(p),12);
+   result:=IntToHex(UIntPtr(p),12);
    {$ELSE}
    result:=IntToHex(cardinal(p),8);
    {$ENDIF}
@@ -1782,14 +1790,71 @@ procedure SimpleEncrypt2;
 
  function DecodeHex(st:AnsiString):AnsiString;
   var
-   i:integer;
+   i,j:integer;
    b:byte;
   begin
    SetLength(result,length(st) div 2);
+   j:=1;
    for i:=1 to length(result) do begin
-    b:=HexToInt(copy(st,i*2-1,2));
+    b:=HexCharToInt(st[j]) shl 4+HexCharToInt(st[j+1]);
     result[i]:=AnsiChar(b);
+    inc(j,2);
    end;
+  end;
+
+ procedure DecodeHex(st:AnsiString;buf:pointer); overload;
+  var
+   pb:PByte;
+   i:integer;
+   b:byte;
+  begin
+   pb:=buf;
+   ASSERT(length(st) mod 2=0,'Odd hex length');
+   i:=1;
+   while i<length(st) do begin
+    b:=HexCharToInt(st[i]) shl 4;
+    inc(i);
+    inc(b,HexCharToInt(st[i]));
+    inc(i);
+    pb^:=b;
+    inc(pb);
+   end;
+  end;
+
+ function IsZeroMem(buf:pointer;size:integer):boolean;
+  var
+   i:integer;
+   pc:^NativeUInt;
+   pb:PByte;
+  begin
+   result:=false;
+   pb:=buf;
+   if size<=8 then begin
+    // Unaligned version
+    while size>0 do begin
+     if pb^<>0 then exit;
+     inc(pb); dec(size);
+    end;
+   end else begin
+    // Aligned version
+    while UIntPtr(pb) and 8<>0 do begin
+     if pb^<>0 then exit;
+     inc(pb); dec(size);
+    end;
+    i:=size div sizeof(NativeUInt);
+    pc:=pointer(pb);
+    while i>0 do begin
+     if pc^<>0 then exit;
+     inc(pc);
+     dec(i); dec(size,sizeof(NativeUInt));
+    end;
+    pb:=pointer(pc);
+    while size>0 do begin
+     if pb^<>0 then exit;
+     inc(pb); dec(size);
+    end;
+   end;
+   result:=true;
   end;
 
  function IsUTF8(st:AnsiString):boolean; inline;
@@ -3653,8 +3718,7 @@ function BinToStr;
   end;
  {$ELSE}
  begin
-  result:=e.Message+' '+GetStackTrace;
-  result:='['+PtrToStr(ExceptAddr)+'] '+result;
+  result:='['+PtrToStr(ExceptAddr)+'] '+e.Message+' '+GetStackTrace;
  end;
  {$ENDIF}
 
