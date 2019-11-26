@@ -168,6 +168,7 @@ interface
  function GetFileSize(fname:AnsiString):int64;
  function WaitForFile(fname:String;delayLimit:integer;exists:boolean=true):boolean; // ѕодождать (не дольше delayLimit) до по€влени€ (или удалени€) файла, возвращает false если не дождались
  function MyFileExists(fname:String):boolean; // Cross-platform version
+ procedure MakeBakFile(fname:string); // Rename xxx.yyy to xxx.bak, delete old xxx.bak if any
  function LoadFileAsString(fname:String):AnsiString; // Load file content into string
  function LoadFileAsBytes(fname:String):ByteArray; // Load file content into byte array
  procedure SaveFile(fname:string;buf:pointer;size:integer); overload; // rewrite file with given data
@@ -3867,6 +3868,17 @@ procedure DumpDir(path:string);
     sleep(1);
    until MyTickCount>t;
    result:=false;
+  end;
+
+ procedure MakeBakFile(fname:string);
+  var
+   bakName:string;
+  begin
+   if FileExists(fname) then begin
+    bakName:=ChangeFileExt(fname,'.bak');
+    if FileExists(bakName) then DeleteFile(bakName);
+    RenameFile(fname,bakName);
+   end;
   end;
 
  function GetFileSize(fname:AnsiString):int64;
