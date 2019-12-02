@@ -667,7 +667,7 @@ begin
     else if FileExists(fname+'.pvr') then fname:=fname+'.pvr'
      else raise EError.Create(fname+' not found');
   {$ELSE}
-  if pos('.',fname)<length(fname)-3 then begin // find file
+  if ExtractFileExt(fname)='' then begin // find file
    fName:=FindProperFile(fName);
   end;
   {$ENDIF}
@@ -1087,7 +1087,8 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
   begin
    if flags=liffDefault then flags:=defaultLoadImageFlags;
    if img<>nil then texman.FreeImage(TTexture(img));
-   img:=LoadImageFromFile(FileName('Images\'+fName),flags,ipf32bpp);
+   if not fName.StartsWith('..') then fName:='Images\'+fName;
+   img:=LoadImageFromFile(FileName(fName),flags,ipf32bpp);
   end;
 
  procedure SaveImage(img:TTextureImage;fName:string);
