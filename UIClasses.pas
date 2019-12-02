@@ -1819,7 +1819,8 @@ begin
  pressed:=pr;
  if (sendSignals<>ssNone) then begin
   if btnStyle<>bsNormal then begin
-   Signal('UI\onButtonSwitch\'+name)
+   Signal('UI\onButtonSwitch\'+name);
+   Signal('UI\'+name+'\Toggle');
   end else begin
    if pr then Signal('UI\onButtonDown\'+name)
      else     Signal('UI\onButtonUp\'+name);
@@ -1834,7 +1835,7 @@ var
  first:boolean;
 begin
  if parent=nil then exit;
- first:=false;
+ first:=true;
  for i:=0 to high(parent.children) do begin
   if not (parent.children[i] is TUIButton) then continue;
   b:=TUIButton(parent.children[i]);
@@ -2902,6 +2903,7 @@ begin
  pos:=0;
  for i:=0 to high(item.children) do begin
   c:=item.children[i];
+  if not c.visible then continue;
   r:=c.TransformToParent(c.GetRect);
   if fHorizontal then begin
    delta.x:=pos-r.x1;
