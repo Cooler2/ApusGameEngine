@@ -138,6 +138,11 @@ begin
    format:=GL_RED;
    subFormat:=GL_UNSIGNED_BYTE;
   end;
+  ipfMono16:begin
+   internalFormat:=GL_R16;
+   format:=GL_RED;
+   subFormat:=GL_UNSIGNED_SHORT;
+  end;
   ipfDuo8:begin
    internalFormat:=GL_RG8;
    format:=GL_RG;
