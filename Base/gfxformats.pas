@@ -2,7 +2,7 @@
 //
 // Copyright (C) 2004 Apus Software (www.games4win.com)
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
-unit gfxformats;
+unit GFXFormats;
 interface
  uses MyServis,
      {$IFDEF DELPHI}graphics,{$ENDIF}
@@ -571,13 +571,18 @@ procedure LoadTGA;
        imginfo.width:=data[i+7]+data[i+6]*256;
        imginfo.height:=data[i+11]+data[i+10]*256;
        bitDepth:=data[i+12];
-       case data[i+13] of
-        0:imginfo.format:=ipfMono8;
-        2:imginfo.format:=ipfXRGB;
-        3:imginfo.format:=ipf8bit;
-        4:imginfo.format:=ipfDuo8;
-        6:imginfo.format:=ipfARGB;
-       end;
+       if bitDepth=8 then
+        case data[i+13] of
+         0:imginfo.format:=ipfMono8;
+         2:imginfo.format:=ipfXRGB;
+         3:imginfo.format:=ipf8bit;
+         4:imginfo.format:=ipfDuo8;
+         6:imginfo.format:=ipfARGB;
+        end
+       else if bitDepth=16 then
+        case data[i+13] of
+         0:imginfo.format:=ipfMono16;
+        end;
        break;
       end;
      end;
