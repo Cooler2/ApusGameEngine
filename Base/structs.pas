@@ -3,7 +3,7 @@
 // Copyright (C) 2002-2015 Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
 
 {$M-,H+,R-,Q-}
-unit structs;
+unit Structs;
 
 {$IFDEF FPC}
   {$MODE Delphi}
@@ -224,6 +224,18 @@ type
   fFree:integer; // начало списка свободных элементов (если они вообще есть, иначе -1)
  end;
 
+ TStringQueue=object
+  procedure Init(size:integer);
+  procedure Clear;
+  procedure Add(st:AnsiString);
+  function Get:AnsiString;
+  function Empty:boolean;
+ private
+  lock:integer;
+  data:array of AnsiString;
+  used:integer; // first used element (if not equal to last)
+  free:integer; // first free element
+ end;
 
  // Bit array
  TBitStream=record
@@ -1319,5 +1331,64 @@ procedure THash.SortKeys;
   begin
    result:=(size+7) div 8;
   end;
+
+{ TStringQueue }
+
+procedure TStringQueue.Add(st: AnsiString);
+ var
+  f:integer;
+ begin
+  SpinLock(lock);
+  try
+   f:=free;
+   inc(f);
+   if f>high(data) then f:=0;
+   if f=used then raise EWarning.Create('StringQueue overflow');
+   data[free]:=st;
+   free:=f;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TStringQueue.Clear;
+ var
+  i:integer;
+ begin
+  SpinLock(lock);
+  for i:=0 to high(data) do data[i]:='';
+  used:=0; free:=0;
+  lock:=0;
+ end;
+
+function TStringQueue.Empty: boolean;
+ begin
+  SpinLock(lock);
+  result:=used=free;
+  lock:=0;
+ end;
+
+function TStringQueue.Get: AnsiString;
+ begin
+  if length(data)=0 then exit;
+  SpinLock(lock);
+  try
+   if used<>free then begin
+    result:=data[used];
+    inc(used);
+    if used>high(data) then used:=0;
+   end;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TStringQueue.Init(size: integer);
+ begin
+  ASSERT(data=nil);
+  SetLength(data,size);
+  used:=0; free:=0;
+  lock:=0;
+ end;
 
 end.
