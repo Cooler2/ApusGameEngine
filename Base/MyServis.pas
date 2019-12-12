@@ -326,7 +326,7 @@ interface
  function EncodeHex(st:AnsiString):AnsiString; overload;
  // «акодировать в HEX произвольные бинарные данные
  function EncodeHex(data:pointer;size:integer):AnsiString; overload;
- function DecodeHex(st:AnsiString):AnsiString; overload;
+ function DecodeHex(hexStr:AnsiString):AnsiString; overload;
  procedure DecodeHex(st:AnsiString;buf:pointer); overload;
 
  function IsZeroMem(buf:pointer;size:integer):boolean;
@@ -352,7 +352,8 @@ interface
 
  // ѕреобразует дату из строки в формате DD.MM.YYYY HH:MM:SS (другие форматы тоже понимает и распознаЄт)
  function ParseDate(st:AnsiString;default:TDateTime=0):TDateTime;
- function GetDateFromStr(st:string;default:TDateTime=0):TDateTime; // alias for compatibility
+ function GetDateFromStr(st:AnsiString;default:TDateTime=0):TDateTime; // alias for compatibility
+ function ParseTime(st:AnsiString;default:TDateTime=0):TDateTime;
  // ¬озвращает строку с разницей между указанным временем и текущим моментом (сколько времени прошло с указанного момента)
  // ≈сли указанный момент ещЄ не наступил, то первым символом будет +
  function HowLong(time:TDateTime):string;
@@ -1027,9 +1028,7 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
   vv:int64;
  begin
   vv:=v;
-  if vv=0 then begin
-   result:='0'; exit;
-  end;
+  if vv=0 then exit('0');
   l:=0;
   while vv<>0 do begin
    inc(l);
@@ -1048,31 +1047,29 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
   var
    v:single;
   begin
-   if size<1000 then begin result:=inttostr(size)+'b'; exit end;
+   if size<1000 then exit(inttostr(size)+'b');
    v:=size/1024;
-   if v<10 then begin result:=FloatToStrF(v,ffFixed,4,2)+'K'; exit end;
-   if v<100 then begin result:=FloatToStrF(v,ffFixed,4,1)+'K'; exit end;
-   if v<1000 then begin result:=inttostr(round(v))+'K'; exit end;
+   if v<10 then exit(FloatToStrF(v,ffFixed,4,2)+'K');
+   if v<100 then exit(FloatToStrF(v,ffFixed,4,1)+'K');
+   if v<1000 then exit(inttostr(round(v))+'K');
    v:=v/1024;
-   if v<10 then begin result:=FloatToStrF(v,ffFixed,4,2)+'M'; exit end;
-   if v<100 then begin result:=FloatToStrF(v,ffFixed,4,1)+'M'; exit end;
-   if v<1000 then begin result:=inttostr(round(v))+'M'; exit end;
+   if v<10 then exit(FloatToStrF(v,ffFixed,4,2)+'M');
+   if v<100 then exit(FloatToStrF(v,ffFixed,4,1)+'M');
+   if v<1000 then exit(inttostr(round(v))+'M');
    v:=v/1024;
-   if v<10 then begin result:=FloatToStrF(v,ffFixed,4,2)+'G'; exit end;
-   if v<100 then begin result:=FloatToStrF(v,ffFixed,4,1)+'G'; exit end;
-   if v<1000 then begin result:=inttostr(round(v))+'G'; exit; end;
+   if v<10 then exit(FloatToStrF(v,ffFixed,4,2)+'G');
+   if v<100 then exit(FloatToStrF(v,ffFixed,4,1)+'G');
+   if v<1000 then exit(inttostr(round(v))+'G');
    v:=v/1024;
-   if v<10 then begin result:=FloatToStrF(v,ffFixed,4,2)+'T'; exit end;
-   if v<100 then begin result:=FloatToStrF(v,ffFixed,4,1)+'T'; exit end;
+   if v<10 then exit(FloatToStrF(v,ffFixed,4,2)+'T');
+   if v<100 then exit(FloatToStrF(v,ffFixed,4,1)+'T');
    result:=inttostr(round(v))+'T';
   end;
 
  function FormatTime(time:int64):string; // строка с временным интервалом (time - в ms)
   begin
-   if time<120000 then begin
-    result:=IntToStr(time div 1000)+'.'+IntToStr(time mod 1000)+'s';
-    exit;
-   end;
+   if time<120000 then
+    exit(IntToStr(time div 1000)+'.'+IntToStr(time mod 1000)+'s');
    result:=FormatDateTime('hh:nn:ss',time/86400000);
    if time>86400000 then
     result:=IntToStr(trunc(time/86400000))+'d '+result;
@@ -1789,15 +1786,15 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function DecodeHex(st:AnsiString):AnsiString;
+ function DecodeHex(hexStr:AnsiString):AnsiString;
   var
    i,j:integer;
    b:byte;
   begin
-   SetLength(result,length(st) div 2);
+   SetLength(result,length(hexStr) div 2);
    j:=1;
    for i:=1 to length(result) do begin
-    b:=HexCharToInt(st[j]) shl 4+HexCharToInt(st[j+1]);
+    b:=HexCharToInt(hexStr[j]) shl 4+HexCharToInt(hexStr[j+1]);
     result[i]:=AnsiChar(b);
     inc(j,2);
    end;
@@ -2269,7 +2266,32 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function GetDateFromStr(st:string;default:TDateTime):TDateTime;
+ function ParseTime(st:AnsiString;default:TDateTime=0):TDateTime;
+  var
+   sa:AStringArr;
+   hour,min,sec,msec:integer;
+  begin
+   try
+    st:=chop(st);
+    sa:=splitA(':',st);
+    msec:=0;
+    if length(sa)>0 then hour:=ParseInt(sa[0]) else hour:=0;
+    if length(sa)>1 then min:=ParseInt(sa[1]) else min:=0;
+    if length(sa)>2 then begin
+     if pos('.',sa[2])>0 then begin
+      sa:=splitA('.',sa[2]);
+      sec:=ParseInt(sa[0]);
+      msec:=ParseInt(sa[1]);
+     end else
+      sec:=ParseInt(sa[2]);
+    end;
+    result:=hour/24+min/1440+sec/86400+msec/86400000;
+   except
+    result:=default;
+   end;
+  end;
+
+ function GetDateFromStr(st:AnsiString;default:TDateTime):TDateTime;
   begin
    result:=ParseDate(st);
   end;
@@ -2279,9 +2301,7 @@ procedure SimpleEncrypt2;
    t:int64;
    neg:boolean;
   begin
-   if time=0 then begin
-    result:='-'; exit;
-   end;
+   if time=0 then exit('-');
    t:=round((Now-time)*86400);
    if t<0 then begin
     t:=-t; neg:=true;
@@ -2432,14 +2452,10 @@ const
    w:=word(ch);
    if w<$80 then result:=AnsiChar(w)
     else begin
-     if (w>=$410) and (w<=$44F) then begin
-      result:=AnsiChar(192+w-$410); exit;
-     end;
+     if (w>=$410) and (w<=$44F) then exit(AnsiChar(192+w-$410));
      result:=' ';
      for i:=$80 to $BF do
-      if win1251cp[i]=w then begin
-       result:=AnsiChar(i); exit;
-      end;
+      if win1251cp[i]=w then exit(AnsiChar(i));
     end;
   end;
 
@@ -2662,10 +2678,10 @@ function BinToStr;
  // Return value of pike function
  function Pike(x,arg,a,b,c:integer):integer;
   begin
-   if x<0 then begin Pike:=a; exit; end;
-   if x>255 then begin Pike:=c; exit; end;
-   if x<arg then Pike:=a+(b-a)*x div arg
-    else Pike:=b+(c-b)*(x-arg) div (256-arg);
+   if x<0 then exit(a);
+   if x>255 then exit(c);
+   if x<arg then result:=a+(b-a)*x div arg
+    else result:=b+(c-b)*(x-arg) div (256-arg);
   end;
 
  function PikeD(x,arg,a,b,c:double):double; // [0..1] range
@@ -2846,14 +2862,10 @@ function BinToStr;
    if ignoreCase then begin
     st:=lowercase(st);
     for i:=0 to high(sa) do
-     if lowercase(sa[i])=st then begin
-      result:=i; exit;
-     end;
+     if lowercase(sa[i])=st then exit(i);
    end else
     for i:=0 to high(sa) do
-     if sa[i]=st then begin
-      result:=i; exit;
-     end;
+     if sa[i]=st then exit(i);
   end;
 
  function FindInteger(var a:IntArray;v:integer):integer;
@@ -2861,9 +2873,7 @@ function BinToStr;
    i:integer;
   begin
    for i:=0 to high(a) do
-    if a[i]=v then begin
-     result:=i; exit;
-    end;
+    if a[i]=v then exit(i);
    result:=-1;
   end;
 
@@ -2922,9 +2932,7 @@ function BinToStr;
    while minIndex<=m do begin                       
     i:=0;
     while (i<n) and (str[minIndex+i]=substr[i+1]) do inc(i);
-    if i=n then begin
-     result:=minIndex; exit;
-    end;
+    if i=n then exit(minIndex);
     inc(minIndex);
    end;
   end;
@@ -2943,9 +2951,7 @@ function BinToStr;
    while minIndex<=m do begin
     i:=0;
     while (i<n) and (str[minIndex+i]=substr[i+1]) do inc(i);
-    if i=n then begin
-     result:=minIndex; exit;
-    end;
+    if i=n then exit(minIndex);
     inc(minIndex);
    end;
   end;
@@ -2964,9 +2970,7 @@ function BinToStr;
    while p>0 do begin
     i:=0;
     while (i<l) and (str[p+i]=substr[i+1]) do inc(i);
-    if i=l then begin
-     result:=p; exit;
-    end;
+    if i=l then exit(p);
     dec(p);
    end;
   end;
@@ -3750,10 +3754,9 @@ function BinToStr;
    FindFirst(path+PathSeparator+'*.*',faDirectory,sr);
    while FindNext(sr)=0 do begin
     if (sr.name[1]='.') or (sr.Attr and faDirectory=0) then continue;
-    if UpperCase(sr.name)=UpperCase(name) then begin
-     result:=path+PathSeparator+sr.name;
-     exit;
-    end else begin
+    if UpperCase(sr.name)=UpperCase(name) then
+     exit(path+PathSeparator+sr.name)
+    else begin
      result:=FindDir(name,path+PathSeparator+sr.name);
      if result<>'' then exit;
     end;
@@ -4667,9 +4670,7 @@ function HasParam(name:string):boolean;
  begin
   result:=false;
   for i:=1 to ParamCount do
-   if CompareText(name,paramStr(i))=0 then begin
-    result:=true; exit;
-   end;
+   if CompareText(name,paramStr(i))=0 then exit(true);
  end;
 
 function GetParam(name:string):string;
@@ -4683,8 +4684,7 @@ function GetParam(name:string):string;
    p:=pos('=',st);
    if p=0 then continue;
    if CompareText(name,copy(st,1,p-1))<>0 then continue;
-   result:=copy(st,p+1,length(st));
-   exit;
+   exit(copy(st,p+1,length(st)));
   end;
  end;
 
