@@ -29,6 +29,8 @@ interface
   logMsgCounter:int64; // global msg counter (сколько вообще сообщений было добавлено, а не сколько хранится)
   numFailures:integer; // счётчик сообщений с уровнем logError и выше
 
+  levelToCopyToMainLog:integer = logWarn; // дублировать сообщения с таким уровнем в основной лог
+
  // Initialize logging system:
  // Allocate "memsize" megabytes for in-memory logging (0 - keep current size, max 1024)
  // Set "path" for log files (daily rotation enabled)
@@ -341,8 +343,8 @@ implementation
    if level>=logError then inc(numFailures);
    if level<minLogMemlevel then exit;
    if length(st)>maxLogMsgSize then SetLength(st,maxLogMsgSize);
-   if level=logWarn then LogMessage(st);
-   if level>=logError then ForceLogMessage(st);
+   if level=levelToCopyToMainLog then LogMessage(st);
+   if level>levelToCopyToMainLog then ForceLogMessage(st);
    if not initialized then exit;
    EnterCriticalSection(logSect);
    try
