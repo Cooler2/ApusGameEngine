@@ -29,9 +29,12 @@ unit DCPmd5a;
 interface
 uses
   Sysutils;
+ type
+  TMD5Hash=array[0..15] of byte;
 
- function MD5(st:string):string; overload;
- function MD5(var data;size:integer):string; overload;
+ procedure MD5(var data;size:integer;out hash:TMD5Hash); overload;
+ function MD5(var data;size:integer):AnsiString; overload;
+ function MD5(st:AnsiString):AnsiString; overload;
 
 {******************************************************************************}
 {******************************************************************************}
@@ -42,7 +45,7 @@ type
  DWord = cardinal;
  PDWord = ^DWord;
 
-function MD5(var data;size:integer):string; overload;
+procedure MD5(var data;size:integer;out hash:TMD5Hash);
  var
    LenHi, LenLo: longword;
    Index: DWord;
@@ -207,13 +210,28 @@ begin
  Init;
  Update(data,size);
  Finall(a);
- result:='';
- for i:=0 to 15 do
-   result:=result+IntToHex(a[i], 2);
+ move(a,hash,sizeof(hash));
  Burn;
 end;
 
-function MD5(st:string):string; overload;
+function MD5(var data;size:integer):AnsiString; overload;
+const
+ HexDigits:array[0..15] of AnsiChar=('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
+var
+ i:integer;
+ hash:TMD5Hash;
+ b:byte;
+begin
+ MD5(data,size,hash);
+ SetLength(result,32);
+ for i:=0 to 15 do begin
+  b:=hash[i];
+  result[i*2+1]:=HexDigits[b and $F];
+  result[i*2+2]:=HexDigits[b shr 4];
+ end;
+end;
+
+function MD5(st:AnsiString):AnsiString; overload;
 begin
  result:=MD5(st[1],length(st));
 end;

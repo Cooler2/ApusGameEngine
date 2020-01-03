@@ -129,6 +129,7 @@ procedure ResolveAddress(resolveAdr:AnsiString;var resolvedIP:cardinal;var resol
 function GetWSAerror(c:integer):string;
 {$IFDEF MSWINDOWS}
 begin
+ if c=SOCKET_ERROR then c:=WSAGetLastError;
  case c of
   WSANOTINITIALISED:result:='WSA not initialized';
   WSAENETDOWN:result:='NET DOWN';
@@ -141,6 +142,7 @@ begin
   WSAECONNRESET:result:='connection reset';
   WSAETIMEDOUT:result:='timeout';
   WSAECONNREFUSED:result:='connection refused';
+  WSAENOTSOCK:result:='not a socket';
   else result:='unknown, code '+inttostr(c);
  end;
 end;
