@@ -136,6 +136,7 @@ type
   hintDuration:integer; // длительность (в мс) показа хинта
   sendSignals:TSendSignals; // режим сигнализирования (см. выше)
   parentClip:boolean; // отсекать ли элемент областью предка (default - yes!)
+  clipChildren:boolean; // отсекать ли дочерние элементы клиентской областью (default - yes)
 
   timer:integer; // таймер - указывает время в мс через которое будет вызван onTimer() (но не раньше чем через кадр, 0 - не вызывать)
 
@@ -579,6 +580,7 @@ var
 
  // Установка свойст элемента по имени
  procedure SetControlState(name:string;visible:boolean;enabled:boolean=true);
+ procedure SetControlText(name:string;text:string);
 
  // Поиск элементов по имени. Если элемент не найден, то...
  // mustExists=true - исключение, false - будет создан (а в лог будет сообщение об этом)
@@ -727,6 +729,23 @@ begin
  c.visible:=visible;
  c.enabled:=enabled;
 end;
+
+procedure SetControlText(name:string;text:string);
+var
+ c:TUIControl;
+begin
+ c:=FindControl(name,false);
+ if c=nil then exit;
+ if c is TUILabel then
+  TUILabel(c).caption:=text
+ else
+ if c is TUIButton then
+  TUIButton(c).caption:=text
+ else
+ if c is TUIEditBox then
+  TUIEditBox(c).realText:=text;
+end;
+
 
 function UIButton(name:string;mustExist:boolean=false):TUIButton;
 var
@@ -906,6 +925,7 @@ begin
  timer:=0;
  parent:=parent_;
  parentClip:=true;
+ clipChildren:=true;
  fName:=name_;
  hint:=''; hintIfDisabled:='';
  hintDelay:=1000;

@@ -66,6 +66,7 @@ implementation
    r:TRect;
    list:array of TUIControl;
    maskChange:boolean;
+   clipping:boolean;
   begin
    if not item.visible then exit;
    if (item.size.x<=0) or (item.size.y<=0) then exit;
@@ -107,8 +108,6 @@ implementation
 
    // Process children elements
    if cnt>0 then begin
-    r:=item.GetClientPosOnScreen;
-    painter.SetClipping(r);
     // Затем отсортировать и нарисовать вложенные эл-ты
     for i:=0 to cnt-2 do
      for j:=cnt-1 downto i+1 do
@@ -117,16 +116,24 @@ implementation
        list[j]:=list[j-1];
        list[j-1]:=tmp;
       end;
+
+    clipping:=item.clipChildren;
+    if clipping then begin
+     r:=item.GetClientPosOnScreen;
+     painter.SetClipping(r);
+    end;
+
     for i:=0 to cnt-1 do begin
      // если элемент не клипится и фон - не прозрачный - нарисовать без отсечения
-     if not list[i].parentClip and not transpBgnd then begin
+     if clipping and not list[i].parentClip and not transpBgnd then begin
       painter.OverrideClipping;
       DrawUI(list[i]);
       painter.ResetClipping;
      end else
       DrawUI(list[i]);
     end;
-    painter.ResetClipping;
+
+    if clipping then painter.ResetClipping;
    end;
    // вернуть маску назад
    if maskChange then painter.ResetMask;
