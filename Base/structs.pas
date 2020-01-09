@@ -224,6 +224,26 @@ type
   fFree:integer; // начало списка свободных элементов (если они вообще есть, иначе -1)
  end;
 
+ // AnsiString -> int64
+ TSimpleHashAS=object
+  keys:AStringArr;
+  values:array of int64;
+  count:integer; // how many items in keys/values/links are occupied - must be used instead of Length!!!
+  procedure Init(estimatedCount:integer);
+  procedure Clear;
+  procedure Put(key:AnsiString;value:int64);
+  function Get(key:AnsiString):int64;  // returns -1 if no value
+  function Add(key:AnsiString;v:int64):int64; // add v to given value (put 0 if absent) and return result
+  function HasValue(key:AnsiString):boolean;
+  procedure Remove(key:AnsiString);
+ private
+  lock:integer;
+  links:array of integer; // hash->firstItem: начало списка для каждого возможного значения хэша
+  next:array of integer; // itemN->itemN+1: номер следующей пары с таким же хэшем ключа
+  hMask:integer;
+  fFree:integer; // начало списка свободных элементов (если они вообще есть, иначе -1)
+ end;
+
  TStringQueue=object
   procedure Init(size:integer);
   procedure Clear;
@@ -1283,6 +1303,147 @@ procedure THash.SortKeys;
    end;
    finally lock:=0; end;
   end;
+
+ // -------------------------------------------
+ // TSimpleHashAS
+ // -------------------------------------------
+
+ procedure TSimpleHashAS.Init(estimatedCount:integer);
+  var
+   i:integer;
+  begin
+   SetLength(keys,estimatedCount);
+   SetLength(values,estimatedCount);
+   SetLength(next,estimatedCount);
+   count:=0; fFree:=-1;
+   hMask:=$FFFF;
+   while (hMask>estimatedCount) and (hMask>$1F) do hMask:=hMask shr 1;
+   SetLength(links,hMask+1);
+   for i:=0 to hMask do links[i]:=-1;
+   lock:=0;
+  end;
+
+ procedure TSimpleHashAS.Clear;
+  var
+   i:integer;
+  begin
+   SpinLock(lock);
+   try
+    count:=0; fFree:=-1;
+    for i:=0 to hMask do links[i]:=-1;
+   finally lock:=0; end;
+  end;
+
+ // Integer version
+ procedure TSimpleHashAS.Put(key:AnsiString;value:int64);
+  var
+   h,i,n:integer;
+  begin
+   SpinLock(lock);
+   try
+   // Проверим нет ли уже такого ключа
+   h:=StrHash(key) and hMask;
+   i:=links[h];
+   while (i>=0) and (keys[i]<>key) do i:=next[i];
+   if i>=0 then begin
+    // replace existing value
+    values[i]:=value;
+    exit;
+   end;
+
+   // Need new key
+   if fFree>=0 then begin
+    // берем элемент из списка дырок
+    i:=fFree; fFree:=next[fFree];
+   end else begin
+    // добавляем новый элемент
+    i:=count; inc(count);
+    if count>length(keys) then begin
+     n:=length(keys)*2+64;
+     SetLength(keys,n);
+     SetLength(values,n);
+     SetLength(next,n);
+    end;
+   end;
+   // Store data
+   keys[i]:=key;
+   values[i]:=value;
+   // Add to hash
+   next[i]:=links[h];
+   links[h]:=i;
+   finally lock:=0; end;
+  end;
+
+ function TSimpleHashAS.Get(key:AnsiString):int64;
+  var
+   h,i:integer;
+  begin
+   SpinLock(lock);
+   try
+   h:=StrHash(key) and hMask;
+   i:=links[h];
+   while (i>=0) and (keys[i]<>key) do i:=next[i];
+   if i>=0 then result:=values[i] else result:=-1;
+   finally lock:=0; end;
+  end;
+
+ function TSimpleHashAS.Add(key:AnsiString;v:int64):int64;
+  var
+   h,i:integer;
+  begin
+   SpinLock(lock);
+   try
+   h:=StrHash(key) and hMask;
+   i:=links[h];
+   while (i>=0) and (keys[i]<>key) do i:=next[i];
+   if i>=0 then begin
+    values[i]:=values[i]+v;
+    result:=values[i];
+    exit;
+   end;
+   finally lock:=0; end;
+   // New element
+   Put(key,v);
+   result:=v;
+  end;
+
+ function TSimpleHashAS.HasValue(key:AnsiString):boolean;
+  var
+   h,i:integer;
+  begin
+   SpinLock(lock);
+   try
+   h:=StrHash(key) and hMask;
+   i:=links[h];
+   while (i>=0) and (keys[i]<>key) do i:=next[i];
+   if i>=0 then result:=true else result:=false;
+   finally lock:=0; end;
+  end;
+
+ procedure TSimpleHashAS.Remove(key:AnsiString);
+  var
+   h,i,prev:integer;
+  begin
+   SpinLock(lock);
+   try
+   h:=StrHash(key) and hMask;
+   // Поиск по списку
+   i:=links[h]; prev:=-1;
+   while (i>=0) and (keys[i]<>key) do begin
+    prev:=i;
+    i:=next[i];
+   end;
+   if i>=0 then begin
+    // Удаление из односвязного списка
+    if prev>=0 then next[prev]:=next[i]
+     else links[h]:=next[i];
+    keys[i]:=''; values[i]:=-1;
+    next[i]:=fFree;
+    fFree:=i;
+   end;
+   finally lock:=0; end;
+  end;
+
 
 // -------------------------------------------------------
 // TBitStream

@@ -426,6 +426,7 @@ interface
 
  // Exchange 2 items
  procedure Swap(var a,b:integer); overload; inline;
+ procedure Swap(var a,b:pointer); overload; inline;
  procedure Swap(var a,b:byte); overload; inline;
  procedure Swap(var a,b:single); overload; inline;
  procedure Swap(var a,b:string); overload; inline;
@@ -502,7 +503,8 @@ interface
  function CalcCheckSum(adr:pointer;size:integer):cardinal;
  function CheckSum64(adr:pointer;size:integer):int64; pascal;
  procedure FillRandom(var buf;size:integer);
- function StrHash(const st:string):cardinal; 
+ function StrHash(const st:string):cardinal; overload;
+ function StrHash(const st:AnsiString):cardinal; overload;
 
  // Текущее время и дата (GMT)
  function NowGMT:TDateTime;
@@ -681,6 +683,12 @@ implementation
   begin
    c:=a; a:=b; b:=c;
   end;
+ procedure Swap(var a,b:pointer); overload; inline;
+  var
+   c:pointer;
+  begin
+   c:=a; a:=b; b:=c;
+  end;
  procedure Swap(var a,b:byte); overload; inline;
   var
    c:byte;
@@ -849,6 +857,15 @@ implementation
   end;
 
  function StrHash(const st:string):cardinal; 
+  var
+   i:integer;
+  begin
+   result:=0;
+   for i:=1 to length(st) do
+    result:=result*$20844 xor byte(st[i]);
+  end;
+
+ function StrHash(const st:AnsiString):cardinal; overload;
   var
    i:integer;
   begin
