@@ -567,7 +567,8 @@ procedure TBasicPainter.DrawLine(x1, y1, x2, y2: single; color: cardinal);
 var
  vrt:array[0..1] of TScrPointNoTex;
 begin
- if not SetStates(STATE_COLORED,types.Rect(trunc(x1),trunc(y1),trunc(x2)+1,trunc(y2)+1)) then exit; // Colored, normal viewport
+ if not SetStates(STATE_COLORED,
+   types.Rect(trunc(min2d(x1,x2)),trunc(min2d(y1,y2)),trunc(max2d(x1,x2))+1,trunc(max2d(y1,y2))+1)) then exit; // Colored, normal viewport
  ConvertColor(color);
  SetVertexC(vrt[0],x1,y1,zPlane,color);
  SetVertexC(vrt[1],x2,y2,zPlane,color);
