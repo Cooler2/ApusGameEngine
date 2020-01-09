@@ -6,8 +6,8 @@ unit IQMloader;
 interface
 uses Model3D;
 
- function LoadIQM(fname:string):TModel3D;
- function LoadIQE(fname:string):TModel3D;
+ function Load3DModelIQM(fname:string):TModel3D;
+ function Load3DModelIQE(fname:string):TModel3D;
 
 implementation
  uses MyServis,SysUtils;
@@ -112,7 +112,7 @@ implementation
   IQM_FLOAT  = 7;
   IQM_DOUBLE = 8;
 
- function LoadIQM(fname:string):TModel3D;
+ function Load3DModelIQM(fname:string):TModel3D;
   var
    model:TModel3D;
    data:ByteArray;
@@ -412,7 +412,7 @@ implementation
    end;
   end;
 
- function LoadIQE(fname:string):TModel3D;
+ function Load3DModelIQE(fname:string):TModel3D;
   var
    f:text;
    st:string;
