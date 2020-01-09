@@ -5,12 +5,16 @@ uses
   windows,
   sysutils,
   myservis,
-  DirectXGraphics,
   geom2d,
   geom3d,
   images,
   Types,
+  {$IFDEF OPENGL}
   dglOpenGl,
+  {$ENDIF}
+  {$IFDEF DIRECTX}
+  DirectXGraphics,
+  {$ENDIF}
   eventMan,
   FastGfx,
   DirectText,
@@ -29,14 +33,9 @@ uses
   Sound in '..\Sound.pas',
   UModes in '..\UModes.pas',
   networking2 in '..\networking2.pas',
-  DxImages8 in '..\DxImages8.pas',
   IOSgame in '..\IOSgame.pas',
-  Painter8 in '..\Painter8.pas',
   BasicGame in '..\BasicGame.pas',
-  GLImages in '..\GLImages.pas',
   BasicPainter in '..\BasicPainter.pas',
-  dxgame8 in '..\dxgame8.pas',
-  GLgame in '..\GLgame.pas',
   TweakScene in '..\TweakScene.pas',
   networking3 in '..\networking3.pas',
   UDict in '..\UDict.pas',
@@ -45,11 +44,21 @@ uses
   cmdproc in '..\cmdproc.pas',
   ComplexText in '..\ComplexText.pas',
   steamAPI in '..\steamAPI.pas',
+  {$IFDEF DIRECTX}
+  DxImages8 in '..\DxImages8.pas',
+  dxgame8 in '..\dxgame8.pas',
+  Painter8 in '..\Painter8.pas',
+  {$ENDIF}
+  {$IFDEF OPENGL}
   PainterGL2 in '..\PainterGL2.pas',
+  GLImages in '..\GLImages.pas',
+  GLgame in '..\GLgame.pas',
+  {$ENDIF}
   GameApp in '..\GameApp.pas',
   Model3D in '..\Model3D.pas',
-  IQMloader in '..\IQMloader.pas',
-  SpritePacker in '..\SpritePacker.pas';
+  OBJLoader in '..\OBJLoader.pas',
+  SpritePacker in '..\SpritePacker.pas',
+  IQMloader in '..\IQMloader.pas';
 
 const
  wnd:boolean=true;
@@ -57,7 +66,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 3;
+ testnum:integer = 15;
  // 1 - инициализация, очистка буфера разными цветами, рисование линий
  // 2 - рисование нетекстурированных примитивов
  // 3 - текстурированные примитивы, мультитекстурирование
@@ -74,8 +83,10 @@ const
  // 14 - тест видео
  // 15 - 3D model and animation
 
+ {
  TexVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR+D3DFVF_TEX1+D3DFVF_TEXTUREFORMAT2;
  ColVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR;
+ }
 
 var
  savetime:cardinal;
@@ -207,10 +218,11 @@ type
  end;
 
  T3DCharacterTest=class(TTest)
-  model:TModel3D;
-  vertices:array of T3DModelVertex;
-  indices:TIndices;
-  shader:integer;
+  model,modelObj:TModel3D;
+  vertices,vertices2:array of T3DModelVertex;
+  indices,indices2:TIndices;
+  shader,shader2:integer;
+  tex:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -652,7 +664,6 @@ begin
  painter.FillGradrect(150,100,190,140,$FF0000FF,$FFFF0000,false);
  painter.FillGradrect(100,150,140,190,$FFFFFF00,$0FFFFF00,true);
  painter.FillGradrect(150,150,190,190,$FFFFFF00,$0FFFFF00,false);
-
 
  painter.ShadedRect(300,50,400,90,3,$FFC0C0C0,$FF808080);
  painter.ShadedRect(300,100,400,130,1,$FFC0C0C0,$FF808080);
@@ -1729,10 +1740,14 @@ var
  pnt:TPoint3s;
  b1,b2,b:TMatrix43s;
 begin
- model:=LoadIQM('res\test2.iqm');
+ modelObj:=Load3DModelOBJ('res\test.obj');
+ tex:=LoadImageFromFile('res\texTest.png',liffTexture+liffMipMaps);
+
+ model:=Load3DModelIQM('res\test2.iqm');
 // model:=LoadIQM('res\knight.iqm');
 // model.FlipX;
 // model.UpdateBoneMatrices; // Prepare
+
  pnt:=Point3s(10,0,0);
  b1:=IdentMatrix43s;
  b2:=IdentMatrix43s;
@@ -1741,18 +1756,31 @@ begin
  MultMat4(b1,b2,b);
  MultPnt4(b,@pnt,1,0);
 
+ // Prepare buffers
  count:=length(model.vp);
  SetLength(vertices,count);
- model.FillVertexBuffer(@vertices[0],count,sizeof(vertices[0]),true,
-  0,32,-1,16,12);
+ model.FillVertexBuffer(@vertices[0],count,sizeof(vertices[0]),true, 0,32,-1,16,12);
  model.animations[0].loop:=true;
  model.PlayAnimation;
  SetLength(indices,length(model.trgList));
  move(model.trgList[0],indices[0],length(indices)*2);
 
+ // Second model
+ count:=length(modelObj.vp);
+ SetLength(vertices2,count);
+ modelObj.FillVertexBuffer(@vertices2[0],count,sizeof(vertices2[0]),false, 0,32,-1,16,12);
+ SetLength(indices2,length(modelObj.trgList));
+ move(modelObj.trgList[0],indices2[0],length(indices2)*2);
+
+
+ // Prepare shaders
  vSrc:=LoadFileAsString('res\knight.vsh');
  fSrc:=LoadFileAsString('res\knight.fsh');
  shader:=TGLPainter(painter).BuildShaderProgram(vSrc,fSrc);
+
+ vSrc:=LoadFileAsString('res\tex.vsh');
+ fSrc:=LoadFileAsString('res\tex.fsh');
+ shader2:=TGLPainter(painter).BuildShaderProgram(vSrc,fSrc);
 end;
 
 procedure T3DCharacterTest.RenderFrame;
@@ -1765,25 +1793,30 @@ var
 begin
  time:=MyTickCount/1200;
  painter.Clear($FF101020,1);
+ // Setup camera and projection
  painter.SetPerspective(-10,10,-7,7,10,5,1000);
  painter.SetupCamera(Point3(30,0,15),Point3(0,0,8),Vector3(0,0,1000));
  painter.Set3DTransform(IdentMatrix4);
 
+ // Make sure everything is OK (just for debug)
  pnt:=TGLPainter2(painter).TestTransformation(Point3(0,0,0));
  pnt:=TGLPainter2(painter).TestTransformation(Point3(1,1,1));
 
+ // Make animation
  model.AnimateBones;
  model.FillVertexBuffer(@vertices[0],length(model.vp),sizeof(vertices[0]),true, 0,32,-1,16,12);
 
- painter.SetCullMode(cullNone);
+ // Setup rendering mode
  glEnable(GL_DEPTH_TEST);
  glDepthFunc(GL_LEQUAL);
  painter.FillRect(-15,-15,15,15,$C000A030);
 
+ // Set model position
  MultMat4(geom3d.ScaleMat(2,2,2),RotationZMat(time),objMat);
  objMat[3,2]:=3;
  painter.Set3DTransform(Matrix4(objMat));
 
+ // Switch to our custom shader
  painter.UseCustomShader;
  glUseProgram(shader);
 
@@ -1796,6 +1829,7 @@ begin
  uModel:=Matrix4s(Matrix4(objMat));
  glUniformMatrix4fv(loc,1,FALSE,@uModel);
 
+ // Setup mesh data source arrays
  glEnableVertexAttribArray(0);
  glVertexAttribPointer(0,3,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0]);
  glEnableVertexAttribArray(1);
@@ -1803,13 +1837,51 @@ begin
  glEnableVertexAttribArray(2);
  glVertexAttribPointer(2,2,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0].u);
 
+ // DRAW IT!
+ painter.SetCullMode(cullCW);
  glDrawElements(GL_TRIANGLES,length(indices),GL_UNSIGNED_SHORT,@indices[0]);
 
- glDisable(GL_DEPTH_TEST);
 
+ // SECOND MODEL (OBJ)
+
+ // Textured shader
+ glUseProgram(shader2);
+
+ // Set model position
+ MultMat4(geom3d.ScaleMat(4,4,4),RotationZMat(time),objMat);
+ objMat[3,1]:=16;
+ objMat[3,0]:=5;
+ objMat[3,2]:=1.5;
+ painter.Set3DTransform(Matrix4(objMat));
+ // Upload matrices
+ mvp:=Matrix4s(painter.GetMVPMatrix);
+ loc:=glGetUniformLocation(shader2,'uMVP');
+ glUniformMatrix4fv(loc,1,FALSE,@mvp);
+ // model matrix
+ loc:=glGetUniformLocation(shader2,'uModel');
+ uModel:=Matrix4s(Matrix4(objMat));
+ glUniformMatrix4fv(loc,1,FALSE,@uModel);
+ // Setup mesh data arrays
+ glVertexAttribPointer(0,3,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0]);
+ glVertexAttribPointer(1,3,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0].nX);
+ glVertexAttribPointer(2,2,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0].u);
+
+ // Setup texture
+ texMan.MakeOnline(tex,0);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+ loc:=glGetUniformLocation(shader2,'tex');
+ glUniform1i(loc,0);
+
+ // Draw IT
+ glDrawElements(GL_TRIANGLES,length(indices2),GL_UNSIGNED_SHORT,@indices2[0]);
+
+
+ // Reset everything back
+ glDisable(GL_DEPTH_TEST);
  painter.ResetTexMode;
  painter.SetDefaultView;
-
+ painter.SetCullMode(cullNone);
 end;
 
 begin
