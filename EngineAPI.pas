@@ -287,7 +287,9 @@ type
   next:PMultiTexLayer;
  end;
 
- TCullMode=(cullNone,cullCW,cullCCW);
+ TCullMode=(cullNone, // Display both sides
+   cullCW,    // Omit CW faces. This engine uses CW faces for 2D drawing
+   cullCCW);  // Omit CCW faces. in OpenGL CCW-faces are considered front by default
 
  T3DMatrix=TMatrix4;
 

@@ -76,7 +76,7 @@ type
    disableEffects:boolean=false;
 
 implementation
- uses {$IFDEF MSWINDOWS}{d3d8,directXGraphics,}{$ENDIF}
+ uses {$IFDEF DIRECTX}{d3d8,directXGraphics,}{$ENDIF}
       SysUtils,images,Geom2d,
       {$IFDEF OPENGL}dglOpenGL,PainterGL, {$ENDIF}
       {$IFDEF ANDROID}gles20,PainterGL, {$ENDIF}
