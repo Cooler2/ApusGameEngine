@@ -63,6 +63,10 @@ implementation
    iCnt,iSize:integer;
    pnt:TPoint3s;
    vHash:TSimpleHashAS;
+   // part
+   minVrt,maxVrt:integer;
+   trgStart:integer;
+   partName:AnsiString;
 
   function GetVertexIdx(st:AnsiString):integer;
    var
@@ -99,6 +103,13 @@ implementation
     end;
    end;
 
+  function HandleIdx(i:integer):integer;
+   begin
+    result:=i;
+    if i<minVrt then minVrt:=i;
+    if i>maxVrt then maxVrt:=i;
+   end;
+
   procedure AddFace(sa:AStringArr);
    var
     v3:integer;
@@ -108,9 +119,32 @@ implementation
      inc(iSize,iSize div 2);
      SetLength(m.trgList,iSize);
     end;
-    m.trgList[iCnt]:=GetVertexIdx(sa[1]); inc(icnt);
-    m.trgList[iCnt]:=GetVertexIdx(sa[2]); inc(icnt);
-    m.trgList[iCnt]:=GetVertexIdx(sa[3]); inc(icnt);
+    m.trgList[iCnt]:=HandleIdx(GetVertexIdx(sa[1])); inc(icnt);
+    m.trgList[iCnt]:=HandleIdx(GetVertexIdx(sa[2])); inc(icnt);
+    m.trgList[iCnt]:=HandleIdx(GetVertexIdx(sa[3])); inc(icnt);
+   end;
+
+  procedure StartMeshPart(name:AnsiString);
+   begin
+    trgStart:=iCnt div 3;
+    minVrt:=100000; maxvrt:=-1;
+    partName:=name;
+   end;
+
+  procedure FinishMeshPart;
+   var
+    cnt,n:integer;
+   begin
+    cnt:=iCnt div 3-trgStart;
+    if cnt<=0 then exit;
+    n:=length(m.parts);
+    SetLength(m.parts,n+1);
+    m.parts[n].partName:=partName;
+    m.parts[n].materialName:=partName;
+    m.parts[n].firstTrg:=trgStart;
+    m.parts[n].trgCount:=cnt;
+    m.parts[n].firstVrt:=minVrt;
+    m.parts[n].vrtCount:=maxVrt-minVrt+1;
    end;
 
   begin
@@ -137,6 +171,7 @@ implementation
     SetLength(m.vn,vSize);
     SetLength(m.vt,vSize);
 
+    StartMeshPart('');
 
     while FetchLine(pb,size,line) do begin
      if line='' then continue;
@@ -173,8 +208,14 @@ implementation
      if sa[0]='f' then begin
       // Face definition
       AddFace(sa);
+     end else
+     if sa[0]='usemtl' then begin
+      // Material switch -> create new part
+      FinishMeshPart;
+      StartMeshPart(sa[1]);
      end;
     end;
+    FinishMeshPart;
 
     // Final size
     SetLength(m.vp,vCnt);

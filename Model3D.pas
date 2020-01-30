@@ -27,9 +27,9 @@ type
 
  // Part of mesh surface
  TModelPart=record
-  partName,materialName:string;
-  firstTrg,trgCount:integer;
-  firstVrt,vrtCount:integer;
+  partName,materialName:AnsiString;
+  firstTrg,trgCount:integer;  // triangles of the part
+  firstVrt,vrtCount:integer;  // vertices used in the part (may also conatain other vertices)
  end;
 
  // Definition of bone
@@ -100,7 +100,7 @@ type
 
   // Build vertex data buffer. Transformed=true - apply bone matrices and weights to vertex positions and normals
   // Negative offset -> don't fill data
-  procedure FillVertexBuffer(data:pointer;vrtCount,stride:integer; transformed:boolean;
+  procedure FillVertexBuffer(data:pointer;vrtCount,stride:integer; useBones:boolean;
     vpOffset,vtOffset,vt2Offset,vnOffset,vcOffset:integer);
 
   // Calculate bone matrices: forwardOnly - don't calc inverse matrices (Model->Bone), just only Bone->Model
@@ -263,7 +263,7 @@ procedure TModel3D.AnimateBones;
   UpdateBoneMatrices(true);
  end;
 
-procedure TModel3D.FillVertexBuffer(data: pointer; vrtCount, stride:integer; transformed:boolean;
+procedure TModel3D.FillVertexBuffer(data: pointer; vrtCount, stride:integer; useBones:boolean;
   vpOffset,vtOffset,vt2Offset,vnOffset,vcOffset: integer);
  var
   i:integer;
@@ -302,7 +302,7 @@ procedure TModel3D.FillVertexBuffer(data: pointer; vrtCount, stride:integer; tra
   if vpp<>nil then
    for i:=0 to vrtCount-1 do begin
     // Position
-    if vp<>nil then StorePos(i,vpp,transformed)
+    if vp<>nil then StorePos(i,vpp,useBones)
      else fillchar(vpp^,sizeof(TPoint3s),0);
     inc(vpp,stride);
    end;
