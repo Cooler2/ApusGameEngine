@@ -2480,7 +2480,6 @@ const
  procedure SortObjects(obj:PSortableObjects;count:integer);
   procedure QuickSort(var obj:TSortableObjects;a,b:integer);
    var
-
     lo,hi,mid:integer;
     o,midobj:TSortableObject;
    begin
@@ -3722,6 +3721,7 @@ function BinToStr;
 
  procedure ErrorMessage;
   begin
+   ForceLogMessage(text);
    {$IFDEF MSWINDOWS}
    ShowMessageEx(text,'Error',MB_ICONERROR);
    {$ELSE}
