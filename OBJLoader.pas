@@ -52,7 +52,7 @@ implementation
    line:AnsiString;
    m:TModel3D;
    pb:PByte;
-   size:integer;
+   size,lNum:integer;
    sa:AStringArr;
    points,normals:array of TPoint3s;
    uv:array of TPoint2s;
@@ -173,7 +173,9 @@ implementation
 
     StartMeshPart('');
 
-    while FetchLine(pb,size,line) do begin
+    lNum:=0;
+    while FetchLine(pb,size,line) do try
+     inc(lNum);
      if line='' then continue;
      if line[1]='#' then continue;
      sa:=SplitA(' ',line);
@@ -214,6 +216,8 @@ implementation
       FinishMeshPart;
       StartMeshPart(sa[1]);
      end;
+    except
+     on e:Exception do raise EWarning.Create('OBJLoader: line('+inttostr(lNum)+'): '+ExceptionMsg(e));
     end;
     FinishMeshPart;
 
