@@ -28,7 +28,7 @@ implementation
     end;
     inc(pb); dec(size);
    end;
-   if size>0 then inc(pb);
+   if size>0 then begin inc(pb); dec(size); end;
    SetLength(st,l);
   end;
 
