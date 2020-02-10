@@ -1,4 +1,4 @@
-// Import module for InterQuakeModel format (IQM/IQE)
+// Import 3D models from OBJ file format
 // Copyright (C) 2019 Apus Software (www.apus-software.com)
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
 {$R+}
