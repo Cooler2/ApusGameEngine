@@ -1,3 +1,5 @@
+﻿// Stack tracing utility - under construction
+// Author: Ivan Polyacov - ivan@apus-software.com
 unit StackTrace;
 interface
 

@@ -1,4 +1,4 @@
-// Wrapper unit for platform-dependent functions
+﻿// Wrapper unit for platform-dependent functions
 //
 // Copyright (C) 2011 Apus Software (www.apus-software.com)
 // Author: Ivan Polyacov (ivan@apus-software.com, cooler@tut.by)

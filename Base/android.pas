@@ -1,8 +1,10 @@
-// Android file system - load asset files
+﻿// Android file system - load asset files
 // Copyright (C) 2017 Apus Software (www.apus-software.com)
 // Author: Ivan Polyacov (ivan@apus-software.com, cooler@tut.by)
-unit android;
+unit Android;
+{$IFDEF FPC}
 {$mode delphi}
+{$ENDIF}
 interface
  {$IFDEF ANDROID}
   uses jni,MyServis;

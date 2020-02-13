@@ -1,5 +1,5 @@
-{$R-}
-// Функции для более тщательной работы с текстом
+п»ї{$R-}
+// Р¤СѓРЅРєС†РёРё РґР»СЏ Р±РѕР»РµРµ С‚С‰Р°С‚РµР»СЊРЅРѕР№ СЂР°Р±РѕС‚С‹ СЃ С‚РµРєСЃС‚РѕРј
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
 unit TextUtils;
 interface
@@ -9,7 +9,7 @@ interface
  function ExtractPlainText(const html:string):string;
  // Builds list of unique words
  function SplitToWords(const text:WideString):WStringArr;
- // Является ли символ "алфавитно-цифровым" (соединительная пунктуация тоже считается) или же какие-то другим
+ // РЇРІР»СЏРµС‚СЃСЏ Р»Рё СЃРёРјРІРѕР» "Р°Р»С„Р°РІРёС‚РЅРѕ-С†РёС„СЂРѕРІС‹Рј" (СЃРѕРµРґРёРЅРёС‚РµР»СЊРЅР°СЏ РїСѓРЅРєС‚СѓР°С†РёСЏ С‚РѕР¶Рµ СЃС‡РёС‚Р°РµС‚СЃСЏ) РёР»Рё Р¶Рµ РєР°РєРёРµ-С‚Рѕ РґСЂСѓРіРёРј
  function IsWordChar(const wch:WideChar):boolean;
  // Returns edit distance between 2 words
  function GetWordsDistance(const w1,w2:WideString):integer;

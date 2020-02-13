@@ -1,9 +1,9 @@
-// Database API class and it's implementation for MySQL
+п»ї// Database API class and it's implementation for MySQL
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
-unit database;
+unit Database;
 interface
- uses MyServis,structs;
+ uses MyServis,Structs;
  var
   // Credentials and options
   DB_HOST:AnsiString='127.0.0.1';
@@ -33,22 +33,22 @@ interface
    lastErrorCode:integer;
    constructor Create;
    procedure Connect; virtual; abstract;
-   // Выполняет запрос, возвращает массив строк размером rowCount * colCount
-   // В случае ошибки возвращает массив из одной строки: ERROR: <текст ошибки>, причём rowCount=0
-   // Если запрос не подразумевает возврат данных и выполняется успешно - возвращает
-   // пустой массив (0 строк)
+   // Р’С‹РїРѕР»РЅСЏРµС‚ Р·Р°РїСЂРѕСЃ, РІРѕР·РІСЂР°С‰Р°РµС‚ РјР°СЃСЃРёРІ СЃС‚СЂРѕРє СЂР°Р·РјРµСЂРѕРј rowCount * colCount
+   // Р’ СЃР»СѓС‡Р°Рµ РѕС€РёР±РєРё РІРѕР·РІСЂР°С‰Р°РµС‚ РјР°СЃСЃРёРІ РёР· РѕРґРЅРѕР№ СЃС‚СЂРѕРєРё: ERROR: <С‚РµРєСЃС‚ РѕС€РёР±РєРё>, РїСЂРёС‡С‘Рј rowCount=0
+   // Р•СЃР»Рё Р·Р°РїСЂРѕСЃ РЅРµ РїРѕРґСЂР°Р·СѓРјРµРІР°РµС‚ РІРѕР·РІСЂР°С‚ РґР°РЅРЅС‹С… Рё РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ СѓСЃРїРµС€РЅРѕ - РІРѕР·РІСЂР°С‰Р°РµС‚
+   // РїСѓСЃС‚РѕР№ РјР°СЃСЃРёРІ (0 СЃС‚СЂРѕРє)
    function Query(DBquery:AnsiString):AStringArr; overload; virtual; abstract;
    // Sugar: Query(Format(DBQuery,params)) - all string items pass through SQLsafe()
    function Query(DBquery:AnsiString;params:array of const):AStringArr; overload; virtual;
-   // Запрашивает строки (поля в fields) из таблицы, соответствующие заданному условию, и заносит их в хэш
-   // Условие может также содержать сортировку и т.п.
-   // Хэш переинициализируется, т.е. если в нём уже было содержимое - оно теряется
+   // Р—Р°РїСЂР°С€РёРІР°РµС‚ СЃС‚СЂРѕРєРё (РїРѕР»СЏ РІ fields) РёР· С‚Р°Р±Р»РёС†С‹, СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёРµ Р·Р°РґР°РЅРЅРѕРјСѓ СѓСЃР»РѕРІРёСЋ, Рё Р·Р°РЅРѕСЃРёС‚ РёС… РІ С…СЌС€
+   // РЈСЃР»РѕРІРёРµ РјРѕР¶РµС‚ С‚Р°РєР¶Рµ СЃРѕРґРµСЂР¶Р°С‚СЊ СЃРѕСЂС‚РёСЂРѕРІРєСѓ Рё С‚.Рї.
+   // РҐСЌС€ РїРµСЂРµРёРЅРёС†РёР°Р»РёР·РёСЂСѓРµС‚СЃСЏ, С‚.Рµ. РµСЃР»Рё РІ РЅС‘Рј СѓР¶Рµ Р±С‹Р»Рѕ СЃРѕРґРµСЂР¶РёРјРѕРµ - РѕРЅРѕ С‚РµСЂСЏРµС‚СЃСЏ
    procedure QueryHash(var h:THash;table,keyField,fields,condition:AnsiString); virtual;
-   // Для каждого ключа хэша H, соответствующего полю keyField в таблице table
-   // запрашивает значение поля valueField (можно перечислить несколько полей через запятую, тогда будут выбраны все)
-   // quoteKeys используется чтобы заключать значения ключей в " " (необходимо если ключи - строкового типа)
-   // condition - дополнительное условие для WHERE clause
-   // Если значения для ключа не найдено, ключ в хэше остаётся с пустым значением
+   // Р”Р»СЏ РєР°Р¶РґРѕРіРѕ РєР»СЋС‡Р° С…СЌС€Р° H, СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РµРіРѕ РїРѕР»СЋ keyField РІ С‚Р°Р±Р»РёС†Рµ table
+   // Р·Р°РїСЂР°С€РёРІР°РµС‚ Р·РЅР°С‡РµРЅРёРµ РїРѕР»СЏ valueField (РјРѕР¶РЅРѕ РїРµСЂРµС‡РёСЃР»РёС‚СЊ РЅРµСЃРєРѕР»СЊРєРѕ РїРѕР»РµР№ С‡РµСЂРµР· Р·Р°РїСЏС‚СѓСЋ, С‚РѕРіРґР° Р±СѓРґСѓС‚ РІС‹Р±СЂР°РЅС‹ РІСЃРµ)
+   // quoteKeys РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ С‡С‚РѕР±С‹ Р·Р°РєР»СЋС‡Р°С‚СЊ Р·РЅР°С‡РµРЅРёСЏ РєР»СЋС‡РµР№ РІ " " (РЅРµРѕР±С…РѕРґРёРјРѕ РµСЃР»Рё РєР»СЋС‡Рё - СЃС‚СЂРѕРєРѕРІРѕРіРѕ С‚РёРїР°)
+   // condition - РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕРµ СѓСЃР»РѕРІРёРµ РґР»СЏ WHERE clause
+   // Р•СЃР»Рё Р·РЅР°С‡РµРЅРёСЏ РґР»СЏ РєР»СЋС‡Р° РЅРµ РЅР°Р№РґРµРЅРѕ, РєР»СЋС‡ РІ С…СЌС€Рµ РѕСЃС‚Р°С‘С‚СЃСЏ СЃ РїСѓСЃС‚С‹Рј Р·РЅР°С‡РµРЅРёРµРј
    procedure QueryValues(var h:THash;table,keyField,valueField:AnsiString;quoteKeys:boolean=false;condition:AnsiString=''); virtual;
 
    procedure Disconnect; virtual; abstract;
@@ -70,7 +70,7 @@ interface
   // MySQL interface
   TMySQLDatabase=class(TDatabase)
    logSelects,logChanges:boolean;
-   time1,time2,time3:integer; // время выполнения real_query и время получения результатов
+   time1,time2,time3:integer; // РІСЂРµРјСЏ РІС‹РїРѕР»РЅРµРЅРёСЏ real_query Рё РІСЂРµРјСЏ РїРѕР»СѓС‡РµРЅРёСЏ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ
    constructor Create;
    procedure Connect; override;
    function Query(DBquery:AnsiString):AStringArr; override;
@@ -78,7 +78,7 @@ interface
    destructor Destroy; override;
   private
    ms:pointer;
-   reserve:array[0..255] of integer; // резерв для структуры ms
+   reserve:array[0..255] of integer; // СЂРµР·РµСЂРІ РґР»СЏ СЃС‚СЂСѓРєС‚СѓСЂС‹ ms
   end;
 
   TMySQLDatabaseWithLogging=class(TMySQLDatabase)
@@ -331,7 +331,7 @@ begin
   EnterCriticalSection(crSect);
   try
    if DBquery='' then begin
-    // Пустой запрос для поддержания связи с БД
+    // РџСѓСЃС‚РѕР№ Р·Р°РїСЂРѕСЃ РґР»СЏ РїРѕРґРґРµСЂР¶Р°РЅРёСЏ СЃРІСЏР·Рё СЃ Р‘Р”
     SetLength(result,0);
     r:=mysql_ping(ms);
     if r<>0 then begin
@@ -342,7 +342,7 @@ begin
     end;
     exit;
    end;
-   // непустой запрос
+   // РЅРµРїСѓСЃС‚РѕР№ Р·Р°РїСЂРѕСЃ
    time1:=0; time2:=0; time3:=0;
    t:=MyTickCount;
    r:=mysql_real_query(ms,@DBquery[1],length(DBquery));
@@ -373,7 +373,7 @@ begin
      setLength(result,0);
     exit;
    end;
-   flds:=mysql_num_fields(res); // кол-во полей в результате
+   flds:=mysql_num_fields(res); // РєРѕР»-РІРѕ РїРѕР»РµР№ РІ СЂРµР·СѓР»СЊС‚Р°С‚Рµ
    rows:=mysql_num_rows(res);
    colCount:=flds;
    rowCount:=rows;
@@ -383,7 +383,7 @@ begin
     j:=0;
     setLength(result,flds*rows);
     while true do begin
-     // выборка строки и извлечение данных в массив row
+     // РІС‹Р±РѕСЂРєР° СЃС‚СЂРѕРєРё Рё РёР·РІР»РµС‡РµРЅРёРµ РґР°РЅРЅС‹С… РІ РјР°СЃСЃРёРІ row
      myrow:=mysql_fetch_row(res);
      if myrow<>nil then begin
       for i:=0 to flds-1 do begin

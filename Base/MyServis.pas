@@ -1,4 +1,4 @@
-{$A+,B-,C+,D+,H+,I+,J+,K-,M-,O+,P+,Q-,R-,S-,T-,U-,V+,W-,X+,Y+,Z1}
+п»ї{$A+,B-,C+,D+,H+,I+,J+,K-,M-,O+,P+,Q-,R-,S-,T-,U-,V+,W-,X+,Y+,Z1}
 {$IFDEF FPC}{$MODE DELPHI}{$ENDIF}
 {$IFDEF IOS}{$modeswitch objectivec1}{$ENDIF}
 {$IFNDEF FPC}{$IFNDEF DELPHI}
@@ -7,7 +7,7 @@ For Delphi - please define global symbol "DELPHI"!
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 
 
-// Модуль, содержащий очень полезные функции общего назначения
+// РњРѕРґСѓР»СЊ, СЃРѕРґРµСЂР¶Р°С‰РёР№ РѕС‡РµРЅСЊ РїРѕР»РµР·РЅС‹Рµ С„СѓРЅРєС†РёРё РѕР±С‰РµРіРѕ РЅР°Р·РЅР°С‡РµРЅРёСЏ
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
 unit MyServis;
 interface
@@ -38,11 +38,11 @@ interface
   PCriticalSection=^TMyCriticalSection;
   TMyCriticalSection=packed record
    crs:TRTLCriticalSection;
-   name:string;      // имя секции
-   caller:cardinal;  // точка, из которой была попытка завладеть секцией
-   owner:cardinal;   // точка, из которой произошел удачный захват секции
-   thread:cardinal;  // нить, пытающаяся захватить секцию
-   time:int64;       // время наступления таймаута захвата
+   name:string;      // РёРјСЏ СЃРµРєС†РёРё
+   caller:cardinal;  // С‚РѕС‡РєР°, РёР· РєРѕС‚РѕСЂРѕР№ Р±С‹Р»Р° РїРѕРїС‹С‚РєР° Р·Р°РІР»Р°РґРµС‚СЊ СЃРµРєС†РёРµР№
+   owner:cardinal;   // С‚РѕС‡РєР°, РёР· РєРѕС‚РѕСЂРѕР№ РїСЂРѕРёР·РѕС€РµР» СѓРґР°С‡РЅС‹Р№ Р·Р°С…РІР°С‚ СЃРµРєС†РёРё
+   thread:cardinal;  // РЅРёС‚СЊ, РїС‹С‚Р°СЋС‰Р°СЏСЃСЏ Р·Р°С…РІР°С‚РёС‚СЊ СЃРµРєС†РёСЋ
+   time:int64;       // РІСЂРµРјСЏ РЅР°СЃС‚СѓРїР»РµРЅРёСЏ С‚Р°Р№РјР°СѓС‚Р° Р·Р°С…РІР°С‚Р°
    lockCount:integer; // how many times locked (recursion)
    level:integer;     // it's not allowed to enter section with lower level from section with higher level
    prevSection:PCriticalSection;
@@ -69,25 +69,25 @@ interface
     property Address:cardinal read FAddress;
   end;
 
-  // Предупреждения следует вызывать в ситуациях, когда нужно
-  // привлечь внимание к ненормальной ситуации, которая впрочем не
-  // мешает продолжать нормальную работу, никаких дополнительных действий от
-  // верхнего уровня не требуется
-  // (например: процедура не смогла отработать, но это не нарушает работу верхнего уровня)
+  // РџСЂРµРґСѓРїСЂРµР¶РґРµРЅРёСЏ СЃР»РµРґСѓРµС‚ РІС‹Р·С‹РІР°С‚СЊ РІ СЃРёС‚СѓР°С†РёСЏС…, РєРѕРіРґР° РЅСѓР¶РЅРѕ
+  // РїСЂРёРІР»РµС‡СЊ РІРЅРёРјР°РЅРёРµ Рє РЅРµРЅРѕСЂРјР°Р»СЊРЅРѕР№ СЃРёС‚СѓР°С†РёРё, РєРѕС‚РѕСЂР°СЏ РІРїСЂРѕС‡РµРј РЅРµ
+  // РјРµС€Р°РµС‚ РїСЂРѕРґРѕР»Р¶Р°С‚СЊ РЅРѕСЂРјР°Р»СЊРЅСѓСЋ СЂР°Р±РѕС‚Сѓ, РЅРёРєР°РєРёС… РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹С… РґРµР№СЃС‚РІРёР№ РѕС‚
+  // РІРµСЂС…РЅРµРіРѕ СѓСЂРѕРІРЅСЏ РЅРµ С‚СЂРµР±СѓРµС‚СЃСЏ
+  // (РЅР°РїСЂРёРјРµСЂ: РїСЂРѕС†РµРґСѓСЂР° РЅРµ СЃРјРѕРіР»Р° РѕС‚СЂР°Р±РѕС‚Р°С‚СЊ, РЅРѕ СЌС‚Рѕ РЅРµ РЅР°СЂСѓС€Р°РµС‚ СЂР°Р±РѕС‚Сѓ РІРµСЂС…РЅРµРіРѕ СѓСЂРѕРІРЅСЏ)
   EWarning=class(TBaseException);
 
-  // Обычная ошибка - ситуация, когда выполнение программы явно нарушено
-  // и продолжение работы возможно только если верхний уровень обработает ошибку и примет меры
-  // (например: функция не смогла выполнить требуемые действия и не вернула результат. Очевидно,
-  // что нормальное продолжение возможно только если верхний уровень откажется от использования результата)
+  // РћР±С‹С‡РЅР°СЏ РѕС€РёР±РєР° - СЃРёС‚СѓР°С†РёСЏ, РєРѕРіРґР° РІС‹РїРѕР»РЅРµРЅРёРµ РїСЂРѕРіСЂР°РјРјС‹ СЏРІРЅРѕ РЅР°СЂСѓС€РµРЅРѕ
+  // Рё РїСЂРѕРґРѕР»Р¶РµРЅРёРµ СЂР°Р±РѕС‚С‹ РІРѕР·РјРѕР¶РЅРѕ С‚РѕР»СЊРєРѕ РµСЃР»Рё РІРµСЂС…РЅРёР№ СѓСЂРѕРІРµРЅСЊ РѕР±СЂР°Р±РѕС‚Р°РµС‚ РѕС€РёР±РєСѓ Рё РїСЂРёРјРµС‚ РјРµСЂС‹
+  // (РЅР°РїСЂРёРјРµСЂ: С„СѓРЅРєС†РёСЏ РЅРµ СЃРјРѕРіР»Р° РІС‹РїРѕР»РЅРёС‚СЊ С‚СЂРµР±СѓРµРјС‹Рµ РґРµР№СЃС‚РІРёСЏ Рё РЅРµ РІРµСЂРЅСѓР»Р° СЂРµР·СѓР»СЊС‚Р°С‚. РћС‡РµРІРёРґРЅРѕ,
+  // С‡С‚Рѕ РЅРѕСЂРјР°Р»СЊРЅРѕРµ РїСЂРѕРґРѕР»Р¶РµРЅРёРµ РІРѕР·РјРѕР¶РЅРѕ С‚РѕР»СЊРєРѕ РµСЃР»Рё РІРµСЂС…РЅРёР№ СѓСЂРѕРІРµРЅСЊ РѕС‚РєР°Р¶РµС‚СЃСЏ РѕС‚ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ СЂРµР·СѓР»СЊС‚Р°С‚Р°)
   EError=class(TBaseException);
 
-  // Фатальная ошибка - продолжение работы невозможно, верхний уровень обязан инициировать
-  // завершение выполнения программы. Это исключение следует использовать тогда, когда
-  // ошибка не может быть исправлена верхним уровнем
-  // (например: обнаружено что-то, чего быть никак не может, т.е. результат повреждения
-  // данных или ошибки в алгоритме, ведущей к принципиально неправильной работе. Чтобы
-  // избежать возможной порчи данных при последующих вызовах, следует немедленно прекратить работу)
+  // Р¤Р°С‚Р°Р»СЊРЅР°СЏ РѕС€РёР±РєР° - РїСЂРѕРґРѕР»Р¶РµРЅРёРµ СЂР°Р±РѕС‚С‹ РЅРµРІРѕР·РјРѕР¶РЅРѕ, РІРµСЂС…РЅРёР№ СѓСЂРѕРІРµРЅСЊ РѕР±СЏР·Р°РЅ РёРЅРёС†РёРёСЂРѕРІР°С‚СЊ
+  // Р·Р°РІРµСЂС€РµРЅРёРµ РІС‹РїРѕР»РЅРµРЅРёСЏ РїСЂРѕРіСЂР°РјРјС‹. Р­С‚Рѕ РёСЃРєР»СЋС‡РµРЅРёРµ СЃР»РµРґСѓРµС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ С‚РѕРіРґР°, РєРѕРіРґР°
+  // РѕС€РёР±РєР° РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РёСЃРїСЂР°РІР»РµРЅР° РІРµСЂС…РЅРёРј СѓСЂРѕРІРЅРµРј
+  // (РЅР°РїСЂРёРјРµСЂ: РѕР±РЅР°СЂСѓР¶РµРЅРѕ С‡С‚Рѕ-С‚Рѕ, С‡РµРіРѕ Р±С‹С‚СЊ РЅРёРєР°Рє РЅРµ РјРѕР¶РµС‚, С‚.Рµ. СЂРµР·СѓР»СЊС‚Р°С‚ РїРѕРІСЂРµР¶РґРµРЅРёСЏ
+  // РґР°РЅРЅС‹С… РёР»Рё РѕС€РёР±РєРё РІ Р°Р»РіРѕСЂРёС‚РјРµ, РІРµРґСѓС‰РµР№ Рє РїСЂРёРЅС†РёРїРёР°Р»СЊРЅРѕ РЅРµРїСЂР°РІРёР»СЊРЅРѕР№ СЂР°Р±РѕС‚Рµ. Р§С‚РѕР±С‹
+  // РёР·Р±РµР¶Р°С‚СЊ РІРѕР·РјРѕР¶РЅРѕР№ РїРѕСЂС‡Рё РґР°РЅРЅС‹С… РїСЂРё РїРѕСЃР»РµРґСѓСЋС‰РёС… РІС‹Р·РѕРІР°С…, СЃР»РµРґСѓРµС‚ РЅРµРјРµРґР»РµРЅРЅРѕ РїСЂРµРєСЂР°С‚РёС‚СЊ СЂР°Р±РѕС‚Сѓ)
   EFatalError=class(TBaseException);
 
   // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
@@ -101,11 +101,11 @@ interface
   TSortableObjects=array of TSortableObject;
   PSortableObjects=^TSortableObjects;
 
-  // Режимы работы с лог-файлом
-  TLogModes=(lmSilent,   // никакие сообщения не выводятся в лог
-             lmForced,   // выводятся только forced-собщения
-             lmNormal,   // выводятся только forced-собщения и сообщения без групп (default)
-             lmVerbose); // выводятся все сообщения
+  // Р РµР¶РёРјС‹ СЂР°Р±РѕС‚С‹ СЃ Р»РѕРі-С„Р°Р№Р»РѕРј
+  TLogModes=(lmSilent,   // РЅРёРєР°РєРёРµ СЃРѕРѕР±С‰РµРЅРёСЏ РЅРµ РІС‹РІРѕРґСЏС‚СЃСЏ РІ Р»РѕРі
+             lmForced,   // РІС‹РІРѕРґСЏС‚СЃСЏ С‚РѕР»СЊРєРѕ forced-СЃРѕР±С‰РµРЅРёСЏ
+             lmNormal,   // РІС‹РІРѕРґСЏС‚СЃСЏ С‚РѕР»СЊРєРѕ forced-СЃРѕР±С‰РµРЅРёСЏ Рё СЃРѕРѕР±С‰РµРЅРёСЏ Р±РµР· РіСЂСѓРїРї (default)
+             lmVerbose); // РІС‹РІРѕРґСЏС‚СЃСЏ РІСЃРµ СЃРѕРѕР±С‰РµРЅРёСЏ
  var
   fileSysError:integer=0;  // last error
   windowHandle:cardinal=0; // handle for messages, can be 0
@@ -113,30 +113,30 @@ interface
   logStartDate:TDateTime;
   logErrorCount:integer;
 
-  performance:integer; // производительности системы
+  performance:integer; // РїСЂРѕРёР·РІРѕРґРёС‚РµР»СЊРЅРѕСЃС‚Рё СЃРёСЃС‚РµРјС‹
 
-  // проверяет уровни вложенного захвата критсекций на корректность
+  // РїСЂРѕРІРµСЂСЏРµС‚ СѓСЂРѕРІРЅРё РІР»РѕР¶РµРЅРЅРѕРіРѕ Р·Р°С…РІР°С‚Р° РєСЂРёС‚СЃРµРєС†РёР№ РЅР° РєРѕСЂСЂРµРєС‚РЅРѕСЃС‚СЊ
   // this slows down critical sectiond - so use carefuly
   debugCriticalSections:boolean=false;
 
- // Возвращает e.message вместе с адресом ошибки
+ // Р’РѕР·РІСЂР°С‰Р°РµС‚ e.message РІРјРµСЃС‚Рµ СЃ Р°РґСЂРµСЃРѕРј РѕС€РёР±РєРё
  function ExceptionMsg(const e:Exception):string;
  function GetCallStack:string;
  function GetCaller:pointer;
 
- // Проверяет наличие параметра (non case-sensitive) в командной строке
+ // РџСЂРѕРІРµСЂСЏРµС‚ РЅР°Р»РёС‡РёРµ РїР°СЂР°РјРµС‚СЂР° (non case-sensitive) РІ РєРѕРјР°РЅРґРЅРѕР№ СЃС‚СЂРѕРєРµ
  function HasParam(name:string):boolean;
- // Возвращает значение параметра из командной строки (формат name=value),
- // если параметр отсутствует - пустая строка
+ // Р’РѕР·РІСЂР°С‰Р°РµС‚ Р·РЅР°С‡РµРЅРёРµ РїР°СЂР°РјРµС‚СЂР° РёР· РєРѕРјР°РЅРґРЅРѕР№ СЃС‚СЂРѕРєРё (С„РѕСЂРјР°С‚ name=value),
+ // РµСЃР»Рё РїР°СЂР°РјРµС‚СЂ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚ - РїСѓСЃС‚Р°СЏ СЃС‚СЂРѕРєР°
  function GetParam(name:string):string;
 
- // Функции, показывающие сообщения (Windows)
+ // Р¤СѓРЅРєС†РёРё, РїРѕРєР°Р·С‹РІР°СЋС‰РёРµ СЃРѕРѕР±С‰РµРЅРёСЏ (Windows)
  // -------------------------------
  function ShowMessage(text,caption:string):integer;
  function AskYesNo(text,caption:string):boolean;
  procedure ErrorMessage(text:string);
 
- // Поцедуры для работы с лог-файлом
+ // РџРѕС†РµРґСѓСЂС‹ РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ Р»РѕРі-С„Р°Р№Р»РѕРј
  // --------------------------------
  procedure UseLogFile(name:string;keepOpened:boolean=false); // Specify log name
  procedure SetLogMode(mode:TLogModes;groups:string=''); //
@@ -144,29 +144,29 @@ interface
  procedure LogMessage(text:string;group:byte=0); overload; // with CR
  procedure LogMessage(text:string;params:array of const;group:byte=0); overload;
  procedure LogError(text:string);
- procedure ForceLogMessage(text:string); // то же самое, но с более высоким приоритетом
- procedure DebugMessage(text:string); // альтернативное имя для ForceLogMessage (для удобства поиска по коду)
+ procedure ForceLogMessage(text:string); // С‚Рѕ Р¶Рµ СЃР°РјРѕРµ, РЅРѕ СЃ Р±РѕР»РµРµ РІС‹СЃРѕРєРёРј РїСЂРёРѕСЂРёС‚РµС‚РѕРј
+ procedure DebugMessage(text:string); // Р°Р»СЊС‚РµСЂРЅР°С‚РёРІРЅРѕРµ РёРјСЏ РґР»СЏ ForceLogMessage (РґР»СЏ СѓРґРѕР±СЃС‚РІР° РїРѕРёСЃРєР° РїРѕ РєРѕРґСѓ)
  procedure LogCacheMode(enable:boolean;enforceCache:boolean=false;runThread:boolean=false);
- procedure FlushLog; // сбросить накопенное в кэше содержимое в лог
- procedure StopLogThread; // Завершение потока сброса лога
+ procedure FlushLog; // СЃР±СЂРѕСЃРёС‚СЊ РЅР°РєРѕРїРµРЅРЅРѕРµ РІ РєСЌС€Рµ СЃРѕРґРµСЂР¶РёРјРѕРµ РІ Р»РѕРі
+ procedure StopLogThread; // Р—Р°РІРµСЂС€РµРЅРёРµ РїРѕС‚РѕРєР° СЃР±СЂРѕСЃР° Р»РѕРіР°
  procedure SystemLogMessage(text:string); // Post message to OS log
 
- // Полезные высокоуровневые функции для работы с файловой системой
+ // РџРѕР»РµР·РЅС‹Рµ РІС‹СЃРѕРєРѕСѓСЂРѕРІРЅРµРІС‹Рµ С„СѓРЅРєС†РёРё РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјРѕР№
  // ---------------------------------------------------------------
- function FindFile(name,path:string):string; // Найти файл начиная с указанного пути
- function FindDir(name,path:string):string;  // То же самое, но ищется каталог
- function CopyDir(sour,dest:string):boolean; // Скопировать каталог со всем содержимым
- function MoveDir(sour,dest:string):boolean; // перенести каталог со всем содержимым
- function DeleteDir(path:string):boolean;    // Удалить каталог со всем содержимым
+ function FindFile(name,path:string):string; // РќР°Р№С‚Рё С„Р°Р№Р» РЅР°С‡РёРЅР°СЏ СЃ СѓРєР°Р·Р°РЅРЅРѕРіРѕ РїСѓС‚Рё
+ function FindDir(name,path:string):string;  // РўРѕ Р¶Рµ СЃР°РјРѕРµ, РЅРѕ РёС‰РµС‚СЃСЏ РєР°С‚Р°Р»РѕРі
+ function CopyDir(sour,dest:string):boolean; // РЎРєРѕРїРёСЂРѕРІР°С‚СЊ РєР°С‚Р°Р»РѕРі СЃРѕ РІСЃРµРј СЃРѕРґРµСЂР¶РёРјС‹Рј
+ function MoveDir(sour,dest:string):boolean; // РїРµСЂРµРЅРµСЃС‚Рё РєР°С‚Р°Р»РѕРі СЃРѕ РІСЃРµРј СЃРѕРґРµСЂР¶РёРјС‹Рј
+ function DeleteDir(path:string):boolean;    // РЈРґР°Р»РёС‚СЊ РєР°С‚Р°Р»РѕРі СЃРѕ РІСЃРµРј СЃРѕРґРµСЂР¶РёРјС‹Рј
  procedure DumpDir(path:string);             // Log directory content (file names)
 
- // Файловые функции
+ // Р¤Р°Р№Р»РѕРІС‹Рµ С„СѓРЅРєС†РёРё
  // -------------------------------
  function SafeFileName(fname:string):string; // Replace all unsafe characters with '_'
- function FileName(const fname:string):string; // исправление разделителей пути и применение case-правил
- procedure AddFileNameRule(const rule:string); // Добавить case-правило (например, правило "MyFile" превращает строки myFiLe или myfile в "MyFile")
+ function FileName(const fname:string):string; // РёСЃРїСЂР°РІР»РµРЅРёРµ СЂР°Р·РґРµР»РёС‚РµР»РµР№ РїСѓС‚Рё Рё РїСЂРёРјРµРЅРµРЅРёРµ case-РїСЂР°РІРёР»
+ procedure AddFileNameRule(const rule:string); // Р”РѕР±Р°РІРёС‚СЊ case-РїСЂР°РІРёР»Рѕ (РЅР°РїСЂРёРјРµСЂ, РїСЂР°РІРёР»Рѕ "MyFile" РїСЂРµРІСЂР°С‰Р°РµС‚ СЃС‚СЂРѕРєРё myFiLe РёР»Рё myfile РІ "MyFile")
  function GetFileSize(fname:AnsiString):int64;
- function WaitForFile(fname:String;delayLimit:integer;exists:boolean=true):boolean; // Подождать (не дольше delayLimit) до появления (или удаления) файла, возвращает false если не дождались
+ function WaitForFile(fname:String;delayLimit:integer;exists:boolean=true):boolean; // РџРѕРґРѕР¶РґР°С‚СЊ (РЅРµ РґРѕР»СЊС€Рµ delayLimit) РґРѕ РїРѕСЏРІР»РµРЅРёСЏ (РёР»Рё СѓРґР°Р»РµРЅРёСЏ) С„Р°Р№Р»Р°, РІРѕР·РІСЂР°С‰Р°РµС‚ false РµСЃР»Рё РЅРµ РґРѕР¶РґР°Р»РёСЃСЊ
  function MyFileExists(fname:String):boolean; // Cross-platform version
  procedure MakeBakFile(fname:string); // Rename xxx.yyy to xxx.bak, delete old xxx.bak if any
  function LoadFileAsString(fname:String):AnsiString; // Load file content into string
@@ -182,36 +182,36 @@ interface
  function LoadResourceFile(fname:string):pointer;}
  {$ENDIF}
 
- // Высокоточное измерение производительности участков кода (в мс)
+ // Р’С‹СЃРѕРєРѕС‚РѕС‡РЅРѕРµ РёР·РјРµСЂРµРЅРёРµ РїСЂРѕРёР·РІРѕРґРёС‚РµР»СЊРЅРѕСЃС‚Рё СѓС‡Р°СЃС‚РєРѕРІ РєРѕРґР° (РІ РјСЃ)
  // -------------------------------------------------------
- // Измеряемый код нужно заключить в скобки
+ // РР·РјРµСЂСЏРµРјС‹Р№ РєРѕРґ РЅСѓР¶РЅРѕ Р·Р°РєР»СЋС‡РёС‚СЊ РІ СЃРєРѕР±РєРё
  // StartMeasure(n) ... EndMeasure(n);
- // Это может исполняться как один раз, так и много раз
- // GetTaskPerformance - среднее время выполнения участка (в мс.)
+ // Р­С‚Рѕ РјРѕР¶РµС‚ РёСЃРїРѕР»РЅСЏС‚СЊСЃСЏ РєР°Рє РѕРґРёРЅ СЂР°Р·, С‚Р°Рє Рё РјРЅРѕРіРѕ СЂР°Р·
+ // GetTaskPerformance - СЃСЂРµРґРЅРµРµ РІСЂРµРјСЏ РІС‹РїРѕР»РЅРµРЅРёСЏ СѓС‡Р°СЃС‚РєР° (РІ РјСЃ.)
  procedure StartMeasure(n:integer);
  function EndMeasure(n:integer):double;
- // аналогично, но результат не усредняется за весь период, а просто сглаживается
+ // Р°РЅР°Р»РѕРіРёС‡РЅРѕ, РЅРѕ СЂРµР·СѓР»СЊС‚Р°С‚ РЅРµ СѓСЃСЂРµРґРЅСЏРµС‚СЃСЏ Р·Р° РІРµСЃСЊ РїРµСЂРёРѕРґ, Р° РїСЂРѕСЃС‚Рѕ СЃРіР»Р°Р¶РёРІР°РµС‚СЃСЏ
  function EndMeasure2(n:integer):double;
  function  GetTaskPerformance(n:integer):double;
  procedure RunTimer(n:integer);
  function GetTimer(n:integer):double;
 
  function GetUTCTime:TSystemTime;
- function MyTickCount:int64; // Аналог GetTickCount, но без переполнения (больше не использует GetTickCount из-за недостаточной точности)
+ function MyTickCount:int64; // РђРЅР°Р»РѕРі GetTickCount, РЅРѕ Р±РµР· РїРµСЂРµРїРѕР»РЅРµРЅРёСЏ (Р±РѕР»СЊС€Рµ РЅРµ РёСЃРїРѕР»СЊР·СѓРµС‚ GetTickCount РёР·-Р·Р° РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕР№ С‚РѕС‡РЅРѕСЃС‚Рё)
 
- // Функции для работы с массивами
+ // Р¤СѓРЅРєС†РёРё РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ РјР°СЃСЃРёРІР°РјРё
  // ------------------------------
  // Shift array/data pointed by ptr by shiftValue bytes (positive - right, negative - left)
  procedure ShiftArray(const arr;sizeInBytes,shiftValue:integer);
 
- // Возвращает строку с описанием распределения памяти
+ // Р’РѕР·РІСЂР°С‰Р°РµС‚ СЃС‚СЂРѕРєСѓ СЃ РѕРїРёСЃР°РЅРёРµРј СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ РїР°РјСЏС‚Рё
  function GetMemoryState:string;
 
- // Возвращает объем выделенной памяти
+ // Р’РѕР·РІСЂР°С‰Р°РµС‚ РѕР±СЉРµРј РІС‹РґРµР»РµРЅРЅРѕР№ РїР°РјСЏС‚Рё
  function GetMemoryAllocated:int64;
 
 
- // Функции для работы с массивами
+ // Р¤СѓРЅРєС†РёРё РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ РјР°СЃСЃРёРІР°РјРё
  // ------------------------------
  // Add (insert) string into array, returns its index
  function AddString(var sa:StringArr;const st:string;index:integer=-1):integer; overload;
@@ -219,30 +219,30 @@ interface
  // Delete string from array
  procedure RemoveString(var sa:StringArr;index:integer); overload;
  procedure RemoveString(var sa:WStringArr;index:integer); overload;
- // Ищет строку в массиве, возвращает её индекс либо -1
+ // РС‰РµС‚ СЃС‚СЂРѕРєСѓ РІ РјР°СЃСЃРёРІРµ, РІРѕР·РІСЂР°С‰Р°РµС‚ РµС‘ РёРЅРґРµРєСЃ Р»РёР±Рѕ -1
  function FindString(var sa:StringArr;st:string;ignoreCase:boolean=false):integer;
- // Ищет число в массиве, возвращает его индекс либо -1
+ // РС‰РµС‚ С‡РёСЃР»Рѕ РІ РјР°СЃСЃРёРІРµ, РІРѕР·РІСЂР°С‰Р°РµС‚ РµРіРѕ РёРЅРґРµРєСЃ Р»РёР±Рѕ -1
  function FindInteger(var a:IntArray;v:integer):integer;
- // Вставляет (добавляет) число в массив чисел
+ // Р’СЃС‚Р°РІР»СЏРµС‚ (РґРѕР±Р°РІР»СЏРµС‚) С‡РёСЃР»Рѕ РІ РјР°СЃСЃРёРІ С‡РёСЃРµР»
  function AddInteger(var a:IntArray;v:integer;index:integer=-1):integer;
- // Удаляет элемент из массива
+ // РЈРґР°Р»СЏРµС‚ СЌР»РµРјРµРЅС‚ РёР· РјР°СЃСЃРёРІР°
  procedure RemoveInteger(var a:IntArray;index:integer;keepOrder:boolean=false);
- // Вставляет (добавляет) число в массив чисел
+ // Р’СЃС‚Р°РІР»СЏРµС‚ (РґРѕР±Р°РІР»СЏРµС‚) С‡РёСЃР»Рѕ РІ РјР°СЃСЃРёРІ С‡РёСЃРµР»
  function AddFloat(var a:FloatArray;v:double;index:integer=-1):integer;
- // Удаляет элемент из массива
+ // РЈРґР°Р»СЏРµС‚ СЌР»РµРјРµРЅС‚ РёР· РјР°СЃСЃРёРІР°
  procedure RemoveFloat(var a:FloatArray;index:integer;keepOrder:boolean=false);
 
- // Возвращает список чисел массива (через запятую)
+ // Р’РѕР·РІСЂР°С‰Р°РµС‚ СЃРїРёСЃРѕРє С‡РёСЃРµР» РјР°СЃСЃРёРІР° (С‡РµСЂРµР· Р·Р°РїСЏС‚СѓСЋ)
  function ArrayToStr(a:array of integer;divider:char=','):string;
- // Формирует массив из строки чисел (через запятую)
+ // Р¤РѕСЂРјРёСЂСѓРµС‚ РјР°СЃСЃРёРІ РёР· СЃС‚СЂРѕРєРё С‡РёСЃРµР» (С‡РµСЂРµР· Р·Р°РїСЏС‚СѓСЋ)
  function StrToArray(st:string;divider:char=','):IntArray;
 
- // Функции для работы со строками
+ // Р¤СѓРЅРєС†РёРё РґР»СЏ СЂР°Р±РѕС‚С‹ СЃРѕ СЃС‚СЂРѕРєР°РјРё
  // ------------------------------
- // Выделить из строки все подстроки, разделенные данным разделителем
- // Двойное включение двойных кавычечных символов влечет включение символа в строку.
+ // Р’С‹РґРµР»РёС‚СЊ РёР· СЃС‚СЂРѕРєРё РІСЃРµ РїРѕРґСЃС‚СЂРѕРєРё, СЂР°Р·РґРµР»РµРЅРЅС‹Рµ РґР°РЅРЅС‹Рј СЂР°Р·РґРµР»РёС‚РµР»РµРј
+ // Р”РІРѕР№РЅРѕРµ РІРєР»СЋС‡РµРЅРёРµ РґРІРѕР№РЅС‹С… РєР°РІС‹С‡РµС‡РЅС‹С… СЃРёРјРІРѕР»РѕРІ РІР»РµС‡РµС‚ РІРєР»СЋС‡РµРЅРёРµ СЃРёРјРІРѕР»Р° РІ СЃС‚СЂРѕРєСѓ.
  function Split(divider,st:string;quotes:char):StringArr; overload;
- // Разделяет строку на подстроки без каких-либо потерь
+ // Р Р°Р·РґРµР»СЏРµС‚ СЃС‚СЂРѕРєСѓ РЅР° РїРѕРґСЃС‚СЂРѕРєРё Р±РµР· РєР°РєРёС…-Р»РёР±Рѕ РїРѕС‚РµСЂСЊ
  function Split(divider,st:string):StringArr; overload;
  function SplitA(divider,st:AnsiString):AStringArr;
  function SplitW(divider,st:WideString):WStringArr;
@@ -257,47 +257,47 @@ interface
  // Ignore case
  function SameChar(a,b:AnsiChar):boolean;
 
- // Склеивает подстроки в одну строку с использованием разделителя divider
- // Если разделитель присутствует в подстроках, то они берутся в кавычки с
- // выполнением соответствующей подстановки
+ // РЎРєР»РµРёРІР°РµС‚ РїРѕРґСЃС‚СЂРѕРєРё РІ РѕРґРЅСѓ СЃС‚СЂРѕРєСѓ СЃ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµРј СЂР°Р·РґРµР»РёС‚РµР»СЏ divider
+ // Р•СЃР»Рё СЂР°Р·РґРµР»РёС‚РµР»СЊ РїСЂРёСЃСѓС‚СЃС‚РІСѓРµС‚ РІ РїРѕРґСЃС‚СЂРѕРєР°С…, С‚Рѕ РѕРЅРё Р±РµСЂСѓС‚СЃСЏ РІ РєР°РІС‹С‡РєРё СЃ
+ // РІС‹РїРѕР»РЅРµРЅРёРµРј СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РµР№ РїРѕРґСЃС‚Р°РЅРѕРІРєРё
  function Combine(strings:stringarr;divider:string;quotes:char):string;
 
- // Соединяет подстроки в одну строку используя символ-разделитель divider
- // Если разделитель встречается в строках, то он удваивается
+ // РЎРѕРµРґРёРЅСЏРµС‚ РїРѕРґСЃС‚СЂРѕРєРё РІ РѕРґРЅСѓ СЃС‚СЂРѕРєСѓ РёСЃРїРѕР»СЊР·СѓСЏ СЃРёРјРІРѕР»-СЂР°Р·РґРµР»РёС‚РµР»СЊ divider
+ // Р•СЃР»Рё СЂР°Р·РґРµР»РёС‚РµР»СЊ РІСЃС‚СЂРµС‡Р°РµС‚СЃСЏ РІ СЃС‚СЂРѕРєР°С…, С‚Рѕ РѕРЅ СѓРґРІР°РёРІР°РµС‚СЃСЏ
  function Join(strings:StringArr;divider:string):string; overload;
 
- // Соединяет подстроки в одну строку используя символ-разделитель divider
- // Если разделитель встречается в строках, то он удваивается
+ // РЎРѕРµРґРёРЅСЏРµС‚ РїРѕРґСЃС‚СЂРѕРєРё РІ РѕРґРЅСѓ СЃС‚СЂРѕРєСѓ РёСЃРїРѕР»СЊР·СѓСЏ СЃРёРјРІРѕР»-СЂР°Р·РґРµР»РёС‚РµР»СЊ divider
+ // Р•СЃР»Рё СЂР°Р·РґРµР»РёС‚РµР»СЊ РІСЃС‚СЂРµС‡Р°РµС‚СЃСЏ РІ СЃС‚СЂРѕРєР°С…, С‚Рѕ РѕРЅ СѓРґРІР°РёРІР°РµС‚СЃСЏ
  function Join(strings:AStringArr;divider:AnsiString):AnsiString; overload;
 
- // Соединяет значения (преобразованные из исходных типов в строковый вид) указанным разделителем
+ // РЎРѕРµРґРёРЅСЏРµС‚ Р·РЅР°С‡РµРЅРёСЏ (РїСЂРµРѕР±СЂР°Р·РѕРІР°РЅРЅС‹Рµ РёР· РёСЃС…РѕРґРЅС‹С… С‚РёРїРѕРІ РІ СЃС‚СЂРѕРєРѕРІС‹Р№ РІРёРґ) СѓРєР°Р·Р°РЅРЅС‹Рј СЂР°Р·РґРµР»РёС‚РµР»РµРј
  function Join(items:array of const;divider:string):string; overload;
 
- // Проверяет, начинается ли строка st с подстроки
+ // РџСЂРѕРІРµСЂСЏРµС‚, РЅР°С‡РёРЅР°РµС‚СЃСЏ Р»Рё СЃС‚СЂРѕРєР° st СЃ РїРѕРґСЃС‚СЂРѕРєРё
  function HasPrefix(st,prefix:string):boolean; overload;
  function HasPrefix(st,prefix:AnsiString;ignoreCase:boolean=false):boolean; overload;
 
- // Возвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
+ // Р’РѕР·РІСЂР°С‰Р°РµС‚ СЃС‚СЂРѕРєСѓ РёР· РјР°СЃСЃРёРІР° СЃ РїСЂРѕРІРµСЂРєРѕР№ РєРѕСЂСЂРµРєС‚РЅРѕСЃС‚Рё РёРЅРґРµРєСЃР° (РёРЅР°С‡Рµ - РїСѓСЃС‚СѓСЋ СЃС‚СЂРѕРєСѓ)
  function SafeStrItem(sa:StringArr;idx:integer):string;
 
- // Заключить строку в кавычки (используя удваивание), если
- // force = false, то не заключать если в строке нет пробельных символов
+ // Р—Р°РєР»СЋС‡РёС‚СЊ СЃС‚СЂРѕРєСѓ РІ РєР°РІС‹С‡РєРё (РёСЃРїРѕР»СЊР·СѓСЏ СѓРґРІР°РёРІР°РЅРёРµ), РµСЃР»Рё
+ // force = false, С‚Рѕ РЅРµ Р·Р°РєР»СЋС‡Р°С‚СЊ РµСЃР»Рё РІ СЃС‚СЂРѕРєРµ РЅРµС‚ РїСЂРѕР±РµР»СЊРЅС‹С… СЃРёРјРІРѕР»РѕРІ
  function QuoteStr(const st:string;force:boolean=false;quotes:char='"'):string;
 
- // Раскодировать строку, заключенную в кавычки
+ // Р Р°СЃРєРѕРґРёСЂРѕРІР°С‚СЊ СЃС‚СЂРѕРєСѓ, Р·Р°РєР»СЋС‡РµРЅРЅСѓСЋ РІ РєР°РІС‹С‡РєРё
  function UnQuoteStr(const st:string;quotes:char='"'):string; overload;
  function UnQuoteStr(const st:AnsiString;quotes:AnsiChar='"'):AnsiString; overload;
 
- // Заменяет \n \t и т.д. на соответствующие символы (а также \\ на \)
+ // Р—Р°РјРµРЅСЏРµС‚ \n \t Рё С‚.Рґ. РЅР° СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёРµ СЃРёРјРІРѕР»С‹ (Р° С‚Р°РєР¶Рµ \\ РЅР° \)
  function Unescape(st:AnsiString):AnsiString;
  // Escape all characters #0/#1/CR/LF/TAB/'\'
  function Escape(st:AnsiString):AnsiString;
 
- // Убрать пробельные символы в начале и в конце
+ // РЈР±СЂР°С‚СЊ РїСЂРѕР±РµР»СЊРЅС‹Рµ СЃРёРјРІРѕР»С‹ РІ РЅР°С‡Р°Р»Рµ Рё РІ РєРѕРЅС†Рµ
  function Chop(st:string):string; overload;
  function Chop(st:AnsiString):AnsiString; overload;
 
- // Возвращает последний символ строки (#0 если строка пустая)
+ // Р’РѕР·РІСЂР°С‰Р°РµС‚ РїРѕСЃР»РµРґРЅРёР№ СЃРёРјРІРѕР» СЃС‚СЂРѕРєРё (#0 РµСЃР»Рё СЃС‚СЂРѕРєР° РїСѓСЃС‚Р°СЏ)
  function LastChar(st:string):char; overload;
  function LastChar(st:AnsiString):AnsiChar; overload;
 
@@ -305,57 +305,57 @@ interface
  function CharAt(st:string;index:integer):char;
  function WCharAt(st:WideString;index:integer):WideChar;
 
- // заменяет служебные символы в строке таким образом, чтобы её можно было вставить в HTML
+ // Р·Р°РјРµРЅСЏРµС‚ СЃР»СѓР¶РµР±РЅС‹Рµ СЃРёРјРІРѕР»С‹ РІ СЃС‚СЂРѕРєРµ С‚Р°РєРёРј РѕР±СЂР°Р·РѕРј, С‡С‚РѕР±С‹ РµС‘ РјРѕР¶РЅРѕ Р±С‹Р»Рѕ РІСЃС‚Р°РІРёС‚СЊ РІ HTML
  function HTMLString(st:string):string; overload;
  function HTMLString(st:AnsiString):AnsiString; overload;
 
- // Закодировать URL согласно требованиям HTTP
+ // Р—Р°РєРѕРґРёСЂРѕРІР°С‚СЊ URL СЃРѕРіР»Р°СЃРЅРѕ С‚СЂРµР±РѕРІР°РЅРёСЏРј HTTP
  function UrlEncode(st:AnsiString):AnsiString;
- // Раскодировать URL согласно требованиям HTTP
+ // Р Р°СЃРєРѕРґРёСЂРѕРІР°С‚СЊ URL СЃРѕРіР»Р°СЃРЅРѕ С‚СЂРµР±РѕРІР°РЅРёСЏРј HTTP
  function UrlDecode(st:AnsiString):AnsiString;
- // Кодирует url из UTF8 в нормальный ASCII вид !!! WARNING! ОЧЕНЬ странная ф-ция - ХЗ начем она вообще нужна!
+ // РљРѕРґРёСЂСѓРµС‚ url РёР· UTF8 РІ РЅРѕСЂРјР°Р»СЊРЅС‹Р№ ASCII РІРёРґ !!! WARNING! РћР§Р•РќР¬ СЃС‚СЂР°РЅРЅР°СЏ С„-С†РёСЏ - РҐР— РЅР°С‡РµРј РѕРЅР° РІРѕРѕР±С‰Рµ РЅСѓР¶РЅР°!
  function URLEncodeUTF8(st:AnsiString):AnsiString;
 
- // Закодировать двоичные данные в строку (this is NOT Base64!)
+ // Р—Р°РєРѕРґРёСЂРѕРІР°С‚СЊ РґРІРѕРёС‡РЅС‹Рµ РґР°РЅРЅС‹Рµ РІ СЃС‚СЂРѕРєСѓ (this is NOT Base64!)
  function EncodeB64(data:pointer;size:integer):AnsiString;
- // Раскодировать данные из строки
+ // Р Р°СЃРєРѕРґРёСЂРѕРІР°С‚СЊ РґР°РЅРЅС‹Рµ РёР· СЃС‚СЂРѕРєРё
  procedure DecodeB64(st:AnsiString;buf:pointer;var size:integer);
- // Переводит строку к печатаемому варианту (заменяет спецсимволы), операция необратима!
+ // РџРµСЂРµРІРѕРґРёС‚ СЃС‚СЂРѕРєСѓ Рє РїРµС‡Р°С‚Р°РµРјРѕРјСѓ РІР°СЂРёР°РЅС‚Сѓ (Р·Р°РјРµРЅСЏРµС‚ СЃРїРµС†СЃРёРјРІРѕР»С‹), РѕРїРµСЂР°С†РёСЏ РЅРµРѕР±СЂР°С‚РёРјР°!
  function PrintableStr(st:AnsiString):AnsiString;
- // Закодировать строку в виде HEX
+ // Р—Р°РєРѕРґРёСЂРѕРІР°С‚СЊ СЃС‚СЂРѕРєСѓ РІ РІРёРґРµ HEX
  function EncodeHex(st:AnsiString):AnsiString; overload;
- // Закодировать в HEX произвольные бинарные данные
+ // Р—Р°РєРѕРґРёСЂРѕРІР°С‚СЊ РІ HEX РїСЂРѕРёР·РІРѕР»СЊРЅС‹Рµ Р±РёРЅР°СЂРЅС‹Рµ РґР°РЅРЅС‹Рµ
  function EncodeHex(data:pointer;size:integer):AnsiString; overload;
  function DecodeHex(hexStr:AnsiString):AnsiString; overload;
  procedure DecodeHex(st:AnsiString;buf:pointer); overload;
 
  function IsZeroMem(buf:pointer;size:integer):boolean;
 
- // Простейшее шифрование/дешифрование (simple XOR)
+ // РџСЂРѕСЃС‚РµР№С€РµРµ С€РёС„СЂРѕРІР°РЅРёРµ/РґРµС€РёС„СЂРѕРІР°РЅРёРµ (simple XOR)
  procedure SimpleEncrypt(var data;size,code:integer);
  procedure SimpleEncrypt2(var data;size,code:integer);
 
- // Простое сжатие (simplified LZ method, works good only for texts or similar strings)
+ // РџСЂРѕСЃС‚РѕРµ СЃР¶Р°С‚РёРµ (simplified LZ method, works good only for texts or similar strings)
  function SimpleCompress(data:AnsiString):AnsiString;
  function SimpleDecompress(data:AnsiString):AnsiString;
 
- // Простое сжатие методом RLE
+ // РџСЂРѕСЃС‚РѕРµ СЃР¶Р°С‚РёРµ РјРµС‚РѕРґРѕРј RLE
  function PackRLE(buf:pointer;size:integer;addHeader:boolean=true):ByteArray;
  function UnpackRLE(buf:pointer;size:integer):ByteArray;
  function CheckRLEHeader(buf:pointer;size:integer):integer; // -1 - no header
 
- // Сравнить два куска памяти и создать патч с набором изменений в sour по сравнению с dest
+ // РЎСЂР°РІРЅРёС‚СЊ РґРІР° РєСѓСЃРєР° РїР°РјСЏС‚Рё Рё СЃРѕР·РґР°С‚СЊ РїР°С‚С‡ СЃ РЅР°Р±РѕСЂРѕРј РёР·РјРµРЅРµРЅРёР№ РІ sour РїРѕ СЃСЂР°РІРЅРµРЅРёСЋ СЃ dest
  function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
 
- // Применить патч. После применения dest приводится к состоянию sour
+ // РџСЂРёРјРµРЅРёС‚СЊ РїР°С‚С‡. РџРѕСЃР»Рµ РїСЂРёРјРµРЅРµРЅРёСЏ dest РїСЂРёРІРѕРґРёС‚СЃСЏ Рє СЃРѕСЃС‚РѕСЏРЅРёСЋ sour
  procedure ApplyDiffPatch(data:pointer;size:integer;patch:pointer;patchSize:integer);
 
- // Преобразует дату из строки в формате DD.MM.YYYY HH:MM:SS (другие форматы тоже понимает и распознаёт)
+ // РџСЂРµРѕР±СЂР°Р·СѓРµС‚ РґР°С‚Сѓ РёР· СЃС‚СЂРѕРєРё РІ С„РѕСЂРјР°С‚Рµ DD.MM.YYYY HH:MM:SS (РґСЂСѓРіРёРµ С„РѕСЂРјР°С‚С‹ С‚РѕР¶Рµ РїРѕРЅРёРјР°РµС‚ Рё СЂР°СЃРїРѕР·РЅР°С‘С‚)
  function ParseDate(st:AnsiString;default:TDateTime=0):TDateTime;
  function GetDateFromStr(st:AnsiString;default:TDateTime=0):TDateTime; // alias for compatibility
  function ParseTime(st:AnsiString;default:TDateTime=0):TDateTime;
- // Возвращает строку с разницей между указанным временем и текущим моментом (сколько времени прошло с указанного момента)
- // Если указанный момент ещё не наступил, то первым символом будет +
+ // Р’РѕР·РІСЂР°С‰Р°РµС‚ СЃС‚СЂРѕРєСѓ СЃ СЂР°Р·РЅРёС†РµР№ РјРµР¶РґСѓ СѓРєР°Р·Р°РЅРЅС‹Рј РІСЂРµРјРµРЅРµРј Рё С‚РµРєСѓС‰РёРј РјРѕРјРµРЅС‚РѕРј (СЃРєРѕР»СЊРєРѕ РІСЂРµРјРµРЅРё РїСЂРѕС€Р»Рѕ СЃ СѓРєР°Р·Р°РЅРЅРѕРіРѕ РјРѕРјРµРЅС‚Р°)
+ // Р•СЃР»Рё СѓРєР°Р·Р°РЅРЅС‹Р№ РјРѕРјРµРЅС‚ РµС‰С‘ РЅРµ РЅР°СЃС‚СѓРїРёР», С‚Рѕ РїРµСЂРІС‹Рј СЃРёРјРІРѕР»РѕРј Р±СѓРґРµС‚ +
  function HowLong(time:TDateTime):string;
 
  // UTF8 routines
@@ -374,44 +374,44 @@ interface
 
 // function CopyUTF8(S:string; Index:Integer; Count:Integer):string; // analog of Copy which works with UTF8
 
- // Функции для вычисления полезных "ломаных" и сплайновых функций
+ // Р¤СѓРЅРєС†РёРё РґР»СЏ РІС‹С‡РёСЃР»РµРЅРёСЏ РїРѕР»РµР·РЅС‹С… "Р»РѕРјР°РЅС‹С…" Рё СЃРїР»Р°Р№РЅРѕРІС‹С… С„СѓРЅРєС†РёР№
  // -----------------------------------------------------------------
- // Вернуть "насыщенное" значение, т.е. привести b внутрь допустимого диапазона [min..max]
+ // Р’РµСЂРЅСѓС‚СЊ "РЅР°СЃС‹С‰РµРЅРЅРѕРµ" Р·РЅР°С‡РµРЅРёРµ, С‚.Рµ. РїСЂРёРІРµСЃС‚Рё b РІРЅСѓС‚СЂСЊ РґРѕРїСѓСЃС‚РёРјРѕРіРѕ РґРёР°РїР°Р·РѕРЅР° [min..max]
  function Sat(b,min,max:integer):integer; deprecated;
  function SatD(b,min,max:double):double; deprecated;
  function Clamp(b,min,max:integer):integer; overload; // alias
  function Clamp(b,min,max:double):double; overload; // alias
 
- // Вычислить ломаную функцию, определенную на отрезке [0..256] имеющую пик (экстремум)
- // в точке arg и принимающую значения a, b и c (a и c - на концах отрезка, b - в экстремуме)
+ // Р’С‹С‡РёСЃР»РёС‚СЊ Р»РѕРјР°РЅСѓСЋ С„СѓРЅРєС†РёСЋ, РѕРїСЂРµРґРµР»РµРЅРЅСѓСЋ РЅР° РѕС‚СЂРµР·РєРµ [0..256] РёРјРµСЋС‰СѓСЋ РїРёРє (СЌРєСЃС‚СЂРµРјСѓРј)
+ // РІ С‚РѕС‡РєРµ arg Рё РїСЂРёРЅРёРјР°СЋС‰СѓСЋ Р·РЅР°С‡РµРЅРёСЏ a, b Рё c (a Рё c - РЅР° РєРѕРЅС†Р°С… РѕС‚СЂРµР·РєР°, b - РІ СЌРєСЃС‚СЂРµРјСѓРјРµ)
  function Pike(x,arg,a,b,c:integer):integer;
  function PikeD(x,arg,a,b,c:double):double; // [0..1] range
 
- // Квадратичный сплайн на отрезке [0..1] принимающий значения a,b,c в точках 0, 0.5, 1 и ограниченный диапазоном байта
+ // РљРІР°РґСЂР°С‚РёС‡РЅС‹Р№ СЃРїР»Р°Р№РЅ РЅР° РѕС‚СЂРµР·РєРµ [0..1] РїСЂРёРЅРёРјР°СЋС‰РёР№ Р·РЅР°С‡РµРЅРёСЏ a,b,c РІ С‚РѕС‡РєР°С… 0, 0.5, 1 Рё РѕРіСЂР°РЅРёС‡РµРЅРЅС‹Р№ РґРёР°РїР°Р·РѕРЅРѕРј Р±Р°Р№С‚Р°
  function SatSpline(x:single;a,b,c:integer):byte;
- // Кубический сплайн на отрезке [0..1] принимающий значения a,b,c,d в точках 0, 0.33, 0.66, 1 и ограниченный диапазоном байта
+ // РљСѓР±РёС‡РµСЃРєРёР№ СЃРїР»Р°Р№РЅ РЅР° РѕС‚СЂРµР·РєРµ [0..1] РїСЂРёРЅРёРјР°СЋС‰РёР№ Р·РЅР°С‡РµРЅРёСЏ a,b,c,d РІ С‚РѕС‡РєР°С… 0, 0.33, 0.66, 1 Рё РѕРіСЂР°РЅРёС‡РµРЅРЅС‹Р№ РґРёР°РїР°Р·РѕРЅРѕРј Р±Р°Р№С‚Р°
  function SatSpline3(x:single;a,b,c,d:integer):byte;
 
- // Вычислить сплайн (аргумент - от 0 до 1, v0,v1 - значения на концах,
- //   k0,k1 - касательные на концах (0 - горизонталь), v - вес деления (0..1, 0.5 - среднее)
+ // Р’С‹С‡РёСЃР»РёС‚СЊ СЃРїР»Р°Р№РЅ (Р°СЂРіСѓРјРµРЅС‚ - РѕС‚ 0 РґРѕ 1, v0,v1 - Р·РЅР°С‡РµРЅРёСЏ РЅР° РєРѕРЅС†Р°С…,
+ //   k0,k1 - РєР°СЃР°С‚РµР»СЊРЅС‹Рµ РЅР° РєРѕРЅС†Р°С… (0 - РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊ), v - РІРµСЃ РґРµР»РµРЅРёСЏ (0..1, 0.5 - СЃСЂРµРґРЅРµРµ)
  function Spline(x:double;v0,k0,v1,k1:double;v:double=0.5):double;
- // некоторые полезные сплайны
- // линейная функция
+ // РЅРµРєРѕС‚РѕСЂС‹Рµ РїРѕР»РµР·РЅС‹Рµ СЃРїР»Р°Р№РЅС‹
+ // Р»РёРЅРµР№РЅР°СЏ С„СѓРЅРєС†РёСЏ
  function Spline0(x,x0,x1,y0,y1:single):single;
- // ускорение, прямолинейное движение, замедление
+ // СѓСЃРєРѕСЂРµРЅРёРµ, РїСЂСЏРјРѕР»РёРЅРµР№РЅРѕРµ РґРІРёР¶РµРЅРёРµ, Р·Р°РјРµРґР»РµРЅРёРµ
  function Spline1(x,x0,x1,y0,y1:single):single;  // 25% - 50% - 25%
  function Spline1a(x,x0,x1,y0,y1:single):single; // 10% - 80% - 10%
- // движение с постоянным замедлением (парабола)
+ // РґРІРёР¶РµРЅРёРµ СЃ РїРѕСЃС‚РѕСЏРЅРЅС‹Рј Р·Р°РјРµРґР»РµРЅРёРµРј (РїР°СЂР°Р±РѕР»Р°)
  function Spline2(x,x0,x1,y0,y1:single):single;
- function Spline2rev(x,x0,x1,y0,y1:single):single; // то же, но с постоянным ускорением
- // движение с ускорением и одинарным отскоком на 10% от начальной высоты
+ function Spline2rev(x,x0,x1,y0,y1:single):single; // С‚Рѕ Р¶Рµ, РЅРѕ СЃ РїРѕСЃС‚РѕСЏРЅРЅС‹Рј СѓСЃРєРѕСЂРµРЅРёРµРј
+ // РґРІРёР¶РµРЅРёРµ СЃ СѓСЃРєРѕСЂРµРЅРёРµРј Рё РѕРґРёРЅР°СЂРЅС‹Рј РѕС‚СЃРєРѕРєРѕРј РЅР° 10% РѕС‚ РЅР°С‡Р°Р»СЊРЅРѕР№ РІС‹СЃРѕС‚С‹
  function Spline3(x,x0,x1,y0,y1:single):single;
- // движение с "перелётом" на 15%
+ // РґРІРёР¶РµРЅРёРµ СЃ "РїРµСЂРµР»С‘С‚РѕРј" РЅР° 15%
  function Spline4(x,x0,x1,y0,y1:single):single;
- // движение с "перелётом" на 30%
+ // РґРІРёР¶РµРЅРёРµ СЃ "РїРµСЂРµР»С‘С‚РѕРј" РЅР° 30%
  function Spline4a(x,x0,x1,y0,y1:single):single;
 
- // Получить ближайшую степень двойки, не меньшую данного числа
+ // РџРѕР»СѓС‡РёС‚СЊ Р±Р»РёР¶Р°Р№С€СѓСЋ СЃС‚РµРїРµРЅСЊ РґРІРѕР№РєРё, РЅРµ РјРµРЅСЊС€СѓСЋ РґР°РЅРЅРѕРіРѕ С‡РёСЃР»Р°
  function GetPow2(v:integer):integer;
  // Get power of 2
  function Pow2(e:integer):int64;
@@ -436,39 +436,39 @@ interface
  procedure Swap(var a,b:WideString); overload; inline;
  procedure Swap(var a,b;size:integer); overload; inline;
 
- // Псевдослучайное число от arg в диапазоне 0..module-1
+ // РџСЃРµРІРґРѕСЃР»СѓС‡Р°Р№РЅРѕРµ С‡РёСЃР»Рѕ РѕС‚ arg РІ РґРёР°РїР°Р·РѕРЅРµ 0..module-1
  function PseudoRand(arg,module:cardinal):cardinal;
- // возвращает случайное целое число из диапазона [v-1,v+1] так, что его матожидание равно v
+ // РІРѕР·РІСЂР°С‰Р°РµС‚ СЃР»СѓС‡Р°Р№РЅРѕРµ С†РµР»РѕРµ С‡РёСЃР»Рѕ РёР· РґРёР°РїР°Р·РѕРЅР° [v-1,v+1] С‚Р°Рє, С‡С‚Рѕ РµРіРѕ РјР°С‚РѕР¶РёРґР°РЅРёРµ СЂР°РІРЅРѕ v
  function RandomInt(v:single):integer;
- // Возвращает случайную строку заданной длины из алфаситно-цифровых символов
+ // Р’РѕР·РІСЂР°С‰Р°РµС‚ СЃР»СѓС‡Р°Р№РЅСѓСЋ СЃС‚СЂРѕРєСѓ Р·Р°РґР°РЅРЅРѕР№ РґР»РёРЅС‹ РёР· Р°Р»С„Р°СЃРёС‚РЅРѕ-С†РёС„СЂРѕРІС‹С… СЃРёРјРІРѕР»РѕРІ
  function RandomStr(l:integer):string;
 
- // Функции для хранения двоичных данных в строковом виде
+ // Р¤СѓРЅРєС†РёРё РґР»СЏ С…СЂР°РЅРµРЅРёСЏ РґРІРѕРёС‡РЅС‹С… РґР°РЅРЅС‹С… РІ СЃС‚СЂРѕРєРѕРІРѕРј РІРёРґРµ
  //------------------------------------------------------
  function BinToStr(var buf;size:byte):string;
  function StrToBin(var buf;size:byte;st:string):integer;
 
- // Преобразование кодировок
+ // РџСЂРµРѕР±СЂР°Р·РѕРІР°РЅРёРµ РєРѕРґРёСЂРѕРІРѕРє
  //---------------
- // Преобразование Windows-1251 <=> DOS 866
+ // РџСЂРµРѕР±СЂР°Р·РѕРІР°РЅРёРµ Windows-1251 <=> DOS 866
  function ConvertToWindows(ch:AnsiChar):AnsiChar;
  function ConvertFromWindows(ch:AnsiChar):AnsiChar;
- // Преобразование Windows-1251 <=> Unicode-16 (UTF-16)
+ // РџСЂРµРѕР±СЂР°Р·РѕРІР°РЅРёРµ Windows-1251 <=> Unicode-16 (UTF-16)
  function ConvertWindowsToUnicode(ch:AnsiChar):widechar;
  function ConvertUnicodeToWindows(ch:WideChar):AnsiChar;
 
- // Преобразование типов данных
+ // РџСЂРµРѕР±СЂР°Р·РѕРІР°РЅРёРµ С‚РёРїРѕРІ РґР°РЅРЅС‹С…
  // ---------------------------
- function HexToInt(st:string):int64; overload;  // Распознать шестнадцатиричное число
+ function HexToInt(st:string):int64; overload;  // Р Р°СЃРїРѕР·РЅР°С‚СЊ С€РµСЃС‚РЅР°РґС†Р°С‚РёСЂРёС‡РЅРѕРµ С‡РёСЃР»Рѕ
  function HexToInt(st:AnsiString):int64; overload;
  function HexToAStr(v:int64;digits:integer=0):AnsiString;
- function SizeToStr(size:int64):string; // строка с короткой записью размера, типа 15.3M
- function FormatTime(time:int64):string; // строка с временным интервалом (time - в ms)
- function FormatInt(int:int64):string; // строка с числом (пробел разделяет группы цифр)
- function FormatMoney(v:double;digits:integer=2):string; // строка с суммой денег (digits знаков после запятой)
+ function SizeToStr(size:int64):string; // СЃС‚СЂРѕРєР° СЃ РєРѕСЂРѕС‚РєРѕР№ Р·Р°РїРёСЃСЊСЋ СЂР°Р·РјРµСЂР°, С‚РёРїР° 15.3M
+ function FormatTime(time:int64):string; // СЃС‚СЂРѕРєР° СЃ РІСЂРµРјРµРЅРЅС‹Рј РёРЅС‚РµСЂРІР°Р»РѕРј (time - РІ ms)
+ function FormatInt(int:int64):string; // СЃС‚СЂРѕРєР° СЃ С‡РёСЃР»РѕРј (РїСЂРѕР±РµР» СЂР°Р·РґРµР»СЏРµС‚ РіСЂСѓРїРїС‹ С†РёС„СЂ)
+ function FormatMoney(v:double;digits:integer=2):string; // СЃС‚СЂРѕРєР° СЃ СЃСѓРјРјРѕР№ РґРµРЅРµРі (digits Р·РЅР°РєРѕРІ РїРѕСЃР»Рµ Р·Р°РїСЏС‚РѕР№)
  function PtrToStr(p:pointer):string; // Pointer to string
- function IpToStr(ip:cardinal):string; // IP-адрес в строку (младший байт - первый)
- function StrToIp(ip:string):cardinal; // Строка в IP-адрес (младший байт - первый)
+ function IpToStr(ip:cardinal):string; // IP-Р°РґСЂРµСЃ РІ СЃС‚СЂРѕРєСѓ (РјР»Р°РґС€РёР№ Р±Р°Р№С‚ - РїРµСЂРІС‹Р№)
+ function StrToIp(ip:string):cardinal; // РЎС‚СЂРѕРєР° РІ IP-Р°РґСЂРµСЃ (РјР»Р°РґС€РёР№ Р±Р°Р№С‚ - РїРµСЂРІС‹Р№)
  function VarToStr(v:TVarRec):UnicodeString;  // Variant -> String
  function VarToAStr(v:TVarRec):AnsiString;
  function ParseInt(st:string):int64; inline; overload; // wrong characters ignored
@@ -482,7 +482,7 @@ interface
  function ListIntegers(a:array of integer;separator:char=','):string; overload; // array of integer => 'a[1],a[2],...,a[n]'
  function ListIntegers(a:system.PInteger;count:integer;separator:char=','):string; overload;
 
- // Сортировки
+ // РЎРѕСЂС‚РёСЂРѕРІРєРё
  procedure SortObjects(obj:PSortableObjects;count:integer);
 // procedure SortObjects(var obj:array of TObject;comparator:TObjComparator); overload;
  procedure SortStrings(var sa:StringArr); overload;
@@ -492,42 +492,42 @@ interface
 
  // Data Dump
  // ---------
- // строка с шестнадцатиричным дампом буфера
+ // СЃС‚СЂРѕРєР° СЃ С€РµСЃС‚РЅР°РґС†Р°С‚РёСЂРёС‡РЅС‹Рј РґР°РјРїРѕРј Р±СѓС„РµСЂР°
  function HexDump(buf:pointer;size:integer):AnsiString;
- // строка с десятичным дампом буфера
+ // СЃС‚СЂРѕРєР° СЃ РґРµСЃСЏС‚РёС‡РЅС‹Рј РґР°РјРїРѕРј Р±СѓС„РµСЂР°
  function DecDump(buf:pointer;size:integer):AnsiString;
 
  procedure TestSystemPerformance;
 
- // Вычисление контрольной суммы
+ // Р’С‹С‡РёСЃР»РµРЅРёРµ РєРѕРЅС‚СЂРѕР»СЊРЅРѕР№ СЃСѓРјРјС‹
  function CalcCheckSum(adr:pointer;size:integer):cardinal;
  function CheckSum64(adr:pointer;size:integer):int64; pascal;
  procedure FillRandom(var buf;size:integer);
  function StrHash(const st:string):cardinal; overload;
  function StrHash(const st:AnsiString):cardinal; overload;
 
- // Текущее время и дата (GMT)
+ // РўРµРєСѓС‰РµРµ РІСЂРµРјСЏ Рё РґР°С‚Р° (GMT)
  function NowGMT:TDateTime;
  function TimeStamp:string;
 
- // Синхронизация и многопоточность
+ // РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ Рё РјРЅРѕРіРѕРїРѕС‚РѕС‡РЅРѕСЃС‚СЊ
  // --------------------------------
- // level - используется только в отладочном режиме для проверки отсутствия циклов в графе захвата секций (чтобы гарантировать отсутствие блокировок)
- // Допускается входить в секцию с бОльшим уровнем будучи уже в секции с меньшим уровнем, но не наоборот.
- // Т.о. чем ниже уровень кода, тем ВЫШЕ должно быть значение level в секции, которой этот код оперирует  
- procedure InitCritSect(var cr:TMyCriticalSection;name:string;level:integer=100); // Создать и зарегить критсекцию
+ // level - РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ С‚РѕР»СЊРєРѕ РІ РѕС‚Р»Р°РґРѕС‡РЅРѕРј СЂРµР¶РёРјРµ РґР»СЏ РїСЂРѕРІРµСЂРєРё РѕС‚СЃСѓС‚СЃС‚РІРёСЏ С†РёРєР»РѕРІ РІ РіСЂР°С„Рµ Р·Р°С…РІР°С‚Р° СЃРµРєС†РёР№ (С‡С‚РѕР±С‹ РіР°СЂР°РЅС‚РёСЂРѕРІР°С‚СЊ РѕС‚СЃСѓС‚СЃС‚РІРёРµ Р±Р»РѕРєРёСЂРѕРІРѕРє)
+ // Р”РѕРїСѓСЃРєР°РµС‚СЃСЏ РІС…РѕРґРёС‚СЊ РІ СЃРµРєС†РёСЋ СЃ Р±РћР»СЊС€РёРј СѓСЂРѕРІРЅРµРј Р±СѓРґСѓС‡Рё СѓР¶Рµ РІ СЃРµРєС†РёРё СЃ РјРµРЅСЊС€РёРј СѓСЂРѕРІРЅРµРј, РЅРѕ РЅРµ РЅР°РѕР±РѕСЂРѕС‚.
+ // Рў.Рѕ. С‡РµРј РЅРёР¶Рµ СѓСЂРѕРІРµРЅСЊ РєРѕРґР°, С‚РµРј Р’Р«РЁР• РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ Р·РЅР°С‡РµРЅРёРµ level РІ СЃРµРєС†РёРё, РєРѕС‚РѕСЂРѕР№ СЌС‚РѕС‚ РєРѕРґ РѕРїРµСЂРёСЂСѓРµС‚  
+ procedure InitCritSect(var cr:TMyCriticalSection;name:string;level:integer=100); // РЎРѕР·РґР°С‚СЊ Рё Р·Р°СЂРµРіРёС‚СЊ РєСЂРёС‚СЃРµРєС†РёСЋ
  procedure DeleteCritSect(var cr:TMyCriticalSection);
  procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
  procedure LeaveCriticalSection(var cr:TMyCriticalSection);
-// procedure SafeEnterCriticalSection(var cr:TMyCriticalSection); // Осторожно войти в критсекцию
- procedure DumpCritSects; // Вывести в лог состояние всех критсекций
- procedure RegisterThread(name:string); // зарегистрировать поток
- procedure UnregisterThread; // удалить поток (нужно вызывать перед завершением потока)
-// procedure DumpThreads; // Выдать
- procedure PingThread; // сообщить о "живучести" потока
- function GetThreadName(threadID:cardinal=0):string; // вернуть имя (0=текущего) потока
+// procedure SafeEnterCriticalSection(var cr:TMyCriticalSection); // РћСЃС‚РѕСЂРѕР¶РЅРѕ РІРѕР№С‚Рё РІ РєСЂРёС‚СЃРµРєС†РёСЋ
+ procedure DumpCritSects; // Р’С‹РІРµСЃС‚Рё РІ Р»РѕРі СЃРѕСЃС‚РѕСЏРЅРёРµ РІСЃРµС… РєСЂРёС‚СЃРµРєС†РёР№
+ procedure RegisterThread(name:string); // Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°С‚СЊ РїРѕС‚РѕРє
+ procedure UnregisterThread; // СѓРґР°Р»РёС‚СЊ РїРѕС‚РѕРє (РЅСѓР¶РЅРѕ РІС‹Р·С‹РІР°С‚СЊ РїРµСЂРµРґ Р·Р°РІРµСЂС€РµРЅРёРµРј РїРѕС‚РѕРєР°)
+// procedure DumpThreads; // Р’С‹РґР°С‚СЊ
+ procedure PingThread; // СЃРѕРѕР±С‰РёС‚СЊ Рѕ "Р¶РёРІСѓС‡РµСЃС‚Рё" РїРѕС‚РѕРєР°
+ function GetThreadName(threadID:cardinal=0):string; // РІРµСЂРЅСѓС‚СЊ РёРјСЏ (0=С‚РµРєСѓС‰РµРіРѕ) РїРѕС‚РѕРєР°
 
- procedure CheckCritSections; // проверить критические секции на таймаут
+ procedure CheckCritSections; // РїСЂРѕРІРµСЂРёС‚СЊ РєСЂРёС‚РёС‡РµСЃРєРёРµ СЃРµРєС†РёРё РЅР° С‚Р°Р№РјР°СѓС‚
 
  // Disable Data Execution Prevention (Windows)
  procedure DisableDEP;
@@ -548,13 +548,13 @@ implementation
   TThreadInfo=record
    ID:TThreadID;
    name:string;
-   counter:integer; // сколько раз отзывался
-   first:integer;   // время первого отклика
-   last:integer;    // время последнего отклика
-   lastreport:integer; // время последнего сообщения о задержке
-   at:integer;       // сглаженное примерное время между интервалами
+   counter:integer; // СЃРєРѕР»СЊРєРѕ СЂР°Р· РѕС‚Р·С‹РІР°Р»СЃСЏ
+   first:integer;   // РІСЂРµРјСЏ РїРµСЂРІРѕРіРѕ РѕС‚РєР»РёРєР°
+   last:integer;    // РІСЂРµРјСЏ РїРѕСЃР»РµРґРЅРµРіРѕ РѕС‚РєР»РёРєР°
+   lastreport:integer; // РІСЂРµРјСЏ РїРѕСЃР»РµРґРЅРµРіРѕ СЃРѕРѕР±С‰РµРЅРёСЏ Рѕ Р·Р°РґРµСЂР¶РєРµ
+   at:integer;       // СЃРіР»Р°Р¶РµРЅРЅРѕРµ РїСЂРёРјРµСЂРЅРѕРµ РІСЂРµРјСЏ РјРµР¶РґСѓ РёРЅС‚РµСЂРІР°Р»Р°РјРё
    handle:cardinal;
-   lastCS:PCriticalSection; // последняя критсекция, захваченная в этом потоке
+   lastCS:PCriticalSection; // РїРѕСЃР»РµРґРЅСЏСЏ РєСЂРёС‚СЃРµРєС†РёСЏ, Р·Р°С…РІР°С‡РµРЅРЅР°СЏ РІ СЌС‚РѕРј РїРѕС‚РѕРєРµ
   end;
 
   TLogThread=class(TThread)
@@ -568,9 +568,9 @@ implementation
   logThread:TLogThread;
   cachebuf:string;
   //cachesize:integer;
-  cacheenabled,forceCacheUsage:boolean;  // forceCacheUsage - писать в кэш даже
+  cacheenabled,forceCacheUsage:boolean;  // forceCacheUsage - РїРёСЃР°С‚СЊ РІ РєСЌС€ РґР°Р¶Рµ
 
-  crSection:TRTLCriticalSection; // используется для доступа к глобальным переменным
+  crSection:TRTLCriticalSection; // РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РґР»СЏ РґРѕСЃС‚СѓРїР° Рє РіР»РѕР±Р°Р»СЊРЅС‹Рј РїРµСЂРµРјРµРЅРЅС‹Рј
   startTime,startTimeMS:int64;
 
   crSections:array[1..100] of PCriticalSection;
@@ -578,7 +578,7 @@ implementation
 
   threads:array[0..100] of TThreadInfo;
 //  buffer2:array[0..16384] of cardinal;
-  trCount:integer; // записи могут быть не только в начале массива!!!
+  trCount:integer; // Р·Р°РїРёСЃРё РјРѕРіСѓС‚ Р±С‹С‚СЊ РЅРµ С‚РѕР»СЊРєРѕ РІ РЅР°С‡Р°Р»Рµ РјР°СЃСЃРёРІР°!!!
 
   memcheck:array[0..127] of int64;
   lastTickCount:int64;
@@ -594,7 +594,7 @@ implementation
   performanceMeasures:array[1..16] of double;
   values:array[1..16] of int64;
   measures:array[1..16] of integer;
-  perfKoef:double; // длительность одного тика в мс
+  perfKoef:double; // РґР»РёС‚РµР»СЊРЅРѕСЃС‚СЊ РѕРґРЅРѕРіРѕ С‚РёРєР° РІ РјСЃ
   timers:array[1..16] of int64;
 
  {$IFDEF IOS}
@@ -931,7 +931,7 @@ implementation
    if x>1 then x:=1;
    result:=y0+(y1-y0)*x;
   end;
- function Spline1(x,x0,x1,y0,y1:single):single; // 25-50-25 ускорение, движение, замедление
+ function Spline1(x,x0,x1,y0,y1:single):single; // 25-50-25 СѓСЃРєРѕСЂРµРЅРёРµ, РґРІРёР¶РµРЅРёРµ, Р·Р°РјРµРґР»РµРЅРёРµ
   begin
    x:=(x-x0)/(x1-x0);
    if x<0 then x:=0;
@@ -941,7 +941,7 @@ implementation
      result:=1.333333*x-0.16666666;
    result:=y0+(y1-y0)*result;
   end;
- function Spline1a(x,x0,x1,y0,y1:single):single; // 10-80-10 ускорение, движение, замедление
+ function Spline1a(x,x0,x1,y0,y1:single):single; // 10-80-10 СѓСЃРєРѕСЂРµРЅРёРµ, РґРІРёР¶РµРЅРёРµ, Р·Р°РјРµРґР»РµРЅРёРµ
   begin
    x:=(x-x0)/(x1-x0);
    if x<0 then x:=0;
@@ -951,7 +951,7 @@ implementation
      result:=1.111111*x-0.0555556;
    result:=y0+(y1-y0)*result;
   end;
- function Spline2(x,x0,x1,y0,y1:single):single; // равномерное замедление
+ function Spline2(x,x0,x1,y0,y1:single):single; // СЂР°РІРЅРѕРјРµСЂРЅРѕРµ Р·Р°РјРµРґР»РµРЅРёРµ
   begin
    x:=(x-x0)/(x1-x0);
    if x<0 then x:=0;
@@ -959,7 +959,7 @@ implementation
    result:=1-sqr(1-x);
    result:=y0+(y1-y0)*result;
   end;
- function Spline2rev(x,x0,x1,y0,y1:single):single; // равномерное ускорение
+ function Spline2rev(x,x0,x1,y0,y1:single):single; // СЂР°РІРЅРѕРјРµСЂРЅРѕРµ СѓСЃРєРѕСЂРµРЅРёРµ
   begin
    x:=(x-x0)/(x1-x0);
    if x<0 then x:=0;
@@ -1083,7 +1083,7 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
    result:=inttostr(round(v))+'T';
   end;
 
- function FormatTime(time:int64):string; // строка с временным интервалом (time - в ms)
+ function FormatTime(time:int64):string; // СЃС‚СЂРѕРєР° СЃ РІСЂРµРјРµРЅРЅС‹Рј РёРЅС‚РµСЂРІР°Р»РѕРј (time - РІ ms)
   begin
    if time<120000 then
     exit(IntToStr(time div 1000)+'.'+IntToStr(time mod 1000)+'s');
@@ -1134,7 +1134,7 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
            inttostr((ip shr 24) and $FF);
   end;
 
- function StrToIp(ip:string):cardinal; // Строка в IP-адрес
+ function StrToIp(ip:string):cardinal; // РЎС‚СЂРѕРєР° РІ IP-Р°РґСЂРµСЃ
   var
    i,v:integer;
   begin
@@ -1325,15 +1325,15 @@ function SimpleCompress(data:AnsiString):AnsiString;
   fillchar(prev[1],length(data)*4,0);
   curpos:=1;
   while curpos<=length(data) do begin // pack
-   // 1. Найти самую длинную подходящую цепочку
+   // 1. РќР°Р№С‚Рё СЃР°РјСѓСЋ РґР»РёРЅРЅСѓСЋ РїРѕРґС…РѕРґСЏС‰СѓСЋ С†РµРїРѕС‡РєСѓ
    foundStart:=0; foundLength:=0;
    b:=byte(data[curpos]);
    i:=last[b];
    while (i>0) and (i>curPos-4096) do begin
-    // максимально возможная длина цепочки
-    max:=length(data)-curPos+1; // сколько вообще осталось данных
-    if max>20 then max:=20; // не более 20 байт за раз!
-    if max>curPos-i then max:=curPos-i; // сколько известно данных
+    // РјР°РєСЃРёРјР°Р»СЊРЅРѕ РІРѕР·РјРѕР¶РЅР°СЏ РґР»РёРЅР° С†РµРїРѕС‡РєРё
+    max:=length(data)-curPos+1; // СЃРєРѕР»СЊРєРѕ РІРѕРѕР±С‰Рµ РѕСЃС‚Р°Р»РѕСЃСЊ РґР°РЅРЅС‹С…
+    if max>20 then max:=20; // РЅРµ Р±РѕР»РµРµ 20 Р±Р°Р№С‚ Р·Р° СЂР°Р·!
+    if max>curPos-i then max:=curPos-i; // СЃРєРѕР»СЊРєРѕ РёР·РІРµСЃС‚РЅРѕ РґР°РЅРЅС‹С…
     j:=0;
     while (j<max) and (data[i+j]=data[curpos+j]) do inc(j);
     ofs:=curpos-i;
@@ -1349,23 +1349,23 @@ function SimpleCompress(data:AnsiString):AnsiString;
     i:=prev[i];
    end;
 
-   // 2. Сохранить код
-   if foundLength>0 then begin // цепочка найдена (смещение должно быть правильным)
+   // 2. РЎРѕС…СЂР°РЅРёС‚СЊ РєРѕРґ
+   if foundLength>0 then begin // С†РµРїРѕС‡РєР° РЅР°Р№РґРµРЅР° (СЃРјРµС‰РµРЅРёРµ РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ РїСЂР°РІРёР»СЊРЅС‹Рј)
     ofs:=curPos-foundStart-foundLength;
     if foundLength=1 then
      Output($10+ofs,6)
     else begin
      Output($FFFFFFE,foundLength);
      max:=foundLength*2+2;
-     if max>12 then max:=12; // не более 12 бит на смещение
+     if max>12 then max:=12; // РЅРµ Р±РѕР»РµРµ 12 Р±РёС‚ РЅР° СЃРјРµС‰РµРЅРёРµ
      Output(ofs,max);
     end;
-   end else begin // не найдена
+   end else begin // РЅРµ РЅР°Р№РґРµРЅР°
     Output(b,10);
     foundLength:=1;
    end;
 
-   // 3. Обновить рабочие данные
+   // 3. РћР±РЅРѕРІРёС‚СЊ СЂР°Р±РѕС‡РёРµ РґР°РЅРЅС‹Рµ
    while foundLength>0 do begin
     prev[curpos]:=last[b];
     last[b]:=curPos;
@@ -1436,15 +1436,15 @@ function SimpleDecompress(data:AnsiString):AnsiString;
   result:=res;
  end;
 
-// Формат упакованных данных: 1b - длина (старший бит =0 - байты повторяющиеся, младшие 7 бит - длина цепочки)
-// Имеет смысл упаковка цепочек из 3 и более повторяющихся байтов
+// Р¤РѕСЂРјР°С‚ СѓРїР°РєРѕРІР°РЅРЅС‹С… РґР°РЅРЅС‹С…: 1b - РґР»РёРЅР° (СЃС‚Р°СЂС€РёР№ Р±РёС‚ =0 - Р±Р°Р№С‚С‹ РїРѕРІС‚РѕСЂСЏСЋС‰РёРµСЃСЏ, РјР»Р°РґС€РёРµ 7 Р±РёС‚ - РґР»РёРЅР° С†РµРїРѕС‡РєРё)
+// РРјРµРµС‚ СЃРјС‹СЃР» СѓРїР°РєРѕРІРєР° С†РµРїРѕС‡РµРє РёР· 3 Рё Р±РѕР»РµРµ РїРѕРІС‚РѕСЂСЏСЋС‰РёС…СЃСЏ Р±Р°Р№С‚РѕРІ
 function PackRLE(buf:pointer;size:integer;addHeader:boolean=true):ByteArray;
  var
   p,cur:integer;
-  pb:PByte; // текущий просматриваемый байт
-  start:PByte; // первый неупакованный байт
-  cnt:integer; // сколько последних байт совпадают
-  len:integer; // на сколько байт продвинулись вперед (len=pb-start)
+  pb:PByte; // С‚РµРєСѓС‰РёР№ РїСЂРѕСЃРјР°С‚СЂРёРІР°РµРјС‹Р№ Р±Р°Р№С‚
+  start:PByte; // РїРµСЂРІС‹Р№ РЅРµСѓРїР°РєРѕРІР°РЅРЅС‹Р№ Р±Р°Р№С‚
+  cnt:integer; // СЃРєРѕР»СЊРєРѕ РїРѕСЃР»РµРґРЅРёС… Р±Р°Р№С‚ СЃРѕРІРїР°РґР°СЋС‚
+  len:integer; // РЅР° СЃРєРѕР»СЊРєРѕ Р±Р°Р№С‚ РїСЂРѕРґРІРёРЅСѓР»РёСЃСЊ РІРїРµСЂРµРґ (len=pb-start)
  begin
   SetLength(result,8+size+size div 8);
   if addHeader then begin
@@ -1460,10 +1460,10 @@ function PackRLE(buf:pointer;size:integer;addHeader:boolean=true):ByteArray;
   cur:=-1; cnt:=1;
   start:=pb; len:=0;
   while true do begin
-   // ситуации, в которых необходимо что-то сделать:
-   // - достигнут конец данных
-   // - просмотрено много неупакованных байтов
-   // - байт изменился, причем совпадающих байтов было не менее 3-х
+   // СЃРёС‚СѓР°С†РёРё, РІ РєРѕС‚РѕСЂС‹С… РЅРµРѕР±С…РѕРґРёРјРѕ С‡С‚Рѕ-С‚Рѕ СЃРґРµР»Р°С‚СЊ:
+   // - РґРѕСЃС‚РёРіРЅСѓС‚ РєРѕРЅРµС† РґР°РЅРЅС‹С…
+   // - РїСЂРѕСЃРјРѕС‚СЂРµРЅРѕ РјРЅРѕРіРѕ РЅРµСѓРїР°РєРѕРІР°РЅРЅС‹С… Р±Р°Р№С‚РѕРІ
+   // - Р±Р°Р№С‚ РёР·РјРµРЅРёР»СЃСЏ, РїСЂРёС‡РµРј СЃРѕРІРїР°РґР°СЋС‰РёС… Р±Р°Р№С‚РѕРІ Р±С‹Р»Рѕ РЅРµ РјРµРЅРµРµ 3-С…
    if (size>0) and (pb^=cur) then begin
     inc(cnt);
     if cnt>193 then begin
@@ -1561,9 +1561,9 @@ function UnpackRLE(buf:pointer;size:integer):ByteArray;
   end;
  end;
 
-// Формат потока:
-// - если 1-й байт >$80, то 7 бит - кол-во следующих за ним байтов данных
-// - иначе 7 бит + 8 бит следующего байта - это 15 бит смещение до начала следующего блока
+// Р¤РѕСЂРјР°С‚ РїРѕС‚РѕРєР°:
+// - РµСЃР»Рё 1-Р№ Р±Р°Р№С‚ >$80, С‚Рѕ 7 Р±РёС‚ - РєРѕР»-РІРѕ СЃР»РµРґСѓСЋС‰РёС… Р·Р° РЅРёРј Р±Р°Р№С‚РѕРІ РґР°РЅРЅС‹С…
+// - РёРЅР°С‡Рµ 7 Р±РёС‚ + 8 Р±РёС‚ СЃР»РµРґСѓСЋС‰РµРіРѕ Р±Р°Р№С‚Р° - СЌС‚Рѕ 15 Р±РёС‚ СЃРјРµС‰РµРЅРёРµ РґРѕ РЅР°С‡Р°Р»Р° СЃР»РµРґСѓСЋС‰РµРіРѕ Р±Р»РѕРєР°
 function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
  var
   i,cnt,pos,sameCnt,diffCnt:integer;
@@ -1572,29 +1572,29 @@ function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
  begin
   sp:=sour; dp:=dest;
   SetLength(result,size+4+size div 16);
-  cnt:=0; // счётчик байт в выходном потоке
+  cnt:=0; // СЃС‡С‘С‚С‡РёРє Р±Р°Р№С‚ РІ РІС‹С…РѕРґРЅРѕРј РїРѕС‚РѕРєРµ
   pos:=0;
-  sameCnt:=0; mode:=0; // поиск повторяющейся строки
+  sameCnt:=0; mode:=0; // РїРѕРёСЃРє РїРѕРІС‚РѕСЂСЏСЋС‰РµР№СЃСЏ СЃС‚СЂРѕРєРё
   for i:=0 to size-1 do begin
    if mode=0 then begin
     if sp^<>dp^ then begin
      if sameCnt>=4 then begin
-      // достаточно длинная цепочка для сохранения - сохраняем и переходим в режим 1
+      // РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР»РёРЅРЅР°СЏ С†РµРїРѕС‡РєР° РґР»СЏ СЃРѕС…СЂР°РЅРµРЅРёСЏ - СЃРѕС…СЂР°РЅСЏРµРј Рё РїРµСЂРµС…РѕРґРёРј РІ СЂРµР¶РёРј 1
       result[cnt]:=sameCnt shr 8;
       result[cnt+1]:=sameCnt and $FF;
       inc(cnt,2);
       sameCnt:=0;
       mode:=1; diffCnt:=1;
      end else begin
-      // недостаточно длинная цепочка для сохранения - переходим в режим 1 без сохранения
+      // РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР»РёРЅРЅР°СЏ С†РµРїРѕС‡РєР° РґР»СЏ СЃРѕС…СЂР°РЅРµРЅРёСЏ - РїРµСЂРµС…РѕРґРёРј РІ СЂРµР¶РёРј 1 Р±РµР· СЃРѕС…СЂР°РЅРµРЅРёСЏ
       diffCnt:=sameCnt+1; sameCnt:=0;
       mode:=1;
      end;
     end else begin
-     // Байты совпадают - продолжаем
+     // Р‘Р°Р№С‚С‹ СЃРѕРІРїР°РґР°СЋС‚ - РїСЂРѕРґРѕР»Р¶Р°РµРј
      inc(sameCnt);
      if sameCnt=32767 then begin
-      // достигнут предел по длине
+      // РґРѕСЃС‚РёРіРЅСѓС‚ РїСЂРµРґРµР» РїРѕ РґР»РёРЅРµ
       result[cnt]:=$7F;
       result[cnt+1]:=$FF;
       inc(cnt,2);
@@ -1602,10 +1602,10 @@ function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
      end;
     end;
    end else begin
-    // Режим 1: сканирование отличающихся данных
+    // Р РµР¶РёРј 1: СЃРєР°РЅРёСЂРѕРІР°РЅРёРµ РѕС‚Р»РёС‡Р°СЋС‰РёС…СЃСЏ РґР°РЅРЅС‹С…
     inc(diffCnt);
     if diffCnt=127 then begin
-     // достигнут предел по длине - сохраняем и переключаемся в режим 0
+     // РґРѕСЃС‚РёРіРЅСѓС‚ РїСЂРµРґРµР» РїРѕ РґР»РёРЅРµ - СЃРѕС…СЂР°РЅСЏРµРј Рё РїРµСЂРµРєР»СЋС‡Р°РµРјСЃСЏ РІ СЂРµР¶РёРј 0
      result[cnt]:=$80+diffCnt;
      dec(sp,diffCnt-1);
      move(sp^,result[cnt+1],diffCnt);
@@ -1618,10 +1618,10 @@ function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
      if sp^<>dp^ then begin
       sameCnt:=0;
      end else begin
-      // байты совпадают
+      // Р±Р°Р№С‚С‹ СЃРѕРІРїР°РґР°СЋС‚
       inc(sameCnt);
       if sameCnt>5 then begin
-       // Много байт совпадает - пора сохранить и переключиться в режим 0
+       // РњРЅРѕРіРѕ Р±Р°Р№С‚ СЃРѕРІРїР°РґР°РµС‚ - РїРѕСЂР° СЃРѕС…СЂР°РЅРёС‚СЊ Рё РїРµСЂРµРєР»СЋС‡РёС‚СЊСЃСЏ РІ СЂРµР¶РёРј 0
        result[cnt]:=$80+diffCnt-sameCnt;
        dec(sp,diffCnt-1);
        move(sp^,result[cnt+1],diffCnt-sameCnt);
@@ -1635,7 +1635,7 @@ function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
    end;
    inc(sp); inc(dp);
   end;
-  // финализация результата
+  // С„РёРЅР°Р»РёР·Р°С†РёСЏ СЂРµР·СѓР»СЊС‚Р°С‚Р°
   if mode=0 then begin
    result[cnt]:=sameCnt shr 8;
    result[cnt+1]:=sameCnt and $FF;
@@ -2131,7 +2131,7 @@ procedure SimpleEncrypt2;
    fl:boolean;
   begin
    result:=st;
-   // А нужно ли вообще заключать в кавычки?
+   // Рђ РЅСѓР¶РЅРѕ Р»Рё РІРѕРѕР±С‰Рµ Р·Р°РєР»СЋС‡Р°С‚СЊ РІ РєР°РІС‹С‡РєРё?
    if not force then begin
     fl:=false;
     if (length(st)=0) or (st[1]=quotes) then fl:=true;
@@ -2139,7 +2139,7 @@ procedure SimpleEncrypt2;
      if st[i] in [' ',#9] then begin
       fl:=true; break;
      end;
-    if not fl then exit; // Если не нужно - выходим
+    if not fl then exit; // Р•СЃР»Рё РЅРµ РЅСѓР¶РЅРѕ - РІС‹С…РѕРґРёРј
    end;
    result:=quotes+StringReplace(st,quotes,quotes+quotes,[rfReplaceAll])+quotes;
   end;
@@ -2327,13 +2327,13 @@ procedure SimpleEncrypt2;
    end;
    result:=IntToStr(t mod 60)+'s';
    if t<60 then exit;
-   t:=t div 60; // перевели в минуты
+   t:=t div 60; // РїРµСЂРµРІРµР»Рё РІ РјРёРЅСѓС‚С‹
    result:=IntToStr(t mod 60)+'m'+result;
    if t<60 then exit;
-   t:=t div 60; // перевели в часы
+   t:=t div 60; // РїРµСЂРµРІРµР»Рё РІ С‡Р°СЃС‹
    result:=IntToStr(t mod 24)+'h'+result;
    if t<24 then exit;
-   t:=t div 24; // перевели в дни
+   t:=t div 24; // РїРµСЂРµРІРµР»Рё РІ РґРЅРё
    result:=IntToStr(t)+'d '+result;
    if neg then result:='+'+result;
   end;
@@ -2361,7 +2361,7 @@ procedure SimpleEncrypt2;
   end;
  {$ENDIF}
 
- // Возвращает строку с описанием распределения памяти
+ // Р’РѕР·РІСЂР°С‰Р°РµС‚ СЃС‚СЂРѕРєСѓ СЃ РѕРїРёСЃР°РЅРёРµРј СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ РїР°РјСЏС‚Рё
  function GetMemoryState:string;
 {$IFDEF DELPHI}
   var
@@ -3220,7 +3220,7 @@ function BinToStr;
   var
    st:string;
    i:integer;
-  // Если какая-то из строк начинается и заканчивается кавычками, то необходимо также выполнить для неё замену
+  // Р•СЃР»Рё РєР°РєР°СЏ-С‚Рѕ РёР· СЃС‚СЂРѕРє РЅР°С‡РёРЅР°РµС‚СЃСЏ Рё Р·Р°РєР°РЅС‡РёРІР°РµС‚СЃСЏ РєР°РІС‹С‡РєР°РјРё, С‚Рѕ РЅРµРѕР±С…РѕРґРёРјРѕ С‚Р°РєР¶Рµ РІС‹РїРѕР»РЅРёС‚СЊ РґР»СЏ РЅРµС‘ Р·Р°РјРµРЅСѓ
   procedure PrepareString(var s:string;divider:string;quotes:char);
    var
     i:integer;
@@ -3538,12 +3538,12 @@ function BinToStr;
    MyEnterCriticalSection(crSection);
    try
     if cacheenabled and (length(cacheBuf)+length(text)<65000) then begin
-     // кэш доступен и позволяет вместить сообщение
+     // РєСЌС€ РґРѕСЃС‚СѓРїРµРЅ Рё РїРѕР·РІРѕР»СЏРµС‚ РІРјРµСЃС‚РёС‚СЊ СЃРѕРѕР±С‰РµРЅРёРµ
      cacheBuf:=cacheBuf+text+#13#10;
     end else begin
-     // кэш отключен либо его размер недостаточен
+     // РєСЌС€ РѕС‚РєР»СЋС‡РµРЅ Р»РёР±Рѕ РµРіРѕ СЂР°Р·РјРµСЂ РЅРµРґРѕСЃС‚Р°С‚РѕС‡РµРЅ
      if not forceCacheUsage then begin
-      // запись в кэш необязательна, поэтому записать кэш а затем само сообщение напрямую
+      // Р·Р°РїРёСЃСЊ РІ РєСЌС€ РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅР°, РїРѕСЌС‚РѕРјСѓ Р·Р°РїРёСЃР°С‚СЊ РєСЌС€ Р° Р·Р°С‚РµРј СЃР°РјРѕ СЃРѕРѕР±С‰РµРЅРёРµ РЅР°РїСЂСЏРјСѓСЋ
       if cacheBuf<>'' then IntFlushLog;
       if logAlwaysOpened then begin
        writeln(logFile,text);
@@ -3562,9 +3562,9 @@ function BinToStr;
        end;
       end;
      end else begin
-      // режим "писать только в кэш", а кэш переполнен
+      // СЂРµР¶РёРј "РїРёСЃР°С‚СЊ С‚РѕР»СЊРєРѕ РІ РєСЌС€", Р° РєСЌС€ РїРµСЂРµРїРѕР»РЅРµРЅ
       if length(cacheBuf)<65500 then begin
-       cacheBuf:=cacheBuf+'Cache overflow!'#13#10; // сообщение заменяется на это
+       cacheBuf:=cacheBuf+'Cache overflow!'#13#10; // СЃРѕРѕР±С‰РµРЅРёРµ Р·Р°РјРµРЅСЏРµС‚СЃСЏ РЅР° СЌС‚Рѕ
       end;
      end;
     end;
@@ -3611,17 +3611,17 @@ function BinToStr;
    MyEnterCriticalSection(crSection);
    try
     if forceCacheUsage then begin
-     // Режим "писать только в кэш"
+     // Р РµР¶РёРј "РїРёСЃР°С‚СЊ С‚РѕР»СЊРєРѕ РІ РєСЌС€"
      if (length(cacheBuf)+length(text)<65000) then begin
       cacheBuf:=cacheBuf+text+#13#10;
      end else begin
-      // режим "писать только в кэш", а кэш переполнен
+      // СЂРµР¶РёРј "РїРёСЃР°С‚СЊ С‚РѕР»СЊРєРѕ РІ РєСЌС€", Р° РєСЌС€ РїРµСЂРµРїРѕР»РЅРµРЅ
       if length(cacheBuf)<65500 then begin
        cacheBuf:=cacheBuf+'Cache overflow!'#13#10;
       end;
      end;
     end else begin
-     // Обычный режим (форсированные сообщения пишутся напрямую, без кэша)
+     // РћР±С‹С‡РЅС‹Р№ СЂРµР¶РёРј (С„РѕСЂСЃРёСЂРѕРІР°РЅРЅС‹Рµ СЃРѕРѕР±С‰РµРЅРёСЏ РїРёС€СѓС‚СЃСЏ РЅР°РїСЂСЏРјСѓСЋ, Р±РµР· РєСЌС€Р°)
      if cacheBuf<>'' then
       IntFlushLog;
      if logAlwaysOpened then begin
@@ -4104,7 +4104,7 @@ procedure DumpDir(path:string);
   var
    t:cardinal;
   begin
-   MyEnterCriticalSection(crSection); // иначе может быть косяк с глобальной LastTickCount
+   MyEnterCriticalSection(crSection); // РёРЅР°С‡Рµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РєРѕСЃСЏРє СЃ РіР»РѕР±Р°Р»СЊРЅРѕР№ LastTickCount
    try
     {$IFDEF MSWINDOWS}
     t:=timeGetTime;
@@ -4197,7 +4197,7 @@ begin
   pushad
   mov edx,ebp
   mov ecx,ebp
-  add ecx,$100000 // не трогать стек выше EBP+1Mb
+  add ecx,$100000 // РЅРµ С‚СЂРѕРіР°С‚СЊ СЃС‚РµРє РІС‹С€Рµ EBP+1Mb
   mov n,0
   lea edi,adrs
 @01:
@@ -4245,7 +4245,7 @@ begin
   pushad
   mov edx,ebp
   mov ecx,ebp
-  add ecx,$100000 // не трогать стек выше EBP+1Mb
+  add ecx,$100000 // РЅРµ С‚СЂРѕРіР°С‚СЊ СЃС‚РµРє РІС‹С€Рµ EBP+1Mb
   mov n,0
   lea edi,adrs
 @01:
@@ -4440,7 +4440,7 @@ function GetNameOfThread(id:TThreadID):string;
   result:='unknown('+inttostr(cardinal(id))+')';
  end;
 
-procedure SafeEnterCriticalSection(var cr:TMyCriticalSection); // Осторожно войти в критсекцию
+procedure SafeEnterCriticalSection(var cr:TMyCriticalSection); // РћСЃС‚РѕСЂРѕР¶РЅРѕ РІРѕР№С‚Рё РІ РєСЂРёС‚СЃРµРєС†РёСЋ
  var
   i:integer;
   id,adr:cardinal;
@@ -4485,7 +4485,7 @@ procedure SafeEnterCriticalSection(var cr:TMyCriticalSection); // Осторожно войт
   {$ENDIF}
  end;
 
-procedure DumpCritSects; // Вывести в лог состояние всех критсекций
+procedure DumpCritSects; // Р’С‹РІРµСЃС‚Рё РІ Р»РѕРі СЃРѕСЃС‚РѕСЏРЅРёРµ РІСЃРµС… РєСЂРёС‚СЃРµРєС†РёР№
  var
   i,j:integer;
   st:string;
@@ -4522,7 +4522,7 @@ procedure DumpCritSects; // Вывести в лог состояние всех критсекций
 function IsDebuggerPresent:Boolean; stdcall; external 'kernel32.dll';
 {$ENDIF}
 
-procedure CheckCritSections; // проверить критические секции на таймаут
+procedure CheckCritSections; // РїСЂРѕРІРµСЂРёС‚СЊ РєСЂРёС‚РёС‡РµСЃРєРёРµ СЃРµРєС†РёРё РЅР° С‚Р°Р№РјР°СѓС‚
  var
   i,t:integer;
  begin
@@ -4540,7 +4540,7 @@ procedure CheckCritSections; // проверить критические секции на таймаут
   end;
  end;
 
-procedure RegisterThread(name:string); // зарегистрировать поток
+procedure RegisterThread(name:string); // Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°С‚СЊ РїРѕС‚РѕРє
  var
   i:integer;
   threadID:cardinal;
@@ -4570,7 +4570,7 @@ procedure RegisterThread(name:string); // зарегистрировать поток
   end;
  end;
 
-procedure UnregisterThread; // удалить поток (нужно вызывать перед завершением потока)
+procedure UnregisterThread; // СѓРґР°Р»РёС‚СЊ РїРѕС‚РѕРє (РЅСѓР¶РЅРѕ РІС‹Р·С‹РІР°С‚СЊ РїРµСЂРµРґ Р·Р°РІРµСЂС€РµРЅРёРµРј РїРѕС‚РѕРєР°)
  var
   i:integer;
   id:TThreadID;
@@ -4594,7 +4594,7 @@ procedure UnregisterThread; // удалить поток (нужно вызывать перед завершением п
   end;
  end;
 
-procedure PingThread; // сообщить о "живучести" потока
+procedure PingThread; // СЃРѕРѕР±С‰РёС‚СЊ Рѕ "Р¶РёРІСѓС‡РµСЃС‚Рё" РїРѕС‚РѕРєР°
  var
   i,t:integer;
   id:TThreadID;
@@ -4626,7 +4626,7 @@ procedure PingThread; // сообщить о "живучести" потока
   end;
  end;
 
-function GetThreadName(threadID:cardinal=0):string; // вернуть имя (0=текущего) потока
+function GetThreadName(threadID:cardinal=0):string; // РІРµСЂРЅСѓС‚СЊ РёРјСЏ (0=С‚РµРєСѓС‰РµРіРѕ) РїРѕС‚РѕРєР°
  begin
   if threadID=0 then threadID:=GetCurrentThreadID;
   result:=GetNameOfThread(threadID);

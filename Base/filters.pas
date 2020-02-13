@@ -1,12 +1,12 @@
-// This universal unit is intended to performing different
+п»ї// This universal unit is intended to performing different
 // filters onto custom bitmap images (low-level operations)
 // Copyright (C) 2002 Apus Software (www.games4win.com, ivan@apus-software.com)
 
 {$R-}
 
-unit filters;
+unit Filters;
 interface
- uses geom3d;
+ uses Geom3d;
 
 type
  BlurType=(Light,Normal,Fast);
@@ -36,7 +36,7 @@ procedure DraftBlur32Y(buf:pointer;x1,y1,x2,y2,lPitch,dist:integer);
 // Perform 4/8 blur of the rectangle on 8-bit image
 function LightBlur8(buf:pointer;pitch,width,height:integer;inplace:boolean=true):pointer;
 
-// Perform 0/4 blur of the rectangle on 8-bit image (если target=nil - запишет результат в исходный буфер)
+// Perform 0/4 blur of the rectangle on 8-bit image (РµСЃР»Рё target=nil - Р·Р°РїРёС€РµС‚ СЂРµР·СѓР»СЊС‚Р°С‚ РІ РёСЃС…РѕРґРЅС‹Р№ Р±СѓС„РµСЂ)
 function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:integer=0):pointer;
 //procedure Blur8(buf:pointer;x1,y1,x2,y2,lPitch:integer);
 
@@ -75,7 +75,7 @@ procedure Maximum8(buf:pointer;x1,y1,x2,y2,lPitch,sizeX,sizeY:integer);
 // Additional filters
 // -------------------
 
-// Выделяет 8-битный буфер размером (width+padding*2)*(height*padding*2) и заполняет его значением альфаканала из источника
+// Р’С‹РґРµР»СЏРµС‚ 8-Р±РёС‚РЅС‹Р№ Р±СѓС„РµСЂ СЂР°Р·РјРµСЂРѕРј (width+padding*2)*(height*padding*2) Рё Р·Р°РїРѕР»РЅСЏРµС‚ РµРіРѕ Р·РЅР°С‡РµРЅРёРµРј Р°Р»СЊС„Р°РєР°РЅР°Р»Р° РёР· РёСЃС‚РѕС‡РЅРёРєР°
 function ExtractAlpha(buf:pointer;pitch:integer;width,height:integer;padding:integer=0):pointer;
 
 // --------------
@@ -259,7 +259,7 @@ function Blur32(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch
   result:=pc;
 
   sour:=buf;
-  // Основная (центральная) часть буфера
+  // РћСЃРЅРѕРІРЅР°СЏ (С†РµРЅС‚СЂР°Р»СЊРЅР°СЏ) С‡Р°СЃС‚СЊ Р±СѓС„РµСЂР°
   inc(pc,tPitch+1);
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
@@ -269,31 +269,31 @@ function Blur32(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch
    end;
    inc(pc,2+(tPitch-width));
   end;
-  // Крайние пиксели (сверху)
+  // РљСЂР°Р№РЅРёРµ РїРёРєСЃРµР»Рё (СЃРІРµСЂС…Сѓ)
   pc:=result; inc(pc); o:=1;
   for x:=1 to width-2 do begin
    pc^:=Avg32(sour[o],sour[o-1],sour[o+1],sour[o+pitch]);
    inc(pc); inc(o);
   end;
-  // снизу
+  // СЃРЅРёР·Сѓ
   pc:=result; inc(pc,tPitch*(height-1)+1); o:=(height-1)*pitch+1;
   for x:=1 to width-2 do begin
    pc^:=Avg32(sour[o],sour[o-1],sour[o+1],sour[o-pitch]);
    inc(pc); inc(o);
   end;
-  // левый край
+  // Р»РµРІС‹Р№ РєСЂР°Р№
   pc:=result; inc(pc,width); o:=pitch;
   for y:=1 to height-2 do begin
    pc^:=Avg32(sour[o],sour[o+1],sour[o-pitch],sour[o+pitch]);
    inc(pc,tPitch); inc(o,pitch);
   end;
-  // правый край
+  // РїСЂР°РІС‹Р№ РєСЂР°Р№
   pc:=result; inc(pc,width+width-1); o:=pitch+width-1;
   for y:=1 to height-2 do begin
    pc^:=Avg32(sour[o],sour[o-1],sour[o-pitch],sour[o+pitch]);
    inc(pc,tPitch); inc(o,pitch);
   end;
-  // Угловые пиксели
+  // РЈРіР»РѕРІС‹Рµ РїРёРєСЃРµР»Рё
   pc:=result; o:=0;
   pc^:=Avg32(sour[o],sour[o],sour[o+1],sour[o+pitch]);
   pc:=result; inc(pc,width-1); o:=width-1;
@@ -310,12 +310,12 @@ function Sharpen(buf:pointer;pitch,width,height,strength:integer;inplace:boolean
   sour:PARGBArray;
   x,y,v,o:integer;
   b:integer;
-  c0,c1,c2,c3,c4:integer; // это важно!
+  c0,c1,c2,c3,c4:integer; // СЌС‚Рѕ РІР°Р¶РЅРѕ!
  begin
   GetMem(pc,width*height*4);
   result:=pc;
   sour:=buf;
-  // Основная (центральная) часть буфера
+  // РћСЃРЅРѕРІРЅР°СЏ (С†РµРЅС‚СЂР°Р»СЊРЅР°СЏ) С‡Р°СЃС‚СЊ Р±СѓС„РµСЂР°
   inc(pc,width+1);
   pitch:=pitch div 4;
   for y:=1 to height-2 do begin
@@ -355,7 +355,7 @@ function Sharpen8(buf:pointer;pitch,width,height,strength:integer;inplace:boolea
   result:=pc;
   sour:=buf;
   s:=256-strength;
-  // Основная (центральная) часть буфера
+  // РћСЃРЅРѕРІРЅР°СЏ (С†РµРЅС‚СЂР°Р»СЊРЅР°СЏ) С‡Р°СЃС‚СЊ Р±СѓС„РµСЂР°
   inc(pc,width+1);
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
@@ -496,7 +496,7 @@ function LightBlur8(buf:pointer;pitch,width,height:integer;inplace:boolean=true)
   GetMem(pb,width*height);
   result:=pb;
   sour:=buf;
-  // Основная (центральная) часть буфера
+  // РћСЃРЅРѕРІРЅР°СЏ (С†РµРЅС‚СЂР°Р»СЊРЅР°СЏ) С‡Р°СЃС‚СЊ Р±СѓС„РµСЂР°
   inc(pb,width+1);
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
@@ -506,31 +506,31 @@ function LightBlur8(buf:pointer;pitch,width,height:integer;inplace:boolean=true)
    end;
    inc(pb,2);
   end;
-  // Крайние пиксели (сверху)
+  // РљСЂР°Р№РЅРёРµ РїРёРєСЃРµР»Рё (СЃРІРµСЂС…Сѓ)
   pb:=result; inc(pb); o:=1;
   for x:=1 to width-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o+1]+sour[o+pitch]) shr 2;
    inc(pb); inc(o);
   end;
-  // снизу
+  // СЃРЅРёР·Сѓ
   pb:=result; inc(pb,width*(height-1)+1); o:=(height-1)*pitch+1;
   for x:=1 to width-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o+1]+sour[o-pitch]) shr 2;
    inc(pb); inc(o);
   end;
-  // левый край
+  // Р»РµРІС‹Р№ РєСЂР°Р№
   pb:=result; inc(pb,width); o:=pitch;
   for y:=1 to height-2 do begin
    pb^:=(sour[o]+sour[o+1]+sour[o-pitch]+sour[o+pitch]) shr 2;
    inc(pb,width); inc(o,pitch);
   end;
-  // правый край
+  // РїСЂР°РІС‹Р№ РєСЂР°Р№
   pb:=result; inc(pb,width+width-1); o:=pitch+width-1;
   for y:=1 to height-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o-pitch]+sour[o+pitch]) shr 2;
    inc(pb,width); inc(o,pitch);
   end;
-  // Угловые пиксели
+  // РЈРіР»РѕРІС‹Рµ РїРёРєСЃРµР»Рё
   pb:=result; o:=0;
   pb^:=(sour[o]*2+sour[o+1]+sour[o+pitch]) shr 2;
   pb:=result; inc(pb,width-1); o:=width-1;
@@ -560,7 +560,7 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
    pb:=target;
   result:=pb;
   sour:=buf;
-  // Основная (центральная) часть буфера
+  // РћСЃРЅРѕРІРЅР°СЏ (С†РµРЅС‚СЂР°Р»СЊРЅР°СЏ) С‡Р°СЃС‚СЊ Р±СѓС„РµСЂР°
   inc(pb,tPitch+1);
   for y:=1 to height-2 do begin
    o:=y*pitch+1;
@@ -570,31 +570,31 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
    end;
    inc(pb,2+(tPitch-width));
   end;
-  // Крайние пиксели (сверху)
+  // РљСЂР°Р№РЅРёРµ РїРёРєСЃРµР»Рё (СЃРІРµСЂС…Сѓ)
   pb:=result; inc(pb); o:=1;
   for x:=1 to width-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o+1]+sour[o+pitch]) shr 2;
    inc(pb); inc(o);
   end;
-  // снизу
+  // СЃРЅРёР·Сѓ
   pb:=result; inc(pb,tPitch*(height-1)+1); o:=(height-1)*pitch+1;
   for x:=1 to width-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o+1]+sour[o-pitch]) shr 2;
    inc(pb); inc(o);
   end;
-  // левый край
+  // Р»РµРІС‹Р№ РєСЂР°Р№
   pb:=result; inc(pb,width); o:=pitch;
   for y:=1 to height-2 do begin
    pb^:=(sour[o]+sour[o+1]+sour[o-pitch]+sour[o+pitch]) shr 2;
    inc(pb,tPitch); inc(o,pitch);
   end;
-  // правый край
+  // РїСЂР°РІС‹Р№ РєСЂР°Р№
   pb:=result; inc(pb,width+width-1); o:=pitch+width-1;
   for y:=1 to height-2 do begin
    pb^:=(sour[o]+sour[o-1]+sour[o-pitch]+sour[o+pitch]) shr 2;
    inc(pb,tPitch); inc(o,pitch);
   end;
-  // Угловые пиксели
+  // РЈРіР»РѕРІС‹Рµ РїРёРєСЃРµР»Рё
   pb:=result; o:=0;
   pb^:=(sour[o]*2+sour[o+1]+sour[o+pitch]) shr 2;
   pb:=result; inc(pb,width-1); o:=width-1;
@@ -603,7 +603,7 @@ function Blur8(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch:
   pb^:=(sour[o]*2+sour[o+1]+sour[o-pitch]) shr 2;
   pb:=result; inc(pb,width*height-1); o:=pitch*(height-1)+width-1;
   pb^:=(sour[o]*2+sour[o-1]+sour[o-pitch]) shr 2;
-  if target=nil then begin  // !!! копирование в исходный буфер
+  if target=nil then begin  // !!! РєРѕРїРёСЂРѕРІР°РЅРёРµ РІ РёСЃС…РѕРґРЅС‹Р№ Р±СѓС„РµСЂ
    CopyRect8(result,width,buf,pitch,0,0,width,height,0,0);
    Freemem(result);
    result:=buf;

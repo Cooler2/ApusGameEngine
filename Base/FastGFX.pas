@@ -1,4 +1,4 @@
-// Optimized drawing routines
+п»ї// Optimized drawing routines
 //
 // Copyright (C) 2004-2014 Apus Software (www.games4win.com)
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
@@ -6,45 +6,45 @@
 {$PIC OFF}
 {$ENDIF}
 {$R-}
-unit fastgfx;
+unit FastGFX;
 interface
- uses geom2d,types;
+ uses Geom2d,types;
 type
- // Процедура рисования простой горизонтальной линии (без отсечения, x2>=x1)
+ // РџСЂРѕС†РµРґСѓСЂР° СЂРёСЃРѕРІР°РЅРёСЏ РїСЂРѕСЃС‚РѕР№ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅРѕР№ Р»РёРЅРёРё (Р±РµР· РѕС‚СЃРµС‡РµРЅРёСЏ, x2>=x1)
  THLine=procedure(buf:pointer;pitch:integer;x1,x2,y:integer;color:cardinal); pascal;
- // Процедура рисования простой вертикальной линии (без отсечения, y2>=y1)
+ // РџСЂРѕС†РµРґСѓСЂР° СЂРёСЃРѕРІР°РЅРёСЏ РїСЂРѕСЃС‚РѕР№ РІРµСЂС‚РёРєР°Р»СЊРЅРѕР№ Р»РёРЅРёРё (Р±РµР· РѕС‚СЃРµС‡РµРЅРёСЏ, y2>=y1)
  TVLine=procedure(buf:pointer;pitch:integer;x,y1,y2:integer;color:cardinal); pascal;
 
- // Процедура рисования простой линии (без отсечения)
+ // РџСЂРѕС†РµРґСѓСЂР° СЂРёСЃРѕРІР°РЅРёСЏ РїСЂРѕСЃС‚РѕР№ Р»РёРЅРёРё (Р±РµР· РѕС‚СЃРµС‡РµРЅРёСЏ)
  TSimpleLine=procedure(buf:pointer;pitch:integer;x1,y1,x2,y2:integer;color:cardinal); pascal;
 
  TColorConv=function(color:cardinal):cardinal;
 
- // Функция смешения цвета слоя с цветом подложки
+ // Р¤СѓРЅРєС†РёСЏ СЃРјРµС€РµРЅРёСЏ С†РІРµС‚Р° СЃР»РѕСЏ СЃ С†РІРµС‚РѕРј РїРѕРґР»РѕР¶РєРё
  TBlenderFunc=function(background,foreground:cardinal):cardinal;
 
 var
  blBlend,blCopy:TBlenderFunc;
  blender:TBlenderFunc;
 
- // Горизонтальная линия - цвет задается в формате приемника!
+ // Р“РѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅР°СЏ Р»РёРЅРёСЏ - С†РІРµС‚ Р·Р°РґР°РµС‚СЃСЏ РІ С„РѕСЂРјР°С‚Рµ РїСЂРёРµРјРЅРёРєР°!
  procedure HLine32(buf:pointer;pitch:integer;x1,x2,y:integer;color:cardinal); pascal;
  procedure HLine16(buf:pointer;pitch:integer;x1,x2,y:integer;color:cardinal); pascal;
 
- // Вертикальная линия - цвет задается в формате приемника!
+ // Р’РµСЂС‚РёРєР°Р»СЊРЅР°СЏ Р»РёРЅРёСЏ - С†РІРµС‚ Р·Р°РґР°РµС‚СЃСЏ РІ С„РѕСЂРјР°С‚Рµ РїСЂРёРµРјРЅРёРєР°!
  procedure VLine32(buf:pointer;pitch:integer;x,y1,y2:integer;color:cardinal); pascal;
  procedure VLine16(buf:pointer;pitch:integer;x,y1,y2:integer;color:cardinal); pascal;
 
- // Линия рисуется прямым копированием цвета (цвет задается в формате приемника!)
+ // Р›РёРЅРёСЏ СЂРёСЃСѓРµС‚СЃСЏ РїСЂСЏРјС‹Рј РєРѕРїРёСЂРѕРІР°РЅРёРµРј С†РІРµС‚Р° (С†РІРµС‚ Р·Р°РґР°РµС‚СЃСЏ РІ С„РѕСЂРјР°С‚Рµ РїСЂРёРµРјРЅРёРєР°!)
  procedure SimpleLine32(buf:pointer;pitch:integer;x1,y1,x2,y2:integer;color:cardinal); pascal;
  procedure SimpleLine16(buf:pointer;pitch:integer;x1,y1,x2,y2:integer;color:cardinal); pascal;
 
- // Линия рисуется с учетом прозрачности цвета (цвет задается в режиме RGBA!)
+ // Р›РёРЅРёСЏ СЂРёСЃСѓРµС‚СЃСЏ СЃ СѓС‡РµС‚РѕРј РїСЂРѕР·СЂР°С‡РЅРѕСЃС‚Рё С†РІРµС‚Р° (С†РІРµС‚ Р·Р°РґР°РµС‚СЃСЏ РІ СЂРµР¶РёРјРµ RGBA!)
  procedure SimpleLine32A(buf:pointer;pitch:integer;x1,y1,x2,y2:integer;color:cardinal); pascal;
  procedure SimpleLine16A(buf:pointer;pitch:integer;x1,y1,x2,y2:integer;color:cardinal); pascal;
 
 
- // Преобразование 32-битного ARGB-цвета в заданный формат
+ // РџСЂРµРѕР±СЂР°Р·РѕРІР°РЅРёРµ 32-Р±РёС‚РЅРѕРіРѕ ARGB-С†РІРµС‚Р° РІ Р·Р°РґР°РЅРЅС‹Р№ С„РѕСЂРјР°С‚
  function ColorTo32(color:cardinal):cardinal;
  function ColorTo24(color:cardinal):cardinal;
  function ColorTo16(color:cardinal):cardinal;
@@ -52,7 +52,7 @@ var
  function ColorTo15(color:cardinal):cardinal;
  function ColorTo12(color:cardinal):cardinal;
 
- // Получение 32-битного ARGB-цвета из заданного формата
+ // РџРѕР»СѓС‡РµРЅРёРµ 32-Р±РёС‚РЅРѕРіРѕ ARGB-С†РІРµС‚Р° РёР· Р·Р°РґР°РЅРЅРѕРіРѕ С„РѕСЂРјР°С‚Р°
  function ColorFrom32(color:cardinal):cardinal;
  function ColorFrom24(color:cardinal):cardinal;
  function ColorFrom16(color:cardinal):cardinal;
@@ -60,21 +60,21 @@ var
  function ColorFrom15(color:cardinal):cardinal;
  function ColorFrom12(color:cardinal):cardinal;
 
- // Преобразование строки 32-битных ARGB-пикселей в строку заданного формата
+ // РџСЂРµРѕР±СЂР°Р·РѕРІР°РЅРёРµ СЃС‚СЂРѕРєРё 32-Р±РёС‚РЅС‹С… ARGB-РїРёРєСЃРµР»РµР№ РІ СЃС‚СЂРѕРєСѓ Р·Р°РґР°РЅРЅРѕРіРѕ С„РѕСЂРјР°С‚Р°
  procedure PixelsTo24(var sour,dest;count:integer); pascal;
  procedure PixelsTo16(var sour,dest;count:integer); pascal;
  procedure PixelsTo15A(var sour,dest;count:integer); pascal;
  procedure PixelsTo15(var sour,dest;count:integer); pascal;
  procedure PixelsTo12(var sour,dest;count:integer); pascal;
 
- // Преобразование строки заданного формата в строку 32-битных ARGB-пикселей
+ // РџСЂРµРѕР±СЂР°Р·РѕРІР°РЅРёРµ СЃС‚СЂРѕРєРё Р·Р°РґР°РЅРЅРѕРіРѕ С„РѕСЂРјР°С‚Р° РІ СЃС‚СЂРѕРєСѓ 32-Р±РёС‚РЅС‹С… ARGB-РїРёРєСЃРµР»РµР№
  procedure PixelsFrom24(var sour,dest;count:integer); pascal;
  procedure PixelsFrom16(var sour,dest;count:integer); pascal;
  procedure PixelsFrom15A(var sour,dest;count:integer); pascal;
  procedure PixelsFrom15(var sour,dest;count:integer); pascal;
  procedure PixelsFrom12(var sour,dest;count:integer); pascal;
- procedure PixelsFrom8P(var sour,dest,palette;count:integer); pascal; // Палитра 32-битная!
- procedure PixelsFrom8P24(var sour,dest,palette;count:integer); pascal; // Палитра 24-битная (медленно!)
+ procedure PixelsFrom8P(var sour,dest,palette;count:integer); pascal; // РџР°Р»РёС‚СЂР° 32-Р±РёС‚РЅР°СЏ!
+ procedure PixelsFrom8P24(var sour,dest,palette;count:integer); pascal; // РџР°Р»РёС‚СЂР° 24-Р±РёС‚РЅР°СЏ (РјРµРґР»РµРЅРЅРѕ!)
 
  // Calculates address of 32-bit pixel
  function GetPixelAddr(buf:pointer;pitch,x,y:integer):pointer;
@@ -85,13 +85,13 @@ var
  function CropImage(sour:pointer;sPitch:integer;width,height:integer):TRect;
 
  // Copy rectangular area of 32bpp pixels from one surface to another surface
- // (аналогично SimpleDraw с blMove)
+ // (Р°РЅР°Р»РѕРіРёС‡РЅРѕ SimpleDraw СЃ blMove)
  procedure CopyRect(sour:pointer;sPitch:integer;
                     dest:pointer;dPitch:integer;
                     x,y,width,height:integer;
                     targetX,targetY:integer);
 
- // Аналогично, но позволяет делать поворот на 90 и flip за счет указания смещения пикселя в источнике
+ // РђРЅР°Р»РѕРіРёС‡РЅРѕ, РЅРѕ РїРѕР·РІРѕР»СЏРµС‚ РґРµР»Р°С‚СЊ РїРѕРІРѕСЂРѕС‚ РЅР° 90 Рё flip Р·Р° СЃС‡РµС‚ СѓРєР°Р·Р°РЅРёСЏ СЃРјРµС‰РµРЅРёСЏ РїРёРєСЃРµР»СЏ РІ РёСЃС‚РѕС‡РЅРёРєРµ
  procedure CopyRectEx(sour:pointer;sNext,sPitch:integer;
                       dest:pointer;dPitch:integer;
                       x,y,width,height:integer;
@@ -104,42 +104,42 @@ var
                      x,y,width,height:integer;
                      targetX,targetY:integer);
 
- // Аналогично, но позволяет делать поворот на 90 и flip за счет указания смещения пикселя в источнике
+ // РђРЅР°Р»РѕРіРёС‡РЅРѕ, РЅРѕ РїРѕР·РІРѕР»СЏРµС‚ РґРµР»Р°С‚СЊ РїРѕРІРѕСЂРѕС‚ РЅР° 90 Рё flip Р·Р° СЃС‡РµС‚ СѓРєР°Р·Р°РЅРёСЏ СЃРјРµС‰РµРЅРёСЏ РїРёРєСЃРµР»СЏ РІ РёСЃС‚РѕС‡РЅРёРєРµ
  procedure CopyRect8Ex(sour:pointer;sNext,sPitch:integer;
                        dest:pointer;dPitch:integer;
                        x,y,width,height:integer;
                        targetX,targetY:integer);
 
 
- // Заполнение прямоугольника заданным цветом (буфер любой 32-битный)
+ // Р—Р°РїРѕР»РЅРµРЅРёРµ РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРєР° Р·Р°РґР°РЅРЅС‹Рј С†РІРµС‚РѕРј (Р±СѓС„РµСЂ Р»СЋР±РѕР№ 32-Р±РёС‚РЅС‹Р№)
  // Fills all pixel in range [x1..x2, y1..y2]
  procedure FillRect(buf:pointer;pitch:integer; x1,y1,x2,y2:integer;color:cardinal); overload;
 
- // То же с использованием функции блендинга
+ // РўРѕ Р¶Рµ СЃ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµРј С„СѓРЅРєС†РёРё Р±Р»РµРЅРґРёРЅРіР°
  procedure FillRect(buf:pointer;pitch:integer; x1,y1,x2,y2:integer;color:cardinal;blender:TBlenderFunc); overload;
 
- // То же - в текущий render target, с проверками координат (отсечение) и альфа-блендингом 
+ // РўРѕ Р¶Рµ - РІ С‚РµРєСѓС‰РёР№ render target, СЃ РїСЂРѕРІРµСЂРєР°РјРё РєРѕРѕСЂРґРёРЅР°С‚ (РѕС‚СЃРµС‡РµРЅРёРµ) Рё Р°Р»СЊС„Р°-Р±Р»РµРЅРґРёРЅРіРѕРј 
  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal); overload;
  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal;blender:TBlenderFunc); overload;
 
- // Отрисовка периметра
+ // РћС‚СЂРёСЃРѕРІРєР° РїРµСЂРёРјРµС‚СЂР°
  procedure DrawRect(buf:pointer;pitch:integer; x1,y1,x2,y2:integer;color:cardinal;blender:TBlenderFunc);
 
- // Заполнение цветом используя заданный альфаканал (замена фона)
+ // Р—Р°РїРѕР»РЅРµРЅРёРµ С†РІРµС‚РѕРј РёСЃРїРѕР»СЊР·СѓСЏ Р·Р°РґР°РЅРЅС‹Р№ Р°Р»СЊС„Р°РєР°РЅР°Р» (Р·Р°РјРµРЅР° С„РѕРЅР°)
  procedure FillUsingAlpha(buf:pointer;pitch:integer;
                           alpha:pointer;aPitch:integer;
                           width,height:integer;
                           color:cardinal);
 
- // Заполнение цветом используя заданный альфаканал (блендинг цвета на фон)
+ // Р—Р°РїРѕР»РЅРµРЅРёРµ С†РІРµС‚РѕРј РёСЃРїРѕР»СЊР·СѓСЏ Р·Р°РґР°РЅРЅС‹Р№ Р°Р»СЊС„Р°РєР°РЅР°Р» (Р±Р»РµРЅРґРёРЅРі С†РІРµС‚Р° РЅР° С„РѕРЅ)
  procedure BlendUsingAlpha(buf:pointer;pitch:integer;
                           alpha:pointer;aPitch:integer;
                           width,height:integer;
                           color:cardinal;
                           blender:TBlenderFunc);
 
- // Заполняет область width*height в dest смешанным изображением, таким что
- // вероятность пикселей из sour1 линейно убывает, а вероятность пикселей из sour2 - возрастает
+ // Р—Р°РїРѕР»РЅСЏРµС‚ РѕР±Р»Р°СЃС‚СЊ width*height РІ dest СЃРјРµС€Р°РЅРЅС‹Рј РёР·РѕР±СЂР°Р¶РµРЅРёРµРј, С‚Р°РєРёРј С‡С‚Рѕ
+ // РІРµСЂРѕСЏС‚РЅРѕСЃС‚СЊ РїРёРєСЃРµР»РµР№ РёР· sour1 Р»РёРЅРµР№РЅРѕ СѓР±С‹РІР°РµС‚, Р° РІРµСЂРѕСЏС‚РЅРѕСЃС‚СЊ РїРёРєСЃРµР»РµР№ РёР· sour2 - РІРѕР·СЂР°СЃС‚Р°РµС‚
  procedure TransitionRect(sour1:pointer;sPitch1:integer;
                           sour2:pointer;sPitch2:integer;
                           dest:pointer;dPitch:integer;
@@ -147,52 +147,52 @@ var
                           horizontal:boolean;
                           blender:TBlenderFunc);
 
- // Отрисовка в ARGB (без клиппинга!)
+ // РћС‚СЂРёСЃРѕРІРєР° РІ ARGB (Р±РµР· РєР»РёРїРїРёРЅРіР°!)
  procedure SimpleDraw(sour:pointer;sPitch:integer;
                       dest:pointer;dPitch:integer;
-                      x,y, // точка вывода в dest
-                      width,height:integer; // размер рисуемого изображения
+                      x,y, // С‚РѕС‡РєР° РІС‹РІРѕРґР° РІ dest
+                      width,height:integer; // СЂР°Р·РјРµСЂ СЂРёСЃСѓРµРјРѕРіРѕ РёР·РѕР±СЂР°Р¶РµРЅРёСЏ
                       blender:TBlenderFunc);
 
- // Аналогично, но позволяет делать поворот на 90 и flip за счет указания смещения адреса след. пикселя в источнике
+ // РђРЅР°Р»РѕРіРёС‡РЅРѕ, РЅРѕ РїРѕР·РІРѕР»СЏРµС‚ РґРµР»Р°С‚СЊ РїРѕРІРѕСЂРѕС‚ РЅР° 90 Рё flip Р·Р° СЃС‡РµС‚ СѓРєР°Р·Р°РЅРёСЏ СЃРјРµС‰РµРЅРёСЏ Р°РґСЂРµСЃР° СЃР»РµРґ. РїРёРєСЃРµР»СЏ РІ РёСЃС‚РѕС‡РЅРёРєРµ
  procedure SimpleDrawEx(sour:pointer;sNext,sPitch:integer;
                         dest:pointer;dPitch:integer;
-                        x,y, // точка вывода в dest
-                        width,height:integer; // размер рисуемого изображения
+                        x,y, // С‚РѕС‡РєР° РІС‹РІРѕРґР° РІ dest
+                        width,height:integer; // СЂР°Р·РјРµСЂ СЂРёСЃСѓРµРјРѕРіРѕ РёР·РѕР±СЂР°Р¶РµРЅРёСЏ
                         blender:TBlenderFunc);
 
 
- // Отрисовка с билинейной интерполяцией (ОСТОРОЖНО С ТЕКСТУРНЫМИ К-МИ ПРИ РАСТЯЖЕНИИ!)
- procedure StretchDraw(sour:pointer;sPitch:integer; // текстура
+ // РћС‚СЂРёСЃРѕРІРєР° СЃ Р±РёР»РёРЅРµР№РЅРѕР№ РёРЅС‚РµСЂРїРѕР»СЏС†РёРµР№ (РћРЎРўРћР РћР–РќРћ РЎ РўР•РљРЎРўРЈР РќР«РњР Рљ-РњР РџР Р Р РђРЎРўРЇР–Р•РќРР!)
+ procedure StretchDraw(sour:pointer;sPitch:integer; // С‚РµРєСЃС‚СѓСЂР°
                        dest:pointer;dPitch:integer;
-                       x1,y1,x2,y2:integer; // область вывода в dest (целочисленная!)
-                       u1,v1,u2,v2:single;  // текстурные к-ты, соответствующие краям области вывода
-                       blender:TBlenderFunc);   // (в текселях! т.е. [0.5,0.5] - центр углового текселя)
+                       x1,y1,x2,y2:integer; // РѕР±Р»Р°СЃС‚СЊ РІС‹РІРѕРґР° РІ dest (С†РµР»РѕС‡РёСЃР»РµРЅРЅР°СЏ!)
+                       u1,v1,u2,v2:single;  // С‚РµРєСЃС‚СѓСЂРЅС‹Рµ Рє-С‚С‹, СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёРµ РєСЂР°СЏРј РѕР±Р»Р°СЃС‚Рё РІС‹РІРѕРґР°
+                       blender:TBlenderFunc);   // (РІ С‚РµРєСЃРµР»СЏС…! С‚.Рµ. [0.5,0.5] - С†РµРЅС‚СЂ СѓРіР»РѕРІРѕРіРѕ С‚РµРєСЃРµР»СЏ)
 
- // Вариант для целочисленного растяжения: параметры таковы, что 1-й пиксел строго совпадает с 1-м текселом
- // а последний пиксел - с последним текселом. Степень растяжения при этом нарушается.
- procedure StretchDraw1(sour:pointer;sPitch:integer; // текстура
+ // Р’Р°СЂРёР°РЅС‚ РґР»СЏ С†РµР»РѕС‡РёСЃР»РµРЅРЅРѕРіРѕ СЂР°СЃС‚СЏР¶РµРЅРёСЏ: РїР°СЂР°РјРµС‚СЂС‹ С‚Р°РєРѕРІС‹, С‡С‚Рѕ 1-Р№ РїРёРєСЃРµР» СЃС‚СЂРѕРіРѕ СЃРѕРІРїР°РґР°РµС‚ СЃ 1-Рј С‚РµРєСЃРµР»РѕРј
+ // Р° РїРѕСЃР»РµРґРЅРёР№ РїРёРєСЃРµР» - СЃ РїРѕСЃР»РµРґРЅРёРј С‚РµРєСЃРµР»РѕРј. РЎС‚РµРїРµРЅСЊ СЂР°СЃС‚СЏР¶РµРЅРёСЏ РїСЂРё СЌС‚РѕРј РЅР°СЂСѓС€Р°РµС‚СЃСЏ.
+ procedure StretchDraw1(sour:pointer;sPitch:integer; // С‚РµРєСЃС‚СѓСЂР°
                         dest:pointer;dPitch:integer;
-                        x1,y1,x2,y2:integer;   // область вывода в dest (в целых пикселях)
-                        u1,v1,u2,v2:integer;   // область текстуры (в целых текселях)
+                        x1,y1,x2,y2:integer;   // РѕР±Р»Р°СЃС‚СЊ РІС‹РІРѕРґР° РІ dest (РІ С†РµР»С‹С… РїРёРєСЃРµР»СЏС…)
+                        u1,v1,u2,v2:integer;   // РѕР±Р»Р°СЃС‚СЊ С‚РµРєСЃС‚СѓСЂС‹ (РІ С†РµР»С‹С… С‚РµРєСЃРµР»СЏС…)
                         blender:TBlenderFunc);
 
- // Более привычная форма, соответствующая отрисовке прямоугольника из текстуры на произвольный прямоугольник
- procedure StretchDraw2(sour:pointer;sPitch:integer; // текстура
+ // Р‘РѕР»РµРµ РїСЂРёРІС‹С‡РЅР°СЏ С„РѕСЂРјР°, СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰Р°СЏ РѕС‚СЂРёСЃРѕРІРєРµ РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРєР° РёР· С‚РµРєСЃС‚СѓСЂС‹ РЅР° РїСЂРѕРёР·РІРѕР»СЊРЅС‹Р№ РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРє
+ procedure StretchDraw2(sour:pointer;sPitch:integer; // С‚РµРєСЃС‚СѓСЂР°
                         dest:pointer;dPitch:integer;
-                        x1,y1,x2,y2:single;   // область вывода в dest
-                        u1,v1,u2,v2:integer;  // текстурные к-ты, соответствующие краям области вывода
+                        x1,y1,x2,y2:single;   // РѕР±Р»Р°СЃС‚СЊ РІС‹РІРѕРґР° РІ dest
+                        u1,v1,u2,v2:integer;  // С‚РµРєСЃС‚СѓСЂРЅС‹Рµ Рє-С‚С‹, СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёРµ РєСЂР°СЏРј РѕР±Р»Р°СЃС‚Рё РІС‹РІРѕРґР°
                         blender:TBlenderFunc);
 
- // Производит уменьшение в 2 раза (ARGB)
+ // РџСЂРѕРёР·РІРѕРґРёС‚ СѓРјРµРЅСЊС€РµРЅРёРµ РІ 2 СЂР°Р·Р° (ARGB)
  procedure DownSample2X(sour:pointer;sPitch:integer;
                         dest:pointer;dPitch:integer;
-                        width,height:integer); // размеры исходного изображения
+                        width,height:integer); // СЂР°Р·РјРµСЂС‹ РёСЃС…РѕРґРЅРѕРіРѕ РёР·РѕР±СЂР°Р¶РµРЅРёСЏ
 
- // Производит уменьшение в 2 раза (8bit)
+ // РџСЂРѕРёР·РІРѕРґРёС‚ СѓРјРµРЅСЊС€РµРЅРёРµ РІ 2 СЂР°Р·Р° (8bit)
  procedure DownSample2X8(sour:pointer;sPitch:integer;
                          dest:pointer;dPitch:integer;
-                         width,height:integer); // размеры исходного изображения
+                         width,height:integer); // СЂР°Р·РјРµСЂС‹ РёСЃС…РѕРґРЅРѕРіРѕ РёР·РѕР±СЂР°Р¶РµРЅРёСЏ
 
  procedure SetRenderTarget(buf:pointer;pitch:integer;width,height:integer);
 
@@ -210,15 +210,15 @@ implementation
  uses CrossPlatform,{$IFDEF ANDROID}MyServis,SysUtils,{$ENDIF}colors,math;
 
 threadvar
- // Место для отрисовки по умолчанию
+ // РњРµСЃС‚Рѕ РґР»СЏ РѕС‚СЂРёСЃРѕРІРєРё РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
  rBuf:pointer;
- rPitch:integer; // в пикселях!
+ rPitch:integer; // РІ РїРёРєСЃРµР»СЏС…!
  rWidth,rHeight:integer;
 
 
 {$IFDEF CPU386}
 const
- Alpha1:int64=$0100010001000100; // 4 слова по 100h
+ Alpha1:int64=$0100010001000100; // 4 СЃР»РѕРІР° РїРѕ 100h
  MaskW0:int64=$000000000000FFFF;
  MaskW1:int64=$00000000FFFF0000;
  MaskW2:int64=$0000FFFF00000000;
@@ -239,7 +239,7 @@ const
   {$IFDEF CPU386}
   asm
    pushad
-   // Адрес начала
+   // РђРґСЂРµСЃ РЅР°С‡Р°Р»Р°
    mov eax,y
    imul pitch
    mov edi,x2
@@ -266,7 +266,7 @@ const
   {$IFDEF CPU386}
   asm
    pushad
-   // Адрес начала
+   // РђРґСЂРµСЃ РЅР°С‡Р°Р»Р°
    mov eax,y
    imul pitch
    mov edi,x2
@@ -293,7 +293,7 @@ const
   {$IFDEF CPU386}
   asm
    pushad
-   // Адрес начала
+   // РђРґСЂРµСЃ РЅР°С‡Р°Р»Р°
    mov eax,y1
    imul pitch
    mov edi,x
@@ -320,7 +320,7 @@ const
   {$IFDEF CPU386}
   asm
    pushad
-   // Адрес начала
+   // РђРґСЂРµСЃ РЅР°С‡Р°Р»Р°
    mov eax,y1
    imul pitch
    mov edi,x
@@ -349,7 +349,7 @@ const
   begin
     asm
      pushad
-     // Определить направления и углы
+     // РћРїСЂРµРґРµР»РёС‚СЊ РЅР°РїСЂР°РІР»РµРЅРёСЏ Рё СѓРіР»С‹
      mov edi,pitch
      mov esi,4
      mov eax,x2
@@ -367,7 +367,7 @@ const
      neg edx
      neg edi
 @n2:
-     cmp ecx,edx // горизонтальность участка
+     cmp ecx,edx // РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅРѕСЃС‚СЊ СѓС‡Р°СЃС‚РєР°
      jae @n3
      xchg edx,ecx
      xchg edi,esi
@@ -387,8 +387,8 @@ const
 
      mov edx,l
      shr edx,1
-     // загрузить альфаканал
-     pxor mm7,mm7 // константа 0
+     // Р·Р°РіСЂСѓР·РёС‚СЊ Р°Р»СЊС„Р°РєР°РЅР°Р»
+     pxor mm7,mm7 // РєРѕРЅСЃС‚Р°РЅС‚Р° 0
      movd mm6,HighByte
 
      xor ebx,ebx
@@ -397,20 +397,20 @@ const
      shl ebx,8
      mov bl,bh
      movd mm1,ebx // 0AAA
-     punpcklbw mm1,mm6 // mm1 - альфа фона (100 0AA 0AA 0AA)
+     punpcklbw mm1,mm6 // mm1 - Р°Р»СЊС„Р° С„РѕРЅР° (100 0AA 0AA 0AA)
      movq mm2,Alpha1
-     psubw mm2,mm1 // альфа цвета (старшее слово - 00 1-A 1-A 1-A)
+     psubw mm2,mm1 // Р°Р»СЊС„Р° С†РІРµС‚Р° (СЃС‚Р°СЂС€РµРµ СЃР»РѕРІРѕ - 00 1-A 1-A 1-A)
 
-     // Загрузить цвет
+     // Р—Р°РіСЂСѓР·РёС‚СЊ С†РІРµС‚
      movd mm0,color
      punpcklbw mm0,mm7
-     pmullw mm0,mm2 // Сколько нужно прибавить к цвету фона
+     pmullw mm0,mm2 // РЎРєРѕР»СЊРєРѕ РЅСѓР¶РЅРѕ РїСЂРёР±Р°РІРёС‚СЊ Рє С†РІРµС‚Сѓ С„РѕРЅР°
 @inner:
      movd mm3,[edi]
-     // Вычислить цвет точки
-     punpcklbw mm3,mm7 // mm1 - цвет фона
-     pmullw mm3,mm1   // Доля цвета фона
-     paddw mm3,mm0   // pre-multiplied цвет точки
+     // Р’С‹С‡РёСЃР»РёС‚СЊ С†РІРµС‚ С‚РѕС‡РєРё
+     punpcklbw mm3,mm7 // mm1 - С†РІРµС‚ С„РѕРЅР°
+     pmullw mm3,mm1   // Р”РѕР»СЏ С†РІРµС‚Р° С„РѕРЅР°
+     paddw mm3,mm0   // pre-multiplied С†РІРµС‚ С‚РѕС‡РєРё
      psrlw mm3,8
      packuswb mm3,mm7
      movd [edi],mm3
@@ -442,7 +442,7 @@ const
 
     asm
      pushad
-     // Определить направления и углы
+     // РћРїСЂРµРґРµР»РёС‚СЊ РЅР°РїСЂР°РІР»РµРЅРёСЏ Рё СѓРіР»С‹
      mov edi,pitch
      mov esi,2
      mov eax,x2
@@ -460,7 +460,7 @@ const
      neg edx
      neg edi
 @n2:
-     cmp ecx,edx // горизонтальность участка
+     cmp ecx,edx // РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅРѕСЃС‚СЊ СѓС‡Р°СЃС‚РєР°
      jae @n3
      xchg edx,ecx
      xchg edi,esi
@@ -480,8 +480,8 @@ const
 
      mov edx,l
      shr edx,1
-     // загрузить альфаканал
-     pxor mm7,mm7 // константа 0
+     // Р·Р°РіСЂСѓР·РёС‚СЊ Р°Р»СЊС„Р°РєР°РЅР°Р»
+     pxor mm7,mm7 // РєРѕРЅСЃС‚Р°РЅС‚Р° 0
      movd mm6,HighByte
 
      xor ebx,ebx
@@ -490,24 +490,24 @@ const
      shl ebx,8
      mov bl,bh
      movd mm1,ebx // 0AAA
-     punpcklbw mm1,mm6 // mm1 - альфа фона (100 0AA 0AA 0AA)
+     punpcklbw mm1,mm6 // mm1 - Р°Р»СЊС„Р° С„РѕРЅР° (100 0AA 0AA 0AA)
      movq mm2,Alpha1
-     psubw mm2,mm1 // альфа цвета (старшее слово - 00 1-A 1-A 1-A)
+     psubw mm2,mm1 // Р°Р»СЊС„Р° С†РІРµС‚Р° (СЃС‚Р°СЂС€РµРµ СЃР»РѕРІРѕ - 00 1-A 1-A 1-A)
 
-     // Загрузить цвет
+     // Р—Р°РіСЂСѓР·РёС‚СЊ С†РІРµС‚
      movd mm0,color
      punpcklbw mm0,mm7
-     pmullw mm0,mm2 // Сколько нужно прибавить к цвету фона
+     pmullw mm0,mm2 // РЎРєРѕР»СЊРєРѕ РЅСѓР¶РЅРѕ РїСЂРёР±Р°РІРёС‚СЊ Рє С†РІРµС‚Сѓ С„РѕРЅР°
 @inner:
      push edx
      push ecx
      movzx eax,word ptr [edi]
-     // Распаковать цвет
+     // Р Р°СЃРїР°РєРѕРІР°С‚СЊ С†РІРµС‚
      call ColorFrom16
      movd mm3,eax
-     // Вычислить цвет точки
-     pmullw mm3,mm1   // Доля цвета фона
-     paddw mm3,mm0   // pre-multiplied цвет точки
+     // Р’С‹С‡РёСЃР»РёС‚СЊ С†РІРµС‚ С‚РѕС‡РєРё
+     pmullw mm3,mm1   // Р”РѕР»СЏ С†РІРµС‚Р° С„РѕРЅР°
+     paddw mm3,mm0   // pre-multiplied С†РІРµС‚ С‚РѕС‡РєРё
 
      psrlw mm3,8
      packuswb mm3,mm7
@@ -543,7 +543,7 @@ const
   begin
     asm
      pushad
-     // Определить направления и углы
+     // РћРїСЂРµРґРµР»РёС‚СЊ РЅР°РїСЂР°РІР»РµРЅРёСЏ Рё СѓРіР»С‹
      mov edi,pitch
      mov esi,4
      mov eax,x2
@@ -561,7 +561,7 @@ const
      neg edx
      neg edi
 @n2:
-     cmp ecx,edx // горизонтальность участка
+     cmp ecx,edx // РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅРѕСЃС‚СЊ СѓС‡Р°СЃС‚РєР°
      jae @n3
      xchg edx,ecx
      xchg edi,esi
@@ -571,7 +571,7 @@ const
      mov NextLine,edi
 
      mov ebx,color
-     inc ecx // на одну точку больше
+     inc ecx // РЅР° РѕРґРЅСѓ С‚РѕС‡РєСѓ Р±РѕР»СЊС€Рµ
      // Calculate address of the first pixel
      mov eax,y1
      imul pitch
@@ -609,7 +609,7 @@ const
   begin
     asm
      pushad
-     // Определить направления и углы
+     // РћРїСЂРµРґРµР»РёС‚СЊ РЅР°РїСЂР°РІР»РµРЅРёСЏ Рё СѓРіР»С‹
      mov edi,pitch
      mov esi,2
      mov eax,x2
@@ -627,7 +627,7 @@ const
      neg edx
      neg edi
 @n2:
-     cmp ecx,edx // горизонтальность участка
+     cmp ecx,edx // РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅРѕСЃС‚СЊ СѓС‡Р°СЃС‚РєР°
      jae @n3
      xchg edx,ecx
      xchg edi,esi
@@ -637,7 +637,7 @@ const
      mov NextLine,edi
 
      mov ebx,color
-     inc ecx // на одну точку больше
+     inc ecx // РЅР° РѕРґРЅСѓ С‚РѕС‡РєСѓ Р±РѕР»СЊС€Рµ
      // Calculate address of the first pixel
      mov eax,y1
      imul pitch
@@ -1312,7 +1312,7 @@ const
   end;
   {$ENDIF}
 
- procedure PixelsFrom8P(var sour,dest,palette;count:integer); // Палитра 32-битная!
+ procedure PixelsFrom8P(var sour,dest,palette;count:integer); // РџР°Р»РёС‚СЂР° 32-Р±РёС‚РЅР°СЏ!
   {$IFDEF CPU386}
   asm
    pushad
@@ -1346,7 +1346,7 @@ const
    end;
   end;
   {$ENDIF}
- procedure PixelsFrom8P24(var sour,dest,palette;count:integer); // Палитра 24-битная (медленно!)
+ procedure PixelsFrom8P24(var sour,dest,palette;count:integer); // РџР°Р»РёС‚СЂР° 24-Р±РёС‚РЅР°СЏ (РјРµРґР»РµРЅРЅРѕ!)
   {$IFDEF CPU386}
   asm
    pushad
@@ -1673,8 +1673,8 @@ const
 
  procedure SimpleDrawEx(sour:pointer;sNext,sPitch:integer;
                         dest:pointer;dPitch:integer;
-                        x,y, // точка вывода в dest
-                        width,height:integer; // размер рисуемого изображения
+                        x,y, // С‚РѕС‡РєР° РІС‹РІРѕРґР° РІ dest
+                        width,height:integer; // СЂР°Р·РјРµСЂ СЂРёСЃСѓРµРјРѕРіРѕ РёР·РѕР±СЂР°Р¶РµРЅРёСЏ
                         blender:TBlenderFunc);
   var
    sp,dp,s,p:PCardinal;
@@ -1699,8 +1699,8 @@ const
 
  procedure StretchDraw(sour:pointer;sPitch:integer;
                        dest:pointer;dPitch:integer;
-                       x1,y1,x2,y2:integer; // область вывода в dest
-                       u1,v1,u2,v2:single;  // текстурные к-ты
+                       x1,y1,x2,y2:integer; // РѕР±Р»Р°СЃС‚СЊ РІС‹РІРѕРґР° РІ dest
+                       u1,v1,u2,v2:single;  // С‚РµРєСЃС‚СѓСЂРЅС‹Рµ Рє-С‚С‹
                        blender:TBlenderFunc);
   var
    sp,dp,p:PCardinal;
@@ -1741,10 +1741,10 @@ const
    end;
   end;
 
- procedure StretchDraw1(sour:pointer;sPitch:integer; // текстура
+ procedure StretchDraw1(sour:pointer;sPitch:integer; // С‚РµРєСЃС‚СѓСЂР°
                         dest:pointer;dPitch:integer;
-                        x1,y1,x2,y2:integer;   // область вывода в dest (в целых пикселях
-                        u1,v1,u2,v2:integer;   // область текстуры (в целых текселях)
+                        x1,y1,x2,y2:integer;   // РѕР±Р»Р°СЃС‚СЊ РІС‹РІРѕРґР° РІ dest (РІ С†РµР»С‹С… РїРёРєСЃРµР»СЏС…
+                        u1,v1,u2,v2:integer;   // РѕР±Р»Р°СЃС‚СЊ С‚РµРєСЃС‚СѓСЂС‹ (РІ С†РµР»С‹С… С‚РµРєСЃРµР»СЏС…)
                         blender:TBlenderFunc);
   var
    scaleX,scaleY,bX,bY:single;                      
@@ -1760,10 +1760,10 @@ const
     blender);
   end;  
 
- procedure StretchDraw2(sour:pointer;sPitch:integer; // текстура
+ procedure StretchDraw2(sour:pointer;sPitch:integer; // С‚РµРєСЃС‚СѓСЂР°
                         dest:pointer;dPitch:integer;
-                        x1,y1,x2,y2:single;   // область вывода в dest
-                        u1,v1,u2,v2:integer;  // текстурные к-ты, соответствующие краям области вывода
+                        x1,y1,x2,y2:single;   // РѕР±Р»Р°СЃС‚СЊ РІС‹РІРѕРґР° РІ dest
+                        u1,v1,u2,v2:integer;  // С‚РµРєСЃС‚СѓСЂРЅС‹Рµ Рє-С‚С‹, СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёРµ РєСЂР°СЏРј РѕР±Р»Р°СЃС‚Рё РІС‹РІРѕРґР°
                         blender:TBlenderFunc);
   var
    scaleX,scaleY:single;

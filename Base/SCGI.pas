@@ -1,4 +1,4 @@
-
+п»ї// Simple CGI framework
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
 unit SCGI;
 interface
@@ -30,17 +30,17 @@ interface
   workerID:integer;
   // Per-request values
   requestIdx:integer;
-  headers:AnsiString;    // заголовки из SCGI-запроса (as-is, разделены #0)
+  headers:AnsiString;    // Р·Р°РіРѕР»РѕРІРєРё РёР· SCGI-Р·Р°РїСЂРѕСЃР° (as-is, СЂР°Р·РґРµР»РµРЅС‹ #0)
   requestBody:AnsiString;
-  uri,query:AnsiString; // Запрос (до знака ? и после него)
+  uri,query:AnsiString; // Р—Р°РїСЂРѕСЃ (РґРѕ Р·РЅР°РєР° ? Рё РїРѕСЃР»Рµ РЅРµРіРѕ)
   clientIP:AnsiString;  // remote IP address
   clientCountry:AnsiString;
   httpMethod:AnsiString;   // 'GET', 'POST'
-  setCookies:AnsiString; // Сюда заносятся куки, которые нужно установить юзеру (используется в FormatHeaders)
-  userID:integer; // обнуляется при каждом запросе, служит для определения авторизации юзеров (ID профиля)
-  uploadedFileName:AnsiString; // при вызове Param() для поля с файлом - сюда заносится исходное имя загруженного файла
+  setCookies:AnsiString; // РЎСЋРґР° Р·Р°РЅРѕСЃСЏС‚СЃСЏ РєСѓРєРё, РєРѕС‚РѕСЂС‹Рµ РЅСѓР¶РЅРѕ СѓСЃС‚Р°РЅРѕРІРёС‚СЊ СЋР·РµСЂСѓ (РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РІ FormatHeaders)
+  userID:integer; // РѕР±РЅСѓР»СЏРµС‚СЃСЏ РїСЂРё РєР°Р¶РґРѕРј Р·Р°РїСЂРѕСЃРµ, СЃР»СѓР¶РёС‚ РґР»СЏ РѕРїСЂРµРґРµР»РµРЅРёСЏ Р°РІС‚РѕСЂРёР·Р°С†РёРё СЋР·РµСЂРѕРІ (ID РїСЂРѕС„РёР»СЏ)
+  uploadedFileName:AnsiString; // РїСЂРё РІС‹Р·РѕРІРµ Param() РґР»СЏ РїРѕР»СЏ СЃ С„Р°Р№Р»РѕРј - СЃСЋРґР° Р·Р°РЅРѕСЃРёС‚СЃСЏ РёСЃС…РѕРґРЅРѕРµ РёРјСЏ Р·Р°РіСЂСѓР¶РµРЅРЅРѕРіРѕ С„Р°Р№Р»Р°
 
-  // Язык клиента (xx) - определяется по куке, либо по заголовкам
+  // РЇР·С‹Рє РєР»РёРµРЅС‚Р° (xx) - РѕРїСЂРµРґРµР»СЏРµС‚СЃСЏ РїРѕ РєСѓРєРµ, Р»РёР±Рѕ РїРѕ Р·Р°РіРѕР»РѕРІРєР°Рј
   clientLang:AnsiString;
 
  type
@@ -80,7 +80,7 @@ interface
  function IntParam(name:AnsiString;default:integer=-1):integer;
  // Extract value of cookie [name] from [headers] (name is case insensitive)
  function Cookie(name:AnsiString):AnsiString;
- // Установить куку (будет отправлено при формировании заголовков через FormatHeaders)
+ // РЈСЃС‚Р°РЅРѕРІРёС‚СЊ РєСѓРєСѓ (Р±СѓРґРµС‚ РѕС‚РїСЂР°РІР»РµРЅРѕ РїСЂРё С„РѕСЂРјРёСЂРѕРІР°РЅРёРё Р·Р°РіРѕР»РѕРІРєРѕРІ С‡РµСЂРµР· FormatHeaders)
  procedure SetCookie(name,value:AnsiString;permanent:boolean;httpOnly:boolean=true);
  procedure DeleteCookie(name:AnsiString);
  // Extract value of SCGI request header [name] from [headers] (name is case-insensitive)
@@ -215,10 +215,10 @@ implementation
      p:=PosFrom(boundary,requestBody);
      if p=0 then exit;
      repeat
-      i:=p+length(boundary)+2; // первый байт заголовка параметра
+      i:=p+length(boundary)+2; // РїРµСЂРІС‹Р№ Р±Р°Р№С‚ Р·Р°РіРѕР»РѕРІРєР° РїР°СЂР°РјРµС‚СЂР°
       q:=PosFrom(#13#10#13#10,requestBody,i);
       if q=0 then break;
-      p:=PosFrom(boundary,requestBody,q); // конец данных
+      p:=PosFrom(boundary,requestBody,q); // РєРѕРЅРµС† РґР°РЅРЅС‹С…
       if p=0 then break;
       fHeaders:=copy(requestBody,i,q-i);
       q:=q+4;
@@ -382,7 +382,7 @@ implementation
    st:=st+' '; // Terminator
    // Pass 1 - translate using locals
    if temp.count>0 then begin
-    p:=1; start:=0; // указатель на начало слова (первый символ после $)
+    p:=1; start:=0; // СѓРєР°Р·Р°С‚РµР»СЊ РЅР° РЅР°С‡Р°Р»Рѕ СЃР»РѕРІР° (РїРµСЂРІС‹Р№ СЃРёРјРІРѕР» РїРѕСЃР»Рµ $)
     while p<=length(st) do begin
      if (start>1) and not (st[p] in ['A'..'Z','0'..'9','_']) and (p>start) then begin
       key:=copy(st,start,p-start);
@@ -407,7 +407,7 @@ implementation
      key:=copy(st,start,p-start);
      // Any parameters?
      if st[p]='{' then begin
-      // если после имени идёт скобка, то ищем в скобках строки вида A=XXX;B=YYY, и устанавливаем temp{A}=XXX и т.д.
+      // РµСЃР»Рё РїРѕСЃР»Рµ РёРјРµРЅРё РёРґС‘С‚ СЃРєРѕР±РєР°, С‚Рѕ РёС‰РµРј РІ СЃРєРѕР±РєР°С… СЃС‚СЂРѕРєРё РІРёРґР° A=XXX;B=YYY, Рё СѓСЃС‚Р°РЅР°РІР»РёРІР°РµРј temp{A}=XXX Рё С‚.Рґ.
       q:=p; bad:=true;
       while (q<=length(st)) and (st[q]<>'}') do begin
        if st[q]='=' then bad:=false;
@@ -488,9 +488,9 @@ implementation
    end;
   end;
 
- // Возможны 2 варианта:
- // 1) файл целиком - один шаблон, имя шаблона = имя файла (uppercase)
- // 2) Файл содержит несколько шаблонов, т.е. содержит строки вида #NAME:
+ // Р’РѕР·РјРѕР¶РЅС‹ 2 РІР°СЂРёР°РЅС‚Р°:
+ // 1) С„Р°Р№Р» С†РµР»РёРєРѕРј - РѕРґРёРЅ С€Р°Р±Р»РѕРЅ, РёРјСЏ С€Р°Р±Р»РѕРЅР° = РёРјСЏ С„Р°Р№Р»Р° (uppercase)
+ // 2) Р¤Р°Р№Р» СЃРѕРґРµСЂР¶РёС‚ РЅРµСЃРєРѕР»СЊРєРѕ С€Р°Р±Р»РѕРЅРѕРІ, С‚.Рµ. СЃРѕРґРµСЂР¶РёС‚ СЃС‚СЂРѕРєРё РІРёРґР° #NAME:
  procedure LoadTemplatesFromFile(fname:AnsiString);
   var
    f:text;
@@ -521,7 +521,7 @@ implementation
      fl:=false;
      for i:=1 to length(value) do
       if value[i]>' ' then begin
-       fl:=true; // единственная строка, игнорировать всё, что дальше
+       fl:=true; // РµРґРёРЅСЃС‚РІРµРЅРЅР°СЏ СЃС‚СЂРѕРєР°, РёРіРЅРѕСЂРёСЂРѕРІР°С‚СЊ РІСЃС‘, С‡С‚Рѕ РґР°Р»СЊС€Рµ
        break;
       end;
      if not fl then value:=''; // no characters in value AnsiString
@@ -541,7 +541,7 @@ implementation
    r,p:integer;
    date,fileDate:TDateTime;
   begin
-   EnterCriticalSection(critSect); // в принципе это больше не нужно!
+   EnterCriticalSection(critSect); // РІ РїСЂРёРЅС†РёРїРµ СЌС‚Рѕ Р±РѕР»СЊС€Рµ РЅРµ РЅСѓР¶РЅРѕ!
    try
    r:=FindFirst('templates\*.*',faArchive,sr);
    while r=0 do begin
@@ -721,7 +721,7 @@ implementation
    if MyTickCount>t+10 then LogMsg('WARN: long socket reading',logWarn);
   end;
 
- // Записывает данные в сокет
+ // Р—Р°РїРёСЃС‹РІР°РµС‚ РґР°РЅРЅС‹Рµ РІ СЃРѕРєРµС‚
  procedure WriteData(s:TSocket);
   var
    i,res,size:integer;
@@ -812,7 +812,7 @@ implementation
    if MyTickCount>t+20 then LogMsg('WARN: long AcceptNew '+inttostr(MyTickCount-t),logWarn);
   end;
 
- // Проверяет сокеты, ожидающие поступления запросов, на наличие поступивших данных
+ // РџСЂРѕРІРµСЂСЏРµС‚ СЃРѕРєРµС‚С‹, РѕР¶РёРґР°СЋС‰РёРµ РїРѕСЃС‚СѓРїР»РµРЅРёСЏ Р·Р°РїСЂРѕСЃРѕРІ, РЅР° РЅР°Р»РёС‡РёРµ РїРѕСЃС‚СѓРїРёРІС€РёС… РґР°РЅРЅС‹С…
  procedure ReadIncomingData;
   var
    readSet:TFDSet;

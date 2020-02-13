@@ -1,8 +1,8 @@
-// Some useful operations with color (for ARGB-mode, D3D compatible)
+п»ї// Some useful operations with color (for ARGB-mode, D3D compatible)
 //
 // Copyright (C) 2004 Apus Software (www.games4win.com)
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
-unit colors;
+unit Colors;
 interface
 
  function MyColor(r,g,b:cardinal):cardinal; overload;
@@ -12,16 +12,16 @@ interface
  function ColorAdd(c1,c2:cardinal):cardinal;
  function ColorSub(c1,c2:cardinal):cardinal;
  function ColorMult2(c1,c2:cardinal):cardinal;
- // Умножает альфу на цвет
+ // РЈРјРЅРѕР¶Р°РµС‚ Р°Р»СЊС„Сѓ РЅР° С†РІРµС‚
  function ColorAlpha(color:cardinal;alpha:single):cardinal;
  // value=0 -> c2, value=256 -> c1
- function ColorMix(c1,c2:cardinal;value:integer):cardinal; register; // Линейная интерполяция
- function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // Качественный квази-линейный бленд (гораздо медленнее!)
- function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; // Билинейная интерполяция
- function BilinearBlend(c0,c1,c2,c3:cardinal;v1,v2:single):cardinal; // Качественный квази-билинейный бленд (гораздо медленнее!)
- function Blend(background,foreground:cardinal):cardinal; // Качественный альфа-блендинг
+ function ColorMix(c1,c2:cardinal;value:integer):cardinal; register; // Р›РёРЅРµР№РЅР°СЏ РёРЅС‚РµСЂРїРѕР»СЏС†РёСЏ
+ function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // РљР°С‡РµСЃС‚РІРµРЅРЅС‹Р№ РєРІР°Р·Рё-Р»РёРЅРµР№РЅС‹Р№ Р±Р»РµРЅРґ (РіРѕСЂР°Р·РґРѕ РјРµРґР»РµРЅРЅРµРµ!)
+ function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; // Р‘РёР»РёРЅРµР№РЅР°СЏ РёРЅС‚РµСЂРїРѕР»СЏС†РёСЏ
+ function BilinearBlend(c0,c1,c2,c3:cardinal;v1,v2:single):cardinal; // РљР°С‡РµСЃС‚РІРµРЅРЅС‹Р№ РєРІР°Р·Рё-Р±РёР»РёРЅРµР№РЅС‹Р№ Р±Р»РµРЅРґ (РіРѕСЂР°Р·РґРѕ РјРµРґР»РµРЅРЅРµРµ!)
+ function Blend(background,foreground:cardinal):cardinal; // РљР°С‡РµСЃС‚РІРµРЅРЅС‹Р№ Р°Р»СЊС„Р°-Р±Р»РµРЅРґРёРЅРі
 
- function Lightness(color:cardinal):byte; // яркость цвета (0..255)
+ function Lightness(color:cardinal):byte; // СЏСЂРєРѕСЃС‚СЊ С†РІРµС‚Р° (0..255)
 
  // value - -120..120
  function Brightness(c:cardinal;value:integer):cardinal;
@@ -69,7 +69,7 @@ implementation
   end;
   {$ENDIF}
 
- function Lightness(color:cardinal):byte; // яркость цвета (0..255)
+ function Lightness(color:cardinal):byte; // СЏСЂРєРѕСЃС‚СЊ С†РІРµС‚Р° (0..255)
   begin
    result:=round(
       0.2*(color and $FF)+
@@ -187,7 +187,7 @@ implementation
    result:=a shl 24+r shl 16+g shl 8+b;
   end; }
 
- function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // Качественный линейный бленд
+ function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // РљР°С‡РµСЃС‚РІРµРЅРЅС‹Р№ Р»РёРЅРµР№РЅС‹Р№ Р±Р»РµРЅРґ
   var
    val2,m:integer;
    a1,a2:byte;
@@ -227,7 +227,7 @@ implementation
    result:=a shl 24+r shl 16+g shl 8+b;
   end;}
 
- function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; // Билинейная интерполяция
+ function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; // Р‘РёР»РёРЅРµР№РЅР°СЏ РёРЅС‚РµСЂРїРѕР»СЏС†РёСЏ
   // Integer version
   var
    v0,v1,v2,v3:integer;
@@ -257,7 +257,7 @@ implementation
    result:=result or cardinal(((byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) and $FF00) shl 16); // alpha part
   end;
 
- function BilinearBlend(c0,c1,c2,c3:cardinal;v1,v2:single):cardinal; // Качественный билинейный бленд
+ function BilinearBlend(c0,c1,c2,c3:cardinal;v1,v2:single):cardinal; // РљР°С‡РµСЃС‚РІРµРЅРЅС‹Р№ Р±РёР»РёРЅРµР№РЅС‹Р№ Р±Р»РµРЅРґ
   begin
    result:=BilinearMix(c0,c1,c2,c3,v1,v2); // temp stub
   end;

@@ -1,34 +1,34 @@
-// Public variables
+п»ї// Public variables
 // Copyright (C) 2014 Apus Software. Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
-unit publics;
+unit Publics;
 interface
  uses MyServis;
  type
-  // Такой класс обслуживает все переменные одного конкретного типа
-  // (один тип переменной не обязательно соответствует одному типу языка)
+  // РўР°РєРѕР№ РєР»Р°СЃСЃ РѕР±СЃР»СѓР¶РёРІР°РµС‚ РІСЃРµ РїРµСЂРµРјРµРЅРЅС‹Рµ РѕРґРЅРѕРіРѕ РєРѕРЅРєСЂРµС‚РЅРѕРіРѕ С‚РёРїР°
+  // (РѕРґРёРЅ С‚РёРї РїРµСЂРµРјРµРЅРЅРѕР№ РЅРµ РѕР±СЏР·Р°С‚РµР»СЊРЅРѕ СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓРµС‚ РѕРґРЅРѕРјСѓ С‚РёРїСѓ СЏР·С‹РєР°)
   TVarClass=class of TVarType;
   TVarClassStruct=class of TVarTypeStruct;
-  // Простой тип данных (обычная переменная какого-либо типа)
+  // РџСЂРѕСЃС‚РѕР№ С‚РёРї РґР°РЅРЅС‹С… (РѕР±С‹С‡РЅР°СЏ РїРµСЂРµРјРµРЅРЅР°СЏ РєР°РєРѕРіРѕ-Р»РёР±Рѕ С‚РёРїР°)
   TVarType=class
-   // Запись значения (из строки) в переменную
+   // Р—Р°РїРёСЃСЊ Р·РЅР°С‡РµРЅРёСЏ (РёР· СЃС‚СЂРѕРєРё) РІ РїРµСЂРµРјРµРЅРЅСѓСЋ
    class procedure SetValue(variable:pointer;v:string); virtual; abstract;
-   // Чтение значения переменной в виде строки
+   // Р§С‚РµРЅРёРµ Р·РЅР°С‡РµРЅРёСЏ РїРµСЂРµРјРµРЅРЅРѕР№ РІ РІРёРґРµ СЃС‚СЂРѕРєРё
    class function GetValue(variable:pointer):string; virtual;
   end;
 
-  // Перечисляемый тип - принимает одно из нескольких возможных значений
+  // РџРµСЂРµС‡РёСЃР»СЏРµРјС‹Р№ С‚РёРї - РїСЂРёРЅРёРјР°РµС‚ РѕРґРЅРѕ РёР· РЅРµСЃРєРѕР»СЊРєРёС… РІРѕР·РјРѕР¶РЅС‹С… Р·РЅР°С‡РµРЅРёР№
   TVarTypeEnum=class(TVarType)
-   // возвращает список возможных значений (через запятую)
+   // РІРѕР·РІСЂР°С‰Р°РµС‚ СЃРїРёСЃРѕРє РІРѕР·РјРѕР¶РЅС‹С… Р·РЅР°С‡РµРЅРёР№ (С‡РµСЂРµР· Р·Р°РїСЏС‚СѓСЋ)
    class function ListValues:string; virtual;
   end;
 
-  // Структурный тип данных - содержит поля
+  // РЎС‚СЂСѓРєС‚СѓСЂРЅС‹Р№ С‚РёРї РґР°РЅРЅС‹С… - СЃРѕРґРµСЂР¶РёС‚ РїРѕР»СЏ
   TVarTypeStruct=class(TVarType)
-   // Чтение значения переменной в виде строки
+   // Р§С‚РµРЅРёРµ Р·РЅР°С‡РµРЅРёСЏ РїРµСЂРµРјРµРЅРЅРѕР№ РІ РІРёРґРµ СЃС‚СЂРѕРєРё
    class function GetValue(variable:pointer):string; override;
-   // Проверка наличия поля с заданным именем (возвращает класс типа и адрес собственно значения)
+   // РџСЂРѕРІРµСЂРєР° РЅР°Р»РёС‡РёСЏ РїРѕР»СЏ СЃ Р·Р°РґР°РЅРЅС‹Рј РёРјРµРЅРµРј (РІРѕР·РІСЂР°С‰Р°РµС‚ РєР»Р°СЃСЃ С‚РёРїР° Рё Р°РґСЂРµСЃ СЃРѕР±СЃС‚РІРµРЅРЅРѕ Р·РЅР°С‡РµРЅРёСЏ)
    class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; virtual;
-   // Возвращает список всех полей (через запятую)
+   // Р’РѕР·РІСЂР°С‰Р°РµС‚ СЃРїРёСЃРѕРє РІСЃРµС… РїРѕР»РµР№ (С‡РµСЂРµР· Р·Р°РїСЏС‚СѓСЋ)
    class function ListFields:string; virtual;
   end;
 
@@ -70,10 +70,10 @@ interface
    class function ListFields:string; override;
   end;
 
-  TVarFunc=function(name:string):double; // ф-ция для получения значения переменной по имени (для Eval)
-  TFunction=function(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double; // произвольная ф-ция (context is passed for use in Eval)
+  TVarFunc=function(name:string):double; // С„-С†РёСЏ РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ Р·РЅР°С‡РµРЅРёСЏ РїРµСЂРµРјРµРЅРЅРѕР№ РїРѕ РёРјРµРЅРё (РґР»СЏ Eval)
+  TFunction=function(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double; // РїСЂРѕРёР·РІРѕР»СЊРЅР°СЏ С„-С†РёСЏ (context is passed for use in Eval)
 
-  // Опубликованная переменная
+  // РћРїСѓР±Р»РёРєРѕРІР°РЅРЅР°СЏ РїРµСЂРµРјРµРЅРЅР°СЏ
   TPublishedVariable=record
    addr:pointer;         // pointer to variable (nil - empty)
    name,lowname:string;  // variable name (original and lowercase)
@@ -81,7 +81,7 @@ interface
    next:integer;         // index of the next variable with the same hash value, or next free item
   end;
 
-  // Опубликованная константа
+  // РћРїСѓР±Р»РёРєРѕРІР°РЅРЅР°СЏ РєРѕРЅСЃС‚Р°РЅС‚Р°
   TPublishedConstant=record
    name,lowname,value:string;
   end;
@@ -93,17 +93,17 @@ interface
 
  // Main routines
  procedure PublishVar(variable:pointer;name:string;vtype:TVarClass);
- procedure UnpublishVar(variable:pointer); // нужно при удалении объектов
+ procedure UnpublishVar(variable:pointer); // РЅСѓР¶РЅРѕ РїСЂРё СѓРґР°Р»РµРЅРёРё РѕР±СЉРµРєС‚РѕРІ
  procedure PublishConst(name:string;value:string);
  procedure UnpublishConst(name:string);
- procedure PublishFunction(name:string;f:TFunction;tag:integer=0); // например f=sin(x): PublishFunction('sin',f);
+ procedure PublishFunction(name:string;f:TFunction;tag:integer=0); // РЅР°РїСЂРёРјРµСЂ f=sin(x): PublishFunction('sin',f);
  function FindVar(name:string;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
  function FindConstValue(name:string):string;
  // Get index of a published constant (in publicConsts)
  function FindConst(name:string):integer;
 
- // Вычисляет значение выражения (выражение состоит из арифметических операций, скобок, констант и переменных)
- // VarFunc используется для получения значений переменных, если nil - используется механизм опубликованных переменных
+ // Р’С‹С‡РёСЃР»СЏРµС‚ Р·РЅР°С‡РµРЅРёРµ РІС‹СЂР°Р¶РµРЅРёСЏ (РІС‹СЂР°Р¶РµРЅРёРµ СЃРѕСЃС‚РѕРёС‚ РёР· Р°СЂРёС„РјРµС‚РёС‡РµСЃРєРёС… РѕРїРµСЂР°С†РёР№, СЃРєРѕР±РѕРє, РєРѕРЅСЃС‚Р°РЅС‚ Рё РїРµСЂРµРјРµРЅРЅС‹С…)
+ // VarFunc РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ Р·РЅР°С‡РµРЅРёР№ РїРµСЂРµРјРµРЅРЅС‹С…, РµСЃР»Рё nil - РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РјРµС…Р°РЅРёР·Рј РѕРїСѓР±Р»РёРєРѕРІР°РЅРЅС‹С… РїРµСЂРµРјРµРЅРЅС‹С…
  function Eval(expression:string;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):double;
 
  // OVERRIDABLE GLOBAL VARIABLES
@@ -114,9 +114,9 @@ interface
   gI0,gI1,gI2,gI3:integer;
   gC0,gC1,gC2,gC3:cardinal;
 
- // Присваивает значения глобальным переменным.
- // Команда имеет вид: "gF3=3.14; gI1=1;gC2=$FF807060; gi0(0..2)=2"
- // Такая команда называется контекстом
+ // РџСЂРёСЃРІР°РёРІР°РµС‚ Р·РЅР°С‡РµРЅРёСЏ РіР»РѕР±Р°Р»СЊРЅС‹Рј РїРµСЂРµРјРµРЅРЅС‹Рј.
+ // РљРѕРјР°РЅРґР° РёРјРµРµС‚ РІРёРґ: "gF3=3.14; gI1=1;gC2=$FF807060; gi0(0..2)=2"
+ // РўР°РєР°СЏ РєРѕРјР°РЅРґР° РЅР°Р·С‹РІР°РµС‚СЃСЏ РєРѕРЅС‚РµРєСЃС‚РѕРј
  procedure SetGlobals(cmd:string;contextName:string);
 
  // List of global contexts
@@ -151,13 +151,13 @@ implementation
   end;
   
  var
-  crSection:TMyCriticalSection; // используется для доступа к глобальным переменным
+  crSection:TMyCriticalSection; // РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РґР»СЏ РґРѕСЃС‚СѓРїР° Рє РіР»РѕР±Р°Р»СЊРЅС‹Рј РїРµСЂРµРјРµРЅРЅС‹Рј
 
   publicVarHash:array[0..63] of integer;
-  lastFreeItem:integer; // индекс последней "дырки" (-1 - нет)
-  functions:array of TPublicFunction; // список поддерживается в отсортированном виде!
+  lastFreeItem:integer; // РёРЅРґРµРєСЃ РїРѕСЃР»РµРґРЅРµР№ "РґС‹СЂРєРё" (-1 - РЅРµС‚)
+  functions:array of TPublicFunction; // СЃРїРёСЃРѕРє РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ РІ РѕС‚СЃРѕСЂС‚РёСЂРѕРІР°РЅРЅРѕРј РІРёРґРµ!
 
-  // Контексты (наборы дефолтных присваиваний)
+  // РљРѕРЅС‚РµРєСЃС‚С‹ (РЅР°Р±РѕСЂС‹ РґРµС„РѕР»С‚РЅС‹С… РїСЂРёСЃРІР°РёРІР°РЅРёР№)
   globalContexts:array[0..5] of TGlobalContext;
   globalContextsCount:integer;
   lastContextIdx:integer;
@@ -179,8 +179,8 @@ implementation
     end;
   end;
 
- // Проверяет, является ли выражение - вызовом ф-ции, и если да - возвращает ф-цию и изменяет аргумент на аргумент ф-ции
- // Если нет - возвращает nil, аргумент не меняет
+ // РџСЂРѕРІРµСЂСЏРµС‚, СЏРІР»СЏРµС‚СЃСЏ Р»Рё РІС‹СЂР°Р¶РµРЅРёРµ - РІС‹Р·РѕРІРѕРј С„-С†РёРё, Рё РµСЃР»Рё РґР° - РІРѕР·РІСЂР°С‰Р°РµС‚ С„-С†РёСЋ Рё РёР·РјРµРЅСЏРµС‚ Р°СЂРіСѓРјРµРЅС‚ РЅР° Р°СЂРіСѓРјРµРЅС‚ С„-С†РёРё
+ // Р•СЃР»Рё РЅРµС‚ - РІРѕР·РІСЂР°С‰Р°РµС‚ nil, Р°СЂРіСѓРјРµРЅС‚ РЅРµ РјРµРЅСЏРµС‚
  function IsFunction(var expression:string;out tag:integer):TFunction;
   var
    name:string;
@@ -213,7 +213,7 @@ implementation
    if length(expression)=0 then begin
     result:=0; exit;
    end;
-   // Сканирование на операции типа сравнения
+   // РЎРєР°РЅРёСЂРѕРІР°РЅРёРµ РЅР° РѕРїРµСЂР°С†РёРё С‚РёРїР° СЃСЂР°РІРЅРµРЅРёСЏ
    d:=0;
    for i:=length(expression) downto 2 do begin
     if expression[i]=')' then inc(d);
@@ -232,13 +232,13 @@ implementation
      exit;
     end;
    end;
-   // Сканирование на операции типа сложения
+   // РЎРєР°РЅРёСЂРѕРІР°РЅРёРµ РЅР° РѕРїРµСЂР°С†РёРё С‚РёРїР° СЃР»РѕР¶РµРЅРёСЏ
    d:=0;
    for i:=length(expression) downto 2 do begin
     if expression[i]=')' then inc(d);
     if expression[i]='(' then dec(d);
     if (d=0) and (expression[i] in ['+','-']) then begin
-     if (expression[i]='-') and (expression[i-1] in ['*','/']) then continue; // унарный минус, а не вычитание
+     if (expression[i]='-') and (expression[i-1] in ['*','/']) then continue; // СѓРЅР°СЂРЅС‹Р№ РјРёРЅСѓСЃ, Р° РЅРµ РІС‹С‡РёС‚Р°РЅРёРµ
      v1:=Eval(copy(expression,1,i-1),varFunc,context,contextClass);
      v2:=Eval(copy(expression,i+1,length(expression)),varFunc,context,contextClass);
      if expression[i]='+' then result:=v1+v2
@@ -246,7 +246,7 @@ implementation
      exit;
     end;
    end;
-   // Сканирование на операции типа умножения
+   // РЎРєР°РЅРёСЂРѕРІР°РЅРёРµ РЅР° РѕРїРµСЂР°С†РёРё С‚РёРїР° СѓРјРЅРѕР¶РµРЅРёСЏ
    d:=0;
    for i:=length(expression) downto 2 do begin
     if expression[i]=')' then inc(d);
@@ -262,14 +262,14 @@ implementation
      exit;
     end;
    end;
-   // Раскрытие скобок
+   // Р Р°СЃРєСЂС‹С‚РёРµ СЃРєРѕР±РѕРє
    if (expression[1]='(') and (expression[length(expression)]=')') then begin
     result:=Eval(copy(expression,2,length(expression)-2),VarFunc,context,contextClass);
     exit;
    end;
-   // Константа, переменная либо функция
+   // РљРѕРЅСЃС‚Р°РЅС‚Р°, РїРµСЂРµРјРµРЅРЅР°СЏ Р»РёР±Рѕ С„СѓРЅРєС†РёСЏ
    if expression[1]='$' then begin
-    // Hex-константа
+    // Hex-РєРѕРЅСЃС‚Р°РЅС‚Р°
     result:=HexToInt(expression);
     exit;
    end;
@@ -279,13 +279,13 @@ implementation
      fl:=false; break;
     end;
    if fl then begin
-    // Числовая константа
+    // Р§РёСЃР»РѕРІР°СЏ РєРѕРЅСЃС‚Р°РЅС‚Р°
     d:=pos('.',expression);
     if d=0 then begin
      // integer
      result:=StrToInt(expression);
     end else begin
-     // ручной парсинг чтобы не иметь проблем с '.' в качестве разделителя
+     // СЂСѓС‡РЅРѕР№ РїР°СЂСЃРёРЅРі С‡С‚РѕР±С‹ РЅРµ РёРјРµС‚СЊ РїСЂРѕР±Р»РµРј СЃ '.' РІ РєР°С‡РµСЃС‚РІРµ СЂР°Р·РґРµР»РёС‚РµР»СЏ
      v1:=StrToInt(copy(expression,1,d-1));
      v2:=0;
      for i:=length(expression) downto d+1 do
@@ -295,9 +295,9 @@ implementation
      if (v1=0) and (expression[1]='-') then result:=-result;  
     end;
    end else begin
-    // переменная или константа
+    // РїРµСЂРµРјРµРЅРЅР°СЏ РёР»Рё РєРѕРЅСЃС‚Р°РЅС‚Р°
     fl:=false;
-    if expression[1]='-' then begin // унарный минус
+    if expression[1]='-' then begin // СѓРЅР°СЂРЅС‹Р№ РјРёРЅСѓСЃ
      delete(expression,1,1);
      fl:=true;
     end;
@@ -399,13 +399,13 @@ implementation
     n:=length(publicVars)-1;
     for i:=0 to n do
      if publicVars[i].addr=variable then begin
-      // удаляем элемент
+      // СѓРґР°Р»СЏРµРј СЌР»РµРјРµРЅС‚
       h:=NameHash(publicVars[i].lowname);
       publicVars[i].addr:=nil;
       publicVars[i].varClass:=nil;
-      if publicVarHash[h]=i then // удаление из начала списка
+      if publicVarHash[h]=i then // СѓРґР°Р»РµРЅРёРµ РёР· РЅР°С‡Р°Р»Р° СЃРїРёСЃРєР°
        publicVarHash[h]:=publicVars[i].next
-      else begin // удаление из середины списка
+      else begin // СѓРґР°Р»РµРЅРёРµ РёР· СЃРµСЂРµРґРёРЅС‹ СЃРїРёСЃРєР°
        m:=publicVarHash[h];
        while publicVars[m].next<>i do m:=publicVars[m].next;
        publicVars[m].next:=publicVars[i].next;
@@ -494,7 +494,7 @@ implementation
    end;
   end;
 
- // Поиск только среди глобальных переменных (имя должно быть в нижнем регистре!)
+ // РџРѕРёСЃРє С‚РѕР»СЊРєРѕ СЃСЂРµРґРё РіР»РѕР±Р°Р»СЊРЅС‹С… РїРµСЂРµРјРµРЅРЅС‹С… (РёРјСЏ РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ РІ РЅРёР¶РЅРµРј СЂРµРіРёСЃС‚СЂРµ!)
  function FindGlobal(name:string;out varClass:TVarClass):pointer;
   var
    i:integer;
@@ -514,7 +514,7 @@ implementation
    end;
   end;
 
- // Рекурсивный поиск поля заданного объекта (имя должно быть в нижнем регистре!)
+ // Р РµРєСѓСЂСЃРёРІРЅС‹Р№ РїРѕРёСЃРє РїРѕР»СЏ Р·Р°РґР°РЅРЅРѕРіРѕ РѕР±СЉРµРєС‚Р° (РёРјСЏ РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ РІ РЅРёР¶РЅРµРј СЂРµРіРёСЃС‚СЂРµ!)
  function FindField(name:string;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
   var
    p:integer;
@@ -536,7 +536,7 @@ implementation
    end;
   end;
 
- // Универсальный поиск
+ // РЈРЅРёРІРµСЂСЃР°Р»СЊРЅС‹Р№ РїРѕРёСЃРє
  function FindVar(name:string;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
   var
    i:integer;
@@ -548,18 +548,18 @@ implementation
    result:=nil;
    name:=lowercase(name);
    if context<>nil then begin
-    // попытка получить поле текущего объекта
+    // РїРѕРїС‹С‚РєР° РїРѕР»СѓС‡РёС‚СЊ РїРѕР»Рµ С‚РµРєСѓС‰РµРіРѕ РѕР±СЉРµРєС‚Р°
     result:=FindField(name,varClass,context,contextClass);
     if result<>nil then exit;
    end;
    p:=pos('.',name);
-   if p>0 then begin // попытка получить поле указанного объекта
+   if p>0 then begin // РїРѕРїС‹С‚РєР° РїРѕР»СѓС‡РёС‚СЊ РїРѕР»Рµ СѓРєР°Р·Р°РЅРЅРѕРіРѕ РѕР±СЉРµРєС‚Р°
     field:=copy(name,p+1,length(name)-p);
     SetLength(name,p-1);
     obj:=FindGlobal(name,objClass);
     if (obj<>nil) and objClass.InheritsFrom(TVarTypeStruct) then
      result:=FindField(field,varClass,obj,TVarClassStruct(objClass));
-   end else // поиск среди глобальных переменных
+   end else // РїРѕРёСЃРє СЃСЂРµРґРё РіР»РѕР±Р°Р»СЊРЅС‹С… РїРµСЂРµРјРµРЅРЅС‹С…
     result:=FindGlobal(name,varClass);
   end;
 
@@ -718,7 +718,7 @@ begin
   1:result:=-MaxDouble;
   2:result:=MaxDouble;
  end;
- sa:=split(',',params);   // проблема с min(3,max(2,1),3) - запятая в скобках!
+ sa:=split(',',params);   // РїСЂРѕР±Р»РµРјР° СЃ min(3,max(2,1),3) - Р·Р°РїСЏС‚Р°СЏ РІ СЃРєРѕР±РєР°С…!
  for i:=0 to length(sa)-1 do begin
   v:=Eval(sa[i],nil,context,contextClass);
   case tag of
@@ -733,7 +733,7 @@ var
  sa:StringArr;
  v:double;
 begin
- sa:=split(',',params); // проблема с запятыми в подфункциях
+ sa:=split(',',params); // РїСЂРѕР±Р»РµРјР° СЃ Р·Р°РїСЏС‚С‹РјРё РІ РїРѕРґС„СѓРЅРєС†РёСЏС…
  if length(sa)<3 then raise EWarning.Create('Invalid parameters: '+params);
  v:=Eval(sa[0],nil,context,contextClass);
  if abs(v)>0.00000001 then result:=Eval(sa[1],nil,context,contextClass)
@@ -860,7 +860,7 @@ var
  contextIdx:integer;
  context:TGlobalContext;
 begin
- // Всё тот же контекст? Ничего не менять...
+ // Р’СЃС‘ С‚РѕС‚ Р¶Рµ РєРѕРЅС‚РµРєСЃС‚? РќРёС‡РµРіРѕ РЅРµ РјРµРЅСЏС‚СЊ...
  if lastAssignCmd=cmd then exit;
 
  EnterCriticalSection(crSection);

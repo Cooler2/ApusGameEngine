@@ -1,4 +1,4 @@
-// Copyright (C) Apus Software, 2011. Ivan Polyacov (ivan@apus-software.com)
+п»ї// Copyright (C) Apus Software, 2011. Ivan Polyacov (ivan@apus-software.com)
 // File format:
 // - Header (TFontHeader structure, 32 bytes)
 // - Metadata (if ffMetadata is in header flags)
@@ -53,8 +53,8 @@ type
   width,flags:byte;        // width of a character (px)
   kernLeft,kernRight:word; // kerning mask (3 bits * 5 fields, from top to bottom)
   offset:integer;          // position of glyph data in file (or in glyphs array in memory)
-  // get pixel opacity (0..15) (координаты либо относительно верхнего-левого угла глифа (y-вниз), либо
-  // относительно точки вывода символа (y-вверх)
+  // get pixel opacity (0..15) (РєРѕРѕСЂРґРёРЅР°С‚С‹ Р»РёР±Рѕ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ РІРµСЂС…РЅРµРіРѕ-Р»РµРІРѕРіРѕ СѓРіР»Р° РіР»РёС„Р° (y-РІРЅРёР·), Р»РёР±Рѕ
+  // РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ С‚РѕС‡РєРё РІС‹РІРѕРґР° СЃРёРјРІРѕР»Р° (y-РІРІРµСЂС…)
   function GetPixel(glyphs:PByte;x,y:integer;glyphCoord:boolean=false):byte;
  end;
 
@@ -64,12 +64,12 @@ type
 
  TUnicodeFont=class
   header:TFontHeader;
-  chars:array of TCharDesc; // описания символов
-  advKerning:array of TKernPair; // расширенный кернинг
-  glyphs:array of byte; // данные глифов
+  chars:array of TCharDesc; // РѕРїРёСЃР°РЅРёСЏ СЃРёРјРІРѕР»РѕРІ
+  advKerning:array of TKernPair; // СЂР°СЃС€РёСЂРµРЅРЅС‹Р№ РєРµСЂРЅРёРЅРі
+  glyphs:array of byte; // РґР°РЅРЅС‹Рµ РіР»РёС„РѕРІ
   overPairs:array of cardinal; // character pairs (sorted, C1C1C2C2)
   overValues:array of byte;    // override values
-  defaultCharIdx:integer;      // индекс символа, заменяющего отсутствующие в шрифте символы
+  defaultCharIdx:integer;      // РёРЅРґРµРєСЃ СЃРёРјРІРѕР»Р°, Р·Р°РјРµРЅСЏСЋС‰РµРіРѕ РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‰РёРµ РІ С€СЂРёС„С‚Рµ СЃРёРјРІРѕР»С‹
   advancedKerning:boolean;
   maxY,minY:integer; // max and min lines occupied by any glyphs (+Y = top, -Y = bottom)
   constructor Create;
@@ -77,7 +77,7 @@ type
   constructor LoadFromFile(fname:string;UseAdvKerning:boolean=false);
   procedure InitDefaults; virtual;
   function IndexOfChar(ch:WideChar):integer; 
-  function Interval(ch1,ch2:WideChar):integer; // интервал между точкой начала символа ch1 и следующего за ним ch2
+  function Interval(ch1,ch2:WideChar):integer; // РёРЅС‚РµСЂРІР°Р» РјРµР¶РґСѓ С‚РѕС‡РєРѕР№ РЅР°С‡Р°Р»Р° СЃРёРјРІРѕР»Р° ch1 Рё СЃР»РµРґСѓСЋС‰РµРіРѕ Р·Р° РЅРёРј ch2
   procedure CalculateAdvKerning(index:integer);
   function GetTextWidth(st:WideString):integer;
   function GetHeight:integer; // Height of characters like '0' or 'A'
@@ -88,7 +88,7 @@ type
   procedure DrawGlyphScaled(buf:pointer;pitch:integer;x1,y1,x2,y2:single;
       glyphData:pointer;glWidth,glHeight:integer;color:cardinal);
  private
-  hash:array[0..4095] of word; // хэш для поиска индекса символа
+  hash:array[0..4095] of word; // С…СЌС€ РґР»СЏ РїРѕРёСЃРєР° РёРЅРґРµРєСЃР° СЃРёРјРІРѕР»Р°
  end;
 
  function LoadFontFromFile(fname:string;UseAdvKerning:boolean=false):TUnicodeFont;
@@ -120,7 +120,7 @@ implementation
  var
   gammaTab:array[0..8,0..15] of byte;
 
- // Специальный альфа-блендинг
+ // РЎРїРµС†РёР°Р»СЊРЅС‹Р№ Р°Р»СЊС„Р°-Р±Р»РµРЅРґРёРЅРі
  function Blend(background,foreground:cardinal;alpha:byte):cardinal;
   var
    v1,v2:byte;
@@ -133,14 +133,14 @@ implementation
     result:=foreground; exit;
    end;
    if c1.a=255 then begin
-     // блендинг на непрозрачную основу
+     // Р±Р»РµРЅРґРёРЅРі РЅР° РЅРµРїСЂРѕР·СЂР°С‡РЅСѓСЋ РѕСЃРЅРѕРІСѓ
      v1:=255-c2.a;
      result:=((c1.b*v1+c2.b*c2.a)*258 and $FF0000) shr 16+
              ((c1.g*v1+c2.g*c2.a)*258 and $FF0000) shr 8+
              ((c1.r*v1+c2.r*c2.a)*258 and $FF0000)+
              $FF000000;
    end else begin
-     // блендинг на полупрозрачную основу несколько сложнее
+     // Р±Р»РµРЅРґРёРЅРі РЅР° РїРѕР»СѓРїСЂРѕР·СЂР°С‡РЅСѓСЋ РѕСЃРЅРѕРІСѓ РЅРµСЃРєРѕР»СЊРєРѕ СЃР»РѕР¶РЅРµРµ
      v1:=258*c1.a*(255-c2.a) shr 16;
      v:=65792 div (v1+c2.a);
      result:=((c1.b*v1+c2.b*c2.a)*v and $FF0000) shr 16+
@@ -150,7 +150,7 @@ implementation
    end;
   end;
 
- // Отрисовка глифа в ARGB-буфер в оригинальном масштабе
+ // РћС‚СЂРёСЃРѕРІРєР° РіР»РёС„Р° РІ ARGB-Р±СѓС„РµСЂ РІ РѕСЂРёРіРёРЅР°Р»СЊРЅРѕРј РјР°СЃС€С‚Р°Р±Рµ
  procedure TUnicodeFont.DrawGlyph(buf:pointer;pitch:integer;x,y:integer;
       glyphData:pointer;glWidth,glHeight:integer;color:cardinal);
   var
@@ -176,7 +176,7 @@ implementation
    end;
   end;
 
- // Отрисовка глифа с интерполяцией в заданный ARGB-буфер
+ // РћС‚СЂРёСЃРѕРІРєР° РіР»РёС„Р° СЃ РёРЅС‚РµСЂРїРѕР»СЏС†РёРµР№ РІ Р·Р°РґР°РЅРЅС‹Р№ ARGB-Р±СѓС„РµСЂ
  procedure TUnicodeFont.DrawGlyphScaled(buf:pointer;pitch:integer;x1,y1,x2,y2:single;
       glyphData:pointer;glWidth,glHeight:integer;color:cardinal);
   var
@@ -194,7 +194,7 @@ implementation
    StretchDraw2(@gBuf,gPitch,buf,pitch,x1,y1,x2,y2,1,1,glWidth+1,glHeight+1,blBlend);
   end;
 
- // Отрисовка текста в заданный ARGB-буфер
+ // РћС‚СЂРёСЃРѕРІРєР° С‚РµРєСЃС‚Р° РІ Р·Р°РґР°РЅРЅС‹Р№ ARGB-Р±СѓС„РµСЂ
  procedure TUnicodeFont.RenderText(buf:pointer;pitch:integer;x,y:integer;st:WideString;color:cardinal;scale:single=1);
   var
    i,idx:integer;

@@ -1,9 +1,9 @@
-// Cross-platform support for HTTP GET and POST async requests
+п»ї// Cross-platform support for HTTP GET and POST async requests
 //
 // Copyright (C) 2013 Apus Software (www.apus-software.com)
 // Author: Ivan Polyacov (ivan@apus-software.com, cooler@tut.by)
 {$IFDEF IOS}{$S-} {$modeswitch objectivec1}{$ENDIF}
-unit httpRequests;
+unit HTTPRequests;
 interface
  uses MyServis;
 
@@ -20,7 +20,7 @@ interface
  var
   httpUseCookies:boolean=false; // send/store cookies
   // Statistics
-  avgResponseTime,maxResponseTime:integer; // среднее и максимальное время (успешного, если указан таймаут) выполнения запросов в ms
+  avgResponseTime,maxResponseTime:integer; // СЃСЂРµРґРЅРµРµ Рё РјР°РєСЃРёРјР°Р»СЊРЅРѕРµ РІСЂРµРјСЏ (СѓСЃРїРµС€РЅРѕРіРѕ, РµСЃР»Рё СѓРєР°Р·Р°РЅ С‚Р°Р№РјР°СѓС‚) РІС‹РїРѕР»РЅРµРЅРёСЏ Р·Р°РїСЂРѕСЃРѕРІ РІ ms
   requestsFailed,requestsSucceed,requestsTime,requestsTimeCount:integer;
 
  // Perform HTTP GET request and wait for data
@@ -39,9 +39,9 @@ interface
  // If request is completed - this destroys request object, so it's ID and data can't be used anymore
  // returns request status
  function GetRequestResult(ID:integer;out response:AnsiString;httpStatus:PInteger=nil):integer;
- // Если статут запроса - Sent или Completed - возвращает кол-во скачанных байт
+ // Р•СЃР»Рё СЃС‚Р°С‚СѓС‚ Р·Р°РїСЂРѕСЃР° - Sent РёР»Рё Completed - РІРѕР·РІСЂР°С‰Р°РµС‚ РєРѕР»-РІРѕ СЃРєР°С‡Р°РЅРЅС‹С… Р±Р°Р№С‚
  function GetRequestState(ID:integer):integer;
- // Возвращает код ошибки запроса, который завершился неудачей
+ // Р’РѕР·РІСЂР°С‰Р°РµС‚ РєРѕРґ РѕС€РёР±РєРё Р·Р°РїСЂРѕСЃР°, РєРѕС‚РѕСЂС‹Р№ Р·Р°РІРµСЂС€РёР»СЃСЏ РЅРµСѓРґР°С‡РµР№
  function GetRequestError(ID:integer):integer;
 
  // Format POST body with specified parameters using specified content type
@@ -66,7 +66,7 @@ implementation
    timeout:integer;
    contentType:TContentType;
    thread:TThread;
-   httpStatus:integer; // В случае получения ответа - здесь HTTP-код
+   httpStatus:integer; // Р’ СЃР»СѓС‡Р°Рµ РїРѕР»СѓС‡РµРЅРёСЏ РѕС‚РІРµС‚Р° - Р·РґРµСЃСЊ HTTP-РєРѕРґ
    {$IFDEF IOS}
    con:id;
    {$ENDIF}
@@ -79,7 +79,7 @@ implementation
    HCon:HInternet;
    server:AnsiString;
    port:word;
-   free:boolean; // используется ли в данный момент для запроса?
+   free:boolean; // РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ Р»Рё РІ РґР°РЅРЅС‹Р№ РјРѕРјРµРЅС‚ РґР»СЏ Р·Р°РїСЂРѕСЃР°?
   end;
   {$ENDIF}
   THTTPThread=class(TThread)
@@ -433,7 +433,7 @@ implementation
       requests[i].timeout:=timeout;
       requests[i].thread:=nil;
       requests[i].errorCode:=0;
-      SendRequest(requests[i]); // инициирует асинхронную отправку запроса
+      SendRequest(requests[i]); // РёРЅРёС†РёРёСЂСѓРµС‚ Р°СЃРёРЅС…СЂРѕРЅРЅСѓСЋ РѕС‚РїСЂР°РІРєСѓ Р·Р°РїСЂРѕСЃР°
       exit;
      end;
     raise EWarning.Create('HTTP: too many HTTP requests');
@@ -883,7 +883,7 @@ procedure THTTPThread.Execute;
    inc(requestsFailed);
 
   Signal(req.event,req.ID);
-  if MyTickCount>lastLogTime+60000 then LogStats; // Раз в минуту писать статистику по запросам в лог 
+  if MyTickCount>lastLogTime+60000 then LogStats; // Р Р°Р· РІ РјРёРЅСѓС‚Сѓ РїРёСЃР°С‚СЊ СЃС‚Р°С‚РёСЃС‚РёРєСѓ РїРѕ Р·Р°РїСЂРѕСЃР°Рј РІ Р»РѕРі 
   req.thread:=nil;
   UnregisterThread;
  end;

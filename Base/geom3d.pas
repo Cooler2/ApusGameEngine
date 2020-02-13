@@ -1,12 +1,11 @@
-// -----------------------------------------------------
+ï»¿// -----------------------------------------------------
 // 3D geometry common high-precision functions
 // Author: Ivan Polyacov (C) 2003, Apus Software
 // Mail me: ivan@games4win.com or cooler@tut.by
 // ------------------------------------------------------
 {$IFDEF FPC}{$PIC OFF}{$ENDIF}
-unit geom3d;
+unit Geom3d;
 interface
- //uses Geom2d;
 
  type
   PPoint3=^TPoint3;
@@ -89,10 +88,10 @@ interface
  function Matrix4(from:TMatrix43):TMatrix4;
  function Matrix4s(from:TMatrix4):TMatrix4s;
 
- // Ñêàëÿðíîå ïðîèçâåäåíèå âåêòîðîâ = ïðîèçâåäåíèå äëèí íà êîñèíóñ óãëà = ïðîåêöèÿ îäíîãî âåêòîðà íà äðóãîé 
+ // Ð¡ÐºÐ°Ð»ÑÑ€Ð½Ð¾Ðµ Ð¿Ñ€Ð¾Ð¸Ð·Ð²ÐµÐ´ÐµÐ½Ð¸Ðµ Ð²ÐµÐºÑ‚Ð¾Ñ€Ð¾Ð² = Ð¿Ñ€Ð¾Ð¸Ð·Ð²ÐµÐ´ÐµÐ½Ð¸Ðµ Ð´Ð»Ð¸Ð½ Ð½Ð° ÐºÐ¾ÑÐ¸Ð½ÑƒÑ ÑƒÐ³Ð»Ð° = Ð¿Ñ€Ð¾ÐµÐºÑ†Ð¸Ñ Ð¾Ð´Ð½Ð¾Ð³Ð¾ Ð²ÐµÐºÑ‚Ð¾Ñ€Ð° Ð½Ð° Ð´Ñ€ÑƒÐ³Ð¾Ð¹ 
  function DotProduct3(a,b:TVector3):extended; overload;
  function DotProduct3(a,b:TVector3s):double; overload;
- // Âåêòîðíîå ïðîèçâåäåíèå: ìîäóëü ðàâåí ïëîùàäè ðîìáà  
+ // Ð’ÐµÐºÑ‚Ð¾Ñ€Ð½Ð¾Ðµ Ð¿Ñ€Ð¾Ð¸Ð·Ð²ÐµÐ´ÐµÐ½Ð¸Ðµ: Ð¼Ð¾Ð´ÑƒÐ»ÑŒ Ñ€Ð°Ð²ÐµÐ½ Ð¿Ð»Ð¾Ñ‰Ð°Ð´Ð¸ Ñ€Ð¾Ð¼Ð±Ð°  
  function CrossProduct3(a,b:TVector3):TVector3; overload;
  function CrossProduct3(a,b:TVector3s):TVector3s; overload;
  function GetLength3(v:TVector3):extended; overload;
@@ -131,7 +130,7 @@ interface
  function RotationZMat(angle:double):TMatrix43;
  function ScaleMat(scaleX,scaleY,scaleZ:double):TMatrix43;
 
- // Ìàòðèöà ïîâîðîòà âîêðóã âåêòîðà åäèíè÷íîé äëèíû!
+ // ÐœÐ°Ñ‚Ñ€Ð¸Ñ†Ð° Ð¿Ð¾Ð²Ð¾Ñ€Ð¾Ñ‚Ð° Ð²Ð¾ÐºÑ€ÑƒÐ³ Ð²ÐµÐºÑ‚Ð¾Ñ€Ð° ÐµÐ´Ð¸Ð½Ð¸Ñ‡Ð½Ð¾Ð¹ Ð´Ð»Ð¸Ð½Ñ‹!
  function RotationAroundVector(v:TVector3;angle:double):TMatrix3; overload;
  function RotationAroundVector(v:TVector3s;angle:single):TMatrix3s; overload;
 
@@ -159,15 +158,15 @@ interface
  function QInterpolate(q1,q2:TQuaternionS;factor:single):TQuaternionS;
 
 
- // Èñïîëüçóåòñÿ ïðàâîñòîðîííÿÿ ÑÊ, îñü Z - ââåðõ.
- // roll - ïîâîðîò âîêðóã X
- // pitch - çàòåì ïîâîðîò âîêðóã Y
- // yaw - íàêîíåö, ïîâîðîò âîêðóã Z
+ // Ð˜ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÐµÑ‚ÑÑ Ð¿Ñ€Ð°Ð²Ð¾ÑÑ‚Ð¾Ñ€Ð¾Ð½Ð½ÑÑ Ð¡Ðš, Ð¾ÑÑŒ Z - Ð²Ð²ÐµÑ€Ñ….
+ // roll - Ð¿Ð¾Ð²Ð¾Ñ€Ð¾Ñ‚ Ð²Ð¾ÐºÑ€ÑƒÐ³ X
+ // pitch - Ð·Ð°Ñ‚ÐµÐ¼ Ð¿Ð¾Ð²Ð¾Ñ€Ð¾Ñ‚ Ð²Ð¾ÐºÑ€ÑƒÐ³ Y
+ // yaw - Ð½Ð°ÐºÐ¾Ð½ÐµÑ†, Ð¿Ð¾Ð²Ð¾Ñ€Ð¾Ñ‚ Ð²Ð¾ÐºÑ€ÑƒÐ³ Z
  function MatrixFromYawRollPitch(yaw,roll,pitch:double):TMatrix43;
  procedure YawRollPitchFromMatrix(const mat:TMatrix43; var yaw,roll,pitch:double);
 
- // target = M1*M2 (Ñìûñë: ïåðåâåñòè ðåïåð M1 èç ñèñòåìû M2 â òó, ãäå çàäàíà M2)
- // Äðóãîé ñìûñë: ñóììàðíàÿ òðàíñôîðìàöèÿ: ñïåðâà M2, çàòåì M1 (èìåííî òàê!)
+ // target = M1*M2 (Ð¡Ð¼Ñ‹ÑÐ»: Ð¿ÐµÑ€ÐµÐ²ÐµÑÑ‚Ð¸ Ñ€ÐµÐ¿ÐµÑ€ M1 Ð¸Ð· ÑÐ¸ÑÑ‚ÐµÐ¼Ñ‹ M2 Ð² Ñ‚Ñƒ, Ð³Ð´Ðµ Ð·Ð°Ð´Ð°Ð½Ð° M2)
+ // Ð”Ñ€ÑƒÐ³Ð¾Ð¹ ÑÐ¼Ñ‹ÑÐ»: ÑÑƒÐ¼Ð¼Ð°Ñ€Ð½Ð°Ñ Ñ‚Ñ€Ð°Ð½ÑÑ„Ð¾Ñ€Ð¼Ð°Ñ†Ð¸Ñ: ÑÐ¿ÐµÑ€Ð²Ð° M2, Ð·Ð°Ñ‚ÐµÐ¼ M1 (Ð¸Ð¼ÐµÐ½Ð½Ð¾ Ñ‚Ð°Ðº!)
  // IMPORTANT! target MUST DIFFER from m1 and m2!
  procedure MultMat3(const m1,m2:TMatrix3;out target:TMatrix3); overload;
  procedure MultMat3(const m1,m2:TMatrix3s;out target:TMatrix3s); overload;
@@ -185,13 +184,13 @@ interface
  function TransformPoint(const m:TMatrix4s;v:PPoint3s):TPoint3s; overload;
  function TransformPoint(const m:TMatrix4;v:PPoint3):TPoint3; overload;
 
- // Transpose (äëÿ îðòîíîðìèðîâàííîé ìàòðèöû - ýòî áóäò îáðàòíàÿ)
+ // Transpose (Ð´Ð»Ñ Ð¾Ñ€Ñ‚Ð¾Ð½Ð¾Ñ€Ð¼Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð½Ð¾Ð¹ Ð¼Ð°Ñ‚Ñ€Ð¸Ñ†Ñ‹ - ÑÑ‚Ð¾ Ð±ÑƒÐ´Ñ‚ Ð¾Ð±Ñ€Ð°Ñ‚Ð½Ð°Ñ)
  procedure Transp3(const m:TMatrix3;out dest:TMatrix3); overload;
  procedure Transp3(const m:TMatrix3s;out dest:TMatrix3s); overload;
  procedure Transp4(const m:TMatrix43;out dest:TMatrix43); overload;
  procedure Transp4(const m:TMatrix43s;out dest:TMatrix43s); overload;
  procedure Transp4(const m:TMatrix4;out dest:TMatrix4); overload;
- // Âû÷èñëåíèå îáðàòíîé ìàòðèöû (îñòîðîæíî!)
+ // Ð’Ñ‹Ñ‡Ð¸ÑÐ»ÐµÐ½Ð¸Ðµ Ð¾Ð±Ñ€Ð°Ñ‚Ð½Ð¾Ð¹ Ð¼Ð°Ñ‚Ñ€Ð¸Ñ†Ñ‹ (Ð¾ÑÑ‚Ð¾Ñ€Ð¾Ð¶Ð½Ð¾!)
  procedure Invert3(const m:TMatrix3;out dest:TMatrix3);
  procedure Invert4(const m:TMatrix43;out dest:TMatrix43); overload;
  procedure Invert4(const m:TMatrix43s;out dest:TMatrix43s); overload;
@@ -210,9 +209,9 @@ interface
  function GetPlaneOffset(p:TPlane;pnt:Tpoint3):double;
 
  // Special
- // ïåðåñå÷åíèå òðåóãîëüíèêà ABC ñ ëó÷îì OT
- // âîçâðàùàåò: pb,pc - âûðàæåíèå òî÷êè ïåðåñå÷åíèÿ ÷åðåç âåêòîðà AB è AC (pb,pc>=0, pb+pc<=1)
- //             d - ðàññòîÿíèå îò òî÷êè ïåðåñå÷åíèÿ äî íà÷àëà ëó÷à
+ // Ð¿ÐµÑ€ÐµÑÐµÑ‡ÐµÐ½Ð¸Ðµ Ñ‚Ñ€ÐµÑƒÐ³Ð¾Ð»ÑŒÐ½Ð¸ÐºÐ° ABC Ñ Ð»ÑƒÑ‡Ð¾Ð¼ OT
+ // Ð²Ð¾Ð·Ð²Ñ€Ð°Ñ‰Ð°ÐµÑ‚: pb,pc - Ð²Ñ‹Ñ€Ð°Ð¶ÐµÐ½Ð¸Ðµ Ñ‚Ð¾Ñ‡ÐºÐ¸ Ð¿ÐµÑ€ÐµÑÐµÑ‡ÐµÐ½Ð¸Ñ Ñ‡ÐµÑ€ÐµÐ· Ð²ÐµÐºÑ‚Ð¾Ñ€Ð° AB Ð¸ AC (pb,pc>=0, pb+pc<=1)
+ //             d - Ñ€Ð°ÑÑÑ‚Ð¾ÑÐ½Ð¸Ðµ Ð¾Ñ‚ Ñ‚Ð¾Ñ‡ÐºÐ¸ Ð¿ÐµÑ€ÐµÑÐµÑ‡ÐµÐ½Ð¸Ñ Ð´Ð¾ Ð½Ð°Ñ‡Ð°Ð»Ð° Ð»ÑƒÑ‡Ð°
  function IntersectTrgLine(A,B,C,O,T:PPoint3s;var pb,pc,d:double):boolean;
 
 implementation
@@ -1095,7 +1094,7 @@ implementation
    if abs(dt)<0.0001 then exit;
 
    l.x:=O.x-A.x; l.y:=O.y-A.y; l.z:=O.z-A.z;
-   // Ìåòîä Êðàìåðà
+   // ÐœÐµÑ‚Ð¾Ð´ ÐšÑ€Ð°Ð¼ÐµÑ€Ð°
    pb:=(l.x*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
         l.y*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
         l.z*(m[1,0]*m[2,1]-m[1,1]*m[2,0]))/dt;
@@ -1170,7 +1169,7 @@ implementation
  m:TMatrix3;}
 
 initialization
- // Îïðåäåëåíèå ïîääåðæêè SSE
+ // ÐžÐ¿Ñ€ÐµÐ´ÐµÐ»ÐµÐ½Ð¸Ðµ Ð¿Ð¾Ð´Ð´ÐµÑ€Ð¶ÐºÐ¸ SSE
  {$IFDEF CPU386}
  asm
   pushad

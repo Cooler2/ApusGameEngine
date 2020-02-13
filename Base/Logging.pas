@@ -1,35 +1,35 @@
-// Generic support for advanced in-memory logging and log files
+п»ї// Generic support for advanced in-memory logging and log files
 // Copyright (C) 2012-2016 Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
 unit Logging;
 interface
  uses windows,MyServis;
 
  const
-  // Степени аварийности сообщений
-  logDebug     = 0; // вспомогательные отладочные сведения
-  logInfo      = 1; // малозначительное событие
-  logNormal    = 2; // регулярное событие, имеющее значение, но не указывающее на проблему
-  logImportant = 3; // важное, ключевое событие
-  logWarn      = 3; // что-то необычное, ненормальное но не представляющее опасности
-  logError     = 4; // сбой, ошибка с возможностью продолжения работы без аварийного завершения
-  logCritical  = 5; // фатальный сбой - аварийная ситуация, вызывающая завершение работы
+  // РЎС‚РµРїРµРЅРё Р°РІР°СЂРёР№РЅРѕСЃС‚Рё СЃРѕРѕР±С‰РµРЅРёР№
+  logDebug     = 0; // РІСЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РѕС‚Р»Р°РґРѕС‡РЅС‹Рµ СЃРІРµРґРµРЅРёСЏ
+  logInfo      = 1; // РјР°Р»РѕР·РЅР°С‡РёС‚РµР»СЊРЅРѕРµ СЃРѕР±С‹С‚РёРµ
+  logNormal    = 2; // СЂРµРіСѓР»СЏСЂРЅРѕРµ СЃРѕР±С‹С‚РёРµ, РёРјРµСЋС‰РµРµ Р·РЅР°С‡РµРЅРёРµ, РЅРѕ РЅРµ СѓРєР°Р·С‹РІР°СЋС‰РµРµ РЅР° РїСЂРѕР±Р»РµРјСѓ
+  logImportant = 3; // РІР°Р¶РЅРѕРµ, РєР»СЋС‡РµРІРѕРµ СЃРѕР±С‹С‚РёРµ
+  logWarn      = 3; // С‡С‚Рѕ-С‚Рѕ РЅРµРѕР±С‹С‡РЅРѕРµ, РЅРµРЅРѕСЂРјР°Р»СЊРЅРѕРµ РЅРѕ РЅРµ РїСЂРµРґСЃС‚Р°РІР»СЏСЋС‰РµРµ РѕРїР°СЃРЅРѕСЃС‚Рё
+  logError     = 4; // СЃР±РѕР№, РѕС€РёР±РєР° СЃ РІРѕР·РјРѕР¶РЅРѕСЃС‚СЊСЋ РїСЂРѕРґРѕР»Р¶РµРЅРёСЏ СЂР°Р±РѕС‚С‹ Р±РµР· Р°РІР°СЂРёР№РЅРѕРіРѕ Р·Р°РІРµСЂС€РµРЅРёСЏ
+  logCritical  = 5; // С„Р°С‚Р°Р»СЊРЅС‹Р№ СЃР±РѕР№ - Р°РІР°СЂРёР№РЅР°СЏ СЃРёС‚СѓР°С†РёСЏ, РІС‹Р·С‹РІР°СЋС‰Р°СЏ Р·Р°РІРµСЂС€РµРЅРёРµ СЂР°Р±РѕС‚С‹
 
-  // Категории (группы) сообщений
+  // РљР°С‚РµРіРѕСЂРёРё (РіСЂСѓРїРїС‹) СЃРѕРѕР±С‰РµРЅРёР№
   lgHTTP     = 1;
   lgDatabase = 2;
   lgChat     = 3;
   lgAI       = 4;
-  lgTurnData = 5; // данные, которыми обмениваются между собой игроки
+  lgTurnData = 5; // РґР°РЅРЅС‹Рµ, РєРѕС‚РѕСЂС‹РјРё РѕР±РјРµРЅРёРІР°СЋС‚СЃСЏ РјРµР¶РґСѓ СЃРѕР±РѕР№ РёРіСЂРѕРєРё
 
  var
   maxLogMsgSize:integer=2000; // larger messages will be truncated 
-  avgMsgPerSecondLimit:integer = 500; // лимит на скорость поступления сообщений (в среднем в секунду)
+  avgMsgPerSecondLimit:integer = 500; // Р»РёРјРёС‚ РЅР° СЃРєРѕСЂРѕСЃС‚СЊ РїРѕСЃС‚СѓРїР»РµРЅРёСЏ СЃРѕРѕР±С‰РµРЅРёР№ (РІ СЃСЂРµРґРЅРµРј РІ СЃРµРєСѓРЅРґСѓ)
   minLogFileLevel:integer = logInfo; // min level of message to be stored in log file
   minLogMemLevel:integer = logInfo; // min level of message to be stored in memory
-  logMsgCounter:int64; // global msg counter (сколько вообще сообщений было добавлено, а не сколько хранится)
-  numFailures:integer; // счётчик сообщений с уровнем logError и выше
+  logMsgCounter:int64; // global msg counter (СЃРєРѕР»СЊРєРѕ РІРѕРѕР±С‰Рµ СЃРѕРѕР±С‰РµРЅРёР№ Р±С‹Р»Рѕ РґРѕР±Р°РІР»РµРЅРѕ, Р° РЅРµ СЃРєРѕР»СЊРєРѕ С…СЂР°РЅРёС‚СЃСЏ)
+  numFailures:integer; // СЃС‡С‘С‚С‡РёРє СЃРѕРѕР±С‰РµРЅРёР№ СЃ СѓСЂРѕРІРЅРµРј logError Рё РІС‹С€Рµ
 
-  levelToCopyToMainLog:integer = logNormal; // дублировать сообщения с таким уровнем в основной лог
+  levelToCopyToMainLog:integer = logNormal; // РґСѓР±Р»РёСЂРѕРІР°С‚СЊ СЃРѕРѕР±С‰РµРЅРёСЏ СЃ С‚Р°РєРёРј СѓСЂРѕРІРЅРµРј РІ РѕСЃРЅРѕРІРЅРѕР№ Р»РѕРі
 
  // Initialize logging system:
  // Allocate "memsize" megabytes for in-memory logging (0 - keep current size, max 1024)
@@ -41,17 +41,17 @@ interface
  procedure LogMsg(st:AnsiString;level:byte=logNormal;msgtype:byte=0); overload;
  procedure LogMsg(st:AnsiString;params:array of const;level:byte=logNormal;msgtype:byte=0); overload;
 
- // Cброс накопленных сообщений в файл
+ // CР±СЂРѕСЃ РЅР°РєРѕРїР»РµРЅРЅС‹С… СЃРѕРѕР±С‰РµРЅРёР№ РІ С„Р°Р№Р»
  procedure FlushLogs;
 
  // Returns (partial) content of the in-memory log (CAUTION! May consume significant time and memory!)
  function FetchLog(fromDate,toDate:TDateTime;minLevel:byte;limit:integer=10000):StringArr;
 
- // Аварийный сброс лога в файл (amount килобайт)
+ // РђРІР°СЂРёР№РЅС‹Р№ СЃР±СЂРѕСЃ Р»РѕРіР° РІ С„Р°Р№Р» (amount РєРёР»РѕР±Р°Р№С‚)
  procedure AlarmLog(filename:string;amount:integer=1024);
 
- // msgCount - всего сообщений
- // msgCount1 - сообщений уровня info и выше
+ // msgCount - РІСЃРµРіРѕ СЃРѕРѕР±С‰РµРЅРёР№
+ // msgCount1 - СЃРѕРѕР±С‰РµРЅРёР№ СѓСЂРѕРІРЅСЏ info Рё РІС‹С€Рµ
  function LogMemUsage(out msgCount,msgCount1:integer):integer;
 
  // Save some log messages for further use after restart
@@ -88,17 +88,17 @@ implementation
   logDir:string;
   lastTime:TSystemTime; // time of the last message for log file
   buffer:array of byte; // main buffer
-  firstUsedByte,firstFreeByte:integer; // если совпадают - буфер пуст
+  firstUsedByte,firstFreeByte:integer; // РµСЃР»Рё СЃРѕРІРїР°РґР°СЋС‚ - Р±СѓС„РµСЂ РїСѓСЃС‚
   freeSpace:integer;
 
   firstBuffer,lastBuffer:TLogBuffer;
   bufferCount,maxBuffers:integer;
   initialized:boolean=false;
 
-  avgMsgCounter:integer; // Счётчик сообщений, раз в секунду уменьшается на avgMsgPerSecondLimit, но не ниже 0
+  avgMsgCounter:integer; // РЎС‡С‘С‚С‡РёРє СЃРѕРѕР±С‰РµРЅРёР№, СЂР°Р· РІ СЃРµРєСѓРЅРґСѓ СѓРјРµРЅСЊС€Р°РµС‚СЃСЏ РЅР° avgMsgPerSecondLimit, РЅРѕ РЅРµ РЅРёР¶Рµ 0
   msgBlocked:boolean=false;
 
- // Кол-во строк в логе (всего и с важностью выше Debug)
+ // РљРѕР»-РІРѕ СЃС‚СЂРѕРє РІ Р»РѕРіРµ (РІСЃРµРіРѕ Рё СЃ РІР°Р¶РЅРѕСЃС‚СЊСЋ РІС‹С€Рµ Debug)
  function LogMemUsage(out msgCount,msgCount1:integer):integer;
   var
    buf:TLogBuffer;
@@ -394,7 +394,7 @@ implementation
    LogMsg(Format(st,params),level,msgtype);
   end;
 
- // Аварийный сброс лога в файл (amount килобайт)
+ // РђРІР°СЂРёР№РЅС‹Р№ СЃР±СЂРѕСЃ Р»РѕРіР° РІ С„Р°Р№Р» (amount РєРёР»РѕР±Р°Р№С‚)
  procedure AlarmLog(filename:string;amount:integer=1024);
   var
    saveFirst,space:integer;

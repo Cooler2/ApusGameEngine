@@ -1,4 +1,4 @@
-// --------------------------------------------------------------
+п»ї// --------------------------------------------------------------
 // This unit contains classes for dealing with any network API's
 // Author: Ivan Polyacov, Copyright (C) 2002, Apus Software
 // Contact: ivan@games4win.com or cooler@tut.by
@@ -6,7 +6,7 @@
 // Currently only UDP left here. For HTTP use httpRequests. DirectPlay removed as obsolete.
 {$H+,I-,R-}
 //{$IFDEF IOS}{$modeswitch objectivec1}{$ENDIF}
-unit network;
+unit Network;
 
 interface
  uses classes,MyServis;
@@ -27,7 +27,7 @@ type
   data:pointer;  // message itself
  end;
 
- // улучшенный вариант: использует non-blocking socket, поддерживает broadcast
+ // СѓР»СѓС‡С€РµРЅРЅС‹Р№ РІР°СЂРёР°РЅС‚: РёСЃРїРѕР»СЊР·СѓРµС‚ non-blocking socket, РїРѕРґРґРµСЂР¶РёРІР°РµС‚ broadcast
  UDPSocket2=class
   sent,received,sentBytes,receivedBytes:cardinal;
   constructor Create(port:word;broadcast:boolean=true;ip:cardinal=0);

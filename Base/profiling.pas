@@ -1,4 +1,6 @@
-unit profiling;
+﻿// Built-in Sampling Profiler
+// Copyright (C) Ivan Polyacov, ivan@apus-software.com
+unit Profiling;
 interface
 
  procedure AddThreadForProfiling(threadHandle:cardinal;name:string);

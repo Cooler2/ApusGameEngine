@@ -1,4 +1,4 @@
-unit myADPCM;
+﻿unit myADPCM;
 interface
 
  function Compress_ADPCM4(var sour,dest;samples:integer;channels:byte):integer;

@@ -1,9 +1,9 @@
-// -----------------------------------------------------
+ï»¿// -----------------------------------------------------
 // Cross-platform access to system clipboard
 // Author: Ivan Polyacov (C) 2011, Apus Software
 // ivan@apus-software.com or cooler@tut.by
 // ------------------------------------------------------
-unit clipboard;
+unit Clipboard;
 
 interface
 
@@ -69,7 +69,7 @@ implementation
           GlobalUnlock(Data);
         end;
       CloseClipboard;
-      // Òåêñò çàêàí÷èâàåòñÿ íà #0 - íàäî åãî óäàëèòü
+      // Ð¢ÐµÐºÑÑ‚ Ð·Ð°ÐºÐ°Ð½Ñ‡Ð¸Ð²Ð°ÐµÑ‚ÑÑ Ð½Ð° #0 - Ð½Ð°Ð´Ð¾ ÐµÐ³Ð¾ ÑƒÐ´Ð°Ð»Ð¸Ñ‚ÑŒ
       if (length(Result)>0)and(Result[length(Result)]=#0) then
           SetLength(Result,length(Result)-1);
     end;

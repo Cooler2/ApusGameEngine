@@ -1,15 +1,15 @@
-// Copyright (C) Apus Software, 2012-2014. Ivan Polyacov (ivan@apus-software.com)
+п»ї// Copyright (C) Apus Software, 2012-2014. Ivan Polyacov (ivan@apus-software.com)
 // 2D-cache methods for font glyph caching
 // (realtime 2D-rect packing algorithms)
-unit glyphCaches;
+unit GlyphCaches;
 interface
- uses types,structs;
+ uses types,Structs;
 
 type
  // Item of text cache area
  TGlyphCacheBlock=record
   x,y:smallint;
-  hNext:smallint; // ссылка на следующий блок с тем же значением хэша
+  hNext:smallint; // СЃСЃС‹Р»РєР° РЅР° СЃР»РµРґСѓСЋС‰РёР№ Р±Р»РѕРє СЃ С‚РµРј Р¶Рµ Р·РЅР°С‡РµРЅРёРµРј С…СЌС€Р°
   hashAndKind:word;
   chardata:cardinal;
   timestamp:cardinal;
@@ -21,13 +21,13 @@ type
   dx,dy:integer; // glyph position relative to output (cursor) point
  end;
 
- // Абстрактный интерфейс для кэширования глифов или других мелких картинок в одной большой текстуре
+ // РђР±СЃС‚СЂР°РєС‚РЅС‹Р№ РёРЅС‚РµСЂС„РµР№СЃ РґР»СЏ РєСЌС€РёСЂРѕРІР°РЅРёСЏ РіР»РёС„РѕРІ РёР»Рё РґСЂСѓРіРёС… РјРµР»РєРёС… РєР°СЂС‚РёРЅРѕРє РІ РѕРґРЅРѕР№ Р±РѕР»СЊС€РѕР№ С‚РµРєСЃС‚СѓСЂРµ
  TGlyphCache=class
   lastTimeStamp:cardinal;
-  relX,relY:integer; // положение, относительно которого возвращаются результаты
-  // находит положение в текстуре, соответствующее символу, либо -1,-1 - если его нет
+  relX,relY:integer; // РїРѕР»РѕР¶РµРЅРёРµ, РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ РєРѕС‚РѕСЂРѕРіРѕ РІРѕР·РІСЂР°С‰Р°СЋС‚СЃСЏ СЂРµР·СѓР»СЊС‚Р°С‚С‹
+  // РЅР°С…РѕРґРёС‚ РїРѕР»РѕР¶РµРЅРёРµ РІ С‚РµРєСЃС‚СѓСЂРµ, СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РµРµ СЃРёРјРІРѕР»Сѓ, Р»РёР±Рѕ -1,-1 - РµСЃР»Рё РµРіРѕ РЅРµС‚
   function Find(chardata:cardinal):TGlyphInfoRec; virtual; abstract;
-  // выделяет блок заданного размера для заданного символа, возвращает его положение
+  // РІС‹РґРµР»СЏРµС‚ Р±Р»РѕРє Р·Р°РґР°РЅРЅРѕРіРѕ СЂР°Р·РјРµСЂР° РґР»СЏ Р·Р°РґР°РЅРЅРѕРіРѕ СЃРёРјРІРѕР»Р°, РІРѕР·РІСЂР°С‰Р°РµС‚ РµРіРѕ РїРѕР»РѕР¶РµРЅРёРµ
   function Alloc(width,height,dx,dy:integer;chardata:cardinal):TPoint; virtual; abstract;
   // Keep all blocks found from this moment from deletion
   procedure Keep; virtual; abstract;
@@ -35,16 +35,16 @@ type
   procedure Release; virtual; abstract;
  end;
 
- // ПРИНЦИП РАБОТЫ: весь кэш (размером 512x512, 1024x512 либо 2048x512) заранее разбит на полосы, где каждая полоса
- // состоит из блоков заранее фиксированного размера (например 24x16). Работа кэша заключается в выделении блоков
- // подходящего размера или поиске уже выделенных блоков
- // ЭТА СТРУКТУРА НЕЭФФЕКТИВНА ДЛЯ FT-ШРИФТОВ И ПОЭТОМУ БОЛЬШЕ НЕ ИСПОЛЬЗУЕТСЯ
+ // РџР РРќР¦РРџ Р РђР‘РћРўР«: РІРµСЃСЊ РєСЌС€ (СЂР°Р·РјРµСЂРѕРј 512x512, 1024x512 Р»РёР±Рѕ 2048x512) Р·Р°СЂР°РЅРµРµ СЂР°Р·Р±РёС‚ РЅР° РїРѕР»РѕСЃС‹, РіРґРµ РєР°Р¶РґР°СЏ РїРѕР»РѕСЃР°
+ // СЃРѕСЃС‚РѕРёС‚ РёР· Р±Р»РѕРєРѕРІ Р·Р°СЂР°РЅРµРµ С„РёРєСЃРёСЂРѕРІР°РЅРЅРѕРіРѕ СЂР°Р·РјРµСЂР° (РЅР°РїСЂРёРјРµСЂ 24x16). Р Р°Р±РѕС‚Р° РєСЌС€Р° Р·Р°РєР»СЋС‡Р°РµС‚СЃСЏ РІ РІС‹РґРµР»РµРЅРёРё Р±Р»РѕРєРѕРІ
+ // РїРѕРґС…РѕРґСЏС‰РµРіРѕ СЂР°Р·РјРµСЂР° РёР»Рё РїРѕРёСЃРєРµ СѓР¶Рµ РІС‹РґРµР»РµРЅРЅС‹С… Р±Р»РѕРєРѕРІ
+ // Р­РўРђ РЎРўР РЈРљРўРЈР Рђ РќР•Р­Р¤Р¤Р•РљРўРР’РќРђ Р”Р›РЇ FT-РЁР РР¤РўРћР’ Р РџРћР­РўРћРњРЈ Р‘РћР›Р¬РЁР• РќР• РРЎРџРћР›Р¬Р—РЈР•РўРЎРЇ
  TFixedGlyphCache=class(TGlyphCache)
   constructor Create(width:integer); 
   destructor Destroy; override;
-  // находит положение в текстуре, соответствующее символу, либо -1,-1 - если его нет
+  // РЅР°С…РѕРґРёС‚ РїРѕР»РѕР¶РµРЅРёРµ РІ С‚РµРєСЃС‚СѓСЂРµ, СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РµРµ СЃРёРјРІРѕР»Сѓ, Р»РёР±Рѕ -1,-1 - РµСЃР»Рё РµРіРѕ РЅРµС‚
   function Find(chardata:cardinal):TGlyphInfoRec; override;
-  // выделяет блок заданного размера для заданного символа, возвращает его положение
+  // РІС‹РґРµР»СЏРµС‚ Р±Р»РѕРє Р·Р°РґР°РЅРЅРѕРіРѕ СЂР°Р·РјРµСЂР° РґР»СЏ Р·Р°РґР°РЅРЅРѕРіРѕ СЃРёРјРІРѕР»Р°, РІРѕР·РІСЂР°С‰Р°РµС‚ РµРіРѕ РїРѕР»РѕР¶РµРЅРёРµ
   function Alloc(width,height,dx,dy:integer;chardata:cardinal):TPoint; override;
   // Keep all blocks found from this moment from deletion
   procedure Keep; override;
@@ -52,35 +52,35 @@ type
   procedure Release; override;
  private
   keepTimeStamp:cardinal;
-  blocks:array[0..3999] of TGlyphCacheBlock; // данные о всех блоках
-  // списки свободных блоков каждого типа
+  blocks:array[0..3999] of TGlyphCacheBlock; // РґР°РЅРЅС‹Рµ Рѕ РІСЃРµС… Р±Р»РѕРєР°С…
+  // СЃРїРёСЃРєРё СЃРІРѕР±РѕРґРЅС‹С… Р±Р»РѕРєРѕРІ РєР°Р¶РґРѕРіРѕ С‚РёРїР°
   freeList:array[0..3999] of smallint;
   freeCount:array[1..15] of integer;
-  hash:array[0..4095] of smallint; // указатель на начало списка блоков с заданным хэшем
-  function GetBestKind(w,h:integer):integer; // возвращает ближайший "совместимый" тип блока
+  hash:array[0..4095] of smallint; // СѓРєР°Р·Р°С‚РµР»СЊ РЅР° РЅР°С‡Р°Р»Рѕ СЃРїРёСЃРєР° Р±Р»РѕРєРѕРІ СЃ Р·Р°РґР°РЅРЅС‹Рј С…СЌС€РµРј
+  function GetBestKind(w,h:integer):integer; // РІРѕР·РІСЂР°С‰Р°РµС‚ Р±Р»РёР¶Р°Р№С€РёР№ "СЃРѕРІРјРµСЃС‚РёРјС‹Р№" С‚РёРї Р±Р»РѕРєР°
   procedure FreeBlock(block,kind:integer);
-  procedure FreeSpace(kind:integer); // освобождает блоки заданного типа
+  procedure FreeSpace(kind:integer); // РѕСЃРІРѕР±РѕР¶РґР°РµС‚ Р±Р»РѕРєРё Р·Р°РґР°РЅРЅРѕРіРѕ С‚РёРїР°
   function GetBlockPos(block:cardinal):TPoint;
-  procedure DecrementTimes; // уменьшает все timestampы (для ооочень долгой работы)
+  procedure DecrementTimes; // СѓРјРµРЅСЊС€Р°РµС‚ РІСЃРµ timestampС‹ (РґР»СЏ РѕРѕРѕС‡РµРЅСЊ РґРѕР»РіРѕР№ СЂР°Р±РѕС‚С‹)
  end;
 
  TBandData=record
-  y,height:integer; // положение полосы (height=0 - free)
-  next:integer; // номер следующей полосы
-  freeSpace:integer; // сколько свободно
+  y,height:integer; // РїРѕР»РѕР¶РµРЅРёРµ РїРѕР»РѕСЃС‹ (height=0 - free)
+  next:integer; // РЅРѕРјРµСЂ СЃР»РµРґСѓСЋС‰РµР№ РїРѕР»РѕСЃС‹
+  freeSpace:integer; // СЃРєРѕР»СЊРєРѕ СЃРІРѕР±РѕРґРЅРѕ
  end;
 
- // ПРИНЦИП РАБОТЫ: все пространство (размером от 512x512 до 1024x1024) представляет собой кэш из кэшей т.е. набор полос,
- // где каждая полоса работает как отдельный кэш. Ключевая особенность: элементы добавляются только в конец полосы,
- // если места не хватает - выделяется новая полоса, удаление происходит только целыми полосами.
- // Поэтому Keep() гарантирует, что значительная часть кэша свободна, чтобы не пришлось удалять полосы с нужными элементами.
- // Максимальный размер элемента - 63x63
+ // РџР РРќР¦РРџ Р РђР‘РћРўР«: РІСЃРµ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРѕ (СЂР°Р·РјРµСЂРѕРј РѕС‚ 512x512 РґРѕ 1024x1024) РїСЂРµРґСЃС‚Р°РІР»СЏРµС‚ СЃРѕР±РѕР№ РєСЌС€ РёР· РєСЌС€РµР№ С‚.Рµ. РЅР°Р±РѕСЂ РїРѕР»РѕСЃ,
+ // РіРґРµ РєР°Р¶РґР°СЏ РїРѕР»РѕСЃР° СЂР°Р±РѕС‚Р°РµС‚ РєР°Рє РѕС‚РґРµР»СЊРЅС‹Р№ РєСЌС€. РљР»СЋС‡РµРІР°СЏ РѕСЃРѕР±РµРЅРЅРѕСЃС‚СЊ: СЌР»РµРјРµРЅС‚С‹ РґРѕР±Р°РІР»СЏСЋС‚СЃСЏ С‚РѕР»СЊРєРѕ РІ РєРѕРЅРµС† РїРѕР»РѕСЃС‹,
+ // РµСЃР»Рё РјРµСЃС‚Р° РЅРµ С…РІР°С‚Р°РµС‚ - РІС‹РґРµР»СЏРµС‚СЃСЏ РЅРѕРІР°СЏ РїРѕР»РѕСЃР°, СѓРґР°Р»РµРЅРёРµ РїСЂРѕРёСЃС…РѕРґРёС‚ С‚РѕР»СЊРєРѕ С†РµР»С‹РјРё РїРѕР»РѕСЃР°РјРё.
+ // РџРѕСЌС‚РѕРјСѓ Keep() РіР°СЂР°РЅС‚РёСЂСѓРµС‚, С‡С‚Рѕ Р·РЅР°С‡РёС‚РµР»СЊРЅР°СЏ С‡Р°СЃС‚СЊ РєСЌС€Р° СЃРІРѕР±РѕРґРЅР°, С‡С‚РѕР±С‹ РЅРµ РїСЂРёС€Р»РѕСЃСЊ СѓРґР°Р»СЏС‚СЊ РїРѕР»РѕСЃС‹ СЃ РЅСѓР¶РЅС‹РјРё СЌР»РµРјРµРЅС‚Р°РјРё.
+ // РњР°РєСЃРёРјР°Р»СЊРЅС‹Р№ СЂР°Р·РјРµСЂ СЌР»РµРјРµРЅС‚Р° - 63x63
  TDynamicGlyphCache=class(TGlyphCache)
   constructor Create(width,height:integer);
   destructor Destroy; override;
-  // находит положение в текстуре, соответствующее символу, либо -1,-1 - если его нет
+  // РЅР°С…РѕРґРёС‚ РїРѕР»РѕР¶РµРЅРёРµ РІ С‚РµРєСЃС‚СѓСЂРµ, СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РµРµ СЃРёРјРІРѕР»Сѓ, Р»РёР±Рѕ -1,-1 - РµСЃР»Рё РµРіРѕ РЅРµС‚
   function Find(chardata:cardinal):TGlyphInfoRec; override;
-  // выделяет блок заданного размера для заданного символа, возвращает его положение
+  // РІС‹РґРµР»СЏРµС‚ Р±Р»РѕРє Р·Р°РґР°РЅРЅРѕРіРѕ СЂР°Р·РјРµСЂР° РґР»СЏ Р·Р°РґР°РЅРЅРѕРіРѕ СЃРёРјРІРѕР»Р°, РІРѕР·РІСЂР°С‰Р°РµС‚ РµРіРѕ РїРѕР»РѕР¶РµРЅРёРµ
   function Alloc(width,height,dx,dy:integer;chardata:cardinal):TPoint; override;
   // Keep all blocks found from this moment from deletion
   procedure Keep; override;
@@ -89,13 +89,13 @@ type
   // How efficient space is used (0..1)
   function Usage:single;
  private
-  aWidth,aHeight:integer; // Общий размер пространства кэша
-  freeMin,freeMax:integer; // границы свободной области (freeMax может ыть больше aHeight, что означает разрывную область) 
-  // Полосы (список)
+  aWidth,aHeight:integer; // РћР±С‰РёР№ СЂР°Р·РјРµСЂ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІР° РєСЌС€Р°
+  freeMin,freeMax:integer; // РіСЂР°РЅРёС†С‹ СЃРІРѕР±РѕРґРЅРѕР№ РѕР±Р»Р°СЃС‚Рё (freeMax РјРѕР¶РµС‚ С‹С‚СЊ Р±РѕР»СЊС€Рµ aHeight, С‡С‚Рѕ РѕР·РЅР°С‡Р°РµС‚ СЂР°Р·СЂС‹РІРЅСѓСЋ РѕР±Р»Р°СЃС‚СЊ) 
+  // РџРѕР»РѕСЃС‹ (СЃРїРёСЃРѕРє)
   bands:array[0..99] of TBandData;
   bCount:integer;
   firstBand,lastBand:integer;
-  // Блоки
+  // Р‘Р»РѕРєРё
   hash1,hash2:TSimpleHash;
   function CanCreateBand(height:integer):boolean;
   function CreateNewBand(height:integer):integer;
@@ -106,15 +106,15 @@ implementation
  uses SysUtils,MyServis;
 
  const
-  // стартовый номер блоков каждого типа
+  // СЃС‚Р°СЂС‚РѕРІС‹Р№ РЅРѕРјРµСЂ Р±Р»РѕРєРѕРІ РєР°Р¶РґРѕРіРѕ С‚РёРїР°
   cacheItemTypes:array[1..15] of integer=
    (0,2560,512,1024,3328,1536,2048,3584,2304,2816,3712,3072,3456,3776,3840);
 
-  // начало полосы блоков каждого типа
+  // РЅР°С‡Р°Р»Рѕ РїРѕР»РѕСЃС‹ Р±Р»РѕРєРѕРІ РєР°Р¶РґРѕРіРѕ С‚РёРїР°
   cacheItemY:array[1..15] of integer=
    (0,16,24,48,72,84,116,148,164,212,260,284,348,412,444);
 
-  // кол-во элементов каждого типа: начальные значения из расчета, что ширина текстуры - 2048
+  // РєРѕР»-РІРѕ СЌР»РµРјРµРЅС‚РѕРІ РєР°Р¶РґРѕРіРѕ С‚РёРїР°: РЅР°С‡Р°Р»СЊРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ РёР· СЂР°СЃС‡РµС‚Р°, С‡С‚Рѕ С€РёСЂРёРЅР° С‚РµРєСЃС‚СѓСЂС‹ - 2048
   cacheItemCount:array[1..15] of integer=
    (512,168,512,340,128,340,256,85,256,168,64,168,128,42,64);
 
@@ -125,7 +125,7 @@ implementation
     (32,32),(48,32),(32,48));
 
 { TGlyphCache }
-// хэш - 0..4095
+// С…СЌС€ - 0..4095
 function GlyphHash(chardata: cardinal): cardinal; inline;
 begin
  result:=(charData xor (chardata shr 8)) and $FFF;
@@ -135,7 +135,7 @@ function TFixedGlyphCache.Alloc(width, height,dx,dy: integer; chardata: cardinal
 var
  i,j,kind,block,h:integer;
 begin
- // Определить тип блока
+ // РћРїСЂРµРґРµР»РёС‚СЊ С‚РёРї Р±Р»РѕРєР°
  kind:=0;
  if height<=16 then begin
   if height<=12 then begin
@@ -180,7 +180,7 @@ begin
   raise EError.Create('Invalid block type '+inttostr(width)+'x'+inttostr(height));
  if freeCount[kind]=0 then begin
   FreeSpace(kind);
-  if freeCount[kind]=0 then begin // освобождение не помогло?
+  if freeCount[kind]=0 then begin // РѕСЃРІРѕР±РѕР¶РґРµРЅРёРµ РЅРµ РїРѕРјРѕРіР»Рѕ?
    kind:=GetBestKind(width,height);
    if kind<0 then raise EWarning.Create('Block cache overflow');
   end;
@@ -215,7 +215,7 @@ begin
   if Width=512 then cacheItemCount[i]:=cacheItemCount[i] div 4;
   cnt:=cacheItemCount[i];
   freeCount[i]:=cnt;
-  // инициализация блоков типа i
+  // РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ Р±Р»РѕРєРѕРІ С‚РёРїР° i
   for j:=cacheItemTypes[i] to cacheItemTypes[i]+cnt-1 do begin
    p:=GetBlockPos(j);
    blocks[j].x:=p.x;
@@ -235,7 +235,7 @@ procedure TFixedGlyphCache.DecrementTimes;
 var
  i,j,start,cnt:integer;
 begin
- // деление на 2 не нарушает целостность данных
+ // РґРµР»РµРЅРёРµ РЅР° 2 РЅРµ РЅР°СЂСѓС€Р°РµС‚ С†РµР»РѕСЃС‚РЅРѕСЃС‚СЊ РґР°РЅРЅС‹С…
  lastTimeStamp:=lastTimeStamp div 2;
  keepTimeStamp:=keepTimeStamp div 2;
  for i:=1 to 15 do begin
@@ -256,7 +256,7 @@ var
  cnt:integer;
 begin
  hsh:=GlyphHash(charData);
- h:=hash[hsh]; // номер первого блока с искомым хэшем
+ h:=hash[hsh]; // РЅРѕРјРµСЂ РїРµСЂРІРѕРіРѕ Р±Р»РѕРєР° СЃ РёСЃРєРѕРјС‹Рј С…СЌС€РµРј
  cnt:=0;
  while (h>=0) and (blocks[h].chardata<>charData) do begin
   h:=blocks[h].hNext;
@@ -285,9 +285,9 @@ begin
  if blocks[block].hashAndKind<>kind shl 12+h then
   Assert(false);
  if hash[h]=block then
-  hash[h]:=blocks[block].hNext // удаление первого эл-та списка
+  hash[h]:=blocks[block].hNext // СѓРґР°Р»РµРЅРёРµ РїРµСЂРІРѕРіРѕ СЌР»-С‚Р° СЃРїРёСЃРєР°
  else begin
-  // удаление из односвязного списка не первого эл-та
+  // СѓРґР°Р»РµРЅРёРµ РёР· РѕРґРЅРѕСЃРІСЏР·РЅРѕРіРѕ СЃРїРёСЃРєР° РЅРµ РїРµСЂРІРѕРіРѕ СЌР»-С‚Р°
   prv:=hash[h];
   h:=blocks[prv].hNext;
   while (h>=0) and (h<>block) do begin
@@ -314,7 +314,7 @@ begin
  for i:=start to start+cnt-1 do begin
   if blocks[i].timestamp<min then min:=blocks[i].timestamp;
   if blocks[i].timestamp>max then max:=blocks[i].timestamp;
-  if blocks[i].timestamp<keepTimeStamp then inc(c); // сколько блоков доступно для удаления
+  if blocks[i].timestamp<keepTimeStamp then inc(c); // СЃРєРѕР»СЊРєРѕ Р±Р»РѕРєРѕРІ РґРѕСЃС‚СѓРїРЅРѕ РґР»СЏ СѓРґР°Р»РµРЅРёСЏ
  end;
  step:=(max-min) div 4;
  threshold:=min+step;
@@ -468,18 +468,18 @@ begin
      (bands[i].height>bandHeight) then bandHeight:=bands[i].height;
   i:=bands[i].next;
  end;
- // 2 случая, когда нужно создать новую полосу:
- // а) подходящей полосы, где можно разместить элемент - нет
+ // 2 СЃР»СѓС‡Р°СЏ, РєРѕРіРґР° РЅСѓР¶РЅРѕ СЃРѕР·РґР°С‚СЊ РЅРѕРІСѓСЋ РїРѕР»РѕСЃСѓ:
+ // Р°) РїРѕРґС…РѕРґСЏС‰РµР№ РїРѕР»РѕСЃС‹, РіРґРµ РјРѕР¶РЅРѕ СЂР°Р·РјРµСЃС‚РёС‚СЊ СЌР»РµРјРµРЅС‚ - РЅРµС‚
  if best<0 then begin
-  // Полоса должна быть хотя бы на 25% толще, чем существующая более-менее свободная полоса 
+  // РџРѕР»РѕСЃР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ С…РѕС‚СЏ Р±С‹ РЅР° 25% С‚РѕР»С‰Рµ, С‡РµРј СЃСѓС‰РµСЃС‚РІСѓСЋС‰Р°СЏ Р±РѕР»РµРµ-РјРµРЅРµРµ СЃРІРѕР±РѕРґРЅР°СЏ РїРѕР»РѕСЃР° 
   bandHeight:=bandHeight+1+bandHeight div 4;
   if height>bandHeight then bandHeight:=height;
  end;
- // б) подходящая полоса есть, но она намного выше элемента, а свободного места еще много. Создаем более тонкую полосу
+ // Р±) РїРѕРґС…РѕРґСЏС‰Р°СЏ РїРѕР»РѕСЃР° РµСЃС‚СЊ, РЅРѕ РѕРЅР° РЅР°РјРЅРѕРіРѕ РІС‹С€Рµ СЌР»РµРјРµРЅС‚Р°, Р° СЃРІРѕР±РѕРґРЅРѕРіРѕ РјРµСЃС‚Р° РµС‰Рµ РјРЅРѕРіРѕ. РЎРѕР·РґР°РµРј Р±РѕР»РµРµ С‚РѕРЅРєСѓСЋ РїРѕР»РѕСЃСѓ
  if (best>=0) and
     (r>1+bands[best].height shr 2) and
     CanCreateBand(height*3) then begin
-  best:=-1; // Вот тут стоит избегать создания полос, которые "чуть-чуть" больше имеющихся свободных
+  best:=-1; // Р’РѕС‚ С‚СѓС‚ СЃС‚РѕРёС‚ РёР·Р±РµРіР°С‚СЊ СЃРѕР·РґР°РЅРёСЏ РїРѕР»РѕСЃ, РєРѕС‚РѕСЂС‹Рµ "С‡СѓС‚СЊ-С‡СѓС‚СЊ" Р±РѕР»СЊС€Рµ РёРјРµСЋС‰РёС…СЃСЏ СЃРІРѕР±РѕРґРЅС‹С…
   bandHeight:=bandHeight+1+bandHeight div 4;
   if height>bandHeight then bandHeight:=height;
 //  bandHeight:=height;
@@ -555,7 +555,7 @@ begin
  for i:=0 to hash2.count-1 do
   if hash2.values[i] shr 16=y then begin
    key:=hash2.keys[i];
-   hash2.Remove(key); // Удаление никак не влияет на порядок элементов, поэтому так делать можно
+   hash2.Remove(key); // РЈРґР°Р»РµРЅРёРµ РЅРёРєР°Рє РЅРµ РІР»РёСЏРµС‚ РЅР° РїРѕСЂСЏРґРѕРє СЌР»РµРјРµРЅС‚РѕРІ, РїРѕСЌС‚РѕРјСѓ С‚Р°Рє РґРµР»Р°С‚СЊ РјРѕР¶РЅРѕ
    hash1.Remove(key);
   end;
  // Delete band

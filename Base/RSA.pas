@@ -1,4 +1,4 @@
-unit RSA;
+п»їunit RSA;
 interface
  uses LongMath;
 
@@ -59,7 +59,7 @@ implementation
    l:=bLastBit(v);
    if l<28 then max:=round(sqrt(v[0]))
     else max:=1000000;
-   // простой тест
+   // РїСЂРѕСЃС‚РѕР№ С‚РµСЃС‚
    result:=true;
    fillchar(m,sizeof(m),0);
    for i:=2 to length(SmallPrimes) do begin
@@ -71,10 +71,10 @@ implementation
      exit;
     end;
    end;
-   // Продвинутый тест - Миллера-Рабина
-   if l<=28 then exit; // для маленьких чисел достаточно простого теста
+   // РџСЂРѕРґРІРёРЅСѓС‚С‹Р№ С‚РµСЃС‚ - РњРёР»Р»РµСЂР°-Р Р°Р±РёРЅР°
+   if l<=28 then exit; // РґР»СЏ РјР°Р»РµРЅСЊРєРёС… С‡РёСЃРµР» РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂРѕСЃС‚РѕРіРѕ С‚РµСЃС‚Р°
    l:=l div 8;
-   for s:=1 to 255 do // 0-й бит не рассматриваем - он вычитается
+   for s:=1 to 255 do // 0-Р№ Р±РёС‚ РЅРµ СЂР°СЃСЃРјР°С‚СЂРёРІР°РµРј - РѕРЅ РІС‹С‡РёС‚Р°РµС‚СЃСЏ
     if v[s shr 5] and (1 shl (s and 31))>0 then break;
    t:=v;
    bShr(t,s);
@@ -82,14 +82,14 @@ implementation
    v1:=v;
    bDec(v1);
    repeat
-    // генерация случайного числа 1 < a < v
+    // РіРµРЅРµСЂР°С†РёСЏ СЃР»СѓС‡Р°Р№РЅРѕРіРѕ С‡РёСЃР»Р° 1 < a < v
     FillChar(a,sizeof(a),0);
     repeat
      FillRand(a,l);
     until a[0]>1;
-    // Проверка на свидетеля простоты
+    // РџСЂРѕРІРµСЂРєР° РЅР° СЃРІРёРґРµС‚РµР»СЏ РїСЂРѕСЃС‚РѕС‚С‹
     bDiv(v,a,r,k);
-    if isZero(k) then begin // однозначно не простое
+    if isZero(k) then begin // РѕРґРЅРѕР·РЅР°С‡РЅРѕ РЅРµ РїСЂРѕСЃС‚РѕРµ
      result:=false; exit;
     end;
     a:=bPowMod(a,t,v);
@@ -123,7 +123,7 @@ implementation
    l:=bLastBit2(v);
    if l<28 then max:=round(sqrt(v[0]))
     else max:=1000000;
-   // простой тест
+   // РїСЂРѕСЃС‚РѕР№ С‚РµСЃС‚
    result:=true;
    fillchar(m,sizeof(m),0);
    for i:=2 to length(SmallPrimes) do begin
@@ -135,10 +135,10 @@ implementation
      exit;
     end;
    end;
-   // Продвинутый тест - Миллера-Рабина
-   if l<=28 then exit; // для маленьких чисел достаточно простого теста
+   // РџСЂРѕРґРІРёРЅСѓС‚С‹Р№ С‚РµСЃС‚ - РњРёР»Р»РµСЂР°-Р Р°Р±РёРЅР°
+   if l<=28 then exit; // РґР»СЏ РјР°Р»РµРЅСЊРєРёС… С‡РёСЃРµР» РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂРѕСЃС‚РѕРіРѕ С‚РµСЃС‚Р°
    l:=l div 8;
-   for s:=1 to 255 do // 0-й бит не рассматриваем - он вычитается
+   for s:=1 to 255 do // 0-Р№ Р±РёС‚ РЅРµ СЂР°СЃСЃРјР°С‚СЂРёРІР°РµРј - РѕРЅ РІС‹С‡РёС‚Р°РµС‚СЃСЏ
     if v[s shr 5] and (1 shl (s and 31))>0 then break;
    t:=v;
    bShr2(t,s);
@@ -146,14 +146,14 @@ implementation
    v1:=v;
    bDec2(v1);
    repeat
-    // генерация случайного числа 1 < a < v
+    // РіРµРЅРµСЂР°С†РёСЏ СЃР»СѓС‡Р°Р№РЅРѕРіРѕ С‡РёСЃР»Р° 1 < a < v
     FillChar(a,sizeof(a),0);
     repeat
      FillRand(a,l);
     until a[0]>1;
-    // Проверка на свидетеля простоты
+    // РџСЂРѕРІРµСЂРєР° РЅР° СЃРІРёРґРµС‚РµР»СЏ РїСЂРѕСЃС‚РѕС‚С‹
     bDiv2(v,a,r,k);
-    if isZero2(k) then begin // однозначно не простое
+    if isZero2(k) then begin // РѕРґРЅРѕР·РЅР°С‡РЅРѕ РЅРµ РїСЂРѕСЃС‚РѕРµ
      result:=false; exit;
     end;
     a:=bPowMod2(a,t,v);
@@ -223,7 +223,7 @@ implementation
    fillchar(pub,sizeof(pub),0);
    FillRand(pub,6);
    GetPrime(pub);
-   // Расширенный алг. Евклида для поиска pvt
+   // Р Р°СЃС€РёСЂРµРЅРЅС‹Р№ Р°Р»Рі. Р•РІРєР»РёРґР° РґР»СЏ РїРѕРёСЃРєР° pvt
    i:=2;
    a:=p1q1;
    b:=pub;
@@ -274,7 +274,7 @@ implementation
    fillchar(pub,sizeof(pub),0);
    FillRand(pub,7);
    GetPrime2(pub);
-   // Расширенный алг. Евклида для поиска pvt
+   // Р Р°СЃС€РёСЂРµРЅРЅС‹Р№ Р°Р»Рі. Р•РІРєР»РёРґР° РґР»СЏ РїРѕРёСЃРєР° pvt
    i:=2;
    a:=p1q1;
    b:=pub;

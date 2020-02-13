@@ -1,26 +1,24 @@
-// Region class and it's functionality
+п»ї// Region class and it's functionality
 //
 // Copyright (C) Apus Software
 // apussoftware@games4win.com
-unit regions;
+unit Regions;
 interface
- uses images,types;
+ uses Images,types;
 type
- // область произвольной формы
+ // РѕР±Р»Р°СЃС‚СЊ РїСЂРѕРёР·РІРѕР»СЊРЅРѕР№ С„РѕСЂРјС‹
  TRegion=class
   width,height:integer;
   procedure Invert; virtual; abstract;
   function TestPoint(x,y:integer):boolean; virtual; abstract;
-//  destructor Destroy; virtual; abstract;
  end;
 
- // регион, основанный на прямоугольниках
- TRectRegion=class
+ // СЂРµРіРёРѕРЅ, РѕСЃРЅРѕРІР°РЅРЅС‹Р№ РЅР° РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРєР°С…
+ TRectRegion=class(TRegion)
   r1,r2:array of TRect;
   constructor Create(w,h:integer);
   procedure IncludeRect(r:TRect);
   procedure ExcludeRect(r:TRect);
-  function TestPoint(x,y:integer):boolean; virtual; abstract;
  end;
 
  { Data format:
@@ -117,7 +115,7 @@ end;
 
 destructor TBitmapRegion.Destroy;
 begin
- 
+
 end;
 
 constructor TBitmapRegion.LoadFromBMP(fname: string;bmpscale:byte);
@@ -178,4 +176,4 @@ begin
 end;
 
 end.
- 
+

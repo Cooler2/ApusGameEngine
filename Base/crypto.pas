@@ -1,7 +1,7 @@
-// Copyright (C) Apus Software, www.apus-software.com
+п»ї// Copyright (C) Apus Software, www.apus-software.com
 // Author: Ivan Polyacov (ivan@games4win.com)
 {$H-,Q-,R-}
-unit crypto;
+unit Crypto;
 interface
 type
  TMatrix32=array[0..31] of cardinal;
@@ -9,13 +9,13 @@ type
  Word128=array[0..3] of cardinal;
 
  // Protected container
- // Это буфер, хранящий данные в слабошифрованном виде
+ // Р­С‚Рѕ Р±СѓС„РµСЂ, С…СЂР°РЅСЏС‰РёР№ РґР°РЅРЅС‹Рµ РІ СЃР»Р°Р±РѕС€РёС„СЂРѕРІР°РЅРЅРѕРј РІРёРґРµ
  TProtContainer=class
-  constructor Create(startSize:integer); // Создать буфер с указанным размером
-  procedure SetSize(newSize:integer); // Изменить размер буфера (данные не теряются)
-  procedure WriteTo(posit,count:integer;var sour); // записать данные в буфер (начиная с позиции posit)
-  procedure ReadFrom(posit,count:integer;var dest); // прочитать данные из буфера (начиная с позиции posit)
-  destructor Destroy; override; // Освободить буфер
+  constructor Create(startSize:integer); // РЎРѕР·РґР°С‚СЊ Р±СѓС„РµСЂ СЃ СѓРєР°Р·Р°РЅРЅС‹Рј СЂР°Р·РјРµСЂРѕРј
+  procedure SetSize(newSize:integer); // РР·РјРµРЅРёС‚СЊ СЂР°Р·РјРµСЂ Р±СѓС„РµСЂР° (РґР°РЅРЅС‹Рµ РЅРµ С‚РµСЂСЏСЋС‚СЃСЏ)
+  procedure WriteTo(posit,count:integer;var sour); // Р·Р°РїРёСЃР°С‚СЊ РґР°РЅРЅС‹Рµ РІ Р±СѓС„РµСЂ (РЅР°С‡РёРЅР°СЏ СЃ РїРѕР·РёС†РёРё posit)
+  procedure ReadFrom(posit,count:integer;var dest); // РїСЂРѕС‡РёС‚Р°С‚СЊ РґР°РЅРЅС‹Рµ РёР· Р±СѓС„РµСЂР° (РЅР°С‡РёРЅР°СЏ СЃ РїРѕР·РёС†РёРё posit)
+  destructor Destroy; override; // РћСЃРІРѕР±РѕРґРёС‚СЊ Р±СѓС„РµСЂ
  private
   size,bias:integer;
   buffer:pointer;
@@ -367,7 +367,7 @@ function CheckSumSlow;
    ReallocMem(buffer,0);
   end;
 
- // Деление 128-битного числа на 32-битное с остатком
+ // Р”РµР»РµРЅРёРµ 128-Р±РёС‚РЅРѕРіРѕ С‡РёСЃР»Р° РЅР° 32-Р±РёС‚РЅРѕРµ СЃ РѕСЃС‚Р°С‚РєРѕРј
  procedure Divide128(const sour:Word128;arg:cardinal;var res:Word128;var rest:cardinal);
   var
    i:integer;
@@ -395,7 +395,7 @@ function CheckSumSlow;
   begin
    randomize;
    repeat
-    // попытка сгенерить ключи
+    // РїРѕРїС‹С‚РєР° СЃРіРµРЅРµСЂРёС‚СЊ РєР»СЋС‡Рё
     divcnt:=0;
     fillchar(n,sizeof(n),0);
     for i:=0 to 3 do begin
@@ -403,11 +403,11 @@ function CheckSumSlow;
      n[3]:=n[3] or (Random(256) shl (i*8));
     end;
     n[0]:=1; m:=1;
-    // Теперь будем раскладывать на множители
+    // РўРµРїРµСЂСЊ Р±СѓРґРµРј СЂР°СЃРєР»Р°РґС‹РІР°С‚СЊ РЅР° РјРЅРѕР¶РёС‚РµР»Рё
     d:=3;
     repeat
      Divide128(n,d,n1,r);
-     if r=0 then begin // Найден множитель
+     if r=0 then begin // РќР°Р№РґРµРЅ РјРЅРѕР¶РёС‚РµР»СЊ
       m:=m*d; n:=n1; inc(divcnt); dividers[divcnt]:=d;
      end else begin
       inc(d,2);

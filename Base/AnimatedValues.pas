@@ -1,4 +1,4 @@
-// Object for a numeric value with smooth animation over time
+п»ї// Object for a numeric value with smooth animation over time
 //
 // Copyright (C) 2018 Apus Software
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
@@ -7,47 +7,47 @@ interface
   uses MyServis;
 
   type
-    // Одиночная анимация значения
+    // РћРґРёРЅРѕС‡РЅР°СЏ Р°РЅРёРјР°С†РёСЏ Р·РЅР°С‡РµРЅРёСЏ
     TSingleAnimation=record
       startTime,endTime:int64;
       value1,value2:single;
       spline:TSplineFunc;
     end;
 
-    // Произвольная анимация значения
+    // РџСЂРѕРёР·РІРѕР»СЊРЅР°СЏ Р°РЅРёРјР°С†РёСЏ Р·РЅР°С‡РµРЅРёСЏ
     PAnimatedValue=^TAnimatedValue;
     TAnimatedValue=object
-      logName:string; // Если строка не пустая - все операции будут логироваться
+      logName:string; // Р•СЃР»Рё СЃС‚СЂРѕРєР° РЅРµ РїСѓСЃС‚Р°СЏ - РІСЃРµ РѕРїРµСЂР°С†РёРё Р±СѓРґСѓС‚ Р»РѕРіРёСЂРѕРІР°С‚СЊСЃСЏ
       constructor Init(initValue:single=0);
-      // Init object with given value (НЕ ДЛЯ ПРИСВАИВАНИЯ!)
+      // Init object with given value (РќР• Р”Р›РЇ РџР РРЎР’РђРР’РђРќРРЇ!)
       constructor Clone(var v:TAnimatedValue); // Init object by copying another object
       constructor Assign(initValue:single);
-      // Моментальное присваивание нового значения (эквивалентно Animate с duration=0)
+      // РњРѕРјРµРЅС‚Р°Р»СЊРЅРѕРµ РїСЂРёСЃРІР°РёРІР°РЅРёРµ РЅРѕРІРѕРіРѕ Р·РЅР°С‡РµРЅРёСЏ (СЌРєРІРёРІР°Р»РµРЅС‚РЅРѕ Animate СЃ duration=0)
       procedure Free; // no need to call this if value is not animating now
-      // Начать новую анимацию: к указанному значению в течение указанного времени
-      // Если текущая анимация приводит к тому же значению - новая не создаётся
-      // Если конечное значение совпадает с начальным - анимация не создаётся
+      // РќР°С‡Р°С‚СЊ РЅРѕРІСѓСЋ Р°РЅРёРјР°С†РёСЋ: Рє СѓРєР°Р·Р°РЅРЅРѕРјСѓ Р·РЅР°С‡РµРЅРёСЋ РІ С‚РµС‡РµРЅРёРµ СѓРєР°Р·Р°РЅРЅРѕРіРѕ РІСЂРµРјРµРЅРё
+      // Р•СЃР»Рё С‚РµРєСѓС‰Р°СЏ Р°РЅРёРјР°С†РёСЏ РїСЂРёРІРѕРґРёС‚ Рє С‚РѕРјСѓ Р¶Рµ Р·РЅР°С‡РµРЅРёСЋ - РЅРѕРІР°СЏ РЅРµ СЃРѕР·РґР°С‘С‚СЃСЏ
+      // Р•СЃР»Рё РєРѕРЅРµС‡РЅРѕРµ Р·РЅР°С‡РµРЅРёРµ СЃРѕРІРїР°РґР°РµС‚ СЃ РЅР°С‡Р°Р»СЊРЅС‹Рј - Р°РЅРёРјР°С†РёСЏ РЅРµ СЃРѕР·РґР°С‘С‚СЃСЏ
       procedure Animate(newValue:single; duration:cardinal; spline:TSplineFunc;
         delay:integer=0);
-      // То же самое, что animate, но сработает только если finalvalue<>newValue
+      // РўРѕ Р¶Рµ СЃР°РјРѕРµ, С‡С‚Рѕ animate, РЅРѕ СЃСЂР°Р±РѕС‚Р°РµС‚ С‚РѕР»СЊРєРѕ РµСЃР»Рё finalvalue<>newValue
       procedure AnimateIf(newValue:single; duration:cardinal; spline:TSplineFunc;
         delay:integer=0);
-      // Возвращает значение анимируемой величины в текущий момент времени
+      // Р’РѕР·РІСЂР°С‰Р°РµС‚ Р·РЅР°С‡РµРЅРёРµ Р°РЅРёРјРёСЂСѓРµРјРѕР№ РІРµР»РёС‡РёРЅС‹ РІ С‚РµРєСѓС‰РёР№ РјРѕРјРµРЅС‚ РІСЂРµРјРµРЅРё
       function Value:single;
       function IntValue:integer; inline;
-      // Возвращает значение величины в указанный момент (0 - текущий момент)
+      // Р’РѕР·РІСЂР°С‰Р°РµС‚ Р·РЅР°С‡РµРЅРёРµ РІРµР»РёС‡РёРЅС‹ РІ СѓРєР°Р·Р°РЅРЅС‹Р№ РјРѕРјРµРЅС‚ (0 - С‚РµРєСѓС‰РёР№ РјРѕРјРµРЅС‚)
       function ValueAt(time:int64):single;
       function FinalValue:single; // What the value will be when animation finished?
       function IsAnimating:boolean; // Is value animating now?
-      // Производная (скорость изменения) в текущий (указанный) момент времени
-      // Если анимации нет - то 0
+      // РџСЂРѕРёР·РІРѕРґРЅР°СЏ (СЃРєРѕСЂРѕСЃС‚СЊ РёР·РјРµРЅРµРЅРёСЏ) РІ С‚РµРєСѓС‰РёР№ (СѓРєР°Р·Р°РЅРЅС‹Р№) РјРѕРјРµРЅС‚ РІСЂРµРјРµРЅРё
+      // Р•СЃР»Рё Р°РЅРёРјР°С†РёРё РЅРµС‚ - С‚Рѕ 0
       function Derivative:double;
       function DerivativeAt(time:int64):double;
     private
       lock:integer;
       initialValue:single;
       animations: array of TSingleAnimation;
-      // Запоминает последние значения чтобы не вычислять повторно
+      // Р—Р°РїРѕРјРёРЅР°РµС‚ РїРѕСЃР»РµРґРЅРёРµ Р·РЅР°С‡РµРЅРёСЏ С‡С‚РѕР±С‹ РЅРµ РІС‹С‡РёСЃР»СЏС‚СЊ РїРѕРІС‚РѕСЂРЅРѕ
       lastValue:single;
       lastTime:cardinal;
       function InternalValueAt(time:int64):single; // No lock!
@@ -168,7 +168,7 @@ implementation
       else t:=time;
 
       if (t>=animations[i].endTime) then
-        if time=0 then begin // все анимации уже в прошлом
+        if time=0 then begin // РІСЃРµ Р°РЅРёРјР°С†РёРё СѓР¶Рµ РІ РїСЂРѕС€Р»РѕРј
             initialValue:=animations[i].value2;
             if logName<>'' then
                 LogMessage(IntToStr(MyTickCount mod 1000)+'>'+
@@ -186,7 +186,7 @@ implementation
           result:=lastValue;
           exit;
         end;
-      // Вычисление значения из текущих анимаций
+      // Р’С‹С‡РёСЃР»РµРЅРёРµ Р·РЅР°С‡РµРЅРёСЏ РёР· С‚РµРєСѓС‰РёС… Р°РЅРёРјР°С†РёР№
       for i:=0 to length(animations)-1 do
         with animations[i] do begin
             if t>=endTime then v:=value2
@@ -200,7 +200,7 @@ implementation
             if (i>0) and (animations[i-1].endTime>startTime) and (t<animations[i-1].endTime) then begin
                 r:=animations[i-1].endTime;
                 if endTime<r then r:=endTime;
-                if (r-animations[i-1].startTime)<>0 then // почему так?
+                if (r-animations[i-1].startTime)<>0 then // РїРѕС‡РµРјСѓ С‚Р°Рє?
                     k:=(startTime-animations[i-1].startTime)/(r-animations[i-1].startTime)
                 else k:=0;
                 if k>1 then k:=1;
@@ -281,7 +281,7 @@ implementation
             if delay=0 then v:=InternalValueAt(0)
           else
               v:=InternalValueAt(t);
-          // особый случай - анимация после начала других анимаций, т.е. не с текущего значения
+          // РѕСЃРѕР±С‹Р№ СЃР»СѓС‡Р°Р№ - Р°РЅРёРјР°С†РёСЏ РїРѕСЃР»Рµ РЅР°С‡Р°Р»Р° РґСЂСѓРіРёС… Р°РЅРёРјР°С†РёР№, С‚.Рµ. РЅРµ СЃ С‚РµРєСѓС‰РµРіРѕ Р·РЅР°С‡РµРЅРёСЏ
 
           SetLength(animations,n+1);
           animations[n].startTime:=t;

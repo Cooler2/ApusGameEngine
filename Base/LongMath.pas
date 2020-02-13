@@ -1,4 +1,4 @@
-// -----------------------------------------------------
+п»ї// -----------------------------------------------------
 // Long-integer math
 // Author: Ivan Polyacov (C) 2007-2008, Apus Software
 // Mail me: ivan@games4win.com or cooler@tut.by
@@ -37,7 +37,7 @@ type
  function bPowMod(a,b,m:TBigInt):TBigInt; // a^b mod m
  function bPowMod2(a,b,m:TBigInt2):TBigInt2; // a^b mod m
 
- function bLastBit(a:TBigInt):integer; inline; // кол-во значащих битов
+ function bLastBit(a:TBigInt):integer; inline; // РєРѕР»-РІРѕ Р·РЅР°С‡Р°С‰РёС… Р±РёС‚РѕРІ
  function bLastBit2(a:TBigInt2):integer; inline;
  function IsZero(v:TBigInt):boolean; inline;
  function IsZero2(v:TBigInt2):boolean; inline;
@@ -566,7 +566,7 @@ implementation
   begin
    neg:=false;
    if (a[7] and $80000000>0) or (b[7] and $80000000>0) then begin
-    // умножение со знаком
+    // СѓРјРЅРѕР¶РµРЅРёРµ СЃРѕ Р·РЅР°РєРѕРј
     neg:=(a[7] and $80000000>0) xor (b[7] and $80000000>0);
     if a[7] and $80000000>0 then bNeg(a);
     if b[7] and $80000000>0 then bNeg(b);
@@ -638,14 +638,14 @@ implementation
   begin
    neg:=false;
    if (a[15] and $80000000>0) or (b[15] and $80000000>0) then begin
-    // умножение со знаком
+    // СѓРјРЅРѕР¶РµРЅРёРµ СЃРѕ Р·РЅР°РєРѕРј
     neg:=(a[15] and $80000000>0) xor (b[15] and $80000000>0);
     if a[15] and $80000000>0 then bNeg2(a);
     if b[15] and $80000000>0 then bNeg2(b);
    end;
    fillchar(result,sizeof(result),0);
    for i:=0 to 7 do begin
-    // умножить a на a[i] и прибавить к результату
+    // СѓРјРЅРѕР¶РёС‚СЊ a РЅР° a[i] Рё РїСЂРёР±Р°РІРёС‚СЊ Рє СЂРµР·СѓР»СЊС‚Р°С‚Сѓ
     v:=0;
     fillchar(c,sizeof(c),0);
     for j:=0 to 7 do begin
@@ -862,7 +862,7 @@ implementation
   begin
    fillchar(res,sizeof(res),0);
    for i:=0 to 7 do begin
-    // умножить a на a[i] и прибавить к результату
+    // СѓРјРЅРѕР¶РёС‚СЊ a РЅР° a[i] Рё РїСЂРёР±Р°РІРёС‚СЊ Рє СЂРµР·СѓР»СЊС‚Р°С‚Сѓ
     v:=0;
     fillchar(r,sizeof(r),0);
     for j:=0 to 7 do begin
@@ -876,7 +876,7 @@ implementation
   end;
 
 
- // Это в 13 раз быстрее, чем bMult(a,a)
+ // Р­С‚Рѕ РІ 13 СЂР°Р· Р±С‹СЃС‚СЂРµРµ, С‡РµРј bMult(a,a)
  procedure bSqrOld(var a:TBigInt);
   var
    aa,ab,ac,ad,bb,bc,bd,cc,cd,dd,v:int64;
@@ -945,7 +945,7 @@ implementation
    bAdd(a,b);
   end;
 
- // деление цифрами по 16 бит
+ // РґРµР»РµРЅРёРµ С†РёС„СЂР°РјРё РїРѕ 16 Р±РёС‚
  procedure bDiv(a,m:TBigInt;var r,k:TBigInt); // r=a/m, k=a mod m
   type
    TBigInt2=array[0..15] of word;
@@ -968,7 +968,7 @@ implementation
    while (t>=0) and (m2[t]=0) do dec(t);
    s:=l-t;
    n:=m;
-   if s>0 then // Сдвиг на s слов влево
+   if s>0 then // РЎРґРІРёРі РЅР° s СЃР»РѕРІ РІР»РµРІРѕ
     for i:=15 downto 0 do
      if i>=s then n2[i]:=n2[i-s] else n2[i]:=0;
 
@@ -979,8 +979,8 @@ implementation
    for i:=s downto 0 do begin
     v:=v shl 16+a2[l];
 //    if bCmp(a,n)>=0 then begin
-     // цифра ненулевая, нужно её угадать
-     if t=0 then d:=v div u // тривиальный случай
+     // С†РёС„СЂР° РЅРµРЅСѓР»РµРІР°СЏ, РЅСѓР¶РЅРѕ РµС‘ СѓРіР°РґР°С‚СЊ
+     if t=0 then d:=v div u // С‚СЂРёРІРёР°Р»СЊРЅС‹Р№ СЃР»СѓС‡Р°Р№
      else
       if l>0 then d:=(v shl 16+a2[l-1]) div u
        else d:=0;
@@ -988,7 +988,7 @@ implementation
      r2[i]:=d;
 
      if d<>0 then begin
-     // Умножение на d
+     // РЈРјРЅРѕР¶РµРЅРёРµ РЅР° d
      w:=int64(n[0])*d;
      nd[0]:=w;
      for j:=1 to 7 do begin
@@ -997,7 +997,7 @@ implementation
       nd[j]:=w;
      end;
 
-{     if bCmp(a,nd)<0 then begin // Ошибочка вышла (довольно редко, кстати)
+{     if bCmp(a,nd)<0 then begin // РћС€РёР±РѕС‡РєР° РІС‹С€Р»Р° (РґРѕРІРѕР»СЊРЅРѕ СЂРµРґРєРѕ, РєСЃС‚Р°С‚Рё)
       dec(d);
       r2[i]:=d;
       bSub(nd,n);
@@ -1040,7 +1040,7 @@ implementation
    while (t>=0) and (m2[t]=0) do dec(t);
    s:=l-t;
    n:=m;
-   if s>0 then // Сдвиг на s слов влево
+   if s>0 then // РЎРґРІРёРі РЅР° s СЃР»РѕРІ РІР»РµРІРѕ
     for i:=31 downto 0 do
      if i>=s then n2[i]:=n2[i-s] else n2[i]:=0;
 
@@ -1051,8 +1051,8 @@ implementation
    for i:=s downto 0 do begin
     v:=v shl 16+a2[l];
 //    if bCmp(a,n)>=0 then begin
-     // цифра ненулевая, нужно её угадать
-     if t=0 then d:=v div u // тривиальный случай
+     // С†РёС„СЂР° РЅРµРЅСѓР»РµРІР°СЏ, РЅСѓР¶РЅРѕ РµС‘ СѓРіР°РґР°С‚СЊ
+     if t=0 then d:=v div u // С‚СЂРёРІРёР°Р»СЊРЅС‹Р№ СЃР»СѓС‡Р°Р№
      else
       if l>0 then d:=(v shl 16+a2[l-1]) div u
        else d:=0;
@@ -1060,7 +1060,7 @@ implementation
      r2[i]:=d;
 
      if d<>0 then begin
-     // Умножение на d
+     // РЈРјРЅРѕР¶РµРЅРёРµ РЅР° d
      w:=int64(n[0])*d;
      nd[0]:=w;
      for j:=1 to 15 do begin
@@ -1069,7 +1069,7 @@ implementation
       nd[j]:=w;
      end;
 
-{     if bCmp(a,nd)<0 then begin // Ошибочка вышла (довольно редко, кстати)
+{     if bCmp(a,nd)<0 then begin // РћС€РёР±РѕС‡РєР° РІС‹С€Р»Р° (РґРѕРІРѕР»СЊРЅРѕ СЂРµРґРєРѕ, РєСЃС‚Р°С‚Рё)
       dec(d);
       r2[i]:=d;
       bSub(nd,n);

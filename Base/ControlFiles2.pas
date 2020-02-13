@@ -1,4 +1,4 @@
-// Author: Ivan Polyacov (ivan@games4win.com)
+п»ї// Author: Ivan Polyacov (ivan@games4win.com)
 // Copyright (C) Apus Software, 2002-2003, All rights reserved. www.apus-software.com
 {
  There are 2 interfaces there: procedural and class-based. First does not
@@ -109,7 +109,7 @@ implementation
  uses CrossPlatform,MyServis,classes,SysUtils,StrUtils,structs,crypto;
 
 type
- // комментарий
+ // РєРѕРјРјРµРЅС‚Р°СЂРёР№
  TCommentLine=class
   line:AnsiString;
  end;
@@ -120,7 +120,7 @@ type
   destructor Destroy; override;
  end;
 
- // Базовый класс для именованых элементов
+ // Р‘Р°Р·РѕРІС‹Р№ РєР»Р°СЃСЃ РґР»СЏ РёРјРµРЅРѕРІР°РЅС‹С… СЌР»РµРјРµРЅС‚РѕРІ
  TNamedValue=class
   name:AnsiString; // item's name
   fullname:string; // full item name (including path), uppercase (for hash)
@@ -217,20 +217,20 @@ const
  itStrList  = 14;
 
 var
- // Все загруженные данные хранятся в одном дереве
- // Элементы 1-го уровня - файлы
+ // Р’СЃРµ Р·Р°РіСЂСѓР¶РµРЅРЅС‹Рµ РґР°РЅРЅС‹Рµ С…СЂР°РЅСЏС‚СЃСЏ РІ РѕРґРЅРѕРј РґРµСЂРµРІРµ
+ // Р­Р»РµРјРµРЅС‚С‹ 1-РіРѕ СѓСЂРѕРІРЅСЏ - С„Р°Р№Р»С‹
  items:TGenericTree;
- // Хэш для быстрого доступа к именованным элементам дерева (кроме файлов)
+ // РҐСЌС€ РґР»СЏ Р±С‹СЃС‚СЂРѕРіРѕ РґРѕСЃС‚СѓРїР° Рє РёРјРµРЅРѕРІР°РЅРЅС‹Рј СЌР»РµРјРµРЅС‚Р°Рј РґРµСЂРµРІР° (РєСЂРѕРјРµ С„Р°Р№Р»РѕРІ)
  hash:TStrHash;
  lasthandle:integer=0;
 
- critSect:TMyCriticalSection; // синхронизация для многопоточного доступа
+ critSect:TMyCriticalSection; // СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ РґР»СЏ РјРЅРѕРіРѕРїРѕС‚РѕС‡РЅРѕРіРѕ РґРѕСЃС‚СѓРїР°
 
 //----------------- Copypasted from QStrings.pas since it can't be compiled by FPC
 type
   PLong = ^LongWord;
 
-{ Функции для работы с символьной записью чисел. }
+{ Р¤СѓРЅРєС†РёРё РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ СЃРёРјРІРѕР»СЊРЅРѕР№ Р·Р°РїРёСЃСЊСЋ С‡РёСЃРµР». }
 function Q_StrToInt64(const S: AnsiString; var V: Int64): Boolean;
 type
   PArr64 = ^TArr64;
@@ -439,10 +439,10 @@ constructor TNamedValue.Create;
 begin
 end;
 
-// Удаление именованного эл-та
+// РЈРґР°Р»РµРЅРёРµ РёРјРµРЅРѕРІР°РЅРЅРѕРіРѕ СЌР»-С‚Р°
 destructor TNamedValue.Destroy;
 begin
- // Попаытаемся удалить из хэша:
+ // РџРѕРїР°С‹С‚Р°РµРјСЃСЏ СѓРґР°Р»РёС‚СЊ РёР· С…СЌС€Р°:
  hash.Remove(fullname);
  inherited;
 end;
@@ -634,7 +634,7 @@ function UseControlFile;
   i:integer;             
   ctl:TCtlFile;
 
- // Загрузить указанный файл, вернуть его handle
+ // Р—Р°РіСЂСѓР·РёС‚СЊ СѓРєР°Р·Р°РЅРЅС‹Р№ С„Р°Р№Р», РІРµСЂРЅСѓС‚СЊ РµРіРѕ handle
  function Load(filename:AnsiString;code:cardinal):integer;
   var
    f:file;
@@ -643,12 +643,12 @@ function UseControlFile;
    i:integer;
    mode:TFileMode;
 
-  // Загрузить файл текстового формата в указанный объект
+  // Р—Р°РіСЂСѓР·РёС‚СЊ С„Р°Р№Р» С‚РµРєСЃС‚РѕРІРѕРіРѕ С„РѕСЂРјР°С‚Р° РІ СѓРєР°Р·Р°РЅРЅС‹Р№ РѕР±СЉРµРєС‚
   procedure LoadTextual(filename:AnsiString;item:TGenericTree);
    var
     f:TextFile;
 
-   // Загрузить секцию в указанный объект, path - путь объекта (без слэша в конце)
+   // Р—Р°РіСЂСѓР·РёС‚СЊ СЃРµРєС†РёСЋ РІ СѓРєР°Р·Р°РЅРЅС‹Р№ РѕР±СЉРµРєС‚, path - РїСѓС‚СЊ РѕР±СЉРµРєС‚Р° (Р±РµР· СЃР»СЌС€Р° РІ РєРѕРЅС†Рµ)
    procedure LoadSection(var f:TextFile;item:TGenericTree;path:AnsiString);
     var
      st,arg,uArg,st2:AnsiString;
@@ -661,7 +661,7 @@ function UseControlFile;
 
     begin
      ln:=0;
-     // Последовательно обрабатываем все строки файла
+     // РџРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕ РѕР±СЂР°Р±Р°С‚С‹РІР°РµРј РІСЃРµ СЃС‚СЂРѕРєРё С„Р°Р№Р»Р°
      while not eof(f) do begin
       inc(ln);
       readln(f,st);
@@ -673,7 +673,7 @@ function UseControlFile;
        item.AddChild(comment);
        continue;
       end;
-      // Разделим команду и аргумент
+      // Р Р°Р·РґРµР»РёРј РєРѕРјР°РЅРґСѓ Рё Р°СЂРіСѓРјРµРЅС‚
       arg:='';
       for i:=1 to length(st) do
        if st[i] in [' ',#9] then begin
@@ -682,10 +682,10 @@ function UseControlFile;
         break;
        end;
 
-      // Директива
+      // Р”РёСЂРµРєС‚РёРІР°
       if st[1]='$' then begin
        // End of section
-       if UpperCase(st)='$ENDOFSECTION' then break; // конец секции
+       if UpperCase(st)='$ENDOFSECTION' then break; // РєРѕРЅРµС† СЃРµРєС†РёРё
        // Section
        if UpperCase(LeftStr(st,8))='$SECTION' then begin
         sect:=TSection.Create;
@@ -714,7 +714,7 @@ function UseControlFile;
        end;
       end;
 
-      // Иначе - данные, нужно проверить тип
+      // РРЅР°С‡Рµ - РґР°РЅРЅС‹Рµ, РЅСѓР¶РЅРѕ РїСЂРѕРІРµСЂРёС‚СЊ С‚РёРї
       SetDecimalSeparator('.');
       uArg:=UpperCase(arg);
       if (uArg='ON') or (uArg='OFF') or (uArg='YES') or (uArg='NO') then begin
@@ -761,7 +761,7 @@ function UseControlFile;
        end;
       end;
 
-      // Добавим элемент в структуры
+      // Р”РѕР±Р°РІРёРј СЌР»РµРјРµРЅС‚ РІ СЃС‚СЂСѓРєС‚СѓСЂС‹
       value.name:=st;
       value.fullname:=path+'\'+uppercase(st);
       i:=item.AddChild(value);
@@ -770,7 +770,7 @@ function UseControlFile;
     end;
 
    begin // LoadTextual
-    // Открыть файл и загрузить его как секцию
+    // РћС‚РєСЂС‹С‚СЊ С„Р°Р№Р» Рё Р·Р°РіСЂСѓР·РёС‚СЊ РµРіРѕ РєР°Рє СЃРµРєС†РёСЋ
     assignfile(f,filename);
     reset(f);
     LoadSection(f,item,UpperCase(ExtractFileName(filename))+':');
@@ -787,7 +787,7 @@ function UseControlFile;
     c:cardinal;
     size:integer;
 
-   // Прочитать содержимое секции из двоичного файла
+   // РџСЂРѕС‡РёС‚Р°С‚СЊ СЃРѕРґРµСЂР¶РёРјРѕРµ СЃРµРєС†РёРё РёР· РґРІРѕРёС‡РЅРѕРіРѕ С„Р°Р№Р»Р°
    procedure ReadSection(item:TGenericTree;path:AnsiString);
     var
      cnt,i,j,n:integer;
@@ -904,7 +904,7 @@ function UseControlFile;
 
   begin // Load
    result:=-1;
-   // Проверка формата файла
+   // РџСЂРѕРІРµСЂРєР° С„РѕСЂРјР°С‚Р° С„Р°Р№Р»Р°
    assignfile(f,filename);
    reset(f,1);
    if filesize(f)>=8 then begin
@@ -915,7 +915,7 @@ function UseControlFile;
     mode:=fmText;
    closefile(f);
 
-   // Создаем объект и добавляем его в структуры
+   // РЎРѕР·РґР°РµРј РѕР±СЉРµРєС‚ Рё РґРѕР±Р°РІР»СЏРµРј РµРіРѕ РІ СЃС‚СЂСѓРєС‚СѓСЂС‹
    ctl:=TCtlFile.Create(filename,mode);
    ctl.fname:=filename;
    ctl.name:=ExtractFileName(filename);
@@ -935,7 +935,7 @@ function UseControlFile;
 
 begin
  try
-  // Проверим, не был ли файл уже загружен ранее
+  // РџСЂРѕРІРµСЂРёРј, РЅРµ Р±С‹Р» Р»Рё С„Р°Р№Р» СѓР¶Рµ Р·Р°РіСЂСѓР¶РµРЅ СЂР°РЅРµРµ
   filename:=ExpandFileName(filename);
   for i:=0 to items.GetChildrenCount-1 do begin
    ctl:=items.GetChild(i).data;
@@ -966,7 +966,7 @@ var
   var
    f:TextFile;
 
-  // Сохранить в файл содержимое секции (с указанным отступом)
+  // РЎРѕС…СЂР°РЅРёС‚СЊ РІ С„Р°Р№Р» СЃРѕРґРµСЂР¶РёРјРѕРµ СЃРµРєС†РёРё (СЃ СѓРєР°Р·Р°РЅРЅС‹Рј РѕС‚СЃС‚СѓРїРѕРј)
   procedure SaveSection(item:TGenericTree;indent:integer);
    var
     i,j:integer;
@@ -984,7 +984,7 @@ var
       writeln(f,pad,(o as TCommentLine).line);
       continue;
      end;
-     // Директивы
+     // Р”РёСЂРµРєС‚РёРІС‹
      if o is TInclude then begin
       writeln(f,pad,'$Include ',(o as TInclude).include);
       SaveControlFile((o as TInclude).handle);
@@ -997,7 +997,7 @@ var
       continue;
      end;
      // Format AnsiString for named value
-     // Все прочие варианты должны быть обработаны выше!
+     // Р’СЃРµ РїСЂРѕС‡РёРµ РІР°СЂРёР°РЅС‚С‹ РґРѕР»Р¶РЅС‹ Р±С‹С‚СЊ РѕР±СЂР°Р±РѕС‚Р°РЅС‹ РІС‹С€Рµ!
      if o is TNamedValue then begin
       st:=pad+(o as TNamedValue).name+'    ';
       while length(st) mod 8<>0 do st:=st+' ';
@@ -1024,7 +1024,7 @@ var
      // Save AnsiString value
      if o is TStringValue then begin
       //st:=st+QuoteStr((o as TStringValue).value);
-      // Принудительное заключение в кавычки чтобы избежать конфликта с числами
+      // РџСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕРµ Р·Р°РєР»СЋС‡РµРЅРёРµ РІ РєР°РІС‹С‡РєРё С‡С‚РѕР±С‹ РёР·Р±РµР¶Р°С‚СЊ РєРѕРЅС„Р»РёРєС‚Р° СЃ С‡РёСЃР»Р°РјРё
       st:=st+'"'+(o as TStringValue).value+'"';
       writeln(f,st);
       continue;
@@ -1045,7 +1045,7 @@ var
         st:=pad;
        end;
       end;
-      // если осталась незаписанная строка
+      // РµСЃР»Рё РѕСЃС‚Р°Р»Р°СЃСЊ РЅРµР·Р°РїРёСЃР°РЅРЅР°СЏ СЃС‚СЂРѕРєР°
       if (length(st)<=75) and (st<>pad) then writeln(f,st);
       continue;
      end;
@@ -1098,7 +1098,7 @@ var
        WriteString((o as TCommentLine).line);
        continue;
       end;
-      // Директивы
+      // Р”РёСЂРµРєС‚РёРІС‹
       if o is TInclude then begin
        b:=itInclude;
        ms.Write(b,1);
@@ -1459,7 +1459,7 @@ procedure ctlCreateSection(key:AnsiString);
   fname:=copy(key,1,pos(':',key)-1); // filename part of path
   delete(key,1,pos(':',key)+1);
   key:=key+'\';
-  // Нужно найти файл в котором нужно создать секцию
+  // РќСѓР¶РЅРѕ РЅР°Р№С‚Рё С„Р°Р№Р» РІ РєРѕС‚РѕСЂРѕРј РЅСѓР¶РЅРѕ СЃРѕР·РґР°С‚СЊ СЃРµРєС†РёСЋ
   item:=nil;
   for i:=0 to items.GetChildrenCount-1 do begin
    f:=items.GetChild(i).data;
@@ -1497,7 +1497,7 @@ procedure ctlCreateSection(key:AnsiString);
   finally critSect.Leave; end;
  end;
 
-// Создает элемент заданного типа, возвращает объект (но не лист дерева!)
+// РЎРѕР·РґР°РµС‚ СЌР»РµРјРµРЅС‚ Р·Р°РґР°РЅРЅРѕРіРѕ С‚РёРїР°, РІРѕР·РІСЂР°С‰Р°РµС‚ РѕР±СЉРµРєС‚ (РЅРѕ РЅРµ Р»РёСЃС‚ РґРµСЂРµРІР°!)
 function CreateKey(key:AnsiString;KeyType:TNamedValueClass):TObject;
  var
   i,n:integer;
@@ -1817,7 +1817,7 @@ initialization
  InitCritSect(critSect,'CtlFiles2',300);
 
 finalization
-// Удалять свои объекты не стоит - толку никакого, программа все-равно завершает работу
-// а вот на баги нарываться не хочется...
+// РЈРґР°Р»СЏС‚СЊ СЃРІРѕРё РѕР±СЉРµРєС‚С‹ РЅРµ СЃС‚РѕРёС‚ - С‚РѕР»РєСѓ РЅРёРєР°РєРѕРіРѕ, РїСЂРѕРіСЂР°РјРјР° РІСЃРµ-СЂР°РІРЅРѕ Р·Р°РІРµСЂС€Р°РµС‚ СЂР°Р±РѕС‚Сѓ
+// Р° РІРѕС‚ РЅР° Р±Р°РіРё РЅР°СЂС‹РІР°С‚СЊСЃСЏ РЅРµ С…РѕС‡РµС‚СЃСЏ...
  DeleteCritSect(critSect);
 end.

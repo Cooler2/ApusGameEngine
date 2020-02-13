@@ -1,5 +1,6 @@
-// Huffman compression
-unit myHuffman;
+﻿// Huffman compression - under construction!
+//
+unit MyHuffman;
 interface
 uses MyServis;
 

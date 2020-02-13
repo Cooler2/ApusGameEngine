@@ -1,9 +1,9 @@
-// -----------------------------------------------------
+ï»¿// -----------------------------------------------------
 // 2D geometry common high-precision functions
 // Author: Ivan Polyacov (C) 2002, Apus Software
 // Mail me: ivan@games4win.com or cooler@tut.by
 // ------------------------------------------------------
-unit geom2d;
+unit Geom2d;
 
 interface
  uses Types;
@@ -138,10 +138,10 @@ interface
  function Bezier2D(var p0,p1,p2,p3:TPoint2;t:double):TPoint2;
 
  // Integer operations
- // âçàèìíîå ðàñïîëîæåíèå ïð-êîâ: 0 - íå ïåðåñåêàþòñÿ, 1 - r1 âíóòðè r2, 2 - r2 âíóòðè r1, 4 - ïåðåñåêàþòñÿ
- // òîëüêî äëÿ óïîðÿäî÷åííûõ ïð-êîâ!
+ // Ð²Ð·Ð°Ð¸Ð¼Ð½Ð¾Ðµ Ñ€Ð°ÑÐ¿Ð¾Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð¿Ñ€-ÐºÐ¾Ð²: 0 - Ð½Ðµ Ð¿ÐµÑ€ÐµÑÐµÐºÐ°ÑŽÑ‚ÑÑ, 1 - r1 Ð²Ð½ÑƒÑ‚Ñ€Ð¸ r2, 2 - r2 Ð²Ð½ÑƒÑ‚Ñ€Ð¸ r1, 4 - Ð¿ÐµÑ€ÐµÑÐµÐºÐ°ÑŽÑ‚ÑÑ
+ // Ñ‚Ð¾Ð»ÑŒÐºÐ¾ Ð´Ð»Ñ ÑƒÐ¿Ð¾Ñ€ÑÐ´Ð¾Ñ‡ÐµÐ½Ð½Ñ‹Ñ… Ð¿Ñ€-ÐºÐ¾Ð²!
  function IntersectRects(r1,r2:TRect;out r:TRect):integer;
- procedure OrderRect(var r:TRect); // óïîðÿäî÷èòü ê-òû ïî âîçðàñòàíèþ
+ procedure OrderRect(var r:TRect); // ÑƒÐ¿Ð¾Ñ€ÑÐ´Ð¾Ñ‡Ð¸Ñ‚ÑŒ Ðº-Ñ‚Ñ‹ Ð¿Ð¾ Ð²Ð¾Ð·Ñ€Ð°ÑÑ‚Ð°Ð½Ð¸ÑŽ
 
  procedure ToSingle32(sour:TMatrix32;out dest:TMatrix32s);
 
@@ -156,10 +156,10 @@ interface
 
  procedure MultPnts(m:TMatrix32s;v:Ppoint2s;num,step:integer);
 
- // Òðàíñïîíèðîâàíèå (äëÿ îðòîíîðìèðîâàííîé ìàòðèöû - ýòî áóäò îáðàòíàÿ)
+ // Ð¢Ñ€Ð°Ð½ÑÐ¿Ð¾Ð½Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð¸Ðµ (Ð´Ð»Ñ Ð¾Ñ€Ñ‚Ð¾Ð½Ð¾Ñ€Ð¼Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð½Ð¾Ð¹ Ð¼Ð°Ñ‚Ñ€Ð¸Ñ†Ñ‹ - ÑÑ‚Ð¾ Ð±ÑƒÐ´Ñ‚ Ð¾Ð±Ñ€Ð°Ñ‚Ð½Ð°Ñ)
  procedure Transp2(m:TMatrix2;out dest:TMatrix2);
  procedure Transp(m:TMatrix32;out dest:TMatrix32);
- // Âû÷èñëåíèå îáðàòíîé ìàòðèöû
+ // Ð’Ñ‹Ñ‡Ð¸ÑÐ»ÐµÐ½Ð¸Ðµ Ð¾Ð±Ñ€Ð°Ñ‚Ð½Ð¾Ð¹ Ð¼Ð°Ñ‚Ñ€Ð¸Ñ†Ñ‹
  procedure Invert2(m:TMatrix2;out dest:TMatrix2);
  procedure Invert(m:TMatrix32;out dest:TMatrix32);
 
@@ -168,8 +168,8 @@ interface
  function RoundRect(const r:TRect2s):TRect;
 
  var
-  trgIndices:array of integer; // ðåçóëüòàò òðèàíãóëÿöèè
- // òðèàíãóëÿöèÿ çàìêíóòîãî ìíîãîóãîëüíèêà (ñòðîèò n-2 òðã). !!! CLOCKWISE!
+  trgIndices:array of integer; // Ñ€ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚ Ñ‚Ñ€Ð¸Ð°Ð½Ð³ÑƒÐ»ÑÑ†Ð¸Ð¸
+ // Ñ‚Ñ€Ð¸Ð°Ð½Ð³ÑƒÐ»ÑÑ†Ð¸Ñ Ð·Ð°Ð¼ÐºÐ½ÑƒÑ‚Ð¾Ð³Ð¾ Ð¼Ð½Ð¾Ð³Ð¾ÑƒÐ³Ð¾Ð»ÑŒÐ½Ð¸ÐºÐ° (ÑÑ‚Ñ€Ð¾Ð¸Ñ‚ n-2 Ñ‚Ñ€Ð³). !!! CLOCKWISE!
  procedure Triangulate(pnts:PPoint2;count:integer);
 
 implementation
@@ -585,7 +585,7 @@ implementation
    target[0,1]:=m1[0,0]*m2[0,1]+m1[0,1]*m2[1,1];
    target[1,0]:=m1[1,0]*m2[0,0]+m1[1,1]*m2[1,0];
    target[1,1]:=m1[1,0]*m2[0,1]+m1[1,1]*m2[1,1];
-   // Ñäâèãîâàÿ ÷àñòü
+   // Ð¡Ð´Ð²Ð¸Ð³Ð¾Ð²Ð°Ñ Ñ‡Ð°ÑÑ‚ÑŒ
    target[2,0]:=m2[2,0]+m1[2,0]*m2[0,0]+m1[2,1]*m2[1,0];
    target[2,1]:=m2[2,1]+m1[2,0]*m2[0,1]+m1[2,1]*m2[1,1];
   end;
@@ -603,7 +603,7 @@ implementation
    end;
   end;
 
- // Òðàíñïîíèðîâàíèå (äëÿ îðòîíîðìèðîâàííîé ìàòðèöû - ýòî áóäò îáðàòíàÿ)
+ // Ð¢Ñ€Ð°Ð½ÑÐ¿Ð¾Ð½Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð¸Ðµ (Ð´Ð»Ñ Ð¾Ñ€Ñ‚Ð¾Ð½Ð¾Ñ€Ð¼Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð½Ð¾Ð¹ Ð¼Ð°Ñ‚Ñ€Ð¸Ñ†Ñ‹ - ÑÑ‚Ð¾ Ð±ÑƒÐ´Ñ‚ Ð¾Ð±Ñ€Ð°Ñ‚Ð½Ð°Ñ)
  procedure Transp2(m:TMatrix2;out dest:TMatrix2);
   begin
    dest[0,0]:=m[0,0]; dest[1,0]:=m[0,1];
@@ -616,7 +616,7 @@ implementation
    dest[0,0]:=m[0,0]; dest[1,0]:=m[0,1]; dest[2,0]:=-DotProduct(mv[0],mv[2]);
    dest[0,1]:=m[1,0]; dest[1,1]:=m[1,1]; dest[2,1]:=-DotProduct(mv[1],mv[2]);
   end;
- // Âû÷èñëåíèå îáðàòíîé ìàòðèöû
+ // Ð’Ñ‹Ñ‡Ð¸ÑÐ»ÐµÐ½Ð¸Ðµ Ð¾Ð±Ñ€Ð°Ñ‚Ð½Ð¾Ð¹ Ð¼Ð°Ñ‚Ñ€Ð¸Ñ†Ñ‹
  procedure Invert2(m:TMatrix2;out dest:TMatrix2);
   var
    la,lb:double;
@@ -648,7 +648,7 @@ implementation
   var
    b0,b1,b2,b3:double;
   begin
-   // âðîäå êàê îïòèìèçàöèÿ
+   // Ð²Ñ€Ð¾Ð´Ðµ ÐºÐ°Ðº Ð¾Ð¿Ñ‚Ð¸Ð¼Ð¸Ð·Ð°Ñ†Ð¸Ñ
    b0:=(1-t);
    b2:=t*t;
    b3:=b2*t;    // t^3
@@ -692,7 +692,7 @@ implementation
   type
    pa=array[0..5] of TPoint2;
   var
-   next,prev:array of integer; // äëÿ êàæäîé âåðøèíû - óêàçàòåëü íà ñëåäóþùóþ
+   next,prev:array of integer; // Ð´Ð»Ñ ÐºÐ°Ð¶Ð´Ð¾Ð¹ Ð²ÐµÑ€ÑˆÐ¸Ð½Ñ‹ - ÑƒÐºÐ°Ð·Ð°Ñ‚ÐµÐ»ÑŒ Ð½Ð° ÑÐ»ÐµÐ´ÑƒÑŽÑ‰ÑƒÑŽ
    i,n,p,c,d:integer;
    v1,v2:TVector2;
    vrts:^PA;
@@ -701,7 +701,7 @@ implementation
    ASSERT(count>=3);
    setLength(trgIndices,(count-2)*3);
    if count=3 then begin
-    // òðåóãîëüíèê - íè÷åãî äåëàòü íå íóæíî
+    // Ñ‚Ñ€ÐµÑƒÐ³Ð¾Ð»ÑŒÐ½Ð¸Ðº - Ð½Ð¸Ñ‡ÐµÐ³Ð¾ Ð´ÐµÐ»Ð°Ñ‚ÑŒ Ð½Ðµ Ð½ÑƒÐ¶Ð½Ð¾
     trgIndices[0]:=0;
     trgIndices[1]:=1;
     trgIndices[2]:=2;
@@ -717,10 +717,10 @@ implementation
    n:=count;
    p:=0; c:=0;
    while n>=3 do begin
-    // ïîêà åñòü ÷òî îòñåêàòü...
+    // Ð¿Ð¾ÐºÐ° ÐµÑÑ‚ÑŒ Ñ‡Ñ‚Ð¾ Ð¾Ñ‚ÑÐµÐºÐ°Ñ‚ÑŒ...
     v1:=vrts^[prev[p]]; VectSub(v1,vrts^[p]);
     v2:=vrts^[p]; VectSub(v2,vrts^[next[p]]);
-    // Íóæíî äâà óñëîâèÿ: 1) óãîë ìåæäó âåêòîðàìè â íóæíóþ ñòîðîíó è 2) íè îäíà âåðøèíà íå ëåæèò âíóòðè îòñåêàåìîãî òð-êà.
+    // ÐÑƒÐ¶Ð½Ð¾ Ð´Ð²Ð° ÑƒÑÐ»Ð¾Ð²Ð¸Ñ: 1) ÑƒÐ³Ð¾Ð» Ð¼ÐµÐ¶Ð´Ñƒ Ð²ÐµÐºÑ‚Ð¾Ñ€Ð°Ð¼Ð¸ Ð² Ð½ÑƒÐ¶Ð½ÑƒÑŽ ÑÑ‚Ð¾Ñ€Ð¾Ð½Ñƒ Ð¸ 2) Ð½Ð¸ Ð¾Ð´Ð½Ð° Ð²ÐµÑ€ÑˆÐ¸Ð½Ð° Ð½Ðµ Ð»ÐµÐ¶Ð¸Ñ‚ Ð²Ð½ÑƒÑ‚Ñ€Ð¸ Ð¾Ñ‚ÑÐµÐºÐ°ÐµÐ¼Ð¾Ð³Ð¾ Ñ‚Ñ€-ÐºÐ°.
     fl:=crossProduct(v1,v2)>=0;
     if fl and (n>3) then begin
      d:=next[next[p]];

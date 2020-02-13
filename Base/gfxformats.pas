@@ -1,4 +1,4 @@
-// Support for common image file formats
+п»ї// Support for common image file formats
 //
 // Copyright (C) 2004 Apus Software (www.games4win.com)
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
@@ -7,7 +7,7 @@ interface
  uses MyServis,
      {$IFDEF DELPHI}graphics,{$ENDIF}
      {$IFDEF TXTIMAGES}UnicodeFont,{$ENDIF}
-     images;
+     Images;
  type
   TImageFormat=(ifUnknown,ifTGA,ifJPEG,ifPJPEG,ifBMP,ifPCX,ifTXT,ifDDS,ifPVR,ifPNG);
   TImageInfo=record
@@ -444,7 +444,7 @@ procedure LoadTGA;
   procedure HandleWord;
    begin
     if st='' then exit;
-    // обработка накопленного слова
+    // РѕР±СЂР°Р±РѕС‚РєР° РЅР°РєРѕРїР»РµРЅРЅРѕРіРѕ СЃР»РѕРІР°
     if (line=1) and (word=1) then w:=StrToInt(st);
     if (line=1) and (word=2) then h:=StrToInt(st);
     if line in [2..4] then begin
@@ -458,14 +458,14 @@ procedure LoadTGA;
    end;
   begin
    size:=length(data);
-   // парсинг текста
+   // РїР°СЂСЃРёРЅРі С‚РµРєСЃС‚Р°
    r:=255; g:=255; b:=255;
    line:=1; word:=1; c:=@data[0]; st:='';
-   mode:=1; // текст
+   mode:=1; // С‚РµРєСЃС‚
    lcnt:=0; str:='';
    for i:=1 to size+1 do begin
     if (i>size) or (c^ in [' ',#8]) then begin
-     // разделитель
+     // СЂР°Р·РґРµР»РёС‚РµР»СЊ
      mode:=2;
      if i<=size then str:=str+c^;
      HandleWord;
@@ -478,7 +478,7 @@ procedure LoadTGA;
     end else
     if c^ in [#10,#13] then begin
      HandleWord;
-     // разделитель строки
+     // СЂР°Р·РґРµР»РёС‚РµР»СЊ СЃС‚СЂРѕРєРё
      if c^=#10 then begin
       if line=1 then img:=TBitmapImage.Create(w,h);
       if line=2 then bgnd:=MyColor(r,g,b);
@@ -491,14 +491,14 @@ procedure LoadTGA;
      end;
      mode:=3;
     end else begin
-     // просто символ
+     // РїСЂРѕСЃС‚Рѕ СЃРёРјРІРѕР»
      if mode>2 then word:=0;
      if mode>1 then begin mode:=1; inc(word); end;
      st:=st+c^; str:=str+c^;
     end;
     inc(c);
    end;
-   // Начинаем рисовать
+   // РќР°С‡РёРЅР°РµРј СЂРёСЃРѕРІР°С‚СЊ
    for y:=0 to h-1 do begin
     pixel:=img.data;
     inc(pixel,y*img.pitch div 4);

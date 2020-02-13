@@ -1,4 +1,4 @@
-// Convenient interface for Regular Expressions (wrapper of RegExpr unit)
+﻿// Convenient interface for Regular Expressions (wrapper of RegExpr unit)
 // Written by Ivan Polyacov (ivan@apus-software.com), Copyright (C) 2019
 unit MyRegExpr;
 interface

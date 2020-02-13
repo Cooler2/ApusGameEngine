@@ -1,9 +1,9 @@
-// Copyright (C) Apus Software, 2014. Ivan Polyacov (ivan@apus-software.com)
+п»ї// Copyright (C) Apus Software, 2014. Ivan Polyacov (ivan@apus-software.com)
 // Wrapper for FreeType Library
 {$R-}
 unit FreeTypeFont;
 interface
- uses MyServis,structs,freetypeh;
+ uses MyServis,Structs,freetypeh;
 
 const
  FTF_NO_HINTING = FT_LOAD_NO_HINTING;
@@ -28,15 +28,15 @@ type
   // Flags -
   procedure RenderText(buf:pointer;pitch:integer;x,y:integer;st:WideString;color:cardinal;size:single;flags:cardinal=0);
   // The following functions MUST be wrapped in Lock/Unlock in multithreaded environment  
-  function Interval(ch1,ch2:WideChar;size:single):integer; // интервал между точкой начала символа ch1 и следующего за ним ch2
+  function Interval(ch1,ch2:WideChar;size:single):integer; // РёРЅС‚РµСЂРІР°Р» РјРµР¶РґСѓ С‚РѕС‡РєРѕР№ РЅР°С‡Р°Р»Р° СЃРёРјРІРѕР»Р° ch1 Рё СЃР»РµРґСѓСЋС‰РµРіРѕ Р·Р° РЅРёРј ch2
   function GetTextWidth(st:WideString;size:single):integer;
   function GetHeight(size:single):integer; // Height of characters like '0' or 'A'
-  function CharPadding(ch:WideChar;size:single):integer; // интервал в пикселях между точкой курсора и началом фактического изображения символа
+  function CharPadding(ch:WideChar;size:single):integer; // РёРЅС‚РµСЂРІР°Р» РІ РїРёРєСЃРµР»СЏС… РјРµР¶РґСѓ С‚РѕС‡РєРѕР№ РєСѓСЂСЃРѕСЂР° Рё РЅР°С‡Р°Р»РѕРј С„Р°РєС‚РёС‡РµСЃРєРѕРіРѕ РёР·РѕР±СЂР°Р¶РµРЅРёСЏ СЃРёРјРІРѕР»Р°
   // Text/Glyph rendering  (no any clipping!)
 //  procedure DrawGlyph(buf:pointer;pitch:integer;x,y:integer;
 //      glyphData:pointer;glWidth,glHeight:integer;color:cardinal);
-  // производит рендер глифа, возвращает указатель на 8-бит битмапку, заполняет её размеры и положение относительно курсора в пикселах
-  // изображение валидно до очередного вызова любой ф-ции отрисовки/рендера глифа
+  // РїСЂРѕРёР·РІРѕРґРёС‚ СЂРµРЅРґРµСЂ РіР»РёС„Р°, РІРѕР·РІСЂР°С‰Р°РµС‚ СѓРєР°Р·Р°С‚РµР»СЊ РЅР° 8-Р±РёС‚ Р±РёС‚РјР°РїРєСѓ, Р·Р°РїРѕР»РЅСЏРµС‚ РµС‘ СЂР°Р·РјРµСЂС‹ Рё РїРѕР»РѕР¶РµРЅРёРµ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ РєСѓСЂСЃРѕСЂР° РІ РїРёРєСЃРµР»Р°С…
+  // РёР·РѕР±СЂР°Р¶РµРЅРёРµ РІР°Р»РёРґРЅРѕ РґРѕ РѕС‡РµСЂРµРґРЅРѕРіРѕ РІС‹Р·РѕРІР° Р»СЋР±РѕР№ С„-С†РёРё РѕС‚СЂРёСЃРѕРІРєРё/СЂРµРЅРґРµСЂР° РіР»РёС„Р°
   function RenderGlyph(ch:WideChar;size:single;flags:integer;
      out dx,dy:integer;out width,height:integer;out pitch:integer):pointer;
   // Must be called in multithreaded environment to lock global font object!
@@ -160,7 +160,7 @@ var
 begin
  // Lookup hash
  s:=round(size*4*47);
- // Как-то не особо эффективно это по памяти - хэш весьма разрежен. Но тут надо хорошенько подумать как сделать лучше
+ // РљР°Рє-С‚Рѕ РЅРµ РѕСЃРѕР±Рѕ СЌС„С„РµРєС‚РёРІРЅРѕ СЌС‚Рѕ РїРѕ РїР°РјСЏС‚Рё - С…СЌС€ РІРµСЃСЊРјР° СЂР°Р·СЂРµР¶РµРЅ. РќРѕ С‚СѓС‚ РЅР°РґРѕ С…РѕСЂРѕС€РµРЅСЊРєРѕ РїРѕРґСѓРјР°С‚СЊ РєР°Рє СЃРґРµР»Р°С‚СЊ Р»СѓС‡С€Рµ
  h:=((word(ch1)*61)+word(ch2)+s) and $FFF;
  if (intervalHash[h].ch1=ch1) and
     (intervalHash[h].ch2=ch2) and
