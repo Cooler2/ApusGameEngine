@@ -67,21 +67,21 @@ const
 
  // Номер теста:
  testnum:integer = 15;
- // 1 - инициализация, очистка буфера разными цветами, рисование линий
- // 2 - рисование нетекстурированных примитивов
- // 3 - текстурированные примитивы, мультитекстурирование
- // 4 - мультитекстурирование
+ // 1 - initialization, basic primitives
+ // 2 - non-textured primitives
+ // 3 - textured primitives
+ // 4 - multitexturing
  // 5 - render to texture
- // 6 - вывод текста
- // 7 - отсечение
- // 8 - партиклы
- // 9 - загрузка картинок итд.
- // 10 - полоски
- // 11 - тест 3D
- // 12 - вывод текста FreeType
- // 13 - тест шейдеров OpenGL (НЕ ДЛЯ GLPAINTER2!)
- // 14 - тест видео
- // 15 - 3D model and animation
+ // 6 - text (deprecated text API, not compatible with the current "develop" branch!)
+ // 7 - clipping
+ // 8 - particles
+ // 9 - image loading
+ // 10 - band particles
+ // 11 - basic 3D test
+ // 12 - FreeType text (modern text API)
+ // 13 - OpenGL shaders (НЕ ДЛЯ GLPAINTER2!)
+ // 14 - Video
+ // 15 - 3D models with animation
 
  {
  TexVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR+D3DFVF_TEX1+D3DFVF_TEXTUREFORMAT2;
@@ -1890,23 +1890,8 @@ begin
  if HasParam('-fullscreen') then wnd:=false;
  testNum:=StrToIntDef(GetParam('test'),testNum);
 
-// sleep(20000);
-{ EncodeTime(1,2,3,0);
- FileDateToDateTime($11111111);
- FileDateToDateTime(1246734709);
- FileDateToDateTime(1246734709);}
  UseLogFile('log.txt');
  SetLogMode(lmVerbose);
-// ShowMessage('OK!','');
-
-{ GetMemoryManagerState(state);
- GetMem(p,1000);
- GetMemoryManagerState(state2);
- state.AllocatedMediumBlockCount:=1;
- state2.AllocatedMediumBlockCount:=1;}
-
-// LoadRasterFont('e:\apus\projects\AstralMasters\fonts\astral24.fnt');
-
  SetEventHandler('Error',HEvent);
  SetEventHandler('Engine',HEvent);
  SetEventHandler('Debug',HEvent);
