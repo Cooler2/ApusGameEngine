@@ -1297,6 +1297,7 @@ begin
  if pos('.fnt',fname)>0 then begin
   font:=LoadFileAsBytes(FileName(fname));
   result:=LoadFont(font,asName);
+  exit;
  end else begin
   {$IFDEF FREETYPE}
   ftf:=TFreeTypeFont.LoadFromFile(FileName(fname));
