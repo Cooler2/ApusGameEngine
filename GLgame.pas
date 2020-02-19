@@ -6,6 +6,9 @@ unit GLgame;
 interface
  uses EngineAPI,Images,engineTools,classes,myservis,BasicGame;
 
+const
+ disableDRT:boolean=false; // Don't render whole scene to texture, render directly to the backbuffer
+
 type
  TGLGame=class(TBasicGame)
   constructor Create(useShaders:boolean=false);
