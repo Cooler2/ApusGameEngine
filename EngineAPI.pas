@@ -7,18 +7,18 @@ interface
  uses Images,Geom2D,Geom3D,types,EventMan,publics;
 
 const
- // Флаги для создания изображений (ai - AllocImage)
- aiMipMapping     =  1; // Создавать уровни mipmap'ов
- aiTexture        =  2; // Выделение текстуры целиком (не допускается выделение участка совместно используемой текстуры)
- aiRenderTarget   =  4; // Разрешить возможность аппаратного рисования на этом изображении (в противном случае рисовать можно только программно)
- aiSysMem         =  8; // Создание изображения в системной памяти
- aiPow2           = 16; // размеры дополняются до степени 2
+ // Image allocation flags (ai - AllocImage)
+ aiMipMapping     =  1; // Allocate mip-map levels (may be auto-generated upon of implementation)
+ aiTexture        =  2; // Allocate full texture object of the underlying API (no texture sharing)
+ aiRenderTarget   =  4; // Image can be used as Render Target for GPU (no CPU access)
+ aiSysMem         =  8; // Image will have its buffer in system RAM, so can be accessed by CPU
+ aiPow2           = 16; // Enlarge dimensions to be PoT
 // aiWriteOnly      = 32; // Can be locked, but for write only operation
  aiDontScale      = 64; // Use exact width/height for render target allocation (otherwise they're scaled using current scale factor)
  aiClampUV        = 128; // clamp texture coordinates instead of wrapping them (for aiTexture only)
  aiUseZBuffer     = 256; // allocate Depth Buffer for this image (for aiRenderTarget only)
 
- // Metatexture dimension flags
+ // DynamicAtlas dimension flags
  aiMW256   = $010000;
  aiMW512   = $020000;
  aiMW1024  = $030000;
@@ -30,29 +30,29 @@ const
  aiMH2048  = $400000;
  aiMH4096  = $500000;
 
- // Флаги возможностей (фич) текстур
- tfCanBeLost      = 1;  // Данные на текстуре могут потеряться в любой момент
- tfDirectAccess   = 2;  // Допускает прямой доступ к данным (можно лочить)
- tfNoRead         = 4;  // Чтение данных при прямом доступе невозможно
- tfNoWrite        = 8;  // Запись данных при прямом доступе невозможна (render target?)
- tfRenderTarget   = 16; // На текстуре можно рисовать акселератором
- tfAutoMipMap     = 32; // Уровни MIPMAP заполняются автоматически
- tfNoLock         = 64; // Вызывать lock не нужно - данные доступны в любой момент
- tfClamped        = 128; 
- tfVidmemOnly     = 256; // Может быть только в видеопамяти
- tfSysmemOnly     = 512; // Может быть только в основной памяти
- tfTexture        = 1024; // Только текстура целиком
+ // Texture features flags
+ tfCanBeLost      = 1;   // Texture data can be lost at any moment
+ tfDirectAccess   = 2;   // CPU access allowed, texture can be locked
+ tfNoRead         = 4;   // Reading of texture data is not allowed
+ tfNoWrite        = 8;   // Writing to texture data is not allowed
+ tfRenderTarget   = 16;  // Can be used as a target for GPU rendering
+ tfAutoMipMap     = 32;  // MIPMAPs are generated automatically, don't need to fill manually
+ tfNoLock         = 64;  // No need to lock the texture to access its data
+ tfClamped        = 128; // By default texture coordinates are clamped (otherwise - not clamped)
+ tfVidmemOnly     = 256; // Texture uses only VRAM (can't be accessed by CPU)
+ tfSysmemOnly     = 512; // Texture uses only System RAM (can't be used by GPU)
+ tfTexture        = 1024; // Texture corresponds to a texture object of the underlying API
  tfScaled         = 2048; // scale factors are used
  tfCloned         = 4096; // Texture object is cloned from another, so don't free any underlying resources
 
- // Константы для поля index в рисовалке партиклов
+ // Special flags for the "index" field of particles
  partPosU  = $00000001;
  partPosV  = $00000100;
  partSizeU = $00010000;
  partSizeV = $00100000;
  partFlip  = $01000000;
- partEndpoint = $02000000; // свободный конец
- partLoop = $04000000; // конец петли
+ partEndpoint = $02000000; // free end of a polyline
+ partLoop = $04000000; // end of a polyline loop
 
  // Primitive types
  LINE_LIST = 1;
@@ -92,22 +92,21 @@ const
  foUpscaleFactor   = 2;
  foGlobalScale     = 3;
 
-{var
- windowHandle:cardinal; // главное окно }
 
 type
-
  // Which API use for rendering
- TGraphicsAPI=(gaDirectX,gaOpenGL,gaOpenGL2);
+ TGraphicsAPI=(gaDirectX,  // Currently Direct3D8
+               gaOpenGL,   // OpenGL 1.4 or higher with fixed function pipeline
+               gaOpenGL2); // OpenGL 2.0 or higher with shaders
 
  // Режим блендинга (действие, применяемое к фону)
- TBlendingMode=(blNone,   // простое копирование цвета
-                blAlpha,  // обычный альфа-блендинг
-                blAdd,    // сложение
-                blSub,    // вычитание из фона
-                blModulate,   // обычное умножение
-                blModulate2X,  // умножение с масштабированием
-                blMove     // Запись источника в приемник "как есть"
+ TBlendingMode=(blNone,   // background not modified
+                blAlpha,  // regular alpha blending
+                blAdd,    // additive mode ("Screen"
+                blSub,    // subtractive mode
+                blModulate,   // "Multiply" mode
+                blModulate2X,  // "Multiply" mode with 2x factor
+                blMove     // Direct move
                 );
  // Режим блендинга текстуры (действие, применяемое к отдельной стадии текстурирования, к альфе либо цвету отдельно)
  TTexBlendingMode=(tblNone,  // undefined (don't change current value)
@@ -117,12 +116,13 @@ type
                    tblModulate, // previous*texture
                    tblModulate2X, // previous*texture*2
                    tblAdd,     // previous+texture
-                   tblInterpolate // previous*factor+texture*(1-factor) текстурные стадии смешиваются между собой 
+                   tblInterpolate // previous*factor+texture*(1-factor) текстурные стадии смешиваются между собой
                    );
 { TTexInterpolateMode=(tintFactor, // factor=constant
                       tintDiffuse, // factor=diffuse alpha
                       tintTexture, // factor=texture alpha
                       tintCurrent); // factor=previous stage alpha}
+
  // Режим интерполяции текстур
  TTexFilter=(fltUndefined,    // filter not defined
              fltNearest,      // Без интерполяции
