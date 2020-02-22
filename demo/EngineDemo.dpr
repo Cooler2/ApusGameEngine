@@ -11,10 +11,10 @@ uses
   Types,
   {$IFDEF OPENGL}
   dglOpenGl,
-  {$ENDIF}
+  {$ENDIF }
   {$IFDEF DIRECTX}
   DirectXGraphics,
-  {$ENDIF}
+  {$ENDIF }
   eventMan,
   FastGfx,
   DirectText,
@@ -46,19 +46,18 @@ uses
   steamAPI in '..\steamAPI.pas',
   {$IFDEF DIRECTX}
   DxImages8 in '..\DxImages8.pas',
-  dxgame8 in '..\dxgame8.pas',
-  Painter8 in '..\Painter8.pas',
-  {$ENDIF}
+  {$ENDIF }
   {$IFDEF OPENGL}
   PainterGL2 in '..\PainterGL2.pas',
   GLImages in '..\GLImages.pas',
   GLgame in '..\GLgame.pas',
-  {$ENDIF}
+  {$ENDIF }
   GameApp in '..\GameApp.pas',
   Model3D in '..\Model3D.pas',
   OBJLoader in '..\OBJLoader.pas',
   SpritePacker in '..\SpritePacker.pas',
-  IQMloader in '..\IQMloader.pas';
+  IQMloader in '..\IQMloader.pas',
+  ImgLoadQueue in '..\ImgLoadQueue.pas';
 
 const
  wnd:boolean=true;
