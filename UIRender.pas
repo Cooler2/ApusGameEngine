@@ -14,23 +14,25 @@ interface
  var
   defaultBtnColor:cardinal=$FFB0A0C0;
 
- // Процедура выполняет отрисовку элемента интерфейса (включая все вложенные элементы)
- // в соответствиии с их стилями и установленными отрисовщиками
+ // Render an UI element and all its descendants
+ // Use customDraw=true to draw only elements with customDraw=true, otherwise these elements will be skipped
  procedure DrawUI(item:TUIControl;customDraw:boolean=false);
 
  procedure DrawGlobalShadow(color:cardinal);
 
- // Установить отрисовщик для заданого стиля (стиль - от 1 до 50),
+ // Set custom style drawer (style=1..50)
  // 0..9 - reserved for engine styles
  // 10..19 - for private game styles
  // 20..50 - 3-rd party libraries
  procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string='');
 
+ // Default style (0) drawer
  procedure DefaultDrawer(control:TUIControl);
 
+ // Prepare hint for drawing
  procedure BuildSimpleHint(hnt:TUIHint);
 
- // Рисует указанное изображение по размеру заданного элемента UI
+ // Fill control rect with image (helper function)
  procedure DrawControlWithImage(c:TUIControl;img:TTexture);
 
  var
@@ -46,9 +48,9 @@ implementation
  uses CrossPlatform,images,SysUtils,types,myservis,engineTools,colors,structs,EventMan,geom2d;
 
  var
-  StyleDrawers:array[0..50] of TUIDrawer;
+  styleDrawers:array[0..50] of TUIDrawer;
 
-  HintImage:TTexture;
+  hintImage:TTexture;
 
   imgHash:THash;
 
@@ -57,8 +59,6 @@ implementation
    painter.FillRect(0,0,game.renderWidth,game.renderHeight,color);
   end;  
 
- // Render an UI element and all its descendants
- // Use customDraw=true to draw only elements with customDraw=true, otherwise these elements will be skipped
  procedure DrawUI(item:TUIControl;customDraw:boolean=false);
   var
    i,j,n,cnt:integer;
@@ -141,8 +141,8 @@ implementation
 
  procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string='');
   begin
-   ASSERT(style in [1..50]);
-   StyleDrawers[style]:=drawer;
+   ASSERT(style in [1..high(styleDrawers)]);
+   styleDrawers[style]:=drawer;
    if name<>'' then LogMessage(Format('UI style registered: %d - %s',[style,name]));
   end;
 

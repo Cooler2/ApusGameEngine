@@ -11,18 +11,19 @@ interface
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
 const
- // Стандартные курсоры интерфейса 
- crDefault        =  0;  // Курсор по умолчанию
- crLink           =  1;  // Курсор над ссылками (рука)
+ // Standard cursor IDs
+ crDefault        =  0;  // Default arrow
+ crLink           =  1;  // Link-over (hand/finger)
  crWait           =  2;  // Курсор в режиме ожидания (часы)
- crInput          =  3;  // Курсор для полей ввода текста
- crHelp           =  4;  // Курсор со знаком вопроса
- crResizeH        = 10;  // Курсор для изменения высоты
- crResizeW        = 11;  // Курсор для изменения ширины
- crResizeHW       = 12;  // Курсор для произвольного изменения размера
- crCross          = 13;  // Перекрестие
- crNone           = 99;
+ crInput          =  3;  // Text input cursor (beam)
+ crHelp           =  4;  // Arrow with question mark
+ crResizeH        = 10;  // E-W arrows
+ crResizeW        = 11;  // N-S arrows
+ crResizeHW       = 12;  // N-S-E-W arrows
+ crCross          = 13;  //
+ crNone           = 99;  // No cursor (hidden)
 
+ // Predefined pivot point configuration
  pivotTopLeft:TPoint2s=(x:0; y:0);
  pivotTopRight:TPoint2s=(x:1; y:0);
  pivotBottomLeft:TPoint2s=(x:0; y:1);
@@ -33,13 +34,13 @@ const
  wcFrameBorder:integer=5;   // Ширина рамки окна
  wcTitleHeight:integer=24;  // Высота заголовка окна
 
- // Типы областей окна (флаги)
+ // Window area flags
  wcLeftFrame   =  1;
  wcTopFrame    =  2;
  wcRightFrame  =  4;
  wcBottomFrame =  8;
- wcHeader      = 16; // область, за которую можно таскать окно
- wcClient      = 32; // клиентская часть окна (что отличает ее от прозрачных частей)
+ wcHeader      = 16; // area that can be used to drag and move the window
+ wcClient      = 32; // client part of the window
 
  // Биты нажатых клавиш сдвига
  sscShift = 1;
@@ -48,32 +49,31 @@ const
  sscWin   = 8;
 
 type
- // Способ размещения элемента
+ // UI snapping modes
  TSnapMode=(smNone,
-            smTop,     // ширина равна ширине предка, элемент приклеивается к верхней стороне предка
-            smRight,   // высота равна высоте предка, приклеивается к правой стороне предка
+            smTop,     // width=parents clientwidth, top=0
+            smRight,   // height=parents clientheight, left=0
             smBottom,
             smLeft,
-            smParent); // приклеивается к клиентской части предка
+            smParent); // area = parents client area
 
- // Режимы "разговорчивости" элементов
- // ssNone - элемент вообще не посылает сигналы
- // ssMajor - элемент посылает только наиболее существенные, специфичные для него сигналы (например для кнопки - это нажатие)
- // ssAll - элемент посылает все сигналы
- TSendSignals=(ssNone,ssMajor,ssAll);
+ // UI Verbosity modes
+ TSendSignals=(ssNone, // No signals at all
+      ssMajor,         // Normal mode: major signals only
+      ssAll);          // Verbose mode: all signals
 
- // Режимы прозрачности эл-та (т.е. доступны ли элементы, расположенные под ним)
- TTranspMode=(tmTransparent, // элемент полностью прозрачный и не может мешать другим
-              tmOpaque,      // элемент полностью непрозрачный, т.е. занимает весь прямоугольник
-              tmCustom);     // прозрачность точек внутри прямоугольника определяется самим эл-том
+ // How element response for mouse/touch events
+ TTranspMode=(tmTransparent, // whole element is transparent for mouse/touch events
+              tmOpaque,      // whole element is opaque for mouse/touch events
+              tmCustom);     // some pixels are transparent, some are not - it depends on the Region field
 
- // Способ ограничения движения мыши
- TClipMouse=(cmNo,        // не ограничивать
-             cmVirtual,   // с точки зрения контролов курсор ограничен, хотя на самом деле нет
-             cmReal,      // курсор реально ограничен заданным прямоугольником
-             cmLimited);  // курсор ограничен прямоугольником, но посылаются сообщения
-                          // о "выпрыгивании" из него чтобы передать реальное поведение мыши
+ // How mouse movement is limited between mouseDown and mouseUp
+ TClipMouse=(cmNo,        // not limited
+             cmVirtual,   // control see mouse as limited, while it is really not
+             cmReal,      // mouse pointer is really limited inside the element
+             cmLimited);  // mouse pointer is limited, but element may see its "out" to track real relative mouse movement
 
+ // Forward declaration
  TUIScrollBar=class;
 
  TUIScrollDirection=(sdVertical,    // Vertical only
@@ -81,13 +81,14 @@ type
                      sdBoth,        // Either vertical or horizontal
                      sdFree);       // Free directional
 
- // Варианты реакции на изменение размеров контейнера
- TUIPlacementMode=(pmAnchored,      // края закреплены (опционально) якорями за края контейнера
-                   pmProportional,  // элемент меняется пропорционально изменению контейнера
-                   pmCenter);       // размер элемента не меняется, а его центр меняется пропорционально изменению контейнера
+ // Behaviour: how element reacts on parent resize
+ TUIPlacementMode=(pmAnchored,      // Anchors are used
+                   pmProportional,  // Elements area (position/size) is changed proportionally
+                   pmCenter);       // Elements center is moved proportionally, but size remains
 
  TUIControl=class;
 
+ // BAse class for Layouters: objects that layout child elements or adjust elements considering its children
  TLayouter=class
   procedure Layout(item:TUIControl); virtual; abstract;
  end;
@@ -104,8 +105,7 @@ type
   fSpaceBetween:single;
  end;
 
- // Базовый класс для элемента интерфейса, позволяет задать
- // иерархию вложенных элементов
+ // Base class of the UI element
  TUIControl=class
   fName:string;  // Имя - используется при посылке сигналов. Изначально отсутствует, что запрещает посылку сигналов
   position:TPoint2s;  // Положение root point in parent's client rect (если предка нет - положение на экране)
@@ -118,8 +118,8 @@ type
   scroll:TVector2s; // смещение (используется для вложенных эл-тов!) SUBTRACT from children pos
   scrollerH,scrollerV:TUIScrollBar;  // если для прокрутки используются скроллбары - здесь можно их определить
   placementMode:TUIPlacementMode;  // Реакция на изменение размеров предка
-  AnchorRight,AnchorBottom:single; // "якоря" для привязки соответствующих краев к краям предка (при изменении размера предка)
-  AnchorLeft,AnchorTop:single; // если эти якоря не установлены, то при изменении размера должны меняться x и y
+  anchorRight,anchorBottom:single; // "якоря" для привязки соответствующих краев к краям предка (при изменении размера предка)
+  anchorLeft,anchorTop:single; // если эти якоря не установлены, то при изменении размера должны меняться x и y
 
   enabled:boolean; // Должен ли элемент реагировать на пользовательский ввод
   visible:boolean; // должен ли элемент рисоваться
@@ -128,7 +128,7 @@ type
   order:integer; // Определяет порядок отрисовки ($10000 - база для StayOnTop-эл-тов), отрицательные значения - специальные
   // Define how the element should be displayed
   style:byte;    // Стиль для отрисовки (0 - использует отрисовщик по умолчанию)
-  styleinfo:string; // дополнительные сведения для стиля
+  styleInfo:string; // дополнительные сведения для стиля
 
   canHaveFocus:boolean; // может ли элемент обладать фокусом ввода
   hint,hintIfDisabled:string; // текст всплывающей подсказки (отдельный вариант - для ситуации, когда элемент disabled, причем именно этот элемент, а не за счёт предков)
@@ -194,7 +194,7 @@ type
   function GetPosOnScreen:TRect;
   function GetClientPosOnScreen:TRect;
 
-  // Первичные события (вызываются извне)
+  // Primary event handlers
   // Сцена (или другой клиент) вызывает эти методы у корневого эл-та, а он
   // перенаправляет их соответствующим элементам по принципу:
   // - движение мыши - по точке начала и конца двжения
@@ -243,11 +243,13 @@ type
   procedure ScrollTo(newX,newY:integer); virtual;
   // Если данный элемент может обладать фокусом, но ни один другой не имеет фокуса - взять фокус на себя
   procedure CheckAndSetFocus;
-  // Найти элемент в указанной точке в экранных координатах (среди потомков текущего)
-  // Возвращает true если все элементы начиная с текущего в цепочке вложенности enabled
+
+  // Find a descendant UI element at the given point (in screen coordinates)
+  // Returns true if the found element (and all its parents) are enabled
   function FindItemAt(x,y:integer;out c:TUIControl):boolean;
+  // Same as FindItemAt, but ignores elements transparency mode
   function FindAnyItemAt(x,y:integer;out c:TUIControl):boolean;
-  // Найти элемент по имени
+  // Find a descendant element by its name
   function FindByName(name:string):TUIControl;
 
   // Установить либо удалить "горячую клавишу" для данного эл-та
@@ -835,7 +837,7 @@ var
  parentScrollX,parentScrollY:single;
  cx,cy:single;
 begin
- if parent<>nil then begin
+ if (parent<>nil) and parentClip then begin
   parentScrollX:=parent.scroll.X;
   parentScrollY:=parent.scroll.Y;
  end else begin
@@ -997,7 +999,7 @@ begin
  if parent=nil then exit;
  n:=Length(parent.children);
  for i:=1 to n do
-  if parent.children[i-1]=self then begin
+  if parent.children[i-1]=self then begin /// TODO: keep elements order
    parent.children[i-1]:=parent.children[n-1]; break;
   end;
  dec(n);
