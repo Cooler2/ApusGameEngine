@@ -68,7 +68,7 @@ type
   // Потоки
   // Запустить функцию на параллельное выполнение (ttl - лимит времени в секундах, если есть)
   // По завершению будет выдано событие engine\thread\done с кодом, возвращенным ф-цией, либо -1 если завершится по таймауту
-  function RunAsync(threadFunc:pointer;param:cardinal;ttl:single=0;name:string=''):THandle; virtual;
+  function RunAsync(threadFunc:pointer;param:cardinal=0;ttl:single=0;name:string=''):THandle; virtual;
   // Функция все еще выполняется? если да - вернет 0,
   // если прервана по таймауту - -1, если неверный хэндл - -2, иначе - результат функции
   function GetThreadResult(h:THandle):integer; virtual;
