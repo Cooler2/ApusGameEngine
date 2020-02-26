@@ -932,6 +932,7 @@ begin
 
   WM_SYSCHAR:if game<>nil then begin
     scancode:=(lParam shr 16) and $FF;
+    result:=0; exit;
 //    Signal('KBD\KeyDown',wParam and $FFFF+game.shiftState shl 16+scancode shl 24);
   end;
 
