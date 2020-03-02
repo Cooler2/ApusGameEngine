@@ -1,7 +1,8 @@
 ﻿// -----------------------------------------------------
 // Cross-platform access to system clipboard
-// Author: Ivan Polyacov (C) 2011, Apus Software
-// ivan@apus-software.com or cooler@tut.by
+// Author: Ivan Polyacov (C) 2011, Apus Software, ivan@apus-software.com
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 // ------------------------------------------------------
 unit Clipboard;
 

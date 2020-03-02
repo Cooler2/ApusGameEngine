@@ -1,5 +1,7 @@
 ﻿// Database API class and it's implementation for MySQL
-// Copyright (C) Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
+// Copyright (C) Ivan Polyacov, ivan@apus-software.com
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 unit Database;
 interface

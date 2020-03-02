@@ -1,7 +1,9 @@
 ﻿// Optimized drawing routines
 //
-// Copyright (C) 2004-2014 Apus Software (www.games4win.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2004-2014 Apus Software
+// Author: Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 {$IFDEF FPC}
 {$PIC OFF}
 {$ENDIF}
@@ -118,7 +120,7 @@ var
  // То же с использованием функции блендинга
  procedure FillRect(buf:pointer;pitch:integer; x1,y1,x2,y2:integer;color:cardinal;blender:TBlenderFunc); overload;
 
- // То же - в текущий render target, с проверками координат (отсечение) и альфа-блендингом 
+ // То же - в текущий render target, с проверками координат (отсечение) и альфа-блендингом
  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal); overload;
  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal;blender:TBlenderFunc); overload;
 
@@ -1537,7 +1539,7 @@ const
    if x1<0 then x1:=0;
    if y1<0 then y1:=0;
    if x2>=rWidth then x2:=rWidth-1;
-   if y2>=rHeight then y2:=rHeight-1;             
+   if y2>=rHeight then y2:=rHeight-1;
    if (x2<x1) or (y2<y1) then exit;
    FillRect(rBuf,rPitch shl 2,x1,y1,x2,y2,color,blBlend);
   end;
@@ -1747,10 +1749,10 @@ const
                         u1,v1,u2,v2:integer;   // область текстуры (в целых текселях)
                         blender:TBlenderFunc);
   var
-   scaleX,scaleY,bX,bY:single;                      
+   scaleX,scaleY,bX,bY:single;
   begin
    scaleX:=(u2-u1)/(x2-x1);
-   scaleY:=(v2-v1)/(y2-y1);                             
+   scaleY:=(v2-v1)/(y2-y1);
    bX:=(u1+0.5)-(x1+0.5)*scaleX;
    bY:=(v1+0.5)-(y1+0.5)*scaleY;
    StretchDraw(sour,sPitch,dest,dPitch,
@@ -1758,7 +1760,7 @@ const
     scaleX*x1+bX+0.001,scaleY*y1+bY+0.001,
     scaleX*(x2+1)+bX-0.001,scaleY*(y2+1)+bY-0.001,
     blender);
-  end;  
+  end;
 
  procedure StretchDraw2(sour:pointer;sPitch:integer; // текстура
                         dest:pointer;dPitch:integer;

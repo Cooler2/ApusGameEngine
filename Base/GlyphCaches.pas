@@ -1,4 +1,7 @@
 ﻿// Copyright (C) Apus Software, 2012-2014. Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+// -----------------------------------------
 // 2D-cache methods for font glyph caching
 // (realtime 2D-rect packing algorithms)
 unit GlyphCaches;
@@ -40,7 +43,7 @@ type
  // подходящего размера или поиске уже выделенных блоков
  // ЭТА СТРУКТУРА НЕЭФФЕКТИВНА ДЛЯ FT-ШРИФТОВ И ПОЭТОМУ БОЛЬШЕ НЕ ИСПОЛЬЗУЕТСЯ
  TFixedGlyphCache=class(TGlyphCache)
-  constructor Create(width:integer); 
+  constructor Create(width:integer);
   destructor Destroy; override;
   // находит положение в текстуре, соответствующее символу, либо -1,-1 - если его нет
   function Find(chardata:cardinal):TGlyphInfoRec; override;
@@ -90,7 +93,7 @@ type
   function Usage:single;
  private
   aWidth,aHeight:integer; // Общий размер пространства кэша
-  freeMin,freeMax:integer; // границы свободной области (freeMax может ыть больше aHeight, что означает разрывную область) 
+  freeMin,freeMax:integer; // границы свободной области (freeMax может ыть больше aHeight, что означает разрывную область)
   // Полосы (список)
   bands:array[0..99] of TBandData;
   bCount:integer;
@@ -268,7 +271,7 @@ begin
   result.x:=relX+blocks[h].x;
   result.y:=relY+blocks[h].y;
   blocks[h].timestamp:=lastTimeStamp;
-  inc(lastTimeStamp);  
+  inc(lastTimeStamp);
   if lastTimeStamp>$70000000 then DecrementTimes;
  end else begin
   result.x:=-1;
@@ -471,7 +474,7 @@ begin
  // 2 случая, когда нужно создать новую полосу:
  // а) подходящей полосы, где можно разместить элемент - нет
  if best<0 then begin
-  // Полоса должна быть хотя бы на 25% толще, чем существующая более-менее свободная полоса 
+  // Полоса должна быть хотя бы на 25% толще, чем существующая более-менее свободная полоса
   bandHeight:=bandHeight+1+bandHeight div 4;
   if height>bandHeight then bandHeight:=height;
  end;
@@ -531,7 +534,7 @@ begin
  end else begin
   result.x:=-1;
   result.y:=-1;
- end; 
+ end;
 end;
 
 procedure TDynamicGlyphCache.Keep;

@@ -1,7 +1,8 @@
 ﻿// -----------------------------------------------------
 // Long-integer math
-// Author: Ivan Polyacov (C) 2007-2008, Apus Software
-// Mail me: ivan@games4win.com or cooler@tut.by
+// Author: Ivan Polyacov (C) 2007-2008, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 // ------------------------------------------------------
 {$R-}
 unit LongMath;

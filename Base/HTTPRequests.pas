@@ -1,7 +1,10 @@
 ﻿// Cross-platform support for HTTP GET and POST async requests
 //
-// Copyright (C) 2013 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (ivan@apus-software.com, cooler@tut.by)
+// Copyright (C) 2013 Apus Software
+// Author: Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+
 {$IFDEF IOS}{$S-} {$modeswitch objectivec1}{$ENDIF}
 unit HTTPRequests;
 interface
@@ -14,7 +17,7 @@ interface
   httpStatusFailed = 10;  // request completed with error
   httpStatusCompleted = 11; // request completed successfully
 
- type 
+ type
   TContentType=(ctMultipart,ctUrlencoded,ctBinary,ctText,ctAuto);
 
  var
@@ -422,7 +425,7 @@ implementation
      if requests[i].status=0 then begin
       inc(lastID);
       requests[i].status:=httpStatusPending;
-      requests[i].httpStatus:=0;      
+      requests[i].httpStatus:=0;
       requests[i].ID:=lastID;
       result:=lastID;
       requests[i].event:=event;
@@ -579,7 +582,7 @@ procedure THTTPThread.ExecuteGetRequest;
     INTERNET_FLAG_NO_CACHE_WRITE+
     INTERNET_FLAG_EXISTING_CONNECT+
     INTERNET_FLAG_NO_COOKIES*byte(not httpUseCookies),0);
-    
+
   EnterCriticalSection(critSect);
   try
   req.handle:=handle;
@@ -666,7 +669,7 @@ procedure DeleteConnection(handle:HInternet);
      connections[i].free:=true;
      connections[i].HCon:=0;
      connections[i].server:='';
-     connections[i].port:=0;     
+     connections[i].port:=0;
      InternetCloseHandle(handle);
     end;
   finally
@@ -715,7 +718,7 @@ procedure THTTPThread.ExecutePostRequest;
 //       (connections[i].free) and
        (connections[i].server=serverName) and
        (connections[i].port=port) then begin
-      conIdx:=i; 
+      conIdx:=i;
       HConnect:=connections[i].HCon;
       connections[conIdx].free:=false;
       LogMessage(Format('HTTP: using connection [%d]=%s ',[i,PtrToStr(HConnect)]));
@@ -809,7 +812,7 @@ procedure THTTPThread.ExecutePostRequest;
    end;
   end;
 
-  // Send request 
+  // Send request
   if not HttpSendRequestA(handle,PAnsiChar(headers),length(headers),
           @req.postdata[1],length(req.postdata)) then begin
    req.status:=httpStatusFailed;
@@ -883,7 +886,7 @@ procedure THTTPThread.Execute;
    inc(requestsFailed);
 
   Signal(req.event,req.ID);
-  if MyTickCount>lastLogTime+60000 then LogStats; // Раз в минуту писать статистику по запросам в лог 
+  if MyTickCount>lastLogTime+60000 then LogStats; // Раз в минуту писать статистику по запросам в лог
   req.thread:=nil;
   UnregisterThread;
  end;

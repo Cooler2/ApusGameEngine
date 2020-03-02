@@ -1,6 +1,8 @@
 ﻿// This universal unit is intended to performing different
 // filters onto custom bitmap images (low-level operations)
-// Copyright (C) 2002 Apus Software (www.games4win.com, ivan@apus-software.com)
+// Copyright (C) 2002 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 
 {$R-}
 
@@ -246,7 +248,7 @@ function Blur32(buf:pointer;pitch,width,height:integer;target:pointer=nil;tPitch
   pc:PCardinal;
   o:cardinal;
   sour:PARGBArray;
-  x,y:integer; 
+  x,y:integer;
  begin
   if target=nil then begin
    GetMem(pc,width*height*4);
@@ -1380,4 +1382,4 @@ function Hue(value:single):TMatrix43s;
     result[i,j]:=F(value+i-j);
  end;
 
-end.
+end.

@@ -1,7 +1,9 @@
 ﻿// Event manager
 //
-// Copyright (C) 2004 Apus Software (www.games4win.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2004 Apus Software
+// Author: Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 //
 // Основные категории иерархии:
 //  debug\ - отладочные события
@@ -202,7 +204,7 @@ var
     if stacksize>0 then LogMessage('EventMan: Warning - removing event handler during signal processing, not a good style...',4);
     for i:=0 to 255 do
      if handlers[i]<>nil then begin
-      ph:=handlers[i]; prev:=nil;            
+      ph:=handlers[i]; prev:=nil;
       repeat
        if (@ph.handler=@handler) and
           ((event='') or (event=ph.event)) then begin

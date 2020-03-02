@@ -1,4 +1,7 @@
 ﻿// Copyright (C) Apus Software, 2014. Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+
 // Wrapper for FreeType Library
 {$R-}
 unit FreeTypeFont;
@@ -8,7 +11,7 @@ interface
 const
  FTF_NO_HINTING = FT_LOAD_NO_HINTING;
  FTF_AUTO_HINTING = FT_LOAD_FORCE_AUTOHINT;
- FTF_ITALIC = $1000000; 
+ FTF_ITALIC = $1000000;
 type
  TIntervalRec=record
   ch1,ch2:WideChar;
@@ -18,7 +21,7 @@ type
   ch:WideChar;
   size,value,padding:shortint;
  end;
- 
+
  TFreeTypeFont=class
   face:PFT_Face;
   faceName:string;
@@ -27,7 +30,7 @@ type
   constructor LoadFromFile(fname:string;index:integer=0);
   // Flags -
   procedure RenderText(buf:pointer;pitch:integer;x,y:integer;st:WideString;color:cardinal;size:single;flags:cardinal=0);
-  // The following functions MUST be wrapped in Lock/Unlock in multithreaded environment  
+  // The following functions MUST be wrapped in Lock/Unlock in multithreaded environment
   function Interval(ch1,ch2:WideChar;size:single):integer; // интервал между точкой начала символа ch1 и следующего за ним ch2
   function GetTextWidth(st:WideString;size:single):integer;
   function GetHeight(size:single):integer; // Height of characters like '0' or 'A'
@@ -47,7 +50,7 @@ type
   intervalHash:array[0..4095] of TIntervalRec;
   glyphWidthHash:array[0..1023] of TGlyphMetricRec;
   procedure SetSize(size:single); inline;
-  procedure FillGlyphMetrics(wch:WideChar;hash,size:integer);  
+  procedure FillGlyphMetrics(wch:WideChar;hash,size:integer);
  end;
 
 var
@@ -63,7 +66,7 @@ implementation
   initialized:boolean=false;
   FTLibrary:PFT_Library;
   cSect:TMyCriticalSection;
-  
+
 { TFreeTypeFont }
 
 {procedure TFreeTypeFont.DrawGlyph(buf: pointer; pitch, x, y: integer;
@@ -309,7 +312,7 @@ procedure TFreeTypeFont.RenderText(buf: pointer; pitch, x, y: integer;
     glInd:=FT_Get_Char_Index(Face,Word(st[i]));
 
     // Next character?
-    if lastGlyph>=0 then begin     
+    if lastGlyph>=0 then begin
      err:=FT_Get_Kerning(Face,lastGlyph,glInd,FT_KERNING_DEFAULT,kerning);
      if err<>0 then raise EWarning.Create('FTGK error: '+IntToStr(err));
 //     px:=px+(face.glyph.advance.x/64);
@@ -327,7 +330,7 @@ procedure TFreeTypeFont.RenderText(buf: pointer; pitch, x, y: integer;
     if (i=1) and (face.glyph.bitmap_left>0) then px:=px-face.glyph.bitmap_left;
     a:=GetPixelAddr(buf,pitch,round(px)+face.glyph.bitmap_left,round(py)-face.glyph.bitmap_top);
     BlendUsingAlpha(a,pitch,bitmap.buffer,bitmap.pitch,bitmap.width,bitmap.rows,color,blBlend);
-    px:=px+(face.glyph.advance.x/64); 
+    px:=px+(face.glyph.advance.x/64);
    end;
    FT_Set_Transform(Face,nil,nil);
   finally

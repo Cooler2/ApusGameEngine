@@ -1,7 +1,9 @@
 ﻿// Region class and it's functionality
 //
-// Copyright (C) Apus Software
-// apussoftware@games4win.com
+// Copyright (C) Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+
 unit Regions;
 interface
  uses Images,types;

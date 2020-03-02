@@ -1,11 +1,14 @@
-﻿// Text translation routines
-// Author Ivan Polyacov (ivan@apus-software.com, cooler@tut.by)
+﻿// Realtime text translation routines
+// Author Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+
 // Dictionary file format (utf-8):
 // -----
 // LanguageID: ru
 // ; comment
 // [N] set of rules (0..99)
-// Source %* string 1 
+// Source %* string 1
 // Translated %1 string 1
 // (separator - empty string or comment)
 // Source string 2
@@ -138,7 +141,7 @@ implementation
        AddTranslationRule(sour,st,localSet)
       else
        AddTranslationRule(sour,st,curSet);
-      localSet:=-1; 
+      localSet:=-1;
      end else
       sour:=st;
     end;

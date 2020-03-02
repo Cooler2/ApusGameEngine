@@ -1,5 +1,10 @@
-﻿// Copyright (C) Apus Software, 2011. Ivan Polyacov (ivan@apus-software.com)
-// File format:
+﻿// Support for in-house raster font file format
+
+// Copyright (C) Apus Software, 2011. Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+
+// Font File format:
 // - Header (TFontHeader structure, 32 bytes)
 // - Metadata (if ffMetadata is in header flags)
 // - Array of char descriptions (charCount*TCharDesc)
@@ -76,7 +81,7 @@ type
   constructor LoadFromMemory(data:array of byte;UseAdvKerning:boolean=false);
   constructor LoadFromFile(fname:string;UseAdvKerning:boolean=false);
   procedure InitDefaults; virtual;
-  function IndexOfChar(ch:WideChar):integer; 
+  function IndexOfChar(ch:WideChar):integer;
   function Interval(ch1,ch2:WideChar):integer; // интервал между точкой начала символа ch1 и следующего за ним ch2
   procedure CalculateAdvKerning(index:integer);
   function GetTextWidth(st:WideString):integer;

@@ -1,4 +1,10 @@
-﻿{$A+,B-,C+,D+,H+,I+,J+,K-,M-,O+,P+,Q-,R-,S-,T-,U-,V+,W-,X+,Y+,Z1}
+﻿// Collection of auxiliary functions and types (like SysUtils)
+// Copyright (C) Ivan Polyacov, ivan@apus-software.com
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+
+
+{$A+,B-,C+,D+,H+,I+,J+,K-,M-,O+,P+,Q-,R-,S-,T-,U-,V+,W-,X+,Y+,Z1}
 {$IFDEF FPC}{$MODE DELPHI}{$ENDIF}
 {$IFDEF IOS}{$modeswitch objectivec1}{$ENDIF}
 {$IFNDEF FPC}{$IFNDEF DELPHI}
@@ -7,8 +13,6 @@ For Delphi - please define global symbol "DELPHI"!
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 
 
-// Модуль, содержащий очень полезные функции общего назначения
-// Copyright (C) Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
 unit MyServis;
 interface
  uses {$IFDEF MSWINDOWS}windows,{$ENDIF}
@@ -514,7 +518,7 @@ interface
  // --------------------------------
  // level - используется только в отладочном режиме для проверки отсутствия циклов в графе захвата секций (чтобы гарантировать отсутствие блокировок)
  // Допускается входить в секцию с бОльшим уровнем будучи уже в секции с меньшим уровнем, но не наоборот.
- // Т.о. чем ниже уровень кода, тем ВЫШЕ должно быть значение level в секции, которой этот код оперирует  
+ // Т.о. чем ниже уровень кода, тем ВЫШЕ должно быть значение level в секции, которой этот код оперирует
  procedure InitCritSect(var cr:TMyCriticalSection;name:string;level:integer=100); // Создать и зарегить критсекцию
  procedure DeleteCritSect(var cr:TMyCriticalSection);
  procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
@@ -623,7 +627,7 @@ implementation
    result:=0;
   end;
 
- 
+
  procedure MyEnterCriticalSection(var cr:TRTLCriticalSection); inline;
   begin
    {$IFDEF MSWINDOWS}
@@ -856,7 +860,7 @@ implementation
    end;
   end;
 
- function StrHash(const st:string):cardinal; 
+ function StrHash(const st:string):cardinal;
   var
    i:integer;
   begin
@@ -1722,7 +1726,7 @@ procedure SimpleEncrypt2;
      inc(p); result[p]:=st[i];
     end;
    SetLength(result,p);
-  end; 
+  end;
 
  function EncodeB64;
   var
@@ -1762,7 +1766,7 @@ procedure SimpleEncrypt2;
    p:=0;
    size:=length(st)*6 div 8;
    for i:=0 to size*8-1 do begin
-    if i mod 6=0 then begin               
+    if i mod 6=0 then begin
      inc(p);
      sour:=ord(st[p])-64;
     end;
@@ -2346,7 +2350,7 @@ procedure SimpleEncrypt2;
    GetSystemTime(stime);
    result:=SystemTimeToDateTime(stime);
   end;
- {$ENDIF} 
+ {$ENDIF}
  {$IFDEF IOS}
  function NowGMT;
   begin
@@ -2942,10 +2946,10 @@ function BinToStr;
    if ignoreCase then begin
     substr:=WideLowercase(substr);
     str:=WideLowercase(str);
-   end;   
+   end;
    n:=length(substr);
    m:=length(str)-n+1;
-   while minIndex<=m do begin                       
+   while minIndex<=m do begin
     i:=0;
     while (i<n) and (str[minIndex+i]=substr[i+1]) do inc(i);
     if i=n then exit(minIndex);
@@ -3132,7 +3136,7 @@ function BinToStr;
     j:=idx[i+1]-divLen-idx[i];
     SetLength(result[i],j);
     if j>0 then result[i]:=copy(st,idx[i],j);
-   end;    
+   end;
   end;
 
  function SplitA(divider,st:AnsiString):AStringArr;
@@ -3682,9 +3686,9 @@ function BinToStr;
  procedure SystemLogMessage(text:string); // Post message to OS log
   begin
    {$IFDEF MSWINDOWS}
-   
+
    {$ENDIF}
-  end;  
+  end;
 
  function ShowMessageEx(text,caption:string;flags:cardinal):integer;
   var
@@ -3855,7 +3859,7 @@ procedure DumpDir(path:string);
    fname:=StringReplace(fname,'..','.',[rfReplaceAll]);
    for i:=1 to length(fname) do
     if not (fname[i] in ['A'..'Z','a'..'z','0'..'9','-','_','.']) then fname[i]:='_';
-   result:=fname; 
+   result:=fname;
   end;
 
  function FileName(const fname:string):string;
@@ -4028,7 +4032,7 @@ procedure DumpDir(path:string);
  procedure SaveFile(fname:string;buf:ByteArray); overload; // rewrite file with given data
   begin
    if length(buf)>0 then SaveFile(fname,@buf[0],length(buf));
-  end;  
+  end;
 
  procedure ShiftArray(const arr;sizeInBytes,shiftValue:integer);
   var

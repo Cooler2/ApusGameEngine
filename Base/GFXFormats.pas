@@ -1,7 +1,9 @@
 ﻿// Support for common image file formats
 //
-// Copyright (C) 2004 Apus Software (www.games4win.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2004 Apus Software
+// Author: Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit GFXFormats;
 interface
  uses MyServis,
@@ -52,7 +54,7 @@ interface
  For Delphi - define global symbol "DELPHI"!
  {$ENDIF}
  {$ENDIF}
- 
+
 
 implementation
  uses {$IFDEF DELPHI}jpeg,{$ENDIF}
@@ -586,7 +588,7 @@ procedure LoadTGA;
        break;
       end;
      end;
-    exit; 
+    exit;
    end;
    // check for PVR
    pvr:=@data[0];

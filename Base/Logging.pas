@@ -1,5 +1,7 @@
 ﻿// Generic support for advanced in-memory logging and log files
-// Copyright (C) 2012-2016 Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
+// Copyright (C) 2012-2016 Ivan Polyacov, ivan@apus-software.com
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Logging;
 interface
  uses windows,MyServis;
@@ -22,7 +24,7 @@ interface
   lgTurnData = 5; // данные, которыми обмениваются между собой игроки
 
  var
-  maxLogMsgSize:integer=2000; // larger messages will be truncated 
+  maxLogMsgSize:integer=2000; // larger messages will be truncated
   avgMsgPerSecondLimit:integer = 500; // лимит на скорость поступления сообщений (в среднем в секунду)
   minLogFileLevel:integer = logInfo; // min level of message to be stored in log file
   minLogMemLevel:integer = logInfo; // min level of message to be stored in memory
@@ -59,7 +61,7 @@ interface
 
 implementation
  uses SysUtils,MMSystem;
- 
+
  type
   TMsgHeader=packed record
    size:word;
@@ -354,7 +356,7 @@ implementation
      dec(avgMsgCounter,avgMsgPerSecondLimit);
      if avgMsgCounter<0 then avgMsgCounter:=0;
     end;
-    lastTime:=time;                                            
+    lastTime:=time;
     if (avgMsgCounter>500) and (level<logNormal) then begin
      if not msgblocked then begin
       st:='Log flood protection';

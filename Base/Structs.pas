@@ -1,6 +1,9 @@
 ﻿// This is universal unit containing implementation
 // of basic structures on common types: trees, hashes etc...
-// Copyright (C) 2002-2015 Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
+
+// Copyright (C) 2002-2015 Ivan Polyacov, ivan@apus-software.com
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 
 {$M-,H+,R-,Q-}
 unit Structs;
@@ -125,7 +128,7 @@ type
  end;
  // Hash String->Pointer (1:1) store pointers, DOESNT copy key strings, so this is good as auxiliary
  // structure to make an existing data storage faster
- // WARNING! THIS IS QUITE OLD CLASS AND NOT COVERED BY TESTS => MAY BE BUGGY 
+ // WARNING! THIS IS QUITE OLD CLASS AND NOT COVERED BY TESTS => MAY BE BUGGY
  TStrHash=class
   Hcount,Hsize:integer;
   cells:array of TCell;
@@ -193,7 +196,7 @@ type
   procedure Clear;
   procedure Put(key,value:int64);
   function Get(key:int64):int64;  // returns -1 if no value
-  function HasValue(key:int64):boolean; 
+  function HasValue(key:int64):boolean;
   procedure Remove(key:int64);
  private
   lock:integer;
@@ -304,7 +307,7 @@ implementation
    begin
    end;
 
-  function TVarHash.Count(key:variant):integer; 
+  function TVarHash.Count(key:variant):integer;
    begin
    end;
 
@@ -1085,7 +1088,7 @@ procedure THash.SortKeys;
     values[i]:=value;
     exit;
    end;
-   
+
    // Need new key
    if fFree>=0 then begin
     // берем элемент из списка свободных
@@ -1210,7 +1213,7 @@ procedure THash.SortKeys;
     values[i]:=value;
     exit;
    end;
-   
+
    // Need new key
    if fFree>=0 then begin
     // берем элемент из списка дырок
@@ -1467,7 +1470,7 @@ procedure THash.SortKeys;
     i:=length(data);
     capacity:=(capacity+1024)*2;
     SetLength(data,capacity div 8);
-    FillChar(data[i],length(data)-i,0); // zerofill 
+    FillChar(data[i],length(data)-i,0); // zerofill
    end;
    pb:=@buf; b:=pb^;
    // простая, неэффективная версия

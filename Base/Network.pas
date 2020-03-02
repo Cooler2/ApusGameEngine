@@ -1,7 +1,8 @@
 ﻿// --------------------------------------------------------------
 // This unit contains classes for dealing with any network API's
-// Author: Ivan Polyacov, Copyright (C) 2002, Apus Software
-// Contact: ivan@games4win.com or cooler@tut.by
+// Author: Ivan Polyacov, Copyright (C) 2002, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 // --------------------------------------------------------------
 // Currently only UDP left here. For HTTP use httpRequests. DirectPlay removed as obsolete.
 {$H+,I-,R-}
@@ -93,7 +94,7 @@ procedure ResolveAddress(resolveAdr:AnsiString;var resolvedIP:cardinal;var resol
  begin
   address:=ResolveAdr;
   port:=0;
-  i:=pos(':',address);     
+  i:=pos(':',address);
   if (i>0) {or (pos('.',address)=0)} then  begin
    port:=StrToInt(copy(address,i+1,length(address)-i));
    SetLength(address,i-1);

@@ -1,7 +1,9 @@
 ﻿// Class hierarchy for image objects
 //
-// Copyright (C) 2003 Apus Software (www.games4win.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2003 Apus Software
+// Author: Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 
 unit Images;
 
@@ -443,4 +445,6 @@ initialization
  ColorTo[ipf555]:=ColorTo15;
 
  colorFrom[ipfARGB]:=ColorFrom32;
- colorFrom[ipfXRGB]:=ColorFrom32; colorFrom[ipfRGB]:=ColorFrom24;end.
+ colorFrom[ipfXRGB]:=ColorFrom32;
+ colorFrom[ipfRGB]:=ColorFrom24;
+end.

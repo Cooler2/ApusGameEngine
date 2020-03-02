@@ -1,8 +1,12 @@
-﻿{$R-}
+﻿
+// Copyright (C) Apus Software, Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+{$R-}
 unit GeoIP;
 interface
 
- // Load GeoIP database (if path=nil then try current dir or use ENV{GeoIP}) 
+ // Load GeoIP database (if path=nil then try current dir or use ENV{GeoIP})
  procedure InitGeoIP(path:string='');
 
  // Not thread-safe! Either use from the same thread or use own protection
@@ -87,7 +91,7 @@ implementation
    except
     on e:exception do lastError:='Load error 1: '+intToStr(cnt)+' '+st+' msg: '+e.message;
    end;
-  end; 
+  end;
 
  procedure TryLoadDB(path:string);
   begin
@@ -114,7 +118,7 @@ implementation
 
  function GetCountryByIP(ip:cardinal):string;
   var
-   a,b,c,code:integer;                  
+   a,b,c,code:integer;
   begin
    result:='??';
    if initialized=0 then exit;
@@ -149,5 +153,5 @@ initialization
  initialized:=0;
  InitCritSect(crSect,'GeoIP',300);
 finalization
- DeleteCritSect(crSect);   
+ DeleteCritSect(crSect);
 end.

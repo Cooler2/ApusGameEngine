@@ -1,4 +1,8 @@
-﻿// Huffman compression - under construction!
+﻿
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+
+// Huffman compression - under construction!
 //
 unit MyHuffman;
 interface
@@ -111,7 +115,7 @@ implementation
      SetLength(result,i);
      exit;
     end;
-  end; 
+  end;
 
  function CreateAlphabetForBytes(data:ByteArray):UIntArray;
   begin

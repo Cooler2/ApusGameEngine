@@ -1,7 +1,8 @@
 ﻿// -----------------------------------------------------
 // 2D geometry common high-precision functions
-// Author: Ivan Polyacov (C) 2002, Apus Software
-// Mail me: ivan@games4win.com or cooler@tut.by
+// Author: Ivan Polyacov (C) 2002, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 // ------------------------------------------------------
 unit Geom2d;
 
@@ -88,7 +89,7 @@ interface
  procedure Turn90Left(var v:TVector2); inline;
  function Turn90L(v:TVector2):TVector2; inline;
  // angle between vectors (radians)
- function VectAngle(v1,v2:TVector2):double; overload; 
+ function VectAngle(v1,v2:TVector2):double; overload;
  // Angle between vector and X axis (CCW direction if Y is up), -Pi..Pi
  function VectAngle(v:TVector2):double; overload; inline;
  // how much vector v1 must be rotated in clockwise direction to obtain v2 direction
@@ -109,7 +110,7 @@ interface
  function PointBlend(p1,p2:TPoint2;factor:double):TPoint2;
  // Setup vector (from source to target)
  function Vector2(source,target:TPoint2):TVector2; inline;
- // Unit vector with given direction (CCW from X-axis) 
+ // Unit vector with given direction (CCW from X-axis)
  function Direction(angle:double):TVector2; inline;
  // Setup line by points
  procedure SetLine(a,b:TPoint2;out line:TLine2);
@@ -429,7 +430,7 @@ implementation
    result.y:=target.y-source.y;
   end;
 
- function Direction(angle:double):TVector2; 
+ function Direction(angle:double):TVector2;
   begin
    result.x:=cos(angle);
    result.y:=sin(angle);

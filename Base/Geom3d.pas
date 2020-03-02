@@ -1,7 +1,8 @@
 ﻿// -----------------------------------------------------
 // 3D geometry common high-precision functions
-// Author: Ivan Polyacov (C) 2003, Apus Software
-// Mail me: ivan@games4win.com or cooler@tut.by
+// Author: Ivan Polyacov (C) 2003, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 // ------------------------------------------------------
 {$IFDEF FPC}{$PIC OFF}{$ENDIF}
 unit Geom3d;
@@ -88,10 +89,10 @@ interface
  function Matrix4(from:TMatrix43):TMatrix4;
  function Matrix4s(from:TMatrix4):TMatrix4s;
 
- // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой 
+ // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой
  function DotProduct3(a,b:TVector3):extended; overload;
  function DotProduct3(a,b:TVector3s):double; overload;
- // Векторное произведение: модуль равен площади ромба  
+ // Векторное произведение: модуль равен площади ромба
  function CrossProduct3(a,b:TVector3):TVector3; overload;
  function CrossProduct3(a,b:TVector3s):TVector3s; overload;
  function GetLength3(v:TVector3):extended; overload;

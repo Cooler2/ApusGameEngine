@@ -1,7 +1,9 @@
 ﻿// Wrapper unit for platform-dependent functions
 //
 // Copyright (C) 2011 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (ivan@apus-software.com, cooler@tut.by)
+// Author: Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 {$S-}
 unit CrossPlatform;
 
@@ -128,7 +130,7 @@ interface
  procedure SetDecimalSeparator(c:char);
 
  {$IFNDEF UNICODE}
- function AnsiStrAlloc(size:integer):PAnsiChar;    
+ function AnsiStrAlloc(size:integer):PAnsiChar;
  {$ENDIF}
 
 implementation

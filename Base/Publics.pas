@@ -1,5 +1,7 @@
 ﻿// Public variables
-// Copyright (C) 2014 Apus Software. Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2014 Apus Software. Author: Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Publics;
 interface
  uses MyServis;
@@ -134,7 +136,7 @@ implementation
   TPublicFunction=record
    name:string;
    f:TFunction;
-   tag:integer; // allows to use one generalized implementation for multiple functions 
+   tag:integer; // allows to use one generalized implementation for multiple functions
   end;
 
   TGlobalOverride=record
@@ -149,7 +151,7 @@ implementation
    ovrMask:cardinal;
    ovrValues:array[0..15] of TGlobalOverride;
   end;
-  
+
  var
   crSection:TMyCriticalSection; // используется для доступа к глобальным переменным
 
@@ -292,7 +294,7 @@ implementation
       v2:=v2/10+(byte(expression[i])-$30);
      if v1<0 then result:=v1-v2/10
       else result:=v1+v2/10;
-     if (v1=0) and (expression[1]='-') then result:=-result;  
+     if (v1=0) and (expression[1]='-') then result:=-result;
     end;
    end else begin
     // переменная или константа
@@ -384,7 +386,7 @@ implementation
     publicVars[n].varClass:=vtype;
     publicVars[n].addr:=variable;
     publicVars[n].next:=publicVarHash[h];
-    publicVarHash[h]:=n;    
+    publicVarHash[h]:=n;
    finally
     LeaveCriticalSection(crSection);
    end;
@@ -813,7 +815,7 @@ begin
     2:gF2:=vF;
     3:gF3:=vF;
     4:gF4:=vF;
-    5:gF5:=vF;                                                                            
+    5:gF5:=vF;
     6:gF6:=vF;
     7:gF7:=vF;
    end;
@@ -825,9 +827,9 @@ begin
     else vI:=context.ovrValues[j].IntValue;
    case j of
     8:gI0:=vI;
-    9:gI1:=vI;                     
+    9:gI1:=vI;
     10:gI2:=vI;
-    11:gI3:=vI;                   
+    11:gI3:=vI;
    end;
    continue;
   end;
@@ -876,7 +878,7 @@ begin
    globalContexts[0].name:=contextName;
    globalContexts[0].defaultCmd:=cmd;
    globalContexts[0].ovrMask:=0;
-   contextIdx:=0;                           
+   contextIdx:=0;
   end;
   ApplyContext(globalContexts[contextIdx]);
   lastContextIdx:=contextIdx;
@@ -897,9 +899,9 @@ begin
   contextID:=FindContext(forContext);
   if contextID<0 then exit;
   lastAssignCmd:='';
-  with globalContexts[contextID] do begin 
+  with globalContexts[contextID] do begin
    p:=@value;
-   if j in [0..7] then begin               
+   if j in [0..7] then begin
     ovrMask:=ovrMask or (1 shl j);
     ovrValues[j].floatValue:=PSingle(p)^;
    end;
@@ -921,7 +923,7 @@ function GetGlobalContexts(out lastContextIndex:integer):StringArr;
 var
  i:integer;
 begin
- lastContextIdx:=-1;                 
+ lastContextIdx:=-1;
  EnterCriticalSection(crSection);
  try
   SetLength(result,globalContextsCount);

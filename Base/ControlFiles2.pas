@@ -1,5 +1,7 @@
 ﻿// Author: Ivan Polyacov (ivan@games4win.com)
 // Copyright (C) Apus Software, 2002-2003, All rights reserved. www.apus-software.com
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 {
  There are 2 interfaces there: procedural and class-based. First does not
  aware about multithreading issues. Use it only if you are sure that you
@@ -62,7 +64,7 @@ type
   // Delete
   procedure DeleteKey(key:AnsiString);
  private
-  handle:integer;                                 
+  handle:integer;
   function GetAbsPath(key:AnsiString):AnsiString;
  end;
 
@@ -454,11 +456,11 @@ var
  item:TNamedValue;
 begin
  p:=pos(':',fullname);
- if p>0 then begin               
+ if p>0 then begin
   fname:=copy(fullname,1,p-1);
   for i:=0 to items.GetChildrenCount-1 do begin
-   item:=items.GetChild(i).data;   
-   iName:=Uppercase(item.name);    
+   item:=items.GetChild(i).data;
+   iName:=Uppercase(item.name);
    if (item is TCtlFile) and (iName=fname) then begin
     TCtlFile(item).modified:=true;
     exit;
@@ -631,7 +633,7 @@ end;
 function UseControlFile;
  var
   code:cardinal;
-  i:integer;             
+  i:integer;
   ctl:TCtlFile;
 
  // Загрузить указанный файл, вернуть его handle
@@ -949,7 +951,7 @@ begin
    code:=CheckSumSlow(password[1],length(password),1)
   else code:=0;
   result:=Load(filename,code);
-  
+
  except
   on e:Exception do
    raise EError.Create('CTL2: Can''t load control file: '+filename+', exception: '+e.Message);

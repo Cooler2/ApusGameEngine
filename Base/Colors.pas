@@ -1,7 +1,9 @@
 ﻿// Some useful operations with color (for ARGB-mode, D3D compatible)
 //
-// Copyright (C) 2004 Apus Software (www.games4win.com)
+// Copyright (C) 2004 Apus Software
 // Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Colors;
 interface
 
