@@ -208,19 +208,18 @@ type
   procedure Dump(st:string=''); virtual; abstract;
  end;
 
- // -------------------------------------------------------------------
- // TPainter - рисовалка (через аппаратный ускоритель)
- // -------------------------------------------------------------------
-
- TParticle=record // частица
-  x,y,z:single;      // положение центра (z+ - направление ОТ камеры)
-  color:cardinal;    // цвет
-  scale,angle:single; // размер и поворот
-  index:integer; // номер примитива в текстуре
+ // Particle atributes
+ TParticle=record
+  x,y,z:single;       // center position (z+ = forward direction)
+  color:cardinal;
+  scale,angle:single;
+  index:integer;      // position in the texture atlas (use partXXX flags)
+  custom:integer;     // custom data, not used
  end;
  PParticle=^TParticle;
 
- TCharAttr=record  // характеристика символа
+ // Text character attributes
+ TCharAttr=record
   font:cardinal;
   color:cardinal;
  end;
@@ -532,7 +531,7 @@ type
   fullscreen:boolean; // true - opaque scene, no any underlying scenes can be seen, false - scene layer is drawn above underlying image
   frequency:integer; // Сколько раз в секунду нужно вызывать обработчик сцены (0 - каждый кадр)
   effect:TSceneEffect; // Эффект, применяемый при выводе сцены
-  zorder:integer; // Определяет порядок отрисовки сцен
+  zOrder:integer; // Определяет порядок отрисовки сцен
   activated:boolean; // true если сцена уже начала показываться или показалась, но еще не имеет эффекта закрытия
   shadowColor:cardinal; // если не 0, то рисуется перед отрисовкой сцены
   ignoreKeyboardEvents:boolean; // если true - такая сцена не будет получать сигналы о клавиатурном вводе, даже будучи верхней

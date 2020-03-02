@@ -16,9 +16,9 @@ interface
                 gamUseFullWindow);        // Modify W/H of the render area to match the output rect (flexible design)
 
  var
-   // Global settings
+   // Default global settings
    gameTitle:string='Engine3 Game Template';
-   configFileName:string='';
+   configFileName:string=''; // no config file
 
    usedAPI:TGraphicsAPI=gaOpenGL;
    useSystemCursor:boolean=true;

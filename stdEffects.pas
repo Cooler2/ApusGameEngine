@@ -10,20 +10,20 @@ interface
  uses types,EngineAPI,EventMan,UIScene,MyServis,AnimatedValues;
 
 type
- // Эффект простой прозрачности: сцена набирает прозрачность
+ // Simple fade effect
  TTransitionEffect=class(TSceneEffect)
-  prevscene:TGameScene;
-  prevtimer:integer;
-  constructor Create(scene,oldscene:TGameScene;TotalTime:integer);
+  prevScene:TGameScene;
+  prevTimer:integer;
+  constructor Create(scene:TGameScene;totalTime:integer);
   procedure DrawScene; override;
   destructor Destroy; override;
   procedure Initialize; virtual;
  private
   buffer:TTexture;
-  initialized,DontPlay:boolean;
+  initialized,dontPlay:boolean;
  end;
 
- // Эффект поворота с масштабированием
+ // Fade effect with rotation and scaling
  // сцена начинает приближаться и поворачиваться теряя при этом прозрачность
  TRotScaleEffect=class(TSceneEffect)
   newscene:TGameScene;
@@ -75,7 +75,7 @@ type
  {$ENDIF}
 
  var
-   disableEffects:boolean=false;
+   disableEffects:boolean=false; // true - disable all effects
 
 implementation
  uses {$IFDEF DIRECTX}{d3d8,directXGraphics,}{$ENDIF}
@@ -91,7 +91,7 @@ implementation
   blurLog:string;
 
 { TTransitionEffect }
-constructor TTransitionEffect.Create(scene,oldscene:TGameScene;TotalTime: integer);
+constructor TTransitionEffect.Create(scene:TGameScene;TotalTime: integer);
 var
  o:integer;
 begin
@@ -101,8 +101,9 @@ begin
   ForceLogMessage('Scene '+scene.name+' already has an effect!');
  end;
  initialized:=false;
+ prevScene:=game.TopmostVisibleScene(true);
  if scene is TUIScene then ForceLogMessage('TransEff on scene: '+TUIScene(scene).name);
- if oldscene is TUIScene then ForceLogMessage('Prev scene: '+TUIScene(oldscene).name);
+ if prevScene is TUIScene then ForceLogMessage('Prev scene: '+TUIScene(prevScene).name);
  inherited Create(scene,totaltime);
  finally
   LeaveCriticalSection(UICritSect);
@@ -114,15 +115,11 @@ begin
  try
  if forScene is TUIScene then (forScene as TUIScene).UI.enabled:=false;
 
- if scene.zorder<=oldscene.zorder then begin
-  o:=scene.zorder; scene.zorder:=oldscene.zorder;
-  oldscene.zorder:=o;
- end;
- prevscene:=oldscene;
- prevtimer:=0;
+ if scene.zorder<=prevScene.zorder then Swap(scene.zOrder,prevScene.zOrder);
+ prevTimer:=0;
  buffer:=nil;
- DontPlay:=DisableEffects;
- if pfRTnorm=ipfNone then DontPlay:=true;
+ dontPlay:=disableEffects;
+ if pfRTnorm=ipfNone then dontPlay:=true;
  finally
   LeaveCriticalSection(UICritSect);
  end;

@@ -1085,7 +1085,7 @@ begin
   if part[i].z<>0 then needSort:=true;
   idx[i]:=i;
  end;
- if NeedSort then // сортировка (в будущем заменить на quicksort)
+ if needSort then // сортировка (в будущем заменить на quicksort)
   for i:=0 to count-2 do begin
    n:=i; minZ:=part[idx[n]].z;
    for j:=i+1 to count-1 do

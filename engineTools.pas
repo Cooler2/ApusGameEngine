@@ -14,6 +14,7 @@ interface
 
 var
  rootDir:string='';
+ defaultImagesDir:string='Images\';
 
 type
  // Большое изображение, состоящее из нескольких текстур
@@ -1089,8 +1090,8 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
   begin
    if flags=liffDefault then flags:=defaultLoadImageFlags;
    if img<>nil then texman.FreeImage(TTexture(img));
-   if not fName.StartsWith('..') then fName:='Images\'+fName;
-   img:=LoadImageFromFile(FileName(fName),flags,ipf32bpp);
+   if not fName.StartsWith('..') then fName:=defaultImagesDir+fName;
+   img:=LoadImageFromFile(fName,flags,ipf32bpp);
   end;
 
  procedure SaveImage(img:TTextureImage;fName:string);
