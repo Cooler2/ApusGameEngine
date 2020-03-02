@@ -1,8 +1,10 @@
 ﻿// Стандартный стиль для UI, позволяющий определять внешний вид элементов
 // с использованием изображений
 //
-// Copyright (C) 2006 Apus Software (www.astralmasters.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2006 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$R-}
 unit CustomStyle;
 interface
@@ -33,7 +35,7 @@ implementation
    alphamode:TAlphaMode;
    alignment:TTextAlignment;
    underline:boolean;
-   scaleX,scaleY:single; // scale button images 
+   scaleX,scaleY:single; // scale button images
    procedure InitWithDefaultValues(bsName:string);
   end;
 
@@ -41,7 +43,7 @@ implementation
    fname:string;
    image:TTexture;
   end;
-  
+
   TVarTypeCustomStyle=class(TVarTypeStruct)
    class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
    class function ListFields:String; override;

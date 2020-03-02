@@ -1,6 +1,9 @@
 ﻿// iOS version of sound system
-// Copyright (C) Apus Software, 2012
-// Author: Ivan Polyacov, ivan@apus-software.com
+// Copyright (C) Apus Software
+// Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$modeswitch objectivec1}
 unit SoundI;
 interface
@@ -204,7 +207,7 @@ function EventHandler(event:EventStr;tag:integer):boolean;
   end;
   if pos('PLAYMUSIC\',event)=1 then begin
    delete(event,1,10);
-   case tag of	
+   case tag of
     0:begin // обычный эффект: музыка гасится, затем запускается новая
        downtime:=1200;
        needslide:=0;
@@ -265,7 +268,7 @@ procedure Initialize;
 
 procedure Finalize;
  begin
-  if not initialized then exit; 
+  if not initialized then exit;
   thread.Terminate;
   thread.WaitFor;
   thread.Free;
@@ -447,4 +450,4 @@ begin
  result:=curModuleHandle;
 end;
 
-end.
+end.

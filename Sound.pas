@@ -1,5 +1,7 @@
-﻿// Copyright (C) Apus Software, 2004-2017
-// Author: Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
+﻿// Copyright (C) Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$R-}
 unit Sound;
 interface
@@ -204,7 +206,7 @@ function EventHandler(event:EventStr;tag:TTag):boolean;
     {$ENDIF}
     evt.sample.handle:=0;
    end;
-   exit;   
+   exit;
   end;
 
   // Play sound sample (load if not loaded)
@@ -268,7 +270,7 @@ function EventHandler(event:EventStr;tag:TTag):boolean;
    evt.channel:=pools[evt.sample.pool].PlaySound(evt.sample.handle,v/100,v/100,1.0,false);
    {$ENDIF}
 
-   exit;  
+   exit;
   end;
 
   // Change channel attributes
@@ -306,7 +308,7 @@ function EventHandler(event:EventStr;tag:TTag):boolean;
    {$IFDEF IMX}
    IMXChannelSlide(evt.channel,v,newpan,newfreq,slide);
    {$ENDIF}
-   
+
    exit;
   end;
 
@@ -314,7 +316,7 @@ function EventHandler(event:EventStr;tag:TTag):boolean;
    delete(event,1,10);
    if event='SOUND' then SetSoundVolume(tag);
    if event='MUSIC' then SetMusicVolume(tag);
-   exit;   
+   exit;
   end;
 
   if pos('MUSICPOS',event)=1 then begin
@@ -347,7 +349,7 @@ function EventHandler(event:EventStr;tag:TTag):boolean;
    mus:=nil;
    if event<>'NONE' then
     mus:=MusHash.Get(event);
-   // Позиция проигрывания 
+   // Позиция проигрывания
    needMusicPos:=tag shr 8;
    tag:=tag and $FF;
 
@@ -444,7 +446,7 @@ procedure Initialize(windowHandle:cardinal;waitForPreload:boolean=true);
 
 procedure Finalize;
  begin
-  if not initialized then exit; 
+  if not initialized then exit;
   thread.Terminate;
   thread.WaitFor;
   thread.Free;
@@ -638,7 +640,7 @@ begin
   IMXStreamPlay(needMusic.handle);
   if NeedMusicPos<>0 then begin
    IMXChannelSetPosition(needMusic.handle,needMusicPos);
-   needMusicPos:=0;   
+   needMusicPos:=0;
   end;
  end;
  if needSlide>0 then begin

@@ -1,6 +1,9 @@
 // Import module for InterQuakeModel format (IQM/IQE)
-// Copyright (C) 2019 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+
+// Copyright (C) 2019 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$R+}
 unit IQMloader;
 interface

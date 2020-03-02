@@ -1,7 +1,9 @@
 // Class for 3D model with skeletal (rigged) animation
 //
-// Copyright (C) 2019 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2019 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit Model3D;
 interface
 uses MyServis,geom2D,geom3D;

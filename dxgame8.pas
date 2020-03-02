@@ -1,8 +1,9 @@
 ﻿// DirectX version of the Game object
 //
 //
-// Copyright (C) 2003-2011 Apus Software (www.games4win.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2003-2011 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit dxgame8;
 interface
  uses EngineAPI,Images,engineTools,windows,classes,myservis,BasicGame;
@@ -121,7 +122,7 @@ begin
 
  LogMessage('Screen mode: '+inttostr(pparam.BackBufferFormat));
  LogMessage(' ZBuffer: '+inttostr(pparam.AutoDepthStencilFormat));
- 
+
  LogMessage('Supported pixel formats:');
  LogMessage(' 8bit: '+BoolToStr(support8bit,true));
  LogMessage('   A8: '+BoolToStr(supportA8,true));
@@ -142,7 +143,7 @@ begin
  LogMessage('  565: '+BoolToStr(support565rt,true));
  LogMessage('  555: '+BoolToStr(support555rt,true));
  LogMessage(' 4444: '+BoolToStr(support4444rt,true));
- 
+
  AfterInitGraph;
 end;
 

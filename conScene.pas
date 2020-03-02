@@ -1,7 +1,8 @@
 ﻿// Standard scene for console window and command interpreter
 //
-// Copyright (C) 2004 Apus Software (www.games4win.com)
-// Author: Ivan Polyacov (ivan@apus-software.com)
+// Copyright (C) 2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit conScene;
 interface
  uses EngineAPI,UIClasses,UIScene;
@@ -57,9 +58,9 @@ begin
   c.x:=screenWidth-c.x-c.width;
  end;}
 
- // Выбор из предыдущих команд   
+ // Выбор из предыдущих команд
  if (consoleScene.activated) and
-    (game.shiftState=0) and 
+    (game.shiftState=0) and
     (focusedControl=consoleScene.editbox) then
   with consoleScene do begin
    // [UP] / {DOWN] - select previous commands

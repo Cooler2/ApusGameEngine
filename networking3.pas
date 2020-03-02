@@ -1,7 +1,9 @@
 // Network engine layer, ver 3 (messaging protocol over HTTP, client-side part)
 //
-// Copyright (C) 2014 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2014 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$R+}
 unit Networking3;
 interface
@@ -22,7 +24,7 @@ var
                            // сообщений, но помогает объединять их в один запрос
 
  failedRequests:integer; // каждый сбойный запрос увеличивает счётчик, успешный - обнуляет
- lastPollSent:TDateTime; // время отправки последнего POLL-запроса                          
+ lastPollSent:TDateTime; // время отправки последнего POLL-запроса
 
  // Перечень всех возможных сигналов:
  //  NET\Conn3\AccountCreated - аккаунт успешно создан (CreateAccount)
@@ -100,7 +102,7 @@ implementation
   serial:cardinal; // request serial number
   activePollRequest:integer; // current poll request ID (0 - no active poll request)
   activePostRequest:integer; // current post request ID (0 - no active post request)
-  lastPostSent:TDateTime; // время первой отправки POST-запроса с ID=activePostRequest (для таймаута) 
+  lastPostSent:TDateTime; // время первой отправки POST-запроса с ID=activePostRequest (для таймаута)
   lastPollURL:string;
   lastPostURL,lastPostData:string;
   lastPostType:TContentType;
@@ -156,7 +158,7 @@ implementation
   SCNetworkReachabilityRef = pointer;
 
  function SCNetworkReachabilityCreateWithAddress(allocator:pointer;
- 						 var address:TSockAddr):SCNetworkReachabilityRef; cdecl; external;
+                   var address:TSockAddr):SCNetworkReachabilityRef; cdecl; external;
 
  function SCNetworkReachabilityGetFlags(nrr:SCNetworkReachabilityRef;out flags:cardinal):boolean; cdecl; external;
 
@@ -242,7 +244,7 @@ procedure GetInternetAddress(address:AnsiString;var ip:cardinal;var port:word);
    end else
     ip:=$FFFFFFFF;
   except
-  end;   
+  end;
  end;
 
 function ShortMD5(st:string):string;
@@ -579,7 +581,7 @@ function EventHandler2(event:eventstr;tag:TTag):boolean;
     Signal('NET\Conn3\AccountCreated');
    end else
    if pos('ERROR:',response)=1 then begin
-    LogMessage('NW3: account failed - '+response);    
+    LogMessage('NW3: account failed - '+response);
     NW3ErrorMessage:=copy(response,8,length(response));
     Signal('NET\Conn3\AccountFailed');
    end else

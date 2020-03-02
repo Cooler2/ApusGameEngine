@@ -1,8 +1,10 @@
 ﻿// Стандартный стиль для UI, позволяющий определять внешний вид элементов
 // с использованием изображений
 //
-// Copyright (C) 2006 Apus Software (www.astralmasters.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2006 Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$R-}
 unit BitmapStyle;
 interface
@@ -134,7 +136,7 @@ procedure DrawBtnImageInt(btn:TUIButton;xc,yc:single;var imgNormal,imgOver:TText
     painter.DrawDouble(x,y,imgNormal,imgOver,color);
     painter.SetTexMode(1,tblDisable,tblDisable,fltUndefined);
   end;
- end; 
+ end;
 
 procedure DeleteAllButtonImages;
 var
@@ -296,16 +298,19 @@ procedure TBitmapStyle.DrawItem(con: TUIControl);
  end;
 
 { TBitmapStyle }
-function TBitmapStyle.AnimationTime(con: TUIControl; param: integer): integer; begin
+
+function TBitmapStyle.AnimationTime(con: TUIControl; param: integer): integer;
+ begin
   case param of
    0:result:=100;
    1:result:=200;
   end;
  end;
 
-procedure TBitmapStyle.BuildButtonImage(btn: TUIButton; state: TButtonState;  var img: TTextureImage);
+procedure TBitmapStyle.BuildButtonImage(btn: TUIButton; state: TButtonState;
+  var img: TTextureImage);
  begin
   img:=nil;
  end;
 
-end.
+end.

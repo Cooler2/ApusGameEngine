@@ -1,8 +1,10 @@
 // Standard scene for visual editing of published variables (using MyServis unit)
 // Press Ctrl+[~] to show/hide
 //
-// Copyright (C) 2013-2014 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (ivan@apus-software.com)
+// Copyright (C) 2013-2014 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit TweakScene;
 interface
 

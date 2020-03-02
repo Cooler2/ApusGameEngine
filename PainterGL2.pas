@@ -1,7 +1,9 @@
 ﻿// Class for painting routines using OpenGL: programmable-function pipeline (GLES 2.0+)
 //
-// Copyright (C) 2011-2014 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2011-2014 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$IFDEF IOS}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit PainterGL2;
@@ -73,7 +75,7 @@ const
  AS_CUSTOMIZED = 1;    // Специальный шейдер, созданный под выбранные параметры блендинга
  AS_OWN = 2;           // Внешний (клиентский) шейдер
 
- DEFAULT_TEX_MODE = ord(tblModulate2X)+ord(tblModulate) shl 4; // стандартный режим блендинга 
+ DEFAULT_TEX_MODE = ord(tblModulate2X)+ord(tblModulate) shl 4; // стандартный режим блендинга
 
 type
  TTexMode=array[0..3] of word;
@@ -195,7 +197,7 @@ begin
   '    vColor = aColor;   '#13#10;
   for i:=1 to n do vs:=vs+
     '    vTexcoord'+inttostr(i)+' = aTexcoord'+inttostr(i)+'; '#13#10;
-  vs:=vs+  
+  vs:=vs+
   '    gl_Position = uMVP * vec4(aPosition, 1.0);  '#13#10+
   '}';
 
@@ -463,7 +465,7 @@ procedure TGLPainter2.DrawIndexedPrimitivesDirectly(primType: integer;
   TRG_STRIP:glDrawElements(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,indBuf);
  end;
  end;
- 
+
 
 const
  mainVertexShader=

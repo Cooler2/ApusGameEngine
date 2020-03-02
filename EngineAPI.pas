@@ -1,7 +1,9 @@
 ﻿// Definition of engine's abstract classes structure
 //
-// Copyright (C) 2003 Apus Software (www.games4win.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2003 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit EngineAPI;
 interface
  uses Images,Geom2D,Geom3D,types,EventMan,publics;
@@ -69,7 +71,7 @@ const
  toComplexText    =  16; // String is complex - parse it
  toMeasure        =  32; // Fill measurement data, if query<>0 - check point and set current link
  toDontDraw       =  64; // Just measure - don't draw anything
- toBold           = $100;  // Overrides font style flag 
+ toBold           = $100;  // Overrides font style flag
  toAddBaseline    = $10000;  // y-coordinate passed is not for baseline, but for top line, so need to be corrected
  toNoHinting      = $20000; // Disable hinting for vector fonts (good for large text)
  toAutoHinting    = $40000; // Force use of FT-autohinting (may produce better or more uniform results)
@@ -85,7 +87,7 @@ const
  fsBold        = $100;
  fsItalic      = $2000000;
  fsUnderline   = $4000000;
- fsLetterSpacing  = $10000000; 
+ fsLetterSpacing  = $10000000;
 
  // Font options (for SetFontOption)
  foDownscaleFactor = 1;
@@ -356,8 +358,8 @@ type
   procedure SetMode(blend:TBlendingMode); virtual; abstract; // Режим альфа-блендинга
   procedure SetTexMode(stage:byte;colorMode:TTexBlendingMode=tblModulate2X;alphaMode:TTexBlendingMode=tblModulate;
      filter:TTexFilter=fltUndefined;intFactor:single=0.0); virtual; abstract; //  Настройка стадий (операций) текстурирования
-  procedure UseCustomShader; virtual; abstract; // указывает, что клиентский код включил собственный шейдер => движок не должен его переключать  
-  procedure ResetTexMode; virtual; abstract; // возврат к стандартному режиму текстурирования (втч после использования своего шейдера) 
+  procedure UseCustomShader; virtual; abstract; // указывает, что клиентский код включил собственный шейдер => движок не должен его переключать
+  procedure ResetTexMode; virtual; abstract; // возврат к стандартному режиму текстурирования (втч после использования своего шейдера)
 
   procedure SetMask(rgb:boolean;alpha:boolean); virtual; abstract;
   procedure ResetMask; virtual; abstract; // вернуть маску на ту, которая была до предыдущего SetMask
@@ -416,7 +418,7 @@ type
   function LoadFontFromFile(name:string):THandle; virtual; abstract;  // Загрузить из файла
   procedure FreeFont(font:THandle); virtual; abstract;   // Удалить подготовленный шрифт
   procedure SetFont(font:THandle); virtual; abstract;  // Выбрать шрифт
-  procedure SetTextOverlay(tex:TTexture;scale:single=1.0;relative:boolean=true); virtual; abstract; 
+  procedure SetTextOverlay(tex:TTexture;scale:single=1.0;relative:boolean=true); virtual; abstract;
   function GetTextWidth(st:string;font:integer=0):integer; virtual; abstract;  // Определить ширину текста в пикселях (spacing=0)
   function GetFontHeight:byte; virtual; abstract;  // Определить высоту шрифта в пикселях
   procedure WriteSimple(x,y:integer;color:cardinal;st:string;align:TTextAlignment=taLeft;spacing:integer=0); virtual; abstract;  // Простейший вывод текста
@@ -446,7 +448,7 @@ type
   // Particles ------------------------------------------
   procedure DrawParticles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0); virtual; abstract;
   procedure DrawBand(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect); virtual; abstract;
-  
+
  protected
   // Максимальная область рендертаргета, доступная для отрисовки, т.е. это значение, которое принимает ClipRect при сбросе отсечения
   // Используется при установке вьюпорта (при смене рендертаргета)
@@ -542,7 +544,7 @@ type
   destructor Destroy; override;
 
   // Вызывается из конструктора, можно переопределить для инициализации без влезания в конструктор
-  // !!! Manual call from constructor! 
+  // !!! Manual call from constructor!
   procedure onCreate; virtual;
 
   // Для изменения статуса использовать только это!
@@ -556,7 +558,7 @@ type
   // На момент вызова установлен RenderTarget и все готово к рисованию
   // Если сцена соержит свой слой UI, то этот метод должен вызвать
   // рисовалку UI для его отображения
-  procedure Render; virtual; 
+  procedure Render; virtual;
 
   // Определить есть ли нажатия клавиш в буфере
   function KeyPressed:boolean; virtual;

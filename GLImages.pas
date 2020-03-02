@@ -1,7 +1,9 @@
 ﻿// OpenGL-based texture classes and texture manager
 //
-// Copyright (C) 2011 Apus Software (www.games4win.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2011 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit GLImages;
 interface
  uses EngineAPI,Images,myservis,types;
@@ -581,7 +583,7 @@ begin
  maxRTTextureSize:=min2(maxFBwidth,maxFBheight);
  LogMessage(Format('Maximal texture sizes: %d (FB: %d x %d, RB: %d)',[maxTextureSize,maxFBwidth,maxFBheight,maxRBsize]));
  if maxFBwidth=0 then maxFBwidth:=Max2(maxRBsize,1024);
- if maxFBheight=0 then maxFBheight:=Max2(maxRBsize,1024); 
+ if maxFBheight=0 then maxFBheight:=Max2(maxRBsize,1024);
  except
   on e:Exception do begin
    ForceLogMessage('Error in GLTexMan constructor: '+ExceptionMsg(e));
@@ -622,7 +624,7 @@ begin
   dec(image.cloneOf.numClones);
   FreeAndNil(image);
   exit;
- end; 
+ end;
 
  if image is TGLTexture then begin
   tex:=image as TGLTexture;
@@ -655,7 +657,7 @@ begin
  end;
 end;
 
-procedure TGLTextureMan.FreeImage(var image:TTextureImage); 
+procedure TGLTextureMan.FreeImage(var image:TTextureImage);
 begin
  FreeImage(TTexture(image));
 end;

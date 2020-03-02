@@ -1,7 +1,9 @@
 ﻿// Common scene effects
 //
-// Copyright (C) 2004 Apus Software (www.games4win.com)
-// Author: Ivan Polyacov (cooler@tut.by)unit stdEffects;
+// Copyright (C) 2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$R-}
 unit stdEffects;
 interface
@@ -86,7 +88,7 @@ implementation
   ModalStack:array[1..8] of TUIControl;
   modalStackSize:integer;
 
-  blurLog:string; 
+  blurLog:string;
 
 { TTransitionEffect }
 constructor TTransitionEffect.Create(scene,oldscene:TGameScene;TotalTime: integer);
@@ -105,7 +107,7 @@ begin
  finally
   LeaveCriticalSection(UICritSect);
  end;
- 
+
  forScene.SetStatus(ssActive);
 
  EnterCriticalSection(UICritSect);
@@ -713,7 +715,7 @@ const
   '}';
 
 var
- blurShader:integer=0;  
+ blurShader:integer=0;
  loc1,loc2,loc3,loc4,locCA,locCM,locTex1,locTex2:integer;
 
 destructor TBlurEffect.Destroy;
@@ -774,7 +776,7 @@ begin
   locTex1:=glGetUniformLocation(blurShader,'tex1');
   locTex2:=glGetUniformLocation(blurShader,'tex2');
  end;
- 
+
  buffer:=texman.AllocImage(width,height,pfRTNorm,aiRenderTarget+aiClampUV,'BlurBuf1');
  buffer2:=texman.AllocImage(width div 2,height div 2,pfRTNorm,aiRenderTarget+aiClampUV,'BlurBuf2');
  initialized:=true;
@@ -866,7 +868,7 @@ begin
 
   move(mainColorMult,cb,4);
   for i:=0 to 2 do cf[i]:=(1-v)+cb[i]*v*2/255;
-  glUniform4f(locCM,cf[2],cf[1],cf[0],1); 
+  glUniform4f(locCM,cf[2],cf[1],cf[0],1);
 
   if painter.ClassName='TGLPainter2' then begin
    u:=200*(1/buffer.width);

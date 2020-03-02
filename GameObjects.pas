@@ -1,18 +1,20 @@
 // Visual objects/sprites etc.
 //
-// Copyright (C) 2014 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (ivan@apus-software.com, cooler@tut.by)
+// Copyright (C) 2014 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit GameObjects;
 interface
  uses MyServis,AnimatedValues,EngineAPI;
  const
   DONT_CHANGE = -9987; // magic value which means "keep previous value"
-  LIVE_OBJECT = $2468; // magic value for live object  
+  LIVE_OBJECT = $2468; // magic value for live object
  type
   // Тип связи между объектами
   TObjectRelation=(
    orNone,      // Объект самостоятельный и независимый
-   orAttached,  // Объект присоединен к другому объекту, его координаты относительны, при удалении связанного объекта удаляется и этот 
+   orAttached,  // Объект присоединен к другому объекту, его координаты относительны, при удалении связанного объекта удаляется и этот
    orMaster,    // Объект-хозяин, он обязан рисовать подчинённый объект, при удалении подчинённый объект становится свободным
    orSlave);    // Подчинённый объект (не рисуется, не проверяется)
 
@@ -24,7 +26,7 @@ interface
 
   {$ALIGN 4}
   // Базовый класс с общим функционалом
-  TGameObjectClass=class of TGameObject; 
+  TGameObjectClass=class of TGameObject;
   TGameObject=class(TSortableObject)
    private
     layerID:integer;
@@ -40,7 +42,7 @@ interface
     width,height:single; // используется для поиска объекта в заданной точке (т.е. это размеры "непрозрачной" для мыши части объекта)
     timeToDelete:int64;
     realX,realY:single; // тут запоминается положение объекта в экранных координатах при последней отрисовке
-    aliveMagic:word; // $DEAD - если удалён, $2468 - если жив (проверка на доступ к удалённому объекту) 
+    aliveMagic:word; // $DEAD - если удалён, $2468 - если жив (проверка на доступ к удалённому объекту)
     relation:TObjectRelation; // Тип связи между объектами
     related:TGameObject; // Связанный объект
     constructor Create(x_,y_,z_,alpha_,scale_:single;layer_:string='';name_:string='');
@@ -99,7 +101,7 @@ interface
    param:single; // default: gravity acceleration (+dSpeedY)
    color:cardinal;
    age:single; // время жизни с момента создания (в сек), отрицательное - партикл удаляется
-   life:single; // время жизни (при достижении которого партикл удаляется) 
+   life:single; // время жизни (при достижении которого партикл удаляется)
    kind:integer; // default: index in texture
   end;
 
@@ -152,9 +154,9 @@ interface
     lines:array of WideString;
     textColor,borderColor,backgroundColor:cardinal;
   end;}
-  
 
- // Ф-ции, возвращающие объекты, и сами возвращаемые объекты использовать только при блокировке!  
+
+ // Ф-ции, возвращающие объекты, и сами возвращаемые объекты использовать только при блокировке!
  function FindObjByName(name:string):TGameObject;
  function FindObjByID(ID:cardinal):TGameObject;
  function FindObjectAt(x,y:integer;layers:string=''):TGameObject;
@@ -166,7 +168,7 @@ interface
  procedure DeleteAllObjects(layers:string='All');
 
  procedure LockObjects;
- procedure UnlockObjects; 
+ procedure UnlockObjects;
 
  // Есть 3 режима перемещения:
  //  1 - time>0, smoothness - mode: более-менее равномерное перемещение в будущем (конечная точка заранее известна)
@@ -322,7 +324,7 @@ begin
  ASSERT(lCount<31);
  inc(lCount);
  layerID:=lCount;
- layerNames[layerID]:=l; 
+ layerNames[layerID]:=l;
 end;
 
 function TGameObject.Compare(obj: TSortableObject): integer;
@@ -342,7 +344,7 @@ begin
  end;
 end;
 
-function TGameObject.Describe:string; 
+function TGameObject.Describe:string;
 begin
  try
   if self=nil then begin
@@ -478,7 +480,7 @@ begin
  EnterCriticalSection(crSect,GetCaller);
 end;
 
-procedure UnlockObjects; 
+procedure UnlockObjects;
 begin
  LeaveCriticalSection(crSect);
 end;

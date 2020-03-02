@@ -1,4 +1,9 @@
-﻿{$R-}
+﻿
+
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
+{$R-}
 unit UModes;
 
 interface
@@ -59,7 +64,7 @@ tmode=class
  procedure DrawAfterUI(x,y:integer); virtual;
  procedure Addscene;
  procedure ModeInit; virtual;
- procedure Preload; virtual;  // вызывается в отдельном потоке при старте игры, тут можно загрузить графику или делать какой-то препроцессинг 
+ procedure Preload; virtual;  // вызывается в отдельном потоке при старте игры, тут можно загрузить графику или делать какой-то препроцессинг
  procedure FreeMemory; virtual;
  procedure Restore; virtual;
  constructor Create(modeName:string;preInit:boolean=true); virtual;
@@ -309,7 +314,7 @@ begin
   ForceLogMessage('Primary adapter: '+adaptername);
   if pos('RIVA TNT',adaptername)>0 then
    DisableEffects:=true;
-  end; 
+  end;
  {$ENDIF}
  {$IFDEF OPENGL}
  if usedAPI=gaOpenGL then begin

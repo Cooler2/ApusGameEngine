@@ -1,3 +1,9 @@
+// IOS ObjC view class for use with the engine
+
+// Copyright (C) Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit EAGLViewU;
 
 {$modeswitch ObjectiveC1}
@@ -24,7 +30,7 @@ type
     // The pixel dimensions of the CAEAGLLayer.
     framebufferWidth:GLint;
     framebufferHeight:GLint;
-    
+
     // The OpenGL ES names for the framebuffer and renderbuffer used to render to this view.
     defaultFramebuffer, colorRenderbuffer:GLuint;
     context:EAGLContext;

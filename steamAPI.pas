@@ -1,5 +1,8 @@
-// Copyright (C) 2011 Apus Software. Ivan Polyacov (ivan@apus-software.com)
 // Translated from STEAM SDK headers
+
+// Copyright (C) 2011 Apus Software. Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit steamAPI;
 interface
  var
@@ -61,9 +64,9 @@ implementation
  type
   PMicroTxnAuthorizationResponse_t=^MicroTxnAuthorizationResponse_t;
   MicroTxnAuthorizationResponse_t=record
- 	 m_unAppID:integer;			// AppID for this microtransaction
-	 m_ulOrderID:int64;			// OrderID provided for the microtransaction
-	 m_bAuthorized:byte;		// if user authorized transaction
+    m_unAppID:integer;        // AppID for this microtransaction
+    m_ulOrderID:int64;        // OrderID provided for the microtransaction
+    m_bAuthorized:byte;    // if user authorized transaction
   end;
 
  const

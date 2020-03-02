@@ -1,3 +1,6 @@
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit UDict;
 
 {$IFDEF FPC}
@@ -381,7 +384,7 @@ begin
  result:=s;
  q:=pos('`',s);
  if q>0 then
- begin                                                           
+ begin
   result:=copy(s,1,q-1);
   while (q<length(s))and(s[q]<>' ')and(s[q]<>',')and(s[q]<>'.')and(s[q]<>'!')and(s[q]<>':')and(s[q]<>'(')and(s[q]<>')') do
    inc(q);

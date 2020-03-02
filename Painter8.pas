@@ -2,8 +2,10 @@
 // Assumes that all drawing methods are called inside BeginScene/EndScene
 // and D3D8 unit has been properly initialized
 //
-// Copyright (C) 2003 Apus Software (www.games4win.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2003 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit Painter8;
 interface
  uses types,geom2d,Images,EngineAPI,DxImages8,BasicPainter,DirectXGraphics;
@@ -17,7 +19,7 @@ type
   procedure Restore; override;
   procedure Reset; // нужно вызывать после потери девайса, переключения режима и т.п.
   // Установить параметры отсечения по текущему viewport'у
-  procedure RestoreClipping; override;  
+  procedure RestoreClipping; override;
 
   procedure BeginPaint(target:TTexture); override;
   procedure EndPaint; override;
@@ -372,7 +374,7 @@ begin
   else zbuf:=nil;
  DxCall(device.SetRenderTarget(backbuf,zbuf));
  RestoreClipping;
- clipRect:=screenrect; 
+ clipRect:=screenrect;
  curtarget:=nil;
 end;
 

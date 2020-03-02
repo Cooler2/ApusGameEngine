@@ -1,8 +1,11 @@
-﻿// Copyright (C) 2004-2014 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
-{ Командный процессор - выполняет команды и командные файлы, имеет возможность
+﻿{ Командный процессор - выполняет команды и командные файлы, имеет возможность
   расширения набора команд }
-{$R+}  
+
+// Copyright (C) 2004-2014 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
+{$R+}
 unit cmdproc;
 interface
  uses publics;
@@ -101,7 +104,7 @@ implementation
    if cmd='' then exit;
    st:=UpperCase(cmd);
    if (condPos>0) and not condStack[condPos] then
-    if (st<>'ENDIF') and (st<>'ELSE') then exit; 
+    if (st<>'ENDIF') and (st<>'ELSE') then exit;
    // Обработка команды HELP
     { может, когда-нибудь будет... }
 
@@ -267,7 +270,7 @@ implementation
     st:=StringReplace(st,', ',','#13#10,[rfReplaceAll]);
     PutMsg(curObjClass.ClassName+': '+st,false,41000);
     exit;
-   end; 
+   end;
    repr:=rtDecimal;
    if cmd[1]='$' then begin repr:=rtHex; delete(cmd,1,1); end;
    if cmd[1]='%' then begin repr:=rtBin; delete(cmd,1,1); end;
@@ -295,7 +298,7 @@ implementation
      dec(condPos);
     end else begin
      // ELSE statement
-     condStack[condPos]:=not condStack[condPos]; 
+     condStack[condPos]:=not condStack[condPos];
     end;
    end else begin
     // IF statement

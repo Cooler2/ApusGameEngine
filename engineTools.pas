@@ -1,8 +1,10 @@
 ﻿// Common purpose routines for engine and global variables/constants
 // Many other engine units depend on this unit!
 //
-// Copyright (C) 2003-2004 Apus Software (www.games4win.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2003-2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit engineTools;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
@@ -403,7 +405,7 @@ begin
    inc(i);
    if i>=4 then raise EError.Create('Failed to choose valid pixel format!');
   until false;
- end; 
+ end;
  {$ENDIF}
  {$IFDEF OPENGL}
  if texman.InheritsFrom(TGLTextureMan) then begin
@@ -415,7 +417,7 @@ begin
    else
     raise EError.Create('Failed to choose valid pixel format for '+PixFmt2Str(ForceFormat));
   end;
- end; 
+ end;
  {$ENDIF}
 end;
 
@@ -772,7 +774,7 @@ begin
    raise EWarning.Create(fname+' - Loading failed: '+ExceptionMsg(e));
   end;
  end;
- 
+
  // 8. TIME CALCULATIONS
  time:=MyTickCount-time+random(2);
  if (time>0) and (time<50000) then inc(LoadingTime,time);
@@ -867,7 +869,7 @@ destructor TLargeImage.Destroy;
   for i:=0 to cntX-1 do
    for j:=0 to cntY-1 do
     texman.FreeImage(TTexture(images[i,j]));
-  inherited;  
+  inherited;
  end;
 
 procedure TLargeImage.Draw(x, y: integer; color: cardinal);

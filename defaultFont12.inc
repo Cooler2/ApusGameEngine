@@ -1,3 +1,6 @@
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 const
  DefaultFont12:array[0..16578] of byte=(
     $c1,$01,$50,$f7,$07,$44,$65,$66,$61,$75,$6c,$74,$00,$00,$00,$00,$00,$00,$00,$00,$0c,$5A,$80,$0e,$0a,$00,$00,$00,$f7,$00,$00,$00,

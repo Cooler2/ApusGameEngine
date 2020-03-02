@@ -1,8 +1,10 @@
 ﻿// Class for painting routines using OpenGL: fixed-function pipeline (1.4+, GLES 1.1)
 // For programmable-function pipeline (GLES 2.0+) use PainterGL2!
 //
-// Copyright (C) 2011-2014 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2011-2014 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$IFDEF IOS}{$DEFINE GLES} {$DEFINE GLES11} {$ENDIF}
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit PainterGL;
@@ -89,7 +91,7 @@ type
   renderWidth,renderHeight:integer; // size of render area for default target (virtual screen size)
   VPwidth,VPheight:integer; // viewport size for backbuffer
   targetScaleX,targetScaleY:single; // VPwidth/renderWidth
-  
+
   defaultRenderTarget:TTexture; // Texture to render into
   defaultFramebuffer:cardinal;  // Default render target for OpenGL ES (GL resource)
 
@@ -136,7 +138,7 @@ type
  TScrPoint8=record
   x,y,z,rhw:single;
   diffuse,specular:cardinal;
-  uv:array[0..7,0..1] of single; 
+  uv:array[0..7,0..1] of single;
  end;
 
 procedure CheckForGLError(lab:integer=0); inline;
@@ -151,12 +153,12 @@ begin
   end;
  end;
 end;
- 
+
 
 function SwapColor(color:cardinal):cardinal; inline;
 begin
  result:=color and $FF00FF00+(color and $FF) shl 16+(color and $FF0000) shr 16;
-end; 
+end;
 
 function clRed(color:cardinal):single; inline;
 begin
@@ -194,10 +196,10 @@ const
   'void main(void)                         '#13#10+
   '{                                       '#13#10+
   '    vec4 value = texture2D(tex1, vec2(gl_TexCoord[0]));  '#13#10+
-	'    float red = dot(value, vec4(newRed, 0));     '#13#10+
-	'    float green = dot(value, vec4(newGreen, 0)); '#13#10+
-	'    float blue = dot(value, vec4(newBlue,0));    '#13#10+
-	'    gl_FragColor = vec4(red,green,blue,value.a); '#13#10+
+   '    float red = dot(value, vec4(newRed, 0));     '#13#10+
+   '    float green = dot(value, vec4(newGreen, 0)); '#13#10+
+   '    float blue = dot(value, vec4(newBlue,0));    '#13#10+
+   '    gl_FragColor = vec4(red,green,blue,value.a); '#13#10+
   '}';
 
 
@@ -1014,7 +1016,7 @@ procedure TGLPainter.ResetTexMode;
 begin
  if GL_VERSION_2_0 then glUseProgram(0);
  SetTexMode(0,tblModulate2X,tblModulate);
- SetTexMode(1,tblDisable,tblDisable); 
+ SetTexMode(1,tblDisable,tblDisable);
 end;
 {$ENDIF}
 
@@ -1057,7 +1059,7 @@ begin
  stage:=1;
  FlushTextCache;
  //glFlush;
- CheckForGLError(5); 
+ CheckForGLError(5);
  stage:=2;
  SwitchToDefaultFramebuffer;
  curtarget:=nil;
@@ -1196,7 +1198,7 @@ begin
  vertBufUsage:=0;
  textBufUsage:=0;
  textCaching:=false;
- CheckForGLError(8); 
+ CheckForGLError(8);
 end;
 
 procedure TGLPainter.Reset;

@@ -1,7 +1,8 @@
 ﻿// Common useful UI-related classes and routines
 //
-// Copyright (C) 2003-2004 Apus Software (www.games4win.com)
-// Author: Ivan Polyacov (ivan@apus-software.com)
+// Copyright (C) 2003-2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit UIScene;
 interface
  uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineAPI,UIClasses,CrossPlatform,types;
@@ -227,7 +228,7 @@ function StrToAlign(s:string):TTextAlignment;
 function EvalInt(st:string):int64;
  begin
   result:=round(Eval(st,nil,curObj,curObjClass));
- end; 
+ end;
 
 {$IFDEF FPC}{$PUSH}{$R-}{$ENDIF}
 procedure DefaultCmd(cmd:string);
@@ -886,7 +887,7 @@ var
      [s.name,s.zorder,ord(s.status),byte(s.fullscreen),PtrToStr(s.effect)]);
    if s is TUIScene then
     result:=result+' UI='+PtrToStr(TUIScene(s).UI);
-  end; 
+  end;
 begin
  try
  assign(f,'UIdata.log');
@@ -1096,7 +1097,7 @@ class procedure TVarTypeSendSignals.SetValue(variable:pointer;v:string);
   if v='none' then TSendSignals(variable^):=ssNone else
   raise EWarning.Create('Unknown SendSignals mode: '+v);
  end;
-class function TVarTypeSendSignals.GetValue(variable:pointer):string; 
+class function TVarTypeSendSignals.GetValue(variable:pointer):string;
  begin
   case TSendSignals(variable^) of
    ssMajor:result:='major';
@@ -1113,7 +1114,7 @@ class procedure TVarTypeBtnStyle.SetValue(variable:pointer;v:string);
   if (v='item') or (v='checkbox') then TButtonStyle(variable^):=bsCheckbox else
   raise EWarning.Create('Unknown BtnStyle: '+v);
  end;
-class function TVarTypeBtnStyle.GetValue(variable:pointer):string; 
+class function TVarTypeBtnStyle.GetValue(variable:pointer):string;
  begin
   case TButtonStyle(variable^) of
    bsNormal:result:='normal';

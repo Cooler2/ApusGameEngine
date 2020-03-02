@@ -6,8 +6,10 @@
 //            If you want to access private data (buffers, images) from other
 //            threads, use your own synchronization methods
 //
-// Copyright (C) 2003 Apus Software (www.games4win.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2003 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit SDLgame;
 interface
  uses CrossPlatform,SDLmini,EngineCls,Images,engineTools,classes,myservis;
@@ -202,7 +204,7 @@ var
   begin
    error:=SDL_GetError;
    if error<>'' then
-    raise EError.Create('SDL Error: '+error);   
+    raise EError.Create('SDL Error: '+error);
   end;
 
 { TSDLGame }
@@ -463,7 +465,7 @@ begin
     LeaveCriticalSection(crSect);
    end;
   end;
-  
+
   SDL_MOUSEBUTTONUP:with game do begin
    if event.mouseButton.button=SDL_BUTTON_LEFT then begin Signal('Mouse\BtnUp\Left',1); c:=1; end;
    if event.mouseButton.button=SDL_BUTTON_RIGHT then begin Signal('Mouse\BtnUp\Right',2); c:=2; end;

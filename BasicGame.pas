@@ -6,8 +6,11 @@
 //            If you want to access private data (buffers, images) from other
 //            threads, use your own synchronization methods
 //
-// Copyright (C) 2003-2013 Apus Software (www.games4win.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2003-2013 Apus Software (www.apus-software.com)
+// Author: Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$IFDEF IOS}{$S-}{$ENDIF}
 {$R-}
 unit BasicGame;
@@ -21,7 +24,7 @@ var
 
  SaveScreenshotsToJPEG:boolean=true;
  onFrameDelay:integer=1; // Задержка каждый кадр
-  
+
 type
  // Функция для асинхронного (параллельного) исполнения
  TThreadFunc=function(param:cardinal):integer;
@@ -73,7 +76,7 @@ type
   // если прервана по таймауту - -1, если неверный хэндл - -2, иначе - результат функции
   function GetThreadResult(h:THandle):integer; virtual;
 
-  // Добавляет строку в "кадровый лог" - невидимый лог, который обнуляется каждый кадр, но может быть сохранен в случае какой-либо аварийной ситуации 
+  // Добавляет строку в "кадровый лог" - невидимый лог, который обнуляется каждый кадр, но может быть сохранен в случае какой-либо аварийной ситуации
   procedure FLog(st:string); virtual;
   function GetStatus(n:integer):string; virtual; abstract;
   // Show message in engine-driven pop-up (3 sec)
@@ -91,7 +94,7 @@ type
 
   // При включенной видеозаписи вызывается видеокодером для освобождения памяти кадра
   procedure ReleaseFrameData(obj:TRAWImage); virtual;
-  
+
  protected
   running:boolean;
   useMainThread:boolean; // true - launch "main" thread with main loop,
@@ -110,7 +113,7 @@ type
   capturedName:string;
   capturedTime:int64;
 
-  // Интерфейсы отрисовки и управления ресурсами 
+  // Интерфейсы отрисовки и управления ресурсами
   texman:TTextureMan;
   painter:TPainter;
 
@@ -215,7 +218,7 @@ type
   property Settings:TGameSettings read params write ChangeSettings;
   property mouseOn:boolean read mouseVisible write ShowMouse;
   property IsRunning:boolean read running;
-  procedure Delay(time:integer); // alias  
+  procedure Delay(time:integer); // alias
  end;
 
  // Для использования из главного потока
@@ -340,7 +343,7 @@ begin
  PublishVar(@renderWidth,'RenderWidth',TVarTypeInteger);
  PublishVar(@renderHeight,'RenderHeight',TVarTypeInteger);
  PublishVar(@windowWidth,'WindowWidth',TVarTypeInteger);
- PublishVar(@windowHeight,'WindowHeight',TVarTypeInteger);    
+ PublishVar(@windowHeight,'WindowHeight',TVarTypeInteger);
  PublishVar(@screenDPI,'ScreenDPI',TVarTypeInteger);
 end;
 
@@ -885,7 +888,7 @@ begin
   WM_CHAR:if game<>nil then with game do begin
     // Младший байт - код символа, старший - сканкод
     key:=wparam and $FF+(lparam shr 8) and $FF00+wparam shl 16;
-    if shiftstate=2 then exit; 
+    if shiftstate=2 then exit;
     for i:=low(scenes) to high(scenes) do
       if game.scenes[i].status=ssActive then
        game.scenes[i].WriteKey(key);
@@ -912,7 +915,7 @@ begin
     scene:=TopmostSceneForKbd;
     if scene<>nil then Signal('SCENE\'+scene.name+'\KeyDown',wparam and $FFFF+scanCode shl 24);
   end;
-                    
+
   WM_KEYUP,WM_SYSKEYUP:if game<>nil then begin
     if wparam=44 then
     begin
@@ -992,7 +995,7 @@ begin
     ActivateKeyboardLayout(lparam,0);
     exit;
   end;
-  WM_HOTKEY:begin                 
+  WM_HOTKEY:begin
              if wparam=312 then
              begin
               SaveScreenshotsToJPEG:=true;
@@ -1127,7 +1130,7 @@ end;
 // Устанавливает область отрисовки внутри окна в соответствии с текущими настройками
 // При изменении размеров области вывода - адаптирует расположение/размеры сцен
 // (которые, в свою очередь, при необходимости корректируют UI)
-// Необходимо вызвать ПОСЛЕ инициализации объектов движка 
+// Необходимо вызвать ПОСЛЕ инициализации объектов движка
 procedure TBasicGame.SetupRenderArea;
 var
  i:integer;
@@ -1444,7 +1447,7 @@ begin
  end;
 end;
 
-function TBasicGame.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene; 
+function TBasicGame.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
 var
  i:integer;
 begin

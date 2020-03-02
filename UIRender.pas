@@ -1,8 +1,9 @@
 ﻿// -----------------------------------------------------
 // User Interface rendering block
 //
-// Author: Ivan Polyacov (C) 2003-2014, Apus Software
-// Mail me: ivan@games4win.com or cooler@tut.by
+// Author: Ivan Polyacov (C) 2003-2014, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 // ------------------------------------------------------
 unit UIRender;
 interface
@@ -57,7 +58,7 @@ implementation
  procedure DrawGlobalShadow(color:cardinal);
   begin
    painter.FillRect(0,0,game.renderWidth,game.renderHeight,color);
-  end;  
+  end;
 
  procedure DrawUI(item:TUIControl;customDraw:boolean=false);
   var

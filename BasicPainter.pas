@@ -1,7 +1,8 @@
 // Implementation of common drawing interface (system-independent)
 //
-// Copyright (C) 2011 Apus Software (www.spectromancer.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2011 Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 {$R-}
 unit BasicPainter;
 interface
@@ -11,7 +12,7 @@ interface
   DEFAULT_FONT_DOWNSCALE = 0.93;
   DEFAULT_FONT_UPSCALE = 1.1;
 
-  // FT-шрифты не имеют "базового" размера, поэтому scale задается относительно произвольно зафиксированного размера 
+  // FT-шрифты не имеют "базового" размера, поэтому scale задается относительно произвольно зафиксированного размера
   FTF_DEFAULT_LINE_HEIGHT = 24; // Высота строки, соответствующей scale=100
 
   // States
@@ -93,7 +94,7 @@ interface
   procedure Rect(x1,y1,x2,y2:integer;color:cardinal); override;
   procedure RRect(x1,y1,x2,y2:integer;color:cardinal;r:integer=2); override;
   procedure FillRect(x1,y1,x2,y2:integer;color:cardinal); override;
-  procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal); override;  
+  procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal); override;
   procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal); override;
   procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal); override;
   procedure FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean); override;
@@ -157,7 +158,7 @@ interface
 
   // Texture interpolation settings
 //  texIntMode:array[0..3] of TTexInterpolateMode; // current interpolation mode for each texture unit
-  texIntFactor:array[0..3] of single; // current interpolation factor constant for each texture unit 
+  texIntFactor:array[0..3] of single; // current interpolation factor constant for each texture unit
 
   targetstack:array[1..10] of TTexture;  // stack of render targets
   clipStack:array[1..10] of TRect; // Смена RT сбрасывает область отсечения
@@ -219,7 +220,7 @@ var
  // Если при отрисовке текста передан запрос с координатами точки, и эта точка приходится на рисуемую ссылку -
  // то сюда записывается номер этой ссылки. Обнуляется перед отрисовкой кадра
  curTextLink:cardinal;
- curTextLinkRect:TRect; 
+ curTextLinkRect:TRect;
 
  colorFormat:byte; // 1 = ABGR, 0 = ARGB
  // Default width (or height) for modern text cache (must be 512, 1024 or 2048)
@@ -603,7 +604,7 @@ end;
 
 procedure TBasicPainter.DrawDouble(x_, y_: integer; image1, image2: TTexture;color: cardinal);
 var
- w,h:integer;  
+ w,h:integer;
  vrt:array[0..3] of TScrPoint3;
  au1,au2,bu1,bu2,av1,av2,bv1,bv2:single;
 begin
@@ -645,7 +646,7 @@ end;
 procedure TBasicPainter.DrawDoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
   image1,image2:TTexture;color:cardinal=$FF808080);
 var
- w,h,w2,h2:single;  
+ w,h,w2,h2:single;
  vrt:array[0..3] of TScrPoint3;
  c,s:single;
  au1,au2,bu1,bu2,av1,av2,bv1,bv2,u,v:single;
@@ -898,7 +899,7 @@ begin
  DrawPrimitives(TRG_LIST,trgcount,pnts,sizeof(TScrPoint));
 end;
 
-procedure TBasicPainter.DrawIndexedMesh(vertices:PScrPoint;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); 
+procedure TBasicPainter.DrawIndexedMesh(vertices:PScrPoint;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
 var
  mode:byte;
 begin
@@ -1274,7 +1275,7 @@ end;
 procedure TBasicPainter.FlushTextCache;
 begin
  if (vertBufUsage=0) and (textBufUsage=0) then exit;
-    
+
  UseTexture(textCache);
  if vertBufUsage>0 then begin
    DrawPrimitivesFromBuf(TRG_LIST,vertBufUsage div 3,0,VertBuf,sizeof(TScrPoint));
@@ -1473,7 +1474,7 @@ var
  ftFont:TFreeTypeFont;
  scale:byte;
 begin
- if length(st)=0 then begin       
+ if length(st)=0 then begin
   result:=0; exit;
  end;
  scale:=(font shr 16) and $FF;
@@ -1540,7 +1541,7 @@ procedure TBasicPainter.TextOut(font:cardinal;x,y:integer;color:cardinal;st:Ansi
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
 begin
  TextOutW(font,x,y,color,DecodeUTF8(st),align,options,targetWidth,query);
-end;   
+end;
 
 
 procedure TBasicPainter.TextOutW(font:cardinal;x,y:integer;color:cardinal;st:widestring;
@@ -1564,7 +1565,7 @@ var
  // For complex text
  stack:array[0..7,0..31] of cardinal; // стек текущих атрибутов (0 - дефолтное значение)
  stackPos:array[0..7] of integer; // указатель на свободный элемент в стеке
- cmdList:array[0..127] of cardinal; // bits 0..7 - what to change, bits 8..9= 0 - clear, 1 - set, 2 - pop    
+ cmdList:array[0..127] of cardinal; // bits 0..7 - what to change, bits 8..9= 0 - clear, 1 - set, 2 - pop
  cmdIndex:array of byte; // total number of commands that must be executed before i-th character
  // Underlined
  linePoints:array[0..63] of TPoint2; // x,y
@@ -1621,11 +1622,11 @@ var
           v:=v or v shl 4 or $FF000000;
          end else
          if length(vst)=6 then v:=$FF000000 or v; // 'rrggbb' -> FFrrggbb, '00rrggbb' -> 00rrggbb
-        end; 
+        end;
         dec(i);
        end else
         v:=0;
-       cmdList[cmdPos]:=v; inc(cmdPos); 
+       cmdList[cmdPos]:=v; inc(cmdPos);
       end;
       '!':prefix:=0;
       '/':prefix:=2;
@@ -2120,7 +2121,7 @@ var
     end;
    end;
 
-   if (curTextLinkRect.Left>=0) and (curTextLinkRect.Right<0) then curTextLinkRect.Right:=round(px+dx+imgW); 
+   if (curTextLinkRect.Left>=0) and (curTextLinkRect.Right<0) then curTextLinkRect.Right:=round(px+dx+imgW);
 
    // last underline
    if lpCount and 1=1 then begin
@@ -2244,7 +2245,7 @@ begin // -----------------------------------------------------------
  // NORMAL TEXT RENDERING
  if (options and toDontDraw=0) then begin
   if not DefineRectAndSetState then exit;  // Clipping (тут косяк с многострочностью)
-  
+
   // Prevent text cache overflow
   if textBufUsage+length(st)*4>=4*MaxGlyphBufferCount then FlushTextCache;
  end;

@@ -1,7 +1,9 @@
 ﻿// Game class for iOS (OpenGL)
 //
-// Copyright (C) 2012 Apus Software (www.games4win.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2012 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit IOSgame;
 interface
  uses EngineAPI,Images,engineTools,classes,myservis,BasicGame;
@@ -103,4 +105,4 @@ begin
  result:='';
 end;
 
-end.
+end.

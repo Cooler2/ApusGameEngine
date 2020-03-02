@@ -1,4 +1,7 @@
-﻿unit UsableNetwork;
+﻿// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
+unit UsableNetwork;
 
 interface
 uses SysUtils,EventMan,networking2,MyServis,Classes,EngineAPI,UIScene,BasicGame;
@@ -328,4 +331,4 @@ begin
  result:=GetMsg(handle,data);
 end;
 
-end.
+end.

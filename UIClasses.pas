@@ -2,8 +2,9 @@
 // User Interface classes
 // This is independent brick.
 //
-// Author: Ivan Polyacov (C) 2003, Apus Software
-// Mail me: ivan@games4win.com or cooler@tut.by
+// Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 // ------------------------------------------------------
 unit UIClasses;
 interface
@@ -537,7 +538,7 @@ var
  underMouse:TUIControl;     // элемент под мышью
  activeWnd:TUIWindow;       // Активное окно (автоматически устанавливается при переводе фокуса)
  modalControl:TUIControl;   // Если есть модальный эл-т - он тут
- comboPop:TUIComboBox;      // если существует выпавший комбобокс - он тут 
+ comboPop:TUIComboBox;      // если существует выпавший комбобокс - он тут
  hooked:TUIControl;         // если установлен - теряет фокус даже если не обладал им
 
  defaultEncoding:TTextEncoding=teUnknown; // кодировка элементов ввода по умолчанию
@@ -1725,7 +1726,7 @@ begin
  end;
  pressed:=false;
  pending:=false;
- autoPendingTime:=0; 
+ autoPendingTime:=0;
  CanHaveFocus:=false;
  color:=$FFC0D0D0;
  sendSignals:=ssMajor;
@@ -2409,7 +2410,7 @@ begin
  if val+pagesize>max then val:=max-pagesize;
  if smooth then rValue.Animate(val,300,spline1)
   else rValue.Assign(val);
-  
+
  Signal('UI\'+name+'\Changed',round(val));
  if linkedControl<>nil then begin
   if linkedcontrol.scrollerH=self then
@@ -2655,7 +2656,7 @@ destructor TUIListBox.Destroy;
 begin
  SetLength(lines,0);
  SetLength(tags,0);
- SetLength(hints,0); 
+ SetLength(hints,0);
  inherited;
 end;
 
@@ -2711,7 +2712,7 @@ begin
   hints[i]:='';
  end;
  if selectedLine>=length(lines) then selectedLine:=length(lines)-1;
- UpdateScroller; 
+ UpdateScroller;
 end;
 
 procedure TUIListBox.UpdateScroller;
