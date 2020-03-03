@@ -934,7 +934,7 @@ begin
  SetVertexC(vrt[0],x1+r,y1,zPlane,color);
  SetVertexC(vrt[1],x2-r,y1,zPlane,color);
  SetVertexC(vrt[2],x2,y1+r,zPlane,color);
- SetVertexC(vrt[3],x2,y1-r,zPlane,color);
+ SetVertexC(vrt[3],x2,y2-r,zPlane,color);
  SetVertexC(vrt[4],x2-r,y2,zPlane,color);
  SetVertexC(vrt[5],x1+r,y2,zPlane,color);
  SetVertexC(vrt[6],x1,y2-r,zPlane,color);
