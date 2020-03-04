@@ -1,0 +1,178 @@
+﻿LanguageID: ru
+; тестовый словарь
+
+Mage Tower
+Башня мага
+
+Goblin Warrior
+Гоблин-солдат
+
+Goblin Marauder
+Гоблин-мародёр
+
+Goblin King
+Король гоблинов
+
+Fire Rain
+Огненный дождь
+
+Underworld golem
+Голем подземелья
+
+Deals 3 damage to all enemy creatures.
+Наносит 3 урона всем вражеским существам.
+
+%* deals %d damage to %*.
+%1 наносит %3{2} %2 урона.
+
+Watch Tower
+Дозорная башня
+
+Each time an enemy creature or building attacks Watch tower it receives 3 damage before its own attack.
+Когда вражеское существо или здание атакует дозорную башню - оно получает 3 урона перед своей атакой.
+
+Tower of Fire
+Башня Огня
+
+Player receives + 2 Fire cards in spell book. 
+Игрок получает в свою колоду +2 карты огня.
+
+Any damage dealt by player's spells is increased by 1. Unlocks "Flaming Tower".
+Весь урон, наносимый заклинаниями игрока, увеличивается на 1. Открывает карту "Горящая башня".
+
+Fireball
+Огненный шар
+
+Deals 10 damage to enemy's 1st defense line (buildings receive half damage).
+Наносит 10 урона первой линии противника (здания получают 50% урона).
+
+Cultist
+Культист
+
+Each turn increases player's Fire Power by 1.
+Каждый ход увеличивает Силу Огня игрока на 1.
+
+All demons cost 2 fewer mana to summon (non-stacking).
+Стоимость призыва всех демонов уменьшается на 2 (не суммируется).
+
+Goblin Spell-caster
+Гоблин-чародей
+
+Attacks all. Increases all spells damage by 1.
+Атакует всех. Увеличивает урон всех заклинаний на 1.
+
+Stakes
+Ставки
+
+All owner's buildings deal 2 damage to a melee creature after being attacked by that creature.
+Когда существо ближнего боя атакует здание игрока, это существо получает 2 урона после своей атаки.
+
+Fire Storm
+Огненный шторм
+
+Deals 7 damage to all enemies except mage's tower (buildings receive half damage).
+Наносит 7 урона всем противникам, кроме башни мага (здания получают 50% урона)
+
+Burnout
+Пожар
+
+Removes all enemy enchantments. If there are not any, deals 12 damage to enemy's 2nd defense line.
+Уничтожает все чары противника. Если их нет - наносит 12 урона задней линии противника.
+
+Meteor
+Метеор
+
+Deals damage to enemy tower equal to player's Fire Power.
+Наносит урон башне противника равный Силе Огня игрока.
+
+Demon-Trapper
+Демон-ловец
+
+Each time an enemy creature attacks Demon-Trapper it takes 5 damage before its own attack.
+Когда вражеское существо атакует этого демона, оно получает 5 урона перед своей атакой.
+
+Flaming Tower
+Горящая башня
+
+Player receives + 4 Fire cards in spell book.
+Игрок получает +4 карты огня в свою колоду.
+
+Any damage dealt by player's spells is increased by 1.
+Весь урон от заклинаний игрока увеличивается на 1.
+
+Increases tower's max HP to 55.
+Увеличивает запас жизни башни до 55.
+
+All owner's creatures receive +1 to attack. Unlocks "Infernal Tower"
+Все существа игрока получают +1 к атаке. Открывает карту "Адская башня".
+
+Goblin Catapult
+Катапульта гоблинов
+
+Deals doubled damage to buildings.
+Наносит двойной урон зданиям.
+
+Demon Tech-Priest
+Демон техномаг
+
+Each turn heals 3 HP to player's tower and summons an "Underworld Golem" into the first defense line (if possible).
+Каждый ход восстанавливает 3 жизни башне игрока и призывает "Голема подземелья" в переднюю линию (если есть место).
+
+There can be only one Underworld Golem per Tech-Priest in play.
+На одного техномага в игре может быть только один Голем подземелья.
+
+Demon Lord
+Лорд демонов
+
+Immune to damage from fire spells.
+Не получает урона от заклинаний огня.
+
+Inferno
+Инферно
+
+Deals (Fire Power +4) damage to all except player's tower (buildings receive halved damage).
+Наносит (сила огня+4) урона всем, кроме башни игрока (здания получают 50% урона).
+
+Dragon
+Дракон
+
+Increases all owner's spells damage by 50%
+Увеличивает на 50% весь урон от заклинаний игрока.
+
+Infernal Tower
+Адская башня
+
+Player receives +4 cards in Fire spell book and +1 card in Ice, Nature, Death and Craft books.
+Игрок получает +4 карты огня и +1 карту остальных стихий.
+
+Any damage dealt by player's spells is increased by 1. 
+Весь урон от заклинаний игрока увеличивается на 1.
+
+Increases tower's max HP to 75. All owner's creatures receive +1 to attack, and all creatures attack as soon as summoned.
+Увеличивает запас жизни башни до 75. Все существа игрока получают +1 к атаке и атакуют сразу же после призыва.
+
+
+Snow Wolf
+Снежный волк
+
+Attacks as soon as summoned.
+Атакует сразу после призыва.
+
+Ice Elemental
+Ледяной элементаль
+
+If player's Ice power is lower than 5 - deals 3 siege damage to player's tower.
+Если Сила Льда игрока меньше 5 - наносит 3 урона башне игрока.
+
+Consume Life
+Потребление жизни
+
+Sacrifice the player's weakest creature to heal all player's creatures and buildings by 4.
+Жертвует слабейшее существо игрока дабы излечить 4 жизни всем остальным существам и зданиям игрока.
+
+[2]
+Mage Tower
+Башне мага
+
+Snow Wolf
+Снежному волку

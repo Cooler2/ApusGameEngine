@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body style='font-family: courier,mono;'>
+ <div id=fileSelector>
+  Select file to convert:<br>
+  <input type=file onChange='ProcessFile(this.files)'>
+ </div> 
+ <pre id=result></pre>
+ <script type='text/javascript'>
+  function ProcessFile(files) {
+	var reader=new FileReader();
+	var fileName=files[0].name;
+	var fileSize=files[0].size;
+	reader.onload=function(evt) {
+		var data=evt.target.result;
+		var bytes=new Uint8Array(data);
+      var lines=new Array();
+   	lines.push(" "+fileName+":array[0.."+(fileSize-1)+"] of byte=(");
+		var str="    ";
+   	for (var i=0; i<bytes.length; i++) {
+			var code = bytes[i].toString(16);
+			if (code.length==1) code="0"+code;
+			str=str+"$"+code;
+			if (i<bytes.length-1) str=str+",";
+			if (i%32 == 31) { 
+				lines.push(str);
+				str="    ";
+			}			
+		}
+		lines.push(str);
+   	lines.push("  );");
+   	document.getElementById('result').innerHTML=lines.join("\n");
+		document.getElementById('fileSelector').style.display="none";
+	};
+	reader.readAsArrayBuffer(files[0]);	
+  }
+ </script>
+</body>
+</html>
