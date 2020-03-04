@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body style='font-family:courier; font-size:115%;'>
+ <div><textarea id="source" rows=15 cols=80 style='font-size:100%'>
+ CREATE TABLE `countries` (
+  `Id` int(11) NOT NULL AUTO_INCREMENT,
+  `world` int(11) NOT NULL DEFAULT '0',
+  `plrID` tinyint(3) NOT NULL DEFAULT '0' COMMENT 'internal country ID in the world',
+  `profileID` int(11) NOT NULL DEFAULT '0' COMMENT 'owner''s profile id',
+  `created` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `lastPlayed` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `idleTime` int(11) NOT NULL DEFAULT '0' COMMENT 'in minutes',
+  `name` varchar(255) NOT NULL DEFAULT '',
+  `flag` varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (`Id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+ </textarea><br>
+ Record type name: <input type=text id=RecName><br>
+ Array type name: <input type=text id=ArrName><br>
+ </div>
+ <div id=Buttons>
+   <input type=button value="SQL->Delphi code" onClick='MakeSQLCode()'>
+ </div>
+ <pre id=result></pre>
+
+<script type="text/javascript">
+ function MakeSQLCode() {
+  var src=document.getElementById('source').value;
+  var recName=document.getElementById('RecName').value;
+  if (recName=='') recName='TRecord';
+  var arrName=document.getElementById('ArrName').value;
+  if (arrName=='') arrName='TRecordArray';
+  var res='';
+  var items=src.match(/([A-Za-z0-9'`"]+\s[A-Za-z0-9\(\)]+)/g);
+  var fields=new Array();
+  for (var item of items) {
+   item.match(/([A-Za-z0-9'`"]+)\s([A-Za-z0-9]+)/);
+   var fName=RegExp.$1;
+   var fType=RegExp.$2;
+   fName=fName.replace(/[`'"]/g,'');
+   fType=fType.toLowerCase();
+   var type='';
+   if (fType=='int' || fType=='tinyint' || fType=='smallint') type='integer';
+   if (fType=='bigint') type='int64';
+   if (fType=='varchar') type='AnsiString';
+   if (fType=='datetime' || fType=='date' || fType=='time' || fType=='timestamp') type='TDateTime';
+   if (fType=='tinyint' && fName.match(/^is/)) type='boolean';
+   if (type != '') fields.push({ fName: fName, fType: type });
+  }
+  var lines=new Array();
+  lines.push('uses MyServis,Database;');
+  lines.push('type');
+  lines.push(' '+recName+'=record');
+  for (var field of fields) {
+   lines.push('  '+field.fName+':'+field.fType+';');
+  }
+  lines.push('  procedure FromDB(db:TDatabase); // Import content from a database row');
+  lines.push('  procedure FromString(st:AnsiString); // Import content from a string');
+  lines.push('  function ToString:AnsiString; // Store data as a single-line string');
+  lines.push(' end;');
+  lines.push(' '+arrName+'=array of '+recName+';');
+  lines.push('');
+
+  lines.push('procedure '+recName+'.FromDB(db:TDatabase);');
+  lines.push('begin');
+  for (var field of fields) {
+   if (field.fType=='boolean') lines.push(' '+field.fName+':=db.NextInt<>0;');
+   if (field.fType=='AnsiString') lines.push(' '+field.fName+':=db.Next;');
+   if (field.fType=='integer') lines.push(' '+field.fName+':=db.NextInt;');
+   if (field.fType=='TDateTime') lines.push(' '+field.fName+':=GetDateFromStr(db.Next);');
+  }
+  lines.push(' db.NextRow;');
+  lines.push('end;');
+  lines.push('');
+
+  lines.push('function '+recName+'.ToString:AnsiString;');
+  lines.push('begin');
+  var list=new Array();
+  for (var field of fields) {
+   if (field.fType=='integer' || field.fType=='int64') list.push('IntToStr('+field.fName+')');
+   if (field.fType=='AnsiString') list.push('Escape('+field.fName+')');
+   if (field.fType=='TDateTime') list.push("FormatDateTime('YYYY.MM.DD hh:nn:ss',"+field.fName+")");
+   if (field.fType=='boolean') list.push('BoolToStr('+field.fName+')');
+  }
+  lines.push(" result:=Join([\n    "+list.join(',\n    ')+"\n  ],AnsiString(#9));");
+  lines.push('end;');
+  lines.push('');
+
+  lines.push('procedure '+recName+'.FromString(st:AnsiString);');
+  lines.push('var sa:AStringArr;');
+  lines.push('    i:integer;');
+  lines.push('begin');
+  lines.push(" sa:=SplitA(#9,st);");
+  lines.push(' i:=0;');
+  for (var field of fields) {
+   if (field.fType=='integer' || field.fType=='int64') lines.push(' '+field.fName+':=ParseInt(sa[i]); inc(i);');
+   if (field.fType=='AnsiString') lines.push(' '+field.fName+':=Unescape(sa[i]); inc(i);');
+   if (field.fType=='TDateTime') lines.push(' '+field.fName+':=ParseDate(sa[i]); inc(i);');
+   if (field.fType=='boolean') lines.push(' '+field.fName+':=ParseBool(sa[i]); inc(i);');
+  }
+  lines.push('end;');
+  lines.push('');
+
+  lines.push('function LoadAllFromDB(db:TDataBase):'+arrName+';');
+  lines.push('var i:integer;');
+  lines.push('begin');
+  lines.push(' SetLength(result,0);');
+  var list=new Array;
+  for (var field of fields) list.push(field.fName);
+  lines.push(" db.Query('SELECT "+list.join(',')+" FROM TableName',[]);");
+  lines.push(" ASSERT(db.lastError='',db.lastError);");
+  lines.push(" SetLength(result,db.rowCount);");
+  lines.push(" for i:=0 to db.rowCount-1 do");
+  lines.push("  result[i].FromDB(db);");
+  lines.push('end;');
+
+  res=lines.join('\r\n');
+  document.getElementById('result').innerHTML=res;
+ }
+</script>
+</body>
+</html>

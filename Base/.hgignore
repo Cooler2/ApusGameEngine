@@ -1,0 +1,21 @@
+syntax: glob
+*.~*
+\*.*
+logs\*
+data\*.*
+*.map
+*.exe
+*.bak
+*.dcu
+*.local
+log.txt
+*.cfg
+*.dsk
+*.identcache
+*.o
+*.a
+*.ppu
+*.compiled
+*\backup\*.*
+*.lps
+tests/profiling.dat
