@@ -1,10 +1,12 @@
 ﻿// Стандартный стиль для UI, позволяющий определять внешний вид элементов
 // с использованием изображений
 //
-// Copyright (C) 2006 Apus Software (www.astralmasters.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2006 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$R-}
-unit customstyle;
+unit CustomStyle;
 interface
  uses UIClasses;
 
@@ -16,7 +18,7 @@ interface
  procedure InitCustomStyle(imgpath:string='Images\cstyle\';id:integer=1);
 
 implementation
- uses classes,SysUtils,myservis,EngineCls,EngineTools,UIRender,colors,
+ uses classes,SysUtils,myservis,EngineAPI,EngineTools,UIRender,colors,
       images,publics,uDict;
  type
   TAlphaMode=(amAuto,amSkip,amWrite);
@@ -33,8 +35,7 @@ implementation
    alphamode:TAlphaMode;
    alignment:TTextAlignment;
    underline:boolean;
-   xRes,yRes:integer; // button images are for this resolution (0,0 - not scaled)
-   scaleX,scaleY:single; // scale button images 
+   scaleX,scaleY:single; // scale button images
    procedure InitWithDefaultValues(bsName:string);
   end;
 
@@ -42,7 +43,7 @@ implementation
    fname:string;
    image:TTexture;
   end;
-  
+
   TVarTypeCustomStyle=class(TVarTypeStruct)
    class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
    class function ListFields:String; override;
@@ -178,48 +179,25 @@ implementation
          // перевод ДО разделения на подстроки!
          sa:=Split('~',translate(caption),#0);
          painter.SetClipping(Rect(x1+4,y1+2,x2-4,y2-2));
-         painter.SetFont(font);
          painter.TextColorX2:=true;
          if btnStyle=bsCheckbox then begin
           ix:=x1+24+ix; iy:=y1+2+iy;
           mode:=taLeft;
          end else begin
-          iy:=y1+((height-2-painter.GetFontHeight*length(sa)) div 2)+byte(pressed)+iy;
+          iy:=y1+((globalrect.height-2-painter.FontHeight(font)*length(sa)) div 2)+byte(pressed)+iy;
           mode:=btnstyles[i].alignment;
           if mode=taJustify then mode:=taCenter;
-          if mode=taCenter then ix:=x1+width div 2+byte(pressed)+ix else
-          if mode=taLeft then ix:=ix+x1+byte(pressed)+width div 6 else
-          if mode=taRight then ix:=ix+x1+byte(pressed)+width*7 div 8;
+          if mode=taCenter then ix:=x1+globalrect.width div 2+byte(pressed)+ix else
+          if mode=taLeft then ix:=ix+x1+byte(pressed)+globalrect.width div 6 else
+          if mode=taRight then ix:=ix+x1+byte(pressed)+globalrect.width*7 div 8;
          end;
-         if btnstyles[i].glow>0 then with painter do begin
-          fillchar(textEffects[1],sizeof(textEffects[1]),0);
-          textEffects[1].enabled:=true;
-          textEffects[1].blur:=btnstyles[i].glow/10;
-          textEffects[1].fastblurX:=btnstyles[i].glow div 20;
-          textEffects[1].fastblurY:=btnstyles[i].glow div 20;
-          texteffects[1].color:=btnstyles[i].glowcolor;
-          textEffects[2].enabled:=false;
-          if btnstyles[i].glowBoost<>0 then
-           textEffects[1].power:=btnstyles[i].glowBoost/10;
-          for i:=0 to length(sa)-1 do
-           WriteEx(ix,iy+i*painter.GetFontHeight,col,sa[i],mode);
-         end else begin
           // Вывод обычным текстом (тут всё устаревшее и требует переосмысления)
           for j:=0 to length(sa)-1 do begin
-           if col2<>0 then begin
-            i:=1+(painter.GetFontHeight-10) div 12;
-            painter.WriteSimple(ix+i,iy+i,col2,sa[j],mode);
-            if btnStyles[i].underline then begin
-             k:=round(painter.GetFontHeight*0.96);
-             painter.DrawLine(ix+i,iy+i+k,ix+i+painter.GetTextWidth(sa[j]),iy+i+k,col2);
-            end;
-           end;
            painter.TextOut(font,ix,iy,col,sa[j],mode,toAddBaseline);
-//           painter.WriteSimple(ix,iy,col,sa[j],mode);
            if btnStyles[i].underline then begin
             col:=ColorMult2(col,$80FFFFFF);
-            k:=round(painter.GetFontHeight*0.96);
-            l:=painter.GetTextWidth(sa[j]);
+            k:=round(painter.FontHeight(font)*0.96);
+            l:=painter.TextWidth(font,sa[j]);
             if mode=taLeft then
              painter.DrawLine(ix,iy+k,ix+l,iy+k,col);
             if mode=taCenter then
@@ -227,10 +205,9 @@ implementation
             if mode=taRight then
              painter.DrawLine(ix-l,iy+k,ix,iy+k,col);
            end;
-           inc(iy,painter.GetFontHeight);
+           inc(iy,painter.FontHeight(font));
            if j=0 then inc(ix);
           end;
-         end;
          painter.TextColorX2:=false;
          painter.ResetClipping;
         end;
@@ -242,13 +219,12 @@ implementation
 
  procedure CustomStyleHandler(control:TUIControl);
   var
-   i,j,k,l:integer;
+   i,j:integer;
    img:TObject;
    timg:TTexture;
    enabl:boolean;
    con:TUIControl;
    x1,y1,x2,y2,ix,iy,v:integer;
-   col,col2:cardinal;
    c,d:cardinal;
    bool:boolean;
    int,sNum:integer;
@@ -289,13 +265,13 @@ implementation
     end else begin
      // вертикальная
      painter.FillGradrect(x1,y1,x2,y2,d,c,false);
-     if enabled and (height>=16) and (pagesize<max-min) then begin
+     if enabled and (globalrect.height>=16) and (pagesize<max-min) then begin
       c:=colorMix(color,$FF909090,128);
       if over and not (hooked=control) then c:=ColorAdd(c,$101010);
-      i:=round((height-16)*value/max);
-      j:=15+round((height-16)*(value+pagesize)/max);
+      i:=round((globalrect.height-16)*value/max);
+      j:=15+round((globalrect.height-16)*(value+pagesize)/max);
       if i<0 then i:=0;
-      if j>=height then j:=height-1;
+      if j>=globalrect.height then j:=globalrect.height-1;
       if j>i+15 then begin
        d:=(j-i)*8+round(sqrt((j-i)*10));
        painter.TexturedRect(x1,y1+i,x2,y1+j,scrollTex,0.02,0.5-d/1000,0.98,0.5-d/1000,0.98,0.5+d/1000,c);
@@ -316,8 +292,8 @@ implementation
        ((btnStyles[i].assigned<>'') and (pos(UpperCase(control.name)+',',btnStyles[i].assigned)>0)) or
        ((btnStyles[i].assigned='') and
         (control.styleinfo='') and
-        (btnStyles[i].width=control.width) and
-        (btnStyles[i].height=control.height)) then begin
+        (btnStyles[i].width=control.globalrect.width) and
+        (btnStyles[i].height=control.globalrect.height)) then begin
      sNum:=i;
     end;
    if sNum=0 then
@@ -326,8 +302,8 @@ implementation
        ((btnStyles[i].assigned<>'') and (pos(UpperCase(control.name)+',',btnStyles[i].assigned)>0)) or
        ((btnStyles[i].assigned='') and
         (control.styleinfo='') and
-        (btnStyles[i].width=control.width) and
-        (btnStyles[i].height=control.height)) then begin
+        (btnStyles[i].width=control.globalrect.width) and
+        (btnStyles[i].height=control.globalrect.height)) then begin
      sNum:=i; break;
     end;
    if (sNum>0) then hash[j]:=sNum;
@@ -419,7 +395,6 @@ procedure TButtonStyle.InitWithDefaultValues(bsName:string);
   imageColorDown:=$FF808080;
   imageColorDisabled:=$FF808080;
   alignment:=taJustify;
-  xRes:=0; yRes:=0;
   scaleX:=1; scaleY:=1;
  end;
 
@@ -443,6 +418,7 @@ var
  st:string;
 begin
  // varname = "group\property" либо "groupName"
+ result:=nil;
  i:=pos('\',fieldname);
  if i=0 then begin
   fieldname:=lowercase(fieldname);
@@ -451,10 +427,12 @@ begin
     result:=@btnStyles[i];
     varClass:=TVarTypeBtnStyle;
    end;
-  // группы с таким именем нет => создать
-  n:=NewButtonStyle(fieldname);
-  result:=@btnStyles[n];
-  varClass:=TVarTypeBtnStyle;
+  if result=nil then begin
+   // группы с таким именем нет => создать
+   n:=NewButtonStyle(fieldname);
+   result:=@btnStyles[n];
+   varClass:=TVarTypeBtnStyle;
+  end;
  end else begin
   grp:=copy(fieldname,1,i-1);
   prop:=copy(fieldname,i+1,length(fieldname)-i);
@@ -585,14 +563,6 @@ begin
        result:=@item^.underline; varClass:=TVarTypeBool;
      end;
    end;
-   'X':
-     if prop='XRES' then begin
-       result:=@item^.xRes; varClass:=TVarTypeInteger;
-     end;
-   'Y':
-     if prop='YRES' then begin
-       result:=@item^.yRes; varClass:=TVarTypeInteger;
-     end;
   end; // case
  end;
 end;

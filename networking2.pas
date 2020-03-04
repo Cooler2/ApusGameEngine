@@ -1,9 +1,10 @@
 ﻿// Network engine layer, ver 2
 //
-// Copyright (C) 2007 Apus Software (www.games4win.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
-{$R-}
+// Copyright (C) 2007 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
+{$R-}
 unit networking2;
 interface
  const
@@ -107,7 +108,7 @@ implementation
   THistoryHdr=packed record
    msgtype,reserved:byte;
    storedsize:word;
-   size:integer; 
+   size:integer;
    time:cardinal; // время (мс)
   end;
 
@@ -137,7 +138,7 @@ implementation
   SCNetworkReachabilityRef = pointer;
 
  function SCNetworkReachabilityCreateWithAddress(allocator:pointer;
- 						 var address:TSockAddr):SCNetworkReachabilityRef; cdecl; external;
+                   var address:TSockAddr):SCNetworkReachabilityRef; cdecl; external;
 
  function SCNetworkReachabilityGetFlags(nrr:SCNetworkReachabilityRef;out flags:cardinal):boolean; cdecl; external;
 
@@ -485,7 +486,7 @@ begin
   firstRecv:=d.next;
   d.Free;
  end;
- lastRecv:=nil;   
+ lastRecv:=nil;
  except
   on e:Exception do ForceLogMessage('FATAL error in net2:FreeAll: '+ExceptionMsg(e));
  end;

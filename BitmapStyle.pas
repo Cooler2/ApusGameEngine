@@ -1,12 +1,14 @@
 ﻿// Стандартный стиль для UI, позволяющий определять внешний вид элементов
 // с использованием изображений
 //
-// Copyright (C) 2006 Apus Software (www.astralmasters.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2006 Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$R-}
 unit BitmapStyle;
 interface
- uses EngineCls,UIClasses;
+ uses EngineAPI,UIClasses;
 
  type
   TButtonState=(bsNormal,bsOver,bsDown,bsDisabled);
@@ -28,7 +30,7 @@ interface
   procedure DeleteAllButtonImages;
 
 implementation
- uses SysUtils,myservis,EventMan,EngineTools,UIRender,colors,structs,publics;
+ uses SysUtils,MyServis,AnimatedValues,EventMan,EngineTools,UIRender,colors,structs,publics;
 
  type
   // Для каждого элемента UI хранится такая структура с картинками и прочими сведениями
@@ -86,7 +88,7 @@ implementation
   begin
    LogMessage('Init bitmap style');
    InitCritSect(crSect,'BitmapStyle',70);
-   SetEventHandler('BitmapStyle',@eventHandler,sync);  /// заменить sync на mixed!
+   SetEventHandler('BitmapStyle',@eventHandler,emMixed);  /// заменить sync на mixed!
    styleCls:=style;
    RegisterUIStyle(styleID,BitmapStyleHandler);
    btnHash.Init;
@@ -106,10 +108,10 @@ procedure DrawBtnImage(btn:TUIButton;state:TButtonState;xc,yc:single;var img:TTe
   if img<>nil then begin
    painter.DrawCentered(x,y,img,color);
   end else begin
-   dec(x,btn.width div 2);
-   dec(y,btn.height div 2);
-   painter.FillGradrect(x,y,x+btn.width-1,y+btn.height-1,$FFE0E0EE,$FFB0B0C0,true);
-   painter.Rect(x,y,x+btn.width-1,y+btn.height-1,$A0FFFFFF);
+   dec(x,btn.globalrect.width div 2);
+   dec(y,btn.globalrect.height div 2);
+   painter.FillGradrect(x,y,x+btn.globalrect.width-1,y+btn.globalrect.height-1,$FFE0E0EE,$FFB0B0C0,true);
+   painter.Rect(x,y,x+btn.globalrect.width-1,y+btn.globalrect.height-1,$A0FFFFFF);
   end;
  end;
 
@@ -134,7 +136,7 @@ procedure DrawBtnImageInt(btn:TUIButton;xc,yc:single;var imgNormal,imgOver:TText
     painter.DrawDouble(x,y,imgNormal,imgOver,color);
     painter.SetTexMode(1,tblDisable,tblDisable,fltUndefined);
   end;
- end; 
+ end;
 
 procedure DeleteAllButtonImages;
 var
@@ -231,7 +233,7 @@ procedure TBitmapStyle.DrawItem(con: TUIControl);
     end;
     // Разместить кнопку с привязкой к правому краю
     if con.classtype=TUIComboBox then begin
-     xc:=x2-round(con.height/2);
+     xc:=x2-round(con.globalrect.height/2);
     end;
 
     btnColor:=TUIButton(con).color;
@@ -296,16 +298,19 @@ procedure TBitmapStyle.DrawItem(con: TUIControl);
  end;
 
 { TBitmapStyle }
-function TBitmapStyle.AnimationTime(con: TUIControl; param: integer): integer; begin
+
+function TBitmapStyle.AnimationTime(con: TUIControl; param: integer): integer;
+ begin
   case param of
    0:result:=100;
    1:result:=200;
   end;
  end;
 
-procedure TBitmapStyle.BuildButtonImage(btn: TUIButton; state: TButtonState;  var img: TTextureImage);
+procedure TBitmapStyle.BuildButtonImage(btn: TUIButton; state: TButtonState;
+  var img: TTextureImage);
  begin
   img:=nil;
  end;
 
-end.
+end.

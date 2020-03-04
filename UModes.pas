@@ -1,8 +1,13 @@
-﻿{$R-}
+﻿
+
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
+{$R-}
 unit UModes;
 
 interface
-uses EngineCls,BasicGame,ImageMan,CommonUI,UIClasses,EventMan,
+uses EngineAPI,BasicGame,UIScene,UIClasses,EventMan,
      enginetools,Images,TweakScene,
   {$IFDEF MSWINDOWS}
     {$IFDEF DIRECTX}d3d8,DxImages8,dxGame8,{$ENDIF}
@@ -59,7 +64,7 @@ tmode=class
  procedure DrawAfterUI(x,y:integer); virtual;
  procedure Addscene;
  procedure ModeInit; virtual;
- procedure Preload; virtual;  // вызывается в отдельном потоке при старте игры, тут можно загрузить графику или делать какой-то препроцессинг 
+ procedure Preload; virtual;  // вызывается в отдельном потоке при старте игры, тут можно загрузить графику или делать какой-то препроцессинг
  procedure FreeMemory; virtual;
  procedure Restore; virtual;
  constructor Create(modeName:string;preInit:boolean=true); virtual;
@@ -71,7 +76,7 @@ end;
 
 tregisteredmode=object
  mode:tmode;
- preinitrequired:boolean;                 
+ preinitrequired:boolean;
 end;
 
 tstepsinfo=object
@@ -86,7 +91,6 @@ procedure InitModes;
 procedure PreloadModes;
 procedure CheckProgress;
 function CreateImage(filename:string;transparent:boolean=true;allowModify:boolean=false):TTextureImage;
-function LoadFont(filename:string):integer;
 function GetProgressValue:integer;
 procedure DetermineSettings;
 {procedure CursorLoader(reason:TReason;var image:TImgDescriptor);
@@ -115,7 +119,7 @@ var smallfont,mainfont,largefont:cardinal; // to be initialized in project code
     CenterImage:boolean=false; // располагать изображение по центру, если окно больше нужного размера
     useSystemCursor:boolean=true; // Использовать системный курсор
     stepsinfo,stepsout:tstepsinfo;
-    curvalue,firstprogress,larstprogress,larstsleep:integer;
+    curvalue,firstprogress,larstprogress,larstsleep:int64;
     curstep:integer;
     configDir:string='';
 
@@ -127,7 +131,7 @@ uses {$IFDEF MSWINDOWS}windows,{$ELSE}CrossPlatform,{$ENDIF}
 
 var nummodes:integer=0;
     modes:array[1..1024] of tregisteredmode;
-    lasttime:integer;
+    lasttime:int64;
     curorder:integer=1;
 
 function TMode.Visible:boolean;
@@ -164,7 +168,7 @@ begin
  {$IFNDEF IOS}
  if stepsinfo.totalvalue=0 then
  begin
-  firstprogress:=getcurtime;
+  firstprogress:=MyTickCount;
   larstsleep:=firstprogress;
   w:=0;
   if fileexists('Inf\Steps.spe') then
@@ -182,17 +186,17 @@ begin
   begin
    stepsinfo.totalvalue:=100;
   end;
-  lasttime:=getcurtime;
+  lasttime:=MyTickCount;
   curstep:=0;
   curvalue:=0;
  end else
  begin
-  larstprogress:=getcurtime;
+  larstprogress:=MyTickCount;
   inc(curstep);
   inc(curvalue,stepsinfo.steps[curstep]);
 
   e:=lasttime;
-  lasttime:=getcurtime;
+  lasttime:=MyTickCount;
   stepsout.steps[curstep]:=lasttime-e;
   inc(stepsout.totalvalue,stepsout.steps[curstep]);
 
@@ -209,24 +213,6 @@ begin
  {$ENDIF}
 end;
 
-function LoadFont(filename:string):integer;
-var
- q:integer;
- font2x:string;
- scale:boolean;
-begin
- {$IFDEF ANDROID}
- result:=0; exit;
- {$ENDIF}
- font2x:=StringReplace(filename,'.fnt','2x.fnt',[rfIgnoreCase]);
- scale:=false;
- if retinaScreen and FileExists(font2x) then begin
-  filename:=font2x; scale:=true;
- end;
- q:=LoadRasterFont(filename);
- result:=painter.PrepareFont(q);
- if scale then painter.SetFontScale(result,2);
-end;
 
 function CreateImage(filename:string;transparent:boolean=true;allowModify:boolean=false):TTextureImage;
 var
@@ -328,7 +314,7 @@ begin
   ForceLogMessage('Primary adapter: '+adaptername);
   if pos('RIVA TNT',adaptername)>0 then
    DisableEffects:=true;
-  end; 
+  end;
  {$ENDIF}
  {$IFDEF OPENGL}
  if usedAPI=gaOpenGL then begin
@@ -469,17 +455,18 @@ begin
   refresh:=RefreshRate;
   if WindowedMode then begin
    if windowFullScreen then begin
-    altmode:=dmNone;
-    mode:=dmFullScreen;
+    altmode.displayMode:=dmNone;
+    mode.displayMode:=dmFullScreen;
    end else begin
-    mode:=dmFixedWindow;
-    altMode:=dmNone;
+    mode.displayMode:=dmFixedWindow;
+    altMode.displayMode:=dmNone;
    end;
   end else begin
-   mode:=dmSwitchResolution;
-   altMode:=dmFixedWindow;
+   mode.displayMode:=dmSwitchResolution;
+   altMode.displayMode:=dmFixedWindow;
   end;
-  fitmode:=dfmKeepAspectRatio;
+  mode.displayFitMode:=dfmKeepAspectRatio;
+  mode.displayScaleMode:=dsmDontScale;
   showSystemCursor:=useSystemCursor;
   zbuffer:=16;
   stencil:=false;
@@ -492,7 +479,7 @@ begin
   end else
    VSync:=1;
  end;
- if settings.mode<>dmSwitchResolution then
+ if settings.mode.displayMode<>dmSwitchResolution then
   ForceLogMessage('Running in cooperative mode')
  else
   ForceLogMessage('Running in exclusive mode');
@@ -514,15 +501,12 @@ begin
  end;
  ForceLogMessage('RUN');
  DetermineSettings;
- game.initialized:=true;
  InitUI;
  {$IFDEF IOS}
  filemode:=0;
  {$ENDIF}
- if retinaScreen or (game.RenderRect.Right>=1024) then
+ if retinaScreen or (game.displayRect.Right>=1024) then
   (painter as TBasicPainter).PFTexWidth:=512; // more space for fonts
-
-// InitUsableNetwork(game,rootDir);
 
  {$IFNDEF IOS}
 { SetDrawer('cursors\',CursorLoader,CursorDrawer);
@@ -535,8 +519,8 @@ begin
  {$ENDIF}
  CheckProgress;
 
- SetEventHandler('UI\LANGUAGECHANGED',@EventHandler,sync);
- SetEventHandler('UI\SCREENSIZECHANGED',@EventHandler,sync);
+ SetEventHandler('UI\LANGUAGECHANGED',@EventHandler,emQueued);
+ SetEventHandler('UI\SCREENSIZECHANGED',@EventHandler,emQueued);
 
  AddConsoleScene;
  CreateTweakerScene(painter.GetFont('Default',6),painter.GetFont('Default',7));
@@ -545,7 +529,6 @@ end;
 procedure GameDone;
 begin
  // Остановка и деинициализация
-// DoneUsableNetwork;
  DoneUI;
  // Вероятно game уже завершил работу, однако убедиться в этом нужно!
  game.Stop;
@@ -594,9 +577,9 @@ begin
  else
  begin
   if mode.mainwnd<>nil then begin
-   dec(x,mode.mainwnd.x); dec(y,mode.Mainwnd.y);
+   dec(x,round(mode.mainwnd.position.x)); dec(y,round(mode.Mainwnd.position.y));
    if mode.wndimage<>nil then begin
-    dec(x,mode.wndImage.x); dec(y,mode.wndImage.y);
+    dec(x,round(mode.wndImage.position.x)); dec(y,round(mode.wndImage.position.y));
    end;
   end;
   mode.MouseMove(x,y);
@@ -617,9 +600,9 @@ end;
 
 procedure tInternalScene.Render;
 begin
- if mode.windowed and (mode.baseimagefile='') then mode.Draw(UI.x,UI.y);
+ if mode.windowed and (mode.baseimagefile='') then mode.Draw(round(UI.position.x),round(UI.position.y));
  inherited;
- if mode.windowed and (mode.baseimagefile='') then mode.DrawAfterUI(UI.x,UI.y);
+ if mode.windowed and (mode.baseimagefile='') then mode.DrawAfterUI(round(UI.position.x),round(UI.position.y));
 end;
 
 procedure TInternalScene.SetStatus(st:TSceneStatus);
@@ -687,7 +670,7 @@ begin
        (modes[q].mode.scene.status=ssActive)and
        (modes[q].mode<>self) then begin
      modes[q].mode.onClosing;
-     TTransitionEffect.Create(self.Scene,modes[q].mode.scene,time);
+     TTransitionEffect.Create(self.Scene{,modes[q].mode.scene},time);
      break;
     end;
    end;
@@ -723,7 +706,7 @@ begin
   if effnumber<>-1 then
    for q:=1 to nummodes do
     if (modes[q].mode.windowed=false)and(modes[q].mode.scene.status=ssActive)and(modes[q].mode<>self) then
-   TTransitionEffect.Create(self.Scene,modes[q].mode.scene,time);
+   TTransitionEffect.Create(self.Scene{,modes[q].mode.scene},time);
  end;
  finally
    game.LeaveCritSect;
@@ -744,26 +727,23 @@ end;
 
 procedure tmode.Draw(x,y:integer);
 begin
- lastdrawtime:=getcurtime;
+ lastdrawtime:=MyTickCount;
  if background<>nil then begin
-  if (background.width=screenWidth) and
-     (background.height=screenHeight) then
+  if (background.width=game.renderWidth) and
+     (background.height=game.renderHeight) then
    painter.DrawImage(0,0,background)
   else
-   painter.DrawScaled(0,0,screenWidth,screenHeight,background);
+   painter.DrawScaled(0,0,game.renderWidth,game.renderHeight,background);
  end;
 end;
 
 procedure tmode.DrawAfterUI(x,y:integer);
 begin
- lastdrawtime:=getcurtime;
+ lastdrawtime:=MyTickCount;
 end;
 
-procedure CommonLoader(reason:TReason;var image:TImgDescriptor);
-begin
-end;
 
-procedure CommonDrawer(image:TImgDescriptor;x,y:integer;color:cardinal;p1,p2,p3,p4:single);
+(*procedure CommonDrawer(image:TImgDescriptor;x,y:integer;color:cardinal;p1,p2,p3,p4:single);
 var q:integer;
     s,s2,s3:string;
 begin
@@ -781,9 +761,18 @@ begin
     modes[q].mode.Draw(x,y);
   end;
  end;
+end;     *)
+
+procedure WndImageDrawer(wnd:TUIImage);
+begin
+{ if (modes[q].mode.windowed=false)and(modes[q].mode.background<>nil) then
+   painter.DrawImage(0,0,modes[q].mode.background,$FF808080);
+
+ if (modes[q].mode.windowed) then
+   modes[q].mode.Draw(x,y);}
 end;
 
-function CommonHandler(event:EventStr;tag:integer):boolean;
+function CommonHandler(event:EventStr;tag:TTag):boolean;
 var q,w:integer;
     s,s2:string;
     x,y:integer;
@@ -797,15 +786,6 @@ begin
   if copy(event,1,length(s))=s then
   try
    s2:=copy(event,length(s),255);
-   {if (s2='NETDATA') then
-   begin
-    w:=GetNetMsg(tag,pointer(pdata));
-    modes[q].mode.Network(w,pdata);
-   end else
-   if (s2='CONNECTIONBROKEN') then
-    modes[q].mode.Network(0,nil) else
-   if (s2='CONNECTIONESTABLISHED') then
-    modes[q].mode.ConnectionEstablished else}
    modes[q].mode.ProcessSignal(event,tag);
   except
    on e:exception do ForceLogMessage('Error in '+modes[q].mode.name+' event '+event+' handling: '+ExceptionMsg(e));
@@ -813,8 +793,8 @@ begin
 
   with modes[q].mode do
    if (scene<>nil) and (scene.UI<>nil) then begin
-    x:=scene.UI.x;
-    y:=scene.UI.y;
+    x:=round(scene.UI.position.x);
+    y:=round(scene.UI.position.y);
    end else begin
     x:=0; y:=0;
    end;
@@ -872,7 +852,7 @@ procedure TMode.Preload;
 begin
  if (windowed=false) and (background=nil) then
   try
-   if screenWidth/ScreenHeight>1.5 then
+   if game.renderWidth/game.renderHeight>1.5 then
     background:=CreateImage('IMAGES\'+name+'\BACKGROUNDWIDE',false)
    else
     background:=CreateImage('IMAGES\'+name+'\BACKGROUND',false);
@@ -886,9 +866,9 @@ begin
  forcelogmessage('Init '+name);
  wasinit:=true;
  minimized:=false;
- lastdrawtime:=GetCurTime;
- SetEventHandler('UI\'+name+'\',CommonHandler,sync);
- SetEventHandler('SCENES\'+name+'\',CommonHandler,async);
+ lastdrawtime:=MyTickCount;
+ SetEventHandler('UI\'+name+'\',CommonHandler,emQueued);
+ SetEventHandler('SCENES\'+name+'\',CommonHandler,emQueued);
 
  if windowed=false then
  begin
@@ -902,7 +882,7 @@ begin
   if (baseimagefile<>'') and (baseimagefile<>'empty') then
   begin
    SkinnedWnd:=TUISkinnedWindow.Create(name+'\WND','',MainFont,nil);
-   SetupWindow(SkinnedWnd,LoadImageFromFile(baseimagefile));
+   SetupSkinnedWindow(SkinnedWnd,LoadImageFromFile(baseimagefile));
    mainwnd:=skinnedwnd;
    MainWnd.style:=1;
    MainWnd.color:=$FF808080;
@@ -922,13 +902,15 @@ begin
 
   if baseimagefile<>'' then begin
    if needcorrectwindow then
-    wndImage:=TUIImage.Create(0,0,300,300,Name+'MAIN',Mainwnd)
-   else
-    wndImage:=TUIImage.Create(5,24,300,300,Name+'MAIN',Mainwnd);
-   wndImage.AnchorRight:=true;
-   wndImage.AnchorBottom:=true;
+    wndImage:=TUIImage.Create(300,300,Name+'MAIN',Mainwnd)
+   else begin
+    wndImage:=TUIImage.Create(300,300,Name+'MAIN',Mainwnd);
+    wndImage.SetPos(5,24);
+   end;
+   wndImage.SetAnchors(0,0,1,1);
    wndImage.transpmode:=tmTransparent;
-   SetDrawer('Images\'+name+'main',CommonLoader,CommonDrawer);
+   wndImage.src:='proc:'+IntToHex(UIntPtr(@WndImageDrawer));
+   //SetDrawer('Images\'+name+'main',CommonLoader,CommonDrawer);
   end;
  end;
 end;

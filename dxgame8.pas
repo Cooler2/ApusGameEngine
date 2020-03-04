@@ -1,11 +1,12 @@
 ﻿// DirectX version of the Game object
 //
 //
-// Copyright (C) 2003-2011 Apus Software (www.games4win.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2003-2011 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit dxgame8;
 interface
- uses EngineCls,Images,engineTools,windows,classes,myservis,BasicGame;
+ uses EngineAPI,Images,engineTools,windows,classes,myservis,BasicGame;
 
 type
  // Основной класс. Можно использовать его напрямую, но лучше унаследовать
@@ -19,7 +20,7 @@ type
   procedure SetupRenderArea; override;
 
   procedure PresentFrame; override;
-  procedure CalcPixelFormats(needMem:integer); override;
+  procedure ChoosePixelFormats(needMem:integer); override;
   function OnRestore:boolean; virtual; // Этот метод должен восстановить девайс и вернуть true если это удалось
   procedure InitObjects; override;
   {$IFDEF MSWINDOWS}
@@ -31,8 +32,8 @@ type
  end;
 
 implementation
- uses messages,SysUtils,DirectXGraphics,D3d8,cmdproc{$IFDEF DELPHI},graphics{$ENDIF},
-     DxImages8,Painter8,EventMan,ImageMan,UIClasses,CommonUI,gfxformats,Console;
+ uses CrossPlatform,messages,SysUtils,DirectXGraphics,D3d8,cmdproc{$IFDEF DELPHI},graphics{$ENDIF},
+     DxImages8,Painter8,EventMan,UIClasses,UIScene,gfxformats,Console;
 
 { TDXGame8 }
 
@@ -59,12 +60,12 @@ var
  res:integer;
 begin
  inherited;
- if params.mode=dmFullScreen then begin
+ if params.mode.displayMode=dmFullScreen then begin
   params.width:=DisplayMode.Width;
   params.height:=displayMode.Height;
  end;
  // Заполним структуру параметров презентации
- if params.mode<>dmSwitchResolution then begin
+ if params.mode.displayMode<>dmSwitchResolution then begin
   pparam:=WindowedMode(window,params.width,params.height,0);
   pparam.SwapEffect:=D3DSWAPEFFECT_COPY;
 {  pparam.SwapEffect:=D3DSWAPEFFECT_DISCARD;}
@@ -121,7 +122,7 @@ begin
 
  LogMessage('Screen mode: '+inttostr(pparam.BackBufferFormat));
  LogMessage(' ZBuffer: '+inttostr(pparam.AutoDepthStencilFormat));
- 
+
  LogMessage('Supported pixel formats:');
  LogMessage(' 8bit: '+BoolToStr(support8bit,true));
  LogMessage('   A8: '+BoolToStr(supportA8,true));
@@ -142,7 +143,7 @@ begin
  LogMessage('  565: '+BoolToStr(support565rt,true));
  LogMessage('  555: '+BoolToStr(support555rt,true));
  LogMessage(' 4444: '+BoolToStr(support4444rt,true));
- 
+
  AfterInitGraph;
 end;
 
@@ -158,8 +159,8 @@ begin
   InitGraph;
   if texman<>nil then (texman as TDXTextureMan).ReCreateAll;
   if painter<>nil then (painter as TDXPainter8).Reset;
-  for i:=1 to length(scenes) do
-   if scenes[i]<>nil then scenes[i].ModeChanged;
+  for i:=low(scenes) to high(scenes) do
+   scenes[i].ModeChanged;
  end;
 end;
 
@@ -181,8 +182,8 @@ procedure TDXGame8.PresentFrame;
   adr:pointer;
  begin
   if device=nil then exit;
-  if params.mode<>dmSwitchResolution then begin
-   adr:=@RenderRect;
+  if params.mode.displayMode<>dmSwitchResolution then begin
+   adr:=@displayRect;
    //SetWindowArea(params.width,params.height);
   end else adr:=nil;
   FLog('Present');
@@ -206,7 +207,7 @@ begin
    TDXPainter8(painter).Reset;
 end;
 
-procedure TDXGame8.CalcPixelFormats(needMem:integer);
+procedure TDXGame8.ChoosePixelFormats(needMem:integer);
 var
  list:array[1..10] of ImagePixelFormat;
  i,n:integer;
@@ -324,7 +325,7 @@ begin
   img.paletteFormat:=palNone;
   img.data:=r.pBits;
   img.pitch:=r.Pitch;
-  img.tag:=cardinal(surf);
+  img.tag:=UIntPtr(pointer(surf));
   surf._AddRef;
   screenshotDataRAW:=img;
   inherited;

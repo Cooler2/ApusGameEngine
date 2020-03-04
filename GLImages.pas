@@ -1,10 +1,12 @@
 ﻿// OpenGL-based texture classes and texture manager
 //
-// Copyright (C) 2011 Apus Software (www.games4win.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2011 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit GLImages;
 interface
- uses EngineCls,Images,myservis,types;
+ uses EngineAPI,Images,myservis,types;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE GLES11} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE GLES20} {$DEFINE OPENGL} {$ENDIF}
 type
@@ -23,8 +25,8 @@ type
  private
   online:boolean;
   realData:array of byte; // sysmem instance of texture data
-//  datasize:integer;
   fbo:cardinal;
+  rbo:cardinal;
   dirty:array[0..15] of TRect;
   dCount:integer;
  end;
@@ -36,11 +38,11 @@ type
 
   function AllocImage(width,height:integer;PixFmt:ImagePixelFormat;
                 Flags:integer;name:texnamestr):TTexture; override;
+  procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer); override;
   function Clone(img:TTexture):TTexture; override;
   procedure FreeImage(var image:TTexture); override;
   procedure FreeImage(var image:TTextureImage); override;
-  procedure MakeOnline(img:TTexture); override;
-  procedure MakeOnlineForStage(img:TTexture;stage:integer); virtual;
+  procedure MakeOnline(img:TTexture;stage:integer=0); override;
   procedure SetTexFilter(img:TTexture;filter:TTexFilter); virtual; // Works for ACTIVE texture only!
 
   function QueryParams(width,height:integer;format:ImagePixelFormat;usage:integer):boolean; override;
@@ -104,7 +106,8 @@ begin
    lastErrorTime:=t;
    ForceLogMessage('GLI Error ('+msg+') '+inttostr(error)+' '+GetCallStack);
   end;
- except end;
+ except
+ end;
 end;
 
 
@@ -118,18 +121,33 @@ begin
    subFormat:=GL_UNSIGNED_BYTE;
   end;
   ipfRGB:begin
-   internalFormat:=3;
+   internalFormat:=GL_RGB;
    format:=GL_BGR;
    subFormat:=GL_UNSIGNED_BYTE;
   end;
   ipfARGB:begin
-   internalFormat:=4;
+   internalFormat:=GL_RGBA;
    format:=GL_BGRA;
    subFormat:=GL_UNSIGNED_BYTE;
   end;
   ipfXRGB:begin
-   internalFormat:=3;
+   internalFormat:=GL_RGB;
    format:=GL_BGRA;
+   subFormat:=GL_UNSIGNED_BYTE;
+  end;
+  ipfMono8:begin
+   internalFormat:=GL_R8;
+   format:=GL_RED;
+   subFormat:=GL_UNSIGNED_BYTE;
+  end;
+  ipfMono16:begin
+   internalFormat:=GL_R16;
+   format:=GL_RED;
+   subFormat:=GL_UNSIGNED_SHORT;
+  end;
+  ipfDuo8:begin
+   internalFormat:=GL_RG8;
+   format:=GL_RG;
    subFormat:=GL_UNSIGNED_BYTE;
   end;
   ipf565:begin
@@ -334,12 +352,15 @@ begin
  end;
 end;
 
-function EventHandler(event:EventStr;tag:integer):boolean;
+function EventHandler(event:EventStr;tag:TTag):boolean;
+var
+ tex:TTexture;
 begin
  result:=false;
- event:=UpperCase(event);
- if event='GLIMAGES\DELETETEXTURE' then
-  texman.FreeImage(TTexture(cardinal(tag)));
+ if SameText(event,'GLImages\DeleteTexture') then begin
+  tex:=TTexture(UIntPtr(tag));
+  texman.FreeImage(tex);
+ end;
 end;
 
 { TGLTextureMan }
@@ -350,8 +371,9 @@ var
  tex:TGlTexture;
  status:cardinal;
  format,SubFormat,internalFormat:cardinal;
-// sx,sy:single;
  dataSize:integer;
+ renderBuffer:GLUint;
+ drawBuffers:GLenum;
 begin
  ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
  ASSERT(pixFmt<>ipfNone,'Invalid pixel format for '+name);
@@ -361,6 +383,8 @@ begin
  try
  tex:=TGLTexture.Create;
  result:=tex;
+ tex.rbo:=0;
+ tex.fbo:=0;
  tex.refCounter:=1;
  tex.left:=0;
  tex.top:=0;
@@ -389,10 +413,6 @@ begin
    width:=round(width*scaleX);
    height:=round(height*scaleY);
    if (width>maxFBwidth) or (height>maxFBheight) then raise EWarning.Create('AI: RT texture too large');
-   //tex.caps:=tex.caps or tfScaled;
-{   tex.scaleX:=scaleX;
-   tex.scaleY:=scaleY;
-   sx:=scaleX; sy:=scaleY;}
   end;
   {$IFDEF GLES}
   {$IFDEF GLES11}
@@ -417,7 +437,7 @@ begin
   if status<>GL_FRAMEBUFFER_COMPLETE_OES then
    raise EError.Create('FBO status: '+inttostr(status));
   {$ELSE}
-  glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex.texname,0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,zTex.texname,0);
   status:=glCheckFramebufferStatus(GL_FRAMEBUFFER);
   if status<>GL_FRAMEBUFFER_COMPLETE then
    raise EError.Create('FBO status: '+inttostr(status));
@@ -446,6 +466,17 @@ begin
    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,format,subFormat,nil);
    CheckForGLError('4');
    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex.texname,0);
+
+   if flags and aiUseZBuffer>0 then begin
+    glGenRenderbuffers(1,@renderBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+    glFramebufferRenderBuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
+    tex.rbo:=renderBuffer;
+   end;
+
+   drawBuffers:=GL_COLOR_ATTACHMENT0;
+   glDrawBuffers(1, @drawBuffers);
 
    status:=glCheckFramebufferStatus(GL_FRAMEBUFFER);
    if status<>GL_FRAMEBUFFER_COMPLETE then
@@ -491,10 +522,11 @@ begin
   tex.caps:=tex.caps or tfDirectAccess; // Can be locked
   if flags and aiClampUV>0 then
    tex.caps:=tex.caps or tfClamped;
+  // Mip-maps
+  if flags and aiMipMapping>0 then
+   tex.caps:=tex.caps or tfAutoMipMap;
  end;
 
-// tex.stepU:=0.5/width;
-// tex.stepV:=0.5/height;
  tex.u1:=0; tex.u2:=tex.width/width;
  tex.v1:=0; tex.v2:=tex.height/height;
  tex.stepU:=0.5*(tex.u2-tex.u1)/tex.width;
@@ -536,7 +568,7 @@ begin
  fillChar(texNames,sizeof(texnames),0);
  mainThreadID:=GetCurrentThreadId;
  texman:=self;
- SetEventHandler('GLImages',EventHandler,mixed);
+ SetEventHandler('GLImages',EventHandler,emMixed);
  {$IFDEF GLES}
  glGetIntegerv(GL_MAX_TEXTURE_SIZE, @maxTextureSize);
  maxFBWidth:=maxTextureSize;
@@ -551,7 +583,7 @@ begin
  maxRTTextureSize:=min2(maxFBwidth,maxFBheight);
  LogMessage(Format('Maximal texture sizes: %d (FB: %d x %d, RB: %d)',[maxTextureSize,maxFBwidth,maxFBheight,maxRBsize]));
  if maxFBwidth=0 then maxFBwidth:=Max2(maxRBsize,1024);
- if maxFBheight=0 then maxFBheight:=Max2(maxRBsize,1024); 
+ if maxFBheight=0 then maxFBheight:=Max2(maxRBsize,1024);
  except
   on e:Exception do begin
    ForceLogMessage('Error in GLTexMan constructor: '+ExceptionMsg(e));
@@ -592,7 +624,7 @@ begin
   dec(image.cloneOf.numClones);
   FreeAndNil(image);
   exit;
- end; 
+ end;
 
  if image is TGLTexture then begin
   tex:=image as TGLTexture;
@@ -613,6 +645,7 @@ begin
     raise EError.Create('TexMan FI: framebuffers not supported!');
    {$ENDIF}
   end;
+  if tex.rbo<>0 then glDeleteRenderbuffers(1,@tex.rbo);
   if tex.texname<>0 then glDeleteTextures(1,@tex.texname);
   if Length(tex.realData)>0 then SetLength(tex.realData,0);
   tex.Free;
@@ -624,7 +657,7 @@ begin
  end;
 end;
 
-procedure TGLTextureMan.FreeImage(var image:TTextureImage); 
+procedure TGLTextureMan.FreeImage(var image:TTextureImage);
 begin
  FreeImage(TTexture(image));
 end;
@@ -660,7 +693,7 @@ begin
  TGlTexture(img).filter:=filter;
 end;
 
-procedure TGLTextureMan.MakeOnlineForStage(img: TTexture;stage:integer);
+procedure TGLTextureMan.MakeOnline(img: TTexture;stage:integer=0);
 var
  format,subformat,internalFormat,error:cardinal;
  needInit:boolean;
@@ -747,6 +780,9 @@ begin
    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,data);
    CheckForGLError('16');
    {$ENDIF}
+   if (caps and tfAutoMipMap>0) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then
+    glGenerateMipmap(GL_TEXTURE_2D);
+
    if caps and tfClamped>0 then begin
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
@@ -762,11 +798,6 @@ begin
  finally
   LeaveCriticalSection(cSect);
  end;
-end;
-
-procedure TGLTextureMan.MakeOnline(img:TTexture);
-begin
- MakeOnlineForStage(img,0);
 end;
 
 function TGLTextureMan.QueryParams(width, height: integer;
@@ -791,6 +822,32 @@ begin
  CheckForGLError('21');
  if res=0 then result:=false;
  {$ENDIF}
+end;
+
+procedure TGLTextureMan.ResizeTexture(var img: TTexture; newWidth,
+  newHeight: integer);
+var
+ glFormat,subFormat,internalFormat:cardinal;
+ old:TTexture;
+begin
+ if img.caps and tfRenderTarget>0 then
+  with img as TGLTexture do begin
+   glBindTexture(GL_TEXTURE_2D, texname);
+   GetGLFormat(img.PixelFormat,glFormat,subFormat,internalFormat);
+   width:=newWidth;
+   height:=newHeight;
+   glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,glFormat,subFormat,nil);
+   CheckForGLError('31');
+   if rbo<>0 then begin
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+   end;
+   exit;
+  end;
+  // Delete and allocate again
+  old:=img;
+  img:=AllocImage(newWidth,newHeight,img.PixelFormat,img.caps,img.name);
+  FreeImage(old);
 end;
 
 begin

@@ -3,8 +3,9 @@
 // Complex text can be stored in different forms including HTML-style simplified markup language (SML)
 // This unit contains wide set of routines for manipulation with complex text strings
 //
-// Copyright (C) 2015 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2015 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit ComplexText;
 interface
  uses MyServis;
@@ -16,7 +17,7 @@ interface
  function SMLLength(st:WideString):integer;
  // Returns plain text from the SML string
  function SMLExtract(st:WideString):WideString;
- function SMLExtractUTF8(st:string):string; // UTF-8 version
+ function SMLExtractUTF8(st:AnsiString):AnsiString; // UTF-8 version
  // Build index for the string ([plain text character index] -> SML character index)
  function SMLIndex(st:WideString):IntArray;
 
@@ -122,7 +123,7 @@ implementation
     result[i]:=st[index[i]];
   end;
 
- function SMLExtractUTF8(st:String):String;
+ function SMLExtractUTF8(st:AnsiString):AnsiString;
   begin
    result:=EncodeUTF8(SMLExtract(DecodeUTF8(st)),false);
   end;

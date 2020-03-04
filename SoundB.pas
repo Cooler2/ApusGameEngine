@@ -1,5 +1,7 @@
-﻿// Copyright (C) Apus Software, 2004
-// Author: Ivan Polyacov, ivan@apus-software.com
+﻿// Copyright (C) Apus Software, 2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit SoundB;
 interface
 type
@@ -115,7 +117,7 @@ function StreamProc(handle:integer;buf:pointer;size,user:cardinal):cardinal; std
   result:=sp(buf,size);
  end;
 
-function EventHandler(event:EventStr;tag:integer):boolean;
+function EventHandler(event:EventStr;tag:TTag):boolean;
  var
   evt:TSoundEvent;
   mus:TMusic;
@@ -407,7 +409,7 @@ begin
 
  ctl:=UseControlFIle('sounds.ctl','');
  LoadConfig;
- SetEventHandler('SOUND',EventHandler,sync);
+ SetEventHandler('SOUND',EventHandler,emQueued);
  needmusic:=nil;
  initialized:=true;
  // Main loop

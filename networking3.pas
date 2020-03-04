@@ -1,7 +1,9 @@
 // Network engine layer, ver 3 (messaging protocol over HTTP, client-side part)
 //
-// Copyright (C) 2014 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2014 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$R+}
 unit Networking3;
 interface
@@ -22,7 +24,7 @@ var
                            // сообщений, но помогает объединять их в один запрос
 
  failedRequests:integer; // каждый сбойный запрос увеличивает счётчик, успешный - обнуляет
- lastPollSent:TDateTime; // время отправки последнего POLL-запроса                          
+ lastPollSent:TDateTime; // время отправки последнего POLL-запроса
 
  // Перечень всех возможных сигналов:
  //  NET\Conn3\AccountCreated - аккаунт успешно создан (CreateAccount)
@@ -66,7 +68,7 @@ var
 
  // Парсит и ресолвит (если необходимо) адрес, заданный в виде строки
  // Внимание!!! Может занять много времени!
- procedure GetInternetAddress(address:string;var ip:cardinal;var port:word);
+ procedure GetInternetAddress(address:AnsiString;var ip:cardinal;var port:word);
 
  // Is internet connection available? positive - yes, negative - no
  function CheckInternetConnection:integer;
@@ -100,7 +102,7 @@ implementation
   serial:cardinal; // request serial number
   activePollRequest:integer; // current poll request ID (0 - no active poll request)
   activePostRequest:integer; // current post request ID (0 - no active post request)
-  lastPostSent:TDateTime; // время первой отправки POST-запроса с ID=activePostRequest (для таймаута) 
+  lastPostSent:TDateTime; // время первой отправки POST-запроса с ID=activePostRequest (для таймаута)
   lastPollURL:string;
   lastPostURL,lastPostData:string;
   lastPostType:TContentType;
@@ -156,7 +158,7 @@ implementation
   SCNetworkReachabilityRef = pointer;
 
  function SCNetworkReachabilityCreateWithAddress(allocator:pointer;
- 						 var address:TSockAddr):SCNetworkReachabilityRef; cdecl; external;
+                   var address:TSockAddr):SCNetworkReachabilityRef; cdecl; external;
 
  function SCNetworkReachabilityGetFlags(nrr:SCNetworkReachabilityRef;out flags:cardinal):boolean; cdecl; external;
 
@@ -197,7 +199,7 @@ implementation
 var
  WSAInit:boolean;
 
-procedure GetInternetAddress(address:string;var ip:cardinal;var port:word);
+procedure GetInternetAddress(address:AnsiString;var ip:cardinal;var port:word);
  var
   i:integer;
   h:PHostEnt;
@@ -225,11 +227,11 @@ procedure GetInternetAddress(address:string;var ip:cardinal;var port:word);
     for i:=1 to length(address) do
      if not (address[i] in ['0'..'9','.']) then fl:=false;
     if fl then begin
-     ip:=inet_addr(PChar(address));
+     ip:=inet_addr(PAnsiChar(address));
     end else begin
      LogMessage('Resolving host address: '+address);
      sleep(10);
-     h:=GetHostByName(PChar(address));
+     h:=GetHostByName(PAnsiChar(address));
      if h=nil then begin
       {$IFDEF MSWINDOWS}
       port:=WSAGetLastError;
@@ -242,7 +244,7 @@ procedure GetInternetAddress(address:string;var ip:cardinal;var port:word);
    end else
     ip:=$FFFFFFFF;
   except
-  end;   
+  end;
  end;
 
 function ShortMD5(st:string):string;
@@ -250,11 +252,11 @@ function ShortMD5(st:string):string;
   result:=copy(MD5(st),1,10);
  end;
 
-function EventHandler(event:eventstr;tag:integer):boolean;
+function EventHandler(event:eventstr;tag:TTag):boolean;
  var
   i,code,t,e1,e2,httpStatus:integer;
-  response:string;
-  sa:StringArr;
+  response:AnsiString;
+  sa:AStringArr;
  begin
   result:=true;
   if (event='HTTP_Event\ResendPost') and (activePostRequest>0) then begin
@@ -330,7 +332,7 @@ function EventHandler(event:eventstr;tag:integer):boolean;
          exit;
         end;
         // messages received
-        sa:=Split(#13#10,response);
+        sa:=SplitA(#13#10,response);
         LogMessage('NW3: '+IntToStr(length(sa))+' messages received from request #'+inttostr(tag));
         for i:=0 to length(sa)-1 do begin
          // Здесь был баг, декодировать нужно правильно
@@ -469,7 +471,7 @@ procedure TMainThread.Execute;
   serial:=0;
   MD5pwd:=ShortMD5(password);
   LogMessage('NW3: HTTP thread started');
-  SetEventHandler('HTTP_Event',EventHandler,sync);
+  SetEventHandler('HTTP_Event',EventHandler,emQueued);
   try
    state:=csNone;
    // Главный цикл
@@ -563,10 +565,10 @@ procedure Connect(server,login,password,clientinfo:string);
  end;
 
 // Создание аккаунта
-function EventHandler2(event:eventstr;tag:integer):boolean;
+function EventHandler2(event:eventstr;tag:TTag):boolean;
  var
   code:integer;
-  response:string;
+  response:AnsiString;
  begin
   code:=GetRequestResult(tag,response);
   if code<>httpStatusCompleted then begin
@@ -579,7 +581,7 @@ function EventHandler2(event:eventstr;tag:integer):boolean;
     Signal('NET\Conn3\AccountCreated');
    end else
    if pos('ERROR:',response)=1 then begin
-    LogMessage('NW3: account failed - '+response);    
+    LogMessage('NW3: account failed - '+response);
     NW3ErrorMessage:=copy(response,8,length(response));
     Signal('NET\Conn3\AccountFailed');
    end else
@@ -595,7 +597,7 @@ procedure CreateAccount(server,login,password,name,extras:string);
   i:integer;
  begin
   RemoveEventHandler(EventHandler2);
-  SetEventHandler('HTTP_Event2',EventHandler2,async);
+  SetEventHandler('HTTP_Event2',EventHandler2,emInstant);
   query:=name+#9+login+#9+ShortMD5(password)+#9+extras;
   b:=47;
   for i:=1 to length(query) do begin

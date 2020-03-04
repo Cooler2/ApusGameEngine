@@ -5,40 +5,37 @@ uses
   windows,
   sysutils,
   myservis,
-  DirectXGraphics,
   geom2d,
   geom3d,
   images,
   Types,
+  {$IFDEF OPENGL}
   dglOpenGl,
+  {$ENDIF }
+  {$IFDEF DIRECTX}
+  DirectXGraphics,
+  {$ENDIF }
   eventMan,
   FastGfx,
   DirectText,
   FreeTypeFont,
-  EngineCls in '..\EngineCls.pas',
+  EngineAPI in '..\EngineAPI.pas',
   UIClasses in '..\UIClasses.pas',
   PainterGL in '..\PainterGL.pas',
-  ImageMan in '..\ImageMan.pas',
-  CommonUI in '..\CommonUI.pas',
+  UIScene in '..\UIScene.pas',
   UIRender in '..\UIRender.pas',
   engineTools in '..\engineTools.pas',
   console in '..\console.pas',
   conScene in '..\conScene.pas',
   stdEffects in '..\stdEffects.pas',
   SoundB in '..\SoundB.pas',
-  UsableNetwork in '..\UsableNetwork.pas',
   BitmapStyle in '..\BitmapStyle.pas',
   Sound in '..\Sound.pas',
   UModes in '..\UModes.pas',
   networking2 in '..\networking2.pas',
-  DxImages8 in '..\DxImages8.pas',
   IOSgame in '..\IOSgame.pas',
-  Painter8 in '..\Painter8.pas',
   BasicGame in '..\BasicGame.pas',
-  GLImages in '..\GLImages.pas',
   BasicPainter in '..\BasicPainter.pas',
-  dxgame8 in '..\dxgame8.pas',
-  GLgame in '..\GLgame.pas',
   TweakScene in '..\TweakScene.pas',
   networking3 in '..\networking3.pas',
   UDict in '..\UDict.pas',
@@ -47,8 +44,20 @@ uses
   cmdproc in '..\cmdproc.pas',
   ComplexText in '..\ComplexText.pas',
   steamAPI in '..\steamAPI.pas',
+  {$IFDEF DIRECTX}
+  DxImages8 in '..\DxImages8.pas',
+  {$ENDIF }
+  {$IFDEF OPENGL}
   PainterGL2 in '..\PainterGL2.pas',
-  GameApp in '..\GameApp.pas';
+  GLImages in '..\GLImages.pas',
+  GLgame in '..\GLgame.pas',
+  {$ENDIF }
+  GameApp in '..\GameApp.pas',
+  Model3D in '..\Model3D.pas',
+  OBJLoader in '..\OBJLoader.pas',
+  SpritePacker in '..\SpritePacker.pas',
+  IQMloader in '..\IQMloader.pas',
+  ImgLoadQueue in '..\ImgLoadQueue.pas';
 
 const
  wnd:boolean=true;
@@ -56,24 +65,27 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 12;       
- // 1 - инициализация, очистка буфера разными цветами, рисование линий
- // 2 - рисование нетекстурированных примитивов
- // 3 - текстурированные примитивы, мультитекстурирование
- // 4 - мультитекстурирование
+ testnum:integer = 15;
+ // 1 - initialization, basic primitives
+ // 2 - non-textured primitives
+ // 3 - textured primitives
+ // 4 - multitexturing
  // 5 - render to texture
- // 6 - вывод текста
- // 7 - отсечение
- // 8 - партиклы
- // 9 - загрузка картинок итд.
- // 10 - полоски
- // 11 - тест 3D
- // 12 - вывод текста FreeType
- // 13 - тест шейдеров OpenGL
- // 14 - тест видео
+ // 6 - text (deprecated text API, not compatible with the current "develop" branch!)
+ // 7 - clipping
+ // 8 - particles
+ // 9 - image loading
+ // 10 - band particles
+ // 11 - basic 3D test
+ // 12 - FreeType text (modern text API)
+ // 13 - OpenGL shaders (НЕ ДЛЯ GLPAINTER2!)
+ // 14 - Video
+ // 15 - 3D models with animation
 
+ {
  TexVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR+D3DFVF_TEX1+D3DFVF_TEXTUREFORMAT2;
  ColVertFmt=D3DFVF_XYZRHW+D3DFVF_DIFFUSE+D3DFVF_SPECULAR;
+ }
 
 var
  savetime:cardinal;
@@ -118,7 +130,7 @@ type
 
  TTexturesTest=class(TTest)
   prog,uTex:integer;
-  tex1,tex2,tex3,tex4,texA,tex5,tex6:TTextureImage;
+  tex1,tex2,tex3,tex4,texA,tex5,tex6,texM,texDuo:TTextureImage;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -204,6 +216,17 @@ type
   procedure Done; override;
  end;
 
+ T3DCharacterTest=class(TTest)
+  model,modelObj:TModel3D;
+  vertices,vertices2:array of T3DModelVertex;
+  indices,indices2:TIndices;
+  shader,shader2:integer;
+  tex:TTexture;
+  procedure Init; override;
+  procedure RenderFrame; override;
+  procedure Done; override;
+ end;
+
 
 var
  frame:integer;
@@ -234,7 +257,7 @@ begin
  end;}
 end;
 
-function HEvent(event:EventStr;tag:integer):boolean;
+function HEvent(event:EventStr;tag:NativeInt):boolean;
  var
   i,x,y:integer;
   w:^cardinal;
@@ -315,6 +338,8 @@ begin
  tex3:=texman.AllocImage(64,64,ipfARGB,aiTexture,'test3') as TTextureImage;
  tex4:=texman.AllocImage(128,128,ipfARGB,aiTexture,'test4') as TTextureImage;
  texA:=texman.AllocImage(100,100,ipfA8,aiTexture,'testA') as TTextureImage;
+ texM:=texman.AllocImage(128,128,ipfARGB,aiTexture+aiMipMapping,'testMipMap') as TTextureImage;
+ texDuo:=texman.AllocImage(32,32,ipfDuo8,aiTexture,'testDuo') as TTextureImage;
 // tex1:=LoadImageFromFile('test1.tga') as TTExtureImage;
  tex1.Lock;
  for i:=0 to tex1.height-1 do begin
@@ -348,6 +373,20 @@ begin
   end;
  end;
  tex2.Unlock;
+
+ texM.Lock;
+ for i:=0 to texM.height-1 do begin
+  pb:=texM.data;
+  inc(pb,texM.pitch*i);
+  for j:=0 to texM.width-1 do begin
+   r:=(j and 1)*180;
+   pb^:=200; inc(pb);
+   pb^:=r; inc(pb);
+   pb^:=r; inc(pb);
+   pb^:=255; inc(pb);
+  end;
+ end;
+ texM.Unlock;
 
  tex3.Lock;
  for i:=0 to tex3.height-1 do begin
@@ -387,6 +426,19 @@ begin
  texA.Unlock;
  tex5:=CreateSubImage(tex1,0,0,35,36,0);
  tex6:=CreateSubImage(tex1,0,0,36,35,0);
+
+ texDuo.Lock;
+ for i:=0 to 32 do begin
+  pb:=texDuo.data;
+  inc(pb,texDuo.pitch*i);
+  for j:=0 to 32 do begin
+   pb^:=i*4;
+   inc(pb);
+   pb^:=j*4;
+   inc(pb);
+  end;
+ end;
+ texDuo.Unlock;
 
  try
  prog:=TGLPainter(painter).BuildShaderProgram(
@@ -431,6 +483,7 @@ var
  v,s:single;
  x,y,i,t:integer;
  r:TRect;
+ mesh:TMesh;
  vertices,transformed:TVertices;
  indices:TIndices;
  data:array of cardinal;
@@ -493,6 +546,10 @@ begin
  painter.DrawImagePart90(290,50,tex1,$FF808080,Rect(2,2,20,10),3);
  painter.DrawRotScaled(450,200,2,2,1,tex2,$FF808080);
 
+ s:=0.2+(MyTickCount mod 3000)/3000;
+ painter.SetTexMode(0,tblModulate2X,tblModulate,fltTrilinear);
+ painter.DrawRotScaled(450,420,s,s,0,texM);
+
  if (frame div 100) and 1=0 then
    painter.SetTexMode(0,tblNone,tblNone,fltNearest);
  painter.DrawRotScaled(750,300,4,4,1,tex2,$FF808080);
@@ -519,29 +576,31 @@ begin
  painter.DrawImage(800,160,texA,$FFFF6000);
  painter.DrawImage(900,160,texA,$FF008000);
 
- {$IFNDEF OPENGL}
- if frame=10 then d3d8.DumpD3D;
+ painter.DrawImage(600,700,texDuo,$FF808080);
+
+ {$IFDEF DIRECTX}
+// if frame=10 then d3d8.DumpD3D;
  {$ENDIF}
 
  with vrt[0] do begin
-  x:=600; y:=10; z:=0; rhw:=1;
+  x:=600; y:=10; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
   diffuse:=$FF808080;
   u:=0; v:=0;
  end;
  with vrt[1] do begin
-  x:=750; y:=20; z:=0; rhw:=1;
+  x:=750; y:=20; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
   diffuse:=$FF808080;
   u:=1; v:=0;
  end;
  with vrt[2] do begin
-  x:=730; y:=250; z:=0; rhw:=1;
+  x:=730; y:=250; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
   diffuse:=$FF008000;
   u:=1; v:=1;
  end;
 
- BuildMeshForImage(tex1,32,32,vertices,indices);
+ mesh:=BuildMeshForImage(tex1,32,32);
  globalS:=MyTickCount/200;
- transformed:=TransformVertices(vertices,shader1);
+ mesh.vertices:=TransformVertices(mesh.vertices,shader1);
 { for i:=0 to length(vertices)-1 do
   with vertices[i] do begin
    //ou:=x/tex1.width; ov:=y/tex1.height;
@@ -554,7 +613,7 @@ begin
 { if getTickCount mod 1000<500 then
   painter.DrawImage(0,0,tex1)
  else}
- DrawIndexedMesh(tex1,transformed,indices);
+ DrawIndexedMesh(mesh.vertices,mesh.indices,tex1);
  Reset2DTransform;
  //(painter as TDXPainter8).DrawTrgListTex(@vrt,1,tex2);
 
@@ -604,7 +663,6 @@ begin
  painter.FillGradrect(150,100,190,140,$FF0000FF,$FFFF0000,false);
  painter.FillGradrect(100,150,140,190,$FFFFFF00,$0FFFFF00,true);
  painter.FillGradrect(150,150,190,190,$FFFFFF00,$0FFFFF00,false);
-
 
  painter.ShadedRect(300,50,400,90,3,$FFC0C0C0,$FF808080);
  painter.ShadedRect(300,100,400,130,1,$FFC0C0C0,$FF808080);
@@ -1390,7 +1448,7 @@ end;
 function MakeVertex(x,y,z:single;color:cardinal):TScrPoint;
 begin
  fillchar(result,sizeof(result),0);
- result.x:=x; result.y:=y; result.z:=z; result.rhw:=1;
+ result.x:=x; result.y:=y; result.z:=z; {$IFDEF DIRECTX} result.rhw:=1; {$ENDIF}
  result.diffuse:=color;
 end;
 
@@ -1402,46 +1460,125 @@ const
 var
 // mat:TMatrix4f;
  t:single;
- vertices:array[0..11] of TScrPoint;
+ vertices:TVertices;
  i:integer;
  x,y,z:double;
+ pnt:array[1..3] of TPoint3;
 begin
  inc(frame);
  sleep(1);
- painter.Clear($FF000000+frame and 127,-1,-1);
+ painter.Clear($FF000000+frame and 127,1,-1);
  painter.BeginPaint(nil);
 // painter.FillRect(10,10,20,20,$FF709090);
 
 // painter.SetDefaultView;
  x:=1024/2; y:=768/2; z:=500;
-{ painter.SetupCamera(Point3(x,y,z),
-    Point3(x,y,z+1),
-    Point3(x,y-1,z));}
+ t:=frame/100;
 
- painter.SetPerspective(-1024/2,1024/2,-768/2,768/2,z,z/10,10*z);
-{ glMatrixMode(GL_MODELVIEW);
- glLoadIdentity;
- gluLookAt(x,y,z,x,y,0,0,-10,0);}
+ painter.SetPerspective(-30,30,-20,20,40,1,100);
+// painter.SetOrthographic(30,0,100);
 
- painter.SetupCamera(Point3(x,y+50*sin(frame/200),z),
-    Point3(x,y,0),
-    Point3(x,y-1000,z));
+// painter.SetupCamera(Point3(20*sin(frame/100),-10,20*cos(frame/100)),Point3(0,0,0),Point3(0,1000,0));
+// t:=1;
+ painter.SetupCamera(Point3(20*cos(t),7,20*sin(t)),Point3(0,3,0),Point3(0,1000,00));
+// if frame mod 200<100 then
+// painter.SetupCamera(Point3(20,5,0),Point3(0,0,0),Point3(0,-1000,0));
 
  painter.Set3DTransform(IdentMatrix4); // вызывать обязательно!
-
-
-{ fillchar(mat,sizeof(mat),0);
- glMatrixMode(GL_MODELVIEW);
- mat[0,0]:=1; mat[1,1]:=1; mat[2,2]:=1; mat[3,3]:=1;
- mat[3,0]:=frame mod 100;
- glLoadMatrixF(@mat);}
-
  glDisable(GL_CULL_FACE);
 
+ glEnable(GL_DEPTH_TEST);
+ glDepthFunc(GL_LESS);
 
- painter.Set3DTransform(Matrix4(MultMat4(RotationYMat(frame/150),TranslationMat(490+20*sin(frame/500),390,350))));
+ pnt[1]:=TGLPainter2(painter).TestTransformation(Point3(0,3,0));
+ pnt[2]:=TGLPainter2(painter).TestTransformation(Point3(0,10,0));
+ pnt[3]:=TGLPainter2(painter).TestTransformation(Point3(0,0,10));
 
- vertices[0]:=MakeVertex(-10,-10,0,$FF00C000);
+ // X axis
+ AddVertex(vertices,0,-1,0,0,0,$FF0000C0);
+ AddVertex(vertices,0,1,0,0,0,$FF0000C0);
+ AddVertex(vertices,10,0,0,0,0,$FF0000C0);
+ AddVertex(vertices,0,0,-1,0,0,$FF0000C0);
+ AddVertex(vertices,0,0,1,0,0,$FF0000C0);
+ AddVertex(vertices,10,0,0,0,0,$FF0000C0);
+
+ // Y axis
+ AddVertex(vertices,-1, 0, 0,0,0,$FF00C000);
+ AddVertex(vertices, 1, 0, 0,0,0,$FF00C000);
+ AddVertex(vertices, 0,10, 0,0,0,$FF00C000);
+ AddVertex(vertices, 0, 0,-1,0,0,$FF00C000);
+ AddVertex(vertices, 0, 0, 1,0,0,$FF00C000);
+ AddVertex(vertices, 0,10, 0,0,0,$FF00C000);
+
+ // Z axis
+ AddVertex(vertices,-1, 0, 0,0,0,$FFC00000);
+ AddVertex(vertices, 1, 0, 0,0,0,$FFC00000);
+ AddVertex(vertices, 0, 0,10,0,0,$FFC00000);
+ AddVertex(vertices, 0,-1, 0,0,0,$FFC00000);
+ AddVertex(vertices, 0, 1, 0,0,0,$FFC00000);
+ AddVertex(vertices, 0, 0,10,0,0,$FFC00000);
+
+ // Cube
+ AddVertex(vertices, -1, -1, 1, 0,0,$FF400000);
+ AddVertex(vertices,  1, -1, 1, 0,0,$FF400000);
+ AddVertex(vertices,  1,  1, 1, 0,0,$FF400000);
+ AddVertex(vertices, -1, -1, 1, 0,0,$FF400000);
+ AddVertex(vertices,  1,  1, 1, 0,0,$FF400000);
+ AddVertex(vertices, -1,  1, 1, 0,0,$FF400000);
+
+ AddVertex(vertices, -1, -1,-1, 0,0,$FF600000);
+ AddVertex(vertices,  1, -1,-1, 0,0,$FF600000);
+ AddVertex(vertices,  1,  1,-1, 0,0,$FF600000);
+ AddVertex(vertices, -1, -1,-1, 0,0,$FF600000);
+ AddVertex(vertices,  1,  1,-1, 0,0,$FF600000);
+ AddVertex(vertices, -1,  1,-1, 0,0,$FF600000);
+
+ AddVertex(vertices, 1,-1, -1,  0,0,$FF000040);
+ AddVertex(vertices, 1, 1, -1,  0,0,$FF000040);
+ AddVertex(vertices, 1, 1,  1,  0,0,$FF000040);
+ AddVertex(vertices, 1,-1, -1,  0,0,$FF000040);
+ AddVertex(vertices, 1, 1,  1,  0,0,$FF000040);
+ AddVertex(vertices, 1,-1,  1,  0,0,$FF000040);
+
+ AddVertex(vertices,-1, -1, -1, 0,0,$FF000060);
+ AddVertex(vertices,-1,  1, -1, 0,0,$FF000060);
+ AddVertex(vertices,-1,  1,  1, 0,0,$FF000060);
+ AddVertex(vertices,-1, -1, -1, 0,0,$FF000060);
+ AddVertex(vertices,-1,  1,  1, 0,0,$FF000060);
+ AddVertex(vertices,-1, -1,  1, 0,0,$FF000060);
+
+ AddVertex(vertices, -1, 1, -1,  0,0,$FF004000);
+ AddVertex(vertices,  1, 1, -1,  0,0,$FF004000);
+ AddVertex(vertices,  1, 1,  1,  0,0,$FF004000);
+ AddVertex(vertices, -1, 1, -1,  0,0,$FF004000);
+ AddVertex(vertices,  1, 1,  1,  0,0,$FF004000);
+ AddVertex(vertices, -1, 1,  1,  0,0,$FF004000);
+
+ AddVertex(vertices, -1,-1, -1, 0,0,$FF006000);
+ AddVertex(vertices,  1,-1, -1, 0,0,$FF006000);
+ AddVertex(vertices,  1,-1,  1, 0,0,$FF006000);
+ AddVertex(vertices, -1,-1, -1, 0,0,$FF006000);
+ AddVertex(vertices,  1,-1,  1, 0,0,$FF006000);
+ AddVertex(vertices, -1,-1,  1, 0,0,$FF006000);
+
+ // Ground
+ AddVertex(vertices, -4, -4,-4, 0,0,$4F603060);
+ AddVertex(vertices,  4, -4,-4, 0,0,$4F603060);
+ AddVertex(vertices,  4,  4,-4, 0,0,$4F603060);
+ AddVertex(vertices, -4, -4,-4, 0,0,$4F603060);
+ AddVertex(vertices,  4,  4,-4, 0,0,$4F603060);
+ AddVertex(vertices, -4,  4,-4, 0,0,$4F603060);
+
+ AddVertex(vertices, 10, 5, 5, 0,0,$FFFFFFFF);
+ AddVertex(vertices, 10, 6, 5, 0,0,$FFFFFFFF);
+ AddVertex(vertices, 11, 5, 5, 0,0,$FFFFFFFF);
+
+
+ DrawMesh(vertices,nil);
+
+// painter.Set3DTransform(Matrix4(MultMat4(RotationYMat(frame/150),TranslationMat(490+20*sin(frame/500),390,350))));
+
+{ vertices[0]:=MakeVertex(-10,-10,0,$FF00C000);
  vertices[1]:=MakeVertex(30,-10,0,$FF00C080);
  vertices[2]:=MakeVertex(30,30,0,$FFC0C000);
  vertices[3]:=MakeVertex(-10,30,0,$FF0000F0);
@@ -1457,51 +1594,14 @@ begin
  vertices[3]:=MakeVertex(100,200,0,$FFC0C0C0);
  painter.DrawIndexedMesh(@vertices[0],@indices[0],2,4,nil);
 
- painter.FillRect(500,200,700,250,$FFC0B020);
+ painter.FillRect(500,200,700,250,$FFC0B020);    }
 
-(*
- {$IFDEF OPENGL}
- glMatrixMode(GL_PROJECTION);
- glLoadIdentity;
- glFrustum(-3,3,-2,2,5,20);
+{ painter.SetupCamera(Point3(0,0,0),
+    Point3(x,y,0),
+    Point3(x,y-1000,z));}
 
- glMatrixMode(GL_MODELVIEW);
- glLoadIdentity;
- fillchar(mat,sizeof(mat),0);
+ glDisable(GL_DEPTH_TEST);
 
-
- glDisable(GL_CULL_FACE);
-{ glShadeModel(GL_SMOOTH);
- glDisable(GL_LIGHTING);}
-
-{ glBegin(GL_TRIANGLES);
- t:=2+sin(frame/50);
- glColor3f(1,0,1);  glVertex3f(0,0,-t);
- glColor3f(1,1,0);  glVertex3f(1,0,-t);
- glColor3f(0,1,1);  glVertex3f(0,1,-t);
- glEnd;}
-
- glMatrixMode(GL_MODELVIEW);
- glLoadIdentity;
- glTranslatef(4*sin(frame/50),3*cos(frame/80),-7);
- glRotatef(frame,0,1,0);
-
- // Draw Cube
- glEnable(GL_CULL_FACE);
- glBegin(GL_TRIANGLE_FAN);
- glColor3f(0,1,0); glVertex3f(-1,-1,1); glVertex3f(-1,1,1); glVertex3f(1,1,1); glVertex3f(1,-1,1); glEnd;
- glBegin(GL_TRIANGLE_FAN);
- glColor3f(0,0,1); glVertex3f(1,-1,1); glVertex3f(1,1,1);  glVertex3f(1,1,-1); glVertex3f(1,-1,-1);   glEnd;
- glBegin(GL_TRIANGLE_FAN);
- glColor3f(1,0,0); glVertex3f(1,1,-1); glVertex3f(1,1,1); glVertex3f(-1,1,1); glVertex3f(-1,1,-1);  glEnd;
-
- glBegin(GL_TRIANGLE_FAN);
- glColor3f(0,1,0.8); glVertex3f(1,-1,-1); glVertex3f(1,1,-1); glVertex3f(-1,1,-1);  glVertex3f(-1,-1,-1); glEnd;
- glBegin(GL_TRIANGLE_FAN);
- glColor3f(0.8,0,1);  glVertex3f(-1,-1,-1);  glVertex3f(-1,1,-1); glVertex3f(-1,1,1); glVertex3f(-1,-1,1); glEnd;
- glBegin(GL_TRIANGLE_FAN);
- glColor3f(1,0.8,0); glVertex3f(-1,-1,-1); glVertex3f(-1,-1,1); glVertex3f(1,-1,1); glVertex3f(1,-1,-1);  glEnd;
- {$ENDIF} *)
  painter.EndPaint;
 end;
 
@@ -1538,7 +1638,9 @@ var
  x,y:integer;
 begin
  try
- prog:=TGLPainter(painter).BuildShaderProgram(LoadFile('shader.vert'),LoadFile('shader.frag'));
+ prog:=TGLPainter(painter).BuildShaderProgram(
+   LoadFileAsString('res\shader.vert'),
+   LoadFileAsString('res\shader.frag'));
  loc1:=glGetUniformLocation(prog,'offset');
 
  tex:=texman.AllocImage(256,256,ipfARGB,0,'tex') as TTextureImage;
@@ -1574,8 +1676,8 @@ begin
  d:=1+sin(0.003*(myTickCount mod $FFFFFF));
  glUniform1f(loc1,0.003*d);
  painter.DrawImage(600,300,tex);
+ glUseProgram(0);
  painter.Restore;
- //glUseProgram(0);
  painter.FillGradrect(50,50,300,200,$FFF04000,$FF60C000,false);
  painter.FillRect(30,100,500,120,$FF000000);
  painter.EndPaint;
@@ -1622,29 +1724,173 @@ begin
 end;
 
 
+{ T3DCharacterTest }
+
+procedure T3DCharacterTest.Done;
+begin
+
+end;
+
+procedure T3DCharacterTest.Init;
+var
+ modelAnim:TModel3D;
+ count:integer;
+ vSrc,fSrc:AnsiString;
+ pnt:TPoint3s;
+ b1,b2,b:TMatrix43s;
+begin
+ modelObj:=Load3DModelOBJ('res\test.obj');
+ tex:=LoadImageFromFile('res\texTest.png',liffTexture+liffMipMaps);
+
+ model:=Load3DModelIQM('res\test2.iqm');
+// model:=LoadIQM('res\knight.iqm');
+// model.FlipX;
+// model.UpdateBoneMatrices; // Prepare
+
+ pnt:=Point3s(10,0,0);
+ b1:=IdentMatrix43s;
+ b2:=IdentMatrix43s;
+ b1[3,0]:=3;
+ b2[3,1]:=2;
+ MultMat4(b1,b2,b);
+ MultPnt4(b,@pnt,1,0);
+
+ // Prepare buffers
+ count:=length(model.vp);
+ SetLength(vertices,count);
+ model.FillVertexBuffer(@vertices[0],count,sizeof(vertices[0]),true, 0,32,-1,16,12);
+ model.animations[0].loop:=true;
+ model.PlayAnimation;
+ SetLength(indices,length(model.trgList));
+ move(model.trgList[0],indices[0],length(indices)*2);
+
+ // Second model
+ count:=length(modelObj.vp);
+ SetLength(vertices2,count);
+ modelObj.FillVertexBuffer(@vertices2[0],count,sizeof(vertices2[0]),false, 0,32,-1,16,12);
+ SetLength(indices2,length(modelObj.trgList));
+ move(modelObj.trgList[0],indices2[0],length(indices2)*2);
+
+
+ // Prepare shaders
+ vSrc:=LoadFileAsString('res\knight.vsh');
+ fSrc:=LoadFileAsString('res\knight.fsh');
+ shader:=TGLPainter(painter).BuildShaderProgram(vSrc,fSrc);
+
+ vSrc:=LoadFileAsString('res\tex.vsh');
+ fSrc:=LoadFileAsString('res\tex.fsh');
+ shader2:=TGLPainter(painter).BuildShaderProgram(vSrc,fSrc);
+end;
+
+procedure T3DCharacterTest.RenderFrame;
+var
+ pnt:TPoint3;
+ time:double;
+ objMat:TMatrix43;
+ loc:integer;
+ MVP,uModel:TMatrix4s;
+begin
+ time:=MyTickCount/1200;
+ painter.Clear($FF101020,1);
+ // Setup camera and projection
+ painter.SetPerspective(-10,10,-7,7,10,5,1000);
+ painter.SetupCamera(Point3(30,0,15),Point3(0,0,8),Vector3(0,0,1000));
+ painter.Set3DTransform(IdentMatrix4);
+
+ // Make sure everything is OK (just for debug)
+ pnt:=TGLPainter2(painter).TestTransformation(Point3(0,0,0));
+ pnt:=TGLPainter2(painter).TestTransformation(Point3(1,1,1));
+
+ // Make animation
+ model.AnimateBones;
+ model.FillVertexBuffer(@vertices[0],length(model.vp),sizeof(vertices[0]),true, 0,32,-1,16,12);
+
+ // Setup rendering mode
+ glEnable(GL_DEPTH_TEST);
+ glDepthFunc(GL_LEQUAL);
+ painter.FillRect(-15,-15,15,15,$C000A030);
+
+ // Set model position
+ MultMat4(geom3d.ScaleMat(2,2,2),RotationZMat(time),objMat);
+ objMat[3,2]:=3;
+ painter.Set3DTransform(Matrix4(objMat));
+
+ // Switch to our custom shader
+ painter.UseCustomShader;
+ glUseProgram(shader);
+
+ // After shader changing we MUST set uniforms
+ mvp:=Matrix4s(painter.GetMVPMatrix);
+ loc:=glGetUniformLocation(shader,'uMVP');
+ glUniformMatrix4fv(loc,1,FALSE,@mvp);
+ // model matrix
+ loc:=glGetUniformLocation(shader,'uModel');
+ uModel:=Matrix4s(Matrix4(objMat));
+ glUniformMatrix4fv(loc,1,FALSE,@uModel);
+
+ // Setup mesh data source arrays
+ glEnableVertexAttribArray(0);
+ glVertexAttribPointer(0,3,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0]);
+ glEnableVertexAttribArray(1);
+ glVertexAttribPointer(1,3,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0].nX);
+ glEnableVertexAttribArray(2);
+ glVertexAttribPointer(2,2,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0].u);
+
+ // DRAW IT!
+ painter.SetCullMode(cullCW);
+ glDrawElements(GL_TRIANGLES,length(indices),GL_UNSIGNED_SHORT,@indices[0]);
+
+
+ // SECOND MODEL (OBJ)
+
+ // Textured shader
+ glUseProgram(shader2);
+
+ // Set model position
+ MultMat4(geom3d.ScaleMat(4,4,4),RotationZMat(time),objMat);
+ objMat[3,1]:=16;
+ objMat[3,0]:=5;
+ objMat[3,2]:=1.5;
+ painter.Set3DTransform(Matrix4(objMat));
+ // Upload matrices
+ mvp:=Matrix4s(painter.GetMVPMatrix);
+ loc:=glGetUniformLocation(shader2,'uMVP');
+ glUniformMatrix4fv(loc,1,FALSE,@mvp);
+ // model matrix
+ loc:=glGetUniformLocation(shader2,'uModel');
+ uModel:=Matrix4s(Matrix4(objMat));
+ glUniformMatrix4fv(loc,1,FALSE,@uModel);
+ // Setup mesh data arrays
+ glVertexAttribPointer(0,3,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0]);
+ glVertexAttribPointer(1,3,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0].nX);
+ glVertexAttribPointer(2,2,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0].u);
+
+ // Setup texture
+ texMan.MakeOnline(tex,0);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+ loc:=glGetUniformLocation(shader2,'tex');
+ glUniform1i(loc,0);
+
+ // Draw IT
+ glDrawElements(GL_TRIANGLES,length(indices2),GL_UNSIGNED_SHORT,@indices2[0]);
+
+
+ // Reset everything back
+ glDisable(GL_DEPTH_TEST);
+ painter.ResetTexMode;
+ painter.SetDefaultView;
+ painter.SetCullMode(cullNone);
+end;
+
 begin
 
  if HasParam('-wnd') then wnd:=true;
  if HasParam('-fullscreen') then wnd:=false;
  testNum:=StrToIntDef(GetParam('test'),testNum);
 
-// sleep(20000);
-{ EncodeTime(1,2,3,0);
- FileDateToDateTime($11111111);
- FileDateToDateTime(1246734709);
- FileDateToDateTime(1246734709);}
  UseLogFile('log.txt');
  SetLogMode(lmVerbose);
-// ShowMessage('OK!','');
-
-{ GetMemoryManagerState(state);
- GetMem(p,1000);
- GetMemoryManagerState(state2);
- state.AllocatedMediumBlockCount:=1;
- state2.AllocatedMediumBlockCount:=1;}
-
-// LoadRasterFont('e:\apus\projects\AstralMasters\fonts\astral24.fnt');
-
  SetEventHandler('Error',HEvent);
  SetEventHandler('Engine',HEvent);
  SetEventHandler('Debug',HEvent);
@@ -1664,6 +1910,7 @@ begin
   12:test:=TFontTest2.Create;
   13:test:=TShaderTest.Create;
   14:test:=TVideoTest.Create;
+  15:test:=T3DCharacterTest.Create;
  end;
 
  {$IFDEF OPENGL}
@@ -1681,15 +1928,14 @@ begin
   colorDepth:=32;
   refresh:=0;
   if wnd then begin
-   mode:=dmWindow;
-   altMode:=dmSwitchResolution;
+   mode.displayMode:=dmWindow;
+   altMode.displayMode:=dmSwitchResolution;
   end else begin
-   mode:=dmSwitchResolution;
-   altMode:=dmFixedWindow;
+   mode.displayMode:=dmSwitchResolution;
+   altMode.displayMode:=dmFixedWindow;
   end;
 //  mode:=dmFullScreen;
-  fitMode:=dfmCenter;
-  fitMode:=dfmKeepAspectRatio;
+  mode.displayFitMode:=dfmCenter;
   showsystemcursor:=true;
   zbuffer:=16;
   stencil:=false;
@@ -1705,7 +1951,6 @@ begin
  InitUI;
  // А можно и не делать - можно это сделать в обработчике события
 
- game.initialized:=true;
  savetime:=GetTickCount;
  repeat
   delay(50);

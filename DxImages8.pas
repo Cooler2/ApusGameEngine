@@ -1,10 +1,11 @@
 ﻿// DirectX8-based texture classes and texture manager
 //
-// Copyright (C) 2003 Apus Software (www.games4win.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2003 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit DxImages8;
 interface
- uses EngineCls,Images,DirectXGraphics,d3d8,windows,myservis;
+ uses EngineAPI,Images,DirectXGraphics,d3d8,windows,myservis;
 
 type
  // Текстура DirectX
@@ -49,7 +50,7 @@ type
                       PixFmt:ImagePixelFormat;Flags:integer;name:texnamestr):TTexture; override;
   procedure FreeImage(var image:TTexture); override;
   procedure FreeImage(var image:TTextureImage); override;
-  procedure MakeOnline(img:TTexture); override;
+  procedure MakeOnline(img:TTexture;stage:integer=0); override;
   function QueryParams(width,height:integer;format:ImagePixelFormat;aiFlags:integer):boolean; override;
 
   procedure ReleaseAll; virtual;   // Уничтожить все созданные ресурсы в видеопамяти (чтобы можно было восстановить девайс - текстурные объекты и дескрипторы не удаляются!!!)
@@ -308,7 +309,7 @@ begin
  if pixfmt in [ipfDXT1..ipfDXT5] then begin
   width:=getPow2(width);
   height:=getPow2(height);
-  flags:=flags or aiTexture; 
+  flags:=flags or aiTexture;
  end;
  t.trueWidth:=width;
  t.trueHeight:=height;
@@ -723,7 +724,7 @@ begin
   end;
 end;
 
-procedure TDxTextureMan.MakeOnline(img: TTexture);
+procedure TDxTextureMan.MakeOnline(img: TTexture;stage:integer=0);
 var
  desc:TD3DSurfaceDesc;
  i,j,ind,part:integer;
@@ -1067,7 +1068,7 @@ begin
   DxCall(SysMemTex.AddDirtyRect(@rect))
  else
   raise EWarning.Create('ADR not supported on custom managed textures');
- online:=false; 
+ online:=false;
 end;
 
 constructor TDxManagedTexture.Create;

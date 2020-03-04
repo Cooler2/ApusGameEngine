@@ -1,10 +1,12 @@
 ﻿// Game class for iOS (OpenGL)
 //
-// Copyright (C) 2012 Apus Software (www.games4win.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2012 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit IOSgame;
 interface
- uses EngineCls,Images,engineTools,classes,myservis,BasicGame;
+ uses EngineAPI,Images,engineTools,classes,myservis,BasicGame;
 
 type
  TIOSGame=class(TBasicGame)
@@ -17,7 +19,7 @@ type
   procedure DoneGraph; override; // Финализация графической части
 
   procedure PresentFrame; override;
-  procedure CalcPixelFormats(needMem:integer); override;
+  procedure ChoosePixelFormats(needMem:integer); override;
   procedure InitObjects; override;
  public
   function GetStatus(n:integer):string; override;
@@ -25,7 +27,7 @@ type
 
 implementation
  uses SysUtils,{$IFDEF IOS}gles11,{$ENDIF}cmdproc{$IFDEF DELPHI},graphics{$ENDIF},
-     GLImages,EventMan,ImageMan,UIClasses,CommonUI,gfxformats,
+     GLImages,EventMan,UIClasses,UIScene,gfxformats,
      Console,PainterGL;
 
 { TGlGame }
@@ -42,7 +44,7 @@ begin
   InitGraph;
   //if texman<>nil then (texman as TDXTextureMan).ReCreateAll;
   if painter<>nil then (painter as TGLPainter).Reset;
-  for i:=1 to length(scenes) do
+  for i:=low(scenes) to high(scenes) do
    if scenes[i]<>nil then scenes[i].ModeChanged;
  end;
 end;
@@ -72,7 +74,7 @@ begin
 //   (painter as TGLPainter).outputPos:=Point(0,0);
 end;
 
-procedure TIOSGame.CalcPixelFormats(needMem:integer);
+procedure TIOSGame.ChoosePixelFormats(needMem:integer);
 begin
  pfTrueColor:=ipf565;
  pfTrueColorAlpha:=ipfARGB;
@@ -103,4 +105,4 @@ begin
  result:='';
 end;
 
-end.
+end.

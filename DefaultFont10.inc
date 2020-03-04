@@ -1,3 +1,5 @@
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
 Const
   defaultFont10 : Array[0..10941] of byte = (

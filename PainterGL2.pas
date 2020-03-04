@@ -1,13 +1,14 @@
 ﻿// Class for painting routines using OpenGL: programmable-function pipeline (GLES 2.0+)
 //
-// Copyright (C) 2011-2014 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2011-2014 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$IFDEF IOS}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit PainterGL2;
 interface
- uses types,EngineCls,BasicPainter,PainterGL,geom3D;
-
+ uses types,EngineAPI,BasicPainter,PainterGL,geom3D;
 type
 
  { TGLPainter2 }
@@ -23,14 +24,15 @@ type
    procedure SetTexMode(stage:byte;colorMode,alphaMode:TTexBlendingMode;filter:
      TTexFilter=fltUndefined;intFactor:single=0.0); override; // Режим текстурирования
    procedure UseCustomShader; override;
-   procedure ResetTexMode; override; 
+   procedure ResetTexMode; override;
    procedure Restore; override;
+   function TestTransformation(source:TPoint3):TPoint3;
+   function GetMVPMatrix:T3DMatrix; override;
 
  protected
    defaultShader:integer;
-   uMVP:integer;
    MVP:T3DMatrix;
-   uTex1,uTexmode:integer; // uniform locations
+   uMVP,uTex1,uTexmode:integer; // uniform locations
 
    curTexMode:int64; // описание режима текстурирования, установленного клиентским кодом
    actualTexMode:int64; // фактически установленный режим текстурирования
@@ -69,11 +71,11 @@ const
 {$ENDIF}
 
 const
- AS_DEFAULT = 0;       // Стандартный шейдер
+ AS_DEFAULT = 0;       // Стандартный шейдер (для основных режимов блендинга)
  AS_CUSTOMIZED = 1;    // Специальный шейдер, созданный под выбранные параметры блендинга
  AS_OWN = 2;           // Внешний (клиентский) шейдер
 
- DEFAULT_TEX_MODE = ord(tblModulate2X)+ord(tblModulate) shl 4; // стандартный режим блендинга 
+ DEFAULT_TEX_MODE = ord(tblModulate2X)+ord(tblModulate) shl 4; // стандартный режим блендинга
 
 type
  TTexMode=array[0..3] of word;
@@ -96,11 +98,11 @@ end;
 
 procedure TGLPainter2.SetGLMatrix(mType: TMatrixType; mat: PDouble);
  var
+  tmp:TMatrix4;
   m:TMatrix4s;
  begin
-  MultMat4(objMatrix,viewMatrix,MVP);
-  MultMat4(MVP,projMatrix,MVP);
-//  glUseProgram(actualShader);
+  MultMat4(objMatrix,viewMatrix,tmp);
+  MultMat4(tmp,projMatrix,MVP);
   m:=Matrix4s(MVP);
   if actualShader<>AS_OWN then
    glUniformMatrix4fv(uMVP,1,GL_FALSE,@m);
@@ -144,6 +146,22 @@ procedure TGLPainter2.SetTexMode(stage: byte; colorMode, alphaMode: TTexBlending
   tm[stage]:=word(b)+round(intFactor*255) shl 8;
  end;
 
+function TGLPainter2.TestTransformation(source: TPoint3): TPoint3;
+var
+ x,y,z,t:double;
+begin
+   x:=source.x*mvp[0,0]+source.y*mvp[1,0]+source.z*mvp[2,0]+mvp[3,0];
+   y:=source.x*mvp[0,1]+source.y*mvp[1,1]+source.z*mvp[2,1]+mvp[3,1];
+   z:=source.x*mvp[0,2]+source.y*mvp[1,2]+source.z*mvp[2,2]+mvp[3,2];
+   t:=source.x*mvp[0,3]+source.y*mvp[1,3]+source.z*mvp[2,3]+mvp[3,3];
+   if (t<>1) and (t<>0) then begin
+    x:=x/t; y:=y/t; z:=z/t;
+   end;
+   result.x:=x;
+   result.y:=y;
+   result.z:=z;
+end;
+
 procedure TGLPainter2.UseCustomShader;
 begin
  actualShader:=AS_OWN;
@@ -152,7 +170,7 @@ end;
 // Возвращает шейдер для заданного режима текстурирования (из кэша либо формирует новый)
 function TGLPainter2.SetCustomProgram(mode:int64):integer;
 var
- vs,fs:string;
+ vs,fs:AnsiString;
  i,n:integer;
  tm:PTexMode;
 begin
@@ -179,7 +197,7 @@ begin
   '    vColor = aColor;   '#13#10;
   for i:=1 to n do vs:=vs+
     '    vTexcoord'+inttostr(i)+' = aTexcoord'+inttostr(i)+'; '#13#10;
-  vs:=vs+  
+  vs:=vs+
   '    gl_Position = uMVP * vec4(aPosition, 1.0);  '#13#10+
   '}';
 
@@ -225,7 +243,7 @@ begin
    glUseProgram(result);
    // Set uniforms: texture indices
    for i:=1 to n do
-    glUniform1i(glGetUniformLocation(result,PChar('tex'+inttostr(i))),i-1);
+    glUniform1i(glGetUniformLocation(result,PAnsiChar(AnsiString('tex'+inttostr(i)))),i-1);
   end else begin
    result:=defaultShader;
    glUseProgram(result);
@@ -273,7 +291,7 @@ begin
    for i:=1 to 4 do begin
     if (tm and $0f=ord(tblInterpolate)) or
        (tm and $f0=ord(tblInterpolate) shl 4) then
-     glUniform1f(glGetUniformLocation(prog,PChar('uFactor'+inttostr(i))),1-1/255*((tm shr 8) and $FF));
+     glUniform1f(glGetUniformLocation(prog,PAnsiChar(AnsiString('uFactor'+inttostr(i)))),1-1/255*((tm shr 8) and $FF));
     tm:=tm shr 16;
    end;
   end;
@@ -372,6 +390,11 @@ begin
  end;
 end;
 
+function TGLPainter2.GetMVPMatrix: T3DMatrix;
+begin
+ result:=MVP;
+end;
+
 procedure TGLPainter2.ResetTexMode;
 begin
  actualShader:=AS_DEFAULT;
@@ -442,7 +465,7 @@ procedure TGLPainter2.DrawIndexedPrimitivesDirectly(primType: integer;
   TRG_STRIP:glDrawElements(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,indBuf);
  end;
  end;
- 
+
 
 const
  mainVertexShader=
@@ -460,7 +483,8 @@ const
   '}';
 
  mainFragmentShader=
-  'precision mediump float;           '+
+  '#version 130'#13#10+
+  'precision mediump float;           '#13#10+
   'uniform sampler2D tex1;   '#13#10+
   'uniform int texmode;      '#13#10+
   'varying vec2 vTexcoord;   '#13#10+
@@ -470,7 +494,6 @@ const
   '  if (texmode==1) { gl_FragColor = vec4(2.0, 2.0, 2.0, 1.0)*vColor*texture2D(tex1,vTexcoord); } else      '#13#10+
   '  if (texmode==2) { gl_FragColor = vColor; } else      '#13#10+
   '  if (texmode==4) { vec4 value=vColor; value.a=value.a*texture2D(tex1,vTexcoord).a; gl_FragColor = value; };      '#13#10+
-//  '    gl_FragColor = vColor;                   '+
   '}';
 
 constructor TGLPainter2.Create(textureMan: TTextureMan);

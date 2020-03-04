@@ -1,17 +1,20 @@
 ﻿// Common purpose routines for engine and global variables/constants
 // Many other engine units depend on this unit!
 //
-// Copyright (C) 2003-2004 Apus Software (www.games4win.com, www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by)
+// Copyright (C) 2003-2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit engineTools;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 interface
- uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineCls,images,UIClasses,regions,
+ uses {$IFDEF MSWINDOWS}windows,{$ENDIF}EngineAPI,images,UIClasses,regions,MyServis,
     UnicodeFont,CrossPlatform,BasicGame;
 
 var
  rootDir:string='';
+ defaultImagesDir:string='Images\';
 
 type
  // Большое изображение, состоящее из нескольких текстур
@@ -48,10 +51,6 @@ type
   function GetRegion:TRegion; override;
  end;
 
- // vertex and index arrays
- TVertices=array of TScrPoint;
- TIndices=array of word;
-
  TVertexHandler=procedure(var vertex:TScrPoint);
 
 var
@@ -84,13 +83,13 @@ var
  loadingJPEGTime:integer; // суммарное время загрузки JPEG в мс
 
 const
-
  // Флаги для LoadImageFromFile
  liffSysMem  = aiSysMem; // Image will be allocated in system memory only and can't be used for accelerated rendering!
  liffTexture = aiTexture; // Image will be allocated as a whole texture (wrap UV enabled, otherwise - disabled!)
  liffPow2    = aiPow2; // Image dimensions will be increased to the nearest pow2
  liffMipMaps = aiMipMapping; // Image will be loaded with mip-maps (auto-generated if no mips in the file)
  liffAllowChange = $100;
+ liffDefault = $FFFFFFFF;   // Use defaultLoadImageFlags for default flag values
 
  // width and height of meta-texture
  liffMW256   = aiMW256;
@@ -104,6 +103,9 @@ const
  liffMH1024  = aiMH1024;
  liffMH2048  = aiMH2048;
  liffMH4096  = aiMH4096;
+
+var
+ defaultLoadImageFlags:cardinal=0;
 
  function MTFlags(mtWidth,mtHeight:integer):cardinal; // build liffMxxx flags for given width/height values
 
@@ -119,7 +121,7 @@ const
  function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:ImagePixelFormat=ipfNone):TTexture;
 
  // (пере)загружает картинку из файла, т.е. освобождает если она была ранее загружена
- procedure LoadImage(var img:TTextureImage;fName:string;flags:cardinal=liffSysMem);
+ procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
 
  // Сохраняет изображение в файл (mostly for debug purposes)
  procedure SaveImage(img:TTextureImage;fName:string);
@@ -182,8 +184,7 @@ const
  procedure ImageHueSaturation(image:TTextureImage;hue,saturation:single);
 
  // установить заданное изображение в качестве фона данного окна
- procedure SetupWindow(wnd:TUISkinnedWindow;img:TLargeImage); overload;
- procedure SetupWindow(wnd:TUISkinnedWindow;img:TTexture); overload;
+ procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture); overload;
 
  // Open URL in a browser window (or smth)
  procedure ShellOpen(url:string);
@@ -207,13 +208,22 @@ const
  procedure Reset2DTransform;
 
  // Meshes
- procedure BuildMeshForImage(img:TTexture;splitX,splitY:integer;var vertices:TVertices;var indices:TIndices);
+ function LoadMesh(fname:string):TMesh;
+ function BuildMeshForImage(img:TTexture;splitX,splitY:integer):TMesh;
  function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices;
- procedure DrawIndexedMesh(img:TTexture;vertices:TVertices;indices:TIndices);
+ procedure DrawIndexedMesh(vertices:TVertices;indices:TIndices;tex:TTexture);
+ procedure DrawMesh(vertices:TVertices;tex:TTexture);
+ procedure AddVertex(var vertices:TVertices;x,y,z,u,v:single;color:cardinal);
+
+// procedure BuildNPatchMesh(img:TTexture;splitU,splitV,weightU,weightW:SingleArray;var vertices:TVertices;var indices:TIndices);
 
  // Shapes
  // Draw circle using band particles (
  procedure DrawCircle(x,y,r,width:single;n:integer;color:cardinal;tex:TTexture;rec:TRect;idx:integer);
+
+ // Draw waiting spinner
+ procedure DrawSpinner(x,y,size:integer;color:cardinal;count:integer=12);
+ procedure DrawSolidSpinner(x,y,size,width:integer;color:cardinal);
 
  // добавляет в хэш предварительно загруженный JPEG объект
  procedure AddJPEGImage(filename:string;obj:TObject);
@@ -225,12 +235,12 @@ const
  // FOR INTERNAL USE ----------------------------------------------------------
 
 implementation
- uses SysUtils,MyServis,{$IFDEF DIRECTX}DirectXGraphics,d3d8,DxImages8,{$ENDIF}
+ uses SysUtils,{$IFDEF DIRECTX}DirectXGraphics,d3d8,DxImages8,{$ENDIF}
     {$IFDEF DELPHI}graphics,jpeg,{$ENDIF}
     {$IFDEF OPENGL}GLImages,{$ENDIF}
     {$IFDEF MSWINDOWS}ShellAPI,{$ENDIF}
     {$IFDEF ANDROID}Android,{$ENDIF}
-    gfxformats,classes,structs,geom3d,FastGFX,Filters,UDict;
+    gfxformats,classes,structs,geom3d,FastGFX,Filters,UDict,ImgLoadQueue,GfxFormats3D;
 
 const
   max_subimages = 5000;
@@ -339,11 +349,13 @@ begin
     q:=pos('HTTP',ss);
   until (q>0) or eof(f);
   if q=0 then begin
+   LogMessage('ShellExecute: '+url);
    ShellExecute(0,'open',PChar(url),'','',SW_SHOW);
    exit;
   end;
   ss:=copy(ss,q,1024);
   close(f);
+  LogMessage('ShellOpen: '+ss);
   ShellOpen(ss);
  end else
  begin
@@ -353,6 +365,7 @@ begin
   close(f);
   FindExecutable('temp312.htm','',s);
   Deletefile('temp312.htm');
+  LogMessage('ShellExecute2: '+url);
   ShellExecute(0,'open',s,PChar(url), nil,SW_SHOW);
  end;
  {$ENDIF}
@@ -393,7 +406,7 @@ begin
    inc(i);
    if i>=4 then raise EError.Create('Failed to choose valid pixel format!');
   until false;
- end; 
+ end;
  {$ENDIF}
  {$IFDEF OPENGL}
  if texman.InheritsFrom(TGLTextureMan) then begin
@@ -401,10 +414,11 @@ begin
    ipfXRGB,ipfRGB:forceFormat:=ipfARGB;
    ipfARGB,ipf4444,ipf4444r,ipf565,ipf1555,ipf555,ipfDXT1,ipfDXT3,ipfDXT5,ipfPVRTC:exit;
    ipf8bit:forceFormat:=ipfARGB;
+   ipfA8,ipfMono8:; // keep as-is
    else
     raise EError.Create('Failed to choose valid pixel format for '+PixFmt2Str(ForceFormat));
   end;
- end; 
+ end;
  {$ENDIF}
 end;
 
@@ -477,7 +491,7 @@ var
  i,j:integer;
  tex:TTextureImage;
  f:file;
- buf:pointer;
+ buf:ByteArray;
  size:integer;
  conversion:boolean;
  srcformat:TImageFormat;
@@ -498,12 +512,7 @@ begin
  // этап 1 - загрузка исходного файла и его параметров в буфер
  if ftype=1 then begin
   // загружаем DDS
-  assign(f,fname);
-  reset(f,1);
-  size:=filesize(f);
-  getmem(buf,size);
-  blockread(f,buf^,size);
-  close(f);
+  buf:=LoadFileAsBytes(fname);
   CheckImageFormat(buf);
   srcformat:=ifDDS;
   if format=ipfNone then format:=imgInfo.format;
@@ -516,7 +525,7 @@ begin
     width:=width div 4;
     height:=height div 4;
    end;
-   sp:=buf; inc(sp,128);
+   sp:=@buf[0]; inc(sp,128);
    for i:=0 to imginfo.miplevels-1 do begin
     if width=0 then width:=1;
     if height=0 then height:=1;
@@ -611,7 +620,7 @@ function FindProperFile(fname:string):string;
   st:=fname+'.txt';
   age:=FileAge(st);
   if age>maxAge then begin
-   maxAge:=age; st2:=st;
+   st2:=st;
   end;
   if st2='' then raise EWarning.Create(fname+' not found');
   result:=st2;
@@ -623,14 +632,13 @@ function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:ImagePixelF
 var
  i,j,k:integer;
  tex:TTextureImage;
- img,txtImage:TRawImage;
+ img,txtImage,preloaded:TRawImage;
  aFlags,mtWidth,mtHeight:integer;
  f:file;
  data,rawData:ByteArray;
  size2:integer;
  format:TImageFormat;
- sp,dp,p1,p2:PByte;
- sr:TSearchRec;
+ sp,dp:PByte;
  time,timeJ:cardinal;
  linebuf:pointer;
  doScale:boolean;
@@ -662,42 +670,49 @@ begin
     else if FileExists(fname+'.pvr') then fname:=fname+'.pvr'
      else raise EError.Create(fname+' not found');
   {$ELSE}
-  if pos('.',fname)<length(fname)-3 then begin // find file
+  if ExtractFileExt(fname)='' then begin // find file
    fName:=FindProperFile(fName);
   end;
   {$ENDIF}
 
-  // 2. LOAD DATA FILE AND CHECK IT'S FORMAT
   LogMessage('Loading '+fname);
-  data:=LoadFile2(fname);
-  if length(data)<30 then raise EError.Create('Bad image file: '+fname);
+  preloaded:=GetImageFromQueue(fname);
+  if preloaded<>nil then begin
+   imgInfo.format:=preloaded.PixelFormat;
+   imgInfo.width:=preloaded.width;
+   imgInfo.height:=preloaded.height;
+  end else begin
+   // 2. LOAD DATA FILE AND CHECK IT'S FORMAT
+   data:=LoadFileAsBytes(fname);
+   if length(data)<30 then raise EError.Create('Bad image file: '+fname);
 
-  format:=CheckImageFormat(@data[0]);
-  if not (format in [ifTGA,ifJPEG,ifPNG,ifTXT,ifDDS,ifPVR]) then
-   raise EError.Create('image format not supported');
+   format:=CheckImageFormat(data);
+   if not (format in [ifTGA,ifJPEG,ifPNG,ifTXT,ifDDS,ifPVR]) then
+    raise EError.Create('image format not supported');
 
-  // Загрузка TXT
-  {$IFDEF TXTIMAGES}
-  if format=ifTXT then begin
-   LoadTXT(data,txtImage,txtFontSmall,txtFontNormal);
-   imgInfo.width:=txtImage.width;
-   imgInfo.height:=txtImage.height;
-   imgInfo.format:=ipfARGB;
-   imgInfo.palformat:=palNone;
-  end;
-  {$ENDIF}
+   // Загрузка TXT
+   {$IFDEF TXTIMAGES}
+   if format=ifTXT then begin
+    LoadTXT(data,txtImage,txtFontSmall,txtFontNormal);
+    imgInfo.width:=txtImage.width;
+    imgInfo.height:=txtImage.height;
+    imgInfo.format:=ipfARGB;
+    imgInfo.palformat:=palNone;
+   end;
+   {$ENDIF}
 
-  // 2.5 FOR JPEG: LOAD SEPARATE ALPHA CHANNEL (IF EXISTS)
-  if format=ifJPEG then begin
-   timeJ:=MyTickCount; 
-   st:=StringReplace(fname,ExtractFileExt(fname),'.raw',[]);
-   DebugMessage('Checking '+st);
-   if MyFileExists(st) then begin
-    DebugMessage('Loading RAW alpha ');
-    rawData:=LoadFile2(st);
-    if CheckRLEHeader(@rawdata[0],length(rawData))>0 then
-      rawData:=UnpackRLE(@rawdata[0],length(rawData));
-    forceFormat:=ipfARGB;
+   // 2.5 FOR JPEG: LOAD SEPARATE ALPHA CHANNEL (IF EXISTS)
+   if format=ifJPEG then begin
+    timeJ:=MyTickCount;
+    st:=StringReplace(fname,ExtractFileExt(fname),'.raw',[]);
+    DebugMessage('Checking '+st);
+    if MyFileExists(st) then begin
+     DebugMessage('Loading RAW alpha ');
+     rawData:=LoadFileAsBytes(st);
+     if CheckRLEHeader(@rawdata[0],length(rawData))>0 then
+       rawData:=UnpackRLE(@rawdata[0],length(rawData));
+     forceFormat:=ipfARGB;
+    end;
    end;
   end;
 
@@ -720,34 +735,33 @@ begin
   tex.Lock(0);
   img:=tex.GetRawImage; // получить объект типа RAW Image для доступа к данным текстуры
 
-  // 5. LOAD SOURCE IMAGE FORMAT INTO TEXTURE MEMORY
-  if format=ifTGA then LoadTGA(data,img) else
-  if format=ifJPEG then LoadJPEG(data,img) else
-  if format=ifPNG then LoadPNG(data,img) else
-  if format=ifPVR then LoadPVR(data,img) else
-  if format=ifDDS then LoadDDS(data,img) else
-  if format=ifTXT then begin
-   // скопировать загруженное изображение из SRC в IMG
-   sp:=txtImage.data;
-   dp:=tex.data;
-   for i:=0 to txtImage.Height-1 do begin
-    ConvertLine(sp^,dp^,ipfARGB,ForceFormat,dp^,palNone,txtImage.width);
-    inc(sp,txtImage.pitch);
-    inc(dp,tex.pitch);
+  if preloaded<>nil then begin
+   img.CopyPixelDataFrom(preloaded); // don't free preloaded as it is kept in the queue
+   LogMessage('Copied from preloaded: '+fname);
+  end else begin
+   // 5. LOAD SOURCE IMAGE FORMAT INTO TEXTURE MEMORY
+   if format=ifTGA then LoadTGA(data,img) else
+   if format=ifJPEG then LoadJPEG(data,img) else
+   if format=ifPNG then LoadPNG(data,img) else
+   if format=ifPVR then LoadPVR(data,img) else
+   if format=ifDDS then LoadDDS(data,img) else
+   if format=ifTXT then begin
+    // скопировать загруженное изображение из SRC в IMG
+    img.CopyPixelDataFrom(txtImage);
+    txtImage.Free;
    end;
-   txtImage.Free;
-  end;
 
-  // 6. ADD ALPHA CHANNEL FROM A SEPARATE RLE/RAW IMAGE IF EXISTS (JPEG-ONLY)
-  if (length(rawData)>0) and (tex.PixelFormat=ipfARGB) then begin
-   DebugMessage('Adding separate alpha');
-   k:=0;
-   for i:=0 to tex.height-1 do begin
-    dp:=tex.data; inc(dp,i*tex.pitch+3);
-    for j:=0 to tex.width-1 do begin
-     dp^:=rawData[k];
-     inc(dp,4);
-     inc(k);
+   // 6. ADD ALPHA CHANNEL FROM A SEPARATE RLE/RAW IMAGE IF EXISTS (JPEG-ONLY)
+   if (length(rawData)>0) and (tex.PixelFormat=ipfARGB) then begin
+    DebugMessage('Adding separate alpha');
+    k:=0;
+    for i:=0 to tex.height-1 do begin
+     dp:=tex.data; inc(dp,i*tex.pitch+3);
+     for j:=0 to tex.width-1 do begin
+      dp^:=rawData[k];
+      inc(dp,4);
+      inc(k);
+     end;
     end;
    end;
   end;
@@ -761,11 +775,11 @@ begin
    raise EWarning.Create(fname+' - Loading failed: '+ExceptionMsg(e));
   end;
  end;
- 
+
  // 8. TIME CALCULATIONS
  time:=MyTickCount-time+random(2);
  if (time>0) and (time<50000) then inc(LoadingTime,time);
- if time>30 then LogMessage('Slow image loading: '+inttostr(time)); 
+ if time>30 then LogMessage('Slow image loading: '+inttostr(time)+' - '+fname);
  result:=tex;
 end;
 
@@ -856,7 +870,7 @@ destructor TLargeImage.Destroy;
   for i:=0 to cntX-1 do
    for j:=0 to cntY-1 do
     texman.FreeImage(TTexture(images[i,j]));
-  inherited;  
+  inherited;
  end;
 
 procedure TLargeImage.Draw(x, y: integer; color: cardinal);
@@ -915,19 +929,19 @@ procedure TLargeImage.Precache(part: single);
 procedure SetupWindow(wnd:TUISkinnedWindow;img:TLargeImage);
  begin
   wnd.background:=img;
-  wnd.width:=img.width;
-  wnd.height:=img.height;
+  wnd.size.x:=img.width;
+  wnd.size.y:=img.height;
   wnd.color:=$FF808080;
   wnd.visible:=false;
 //  wnd.transpmode:=tmCustom;
 //  wnd.region:=TRegion.CreateFrom(img);
  end;
 
-procedure SetupWindow(wnd:TUISkinnedWindow;img:TTexture);
+procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture);
  begin
   wnd.background:=img;
-  wnd.width:=img.width;
-  wnd.height:=img.height;
+  wnd.size.x:=img.width;
+  wnd.size.y:=img.height;
   wnd.color:=$FF808080;
   wnd.visible:=false;
  end;
@@ -1072,10 +1086,12 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    end;
   end;
 
- procedure LoadImage(var img:TTextureImage;fName:string;flags:cardinal=liffSysMem);
+ procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
   begin
+   if flags=liffDefault then flags:=defaultLoadImageFlags;
    if img<>nil then texman.FreeImage(TTexture(img));
-   img:=LoadImageFromFile(FileName('Images\'+fName),flags,ipf32bpp) as TTextureImage;
+   if not fName.StartsWith('..') then fName:=defaultImagesDir+fName;
+   img:=LoadImageFromFile(fName,flags,ipf32bpp);
   end;
 
  procedure SaveImage(img:TTextureImage;fName:string);
@@ -1108,7 +1124,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    GetMem(tmp,w*h*4);
    fillchar(tmp^,w*h*4,0);
    painter.SetTextTarget(tmp,w*4);
-   painter.TextOutW(font,w div 2,round(h*0.77)-d,textColor,st,EngineCls.taCenter,toDrawToBitmap);
+   painter.TextOutW(font,w div 2,round(h*0.77)-d,textColor,st,EngineAPI.taCenter,toDrawToBitmap);
    dec(x,round(w/2));
    dec(y,round(h/2));
    if glowColor>$FFFFFF then begin
@@ -1269,13 +1285,24 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    Set2DTransform(0,0,1,1);
   end;
 
- procedure BuildMeshForImage(img:TTexture;splitX,splitY:integer;var vertices:TVertices;var indices:TIndices);
+ function LoadMesh(fname:string):TMesh;
+  var
+   ext:string;
+  begin
+   fname:=FileName(fName);
+   ext:=lowerCase(ExtractFileExt(fname));
+   if ext='.obj' then result:=LoadOBJ(fName);
+  end;
+
+ function BuildMeshForImage(img:TTexture;splitX,splitY:integer):TMesh;
   var
    i,j,n,v:integer;
    du,dv,dx,dy:single;
   begin
+   result:=TMesh.Create;
    texman.MakeOnline(img);
    // Fill vertices
+   with result do begin
    SetLength(vertices,(splitX+1)*(splitY+1));
    du:=(img.u2-img.u1)/splitX;
    dv:=(img.v2-img.v1)/splitY;
@@ -1285,7 +1312,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    for i:=0 to splitY do
     for j:=0 to splitX do begin
      with vertices[n] do begin
-      x:=j*dx-0.5; y:=i*dy-0.5; z:=0; rhw:=1;
+      x:=j*dx-0.5; y:=i*dy-0.5; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
       diffuse:=$FF808080;
       u:=img.u1+du*j;
       v:=img.v1+dv*i;
@@ -1307,11 +1334,31 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
      indices[n+2]:=v;
      inc(n,3);
     end;
+   end;
   end;
 
- procedure DrawIndexedMesh(img:TTexture;vertices:TVertices;indices:TIndices);
+ procedure DrawIndexedMesh(vertices:TVertices;indices:TIndices;tex:TTexture);
   begin
-   painter.DrawIndexedMesh(@vertices[0],@indices[0],length(indices) div 3,length(vertices),img);
+   painter.DrawIndexedMesh(@vertices[0],@indices[0],length(indices) div 3,length(vertices),tex);
+  end;
+
+ procedure DrawMesh(vertices:TVertices;tex:TTexture);
+  begin
+   painter.DrawTrgListTex(@vertices[0],length(vertices) div 3,tex);
+  end;
+
+ procedure AddVertex(var vertices:TVertices;x,y,z,u,v:single;color:cardinal);
+  var
+   n:integer;
+  begin
+   n:=length(vertices);
+   SetLength(vertices,n+1);
+   vertices[n].x:=x;
+   vertices[n].y:=y;
+   vertices[n].z:=z;
+   vertices[n].u:=u;
+   vertices[n].v:=v;
+   vertices[n].diffuse:=color;
   end;
 
  function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices;
@@ -1346,13 +1393,70 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    painter.DrawBand(0,0,@parts[0],n,tex,rec);
   end;
 
+ procedure DrawSpinner(x,y,size:integer;color:cardinal;count:integer=12);
+  var
+   i:integer;
+   a,r,s,srcAlpha:single;
+   data:array[0..47] of TParticle;
+   c,alpha:cardinal;
+  begin
+   if count>24 then count:=24;
+   r:=size/2;
+   s:=size/(12+count*1.2);
+   srcAlpha:=(color shr 24)/255;
+   for i:=0 to count-1 do begin
+    a:=2*Pi*i/count;
+    alpha:=(round(256*i/count)-game.frameStartTime div 3) and $FF;
+    c:=color and $FFFFFF+round(alpha*srcAlpha) shl 24;
+    data[i*2].x:=0.55*r*sin(a);
+    data[i*2].y:=-0.55*r*cos(a);
+    data[i*2].z:=0;
+    data[i*2].color:=c;
+    data[i*2].scale:=s;
+    data[i*2].index:=0;
+
+    data[i*2+1].x:=r*sin(a);
+    data[i*2+1].y:=-r*cos(a);
+    data[i*2+1].z:=0;
+    data[i*2+1].color:=c;
+    data[i*2+1].scale:=s;
+    data[i*2+1].index:=partEndpoint;
+   end;
+   painter.DrawBand(x,y,@data[0],count*2,nil,Rect(x-size,y-size,x+size,y+size));
+  end;
+
+ procedure DrawSolidSpinner(x,y,size,width:integer;color:cardinal);
+  var
+   i,count:integer;
+   a,r,srcAlpha:single;
+   data:array[0..47] of TParticle;
+   c,alpha:cardinal;
+  begin
+   count:=24;
+   r:=size/2;
+   srcAlpha:=(color shr 24)/255;
+   for i:=0 to count-1 do begin
+    a:=2*Pi*i/count;
+    alpha:=(round(256*i/count)-game.frameStartTime div 3) and $FF;
+    c:=color and $FFFFFF+round(alpha*srcAlpha) shl 24;
+    data[i].x:=r*sin(a);
+    data[i].y:=-r*cos(a);
+    data[i].z:=0;
+    data[i].color:=c;
+    data[i].scale:=width/2;
+    data[i].index:=0;
+    if i=count-1 then data[i].index:=partLoop;
+   end;
+   painter.DrawBand(x,y,@data[0],count,nil,Rect(x-size,y-size,x+size,y+size));
+  end;
+
 procedure MainLoop;
 begin
  repeat
   try
    PingThread;
    CheckCritSections;
-   Delay(5); // Handling signals is inside 
+   Delay(5); // Handling signals is inside
    ProcessMessages;
   except
    on e:exception do ForceLogMessage('Error in MainLoop: '+ExceptionMsg(e));

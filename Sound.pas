@@ -1,5 +1,7 @@
-﻿// Copyright (C) Apus Software, 2004-2017
-// Author: Ivan Polyacov, ivan@apus-software.com, cooler@tut.by
+﻿// Copyright (C) Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$R-}
 unit Sound;
 interface
@@ -103,7 +105,7 @@ function LoadSample(s:TSample):boolean;
   if s=nil then exit;
   if s.handle>0 then exit;
   {$IFDEF IMX}
-  s.handle:=IMXSampleLoad(false,PChar('AUDIO\'+s.fname));
+  s.handle:=IMXSampleLoad(false,PAnsiChar(AnsiString('AUDIO\'+s.fname)));
   {$ENDIF}
   {$IFDEF ANDROID}
   try
@@ -162,7 +164,7 @@ procedure LoopMusicProc(sync,chan,data,user:cardinal); stdcall;
  end;
 
 
-function EventHandler(event:EventStr;tag:integer):boolean;
+function EventHandler(event:EventStr;tag:TTag):boolean;
  var
   evt:TSoundEvent;
   sa,sa2:stringarr;
@@ -204,7 +206,7 @@ function EventHandler(event:EventStr;tag:integer):boolean;
     {$ENDIF}
     evt.sample.handle:=0;
    end;
-   exit;   
+   exit;
   end;
 
   // Play sound sample (load if not loaded)
@@ -268,7 +270,7 @@ function EventHandler(event:EventStr;tag:integer):boolean;
    evt.channel:=pools[evt.sample.pool].PlaySound(evt.sample.handle,v/100,v/100,1.0,false);
    {$ENDIF}
 
-   exit;  
+   exit;
   end;
 
   // Change channel attributes
@@ -306,7 +308,7 @@ function EventHandler(event:EventStr;tag:integer):boolean;
    {$IFDEF IMX}
    IMXChannelSlide(evt.channel,v,newpan,newfreq,slide);
    {$ENDIF}
-   
+
    exit;
   end;
 
@@ -314,7 +316,7 @@ function EventHandler(event:EventStr;tag:integer):boolean;
    delete(event,1,10);
    if event='SOUND' then SetSoundVolume(tag);
    if event='MUSIC' then SetMusicVolume(tag);
-   exit;   
+   exit;
   end;
 
   if pos('MUSICPOS',event)=1 then begin
@@ -347,7 +349,7 @@ function EventHandler(event:EventStr;tag:integer):boolean;
    mus:=nil;
    if event<>'NONE' then
     mus:=MusHash.Get(event);
-   // Позиция проигрывания 
+   // Позиция проигрывания
    needMusicPos:=tag shr 8;
    tag:=tag and $FF;
 
@@ -444,7 +446,7 @@ procedure Initialize(windowHandle:cardinal;waitForPreload:boolean=true);
 
 procedure Finalize;
  begin
-  if not initialized then exit; 
+  if not initialized then exit;
   thread.Terminate;
   thread.WaitFor;
   thread.Free;
@@ -519,7 +521,7 @@ procedure LoadConfig;
    if (fExt='.OGG') or (fExt='.MP3') or (fExt='.WAW') then begin
     // load as stream
     {$IFDEF IMX}
-    item.handle:=IMXStreamOpenFile(false,PChar('Audio\'+fname),0,0,IMX_STREAM_LOOP*byte(loop));
+    item.handle:=IMXStreamOpenFile(false,PAnsiChar(AnsiString('Audio\'+fname)),0,0,IMX_STREAM_LOOP*byte(loop));
     item.isModule:=false;
     item.loopPos:=loopPos;
     if LoopPos>0 then
@@ -549,7 +551,7 @@ procedure LoadConfig;
    end else begin
     // load as module
     {$IFDEF IMX}
-    item.handle:=IMXModuleLoad(false,PChar('Audio\'+fname),0,0,IMX_MODULE_LOOP*byte(loop));
+    item.handle:=IMXModuleLoad(false,PAnsiChar(AnsiString('Audio\'+fname)),0,0,IMX_MODULE_LOOP*byte(loop));
     if item.handle=0 then
      LogMessage('[Sound] Warning: cannot open module '+fname);
     item.isModule:=true;
@@ -564,7 +566,7 @@ procedure LoadConfig;
       inc(sampleLibCnt); i:=SampleLibCnt;
       sampleLib[i]:=TMusic.Create;
       sampleLib[i].name:=lname;
-      sampleLib[i].handle:=IMXModuleLoad(false,PChar('audio\'+lname),0,0,0);
+      sampleLib[i].handle:=IMXModuleLoad(false,PAnsiChar(AnsiString('Audio\'+lname)),0,0,0);
      end;
      IMXModuleAttachInstruments(item.handle,samplelib[i].handle);
     end;
@@ -638,7 +640,7 @@ begin
   IMXStreamPlay(needMusic.handle);
   if NeedMusicPos<>0 then begin
    IMXChannelSetPosition(needMusic.handle,needMusicPos);
-   needMusicPos:=0;   
+   needMusicPos:=0;
   end;
  end;
  if needSlide>0 then begin
@@ -677,7 +679,7 @@ begin
  {$ENDIF}
 
  ctl:=UseControlFile('sounds.ctl','');
- SetEventHandler('SOUND',EventHandler,sync);
+ SetEventHandler('SOUND',EventHandler,emQueued);
  if not waitForPreload then initialized:=true;
  LoadConfig;
  needmusic:=nil;

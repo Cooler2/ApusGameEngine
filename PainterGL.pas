@@ -1,13 +1,15 @@
 ﻿// Class for painting routines using OpenGL: fixed-function pipeline (1.4+, GLES 1.1)
 // For programmable-function pipeline (GLES 2.0+) use PainterGL2!
 //
-// Copyright (C) 2011-2014 Apus Software (www.apus-software.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
+// Copyright (C) 2011-2014 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 {$IFDEF IOS}{$DEFINE GLES} {$DEFINE GLES11} {$ENDIF}
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit PainterGL;
 interface
- uses types,EngineCls,BasicPainter,geom3D;
+ uses types,EngineAPI,BasicPainter,geom3D;
 
 type
  TMatrixType=(mtModelView,mtProjection);
@@ -48,6 +50,7 @@ type
 
   // Setup projection
   procedure SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); override;
+  procedure SetOrthographic(scale,zMin,zMax:double); override;
   procedure SetDefaultView; override;
 
   procedure SetCullMode(mode:TCullMode); override;
@@ -56,7 +59,7 @@ type
 
   // Extended shader functionality
   // attribNames='aName1,aName2,...aNameN' - attribute names bound to indices 0..n-1
-  function BuildShaderProgram(vSrc,fSrc:string;attribNames:string=''):integer;
+  function BuildShaderProgram(vSrc,fSrc:AnsiString;attribNames:AnsiString=''):integer;
   // Set predefined shader for color transformation (nil - go back to default shader)
   procedure SetColorTransform(mat:PMatrix43s);
 
@@ -84,15 +87,11 @@ type
   charmap:PCharMap;
   chardrawer:integer;
 
-  viewMatrix:T3DMatrix; // текущая матрица камеры (ибо OGL не хранит отдельно матрицы объекта и камеры)
-  objMatrix:T3DMatrix; // текущая матрица трансформации объекта (ибо OGL не хранит отдельно матрицы объекта и камеры)
-  projMatrix:T3DMatrix; // текущая матрица проекции
-  
   outputPos:TPoint; // output area in the default render target (bottom-left corner, relative to bottom-left RT corner)
   renderWidth,renderHeight:integer; // size of render area for default target (virtual screen size)
   VPwidth,VPheight:integer; // viewport size for backbuffer
-  targetScaleX,targetScaleY:single; // VPwidth/renderWidth 
-  
+  targetScaleX,targetScaleY:single; // VPwidth/renderWidth
+
   defaultRenderTarget:TTexture; // Texture to render into
   defaultFramebuffer:cardinal;  // Default render target for OpenGL ES (GL resource)
 
@@ -129,7 +128,7 @@ var
  glDebug:boolean = {$IFDEF MSWINDOWS} false {$ELSE} true {$ENDIF};
 
 implementation
- uses MyServis,SysUtils,
+ uses CrossPlatform,MyServis,SysUtils,
     {$IFDEF GLES11}gles11,glext,{$ENDIF}
     {$IFDEF GLES20}gles20,{$ENDIF}
     {$IFNDEF GLES}dglOpenGl,{$ENDIF}
@@ -139,7 +138,7 @@ type
  TScrPoint8=record
   x,y,z,rhw:single;
   diffuse,specular:cardinal;
-  uv:array[0..7,0..1] of single; 
+  uv:array[0..7,0..1] of single;
  end;
 
 procedure CheckForGLError(lab:integer=0); inline;
@@ -154,12 +153,12 @@ begin
   end;
  end;
 end;
- 
+
 
 function SwapColor(color:cardinal):cardinal; inline;
 begin
  result:=color and $FF00FF00+(color and $FF) shl 16+(color and $FF0000) shr 16;
-end; 
+end;
 
 function clRed(color:cardinal):single; inline;
 begin
@@ -183,24 +182,24 @@ end;
 
 const
  vColorMatrix=
-  'void main(void)'+
-  '{'+
-  '    gl_TexCoord[0] = gl_MultiTexCoord0;                           '+
-  '    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;       '+
+  'void main(void)'#13#10+
+  '{'#13#10+
+  '    gl_TexCoord[0] = gl_MultiTexCoord0;                           '#13#10+
+  '    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;       '#13#10+
   '}';
 
  fColorMatrix=
-  'uniform sampler2D tex1;    '+
-  'uniform vec3 newRed;   '+
-  'uniform vec3 newGreen;   '+
-  'uniform vec3 newBlue;   '+
-  'void main(void)                         '+
-  '{                                       '+
-  '    vec4 value = texture2D(tex1, vec2(gl_TexCoord[0]));  '+
-	'    float red = dot(value, vec4(newRed, 0));     '+
-	'    float green = dot(value, vec4(newGreen, 0)); '+
-	'    float blue = dot(value, vec4(newBlue,0));    '+
-	'    gl_FragColor = vec4(red,green,blue,value.a); '+
+  'uniform sampler2D tex1;    '#13#10+
+  'uniform vec3 newRed;   '#13#10+
+  'uniform vec3 newGreen;   '#13#10+
+  'uniform vec3 newBlue;   '#13#10+
+  'void main(void)                         '#13#10+
+  '{                                       '#13#10+
+  '    vec4 value = texture2D(tex1, vec2(gl_TexCoord[0]));  '#13#10+
+   '    float red = dot(value, vec4(newRed, 0));     '#13#10+
+   '    float green = dot(value, vec4(newGreen, 0)); '#13#10+
+   '    float blue = dot(value, vec4(newBlue,0));    '#13#10+
+   '    gl_FragColor = vec4(red,green,blue,value.a); '#13#10+
   '}';
 
 
@@ -259,20 +258,20 @@ begin
  inherited;
 end;
 
-function TGLPainter.BuildShaderProgram(vSrc,fSrc:string;attribNames:string=''):integer;
+function TGLPainter.BuildShaderProgram(vSrc,fSrc:AnsiString;attribNames:AnsiString=''):integer;
 var
  vsh,fsh:GLuint;
- str:PChar;
+ str:PAnsiChar;
  i,len,res:integer;
  prog:integer;
- sa:StringArr;
+ sa:AStringArr;
 function GetShaderError(shader:GLuint):string;
  var
   maxlen:integer;
-  errorLog:PChar;
+  errorLog:PAnsiChar;
  begin
   glGetShaderiv(shader,GL_INFO_LOG_LENGTH,@maxlen);
-  errorLog:=StrAlloc(maxlen);
+  errorLog:=AnsiStrAlloc(maxlen);
   {$IFDEF GLES}
   glGetShaderInfoLog(shader,maxLen,@maxLen,errorLog);
   {$ELSE}
@@ -286,8 +285,8 @@ begin
   result:=0; exit;
  end;
  vsh:=glCreateShader(GL_VERTEX_SHADER);
- str:=PChar(vSrc);
- len:=length(str);
+ str:=PAnsiChar(vSrc);
+ len:=length(vSrc);
  glShaderSource(vsh,1,@str,@len);
  glCompileShader(vsh);
  glGetShaderiv(vsh,GL_COMPILE_STATUS,@res);
@@ -295,8 +294,8 @@ begin
 
  // Fragment shader
  fsh:=glCreateShader(GL_FRAGMENT_SHADER);
- str:=PChar(fSrc);
- len:=length(str);
+ str:=PAnsiChar(fSrc);
+ len:=length(fSrc);
  glShaderSource(fsh,1,@str,@len);
  glCompileShader(fsh);
  glGetShaderiv(fsh,GL_COMPILE_STATUS,@res);
@@ -307,9 +306,9 @@ begin
  glAttachShader(prog,vsh);
  glAttachShader(prog,fsh);
  if attribNames>'' then begin
-  sa:=split(',',attribNames);
+  sa:=splitA(',',attribNames);
   for i:=0 to high(sa) do
-   glBindAttribLocation(prog,i,PChar(sa[i])); // Link attribute index i to attribute named sa[i]
+   glBindAttribLocation(prog,i,PAnsiChar(sa[i])); // Link attribute index i to attribute named sa[i]
  end;
  glLinkProgram(prog);
  glGetProgramiv(prog,GL_LINK_STATUS,@res);
@@ -537,37 +536,12 @@ begin
   glDisableClientState(GL_TEXTURE_COORD_ARRAY);
  end;
 
- // Вообще-то это должен делать вызывающий код 
+ // Вообще-то это должен делать вызывающий код
  glActiveTexture(GL_TEXTURE1);
  glDisable(GL_TEXTURE_2D);
  glActiveTexture(GL_TEXTURE0);
  glClientActiveTexture(GL_TEXTURE0);
 end;
-
-{procedure TGLPainter.SetTexInterpolationMode(stage:byte;intMode:TTexInterpolateMode;factor:single);
-var
- color:array[0..3] of single;
- v:single;
-begin
- if texIntMode[stage]<>intMode then begin
-  glActiveTexture(GL_TEXTURE0+stage);
-  case texIntMode[stage] of
-   tintFactor:begin
-    glTexEnvi(GL_TEXTURE_ENV, GL_SRC2_RGB, GL_CONSTANT);
-    glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND2_RGB, GL_SRC_COLOR);
-   end;
-   else raise EWarning.Create('Texture interpolation mode not supported');
-  end;
-  texIntMode[stage]:=intMode;
- end;
- if (intMode=tintFactor) and (factor<>texIntFactor[stage]) then begin
-  glActiveTexture(GL_TEXTURE0+stage);
-  v:=factor;
-  color[0]:=v; color[1]:=v; color[2]:=v; color[3]:=v;
-  glTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, @color);
-  texIntFactor[stage]:=factor;
- end;
-end;}
 
 procedure TGLPainter.SetTexMode;
 var
@@ -818,17 +792,18 @@ begin
  CheckForGLError(1);
 end;
 
-procedure TGLPainter.Set3DView(view:T3DMatrix); 
+procedure TGLPainter.Set3DView(view:T3DMatrix);
 var
  x,y,z:double;
 begin
+ Invert4Full(view,viewMatrix);
  // Последний вектор: положение начала координат мировой системы в СК камеры
- x:=view[3,0]; y:=view[3,1]; z:=view[3,2];
+ {x:=view[3,0]; y:=view[3,1]; z:=view[3,2];
  view[3,0]:=-(x*view[0,0]+y*view[0,1]+z*view[0,2]);
  view[3,1]:=-(x*view[1,0]+y*view[1,1]+z*view[1,2]);
  view[3,2]:=-(x*view[2,0]+y*view[2,1]+z*view[2,2]);
- viewmatrix:=view;
-// Set3DTransform(objMatrix);
+ viewmatrix:=view;}
+ Set3DTransform(objMatrix);
 end;
 
 procedure TGlPainter.SetGLMatrix(mType:TMatrixType;mat:PDouble);
@@ -851,10 +826,6 @@ var
 begin
  objMatrix:=mat;
  MultMat4(mat,viewMatrix,ms);
-{ m[0]:=ms[0,0];  m[1]:=ms[0,1];  m[2]:=ms[0,2];  m[3]:=0;
- m[4]:=ms[1,0];  m[5]:=ms[1,1];  m[6]:=ms[1,2];  m[7]:=0;
- m[8]:=ms[2,0];  m[9]:=ms[2,1];  m[10]:=ms[2,2]; m[11]:=0;
- m[12]:=ms[3,0]; m[13]:=ms[3,1]; m[14]:=ms[3,2]; m[15]:=1;}
  SetGLMatrix(mtModelView,@ms);
 end;
 
@@ -909,22 +880,34 @@ begin
  SetGLMatrix(mtModelView,nil);
 end;
 
+procedure TGlPainter.SetOrthographic(scale,zMin,zMax:double);
+var
+ w,h:integer;
+begin
+ w:=(screenRect.Right-screenRect.Left);
+ h:=(screenRect.Bottom-screenRect.top);
+
+ projMatrix[0,0]:=scale*2/w;  projMatrix[1,0]:=0; projMatrix[2,0]:=0; projMatrix[3,0]:=0;
+ if (curtarget<>defaultRenderTarget) then begin
+  projMatrix[0,1]:=0;  projMatrix[1,1]:=scale*2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=0;
+ end else begin
+  projMatrix[0,1]:=0;  projMatrix[1,1]:=-scale*2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=0;
+ end;
+ projMatrix[0,2]:=0;  projMatrix[1,2]:=0; projMatrix[2,2]:=2/(zMax-zMin); projMatrix[3,2]:=-(zMax+zMin)/(zMax-zMin);
+ projMatrix[0,3]:=0;  projMatrix[1,3]:=0; projMatrix[2,3]:=0; projMatrix[3,3]:=1;
+
+ SetGLMatrix(mtProjection,@projMatrix);
+end;
+
 procedure TGlPainter.SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double);
 var
- A,B,C,D:double;
+ i:integer;
 begin
- A:=(xMax+xMin)/(xMax-xMin);
- B:=(yMin+yMax)/(yMin-yMax);
- C:=(zMax+zMin)/(zMax-zMin);
- D:=2*zMax*zMin/(zMax-zMin);
- projMatrix[0,0]:=2*zScreen/(xMax-xMin);    projMatrix[1,0]:=0;     projMatrix[2,0]:=A;        projMatrix[3,0]:=0;
- if curtarget<>defaultRenderTarget then begin // при отрисовке в текстуру не нужно переворачивать ось Y
-  projMatrix[0,1]:=0;      projMatrix[1,1]:=2*zScreen/(yMax-yMin);  projMatrix[2,1]:=B;       projMatrix[3,1]:=0;
- end else begin
-  projMatrix[0,1]:=0;      projMatrix[1,1]:=-2*zScreen/(yMax-yMin);  projMatrix[2,1]:=-B;       projMatrix[3,1]:=0;
- end;
- projMatrix[0,2]:=0;      projMatrix[1,2]:=0;     projMatrix[2,2]:=-C;      projMatrix[3,2]:=D;
- projMatrix[0,3]:=0;      projMatrix[1,3]:=0;     projMatrix[2,3]:=1;       projMatrix[2,2]:=0;
+ inherited;
+ if curtarget=defaultRenderTarget then // нужно переворачивать ось Y если только не рисуем в текстуру
+  for i:=0 to 3 do
+   projMatrix[i,1]:=-projMatrix[i,1];
+
  SetGLMatrix(mtProjection,@projMatrix);
 end;
 
@@ -1033,16 +1016,16 @@ procedure TGLPainter.ResetTexMode;
 begin
  if GL_VERSION_2_0 then glUseProgram(0);
  SetTexMode(0,tblModulate2X,tblModulate);
- SetTexMode(1,tblDisable,tblDisable); 
+ SetTexMode(1,tblDisable,tblDisable);
 end;
 {$ENDIF}
 
 procedure TGLPainter.ResetTextures;
 begin
  with texman as TGLTExtureMan do begin
-  MakeOnlineForStage(nil,0);
-  MakeOnlineForStage(nil,1);
-  MakeOnlineForStage(nil,2);
+  MakeOnline(nil,0);
+  MakeOnline(nil,1);
+  MakeOnline(nil,2);
  end;
 end;
 
@@ -1076,7 +1059,7 @@ begin
  stage:=1;
  FlushTextCache;
  //glFlush;
- CheckForGLError(5); 
+ CheckForGLError(5);
  stage:=2;
  SwitchToDefaultFramebuffer;
  curtarget:=nil;
@@ -1136,7 +1119,7 @@ begin
 //  glActiveTexture(GL_TEXTURE0+stage);
   if tex.atlas<>nil then tex:=tex.atlas;
   //TGLTexture(tex).filter:=curFilters[stage];
-  (texman as TGLTextureMan).MakeOnlineForStage(tex,stage);
+  texman.MakeOnline(tex,stage);
   if curFilters[stage]<>TGLTexture(tex).filter then
    (texman as TGLTextureMan).SetTexFilter(tex,curFilters[stage]);
 
@@ -1157,8 +1140,10 @@ begin
  end else begin
   screenRect:=types.Rect(0,0,renderWidth,renderHeight);
   glScissor(outputPos.x,outputPos.y,outputPos.x+VPwidth,outputPos.y+VPheight);
-  targetScaleX:=VPwidth/renderWidth;
-  targetScaleY:=VPheight/renderheight;
+  if renderWidth*renderHeight>0 then begin
+   targetScaleX:=VPwidth/renderWidth;
+   targetScaleY:=VPheight/renderheight;
+  end;
  end;
  actualClip:=screenRect;
  CheckForGLError(7);
@@ -1213,7 +1198,7 @@ begin
  vertBufUsage:=0;
  textBufUsage:=0;
  textCaching:=false;
- CheckForGLError(8); 
+ CheckForGLError(8);
 end;
 
 procedure TGLPainter.Reset;

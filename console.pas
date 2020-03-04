@@ -1,6 +1,4 @@
-﻿// Copyright (C) 2004 Apus Software (www.games4win.com)
-// Author: Ivan Polyacov (cooler@tut.by, ivan@apus-software.com)
-{ Консоль представляет собой центр обработки текстовых сообщений, которые
+﻿{ Консоль представляет собой центр обработки текстовых сообщений, которые
   могут генерироваться различными частями игры. Это могут быть отладочные
   сообщения в лог, команды, сообщения для визуальной отладки и т.д. Консоль
   не интерпретирует сообщения, а лишь решает что с ними делать и куда направлять.
@@ -10,6 +8,11 @@
   - сохранять сообщения в своем буфере (откуда их потом можно читать)
   - реагировать на отладочные сигналы и воспринимать их как сообщения
 }
+
+// Copyright (C) 2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit console;
 interface
  uses MyServis;

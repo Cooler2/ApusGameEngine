@@ -1,3 +1,6 @@
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
 unit VideoCapture;
 interface
  uses EngineCls,BasicGame,Images;
@@ -15,7 +18,7 @@ implementation
   MAX_FRAMES = 50000;
  type
 
-  // Главный поток - принимает входящие кадры, генерирует задания 
+  // Главный поток - принимает входящие кадры, генерирует задания
   TVideoThread=class(TThread)
    procedure Execute; override;
   end;
@@ -38,7 +41,7 @@ implementation
    frameNum:integer;
    chunks:array[1..15] of ByteArray;
    chunksCount:integer;
-   chunksFinished:integer; 
+   chunksFinished:integer;
    next,prev:TFrameData;
    constructor Create(raw:TRAWImage);
    destructor Destroy; override;
@@ -99,7 +102,7 @@ implementation
     videoThread:=TVideoThread.Create(false);
     for i:=1 to threads do
      workers[i]:=TWorkerThread.Create(false);
-    TWriterThread.Create(false); 
+    TWriterThread.Create(false);
     result:=true;
    finally
     LeaveCriticalSection(cSect);
@@ -142,7 +145,7 @@ implementation
    end;
   end;
 
- // разбирается с кадром и создает задания 
+ // разбирается с кадром и создает задания
  procedure ProcessFrame(frame,oldFrame:TFrameData);
   var
    job:TJob;
@@ -191,7 +194,7 @@ implementation
     end;
     if frame<>nil then ProcessFrame(frame,oldFrame)
      else sleep(5);
-   until terminated;  
+   until terminated;
    FreeAndNil(videoThread);
   end;
 
@@ -321,7 +324,7 @@ begin
     // Chunks
     for i:=1 to chunksCount do
      BlockWrite(f,chunks[i][0],length(chunks[i]));      }
-    frame.Free; // передвигает указатель firstFrame на след. кадр 
+    frame.Free; // передвигает указатель firstFrame на след. кадр
    end;
   end else
    if videoThread=nil then break;
