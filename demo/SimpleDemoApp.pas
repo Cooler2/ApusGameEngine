@@ -45,17 +45,17 @@ implementation
 
 constructor TSimpleDemoApp.Create;
  begin
+  // Alter some global settings
+  gameTitle:='Simple Engine Demo'; // app window title
+  configFileName:='game.ctl';
+  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+
   inherited;
  end;
 
 // This is executed just before the game object is launched
 procedure TSimpleDemoApp.SetGameSettings(var settings: TGameSettings);
  begin
-  // Alter some global settings
-  gameTitle:='Simple Engine Demo'; // app window title
-  configFileName:='game.ctl';
-  usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-
   inherited; // global settings are applied to the instance settings here, so there is no sense to change them later
 
   // Now adjust instance settings

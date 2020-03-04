@@ -670,7 +670,7 @@ begin
        (modes[q].mode.scene.status=ssActive)and
        (modes[q].mode<>self) then begin
      modes[q].mode.onClosing;
-     TTransitionEffect.Create(self.Scene,modes[q].mode.scene,time);
+     TTransitionEffect.Create(self.Scene{,modes[q].mode.scene},time);
      break;
     end;
    end;
@@ -706,7 +706,7 @@ begin
   if effnumber<>-1 then
    for q:=1 to nummodes do
     if (modes[q].mode.windowed=false)and(modes[q].mode.scene.status=ssActive)and(modes[q].mode<>self) then
-   TTransitionEffect.Create(self.Scene,modes[q].mode.scene,time);
+   TTransitionEffect.Create(self.Scene{,modes[q].mode.scene},time);
  end;
  finally
    game.LeaveCritSect;
