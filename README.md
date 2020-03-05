@@ -6,3 +6,14 @@ Please keep in mind that I wrote this code for myself, so while there are many s
 https://www.patreon.com/ApusGameEngine
 
 **See Wiki for details**
+
+**Title sponsor of development:**
+
+Jim McKeeth
+
+**This release was possible because of support of my patrons:**
+* Rad72
+* Евгений Румянцев
+* Алексей Воронин
+
+and others...
