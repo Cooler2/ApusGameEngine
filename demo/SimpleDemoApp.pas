@@ -172,9 +172,11 @@ procedure TMainScene.HandleParticles;
   SetLength(particlesData,count);
 
   // Draw particles in additive mode
-  painter.SetMode(blAdd);
-  painter.DrawParticles(0,0,@particles[0],length(particles),particlesTex,16,1);
-  painter.SetMode(blAlpha);
+  if count>0 then begin
+   painter.SetMode(blAdd);
+   painter.DrawParticles(0,0,@particles[0],count,particlesTex,16,1);
+   painter.SetMode(blAlpha);
+  end;
  end;
 
 procedure TMainScene.Render;
