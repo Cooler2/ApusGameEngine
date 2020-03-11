@@ -202,7 +202,7 @@ begin
 
  img:=TUIImage.Create(462,h-18,'ConsoleMain',wnd);
  img.SetAnchors(0,0,1,1);
- img.src:='proc:'+IntToHex(UIntPtr(@DrawContent));
+ img.src:='proc:'+PtrToStr(@DrawContent);
 
  editbox:=TUIEditBox.Create(480,18,'console\input',font,$FFE0FFD0,wnd);
  editBox.SetPos(0,h,pivotBottomLeft);

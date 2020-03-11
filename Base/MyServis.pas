@@ -4,14 +4,13 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 
 
-{$A+,B-,C+,D+,H+,I+,J+,K-,M-,O+,P+,Q-,R-,S-,T-,U-,V+,W-,X+,Y+,Z1}
 {$IFDEF FPC}{$MODE DELPHI}{$ENDIF}
 {$IFDEF IOS}{$modeswitch objectivec1}{$ENDIF}
 {$IFNDEF FPC}{$IFNDEF DELPHI}
 For Delphi - please define global symbol "DELPHI"!
 {$ENDIF}{$ENDIF}
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
-
+{$IFDEF UNICODE} {$DEFINE ADDANSI} {$ENDIF} // Make separate implementations for String and AnsiString types
 
 unit MyServis;
 interface
@@ -54,6 +53,7 @@ interface
    procedure Leave; inline; // for compatibility
   end;
 
+  {$IF Declared(SRWLOCK)}
   TSRWLock=packed record
    lock:SRWLock;
    name:string;
@@ -63,6 +63,7 @@ interface
    procedure StartWrite;
    procedure FinishWrite;
   end;
+  {$ENDIF}
 
   // Base exception with stack trace support
   TBaseException=class(Exception)
@@ -290,7 +291,8 @@ interface
 
  // Раскодировать строку, заключенную в кавычки
  function UnQuoteStr(const st:string;quotes:char='"'):string; overload;
- function UnQuoteStr(const st:AnsiString;quotes:AnsiChar='"'):AnsiString; overload;
+ {$IFDEF ADDANSI}
+ function UnQuoteStr(const st:AnsiString;quotes:AnsiChar='"'):AnsiString; overload; {$ENDIF}
 
  // Заменяет \n \t и т.д. на соответствующие символы (а также \\ на \)
  function Unescape(st:AnsiString):AnsiString;
@@ -299,11 +301,13 @@ interface
 
  // Убрать пробельные символы в начале и в конце
  function Chop(st:string):string; overload;
- function Chop(st:AnsiString):AnsiString; overload;
+ {$IFDEF ADDANSI}
+ function Chop(st:AnsiString):AnsiString; overload; {$ENDIF}
 
  // Возвращает последний символ строки (#0 если строка пустая)
  function LastChar(st:string):char; overload;
- function LastChar(st:AnsiString):AnsiChar; overload;
+ {$IFDEF ADDANSI}
+ function LastChar(st:AnsiString):AnsiChar; overload; {$ENDIF}
 
  // Safe string indexing
  function CharAt(st:string;index:integer):char;
@@ -311,7 +315,8 @@ interface
 
  // заменяет служебные символы в строке таким образом, чтобы её можно было вставить в HTML
  function HTMLString(st:string):string; overload;
- function HTMLString(st:AnsiString):AnsiString; overload;
+ {$IFDEF ADDANSI}
+ function HTMLString(st:AnsiString):AnsiString; overload; {$ENDIF}
 
  // Закодировать URL согласно требованиям HTTP
  function UrlEncode(st:AnsiString):AnsiString;
@@ -464,7 +469,8 @@ interface
  // Преобразование типов данных
  // ---------------------------
  function HexToInt(st:string):int64; overload;  // Распознать шестнадцатиричное число
- function HexToInt(st:AnsiString):int64; overload;
+ {$IFDEF ADDANSI}
+ function HexToInt(st:AnsiString):int64; overload; {$ENDIF}
  function HexToAStr(v:int64;digits:integer=0):AnsiString;
  function SizeToStr(size:int64):string; // строка с короткой записью размера, типа 15.3M
  function FormatTime(time:int64):string; // строка с временным интервалом (time - в ms)
@@ -476,11 +482,13 @@ interface
  function VarToStr(v:TVarRec):UnicodeString;  // Variant -> String
  function VarToAStr(v:TVarRec):AnsiString;
  function ParseInt(st:string):int64; inline; overload; // wrong characters ignored
- function ParseInt(st:AnsiString):int64; inline; overload; // wrong characters ignored
+ {$IFDEF ADDANSI}
+ function ParseInt(st:AnsiString):int64; inline; overload; {$ENDIF}
  function ParseFloat(st:string):double; inline; // always use '.' as separator - replacement for SysUtils version
  function ParseIntList(st:string):IntArray; // '123 4,-12;3/5' -> [1234,-12,3,5]
  function ParseBool(st:string):boolean; overload;
- function ParseBool(st:AnsiString):boolean; overload;
+ {$IFDEF ADDANSI}
+ function ParseBool(st:AnsiString):boolean; overload; {$ENDIF}
  function BoolToAStr(b:boolean;short:boolean=true):AnsiString;
 
  function ListIntegers(a:array of integer;separator:char=','):string; overload; // array of integer => 'a[1],a[2],...,a[n]'
@@ -508,7 +516,8 @@ interface
  function CheckSum64(adr:pointer;size:integer):int64; pascal;
  procedure FillRandom(var buf;size:integer);
  function StrHash(const st:string):cardinal; overload;
- function StrHash(const st:AnsiString):cardinal; overload;
+ {$IFDEF ADDANSI}
+ function StrHash(const st:AnsiString):cardinal; overload; {$ENDIF}
 
  // Текущее время и дата (GMT)
  function NowGMT:TDateTime;
@@ -557,7 +566,7 @@ implementation
    last:integer;    // время последнего отклика
    lastreport:integer; // время последнего сообщения о задержке
    at:integer;       // сглаженное примерное время между интервалами
-   handle:cardinal;
+   handle:THandle;
    lastCS:PCriticalSection; // последняя критсекция, захваченная в этом потоке
   end;
 
@@ -869,6 +878,7 @@ implementation
     result:=result*$20844 xor byte(st[i]);
   end;
 
+ {$IFDEF ADDANSI}
  function StrHash(const st:AnsiString):cardinal; overload;
   var
    i:integer;
@@ -877,6 +887,7 @@ implementation
    for i:=1 to length(st) do
     result:=result*$20844 xor byte(st[i]);
   end;
+ {$ENDIF}
 
  procedure FillRandom(var buf;size:integer);
   var
@@ -1025,6 +1036,7 @@ implementation
    end;
   end;
 
+ {$IFDEF ADDANSI}
  function HexToInt(st:AnsiString):int64;
   var
    i:integer;
@@ -1042,6 +1054,7 @@ implementation
     v:=v*16;
    end;
   end;
+ {$ENDIF}
 
 function HexToAStr(v:int64;digits:integer=0):AnsiString;
  var
@@ -1220,6 +1233,7 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
    end;
   end;
 
+ {$IFDEF ADDANSI}
  function ParseInt(st:AnsiString):int64;  // wrong characters ignored
   var
    i:integer;
@@ -1232,6 +1246,7 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
     if st[i] in ['0'..'9'] then break;
    end;
   end;
+ {$ENDIF}
 
  function ParseIntList(st:string):IntArray; // '123 4,-12;3/5' -> [1234,-12,3,5]
   var
@@ -1265,11 +1280,13 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
    result:=(st='Y') or (st='TRUE') or (st='1') or (st='-1') or (st='+');
   end;
 
+ {$IFDEF ADDANSI}
  function ParseBool(st:AnsiString):boolean; overload;
   begin
    st:=UpperCase(st);
    result:=(st='Y') or (st='TRUE') or (st='1') or (st='-1') or (st='+');
   end;
+ {$ENDIF}
 
  function BoolToAStr(b:boolean;short:boolean=true):AnsiString;
   begin
@@ -2071,13 +2088,15 @@ procedure SimpleEncrypt2;
    result:=st;
   end;
 
- function HTMLString(st:Ansistring):Ansistring;
+ {$IFDEF ADDANSI}
+ function HTMLString(st:AnsiString):Ansistring;
   begin
    st:=StringReplace(st,'&','&amp;',[rfReplaceAll]);
    st:=StringReplace(st,'<','&lt;',[rfReplaceAll]);
    st:=StringReplace(st,'>','&gt;',[rfReplaceAll]);
    result:=st;
   end;
+ {$ENDIF}
 
  function UrlEncode;
   var
@@ -2148,6 +2167,7 @@ procedure SimpleEncrypt2;
    result:=quotes+StringReplace(st,quotes,quotes+quotes,[rfReplaceAll])+quotes;
   end;
 
+ {$IFDEF ADDANSI}
  function UnQuoteStr(const st:AnsiString;quotes:AnsiChar='"'):AnsiString; overload;
   begin
    if (length(st)=0) or (st[1]<>quotes) then begin
@@ -2159,6 +2179,7 @@ procedure SimpleEncrypt2;
    if result[length(result)]=quotes then SetLength(result,length(result)-1);
    result:=StringReplace(result,quotes+quotes,quotes,[rfReplaceAll]);
   end;
+ {$ENDIF}
  function UnQuoteStr(const st:String;quotes:Char='"'):String; overload;
   begin
    if (length(st)=0) or (st[1]<>quotes) then begin
@@ -3357,6 +3378,7 @@ function BinToStr;
    result:=sa[idx];
   end;
 
+ {$IFDEF ADDANSI}
  function Chop(st:AnsiString):AnsiString; overload;
   var
    i:integer;
@@ -3367,7 +3389,7 @@ function BinToStr;
    while (length(result)>0) and (result[i]<=' ') do dec(i);
    setlength(result,i);
   end;
-
+ {$ENDIF}
  function Chop(st:String):String; overload;
   var
    i:integer;
@@ -3384,11 +3406,13 @@ function BinToStr;
    if st='' then result:=#0
     else result:=st[length(st)];
   end;
+ {$IFDEF ADDANSI}
  function LastChar(st:AnsiString):AnsiChar;
   begin
    if st='' then result:=#0
     else result:=st[length(st)];
   end;
+ {$ENDIF}
 
  function CharAt(st:string;index:integer):char;
   begin
@@ -4709,10 +4733,8 @@ function GetParam(name:string):string;
   end;
  end;
 
-var
- v:Int64;
+{$IF Declared(SRWLOCK)}
 { TSRWLock }
-
 procedure TSRWLock.Init(name: string);
 begin
  self.name:=name;
@@ -4738,6 +4760,10 @@ procedure TSRWLock.FinishWrite;
 begin
  ReleaseSRWLockExclusive(lock);
 end;
+{$ENDIF}
+
+var
+ v:Int64;
 
 initialization
  SetDecimalSeparator('.');
@@ -4749,17 +4775,16 @@ initialization
  {$IFDEF MSWINDOWS}
  InitializeCriticalSection(crSection);
  startTimeMS:=timeGetTime;
-// timeBeginPeriod(1);
  {$ELSE}
  InitCriticalSection(crSection);
  startTimeMS:=CrossPlatform.GetTickCount;
  {$ENDIF}
  startTime:=MyTickCount;
+
 finalization
  if logThread<>nil then StopLogThread;
  {$IFDEF MSWINDOWS}
  DeleteCriticalSection(crSection);
-// timeEndPeriod(1);
  {$ELSE}
  DoneCriticalSection(crSection);
  {$ENDIF}
