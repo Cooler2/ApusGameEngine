@@ -54,7 +54,7 @@ interface
    procedure QueryValues(var h:THash;table,keyField,valueField:AnsiString;quoteKeys:boolean=false;condition:AnsiString=''); virtual;
 
    procedure Disconnect; virtual; abstract;
-   destructor Destroy; virtual;
+   destructor Destroy; override;
 
    // Access data as table
    function Next:AnsiString;
@@ -175,6 +175,7 @@ destructor TDatabase.Destroy;
  begin
   if connected then Disconnect;
   DeleteCritSect(crSect);
+  inherited;
  end;
 
 procedure TDatabase.QueryValues(var h: THash; table, keyField,
