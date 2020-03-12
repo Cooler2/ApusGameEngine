@@ -9,7 +9,7 @@ https://www.patreon.com/ApusGameEngine
 
 **Title sponsor of development:**
 
-Jim McKeeth
+![Embarcadero](http://apus-software.com/engine/embarcadero.png)
 
 **This release was possible because of support of my patrons:**
 * Rad72
