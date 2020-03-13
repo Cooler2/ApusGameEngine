@@ -7,7 +7,7 @@
 unit GFXFormats;
 interface
  uses MyServis,
-     {$IFDEF DELPHI}graphics,{$ENDIF}
+     {$IFDEF DELPHI}VCL.Graphics,{$ENDIF}
      {$IFDEF TXTIMAGES}UnicodeFont,{$ENDIF}
      Images;
  type
