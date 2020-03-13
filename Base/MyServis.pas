@@ -3938,11 +3938,11 @@ procedure DumpDir(path:string);
   begin
    result:=-1;
    try
-    h:=OpenFile(PAnsiChar(fname),openBuff,0);
-    if h=HFILE_ERROR then exit;
+    h:=FileOpen(fName,fmOpenRead);
+    if h=INVALID_HANDLE_VALUE then exit;
     data[0]:=windows.GetFileSize(h,@data[1]);
     move(data,result,8);
-    CloseHandle(h);
+    FileClose(h);
    except
    end;
   end;
