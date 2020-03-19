@@ -306,9 +306,10 @@ end;
 procedure TMySQLDatabase.Disconnect;
 begin
  if ms<>nil then begin
-  LogMessage('Closing MySQL connection');
+  ForceLogMessage(name+' Closing MySQL connection');
   mysql_close(ms);
  end;
+ connected:=false;
 end;
 
 function TMySQLDatabase.Query(DBquery: AnsiString): AStringArr;
