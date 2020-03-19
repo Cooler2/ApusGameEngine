@@ -40,6 +40,13 @@ interface
    x1,y1,x2,y2:single;
    function Width:single;
    function Height:single;
+   procedure Init; overload; inline; // init empty
+   procedure Init(x,y,width,height:single); overload; inline;
+   procedure MoveBy(dx,dy:single); overload; inline;
+   procedure MoveBy(delta:TVector2s); overload; inline;
+   procedure Include(x,y:single); overload; inline;
+   procedure Include(r:TRect2s); overload; inline;
+   function IsEmpty:boolean;
   end;
 
   TSegment2=packed record
@@ -164,7 +171,8 @@ interface
  procedure Invert2(m:TMatrix2;out dest:TMatrix2);
  procedure Invert(m:TMatrix32;out dest:TMatrix32);
 
- function Rect2s(x1,y1,x2,y2:single):TRect2s; inline;
+ // Rectangle
+ function Rect2s(x1,y1,x2,y2:single):TRect2s; overload; inline;
  function TransformRect(const r:TRect2s;dx,dy,sx,sy:single):TRect2s;
  function RoundRect(const r:TRect2s):TRect;
 
@@ -746,7 +754,7 @@ implementation
    end;
   end;
 
- function Rect2s(x1,y1,x2,y2:single):TRect2s;
+ function Rect2s(x1,y1,x2,y2:single):TRect2s; overload;
   begin
    result.x1:=x1;
    result.y1:=y1;
@@ -772,14 +780,62 @@ implementation
 
 { TRect2s }
 
+ procedure TRect2s.Init(x,y,width,height:single);
+  begin
+   x1:=x; y1:=y;
+   x2:=x+width;
+   y2:=y+height;
+  end;
+
+ function TRect2s.IsEmpty: boolean;
+  begin
+   result:=(y2<y1);
+  end;
+
+ procedure TRect2s.MoveBy(dx, dy: single);
+  begin
+   x1:=x1+dx; x2:=x2+dx;
+   y1:=y1+dy; y2:=y2+dy;
+  end;
+
+ procedure TRect2s.MoveBy(delta:TVector2s);
+  begin
+   MoveBy(delta.x,delta.y);
+  end;
+
 function TRect2s.Height: single;
- begin
-  result:=y2-y1;
- end;
+  begin
+   result:=y2-y1;
+  end;
+
+ procedure TRect2s.Init;
+  begin
+   x1:=0; y1:=0;
+   x2:=-1; y2:=-1;
+  end;
 
 function TRect2s.Width: single;
- begin
-  result:=x2-x1;
- end;
+  begin
+   result:=x2-x1;
+  end;
+
+ procedure TRect2s.Include(x,y:single);
+  begin
+   if IsEmpty then begin
+    x1:=x; x2:=x;
+    y1:=y; y2:=y;
+   end else begin
+    if x<x1 then x1:=x;
+    if y<y1 then y1:=y;
+    if x>x2 then x2:=x;
+    if y>y2 then y2:=y;
+   end;
+  end;
+
+ procedure TRect2s.Include(r:TRect2s);
+  begin
+   Include(r.x1,r.y1);
+   Include(r.x2,r.y2);
+  end;
 
 end.
