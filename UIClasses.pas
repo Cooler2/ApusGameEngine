@@ -182,13 +182,14 @@ type
   // Attach to a new parent
   procedure AttachTo(newParent:TUIControl);
   // Detach from parent
-  procedure Detach;
+  procedure Detach(shouldAddToRootControls:boolean=true);
 
   // Transformations. Element's coordinate system is (0,0 - clientWidth,clinetHeight) where
   //   0,0 - is upper-left corner of the client area. This CS is for internal use.
-  function TransformToParent(p:TPoint2s):TPoint2s; overload;
-  function TransformToParent(r:TRect2s):TRect2s; overload;
+  function TransformToParent(const p:TPoint2s;target:TUIControl=nil):TPoint2s; overload;
+  function TransformToParent(const r:TRect2s;target:TUIControl=nil):TRect2s; overload;
   function GetRect:TRect2s; // Get element's area in its own CS (i.e. relative to pivot point)
+  function GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
   function GetClientRect:TRect2s; // Get element's client area in its own CS
 
   // получить экранные к-ты элемента
@@ -223,7 +224,7 @@ type
   function SetPos(x,y:single;pivotPoint:TPoint2s):TUIControl; overload;
   function SetPos(x,y:single):TUIControl; overload;
   // Move by given screen pixels
-  procedure MoveBy(dx,dy:integer);
+  procedure MoveBy(dx,dy:single);
   // Set element position using new pivot point
   function SetAnchors(left,top,right,bottom:single):TUIControl;
   // Set all padding and resize client area
@@ -525,7 +526,6 @@ type
   procedure ClearItems;
   procedure onDropDown; virtual;
   procedure onMouseButtons(button:byte;state:boolean); override;
-  procedure onLostFocus; override;
   procedure onTimer; override; // трюк: используется для слежения за всплывающим списком, чтобы не заморачиваться с сигналами
   procedure SetCurItem(item:integer); virtual;
   procedure SetCurItemByTag(tag:integer); virtual;
@@ -813,45 +813,43 @@ end;
 
 { TUIControl }
 
-function TUIControl.TransformToParent(p:TPoint2s):TPoint2s;
+function TUIControl.TransformToParent(const p:TPoint2s;target:TUIControl=nil):TPoint2s;
 var
  parentScrollX,parentScrollY:single;
+ c:TUIControl;
 begin
- if parent<>nil then begin
-  parentScrollX:=parent.scroll.X;
-  parentScrollY:=parent.scroll.Y;
- end else begin
-  parentScrollX:=0;
-  parentScrollY:=0;
- end;
- // Explanation of transformation:
- //  result.x:=(p.x+paddingLeft); // теперь относительно угла элемента
- //  result.x:=result.x-size.x*pivot.x; // теперь относительно pivot point
- //  result.x:=result.x*scale.x; // теперь в масштабе предка
- //  result.x:=position.x-parentScrollX+result.x; // теперь относительно верхнего левого угла клиентской области предка
- result.x:=position.x-parentScrollX+scale.x*((p.x+paddingLeft)-size.x*pivot.x);
- result.y:=position.y-parentScrollY+scale.y*((p.y+paddingTop)-size.y*pivot.y);
+ if target=nil then target:=parent;
+ c:=self;
+ result:=p;
+ repeat
+  with c do begin
+   if parent<>nil then begin
+    parentScrollX:=parent.scroll.X;
+    parentScrollY:=parent.scroll.Y;
+   end else begin
+    parentScrollX:=0;
+    parentScrollY:=0;
+   end;
+   // Explanation of transformation:
+   //  result.x:=(p.x+paddingLeft); // теперь относительно угла элемента
+   //  result.x:=result.x-size.x*pivot.x; // теперь относительно pivot point
+   //  result.x:=result.x*scale.x; // теперь в масштабе предка
+   //  result.x:=position.x-parentScrollX+result.x; // теперь относительно верхнего левого угла клиентской области предка
+   result.x:=position.x-parentScrollX-scale.x*(size.x*pivot.x-(result.x+paddingLeft));
+   result.y:=position.y-parentScrollY-scale.y*(size.y*pivot.y-(result.y+paddingTop));
+  end;
+  c:=c.parent;
+ until (c=nil) or (c=target);
+
 end;
 
-function TUIControl.TransformToParent(r:TRect2s):TRect2s;
+function TUIControl.TransformToParent(const r:TRect2s;target:TUIControl=nil):TRect2s;
 var
- parentScrollX,parentScrollY:single;
- cx,cy:single;
+ p1,p2:TPoint2s;
 begin
- if (parent<>nil) and parentClip then begin
-  parentScrollX:=parent.scroll.X;
-  parentScrollY:=parent.scroll.Y;
- end else begin
-  parentScrollX:=0;
-  parentScrollY:=0;
- end;
- cx:=position.x-parentScrollX-scale.x*size.x*pivot.x;
- cy:=position.y-parentScrollY-scale.y*size.y*pivot.y;
-
- result.x1:=cx+scale.x*(r.x1+paddingLeft);
- result.y1:=cy+scale.y*(r.y1+paddingTop);
- result.x2:=cx+scale.x*(r.x2+paddingLeft);
- result.y2:=cy+scale.y*(r.y2+paddingTop);
+ p1:=TransformToParent(Point2s(r.x1,r.y1),target);
+ p2:=TransformToParent(Point2s(r.x2,r.y2),target);
+ result:=Rect2s(p1.x,p1.y, p2.x,p2.y);
 end;
 
 function TUIControl.GetRect:TRect2s; // Get element's area in own CS
@@ -869,6 +867,12 @@ begin
  result.x2:=size.x-paddingLeft-paddingRight;
  result.y2:=size.y-paddingTop-paddingBottom;
 end;
+
+function TUIControl.GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
+begin
+ result:=TransformToParent(GetRect);
+end;
+
 
 procedure TUIControl.Center;
 var
@@ -993,7 +997,7 @@ begin
  inherited;
 end;
 
-procedure TUIControl.Detach;
+procedure TUIControl.Detach(shouldAddToRootControls:boolean=true);
 var
  i,n:integer;
 begin
@@ -1005,7 +1009,7 @@ begin
   end;
  dec(n);
  SetLength(parent.children,n);
- AddToRootControls;
+ if shouldAddToRootControls then AddToRootControls;
 end;
 
 procedure TUIControl.AttachTo(newParent: TUIControl);
@@ -1014,8 +1018,8 @@ var
 begin
  ASSERT(newParent<>nil);
  if parent=newParent then exit;
- if parent<>nil then Detach;
- RemoveFromRootControls;
+ if parent<>nil then Detach(false)
+  else RemoveFromRootControls;
  parent:=newParent;
  n:=length(parent.children);
  if n>=0 then order:=parent.children[n-1].order+1
@@ -1455,15 +1459,20 @@ end;
 
 procedure TUIControl.RemoveFromRootControls;
 var
- i:integer;
+ i,pos:integer;
 begin
  UICritSect.Enter;
  try
+ i:=0; pos:=-1;
+ // Order should be kept!
  for i:=0 to high(rootControls) do
-  if rootControls[i]=self then begin
-   rootControls[i]:=rootControls[high(rootControls)];
-   SetLength(rootControls,length(rootControls)-1);
+  if self=rootControls[i] then begin
+   pos:=i; break;
   end;
+ if pos<0 then exit;
+ for i:=pos+1 to high(rootControls) do
+  rootControls[i-1]:=rootCOntrols[i];
+ SetLength(rootControls,length(rootControls)-1);
  finally
   UICritSect.Leave;
  end;
@@ -1505,7 +1514,7 @@ begin
  result:=SetPos(x,y,pivotTopLeft);
 end;
 
-procedure TUIControl.MoveBy(dx,dy:integer);
+procedure TUIControl.MoveBy(dx,dy:single);
 var
  delta:TVector2s;
 begin
@@ -2789,7 +2798,7 @@ begin
  maxlines:=15;
 
  // Default properties for child controls
- frame:=TUIFrame.Create(size.x,2,1,0,nil);
+ frame:=TUIFrame.Create(size.x,2,1,0,self);
  frame.visible:=false;
  frame.parentClip:=false;
  popup:=TUIListBox.Create(size.x-2,0,20,'ComboBoxPopUp',font,frame);
@@ -2809,13 +2818,19 @@ var
  lCount,lHeight,i:integer;
  hint:WideString;
  tag:cardinal;
+ root:TUIControl;
 begin
  if not frame.visible then begin
   if comboPop<>nil then comboPop.onDropDown;
-  r:=TransformToParent(GetRect);
+  // Attach drop-down list to the root element
+  root:=GetRoot;
+{  r:=GetRect;
+  r.MoveBy(0,r.y2);}
+  r:=TransformToParent(GetRect,root);
   frame.position:=Point2s(r.x1, r.y2+1);
   frame.size.x:=size.x;
-  frame.AttachTo(parent);
+  frame.AttachTo(root);
+
   lCount:=length(items);
   if lCount>=maxlines then lCount:=round(maxLines*0.75);
   // size and position
@@ -2850,12 +2865,6 @@ begin
   frame.visible:=false;
   timer:=0;
  end;
-end;
-
-procedure TUIComboBox.onLostFocus;
-begin
- inherited;
-// if popup<>nil then onDropDown;
 end;
 
 procedure TUIComboBox.onMouseButtons(button: byte; state: boolean);

@@ -886,7 +886,7 @@ var
    result:=Format('  %-20s Z=%-10d  status=%-2d type=%-2d eff=%s',
      [s.name,s.zorder,ord(s.status),byte(s.fullscreen),PtrToStr(s.effect)]);
    if s is TUIScene then
-    result:=result+' UI='+PtrToStr(TUIScene(s).UI);
+    result:=result+Format(' UI=%s (%s)',[TUIScene(s).UI.fName, PtrToStr(TUIScene(s).UI)]);
   end;
 begin
  try
