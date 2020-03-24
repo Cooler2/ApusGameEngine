@@ -999,16 +999,20 @@ end;
 
 procedure TUIControl.Detach(shouldAddToRootControls:boolean=true);
 var
- i,n:integer;
+ i,pos,n:integer;
 begin
  if parent=nil then exit;
- n:=Length(parent.children);
- for i:=1 to n do
-  if parent.children[i-1]=self then begin /// TODO: keep elements order
-   parent.children[i-1]:=parent.children[n-1]; break;
+ n:=high(parent.children);
+ pos:=-1;
+ for i:=0 to n do
+  if parent.children[i]=self then begin
+   pos:=i; break;
   end;
- dec(n);
- SetLength(parent.children,n);
+ if pos>=0 then begin
+  for i:=pos to n-1 do parent.children[i]:=parent.children[i+1];
+  SetLength(parent.children,n);
+ end;
+ parent:=nil;
  if shouldAddToRootControls then AddToRootControls;
 end;
 
@@ -1022,8 +1026,8 @@ begin
   else RemoveFromRootControls;
  parent:=newParent;
  n:=length(parent.children);
- if n>=0 then order:=parent.children[n-1].order+1
-  else order:=1;
+ {if n>0 then order:=parent.children[n-1].order+1
+  else order:=1;}
  SetLength(parent.children,n+1);
  parent.children[n]:=self;
 end;
@@ -2801,6 +2805,7 @@ begin
  frame:=TUIFrame.Create(size.x,2,1,0,self);
  frame.visible:=false;
  frame.parentClip:=false;
+ frame.order:=1000;
  popup:=TUIListBox.Create(size.x-2,0,20,'ComboBoxPopUp',font,frame);
  popUp.customPtr:=self;
 // popup.autoSelectMode:=true;
@@ -2844,7 +2849,7 @@ begin
   // Content
   popUp.ClearLines;
   for i:=0 to high(items) do begin
-   if i<=high(hints) then hint:=EncodeUTF8(hints[i])
+   if i<=high(hints) then hint:=hints[i]   // !!!
     else hint:='';
    if i<=high(tags) then tag:=tags[i]
     else tag:=i;
@@ -2863,6 +2868,7 @@ begin
    Signal('UI\COMBOBOX\ONSELECT\'+name,PtrUInt(self));
   end;
   frame.visible:=false;
+  frame.AttachTo(self);
   timer:=0;
  end;
 end;

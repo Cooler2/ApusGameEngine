@@ -183,7 +183,7 @@ implementation
      painter.Rect(0,0,width-3,height-3,$FF000000);
      painter.ResetMask;
      for i:=0 to length(sa)-1 do
-      painter.TextOut(font,1+dw div 2,round(2+h div 7+(i+0.75)*h),$D0000000,sa[i]);
+      painter.TextOutW(font,1+dw div 2,round(2+h div 7+(i+0.75)*h),$D0000000,wsa[i]);
     finally
      painter.EndPaint;
     end;

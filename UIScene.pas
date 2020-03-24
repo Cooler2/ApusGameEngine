@@ -594,9 +594,12 @@ var
  c:TUIControl;
  time:cardinal;
  st:string;
+ list:array of TUIControl;
+
  procedure ProcessControl(c:TUIControl);
   var
    j:integer;
+   cnt:integer;
   begin
    if c=nil then exit;
    if c.timer>0 then
@@ -604,9 +607,13 @@ var
      c.timer:=0;
      c.onTimer;
     end else dec(c.timer,delta);
-   if length(c.children)>0 then
-    for j:=0 to length(c.children)-1 do
-     ProcessControl(c.children[j]);
+
+   cnt:=length(c.children);
+   if cnt>0 then begin
+    if cnt>length(list) then SetLength(list,cnt+20);
+    for j:=0 to cnt-1 do list[j]:=c.children[j];
+    for j:=0 to cnt-1 do ProcessControl(list[j]);
+   end;
   end;
 begin
  result:=true;
@@ -859,7 +866,7 @@ begin
  hint.font:=font;
  hint.style:=defaultHintStyle;
  hint.timer:=time;
- hint.order:=1000;
+ hint.order:=10000; // Top
  curhint:=hint;
  LogMessage('Hint created '+inttohex(cardinal(hint),8));
 end;
