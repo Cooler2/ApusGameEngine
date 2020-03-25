@@ -226,8 +226,8 @@ begin
  SetLength(result,32);
  for i:=0 to 15 do begin
   b:=hash[i];
-  result[i*2+1]:=HexDigits[b and $F];
-  result[i*2+2]:=HexDigits[b shr 4];
+  result[i*2+1]:=HexDigits[b shr 4];
+  result[i*2+2]:=HexDigits[b and $F];
  end;
 end;
 

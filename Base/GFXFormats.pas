@@ -7,7 +7,7 @@
 unit GFXFormats;
 interface
  uses MyServis,
-     {$IFDEF DELPHI}graphics,{$ENDIF}
+     {$IFDEF DELPHI}VCL.Graphics,{$ENDIF}
      {$IFDEF TXTIMAGES}UnicodeFont,{$ENDIF}
      Images;
  type
@@ -828,12 +828,12 @@ procedure LoadTGA;
   function lodepng_decode32(out image:pointer;out width,height:cardinal;source:pointer;
     sourSize:integer):cardinal; cdecl; external 'LodePNG64.dll';
   function lodepng_decode_memory(out image:pointer;out width,height:cardinal;source:pointer;
-    sourSize:integer;colortype,bitdepth:cardinal):cardinal; cdecl; external 'lodePNG.dll';
+    sourSize:integer;colortype,bitdepth:cardinal):cardinal; cdecl; external 'lodePNG64.dll';
 
   function lodepng_encode32(out image:pointer;out outsize:int64;source:pointer;
     width,height:cardinal):cardinal; cdecl; external 'LodePNG64.dll';
   function lodepng_encode_memory(out image:pointer;out outsize:int64;source:pointer;
-    width,height,colortype,bitdepth:cardinal):cardinal; cdecl; external 'lodePNG.dll';
+    width,height,colortype,bitdepth:cardinal):cardinal; cdecl; external 'lodePNG64.dll';
 
   procedure free_mem(buf:pointer); external 'LodePNG64.dll';
  {$ENDIF}
@@ -884,7 +884,7 @@ procedure LoadTGA;
    end;
    // Transfer to the target
    for i:=0 to height-1 do begin
-    ConvertLine(sour^,image.scanline(i)^,ipfABGR,image.PixelFormat,i,palNone,width);
+    ConvertLine(sour^,image.scanline(i)^,ipfABGR,image.PixelFormat,sour,palNone,width);
     inc(sour,width*4);
    end;
    image.Unlock;

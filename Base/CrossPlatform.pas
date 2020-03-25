@@ -135,11 +135,8 @@ interface
 
 implementation
 
-{$IFnDEF FPC}
 uses
   ShellAPI,MyServis;
-{$ELSE}
-{$ENDIF}
 
  {$IFDEF IOS}
  // IOS threads

@@ -4,14 +4,13 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 
 
-{$A+,B-,C+,D+,H+,I+,J+,K-,M-,O+,P+,Q-,R-,S-,T-,U-,V+,W-,X+,Y+,Z1}
 {$IFDEF FPC}{$MODE DELPHI}{$ENDIF}
 {$IFDEF IOS}{$modeswitch objectivec1}{$ENDIF}
 {$IFNDEF FPC}{$IFNDEF DELPHI}
 For Delphi - please define global symbol "DELPHI"!
 {$ENDIF}{$ENDIF}
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
-
+{$IFDEF UNICODE} {$DEFINE ADDANSI} {$ENDIF} // Make separate implementations for String and AnsiString types
 
 unit MyServis;
 interface
@@ -24,10 +23,25 @@ interface
   PathSeparator='/';
   {$ENDIF}
  type
-  StringArr=array of string;
-  AStringArr=array of AnsiString;
-  WStringArr=array of WideString;
+  // 8-bit string type (assuming UTF-8 encoding)
+  String8=UTF8String;
+  // 16-bit string type (can be UTF-16 or UCS-2)
+  {$IFDEF UNICODE}
+  String16=UnicodeString;
+  {$ELSE}
+  String16=WideString;
+  {$ENDIF}
+
+  // String arrays
+  AStringArr=array of String8;
+  WStringArr=array of String16;
+  StringArr=array of string; // depends on UNICODE mode
+
+  {$IF DEclared(TBytes)}
+  ByteArray=TBytes;
+  {$ELSE}
   ByteArray=array of byte;
+  {$ENDIF}
   WordArray=array of word;
   IntArray=array of integer;
   UIntArray=array of cardinal;
@@ -54,6 +68,7 @@ interface
    procedure Leave; inline; // for compatibility
   end;
 
+  {$IF Declared(SRWLOCK)}
   TSRWLock=packed record
    lock:SRWLock;
    name:string;
@@ -63,6 +78,7 @@ interface
    procedure StartWrite;
    procedure FinishWrite;
   end;
+  {$ENDIF}
 
   // Base exception with stack trace support
   TBaseException=class(Exception)
@@ -169,11 +185,11 @@ interface
  function SafeFileName(fname:string):string; // Replace all unsafe characters with '_'
  function FileName(const fname:string):string; // исправление разделителей пути и применение case-правил
  procedure AddFileNameRule(const rule:string); // Добавить case-правило (например, правило "MyFile" превращает строки myFiLe или myfile в "MyFile")
- function GetFileSize(fname:AnsiString):int64;
+ function GetFileSize(fname:String8):int64;
  function WaitForFile(fname:String;delayLimit:integer;exists:boolean=true):boolean; // Подождать (не дольше delayLimit) до появления (или удаления) файла, возвращает false если не дождались
  function MyFileExists(fname:String):boolean; // Cross-platform version
  procedure MakeBakFile(fname:string); // Rename xxx.yyy to xxx.bak, delete old xxx.bak if any
- function LoadFileAsString(fname:String):AnsiString; // Load file content into string
+ function LoadFileAsString(fname:String):String8; // Load file content into string
  function LoadFileAsBytes(fname:String):ByteArray; // Load file content into byte array
  procedure SaveFile(fname:string;buf:pointer;size:integer); overload; // rewrite file with given data
  procedure SaveFile(fname:string;buf:ByteArray); overload; // rewrite file with given data
@@ -248,16 +264,16 @@ interface
  function Split(divider,st:string;quotes:char):StringArr; overload;
  // Разделяет строку на подстроки без каких-либо потерь
  function Split(divider,st:string):StringArr; overload;
- function SplitA(divider,st:AnsiString):AStringArr;
+ function SplitA(divider,st:String8):AStringArr;
  function SplitW(divider,st:WideString):WStringArr;
  // Search for a substring from specified point
  function PosFrom(substr,str:string;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
  function PosFrom(substr,str:WideString;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
- function LastPos(substr,str:AnsiString;ignoreCase:boolean=false):integer; overload;
+ function LastPos(substr,str:String8;ignoreCase:boolean=false):integer; overload;
  // Extract substring "prefix|xxx|suffix"
  function ExtractStr(str,prefix,suffix:string;out prefIndex:integer):string;
  // Basic uppercase
- function UpperCaseA(st:AnsiString):AnsiString;
+ function UpperCaseA(st:String8):String8;
  // Ignore case
  function SameChar(a,b:AnsiChar):boolean;
 
@@ -272,14 +288,14 @@ interface
 
  // Соединяет подстроки в одну строку используя символ-разделитель divider
  // Если разделитель встречается в строках, то он удваивается
- function Join(strings:AStringArr;divider:AnsiString):AnsiString; overload;
+ function Join(strings:AStringArr;divider:String8):String8; overload;
 
  // Соединяет значения (преобразованные из исходных типов в строковый вид) указанным разделителем
  function Join(items:array of const;divider:string):string; overload;
 
  // Проверяет, начинается ли строка st с подстроки
  function HasPrefix(st,prefix:string):boolean; overload;
- function HasPrefix(st,prefix:AnsiString;ignoreCase:boolean=false):boolean; overload;
+ function HasPrefix(st,prefix:String8;ignoreCase:boolean=false):boolean; overload;
 
  // Возвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
  function SafeStrItem(sa:StringArr;idx:integer):string;
@@ -290,20 +306,23 @@ interface
 
  // Раскодировать строку, заключенную в кавычки
  function UnQuoteStr(const st:string;quotes:char='"'):string; overload;
- function UnQuoteStr(const st:AnsiString;quotes:AnsiChar='"'):AnsiString; overload;
+ {$IFDEF ADDANSI}
+ function UnQuoteStr(const st:String8;quotes:AnsiChar='"'):String8; overload; {$ENDIF}
 
  // Заменяет \n \t и т.д. на соответствующие символы (а также \\ на \)
- function Unescape(st:AnsiString):AnsiString;
+ function Unescape(st:String8):String8;
  // Escape all characters #0/#1/CR/LF/TAB/'\'
- function Escape(st:AnsiString):AnsiString;
+ function Escape(st:String8):String8;
 
  // Убрать пробельные символы в начале и в конце
  function Chop(st:string):string; overload;
- function Chop(st:AnsiString):AnsiString; overload;
+ {$IFDEF ADDANSI}
+ function Chop(st:String8):String8; overload; {$ENDIF}
 
  // Возвращает последний символ строки (#0 если строка пустая)
  function LastChar(st:string):char; overload;
- function LastChar(st:AnsiString):AnsiChar; overload;
+ {$IFDEF ADDANSI}
+ function LastChar(st:String8):AnsiChar; overload; {$ENDIF}
 
  // Safe string indexing
  function CharAt(st:string;index:integer):char;
@@ -311,27 +330,28 @@ interface
 
  // заменяет служебные символы в строке таким образом, чтобы её можно было вставить в HTML
  function HTMLString(st:string):string; overload;
- function HTMLString(st:AnsiString):AnsiString; overload;
+ {$IFDEF ADDANSI}
+ function HTMLString(st:String8):String8; overload; {$ENDIF}
 
  // Закодировать URL согласно требованиям HTTP
- function UrlEncode(st:AnsiString):AnsiString;
+ function UrlEncode(st:String8):String8;
  // Раскодировать URL согласно требованиям HTTP
- function UrlDecode(st:AnsiString):AnsiString;
+ function UrlDecode(st:String8):String8;
  // Кодирует url из UTF8 в нормальный ASCII вид !!! WARNING! ОЧЕНЬ странная ф-ция - ХЗ начем она вообще нужна!
- function URLEncodeUTF8(st:AnsiString):AnsiString;
+ function URLEncodeUTF8(st:String8):String8;
 
  // Закодировать двоичные данные в строку (this is NOT Base64!)
- function EncodeB64(data:pointer;size:integer):AnsiString;
+ function EncodeB64(data:pointer;size:integer):String8;
  // Раскодировать данные из строки
- procedure DecodeB64(st:AnsiString;buf:pointer;var size:integer);
+ procedure DecodeB64(st:String8;buf:pointer;var size:integer);
  // Переводит строку к печатаемому варианту (заменяет спецсимволы), операция необратима!
- function PrintableStr(st:AnsiString):AnsiString;
+ function PrintableStr(st:String8):String8;
  // Закодировать строку в виде HEX
- function EncodeHex(st:AnsiString):AnsiString; overload;
+ function EncodeHex(st:String8):String8; overload;
  // Закодировать в HEX произвольные бинарные данные
- function EncodeHex(data:pointer;size:integer):AnsiString; overload;
- function DecodeHex(hexStr:AnsiString):AnsiString; overload;
- procedure DecodeHex(st:AnsiString;buf:pointer); overload;
+ function EncodeHex(data:pointer;size:integer):String8; overload;
+ function DecodeHex(hexStr:String8):String8; overload;
+ procedure DecodeHex(st:String8;buf:pointer); overload;
 
  function IsZeroMem(buf:pointer;size:integer):boolean;
 
@@ -340,8 +360,8 @@ interface
  procedure SimpleEncrypt2(var data;size,code:integer);
 
  // Простое сжатие (simplified LZ method, works good only for texts or similar strings)
- function SimpleCompress(data:AnsiString):AnsiString;
- function SimpleDecompress(data:AnsiString):AnsiString;
+ function SimpleCompress(data:String8):String8;
+ function SimpleDecompress(data:String8):String8;
 
  // Простое сжатие методом RLE
  function PackRLE(buf:pointer;size:integer;addHeader:boolean=true):ByteArray;
@@ -355,26 +375,32 @@ interface
  procedure ApplyDiffPatch(data:pointer;size:integer;patch:pointer;patchSize:integer);
 
  // Преобразует дату из строки в формате DD.MM.YYYY HH:MM:SS (другие форматы тоже понимает и распознаёт)
- function ParseDate(st:AnsiString;default:TDateTime=0):TDateTime;
- function GetDateFromStr(st:AnsiString;default:TDateTime=0):TDateTime; // alias for compatibility
- function ParseTime(st:AnsiString;default:TDateTime=0):TDateTime;
+ function ParseDate(st:String8;default:TDateTime=0):TDateTime;
+ function GetDateFromStr(st:String8;default:TDateTime=0):TDateTime; // alias for compatibility
+ function ParseTime(st:String8;default:TDateTime=0):TDateTime;
  // Возвращает строку с разницей между указанным временем и текущим моментом (сколько времени прошло с указанного момента)
  // Если указанный момент ещё не наступил, то первым символом будет +
  function HowLong(time:TDateTime):string;
 
  // UTF8 routines
- function IsUTF8(st:AnsiString):boolean; inline; // Check if string starts with BOM
- function EncodeUTF8(st:widestring;addBOM:boolean=false):AnsiString;
- function DecodeUTF8(st:AnsiString):widestring;
+ function IsUTF8(st:String8):boolean; inline; // Check if string starts with BOM
+ function EncodeUTF8(st:String16;addBOM:boolean=false):String8; overload;
+ procedure EncodeUTF8(st:String16;var dest:string); overload;
+ procedure EncodeUTF8(st:String16;var dest:String8); overload;
+ function UStr(st:String16):string; // Convert 16-bit string to the default string type (utf8 or utf16)
+ function WStr(st:string):string16; // Convert default string to the 16-bit string
+
+ function DecodeUTF8(st:String8):String16; overload;
+ function DecodeUTF8(st:String16):String16; overload; // Does nothing
  function DecodeUTF8A(sa:AStringArr):WStringArr; overload;
  function DecodeUTF8A(sa:StringArr):WStringArr; overload;
- function UTF8toWin1251(st:AnsiString):AnsiString;
- function Win1251toUTF8(st:AnsiString):AnsiString;
- function UpperCaseUtf8(st:AnsiString):AnsiString;
- function LowerCaseUtf8(st:AnsiString):AnsiString;
+ function UTF8toWin1251(st:String8):String8;
+ function Win1251toUTF8(st:String8):String8;
+ function UpperCaseUtf8(st:String8):String8;
+ function LowerCaseUtf8(st:String8):String8;
  // UTF-16 routines (Unicode)
- function UnicodeTo(st:WideString;encoding:TTextEncoding):AnsiString;
- function UnicodeFrom(st:AnsiString;encoding:TTextEncoding):WideString;
+ function UnicodeTo(st:WideString;encoding:TTextEncoding):String8;
+ function UnicodeFrom(st:String8;encoding:TTextEncoding):WideString;
 
 // function CopyUTF8(S:string; Index:Integer; Count:Integer):string; // analog of Copy which works with UTF8
 
@@ -435,9 +461,10 @@ interface
  procedure Swap(var a,b:single); overload; inline;
  procedure Swap(var a,b:string); overload; inline;
  {$IFDEF UNICODE}
- procedure Swap(var a,b:AnsiString); overload; inline;
+ procedure Swap(var a,b:String8); overload; inline;
+ {$ELSE}
+ procedure Swap(var a,b:String16); overload; inline;
  {$ENDIF}
- procedure Swap(var a,b:WideString); overload; inline;
  procedure Swap(var a,b;size:integer); overload; inline;
 
  // Псевдослучайное число от arg в диапазоне 0..module-1
@@ -464,8 +491,9 @@ interface
  // Преобразование типов данных
  // ---------------------------
  function HexToInt(st:string):int64; overload;  // Распознать шестнадцатиричное число
- function HexToInt(st:AnsiString):int64; overload;
- function HexToAStr(v:int64;digits:integer=0):AnsiString;
+ {$IFDEF ADDANSI}
+ function HexToInt(st:String8):int64; overload; {$ENDIF}
+ function HexToAStr(v:int64;digits:integer=0):String8;
  function SizeToStr(size:int64):string; // строка с короткой записью размера, типа 15.3M
  function FormatTime(time:int64):string; // строка с временным интервалом (time - в ms)
  function FormatInt(int:int64):string; // строка с числом (пробел разделяет группы цифр)
@@ -474,14 +502,16 @@ interface
  function IpToStr(ip:cardinal):string; // IP-адрес в строку (младший байт - первый)
  function StrToIp(ip:string):cardinal; // Строка в IP-адрес (младший байт - первый)
  function VarToStr(v:TVarRec):UnicodeString;  // Variant -> String
- function VarToAStr(v:TVarRec):AnsiString;
+ function VarToAStr(v:TVarRec):String8;
  function ParseInt(st:string):int64; inline; overload; // wrong characters ignored
- function ParseInt(st:AnsiString):int64; inline; overload; // wrong characters ignored
+ {$IFDEF ADDANSI}
+ function ParseInt(st:String8):int64; inline; overload; {$ENDIF}
  function ParseFloat(st:string):double; inline; // always use '.' as separator - replacement for SysUtils version
  function ParseIntList(st:string):IntArray; // '123 4,-12;3/5' -> [1234,-12,3,5]
  function ParseBool(st:string):boolean; overload;
- function ParseBool(st:AnsiString):boolean; overload;
- function BoolToAStr(b:boolean;short:boolean=true):AnsiString;
+ {$IFDEF ADDANSI}
+ function ParseBool(st:String8):boolean; overload; {$ENDIF}
+ function BoolToAStr(b:boolean;short:boolean=true):String8;
 
  function ListIntegers(a:array of integer;separator:char=','):string; overload; // array of integer => 'a[1],a[2],...,a[n]'
  function ListIntegers(a:system.PInteger;count:integer;separator:char=','):string; overload;
@@ -497,9 +527,9 @@ interface
  // Data Dump
  // ---------
  // строка с шестнадцатиричным дампом буфера
- function HexDump(buf:pointer;size:integer):AnsiString;
+ function HexDump(buf:pointer;size:integer):String8;
  // строка с десятичным дампом буфера
- function DecDump(buf:pointer;size:integer):AnsiString;
+ function DecDump(buf:pointer;size:integer):String8;
 
  procedure TestSystemPerformance;
 
@@ -508,7 +538,8 @@ interface
  function CheckSum64(adr:pointer;size:integer):int64; pascal;
  procedure FillRandom(var buf;size:integer);
  function StrHash(const st:string):cardinal; overload;
- function StrHash(const st:AnsiString):cardinal; overload;
+ {$IFDEF ADDANSI}
+ function StrHash(const st:String8):cardinal; overload; {$ENDIF}
 
  // Текущее время и дата (GMT)
  function NowGMT:TDateTime;
@@ -557,7 +588,7 @@ implementation
    last:integer;    // время последнего отклика
    lastreport:integer; // время последнего сообщения о задержке
    at:integer;       // сглаженное примерное время между интервалами
-   handle:cardinal;
+   handle:THandle;
    lastCS:PCriticalSection; // последняя критсекция, захваченная в этом потоке
   end;
 
@@ -705,20 +736,20 @@ implementation
   begin
    c:=a; a:=b; b:=c;
   end;
- {$IFDEF UNICODE}
- procedure Swap(var a,b:AnsiString); overload; inline;
+ procedure Swap(var a,b:String8); overload; inline;
   var
-   c:AnsiString;
+   c:String8;
+  begin
+   c:=a; a:=b; b:=c;
+  end;
+ {$IFNDEF UNICODE}
+ procedure Swap(var a,b:String16); overload; inline;
+  var
+   c:String16;
   begin
    c:=a; a:=b; b:=c;
   end;
  {$ENDIF}
- procedure Swap(var a,b:WideString); overload; inline;
-  var
-   c:WideString;
-  begin
-   c:=a; a:=b; b:=c;
-  end;
  procedure Swap(var a,b:single); overload; inline;
   var
    c:single;
@@ -778,7 +809,7 @@ implementation
     result[i]:=Char(c[1+random(62)]);
   end;
 
- function RealDump(buf:pointer;size:integer;hex:boolean):AnsiString;
+ function RealDump(buf:pointer;size:integer;hex:boolean):String8;
   var
    i:integer;
    pb:PByte;
@@ -808,12 +839,12 @@ implementation
   end;
 
 
- function HexDump(buf:pointer;size:integer):AnsiString;
+ function HexDump(buf:pointer;size:integer):String8;
   begin
    result:=RealDump(buf,size,true);
   end;
 
- function DecDump(buf:pointer;size:integer):AnsiString;
+ function DecDump(buf:pointer;size:integer):String8;
   begin
    result:=RealDump(buf,size,false);
   end;
@@ -869,7 +900,8 @@ implementation
     result:=result*$20844 xor byte(st[i]);
   end;
 
- function StrHash(const st:AnsiString):cardinal; overload;
+ {$IFDEF ADDANSI}
+ function StrHash(const st:String8):cardinal; overload;
   var
    i:integer;
   begin
@@ -877,6 +909,7 @@ implementation
    for i:=1 to length(st) do
     result:=result*$20844 xor byte(st[i]);
   end;
+ {$ENDIF}
 
  procedure FillRandom(var buf;size:integer);
   var
@@ -1025,7 +1058,8 @@ implementation
    end;
   end;
 
- function HexToInt(st:AnsiString):int64;
+ {$IFDEF ADDANSI}
+ function HexToInt(st:String8):int64;
   var
    i:integer;
    v:int64;
@@ -1042,8 +1076,9 @@ implementation
     v:=v*16;
    end;
   end;
+ {$ENDIF}
 
-function HexToAStr(v:int64;digits:integer=0):AnsiString;
+function HexToAStr(v:int64;digits:integer=0):String8;
  var
   l:integer;
   vv:int64;
@@ -1163,7 +1198,7 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
     vtBoolean:result:=BoolToStr(v.VBoolean,true);
     vtChar:result:=v.VChar;
     vtString:result:=ShortString(v.VString^);
-    vtAnsiString:result:=DecodeUTF8(AnsiString(v.VAnsiString));
+    vtAnsiString:result:=DecodeUTF8(String8(v.VAnsiString));
     vtExtended:result:=FloatToStrF(v.vExtended^,ffGeneral,12,0);
     vtVariant:result:=v.VVariant^;
     vtWideChar:result:=v.VWideChar;
@@ -1174,14 +1209,14 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
    end;
   end;
 
- function VarToAStr(v:TVarRec):AnsiString;
+ function VarToAStr(v:TVarRec):String8;
   begin
    case v.VType of
     vtInteger:result:=IntToStr(v.VInteger);
     vtBoolean:result:=BoolToAStr(v.VBoolean);
     vtChar:result:=v.VChar;
     vtString:result:=ShortString(v.VString^);
-    vtAnsiString:result:=AnsiString(v.VAnsiString);
+    vtAnsiString:result:=String8(v.VAnsiString);
     vtExtended:result:=FloatToStrF(v.vExtended^,ffGeneral,12,0);
     vtVariant:result:=v.VVariant^;
     vtWideChar:result:=v.VWideChar;
@@ -1220,7 +1255,8 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
    end;
   end;
 
- function ParseInt(st:AnsiString):int64;  // wrong characters ignored
+ {$IFDEF ADDANSI}
+ function ParseInt(st:String8):int64;  // wrong characters ignored
   var
    i:integer;
   begin
@@ -1232,6 +1268,7 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
     if st[i] in ['0'..'9'] then break;
    end;
   end;
+ {$ENDIF}
 
  function ParseIntList(st:string):IntArray; // '123 4,-12;3/5' -> [1234,-12,3,5]
   var
@@ -1265,13 +1302,15 @@ function HexToAStr(v:int64;digits:integer=0):AnsiString;
    result:=(st='Y') or (st='TRUE') or (st='1') or (st='-1') or (st='+');
   end;
 
- function ParseBool(st:AnsiString):boolean; overload;
+ {$IFDEF ADDANSI}
+ function ParseBool(st:String8):boolean; overload;
   begin
    st:=UpperCase(st);
    result:=(st='Y') or (st='TRUE') or (st='1') or (st='-1') or (st='+');
   end;
+ {$ENDIF}
 
- function BoolToAStr(b:boolean;short:boolean=true):AnsiString;
+ function BoolToAStr(b:boolean;short:boolean=true):String8;
   begin
    if short then begin
     if b then result:='Y' else result:='N';
@@ -1301,10 +1340,10 @@ function ListIntegers(a:array of integer;separator:char=','):string;
   end;
  end;
 
-function SimpleCompress(data:AnsiString):AnsiString;
+function SimpleCompress(data:String8):String8;
  var
   i,j,curpos,outpos,foundStart,foundLength,ofs,max:integer;
-  res:AnsiString;
+  res:String8;
   prev:array of integer; // array of backreferences: index of previous byte with the same value
   last:array[0..255] of integer; // index of last byte of given value
   b:byte;
@@ -1382,10 +1421,10 @@ function SimpleCompress(data:AnsiString):AnsiString;
   result:=res;
  end;
 
-function SimpleDecompress(data:AnsiString):AnsiString;
+function SimpleDecompress(data:String8):String8;
  var
   i,curpos,outpos,rsize,bCount,ofs,L,M:integer;
-  res:AnsiString;
+  res:String8;
  function GetBits(cnt:integer):cardinal;
   var
    i:integer;
@@ -1710,7 +1749,7 @@ procedure SimpleEncrypt2;
   end;
  end;
 
- function PrintableStr(st:AnsiString):AnsiString;
+ function PrintableStr(st:String8):String8;
   var
    i,max,p:integer;
   begin
@@ -1780,7 +1819,7 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function EncodeHex(st:AnsiString):AnsiString;
+ function EncodeHex(st:String8):String8;
   var
    i:integer;
    b:byte;
@@ -1793,7 +1832,7 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function EncodeHex(data:pointer;size:integer):AnsiString; overload;
+ function EncodeHex(data:pointer;size:integer):String8; overload;
   var
    i:integer;
    pb:PByte;
@@ -1807,7 +1846,7 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function DecodeHex(hexStr:AnsiString):AnsiString;
+ function DecodeHex(hexStr:String8):String8;
   var
    i,j:integer;
    b:byte;
@@ -1821,7 +1860,7 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- procedure DecodeHex(st:AnsiString;buf:pointer); overload;
+ procedure DecodeHex(st:String8;buf:pointer); overload;
   var
    pb:PByte;
    i:integer;
@@ -1876,13 +1915,45 @@ procedure SimpleEncrypt2;
    result:=true;
   end;
 
- function IsUTF8(st:AnsiString):boolean; inline;
+ function IsUTF8(st:String8):boolean; inline;
   begin
    if (length(st)>=3) and (st[1]=#$EF) and (st[2]=#$BB) and (st[3]=#$BF) then result:=true
     else result:=false;
   end;
 
- function EncodeUTF8(st:widestring;addBOM:boolean=false):AnsiString;
+ function UStr(st:String16):string; // Convert to UTF8 if string is 8-bit
+  begin
+   {$IFDEF UNICODE}
+   result:=st;
+   {$ELSE}
+   EncodeUTF8(st,result);
+   {$ENDIF}
+  end;
+
+ function WStr(st:string):string16; // Convert default string to the 16-bit string
+  begin
+   {$IFDEF UNICODE}
+   result:=st;
+   {$ELSE}
+   result:=DecodeUTF8(st);
+   {$ENDIF}
+  end;
+
+ procedure EncodeUTF8(st:String16;var dest:string);
+  begin
+   {$IFDEF UNICODE}
+   dest:=st;
+   {$ELSE}
+   dest:=EncodeUTF8(st);
+   {$ENDIF}
+  end;
+
+ procedure EncodeUTF8(st:String16;var dest:String8); overload;
+  begin
+   dest:=EncodeUTF8(st);
+  end;
+
+ function EncodeUTF8(st:String16;addBOM:boolean=false):String8;
   var
    l,i:integer;
    w:word;
@@ -1912,7 +1983,12 @@ procedure SimpleEncrypt2;
    setLength(result,l);
   end;
 
- function DecodeUTF8(st:AnsiString):WideString;
+ function DecodeUTF8(st:String16):String16;
+  begin
+   result:=st;
+  end;
+
+ function DecodeUTF8(st:String8):String16;
   var
    i,l:integer;
    w:word;
@@ -1977,7 +2053,7 @@ procedure SimpleEncrypt2;
    {$ENDIF}
   end;
 
- function UTF8toWin1251(st:AnsiString):AnsiString;
+ function UTF8toWin1251(st:String8):String8;
   var
    ws:widestring;
    i:integer;
@@ -1988,7 +2064,7 @@ procedure SimpleEncrypt2;
     result[i]:=ConvertUnicodeToWindows(ws[i]);
   end;
 
- function Win1251toUTF8(st:AnsiString):AnsiString;
+ function Win1251toUTF8(st:String8):String8;
   var
    ws:widestring;
    i:integer;
@@ -1999,7 +2075,7 @@ procedure SimpleEncrypt2;
    result:=EncodeUTF8(ws);
   end;
 
- function UpperCaseUtf8(st:AnsiString):AnsiString;
+ function UpperCaseUtf8(st:String8):String8;
   var
    wst:WideString;
   begin
@@ -2008,7 +2084,7 @@ procedure SimpleEncrypt2;
    result:=EncodeUTF8(wst);
   end;
 
- function LowerCaseUtf8(st:AnsiString):AnsiString;
+ function LowerCaseUtf8(st:String8):String8;
   var
    wst:WideString;
   begin
@@ -2017,7 +2093,7 @@ procedure SimpleEncrypt2;
    result:=EncodeUTF8(wst);
   end;
 
- function UnicodeTo(st:WideString;encoding:TTextEncoding):AnsiString;
+ function UnicodeTo(st:WideString;encoding:TTextEncoding):String8;
   var
    i:integer;
   begin
@@ -2041,7 +2117,7 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function UnicodeFrom(st:AnsiString;encoding:TTextEncoding):WideString;
+ function UnicodeFrom(st:String8;encoding:TTextEncoding):WideString;
   var
    i:integer;
   begin
@@ -2071,13 +2147,15 @@ procedure SimpleEncrypt2;
    result:=st;
   end;
 
- function HTMLString(st:Ansistring):Ansistring;
+ {$IFDEF ADDANSI}
+ function HTMLString(st:String8):String8;
   begin
    st:=StringReplace(st,'&','&amp;',[rfReplaceAll]);
    st:=StringReplace(st,'<','&lt;',[rfReplaceAll]);
    st:=StringReplace(st,'>','&gt;',[rfReplaceAll]);
    result:=st;
   end;
+ {$ENDIF}
 
  function UrlEncode;
   var
@@ -2092,7 +2170,7 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function URLEncodeUTF8(st:Ansistring):Ansistring;
+ function URLEncodeUTF8(st:String8):String8;
   var
    i:integer;
    ch:ansichar;
@@ -2148,7 +2226,8 @@ procedure SimpleEncrypt2;
    result:=quotes+StringReplace(st,quotes,quotes+quotes,[rfReplaceAll])+quotes;
   end;
 
- function UnQuoteStr(const st:AnsiString;quotes:AnsiChar='"'):AnsiString; overload;
+ {$IFDEF ADDANSI}
+ function UnQuoteStr(const st:String8;quotes:AnsiChar='"'):String8; overload;
   begin
    if (length(st)=0) or (st[1]<>quotes) then begin
     result:=st;
@@ -2159,6 +2238,7 @@ procedure SimpleEncrypt2;
    if result[length(result)]=quotes then SetLength(result,length(result)-1);
    result:=StringReplace(result,quotes+quotes,quotes,[rfReplaceAll]);
   end;
+ {$ENDIF}
  function UnQuoteStr(const st:String;quotes:Char='"'):String; overload;
   begin
    if (length(st)=0) or (st[1]<>quotes) then begin
@@ -2171,10 +2251,10 @@ procedure SimpleEncrypt2;
    result:=StringReplace(result,quotes+quotes,quotes,[rfReplaceAll]);
   end;
 
- function Unescape(st:AnsiString):AnsiString;
+ function Unescape(st:String8):String8;
   var
    i,c,l,v:integer;
-   tmp:AnsiString;
+   tmp:String8;
   begin
    SetLength(result,length(st));
    l:=0; i:=1; c:=0;
@@ -2222,7 +2302,7 @@ procedure SimpleEncrypt2;
    SetLength(result,l);
   end;
 
- function Escape(st:AnsiString):AnsiString;
+ function Escape(st:String8):String8;
   var
    i,l:integer;
   begin
@@ -2248,11 +2328,11 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function ParseDate(st:AnsiString;default:TDateTime=0):TDateTime;
+ function ParseDate(st:String8;default:TDateTime=0):TDateTime;
   var
    s1,s2:AStringArr;
    year,month,day,hour,min,sec:integer;
-   splitter:AnsiString;
+   splitter:String8;
   begin
    result:=default;
    try
@@ -2287,7 +2367,7 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function ParseTime(st:AnsiString;default:TDateTime=0):TDateTime;
+ function ParseTime(st:String8;default:TDateTime=0):TDateTime;
   var
    sa:AStringArr;
    hour,min,sec,msec:integer;
@@ -2312,7 +2392,7 @@ procedure SimpleEncrypt2;
    end;
   end;
 
- function GetDateFromStr(st:AnsiString;default:TDateTime):TDateTime;
+ function GetDateFromStr(st:String8;default:TDateTime):TDateTime;
   begin
    result:=ParseDate(st);
   end;
@@ -2540,7 +2620,7 @@ const
   procedure QuickSort(a,b:integer);
    var
     lo,hi,mid:integer;
-    midval:AnsiString;
+    midval:String8;
    begin
     lo:=a; hi:=b;
     mid:=(a+b) div 2;
@@ -2566,7 +2646,7 @@ const
   procedure QuickSort(a,b:integer);
    var
     lo,hi,mid:integer;
-    midval:WideString;
+    midval:String16;
    begin
     lo:=a; hi:=b;
     mid:=(a+b) div 2;
@@ -2976,7 +3056,7 @@ function BinToStr;
    end;
   end;
 
- function LastPos(substr,str:AnsiString;ignoreCase:boolean=false):integer; overload;
+ function LastPos(substr,str:String8;ignoreCase:boolean=false):integer; overload;
   var
    i,p,l:integer;
   begin
@@ -3011,7 +3091,7 @@ function BinToStr;
    end;
   end;
 
- function UpperCaseA(st:AnsiString):AnsiString;
+ function UpperCaseA(st:String8):String8;
   var
    i:integer;
    pb:PByte;
@@ -3139,7 +3219,7 @@ function BinToStr;
    end;
   end;
 
- function SplitA(divider,st:AnsiString):AStringArr;
+ function SplitA(divider,st:String8):AStringArr;
   var
    i,j,n,divLen,maxIdx:integer;
    fl:boolean;
@@ -3180,7 +3260,7 @@ function BinToStr;
    for i:=0 to n-1 do begin
     j:=idx[i+1]-divLen-idx[i];
     SetLength(result[i],j);
-    if j>0 then result[i]:=copy(st,idx[i],j);
+    if j>0 then move(st[idx[i]],result[i][1],j);
    end;
   end;
 
@@ -3295,7 +3375,7 @@ function BinToStr;
    SetLength(result,n-1);
   end;
 
- function Join(strings:AStringArr;divider:AnsiString):AnsiString; overload;
+ function Join(strings:AStringArr;divider:String8):String8; overload;
   var
    i,j,l,s,n,dl:integer;
    src:PAnsiChar;
@@ -3336,7 +3416,7 @@ function BinToStr;
    result:=true;
   end;
 
- function HasPrefix(st,prefix:AnsiString;ignoreCase:boolean=false):boolean; overload;
+ function HasPrefix(st,prefix:String8;ignoreCase:boolean=false):boolean; overload;
   var
    i:integer;
   begin
@@ -3357,7 +3437,8 @@ function BinToStr;
    result:=sa[idx];
   end;
 
- function Chop(st:AnsiString):AnsiString; overload;
+ {$IFDEF ADDANSI}
+ function Chop(st:String8):String8; overload;
   var
    i:integer;
   begin
@@ -3367,7 +3448,7 @@ function BinToStr;
    while (length(result)>0) and (result[i]<=' ') do dec(i);
    setlength(result,i);
   end;
-
+ {$ENDIF}
  function Chop(st:String):String; overload;
   var
    i:integer;
@@ -3384,11 +3465,13 @@ function BinToStr;
    if st='' then result:=#0
     else result:=st[length(st)];
   end;
- function LastChar(st:AnsiString):AnsiChar;
+ {$IFDEF ADDANSI}
+ function LastChar(st:String8):AnsiChar;
   begin
    if st='' then result:=#0
     else result:=st[length(st)];
   end;
+ {$ENDIF}
 
  function CharAt(st:string;index:integer):char;
   begin
@@ -3905,7 +3988,7 @@ procedure DumpDir(path:string);
    end;
   end;
 
- function GetFileSize(fname:AnsiString):int64;
+ function GetFileSize(fname:String8):int64;
   {$IFDEF MSWINDOWS}
   var
    openbuff:TOFSTRUCT;
@@ -3914,11 +3997,11 @@ procedure DumpDir(path:string);
   begin
    result:=-1;
    try
-    h:=OpenFile(PAnsiChar(fname),openBuff,0);
-    if h=HFILE_ERROR then exit;
+    h:=FileOpen(fName,fmOpenRead);
+    if h=INVALID_HANDLE_VALUE then exit;
     data[0]:=windows.GetFileSize(h,@data[1]);
     move(data,result,8);
-    CloseHandle(h);
+    FileClose(h);
    except
    end;
   end;
@@ -3951,7 +4034,7 @@ procedure DumpDir(path:string);
    {$ENDIF}
   end;
 
- function LoadFileAsString(fname:string):AnsiString;
+ function LoadFileAsString(fname:string):String8;
   var
    buf:ByteArray;
   begin
@@ -4709,10 +4792,8 @@ function GetParam(name:string):string;
   end;
  end;
 
-var
- v:Int64;
+{$IF Declared(SRWLOCK)}
 { TSRWLock }
-
 procedure TSRWLock.Init(name: string);
 begin
  self.name:=name;
@@ -4738,6 +4819,10 @@ procedure TSRWLock.FinishWrite;
 begin
  ReleaseSRWLockExclusive(lock);
 end;
+{$ENDIF}
+
+var
+ v:Int64;
 
 initialization
  SetDecimalSeparator('.');
@@ -4749,17 +4834,16 @@ initialization
  {$IFDEF MSWINDOWS}
  InitializeCriticalSection(crSection);
  startTimeMS:=timeGetTime;
-// timeBeginPeriod(1);
  {$ELSE}
  InitCriticalSection(crSection);
  startTimeMS:=CrossPlatform.GetTickCount;
  {$ENDIF}
  startTime:=MyTickCount;
+
 finalization
  if logThread<>nil then StopLogThread;
  {$IFDEF MSWINDOWS}
  DeleteCriticalSection(crSection);
-// timeEndPeriod(1);
  {$ELSE}
  DoneCriticalSection(crSection);
  {$ENDIF}
