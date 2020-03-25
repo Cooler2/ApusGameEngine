@@ -3260,7 +3260,7 @@ function BinToStr;
    for i:=0 to n-1 do begin
     j:=idx[i+1]-divLen-idx[i];
     SetLength(result[i],j);
-    if j>0 then result[i]:=copy(st,idx[i],j);
+    if j>0 then move(st[idx[i]],result[i][1],j);
    end;
   end;
 
