@@ -594,12 +594,12 @@ var
  c:TUIControl;
  time:cardinal;
  st:string;
- list:array of TUIControl;
 
  procedure ProcessControl(c:TUIControl);
   var
    j:integer;
    cnt:integer;
+   list:array[0..255] of TUIControl;
   begin
    if c=nil then exit;
    if c.timer>0 then
@@ -608,9 +608,8 @@ var
      c.onTimer;
     end else dec(c.timer,delta);
 
-   cnt:=length(c.children);
+   cnt:=clamp(length(c.children),0,length(list)); // Can't process more than 255 nested elements
    if cnt>0 then begin
-    if cnt>length(list) then SetLength(list,cnt+20);
     for j:=0 to cnt-1 do list[j]:=c.children[j];
     for j:=0 to cnt-1 do ProcessControl(list[j]);
    end;
@@ -885,7 +884,7 @@ var
      [c.position.x,c.position.y,c.size.x,c.size.y,c.globalRect.Left,c.globalRect.Top]));
    writeln(f);
    for i:=0 to length(c.children)-1 do
-    DumpControl(c.children[i],indent+'  ');
+    DumpControl(c.children[i],indent+'+ ');
   end;
  function SceneInfo(s:TGameScene):string;
   begin

@@ -178,6 +178,8 @@ type
   function HasParent(c:TUIControl):boolean;
   // Есть ли у данного элемента указанный потомок (direct or indirect) (HasChild(self)=true)
   function HasChild(c:TUIControl):boolean;
+  // Delete all children elements
+  procedure Clear;
 
   // Attach to a new parent
   procedure AttachTo(newParent:TUIControl);
@@ -675,7 +677,8 @@ begin
   result:=rootControls[i].FindByName(name);
   if result<>nil then exit;
  end;
- if mustExist and (result=nil) then raise EWarning.Create('Control '+name+' not found');
+ if mustExist and (result=nil) then
+  raise EWarning.Create('Control '+name+' not found');
  finally
   UICritSect.Leave;
  end;
@@ -918,6 +921,20 @@ begin
   SetFocus;
 end;
 
+procedure TUIControl.Clear;
+var
+ i:integer;
+begin
+ UICritSect.Enter;
+ try
+  for i:=0 to high(children) do
+   FreeAndNil(children[i]);
+  SetLength(children,0);
+ finally
+  UICritSect.Leave;
+ end;
+end;
+
 constructor TUIControl.Create(width, height: single; parent_:TUIControl;name_:string='');
 var
  n:integer;
@@ -971,29 +988,21 @@ destructor TUIControl.Destroy;
 var
  i,n:integer;
 begin
- if fControl=self then begin
-  onLostFocus;
-  fControl:=nil;
+ try
+  if fControl=self then begin
+   onLostFocus;
+   fControl:=nil;
+  end;
+  if underMouse=self then underMouse:=parent;
+  if parent=nil then
+   RemoveFromRootControls
+  else
+   Detach(false);
+  Clear;
+  FreeAndNil(region);
+ except
+  on e:Exception do raise EError.Create(Format('Destroy error for %s: %s',[name,ExceptionMsg(e)]));
  end;
- if underMouse=self then underMouse:=parent;
- // Destroy all the children
- for i:=0 to length(children)-1 do
-  children[i].Free;
- SetLength(children,0);
- // Remove from parent's children
- if parent<>nil then begin
-  n:=Length(parent.children);
-  for i:=1 to n do
-   if parent.children[i-1]=self then begin
-    parent.children[i-1]:=parent.children[n-1]; break;
-   end;
-  dec(n);
-  SetLength(parent.children,n);
- end else begin
-  // Элемент без предка -> удалить из списка корневых
-  RemoveFromRootControls;
- end;
- region.free;
  inherited;
 end;
 
