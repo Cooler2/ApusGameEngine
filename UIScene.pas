@@ -594,9 +594,12 @@ var
  c:TUIControl;
  time:cardinal;
  st:string;
+
  procedure ProcessControl(c:TUIControl);
   var
    j:integer;
+   cnt:integer;
+   list:array[0..255] of TUIControl;
   begin
    if c=nil then exit;
    if c.timer>0 then
@@ -604,9 +607,12 @@ var
      c.timer:=0;
      c.onTimer;
     end else dec(c.timer,delta);
-   if length(c.children)>0 then
-    for j:=0 to length(c.children)-1 do
-     ProcessControl(c.children[j]);
+
+   cnt:=clamp(length(c.children),0,length(list)); // Can't process more than 255 nested elements
+   if cnt>0 then begin
+    for j:=0 to cnt-1 do list[j]:=c.children[j];
+    for j:=0 to cnt-1 do ProcessControl(list[j]);
+   end;
   end;
 begin
  result:=true;
@@ -859,7 +865,7 @@ begin
  hint.font:=font;
  hint.style:=defaultHintStyle;
  hint.timer:=time;
- hint.order:=1000;
+ hint.order:=10000; // Top
  curhint:=hint;
  LogMessage('Hint created '+inttohex(cardinal(hint),8));
 end;
@@ -878,7 +884,7 @@ var
      [c.position.x,c.position.y,c.size.x,c.size.y,c.globalRect.Left,c.globalRect.Top]));
    writeln(f);
    for i:=0 to length(c.children)-1 do
-    DumpControl(c.children[i],indent+'  ');
+    DumpControl(c.children[i],indent+'+ ');
   end;
  function SceneInfo(s:TGameScene):string;
   begin
@@ -886,7 +892,7 @@ var
    result:=Format('  %-20s Z=%-10d  status=%-2d type=%-2d eff=%s',
      [s.name,s.zorder,ord(s.status),byte(s.fullscreen),PtrToStr(s.effect)]);
    if s is TUIScene then
-    result:=result+' UI='+PtrToStr(TUIScene(s).UI);
+    result:=result+Format(' UI=%s (%s)',[TUIScene(s).UI.fName, PtrToStr(TUIScene(s).UI)]);
   end;
 begin
  try

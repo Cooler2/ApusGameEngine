@@ -1,4 +1,4 @@
-// This program is used to
+п»ї// This program is used to
 // 1) build core modules
 // 2) test core modules in
 //    a) interactive mode
@@ -60,6 +60,25 @@ var
  pb:PByte;
 
  testsFailed:boolean;
+
+procedure TestConversions;
+ const
+  testString='РџСЂРёРІРµС‚!';
+ var
+  st:string;
+  st8:String8;
+  st16:String16;
+ begin
+  ASSERT(HexToInt(String('123456789ABCDEF'))=$123456789ABCDEF);
+  ASSERT(HexToInt(AnsiString('123456789ABCDEF'))=$123456789ABCDEF);
+  // String conversions
+  st:=UStr(testString);
+  st16:=WStr(st);
+  ASSERT(st16=testString);
+  st8:=EncodeUTF8(testString);
+  st16:=DecodeUTF8(st8);
+  ASSERT(st16=testString);
+ end;
 
 procedure TestQuotes;
  const
@@ -261,13 +280,13 @@ procedure TestQuotes;
    SetLength(ref,2000);
    for i:=0 to High(ref) do ref[i]:=-1;
 
-   // TEST 1: тест малых объемов, ключ уникальный
+   // TEST 1: С‚РµСЃС‚ РјР°Р»С‹С… РѕР±СЉРµРјРѕРІ, РєР»СЋС‡ СѓРЅРёРєР°Р»СЊРЅС‹Р№
    t:=MyTickCount;
    errors:=0;
-   for i:=1 to 80000 do begin // проводим тест 80000 раз
+   for i:=1 to 80000 do begin // РїСЂРѕРІРѕРґРёРј С‚РµСЃС‚ 80000 СЂР°Р·
     for j:=0 to 11 do ref[j]:=-1;
     hash.Init;
-    // заносим в хэш 20 случайных значений с ключами от 0 до 11
+    // Р·Р°РЅРѕСЃРёРј РІ С…СЌС€ 20 СЃР»СѓС‡Р°Р№РЅС‹С… Р·РЅР°С‡РµРЅРёР№ СЃ РєР»СЋС‡Р°РјРё РѕС‚ 0 РґРѕ 11
     for j:=1 to 20 do begin
      k:=random(12);
      v:=random(100)-10;
@@ -276,12 +295,12 @@ procedure TestQuotes;
       hash.Put(key,v);
       ref[k]:=v;
      end else begin
-      hash.Put(key,Unassigned); // удаление
+      hash.Put(key,Unassigned); // СѓРґР°Р»РµРЅРёРµ
       ref[k]:=-1;
      end;
     end;
     if i and 15=0 then hash.SortKeys;
-    // Проверяем корректность
+    // РџСЂРѕРІРµСЂСЏРµРј РєРѕСЂСЂРµРєС‚РЅРѕСЃС‚СЊ
     for j:=0 to 11 do begin
      key:='K'+IntToStr(j);
      vr:=hash.Get(key);
@@ -296,14 +315,14 @@ procedure TestQuotes;
    end;
    writeln('TEST1 time: ',MyTickCount-t,'  errors: ',errors);
 
-   // TEST 2: тест пограничных объемов, ключ уникальный
+   // TEST 2: С‚РµСЃС‚ РїРѕРіСЂР°РЅРёС‡РЅС‹С… РѕР±СЉРµРјРѕРІ, РєР»СЋС‡ СѓРЅРёРєР°Р»СЊРЅС‹Р№
    t:=MyTickCount;
    errors:=0;
    for i:=1 to 50000 do begin
     m:=5+i and 31;
     for j:=0 to m do ref[j]:=-1;
     hash.Init;
-    // заносим в хэш 30 случайных значений с ключами от 0 до m
+    // Р·Р°РЅРѕСЃРёРј РІ С…СЌС€ 30 СЃР»СѓС‡Р°Р№РЅС‹С… Р·РЅР°С‡РµРЅРёР№ СЃ РєР»СЋС‡Р°РјРё РѕС‚ 0 РґРѕ m
     for j:=1 to 30 do begin
      k:=random(m);
      v:=random(100)-10;
@@ -312,12 +331,12 @@ procedure TestQuotes;
       hash.Put(key,v);
       ref[k]:=v;
      end else begin
-      hash.Put(key,Unassigned); // удаление
+      hash.Put(key,Unassigned); // СѓРґР°Р»РµРЅРёРµ
       ref[k]:=-1;
      end;
     end;
     if i<1000 then hash.SortKeys;
-    // Проверяем корректность
+    // РџСЂРѕРІРµСЂСЏРµРј РєРѕСЂСЂРµРєС‚РЅРѕСЃС‚СЊ
     for j:=0 to m-1 do begin
      key:='K'+IntToStr(j)+'Hello!';
      vr:=hash.Get(key);
@@ -334,14 +353,14 @@ procedure TestQuotes;
    writeln('TEST2 time: ',MyTickCount-t,'  errors: ',errors);
 
 
-   // TEST 3: тест больших объемов, ключ уникальный
+   // TEST 3: С‚РµСЃС‚ Р±РѕР»СЊС€РёС… РѕР±СЉРµРјРѕРІ, РєР»СЋС‡ СѓРЅРёРєР°Р»СЊРЅС‹Р№
    t:=MyTickCount;
    errors:=0;
    randSeed:=12345678;
    for i:=1 to 5000 do begin
     for j:=0 to 199 do ref[j]:=-1;
     hash.Init;
-    // заносим в хэш 300 случайных значений с ключами от 0 до 199
+    // Р·Р°РЅРѕСЃРёРј РІ С…СЌС€ 300 СЃР»СѓС‡Р°Р№РЅС‹С… Р·РЅР°С‡РµРЅРёР№ СЃ РєР»СЋС‡Р°РјРё РѕС‚ 0 РґРѕ 199
     for j:=1 to 300 do begin
      k:=random(200);
      v:=random(1000)-100;
@@ -350,13 +369,13 @@ procedure TestQuotes;
       hash.Put(key,v);
       ref[k]:=v;
      end else begin
-      hash.Put(key,Unassigned); // удаление
+      hash.Put(key,Unassigned); // СѓРґР°Р»РµРЅРёРµ
       ref[k]:=-1;
      end;
     end;
 //    if i and 15=0 then
      hash.SortKeys;
-    // Проверяем корректность
+    // РџСЂРѕРІРµСЂСЏРµРј РєРѕСЂСЂРµРєС‚РЅРѕСЃС‚СЊ
     for j:=0 to 199 do begin
      key:='K'+IntToStr(j);
      vr:=hash.Get(key);
@@ -370,13 +389,13 @@ procedure TestQuotes;
    end;
    writeln('TEST3 time: ',MyTickCount-t,'  errors: ',errors);
 
-   // TEST 1M: тест малых объемов, множественные значения
+   // TEST 1M: С‚РµСЃС‚ РјР°Р»С‹С… РѕР±СЉРµРјРѕРІ, РјРЅРѕР¶РµСЃС‚РІРµРЅРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ
    t:=MyTickCount;
    errors:=0;
    for i:=1 to 50000 do begin
     for j:=0 to 11 do ref[j]:=0;
     hash.Init(true);
-    // заносим в хэш 20 случайных значений с ключами от 0 до 11
+    // Р·Р°РЅРѕСЃРёРј РІ С…СЌС€ 20 СЃР»СѓС‡Р°Р№РЅС‹С… Р·РЅР°С‡РµРЅРёР№ СЃ РєР»СЋС‡Р°РјРё РѕС‚ 0 РґРѕ 11
     for j:=1 to 20 do begin
      k:=random(12);
      v:=random(100);
@@ -387,7 +406,7 @@ procedure TestQuotes;
      end;
     end;
     if i and 15=0 then hash.SortKeys;
-    // Проверяем корректность
+    // РџСЂРѕРІРµСЂСЏРµРј РєРѕСЂСЂРµРєС‚РЅРѕСЃС‚СЊ
     for j:=0 to 11 do begin
      key:='K'+IntToStr(j);
      n:=0;
@@ -400,13 +419,13 @@ procedure TestQuotes;
    end;
    writeln('TEST1M time: ',MyTickCount-t,'  errors: ',errors);
 
-   // TEST 3M: тест больших объемов, множественные значения
+   // TEST 3M: С‚РµСЃС‚ Р±РѕР»СЊС€РёС… РѕР±СЉРµРјРѕРІ, РјРЅРѕР¶РµСЃС‚РІРµРЅРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ
    t:=MyTickCount;
    errors:=0;
    for i:=1 to 500 do begin
     for j:=0 to 1999 do ref[j]:=0;
     hash.Init(true);
-    // заносим в хэш 3000 случайных значений с ключами от 0 до 1999
+    // Р·Р°РЅРѕСЃРёРј РІ С…СЌС€ 3000 СЃР»СѓС‡Р°Р№РЅС‹С… Р·РЅР°С‡РµРЅРёР№ СЃ РєР»СЋС‡Р°РјРё РѕС‚ 0 РґРѕ 1999
     for j:=1 to 4000 do begin
      k:=random(2000);
      v:=random(10000);
@@ -417,7 +436,7 @@ procedure TestQuotes;
      end;
     end;
     if i and 15=0 then hash.SortKeys;
-    // Проверяем корректность
+    // РџСЂРѕРІРµСЂСЏРµРј РєРѕСЂСЂРµРєС‚РЅРѕСЃС‚СЊ
     for j:=0 to 1999 do begin
      key:='K'+IntToStr(j);
      n:=0;
@@ -461,7 +480,7 @@ procedure TestQuotes;
     // Fill the table
     for i:=0 to high(table) do begin
      fl:=true;
-     keys[i]:=RandomStr(7+random(3)); // ключ
+     keys[i]:=RandomStr(7+random(3)); // РєР»СЋС‡
      for j:=1 to 15 do begin
       if fl then table[i,j]:=RandomVariant
        else table[i,j]:=Unassigned;
@@ -477,10 +496,10 @@ procedure TestQuotes;
     end;
     if test mod 10=2 then hash.SortKeys;
 
-    // Проверяем корректность данных
+    // РџСЂРѕРІРµСЂСЏРµРј РєРѕСЂСЂРµРєС‚РЅРѕСЃС‚СЊ РґР°РЅРЅС‹С…
     for i:=1 to 1000 do begin
-     k:=random(length(table)); // проверяем эту строку
-     // 1. Через GetAll
+     k:=random(length(table)); // РїСЂРѕРІРµСЂСЏРµРј СЌС‚Сѓ СЃС‚СЂРѕРєСѓ
+     // 1. Р§РµСЂРµР· GetAll
      line:=hash.GetAll(keys[k]);
      for j:=0 to high(line) do
       if (VarType(line[j])<>VarType(table[k,1+j])) or (line[j]<>table[k,1+j]) then
@@ -488,7 +507,7 @@ procedure TestQuotes;
      if length(line)<15 then
       if not VarIsEmpty(table[k,1+length(line)]) then
         inc(errors);
-     // 2. Через Get + GetNext
+     // 2. Р§РµСЂРµР· Get + GetNext
      j:=1;
      v:=hash.Get(keys[k]);
      while not VarIsEmpty(v) do begin
@@ -499,14 +518,14 @@ procedure TestQuotes;
       inc(j);
       v:=hash.GetNext;
      end;
-     // 3. Через Get(idx)
+     // 3. Р§РµСЂРµР· Get(idx)
      j:=random(15);
      v:=hash.Get(keys[k],j);
      if v<>table[k,1+j] then
       inc(errors);
     end;
 
-    // Проверяем AllKeys
+    // РџСЂРѕРІРµСЂСЏРµРј AllKeys
     sa:=hash.AllKeys;
     SortStrings(sa);
     SortStrings(keys);
@@ -724,12 +743,12 @@ end;
   begin
    InterlockedIncrement(gCount);
    e:=0;
-   // заполнение
+   // Р·Р°РїРѕР»РЅРµРЅРёРµ
    for i:=1 to 1000000 do begin
     j:=random(500)*2;
     hMT.Put(j,j*10);
    end;
-   // проверка
+   // РїСЂРѕРІРµСЂРєР°
    for i:=1 to 499 do begin
     if hMT.HasValue(i*2-1) then
      inc(e);
@@ -772,7 +791,7 @@ end;
     end;
    writeln('Time: ',MyTickCount-t,' Errors: ',e);
 
-   // Более чёткий тест
+   // Р‘РѕР»РµРµ С‡С‘С‚РєРёР№ С‚РµСЃС‚
    SetLength(a,10000);
    for i:=0 to 9999 do
     a[i]:=i*100+random(100);
@@ -787,7 +806,7 @@ end;
     if h.Get(a[i])<>a[i] then inc(e);
    writeln('Time: ',MyTickCount-t,' Errors: ',e);
 
-   // Еще более чёткий тест!
+   // Р•С‰Рµ Р±РѕР»РµРµ С‡С‘С‚РєРёР№ С‚РµСЃС‚!
    SetLength(a,1000);
    for i:=0 to 999 do a[i]:=-1; // empty
    h.Init(300);
@@ -1227,7 +1246,7 @@ procedure TestMemoryStat;
    if maxD>2 then testsFailed:=true;
   end;
 
- // Вывод: сравнение через lowercase - в 4-5 раз быстрее, чем через AnsiSameText
+ // Р’С‹РІРѕРґ: СЃСЂР°РІРЅРµРЅРёРµ С‡РµСЂРµР· lowercase - РІ 4-5 СЂР°Р· Р±С‹СЃС‚СЂРµРµ, С‡РµРј С‡РµСЂРµР· AnsiSameText
  procedure TestSort;
   var
    data:array[1..5000] of string;
@@ -1284,8 +1303,8 @@ procedure TestMemoryStat;
    writeln('Time1 = ',t);}
 
    t:=MyTickCount;
-   w1:='невероятный';
-   w2:='невероятным';
+   w1:='РЅРµРІРµСЂРѕСЏС‚РЅС‹Р№';
+   w2:='РЅРµРІРµСЂРѕСЏС‚РЅС‹Рј';
    for i:=1 to 1000000 do
     k:=GetWordsDistance(w1,w2);
 //    ia:=GetMaxSubsequence(w1,w2);
@@ -1354,8 +1373,8 @@ procedure TestMemoryStat;
 
  procedure TestClipboard;
   const
-   TEST:UTF8String='[Привет!]';
-   TEST_W:WideString='[Привет!]';
+   TEST:UTF8String='[РџСЂРёРІРµС‚!]';
+   TEST_W:WideString='[РџСЂРёРІРµС‚!]';
   begin
    CopyStrToClipboard(TEST);
    ASSERT(PasteStrFromClipboard=TEST,'Clipboard test 1');
@@ -1481,7 +1500,7 @@ procedure TestMemoryStat;
 
 var
  ar:array of cardinal;
- st:WideString;
+ st:string;
  pc:PChar;
  rc:array[1..10] of integer;
  wst:WideString;
@@ -1489,14 +1508,8 @@ var
 
 begin
  UseLogFile('log.txt',true);
-// LogCacheMode(true);
  try
-{   ast:=FormatQuery('INSERT INTO messages (topic,prev,msg,author,authorname,ip,created) '+
-       'values(%d,"%s",%d,"%s")',
-       [parentMsgId,text,userID,name]);
-  for i:=1 to 1000000 do
-   ast:=FormatQuery('QUERY "%s"=%d [%s]',[IntToStr(i),i,WideString('Q111')]);   }
-
+  TestConversions;
   TestTimes;
   TestZeroMem;
   TestEncode;
