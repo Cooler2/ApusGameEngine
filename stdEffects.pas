@@ -561,7 +561,7 @@ begin
   stage:=255-stage;
   color:=round(stage*0.9);
   color:=ColorAdd($FF808080,color+color shl 8+color shl 16);
-  color:=colorSub(color,Sat(stage*2-250,0,255) shl 24);
+  color:=colorSub(color,Clamp(stage*2-250,0,255) shl 24);
   cx:=x+w div 2; cy:=y+h div 2;
   dy:=round(h*exp(-stage/70)/2);
   dx:=round(w/2+exp(2+stage/60)-7);
@@ -569,7 +569,7 @@ begin
  end;
  if eff in [4,8] then begin
   // появление снизу
-  color:=Sat(round(stage*1.2),0,255) shl 24+$808080;
+  color:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
 //  dy:=round(h*spline(stage/256,0,1.2,1,0,0.6));
   dy:=round(h*spline(stage/256,0,0,1,0,0.7));
   cy:=round(36-sqr(stage-160)/256);
@@ -578,7 +578,7 @@ begin
  end;
  if eff in [5,9] then begin
   // появление сверху
-  color:=Sat(round(stage*1.2),0,255) shl 24+$808080;
+  color:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
   dy:=round(h*spline(stage/256,0,0,1,0,0.7));
   cy:=round(36-sqr(stage-160)/256);
   if eff>7 then cy:=round((36-sqr(stage-160)/256)/3);
@@ -586,7 +586,7 @@ begin
  end;
  if eff in [6,10] then begin
   // появление слева
-  color:=Sat(round(stage*1.2),0,255) shl 24+$808080;
+  color:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
   dx:=round(w*spline(stage/256,0,0,1,0,0.7));
   cx:=round(36-sqr(stage-160)/256);
   if eff>7 then cx:=round((36-sqr(stage-160)/256)/3);
@@ -594,7 +594,7 @@ begin
  end;
  if eff in [7,11] then begin
   // появление справа
-  color:=Sat(round(stage*1.2),0,255) shl 24+$808080;
+  color:=Clamp(round(stage*1.2),0,255) shl 24+$808080;
   dx:=round(w*spline(stage/256,0,0,1,0,0.7));
   cx:=round(36-sqr(stage-160)/256);
   if eff>7 then cx:=round((36-sqr(stage-160)/256)/3);
