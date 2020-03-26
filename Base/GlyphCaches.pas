@@ -136,10 +136,9 @@ end;
 
 function TFixedGlyphCache.Alloc(width, height,dx,dy: integer; chardata: cardinal): TPoint;
 var
- i,j,kind,block,h:integer;
+ kind,block,h:integer;
 begin
  // Определить тип блока
- kind:=0;
  if height<=16 then begin
   if height<=12 then begin
    if height<=8 then begin
@@ -317,7 +316,7 @@ begin
  for i:=start to start+cnt-1 do begin
   if blocks[i].timestamp<min then min:=blocks[i].timestamp;
   if blocks[i].timestamp>max then max:=blocks[i].timestamp;
-  if blocks[i].timestamp<keepTimeStamp then inc(c); // сколько блоков доступно для удаления
+  //if blocks[i].timestamp<keepTimeStamp then inc(c); // сколько блоков доступно для удаления
  end;
  step:=(max-min) div 4;
  threshold:=min+step;

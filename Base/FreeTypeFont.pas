@@ -243,8 +243,6 @@ constructor TFreeTypeFont.LoadFromFile(fname: string;index:integer=0);
  end;
 
 constructor TFreeTypeFont.LoadFromMemory(data: ByteArray;index:integer=0);
- var
-  err,v1,v2,v3:integer;
  begin
   raise EWarning.Create('Can''t load font from memory due to libFT bugs...');
  end;
@@ -266,7 +264,6 @@ var
  err:integer;
  bitmap:^FT_Bitmap;
 begin
- result:=nil;
  Lock;
  try
  SetSize(size);
@@ -289,7 +286,7 @@ procedure TFreeTypeFont.RenderText(buf: pointer; pitch, x, y: integer;
   st: WideString; color: cardinal; size: single; flags:cardinal=0);
  var
   px,py:single;
-  i,s,err,glInd,lastGlyph:integer;
+  i,err,glInd,lastGlyph:integer;
   bitmap:^FT_Bitmap;
   a:pointer;
   kerning:FT_Vector;

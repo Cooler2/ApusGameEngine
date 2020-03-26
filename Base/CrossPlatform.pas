@@ -284,7 +284,6 @@ var
   vStdOutPipe: TAnoPipe;
   str:AnsiString;
 begin
-  Result := -1;
   LogMessage('Exec: '+ACmdLine);
 
   with vSecurityAttributes do
