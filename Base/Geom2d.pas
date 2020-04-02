@@ -47,6 +47,7 @@ interface
    procedure Include(x,y:single); overload; inline;
    procedure Include(r:TRect2s); overload; inline;
    function IsEmpty:boolean;
+   function Center:TPoint2s; inline;
   end;
 
   TSegment2=packed record
@@ -801,6 +802,12 @@ implementation
  procedure TRect2s.MoveBy(delta:TVector2s);
   begin
    MoveBy(delta.x,delta.y);
+  end;
+
+ function TRect2s.Center: TPoint2s;
+  begin
+   result.x:=(x1+x2)/2;
+   result.y:=(y1+y2)/2;
   end;
 
 function TRect2s.Height: single;
