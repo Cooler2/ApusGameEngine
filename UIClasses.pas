@@ -190,6 +190,9 @@ type
   //   0,0 - is upper-left corner of the client area. This CS is for internal use.
   function TransformToParent(const p:TPoint2s;target:TUIControl=nil):TPoint2s; overload;
   function TransformToParent(const r:TRect2s;target:TUIControl=nil):TRect2s; overload;
+  // Transform to the root element (screen space)
+  function TransformToScreen(const p:TPoint2s):TPoint2s; overload;
+  function TransformToScreen(const r:TRect2s):TRect2s; overload;
   function GetRect:TRect2s; // Get element's area in its own CS (i.e. relative to pivot point)
   function GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
   function GetClientRect:TRect2s; // Get element's client area in its own CS
@@ -234,15 +237,13 @@ type
   function SetPaddings(left,top,right,bottom:single):TUIControl; overload;
   // Set same value for X/Y scale
   function SetScale(newScale:single):TUIControl;
-  // Корректное изменение размера (с правильной реакцией подчиненных эл-тов) !!! new size IN PARENTs scale!
-  // Значение -1 сохраняет предыдущее значение
+  // Change element size and adjust children elements !!! new size IN PARENTs space!
+  // Pass -1 to keep current value
   procedure Resize(newWidth,newHeight:single); virtual;
   // разместить элемент по центру клиентской области предка либо экрана (если предка нет)
   procedure Center;
   // Прикрепляет элемент к какой-либо части предка
   procedure Snap(snapTo:TSnapMode);
-  // Растягивает элемент включая все вложенные (без Resize)
-  //procedure Rescale(sX,sY:single);
   // Скроллинг в указанную позицию (с обработкой подчиненных скроллбаров если они есть)
   procedure ScrollTo(newX,newY:integer); virtual;
   // Если данный элемент может обладать фокусом, но ни один другой не имеет фокуса - взять фокус на себя
@@ -270,7 +271,6 @@ type
   focusedChild:TUIControl;
  private
   fOriginalSize:TVector2s;
-  function TransformToScreen(r:TRect2s):TRect2s;
   procedure AddToRootControls;
   procedure RemoveFromRootControls;
   function GetClientWidth:single;
@@ -279,6 +279,8 @@ type
   procedure SetName(n:string);
  public
   property name:string read fName write SetName;
+  property width:single read size.x write size.x;
+  property height:single read size.y write size.y;
   property clientWidth:single read GetClientWidth;
   property clientHeight:single read GetClientHeight;
   property globalScale:TVector2s read GetGlobalScale; // element scale in screen pixels
@@ -1284,21 +1286,20 @@ begin
  end;
 end;
 
-function TUIControl.TransformToScreen(r:TRect2s):TRect2s;
-var
- c:TUIControl;
+function TUIControl.TransformToScreen(const p:TPoint2s):TPoint2s;
 begin
- c:=self;
- while c<>nil do begin
-  r:=c.TransformToParent(r);
-  c:=c.parent;
- end;
- result:=r;
+ result:=TransformToParent(p,GetRoot);
+end;
+
+function TUIControl.TransformToScreen(const r:TRect2s):TRect2s;
+begin
+ result:=TransformToParent(r,GetRoot);
 end;
 
 function TUIControl.GetPosOnScreen: TRect;
 begin
- result:=RoundRect(TransformToScreen(GetRect));
+ globalRect:=RoundRect(TransformToScreen(GetRect));
+ result:=globalRect;
 end;
 
 function TUIControl.GetClientPosOnScreen:TRect;
