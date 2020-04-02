@@ -876,7 +876,7 @@ begin
   AddScene;
  end else
  begin
-  Scene:=TInternalScene.Create(name,false,true);
+  Scene:=TInternalScene.Create(name,false);
   AddScene;
   mainwnd:=nil;
   if (baseimagefile<>'') and (baseimagefile<>'empty') then
