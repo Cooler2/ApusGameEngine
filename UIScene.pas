@@ -12,14 +12,13 @@ const
  modalShadowColor:cardinal=0; // color of global "under modal" shadow
 
 type
- // Very useful simple scene that consists of background image and UI layer
- // Almost all game scenes can be instances of this type, however sometimes
+ // Very useful simple scene that contains an UI layer
+ // Almost all game scenes can be instances from this type, however sometimes
  // it is reasonable to use different scene(s)
  TUIScene=class(TGameScene)
-  UI:TUIControl; // корневой элемент сцены - всегда максимального размера
-  frameTime:int64; // кол-во милисекунд с предыдущей отрисовки
-  modal:boolean; // сцена соответствует модальному окну
-  constructor Create(scenename:string='';fullScreen:boolean=true;modalWnd:boolean=false);
+  UI:TUIControl; // root UI element: size = render area size
+  frameTime:int64; // time elapsed from the last frame
+  constructor Create(scenename:string='';fullScreen:boolean=true);
   procedure SetStatus(st:TSceneStatus); override;
   function Process:boolean; override;
   procedure Render; override;
@@ -38,17 +37,11 @@ type
 var
  curHint:TUIHint=nil;
 
- // Инициализация интерфейса: устанавливает обработчики событий, которые
- // обрабатывают все созданные контролы
- // Поэтому для обеспечения работы контролов, необходимо генерировать события
- // Вызывается при создании любой UIScene
+ // No need to call manually as it is called when any UIScene object is created
  procedure InitUI;
 
- // Установка размера (виртуального) экрана для UI
+ // Установка размера (виртуального) экрана для UI (зачем!?)
  procedure SetDisplaySize(width,height:integer);
-
- // Убирает обработчики событий тем самым отключая всякую обработку интерфейса
- procedure DoneUI;
 
  // Полезные функции общего применения
  // -------
@@ -59,37 +52,9 @@ var
 
 implementation
  uses SysUtils,MyServis,EventMan,UIRender,EngineTools,CmdProc,console,UDict,publics,geom2d;
+
 const
  statuses:array[TSceneStatus] of string=('frozen','background','active');
-type
- TDefaults=record
-  x,y,width,height,hintDelay,hintDuration:integer;
-  color,backgnd:cardinal;
-  font,style,cursor:integer;
-  caption:string;
-  align:TTextAlignment;
- end;
-// TVarType=(vtNone,vtInt,vtByte,vtStr,vtBool,vtSendSignals,vtAlignment,vtBtnStyle,vtTranspMode);
-
- TVarTypeUIControl=class(TVarTypeStruct)
-  class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
-  class function ListFields:String; override;
- end;
-
- TVarTypeTranspMode=class(TVarTypeEnum)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
- end;
-
- TVarTypeSendSignals=class(TVarTypeEnum)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
- end;
-
- TVarTypeBtnStyle=class(TVarTypeEnum)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
- end;
 
 var
  curCursor:integer;
@@ -97,9 +62,6 @@ var
  rootWidth,rootHeight,oldRootWidth,oldAreaHeight:integer; // размер области отрисовки
 
  LastHandleTime:int64;
-
- curobjname:string; // Имя в верхнем регистре
- parentObj:TUICOntrol; // Объект-предок для операции создания эл-тов
 
  // параметры хинтов
  hintRect:tRect; // область, к которой относится хинт
@@ -111,9 +73,6 @@ var
 
  designMode:boolean; // режим "дизайна", в котором можно таскать элементы по экрану правой кнопкой мыши
  hookedItem:TUIControl;
-
- // Глобальные переменные командного процессора
- defaults:TDefaults; // значения параметров по умолчанию
 
  curShadowValue,oldShadowValue,needShadowValue:integer; // 0..255
  startShadowChange,shadowChangeDuration:int64;
@@ -130,166 +89,6 @@ procedure SetDisplaySize(width,height:integer);
   UIClasses.SetDisplaySize(width,height);
  end;
 
-procedure UseParentCmd(cmd:string);
- begin
-  EnterCriticalSection(UICritSect);
-  try
-  delete(cmd,1,10);
-  cmd:=UpperCase(cmd);
-  if (parentObj<>nil) and (UpperCase(parentObj.name)=cmd) then exit;
-  parentobj:=FindControl(cmd,false);
-  if ParentObj=nil then
-   raise EWarning.Create('Object not found - '+cmd);
-  finally
-   LeaveCriticalSection(UICritSect);
-  end;
- end;
-
-procedure SetFocusCmd(cmd:string);
- var
-  c:TUIControl;
- begin
-  EnterCriticalSection(UICritSect);
-  try
-   if length(cmd)=8 then c:=curobj
-   else begin
-    if cmd[length(cmd)-8]<>'.' then
-     raise EError.Create('Syntax error, object not specified!');
-    setLength(cmd,length(cmd)-9);
-    c:=FindControl(cmd,false);
-   end;
-   if c=nil then raise EError.Create('No object!');
-   if not c.canHaveFocus then raise EError.Create('This object can''t have focus!');
-   c.SetFocus;
-  finally
-   LeaveCriticalSection(UICritSect);
-  end;
- end;
-
-procedure CreateCmd(cmd:string);
- var
-  sa:StringArr;
-  c:TUIControl;
- begin
-  EnterCriticalSection(UICritSect);
-  try
-   if parentObj=nil then raise EError.Create('No object selected, use "UseParent" to select parent object first!');
-   delete(cmd,1,7);
-   sa:=Split(' ',cmd,'"');
-   if length(sa)<>2 then raise EError.Create('Must have 2 parameters');
-   sa[0]:=uppercase(chop(sa[0]));
-   c:=FindControl(sa[1],false);
-   if c<>nil then begin
-    curObj:=c;
-    curObjClass:=TVarTypeUIControl;
-    curObjName:=UpperCase(c.name);
-    exit;
-   end;
-   with defaults do begin
-    if sa[0]='UIBUTTON' then c:=TUIButton.Create(width,height,sa[1],caption,font,parentobj) else
-    if sa[0]='UIIMAGE' then c:=TUIImage.Create(width,height,sa[1],parentobj) else
-    if sa[0]='UIEDITBOX' then c:=TUIEditBox.Create(width,height,sa[1],font,color,parentobj) else
-    if sa[0]='UILABEL' then begin
-     c:=TUILabel.Create(width,height,sa[1],caption,color,font,parentobj);
-     (c as TUILabel).align:=align;
-     c.transpmode:=tmTransparent;
-    end else
-    if sa[0]='UICONTROL' then begin
-     c:=TUIControl.Create(width,height,parentobj,sa[1]);
-    end else
-    if sa[0]='UILISTBOX' then c:=TUIListBox.Create(width,height,20,sa[1],font,parentobj) else
-    if sa[0]='UICOMBOBOX' then c:=TUIComboBox.Create(width,height,font,nil,parentobj,sa[1]);
-
-
-    if c=nil then raise EError.Create('Unknown class - '+sa[0]);
-    // Доп. св-ва
-    if style<>0 then c.style:=style;
-    if cursor<>0 then c.cursor:=cursor;
-    if HintDelay<>0 then c.hintDelay:=hintDelay;
-    if HintDuration<>0 then c.hintDuration:=hintDuration;
-   end;
-   curobj:=c;
-   curObjClass:=TVarTypeUIControl;
-   curobjname:=c.name;
-  finally
-   LeaveCriticalSection(UICritSect);
-  end;
- end;
-
-function StrToAlign(s:string):TTextAlignment;
- begin
-  s:=uppercase(s);
-  result:=taLeft;
-  if s='RIGHT' then result:=taRight;
-  if s='CENTER' then result:=taCenter;
-  if s='JUSTIFY' then result:=taJustify;
- end;
-
-function EvalInt(st:string):int64;
- begin
-  result:=round(Eval(st,nil,curObj,curObjClass));
- end;
-
-{$IFDEF FPC}{$PUSH}{$R-}{$ENDIF}
-procedure DefaultCmd(cmd:string);
- var
-  sa:StringArr;
- begin
-   delete(cmd,1,7);
-   sa:=Split(' ',cmd,'"');
-   sa[0]:=UpperCase(sa[0]);
-   if sa[0]='X' then defaults.X:=EvalInt(sa[1]) else
-   if sa[0]='Y' then defaults.Y:=EvalInt(sa[1]) else
-   if sa[0]='WIDTH' then defaults.Width:=EvalInt(sa[1]) else
-   if sa[0]='HEIGHT' then defaults.Height:=EvalInt(sa[1]) else
-   if sa[0]='HINTDELAY' then defaults.hintDelay:=EvalInt(sa[1]) else
-   if sa[0]='HINTDURATION' then defaults.hintDuration:=EvalInt(sa[1]) else
-   if sa[0]='COLOR' then defaults.Color:=EvalInt(sa[1]) else
-   if sa[0]='BACKGND' then defaults.Backgnd:=EvalInt(sa[1]) else
-   if sa[0]='FONT' then defaults.Font:=EvalInt(sa[1]) else
-   if sa[0]='CURSOR' then defaults.Cursor:=EvalInt(sa[1]) else
-   if sa[0]='STYLE' then defaults.Style:=EvalInt(sa[1]) else
-   if sa[0]='CAPTION' then defaults.caption:=sa[1] else
-   if sa[0]='ALIGN' then defaults.align:=StrToAlign(sa[1]) else
-    raise EWarning.Create('Incorrect command - '+cmd);
- end;
-{$IFDEF FPC}{$POP}{$ENDIF}
-
-procedure SetHotKeyCmd(cmd:string);
- var
-  key,shift:byte;
-  v,i,d:integer;
-  sa:stringArr;
-  obj:TUIControl;
- begin
-  EnterCriticalSection(UICritSect);
-  try
-   delete(cmd,1,10);
-   cmd:=UpperCase(cmd);
-   obj:=curobj;
-   if (obj=nil) or not (obj is TUIControl) then raise EWarning.Create('No UI object selected');
-   sa:=Split('+',cmd,#0);
-   v:=0;
-   for i:=0 to length(sa)-1 do begin
-    if sa[i]='ENTER' then d:=13 else
-    if sa[i]='SPACE' then d:=32 else
-    if sa[i]='ESC' then d:=27 else
-    if sa[i]='SHIFT' then d:=$100 else
-    if sa[i]='CTRL' then d:=$200 else
-    if sa[i]='ALT' then d:=$400 else
-     d:=StrToInt(sa[i]);
-    v:=v+d;
-   end;
-   if v=0 then obj.ReleaseHotKey(0,0)
-   else begin
-    key:=v and 255;
-    shift:=v shr 8;
-    obj.SetHotKey(key,shift);
-   end;
-  finally
-   LeaveCriticalSection(UICritSect);
-  end;
- end;
 
 function ActivateEventHandler(event:EventStr;tag:TTag):boolean;
 begin
@@ -529,7 +328,6 @@ begin
  inherited Create(fullscreen);
  if sceneName='' then sceneName:=ClassName;
  name:=scenename;
- modal:=modalWnd;
  UI:=TUIControl.Create(rootWidth,rootHeight,nil,sceneName);
  UI.enabled:=false;
  UI.visible:=false;
@@ -702,27 +500,6 @@ begin
   SetFocusTo(nil);
 end;
 
-function onItemCreated(event:eventstr;tag:TTag):boolean;
-var
- c:TUIControl;
-begin
- c:=TUIControl(tag);
- if c.name<>'' then
-  PublishVar(c,c.name,TVarTypeUIControl);
- result:=false;
-end;
-
-function onItemRenamed(event:eventstr;tag:TTag):boolean;
-var
- c:TUIControl;
-begin
- c:=TUIControl(tag);
- UnpublishVar(c);
- if c.name<>'' then
-  PublishVar(c,c.name,TVarTypeUIControl);
- result:=false;
-end;
-
 
 procedure TUIScene.Render;
 var
@@ -757,22 +534,6 @@ begin
  EndMeasure2(11);
 end;
 
-function fGetFontHandle(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
-var
- sa:StringArr;
- style,effects:byte;
- size:double;
-begin
- if painter=nil then raise EWarning.Create('Painter is not ready');
- sa:=split(',',params);
- if length(sa)<2 then raise EWarning.Create('Invalid parameters');
- size:=Eval(sa[1],nil,context,contextClass);
- style:=0; effects:=0;
- if length(sa)>2 then style:=round(Eval(sa[2],nil,context,contextClass));
- if length(sa)>3 then effects:=round(Eval(sa[3],nil,context,contextClass));
- result:=painter.GetFont(sa[0],size,style,effects);
-end;
-
 procedure InitUI;
 begin
  if initialized then exit;
@@ -782,30 +543,12 @@ begin
  SetEventHandler('Kbd',KbdEventHandler,emInstant);
  SetEventHandler('Engine\ActivateWnd',ActivateEventHandler,emInstant);
  SetEventHandler('UI\SetGlobalShadow',onSetGlobalShadow,emInstant);
- SetEventHandler('UI\ItemCreated',onItemCreated,emInstant);
- SetEventHandler('UI\ItemRenamed',onItemRenamed,emInstant);
  SetEventHandler('UI\SetFocus',onSetFocus,emInstant);
 
- PublishFunction('GetFont',fGetFontHandle);
- SetCmdFunc('USEPARENT ',opFirst,UseParentCmd);
- SetCmdFunc('CREATE ',opFirst,CreateCmd);
- SetCmdFunc('DEFAULT',opFirst,DefaultCmd);
- SetCmdFunc('SETFOCUS',opLast,SetFocusCmd);
- SetCmdFunc('SETHOTKEY',opFirst,setHotKeyCmd);
- with defaults do begin
-  x:=0; y:=0; width:=100; height:=20;
-  color:=$FFFFFFFF; backgnd:=$80000000;
-  style:=0; cursor:=crDefault; font:=1;
-  caption:='';
-  hintDelay:=0; hintDuration:=0;
- end;
  PublishVar(@rootWidth,'rootWidth',TVarTypeInteger);
  PublishVar(@rootHeight,'rootHeight',TVarTypeInteger);
- initialized:=true;
-end;
 
-procedure DoneUI;
-begin
+ initialized:=true;
 end;
 
 procedure TUIScene.SetStatus(st: TSceneStatus);
@@ -914,219 +657,5 @@ begin
   on e:exception do ForceLogMessage('Error in DumpUI: '+ExceptionMsg(e));
  end;
 end;
-
-{ TVarTypeUIControl }
-
-class function TVarTypeUIControl.GetField(variable: pointer; fieldName: string;
-  out varClass: TVarClass): pointer;
-var
- obj:TUIControl;
-begin
- obj:=variable;
- ASSERT(fieldName<>'');
- result:=nil;
- varClass:=nil;
- case fieldname[1] of
-  'a':if (fieldname='align') and (obj is TUILabel) then begin
-       result:=@TUILabel(obj).align; varClass:=TVarTypeAlignment;
-      end else
-      if (fieldname='autopendingtime') and (obj is TUIButton) then begin
-       result:=@TUIButton(obj).autopendingtime; varClass:=TVarTypeInteger;
-      end;
-  'b':if (fieldname='btnstyle') and (obj is TUIButton) then begin
-       result:=@TUIButton(obj).btnstyle; varClass:=TVarTypeBtnStyle;
-      end;
-  'c':if fieldname='canhavefocus' then begin
-       result:=@obj.canHaveFocus;
-       varClass:=TVarTypeBool;
-      end else
-      if fieldname='color' then begin
-       if obj is TUILabel then result:=@TUILabel(obj).color else
-       if obj is TUIEditBox then result:=@TUIEditBox(obj).color else
-       if obj is TUIImage then result:=@TUIImage(obj).color else
-       if obj is TUIScrollBar then result:=@TUIScrollBar(obj).color else
-        exit;
-       varClass:=TVarTypeARGB;
-      end else
-      if fieldname='caption' then begin
-       if obj is TUILabel then result:=@TUILabel(obj).caption else
-       if obj is TUIButton then result:=@TUIButton(obj).caption else
-       if obj is TUIWindow then result:=@TUIWindow(obj).caption else
-        exit;
-       varClass:=TVarTypeString;
-      end else
-      if fieldname='cursor' then begin
-       result:=@obj.cursor; varClass:=TVarTypeInteger;
-      end else
-      if fieldname='customdraw' then begin
-       result:=@obj.customdraw; varClass:=TVarTypeBool;
-      end;
-  'd':if (fieldname='default') and (obj is TUIButton) then begin
-       result:=@TUIButton(obj).default; varClass:=TVarTypeBool;
-      end;
-  'e':if fieldname='enabled' then begin
-       result:=@obj.enabled; varClass:=TVarTypeBool;
-      end;
-  'f':if fieldname='font' then begin
-       if obj is TUIButton then result:=@TUIButton(obj).font else
-       if obj is TUILabel then result:=@TUILabel(obj).font else
-       if obj is TUIEditBox then result:=@TUIEditBox(obj).font else
-       if obj is TUIListBox then result:=@TUIListBox(obj).font else
-       if obj is TUIComboBox then result:=@TUIComboBox(obj).font else
-       if obj is TUIWindow then result:=@TUIWindow(obj).font else
-        exit;
-       varClass:=TVarTypeCardinal;
-      end;
-  'g':if (fieldname='group') and (obj is TUIButton) then begin
-       result:=@TUIButton(obj).group; varClass:=TVarTypeInteger;
-      end;
-  'h':if fieldname='height' then begin
-       result:=@obj.size.y; varClass:=TVarTypeSingle;
-      end else
-      if fieldname='hint' then begin
-       result:=@obj.hint; varClass:=TVarTypeString;
-      end else
-      if fieldname='hintifdisabled' then begin
-       result:=@obj.hintifdisabled; varClass:=TVarTypeString;
-      end else
-      if fieldname='hintdelay' then begin
-       result:=@obj.hintdelay; varClass:=TVarTypeInteger;
-      end else
-      if fieldname='hintduration' then begin
-       result:=@obj.hintduration; varClass:=TVarTypeInteger;
-      end;
-  'l':if (fieldname='lineheight') and (obj is TUIListBox) then begin
-       varClass:=TVarTypeInteger; result:=@TUIListBox(obj).lineHeight;
-      end;
-  'm':if (fieldname='maxlength') and (obj is TUIEditBox) then begin
-       varClass:=TVarTypeInteger; result:=@TUIEditBox(obj).maxlength;
-      end else
-      if (fieldname='min') and (obj is TUIScrollBar) then begin
-       varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).min;
-      end else
-      if (fieldname='max') and (obj is TUIScrollBar) then begin
-       varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).max;
-      end;
-  'n':if fieldname='name' then begin
-       result:=@obj.name; varClass:=TVarTypeString;
-      end else
-      if (fieldname='noborder') and (obj is TUIEditBox) then begin
-       result:=@TUIEditBox(obj).noborder; varClass:=TVarTypeBool;
-      end;
-  'o':if fieldname='order' then begin
-       result:=@obj.order; varClass:=TVarTypeInteger;
-      end;
-  'p':if fieldname='parentclip' then begin
-       result:=@obj.parentClip; varClass:=TVarTypeBool;
-      end else
-      if fieldname='parent' then begin
-       result:=obj.parent; varClass:=TVarTypeUIControl;
-      end else
-      if (fieldname='pressed') and (obj is TUIButton) then begin
-       result:=@TUIButton(obj).pressed; varClass:=TVarTypeBool;
-      end else
-      if (fieldname='pendind') and (obj is TUIButton) then begin
-       result:=@TUIButton(obj).pending; varClass:=TVarTypeBool;
-      end else
-      if (fieldname='password') and (obj is TUIEditBox) then begin
-       result:=@TUIEditBox(obj).password; varClass:=TVarTypeBool;
-      end else
-      if (fieldname='pagesize') and (obj is TUIScrollBar) then begin
-       varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).pagesize;
-      end;
-  's':if fieldname='style' then begin
-       result:=@obj.style; varClass:=TVarTypeInteger;
-      end else
-      if fieldname='styleinfo' then begin
-       result:=@obj.styleinfo; varClass:=TVarTypeString;
-      end else
-      if fieldname='signals' then begin
-       result:=@obj.sendsignals; varClass:=TVarTypeSendSignals;
-      end else
-      if (fieldname='src') and (obj is TUIImage) then begin
-       result:=@TUIImage(obj).src; varClass:=TVarTypeString;
-      end;
-  't':if fieldname='transpmode' then begin
-       result:=@obj.transpmode; varClass:=TVarTypeTranspMode;
-      end else
-      if (fieldname='text') and (obj is TUIEditBox) then begin
-       varClass:=TVarTypeWideString; result:=@TUIEditBox(obj).realtext;
-      end else
-      if (fieldname='topofs') and (obj is TUILabel) then begin
-       varClass:=TVarTypeInteger; result:=@TUILabel(obj).topoffset;
-      end;
-  'v':if fieldname='visible' then begin
-       result:=@obj.visible; varClass:=TVarTypeBool;
-{      end else
-      if (fieldname='value') and (obj is TUIScrollBar) then begin
-       varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).value;}
-      end;
-  'w':if fieldname='width' then begin
-       result:=@obj.size.x; varClass:=TVarTypeSingle;
-      end;
-  'x':if fieldname='x' then begin
-       result:=@obj.position.x; varClass:=TVarTypeSingle;
-      end;
-  'y':if fieldname='y' then begin
-       result:=@obj.position.y; varClass:=TVarTypeSingle;
-      end;
- end;
-end;
-
-class function TVarTypeUIControl.ListFields: String;
-begin
- result:='name,x,y,width,height';
-end;
-
-class procedure TVarTypeTranspMode.SetValue(variable:pointer;v:string);
- begin
-  v:=lowercase(v);
-  if v='transparent' then TTranspMode(variable^):=tmTransparent else
-  if v='custom' then TTranspMode(variable^):=tmCustom else
-  if v='opaque' then TTranspMode(variable^):=tmOpaque else
-  raise EWarning.Create('Unknown transparency mode: '+v);
- end;
-class function TVarTypeTranspMode.GetValue(variable:pointer):string;
- begin
-  case TTranspMode(variable^) of
-   tmTransparent:result:='transparent';
-   tmOpaque:result:='opaque';
-   tmCustom:result:='custom';
-  end;
- end;
-
-class procedure TVarTypeSendSignals.SetValue(variable:pointer;v:string);
- begin
-  v:=lowercase(v);
-  if v='major' then TSendSignals(variable^):=ssMajor else
-  if v='all' then TSendSignals(variable^):=ssAll else
-  if v='none' then TSendSignals(variable^):=ssNone else
-  raise EWarning.Create('Unknown SendSignals mode: '+v);
- end;
-class function TVarTypeSendSignals.GetValue(variable:pointer):string;
- begin
-  case TSendSignals(variable^) of
-   ssMajor:result:='major';
-   ssAll:result:='all';
-   ssNone:result:='none';
-  end;
- end;
-
-class procedure TVarTypeBtnStyle.SetValue(variable:pointer;v:string);
- begin
-  v:=lowercase(v);
-  if v='normal' then TButtonStyle(variable^):=bsNormal else
-  if v='switch' then TButtonStyle(variable^):=bsSwitch else
-  if (v='item') or (v='checkbox') then TButtonStyle(variable^):=bsCheckbox else
-  raise EWarning.Create('Unknown BtnStyle: '+v);
- end;
-class function TVarTypeBtnStyle.GetValue(variable:pointer):string;
- begin
-  case TButtonStyle(variable^) of
-   bsNormal:result:='normal';
-   bsSwitch:result:='switch';
-   bsCheckbox:result:='checkbox';
-  end;
- end;
 
 end.

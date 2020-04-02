@@ -960,27 +960,27 @@ begin
 end;
 
 initialization
- InitCritSect(crSection,'Publics',300);
-{ TVarType.IsStruct:=false;
- TVarTypeInteger.IsStruct:=false;
- TVarTypeString.IsStruct:=false;
- TVarTypeRect.IsStruct:=true;}
- for i:=0 to high(publicVarHash) do
-  publicVarHash[i]:=-1;
- lastFreeItem:=-1;
- PublishFunction('max',fMinMax,1);
- PublishFunction('min',fMinMax,2);
- PublishFunction('if',fChoose,1);
- PublishFunction('round',fFunc,1);
- PublishFunction('trunc',fFunc,2);
- PublishFunction('frac',fFunc,3);
- PublishFunction('sqr',fFunc,4);
- PublishFunction('sqrt',fFunc,5);
- PublishFunction('ln',fFunc,6);
- PublishFunction('sin',fFunc,11);
- PublishFunction('cos',fFunc,12);
- PublishFunction('tan',fFunc,13);
- SetDecimalSeparator('.');
+ try
+  InitCritSect(crSection,'Publics',300);
+  for i:=0 to high(publicVarHash) do
+   publicVarHash[i]:=-1;
+  lastFreeItem:=-1;
+  PublishFunction('max',fMinMax,1);
+  PublishFunction('min',fMinMax,2);
+  PublishFunction('if',fChoose,1);
+  PublishFunction('round',fFunc,1);
+  PublishFunction('trunc',fFunc,2);
+  PublishFunction('frac',fFunc,3);
+  PublishFunction('sqr',fFunc,4);
+  PublishFunction('sqrt',fFunc,5);
+  PublishFunction('ln',fFunc,6);
+  PublishFunction('sin',fFunc,11);
+  PublishFunction('cos',fFunc,12);
+  PublishFunction('tan',fFunc,13);
+  SetDecimalSeparator('.');
+ except
+  on e:Exception do ErrorMessage('Publics: '+ExceptionMsg(e));
+ end;
 finalization
  DeleteCritSect(crSection);
 end.
