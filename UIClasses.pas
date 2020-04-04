@@ -270,7 +270,7 @@ type
  protected
   focusedChild:TUIControl;
  private
-  fOriginalSize:TVector2s;
+  fInitialSize:TVector2s;
   procedure AddToRootControls;
   procedure RemoveFromRootControls;
   function GetClientWidth:single;
@@ -284,7 +284,7 @@ type
   property clientWidth:single read GetClientWidth;
   property clientHeight:single read GetClientHeight;
   property globalScale:TVector2s read GetGlobalScale; // element scale in screen pixels
-  property originalSize:TVector2s read fOriginalSize; // Size when created
+  property initialSize:TVector2s read fInitialSize; // Size when created
  end;
 
  // Элемент с ограничениями размера
