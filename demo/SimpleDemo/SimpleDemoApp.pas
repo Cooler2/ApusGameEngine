@@ -58,7 +58,7 @@ procedure TSimpleDemoApp.SetGameSettings(var settings: TGameSettings);
  begin
   inherited; // global settings are applied to the instance settings here, so there is no sense to change them later
 
-  // Now adjust instance settings
+  // Now override instance settings
   // Primary mode settings
   settings.mode.displayMode:=dmWindow; // run in window
   settings.mode.displayFitMode:=dfmStretch; // stretch the backbuffer to match the full window size
