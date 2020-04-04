@@ -112,7 +112,7 @@ procedure CreateCmd(cmd:string);
  begin
   EnterCriticalSection(UICritSect);
   try
-   if parentObj=nil then raise EError.Create('No object selected, use "UseParent" to select parent object first!');
+   if defaults.parentObj=nil then raise EError.Create('No object selected, use "UseParent" to select parent object first!');
    delete(cmd,1,7);
    sa:=Split(' ',cmd,'"');
    if length(sa)<>2 then raise EError.Create('Must have 2 parameters');
@@ -448,7 +448,6 @@ class function TVarTypeBtnStyle.GetValue(variable:pointer):string;
 initialization
  SetEventHandler('UI\ItemCreated',onItemCreated,emInstant);
  SetEventHandler('UI\ItemRenamed',onItemRenamed,emInstant);
- PublishFunction('GetFont',fGetFontHandle);
  SetCmdFunc('USEPARENT ',opFirst,UseParentCmd);
  SetCmdFunc('CREATE ',opFirst,CreateCmd);
  SetCmdFunc('DEFAULT',opFirst,DefaultCmd);
