@@ -19,8 +19,6 @@ interface
 
 var
  HookKbdLayout:boolean=false; // Перехват переключения раскладки клавиатуры (защита от зависания, теперь уже не требуется, т.к. баг устранен)
- MaxWindowWidth:integer=10000;
- MaxWindowHeight:integer=10000;
 
  SaveScreenshotsToJPEG:boolean=true;
  onFrameDelay:integer=1; // Задержка каждый кадр
@@ -1959,42 +1957,28 @@ procedure TBasicGame.FrameLoop;
     inc(style,ws_Caption+WS_MINIMIZEBOX+WS_SYSMENU);
 
    SystemParametersInfo(SPI_GETWORKAREA,0,@r2,0);
-
    w:=params.width;
-   if (MaxWindowWidth>0) and (w>MaxWindowWidth) then w:=MaxWindowWidth;
    h:=params.height;
-   if (MaxWindowHeight>0) and (h>MaxWindowHeight) then h:=MaxWindowHeight;
-   // Центрирование окна в области десктопа
-   r.Left:=(r2.Right-r2.left-params.width) div 2;
-   r.Top:=(r2.Bottom-r2.Top-params.height+
-     GetSystemMetrics(SM_CYCAPTION)) div 2;
-   r.right:=r.left+w;
-   r.Bottom:=r.top+h;
-   AdjustWindowRect(r,style,false);
 
-   if params.mode.displayMode=dmFullScreen then begin
-    r.Left:=0; r.Top:=0;
-    r.Right:=screenWidth; r.bottom:=screenHeight;
-   end;
-
-   if params.mode.displayMode<>dmSwitchResolution then begin
-    // Определим, можно ли использовать рамку окна
-    if (r.Right-r.left>screenWidth+20) or (r.bottom-r.top>screenHeight) then begin
-     // Окно с рамкой не влезает -> сделать окно без рамки на весь экран
-     // Временно убираем
-     SetWindowLong(window,GWL_STYLE,integer(ws_popup)); // убираем все элементы рамки
-     MoveWindowTo(0,0,screenWidth,screenHeight);
-    end else begin
-     // Окно с рамкой помещается
-     SetWindowLong(window,GWL_STYLE,style);
-     MoveWindowTo(r.left,r.top,r.Right-r.left,r.Bottom-r.top);
+   case params.mode.displayMode of
+    dmWindow,dmFixedWindow:begin
+      r:=Rect(0,0,w,h);
+      AdjustWindowRect(r,style,false);
+      r.Offset(-r.left,-r.top);
+      // If window is too large
+      r.Right:=Clamp(r.Right,0,r2.Width);
+      r.Bottom:=Clamp(r.Bottom,0,r2.Height);
+      // Center window
+      r.Offset((r2.Width-r.Width) div 2,(r2.Height-r.Height) div 2);
+      SetWindowLong(window,GWL_STYLE,style);
+      MoveWindowTo(r.left,r.top, r.width,r.height);
     end;
-    SetWindowPos(window,HWND_NOTOPMOST,0,0,0,0,SWP_NOSIZE+SWP_NOMOVE);
-   end else begin
-    // полный экран с переключением режима
-    SetWindowLong(window,GWL_STYLE,integer(ws_popup));
-    MoveWindowTo(0,0,screenWidth,screenHeight);
+    dmSwitchResolution,dmFullScreen:begin
+      SetWindowLong(window,GWL_STYLE,integer(ws_popup));
+      MoveWindowTo(0,0,screenWidth,screenHeight);
+    end;
    end;
+
    ShowWindow(Window, SW_SHOW);
    UpdateWindow(Window);
    ShowMouse(true);
