@@ -209,7 +209,7 @@ implementation
    scale:TVector2s;
   begin
    if centered then begin
-    p:=c.TransformToParent(c.GetRect.Center);
+    p:=c.TransformTo(c.GetRect.Center,c.parent);
     scale:=c.globalScale;
     painter.DrawRotScaled(p.x,p.y,scale.x,scale.y,0,img);
    end else begin

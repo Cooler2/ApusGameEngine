@@ -188,8 +188,9 @@ type
 
   // Transformations. Element's coordinate system is (0,0 - clientWidth,clinetHeight) where
   //   0,0 - is upper-left corner of the client area. This CS is for internal use.
-  function TransformToParent(const p:TPoint2s;target:TUIControl=nil):TPoint2s; overload;
-  function TransformToParent(const r:TRect2s;target:TUIControl=nil):TRect2s; overload;
+  // Transform to given element's CS (nil - screen space)
+  function TransformTo(const p:TPoint2s;target:TUIControl):TPoint2s; overload;
+  function TransformTo(const r:TRect2s;target:TUIControl):TRect2s; overload;
   // Transform to the root element (screen space)
   function TransformToScreen(const p:TPoint2s):TPoint2s; overload;
   function TransformToScreen(const r:TRect2s):TRect2s; overload;
@@ -818,12 +819,11 @@ end;
 
 { TUIControl }
 
-function TUIControl.TransformToParent(const p:TPoint2s;target:TUIControl=nil):TPoint2s;
+function TUIControl.TransformTo(const p:TPoint2s;target:TUIControl):TPoint2s;
 var
  parentScrollX,parentScrollY:single;
  c:TUIControl;
 begin
- if target=nil then target:=parent;
  c:=self;
  result:=p;
  repeat
@@ -848,12 +848,12 @@ begin
 
 end;
 
-function TUIControl.TransformToParent(const r:TRect2s;target:TUIControl=nil):TRect2s;
+function TUIControl.TransformTo(const r:TRect2s;target:TUIControl):TRect2s;
 var
  p1,p2:TPoint2s;
 begin
- p1:=TransformToParent(Point2s(r.x1,r.y1),target);
- p2:=TransformToParent(Point2s(r.x2,r.y2),target);
+ p1:=TransformTo(Point2s(r.x1,r.y1),target);
+ p2:=TransformTo(Point2s(r.x2,r.y2),target);
  result:=Rect2s(p1.x,p1.y, p2.x,p2.y);
 end;
 
@@ -875,7 +875,7 @@ end;
 
 function TUIControl.GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
 begin
- result:=TransformToParent(GetRect);
+ result:=TransformTo(GetRect,parent);
 end;
 
 
@@ -888,7 +888,7 @@ begin
  if parent<>nil then begin
   pW:=parent.size.x;
   pH:=parent.size.y;
-  r:=TransformToParent(r);
+  r:=TransformTo(r,parent);
   rP:=parent.GetClientRect;
   dx:=-((r.x1-rP.x1)-(rP.x2-r.x2))/2;
   dy:=-((r.y1-rP.y1)-(rP.y2-r.y2))/2;
@@ -943,7 +943,7 @@ var
 begin
  position:=Point2s(0,0);
  size:=Point2s(width,height);
- fOriginalSize:=size;
+ fInitialSize:=size;
  scale:=Point2s(1,1);
  pivot:=Point2s(0,0);
  paddingLeft:=0; paddingRight:=0; paddingTop:=0; paddingBottom:=0;
@@ -1197,7 +1197,7 @@ begin
  if snapTo in [smTop,smBottom] then Resize(clientW,-1);
  if snapTo in [smLeft,smRight] then Resize(-1,clientH);
  if snapTo=smParent then Resize(clientW,clientH);
- r:=TransformToParent(GetRect);
+ r:=TransformTo(GetRect,parent);
  case snapTo of
   smTop:begin
     anchorTop:=0; anchorLeft:=0; anchorRight:=1; anchorBottom:=0;
@@ -1288,12 +1288,12 @@ end;
 
 function TUIControl.TransformToScreen(const p:TPoint2s):TPoint2s;
 begin
- result:=TransformToParent(p,GetRoot);
+ result:=TransformTo(p,nil);
 end;
 
 function TUIControl.TransformToScreen(const r:TRect2s):TRect2s;
 begin
- result:=TransformToParent(r,GetRoot);
+ result:=TransformTo(r,nil);
 end;
 
 function TUIControl.GetPosOnScreen: TRect;
@@ -1579,7 +1579,7 @@ begin
  if newHeight>-1 then dH:=newHeight-size.y else dH:=0;
  VectAdd(size,Point2s(dW,dH));
  for i:=0 to length(children)-1 do with children[i] do begin
-  childRect:=TransformToParent(GetRect());
+  childRect:=TransformTo(GetRect(),parent);
   childRect.x1:=childRect.x1+dW*anchorLeft;
   childRect.y1:=childRect.y1+dH*anchorTop;
   childRect.x2:=childRect.x2+dW*anchorRight;
@@ -1730,7 +1730,7 @@ end;
 
 constructor TUIButton.Create;
 var
- i,n:integer;
+ i:integer;
 begin
  inherited Create(width,height,btnName,parent_);
  transpmode:=tmOpaque;
@@ -1738,15 +1738,12 @@ begin
  btnStyle:=bsNormal;
  group:=0;
  caption:=BtnCaption;
- if parent.children<>nil then begin
-  n:=length(parent.children);
-  default:=true;
-  for i:=0 to n-1 do
-   if parent.children[i] is TUIButton then
-    default:=false;
- end else begin
-  default:=true;
- end;
+ default:=true; // make it default unless there is another sibling button
+ if parent<>nil then
+  if parent.children<>nil then
+   for i:=0 to high(parent.children) do
+    if parent.children[i] is TUIButton then
+     default:=false;
  pressed:=false;
  pending:=false;
  autoPendingTime:=0;
@@ -2841,7 +2838,7 @@ begin
   root:=GetRoot;
 {  r:=GetRect;
   r.MoveBy(0,r.y2);}
-  r:=TransformToParent(GetRect,root);
+  r:=TransformTo(GetRect,root);
   frame.position:=Point2s(r.x1, r.y2+1);
   frame.size.x:=size.x;
   frame.AttachTo(root);
@@ -2952,7 +2949,7 @@ begin
  for i:=0 to high(item.children) do begin
   c:=item.children[i];
   if not c.visible then continue;
-  r:=c.TransformToParent(c.GetRect);
+  r:=c.TransformTo(c.GetRect,nil);
   if fHorizontal then begin
    delta.x:=pos-r.x1;
    pos:=pos+r.width+fSpaceBetween;
