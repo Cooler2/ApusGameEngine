@@ -183,7 +183,7 @@ interface
  procedure Triangulate(pnts:PPoint2;count:integer);
 
 implementation
- uses {$IFDEF DELPHI}CrossPlatform,{$ENDIF}SysUtils,Math;
+ uses {$IFDEF DELPHI}CrossPlatform,{$ENDIF}MyServis,SysUtils,Math;
  var
   sse:boolean;
 
@@ -773,10 +773,10 @@ implementation
 
  function RoundRect(const r:TRect2s):TRect;
   begin
-   result.Left:=round(r.x1);
-   result.Top:=round(r.y1);
-   result.Right:=round(r.x2);
-   result.Bottom:=round(r.y2);
+   result.Left:=FRound(r.x1);
+   result.Top:=FRound(r.y1);
+   result.Right:=FRound(r.x2);
+   result.Bottom:=FRound(r.y2);
   end;
 
 { TRect2s }
