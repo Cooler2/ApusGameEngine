@@ -31,8 +31,8 @@ type
  // In fact, return value is ignored
  TEventHandler=function(event:EventStr;tag:TTag):boolean;
 
- // Установить обработчик для категории событий
- // При возникновении события, сперва вызываются более конкретные обработчики, а затем более общие
+ // Set event handling procedure
+ // event may contain multiple values (comma-separated)
  procedure SetEventHandler(event:EventStr;handler:TEventHandler;mode:TEventMode=emInstant);
  // Убрать обработчик
  procedure RemoveEventHandler(handler:TEventHandler;event:EventStr='');
@@ -154,6 +154,12 @@ var
   begin
    // Если обработчик уже есть - повторно установлен не будет
    try
+    repeat
+     i:=pos(',',event);
+     if i=0 then break;
+     SetEventHandler(copy(event,1,i-1),handler,mode);
+     delete(event,1,i);
+    until false;
     EnterCriticalSection(CritSect);
     if event[length(event)]='\' then SetLength(event,length(event)-1);
 
