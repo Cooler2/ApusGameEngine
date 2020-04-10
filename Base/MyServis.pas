@@ -135,28 +135,30 @@ interface
 
   performance:integer; // производительности системы
 
-  // проверяет уровни вложенного захвата критсекций на корректность
-  // this slows down critical sectiond - so use carefuly
+  // Enable to check critical section levels to prevent potential deadlocks
+  // This slows down critical sections - so use carefuly
   debugCriticalSections:boolean=false;
 
- // Возвращает e.message вместе с адресом ошибки
+ // Returns e.message with exception address and call stack (if available)
  function ExceptionMsg(const e:Exception):string;
+ // Call Stack as string
  function GetCallStack:string;
+ // Returns caller address
  function GetCaller:pointer;
 
- // Проверяет наличие параметра (non case-sensitive) в командной строке
+ // Check if there is a parameter in the command line (non case-sensitive)
  function HasParam(name:string):boolean;
- // Возвращает значение параметра из командной строки (формат name=value),
- // если параметр отсутствует - пустая строка
+ // Get command line parameter value (passed as "name=value"),
+ // Returns empty string if parameter is absent
  function GetParam(name:string):string;
 
- // Функции, показывающие сообщения (Windows)
+ // System Message Box functions (Windows)
  // -------------------------------
  function ShowMessage(text,caption:string):integer;
  function AskYesNo(text,caption:string):boolean;
  procedure ErrorMessage(text:string);
 
- // Поцедуры для работы с лог-файлом
+ // Log functions
  // --------------------------------
  procedure UseLogFile(name:string;keepOpened:boolean=false); // Specify log name
  procedure SetLogMode(mode:TLogModes;groups:string=''); //
@@ -171,7 +173,7 @@ interface
  procedure StopLogThread; // Завершение потока сброса лога
  procedure SystemLogMessage(text:string); // Post message to OS log
 
- // Полезные высокоуровневые функции для работы с файловой системой
+ // High level file system functions
  // ---------------------------------------------------------------
  function FindFile(name,path:string):string; // Найти файл начиная с указанного пути
  function FindDir(name,path:string):string;  // То же самое, но ищется каталог
@@ -180,7 +182,7 @@ interface
  function DeleteDir(path:string):boolean;    // Удалить каталог со всем содержимым
  procedure DumpDir(path:string);             // Log directory content (file names)
 
- // Файловые функции
+ // File functions
  // -------------------------------
  function SafeFileName(fname:string):string; // Replace all unsafe characters with '_'
  function FileName(const fname:string):string; // исправление разделителей пути и применение case-правил
@@ -219,20 +221,17 @@ interface
  function GetUTCTime:TSystemTime;
  function MyTickCount:int64; // Аналог GetTickCount, но без переполнения (больше не использует GetTickCount из-за недостаточной точности)
 
- // Функции для работы с массивами
- // ------------------------------
- // Shift array/data pointed by ptr by shiftValue bytes (positive - right, negative - left)
- procedure ShiftArray(const arr;sizeInBytes,shiftValue:integer);
-
  // Возвращает строку с описанием распределения памяти
  function GetMemoryState:string;
-
  // Возвращает объем выделенной памяти
  function GetMemoryAllocated:int64;
 
 
- // Функции для работы с массивами
+ // Array functions
  // ------------------------------
+ // Shift array/data pointed by ptr by shiftValue bytes (positive - right, negative - left)
+ procedure ShiftArray(const arr;sizeInBytes,shiftValue:integer);
+
  // Add (insert) string into array, returns its index
  function AddString(var sa:StringArr;const st:string;index:integer=-1):integer; overload;
  function AddString(var sa:WStringArr;const st:WideString;index:integer=-1):integer; overload;
@@ -257,15 +256,28 @@ interface
  // Формирует массив из строки чисел (через запятую)
  function StrToArray(st:string;divider:char=','):IntArray;
 
- // Функции для работы со строками
+ // String functions
  // ------------------------------
- // Выделить из строки все подстроки, разделенные данным разделителем
- // Двойное включение двойных кавычечных символов влечет включение символа в строку.
+ // Accurate split: allows quoted strings and doubled quote character inside quoted string.
+ // Example: [Hello,"A,B,C","Quoted ""word"""] -> [Hello],[A,B,C],[Quoted "word"]
  function Split(divider,st:string;quotes:char):StringArr; overload;
- // Разделяет строку на подстроки без каких-либо потерь
+ // Simple split (without quotes)
  function Split(divider,st:string):StringArr; overload;
  function SplitA(divider,st:String8):AStringArr;
  function SplitW(divider,st:WideString):WStringArr;
+
+ // Combines multiple strings into one string using quote character when needed
+ // This is opposite to Split()
+ function Combine(strings:stringarr;divider:string;quotes:char):string;
+ // Simple join strings using divider, doubles divider
+ function Join(strings:StringArr;divider:string):string; overload;
+ function Join(strings:AStringArr;divider:String8):String8; overload;
+ function Join(items:array of const;divider:string):string; overload;
+
+ // Проверяет, начинается ли строка st с подстроки
+ function HasPrefix(st,prefix:string):boolean; overload;
+ function HasPrefix(st,prefix:String8;ignoreCase:boolean=false):boolean; overload;
+
  // Search for a substring from specified point
  function PosFrom(substr,str:string;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
  function PosFrom(substr,str:WideString;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
@@ -276,26 +288,6 @@ interface
  function UpperCaseA(st:String8):String8;
  // Ignore case
  function SameChar(a,b:AnsiChar):boolean;
-
- // Склеивает подстроки в одну строку с использованием разделителя divider
- // Если разделитель присутствует в подстроках, то они берутся в кавычки с
- // выполнением соответствующей подстановки
- function Combine(strings:stringarr;divider:string;quotes:char):string;
-
- // Соединяет подстроки в одну строку используя символ-разделитель divider
- // Если разделитель встречается в строках, то он удваивается
- function Join(strings:StringArr;divider:string):string; overload;
-
- // Соединяет подстроки в одну строку используя символ-разделитель divider
- // Если разделитель встречается в строках, то он удваивается
- function Join(strings:AStringArr;divider:String8):String8; overload;
-
- // Соединяет значения (преобразованные из исходных типов в строковый вид) указанным разделителем
- function Join(items:array of const;divider:string):string; overload;
-
- // Проверяет, начинается ли строка st с подстроки
- function HasPrefix(st,prefix:string):boolean; overload;
- function HasPrefix(st,prefix:String8;ignoreCase:boolean=false):boolean; overload;
 
  // Возвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
  function SafeStrItem(sa:StringArr;idx:integer):string;
@@ -404,41 +396,50 @@ interface
 
 // function CopyUTF8(S:string; Index:Integer; Count:Integer):string; // analog of Copy which works with UTF8
 
- // Функции для вычисления полезных "ломаных" и сплайновых функций
+ // Some useful mathematic functions
  // -----------------------------------------------------------------
  // Вернуть "насыщенное" значение, т.е. привести b внутрь допустимого диапазона [min..max]
+ function Clamp(b,min,max:integer):integer; overload;
+ function Clamp(b,min,max:double):double; overload;
  function Sat(b,min,max:integer):integer; deprecated;
  function SatD(b,min,max:double):double; deprecated;
- function Clamp(b,min,max:integer):integer; overload; // alias
- function Clamp(b,min,max:double):double; overload; // alias
+
+ // Fast consistent rounding, equivalent to SimpleRoundTo(x,0) i.e. 0.5->1, 1.5->2 etc. (NOT PRECISE!)
+ function FRound(v:double):integer; inline;
+ // Precise version of rounding (still quite fast)
+ function PRound(v:double):integer; inline;
 
  // Вычислить ломаную функцию, определенную на отрезке [0..256] имеющую пик (экстремум)
  // в точке arg и принимающую значения a, b и c (a и c - на концах отрезка, b - в экстремуме)
  function Pike(x,arg,a,b,c:integer):integer;
  function PikeD(x,arg,a,b,c:double):double; // [0..1] range
 
- // Квадратичный сплайн на отрезке [0..1] принимающий значения a,b,c в точках 0, 0.5, 1 и ограниченный диапазоном байта
+ // Spline functions
+ // ----------------------------------------
+ // Quadratic clamped spline from [0..1] to [0..255] where: 0->a, 0.5->b, 1.0->c
  function SatSpline(x:single;a,b,c:integer):byte;
- // Кубический сплайн на отрезке [0..1] принимающий значения a,b,c,d в точках 0, 0.33, 0.66, 1 и ограниченный диапазоном байта
+ // Cubic clamped spline from [0..1] to [0..255] where 0->a, 0.33->b, 0.66->c, 1.0->d
  function SatSpline3(x:single;a,b,c,d:integer):byte;
 
- // Вычислить сплайн (аргумент - от 0 до 1, v0,v1 - значения на концах,
+ // Arbitrary spline: 0->v0, 1.0->v1
  //   k0,k1 - касательные на концах (0 - горизонталь), v - вес деления (0..1, 0.5 - среднее)
  function Spline(x:double;v0,k0,v1,k1:double;v:double=0.5):double;
- // некоторые полезные сплайны
- // линейная функция
+
+ // Some base splines
+ // Linear
  function Spline0(x,x0,x1,y0,y1:single):single;
- // ускорение, прямолинейное движение, замедление
+ // ease-in, ease-out
  function Spline1(x,x0,x1,y0,y1:single):single;  // 25% - 50% - 25%
  function Spline1a(x,x0,x1,y0,y1:single):single; // 10% - 80% - 10%
- // движение с постоянным замедлением (парабола)
+ // ease-out
  function Spline2(x,x0,x1,y0,y1:single):single;
- function Spline2rev(x,x0,x1,y0,y1:single):single; // то же, но с постоянным ускорением
- // движение с ускорением и одинарным отскоком на 10% от начальной высоты
+ // ease-in
+ function Spline2rev(x,x0,x1,y0,y1:single):single;
+ // ease-in with 10% bounce
  function Spline3(x,x0,x1,y0,y1:single):single;
- // движение с "перелётом" на 15%
+ // ease-in with 15% overflow
  function Spline4(x,x0,x1,y0,y1:single):single;
- // движение с "перелётом" на 30%
+ // ease-in with 30% overflow
  function Spline4a(x,x0,x1,y0,y1:single):single;
 
  // Получить ближайшую степень двойки, не меньшую данного числа
@@ -2773,6 +2774,19 @@ function BinToStr;
    result:=b;
    if b>max then result:=max;
    if b<min then result:=min;
+  end;
+
+ function FRound(v:double):integer; inline;
+  const
+   EPSILON=0.00001;
+  begin
+   result:=round(v+EPSILON);
+  end;
+
+ function PRound(v:double):integer; inline;
+  begin
+   if v>0 then result:=trunc(v+0.5)
+    else result:=trunc(v-0.5);
   end;
 
  // Return value of pike function
