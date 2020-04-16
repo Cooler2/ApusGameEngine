@@ -453,8 +453,6 @@ begin
   h:=r.Bottom-r.top;
   x:=r.Left;
   y:=r.Top;
-{  dec(UI.x,x);
-  dec(UI.y,y);}
  end;
  if w=0 then
   r:=TUIScene(forScene).GetArea;
@@ -470,10 +468,6 @@ begin
     duration:=1;
    end;
  end;
-// painter.SetTargetToTexture(buffer);
-{ with forscene as TUIScene do begin
-  UI.x:=x; UI.y:=y;
- end;}
 
  initialized:=true;
 end;
