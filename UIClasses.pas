@@ -1579,12 +1579,12 @@ begin
  if newHeight>-1 then dH:=newHeight-size.y else dH:=0;
  VectAdd(size,Point2s(dW,dH));
  for i:=0 to length(children)-1 do with children[i] do begin
+  Resize(size.x+dW*(anchorRight-anchorLeft),size.y+dH*(anchorBottom-anchorTop));
   childRect:=TransformTo(GetRect(),parent);
   childRect.x1:=childRect.x1+dW*anchorLeft;
   childRect.y1:=childRect.y1+dH*anchorTop;
   childRect.x2:=childRect.x2+dW*anchorRight;
   childRect.y2:=childRect.y2+dH*anchorBottom;
-  Resize(childRect.width,childRect.height);
   position.x:=childRect.x1*(1-pivot.x)+childRect.x2*pivot.x;
   position.y:=childRect.y1*(1-pivot.y)+childRect.y2*pivot.y;
  end;
