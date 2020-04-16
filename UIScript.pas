@@ -356,7 +356,12 @@ begin
       if fieldname='styleinfo' then begin
        result:=@obj.styleinfo; varClass:=TVarTypeString;
       end else
-      if fieldname='signals' then begin
+      if fieldname='scalex' then begin
+       result:=@obj.scale.x; varClass:=TVarTypeSingle;
+      end else
+      if fieldname='scaley' then begin
+       result:=@obj.scale.y; varClass:=TVarTypeSingle;
+      end else      if fieldname='signals' then begin
        result:=@obj.sendsignals; varClass:=TVarTypeSendSignals;
       end else
       if (fieldname='src') and (obj is TUIImage) then begin
@@ -391,7 +396,7 @@ end;
 
 class function TVarTypeUIControl.ListFields: String;
 begin
- result:='name,x,y,width,height';
+ result:='name,x,y,width,height,scaleX,scaleY,visible,enabled';
 end;
 
 class procedure TVarTypeTranspMode.SetValue(variable:pointer;v:string);
