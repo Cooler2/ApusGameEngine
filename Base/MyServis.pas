@@ -141,6 +141,8 @@ interface
 
  // Возвращает e.message вместе с адресом ошибки
  function ExceptionMsg(const e:Exception):string;
+ // Raise exception with "Not implemented" message
+ procedure NotImplemented(msg:string='');
  function GetCallStack:string;
  function GetCaller:pointer;
 
@@ -3830,6 +3832,11 @@ function BinToStr;
   result:='['+PtrToStr(ExceptAddr)+'] '+e.Message+' '+GetStackTrace;
  end;
  {$ENDIF}
+
+ procedure NotImplemented(msg:string='');
+  begin
+   raise EError.Create('Not implemented: '+msg);
+  end;
 
  function FindFile;
   var
