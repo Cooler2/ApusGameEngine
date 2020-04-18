@@ -226,7 +226,7 @@ type
  procedure Delay(time:integer);
 
 implementation
- uses types,SysUtils,cmdproc{$IFDEF DELPHI},graphics{$ENDIF}
+ uses types,SysUtils,cmdproc
      {$IFDEF VIDEOCAPTURE},VideoCapture{$ENDIF},BasicPainter,
      EventMan,UIClasses,UIScene,Console,EngineTools,publics,gfxFormats;
 
@@ -694,9 +694,6 @@ var
  img:TRAWImage;
  n:integer;
  st:string;
- {$IFDEF DELPHI}
- bmp,src:TBitmap;
- {$ENDIF}
  res:ByteArray;
  ext:string;
 begin
@@ -709,15 +706,7 @@ begin
  {$ENDIF}
  case screenshotTarget of
   0:if screenshotDataExt<>nil then begin
-   {$IFDEF DELPHI}
-   bmp:=TBitmap(screenshotDataExt);
-   if (screenshotDataRAW.tag<>0) and
-      (TObject(pointer(screenshotDataRAW.tag)) is TBitmap) then begin
-    src:=TBitmap(pointer(screenshotDataRAW.tag));
-    bmp.Assign(src);
-   end;
    Signal('Engine\BitmapCaptured',cardinal(screenshotDataExt));
-   {$ENDIF}
   end;
   {$IFDEF MSWINDOWS}
   2:if screenshotDataRAW<>nil then begin

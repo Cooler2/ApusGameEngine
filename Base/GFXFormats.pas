@@ -7,7 +7,6 @@
 unit GFXFormats;
 interface
  uses MyServis,
-     {$IFDEF DELPHI}VCL.Graphics,{$ENDIF}
      {$IFDEF TXTIMAGES}UnicodeFont,{$ENDIF}
      Images;
  type
@@ -57,9 +56,11 @@ interface
 
 
 implementation
- uses {$IFDEF DELPHI}jpeg,{$ENDIF}
-     {$IFDEF FPC}fpimage,fpreadjpeg,fpreadpng,{$ENDIF}
-     classes,SysUtils,math,colors;
+ uses {$IFDEF DELPHI}
+       {$IF CompilerVersion >= 20.0}VCL.Graphics,VCL.Imaging.jpeg,{$ELSE}graphics,jpeg,{$IFEND}
+      {$ENDIF}
+      {$IFDEF FPC}fpimage,fpreadjpeg,fpreadpng,{$ENDIF}
+      classes,SysUtils,math,colors;
 
 type
  TGAheader=packed record
@@ -145,7 +146,7 @@ procedure LoadPVR(data:ByteArray;var image:TRawImage;allocate:boolean=false);
   inc(pb,head.headerLength);
   if allocate then begin
    // Allocate new image
-   image:=TBitmapImage.Create(imginfo.width,imginfo.height,imginfo.format,palNone,0);
+   image:=Images.TBitmapImage.Create(imginfo.width,imginfo.height,imginfo.format,palNone,0);
    move(pb^,image.data^,imginfo.width*imginfo.height*PixelSize[imginfo.format] div 8);
   end else begin
    linesize:=pixelsize[imginfo.format]*imginfo.width div 8;
@@ -192,7 +193,7 @@ procedure LoadDDS(data:ByteArray;var image:TRawImage;allocate:boolean=false);
 
   if allocate then begin
    // Allocate new image
-   image:=TBitmapImage.Create(width,height,format,palNone,0);
+   image:=Images.TBitmapImage.Create(width,height,format,palNone,0);
    inc(pc,sizeof(DDSheader) div 4);
    /// TODO: MipMaps!
    move(pc^,image.data^,width*height*PixelSize[format] div 8);
@@ -254,7 +255,7 @@ procedure LoadTGA;
 
   if allocate then begin
    // Allocate new image
-   image:=TBitmapImage.Create(head.imgwidth,head.imgheight,format,palformat,
+   image:=Images.TBitmapImage.Create(head.imgwidth,head.imgheight,format,palformat,
     head.palstart+head.palsize);
    x1:=0; y1:=0; x2:=head.imgwidth-1; y2:=head.imgheight-1;
    width:=head.imgwidth; height:=head.imgheight;
@@ -782,7 +783,7 @@ procedure LoadTGA;
    src.Free;
 
    if image=nil then
-    image:=TBitmapImage.Create(jpeg.Width,jpeg.Height,ipfRGB);
+    image:=Images.TBitmapImage.Create(jpeg.Width,jpeg.Height,ipfRGB);
 
    jpeg.DIBNeeded;
    bmp:=TBitmap.Create;
@@ -803,6 +804,7 @@ procedure LoadTGA;
  end;
  {$ENDIF}
 
+ {$IFDEF LODEPNG}
  const
   // LodePNG color types
   LCT_GREY = 0; //*greyscale: 1,2,4,8,16 bit*/
@@ -852,7 +854,7 @@ procedure LoadTGA;
 
    // Allocate dest image if needed
    if image=nil then
-     image:=TBitmapImage.Create(width,height,ipfARGB);
+     image:=Images.TBitmapImage.Create(width,height,ipfARGB);
 
    image.Lock;
    sour:=buf;
@@ -904,7 +906,7 @@ procedure LoadTGA;
 
    // Allocate dest image if needed
    if image=nil then
-     image:=TBitmapImage.Create(width,height,ipfMono8);
+     image:=Images.TBitmapImage.Create(width,height,ipfMono8);
 
    image.Lock;
    sour:=buf;
@@ -918,16 +920,6 @@ procedure LoadTGA;
 
    free_mem(buf);
   end;
-
- procedure LoadPNG(data:ByteArray;var image:TRawImage);
-  begin
-   CheckImageFormat(data);
-   if imgInfo.format in [ipfA8,ipfMono8] then
-    LoadPNG8(data,image)
-   else
-    LoadPNG32(data,image);
-  end;
-
 
  function SavePNG32(image:TRawImage):ByteArray;
   var
@@ -968,6 +960,38 @@ procedure LoadTGA;
    SetLength(result,size);
    move(png^,result[0],size);
    free_mem(png);
+  end;
+ {$ELSE}
+
+ procedure LoadPNG32(data:ByteArray;var image:TRawImage);
+  begin
+   NotImplemented('Use LODEPNG');
+  end;
+
+ procedure LoadPNG8(data:ByteArray;var image:TRawImage);
+  begin
+   NotImplemented('Use LODEPNG');
+  end;
+
+ function SavePNG32(image:TRawImage):ByteArray;
+  begin
+   NotImplemented('Use LODEPNG');
+  end;
+
+ function SavePNG8(image:TRawImage):ByteArray;
+  begin
+   NotImplemented('Use LODEPNG');
+  end;
+
+ {$ENDIF}
+
+ procedure LoadPNG(data:ByteArray;var image:TRawImage);
+  begin
+   CheckImageFormat(data);
+   if imgInfo.format in [ipfA8,ipfMono8] then
+    LoadPNG8(data,image)
+   else
+    LoadPNG32(data,image);
   end;
 
  function SavePNG(image:TRawImage):ByteArray;

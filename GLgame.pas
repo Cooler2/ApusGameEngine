@@ -41,7 +41,7 @@ type
  end;
 
 implementation
- uses types,SysUtils,cmdproc{$IFDEF DELPHI},graphics{$ENDIF},
+ uses types,SysUtils,cmdproc,
      {$IFDEF MSWINDOWS}windows,{$ENDIF}
      {$IFNDEF GLES}dglOpenGL,{$ENDIF}
      GlImages,EventMan,UIClasses,UIScene,gfxformats,
