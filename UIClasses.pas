@@ -9,6 +9,7 @@
 unit UIClasses;
 interface
  uses EngineAPI,contnrs,CrossPlatform,MyServis,AnimatedValues,types,regions,geom2d;
+{$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
 const
