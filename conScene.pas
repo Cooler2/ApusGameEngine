@@ -79,7 +79,7 @@ begin
    end;
   end;
 
- // Позиционирование текущего элемента
+ // Move/resize current element with arrow keys
  if consoleScene.activated and
     (curObj<>nil) and
     (curObjClass.ClassNameIs('TVarTypeUIControl')) and
@@ -121,7 +121,7 @@ var
  i:integer;
 begin
  result:=true;
- e:=FindControl('console\input',false) as TUIEditBox;
+ e:=FindControl('Console\Input',false) as TUIEditBox;
  if e=nil then exit;
  if cmdList.Find(e.text,i) then begin
   cmdList.Delete(i);
@@ -207,14 +207,17 @@ begin
  img.SetAnchors(0,0,1,1);
  img.src:='proc:'+PtrToStr(@DrawContent);
 
- editbox:=TUIEditBox.Create(480,18,'console\input',font,$FFE0FFD0,wnd);
+ editbox:=TUIEditBox.Create(460,18,'Console\Input',font,$FFE0FFD0,wnd);
  editBox.SetPos(0,h,pivotBottomLeft);
  editbox.backgnd:=$40000000;
  editBox.SetAnchors(0,1,1,1);
  editbox.noborder:=true;
  editbox.encoding:=teUTF8;
 
- scroll:=TUIScrollBar.Create(18,h-19,'console\scroll',wnd);
+ TUIButton.Create(20,18,'Console\Enter','>',font,wnd).SetPos(480,h,pivotBottomRight).SetAnchors(0,0,1,1);
+ Link('UI\Console\Enter\Click','UI\Console\Input\Enter');
+
+ scroll:=TUIScrollBar.Create(18,h-19,'Console\Scroll',wnd);
  scroll.SetPos(480,0,pivotTopRight);
  scroll.color:=$90808090;
  scroll.step:=32;
@@ -222,7 +225,7 @@ begin
  scroll.Link(img);
  img.scrollerV:=scroll;
 
- SetEventHandler('UI\console\input\Enter',ConsoleOnEnter);
+ SetEventHandler('UI\Console\Input\Enter',ConsoleOnEnter);
 end;
 
 procedure TConsoleScene.ScrollToEnd;
