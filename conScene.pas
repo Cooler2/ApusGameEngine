@@ -43,7 +43,10 @@ begin
     consoleScene.SetStatus(ssFrozen)
    else
     consoleScene.UI.SetFocus;
-   end else consoleScene.SetStatus(ssActive);
+   end else begin
+    consoleScene.SetStatus(ssActive);
+    game.suppressCharEvent:=true; // avoid [`] in the edit box
+   end;
  end;
 
  // Если консоль открыта, а фокуса нигде нет, то по любому нажатию перевести фокус на консоль

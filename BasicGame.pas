@@ -207,6 +207,8 @@ type
                      // TODO: плохо, что этот параметр глобальный, надо сделать его свойством сцен либо элементов UI, чтобы можно было проверять объект под мышью с учётом наложений
   textLinkRect:TRect; // область ссылки, по номеру textLink
 
+  suppressCharEvent:boolean; // suppress next keyboard event (to avoid duplicated handle of both CHAR and KEY events)
+
   // параметры выставляются при смене режима, указыают что именно изменялось
   resChanged,pfChanged:boolean;
   scenes:array of TGameScene;
@@ -884,6 +886,9 @@ begin
   end;
 
   WM_CHAR:if game<>nil then with game do begin
+    if suppressCharEvent then begin
+     suppressCharEvent:=false; exit;
+    end;
     // Младший байт - код символа, старший - сканкод
     key:=wparam and $FF+(lparam shr 8) and $FF00+wparam shl 16;
     if shiftstate=2 then exit;
