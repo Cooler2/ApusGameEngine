@@ -232,8 +232,12 @@ begin
       PutMsg(Format('%s: %.1f,%.1f %.1f,%.1f',[c.name,c.position.x,c.position.y,c.size.x,c.size.y]));
       if game.shiftstate and 2>0 then // Shift pressed => select item
         ExecCmd('use '+c.name);
-    end else
-     ShowSimpleHint('No item available',nil,-1,-1,500);
+    end else begin
+     st:='No opaque item here';
+     FindAnyControlAt(curMouseX,curMouseY,c);
+     if c<>nil then st:=st+'; '+c.ClassName+'('+c.name+')';
+     ShowSimpleHint(st,nil,-1,-1,500+4000*byte(c<>nil));
+    end;
   end;
   // Отпускание кнопки
   if copy(event,1,5)='BTNUP' then begin
