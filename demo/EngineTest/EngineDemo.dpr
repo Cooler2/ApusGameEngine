@@ -5,6 +5,7 @@ uses
   windows,
   sysutils,
   myservis,
+  math,
   geom2d,
   geom3d,
   images,
@@ -56,7 +57,8 @@ uses
   OBJLoader in '..\..\OBJLoader.pas',
   SpritePacker in '..\..\SpritePacker.pas',
   IQMloader in '..\..\IQMloader.pas',
-  ImgLoadQueue in '..\..\ImgLoadQueue.pas';
+  ImgLoadQueue in '..\..\ImgLoadQueue.pas',
+  UIScript in '..\..\UIScript.pas';
 
 const
  wnd:boolean=true;
@@ -1882,7 +1884,28 @@ begin
  painter.SetCullMode(cullNone);
 end;
 
+function MyRound(v:single):integer; inline;
+ const
+  epsilon = 0.000001;
+ begin
+  result:=PRound(v);
+  //result:=round(SimpleRoundTo(v,0));
+ end;
+
+var
+ v:single;
+ i,n:integer;
+ time:int64;
 begin
+ time:=MyTickCount;
+ v:=10.6;
+ for i:=0 to 10000000 do begin
+  n:=MyRound(v);
+  n:=MyRound(v);
+  n:=MyRound(v);
+  n:=MyRound(v);
+ end;
+ time:=MyTickCOunt-time;
 
  if HasParam('-wnd') then wnd:=true;
  if HasParam('-fullscreen') then wnd:=false;
