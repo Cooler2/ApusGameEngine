@@ -45,12 +45,11 @@ implementation
 
 constructor TSimpleDemoApp.Create;
  begin
+  inherited;
   // Alter some global settings
   gameTitle:='Simple Engine Demo'; // app window title
   configFileName:='game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-
-  inherited;
  end;
 
 // This is executed just before the game object is launched
@@ -60,13 +59,13 @@ procedure TSimpleDemoApp.SetGameSettings(var settings: TGameSettings);
 
   // Now override instance settings
   // Primary mode settings
-  settings.mode.displayMode:=dmWindow; // run in window
+{  settings.mode.displayMode:=dmWindow; // run in window
   settings.mode.displayFitMode:=dfmStretch; // stretch the backbuffer to match the full window size
   settings.mode.displayScaleMode:=dsmDontScale; // use 1:1 pixel ratio
   // Secondary mode settings (for [Alt]+[Enter])
   settings.altMode.displayMode:=dmFullScreen; // use fullscreen window
   settings.altMode.displayFitMode:=dfmKeepAspectRatio; // use borders to keep the initial aspect ratio
-  settings.altMode.displayScaleMode:=dsmDontScale; // use 1:1 pixel ratio
+  settings.altMode.displayScaleMode:=dsmDontScale; // use 1:1 pixel ratio}
  end;
 
 // Most app initialization is here. Default spinner is running
@@ -92,6 +91,7 @@ procedure TMainScene.CreateUI;
  begin
   // Let's create a simple container
   box:=TUIControl.Create(400,250,UI,'MainScene\MainMenu');
+  //box.SetScale(1.5);
   box.Center; // make it center
   //c.SetPos(UI.size.x/2,UI.size.y/2,pivotCenter); // another way to make it center
   box.styleinfo:='E0C0C8D0'; // fill color for the default style
