@@ -700,8 +700,8 @@ begin
  SortRootControls;
  // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
  for i:=0 to high(rootControls) do begin
-  if any then enabl:=rootControls[i].FindItemAt(x,y,ct)
-   else enabl:=rootControls[i].FindAnyItemAt(x,y,ct);
+  if any then enabl:=rootControls[i].FindAnyItemAt(x,y,ct)
+   else enabl:=rootControls[i].FindItemAt(x,y,ct);
   if ct<>nil then begin
    c2:=ct; // найдем корневого предка ct (вдруг это не rootControls[i]?)
    while c2.parent<>nil do c2:=c2.parent;
