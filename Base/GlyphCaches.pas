@@ -4,6 +4,8 @@
 // -----------------------------------------
 // 2D-cache methods for font glyph caching
 // (realtime 2D-rect packing algorithms)
+
+{$WRITEABLECONST ON}
 unit GlyphCaches;
 interface
  uses types,Structs;

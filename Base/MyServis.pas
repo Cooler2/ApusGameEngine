@@ -141,6 +141,8 @@ interface
 
  // Returns e.message with exception address and call stack (if available)
  function ExceptionMsg(const e:Exception):string;
+ // Raise exception with "Not implemented" message
+ procedure NotImplemented(msg:string='');
  // Call Stack as string
  function GetCallStack:string;
  // Returns caller address
@@ -3844,6 +3846,11 @@ function BinToStr;
   result:='['+PtrToStr(ExceptAddr)+'] '+e.Message+' '+GetStackTrace;
  end;
  {$ENDIF}
+
+ procedure NotImplemented(msg:string='');
+  begin
+   raise EError.Create('Not implemented: '+msg);
+  end;
 
  function FindFile;
   var

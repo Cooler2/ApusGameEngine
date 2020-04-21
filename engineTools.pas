@@ -236,7 +236,6 @@ var
 
 implementation
  uses SysUtils,{$IFDEF DIRECTX}DirectXGraphics,d3d8,DxImages8,{$ENDIF}
-    {$IFDEF DELPHI}graphics,jpeg,{$ENDIF}
     {$IFDEF OPENGL}GLImages,{$ENDIF}
     {$IFDEF MSWINDOWS}ShellAPI,{$ENDIF}
     {$IFDEF ANDROID}Android,{$ENDIF}
@@ -643,10 +642,6 @@ var
  linebuf:pointer;
  doScale:boolean;
  st:string;
- {$IFDEF DELPHI}
- jpeg:TJpegImage;
- bmp:TBitmap;
- {$ENDIF}
 begin
  if texman=nil then
   raise EError.Create(fname+' - Loading failed: texture manager doesn''t exist!');
