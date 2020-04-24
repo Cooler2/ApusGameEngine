@@ -7,7 +7,7 @@ unit UIScript;
 interface
 
 implementation
-uses MyServis,SysUtils,EventMan,Publics,CmdProc,EngineAPI,UIClasses;
+uses MyServis,SysUtils,EventMan,Publics,CmdProc,EngineAPI,UIClasses,Geom2d;
 
 type
  TDefaults=record
@@ -36,6 +36,11 @@ type
  end;
 
  TVarTypeBtnStyle=class(TVarTypeEnum)
+  class procedure SetValue(variable:pointer;v:string); override;
+  class function GetValue(variable:pointer):string; override;
+ end;
+
+ TVarTypePivot=class(TVarTypeEnum)
   class procedure SetValue(variable:pointer;v:string); override;
   class function GetValue(variable:pointer):string; override;
  end;
@@ -338,6 +343,9 @@ begin
       if fieldname='parent' then begin
        result:=obj.parent; varClass:=TVarTypeUIControl;
       end else
+      if fieldname='pivot' then begin
+       result:=@obj.pivot; varClass:=TVarTypePivot;
+      end else
       if (fieldname='pressed') and (obj is TUIButton) then begin
        result:=@TUIButton(obj).pressed; varClass:=TVarTypeBool;
       end else
@@ -448,6 +456,26 @@ class function TVarTypeBtnStyle.GetValue(variable:pointer):string;
    bsSwitch:result:='switch';
    bsCheckbox:result:='checkbox';
   end;
+ end;
+
+{ TVarTypePivot }
+
+class function TVarTypePivot.GetValue(variable: pointer): string;
+ var
+  p:TPoint2s;
+ begin
+  p:=TPoint2s(variable^);
+  result:=Format('(%.2f,%.2f)',[p.x,p.y]);
+ end;
+
+class procedure TVarTypePivot.SetValue(variable: pointer; v: string);
+ begin
+  if SameText(v,'Center') then TPoint2s(variable^):=pivotCenter else
+  if SameText(v,'TopLeft') then TPoint2s(variable^):=pivotTopLeft else
+  if SameText(v,'TopRight') then TPoint2s(variable^):=pivotTopRight else
+  if SameText(v,'BottomLeft') then TPoint2s(variable^):=pivotBottomLeft else
+  if SameText(v,'BottomRight') then TPoint2s(variable^):=pivotBottomRight else
+  raise EWarning.Create('Invalid pivot value: '+v);
  end;
 
 initialization
