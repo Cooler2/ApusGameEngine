@@ -279,6 +279,9 @@ begin
       if fieldname='cursor' then begin
        result:=@obj.cursor; varClass:=TVarTypeInteger;
       end else
+      if fieldname='clipchildren' then begin
+       result:=@obj.clipchildren; varClass:=TVarTypeBool;
+      end else
       if fieldname='customdraw' then begin
        result:=@obj.customdraw; varClass:=TVarTypeBool;
       end;

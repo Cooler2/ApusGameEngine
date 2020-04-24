@@ -137,8 +137,9 @@ type
   hintDelay:integer; // время (в мс), через которое элемент должен показать hint (в режиме показа hint'ов это время значительно меньше)
   hintDuration:integer; // длительность (в мс) показа хинта
   sendSignals:TSendSignals; // режим сигнализирования (см. выше)
-  parentClip:boolean; // отсекать ли элемент областью предка (default - yes!)
-  clipChildren:boolean; // отсекать ли дочерние элементы клиентской областью (default - yes)
+  // Clipping: use clipChildren to allow hovering, not parentClip
+  parentClip:boolean; // clip this element by parents client rect? (default - yes!)
+  clipChildren:boolean; // clip children elements by self client rect? (default - yes)
 
   timer:integer; // таймер - указывает время в мс через которое будет вызван onTimer() (но не раньше чем через кадр, 0 - не вызывать)
 
