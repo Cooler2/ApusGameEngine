@@ -214,7 +214,7 @@ begin
  editbox.noborder:=true;
  editbox.encoding:=teUTF8;
 
- TUIButton.Create(20,18,'Console\Enter','>',font,wnd).SetPos(480,h,pivotBottomRight).SetAnchors(0,0,1,1);
+ TUIButton.Create(20,18,'Console\Enter','>',font,wnd).SetPos(480,h,pivotBottomRight).SetAnchors(1,1,1,1);
  Link('UI\Console\Enter\Click','UI\Console\Input\Enter');
 
  scroll:=TUIScrollBar.Create(18,h-19,'Console\Scroll',wnd);
