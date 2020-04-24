@@ -352,11 +352,23 @@ begin
       if (fieldname='pressed') and (obj is TUIButton) then begin
        result:=@TUIButton(obj).pressed; varClass:=TVarTypeBool;
       end else
-      if (fieldname='pendind') and (obj is TUIButton) then begin
+      if (fieldname='pending') and (obj is TUIButton) then begin
        result:=@TUIButton(obj).pending; varClass:=TVarTypeBool;
       end else
       if (fieldname='password') and (obj is TUIEditBox) then begin
        result:=@TUIEditBox(obj).password; varClass:=TVarTypeBool;
+      end else
+      if fieldname='paddingleft' then begin
+       result:=@obj.paddingLeft; varClass:=TVarTypeSingle;
+      end else
+      if fieldname='paddingright' then begin
+       result:=@obj.paddingright; varClass:=TVarTypeSingle;
+      end else
+      if fieldname='paddingtop' then begin
+       result:=@obj.paddingtop; varClass:=TVarTypeSingle;
+      end else
+      if fieldname='paddingbottom' then begin
+       result:=@obj.paddingbottom; varClass:=TVarTypeSingle;
       end else
       if (fieldname='pagesize') and (obj is TUIScrollBar) then begin
        varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).pagesize;
