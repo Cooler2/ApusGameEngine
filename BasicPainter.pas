@@ -334,10 +334,10 @@ function fGetFontHandle(params:string;tag:integer;context:pointer;contextClass:T
   if painter=nil then raise EWarning.Create('Painter is not ready');
   sa:=split(',',params);
   if length(sa)<2 then raise EWarning.Create('Invalid parameters');
-  size:=Eval(sa[1],nil,context,contextClass);
+  size:=EvalFloat(sa[1],nil,context,contextClass);
   style:=0; effects:=0;
-  if length(sa)>2 then style:=round(Eval(sa[2],nil,context,contextClass));
-  if length(sa)>3 then effects:=round(Eval(sa[3],nil,context,contextClass));
+  if length(sa)>2 then style:=round(EvalFloat(sa[2],nil,context,contextClass));
+  if length(sa)>3 then effects:=round(EvalFloat(sa[3],nil,context,contextClass));
   result:=painter.GetFont(sa[0],size,style,effects);
  end;
 

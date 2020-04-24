@@ -138,9 +138,10 @@ implementation
    end;
    // Default action - evaluation
    try
-    v:=Eval(cmd,nil,curObj,curObjClass);
-    if IsNAN(v) then PutMsg('Invalid expression - '+cmd,false,41001)
-     else PutMsg(FloatToStrF(v,ffGeneral,10,0),false,41000);
+
+    PutMsg(EvalStr(cmd,nil,curObj,curObjClass),false,41000);
+{    if IsNAN(v) then PutMsg('Invalid expression - '+cmd,false,41001)
+     else PutMsg(FloatToStrF(v,ffGeneral,10,0),false,41000);}
    except
     on e:exception do PutMsg('Evaluation error '+ExceptionMsg(e),false,41001)
    end;
@@ -148,8 +149,9 @@ implementation
 
  procedure ExecCmd(cmd:string);
   begin
-   if length(cmd)=0 then exit; // пустая строка
-   if cmd[1] in ['#',';'] then exit;   // комментарий
+   if length(cmd)=0 then exit; // empty string
+   if cmd[1] in ['#',';'] then exit;   // comments
+   if cmd.StartsWith('//') then exit;
    while pos(';',cmd)>0 do begin
     ExecSingleCmd(copy(cmd,1,pos(';',cmd)-1));
     delete(cmd,1,pos(';',cmd));
@@ -243,7 +245,7 @@ implementation
    if (leftClass.InheritsFrom(TVarTypeInteger)) or
       (leftClass.InheritsFrom(TVarTypeCardinal)) or
       (leftClass.InheritsFrom(TVarTypeSingle)) then begin
-    v:=Eval(sa[1],nil,curObj,curObjClass);
+    v:=EvalFloat(sa[1],nil,curObj,curObjClass);
     if IsNAN(v) then raise EWarning.Create('Invalid expression: '+sa[1]);
     if not leftClass.InheritsFrom(TVarTypeSingle) then v:=round(v);
     sa[1]:=FloatToStr(v);
@@ -303,7 +305,7 @@ implementation
    end else begin
     // IF statement
     delete(cmd,1,3);
-    v:=Eval(cmd,nil,curObj,curObjClass);
+    v:=EvalFloat(cmd,nil,curObj,curObjClass);
     inc(condPos);
     condStack[condPos]:=(v<>0);
    end;
@@ -322,7 +324,7 @@ implementation
    sa:=split('=',cmd);
    sa[0]:=Chop(sa[0]);
    try
-    v:=Eval(sa[1],nil,curObj,curObjClass);
+    v:=EvalFloat(sa[1],nil,curObj,curObjClass);
     sa[1]:=FloatToStr(v);
    finally
    end;
@@ -414,8 +416,8 @@ var
 begin
  sa:=split(',',params);
  if length(sa)<>2 then raise EWarning.Create('Invalid parameters');
- color1:=round(Eval(sa[0],nil,context,contextClass));
- color2:=round(Eval(sa[0],nil,context,contextClass));
+ color1:=round(EvalFloat(sa[0],nil,context,contextClass));
+ color2:=round(EvalFloat(sa[0],nil,context,contextClass));
  case tag of
   1:result:=ColorAdd(color1,color2);
   2:result:=ColorSub(color1,color2);

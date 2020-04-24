@@ -166,7 +166,7 @@ function StrToAlign(s:string):TTextAlignment;
 
 function EvalInt(st:string):int64;
  begin
-  result:=round(Eval(st,nil,curObj,curObjClass));
+  result:=round(EvalFloat(st,nil,curObj,curObjClass));
  end;
 
 {$IFDEF FPC}{$PUSH}{$R-}{$ENDIF}
