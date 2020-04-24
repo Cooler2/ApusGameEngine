@@ -115,7 +115,10 @@ begin
  try
  if forScene is TUIScene then (forScene as TUIScene).UI.enabled:=false;
 
- if scene.zorder<=prevScene.zorder then Swap(scene.zOrder,prevScene.zOrder);
+ if scene.zorder<=prevScene.zorder then begin
+  Swap(scene.zOrder,prevScene.zOrder);
+  LogMessage('zOrder swap: %s=%d, %s=%d',[scene.name,scene.zOrder,prevScene.name,prevScene.zOrder]);
+ end;
  prevTimer:=0;
  buffer:=nil;
  dontPlay:=disableEffects;
