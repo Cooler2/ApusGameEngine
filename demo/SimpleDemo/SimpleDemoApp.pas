@@ -91,7 +91,6 @@ procedure TMainScene.CreateUI;
  begin
   // Let's create a simple container
   box:=TUIControl.Create(400,250,UI,'MainScene\MainMenu');
-  //box.SetScale(1.5);
   box.Center; // make it center
   //c.SetPos(UI.size.x/2,UI.size.y/2,pivotCenter); // another way to make it center
   box.styleinfo:='E0C0C8D0'; // fill color for the default style
