@@ -5,7 +5,10 @@ Please keep in mind that I wrote this code for myself, so while there are many s
 **Please support me on Patreon:**
 https://www.patreon.com/ApusGameEngine
 
-**See Wiki for details**
+---
+**See [Wiki](https://github.com/Cooler2/ApusGameEngine/wiki) for more info**
+
+---
 
 **Title sponsor of development:**
 

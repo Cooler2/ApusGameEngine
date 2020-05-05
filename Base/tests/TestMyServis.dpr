@@ -1530,7 +1530,7 @@ begin
   //TestStackTrace;
 
   TestQuotes;
-  TestPNG;
+  //TestPNG;
   TestAnimations;
   TestClipboard;
   TestSortStrings;
