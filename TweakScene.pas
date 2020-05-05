@@ -11,7 +11,7 @@ interface
  procedure CreateTweakerScene(tinyFont,normalFont:cardinal);
 
 implementation
- uses SysUtils,MyServis,EngineAPI,publics,Math,UIClasses,UIScene,EventMan,UIRender,engineTools;
+ uses CrossPlatform,SysUtils,MyServis,EngineAPI,publics,Math,UIClasses,UIScene,EventMan,UIRender,engineTools;
 
  type
   TTweakerScene=class(TUIScene)
@@ -28,17 +28,26 @@ implementation
    procedure PlaceTrackers(keepPos:boolean=false);
   end;
 
+  TValueType=(vtFloat=1,
+              vtInteger=2,
+              vtAlpha=3,
+              vtRed=4,
+              vtGreen=5,
+              vtBlue=6);
   //
   TTracker=class(TUIControl)
    value,min,max,initialValue:single;
-   vType:integer;
-   constructor Create(x,y:integer;parent:TUIControl;mode:integer;iValue,initValue:single);
+   vType:TValueType;
+   constructor Create(x,y:integer;parent:TUIControl;mode:TValueType;iValue,initValue:single);
    procedure onMouseMove; override;
    procedure onMouseScroll(delta:integer); override;
    procedure onMouseButtons(button:byte;state:boolean); override;
+   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure Draw(x1,y1,x2,y2:integer); virtual;
    function ValueToX(v:single):integer;
    function XToValue(x:integer):single;
+   procedure ChangeValue(delta:integer);
+   procedure Zoom(delta:integer);
   private
    moving:boolean;
   end;
@@ -149,7 +158,7 @@ var
  name,value,iValue:string;
 begin
  // Delete old trackers
-{ ui.height:=listBox.height+20;
+ ui.height:=listBox.height+20;
  for i:=0 to edCount-1 do
   FreeAndNil(editors[i]);
 
@@ -172,9 +181,9 @@ begin
  end;
 
  // Adjust vertical position
- if not keepPos then ui.y:=game.mouseY-ui.height div 2;
- if ui.y+ui.height>game.renderHeight then ui.y:=game.renderHeight-ui.height;
- if ui.y<5 then ui.y:=5;}
+ if not keepPos then ui.position.y:=game.mouseY-ui.height/2;
+ if ui.position.y+ui.height>game.renderHeight then ui.position.y:=game.renderHeight-ui.height;
+ if ui.position.y<5 then ui.position.y:=5;
 end;
 
 procedure TTweakerScene.SetStatus(st: TSceneStatus);
@@ -182,12 +191,12 @@ var
  sa:StringArr;
  lastIdx:integer;
 begin
-{ if st=ssActive then begin
+ if st=ssActive then begin
   // Update UI Layout
   ui.Resize(round(200+game.renderWidth*0.1),-1);
-  ui.x:=game.mouseX-ui.width div 2;
-  if ui.x<5 then ui.x:=5;
-  if ui.x+ui.width>game.renderWidth-5 then ui.x:=game.renderWidth-5-ui.width;
+  ui.position.x:=game.mouseX-ui.width/2;
+  if ui.position.x<5 then ui.position.x:=5;
+  if ui.position.x+ui.width>game.renderWidth-5 then ui.position.x:=game.renderWidth-5-ui.width;
   ui.height:=listBox.height+20;
 
   sa:=GetGlobalContexts(lastIdx);
@@ -200,26 +209,61 @@ begin
   clipMouse:=cmNo;
   hooked:=nil;
  end;
- inherited;}
+ inherited;
 end;
 
 { TFloatTracker }
 
-constructor TTracker.Create(x,y:integer;parent: TUIControl; mode:integer;iValue,initValue:single);
+procedure TTracker.Zoom(delta: integer);
 begin
-{ inherited Create(x,y,parent.width-x-5-5*byte(mode in [3..6]),18+game.renderHeight div 50,parent);
+ if vType>=vtAlpha then exit;
+ if delta<0 then begin
+  min:=min-0.4*abs(max-value);
+  max:=max+0.4*abs(value-min);
+ end;
+ if delta>0 then begin
+  if (vType=vtFloat) or (max-min>100) then begin
+   min:=min*0.5+value*0.5;
+   max:=max*0.5+value*0.5;
+  end;
+ end;
+end;
+
+procedure TTracker.ChangeValue(delta: integer);
+var
+ step:single;
+begin
+ if vType=vtFloat then begin
+  step:=(max-min)/50*Clamp(delta,-1,1);
+  if game.shiftstate and sscCtrl>0 then step:=step/5;
+  if game.shiftstate and sscAlt>0 then step:=step*5;
+ end else begin
+  step:=round((max-min)/50)*Clamp(delta,-1,1);
+  if game.shiftstate and sscCtrl>0 then step:=Clamp(step,-1,1);
+  if game.shiftstate and sscAlt>0 then step:=step*4;
+ end;
+ value:=value+step;
+ onMouseButtons(1,false);
+end;
+
+constructor TTracker.Create(x,y:integer;parent:TUIControl;mode:TValueType;iValue,initValue:single);
+begin
+ inherited Create(parent.width-x-5-5*byte(mode in [vtAlpha..vtBlue]),18+game.renderHeight div 50,parent);
+ SetPos(x,y);
+ transpmode:=tmOpaque;
+ canHaveFocus:=true;
  style:=3;
  value:=iValue;
  initialValue:=initValue;
  moving:=false;
  vType:=mode;
- if mode<3 then begin
+ if mode in [vtFloat,vtInteger] then begin
   min:=-1.1; max:=1.1;
   while value>(min*0.1+max*0.9) do max:=max+abs(max-min);
   while value<(min*0.9+max*0.1) do min:=min-abs(max-min);
  end else begin
   min:=0; max:=255;
- end;}
+ end;
 end;
 
 procedure TTracker.Draw(x1, y1, x2, y2: integer);
@@ -230,10 +274,12 @@ var
  fl:boolean;
  c:cardinal;
 begin
- //painter.Rect(x1,y1,x2,y2,$80C0C0C0);
-{ yy:=y1+round(height*0.48);
- painter.DrawLine(x1,yy-1,x2,yy-1,$80202020);
- painter.DrawLine(x1,yy+1,x2,yy+1,$80A0A0A0);
+ //if self=focusedControl then painter.Rect(x1,y1,x2,y2,$80C0A0A0);
+
+ if self=focusedControl then c:=$2000 else c:=0;
+ yy:=y1+round(height*0.48);
+ painter.DrawLine(x1,yy-1,x2,yy-1,$80202020+c);
+ painter.DrawLine(x1,yy+1,x2,yy+1,$80A0A0A0+c);
  step:=0.0001; j:=0;
  while (max-min)/step>40 do begin
   if j mod 3=0 then step:=step*2;    // ->0.2
@@ -241,19 +287,20 @@ begin
   if j mod 3=2 then step:=step*2;    // ->1.0
   inc(j);
  end;
- if vType in [3..6] then begin
+ if vType in [vtAlpha..vtBlue] then begin
   step:=16; j:=4;
  end else
   j:=5;
+
  for i:=round(min/step) to round(max/step) do begin
   xx:=ValueToX(i*step);
   if (xx>=0) and (xx<width) then begin
    if i mod j=0 then begin
-    painter.TextOut(tweakerScene.tinyFont,x1+round(xx*0.98+width*0.01),(yy+y2) div 2+4,$C0E0E0E0,
+    painter.TextOut(tweakerScene.tinyFont,x1+round(xx*0.98+width*0.01),(yy+y2) div 2+4,$C0E0C8E0+c,
       FloatToStrF(i*step,ffGeneral,5,0),taCenter);
-    painter.DrawLine(x1+xx,yy-4,x1+xx,yy+4,$90C0C0C0);
+    painter.DrawLine(x1+xx,yy-4,x1+xx,yy+4,$90C0C0C0+c);
    end else
-    painter.DrawLine(x1+xx,yy-2,x1+xx,yy+3,$90A0A0A0);
+    painter.DrawLine(x1+xx,yy-2,x1+xx,yy+3,$90A0A0A0+c);
   end;
  end;
  // Draw initial value
@@ -268,18 +315,31 @@ begin
   end;
  end;
  // Draw slider
- if vType>1 then xx:=ValueToX(round(value))
+ if vType>vtFloat then xx:=ValueToX(round(value))
   else xx:=ValueToX(value);
  if (xx>=0) and (xx<width) then begin
   j:=4+game.renderHeight div 80;
   c:=$FFD8D0C0;
-  if vType=4 then c:=$FFE0A0A0;
-  if vType=5 then c:=$FFA0D0A0;
-  if vType=6 then c:=$FFA0A0F0;
+  case vType of
+   vtRed:  c:=$FFE0A0A0;
+   vtGreen:c:=$FFA0D0A0;
+   vtBlue: c:=$FFA0A0F0;
+  end;
   inc(xx,x1);
   for i:=-4 to 4 do
    painter.DrawLine(xx+i,yy-j,xx+i,yy-abs(i),c-$101010*abs(i));
- end;}
+ end;
+end;
+
+function TTracker.onKey(keycode: byte; pressed: boolean;
+  shiftstate: byte): boolean;
+begin
+ if pressed then begin
+  if keycode=VK_LEFT then ChangeValue(-1);
+  if keycode=VK_RIGHT then ChangeValue(+1);
+  // [R] - reset to initial value
+  if keycode=82 then value:=initialValue;
+ end;
 end;
 
 procedure TTracker.onMouseButtons(button: byte; state: boolean);
@@ -295,7 +355,7 @@ begin
    moving:=false;
    hooked:=nil;
    clipMouse:=cmNo;
-   if vType<3 then begin
+   if vType in [vtFloat,vtInteger] then begin
     if value>min*0.05+max*0.95 then max:=max+(max-min)*0.5;
     if value<min*0.95+max*0.05 then min:=min-(max-min)*0.5;
    end;
@@ -312,7 +372,7 @@ begin
    value:=XToValue(xx);
    if value<min then value:=min;
    if value>max then value:=max;
-   if vType>1 then value:=round(value);
+   if vType>vtFloat then value:=round(value);
    if (max-min)>2000 then value:=RoundTo(value,1);
    if (max-min)>200 then value:=RoundTo(value,0);
    if (max-min)>20 then value:=RoundTo(value,-1);
@@ -325,27 +385,18 @@ end;
 procedure TTracker.onMouseScroll(delta: integer);
 begin
  inherited;
- if vType>=3 then exit;
- if delta<0 then begin
-  min:=min-0.4*abs(max-value);
-  max:=max+0.4*abs(value-min);
- end;
- if delta>0 then begin
-  if (vType=1) or (max-min>100) then begin
-   min:=min*0.5+value*0.5;
-   max:=max*0.5+value*0.5;
-  end;
- end;
+ delta:=Clamp(delta,-1,1);
+ Zoom(delta);
 end;
 
 function TTracker.ValueToX(v: single): integer;
 begin
-{ result:=2+round((v-min)/(max-min)*(width-5));}
+ result:=2+round((v-min)/(max-min)*(width-5));
 end;
 
 function TTracker.XToValue(x: integer): single;
 begin
-{ result:=min+(max-min)*((x-2)/(width-5));}
+ result:=min+(max-min)*((x-2)/(width-5));
 end;
 
 { TFloatEditor }
@@ -356,31 +407,32 @@ var
  i:integer;
  btn:TUIButton;
 begin
-(* inherited Create(10,parent.height-5,parent.width-20,24+game.renderHeight div 40,parent,'Editor_'+vName);
+ inherited Create(parent.width-20,24+game.renderHeight div 40,parent,'Editor_'+vName);
+ SetPos(10,parent.height-5);
  varName:=vName;
  style:=3;
  varName[1]:='g';
  varName[2]:=UpCase(varName[2]);
  if varName[2]='F' then begin // Float value
-  trackers[0]:=TTracker.Create(5,round(height*0.2),self,1,ParseFloat(vValue),ParseFloat(iValue));
+  trackers[0]:=TTracker.Create(5,round(height*0.2),self,vtFloat,ParseFloat(vValue),ParseFloat(iValue));
  end;
  if varName[2]='I' then begin // Integer value
-  trackers[0]:=TTracker.Create(5,round(height*0.2),self,2,StrToInt(vValue),StrToInt(iValue));
+  trackers[0]:=TTracker.Create(5,round(height*0.2),self,vtInteger,StrToInt(vValue),StrToInt(iValue));
  end;
  if varName[2]='C' then begin // Color value
   c:=StrToInt(vValue);
   ic:=StrToInt(iValue);
   i:=0;
-  trackers[0]:=TTracker.Create(68,i,self,3,c shr 24,ic shr 24); inc(i,trackers[0].height-1);
-  trackers[1]:=TTracker.Create(68,i,self,4,c shr 16 and $FF,ic shr 16 and $FF); inc(i,trackers[0].height-1);
-  trackers[2]:=TTracker.Create(68,i,self,5,c shr 8 and $FF,ic shr 8 and $FF); inc(i,trackers[0].height-1);
-  trackers[3]:=TTracker.Create(68,i,self,6,c and $FF,ic and $FF); inc(i,trackers[0].height-1);
+  trackers[0]:=TTracker.Create(68,i,self,vtAlpha,c shr 24,ic shr 24); inc(i,round(trackers[0].height-1));
+  trackers[1]:=TTracker.Create(68,i,self,vtRed,  c shr 16 and $FF,ic shr 16 and $FF); inc(i,round(trackers[0].height-1));
+  trackers[2]:=TTracker.Create(68,i,self,vtGreen,c shr 8 and $FF,ic shr 8 and $FF); inc(i,round(trackers[0].height-1));
+  trackers[3]:=TTracker.Create(68,i,self,vtBlue, c and $FF,ic and $FF); inc(i,round(trackers[0].height-1));
   height:=i+1;
  end;
- parent.height:=y+height+10;
+ parent.height:=position.y+height+10;
 { btn:=TUIButton.Create(width-12,0,12,12,'TweakScene\Reset_'+vName,'o',tweakerScene.tinyFont,self);
  btn.style:=3;
- btn.hint:='Revert to initial value';}   *)
+ btn.hint:='Revert to initial value';}
 end;
 
 procedure TValueEditor.Draw(x1, y1, x2, y2: integer);
