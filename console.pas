@@ -150,6 +150,7 @@ implementation
  procedure CritMsg(st:string;cls:integer=-1);
   begin
    PutMsg(st,true,cls);
+   ErrorMessage(st);
   end;
 
 initialization
