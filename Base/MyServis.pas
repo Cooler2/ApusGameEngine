@@ -1733,7 +1733,7 @@ procedure SimpleEncrypt;
  begin
   p:=addr(data);
   for i:=1 to size do begin
-   p^:=p^ xor code;
+   p^:=p^ xor byte(code);
    code:=(code+91) xor 39;
    inc(p);
   end;
@@ -1746,7 +1746,7 @@ procedure SimpleEncrypt2;
  begin
   p:=addr(data);
   for i:=1 to size do begin
-   p^:=p^ xor code;
+   p^:=p^ xor byte(code);
    code:=(code+i) xor (code shr (7+code and 3));
    inc(p);
   end;
