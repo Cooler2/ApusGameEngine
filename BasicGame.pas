@@ -15,7 +15,7 @@
 {$R-}
 unit BasicGame;
 interface
- uses {$IFDEF MSWINDOWS}windows,messages,{$ENDIF}EngineAPI,Images,classes,CrossPlatform,MyServis;
+ uses {$IFDEF MSWINDOWS}windows,messages,{$ENDIF}EngineAPI,Images,Classes,CrossPlatform,MyServis,Geom2d;
 
 var
  HookKbdLayout:boolean=false; // Перехват переключения раскладки клавиатуры (защита от зависания, теперь уже не требуется, т.к. баг устранен)
@@ -92,6 +92,14 @@ type
 
   // При включенной видеозаписи вызывается видеокодером для освобождения памяти кадра
   procedure ReleaseFrameData(obj:TRAWImage); virtual;
+
+  // Utility functions
+  function MouseInRect(r:TRect):boolean; overload;
+  function MouseInRect(r:TRect2s):boolean; overload;
+  function MouseInRect(x,y,width,height:single):boolean; overload;
+
+  function MouseWasInRect(r:TRect):boolean; overload;
+  function MouseWasInRect(r:TRect2s):boolean; overload;
 
  protected
   running:boolean;
@@ -255,6 +263,11 @@ type
   visible:boolean;
  end;
 
+ TVarTypeGameClass=class(TVarTypeStruct)
+  class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
+  class function ListFields:string; override;
+ end;
+
 var
   game:TBasicGame; // указатель на текущий объект игры (равен owner'у главного потока)
 
@@ -310,6 +323,36 @@ begin
  {$ENDIF}
 end;
 
+function TBasicGame.MouseInRect(r:TRect):boolean;
+begin
+ result:=(mouseX>=r.Left) and (mouseY>=r.Top) and
+         (mouseX<r.Right) and (mouseY<r.Bottom);
+end;
+
+function TBasicGame.MouseInRect(r:TRect2s):boolean;
+begin
+ result:=(mouseX>=r.x1) and (mouseY>=r.y1) and
+         (mouseX<r.x2) and (mouseY<r.y2);
+end;
+
+function TBasicGame.MouseInRect(x,y,width,height:single):boolean;
+begin
+ result:=(mouseX>=x) and (mouseY>=y) and
+         (mouseX<x+width) and (mouseY<y+height);
+end;
+
+function TBasicGame.MouseWasInRect(r:TRect):boolean;
+begin
+ result:=(oldMouseX>=r.Left) and (oldmouseY>=r.Top) and
+         (oldmouseX<r.Right) and (oldmouseY<r.Bottom);
+end;
+
+function TBasicGame.MouseWasInRect(r:TRect2s):boolean;
+begin
+ result:=(oldmouseX>=r.x1) and (oldmouseY>=r.y1) and
+         (oldmouseX<r.x2) and (oldmouseY<r.y2);
+end;
+
 constructor TBasicGame.Create;
 begin
  ForceLogMessage('Creating '+self.ClassName);
@@ -345,6 +388,8 @@ begin
  PublishVar(@windowWidth,'WindowWidth',TVarTypeInteger);
  PublishVar(@windowHeight,'WindowHeight',TVarTypeInteger);
  PublishVar(@screenDPI,'ScreenDPI',TVarTypeInteger);
+
+ PublishVar(@game,'game',TVarTypeGameClass);
 end;
 
 procedure TBasicGame.Delay(time: integer);
@@ -2064,6 +2109,26 @@ begin
  UnregisterThread;
  ForceLogMessage('Main thread done');
  owner.running:=false; // Эта строчка должна быть ПОСЛЕДНЕЙ!
+end;
+
+{ TVarTypeGameClass }
+
+class function TVarTypeGameClass.GetField(variable: pointer; fieldName: string;
+  out varClass: TVarClass): pointer;
+begin
+
+end;
+
+class function TVarTypeGameClass.ListFields: string;
+var
+ i:integer;
+ sa:StringArr;
+begin
+ with game do begin
+  for i:=0 to high(scenes) do
+   AddString(sa,'scene-'+scenes[i].name);
+ end;
+ result:=join(sa,',');
 end;
 
 initialization
