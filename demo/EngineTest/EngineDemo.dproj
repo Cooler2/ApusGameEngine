@@ -82,9 +82,9 @@
         <DCC_S>false</DCC_S>
         <DCC_SymbolReferenceInfo>1</DCC_SymbolReferenceInfo>
         <DCC_ImageBase>00400000</DCC_ImageBase>
-        <DCC_DcuOutput>..\units</DCC_DcuOutput>
+        <DCC_DcuOutput>..\..\units</DCC_DcuOutput>
         <DCC_UnitSearchPath>..\..;..\..\extra;..\..\deprecated;..\..\base;..\..\base\extra;..\..\base\deprecated;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
-        <DCC_Define>DELPHI;FREETYPE;OPENGL;$(DCC_Define)</DCC_Define>
+        <DCC_Define>DELPHI;FREETYPE;OPENGL;LODEPNG;$(DCC_Define)</DCC_Define>
         <SanitizedProjectName>EngineDemo</SanitizedProjectName>
         <VerInfo_Locale>1059</VerInfo_Locale>
         <DCC_Namespace>System;Xml;Web;Winapi;DUnitX;VCL;VCL.Imaging;$(DCC_Namespace)</DCC_Namespace>
