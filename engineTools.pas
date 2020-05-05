@@ -784,6 +784,7 @@ var
  i,PixSize:integer;
  sp,dp:PByte;
 begin
+ ASSERT((x>=0) and (y>=0) and (x+width<=source.width) and (y+height<=source.height));
  tex:=texman.AllocImage(width,height,source.PixelFormat,flags,'p_'+source.name) as TTextureImage;
  tex.Lock;
  source.Lock(0,lmReadOnly);
