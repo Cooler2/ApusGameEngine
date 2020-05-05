@@ -3,6 +3,14 @@
 // Copyright (C) 2017 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+
+{$IFDEF WIN32}
+  {$Message Error 'This project requires lodePNG.dll: take if from the \Bin folder and remove this line.'}
+{$ENDIF}
+{$IFDEF WIN64}
+  {$Message Error 'This project requires lodePNG64.dll: take if from the \Bin folder and remove this line.'}
+{$ENDIF}
+
 unit SimpleDemoApp;
 interface
  uses GameApp,EngineAPI;
@@ -57,15 +65,16 @@ procedure TSimpleDemoApp.SetGameSettings(var settings: TGameSettings);
  begin
   inherited; // global settings are applied to the instance settings here, so there is no sense to change them later
 
-  // Now override instance settings
-  // Primary mode settings
-{  settings.mode.displayMode:=dmWindow; // run in window
+  // Here you can override instance settings
+{  // Primary mode settings
+  settings.mode.displayMode:=dmWindow; // run in window
   settings.mode.displayFitMode:=dfmStretch; // stretch the backbuffer to match the full window size
   settings.mode.displayScaleMode:=dsmDontScale; // use 1:1 pixel ratio
   // Secondary mode settings (for [Alt]+[Enter])
   settings.altMode.displayMode:=dmFullScreen; // use fullscreen window
   settings.altMode.displayFitMode:=dfmKeepAspectRatio; // use borders to keep the initial aspect ratio
-  settings.altMode.displayScaleMode:=dsmDontScale; // use 1:1 pixel ratio}
+  settings.altMode.displayScaleMode:=dsmDontScale; // use 1:1 pixel ratio
+  }
  end;
 
 // Most app initialization is here. Default spinner is running
