@@ -20,11 +20,12 @@ interface
     PAnimatedValue=^TAnimatedValue;
     TAnimatedValue=object
       logName:string; // Если строка не пустая - все операции будут логироваться
+      // Init object with given value (not for assignment!)
       constructor Init(initValue:single=0);
-      // Init object with given value (НЕ ДЛЯ ПРИСВАИВАНИЯ!)
-      constructor Clone(var v:TAnimatedValue); // Init object by copying another object
+      // Init object by copying another object
+      constructor Clone(var v:TAnimatedValue);
+      // Assign new value (removes any current animations)
       constructor Assign(initValue:single);
-      // Моментальное присваивание нового значения (эквивалентно Animate с duration=0)
       procedure Free; // no need to call this if value is not animating now
       // Начать новую анимацию: к указанному значению в течение указанного времени
       // Если текущая анимация приводит к тому же значению - новая не создаётся
