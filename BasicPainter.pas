@@ -228,8 +228,8 @@ var
  textCacheHeight:integer=512;
 
 implementation
-uses SysUtils,MyServis,images,UDict,UnicodeFont,EngineTools,
-     colors,glyphCaches{$IFDEF FREETYPE},FreeTypeFont{$ENDIF};
+uses SysUtils,MyServis,images,UDict,UnicodeFont,EngineTools,Publics,
+     Colors,glyphCaches{$IFDEF FREETYPE},FreeTypeFont{$ENDIF};
 
 const
  // Font handle flags (not affecting rendered glyphs)
@@ -324,6 +324,23 @@ procedure DefaultTextLinkStyle(link:cardinal;var sUnderline:boolean;var color:ca
    color:=ColorAdd(color,$604030);
   end;
  end;
+
+function fGetFontHandle(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
+ var
+  sa:StringArr;
+  style,effects:byte;
+  size:double;
+ begin
+  if painter=nil then raise EWarning.Create('Painter is not ready');
+  sa:=split(',',params);
+  if length(sa)<2 then raise EWarning.Create('Invalid parameters');
+  size:=EvalFloat(sa[1],nil,context,contextClass);
+  style:=0; effects:=0;
+  if length(sa)>2 then style:=round(EvalFloat(sa[2],nil,context,contextClass));
+  if length(sa)>3 then effects:=round(EvalFloat(sa[3],nil,context,contextClass));
+  result:=painter.GetFont(sa[0],size,style,effects);
+ end;
+
 
 { TBasicPainter }
 
@@ -2289,6 +2306,7 @@ end;
 initialization
  InitCritSect(crSect,'Painter',95);
  textLinkStyleProc:=DefaultTextLinkStyle;
+ PublishFunction('GetFont',fGetFontHandle);
 finalization
  DeleteCritSect(crSect);
 end.

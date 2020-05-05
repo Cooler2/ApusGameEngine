@@ -686,7 +686,7 @@ procedure THTTPThread.ExecutePostRequest;
   data:array of byte;
   lines:AStringArr;
   headers,boundary,serverName,request:AnsiString;
-  multipart,binary:boolean;
+  multipart:boolean;
   HConnect:HInternet;
  begin
   LogMessage('POST '+IntToStr(req.ID)+': '+req.url+' :: '+StringReplace(copy(req.postdata,1,70),#13#10,'\n',[rfReplaceAll]));

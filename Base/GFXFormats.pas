@@ -483,7 +483,7 @@ procedure LoadTGA;
      HandleWord;
      // разделитель строки
      if c^=#10 then begin
-      if line=1 then img:=TBitmapImage.Create(w,h);
+      if line=1 then img:=Images.TBitmapImage.Create(w,h);
       if line=2 then bgnd:=MyColor(r,g,b);
       if line=3 then border:=MyColor(r,g,b);
       if line=4 then text:=MyColor(r,g,b);

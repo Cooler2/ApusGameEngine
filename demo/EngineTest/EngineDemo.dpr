@@ -5,6 +5,7 @@ uses
   windows,
   sysutils,
   myservis,
+  math,
   geom2d,
   geom3d,
   images,
@@ -19,45 +20,45 @@ uses
   FastGfx,
   DirectText,
   FreeTypeFont,
-  EngineAPI in '..\EngineAPI.pas',
-  UIClasses in '..\UIClasses.pas',
-  PainterGL in '..\PainterGL.pas',
-  UIScene in '..\UIScene.pas',
-  UIRender in '..\UIRender.pas',
-  engineTools in '..\engineTools.pas',
-  console in '..\console.pas',
-  conScene in '..\conScene.pas',
-  stdEffects in '..\stdEffects.pas',
-  SoundB in '..\SoundB.pas',
-  BitmapStyle in '..\BitmapStyle.pas',
-  Sound in '..\Sound.pas',
-  UModes in '..\UModes.pas',
-  networking2 in '..\networking2.pas',
-  IOSgame in '..\IOSgame.pas',
-  BasicGame in '..\BasicGame.pas',
-  BasicPainter in '..\BasicPainter.pas',
-  TweakScene in '..\TweakScene.pas',
-  networking3 in '..\networking3.pas',
-  UDict in '..\UDict.pas',
-  customstyle in '..\customstyle.pas',
-  GameObjects in '..\GameObjects.pas',
-  cmdproc in '..\cmdproc.pas',
-  ComplexText in '..\ComplexText.pas',
-  steamAPI in '..\steamAPI.pas',
+  EngineAPI in '..\..\EngineAPI.pas',
+  UIClasses in '..\..\UIClasses.pas',
+  PainterGL in '..\..\PainterGL.pas',
+  UIScene in '..\..\UIScene.pas',
+  UIRender in '..\..\UIRender.pas',
+  engineTools in '..\..\engineTools.pas',
+  console in '..\..\console.pas',
+  conScene in '..\..\conScene.pas',
+  stdEffects in '..\..\stdEffects.pas',
+  SoundB in '..\..\SoundB.pas',
+  BitmapStyle in '..\..\BitmapStyle.pas',
+  Sound in '..\..\Sound.pas',
+  networking2 in '..\..\networking2.pas',
+  IOSgame in '..\..\IOSgame.pas',
+  BasicGame in '..\..\BasicGame.pas',
+  BasicPainter in '..\..\BasicPainter.pas',
+  TweakScene in '..\..\TweakScene.pas',
+  networking3 in '..\..\networking3.pas',
+  UDict in '..\..\UDict.pas',
+  customstyle in '..\..\customstyle.pas',
+  GameObjects in '..\..\GameObjects.pas',
+  cmdproc in '..\..\cmdproc.pas',
+  ComplexText in '..\..\ComplexText.pas',
+  steamAPI in '..\..\steamAPI.pas',
   {$IFDEF DIRECTX}
-  DxImages8 in '..\DxImages8.pas',
+  DxImages8 in '..\..\DxImages8.pas',
   {$ENDIF }
   {$IFDEF OPENGL}
-  PainterGL2 in '..\PainterGL2.pas',
-  GLImages in '..\GLImages.pas',
-  GLgame in '..\GLgame.pas',
+  PainterGL2 in '..\..\PainterGL2.pas',
+  GLImages in '..\..\GLImages.pas',
+  GLgame in '..\..\GLgame.pas',
   {$ENDIF }
-  GameApp in '..\GameApp.pas',
-  Model3D in '..\Model3D.pas',
-  OBJLoader in '..\OBJLoader.pas',
-  SpritePacker in '..\SpritePacker.pas',
-  IQMloader in '..\IQMloader.pas',
-  ImgLoadQueue in '..\ImgLoadQueue.pas';
+  GameApp in '..\..\GameApp.pas',
+  Model3D in '..\..\Model3D.pas',
+  OBJLoader in '..\..\OBJLoader.pas',
+  SpritePacker in '..\..\SpritePacker.pas',
+  IQMloader in '..\..\IQMloader.pas',
+  ImgLoadQueue in '..\..\ImgLoadQueue.pas',
+  UIScript in '..\..\UIScript.pas';
 
 const
  wnd:boolean=true;
@@ -1883,7 +1884,28 @@ begin
  painter.SetCullMode(cullNone);
 end;
 
+function MyRound(v:single):integer; inline;
+ const
+  epsilon = 0.000001;
+ begin
+  result:=PRound(v);
+  //result:=round(SimpleRoundTo(v,0));
+ end;
+
+var
+ v:single;
+ i,n:integer;
+ time:int64;
 begin
+ time:=MyTickCount;
+ v:=10.6;
+ for i:=0 to 10000000 do begin
+  n:=MyRound(v);
+  n:=MyRound(v);
+  n:=MyRound(v);
+  n:=MyRound(v);
+ end;
+ time:=MyTickCOunt-time;
 
  if HasParam('-wnd') then wnd:=true;
  if HasParam('-fullscreen') then wnd:=false;

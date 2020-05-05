@@ -15,12 +15,10 @@
 {$R-}
 unit BasicGame;
 interface
- uses {$IFDEF MSWINDOWS}windows,messages,{$ENDIF}EngineAPI,Images,classes,CrossPlatform,MyServis;
+ uses {$IFDEF MSWINDOWS}windows,messages,{$ENDIF}EngineAPI,Images,Classes,CrossPlatform,MyServis,Geom2d;
 
 var
  HookKbdLayout:boolean=false; // Перехват переключения раскладки клавиатуры (защита от зависания, теперь уже не требуется, т.к. баг устранен)
- MaxWindowWidth:integer=10000;
- MaxWindowHeight:integer=10000;
 
  SaveScreenshotsToJPEG:boolean=true;
  onFrameDelay:integer=1; // Задержка каждый кадр
@@ -94,6 +92,14 @@ type
 
   // При включенной видеозаписи вызывается видеокодером для освобождения памяти кадра
   procedure ReleaseFrameData(obj:TRAWImage); virtual;
+
+  // Utility functions
+  function MouseInRect(r:TRect):boolean; overload;
+  function MouseInRect(r:TRect2s):boolean; overload;
+  function MouseInRect(x,y,width,height:single):boolean; overload;
+
+  function MouseWasInRect(r:TRect):boolean; overload;
+  function MouseWasInRect(r:TRect2s):boolean; overload;
 
  protected
   running:boolean;
@@ -209,6 +215,8 @@ type
                      // TODO: плохо, что этот параметр глобальный, надо сделать его свойством сцен либо элементов UI, чтобы можно было проверять объект под мышью с учётом наложений
   textLinkRect:TRect; // область ссылки, по номеру textLink
 
+  suppressCharEvent:boolean; // suppress next keyboard event (to avoid duplicated handle of both CHAR and KEY events)
+
   // параметры выставляются при смене режима, указыают что именно изменялось
   resChanged,pfChanged:boolean;
   scenes:array of TGameScene;
@@ -253,6 +261,11 @@ type
   priority:integer;
   handle:HCursor;
   visible:boolean;
+ end;
+
+ TVarTypeGameClass=class(TVarTypeStruct)
+  class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
+  class function ListFields:string; override;
  end;
 
 var
@@ -310,6 +323,36 @@ begin
  {$ENDIF}
 end;
 
+function TBasicGame.MouseInRect(r:TRect):boolean;
+begin
+ result:=(mouseX>=r.Left) and (mouseY>=r.Top) and
+         (mouseX<r.Right) and (mouseY<r.Bottom);
+end;
+
+function TBasicGame.MouseInRect(r:TRect2s):boolean;
+begin
+ result:=(mouseX>=r.x1) and (mouseY>=r.y1) and
+         (mouseX<r.x2) and (mouseY<r.y2);
+end;
+
+function TBasicGame.MouseInRect(x,y,width,height:single):boolean;
+begin
+ result:=(mouseX>=x) and (mouseY>=y) and
+         (mouseX<x+width) and (mouseY<y+height);
+end;
+
+function TBasicGame.MouseWasInRect(r:TRect):boolean;
+begin
+ result:=(oldMouseX>=r.Left) and (oldmouseY>=r.Top) and
+         (oldmouseX<r.Right) and (oldmouseY<r.Bottom);
+end;
+
+function TBasicGame.MouseWasInRect(r:TRect2s):boolean;
+begin
+ result:=(oldmouseX>=r.x1) and (oldmouseY>=r.y1) and
+         (oldmouseX<r.x2) and (oldmouseY<r.y2);
+end;
+
 constructor TBasicGame.Create;
 begin
  ForceLogMessage('Creating '+self.ClassName);
@@ -345,6 +388,8 @@ begin
  PublishVar(@windowWidth,'WindowWidth',TVarTypeInteger);
  PublishVar(@windowHeight,'WindowHeight',TVarTypeInteger);
  PublishVar(@screenDPI,'ScreenDPI',TVarTypeInteger);
+
+ PublishVar(@game,'game',TVarTypeGameClass);
 end;
 
 procedure TBasicGame.Delay(time: integer);
@@ -875,6 +920,9 @@ begin
   end;
 
   WM_CHAR:if game<>nil then with game do begin
+    if suppressCharEvent then begin
+     suppressCharEvent:=false; exit;
+    end;
     // Младший байт - код символа, старший - сканкод
     key:=wparam and $FF+(lparam shr 8) and $FF00+wparam shl 16;
     if shiftstate=2 then exit;
@@ -1948,42 +1996,28 @@ procedure TBasicGame.FrameLoop;
     inc(style,ws_Caption+WS_MINIMIZEBOX+WS_SYSMENU);
 
    SystemParametersInfo(SPI_GETWORKAREA,0,@r2,0);
-
    w:=params.width;
-   if (MaxWindowWidth>0) and (w>MaxWindowWidth) then w:=MaxWindowWidth;
    h:=params.height;
-   if (MaxWindowHeight>0) and (h>MaxWindowHeight) then h:=MaxWindowHeight;
-   // Центрирование окна в области десктопа
-   r.Left:=(r2.Right-r2.left-params.width) div 2;
-   r.Top:=(r2.Bottom-r2.Top-params.height+
-     GetSystemMetrics(SM_CYCAPTION)) div 2;
-   r.right:=r.left+w;
-   r.Bottom:=r.top+h;
-   AdjustWindowRect(r,style,false);
 
-   if params.mode.displayMode=dmFullScreen then begin
-    r.Left:=0; r.Top:=0;
-    r.Right:=screenWidth; r.bottom:=screenHeight;
-   end;
-
-   if params.mode.displayMode<>dmSwitchResolution then begin
-    // Определим, можно ли использовать рамку окна
-    if (r.Right-r.left>screenWidth+20) or (r.bottom-r.top>screenHeight) then begin
-     // Окно с рамкой не влезает -> сделать окно без рамки на весь экран
-     // Временно убираем
-     SetWindowLong(window,GWL_STYLE,integer(ws_popup)); // убираем все элементы рамки
-     MoveWindowTo(0,0,screenWidth,screenHeight);
-    end else begin
-     // Окно с рамкой помещается
-     SetWindowLong(window,GWL_STYLE,style);
-     MoveWindowTo(r.left,r.top,r.Right-r.left,r.Bottom-r.top);
+   case params.mode.displayMode of
+    dmWindow,dmFixedWindow:begin
+      r:=Rect(0,0,w,h);
+      AdjustWindowRect(r,style,false);
+      r.Offset(-r.left,-r.top);
+      // If window is too large
+      r.Right:=Clamp(r.Right,0,r2.Width);
+      r.Bottom:=Clamp(r.Bottom,0,r2.Height);
+      // Center window
+      r.Offset((r2.Width-r.Width) div 2,(r2.Height-r.Height) div 2);
+      SetWindowLong(window,GWL_STYLE,style);
+      MoveWindowTo(r.left,r.top, r.width,r.height);
     end;
-    SetWindowPos(window,HWND_NOTOPMOST,0,0,0,0,SWP_NOSIZE+SWP_NOMOVE);
-   end else begin
-    // полный экран с переключением режима
-    SetWindowLong(window,GWL_STYLE,integer(ws_popup));
-    MoveWindowTo(0,0,screenWidth,screenHeight);
+    dmSwitchResolution,dmFullScreen:begin
+      SetWindowLong(window,GWL_STYLE,integer(ws_popup));
+      MoveWindowTo(0,0,screenWidth,screenHeight);
+    end;
    end;
+
    ShowWindow(Window, SW_SHOW);
    UpdateWindow(Window);
    ShowMouse(true);
@@ -2075,6 +2109,26 @@ begin
  UnregisterThread;
  ForceLogMessage('Main thread done');
  owner.running:=false; // Эта строчка должна быть ПОСЛЕДНЕЙ!
+end;
+
+{ TVarTypeGameClass }
+
+class function TVarTypeGameClass.GetField(variable: pointer; fieldName: string;
+  out varClass: TVarClass): pointer;
+begin
+
+end;
+
+class function TVarTypeGameClass.ListFields: string;
+var
+ i:integer;
+ sa:StringArr;
+begin
+ with game do begin
+  for i:=0 to high(scenes) do
+   AddString(sa,'scene-'+scenes[i].name);
+ end;
+ result:=join(sa,',');
 end;
 
 initialization

@@ -45,12 +45,11 @@ implementation
 
 constructor TSimpleDemoApp.Create;
  begin
+  inherited;
   // Alter some global settings
   gameTitle:='Simple Engine Demo'; // app window title
   configFileName:='game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-
-  inherited;
  end;
 
 // This is executed just before the game object is launched
@@ -58,15 +57,15 @@ procedure TSimpleDemoApp.SetGameSettings(var settings: TGameSettings);
  begin
   inherited; // global settings are applied to the instance settings here, so there is no sense to change them later
 
-  // Now adjust instance settings
+  // Now override instance settings
   // Primary mode settings
-  settings.mode.displayMode:=dmWindow; // run in window
+{  settings.mode.displayMode:=dmWindow; // run in window
   settings.mode.displayFitMode:=dfmStretch; // stretch the backbuffer to match the full window size
   settings.mode.displayScaleMode:=dsmDontScale; // use 1:1 pixel ratio
   // Secondary mode settings (for [Alt]+[Enter])
   settings.altMode.displayMode:=dmFullScreen; // use fullscreen window
   settings.altMode.displayFitMode:=dfmKeepAspectRatio; // use borders to keep the initial aspect ratio
-  settings.altMode.displayScaleMode:=dsmDontScale; // use 1:1 pixel ratio
+  settings.altMode.displayScaleMode:=dsmDontScale; // use 1:1 pixel ratio}
  end;
 
 // Most app initialization is here. Default spinner is running

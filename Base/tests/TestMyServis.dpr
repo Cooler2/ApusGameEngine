@@ -574,6 +574,7 @@ procedure TestQuotes;
     if v<>nil then result:=StrToFloat(vc.GetValue(v));
    end;
   end;
+
  procedure TestEval;
   var
    a,i:integer;
@@ -592,33 +593,36 @@ procedure TestQuotes;
    PublishVar(@a,'a',TVarTypeInteger);
    PublishConst('C_1','10');
    PublishConst('C_2','-0.04');
-   Compare(Eval('-0.05'),-0.05);
-   Compare(Eval('C_1-c_2'),10+0.04);
-   Compare(Eval('min(3,4,5,1,-2,3)/max(0,a)'),-2/a);
-   Compare(Eval('1+max(a,-2.001)'),1+3);
-   Compare(Eval('125',nil),125);
-   Compare(Eval('$A0C0DEFF',nil),$A0C0DEFF);
-   Compare(Eval('-9',nil),-9);
-   Compare(Eval(' -9.381 ',nil),-9.381);
-   Compare(Eval('1123.998',nil),1123.998);
-   Compare(Eval(' 1 - 3 + 2',nil),1-3+2);
-   Compare(Eval('-3*3+5',nil),-3*3+5);
-   Compare(Eval('(3+5)*(2-3)',nil),(3+5)*(2-3));
-   Compare(Eval('3/-2',nil),3/-2);
-   Compare(Eval('a',nil),a);
-   Compare(Eval('-a*3+ width ',GetVar),-a*3+GetVar('width'));
-   Compare(Eval('2+3*width/-width+4',GetVar),2+3*GetVar('width')/-GetVar('width')+4);
+   Compare(EvalFloat('-0.05'),-0.05);
+   Compare(EvalFloat('C_1-c_2'),10+0.04);
+   Compare(EvalFloat('min(3,4,5,1,-2,3)/max(0,a)'),-2/a);
+   Compare(EvalFloat('1+max(a,-2.001)'),1+3);
+   Compare(EvalFloat('125',nil),125);
+   Compare(EvalFloat('$A0C0DEFF',nil),$A0C0DEFF);
+   Compare(EvalFloat('-9',nil),-9);
+   Compare(EvalFloat(' -9.381 ',nil),-9.381);
+   Compare(EvalFloat('1123.998',nil),1123.998);
+   Compare(EvalFloat(' 1 - 3 + 2',nil),1-3+2);
+   Compare(EvalFloat('-3*3+5',nil),-3*3+5);
+   Compare(EvalFloat('(3+5)*(2-3)',nil),(3+5)*(2-3));
+   Compare(EvalFloat('3/-2',nil),3/-2);
+   Compare(EvalFloat('a',nil),a);
+   Compare(EvalFloat('-a*3+ width ',GetVar),-a*3+GetVar('width'));
+   Compare(EvalFloat('2+3*width/-width+4',GetVar),2+3*GetVar('width')/-GetVar('width')+4);
    for i:=0 to 255 do
     PublishConst('C'+inttostr(i),inttostr(i));
    time:=MyTickCount;
    for i:=1 to 200000 do
-    Eval('2.45*C'+inttostr(i and $FF)+'+C8');
-   writeln('Avg Eval() time = ',(MyTickCount-time)/200000:7:5,' ms');  
+    EvalFloat('2.45*C'+inttostr(i and $FF)+'+C8');
+   writeln('Avg Eval() time = ',(MyTickCount-time)/200000:7:5,' ms');
   end;
 
 type
  TMyObjType=class(TVarTypeStruct)
    class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
+ end;
+
+ TMyListClass=class(TVarTypeList)
  end;
 
  PMyObj=^TMyObj;
@@ -708,7 +712,13 @@ type
    for i:=1 to 110 do begin
     write(i:3,'=',FindConstValue('ABC'+inttostr(i)):4);
     if i mod 5=5 then writeln;
-   end;  
+   end;
+
+   // Test structs and arrays
+{   PublishVar(@rec,'rec',TMyRecClass);
+   rec.a:=-9; rec.b:=-0.345; rec.c:='Hello';
+   FindVar('rec.a',)}
+
   end;
 
 { TMyObjType }
@@ -1509,6 +1519,7 @@ var
 begin
  UseLogFile('log.txt',true);
  try
+  TestEval;
   TestConversions;
   TestTimes;
   TestZeroMem;
@@ -1521,7 +1532,6 @@ begin
   TestQuotes;
   TestPNG;
   TestAnimations;
-  TestEval;
   TestClipboard;
   TestSortStrings;
   TestTStrHash;

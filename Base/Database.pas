@@ -98,7 +98,7 @@ interface
   function FormatQuery(query:AnsiString;params:array of const):AnsiString;
 
 implementation
- uses SysUtils,mysql,Variants;
+ uses SysUtils,mysql,Variants,AnsiStrings;
  var
   counter:integer=0; // MySQL library usage counter
   lock:TMyCriticalSection;
@@ -143,24 +143,24 @@ function FormatQuery(query:AnsiString;params:array of const):AnsiString;
     vtAnsiString: begin
      st:=SqlSafe(AnsiString(params[i].VAnsiString));
      p[i].VType:=vtPChar;
-     p[i].VPChar:=StrNew(PAnsiChar(st));
+     p[i].VPChar:=AnsiStrings.StrNew(PAnsiChar(st));
     end;
     vtWideString: begin
      st:=SqlSafe(EncodeUTF8(WideString(params[i].VWideString)));
      p[i].VType:=vtPChar;
-     p[i].VPChar:=StrNew(PAnsiChar(st));
+     p[i].VPChar:=AnsiStrings.StrNew(PAnsiChar(st));
     end;
     vtUnicodeString: begin
      st:=SqlSafe(EncodeUTF8(UnicodeString(params[i].VUnicodeString)));
      p[i].VType:=vtPChar;
-     p[i].VPChar:=StrNew(PAnsiChar(st));
+     p[i].VPChar:=AnsiStrings.StrNew(PAnsiChar(st));
     end;
     else
      p[i]:=params[i];
    end;
   result:=Format(query,p);
   for i:=0 to high(params) do
-   if params[i].VType in [vtAnsiString,vtWideString,vtUnicodeString] then StrDispose(p[i].VPChar);
+   if params[i].VType in [vtAnsiString,vtWideString,vtUnicodeString] then AnsiStrings.StrDispose(p[i].VPChar);
  end;
 
 { TDatabase }

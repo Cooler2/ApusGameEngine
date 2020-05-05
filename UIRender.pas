@@ -34,7 +34,7 @@ interface
  procedure BuildSimpleHint(hnt:TUIHint);
 
  // Fill control rect with image (helper function)
- procedure DrawControlWithImage(c:TUIControl;img:TTexture);
+ procedure DrawControlWithImage(c:TUIControl;img:TTexture;centered:boolean=false);
 
  var
   // Глобальная переменная для отрисовщиков: может содержать время, прошедшее с
@@ -151,7 +151,7 @@ implementation
   var
    sa:StringArr;
    wsa:WStringArr;
-   i,h,width,height,dw:integer;
+   i,h,iWidth,iHeight,dw:integer;
   begin
    with hnt do begin
     hnt.simpleText:=StringReplace(hnt.simpleText,'~','\n',[rfReplaceAll]);
@@ -160,27 +160,27 @@ implementation
     if font=0 then font:=defaultHintFont;
     if font=0 then font:=painter.GetFont('Default',7);
     h:=round(painter.FontHeight(font)*1.5);
-    height:=h*length(sa)+9;
-    width:=0;
+    iHeight:=h*length(sa)+9;
+    iWidth:=0;
     for i:=1 to length(sa) do
-     if width<painter.TextWidthW(font,wsa[i-1]) then
-      width:=painter.TextWidthW(font,wsa[i-1]);
+     if iWidth<painter.TextWidthW(font,wsa[i-1]) then
+      iWidth:=painter.TextWidthW(font,wsa[i-1]);
     dw:=painter.TextWidthW(font,'M');
-    inc(width,4+dw);
+    inc(iWidth,4+dw);
     LogMessage('[Re]alloc hint image');
     if HintImage<>nil then texman.FreeImage(HintImage);
-    HintImage:=texman.AllocImage(width,height,pfRTAlphaNorm,aiTexture+aiRenderTarget,'UI_HintImage');
+    HintImage:=texman.AllocImage(iWidth,iHeight,pfRTAlphaNorm,aiTexture+aiRenderTarget,'UI_HintImage');
     if hintImage=nil then
       raise EError.Create('Failed to alloc hint image!');
-    size:=Point2s(width,height);
+    size:=Point2s(iWidth,iHeight);
     painter.BeginPaint(hintImage);
     try
      painter.SetMask(true,true); // потенциально может вредить отрисовке следующих элементов
      painter.Clear(0,-1,-1);
-     painter.FillRect(1,2,width-1,height-2,$80000000);
-     painter.FillRect(2,1,width-2,height-1,$80000000);
-     painter.FillGradrect(0,0,width-3,height-3,$FFFFFFD0,$FFE0E0A0,true);
-     painter.Rect(0,0,width-3,height-3,$FF000000);
+     painter.FillRect(1,2,iwidth-1,iheight-2,$80000000);
+     painter.FillRect(2,1,iwidth-2,iheight-1,$80000000);
+     painter.FillGradrect(0,0,iwidth-3,iheight-3,$FFFFFFD0,$FFE0E0A0,true);
+     painter.Rect(0,0,iwidth-3,iheight-3,$FF000000);
      painter.ResetMask;
      for i:=0 to length(sa)-1 do
       painter.TextOutW(font,1+dw div 2,round(2+h div 7+(i+0.75)*h),$D0000000,wsa[i]);
@@ -202,12 +202,20 @@ implementation
    end;
   end;
 
- procedure DrawControlWithImage(c:TUIControl;img:TTexture);
+ procedure DrawControlWithImage(c:TUIControl;img:TTexture;centered:boolean=false);
   var
    r:TRect;
+   p:TPoint2s;
+   scale:TVector2s;
   begin
-   r:=c.GetPosOnScreen;
-   with r do painter.DrawScaled(left,top,Right,bottom,img);
+   if centered then begin
+    p:=c.TransformTo(c.GetRect.Center,c.parent);
+    scale:=c.globalScale;
+    painter.DrawRotScaled(p.x,p.y,scale.x,scale.y,0,img);
+   end else begin
+    r:=c.GetPosOnScreen;
+    with r do painter.DrawScaled(left,top,Right,bottom,img);
+   end;
   end;
 
  {$R-}
@@ -496,25 +504,25 @@ implementation
  procedure DrawUIScrollbar(control:TUIScrollbar;x1,y1,x2,y2:integer);
   var
    c,d,v:cardinal;
-   i,j,width,height:integer;
+   i,j,iWidth,iHeight:integer;
   begin
    with control do begin
     c:=colorAdd(color,$202020);
     d:=ColorSub(color,$202020);
-    width:=x2-x1;
-    height:=y2-y1;
+    iwidth:=x2-x1;
+    iheight:=y2-y1;
     if horizontal then begin
      // Horizontal scrollbar
      painter.FillGradrect(x1,y1,x2,y2,d,c,true);
-     if enabled and (width>=8) and (pagesize<max-min) then begin
+     if enabled and (iwidth>=8) and (pagesize<max-min) then begin
       v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
       d:=colorMix(v,$FF404040,128);
       if over and not (hooked=control) then v:=ColorAdd(v,$101010);
-      i:=round((width-8)*value/max);
-      j:=9+round((width-8)*(value+pagesize)/max);
+      i:=round((iwidth-8)*value/max);
+      j:=9+round((iwidth-8)*(value+pagesize)/max);
       if i<0 then i:=0;
-      if j>=width then j:=width-1;
+      if j>=iwidth then j:=iwidth-1;
       if j>i+6 then begin
        painter.FillGradrect(x1+i,y1,x1+j,y2,colorMix(v,$FFC0E0F0,192),colorMix(v,$FF0000A0,192),true);
        if (hooked=control) then painter.ShadedRect(x1+i,y1,x1+j,y2,1,d,d)
@@ -527,15 +535,15 @@ implementation
     end else begin
      // Vertical scrollbar
      painter.FillGradrect(x1,y1,x2,y2,d,c,false);
-     if enabled and (height>=8) and (pagesize<max-min) then begin
+     if enabled and (iheight>=8) and (pagesize<max-min) then begin
       v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
       d:=colorMix(v,$FF404040,128);
       if over and not (hooked=control) then v:=ColorAdd(v,$101010);
-      i:=round((height-8)*value/max);
-      j:=9+round((height-8)*(value+pagesize)/max);
+      i:=round((iheight-8)*value/max);
+      j:=9+round((iheight-8)*(value+pagesize)/max);
       if i<0 then i:=0;
-      if j>height then j:=height;
+      if j>iheight then j:=iheight;
       if j>i+6 then begin
        painter.FillGradrect(x1,y1+i,x2,y1+j,colorMix(v,$FFC0E0F0,192),colorMix(v,$FF0000A0,192),false);
        if (hooked=control) then painter.ShadedRect(x1,y1+i,x2,y1+j,1,d,d)

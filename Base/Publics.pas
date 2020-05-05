@@ -34,6 +34,16 @@ interface
    class function ListFields:string; virtual;
   end;
 
+  // List type, syntax: name[index] where index is string (may be integer)
+  TVarTypeList=class(TVarType)
+   // Чтение значения переменной в виде строки
+   class function GetValue(variable:pointer):string; override;
+   // Проверка наличия поля с заданным именем (возвращает класс типа и адрес собственно значения)
+   class function GetField(variable:pointer;index:string;out varClass:TVarClass):pointer; virtual;
+   // Returns list of indices (integer or strings, in any readable form)
+   class function ListIndices:string; virtual;
+  end;
+
   TVarTypeInteger=class(TVarType)
    class procedure SetValue(variable:pointer;v:string); override;
    class function GetValue(variable:pointer):string; override;
@@ -106,7 +116,10 @@ interface
 
  // Вычисляет значение выражения (выражение состоит из арифметических операций, скобок, констант и переменных)
  // VarFunc используется для получения значений переменных, если nil - используется механизм опубликованных переменных
- function Eval(expression:string;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):double;
+ function EvalFloat(expression:string;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):double;
+
+ // Get string value of a variable, constant or expression
+ function EvalStr(expression:string;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):string;
 
  // OVERRIDABLE GLOBAL VARIABLES
  // ----------------------------
@@ -201,7 +214,7 @@ implementation
     end;
   end;
 
- function Eval(expression:string;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):double;
+ function EvalFloat(expression:string;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):double;
   var
    i,d,tag:integer;
    v1,v2:double;
@@ -221,13 +234,13 @@ implementation
     if expression[i]=')' then inc(d);
     if expression[i]='(' then dec(d);
     if (d=0) and (expression[i] in ['<','>','=']) then begin
-     v2:=Eval(copy(expression,i+1,length(expression)),varFunc,context,contextClass);
+     v2:=EvalFloat(copy(expression,i+1,length(expression)),varFunc,context,contextClass);
      if (expression[i]='>') and (expression[i-1]='<') then begin
-      v1:=Eval(copy(expression,1,i-2),varFunc,context,contextClass);
+      v1:=EvalFloat(copy(expression,1,i-2),varFunc,context,contextClass);
       result:=byte(v1<>v2);
       exit;
      end else
-      v1:=Eval(copy(expression,1,i-1),varFunc,context,contextClass);
+      v1:=EvalFloat(copy(expression,1,i-1),varFunc,context,contextClass);
      if expression[i]='=' then result:=byte(v1=v2) else
      if expression[i]='<' then result:=byte(v1<v2) else
      if expression[i]='>' then result:=byte(v1>v2);
@@ -241,8 +254,8 @@ implementation
     if expression[i]='(' then dec(d);
     if (d=0) and (expression[i] in ['+','-']) then begin
      if (expression[i]='-') and (expression[i-1] in ['*','/']) then continue; // унарный минус, а не вычитание
-     v1:=Eval(copy(expression,1,i-1),varFunc,context,contextClass);
-     v2:=Eval(copy(expression,i+1,length(expression)),varFunc,context,contextClass);
+     v1:=EvalFloat(copy(expression,1,i-1),varFunc,context,contextClass);
+     v2:=EvalFloat(copy(expression,i+1,length(expression)),varFunc,context,contextClass);
      if expression[i]='+' then result:=v1+v2
        else result:=v1-v2;
      exit;
@@ -254,8 +267,8 @@ implementation
     if expression[i]=')' then inc(d);
     if expression[i]='(' then dec(d);
     if (d=0) and (expression[i] in ['*','/']) then begin
-     v1:=Eval(copy(expression,1,i-1),varFunc,context,contextClass);
-     v2:=Eval(copy(expression,i+1,length(expression)),varFunc,context,contextClass);
+     v1:=EvalFloat(copy(expression,1,i-1),varFunc,context,contextClass);
+     v2:=EvalFloat(copy(expression,i+1,length(expression)),varFunc,context,contextClass);
      if expression[i]='*' then result:=v1*v2
        else begin
         if v2<>0 then result:=v1/v2
@@ -266,7 +279,7 @@ implementation
    end;
    // Раскрытие скобок
    if (expression[1]='(') and (expression[length(expression)]=')') then begin
-    result:=Eval(copy(expression,2,length(expression)-2),VarFunc,context,contextClass);
+    result:=EvalFloat(copy(expression,2,length(expression)-2),VarFunc,context,contextClass);
     exit;
    end;
    // Константа, переменная либо функция
@@ -320,7 +333,7 @@ implementation
          result:=byte(PBoolean(v^))
         else begin
          st:=vc.GetValue(v);
-         if st[1]='$' then result:=StrToInt64(st)
+         if st.StartsWith('$') then result:=StrToInt64(st)
           else result:=ParseFloat(st);
         end;
        end;
@@ -330,6 +343,25 @@ implementation
     if fl and not IsNaN(result) then result:=-result;
    end;
    if IsNAN(result) then raise EWarning.Create('Invalid expression: '+expression);
+  end;
+
+ function EvalStr(expression:string;varFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):string;
+  var
+   n:integer;
+   cls:TVarClass;
+   v:pointer;
+  begin
+   try
+    n:=FindConst(expression);
+    if n>=0 then exit(publicConsts[n].value);
+
+    v:=FindVar(expression,cls,context,contextClass);
+    if v<>nil then exit(cls.GetValue(v));
+
+    result:=FloatToStr(EvalFloat(expression,varFunc,context,contextClass));
+   except
+    on e:Exception do result:='Error evaluating '+expression+': '+ExceptionMsg(e);
+   end;
   end;
 
  procedure PublishFunction(name:string;f:TFunction;tag:integer=0);
@@ -538,11 +570,33 @@ implementation
    end;
   end;
 
+ function FindListElement(index:string;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
+  var
+   p:integer;
+   fieldname:string;
+   obj:pointer;
+   objClass:TVarClass;
+  begin
+   {p:=pos('.',index);
+   result:=nil;
+   varClass:=nil;
+   if p>0 then begin
+    fieldname:=copy(name,p+1,length(name)-p);
+    SetLength(name,p-1);
+    obj:=contextClass.GetField(context,name,objClass);
+    if (obj<>nil) and objClass.InheritsFrom(TVarTypeStruct) then
+     result:=FindField(fieldname,varClass,obj,TVarClassStruct(objClass));
+   end else begin
+    result:=contextClass.GetField(context,name,varClass)
+   end;}
+  end;
+
+
  // Универсальный поиск
  function FindVar(name:string;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
   var
    i:integer;
-   p:integer;
+   p,p2:integer;
    field:string;
    objClass:TVarClass;
    obj:pointer;
@@ -553,6 +607,16 @@ implementation
     // попытка получить поле текущего объекта
     result:=FindField(name,varClass,context,contextClass);
     if result<>nil then exit;
+   end;
+   if name.EndsWith(']') then begin // element of array?
+    p:=pos('[',name);
+    if p>0 then begin
+     field:=copy(name,p+1,length(name)-p-1);
+     SetLength(name,p-1);
+     obj:=FindGlobal(name,objClass);
+     if (obj<>nil) and (objClass.InheritsFrom(TVarTypeList)) then
+      result:=FindField(field,varClass,context,contextClass);
+    end;
    end;
    p:=pos('.',name);
    if p>0 then begin // попытка получить поле указанного объекта
@@ -669,6 +733,25 @@ class function TVarTypeStruct.ListFields: string;
   result:='';
  end;
 
+{ TVarTypeArray }
+class function TVarTypeList.GetField(variable: pointer; index: string;
+  out varClass: TVarClass): pointer;
+ begin
+  result:=nil;
+  varClass:=nil;
+ end;
+
+class function TVarTypeList.GetValue(variable: pointer): string;
+ begin
+  result:='['+listIndices+']';
+ end;
+
+class function TVarTypeList.ListIndices: string;
+ begin
+  result:='';
+ end;
+
+
 var
  i:integer;
 
@@ -722,7 +805,7 @@ begin
  end;
  sa:=split(',',params);   // проблема с min(3,max(2,1),3) - запятая в скобках!
  for i:=0 to length(sa)-1 do begin
-  v:=Eval(sa[i],nil,context,contextClass);
+  v:=EvalFloat(sa[i],nil,context,contextClass);
   case tag of
    1:if v>result then result:=v;
    2:if v<result then result:=v;
@@ -737,14 +820,14 @@ var
 begin
  sa:=split(',',params); // проблема с запятыми в подфункциях
  if length(sa)<3 then raise EWarning.Create('Invalid parameters: '+params);
- v:=Eval(sa[0],nil,context,contextClass);
- if abs(v)>0.00000001 then result:=Eval(sa[1],nil,context,contextClass)
-  else result:=Eval(sa[2],nil,context,contextClass);
+ v:=EvalFloat(sa[0],nil,context,contextClass);
+ if abs(v)>0.00000001 then result:=EvalFloat(sa[1],nil,context,contextClass)
+  else result:=EvalFloat(sa[2],nil,context,contextClass);
 end;
 
 function fFunc(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
  begin
-  result:=Eval(params,nil,context,contextClass);
+  result:=EvalFloat(params,nil,context,contextClass);
   case tag of
    1:result:=round(result);
    2:result:=trunc(result);
@@ -960,27 +1043,27 @@ begin
 end;
 
 initialization
- InitCritSect(crSection,'Publics',300);
-{ TVarType.IsStruct:=false;
- TVarTypeInteger.IsStruct:=false;
- TVarTypeString.IsStruct:=false;
- TVarTypeRect.IsStruct:=true;}
- for i:=0 to high(publicVarHash) do
-  publicVarHash[i]:=-1;
- lastFreeItem:=-1;
- PublishFunction('max',fMinMax,1);
- PublishFunction('min',fMinMax,2);
- PublishFunction('if',fChoose,1);
- PublishFunction('round',fFunc,1);
- PublishFunction('trunc',fFunc,2);
- PublishFunction('frac',fFunc,3);
- PublishFunction('sqr',fFunc,4);
- PublishFunction('sqrt',fFunc,5);
- PublishFunction('ln',fFunc,6);
- PublishFunction('sin',fFunc,11);
- PublishFunction('cos',fFunc,12);
- PublishFunction('tan',fFunc,13);
- SetDecimalSeparator('.');
+ try
+  InitCritSect(crSection,'Publics',300);
+  for i:=0 to high(publicVarHash) do
+   publicVarHash[i]:=-1;
+  lastFreeItem:=-1;
+  PublishFunction('max',fMinMax,1);
+  PublishFunction('min',fMinMax,2);
+  PublishFunction('if',fChoose,1);
+  PublishFunction('round',fFunc,1);
+  PublishFunction('trunc',fFunc,2);
+  PublishFunction('frac',fFunc,3);
+  PublishFunction('sqr',fFunc,4);
+  PublishFunction('sqrt',fFunc,5);
+  PublishFunction('ln',fFunc,6);
+  PublishFunction('sin',fFunc,11);
+  PublishFunction('cos',fFunc,12);
+  PublishFunction('tan',fFunc,13);
+  SetDecimalSeparator('.');
+ except
+  on e:Exception do ErrorMessage('Publics: '+ExceptionMsg(e));
+ end;
 finalization
  DeleteCritSect(crSection);
 end.

@@ -1,4 +1,4 @@
-// Engine3 Game launcher class
+п»ї// Engine3 Game launcher class
 // Copyright (C) 2017 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
@@ -54,7 +54,6 @@ interface
    procedure LoadOptions; virtual;   // Load settings (may add default values)
    procedure SaveOptions; virtual;   // Save settings
    procedure SetGameSettings(var settings:TGameSettings); virtual;
-   procedure SetupScreen; virtual; // Setup window size and output options
    // Initialization routines: override with actual functionality
    procedure InitSound; virtual;
    procedure LoadFonts; virtual;   // Load font files (called once)
@@ -418,7 +417,7 @@ procedure TGameApplication.Prepare;
   {$IFDEF STEAM}
   if checkForSteam then InitSteamAPI;
   if steamAvailable then
-   // Выбор языка при установке из Стима
+   // Р’С‹Р±РѕСЂ СЏР·С‹РєР° РїСЂРё СѓСЃС‚Р°РЅРѕРІРєРµ РёР· РЎС‚РёРјР°
    if FileExists('SelectLang') and (steamID<>0) then begin
     st:=lowercase(steamGameLang);
     if st='russian' then langCode:='ru';
@@ -429,13 +428,6 @@ procedure TGameApplication.Prepare;
    end;
    {$ENDIF}
 
-   // Language and translation dictionary
-{   st:=ctlGetStr('Options\LangFile','language.'+langCode);
-   DictInit(st);
-   uDict.unicode:=true;
-   UIClasses.defaultEncoding:=teUTF8;}
-
-   SetupScreen;
   except
    on e:exception do begin
     ForceLogMessage('AppCreate error: '+ExceptionMsg(e));
@@ -536,7 +528,7 @@ procedure TGameApplication.Run;
    try
     PingThread;
     CheckCritSections;
-    delay(10); // поддерживает сигналы тем самым давая возможность синхронно на них реагировать
+    delay(10); // РїРѕРґРґРµСЂР¶РёРІР°РµС‚ СЃРёРіРЅР°Р»С‹ С‚РµРј СЃР°РјС‹Рј РґР°РІР°СЏ РІРѕР·РјРѕР¶РЅРѕСЃС‚СЊ СЃРёРЅС…СЂРѕРЅРЅРѕ РЅР° РЅРёС… СЂРµР°РіРёСЂРѕРІР°С‚СЊ
     ProcessMessages;
    except
     on e:exception do ForceLogMessage('Error in Control Thread: '+e.message);
@@ -567,7 +559,7 @@ begin
    colorDepth:=32;
    refresh:=0;
    case gameMode of
-    // Для отрисовки используется вся область окна в масштабе реальных пикселей (1:1)
+    // Р”Р»СЏ РѕС‚СЂРёСЃРѕРІРєРё РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РІСЃСЏ РѕР±Р»Р°СЃС‚СЊ РѕРєРЅР° РІ РјР°СЃС€С‚Р°Р±Рµ СЂРµР°Р»СЊРЅС‹С… РїРёРєСЃРµР»РµР№ (1:1)
     gamUseFullWindow:begin
       if windowedMode then mode.displayMode:=dmFixedWindow
        else mode.displayMode:=dmFullScreen;
@@ -578,7 +570,7 @@ begin
       altMode.displayScaleMode:=dsmDontScale;
       altMode.displayFitMode:=dfmStretch;
     end;
-    // Для отрисовки используется часть окна в масштабе 1:1
+    // Р”Р»СЏ РѕС‚СЂРёСЃРѕРІРєРё РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ С‡Р°СЃС‚СЊ РѕРєРЅР° РІ РјР°СЃС€С‚Р°Р±Рµ 1:1
     gamKeepAspectRatio:begin
       if windowedMode then mode.displayMode:=dmFixedWindow
        else mode.displayMode:=dmFullScreen;
@@ -605,50 +597,6 @@ begin
     VSync:=1;
   end;
 end;
-
-procedure TGameApplication.SetupScreen;
-{$IFDEF MSWINDOWS}
-var
- displayWidth,displayHeight:integer;
- aspect:double;
- r:TRect;
-begin
- aspect:=windowWidth/windowHeight;
-
- if not windowedMode then begin
-  displayWidth:=GetSystemMetrics(SM_CXSCREEN);
-  displayHeight:=GetSystemMetrics(SM_CYSCREEN);
-
-  // Нельзя портить размеры окна, т.к. они нужны для переключения в оконный режим, а в фулскрине не должны использоваться
-{  windowWidth:=displayWidth;
-  windowHeight:=displayHeight;
-
-  if displayWidth>=displayHeight*aspect then windowWidth:=round(displayHeight*aspect)
-   else windowHeight:=round(displayWidth/aspect);
-  if abs(windowWidth-displayWidth)<2 then windowWidth:=displayWidth;
-  if abs(windowHeight-displayHeight)<2 then windowHeight:=displayHeight;
-
-  if (displayWidth>3840) and (displayHeight>2160) then begin
-   LogMessage('Screen size too large => will use upscaling');
-   windowWidth:=1920;
-   windowHeight:=1080;
-  end;}
-
- end else begin
-  // windowed
-  SystemParametersInfo(SPI_GETWORKAREA,0,@r,0);
-  displayWidth:=r.Right-r.left-2*GetSystemMetrics(SM_CXFIXEDFRAME);
-  displayHeight:=r.Bottom-r.top-GetSystemMetrics(SM_CYCAPTION)-2*GetSystemMetrics(SM_CYFIXEDFRAME);
-
-  windowWidth:=Min2(windowWidth,displayWidth);
-  windowHeight:=Min2(windowHeight,displayHeight);
- end;
-end;
-{$ELSE}
-begin
-
-end;
-{$ENDIF}
 
 { TLoadingScene }
 
@@ -686,3 +634,4 @@ begin
 end;
 
 end.
+

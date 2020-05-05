@@ -137,8 +137,9 @@ type
   hintDelay:integer; // время (в мс), через которое элемент должен показать hint (в режиме показа hint'ов это время значительно меньше)
   hintDuration:integer; // длительность (в мс) показа хинта
   sendSignals:TSendSignals; // режим сигнализирования (см. выше)
-  parentClip:boolean; // отсекать ли элемент областью предка (default - yes!)
-  clipChildren:boolean; // отсекать ли дочерние элементы клиентской областью (default - yes)
+  // Clipping: use clipChildren to allow hovering, not parentClip
+  parentClip:boolean; // clip this element by parents client rect? (default - yes!)
+  clipChildren:boolean; // clip children elements by self client rect? (default - yes)
 
   timer:integer; // таймер - указывает время в мс через которое будет вызван onTimer() (но не раньше чем через кадр, 0 - не вызывать)
 
@@ -189,8 +190,12 @@ type
 
   // Transformations. Element's coordinate system is (0,0 - clientWidth,clinetHeight) where
   //   0,0 - is upper-left corner of the client area. This CS is for internal use.
-  function TransformToParent(const p:TPoint2s;target:TUIControl=nil):TPoint2s; overload;
-  function TransformToParent(const r:TRect2s;target:TUIControl=nil):TRect2s; overload;
+  // Transform to given element's CS (nil - screen space)
+  function TransformTo(const p:TPoint2s;target:TUIControl):TPoint2s; overload;
+  function TransformTo(const r:TRect2s;target:TUIControl):TRect2s; overload;
+  // Transform to the root element (screen space)
+  function TransformToScreen(const p:TPoint2s):TPoint2s; overload;
+  function TransformToScreen(const r:TRect2s):TRect2s; overload;
   function GetRect:TRect2s; // Get element's area in its own CS (i.e. relative to pivot point)
   function GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
   function GetClientRect:TRect2s; // Get element's client area in its own CS
@@ -235,15 +240,13 @@ type
   function SetPaddings(left,top,right,bottom:single):TUIControl; overload;
   // Set same value for X/Y scale
   function SetScale(newScale:single):TUIControl;
-  // Корректное изменение размера (с правильной реакцией подчиненных эл-тов) !!! new size IN PARENTs scale!
-  // Значение -1 сохраняет предыдущее значение
+  // Change element size and adjust children elements !!! new size IN PARENTs space!
+  // Pass -1 to keep current value
   procedure Resize(newWidth,newHeight:single); virtual;
   // разместить элемент по центру клиентской области предка либо экрана (если предка нет)
   procedure Center;
   // Прикрепляет элемент к какой-либо части предка
   procedure Snap(snapTo:TSnapMode);
-  // Растягивает элемент включая все вложенные (без Resize)
-  //procedure Rescale(sX,sY:single);
   // Скроллинг в указанную позицию (с обработкой подчиненных скроллбаров если они есть)
   procedure ScrollTo(newX,newY:integer); virtual;
   // Если данный элемент может обладать фокусом, но ни один другой не имеет фокуса - взять фокус на себя
@@ -270,8 +273,7 @@ type
  protected
   focusedChild:TUIControl;
  private
-  fOriginalSize:TVector2s;
-  function TransformToScreen(r:TRect2s):TRect2s;
+  fInitialSize:TVector2s;
   procedure AddToRootControls;
   procedure RemoveFromRootControls;
   function GetClientWidth:single;
@@ -280,10 +282,12 @@ type
   procedure SetName(n:string);
  public
   property name:string read fName write SetName;
+  property width:single read size.x write size.x;
+  property height:single read size.y write size.y;
   property clientWidth:single read GetClientWidth;
   property clientHeight:single read GetClientHeight;
   property globalScale:TVector2s read GetGlobalScale; // element scale in screen pixels
-  property originalSize:TVector2s read fOriginalSize; // Size when created
+  property initialSize:TVector2s read fInitialSize; // Size when created
  end;
 
  // Элемент с ограничениями размера
@@ -697,8 +701,8 @@ begin
  SortRootControls;
  // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
  for i:=0 to high(rootControls) do begin
-  if any then enabl:=rootControls[i].FindItemAt(x,y,ct)
-   else enabl:=rootControls[i].FindAnyItemAt(x,y,ct);
+  if any then enabl:=rootControls[i].FindAnyItemAt(x,y,ct)
+   else enabl:=rootControls[i].FindItemAt(x,y,ct);
   if ct<>nil then begin
    c2:=ct; // найдем корневого предка ct (вдруг это не rootControls[i]?)
    while c2.parent<>nil do c2:=c2.parent;
@@ -817,12 +821,11 @@ end;
 
 { TUIControl }
 
-function TUIControl.TransformToParent(const p:TPoint2s;target:TUIControl=nil):TPoint2s;
+function TUIControl.TransformTo(const p:TPoint2s;target:TUIControl):TPoint2s;
 var
  parentScrollX,parentScrollY:single;
  c:TUIControl;
 begin
- if target=nil then target:=parent;
  c:=self;
  result:=p;
  repeat
@@ -847,12 +850,12 @@ begin
 
 end;
 
-function TUIControl.TransformToParent(const r:TRect2s;target:TUIControl=nil):TRect2s;
+function TUIControl.TransformTo(const r:TRect2s;target:TUIControl):TRect2s;
 var
  p1,p2:TPoint2s;
 begin
- p1:=TransformToParent(Point2s(r.x1,r.y1),target);
- p2:=TransformToParent(Point2s(r.x2,r.y2),target);
+ p1:=TransformTo(Point2s(r.x1,r.y1),target);
+ p2:=TransformTo(Point2s(r.x2,r.y2),target);
  result:=Rect2s(p1.x,p1.y, p2.x,p2.y);
 end;
 
@@ -874,7 +877,7 @@ end;
 
 function TUIControl.GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
 begin
- result:=TransformToParent(GetRect);
+ result:=TransformTo(GetRect,parent);
 end;
 
 
@@ -887,7 +890,7 @@ begin
  if parent<>nil then begin
   pW:=parent.size.x;
   pH:=parent.size.y;
-  r:=TransformToParent(r);
+  r:=TransformTo(r,parent);
   rP:=parent.GetClientRect;
   dx:=-((r.x1-rP.x1)-(rP.x2-r.x2))/2;
   dy:=-((r.y1-rP.y1)-(rP.y2-r.y2))/2;
@@ -942,7 +945,7 @@ var
 begin
  position:=Point2s(0,0);
  size:=Point2s(width,height);
- fOriginalSize:=size;
+ fInitialSize:=size;
  scale:=Point2s(1,1);
  pivot:=Point2s(0,0);
  paddingLeft:=0; paddingRight:=0; paddingTop:=0; paddingBottom:=0;
@@ -1196,7 +1199,7 @@ begin
  if snapTo in [smTop,smBottom] then Resize(clientW,-1);
  if snapTo in [smLeft,smRight] then Resize(-1,clientH);
  if snapTo=smParent then Resize(clientW,clientH);
- r:=TransformToParent(GetRect);
+ r:=TransformTo(GetRect,parent);
  case snapTo of
   smTop:begin
     anchorTop:=0; anchorLeft:=0; anchorRight:=1; anchorBottom:=0;
@@ -1285,21 +1288,20 @@ begin
  end;
 end;
 
-function TUIControl.TransformToScreen(r:TRect2s):TRect2s;
-var
- c:TUIControl;
+function TUIControl.TransformToScreen(const p:TPoint2s):TPoint2s;
 begin
- c:=self;
- while c<>nil do begin
-  r:=c.TransformToParent(r);
-  c:=c.parent;
- end;
- result:=r;
+ result:=TransformTo(p,nil);
+end;
+
+function TUIControl.TransformToScreen(const r:TRect2s):TRect2s;
+begin
+ result:=TransformTo(r,nil);
 end;
 
 function TUIControl.GetPosOnScreen: TRect;
 begin
- result:=RoundRect(TransformToScreen(GetRect));
+ globalRect:=RoundRect(TransformToScreen(GetRect));
+ result:=globalRect;
 end;
 
 function TUIControl.GetClientPosOnScreen:TRect;
@@ -1579,12 +1581,12 @@ begin
  if newHeight>-1 then dH:=newHeight-size.y else dH:=0;
  VectAdd(size,Point2s(dW,dH));
  for i:=0 to length(children)-1 do with children[i] do begin
-  childRect:=TransformToParent(GetRect());
+  Resize(size.x+dW*(anchorRight-anchorLeft),size.y+dH*(anchorBottom-anchorTop));
+  childRect:=TransformTo(GetRect(),parent);
   childRect.x1:=childRect.x1+dW*anchorLeft;
   childRect.y1:=childRect.y1+dH*anchorTop;
   childRect.x2:=childRect.x2+dW*anchorRight;
   childRect.y2:=childRect.y2+dH*anchorBottom;
-  Resize(childRect.width,childRect.height);
   position.x:=childRect.x1*(1-pivot.x)+childRect.x2*pivot.x;
   position.y:=childRect.y1*(1-pivot.y)+childRect.y2*pivot.y;
  end;
@@ -1730,7 +1732,7 @@ end;
 
 constructor TUIButton.Create;
 var
- i,n:integer;
+ i:integer;
 begin
  inherited Create(width,height,btnName,parent_);
  transpmode:=tmOpaque;
@@ -1738,15 +1740,12 @@ begin
  btnStyle:=bsNormal;
  group:=0;
  caption:=BtnCaption;
- if parent.children<>nil then begin
-  n:=length(parent.children);
-  default:=true;
-  for i:=0 to n-1 do
-   if parent.children[i] is TUIButton then
-    default:=false;
- end else begin
-  default:=true;
- end;
+ default:=true; // make it default unless there is another sibling button
+ if parent<>nil then
+  if parent.children<>nil then
+   for i:=0 to high(parent.children) do
+    if parent.children[i] is TUIButton then
+     default:=false;
  pressed:=false;
  pending:=false;
  autoPendingTime:=0;
@@ -2841,7 +2840,7 @@ begin
   root:=GetRoot;
 {  r:=GetRect;
   r.MoveBy(0,r.y2);}
-  r:=TransformToParent(GetRect,root);
+  r:=TransformTo(GetRect,root);
   frame.position:=Point2s(r.x1, r.y2+1);
   frame.size.x:=size.x;
   frame.AttachTo(root);
@@ -2952,7 +2951,7 @@ begin
  for i:=0 to high(item.children) do begin
   c:=item.children[i];
   if not c.visible then continue;
-  r:=c.TransformToParent(c.GetRect);
+  r:=c.TransformTo(c.GetRect,nil);
   if fHorizontal then begin
    delta.x:=pos-r.x1;
    pos:=pos+r.width+fSpaceBetween;

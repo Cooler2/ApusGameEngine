@@ -19,13 +19,15 @@ interface
 
 implementation
  uses classes,SysUtils,myservis,EngineAPI,EngineTools,UIRender,colors,
-      images,publics,uDict;
+      images,publics,uDict,Types,Geom2d;
  type
   TAlphaMode=(amAuto,amSkip,amWrite);
 
+  PButtonStyle=^TButtonStyle;
   TButtonStyle=record
    name,lowname:string;
-   width,height,offsetX,offsetY,textOffsetX,textOffsetY:integer;
+   width,height,textOffsetX,textOffsetY:integer;
+   offsetX,offsetY:single;
    opacity,timeUp,timeDown:integer; // прозрачность imageOver и скорость ее нарастания/снижения
    image,imageOver,imageDown,imageDefault,imageFocused,imageDisabled:integer;
    imageColor,imageColorOver,imageColorDown,imageColorDisabled:cardinal;
@@ -88,113 +90,117 @@ implementation
    if s='AUTO' then result:=amAuto;
   end;
 
- procedure DrawBtnImage(x,y:integer;img:TTexture;color:cardinal;scaleX:single=1;scaleY:single=1);
+ procedure DrawBtnImage(pos:TPoint2s;img:TTexture;color:cardinal;scaleX:single=1;scaleY:single=1);
   begin
-   if (scaleX=1) and (scaleY=1) then
+   painter.DrawRotScaled(pos.x,pos.y,scaleX,scaleY,0,img,color);
+{   if (scaleX=1) and (scaleY=1) then
     painter.DrawImage(x,y,img,color)
    else
-    painter.DrawScaled(x,y,x+(img.width-1)*scaleX,y+(img.height-1)*scaleY,img,color);
+    painter.DrawScaled(x,y,x+(img.width-1)*scaleX,y+(img.height-1)*scaleY,img,color);}
   end;
 
- procedure DrawButton(but:TUIButton;sNum:integer;x1,y1,x2,y2:integer);
+ procedure DrawButton(but:TUIButton;sNum:integer);
   var
+   bPos,bScale:TPoint2s;
+   cRect:TRect;
    i,j,k,l,ix,iy,v:integer;
    col,col2,c:cardinal;
    sa:StringArr;
    mode:TTextAlignment;
    sx,sy:single;
+   bStyle:PButtonStyle;
   begin
    with but do begin
-     if true then begin
-      // обычная кнопка
-      col:=color;
-      if sNum>0 then begin
-        i:=sNum;
-        ix:=x1-btnStyles[i].offsetX;
-        iy:=y1-btnStyles[i].offsetY;
-        sx:=btnStyles[i].scaleX;
-        sy:=btnStyles[i].scaleY;
+     if sNum>0 then begin
+        bStyle:=@btnStyles[sNum];
+        bScale:=but.globalScale;
+        bPos:=but.TransformToScreen(Point2s(but.size.x/2,but.size.y/2));
+        bPos.x:=bPos.x+bStyle.offsetX*bScale.x;
+        bPos.y:=bPos.y+bStyle.offsetY*bScale.y;
+        sx:=bStyle.scaleX*bScale.x;
+        sy:=bStyle.scaleY*bScale.y;
 
-        v:=btnStyles[i].opacity;
+        v:=bStyle.opacity;
         if not enabled then tag:=0;
         if enabled and (undermouse=but) then begin
-         if btnStyles[i].timeUp>0 then inc(tag,round(20*v/btnStyles[i].timeUp))
+         if bStyle.timeUp>0 then inc(tag,round(20*v/bStyle.timeUp))
           else tag:=v;
          if tag>v then tag:=v;
         end else begin
-         if btnStyles[i].timeDown>0 then dec(tag,round(20*v/btnStyles[i].timeDown))
+         if bStyle.timeDown>0 then dec(tag,round(20*v/bStyle.timeDown))
           else tag:=0;
          if tag<0 then tag:=0;
         end;
 
         // Обычное состояния
-        if (enabled or (btnStyles[i].imageDisabled=0)) and (btnStyles[i].image<>0) then begin
+        if (enabled or (bStyle.imageDisabled=0)) and (bStyle.image<>0) then begin
          // не рисовать если наведено и переходы мгновенны
-         if (tag>0) and enabled and (btnStyles[i].timeUp=0) and
-           (btnStyles[i].timeDown=0) or
-           (pressed and (btnStyles[i].imageDown<>0)) then
+         if (tag>0) and enabled and (bStyle.timeUp=0) and
+           (bStyle.timeDown=0) or
+           (pressed and (bStyle.imageDown<>0)) then
          else begin
-          c:=ColorMix(btnStyles[i].imageColorOver,btnStyles[i].imageColor,tag);
-          if pressed then c:=btnStyles[i].imageColorDown;
-          DrawBtnImage(ix,iy,btnImages[btnStyles[i].image].image,c,sx,sy);
+          c:=ColorMix(bStyle.imageColorOver,bStyle.imageColor,tag);
+          if pressed then c:=bStyle.imageColorDown;
+          DrawBtnImage(bPos,btnImages[bStyle.image].image,c,sx,sy);
          end;
         end;
         // Кнопка недоступна
-        if not enabled and (btnStyles[i].imageDisabled<>0) then
-         DrawBtnImage(ix,iy,btnImages[btnStyles[i].imageDisabled].image,btnStyles[i].imageColorDisabled,sx,sy);
+        if not enabled and (bStyle.imageDisabled<>0) then
+         DrawBtnImage(bpos,btnImages[bStyle.imageDisabled].image,bStyle.imageColorDisabled,sx,sy);
         // Нажатое состояние
-        if (pressed) and (btnStyles[i].imageDown<>0) then
-         DrawBtnImage(ix,iy,btnImages[btnStyles[i].imageDown].image,btnStyles[i].imageColorDown,sx,sy);
+        if (pressed) and (bStyle.imageDown<>0) then
+         DrawBtnImage(bpos,btnImages[bStyle.imageDown].image,bStyle.imageColorDown,sx,sy);
         // Кнопка по умолчанию
-        if (default) and (btnStyles[i].imageDefault<>0) then
-         DrawBtnImage(ix,iy,btnImages[btnStyles[i].imageDefault].image,btnStyles[i].imageColor,sx,sy);
+        if (default) and (bStyle.imageDefault<>0) then
+         DrawBtnImage(bpos,btnImages[bStyle.imageDefault].image,bStyle.imageColor,sx,sy);
         // Кнопка имеет фокус
-        if (focusedControl=but) and (btnStyles[i].imageFocused<>0) then
-         DrawBtnImage(ix,iy,btnImages[btnStyles[i].imageFocused].image,btnStyles[i].imageColor,sx,sy);
+        if (focusedControl=but) and (bStyle.imageFocused<>0) then
+         DrawBtnImage(bpos,btnImages[bStyle.imageFocused].image,bStyle.imageColor,sx,sy);
         // Подсветка
         if enabled and (tag>0) and not pressed then
-         if btnStyles[i].imageOver<>0 then begin
-          if (btnstyles[i].timeUp=0) and (btnstyles[i].timeDown=0) then
-           DrawBtnImage(ix,iy,btnImages[btnStyles[i].imageOver].image,btnstyles[i].imageColorOver,sx,sy)
+         if bStyle.imageOver<>0 then begin
+          if (bStyle.timeUp=0) and (bStyle.timeDown=0) then
+           DrawBtnImage(bpos,btnImages[bStyle.imageOver].image,bStyle.imageColorOver,sx,sy)
           else // для подсветки используется отдельное изображение, прозрачность которого уменьшается до opacity
-           DrawBtnImage(ix,iy,btnImages[btnStyles[i].imageOver].image,$808080+tag shl 24,sx,sy);
+           DrawBtnImage(bpos,btnImages[bStyle.imageOver].image,$808080+tag shl 24,sx,sy);
          end;
-
-        ix:=btnStyles[i].textOffsetX;
-        iy:=btnStyles[i].textOffsetY;
-        // Вычисление цвета надписи
-        col2:=btnStyles[i].ColorShadow;
-        if btnStyles[i].color<>0 then col:=btnStyles[i].color;
-        if not pressed and (focusedControl=but) and (btnStyles[i].colorFocused<>0) then
-          col:=btnStyles[i].colorFocused;
-        if not enabled then begin
-          if btnStyles[i].colorDisabled<>0 then col:=btnStyles[i].colorDisabled;
-          if btnStyles[i].colorShadowDisabled<>0 then col2:=btnStyles[i].ColorShadowDisabled;
-        end;
-        if tag>0 then col:=ColorMix(btnStyles[i].colorOver,col,tag);
-        if pressed and (btnStyles[i].colorDown<>0) then col:=btnStyles[i].colorDown;
 
         // Вывод надписи (если есть)
         if caption<>'' then begin
+         ix:=bStyle.textOffsetX;
+         iy:=bStyle.textOffsetY;
+         // Вычисление цвета надписи
+         col2:=bStyle.ColorShadow;
+         if bStyle.color<>0 then col:=bStyle.color;
+         if not pressed and (focusedControl=but) and (bStyle.colorFocused<>0) then
+           col:=bStyle.colorFocused;
+         if not enabled then begin
+           if bStyle.colorDisabled<>0 then col:=bStyle.colorDisabled;
+           if bStyle.colorShadowDisabled<>0 then col2:=bStyle.ColorShadowDisabled;
+         end;
+         if tag>0 then col:=ColorMix(bStyle.colorOver,col,tag);
+         if pressed and (bStyle.colorDown<>0) then col:=bStyle.colorDown;
+
          // перевод ДО разделения на подстроки!
          sa:=Split('~',translate(caption),#0);
-         painter.SetClipping(Rect(x1+4,y1+2,x2-4,y2-2));
+         cRect:=but.GetClientPosOnScreen;
+         painter.SetClipping(cRect);
          painter.TextColorX2:=true;
          if btnStyle=bsCheckbox then begin
-          ix:=x1+24+ix; iy:=y1+2+iy;
+          ix:=cRect.left+24+ix; iy:=cRect.top+2+iy;
           mode:=taLeft;
          end else begin
-          iy:=y1+((globalrect.height-2-painter.FontHeight(font)*length(sa)) div 2)+byte(pressed)+iy;
-          mode:=btnstyles[i].alignment;
+          iy:=cRect.top+((globalrect.height-2-painter.FontHeight(font)*length(sa)) div 2)+byte(pressed)+iy;
+          mode:=bStyle.alignment;
           if mode=taJustify then mode:=taCenter;
-          if mode=taCenter then ix:=x1+globalrect.width div 2+byte(pressed)+ix else
-          if mode=taLeft then ix:=ix+x1+byte(pressed)+globalrect.width div 6 else
-          if mode=taRight then ix:=ix+x1+byte(pressed)+globalrect.width*7 div 8;
+          if mode=taCenter then ix:=cRect.left+cRect.width div 2+byte(pressed)+ix else
+          if mode=taLeft then ix:=ix+cRect.left+byte(pressed)+cRect.width div 6 else
+          if mode=taRight then ix:=ix+cRect.left+byte(pressed)+cRect.width*7 div 8;
          end;
           // Вывод обычным текстом (тут всё устаревшее и требует переосмысления)
           for j:=0 to length(sa)-1 do begin
            painter.TextOut(font,ix,iy,col,sa[j],mode,toAddBaseline);
-           if btnStyles[i].underline then begin
+           if bStyle.underline then begin
             col:=ColorMult2(col,$80FFFFFF);
             k:=round(painter.FontHeight(font)*0.96);
             l:=painter.TextWidth(font,sa[j]);
@@ -212,8 +218,7 @@ implementation
          painter.ResetClipping;
         end;
 
-      end; // style>0
-     end; // true
+     end; // style>0
    end;
   end;
 
@@ -318,8 +323,8 @@ implementation
    if control.ClassType=TUIEditBox then
     with control as TUIEditbox do begin
       if sNum>0 then begin
-        ix:=x1-btnStyles[sNum].offsetX;
-        iy:=y1-btnStyles[sNum].offsetY;
+        ix:=round(x1-btnStyles[sNum].offsetX);
+        iy:=round(y1-btnStyles[sNum].offsetY);
         if btnStyles[sNum].image=0 then
          raise EError.create('InpBox style has no image');
         painter.DrawImage(ix,iy,btnImages[btnStyles[i].image].image,$FF808080);
@@ -335,7 +340,7 @@ implementation
 
    // Кнопка
    if control.ClassType=TUIButton then
-    DrawButton(control as TUIButton,sNum,x1,y1,x2,y2);
+    DrawButton(control as TUIButton,sNum);
   end;
 
  procedure InitCustomStyle;
@@ -521,10 +526,10 @@ begin
    end;
    'O':begin
      if prop='OFFSETX' then begin
-       result:=@item^.offsetX; varClass:=TVarTypeInteger;
+       result:=@item^.offsetX; varClass:=TVarTypeSingle;
      end else
      if prop='OFFSETY' then begin
-       result:=@item^.offsetY; varClass:=TVarTypeInteger;
+       result:=@item^.offsetY; varClass:=TVarTypeSingle;
      end else
      if prop='OPACITY' then begin
        result:=@item^.opacity; varClass:=TVarTypeInteger;

@@ -47,6 +47,7 @@ interface
    procedure Include(x,y:single); overload; inline;
    procedure Include(r:TRect2s); overload; inline;
    function IsEmpty:boolean;
+   function Center:TPoint2s; inline;
   end;
 
   TSegment2=packed record
@@ -182,7 +183,7 @@ interface
  procedure Triangulate(pnts:PPoint2;count:integer);
 
 implementation
- uses {$IFDEF DELPHI}CrossPlatform,{$ENDIF}SysUtils,Math;
+ uses {$IFDEF DELPHI}CrossPlatform,{$ENDIF}MyServis,SysUtils,Math;
  var
   sse:boolean;
 
@@ -772,10 +773,10 @@ implementation
 
  function RoundRect(const r:TRect2s):TRect;
   begin
-   result.Left:=round(r.x1);
-   result.Top:=round(r.y1);
-   result.Right:=round(r.x2);
-   result.Bottom:=round(r.y2);
+   result.Left:=FRound(r.x1);
+   result.Top:=FRound(r.y1);
+   result.Right:=FRound(r.x2);
+   result.Bottom:=FRound(r.y2);
   end;
 
 { TRect2s }
@@ -801,6 +802,12 @@ implementation
  procedure TRect2s.MoveBy(delta:TVector2s);
   begin
    MoveBy(delta.x,delta.y);
+  end;
+
+ function TRect2s.Center: TPoint2s;
+  begin
+   result.x:=(x1+x2)/2;
+   result.y:=(y1+y2)/2;
   end;
 
 function TRect2s.Height: single;
