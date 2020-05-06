@@ -20,3 +20,6 @@ https://www.patreon.com/ApusGameEngine
 * Алексей Воронин
 
 and others...
+
+---
+VK group: https://vk.com/apusgameengine
