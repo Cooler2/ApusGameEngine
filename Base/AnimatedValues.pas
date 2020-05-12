@@ -5,6 +5,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit AnimatedValues;
+
 interface
   uses MyServis;
 
@@ -58,7 +59,9 @@ interface
 
 implementation
 
-  uses CrossPlatform,Windows,SysUtils;
+  uses
+  {$IFDEF MSWINDOWS}Windows,{$ENDIF}
+  CrossPlatform,SysUtils;
 
   procedure SpinLock(var lock:integer); inline;
     begin

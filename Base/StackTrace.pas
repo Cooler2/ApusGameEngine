@@ -19,7 +19,7 @@ implementation
  function RtlCaptureStackBackTrace(framesSkip,framesCapture:longint;const trace:pointer;const hash:pointer):shortint; external 'kernel32.dll';
 {$ENDIF}
 
- procedure MyExceptProc;
+ procedure MyExceptProc; assembler;
  {$IFDEF WIN32}
  asm
   pushad

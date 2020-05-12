@@ -1,4 +1,4 @@
-﻿// Wrapper unit for platform-dependent functions
+// Wrapper unit for platform-dependent functions
 //
 // Copyright (C) 2011 Apus Software (www.apus-software.com)
 // Author: Ivan Polyacov (ivan@apus-software.com)
@@ -6,10 +6,6 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 {$S-}
 unit CrossPlatform;
-
-{$IFDEF FPC}
-  {$MODE Delphi}
-{$ENDIF}
 
 interface
 {$IFDEF MSWINDOWS}
@@ -136,7 +132,10 @@ interface
 implementation
 
 uses
-  ShellAPI,MyServis;
+{$IFDEF MSWINDOWS}
+  ShellAPI,
+{$ENDIF}
+  MyServis;
 
  {$IFDEF IOS}
  // IOS threads
