@@ -24,7 +24,7 @@ interface
 
 
  type
-  TLogProc = procedure(msg:AnsiString;level:byte;msgtype:byte);
+  TLogProc = procedure(msg:String8;level:byte;msgtype:byte);
 
   // Basic abstract class
   TDatabase=class
@@ -39,32 +39,32 @@ interface
    // В случае ошибки возвращает массив из одной строки: ERROR: <текст ошибки>, причём rowCount=0
    // Если запрос не подразумевает возврат данных и выполняется успешно - возвращает
    // пустой массив (0 строк)
-   function Query(DBquery:AnsiString):AStringArr; overload; virtual; abstract;
+   function Query(DBquery:RawByteString):AStringArr; overload; virtual; abstract;
    // Sugar: Query(Format(DBQuery,params)) - all string items pass through SQLsafe()
-   function Query(DBquery:AnsiString;params:array of const):AStringArr; overload; virtual;
+   function Query(DBquery:RawByteString;params:array of const):AStringArr; overload; virtual;
    // Запрашивает строки (поля в fields) из таблицы, соответствующие заданному условию, и заносит их в хэш
    // Условие может также содержать сортировку и т.п.
    // Хэш переинициализируется, т.е. если в нём уже было содержимое - оно теряется
-   procedure QueryHash(var h:THash;table,keyField,fields,condition:AnsiString); virtual;
+   procedure QueryHash(var h:THash;table,keyField,fields,condition:RawByteString); virtual;
    // Для каждого ключа хэша H, соответствующего полю keyField в таблице table
    // запрашивает значение поля valueField (можно перечислить несколько полей через запятую, тогда будут выбраны все)
    // quoteKeys используется чтобы заключать значения ключей в " " (необходимо если ключи - строкового типа)
    // condition - дополнительное условие для WHERE clause
    // Если значения для ключа не найдено, ключ в хэше остаётся с пустым значением
-   procedure QueryValues(var h:THash;table,keyField,valueField:AnsiString;quoteKeys:boolean=false;condition:AnsiString=''); virtual;
+   procedure QueryValues(var h:THash;table,keyField,valueField:RawByteString;quoteKeys:boolean=false;condition:RawByteString=''); virtual;
 
    procedure Disconnect; virtual; abstract;
    destructor Destroy; override;
 
    // Access data as table
-   function Next:AnsiString;
+   function Next:String8;
    function NextInt:integer;
    function NextDate:TDateTime;
    procedure NextRow;
 
   private
     crSect:TMyCriticalSection;
-    name:AnsiString;
+    name:UTF8String;
     data:AStringArr;
     row,col,cur:integer; // Current row, column and data index
   end;
@@ -75,7 +75,7 @@ interface
    time1,time2,time3:integer; // время выполнения real_query и время получения результатов
    constructor Create;
    procedure Connect; override;
-   function Query(DBquery:AnsiString):AStringArr; override;
+   function Query(DBquery:RawByteString):AStringArr; override;
    procedure Disconnect; override;
    destructor Destroy; override;
   private
@@ -85,17 +85,17 @@ interface
 
   TMySQLDatabaseWithLogging=class(TMySQLDatabase)
    constructor Create(customLogProc:TLogProc;minLogLevel_,selectLogLevel_,updatelogLevel_,logGroup_:integer);
-   function Query(DBquery:AnsiString):AStringArr; override;
+   function Query(DBquery:RawByteString):AStringArr; override;
   protected
    logProc:TLogProc;
    minLogLevel,selectLogLevel,updatelogLevel,logGroup:integer;
   end;
 
   // Escape special characters (so string can be used in query)
-  procedure SQLString(var st:AnsiString);
-  function SQLSafe(st:AnsiString):AnsiString;
-  function SQLdate(date:TDateTime):AnsiString;
-  function FormatQuery(query:AnsiString;params:array of const):AnsiString;
+  procedure SQLString(var st:RawByteString);
+  function SQLSafe(st:RawByteString):RawByteString;
+  function SQLdate(date:TDateTime):RawByteString;
+  function FormatQuery(query:RawByteString;params:array of const):RawByteString;
 
 implementation
  uses SysUtils,mysql,Variants,AnsiStrings;
@@ -103,7 +103,7 @@ implementation
   counter:integer=0; // MySQL library usage counter
   lock:TMyCriticalSection;
 
-procedure SQLString(var st:AnsiString);
+procedure SQLString(var st:RawByteString);
  var
   i:integer;
  begin
@@ -119,21 +119,21 @@ procedure SQLString(var st:AnsiString);
  end;
 
 
-function SQLSafe(st:AnsiString):AnsiString;
+function SQLSafe(st:RawByteString):RawByteString;
  begin
   SQLString(st);
   result:=st;
  end;
 
-function SQLdate(date:TDateTime):AnsiString;
+function SQLdate(date:TDateTime):RawByteString;
  begin
   result:=FormatDateTime('YYYY-MM-DD hh:nn:ss',date);
  end;
 
-function FormatQuery(query:AnsiString;params:array of const):AnsiString;
+function FormatQuery(query:RawByteString;params:array of const):RawByteString;
  var
   i:integer;
-  st:AnsiString;
+  st:RawByteString;
   p:array of TVarRec;
  begin
   // Don't modify const array -> create new one!
@@ -179,12 +179,12 @@ destructor TDatabase.Destroy;
  end;
 
 procedure TDatabase.QueryValues(var h: THash; table, keyField,
-  valueField: AnsiString; quoteKeys: boolean=false;condition:AnsiString='');
+  valueField: RawByteString; quoteKeys: boolean=false;condition:RawByteString='');
 var
  i,j:integer;
  keys:AStringArr;
  sa:AStringArr;
- list:AnsiString;
+ list:RawByteString;
 begin
  if h.count=0 then exit;
  keys:=h.AllKeys;
@@ -203,11 +203,11 @@ begin
    h.Put(sa[i*colCount],sa[i*colCount+j],j=1);
 end;
 
-procedure TDatabase.QueryHash(var h:THash;table,keyField,fields,condition:AnsiString);
+procedure TDatabase.QueryHash(var h:THash;table,keyField,fields,condition:RawByteString);
 var
  sa:AStringArr;
  i,j:integer;
- key:AnsiString;
+ key:RawByteString;
 begin
  sa:=Query(Format('SELECT %s,%s FROM %s WHERE %s',[keyField,fields,table,condition]));
  h.Init(true);
@@ -220,7 +220,7 @@ begin
  end;
 end;
 
-function TDatabase.Query(DBquery:AnsiString;params:array of const):AStringArr;
+function TDatabase.Query(DBquery:RawByteString;params:array of const):AStringArr;
 begin
  DBQuery:=FormatQuery(DBQuery, params);
  result:=Query(DBQuery);
@@ -312,10 +312,10 @@ begin
  connected:=false;
 end;
 
-function TMySQLDatabase.Query(DBquery: AnsiString): AStringArr;
+function TMySQLDatabase.Query(DBquery: RawByteString): AStringArr;
 var
  r,flds,rows,i,j:integer;
- st:AnsiString;
+ st:RawByteString;
  res:PMYSQL_RES;
  myrow:PMYSQL_ROW;
  t:int64;
@@ -423,7 +423,7 @@ constructor TMySQLDatabaseWithLogging.Create;
   end;
  end;
 
-function TMySQLDatabaseWithLogging.Query(DBquery: AnsiString): AStringArr;
+function TMySQLDatabaseWithLogging.Query(DBquery: RawByteString): AStringArr;
  var
   t:int64;
  begin
@@ -440,7 +440,7 @@ function TMySQLDatabaseWithLogging.Query(DBquery: AnsiString): AStringArr;
     max2(selectLogLevel,updateLogLevel)+1,logGroup);
  end;
 
-function TDatabase.Next:AnsiString;
+function TDatabase.Next:String8;
  begin
   if col<colCount then begin
    result:=data[cur];
@@ -451,7 +451,7 @@ function TDatabase.Next:AnsiString;
 
 function TDatabase.NextInt:integer;
  var
-  s:AnsiString;
+  s:UTF8String;
  begin
   s:=Next;
   if s<>'' then result:=ParseInt(s) else result:=0;
@@ -459,7 +459,7 @@ function TDatabase.NextInt:integer;
 
 function TDatabase.NextDate:TDateTime;
  var
-  s:AnsiString;
+  s:UTF8String;
  begin
   s:=Next;
   if s<>'' then result:=GetDateFromStr(s) else result:=0;
