@@ -50,17 +50,16 @@ var
  defaults:TDefaults; // default values used when new element is created
  curobjname:string; // current element name in upper case
 
-function onItemCreated(event:eventstr;tag:TTag):boolean;
+procedure onItemCreated(event:eventstr;tag:TTag);
 var
  c:TUIControl;
 begin
  c:=TUIControl(tag);
  if c.name<>'' then
   PublishVar(c,c.name,TVarTypeUIControl);
- result:=false;
 end;
 
-function onItemRenamed(event:eventstr;tag:TTag):boolean;
+procedure onItemRenamed(event:eventstr;tag:TTag);
 var
  c:TUIControl;
 begin
@@ -68,7 +67,6 @@ begin
  UnpublishVar(c);
  if c.name<>'' then
   PublishVar(c,c.name,TVarTypeUIControl);
- result:=false;
 end;
 
 procedure UseParentCmd(cmd:string);

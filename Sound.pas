@@ -164,7 +164,7 @@ procedure LoopMusicProc(sync,chan,data,user:cardinal); stdcall;
  end;
 
 
-function EventHandler(event:EventStr;tag:TTag):boolean;
+procedure EventHandler(event:EventStr;tag:TTag);
  var
   evt:TSoundEvent;
   sa,sa2:stringarr;
@@ -177,7 +177,6 @@ function EventHandler(event:EventStr;tag:TTag):boolean;
   rVol:single;
  begin
   try
-  result:=false;
   delete(event,1,6);
   event:=UpperCase(event);
 

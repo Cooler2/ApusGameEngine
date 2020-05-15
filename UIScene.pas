@@ -90,9 +90,8 @@ procedure SetDisplaySize(width,height:integer);
  end;
 
 
-function ActivateEventHandler(event:EventStr;tag:TTag):boolean;
+procedure ActivateEventHandler(event:EventStr;tag:TTag);
 begin
- result:=true;
  EnterCriticalSection(UICritSect);
  try
   if tag=0 then
@@ -102,7 +101,7 @@ begin
  end;
 end;
 
-function MouseEventHandler(event:EventStr;tag:TTag):boolean;
+procedure MouseEventHandler(event:EventStr;tag:TTag);
 var
  c,c2:TUIControl;
  e1,e2,e:boolean;
@@ -110,7 +109,6 @@ var
  time:int64;
  st:string;
 begin
- result:=true;
  event:=UpperCase(copy(event,7,length(event)-6));
  EnterCriticalSection(UICritSect);
  time:=MyTickCount;
@@ -256,7 +254,6 @@ begin
    if FindControlAt(curMouseX,curMouseY,c) then
     c.onMouseScroll(tag);
 
-  result:=false; // Не обрабатывать на более высоком уровне (корне)
  finally
   LeaveCriticalSection(UICritSect);
  end;
@@ -275,13 +272,12 @@ begin
  ForceLogMessage('UI state'#13#10+st);
 end;
 
-function KbdEventHandler(event:EventStr;tag:TTag):boolean;
+procedure KbdEventHandler(event:EventStr;tag:TTag);
 var
  c:TUIControl;
  shift:byte;
  key:integer;
 begin
- result:=false; // Не обрабатывать на более высоком уровне (корне)
  EnterCriticalSection(UICritSect);
  try
   shift:=(tag shr 16) and 255;
@@ -485,17 +481,16 @@ begin
 end;
 
 // tag: low 8 bit - new shadow value, next 16 bit - duration in ms
-function onSetGlobalShadow(event:eventstr;tag:TTag):boolean;
+procedure onSetGlobalShadow(event:eventstr;tag:TTag);
 begin
  startShadowChange:=MyTickCount;
  shadowChangeDuration:=tag shr 8;
  oldShadowValue:=curShadowValue;
  needShadowValue:=tag and $FF;
- result:=false;
 end;
 
 // tag: low 8 bit - new shadow value, next 16 bit - duration in ms
-function onSetFocus(event:eventstr;tag:TTag):boolean;
+procedure onSetFocus(event:eventstr;tag:TTag);
 begin
  delete(event,1,length('UI\SETFOCUS\'));
  if (event<>'') and (event<>'NIL') then

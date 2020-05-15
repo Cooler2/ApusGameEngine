@@ -352,11 +352,10 @@ begin
  end;
 end;
 
-function EventHandler(event:EventStr;tag:TTag):boolean;
+procedure EventHandler(event:EventStr;tag:TTag);
 var
  tex:TTexture;
 begin
- result:=false;
  if SameText(event,'GLImages\DeleteTexture') then begin
   tex:=TTexture(UIntPtr(tag));
   texman.FreeImage(tex);

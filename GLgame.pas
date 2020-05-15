@@ -64,9 +64,8 @@ begin
  end;
 end;
 
-function EventHandler(event:EventStr;tag:TTag):boolean;
+procedure EventHandler(event:EventStr;tag:TTag);
 begin
- result:=true;
  event:=UpperCase(copy(event,8,500));
  if event='SETSWAPINTERVAL' then begin
   if WGL_EXT_swap_control then begin

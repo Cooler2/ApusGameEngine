@@ -96,17 +96,15 @@ implementation
    HandleErrorSignals:=handleError;
   end;
 
- function NormalEvent(event:eventstr;tag:integer):boolean;
+ procedure NormalEvent(event:eventstr;tag:integer);
   begin
    if handleDebugSignals then
     PutMsg(timestamp+' Evt: '+event+' - '+inttostr(tag));
-   result:=false;
   end;
- function CriticalEvent(event:eventstr;tag:integer):boolean;
+ procedure CriticalEvent(event:eventstr;tag:integer);
   begin
    if handleErrorSignals then
     PutMsg(timestamp+' Evt: '+event+' - '+inttostr(tag),true,-1);
-   result:=false;
   end;
 
  procedure SignalsToConsole(eventClass:string;critical:boolean=false);

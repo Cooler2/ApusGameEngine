@@ -117,7 +117,7 @@ function StreamProc(handle:integer;buf:pointer;size,user:cardinal):cardinal; std
   result:=sp(buf,size);
  end;
 
-function EventHandler(event:EventStr;tag:TTag):boolean;
+procedure EventHandler(event:EventStr;tag:TTag);
  var
   evt:TSoundEvent;
   mus:TMusic;
@@ -127,7 +127,6 @@ function EventHandler(event:EventStr;tag:TTag):boolean;
   hnd:cardinal;
   sa,sa2:StringArr;
  begin
-  result:=false;
   delete(event,1,6);
   event:=UpperCase(event);
   if pos('CLEARCACHE\',event)=1 then begin

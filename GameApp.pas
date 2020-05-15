@@ -444,7 +444,7 @@ begin
  {$ENDIF}
 end;
 
-function EngineEventHandler(event:EventStr;tag:TTag):boolean;
+procedure EngineEventHandler(event:EventStr;tag:TTag);
  begin
   if app<>nil then begin
    if event='ENGINE\BEFORERESIZE' then app.onResize;

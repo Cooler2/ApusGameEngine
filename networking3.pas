@@ -252,13 +252,12 @@ function ShortMD5(st:string):string;
   result:=copy(MD5(st),1,10);
  end;
 
-function EventHandler(event:eventstr;tag:TTag):boolean;
+procedure EventHandler(event:eventstr;tag:TTag);
  var
   i,code,t,e1,e2,httpStatus:integer;
   response:AnsiString;
   sa:AStringArr;
  begin
-  result:=true;
   if (event='HTTP_Event\ResendPost') and (activePostRequest>0) then begin
     LogMessage('NW3: resending POST request');
     activePostRequest:=HTTPRequest(lastPostURL,lastPostData,'HTTP_Event',4000,lastPostType);
@@ -565,7 +564,7 @@ procedure Connect(server,login,password,clientinfo:string);
  end;
 
 // Создание аккаунта
-function EventHandler2(event:eventstr;tag:TTag):boolean;
+procedure EventHandler2(event:eventstr;tag:TTag);
  var
   code:integer;
   response:AnsiString;

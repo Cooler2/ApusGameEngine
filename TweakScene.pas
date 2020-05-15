@@ -62,14 +62,12 @@ implementation
  var
   tweakerScene:TTweakerScene;
 
- function EventHandler(event:eventStr;tag:TTag):boolean;
+ procedure EventHandler(event:eventStr;tag:TTag);
   begin
-   result:=false;
    event:=UpperCase(event);
    if event='KBD\KEYDOWN' then begin
     // Ctrl+[~] - показать/скрыть твикер
     if (tag and 255=192) and (tag and $20000>0) then begin
-     result:=true;
      if tweakerScene.status<>ssActive then
       tweakerScene.SetStatus(ssActive)
      else

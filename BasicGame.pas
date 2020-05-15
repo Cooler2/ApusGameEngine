@@ -514,16 +514,15 @@ begin
  end;
 end;
 
-function EngineCmdEvent(Event:EventStr;tag:TTag):boolean; forward;
+procedure EngineCmdEvent(Event:EventStr;tag:TTag); forward;
 
-function EngineKbdEvent(Event:EventStr;tag:TTag):boolean;
+procedure EngineKbdEvent(Event:EventStr;tag:TTag);
 var
  code,shiftState,d:integer;
  f:text;
  ds:TDisplaySettings;
  st:string;
 begin
- result:=false;
  code:=tag and $FFFF;
  shiftState:=tag shr 16;
  if game<>nil then
@@ -585,14 +584,12 @@ begin
 end;
 
 
-function EngineEvent(Event:EventStr;tag:TTag):boolean;
+procedure EngineEvent(Event:EventStr;tag:TTag);
 begin
- result:=false;
  if game=nil then exit;
  delete(event,1,7);
  event:=UpperCase(event);
  game.onEngineEvent(event,tag);
- result:=false;
 end;
 
 {$IF Declared(SetProcessDPIAware)} {$ELSE}
@@ -1605,14 +1602,13 @@ function FlashWindowEx(var pfwi: TFlashWInfo): LongBool; stdcall; external 'user
 {$ENDIF}
 
 // Обработка событий, являющихся командами движку
-function EngineCmdEvent(event:EventStr;tag:TTag):boolean;
+procedure EngineCmdEvent(event:EventStr;tag:TTag);
 var
 {$IFDEF MSWINDOWS}
  fi:TFlashWInfo;
 {$ENDIF}
  pnt:TPoint;
 begin
- result:=false;
  delete(event,1,length('Engine\Cmd\'));
  event:=UpperCase(event);
  if game=nil then exit;

@@ -64,12 +64,11 @@ implementation
    styleCls.DrawItem(control);
   end;
 
- function EventHandler(event:EventStr;tag:integer):boolean;
+ procedure EventHandler(event:EventStr;tag:integer);
   var
    name:string;
    btn:TUIControl;
   begin
-   result:=true;
    event:=UpperCase(event);
    if pos('BITMAPSTYLE\INVALIDATE\',event)=1 then begin
     LogMessage(event+' '+inttohex(cardinal(tag),8));
