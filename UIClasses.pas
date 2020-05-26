@@ -109,7 +109,6 @@ type
 
  // Base class of the UI element
  TUIControl=class
-  fName:string;  // Имя - используется при посылке сигналов. Изначально отсутствует, что запрещает посылку сигналов
   position:TPoint2s;  // Положение root point in parent's client rect (если предка нет - положение на экране)
   pivot:TPoint2s; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
   scale:TVector2s; // scale factor for this element (size) and all children elements
@@ -130,7 +129,7 @@ type
   order:integer; // Определяет порядок отрисовки ($10000 - база для StayOnTop-эл-тов), отрицательные значения - специальные
   // Define how the element should be displayed
   style:byte;    // Стиль для отрисовки (0 - использует отрисовщик по умолчанию)
-  styleInfo:string; // дополнительные сведения для стиля
+  styleInfoChanged:boolean; // set true whenever styleInfo changes
 
   canHaveFocus:boolean; // может ли элемент обладать фокусом ввода
   hint,hintIfDisabled:string; // текст всплывающей подсказки (отдельный вариант - для ситуации, когда элемент disabled, причем именно этот элемент, а не за счёт предков)
@@ -273,21 +272,25 @@ type
  protected
   focusedChild:TUIControl;
  private
+  fName:String8;  // Имя - используется при посылке сигналов. Изначально отсутствует, что запрещает посылку сигналов
+  fStyleInfo:String8; // дополнительные сведения для стиля
   fInitialSize:TVector2s;
   procedure AddToRootControls;
   procedure RemoveFromRootControls;
   function GetClientWidth:single;
   function GetClientHeight:single;
   function GetGlobalScale:TVector2s;
-  procedure SetName(n:string);
+  procedure SetName(n:String8);
+  procedure SetStyleInfo(sInfo:String8);
  public
-  property name:string read fName write SetName;
+  property name:String8 read fName write SetName;
   property width:single read size.x write size.x;
   property height:single read size.y write size.y;
   property clientWidth:single read GetClientWidth;
   property clientHeight:single read GetClientHeight;
   property globalScale:TVector2s read GetGlobalScale; // element scale in screen pixels
   property initialSize:TVector2s read fInitialSize; // Size when created
+  property styleInfo:String8 read fStyleInfo write SetStyleInfo;
  end;
 
  // Элемент с ограничениями размера
@@ -1176,7 +1179,7 @@ begin
   else result:='empty';
 end;
 
-procedure TUIControl.SetName(n:string);
+procedure TUIControl.SetName(n:String8);
 begin
  if fName<>n then begin
   fName:=n;
@@ -1569,6 +1572,14 @@ begin
  scale.x:=newScale;
  scale.y:=newScale;
  result:=self;
+end;
+
+procedure TUIControl.SetStyleInfo(sInfo: String8);
+begin
+ if fStyleInfo<>sInfo then begin
+  fStyleInfo:=sInfo;
+  styleInfoChanged:=true;
+ end;
 end;
 
 procedure TUIControl.Resize(newWidth, newHeight: single);
