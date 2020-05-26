@@ -10,8 +10,12 @@
 {$R-}
 unit FastGFX;
 interface
- uses Geom2d,types;
+ uses Geom2d,Types;
 type
+ TARGBPixel=packed record
+  b,g,r,a:byte;
+ end;
+
  // Процедура рисования простой горизонтальной линии (без отсечения, x2>=x1)
  THLine=procedure(buf:pointer;pitch:integer;x1,x2,y:integer;color:cardinal); pascal;
  // Процедура рисования простой вертикальной линии (без отсечения, y2>=y1)
@@ -79,9 +83,9 @@ var
  procedure PixelsFrom8P24(var sour,dest,palette;count:integer); pascal; // Палитра 24-битная (медленно!)
 
  // Calculates address of 32-bit pixel
- function GetPixelAddr(buf:pointer;pitch,x,y:integer):pointer;
+ function GetPixelAddr(buf:pointer;pitch,x,y:integer):pointer; inline;
  // Calculates address of 8-bit pixel
- function GetPixelAddr8(buf:pointer;pitch,x,y:integer):pointer;
+ function GetPixelAddr8(buf:pointer;pitch,x,y:integer):pointer; inline;
 
  // Calculate cropping rect for an image
  function CropImage(sour:pointer;sPitch:integer;width,height:integer):TRect;
@@ -196,10 +200,13 @@ var
                          dest:pointer;dPitch:integer;
                          width,height:integer); // размеры исходного изображения
 
+ // Set active render target buffer
  procedure SetRenderTarget(buf:pointer;pitch:integer;width,height:integer);
 
- procedure DrawPixel(x,y:integer;color:cardinal);
- procedure DrawPixelAA(x,y:single;color:cardinal);
+ function GetPixel(x,y:integer):cardinal; // read ARGB pixel from current render target (clamp coordinates)
+ procedure PutPixel(x,y:integer;color:cardinal); // store ARGB pixes AS IS (ignore out of range coordinates)
+ procedure DrawPixel(x,y:integer;color:cardinal); // draw ARGB pixel using alpha blending (ignore out of range coordinates)
+ procedure DrawPixelAA(x,y:single;color:cardinal); // the same with anti-aliasing
  procedure SmoothLine(x1,y1,x2,y2:single;color:cardinal;width:single=1.0); // width = 0.5-1.5
  procedure Arc(x,y,r,fromA,toA:single;color:cardinal;width:single=1.0);
  procedure Circle(x,y,r:single;color:cardinal;width:single=1.0);
@@ -1836,6 +1843,27 @@ const
  function ColorCopy(background,foreground:cardinal):cardinal;
   begin
    result:=foreground;
+  end;
+
+ function GetPixel(x,y:integer):cardinal;
+  var
+   pc:PCardinal;
+  begin
+   if x<0 then x:=0 else
+    if x>=rWidth then x:=rWidth-1;
+   if y<0 then y:=0 else
+    if y>=rHeight then y:=rHeight-1;
+   pc:=rBuf; inc(pc,x+y*rPitch);
+   result:=pc^;
+  end;
+
+ procedure PutPixel(x,y:integer;color:cardinal); // store ARGB pixes AS IS (ignore out of range coordinates)
+  var
+   pc:PCardinal;
+  begin
+   if (x<0) or (y<0) or (x>=rWidth) or (y>=rHeight) then exit;
+   pc:=rBuf; inc(pc,x+y*rPitch);
+   pc^:=color;
   end;
 
  procedure DrawPixel(x,y:integer;color:cardinal);
