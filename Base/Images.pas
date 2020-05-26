@@ -103,6 +103,7 @@ type
  // прямой доступ к памяти и формат пикселя)
  // Это тоже абстрактный класс, который не определяет конкретного способа создания
  // и хранения изображения
+ // This object doesn't own data
  TRawImage=class(TBaseImage)
   PixelFormat:ImagePixelFormat;
   paletteFormat:ImagePaletteFormat;
@@ -113,6 +114,7 @@ type
   palette:pointer; // указатель на палитру, nil если ее нет
   palSize:integer; // размер палитры (число эл-тов)
 
+  constructor Copy(src:TRawImage);
   class function NeedLock:boolean; virtual;  // true - если нужно лочить для доступа к данным
   procedure Lock; virtual;  // заполняет поля действующими значениями
   procedure Unlock; virtual;
@@ -121,6 +123,7 @@ type
   procedure SetPixel(x,y:integer;value:cardinal); virtual;
   function ScanLine(y:integer):pointer;
   procedure CopyPixelDataFrom(src:TRawImage); // copy from another image with pixel format conversion (if needed)
+  procedure SetAsRenderTarget;
  end;
 
  // TBitmapImage - это уже конкретный вид изображения: bitmap, хранящийся в памяти
@@ -370,6 +373,19 @@ begin
  end;
 end;
 
+constructor TRawImage.Copy(src: TRawImage);
+begin
+ width:=src.width;
+ height:=src.height;
+ tag:=src.tag;
+ pixelFormat:=src.PixelFormat;
+ paletteFormat:=src.paletteFormat;
+ data:=src.data;
+ pitch:=src.pitch;
+ palette:=src.palette;
+ palSize:=src.palSize;
+end;
+
 procedure TRawImage.CopyPixelDataFrom(src: TRawImage);
 var
  sp,dp:PByte;
@@ -403,6 +419,11 @@ begin
  size:=pixelSize[PixelFormat] shr 3;
  inc(pb,y*pitch+x*size);
  move(pb^,result,size);
+end;
+
+procedure TRawImage.SetAsRenderTarget;
+begin
+ SetRenderTarget(data,pitch,width,height);
 end;
 
 procedure TRawImage.SetPixel(x,y:integer;value:cardinal);
