@@ -224,7 +224,7 @@ begin
       c2:=c;
       while c2.parent<>nil do begin
        c2:=c2.parent;
-       st:=c2.fName+'->'+st;
+       st:=c2.name+'->'+st;
       end;
       ShowSimpleHint(c.ClassName+'('+st+')',c.GetRoot,-1,-1,5000);
       PutMsg(Format('%s: %.1f,%.1f %.1f,%.1f',[c.name,c.position.x,c.position.y,c.size.x,c.size.y]));
@@ -634,7 +634,7 @@ var
    result:=Format('  %-20s Z=%-10d  status=%-2d type=%-2d eff=%s',
      [s.name,s.zorder,ord(s.status),byte(s.fullscreen),PtrToStr(s.effect)]);
    if s is TUIScene then
-    result:=result+Format(' UI=%s (%s)',[TUIScene(s).UI.fName, PtrToStr(TUIScene(s).UI)]);
+    result:=result+Format(' UI=%s (%s)',[TUIScene(s).UI.name, PtrToStr(TUIScene(s).UI)]);
   end;
 begin
  try
