@@ -69,6 +69,11 @@ interface
    class function GetValue(variable:pointer):string; override;
   end;
 
+  TVarTypeString8=class(TVarType)
+   class procedure SetValue(variable:pointer;v:string); override;
+   class function GetValue(variable:pointer):string; override;
+  end;
+
   TVarTypeWideString=class(TVarType)
    class procedure SetValue(variable:pointer;v:string); override;
    class function GetValue(variable:pointer):string; override;
@@ -681,6 +686,18 @@ class procedure TVarTypeString.SetValue(variable: pointer; v: string);
  begin
   PString(variable)^:=v;
  end;
+
+{ TVarTypeString8 }
+class function TVarTypeString8.GetValue(variable: pointer): string;
+begin
+  result:=PString8(variable)^;
+end;
+
+class procedure TVarTypeString8.SetValue(variable: pointer; v: String);
+begin
+  PString8(variable)^:=v;
+end;
+
 
 { TVarTypeWideString }
 
