@@ -101,6 +101,10 @@ type
   function MouseWasInRect(r:TRect):boolean; overload;
   function MouseWasInRect(r:TRect2s):boolean; overload;
 
+  // Keyboard events utility functions
+  function KeyEventScanCode(tag:cardinal):cardinal;
+  function KeyEventVirtualCode(tag:cardinal):cardinal;
+
  protected
   running:boolean;
   useMainThread:boolean; // true - launch "main" thread with main loop,
@@ -512,6 +516,16 @@ begin
    {$ENDIF}
   end;
  end;
+end;
+
+function TBasicGame.KeyEventScanCode(tag: cardinal): cardinal;
+begin
+ result:=(tag shr 24) and $FF;
+end;
+
+function TBasicGame.KeyEventVirtualCode(tag: cardinal): cardinal;
+begin
+ result:=tag and $FFFF;
 end;
 
 procedure EngineCmdEvent(Event:EventStr;tag:TTag); forward;
