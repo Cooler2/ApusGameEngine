@@ -1327,13 +1327,12 @@ procedure TestMemoryStat;
   sent:integer=0;
   trID:DWORD;
 
- function EventHandler(event:eventStr;tag:TTag):boolean;
+ procedure EventHandler(event:eventStr;tag:TTag);
   var
    i,j:integer;
   begin
    j:=1;
    for i:=1 to 300000 do inc(j,i);
-   result:=j and $400>0;
    inc(handled);
    LogMessage('Handled: '+event+':'+inttostr(tag));
   end;
