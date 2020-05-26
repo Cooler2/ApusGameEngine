@@ -1507,6 +1507,37 @@ procedure TestMemoryStat;
 
   end;
 
+ procedure TestSortItems;
+  type
+   TItem=record
+    a,b:integer;
+    c:single;
+   end;
+  var
+   list:array of TItem;
+   i:integer;
+  begin
+   SetLength(list,1000);
+   for i:=0 to high(list) do begin
+    list[i].a:=random(1000);
+    list[i].b:=random(1000)-random(1000);
+    list[i].c:=(random(10000)-random(10000))/100;
+   end;
+
+   SortRecordsByInt(list[0],sizeof(TItem),length(list),0,true);
+   for i:=1 to high(list) do ASSERT(list[i].a>=list[i-1].a);
+
+   SortRecordsByInt(list[0],sizeof(TItem),length(list),4,false);
+   for i:=1 to high(list) do ASSERT(list[i].b<=list[i-1].b);
+
+   SortRecordsByFloat(list[0],sizeof(TItem),length(list),8,true);
+   for i:=1 to high(list) do ASSERT(list[i].c>=list[i-1].c);
+
+   SortRecordsByFloat(list[0],sizeof(TItem),length(list),8,false);
+   for i:=1 to high(list) do ASSERT(list[i].c<=list[i-1].c);
+  end;
+
+
 var
  ar:array of cardinal;
  st:string;
@@ -1518,6 +1549,7 @@ var
 begin
  UseLogFile('log.txt',true);
  try
+  TestSortItems;
   TestEval;
   TestConversions;
   TestTimes;
