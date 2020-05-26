@@ -25,6 +25,11 @@ type
   class function ListFields:String; override;
  end;
 
+ TVarTypeStyleinfo=class(TVarType)
+  class procedure SetValue(variable:pointer;v:string); override;
+  class function GetValue(variable:pointer):string; override;
+ end;
+
  TVarTypeTranspMode=class(TVarTypeEnum)
   class procedure SetValue(variable:pointer;v:string); override;
   class function GetValue(variable:pointer):string; override;
@@ -330,7 +335,7 @@ begin
        varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).max;
       end;
   'n':if fieldname='name' then begin
-       result:=@obj.name; varClass:=TVarTypeString;
+       result:=@obj.name; varClass:=TVarTypeString8;
       end else
       if (fieldname='noborder') and (obj is TUIEditBox) then begin
        result:=@TUIEditBox(obj).noborder; varClass:=TVarTypeBool;
@@ -375,7 +380,7 @@ begin
        result:=@obj.style; varClass:=TVarTypeInteger;
       end else
       if fieldname='styleinfo' then begin
-       result:=@obj.styleinfo; varClass:=TVarTypeString;
+       result:=obj; varClass:=TVarTypeStyleinfo;
       end else
       if fieldname='scalex' then begin
        result:=@obj.scale.x; varClass:=TVarTypeSingle;
@@ -490,6 +495,18 @@ class procedure TVarTypePivot.SetValue(variable: pointer; v: string);
   if SameText(v,'BottomRight') then TPoint2s(variable^):=pivotBottomRight else
   raise EWarning.Create('Invalid pivot value: '+v);
  end;
+
+{ TVarTypeStyleinfo }
+
+class function TVarTypeStyleinfo.GetValue(variable: pointer): string;
+begin
+ result:=TUIControl(variable).styleInfo;
+end;
+
+class procedure TVarTypeStyleinfo.SetValue(variable: pointer; v: string);
+begin
+ TUIControl(variable).styleInfo:=v;
+end;
 
 initialization
  SetEventHandler('UI\ItemCreated',onItemCreated,emInstant);
