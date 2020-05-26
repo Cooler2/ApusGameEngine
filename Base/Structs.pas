@@ -262,14 +262,18 @@ type
 
  // Bit array
  TBitStream=record
+  data:array of cardinal;
   size:integer; // number of bits stored
-  procedure Init(estimatedSize:integer=1000);
-  procedure Put(var buf;count:integer); // append count bits to the stream
+  procedure Init(estimatedSize:integer); // size in bits
+  procedure SetBit(index:integer;value:integer);
+  function GetBit(index:integer):integer;
+  procedure Put(data:cardinal;count:integer); overload;
+  procedure Put(var buf;count:integer); overload; // append count bits to the stream
   procedure Get(var buf;count:integer); // read count bits from the stream (from readPos position)
   function SizeInBytes:integer; // return size of stream in bytes
  private
   capacity,readPos:integer;
-  data:array of byte;
+  procedure Allocate(count:integer); // ensure there is space for count bits
  end;
 
  // Simple list of variants
@@ -1455,9 +1459,49 @@ procedure THash.SortKeys;
  procedure TBitStream.Init;
   begin
    size:=0; readPos:=0;
-   SetLength(data,estimatedSize div 8);
-   capacity:=length(data)*8;
+   SetLength(data,(estimatedSize+31) div 32);
+   capacity:=length(data)*32;
    FillChar(data[0],length(data),0);
+  end;
+
+ procedure TBitStream.SetBit(index:integer;value:integer);
+  var
+   i:integer;
+  begin
+   i:=index shr 5;
+   if value=0 then
+    data[i]:=data[i] and not (1 shl (index and 31))
+   else
+    data[i]:=data[i] or (1 shl (index and 31))
+  end;
+
+ function TBitStream.GetBit(index:integer):integer;
+  begin
+   result:=(data[index shr 5] shr (index and 31)) and 1;
+  end;
+
+ procedure TBitStream.Allocate(count: Integer);
+  var
+   s:integer;
+  begin
+   if size+count>capacity then begin
+    s:=length(data);
+    capacity:=round((capacity+1024)*1.5);
+    SetLength(data,capacity div 32);
+   end;
+  end;
+
+ // Simple non-effective version
+ procedure TBitStream.Put(data:cardinal;count:integer);
+  var
+   i:integer;
+  begin
+   Allocate(count);
+   for i:=0 to count-1 do begin
+    SetBit(size,data and 1);
+    inc(size);
+    data:=data shr 1;
+   end;
   end;
 
  procedure TBitStream.Put(var buf;count:integer); // write count bits to the stream (from curPos position)
@@ -1466,12 +1510,7 @@ procedure THash.SortKeys;
    i:integer;
    b:byte;
   begin
-   if size+count>capacity then begin
-    i:=length(data);
-    capacity:=(capacity+1024)*2;
-    SetLength(data,capacity div 8);
-    FillChar(data[i],length(data)-i,0); // zerofill
-   end;
+   Allocate(count);
    pb:=@buf; b:=pb^;
    // простая, неэффективная версия
    for i:=0 to count-1 do begin
@@ -1486,9 +1525,16 @@ procedure THash.SortKeys;
   end;
 
  procedure TBitStream.Get(var buf;count:integer); // read count bits from the stream (from curPos position)
+  var
+   i:integer;
+   pb:PByte;
   begin
    // простая, неэффективная версия
-
+   pb:=@buf;
+   for i:=0 to count-1 do begin
+    GetBit(readPos);
+    inc(readPos);
+   end;
   end;
 
  function TBitStream.SizeInBytes:integer; // return size of stream in bytes
