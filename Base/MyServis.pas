@@ -29,6 +29,7 @@ interface
   // 8-bit string type (assuming UTF-8 encoding)
   Char8=AnsiChar;
   String8=UTF8String;
+  PString8=^String8;
   // 16-bit string type (can be UTF-16 or UCS-2)
   {$IFDEF UNICODE}
   Char16=Char;
@@ -37,6 +38,7 @@ interface
   char16=WideChar;
   String16=WideString;
   {$ENDIF}
+  PString16=^String16;
 
   // String arrays
   AStringArr=array of String8;
@@ -531,6 +533,9 @@ interface
 
  // Сортировки
  procedure SortObjects(obj:PSortableObjects;count:integer);
+ // Sort array of arbitrary items with value field
+ procedure SortRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+ procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
 // procedure SortObjects(var obj:array of TObject;comparator:TObjComparator); overload;
  procedure SortStrings(var sa:StringArr); overload;
  procedure SortStrings(var sa:AStringArr); overload;
@@ -771,9 +776,9 @@ implementation
   end;
  procedure Swap(var a,b;size:integer); overload; inline;
   var
-   buf:array[0..255] of byte;
+   buf:array[0..4095] of byte;
   begin
-   ASSERT(size<256);
+   ASSERT(size<=length(buf));
    move(a,buf,size);
    move(b,a,size);
    move(buf,b,size);
@@ -2602,6 +2607,63 @@ const
    QuickSort(obj^,0,count-1);
   end;
   {$IFDEF RANGECHECK}{$R+}{$ENDIF}
+
+ procedure QuickSortInternal(data:pointer;itemSize,offset,a,b,valueType:integer;asc:boolean);
+  var
+   lo,hi,mid:integer;
+   loVal,hiVal:PByte;
+   midVal:integer;
+
+  function Compare(p1,p2:pointer;valueType:integer):boolean; inline;
+   begin
+    if valueType=1 then
+     result:=(PInteger(p1)^>PInteger(p2)^)
+    else
+     result:=(PSingle(p1)^>PSingle(p2)^);
+   end;
+  begin
+   lo:=a; hi:=b;
+   mid:=(a+b) div 2;
+   loVal:=PByte(UIntPtr(data)+lo*itemSize+offset);
+   hiVal:=PByte(UIntPtr(data)+hi*itemSize+offset);
+   move(PByte(UIntPtr(data)+mid*itemSize+offset)^,midval,4);
+   repeat
+    if asc then begin
+     while Compare(@midVal,loVal,valueType) do begin
+      inc(lo); inc(loVal,itemSize)
+     end;
+     while Compare(hiVal,@midVal,valueType) do begin
+      dec(hi); dec(hiVal,itemSize)
+     end;
+    end else begin
+     while Compare(loVal,@midVal,valueType) do begin
+      inc(lo); inc(loVal,itemSize)
+     end;
+     while Compare(@midVal,hiVal,valueType) do begin
+      dec(hi); dec(hiVal,itemSize)
+     end;
+    end;
+    if lo<=hi then begin
+     Swap(pointer(UIntPtr(data)+lo*itemSize)^,pointer(UIntPtr(data)+hi*itemSize)^,itemSize);
+     inc(lo); inc(loVal,itemSize);
+     dec(hi); dec(hiVal,itemSize);
+    end;
+   until lo>hi;
+   if hi>a then QuickSortInternal(data,itemSize,offset,a,hi,valueType,asc);
+   if lo<b then QuickSortInternal(data,itemSize,offset,lo,b,valueType,asc);
+  end;
+
+ procedure SortRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+  begin
+   if itemCount<2 then exit;
+   QuickSortInternal(@items,itemSize,offset,0,itemCount-1,2,asc);
+  end;
+
+ procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+  begin
+   if itemCount<2 then exit;
+   QuickSortInternal(@items,itemSize,offset,0,itemCount-1,1,asc);
+  end;
 
  procedure SortStrings(var sa:StringArr); overload;
   procedure QuickSort(a,b:integer);
