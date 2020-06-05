@@ -305,6 +305,7 @@ interface
  // Возвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
  function SafeStrItem(sa:AStringArr;idx:integer):string8; overload;
  function SafeStrItem(sa:WStringArr;idx:integer):string16; overload;
+ function SafeStrItem(sa:StringArr;idx:integer):string; overload;
 
  // Заключить строку в кавычки (используя удваивание), если
  // force = false, то не заключать если в строке нет пробельных символов
@@ -3673,15 +3674,19 @@ function BinToStr;
 
  function SafeStrItem(sa:AStringArr;idx:integer):string8;
   begin
-   result:='';
-   if (idx<0) or (idx>high(sa)) then exit;
+   if (idx<0) or (idx>high(sa)) then exit('');
    result:=sa[idx];
   end;
 
  function SafeStrItem(sa:WStringArr;idx:integer):string16;
   begin
-   result:='';
-   if (idx<0) or (idx>high(sa)) then exit;
+   if (idx<0) or (idx>high(sa)) then exit('');
+   result:=sa[idx];
+  end;
+
+ function SafeStrItem(sa:StringArr;idx:integer):string; overload;
+  begin
+   if (idx<0) or (idx>high(sa)) then exit('');
    result:=sa[idx];
   end;
 
