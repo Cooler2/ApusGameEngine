@@ -648,7 +648,7 @@ procedure THTTPThread.ExecuteGetRequest;
   try
    SetLength(req.response,downloaded);
    move(data[0],req.response[1],downloaded);
-   if deflate then ZDecompressHTTP(req.response);
+   if deflate then ZDecompressHTTP(RawByteString(req.response));
    if req.status<>httpStatusFailed then
     req.status:=httpStatusCompleted;
    req.receivedBytes:=length(req.response);

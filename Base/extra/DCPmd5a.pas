@@ -34,7 +34,7 @@ uses
 
  procedure MD5(var data;size:integer;out hash:TMD5Hash); overload;
  function MD5(var data;size:integer):AnsiString; overload;
- function MD5(st:AnsiString):AnsiString; overload;
+ function MD5(st:RawByteString):AnsiString; overload;
 
 {******************************************************************************}
 {******************************************************************************}
@@ -231,7 +231,7 @@ begin
  end;
 end;
 
-function MD5(st:AnsiString):AnsiString; overload;
+function MD5(st:RawByteString):AnsiString; overload;
 begin
  result:=MD5(st[1],length(st));
 end;

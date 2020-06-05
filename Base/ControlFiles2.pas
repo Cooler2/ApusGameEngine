@@ -16,6 +16,7 @@
 }
 {$H+,R-}
 unit ControlFiles2;
+
 interface
 type
  TFileMode=(fmBinary,   // Binary files
@@ -108,7 +109,7 @@ procedure ctlDeleteKey(key:AnsiString);
 
 
 implementation
- uses CrossPlatform,MyServis,classes,SysUtils,StrUtils,structs,crypto;
+ uses CrossPlatform,MyServis,classes,SysUtils,StrUtils,Structs,Crypto;
 
 type
  // комментарий
@@ -748,7 +749,7 @@ function UseControlFile;
         // Delete '(' and ')'
         delete(arg,1,1);
         SetLength(arg,length(arg)-1);
-        sa:=Split(',',arg,'"');
+        sa:=StringArr(Split(',',arg,'"'));
         // Create and fill object
         value:=TStringlistValue.Create;
         with value as TStringListValue do begin

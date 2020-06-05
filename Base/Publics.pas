@@ -69,6 +69,11 @@ interface
    class function GetValue(variable:pointer):string; override;
   end;
 
+  TVarTypeString8=class(TVarType)
+   class procedure SetValue(variable:pointer;v:string); override;
+   class function GetValue(variable:pointer):string; override;
+  end;
+
   TVarTypeWideString=class(TVarType)
    class procedure SetValue(variable:pointer;v:string); override;
    class function GetValue(variable:pointer):string; override;
@@ -80,6 +85,13 @@ interface
   TVarTypeRect=class(TVarTypeStruct)
    class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
    class function ListFields:string; override;
+  end;
+
+  TVarTypeRect2s=class(TVarTypeStruct)
+   class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
+   class function ListFields:string; override;
+   class procedure SetValue(variable:pointer;v:string); override;
+   class function GetValue(variable:pointer):string; override;
   end;
 
   TVarFunc=function(name:string):double; // ф-ция для получения значения переменной по имени (для Eval)
@@ -144,7 +156,7 @@ interface
  function GetOverriddenValue(varName:string;forContext:string):string;
 
 implementation
- uses CrossPlatform,SysUtils,Math,types;
+ uses CrossPlatform,SysUtils,Math,types,Geom2D;
  type
   TPublicFunction=record
    name:string;
@@ -682,6 +694,18 @@ class procedure TVarTypeString.SetValue(variable: pointer; v: string);
   PString(variable)^:=v;
  end;
 
+{ TVarTypeString8 }
+class function TVarTypeString8.GetValue(variable: pointer): string;
+begin
+  result:=PString8(variable)^;
+end;
+
+class procedure TVarTypeString8.SetValue(variable: pointer; v: String);
+begin
+  PString8(variable)^:=v;
+end;
+
+
 { TVarTypeWideString }
 
 class function TVarTypeWideString.GetValue(variable: pointer): string;
@@ -771,6 +795,51 @@ end;
 class function TVarTypeRect.ListFields: string;
 begin
  result:='left,top,right,bottom';
+end;
+
+{ TVarTypeRect2s }
+
+class function TVarTypeRect2s.GetField(variable: pointer; fieldName: string;
+  out varClass: TVarClass): pointer;
+begin
+ varClass:=TVarTypeInteger;
+ with PRect2s(variable)^ do
+  if fieldname='x1' then result:=@(x1) else
+  if fieldname='y1' then result:=@(y1) else
+  if fieldname='x2' then result:=@(x2) else
+  if fieldname='y2' then result:=@(y2) else
+  result:=nil;
+end;
+
+class function TVarTypeRect2s.GetValue(variable: pointer): string;
+begin
+ with PRect2s(variable)^ do
+  result:=Format('(%f,%f,%f,%f)',[x1,y1,x2,y2]);
+end;
+
+class function TVarTypeRect2s.ListFields: string;
+begin
+ result:='x1,y1,x2,y2';
+end;
+
+class procedure TVarTypeRect2s.SetValue(variable: pointer; v: string);
+var
+ r:PRect2s;
+ sa:StringArr;
+begin
+ r:=variable;
+ if SameText(v,'TopLeft') then r^:=Rect2s(0,0,0,0) else
+ if SameText(v,'TopRight') then r^:=Rect2s(1,0,1,0) else
+ if SameText(v,'BottomLeft') then r^:=Rect2s(0,1,0,1) else
+ if SameText(v,'BottomRight') then r^:=Rect2s(1,1,1,1) else
+ if SameText(v,'Center') then r^:=Rect2s(0.5,0.5,0.5,0.5) else
+ with r^ do begin
+  sa:=Split(',',v);
+  x1:=ParseFloat(SafeStrItem(sa,0));
+  y1:=ParseFloat(SafeStrItem(sa,1));
+  x2:=ParseFloat(SafeStrItem(sa,2));
+  y2:=ParseFloat(SafeStrItem(sa,3));
+ end;
 end;
 
 { TVarTypeEnum }

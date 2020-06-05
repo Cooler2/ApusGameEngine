@@ -25,6 +25,11 @@ type
   class function ListFields:String; override;
  end;
 
+ TVarTypeStyleinfo=class(TVarType)
+  class procedure SetValue(variable:pointer;v:string); override;
+  class function GetValue(variable:pointer):string; override;
+ end;
+
  TVarTypeTranspMode=class(TVarTypeEnum)
   class procedure SetValue(variable:pointer;v:string); override;
   class function GetValue(variable:pointer):string; override;
@@ -50,17 +55,16 @@ var
  defaults:TDefaults; // default values used when new element is created
  curobjname:string; // current element name in upper case
 
-function onItemCreated(event:eventstr;tag:TTag):boolean;
+procedure onItemCreated(event:eventstr;tag:TTag);
 var
  c:TUIControl;
 begin
  c:=TUIControl(tag);
  if c.name<>'' then
   PublishVar(c,c.name,TVarTypeUIControl);
- result:=false;
 end;
 
-function onItemRenamed(event:eventstr;tag:TTag):boolean;
+procedure onItemRenamed(event:eventstr;tag:TTag);
 var
  c:TUIControl;
 begin
@@ -68,7 +72,6 @@ begin
  UnpublishVar(c);
  if c.name<>'' then
   PublishVar(c,c.name,TVarTypeUIControl);
- result:=false;
 end;
 
 procedure UseParentCmd(cmd:string);
@@ -251,6 +254,9 @@ begin
   'a':if (fieldname='align') and (obj is TUILabel) then begin
        result:=@TUILabel(obj).align; varClass:=TVarTypeAlignment;
       end else
+      if (fieldname='anchors') then begin
+       result:=@obj.anchorLeft; varClass:=TVarTypeRect2s;
+      end else
       if (fieldname='autopendingtime') and (obj is TUIButton) then begin
        result:=@TUIButton(obj).autopendingtime; varClass:=TVarTypeInteger;
       end;
@@ -332,7 +338,7 @@ begin
        varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).max;
       end;
   'n':if fieldname='name' then begin
-       result:=@obj.name; varClass:=TVarTypeString;
+       result:=@obj.name; varClass:=TVarTypeString8;
       end else
       if (fieldname='noborder') and (obj is TUIEditBox) then begin
        result:=@TUIEditBox(obj).noborder; varClass:=TVarTypeBool;
@@ -377,7 +383,7 @@ begin
        result:=@obj.style; varClass:=TVarTypeInteger;
       end else
       if fieldname='styleinfo' then begin
-       result:=@obj.styleinfo; varClass:=TVarTypeString;
+       result:=obj; varClass:=TVarTypeStyleinfo;
       end else
       if fieldname='scalex' then begin
        result:=@obj.scale.x; varClass:=TVarTypeSingle;
@@ -492,6 +498,18 @@ class procedure TVarTypePivot.SetValue(variable: pointer; v: string);
   if SameText(v,'BottomRight') then TPoint2s(variable^):=pivotBottomRight else
   raise EWarning.Create('Invalid pivot value: '+v);
  end;
+
+{ TVarTypeStyleinfo }
+
+class function TVarTypeStyleinfo.GetValue(variable: pointer): string;
+begin
+ result:=TUIControl(variable).styleInfo;
+end;
+
+class procedure TVarTypeStyleinfo.SetValue(variable: pointer; v: string);
+begin
+ TUIControl(variable).styleInfo:=v;
+end;
 
 initialization
  SetEventHandler('UI\ItemCreated',onItemCreated,emInstant);

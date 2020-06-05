@@ -90,9 +90,8 @@ procedure SetDisplaySize(width,height:integer);
  end;
 
 
-function ActivateEventHandler(event:EventStr;tag:TTag):boolean;
+procedure ActivateEventHandler(event:EventStr;tag:TTag);
 begin
- result:=true;
  EnterCriticalSection(UICritSect);
  try
   if tag=0 then
@@ -102,7 +101,7 @@ begin
  end;
 end;
 
-function MouseEventHandler(event:EventStr;tag:TTag):boolean;
+procedure MouseEventHandler(event:EventStr;tag:TTag);
 var
  c,c2:TUIControl;
  e1,e2,e:boolean;
@@ -110,7 +109,6 @@ var
  time:int64;
  st:string;
 begin
- result:=true;
  event:=UpperCase(copy(event,7,length(event)-6));
  EnterCriticalSection(UICritSect);
  time:=MyTickCount;
@@ -226,7 +224,7 @@ begin
       c2:=c;
       while c2.parent<>nil do begin
        c2:=c2.parent;
-       st:=c2.fName+'->'+st;
+       st:=c2.name+'->'+st;
       end;
       ShowSimpleHint(c.ClassName+'('+st+')',c.GetRoot,-1,-1,5000);
       PutMsg(Format('%s: %.1f,%.1f %.1f,%.1f',[c.name,c.position.x,c.position.y,c.size.x,c.size.y]));
@@ -256,7 +254,6 @@ begin
    if FindControlAt(curMouseX,curMouseY,c) then
     c.onMouseScroll(tag);
 
-  result:=false; // Не обрабатывать на более высоком уровне (корне)
  finally
   LeaveCriticalSection(UICritSect);
  end;
@@ -275,13 +272,12 @@ begin
  ForceLogMessage('UI state'#13#10+st);
 end;
 
-function KbdEventHandler(event:EventStr;tag:TTag):boolean;
+procedure KbdEventHandler(event:EventStr;tag:TTag);
 var
  c:TUIControl;
  shift:byte;
  key:integer;
 begin
- result:=false; // Не обрабатывать на более высоком уровне (корне)
  EnterCriticalSection(UICritSect);
  try
   shift:=(tag shr 16) and 255;
@@ -485,17 +481,16 @@ begin
 end;
 
 // tag: low 8 bit - new shadow value, next 16 bit - duration in ms
-function onSetGlobalShadow(event:eventstr;tag:TTag):boolean;
+procedure onSetGlobalShadow(event:eventstr;tag:TTag);
 begin
  startShadowChange:=MyTickCount;
  shadowChangeDuration:=tag shr 8;
  oldShadowValue:=curShadowValue;
  needShadowValue:=tag and $FF;
- result:=false;
 end;
 
 // tag: low 8 bit - new shadow value, next 16 bit - duration in ms
-function onSetFocus(event:eventstr;tag:TTag):boolean;
+procedure onSetFocus(event:eventstr;tag:TTag);
 begin
  delete(event,1,length('UI\SETFOCUS\'));
  if (event<>'') and (event<>'NIL') then
@@ -639,7 +634,7 @@ var
    result:=Format('  %-20s Z=%-10d  status=%-2d type=%-2d eff=%s',
      [s.name,s.zorder,ord(s.status),byte(s.fullscreen),PtrToStr(s.effect)]);
    if s is TUIScene then
-    result:=result+Format(' UI=%s (%s)',[TUIScene(s).UI.fName, PtrToStr(TUIScene(s).UI)]);
+    result:=result+Format(' UI=%s (%s)',[TUIScene(s).UI.name, PtrToStr(TUIScene(s).UI)]);
   end;
 begin
  try

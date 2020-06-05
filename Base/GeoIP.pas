@@ -52,7 +52,7 @@ implementation
     SetLength(countries,1000);
     while not eof(f) do begin
      readln(f,st);
-     sa:=split(',',st,'"');
+     sa:=StringArr(split(',',st,'"'));
      countries[cnt].id:=StrToIntDef(sa[0],0);
      countries[cnt].short:=sa[4];
      countries[cnt].full:=sa[5];

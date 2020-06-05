@@ -1,6 +1,6 @@
 // Image loading queue for multithreading preload of images
 // PNG/JPG/TGA/DDS/PVR only
-// JPEG with external alpha channel NOT SUPPORTED!
+// JPEG with external RAW alpha channel NOT SUPPORTED!
 //
 // Copyright (C) 2019 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -8,7 +8,18 @@
 
 unit ImgLoadQueue;
 interface
- uses Images;
+ uses MyServis,Images;
+
+ type
+  // What happens when requested image is queued, but not ready
+  TQueueRequestMode=(
+     qrmWait,          // block and wait until image is ready (requested image get highest priority)
+     qrmReturnSource,  // if file is loaded but not yet unpacked - return its content in imageSource and abort task
+     qrmAbort,         // abort task
+     qrmIgnore);       // do nothing, return nothing
+
+ threadvar
+  imageSource:ByteArray;
 
  // Queue file for loading, name must be with extension
  procedure QueueFileLoad(fname:string);
@@ -16,10 +27,10 @@ interface
  procedure StartLoadingThreads(unpackThreadsNum:integer=2);
  // Get raw image from queue if exists or nil elsewere
  // Waits if image is queued, but not yet processed
- function GetImageFromQueue(fname:string;wait:boolean=true):TRawImage;
+ function GetImageFromQueue(fname:string;mode:TQueueRequestMode=qrmWait):TRawImage;
 
 implementation
- uses MyServis,SysUtils,Classes,gfxFormats;
+ uses SysUtils,Classes,gfxFormats;
 
  // Queue
  type
@@ -31,6 +42,7 @@ implementation
                     lqsReady,       // All done! Final RAW image data is ready
                     lqsError);      // Failed to load the image
 
+  PQueueEntry=^TQueueEntry;
   TQueueEntry=record
    status:TLoadQueueStatus;
    fname:string;
@@ -38,10 +50,11 @@ implementation
    img:TRawImage;
    format:TImageFormat;
    info:TImageInfo;
+   next:PQueueEntry;
   end;
  var
   cSect:TMyCriticalSection;
-  loadQueue:array of TQueueEntry;
+  firstItem,lastItem:PQueueEntry;
 
  // Threads
  type
@@ -52,62 +65,78 @@ implementation
    procedure Execute; override;
   end;
  var
+  // This thread load image files
   loadingThread:TLoadingThread;
+  // These threads are unpacking compressed images (JPG/PNG)
   unpackThreads:array[1..4] of TUnpackThread;
 
- function GetImageFromQueue(fname:string;wait:boolean=true):TRawImage;
+ function GetImageFromQueue(fname:string;mode:TQueueRequestMode=qrmWait):TRawImage;
   var
-   i,n:integer;
+   item,prev:PQueueEntry;
+   found:boolean;
   begin
    result:=nil;
-   if length(loadQueue)=0 then exit;
+   if firstItem=nil then exit;
    cSect.Enter;
    try
-    n:=-1;
-    for i:=0 to high(loadQueue) do
-     if CompareText(fname,loadQueue[i].fname)=0 then begin
-      n:=i; break;
+    item:=firstItem;
+    prev:=nil;
+    found:=false;
+    while item<>nil do begin
+     if (item.status<>lqsNone) and SameText(fname,item.fname) then begin
+      found:=true;
+      break;
      end;
-    if n>=0 then begin
-     if loadQueue[n].status=lqsReady then begin
-      result:=loadQueue[n].img;
+     prev:=item;
+     item:=item.next;
+    end;
+    if not found then exit;
+    if item.status=lqsReady then exit(item.img); // success
+    case mode of
+     qrmIgnore:exit;
+     qrmAbort:begin
+      item.status:=lqsNone;
       exit;
      end;
-     if wait and (loadQueue[n].status in [lqsWaiting,lqsLoaded]) then begin
-      LogMessage('Waiting for '+fname);
-      // Try to load this earlier
-      for i:=0 to n-1 do
-       if loadQueue[i].status in [lqsWaiting,lqsLoaded] then begin
-        Swap(loadQueue[i],loadQueue[n],sizeof(loadQueue[i]));
-        n:=i;
-        break;
-       end;
+     qrmReturnSource:
+      if (item.status in [lqsLoaded,lqsUnpacking]) then begin
+       if item.status=lqsLoaded then item.status:=lqsNone;
+       imageSource:=item.srcData;
+       exit;
+      end;
+     qrmWait:begin
+      LogMessage('Waiting for %s, status %d',[fname,ord(item.status)]);
+      // try to handle this earlier -> move on top
+      if (prev<>nil) and (item.status in [lqsWaiting,lqsLoaded]) then begin
+       prev.next:=item.next;
+       item.next:=firstItem;
+       MemoryBarrier;
+       firstItem:=item;
+      end;
      end;
-    end else
-     exit;
+    end;
    finally
     cSect.Leave;
    end;
-   if (n>=0) then begin
-    LogMessage('Queued image not ready: '+IntToStr(ord(loadQueue[n].status)));
-    while not (loadQueue[n].status in [lqsReady,lqsError]) do begin
-     sleep(1);
-    end;
-    result:=GetImageFromQueue(fname,true); // try once again because N may become obsolete at this point
-   end;
+   // Wait for result
+   while not (item.status in [lqsNone,lqsReady,lqsError]) do sleep(0);
+   if item.status=lqsReady then result:=item.img;
   end;
 
  procedure QueueFileLoad(fname:string);
   var
-   i:integer;
+   item:PQueueEntry;
   begin
    fname:=FileName(fname);
    cSect.Enter;
    try
-    i:=length(loadQueue);
-    SetLength(loadQueue,i+1);
-    loadQueue[i].fname:=fname;
-    loadQueue[i].status:=lqsWaiting;
+    New(item);
+    item.status:=lqsWaiting;
+    item.fname:=fname;
+    if lastItem<>nil then lastItem.next:=item;
+    MemoryBarrier;
+    lastItem:=item;
+    if firstItem=nil then firstItem:=item;
    finally
     cSect.Leave;
    end;
@@ -137,38 +166,49 @@ implementation
 procedure TLoadingThread.Execute;
  var
   i,n:integer;
+  item,start:PQueueEntry;
+ procedure Restart;
+  begin
+   // Wait until queue not empty
+   while firstItem=nil do sleep(10);
+   start:=firstItem;
+   item:=start;
+  end;
  begin
   RegisterThread('QLoading');
   try
+  Restart;
   repeat
-   // Find the first waiting entry
-   cSect.Enter;
-   try
-    n:=-1;
-    for i:=0 to high(loadQueue) do
-     if loadQueue[i].status=lqsWaiting then begin
-      n:=i;
-      break;
+
+   while (item<>nil) and (item.status<>lqsWaiting) do item:=item.next;
+   if item=nil then begin
+    Sleep(10);
+    Restart;
+    continue;
+   end;
+
+   if item.status=lqsWaiting then
+    with item^ do begin
+     LogMessage('Preloading '+fname);
+     try
+      srcData:=LoadFileAsBytes(fname);
+     except
+      on e:Exception do ForceLogMessage('Loader error; '+ExceptionMsg(e));
      end;
-    if n<0 then break; // No more unprocessed items
-    loadQueue[n].status:=lqsLoading; // locked by this thread
-   finally
-    cSect.Leave;
-   end;
-   // Load file data
-   with loadQueue[n] do begin
-    LogMessage('Preloading '+fname);
-    srcData:=LoadFileAsBytes(fname);
-    if length(srcData)<30 then begin
-     ForceLogMessage('Failed to load file: '+fname);
-     status:=lqsError;
-     continue;
+     if length(srcData)<30 then begin
+      ForceLogMessage('Failed to load file: '+fname);
+      status:=lqsError;
+     end;
+     format:=CheckImageFormat(srcData);
+     info:=imgInfo;
+     status:=lqsLoaded; // ready for processing
     end;
-    format:=CheckImageFormat(srcData);
-    info:=imgInfo;
-    status:=lqsLoaded; // unlocked
+
+   if firstItem<>start then begin
+    Restart;
+    continue;
    end;
-   sleep(0);
+   item:=item.next;
   until terminated;
   except
    on e:Exception do ErrorMessage('Error in LoadingThread: '+ExceptionMsg(e));
@@ -180,61 +220,51 @@ procedure TLoadingThread.Execute;
 
 procedure TUnpackThread.Execute;
  var
-  i,n:integer;
-  shouldWait:boolean;
+  item:PQueueEntry;
   t:int64;
  begin
   RegisterThread('QUnpack');
   try
   repeat
    sleep(1); // Never wait inside CS!
+   item:=firstItem;
    // Find the first waiting entry
    cSect.Enter;
    try
-    n:=-1;
-    shouldWait:=false;
-    for i:=0 to high(loadQueue) do
-     if loadQueue[i].status=lqsLoaded then begin
-      n:=i;
-      break;
-     end else
-     if loadQueue[i].status in [lqsWaiting,lqsLoading] then shouldWait:=true;
-    if n<0 then begin
-     if shouldWait then begin
-      continue;
-     end else
-      break; // No more unprocessed items and no items to wait
-    end;
-    loadQueue[n].status:=lqsUnpacking;
+    while (item<>nil) and (item.status<>lqsLoaded) do item:=item.next;
+    if item<>nil then
+     item.status:=lqsUnpacking;
    finally
     cSect.Leave;
    end;
-   // Unpack image
-   t:=MyTickCount;
-   with loadQueue[n] do begin
-    try
-     img:=nil;
-     if format=ifTGA then LoadTGA(srcData,img,true) else
-     if format=ifJPEG then LoadJPEG(srcData,img) else
-     if format=ifPNG then LoadPNG(srcData,img) else
-     if format=ifPVR then LoadPVR(srcData,img,true) else
-     if format=ifDDS then LoadDDS(srcData,img,true) else begin
-      ForceLogMessage('Image format not supported for async load: '+fname);
+
+   if item<>nil then begin
+    // Unpack image
+    t:=MyTickCount;
+    with item^ do
+     try
+      img:=nil;
+      if format=ifTGA then LoadTGA(srcData,img,true) else
+      if format=ifJPEG then LoadJPEG(srcData,img) else
+      if format=ifPNG then LoadPNG(srcData,img) else
+      if format=ifPVR then LoadPVR(srcData,img,true) else
+      if format=ifDDS then LoadDDS(srcData,img,true) else begin
+       ForceLogMessage('Image format not supported for async load: '+fname);
+       Setlength(srcData,0);
+       status:=lqsError;
+       continue;
+      end;
+      LogMessage('Preloaded: '+fname+', time='+IntToStr(MyTickCount-t));
       Setlength(srcData,0);
-      status:=lqsError;
-      continue;
+      status:=lqsReady;
+      sleep(0);
+     except
+      on e:exception do begin
+       ForceLogMessage('Error unpacking '+fname+': '+ExceptionMsg(e));
+       Setlength(srcData,0);
+       status:=lqsError;
+      end;
      end;
-     LogMessage('Preloaded: '+fname+', time='+IntToStr(MyTickCount-t));
-     Setlength(srcData,0);
-     status:=lqsReady;
-     sleep(0);
-    except
-     on e:exception do begin
-      ForceLogMessage('Error unpacking '+fname+': '+ExceptionMsg(e));
-      Setlength(srcData,0);
-      status:=lqsError;
-     end;
-    end;
    end;
   until terminated;
   except

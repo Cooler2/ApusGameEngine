@@ -14,8 +14,11 @@ For Delphi - please define global symbol "DELPHI"!
 
 unit MyServis;
 interface
- uses {$IFDEF MSWINDOWS}windows,{$ENDIF}
-    SysUtils;
+ uses
+  {$IFDEF MSWINDOWS}
+  windows,
+  {$ENDIF}
+  SysUtils;
  const
   {$IFDEF MSWINDOWS}
   PathSeparator='\';
@@ -24,13 +27,18 @@ interface
   {$ENDIF}
  type
   // 8-bit string type (assuming UTF-8 encoding)
+  Char8=AnsiChar;
   String8=UTF8String;
+  PString8=^String8;
   // 16-bit string type (can be UTF-16 or UCS-2)
   {$IFDEF UNICODE}
+  Char16=Char;
   String16=UnicodeString;
   {$ELSE}
+  char16=WideChar;
   String16=WideString;
   {$ENDIF}
+  PString16=^String16;
 
   // String arrays
   AStringArr=array of String8;
@@ -236,9 +244,11 @@ interface
 
  // Add (insert) string into array, returns its index
  function AddString(var sa:StringArr;const st:string;index:integer=-1):integer; overload;
- function AddString(var sa:WStringArr;const st:WideString;index:integer=-1):integer; overload;
+ function AddString(var sa:AStringArr;const st:string8;index:integer=-1):integer; overload;
+ function AddString(var sa:WStringArr;const st:string16;index:integer=-1):integer; overload;
  // Delete string from array
  procedure RemoveString(var sa:StringArr;index:integer); overload;
+ procedure RemoveString(var sa:AStringArr;index:integer); overload;
  procedure RemoveString(var sa:WStringArr;index:integer); overload;
  // Ищет строку в массиве, возвращает её индекс либо -1
  function FindString(var sa:StringArr;st:string;ignoreCase:boolean=false):integer;
@@ -263,10 +273,11 @@ interface
  // Accurate split: allows quoted strings and doubled quote character inside quoted string.
  // Example: [Hello,"A,B,C","Quoted ""word"""] -> [Hello],[A,B,C],[Quoted "word"]
  function Split(divider,st:string;quotes:char):StringArr; overload;
- // Simple split (without quotes)
+ function SplitA(divider,st:string8;quotes:char8):AStringArr; overload;
+ function SplitW(divider,st:string16;quotes:char16):WStringArr; overload;
  function Split(divider,st:string):StringArr; overload;
- function SplitA(divider,st:String8):AStringArr;
- function SplitW(divider,st:WideString):WStringArr;
+ function SplitA(divider,st:String8):AStringArr; overload;
+ function SplitW(divider,st:WideString):WStringArr; overload;
 
  // Combines multiple strings into one string using quote character when needed
  // This is opposite to Split()
@@ -292,7 +303,9 @@ interface
  function SameChar(a,b:AnsiChar):boolean;
 
  // Возвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
- function SafeStrItem(sa:StringArr;idx:integer):string;
+ function SafeStrItem(sa:AStringArr;idx:integer):string8; overload;
+ function SafeStrItem(sa:WStringArr;idx:integer):string16; overload;
+ function SafeStrItem(sa:StringArr;idx:integer):string; overload;
 
  // Заключить строку в кавычки (используя удваивание), если
  // force = false, то не заключать если в строке нет пробельных символов
@@ -384,12 +397,12 @@ interface
  function UStr(st:String16):string; // Convert 16-bit string to the default string type (utf8 or utf16)
  function WStr(st:string):string16; // Convert default string to the 16-bit string
 
- function DecodeUTF8(st:String8):String16; overload;
+ function DecodeUTF8(st:RawByteString):String16; overload;
  function DecodeUTF8(st:String16):String16; overload; // Does nothing
  function DecodeUTF8A(sa:AStringArr):WStringArr; overload;
  function DecodeUTF8A(sa:StringArr):WStringArr; overload;
- function UTF8toWin1251(st:String8):String8;
- function Win1251toUTF8(st:String8):String8;
+ function UTF8toWin1251(st:String8):RawByteString;
+ function Win1251toUTF8(st:RawByteString):String8;
  function UpperCaseUtf8(st:String8):String8;
  function LowerCaseUtf8(st:String8):String8;
  // UTF-16 routines (Unicode)
@@ -521,6 +534,9 @@ interface
 
  // Сортировки
  procedure SortObjects(obj:PSortableObjects;count:integer);
+ // Sort array of arbitrary items with value field
+ procedure SortRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+ procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
 // procedure SortObjects(var obj:array of TObject;comparator:TObjComparator); overload;
  procedure SortStrings(var sa:StringArr); overload;
  procedure SortStrings(var sa:AStringArr); overload;
@@ -761,9 +777,9 @@ implementation
   end;
  procedure Swap(var a,b;size:integer); overload; inline;
   var
-   buf:array[0..255] of byte;
+   buf:array[0..4095] of byte;
   begin
-   ASSERT(size<256);
+   ASSERT(size<=length(buf));
    move(a,buf,size);
    move(b,a,size);
    move(buf,b,size);
@@ -1187,11 +1203,11 @@ function HexToAStr(v:int64;digits:integer=0):String8;
      v:=v*10+(byte(ip[i])-$30)
     else
     if ip[i]='.' then begin
-     result:=result shr 8+v shl 24;
+     result:=result shr 8+cardinal(v) shl 24;
      v:=0;
     end;
    end;
-   result:=result shr 8+v shl 24;
+   result:=result shr 8+cardinal(v) shl 24;
   end;
 
  function VarToStr(v:TVarRec):UnicodeString;
@@ -1991,7 +2007,7 @@ procedure SimpleEncrypt2;
    result:=st;
   end;
 
- function DecodeUTF8(st:String8):String16;
+ function DecodeUTF8(st:RawByteString):String16;
   var
    i,l:integer;
    w:word;
@@ -2056,7 +2072,7 @@ procedure SimpleEncrypt2;
    {$ENDIF}
   end;
 
- function UTF8toWin1251(st:String8):String8;
+ function UTF8toWin1251(st:String8):RawByteString;
   var
    ws:widestring;
    i:integer;
@@ -2067,7 +2083,7 @@ procedure SimpleEncrypt2;
     result[i]:=ConvertUnicodeToWindows(ws[i]);
   end;
 
- function Win1251toUTF8(st:String8):String8;
+ function Win1251toUTF8(st:RawByteString):String8;
   var
    ws:widestring;
    i:integer;
@@ -2593,6 +2609,63 @@ const
   end;
   {$IFDEF RANGECHECK}{$R+}{$ENDIF}
 
+ procedure QuickSortInternal(data:pointer;itemSize,offset,a,b,valueType:integer;asc:boolean);
+  var
+   lo,hi,mid:integer;
+   loVal,hiVal:PByte;
+   midVal:integer;
+
+  function Compare(p1,p2:pointer;valueType:integer):boolean; inline;
+   begin
+    if valueType=1 then
+     result:=(PInteger(p1)^>PInteger(p2)^)
+    else
+     result:=(PSingle(p1)^>PSingle(p2)^);
+   end;
+  begin
+   lo:=a; hi:=b;
+   mid:=(a+b) div 2;
+   loVal:=PByte(UIntPtr(data)+lo*itemSize+offset);
+   hiVal:=PByte(UIntPtr(data)+hi*itemSize+offset);
+   move(PByte(UIntPtr(data)+mid*itemSize+offset)^,midval,4);
+   repeat
+    if asc then begin
+     while Compare(@midVal,loVal,valueType) do begin
+      inc(lo); inc(loVal,itemSize)
+     end;
+     while Compare(hiVal,@midVal,valueType) do begin
+      dec(hi); dec(hiVal,itemSize)
+     end;
+    end else begin
+     while Compare(loVal,@midVal,valueType) do begin
+      inc(lo); inc(loVal,itemSize)
+     end;
+     while Compare(@midVal,hiVal,valueType) do begin
+      dec(hi); dec(hiVal,itemSize)
+     end;
+    end;
+    if lo<=hi then begin
+     Swap(pointer(UIntPtr(data)+lo*itemSize)^,pointer(UIntPtr(data)+hi*itemSize)^,itemSize);
+     inc(lo); inc(loVal,itemSize);
+     dec(hi); dec(hiVal,itemSize);
+    end;
+   until lo>hi;
+   if hi>a then QuickSortInternal(data,itemSize,offset,a,hi,valueType,asc);
+   if lo<b then QuickSortInternal(data,itemSize,offset,lo,b,valueType,asc);
+  end;
+
+ procedure SortRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+  begin
+   if itemCount<2 then exit;
+   QuickSortInternal(@items,itemSize,offset,0,itemCount-1,2,asc);
+  end;
+
+ procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+  begin
+   if itemCount<2 then exit;
+   QuickSortInternal(@items,itemSize,offset,0,itemCount-1,1,asc);
+  end;
+
  procedure SortStrings(var sa:StringArr); overload;
   procedure QuickSort(a,b:integer);
    var
@@ -2855,7 +2928,21 @@ function BinToStr;
    result:=n;
   end;
 
- function AddString(var sa:WStringArr;const st:WideString;index:integer=-1):integer; overload;
+ function AddString(var sa:AStringArr;const st:string8;index:integer=-1):integer; overload;
+  var
+   n:integer;
+  begin
+   n:=length(sa);
+   SetLength(sa,n+1);
+   if index<0 then index:=n;
+   while n>index do begin
+    sa[n]:=sa[n-1]; dec(n);
+   end;
+   sa[n]:=st;
+   result:=n;
+  end;
+
+ function AddString(var sa:WStringArr;const st:string16;index:integer=-1):integer; overload;
   var
    n:integer;
   begin
@@ -2945,6 +3032,19 @@ function BinToStr;
   end;
 
  procedure RemoveString(var sa:StringArr;index:integer); overload;
+  var
+   n:integer;
+  begin
+   if (index<0) or (index>high(sa)) then exit;
+   n:=length(sa)-1;
+   while index<n do begin
+    sa[index]:=sa[index+1];
+    inc(index);
+   end;
+   SetLength(sa,n);
+  end;
+
+ procedure RemoveString(var sa:AStringArr;index:integer); overload;
   var
    n:integer;
   begin
@@ -3132,6 +3232,132 @@ function BinToStr;
    i,j,n:integer;
   // Resize strings array
   procedure Resize(var arr:StringArr;newsize:integer);
+   begin
+    if newsize>length(arr) then
+     SetLength(arr,length(arr)+256);
+   end;
+  // Main function body
+  begin
+   if st='' then begin
+    SetLength(result,0); exit;
+   end;
+   n:=0;
+   repeat
+    // delete spaces at the beginning
+    while (length(st)>0) and (st[1] in [#9,' ']) do delete(st,1,1);
+    i:=pos(divider,st);
+
+    if length(st)=0 then break; // empty string
+
+    if (length(st)>1) and (st[1]=quotes) then begin
+     // string is quoted
+     // So find enclosing quotes
+     j:=2;
+     repeat
+      if st[j]=quotes then begin
+       if (j<length(st)) and (st[j+1]=quotes) then begin
+        // paired quotes: replace and skip
+        delete(st,j,1);
+       end else break;
+      end;
+      inc(j);
+     until j>length(st);
+     if j>length(st) then begin
+      LogMessage('Warning! Unterminated string: '+st);
+     end;
+     Resize(result,n+1);
+     result[n]:=copy(st,2,j-2);
+     delete(st,1,j+length(divider));
+     inc(n);
+    end else begin
+     // simply get first divider
+     Resize(result,n+2);
+     if i=0 then begin // No divider found - all string is last substr
+      result[n]:=st;
+      inc(n);
+      break;
+     end else begin // divider found
+      result[n]:=copy(st,1,i-1);
+      delete(st,1,i+length(divider)-1);
+      inc(n);
+     end;
+     i:=length(result[n]);
+     while (i>0) and (result[n][i]<=' ') do dec(i);
+     if i<length(result[n]) then SetLength(result[n],i);
+     if length(st)=0 then inc(n); // for last empty substring
+    end;
+   until false;
+   SetLength(result,n);
+  end;
+
+ function SplitA(divider,st:string8;quotes:char8):AStringArr; overload;
+  var
+   i,j,n:integer;
+  // Resize strings array
+  procedure Resize(var arr:AStringArr;newsize:integer);
+   begin
+    if newsize>length(arr) then
+     SetLength(arr,length(arr)+256);
+   end;
+  // Main function body
+  begin
+   if st='' then begin
+    SetLength(result,0); exit;
+   end;
+   n:=0;
+   repeat
+    // delete spaces at the beginning
+    while (length(st)>0) and (st[1] in [#9,' ']) do delete(st,1,1);
+    i:=pos(divider,st);
+
+    if length(st)=0 then break; // empty string
+
+    if (length(st)>1) and (st[1]=quotes) then begin
+     // string is quoted
+     // So find enclosing quotes
+     j:=2;
+     repeat
+      if st[j]=quotes then begin
+       if (j<length(st)) and (st[j+1]=quotes) then begin
+        // paired quotes: replace and skip
+        delete(st,j,1);
+       end else break;
+      end;
+      inc(j);
+     until j>length(st);
+     if j>length(st) then begin
+      LogMessage('Warning! Unterminated string: '+st);
+     end;
+     Resize(result,n+1);
+     result[n]:=copy(st,2,j-2);
+     delete(st,1,j+length(divider));
+     inc(n);
+    end else begin
+     // simply get first divider
+     Resize(result,n+2);
+     if i=0 then begin // No divider found - all string is last substr
+      result[n]:=st;
+      inc(n);
+      break;
+     end else begin // divider found
+      result[n]:=copy(st,1,i-1);
+      delete(st,1,i+length(divider)-1);
+      inc(n);
+     end;
+     i:=length(result[n]);
+     while (i>0) and (result[n][i]<=' ') do dec(i);
+     if i<length(result[n]) then SetLength(result[n],i);
+     if length(st)=0 then inc(n); // for last empty substring
+    end;
+   until false;
+   SetLength(result,n);
+  end;
+
+ function SplitW(divider,st:string16;quotes:char16):WStringArr; overload;
+  var
+   i,j,n:integer;
+  // Resize strings array
+  procedure Resize(var arr:WStringArr;newsize:integer);
    begin
     if newsize>length(arr) then
      SetLength(arr,length(arr)+256);
@@ -3446,12 +3672,24 @@ function BinToStr;
    result:=true;
   end;
 
- function SafeStrItem(sa:StringArr;idx:integer):string;
+ function SafeStrItem(sa:AStringArr;idx:integer):string8;
   begin
-   result:='';
-   if (idx<0) or (idx>high(sa)) then exit;
+   if (idx<0) or (idx>high(sa)) then exit('');
    result:=sa[idx];
   end;
+
+ function SafeStrItem(sa:WStringArr;idx:integer):string16;
+  begin
+   if (idx<0) or (idx>high(sa)) then exit('');
+   result:=sa[idx];
+  end;
+
+ function SafeStrItem(sa:StringArr;idx:integer):string; overload;
+  begin
+   if (idx<0) or (idx>high(sa)) then exit('');
+   result:=sa[idx];
+  end;
+
 
  {$IFDEF ADDANSI}
  function Chop(st:String8):String8; overload;

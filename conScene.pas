@@ -30,14 +30,12 @@ implementation
   cmdList:TStringList;
   cmdPos:integer;
 
-function KbdHandler(event:EventStr;tag:TTag):boolean;
+procedure KbdHandler(event:EventStr;tag:TTag);
 var
  c:TUIControl;
 begin
- result:=false;
  // Win+[~] - показать/скрыть консоль
  if (tag and 255=$C0) and (tag and $80000>0) then begin
-  result:=true;
   if consoleScene.activated then begin
    if consoleScene.UI.hasFocus then
     consoleScene.SetStatus(ssFrozen)
@@ -115,12 +113,11 @@ procedure AddConsoleScene;
   cmdList:=TStringList.Create;
  end;
 
-function ConsoleOnEnter(event:EventStr;tag:TTag):boolean;
+procedure ConsoleOnEnter(event:EventStr;tag:TTag);
 var
  e:TUIEditBox;
  i:integer;
 begin
- result:=true;
  e:=FindControl('Console\Input',false) as TUIEditBox;
  if e=nil then exit;
  if cmdList.Find(e.text,i) then begin

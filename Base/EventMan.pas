@@ -29,7 +29,7 @@ type
 
  // Функция обработки события. Для блокировки обработки на более общих уровнях, должна вернуть false
  // In fact, return value is ignored
- TEventHandler=function(event:EventStr;tag:TTag):boolean;
+ TEventHandler=procedure(event:EventStr;tag:TTag);
 
  // Set event handling procedure
  // event may contain multiple values (comma-separated)

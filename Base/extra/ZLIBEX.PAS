@@ -159,11 +159,11 @@ procedure ZCompress(const inBuffer: Pointer; inSize: Integer;
 procedure ZDecompress(const inBuffer: Pointer; inSize: Integer;
   out outBuffer: Pointer; out outSize: Integer; outEstimate: Integer = 0);
 
-{** AnsiString routines *********************************************************}
+{** RawByteString routines *********************************************************}
 
-function ZCompressStr(const s: AnsiString; level: TZCompressionLevel = zcDefault): AnsiString;
+function ZCompressStr(const s: RawByteString; level: TZCompressionLevel = zcDefault): RawByteString;
 
-function ZDecompressStr(const s: AnsiString): AnsiString;
+function ZDecompressStr(const s: RawByteString): RawByteString;
 
 {** stream routines *********************************************************}
 
@@ -175,10 +175,10 @@ procedure ZDecompressStream(inStream, outStream: TStream);
 {****************************************************************************}
 
 procedure MoveI32(const Source; var Dest; Count: Integer); register;
-procedure ZFastCompressString(var s: AnsiString; level: TZCompressionLevel);
-procedure ZFastDecompressString(var s: AnsiString);
-procedure ZSendToBrowser(var s: AnsiString);
-procedure ZDecompressHTTP(var s: AnsiString);
+procedure ZFastCompressString(var s: RawByteString; level: TZCompressionLevel);
+procedure ZFastDecompressString(var s: RawByteString);
+procedure ZSendToBrowser(var s: RawByteString);
+procedure ZDecompressHTTP(var s: RawByteString);
 
 
 type
@@ -598,9 +598,9 @@ begin
 end;
 
 
-{** AnsiString routines *********************************************************}
+{** RawByteString routines *********************************************************}
 
-function ZCompressStr(const s: AnsiString; level: TZCompressionLevel): AnsiString;
+function ZCompressStr(const s: RawByteString; level: TZCompressionLevel): RawByteString;
 var
   buffer: Pointer;
   size: Integer;
@@ -613,7 +613,7 @@ begin
   FreeMem(buffer);
 end;
 
-procedure ZFastCompressString(var s: AnsiString; level: TZCompressionLevel);
+procedure ZFastCompressString(var s: RawByteString; level: TZCompressionLevel);
 var
   outBuf: Pointer;
   outBytes: Integer;
@@ -624,7 +624,7 @@ begin
   FreeMem(outBuf);
 end;
 
-procedure ZFastDecompressString(var s: AnsiString);
+procedure ZFastDecompressString(var s: RawByteString);
 var
   outBuf: Pointer;
   outBytes: Integer;
@@ -635,7 +635,7 @@ begin
   FreeMem(outBuf);
 end;
 
-procedure ZDecompressHTTP(var s: AnsiString);
+procedure ZDecompressHTTP(var s: RawByteString);
 var
   outBuf: Pointer;
   outBytes: Integer;
@@ -646,7 +646,7 @@ begin
   FreeMem(outBuf);
 end;
 
-procedure ZSendToBrowser(var s: AnsiString);
+procedure ZSendToBrowser(var s: RawByteString);
 var
   outBuf: Pointer;
   outBytes: Integer;
@@ -657,7 +657,7 @@ begin
   FreeMem(outBuf);
 end;
 
-function ZDecompressStr(const s: AnsiString): AnsiString;
+function ZDecompressStr(const s: RawByteString): RawByteString;
 var
   buffer: Pointer;
   size: Integer;

@@ -5,8 +5,9 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
 unit GLgame;
+
 interface
- uses EngineAPI,Images,engineTools,classes,myservis,BasicGame;
+ uses EngineAPI,Images,engineTools,classes,MyServis,BasicGame;
 
 const
  disableDRT:boolean=false; // Don't render whole scene to texture, render directly to the backbuffer
@@ -41,10 +42,10 @@ type
  end;
 
 implementation
- uses types,SysUtils,cmdproc,
-     {$IFDEF MSWINDOWS}windows,{$ENDIF}
-     {$IFNDEF GLES}dglOpenGL,{$ENDIF}
-     GlImages,EventMan,UIClasses,UIScene,gfxformats,
+ uses types,SysUtils,cmdproc,windows,
+
+         {$IFNDEF GLES}dglOpenGL,{$ENDIF}
+     GLImages,EventMan,UIClasses,UIScene,GFXFormats,
      Console,PainterGL,PainterGL2, BasicPainter;
 
 { TGlGame }
@@ -63,9 +64,8 @@ begin
  end;
 end;
 
-function EventHandler(event:EventStr;tag:TTag):boolean;
+procedure EventHandler(event:EventStr;tag:TTag);
 begin
- result:=true;
  event:=UpperCase(copy(event,8,500));
  if event='SETSWAPINTERVAL' then begin
   if WGL_EXT_swap_control then begin
