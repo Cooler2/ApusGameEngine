@@ -119,8 +119,8 @@ type
   scroll:TVector2s; // смещение (используется для вложенных эл-тов!) SUBTRACT from children pos
   scrollerH,scrollerV:TUIScrollBar;  // если для прокрутки используются скроллбары - здесь можно их определить
   placementMode:TUIPlacementMode;  // Реакция на изменение размеров предка
-  anchorRight,anchorBottom:single; // "якоря" для привязки соответствующих краев к краям предка (при изменении размера предка)
   anchorLeft,anchorTop:single; // если эти якоря не установлены, то при изменении размера должны меняться x и y
+  anchorRight,anchorBottom:single; // "якоря" для привязки соответствующих краев к краям предка (при изменении размера предка)
 
   enabled:boolean; // Должен ли элемент реагировать на пользовательский ввод
   visible:boolean; // должен ли элемент рисоваться

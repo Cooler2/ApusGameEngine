@@ -254,6 +254,9 @@ begin
   'a':if (fieldname='align') and (obj is TUILabel) then begin
        result:=@TUILabel(obj).align; varClass:=TVarTypeAlignment;
       end else
+      if (fieldname='anchors') then begin
+       result:=@obj.anchorLeft; varClass:=TVarTypeRect2s;
+      end else
       if (fieldname='autopendingtime') and (obj is TUIButton) then begin
        result:=@TUIButton(obj).autopendingtime; varClass:=TVarTypeInteger;
       end;
