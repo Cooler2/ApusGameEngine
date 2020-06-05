@@ -66,7 +66,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 15;
+ testnum:integer = 3;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -547,6 +547,7 @@ begin
  painter.DrawImagePart90(290,50,tex1,$FF808080,Rect(2,2,20,10),3);
  painter.DrawRotScaled(450,200,2,2,1,tex2,$FF808080);
 
+
  s:=0.2+(MyTickCount mod 3000)/3000;
  painter.SetTexMode(0,tblModulate2X,tblModulate,fltTrilinear);
  painter.DrawRotScaled(450,420,s,s,0,texM);
@@ -562,6 +563,7 @@ begin
  painter.DrawImagePart(100,200,tex2,$FF808080,Rect(8,8,15,15));
  v:=1+0.5*sin(frame/35);
  painter.DrawRotScaled(200,500,v,v,frame/100,tex1,$FF808080);
+ painter.DrawRotScaled(200,700,1,1,frame/300,tex1,$FF808080,0.2, 0);
  painter.DrawImage(400,10,tex3);
 
  s:=(MyTickCount mod 100000)/2000;
