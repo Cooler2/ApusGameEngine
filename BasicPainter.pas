@@ -105,7 +105,7 @@ interface
   // Рисовать часть картинки с поворотом ang раз на 90 град по часовой стрелке
   procedure DrawImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer); override;
   procedure DrawScaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080); override;
-  procedure DrawRotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080); override; // x,y - центр
+  procedure DrawRotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5); override; // x,y - центр
   function DrawImageCover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; override;
   function DrawImageInside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; override;
 
@@ -840,14 +840,15 @@ begin
 end;
 
 
-procedure TBasicPainter.DrawRotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080);
+procedure TBasicPainter.DrawRotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);
 var
  vrt:array[0..3] of TScrPoint;
  u1,v1,u2,v2,w,h,c,s:single;
+ wc1,hs1,hc1,ws1,wc2,hs2,hc2,ws2:single;
 begin
  ASSERT(image<>nil);
- w:=(image.width)/2*scaleX;
- h:=(image.height)/2*scaleY;
+ w:=(image.width)*scaleX;
+ h:=(image.height)*scaleY;
  if not SetStates(STATE_TEXTURED2X,types.Rect(trunc(x0-h-w),trunc(y0-h-w),trunc(x0+h+w),trunc(y0+h+w)),image) then exit; // Textured, normal viewport
 
  ConvertColor(color);
@@ -866,10 +867,15 @@ begin
  c:=cos(angle); s:=sin(angle);
 
  h:=-h;
- SetVertexT(vrt[0], x0-w*c-h*s, y0+h*c-w*s, zPlane, color, u1, v1);
- SetVertexT(vrt[1], x0+w*c-h*s, y0+h*c+w*s, zPlane, color, u2, v1);
- SetVertexT(vrt[2], x0+w*c+h*s, y0-h*c+w*s, zPlane, color, u2, v2);
- SetVertexT(vrt[3], x0-w*c+h*s, y0-h*c-w*s, zPlane, color, u1, v2);
+ wc2:=w*c; wc1:=wc2*pivotX; wc2:=wc2-wc1;
+ ws2:=w*s; ws1:=ws2*pivotX; ws2:=ws2-ws1;
+ hc2:=h*c; hc1:=hc2*pivotY; hc2:=hc2-hc1;
+ hs2:=h*s; hs1:=hs2*pivotY; hs2:=hs2-hs1;
+
+ SetVertexT(vrt[0], x0-wc1-hs1, y0+hc1-ws1, zPlane, color, u1, v1);
+ SetVertexT(vrt[1], x0+wc2-hs1, y0+hc1+ws2, zPlane, color, u2, v1);
+ SetVertexT(vrt[2], x0+wc2+hs2, y0-hc2+ws2, zPlane, color, u2, v2);
+ SetVertexT(vrt[3], x0-wc1+hs2, y0-hc2-ws1, zPlane, color, u1, v2);
  DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint));
 end;
 
