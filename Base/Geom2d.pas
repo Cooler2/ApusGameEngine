@@ -36,6 +36,7 @@ interface
    a,b,c:double;
   end;
 
+  PRect2s=^TRect2s;
   TRect2s=packed record
    x1,y1,x2,y2:single;
    function Width:single;
