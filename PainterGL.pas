@@ -1117,7 +1117,7 @@ begin
  //if tex=curTextures[stage] then exit;
  if tex<>nil then begin
 //  glActiveTexture(GL_TEXTURE0+stage);
-  if tex.atlas<>nil then tex:=tex.atlas;
+  if tex.parent<>nil then tex:=tex.parent;
   //TGLTexture(tex).filter:=curFilters[stage];
   texman.MakeOnline(tex,stage);
   if curFilters[stage]<>TGLTexture(tex).filter then

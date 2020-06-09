@@ -160,11 +160,12 @@ type
   mipmaps:byte; // кол-во уровней MIPMAP
   caps:integer; // возможности и флаги
   name:texnamestr; // имя текстуры (скорее для отладки)
-  atlas:TTexture;
-  refCounter,numClones:integer;
-  cloneOf:TTexture;
+  refCounter:integer; // number of child textures referencing this texture data
+  parent:TTexture;
   // Create cloned image (separate object referencing the same image data). Original image can't be destroyed unless all its clones are destroyed
-  constructor Clone(tex:TTexture);
+  constructor CreateClone(src:TTexture);
+  function Clone:TTexture;
+  function ClonePart(part:TRect):TTexture;
  end;
 
  // Текстура с возможностью доступа к данным (путем блокировки)
@@ -596,25 +597,45 @@ type
 implementation
  uses SysUtils,MyServis;
 
- constructor TTexture.Clone(tex:TTexture);
+ constructor TTexture.CreateClone(src:TTexture);
   begin
-   PixelFormat:=tex.PixelFormat;
-   left:=tex.left;
-   top:=tex.top;
-   width:=tex.width;
-   height:=tex.height;
-   u1:=tex.u1; v1:=tex.v1;
-   u2:=tex.u2; v2:=tex.v2;
-   stepU:=tex.stepU; stepV:=tex.stepV;
-//   scaleX:=tex.scaleX; scaleY:=tex.scaleY;
-   mipmaps:=tex.mipmaps;
-   caps:=tex.caps or tfCloned;
-   name:=tex.name;
-   atlas:=tex.atlas;
-   refCounter:=1;
-   cloneOf:=tex;
-   inc(tex.numClones);
+   PixelFormat:=src.PixelFormat;
+   left:=src.left;
+   top:=src.top;
+   width:=src.width;
+   height:=src.height;
+   u1:=src.u1; v1:=src.v1;
+   u2:=src.u2; v2:=src.v2;
+   stepU:=src.stepU; stepV:=src.stepV;
+   mipmaps:=src.mipmaps;
+   caps:=src.caps or tfCloned;
+   name:=src.name;
+   if src.parent<>nil then
+    parent:=src.parent
+   else
+    parent:=src;
+   inc(parent.refCounter);
   end;
+
+function TTexture.Clone:TTexture;
+ begin
+  result:=TTexture.CreateClone(self);
+ end;
+
+
+function TTexture.ClonePart(part:TRect): TTexture;
+ begin
+  result:=Clone;
+  result.left:=left+part.Left;
+  result.top:=top+part.Top;
+  result.width:=part.Width;
+  result.height:=part.Height;
+  result.u1:=u1+part.left*stepU*2;
+  result.u2:=u1+part.right*stepU*2;
+  result.v1:=v1+part.top*stepV*2;
+  result.v2:=v1+part.bottom*stepV*2;
+ end;
+
 
 { TGameScene }
 

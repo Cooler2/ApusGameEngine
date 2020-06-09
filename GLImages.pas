@@ -384,7 +384,6 @@ begin
  result:=tex;
  tex.rbo:=0;
  tex.fbo:=0;
- tex.refCounter:=1;
  tex.left:=0;
  tex.top:=0;
  tex.width:=width;
@@ -402,7 +401,6 @@ begin
  tex.online:=false;
  tex.texname:=0;
  tex.filter:=fltUndefined;
- tex.atlas:=nil;
 // sx:=1; sy:=1;
 // if flags and aiWriteOnly>0 then
 
@@ -548,7 +546,7 @@ var
 begin
  ASSERT(img is TGLTexture);
  src:=TGLTexture(img);
- res:=TGLTexture.Clone(img);
+ res:=TGLTexture.CreateClone(img);
  res.texname:=src.texname;
  res.realWidth:=src.realWidth;
  res.realHeight:=src.realHeight;
@@ -617,13 +615,9 @@ begin
  try
 
  dec(image.refCounter);
- if (image.refCounter>0) or (image.numClones>0) then exit; // Prevent deletion
+ if image.refCounter>=0 then exit; // prevent deletion
 
- if image.caps and tfCloned>0 then begin
-  dec(image.cloneOf.numClones);
-  FreeAndNil(image);
-  exit;
- end;
+ if image.parent<>nil then FreeImage(image.parent);
 
  if image is TGLTexture then begin
   tex:=image as TGLTexture;

@@ -457,19 +457,7 @@ begin
    st:=chop(st);
    if (st='') or (w=0) or (h=0) then continue;
    inc(aSubCount);
-   img:=TTexture.Create;
-   img.left:=x;
-   img.top:=y;
-   img.width:=w;
-   img.height:=h;
-   img.stepU:=stepU;
-   img.stepV:=stepV;
-   img.u1:=x*stepU*2;
-   img.v1:=y*stepV*2;
-   img.u2:=(x+w)*stepU*2;
-   img.v2:=(y+h)*stepV*2;
-   img.pixelFormat:=atlas.pixelFormat;
-   img.atlas:=atlas;
+   img:=atlas.ClonePart(Rect(x,y,x+w,y+h));
    aImages[aSubCount]:=img;
    st:=path+st;
    NormalizeFName(st);
@@ -653,7 +641,7 @@ begin
   // Search atlases first
   i:=FindFileInAtlas(fname);
   if i>0 then begin
-   result:=TTexture.Clone(aImages[i]);
+   result:=aImages[i].Clone;
    exit;
   end;
   {$IFNDEF MSWINDOWS} // Use root dir
