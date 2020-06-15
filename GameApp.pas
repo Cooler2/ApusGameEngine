@@ -21,7 +21,6 @@ interface
    configFileName:string=''; // no config file
 
    usedAPI:TGraphicsAPI=gaOpenGL;
-   useSystemCursor:boolean=true;
    windowedMode:boolean=true;
    windowWidth:integer=1024;
    windowHeight:integer=768;
@@ -29,10 +28,12 @@ interface
 
    deviceDPI:integer=96; // mobile only
    noVSync:boolean=false;
-   checkForSteam:boolean=false; // Check if STEAM client is running and get AppID
-   useConsoleScene:boolean=true;
-   useTweakerScene:boolean=false;
-   useDefaultLoaderScene:boolean=true;
+   checkForSteam:boolean=false;  // Check if STEAM client is running and get AppID
+   useSystemCursor:boolean=true; // true - system hardware cursor, false - system cursor is disabled, custom cursor must be drawn
+   useCustomStyle:boolean=false; // init cuttom style?
+   useConsoleScene:boolean=true;   // Create console scene [Win]+[~]
+   useTweakerScene:boolean=false;  // Create Tweaker scene [Ctrl]+[~]
+   useDefaultLoaderScene:boolean=true; // start with default scene with spinner
    configDir:string;
    instanceID:integer=0;
    langCode:string='en';
@@ -296,7 +297,7 @@ constructor TGameApplication.Create;
 
 procedure TGameApplication.CreateScenes;
  begin
-
+  Signal('GAMEAPP\CreateScenes');
  end;
 
 destructor TGameApplication.Destroy;
@@ -339,16 +340,19 @@ procedure TGameApplication.InitCursors;
  begin
   game.ToggleCursor(crDefault);
   game.ToggleCursor(crWait);
+  Signal('GAMEAPP\InitCursors');
  end;
 
 procedure TGameApplication.InitStyles;
  begin
-  InitCustomStyle('Images\');
+  if useCustomStyle then InitCustomStyle('Images\');
+  Signal('GAMEAPP\InitStyles');
  end;
 
 procedure TGameApplication.LoadFonts;
  begin
   LogMessage('Loading fonts');
+  Signal('GAMEAPP\LoadFonts');
  end;
 
 procedure TGameApplication.LoadOptions;
@@ -373,14 +377,16 @@ procedure TGameApplication.LoadOptions;
     windowHeight:=CtlGetInt(configFileName+':\Options\WindowHeight',windowHeight);
    end;
 
+   Signal('GAMEAPP\OptionsLoaded');
   except
    on e:exception do ForceLogMessage('Options error: '+ExceptionMsg(e));
   end;
  end;
 
 procedure TGameApplication.onResize;
-begin
-end;
+ begin
+  Signal('GAMEAPP\onResize');
+ end;
 
 procedure TGameApplication.Prepare;
  var
@@ -410,10 +416,6 @@ procedure TGameApplication.Prepare;
 
    for i:=1 to paramCount do HandleParam(paramstr(i));
 
-   // PreloadFiles;
-   //QueryServerVersion;
-   //TryToUpdateUpdater;
-
   {$IFDEF STEAM}
   if checkForSteam then InitSteamAPI;
   if steamAvailable then
@@ -439,6 +441,7 @@ procedure TGameApplication.Prepare;
 
 procedure TGameApplication.InitSound;
 begin
+ Signal('GAMEAPP\InitSound');
  {$IFDEF IMX}
  Sound.Initialize(game.window,false);
  {$ENDIF}
@@ -521,7 +524,7 @@ procedure TGameApplication.Run;
   CreateScenes;
 
   game.ToggleCursor(crWait,false);
-
+  Signal('GAMEAPP\Initialized');
   // MAIN LOOP
   // ------------------------
   repeat
@@ -530,10 +533,12 @@ procedure TGameApplication.Run;
     CheckCritSections;
     delay(10); // поддерживает сигналы тем самым давая возможность синхронно на них реагировать
     ProcessMessages;
+    Signal('GAMEAPP\onIdle');
    except
     on e:exception do ForceLogMessage('Error in Control Thread: '+e.message);
    end;
   until game.terminated;
+  Signal('GAMEAPP\Terminated');
   ForceLogMessage('Control thread exit');
  end;
 
@@ -548,6 +553,7 @@ procedure TGameApplication.SaveOptions;
 
 procedure TGameApplication.SelectFonts;
  begin
+  Signal('GAMEAPP\SelectFonts');
  end;
 
 procedure TGameApplication.SetGameSettings(var settings: TGameSettings);
@@ -596,6 +602,7 @@ begin
    end else
     VSync:=1;
   end;
+  Signal('GAMEAPP\SetGameSettings');
 end;
 
 { TLoadingScene }
@@ -631,6 +638,7 @@ begin
   L:=round(v.Value*L);
   painter.DrawRotScaled(x,y,1,1,-a,tex,cardinal(L shl 24)+$FFFFFF);
  end;
+ Signal('LOADINGSCENE\Render');
 end;
 
 end.
