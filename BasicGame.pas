@@ -231,6 +231,7 @@ type
   property mouseOn:boolean read mouseVisible write ShowMouse;
   property IsRunning:boolean read running;
   procedure Delay(time:integer); // alias
+  function GetScene(name:string):TGameScene;
  end;
 
  // Для использования из главного потока
@@ -399,6 +400,20 @@ end;
 procedure TBasicGame.Delay(time: integer);
 begin
  BasicGame.Delay(time);
+end;
+
+function TBasicGame.GetScene(name: string):TGameScene;
+var
+ i:integer;
+begin
+ EnterCritSect;
+ try
+  for i:=0 to high(scenes) do
+   if SameText(name,scenes[i].name) then exit(scenes[i]);
+  exit(nil);
+ finally
+  LeaveCritSect;
+ end;
 end;
 
 destructor TBasicGame.Destroy;
