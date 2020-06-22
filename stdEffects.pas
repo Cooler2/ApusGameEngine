@@ -10,22 +10,27 @@ interface
  uses types,EngineAPI,EventMan,UIScene,MyServis,AnimatedValues;
 
 type
- // Simple fade effect
- TTransitionEffect=class(TSceneEffect)
+ // Base class for effects used to switch fullscreen scenes from the current topmost visible scene to a chosen one
+ TSwitchScreenEffect=class(TSceneEffect)
   prevScene:TGameScene;
   prevTimer:integer;
   constructor Create(scene:TGameScene;totalTime:integer);
   procedure DrawScene; override;
   destructor Destroy; override;
   procedure Initialize; virtual;
- private
-  buffer:TTexture;
+ protected
   initialized,dontPlay:boolean;
+  buffer:TTexture;
+ end;
+
+ // Simple fade effect
+ TTransitionEffect=class(TSwitchScreenEffect)
+  procedure DrawScene; override;
  end;
 
  // Fade effect with rotation and scaling
  // сцена начинает приближаться и поворачиваться теряя при этом прозрачность
- TRotScaleEffect=class(TSceneEffect)
+ TRotScaleEffect=class(TSwitchScreenEffect)
   newscene:TGameScene;
   constructor Create(scene,nextScene:TGameScene;TotalTime:integer);
   procedure DrawScene; override;
@@ -59,14 +64,14 @@ type
 
  {$IFDEF OPENGL}
  TBlurEffect=class(TSceneEffect)
-   constructor Create(scene:TUIScene;strength:single;time:integer;colorAdd,colorMult:cardinal);
+   constructor Create(scene:TGameScene;strength:single;time:integer;colorAdd,colorMult:cardinal);
    procedure Remove(time:integer);
    destructor Destroy; override;
    procedure DrawScene; override;
    procedure Initialize;
  private
   power:TAnimatedValue; // 0..1
-  factor:single;
+  factor:single; // strength
   mainColorAdd,mainColorMult:cardinal;
   width,height:integer;
   buffer,buffer2:TTexture;
@@ -90,10 +95,9 @@ implementation
 
   blurLog:string;
 
-{ TTransitionEffect }
-constructor TTransitionEffect.Create(scene:TGameScene;TotalTime: integer);
-var
- o:integer;
+{ TFullScreenEffect }
+
+constructor TSwitchScreenEffect.Create(scene: TGameScene; totalTime: integer);
 begin
  EnterCriticalSection(UICritSect);
  try
@@ -102,25 +106,29 @@ begin
  end;
  initialized:=false;
  prevScene:=game.TopmostVisibleScene(true);
- if scene is TUIScene then ForceLogMessage('TransEff on scene: '+TUIScene(scene).name);
- if prevScene is TUIScene then ForceLogMessage('Prev scene: '+TUIScene(prevScene).name);
+ ASSERT(scene<>prevScene);
+ if scene is TUIScene then LogMessage('Effect %s on scene %s',[ClassName,TUIScene(scene).name]);
+ if prevScene is TUIScene then LogMessage('Prev scene: '+TUIScene(prevScene).name);
  inherited Create(scene,totaltime);
  finally
   LeaveCriticalSection(UICritSect);
  end;
 
- forScene.SetStatus(ssActive);
+ target.SetStatus(ssActive);
 
  EnterCriticalSection(UICritSect);
  try
- if forScene is TUIScene then (forScene as TUIScene).UI.enabled:=false;
+ if target is TUIScene then (target as TUIScene).UI.enabled:=false;
 
- if scene.zorder<=prevScene.zorder then begin
+ if scene.zOrder=prevScene.zOrder then begin
+  inc(scene.zOrder);
+  LogMessage('zOrder incremented: %s=%d, %s=%d',[scene.name,scene.zOrder,prevScene.name,prevScene.zOrder]);
+ end;
+ if scene.zorder<prevScene.zorder then begin
   Swap(scene.zOrder,prevScene.zOrder);
   LogMessage('zOrder swap: %s=%d, %s=%d',[scene.name,scene.zOrder,prevScene.name,prevScene.zOrder]);
  end;
  prevTimer:=0;
- buffer:=nil;
  dontPlay:=disableEffects;
  if pfRTnorm=ipfNone then dontPlay:=true;
  finally
@@ -128,7 +136,24 @@ begin
  end;
 end;
 
-procedure TTransitionEffect.Initialize;
+destructor TSwitchScreenEffect.Destroy;
+begin
+ if buffer<>nil then texman.FreeImage(buffer);
+ inherited;
+end;
+
+procedure TSwitchScreenEffect.DrawScene;
+begin
+ if DontPlay then begin
+  done:=true; prevscene.SetStatus(ssFrozen);
+  if target is TUIScene then
+   TUIScene(target).UI.enabled:=true;
+  exit;
+ end;
+ if not initialized then Initialize;
+end;
+
+procedure TSwitchScreenEffect.Initialize;
 var
  width,height:integer;
 begin
@@ -140,7 +165,7 @@ begin
  width:=game.Settings.width;
  height:=game.Settings.height;
  try
-  buffer:=texman.AllocImage(width,height,pfRTnorm,aiRenderTarget+aiTexture,'TransEffect');
+  buffer:=texman.AllocImage(width,height,pfRTnorm,aiRenderTarget+aiTexture,'SceneEffect');
  except
   on e:exception do begin
    LogMessage('ERROR: eff allocation - '+ExceptionMsg(e));
@@ -151,28 +176,16 @@ begin
  initialized:=true;
 end;
 
-destructor TTransitionEffect.Destroy;
-begin
- if buffer<>nil then texman.FreeImage(buffer);
- inherited;
-end;
+{ TTransitionEffect }
 
 procedure TTransitionEffect.DrawScene;
 var
  color:cardinal;
 begin
- if DontPlay then begin
-  done:=true; prevscene.SetStatus(ssFrozen);
-  if forScene is TUIScene then
-   TUIScene(forScene).UI.enabled:=true;
-  exit;
- end;
+ inherited;
  try
-  if not initialized then begin
-   Initialize; exit;
-  end;
   painter.BeginPaint(buffer);
-  forscene.Render;
+  target.Render;
   painter.EndPaint;
   color:=round(255*timer/duration);
   DebugMessage('EffStage: '+inttostr(color));
@@ -180,7 +193,7 @@ begin
    color:=255;
    done:=true;
    prevscene.SetStatus(ssFrozen);
-   if forscene is TUIScene then (forScene as TUIScene).UI.enabled:=true;
+   if target is TUIScene then (target as TUIScene).UI.enabled:=true;
   end;
   color:=color shl 24+$808080;
   if buffer<>nil then begin
@@ -194,9 +207,6 @@ begin
    DontPlay:=true;
   end;
  end;
-{ if (timer>time div 2) and (prevtimer<=time div 2) then begin
-  forscene.SetStatus(ssActive);
- end;}
  // последняя строчка
  prevtimer:=timer;
 end;
@@ -238,7 +248,7 @@ begin
   buffer:=texman.AllocImage(width,height,pfRTAlphaNorm,aiRenderTarget+aiTexture,'TransEffect');
   prevbuf:=texman.AllocImage(width,height,pfRTAlphaNorm,aiRenderTarget+aiTexture,'TransEffect2');
   painter.BeginPaint(prevbuf);
-  forscene.Render;
+  target.Render;
   painter.EndPaint;
  except
   on e:exception do begin
@@ -257,7 +267,7 @@ var
  tex:TTexture;
 begin
  if DontPlay then begin
-  done:=true; forscene.SetStatus(ssFrozen);
+  done:=true; target.SetStatus(ssFrozen);
   exit;
  end;
  try
@@ -267,8 +277,8 @@ begin
   t:=round(255*timer/duration);
   if t>=255 then begin
    done:=true;
-   forscene.SetStatus(ssFrozen);
-   if newscene is TUIScene then (forScene as TUIScene).UI.enabled:=true;
+   target.SetStatus(ssFrozen);
+   if newscene is TUIScene then (target as TUIScene).UI.enabled:=true;
   end;
   painter.BeginPaint(buffer);
   try
@@ -280,7 +290,7 @@ begin
 
   w:=game.settings.width-1;
   h:=game.settings.height-1;
-  l1.texture:=prevbuf as TTextureImage;
+  l1.texture:=prevbuf;
   l1.matrix[0,0]:=1; l1.matrix[0,1]:=0;
   l1.matrix[1,0]:=0; l1.matrix[1,1]:=1;
   l1.matrix[2,0]:=0; l1.matrix[2,1]:=0;
@@ -351,13 +361,14 @@ begin
   if pfRTAlphaNorm=ipfNone then DontPlay:=true;
   mode:=effMode; buffer:=nil;
   shadow:=scene.shadowColor;
+  if effMode<>sweHide then scene.shadowColor:=0;
 
 { if (mode=sweShowModal) or (mode=sweShow) then
   scene.UI.visible:=true;}
 
- if (mode<>sweHide) and (forScene.status<>ssActive) then begin
-  savedSceneStatus:=forScene.status;
-  forScene.SetStatus(ssActive);
+ if (mode<>sweHide) and (target.status<>ssActive) then begin
+  savedSceneStatus:=target.status;
+  target.SetStatus(ssActive);
  end;
  scene.UI.enabled:=(mode<>sweHide);
 
@@ -365,11 +376,8 @@ begin
   scene.shadowColor:=0;
   // симуляция отпускания кнопок мыши
   SetFocusTo(nil);
-//  в этом больше нет необходимости, т.к. потеря фокуса обрабатывается на общем уровне
-//  Signal('Mouse\BtnUp\Left',1);
-//  Signal('Mouse\BtnUp\Right',1);
   if modalcontrol<>nil then begin
-   // поищем, какой сцене принадлежит текущий модельный элемент и если
+   // поищем, какой сцене принадлежит текущий модальный элемент и если
    // новое окно находится в том же слое - поместим его поверху. В противном случае
    // вставим новую сцену в нужное место в стэке
    c:=modalControl;
@@ -391,7 +399,7 @@ begin
   end;
   modalStack[i]:=modalControl;
   if i=modalStackSize then begin
-   modalControl:=(forScene as TUIScene).UI;
+   modalControl:=(target as TUIScene).UI;
    modalControl.SetFocus;
   end;
   LogModalStack;
@@ -425,7 +433,6 @@ begin
  end;
 
  eff:=effect;
-
  if duration=0 then onDone; // Immediate action
 
  finally
@@ -449,8 +456,8 @@ procedure TShowWindowEffect.Initialize;
 var
  r:TRect;
 begin
- Signal('UI\onEffect\'+GetModeName(mode)+'\'+(forscene as TUIScene).name);
- with forscene as TUIScene do begin
+ Signal('UI\onEffect\'+GetModeName(mode)+'\'+(target as TUIScene).name);
+ with target as TUIScene do begin
   r:=GetArea;
   w:=r.right-r.left;
   h:=r.Bottom-r.top;
@@ -458,7 +465,7 @@ begin
   y:=r.Top;
  end;
  if w=0 then
-  r:=TUIScene(forScene).GetArea;
+  r:=TUIScene(target).GetArea;
 
  try
   LogMessage(Format('WndEffect: allocating %d x %d buffer',[w,h]));
@@ -480,7 +487,10 @@ begin
  try
   if not done then onDone;
   if initialized and (buffer<>nil) then texman.FreeImage(buffer);
-  if forscene<>nil then PutMsg('WndEffDone('+(forscene as TUISCene).UI.name+')');
+  if target<>nil then begin
+   PutMsg('WndEffDone('+(target as TUISCene).UI.name+')');
+   target.shadowColor:=shadow;
+  end;
   inherited;
  except
   on e:exception do ForceLogMessage('Failed to delete SWE effect: '+ExceptionMsg(e));
@@ -499,7 +509,7 @@ begin
   onDone; exit;
  end;
  if not initialized then Initialize;
- with forscene as TUIScene do begin
+ with target as TUIScene do begin
   savePos:=ui.position;
   VectAdd(ui.position,Point2s(-x,-y));  // offset scene so it's visible part starts at 0,0
  end;
@@ -510,13 +520,13 @@ begin
    // Background is set to opaque for debug purpose: in transpBgnd mode scene MUST overwrite
    // alpha channel, not blend into it! If the background is transparent it's very easy to miss this mistake
    painter.Clear($FF808080,-1,-1);
-   forscene.Process;
+   target.Process;
    transpBgnd:=true;
-   forscene.Render;
+   target.Render;
    transpBgnd:=false;
   finally
    painter.EndPaint;
-   TUIScene(forscene).ui.position:=savePos;
+   TUIScene(target).ui.position:=savePos;
   end;
  except
   on e:exception do begin
@@ -533,7 +543,7 @@ begin
  end;
  if mode=sweHide then stage:=255-stage;
  if shadow<>0 then
-  forscene.shadowColor:=ColorMix(shadow,shadow and $FFFFFF,stage);
+  target.shadowColor:=ColorMix(shadow,shadow and $FFFFFF,stage);
 
  painter.BeginPaint(nil);
  try
@@ -632,7 +642,7 @@ var
 begin
  needStatus:=savedSceneStatus;
  if needStatus=ssActive then needStatus:=ssFrozen;
- if (mode=sweHide) and (forScene.status<>needStatus) then forScene.SetStatus(needStatus);
+ if (mode=sweHide) and (target.status<>needStatus) then target.SetStatus(needStatus);
  done:=true;
 end;
 
@@ -721,7 +731,9 @@ begin
 // texman.FreeImage(buffer3);
 end;
 
-constructor TBlurEffect.Create(scene: TUIScene; strength: single;time:integer;colorAdd,colorMult:cardinal);
+constructor TBlurEffect.Create(scene: TGameScene; strength: single;time:integer;colorAdd,colorMult:cardinal);
+var
+ rect:TRect;
 begin
  if scene.effect<>nil then begin
   LogMessage('WARN! BlurEff skipped - scene already has effect: '+scene.name);
@@ -729,11 +741,12 @@ begin
  end;
  LogMessage('BlurEff for '+scene.name);
  initialized:=false;
- width:=min2(round(scene.UI.size.x),game.settings.width);
- height:=min2(round(scene.UI.size.y),game.settings.height);
+ rect:=scene.GetArea;
+ width:=min2(rect.width,game.settings.width);
+ height:=min2(rect.height,game.settings.height);
 
  power.Init(0);
- power.Animate(strength,time,spline0);
+ power.Animate(1.0,time,spline0);
  factor:=strength;
  dontPlay:=disableEffects;
  mainColorAdd:=colorAdd;
@@ -788,7 +801,7 @@ var
 
 procedure TBlurEffect.DrawScene;
 var
- u,v,f:single;
+ u,v,f,phase:single;
  i:integer;
  cb:array[0..3] of byte;
  cf:array[0..3] of single;
@@ -799,7 +812,7 @@ begin
    done:=true;
    painter.BeginPaint(nil);
    try
-    forScene.Render;
+    target.Render;
    finally
     painter.EndPaint;
    end;
@@ -809,14 +822,8 @@ begin
   // Render source scene
   painter.BeginPaint(buffer);
   try
-   forscene.Render;
+   target.Render;
    inc(debug);
-//   if debug=15 then glActiveTexture(100);
-   {ainter.Clear($50);
-   for i:=1 to 22 do begin
-    painter.Rect(i*23,i*15,screenWidth-i*23,screenHeight-i*15,$FFFFFF00);
-    painter.Rect(i*23+1,i*15+1,screenWidth-i*23-1,screenHeight-i*15-1,$FFFFFF00);
-   end;}
   finally
    painter.EndPaint;
   end;
@@ -845,8 +852,8 @@ begin
   painter.UseCustomShader;
   glUseProgram(blurShader);
   TGLPainter(painter).UseTexture(buffer2,1);
-//  v:=0.5+0.5*sin(MyTickCount/300);
-  v:=sqrt(power.Value);
+  phase:=power.Value;
+  v:=sqrt(phase*factor);
 
   glUniform1f(loc1,1.5*buffer2.stepU*v);
   glUniform1f(loc2,1.5*buffer2.stepV*v);
@@ -855,7 +862,7 @@ begin
   glUniform1i(locTex1,0); // 1-sampled texture - reduced
   glUniform1i(locTex2,0); // 4-sampled texture - original image
 
-  v:=power.Value;
+  v:=phase;
   move(mainColorAdd,cb,4);
   for i:=0 to 2 do cf[i]:=cb[i]*v/255;
   glUniform4f(locCA,cf[2],cf[1],cf[0],0);
@@ -889,5 +896,6 @@ begin
  if not done then power.Animate(0,time,spline2);
 end;
 {$ENDIF}
+
 
 end.
