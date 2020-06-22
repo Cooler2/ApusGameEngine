@@ -46,7 +46,14 @@ interface
   defaultHintFont:cardinal=0; // Шрифт, которым показываются хинты
 
 implementation
- uses CrossPlatform,images,SysUtils,types,myservis,engineTools,colors,structs,EventMan,geom2d;
+ uses CrossPlatform,Images,SysUtils,Types,MyServis,EngineTools,Colors,Structs,EventMan,Geom2d;
+
+{ type
+  TBasicStyle=class
+   styleText:String8;
+   bgColor,borderColor:cardinal;
+   procedure UpdateIfNeeded(st:AnsiString);
+  end;}
 
  var
   styleDrawers:array[0..50] of TUIDrawer;
@@ -54,6 +61,9 @@ implementation
   hintImage:TTexture;
 
   imgHash:THash;
+
+  styleHash:TSimpleHash; // element pointer -> style data
+
 
  procedure DrawGlobalShadow(color:cardinal);
   begin
@@ -74,7 +84,10 @@ implementation
    // Draw self first
    if item.layout<>nil then item.layout.Layout(item);
    item.globalRect:=item.GetPosOnScreen;
+{   /// TODO: alpha should be masked ONLY if semi-transparent element is drawn on an opaque background, not vice-versa.
+   ///  Need to find a generic approach.
    maskChange:=(item.parent<>nil) and (item.parent.transpmode<>tmTransparent);
+   maskChange:=false;}
    if maskChange then painter.SetMask(true,false);
    try
     // Draw control
@@ -136,8 +149,8 @@ implementation
 
     if clipping then painter.ResetClipping;
    end;
-   // вернуть маску назад
-   if maskChange then painter.ResetMask;
+{   // вернуть маску назад
+   if maskChange then painter.ResetMask;}
   end;
 
  procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string='');
