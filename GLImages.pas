@@ -11,7 +11,7 @@ interface
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE GLES20} {$DEFINE OPENGL} {$ENDIF}
 type
  // Текстура OpenGL
- TGLTexture=class(TTextureImage)
+ TGLTexture=class(TTexture)
   texname:cardinal;
   realWidth,realHeight:integer; // real dimensions of underlying texture object (can be larger than requested)
   filter:TTexFilter;
@@ -41,7 +41,6 @@ type
   procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer); override;
   function Clone(img:TTexture):TTexture; override;
   procedure FreeImage(var image:TTexture); override;
-  procedure FreeImage(var image:TTextureImage); override;
   procedure MakeOnline(img:TTexture;stage:integer=0); override;
   procedure SetTexFilter(img:TTexture;filter:TTexFilter); virtual; // Works for ACTIVE texture only!
 
@@ -285,24 +284,25 @@ var
  size:integer;
  lockRect:TRect;
 begin
- EnterCriticalSection(cSect);
- try
  if (caps and tfNoRead>0) then
    raise EWarning.Create('Can''t lock texture '+name+' for reading');
  if (caps and tfNoWrite>0) and (mode<>lmReadOnly) then
    raise EWarning.Create('Can''t lock texture '+name+' for writing');
  if r=nil then lockRect:=Rect(0,0,(width-1) shr mipLevel,(height-1) shr mipLevel)
   else lockRect:=r^;
- if (mode=lmCustomUpdate) and (r<>nil) then raise EWarning.Create('GLI: partial lock with custom update');
- ASSERT(length(realdata)>0);
- if r=nil then data:=realData
-  else data:=@realData[lockRect.left*PixelSize[pixelFormat] shr 3+lockRect.Top*pitch];
- inc(locked);
+ if (mode=lmCustomUpdate) and (r<>nil) then
+  raise EWarning.Create('GLI: partial lock with custom update');
+ EnterCriticalSection(cSect);
+ try
+  ASSERT(length(realdata)>0);
+  if r=nil then data:=realData
+   else data:=@realData[lockRect.left*PixelSize[pixelFormat] shr 3+lockRect.Top*pitch];
+  inc(locked);
 
- if mode=lmReadWrite then begin
-  online:=false;
-  AddDirtyRect(lockRect);
- end;
+  if mode=lmReadWrite then begin
+   online:=false;
+   AddDirtyRect(lockRect);
+  end;
  finally
   LeaveCriticalSection(cSect);
  end;
@@ -345,8 +345,8 @@ procedure TGLTexture.Unlock;
 begin
  EnterCriticalSection(cSect);
  try
- ASSERT(locked>0);
- dec(locked);
+  ASSERT(locked>0,'Texture not locked: '+name);
+  dec(locked);
  finally
   LeaveCriticalSection(cSect);
  end;
@@ -648,11 +648,6 @@ begin
  finally
   LeaveCriticalSection(cSect);
  end;
-end;
-
-procedure TGLTextureMan.FreeImage(var image:TTextureImage);
-begin
- FreeImage(TTexture(image));
 end;
 
 procedure TGLTextureMan.FreeMetaTexSpace(n: integer);

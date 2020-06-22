@@ -16,7 +16,7 @@ interface
   TBitmapStyle=class
    // Этот метод нужно переопределить в модуле проекта
    // Если img=nil - нужно выделить память, иначе - просто перерисовать
-   procedure BuildButtonImage(btn:TUIButton;state:TButtonState;var img:TTextureImage); virtual;
+   procedure BuildButtonImage(btn:TUIButton;state:TButtonState;var img:TTexture); virtual;
    // Возможно переопределение для изменения дефолтной отрисовки
    procedure DrawItem(con:TUIControl); virtual;
    // Возвращает время перехода в/из подсвеченного состояния
@@ -36,7 +36,7 @@ implementation
   // Для каждого элемента UI хранится такая структура с картинками и прочими сведениями
   TButtonData=record
    width,height:integer; // текущий размер кнопки
-   imgNormal,imgOver,imgDown,imgDisabled:TTextureImage;
+   imgNormal,imgOver,imgDown,imgDisabled:TTexture;
    dynamicImg:boolean; // обновлять изображения каждый кадр?
    overState:TAnimatedValue; // состояние Over (0..1)
    lastCaption:string;
@@ -44,7 +44,7 @@ implementation
 
   TLabelData=record
    prevCaption:string;
-   img:TTextureImage;
+   img:TTexture;
   end;
 
  var
@@ -97,7 +97,7 @@ implementation
   end;
 
 // x,y - button center
-procedure DrawBtnImage(btn:TUIButton;state:TButtonState;xc,yc:single;var img:TTextureImage;color:cardinal);
+procedure DrawBtnImage(btn:TUIButton;state:TButtonState;xc,yc:single;var img:TTexture;color:cardinal);
  var
   x,y:integer;
  begin
@@ -115,7 +115,7 @@ procedure DrawBtnImage(btn:TUIButton;state:TButtonState;xc,yc:single;var img:TTe
  end;
 
 // x,y - button center
-procedure DrawBtnImageInt(btn:TUIButton;xc,yc:single;var imgNormal,imgOver:TTextureImage;color:cardinal;intFactor:single);
+procedure DrawBtnImageInt(btn:TUIButton;xc,yc:single;var imgNormal,imgOver:TTexture;color:cardinal;intFactor:single);
  var
   x,y:integer;
  begin
@@ -307,7 +307,7 @@ function TBitmapStyle.AnimationTime(con: TUIControl; param: integer): integer;
  end;
 
 procedure TBitmapStyle.BuildButtonImage(btn: TUIButton; state: TButtonState;
-  var img: TTextureImage);
+  var img: TTexture);
  begin
   img:=nil;
  end;

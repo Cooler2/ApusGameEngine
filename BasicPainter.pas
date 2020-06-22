@@ -173,10 +173,10 @@ interface
   chardrawer:integer;
   supportARGB:boolean;
   // Text effect
-  efftex:TTextureImage;
+  efftex:TTexture;
   // last used legacy font texture
   lastFontTexture:TTexture;
-  textCache:TTextureImage; // texture with cached glyphs (textCacheWidth x 512, or another for new glyph cache structure)
+  textCache:TTexture; // texture with cached glyphs (textCacheWidth x 512, or another for new glyph cache structure)
 
   // Buffer for alternate text rendering
   textBufferBitmap:pointer;
@@ -255,13 +255,13 @@ type
  TFont=class
   chars:array[char] of TCharData;
   height,baseAdd,charspacing:integer;
-  texture:TTextureImage;
+  texture:TTexture;
   scale:single; // 1/N
  end;
 
  // For WriteEx output
  TTextExCacheItem=record
-  tex:TTextureImage; // nil = empty item
+  tex:TTexture; // nil = empty item
   text:string;
   font:cardinal;
   effHash:cardinal;
@@ -281,7 +281,7 @@ type
 var
  crSect:TMyCriticalSection; // нахрена!?? Почти нигде не используется
 
- lastFontTex:TTextureImage; // 256x1024
+ lastFontTex:TTexture; // 256x1024
  FontTexUsage:integer; // y-coord of last used pixel in lastFontTex
  newFonts:array[1..32] of TObject;
  fontMatch:array[1..32] of cardinal; // замена старых шрифтов новыми
@@ -1866,7 +1866,7 @@ var
   begin
    // 1 transparent pixel in padding
    result:=glyphCache.Alloc(imageWidth+2+byte(boldStyle),imageHeight+2,dX,dY,chardata);
-   if textCache.locked=0 then textCache.Lock(0,lmCustomUpdate);
+   if not textCache.IsLocked then textCache.Lock(0,lmCustomUpdate);
    UnpackGlyph(result.x,result.Y,imageWidth,imageHeight,data,glyphType=1);
    if boldStyle then MakeItBold(result.x,result.Y,imageWidth,imageHeight);
    fl:=true;
@@ -2159,7 +2159,7 @@ var
    finally
     glyphCache.Release;
     UnlockBuffer(textVertBuf);
-    if textCache.locked>0 then textCache.Unlock;
+    if textCache.IsLocked then textCache.Unlock;
     {$IFDEF FREETYPE}
     if ftFont<>nil then ftFont.Unlock;
     {$ENDIF}

@@ -99,7 +99,7 @@ type
  // Default loading scene displaying spinner
  TLoadingScene=class(TGameScene)
   v:TAnimatedValue;
-  tex:TTextureImage;
+  tex:TTexture;
   constructor Create;
   procedure Render; override;
  end;
@@ -621,7 +621,7 @@ var
 begin
  if tex=nil then begin
   v.Animate(0.6,1500,Spline1);
-  tex:=texman.AllocImage(16,8,pfTrueColorAlpha,0,'bar') as TTextureImage;
+  tex:=texman.AllocImage(16,8,pfTrueColorAlpha,0,'bar');
   tex.lock;
   SetRenderTarget(tex.data,tex.pitch,tex.width,tex.height);
   FillRect(0,0,tex.width-1,tex.height-1,0);
