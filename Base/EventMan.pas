@@ -52,6 +52,9 @@ type
  // Удалить все связанные события (втч для всех подсобытий)
  procedure UnlinkAll(event:EventStr='');
 
+ // Check if event has form of XXX\YYY where XXX is eventClass (case-insensitive). Returns YYY part in subEvent
+ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
+
 implementation
  uses CrossPlatform, SysUtils, MyServis;
 const
@@ -109,7 +112,20 @@ var
 
  links:array[0..255] of PLink;
 
- CritSect:TMyCriticalSection;
+ critSect:TMyCriticalSection;
+
+function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
+ var
+  i:integer;
+ begin
+  i:=length(eventClass);
+  if length(event)<=i then exit(false);
+  if event[i+1]<>'\' then exit(false);
+  if not SameText(Copy(event,1,i),eventClass) then exit(false);
+  subEvent:=Copy(event,i+2,length(event));
+  result:=true;
+ end;
+
 
  {$R-}
 

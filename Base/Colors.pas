@@ -31,6 +31,7 @@ interface
  function Contrast(c:cardinal;value:integer):cardinal;
 
 implementation
+ uses MyServis;
  {$R-,Q-}
  type
   TARGBcolor=packed record
@@ -159,6 +160,7 @@ implementation
  function ColorAlpha(color:cardinal;alpha:single):cardinal;
   begin
    if alpha>1 then alpha:=1;
+   alpha:=Clamp(alpha,0,1);
    result:=color and $FFFFFF+round(alpha*(color and $FF000000)) and $FF000000;
   end;
 

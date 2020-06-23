@@ -418,8 +418,8 @@ begin
   trackers[0]:=TTracker.Create(5,round(height*0.2),self,vtInteger,StrToInt(vValue),StrToInt(iValue));
  end;
  if varName[2]='C' then begin // Color value
-  c:=StrToInt(vValue);
-  ic:=StrToInt(iValue);
+  c:=cardinal(StrToInt(vValue));
+  ic:=cardinal(StrToInt(iValue));
   i:=0;
   trackers[0]:=TTracker.Create(68,i,self,vtAlpha,c shr 24,ic shr 24); inc(i,round(trackers[0].height-1));
   trackers[1]:=TTracker.Create(68,i,self,vtRed,  c shr 16 and $FF,ic shr 16 and $FF); inc(i,round(trackers[0].height-1));

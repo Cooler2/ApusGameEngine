@@ -221,7 +221,7 @@ begin
  txtTex:=nil;
  efftex:=texman.AllocImage(256,32,ipfARGB,aiTexture,'effectTex') as TGLtexture;
  txttex:=texman.AllocImage(1024,32,ipfARGB,aiTexture,'txtTex') as TGLtexture;
- textCache:=texman.AllocImage(textCacheWidth,textCacheHeight,ipfA8,aiTexture,'textCache') as TTextureImage;
+ textCache:=texman.AllocImage(textCacheWidth,textCacheHeight,ipfA8,aiTexture,'textCache');
  colorFormat:=1; // colors should be flipped
  supportARGB:=true; // always supported
  for i:=0 to 3 do begin
@@ -752,7 +752,10 @@ begin
   end;
   blAlpha:begin
    glEnable(GL_BLEND);
-   glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+   if GL_VERSION_2_0 then
+    glBlendFuncSeparate(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
+   else
+    glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
   end;
   blAdd:begin
    glEnable(GL_BLEND);
@@ -1117,7 +1120,7 @@ begin
  //if tex=curTextures[stage] then exit;
  if tex<>nil then begin
 //  glActiveTexture(GL_TEXTURE0+stage);
-  if tex.atlas<>nil then tex:=tex.atlas;
+  if tex.parent<>nil then tex:=tex.parent;
   //TGLTexture(tex).filter:=curFilters[stage];
   texman.MakeOnline(tex,stage);
   if curFilters[stage]<>TGLTexture(tex).filter then

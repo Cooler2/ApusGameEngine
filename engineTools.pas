@@ -19,7 +19,7 @@ var
 type
  // Большое изображение, состоящее из нескольких текстур
  TLargeImage=class
-  images:array[0..15,0..15] of TTextureImage; // первый индекс - по X, второй - по Y
+  images:array[0..15,0..15] of TTexture; // первый индекс - по X, второй - по Y
   width,height:integer;
   stepx,stepy:integer;
   cntX,cntY:integer;
@@ -42,7 +42,7 @@ type
   rects:array[1..8] of TRect;
   xMin,xMax,yMin,yMax:integer;
   count:integer;
-  tex:TTextureImage;
+  tex:TTexture;
   constructor Create(fname:string);
   destructor Destroy; override;
   procedure AddRect(xStart,yStart,Rwidth,Rheight:integer;posX,posY:integer); virtual;
@@ -120,27 +120,28 @@ var
 
  function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:ImagePixelFormat=ipfNone):TTexture;
 
- // (пере)загружает картинку из файла, т.е. освобождает если она была ранее загружена
+ // (Re)load texture from an image file. defaultImagesDir is used if path is relative
+ // Default flags can be used from defaultLoadImageFlags
  procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
 
  // Сохраняет изображение в файл (mostly for debug purposes)
- procedure SaveImage(img:TTextureImage;fName:string);
+ procedure SaveImage(img:TTexture;fName:string);
 
  // Создать новую текстуру из куска данной (copy pixel data). Новая текстура размещается в доступной для
  // рендеринга памяти, тогда как источник может быть где угодно
- function CreateSubImage(source:TTextureImage;x,y,width,height:integer;flags:integer=0):TTextureImage;
+ function CreateSubImage(source:TTexture;x,y,width,height:integer;flags:integer=0):TTexture;
 
  // Частный случай - копия изображения целиком (данные копируются)
- function CreateImageCopy(source:TTextureImage):TTextureImage;
+ function CreateImageCopy(source:TTexture):TTexture;
 
  // Обёртка для CopyRect
- procedure CopyImageRect(source,dest:TTextureImage;sx,sy,width,height,targetX,targetY:integer);
+ procedure CopyImageRect(source,dest:TTexture;sx,sy,width,height,targetX,targetY:integer);
 
  // загрузить текстуру с мип-мапами из файла (сперва ищется DDS, затем другие)
  // размер текстуры должен быть степенями 2
  // если мип-мапы в файле отсутствуют - будут созданы
  // если формат загружаемой картинки не соответствует финальному - будет сохранен DDS в нужном формате
- function LoadTexture(fname:string;downscale:single;format:ImagePixelFormat=ipfNone;saveDDS:boolean=true):TTextureImage;
+ function LoadTexture(fname:string;downscale:single;format:ImagePixelFormat=ipfNone;saveDDS:boolean=true):TTexture;
 
  // Загрузить текстурный атлас
  // Далее при загрузке изображений, которые уже есть в атласе, вместо загрузки из файла будут
@@ -149,7 +150,7 @@ var
  procedure LoadAtlas(fname:string;scale:single=1.0);
 
  // Set image as render target for FastGFX drawing operations (lock if not locked) Don't forget to unlock!
- procedure EditImage(tex:TTextureImage);
+ procedure EditImage(tex:TTexture);
 
  // Change image size while keeping its texture space (resolution change)
 // procedure ScaleImage(image:TTexture;scaleX,scaleY:single);
@@ -163,25 +164,25 @@ var
  //   горизонтальных полос y1..y2-1, y3..y4-1
  // При этом производится наложение (методом dissolve) частей на глубину overlap точек
  // Полосы могут быть нулевой ширины (x1=x2), однако все координаты должны быть упорядочены (0 < x1 <= x2 < x3 <= x4 < width)
- function ShrinkImage(image:TTextureImage;x1,x2,x3,x4,y1,y2,y3,y4:integer;overlap:integer):TTextureImage;
+ function ShrinkImage(image:TTexture;x1,x2,x3,x4,y1,y2,y3,y4:integer;overlap:integer):TTexture;
 
  // Expands image this way: where y1..y2 = 456 band, and x1..x2 is 258 band (can also be used for shrinking)
  //  123      1223
  //  456  =>  4556
  //  789      4556
  //           7889
- function ExpandImage(image:TTextureImage;x1,x2,y1,y2:integer;overlap:integer):TTextureImage;
+ function ExpandImage(image:TTexture;x1,x2,y1,y2:integer;overlap:integer):TTexture;
 
  // Создает растянутую/сжатую копию изображения (все в ARGB)
- function ResampleImage(image:TTextureImage;newWidth,newHeight:integer;sysMem:boolean=false):TTextureImage;
+ function ResampleImage(image:TTexture;newWidth,newHeight:integer;sysMem:boolean=false):TTexture;
 
  // strength: 0..256 (ARGB and xRGB only!)
- procedure SharpenImage(image:TTextureImage;strength:integer);
+ procedure SharpenImage(image:TTexture;strength:integer);
 
  // brightness: -1..1 (0 - no change), contrast: 0..1.., saturation 0..1.. (1 - no change)
- procedure AdjustImage(image:TTextureImage;brightness,contrast,saturation:single);
+ procedure AdjustImage(image:TTexture;brightness,contrast,saturation:single);
 
- procedure ImageHueSaturation(image:TTextureImage;hue,saturation:single);
+ procedure ImageHueSaturation(image:TTexture;hue,saturation:single);
 
  // установить заданное изображение в качестве фона данного окна
  procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture); overload;
@@ -191,13 +192,13 @@ var
 
  // Рисует текст с эффектом glow/shadow в заданную текстуру
  // x,y - точка, где будет центр надписи (насколько возможно)
- procedure DrawTextWithGlow(img:TTextureImage;font:cardinal;x,y:integer;st:WideString;
+ procedure DrawTextWithGlow(img:TTexture;font:cardinal;x,y:integer;st:WideString;
      textColor,glowColor,glowDepth,glowBlur:cardinal;glowOfsX,glowOfsY:integer);
 
  // Создает текстуру с заданной надписью на прозрачном фоне, текст с эффектом glow/shadow
  function BuildTextWithGlow(font:cardinal;st:WideString;
     textColor,glowColor,glowDepth,glowBlur:cardinal;
-    glowOfsX,glowOfsY:integer):TTextureImage;
+    glowOfsX,glowOfsY:integer):TTexture;
 
  // Возвращает хэндл шрифта с измененным размером
  // Например, если scale = 1.2, то вернет шрифт такой же, но на 20% крупнее
@@ -457,19 +458,7 @@ begin
    st:=chop(st);
    if (st='') or (w=0) or (h=0) then continue;
    inc(aSubCount);
-   img:=TTexture.Create;
-   img.left:=x;
-   img.top:=y;
-   img.width:=w;
-   img.height:=h;
-   img.stepU:=stepU;
-   img.stepV:=stepV;
-   img.u1:=x*stepU*2;
-   img.v1:=y*stepV*2;
-   img.u2:=(x+w)*stepU*2;
-   img.v2:=(y+h)*stepV*2;
-   img.pixelFormat:=atlas.pixelFormat;
-   img.atlas:=atlas;
+   img:=atlas.ClonePart(Rect(x,y,x+w,y+h));
    aImages[aSubCount]:=img;
    st:=path+st;
    NormalizeFName(st);
@@ -485,10 +474,10 @@ begin
  end;
 end;
 
-function LoadTexture(fname:string;downscale:single;format:ImagePixelFormat=ipfNone;saveDDS:boolean=true):TTextureImage;
+function LoadTexture(fname:string;downscale:single;format:ImagePixelFormat=ipfNone;saveDDS:boolean=true):TTexture;
 var
  i,j:integer;
- tex:TTextureImage;
+ tex:TTexture;
  f:file;
  buf:ByteArray;
  size:integer;
@@ -542,7 +531,7 @@ begin
  ;
  // этап 2 - создание текстуры
  tex:=texman.AllocImage(imginfo.width,imginfo.height,format,
-   aiTexture+aiMipmapping+aiPow2,fname) as TTextureImage;
+   aiTexture+aiMipmapping+aiPow2,fname) as TTexture;
 
  // этап 3 - Загрузка данных в текстуру
  for i:=0 to tex.mipmaps-1 do begin
@@ -630,7 +619,7 @@ function FindProperFile(fname:string):string;
 function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:ImagePixelFormat=ipfNone):TTexture;
 var
  i,j,k:integer;
- tex:TTextureImage;
+ tex:TTexture;
  img,txtImage,preloaded:TRawImage;
  aFlags,mtWidth,mtHeight:integer;
  f:file;
@@ -653,7 +642,7 @@ begin
   // Search atlases first
   i:=FindFileInAtlas(fname);
   if i>0 then begin
-   result:=TTexture.Clone(aImages[i]);
+   result:=aImages[i].Clone;
    exit;
   end;
   {$IFNDEF MSWINDOWS} // Use root dir
@@ -726,7 +715,7 @@ begin
   if flags and liffMipMaps>0 then aflags:=aflags or aiTexture or aiPow2 or aiMipMapping;
   if imgInfo.miplevels>1 then flags:=flags or aiMipMapping;
   aFlags:=aFlags or (flags and $FF0000);
-  tex:=texman.AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,copy(fname,pos('\',fname)+1,16)) as TTextureImage;
+  tex:=texman.AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,copy(fname,pos('\',fname)+1,16)) as TTexture;
   tex.Lock(0);
   img:=tex.GetRawImage; // получить объект типа RAW Image для доступа к данным текстуры
 
@@ -778,14 +767,14 @@ begin
  result:=tex;
 end;
 
-function CreateSubImage(source:TTextureImage;x,y,width,height,flags:integer):TTextureImage;
+function CreateSubImage(source:TTexture;x,y,width,height,flags:integer):TTexture;
 var
- tex:TTextureImage;
+ tex:TTexture;
  i,PixSize:integer;
  sp,dp:PByte;
 begin
  ASSERT((x>=0) and (y>=0) and (x+width<=source.width) and (y+height<=source.height));
- tex:=texman.AllocImage(width,height,source.PixelFormat,flags,'p_'+source.name) as TTextureImage;
+ tex:=texman.AllocImage(width,height,source.PixelFormat,flags,'p_'+source.name) as TTexture;
  tex.Lock;
  source.Lock(0,lmReadOnly);
  sp:=source.data;
@@ -802,12 +791,12 @@ begin
  result:=tex;
 end;
 
-function CreateImageCopy(source:TTextureImage):TTextureImage;
+function CreateImageCopy(source:TTexture):TTexture;
 begin
  result:=CreateSubImage(source,0,0,source.width,source.height,aiMW1024+aiMH1024);
 end;
 
-procedure CopyImageRect(source,dest:TTextureImage;sx,sy,width,height,targetX,targetY:integer);
+procedure CopyImageRect(source,dest:TTexture;sx,sy,width,height,targetX,targetY:integer);
 begin
  source.Lock(0,lmReadOnly);
  dest.Lock(0);
@@ -826,10 +815,10 @@ constructor TLargeImage.Create(fname: string;
   ForceFormat: ImagePixelFormat; cellsize, flags: integer; precache: single);
  var
   i,j,x,y,w,h:integer;
-  tex:TTextureImage;
+  tex:TTexture;
   tname:string[40];
  begin
-  tex:=LoadImageFromFile(fname,liffSysMem,forceFormat) as TTextureImage;
+  tex:=LoadImageFromFile(fname,liffSysMem,forceFormat) as TTexture;
   width:=tex.width;
   height:=tex.height;
   tname:=fname;
@@ -967,7 +956,7 @@ end;
 constructor TPatchedImage.Create(fname: string);
 begin
  count:=0; width:=0; height:=0;
- tex:=LoadImageFromFile(fname,liffTexture) as TTextureImage;
+ tex:=LoadImageFromFile(fname,liffTexture) as TTexture;
 end;
 
 destructor TPatchedImage.Destroy;
@@ -993,9 +982,9 @@ procedure TPatchedImage.Precache(part: single);
 begin
 end;
 
-procedure EditImage(tex:TTextureImage);
+procedure EditImage(tex:TTexture);
  begin
-  if tex.locked=0 then tex.lock(0);
+  if not tex.IsLocked then tex.lock(0);
   SetRenderTarget(tex.data,tex.pitch,tex.width,tex.height);
  end;
 
@@ -1018,13 +1007,13 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
   image.caps:=image.caps or tfScaled;
  end;}
 
- function ShrinkImage(image:TTextureImage;x1,x2,x3,x4,y1,y2,y3,y4:integer;overlap:integer):TTextureImage;
+ function ShrinkImage(image:TTexture;x1,x2,x3,x4,y1,y2,y3,y4:integer;overlap:integer):TTexture;
   var
    w,h,imgW,imgH:integer;
   begin
    w:=image.width-(x2-x1)-(x4-x3);
    h:=image.height-(y2-y1)-(y4-y3);
-   result:=texman.AllocImage(w,h,image.PixelFormat,0,image.name+'_shr') as TTextureImage;
+   result:=texman.AllocImage(w,h,image.PixelFormat,0,image.name+'_shr') as TTexture;
    imgW:=image.width;
    imgH:=image.height;
    image.Lock(0,lmReadOnly);
@@ -1048,7 +1037,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    end;
   end;
 
- function ExpandImage(image:TTextureImage;x1,x2,y1,y2:integer;overlap:integer):TTextureImage;
+ function ExpandImage(image:TTexture;x1,x2,y1,y2:integer;overlap:integer):TTexture;
   var
    w,h,imgW,img,dw,dh,i,j,sx,sy,dx,dy,bw,bh:integer;
   begin
@@ -1056,7 +1045,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    dh:=y2-y1;
    w:=image.width+dw;
    h:=image.height+dh;
-   result:=texman.AllocImage(w,h,image.PixelFormat,0,image.name+'_expd') as TTextureImage;
+   result:=texman.AllocImage(w,h,image.PixelFormat,0,image.name+'_expd') as TTexture;
    image.Lock(0,lmReadOnly);
    result.Lock;
    try
@@ -1090,7 +1079,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    img:=LoadImageFromFile(fName,flags,ipf32bpp);
   end;
 
- procedure SaveImage(img:TTextureImage;fName:string);
+ procedure SaveImage(img:TTexture;fName:string);
   var
    buf:ByteArray;
   begin
@@ -1104,7 +1093,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    end;
   end;
 
- procedure DrawTextWithGlow(img:TTextureImage;font:cardinal;x,y:integer;st:WideString;
+ procedure DrawTextWithGlow(img:TTexture;font:cardinal;x,y:integer;st:WideString;
      textColor,glowColor,glowDepth,glowBlur:cardinal;glowOfsX,glowOfsY:integer);
   var
    w,h,d,i:integer;
@@ -1146,16 +1135,16 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
 
  function BuildTextWithGlow(font:cardinal;st:WideString;
     textColor,glowColor,glowDepth,glowBlur:cardinal;
-    glowOfsX,glowOfsY:integer):TTextureImage;
+    glowOfsX,glowOfsY:integer):TTexture;
   var
-   img:TTextureImage;
+   img:TTexture;
    w,h,d:integer;
   begin
    d:=GlowDepth+glowBlur;
    st:=Translate(st);
    w:=painter.TextWidthW(font,st)+6+2*d; h:=round(3*d+painter.FontHeight(font)*1.5);
 //   if w mod 2=0 then inc(w);
-   img:=texman.AllocImage(w,h,pfTrueColorAlpha,aiClampUV,'BTWG'+inttostr(serial)) as TTextureImage;
+   img:=texman.AllocImage(w,h,pfTrueColorAlpha,aiClampUV,'BTWG'+inttostr(serial)) as TTexture;
    inc(serial);
    img.Lock;
    FillRect(img.data,img.pitch,0,0,w-1,h-1,$00808080);
@@ -1166,7 +1155,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    result:=img;
   end;
 
- function ResampleImage(image:TTextureImage;newWidth,newHeight:integer;sysMem:boolean=false):TTextureImage;
+ function ResampleImage(image:TTexture;newWidth,newHeight:integer;sysMem:boolean=false):TTexture;
   var
    tmp:array of cardinal;
    w,h:integer;
@@ -1188,7 +1177,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
     flipY:=false;
 
    result:=texman.AllocImage(newWidth,newHeight,ipfARGB,
-       aiSysMem*byte(sysMem),'_'+image.name) as TTextureImage;
+       aiSysMem*byte(sysMem),'_'+image.name) as TTexture;
    result.Lock;
    if (newWidth>image.width) or (newHeight>image.height) then begin
     // При растяжении изображений на верхней и нижней линии вероятны артефакты,
@@ -1223,7 +1212,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    result.Unlock;
   end;
 
- procedure SharpenImage(image:TTextureImage;strength:integer);
+ procedure SharpenImage(image:TTexture;strength:integer);
   begin
    ASSERT(image.PixelFormat in [ipfARGB,ipfxRGB]);
    image.lock;
@@ -1234,7 +1223,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    end;
   end;
 
- procedure AdjustImage(image:TTextureImage;brightness,contrast,saturation:single);
+ procedure AdjustImage(image:TTexture;brightness,contrast,saturation:single);
   var
    mat:TMatrix43s;
   begin
@@ -1248,7 +1237,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    end;
   end;
 
- procedure ImageHueSaturation(image:TTextureImage;hue,saturation:single);
+ procedure ImageHueSaturation(image:TTexture;hue,saturation:single);
   var
    mat:TMatrix43s;
   begin

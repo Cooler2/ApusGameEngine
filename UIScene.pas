@@ -29,6 +29,11 @@ type
   procedure onMouseBtn(btn:byte;pressed:boolean); override;
   procedure onMouseWheel(delta:integer); override;
 
+  // These are markers for drawing scenes background to properly handle alpha channel of the render target to avoid wrong alpha blending
+  // This is important ONLY if you are drawing semi-transparent pixels over the undefined (previous) content
+  procedure BackgroundRenderBegin; virtual;
+  procedure BackgroundRenderEnd; virtual;
+
  private
   lastRenderTime:int64;
 //  prevModal:TUIControl;
@@ -322,6 +327,16 @@ end;
 
 { TUIScene }
 
+procedure TUIScene.BackgroundRenderBegin;
+begin
+ if transpBgnd then painter.SetMode(blMove);
+end;
+
+procedure TUIScene.BackgroundRenderEnd;
+begin
+ if transpBgnd then painter.SetMode(blAlpha);
+end;
+
 constructor TUIScene.Create;
 begin
  InitUI;
@@ -331,9 +346,11 @@ begin
  UI:=TUIControl.Create(rootWidth,rootHeight,nil,sceneName);
  UI.enabled:=false;
  UI.visible:=false;
- if not fullscreen then UI.transpMode:=tmTransparent;
- onCreate;
- game.AddScene(self);
+ if not fullscreen then ui.transpMode:=tmTransparent
+  else ui.transpmode:=tmOpaque;
+
+ if classType=TUIScene then onCreate;
+ if game<>nil then game.AddScene(self);
 end;
 
 function TUIScene.GetArea:TRect;

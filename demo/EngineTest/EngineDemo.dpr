@@ -66,7 +66,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 15;
+ testnum:integer = 3;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -131,21 +131,21 @@ type
 
  TTexturesTest=class(TTest)
   prog,uTex:integer;
-  tex1,tex2,tex3,tex4,texA,tex5,tex6,texM,texDuo:TTextureImage;
+  tex1,tex2,tex3,tex4,texA,tex5,tex6,texM,texDuo:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
  end;
 
  TTex2Test=class(TTest)
-  tex1,tex2,tex3:TTextureImage;
+  tex1,tex2,tex3:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
  end;
 
  TR2TextureTest=class(TTest)
-  tex1,tex2,tex3,tex4,tex0:TTextureImage;
+  tex1,tex2,tex3,tex4,tex0:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -153,7 +153,7 @@ type
 
  TFontTest=class(TTest)
   fnt:integer;
-  texA:TTextureImage;
+  texA:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -161,14 +161,14 @@ type
 
  TFontTest2=class(TTest)
   font:TFreeTypeFont;
-  buf:TTextureImage;
+  buf:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
  end;
 
  TToolsTest=class(TTest)
   tex1,tex2,tex3,tex4:TTexture;
-  t1,t2,t3,t4:TTextureImage;
+  t1,t2,t3,t4:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -181,14 +181,14 @@ type
  end;
 
  TParticlesTest=class(TTest)
-  tex,tex2:TTextureImage;
+  tex,tex2:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
  end;
 
  TBandTest=class(TTest)
-  tex:TTextureImage;
+  tex:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -203,14 +203,14 @@ type
  TShaderTest=class(TTest)
   prog:integer;
   loc1:integer;
-  tex:TTextureImage;
+  tex:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
  end;
 
  TVideoTest=class(TTest)
-  tex:TTextureImage;
+  tex:TTexture;
   vlc,mp,media:pointer;
   procedure Init; override;
   procedure RenderFrame; override;
@@ -334,14 +334,14 @@ var
  i,j,r:integer;
  pb:pbyte;
 begin
- tex1:=texman.AllocImage(100,100,ipfARGB,0,'test1') as TTextureImage;
- tex2:=texman.AllocImage(64,64,ipf565,aiTexture,'test2') as TTextureImage;
- tex3:=texman.AllocImage(64,64,ipfARGB,aiTexture,'test3') as TTextureImage;
- tex4:=texman.AllocImage(128,128,ipfARGB,aiTexture,'test4') as TTextureImage;
- texA:=texman.AllocImage(100,100,ipfA8,aiTexture,'testA') as TTextureImage;
- texM:=texman.AllocImage(128,128,ipfARGB,aiTexture+aiMipMapping,'testMipMap') as TTextureImage;
- texDuo:=texman.AllocImage(32,32,ipfDuo8,aiTexture,'testDuo') as TTextureImage;
-// tex1:=LoadImageFromFile('test1.tga') as TTExtureImage;
+ tex1:=texman.AllocImage(100,100,ipfARGB,0,'test1') as TTexture;
+ tex2:=texman.AllocImage(64,64,ipf565,aiTexture,'test2') as TTexture;
+ tex3:=texman.AllocImage(64,64,ipfARGB,aiTexture,'test3') as TTexture;
+ tex4:=texman.AllocImage(128,128,ipfARGB,aiTexture,'test4') as TTexture;
+ texA:=texman.AllocImage(100,100,ipfA8,aiTexture,'testA') as TTexture;
+ texM:=texman.AllocImage(128,128,ipfARGB,aiTexture+aiMipMapping,'testMipMap') as TTexture;
+ texDuo:=texman.AllocImage(32,32,ipfDuo8,aiTexture,'testDuo') as TTexture;
+// tex1:=LoadImageFromFile('test1.tga') as TTexture;
  tex1.Lock;
  for i:=0 to tex1.height-1 do begin
   pb:=tex1.data;
@@ -479,7 +479,7 @@ end;
 procedure TTexturesTest.RenderFrame;
 var
  vrt:array[0..3] of TScrPoint;
- tex:TTextureImage;
+ tex:TTexture;
  l1,l2:TMultiTexLayer;
  v,s:single;
  x,y,i,t:integer;
@@ -547,6 +547,7 @@ begin
  painter.DrawImagePart90(290,50,tex1,$FF808080,Rect(2,2,20,10),3);
  painter.DrawRotScaled(450,200,2,2,1,tex2,$FF808080);
 
+
  s:=0.2+(MyTickCount mod 3000)/3000;
  painter.SetTexMode(0,tblModulate2X,tblModulate,fltTrilinear);
  painter.DrawRotScaled(450,420,s,s,0,texM);
@@ -562,6 +563,7 @@ begin
  painter.DrawImagePart(100,200,tex2,$FF808080,Rect(8,8,15,15));
  v:=1+0.5*sin(frame/35);
  painter.DrawRotScaled(200,500,v,v,frame/100,tex1,$FF808080);
+ painter.DrawRotScaled(200,700,1,1,frame/300,tex1,$FF808080,0.2, 0);
  painter.DrawImage(400,10,tex3);
 
  s:=(MyTickCount mod 100000)/2000;
@@ -801,7 +803,7 @@ procedure TFontTest2.Init;
 begin
  //font:=TFreeTypeFont.LoadFromFile('res\arial.ttf');
 // font:=TFreeTypeFont.LoadFromFile('12460.ttf');
- buf:=texman.AllocImage(400,50,ipfARGB,0,'txtbuf') as TTextureImage;
+ buf:=texman.AllocImage(400,50,ipfARGB,0,'txtbuf') as TTexture;
  painter.LoadFont('res\arial.ttf');
 end;
 
@@ -913,11 +915,11 @@ var
  i,j:integer;
  pb:PByte;
 begin
- tex0:=texman.AllocImage(50,30,ipfARGB,0,'test0') as TTextureImage;
- tex1:=texman.AllocImage(100,100,ipfARGB,0,'test1') as TTextureImage;
- tex2:=texman.AllocImage(256,256,ipf565,aiTexture+aiRenderTarget,'test2') as TTextureImage;
- tex3:=texman.AllocImage(128,128,ipfARGB,aiTexture+aiRenderTarget,'test3') as TTextureImage;
- tex4:=texman.AllocImage(90,100,ipfARGB,aiTexture+aiRenderTarget,'test4') as TTextureImage;
+ tex0:=texman.AllocImage(50,30,ipfARGB,0,'test0') as TTexture;
+ tex1:=texman.AllocImage(100,100,ipfARGB,0,'test1') as TTexture;
+ tex2:=texman.AllocImage(256,256,ipf565,aiTexture+aiRenderTarget,'test2') as TTexture;
+ tex3:=texman.AllocImage(128,128,ipfARGB,aiTexture+aiRenderTarget,'test3') as TTexture;
+ tex4:=texman.AllocImage(90,100,ipfARGB,aiTexture+aiRenderTarget,'test4') as TTexture;
  tex0.Lock;
  for i:=0 to tex0.height-1 do begin
   pb:=tex0.data;
@@ -1028,7 +1030,7 @@ begin
 { painter.SetTexMode(fltTrilinear);
  f:=0.5;
  device.SetTextureStageState(0,D3DTSS_MIPMAPLODBIAS,c);}
- t1:=texman.AllocImage(40,40,ipfARGB,0,'t1') as TTExtureImage;
+ t1:=texman.AllocImage(40,40,ipfARGB,0,'t1') as TTexture;
  t1.Lock;
  FillRect(t1.data,t1.pitch,0,0,39,39,$FF502060);
  for i:=0 to 9 do begin
@@ -1074,9 +1076,9 @@ var
  c:cardinal;
  r:single;
 begin
- tex1:=texman.AllocImage(100,100,ipfARGB,0,'test1') as TTextureImage;
- tex2:=texman.AllocImage(113,113,ipfARGB,aiTexture,'test2') as TTextureImage;
- tex3:=texman.AllocImage(64,64,ipfARGB,aiTexture,'test3') as TTextureImage;
+ tex1:=texman.AllocImage(100,100,ipfARGB,0,'test1') as TTexture;
+ tex2:=texman.AllocImage(113,113,ipfARGB,aiTexture,'test2') as TTexture;
+ tex3:=texman.AllocImage(64,64,ipfARGB,aiTexture,'test3') as TTexture;
  // Tex1
  tex1.Lock;
  for y:=0 to tex1.height-1 do begin
@@ -1212,7 +1214,7 @@ var
  pb:PByte;
  pc:PCardinal;
 begin
- tex:=texman.AllocImage(19*2,19,ipfARGB,0,'particles') as TTextureImage;
+ tex:=texman.AllocImage(19*2,19,ipfARGB,0,'particles') as TTexture;
  tex.Lock;
  for i:=0 to tex.height-1 do begin
   pb:=tex.data;
@@ -1239,7 +1241,7 @@ begin
  end;
  tex.Unlock;
 
- tex2:=texman.AllocImage(16,16,ipfARGB,0,'particles2') as TTextureImage;
+ tex2:=texman.AllocImage(16,16,ipfARGB,0,'particles2') as TTexture;
  EditImage(tex2);
  for y:=0 to tex2.height-1 do
   for x:=0 to tex2.width-1 do begin
@@ -1298,7 +1300,7 @@ var
  i,j,n,x,y:integer;
  pb:PByte;
 begin
- tex:=texman.AllocImage(19*2,19,ipfARGB,0,'particles') as TTextureImage;
+ tex:=texman.AllocImage(19*2,19,ipfARGB,0,'particles') as TTexture;
  tex.Lock;
  for i:=0 to tex.height-1 do begin
   pb:=tex.data;
@@ -1615,9 +1617,9 @@ end;
 
 procedure TestSharpen;
 var
- img:TTextureImage;
+ img:TTexture;
 begin
- img:=LoadImageFromFile('e:\apus\projects\ah\images\cards\unicorn') as TTExtureImage;
+ img:=LoadImageFromFile('e:\apus\projects\ah\images\cards\unicorn') as TTexture;
  SharpenImage(img,120);
  SaveImage(img,'test.tga');
 end;
@@ -1644,7 +1646,7 @@ begin
    LoadFileAsString('res\shader.frag'));
  loc1:=glGetUniformLocation(prog,'offset');
 
- tex:=texman.AllocImage(256,256,ipfARGB,0,'tex') as TTextureImage;
+ tex:=texman.AllocImage(256,256,ipfARGB,0,'tex') as TTexture;
  tex.Lock;
  for y:=0 to 255 do begin
   pc:=tex.data; inc(pc,y*tex.pitch div 4);

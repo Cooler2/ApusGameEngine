@@ -152,32 +152,33 @@ type
  // Базовый абстрактный класс - текстура или ее часть
  TTexture=class
   PixelFormat:ImagePixelFormat;
-  left,top:integer; // верхний правый угол (начиная с 0,0)
-  width,height:integer; // ширина и высота в пикселях (virtual pixels)
-  u1,v1,u2,v2:single; // текстурные к-ты
-  stepU,stepV:single; // шаг (половина) текселя в текстурных к-тах
-//  scaleX,scaleY:single; // scale factors (scale=2 означает, что истинный размер текстуры вдвое больше указанного)
+  width,height:integer; // dimension (in virtual pixels)
+  left,top:integer; // position
   mipmaps:byte; // кол-во уровней MIPMAP
   caps:integer; // возможности и флаги
-  name:texnamestr; // имя текстуры (скорее для отладки)
-  atlas:TTexture;
-  refCounter,numClones:integer;
-  cloneOf:TTexture;
-  // Create cloned image (separate object referencing the same image data). Original image can't be destroyed unless all its clones are destroyed
-  constructor Clone(tex:TTexture);
- end;
+  name:texnamestr; // texture name (for debug purposes)
+  refCounter:integer; // number of child textures referencing this texture data
+  parent:TTexture;
+  // These properties may not be valid if texture is not ONLINE
+  u1,v1,u2,v2:single; // texture coordinates
+  stepU,stepV:single; // halved texel step
+  // These properties are valid when texture is LOCKED
+  data:pointer;   // raw data
+  pitch:integer;  // offset to next scanline
 
- // Текстура с возможностью доступа к данным (путем блокировки)
- TTextureImage=class(TTexture)
-  locked:integer; // lock counter
-  data:pointer;   // указатель на данные (имеет смысл только между lock/unlock)
-  pitch:integer;  // смещение в байтах
+  // Create cloned image (separate object referencing the same image data). Original image can't be destroyed unless all its clones are destroyed
+  constructor CreateClone(src:TTexture);
+  function Clone:TTexture;
+  function ClonePart(part:TRect):TTexture;
   procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // 0-й уровень - самый верхний
-  procedure LockNext; virtual; abstract; // залочить следующий уровень mip-map
-  function GetRawImage:TRawImage; virtual; abstract; // Создать RAW image и назначить его на верхний уровень текстуры (только когда текстура залочна!!!)
+  procedure LockNext; virtual; abstract; // lock next mip-map level
+  function GetRawImage:TRawImage; virtual; abstract; // Create RAW image for the topmost MIP level (when locked)
+  function IsLocked:boolean;
   procedure Unlock; virtual; abstract;
   procedure AddDirtyRect(rect:TRect); virtual; abstract; // mark area to update when unlocked (mode=lmCustomUpdate)
   procedure GenerateMipMaps(count:byte); virtual; abstract; // Сгенерировать изображения mip-map'ов
+ protected
+  locked:integer; // lock counter
  end;
 
  // -------------------------------------------------------------------
@@ -195,7 +196,6 @@ type
   function Clone(img:TTexture):TTexture; virtual; abstract;
   // Освободить изображение
   procedure FreeImage(var image:TTexture); overload; virtual; abstract;
-  procedure FreeImage(var image:TTextureImage); overload; virtual; abstract;
   // Сделать текстуру доступной для использования (может использоваться для менеджмента текстур)
   // необходимо вызывать всякий раз перед переключением на текстуру (обычно это делает код рисовалки)
   procedure MakeOnline(img:TTexture;stage:integer=0); virtual; abstract;
@@ -510,7 +510,7 @@ type
   timer:integer; // время (в тысячных секунды), прошедшее с момента начала эффекта
   duration:integer;  // время, за которое эффект должен выполнится
   done:boolean;  // Флаг, сигнализирующий о том, что эффект завершен
-  forScene:TGameScene;
+  target:TGameScene;
   name:string; // description for debug reasons
   constructor Create(scene:TGameScene;TotalTime:integer); // создать эффект на заданное время (в мс.)
   procedure DrawScene; virtual; abstract; // Процедура должна полностью выполнить отрисовку сцены с эффектом (в текущий RT)
@@ -543,7 +543,7 @@ type
   destructor Destroy; override;
 
   // Вызывается из конструктора, можно переопределить для инициализации без влезания в конструктор
-  // !!! Manual call from constructor!
+  // !!! Call this manually from constructor!
   procedure onCreate; virtual;
 
   // Для изменения статуса использовать только это!
@@ -596,25 +596,50 @@ type
 implementation
  uses SysUtils,MyServis;
 
- constructor TTexture.Clone(tex:TTexture);
+ constructor TTexture.CreateClone(src:TTexture);
   begin
-   PixelFormat:=tex.PixelFormat;
-   left:=tex.left;
-   top:=tex.top;
-   width:=tex.width;
-   height:=tex.height;
-   u1:=tex.u1; v1:=tex.v1;
-   u2:=tex.u2; v2:=tex.v2;
-   stepU:=tex.stepU; stepV:=tex.stepV;
-//   scaleX:=tex.scaleX; scaleY:=tex.scaleY;
-   mipmaps:=tex.mipmaps;
-   caps:=tex.caps or tfCloned;
-   name:=tex.name;
-   atlas:=tex.atlas;
-   refCounter:=1;
-   cloneOf:=tex;
-   inc(tex.numClones);
+   PixelFormat:=src.PixelFormat;
+   left:=src.left;
+   top:=src.top;
+   width:=src.width;
+   height:=src.height;
+   u1:=src.u1; v1:=src.v1;
+   u2:=src.u2; v2:=src.v2;
+   stepU:=src.stepU; stepV:=src.stepV;
+   mipmaps:=src.mipmaps;
+   caps:=src.caps or tfCloned;
+   name:=src.name;
+   if src.parent<>nil then
+    parent:=src.parent
+   else
+    parent:=src;
+   inc(parent.refCounter);
   end;
+
+function TTexture.IsLocked: boolean;
+ begin
+  result:=locked>0;
+ end;
+
+function TTexture.Clone:TTexture;
+ begin
+  result:=TTexture.CreateClone(self);
+ end;
+
+
+function TTexture.ClonePart(part:TRect): TTexture;
+ begin
+  result:=Clone;
+  result.left:=left+part.Left;
+  result.top:=top+part.Top;
+  result.width:=part.Width;
+  result.height:=part.Height;
+  result.u1:=u1+part.left*stepU*2;
+  result.u2:=u1+part.right*stepU*2;
+  result.v1:=v1+part.top*stepV*2;
+  result.v2:=v1+part.bottom*stepV*2;
+ end;
+
 
 { TGameScene }
 
@@ -717,14 +742,14 @@ begin
   scene.effect.Free;
  end;
  scene.effect:=self;
- ForScene:=scene;
+ target:=scene;
  name:=self.ClassName+' for '+scene.name+' created '+FormatDateTime('nn:ss.zzz',Now);
- LogMessage('Effect '+inttohex(cardinal(self),8)+': '+name);
+ LogMessage('Effect %s: %s',[PtrToStr(self),name]);
 end;
 
 destructor TSceneEffect.Destroy;
 begin
-  LogMessage('Scene effect deleted: '+name);
+  LogMessage('Scene effect %s deleted: %s',[PtrToStr(self),name]);
   inherited;
 end;
 
