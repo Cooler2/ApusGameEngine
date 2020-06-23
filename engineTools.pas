@@ -120,7 +120,8 @@ var
 
  function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:ImagePixelFormat=ipfNone):TTexture;
 
- // (пере)загружает картинку из файла, т.е. освобождает если она была ранее загружена
+ // (Re)load texture from an image file. defaultImagesDir is used if path is relative
+ // Default flags can be used from defaultLoadImageFlags
  procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
 
  // Сохраняет изображение в файл (mostly for debug purposes)
