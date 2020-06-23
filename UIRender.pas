@@ -87,13 +87,16 @@ implementation
 {   /// TODO: alpha should be masked ONLY if semi-transparent element is drawn on an opaque background, not vice-versa.
    ///  Need to find a generic approach.
    maskChange:=(item.parent<>nil) and (item.parent.transpmode<>tmTransparent);
-   maskChange:=false;}
-   if maskChange then painter.SetMask(true,false);
+   maskChange:=false;
+   if maskChange then painter.SetMask(true,false);}
    try
     // Draw control
     if (item.customDraw=customDraw) and
        (item.style>=0) and
-       (item.style<=high(styleDrawers)) then StyleDrawers[item.style](item);
+       (item.style<=high(styleDrawers)) then begin
+        ASSERT(@styleDrawers[item.style]<>nil,'Style not registered');
+        styleDrawers[item.style](item);
+    end;
     // Debug: Highlight with border when Ctrl+Alt+Win pressed
     if (game.shiftState and $F=$E) then
      if (item=underMouse) or
