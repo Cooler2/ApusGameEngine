@@ -8,8 +8,6 @@ https://www.patreon.com/ApusGameEngine
 ---
 [Documentation / Tutorial](https://docs.google.com/document/d/1sl9x3FB-qI7e8DnW6dpUHevZSU8ddfsNHwwTk5ygYUs/edit?usp=sharing) - live document, feel free to comment or ask questions.
 
-**See [Wiki](https://github.com/Cooler2/ApusGameEngine/wiki) for more info**
-
 ---
 
 **Title sponsor of development:**
