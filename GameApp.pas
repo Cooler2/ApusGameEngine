@@ -28,6 +28,7 @@ interface
 
    deviceDPI:integer=96; // mobile only
    noVSync:boolean=false;
+   directRenderOnly:boolean=false; // true -> for OpenGL: always render directly to the backbuffer, false -> allow frame render into texture
    checkForSteam:boolean=false;  // Check if STEAM client is running and get AppID
    useSystemCursor:boolean=true; // true - system hardware cursor, false - system cursor is disabled, custom cursor must be drawn
    useCustomStyle:boolean=false; // init cuttom style?
@@ -91,8 +92,8 @@ implementation
    UIClasses,BasicGame,EngineTools,ConScene,TweakScene,customstyle,BitmapStyle
   {$IFDEF IMX},Sound{$ENDIF}
   {$IFDEF BASS},SoundB{$ENDIF}
-  {$IFDEF DIRECTX},DXgame8{$ENDIF}
-  {$IFDEF OPENGL},GLgame{$ENDIF}
+  {$IFDEF DIRECTX},DXGame8{$ENDIF}
+  {$IFDEF OPENGL},GLGame{$ENDIF}
   {$IFDEF STEAM},SteamAPI{$ENDIF};
 
 type
@@ -416,18 +417,22 @@ procedure TGameApplication.Prepare;
 
    for i:=1 to paramCount do HandleParam(paramstr(i));
 
-  {$IFDEF STEAM}
-  if checkForSteam then InitSteamAPI;
-  if steamAvailable then
-   // Выбор языка при установке из Стима
-   if FileExists('SelectLang') and (steamID<>0) then begin
-    st:=lowercase(steamGameLang);
-    if st='russian' then langCode:='ru';
-    if st='english' then langCode:='en';
-    LogMessage('First time launch: Steam language is '+langCode);
-    SaveOptions;
-    DeleteFile('SelectLang');
-   end;
+   {$IFDEF OPENGL}
+   if directRenderOnly then disableDRT:=true;
+   {$ENDIF}
+
+   {$IFDEF STEAM}
+   if checkForSteam then InitSteamAPI;
+   if steamAvailable then
+    // Выбор языка при установке из Стима
+    if FileExists('SelectLang') and (steamID<>0) then begin
+     st:=lowercase(steamGameLang);
+     if st='russian' then langCode:='ru';
+     if st='english' then langCode:='en';
+     LogMessage('First time launch: Steam language is '+langCode);
+     SaveOptions;
+     DeleteFile('SelectLang');
+    end;
    {$ENDIF}
 
   except
@@ -463,6 +468,15 @@ procedure TGameApplication.Run;
   // CREATE GAME OBJECT
   // ------------------------
   {$IFDEF MSWINDOWS}
+   if usedAPI=gaAuto then begin
+    {$IFDEF DIRECTX}
+     usedAPI:=gaDirectX;
+    {$ENDIF}
+    {$IFDEF OPENGL}
+     if GetOpenGLVersion>=3.0 then usedAPI:=gaOpenGL2
+      else usedAPI:=gaOpenGL;
+    {$ENDIF}
+   end;
    {$IFDEF DIRECTX}
    if usedAPI=gaDirectX then game:=TDxGame8.Create(80);
    {$ENDIF}

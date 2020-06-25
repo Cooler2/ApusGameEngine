@@ -43,12 +43,30 @@ type
   function GetStatus(n:integer):string; override;
  end;
 
+ function GetOpenGLVersion:single; // 3.1 for "3.1" etc
+
 implementation
- uses types,SysUtils,cmdproc,windows,
+ uses types,SysUtils,cmdproc,windows,FastGFX,
 
          {$IFNDEF GLES}dglOpenGL,{$ENDIF}
      GLImages,EventMan,UIClasses,UIScene,GFXFormats,
      Console,PainterGL,PainterGL2, BasicPainter;
+
+function GetOpenGLVersion:single;
+begin
+ result:=1.4;
+ if GL_VERSION_1_5 then result:=1.5;
+ if GL_VERSION_2_0 then result:=2.0;
+ if GL_VERSION_2_1 then result:=2.1;
+ if GL_VERSION_3_0 then result:=3.0;
+ if GL_VERSION_3_1 then result:=3.1;
+ if GL_VERSION_3_2 then result:=3.2;
+ if GL_VERSION_3_3 then result:=3.3;
+ if GL_VERSION_4_0 then result:=4.0;
+ if GL_VERSION_4_1 then result:=4.1;
+ if GL_VERSION_4_2 then result:=4.2;
+ if GL_VERSION_4_3 then result:=4.3;
+end;
 
 { TGlGame }
 
@@ -128,18 +146,7 @@ begin
  if not GL_VERSION_1_4 then
   raise Exception.Create('OpenGL 1.4 or higher required!'#13#10'Please update your video drivers.');
 
- glVersionNum:=1.4;
- if GL_VERSION_1_5 then glVersionNum:=1.5;
- if GL_VERSION_2_0 then glVersionNum:=2.0;
- if GL_VERSION_2_1 then glVersionNum:=2.1;
- if GL_VERSION_3_0 then glVersionNum:=3.0;
- if GL_VERSION_3_1 then glVersionNum:=3.1;
- if GL_VERSION_3_2 then glVersionNum:=3.2;
- if GL_VERSION_3_3 then glVersionNum:=3.3;
- if GL_VERSION_4_0 then glVersionNum:=4.0;
- if GL_VERSION_4_1 then glVersionNum:=4.1;
- if GL_VERSION_4_2 then glVersionNum:=4.2;
- if GL_VERSION_4_3 then glVersionNum:=4.3;
+ glVersionNum:=GetOpenGLVersion;
 
  if WGL_EXT_swap_control then
   wglSwapIntervalEXT(params.VSync);
