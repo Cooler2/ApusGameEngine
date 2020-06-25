@@ -6,7 +6,7 @@ Please keep in mind that I wrote this code for myself, so while there are many s
 https://www.patreon.com/ApusGameEngine
 
 ---
-**See [Wiki](https://github.com/Cooler2/ApusGameEngine/wiki) for more info**
+[Documentation / Tutorial](https://docs.google.com/document/d/1sl9x3FB-qI7e8DnW6dpUHevZSU8ddfsNHwwTk5ygYUs/edit?usp=sharing) - live document, feel free to comment or ask questions.
 
 ---
 
@@ -18,5 +18,11 @@ https://www.patreon.com/ApusGameEngine
 * Rad72
 * Евгений Румянцев
 * Алексей Воронин
-
+* Mattew Vesperman
+* Eli M
+* Dave W
+* Ken Ramsey
 and others...
+
+---
+VK group: https://vk.com/apusgameengine
