@@ -101,7 +101,7 @@ begin
   pf:=ipf4444
  else
   pf:=ipfARGB;
- textCache:=texman.AllocImage(textCacheWidth,textCacheHeight,pf,aiTexture,'textCache') as TTextureImage
+ textCache:=texman.AllocImage(textCacheWidth,textCacheHeight,pf,aiTexture,'textCache');
 end;
 
 destructor TDXPainter8.Destroy;

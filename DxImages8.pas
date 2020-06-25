@@ -9,7 +9,7 @@ interface
 
 type
  // Текстура DirectX
- TDxTexture=class(TTextureImage)
+ TDxTexture=class(TTexture)
   texture:IDirect3DTexture8; // интерфейс для доступа к объекту текстуры (чтобы использовать его в обход Painter'ов)
   trueWidth,trueHeight:integer; // точные размеры выделенной текстуры в пикселях
 //  PalIndex:integer; // индекс палитры (если есть)
@@ -49,7 +49,6 @@ type
   function AllocImage(width,height:integer;
                       PixFmt:ImagePixelFormat;Flags:integer;name:texnamestr):TTexture; override;
   procedure FreeImage(var image:TTexture); override;
-  procedure FreeImage(var image:TTextureImage); override;
   procedure MakeOnline(img:TTexture;stage:integer=0); override;
   function QueryParams(width,height:integer;format:ImagePixelFormat;aiFlags:integer):boolean; override;
 
@@ -577,11 +576,6 @@ begin
  finally
   LeaveCriticalSection(crSect);
  end;
-end;
-
-procedure TDxTextureMan.FreeImage(var image: TTextureImage);
-begin
- FreeImage(TTexture(image));
 end;
 
 procedure TDxTextureMan.FreeMetaTexSpace(n: integer);
