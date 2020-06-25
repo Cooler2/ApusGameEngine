@@ -366,6 +366,9 @@ type
   procedure Restore; virtual; abstract; // Восстановить состояние акселератора (если оно было нарушено внешним кодом)
   procedure RestoreClipping; virtual; abstract; // Установить параметры отсечения по текущему viewport'у
 
+  // Upload texture to the Video RAM and make it active for given stage (don't call manually if you don't really need)
+  procedure UseTexture(tex:TTexture;stage:integer=0); virtual; abstract;
+
   // Basic primitives -----------------
   procedure DrawLine(x1,y1,x2,y2:single;color:cardinal); virtual; abstract;
   procedure DrawPolyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false); virtual; abstract;

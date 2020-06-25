@@ -142,8 +142,6 @@ interface
   procedure BeginTextBlock; override; // включает кэширование вывода текста
   procedure EndTextBlock;  override; // выводит кэш и выключает кэширование
 
-  procedure UseTexture(tex:TTexture;stage:integer=0); virtual; abstract;
-
   procedure DebugScreen1; // инфа о выводе текста
  protected
   texman:TTextureMan;

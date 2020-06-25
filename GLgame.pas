@@ -7,7 +7,7 @@
 unit GLgame;
 
 interface
- uses EngineAPI,Images,engineTools,classes,MyServis,BasicGame;
+ uses EngineAPI,Images,engineTools,MyServis,BasicGame;
 
 const
  disableDRT:boolean=false; // Don't render whole scene to texture, render directly to the backbuffer
@@ -18,6 +18,7 @@ type
  protected
   dRT:TTexture; // default RT
   useShaders:boolean; // use shaders (programmable pipeline)
+  magnifierTex:TTexture;
 
   procedure ApplySettings; override;
 
@@ -33,6 +34,7 @@ type
   {$IFDEF MSWINDOWS}
   procedure CaptureFrame; override;
   procedure ReleaseFrameData(obj:TRAWImage); override;
+  procedure DrawMagnifier; override;
   {$ENDIF}
  public
   glVersion,glRenderer:string; // версия OpenGL и название видеокарты
@@ -290,6 +292,50 @@ begin
   img.pitch:=-w*4;
   screenshotDataRAW:=img;
   inherited;
+end;
+
+procedure TGLGame.DrawMagnifier;
+var
+ width,height,left:integer;
+ u,v,du,dv:single;
+ cx,cy,zoom,ox,oy:integer;
+ text:string;
+ color:cardinal;
+begin
+  if magnifierTex=nil then begin
+   magnifierTex:=texMan.AllocImage(128,128,ipfARGB,aiTexture,'Magnifier');
+  end;
+{  cx:=Clamp(mouseX-64,0,renderWidth-128);
+  cy:=Clamp(mouseY+64,128,renderHeight);}
+  cx:=mouseX-64;
+  cy:=mouseY+64;
+  magnifierTex.Lock;
+  EditImage(magnifierTex);
+  FastGFX.FillRect(0,0,127,127,$FF000000);
+  glReadPixels(cx,renderHeight-cy,128,128,GL_BGRA,GL_UNSIGNED_BYTE,magnifierTex.data);
+  color:=GetPixel(64,64);
+  magnifierTex.Unlock;
+  painter.UseTexture(magnifierTex);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+  width:=min2(512,round(renderWidth*0.4));
+  height:=min2(512,renderHeight);
+  if mouseX<renderWidth div 2 then left:=renderWidth-width
+   else left:=0;
+  zoom:=4;
+  if (shiftstate and sscShift)>0 then zoom:=8;
+  du:=width/(256*zoom); dv:=-height/(256*zoom);
+  u:=0.5; v:=0.5;
+  painter.TexturedRect(left,0,left+width,height,magnifierTex,u-du,v-dv,u+du,v-dv,u+du,v+dv,$FF808080);
+  // Color picker
+  if zoom>5 then begin
+   ox:=left+(width div 2);
+   oy:=(height div 2);
+   painter.Rect(ox,oy,ox+zoom,oy+zoom,$80FFFFFF);
+   painter.Rect(ox-1,oy-1,ox+zoom+1,oy+zoom+1,$80000000);
+   painter.FillRect(ox-50,height-22,ox+50,height-5,$80000000);
+   text:=Format('%2x %2x %2x',[(color shr 16) and $FF,(color shr 8) and $FF,color and $FF]);
+   painter.TextOutW(painter.GetFont('Default',7.5),ox,height-10,$FFFFFFFF,text,taCenter);
+  end;
 end;
 
 constructor TGLGame.Create(useShaders: boolean);

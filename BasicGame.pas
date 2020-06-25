@@ -182,6 +182,8 @@ type
   // находит сцену, которая должна получать сигналы о клавиатурном вводе
   function TopmostSceneForKbd:TGameScene; virtual;
   procedure onEngineEvent(event:string;tag:cardinal); virtual;
+
+  procedure DrawMagnifier; virtual;
  public
   // Глобально доступные переменные
   renderWidth,renderHeight:integer; // Size of render area in virtual pixels (primitive of this size fills the whole renderRect)
@@ -441,6 +443,10 @@ begin
  Signal('Engine\AfterDoneGraph');
 end;
 
+procedure TBasicGame.DrawMagnifier;
+begin
+end;
+
 procedure TBasicGame.FLog(st: string);
 var
  v,w:int64;
@@ -557,6 +563,7 @@ begin
  if game<>nil then
   with game do begin
    if (shiftState and sscAlt>0) then begin
+    // [Alt]+[Fn] - toggle debug overlay
     d:=0;
     case code of
      VK_F1:d:=1;
@@ -1426,7 +1433,8 @@ begin
      end;
     end else
      case debugOverlay of
-      2:TBasicPainter(painter).DebugScreen1;
+      2:TBasicPainter(painter).DebugScreen1; // Painter's debug overlay
+      3:DrawMagnifier;
      end;
 
     if showFPS or (debugOverlay>0) then begin
