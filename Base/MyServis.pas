@@ -93,7 +93,8 @@ interface
    private
     FAddress:cardinal;
    public
-    constructor Create(const msg:string);
+    constructor Create(const msg:string); overload;
+    constructor Create(const msg:string; fields:array of const); overload;
     property Address:cardinal read FAddress;
   end;
 
@@ -4626,6 +4627,11 @@ begin
   inherited create(msg);
   {$ENDIF}
  {$ENDIF}
+end;
+
+constructor TBaseException.Create(const msg:string; fields:array of const);
+begin
+ Create(Format(msg,fields));
 end;
 
 procedure InitCritSect(var cr:TMyCriticalSection;name:string;level:integer=100); //
