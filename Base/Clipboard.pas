@@ -13,11 +13,14 @@ interface
   function PasteStrFromClipboard:UTF8String;
   function PasteStrFromClipboardW:Widestring;
 
+  // Supported images: TRAWImage
+  procedure PutImageToClipboard(image:TObject);
+
 implementation
 
 {$IFDEF MSWINDOWS}
 
-  uses Windows,MyServis,SysUtils;
+  uses Windows,MyServis,SysUtils,Images,clipbrd;
 
   procedure Open;
     var
@@ -35,7 +38,7 @@ implementation
       Data:THandle;
     begin
       Open;
-      Data:=GlobalAlloc(GMEM_MOVEABLE+GMEM_DDESHARE,Size);
+      Data:=GlobalAlloc(GMEM_MOVEABLE,Size);
       try
         DataPtr:=GlobalLock(Data);
         try
@@ -143,6 +146,51 @@ implementation
       CloseClipboard;
     end;
 
+  procedure PutImageToClipboard(image:TObject);
+   const
+    masks:array[0..2] of cardinal=($FF,$FF00,$FF0000);
+   var
+    header:TBitmapInfoHeader;
+    cbData:ByteArray;
+    size,i,pos:integer;
+    pb:PByte;
+   begin
+    if image is TRawImage then
+     with image as TRawImage do begin
+      ZeroMemory(@header,sizeof(header));
+
+      header.biSize:=sizeof(header);
+      header.biWidth:=width;
+      header.biHeight:=height;
+      header.biPlanes:=1;
+      header.biBitCount:=pixelSize[PixelFormat];
+      header.biCompression:=BI_RGB; // BI_BITFIELDS; //
+      size:=width*height*pixelSize[PixelFormat] div 8;
+      //header.biSizeImage:=size;
+      header.biXPelsPerMeter:=2835; // 72 DPI
+      header.biYPelsPerMeter:=2835; // 72 DPI
+
+      SetLength(cbData,sizeof(header)+size);
+      move(header,cbData[0],sizeof(header));
+      pb:=data;
+      pos:=sizeof(header);
+      if header.biCompression=BI_BITFIELDS then begin
+       move(masks,cbData[pos],sizeof(masks));
+       inc(pos,sizeof(masks));
+      end;
+      size:=size div height; // scanline size
+      inc(pb,pitch*(height-1)); // flip vertical
+      for i:=0 to height-1 do begin
+       move(pb^,cbData[pos],size);
+       dec(pb,pitch);
+       inc(pos,size);
+      end;
+      SetBuffer(CF_DIB,cbData[0],Length(cbData));
+      exit;
+    end;
+    raise EError.Create('Object of class %s not supported ',[image.ClassName]);
+   end;
+
 {$ELSE}
   procedure CopyStrToClipboard(st:UTF8String); overload;
     begin
@@ -159,6 +207,10 @@ implementation
   function PasteStrFromClipboardW:Widestring;
     begin
     end;
+
+  procedure PutImageToClipboard(data:TObject);
+   begin
+   end;
 {$ENDIF}
 
 end.
