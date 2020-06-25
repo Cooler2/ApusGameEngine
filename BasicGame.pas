@@ -241,7 +241,7 @@ type
  procedure Delay(time:integer);
 
 implementation
- uses types,SysUtils,cmdproc
+ uses types,SysUtils,cmdproc,Clipboard
      {$IFDEF VIDEOCAPTURE},VideoCapture{$ENDIF},BasicPainter,
      EventMan,UIClasses,UIScene,Console,EngineTools,publics,gfxFormats;
 
@@ -580,7 +580,7 @@ begin
    // F12 - скриншот
    if (code=VK_F12) and
       (shiftState and sscAlt=0) then begin
-    SaveScreenshotsToJPEG:=(shiftState and 1=0);
+    saveScreenshotsToJPEG:=(shiftState and 1=0);
     captureSingleFrame:=true;
     screenshotTarget:=2;
    end;
@@ -802,7 +802,12 @@ begin
    end;
    capturedName:=st;
    capturedTime:=MyTickCount;
+   {$IFDEF OPENGL}
+   // overcome windows problem with OpenGL+PrintScreen in fullscreen mode
+   PutImageToClipboard(img);
+   {$ENDIF}
   end;
+
   {$ENDIF}
  end;
  if not videoCaptureMode then
