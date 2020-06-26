@@ -155,11 +155,16 @@ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
 
  function Hash(st:EventStr):byte;
   var
-   i:integer;
+   i,l:integer;
   begin
    result:=length(st);
-   for i:=1 to Min2(length(st),30) do
-    inc(result,byte(st[i]));
+   l:=length(st);
+   if l>0 then begin
+    // first + last + middle
+    inc(result,byte(st[1]));
+    inc(result,byte(st[l]));
+    inc(result,byte(st[l shr 1]));
+   end;
   end;
 
  procedure SetEventHandler(event:EventStr;handler:TEventHandler;mode:TEventMode=emInstant);
