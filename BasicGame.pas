@@ -2114,6 +2114,7 @@ begin
   {$IFDEF MSWINDOWS}
   owner.CreateMainWindow;
   {$ENDIF}
+  SetEventHandler('Engine\',EngineEvent,emInstant);
   SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
   owner.InitMainLoop; // вызывает InitGraph
   owner.running:=true; // Это как-бы семафор для завершения функции Run
