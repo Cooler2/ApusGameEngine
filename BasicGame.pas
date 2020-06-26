@@ -1049,6 +1049,7 @@ begin
        (game.windowHeight<>lParam shr 16) then begin
       game.windowWidth:=lParam and $FFFF;
       game.windowHeight:=lParam shr 16;
+      LogMessage('WM_SIZE: %d,%d',[game.windowWidth,game.windowHeight]);
       game.SetupRenderArea;
     end;
    end;
@@ -1061,6 +1062,7 @@ begin
     game.active:=false;
     if game.params.mode.displayMode=dmFullScreen then game.Minimize;
    end;
+   LogMessage('WM_ACTIVATE: %d',[byte(game.active)]);
    Signal('Engine\ActivateWnd',byte(game.active));
    if game.params.showSystemCursor then
     game.wndCursor:=0;
