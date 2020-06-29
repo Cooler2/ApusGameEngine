@@ -985,7 +985,7 @@ begin
     // wParam = Virtual Code lParam[23..16] = Scancode
     scancode:=(lParam shr 16) and $FF;
     keyState[scanCode]:=keyState[scanCode] or 1;
-//    LogMessage('KeyDown: '+IntToStr(wParam));
+    //LogMessage('KeyDown %d, KS[%d]=%2x ',[lParam,scanCode,keystate[scanCode]]);
     Signal('KBD\KeyDown',wParam and $FFFF+shiftstate shl 16+scancode shl 24);
     scene:=TopmostSceneForKbd;
     if scene<>nil then Signal('SCENE\'+scene.name+'\KeyDown',wparam and $FFFF+scanCode shl 24);
@@ -1000,6 +1000,7 @@ begin
     end;
     scancode:=(lParam shr 16) and $FF;
     game.keyState[scanCode]:=game.keyState[scanCode] and $FE;
+    //LogMessage('KeyUp %d, KS[$d]=%2x ',[lParam,scanCode,game.keystate[scanCode]]);
     Signal('KBD\KeyUp',wParam and $FFFF+game.shiftstate shl 16+scancode shl 24);
     scene:=game.TopmostSceneForKbd;
     if scene<>nil then Signal('SCENE\'+scene.name+'\KeyUp',wparam);
@@ -1889,7 +1890,7 @@ procedure TBasicGame.FrameLoop;
     end;
     {$ENDIF}
 
-    for i:=0 to High(keyState) do keyState[i]:=keyState[i] shl 1;
+    for i:=0 to High(keyState) do keyState[i]:=keyState[i] and 1+(keyState[i] and 1) shl 1;
     StartMeasure(14);
     ProcessMessages;
     if active then try
