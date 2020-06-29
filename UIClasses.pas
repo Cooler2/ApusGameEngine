@@ -44,12 +44,6 @@ const
  wcHeader      = 16; // area that can be used to drag and move the window
  wcClient      = 32; // client part of the window
 
- // Биты нажатых клавиш сдвига
- sscShift = 1;
- sscCtrl  = 2;
- sscAlt   = 4;
- sscWin   = 8;
-
 type
  // UI snapping modes
  TSnapMode=(smNone,

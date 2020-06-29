@@ -94,6 +94,12 @@ const
  foUpscaleFactor   = 2;
  foGlobalScale     = 3;
 
+ // Keyboard shift state codes
+ sscShift = 1;
+ sscCtrl  = 2;
+ sscAlt   = 4;
+ sscWin   = 8;
+
 
 type
  // Which API use for rendering
