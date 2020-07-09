@@ -230,7 +230,7 @@ implementation
     painter.DrawRotScaled(p.x,p.y,scale.x,scale.y,0,img);
    end else begin
     r:=c.GetPosOnScreen;
-    with r do painter.DrawScaled(left,top,Right,bottom,img);
+    with r do painter.DrawScaled(left,top,right+1,bottom+1,img);
    end;
   end;
 
