@@ -389,7 +389,8 @@ type
 
   // Textured primitives ---------------
   // Указываются к-ты тех пикселей, которые будут зарисованы (без границы)
-  procedure DrawImage(x_,y_:integer;tex:TTexture;color:cardinal=$FF808080); virtual; abstract;
+  procedure DrawImage(x_,y_:integer;tex:TTexture;color:cardinal=$FF808080); overload; virtual; abstract;
+  procedure DrawImage(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080;pivotX:single=0;pivotY:single=0); overload;
   procedure DrawImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=$FF808080); virtual; abstract;
   procedure DrawCentered(x,y:integer;tex:TTexture;color:cardinal=$FF808080); virtual; abstract;
   procedure DrawImagePart(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect); virtual; abstract;
@@ -794,6 +795,17 @@ class procedure TVarTypeAlignment.SetValue(variable: pointer; v: string);
  begin
   a:=variable;
   a^:=StrToAlign(v);
+ end;
+
+{ TPainter }
+
+procedure TPainter.DrawImage(x, y, scale: single; tex: TTexture;
+  color: cardinal; pivotX, pivotY: single);
+ begin
+  if scale=1.0 then
+   DrawImage(round(x-tex.width*pivotX),round(y-tex.height*pivotY),tex,color)
+  else
+   DrawRotScaled(x,y,scale,scale,0,tex,color,pivotX,pivotY);
  end;
 
 end.
