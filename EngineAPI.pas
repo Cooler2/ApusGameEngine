@@ -392,7 +392,8 @@ type
   procedure DrawImage(x_,y_:integer;tex:TTexture;color:cardinal=$FF808080); overload; virtual; abstract;
   procedure DrawImage(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080;pivotX:single=0;pivotY:single=0); overload;
   procedure DrawImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=$FF808080); virtual; abstract;
-  procedure DrawCentered(x,y:integer;tex:TTexture;color:cardinal=$FF808080); virtual; abstract;
+  procedure DrawCentered(x,y:integer;tex:TTexture;color:cardinal=$FF808080); overload; virtual; abstract;
+  procedure DrawCentered(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080); overload;
   procedure DrawImagePart(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect); virtual; abstract;
   // Рисовать часть картинки с поворотом ang раз на 90 град по часовой стрелке
   procedure DrawImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer); virtual; abstract;
@@ -798,6 +799,12 @@ class procedure TVarTypeAlignment.SetValue(variable: pointer; v: string);
  end;
 
 { TPainter }
+
+procedure TPainter.DrawCentered(x, y, scale: single; tex: TTexture;
+  color: cardinal);
+ begin
+  DrawRotScaled(x,y,scale,scale,0,tex,color);
+ end;
 
 procedure TPainter.DrawImage(x, y, scale: single; tex: TTexture;
   color: cardinal; pivotX, pivotY: single);
