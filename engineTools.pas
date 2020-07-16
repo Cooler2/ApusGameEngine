@@ -18,8 +18,8 @@ var
 
 type
  // Большое изображение, состоящее из нескольких текстур
- TLargeImage=class
-  images:array[0..15,0..15] of TTexture; // первый индекс - по X, второй - по Y
+ TTiledImage=class
+  tiles:array[0..15,0..15] of TTexture; // первый индекс - по X, второй - по Y
   width,height:integer;
   stepx,stepy:integer;
   cntX,cntY:integer;
@@ -37,7 +37,7 @@ type
  end;
 
  // Изображение, состоящее из нескольких кусков цельной текстуры
- TPatchedImage=class(TLargeImage)
+ TPatchedImage=class(TTiledImage)
   points:array[1..8] of TPoint;
   rects:array[1..8] of TRect;
   xMin,xMax,yMin,yMax:integer;
@@ -811,7 +811,7 @@ end;
 
 { TLargeImage }
 
-constructor TLargeImage.Create(fname: string;
+constructor TTiledImage.Create(fname: string;
   ForceFormat: ImagePixelFormat; cellsize, flags: integer; precache: single);
  var
   i,j,x,y,w,h:integer;
@@ -836,10 +836,10 @@ constructor TLargeImage.Create(fname: string;
      if x+cellsize>tex.width then w:=tex.width-x else w:=cellsize;
      if y+cellsize>tex.height then h:=tex.height-y else h:=cellsize;
      if (w<cellsize) or (h<cellsize) then
-      images[i,j]:=CreateSubImage(tex,x,y,w,h,flags)
+      tiles[i,j]:=CreateSubImage(tex,x,y,w,h,flags)
      else
-      images[i,j]:=CreateSubImage(tex,x,y,cellsize,cellsize,aiTexture);
-     images[i,j].name:=inttohex(i,1)+inttohex(j,1)+'_'+tname;
+      tiles[i,j]:=CreateSubImage(tex,x,y,cellsize,cellsize,aiTexture);
+     tiles[i,j].name:=inttohex(i,1)+inttohex(j,1)+'_'+tname;
     end;
   finally
    if tex<>nil then texman.FreeImage(TTexture(tex));
@@ -847,28 +847,28 @@ constructor TLargeImage.Create(fname: string;
   self.Precache(precache);
  end;
 
-destructor TLargeImage.Destroy;
+destructor TTiledImage.Destroy;
  var
   i,j:integer;
  begin
   ASSERT(texman<>nil);
   for i:=0 to cntX-1 do
    for j:=0 to cntY-1 do
-    texman.FreeImage(TTexture(images[i,j]));
+    texman.FreeImage(TTexture(tiles[i,j]));
   inherited;
  end;
 
-procedure TLargeImage.Draw(x, y: integer; color: cardinal);
+procedure TTiledImage.Draw(x, y: integer; color: cardinal);
  var
   i,j:integer;
  begin
   ASSERT(painter<>nil);
   for i:=0 to cntX-1 do
    for j:=0 to cntY-1 do
-    painter.DrawImage(x+i*stepX,y+j*stepY,images[i,j],color);
+    painter.DrawImage(x+i*stepX,y+j*stepY,tiles[i,j],color);
  end;
 
-function TLargeImage.GetRegion: TRegion;
+function TTiledImage.GetRegion: TRegion;
 {var
  r:TRegion;
  rs:array[0..7,0..7] of TRegion;
@@ -896,7 +896,7 @@ begin
  result:=r;}
 end;
 
-procedure TLargeImage.Precache(part: single);
+procedure TTiledImage.Precache(part: single);
  var
   i,j,n:integer;
  begin
@@ -905,13 +905,13 @@ procedure TLargeImage.Precache(part: single);
   if n<=0 then exit;
   for i:=0 to cntX-1 do
    for j:=0 to cntY-1 do begin
-    texman.MakeOnline(images[i,j] as TTexture);
+    texman.MakeOnline(tiles[i,j] as TTexture);
     dec(n);
     if n=0 then exit;
    end;
  end;
 
-procedure SetupWindow(wnd:TUISkinnedWindow;img:TLargeImage);
+procedure SetupWindow(wnd:TUISkinnedWindow;img:TTiledImage);
  begin
   wnd.background:=img;
   wnd.size.x:=img.width;

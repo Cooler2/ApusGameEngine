@@ -251,8 +251,8 @@ implementation
     if background<>nil then begin    // нарисовать фон окна
      if TranspBgnd then painter.SetMode(blMove);
      img:=background;
-     if img is TLargeImage then
-      (img as TLargeImage).Draw(globalRect.Left,globalRect.Top,color);
+     if img is TTiledImage then
+      (img as TTiledImage).Draw(globalRect.Left,globalRect.Top,color);
      if img is TTexture then
       painter.DrawImage(globalRect.Left,globalRect.Top,img as TTexture,color);
      if TranspBgnd then painter.SetMode(blAlpha);
