@@ -209,7 +209,7 @@ var
  // Set new coordinate space with given center and scale factors
  procedure Set2DTransform(originX,originY,scaleX,scaleY:double);
  // Transform space so new image will be scaled and rotated around given point
- procedure Transform2DAround(centerX,centerY,scale,angle:double);
+ procedure Transform2DTurnAround(centerX,centerY,scale,angle:double);
  procedure Transform2DScaleAround(centerX,centerY,scaleX,scaleY:double);
  procedure Reset2DTransform;
 
@@ -1270,7 +1270,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    painter.Set3DTransform(mat);
   end;
 
- procedure Transform2DAround(centerX,centerY,scale,angle:double);
+ procedure Transform2DTurnAround(centerX,centerY,scale,angle:double);
   var
    mat:TMatrix4;
    ca,sa:double;
