@@ -205,7 +205,12 @@ var
  function ScaleFont(fontHandle:cardinal;scale:single):cardinal;
 
  // Camera transformations
+ // ----------------------------------
+ // Set new coordinate space with given center and scale factors
  procedure Set2DTransform(originX,originY,scaleX,scaleY:double);
+ // Transform space so new image will be scaled and rotated around given point
+ procedure Transform2DAround(centerX,centerY,scale,angle:double);
+ procedure Transform2DScaleAround(centerX,centerY,scaleX,scaleY:double);
  procedure Reset2DTransform;
 
  // Meshes
@@ -1261,6 +1266,39 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    mat[2,2]:=1;
    mat[3,0]:=originX;
    mat[3,1]:=originY;
+   mat[3,3]:=1;
+   painter.Set3DTransform(mat);
+  end;
+
+ procedure Transform2DAround(centerX,centerY,scale,angle:double);
+  var
+   mat:TMatrix4;
+   ca,sa:double;
+  begin
+   fillchar(mat,sizeof(mat),0);
+   ca:=cos(angle);
+   sa:=sin(angle);
+   mat[0,0]:=ca*scale;
+   mat[0,1]:=sa*scale;
+   mat[1,0]:=-sa*scale;
+   mat[1,1]:=ca*scale;
+   mat[2,2]:=1;
+   mat[3,0]:=centerX-scale*(ca*centerX-sa*centerY);
+   mat[3,1]:=centerY-scale*(sa*centerX+ca*centerY);
+   mat[3,3]:=1;
+   painter.Set3DTransform(mat);
+  end;
+
+ procedure Transform2DScaleAround(centerX,centerY,scaleX,scaleY:double);
+  var
+   mat:TMatrix4;
+  begin
+   fillchar(mat,sizeof(mat),0);
+   mat[0,0]:=scaleX;
+   mat[1,1]:=scaleY;
+   mat[2,2]:=1;
+   mat[3,0]:=centerX*(1-scaleX);
+   mat[3,1]:=centerY*(1-scaleY);
    mat[3,3]:=1;
    painter.Set3DTransform(mat);
   end;
