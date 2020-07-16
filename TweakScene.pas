@@ -203,6 +203,7 @@ begin
   if (length(sa)>0) and (listbox.selectedLine<0) then listbox.selectedLine:=0;
 
   PlaceTrackers;
+  ui.SetFocus;
  end else begin
   clipMouse:=cmNo;
   hooked:=nil;
@@ -259,6 +260,9 @@ begin
   min:=-1.1; max:=1.1;
   while value>(min*0.1+max*0.9) do max:=max+abs(max-min);
   while value<(min*0.9+max*0.1) do min:=min-abs(max-min);
+  if (mode=vtInteger) and (max-min<100) then begin
+   min:=min-50; max:=max+50;
+  end;
  end else begin
   min:=0; max:=255;
  end;
