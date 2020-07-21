@@ -10,13 +10,13 @@ interface
 type
  // область произвольной формы
  TRegion=class
-  width,height:integer;
   procedure Invert; virtual; abstract;
-  function TestPoint(x,y:integer):boolean; virtual; abstract;
+  function TestPoint(x,y:single):boolean; virtual; abstract;
  end;
 
  // регион, основанный на прямоугольниках
  TRectRegion=class(TRegion)
+  width,height:integer;
   r1,r2:array of TRect;
   constructor Create(w,h:integer);
   procedure IncludeRect(r:TRect);
@@ -29,24 +29,26 @@ type
  }
 
  TBasicRegion=class(TRegion)
+  width,height:integer;
   data:array of word;
   // Create rectangular region
   constructor Create(w,h:integer);
   // Create region from image (if pixel and trMask=trColor then pixel is opaque)
   constructor CreateFrom(img:TRawImage;trColor,trMask:integer);
   procedure Invert; override;
-  function TestPoint(x,y:integer):boolean; override;
+  function TestPoint(x,y:single):boolean; override;
  end;
 
  TBitmapRegion=class(TRegion)
+  constructor LoadFromBMP(fname:string);
+  constructor CreateFromImage(image:TRawImage;downscale:integer=1;threshold:byte=$80);
+  function TestPoint(x,y:single):boolean; override;
+  destructor Destroy; override;
+ private
   data:array of byte;
   linesize:integer;
-  scale:byte;
   bmWidth,bmHeight:integer;
-  constructor LoadFromBMP(fname:string;bmpscale:byte);
-//  procedure CreateFrom
-  function TestPoint(x,y:integer):boolean; override;
-  destructor Destroy; override;
+  flipY:boolean;
  end;
 
 implementation
@@ -108,7 +110,7 @@ begin
   data[i]:=data[i] xor $8000;
 end;
 
-function TBasicRegion.TestPoint(x, y: integer): boolean;
+function TBasicRegion.TestPoint(x, y: single): boolean;
 begin
 
 end;
@@ -120,13 +122,12 @@ begin
 
 end;
 
-constructor TBitmapRegion.LoadFromBMP(fname: string;bmpscale:byte);
+constructor TBitmapRegion.LoadFromBMP(fname: string);
 var
  f:file;
  hdr:TBitmapHeader;
  size:integer;
 begin
- scale:=bmpscale;
  assign(f,fname);
  reset(f,1);
  blockread(f,hdr,sizeof(hdr));
@@ -138,26 +139,55 @@ begin
  close(f);
  bmWidth:=hdr.width;
  bmHeight:=hdr.height;
- width:=bmWidth*scale;
- height:=bmHeight*scale;
+ flipY:=true;
 end;
 
-function TBitmapRegion.TestPoint(x, y: integer): boolean;
+constructor TBitmapRegion.CreateFromImage(image:TRawImage;downscale:integer=1;threshold:byte=$80);
+var
+ x,y:integer;
+ pc:PCardinal;
+ pb:PByte;
+ size:integer;
+ value:byte;
+begin
+ flipY:=false;
+ ASSERT(image.pixelFormat in [ipfARGB,ipfABGR]);
+ image.Lock;
+ try
+  bmWidth:=image.width div downscale;
+  bmHeight:=image.height div downscale;
+  linesize:=4*((bmWidth+31) div 32); // line size in bytes, 32-bit aligned
+  size:=lineSize*bmHeight;
+  Setlength(data,size);
+  for y:=0 to bmHeight-1 do begin
+   pb:=@data[y*lineSize];
+   pc:=image.data;
+   inc(pc,y*downscale*(image.pitch div 4));
+   for x:=0 to bmWidth-1 do begin
+    value:=pc^ shr 24;
+    if value>threshold then pb^:=pb^ or ($80 shr (x and 7));
+    inc(pc,downscale);
+    if x and 7=7 then inc(pb);
+   end;
+  end;
+ finally
+  image.Unlock;
+ end;
+end;
+
+function TBitmapRegion.TestPoint(x, y: single): boolean;
 var
  pos,bit:integer;
+ ix,iy:integer;
 begin
  result:=false;
- dec(x); dec(y);
- if (x<0) or (y<0) or (x>=width) or (y>=height) then exit;
- if scale>1 then begin
-  x:=x div scale;
-  y:=y div scale;
- end;
- if (x>=bmWidth) or (y>=bmHeight) then exit;
- pos:=x div 8;
- bit:=x mod 8;
- y:=bmHeight-y-1;
- if data[linesize*y+pos] and ($80 shr bit)>0 then result:=true;
+ if (x<0) or (y<0) or (x>=1) or (y>=1) then exit;
+ if flipY then y:=1-y;
+ ix:=round(x*(bmWidth-1));
+ iy:=round(y*(bmHeight-1));
+ pos:=ix shr 3;
+ bit:=ix and 7;
+ if data[linesize*iy+pos] and ($80 shr bit)>0 then result:=true;
 end;
 
 { TRectRegion }

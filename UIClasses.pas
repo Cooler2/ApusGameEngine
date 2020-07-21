@@ -257,8 +257,8 @@ type
   procedure SetHotKey(keycode:byte;shiftstate:byte);
   procedure ReleaseHotKey(keycode:byte;shiftstate:byte);
 
-  // Функция определения прозрачности точки в режиме tmCustom (к-ты задаются относительно начала эл-та)
-  function IsTransparent(x,y:integer):boolean; virtual;
+  // Check if point is opaque in tmCustom mode (relative coordinates in [0..1] range)
+  function IsOpaque(x,y:single):boolean; virtual;
 
   // Static method => nil-safe
   function GetName:string;
@@ -1109,7 +1109,7 @@ begin
 
  // Ни одного непрозрачного потомка в данной точке, но сам элемент может быть непрозрачен здесь!
  if not fl and (transpmode=tmCustom) then
-  if IsTransparent(x-r.Left,y-r.Top) then c:=self;
+  if IsOpaque((x-r.Left)/r.Width,(y-r.Top)/r.Height) then c:=self;
 
  if c=nil then result:=false;
 end;
@@ -1352,7 +1352,7 @@ begin
  result:=c.HasParent(self);
 end;
 
-function TUIControl.IsTransparent(x, y: integer): boolean;
+function TUIControl.IsOpaque(x, y: single): boolean;
 begin
  result:=false;
  if region<>nil then
