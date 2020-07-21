@@ -361,6 +361,7 @@ interface
  function DecodeHex(hexStr:String8):String8; overload;
  procedure DecodeHex(st:String8;buf:pointer); overload;
 
+ procedure ZeroMem(var data;size:integer); inline;
  function IsZeroMem(buf:pointer;size:integer):boolean;
 
  // Простейшее шифрование/дешифрование (simple XOR)
@@ -1897,6 +1898,11 @@ procedure SimpleEncrypt2;
     pb^:=b;
     inc(pb);
    end;
+  end;
+
+ procedure ZeroMem(var data;size:integer); inline;
+  begin
+   fillchar(data,size,0);
   end;
 
  function IsZeroMem(buf:pointer;size:integer):boolean;
