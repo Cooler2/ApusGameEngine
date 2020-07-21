@@ -9,6 +9,7 @@ interface
 
  function MyColor(r,g,b:cardinal):cardinal; overload;
  function MyColor(a,r,g,b:cardinal):cardinal; overload;
+ function GrayColor(gray:integer):cardinal;
  function SwapColor(color:cardinal):cardinal; // swap red<->blue bytes
 
  function ColorAdd(c1,c2:cardinal):cardinal;
@@ -71,6 +72,12 @@ implementation
    result:=a shl 24+r shl 16+g shl 8+b;
   end;
   {$ENDIF}
+
+ function GrayColor(gray:integer):cardinal;
+  begin
+   gray:=Clamp(gray,0,255);
+   result:=MyColor(255,gray,gray,gray);
+  end;
 
  function Lightness(color:cardinal):byte; // яркость цвета (0..255)
   begin

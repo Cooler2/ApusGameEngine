@@ -105,7 +105,7 @@ type
  // и хранения изображения
  // This object doesn't own data
  TRawImage=class(TBaseImage)
-  PixelFormat:ImagePixelFormat;
+  pixelFormat:ImagePixelFormat;
   paletteFormat:ImagePaletteFormat;
 
   // Следующие данные не обязательно всегда доступны, это зависит от типа изображения
@@ -144,8 +144,8 @@ type
 
  const
   // Размер пикселя в битах
-  PixelSize:array[ImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,16,16,32);
-  PalEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
+  pixelSize:array[ImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,16,16,32);
+  palEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
 
  procedure ConvertLine(var sour,dest;sourformat,destformat:ImagePixelFormat;
                  var palette;palformat:ImagePaletteFormat;count:integer);

@@ -182,6 +182,8 @@ type
   // находит сцену, которая должна получать сигналы о клавиатурном вводе
   function TopmostSceneForKbd:TGameScene; virtual;
   procedure onEngineEvent(event:string;tag:cardinal); virtual;
+
+  procedure DrawMagnifier; virtual;
  public
   // Глобально доступные переменные
   renderWidth,renderHeight:integer; // Size of render area in virtual pixels (primitive of this size fills the whole renderRect)
@@ -239,7 +241,7 @@ type
  procedure Delay(time:integer);
 
 implementation
- uses types,SysUtils,cmdproc
+ uses types,SysUtils,cmdproc,Clipboard
      {$IFDEF VIDEOCAPTURE},VideoCapture{$ENDIF},BasicPainter,
      EventMan,UIClasses,UIScene,Console,EngineTools,publics,gfxFormats;
 
@@ -441,6 +443,10 @@ begin
  Signal('Engine\AfterDoneGraph');
 end;
 
+procedure TBasicGame.DrawMagnifier;
+begin
+end;
+
 procedure TBasicGame.FLog(st: string);
 var
  v,w:int64;
@@ -557,6 +563,7 @@ begin
  if game<>nil then
   with game do begin
    if (shiftState and sscAlt>0) then begin
+    // [Alt]+[Fn] - toggle debug overlay
     d:=0;
     case code of
      VK_F1:d:=1;
@@ -573,7 +580,7 @@ begin
    // F12 - скриншот
    if (code=VK_F12) and
       (shiftState and sscAlt=0) then begin
-    SaveScreenshotsToJPEG:=(shiftState and 1=0);
+    saveScreenshotsToJPEG:=(shiftState and 1=0);
     captureSingleFrame:=true;
     screenshotTarget:=2;
    end;
@@ -795,7 +802,12 @@ begin
    end;
    capturedName:=st;
    capturedTime:=MyTickCount;
+   {$IFDEF OPENGL}
+   // overcome windows problem with OpenGL+PrintScreen in fullscreen mode
+   PutImageToClipboard(img);
+   {$ENDIF}
   end;
+
   {$ENDIF}
  end;
  if not videoCaptureMode then
@@ -973,7 +985,7 @@ begin
     // wParam = Virtual Code lParam[23..16] = Scancode
     scancode:=(lParam shr 16) and $FF;
     keyState[scanCode]:=keyState[scanCode] or 1;
-//    LogMessage('KeyDown: '+IntToStr(wParam));
+    //LogMessage('KeyDown %d, KS[%d]=%2x ',[lParam,scanCode,keystate[scanCode]]);
     Signal('KBD\KeyDown',wParam and $FFFF+shiftstate shl 16+scancode shl 24);
     scene:=TopmostSceneForKbd;
     if scene<>nil then Signal('SCENE\'+scene.name+'\KeyDown',wparam and $FFFF+scanCode shl 24);
@@ -988,6 +1000,7 @@ begin
     end;
     scancode:=(lParam shr 16) and $FF;
     game.keyState[scanCode]:=game.keyState[scanCode] and $FE;
+    //LogMessage('KeyUp %d, KS[$d]=%2x ',[lParam,scanCode,game.keystate[scanCode]]);
     Signal('KBD\KeyUp',wParam and $FFFF+game.shiftstate shl 16+scancode shl 24);
     scene:=game.TopmostSceneForKbd;
     if scene<>nil then Signal('SCENE\'+scene.name+'\KeyUp',wparam);
@@ -1037,6 +1050,7 @@ begin
        (game.windowHeight<>lParam shr 16) then begin
       game.windowWidth:=lParam and $FFFF;
       game.windowHeight:=lParam shr 16;
+      LogMessage('WM_SIZE: %d,%d',[game.windowWidth,game.windowHeight]);
       game.SetupRenderArea;
     end;
    end;
@@ -1049,6 +1063,7 @@ begin
     game.active:=false;
     if game.params.mode.displayMode=dmFullScreen then game.Minimize;
    end;
+   LogMessage('WM_ACTIVATE: %d',[byte(game.active)]);
    Signal('Engine\ActivateWnd',byte(game.active));
    if game.params.showSystemCursor then
     game.wndCursor:=0;
@@ -1426,7 +1441,8 @@ begin
      end;
     end else
      case debugOverlay of
-      2:TBasicPainter(painter).DebugScreen1;
+      2:TBasicPainter(painter).DebugScreen1; // Painter's debug overlay
+      3:DrawMagnifier;
      end;
 
     if showFPS or (debugOverlay>0) then begin
@@ -1874,7 +1890,7 @@ procedure TBasicGame.FrameLoop;
     end;
     {$ENDIF}
 
-    for i:=0 to High(keyState) do keyState[i]:=keyState[i] shl 1;
+    for i:=0 to High(keyState) do keyState[i]:=keyState[i] and 1+(keyState[i] and 1) shl 1;
     StartMeasure(14);
     ProcessMessages;
     if active then try
@@ -2099,6 +2115,7 @@ begin
   {$IFDEF MSWINDOWS}
   owner.CreateMainWindow;
   {$ENDIF}
+  SetEventHandler('Engine\',EngineEvent,emInstant);
   SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
   owner.InitMainLoop; // вызывает InitGraph
   owner.running:=true; // Это как-бы семафор для завершения функции Run

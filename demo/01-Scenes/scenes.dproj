@@ -1,6 +1,6 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{12D5164F-640C-4BCE-90AF-EB25DBB7D418}</ProjectGuid>
+        <ProjectGuid>{CD2CAF85-BDE3-4B39-9CB8-AC1ECD0C1919}</ProjectGuid>
         <MainSource>scenes.dpr</MainSource>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>

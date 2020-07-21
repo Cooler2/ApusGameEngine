@@ -8,7 +8,7 @@ interface
  uses MyServis,Structs;
  var
   // Credentials and options
-  DB_HOST:AnsiString='127.0.0.1';
+  DB_HOST:AnsiString='';
   DB_DATABASE:AnsiString='';
   DB_LOGIN:AnsiString='';
   DB_PASSWORD:AnsiString='';

@@ -93,7 +93,8 @@ interface
    private
     FAddress:cardinal;
    public
-    constructor Create(const msg:string);
+    constructor Create(const msg:string); overload;
+    constructor Create(const msg:string; fields:array of const); overload;
     property Address:cardinal read FAddress;
   end;
 
@@ -360,6 +361,7 @@ interface
  function DecodeHex(hexStr:String8):String8; overload;
  procedure DecodeHex(st:String8;buf:pointer); overload;
 
+ procedure ZeroMem(var data;size:integer); inline;
  function IsZeroMem(buf:pointer;size:integer):boolean;
 
  // Простейшее шифрование/дешифрование (simple XOR)
@@ -1896,6 +1898,11 @@ procedure SimpleEncrypt2;
     pb^:=b;
     inc(pb);
    end;
+  end;
+
+ procedure ZeroMem(var data;size:integer); inline;
+  begin
+   fillchar(data,size,0);
   end;
 
  function IsZeroMem(buf:pointer;size:integer):boolean;
@@ -4626,6 +4633,11 @@ begin
   inherited create(msg);
   {$ENDIF}
  {$ENDIF}
+end;
+
+constructor TBaseException.Create(const msg:string; fields:array of const);
+begin
+ Create(Format(msg,fields));
 end;
 
 procedure InitCritSect(var cr:TMyCriticalSection;name:string;level:integer=100); //
