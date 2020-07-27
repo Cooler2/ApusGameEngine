@@ -54,7 +54,7 @@ implementation
   end;
   {$ELSE} inline;
   begin
-   result:=r shl 16+g shl 8+b;
+   result:=$FF000000 or (r shl 16) or (g shl 8) or b;
   end;
   {$ENDIF}
 
