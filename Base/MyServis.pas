@@ -345,7 +345,7 @@ interface
  function UrlEncode(st:String8):String8;
  // Раскодировать URL согласно требованиям HTTP
  function UrlDecode(st:String8):String8;
- // Кодирует url из UTF8 в нормальный ASCII вид !!! WARNING! ОЧЕНЬ странная ф-ция - ХЗ начем она вообще нужна!
+ // Кодирует url из UTF8 в нормальный ASCII вид !!! WARNING: not implemented
  function URLEncodeUTF8(st:String8):String8;
 
  // Закодировать двоичные данные в строку (this is NOT Base64!)
@@ -392,7 +392,7 @@ interface
  function HowLong(time:TDateTime):string;
 
  // UTF8 routines
- function IsUTF8(st:String8):boolean; inline; // Check if string starts with BOM
+ function IsUTF8(st:RawByteString):boolean; inline; // Check if string starts with BOM
  function EncodeUTF8(st:String16;addBOM:boolean=false):String8; overload;
  procedure EncodeUTF8(st:String16;var dest:string); overload;
  procedure EncodeUTF8(st:String16;var dest:String8); overload;
@@ -1941,7 +1941,7 @@ procedure SimpleEncrypt2;
    result:=true;
   end;
 
- function IsUTF8(st:String8):boolean; inline;
+ function IsUTF8(st:RawByteString):boolean; inline;
   begin
    if (length(st)>=3) and (st[1]=#$EF) and (st[2]=#$BB) and (st[3]=#$BF) then result:=true
     else result:=false;
