@@ -133,6 +133,8 @@ interface
  // Get string value of a variable, constant or expression
  function EvalStr(expression:string;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):string;
 
+ function IsStringExpression(expression:string;context:pointer=nil;contextClass:TVarClassStruct=nil):boolean;
+
  // OVERRIDABLE GLOBAL VARIABLES
  // ----------------------------
  var
@@ -234,7 +236,8 @@ implementation
    v:pointer;
    vc:TVarClass;
    f:TFunction;
-   st:string;
+   st,right:string;
+   oper:char;
   begin
    expression:=chop(expression);
    if length(expression)=0 then begin
@@ -246,17 +249,35 @@ implementation
     if expression[i]=')' then inc(d);
     if expression[i]='(' then dec(d);
     if (d=0) and (expression[i] in ['<','>','=']) then begin
-     v2:=EvalFloat(copy(expression,i+1,length(expression)),varFunc,context,contextClass);
-     if (expression[i]='>') and (expression[i-1]='<') then begin
-      v1:=EvalFloat(copy(expression,1,i-2),varFunc,context,contextClass);
-      result:=byte(v1<>v2);
+     right:=copy(expression,i+1,length(expression));
+     if IsStringExpression(right) then begin
+      right:=EvalStr(right);
+      if (expression[i]='>') and (expression[i-1]='<') then begin
+       st:=copy(expression,1,i-2);
+       oper:='!';
+      end else begin
+       st:=copy(expression,1,i-1);
+       oper:=expression[i];
+      end;
+      st:=EvalStr(st,varFunc,context,contextClass);
+      if oper='=' then result:=byte(st=right) else
+      if oper='!' then result:=byte(st<>right) else
+      if oper='<' then result:=byte(st<right) else
+      if oper='>' then result:=byte(st>right);
       exit;
-     end else
-      v1:=EvalFloat(copy(expression,1,i-1),varFunc,context,contextClass);
-     if expression[i]='=' then result:=byte(v1=v2) else
-     if expression[i]='<' then result:=byte(v1<v2) else
-     if expression[i]='>' then result:=byte(v1>v2);
-     exit;
+     end else begin
+      v2:=EvalFloat(right,varFunc,context,contextClass);
+      if (expression[i]='>') and (expression[i-1]='<') then begin
+       v1:=EvalFloat(copy(expression,1,i-2),varFunc,context,contextClass);
+       result:=byte(v1<>v2);
+       exit;
+      end else
+       v1:=EvalFloat(copy(expression,1,i-1),varFunc,context,contextClass);
+      if expression[i]='=' then result:=byte(v1=v2) else
+      if expression[i]='<' then result:=byte(v1<v2) else
+      if expression[i]='>' then result:=byte(v1>v2);
+      exit;
+     end;
     end;
    end;
    // Сканирование на операции типа сложения
@@ -357,6 +378,13 @@ implementation
    if IsNAN(result) then raise EWarning.Create('Invalid expression: '+expression);
   end;
 
+ function IsStringConstant(expression:string):boolean;
+  begin
+   if (length(expression)>=2) and
+      (expression.StartsWith('"')) and (expression.EndsWith('"')) then exit(true);
+   result:=false;
+  end;
+
  function EvalStr(expression:string;varFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):string;
   var
    n:integer;
@@ -364,6 +392,7 @@ implementation
    v:pointer;
   begin
    try
+    if IsStringConstant(expression) then exit(copy(expression,2,length(expression)-2));
     n:=FindConst(expression);
     if n>=0 then exit(publicConsts[n].value);
 
@@ -374,6 +403,23 @@ implementation
    except
     on e:Exception do result:='Error evaluating '+expression+': '+ExceptionMsg(e);
    end;
+  end;
+
+ function IsStringExpression(expression:string;context:pointer=nil;contextClass:TVarClassStruct=nil):boolean;
+  var
+   n:integer;
+   cls:TVarClass;
+   v:pointer;
+  begin
+   result:=false;
+   if IsStringConstant(expression) then exit(true);
+   n:=FindConst(expression);
+   if n>=0 then exit(true);
+
+   v:=FindVar(expression,cls,context,contextClass);
+   if (v<>nil) and (cls.ClassNameIs('TVarTypeString') or
+    cls.ClassNameIs('TVarTypeString8') or
+    cls.ClassNameIs('TVarTypeWideString'))  then exit(true);
   end;
 
  procedure PublishFunction(name:string;f:TFunction;tag:integer=0);

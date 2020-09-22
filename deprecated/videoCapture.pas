@@ -3,7 +3,7 @@
 
 unit VideoCapture;
 interface
- uses EngineCls,BasicGame,Images;
+ uses EngineAPI,BasicGame,Images;
 
  // »нициализирует захват видео, стартует потоки и т.д.
  function StartVideoCapture(game:TBasicGame;outfile:string;options:cardinal=0;threads:integer=2):boolean;
@@ -13,7 +13,7 @@ interface
  procedure StoreFrame(img:TRAWImage);
 
 implementation
- uses windows,SysUtils,MyServis,classes,{AVS,}gfxformats;
+ uses windows,SysUtils,MyServis,classes,{AVS,}GFXFormats;
  const
   MAX_FRAMES = 50000;
  type

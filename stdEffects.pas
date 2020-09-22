@@ -353,11 +353,11 @@ begin
  initialized:=false;
  buffer:=nil;
  // Показ модального окна
- EnterCriticalSection(UICritSect);
+ game.crSect.Enter;
  try
   PutMsg(Format('WndEffStart(%s,%d,%d,%d)',[scene.UI.name,duration,ord(effMode),effect]));
   inherited Create(scene,duration);
-  DontPlay:=DisableEffects or (duration<=0);
+  dontPlay:=DisableEffects or (duration<=0);
   if pfRTAlphaNorm=ipfNone then DontPlay:=true;
   mode:=effMode; buffer:=nil;
   shadow:=scene.shadowColor;
@@ -436,7 +436,7 @@ begin
  if duration=0 then onDone; // Immediate action
 
  finally
-  LeaveCriticalSection(UICritSect);
+  game.crSect.Leave;
  end;
  except
   on e:exception do ForceLogMessage('Failed to create SWE effect: '+ExceptionMsg(e));
