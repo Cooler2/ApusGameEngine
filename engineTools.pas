@@ -632,7 +632,7 @@ var
  size2:integer;
  format:TImageFormat;
  sp,dp:PByte;
- time,timeJ:cardinal;
+ time,timeJ:int64;
  linebuf:pointer;
  doScale:boolean;
  st:string;
@@ -641,7 +641,6 @@ begin
   raise EError.Create(fname+' - Loading failed: texture manager doesn''t exist!');
 
  try
-  time:=MyTickCount;
   // 1. ADJUST FILE NAME AND CHECK ATLAS
   fname:=FileName(fname);
   // Search atlases first
@@ -664,6 +663,7 @@ begin
   end;
   {$ENDIF}
 
+  time:=MyTickCount;
   LogMessage('Loading '+fname);
   preloaded:=GetImageFromQueue(fname);
   if preloaded<>nil then begin
@@ -767,7 +767,7 @@ begin
 
  // 8. TIME CALCULATIONS
  time:=MyTickCount-time+random(2);
- if (time>0) and (time<50000) then inc(LoadingTime,time);
+ if (time>0) and (time<50000) then inc(loadingTime,time);
  if time>30 then LogMessage('Slow image loading: '+inttostr(time)+' - '+fname);
  result:=tex;
 end;
