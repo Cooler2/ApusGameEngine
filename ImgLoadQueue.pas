@@ -133,6 +133,7 @@ implementation
     New(item);
     item.status:=lqsWaiting;
     item.fname:=fname;
+    item.next:=nil;
     if lastItem<>nil then lastItem.next:=item;
     MemoryBarrier;
     lastItem:=item;
