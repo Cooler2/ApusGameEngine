@@ -37,7 +37,7 @@ interface
    useDefaultLoaderScene:boolean=true; // start with default scene with spinner
    configDir:string;
    instanceID:integer=0;
-   langCode:string='en';
+   gameLangCode:string='en';
    debugMode:boolean=false;
 
  type
@@ -88,7 +88,7 @@ implementation
  uses
   {$IFDEF MSWINDOWS}windows,{$ENDIF}
   {$IFDEF ANDROID}android,androidGame,{$ENDIF}
-   SysUtils,MyServis,AnimatedValues,ControlFiles2,UDict,FastGFX,eventMan,
+   SysUtils,MyServis,AnimatedValues,ControlFiles2,UDict,FastGFX,EventMan,Publics,
    UIClasses,BasicGame,EngineTools,ConScene,TweakScene,customstyle,BitmapStyle
   {$IFDEF IMX},Sound{$ENDIF}
   {$IFDEF BASS},SoundB{$ENDIF}
@@ -395,6 +395,7 @@ procedure TGameApplication.Prepare;
   st:string;
  begin
   try
+   PublishVar(@gameLangCode,'gamelangCode',TVarTypeString);
    RegisterThread('ControlThread');
    SetCurrentDir(ExtractFileDir(ParamStr(0)));
    Randomize;
