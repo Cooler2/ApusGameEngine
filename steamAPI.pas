@@ -8,7 +8,8 @@ interface
  var
   steamAvailable:boolean=false;   // Is API available?
   steamID:int64;
-  steamGameLang:PChar;
+  steamUserName:PAnsiChar;
+  steamGameLang:PAnsiChar;
 
  type
   int32=integer;
@@ -26,6 +27,7 @@ interface
   // Own functions
   procedure InitSteamAPI;
   procedure DoneSteamAPI;
+  //function VerifyOwnership:boolean;
 
   // ѕолучает тикет дл€ передачи его серверу (HEX-строка)
   function GetSteamAuthTicket:string;
@@ -35,29 +37,33 @@ interface
   function SteamAPI_Init():boolean; cdecl; external 'steam_api.dll';
   procedure SteamAPI_Shutdown(); cdecl; external 'steam_api.dll';
 
-  function SteamInternal_CreateInterface(ver:PChar):pointer; cdecl; external 'steam_api.dll';
+  function SteamInternal_CreateInterface(ver:PAnsiChar):pointer; cdecl; external 'steam_api.dll';
   function SteamAPI_GetHSteamUser:HSteamUser;  cdecl; external 'steam_api.dll';
   function SteamAPI_GetHSteamPipe:HSteamPipe;  cdecl; external 'steam_api.dll';
   function SteamAPI_ISteamClient_GetISteamUser(steamClient:pointer;hSteamUser:HSteamUser;
-    hSteamPipe:HSteamPipe;const pchVersion:PChar):pointer;  cdecl; external 'steam_api.dll';
+    hSteamPipe:HSteamPipe;const pchVersion:PAnsiChar):pointer;  cdecl; external 'steam_api.dll';
   function SteamAPI_ISteamClient_GetISteamApps(steamClient:pointer;hSteamUser:HSteamUser;
-    hSteamPipe:HSteamPipe;const pchVersion:PChar):pointer; cdecl; external 'steam_api.dll';
+    hSteamPipe:HSteamPipe;const pchVersion:PAnsiChar):pointer; cdecl; external 'steam_api.dll';
   function SteamAPI_ISteamClient_GetISteamUserStats(steamClient:pointer;hSteamUser:HSteamUser;
-    hSteamPipe:HSteamPipe;const pchVersion:PChar):pointer; cdecl; external 'steam_api.dll';
+    hSteamPipe:HSteamPipe;const pchVersion:PAnsiChar):pointer; cdecl; external 'steam_api.dll';
+  function SteamAPI_ISteamClient_GetISteamFriends(steamClient:pointer;hSteamUser:HSteamUser;
+    hSteamPipe:HSteamPipe;const pchVersion:PAnsiChar):pointer; cdecl; external 'steam_api.dll';
 
   function SteamAPI_ISteamUser_GetAuthSessionTicket(steamUser:pointer;pTicket:pointer;cbMaxTicket:integer;
     out pcbTicket:Cardinal):HAuthTicket; cdecl; external 'steam_api.dll';
 
   function SteamAPI_ISteamUser_GetSteamID(steamUser:pointer):int64; cdecl; external 'steam_api.dll';
-  function SteamAPI_ISteamApps_GetCurrentGameLanguage(steamApps:pointer):PChar; cdecl; external 'steam_api.dll';
+  function SteamAPI_ISteamApps_GetCurrentGameLanguage(steamApps:pointer):PAnsiChar; cdecl; external 'steam_api.dll';
 
   procedure SteamAPI_RunCallbacks; cdecl; external 'steam_api.dll';
   procedure SteamAPI_RegisterCallback(callbackbase:pointer;iCallback:integer); cdecl; external 'steam_api.dll';
 
-  function SteamAPI_ISteamUserStats_SetAchievement(steamUserStats:pointer;const pchName:PChar):boolean; cdecl; external 'steam_api.dll';
-  function SteamAPI_ISteamUserStats_ClearAchievement(steamUserStats:pointer;const pchName:PChar):boolean; cdecl; external 'steam_api.dll';
-  function SteamAPI_ISteamUserStats_IndicateAchievementProgress(steamUserStats:pointer;const pchName:PChar;
+  function SteamAPI_ISteamUserStats_SetAchievement(steamUserStats:pointer;const pchName:PAnsiChar):boolean; cdecl; external 'steam_api.dll';
+  function SteamAPI_ISteamUserStats_ClearAchievement(steamUserStats:pointer;const pchName:PAnsiChar):boolean; cdecl; external 'steam_api.dll';
+  function SteamAPI_ISteamUserStats_IndicateAchievementProgress(steamUserStats:pointer;const pchName:PAnsiChar;
     nCurProgress,nMaxProgress:cardinal):boolean; cdecl; external 'steam_api.dll';
+
+  function SteamAPI_ISteamFriends_GetPersonaName(self:pointer):PAnsiChar; cdecl external 'steam_api.dll';
 
 implementation
  uses windows,SysUtils,MyServis,EventMan;
@@ -74,11 +80,12 @@ implementation
   STEAMUSER_VERSION='SteamUser019';
   STEAMAPPS_VERSION='STEAMAPPS_INTERFACE_VERSION008';
   STEAMUSERSTAT_VERSION='STEAMUSERSTATS_INTERFACE_VERSION011';
+  STEAMFRIENDS_VERSION='SteamFriends017';
 
   k_iSteamUserCallbacks = 100;
 
  var
-  steamClient,steamUser,steamApps,steamUserStats:pointer;
+  steamClient,steamUser,steamApps,steamUserStats,steamFriends:pointer;
   callbackVMT:array[0..5] of pointer;
   callbackObj:array[0..5] of pointer;
 
@@ -117,11 +124,14 @@ implementation
    steamClient:=SteamInternal_CreateInterface(STEAMCLIENT_VERSION);
    steamUser:=SteamAPI_ISteamClient_GetISteamUser(steamClient,user,pipe,STEAMUSER_VERSION);
    steamApps:=SteamAPI_ISteamClient_GetISteamApps(steamClient,user,pipe,STEAMAPPS_VERSION);
+   steamFriends:=SteamAPI_ISteamClient_GetISteamFriends(steamClient,user,pipe,STEAMFRIENDS_VERSION);
    steamUserStats:=SteamAPI_ISteamClient_GetISteamUserStats(steamClient,user,pipe,STEAMUSERSTAT_VERSION);
 //   ForceLogMessage(Format('steamClient=%x steamUser=%x, user=%d pipe=%d',[cardinal(steamClient),cardinal(steamUser),user,pipe]));
    steamID:=SteamAPI_ISteamUser_GetSteamID(steamUser);
    steamGameLang:=SteamAPI_ISteamApps_GetCurrentGameLanguage(steamApps);
-   LogMessage('SteamID='+IntToStr(steamID)+' GameLang='+string(steamGameLang));
+   steamUserName:=SteamAPI_ISteamFriends_GetPersonaName(steamFriends);
+   LogMessage('SteamID=%d, name="%s", lang="%s"',[steamID,AnsiString(steamUserName),AnsiString(steamGameLang)]);
+   //LogMessage('SteamID='+IntToStr(steamID)+' GameLang='+string(steamGameLang));
 
    // Register callbacks
 {   SteamAPI_RegisterCallback(@callback,k_iSteamUserCallbacks + 1);
@@ -140,6 +150,13 @@ implementation
   begin
    if steamAvailable then SteamAPI_Shutdown;
   end;
+
+{ function VerifyOwnership:boolean;
+  var
+   ticket:string;
+  begin
+   ticket:=GetSteamAuthTicket;
+  end;}
 
 initialization
 end.
