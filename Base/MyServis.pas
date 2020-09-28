@@ -585,6 +585,8 @@ interface
 
  procedure CheckCritSections; // проверить критические секции на таймаут
 
+ procedure WaitFor(var p;maxTime:integer=1000000); // wait up to maxTime until p<>nil
+
  // Disable Data Execution Prevention (Windows)
  procedure DisableDEP;
 
@@ -4988,6 +4990,14 @@ function GetThreadName(threadID:cardinal=0):string; // вернуть имя (0=
  begin
   if threadID=0 then threadID:=GetCurrentThreadID;
   result:=GetNameOfThread(threadID);
+ end;
+
+procedure WaitFor(var p;maxTime:integer);
+ var
+  t:int64;
+ begin
+  t:=MyTickCount+maxTime;
+  while (pointer(p)=nil) and (MyTickCount<t) do Sleep(1);
  end;
 
 { TLogThread }
