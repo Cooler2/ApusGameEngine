@@ -199,7 +199,7 @@ implementation
          end;
           // Вывод обычным текстом (тут всё устаревшее и требует переосмысления)
           for j:=0 to length(sa)-1 do begin
-           painter.TextOut(font,ix,iy,col,sa[j],mode,toAddBaseline);
+           painter.TextOutW(font,ix,iy,col,sa[j],mode,toAddBaseline);
            if bStyle.underline then begin
             col:=ColorMult2(col,$80FFFFFF);
             k:=round(painter.FontHeight(font)*0.96);
