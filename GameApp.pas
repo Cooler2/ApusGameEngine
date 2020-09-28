@@ -24,9 +24,10 @@ interface
    windowedMode:boolean=true;
    windowWidth:integer=1024;
    windowHeight:integer=768;
+   scaleWindowSize:boolean=false;
    gameMode:TGameAppMode=gamUseFullWindow;
 
-   deviceDPI:integer=96; // mobile only
+   deviceDPI:integer=96; //
    noVSync:boolean=false;
    directRenderOnly:boolean=false; // true -> for OpenGL: always render directly to the backbuffer, false -> allow frame render into texture
    checkForSteam:boolean=false;  // Check if STEAM client is running and get AppID
@@ -377,6 +378,7 @@ procedure TGameApplication.LoadOptions;
     windowWidth:=i;
     windowHeight:=CtlGetInt(configFileName+':\Options\WindowHeight',windowHeight);
    end;
+   scaleWindowSize:=ctlGetBool(configFileName+':\Options\scaleWindowSize',scaleWindowSize);
 
    Signal('GAMEAPP\OptionsLoaded');
   except
@@ -572,11 +574,19 @@ procedure TGameApplication.SelectFonts;
  end;
 
 procedure TGameApplication.SetGameSettings(var settings: TGameSettings);
+var
+ scale:single;
 begin
   with settings do begin
    title:=GameTitle;
    width:=windowWidth;
    height:=windowHeight;
+   deviceDPI:=game.screenDPI;
+   if scaleWindowSize then begin
+    scale:=(deviceDPI/96);
+    width:=round(width*scale);
+    height:=round(height*scale);
+   end;
    colorDepth:=32;
    refresh:=0;
    case gameMode of
