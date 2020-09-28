@@ -36,6 +36,7 @@ interface
 
   function SteamAPI_Init():boolean; cdecl; external 'steam_api.dll';
   procedure SteamAPI_Shutdown(); cdecl; external 'steam_api.dll';
+  procedure SetSteamAchievement(name:string;enable:boolean=true);
 
   function SteamInternal_CreateInterface(ver:PAnsiChar):pointer; cdecl; external 'steam_api.dll';
   function SteamAPI_GetHSteamUser:HSteamUser;  cdecl; external 'steam_api.dll';
@@ -95,6 +96,24 @@ implementation
   begin
    LogMessage('Transaction: '+IntToStr(param.m_ulOrderID)+' code:'+IntToStr(param.m_bAuthorized));
    Signal('STEAM\MicroTxnAuthorization\'+IntToStr(param.m_ulOrderID),param.m_bAuthorized);
+  end;
+
+ procedure SetSteamAchievement(name:string;enable:boolean=true);
+  var
+   aName:PAnsiChar;
+   res:boolean;
+  begin
+   if not steamAvailable or (steamUserStats=nil) then begin
+    LogMessage('Steam not available');
+    exit;
+   end;
+   LogMessage('SSA: '+name);
+   aName:=PAnsiChar(AnsiString(name));
+   if enable then
+    res:=SteamAPI_ISteamUserStats_SetAchievement(steamUserStats,aName)
+   else
+    res:=SteamAPI_ISteamUserStats_ClearAchievement(steamUserStats,aName);
+   if not res then LogMessage('SSA failed');
   end;
 
  function GetSteamAuthTicket:string;
