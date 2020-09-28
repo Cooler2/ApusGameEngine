@@ -361,6 +361,10 @@ begin
 end;
 
 constructor TBasicGame.Create;
+{$IFDEF MSWINDOWS}
+var
+ dc:HDC;
+{$ENDIF}
 begin
  ForceLogMessage('Creating '+self.ClassName);
  running:=false;
@@ -385,6 +389,10 @@ begin
  {$IFDEF MSWINDOWS}
  screenWidth:=GetSystemMetrics(SM_CXSCREEN);
  screenHeight:=GetSystemMetrics(SM_CYSCREEN);
+ dc:=GetDC(0);
+ screenDPI:=GetDeviceCaps(dc,LOGPIXELSX);
+ ReleaseDC(window,dc);
+ LogMessage('Screen DPI=%d',[screenDPI]);
  {$ENDIF}
 
  PublishVar(@showDebugInfo,'ShowDebugInfo',TVarTypeInteger);
@@ -635,11 +643,12 @@ function SetProcessDPIAware:BOOL; external user32 name 'SetProcessDPIAware';
 procedure TBasicGame.Run;
 var
  i:integer;
+ res:boolean;
 begin
  if running then exit;
  game:=self;
  {$IFDEF MSWINDOWS}
- SetProcessDPIAware;
+ //res:=SetProcessDPIAware;
  {$ENDIF}
 
  if useMainThread then begin
@@ -1985,7 +1994,6 @@ procedure TBasicGame.FrameLoop;
    WindowClass:TWndClass;
    style:cardinal;
    i:integer;
-   dc:HDC;
   begin
    LogMessage('CreateMainWindow');
    with WindowClass do begin
@@ -2014,9 +2022,6 @@ procedure TBasicGame.FrameLoop;
    end;
    Layouts:=GetKeyboardLayoutList(10,LayoutList);
 
-   dc:=GetDC(window);
-   screenDPI:=GetDeviceCaps(dc,LOGPIXELSX);
-   ReleaseDC(window,dc);
   end;
   {$ELSE}
   begin
