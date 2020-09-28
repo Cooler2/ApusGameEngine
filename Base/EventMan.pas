@@ -276,7 +276,7 @@ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
     hnd:=handlers[h];
     while hnd<>nil do begin
      if hnd.event=event then
-      if (hnd.mode=emQueued) or ((hnd.mode=emMixed) and (threads[hnd.threadNum].Thread<>trID)) then
+      if (hnd.mode=emQueued) or ((hnd.mode=emMixed) and ((time>0) or (threads[hnd.threadNum].Thread<>trID))) then
           with threads[hnd.threadNum] do begin
         if time>0 then begin
          if delcnt>=31 then begin
