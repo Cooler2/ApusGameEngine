@@ -468,19 +468,20 @@ end;
 
 function Translate(s:widestring):widestring; overload;
 var ss:array[0..5] of widestring;
-    q,w:integer;
+    q,w,l:integer;
 begin
 // logmessage('translate: '+s);
  for q:=0 to 5 do ss[q]:='';
  w:=0;
  q:=length(s);
- if (q>0)and(s[q]='%') then
-  s:=s+' ';
+ if (q>0)and(s[q]='%') then s:=s+#0; // fake padding to split '%%%' - must be removed later
  s:=s+'%%';
  q:=pos(WideString('%%'),s);
  while q>0 do
  begin
   ss[w]:=Simplify(copy(s,1,q-1));
+  l:=length(ss[w]);
+  if (l>0) and (ss[w][l]=#0) then SetLength(ss[w],l-1);
   inc(w);
   s:=copy(s,q+2,16384);
   q:=pos(WideString('%%'),s);
