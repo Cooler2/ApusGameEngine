@@ -123,6 +123,7 @@ interface
   TSplineFunc=function(x,x0,x1,y0,y1:single):single;
 
   TSortableObject=class
+   // Compare self to obj: return 1 if self>obj and -1 if self<obj
    function Compare(obj:TSortableObject):integer; virtual; // Stub
   end;
 
@@ -584,6 +585,8 @@ interface
  function GetThreadName(threadID:cardinal=0):string; // вернуть имя (0=текущего) потока
 
  procedure CheckCritSections; // проверить критические секции на таймаут
+
+ procedure WaitFor(var p;maxTime:integer=1000000); // wait up to maxTime until p<>nil
 
  // Disable Data Execution Prevention (Windows)
  procedure DisableDEP;
@@ -4988,6 +4991,14 @@ function GetThreadName(threadID:cardinal=0):string; // вернуть имя (0=
  begin
   if threadID=0 then threadID:=GetCurrentThreadID;
   result:=GetNameOfThread(threadID);
+ end;
+
+procedure WaitFor(var p;maxTime:integer);
+ var
+  t:int64;
+ begin
+  t:=MyTickCount+maxTime;
+  while (pointer(p)=nil) and (MyTickCount<t) do Sleep(1);
  end;
 
 { TLogThread }

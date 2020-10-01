@@ -279,6 +279,8 @@ begin
   actualTexMode:=curTexMode;
   if curTexMode=DEFAULT_TEX_MODE then begin
    glUseProgram(defaultShader);
+   m:=Matrix4s(MVP);
+   glUniformMatrix4fv(uMVP,1,GL_FALSE,@m);
    actualShader:=AS_DEFAULT;
   end else begin
    prog:=SetCustomProgram(curTexMode);

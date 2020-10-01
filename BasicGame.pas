@@ -97,6 +97,7 @@ type
   function MouseInRect(r:TRect):boolean; overload;
   function MouseInRect(r:TRect2s):boolean; overload;
   function MouseInRect(x,y,width,height:single):boolean; overload;
+  function MouseIsNear(x,y,radius:single):boolean; overload;
 
   function MouseWasInRect(r:TRect):boolean; overload;
   function MouseWasInRect(r:TRect2s):boolean; overload;
@@ -348,6 +349,12 @@ begin
          (mouseX<x+width) and (mouseY<y+height);
 end;
 
+function TBasicGame.MouseIsNear(x,y,radius:single):boolean;
+begin
+ result:=Sqr(mouseX-x)+Sqr(mouseY-y)<=sqr(radius);
+end;
+
+
 function TBasicGame.MouseWasInRect(r:TRect):boolean;
 begin
  result:=(oldMouseX>=r.Left) and (oldmouseY>=r.Top) and
@@ -361,6 +368,10 @@ begin
 end;
 
 constructor TBasicGame.Create;
+{$IFDEF MSWINDOWS}
+var
+ dc:HDC;
+{$ENDIF}
 begin
  ForceLogMessage('Creating '+self.ClassName);
  running:=false;
@@ -385,6 +396,10 @@ begin
  {$IFDEF MSWINDOWS}
  screenWidth:=GetSystemMetrics(SM_CXSCREEN);
  screenHeight:=GetSystemMetrics(SM_CYSCREEN);
+ dc:=GetDC(0);
+ screenDPI:=GetDeviceCaps(dc,LOGPIXELSX);
+ ReleaseDC(window,dc);
+ LogMessage('Screen DPI=%d',[screenDPI]);
  {$ENDIF}
 
  PublishVar(@showDebugInfo,'ShowDebugInfo',TVarTypeInteger);
@@ -635,11 +650,12 @@ function SetProcessDPIAware:BOOL; external user32 name 'SetProcessDPIAware';
 procedure TBasicGame.Run;
 var
  i:integer;
+ res:boolean;
 begin
  if running then exit;
  game:=self;
  {$IFDEF MSWINDOWS}
- SetProcessDPIAware;
+ //res:=SetProcessDPIAware;
  {$ENDIF}
 
  if useMainThread then begin
@@ -1985,7 +2001,6 @@ procedure TBasicGame.FrameLoop;
    WindowClass:TWndClass;
    style:cardinal;
    i:integer;
-   dc:HDC;
   begin
    LogMessage('CreateMainWindow');
    with WindowClass do begin
@@ -2014,9 +2029,6 @@ procedure TBasicGame.FrameLoop;
    end;
    Layouts:=GetKeyboardLayoutList(10,LayoutList);
 
-   dc:=GetDC(window);
-   screenDPI:=GetDeviceCaps(dc,LOGPIXELSX);
-   ReleaseDC(window,dc);
   end;
   {$ELSE}
   begin

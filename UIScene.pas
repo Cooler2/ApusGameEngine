@@ -431,7 +431,7 @@ var
   end;
 begin
  result:=true;
- signal('Scenes\ProcessScene\'+name);
+ Signal('Scenes\ProcessScene\'+name);
  EnterCriticalSection(UICritSect);
  // отложенное удаление элементов
  toDelete.Clear;
