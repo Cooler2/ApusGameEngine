@@ -551,7 +551,8 @@ end;
 
 procedure TDynamicGlyphCache.FreeOldBand;
 var
- y,i,key:integer;
+ y,i:integer;
+ key:cardinal;
 begin
  ASSERT(firstBand>=0);
  // Clear hash items
