@@ -123,6 +123,7 @@ interface
   TSplineFunc=function(x,x0,x1,y0,y1:single):single;
 
   TSortableObject=class
+   // Compare self to obj: return 1 if self>obj and -1 if self<obj
    function Compare(obj:TSortableObject):integer; virtual; // Stub
   end;
 

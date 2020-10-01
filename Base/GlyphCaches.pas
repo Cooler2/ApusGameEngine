@@ -540,7 +540,7 @@ end;
 
 procedure TDynamicGlyphCache.Keep;
 begin
- // Ensure that at least 20% of cache is free
+ // Ensure that at least 25% of cache is free
  while (freeMax-freeMin<aHeight div 4) do FreeOldBand;
 end;
 
