@@ -404,9 +404,12 @@ procedure TGameApplication.Prepare;
 
    if DirectoryExists('Logs') then begin
     configDir:='Logs\';
-    UseLogFile('Logs\game.log');
+    st:='Logs\game.log';
    end else
-    UseLogFile('game.log');
+    st:='game.log';
+   if fileExists(st) then
+     RenameFile(st,ChangeFileExt(st,'.old'));
+   UseLogFile(st);
    LogCacheMode(true,false,true);
    SetLogMode(lmVerbose);
 
