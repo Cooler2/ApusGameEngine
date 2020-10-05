@@ -243,20 +243,6 @@ type
  end;
  {$ENDIF}
 
- // Флаги применимы как к отдельным символам, так и к шрифту в целом
- // Старые шрифты (для совместимости)
- TCharData=packed record
-  baseline,width,height,flags:byte;
-  kernleftmask,kernrightmask:word; // (по 2 бита на зону)
-  x1,y1,x2,y2:word; // 0 если символа нет
- end;
- TFont=class
-  chars:array[char] of TCharData;
-  height,baseAdd,charspacing:integer;
-  texture:TTexture;
-  scale:single; // 1/N
- end;
-
  // For WriteEx output
  TTextExCacheItem=record
   tex:TTexture; // nil = empty item
@@ -1154,7 +1140,7 @@ end;
 
 procedure TBasicPainter.DebugScreen1;
 begin
- TextOut(MAGIC_TEXTCACHE,100,0,0,'');
+ TextOutW(MAGIC_TEXTCACHE,100,0,0,'');
 end;
 
 procedure TBasicPainter.DrawBand(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
@@ -1351,7 +1337,7 @@ end;
 function TBasicPainter.GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):cardinal;
 var
  i,best,rate,bestRate,matchRate:integer;
- realsize:single;
+ realsize,scale:single;
 begin
  best:=0; bestRate:=0;
  realsize:=size;
@@ -1359,7 +1345,7 @@ begin
  name:=lowercase(name);
  if flags and fsStrictMatch>0 then matchRate:=10000;
  // Browse
- for i:=1 to 32 do
+ for i:=1 to high(newFonts) do
   if newFonts[i]<>nil then begin
    rate:=0;
    if newFonts[i] is TUnicodeFont then
@@ -1386,12 +1372,14 @@ begin
  if best>0 then begin
   if newFonts[best] is TUnicodeFont then begin
    if realsize>0 then
-    result:=best+round(100*realsize/(0.1*TUnicodeFont(newFonts[best]).header.width)) shl 16
+    scale:=Clamp(realsize/(0.1*TUnicodeFont(newFonts[best]).header.width),0,6.5)
    else
-    result:=best+100 shl 16;
+    scale:=1;
+   result:=best+round(100*sqrt(scale)) shl 16;
   end else
   if newFonts[best] is TFreeTypeFont then begin
-   result:=best+round(100*size/20) shl 16; // Масштаб - в процентах относительно размера 20 (макс размер - 51)
+   scale:=Clamp(sqrt(size/20),0,2.55);
+   result:=best+round(100*scale) shl 16; // Масштаб - в процентах относительно размера 20 (макс размер - 51)
    if flags and fsNoHinting>0 then result:=result or fhNoHinting;
    if flags and fsAutoHinting>0 then result:=result or fhAutoHinting;
   end
@@ -1493,26 +1481,26 @@ var
  obj:TObject;
  uniFont:TUnicodeFontEx;
  ftFont:TFreeTypeFont;
- scale:byte;
+ scale:single;
 begin
  if length(st)=0 then begin
   result:=0; exit;
  end;
- scale:=(font shr 16) and $FF;
- if scale=0 then scale:=100;
+ scale:=sqr(((font shr 16) and $FF)/100);
+ if scale=0 then scale:=1;
  obj:=newFonts[font and $1F];
  if obj is TUnicodeFont then begin
   unifont:=obj as TUnicodeFontEx;
   width:=uniFont.GetTextWidth(st);
-  if (scale>=unifont.downscaleFactor*100) and
-     (scale<=unifont.upscaleFactor*100) then scale:=100;
-  result:=round(0.01*width*scale);
+  if (scale>=unifont.downscaleFactor) and
+     (scale<=unifont.upscaleFactor) then scale:=1;
+  result:=round(width*scale);
   exit;
  end else
  {$IFDEF FREETYPE}
  if obj is TFreeTypeFont then begin
   ftFont:=obj as TFreeTypeFont;
-  result:=ftFont.GetTextWidth(st,20*scale/100);
+  result:=ftFont.GetTextWidth(st,20*scale);
   exit;
  end else
  {$ENDIF}
@@ -1527,24 +1515,24 @@ function TBasicPainter.FontHeight(font:cardinal):integer;
 var
  uniFont:TUnicodeFontEx;
  ftFont:TFreeTypeFont;
- scale:byte;
+ scale:single;
  obj:TObject;
 begin
  ASSERT(font<>0);
  obj:=newFonts[font and $FF];
- scale:=(font shr 16) and $FF;
- if scale=0 then scale:=100;
+ scale:=sqr(((font shr 16) and $FF)/100);
+ if scale=0 then scale:=1;
  if obj is TUnicodeFont then begin
   unifont:=obj as TUnicodeFontEx;
-  if (scale>=unifont.downscaleFactor*100) and
-     (scale<=unifont.upscaleFactor*100) then scale:=100;
-  result:=round(uniFont.GetHeight*scale/100);
+  if (scale>=unifont.downscaleFactor) and
+     (scale<=unifont.upscaleFactor) then scale:=1;
+  result:=round(uniFont.GetHeight*scale);
   exit;
  end else
  {$IFDEF FREETYPE}
  if obj is TFreeTypeFont then begin
   ftFont:=obj as TFreeTypeFont;
-  result:=ftFont.GetHeight(20*scale/100);
+  result:=ftFont.GetHeight(20*scale);
  end else
  {$ENDIF}
   raise EWarning.Create('FH 1');
@@ -1701,7 +1689,7 @@ var
    {$IFDEF FREETYPE}
    if obj is TFreeTypeFont then begin
      ftFont:=obj as TFreeTypeFont;
-     size:=20/100*((font shr 16) and $FF);
+     size:=20*sqr(((font shr 16) and $FF)/100);
      ftHintMode:=0;
      if (options and toNoHinting>0) or (font and fhNoHinting>0) then begin
        ftHintMode:=ftHintMode or FTF_NO_HINTING;
@@ -1715,7 +1703,7 @@ var
    {$ENDIF}
    if obj is TUnicodeFont then begin
      unifont:=obj as TUnicodeFontEx;
-     scale:=((font shr 16) and $FF)/100;
+     scale:=sqr(((font shr 16) and $FF)/100);
      if scale=0 then scale:=1;
      charScaleX:=1; charScaleY:=1;
      if (scale<unifont.downscaleFactor) or

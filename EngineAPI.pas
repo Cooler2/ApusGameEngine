@@ -71,12 +71,12 @@ const
  toComplexText    =  16; // String is complex - parse it
  toMeasure        =  32; // Fill measurement data, if query<>0 - check point and set current link
  toDontDraw       =  64; // Just measure - don't draw anything
- toBold           = $100;  // Overrides font style flag
- toAddBaseline    = $10000;  // y-coordinate passed is not for baseline, but for top line, so need to be corrected
- toNoHinting      = $20000; // Disable hinting for vector fonts (good for large text)
- toAutoHinting    = $40000; // Force use of FT-autohinting (may produce better or more uniform results)
- toItalic         = $2000000; // Overrides font style flag
- toUnderline      = $4000000; // Overrides font style flag
+ toBold           =      $100;  // Overrides font style flag
+ toAddBaseline    =    $10000;  // y-coordinate passed is not for baseline, but for top line, so need to be corrected
+ toNoHinting      =    $20000; // Disable hinting for vector fonts (good for large text)
+ toAutoHinting    =    $40000; // Force use of FT-autohinting (may produce better or more uniform results)
+ toItalic         =  $2000000; // Overrides font style flag
+ toUnderline      =  $4000000; // Overrides font style flag
  toLetterSpacing  = $10000000; // Additional spacing between letters
 
  // GetFont style flags
@@ -84,9 +84,9 @@ const
  fsNoHinting     = 2; // Disable hinting for vector fonts (good for large text)
  fsAutoHinting   = 4; // Force use of FT-autohinting (may produce better or more uniform results)
  fsStrictMatch = 128; // strict match for font name
- fsBold        = $100;
- fsItalic      = $2000000;
- fsUnderline   = $4000000;
+ fsBold        =         $100;
+ fsItalic      =     $2000000;
+ fsUnderline   =     $4000000;
  fsLetterSpacing  = $10000000;
 
  // Font options (for SetFontOption)
