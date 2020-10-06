@@ -14,7 +14,7 @@ type
  { TGLPainter2 }
 
  TGLPainter2=class(TGLPainter)
-   constructor Create(textureMan:TTextureMan);
+   constructor Create(game:TGameObj);
    destructor Destroy; override;
 
    procedure BeginPaint(target:TTexture); override;
@@ -498,7 +498,7 @@ const
   '  if (texmode==4) { vec4 value=vColor; value.a=value.a*texture2D(tex1,vTexcoord).a; gl_FragColor = value; };      '#13#10+
   '}';
 
-constructor TGLPainter2.Create(textureMan: TTextureMan);
+constructor TGLPainter2.Create;
  begin
   inherited;
   customShaders.Init(20);

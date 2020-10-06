@@ -164,9 +164,9 @@ begin
   texman:=TGLTextureMan.Create(1024*BestVidMem);
   LogMessage('Painter');
   if useShaders then
-   painter:=TGLPainter2.Create(texman)
+   painter:=TGLPainter2.Create(self)
   else
-   painter:=TGLPainter.Create(texman);
+   painter:=TGLPainter.Create(self);
 
   LogMessage('Default RT');
   fl:=HasParam('-nodrt');

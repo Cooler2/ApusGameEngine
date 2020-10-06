@@ -32,7 +32,7 @@ type
 
  { TBasicGame }
 
- TBasicGame=class
+ TBasicGame=class(TGameObj)
   constructor Create(vidmem:integer=0); // Создать экземпляр (желательный объем видеопамяти под текстуры в мегабайтах)
   procedure Run; virtual; // запустить движок (создание окна, переключение режима и пр.)
   procedure Stop; virtual; // остановить и освободить все ресурсы (требуется повторный запуск через Run)
@@ -124,10 +124,6 @@ type
   capturedName:string;
   capturedTime:int64;
 
-  // Интерфейсы отрисовки и управления ресурсами
-  texman:TTextureMan;
-  painter:TPainter;
-
   wndCursor:HCURSOR;
   // Для расчета FPS
   LastFrameNum:integer;
@@ -186,42 +182,19 @@ type
 
   procedure DrawMagnifier; virtual;
  public
-  // Глобально доступные переменные
-  renderWidth,renderHeight:integer; // Size of render area in virtual pixels (primitive of this size fills the whole renderRect)
-  displayRect:TRect;     // область вывода в окне (после инициализации - все окно) в реальных экранных пикселях
-  screenWidth,screenHeight:integer; // реальный размер всего экрана
-  windowWidth,windowHeight:integer; // размеры клиентской части окна в реальных пикселях
-  screenDPI:integer;    // According to system settings
-  active:boolean;       // Окно активно, цикл перерисовки выполняется
-  paused:boolean;       // Режим паузы (изначально сброшен, движком не изменяется и не используется)
+  crSect:TMyCriticalSection;
+
   unicode:boolean;      // unicode mode ON?
   window:cardinal;      // main window handle
-  terminated:boolean;   // Работа цикла завершена, можно начинать деинициализацию и выходить
-  changed:boolean;      // Нужно ли перерисовывать экран (аналог результата onFrame, только можно менять в разных местах)
   mouseVisible:boolean; // курсор мыши включен
-  frameNum:integer;     // Номер кадра
   FPS,smoothFPS:single;
   showFPS:boolean;      // отображать FPS в углу экрана
   showDebugInfo:integer; // Кол-во строк отладочной инфы
-  crSect:TMyCriticalSection;
   frameLog,prevFrameLog:string;
-  frameStartTime:int64; // MyTickCount в начале кадра
   avgTime,avgTime2:double;
   timerFrame:cardinal;
 
   videoCapturePath:string; // путь для сохранения файлов видеозахвата (по умолчанию - тек. каталог)
-
-  keyState:array[0..255] of byte; // 0-й бит - клавиша нажата, 1-й - была нажата в пред. раз
-  shiftstate:byte; // состояние клавиш сдвига (1-shift, 2-ctrl, 4-alt, 8-win)
-  mouseX,mouseY:integer; // положение мыши внутри окна/экрана
-  oldMouseX,oldMouseY:integer; // предыдущее положение мыши (не на предыдущем кадре, а вообще!)
-  mouseMoved:int64; // Момент времени, когда положение мыши изменилось
-  mouseButtons:byte;     // Флаги "нажатости" кнопок мыши (0-левая, 1-правая, 2-средняя)
-  oldMouseButtons:byte;  // предыдущее (отличающееся) значение mouseButtons
-  textLink:cardinal; // Вычисленный на предыдущем кадре номер ссылки под мышью записывается здесь (сам по себе он не вычисляется, для этого надо запускать отрисовку текста особым образом)
-                     // TODO: плохо, что этот параметр глобальный, надо сделать его свойством сцен либо элементов UI, чтобы можно было проверять объект под мышью с учётом наложений
-  textLinkRect:TRect; // область ссылки, по номеру textLink
-
   suppressCharEvent:boolean; // suppress next keyboard event (to avoid duplicated handle of both CHAR and KEY events)
 
   // параметры выставляются при смене режима, указыают что именно изменялось
@@ -376,8 +349,8 @@ begin
  ForceLogMessage('Creating '+self.ClassName);
  running:=false;
  unicode:=true;
- canExitNow:=false;
  terminated:=false;
+ canExitNow:=false;
  useMainThread:=true;
  controlThread:=GetCurrentThreadId;
  active:=false;

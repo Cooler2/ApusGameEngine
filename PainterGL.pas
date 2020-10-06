@@ -15,7 +15,7 @@ type
  TMatrixType=(mtModelView,mtProjection);
 
  TGLPainter=class(TBasicPainter)
-  constructor Create(textureMan:TTextureMan);
+  constructor Create(game:TGameObj);
   destructor Destroy; override;
 
   // Setup render destination
@@ -208,10 +208,12 @@ var
  i:integer;
 begin
  try
- Assert(textureman<>nil);
- inherited Create(textureman);
+ // Adjust font cache
+ if game.screenWidth*game.screenHeight>3000000 then textCacheHeight:=max2(textCacheHeight,1024);
+ //if game.screenWidth*game.screenHeight>5000000 then textCacheWidth:=max2(textCacheWidth,1024);
+
+ inherited Create(game);
  defaultRenderTarget:=nil;
- texman:=TextureMan;
  Initialize;
  textcolorx2:=false;
  stackcnt:=0;
@@ -219,9 +221,9 @@ begin
  canPaint:=0;
  efftex:=nil;
  txtTex:=nil;
- efftex:=texman.AllocImage(256,32,ipfARGB,aiTexture,'effectTex') as TGLtexture;
- txttex:=texman.AllocImage(1024,32,ipfARGB,aiTexture,'txtTex') as TGLtexture;
- textCache:=texman.AllocImage(textCacheWidth,textCacheHeight,ipfA8,aiTexture,'textCache');
+ efftex:=game.texman.AllocImage(256,32,ipfARGB,aiTexture,'effectTex') as TGLtexture;
+ txttex:=game.texman.AllocImage(1024,32,ipfARGB,aiTexture,'txtTex') as TGLtexture;
+ textCache:=game.texman.AllocImage(textCacheWidth,textCacheHeight,ipfA8,aiTexture,'textCache');
  colorFormat:=1; // colors should be flipped
  supportARGB:=true; // always supported
  for i:=0 to 3 do begin
@@ -1025,7 +1027,7 @@ end;
 
 procedure TGLPainter.ResetTextures;
 begin
- with texman as TGLTExtureMan do begin
+ with game.texman as TGLTextureMan do begin
   MakeOnline(nil,0);
   MakeOnline(nil,1);
   MakeOnline(nil,2);
@@ -1122,9 +1124,9 @@ begin
 //  glActiveTexture(GL_TEXTURE0+stage);
   if tex.parent<>nil then tex:=tex.parent;
   //TGLTexture(tex).filter:=curFilters[stage];
-  texman.MakeOnline(tex,stage);
+  game.texman.MakeOnline(tex,stage);
   if curFilters[stage]<>TGLTexture(tex).filter then
-   (texman as TGLTextureMan).SetTexFilter(tex,curFilters[stage]);
+   (game.texman as TGLTextureMan).SetTexFilter(tex,curFilters[stage]);
 
  end else begin
   glActiveTexture(GL_TEXTURE0+stage);

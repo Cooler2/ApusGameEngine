@@ -62,7 +62,7 @@ interface
  TBasicPainter=class(TPainter)
   PFTexWidth:integer; // width of texture for PrepareFont
 //  constructor Create;
-  constructor Create(textureMan:TTextureMan);
+  constructor Create(game:TGameObj);
 
   // Ќачать рисование (использовать указанную текстуру либо основной буфер если она не указана)
   procedure BeginPaint(target:TTexture); override;
@@ -144,7 +144,7 @@ interface
 
   procedure DebugScreen1; // инфа о выводе текста
  protected
-  texman:TTextureMan;
+  game:TGameObj;
 
   canPaint:integer;
   CurFont:cardinal;
@@ -372,8 +372,8 @@ end;
 constructor TBasicPainter.Create;
 begin
  ForceLogMessage('Creating '+self.ClassName);
- Assert(textureman<>nil);
- texman:=TextureMan;
+ self.game:=game;
+ Assert(game<>nil);
 
  scnt:=0; zPlane:=0;
  stackcnt:=0;
