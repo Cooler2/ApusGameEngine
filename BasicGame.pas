@@ -1,6 +1,6 @@
 ﻿// Main runtime unit of the engine
 //
-// IMPORTANT: Nevertheless DXGame is implemented as class, it is
+// IMPORTANT: Nevertheless BasicGame is implemented as class, it is
 //            NOT thread-safe itself i.e. does not allow multiple instances!
 //            (at least between Run/Stop calls)
 //            If you want to access private data (buffers, images) from other

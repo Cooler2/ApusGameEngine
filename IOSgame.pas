@@ -63,7 +63,7 @@ end;
 procedure TIOSGame.InitObjects;
 begin
   texman:=TGLTextureMan.Create(1024*BestVidMem);
-  painter:=TGLPainter.Create(texman);
+  painter:=TGLPainter.Create(self);
 end;
 
 procedure TIOSGame.PresentFrame;
