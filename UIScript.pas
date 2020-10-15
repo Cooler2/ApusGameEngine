@@ -139,7 +139,7 @@ procedure CreateCmd(cmd:string);
     if sa[0]='UILABEL' then begin
      c:=TUILabel.Create(width,height,sa[1],caption,color,font,parentobj);
      (c as TUILabel).align:=align;
-     c.transpmode:=tmTransparent;
+     c.shape:=shapeEmpty;
     end else
     if sa[0]='UICONTROL' then begin
      c:=TUIControl.Create(width,height,parentobj,sa[1]);
@@ -397,7 +397,7 @@ begin
        result:=@TUIImage(obj).src; varClass:=TVarTypeString;
       end;
   't':if fieldname='transpmode' then begin
-       result:=@obj.transpmode; varClass:=TVarTypeTranspMode;
+       result:=@obj.shape; varClass:=TVarTypeTranspMode;
       end else
       if (fieldname='text') and (obj is TUIEditBox) then begin
        varClass:=TVarTypeWideString; result:=@TUIEditBox(obj).realtext;
@@ -431,17 +431,17 @@ end;
 class procedure TVarTypeTranspMode.SetValue(variable:pointer;v:string);
  begin
   v:=lowercase(v);
-  if v='transparent' then TTranspMode(variable^):=tmTransparent else
-  if v='custom' then TTranspMode(variable^):=tmCustom else
-  if v='opaque' then TTranspMode(variable^):=tmOpaque else
+  if v='transparent' then TElementShape(variable^):=shapeEmpty else
+  if v='custom' then TElementShape(variable^):=shapeCustom else
+  if v='opaque' then TElementShape(variable^):=shapeFull else
   raise EWarning.Create('Unknown transparency mode: '+v);
  end;
 class function TVarTypeTranspMode.GetValue(variable:pointer):string;
  begin
-  case TTranspMode(variable^) of
-   tmTransparent:result:='transparent';
-   tmOpaque:result:='opaque';
-   tmCustom:result:='custom';
+  case TElementShape(variable^) of
+   shapeEmpty:result:='transparent';
+   shapeFull:result:='opaque';
+   shapeCustom:result:='custom';
   end;
  end;
 

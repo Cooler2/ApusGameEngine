@@ -264,7 +264,7 @@ implementation
    c:=GetColor(control,0);
    c2:=GetColor(control,1);
    if c<>0 then begin
-    if transpBgnd and (control.transpmode<>tmTransparent) then painter.SetMode(blMove);
+    if transpBgnd and (control.shape<>shapeEmpty) then painter.SetMode(blMove);
     painter.FillRect(x1,y1,x2,y2,c);
     if transpBgnd then painter.SetMode(blAlpha);
    end;
@@ -301,7 +301,7 @@ implementation
       x1:=control.globalRect.Left;
       y1:=control.globalRect.Top;
      end;
-     if transpMode=tmOpaque then v:=(MyTickCount-created)*2
+     if shape=shapeFull then v:=(MyTickCount-created)*2
       else begin
        v:=256-(MyTickCount-created) div 2;
        if v<=0 then begin

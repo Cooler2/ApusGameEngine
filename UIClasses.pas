@@ -59,9 +59,9 @@ type
       ssAll);          // Verbose mode: all signals
 
  // How element response for mouse/touch events
- TTranspMode=(tmTransparent, // whole element is transparent for mouse/touch events
-              tmOpaque,      // whole element is opaque for mouse/touch events
-              tmCustom);     // some pixels are transparent, some are not - it depends on the Region field
+ TElementShape=(shapeEmpty, // whole element is transparent for mouse/touch events
+                shapeFull,      // whole element is opaque for mouse/touch events
+                shapeCustom);     // some pixels are transparent, some are not - it depends on the Region field
 
  // How mouse movement is limited between mouseDown and mouseUp
  TClipMouse=(cmNo,        // not limited
@@ -108,8 +108,8 @@ type
   scale:TVector2s; // scale factor for this element (size) and all children elements
   size:TVector2s; // dimension of this element
   paddingLeft,paddingTop,paddingRight,paddingBottom:single; // рамка отсечения при отрисовке вложенных эл-тов (может также использоваться для других целей)
-  transpmode:TTranspMode;  // Режим прозрачности для событий ввода
-  region:TRegion;   // задает область непрозрачности в режиме tmCustom (поведение по умолчанию)
+  shape:TElementShape;  // Режим прозрачности для событий ввода
+  shapeRegion:TRegion;   // задает область непрозрачности в режиме tmCustom (поведение по умолчанию)
   scroll:TVector2s; // смещение (используется для вложенных эл-тов!) SUBTRACT from children pos
   scrollerH,scrollerV:TUIScrollBar;  // если для прокрутки используются скроллбары - здесь можно их определить
   placementMode:TUIPlacementMode;  // Реакция на изменение размеров предка
@@ -946,7 +946,7 @@ begin
  scale:=Point2s(1,1);
  pivot:=Point2s(0,0);
  paddingLeft:=0; paddingRight:=0; paddingTop:=0; paddingBottom:=0;
- transpmode:=tmTransparent;
+ shape:=shapeEmpty;
  timer:=0;
  parent:=parent_;
  parentClip:=true;
@@ -981,7 +981,7 @@ begin
  scrollerH:=nil; scrollerV:=nil;
  globalRect:=GetPosOnScreen;
  focusedChild:=nil;
- region:=nil;
+ shapeRegion:=nil;
  Signal('UI\ItemCreated',integer(self));
 end;
 
@@ -1000,7 +1000,7 @@ begin
   else
    Detach(false);
   Clear;
-  FreeAndNil(region);
+  FreeAndNil(shapeRegion);
  except
   on e:Exception do raise EError.Create(Format('Destroy error for %s: %s',[name,ExceptionMsg(e)]));
  end;
@@ -1077,7 +1077,7 @@ begin
  r:=GetPosOnScreen;
  p:=Point(x,y);
  if not PtInRect(r,p) then begin result:=false; exit; end; // за пределами эл-та
- if transpmode=tmOpaque then c:=self;
+ if shape=shapeFull then c:=self;
 
  // На данный момент известно, что точка в пределах текущего эл-та
  // Но возможно здесь есть кто-то из вложенных эл-тов! Нужно их проверить:
@@ -1108,7 +1108,7 @@ begin
  end;
 
  // Ни одного непрозрачного потомка в данной точке, но сам элемент может быть непрозрачен здесь!
- if not fl and (transpmode=tmCustom) then
+ if not fl and (shape=shapeCustom) then
   if IsOpaque((x-r.Left)/r.Width,(y-r.Top)/r.Height) then c:=self;
 
  if c=nil then result:=false;
@@ -1355,8 +1355,8 @@ end;
 function TUIControl.IsOpaque(x, y: single): boolean;
 begin
  result:=false;
- if region<>nil then
-  result:=region.TestPoint(x,y);
+ if shapeRegion<>nil then
+  result:=shapeRegion.TestPoint(x,y);
 end;
 
 procedure TUIControl.onChar(ch: char; scancode: byte);
@@ -1724,7 +1724,7 @@ begin
  inherited Create(width,height,parent_,imgName);
  color:=$FF808080;
  src:='';
- transpmode:=tmTransparent;
+ shape:=shapeEmpty;
 end;
 
 procedure TUIImage.SetRenderProc(proc:pointer);
@@ -1740,7 +1740,7 @@ var
  i:integer;
 begin
  inherited Create(width,height,btnName,parent_);
- transpmode:=tmOpaque;
+ shape:=shapeFull;
  font:=BtnFont;
  btnStyle:=bsNormal;
  group:=0;
@@ -1909,7 +1909,7 @@ constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFo
   parent_: TUIControl);
 begin
  inherited Create(width,height,parent_,labelName);
- transpmode:=tmOpaque;
+ shape:=shapeFull;
  color:=color_;
  align:=taLeft;
  sendSignals:=ssMajor;
@@ -1936,7 +1936,7 @@ begin
  paddingLeft:=deltaX; paddingTop:=wcTitleHeight;
  paddingRight:=deltaX; paddingBottom:=deltaY;
 
- transpMode:=tmOpaque;
+ shape:=shapeFull;
  caption:=wndCaption;
  font:=wndFont;
  header:=wcTitleHeight;
@@ -2077,7 +2077,7 @@ constructor TUIEditBox.Create(width,height:single; boxName: string;
   boxFont:cardinal;color_:cardinal;parent_:TUIControl);
 begin
  inherited Create(width,height,parent_,boxName);
- transpmode:=tmOpaque;
+ shape:=shapeFull;
  cursor:=crInput;
  encoding:=defaultEncoding;
  realtext:='';
@@ -2391,7 +2391,7 @@ end;
 constructor TUIScrollBar.Create(width,height:single; barName: string; parent_: TUIControl);
 begin
  inherited Create(width,height,parent_,barName);
- transpmode:=tmOpaque;
+ shape:=shapeFull;
  min:=0; max:=100; rValue.Init(0); pagesize:=0;
  linkedControl:=nil; step:=1;
  color:=$FFB0B0B0;
@@ -2570,7 +2570,7 @@ constructor TUIHint.Create(x,y:single; text: string;
 begin
  inherited Create(1,1,'hint',parent_);
  SetPos(x,y,pivotTopLeft);
- transpmode:=tmOpaque;
+ shape:=shapeFull;
  font:=0;
  simpleText:=text;
  active:=act;
@@ -2586,9 +2586,9 @@ end;
 
 procedure TUIHint.Hide;
 begin
- if transpmode<>tmTransparent then begin
+ if shape<>shapeEmpty then begin
   LogMessage('UIHint Hide');
-  transpmode:=tmTransparent;
+  shape:=shapeEmpty;
   created:=MyTickCount;
  end;
 end;
@@ -2610,7 +2610,7 @@ constructor TUIScrollArea.Create(width, height, fullW, fullH: single;
   dir: TUIScrollDirection;parent_:TUIControl);
 begin
  inherited Create(width,height,parent_);
- transpmode:=tmOpaque;
+ shape:=shapeFull;
  fullWidth:=fullW;
  fullHeight:=fullH;
  direction:=dir;
@@ -2659,7 +2659,7 @@ end;
 constructor TUIListBox.Create(width,height:single;lHeight:single; listName:string; font_:cardinal; parent: TUIControl);
 begin
  inherited Create(width,height,parent,listName);
- transpmode:=tmOpaque;
+ shape:=shapeFull;
  font:=font_;
  lineHeight:=lHeight;
  selectedLine:=-1;
@@ -2756,7 +2756,7 @@ end;
 constructor TUIFrame.Create(width,height:single;depth,style_: integer; parent_: TUIControl);
 begin
  inherited Create(width,height,parent_,'UIFrame');
- transpmode:=tmOpaque;
+ shape:=shapeFull;
  borderWidth:=depth;
  style:=style_;
  paddingLeft:=depth;  paddingTop:=depth;
@@ -2792,7 +2792,7 @@ var
  i,j:integer;
 begin
  inherited Create(width,height,name,'',bFont,parent_);
- transpmode:=tmOpaque;
+ shape:=shapeFull;
  font:=bFont;
  items:=Copy(list);
  SetLength(tags,length(items));

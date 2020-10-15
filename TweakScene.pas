@@ -249,7 +249,7 @@ constructor TTracker.Create(x,y:integer;parent:TUIControl;mode:TValueType;iValue
 begin
  inherited Create(parent.width-x-5-5*byte(mode in [vtAlpha..vtBlue]),18+game.renderHeight div 50,parent);
  SetPos(x,y);
- transpmode:=tmOpaque;
+ shape:=shapeFull;
  canHaveFocus:=true;
  style:=3;
  value:=iValue;

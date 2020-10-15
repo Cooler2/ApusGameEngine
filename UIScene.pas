@@ -346,8 +346,8 @@ begin
  UI:=TUIControl.Create(rootWidth,rootHeight,nil,sceneName);
  UI.enabled:=false;
  UI.visible:=false;
- if not fullscreen then ui.transpMode:=tmTransparent
-  else ui.transpmode:=tmOpaque;
+ if not fullscreen then ui.shape:=shapeEmpty
+  else ui.shape:=shapeFull;
 
  if classType=TUIScene then onCreate;
  if game<>nil then game.AddScene(self);
@@ -360,11 +360,11 @@ var
 begin
  result:=Rect(0,0,0,0); // empty
  if UI=nil then exit;
- if UI.transpmode<>tmTransparent then
+ if UI.shape<>shapeEmpty then
   result:=Rect(0,0,round(UI.size.x),round(UI.size.y));
  for i:=0 to high(UI.children) do
   with UI.children[i] do
-   if transpmode<>tmTransparent then begin
+   if shape<>shapeEmpty then begin
     r:=GetPosOnScreen;
     if IsRectEmpty(result) then
      result:=r
@@ -638,7 +638,7 @@ var
    i:integer;
   begin
    writeln(f,indent,c.ClassName+':'+c.name+' = '+inttohex(cardinal(c),8));
-   writeln(f,indent,c.order,' En=',c.enabled,' Vis=',c.visible,' trM=',ord(c.transpmode));
+   writeln(f,indent,c.order,' En=',c.enabled,' Vis=',c.visible,' trM=',ord(c.shape));
    writeln(f,indent,Format('x=%.1f, y=%.1f, w=%.1f, h=%.1f, left=%d, top=%d',
      [c.position.x,c.position.y,c.size.x,c.size.y,c.globalRect.Left,c.globalRect.Top]));
    writeln(f);
