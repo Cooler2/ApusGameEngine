@@ -255,7 +255,7 @@ procedure LoadTGA;
 
   if allocate then begin
    // Allocate new image
-   image:=Images.TBitmapImage.Create(head.imgwidth,head.imgheight,format,palformat,
+   image:=Apus.Images.TBitmapImage.Create(head.imgwidth,head.imgheight,format,palformat,
     head.palstart+head.palsize);
    x1:=0; y1:=0; x2:=head.imgwidth-1; y2:=head.imgheight-1;
    width:=head.imgwidth; height:=head.imgheight;
@@ -483,7 +483,7 @@ procedure LoadTGA;
      HandleWord;
      // разделитель строки
      if c^=#10 then begin
-      if line=1 then img:=Images.TBitmapImage.Create(w,h);
+      if line=1 then img:=Apus.Images.TBitmapImage.Create(w,h);
       if line=2 then bgnd:=MyColor(r,g,b);
       if line=3 then border:=MyColor(r,g,b);
       if line=4 then text:=MyColor(r,g,b);
@@ -783,7 +783,7 @@ procedure LoadTGA;
    src.Free;
 
    if image=nil then
-    image:=Images.TBitmapImage.Create(jpeg.Width,jpeg.Height,ipfRGB);
+    image:=Apus.Images.TBitmapImage.Create(jpeg.Width,jpeg.Height,ipfRGB);
 
    jpeg.DIBNeeded;
    bmp:=TBitmap.Create;
@@ -854,7 +854,7 @@ procedure LoadTGA;
 
    // Allocate dest image if needed
    if image=nil then
-     image:=Images.TBitmapImage.Create(width,height,ipfARGB);
+     image:=Apus.Images.TBitmapImage.Create(width,height,ipfARGB);
 
    image.Lock;
    sour:=buf;
@@ -906,7 +906,7 @@ procedure LoadTGA;
 
    // Allocate dest image if needed
    if image=nil then
-     image:=Images.TBitmapImage.Create(width,height,ipfMono8);
+     image:=Apus.Images.TBitmapImage.Create(width,height,ipfMono8);
 
    image.Lock;
    sour:=buf;

@@ -53,6 +53,8 @@ interface
   VK_F8=windows.VK_F8;
   VK_F9=windows.VK_F9;
   VK_F10=windows.VK_F10;
+  VK_F11=windows.VK_F11;
+  VK_F12=windows.VK_F12;
   VK_TAB=windows.VK_TAB;
   VK_LEFT=windows.VK_LEFT;
   VK_RIGHT=windows.VK_RIGHT;

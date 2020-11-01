@@ -33,7 +33,7 @@ interface
  function Contrast(c:cardinal;value:integer):cardinal;
 
 implementation
- uses MyServis;
+ uses Apus.MyServis;
  {$R-,Q-}
  type
   TARGBcolor=packed record

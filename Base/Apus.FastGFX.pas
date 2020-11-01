@@ -216,7 +216,7 @@ var
  procedure FillPolygon(points:PPoint2s;count:integer;color:cardinal); // not yet implemented
 
 implementation
- uses Apus.CrossPlatform,{$IFDEF ANDROID}Apus.MyServis,SysUtils,{$ENDIF} Apus.Colors, Math;
+ uses Apus.CrossPlatform, {$IFDEF ANDROID}Apus.MyServis,SysUtils,{$ENDIF} Apus.Colors, Math;
 
 threadvar
  // Место для отрисовки по умолчанию

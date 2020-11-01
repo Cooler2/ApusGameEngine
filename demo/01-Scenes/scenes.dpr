@@ -130,7 +130,7 @@ constructor TSceneW.Create;
   zOrder:=100; // Important: it should be above other scenes
   c:=TUIControl.Create(300,140,ui,'SceneW\Frame');
   c.SetPos(ui.width/2,ui.height*0.6, pivotCenter);
-  c.transpmode:=tmOpaque; // Important! Opaque elements define the scene area used for effects, it should not be void
+  c.shape:=shapeFull; // Important! Opaque elements define the scene area used for effects, it should not be void
   TUIButton.Create(100,40,'SceneW\Btn1','Close',mainFont,c).
    SetPos(c.width/2, c.height*0.5, pivotCenter);
   Link('UI\onButtonClick\SceneW\Btn1','Logic\CloseWindow');

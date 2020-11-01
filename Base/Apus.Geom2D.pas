@@ -184,7 +184,7 @@ interface
  procedure Triangulate(pnts:PPoint2;count:integer);
 
 implementation
- uses {$IFDEF DELPHI}Apus.CrossPlatform,{$ENDIF} Apus.MyServis, SysUtils, Apus.Math;
+ uses {$IFDEF DELPHI}Apus.CrossPlatform,{$ENDIF} Apus.MyServis, SysUtils, Math;
  var
   sse:boolean;
 

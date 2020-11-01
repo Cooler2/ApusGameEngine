@@ -56,7 +56,7 @@ type
  function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
 
 implementation
- uses CrossPlatform, SysUtils, MyServis;
+ uses Apus.CrossPlatform, SysUtils, Apus.MyServis;
 const
  queueMask = 1023;
 type

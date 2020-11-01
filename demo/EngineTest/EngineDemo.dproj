@@ -87,7 +87,7 @@
         <DCC_Define>DELPHI;FREETYPE;OPENGL;LODEPNG;$(DCC_Define)</DCC_Define>
         <SanitizedProjectName>EngineDemo</SanitizedProjectName>
         <VerInfo_Locale>1059</VerInfo_Locale>
-        <DCC_Namespace>System;Xml;Web;Winapi;DUnitX;VCL;VCL.Imaging;$(DCC_Namespace)</DCC_Namespace>
+        <DCC_Namespace>System;Xml;Web;Winapi;DUnitX;VCL;VCL.Imaging;Apus;$(DCC_Namespace)</DCC_Namespace>
         <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <Icon_MainIcon>$(BDS)\bin\delphi_PROJECTICON.ico</Icon_MainIcon>
         <Icns_MainIcns>$(BDS)\bin\delphi_PROJECTICNS.icns</Icns_MainIcns>
@@ -198,41 +198,44 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="..\..\EngineAPI.pas"/>
-        <DCCReference Include="..\..\UIClasses.pas"/>
-        <DCCReference Include="..\..\PainterGL.pas"/>
-        <DCCReference Include="..\..\UIScene.pas"/>
-        <DCCReference Include="..\..\UIRender.pas"/>
-        <DCCReference Include="..\..\engineTools.pas"/>
-        <DCCReference Include="..\..\console.pas"/>
-        <DCCReference Include="..\..\conScene.pas"/>
-        <DCCReference Include="..\..\stdEffects.pas"/>
-        <DCCReference Include="..\..\SoundB.pas"/>
-        <DCCReference Include="..\..\BitmapStyle.pas"/>
-        <DCCReference Include="..\..\Sound.pas"/>
-        <DCCReference Include="..\..\networking2.pas"/>
-        <DCCReference Include="..\..\IOSgame.pas"/>
-        <DCCReference Include="..\..\BasicGame.pas"/>
-        <DCCReference Include="..\..\BasicPainter.pas"/>
-        <DCCReference Include="..\..\TweakScene.pas"/>
-        <DCCReference Include="..\..\networking3.pas"/>
-        <DCCReference Include="..\..\UDict.pas"/>
-        <DCCReference Include="..\..\customstyle.pas"/>
-        <DCCReference Include="..\..\GameObjects.pas"/>
-        <DCCReference Include="..\..\cmdproc.pas"/>
-        <DCCReference Include="..\..\ComplexText.pas"/>
-        <DCCReference Include="..\..\steamAPI.pas"/>
-        <DCCReference Include="..\..\DxImages8.pas"/>
-        <DCCReference Include="..\..\PainterGL2.pas"/>
-        <DCCReference Include="..\..\GLImages.pas"/>
-        <DCCReference Include="..\..\GLgame.pas"/>
-        <DCCReference Include="..\..\GameApp.pas"/>
-        <DCCReference Include="..\..\Model3D.pas"/>
-        <DCCReference Include="..\..\OBJLoader.pas"/>
-        <DCCReference Include="..\..\SpritePacker.pas"/>
-        <DCCReference Include="..\..\IQMloader.pas"/>
-        <DCCReference Include="..\..\ImgLoadQueue.pas"/>
-        <DCCReference Include="..\..\UIScript.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.API.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.UIClasses.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.PainterGL.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.UIScene.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.UIRender.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.EngineTools.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Console.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.ConsoleScene.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.SceneEffects.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.SoundBass.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.BitmapStyle.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Sound.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Networking2.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.IOSgame.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Game.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.BasicPainter.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.TweakScene.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Networking3.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.UDict.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.CustomStyle.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.GameObjects.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.CmdProc.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.ComplexText.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.SteamAPI.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.DxImages8.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.PainterGL2.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.GLImages.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.GLgame.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.GameApp.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Model3D.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.OBJLoader.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.SpritePacker.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.IQMloader.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.ImgLoadQueue.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.UIScript.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Internals.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.GfxFormats3D.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.WindowsPlatform.pas"/>
         <BuildConfiguration Include="Debug">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

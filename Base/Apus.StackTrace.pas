@@ -71,8 +71,8 @@ implementation
   pop rdi
   pop rsi
   pop rdx
-  pop rcx}
-  jmp [saveExceptionProc]
+  pop rcx
+  jmp [saveExceptionProc]}
  end;
 {$ENDIF}
 {  asm
