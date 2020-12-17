@@ -87,10 +87,10 @@ implementation
       SysUtils, Apus.Images, Apus.Geom2D,
       {$IFDEF OPENGL}dglOpenGL, Apus.Engine.PainterGL, {$ENDIF}
       {$IFDEF ANDROID}gles20, Apus.Engine.PainterGL, {$ENDIF}
-      Apus.Engine.EngineTools,Apus.Colors,Apus.Engine.UIClasses,Apus.Engine.Console,Apus.Engine.UIRender;
+      Apus.Colors,Apus.Engine.UIClasses,Apus.Engine.Console,Apus.Engine.UIRender;
 
  var
-  ModalStack:array[1..8] of TUIControl;
+  ModalStack:array[1..8] of TUIElement;
   modalStackSize:integer;
 
   blurLog:string;
@@ -130,7 +130,7 @@ begin
  end;
  prevTimer:=0;
  dontPlay:=disableEffects;
- if pfRTnorm=ipfNone then dontPlay:=true;
+ if pfRenderTarget=ipfNone then dontPlay:=true;
  finally
   LeaveCriticalSection(UICritSect);
  end;
@@ -138,7 +138,7 @@ end;
 
 destructor TSwitchScreenEffect.Destroy;
 begin
- if buffer<>nil then texman.FreeImage(buffer);
+ if buffer<>nil then painter.texman.FreeImage(buffer);
  inherited;
 end;
 
@@ -162,10 +162,10 @@ begin
    SetFocusTo(nil);
   (prevscene as TUIscene).UI.enabled:=false;
  end;
- width:=game.Settings.width;
- height:=game.Settings.height;
+ width:=game.GetSettings.width;
+ height:=game.GetSettings.height;
  try
-  buffer:=texman.AllocImage(width,height,pfRTnorm,aiRenderTarget+aiTexture,'SceneEffect');
+  buffer:=painter.texman.AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'SceneEffect');
  except
   on e:exception do begin
    LogMessage('ERROR: eff allocation - '+ExceptionMsg(e));
@@ -228,13 +228,13 @@ begin
  newscene:=nextScene;
  buffer:=nil;
  DontPlay:=DisableEffects;
- if pfRTnorm=ipfNone then DontPlay:=true;
+ if pfRenderTarget=ipfNone then DontPlay:=true;
  newScene.SetStatus(ssActive);
 end;
 
 destructor TRotScaleEffect.Destroy;
 begin
- texman.FreeImage(buffer);
+ painter.texman.FreeImage(buffer);
  inherited;
 end;
 
@@ -242,11 +242,11 @@ procedure TRotScaleEffect.Initialize;
 var
  width,height:integer;
 begin
- width:=game.settings.width;
- height:=game.settings.height;
+ width:=game.GetSettings.width;
+ height:=game.GetSettings.height;
  try
-  buffer:=texman.AllocImage(width,height,pfRTAlphaNorm,aiRenderTarget+aiTexture,'TransEffect');
-  prevbuf:=texman.AllocImage(width,height,pfRTAlphaNorm,aiRenderTarget+aiTexture,'TransEffect2');
+  buffer:=painter.texman.AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'TransEffect');
+  prevbuf:=painter.texman.AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'TransEffect2');
   painter.BeginPaint(prevbuf);
   target.Render;
   painter.EndPaint;
@@ -288,8 +288,9 @@ begin
   device.SetTextureStageState(0,D3DTSS_COLOROP,D3DTOP_SELECTARG1);
   device.SetTextureStageState(0,D3DTSS_COLORARG1,D3DTA_TEXTURE);}
 
-  w:=game.settings.width-1;
-  h:=game.settings.height-1;
+  /// TODO: replace with proper value (probably renderRect)
+  w:=game.GetSettings.width-1;
+  h:=game.GetSettings.height-1;
   l1.texture:=prevbuf;
   l1.matrix[0,0]:=1; l1.matrix[0,1]:=0;
   l1.matrix[1,0]:=0; l1.matrix[1,1]:=1;
@@ -338,7 +339,7 @@ end;
 constructor TShowWindowEffect.Create(scene: TUIScene; duration: integer;
   effMode: TShowMode;effect:integer);
 var
- c:TUIControl;
+ c:TUIElement;
  i:integer;
 begin
  try
@@ -353,12 +354,12 @@ begin
  initialized:=false;
  buffer:=nil;
  // Показ модального окна
- game.crSect.Enter;
+ game.EnterCritSect;
  try
   PutMsg(Format('WndEffStart(%s,%d,%d,%d)',[scene.UI.name,duration,ord(effMode),effect]));
   inherited Create(scene,duration);
   dontPlay:=DisableEffects or (duration<=0);
-  if pfRTAlphaNorm=ipfNone then DontPlay:=true;
+  if pfRenderTargetAlpha=ipfNone then DontPlay:=true;
   mode:=effMode; buffer:=nil;
   shadow:=scene.shadowColor;
   if effMode<>sweHide then scene.shadowColor:=0;
@@ -436,7 +437,7 @@ begin
  if duration=0 then onDone; // Immediate action
 
  finally
-  game.crSect.Leave;
+  game.LeaveCritSect;
  end;
  except
   on e:exception do ForceLogMessage('Failed to create SWE effect: '+ExceptionMsg(e));
@@ -469,7 +470,7 @@ begin
 
  try
   LogMessage(Format('WndEffect: allocating %d x %d buffer',[w,h]));
-  buffer:=texman.AllocImage(w,h,pfRTAlphaNorm,aiRenderTarget+aiTexture,'WndEffect');
+  buffer:=painter.texman.AllocImage(w,h,pfRenderTargetAlpha,aiRenderTarget+aiTexture,'WndEffect');
   if buffer=nil then raise EError.Create('WndEffect: buffer not allocated!');
  except
    on e:exception do begin
@@ -486,7 +487,7 @@ destructor TShowWindowEffect.Destroy;
 begin
  try
   if not done then onDone;
-  if initialized and (buffer<>nil) then texman.FreeImage(buffer);
+  if initialized and (buffer<>nil) then painter.texman.FreeImage(buffer);
   if target<>nil then begin
    PutMsg('WndEffDone('+(target as TUISCene).UI.name+')');
    target.shadowColor:=shadow;
@@ -726,8 +727,8 @@ destructor TBlurEffect.Destroy;
 begin
  inherited;
  blurLog:=blurLog+'F';
- texman.FreeImage(buffer);
- texman.FreeImage(buffer2);
+ painter.texman.FreeImage(buffer);
+ painter.texman.FreeImage(buffer2);
 // texman.FreeImage(buffer3);
 end;
 
@@ -742,8 +743,8 @@ begin
  LogMessage('BlurEff for '+scene.name);
  initialized:=false;
  rect:=scene.GetArea;
- width:=min2(rect.width,game.settings.width);
- height:=min2(rect.height,game.settings.height);
+ width:=min2(rect.width,game.GetSettings.width);
+ height:=min2(rect.height,game.GetSettings.height);
 
  power.Init(0);
  power.Animate(1.0,time,spline0);
@@ -784,8 +785,8 @@ begin
   locTex2:=glGetUniformLocation(blurShader,'tex2');
  end;
 
- buffer:=texman.AllocImage(width,height,pfRTNorm,aiRenderTarget+aiClampUV,'BlurBuf1');
- buffer2:=texman.AllocImage(width div 2,height div 2,pfRTNorm,aiRenderTarget+aiClampUV,'BlurBuf2');
+ buffer:=painter.texman.AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf1');
+ buffer2:=painter.texman.AllocImage(width div 2,height div 2,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf2');
  initialized:=true;
  blurLog:=blurLog+'I';
  except

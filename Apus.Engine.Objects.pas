@@ -4,9 +4,9 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
-unit Apus.Engine.GameObjects;
+unit Apus.Engine.Objects;
 interface
- uses Apus.MyServis, Apus.AnimatedValues, Apus.Engine.EngineAPI;
+ uses Apus.MyServis, Apus.AnimatedValues, Apus.Engine.API;
  const
   DONT_CHANGE = -9987; // magic value which means "keep previous value"
   LIVE_OBJECT = $2468; // magic value for live object
@@ -26,8 +26,8 @@ interface
 
   {$ALIGN 4}
   // Базовый класс с общим функционалом
-  TGameObjectClass=class of TGameObject;
-  TGameObject=class(TSortableObject)
+  TVisualObjectClass=class of TVisualObject;
+  TVisualObject=class(TSortableObject)
    private
     layerID:integer;
     function GetLayerName:string;
@@ -44,24 +44,24 @@ interface
     realX,realY:single; // тут запоминается положение объекта в экранных координатах при последней отрисовке
     aliveMagic:word; // $DEAD - если удалён, $2468 - если жив (проверка на доступ к удалённому объекту)
     relation:TObjectRelation; // Тип связи между объектами
-    related:TGameObject; // Связанный объект
+    related:TVisualObject; // Связанный объект
     constructor Create(x_,y_,z_,alpha_,scale_:single;layer_:string='';name_:string='');
-    constructor Clone(obj:TGameObject;toLayer:string='');
+    constructor Clone(obj:TVisualObject;toLayer:string='');
     destructor Destroy; override;
-    function MoveTo(newX,newY,newZ:single;time:integer):TGameObject; virtual;
+    function MoveTo(newX,newY,newZ:single;time:integer):TVisualObject; virtual;
     procedure Draw(fromX,fromY,fromZ:single); virtual;
     procedure DeleteAfter(time:cardinal); // Удалить объект через time ms
     function Compare(obj:TSortableObject):integer; override;
     property layer:string read GetLayerName write SetLayer; // Текстовое имя слоя
     function Describe:string; // object description
-    procedure AttachTo(obj:TGameObject); // attach this object to another
+    procedure AttachTo(obj:TVisualObject); // attach this object to another
     function IsAlive:boolean;
   end;
 
-  TGameObjects=array of TGameObject;
+  TVisualObjects=array of TVisualObject;
 
   // Объект - изображение
-  TImageObject=class(TGameObject)
+  TImageObject=class(TVisualObject)
    protected
     image:TTexture;
     tR,tG,tB:TAnimatedValue; // 0..255+ - где 255 - белый
@@ -106,7 +106,7 @@ interface
   end;
 
   // Базовый класс для партикловых эффектов
-  TParticleEffect=class(TGameObject)
+  TParticleEffect=class(TVisualObject)
    zDist:single; // default=1, override this value if needed
    constructor Create(x_,y_,z_:single;tex:TTexture;partSize:integer;layer_,name_:string);
    destructor Destroy; override;
@@ -136,7 +136,7 @@ interface
   end;
 
   // Вспомогательный объект-фильтр: "cлой" для разделения партикловых эффектов по Z
-  TParticleEffectLayer=class(TGameObject)
+  TParticleEffectLayer=class(TVisualObject)
    constructor Create(mainObj:TParticleEffect;z_,zMin_,zMax_:single);
    procedure Draw(fromX,fromY,fromZ:single); override;
   protected
@@ -145,7 +145,7 @@ interface
   end;
 
   // Текст в фигурной рамке (возможно со стрелкой)
-{  THintObject=class(TGameObject)
+{  THintObject=class(TVisualObject)
     constructor Create(x_,y_,z_:single;text:string;font,color,background,border:cardinal;
        sideArrow:TSide;rounded,borderWidth:single;layer_:string='';name_:string='');
     destructor Destroy; override;
@@ -157,10 +157,10 @@ interface
 
 
  // Ф-ции, возвращающие объекты, и сами возвращаемые объекты использовать только при блокировке!
- function FindObjByName(name:string):TGameObject;
- function FindObjByID(ID:cardinal):TGameObject;
- function FindObjectAt(x,y:integer;layers:string=''):TGameObject;
- function GetLayerObjects(layers:string):TGameObjects;
+ function FindObjByName(name:string):TVisualObject;
+ function FindObjByID(ID:cardinal):TVisualObject;
+ function FindObjectAt(x,y:integer;layers:string=''):TVisualObject;
+ function GetLayerObjects(layers:string):TVisualObjects;
 
  // Можно вызывать без блокировки
  procedure DeleteObject(ID:cardinal);
@@ -179,18 +179,18 @@ interface
  // Только объекты перечисленных слоев будут отображаться и находиться
  procedure EnableLayers(layers:string);
  // layers='All' - рисует все _включенные_ слои, онако можно перечислить и выключенные
- procedure DrawGameObjects(zMin,zMax:single;layers:string='');
+ procedure DrawVisualObjects(zMin,zMax:single;layers:string='');
 
 
 implementation
- uses SysUtils, Types, Apus.Images, Apus.Engine.EngineTools;
+ uses SysUtils, Types, Apus.Images, Apus.Engine.Tools;
  const
   indexMask = $3FFF; // 16384 объектов в списке
  var
-  objList:array of TGameObject;
+  objList:array of TVisualObject;
   objCount:integer;
   sorted:boolean; // объекты в списке отсортированы?
-  objIndex:array[0..indexMask] of TGameObject; // индекс для быстрого поиска объектов по ID
+  objIndex:array[0..indexMask] of TVisualObject; // индекс для быстрого поиска объектов по ID
   lastID:cardinal; // свободный индекс
   crSect:TMyCriticalSection;
   cameraX,cameraY,cameraZ:TAnimatedValue;
@@ -199,21 +199,21 @@ implementation
   lCount:integer;
   layersEnabled:cardinal=$FFFFFFFF; // маска включенных слоев
 
-{ TGameObject }
+{ TVisualObject }
 
-procedure TGameObject.DeleteAfter(time: cardinal);
+procedure TVisualObject.DeleteAfter(time: cardinal);
 begin
  LockObjects;
  try
  ASSERT(self<>nil);
- ASSERT(self is TGameObject);
+ ASSERT(self is TVisualObject);
  ASSERT(IsAlive);
  timeToDelete:=MyTickCount+time;
  finally UnlockObjects;
  end;
 end;
 
-destructor TGameObject.Destroy;
+destructor TVisualObject.Destroy;
 var
  i:integer;
 begin
@@ -243,26 +243,26 @@ begin
  inherited;
 end;
 
-procedure TGameObject.Draw(fromX,fromY,fromZ:single);
+procedure TVisualObject.Draw(fromX,fromY,fromZ:single);
 begin
  // Запоминаем позицию, в которой объект нарисован
  realX:=x.Value-fromX;
  realY:=y.Value-fromY;
 end;
 
-function TGameObject.GetLayerName: string;
+function TVisualObject.GetLayerName: string;
 begin
  result:='';
  if (layerID>=0) and (layerID<=31) then
   result:=layerNames[layerID];
 end;
 
-function TGameObject.IsAlive: boolean;
+function TVisualObject.IsAlive: boolean;
 begin
  result:=aliveMagic=LIVE_OBJECT;
 end;
 
-function TGameObject.MoveTo(newX, newY, newZ:single; time: integer):TGameObject;
+function TVisualObject.MoveTo(newX, newY, newZ:single; time: integer):TVisualObject;
 begin
  if newX<>DONT_CHANGE then x.Animate(newX,time,spline1);
  if newY<>DONT_CHANGE then y.Animate(newY,time,spline1);
@@ -310,7 +310,7 @@ begin
  end;
 end;
 
-procedure TGameObject.SetLayer(l: string);
+procedure TVisualObject.SetLayer(l: string);
 var
  i:integer;
 begin
@@ -327,7 +327,7 @@ begin
  layerNames[layerID]:=l;
 end;
 
-function TGameObject.Compare(obj: TSortableObject): integer;
+function TVisualObject.Compare(obj: TSortableObject): integer;
 var
  z1,z2:double;
 begin
@@ -335,16 +335,16 @@ begin
  if obj=self then exit; // Сравнение объекта с собой
  try
   z1:=z.Value;
-  z2:=TGameObject(obj).z.Value;
+  z2:=TVisualObject(obj).z.Value;
   if z1>z2+0.00001 then result:=1;
   if z2>z1+0.00001 then result:=-1;
  except
   on e:exception do
-   raise EWarning.Create('Compare: '+Describe+' vs '+TGameObject(obj).Describe);
+   raise EWarning.Create('Compare: '+Describe+' vs '+TVisualObject(obj).Describe);
  end;
 end;
 
-function TGameObject.Describe:string;
+function TVisualObject.Describe:string;
 begin
  try
   if self=nil then begin
@@ -356,7 +356,7 @@ begin
  end;
 end;
 
-procedure TGameObject.AddToGlobalList;
+procedure TVisualObject.AddToGlobalList;
 begin
  EnterCriticalSection(crSect);
  try
@@ -378,7 +378,7 @@ begin
  end;
 end;
 
-constructor TGameObject.Create(x_,y_,z_,alpha_,scale_:single;layer_:string='';name_:string='');
+constructor TVisualObject.Create(x_,y_,z_,alpha_,scale_:single;layer_:string='';name_:string='');
 begin
  AddToGlobalList;
  realX:=-10000; realY:=-10000;
@@ -395,13 +395,13 @@ begin
  aliveMagic:=LIVE_OBJECT;
 end;
 
-procedure TGameObject.AttachTo(obj:TGameObject);
+procedure TVisualObject.AttachTo(obj:TVisualObject);
 begin
  relation:=orAttached;
  related:=obj;
 end;
 
-constructor TGameObject.Clone(obj: TGameObject;toLayer:string='');
+constructor TVisualObject.Clone(obj: TVisualObject;toLayer:string='');
 begin
  AddToGlobalList;
 // objID:=lastID; inc(lastID);
@@ -420,7 +420,7 @@ begin
  timeToDelete:=0;
 end;
 
-function FindObjByName(name:string):TGameObject;
+function FindObjByName(name:string):TVisualObject;
 var
  i:integer;
 begin
@@ -435,7 +435,7 @@ begin
  end;
 end;
 
-function FindObjByID(ID:cardinal):TGameObject;
+function FindObjByID(ID:cardinal):TVisualObject;
 var
  i:integer;
 begin
@@ -443,14 +443,14 @@ begin
  try
  result:=objIndex[ID and indexMask];
  if result<>nil then begin
-  ASSERT(result is TGameObject,'Object index damaged! '+inttostr(ID));
+  ASSERT(result is TVisualObject,'Object index damaged! '+inttostr(ID));
   ASSERT(result.objID=ID,'Access to wrong object: '+inttostr(ID)+' != '+inttostr(result.objID));
  end;
  finally LeaveCriticalSection(crSect);
  end;
 end;
 
-function FindObjectAt(x,y:integer;layers:string=''):TGameObject;
+function FindObjectAt(x,y:integer;layers:string=''):TVisualObject;
 var
  i:integer;
  ox,oy,ow,oh,scale:single;
@@ -485,7 +485,7 @@ begin
  LeaveCriticalSection(crSect);
 end;
 
-function GetLayerObjects(layers:string):TGameObjects;
+function GetLayerObjects(layers:string):TVisualObjects;
 var
  i,c:integer;
  mask:cardinal;
@@ -531,7 +531,7 @@ end;
 
 procedure DeleteObject(ID:cardinal);
 var
- obj:TGameObject;
+ obj:TVisualObject;
 begin
  EnterCriticalSection(crSect);
  try
@@ -591,15 +591,15 @@ begin
  layersEnabled:=GetLayersMask(layers);
 end;
 
-procedure DrawGameObjects(zMin,zMax:single;layers:string='');
+procedure DrawVisualObjects(zMin,zMax:single;layers:string='');
 var
  i,j:integer;
- obj:TGameObject;
+ obj:TVisualObject;
  sorted:boolean;
  z,a,lastZ:single;
  fromX,fromY,fromZ:single;
  t:int64;
- del:array[1..50] of TGameObject;
+ del:array[1..50] of TVisualObject;
  dCount:integer;
  mask:cardinal;
  stage:integer;
@@ -689,7 +689,7 @@ end;
 
 destructor TTextObject.Destroy;
 begin
- if image<>nil then texman.FreeImage(image);
+ if image<>nil then FreeImage(image);
  inherited;
 end;
 
@@ -699,7 +699,7 @@ var
 begin
  ASSERT(aliveMagic=LIVE_OBJECT,'Object '+inttohex(cardinal(self),8)+' deleted '+inttohex(aliveMagic,4));
  if not valid and (image<>nil) then begin
-  texman.FreeImage(image);
+  FreeImage(image);
   image:=nil;
  end;
  if image=nil then begin
@@ -774,7 +774,7 @@ end;
 
 destructor TImageObject.Destroy;
 begin
- if autoFreeImage then texman.FreeImage(image);
+ if autoFreeImage then FreeImage(image);
  inherited;
 end;
 

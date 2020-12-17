@@ -1,5 +1,7 @@
 program Scenes;
- uses MyServis,SysUtils,Types,EventMan,EngineAPI,EngineTools,GameApp,UIScene,UIClasses,StdEffects,UIRender;
+ uses Apus.MyServis, SysUtils, Types, Apus.EventMan, Apus.Engine.API,
+   Apus.Engine.GameApp, Apus.Engine.UIScene, Apus.Engine.UIClasses,
+   Apus.Engine.SceneEffects, Apus.Engine.UIRender;
 
  type
   TSceneA=class(TUIScene)
@@ -124,11 +126,11 @@ procedure TSceneB.Render;
 { TSceneW }
 constructor TSceneW.Create;
  var
-  c:TUIControl;
+  c:TUIElement;
  begin
   inherited Create('SceneW',false);
   zOrder:=100; // Important: it should be above other scenes
-  c:=TUIControl.Create(300,140,ui,'SceneW\Frame');
+  c:=TUIElement.Create(300,140,ui,'SceneW\Frame');
   c.SetPos(ui.width/2,ui.height*0.6, pivotCenter);
   c.shape:=shapeFull; // Important! Opaque elements define the scene area used for effects, it should not be void
   TUIButton.Create(100,40,'SceneW\Btn1','Close',mainFont,c).

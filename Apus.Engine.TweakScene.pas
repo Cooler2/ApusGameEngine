@@ -11,9 +11,9 @@ interface
  procedure CreateTweakerScene(tinyFont,normalFont:cardinal);
 
 implementation
- uses Apus.CrossPlatform, SysUtils, Apus.MyServis, Apus.Engine.EngineAPI,
+ uses Apus.CrossPlatform, SysUtils, Apus.MyServis, Apus.Engine.API,
    Apus.Publics, Math, Apus.Engine.UIClasses, Apus.Engine.UIScene, Apus.EventMan,
-   Apus.Engine.UIRender, Apus.Engine.EngineTools;
+   Apus.Engine.UIRender;
 
  type
   TTweakerScene=class(TUIScene)
@@ -21,7 +21,7 @@ implementation
    context:string;
    editbox:TUIEditBox;
    listbox:TUIListbox;
-   editors:array[0..15] of TUIControl;
+   editors:array[0..15] of TUIElement;
    edCount:integer;
    constructor Create(tinyFont_,normalFont_:cardinal);
    procedure SetStatus(st:TSceneStatus); override;
@@ -37,10 +37,10 @@ implementation
               vtGreen=5,
               vtBlue=6);
   //
-  TTracker=class(TUIControl)
+  TTracker=class(TUIElement)
    value,min,max,initialValue:single;
    vType:TValueType;
-   constructor Create(x,y:integer;parent:TUIControl;mode:TValueType;iValue,initValue:single);
+   constructor Create(x,y:integer;parent:TUIElement;mode:TValueType;iValue,initValue:single);
    procedure onMouseMove; override;
    procedure onMouseScroll(delta:integer); override;
    procedure onMouseButtons(button:byte;state:boolean); override;
@@ -54,10 +54,10 @@ implementation
    moving:boolean;
   end;
 
-  TValueEditor=class(TUIControl)
+  TValueEditor=class(TUIElement)
    varName:string;
    trackers:array[0..3] of TTracker;
-   constructor Create(vName,vValue,iValue:string;parent:TUIControl);
+   constructor Create(vName,vValue,iValue:string;parent:TUIElement);
    procedure Draw(x1,y1,x2,y2:integer); virtual;
   end;
 
@@ -80,7 +80,7 @@ implementation
     tweakerScene.PlaceTrackers(true);
   end;
 
- procedure StyleDrawer(control:TUIControl);
+ procedure StyleDrawer(control:TUIElement);
   var
    x1,y1,x2,y2,h:integer;
   begin
@@ -91,7 +91,7 @@ implementation
     y2:=globalrect.Bottom-1;
    end;
 
-   if control.ClassType=TUIControl then begin
+   if control.ClassType=TUIElement then begin
     painter.FillRect(x1,y1,x2,y2,$60404040);
     exit;
    end;
@@ -247,7 +247,7 @@ begin
  onMouseButtons(1,false);
 end;
 
-constructor TTracker.Create(x,y:integer;parent:TUIControl;mode:TValueType;iValue,initValue:single);
+constructor TTracker.Create(x,y:integer;parent:TUIElement;mode:TValueType;iValue,initValue:single);
 begin
  inherited Create(parent.width-x-5-5*byte(mode in [vtAlpha..vtBlue]),18+game.renderHeight div 50,parent);
  SetPos(x,y);
@@ -405,7 +405,7 @@ end;
 
 { TFloatEditor }
 
-constructor TValueEditor.Create(vName,vValue,iValue:string;parent:TUIControl);
+constructor TValueEditor.Create(vName,vValue,iValue:string;parent:TUIElement);
 var
  c,ic:cardinal;
  i:integer;

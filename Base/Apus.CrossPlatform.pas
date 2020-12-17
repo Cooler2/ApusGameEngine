@@ -233,7 +233,6 @@ uses
 {$IFDEF MSWINDOWS}
  procedure OpenURL(url:AnsiString);
   begin
-    //OpenDocument(PChar(url)); { *Converted from ShellExecute* }
    ShellExecuteA(0,'open',PAnsiChar(url),'','',SW_SHOW);
   end;
 

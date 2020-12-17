@@ -174,12 +174,12 @@ interface
  // --------------------------------
  procedure UseLogFile(name:string;keepOpened:boolean=false); // Specify log name
  procedure SetLogMode(mode:TLogModes;groups:string=''); //
- procedure LogPhrase(text:string); // without CR
- procedure LogMessage(text:string;group:byte=0); overload; // with CR
- procedure LogMessage(text:string;params:array of const;group:byte=0); overload;
- procedure LogError(text:string);
- procedure ForceLogMessage(text:string); // то же самое, но с более высоким приоритетом
- procedure DebugMessage(text:string); // альтернативное имя для ForceLogMessage (для удобства поиска по коду)
+ procedure LogPhrase(text:string8); // without CR
+ procedure LogMessage(text:String8;group:byte=0); overload; // with CR
+ procedure LogMessage(text:String8;params:array of const;group:byte=0); overload;
+ procedure LogError(text:string8);
+ procedure ForceLogMessage(text:string8); // то же самое, но с более высоким приоритетом
+ procedure DebugMessage(text:string8); // альтернативное имя для ForceLogMessage (для удобства поиска по коду)
  procedure LogCacheMode(enable:boolean;enforceCache:boolean=false;runThread:boolean=false);
  procedure FlushLog; // сбросить накопенное в кэше содержимое в лог
  procedure StopLogThread; // Завершение потока сброса лога
@@ -3873,7 +3873,7 @@ function BinToStr;
    {$ENDIF}
   end;
 
- procedure LogMessage(text:string;group:byte=0);
+ procedure LogMessage(text:String8;group:byte=0);
   var
    f:TextFile;
   begin
@@ -3925,13 +3925,13 @@ function BinToStr;
    end;
   end;
 
- procedure LogMessage(text:string;params:array of const;group:byte=0);
+ procedure LogMessage(text:String8;params:array of const;group:byte=0);
   begin
    text:=Format(text,params);
    LogMessage(text,group);
   end;
 
- procedure LogError(text:string);
+ procedure LogError(text:String8);
   begin
    ForceLogMessage(text);
    InterlockedIncrement(logErrorCount);

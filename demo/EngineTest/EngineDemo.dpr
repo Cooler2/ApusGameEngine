@@ -25,7 +25,7 @@ uses
   Apus.Engine.PainterGL in '..\..\Apus.Engine.PainterGL.pas',
   Apus.Engine.UIScene in '..\..\Apus.Engine.UIScene.pas',
   Apus.Engine.UIRender in '..\..\Apus.Engine.UIRender.pas',
-  Apus.Engine.EngineTools in '..\..\Apus.Engine.EngineTools.pas',
+  Apus.Engine.Tools in '..\..\Apus.Engine.Tools.pas',
   Apus.Engine.Console in '..\..\Apus.Engine.Console.pas',
   Apus.Engine.ConsoleScene in '..\..\Apus.Engine.ConsoleScene.pas',
   Apus.Engine.SceneEffects in '..\..\Apus.Engine.SceneEffects.pas',
@@ -35,12 +35,12 @@ uses
   Apus.Engine.Networking2 in '..\..\Apus.Engine.Networking2.pas',
   Apus.Engine.IOSgame in '..\..\Apus.Engine.IOSgame.pas',
   Apus.Engine.Game in '..\..\Apus.Engine.Game.pas',
-  Apus.Engine.BasicPainter in '..\..\Apus.Engine.BasicPainter.pas',
+  Apus.Engine.Painter2D in '..\..\Apus.Engine.Painter2D.pas',
   Apus.Engine.TweakScene in '..\..\Apus.Engine.TweakScene.pas',
   Apus.Engine.Networking3 in '..\..\Apus.Engine.Networking3.pas',
   Apus.Engine.UDict in '..\..\Apus.Engine.UDict.pas',
   Apus.Engine.CustomStyle in '..\..\Apus.Engine.CustomStyle.pas',
-  Apus.Engine.GameObjects in '..\..\Apus.Engine.GameObjects.pas',
+  Apus.Engine.Objects in '..\..\Apus.Engine.Objects.pas',
   Apus.Engine.CmdProc in '..\..\Apus.Engine.CmdProc.pas',
   Apus.Engine.ComplexText in '..\..\Apus.Engine.ComplexText.pas',
   Apus.Engine.SteamAPI in '..\..\Apus.Engine.SteamAPI.pas',
@@ -50,7 +50,6 @@ uses
   {$IFDEF OPENGL}
   Apus.Engine.PainterGL2 in '..\..\Apus.Engine.PainterGL2.pas',
   Apus.Engine.GLImages in '..\..\Apus.Engine.GLImages.pas',
-  Apus.Engine.GLgame in '..\..\Apus.Engine.GLgame.pas',
   {$ENDIF }
   Apus.Engine.GameApp in '..\..\Apus.Engine.GameApp.pas',
   Apus.Engine.Model3D in '..\..\Apus.Engine.Model3D.pas',
@@ -61,7 +60,9 @@ uses
   Apus.Engine.UIScript in '..\..\Apus.Engine.UIScript.pas',
   Apus.Engine.Internals in '..\..\Apus.Engine.Internals.pas',
   Apus.Engine.GfxFormats3D in '..\..\Apus.Engine.GfxFormats3D.pas',
-  Apus.Engine.WindowsPlatform in '..\..\Apus.Engine.WindowsPlatform.pas';
+  Apus.Engine.WindowsPlatform in '..\..\Apus.Engine.WindowsPlatform.pas',
+  Apus.Engine.ImageTools in '..\..\Apus.Engine.ImageTools.pas',
+  Apus.Engine.OpenGL in '..\..\Apus.Engine.OpenGL.pas';
 
 const
  wnd:boolean=true;
@@ -69,7 +70,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 3;
+ testnum:integer = 15;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -95,11 +96,7 @@ var
  savetime:cardinal;
  
 type
-{$IFDEF OPENGL}
- MyGame=class(TGLGame)
-{$ELSE}
- MyGame=class(TDxGame8)
-{$ENDIF}
+ MyGame=class(TGame)
   function OnFrame:boolean; override;
   procedure RenderFrame; override;
  end;
@@ -265,7 +262,7 @@ procedure HEvent(event:EventStr;tag:TTag);
  var
   i,x,y:integer;
   w:^cardinal;
-  ptr:^TScrPoint;
+  ptr:^TVertex;
  begin
   ForceLogMessage(inttostr(GetTickCount)+' '+event+' '+inttostr(tag));
 
@@ -294,7 +291,7 @@ procedure TLinesTest.RenderFrame;
 var
  i:integer;
  t:single;
- vrt:array[0..20] of TScrPoint;
+ vrt:array[0..20] of TVertex;
 begin
  inc(frame);
  painter.Clear($FF000000+frame and 127,-1,-1);
@@ -328,8 +325,8 @@ end;
 { TTexturesTest }
 procedure TTexturesTest.Done;
 begin
- texman.FreeImage(tex1);
- texman.FreeImage(tex2);
+ FreeImage(tex1);
+ FreeImage(tex2);
 end;
 
 procedure TTexturesTest.Init;
@@ -337,13 +334,13 @@ var
  i,j,r:integer;
  pb:pbyte;
 begin
- tex1:=texman.AllocImage(100,100,ipfARGB,0,'test1') as TTexture;
- tex2:=texman.AllocImage(64,64,ipf565,aiTexture,'test2') as TTexture;
- tex3:=texman.AllocImage(64,64,ipfARGB,aiTexture,'test3') as TTexture;
- tex4:=texman.AllocImage(128,128,ipfARGB,aiTexture,'test4') as TTexture;
- texA:=texman.AllocImage(100,100,ipfA8,aiTexture,'testA') as TTexture;
- texM:=texman.AllocImage(128,128,ipfARGB,aiTexture+aiMipMapping,'testMipMap') as TTexture;
- texDuo:=texman.AllocImage(32,32,ipfDuo8,aiTexture,'testDuo') as TTexture;
+ tex1:=AllocImage(100,100,ipfARGB,0,'test1');
+ tex2:=AllocImage(64,64,ipf565,aiTexture,'test2');
+ tex3:=AllocImage(64,64,ipfARGB,aiTexture,'test3');
+ tex4:=AllocImage(128,128,ipfARGB,aiTexture,'test4');
+ texA:=AllocImage(100,100,ipfA8,aiTexture,'testA');
+ texM:=AllocImage(128,128,ipfARGB,aiTexture+aiMipMapping,'testMipMap');
+ texDuo:=AllocImage(32,32,ipfDuo8,aiTexture,'testDuo');
 // tex1:=LoadImageFromFile('test1.tga') as TTexture;
  tex1.Lock;
  for i:=0 to tex1.height-1 do begin
@@ -471,7 +468,7 @@ end;
 var
  globalS:double;
 
-procedure Shader1(var vertex:TScrPoint);
+procedure Shader1(var vertex:TVertex);
 begin
  with vertex do begin
   x:=x+3*sin(globalS+y*0.18)-0.1*y;
@@ -481,7 +478,7 @@ end;
 
 procedure TTexturesTest.RenderFrame;
 var
- vrt:array[0..3] of TScrPoint;
+ vrt:array[0..3] of TVertex;
  tex:TTexture;
  l1,l2:TMultiTexLayer;
  v,s:single;
@@ -806,7 +803,7 @@ procedure TFontTest2.Init;
 begin
  //font:=TFreeTypeFont.LoadFromFile('res\arial.ttf');
 // font:=TFreeTypeFont.LoadFromFile('12460.ttf');
- buf:=texman.AllocImage(400,50,ipfARGB,0,'txtbuf') as TTexture;
+ buf:=AllocImage(400,50,ipfARGB,0,'txtbuf');
  painter.LoadFont('res\arial.ttf');
 end;
 
@@ -909,8 +906,8 @@ end;
 
 procedure TR2TextureTest.Done;
 begin
- texman.FreeImage(tex1);
- texman.FreeImage(tex2);
+ FreeImage(tex1);
+ FreeImage(tex2);
 end;
 
 procedure TR2TextureTest.Init;
@@ -918,11 +915,11 @@ var
  i,j:integer;
  pb:PByte;
 begin
- tex0:=texman.AllocImage(50,30,ipfARGB,0,'test0') as TTexture;
- tex1:=texman.AllocImage(100,100,ipfARGB,0,'test1') as TTexture;
- tex2:=texman.AllocImage(256,256,ipf565,aiTexture+aiRenderTarget,'test2') as TTexture;
- tex3:=texman.AllocImage(128,128,ipfARGB,aiTexture+aiRenderTarget,'test3') as TTexture;
- tex4:=texman.AllocImage(90,100,ipfARGB,aiTexture+aiRenderTarget,'test4') as TTexture;
+ tex0:=AllocImage(50,30,ipfARGB,0,'test0');
+ tex1:=AllocImage(100,100,ipfARGB,0,'test1');
+ tex2:=AllocImage(256,256,ipf565,aiTexture+aiRenderTarget,'test2');
+ tex3:=AllocImage(128,128,ipfARGB,aiTexture+aiRenderTarget,'test3');
+ tex4:=AllocImage(90,100,ipfARGB,aiTexture+aiRenderTarget,'test4');
  tex0.Lock;
  for i:=0 to tex0.height-1 do begin
   pb:=tex0.data;
@@ -948,7 +945,7 @@ begin
   end;
  end;
  tex1.Unlock;
- texman.MakeOnline(tex1);
+ painter.UseTexture(tex1);
 end;
 
 procedure TR2TextureTest.RenderFrame;
@@ -1014,7 +1011,7 @@ end;
 
 procedure TToolsTest.Done;
 begin
- texman.FreeImage(tex1);
+ FreeImage(tex1);
 end;
 
 procedure TToolsTest.Init;
@@ -1033,7 +1030,7 @@ begin
 { painter.SetTexMode(fltTrilinear);
  f:=0.5;
  device.SetTextureStageState(0,D3DTSS_MIPMAPLODBIAS,c);}
- t1:=texman.AllocImage(40,40,ipfARGB,0,'t1') as TTexture;
+ t1:=AllocImage(40,40,ipfARGB,0,'t1');
  t1.Lock;
  FillRect(t1.data,t1.pitch,0,0,39,39,$FF502060);
  for i:=0 to 9 do begin
@@ -1079,9 +1076,9 @@ var
  c:cardinal;
  r:single;
 begin
- tex1:=texman.AllocImage(100,100,ipfARGB,0,'test1') as TTexture;
- tex2:=texman.AllocImage(113,113,ipfARGB,aiTexture,'test2') as TTexture;
- tex3:=texman.AllocImage(64,64,ipfARGB,aiTexture,'test3') as TTexture;
+ tex1:=AllocImage(100,100,ipfARGB,0,'test1');
+ tex2:=AllocImage(113,113,ipfARGB,aiTexture,'test2');
+ tex3:=AllocImage(64,64,ipfARGB,aiTexture,'test3');
  // Tex1
  tex1.Lock;
  for y:=0 to tex1.height-1 do begin
@@ -1217,7 +1214,7 @@ var
  pb:PByte;
  pc:PCardinal;
 begin
- tex:=texman.AllocImage(19*2,19,ipfARGB,0,'particles') as TTexture;
+ tex:=AllocImage(19*2,19,ipfARGB,0,'particles');
  tex.Lock;
  for i:=0 to tex.height-1 do begin
   pb:=tex.data;
@@ -1244,7 +1241,7 @@ begin
  end;
  tex.Unlock;
 
- tex2:=texman.AllocImage(16,16,ipfARGB,0,'particles2') as TTexture;
+ tex2:=AllocImage(16,16,ipfARGB,0,'particles2');
  EditImage(tex2);
  for y:=0 to tex2.height-1 do
   for x:=0 to tex2.width-1 do begin
@@ -1303,7 +1300,7 @@ var
  i,j,n,x,y:integer;
  pb:PByte;
 begin
- tex:=texman.AllocImage(19*2,19,ipfARGB,0,'particles') as TTexture;
+ tex:=AllocImage(19*2,19,ipfARGB,0,'particles');
  tex.Lock;
  for i:=0 to tex.height-1 do begin
   pb:=tex.data;
@@ -1451,7 +1448,7 @@ begin
 
 end;
 
-function MakeVertex(x,y,z:single;color:cardinal):TScrPoint;
+function MakeVertex(x,y,z:single;color:cardinal):TVertex;
 begin
  fillchar(result,sizeof(result),0);
  result.x:=x; result.y:=y; result.z:=z; {$IFDEF DIRECTX} result.rhw:=1; {$ENDIF}
@@ -1649,7 +1646,7 @@ begin
    LoadFileAsString('res\shader.frag'));
  loc1:=glGetUniformLocation(prog,'offset');
 
- tex:=texman.AllocImage(256,256,ipfARGB,0,'tex') as TTexture;
+ tex:=AllocImage(256,256,ipfARGB,0,'tex');
  tex.Lock;
  for y:=0 to 255 do begin
   pc:=tex.data; inc(pc,y*tex.pitch div 4);
@@ -1664,7 +1661,7 @@ begin
  tex.Unlock;
  except
   on e:exception do begin
-    MyServis.ErrorMessage(e.message);
+    ErrorMessage(e.message);
     halt;
   end;
  end;
@@ -1817,7 +1814,7 @@ begin
  painter.FillRect(-15,-15,15,15,$C000A030);
 
  // Set model position
- MultMat4(geom3d.ScaleMat(2,2,2),RotationZMat(time),objMat);
+ MultMat4(ScaleMat(2,2,2),RotationZMat(time),objMat);
  objMat[3,2]:=3;
  painter.Set3DTransform(Matrix4(objMat));
 
@@ -1853,7 +1850,7 @@ begin
  glUseProgram(shader2);
 
  // Set model position
- MultMat4(geom3d.ScaleMat(4,4,4),RotationZMat(time),objMat);
+ MultMat4(ScaleMat(4,4,4),RotationZMat(time),objMat);
  objMat[3,1]:=16;
  objMat[3,0]:=5;
  objMat[3,2]:=1.5;
@@ -1872,7 +1869,7 @@ begin
  glVertexAttribPointer(2,2,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0].u);
 
  // Setup texture
- texMan.MakeOnline(tex,0);
+ painter.texMan.MakeOnline(tex,0);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
  loc:=glGetUniformLocation(shader2,'tex');
@@ -1940,11 +1937,7 @@ begin
   15:test:=T3DCharacterTest.Create;
  end;
 
- {$IFDEF OPENGL}
- game:=MyGame.Create(true); // Создаем объект
- {$ELSE}
- game:=MyGame.Create(0); // Создаем объект
- {$ENDIF}
+ game:=MyGame.Create(TWindowsPlatform.Create, TOpenGL.Create); // Создаем объект
  game.showFPS:=true;
 
  // Начальные установки игры
@@ -1971,7 +1964,7 @@ begin
 //  customCursor:=false;
   VSync:=0;
  end;
- game.Settings:=s; // Задать установки
+ game.SetSettings(s); // Задать установки
 
  game.Run; // Запустить движок
 

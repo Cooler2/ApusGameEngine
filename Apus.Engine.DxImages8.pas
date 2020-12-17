@@ -47,10 +47,10 @@ type
   destructor Destroy; override;
 
   function AllocImage(width,height:integer;
-                      PixFmt:ImagePixelFormat;Flags:integer;name:texnamestr):TTexture; override;
+                      PixFmt:TImagePixelFormat;Flags:integer;name:texnamestr):TTexture; override;
   procedure FreeImage(var image:TTexture); override;
   procedure MakeOnline(img:TTexture;stage:integer=0); override;
-  function QueryParams(width,height:integer;format:ImagePixelFormat;aiFlags:integer):boolean; override;
+  function QueryParams(width,height:integer;format:TImagePixelFormat;aiFlags:integer):boolean; override;
 
   procedure ReleaseAll; virtual;   // Уничтожить все созданные ресурсы в видеопамяти (чтобы можно было восстановить девайс - текстурные объекты и дескрипторы не удаляются!!!)
   procedure ReCreateAll; virtual;  // Пересоздать все необходимые ресурсы в видеопамяти (после того, как девайс восстановлен)
@@ -72,7 +72,7 @@ type
  end;
 
  // Load image from file (TGA or JPG), result is expected in given pixel format or source pixel format
-// function LoadFromFile(filename:string;format:ImagePixelFormat=ipfNone):TDxManagedTexture;
+// function LoadFromFile(filename:string;format:TImagePixelFormat=ipfNone):TDxManagedTexture;
 
 implementation
  uses SysUtils, Types, Apus.EventMan, Apus.GfxFormats;
@@ -175,7 +175,7 @@ end;
 { TDxTextureMan }
 
 function TDxTextureMan.AllocImage(width,height:integer;
-  PixFmt: ImagePixelFormat; Flags: integer;name:texnamestr): TTexture;
+  PixFmt: TImagePixelFormat; Flags: integer;name:texnamestr): TTexture;
 var
  t:TDxManagedTexture;
  dtex:IDirect3DTexture8;
@@ -969,7 +969,7 @@ begin
  end;
 end;
 
-function TDxTextureMan.QueryParams(width,height:integer;format:ImagePixelFormat;
+function TDxTextureMan.QueryParams(width,height:integer;format:TImagePixelFormat;
   aiFlags: integer): boolean;
 var
  usage,resType:cardinal;

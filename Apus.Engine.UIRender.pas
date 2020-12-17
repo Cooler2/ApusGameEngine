@@ -10,14 +10,14 @@ interface
  uses Apus.Engine.API, Apus.Engine.UIClasses;
  type
   // процедура отрисовки элемента
-  TUIDrawer=procedure(control:TUIControl);
+  TUIDrawer=procedure(control:TUIElement);
 
  var
   defaultBtnColor:cardinal=$FFB0A0C0;
 
  // Render an UI element and all its descendants
  // Use customDraw=true to draw only elements with customDraw=true, otherwise these elements will be skipped
- procedure DrawUI(item:TUIControl;customDraw:boolean=false);
+ procedure DrawUI(item:TUIElement;customDraw:boolean=false);
 
  procedure DrawGlobalShadow(color:cardinal);
 
@@ -28,13 +28,13 @@ interface
  procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string='');
 
  // Default style (0) drawer
- procedure DefaultDrawer(control:TUIControl);
+ procedure DefaultDrawer(control:TUIElement);
 
  // Prepare hint for drawing
  procedure BuildSimpleHint(hnt:TUIHint);
 
  // Fill control rect with image (helper function)
- procedure DrawControlWithImage(c:TUIControl;img:TTexture;centered:boolean=false);
+ procedure DrawControlWithImage(c:TUIElement;img:TTexture;centered:boolean=false);
 
  var
   // Глобальная переменная для отрисовщиков: может содержать время, прошедшее с
@@ -46,7 +46,7 @@ interface
   defaultHintFont:cardinal=0; // Шрифт, которым показываются хинты
 
 implementation
- uses Apus.CrossPlatform, Apus.Images, SysUtils, Types, Apus.MyServis, Apus.Engine.EngineTools,
+ uses Apus.CrossPlatform, Apus.Images, SysUtils, Types, Apus.MyServis,
     Apus.Colors, Apus.Structs, Apus.EventMan, Apus.Geom2D;
 
 { type
@@ -71,12 +71,12 @@ implementation
    painter.FillRect(0,0,game.renderWidth,game.renderHeight,color);
   end;
 
- procedure DrawUI(item:TUIControl;customDraw:boolean=false);
+ procedure DrawUI(item:TUIElement;customDraw:boolean=false);
   var
    i,j,n,cnt:integer;
    tmp:pointer;
    r:TRect;
-   list:array of TUIControl;
+   list:array of TUIElement;
    maskChange:boolean;
    clipping:boolean;
   begin
@@ -185,8 +185,8 @@ implementation
     dw:=painter.TextWidthW(font,'M');
     inc(iWidth,4+dw);
     LogMessage('[Re]alloc hint image');
-    if HintImage<>nil then texman.FreeImage(HintImage);
-    HintImage:=texman.AllocImage(iWidth,iHeight,pfRTAlphaNorm,aiTexture+aiRenderTarget,'UI_HintImage');
+    if HintImage<>nil then painter.texman.FreeImage(HintImage);
+    HintImage:=painter.texman.AllocImage(iWidth,iHeight,pfRenderTargetAlpha,aiTexture+aiRenderTarget,'UI_HintImage');
     if hintImage=nil then
       raise EError.Create('Failed to alloc hint image!');
     size:=Point2s(iWidth,iHeight);
@@ -219,7 +219,7 @@ implementation
    end;
   end;
 
- procedure DrawControlWithImage(c:TUIControl;img:TTexture;centered:boolean=false);
+ procedure DrawControlWithImage(c:TUIElement;img:TTexture;centered:boolean=false);
   var
    r:TRect;
    p:TPoint2s;
@@ -237,7 +237,7 @@ implementation
 
  {$R-}
  // styleinfo="00000000 11111111 22222222 33333333" - list of colors (hex)
- function GetColor(control:TUIControl;index:integer=0):cardinal;
+ function GetColor(control:TUIElement;index:integer=0):cardinal;
   var
    i,v:integer;
   begin
@@ -256,7 +256,7 @@ implementation
    end;
   end;
 
- procedure DrawUIControl(control:TUIControl;x1,y1,x2,y2:integer);
+ procedure DrawUIControl(control:TUIElement;x1,y1,x2,y2:integer);
   var
    i,c,c2:integer;
    st:string;
@@ -279,7 +279,7 @@ implementation
    savePos:TPoint2s;
   begin
     with control as TUIHint do begin
-     if pfRTAlphaNorm=ipfNone then exit;
+     if pfRenderTargetAlpha=ipfNone then exit;
      if not adjusted then begin
       // нужно провести инициализацию
       ForceLogMessage('InitHint '+inttohex(cardinal(control),8));
@@ -307,7 +307,7 @@ implementation
        v:=256-(MyTickCount-created) div 2;
        if v<=0 then begin
         ForceLogMessage('Delete expired hint '+inttohex(cardinal(control),8));
-        texman.FreeImage(HintImage);
+        painter.texman.FreeImage(HintImage);
         HintImage:=nil;
         control.visible:=false;
         exit;
@@ -716,10 +716,10 @@ implementation
   end;
 
  // Отрисовщик по умолчанию
- procedure DefaultDrawer(control:TUIControl);
+ procedure DefaultDrawer(control:TUIElement);
   var
    enabl:boolean;
-   con:TUIControl;
+   con:TUIElement;
    x1,y1,x2,y2:integer;
   begin
    enabl:=control.enabled;
@@ -735,7 +735,7 @@ implementation
    end;
 
    // Просто контейнер - заливка плюс рамка
-   if control.ClassType=TUIControl then
+   if control.ClassType=TUIElement then
     DrawUIControl(control,x1,y1,x2,y2)
    else
    // Надпись

@@ -8,13 +8,13 @@
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit Apus.Engine.PainterGL2;
 interface
- uses Types, Apus.Engine.EngineAPI, Apus.Engine.BasicPainter, Apus.Engine.PainterGL, Apus.Geom3D;
+ uses Types, Apus.Engine.API, Apus.Engine.Internals, Apus.Engine.Painter2D, Apus.Engine.PainterGL;
 type
 
  { TGLPainter2 }
 
  TGLPainter2=class(TGLPainter)
-   constructor Create(game:TGameObj);
+   constructor Create;
    destructor Destroy; override;
 
    procedure BeginPaint(target:TTexture); override;
@@ -50,7 +50,7 @@ type
    procedure DrawIndexedPrimitives(primType:integer;vertexBuf,indBuf:TPainterBuffer;
      stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); override;
 
-   procedure DrawIndexedPrimitivesDirectly(primType:integer;vertexBuf:PScrPoint;indBuf:PWord;
+   procedure DrawIndexedPrimitivesDirectly(primType:integer;vertexBuf:PVertex;indBuf:PWord;
      stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); override;
 
    procedure SetGLMatrix(mType:TMatrixType;mat:PDouble); override;
@@ -62,7 +62,7 @@ implementation
  uses Apus.MyServis, SysUtils, Apus.Structs,
     {$IFDEF GLES}gles20,
     {$ELSE}dglOpenGL,{$ENDIF}
-    Apus.Images, Apus.Engine.GLImages, Apus.Geom2D;
+    Apus.Images, Apus.Engine.GLImages, Apus.Geom2D, Apus.Geom3D;
 
 {$IFNDEF GLES}
 const
@@ -98,8 +98,8 @@ end;
 
 procedure TGLPainter2.SetGLMatrix(mType: TMatrixType; mat: PDouble);
  var
-  tmp:TMatrix4;
-  m:TMatrix4s;
+  tmp:T3DMatrix;
+  m:T3DMatrixS;
  begin
   MultMat4(objMatrix,viewMatrix,tmp);
   MultMat4(tmp,projMatrix,MVP);
@@ -124,7 +124,6 @@ procedure TGLPainter2.BeginPaint(target:TTexture);
   CheckForGLError;
   inherited;
  end;
-
 
 procedure TGLPainter2.SetTexMode(stage: byte; colorMode, alphaMode: TTexBlendingMode;
   filter: TTexFilter=fltUndefined; intFactor:single=0.0);
@@ -262,7 +261,7 @@ var
  m:TMatrix4s;
 begin
  // Check visibility
- f1:=geom2d.IntersectRects(primRect,clipRect,r);
+ f1:=IntersectRects(primRect,clipRect,r);
  if f1=0 then begin
   // Primitive is outside the clipping area -> do nothing
   result:=false;
@@ -331,7 +330,7 @@ begin
 
  // Adjust the clipping area if primitive can be partially clipped
  if not EqualRect(clipRect,actualClip) then begin
-  f2:=geom2d.IntersectRects(primRect,actualClip,r);
+  f2:=IntersectRects(primRect,actualClip,r);
   if (f1<>f2) or (f1>1) then begin
    if curtarget=defaultRenderTarget then begin
     if curtarget=nil then op:=outputPos else op:=Point(0,0);
@@ -352,7 +351,7 @@ end;
 procedure TGLPainter2.DrawPrimitives(primType, primCount: integer;
    vertices: pointer; stride: integer);
  var
-  vrt:PScrPoint;
+  vrt:PVertex;
  begin
   vrt:=vertices;
   glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vrt.x);
@@ -426,7 +425,7 @@ procedure TGLPainter2.DrawIndexedPrimitives(primType: integer; vertexBuf,
    indBuf: TPainterBuffer; stride: integer; vrtStart, vrtCount: integer;
    indStart, primCount: integer);
 var
- vrt:PScrPoint;
+ vrt:PVertex;
  ind:Pointer;
 begin
  case vertexBuf of
@@ -453,7 +452,7 @@ begin
 end;
 
 procedure TGLPainter2.DrawIndexedPrimitivesDirectly(primType: integer;
-   vertexBuf: PScrPoint; indBuf: PWord; stride: integer; vrtStart,
+   vertexBuf: PVertex; indBuf: PWord; stride: integer; vrtStart,
    vrtCount: integer; indStart, primCount: integer);
  begin
  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vertexbuf.x);

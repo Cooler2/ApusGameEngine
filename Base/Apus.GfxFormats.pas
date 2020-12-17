@@ -10,20 +10,20 @@ interface
      {$IFDEF TXTIMAGES}Apus.UnicodeFont,{$ENDIF}
      Apus.Images;
  type
-  TImageFormat=(ifUnknown,ifTGA,ifJPEG,ifPJPEG,ifBMP,ifPCX,ifTXT,ifDDS,ifPVR,ifPNG);
-  TImageInfo=record
+  TImageFileType=(ifUnknown,ifTGA,ifJPEG,ifPJPEG,ifBMP,ifPCX,ifTXT,ifDDS,ifPVR,ifPNG);
+  TImageFileInfo=record
    width,height:integer;
-   format:ImagePixelFormat;
+   format:TImagePixelFormat;
    palformat:ImagePaletteFormat;
    miplevels:integer;
   end;
 
  threadvar
-  imgInfo:TImageInfo; // info about last checked image
+  imgInfo:TImageFileInfo; // info about last checked image
 
  // Guess image format and extract key image parameters into imgInfo without unpacking the whole image
- function CheckFileFormat(fname:string):TImageFormat;
- function CheckImageFormat(data:ByteArray):TImageFormat;
+ function CheckFileFormat(fname:string):TImageFileType;
+ function CheckImageFormat(data:ByteArray):TImageFileType;
 
  // Load TGA image from data stream into, if image was created before, image conversion will be applied
  procedure LoadTGA(data:ByteArray;var image:TRawImage;allocate:boolean=false);
@@ -171,8 +171,8 @@ procedure LoadDDS(data:ByteArray;var image:TRawImage;allocate:boolean=false);
   pc:^cardinal;
   head:^DDSheader;
   width,height:integer;
-  format:ImagePixelFormat;
-  info:TImageInfo;
+  format:TImagePixelFormat;
+  info:TImageFileInfo;
   linesize,y:integer;
   sp,dp:PByte;
  begin
@@ -219,7 +219,7 @@ procedure LoadTGA;
   pb,pb2,sp,dp,pp,sourPal:PByte;
   rlebuf:pointer;
   head:^TGAheader;
-  format:ImagePixelFormat;
+  format:TImagePixelFormat;
   palformat:ImagePaletteFormat;
   x1,y1,x2,y2:integer; // position onto the target image
   width,height:integer; // dimensions of the target area
@@ -532,7 +532,7 @@ procedure LoadTGA;
   end;
  {$ENDIF}
 
- function CheckFileFormat(fname:string):TImageFormat;
+ function CheckFileFormat(fname:string):TImageFileType;
   var
    f:file;
    buf:ByteArray;
@@ -550,7 +550,7 @@ procedure LoadTGA;
    Close(f);
   end;
 
- function CheckImageFormat(data:ByteArray):TImageFormat;
+ function CheckImageFormat(data:ByteArray):TImageFileType;
   var
    pb:PByte;
    pc:^cardinal;

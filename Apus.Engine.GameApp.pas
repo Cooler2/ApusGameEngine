@@ -7,7 +7,7 @@ unit Apus.Engine.GameApp;
 interface
  uses
   {$IFDEF ANDROID}jni,{$ENDIF}
-  Apus.Engine.EngineAPI;
+  Apus.Engine.API;
 
  type
   TGameAppMode=(gamScaleWithAspectRatio,  // Scale W/H of the render area to output rect while keeping its aspect ratio (fixed design)
@@ -56,7 +56,7 @@ interface
    procedure HandleParam(param:string); virtual;    // Handle each command line option
    procedure LoadOptions; virtual;   // Load settings (may add default values)
    procedure SaveOptions; virtual;   // Save settings
-   procedure SetGameSettings(var settings:TGameSettings); virtual;
+   procedure SetupGameSettings(var settings:TGameSettings); virtual;
    // Initialization routines: override with actual functionality
    procedure InitSound; virtual;
    procedure LoadFonts; virtual;   // Load font files (called once)
@@ -87,17 +87,17 @@ interface
 
 implementation
  uses
-  {$IFDEF MSWINDOWS}Windows,{$ENDIF}
+  {$IFDEF MSWINDOWS}Windows,Apus.Engine.WindowsPlatform,{$ENDIF}
   {$IFDEF ANDROID}Apus.Android,Apus.Engine.AndroidGame,{$ENDIF}
    SysUtils,Apus.MyServis,Apus.AnimatedValues,Apus.ControlFiles,Apus.Engine.UDict,
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
-   Apus.Engine.UIClasses,Apus.Engine.BasicGame,Apus.Engine.EngineTools,
+   Apus.Engine.UIClasses,Apus.Engine.Game,Apus.Engine.Tools,
    Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,
    Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle
   {$IFDEF IMX},Apus.Engine.Sound{$ENDIF}
   {$IFDEF BASS},Apus.Engine.SoundB{$ENDIF}
   {$IFDEF DIRECTX},Apus.Engine.DXGame8{$ENDIF}
-  {$IFDEF OPENGL},Apus.Engine.GLGame{$ENDIF}
+  {$IFDEF OPENGL},Apus.Engine.OpenGL{$ENDIF}
   {$IFDEF STEAM},Apus.Engine.SteamAPI{$ENDIF};
 
 type
@@ -482,31 +482,17 @@ procedure TGameApplication.Run;
      usedAPI:=gaDirectX;
     {$ENDIF}
     {$IFDEF OPENGL}
-     if GetOpenGLVersion>=3.0 then usedAPI:=gaOpenGL2
-      else usedAPI:=gaOpenGL;
+     usedAPI:=gaOpenGL2
     {$ENDIF}
    end;
-   {$IFDEF DIRECTX}
-   if usedAPI=gaDirectX then game:=TDxGame8.Create(80);
-   {$ENDIF}
-   {$IFDEF OPENGL}
-   if usedAPI=gaOpenGL then game:=TGLGame.Create(false);
-   if usedAPI=gaOpenGL2 then game:=TGLGame.Create(true);
-   {$ENDIF}
-  {$ENDIF}
-  {$IFDEF IOS}
-   game:=TIOSGame.Create;
-   {$ENDIF}
-   {$IFDEF ANDROID}
-   game:=TAndroidGame.Create;
+   game:=TGame.Create(TWindowsPlatform.Create,TOpenGL.Create);
   {$ENDIF}
   if game=nil then raise EError.Create('Game object not created!');
 
   // CONFIGURE GAME OBJECT
   // ------------------------
-  game.unicode:=true;
-  SetGameSettings(settings);
-  game.Settings:=settings;
+  SetupGameSettings(settings);
+  game.SetSettings(settings);
 
   if settings.mode.displayMode<>dmSwitchResolution then
    ForceLogMessage('Running in cooperative mode')
@@ -555,7 +541,7 @@ procedure TGameApplication.Run;
     PingThread;
     CheckCritSections;
     delay(10); // поддерживает сигналы тем самым давая возможность синхронно на них реагировать
-    ProcessMessages;
+    game.systemPlatform.ProcessSystemMessages;
     Signal('GAMEAPP\onIdle');
    except
     on e:exception do ForceLogMessage('Error in Control Thread: '+e.message);
@@ -579,7 +565,7 @@ procedure TGameApplication.SelectFonts;
   Signal('GAMEAPP\SelectFonts');
  end;
 
-procedure TGameApplication.SetGameSettings(var settings: TGameSettings);
+procedure TGameApplication.SetupGameSettings(var settings: TGameSettings);
 var
  scale:single;
 begin
@@ -652,7 +638,7 @@ var
 begin
  if tex=nil then begin
   v.Animate(0.6,1500,Spline1);
-  tex:=texman.AllocImage(16,8,pfTrueColorAlpha,0,'bar');
+  tex:=AllocImage(16,8,pfTrueColorAlpha,0,'bar');
   tex.lock;
   SetRenderTarget(tex.data,tex.pitch,tex.width,tex.height);
   FillRect(0,0,tex.width-1,tex.height-1,0);

@@ -9,21 +9,20 @@
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit Apus.Engine.PainterGL;
 interface
- uses Types, Apus.Engine.API, Apus.Engine.BasicPainter, Apus.Geom3D;
+ uses Types, Apus.Engine.API, Apus.Engine.Internals, Apus.Engine.Painter2D;
 
 type
  TMatrixType=(mtModelView,mtProjection);
 
  TGLPainter=class(TBasicPainter)
-  constructor Create(game:TGameObj);
+  constructor Create;
   destructor Destroy; override;
 
   // Setup render destination
-  procedure SetDefaultRenderArea(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer); virtual;
-  procedure SetDefaultRenderTarget(rt:TTexture); virtual;
+  procedure SetDefaultRenderArea(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer); override;
+  procedure SetDefaultRenderTarget(rt:TTexture); override;
 
   procedure Restore; override;
-  procedure Reset; // нужно вызывать после потери девайса, переключения режима и т.п.
   procedure RestoreClipping; override; // Установить параметры отсечения по текущему viewport'у
 
   // Установка RenderTarget'а (потомки класса могут иметь дополнительные методы,характерные для конкретного 3D API, например D3D)
@@ -61,7 +60,8 @@ type
   // attribNames='aName1,aName2,...aNameN' - attribute names bound to indices 0..n-1
   function BuildShaderProgram(vSrc,fSrc:AnsiString;attribNames:AnsiString=''):integer;
   // Set predefined shader for color transformation (nil - go back to default shader)
-  procedure SetColorTransform(mat:PMatrix43s);
+  procedure SetColorTransform(const mat:T3DMatrix);
+  procedure ResetColorTransform;
 
  protected
   curstate:byte; // Текущий режим (0 - не установлен, 1 - StateTextured и т.д.)
@@ -78,7 +78,7 @@ type
 
   actualClip:TRect; // реальные границы отсечения на данный момент (в рабочем пространстве)
 
-  partBuf,txtBuf:array of TScrPoint;
+  partBuf,txtBuf:array of TVertex;
   partInd,bandInd:array of word;
 
   // Text effect
@@ -113,7 +113,7 @@ type
   procedure DrawIndexedPrimitives(primType:integer;vertexBuf,indBuf:TPainterBuffer;
     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); override;
 
-  procedure DrawIndexedPrimitivesDirectly(primType:integer;vertexBuf:PScrPoint;indBuf:PWord;
+  procedure DrawIndexedPrimitivesDirectly(primType:integer;vertexBuf:PVertex;indBuf:PWord;
     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); override;
   {$ENDIF}
 
@@ -128,11 +128,11 @@ var
  glDebug:boolean = {$IFDEF MSWINDOWS} false {$ELSE} true {$ENDIF};
 
 implementation
- uses Apus.CrossPlatform, Apus.MyServis, SysUtils,
+ uses Apus.CrossPlatform, Apus.MyServis, Apus.Geom2D, Apus.Geom3D, SysUtils,
     {$IFDEF GLES11}gles11,glext,{$ENDIF}
     {$IFDEF GLES20}gles20,{$ENDIF}
     {$IFNDEF GLES}dglOpenGl,{$ENDIF}
-    Apus.Images, Apus.Engine.GLImages, Apus.Geom2D;
+    Apus.Images, Apus.Engine.GLImages;
 
 type
  TScrPoint8=record
@@ -149,7 +149,6 @@ begin
   error:=glGetError;
   if error<>GL_NO_ERROR then begin
     ForceLogMessage('PGL Error ('+inttostr(lab)+'): '+inttostr(error)+' '+GetCallStack);
-
   end;
  end;
 end;
@@ -211,8 +210,8 @@ begin
  // Adjust font cache
  if game.screenWidth*game.screenHeight>3000000 then textCacheHeight:=max2(textCacheHeight,1024);
  //if game.screenWidth*game.screenHeight>5000000 then textCacheWidth:=max2(textCacheWidth,1024);
-
- inherited Create(game);
+ texman:=TGLTextureMan.Create;
+ inherited Create;
  defaultRenderTarget:=nil;
  Initialize;
  textcolorx2:=false;
@@ -221,9 +220,9 @@ begin
  canPaint:=0;
  efftex:=nil;
  txtTex:=nil;
- efftex:=game.texman.AllocImage(256,32,ipfARGB,aiTexture,'effectTex') as TGLtexture;
- txttex:=game.texman.AllocImage(1024,32,ipfARGB,aiTexture,'txtTex') as TGLtexture;
- textCache:=game.texman.AllocImage(textCacheWidth,textCacheHeight,ipfA8,aiTexture,'textCache');
+ efftex:=texman.AllocImage(256,32,ipfARGB,aiTexture,'effectTex') as TGLtexture;
+ txttex:=texman.AllocImage(1024,32,ipfARGB,aiTexture,'txtTex') as TGLtexture;
+ textCache:=texman.AllocImage(textCacheWidth,textCacheHeight,ipfA8,aiTexture,'textCache');
  colorFormat:=1; // colors should be flipped
  supportARGB:=true; // always supported
  for i:=0 to 3 do begin
@@ -337,7 +336,7 @@ end;
 procedure TGLPainter.DrawIndexedPrimitives(primType: integer; vertexBuf,
   indBuf: TPainterBuffer; stride:integer; vrtStart, vrtCount, indStart, primCount: integer);
 var
- vrt:PScrPoint;
+ vrt:PVertex;
  ind:Pointer;
 begin
  case vertexBuf of
@@ -363,7 +362,7 @@ begin
 end;
 
 procedure TGLPainter.DrawIndexedPrimitivesDirectly(primType: integer;
-  vertexBuf: PScrPoint; indBuf: PWord; stride, vrtStart, vrtCount, indStart,
+  vertexBuf: PVertex; indBuf: PWord; stride, vrtStart, vrtCount, indStart,
   primCount: integer);
 begin
  glVertexPointer(3,GL_FLOAT,stride,@vertexBuf.x);
@@ -381,7 +380,7 @@ end;
 procedure TGLPainter.DrawPrimitives(primType, primCount: integer;
   vertices: pointer; stride: integer);
 var
- vrt:PScrPoint;
+ vrt:PVertex;
 begin
  vrt:=vertices;
  glVertexPointer(3,GL_FLOAT,stride,@vrt.x);
@@ -434,7 +433,7 @@ end;
 procedure TGLPainter.DrawPrimitivesFromBuf(primType, primCount,
   vrtStart: integer; vertexBuf: TPainterBuffer; stride:integer);
 var
- vrt:PScrPoint;
+ vrt:PVertex;
 begin
  case vertexBuf of
   vertBuf:vrt:=@partBuf[0];
@@ -680,7 +679,7 @@ var
  r:TRect;
  op:TPoint;
 begin
- f1:=geom2d.IntersectRects(primRect,clipRect,r);
+ f1:=IntersectRects(primRect,clipRect,r);
  if f1=0 then begin
   result:=false;
   exit;
@@ -726,7 +725,7 @@ begin
   curstate:=state;
  end;
  if not EqualRect(clipRect,actualClip) then begin
-  f2:=geom2d.IntersectRects(primRect,actualClip,r);
+  f2:=IntersectRects(primRect,actualClip,r);
   if (f1<>f2) or (f1>1) then begin
    if curtarget=defaultRenderTarget then begin
     if curtarget=nil then op:=outputPos else op:=Point(0,0);
@@ -845,7 +844,6 @@ begin
  self.VPwidth:=VPwidth;
  self.VPheight:=VPheight;
  ResetTarget;
-// SetupViewport;
 end;
 
 procedure TGLPainter.SetDefaultRenderTarget(rt: TTexture);
@@ -916,12 +914,13 @@ begin
  SetGLMatrix(mtProjection,@projMatrix);
 end;
 
-procedure TGLPainter.SetColorTransform(mat: PMatrix43s);
+procedure TGlPainter.ResetColorTransform;
 begin
- if (mat=nil) and (GL_VERSION_2_0) then begin
-  glUseProgram(0);
-  exit;
- end;
+ glUseProgram(0);
+end;
+
+procedure TGLPainter.SetColorTransform(const mat:T3DMatrix);
+begin
  if colorMatrixShader=0 then exit;
  glUseProgram(colorMatrixShader);
  glUniform3f(colorMatrixRed,  mat[0,0],mat[0,1],mat[0,2]);
@@ -1027,7 +1026,7 @@ end;
 
 procedure TGLPainter.ResetTextures;
 begin
- with game.texman as TGLTextureMan do begin
+ with texman as TGLTextureMan do begin
   MakeOnline(nil,0);
   MakeOnline(nil,1);
   MakeOnline(nil,2);
@@ -1124,9 +1123,9 @@ begin
 //  glActiveTexture(GL_TEXTURE0+stage);
   if tex.parent<>nil then tex:=tex.parent;
   //TGLTexture(tex).filter:=curFilters[stage];
-  game.texman.MakeOnline(tex,stage);
+  texman.MakeOnline(tex,stage);
   if curFilters[stage]<>TGLTexture(tex).filter then
-   (game.texman as TGLTextureMan).SetTexFilter(tex,curFilters[stage]);
+   (texman as TGLTextureMan).SetTexFilter(tex,curFilters[stage]);
 
  end else begin
   glActiveTexture(GL_TEXTURE0+stage);
@@ -1204,13 +1203,6 @@ begin
  textBufUsage:=0;
  textCaching:=false;
  CheckForGLError(8);
-end;
-
-procedure TGLPainter.Reset;
-begin
-  LogMessage('Debug\painter\reset');
-  ResetTarget;
-//  Initialize;
 end;
 
 procedure TGLPainter.Clear(color: cardinal; zbuf: single=0;

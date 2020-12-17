@@ -6,10 +6,10 @@
 
 unit Apus.Engine.IOSgame;
 interface
- uses Apus.Engine.API,Images,engineTools,classes,myservis,BasicGame;
+ uses Apus.Engine.API,Images,Classes,Apus.MyServis,Apus.Engine.Game;
 
-type
- TIOSGame=class(TBasicGame)
+{type
+ TIOSGame=class(TGame)
   constructor Create;
  protected
   procedure ApplySettings; override;
@@ -23,13 +23,14 @@ type
   procedure InitObjects; override;
  public
   function GetStatus(n:integer):string; override;
- end;
+ end;}
 
 implementation
- uses SysUtils,{$IFDEF IOS}gles11,{$ENDIF}cmdproc{$IFDEF DELPHI},graphics{$ENDIF},
+(* uses SysUtils,{$IFDEF IOS}gles11,{$ENDIF}Apus.Engine.CmdProc{$IFDEF DELPHI},graphics{$ENDIF},
      GLImages,EventMan,UIClasses,UIScene,gfxformats,
-     Console,PainterGL;
+     Console,PainterGL; *)
 
+(*
 { TGlGame }
 
 procedure TIOSGame.ApplySettings;
@@ -104,5 +105,5 @@ function TIOSGame.GetStatus(n: integer): string;
 begin
  result:='';
 end;
-
+    *)
 end.

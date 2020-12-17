@@ -5,14 +5,17 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.UIScript;
 interface
+uses Apus.Publics;
+
+ function GetVarTypeFor(typeName:string):TVarClass;
 
 implementation
-uses Apus.MyServis, SysUtils, Apus.EventMan, Apus.Publics, Apus.Engine.CmdProc,
-   Apus.Engine.EngineAPI, Apus.Engine.UIClasses, Apus.Geom2d;
+uses Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.CmdProc,
+   Apus.Engine.API, Apus.Engine.UIClasses, Apus.Geom2d;
 
 type
  TDefaults=record
-  parentObj:TUICOntrol; // parent element used for creating new elements
+  parentObj:TUIElement; // parent element used for creating new elements
   x,y,width,height,hintDelay,hintDuration:integer;
   color,backgnd:cardinal;
   font,style,cursor:integer;
@@ -20,6 +23,11 @@ type
   align:TTextAlignment;
  end;
 // TVarType=(vtNone,vtInt,vtByte,vtStr,vtBool,vtSendSignals,vtAlignment,vtBtnStyle,vtTranspMode);
+
+ TVarTypeAlignment=class(TVarType)
+  class procedure SetValue(variable:pointer;v:string); override;
+  class function GetValue(variable:pointer):string; override;
+ end;
 
  TVarTypeUIControl=class(TVarTypeStruct)
   class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
@@ -58,18 +66,18 @@ var
 
 procedure onItemCreated(event:eventstr;tag:TTag);
 var
- c:TUIControl;
+ c:TUIElement;
 begin
- c:=TUIControl(tag);
+ c:=TUIElement(tag);
  if c.name<>'' then
   PublishVar(c,c.name,TVarTypeUIControl);
 end;
 
 procedure onItemRenamed(event:eventstr;tag:TTag);
 var
- c:TUIControl;
+ c:TUIElement;
 begin
- c:=TUIControl(tag);
+ c:=TUIElement(tag);
  UnpublishVar(c);
  if c.name<>'' then
   PublishVar(c,c.name,TVarTypeUIControl);
@@ -77,7 +85,7 @@ end;
 
 procedure UseParentCmd(cmd:string);
  var
-  c:TUIControl;
+  c:TUIElement;
  begin
   EnterCriticalSection(UICritSect);
   try
@@ -95,7 +103,7 @@ procedure UseParentCmd(cmd:string);
 
 procedure SetFocusCmd(cmd:string);
  var
-  c:TUIControl;
+  c:TUIElement;
  begin
   EnterCriticalSection(UICritSect);
   try
@@ -117,7 +125,7 @@ procedure SetFocusCmd(cmd:string);
 procedure CreateCmd(cmd:string);
  var
   sa:StringArr;
-  c:TUIControl;
+  c:TUIElement;
  begin
   EnterCriticalSection(UICritSect);
   try
@@ -143,7 +151,7 @@ procedure CreateCmd(cmd:string);
      c.shape:=shapeEmpty;
     end else
     if sa[0]='UICONTROL' then begin
-     c:=TUIControl.Create(width,height,parentobj,sa[1]);
+     c:=TUIElement.Create(width,height,parentobj,sa[1]);
     end else
     if sa[0]='UILISTBOX' then c:=TUIListBox.Create(width,height,20,sa[1],font,parentobj) else
     if sa[0]='UICOMBOBOX' then c:=TUIComboBox.Create(width,height,font,nil,parentobj,sa[1]);
@@ -208,14 +216,14 @@ procedure SetHotKeyCmd(cmd:string);
   key,shift:byte;
   v,i,d:integer;
   sa:stringArr;
-  obj:TUIControl;
+  obj:TUIElement;
  begin
   EnterCriticalSection(UICritSect);
   try
    delete(cmd,1,10);
    cmd:=UpperCase(cmd);
    obj:=curobj;
-   if (obj=nil) or not (obj is TUIControl) then raise EWarning.Create('No UI object selected');
+   if (obj=nil) or not (obj is TUIElement) then raise EWarning.Create('No UI object selected');
    sa:=Split('+',cmd,#0);
    v:=0;
    for i:=0 to length(sa)-1 do begin
@@ -245,7 +253,7 @@ procedure SetHotKeyCmd(cmd:string);
 class function TVarTypeUIControl.GetField(variable: pointer; fieldName: string;
   out varClass: TVarClass): pointer;
 var
- obj:TUIControl;
+ obj:TUIElement;
 begin
  obj:=variable;
  ASSERT(fieldName<>'');
@@ -504,13 +512,41 @@ class procedure TVarTypePivot.SetValue(variable: pointer; v: string);
 
 class function TVarTypeStyleinfo.GetValue(variable: pointer): string;
 begin
- result:=TUIControl(variable).styleInfo;
+ result:=TUIElement(variable).styleInfo;
 end;
 
 class procedure TVarTypeStyleinfo.SetValue(variable: pointer; v: string);
 begin
- TUIControl(variable).styleInfo:=v;
+ TUIElement(variable).styleInfo:=v;
 end;
+
+{ TVarTypeAlignment }
+
+class function TVarTypeAlignment.GetValue(variable: pointer): string;
+ var
+  a:TTextAlignment;
+ begin
+  a:=TTextAlignment(variable^);
+  case a of
+   taLeft:result:='Left';
+   taRight:result:='Right';
+   taCenter:result:='Center';
+   taJustify:result:='Justify';
+  end;
+ end;
+
+class procedure TVarTypeAlignment.SetValue(variable: pointer; v: string);
+ var
+  a:^TTextAlignment;
+ begin
+  a:=variable;
+  a^:=StrToAlign(v);
+ end;
+
+function GetVarTypeFor(typeName:string):TVarClass;
+ begin
+  if SameText(typeName,'TTextAlignment') then result:=TVarTypeAlignment;
+ end;
 
 initialization
  SetEventHandler('UI\ItemCreated',onItemCreated,emInstant);

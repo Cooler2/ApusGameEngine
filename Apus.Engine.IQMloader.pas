@@ -7,7 +7,7 @@
 {$R+}
 unit Apus.Engine.IQMloader;
 interface
-uses Model3D;
+uses Apus.Engine.Model3D;
 
  function Load3DModelIQM(fname:string):TModel3D;
  function Load3DModelIQE(fname:string):TModel3D;

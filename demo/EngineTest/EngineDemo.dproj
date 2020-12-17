@@ -203,7 +203,7 @@
         <DCCReference Include="..\..\Apus.Engine.PainterGL.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UIScene.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UIRender.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.EngineTools.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Tools.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Console.pas"/>
         <DCCReference Include="..\..\Apus.Engine.ConsoleScene.pas"/>
         <DCCReference Include="..\..\Apus.Engine.SceneEffects.pas"/>
@@ -213,19 +213,18 @@
         <DCCReference Include="..\..\Apus.Engine.Networking2.pas"/>
         <DCCReference Include="..\..\Apus.Engine.IOSgame.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Game.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.BasicPainter.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Painter2D.pas"/>
         <DCCReference Include="..\..\Apus.Engine.TweakScene.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Networking3.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UDict.pas"/>
         <DCCReference Include="..\..\Apus.Engine.CustomStyle.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.GameObjects.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Objects.pas"/>
         <DCCReference Include="..\..\Apus.Engine.CmdProc.pas"/>
         <DCCReference Include="..\..\Apus.Engine.ComplexText.pas"/>
         <DCCReference Include="..\..\Apus.Engine.SteamAPI.pas"/>
         <DCCReference Include="..\..\Apus.Engine.DxImages8.pas"/>
         <DCCReference Include="..\..\Apus.Engine.PainterGL2.pas"/>
         <DCCReference Include="..\..\Apus.Engine.GLImages.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.GLgame.pas"/>
         <DCCReference Include="..\..\Apus.Engine.GameApp.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Model3D.pas"/>
         <DCCReference Include="..\..\Apus.Engine.OBJLoader.pas"/>
@@ -236,6 +235,8 @@
         <DCCReference Include="..\..\Apus.Engine.Internals.pas"/>
         <DCCReference Include="..\..\Apus.Engine.GfxFormats3D.pas"/>
         <DCCReference Include="..\..\Apus.Engine.WindowsPlatform.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.ImageTools.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.OpenGL.pas"/>
         <BuildConfiguration Include="Debug">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

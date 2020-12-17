@@ -32,6 +32,27 @@ const
  aiMH2048  = $400000;
  aiMH4096  = $500000;
 
+ // LoadImageFromFile flags
+ liffSysMem  = aiSysMem; // Image will be allocated in system memory only and can't be used for accelerated rendering!
+ liffTexture = aiTexture; // Image will be allocated as a whole texture (wrap UV enabled, otherwise - disabled!)
+ liffPow2    = aiPow2; // Image dimensions will be increased to the nearest pow2
+ liffMipMaps = aiMipMapping; // Image will be loaded with mip-maps (auto-generated if no mips in the file)
+ liffAllowChange = $100;
+ liffDefault = $FFFFFFFF;   // Use defaultLoadImageFlags for default flag values
+
+ // width and height of atlas-texture
+ liffMW256   = aiMW256;
+ liffMW512   = aiMW512;
+ liffMW1024  = aiMW1024;
+ liffMW2048  = aiMW2048;
+ liffMW4096  = aiMW4096;
+
+ liffMH256   = aiMH256;
+ liffMH512   = aiMH512;
+ liffMH1024  = aiMH1024;
+ liffMH2048  = aiMH2048;
+ liffMH4096  = aiMH4096;
+
  // Texture features flags
  tfCanBeLost      = 1;   // Texture data can be lost at any moment
  tfDirectAccess   = 2;   // CPU access allowed, texture can be locked
@@ -100,6 +121,11 @@ const
  sscAlt   = 4;
  sscWin   = 8;
 
+ // Mouse buttons
+ mbLeft   = 1;
+ mbRight  = 2;
+ mbMiddle = 4;
+
  // Predefined cursor IDs
  crDefault        =  0;  // Default arrow
  crLink           =  1;  // Link-over (hand/finger)
@@ -113,10 +139,15 @@ const
  crNone           = 99;  // No cursor (hidden)
 
 type
+ String8 = Apus.MyServis.String8;
+ String16 = Apus.MyServis.String16;
+
+ TImagePixelFormat = Apus.Images.TImagePixelFormat;
+
  // Which API use for rendering
  TGraphicsAPI=(gaAuto,     // Check one considering defined symbols
-               gaDirectX,  // Currently Direct3D8
-               gaOpenGL,   // OpenGL 1.4 or higher with fixed function pipeline
+               gaDirectX,  // Currently Direct3D8 (deprecated)
+               gaOpenGL,   // OpenGL 1.4 or higher with fixed function pipeline (deprecated)
                gaOpenGL2); // OpenGL 2.0 or higher with shaders
 
  // Режим блендинга (действие, применяемое к фону)
@@ -169,7 +200,7 @@ type
 
  // Базовый абстрактный класс - текстура или ее часть
  TTexture=class
-  PixelFormat:ImagePixelFormat;
+  pixelFormat:TImagePixelFormat;
   width,height:integer; // dimension (in virtual pixels)
   left,top:integer; // position
   mipmaps:byte; // кол-во уровней MIPMAP
@@ -207,7 +238,7 @@ type
   scaleX,scaleY:single; // scale factor for render target allocation
   maxTextureSize,maxRTtextureSize:integer;
   // Создать изображение (в случае ошибки будет исключение)
-  function AllocImage(width,height:integer;PixFmt:ImagePixelFormat;
+  function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
      flags:integer;name:texnamestr):TTexture; virtual; abstract;
   // Change size of texture if it supports it (render target etc)
   procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer); virtual; abstract;
@@ -219,7 +250,7 @@ type
   procedure MakeOnline(img:TTexture;stage:integer=0); virtual; abstract;
   // Проверить возможность выделения текстуры в заданном формате с заданными флагами
   // Возвращает true если такую текстуру принципиально можно создать
-  function QueryParams(width,height:integer;format:ImagePixelFormat;aiFlags:integer):boolean; virtual; abstract;
+  function QueryParams(width,height:integer;format:TImagePixelFormat;aiFlags:integer):boolean; virtual; abstract;
   // Формирует строки статуса
   function GetStatus(line:byte):string; virtual; abstract;
   // Создает дамп использования и распределения видеопамяти
@@ -254,8 +285,8 @@ type
  end;
 
  // Basic vertex format for drawing textured primitives
- PScrPoint=^TScrPoint;
- TScrPoint=packed record
+ PVertex=^TVertex;
+ TVertex=packed record
   x,y,z:single;
   {$IFDEF DIRECTX}
   rhw:single;
@@ -290,7 +321,7 @@ type
  end;
 
  // vertex and index arrays
- TVertices=array of TScrPoint;
+ TVertices=array of TVertex;
  TIndices=array of word;
  TTexCoords=array of TPoint2s;
 
@@ -321,6 +352,14 @@ type
   viewMatrix:T3DMatrix; // текущая матрица камеры
   objMatrix:T3DMatrix; // текущая матрица трансформации объекта (ибо OGL не хранит отдельно матрицы объекта и камеры)
   projMatrix:T3DMatrix; // текущая матрица проекции
+
+  texman:TTextureMan;
+
+  constructor Create;
+  // Set default render target to texture or backbuffer (nil)
+  procedure SetDefaultRenderTarget(rt:TTexture); virtual; abstract;
+  // Setup output position on default render target
+  procedure SetDefaultRenderArea(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer); virtual; abstract;
 
   // Начать рисование (использовать указанную текстуру либо основной буфер если она не указана)
   procedure BeginPaint(target:TTexture); virtual; abstract;
@@ -418,9 +457,9 @@ type
 
   // Meshes ------------------
   // Draw textured tri-mesh (tex=nil -> colored mode)
-  procedure DrawTrgListTex(pnts:PScrPoint;trgcount:integer;tex:TTexture); virtual; abstract;
+  procedure DrawTrgListTex(pnts:PVertex;trgcount:integer;tex:TTexture); virtual; abstract;
   // Draw indexed tri-mesh (tex=nil -> colored mode)
-  procedure DrawIndexedMesh(vertices:PScrPoint;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); virtual; abstract;
+  procedure DrawIndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); virtual; abstract;
 
   // Multitexturing functions ------------------
   // Режим мультитекстурирования должен быть предварительно настроен с помощью SetTexMode / SetTexInterpolationMode
@@ -582,10 +621,10 @@ type
 
   // Определить есть ли нажатия клавиш в буфере
   function KeyPressed:boolean; virtual;
-  // Прочитать клавишу из буфера (младший байт - код символа, старший - сканкод клавиши)
-  // Старшее слово - unicode код символа
+  // Прочитать клавишу из буфера: 0xAAAABBCC
+  // AAAA - unicode char, BB - scancode, CC - ansi char
   function ReadKey:cardinal; virtual;
-  //Записать клавишу в буфер
+  // Записать клавишу в буфер
   procedure WriteKey(key:cardinal); virtual;
   // Очистить буфер нажатий
   procedure ClearKeyBuf; virtual;
@@ -608,9 +647,10 @@ type
   first,last:byte;
  end;
 
- // Main game interface
- TGameObject=class
+  // Main game interface
+ TGameBase=class
   // Глобально доступные переменные
+  running:boolean;
   renderWidth,renderHeight:integer; // Size of render area in virtual pixels (primitive of this size fills the whole renderRect)
   displayRect:TRect;     // render area (inside window's client ared) in screen pixels (default - full client area)
   screenWidth,screenHeight:integer; // real screen size in pixels
@@ -623,21 +663,37 @@ type
   frameNum:integer;     // incremented per frame
   frameStartTime:int64; // MyTickCount when frame started
 
-  keyState:array[0..255] of byte; // 0-й бит - клавиша нажата, 1-й - была нажата в пред. раз
-  shiftstate:byte; // состояние клавиш сдвига (1-shift, 2-ctrl, 4-alt, 8-win)
+  // Input state
   mouseX,mouseY:integer; // положение мыши внутри окна/экрана
   oldMouseX,oldMouseY:integer; // предыдущее положение мыши (не на предыдущем кадре, а вообще!)
-  mouseMoved:int64; // Момент времени, когда положение мыши изменилось
+  mouseMovedAt:int64; // Момент времени, когда положение мыши изменилось
   mouseButtons:byte;     // Флаги "нажатости" кнопок мыши (0-левая, 1-правая, 2-средняя)
   oldMouseButtons:byte;  // предыдущее (отличающееся) значение mouseButtons
+
+  shiftState:byte; // состояние клавиш сдвига (1-shift, 2-ctrl, 4-alt, 8-win)
+  keyState:array[0..255] of byte; // 0-й бит - клавиша нажата, 1-й - была нажата в пред. раз
+
+  // Text link (TODO: move out)
   textLink:cardinal; // Вычисленный на предыдущем кадре номер ссылки под мышью записывается здесь (сам по себе он не вычисляется, для этого надо запускать отрисовку текста особым образом)
                      // TODO: плохо, что этот параметр глобальный, надо сделать его свойством сцен либо элементов UI, чтобы можно было проверять объект под мышью с учётом наложений
   textLinkRect:TRect; // область ссылки, по номеру textLink
 
+  FPS,smoothFPS:single;
+  showFPS:boolean;      // отображать FPS в углу экрана
+  showDebugInfo:integer; // Кол-во строк отладочной инфы
+
+  topmostScene:TGameScene;
+  globalTintColor:cardinal; // multiplier (2X) for whole backbuffer ($FF808080 - neutral value)
+
   // Key game objects
-  systemPlatform:TSystemPlatform;
-  painter:TPainter;
-  texman:TTextureMan;
+  systemPlatform:ISystemPlatform;
+  gfx:IGraphicsSystem;
+
+  constructor Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
+
+  // Settings
+  procedure SetSettings(s:TGameSettings); virtual; abstract;
+  function GetSettings:TGameSettings; virtual; abstract;
 
   // Start/stop game
   // ---------------
@@ -658,6 +714,7 @@ type
   procedure AddScene(scene:TGameScene); virtual; abstract;
   procedure RemoveScene(scene:TGameScene); virtual; abstract;
   function TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene; virtual; abstract;
+  function GetScene(name:string):TGameScene; virtual; abstract;
 
   // Cursors
   // -------
@@ -699,9 +756,9 @@ type
 
   // Screen capturing
   // ----------------
-  // Устанавливает флаги о необходимости сделать скриншот (JPEG или BMP)
-  // obj - либо nil, либо заранее созданный объект типа TBitmap
-  procedure WantToCaptureSingleFrame(jpeg:boolean=true;obj:TObject=nil); virtual; abstract;
+  // Устанавливает флаги о необходимости сделать скриншот (JPEG или TGA)
+  procedure RequestScreenshot(saveAsJpeg:boolean=true); virtual; abstract;
+  procedure RequestFrameCapture(obj:TObject=nil); virtual; abstract;
   procedure StartVideoCap(filename:string); virtual; abstract;
   procedure FinishVideoCap; virtual; abstract;
   // При включенной видеозаписи вызывается видеокодером для освобождения памяти кадра
@@ -720,18 +777,73 @@ type
   // Keyboard events utility functions
   function KeyEventScanCode(tag:cardinal):cardinal; virtual; abstract;
   function KeyEventVirtualCode(tag:cardinal):cardinal; virtual; abstract;
+  procedure SuppressKbdEvent; virtual; abstract; // Suppress handling of the related keyboard event(s)
+
+  procedure Minimize; virtual; abstract;
+  procedure MoveWindowTo(x, y, width, height: integer); virtual; abstract;
+  procedure SetWindowCaption(text: string); virtual; abstract;
+
+  // Input
+  procedure MouseMovedTo(newX,newY:integer); virtual; abstract;
+  procedure CharEntered(charCode,scanCode:integer); virtual; abstract;
+  procedure KeyPressed(keyCode,scanCode:integer;pressed:boolean=true); virtual; abstract;
+  procedure MouseButtonPressed(btn:integer;pressed:boolean=true); virtual; abstract;
+  procedure MouseWheelMoved(value:integer); virtual; abstract;
+  procedure SizeChanged(newWidth,newHeight:integer); virtual; abstract;
+  procedure Activate(activeState:boolean); virtual; abstract;
  end;
 
+var
+ game:TGameBase;
+ painter:TPainter;
+
+
+ // Используемые форматы пикселя (в какие форматы грузить графику)
+ // Они определяются исходя из доступного объема видеопамяти и кол-ва графики в игре
+ pfTrueColorAlpha:TImagePixelFormat; // Формат для загрузки true-color изображений с прозрачностью
+ pfTrueColor:TImagePixelFormat; // то же самое, но без прозрачности
+ pfTrueColorAlphaLow:TImagePixelFormat; // То же самое, но для картинок, качеством которых можно пожертвовать
+ pfTrueColorLow:TImagePixelFormat; // То же самое, но для картинок, качеством которых можно пожертвовать
+ // форматы для отрисовки в текстуру
+ pfRenderTarget:TImagePixelFormat;       // обычное изображение
+ pfRenderTargetAlpha:TImagePixelFormat;  // вариант с альфаканалом
+
+ // Загрузить картинку из файла в текстуру (в оптимальный формат, если не указан явно)
+ // Если sysmem=true, то загружается в поверхность в системной памяти
+ // function LoadImageFromFile(fname:string;mtwidth:integer=0;mtheight:integer=0;sysmem:boolean=false;
+ //           ForceFormat:ImagePixelFormat=ipfNone):TTexture;
+ function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
+
+ // (Re)load texture from an image file. defaultImagesDir is used if path is relative
+ // Default flags can be used from defaultLoadImageFlags
+ procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
+
+ // Загрузить текстурный атлас
+ // Далее при загрузке изображений, которые уже есть в атласе, вместо загрузки из файла будут
+ // создаваться текстурные объекты, ссылающиеся на атлас
+ // Not thread-safe! Don't load atlases in one thread and create images in other thread
+ procedure LoadAtlas(fname:string;scale:single=1.0);
+
+ // Shortcuts to the texture manager
+ function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
+                flags:integer=0;name:texnamestr=''):TTexture;
+
+ procedure FreeImage(var img:TTexture);
 
 implementation
-uses SysUtils, Apus.Publics;
+uses SysUtils, Apus.Publics, Apus.Engine.ImageTools;
 
-type
- TVarTypeAlignment=class(TVarType)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
- end;
+ constructor TGameBase.Create;
+  begin
+   game:=self;
+   systemPlatform:=sysPlatform;
+   gfx:=gfxSystem;
+  end;
 
+ constructor TPainter.Create;
+  begin
+   painter:=self;
+  end;
 
  constructor TTexture.CreateClone(src:TTexture);
   begin
@@ -890,39 +1002,6 @@ begin
   inherited;
 end;
 
-{ TVarTypeAlignment }
-
- function StrToAlign(s:string):TTextAlignment;
-  begin
-   result:=taCenter;
-   s:=uppercase(s);
-   if s='LEFT' then result:=taLeft else
-   if s='RIGHT' then result:=taRight else
-   if s='CENTER' then result:=taCenter else
-   if s='JUSTIFY' then result:=taJustify;
-  end;
-
-class function TVarTypeAlignment.GetValue(variable: pointer): string;
- var
-  a:TTextAlignment;
- begin
-  a:=TTextAlignment(variable^);
-  case a of
-   taLeft:result:='Left';
-   taRight:result:='Right';
-   taCenter:result:='Center';
-   taJustify:result:='Justify';
-  end;
- end;
-
-class procedure TVarTypeAlignment.SetValue(variable: pointer; v: string);
- var
-  a:^TTextAlignment;
- begin
-  a:=variable;
-  a^:=StrToAlign(v);
- end;
-
 { TPainter }
 
 procedure TPainter.DrawCentered(x, y, scale: single; tex: TTexture;
@@ -940,4 +1019,54 @@ procedure TPainter.DrawImage(x, y, scale: single; tex: TTexture;
    DrawRotScaled(x,y,scale,scale,0,tex,color,pivotX,pivotY);
  end;
 
+// Utils
+function fGetFontHandle(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
+ var
+  sa:StringArr;
+  style,effects:byte;
+  size:double;
+ begin
+  if painter=nil then raise EWarning.Create('Painter is not ready');
+  sa:=split(',',params);
+  if length(sa)<2 then raise EWarning.Create('Invalid parameters');
+  size:=EvalFloat(sa[1],nil,context,contextClass);
+  style:=0; effects:=0;
+  if length(sa)>2 then style:=round(EvalFloat(sa[2],nil,context,contextClass));
+  if length(sa)>3 then effects:=round(EvalFloat(sa[3],nil,context,contextClass));
+  result:=painter.GetFont(sa[0],size,style,effects);
+ end;
+
+function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
+ begin
+   result:=Apus.Engine.ImageTools.LoadImageFromFile(fname,flags,forceFormat);
+ end;
+
+procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
+ begin
+   Apus.Engine.ImageTools.LoadImage(img,fname,flags);
+ end;
+
+procedure LoadAtlas(fname:string;scale:single=1.0);
+ begin
+   Apus.Engine.ImageTools.LoadAtlas(fname,scale);
+ end;
+
+function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
+                flags:integer=0;name:texnamestr=''):TTexture;
+ begin
+  if painter<>nil then
+   result:=painter.texman.AllocImage(width,height,pixFmt,flags,name)
+  else
+   raise EWarning.Create('Failed to alloc texture: no painter object');
+ end;
+
+procedure FreeImage(var img:TTexture);
+ begin
+  if img<>nil then
+   painter.texman.FreeImage(img);
+ end;
+
+
+initialization
+ PublishFunction('GetFont',fGetFontHandle);
 end.

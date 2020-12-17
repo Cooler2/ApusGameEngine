@@ -20,7 +20,7 @@ interface
 implementation
  uses Classes,SysUtils, Types,
   Apus.MyServis, Apus.Colors, Apus.Images, Apus.Publics, Apus.Geom2D,
-  Apus.Engine.EngineAPI, Apus.Engine.EngineTools, Apus.Engine.UIRender, Apus.Engine.UDict;
+  Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UIScript, Apus.Engine.UDict;
 
  type
   TAlphaMode=(amAuto,amSkip,amWrite);
@@ -224,13 +224,13 @@ implementation
    end;
   end;
 
- procedure CustomStyleHandler(control:TUIControl);
+ procedure CustomStyleHandler(control:TUIElement);
   var
    i,j:integer;
    img:TObject;
    timg:TTexture;
    enabl:boolean;
-   con:TUIControl;
+   con:TUIElement;
    x1,y1,x2,y2,ix,iy,v:integer;
    c,d:cardinal;
    bool:boolean;
@@ -253,8 +253,6 @@ implementation
     if background<>nil then begin    // нарисовать фон окна
      if TranspBgnd then painter.SetMode(blMove);
      img:=background;
-     if img is TTiledImage then
-      (img as TTiledImage).Draw(globalRect.Left,globalRect.Top,color);
      if img is TTexture then
       painter.DrawImage(globalRect.Left,globalRect.Top,img as TTexture,color);
      if TranspBgnd then painter.SetMode(blAlpha);
@@ -365,7 +363,7 @@ implementation
   var
    i:integer;
    qual:string;
-   pf:ImagePixelFormat;
+   pf:TImagePixelFormat;
   begin
    result:=0;
    i:=pos(',',name);
@@ -460,7 +458,7 @@ begin
        result:=@item^.alphamode; varClass:=TVarTypeAlphaMode;
      end else
      if prop='ALIGNMENT' then begin
-       result:=@item^.alignment; varClass:=TVarTypeAlignment;
+       result:=@item^.alignment; varClass:=GetVarTypeFor('TTextAlignment');
      end
    end;
    'C':begin

@@ -48,8 +48,8 @@ implementation
    fname:string;
    srcData:ByteArray;
    img:TRawImage;
-   format:TImageFormat;
-   info:TImageInfo;
+   format:TImageFileType;
+   info:TImageFileInfo;
    next:PQueueEntry;
   end;
  var

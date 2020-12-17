@@ -4,7 +4,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 {$R-}
-unit Apus.Engine.BasicPainter;
+unit Apus.Engine.Painter2D;
 interface
  uses Apus.Engine.Internals,Types,Apus.Geom3D,Apus.Engine.API;
  const
@@ -114,8 +114,8 @@ interface
       image1,image2:TTexture;color:cardinal=$FF808080); override;
   // State'ы не устанавливаются - нужно все заранее подготовить самостоятельно
   procedure DrawMultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080); override;
-  procedure DrawTrgListTex(pnts:PScrPoint;trgcount:integer;tex:TTexture); override;
-  procedure DrawIndexedMesh(vertices:PScrPoint;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); override;
+  procedure DrawTrgListTex(pnts:PVertex;trgcount:integer;tex:TTexture); override;
+  procedure DrawIndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); override;
 
   // отрисовка набора партиклов (не рекомендуется использовать более 500 частиц!)
   procedure DrawParticles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0); override;
@@ -189,7 +189,7 @@ interface
   procedure DrawIndexedPrimitives(primType:integer;vertBuf,indBuf:TPainterBuffer;
       stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); virtual; abstract;
   // Рисует набор примитивов по вершинам из указанной памяти и индексам из указанной памяти
-  procedure DrawIndexedPrimitivesDirectly(primType:integer;vertexBuf:PScrPoint;indBuf:PWord;
+  procedure DrawIndexedPrimitivesDirectly(primType:integer;vertexBuf:PVertex;indBuf:PWord;
     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); virtual; abstract;
 
   // Common modes:
@@ -223,8 +223,7 @@ var
  textCacheHeight:integer=512;
 
 implementation
-uses SysUtils,Apus.MyServis,Apus.Images,Apus.Engine.UDict,Apus.UnicodeFont,
-     Apus.Publics,
+uses SysUtils,Apus.MyServis,Apus.Images,Apus.Engine.UDict,Apus.UnicodeFont,Apus.Geom2D,
      Apus.Colors,Apus.GlyphCaches{$IFDEF FREETYPE},Apus.FreeTypeFont{$ENDIF};
 
 const
@@ -304,23 +303,6 @@ procedure DefaultTextLinkStyle(link:cardinal;var sUnderline:boolean;var color:ca
    color:=ColorAdd(color,$604030);
   end;
  end;
-
-function fGetFontHandle(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
- var
-  sa:StringArr;
-  style,effects:byte;
-  size:double;
- begin
-  if painter=nil then raise EWarning.Create('Painter is not ready');
-  sa:=split(',',params);
-  if length(sa)<2 then raise EWarning.Create('Invalid parameters');
-  size:=EvalFloat(sa[1],nil,context,contextClass);
-  style:=0; effects:=0;
-  if length(sa)>2 then style:=round(EvalFloat(sa[2],nil,context,contextClass));
-  if length(sa)>3 then effects:=round(EvalFloat(sa[3],nil,context,contextClass));
-  result:=painter.GetFont(sa[0],size,style,effects);
- end;
-
 
 { TBasicPainter }
 
@@ -409,7 +391,7 @@ begin
  DrawImage(x-tex.width div 2,y-tex.height div 2,tex,color);
 end;
 
-procedure SetVertexT(var vrt:TScrPoint;x,y,z:single;color:cardinal;u,v:single); inline;
+procedure SetVertexT(var vrt:TVertex;x,y,z:single;color:cardinal;u,v:single); inline;
 begin
  vrt.x:=x;
  vrt.y:=y;
@@ -422,7 +404,7 @@ begin
  vrt.v:=v;
 end;
 
-procedure SetVertex(var vrt:TScrPoint;x,y,z:single;color:cardinal); inline;
+procedure SetVertex(var vrt:TVertex;x,y,z:single;color:cardinal); inline;
 begin
  vrt.x:=x;
  vrt.y:=y;
@@ -447,7 +429,7 @@ end;
 
 procedure TBasicPainter.DrawImage(x_, y_: integer; tex: TTexture; color: cardinal);
 var
- vrt:array[0..3] of TScrPoint;
+ vrt:array[0..3] of TVertex;
  dx,dy:single;
 begin
  ASSERT(tex<>nil);
@@ -461,12 +443,12 @@ begin
  SetVertexT(vrt[1], x_+dx-0.5,y_-0.5,   zPlane,color,tex.u2,tex.v1);
  SetVertexT(vrt[2], x_+dx-0.5,y_+dy-0.5,zPlane,color,tex.u2,tex.v2);
  SetVertexT(vrt[3], x_-0.5,y_+dy-0.5,   zPlane,color,tex.u1,tex.v2);
- DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint));
+ DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TVertex));
 end;
 
 procedure TBasicPainter.DrawImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=$FF808080);
 var
- vrt:array[0..3] of TScrPoint;
+ vrt:array[0..3] of TVertex;
  dx,dy:single;
 begin
  ASSERT(tex<>nil);
@@ -489,13 +471,13 @@ begin
   Swap(vrt[0].v,vrt[3].v);
   Swap(vrt[1].v,vrt[2].v);
  end;
- DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint));
+ DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TVertex));
 end;
 
 procedure TBasicPainter.DrawImagePart(x_, y_: integer; tex: TTexture;
   color: cardinal; r: TRect);
 var
- vrt:array[0..3] of TScrPoint;
+ vrt:array[0..3] of TVertex;
  w,h:integer;
 begin
  w:=abs(r.Right-r.Left)-1;
@@ -511,13 +493,13 @@ begin
  SetVertexT(vrt[1], x_+w+0.5,y_-0.5,   zPlane,color, tex.u1+tex.stepU*r.Right*2,tex.v1+tex.stepV*r.top*2);
  SetVertexT(vrt[2], x_+w+0.5,y_+h+0.5, zPlane,color, tex.u1+tex.stepU*r.Right*2,tex.v1+tex.stepV*r.Bottom*2);
  SetVertexT(vrt[3], x_-0.5,y_+h+0.5,   zPlane,color, tex.u1+tex.stepU*r.left*2,tex.v1+tex.stepV*r.Bottom*2);
- DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint));
+ DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TVertex));
 end;
 
 procedure TBasicPainter.DrawImagePart90(x_, y_: integer; tex: TTexture;
   color: cardinal; r: TRect; ang: integer);
 var
- vrt:array[0..3] of TScrPoint;
+ vrt:array[0..3] of TVertex;
  w,h:integer;
 begin
  if ang and 1=1 then begin
@@ -555,7 +537,7 @@ begin
  with vrt[3] do begin
   diffuse:=color; u:=tex.u1+tex.stepU*r.left*2; v:=tex.v1+tex.stepV*r.Bottom*2;
  end;
- DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint));
+ DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TVertex));
 end;
 
 procedure TBasicPainter.DrawLine(x1, y1, x2, y2: single; color: cardinal);
@@ -819,7 +801,7 @@ end;
 
 procedure TBasicPainter.DrawRotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);
 var
- vrt:array[0..3] of TScrPoint;
+ vrt:array[0..3] of TVertex;
  u1,v1,u2,v2,w,h,c,s:single;
  wc1,hs1,hc1,ws1,wc2,hs2,hc2,ws2:single;
 begin
@@ -853,13 +835,13 @@ begin
  SetVertexT(vrt[1], x0+wc2-hs1, y0+hc1+ws2, zPlane, color, u2, v1);
  SetVertexT(vrt[2], x0+wc2+hs2, y0-hc2+ws2, zPlane, color, u2, v2);
  SetVertexT(vrt[3], x0-wc1+hs2, y0-hc2-ws1, zPlane, color, u1, v2);
- DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint));
+ DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TVertex));
 end;
 
 procedure TBasicPainter.DrawScaled(x1, y1, x2, y2: single; image: TTexture;
   color: cardinal);
 var
- vrt:array[0..3] of TScrPoint;
+ vrt:array[0..3] of TVertex;
  v,u1,v1,u2,v2:single;
 begin
  if not SetStates(STATE_TEXTURED2X,types.Rect(trunc(x1),trunc(y1),trunc(x2+0.999),trunc(y2+0.999)),image) then exit; // Textured, normal viewport
@@ -883,10 +865,10 @@ begin
  SetVertexT(vrt[2], x2,y2, zPlane, color, u2, v2);
  SetVertexT(vrt[3], x1,y2, zPlane, color, u1, v2);
 
- DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint));
+ DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TVertex));
 end;
 
-procedure TBasicPainter.DrawTrgListTex(pnts: PScrPoint; trgcount: integer;
+procedure TBasicPainter.DrawTrgListTex(pnts: PVertex; trgcount: integer;
   tex: TTexture);
 begin
  if tex<>nil then begin
@@ -895,11 +877,11 @@ begin
  end else
   if not SetStates(STATE_COLORED,types.Rect(0,0,4096,2048),nil) then exit; // Colored, normal viewport
  if colorFormat>0 then
-  ConvertColors(@(pnts^.diffuse),trgCount*3,sizeof(TScrPoint));
- DrawPrimitives(TRG_LIST,trgcount,pnts,sizeof(TScrPoint));
+  ConvertColors(@(pnts^.diffuse),trgCount*3,sizeof(TVertex));
+ DrawPrimitives(TRG_LIST,trgcount,pnts,sizeof(TVertex));
 end;
 
-procedure TBasicPainter.DrawIndexedMesh(vertices:PScrPoint;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
+procedure TBasicPainter.DrawIndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
 var
  mode:byte;
 begin
@@ -907,8 +889,8 @@ begin
  if not SetStates(mode,types.Rect(0,0,4096,2048),tex) then exit; // Textured, normal viewport
  if tex<>nil then UseTexture(tex);
  if colorFormat>0 then
-  ConvertColors(@(vertices^.diffuse),vrtCount,sizeof(TScrPoint));
- DrawIndexedPrimitivesDirectly(TRG_LIST,vertices,indices,sizeof(TScrPoint),0,vrtCount,0,trgCount);
+  ConvertColors(@(vertices^.diffuse),vrtCount,sizeof(TVertex));
+ DrawIndexedPrimitivesDirectly(TRG_LIST,vertices,indices,sizeof(TVertex),0,vrtCount,0,trgCount);
 end;
 
 procedure TBasicPainter.Rect(x1, y1, x2, y2: integer; color: cardinal);
@@ -1033,7 +1015,7 @@ end;
 procedure TBasicPainter.TexturedRect(x1, y1, x2, y2: integer; texture: TTexture; u1,
   v1, u2, v2, u3, v3: single; color: cardinal);
 var
- vrt:array[0..3] of TScrPoint;
+ vrt:array[0..3] of TVertex;
  sx,dx,sy,dy:single;
 begin
  if not SetStates(STATE_TEXTURED2X,types.Rect(x1,y1,x2+1,y2+1),texture) then exit;
@@ -1055,14 +1037,14 @@ begin
  vrt[3].u:=(u1+u3)-u2;
  vrt[3].v:=(v1+v3)-v2;
  UseTexture(texture);
- DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint));
+ DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TVertex));
 end;
 
 procedure TBasicPainter.DrawParticles(x, y: integer; data: PParticle;
   count: integer; tex: TTexture; size: integer; zDist: single);
 type
  PartArr=array[0..100] of TParticle;
- VertexArray=array[0..100] of TScrPoint;
+ VertexArray=array[0..100] of TVertex;
 var
  vrt:^VertexArray;
  idx:array of integer;  // массив индексов партиклов (сортировка по z)
@@ -1095,7 +1077,7 @@ begin
    idx[n]:=j;
   end;
  // заполним вершинный буфер
- vrt:=LockBuffer(VertBuf,0,4*count*sizeof(TScrPoint));
+ vrt:=LockBuffer(VertBuf,0,4*count*sizeof(TVertex));
  for i:=0 to count-1 do begin
   n:=idx[i];
   startU:=part[n].index and $FF;
@@ -1128,7 +1110,7 @@ begin
   SetVertexT(vrt[i*4+3], sx-rx-qx, sy-ry-qy, zPlane,color, uStart,      vStart+vSize);
  end;
  UnlockBuffer(VertBuf);
- DrawIndexedPrimitives(TRG_LIST,VertBuf,partIndBuf,sizeof(TScrPoint),0,count*4,0,count*2);
+ DrawIndexedPrimitives(TRG_LIST,VertBuf,partIndBuf,sizeof(TVertex),0,count*4,0,count*2);
 end;
 
 procedure TBasicPainter.DebugScreen1;
@@ -1139,7 +1121,7 @@ end;
 procedure TBasicPainter.DrawBand(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
 type
  PartArr=array[0..100] of TParticle;
- VertexArray=array[0..100] of TScrPoint;
+ VertexArray=array[0..100] of TVertex;
 var
  vrt:^VertexArray;
  i,j,n,loopStart,next,primcount:integer;
@@ -1173,7 +1155,7 @@ begin
  noPrv:=true;
  loopstart:=0;
  primcount:=0;
- vrt:=LockBuffer(VertBuf,0,2*count*sizeof(TScrPoint));
+ vrt:=LockBuffer(VertBuf,0,2*count*sizeof(TVertex));
  idx:=LockBuffer(bandIndBuf,0,6*count*2);
  for i:=0 to count-1 do begin
    // сперва рассчитаем экранные к-ты частицы
@@ -1245,7 +1227,7 @@ begin
 
  UnlockBuffer(BandIndBuf);
  UnlockBuffer(VertBuf);
- DrawIndexedPrimitives(TRG_LIST,VertBuf,bandIndBuf,sizeof(TScrPoint),0,count*2,0,primCount);
+ DrawIndexedPrimitives(TRG_LIST,VertBuf,bandIndBuf,sizeof(TVertex),0,count*2,0,primCount);
 end;
 
 {procedure TBasicPainter.ScreenOffset(x, y: integer);
@@ -1278,11 +1260,11 @@ begin
 
  UseTexture(textCache);
  if vertBufUsage>0 then begin
-   DrawPrimitivesFromBuf(TRG_LIST,vertBufUsage div 3,0,VertBuf,sizeof(TScrPoint));
+   DrawPrimitivesFromBuf(TRG_LIST,vertBufUsage div 3,0,VertBuf,sizeof(TVertex));
    vertBufUsage:=0;
  end;
  if textBufUsage>0 then begin
-   DrawIndexedPrimitives(TRG_LIST,textVertBuf,partIndBuf,sizeof(TScrPoint),0,textBufUsage,0,textBufUsage div 2);
+   DrawIndexedPrimitives(TRG_LIST,textVertBuf,partIndBuf,sizeof(TVertex),0,textBufUsage,0,textBufUsage div 2);
    textBufUsage:=0;
  end;
 end;
@@ -1862,11 +1844,11 @@ var
  // imageX, imageY - позиция глифа относительно точки курсора
  // imageWIdth, imageHeight - размеры глифа
  procedure AddVertices(chardata:cardinal;pnt:TPoint;x,y:integer;imageX,imageY,imageWidth,imageHeight:integer;
-   var data:PScrPoint;var counter:integer);
+   var data:PVertex;var counter:integer);
   var
    u1,u2,v1,v2:single;
    x1,y1,x2,y2,dx1,dx2:single;
-  procedure AddVertex(var data:PScrPoint;vx,vy,u,v:single;color:cardinal); inline;
+  procedure AddVertex(var data:PVertex;vx,vy,u,v:single;color:cardinal); inline;
    begin
     data.x:=vx;
     data.y:=vy;
@@ -1970,7 +1952,7 @@ var
    i,cnt,idx:integer;
    dx,dy,imgW,imgH,pitch,line:integer;
    px,advance:single;
-   data:PScrPoint;
+   data:PVertex;
    chardata:cardinal; //
    gl:TGlyphInfoRec;
    pnt:TPoint;
@@ -1991,7 +1973,7 @@ var
    cmdPos:=0;
    lpCount:=0;
    dx:=0; dy:=0;
-   data:=LockBuffer(TextVertBuf,textBufUsage,length(st)*4*sizeof(TScrPoint));
+   data:=LockBuffer(TextVertBuf,textBufUsage,length(st)*4*sizeof(TVertex));
    try
    {$IFDEF FREETYPE}
    if ftFont<>nil then ftFont.Lock;
@@ -2165,7 +2147,7 @@ var
    i:=0;
    while i<lpCount do begin
     ConvertColor(lineColors[i shr 1]);
-    painter.DrawLine(linePoints[i].x,linePoints[i].y,
+    DrawLine(linePoints[i].x,linePoints[i].y,
       linePoints[i+1].x,linePoints[i+1].y,lineColors[i shr 1]);
     inc(i,2);
    end;
@@ -2278,5 +2260,4 @@ end;
 
 initialization
  textLinkStyleProc:=DefaultTextLinkStyle;
- PublishFunction('GetFont',fGetFontHandle);
 end.

@@ -71,11 +71,11 @@ type
                    pmProportional,  // Elements area (position/size) is changed proportionally
                    pmCenter);       // Elements center is moved proportionally, but size remains
 
- TUIControl=class;
+ TUIElement=class;
 
  // BAse class for Layouters: objects that layout child elements or adjust elements considering its children
  TLayouter=class
-  procedure Layout(item:TUIControl); virtual; abstract;
+  procedure Layout(item:TUIElement); virtual; abstract;
  end;
 
  // Layout elements in a row/column
@@ -84,14 +84,14 @@ type
  // center - align elements to item's central line
  TRowLayout=class(TLayouter)
   constructor Create(horizontal:boolean=true; spaceBetween:single=0; resizeToContent:boolean=false; center:boolean=false);
-  procedure Layout(item:TUIControl); override;
+  procedure Layout(item:TUIElement); override;
  private
   fHorizontal,fResize,fCenter:boolean;
   fSpaceBetween:single;
  end;
 
  // Base class of the UI element
- TUIControl=class
+ TUIElement=class
   position:TPoint2s;  // Положение root point in parent's client rect (если предка нет - положение на экране)
   pivot:TPoint2s; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
   scale:TVector2s; // scale factor for this element (size) and all children elements
@@ -128,8 +128,8 @@ type
   tag:NativeInt; // Произвольные данные (могут использоваться отрисовщиком)
   customPtr:pointer; // произвольные данные
 
-  parent:TUIControl; // Ссылка на элемент-предок
-  children:array of TUIControl; // Список вложенных элементов
+  parent:TUIElement; // Ссылка на элемент-предок
+  children:array of TUIElement; // Список вложенных элементов
   layout:TLayouter; // layout child elements
 
   // эти параметры (вторичные св-ва) вычисляются первичными событиями,
@@ -140,41 +140,41 @@ type
    handleMouseIfDisabled:boolean; // следует ли передавать события мыши элементу, если он отключен
 
   // Создает элемент
-  constructor Create(width,height:single;parent_:TUIControl;name_:string='');
+  constructor Create(width,height:single;parent_:TUIElement;name_:string='');
   // Удаляет элемент (а также все вложенные в него)
   destructor Destroy; override;
   // Поставить элемент в очередь на удаление
   procedure SafeDelete;
 
   // Найти следующий по порядку элемент того же уровня
-  function GetNext:TUIControl; virtual;
+  function GetNext:TUIElement; virtual;
   // Найти предыдущий по порядку элемент того же уровня
-  function GetPrev:TUIControl; virtual;
+  function GetPrev:TUIElement; virtual;
   // Найти самого дальнего предка (корневой элемент)
-  function GetRoot:TUIControl;
+  function GetRoot:TUIElement;
   // Виден ли элемент (проверяет видимость всех предков)
   function IsVisible:boolean;
   // Доступен ли элемент (проверяет доступность всех предков)
   function IsEnabled:boolean;
   // Является ли указанный элемент потомком данного?
-  function IsChild(c:TUIControl):boolean;
+  function IsChild(c:TUIElement):boolean;
   // Вложен ли данный элемент в указанный (direct or indirect) (HasParent(self)=true)
-  function HasParent(c:TUIControl):boolean;
+  function HasParent(c:TUIElement):boolean;
   // Есть ли у данного элемента указанный потомок (direct or indirect) (HasChild(self)=true)
-  function HasChild(c:TUIControl):boolean;
+  function HasChild(c:TUIElement):boolean;
   // Delete all children elements
   procedure Clear;
 
   // Attach to a new parent
-  procedure AttachTo(newParent:TUIControl);
+  procedure AttachTo(newParent:TUIElement);
   // Detach from parent
   procedure Detach(shouldAddToRootControls:boolean=true);
 
   // Transformations. Element's coordinate system is (0,0 - clientWidth,clinetHeight) where
   //   0,0 - is upper-left corner of the client area. This CS is for internal use.
   // Transform to given element's CS (nil - screen space)
-  function TransformTo(const p:TPoint2s;target:TUIControl):TPoint2s; overload;
-  function TransformTo(const r:TRect2s;target:TUIControl):TRect2s; overload;
+  function TransformTo(const p:TPoint2s;target:TUIElement):TPoint2s; overload;
+  function TransformTo(const r:TRect2s;target:TUIElement):TRect2s; overload;
   // Transform to the root element (screen space)
   function TransformToScreen(const p:TPoint2s):TPoint2s; overload;
   function TransformToScreen(const r:TRect2s):TRect2s; overload;
@@ -211,17 +211,17 @@ type
   procedure SetFocusToPrev;
 
   // Set element position using new pivot point
-  function SetPos(x,y:single;pivotPoint:TPoint2s):TUIControl; overload;
-  function SetPos(x,y:single):TUIControl; overload;
+  function SetPos(x,y:single;pivotPoint:TPoint2s):TUIElement; overload;
+  function SetPos(x,y:single):TUIElement; overload;
   // Move by given screen pixels
   procedure MoveBy(dx,dy:single);
   // Set element position using new pivot point
-  function SetAnchors(left,top,right,bottom:single):TUIControl;
+  function SetAnchors(left,top,right,bottom:single):TUIElement;
   // Set all padding and resize client area
-  function SetPaddings(padding:single):TUIControl; overload;
-  function SetPaddings(left,top,right,bottom:single):TUIControl; overload;
+  function SetPaddings(padding:single):TUIElement; overload;
+  function SetPaddings(left,top,right,bottom:single):TUIElement; overload;
   // Set same value for X/Y scale
-  function SetScale(newScale:single):TUIControl;
+  function SetScale(newScale:single):TUIElement;
   // Change element size and adjust children elements !!! new size IN PARENTs space!
   // Pass -1 to keep current value
   procedure Resize(newWidth,newHeight:single); virtual;
@@ -236,11 +236,11 @@ type
 
   // Find a descendant UI element at the given point (in screen coordinates)
   // Returns true if the found element (and all its parents) are enabled
-  function FindItemAt(x,y:integer;out c:TUIControl):boolean;
+  function FindItemAt(x,y:integer;out c:TUIElement):boolean;
   // Same as FindItemAt, but ignores elements transparency mode
-  function FindAnyItemAt(x,y:integer;out c:TUIControl):boolean;
+  function FindAnyItemAt(x,y:integer;out c:TUIElement):boolean;
   // Find a descendant element by its name
-  function FindByName(name:string):TUIControl;
+  function FindByName(name:string):TUIElement;
 
   // Установить либо удалить "горячую клавишу" для данного эл-та
   procedure SetHotKey(keycode:byte;shiftstate:byte);
@@ -253,7 +253,7 @@ type
   function GetName:string;
 
  protected
-  focusedChild:TUIControl;
+  focusedChild:TUIElement;
  private
   fName:String8;  // Имя - используется при посылке сигналов. Изначально отсутствует, что запрещает посылку сигналов
   fStyleInfo:String8; // дополнительные сведения для стиля
@@ -277,26 +277,26 @@ type
  end;
 
  // Элемент с ограничениями размера
- TUIFlexControl=class(TUIControl)
+ TUIFlexControl=class(TUIElement)
   minWidth,minHeight:integer;
   maxWidth,maxHeight:integer;
  end;
 
 
  // Элемент "изображение". Содержит простое статическое изображение
- TUIImage=class(TUIControl)
+ TUIImage=class(TUIElement)
   color:cardinal;  // drawing color (default is $FF808080)
   src:string; // здесь может быть имя файла или строка "event:xxx", "proc:XXXXXXXX" etc...
-  constructor Create(width,height:single;imgname:string;parent_:TUIControl);
+  constructor Create(width,height:single;imgname:string;parent_:TUIElement);
   procedure SetRenderProc(proc:pointer); // sugar for use "proc:XXX" src for the default style
  end;
 
  // Скроллер для тачскрина - размещается независимо либо поверх другого элемента, который он и скроллит
  // It captures mouse drag events, but passes clicks through
- TUIScrollArea=class(TUIControl)
+ TUIScrollArea=class(TUIElement)
   fullWidth,fullHeight:single; // full content area
   direction:TUIScrollDirection;
-  constructor Create(width,height,fullW,fullH:single;dir:TUIScrollDirection;parent_:TUIControl);
+  constructor Create(width,height,fullW,fullH:single;dir:TUIScrollDirection;parent_:TUIElement);
   procedure onMouseMove; override;
   procedure onMouseButtons(button:byte;state:boolean); override;
   procedure onTimer; override;
@@ -316,20 +316,20 @@ type
   created:int64; // момент создания (в мс.)
   adjusted:boolean; // отрисовщик может использовать это для корректировки параметров хинта
 
-  constructor Create(x,y:single;text:string;act:boolean;parent_:TUIControl);
+  constructor Create(x,y:single;text:string;act:boolean;parent_:TUIElement);
   destructor Destroy; override;
   procedure Hide;
   procedure onMouseButtons(button:byte;state:boolean); override;
   procedure onTimer; override;
  end;
 
- TUILabel=class(TUIControl)
+ TUILabel=class(TUIElement)
   caption:string;
   color:cardinal;
   align:TTextAlignment;
   font:cardinal;
   topOffset:integer; // сдвиг текста вверх
-  constructor Create(width,height:single;labelname,text:string;color_,bFont:cardinal;parent_:TUIControl);
+  constructor Create(width,height:single;labelname,text:string;color_,bFont:cardinal;parent_:TUIElement);
  end;
 
  // Тип кнопок
@@ -346,7 +346,7 @@ type
   btnStyle:TButtonStyle; // тип кнопки (влияет как на отрисовку, так и на поведение)
   group:integer;   // Группа переключателей
   font:cardinal;
-  constructor Create(width,height:single;btnName,btnCaption:string;btnFont:cardinal;parent_:TUIControl);
+  constructor Create(width,height:single;btnName,btnCaption:string;btnFont:cardinal;parent_:TUIElement);
 
   procedure onMouseButtons(button:byte;state:boolean); override;
   procedure onMouseMove; override;
@@ -363,8 +363,8 @@ type
  end;
 
  // Рамка
- TUIFrame=class(TUIControl)
-  constructor Create(width,height:single;depth,style_:integer;parent_:TUIControl);
+ TUIFrame=class(TUIElement)
+  constructor Create(width,height:single;depth,style_:integer;parent_:TUIElement);
   procedure SetBorderWidth(w:integer); virtual;
  protected
   borderWidth:integer; // ширина рамки
@@ -379,7 +379,7 @@ type
   resizeable:boolean;  // окно можно растягивать
   minW,minH,maxW,maxH:integer; // максимальные и минимальные размеры (для растягивающихся окон)
 
-  constructor Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,wndCaption:string;wndFont:cardinal;parent_:TUIControl);
+  constructor Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,wndCaption:string;wndFont:cardinal;parent_:TUIElement);
 
   // Возвращает флаги типа области в указанной точке (к-ты экранные (в пикселях)
   // а также курсор, который нужно заюзать для этой области
@@ -403,12 +403,12 @@ type
  TUISkinnedWindow=class(TUIWindow)
   dragRegion:TRegion; // область, за которую можно таскать окно (если не задана - то за любую точку)
   background:pointer; // некий указатель на фон окна (т.к. вопросы отрисовки в этом модуле не затрагиваются)
-  constructor Create(wndName,wndCaption:string;wndFont:cardinal;parent_:TUIControl;canmove:boolean=true);
+  constructor Create(wndName,wndCaption:string;wndFont:cardinal;parent_:TUIElement;canmove:boolean=true);
   destructor Destroy; override;
   function GetAreaType(x,y:integer;out cur:integer):integer; override; // x,y - screen space coordinates
  end;
 
- TUIEditBox=class(TUIControl)
+ TUIEditBox=class(TUIElement)
   encoding:TTextEncoding; // в какой кодировке выдавать text?
   realText:WideString; // реальный текст (лучше использовать это поле, а не text)
   completion:WideString; // grayed background text, if it is not empty and enter is pressed, then it is set to realText
@@ -426,7 +426,7 @@ type
   protection:byte;   // xor всех символов с этим числом
   offset:integer; // сдвиг вправо содержимого на столько пикселей
 
-  constructor Create(width,height:single;boxName:string;boxFont:cardinal;color_:cardinal;parent_:TUIControl);
+  constructor Create(width,height:single;boxName:string;boxFont:cardinal;color_:cardinal;parent_:TUIElement);
   procedure onChar(ch:char;scancode:byte); override;
   procedure onUniChar(ch:WideChar;scancode:byte); override;
   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
@@ -448,7 +448,7 @@ type
  end;
 
  // Полоса прокрутки
- TUIScrollBar=class(TUIControl)
+ TUIScrollBar=class(TUIElement)
  private
   rValue:TAnimatedValue;
   function GetValue:single;
@@ -461,13 +461,13 @@ type
   color:cardinal;
   horizontal:boolean;
   over:boolean;
-  constructor Create(width,height:single;barName:string;parent_:TUIControl);
+  constructor Create(width,height:single;barName:string;parent_:TUIElement);
   function SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
   // Переместить ползунок в указанную позицию
   procedure MoveTo(val:single;smooth:boolean=false); virtual;
   procedure MoveRel(delta:single;smooth:boolean=false); virtual;
   // Связать значение с внешней переменной
-  procedure Link(ctl:TUIControl); virtual;
+  procedure Link(ctl:TUIElement); virtual;
   // Сигналы от этих кнопок будут использоваться для перемещения ползунка
   procedure UseButtons(lessBtn,moreBtn:string);
 
@@ -477,13 +477,13 @@ type
   property value:single read GetValue write SetValue;
   property isAnimating:boolean read GetAnimating;
  protected
-  linkedControl:TUIControl;
+  linkedControl:TUIElement;
   delta:integer; // смещение точки курсора относительно точки начала ползунка (если hooked)
   needval:integer; // значение, к которому нужно плавно прийти
   moving:boolean;
  end;
 
- TUIListBox=class(TUIControl)
+ TUIListBox=class(TUIElement)
   lines:StringArr;
   tags:array of cardinal;
   hints:StringArr; // у каждого элемента может быть свой хинт (показываемый при наведении на него)
@@ -492,7 +492,7 @@ type
   autoSelectMode:boolean; // режим, при котором всегда выделяется строка под мышью (для попапов)
   font:cardinal;
   bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // цвета отрисовки
-  constructor Create(width,height:single;lHeight:single;listName:string;font_:cardinal;parent:TUIControl);
+  constructor Create(width,height:single;lHeight:single;listName:string;font_:cardinal;parent:TUIElement);
   destructor Destroy; override;
   procedure AddLine(line:string;tag:cardinal=0;hint:string=''); virtual;
   procedure SetLine(index:integer;line:string;tag:cardinal=0;hint:string=''); virtual;
@@ -513,7 +513,7 @@ type
   frame:TUIFrame;
   popup:TUIListBox;
   maxlines:integer; // max lines to show without scrolling
-  constructor Create(width,height:single;bFont:cardinal;list:WStringArr;parent_:TUIControl;name:string);
+  constructor Create(width,height:single;bFont:cardinal;list:WStringArr;parent_:TUIElement;name:string);
   procedure AddItem(item:WideString;tag:cardinal=0;hint:WideString=''); virtual;
   procedure SetItem(index:integer;item:WideString;tag:cardinal=0;hint:string=''); virtual;
   procedure ClearItems;
@@ -528,11 +528,11 @@ type
 
 
 var
- underMouse:TUIControl;     // элемент под мышью
+ underMouse:TUIElement;     // элемент под мышью
  activeWnd:TUIWindow;       // Активное окно (автоматически устанавливается при переводе фокуса)
- modalControl:TUIControl;   // Если есть модальный эл-т - он тут
+ modalControl:TUIElement;   // Если есть модальный эл-т - он тут
  comboPop:TUIComboBox;      // если существует выпавший комбобокс - он тут
- hooked:TUIControl;         // если установлен - теряет фокус даже если не обладал им
+ hooked:TUIElement;         // если установлен - теряет фокус даже если не обладал им
 
  defaultEncoding:TTextEncoding=teUnknown; // кодировка элементов ввода по умолчанию
 
@@ -544,28 +544,27 @@ var
  // Корневые элементы (не имеющие предка)
  // Список используется для передачи (обработки) первичных событий строго
  // по порядку, начиная с 1-го
- rootControls:array of TUIControl;
+ rootControls:array of TUIElement;
 
  // элементы для отложенного удаления. Нужно периодически их удалять
  toDelete:TObjectList;
 
  UICritSect:TMyCriticalSection; // для многопоточного доступа к глобальным переменным UI
 
- procedure SetDisplaySize(width,height:integer);
- function DescribeControl(c:TUIControl):string;
- function FocusedControl:TUIControl;
- procedure SetFocusTo(control:TUIControl);
+ function DescribeControl(c:TUIElement):string;
+ function FocusedControl:TUIElement;
+ procedure SetFocusTo(control:TUIElement);
 
  // обработать нажатие горячей клавиши (передать всем элементам с
  procedure ProcessHotKey(keycode:byte;shiftstate:byte);
 
  // Найти элемент по имени
- function FindControl(name:string;mustExist:boolean=true):TUIControl;
+ function FindControl(name:string;mustExist:boolean=true):TUIElement;
  // Найти элемент в заданной точке экрана (возвращает true если элемент найден и он
  // enabled - c учетом всех предков), игнорирует "прозрачные" в данной точке элементы
- function FindControlAt(x,y:integer;out c:TUIControl):boolean;
+ function FindControlAt(x,y:integer;out c:TUIElement):boolean;
  // Поиск элемента в данной точке не игнорируя "прозрачные" (полезно для отладки)
- function FindAnyControlAt(x,y:integer;out c:TUIControl):boolean;
+ function FindAnyControlAt(x,y:integer;out c:TUIElement):boolean;
 
  // Controls setup
  procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;btnType:TButtonStyle;
@@ -587,6 +586,8 @@ var
  function UIComboBox(name:string;mustExist:boolean=false):TUIComboBox;
  function UIListBox(name:string;mustExist:boolean=false):TUIListBox;
 
+ // Dump all important UI data
+ function DumpUI:String8;
 
 implementation
  uses Classes, SysUtils, Apus.EventMan, Apus.Clipboard;
@@ -595,25 +596,17 @@ type
  // Горячая клавиша
  THotKey=record
   key,shiftstate:byte;
-  control:TUIControl;
+  control:TUIElement;
  end;
 
 var
  HotKeys:array[0..1023] of THotKey;
  HotKeysCnt:integer;
 
- fControl:TUIControl; // элемент, имеющий фокус ввода (с клавиатуры)
+ fControl:TUIElement; // элемент, имеющий фокус ввода (с клавиатуры)
                       // устанавливается автоматически либо вручную
- // Display area size (since this unit doesn't depend on other Engine units)
- rootWidth,rootHeight:integer;
 
-procedure SetDisplaySize(width,height:integer);
-begin
- rootWidth:=width;
- rootHeight:=height;
-end;
-
-function DescribeControl(c:TUIControl):string;
+function DescribeControl(c:TUIElement):string;
 begin
  if c=nil then begin
   result:='nil'; exit;
@@ -626,7 +619,7 @@ begin
  result:=fControl;
 end;
 
-procedure SetFocusTo(control:TUIControl);
+procedure SetFocusTo(control:TUIElement);
 begin
  try
   if control<>nil then control.SetFocus
@@ -642,7 +635,7 @@ end;
 procedure SortRootControls;
 var
  i,j:integer;
- c:TUIControl;
+ c:TUIElement;
 begin
  for i:=1 to high(rootControls) do
   if rootControls[i].order>rootControls[i-1].order then begin
@@ -656,7 +649,7 @@ begin
   end;
 end;
 
-function FindControl(name:string;mustExist:boolean=true):TUIControl;
+function FindControl(name:string;mustExist:boolean=true):TUIElement;
 var
  i:integer;
 begin
@@ -675,10 +668,10 @@ begin
  end;
 end;
 
-function FindControlAtInternal(x,y:integer;any:boolean;out c:TUIControl):boolean;
+function FindControlAtInternal(x,y:integer;any:boolean;out c:TUIElement):boolean;
 var
  i,maxZ:integer;
- ct,c2:TUIControl;
+ ct,c2:TUIElement;
  found,enabl:boolean;
 begin
  c:=nil; maxZ:=-1;
@@ -706,12 +699,12 @@ begin
 end;
 
 
-function FindControlAt(x,y:integer;out c:TUIControl):boolean;
+function FindControlAt(x,y:integer;out c:TUIElement):boolean;
 begin
  result:=FindControlAtInternal(x,y,false,c);
 end;
 
-function FindAnyControlAt(x,y:integer;out c:TUIControl):boolean;
+function FindAnyControlAt(x,y:integer;out c:TUIElement):boolean;
 begin
  result:=FindControlAtInternal(x,y,true,c);
 end;
@@ -719,7 +712,7 @@ end;
 
 procedure SetControlState(name:string;visible:boolean;enabled:boolean=true);
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  c:=FindControl(name,false);
  if c=nil then exit;
@@ -729,7 +722,7 @@ end;
 
 procedure SetControlText(name:string;text:string);
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  c:=FindControl(name,false);
  if c=nil then exit;
@@ -746,7 +739,7 @@ end;
 
 function UIButton(name:string;mustExist:boolean=false):TUIButton;
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUIButton) then c:=nil;
@@ -756,7 +749,7 @@ end;
 
 function UIEditBox(name:string;mustExist:boolean=false):TUIEditBox;
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUIEditBox) then c:=nil;
@@ -766,7 +759,7 @@ end;
 
 function UILabel(name:string;mustExist:boolean=false):TUILabel;
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUILabel) then c:=nil;
@@ -776,7 +769,7 @@ end;
 
 function UIScrollBar(name:string;mustExist:boolean=false):TUIScrollBar;
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUIScrollBar) then c:=nil;
@@ -786,7 +779,7 @@ end;
 
 function UIComboBox(name:string;mustExist:boolean=false):TUIComboBox;
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUIComboBox) then c:=nil;
@@ -796,7 +789,7 @@ end;
 
 function UIListBox(name:string;mustExist:boolean=false):TUIListBox;
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  c:=FindControl(name,mustExist);
  if not (c is TUIListBox) then c:=nil;
@@ -807,10 +800,10 @@ end;
 
 { TUIControl }
 
-function TUIControl.TransformTo(const p:TPoint2s;target:TUIControl):TPoint2s;
+function TUIElement.TransformTo(const p:TPoint2s;target:TUIElement):TPoint2s;
 var
  parentScrollX,parentScrollY:single;
- c:TUIControl;
+ c:TUIElement;
 begin
  c:=self;
  result:=p;
@@ -836,7 +829,7 @@ begin
 
 end;
 
-function TUIControl.TransformTo(const r:TRect2s;target:TUIControl):TRect2s;
+function TUIElement.TransformTo(const r:TRect2s;target:TUIElement):TRect2s;
 var
  p1,p2:TPoint2s;
 begin
@@ -845,7 +838,7 @@ begin
  result:=Rect2s(p1.x,p1.y, p2.x,p2.y);
 end;
 
-function TUIControl.GetRect:TRect2s; // Get element's area in own CS
+function TUIElement.GetRect:TRect2s; // Get element's area in own CS
 begin
  result.x1:=-paddingLeft;
  result.y1:=-paddingTop;
@@ -853,7 +846,7 @@ begin
  result.y2:=size.y-paddingTop;
 end;
 
-function TUIControl.GetClientRect:TRect2s; // Get element's client area in own CS
+function TUIElement.GetClientRect:TRect2s; // Get element's client area in own CS
 begin
  result.x1:=0;
  result.y1:=0;
@@ -861,31 +854,25 @@ begin
  result.y2:=size.y-paddingTop-paddingBottom;
 end;
 
-function TUIControl.GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
+function TUIElement.GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
 begin
  result:=TransformTo(GetRect,parent);
 end;
 
 
-procedure TUIControl.Center;
+procedure TUIElement.Center;
 var
  r,rP:TRect2s;
  pW,pH,dx,dy:single;
 begin
  r:=GetRect;
- if parent<>nil then begin
-  pW:=parent.size.x;
-  pH:=parent.size.y;
-  r:=TransformTo(r,parent);
-  rP:=parent.GetClientRect;
-  dx:=-((r.x1-rP.x1)-(rP.x2-r.x2))/2;
-  dy:=-((r.y1-rP.y1)-(rP.y2-r.y2))/2;
- end else begin
-  pW:=rootWidth;
-  pH:=rootHeight;
-  dx:=(r.x1-(pW-r.x2))/2;
-  dy:=(r.y1-(pH-r.y2))/2;
- end;
+ ASSERT(parent<>nil,'Cannot center a root UI element');
+ pW:=parent.size.x;
+ pH:=parent.size.y;
+ r:=TransformTo(r,parent);
+ rP:=parent.GetClientRect;
+ dx:=-((r.x1-rP.x1)-(rP.x2-r.x2))/2;
+ dy:=-((r.y1-rP.y1)-(rP.y2-r.y2))/2;
  position.x:=position.x+dx;
  position.y:=position.y+dy;
 end;
@@ -905,13 +892,13 @@ begin
   c.Scale(sx,sy);
 end;}
 
-procedure TUIControl.CheckAndSetFocus;
+procedure TUIElement.CheckAndSetFocus;
 begin
  if CanHaveFocus and (FocusedControl=nil) then
   SetFocus;
 end;
 
-procedure TUIControl.Clear;
+procedure TUIElement.Clear;
 var
  i:integer;
 begin
@@ -925,7 +912,7 @@ begin
  end;
 end;
 
-constructor TUIControl.Create(width, height: single; parent_:TUIControl;name_:string='');
+constructor TUIElement.Create(width, height: single; parent_:TUIElement;name_:string='');
 var
  n:integer;
 begin
@@ -974,7 +961,7 @@ begin
  Signal('UI\ItemCreated',integer(self));
 end;
 
-destructor TUIControl.Destroy;
+destructor TUIElement.Destroy;
 var
  i,n:integer;
 begin
@@ -996,7 +983,7 @@ begin
  inherited;
 end;
 
-procedure TUIControl.Detach(shouldAddToRootControls:boolean=true);
+procedure TUIElement.Detach(shouldAddToRootControls:boolean=true);
 var
  i,pos,n:integer;
 begin
@@ -1015,7 +1002,7 @@ begin
  if shouldAddToRootControls then AddToRootControls;
 end;
 
-procedure TUIControl.AttachTo(newParent: TUIControl);
+procedure TUIElement.AttachTo(newParent: TUIElement);
 var
  n:integer;
 begin
@@ -1031,10 +1018,10 @@ begin
  parent.children[n]:=self;
 end;
 
-function TUIControl.FindByName(name: string): TUIControl;
+function TUIElement.FindByName(name: string): TUIElement;
 var
  i:integer;
- c:TUIControl;
+ c:TUIElement;
 begin
  name:=UpperCase(name);
  if UpperCase(self.name)=name then begin
@@ -1049,14 +1036,14 @@ begin
  result:=nil;
 end;
 
-function TUIControl.FindItemAt(x, y: integer; out c: TUIControl): boolean;
+function TUIElement.FindItemAt(x, y: integer; out c: TUIElement): boolean;
 var
  r,r2:Trect;
  p:TPoint;
  i,j:integer;
  fl,en:boolean;
- c2:TUIControl;
- ca:array of TUIControl;
+ c2:TUIElement;
+ ca:array of TUIElement;
  cnt:byte;
 begin
  // Тут нужно быть предельно внимательным!!!
@@ -1103,14 +1090,14 @@ begin
  if c=nil then result:=false;
 end;
 
-function TUIControl.FindAnyItemAt(x, y: integer; out c: TUIControl): boolean;
+function TUIElement.FindAnyItemAt(x, y: integer; out c: TUIElement): boolean;
 var
  r,r2:Trect;
  p:TPoint;
  i,j:integer;
  fl,en:boolean;
- c2:TUIControl;
- ca:array of TUIControl;
+ c2:TUIElement;
+ ca:array of TUIElement;
  cnt:byte;
 begin
  // Тут нужно быть предельно внимательным!!!
@@ -1156,13 +1143,13 @@ begin
  if c=nil then result:=false;
 end;
 
-function TUIControl.GetName: string;
+function TUIElement.GetName: string;
 begin
  if self<>nil then result:=name
   else result:='empty';
 end;
 
-procedure TUIControl.SetName(n:String8);
+procedure TUIElement.SetName(n:String8);
 begin
  if fName<>n then begin
   fName:=n;
@@ -1170,7 +1157,7 @@ begin
  end;
 end;
 
-procedure TUIControl.Snap(snapTo: TSnapMode);
+procedure TUIElement.Snap(snapTo: TSnapMode);
 var
  clientW,clientH:single;
  r,parentRect:TRect2s;
@@ -1215,7 +1202,7 @@ begin
  VectAdd(position,offset);
 end;
 
-function TUIControl.GetNext: TUIControl;
+function TUIElement.GetNext: TUIElement;
 var
  i,n:integer;
 begin
@@ -1227,16 +1214,16 @@ begin
    result:=parent.children[(i+1) mod n];
 end;
 
-function TUIControl.GetRoot: TUIControl;
+function TUIElement.GetRoot: TUIElement;
 begin
  result:=self;
  if self=nil then exit;
  while result.parent<>nil do result:=result.parent;
 end;
 
-function TUIControl.IsVisible:boolean;
+function TUIElement.IsVisible:boolean;
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  result:=false;
  if self=nil then exit;
@@ -1248,9 +1235,9 @@ begin
  end;
 end;
 
-function TUIControl.IsEnabled:boolean;
+function TUIElement.IsEnabled:boolean;
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  result:=false;
  if self=nil then exit;
@@ -1262,7 +1249,7 @@ begin
  end;
 end;
 
-function TUIControl.IsChild(c:TUIControl):boolean;
+function TUIElement.IsChild(c:TUIElement):boolean;
 begin
  result:=false;
  if c=nil then exit;
@@ -1274,28 +1261,28 @@ begin
  end;
 end;
 
-function TUIControl.TransformToScreen(const p:TPoint2s):TPoint2s;
+function TUIElement.TransformToScreen(const p:TPoint2s):TPoint2s;
 begin
  result:=TransformTo(p,nil);
 end;
 
-function TUIControl.TransformToScreen(const r:TRect2s):TRect2s;
+function TUIElement.TransformToScreen(const r:TRect2s):TRect2s;
 begin
  result:=TransformTo(r,nil);
 end;
 
-function TUIControl.GetPosOnScreen: TRect;
+function TUIElement.GetPosOnScreen: TRect;
 begin
  globalRect:=RoundRect(TransformToScreen(GetRect));
  result:=globalRect;
 end;
 
-function TUIControl.GetClientPosOnScreen:TRect;
+function TUIElement.GetClientPosOnScreen:TRect;
 begin
  result:=RoundRect(TransformToScreen(GetClientRect));
 end;
 
-function TUIControl.GetPrev: TUIControl;
+function TUIElement.GetPrev: TUIElement;
 var
  i,n:integer;
 begin
@@ -1308,9 +1295,9 @@ begin
     else result:=parent.children[i-1];
 end;
 
-function TUIControl.HasFocus: boolean;
+function TUIElement.HasFocus: boolean;
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  result:=false;
  c:=fControl;
@@ -1322,9 +1309,9 @@ begin
  end;
 end;
 
-function TUIControl.HasParent(c: TUIControl): boolean;
+function TUIElement.HasParent(c: TUIElement): boolean;
 var
- con:TUIControl;
+ con:TUIElement;
 begin
  con:=self;
  result:=false;
@@ -1336,38 +1323,38 @@ begin
  end;
 end;
 
-function TUIControl.HasChild(c: TUIControl): boolean;
+function TUIElement.HasChild(c: TUIElement): boolean;
 begin
  result:=c.HasParent(self);
 end;
 
-function TUIControl.IsOpaque(x, y: single): boolean;
+function TUIElement.IsOpaque(x, y: single): boolean;
 begin
  result:=false;
  if shapeRegion<>nil then
   result:=shapeRegion.TestPoint(x,y);
 end;
 
-procedure TUIControl.onChar(ch: char; scancode: byte);
+procedure TUIElement.onChar(ch: char; scancode: byte);
 begin
  if (sendSignals=ssAll) and (name<>'') then begin
   Signal('UI\'+name+'\Char',byte(ch)+scancode shl 8);
  end;
 end;
 
-procedure TUIControl.onUniChar(ch: WideChar; scancode: byte);
+procedure TUIElement.onUniChar(ch: WideChar; scancode: byte);
 begin
  if (sendSignals=ssAll) and (name<>'') then begin
   Signal('UI\'+name+'\UniChar',word(ch)+scancode shl 16);
  end;
 end;
 
-procedure TUIControl.onHotKey(keycode, shiftstate: byte);
+procedure TUIElement.onHotKey(keycode, shiftstate: byte);
 begin
 
 end;
 
-function TUIControl.onKey(keycode: byte; pressed: boolean;shiftstate:byte):boolean;
+function TUIElement.onKey(keycode: byte; pressed: boolean;shiftstate:byte):boolean;
 begin
  if pressed and (keycode=VK_TAB) then begin
   SetFocusToNext;
@@ -1381,16 +1368,16 @@ begin
  result:=true;
 end;
 
-procedure TUIControl.onLostFocus;
+procedure TUIElement.onLostFocus;
 begin
  if (sendSignals=ssAll) and (name<>'') then Signal('UI\'+name+'\Focus',0);
 end;
 
-procedure TUIControl.onTimer;
+procedure TUIElement.onTimer;
 begin
 end;
 
-procedure TUIControl.onMouseButtons(button:byte;state:boolean);
+procedure TUIElement.onMouseButtons(button:byte;state:boolean);
 begin
  if state then begin
   if enabled and CanHaveFocus then SetFocus
@@ -1410,14 +1397,14 @@ begin
  end;
 end;
 
-procedure TUIControl.onMouseMove;
+procedure TUIElement.onMouseMove;
 begin
  globalRect:=GetPosOnScreen;
  if (sendSignals=ssAll) and (name<>'') then
   Signal('UI\'+name+'\MouseMove',0);
 end;
 
-procedure TUIControl.onMouseScroll(value: integer);
+procedure TUIElement.onMouseScroll(value: integer);
 begin
  if (sendSignals=ssAll) and (name<>'') then begin
   Signal('UI\'+name+'\MouseScroll',value);
@@ -1432,7 +1419,7 @@ begin
   parent.onMouseScroll(value);
 end;
 
-procedure TUIControl.ReleaseHotKey(keycode, shiftstate: byte);
+procedure TUIElement.ReleaseHotKey(keycode, shiftstate: byte);
 var
  i:integer;
 begin
@@ -1448,7 +1435,7 @@ begin
   end;
 end;
 
-procedure TUIControl.AddToRootControls;
+procedure TUIElement.AddToRootControls;
 begin
  UICritSect.Enter;
  try
@@ -1459,7 +1446,7 @@ begin
  end;
 end;
 
-procedure TUIControl.RemoveFromRootControls;
+procedure TUIElement.RemoveFromRootControls;
 var
  i,pos:integer;
 begin
@@ -1480,19 +1467,19 @@ begin
  end;
 end;
 
-function TUIControl.GetClientWidth:single;
+function TUIElement.GetClientWidth:single;
 begin
  result:=size.x-paddingLeft-paddingRight;
 end;
 
-function TUIControl.GetClientHeight:single;
+function TUIElement.GetClientHeight:single;
 begin
  result:=size.y-paddingTop-paddingBottom;
 end;
 
-function TUIControl.GetGlobalScale:TVector2s;
+function TUIElement.GetGlobalScale:TVector2s;
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  result:=scale;
  c:=parent;
@@ -1503,7 +1490,7 @@ begin
  end;
 end;
 
-function TUIControl.SetPos(x,y:single;pivotPoint:TPoint2s):TUIControl;
+function TUIElement.SetPos(x,y:single;pivotPoint:TPoint2s):TUIElement;
 begin
  position:=Point2s(x,y);
  pivot:=pivotPoint;
@@ -1511,12 +1498,12 @@ begin
  result:=self;
 end;
 
-function TUIControl.SetPos(x,y:single):TUIControl;
+function TUIElement.SetPos(x,y:single):TUIElement;
 begin
  result:=SetPos(x,y,pivotTopLeft);
 end;
 
-procedure TUIControl.MoveBy(dx,dy:single);
+procedure TUIElement.MoveBy(dx,dy:single);
 var
  delta:TVector2s;
 begin
@@ -1526,7 +1513,7 @@ begin
  VectAdd(position,delta);
 end;
 
-function TUIControl.SetAnchors(left,top,right,bottom:single):TUIControl;
+function TUIElement.SetAnchors(left,top,right,bottom:single):TUIElement;
 begin
  anchorLeft:=left;
  anchorTop:=top;
@@ -1535,7 +1522,7 @@ begin
  result:=self;
 end;
 
-function TUIControl.SetPaddings(left,top,right,bottom:single):TUIControl;
+function TUIElement.SetPaddings(left,top,right,bottom:single):TUIElement;
 begin
  paddingLeft:=left;
  paddingTop:=top;
@@ -1545,19 +1532,19 @@ begin
  result:=self;
 end;
 
-function TUIControl.SetPaddings(padding:single):TUIControl;
+function TUIElement.SetPaddings(padding:single):TUIElement;
 begin
  result:=SetPaddings(padding,padding,padding,padding);
 end;
 
-function TUIControl.SetScale(newScale:single):TUIControl;
+function TUIElement.SetScale(newScale:single):TUIElement;
 begin
  scale.x:=newScale;
  scale.y:=newScale;
  result:=self;
 end;
 
-procedure TUIControl.SetStyleInfo(sInfo: String8);
+procedure TUIElement.SetStyleInfo(sInfo: String8);
 begin
  if fStyleInfo<>sInfo then begin
   fStyleInfo:=sInfo;
@@ -1565,7 +1552,7 @@ begin
  end;
 end;
 
-procedure TUIControl.Resize(newWidth, newHeight: single);
+procedure TUIElement.Resize(newWidth, newHeight: single);
 var
  i:integer;
  childRect:TRect2s;
@@ -1588,13 +1575,13 @@ begin
  if scrollerV<>nil then scrollerV.pagesize:=clientHeight;
 end;
 
-procedure TUIControl.SafeDelete;
+procedure TUIElement.SafeDelete;
 begin
  if toDelete.IndexOf(self)<0 then
   toDelete.Add(self);
 end;
 
-procedure TUIControl.ScrollTo(newX, newY: integer);
+procedure TUIElement.ScrollTo(newX, newY: integer);
 begin
  scroll.X:=newX; scroll.Y:=newY;
  if scrollerH<>nil then
@@ -1603,9 +1590,9 @@ begin
   scrollerV.value:=scroll.Y;
 end;
 
-procedure TUIControl.SetFocus;
+procedure TUIElement.SetFocus;
 var
- c:TUIControl;
+ c:TUIElement;
  i:integer;
 begin
  if not (enabled and visible) then exit;
@@ -1651,9 +1638,9 @@ begin
  if (sendSignals=ssAll) and (name<>'') then Signal('UI\'+name+'\Focus',1);
 end;
 
-procedure TUIControl.SetFocusToNext;
+procedure TUIElement.SetFocusToNext;
 var
- c:TUIControl;
+ c:TUIElement;
  dir:boolean;
  i:integer;
  fl:boolean;
@@ -1687,11 +1674,11 @@ begin
  if c.canHaveFocus then c.SetFocus;
 end;
 
-procedure TUIControl.SetFocusToPrev;
+procedure TUIElement.SetFocusToPrev;
 begin
 end;
 
-procedure TUIControl.SetHotKey(keycode, shiftstate: byte);
+procedure TUIElement.SetHotKey(keycode, shiftstate: byte);
 var
  i:integer;
 begin
@@ -1708,7 +1695,7 @@ end;
 
 { TUIimage }
 
-constructor TUIimage.Create(width,height:single;imgname:string;parent_: TUIControl);
+constructor TUIimage.Create(width,height:single;imgname:string;parent_: TUIElement);
 begin
  inherited Create(width,height,parent_,imgName);
  color:=$FF808080;
@@ -1895,7 +1882,7 @@ end;
 { TUILabel }
 
 constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFont:cardinal;
-  parent_: TUIControl);
+  parent_: TUIElement);
 begin
  inherited Create(width,height,parent_,labelName);
  shape:=shapeFull;
@@ -1911,7 +1898,7 @@ end;
 { TUIWindow }
 
 constructor TUIWindow.Create(innerWidth,innerHeight:single; sizeable:boolean; wndName,
-  wndCaption: string; wndFont: cardinal; parent_: TUIControl);
+  wndCaption: string; wndFont: cardinal; parent_: TUIElement);
 var
  deltaX,deltaY:integer;
 begin
@@ -2019,7 +2006,7 @@ end;
 procedure ProcessHotKey(keycode:byte;shiftstate:byte);
 var
  i:integer;
- c,r:TUIControl;
+ c,r:TUIElement;
 begin
  r:=modalcontrol;
  for i:=0 to HotKeysCnt-1 do
@@ -2063,7 +2050,7 @@ begin
 end;
 
 constructor TUIEditBox.Create(width,height:single; boxName: string;
-  boxFont:cardinal;color_:cardinal;parent_:TUIControl);
+  boxFont:cardinal;color_:cardinal;parent_:TUIElement);
 begin
  inherited Create(width,height,parent_,boxName);
  shape:=shapeFull;
@@ -2377,7 +2364,7 @@ end;
 
 { TUIScrollBar }
 
-constructor TUIScrollBar.Create(width,height:single; barName: string; parent_: TUIControl);
+constructor TUIScrollBar.Create(width,height:single; barName: string; parent_: TUIElement);
 begin
  inherited Create(width,height,parent_,barName);
  shape:=shapeFull;
@@ -2400,7 +2387,7 @@ begin
  if result<min then result:=min;
 end;
 
-procedure TUIScrollBar.Link(ctl: TUIControl);
+procedure TUIScrollBar.Link(ctl: TUIElement);
 begin
  LinkedControl:=ctl;
 end;
@@ -2525,7 +2512,7 @@ end;
 { TUISkinnedWindow }
 
 constructor TUISkinnedWindow.Create(wndName, wndCaption: string;
-  wndFont: cardinal; parent_: TUIControl;canmove:boolean=true);
+  wndFont: cardinal; parent_: TUIElement;canmove:boolean=true);
 begin
  inherited Create(100,100,false,wndName,wndCaption,wndFont,parent_);
  dragRegion:=nil;
@@ -2555,7 +2542,7 @@ end;
 { TUIHint }
 
 constructor TUIHint.Create(x,y:single; text: string;
-  act: boolean; parent_: TUIControl);
+  act: boolean; parent_: TUIElement);
 begin
  inherited Create(1,1,'hint',parent_);
  SetPos(x,y,pivotTopLeft);
@@ -2596,7 +2583,7 @@ end;
 { TUIScrollArea }
 
 constructor TUIScrollArea.Create(width, height, fullW, fullH: single;
-  dir: TUIScrollDirection;parent_:TUIControl);
+  dir: TUIScrollDirection;parent_:TUIElement);
 begin
  inherited Create(width,height,parent_);
  shape:=shapeFull;
@@ -2645,7 +2632,7 @@ begin
  UpdateScroller;
 end;
 
-constructor TUIListBox.Create(width,height:single;lHeight:single; listName:string; font_:cardinal; parent: TUIControl);
+constructor TUIListBox.Create(width,height:single;lHeight:single; listName:string; font_:cardinal; parent: TUIElement);
 begin
  inherited Create(width,height,parent,listName);
  shape:=shapeFull;
@@ -2742,7 +2729,7 @@ end;
 
 { TUIFrame }
 
-constructor TUIFrame.Create(width,height:single;depth,style_: integer; parent_: TUIControl);
+constructor TUIFrame.Create(width,height:single;depth,style_: integer; parent_: TUIElement);
 begin
  inherited Create(width,height,parent_,'UIFrame');
  shape:=shapeFull;
@@ -2775,7 +2762,7 @@ begin
 end;
 
 constructor TUIComboBox.Create(width,height:single; bFont:cardinal; list: WStringArr;
-  parent_: TUIControl;name:string);
+  parent_: TUIElement;name:string);
 var
  btn:TUIButton;
  i,j:integer;
@@ -2826,7 +2813,7 @@ var
  lCount,lHeight,i:integer;
  hint:WideString;
  tag:cardinal;
- root:TUIControl;
+ root:TUIElement;
 begin
  if not frame.visible then begin
   if comboPop<>nil then comboPop.onDropDown;
@@ -2847,7 +2834,7 @@ begin
   popup.size.y:=lHeight*lcount;
   popup.size.x:=frame.size.x-2*frame.borderWidth;
   frame.size.y:=popup.size.y+frame.borderWidth*2;
-  if frame.GetPosOnScreen.bottom>=rootHeight then
+  if frame.GetPosOnScreen.bottom>=root.height then
    frame.position.y:=r.y1-1;
   // Content
   popUp.ClearLines;
@@ -2933,13 +2920,13 @@ begin
  fCenter:=center;
 end;
 
-procedure TRowLayout.Layout(item: TUIControl);
+procedure TRowLayout.Layout(item: TUIElement);
 var
  i:integer;
  pos:single;
  r:TRect2s;
  delta:TVector2s;
- c:TUIControl;
+ c:TUIElement;
 begin
  pos:=0;
  for i:=0 to high(item.children) do begin
@@ -2965,12 +2952,44 @@ begin
  end;
 end;
 
+function DumpUITree(root:TUIElement):String8;
+ function DumpControl(c:TUIElement;indent:String8):String8;
+  var
+   i:integer;
+  begin
+   result:=Join([
+    indent+c.ClassName+':'+c.name+' = '+inttohex(cardinal(c),8),
+    indent+Format('%d En=%d Vis=%d trM=%d',[c.order,byte(c.enabled),byte(c.visible),ord(c.shape)]),
+    indent+Format('x=%.1f, y=%.1f, w=%.1f, h=%.1f, left=%d, top=%d',
+     [c.position.x,c.position.y,c.size.x,c.size.y,c.globalRect.Left,c.globalRect.Top]),
+     ''],#13#10);
+   for i:=0 to length(c.children)-1 do
+    result:=result+DumpControl(c.children[i],indent+'+ ');
+  end;
+ begin
+  result:=DumpControl(root,'');
+ end;
+
+function DumpUI:String8;
+ var
+  i:integer;
+ begin
+   result:=Join([
+    'Modal: '+PtrToStr(modalcontrol),
+    'Focused: '+PtrToStr(focusedControl),
+    'Hooked: '+PtrToStr(hooked),
+    ''],#13#10);
+
+    for i:=0 to high(rootControls) do
+      result:=result+DumpUITree(rootControls[i])+#13#10;
+ end;
+
 initialization
  InitCritSect(UICritSect,'UI',30);
 // InitializeCriticalSection(UICritSect);
  toDelete:=TObjectList.Create;
 
- TUIControl.handleMouseIfDisabled:=false;
+ TUIElement.handleMouseIfDisabled:=false;
  TUIButton.handleMouseIfDisabled:=true;
  TUIComboBox.handleMouseIfDisabled:=false;
 finalization

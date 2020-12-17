@@ -33,10 +33,10 @@ type
 
  TGLTextureMan=class(TTextureMan)
   maxFBwidth,maxFBheight,maxRBsize:integer;
-  constructor Create(MemoryLimit:integer); // Лимит видеопамяти в килобайтах (not used)
+  constructor Create; // Лимит видеопамяти в килобайтах (not used)
   destructor Destroy; override;
 
-  function AllocImage(width,height:integer;PixFmt:ImagePixelFormat;
+  function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
                 Flags:integer;name:texnamestr):TTexture; override;
   procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer); override;
   function Clone(img:TTexture):TTexture; override;
@@ -44,7 +44,7 @@ type
   procedure MakeOnline(img:TTexture;stage:integer=0); override;
   procedure SetTexFilter(img:TTexture;filter:TTexFilter); virtual; // Works for ACTIVE texture only!
 
-  function QueryParams(width,height:integer;format:ImagePixelFormat;usage:integer):boolean; override;
+  function QueryParams(width,height:integer;format:TImagePixelFormat;usage:integer):boolean; override;
 
   // Вспомогательные функции (для отладки/получения инфы)
   function GetStatus(line:byte):string; override; // Формирует строки статуса
@@ -62,7 +62,7 @@ type
  end;
 
  // Load image from file (TGA or JPG), result is expected in given pixel format or source pixel format
-// function LoadFromFile(filename:string;format:ImagePixelFormat=ipfNone):TDxManagedTexture;
+// function LoadFromFile(filename:string;format:TImagePixelFormat=ipfNone):TDxManagedTexture;
 
 implementation
  uses Apus.CrossPlatform, Apus.EventMan, SysUtils, Apus.GfxFormats,
@@ -110,7 +110,7 @@ begin
 end;
 
 
-procedure GetGLformat(ipf:ImagePixelFormat;out format,subFormat,internalFormat:cardinal);
+procedure GetGLformat(ipf:TImagePixelFormat;out format,subFormat,internalFormat:cardinal);
 begin
  case ipf of
   {$IFDEF MSWINDOWS}
@@ -364,7 +364,7 @@ end;
 
 { TGLTextureMan }
 
-function TGLTextureMan.AllocImage(width, height: integer; PixFmt: ImagePixelFormat; Flags: integer;
+function TGLTextureMan.AllocImage(width, height: integer; PixFmt: TImagePixelFormat; Flags: integer;
   name: texnamestr): TTexture;
 var
  tex:TGlTexture;
@@ -557,7 +557,7 @@ begin
  result:=res;
 end;
 
-constructor TGLTextureMan.Create(MemoryLimit: integer);
+constructor TGLTextureMan.Create;
 begin
  try
  scaleX:=1; scaleY:=1;
@@ -615,7 +615,10 @@ begin
  try
 
  dec(image.refCounter);
- if image.refCounter>=0 then exit; // prevent deletion
+ if image.refCounter>=0 then begin
+  image:=nil;
+  exit; // prevent deletion
+ end;
 
  if image.parent<>nil then FreeImage(image.parent);
 
@@ -789,7 +792,7 @@ begin
 end;
 
 function TGLTextureMan.QueryParams(width, height: integer;
-  format: ImagePixelFormat; usage: integer): boolean;
+  format: TImagePixelFormat; usage: integer): boolean;
 var
  res:integer;
  glFormat,subFormat,InternalFormat:cardinal;

@@ -25,7 +25,7 @@ var
 implementation
  uses SysUtils, Classes,
   Apus.CrossPlatform, Apus.MyServis, Apus.EventMan,
-  Apus.Engine.CmdProc, Apus.Engine.EngineTools, Apus.Engine.Console;
+  Apus.Engine.CmdProc, Apus.Engine.Console;
 
  var
   LastMsgNum:cardinal;
@@ -34,7 +34,7 @@ implementation
 
 procedure KbdHandler(event:EventStr;tag:TTag);
 var
- c:TUIControl;
+ c:TUIElement;
 begin
  // Win+[~] - показать/скрыть консоль
  if (tag and 255=$C0) and (tag and $80000>0) then begin
@@ -45,7 +45,7 @@ begin
     consoleScene.UI.SetFocus;
    end else begin
     consoleScene.SetStatus(ssActive);
-    game.suppressCharEvent:=true; // avoid [`] in the edit box
+    game.SuppressKbdEvent; // avoid [`] in the edit box
    end;
  end;
 

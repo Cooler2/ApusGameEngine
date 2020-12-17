@@ -16,7 +16,7 @@ interface
 
 type
  // Форматы представления изображения
- ImagePixelFormat=(ipfNone,     // формат по умолчанию
+ TImagePixelFormat=(ipfNone,     // формат по умолчанию
                    ipf1Bit,     // 1bpp (2 colors) - monochrome
                    ipf4Bit,     // 4bpp (16 colors, indexed)
                    ipf8Bit,     // 8bpp (256 colors, indexed)
@@ -105,7 +105,7 @@ type
  // и хранения изображения
  // This object doesn't own data
  TRawImage=class(TBaseImage)
-  pixelFormat:ImagePixelFormat;
+  pixelFormat:TImagePixelFormat;
   paletteFormat:ImagePaletteFormat;
 
   // Следующие данные не обязательно всегда доступны, это зависит от типа изображения
@@ -129,9 +129,9 @@ type
  // TBitmapImage - это уже конкретный вид изображения: bitmap, хранящийся в памяти
  TBitmapImage=class(TRawImage)
 
-  constructor Create(w,h:integer;pf:ImagePixelFormat=ipfARGB;
+  constructor Create(w,h:integer;pf:TImagePixelFormat=ipfARGB;
                      pal:ImagePaletteFormat=palNone;pSize:integer=256);
-  constructor Assign(w,h:integer;_data:pointer;_pitch:integer;_pf:ImagePixelFormat);
+  constructor Assign(w,h:integer;_data:pointer;_pitch:integer;_pf:TImagePixelFormat);
   destructor Destroy; override;
 
   class function NeedLock:boolean; override; // true - если нужно лочить для доступа к данным
@@ -139,26 +139,26 @@ type
 
  var
   // Преобразование цвета из RGBA в заданный формат
-  colorTo:array[ImagePixelFormat] of TColorConv;
-  colorFrom:array[ImagePixelFormat] of TColorConv;
+  colorTo:array[TImagePixelFormat] of TColorConv;
+  colorFrom:array[TImagePixelFormat] of TColorConv;
 
  const
   // Размер пикселя в битах
-  pixelSize:array[ImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,16,16,32);
+  pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,16,16,32);
   palEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
 
- procedure ConvertLine(var sour,dest;sourformat,destformat:ImagePixelFormat;
+ procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;
                  var palette;palformat:ImagePaletteFormat;count:integer);
 
  // Swap red<->blue channels for xRGB<->xBGR conversion
  procedure SwapRB(var data;count:integer);
 
- function PixFmt2Str(ipf:ImagePixelFormat):string;
+ function PixFmt2Str(ipf:TImagePixelFormat):string;
 
 implementation
  uses Apus.CrossPlatform, Apus.MyServis;
 
-function PixFmt2Str(ipf:ImagePixelFormat):string;
+function PixFmt2Str(ipf:TImagePixelFormat):string;
  begin
   result:='unknown';
   case ipf of
@@ -292,7 +292,7 @@ procedure ConvertLine;
 { TBitmapImage }
 
 constructor TBitmapImage.Assign(w,h:integer;_data: pointer; _pitch: integer;
-  _pf: ImagePixelFormat);
+  _pf: TImagePixelFormat);
 begin
  width:=w; height:=h;
  data:=_data;
@@ -300,7 +300,7 @@ begin
  PixelFormat:=_pf;
 end;
 
-constructor TBitmapImage.Create(w, h: integer; pf: ImagePixelFormat;
+constructor TBitmapImage.Create(w, h: integer; pf: TImagePixelFormat;
   pal: ImagePaletteFormat; pSize: integer);
 var
  size,palElSize:integer;

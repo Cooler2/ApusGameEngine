@@ -19,21 +19,21 @@ interface
    // Если img=nil - нужно выделить память, иначе - просто перерисовать
    procedure BuildButtonImage(btn:TUIButton;state:TButtonState;var img:TTexture); virtual;
    // Возможно переопределение для изменения дефолтной отрисовки
-   procedure DrawItem(con:TUIControl); virtual;
+   procedure DrawItem(con:TUIElement); virtual;
    // Возвращает время перехода в/из подсвеченного состояния
    // (param=0 - убираниие подстветки, 1 - появление)
-   function AnimationTime(con:TUIControl;param:integer):integer; virtual;
+   function AnimationTime(con:TUIElement;param:integer):integer; virtual;
   end;
 
   procedure InitBitmapStyle(styleID:integer;style:TBitmapStyle);
   // Удаляет ранее созданные изображения кнопки (если они более неактуальны)
-  procedure DeleteButtonImages(btn:TUIControl);
+  procedure DeleteButtonImages(btn:TUIElement);
   procedure DeleteAllButtonImages;
 
 implementation
  uses SysUtils,
       Apus.MyServis, Apus.AnimatedValues, Apus.EventMan, Apus.Colors, Apus.Structs, Apus.Publics,
-      Apus.Engine.EngineTools, Apus.Engine.UIRender;
+      Apus.Engine.ImageTools, Apus.Engine.UIRender;
 
  type
   // Для каждого элемента UI хранится такая структура с картинками и прочими сведениями
@@ -62,7 +62,7 @@ implementation
 
   crSect:TMyCriticalSection;
 
- procedure BitmapStyleHandler(control:TUIControl);
+ procedure BitmapStyleHandler(control:TUIElement);
   begin
    styleCls.DrawItem(control);
   end;
@@ -70,7 +70,7 @@ implementation
  procedure EventHandler(event:EventStr;tag:integer);
   var
    name:string;
-   btn:TUIControl;
+   btn:TUIElement;
   begin
    event:=UpperCase(event);
    if pos('BITMAPSTYLE\INVALIDATE\',event)=1 then begin
@@ -149,10 +149,10 @@ begin
  try
  for i:=1 to bCount do
   with buttons[i] do begin
-   texman.FreeImage(imgNormal);
-   texman.FreeImage(imgOver);
-   texman.FreeImage(imgDown);
-   texman.FreeImage(imgDisabled);
+   FreeImage(imgNormal);
+   FreeImage(imgOver);
+   FreeImage(imgDown);
+   FreeImage(imgDisabled);
   end;
  finally
   LeaveCriticalSection(crSect);
@@ -160,7 +160,7 @@ begin
 end;
 
 
-procedure DeleteButtonImages(btn: TUIControl);
+procedure DeleteButtonImages(btn: TUIElement);
 var
  idx:integer;
 begin
@@ -169,10 +169,10 @@ begin
  idx:=btnHash.Get(btn.name);
  if idx>0 then
   with buttons[idx] do begin
-   texman.FreeImage(imgNormal);
-   texman.FreeImage(imgOver);
-   texman.FreeImage(imgDown);
-   texman.FreeImage(imgDisabled);
+   FreeImage(imgNormal);
+   FreeImage(imgOver);
+   FreeImage(imgDown);
+   FreeImage(imgDisabled);
   end;
  finally
   LeaveCriticalSection(crSect);
@@ -192,7 +192,7 @@ begin
  end;
 end;
 
-procedure TBitmapStyle.DrawItem(con: TUIControl);
+procedure TBitmapStyle.DrawItem(con: TUIElement);
  var
   i,j:integer;
   enabl:boolean;
@@ -301,7 +301,7 @@ procedure TBitmapStyle.DrawItem(con: TUIControl);
 
 { TBitmapStyle }
 
-function TBitmapStyle.AnimationTime(con: TUIControl; param: integer): integer;
+function TBitmapStyle.AnimationTime(con: TUIElement; param: integer): integer;
  begin
   case param of
    0:result:=100;

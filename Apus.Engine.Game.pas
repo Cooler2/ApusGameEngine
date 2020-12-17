@@ -15,22 +15,19 @@
 {$R-}
 unit Apus.Engine.Game;
 interface
- uses Apus.CrossPlatform, Apus.MyServis, Types, Apus.Engine.API, Apus.Engine.Internals, Classes;
- //Engine.EngineAPI,Images,Classes,CrossPlatform,MyServis,Geom2D;
+ uses Classes, Apus.CrossPlatform, Apus.MyServis, Types, Apus.Engine.API, Apus.Engine.Internals;
 
 var
- HookKbdLayout:boolean=false; // Перехват переключения раскладки клавиатуры (защита от зависания, теперь уже не требуется, т.к. баг устранен)
-
- SaveScreenshotsToJPEG:boolean=true;
  onFrameDelay:integer=1; // Задержка каждый кадр
+ disableDRT:boolean=false; // always render directly to the backbuffer - no
 
 type
  // Функция для асинхронного (параллельного) исполнения
  TThreadFunc=function(param:cardinal):integer;
 
  { TGame }
- TGame=class(TGameObject)
-  constructor Create(systemPlatform:TSystemPlatform); // Создать экземпляр (желательный объем видеопамяти под текстуры в мегабайтах)
+ TGame=class(TGameBase)
+  constructor Create(systemPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem); // Создать экземпляр
   procedure Run; override; // запустить движок (создание окна, переключение режима и пр.)
   procedure Stop; override; // остановить и освободить все ресурсы (требуется повторный запуск через Run)
   destructor Destroy; override; // автоматически останавливает, если это не было сделано
@@ -66,92 +63,106 @@ type
   procedure EnterCritSect; override;
   procedure LeaveCritSect; override;
 
-  // Устанавливает флаги о необходимости сделать скриншот (JPEG или BMP)
-  // obj - либо nil, либо заранее созданный объект типа TBitmap
-  procedure WantToCaptureSingleFrame(jpeg:boolean=true;obj:TObject=nil); override;
+  // Устанавливает флаги о необходимости сделать скриншот (JPEG or TGA)
+  procedure RequestScreenshot(saveAsJpeg:boolean=true); override;
+  procedure RequestFrameCapture(obj:TObject=nil); override;
   procedure StartVideoCap(filename:string); override;
   procedure FinishVideoCap; override;
 
-  // При включенной видеозаписи вызывается видеокодером для освобождения памяти кадра
-  procedure ReleaseFrameData(obj:TObject); override;
-
   // Utility functions
-  function MouseInRect(r:TRect):boolean; overload;
-  function MouseInRect(r:TRect2s):boolean; overload;
-  function MouseInRect(x,y,width,height:single):boolean; overload;
-  function MouseIsNear(x,y,radius:single):boolean; overload;
+  function MouseInRect(r:TRect):boolean; overload; override;
+  function MouseInRect(r:TRect2s):boolean; overload; override;
+  function MouseInRect(x,y,width,height:single):boolean; overload; override;
+  function MouseIsNear(x,y,radius:single):boolean; overload; override;
 
-  function MouseWasInRect(r:TRect):boolean; overload;
-  function MouseWasInRect(r:TRect2s):boolean; overload;
+  function MouseWasInRect(r:TRect):boolean; overload; override;
+  function MouseWasInRect(r:TRect2s):boolean; overload; override;
 
   // Keyboard events utility functions
-  function KeyEventScanCode(tag:cardinal):cardinal;
-  function KeyEventVirtualCode(tag:cardinal):cardinal;
+  function KeyEventScanCode(tag:cardinal):cardinal; override;
+  function KeyEventVirtualCode(tag:cardinal):cardinal; override;
+  procedure SuppressKbdEvent; override;
 
+  function GetScene(name: string): TGameScene; override;
+  procedure Minimize; override;
+  procedure MoveWindowTo(x, y, width, height: integer); override;
+  procedure SetWindowCaption(text: string); override;
+
+  procedure SetSettings(s:TGameSettings); override; // этот метод служит для изменения режима или его параметров
+  function GetSettings:TGameSettings; override; // этот метод служит для изменения режима или его параметров
+
+  procedure MouseMovedTo(newX,newY:integer); override;
+  procedure CharEntered(charCode,scanCode:integer); override;
+  procedure KeyPressed(keyCode,scanCode:integer;pressed:boolean=true); override;
+  procedure MouseButtonPressed(btn:integer;pressed:boolean=true); override;
+  procedure MouseWheelMoved(value:integer); override;
+  procedure SizeChanged(newWidth,newHeight:integer); override;
+  procedure Activate(activeState:boolean); override;
  protected
-  running:boolean;
   useMainThread:boolean; // true - launch "main" thread with main loop,
                          // false - no main thread, catch frame events
   canExitNow:boolean; // флаг того, что теперь можно начать деинициализацию
-  params:TGameSettings;
+  params,newParams:TGameSettings;
   aspectRatio:single;  // Initial aspect ratio (width/height)
   altWidth,altHeight:integer; // saved window size for Alt+Enter
   mainThread:TThread;
   controlThreadId:TThreadID;
   cursors:array of TObject;
+  crSect:TMyCriticalSection;
+  scenes:array of TGameScene;
 
   LastOnFrameTime:int64; // момент последнего вызова обработки кадра
   LastRenderTime:int64; // Момент последней отрисовки кадра
   capturedName:string;
   capturedTime:int64;
 
-  wndCursor:HCursor;
   // Для расчета FPS
   LastFrameNum:integer;
   LastTickCount:cardinal;
   frameTime:cardinal;
 
   // Screen capture
+  captureSingleFrame:boolean; // request frame capture
+  // что сделать с захваченным кадром
+  // 0 - keep in frameCaptureData, 1 - save as BMP, 2 - save as JPEG, 3 - save as TGA
+  frameCaptureTarget:integer;
+  frameCaptureData:TObject;
   videoCaptureMode:boolean; // режим видеозахвата
-  captureSingleFrame:boolean; // флаг необходимости захвата одного кадра
-  screenshotTarget:integer; // что сделать с захваченным кадром
-  // 0 - ничего (оставить в памяти), 1 - сохранить в файл BMP и удалить, 2 - сохранить в файл JPEG и удалить
-//  {$IFDEF MSWINDOWS}
-  screenshotDataExt:TObject; // если скриншот запрошен внешним кодом - нужно скопировать его сюда
-  screenshotDataRAW:TObject; // здесь данные скриншота (TRAWImage), доступны только во время CaptureFrame
-//  {$ENDIF}
-  debugOverlay:integer; // индекс отладочного оверлея, включаемого клавишами Alt+Fn (0 - отсутствует)
+  videoCapturePath:string; // путь для сохранения файлов видеозахвата (по умолчанию - тек. каталог)
 
   curPrior:integer; // приоритет текущего отображаемого курсора
+  wndCursor:HCursor; // current system cursor
+  suppressCharEvent:boolean; // suppress next keyboard event (to avoid duplicated handle of both CHAR and KEY events)
 
-  procedure ChangeSettings(s:TGameSettings); virtual; // этот метод служит для изменения режима или его параметров
-  procedure ApplySettings; virtual; abstract;
-  procedure ShowMouse(m:boolean); virtual; // управление курсором мыши (системным либо своим)
+  frameLog,prevFrameLog:string;
+  avgTime,avgTime2:double;
+  timerFrame:cardinal;
 
-  // Create a window for rendering
-  procedure CreateMainWindow; virtual;
+  // Debug utilities
+  debugOverlay:integer; // индекс отладочного оверлея, включаемого клавишами Alt+Fn (0 - отсутствует)
+  magnifierTex:TTexture;
+
+  dRT:TTexture; // default render target (can be nil)
+
+  procedure ApplyNewSettings; virtual; // apply newParams to params - must be called from main thread!
+
   // вызов только из главного потока
   procedure InitGraph; virtual; // Инициализация графической части (переключить режим и все такое прочее)
   procedure AfterInitGraph; virtual; // Вызывается после инициализации графики
-  // Определить форматы пикселя для загружаемых изображений с учетом
-  // а) рекомендуемого объема видеопамяти для игры
-  // б) возможностей железа
-  procedure ChoosePixelFormats; virtual; abstract;
   // Set window size/style/position
-  procedure ConfigureMainWindow; virtual;
+  //procedure ConfigureMainWindow; virtual;
   // Настраивает отрисовку
   // Производит настройку подчинённых объектов/интерфейсов (Painter, UI и т.д)
   // Вызывается после инициализации а также при изменения размеров окна, области или режима отрисовки
   procedure SetupRenderArea; virtual;
-  // Create texman and painter objects
-  procedure InitObjects; virtual; abstract;
+  // Create default RT (if needed)
+  procedure InitDefaultRendertarget; virtual;
   procedure InitMainLoop; virtual;
 
   procedure FrameLoop; virtual; // One iteration of the frame loop
-  procedure PresentFrame; virtual; abstract; // Displays back buffer
+  procedure PresentFrame; virtual;  // Displays back buffer
 
   procedure DoneGraph; virtual; // Финализация графической части
-  procedure DestroyMainWindow; virtual;
   // Производит захват кадра и производит с ним необходимые действия
   procedure CaptureFrame; virtual;
 
@@ -160,46 +171,20 @@ type
 
   // находит сцену, которая должна получать сигналы о клавиатурном вводе
   function TopmostSceneForKbd:TGameScene; virtual;
+  // Called when ENGINE\* event is fired
   procedure onEngineEvent(event:string;tag:cardinal); virtual;
-
+  // Draw magnified part of the screen under mouse
   procedure DrawMagnifier; virtual;
- public
-  crSect:TMyCriticalSection;
-
-  unicode:boolean;      // unicode mode ON?
-  window:THandle;      // main window handle
-  mouseVisible:boolean; // курсор мыши включен
-  FPS,smoothFPS:single;
-  showFPS:boolean;      // отображать FPS в углу экрана
-  showDebugInfo:integer; // Кол-во строк отладочной инфы
-  frameLog,prevFrameLog:string;
-  avgTime,avgTime2:double;
-  timerFrame:cardinal;
-
-  videoCapturePath:string; // путь для сохранения файлов видеозахвата (по умолчанию - тек. каталог)
-  suppressCharEvent:boolean; // suppress next keyboard event (to avoid duplicated handle of both CHAR and KEY events)
-
-  // параметры выставляются при смене режима, указыают что именно изменялось
-  resChanged,pfChanged:boolean;
-  scenes:array of TGameScene;
-  topmostScene:TGameScene;
-
-  // properties
-  property Settings:TGameSettings read params write ChangeSettings;
-  property mouseOn:boolean read mouseVisible write ShowMouse;
-  property IsRunning:boolean read running;
-  procedure Delay(time:integer); // alias
-  function GetScene(name:string):TGameScene;
  end;
 
  // Для использования из главного потока
- procedure ProcessMessages;
  procedure Delay(time:integer);
 
 implementation
- uses SysUtils, Apus.Engine.CmdProc, Apus.Images
-     {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},Apus.Engine.BasicPainter,
-     Apus.EventMan, Apus.Engine.UIScene, Apus.Engine.Console, Apus.Publics, Apus.GfxFormats;
+ uses SysUtils, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools
+     {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},Apus.Engine.Painter2D,
+     Apus.EventMan, Apus.Engine.UIScene, Apus.Engine.UIClasses, Apus.Engine.Console,
+     Apus.Publics, Apus.GfxFormats, Apus.Clipboard;
 
 type
  TMainThread=class(TThread)
@@ -245,39 +230,64 @@ var
 
 { TBasicGame }
 
-procedure TGame.WantToCaptureSingleFrame(jpeg:boolean=true;obj:TObject=nil);
+procedure TGame.RequestScreenshot(saveAsJpeg:boolean=true);
 begin
+ EnterCritSect;
+ try
   captureSingleFrame:=true;
-  if obj<>nil then screenshotTarget:=0
-   else if jpeg then screenshotTarget:=2
-    else screenshotTarget:=1;
-  screenshotDataExt:=obj;
+  if saveAsJPEG then frameCaptureTarget:=2
+   else frameCaptureTarget:=3;
+ finally
+  LeaveCritSect;
+ end;
 end;
 
-procedure TGame.ReleaseFrameData(obj:TObject);
+procedure TGame.RequestFrameCapture(obj:TObject=nil);
 begin
-
+ EnterCritSect;
+ try
+  captureSingleFrame:=true;
+  frameCaptureTarget:=0;
+  frameCaptureData:=obj;
+ finally
+  LeaveCritSect;
+ end;
 end;
 
-procedure TGame.ChangeSettings(s: TGameSettings);
+procedure TGame.ApplyNewSettings;
+var
+ resChanged,pfChanged:boolean;
+ i:integer;
 begin
- if not systemPlatform.canChangeSettings then exit;
- resChanged:=(s.width<>params.width) or (s.height<>params.height);
- pfChanged:=s.colorDepth<>params.colorDepth;
- params:=s;
+ resChanged:=(newParams.width<>params.width) or (newParams.height<>params.height);
+ pfChanged:=newParams.colorDepth<>params.colorDepth;
+ params:=newParams;
  if (params.mode.displayMode=dmFullScreen) and (altWidth=0) or (altHeight=0) then begin
   // save size for windowed mode
   altWidth:=params.width;
   altHeight:=params.height;
  end;
 
- if running and
-    ((mainThread=nil) or (GetCurrentThreadID<>mainThread.ThreadID)) then begin
-  // Вызов из другого потока - синхронизируем!
-  Signal('Engine\cmd\ChangeSettings');
-  exit;
- end else
-  ApplySettings;
+ if running then begin // смена параметров во время работы
+  systemPlatform.SetupWindow;
+  if painter<>nil then painter.ResetTarget;
+  SetupRenderArea;
+  for i:=low(scenes) to high(scenes) do
+   scenes[i].ModeChanged;
+ end;
+end;
+
+procedure TGame.SetSettings(s: TGameSettings);
+begin
+ if not systemPlatform.canChangeSettings then exit;
+ newParams:=s;
+ if useMainThread and (mainThread=nil) then begin
+  ApplyNewSettings; exit;
+ end;
+ if (mainThread=nil) or (GetCurrentThreadID<>mainThread.ThreadID) then
+  Signal('Engine\CMD\ChangeSettings')
+ else
+  ApplyNewSettings;
 end;
 
 function TGame.MouseInRect(r:TRect):boolean;
@@ -304,6 +314,113 @@ begin
 end;
 
 
+procedure TGame.MouseMovedTo(newX, newY: integer);
+begin
+  oldMouseX:=mouseX;
+  oldMouseY:=MouseY;
+  mouseX:=newX;
+  mouseY:=newY;
+  mouseMovedAt:=MyTickCount;
+  Signal('Mouse\Move',mouseX and $FFFF+(mouseY and $FFFF) shl 16);
+  TGame(game).NotifyScenesAboutMouseMove;
+  // Если курсор рисуется вручную, то нужно обновить экран
+  if not params.showSystemCursor then screenChanged:=true;
+end;
+
+procedure TGame.CharEntered(charCode,scanCode:integer);
+var
+ i:integer;
+ key:cardinal;
+ wst:WideString;
+ ast:AnsiString;
+begin
+  if suppressCharEvent then begin
+   suppressCharEvent:=false; exit;
+  end;
+  if shiftstate=sscCtrl then exit; // Ignore Ctrl+*
+
+  // Send to scenes
+  wst:=WideChar(charcode);
+  ast:=wst; // convert to ANSI
+  key:=byte(ast[1])+(scancode and $FF) shl 8+(charcode and $FFFF) shl 16;
+  for i:=low(scenes) to high(scenes) do
+    if scenes[i].status=ssActive then
+     scenes[i].WriteKey(key);
+
+  // Символ в 16-битном юникоде
+  Signal('Kbd\UniChar',charcode+scanCode shl 16);
+  Signal('Kbd\Char',key);
+end;
+
+procedure TGame.KeyPressed(keyCode,scanCode:integer;pressed:boolean=true);
+var
+ scene:TGameScene;
+ code,uCode:cardinal;
+begin
+  ASSERT(scancode in [0..255]);
+  code:=keyCode and $FFFF+shiftstate shl 16+scancode shl 24;
+  uCode:=keyCode and $FFFF+scanCode shl 24;
+  scene:=TopmostSceneForKbd;
+  if pressed then begin
+    keyState[scanCode]:=keyState[scanCode] or 1;
+    //LogMessage('KeyDown %d, KS[%d]=%2x ',[lParam,scanCode,keystate[scanCode]]);
+    Signal('KBD\KeyDown',code);
+    if scene<>nil then Signal('SCENE\'+scene.name+'\KeyDown',uCode);
+  end else begin
+    // PrintScreen
+    if keyCode=44 then game.RequestScreenshot(true);
+    game.keyState[scanCode]:=game.keyState[scanCode] and $FE;
+    //LogMessage('KeyUp %d, KS[$d]=%2x ',[lParam,scanCode,game.keystate[scanCode]]);
+    Signal('KBD\KeyUp',code);
+    if scene<>nil then Signal('SCENE\'+scene.name+'\KeyUp',uCode);
+  end;
+end;
+
+procedure TGame.MouseButtonPressed(btn:integer;pressed:boolean=true);
+const
+ btnNames:array[1..3] of AnsiString=('Left','Right','Middle');
+var
+ code:integer;
+begin
+ if btn in [1..3] then begin
+  code:=1 shl (btn-1);
+  if pressed then
+   Signal('Mouse\BtnDown\'+btnNames[btn],code)
+  else
+   Signal('Mouse\BtnUp\'+btnNames[btn],code);
+ end;
+ game.NotifyScenesAboutMouseBtn(btn,true);
+end;
+
+procedure TGame.MouseWheelMoved(value:integer);
+var
+ i:integer;
+begin
+  Signal('Mouse\Scroll',value);
+  for i:=low(scenes) to high(scenes) do
+   if scenes[i].status=ssActive then
+    scenes[i].onMouseWheel(value);
+end;
+
+procedure TGame.SizeChanged(newWidth,newHeight:integer);
+begin
+ if (windowWidth<>newWidth) or (windowHeight<>newHeight) then begin
+  windowWidth:=newWidth;
+  windowHeight:=newHeight;
+  LogMessage('RESIZED: %d,%d',[windowWidth,windowHeight]);
+  SetupRenderArea;
+ end;
+end;
+
+procedure TGame.Activate(activeState:boolean);
+begin
+ active:=activeState;
+ if not active and (params.mode.displayMode=dmFullScreen) then Minimize;
+ LogMessage('ACTIVATE: %d',[byte(active)]);
+ Signal('Engine\ActivateWnd',byte(active));
+ if game.params.showSystemCursor then game.wndCursor:=0;
+end;
+
 function TGame.MouseWasInRect(r:TRect):boolean;
 begin
  result:=(oldMouseX>=r.Left) and (oldmouseY>=r.Top) and
@@ -318,11 +435,10 @@ end;
 
 constructor TGame.Create;
 begin
+ inherited Create(systemPlatform,gfxSystem);
  ForceLogMessage('Creating '+self.ClassName);
- self.systemPlatform:=systemPlatform;
 
  running:=false;
- unicode:=true;
  terminated:=false;
  canExitNow:=false;
  useMainThread:=true;
@@ -354,11 +470,6 @@ begin
  PublishVar(@game,'game',TVarTypeGameClass);
 end;
 
-procedure TGame.Delay(time: integer);
-begin
- Delay(time);
-end;
-
 function TGame.GetScene(name: string):TGameScene;
 var
  i:integer;
@@ -371,6 +482,16 @@ begin
  finally
   LeaveCritSect;
  end;
+end;
+
+function TGame.GetSettings: TGameSettings;
+begin
+ result:=params;
+end;
+
+function TGame.GetStatus(n: integer): string;
+begin
+
 end;
 
 destructor TGame.Destroy;
@@ -386,19 +507,54 @@ begin
  Signal('Engine\BeforeDoneGraph');
  painter.Free;
  painter:=nil;
- LogMessage('DoneGraph1');
-// if texman<>nil then texman.releaseAll;
-// LogMessage('DoneGraph2');
- texman.Free;
- texman:=nil;
- LogMessage('DoneGraph3');
+ LogMessage('DoneGraph');
 
  systemPlatform.ShowWindow(false);
  Signal('Engine\AfterDoneGraph');
 end;
 
 procedure TGame.DrawMagnifier;
+var
+ width,height,left:integer;
+ u,v,du,dv:single;
+ cx,cy,zoom,ox,oy:integer;
+ text:string;
+ color:cardinal;
+ rawImage:TRawImage;
 begin
+  if magnifierTex=nil then begin
+   magnifierTex:=painter.texMan.AllocImage(128,128,ipfARGB,aiTexture,'Magnifier');
+  end;
+  cx:=mouseX-64;
+  cy:=mouseY+64;
+  EditImage(magnifierTex);
+  FillRect(0,0,127,127,$FF000000);
+  rawImage:=magnifierTex.GetRawImage;
+  gfx.CopyFromBackbuffer(cx,renderHeight-cy,rawImage);
+  rawImage.Free;
+  color:=GetPixel(64,64);
+  magnifierTex.Unlock;
+  painter.UseTexture(magnifierTex);
+  painter.SetTexMode(0,tblNone,tblNone,fltNearest);
+  width:=min2(512,round(renderWidth*0.4));
+  height:=min2(512,renderHeight);
+  if mouseX<renderWidth div 2 then left:=renderWidth-width
+   else left:=0;
+  zoom:=4;
+  if (shiftstate and sscShift)>0 then zoom:=8;
+  du:=width/(256*zoom); dv:=-height/(256*zoom);
+  u:=0.5; v:=0.5;
+  painter.TexturedRect(left,0,left+width,height,magnifierTex,u-du,v-dv,u+du,v-dv,u+du,v+dv,$FF808080);
+  // Color picker
+  if zoom>5 then begin
+   ox:=left+(width div 2);
+   oy:=(height div 2);
+   painter.Rect(ox,oy,ox+zoom,oy+zoom,$80FFFFFF);
+   painter.Rect(ox-1,oy-1,ox+zoom+1,oy+zoom+1,$80000000);
+   painter.FillRect(ox-50,height-22,ox+50,height-5,$80000000);
+   text:=Format('%2x %2x %2x',[(color shr 16) and $FF,(color shr 8) and $FF,color and $FF]);
+   painter.TextOutW(painter.GetFont('Default',7.5),ox,height-10,$FFFFFFFF,text,taCenter);
+  end;
 end;
 
 procedure TGame.FLog(st: string);
@@ -439,30 +595,29 @@ begin
   RegisterCursor(crCross,6,systemPlatform.GetSystemCursor(crCross));
   RegisterCursor(crNone,99,0);
  end;
+
+ globalTintColor:=$FF808080;
+ systemPlatform.SetupWindow;
+ gfx.Init(systemPlatform);
+ gfx.SetVSyncDivider(params.VSync);
+
+ AfterInitGraph;
 end;
 
 
 procedure TGame.AfterInitGraph;
 begin
- ChoosePixelFormats;
+ gfx.ChoosePixelFormats(pfTrueColor,pfTrueColorAlpha,pfRenderTarget,pfRenderTargetAlpha);
 
  LogMessage('Selected pixel formats:');
  LogMessage('      TrueColor: '+PixFmt2Str(pfTrueColor));
  LogMessage(' TrueColorAlpha: '+PixFmt2Str(pfTrueColorAlpha));
- LogMessage('      TrueColorLow: '+PixFmt2Str(pfTrueColorLow));
- LogMessage(' TrueColorAlphaLow: '+PixFmt2Str(pfTrueColorAlphaLow));
- LogMessage('      Indexed: '+PixFmt2Str(pfIndexed));
- LogMessage(' IndexedAlpha: '+PixFmt2Str(pfIndexedAlpha));
  LogMessage(' as render target:');
- LogMessage('       Low: '+PixFmt2Str(pfRTLow));
- LogMessage('    Normal: '+PixFmt2Str(pfRTNorm));
- LogMessage('      High: '+PixFmt2Str(pfRTHigh));
- LogMessage('    AlphaLow: '+PixFmt2Str(pfRTAlphaLow));
- LogMessage(' AlphaNormal: '+PixFmt2Str(pfRTAlphaNorm));
- LogMessage('   AlphaHigh: '+PixFmt2Str(pfRTAlphaHigh));
+ LogMessage('    Opaque: '+PixFmt2Str(pfRenderTarget));
+ LogMessage('     Alpha: '+PixFmt2Str(pfRenderTargetAlpha));
 
- ProcessMessages;
- Apus.Engine.Console.ShowMessages:=params.mode.displayMode<>dmSwitchResolution;
+ systemPlatform.ProcessSystemMessages;
+ consoleSettings.popupCriticalMessages:=params.mode.displayMode<>dmSwitchResolution;
  Signal('Engine\AfterInitGraph');
 end;
 
@@ -476,15 +631,12 @@ begin
   FrameTime:=MyTickCount;
   LastOnFrameTime:=MyTickCount;
   LastRenderTime:=MyTickCount;
-  InitObjects;
+  painter:=gfx.CreatePainter as TPainter;
+  InitDefaultRenderTarget;
   SetupRenderArea;
   painter.LoadFont(defaultFont8);
   painter.LoadFont(defaultFont10);
   painter.LoadFont(defaultFont12);
-  // Set global object references
-  Apus.Engine.EngineTools.texman:=texman;
-  Apus.Engine.EngineTools.painter:=painter;
-  Apus.Engine.EngineTools.game:=self;
 
   Signal('Engine\BeforeMainLoop');
   LogMessage('Game is running...');
@@ -502,6 +654,34 @@ begin
  end;
 end;
 
+procedure TGame.InitDefaultRenderTarget;
+var
+ fl:boolean;
+ flags:cardinal;
+begin
+ try
+  LogMessage('Default RT');
+  fl:=HasParam('-nodrt');
+  if fl then LogMessage('Modern rendering model disabled by -noDRT switsh');
+  if not fl and
+     gfx.ShouldUseTextureAsDefaultRT and
+     (painter.texman.maxRTTextureSize>=params.width) then begin
+   LogMessage('Switching to the modern rendering model');
+   flags:=aiRenderTarget;
+   if params.zbuffer>0 then flags:=flags+aiUseZBuffer;
+
+   dRT:=painter.texman.AllocImage(params.width,params.height,pfRenderTarget,flags,'DefaultRT');
+   painter.SetDefaultRenderTarget(dRT);
+  end;
+ except
+  on e:exception do begin
+   ForceLogMessage('Error in GLG:IO '+ExceptionMsg(e));
+   ErrorMessage('Game engine failure (GLG:IO): '+ExceptionMsg(e));
+   Halt;
+  end;
+ end;
+end;
+
 function TGame.KeyEventScanCode(tag: cardinal): cardinal;
 begin
  result:=(tag shr 24) and $FF;
@@ -512,14 +692,62 @@ begin
  result:=tag and $FFFF;
 end;
 
+procedure TGame.SuppressKbdEvent;
+begin
+ suppressCharEvent:=true;
+end;
+
+
 procedure EngineCmdEvent(Event:EventStr;tag:TTag); forward;
+
+procedure CreateDebugLogs;
+var
+ i:integer;
+ f:text;
+ function SceneInfo(s:TGameScene):string;
+  begin
+   if s=nil then exit;
+   result:=Format('  %-20s Z=%-10d  status=%-2d type=%-2d eff=%s',
+     [s.name,s.zorder,ord(s.status),byte(s.fullscreen),PtrToStr(s.effect)]);
+   if s is TUIScene then
+    result:=result+Format(' UI=%s (%s)',[TUIScene(s).UI.name, PtrToStr(TUIScene(s).UI)]);
+  end;
+begin
+  with game do begin
+   crSect.Enter;
+   try
+     // Frame log
+     assign(f,'framelog.log');
+     rewrite(f);
+     writeln(f,'Previous:');
+     write(f,prevFrameLog);
+     writeln(f,'Current:');
+     write(f,FrameLog);
+     close(f);
+     // Scenes & UI log
+     assign(f,'UIdata.log');
+     rewrite(f);
+     writeln(f,'Scenes:');
+     for i:=0 to high(game.scenes) do writeln(f,i:3,SceneInfo(game.scenes[i]));
+     writeln(f,'Topmost scene = ',game.TopmostVisibleScene(false).name);
+     writeln(f,'Topmost fullscreen scene = ',game.TopmostVisibleScene(true).name);
+     writeln(f);
+     writeln(f,DumpUI);
+     close(f);
+
+     painter.texman.Dump('User request');
+   finally
+    crSect.Leave;
+   end;
+ end;
+end;
 
 procedure EngineKbdEvent(Event:EventStr;tag:TTag);
 var
  code,shiftState,d:integer;
- f:text;
  ds:TDisplaySettings;
  st:string;
+ p:TGameSettings;
 begin
  code:=tag and $FFFF;
  shiftState:=tag shr 16;
@@ -540,13 +768,10 @@ begin
     end else
      debugOverlay:=0;
    end;
-   // F12 - скриншот
+   // F12 - take screenshot (Shift+F12 - save as TGA)
    if (code=VK_F12) and
-      (shiftState and sscAlt=0) then begin
-    saveScreenshotsToJPEG:=(shiftState and 1=0);
-    captureSingleFrame:=true;
-    screenshotTarget:=2;
-   end;
+      (shiftState and sscAlt=0) then RequestScreenshot(shiftState and 1=0);
+
 
     // Alt+F12 - захват видео
     if (shiftState and sscAlt>0) and
@@ -562,24 +787,17 @@ begin
 
 
    // Alt+F1 - Создание отладочных логов
-   if (code=VK_F1) and (shiftState and sscAlt>0) then begin
-    assign(f,'framelog.log');
-    rewrite(f);
-    writeln(f,'Previous:');
-    write(f,prevFrameLog);
-    writeln(f,'Current:');
-    write(f,FrameLog);
-    close(f);
-    DumpUIdata;
-    texman.Dump('User request');
+   if (code=VK_F1) and (shiftState and sscAlt>0) then CreateDebugLogs;
+     CreateDebugLogs;
    end;
 
    // Alt+Enter
-   if (code=VK_RETURN) and (shiftstate and sscAlt>0) then
-     if (params.mode.displayMode<>params.altMode.displayMode) and
-        (params.altMode.displayMode<>dmNone) then
-       SwitchToAltSettings;
-  end;
+   if (code=VK_RETURN) and (shiftstate and sscAlt>0) then begin
+     p:=game.GetSettings;
+     if (p.mode.displayMode<>p.altMode.displayMode) and
+        (p.altMode.displayMode<>dmNone) then
+       game.SwitchToAltSettings;
+   end;
 end;
 
 
@@ -707,50 +925,62 @@ end;
 
 procedure TGame.CaptureFrame;
 var
- img:TRAWImage;
  n:integer;
  st:string;
  res:ByteArray;
  ext:string;
+ img:TBitmapImage;
+ r:TRect;
+ buf:PByte;
+ saveAsJPG:boolean;
 begin
- if screenshotDataRAW=nil then exit; // объект с данными должен быть создан потомками этого класса
+ r:=displayRect;
+ img:=TBitmapImage.Create(r.Width,r.Height,ipfXRGB);
+ gfx.CopyFromBackbuffer(0,0,img);
+ img.tag:=UIntPtr(buf); // save pointer
+ inc(buf,img.width*4*(img.height-1)); // move pointer to the last line
+ img.data:=buf;
+ img.pitch:=-img.width*4; // invert pitch
+ (*
  {$IFDEF VIDEOCAPTURE}
  if videoCaptureMode then begin
   // Передача данных потоку видеосжатия
-  if screenshotDataRAW<>nil then StoreFrame(screenshotDataRAW);
+  StoreFrame(img);
  end;
- {$ENDIF}
- case screenshotTarget of
-  0:if screenshotDataExt<>nil then begin
-   Signal('Engine\BitmapCaptured',cardinal(screenshotDataExt));
+ {$ENDIF} *)
+ case frameCaptureTarget of
+  0:if frameCaptureData<>nil then begin
+   Signal('Engine\FrameCaptured',UIntPtr(img));
   end;
-  {$IFDEF MSWINDOWS}
-  2:if screenshotDataRAW<>nil then begin
+  2,3:try
+   {$IFDEF OPENGL}
+   {$IFDEF MSWINDOWS}
+   // overcome windows problem with OpenGL+PrintScreen in fullscreen mode
+   PutImageToClipboard(img);
+   {$ENDIF}
+   {$ENDIF}
    n:=1;
    if not DirectoryExists('Screenshots') then
     CreateDir('Screenshots');
-   if SaveScreenshotsToJPEG then ext:='.jpg' else ext:='.tga';
+   saveAsJPG:=frameCaptureTarget=2;
+   if saveAsJpg then ext:='.jpg' else ext:='.tga';
    st:='Screenshots\'+FormatDateTime('yymmdd_hhnnss',Now)+ext;
-   img:=screenshotDataRAW;
-   if SaveScreenshotsToJPEG then
-     SaveJPEG(img,st,95)
+   if saveAsJpg then
+    SaveJPEG(img,st,95)
    else begin
     res:=SaveTGA(img);
     WriteFile(st,@res[0],0,length(res));
    end;
    capturedName:=st;
    capturedTime:=MyTickCount;
-   {$IFDEF OPENGL}
-   // overcome windows problem with OpenGL+PrintScreen in fullscreen mode
-   PutImageToClipboard(img);
-   {$ENDIF}
+  except
+   on e:Exception do ForceLogMessage('Error saving screenshot: '+ExceptionMsg(e));
   end;
-
-  {$ENDIF}
  end;
+ (*
  if not videoCaptureMode then
   ReleaseFrameData(screenshotDataRaw);
- captureSingleFrame:=false;
+ captureSingleFrame:=false;*)
 end;
 
 procedure TGame.NotifyScenesAboutMouseMove;
@@ -762,6 +992,7 @@ begin
    game.scenes[i].onMouseMove(mouseX,mouseY);
 end;
 
+// ENGINE\*
 procedure TGame.onEngineEvent(event: string; tag: cardinal);
 var
   t,fr:int64;
@@ -786,6 +1017,11 @@ begin
    on e:Exception do CritMsg('Error in main loop: '+ExceptionMsg(e));
   end;
  end else
+ if SameText(event,'SETGLOBALTINTCOLOR') then globalTintColor:=tag
+ else
+ if SameText(event,'SETSWAPINTERVAL') then begin
+  if not gfx.SetVSyncDivider(tag) then PutMsg('SetSwapInterval: not supported');
+ end else
  if event='MAINLOOPINIT' then begin
   InitMainLoop;
  end else
@@ -800,7 +1036,7 @@ begin
    ScreenToGame(p);
    MouseX:=p.x;
    MouseY:=p.y;
-   mouseMoved:=MyTickCount;
+   mouseMovedAt:=MyTickCount;
    Signal('Mouse\Move',mouseX+mouseY shl 16);
    game.NotifyScenesAboutMouseMove;
    Signal('Mouse\BtnDown\Left',1);
@@ -816,7 +1052,7 @@ begin
    ScreenToGame(p);
    MouseX:=p.x;
    MouseY:=p.y;
-   mouseMoved:=MyTickCount;
+   mouseMovedAt:=MyTickCount;
    Signal('Mouse\Move',mouseX+mouseY shl 16);
    game.NotifyScenesAboutMouseMove;
    Timing;
@@ -828,7 +1064,7 @@ begin
    OldMouseX:=mouseX;
    OldMouseY:=MouseY;
    mouseX:=4095; mouseY:=4095;
-   mouseMoved:=MyTickCount;
+   mouseMovedAt:=MyTickCount;
    Signal('Mouse\Move',mouseX+mouseY shl 16);
    game.NotifyScenesAboutMouseMove;
    Timing;
@@ -848,239 +1084,17 @@ begin
 end;
 
 
-{$IFDEF MSWINDOWS}
-function WindowProc(Window:HWnd;Message,WParam:Longint;LParam:LongInt):LongInt; stdcall;
-var
- i,c:integer;
- key:cardinal;
- wst:WideString;
- st:string;
- pnt:TPoint;
- scancode:word;
- scene:TGameScene;
-begin
- try
- game.EnterCritSect;
-
- result:=0;
- case Message of
-  wm_Destroy: if game<>nil then Signal('Engine\Cmd\Exit',0);
-
-  WM_MOUSEMOVE:if game<>nil then with game do begin
-    if not game.params.showSystemCursor then SetCursor(0);
-    OldMouseX:=mouseX;
-    OldMouseY:=MouseY;
-    pnt:=Point(SmallInt(LoWord(lParam)),SmallInt(HiWord(lParam)));
-    ClientToScreen(game.window,pnt);
-    ScreenToGame(pnt);
-    mouseX:=pnt.X;
-    mouseY:=pnt.y;
-    mouseMoved:=MyTickCount;
-    Signal('Mouse\Move',mouseX and $FFFF+(mouseY and $FFFF) shl 16);
-    NotifyScenesAboutMouseMove;
-    // Если курсор рисуется вручную, то нужно обновить экран
-    if MouseVisible and
-//       game.params.customCursor and
-       not params.showSystemCursor then screenChanged:=true;
-  end;
-
-  WM_MOUSELEAVE:if game<>nil then with game do begin
-    if MouseVisible and
-      not params.showSystemCursor then screenChanged:=true;
-    mouseX:=4095;
-    mouseY:=4095;
-  end;
-
-  WM_UNICHAR:begin
-//   LogMessage(inttostr(wparam)+' '+inttostr(lparam));
-  end;
-
-  WM_CHAR:if game<>nil then with game do begin
-    if suppressCharEvent then begin
-     suppressCharEvent:=false; exit;
-    end;
-    // Младший байт - код символа, старший - сканкод
-    key:=wparam and $FF+(lparam shr 8) and $FF00+wparam shl 16;
-    if shiftstate=2 then exit;
-    for i:=low(scenes) to high(scenes) do
-      if game.scenes[i].status=ssActive then
-       game.scenes[i].WriteKey(key);
-    if not unicode then begin
-      // Символ в 8-битной кодировке
-      Signal('Kbd\Char',key);
-      wst:=chr(key and $FF);
-      Signal('Kbd\UniChar',word(wst[1])+(lparam and $FF0000));
-    end else begin
-      // Символ в 16-битном юникоде
-      Signal('Kbd\UniChar',wparam and $FFFF+(lparam and $FF0000));
-      wst:=WideChar(wparam and $FFFF);
-      st:=wst;
-      Signal('Kbd\Char',byte(st[1])+key and $FF00);
-    end;
-  end;
-
-  WM_KEYDOWN,WM_SYSKEYDOWN:if game<>nil then with game do begin
-    // wParam = Virtual Code lParam[23..16] = Scancode
-    scancode:=(lParam shr 16) and $FF;
-    keyState[scanCode]:=keyState[scanCode] or 1;
-    //LogMessage('KeyDown %d, KS[%d]=%2x ',[lParam,scanCode,keystate[scanCode]]);
-    Signal('KBD\KeyDown',wParam and $FFFF+shiftstate shl 16+scancode shl 24);
-    scene:=TopmostSceneForKbd;
-    if scene<>nil then Signal('SCENE\'+scene.name+'\KeyDown',wparam and $FFFF+scanCode shl 24);
-  end;
-
-  WM_KEYUP,WM_SYSKEYUP:if game<>nil then begin
-    if wparam=44 then
-    begin
-     SaveScreenshotsToJPEG:=true;
-     game.captureSingleFrame:=true;
-     game.screenshotTarget:=2;
-    end;
-    scancode:=(lParam shr 16) and $FF;
-    game.keyState[scanCode]:=game.keyState[scanCode] and $FE;
-    //LogMessage('KeyUp %d, KS[$d]=%2x ',[lParam,scanCode,game.keystate[scanCode]]);
-    Signal('KBD\KeyUp',wParam and $FFFF+game.shiftstate shl 16+scancode shl 24);
-    scene:=game.TopmostSceneForKbd;
-    if scene<>nil then Signal('SCENE\'+scene.name+'\KeyUp',wparam);
-    if message=WM_SYSKEYUP then begin
-     result:=0; exit;
-    end;
-  end;
-
-  WM_SYSCHAR:if game<>nil then begin
-    scancode:=(lParam shr 16) and $FF;
-    result:=0; exit;
-//    Signal('KBD\KeyDown',wParam and $FFFF+game.shiftState shl 16+scancode shl 24);
-  end;
-
-  WM_LBUTTONDOWN,WM_RBUTTONDOWN,WM_MBUTTONDOWN:begin
-    SetCapture(window);
-    if not game.params.showSystemCursor then SetCursor(0);
-    c:=0;
-    if message=wm_LButtonDown then begin Signal('Mouse\BtnDown\Left',1); c:=1; end;
-    if message=wm_RButtonDown then begin Signal('Mouse\BtnDown\Right',2); c:=2; end;
-    if message=wm_MButtonDown then begin Signal('Mouse\BtnDown\Middle',4); c:=3; end;
-    game.NotifyScenesAboutMouseBtn(c,true);
-  end;
-
-  WM_LBUTTONUP,WM_RBUTTONUP,WM_MBUTTONUP:begin
-    ReleaseCapture;
-    if not game.params.showSystemCursor then SetCursor(0);
-    c:=0;
-    if message=wm_LButtonUp then begin Signal('Mouse\BtnUp\Left',1); c:=1; end;
-    if message=wm_RButtonUp then begin Signal('Mouse\BtnUp\Right',2); c:=2; end;
-    if message=wm_MButtonUp then begin Signal('Mouse\BtnUp\Middle',4); c:=3; end;
-    game.NotifyScenesAboutMouseBtn(c,false);
-  end;
-
-  WM_MOUSEWHEEL:begin
-    Signal('Mouse\Scroll',wParam div 65536);
-    if game<>nil then with game do begin
-     for i:=low(scenes) to high(scenes) do
-      if game.scenes[i].status=ssActive then
-       scenes[i].onMouseWheel(wParam div 65536);
-    end;
-  end;
-
-  WM_SIZE:if game<>nil then begin
-   if game.active and (lParam>0) then begin
-    if (game.windowWidth<>lParam and $FFFF) or
-       (game.windowHeight<>lParam shr 16) then begin
-      game.windowWidth:=lParam and $FFFF;
-      game.windowHeight:=lParam shr 16;
-      LogMessage('WM_SIZE: %d,%d',[game.windowWidth,game.windowHeight]);
-      game.SetupRenderArea;
-    end;
-   end;
-  end;
-
-  WM_ACTIVATE:if game<>nil then begin
-   if loword(wparam)<>wa_inactive then
-    game.active:=true
-   else begin
-    game.active:=false;
-    if game.params.mode.displayMode=dmFullScreen then game.Minimize;
-   end;
-   LogMessage('WM_ACTIVATE: %d',[byte(game.active)]);
-   Signal('Engine\ActivateWnd',byte(game.active));
-   if game.params.showSystemCursor then
-    game.wndCursor:=0;
-  end;
-
-  WM_INPUTLANGCHANGEREQUEST:if HookKbdLayout then begin
-    ActivateKeyboardLayout(lparam,0);
-    exit;
-  end;
-  WM_HOTKEY:begin
-             if wparam=312 then
-             begin
-              SaveScreenshotsToJPEG:=true;
-              game.captureSingleFrame:=true;
-              game.screenshotTarget:=2;
-             end;
-            end;
- end;
-
- if (game<>nil) and (game.unicode) then
-  result:=DefWindowProcW(Window,Message,WParam,LParam)
- else
-  result:=DefWindowProc(Window,Message,WParam,LParam);
- finally
-  game.LeaveCritSect;
- end;
-end;
-
-procedure ProcessMessages;
-var
- mes:TagMSG;
-begin
- if game.unicode then
-  while PeekMessageW(mes,0,0,0,pm_NoRemove) do begin
-    if not GetMessageW(mes,0,0,0) then
-     raise EWarning.Create('Failed to get message');
-
-    if mes.message=wm_quit then // Если послана команда на выход
-     Signal('Engine\Cmd\Exit',0);
-
-    TranslateMessage(Mes);
-    DispatchMessageW(Mes);
- end else
-  while PeekMessage(mes,0,0,0,pm_NoRemove) do begin
-    if not GetMessage(mes,0,0,0) then
-     raise EWarning.Create('Failed to get message');
-
-    if mes.message=wm_quit then // Если послана команда на выход
-     Signal('Engine\Cmd\Exit',0);
-
-    TranslateMessage(Mes);
-    DispatchMessage(Mes);
-  end;
-end;
-{$ELSE}
-procedure ProcessMessages;
-begin
-end;
-{$ENDIF}
-
 procedure Delay(time:integer);
+var
+ t,delta:int64;
 begin
- {$IFDEF MSWINDOWS}
- if (game<>nil) and (GetCurrentThreadId=game.mainThread.ThreadID) then
-  ProcessMessages;
- {$ENDIF}
- HandleSignals;
- while time>100 do begin
-  sleep(100);
-  time:=time-100;
-  {$IFDEF MSWINDOWS}
-  if (game<>nil) and
-     ((GetCurrentThreadId=game.mainThread.ThreadID) or
-      (GetCurrentThreadId=game.controlThreadId)) then
-   Processmessages;
-  {$ENDIF}
+ t:=MyTickCount+time;
+ repeat
   HandleSignals;
- end;
- sleep(time);
+  if (game<>nil) and (GetCurrentThreadId=game.mainThread.ThreadID) then
+   game.systemPlatform.ProcessSystemMessages;
+  Sleep(Clamp(t-myTickCount,0,20));
+ until MyTickCount>=t;
 end;
 
 
@@ -1143,10 +1157,33 @@ begin
   end;
 end;
 
-// Устанавливает область отрисовки внутри окна в соответствии с текущими настройками
-// При изменении размеров области вывода - адаптирует расположение/размеры сцен
-// (которые, в свою очередь, при необходимости корректируют UI)
-// Необходимо вызвать ПОСЛЕ инициализации объектов движка
+procedure TGame.PresentFrame;
+ begin
+   if dRT<>nil then begin
+    // Была отрисовка в текстуру - теперь нужно отрисовать её в RenderRect
+    painter.SetDefaultRenderArea(0,0,windowWidth,windowHeight,windowWidth,windowHeight);
+    painter.ResetTarget;
+    painter.BeginPaint(nil);
+    try
+    // Если есть неиспользуемые полосы - очистить их (но не каждый кадр, чтобы не тормозило)
+    if not types.EqualRect(displayRect,types.Rect(0,0,windowWidth,windowHeight)) and
+       ((frameNum mod 5=0) or (frameNum<3)) then painter.Clear($FF000000);
+
+    with displayRect do begin
+     painter.TexturedRect(Left,Top,right-1,bottom-1,DRT,0,1,1,1,1,0,globalTintColor);
+    end;
+    finally
+     painter.EndPaint;
+    end;
+    painter.SetDefaultRenderTarget(dRT);
+   end;
+
+  FLog('Present');
+  StartMeasure(1);
+  gfx.PresentFrame(systemPlatform);
+  inc(FrameNum);
+ end;
+
 procedure TGame.SetupRenderArea;
 var
  i:integer;
@@ -1185,11 +1222,30 @@ begin
  renderHeight:=params.height;
  LogMessage(Format('Set render area: %d,%d -> %d,%d,%d,%d',
    [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Right,displayRect.Bottom]));
- SetDisplaySize(renderWidth,renderHeight);
+ SetDisplaySize(renderWidth,renderHeight); // UI display size
  Signal('ENGINE\BEFORERESIZE');
  for i:=low(scenes) to High(scenes) do
   scenes[i].onResize;
  Signal('ENGINE\RESIZED');
+
+ if painter<>nil then begin
+  w:=displayRect.Width;
+  h:=displayRect.Height;
+  if dRT=nil then begin
+   // Rendering directly to the framebuffer
+   painter.SetDefaultRenderArea(displayRect.Left,windowHeight-displayRect.Bottom,
+     w,h,params.width,params.height);
+  end else begin
+   // Rendering to a framebuffer texture
+   with params.mode do
+    if (displayFitMode in [dfmStretch,dfmKeepAspectRatio]) and
+       (displayScaleMode in [dsmDontScale,dsmScale]) and
+       ((dRT.width<>w) or (dRT.height<>h)) then begin
+     LogMessage('Resizing framebuffer');
+     painter.texman.ResizeTexture(dRT,w,h);
+    end;
+  end;
+ end;
 end;
 
 procedure DrawCursor;
@@ -1199,26 +1255,22 @@ var
 begin
  with game do begin
   n:=-1; j:=-10000;
-  if mouseVisible then begin
-   for i:=0 to high(cursors) do
-    with cursors[i] as TGameCursor do
-     if visible and (priority>j) then begin
-      j:=priority; n:=i;
-     end;
-
-   if not params.showSystemCursor and (n>=0) then begin
-    // check if cursor is visible
-    {$IFDEF MSWINDOWS}
-
-    {$ENDIF}
-    painter.BeginPaint(nil);
-    try
-     /// TODO: draw custom cursor here
-    finally
-     painter.EndPaint;
+  for i:=0 to high(cursors) do
+   with cursors[i] as TGameCursor do
+    if visible and (priority>j) then begin
+     j:=priority; n:=i;
     end;
-   end
+
+  if not params.showSystemCursor and (n>=0) then begin
+   // check if cursor is visible
+   painter.BeginPaint(nil);
+   try
+    /// TODO: draw custom cursor here
+   finally
+    painter.EndPaint;
+   end;
   end;
+
   if params.showSystemCursor then begin
    c:=wndCursor;
    if n<0 then wndCursor:=0
@@ -1323,7 +1375,7 @@ begin
   if sc[i].shadowColor<>0 then begin
    painter.BeginPaint(nil);
    try
-    painter.FillRect(0,0,game.settings.width,game.settings.height,sc[i].shadowColor);
+    painter.FillRect(0,0,renderWidth,renderHeight,sc[i].shadowColor);
    finally
     painter.EndPaint;
    end;
@@ -1362,8 +1414,7 @@ begin
 
   // Additional output
   try
-  if (painter<>nil) and (texman<>nil) and
-     ((showDebugInfo>0) or (showFPS) or (debugOverlay>0)) then begin
+  if (painter<>nil) and ((showDebugInfo>0) or (showFPS) or (debugOverlay>0)) then begin
     painter.BeginPaint(nil);
 
     if ShowDebugInfo>0 then begin
@@ -1372,9 +1423,9 @@ begin
      painter.TextOut(font,10,20,$FFFFFFFF,inttostr(round(fps)));
    {  for i:=1 to 15 do
       painter.WriteSimple(i*60,10,$FFFFFFFF,FloatToStrF(PerformanceMeasures[i],ffFixed,5,2));}
-     if (ShowDebugInfo>1) and (texman<>nil) then begin
-      painter.TextOut(font,10,40,$FFFFFFFF,texman.GetStatus(1));
-      painter.TextOut(font,10,60,$FFFFFFFF,texman.GetStatus(2));
+     if (ShowDebugInfo>1) then begin
+      painter.TextOut(font,10,40,$FFFFFFFF,painter.texman.GetStatus(1));
+      painter.TextOut(font,10,60,$FFFFFFFF,painter.texman.GetStatus(2));
       painter.TextOut(font,10,80,$FFFFFFFF,GetStatus(1));
      end;
     end else
@@ -1408,8 +1459,8 @@ begin
     painter.FillRect(x-200,y-40,x+200,y+40,$60000000);
     painter.Rect(x-200,y-40,x+200,y+40,$A0FFFFFF);
     font:=painter.GetFont('Default',7);
-    painter.TextOut(font,x,y-24,$FFFFFFFF,'Screen captured to:',engineAPI.taCenter);
-    painter.TextOut(font,x,y+4,$FFFFFFFF,capturedName,engineAPI.taCenter);
+    painter.TextOut(font,x,y-24,$FFFFFFFF,'Screen captured to:',taCenter);
+    painter.TextOut(font,x,y+4,$FFFFFFFF,capturedName,Apus.Engine.API.taCenter);
    finally
     painter.EndPaint;
    end;
@@ -1485,30 +1536,13 @@ begin
 end;
 
 procedure TGame.MoveWindowTo(x, y, width, height: integer);
-var
- r:TRect;
- dx,dy:integer;
 begin
- if window=0 then exit;
- {$IFDEF MSWINDOWS}
- getWindowRect(window,r);
- dx:=x-r.left; dy:=y-r.top;
- inc(r.left,dx); inc(r.right,dx);
- inc(r.top,dy); inc(r.Bottom,dy);
- if (width>0) and (height>0) then begin
-  r.Right:=r.left+width;
-  r.Bottom:=r.top+height;
- end;
- if not MoveWindow(window,r.left,r.top,r.right-r.left,r.Bottom-r.top,true) then
-  ForceLogMessage('MoveWindow error: '+inttostr(GetLastError));
- {$ENDIF}
+ systemPlatform.MoveWindowTo(x,y,width,height);
 end;
 
 procedure TGame.Minimize;
 begin
- {$IFDEF MSWINDOWS}
- ShowWindow(window,SW_MINIMIZE);
- {$ENDIF}
+ systemPlatform.Minimize;
 end;
 
 procedure TGame.FireMessage(st: String8);
@@ -1517,104 +1551,59 @@ begin
 end;
 
 procedure TGame.SwitchToAltSettings; // Alt+Enter
-var
- ds:TDisplaySettings;
 begin
   LogMessage('Alt+Enter!');
   Swap(params.width,altWidth);
   Swap(params.height,altHeight);
   Swap(params.mode,params.altMode,sizeof(params.mode));
-  ChangeSettings(params);
+  SetSettings(params);
 end;
 
 procedure TGame.SetWindowCaption(text: string);
-var
- wst:WideString;
 begin
- {$IFDEF MSWINDOWS}
- if unicode then begin
-  wst:=text;
-  SetWindowTextW(window,PWideChar(wst))
- end else
-  SetWindowText(window,PChar(text));
- {$ENDIF}
+ systemPlatform.SetWindowCaption(text);
 end;
 
 procedure TGame.ScreenToGame(var p:TPoint);
  begin
-  {$IFDEF MSWINDOWS}
-  ScreenToClient(window,p);
-  p.X:=round((p.X-displayRect.Left)*settings.width/(displayRect.Right-displayRect.Left));
-  p.Y:=round((p.Y-displayRect.top)*settings.height/(displayRect.Bottom-displayRect.Top));
-  {$ENDIF}
+  systemPlatform.ScreenToClient(p);
+  p.X:=round((p.X-displayRect.Left)*renderWidth/(displayRect.Right-displayRect.Left));
+  p.Y:=round((p.Y-displayRect.top)*renderHeight/(displayRect.Bottom-displayRect.Top));
  end;
 
 procedure TGame.GameToScreen(var p:TPoint);
  begin
-  {$IFDEF MSWINDOWS}
-  p.X:=round(displayRect.Left+p.X*(displayRect.Right-displayRect.Left)/settings.width);
-  p.Y:=round(displayRect.top+p.Y*(displayRect.Bottom-displayRect.Top)/settings.height);
-  ClientToScreen(window,p);
-  {$ENDIF}
+  p.X:=round(displayRect.Left+p.X*(displayRect.Right-displayRect.Left)/renderWidth);
+  p.Y:=round(displayRect.top+p.Y*(displayRect.Bottom-displayRect.Top)/renderHeight);
+  systemPlatform.ClientToScreen(p);
  end;
 
 // Обработка событий, являющихся командами движку
 procedure EngineCmdEvent(event:EventStr;tag:TTag);
 var
-{$IFDEF MSWINDOWS}
- fi:TFlashWInfo;
-{$ENDIF}
  pnt:TPoint;
 begin
  delete(event,1,length('Engine\Cmd\'));
  event:=UpperCase(event);
  if game=nil then exit;
- if event='CHANGESETTINGS' then game.ApplySettings;
+ if event='CHANGESETTINGS' then game.ApplyNewSettings;
  if event='EXIT' then
   if game.mainThread<>nil then begin
    game.mainThread.Terminate;
   end;
 
- {$IFDEF DELPHI}
- if event='MAKESCREENSHOT' then begin
-  game.WantToCaptureSingleFrame(false,TRAWImage(pointer(tag)));
-  exit;
- end;
- {$ENDIF}
-
- {$IFDEF MSWINDOWS}
+ // Update mouse position when it is obsolete
  if event='UPDATEMOUSEPOS' then begin
-   GetCursorPos(pnt);
+   pnt:=game.systemPlatform.GetMousePos;
    game.ScreenToGame(pnt);
-//   ScreenToClient(engineCls.windowHandle,pnt);
    tag:=pnt.X+pnt.Y shl 16;
    Signal('Mouse\Move',tag);
  end;
- if event='FLASH' then begin
-  fillchar(fi,sizeof(fi),0);
-  fi.cbSize:=sizeof(fi);
-  fi.hwnd:=game.window;
-  fi.dwTimeout:=400;
-  if tag=-1 then
-   fi.dwFlags:=FLASHW_STOP
-  else
-   fi.dwFlags:=FLASHW_ALL+FLASHW_TIMERNOFG*byte(tag=0);
-  if tag<=0 then tag:=100;
-  fi.uCount:=tag;
-  FlashWindowEx(fi);
- end;
- {$ENDIF}
+ // Make window flash to draw attention
+ if event='FLASH' then game.systemPlatform.FlashWindow(tag);
 end;
 
-procedure TGame.ShowMouse(m: boolean);
-begin
- if m=mousevisible then exit;
- mouseVisible:=m;
- wndCursor:=0;
- if not params.showSystemCursor then screenChanged:=true;
-end;
-
-function TGame.GetCursorForID(cursorID:integer):UIntPtr;
+function TGame.GetCursorForID(cursorID:integer):HCursor;
 var
  i:integer;
 begin
@@ -1631,9 +1620,8 @@ begin
  end;
 end;
 
-
 procedure TGame.RegisterCursor(CursorID, priority: integer;
-  cursorHandle: UIntPtr);
+  cursorHandle: HCursor);
 var
  i,n:integer;
  cursor:TGameCursor;
@@ -1786,25 +1774,18 @@ procedure TGame.FrameLoop;
    t:=MyTickCount;
     PingThread;
     // Обновление ввода с клавиатуры (и кнопок мыши)
-    {$IFDEF MSWINDOWS}
-    shiftstate:=0; mb:=0;
-    if GetAsyncKeyState(VK_SHIFT)<0 then inc(shiftState,1);
-    if GetAsyncKeyState(VK_CONTROL)<0 then inc(shiftState,2);
-    if GetAsyncKeyState(VK_MENU)<0 then inc(shiftState,4);
-    if (GetAsyncKeyState(VK_LWIN)<0) or
-       (GetAsyncKeyState(VK_RWIN)<0) then inc(shiftState,8);
-    if GetAsyncKeyState(VK_LBUTTON)<0 then inc(mb,1);
-    if GetAsyncKeyState(VK_RBUTTON)<0 then inc(mb,2);
-    if GetAsyncKeyState(VK_MBUTTON)<0 then inc(mb,4);
+    shiftState:=systemPlatform.GetShiftKeysState;
+    mb:=systemPlatform.GetMouseButtons;
     if mb<>mouseButtons then begin
      oldMouseButtons:=mouseButtons;
      mouseButtons:=mb;
     end;
-    {$ENDIF}
 
-    for i:=0 to High(keyState) do keyState[i]:=keyState[i] and 1+(keyState[i] and 1) shl 1;
+    for i:=0 to High(keyState) do
+     keyState[i]:=keyState[i] and 1+(keyState[i] and 1) shl 1;
+
     StartMeasure(14);
-    ProcessMessages;
+    systemPlatform.ProcessSystemMessages;
     if active then try
      HandleSignals;
     except
@@ -1890,108 +1871,6 @@ procedure TGame.FrameLoop;
   if t<500 then avgTime:=avgTime*0.9+t*0.1;
  end;
 
- // Создать окно
- procedure TGame.CreateMainWindow;
-  {$IFDEF MSWINDOWS}
-  var
-   WindowClass:TWndClass;
-   style:cardinal;
-   i:integer;
-  begin
-   LogMessage('CreateMainWindow');
-   with WindowClass do begin
-    Style:=cs_HRedraw or cs_VRedraw;
-    lpfnWndProc:=@WindowProc;
-    cbClsExtra:=0;
-    cbWndExtra:=0;
-    hInstance:=0;
-    hIcon:=LoadIcon(MainInstance,'MAINICON');
-    WndCursor:=0;//LoadCursor(0, idc_Arrow);
-    hCursor:=WndCursor;
-    hbrBackground:=GetStockObject (Black_Brush);
-    lpszMenuName:='';
-    lpszClassName:='GameWindowClass';
-   end;
-   If windows.RegisterClass(WindowClass)=0 then
-    raise EFatalError.Create('Cannot register window class');
-
-   style:=0;
-   Window:=CreateWindow('GameWindowClass', PChar(settings.title),
-    style, 0, 0, 100, 100, 0, 0, HInstance, nil);
-   //EngineCls.windowHandle:=window;
-   if unicode then begin
-    SetWindowLongW(window,GWL_WNDPROC,cardinal(@WindowProc));
-    SetWindowCaption(settings.title);
-   end;
-   Layouts:=GetKeyboardLayoutList(10,LayoutList);
-
-  end;
-  {$ELSE}
-  begin
-  end;
-  {$ENDIF}
-
- procedure TGame.ConfigureMainWindow;
-  {$IFDEF MSWINDOWS}
-  var
-   r,r2:TRect;
-   style:cardinal;
-   w,h:integer;
-  begin
-   LogMessage('Configure main window');
-   style:=ws_popup;
-   if params.mode.displayMode=dmWindow then inc(style,WS_SIZEBOX+WS_MAXIMIZEBOX);
-   if params.mode.displayMode in [dmWindow,dmFixedWindow] then
-    inc(style,ws_Caption+WS_MINIMIZEBOX+WS_SYSMENU);
-
-   SystemParametersInfo(SPI_GETWORKAREA,0,@r2,0);
-   w:=params.width;
-   h:=params.height;
-
-   case params.mode.displayMode of
-    dmWindow,dmFixedWindow:begin
-      r:=Rect(0,0,w,h);
-      AdjustWindowRect(r,style,false);
-      r.Offset(-r.left,-r.top);
-      // If window is too large
-      r.Right:=Clamp(r.Right,0,r2.Width);
-      r.Bottom:=Clamp(r.Bottom,0,r2.Height);
-      // Center window
-      r.Offset((r2.Width-r.Width) div 2,(r2.Height-r.Height) div 2);
-      SetWindowLong(window,GWL_STYLE,style);
-      MoveWindowTo(r.left,r.top, r.width,r.height);
-    end;
-    dmSwitchResolution,dmFullScreen:begin
-      SetWindowLong(window,GWL_STYLE,integer(ws_popup));
-      MoveWindowTo(0,0,screenWidth,screenHeight);
-    end;
-   end;
-
-   ShowWindow(Window, SW_SHOW);
-   UpdateWindow(Window);
-   ShowMouse(true);
-
-   GetWindowRect(window,r);
-   LogMessage('WindowRect: '+inttostr(r.Right-r.Left)+':'+inttostr(r.Bottom-r.top));
-   GetClientRect(window,r);
-   LogMessage('ClientRect: '+inttostr(r.Right-r.Left)+':'+inttostr(r.Bottom-r.top));
-   windowWidth:=r.Right-r.Left;
-   windowHeight:=r.Bottom-r.top;
-  end;
-  {$ELSE}
-  begin
-  end;
-  {$ENDIF}
-
- procedure TGame.DestroyMainWindow;
-  begin
-   {$IFDEF MSWINDOWS}
-   ShowWindow(window,SW_HIDE);
-   DestroyWindow(window);
-   UnregisterClassA('GameWindowClass',0);
-   {$ENDIF}
-  end;
-
 { TCustomThread }
 procedure TCustomThread.Execute;
 begin
@@ -2020,9 +1899,9 @@ begin
   LogMessage(TimeStamp+' Main thread started - '+inttostr(cardinal(GetCurrentThreadID)));
   RegisterThread('MainThread');
   LogMessage(GetSystemInfo);
-  {$IFDEF MSWINDOWS}
-  owner.CreateMainWindow;
-  {$ENDIF}
+
+  owner.systemPlatform.CreateWindow(owner.params.title);
+
   SetEventHandler('Engine\',EngineEvent,emInstant);
   SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
   owner.InitMainLoop; // вызывает InitGraph
@@ -2045,10 +1924,8 @@ begin
   ForceLogMessage('Finalization');
 
   // Финализация
-  {$IFDEF MSWINDOWS}
-  owner.DestroyMainWindow;
-  {$ENDIF}
   owner.DoneGraph;
+  owner.systemPlatform.DestroyWindow;
  except
   on e:Exception do begin
    errorMsg:=ExceptionMsg(e);

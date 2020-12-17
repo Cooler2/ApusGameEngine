@@ -16,14 +16,23 @@
 unit Apus.Engine.Console;
 interface
  uses Apus.MyServis;
-
+ type
+  TConsoleSettings=record
+   saveMessages:boolean;          // Сохранять сообщения во внутренней структуре
+   logMessages:boolean;           // Записывать в лог-файл (sysUtils)
+   writeMessages:boolean;         // Выводить в обычное окно консоли
+   popupCriticalMessages:boolean; // Выводить messagebox с критическими сообщениями
+   handleDebugSignals:boolean;    // Перехватывать отладочные сигналы
+   handleErrorSignals:boolean;    // Перехватывать сигналы об ошибках
+  end;
  var
-  SaveMessages:boolean=false;        // Сохранять сообщения во внутренней структуре
-  LogMessages:boolean=true;          // Записывать в лог-файл (sysUtils)
-  WriteMessages:boolean=false;       // Выводить в обычное окно консоли
-  ShowMessages:boolean=false;        // Выводить messagebox с критическими сообщениями
-  HandleDebugSignals:boolean=true;   // Перехватывать отладочные сигналы
-  HandleErrorSignals:boolean=true;   // Перехватывать сигналы об ошибках
+  consoleSettings:TConsoleSettings=
+    (saveMessages:false;
+     logMessages:true;
+     writeMessages:false;
+     popupCriticalMessages:false;
+     handleDebugSignals:true;
+     handleErrorSignals:true);
 
  // logfile='' - не создавать лог-файл, иначе создавать
  procedure SetupConsole(saveMsg,writeMsg,showCritMsg,handleDebug,handleError:boolean;logFile:string);
@@ -85,25 +94,27 @@ implementation
 
  procedure SetupConsole(saveMsg,writeMsg,showCritMsg,handleDebug,handleError:boolean;logFile:string);
   begin
-   SaveMessages:=saveMsg;
-   if logfile<>'' then begin
-    logMessages:=true;
-//    UseLogFile(logfile);
+   with consoleSettings do begin
+    saveMessages:=saveMsg;
+    if logfile<>'' then begin
+     logMessages:=true;
+ //    UseLogFile(logfile);
+    end;
+    WriteMessages:=writeMsg;
+    popupCriticalMessages:=showCritMsg;
+    HandleDebugSignals:=handleDebug;
+    HandleErrorSignals:=handleError;
    end;
-   WriteMessages:=writeMsg;
-   ShowMessages:=showCritMsg;
-   HandleDebugSignals:=handleDebug;
-   HandleErrorSignals:=handleError;
   end;
 
  procedure NormalEvent(event:eventstr;tag:integer);
   begin
-   if handleDebugSignals then
+   if consoleSettings.handleDebugSignals then
     PutMsg(timestamp+' Evt: '+event+' - '+inttostr(tag));
   end;
  procedure CriticalEvent(event:eventstr;tag:integer);
   begin
-   if handleErrorSignals then
+   if consoleSettings.handleErrorSignals then
     PutMsg(timestamp+' Evt: '+event+' - '+inttostr(tag),true,-1);
   end;
 
@@ -122,7 +133,7 @@ implementation
    EnterCriticalSection(crSect);
    try
     st1:=st;
-    if SaveMessages then begin
+    if consoleSettings.saveMessages then begin
      while pos(#10,st)>0 do begin
       st2:=copy(st,1,pos(#10,st)-1);
       if st2[length(st2)]<' ' then setLength(st2,length(st2)-1);
@@ -131,14 +142,14 @@ implementation
      end;
      SaveMsg(st,cls);
     end;
-    if LogMessages then
+    if consoleSettings.LogMessages then
      if critical then
       ForceLogMessage(st1)
      else
       LogMessage(st1);
-    if WriteMessages then
+    if consoleSettings.writeMessages then
      writeln(st1);
-    if critical and ShowMessages then
+    if critical and consoleSettings.popupCriticalMessages then
      ErrorMessage(st1);
    finally
     LeaveCriticalSection(crSect);

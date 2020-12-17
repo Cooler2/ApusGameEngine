@@ -5,8 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.UIScene;
 interface
- uses {$IFDEF MSWINDOWS}Windows,{$ENDIF} Apus.Engine.API, Apus.Engine.UIClasses,
-  Apus.CrossPlatform, Types;
+ uses Apus.Engine.API, Apus.Engine.UIClasses, Apus.CrossPlatform, Types;
 
 const
  defaultHintStyle:integer=0; // style of hints, can be changed
@@ -17,7 +16,7 @@ type
  // Almost all game scenes can be instances from this type, however sometimes
  // it is reasonable to use different scene(s)
  TUIScene=class(TGameScene)
-  UI:TUIControl; // root UI element: size = render area size
+  UI:TUIElement; // root UI element: size = render area size
   frameTime:int64; // time elapsed from the last frame
   constructor Create(scenename:string='';fullScreen:boolean=true);
   procedure SetStatus(st:TSceneStatus); override;
@@ -52,14 +51,13 @@ var
  // Полезные функции общего применения
  // -------
  // Создать всплывающее окно, прицепить его к указанному предку
- procedure ShowSimpleHint(msg:string;parent:TUIControl;x,y,time:integer;font:cardinal=0);
+ procedure ShowSimpleHint(msg:string;parent:TUIElement;x,y,time:integer;font:cardinal=0);
 
- procedure DumpUIdata;
 
 implementation
  uses SysUtils,
    Apus.MyServis, Apus.EventMan,
-   Apus.Engine.UIRender, Apus.Engine.EngineTools, Apus.Engine.CmdProc, Apus.Engine.Console,
+   Apus.Engine.UIRender, Apus.Engine.CmdProc, Apus.Engine.Console,
    Apus.Engine.UDict,Apus.Publics,Apus.Geom2D;
 
 const
@@ -81,7 +79,7 @@ var
  lastHint:string; // текст хинта, соответствующего элементу, над которым была мышь в предыдущем кадре
 
  designMode:boolean; // режим "дизайна", в котором можно таскать элементы по экрану правой кнопкой мыши
- hookedItem:TUIControl;
+ hookedItem:TUIElement;
 
  curShadowValue,oldShadowValue,needShadowValue:integer; // 0..255
  startShadowChange,shadowChangeDuration:int64;
@@ -95,9 +93,7 @@ procedure SetDisplaySize(width,height:integer);
   oldAreaHeight:=rootHeight;
   rootWidth:=width;
   rootHeight:=height;
-  Apus.Engine.UIClasses.SetDisplaySize(width,height);
  end;
-
 
 procedure ActivateEventHandler(event:EventStr;tag:TTag);
 begin
@@ -112,7 +108,7 @@ end;
 
 procedure MouseEventHandler(event:EventStr;tag:TTag);
 var
- c,c2:TUIControl;
+ c,c2:TUIElement;
  e1,e2,e:boolean;
  x,y:integer;
  time:int64;
@@ -283,7 +279,7 @@ end;
 
 procedure KbdEventHandler(event:EventStr;tag:TTag);
 var
- c:TUIControl;
+ c:TUIElement;
  shift:byte;
  key:integer;
 begin
@@ -298,9 +294,9 @@ begin
 
   c:=FocusedControl;
   if (event='KEYDOWN') and (c=nil) then begin
-   {$IFDEF MSWINDOWS} /// TODO
-   ProcessHotKey(MapVirtualKey(key,1),shift);
-   {$ENDIF}
+   if game<>nil then
+    key:=game.systemPlatform.MapScanCodeToVirtualKey(key);
+   ProcessHotKey(key,shift);
   end;
   if c<>nil then begin
    while c<>nil do begin
@@ -310,8 +306,11 @@ begin
 
    {$IFDEF MSWINDOWS} /// TODO!
    if event='KEYDOWN' then
-    if focusedControl.onKey(key,true,shift) then
-     ProcessHotKey(MapVirtualKey(key,1),shift);
+    if focusedControl.onKey(key,true,shift) then begin
+     if game<>nil then
+      key:=game.systemPlatform.MapScanCodeToVirtualKey(key);
+     ProcessHotKey(key,shift);
+    end;
    {$ENDIF}
 
    if event='KEYUP' then
@@ -347,7 +346,7 @@ begin
  inherited Create(fullscreen);
  if sceneName='' then sceneName:=ClassName;
  name:=scenename;
- UI:=TUIControl.Create(rootWidth,rootHeight,nil,sceneName);
+ UI:=TUIElement.Create(rootWidth,rootHeight,nil,sceneName);
  UI.enabled:=false;
  UI.visible:=false;
  if not fullscreen then ui.shape:=shapeEmpty
@@ -410,15 +409,15 @@ end;
 function TUIScene.Process: boolean;
 var
  i,delta:integer;
- c:TUIControl;
+ c:TUIElement;
  time:cardinal;
  st:string;
 
- procedure ProcessControl(c:TUIControl);
+ procedure ProcessControl(c:TUIElement);
   var
    j:integer;
    cnt:integer;
-   list:array[0..255] of TUIControl;
+   list:array[0..255] of TUIElement;
   begin
    if c=nil then exit;
    if c.timer>0 then
@@ -577,7 +576,7 @@ begin
  ForceLogMessage('Scene '+name+' status changed to '+statuses[st]);
 // LogMessage('Scene '+name+' status changed to '+statuses[st],5);
  if (status=ssActive) and (UI=nil) then begin
-  UI:=TUIControl.Create(rootWidth,rootHeight,nil);
+  UI:=TUIElement.Create(rootWidth,rootHeight,nil);
   UI.name:=name;
   UI.enabled:=false;
   UI.visible:=false;
@@ -631,51 +630,6 @@ begin
  hint.order:=10000; // Top
  curhint:=hint;
  LogMessage('Hint created '+inttohex(cardinal(hint),8));
-end;
-
-procedure DumpUIdata;
-var
- i:integer;
- f:text;
- procedure DumpControl(c:TUIControl;indent:string);
-  var
-   i:integer;
-  begin
-   writeln(f,indent,c.ClassName+':'+c.name+' = '+inttohex(cardinal(c),8));
-   writeln(f,indent,c.order,' En=',c.enabled,' Vis=',c.visible,' trM=',ord(c.shape));
-   writeln(f,indent,Format('x=%.1f, y=%.1f, w=%.1f, h=%.1f, left=%d, top=%d',
-     [c.position.x,c.position.y,c.size.x,c.size.y,c.globalRect.Left,c.globalRect.Top]));
-   writeln(f);
-   for i:=0 to length(c.children)-1 do
-    DumpControl(c.children[i],indent+'+ ');
-  end;
- function SceneInfo(s:TGameScene):string;
-  begin
-   if s=nil then exit;
-   result:=Format('  %-20s Z=%-10d  status=%-2d type=%-2d eff=%s',
-     [s.name,s.zorder,ord(s.status),byte(s.fullscreen),PtrToStr(s.effect)]);
-   if s is TUIScene then
-    result:=result+Format(' UI=%s (%s)',[TUIScene(s).UI.name, PtrToStr(TUIScene(s).UI)]);
-  end;
-begin
- try
- assign(f,'UIdata.log');
- rewrite(f);
- writeln(f,'Scenes:');
- for i:=0 to high(game.scenes) do writeln(f,i:3,SceneInfo(game.scenes[i]));
- writeln(f,'Topmost scene = ',game.TopmostVisibleScene(false).name);
- writeln(f,'Topmost fullscreen scene = ',game.TopmostVisibleScene(true).name);
- writeln(f);
- writeln(f,'Modal: '+inttohex(cardinal(modalcontrol),8));
- writeln(f,'Focused: '+inttohex(cardinal(focusedControl),8));
- writeln(f,'Hooked: '+inttohex(cardinal(hooked),8));
- writeln(f);
- for i:=0 to high(rootControls) do
-  DumpControl(rootControls[i],'');
- close(f);
- except
-  on e:exception do ForceLogMessage('Error in DumpUI: '+ExceptionMsg(e));
- end;
 end;
 
 end.
