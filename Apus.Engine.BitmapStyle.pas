@@ -67,7 +67,7 @@ implementation
    styleCls.DrawItem(control);
   end;
 
- procedure EventHandler(event:EventStr;tag:integer);
+ procedure EventHandler(event:TEventStr;tag:integer);
   var
    name:string;
    btn:TUIElement;

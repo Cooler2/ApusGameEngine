@@ -118,7 +118,7 @@ function StreamProc(handle:integer;buf:pointer;size,user:cardinal):cardinal; std
   result:=sp(buf,size);
  end;
 
-procedure EventHandler(event:EventStr;tag:TTag);
+procedure EventHandler(event:TEventStr;tag:TTag);
  var
   evt:TSoundEvent;
   mus:TMusic;

@@ -258,7 +258,7 @@ begin
  end;}
 end;
 
-procedure HEvent(event:EventStr;tag:TTag);
+procedure HEvent(event:TEventStr;tag:TTag);
  var
   i,x,y:integer;
   w:^cardinal;

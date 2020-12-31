@@ -252,7 +252,7 @@ function ShortMD5(st:string):string;
   result:=copy(MD5(st),1,10);
  end;
 
-procedure EventHandler(event:eventstr;tag:TTag);
+procedure EventHandler(event:TEventStr;tag:TTag);
  var
   i,code,t,e1,e2,httpStatus:integer;
   response:AnsiString;
@@ -564,7 +564,7 @@ procedure Connect(server,login,password,clientinfo:string);
  end;
 
 // Создание аккаунта
-procedure EventHandler2(event:eventstr;tag:TTag);
+procedure EventHandler2(event:TEventStr;tag:TTag);
  var
   code:integer;
   response:AnsiString;

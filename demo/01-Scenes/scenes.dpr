@@ -35,9 +35,9 @@ procedure CreateScenes;
   TTransitionEffect.Create(game.GetScene('SceneA'),0);
  end;
 
-procedure EventHandler(event:EventStr;tag:TTag);
+procedure EventHandler(event:TEventStr;tag:TTag);
  var
-  e:EventStr;
+  e:TEventStr;
   scene:TUIScene;
  begin
   if EventOfClass(event,'GameApp',e) then begin

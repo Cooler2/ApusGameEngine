@@ -352,7 +352,7 @@ begin
  end;
 end;
 
-procedure EventHandler(event:EventStr;tag:TTag);
+procedure EventHandler(event:TEventStr;tag:TTag);
 var
  tex:TTexture;
 begin

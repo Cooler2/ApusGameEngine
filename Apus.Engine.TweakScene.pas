@@ -64,7 +64,7 @@ implementation
  var
   tweakerScene:TTweakerScene;
 
- procedure EventHandler(event:eventStr;tag:TTag);
+ procedure EventHandler(event:TEventStr;tag:TTag);
   begin
    event:=UpperCase(event);
    if event='KBD\KEYDOWN' then begin

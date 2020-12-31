@@ -774,31 +774,31 @@ begin
  end;
 end;
 
-procedure EngineEvent(event:EventStr;tag:TTag);
+procedure EngineEvent(event:TEventStr;tag:TTag);
 begin
  if game=nil then exit;
  TGame(game).onEngineEvent(event,tag);
 end;
 
-procedure EngineCmdEvent(event:EventStr;tag:TTag);
+procedure EngineCmdEvent(event:TEventStr;tag:TTag);
 begin
  if game=nil then exit;
  TGame(game).onCmdEvent(event,tag);
 end;
 
-procedure GameKbdEvent(event:EventStr;tag:TTag);
+procedure GameKbdEvent(event:TEventStr;tag:TTag);
 begin
  if game=nil then exit;
  TGame(game).onKbdEvent(event,tag);
 end;
 
-procedure GameMouseEvent(event:EventStr;tag:TTag);
+procedure GameMouseEvent(event:TEventStr;tag:TTag);
 begin
  if game=nil then exit;
  TGame(game).onMouseEvent(event,tag);
 end;
 
-procedure GameJoystickEvent(event:EventStr;tag:TTag);
+procedure GameJoystickEvent(event:TEventStr;tag:TTag);
 begin
  if game=nil then exit;
  TGame(game).onJoystickEvent(event,tag);

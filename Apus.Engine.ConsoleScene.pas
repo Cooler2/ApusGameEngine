@@ -32,7 +32,7 @@ implementation
   cmdList:TStringList;
   cmdPos:integer;
 
-procedure KbdHandler(event:EventStr;tag:TTag);
+procedure KbdHandler(event:TEventStr;tag:TTag);
 var
  c:TUIElement;
 begin
@@ -115,7 +115,7 @@ procedure AddConsoleScene;
   cmdList:=TStringList.Create;
  end;
 
-procedure ConsoleOnEnter(event:EventStr;tag:TTag);
+procedure ConsoleOnEnter(event:TEventStr;tag:TTag);
 var
  e:TUIEditBox;
  i:integer;

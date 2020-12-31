@@ -64,7 +64,7 @@ var
  defaults:TDefaults; // default values used when new element is created
  curobjname:string; // current element name in upper case
 
-procedure onItemCreated(event:eventstr;tag:TTag);
+procedure onItemCreated(event:TEventStr;tag:TTag);
 var
  c:TUIElement;
 begin
@@ -73,7 +73,7 @@ begin
   PublishVar(c,c.name,TVarTypeUIControl);
 end;
 
-procedure onItemRenamed(event:eventstr;tag:TTag);
+procedure onItemRenamed(event:TEventStr;tag:TTag);
 var
  c:TUIElement;
 begin

@@ -164,7 +164,7 @@ procedure LoopMusicProc(sync,chan,data,user:cardinal); stdcall;
  end;
 
 
-procedure EventHandler(event:EventStr;tag:TTag);
+procedure EventHandler(event:TEventStr;tag:TTag);
  var
   evt:TSoundEvent;
   sa,sa2:stringarr;
