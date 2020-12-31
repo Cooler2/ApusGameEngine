@@ -209,7 +209,6 @@ var
   x,y,w,h,aw,ah:integer;
   img,atlas:TTexture;
   st,path:string;
-  stepU,stepV:single;
 begin
  try
   path:=ExtractFilePath(fname);
@@ -220,8 +219,6 @@ begin
   inc(aCount);
   atlas:=LoadImageFromFile(fname);
   atlases[aCount]:=atlas;
-  stepU:=0.5/aw;
-  stepV:=0.5/ah;
   while not eof(f) do begin
    readln(f,x,y,w,h,st);
    st:=chop(st);

@@ -1327,7 +1327,7 @@ procedure TestMemoryStat;
   sent:integer=0;
   trID:DWORD;
 
- procedure EventHandler(event:eventStr;tag:TTag);
+ procedure EventHandler(event:TEventStr;tag:TTag);
   var
    i,j:integer;
   begin

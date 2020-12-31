@@ -24,36 +24,36 @@ type
  // Строка, определяющая событие
  // Имеет формат: category\subcategory\..\sub..subcategory\name
 // EventStr=string[127];
- EventStr=string;
+ TEventStr=string;
  TTag=NativeInt;
 
  // Функция обработки события. Для блокировки обработки на более общих уровнях, должна вернуть false
  // In fact, return value is ignored
- TEventHandler=procedure(event:EventStr;tag:TTag);
+ TEventHandler=procedure(event:TEventStr;tag:TTag);
 
  // Set event handling procedure
  // event may contain multiple values (comma-separated)
- procedure SetEventHandler(event:EventStr;handler:TEventHandler;mode:TEventMode=emInstant);
+ procedure SetEventHandler(event:TEventStr;handler:TEventHandler;mode:TEventMode=emInstant);
  // Убрать обработчик
- procedure RemoveEventHandler(handler:TEventHandler;event:EventStr='');
+ procedure RemoveEventHandler(handler:TEventHandler;event:TEventStr='');
 
  // Сигнал о возникновении события (обрабатывается немедленно - в контексте текущего потока)
- procedure Signal(event:EventStr;tag:TTag=0);
- procedure DelayedSignal(event:EventStr;delay:integer;tag:TTag=0);
+ procedure Signal(event:TEventStr;tag:TTag=0);
+ procedure DelayedSignal(event:TEventStr;delay:integer;tag:TTag=0);
 
  // Обработать сигналы синхронно (если поток регистрирует синхронные обработчики, то он обязан регулярно вызывать эту функцию)
  procedure HandleSignals;
 
  // Связать событие с другим событием (тэг при этом может быть новым, но если это -1, то сохраняется старый)
  // Если redirect=true - при наличии линка отменет обработку сигнала на более общих уровнях
- procedure Link(event,newEvent:EventStr;tag:TTag=-1;redirect:boolean=false);
+ procedure Link(event,newEvent:TEventStr;tag:TTag=-1;redirect:boolean=false);
  // Удалить связь между событиями
- procedure Unlink(event,linkedEvent:EventStr);
+ procedure Unlink(event,linkedEvent:TEventStr);
  // Удалить все связанные события (втч для всех подсобытий)
- procedure UnlinkAll(event:EventStr='');
+ procedure UnlinkAll(event:TEventStr='');
 
  // Check if event has form of XXX\YYY where XXX is eventClass (case-insensitive). Returns YYY part in subEvent
- function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
+ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean;
 
 implementation
  uses Apus.CrossPlatform, SysUtils, Apus.MyServis;
@@ -62,7 +62,7 @@ const
 type
  PHandler=^THandler;
  THandler=record
-  event:EventStr;
+  event:TEventStr;
   handler:TEventHandler;
   threadNum:integer; // индекс в массиве нитей (-1 - асинхронная обработка)
   mode:TEventMode;
@@ -71,8 +71,8 @@ type
 
  PLink=^TLink;
  TLink=record
-  event:EventStr;
-  LinkedEvent:EventStr;
+  event:TEventStr;
+  LinkedEvent:TEventStr;
   tag:TTag;
   next:PLink;
   redirect,keepOriginalTag:boolean;
@@ -80,7 +80,7 @@ type
 
  // Элемент очереди событий
  TQueuedEvent=record
-  event:EventStr; // событие
+  event:TEventStr; // событие
   handler:TEventHandler; // кто должен его обработать
   tag:TTag;
   callerThread:TThreadID; // поток, из которого было
@@ -114,7 +114,7 @@ var
 
  critSect:TMyCriticalSection;
 
-function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
+function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean;
  var
   i:integer;
  begin
@@ -153,7 +153,7 @@ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
    ForceLogMessage('Thread '+GetThreadName(thread)+' delayed event queue: '+st);
   end;
 
- function Hash(st:EventStr):byte;
+ function Hash(st:TEventStr):byte;
   var
    i,l:integer;
   begin
@@ -167,7 +167,7 @@ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
    end;
   end;
 
- procedure SetEventHandler(event:EventStr;handler:TEventHandler;mode:TEventMode=emInstant);
+ procedure SetEventHandler(event:TEventStr;handler:TEventHandler;mode:TEventMode=emInstant);
   var
    ThreadID:TThreadID;
    i,n:integer;
@@ -221,7 +221,7 @@ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
    end;
   end;
 
- procedure RemoveEventHandler(handler:TEventHandler;event:EventStr='');
+ procedure RemoveEventHandler(handler:TEventHandler;event:TEventStr='');
   var
    i:integer;
    ph,prev,next:PHandler;
@@ -251,13 +251,13 @@ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
   end;
 
  // Для внутреннего использования
- procedure HandleEvent(event:EventStr;tag:TTag;time:int64;caller:UIntPtr=0);
+ procedure HandleEvent(event:TEventStr;tag:TTag;time:int64;caller:UIntPtr=0);
   var
    i,h:integer;
    fl:boolean;
    hnd:PHandler;
    link:PLink;
-   ev:EventStr;
+   ev:TEventStr;
    trID:TThreadID;
    cnt:integer;
    hndlist:array[1..150] of TEventHandler;
@@ -379,7 +379,7 @@ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
   end;
 
 
- procedure Signal(event:EventStr;tag:TTag=0);
+ procedure Signal(event:TEventStr;tag:TTag=0);
   var
    callerIP:cardinal; // адрес, откуда вызвана процедура
   begin
@@ -401,7 +401,7 @@ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
    end;
   end;
 
- procedure DelayedSignal(event:EventStr;delay:integer;tag:TTag=0);
+ procedure DelayedSignal(event:TEventStr;delay:integer;tag:TTag=0);
   var
    callerIP:cardinal; // адрес, откуда вызвана процедура
   begin
@@ -425,7 +425,7 @@ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
   type
    TCall=record
     proc:TEventHandler;
-    event:Eventstr;
+    event:TEventStr;
     tag:TTag;
    end;
    { TThreadQueue }
@@ -477,7 +477,7 @@ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
     end;
   end;
 
- procedure Link(event,newEvent:EventStr;tag:TTag=-1;redirect:boolean=false);
+ procedure Link(event,newEvent:TEventStr;tag:TTag=-1;redirect:boolean=false);
   var
    n:byte;
    link:PLink;
@@ -513,7 +513,7 @@ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
    link:=s;
   end;
 
- procedure Unlink(event,linkedEvent:EventStr);
+ procedure Unlink(event,linkedEvent:TEventStr);
   var
    n:byte;
    prev,link:PLink;
@@ -539,7 +539,7 @@ function EventOfClass(event,eventClass:EventStr;out subEvent:EventStr):boolean;
    end;
   end;
 
- procedure UnlinkAll(event:EventStr='');
+ procedure UnlinkAll(event:TEventStr='');
   var
    i:integer;
    prev,link:PLink;

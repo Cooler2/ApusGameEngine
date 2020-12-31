@@ -494,7 +494,7 @@ procedure TGameApplication.Run;
   SetupGameSettings(settings);
   game.SetSettings(settings);
 
-  if settings.mode.displayMode<>dmSwitchResolution then
+  if settings.mode.displayMode<>TDisplayMode.dmSwitchResolution then
    ForceLogMessage('Running in cooperative mode')
   else
    ForceLogMessage('Running in exclusive mode');
@@ -540,7 +540,7 @@ procedure TGameApplication.Run;
    try
     PingThread;
     CheckCritSections;
-    delay(10); // поддерживает сигналы тем самым давая возможность синхронно на них реагировать
+    Delay(5); // поддерживает сигналы тем самым давая возможность синхронно на них реагировать
     game.systemPlatform.ProcessSystemMessages;
     Signal('GAMEAPP\onIdle');
    except
@@ -586,12 +586,12 @@ begin
     gamUseFullWindow:begin
       if windowedMode then mode.displayMode:=dmFixedWindow
        else mode.displayMode:=dmFullScreen;
-      mode.displayFitMode:=dfmStretch;
+      mode.displayFitMode:=dfmFullSize;
       mode.displayScaleMode:=dsmDontScale;
       if windowedMode then altMode.displayMode:=dmFullScreen
        else altMode.displayMode:=dmFixedWindow;
       altMode.displayScaleMode:=dsmDontScale;
-      altMode.displayFitMode:=dfmStretch;
+      altMode.displayFitMode:=dfmFullSize;
     end;
     // Для отрисовки используется часть окна в масштабе 1:1
     gamKeepAspectRatio:begin

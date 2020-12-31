@@ -1588,7 +1588,6 @@ function UnpackRLE(buf:pointer;size:integer):ByteArray;
   s,p:integer;
   c:byte;
  begin
-  pb:=buf;
   // Check source data format
   pb:=buf;
   s:=CheckRLEHeader(buf,size);
@@ -1633,14 +1632,13 @@ function UnpackRLE(buf:pointer;size:integer):ByteArray;
 // - иначе 7 бит + 8 бит следующего байта - это 15 бит смещение до начала следующего блока
 function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
  var
-  i,cnt,pos,sameCnt,diffCnt:integer;
+  i,cnt,sameCnt,diffCnt:integer;
   sp,dp:PByte;
   mode:integer;
  begin
   sp:=sour; dp:=dest;
   SetLength(result,size+4+size div 16);
   cnt:=0; // счётчик байт в выходном потоке
-  pos:=0;
   sameCnt:=0; mode:=0; // поиск повторяющейся строки
   for i:=0 to size-1 do begin
    if mode=0 then begin

@@ -100,7 +100,6 @@ implementation
    fl:boolean;
    st,location:string;
    exe:TExecuter;
-   v:double;
   begin
    cmd:=chop(cmd);
    if cmd='' then exit;

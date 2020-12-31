@@ -7,7 +7,7 @@
 {$IFDEF MSWINDOWS} {$DEFINE DGL} {$ENDIF}
 unit Apus.Engine.OpenGL;
 interface
-uses Apus.Crossplatform, Apus.Engine.API, Apus.Engine.Internals, Apus.Images;
+uses Apus.Crossplatform, Apus.Engine.API, Apus.Images;
 
 type
  TOpenGL=class(TInterfacedObject,IGraphicsSystem)
@@ -34,6 +34,16 @@ implementation
 { TOpenGL }
 
 procedure TOpenGL.Init(system:ISystemPlatform);
+ var
+  pName:string;
+
+ {$IFDEF SDL}
+ procedure InitOnSDL(system:ISystemPlatform);
+  begin
+
+  end;
+ {$ENDIF}
+
  {$IFDEF MSWINDOWS}
  procedure InitOnWindows(system:ISystemPlatform);
   var
@@ -72,10 +82,18 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   {$IFDEF DGL}
   InitOpenGL;
   {$ENDIF}
+  pName:=system.GetPlatformName;
+  if pName='SDL' then begin
+   {$IFDEF SDL}
+   InitOnSDL(system);
+   {$ENDIF}
+  end else
+  if pName='WINDOWS' then begin
+   {$IFDEF MSWINDOWS}
+   InitOnWindows(system);
+   {$ENDIF}
+  end;
 
-  {$IFDEF MSWINDOWS}
-  InitOnWindows(system);
-  {$ENDIF}
   glVersion:=glGetString(GL_VERSION);
   glRenderer:=glGetString(GL_RENDERER);
   ForceLogMessage('OpenGL version: '+glVersion);

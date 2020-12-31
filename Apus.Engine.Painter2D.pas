@@ -6,7 +6,7 @@
 {$R-}
 unit Apus.Engine.Painter2D;
 interface
- uses Apus.Engine.Internals,Types,Apus.Geom3D,Apus.Engine.API;
+ uses Types,Apus.Geom3D,Apus.Engine.API;
  const
   MAGIC_TEXTCACHE = $01FF;
   DEFAULT_FONT_DOWNSCALE = 0.93;

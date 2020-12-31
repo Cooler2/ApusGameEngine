@@ -95,7 +95,7 @@ procedure SetDisplaySize(width,height:integer);
   rootHeight:=height;
  end;
 
-procedure ActivateEventHandler(event:EventStr;tag:TTag);
+procedure ActivateEventHandler(event:TEventStr;tag:TTag);
 begin
  EnterCriticalSection(UICritSect);
  try
@@ -106,7 +106,7 @@ begin
  end;
 end;
 
-procedure MouseEventHandler(event:EventStr;tag:TTag);
+procedure MouseEventHandler(event:TEventStr;tag:TTag);
 var
  c,c2:TUIElement;
  e1,e2,e:boolean;
@@ -277,7 +277,7 @@ begin
  ForceLogMessage('UI state'#13#10+st);
 end;
 
-procedure KbdEventHandler(event:EventStr;tag:TTag);
+procedure KbdEventHandler(event:TEventStr;tag:TTag);
 var
  c:TUIElement;
  shift:byte;
@@ -408,7 +408,7 @@ end;
 
 function TUIScene.Process: boolean;
 var
- i,delta:integer;
+ delta:integer;
  c:TUIElement;
  time:cardinal;
  st:string;
@@ -501,7 +501,7 @@ begin
 end;
 
 // tag: low 8 bit - new shadow value, next 16 bit - duration in ms
-procedure onSetGlobalShadow(event:eventstr;tag:TTag);
+procedure onSetGlobalShadow(event:TEventStr;tag:TTag);
 begin
  startShadowChange:=MyTickCount;
  shadowChangeDuration:=tag shr 8;
@@ -510,7 +510,7 @@ begin
 end;
 
 // tag: low 8 bit - new shadow value, next 16 bit - duration in ms
-procedure onSetFocus(event:eventstr;tag:TTag);
+procedure onSetFocus(event:TEventStr;tag:TTag);
 begin
  delete(event,1,length('UI\SETFOCUS\'));
  if (event<>'') and (event<>'NIL') then

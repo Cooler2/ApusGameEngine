@@ -60,6 +60,7 @@ interface
   VK_RIGHT=windows.VK_RIGHT;
   VK_HOME=windows.VK_HOME;
   VK_END=windows.VK_END;
+  VK_SNAPSHOT=windows.VK_SNAPSHOT;
 {$ELSE}
  const
   VK_SPACE=32;
@@ -75,6 +76,7 @@ interface
   VK_RIGHT=39;
   VK_HOME=36;
   VK_END=35;
+  VK_SNAPSHOT=44;
   VK_F1=112;
   VK_F2=113;
   VK_F3=114;
@@ -87,6 +89,7 @@ interface
   VK_F10=121;
   VK_F11=122;
   VK_F12=123;
+
  type
   TThreadID=system.TThreadID;
   HCURSOR=cardinal;

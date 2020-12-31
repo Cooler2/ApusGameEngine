@@ -58,11 +58,11 @@ uses
   Apus.Engine.IQMloader in '..\..\Apus.Engine.IQMloader.pas',
   Apus.Engine.ImgLoadQueue in '..\..\Apus.Engine.ImgLoadQueue.pas',
   Apus.Engine.UIScript in '..\..\Apus.Engine.UIScript.pas',
-  Apus.Engine.Internals in '..\..\Apus.Engine.Internals.pas',
   Apus.Engine.GfxFormats3D in '..\..\Apus.Engine.GfxFormats3D.pas',
-  Apus.Engine.WindowsPlatform in '..\..\Apus.Engine.WindowsPlatform.pas',
   Apus.Engine.ImageTools in '..\..\Apus.Engine.ImageTools.pas',
-  Apus.Engine.OpenGL in '..\..\Apus.Engine.OpenGL.pas';
+  Apus.Engine.OpenGL in '..\..\Apus.Engine.OpenGL.pas',
+  Apus.Engine.WindowsPlatform in '..\..\Apus.Engine.WindowsPlatform.pas',
+  Apus.Engine.SDLplatform in '..\..\Apus.Engine.SDLplatform.pas';
 
 const
  wnd:boolean=true;

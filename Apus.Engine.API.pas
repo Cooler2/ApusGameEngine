@@ -6,7 +6,7 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Engine.Internals;
+ uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D;
 
 const
  // Image allocation flags (ai - AllocImage)
@@ -139,8 +139,27 @@ const
  crNone           = 99;  // No cursor (hidden)
 
 type
+ // Strings
  String8 = Apus.MyServis.String8;
  String16 = Apus.MyServis.String16;
+
+ // 2D points
+ TPoint2 = Apus.Geom2D.TPoint2;
+ PPoint2 = Apus.Geom2D.PPoint2;
+ TPoint2s = Apus.Geom2D.TPoint2s;
+ PPoint2s = ^TPoint2s;
+ // 3D Points
+ TPoint3 = Apus.Geom3D.TPoint3;
+ PPoint3 = ^TPoint3;
+ TPoint3s = Apus.Geom3D.TPoint3s;
+ PPoint3s = ^TPoint3s;
+ // Matrices
+ T3DMatrix = TMatrix4;
+ T3DMatrixS = TMatrix4s;
+ T2DMatrix = TMatrix32s;
+
+ TRect2s = Apus.Geom2D.TRect2s;
+
 
  TImagePixelFormat = Apus.Images.TImagePixelFormat;
 
@@ -191,6 +210,101 @@ type
  TLockMode=(lmReadOnly,       // read-only (do not invalidate data when unlocked)
             lmReadWrite,      // read+write (invalidate the whole area)
             lmCustomUpdate);  // read+write, do not invalidate anything (AddDirtyRect is required, partial lock is not allowed in this case)
+
+ // Display target
+ TDisplayMode=(dmNone,             // not specified
+               dmSwitchResolution, // Fullscreen: switch to desired display mode (change screen resolution)
+               dmFullScreen,       // Use current resolution with fullscreen window
+               dmFixedWindow,      // Use fixed-size window
+               dmWindow);          // Use resizeable window
+
+ // How the default render target should appear in the output area
+ TDisplayFitMode=(dfmCenter,           // render target is centered in the output window rect (1:1) (DisplayScaleMode is ignored)
+                  dfmFullSize,         // render target fills the whole output output window rect
+                  dfmKeepAspectRatio); // render target is stretched to fill the output window rect while keeping it's aspect ratio
+
+ // How rendering is processed if back buffer size doesn't match the output rect
+ TDisplayScaleMode=(dsmDontScale,   // Ignore the back buffer size and set it to match the output rect size
+                    dsmStretch,     // Render to the back buffer size and then stretch rendered image to the output rect
+                    dsmScale);      // Use scale transformation matrix to map render area to the output rect
+
+ TDisplaySettings=record
+  displayMode:TDisplayMode;
+  displayFitMode:TDisplayFitMode;
+  displayScaleMode:TDisplayScaleMode;
+ end;
+
+ // Это важная структура, задающая параметры работы движка
+ // На ее основе движок будет конфигурировать другие объекты, например device
+ // Важно понимать смысл каждого ее поля, хотя не обязательно каждое из них будет учтено
+ TGameSettings=record
+  title:string;  // Заголовок окна/программы
+  width,height:integer; // Размер BackBuffer'а и (вероятно) области вывода (окна/экрана), фактический размер окна может отличаться от запрошенного
+                        // если mode=dmFullScreen, то эти параметры игнорируются и устанавливаются в текущее разрешение
+                        // В процессе работы область вывода может меняться (например при изменении размеров окна или переключении режима)
+                        // В данной версии размер backBuffer всегда равен размеру области вывода (нет масштабирования), но в принципе
+                        // они могут и отличаться
+  colorDepth:integer; // Желаемый формат бэкбуфера (16/24/32)
+  refresh:integer;   // Частота регенерации экрана (0 - default)
+  VSync:integer;     // Синхронизация с обновлением монитора (0 - максимальный FPS, N - FPS = refresh/N
+  mode,altMode:TDisplaySettings; // Основной режим запуска и альтернативный режим (для переключения по Alt+Enter)
+  showSystemCursor:boolean; // Показывать ли системный курсор? если false - курсор рисуется движком программно
+  zbuffer:byte; // желательная глубина z-буфера (0 - не нужен)
+  stencil:boolean; // нужен ли stencil-буфер (8-bit)
+  multisampling:byte; // включить мультисэмплинг (fs-антиалиасинг) - кол-во сэмплов (<2 - отключен)
+  slowmotion:boolean; // true - если преобладают медленные сцены или если есть большой разброс
+                      // в скорости - тогда возможна (но не гарантируется) оптимизация перерисовки
+ end;
+
+ ISystemPlatform=interface
+  // System information
+  function GetPlatformName:string;
+  function CanChangeSettings:boolean;
+  procedure GetScreenSize(out width,height:integer);
+  function GetScreenDPI:integer;
+  // Window management
+  procedure CreateWindow(title:string); // Create main window
+  procedure DestroyWindow;
+  procedure SetupWindow(params:TGameSettings); // Configure/update window properties
+  procedure ShowWindow(show:boolean);
+  function GetWindowHandle:THandle;
+  procedure MoveWindowTo(x,y:integer;width:integer=0;height:integer=0);
+  procedure SetWindowCaption(text:string);
+  procedure Minimize;
+  procedure FlashWindow(count:integer);
+  // Event management
+  procedure ProcessSystemMessages;
+  function IsTerminated:boolean;
+
+  // System functions
+  function GetSystemCursor(cursorId:integer):THandle;
+  function MapScanCodeToVirtualKey(key:integer):integer;
+  function GetMousePos:TPoint; // Get mouse position on screen (screen may mean client when platform doesn't support real screen space)
+  function GetMouseButtons:cardinal;
+  function GetShiftKeysState:cardinal;
+
+  // Translate coordinates between screen and window client area
+  procedure ScreenToClient(var p:TPoint);
+  procedure ClientToScreen(var p:TPoint);
+
+  // OpenGL support
+  procedure OGLSwapBuffers;
+ end;
+
+ IGraphicsSystem=interface
+  procedure Init(system:ISystemPlatform);
+  function GetVersion:single; // like 3.1 for OpenGL 3.1
+  procedure ChoosePixelFormats(out trueColor,trueColorAlpha,rtTrueColor,rtTrueColorAlpha:TImagePixelFormat;
+    economyMode:boolean=false);
+
+  function CreatePainter:TObject;
+  function ShouldUseTextureAsDefaultRT:boolean;
+  function SetVSyncDivider(n:integer):boolean; // 0 - unlimited FPS, 1 - use monitor refresh rate
+  procedure CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
+
+  procedure PresentFrame(system:ISystemPlatform);
+ end;
+
 
 
  // -------------------------------------------------------------------
@@ -518,51 +632,6 @@ type
   clipRect:TRect;    // currently requested clipping area (in virtual pixels), might be different from actual clipping area
  end;
 
- // Display target
- TDisplayMode=(dmNone,             // not specified
-               dmSwitchResolution, // Fullscreen: switch to desired display mode (change screen resolution)
-               dmFullScreen,       // Use current resolution with fullscreen window
-               dmFixedWindow,      // Use fixed-size window
-               dmWindow);          // Use resizeable window
-
- // How the default render target should appear in the output area
- TDisplayFitMode=(dfmCenter,           // render target is centered in the output window rect (1:1) (DisplayScaleMode is ignored)
-                  dfmStretch,          // render target is stretched to fill the whole output window rect
-                  dfmKeepAspectRatio); // render target is stretched to fill the output window rect while keeping it's aspect ratio
-
- // How rendering is processed if back buffer size doesn't match the output rect
- TDisplayScaleMode=(dsmDontScale,   // Ignore the back buffer size and set it to match the output rect size
-                    dsmStretch,     // Render to the back buffer size and then stretch to the output rect
-                    dsmScale);      // Render to the output rect size using scale transformation matrix
-
- TDisplaySettings=record
-  displayMode:TDisplayMode;
-  displayFitMode:TDisplayFitMode;
-  displayScaleMode:TDisplayScaleMode;
- end;
-
- // Это важная структура, задающая параметры работы движка
- // На ее основе движок будет конфигурировать другие объекты, например device
- // Важно понимать смысл каждого ее поля, хотя не обязательно каждое из них будет учтено
- TGameSettings=record
-  title:string;  // Заголовок окна/программы
-  width,height:integer; // Размер BackBuffer'а и (вероятно) области вывода (окна/экрана), фактический размер окна может отличаться от запрошенного
-                        // если mode=dmFullScreen, то эти параметры игнорируются и устанавливаются в текущее разрешение
-                        // В процессе работы область вывода может меняться (например при изменении размеров окна или переключении режима)
-                        // В данной версии размер backBuffer всегда равен размеру области вывода (нет масштабирования), но в принципе
-                        // они могут и отличаться
-  colorDepth:integer; // Желаемый формат бэкбуфера (16/24/32)
-  refresh:integer;   // Частота регенерации экрана (0 - default)
-  VSync:integer;     // Синхронизация с обновлением монитора (0 - максимальный FPS, N - FPS = refresh/N
-  mode,altMode:TDisplaySettings; // Основной режим запуска и альтернативный режим (для переключения по Alt+Enter)
-  showSystemCursor:boolean; // Показывать ли системный курсор? если false - курсор рисуется движком программно
-  zbuffer:byte; // желательная глубина z-буфера (0 - не нужен)
-  stencil:boolean; // нужен ли stencil-буфер (8-bit)
-  multisampling:byte; // включить мультисэмплинг (fs-антиалиасинг) - кол-во сэмплов (<2 - отключен)
-  slowmotion:boolean; // true - если преобладают медленные сцены или если есть большой разброс
-                      // в скорости - тогда возможна (но не гарантируется) оптимизация перерисовки
- end;
-
  TGameScene=class;
 
  // Базовый эффект для background-сцены
@@ -782,21 +851,11 @@ type
   procedure Minimize; virtual; abstract;
   procedure MoveWindowTo(x, y, width, height: integer); virtual; abstract;
   procedure SetWindowCaption(text: string); virtual; abstract;
-
-  // Input
-  procedure MouseMovedTo(newX,newY:integer); virtual; abstract;
-  procedure CharEntered(charCode,scanCode:integer); virtual; abstract;
-  procedure KeyPressed(keyCode,scanCode:integer;pressed:boolean=true); virtual; abstract;
-  procedure MouseButtonPressed(btn:integer;pressed:boolean=true); virtual; abstract;
-  procedure MouseWheelMoved(value:integer); virtual; abstract;
-  procedure SizeChanged(newWidth,newHeight:integer); virtual; abstract;
-  procedure Activate(activeState:boolean); virtual; abstract;
  end;
 
 var
  game:TGameBase;
  painter:TPainter;
-
 
  // Используемые форматы пикселя (в какие форматы грузить графику)
  // Они определяются исходя из доступного объема видеопамяти и кол-ва графики в игре
@@ -875,7 +934,6 @@ function TTexture.Clone:TTexture;
   result:=TTexture.CreateClone(self);
  end;
 
-
 function TTexture.ClonePart(part:TRect): TTexture;
  begin
   result:=Clone;
@@ -888,7 +946,6 @@ function TTexture.ClonePart(part:TRect): TTexture;
   result.v1:=v1+part.top*stepV*2;
   result.v2:=v1+part.bottom*stepV*2;
  end;
-
 
 { TGameScene }
 

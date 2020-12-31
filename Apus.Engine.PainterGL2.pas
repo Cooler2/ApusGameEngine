@@ -8,7 +8,7 @@
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit Apus.Engine.PainterGL2;
 interface
- uses Types, Apus.Engine.API, Apus.Engine.Internals, Apus.Engine.Painter2D, Apus.Engine.PainterGL;
+ uses Types, Apus.Engine.API, Apus.Engine.Painter2D, Apus.Engine.PainterGL;
 type
 
  { TGLPainter2 }

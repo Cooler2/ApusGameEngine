@@ -16,14 +16,8 @@ uses
   Apus.MemoryLeakUtils, Apus.MyServis, Apus.Network, Apus.Profiling, 
   Apus.Publics, Apus.RegExpr, Apus.Regions, Apus.RSA, Apus.SCGI, 
   Apus.StackTrace, Apus.Structs, Apus.TextUtils, Apus.Translation, 
-  Apus.UnicodeFont, LazarusPackageIntf;
+  Apus.UnicodeFont;
 
 implementation
 
-procedure Register;
-begin
-end;
-
-initialization
-  RegisterPackage('ApusBase', @Register);
 end.

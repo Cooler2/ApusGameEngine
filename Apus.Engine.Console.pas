@@ -107,12 +107,12 @@ implementation
    end;
   end;
 
- procedure NormalEvent(event:eventstr;tag:integer);
+ procedure NormalEvent(event:TEventStr;tag:TTag);
   begin
    if consoleSettings.handleDebugSignals then
     PutMsg(timestamp+' Evt: '+event+' - '+inttostr(tag));
   end;
- procedure CriticalEvent(event:eventstr;tag:integer);
+ procedure CriticalEvent(event:TEventStr;tag:TTag);
   begin
    if consoleSettings.handleErrorSignals then
     PutMsg(timestamp+' Evt: '+event+' - '+inttostr(tag),true,-1);

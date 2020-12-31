@@ -5,16 +5,18 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.WindowsPlatform;
 interface
-uses Apus.CrossPlatform, Apus.Engine.Internals;
+uses Apus.CrossPlatform, Apus.Engine.API;
 
 type
  TWindowsPlatform=class(TInterfacedObject,ISystemPlatform)
+  constructor Create;
+  function GetPlatformName:string;
   function CanChangeSettings:boolean;
   procedure GetScreenSize(out width,height:integer);
   function GetScreenDPI:integer;
 
   procedure CreateWindow(title:string);
-  procedure SetupWindow;
+  procedure SetupWindow(params:TGameSettings);
   function GetWindowHandle:THandle;
   procedure DestroyWindow;
 
@@ -25,6 +27,7 @@ type
   procedure FlashWindow(count:integer);
 
   procedure ProcessSystemMessages;
+  function IsTerminated:boolean;
 
   function GetMousePos:TPoint; // Get mouse position on screen
   function GetSystemCursor(cursorId:integer):THandle;
@@ -41,7 +44,10 @@ type
  end;
 
 implementation
-uses Windows, Messages, Types, Apus.MyServis, Apus.Engine.API, SysUtils, Apus.EventMan, Apus.Engine.Game;
+uses Windows, Messages, Types, Apus.MyServis, SysUtils, Apus.EventMan;
+
+var
+ terminated:boolean;
 
 {$IF Declared(FlashWindowEx)} {$ELSE}
 const
@@ -66,96 +72,106 @@ function FlashWindowEx(var pfwi: TFlashWInfo): LongBool; stdcall; external 'user
 function SetProcessDPIAware:BOOL; external user32 name 'SetProcessDPIAware';
 {$IFEND}
 
+function AsciiCodeFromUnicode(unicode:integer):integer;
+var
+ wst:WideString;
+ ast:AnsiString;
+begin
+ wst:=WideChar(unicode);
+ ast:=wst; // conversion
+ result:=byte(ast[1]);
+end;
+
 function WindowProc(Window:HWnd;Message,WParam:Longint;LParam:LongInt):LongInt; stdcall;
 var
- i,c:integer;
- key:cardinal;
- wst:WideString;
- st:string;
+ i,charCode,scanCode:integer;
  pnt:TPoint;
- scancode:word;
- scene:TGameScene;
- sysCursor:boolean;
 begin
- if game=nil then
-  Exit(DefWindowProcW(Window,Message,WParam,LParam));
-
  try
- game.EnterCritSect;
-
  result:=0;
  case Message of
-  wm_Destroy: Signal('Engine\Cmd\Exit',0);
-
-  WM_MOUSEMOVE:begin
-    sysCursor:=game.GetSettings.showSystemCursor;
-    if not sysCursor then SetCursor(0);
-    pnt:=Point(SmallInt(LoWord(lParam)),SmallInt(HiWord(lParam)));
-    ClientToScreen(window,pnt);
-    game.ScreenToGame(pnt);
-    game.MouseMovedTo(pnt.x,pnt.y);
+  wm_Destroy:begin
+   terminated:=true;
+   Signal('Engine\Cmd\Exit',0);
   end;
 
-  WM_MOUSELEAVE:game.MouseMovedTo(8191,8191);
+  WM_MOUSEMOVE:Signal('MOUSE\GLOBALMOVE',lParam);
+
+  WM_MOUSELEAVE:Signal('MOUSE\GLOBALMOVE',$3FFF3FFF);
 
   WM_UNICHAR:begin
 //   LogMessage(inttostr(wparam)+' '+inttostr(lparam));
   end;
 
-  WM_CHAR:game.CharEntered(wparam,lparam shr 16);
+  WM_CHAR:begin
+    charCode:=wParam and $FFFF;
+    scanCode:=(lParam shr 16) and $FF;
+    Signal('KBD\CHAR',AsciiCodeFromUnicode(charCode)+scanCode shl 16);
+    Signal('KBD\UNICHAR',charCode+scanCode shl 16);
+  end;
 
   WM_KEYDOWN,WM_SYSKEYDOWN:begin
-    // wParam = Virtual Code lParam[23..16] = Scancode
+    // wParam = Virtual Code; lParam[23..16] = Scancode
     scancode:=(lParam shr 16) and $FF;
-    game.KeyPressed(wParam,scanCode,true);
+    Signal('KBD\KEYDOWN',wParam and $FFFF+scancode shl 16);
   end;
 
   WM_KEYUP,WM_SYSKEYUP:begin
     scancode:=(lParam shr 16) and $FF;
-    game.KeyPressed(wParam,scancode,false);
+    Signal('KBD\KEYUP',wParam and $FFFF+scancode shl 16);
     if message=WM_SYSKEYUP then exit(0);
   end;
 
-  WM_SYSCHAR:begin
+{  WM_SYSCHAR:begin
     result:=0; exit;
     scancode:=(lParam shr 16) and $FF;
 //    Signal('KBD\KeyDown',wParam and $FFFF+game.shiftState shl 16+scancode shl 24);
-  end;
+  end;}
 
   WM_LBUTTONDOWN,WM_RBUTTONDOWN,WM_MBUTTONDOWN:begin
     SetCapture(window);
-    if not game.GetSettings.showSystemCursor then SetCursor(0);
-    if message=wm_LButtonDown then game.MouseButtonPressed(1,true) else
-    if message=wm_RButtonDown then game.MouseButtonPressed(2,true) else
-    if message=wm_MButtonDown then game.MouseButtonPressed(3,true);
+    i:=0;
+    if message=wm_LButtonDown then i:=1 else
+    if message=wm_RButtonDown then i:=2 else
+    if message=wm_MButtonDown then i:=3;
+    Signal('MOUSE\BTNDOWN',i);
   end;
 
   WM_LBUTTONUP,WM_RBUTTONUP,WM_MBUTTONUP:begin
     ReleaseCapture;
-    if not game.GetSettings.showSystemCursor then SetCursor(0);
-    c:=0;
-    if message=wm_LButtonUp then game.MouseButtonPressed(1,false) else
-    if message=wm_RButtonUp then game.MouseButtonPressed(2,false) else
-    if message=wm_MButtonUp then game.MouseButtonPressed(3,false);
+    i:=0;
+    if message=wm_LButtonUp then i:=1 else
+    if message=wm_RButtonUp then i:=2 else
+    if message=wm_MButtonUp then i:=3;
+    Signal('MOUSE\BTNUP',i);
   end;
 
-  WM_MOUSEWHEEL:game.MouseWheelMoved(wParam div 65536);
+  WM_MOUSEWHEEL:Signal('MOUSE\SCROLL',wParam div 65536);
 
-  WM_SIZE:if game.active and (lParam>0) then
-   game.SizeChanged(lParam and $FFFF,lParam shr 16);
+  WM_SIZE:Signal('ENGINE\RESIZE',lParam);
 
-  WM_ACTIVATE:game.Activate(loword(wparam)<>wa_inactive);
-
-  WM_HOTKEY:if wparam=312 then game.RequestScreenshot(true); // ???
+  WM_ACTIVATE:begin
+   if loword(wparam)<>wa_inactive then i:=1
+    else i:=0;
+   Signal('ENGINE\SETACTIVE',i);
+  end;
  end;
 
  result:=DefWindowProcW(Window,Message,WParam,LParam);
- finally
-  game.LeaveCritSect;
+ except
+  on e:Exception do ForceLogMessage('WindowProc error: '+ExceptionMsg(e));
  end;
 end;
 
 { TWindowsPlatform }
+
+constructor TWindowsPlatform.Create;
+ var
+  ver:DWord;
+ begin
+  ver:=GetVersion;
+  LogMessage('Windows platform: %d.%d',[ver and $FF,(ver shr 8) and $FF]);
+ end;
 
 function TWindowsPlatform.CanChangeSettings: boolean;
  begin
@@ -199,7 +215,11 @@ procedure TWindowsPlatform.ScreenToClient;
 function TWindowsPlatform.GetMousePos: TPoint;
  begin
   GetCursorPos(result);
-  ScreenToClient(result);
+ end;
+
+function TWindowsPlatform.GetPlatformName: string;
+ begin
+  result:='WINDOWS';
  end;
 
 function TWindowsPlatform.GetScreenDPI: integer;
@@ -304,6 +324,11 @@ procedure TWindowsPlatform.ProcessSystemMessages;
    end;
  end;
 
+function TWindowsPlatform.IsTerminated:boolean;
+ begin
+  result:=terminated;
+ end;
+
 procedure TWindowsPlatform.Minimize;
  begin
   windows.ShowWindow(window,SW_MINIMIZE);
@@ -336,15 +361,13 @@ procedure TWindowsPlatform.OGLSwapBuffers;
    ReleaseDC(window,DC);
  end;
 
-procedure TWindowsPlatform.SetupWindow;
+procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
  var
   r,r2:TRect;
   style:cardinal;
   w,h:integer;
-  params:TGameSettings;
  begin
    LogMessage('Configure main window');
-   params:=game.GetSettings;
    style:=ws_popup;
    if params.mode.displayMode=dmWindow then inc(style,WS_SIZEBOX+WS_MAXIMIZEBOX);
    if params.mode.displayMode in [dmWindow,dmFixedWindow] then
@@ -380,8 +403,7 @@ procedure TWindowsPlatform.SetupWindow;
    LogMessage('WindowRect: '+inttostr(r.Right-r.Left)+':'+inttostr(r.Bottom-r.top));
    GetClientRect(window,r);
    LogMessage('ClientRect: '+inttostr(r.Right-r.Left)+':'+inttostr(r.Bottom-r.top));
-   game.SizeChanged(r.Width,r.Height);
-   game.screenChanged:=true;
+   Signal('ENGINE\RESIZE',r.Width+r.height shl 16);
  end;
 
 procedure TWindowsPlatform.SetWindowCaption(text: string);
@@ -394,7 +416,7 @@ procedure TWindowsPlatform.SetWindowCaption(text: string);
 
 procedure TWindowsPlatform.ShowWindow(show: boolean);
  begin
-  LoadCursor(0,IDC_ARROW);
+  //LoadCursor(0,IDC_ARROW);
   if show then
    windows.ShowWindow(window,SW_SHOWNORMAL)
   else

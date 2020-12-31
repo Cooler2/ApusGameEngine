@@ -9,7 +9,7 @@
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit Apus.Engine.PainterGL;
 interface
- uses Types, Apus.Engine.API, Apus.Engine.Internals, Apus.Engine.Painter2D;
+ uses Types, Apus.Engine.API, Apus.Engine.Painter2D;
 
 type
  TMatrixType=(mtModelView,mtProjection);
@@ -276,7 +276,7 @@ function GetShaderError(shader:GLuint):string;
   {$IFDEF GLES}
   glGetShaderInfoLog(shader,maxLen,@maxLen,errorLog);
   {$ELSE}
-  glGetShaderInfoLog(shader,maxLen,maxLen,errorLog);
+  glGetShaderInfoLog(shader,maxLen,@maxLen,errorLog);
   {$ENDIF}
   glDeleteShader(shader);
   result:=errorLog;
