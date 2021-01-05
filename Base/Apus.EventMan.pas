@@ -66,6 +66,7 @@ type
   handler:TEventHandler;
   threadNum:integer; // индекс в массиве нитей (-1 - асинхронная обработка)
   mode:TEventMode;
+  setFrom:pointer;
   next:PHandler;
  end;
 
@@ -172,7 +173,9 @@ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean
    ThreadID:TThreadID;
    i,n:integer;
    ph:PHandler;
+   caller:pointer;
   begin
+   caller:=GetCaller;
    // Если обработчик уже есть - повторно установлен не будет
    try
     repeat
@@ -213,6 +216,7 @@ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean
     ph.handler:=handler;
     ph.threadNum:=n;
     ph.mode:=mode;
+    ph.setFrom:=caller;
     ph.next:=handlers[i];
     handlers[i]:=ph;
 
