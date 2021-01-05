@@ -285,8 +285,8 @@ var
 begin
  EnterCriticalSection(UICritSect);
  try
-  shift:=(tag shr 16) and 255;
   lastShiftState:=shift;
+  shift:=game.shiftState;
   key:=tag and $FF;
   event:=UpperCase(copy(event,5,length(event)-4));
   if event='KEYDOWN' then // Win+Ctrl+S
@@ -316,11 +316,11 @@ begin
    if event='KEYUP' then
     if not focusedControl.onKey(key,false,shift) then exit;
 
-   if event='CHAR' then
+{   if event='CHAR' then
     focusedControl.onChar(chr(tag and $FF),tag shr 8);
 
    if event='UNICHAR' then
-    focusedControl.onUniChar(WideChar(tag and $FFFF),tag shr 16);
+    focusedControl.onUniChar(WideChar(tag and $FFFF),tag shr 16);}
   end;
 
  finally
@@ -590,9 +590,18 @@ begin
 end;
 
 procedure TUIScene.WriteKey(key: cardinal);
+var
+ scanCode:byte;
+ charCode:integer;
 begin
  if (UI<>nil) and (not UI.enabled) then exit;
  inherited;
+
+ if (focusedControl<>nil) and (focusedControl.HasParent(UI)) then begin
+  charCode:=key shr 16;
+  scanCode:=(key shr 8) and $FF;
+  focusedControl.onUniChar(WideChar(charCode),scanCode);
+ end;
 end;
 
 procedure ShowSimpleHint;

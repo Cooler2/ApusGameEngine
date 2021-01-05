@@ -2135,7 +2135,6 @@ begin
  end;
 end;
 
-
 function TUIEditBox.onKey(keycode: byte; pressed: boolean;shiftstate:byte): boolean;
  var
   str:string;

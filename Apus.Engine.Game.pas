@@ -50,8 +50,9 @@ type
   procedure ToggleCursor(CursorID:integer;state:boolean=true); override;
   procedure HideAllCursors; override;
 
-  procedure ScreenToGame(var p:TPoint); override;
-  procedure GameToScreen(var p:TPoint); override;
+  // Translate coordinates in window's client area
+  procedure ClientToGame(var p:TPoint); override;
+  procedure GameToClient(var p:TPoint); override;
 
   function RunAsync(threadFunc:pointer;param:cardinal=0;ttl:single=0;name:string=''):THandle; override;
   function GetThreadResult(h:THandle):integer; override;
@@ -1041,7 +1042,7 @@ begin
    OldMouseX:=mouseX;
    OldMouseY:=MouseY;
    p:=Point(tag and $FFFF,tag shr 16);
-   ScreenToGame(p);
+   ClientToGame(p);
    MouseX:=p.x;
    MouseY:=p.y;
    mouseMovedAt:=MyTickCount;
@@ -1057,7 +1058,7 @@ begin
    OldMouseX:=mouseX;
    OldMouseY:=MouseY;
    p:=Point(tag and $FFFF,tag shr 16);
-   ScreenToGame(p);
+   ClientToGame(p);
    MouseX:=p.x;
    MouseY:=p.y;
    mouseMovedAt:=MyTickCount;
@@ -1100,7 +1101,7 @@ begin
  // Update mouse position when it is obsolete
  if SameText(event,'UPDATEMOUSEPOS') then begin
    pnt:=systemPlatform.GetMousePos;
-   ScreenToGame(pnt);
+   ClientToGame(pnt);
    tag:=pnt.X+pnt.Y shl 16;
    Signal('MOUSE\MOVE',tag);
  end
@@ -1120,7 +1121,7 @@ begin
  if SameText(event,'KEYUP') then begin
    KeyPressed(tag and $FFFF,tag shr 16,false);
  end else
- if SameText(event,'CHAR') then begin
+ if SameText(event,'UNICHAR') then begin
    CharEntered(tag and $FFFF,tag shr 16);
  end;
 end;
@@ -1133,9 +1134,15 @@ begin
  event:=Copy(event,7,200);
  if not params.showSystemCursor then SetCursor(0);
  // position changed in screen space
+ if SameText(event,'CLIENTMOVE') then begin
+   pnt:=Point(SmallInt(tag),SmallInt(tag shr 16));
+   ClientToGame(pnt);
+   MouseMovedTo(pnt.x,pnt.y); // process motion in game space
+ end else
  if SameText(event,'GLOBALMOVE') then begin
    pnt:=Point(SmallInt(tag),SmallInt(tag shr 16));
-   ScreenToGame(pnt);
+   systemPlatform.ScreenToClient(pnt);
+   ClientToGame(pnt);
    MouseMovedTo(pnt.x,pnt.y); // process motion in game space
  end else
  if SameText(event,'BTNDOWN') then begin
@@ -1635,18 +1642,16 @@ begin
  systemPlatform.SetWindowCaption(text);
 end;
 
-procedure TGame.ScreenToGame(var p:TPoint);
+procedure TGame.ClientToGame(var p:TPoint);
  begin
-  systemPlatform.ScreenToClient(p);
   p.X:=round((p.X-displayRect.Left)*renderWidth/(displayRect.Right-displayRect.Left));
   p.Y:=round((p.Y-displayRect.top)*renderHeight/(displayRect.Bottom-displayRect.Top));
  end;
 
-procedure TGame.GameToScreen(var p:TPoint);
+procedure TGame.GameToClient(var p:TPoint);
  begin
   p.X:=round(displayRect.Left+p.X*(displayRect.Right-displayRect.Left)/renderWidth);
   p.Y:=round(displayRect.top+p.Y*(displayRect.Bottom-displayRect.Top)/renderHeight);
-  systemPlatform.ClientToScreen(p);
  end;
 
 function TGame.GetCursorForID(cursorID:integer):HCursor;

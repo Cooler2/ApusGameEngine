@@ -95,9 +95,9 @@ begin
    Signal('Engine\Cmd\Exit',0);
   end;
 
-  WM_MOUSEMOVE:Signal('MOUSE\GLOBALMOVE',lParam);
+  WM_MOUSEMOVE:Signal('MOUSE\CLIENTMOVE',lParam);
 
-  WM_MOUSELEAVE:Signal('MOUSE\GLOBALMOVE',$3FFF3FFF);
+  WM_MOUSELEAVE:Signal('MOUSE\CLIENTMOVE',$3FFF3FFF);
 
   WM_UNICHAR:begin
 //   LogMessage(inttostr(wparam)+' '+inttostr(lparam));
@@ -373,10 +373,11 @@ procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
    if params.mode.displayMode in [dmWindow,dmFixedWindow] then
     inc(style,ws_Caption+WS_MINIMIZEBOX+WS_SYSMENU);
 
+   // Get desktop area size
    SystemParametersInfo(SPI_GETWORKAREA,0,@r2,0);
+
    w:=params.width;
    h:=params.height;
-
    case params.mode.displayMode of
     dmWindow,dmFixedWindow:begin
       r:=Rect(0,0,w,h);

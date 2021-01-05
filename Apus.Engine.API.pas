@@ -721,7 +721,7 @@ type
   // Глобально доступные переменные
   running:boolean;
   renderWidth,renderHeight:integer; // Size of render area in virtual pixels (primitive of this size fills the whole renderRect)
-  displayRect:TRect;     // render area (inside window's client ared) in screen pixels (default - full client area)
+  displayRect:TRect;     // render area (inside window's client area) in screen pixels (default - full client area)
   screenWidth,screenHeight:integer; // real screen size in pixels
   windowWidth,windowHeight:integer; // window client size in pixels
   screenDPI:integer;    // DPI according to system settings
@@ -798,8 +798,8 @@ type
 
   // Screen coordinates
   // ------------------
-  procedure ScreenToGame(var p:TPoint); virtual; abstract;
-  procedure GameToScreen(var p:TPoint); virtual; abstract;
+  procedure ClientToGame(var p:TPoint); virtual; abstract;
+  procedure GameToClient(var p:TPoint); virtual; abstract;
 
   // Threads and async jobs
   // ----------------------
