@@ -160,7 +160,7 @@ procedure TSDLPlatform.CreateWindow;
    LogMessage('CreateMainWindow');
    ust:=title;
    window:=SDL_CreateWindow(PAnsiChar(ust),SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,100,100,
-    SDL_WINDOW_OPENGL+SDL_WINDOW_HIDDEN);
+    SDL_WINDOW_OPENGL+SDL_WINDOW_HIDDEN+SDL_WINDOW_ALLOW_HIGHDPI);
    if window=nil then
     raise EError.Create('SDL window creation failed');
   end;
@@ -202,7 +202,8 @@ procedure TSDLPlatform.Minimize;
 
 procedure TSDLPlatform.MoveWindowTo(x, y, width, height: integer);
  begin
-  SDL_SetWindowSize(window,width,height);
+  if (width>0) and (height>0) then
+   SDL_SetWindowSize(window,width,height);
   SDL_SetWindowPosition(window,x,y);
  end;
 
@@ -213,49 +214,43 @@ procedure TSDLPlatform.OGLSwapBuffers;
 
 procedure TSDLPlatform.SetupWindow(params:TGameSettings);
  var
-  r,r2:TRect;
-  style:cardinal;
-  w,h:integer;
+  w,h,screenWidth,screenHeight,clientWidth,clientHeight:integer;
  begin
    LogMessage('Configure main window');
-{   params:=game.GetSettings;
-   style:=ws_popup;
-   if params.mode.displayMode=dmWindow then inc(style,WS_SIZEBOX+WS_MAXIMIZEBOX);
-   if params.mode.displayMode in [dmWindow,dmFixedWindow] then
-    inc(style,ws_Caption+WS_MINIMIZEBOX+WS_SYSMENU);
 
-   SystemParametersInfo(SPI_GETWORKAREA,0,@r2,0);
+   //style:=ws_popup;
+   //if params.mode.displayMode=dmWindow then inc(style,WS_SIZEBOX+WS_MAXIMIZEBOX);
+   //if params.mode.displayMode in [dmWindow,dmFixedWindow] then
+   // inc(style,ws_Caption+WS_MINIMIZEBOX+WS_SYSMENU);
+
+   //SystemParametersInfo(SPI_GETWORKAREA,0,@r2,0);
+   GetScreenSize(screenWidth,screenHeight);
+
    w:=params.width;
    h:=params.height;
-
    case params.mode.displayMode of
     dmWindow,dmFixedWindow:begin
-      r:=Rect(0,0,w,h);
-      AdjustWindowRect(r,style,false);
-      r.Offset(-r.left,-r.top);
-      // If window is too large
-      r.Right:=Clamp(r.Right,0,r2.Width);
-      r.Bottom:=Clamp(r.Bottom,0,r2.Height);
-      // Center window
-      r.Offset((r2.Width-r.Width) div 2,(r2.Height-r.Height) div 2);
-      SetWindowLong(window,GWL_STYLE,style);
-      MoveWindowTo(r.left,r.top, r.width,r.height);
+      SDL_SetWindowSize(window,w,h);
+      SDL_GetWindowSize(window,@w,@h);
+      MoveWindowTo((screenWidth-w) div 2,(screenHeight-h) div 2, -1,-1);
+      if params.mode.displayMode=dmWindow then
+        SDL_SetWindowResizable(window,SDL_TRUE)
+      else
+        SDL_SetWindowResizable(window,SDL_FALSE);
     end;
-    dmSwitchResolution,dmFullScreen:begin
-      SetWindowLong(window,GWL_STYLE,integer(ws_popup));
-      MoveWindowTo(0,0,game.screenWidth,game.screenHeight);
+    dmFullScreen:begin
+      SDL_SetWindowFullscreen(window,SDL_WINDOW_FULLSCREEN_DESKTOP);
+    end;
+    dmSwitchResolution:begin
+      SDL_SetWindowFullscreen(window,SDL_WINDOW_FULLSCREEN);
     end;
    end;
 
-   windows.ShowWindow(Window, SW_SHOW);
-   UpdateWindow(Window);
+   SDL_ShowWindow(window);
 
-   GetWindowRect(window,r);
-   LogMessage('WindowRect: '+inttostr(r.Right-r.Left)+':'+inttostr(r.Bottom-r.top));
-   GetClientRect(window,r);
-   LogMessage('ClientRect: '+inttostr(r.Right-r.Left)+':'+inttostr(r.Bottom-r.top));
-   game.SizeChanged(r.Width,r.Height);
-   game.screenChanged:=true;  }
+   SDL_GL_GetDrawableSize(window,@clientWidth,@clientHeight);
+   LogMessage('Client size: %d %d',[clientWidth,clientHeight]);
+   Signal('ENGINE\RESIZE',clientWidth+clientHeight shl 16);
  end;
 
 procedure TSDLPlatform.SetWindowCaption(text: string);
