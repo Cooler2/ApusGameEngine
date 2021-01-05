@@ -40,7 +40,9 @@ procedure TOpenGL.Init(system:ISystemPlatform);
  {$IFDEF SDL}
  procedure InitOnSDL(system:ISystemPlatform);
   begin
-
+   system.CreateOpenGLContext;
+   ReadImplementationProperties;
+   ReadExtensions;
   end;
  {$ENDIF}
 
@@ -49,29 +51,9 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   var
    DC:HDC;
    RC:HGLRC;
-   PFD:TPixelFormatDescriptor;
-   pf:integer;
   begin
-   LogMessage('Prepare GL context');
-   fillchar(pfd,sizeof(PFD),0);
-   with PFD do begin
-    nSize:=sizeof(PFD);
-    nVersion:=1;
-    dwFlags:=PFD_SUPPORT_OPENGL+PFD_DRAW_TO_WINDOW+PFD_DOUBLEBUFFER;
-    iPixelType:=PFD_TYPE_RGBA;
-    cDepthBits:=16;
-   end;
-   DC:=getDC(system.GetWindowHandle);
-   LogMessage('ChoosePixelFormat');
-   pf:=ChoosePixelFormat(DC,@PFD);
-   LogMessage('Pixel format: '+IntToStr(pf));
-   if not SetPixelFormat(DC,pf,@PFD) then
-    LogMessage('Failed to set pixel format!');
-
-   LogMessage('Create GL context');
-   RC:=wglCreateContext(DC);
-   if RC=0 then
-    raise EError.Create('Can''t create RC!');
+   DC:=GetDC(system.GetWindowHandle);
+   RC:=system.CreateOpenGLContext;
    LogMessage('Activate GL context');
    ActivateRenderingContext(DC,RC); // Здесь происходит загрузка основных функций OpenGL
   end;

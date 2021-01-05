@@ -38,7 +38,9 @@ type
   procedure ScreenToClient(var p:TPoint);
   procedure ClientToScreen(var p:TPoint);
 
+  function CreateOpenGLContext:UIntPtr;
   procedure OGLSwapBuffers;
+  procedure DeleteOpenGLContext;
  end;
 
 implementation
@@ -46,6 +48,7 @@ uses Types, Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.Game, sdl2;
 
 var
  window:PSDL_Window;
+ context:TSDL_GLContext;
  terminated:boolean;
 
 { TSDLPlatform }
@@ -207,9 +210,20 @@ procedure TSDLPlatform.MoveWindowTo(x, y, width, height: integer);
   SDL_SetWindowPosition(window,x,y);
  end;
 
+function TSDLPlatform.CreateOpenGLContext:UIntPtr;
+ begin
+  LogMessage('Create GL Context');
+  context:=SDL_GL_CreateContext(window);
+ end;
+
 procedure TSDLPlatform.OGLSwapBuffers;
  begin
   SDL_GL_SwapWindow(window);
+ end;
+
+procedure TSDLPlatform.DeleteOpenGLContext;
+ begin
+  SDL_GL_DeleteContext(context);
  end;
 
 procedure TSDLPlatform.SetupWindow(params:TGameSettings);
@@ -218,14 +232,7 @@ procedure TSDLPlatform.SetupWindow(params:TGameSettings);
  begin
    LogMessage('Configure main window');
 
-   //style:=ws_popup;
-   //if params.mode.displayMode=dmWindow then inc(style,WS_SIZEBOX+WS_MAXIMIZEBOX);
-   //if params.mode.displayMode in [dmWindow,dmFixedWindow] then
-   // inc(style,ws_Caption+WS_MINIMIZEBOX+WS_SYSMENU);
-
-   //SystemParametersInfo(SPI_GETWORKAREA,0,@r2,0);
    GetScreenSize(screenWidth,screenHeight);
-
    w:=params.width;
    h:=params.height;
    case params.mode.displayMode of

@@ -38,9 +38,12 @@ type
   procedure ScreenToClient(var p:TPoint);
   procedure ClientToScreen(var p:TPoint);
 
+  function CreateOpenGLContext:UIntPtr;
   procedure OGLSwapBuffers;
+  procedure DeleteOpenGLContext;
  private
   window:HWND;
+  context:UIntPtr;
  end;
 
 implementation
@@ -85,7 +88,6 @@ end;
 function WindowProc(Window:HWnd;Message,WParam:Longint;LParam:LongInt):LongInt; stdcall;
 var
  i,charCode,scanCode:integer;
- pnt:TPoint;
 begin
  try
  result:=0;
@@ -351,6 +353,37 @@ procedure TWindowsPlatform.MoveWindowTo(x, y, width, height: integer);
    ForceLogMessage('MoveWindow error: '+inttostr(GetLastError));
  end;
 
+function TWindowsPlatform.CreateOpenGLContext:UIntPtr;
+ var
+  DC:HDC;
+  RC:HGLRC;
+  PFD:TPixelFormatDescriptor;
+  pf:integer;
+ begin
+   LogMessage('Prepare GL context');
+   fillchar(pfd,sizeof(PFD),0);
+   with PFD do begin
+    nSize:=sizeof(PFD);
+    nVersion:=1;
+    dwFlags:=PFD_SUPPORT_OPENGL+PFD_DRAW_TO_WINDOW+PFD_DOUBLEBUFFER;
+    iPixelType:=PFD_TYPE_RGBA;
+    cDepthBits:=16;
+   end;
+   DC:=GetDC(window);
+   LogMessage('ChoosePixelFormat');
+   pf:=ChoosePixelFormat(DC,@PFD);
+   LogMessage('Pixel format: '+IntToStr(pf));
+   if not SetPixelFormat(DC,pf,@PFD) then
+    LogMessage('Failed to set pixel format!');
+
+   LogMessage('Create GL context');
+   RC:=wglCreateContext(DC);
+   if RC=0 then
+    raise EError.Create('Can''t create RC!');
+  context:=RC;
+  result:=context;
+ end;
+
 procedure TWindowsPlatform.OGLSwapBuffers;
  var
   DC:HDC;
@@ -359,6 +392,12 @@ procedure TWindowsPlatform.OGLSwapBuffers;
    if not SwapBuffers(DC) then
     LogMessage('Swap error: '+IntToStr(GetLastError));
    ReleaseDC(window,DC);
+ end;
+
+procedure TWindowsPlatform.DeleteOpenGLContext;
+ begin
+  if context<>0 then
+   wglDeleteContext(context);
  end;
 
 procedure TWindowsPlatform.SetupWindow(params:TGameSettings);

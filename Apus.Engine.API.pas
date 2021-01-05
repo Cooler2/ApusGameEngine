@@ -288,7 +288,9 @@ type
   procedure ClientToScreen(var p:TPoint);
 
   // OpenGL support
+  function CreateOpenGLContext:UIntPtr;
   procedure OGLSwapBuffers;
+  procedure DeleteOpenGLContext;
  end;
 
  IGraphicsSystem=interface
