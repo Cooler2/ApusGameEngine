@@ -133,6 +133,10 @@ interface
  {$IFNDEF UNICODE}
  function AnsiStrAlloc(size:integer):PAnsiChar;
  {$ENDIF}
+ {$IF not DECLARED(MemoryBarrier)}
+ {$DEFINE MEMORY_BARRIER}
+ procedure MemoryBarrier; inline;
+ {$ENDIF}
 
 implementation
 
@@ -141,6 +145,13 @@ uses
   ShellAPI,
 {$ENDIF}
   Apus.MyServis;
+
+{$IFDEF MEMORY_BARRIER}
+ procedure MemoryBarrier; inline;
+ asm
+   mfence
+ end;
+{$ENDIF}
 
  {$IFDEF IOS}
  // IOS threads

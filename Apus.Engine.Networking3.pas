@@ -7,7 +7,7 @@
 {$R+}
 unit Apus.Engine.Networking3;
 interface
-uses MyServis;
+uses Apus.MyServis;
 type
  TNetMessage=record
   values:StringArr;
@@ -76,7 +76,7 @@ var
 
 implementation
  uses {$IFDEF MSWINDOWS}windows,winsock,{$ELSE}CrossPlatform,Sockets,BaseUnix,{$ENDIF}
-      {$IFDEF IOS}CFBase,{$ENDIF}sysutils,classes,eventman,DCPmd5a,httpRequests;
+      {$IFDEF IOS}CFBase,{$ENDIF}SysUtils,Classes,Apus.EventMan,DCPmd5a,Apus.httpRequests;
 
  type
   TMainThread=class(TThread)
@@ -490,14 +490,14 @@ procedure TMainThread.Execute;
     end;
 
     if state=csLogged then begin
-     MyServis.EnterCriticalSection(critSect);
+     critSect.Enter;
      try
       // Send messages (if any)
       if (activePostRequest=0) and (outStart<>outFree) then SendMessages(server);
       // poll request
       if activePollRequest=0 then PollRequest(server);
      finally
-      MyServis.LeaveCriticalSection(critSect);
+      critSect.Leave;
      end;
     end;
 
@@ -609,7 +609,7 @@ procedure CreateAccount(server,login,password,name,extras:string);
 
 procedure Disconnect(extraInfo:string='');
  begin
-  MyServis.EnterCriticalSection(critSect);
+  critSect.Enter;
   try
   ForceLogMessage('NW3: Disconnect');
   if mainThread<>nil then begin
@@ -618,7 +618,7 @@ procedure Disconnect(extraInfo:string='');
     mainThread.Terminate;
   end;
   finally
-    MyServis.LeaveCriticalSection(critSect);
+    critSect.Leave;
   end;
  end;
 
@@ -634,7 +634,7 @@ procedure SendData(data:array of const);
  begin
 //  if not connected then raise EWarning.Create('NW3: not connected');
   if not (state in [csConnected,csLogged]) then exit;
-  MyServis.EnterCriticalSection(critSect);
+  critSect.Enter;
   try
    if (outFree+1) and 255=outStart then
     raise EWarning.Create('NW3 outbox queue overflow!');
@@ -645,7 +645,7 @@ procedure SendData(data:array of const);
    outQueue[outFree]:=combine(sa,'~','_');
    outFree:=(outFree+1) and 255;
   finally
-   MyServis.LeaveCriticalSection(critSect);
+   critSect.Leave;
   end;
  end;
 

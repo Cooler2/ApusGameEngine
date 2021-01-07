@@ -6,7 +6,7 @@
 
 unit Apus.Engine.Model3D;
 interface
-uses MyServis,geom2D,geom3D;
+uses Apus.MyServis, Apus.Geom2D, Apus.Geom3D;
 const
  // 3D properties
  propPosition = 1;
@@ -116,7 +116,7 @@ type
  end;
 
 implementation
- uses CrossPlatform,SysUtils;
+ uses Apus.CrossPlatform, SysUtils;
 
  const
   defaultColor:cardinal=$FF808080;

@@ -7,14 +7,14 @@
 {$R+}
 unit Apus.Engine.OBJLoader;
 interface
-uses MyServis, Apus.Engine.Model3D;
+uses Apus.MyServis, Apus.Engine.Model3D;
 
  function Load3DModelOBJ(fname:string):TModel3D; overload;
  function Load3DModelOBJ(data:ByteArray):TModel3D; overload;
 
 
 implementation
- uses SysUtils,Geom3d,Geom2d,Structs;
+ uses SysUtils, Apus.Geom3D, Apus.Geom2D, Apus.Structs;
 
  function FetchLine(var pb:PByte;var size:integer;out st:AnsiString):boolean;
   var

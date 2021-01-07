@@ -198,6 +198,7 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
+        <DCCReference Include="..\..\base\deprecated\Apus.DirectText.pas"/>
         <DCCReference Include="..\..\Apus.Engine.API.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UIClasses.pas"/>
         <DCCReference Include="..\..\Apus.Engine.PainterGL.pas"/>

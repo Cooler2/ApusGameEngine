@@ -20,7 +20,7 @@ implementation
 
 {$IFDEF MSWINDOWS}
 
-  uses Windows,Apus.MyServis,SysUtils,Apus.Images,VCL.Clipbrd;
+  uses Windows,Apus.MyServis,SysUtils,Apus.Images {,VCL.Clipbrd};
 
   procedure Open;
     var

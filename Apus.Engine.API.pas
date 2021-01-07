@@ -742,7 +742,9 @@ type
   oldMouseButtons:byte;  // предыдущее (отличающееся) значение mouseButtons
 
   shiftState:byte; // состояние клавиш сдвига (1-shift, 2-ctrl, 4-alt, 8-win)
-  keyState:array[0..255] of byte; // 0-й бит - клавиша нажата, 1-й - была нажата в пред. раз
+  // bit 0 - pressed, bit 1 - was pressed last frame. So 01 means key was just pressed, 10 - just released
+  // indexed by scancode (NOT virtual key code!)
+  keyState:array[0..255] of byte;
 
   // Text link (TODO: move out)
   textLink:cardinal; // Вычисленный на предыдущем кадре номер ссылки под мышью записывается здесь (сам по себе он не вычисляется, для этого надо запускать отрисовку текста особым образом)

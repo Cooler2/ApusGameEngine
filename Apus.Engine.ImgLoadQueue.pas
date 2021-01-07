@@ -30,7 +30,7 @@ interface
  function GetImageFromQueue(fname:string;mode:TQueueRequestMode=qrmWait):TRawImage;
 
 implementation
- uses SysUtils, Classes, Apus.GfxFormats;
+ uses Apus.CrossPlatform, SysUtils, Classes, Apus.GfxFormats;
 
  // Queue
  type

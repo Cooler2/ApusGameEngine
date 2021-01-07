@@ -2,10 +2,10 @@
 program EngineDemo;
 
 uses
-  windows,
-  sysutils,
+  SysUtils,
   Apus.MyServis,
-  math,
+  Apus.CrossPlatform,
+  Math,
   Apus.Geom2D,
   Apus.Geom3D,
   Apus.Images,
@@ -18,8 +18,8 @@ uses
   {$ENDIF }
   Apus.EventMan,
   Apus.FastGfx,
-  DirectText,
   Apus.FreeTypeFont,
+  Apus.DirectText in '..\..\base\deprecated\Apus.DirectText.pas',
   Apus.Engine.API in '..\..\Apus.Engine.API.pas',
   Apus.Engine.UIClasses in '..\..\Apus.Engine.UIClasses.pas',
   Apus.Engine.PainterGL in '..\..\Apus.Engine.PainterGL.pas',
@@ -93,7 +93,7 @@ const
  }
 
 var
- savetime:cardinal;
+ savetime:int64;
  
 type
  MyGame=class(TGame)
@@ -245,7 +245,7 @@ function MyGame.OnFrame;
  begin
   if frame and 63=63 then
    SetWindowCaption('FPS: '+inttostr(round(game.fps))+
-     '  Avg FPS: '+FloatToStrF(1000*frame/(getTickCount-SaveTime),ffFixed,6,1));
+     '  Avg FPS: '+FloatToStrF(1000*frame/(MyTickCount-SaveTime),ffFixed,6,1));
   result:=true;
 //  sleep(0);
  end;
@@ -264,7 +264,7 @@ procedure HEvent(event:TEventStr;tag:TTag);
   w:^cardinal;
   ptr:^TVertex;
  begin
-  ForceLogMessage(inttostr(GetTickCount)+' '+event+' '+inttostr(tag));
+  ForceLogMessage(inttostr(MyTickCount)+' '+event+' '+inttostr(tag));
 
   if event='Engine\AfterMainLoop' then begin
    test.done;
@@ -1335,7 +1335,7 @@ var
  t,r,a:double;
 begin
  inc(frame);
- t:=gettickcount/1000;
+ t:=MyTickCount/1000;
  painter.Clear($FF000000,-1,-1);
  painter.BeginPaint(nil);
  painter.DrawImage(10,10,tex,$FF808080);
@@ -1938,6 +1938,7 @@ begin
  end;
 
  game:=MyGame.Create(TWindowsPlatform.Create, TOpenGL.Create); // Создаем объект
+ //game:=MyGame.Create(TSDLPlatform.Create, TOpenGL.Create); // Создаем объект
  game.showFPS:=true;
 
  // Начальные установки игры
@@ -1971,7 +1972,7 @@ begin
  InitUI;
  // А можно и не делать - можно это сделать в обработчике события
 
- savetime:=GetTickCount;
+ savetime:=MyTickCount;
  repeat
   delay(50);
   // F12 - переключение режима
@@ -1982,7 +1983,7 @@ begin
    game.settings:=s;
 //   needBreak:=true;
   end;}
- until (GetAsyncKeyState(VK_ESCAPE)<>0) or (game.terminated);
+ until (game.keyState[1]<>0) or (game.terminated);
  game.Stop;
 // ShowMessage('Average FPS: '+FloatToStrF(1000*frame/(getTickCount-SaveTime),ffGeneral,6,1),'FPS');
 end.

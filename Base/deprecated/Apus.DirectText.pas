@@ -6,7 +6,7 @@
 { в формате 8, 16, 32 bpp при линейной модели памяти }
 { Автор: Ivan Polyacov, cooler@tut.by }
 {$IFDEF FPC}{$PIC OFF}{$ENDIF}
-unit DirectText;
+unit Apus.DirectText;
 interface
   const
    clipx1:longint=0;
@@ -148,7 +148,7 @@ interface
   procedure ValidateString(var st:string);
 
 implementation
- uses SysUtils,MyServis;
+ uses SysUtils, Apus.MyServis;
  var
   writechar:procedure(x,y:longint;ch:char);
 
@@ -1411,4 +1411,4 @@ function LoadRasterFont(fname:string):integer;
   rfontcnt:=0;
   useKerning:=false;
 end.
-
+

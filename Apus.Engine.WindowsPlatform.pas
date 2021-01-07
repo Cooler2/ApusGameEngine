@@ -206,7 +206,11 @@ procedure TWindowsPlatform.FlashWindow(count: integer);
    fi.dwFlags:=FLASHW_ALL+FLASHW_TIMERNOFG*byte(count=0);
   if count<=0 then count:=100;
   fi.uCount:=count;
+  {$IFDEF FPC}
+  FlashWindowEx(@fi);
+  {$ELSE}
   FlashWindowEx(fi);
+  {$ENDIF}
  end;
 
 procedure TWindowsPlatform.ScreenToClient;

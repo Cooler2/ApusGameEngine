@@ -114,7 +114,7 @@ function StreamProc(handle:integer;buf:pointer;size,user:cardinal):cardinal; std
  var
   sp:TStreamProc;
  begin
-  sp:=TStreamProc(user);
+  sp:=TStreamProc(pointer(user));
   result:=sp(buf,size);
  end;
 

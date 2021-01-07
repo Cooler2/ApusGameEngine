@@ -6,7 +6,7 @@
 
 unit Apus.Engine.IOSgame;
 interface
- uses Apus.Engine.API,Images,Classes,Apus.MyServis,Apus.Engine.Game;
+ uses Apus.MyServis,Apus.Engine.API,Apus.Images,Classes,Apus.Engine.Game;
 
 {type
  TIOSGame=class(TGame)
