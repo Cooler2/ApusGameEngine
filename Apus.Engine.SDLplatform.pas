@@ -104,8 +104,15 @@ procedure TSDLPlatform.GetScreenSize(out width, height: integer);
  end;
 
 function TSDLPlatform.GetShiftKeysState: cardinal;
+ var
+  keys:TSDL_KeyMod;
  begin
   result:=0;
+  keys:=SDL_GetModState;
+  if keys and KMOD_SHIFT>0 then inc(result,sscShift);
+  if keys and KMOD_CTRL>0 then inc(result,sscCtrl);
+  if keys and KMOD_ALT>0 then inc(result,sscAlt);
+  if keys and KMOD_GUI>0 then inc(result,sscWin);
 {  if GetAsyncKeyState(VK_SHIFT)<0 then inc(result,sscShift);
   if GetAsyncKeyState(VK_CONTROL)<0 then inc(result,sscCtrl);
   if GetAsyncKeyState(VK_MENU)<0 then inc(result,sscAlt);
@@ -168,20 +175,101 @@ procedure TSDLPlatform.CreateWindow;
     raise EError.Create('SDL window creation failed');
   end;
 
+function PackWords(p1,p2:integer):TTag;
+ begin
+  result:=TTag((p1 and $FFFF)+(p2 and $FFFF) shl 16);
+ end;
+
+function GetMouseButtonNum(btn:integer):integer;
+ begin
+  case btn of
+   SDL_BUTTON_LEFT:exit(1);
+   SDL_BUTTON_RIGHT:exit(2);
+   SDL_BUTTON_MIDDLE:exit(3);
+  end;
+  result:=0;
+ end;
+
+function GetScancode(sdl_scancode:integer):byte;
+ begin
+  result:=1;
+  case sdl_scancode of
+   SDL_SCANCODE_ESCAPE:result:=1;
+   SDL_SCANCODE_RETURN:result:=$1C;
+   SDL_SCANCODE_GRAVE:result:=$29;
+   SDL_SCANCODE_LEFT:result:=$4B;
+   SDL_SCANCODE_RIGHT:result:=$4D;
+   SDL_SCANCODE_UP:result:=$48;
+   SDL_SCANCODE_DOWN:result:=$50;
+  end;
+ end;
+
+function GetKeyCode(sdl_keycode:integer):integer;
+ begin
+  result:=sdl_keycode;
+  case sdl_keycode of
+   SDLK_TAB:result:=VK_TAB;
+   SDLK_LEFT:result:=VK_LEFT;
+   SDLK_RIGHT:result:=VK_RIGHT;
+   SDLK_UP:result:=VK_UP;
+   SDLK_DOWN:result:=VK_DOWN;
+   SDLK_HOME:result:=VK_HOME;
+   SDLK_END:result:=VK_END;
+   SDLK_PAGEUP:result:=VK_PAGEUP;
+   SDLK_PAGEDOWN:result:=VK_PAGEDOWN;
+   SDLK_INSERT:result:=VK_INSERT;
+   SDLK_DELETE:result:=VK_DELETE;
+   SDLK_BACKQUOTE:result:=$C0; //VK_OEM3
+  end;
+ end;
+
 procedure TSDLPlatform.ProcessSystemMessages;
  var
   event:TSDL_Event;
+  ust:String8;
+  wst:String16;
+  i,len:integer;
  begin
   while SDL_PollEvent(@event)<>0 do begin
    if game=nil then continue;
    case event.type_ of
-    SDL_MOUSEMOTION:begin
-
+    SDL_WINDOWEVENT:begin
+     case event.window.event of
+      SDL_WINDOWEVENT_FOCUS_GAINED:Signal('ENGINE\SETACTIVE',1);
+      SDL_WINDOWEVENT_FOCUS_LOST:Signal('ENGINE\SETACTIVE',0);
+      SDL_WINDOWEVENT_SIZE_CHANGED:Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
+     end;
     end;
+
+    SDL_MOUSEMOTION:Signal('MOUSE\CLIENTMOVE',PackWords(event.motion.x,event.motion.y));
+
     SDL_MOUSEBUTTONDOWN:begin
      if not game.GetSettings.showSystemCursor then SetCursor(0);
+     Signal('MOUSE\BTNDOWN',GetMouseButtonNum(event.button.button));
+    end;
 
-     //if message=wm_LButtonDown then game.MouseButtonPressed(1,true) else
+    SDL_MOUSEBUTTONUP:begin
+     if not game.GetSettings.showSystemCursor then SetCursor(0);
+     Signal('MOUSE\BTNUP',GetMouseButtonNum(event.button.button));
+    end;
+
+    SDL_KEYDOWN:begin
+     Signal('KBD\KEYDOWN',GetKeyCode(event.key.keysym.sym) and $FFFF+
+       GetScanCode(event.key.keysym.scancode) shl 16);
+    end;
+
+    SDL_KEYUP:begin
+     Signal('KBD\KEYUP',GetKeyCode(event.key.keysym.sym) and $FFFF+
+       GetScanCode(event.key.keysym.scancode) shl 16);
+    end;
+
+    SDL_TEXTINPUT:begin
+     len:=StrLen(event.text.text);
+     SetLength(ust,len);
+     move(event.text.text,ust[1],len);
+     wst:=DecodeUTF8(ust);
+     for i:=1 to length(wst) do
+      Signal('KBD\UNICHAR',word(wst[i]));
     end;
 
     SDL_QUITEV:begin
