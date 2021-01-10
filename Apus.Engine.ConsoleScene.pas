@@ -37,7 +37,7 @@ var
  c:TUIElement;
 begin
  // Win+[~] - показать/скрыть консоль
- if (tag and 255=$C0) and (tag and $80000>0) then begin
+ if (tag and 255=$C0) and (game.shiftState and sscWin>0) then begin
   if consoleScene.activated then begin
    if consoleScene.UI.hasFocus then
     consoleScene.SetStatus(ssFrozen)
