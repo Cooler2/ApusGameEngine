@@ -21,6 +21,7 @@ interface
    configFileName:string=''; // no config file
 
    usedAPI:TGraphicsAPI=gaOpenGL;
+   usedPlatform:TSystemPlatform;
    windowedMode:boolean=true;
    windowWidth:integer=1024;
    windowHeight:integer=768;
@@ -88,6 +89,7 @@ interface
 implementation
  uses
   {$IFDEF MSWINDOWS}Windows,Apus.Engine.WindowsPlatform,{$ENDIF}
+  {$IFDEF SDL}Apus.Engine.SDLPlatform,{$ENDIF}
   {$IFDEF ANDROID}Apus.Android,Apus.Engine.AndroidGame,{$ENDIF}
    SysUtils,Apus.MyServis,Apus.AnimatedValues,Apus.ControlFiles,Apus.Engine.UDict,
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
@@ -473,6 +475,7 @@ procedure TGameApplication.Run;
  var
   settings:TGameSettings;
   loadingScene:TGameScene;
+  plat:ISystemPlatform;
  begin
   // CREATE GAME OBJECT
   // ------------------------
@@ -485,7 +488,16 @@ procedure TGameApplication.Run;
      usedAPI:=gaOpenGL2
     {$ENDIF}
    end;
-   game:=TGame.Create(TWindowsPlatform.Create,TOpenGL.Create);
+   if usedPlatform=spWindows then plat:=TWindowsPlatform.Create;
+   if usedPlatform=spSDL then begin
+    {$IFDEF SDL}
+    plat:=TSDLPlatform.Create;
+    {$ELSE}
+    raise EError.Create('Define SDL'); // Define SDL symbol to add SDL support
+    {$ENDIF}
+   end;
+
+   game:=TGame.Create(plat,TOpenGL.Create);
   {$ENDIF}
   if game=nil then raise EError.Create('Game object not created!');
 

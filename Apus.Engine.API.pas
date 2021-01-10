@@ -169,6 +169,9 @@ type
                gaOpenGL,   // OpenGL 1.4 or higher with fixed function pipeline (deprecated)
                gaOpenGL2); // OpenGL 2.0 or higher with shaders
 
+ TSystemPlatform=(spWindows, // Native Windows
+                  spSDL);    // SDL-2 library (cross-platform)
+
  // Режим блендинга (действие, применяемое к фону)
  TBlendingMode=(blNone,   // background not modified
                 blAlpha,  // regular alpha blending

@@ -154,6 +154,7 @@ begin
  SetEventHandler('GAMEAPP',EventHandler);
  SetEventHandler('Logic',EventHandler);
  usedAPI:=gaOpenGL2; // needed just for the Blur effect
+ usedPlatform:=spSDL;
  application:=TGameApplication.Create;
  application.Prepare;
  application.Run;

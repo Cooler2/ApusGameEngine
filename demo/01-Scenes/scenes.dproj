@@ -80,8 +80,8 @@
         <VerInfo_Locale>1059</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=;CFBundleName=</VerInfo_Keys>
         <DCC_Namespace>System;Xml;Web;Winapi;VCL;VCL.Imaging;$(DCC_Namespace)</DCC_Namespace>
-        <DCC_UnitSearchPath>..\..;..\..\extra;..\..\deprecated;..\..\base;..\..\base\extra;..\..\base\deprecated;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
-        <DCC_Define>DELPHI;OPENGL;$(DCC_Define)</DCC_Define>
+        <DCC_UnitSearchPath>..\..;..\..\extra;..\..\deprecated;..\..\base;..\..\base\extra;..\..\base\deprecated;..\..\extra\sdl2;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_Define>DELPHI;OPENGL;SDL;$(DCC_Define)</DCC_Define>
         <DCC_WriteableConstants>true</DCC_WriteableConstants>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
