@@ -60,6 +60,8 @@ interface
   VK_RIGHT=windows.VK_RIGHT;
   VK_HOME=windows.VK_HOME;
   VK_END=windows.VK_END;
+  VK_PAGEUP=windows.VK_PRIOR;
+  VK_PAGEDOWN=windows.VK_NEXT;
   VK_SNAPSHOT=windows.VK_SNAPSHOT;
 {$ELSE}
  const
@@ -76,6 +78,8 @@ interface
   VK_RIGHT=39;
   VK_HOME=36;
   VK_END=35;
+  VK_PAGEUP=33;
+  VK_PAGEDOWN=34;
   VK_SNAPSHOT=44;
   VK_F1=112;
   VK_F2=113;
