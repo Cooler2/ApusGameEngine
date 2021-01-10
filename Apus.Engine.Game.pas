@@ -1259,6 +1259,7 @@ procedure TGame.PresentFrame;
   FLog('Present');
   StartMeasure(1);
   gfx.PresentFrame(systemPlatform);
+  EndMeasure(1);
   inc(FrameNum);
  end;
 
@@ -1842,7 +1843,7 @@ procedure TGame.FrameLoop;
     except
      on e:exception do ForceLogMessage('Error in FrameLoop 1: '+ExceptionMsg(e));
     end else
-     Delay(20);
+     Delay(10); // limit speed in inactive state
     EndMeasure2(14);
 
     // Расчет fps

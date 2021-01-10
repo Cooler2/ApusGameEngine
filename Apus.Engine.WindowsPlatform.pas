@@ -310,7 +310,7 @@ procedure TWindowsPlatform.CreateWindow;
    style:=0;
    Window:=windows.CreateWindow('GameWindowClass', PChar(title),
     style, 0, 0, 100, 100, 0, 0, HInstance, nil);
-   SetWindowLongW(window,GWL_WNDPROC,cardinal(@WindowProc));
+   SetWindowLongW(window,GWL_WNDPROC,longint(@WindowProc));
    SetWindowCaption(title);
   end;
 
@@ -431,11 +431,11 @@ procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
       r.Bottom:=Clamp(r.Bottom,0,r2.Height);
       // Center window
       r.Offset((r2.Width-r.Width) div 2,(r2.Height-r.Height) div 2);
-      SetWindowLong(window,GWL_STYLE,style);
+      SetWindowLong(window,GWL_STYLE,longint(style));
       MoveWindowTo(r.left,r.top, r.width,r.height);
     end;
     dmSwitchResolution,dmFullScreen:begin
-      SetWindowLong(window,GWL_STYLE,integer(ws_popup));
+      SetWindowLong(window,GWL_STYLE,longint(ws_popup));
       MoveWindowTo(0,0,game.screenWidth,game.screenHeight);
     end;
    end;

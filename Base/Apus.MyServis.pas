@@ -650,6 +650,7 @@ implementation
   logAlwaysOpened:boolean;
   logFile:TextFile;
 
+  //
   performanceMeasures:array[1..16] of double;
   values:array[1..16] of int64;
   measures:array[1..16] of integer;
@@ -4411,7 +4412,7 @@ procedure DumpDir(path:string);
    if (n<1) or (n>16) then exit;
    QueryPerformanceCounter(v);
    v:=v-values[n];
-   result:=v*Perfkoef;
+   result:=v*Perfkoef; // duration in ms
    if measures[n]=0 then
     PerformanceMeasures[n]:=v*Perfkoef
    else

@@ -13,14 +13,16 @@ var
  plat:ISystemPlatform;
  params:TGameSettings;
  game:TGameBase;
+ sn:integer;
 
 procedure EventHandler(event:TEventStr;tag:TTag);
 begin
- writeln(event,' ',IntToHex(tag));
+ inc(sn);
+ writeln(sn:4,' ',event,' ',IntToHex(tag));
 end;
 
 begin
-  UseLogFile('PlatformTest');
+  UseLogFile('platformTest.log');
   SetEventHandler('Engine,Mouse,Kbd,Joystick',EventHandler);
   plat:=TWindowsPlatform.Create;
   //plat:=TSdlPlatform.Create;
