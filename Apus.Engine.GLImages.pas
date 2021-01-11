@@ -67,6 +67,7 @@ type
 implementation
  uses Apus.CrossPlatform, Apus.EventMan, SysUtils, Apus.GfxFormats,
    {$IFDEF MSWINDOWS}dglOpenGl{$ENDIF}
+   {$IFDEF LINUX}dglOpenGl{$ENDIF}
    {$IFDEF IOS}gles11,glext{$ENDIF}
    {$IFDEF ANDROID}gles20{$ENDIF}
    ;
@@ -113,7 +114,7 @@ end;
 procedure GetGLformat(ipf:TImagePixelFormat;out format,subFormat,internalFormat:cardinal);
 begin
  case ipf of
-  {$IFDEF MSWINDOWS}
+  {$IFNDEF GLES}
   ipf8Bit:begin
    internalFormat:=4;
    format:=GL_COLOR_INDEX;

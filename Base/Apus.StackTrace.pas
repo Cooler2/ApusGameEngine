@@ -10,7 +10,7 @@ interface
  function GetStackTrace:string;
 
 implementation
- uses Apus.CrossPlatform, Apus.MyServis, Windows;
+ uses Apus.CrossPlatform, Apus.MyServis {$IFDEF MSWINDOWS}, Windows{$ENDIF};
  var
   saveExceptionProc:pointer;
   stack:array[0..15] of pointer;
@@ -19,8 +19,8 @@ implementation
  function RtlCaptureStackBackTrace(framesSkip,framesCapture:longint;const trace:pointer;const hash:pointer):shortint; external 'kernel32.dll';
 {$ENDIF}
 
- procedure MyExceptProc; assembler;
- {$IFDEF WIN32}
+ procedure MyExceptProc;
+ {$IF DEFINED(WIN32)}
  asm
   pushad
   mov esi,ebp
@@ -42,8 +42,7 @@ implementation
   popad
   jmp saveExceptionProc
  end;
-{$ENDIF}
-{$IFDEF WIN64}
+{$ELSEIF DEFINED(WIN64)}
  asm
 {  xor rcx,rcx
   mov edx,5
@@ -74,28 +73,10 @@ implementation
   pop rcx
   jmp [saveExceptionProc]}
  end;
+{$ELSE}
+ begin
+ end;
 {$ENDIF}
-{  asm
-   push eax
-   mov eax,[esp+16]
-   push edx
-   push ecx
-   push ebx
-   lea edx,stack
-   mov ecx,16
-@01:
-   sub eax,4
-   mov ebx,[eax]
-   mov [edx],ebx
-   add edx,4
-   dec ecx
-   jnz @01
-   pop ebx
-   pop ecx
-   pop edx
-   pop eax
-   jmp saveExceptionProc
-  end;    }
 
  procedure EnableStackTrace;
   begin

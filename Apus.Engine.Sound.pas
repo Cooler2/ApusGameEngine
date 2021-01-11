@@ -32,10 +32,7 @@ type
  {$IFDEF IMX}
  TChannel=HChannel;
  {$ENDIF}
- {$IFDEF IOS}
- TChannel=cardinal;
- {$ENDIF}
- {$IFDEF ANDROID}
+ {$IFDEF UNIX}
  TChannel=cardinal;
  {$ENDIF}
 

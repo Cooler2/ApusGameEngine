@@ -67,7 +67,7 @@ interface
   function SteamAPI_ISteamFriends_GetPersonaName(self:pointer):PAnsiChar; cdecl external 'steam_api.dll';
 
 implementation
- uses Windows, SysUtils, Apus.MyServis, Apus.EventMan;
+ uses SysUtils, Apus.MyServis, Apus.EventMan;
  type
   PMicroTxnAuthorizationResponse_t=^MicroTxnAuthorizationResponse_t;
   MicroTxnAuthorizationResponse_t=record

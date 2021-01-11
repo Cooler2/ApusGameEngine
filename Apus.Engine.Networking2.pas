@@ -86,7 +86,7 @@ interface
  function CheckInternetConnection:integer;
 
 implementation
- uses {$IFDEF MSWINDOWS}windows,winsock,{$ELSE}CrossPlatform,Sockets,BaseUnix,{$ENDIF}
+ uses {$IFDEF MSWINDOWS}windows,winsock,{$ELSE}Apus.CrossPlatform,Sockets,BaseUnix,{$ENDIF}
       {$IFDEF IOS}CFBase,{$ENDIF}Apus.MyServis,SysUtils,Apus.Network,Classes,Apus.EventMan;
  const
   // Статусы соединений

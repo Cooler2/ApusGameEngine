@@ -15,10 +15,11 @@ interface
 {$ENDIF}
 {$IFDEF IOS}
  {$modeswitch ObjectiveC1}
- uses types,SysUtils,iPhoneAll;
 {$ENDIF}
-{$IFDEF ANDROID}
- uses types,SysUtils;
+{$IFDEF UNIX}
+ uses types,SysUtils
+  {$IFDEF IOS}, iPhoneAll{$ENDIF}
+ ;
  var
   sdkVersion:integer=0;
 {$ENDIF}
@@ -147,6 +148,9 @@ implementation
 uses
 {$IFDEF MSWINDOWS}
   ShellAPI,
+{$ENDIF}
+{$IFDEF LINUX}
+ Linux,unixtype,
 {$ENDIF}
   Apus.MyServis;
 
@@ -493,8 +497,8 @@ var
   end;
 {$ENDIF}
 
-// ANDROID SET ===========================================================
-{$IFDEF ANDROID}
+// LINUX/ANDROID SET ===========================================================
+{$IFDEF UNIX}
 procedure Sleep(time:integer);
  begin
   SysUtils.Sleep(time);

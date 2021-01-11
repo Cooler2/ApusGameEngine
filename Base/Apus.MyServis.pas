@@ -230,7 +230,9 @@ interface
  procedure RunTimer(n:integer);
  function GetTimer(n:integer):double;
 
- function GetUTCTime:TSystemTime;
+ {$IFDEF MSWINDOWS}
+ function GetUTCTime:TSystemTime; /// TODO: implement
+ {$ENDIF}
  function MyTickCount:int64; // Аналог GetTickCount, но без переполнения (больше не использует GetTickCount из-за недостаточной точности)
 
  // Возвращает строку с описанием распределения памяти
@@ -2466,7 +2468,7 @@ procedure SimpleEncrypt2;
    result:=Now+(NSTimeZone.localTimeZone.secondsFromGMT)/86400;
   end;
  {$ENDIF}
- {$IFDEF ANDROID}
+ {$IFDEF UNIX}
  function NowGMT;
   begin
    result:=LocalTimeToUniversal(Now);
@@ -4464,7 +4466,7 @@ procedure DumpDir(path:string);
     {$IFDEF MSWINDOWS}
     t:=timeGetTime;
     {$ELSE}
-    t:=CrossPlatform.GetTickCount;
+    t:=GetTickCount;
     {$ENDIF}
     if t<lastTickCount and $FFFFFFFF then
      lastTickCount:=(lastTickCount and $0FFFFFFF00000000)+t+$100000000
@@ -4488,6 +4490,7 @@ procedure DumpDir(path:string);
 
  var
   preciseTimeSupport:integer=0;
+ {$IFDEF MSWINDOWS}
   GetSystemTimePreciseAsFileTime:procedure(out time:TFileTime); stdcall;
 
  function GetUTCTime:TSystemTime;
@@ -4510,6 +4513,7 @@ procedure DumpDir(path:string);
    end else
     GetSystemTime(result);
   end;
+ {$ENDIF}
 
  procedure TestSystemPerformance;
   type
@@ -5117,7 +5121,7 @@ initialization
  startTimeMS:=timeGetTime;
  {$ELSE}
  InitCriticalSection(crSection);
- startTimeMS:=CrossPlatform.GetTickCount;
+ startTimeMS:=GetTickCount;
  {$ENDIF}
  startTime:=MyTickCount;
 

@@ -1132,7 +1132,7 @@ var
  pnt:TPoint;
 begin
  event:=Copy(event,7,200);
- if not params.showSystemCursor then SetCursor(0);
+ /// TODO: if not params.showSystemCursor then SetCursor(0);
  // position changed in screen space
  if SameText(event,'CLIENTMOVE') then begin
    pnt:=Point(SmallInt(tag),SmallInt(tag shr 16));
@@ -1847,7 +1847,7 @@ procedure TGame.FrameLoop;
     EndMeasure2(14);
 
     // Расчет fps
-    ticks:=GetTickCount;
+    ticks:=MyTickCount;
     if (ticks>LastTickCount+500) and (lastTickCount<>0) then begin
      FPS:=(1000*(framenum-LastFrameNum)/(ticks-LastTickCount));
      SmoothFPS:=SmoothFPS*0.9+FPS*0.1;

@@ -411,7 +411,7 @@ begin
    exit;
   end;
   {$IFNDEF MSWINDOWS} // Use root dir
-  if (rootDir<>'') and (fname[1]<>'/') then fname:=rootDir+fname;
+  if (defaultImagesDir<>'') and (fname[1]<>'/') then fname:=defaultImagesDir+fname;
   {$ENDIF}
   {$IFDEF IOS}
   if not FileExists(fname) then

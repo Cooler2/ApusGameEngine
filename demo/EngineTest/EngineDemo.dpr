@@ -11,15 +11,15 @@ uses
   Apus.Images,
   Types,
   {$IFDEF OPENGL}
-  dglOpenGl,
+  dglOpenGL,
   {$ENDIF }
   {$IFDEF DIRECTX}
   DirectXGraphics,
   {$ENDIF }
   Apus.EventMan,
-  Apus.FastGfx,
+  Apus.FastGFX,
   Apus.FreeTypeFont,
-  Apus.DirectText in '..\..\base\deprecated\Apus.DirectText.pas',
+  Apus.DirectText in '..\..\Base\deprecated\Apus.DirectText.pas',
   Apus.Engine.API in '..\..\Apus.Engine.API.pas',
   Apus.Engine.UIClasses in '..\..\Apus.Engine.UIClasses.pas',
   Apus.Engine.PainterGL in '..\..\Apus.Engine.PainterGL.pas',

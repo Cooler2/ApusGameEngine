@@ -13,9 +13,6 @@ unit Bass;
 
 interface
 
-uses
-  Windows;
-
 const
   BASSVERSION = $203;             // API version
 
@@ -767,7 +764,7 @@ function BASS_GetConfig(option: DWORD): DWORD; stdcall; external bassdll;
 function BASS_GetVersion: DWORD; stdcall; external bassdll;
 function BASS_GetDeviceDescription(device: DWORD): PChar; stdcall; external bassdll;
 function BASS_ErrorGetCode: Integer; stdcall; external bassdll;
-function BASS_Init(device: Integer; freq, flags: DWORD; win: HWND; clsid: PGUID): BOOL; stdcall; external bassdll;
+function BASS_Init(device: Integer; freq, flags: DWORD; win: THandle; clsid: PGUID): BOOL; stdcall; external bassdll;
 function BASS_SetDevice(device: DWORD): BOOL; stdcall; external bassdll;
 function BASS_GetDevice: DWORD; stdcall; external bassdll;
 function BASS_Free: BOOL; stdcall; external bassdll;
@@ -883,6 +880,11 @@ implementation
 function BASS_SPEAKER_N(n: DWORD): DWORD;
 begin
   Result := n shl 24;
+end;
+
+function MakeLong(lw,hw:integer):longint;
+begin
+ result:=longint(lw and $FFFF+(hw and $FFFF) shl 16);
 end;
 
 function MAKEMUSICPOS(order,row: DWORD): DWORD;

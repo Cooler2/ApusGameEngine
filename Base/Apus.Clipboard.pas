@@ -208,7 +208,7 @@ implementation
     begin
     end;
 
-  procedure PutImageToClipboard(data:TObject);
+  procedure PutImageToClipboard(image:TObject);
    begin
    end;
 {$ENDIF}

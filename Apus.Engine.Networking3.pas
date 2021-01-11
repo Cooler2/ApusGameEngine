@@ -75,8 +75,8 @@ var
 
 
 implementation
- uses {$IFDEF MSWINDOWS}windows,winsock,{$ELSE}CrossPlatform,Sockets,BaseUnix,{$ENDIF}
-      {$IFDEF IOS}CFBase,{$ENDIF}SysUtils,Classes,Apus.EventMan,DCPmd5a,Apus.httpRequests;
+ uses {$IFDEF MSWINDOWS}Windows,winsock,{$ELSE}Apus.CrossPlatform,Sockets,BaseUnix,{$ENDIF}
+      {$IFDEF IOS}CFBase,{$ENDIF}SysUtils,Classes,Apus.EventMan,DCPmd5a,Apus.HttpRequests;
 
  type
   TMainThread=class(TThread)
@@ -120,7 +120,7 @@ implementation
   lastTag:integer;
 
 {$IFDEF DARWIN}{$DEFINE NETLIB_C}{$ENDIF}
-{$IFDEF ANDROID}{$DEFINE NETLIB_C}{$ENDIF}
+{$IFDEF UNIX}{$DEFINE NETLIB_C}{$ENDIF}
 {$IFDEF NETLIB_C}
  const
   { Net type }
