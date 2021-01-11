@@ -556,7 +556,7 @@ var
  procedure SetFocusTo(control:TUIElement);
 
  // обработать нажатие горячей клавиши (передать всем элементам с
- procedure ProcessHotKey(keycode:byte;shiftstate:byte);
+ procedure ProcessHotKey(keycode:integer;shiftstate:byte);
 
  // Найти элемент по имени
  function FindControl(name:string;mustExist:boolean=true):TUIElement;
@@ -2003,7 +2003,7 @@ begin
  if area in [0,wcClient] then hooked:=false;
 end;
 
-procedure ProcessHotKey(keycode:byte;shiftstate:byte);
+procedure ProcessHotKey(keycode:integer;shiftstate:byte);
 var
  i:integer;
  c,r:TUIElement;
