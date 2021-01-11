@@ -1,4 +1,5 @@
 ﻿//{$DEFINE OPENGL}
+{$R-}
 program EngineDemo;
 
 uses
@@ -70,7 +71,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 15;
+ testnum:integer = 8;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -1257,7 +1258,6 @@ var
  particles:array[1..500] of TParticle;
  i:integer;
 begin
-// sleep(5);
  inc(frame);
  painter.Clear($FF000000,-1,-1);
  painter.BeginPaint(nil);
@@ -1937,8 +1937,8 @@ begin
   15:test:=T3DCharacterTest.Create;
  end;
 
- game:=MyGame.Create(TWindowsPlatform.Create, TOpenGL.Create); // Создаем объект
- //game:=MyGame.Create(TSDLPlatform.Create, TOpenGL.Create); // Создаем объект
+ //game:=MyGame.Create(TWindowsPlatform.Create, TOpenGL.Create); // Создаем объект
+ game:=MyGame.Create(TSDLPlatform.Create, TOpenGL.Create); // Создаем объект
  game.showFPS:=true;
 
  // Начальные установки игры
@@ -1971,18 +1971,9 @@ begin
 
  InitUI;
  // А можно и не делать - можно это сделать в обработчике события
-
  savetime:=MyTickCount;
  repeat
-  delay(50);
-  // F12 - переключение режима
-{  if (kbd.keys[68]<>0) and k then begin
-   s.windowed:=not s.windowed;
-
-   s.showSystemCursor:=s.windowed;
-   game.settings:=s;
-//   needBreak:=true;
-  end;}
+  delay(5);
  until (game.keyState[1]<>0) or (game.terminated);
  game.Stop;
 // ShowMessage('Average FPS: '+FloatToStrF(1000*frame/(getTickCount-SaveTime),ffGeneral,6,1),'FPS');
