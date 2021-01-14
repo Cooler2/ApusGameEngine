@@ -139,6 +139,7 @@ type
   dRT:TTexture; // default render target (can be nil)
 
   procedure ApplyNewSettings; virtual; // apply newParams to params - must be called from main thread!
+  procedure SetVSync(divider:integer);
 
   // вызов только из главного потока
   procedure InitGraph; virtual; // Инициализация графической части (переключить режим и все такое прочее)
@@ -150,7 +151,7 @@ type
   // Вызывается после инициализации а также при изменения размеров окна, области или режима отрисовки
   procedure SetupRenderArea; virtual;
   // Create default RT (if needed)
-  procedure InitDefaultRendertarget; virtual;
+  procedure InitDefaultRenderTarget; virtual;
   procedure InitMainLoop; virtual;
 
   procedure FrameLoop; virtual; // One iteration of the frame loop
@@ -249,7 +250,7 @@ var
 
 { TBasicGame }
 
-procedure TGame.HandleInternalHotkeys(keyCode: Integer; pressed: Boolean);
+procedure TGame.HandleInternalHotkeys(keyCode: integer; pressed: boolean);
  procedure ToggleDebugOverlay(n:integer);
   begin
    if debugOverlay=n then debugOverlay:=0
@@ -328,6 +329,13 @@ begin
   for i:=low(scenes) to high(scenes) do
    scenes[i].ModeChanged;
  end;
+end;
+
+procedure TGame.SetVSync(divider: integer);
+begin
+ if gfx.SetVSyncDivider(divider) then exit;
+ if systemPlatform.SetSwapInterval(divider) then exit;
+ PutMsg('Failed to set VSync: no method available');
 end;
 
 procedure TGame.SetSettings(s: TGameSettings);
@@ -473,7 +481,8 @@ begin
          (oldmouseX<r.x2) and (oldmouseY<r.y2);
 end;
 
-constructor TGame.Create;
+constructor TGame.Create(systemPlatform: ISystemPlatform;
+  gfxSystem: IGraphicsSystem);
 begin
  inherited Create(systemPlatform,gfxSystem);
  ForceLogMessage('Creating '+self.ClassName);
@@ -635,7 +644,7 @@ begin
  globalTintColor:=$FF808080;
  systemPlatform.SetupWindow(params);
  gfx.Init(systemPlatform);
- gfx.SetVSyncDivider(params.VSync);
+ SetVSync(params.VSync);
 
  AfterInitGraph;
 end;
@@ -1029,7 +1038,7 @@ begin
  if SameText(event,'SETGLOBALTINTCOLOR') then globalTintColor:=tag
  else
  if SameText(event,'SETSWAPINTERVAL') then begin
-  if not gfx.SetVSyncDivider(tag) then PutMsg('SetSwapInterval: not supported');
+  SetVSync(tag);
  end else
  if SameText(event,'MAINLOOPINIT') then begin
   InitMainLoop;
@@ -1622,7 +1631,7 @@ begin
  systemPlatform.Minimize;
 end;
 
-procedure TGame.FireMessage(st: String8);
+procedure TGame.FireMessage(st: string8);
 begin
 
 end;

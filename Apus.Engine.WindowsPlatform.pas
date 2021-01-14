@@ -8,6 +8,9 @@ interface
 uses Apus.CrossPlatform, Apus.Engine.API;
 
 type
+ 
+ { TWindowsPlatform }
+
  TWindowsPlatform=class(TInterfacedObject,ISystemPlatform)
   constructor Create;
   function GetPlatformName:string;
@@ -43,6 +46,7 @@ type
 
   function CreateOpenGLContext:UIntPtr;
   procedure OGLSwapBuffers;
+  function SetSwapInterval(divider:integer):boolean;
   procedure DeleteOpenGLContext;
  private
   window:HWND;
@@ -183,7 +187,7 @@ function TWindowsPlatform.CanChangeSettings: boolean;
   result:=true;
  end;
 
-procedure TWindowsPlatform.ClientToScreen;
+procedure TWindowsPlatform.ClientToScreen(var p: TPoint);
  begin
   windows.ClientToScreen(window,p);
  end;
@@ -216,7 +220,7 @@ procedure TWindowsPlatform.FlashWindow(count: integer);
   {$ENDIF}
  end;
 
-procedure TWindowsPlatform.ScreenToClient;
+procedure TWindowsPlatform.ScreenToClient(var p: TPoint);
  begin
   windows.ScreenToClient(window,p);
  end;
@@ -304,7 +308,7 @@ function TWindowsPlatform.GetWindowHandle: THandle;
   result:=window;
  end;
 
-procedure TWindowsPlatform.CreateWindow;
+procedure TWindowsPlatform.CreateWindow(title: string);
  var
   WindowClass:TWndClass;
   style:cardinal;
@@ -359,7 +363,8 @@ procedure TWindowsPlatform.Minimize;
   windows.ShowWindow(window,SW_MINIMIZE);
  end;
 
-procedure TWindowsPlatform.MoveWindowTo(x, y, width, height: integer);
+procedure TWindowsPlatform.MoveWindowTo(x, y: integer; width: integer;
+  height: integer);
  var
   r:TRect;
   dx,dy:integer;
@@ -415,6 +420,11 @@ procedure TWindowsPlatform.OGLSwapBuffers;
    if not SwapBuffers(DC) then
     LogMessage('Swap error: '+IntToStr(GetLastError));
    ReleaseDC(window,DC);
+ end;
+
+function TWindowsPlatform.SetSwapInterval(divider: integer): boolean;
+ begin
+  result:=false;
  end;
 
 procedure TWindowsPlatform.DeleteOpenGLContext;

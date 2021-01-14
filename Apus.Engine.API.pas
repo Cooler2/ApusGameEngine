@@ -296,6 +296,7 @@ type
   // OpenGL support
   function CreateOpenGLContext:UIntPtr;
   procedure OGLSwapBuffers;
+  function SetSwapInterval(divider:integer):boolean;
   procedure DeleteOpenGLContext;
  end;
 

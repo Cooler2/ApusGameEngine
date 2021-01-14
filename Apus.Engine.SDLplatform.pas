@@ -8,6 +8,9 @@ interface
 uses Apus.CrossPlatform, Apus.Engine.API;
 
 type
+ 
+ { TSDLPlatform }
+
  TSDLPlatform=class(TInterfacedObject,ISystemPlatform)
   constructor Create;
   function GetPlatformName:string;
@@ -44,6 +47,7 @@ type
 
   function CreateOpenGLContext:UIntPtr;
   procedure OGLSwapBuffers;
+  function SetSwapInterval(divider:integer):boolean;
   procedure DeleteOpenGLContext;
  end;
 
@@ -62,7 +66,7 @@ function TSDLPlatform.CanChangeSettings: boolean;
   result:=true;
  end;
 
-procedure TSDLPlatform.ClientToScreen;
+procedure TSDLPlatform.ClientToScreen(var p: TPoint);
  begin
  end;
 
@@ -75,7 +79,7 @@ procedure TSDLPlatform.FlashWindow(count: integer);
  begin
  end;
 
-procedure TSDLPlatform.ScreenToClient;
+procedure TSDLPlatform.ScreenToClient(var p: TPoint);
  begin
  end;
 
@@ -93,8 +97,10 @@ function TSDLPlatform.GetScreenDPI: integer;
  var
   ddpi:single;
  begin
-  if SDL_GetDisplayDPI(0,@ddpi,nil,nil)<>0 then
-   raise EWarning.Create('SDL: DPI query failed: '+SDL_GetError);
+  if SDL_GetDisplayDPI(0,@ddpi,nil,nil)<>0 then begin
+   ForceLogMessage('SDL: DPI query failed: '+SDL_GetError+' Assume 96 DPI');
+   exit(96);
+  end;
   result:=round(ddpi);
  end;
 
@@ -185,7 +191,7 @@ constructor TSDLPlatform.Create;
   LogMessage('SDL Initialized. Platform: %s, version %d.%d',[plName,ver.major,ver.minor]);
  end;
 
-procedure TSDLPlatform.CreateWindow;
+procedure TSDLPlatform.CreateWindow(title: string);
  var
   ust:UTF8String;
  begin
@@ -313,7 +319,8 @@ procedure TSDLPlatform.Minimize;
   SDL_MinimizeWindow(window);
  end;
 
-procedure TSDLPlatform.MoveWindowTo(x, y, width, height: integer);
+procedure TSDLPlatform.MoveWindowTo(x, y: integer; width: integer;
+  height: integer);
  begin
   if (width>0) and (height>0) then
    SDL_SetWindowSize(window,width,height);
@@ -330,6 +337,11 @@ procedure TSDLPlatform.OGLSwapBuffers;
  begin
   SDL_GL_SwapWindow(window);
  end;
+
+function TSDLPlatform.SetSwapInterval(divider: integer):boolean;
+begin
+  result:=SDL_GL_SetSwapInterval(divider)=0;
+end;
 
 procedure TSDLPlatform.DeleteOpenGLContext;
  begin
