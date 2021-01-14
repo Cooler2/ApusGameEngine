@@ -4,7 +4,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
-{$IFDEF MSWINDOWS} {$DEFINE DGL} {$ENDIF}
+{$IF Defined(MSWINDOWS) or Defined(LINUX)} {$DEFINE DGL} {$ENDIF}
 unit Apus.Engine.OpenGL;
 interface
 uses Apus.Crossplatform, Apus.Engine.API, Apus.Images;
@@ -29,7 +29,7 @@ type
 implementation
  uses Apus.MyServis,SysUtils,Apus.Engine.GLImages,Apus.Engine.PainterGL2
   {$IFDEF MSWINDOWS},Windows{$ENDIF}
-  {$IFDEF DGL},DGLOpenGL{$ENDIF};
+  {$IFDEF DGL},dglOpenGL{$ENDIF};
 
 { TOpenGL }
 
@@ -97,10 +97,12 @@ procedure TOpenGL.PresentFrame(system: ISystemPlatform);
 function TOpenGL.SetVSyncDivider(n: integer):boolean;
  begin
   result:=false;
+  {$IFDEF MSWINDOWS}
   if WGL_EXT_swap_control then begin
    wglSwapIntervalEXT(n);
    exit(true);
   end;
+  {$ENDIF}
  end;
 
 procedure TOpenGL.ChoosePixelFormats(out trueColor, trueColorAlpha, rtTrueColor,

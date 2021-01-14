@@ -3,9 +3,9 @@
 program EngineDemo;
 
 uses
-  SysUtils,
   Apus.MyServis,
   Apus.CrossPlatform,
+  SysUtils,
   Math,
   Apus.Geom2D,
   Apus.Geom3D,
@@ -30,9 +30,7 @@ uses
   Apus.Engine.Console in '..\..\Apus.Engine.Console.pas',
   Apus.Engine.ConsoleScene in '..\..\Apus.Engine.ConsoleScene.pas',
   Apus.Engine.SceneEffects in '..\..\Apus.Engine.SceneEffects.pas',
-  Apus.Engine.SoundBass in '..\..\Apus.Engine.SoundBass.pas',
   Apus.Engine.BitmapStyle in '..\..\Apus.Engine.BitmapStyle.pas',
-  Apus.Engine.Sound in '..\..\Apus.Engine.Sound.pas',
   Apus.Engine.Networking2 in '..\..\Apus.Engine.Networking2.pas',
   Apus.Engine.IOSgame in '..\..\Apus.Engine.IOSgame.pas',
   Apus.Engine.Game in '..\..\Apus.Engine.Game.pas',
@@ -44,14 +42,25 @@ uses
   Apus.Engine.Objects in '..\..\Apus.Engine.Objects.pas',
   Apus.Engine.CmdProc in '..\..\Apus.Engine.CmdProc.pas',
   Apus.Engine.ComplexText in '..\..\Apus.Engine.ComplexText.pas',
+  {$IFDEF STEAM}
   Apus.Engine.SteamAPI in '..\..\Apus.Engine.SteamAPI.pas',
+  {$ENDIF}
   {$IFDEF DIRECTX}
   Apus.Engine.DxImages8 in '..\..\Apus.Engine.DxImages8.pas',
   {$ENDIF }
   {$IFDEF OPENGL}
+  Apus.Engine.OpenGL in '..\..\Apus.Engine.OpenGL.pas',
   Apus.Engine.PainterGL2 in '..\..\Apus.Engine.PainterGL2.pas',
   Apus.Engine.GLImages in '..\..\Apus.Engine.GLImages.pas',
   {$ENDIF }
+  {$IFDEF MSWINDOWS}
+  Apus.Engine.SoundBass in '..\..\Apus.Engine.SoundBass.pas',
+  Apus.Engine.Sound in '..\..\Apus.Engine.Sound.pas',
+  Apus.Engine.WindowsPlatform in '..\..\Apus.Engine.WindowsPlatform.pas',
+  {$ENDIF}
+  {$IFDEF SDL}
+  Apus.Engine.SDLplatform in '..\..\Apus.Engine.SDLplatform.pas',
+  {$ENDIF}
   Apus.Engine.GameApp in '..\..\Apus.Engine.GameApp.pas',
   Apus.Engine.Model3D in '..\..\Apus.Engine.Model3D.pas',
   Apus.Engine.OBJLoader in '..\..\Apus.Engine.OBJLoader.pas',
@@ -60,10 +69,7 @@ uses
   Apus.Engine.ImgLoadQueue in '..\..\Apus.Engine.ImgLoadQueue.pas',
   Apus.Engine.UIScript in '..\..\Apus.Engine.UIScript.pas',
   Apus.Engine.GfxFormats3D in '..\..\Apus.Engine.GfxFormats3D.pas',
-  Apus.Engine.ImageTools in '..\..\Apus.Engine.ImageTools.pas',
-  Apus.Engine.OpenGL in '..\..\Apus.Engine.OpenGL.pas',
-  Apus.Engine.WindowsPlatform in '..\..\Apus.Engine.WindowsPlatform.pas',
-  Apus.Engine.SDLplatform in '..\..\Apus.Engine.SDLplatform.pas';
+  Apus.Engine.ImageTools in '..\..\Apus.Engine.ImageTools.pas';
 
 const
  wnd:boolean=true;
@@ -71,7 +77,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 8;
+ testnum:integer = 9;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives

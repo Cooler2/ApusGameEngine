@@ -17,7 +17,7 @@ interface
  {$modeswitch ObjectiveC1}
 {$ENDIF}
 {$IFDEF UNIX}
- uses types,SysUtils
+ uses cthreads,types,SysUtils
   {$IFDEF IOS}, iPhoneAll{$ENDIF}
  ;
  var
@@ -139,7 +139,7 @@ interface
  function AnsiStrAlloc(size:integer):PAnsiChar;
  {$ENDIF}
  {$IF not DECLARED(MemoryBarrier)}
- {$DEFINE MEMORY_BARRIER}
+ {$DEFINE DECLARE_MEMORY_BARRIER}
  procedure MemoryBarrier; inline;
  {$ENDIF}
 
@@ -154,8 +154,8 @@ uses
 {$ENDIF}
   Apus.MyServis;
 
-{$IFDEF MEMORY_BARRIER}
- procedure MemoryBarrier; inline;
+{$IFDEF DECLARE_MEMORY_BARRIER}
+ procedure MemoryBarrier; inline; assembler;
  asm
    mfence
  end;

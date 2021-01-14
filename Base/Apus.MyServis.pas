@@ -15,6 +15,9 @@ For Delphi - please define global symbol "DELPHI"!
 unit Apus.MyServis;
 interface
  uses
+  {$IFDEF UNIX}
+  cthreads,  // threading is not actually used here
+  {$ENDIF}
   {$IFDEF MSWINDOWS}
   windows,
   {$ENDIF}
@@ -603,9 +606,6 @@ implementation
  const
   hexchar:shortstring='0123456789ABCDEF';
  type
-  {$IFDEF MSWINDOWS}
-  TThreadID=cardinal;
-  {$ENDIF}
   TThreadInfo=record
    ID:TThreadID;
    name:string;
@@ -4692,7 +4692,7 @@ procedure DeleteCritSect(var cr:TMyCriticalSection);
 
 procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
  var
-  threadID:cardinal;
+  threadID:TThreadID;
   i,lastLevel,trIdx:integer;
   prevSection:PCriticalSection;
  begin
@@ -4760,7 +4760,7 @@ procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
 procedure LeaveCriticalSection(var cr:TMyCriticalSection);
  var
   i:integer;
-  threadID:cardinal;
+  threadID:TThreadID;
  begin
   ASSERT(cr.LockCount>0);
   cr.caller:=0;
@@ -4907,7 +4907,7 @@ procedure CheckCritSections; // проверить критические сек
 procedure RegisterThread(name:string); // зарегистрировать поток
  var
   i:integer;
-  threadID:cardinal;
+  threadID:TThreadID;
  begin
   if trCount>=length(threads) then raise EError.Create('Threads array overflow');
   MyEnterCriticalSection(crSection);

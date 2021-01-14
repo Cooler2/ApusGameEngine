@@ -25,6 +25,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
+            <Libraries Value="..\..\bin"/>
             <OtherUnitFiles Value="..\..;..\..\extra;..\..\extra\sdl2;..\..\Base;..\..\Base\extra"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
@@ -54,8 +55,7 @@
           </Linking>
           <Other>
             <CustomOptions Value="-dOPENGL
--dSDL
--dLODEPNG"/>
+-dSDL"/>
           </Other>
         </CompilerOptions>
       </Item>
