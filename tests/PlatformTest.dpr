@@ -1,12 +1,15 @@
 {$APPTYPE CONSOLE}
 program PlatformTest;
 uses
-  Apus.MyServis, Apus.CrossPlatform, System.SysUtils, dglOpenGL,
+  Apus.MyServis, Apus.CrossPlatform, SysUtils,
+  dglOpenGL,
+  {$IFDEF MSWINDOWS}
+  Apus.Engine.WindowsPlatform,
+  {$ENDIF}
   Apus.EventMan,
   Apus.Engine.API,
   Apus.Engine.Game,
   Apus.Engine.SDLplatform,
-  Apus.Engine.WindowsPlatform,
   Apus.Engine.OpenGL;
 
 var
@@ -24,8 +27,12 @@ end;
 begin
   UseLogFile('platformTest.log');
   SetEventHandler('Engine,Mouse,Kbd,Joystick',EventHandler);
-  plat:=TWindowsPlatform.Create;
-  //plat:=TSdlPlatform.Create;
+  {$IFDEF MSWINDOWS}
+  //plat:=TWindowsPlatform.Create;
+  plat:=TSdlPlatform.Create;
+  {$ELSE}
+  plat:=TSdlPlatform.Create;
+  {$ENDIF}
   game:=TGame.Create(plat,TOpenGL.Create);
 
   with params do begin
