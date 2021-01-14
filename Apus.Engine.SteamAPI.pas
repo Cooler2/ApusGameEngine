@@ -5,6 +5,8 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.SteamAPI;
 interface
+ const
+  steamLibName = 'steam_api.dll';
  var
   steamAvailable:boolean=false;   // Is API available?
   steamID:int64;
@@ -34,37 +36,37 @@ interface
 
   // Imported SteamAPI functions
 
-  function SteamAPI_Init():boolean; cdecl; external 'steam_api.dll';
-  procedure SteamAPI_Shutdown(); cdecl; external 'steam_api.dll';
+  function SteamAPI_Init():boolean; cdecl; external steamLibName;
+  procedure SteamAPI_Shutdown(); cdecl; external steamLibName;
   procedure SetSteamAchievement(name:string;enable:boolean=true);
 
-  function SteamInternal_CreateInterface(ver:PAnsiChar):pointer; cdecl; external 'steam_api.dll';
-  function SteamAPI_GetHSteamUser:HSteamUser;  cdecl; external 'steam_api.dll';
-  function SteamAPI_GetHSteamPipe:HSteamPipe;  cdecl; external 'steam_api.dll';
+  function SteamInternal_CreateInterface(ver:PAnsiChar):pointer; cdecl; external steamLibName;
+  function SteamAPI_GetHSteamUser:HSteamUser;  cdecl; external steamLibName;
+  function SteamAPI_GetHSteamPipe:HSteamPipe;  cdecl; external steamLibName;
   function SteamAPI_ISteamClient_GetISteamUser(steamClient:pointer;hSteamUser:HSteamUser;
-    hSteamPipe:HSteamPipe;const pchVersion:PAnsiChar):pointer;  cdecl; external 'steam_api.dll';
+    hSteamPipe:HSteamPipe;const pchVersion:PAnsiChar):pointer;  cdecl; external steamLibName;
   function SteamAPI_ISteamClient_GetISteamApps(steamClient:pointer;hSteamUser:HSteamUser;
-    hSteamPipe:HSteamPipe;const pchVersion:PAnsiChar):pointer; cdecl; external 'steam_api.dll';
+    hSteamPipe:HSteamPipe;const pchVersion:PAnsiChar):pointer; cdecl; external steamLibName;
   function SteamAPI_ISteamClient_GetISteamUserStats(steamClient:pointer;hSteamUser:HSteamUser;
-    hSteamPipe:HSteamPipe;const pchVersion:PAnsiChar):pointer; cdecl; external 'steam_api.dll';
+    hSteamPipe:HSteamPipe;const pchVersion:PAnsiChar):pointer; cdecl; external steamLibName;
   function SteamAPI_ISteamClient_GetISteamFriends(steamClient:pointer;hSteamUser:HSteamUser;
-    hSteamPipe:HSteamPipe;const pchVersion:PAnsiChar):pointer; cdecl; external 'steam_api.dll';
+    hSteamPipe:HSteamPipe;const pchVersion:PAnsiChar):pointer; cdecl; external steamLibName;
 
   function SteamAPI_ISteamUser_GetAuthSessionTicket(steamUser:pointer;pTicket:pointer;cbMaxTicket:integer;
-    out pcbTicket:Cardinal):HAuthTicket; cdecl; external 'steam_api.dll';
+    out pcbTicket:Cardinal):HAuthTicket; cdecl; external steamLibName;
 
-  function SteamAPI_ISteamUser_GetSteamID(steamUser:pointer):int64; cdecl; external 'steam_api.dll';
-  function SteamAPI_ISteamApps_GetCurrentGameLanguage(steamApps:pointer):PAnsiChar; cdecl; external 'steam_api.dll';
+  function SteamAPI_ISteamUser_GetSteamID(steamUser:pointer):int64; cdecl; external steamLibName;
+  function SteamAPI_ISteamApps_GetCurrentGameLanguage(steamApps:pointer):PAnsiChar; cdecl; external steamLibName;
 
-  procedure SteamAPI_RunCallbacks; cdecl; external 'steam_api.dll';
-  procedure SteamAPI_RegisterCallback(callbackbase:pointer;iCallback:integer); cdecl; external 'steam_api.dll';
+  procedure SteamAPI_RunCallbacks; cdecl; external steamLibName;
+  procedure SteamAPI_RegisterCallback(callbackbase:pointer;iCallback:integer); cdecl; external steamLibName;
 
-  function SteamAPI_ISteamUserStats_SetAchievement(steamUserStats:pointer;const pchName:PAnsiChar):boolean; cdecl; external 'steam_api.dll';
-  function SteamAPI_ISteamUserStats_ClearAchievement(steamUserStats:pointer;const pchName:PAnsiChar):boolean; cdecl; external 'steam_api.dll';
+  function SteamAPI_ISteamUserStats_SetAchievement(steamUserStats:pointer;const pchName:PAnsiChar):boolean; cdecl; external steamLibName;
+  function SteamAPI_ISteamUserStats_ClearAchievement(steamUserStats:pointer;const pchName:PAnsiChar):boolean; cdecl; external steamLibName;
   function SteamAPI_ISteamUserStats_IndicateAchievementProgress(steamUserStats:pointer;const pchName:PAnsiChar;
-    nCurProgress,nMaxProgress:cardinal):boolean; cdecl; external 'steam_api.dll';
+    nCurProgress,nMaxProgress:cardinal):boolean; cdecl; external steamLibName;
 
-  function SteamAPI_ISteamFriends_GetPersonaName(self:pointer):PAnsiChar; cdecl external 'steam_api.dll';
+  function SteamAPI_ISteamFriends_GetPersonaName(self:pointer):PAnsiChar; cdecl external steamLibName;
 
 implementation
  uses SysUtils, Apus.MyServis, Apus.EventMan;

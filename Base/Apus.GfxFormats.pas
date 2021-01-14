@@ -814,30 +814,38 @@ procedure LoadTGA;
   LCT_RGBA = 6; //*RGB with alpha: 8,16 bit*/
 
  {$IFDEF CPU386}
+ const
+  // LodePNG library name
+  LodePngLib = 'LodePNG.dll';
+
   function lodepng_decode32(out image:pointer;out width,height:cardinal;source:pointer;
-    sourSize:integer):cardinal; cdecl; external 'LodePNG.dll';
+    sourSize:integer):cardinal; cdecl; external LodePngLib;
   function lodepng_decode_memory(out image:pointer;out width,height:cardinal;source:pointer;
-    sourSize:integer;colortype,bitdepth:cardinal):cardinal; cdecl; external 'lodePNG.dll';
+    sourSize:integer;colortype,bitdepth:cardinal):cardinal; cdecl; external LodePngLib;
 
   function lodepng_encode32(out image:pointer;out outsize:cardinal;source:pointer;
-    width,height:cardinal):cardinal; cdecl; external 'LodePNG.dll';
+    width,height:cardinal):cardinal; cdecl; external LodePngLib;
   function lodepng_encode_memory(out image:pointer;out outsize:cardinal;source:pointer;
-    width,height,colortype,bitdepth:cardinal):cardinal; cdecl; external 'lodePNG.dll';
+    width,height,colortype,bitdepth:cardinal):cardinal; cdecl; external LodePngLib;
 
-  procedure free_mem(buf:pointer); external 'LodePNG.dll';
+  procedure free_mem(buf:pointer); external LodePngLib;
  {$ENDIF}
  {$IFDEF CPUX64}
+  const
+   // LodePNG library name
+   LodePngLib = 'LodePNG64.dll';
+
   function lodepng_decode32(out image:pointer;out width,height:cardinal;source:pointer;
-    sourSize:integer):cardinal; cdecl; external 'LodePNG64.dll';
+    sourSize:integer):cardinal; cdecl; external LodePngLib;
   function lodepng_decode_memory(out image:pointer;out width,height:cardinal;source:pointer;
-    sourSize:integer;colortype,bitdepth:cardinal):cardinal; cdecl; external 'lodePNG64.dll';
+    sourSize:integer;colortype,bitdepth:cardinal):cardinal; cdecl; external LodePngLib;
 
   function lodepng_encode32(out image:pointer;out outsize:int64;source:pointer;
-    width,height:cardinal):cardinal; cdecl; external 'LodePNG64.dll';
+    width,height:cardinal):cardinal; cdecl; external LodePngLib;
   function lodepng_encode_memory(out image:pointer;out outsize:int64;source:pointer;
-    width,height,colortype,bitdepth:cardinal):cardinal; cdecl; external 'lodePNG64.dll';
+    width,height,colortype,bitdepth:cardinal):cardinal; cdecl; external LodePngLib;
 
-  procedure free_mem(buf:pointer); external 'LodePNG64.dll';
+  procedure free_mem(buf:pointer); external LodePngLib;
  {$ENDIF}
 
  procedure LoadPNG32(data:ByteArray;var image:TRawImage);

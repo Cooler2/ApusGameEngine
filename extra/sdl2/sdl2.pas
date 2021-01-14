@@ -163,7 +163,7 @@ const
       SDL_LibName = 'libSDL2.dylib';
     {$ELSE}
       {$IFDEF FPC}
-        SDL_LibName = 'libSDL2.so';
+        SDL_LibName = {$IFDEF CPU64} 'libSDL2_64.so' {$ELSE} 'libSDL2.so' {$ENDIF};
       {$ELSE}
         SDL_LibName = 'libSDL2.so.0';
       {$ENDIF}
