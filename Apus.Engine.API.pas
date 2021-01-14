@@ -281,6 +281,9 @@ type
 
   // System functions
   function GetSystemCursor(cursorId:integer):THandle;
+  function LoadCursor(filename:string):THandle;
+  procedure SetCursor(cur:THandle);
+  procedure FreeCursor(cur:THandle);
   function MapScanCodeToVirtualKey(key:integer):integer;
   function GetMousePos:TPoint; // Get mouse position on screen (screen may mean client when platform doesn't support real screen space)
   function GetMouseButtons:cardinal;
@@ -795,9 +798,9 @@ type
   // Cursors
   // -------
   // Assign a cursor handle (system or cursom) to a cursor ID
-  procedure RegisterCursor(CursorID,priority:integer;cursorHandle:HCursor); virtual; abstract;
+  procedure RegisterCursor(CursorID,priority:integer;cursorHandle:THandle); virtual; abstract;
   // Get cursor handle assigned for given ID
-  function GetCursorForID(cursorID:integer):HCursor; virtual; abstract;
+  function GetCursorForID(cursorID:integer):THandle; virtual; abstract;
   // Toggle cursor on or off
   procedure ToggleCursor(CursorID:integer;state:boolean=true); virtual; abstract;
   // Toggle all cursors off

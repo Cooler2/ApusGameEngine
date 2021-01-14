@@ -8,7 +8,7 @@ type
 *}
 type
   PSDL_SystemCursor = ^TSDL_SystemCursor;
-  TSDL_SystemCursor = type Word;
+  TSDL_SystemCursor = type DWord;
 const
   SDL_SYSTEM_CURSOR_ARROW = TSDL_SystemCursor(0);     // Arrow
   SDL_SYSTEM_CURSOR_IBEAM = TSDL_SystemCursor(1);     // I-beam

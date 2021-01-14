@@ -31,6 +31,9 @@ type
 
   function GetMousePos:TPoint; // Get mouse position on screen
   function GetSystemCursor(cursorId:integer):THandle;
+  function LoadCursor(filename:string):THandle;
+  procedure SetCursor(cur:THandle);
+  procedure FreeCursor(cur:THandle);
   function MapScanCodeToVirtualKey(key:integer):integer;
   function GetShiftKeysState:cardinal;
   function GetMouseButtons:cardinal;
@@ -277,7 +280,23 @@ function TWindowsPlatform.GetSystemCursor(cursorId: integer): THandle;
    crResizeHW:name:=IDC_SIZEALL;
    crCross:name:=IDC_CROSS;
   end;
-  result:=LoadCursor(0,name);
+  result:=Windows.LoadCursor(0,name);
+ end;
+
+function TWindowsPlatform.LoadCursor(filename:string):THandle;
+ begin
+  filename:=ChangeFileExt(filename,'.cur');
+  result:=LoadCursorFromFileW(PWideChar(filename));
+ end;
+
+procedure TWindowsPlatform.SetCursor(cur:THandle);
+ begin
+  SetCursor(cur);
+ end;
+
+procedure TWindowsPlatform.FreeCursor(cur:THandle);
+ begin
+  FreeCursor(cur);
  end;
 
 function TWindowsPlatform.GetWindowHandle: THandle;

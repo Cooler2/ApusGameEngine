@@ -31,6 +31,10 @@ type
 
   function GetMousePos:TPoint; // Get mouse position on screen
   function GetSystemCursor(cursorId:integer):THandle;
+  function LoadCursor(filename:string):THandle;
+  procedure SetCursor(cur:THandle);
+  procedure FreeCursor(cur:THandle);
+
   function MapScanCodeToVirtualKey(key:integer):integer;
   function GetShiftKeysState:cardinal;
   function GetMouseButtons:cardinal;
@@ -130,21 +134,39 @@ function TSDLPlatform.GetMouseButtons: cardinal;
 
 function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
  var
-  name:PChar;
+  cur:integer;  // not WORD because of Delphi calling convention issue
  begin
-  {case cursorID of
-   crDefault:name:=IDC_ARROW;
-   crLink:name:=IDC_HAND;
-   crWait:name:=IDC_WAIT;
-   crInput:name:=IDC_IBEAM;
-   crHelp:name:=IDC_HELP;
-   crResizeH:name:=IDC_SIZENS;
-   crResizeW:name:=IDC_SIZEWE;
-   crResizeHW:name:=IDC_SIZEALL;
-   crCross:name:=IDC_CROSS;
+  case cursorID of
+   crDefault:cur:=SDL_SYSTEM_CURSOR_ARROW;
+   crLink:cur:=SDL_SYSTEM_CURSOR_HAND;
+   crWait:cur:=SDL_SYSTEM_CURSOR_WAIT;
+   crInput:cur:=SDL_SYSTEM_CURSOR_IBEAM;
+   crHelp:cur:=SDL_SYSTEM_CURSOR_WAITARROW;
+   crResizeH:cur:=SDL_SYSTEM_CURSOR_SIZENS;
+   crResizeW:cur:=SDL_SYSTEM_CURSOR_SIZEWE;
+   crResizeHW:cur:=SDL_SYSTEM_CURSOR_SIZEALL;
+   crCross:cur:=SDL_SYSTEM_CURSOR_CROSSHAIR;
   end;
-  result:=LoadCursor(0,name); }
+  result:=THandle(SDL_CreateSystemCursor(cur));
+  if result=0 then
+   LogMessage('Error - SDL_CSC failed: '+SDL_GetError);
  end;
+
+function TSDLPlatform.LoadCursor(filename:string):THandle;
+ begin
+
+ end;
+
+procedure TSDLPlatform.SetCursor(cur:THandle);
+ begin
+  SDL_SetCursor(pointer(cur));
+ end;
+
+procedure TSDLPlatform.FreeCursor(cur:THandle);
+ begin
+  SDL_FreeCursor(pointer(cur));
+ end;
+
 
 function TSDLPlatform.GetWindowHandle: THandle;
  begin

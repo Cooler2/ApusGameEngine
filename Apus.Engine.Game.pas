@@ -45,8 +45,8 @@ type
   function TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene; override; // Find the topmost active scene
 
   // Cursors
-  procedure RegisterCursor(CursorID,priority:integer;cursorHandle:HCursor); override;
-  function GetCursorForID(cursorID:integer):HCursor; override;
+  procedure RegisterCursor(CursorID,priority:integer;cursorHandle:THandle); override;
+  function GetCursorForID(cursorID:integer):THandle; override;
   procedure ToggleCursor(CursorID:integer;state:boolean=true); override;
   procedure HideAllCursors; override;
 
@@ -125,7 +125,7 @@ type
   videoCapturePath:string; // путь для сохранения файлов видеозахвата (по умолчанию - тек. каталог)
 
   curPrior:integer; // приоритет текущего отображаемого курсора
-  wndCursor:HCursor; // current system cursor
+  wndCursor:THandle; // current system cursor
   suppressCharEvent:boolean; // suppress next keyboard event (to avoid duplicated handle of both CHAR and KEY events)
 
   frameLog,prevFrameLog:string;
@@ -1356,9 +1356,7 @@ begin
    c:=wndCursor;
    if n<0 then wndCursor:=0
     else wndCursor:=TGameCursor(cursors[n]).handle;
-   {$IFDEF MSWINDOWS}
-   SetCursor(wndCursor);
-   {$ENDIF}
+   systemPlatform.SetCursor(wndCursor);
   end;
   curPrior:=j;
  finally
@@ -1655,7 +1653,7 @@ procedure TGame.GameToClient(var p:TPoint);
   p.Y:=round(displayRect.top+p.Y*(displayRect.Bottom-displayRect.Top)/renderHeight);
  end;
 
-function TGame.GetCursorForID(cursorID:integer):HCursor;
+function TGame.GetCursorForID(cursorID:integer):THandle;
 var
  i:integer;
 begin
@@ -1673,7 +1671,7 @@ begin
 end;
 
 procedure TGame.RegisterCursor(CursorID, priority: integer;
-  cursorHandle: HCursor);
+  cursorHandle: THandle);
 var
  i,n:integer;
  cursor:TGameCursor;
