@@ -910,7 +910,6 @@ begin
   mainThread.Terminate; // Для экономии времени
   canExitNow:=true;
 
-  {$IFDEF MSWINDOWS}
   // Прибить главный поток (только в случае вызова из другого потока)
   h:=GetCurrentThreadId;
   if h<>mainThread.ThreadID then begin
@@ -924,7 +923,6 @@ begin
     TerminateThread(mainThread.Handle,0);
    end;
   end;
-  {$ENDIF}
  end;
 
  active:=false;
