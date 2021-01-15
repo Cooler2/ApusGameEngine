@@ -8,7 +8,7 @@ interface
  uses Apus.Images, Apus.Engine.API;
 
  var
-  defaultImagesDir:string='Images\';
+  defaultImagesDir:string=''; // default images dir for non-windows platform
 
  // Загрузить картинку из файла в текстуру (в оптимальный формат, если не указан явно)
  // Если sysmem=true, то загружается в поверхность в системной памяти
