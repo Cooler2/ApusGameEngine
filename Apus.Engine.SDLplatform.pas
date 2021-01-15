@@ -220,7 +220,7 @@ function GetMouseButtonNum(btn:integer):integer;
 
 function GetScancode(sdl_scancode:integer):byte;
  begin
-  result:=1;
+  result:=sdl_scancode;
   case sdl_scancode of
    SDL_SCANCODE_ESCAPE:result:=1;
    SDL_SCANCODE_RETURN:result:=$1C;
