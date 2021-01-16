@@ -1607,8 +1607,10 @@ function UnpackRLE(buf:pointer;size:integer):ByteArray;
     end;
    end;
    pb:=buf;
-  end else
+  end else begin
    inc(pb,8);
+   dec(size,8);
+  end;
   SetLength(result,s);
 
   // Unpack data
