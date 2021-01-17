@@ -77,7 +77,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 9;
+ testnum:integer = 3;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -139,6 +139,7 @@ type
  TTexturesTest=class(TTest)
   prog,uTex:integer;
   tex1,tex2,tex3,tex4,texA,tex5,tex6,texM,texDuo:TTexture;
+  debug:ByteArray;
   procedure Init; override;
   procedure RenderFrame; override;
   procedure Done; override;
@@ -467,6 +468,7 @@ begin
   '    gl_FragColor =  texture2D(u_Texture, vTexcoord);                   '+
   '}',
   'aPosition,aTexcoord');
+
  except
   on e:exception do ErrorMessage(e.message);
  end;
@@ -498,7 +500,6 @@ var
 begin
 // sleep(10);
  inc(frame);
-
  painter.Clear($FF000040,-1,-1);
  painter.BeginPaint(nil);
 // LogMessage('Frame '+inttostr(frame));
@@ -591,7 +592,6 @@ begin
  {$IFDEF DIRECTX}
 // if frame=10 then d3d8.DumpD3D;
  {$ENDIF}
-
  with vrt[0] do begin
   x:=600; y:=10; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
   diffuse:=$FF808080;
@@ -888,9 +888,9 @@ begin
  painter.TextOutW(f,150,750,$FFC0C0C0,IntToStr(frame));
 
  painter.DrawLine(700,672,700,730,$80FFFF50);
- painter.FillRect(700-22,700,700+22,725,$60000000);
- painter.TextOutW(f,700,690,$FFC0C0C0,'Center',taRight);
- painter.TextOutW(f,700,720,$FFC0C0C0,'Right',taCenter);
+ painter.FillRect(700-28,670,700+28,690,$60000000);
+ painter.TextOutW(f,700,690,$FFC0C0C0,'Center',taCenter);
+ painter.TextOutW(f,700,720,$FFC0C0C0,'Right',taRight);
  painter.FillRect(600,732,600+290,757,$60000000);
  painter.TextOutW(f,600,750,$FFC0C0C0,'Justify {i}this{/i} {u}simple and small{/u} text',
    taJustify,toComplexText,290);
@@ -1782,12 +1782,12 @@ begin
 
 
  // Prepare shaders
- vSrc:=LoadFileAsString('res\knight.vsh');
- fSrc:=LoadFileAsString('res\knight.fsh');
+ vSrc:=LoadFileAsString(FileName('res\knight.vsh'));
+ fSrc:=LoadFileAsString(FileName('res\knight.fsh'));
  shader:=TGLPainter(painter).BuildShaderProgram(vSrc,fSrc);
 
- vSrc:=LoadFileAsString('res\tex.vsh');
- fSrc:=LoadFileAsString('res\tex.fsh');
+ vSrc:=LoadFileAsString(FileName('res\tex.vsh'));
+ fSrc:=LoadFileAsString(FileName('res\tex.fsh'));
  shader2:=TGLPainter(painter).BuildShaderProgram(vSrc,fSrc);
 end;
 
