@@ -730,6 +730,32 @@ procedure LoadTGA;
    img.Free;
    reader.Free;
   end;
+
+ function SaveImageUsingWriter(writer:TFPCustomImageWriter;image:TRawImage):ByteArray;
+  var
+   y:integer;
+   img:TMyFPImage;
+   stream:TMemoryStream;
+   sp,dp:PByte;
+  begin
+   img:=TMyFPImage.Create(image.width,image.height);
+   image.Lock;
+   sp:=image.data;
+   for y:=0 to image.height-1 do begin
+    dp:=img.GetScanline(y);
+    ConvertLine(sp^,dp^,image.pixelFormat,ipfABGR,image.width);
+    inc(sp,image.pitch);
+   end;
+   image.Unlock;
+   stream:=TMemoryStream.Create;
+   img.SaveToStream(stream,writer);
+   img.Free;
+   SetLength(result,stream.size);
+   stream.Read(result,stream.size);
+   writer.Free;
+   stream.Free;
+  end;
+
  {$ENDIF}
 
  procedure SaveJPEG(image:TRAWimage;filename:string;quality:integer);
@@ -996,10 +1022,18 @@ procedure LoadTGA;
  procedure LoadPNG(data:ByteArray;var image:TRawImage);
   begin
    CheckImageFormat(data);
+   {$IFDEF LODEPNG}
    if imgInfo.format in [ipfA8,ipfMono8] then
     LoadPNG8(data,image)
    else
     LoadPNG32(data,image);
+   {$ELSE}
+    {$IFDEF FPC}
+    LoadImageUsingReader(TFPReaderPng.Create,data,imgInfo.format in [ipfARGB,ipfA8],image);
+    {$ELSE}
+    NotImplemented('No method to load PNG file format');
+    {$ENDIF}
+   {$ENDIF}
   end;
 
  function SavePNG(image:TRawImage):ByteArray;
