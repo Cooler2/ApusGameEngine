@@ -395,7 +395,7 @@ implementation
 
   begin
    try
-    data:=LoadFileAsBytes(fname);
+    data:=LoadFileAsBytes(FileName(fname));
     ASSERT(length(data)>=sizeof(header),'File is too short');
     header:=@data[0];
     ASSERT(header.magic=MAGIC,'Wrong file format');

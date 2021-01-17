@@ -237,7 +237,7 @@ implementation
  function Load3DModelOBJ(fname:string):TModel3D;
   begin
    try
-    result:=LoadOBJInternal(LoadFileAsBytes(fname));
+    result:=LoadOBJInternal(LoadFileAsBytes(FileName(fname)));
    except
     on e:Exception do raise EError.Create('Error in LoadOBJ('+fname+'): '+ExceptionMsg(e));
    end;
