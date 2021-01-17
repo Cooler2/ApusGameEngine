@@ -59,7 +59,7 @@ implementation
  uses {$IFDEF DELPHI}
        {$IF CompilerVersion >= 20.0}VCL.Graphics,VCL.Imaging.jpeg,{$ELSE}Graphics,Jpeg,{$IFEND}
       {$ENDIF}
-      {$IFDEF FPC}fpimage,fpreadjpeg,fpreadpng,{$ENDIF}
+      {$IFDEF FPC}FPImage,FPReadJPEG,FPWriteJPEG,FPReadPNG,FPWritePNG,{$ENDIF}
       Classes,SysUtils,Math,Apus.Colors;
 
 type
@@ -751,7 +751,7 @@ procedure LoadTGA;
    img.SaveToStream(stream,writer);
    img.Free;
    SetLength(result,stream.size);
-   stream.Read(result,stream.size);
+   move(stream.memory^,result[0],stream.size);
    writer.Free;
    stream.Free;
   end;
@@ -786,8 +786,14 @@ procedure LoadTGA;
    bmp.Free;
   end;
  {$ELSE}
+ var
+  data:ByteArray;
+  writer:TFPWriterJPEG;
  begin
-  EError.Create('JPEG format not supported!');
+  writer:=TFPWriterJPEG.Create;
+  writer.CompressionQuality:=Clamp(quality,1,100);
+  data:=SaveImageUsingWriter(writer,image);
+  SaveFile(filename,data);
  end;
  {$ENDIF}
 
@@ -1038,12 +1044,20 @@ procedure LoadTGA;
 
  function SavePNG(image:TRawImage):ByteArray;
   begin
+   {$IFDEF LODEPNG}
    case image.PixelFormat of
     ipfA8,ipfMono8:result:=SavePNG8(image);
     ipfARGB,ipfXRGB,ipfRGB,ipf32bpp:result:=SavePNG32(image);
     else
      raise EError.Create('PNG: image pixel format not supported');
    end;
+   {$ELSE}
+    {$IFDEF FPC}
+     result:=SaveImageUsingWriter(TFPWriterPng.Create,image);
+    {$ELSE}
+     NotImplemented('No method to write PNG file format');
+    {$ENDIF}
+   {$ENDIF}
   end;
 
 {
