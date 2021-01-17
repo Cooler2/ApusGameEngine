@@ -32,17 +32,21 @@
         <Filename Value="SimpleDemo.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="SimpleDemoApp.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="SimpleDemo"/>
+      <Filename Value="SimpleDemo_fpc"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..;..\extra;..\Base"/>
+      <OtherUnitFiles Value="..\..;..\..\extra;..\..\extra\sdl2;..\..\Base;..\..\Base\extra"/>
       <UnitOutputDirectory Value="..\units\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Parsing>
@@ -70,9 +74,6 @@
     </Linking>
     <Other>
       <CustomOptions Value="-dOPENGL"/>
-      <OtherDefines Count="1">
-        <Define0 Value="OPENGL"/>
-      </OtherDefines>
     </Other>
   </CompilerOptions>
   <Debugging>

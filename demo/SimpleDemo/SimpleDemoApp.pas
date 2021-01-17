@@ -13,7 +13,7 @@
 
 unit SimpleDemoApp;
 interface
- uses GameApp,EngineAPI;
+ uses Apus.Engine.GameApp,Apus.Engine.API;
  type
   // Let's override to have a custom app class
   TSimpleDemoApp=class(TGameApplication)
