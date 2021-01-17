@@ -64,7 +64,7 @@ type
   procedure EnterCritSect; override;
   procedure LeaveCritSect; override;
 
-  // Устанавливает флаги о необходимости сделать скриншот (JPEG or TGA)
+  // Устанавливает флаги о необходимости сделать скриншот (JPEG or PNG)
   procedure RequestScreenshot(saveAsJpeg:boolean=true); override;
   procedure RequestFrameCapture(obj:TObject=nil); override;
   procedure StartVideoCap(filename:string); override;
@@ -946,8 +946,7 @@ begin
  img:=TBitmapImage.Create(r.Width,r.Height,ipfXRGB);
  gfx.CopyFromBackbuffer(0,0,img);
  img.tag:=UIntPtr(buf); // save pointer
- inc(buf,img.width*4*(img.height-1)); // move pointer to the last line
- img.data:=buf;
+ inc(PByte(img.data),img.width*4*(img.height-1)); // move pointer to the last line
  img.pitch:=-img.width*4; // invert pitch
  (*
  {$IFDEF VIDEOCAPTURE}
@@ -971,12 +970,12 @@ begin
    if not DirectoryExists('Screenshots') then
     CreateDir('Screenshots');
    saveAsJPG:=frameCaptureTarget=2;
-   if saveAsJpg then ext:='.jpg' else ext:='.tga';
+   if saveAsJpg then ext:='.jpg' else ext:='.png';
    st:='Screenshots'+PathSeparator+FormatDateTime('yymmdd_hhnnss',Now)+ext;
    if saveAsJpg then
     SaveJPEG(img,st,95)
    else begin
-    res:=SaveTGA(img);
+    res:=SavePNG(img);
     WriteFile(st,@res[0],0,length(res));
    end;
    capturedName:=st;
@@ -1409,7 +1408,7 @@ begin
   end;
 
   // Capture screenshot?
-  if (CapturedTime>0) and (MyTickCount<CapturedTime+3000) and (painter<>nil) then begin
+  if (capturedTime>0) and (MyTickCount<CapturedTime+3000) and (painter<>nil) then begin
    painter.BeginPaint(nil);
    try
     x:=params.width div 2;
