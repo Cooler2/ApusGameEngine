@@ -710,7 +710,7 @@ procedure LoadTGA;
     dp:=image.data;
     inc(dp,image.pitch*i);
     for j:=0 to w-1 do begin
-     // BGR to RGB conversion
+     // BGR16 to RGB8 conversion
      c:=sp^;
      inc(sp,2);
      c:=c shl 8+sp^;
@@ -733,18 +733,29 @@ procedure LoadTGA;
 
  function SaveImageUsingWriter(writer:TFPCustomImageWriter;image:TRawImage):ByteArray;
   var
-   y:integer;
+   x,y:integer;
    img:TMyFPImage;
    stream:TMemoryStream;
-   sp,dp:PByte;
+   sp:PByte;
+   c:cardinal;
+   d:UInt64;
+   dp:^UInt64;
   begin
    img:=TMyFPImage.Create(image.width,image.height);
    image.Lock;
-   sp:=image.data;
    for y:=0 to image.height-1 do begin
+    sp:=image.data;
+    inc(sp,image.pitch*y);
     dp:=img.GetScanline(y);
-    ConvertLine(sp^,dp^,image.pixelFormat,ipfABGR,image.width);
-    inc(sp,image.pitch);
+    for x:=0 to image.width-1 do begin
+     c:=PCardinal(sp)^; inc(sp,4);
+     d:=((c shr 8) and $FF00) or
+        ((c shl 16) and $FF000000) or
+        ((UInt64(c) shl 40) and $FF0000000000) or
+        ((UInt64(c) shl 32) and $FF00000000000000);
+     dp^:=d;
+     inc(dp);
+    end;
    end;
    image.Unlock;
    stream:=TMemoryStream.Create;
@@ -1043,21 +1054,27 @@ procedure LoadTGA;
   end;
 
  function SavePNG(image:TRawImage):ByteArray;
+ {$IFDEF LODEPNG}
   begin
-   {$IFDEF LODEPNG}
    case image.PixelFormat of
     ipfA8,ipfMono8:result:=SavePNG8(image);
     ipfARGB,ipfXRGB,ipfRGB,ipf32bpp:result:=SavePNG32(image);
     else
      raise EError.Create('PNG: image pixel format not supported');
    end;
-   {$ELSE}
-    {$IFDEF FPC}
-     result:=SaveImageUsingWriter(TFPWriterPng.Create,image);
-    {$ELSE}
+ {$ELSE}
+ {$IFDEF FPC}
+  var
+   writer:TFPWriterPng;
+  begin
+    writer:=TFPWriterPng.Create;
+    writer.WordSized:=false;
+    if image.PixelFormat in [ipfA8,ipfMono8] then writer.grayscale:=true;
+    result:=SaveImageUsingWriter(writer,image);
+ {$ELSE}
      NotImplemented('No method to write PNG file format');
-    {$ENDIF}
-   {$ENDIF}
+ {$ENDIF}
+ {$ENDIF}
   end;
 
 {
