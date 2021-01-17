@@ -41,10 +41,13 @@
             </Checks>
             <TargetCPU Value="i386"/>
             <TargetOS Value="linux"/>
+            <Optimizations>
+              <OptimizationLevel Value="0"/>
+            </Optimizations>
           </CodeGeneration>
           <Linking>
             <Debugging>
-              <StripSymbols Value="True"/>
+              <DebugInfoType Value="dsDwarf2"/>
               <UseExternalDbgSyms Value="True"/>
             </Debugging>
             <Options>
@@ -55,7 +58,13 @@
           </Linking>
           <Other>
             <CustomOptions Value="-dOPENGL
--dSDL"/>
+-dSDL
+-dFREETYPE"/>
+            <OtherDefines Count="3">
+              <Define0 Value="OPENGL"/>
+              <Define1 Value="SDL"/>
+              <Define2 Value="FREETYPE"/>
+            </OtherDefines>
           </Other>
         </CompilerOptions>
       </Item>
