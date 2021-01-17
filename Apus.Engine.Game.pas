@@ -940,6 +940,8 @@ var
  buf:PByte;
  saveAsJPG:boolean;
 begin
+ captureSingleFrame:=false;
+
  r:=displayRect;
  img:=TBitmapImage.Create(r.Width,r.Height,ipfXRGB);
  gfx.CopyFromBackbuffer(0,0,img);
@@ -970,7 +972,7 @@ begin
     CreateDir('Screenshots');
    saveAsJPG:=frameCaptureTarget=2;
    if saveAsJpg then ext:='.jpg' else ext:='.tga';
-   st:='Screenshots\'+FormatDateTime('yymmdd_hhnnss',Now)+ext;
+   st:='Screenshots'+PathSeparator+FormatDateTime('yymmdd_hhnnss',Now)+ext;
    if saveAsJpg then
     SaveJPEG(img,st,95)
    else begin
@@ -985,8 +987,7 @@ begin
  end;
  (*
  if not videoCaptureMode then
-  ReleaseFrameData(screenshotDataRaw);
- captureSingleFrame:=false;*)
+  ReleaseFrameData(screenshotDataRaw); *)
 end;
 
 procedure TGame.NotifyScenesAboutMouseMove;
