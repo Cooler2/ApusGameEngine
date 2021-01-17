@@ -48,7 +48,7 @@ interface
   WStringArr=array of String16;
   StringArr=array of string; // depends on UNICODE mode
 
-  {$IF DEclared(TBytes)}
+  {$IF Declared(TBytes)}
   ByteArray=TBytes;
   {$ELSE}
   ByteArray=array of byte;

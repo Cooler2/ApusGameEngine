@@ -67,7 +67,7 @@ type
 implementation
  uses Apus.CrossPlatform, Apus.EventMan, SysUtils, Apus.GfxFormats,
    {$IFDEF MSWINDOWS}dglOpenGl{$ENDIF}
-   {$IFDEF LINUX}dglOpenGl{$ENDIF}
+   {$IFDEF LINUX}dglOpenGL{$ENDIF}
    {$IFDEF IOS}gles11,glext{$ENDIF}
    {$IFDEF ANDROID}gles20{$ENDIF}
    ;
