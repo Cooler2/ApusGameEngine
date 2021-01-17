@@ -236,6 +236,20 @@ function GetKeyCode(sdl_keycode:integer):integer;
  begin
   result:=sdl_keycode;
   case sdl_keycode of
+   SDLK_F1:result:=VK_F1;
+   SDLK_F2:result:=VK_F2;
+   SDLK_F3:result:=VK_F3;
+   SDLK_F4:result:=VK_F4;
+   SDLK_F5:result:=VK_F5;
+   SDLK_F6:result:=VK_F6;
+   SDLK_F7:result:=VK_F7;
+   SDLK_F8:result:=VK_F8;
+   SDLK_F9:result:=VK_F9;
+   SDLK_F10:result:=VK_F10;
+   SDLK_F11:result:=VK_F11;
+   SDLK_F12:result:=VK_F12;
+   SDLK_PRINTSCREEN:result:=VK_SNAPSHOT;
+
    SDLK_TAB:result:=VK_TAB;
    SDLK_LEFT:result:=VK_LEFT;
    SDLK_RIGHT:result:=VK_RIGHT;
