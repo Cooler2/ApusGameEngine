@@ -213,8 +213,7 @@ procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;coun
  begin
   // А нужна ли вообще конверсия?
   if (sourformat=destformat) or
-     (sourFormat=ipfARGB) and (destformat=ipfXRGB) or
-     (sourFormat=ipfABGR) and (destformat=ipfXBGR) then begin
+     (pixelSize[sourFormat]=32) and (pixelSize[destFormat]=32) then begin
    move(sour,dest,count*PixelSize[sourformat] div 8);
 
    if sourFormat<>destFormat then begin
@@ -233,6 +232,7 @@ procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;coun
    end;
    exit;
   end;
+
   // По возможности используем оптимизированные процедуры блиттинга
   if sourformat in [ipfARGB,ipfXRGB] then begin
    if destFormat=ipfRGB then begin
