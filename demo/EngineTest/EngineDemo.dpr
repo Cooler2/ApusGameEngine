@@ -436,10 +436,10 @@ begin
  tex6:=CreateSubImage(tex1,0,0,36,35,0);
 
  texDuo.Lock;
- for i:=0 to 32 do begin
+ for i:=0 to 31 do begin
   pb:=texDuo.data;
   inc(pb,texDuo.pitch*i);
-  for j:=0 to 32 do begin
+  for j:=0 to 31 do begin
    pb^:=i*4;
    inc(pb);
    pb^:=j*4;
