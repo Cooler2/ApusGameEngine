@@ -288,9 +288,9 @@ procedure TGame.RequestScreenshot(saveAsJpeg:boolean=true);
 begin
  EnterCritSect;
  try
-  captureSingleFrame:=true;
   if saveAsJPEG then frameCaptureTarget:=2
    else frameCaptureTarget:=3;
+  captureSingleFrame:=true;
  finally
   LeaveCritSect;
  end;
@@ -1917,10 +1917,8 @@ procedure TGame.FrameLoop;
     if (active or (params.mode.displayMode<>dmSwitchResolution)) and
        screenChanged then begin
      PresentFrame;
-     {$IFDEF DELPHI}
      if captureSingleFrame or videoCaptureMode then
       CaptureFrame;
-     {$ENDIF}
     end else
      sleep(5);
     game.Flog('LEnd');
