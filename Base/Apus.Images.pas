@@ -147,8 +147,10 @@ type
   pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,16,16,32);
   palEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
 
+ procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;count:integer;
+                 palette:pointer=nil;palformat:ImagePaletteFormat=palNone); overload;
  procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;
-                 var palette;palformat:ImagePaletteFormat;count:integer);
+                 var palette;palformat:ImagePaletteFormat;count:integer); overload; deprecated;
 
  // Swap red<->blue channels for xRGB<->xBGR conversion
  procedure SwapRB(var data;count:integer);
@@ -196,7 +198,14 @@ procedure SwapRB(var data;count:integer);
   end;
  end;
 
-procedure ConvertLine;
+procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;
+                var palette;palformat:ImagePaletteFormat;count:integer); overload;
+ begin
+  ConvertLine(sour,dest,sourformat,destformat,count,@palette,palformat);
+ end;
+
+procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;count:integer;
+                palette:pointer=nil;palformat:ImagePaletteFormat=palNone); overload;
  var
   buf:array[0..2047] of cardinal;
   sp,dp:PByte;
@@ -204,7 +213,8 @@ procedure ConvertLine;
  begin
   // А нужна ли вообще конверсия?
   if (sourformat=destformat) or
-     (PixelSize[sourformat]=32) and (PixelSize[destformat]=32) then begin
+     (sourFormat=ipfARGB) and (destformat=ipfXRGB) or
+     (sourFormat=ipfABGR) and (destformat=ipfXBGR) then begin
    move(sour,dest,count*PixelSize[sourformat] div 8);
 
    if sourFormat<>destFormat then begin
@@ -249,8 +259,8 @@ procedure ConvertLine;
      ipf4444:PixelsFrom12(sp^,dp^,n);
      ipfRGB:PixelsFrom24(sp^,dp^,n);
      ipf8Bit:if PalFormat=palRGB then
-       PixelsFrom8P24(sp^,dp^,palette,n) else
-       PixelsFrom8P(sp^,dp^,palette,n);
+       PixelsFrom8P24(sp^,dp^,palette^,n) else
+       PixelsFrom8P(sp^,dp^,palette^,n);
     end;
     if destFormat in [ipfABGR,ipfXBGR] then SwapRB(dp^,n);
    end else
@@ -271,8 +281,8 @@ procedure ConvertLine;
      ipf4444:PixelsFrom12(sp^,buf,n);
      ipfRGB:PixelsFrom24(sp^,buf,n);
      ipf8Bit:if PalFormat=palRGB then
-       PixelsFrom8P24(sp^,buf,palette,n) else
-       PixelsFrom8P(sp^,buf,palette,n);
+       PixelsFrom8P24(sp^,buf,palette^,n) else
+       PixelsFrom8P(sp^,buf,palette^,n);
     end;
     case destformat of
      ipf555:PixelsTo15(buf,dp^,n);
