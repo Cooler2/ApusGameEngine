@@ -421,7 +421,7 @@ begin
   code:=keyCode and $FFFF+shiftstate shl 16+scancode shl 24;
   uCode:=keyCode and $FFFF+scanCode shl 24;
   scene:=TopmostSceneForKbd;
-  HandleInternalHotkeys(code,pressed);
+  HandleInternalHotkeys(keyCode,pressed);
 
   if pressed then begin
     keyState[scanCode]:=keyState[scanCode] or 1;
