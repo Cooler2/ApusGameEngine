@@ -924,7 +924,7 @@ implementation
   begin
    result:=0;
    for i:=1 to length(st) do
-    result:=result*$20844 xor byte(st[i]);
+    result:=cardinal(result*$20844) xor byte(st[i]);
   end;
 
  {$IFDEF ADDANSI}
