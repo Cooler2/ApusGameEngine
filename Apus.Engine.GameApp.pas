@@ -18,7 +18,7 @@ interface
  var
    // Default global settings
    gameTitle:string='Engine3 Game Template';
-   configFileName:string=''; // no config file
+   configFileName:string=''; // load this config file (can contain path, which is discarded after file is loaded)
 
    usedAPI:TGraphicsAPI=gaOpenGL;
    usedPlatform:TSystemPlatform;
@@ -402,7 +402,7 @@ procedure TGameApplication.Prepare;
   st:string;
  begin
   try
-   PublishVar(@gameLangCode,'gamelangCode',TVarTypeString);
+   PublishVar(@gameLangCode,'gameLangCode',TVarTypeString);
    RegisterThread('ControlThread');
    SetCurrentDir(ExtractFileDir(ParamStr(0)));
    Randomize;
@@ -419,9 +419,11 @@ procedure TGameApplication.Prepare;
    SetLogMode(lmVerbose);
 
    if configFileName<>'' then begin
+    configFileName:=FileName(configFileName);
     if not FileExists(configFileName) then
      FatalError('Config file not found: '+configFileName);
     UseControlFile(configFileName);
+    configFileName:=ExtractFileName(configFileName);
     LoadOptions;
     SaveOptions; // Save modified settings (if default values were added)
    end;
