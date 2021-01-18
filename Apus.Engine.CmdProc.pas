@@ -425,7 +425,21 @@ begin
  end;
 end;
 
+procedure EventHandler(event:TEventStr;tag:TTag);
+ begin
+  delete(event,1,8);
+  if event.StartsWith('Exec\',true) then begin
+   delete(event,1,5);
+   ExecCmd(event);
+  end else
+  if event.StartsWith('ExecFile\',true) then begin
+   delete(event,1,9);
+   ExecFile(FileName(event));
+  end;
+ end;
+
 initialization
+ SetEventHandler('CMDPROC',EventHandler,emInstant);
  PublishFunction('ColorAdd',fColorFunc,1);
  PublishFunction('ColorSub',fColorFunc,2);
  SetCmdFunc('SIGNAL ',opFirst,SignalCmd);
