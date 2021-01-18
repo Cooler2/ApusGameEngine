@@ -295,7 +295,7 @@ function TWindowsPlatform.LoadCursor(filename:string):THandle;
 
 procedure TWindowsPlatform.SetCursor(cur:THandle);
  begin
-  SetCursor(cur);
+  windows.SetCursor(cur);
  end;
 
 procedure TWindowsPlatform.FreeCursor(cur:THandle);
