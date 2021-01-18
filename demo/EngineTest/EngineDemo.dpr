@@ -77,7 +77,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 3;
+ testnum:integer = 9;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives

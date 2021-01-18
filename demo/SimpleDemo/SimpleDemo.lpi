@@ -42,12 +42,12 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="SimpleDemo_fpc"/>
+      <Filename Value="..\..\bin\SimpleDemo_fpc"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
       <OtherUnitFiles Value="..\..;..\..\extra;..\..\extra\sdl2;..\..\Base;..\..\Base\extra"/>
-      <UnitOutputDirectory Value="..\units\$(TargetCPU)-$(TargetOS)"/>
+      <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Parsing>
       <Style Value="1"/>
@@ -60,6 +60,8 @@
       <Checks>
         <RangeChecks Value="True"/>
       </Checks>
+      <TargetCPU Value="x86_64"/>
+      <TargetOS Value="win64"/>
     </CodeGeneration>
     <Linking>
       <Debugging>
@@ -73,7 +75,12 @@
       </Options>
     </Linking>
     <Other>
-      <CustomOptions Value="-dOPENGL"/>
+      <CustomOptions Value="-dOPENGL
+-dSDL"/>
+      <OtherDefines Count="2">
+        <Define0 Value="OPENGL"/>
+        <Define1 Value="SDL"/>
+      </OtherDefines>
     </Other>
   </CompilerOptions>
   <Debugging>

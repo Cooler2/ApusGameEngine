@@ -25,7 +25,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <Libraries Value="..\..\bin;\usr\lib\i386-linux-gnu\;\lib\i386-linux-gnu\"/>
+            <Libraries Value="..\..\bin;\usr\lib\i386-linux-gnu;\lib\i386-linux-gnu"/>
             <OtherUnitFiles Value="..\..;..\..\extra;..\..\extra\sdl2;..\..\Base;..\..\Base\extra"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
@@ -41,13 +41,10 @@
             </Checks>
             <TargetCPU Value="i386"/>
             <TargetOS Value="linux"/>
-            <Optimizations>
-              <OptimizationLevel Value="0"/>
-            </Optimizations>
           </CodeGeneration>
           <Linking>
             <Debugging>
-              <DebugInfoType Value="dsDwarf2"/>
+              <StripSymbols Value="True"/>
               <UseExternalDbgSyms Value="True"/>
             </Debugging>
             <Options>
@@ -58,13 +55,7 @@
           </Linking>
           <Other>
             <CustomOptions Value="-dOPENGL
--dSDL
--dFREETYPE"/>
-            <OtherDefines Count="3">
-              <Define0 Value="OPENGL"/>
-              <Define1 Value="SDL"/>
-              <Define2 Value="FREETYPE"/>
-            </OtherDefines>
+-dSDL"/>
           </Other>
         </CompilerOptions>
       </Item>
@@ -271,7 +262,16 @@
     <Other>
       <CustomOptions Value="-dOPENGL
 -dSDL
--dLODEPNG"/>
+-dFREETYPE"/>
+      <OtherDefines Count="7">
+        <Define0 Value="OPENGL"/>
+        <Define1 Value="SDL"/>
+        <Define2 Value="STEAM"/>
+        <Define3 Value="IMX"/>
+        <Define4 Value="BASS"/>
+        <Define5 Value="LODEPNG"/>
+        <Define6 Value="FREETYPE"/>
+      </OtherDefines>
     </Other>
   </CompilerOptions>
   <Debugging>

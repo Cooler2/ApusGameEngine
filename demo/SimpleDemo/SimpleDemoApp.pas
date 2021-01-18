@@ -4,13 +4,6 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
-{$IFDEF WIN32}
-  {$Message Error 'This project requires lodePNG.dll: take if from the \Bin folder and remove this line.'}
-{$ENDIF}
-{$IFDEF WIN64}
-  {$Message Error 'This project requires lodePNG64.dll: take if from the \Bin folder and remove this line.'}
-{$ENDIF}
-
 unit SimpleDemoApp;
 interface
  uses Apus.Engine.GameApp,Apus.Engine.API;
@@ -18,7 +11,7 @@ interface
   // Let's override to have a custom app class
   TSimpleDemoApp=class(TGameApplication)
    constructor Create;
-   procedure SetGameSettings(var settings:TGameSettings); override;
+   procedure SetupGameSettings(var settings:TGameSettings); override;
    procedure CreateScenes; override;
   end;
 
@@ -26,7 +19,8 @@ interface
   application:TSimpleDemoApp;
 
 implementation
- uses windows,EventMan,EngineTools,Colors,stdEffects,UIClasses,UIScene;
+ uses Apus.CrossPlatform,Apus.EventMan,Apus.Colors,
+   Apus.Engine.SceneEffects,Apus.Engine.UIClasses,Apus.Engine.UIScene;
 
  type
   TParticleData=record
@@ -56,12 +50,13 @@ constructor TSimpleDemoApp.Create;
   inherited;
   // Alter some global settings
   gameTitle:='Simple Engine Demo'; // app window title
-  configFileName:='game.ctl';
+  configFileName:='SimpleDemo\game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+  usedPlatform:=spSDL;
  end;
 
 // This is executed just before the game object is launched
-procedure TSimpleDemoApp.SetGameSettings(var settings: TGameSettings);
+procedure TSimpleDemoApp.SetupGameSettings(var settings: TGameSettings);
  begin
   inherited; // global settings are applied to the instance settings here, so there is no sense to change them later
 
@@ -86,7 +81,7 @@ procedure TSimpleDemoApp.CreateScenes;
   mainScene.CreateUI;
   mainScene.InitParticles;
   // just wait a second so you can notice the default loader scene with spinner :-)
-  sleep(1000);
+  Sleep(1000);
   // switch to the main scene using fade transition effect
   TTransitionEffect.Create(mainScene,250);
  end;
@@ -94,12 +89,12 @@ procedure TSimpleDemoApp.CreateScenes;
 { TMainScene }
 procedure TMainScene.CreateUI;
  var
-  box:TUIControl;
+  box:TUIElement;
   btn:TUIButton;
   font:cardinal;
  begin
   // Let's create a simple container
-  box:=TUIControl.Create(400,250,UI,'MainScene\MainMenu');
+  box:=TUIElement.Create(400,250,UI,'MainScene\MainMenu');
   box.Center; // make it center
   //c.SetPos(UI.size.x/2,UI.size.y/2,pivotCenter); // another way to make it center
   box.styleinfo:='E0C0C8D0'; // fill color for the default style
@@ -122,7 +117,7 @@ procedure TMainScene.CreateUI;
 
 procedure TMainScene.InitParticles;
  begin
-  particlesTex:=LoadImageFromFile('Res\particles');
+  particlesTex:=LoadImageFromFile('SimpleDemo\particles');
  end;
 
 
