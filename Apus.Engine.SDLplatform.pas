@@ -58,6 +58,7 @@ var
  window:PSDL_Window;
  context:TSDL_GLContext;
  terminated:boolean;
+ mouseState:byte;
 
 { TSDLPlatform }
 
@@ -123,19 +124,11 @@ function TSDLPlatform.GetShiftKeysState: cardinal;
   if keys and KMOD_CTRL>0 then inc(result,sscCtrl);
   if keys and KMOD_ALT>0 then inc(result,sscAlt);
   if keys and KMOD_GUI>0 then inc(result,sscWin);
-{  if GetAsyncKeyState(VK_SHIFT)<0 then inc(result,sscShift);
-  if GetAsyncKeyState(VK_CONTROL)<0 then inc(result,sscCtrl);
-  if GetAsyncKeyState(VK_MENU)<0 then inc(result,sscAlt);
-  if (GetAsyncKeyState(VK_LWIN)<0) or
-     (GetAsyncKeyState(VK_RWIN)<0) then inc(result,sscWin);}
  end;
 
 function TSDLPlatform.GetMouseButtons: cardinal;
  begin
-  result:=0;
-{  if GetAsyncKeyState(VK_LBUTTON)<0 then inc(result,mbLeft);
-  if GetAsyncKeyState(VK_RBUTTON)<0 then inc(result,mbRight);
-  if GetAsyncKeyState(VK_MBUTTON)<0 then inc(result,mbMiddle);}
+  result:=mouseState;
  end;
 
 function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
@@ -271,6 +264,7 @@ procedure TSDLPlatform.ProcessSystemMessages;
   ust:String8;
   wst:String16;
   i,len:integer;
+  mbtn:integer;
  begin
   while SDL_PollEvent(@event)<>0 do begin
    if game=nil then continue;
@@ -287,12 +281,18 @@ procedure TSDLPlatform.ProcessSystemMessages;
 
     SDL_MOUSEBUTTONDOWN:begin
      if not game.GetSettings.showSystemCursor then SetCursor(0);
-     Signal('MOUSE\BTNDOWN',GetMouseButtonNum(event.button.button));
+     mbtn:=GetMouseButtonNum(event.button.button);
+     if mBtn in [1..5] then
+      mouseState:=mouseState or (1 shl (mbtn-1));
+     Signal('MOUSE\BTNDOWN',mbtn);
     end;
 
     SDL_MOUSEBUTTONUP:begin
      if not game.GetSettings.showSystemCursor then SetCursor(0);
-     Signal('MOUSE\BTNUP',GetMouseButtonNum(event.button.button));
+     mbtn:=GetMouseButtonNum(event.button.button);
+     if mBtn in [1..5] then
+      mouseState:=mouseState and not (1 shl (mbtn-1));
+     Signal('MOUSE\BTNUP',mbtn);
     end;
 
     SDL_KEYDOWN:begin
