@@ -1040,13 +1040,14 @@ procedure LoadTGA;
   begin
    CheckImageFormat(data);
    {$IFDEF LODEPNG}
+   // 2 modes supported: 8bpp for 1-channel images, 32bpp - for anything else
    if imgInfo.format in [ipfA8,ipfMono8] then
     LoadPNG8(data,image)
    else
     LoadPNG32(data,image);
    {$ELSE}
     {$IFDEF FPC}
-    LoadImageUsingReader(TFPReaderPng.Create,data,imgInfo.format in [ipfARGB,ipfA8],image);
+    LoadImageUsingReader(TFPReaderPng.Create,data,true,image); // always ARGB
     {$ELSE}
     NotImplemented('No method to load PNG file format');
     {$ENDIF}
