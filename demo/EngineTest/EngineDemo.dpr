@@ -175,7 +175,7 @@ type
  end;
 
  TToolsTest=class(TTest)
-  tex1,tex2,tex3,tex4:TTexture;
+  tex1,tex2,tex3,tex4,tex5:TTexture;
   t1,t2,t3,t4:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
@@ -1029,6 +1029,7 @@ var
 begin
 // LoadRasterFont('test.fnt');
 // SetTXTFonts(1,1);
+ tex5:=LoadImageFromFile('res\testA');
  tex1:=LoadImageFromFile('res\image.tga',liffMH256);
  tex2:=LoadImageFromFile('res\image.dds');
  tex3:=LoadImageFromFile('res\test3');
@@ -1065,6 +1066,7 @@ begin
  painter.DrawImage(300,200,t2);
  painter.DrawImage(200,300,t3);
  painter.DrawImage(300,300,t4);
+ painter.DrawImage(100,500,tex5);
  painter.EndPaint;
 end;
 
