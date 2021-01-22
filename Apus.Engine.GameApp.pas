@@ -320,7 +320,7 @@ destructor TGameApplication.Destroy;
 procedure TGameApplication.DoneSound;
 begin
  {$IFDEF IMX}
- Sound.Finalize;
+ Apus.Engine.Sound.Finalize;
  {$ENDIF}
 end;
 
@@ -461,7 +461,7 @@ procedure TGameApplication.InitSound;
 begin
  Signal('GAMEAPP\InitSound');
  {$IFDEF IMX}
- Sound.Initialize(game.window,false);
+ Apus.Engine.Sound.Initialize(game.systemPlatform.GetWindowHandle,false);
  {$ENDIF}
 end;
 
