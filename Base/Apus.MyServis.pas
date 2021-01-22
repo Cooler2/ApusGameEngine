@@ -192,10 +192,12 @@ interface
  // ---------------------------------------------------------------
  function FindFile(name,path:string):string; // Найти файл начиная с указанного пути
  function FindDir(name,path:string):string;  // То же самое, но ищется каталог
+ function CopyFile(sour,dest:string):boolean; // Use system functions when possible
  function CopyDir(sour,dest:string):boolean; // Скопировать каталог со всем содержимым
  function MoveDir(sour,dest:string):boolean; // перенести каталог со всем содержимым
  function DeleteDir(path:string):boolean;    // Удалить каталог со всем содержимым
  procedure DumpDir(path:string);             // Log directory content (file names)
+ function ListFiles(path:string;mask:string;recursive:boolean=false):StringArr; // List all files in the specified directory (using mask)
 
  // File functions
  // -------------------------------
@@ -206,6 +208,7 @@ interface
  function WaitForFile(fname:String;delayLimit:integer;exists:boolean=true):boolean; // Подождать (не дольше delayLimit) до появления (или удаления) файла, возвращает false если не дождались
  function MyFileExists(fname:String):boolean; // Cross-platform version
  procedure MakeBakFile(fname:string); // Rename xxx.yyy to xxx.bak, delete old xxx.bak if any
+ function IsPathRelative(fname:string):boolean;
  function LoadFileAsString(fname:String):String8; // Load file content into string
  function LoadFileAsBytes(fname:String):ByteArray; // Load file content into byte array
  procedure SaveFile(fname:string;buf:pointer;size:integer); overload; // rewrite file with given data
@@ -597,7 +600,7 @@ interface
  procedure DisableDEP;
 
 implementation
- uses Classes,Math,Apus.CrossPlatform,Apus.StackTrace
+ uses Classes, Math, Apus.CrossPlatform, Apus.StackTrace
     {$IFDEF MSWINDOWS},mmsystem{$ENDIF}
     {$IFDEF IOS},iphoneAll{$ENDIF}
     {$IFDEF ANDROID},dateutils,Android{$ENDIF};
@@ -4110,7 +4113,7 @@ function BinToStr;
    result:='';
    FindFirst(path+PathSeparator+'*.*',faAnyFile,sr);
    while FindNext(sr)=0 do begin
-    if (sr.name[1]='.') or (sr.Attr and faVolumeID>0) then continue;
+    if (sr.Name='.') or (sr.Name='..') then continue;
     if sr.Attr and faDirectory>0 then begin
      result:=FindFile(name,path+PathSeparator+sr.name);
      if result<>'' then exit;
@@ -4139,6 +4142,33 @@ function BinToStr;
    end;
   end;
 
+ function CopyFile(sour,dest:string):boolean; // Use system functions when possible
+ {$IFDEF MSWINDOWS}
+ begin
+   result:=windows.CopyFileW(PWideChar(sour),PWideChar(dest),false);
+ {$ELSE}
+ var
+  buf:pointer;
+  f,f2:THandle;
+  size:integer;
+ begin
+  result:=true;
+  f:=FileOpen(sour,fmOpenRead);
+  if f=-1 then exit(false);
+  f2:=FileCreate(dest);
+  if f2=-1 then exit(false);
+  getmem(buf,1024*256);
+  repeat
+   size:=FileRead(f,buf^,size);
+   if size<0 then begin result:=false; break; end;
+   if FileWrite(f2,buf^,size)<>size then result:=false;
+  until not result or (size<1024*256);
+  FileClose(f);
+  FileClose(f2);
+  freemem(buf,size);
+ {$ENDIF}
+ end;
+
  function CopyDir;
   var
    sr:TSearchRec;
@@ -4150,24 +4180,11 @@ function BinToStr;
    CreateDir(dest);
    FindFirst(sour+PathSeparator+'*.*',faAnyFile,sr);
    while FindNext(sr)=0 do begin
-    if (sr.name[1]='.') or
-       (sr.Attr and faVolumeID>0) then continue;
+    if (sr.Name='.') or (sr.Name='..') then continue;
     if sr.Attr and faDirectory>0 then
      result:=result and CopyDir(sour+PathSeparator+sr.name,dest+PathSeparator+sr.name)
     else begin
-     assign(f,sour+PathSeparator+sr.name);
-     reset(f,1);
-     assign(f2,dest+PathSeparator+sr.name);
-     rewrite(f2,1);
-     getmem(buf,1024*256);
-     repeat
-      blockread(f,buf^,1024*256,size);
-      blockwrite(f2,buf^,size);
-     until size<1024*256;
-     close(f);
-     close(f2);
-     freemem(buf,size);
-     result:=result and (IOresult=0);
+     result:=result and CopyFile(sour+PathSeparator+sr.name,dest+PathSeparator+sr.name);
     end;
    end;
    FindClose(sr);
@@ -4180,7 +4197,7 @@ function BinToStr;
    result:=true;
    FindFirst(path+PathSeparator+'*.*',faDirectory,sr);
    while FindNext(sr)=0 do begin
-    if sr.Name[1]='.' then continue;
+    if (sr.Name='.') or (sr.Name='..') then continue;
     if sr.Attr=faDirectory then
       result:=result and DeleteDir(path+PathSeparator+sr.Name)
      else result:=result and DeleteFile(path+PathSeparator+sr.name);
@@ -4198,14 +4215,48 @@ function BinToStr;
 procedure DumpDir(path:string);
  var
   sr:TSearchRec;
+  res:integer;
  begin
   ForceLogMessage('Directory dump: '+path);
-  FindFirst(path+PathSeparator+'*.*',faAnyFile,sr);
-  while FindNext(sr)=0 do begin
+  res:=FindFirst(path+PathSeparator+'*.*',faAnyFile,sr);
+  while res=0 do begin
    ForceLogMessage(sr.name+' '+IntToHex(sr.attr,2)+' '+IntToStr(sr.size));
+   res:=FindNext(sr);
   end;
   FindClose(sr);
  end;
+
+ function ListFiles(path:string;mask:string;recursive:boolean=false):StringArr; // List all files in the specified directory (using mask)
+  var
+   list,masks:StringArr;
+   i:integer;
+  procedure AddFiles(path,mask:string);
+   var
+    sr:TSearchRec;
+    res:integer;
+   begin
+    res:=FindFirst(path+PathSeparator+mask,faAnyFile,sr);
+    while res=0 do begin
+     if sr.Attr and faDirectory>0 then continue;
+     AddString(list,path+PathSeparator+sr.name);
+     res:=FindNext(sr);
+    end;
+    FindClose(sr);
+    if recursive then begin
+     res:=FindFirst(path,faDirectory,sr);
+     while res=0 do begin
+      AddFiles(sr.name,mask);
+      res:=FindNext(sr);
+     end;
+    end;
+   end;
+  begin
+   if path.EndsWith(PathSeparator) then SetLength(path,length(path)-1);
+   masks:=Split(';',mask);
+   for i:=0 to high(masks) do
+    AddFiles(path,mask);
+   result:=list;
+  end;
 
  function SafeFileName(fname:string):string;
   var
@@ -4258,6 +4309,13 @@ procedure DumpDir(path:string);
     if FileExists(bakName) then DeleteFile(bakName);
     RenameFile(fname,bakName);
    end;
+  end;
+
+ function IsPathRelative(fname:string):boolean;
+  begin
+   result:=true;
+   if fname.StartsWith('/') then result:=false;
+   if pos(':',fname)>0 then result:=false;
   end;
 
  function GetFileSize(fname:String8):int64;
@@ -4883,10 +4941,6 @@ procedure DumpCritSects; // Вывести в лог состояние всех
   end;
   ForceLogMessage(st);
  end;
-
-{$IFDEF MSWINDOWS}
-function IsDebuggerPresent:Boolean; stdcall; external 'kernel32.dll';
-{$ENDIF}
 
 procedure CheckCritSections; // проверить критические секции на таймаут
  var
