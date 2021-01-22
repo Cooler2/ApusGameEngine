@@ -111,6 +111,7 @@ interface
  function BeginThread(ThreadFunction:TThreadFunc; p:pointer; var ThreadId:TThreadID; stackSize:integer=1024*1024):THandle;
  function GetCurrentThreadID:TThreadId;
  procedure TerminateThread(threadHandle:TThreadID;exitCode:cardinal);
+ procedure ChangeThreadPriority(priority:integer); // -2..2 where 0 is Normal
 
  function GetSystemInfo:string;
  function GetLastError:cardinal;
@@ -120,6 +121,7 @@ interface
  {$ENDIF}
  procedure OpenURL(url:AnsiString);
  function LaunchProcess(fname:AnsiString;params:AnsiString=''):boolean;
+ function IsDebuggerPresent:boolean; inline;
 
  {$IFDEF MSWINDOWS}
  function LoadCursorFromFile(fname:PChar):HCursor;
@@ -286,6 +288,22 @@ uses
   end;
  {$ENDIF}
 
+ function IsDebuggerPresent:boolean;
+  begin
+   result:=false;
+   {$IFDEF MSWINDOWS}
+   result:=windows.IsDebuggerPresent;
+   {$ENDIF}
+   {$IFDEF UNIX}
+   if (ptrace(PTRACE_TRACEME, 0, 1, 0) < 0) then
+    result:=true
+   else begin
+    ptrace(PTRACE_DETACH, 0, 1, 0);
+    result:=false;
+   end;
+   {$ENDIF}
+  end;
+
 // This function taken from http://forum.codecall.net/topic/72472-execute-a-console-program-and-capture-its-output/
 // Author: Luthfi
 function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString): Integer;
@@ -402,6 +420,11 @@ end;
    windows.TerminateThread(threadHandle,exitCode);
   end;
 
+ procedure ChangeThreadPriority(priority:integer); // -2..2 where 0 is Normal
+  begin
+   SetThreadPriority(GetCurrentThread,priority);
+  end;
+
  function LoadCursorFromFile(fname:PChar):HCursor;
   begin
    result:=windows.LoadCursorFromFile(fname);
@@ -513,6 +536,12 @@ procedure TerminateThread(threadHandle:system.TThreadID;exitCode:cardinal);
  begin
   CloseThread(threadHandle);
  end;
+
+procedure ChangeThreadPriority(priority:integer);
+ begin
+  // Not implemented
+ end;
+
 
 function GetTickCount:cardinal;
  var
