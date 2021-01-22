@@ -865,11 +865,13 @@ type
  end;
 
 var
+ // Global references to the key interfaces
+ // ---------------------------------------
  game:TGameBase;
  painter:TPainter;
 
+ // Selected pixel formats for different tasks
  // Используемые форматы пикселя (в какие форматы грузить графику)
- // Они определяются исходя из доступного объема видеопамяти и кол-ва графики в игре
  pfTrueColorAlpha:TImagePixelFormat; // Формат для загрузки true-color изображений с прозрачностью
  pfTrueColor:TImagePixelFormat; // то же самое, но без прозрачности
  pfTrueColorAlphaLow:TImagePixelFormat; // То же самое, но для картинок, качеством которых можно пожертвовать
@@ -877,6 +879,9 @@ var
  // форматы для отрисовки в текстуру
  pfRenderTarget:TImagePixelFormat;       // обычное изображение
  pfRenderTargetAlpha:TImagePixelFormat;  // вариант с альфаканалом
+
+ // Shortcuts to the most used functions
+ // ------------------------------------
 
  // Загрузить картинку из файла в текстуру (в оптимальный формат, если не указан явно)
  // Если sysmem=true, то загружается в поверхность в системной памяти
@@ -900,8 +905,15 @@ var
 
  procedure FreeImage(var img:TTexture);
 
+ // Translate string using localization dictionary (UDict)
+ function Translate(st:string8):string8; overload; inline;
+ function Translate(st:string16):string16; overload; inline;
+
+ // Process events/system messages and wait at least time ms
+ procedure Delay(time:integer);
+
 implementation
-uses SysUtils, Apus.Publics, Apus.Engine.ImageTools;
+uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game;
 
  constructor TGameBase.Create;
   begin
@@ -1132,6 +1144,21 @@ procedure FreeImage(var img:TTexture);
  begin
   if img<>nil then
    painter.texman.FreeImage(img);
+ end;
+
+function Translate(st:string8):string8; overload;
+ begin
+  result:=Apus.Engine.UDict.Translate(st);
+ end;
+
+function Translate(st:string16):string16; overload;
+ begin
+  result:=Apus.Engine.UDict.Translate(st);
+ end;
+
+procedure Delay(time:integer);
+ begin
+  Apus.Engine.Game.Delay(time);
  end;
 
 
