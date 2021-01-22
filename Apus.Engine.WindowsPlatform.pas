@@ -92,7 +92,7 @@ begin
  result:=byte(ast[1]);
 end;
 
-function WindowProc(Window:HWnd;Message,WParam:Longint;LParam:LongInt):LongInt; stdcall;
+function WindowProc(Window:HWnd;Message:cardinal;WParam,LParam:NativeInt):LongInt; stdcall;
 var
  i,charCode,scanCode:integer;
 begin
@@ -166,7 +166,7 @@ begin
   end;
  end;
 
- result:=DefWindowProcW(Window,Message,WParam,LParam);
+ result:=longint(DefWindowProcW(Window,Message,UIntPtr(WParam),IntPtr(LParam)));
  except
   on e:Exception do ForceLogMessage('WindowProc error: '+ExceptionMsg(e));
  end;

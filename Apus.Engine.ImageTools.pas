@@ -8,7 +8,7 @@ interface
  uses Apus.Images, Apus.Engine.API;
 
  var
-  defaultImagesDir:string=''; // default images dir for non-windows platform
+  defaultImagesDir:string='Images\'; // default folder to load images from
 
  // Загрузить картинку из файла в текстуру (в оптимальный формат, если не указан явно)
  // Если sysmem=true, то загружается в поверхность в системной памяти
@@ -579,7 +579,8 @@ procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
  begin
    if flags=liffDefault then flags:=defaultLoadImageFlags;
    if img<>nil then painter.texman.FreeImage(TTexture(img));
-   if not fName.StartsWith('..') then fName:=defaultImagesDir+fName;
+
+   if IsPathRelative(fName) then fName:=defaultImagesDir+fName;
    img:=LoadImageFromFile(fName,flags,ipf32bpp);
  end;
 

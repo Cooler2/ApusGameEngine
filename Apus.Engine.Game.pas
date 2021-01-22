@@ -436,7 +436,7 @@ end;
 
 procedure TGame.MouseButtonPressed(btn:integer;pressed:boolean=true);
 begin
- NotifyScenesAboutMouseBtn(btn,true);
+ NotifyScenesAboutMouseBtn(btn,pressed);
 end;
 
 procedure TGame.MouseWheelMoved(value:integer);
