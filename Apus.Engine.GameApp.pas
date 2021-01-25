@@ -490,7 +490,12 @@ procedure TGameApplication.Run;
      usedAPI:=gaOpenGL2
     {$ENDIF}
    end;
+   {$ENDIF}
+
+   {$IFDEF MSWINDOWS}
    if usedPlatform=spWindows then plat:=TWindowsPlatform.Create;
+   {$ENDIF}
+
    if usedPlatform=spSDL then begin
     {$IFDEF SDL}
     plat:=TSDLPlatform.Create;
@@ -499,8 +504,7 @@ procedure TGameApplication.Run;
     {$ENDIF}
    end;
 
-   game:=TGame.Create(plat,TOpenGL.Create);
-  {$ENDIF}
+  game:=TGame.Create(plat,TOpenGL.Create);
   if game=nil then raise EError.Create('Game object not created!');
 
   // CONFIGURE GAME OBJECT
