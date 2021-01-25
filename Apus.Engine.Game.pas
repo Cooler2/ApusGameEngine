@@ -443,7 +443,6 @@ procedure TGame.MouseWheelMoved(value:integer);
 var
  i:integer;
 begin
-  Signal('Mouse\Scroll',value);
   for i:=low(scenes) to high(scenes) do
    if scenes[i].status=ssActive then
     scenes[i].onMouseWheel(value);
