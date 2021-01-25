@@ -52,7 +52,7 @@ type
  end;
 
 implementation
-uses Types, Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.Game, sdl2;
+uses Types, Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.Game, Apus.Images, Apus.GfxFormats, sdl2;
 
 var
  window:PSDL_Window;
@@ -152,8 +152,29 @@ function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
  end;
 
 function TSDLPlatform.LoadCursor(filename:string):THandle;
+ var
+  surface:PSDL_Surface;
+  data:ByteArray;
+  image:TRawImage;
+  hotX,hotY:integer;
+  cursor:PSDL_Cursor;
  begin
-
+  try
+   data:=LoadFileAsBytes(filename);
+   image:=nil;
+   LoadCUR(data,image,hotX,hotY);
+   image.Lock;
+   surface:=SDL_CreateRGBSurfaceFrom(image.data,image.width,image.height,32,image.pitch,
+     $FF0000,$FF00,$FF,$FF000000);
+   if surface=nil then raise EWarning.Create('Surface creation failed: '+SDL_GetError);
+   cursor:=SDL_CreateColorCursor(surface,hotX,hotY);
+   SDL_FreeSurface(surface);
+   image.Unlock;
+   result:=THandle(cursor);
+  except
+   on e:Exception do
+    raise EWarning.Create('Failed to load cursor from %s: %s',[filename,ExceptionMsg(e)]);
+  end;
  end;
 
 procedure TSDLPlatform.SetCursor(cur:THandle);
