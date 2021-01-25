@@ -68,13 +68,16 @@ var
 
  // Преобразование строки 32-битных ARGB-пикселей в строку заданного формата
  procedure PixelsTo24(var sour,dest;count:integer); pascal;
+ procedure PixelsTo24R(var sour,dest;count:integer); pascal;
  procedure PixelsTo16(var sour,dest;count:integer); pascal;
  procedure PixelsTo15A(var sour,dest;count:integer); pascal;
  procedure PixelsTo15(var sour,dest;count:integer); pascal;
  procedure PixelsTo12(var sour,dest;count:integer); pascal;
 
  // Преобразование строки заданного формата в строку 32-битных ARGB-пикселей
- procedure PixelsFrom24(var sour,dest;count:integer); pascal;
+ // ----
+ procedure PixelsFrom24(var sour,dest;count:integer); pascal;  // RGB -> ARGB
+ procedure PixelsFrom24R(var sour,dest;count:integer); pascal; // BGR -> ARGB
  procedure PixelsFrom16(var sour,dest;count:integer); pascal;
  procedure PixelsFrom15A(var sour,dest;count:integer); pascal;
  procedure PixelsFrom15(var sour,dest;count:integer); pascal;
@@ -884,16 +887,6 @@ const
    mov esi,sour
    mov edi,dest
    mov ecx,count
-{@inner1:
-   cmp ecx,4
-   jb @theRest
-   movq mm0,[esi]
-   movq mm1,[esi+8]
-
-   add esi,16
-   add edi,12
-   sub ecx,4
-@theRest:}
 
 @inner:
    mov eax,[esi]
@@ -920,6 +913,23 @@ const
    end;
   end;
   {$ENDIF}
+
+ procedure PixelsTo24R(var sour,dest;count:integer);
+  var
+   sp:PCardinal;
+   c:cardinal;
+   dp:PByte;
+   i:integer;
+  begin
+   sp:=@sour; dp:=@dest;
+   for i:=0 to count-1 do begin
+    c:=sp^;
+    inc(sp);
+    dp^:=byte(c shr 16); inc(dp);
+    dp^:=byte(c shr 8); inc(dp);
+    dp^:=byte(c); inc(dp);
+   end;
+  end;
 
  procedure PixelsTo16(var sour,dest;count:integer);
   {$IFDEF CPU386}
@@ -1141,6 +1151,24 @@ const
    end;
   end;
   {$ENDIF}
+ procedure PixelsFrom24R(var sour,dest;count:integer); pascal; // BGR -> ARGB
+  var
+   sp:PByte;
+   dp:PCardinal;
+   i:integer;
+   c:cardinal;
+  begin
+   sp:=@sour; dp:=@dest;
+   while count>0 do begin
+    c:=sp^ shl 16; inc(sp);
+    c:=c+sp^ shl 8; inc(sp);
+    c:=c+sp^; inc(sp);
+    dp^:=c+$FF000000;
+    inc(dp);
+    dec(count);
+   end;
+  end;
+
  procedure PixelsFrom16(var sour,dest;count:integer);
   {$IFDEF CPU386}
   asm
