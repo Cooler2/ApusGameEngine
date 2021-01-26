@@ -958,7 +958,7 @@ begin
  globalRect:=GetPosOnScreen;
  focusedChild:=nil;
  shapeRegion:=nil;
- Signal('UI\ItemCreated',integer(self));
+ Signal('UI\ItemCreated',TTag(self));
 end;
 
 destructor TUIElement.Destroy;
