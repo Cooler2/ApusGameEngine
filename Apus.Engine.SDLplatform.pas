@@ -34,7 +34,7 @@ type
 
   function GetMousePos:TPoint; // Get mouse position on screen
   function GetSystemCursor(cursorId:integer):THandle;
-  function LoadCursor(filename:string):THandle;
+  function LoadCursor(fname:string):THandle;
   procedure SetCursor(cur:THandle);
   procedure FreeCursor(cur:THandle);
 
@@ -151,7 +151,7 @@ function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
    LogMessage('Error - SDL_CSC failed: '+SDL_GetError);
  end;
 
-function TSDLPlatform.LoadCursor(filename:string):THandle;
+function TSDLPlatform.LoadCursor(fname:string):THandle;
  var
   surface:PSDL_Surface;
   data:ByteArray;
@@ -160,7 +160,7 @@ function TSDLPlatform.LoadCursor(filename:string):THandle;
   cursor:PSDL_Cursor;
  begin
   try
-   data:=LoadFileAsBytes(filename);
+   data:=LoadFileAsBytes(filename(fname));
    image:=nil;
    LoadCUR(data,image,hotX,hotY);
    image.Lock;
@@ -173,7 +173,7 @@ function TSDLPlatform.LoadCursor(filename:string):THandle;
    result:=THandle(cursor);
   except
    on e:Exception do
-    raise EWarning.Create('Failed to load cursor from %s: %s',[filename,ExceptionMsg(e)]);
+    raise EWarning.Create('Failed to load cursor from %s: %s',[fname,ExceptionMsg(e)]);
   end;
  end;
 
