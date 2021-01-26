@@ -412,6 +412,7 @@ procedure TGameApplication.Prepare;
     st:='Logs\game.log';
    end else
     st:='game.log';
+   st:=FileName(st);
    if fileExists(st) then
      RenameFile(st,ChangeFileExt(st,'.old'));
    UseLogFile(st);
