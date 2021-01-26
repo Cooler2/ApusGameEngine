@@ -25,7 +25,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <Libraries Value="..\..\bin;\usr\lib\i386-linux-gnu;\lib\i386-linux-gnu"/>
+            <Libraries Value="..\..\bin;\usr\lib\i386-linux-gnu\;\lib\i386-linux-gnu\"/>
             <OtherUnitFiles Value="..\..;..\..\extra;..\..\extra\sdl2;..\..\Base;..\..\Base\extra"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
@@ -39,8 +39,6 @@
             <Checks>
               <RangeChecks Value="True"/>
             </Checks>
-            <TargetCPU Value="i386"/>
-            <TargetOS Value="linux"/>
           </CodeGeneration>
           <Linking>
             <Debugging>
@@ -56,6 +54,11 @@
           <Other>
             <CustomOptions Value="-dOPENGL
 -dSDL"/>
+            <OtherDefines Count="3">
+              <Define0 Value="OPENGL"/>
+              <Define1 Value="SDL"/>
+              <Define2 Value="FREETYPE"/>
+            </OtherDefines>
           </Other>
         </CompilerOptions>
       </Item>
