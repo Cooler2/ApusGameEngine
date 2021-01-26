@@ -883,19 +883,16 @@ var
  // Shortcuts to the most used functions
  // ------------------------------------
 
- // Загрузить картинку из файла в текстуру (в оптимальный формат, если не указан явно)
- // Если sysmem=true, то загружается в поверхность в системной памяти
- // function LoadImageFromFile(fname:string;mtwidth:integer=0;mtheight:integer=0;sysmem:boolean=false;
- //           ForceFormat:ImagePixelFormat=ipfNone):TTexture;
+ // Load image from a file. In case of failure throws an exception!
+ // fname is handled by FileName()
  function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
 
  // (Re)load texture from an image file. defaultImagesDir is used if path is relative
  // Default flags can be used from defaultLoadImageFlags
  procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
 
- // Загрузить текстурный атлас
- // Далее при загрузке изображений, которые уже есть в атласе, вместо загрузки из файла будут
- // создаваться текстурные объекты, ссылающиеся на атлас
+ // Load a texture atlas.
+ // Then if you try to load an image from a file - it is cloned from the atlas.
  // Not thread-safe! Don't load atlases in one thread and create images in other thread
  procedure LoadAtlas(fname:string;scale:single=1.0);
 
