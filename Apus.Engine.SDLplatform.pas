@@ -316,6 +316,10 @@ procedure TSDLPlatform.ProcessSystemMessages;
      Signal('MOUSE\BTNUP',mbtn);
     end;
 
+    SDL_MOUSEWHEEL:begin
+     Signal('MOUSE\SCROLL',event.wheel.y);
+    end;
+
     SDL_KEYDOWN:begin
      Signal('KBD\KEYDOWN',GetKeyCode(event.key.keysym.sym) and $FFFF+
        GetScanCode(event.key.keysym.scancode) shl 16);
