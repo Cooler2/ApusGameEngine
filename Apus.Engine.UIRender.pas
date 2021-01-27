@@ -456,7 +456,7 @@ implementation
   var
    img:THandle;
    lname:string;
-   p:UIntPtr;
+   p:int64;
    tex:TTexture;
    proc:TImageDrawProc;
   begin
