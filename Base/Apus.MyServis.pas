@@ -246,6 +246,7 @@ interface
  // Возвращает объем выделенной памяти
  function GetMemoryAllocated:int64;
 
+ function GetEnumNameSafe(typeInfo:pointer;value:integer):string;
 
  // Array functions
  // ------------------------------
@@ -386,11 +387,12 @@ interface
  function UnpackRLE(buf:pointer;size:integer):ByteArray;
  function CheckRLEHeader(buf:pointer;size:integer):integer; // -1 - no header
 
- // Сравнить два куска памяти и создать патч с набором изменений в sour по сравнению с dest
- function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
-
- // Применить патч. После применения dest приводится к состоянию sour
- procedure ApplyDiffPatch(data:pointer;size:integer;patch:pointer;patchSize:integer);
+ // Memory patching
+ // --------------
+ // Compare two memory blocks and create a backup diff patch
+ function CreateBackupPatch(original,modified:pointer;size:integer):ByteArray;
+ // Apply backup patch to restore memory block to it's original state
+ procedure ApplyBackupPatch(data:pointer;size:integer;patch:pointer;patchSize:integer);
 
  // Преобразует дату из строки в формате DD.MM.YYYY HH:MM:SS (другие форматы тоже понимает и распознаёт)
  function ParseDate(st:String8;default:TDateTime=0):TDateTime;
@@ -600,7 +602,7 @@ interface
  procedure DisableDEP;
 
 implementation
- uses Classes, Math, Apus.CrossPlatform, Apus.StackTrace
+ uses Classes, Math, Apus.CrossPlatform, Apus.StackTrace, TypInfo
     {$IFDEF MSWINDOWS},mmsystem{$ENDIF}
     {$IFDEF IOS},iphoneAll{$ENDIF}
     {$IFDEF ANDROID},dateutils,Android{$ENDIF};
@@ -1638,13 +1640,13 @@ function UnpackRLE(buf:pointer;size:integer):ByteArray;
 // Формат потока:
 // - если 1-й байт >$80, то 7 бит - кол-во следующих за ним байтов данных
 // - иначе 7 бит + 8 бит следующего байта - это 15 бит смещение до начала следующего блока
-function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
+function CreateBackupPatch(original,modified:pointer;size:integer):ByteArray;
  var
   i,cnt,sameCnt,diffCnt:integer;
   sp,dp:PByte;
   mode:integer;
  begin
-  sp:=sour; dp:=dest;
+  sp:=original; dp:=modified;
   SetLength(result,size+4+size div 16);
   cnt:=0; // счётчик байт в выходном потоке
   sameCnt:=0; mode:=0; // поиск повторяющейся строки
@@ -1723,7 +1725,7 @@ function CreateDiffPatch(sour,dest:pointer;size:integer):ByteArray;
   SetLength(result,cnt);
  end;
 
-procedure ApplyDiffPatch(data:pointer;size:integer;patch:pointer;patchSize:integer);
+procedure ApplyBackupPatch(data:pointer;size:integer;patch:pointer;patchSize:integer);
  var
   pb,dp:PByte;
   ofs:integer;
@@ -2526,6 +2528,14 @@ procedure SimpleEncrypt2;
    result:=0;
   end;
 {$ENDIF}
+
+ function GetEnumNameSafe(typeInfo:pointer;value:integer):string;
+  begin
+   if typeInfo<>nil then
+    result:=GetEnumName(PTypeInfo(typeInfo),value)
+   else
+    result:='ENUM_'+IntToStr(value);
+  end;
 
  function ConvertToWindows(ch:AnsiChar):AnsiChar;
   var
