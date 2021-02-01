@@ -560,7 +560,6 @@ procedure TGameApplication.Run;
     PingThread;
     CheckCritSections;
     Delay(5); // поддерживает сигналы тем самым давая возможность синхронно на них реагировать
-    game.systemPlatform.ProcessSystemMessages;
     Signal('GAMEAPP\onIdle');
    except
     on e:exception do ForceLogMessage('Error in Control Thread: '+e.message);
