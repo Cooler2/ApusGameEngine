@@ -864,6 +864,16 @@ type
   procedure SetWindowCaption(text: string); virtual; abstract;
  end;
 
+ TDisplayModeHelper = record helper for TDisplayMode
+  function ToString:string;
+ end;
+ TDisplayFitModeHelper = record helper for TDisplayFitMode
+  function ToString:string;
+ end;
+ TDisplayScaleModeHelper = record helper for TDisplayScaleMode
+  function ToString:string;
+ end;
+
 var
  // Global references to the key interfaces
  // ---------------------------------------
@@ -910,7 +920,7 @@ var
  procedure Delay(time:integer);
 
 implementation
-uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game;
+uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game, TypInfo;
 
  constructor TGameBase.Create;
   begin
@@ -1158,6 +1168,18 @@ procedure Delay(time:integer);
   Apus.Engine.Game.Delay(time);
  end;
 
+function TDisplayModeHelper.ToString:string;
+ begin
+  result:=GetEnumNameSafe(TypeInfo(TDisplayMode),ord(self));
+ end;
+function TDisplayFitModeHelper.ToString: string;
+ begin
+  result:=GetEnumNameSafe(TypeInfo(TDisplayFitMode),ord(self));
+ end;
+function TDisplayScaleModeHelper.ToString: string;
+ begin
+  result:=GetEnumNameSafe(TypeInfo(TDisplayScaleMode),ord(self));
+ end;
 
 initialization
  PublishFunction('GetFont',fGetFontHandle);

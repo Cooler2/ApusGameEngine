@@ -202,7 +202,7 @@ type
  procedure Delay(time:integer);
 
 implementation
- uses SysUtils, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools
+ uses SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools
      {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},Apus.Engine.Painter2D,
      Apus.EventMan, Apus.Engine.UIScene, Apus.Engine.UIClasses, Apus.Engine.Console,
      Apus.Publics, Apus.GfxFormats, Apus.Clipboard;
@@ -323,6 +323,10 @@ begin
  end;
 
  if running then begin // смена параметров во время работы
+  with params.mode do
+   LogMessage('Change mode to: %s,%s,%s %d x %d ',
+    [displayMode.ToString, displayFitMode.ToString, displayScaleMode.ToString,
+     params.width, params.height]);
   systemPlatform.SetupWindow(params);
   if painter<>nil then painter.ResetTarget;
   SetupRenderArea;
@@ -707,6 +711,10 @@ begin
   LogMessage('Default RT');
   fl:=HasParam('-nodrt');
   if fl then LogMessage('Modern rendering model disabled by -noDRT switsh');
+  if disableDRT then begin
+   fl:=true;
+   LogMessage('Default RT disabled');
+  end;
   if not fl and
      gfx.ShouldUseTextureAsDefaultRT and
      (painter.texman.maxRTTextureSize>=params.width) then begin
@@ -1305,7 +1313,7 @@ begin
 
  renderWidth:=params.width;
  renderHeight:=params.height;
- LogMessage(Format('Set render area: (%d,%d -> %d,%d) (%d x %d)',
+ LogMessage(Format('Set render area: (%d x %d) (%d,%d) -> (%d,%d)',
    [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Right,displayRect.Bottom]));
  SetDisplaySize(renderWidth,renderHeight); // UI display size
  Signal('ENGINE\BEFORERESIZE');
@@ -1635,7 +1643,7 @@ end;
 
 procedure TGame.SwitchToAltSettings; // Alt+Enter
 begin
-  LogMessage('Alt+Enter!');
+  LogMessage('Alt+Enter: switch to alt settings');
   Swap(params.width,altWidth);
   Swap(params.height,altHeight);
   Swap(params.mode,params.altMode,sizeof(params.mode));
