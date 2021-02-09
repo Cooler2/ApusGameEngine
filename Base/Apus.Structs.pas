@@ -126,11 +126,11 @@ type
   items:array of THashItem;
   count,size:integer;
  end;
- // Hash String->Pointer (1:1) store pointers, DOESNT copy key strings, so this is good as auxiliary
+ // Hash String->Pointer (1:1) store references, DOESNT copy key strings, so this is good as auxiliary
  // structure to make an existing data storage faster
  // WARNING! THIS IS QUITE OLD CLASS AND NOT COVERED BY TESTS => MAY BE BUGGY
  TStrHash=class
-  Hcount,Hsize:integer;
+  Hcount,Hsize:integer; // number of cells
   cells:array of TCell;
   LastError:TErrorState;
   constructor Create;
@@ -140,6 +140,8 @@ type
   procedure Remove(key:string);
   function FirstKey:string;   // Start key enumeration (no hash operation allowed)
   function NextKey:string;    // Fetch next key (any operation will reset enumeration)
+  function GetKeys:StringArr; // return all keys
+  function GetValues:PointerArray; // return all pointer values
   destructor Destroy; override;
  private
   CurCell,CurItem:integer;
@@ -152,11 +154,10 @@ type
  // Структура не отличается офигенной скоростью, но хорошо работает в не особо критичных местах
  // Допускает возможность хранения нескольких значений для каждого ключа,
  // в таком режиме структуру можно рассматривать как индексированную таблицу
- TVariants=array of variant;
  THash=object
   keys:array of AnsiString;
   count:integer; // number of keys (can be less than length of keys array!)
-  values:array of variant;
+  values:VariantArray;
   vcount:integer; // number of values (can be less than length of values array!)
   constructor Init(allowMultiple:boolean=false); // not thread-safe!
   // Добавить значение, соответствующее ключу
@@ -164,7 +165,7 @@ type
   procedure Put(const key:AnsiString;value:variant;replace:boolean=false);
   // Получить значение, соответствующее ключу. Если разрешено множество значений на ключ, то можно выбрать элемент с номером item (начиная с 0)
   function Get(const key:AnsiString;item:integer=0):variant; // get value associated with the key, or Unassigned if none
-  function GetAll(const key:AnsiString):TVariants; // get array of values (not thread-safe!)
+  function GetAll(const key:AnsiString):VariantArray; // get array of values (not thread-safe!)
   function GetNext:variant; // get next value associated with the key, or Unassigned if none (not thread-safe!!!)
   function AllKeys:AStringArr;
   procedure SortKeys; // ключи без значений удаляются
@@ -578,6 +579,45 @@ implementation
     LastError:=esNoMoreItems;
   end;
 
+ function TStrHash.GetKeys:StringArr;
+  var
+   i,j,s,cnt:integer;
+  begin
+   s:=hSize;
+   cnt:=0;
+   SetLength(result,s);
+   for i:=0 to hCount-1 do
+    for j:=0 to cells[i].count-1 do begin
+     if cnt>=s then begin
+      s:=s*2;
+      SetLength(result,s);
+     end;
+     result[cnt]:=cells[i].items[j].key^;
+     inc(cnt);
+    end;
+   SetLength(result,cnt);
+  end;
+
+ function TStrHash.GetValues:PointerArray;
+  var
+   i,j,s,cnt:integer;
+  begin
+   s:=hSize;
+   cnt:=0;
+   SetLength(result,s);
+   for i:=0 to hCount-1 do
+    for j:=0 to cells[i].count-1 do begin
+     if cnt>=s then begin
+      s:=s*2;
+      SetLength(result,s);
+     end;
+     result[cnt]:=cells[i].items[j].value;
+     inc(cnt);
+    end;
+   SetLength(result,cnt);
+
+  end;
+
  destructor TStrHash.Destroy;
   var
    i:integer;
@@ -856,7 +896,7 @@ function THash.GetNext:variant; // get next value associated with the key, or Un
   end;
  end;
 
-function THash.GetAll(const key:AnsiString):TVariants; // get array of values
+function THash.GetAll(const key:AnsiString):VariantArray; // get array of values
  var
   c:integer;
   v:variant;
