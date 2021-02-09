@@ -59,6 +59,9 @@ interface
   SingleArray=array of single;
   FloatArray=array of double;
   ShortStr=string[31];
+  PointerArray=array of pointer;
+  VariantArray=array of variant;
+
 
   // 8-bit strings encodings
   TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8);
@@ -155,7 +158,8 @@ interface
  // Returns e.message with exception address and call stack (if available)
  function ExceptionMsg(const e:Exception):string;
  // Raise exception with "Not implemented" message
- procedure NotImplemented(msg:string='');
+ procedure NotImplemented(msg:string=''); inline;
+ procedure NotSupported(msg:string=''); inline;
  // Call Stack as string
  function GetCallStack:string;
  // Returns caller address
@@ -4105,6 +4109,12 @@ function BinToStr;
   begin
    raise EError.Create('Not implemented: '+msg);
   end;
+
+ procedure NotSupported(msg:string='');
+  begin
+   raise EError.Create('Not supported: '+msg);
+  end;
+
 
  function FindFile;
   var
