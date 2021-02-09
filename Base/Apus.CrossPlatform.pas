@@ -17,11 +17,14 @@ interface
  {$modeswitch ObjectiveC1}
 {$ENDIF}
 {$IFDEF UNIX}
+ {$LINKLIB c}
  uses cthreads,types,SysUtils
   {$IFDEF IOS}, iPhoneAll{$ENDIF}
  ;
  var
   sdkVersion:integer=0;
+ const
+  libc = 'c';
 {$ENDIF}
 
 {$IFDEF MSWINDOWS}
@@ -151,8 +154,11 @@ uses
 {$IFDEF MSWINDOWS}
   ShellAPI,
 {$ENDIF}
+{$IFDEF UNIX}
+ unixtype,BaseUnix,
+{$ENDIF}
 {$IFDEF LINUX}
- Linux,unixtype,
+ Linux,
 {$ENDIF}
   Apus.MyServis;
 
@@ -238,8 +244,31 @@ uses
    else
     result:=NSString(CFSTR(''));
   end;
-
  {$ENDIF}
+
+ {$IFDEF UNIX}
+ const
+  PTRACE_TRACEME = 0;
+  PTRACE_DETACH = 17;
+
+ function ptrace(__request:integer; PID: pid_t; Address: Pointer; Data: Longint): longint; cdecl; external libc name 'ptrace';
+ {$ENDIF}
+
+ function IsDebuggerPresent:boolean;
+  begin
+   result:=false;
+   {$IFDEF MSWINDOWS}
+   result:=windows.IsDebuggerPresent;
+   {$ENDIF}
+   {$IFDEF UNIX}
+   if (ptrace(PTRACE_TRACEME, 0, nil, 0) < 0) then
+    result:=true
+   else begin
+    ptrace(PTRACE_DETACH, 0, nil, 0);
+    result:=false;
+   end;
+   {$ENDIF}
+  end;
 
  function BeginThread(threadFunction:TThreadFunc; p:pointer; var threadId:TThreadID; stackSize:integer=1024*1024):THandle;
   begin
@@ -287,22 +316,6 @@ uses
   begin
   end;
  {$ENDIF}
-
- function IsDebuggerPresent:boolean;
-  begin
-   result:=false;
-   {$IFDEF MSWINDOWS}
-   result:=windows.IsDebuggerPresent;
-   {$ENDIF}
-   {$IFDEF UNIX}
-   if (ptrace(PTRACE_TRACEME, 0, 1, 0) < 0) then
-    result:=true
-   else begin
-    ptrace(PTRACE_DETACH, 0, 1, 0);
-    result:=false;
-   end;
-   {$ENDIF}
-  end;
 
 // This function taken from http://forum.codecall.net/topic/72472-execute-a-console-program-and-capture-its-output/
 // Author: Luthfi

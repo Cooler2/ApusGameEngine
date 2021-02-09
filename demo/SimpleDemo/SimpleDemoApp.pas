@@ -52,13 +52,19 @@ constructor TSimpleDemoApp.Create;
   gameTitle:='Simple Engine Demo'; // app window title
   configFileName:='SimpleDemo\game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
+  usedPlatform:=spWindows;
   usedPlatform:=spSDL;
+  directRenderOnly:=true;
+  //windowedMode:=false;
  end;
 
 // This is executed just before the game object is launched
 procedure TSimpleDemoApp.SetupGameSettings(var settings: TGameSettings);
  begin
   inherited; // global settings are applied to the instance settings here, so there is no sense to change them later
+
+  settings.mode.displayMode:=dmWindow; // run in window
+  //settings.mode.displayFitMode:=dfmFullSize;
 
   // Here you can override instance settings
 {  // Primary mode settings

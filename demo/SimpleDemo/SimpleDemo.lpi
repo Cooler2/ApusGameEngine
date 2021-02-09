@@ -46,6 +46,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
+      <Libraries Value=".;..\..\bin"/>
       <OtherUnitFiles Value="..\..;..\..\extra;..\..\extra\sdl2;..\..\Base;..\..\Base\extra"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
@@ -60,8 +61,6 @@
       <Checks>
         <RangeChecks Value="True"/>
       </Checks>
-      <TargetCPU Value="x86_64"/>
-      <TargetOS Value="win64"/>
     </CodeGeneration>
     <Linking>
       <Debugging>
@@ -69,6 +68,8 @@
         <UseExternalDbgSyms Value="True"/>
       </Debugging>
       <Options>
+        <PassLinkerOptions Value="True"/>
+        <LinkerOptions Value="-rpath ."/>
         <Win32>
           <GraphicApplication Value="True"/>
         </Win32>
@@ -77,10 +78,6 @@
     <Other>
       <CustomOptions Value="-dOPENGL
 -dSDL"/>
-      <OtherDefines Count="2">
-        <Define0 Value="OPENGL"/>
-        <Define1 Value="SDL"/>
-      </OtherDefines>
     </Other>
   </CompilerOptions>
   <Debugging>

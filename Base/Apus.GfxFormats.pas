@@ -48,6 +48,9 @@ interface
  procedure LoadPNG(data:ByteArray;var image:TRawImage);
  function SavePNG(image:TRawImage):ByteArray;
 
+ // ICO/CUR file format
+ procedure LoadCUR(data:ByteArray;var image:TRawImage;out hotX,hotY:integer);
+
  {$IFNDEF FPC}
  {$IFNDEF DELPHI}
  For Delphi - define global symbol "DELPHI"!
@@ -1079,11 +1082,61 @@ procedure LoadTGA;
  {$ENDIF}
  end;
 
-{
- // Alternative version: FPC version doesn't use LodePNG
- procedure LoadPNG(data:ByteArray;var image:TRawImage);
+  type
+   TIcoHeader=packed record
+    res:word;
+    imgType:word;
+    imgCount:word;
+   end;
+  TIcoEntryHeader=packed record
+   width,height:byte;
+   colors,res:byte;
+   hotX,hotY:smallint;
+   dataSize:cardinal;
+   dataPos:cardinal;
+  end;
+  TBitmapHeader=packed record // BITMAPINFOHEADER (40 bytes)
+   size,width,height:integer;
+   planes,bpp:word;
+   compression,rawSize,hRes,vRes,colors,impColors:integer;
+  end;
+
+ procedure LoadCUR(data:ByteArray;var image:TRawImage;out hotX,hotY:integer);
+  var
+   icoHeader:^TIcoHeader;
+   entry:^TIcoEntryHeader;
+   bmp:^TBitmapHeader;
+   p,y,lineSize:integer;
+   srcFormat:TImagePixelFormat;
   begin
-   LoadImageUsingReader(TFPReaderPNG.Create,data,true,image);
-  end; }
+   ASSERT(length(data)>sizeof(icoHeader)+sizeof(entry));
+   icoHeader:=@data[0];
+   if (icoHeader.res<>0) or (icoHeader.imgType<>2) then raise EWarning.Create('Invalid file format');
+   entry:=@data[sizeof(TIcoHeader)];
+   p:=entry.dataPos; // position of bitmap
+   ASSERT(entry.dataSize>=sizeof(TBitmapHeader));
+   ASSERT(p+entry.dataSize<=length(data));
+   bmp:=@data[p];
+   inc(p,bmp.size);
+   ASSERT(bmp.size=sizeof(TBitmapHeader));
+   case bmp.bpp of
+    32:srcFormat:=ipfARGB;
+    24:srcFormat:=ipfRGB;
+    else raise EWarning.Create('Bit depth not supported (%d)',[bmp.bpp]);
+   end;
+   hotX:=entry.hotX;
+   hotY:=entry.hotY;
+   if image<>nil then image.Free;
+   image:=Apus.Images.TBitmapImage.Create(entry.width,entry.height,ipfARGB);
+
+   lineSize:=bmp.width*bmp.bpp div 8;
+   linesize:=(linesize+3) and (not 3); // align to 4
+
+   for y:=image.height-1 downto 0 do begin
+    ConvertLine(data[p],image.ScanLine(y)^,srcFormat,image.pixelFormat,image.width);
+    inc(p,lineSize);
+   end;
+
+  end;
 
 end.

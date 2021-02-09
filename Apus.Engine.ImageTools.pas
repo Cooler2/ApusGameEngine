@@ -1,4 +1,4 @@
-// Image loading functions implementation (extracted from EngineTools)
+п»ї// Image loading functions implementation (extracted from EngineTools)
 //
 // Copyright (C) 2020 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -10,8 +10,8 @@ interface
  var
   defaultImagesDir:string='Images\'; // default folder to load images from
 
- // Загрузить картинку из файла в текстуру (в оптимальный формат, если не указан явно)
- // Если sysmem=true, то загружается в поверхность в системной памяти
+ // Р—Р°РіСЂСѓР·РёС‚СЊ РєР°СЂС‚РёРЅРєСѓ РёР· С„Р°Р№Р»Р° РІ С‚РµРєСЃС‚СѓСЂСѓ (РІ РѕРїС‚РёРјР°Р»СЊРЅС‹Р№ С„РѕСЂРјР°С‚, РµСЃР»Рё РЅРµ СѓРєР°Р·Р°РЅ СЏРІРЅРѕ)
+ // Р•СЃР»Рё sysmem=true, С‚Рѕ Р·Р°РіСЂСѓР¶Р°РµС‚СЃСЏ РІ РїРѕРІРµСЂС…РЅРѕСЃС‚СЊ РІ СЃРёСЃС‚РµРјРЅРѕР№ РїР°РјСЏС‚Рё
  // function LoadImageFromFile(fname:string;mtwidth:integer=0;mtheight:integer=0;sysmem:boolean=false;
  //           ForceFormat:TImagePixelFormat=ipfNone):TTexture;
  function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
@@ -20,28 +20,28 @@ interface
  // Default flags can be used from defaultLoadImageFlags
  procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
 
- // Сохраняет изображение в файл (mostly for debug purposes)
+ // РЎРѕС…СЂР°РЅСЏРµС‚ РёР·РѕР±СЂР°Р¶РµРЅРёРµ РІ С„Р°Р№Р» (mostly for debug purposes)
  procedure SaveImage(img:TTexture;fName:string);
 
- // Создать новую текстуру из куска данной (copy pixel data). Новая текстура размещается в доступной для
- // рендеринга памяти, тогда как источник может быть где угодно
+ // РЎРѕР·РґР°С‚СЊ РЅРѕРІСѓСЋ С‚РµРєСЃС‚СѓСЂСѓ РёР· РєСѓСЃРєР° РґР°РЅРЅРѕР№ (copy pixel data). РќРѕРІР°СЏ С‚РµРєСЃС‚СѓСЂР° СЂР°Р·РјРµС‰Р°РµС‚СЃСЏ РІ РґРѕСЃС‚СѓРїРЅРѕР№ РґР»СЏ
+ // СЂРµРЅРґРµСЂРёРЅРіР° РїР°РјСЏС‚Рё, С‚РѕРіРґР° РєР°Рє РёСЃС‚РѕС‡РЅРёРє РјРѕР¶РµС‚ Р±С‹С‚СЊ РіРґРµ СѓРіРѕРґРЅРѕ
  function CreateSubImage(source:TTexture;x,y,width,height:integer;flags:integer=0):TTexture;
 
- // Частный случай - копия изображения целиком (данные копируются)
+ // Р§Р°СЃС‚РЅС‹Р№ СЃР»СѓС‡Р°Р№ - РєРѕРїРёСЏ РёР·РѕР±СЂР°Р¶РµРЅРёСЏ С†РµР»РёРєРѕРј (РґР°РЅРЅС‹Рµ РєРѕРїРёСЂСѓСЋС‚СЃСЏ)
  function CreateImageCopy(source:TTexture):TTexture;
 
- // Обёртка для CopyRect
+ // РћР±С‘СЂС‚РєР° РґР»СЏ CopyRect
  procedure CopyImageRect(source,dest:TTexture;sx,sy,width,height,targetX,targetY:integer);
 
- // загрузить текстуру с мип-мапами из файла (сперва ищется DDS, затем другие)
- // размер текстуры должен быть степенями 2
- // если мип-мапы в файле отсутствуют - будут созданы
- // если формат загружаемой картинки не соответствует финальному - будет сохранен DDS в нужном формате
+ // Р·Р°РіСЂСѓР·РёС‚СЊ С‚РµРєСЃС‚СѓСЂСѓ СЃ РјРёРї-РјР°РїР°РјРё РёР· С„Р°Р№Р»Р° (СЃРїРµСЂРІР° РёС‰РµС‚СЃСЏ DDS, Р·Р°С‚РµРј РґСЂСѓРіРёРµ)
+ // СЂР°Р·РјРµСЂ С‚РµРєСЃС‚СѓСЂС‹ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ СЃС‚РµРїРµРЅСЏРјРё 2
+ // РµСЃР»Рё РјРёРї-РјР°РїС‹ РІ С„Р°Р№Р»Рµ РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‚ - Р±СѓРґСѓС‚ СЃРѕР·РґР°РЅС‹
+ // РµСЃР»Рё С„РѕСЂРјР°С‚ Р·Р°РіСЂСѓР¶Р°РµРјРѕР№ РєР°СЂС‚РёРЅРєРё РЅРµ СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓРµС‚ С„РёРЅР°Р»СЊРЅРѕРјСѓ - Р±СѓРґРµС‚ СЃРѕС…СЂР°РЅРµРЅ DDS РІ РЅСѓР¶РЅРѕРј С„РѕСЂРјР°С‚Рµ
  function LoadTexture(fname:string;downscale:single;format:TImagePixelFormat=ipfNone;saveDDS:boolean=true):TTexture;
 
- // Загрузить текстурный атлас
- // Далее при загрузке изображений, которые уже есть в атласе, вместо загрузки из файла будут
- // создаваться текстурные объекты, ссылающиеся на атлас
+ // Р—Р°РіСЂСѓР·РёС‚СЊ С‚РµРєСЃС‚СѓСЂРЅС‹Р№ Р°С‚Р»Р°СЃ
+ // Р”Р°Р»РµРµ РїСЂРё Р·Р°РіСЂСѓР·РєРµ РёР·РѕР±СЂР°Р¶РµРЅРёР№, РєРѕС‚РѕСЂС‹Рµ СѓР¶Рµ РµСЃС‚СЊ РІ Р°С‚Р»Р°СЃРµ, РІРјРµСЃС‚Рѕ Р·Р°РіСЂСѓР·РєРё РёР· С„Р°Р№Р»Р° Р±СѓРґСѓС‚
+ // СЃРѕР·РґР°РІР°С‚СЊСЃСЏ С‚РµРєСЃС‚СѓСЂРЅС‹Рµ РѕР±СЉРµРєС‚С‹, СЃСЃС‹Р»Р°СЋС‰РёРµСЃСЏ РЅР° Р°С‚Р»Р°СЃ
  // Not thread-safe! Don't load atlases in one thread and create images in other thread
  procedure LoadAtlas(fname:string;scale:single=1.0);
 
@@ -51,15 +51,15 @@ interface
  // Change image size while keeping its texture space (resolution change)
 // procedure ScaleImage(image:TTexture;scaleX,scaleY:single);
 
- // Обрезать изображение в указанных пределах (текстура не меняется,
- // меняется лишь область отрисовки
+ // РћР±СЂРµР·Р°С‚СЊ РёР·РѕР±СЂР°Р¶РµРЅРёРµ РІ СѓРєР°Р·Р°РЅРЅС‹С… РїСЂРµРґРµР»Р°С… (С‚РµРєСЃС‚СѓСЂР° РЅРµ РјРµРЅСЏРµС‚СЃСЏ,
+ // РјРµРЅСЏРµС‚СЃСЏ Р»РёС€СЊ РѕР±Р»Р°СЃС‚СЊ РѕС‚СЂРёСЃРѕРІРєРё
  procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
 
- // Уменьшает xRGB изображение за счет вырезания из него:
- //   вертикальных полос x1..x2-1, x3..x4-1
- //   горизонтальных полос y1..y2-1, y3..y4-1
- // При этом производится наложение (методом dissolve) частей на глубину overlap точек
- // Полосы могут быть нулевой ширины (x1=x2), однако все координаты должны быть упорядочены (0 < x1 <= x2 < x3 <= x4 < width)
+ // РЈРјРµРЅСЊС€Р°РµС‚ xRGB РёР·РѕР±СЂР°Р¶РµРЅРёРµ Р·Р° СЃС‡РµС‚ РІС‹СЂРµР·Р°РЅРёСЏ РёР· РЅРµРіРѕ:
+ //   РІРµСЂС‚РёРєР°Р»СЊРЅС‹С… РїРѕР»РѕСЃ x1..x2-1, x3..x4-1
+ //   РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅС‹С… РїРѕР»РѕСЃ y1..y2-1, y3..y4-1
+ // РџСЂРё СЌС‚РѕРј РїСЂРѕРёР·РІРѕРґРёС‚СЃСЏ РЅР°Р»РѕР¶РµРЅРёРµ (РјРµС‚РѕРґРѕРј dissolve) С‡Р°СЃС‚РµР№ РЅР° РіР»СѓР±РёРЅСѓ overlap С‚РѕС‡РµРє
+ // РџРѕР»РѕСЃС‹ РјРѕРіСѓС‚ Р±С‹С‚СЊ РЅСѓР»РµРІРѕР№ С€РёСЂРёРЅС‹ (x1=x2), РѕРґРЅР°РєРѕ РІСЃРµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РґРѕР»Р¶РЅС‹ Р±С‹С‚СЊ СѓРїРѕСЂСЏРґРѕС‡РµРЅС‹ (0 < x1 <= x2 < x3 <= x4 < width)
  function ShrinkImage(image:TTexture;x1,x2,x3,x4,y1,y2,y3,y4:integer;overlap:integer):TTexture;
 
  // Expands image this way: where y1..y2 = 456 band, and x1..x2 is 258 band (can also be used for shrinking)
@@ -69,7 +69,7 @@ interface
  //           7889
  function ExpandImage(image:TTexture;x1,x2,y1,y2:integer;overlap:integer):TTexture;
 
- // Создает растянутую/сжатую копию изображения (все в ARGB)
+ // РЎРѕР·РґР°РµС‚ СЂР°СЃС‚СЏРЅСѓС‚СѓСЋ/СЃР¶Р°С‚СѓСЋ РєРѕРїРёСЋ РёР·РѕР±СЂР°Р¶РµРЅРёСЏ (РІСЃРµ РІ ARGB)
  function ResampleImage(image:TTexture;newWidth,newHeight:integer;sysMem:boolean=false):TTexture;
 
  // strength: 0..256 (ARGB and xRGB only!)
@@ -99,7 +99,7 @@ var
   aHash:array[1..max_subimages] of cardinal;
   aSubCount:integer;
 
-  // "имя файла" -> cardinal(TJpegImage) - для предзагрузки jpeg'ов
+  // "РёРјСЏ С„Р°Р№Р»Р°" -> cardinal(TJpegImage) - РґР»СЏ РїСЂРµРґР·Р°РіСЂСѓР·РєРё jpeg'РѕРІ
   jpegImageHash:THash;
 
 var
@@ -107,8 +107,8 @@ var
  txtFontNormal,txtFontSmall:TUnicodeFont;
  {$ENDIF}
 
- loadingTime:integer; // суммарное время загрузки изображений в мс
- loadingJPEGTime:integer; // суммарное время загрузки JPEG в мс
+ loadingTime:integer; // СЃСѓРјРјР°СЂРЅРѕРµ РІСЂРµРјСЏ Р·Р°РіСЂСѓР·РєРё РёР·РѕР±СЂР°Р¶РµРЅРёР№ РІ РјСЃ
+ loadingJPEGTime:integer; // СЃСѓРјРјР°СЂРЅРѕРµ РІСЂРµРјСЏ Р·Р°РіСЂСѓР·РєРё JPEG РІ РјСЃ
 
 var
  defaultLoadImageFlags:cardinal=0;
@@ -142,7 +142,7 @@ begin
 end;}
 
 
-// подогнать формат пикселя под поддерживаемый системой
+// РїРѕРґРѕРіРЅР°С‚СЊ С„РѕСЂРјР°С‚ РїРёРєСЃРµР»СЏ РїРѕРґ РїРѕРґРґРµСЂР¶РёРІР°РµРјС‹Р№ СЃРёСЃС‚РµРјРѕР№
 procedure AdjustFormat(var ForceFormat:TImagePixelFormat);
 var
  i:integer;
@@ -150,7 +150,7 @@ begin
  i:=0;
  {$IFDEF DIRECTX}
  if painter.texman.InheritsFrom(TDxTextureMan) then begin
-  // 1-я итерация - проверка альтернативных форматов
+  // 1-СЏ РёС‚РµСЂР°С†РёСЏ - РїСЂРѕРІРµСЂРєР° Р°Р»СЊС‚РµСЂРЅР°С‚РёРІРЅС‹С… С„РѕСЂРјР°С‚РѕРІ
   case ForceFormat of
    ipfRGB:if supportRGB then exit else ForceFormat:=ipfXRGB;
    ipfXRGB:if supportXRGB then exit else ForceFormat:=ipfRGB;
@@ -158,7 +158,7 @@ begin
    ipf555:if support555 then exit else ForceFormat:=ipf565;
   end;
   repeat
-   // Проверка поддерживается ли формат (последовательная замена пока не найдется подходящий поддерживаемый)
+   // РџСЂРѕРІРµСЂРєР° РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ Р»Рё С„РѕСЂРјР°С‚ (РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅР°СЏ Р·Р°РјРµРЅР° РїРѕРєР° РЅРµ РЅР°Р№РґРµС‚СЃСЏ РїРѕРґС…РѕРґСЏС‰РёР№ РїРѕРґРґРµСЂР¶РёРІР°РµРјС‹Р№)
    case ForceFormat of
     ipfDXT5:if supportDXT5 then break else ForceFormat:=ipfARGB;
     ipfDXT3:if supportDXT3 then break else ForceFormat:=ipfARGB;
@@ -250,7 +250,7 @@ var
  conversion:boolean;
  srcformat:TImageFileType;
  width,height:integer;
- levels:array[0..12] of TRawImage; // уровни в формате приемника
+ levels:array[0..12] of TRawImage; // СѓСЂРѕРІРЅРё РІ С„РѕСЂРјР°С‚Рµ РїСЂРёРµРјРЅРёРєР°
  sp,dp:PByte;
  ftype:integer;
 begin
@@ -263,9 +263,9 @@ begin
   end;
  end;
  if ftype=0 then raise EError.Create('Unsupported texture type: '+fname);
- // этап 1 - загрузка исходного файла и его параметров в буфер
+ // СЌС‚Р°Рї 1 - Р·Р°РіСЂСѓР·РєР° РёСЃС…РѕРґРЅРѕРіРѕ С„Р°Р№Р»Р° Рё РµРіРѕ РїР°СЂР°РјРµС‚СЂРѕРІ РІ Р±СѓС„РµСЂ
  if ftype=1 then begin
-  // загружаем DDS
+  // Р·Р°РіСЂСѓР¶Р°РµРј DDS
   buf:=LoadFileAsBytes(fname);
   CheckImageFormat(buf);
   srcformat:=ifDDS;
@@ -295,15 +295,15 @@ begin
  end else
  /// TODO: load other file types
  ;
- // этап 2 - создание текстуры
+ // СЌС‚Р°Рї 2 - СЃРѕР·РґР°РЅРёРµ С‚РµРєСЃС‚СѓСЂС‹
  tex:=painter.texman.AllocImage(imginfo.width,imginfo.height,format,
    aiTexture+aiMipmapping+aiPow2,fname) as TTexture;
 
- // этап 3 - Загрузка данных в текстуру
+ // СЌС‚Р°Рї 3 - Р—Р°РіСЂСѓР·РєР° РґР°РЅРЅС‹С… РІ С‚РµРєСЃС‚СѓСЂСѓ
  for i:=0 to tex.mipmaps-1 do begin
-  // загрузка i-го уровня
+  // Р·Р°РіСЂСѓР·РєР° i-РіРѕ СѓСЂРѕРІРЅСЏ
   tex.Lock(i);
-  // копируем содержимое levels[i]
+  // РєРѕРїРёСЂСѓРµРј СЃРѕРґРµСЂР¶РёРјРѕРµ levels[i]
   sp:=levels[i].data;
   dp:=tex.data;
   for j:=0 to levels[i].height-1 do begin
@@ -411,7 +411,7 @@ begin
    exit;
   end;
   {$IFNDEF MSWINDOWS} // Use root dir
-  if (defaultImagesDir<>'') and (fname[1]<>'/') then fname:=defaultImagesDir+fname;
+  //if (defaultImagesDir<>'') and (fname[1]<>'/') then fname:=defaultImagesDir+fname;
   {$ENDIF}
   {$IFDEF IOS}
   if not FileExists(fname) then
@@ -440,7 +440,7 @@ begin
    if not (format in [ifTGA,ifJPEG,ifPNG,ifTXT,ifDDS,ifPVR]) then
     raise EError.Create('image format not supported');
 
-   // Загрузка TXT
+   // Р—Р°РіСЂСѓР·РєР° TXT
    {$IFDEF TXTIMAGES}
    if format=ifTXT then begin
     LoadTXT(data,txtImage,txtFontSmall,txtFontNormal);
@@ -483,7 +483,7 @@ begin
   aFlags:=aFlags or (flags and $FF0000);
   tex:=painter.texman.AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,copy(fname,pos('\',fname)+1,16)) as TTexture;
   tex.Lock(0);
-  img:=tex.GetRawImage; // получить объект типа RAW Image для доступа к данным текстуры
+  img:=tex.GetRawImage; // РїРѕР»СѓС‡РёС‚СЊ РѕР±СЉРµРєС‚ С‚РёРїР° RAW Image РґР»СЏ РґРѕСЃС‚СѓРїР° Рє РґР°РЅРЅС‹Рј С‚РµРєСЃС‚СѓСЂС‹
 
   if preloaded<>nil then begin
    img.CopyPixelDataFrom(preloaded); // don't free preloaded as it is kept in the queue
@@ -496,7 +496,7 @@ begin
    if format=ifPVR then LoadPVR(data,img) else
    if format=ifDDS then LoadDDS(data,img) else
    if format=ifTXT then begin
-    // скопировать загруженное изображение из SRC в IMG
+    // СЃРєРѕРїРёСЂРѕРІР°С‚СЊ Р·Р°РіСЂСѓР¶РµРЅРЅРѕРµ РёР·РѕР±СЂР°Р¶РµРЅРёРµ РёР· SRC РІ IMG
     img.CopyPixelDataFrom(txtImage);
     txtImage.Free;
    end;
@@ -712,25 +712,25 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
        aiSysMem*byte(sysMem),'_'+image.name) as TTexture;
    result.Lock;
    if (newWidth>image.width) or (newHeight>image.height) then begin
-    // При растяжении изображений на верхней и нижней линии вероятны артефакты,
-    // поэтому создадим временную картинку расширив исходную на бордюр в 1px
+    // РџСЂРё СЂР°СЃС‚СЏР¶РµРЅРёРё РёР·РѕР±СЂР°Р¶РµРЅРёР№ РЅР° РІРµСЂС…РЅРµР№ Рё РЅРёР¶РЅРµР№ Р»РёРЅРёРё РІРµСЂРѕСЏС‚РЅС‹ Р°СЂС‚РµС„Р°РєС‚С‹,
+    // РїРѕСЌС‚РѕРјСѓ СЃРѕР·РґР°РґРёРј РІСЂРµРјРµРЅРЅСѓСЋ РєР°СЂС‚РёРЅРєСѓ СЂР°СЃС€РёСЂРёРІ РёСЃС…РѕРґРЅСѓСЋ РЅР° Р±РѕСЂРґСЋСЂ РІ 1px
     w:=image.width+2; h:=image.height+2;
     SetLength(tmp,w*h);
 //   fillchar(tmp[0],w*h*4,0);
     image.Lock(0,lmReadOnly);
-    CopyRect(image.data,image.pitch,@tmp[0],w*4,0,0,w-2,h-2,1,1); // Основная часть
+    CopyRect(image.data,image.pitch,@tmp[0],w*4,0,0,w-2,h-2,1,1); // РћСЃРЅРѕРІРЅР°СЏ С‡Р°СЃС‚СЊ
     image.Unlock;
-    CopyRect(@tmp[0],w*4,@tmp[0],w*4, 1,1,   w-2,1,  1,0); // Верхняя линия
-    CopyRect(@tmp[0],w*4,@tmp[0],w*4, 1,h-2, w-2,1,  1,h-1); // нижняя линия
-    CopyRect(@tmp[0],w*4,@tmp[0],w*4, 1,0,   1,h,    0,0); // левая линия
-    CopyRect(@tmp[0],w*4,@tmp[0],w*4, w-2,0, 1,h,    w-1,0); // правая линия
+    CopyRect(@tmp[0],w*4,@tmp[0],w*4, 1,1,   w-2,1,  1,0); // Р’РµСЂС…РЅСЏСЏ Р»РёРЅРёСЏ
+    CopyRect(@tmp[0],w*4,@tmp[0],w*4, 1,h-2, w-2,1,  1,h-1); // РЅРёР¶РЅСЏСЏ Р»РёРЅРёСЏ
+    CopyRect(@tmp[0],w*4,@tmp[0],w*4, 1,0,   1,h,    0,0); // Р»РµРІР°СЏ Р»РёРЅРёСЏ
+    CopyRect(@tmp[0],w*4,@tmp[0],w*4, w-2,0, 1,h,    w-1,0); // РїСЂР°РІР°СЏ Р»РёРЅРёСЏ
 
     FillRect(result.data,result.pitch,0,0,newWidth-1,newHeight-1,$0);
     StretchDraw(@tmp[w+1],w*4,result.data,result.pitch,
       0,0,newWidth-1,newHeight-1,
       0,0,w-2,h-2,blCopy);
    end else begin
-    // При уменьшении всё гораздо проще
+    // РџСЂРё СѓРјРµРЅСЊС€РµРЅРёРё РІСЃС‘ РіРѕСЂР°Р·РґРѕ РїСЂРѕС‰Рµ
     image.Lock(0,lmReadOnly);
     u1:=0; u2:=image.width;
     v1:=0; v2:=image.height;

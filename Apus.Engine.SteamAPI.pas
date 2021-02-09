@@ -6,7 +6,17 @@
 unit Apus.Engine.SteamAPI;
 interface
  const
-  steamLibName = 'steam_api.dll';
+  {$IFDEF MSWINDOWS}
+   {$IFDEF CPU64}
+   steamLibName = 'steam_api64.dll';
+   {$ELSE}
+   steamLibName = 'steam_api.dll';
+   {$ENDIF}
+  {$ENDIF}
+  {$IFDEF LINUX}
+   //{$LINKLIB steam_api}
+   steamLibName = 'libsteam_api.so';
+  {$ENDIF}
  var
   steamAvailable:boolean=false;   // Is API available?
   steamID:int64;

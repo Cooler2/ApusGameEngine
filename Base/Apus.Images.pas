@@ -25,6 +25,7 @@ type
                    ipf565,      // 16bpp (5-6-5 format)
                    ipf4444,     // 16bpp (4-4-4 format with 4-bit alpha)
                    ipfRGB,      // 24bpp
+                   ipfBGR,      // 24bpp
                    ipfXRGB,     // 32bpp (last byte is not used)
                    ipfARGB,     // 32bpp (last byte is alpha channel)
                    ipfDXT1,     // DXT1
@@ -144,7 +145,7 @@ type
 
  const
   // Размер пикселя в битах
-  pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,16,16,32);
+  pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,16,16,32);
   palEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
 
  procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;count:integer;
@@ -258,6 +259,7 @@ procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;coun
      ipf565:PixelsFrom16(sp^,dp^,n);
      ipf4444:PixelsFrom12(sp^,dp^,n);
      ipfRGB:PixelsFrom24(sp^,dp^,n);
+     ipfBGR:PixelsFrom24R(sp^,dp^,n);
      ipf8Bit:if PalFormat=palRGB then
        PixelsFrom8P24(sp^,dp^,palette^,n) else
        PixelsFrom8P(sp^,dp^,palette^,n);
@@ -272,6 +274,7 @@ procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;coun
      ipf565:PixelsTo16(sp^,dp^,n);
      ipf4444:PixelsTo12(sp^,dp^,n);
      ipfRGB:PixelsTo24(sp^,dp^,n);
+     ipfBGR:PixelsTo24R(sp^,dp^,n);
     end;
    end else begin
     case sourformat of

@@ -61,7 +61,7 @@ implementation
 
   hintImage:TTexture;
 
-  imgHash:THash;
+  imgHash:TSimpleHashS;  // hash of loaded images: filename -> UIntPtr(TTexture)
 
   styleHash:TSimpleHash; // element pointer -> style data
 
@@ -456,7 +456,7 @@ implementation
   var
    img:THandle;
    lname:string;
-   p:cardinal;
+   p:int64;
    tex:TTexture;
    proc:TImageDrawProc;
   begin
@@ -476,10 +476,10 @@ implementation
       // SRC = filename?
       lname:=lowercase(FileName(src));
       p:=imgHash.Get(lname);
-      if p=0 then begin
+      if p=-1 then begin
        tex:=nil;
        LoadImage(tex,lname);
-       imgHash.Put(lname,cardinal(tex),true);
+       imgHash.Put(lname,UIntPtr(tex));
       end else
        tex:=pointer(p);
       painter.DrawScaled(x1,y1,x2-1,y2-1,tex,control.color);
@@ -783,5 +783,5 @@ implementation
 
 initialization
  StyleDrawers[0]:=DefaultDrawer;
- imgHash.Init;
+ imgHash.Init(30);
 end.

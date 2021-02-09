@@ -21,7 +21,7 @@ interface
    configFileName:string=''; // load this config file (can contain path, which is discarded after file is loaded)
 
    usedAPI:TGraphicsAPI=gaOpenGL;
-   usedPlatform:TSystemPlatform;
+   usedPlatform:TSystemPlatform {$IFNDEF MSWINDOWS} = spSDL{$ENDIF};
    windowedMode:boolean=true;
    windowWidth:integer=1024;
    windowHeight:integer=768;
@@ -89,7 +89,7 @@ interface
 implementation
  uses
   {$IFDEF MSWINDOWS}Windows,Apus.Engine.WindowsPlatform,{$ENDIF}
-  {$IFDEF SDL}Apus.Engine.SDLPlatform,{$ENDIF}
+  {$IFDEF SDL}Apus.Engine.SDLplatform,{$ENDIF}
   {$IFDEF ANDROID}Apus.Android,Apus.Engine.AndroidGame,{$ENDIF}
    SysUtils,Apus.MyServis,Apus.AnimatedValues,Apus.ControlFiles,Apus.Engine.UDict,
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
@@ -412,6 +412,7 @@ procedure TGameApplication.Prepare;
     st:='Logs\game.log';
    end else
     st:='game.log';
+   st:=FileName(st);
    if fileExists(st) then
      RenameFile(st,ChangeFileExt(st,'.old'));
    UseLogFile(st);
@@ -490,7 +491,12 @@ procedure TGameApplication.Run;
      usedAPI:=gaOpenGL2
     {$ENDIF}
    end;
+   {$ENDIF}
+
+   {$IFDEF MSWINDOWS}
    if usedPlatform=spWindows then plat:=TWindowsPlatform.Create;
+   {$ENDIF}
+
    if usedPlatform=spSDL then begin
     {$IFDEF SDL}
     plat:=TSDLPlatform.Create;
@@ -499,8 +505,7 @@ procedure TGameApplication.Run;
     {$ENDIF}
    end;
 
-   game:=TGame.Create(plat,TOpenGL.Create);
-  {$ENDIF}
+  game:=TGame.Create(plat,TOpenGL.Create);
   if game=nil then raise EError.Create('Game object not created!');
 
   // CONFIGURE GAME OBJECT
@@ -555,7 +560,6 @@ procedure TGameApplication.Run;
     PingThread;
     CheckCritSections;
     Delay(5); // поддерживает сигналы тем самым давая возможность синхронно на них реагировать
-    game.systemPlatform.ProcessSystemMessages;
     Signal('GAMEAPP\onIdle');
    except
     on e:exception do ForceLogMessage('Error in Control Thread: '+e.message);

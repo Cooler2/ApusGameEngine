@@ -34,7 +34,7 @@ type
 
   function GetMousePos:TPoint; // Get mouse position on screen
   function GetSystemCursor(cursorId:integer):THandle;
-  function LoadCursor(filename:string):THandle;
+  function LoadCursor(fname:string):THandle;
   procedure SetCursor(cur:THandle);
   procedure FreeCursor(cur:THandle);
 
@@ -52,7 +52,7 @@ type
  end;
 
 implementation
-uses Types, Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.Game, sdl2;
+uses Types, Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.Game, Apus.Images, Apus.GfxFormats, sdl2;
 
 var
  window:PSDL_Window;
@@ -151,9 +151,30 @@ function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
    LogMessage('Error - SDL_CSC failed: '+SDL_GetError);
  end;
 
-function TSDLPlatform.LoadCursor(filename:string):THandle;
+function TSDLPlatform.LoadCursor(fname:string):THandle;
+ var
+  surface:PSDL_Surface;
+  data:ByteArray;
+  image:TRawImage;
+  hotX,hotY:integer;
+  cursor:PSDL_Cursor;
  begin
-
+  try
+   data:=LoadFileAsBytes(filename(fname));
+   image:=nil;
+   LoadCUR(data,image,hotX,hotY);
+   image.Lock;
+   surface:=SDL_CreateRGBSurfaceFrom(image.data,image.width,image.height,32,image.pitch,
+     $FF0000,$FF00,$FF,$FF000000);
+   if surface=nil then raise EWarning.Create('Surface creation failed: '+SDL_GetError);
+   cursor:=SDL_CreateColorCursor(surface,hotX,hotY);
+   SDL_FreeSurface(surface);
+   image.Unlock;
+   result:=THandle(cursor);
+  except
+   on e:Exception do
+    raise EWarning.Create('Failed to load cursor from %s: %s',[fname,ExceptionMsg(e)]);
+  end;
  end;
 
 procedure TSDLPlatform.SetCursor(cur:THandle);
@@ -191,7 +212,7 @@ procedure TSDLPlatform.CreateWindow(title: string);
    LogMessage('CreateMainWindow');
    ust:=title;
    window:=SDL_CreateWindow(PAnsiChar(ust),SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,100,100,
-    SDL_WINDOW_OPENGL+SDL_WINDOW_HIDDEN+SDL_WINDOW_ALLOW_HIGHDPI);
+    SDL_WINDOW_OPENGL+SDL_WINDOW_HIDDEN+SDL_WINDOW_ALLOW_HIGHDPI{+SDL_WINDOW_RESIZABLE});
    if window=nil then
     raise EError.Create('SDL window creation failed');
   end;
@@ -265,6 +286,9 @@ procedure TSDLPlatform.ProcessSystemMessages;
   wst:String16;
   i,len:integer;
   mbtn:integer;
+  w,h:integer;
+  r:TRect;
+  info:TSDL_SysWMinfo;
  begin
   while SDL_PollEvent(@event)<>0 do begin
    if game=nil then continue;
@@ -273,7 +297,12 @@ procedure TSDLPlatform.ProcessSystemMessages;
      case event.window.event of
       SDL_WINDOWEVENT_FOCUS_GAINED:Signal('ENGINE\SETACTIVE',1);
       SDL_WINDOWEVENT_FOCUS_LOST:Signal('ENGINE\SETACTIVE',0);
-      SDL_WINDOWEVENT_SIZE_CHANGED:Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
+      //SDL_WINDOWEVENT_RESIZED:Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
+      SDL_WINDOWEVENT_SIZE_CHANGED:begin
+{       LogMessage('SDL_SIZE_CHANGED: reported size - (%d x %d), render size - (%d,%d)',
+         [event.window.data1,event.window.data2,w,h]);}
+       Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
+      end;
      end;
     end;
 
@@ -293,6 +322,10 @@ procedure TSDLPlatform.ProcessSystemMessages;
      if mBtn in [1..5] then
       mouseState:=mouseState and not (1 shl (mbtn-1));
      Signal('MOUSE\BTNUP',mbtn);
+    end;
+
+    SDL_MOUSEWHEEL:begin
+     Signal('MOUSE\SCROLL',event.wheel.y);
     end;
 
     SDL_KEYDOWN:begin
@@ -373,13 +406,15 @@ procedure TSDLPlatform.SetupWindow(params:TGameSettings);
    h:=params.height;
    case params.mode.displayMode of
     dmWindow,dmFixedWindow:begin
-      SDL_SetWindowSize(window,w,h);
-      SDL_GetWindowSize(window,@w,@h);
-      MoveWindowTo((screenWidth-w) div 2,(screenHeight-h) div 2, -1,-1);
+      SDL_SetWindowFullscreen(window,0);
       if params.mode.displayMode=dmWindow then
         SDL_SetWindowResizable(window,SDL_TRUE)
       else
         SDL_SetWindowResizable(window,SDL_FALSE);
+
+      SDL_SetWindowSize(window,w,h);
+      SDL_GetWindowSize(window,@w,@h);
+      MoveWindowTo((screenWidth-w) div 2,(screenHeight-h) div 2, -1,-1);
     end;
     dmFullScreen:begin
       SDL_SetWindowFullscreen(window,SDL_WINDOW_FULLSCREEN_DESKTOP);
@@ -390,6 +425,7 @@ procedure TSDLPlatform.SetupWindow(params:TGameSettings);
    end;
 
    SDL_ShowWindow(window);
+//   SDL_SetWindowSize();
 
    SDL_GL_GetDrawableSize(window,@clientWidth,@clientHeight);
    LogMessage('Client size: %d %d',[clientWidth,clientHeight]);

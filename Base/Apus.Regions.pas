@@ -52,6 +52,7 @@ type
  end;
 
 implementation
+ uses Apus.MyServis;
 
 type
  TBitmapHeader=packed record
@@ -128,7 +129,7 @@ var
  hdr:TBitmapHeader;
  size:integer;
 begin
- assign(f,fname);
+ assign(f,FileName(fname));
  reset(f,1);
  blockread(f,hdr,sizeof(hdr));
  linesize:=4*((hdr.width*hdr.bpp+31) div 32);
