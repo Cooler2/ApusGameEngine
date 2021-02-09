@@ -58,65 +58,65 @@ const
  IMX_3DALG_LIGHT     = 3;
 
  //      Initialization done
- function IMXInit(hwnd:HWnd;freq,flags:DWORD;reserved:integer=-1):boolean; cdecl; external 'IMxEx.dll';
- function IMXUninit:longbool; cdecl; external 'IMxEx.dll';
- function IMXStart:longbool; cdecl; external 'IMxEx.dll';
- function IMXStop:longbool; cdecl; external 'IMxEx.dll';                       
- function IMXPause(Pause:longbool):longbool; cdecl; external 'IMxEx.dll';
+ function IMXInit(hwnd:HWnd;freq,flags:DWORD;reserved:integer=-1):boolean; cdecl; external 'IMxEx.dll' delayed;
+ function IMXUninit:longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXStart:longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXStop:longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXPause(Pause:longbool):longbool; cdecl; external 'IMxEx.dll' delayed;
 
  //      Control mixer
- function IMXSetGlobalVolumes(modvol,smpvol,streamvol:integer):longbool; cdecl; external 'IMxEx.dll';
- function IMXGetGlobalVolumes(var modvol,smpvol,streamvol:integer):longbool; cdecl; external 'IMxEx.dll';
- function IMXSetBlockSize(sec:double):double; cdecl; external 'IMxEx.dll';
- function IMXGetVersion:cardinal; cdecl; external 'IMxEx.dll';
+ function IMXSetGlobalVolumes(modvol,smpvol,streamvol:integer):longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXGetGlobalVolumes(var modvol,smpvol,streamvol:integer):longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXSetBlockSize(sec:double):double; cdecl; external 'IMxEx.dll' delayed;
+ function IMXGetVersion:cardinal; cdecl; external 'IMxEx.dll' delayed;
 
  //      3D functions
- function IMXCommit3D:longbool; cdecl; external 'IMxEx.dll';
+ function IMXCommit3D:longbool; cdecl; external 'IMxEx.dll' delayed;
  function IMXSetListnerPosition(Pos:PIMX3DVector=nil;vel:PIMX3DVector=nil;
-            front:PIMX3DVector=nil;top:PIMX3DVector=nil):longbool; cdecl; external 'IMxEx.dll';
- function IMXSetEnvironmentFactors(distance:single=-1;rolloff:single=-1;doppler:single=-1):longbool; cdecl; external 'IMxEx.dll';
- procedure IMXSet3DAlgorithm(Algorithm:cardinal=IMX_3DALG_DEFAULT); cdecl; external 'IMxEx.dll';
+            front:PIMX3DVector=nil;top:PIMX3DVector=nil):longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXSetEnvironmentFactors(distance:single=-1;rolloff:single=-1;doppler:single=-1):longbool; cdecl; external 'IMxEx.dll' delayed;
+ procedure IMXSet3DAlgorithm(Algorithm:cardinal=IMX_3DALG_DEFAULT); cdecl; external 'IMxEx.dll' delayed;
 
  //      Sample
  function IMXSampleLoad(FromMem:longbool;FileName:PAnsiChar;Offset:DWORD=0;
-                        Length:DWord=0;res2:DWORD=0;Flags:DWORD=0):HSample; cdecl; external 'IMxEx.dll';
+                        Length:DWord=0;res2:DWORD=0;Flags:DWORD=0):HSample; cdecl; external 'IMxEx.dll' delayed;
  function IMXSamplePlay(hsmp:HSAMPLE;vol:integer=100;pan:integer=0;
-                        freq:DWORD=0;start:DWORD=0):HChannel; cdecl; external 'IMxEx.dll';
+                        freq:DWORD=0;start:DWORD=0):HChannel; cdecl; external 'IMxEx.dll' delayed;
  function IMXSamplePlay3D(hsmp:HSAMPLE;pos:PIMX3DVector=nil;orient:PIMX3DVector=nil;
-            vel:PIMX3DVector=nil;vol:integer=100;freq:cardinal=0;start:cardinal=0):HChannel; cdecl; external 'IMxEx.dll';
+            vel:PIMX3DVector=nil;vol:integer=100;freq:cardinal=0;start:cardinal=0):HChannel; cdecl; external 'IMxEx.dll' delayed;
  function IMXSampleSet3DParameters(hsmp:HSAMPLE;IAngle:integer=-1;OAngle:integer=-1;outVol:integer=-1;
-            MinDist:single=-1;MaxDist:single=-1;Mode:integer=-1):longbool; cdecl; external 'IMxEx.dll';
- function IMXSampleUnload(hsmp:HSample):longbool; cdecl; external 'IMxEx.dll';
+            MinDist:single=-1;MaxDist:single=-1;Mode:integer=-1):longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXSampleUnload(hsmp:HSample):longbool; cdecl; external 'IMxEx.dll' delayed;
 
  //      Module
  function IMXModuleLoad(FromMem:longbool;FileName:PAnsiChar;Offset:DWORD=0;
-                        Length:DWORD=0;res2:DWORD=0):HMod; cdecl; external 'IMxEx.dll';
- function IMXModulePlay(hmod:HMod;flags:integer=-1):longbool; cdecl; external 'IMxEx.dll';
- function IMXModuleUnload(hmod:HMod):longbool; cdecl; external 'IMxEx.dll';
- function IMXModuleAttachInstruments(targethmod,sourcehmod:HMod):longbool; cdecl; external 'IMxEx.dll';
- function IMXModuleAdjustBPM(hmod:HMod;bpm:double=1):longbool; cdecl; external 'IMxEx.dll';
+                        Length:DWORD=0;res2:DWORD=0):HMod; cdecl; external 'IMxEx.dll' delayed;
+ function IMXModulePlay(hmod:HMod;flags:integer=-1):longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXModuleUnload(hmod:HMod):longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXModuleAttachInstruments(targethmod,sourcehmod:HMod):longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXModuleAdjustBPM(hmod:HMod;bpm:double=1):longbool; cdecl; external 'IMxEx.dll' delayed;
 
  //      Stream
  function IMXStreamOpenFile(fromMem:longbool;filename:PAnsiChar;offset:DWORD=0;
-            length:DWORD=0;flags:DWORD=0):HStream; cdecl; external 'IMxEx.dll';
- function IMXStreamPlay(hstream:HStream;flags:integer=-1):longbool; cdecl; external 'IMxEx.dll';
- function IMXStreamClose(hstream:HStream):longbool; cdecl; external 'IMxEx.dll';
+            length:DWORD=0;flags:DWORD=0):HStream; cdecl; external 'IMxEx.dll' delayed;
+ function IMXStreamPlay(hstream:HStream;flags:integer=-1):longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXStreamClose(hstream:HStream):longbool; cdecl; external 'IMxEx.dll' delayed;
 
  //      Channel
- function IMXChannelStop(hchan:HChannel):longbool; cdecl; external 'IMxEx.dll';
+ function IMXChannelStop(hchan:HChannel):longbool; cdecl; external 'IMxEx.dll' delayed;
  function IMXChannelSetAttributes(hchan:HChannel;vol:integer=-1;pan:integer=-101;
-                                  freq:integer=-1):longbool; cdecl; external 'IMxEx.dll';
+                                  freq:integer=-1):longbool; cdecl; external 'IMxEx.dll' delayed;
  function IMXChannelSetSync(hchan:HChannel;sType,param:DWORD;proc:SyncProc;
-                            User:DWORD):HSync; cdecl; external 'IMxEx.dll';
+                            User:DWORD):HSync; cdecl; external 'IMxEx.dll' delayed;
  function IMXChannelSlide(hchan:HChannel;vol:integer=-1;pan:integer=-101;freq:DWORD=0;
-                          time:integer=100):longbool; cdecl; external 'IMxEx.dll';
- function IMXChannelSetPosition(hchan:HChannel;pos:DWORD):longbool; cdecl; external 'IMxEx.dll';
- function IMXChannelRemoveSync(hchan:HChannel;sync:HSync):longbool; cdecl; external 'IMxEx.dll';
+                          time:integer=100):longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXChannelSetPosition(hchan:HChannel;pos:DWORD):longbool; cdecl; external 'IMxEx.dll' delayed;
+ function IMXChannelRemoveSync(hchan:HChannel;sync:HSync):longbool; cdecl; external 'IMxEx.dll' delayed;
  function IMXChannelSet3DParameters(hchan:HChannel;IAngle:integer=-1;OAngle:integer=-1;
             outVol:integer=-1;MinDist:single=-1;MaxDist:single=-1;
-            Mode:integer=-1):longbool; cdecl; external 'IMxEx.dll';
+            Mode:integer=-1):longbool; cdecl; external 'IMxEx.dll' delayed;
  function IMXChannelSet3DPosition(hchan:HChannel;pos:PIMX3DVector=nil;orient:PIMX3DVector=nil;
-                                  vel:PIMX3DVector=nil):longbool; cdecl; external 'IMxEx.dll';
+                                  vel:PIMX3DVector=nil):longbool; cdecl; external 'IMxEx.dll' delayed;
 
 implementation
 
