@@ -1073,10 +1073,11 @@ procedure LoadTGA;
     if image.PixelFormat in [ipfA8,ipfMono8] then writer.grayscale:=true;
     result:=SaveImageUsingWriter(writer,image);
  {$ELSE}
+  begin
      NotImplemented('No method to write PNG file format');
  {$ENDIF}
  {$ENDIF}
-  end;
+ end;
 
 {
  // Alternative version: FPC version doesn't use LodePNG

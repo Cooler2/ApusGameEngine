@@ -93,7 +93,7 @@ function ctlGetStr(key:AnsiString):AnsiString; overload;
 function ctlGetStr(key:AnsiString;default:AnsiString):AnsiString; overload;
 function ctlGetStrInd(key:AnsiString;index:Integer):AnsiString;
 function ctlGetStrCnt(key:AnsiString):Integer;
-function ctlGetKeys(key:AnsiString):AnsiString;
+function ctlGetKeys(key:AnsiString):AnsiString; // returns space-separated lisk of keys
 
 // Write functions
 procedure ctlCreateSection(key:AnsiString); // Create section with given path

@@ -482,9 +482,11 @@ procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
 procedure TWindowsPlatform.SetWindowCaption(text: string);
  var
   wst:WideString;
+  t:PWideChar;
  begin
   wst:=text;
-  SetWindowTextW(window,PWideChar(wst))
+  t:=@wst[1];
+  SetWindowTextW(window,t);
  end;
 
 procedure TWindowsPlatform.ShowWindow(show: boolean);
