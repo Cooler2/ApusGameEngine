@@ -66,6 +66,17 @@ interface
   // 8-bit strings encodings
   TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8);
 
+  // "name = value" string pair
+  TNameValue=record
+   name,value:string;
+   procedure Init(st:string;splitter:string='='); // split and trim
+   function Named(st:string):boolean;
+   function GetInt:integer;
+   function GetFloat:double;
+   function GetDate:TDateTime;
+   function Join(separator:string='='):string; // convert back to "name=value"
+  end;
+
   // Critical section wrapper: provides better debug info
   PCriticalSection=^TMyCriticalSection;
   TMyCriticalSection=packed record
@@ -5184,6 +5195,48 @@ end;
 
 var
  v:Int64;
+
+{ TNameValue }
+
+function TNameValue.GetDate: TDateTime;
+ begin
+  result:=ParseDate(value);
+ end;
+
+function TNameValue.GetFloat: double;
+ begin
+  result:=ParseFloat(value);
+ end;
+
+function TNameValue.GetInt: integer;
+ begin
+  result:=ParseInt(value);
+ end;
+
+procedure TNameValue.Init(st, splitter: string);
+ var
+  p:integer;
+ begin
+  p:=pos(splitter,st);
+  if p=0 then begin
+   name:=st; value:='';
+  end else begin
+   name:=copy(st,1,p-1);
+   value:=copy(st,p+length(splitter),length(st));
+  end;
+  name:=name.Trim;
+  value:=value.Trim;
+ end;
+
+function TNameValue.Join(separator: string): string;
+ begin
+  result:=name+separator+value;
+ end;
+
+function TNameValue.Named(st: string): boolean;
+ begin
+  result:=SameText(name,st);
+ end;
 
 initialization
  SetDecimalSeparator('.');
