@@ -77,6 +77,30 @@ interface
    function Join(separator:string='='):string; // convert back to "name=value"
   end;
 
+  // Helper object represents in-memory binary buffer, doesn't own data
+  // Useful to pass arbitrary data instead of pointer:size pair
+  TBuffer=record
+   data:PByte;
+   readPos:PByte;
+   size:integer;
+   constructor Create(sour:pointer;sizeInBytes:integer);
+   class function CreateFrom(sour:pointer;sizeInBytes:integer):TBuffer; overload; static;
+   class function CreateFrom(var sour;sizeInBytes:integer):TBuffer; overload; static;
+   class function CreateFrom(bytes:ByteArray):TBuffer; overload; static;
+   class function CreateFrom(st:String8):TBuffer; overload; static;
+   function Slice(length:integer):TBuffer; overload;
+   function Slice(from,length:integer):TBuffer; overload;
+   function ReadByte:byte;
+   function ReadWord:word;
+   function ReadInt:integer;
+   function ReadUInt:cardinal;
+   procedure Skip(numBytes:integer); // advance read pos by
+   procedure Seek(pos:integer);
+   procedure Read(var dest;numBytes:integer);
+   function BytesLeft:integer; inline;
+   function CurrentPos:integer; inline;
+  end;
+
   // Critical section wrapper: provides better debug info
   PCriticalSection=^TMyCriticalSection;
   TMyCriticalSection=packed record
@@ -176,6 +200,10 @@ interface
  // Returns caller address
  function GetCaller:pointer;
 
+ // OS errors
+ function GetSystemErrorCode:cardinal;
+ function GetSystemError:string;
+
  // Check if there is a parameter in the command line (non case-sensitive)
  function HasParam(name:string):boolean;
  // Get command line parameter value (passed as "name=value"),
@@ -224,8 +252,8 @@ interface
  function MyFileExists(fname:String):boolean; // Cross-platform version
  procedure MakeBakFile(fname:string); // Rename xxx.yyy to xxx.bak, delete old xxx.bak if any
  function IsPathRelative(fname:string):boolean;
- function LoadFileAsString(fname:String):String8; // Load file content into string
- function LoadFileAsBytes(fname:String):ByteArray; // Load file content into byte array
+ function LoadFileAsString(fname:String;numBytes:int64=0;startFrom:int64=0):String8; // Load file content into string
+ function LoadFileAsBytes(fname:String;numBytes:int64=0;startFrom:int64=0):ByteArray; // Load file content into byte array
  procedure SaveFile(fname:string;buf:pointer;size:integer); overload; // rewrite file with given data
  procedure SaveFile(fname:string;buf:ByteArray); overload; // rewrite file with given data
  procedure ReadFile(fname:string;buf:pointer;posit,size:integer); // Read data block from file
@@ -261,6 +289,7 @@ interface
  // Возвращает объем выделенной памяти
  function GetMemoryAllocated:int64;
 
+ // Misc and debug functions
  function GetEnumNameSafe(typeInfo:pointer;value:integer):string;
 
  // Array functions
@@ -358,7 +387,9 @@ interface
  function LastChar(st:String8):AnsiChar; overload; {$ENDIF}
 
  // Safe string indexing
- function CharAt(st:string;index:integer):char;
+ function CharAt(st:string;index:integer):char; overload;
+ {$IFDEF ADDANSI}
+ function CharAt(st:string8;index:integer):AnsiChar; overload; {$ENDIF}
  function WCharAt(st:WideString;index:integer):WideChar;
 
  // заменяет служебные символы в строке таким образом, чтобы её можно было вставить в HTML
@@ -3774,6 +3805,12 @@ function BinToStr;
     else result:=st[index];
   end;
 
+ function CharAt(st:string8;index:integer):AnsiChar;
+  begin
+   if (index<1) or (index>length(st)) then result:=#0
+    else result:=st[index];
+  end;
+
  function WCharAt(st:WideString;index:integer):WideChar;
   begin
    if (index<1) or (index>length(st)) then result:=#0
@@ -4395,87 +4432,90 @@ procedure DumpDir(path:string);
    {$ENDIF}
   end;
 
- function LoadFileAsString(fname:string):String8;
+ function LoadFileAsString(fname:string;numBytes:int64=0;startFrom:int64=0):String8;
   var
    buf:ByteArray;
   begin
-   buf:=LoadFileAsBytes(fname);
+   buf:=LoadFileAsBytes(fname,numBytes,startFrom);
    SetLength(result,length(buf));
    move(buf[0],result[1],length(buf));
   end;
 
- function LoadFileAsBytes(fname:string):ByteArray;
+ function LoadFileAsBytes(fname:string;numBytes:int64=0;startFrom:int64=0):ByteArray;
   var
-    f:file;
+   f:THandle;
+   size:int64;
   begin
+   {$IFDEF ANDROID}
+   result:=AndroidLoadFile(fname,bytes,startFrom);
+   if result<>'' then exit;
+   {$ENDIF}
+   ASSERT(startFrom>=0);
+   f:=FileOpen(fname,fmOpenRead);
+   if f=INVALID_HANDLE_VALUE then
+    raise EError.Create('Can''t open file %s: %s',[fName,GetSystemError]);
    try
-    {$IFDEF ANDROID}
-    result:=AndroidLoadFile(fname);
-    if result<>'' then exit;
-    {$ENDIF}
-    assignFile(f,fname);
-    reset(f,1);
-    SetLength(result,filesize(f));
-    blockread(f,result[0],filesize(f));
-    closefile(f);
-   except
-    on e:exception do
-     raise EError.Create('Failed to load file '+fname+': '+ExceptionMsg(e));
+    size:=FileSeek(f,0,2);
+    if size<0 then
+     raise EError.Create('Can''t seek file %s: %s',[fName,GetSystemError]);
+    if startFrom>=size then
+     raise EWarning.Create('Read beyond end of file: '+fName);
+    if numBytes=0 then numBytes:=size; // read whole file
+    if startFrom+numBytes>size then numBytes:=size-startFrom; // read until EOF
+
+    SetLength(result,numBytes);
+    FileSeek(f,startFrom,0);
+    size:=FileRead(f,result[0],numBytes);
+    if size<>numBytes then
+     raise EError.Create('Error reading file: '+fName);
+   finally
+    FileClose(f);
    end;
   end;
 
  procedure ReadFile;
   var
-   f:file;
+   f:THandle;
   begin
-   assignFile(f,fname);
-   reset(f,1);
-   seek(f,posit);
-   blockread(f,buf^,size);
-   closefile(f);
+   f:=FileOpen(fName,fmOpenRead);
+   if f=INVALID_HANDLE_VALUE then
+    raise EError.Create('Can''t open file %s: %s',[fName,GetSystemError]);
+   try
+    if posit>0 then
+     if FileSeek(f,posit,0)<0 then
+      raise EError.Create('Can''t seek file '+fName+' to '+posit.ToString);
+    if FileRead(f,buf^,size)<>size then
+     raise EError.Create('Failed to read '+size.ToString+' bytes from file '+fName);
+   finally
+    FileClose(f);
+   end;
   end;
 
- procedure WriteFile;
+ procedure WriteFile(fname:string;buf:pointer;posit,size:integer);
   var
-   f:file;
-   fm:integer;
+   f:THandle;
   begin
-   fm:=filemode;
+   f:=FileOpen('',fmOpenWrite);
+   if f=INVALID_HANDLE_VALUE then
+    raise EError.Create('Can''t open file %s: %s',[fName,GetSystemError]);
    try
-    filemode:=2;
-   assignFile(f,fname);
-   if FileExists(fname) then
-    reset(f,1)
-   else
-    rewrite(f,1);
-   seek(f,posit);
-   blockwrite(f,buf^,size);
-   closefile(f);
+    if FileSeek(f,posit,0)<>posit then
+     raise EError.Create('Seek failed %s to %d: %s',[fName,posit,GetSystemError]);
+    if FileWrite(f,buf^,size)<>size then
+     raise EError.Create('Can''t write %d bytes to file %s: %s',[size,fName,GetSystemError]);
    finally
-    filemode:=fm;
+    FileClose(f);
    end;
   end;
 
  procedure SaveFile(fname:string;buf:pointer;size:integer);
-  var
-   f:file;
-   fm:integer;
   begin
-   fm:=filemode;
-   try
-    filemode:=2;
-   assignFile(f,fname);
-   rewrite(f,1);
-   if buf<>nil then blockwrite(f,buf^,size);
-   closefile(f);
-   finally
-    filemode:=fm;
-   end;
+   WriteFile(fName,buf,0,size);
   end;
 
  procedure SaveFile(fname:string;buf:ByteArray); overload; // rewrite file with given data
   begin
-   if length(buf)>0 then SaveFile(fname,@buf[0],length(buf));
+   if length(buf)>0 then WriteFile(fname,@buf[0],0,length(buf));
   end;
 
  procedure ShiftArray(const arr;sizeInBytes,shiftValue:integer);
@@ -4634,6 +4674,16 @@ procedure DumpDir(path:string);
    dispose(buffer);
    {$ENDIF}
   end;
+
+function GetSystemErrorCode:cardinal;
+ begin
+  result:=Apus.CrossPlatform.GetLastError;
+ end;
+
+function GetSystemError:string;
+ begin
+  result:=Apus.CrossPlatform.GetLastErrorDesc;
+ end;
 
 function GetCallStack:string;
 var
@@ -5236,6 +5286,104 @@ function TNameValue.Join(separator: string): string;
 function TNameValue.Named(st: string): boolean;
  begin
   result:=SameText(name,st);
+ end;
+
+{ TBuffer }
+
+constructor TBuffer.Create(sour:pointer; sizeInBytes:integer);
+ begin
+  data:=sour;
+  size:=sizeInBytes;
+  readPos:=sour;
+ end;
+
+class function TBuffer.CreateFrom(sour:pointer; sizeInBytes:integer):TBuffer;
+ begin
+  result.Create(sour,sizeInBytes);
+ end;
+
+class function TBuffer.CreateFrom(var sour; sizeInBytes:integer):TBuffer;
+ begin
+  result.Create(@sour,sizeInBytes);
+ end;
+
+class function TBuffer.CreateFrom(bytes: ByteArray):TBuffer;
+ begin
+  result.Create(@bytes[0],length(bytes));
+ end;
+
+class function TBuffer.CreateFrom(st: String8):TBuffer;
+ begin
+  result.Create(@st[low(st)],length(st));
+ end;
+
+function TBuffer.CurrentPos: integer;
+ begin
+  result:=UIntPtr(readPos)-UIntPtr(data);
+ end;
+
+function TBuffer.BytesLeft: integer;
+ begin
+  result:=(UIntPtr(readPos)+size-UIntPtr(data));
+ end;
+
+procedure TBuffer.Read(var dest; numBytes: integer);
+ begin
+  ASSERT(BytesLeft>=numBytes);
+  move(readPos^,dest,numBytes);
+  inc(readPos,numBytes);
+ end;
+
+function TBuffer.ReadByte: byte;
+ begin
+  ASSERT(BytesLeft>0);
+  result:=readPos^;
+  inc(readPos);
+ end;
+
+function TBuffer.ReadInt: integer;
+ begin
+  ASSERT(BytesLeft>=4);
+  result:=PInteger(readPos)^;
+  inc(readPos,4);
+ end;
+
+function TBuffer.ReadUInt: cardinal;
+ begin
+  ASSERT(BytesLeft>=4);
+  result:=PCardinal(readPos)^;
+  inc(readPos,4);
+ end;
+
+function TBuffer.ReadWord: word;
+ begin
+  ASSERT(BytesLeft>=2);
+  result:=PWord(readPos)^;
+  inc(readPos,2);
+ end;
+
+procedure TBuffer.Seek(pos: integer);
+ begin
+  ASSERT((pos>=0) and (pos<size));
+  readPos:=PByte(UIntPtr(data)+pos);
+ end;
+
+procedure TBuffer.Skip(numBytes: integer);
+ begin
+  ASSERT(BytesLeft>=numBytes);
+  inc(readPos,numBytes);
+ end;
+
+function TBuffer.Slice(from, length: integer): TBuffer;
+ begin
+  ASSERT((from>=0) and (length>=0));
+  ASSERT(from+length<=size);
+  result.Create(pointer(UIntPtr(data)+from),length);
+ end;
+
+function TBuffer.Slice(length: integer): TBuffer;
+ begin
+  result:=Slice(CurrentPos,length);
  end;
 
 initialization
