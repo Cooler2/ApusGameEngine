@@ -118,6 +118,7 @@ interface
 
  function GetSystemInfo:string;
  function GetLastError:cardinal;
+ function GetLastErrorDesc:string;
 
  {$IFDEF IOS}
  function NSStrUTF8(st:string):NSString;
@@ -168,6 +169,31 @@ uses
    mfence
  end;
 {$ENDIF}
+
+ function GetLastError:cardinal;
+  begin
+   {$IF Declared(System.GetLastError)}
+    result:=System.GetLastError;
+   {$ELSE}
+    {$IF Declared(fpGetErrno)}
+     result:=fpGetErrno;
+    {$ENDIF}
+   {$ENDIF}
+  end;
+
+ function GetLastErrorDesc:string;
+  var
+   code:cardinal;
+  begin
+   code:=GetLastError;
+   {$IF Declared(SysErrorMessage)}
+    result:=SysErrorMessage(code);
+   {$ELSE}
+    if code=0 then result:='NO ERROR'
+     else result:=Format('CODE %d (%8x)',[code,code]);
+   {$ENDIF}
+  end;
+
 
  {$IFDEF IOS}
  // IOS threads
@@ -475,11 +501,9 @@ end;
   begin
    result:=windows.MoveWindow(window,x,y,w,h,repaint);
   end;
- function GetLastError:cardinal;
-  begin
-   result:=windows.GetLastError;
-  end;
 {$ENDIF}
+
+
 
 // iOS SET ===========================================================
 {$IFDEF IOS}
@@ -592,11 +616,6 @@ function GetSystemInfo:string;
 function LaunchProcess(fname,params:string):boolean;
  begin
   result:=false;
- end;
-
-function GetLastError:cardinal;
- begin
-  result:=0;
  end;
 {$ENDIF}
 
