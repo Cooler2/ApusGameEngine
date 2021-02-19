@@ -256,6 +256,7 @@ interface
  function LoadFileAsBytes(fname:String;numBytes:int64=0;startFrom:int64=0):ByteArray; // Load file content into byte array
  procedure SaveFile(fname:string;buf:pointer;size:integer); overload; // rewrite file with given data
  procedure SaveFile(fname:string;buf:ByteArray); overload; // rewrite file with given data
+ procedure SaveFile(fname:string;data:String8); overload;
  procedure ReadFile(fname:string;buf:pointer;posit,size:integer); // Read data block from file
  procedure WriteFile(fname:string;buf:pointer;posit,size:integer); // Write data block to file
  {$IFDEF IOS}
@@ -4453,11 +4454,11 @@ procedure DumpDir(path:string);
    ASSERT(startFrom>=0);
    f:=FileOpen(fname,fmOpenRead);
    if f=INVALID_HANDLE_VALUE then
-    raise EError.Create('Can''t open file %s: %s',[fName,GetSystemError]);
+    raise EError.Create('Can''t open file "%s": %s',[fName,GetSystemError]);
    try
     size:=FileSeek(f,0,2);
     if size<0 then
-     raise EError.Create('Can''t seek file %s: %s',[fName,GetSystemError]);
+     raise EError.Create('Can''t seek file "%s": %s',[fName,GetSystemError]);
     if startFrom>=size then
      raise EWarning.Create('Read beyond end of file: '+fName);
     if numBytes=0 then numBytes:=size; // read whole file
@@ -4479,13 +4480,13 @@ procedure DumpDir(path:string);
   begin
    f:=FileOpen(fName,fmOpenRead);
    if f=INVALID_HANDLE_VALUE then
-    raise EError.Create('Can''t open file %s: %s',[fName,GetSystemError]);
+    raise EError.Create('Can''t open file "%s": %s',[fName,GetSystemError]);
    try
     if posit>0 then
      if FileSeek(f,posit,0)<0 then
-      raise EError.Create('Can''t seek file '+fName+' to '+posit.ToString);
+      raise EError.Create('Can''t seek file "%s" to %d: %s',[fName,posit,GetSystemError]);
     if FileRead(f,buf^,size)<>size then
-     raise EError.Create('Failed to read '+size.ToString+' bytes from file '+fName);
+     raise EError.Create('Failed to read %d bytes from file "%s"',[size,fName]);
    finally
     FileClose(f);
    end;
@@ -4495,27 +4496,44 @@ procedure DumpDir(path:string);
   var
    f:THandle;
   begin
-   f:=FileOpen('',fmOpenWrite);
+   f:=FileOpen(fName,fmOpenWrite);
    if f=INVALID_HANDLE_VALUE then
-    raise EError.Create('Can''t open file %s: %s',[fName,GetSystemError]);
+    f:=FileCreate(fName,fmOpenWrite);
+   if f=INVALID_HANDLE_VALUE then
+    raise EError.Create('Can''t create/open file "%s": %s',[fName,GetSystemError]);
    try
     if FileSeek(f,posit,0)<>posit then
-     raise EError.Create('Seek failed %s to %d: %s',[fName,posit,GetSystemError]);
+     raise EError.Create('Seek failed "%s" to %d: %s',[fName,posit,GetSystemError]);
     if FileWrite(f,buf^,size)<>size then
-     raise EError.Create('Can''t write %d bytes to file %s: %s',[size,fName,GetSystemError]);
+     raise EError.Create('Can''t write %d bytes to file "%s": %s',[size,fName,GetSystemError]);
    finally
     FileClose(f);
    end;
   end;
 
  procedure SaveFile(fname:string;buf:pointer;size:integer);
+  var
+   f:THandle;
   begin
-   WriteFile(fName,buf,0,size);
+   f:=FileCreate(fName,fmOpenWrite);
+   if f=INVALID_HANDLE_VALUE then
+    raise EError.Create('Can''t create file "%s": %s',[fName,GetSystemError]);
+   try
+    if FileWrite(f,buf^,size)<>size then
+     raise EError.Create('Can''t write %d bytes to file "%s": %s',[size,fName,GetSystemError]);
+   finally
+    FileClose(f);
+   end;
   end;
 
  procedure SaveFile(fname:string;buf:ByteArray); overload; // rewrite file with given data
   begin
-   if length(buf)>0 then WriteFile(fname,@buf[0],0,length(buf));
+   SaveFile(fname,@buf[0],length(buf));
+  end;
+
+ procedure SaveFile(fname:string;data:String8); overload;
+  begin
+   SaveFile(fName,@data[1],length(data));
   end;
 
  procedure ShiftArray(const arr;sizeInBytes,shiftValue:integer);
@@ -4677,12 +4695,12 @@ procedure DumpDir(path:string);
 
 function GetSystemErrorCode:cardinal;
  begin
-  result:=Apus.CrossPlatform.GetLastError;
+  result:=GetLastErrorCode;
  end;
 
 function GetSystemError:string;
  begin
-  result:=Apus.CrossPlatform.GetLastErrorDesc;
+  result:=GetLastErrorDesc;
  end;
 
 function GetCallStack:string;
