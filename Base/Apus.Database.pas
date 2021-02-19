@@ -98,7 +98,7 @@ interface
   function FormatQuery(query:RawByteString;params:array of const):RawByteString;
 
 implementation
- uses SysUtils,MySQL,Variants,AnsiStrings;
+ uses SysUtils,MySQL,Variants{$IFDEF DELPHI},AnsiStrings{$ENDIF};
  var
   counter:integer=0; // MySQL library usage counter
   lock:TMyCriticalSection;
@@ -135,6 +135,22 @@ function FormatQuery(query:RawByteString;params:array of const):RawByteString;
   i:integer;
   st:RawByteString;
   p:array of TVarRec;
+ function AllocAnsiStr(st:RawByteString):PAnsiChar;
+  begin
+   {$IFDEF DELPHI}
+   result:=AnsiStrings.StrNew(PAnsiChar(st));
+   {$ELSE}
+   result:=StrNew(PAnsiChar(st));
+   {$ENDIF}
+  end;
+ procedure FreeAnsiStr(st:PAnsiChar);
+  begin
+   {$IFDEF DELPHI}
+   AnsiStrings.StrDispose(st);
+   {$ELSE}
+   StrDispose(st);
+   {$ENDIF}
+  end;
  begin
   // Don't modify const array -> create new one!
   SetLength(p,length(params));
@@ -143,24 +159,24 @@ function FormatQuery(query:RawByteString;params:array of const):RawByteString;
     vtAnsiString: begin
      st:=SqlSafe(AnsiString(params[i].VAnsiString));
      p[i].VType:=vtPChar;
-     p[i].VPChar:=AnsiStrings.StrNew(PAnsiChar(st));
+     p[i].VPChar:=AllocAnsiStr(st);
     end;
     vtWideString: begin
      st:=SqlSafe(EncodeUTF8(WideString(params[i].VWideString)));
      p[i].VType:=vtPChar;
-     p[i].VPChar:=AnsiStrings.StrNew(PAnsiChar(st));
+     p[i].VPChar:=AllocAnsiStr(st);
     end;
     vtUnicodeString: begin
      st:=SqlSafe(EncodeUTF8(UnicodeString(params[i].VUnicodeString)));
      p[i].VType:=vtPChar;
-     p[i].VPChar:=AnsiStrings.StrNew(PAnsiChar(st));
+     p[i].VPChar:=AllocAnsiStr(st);
     end;
     else
      p[i]:=params[i];
    end;
   result:=Format(query,p);
   for i:=0 to high(params) do
-   if params[i].VType in [vtAnsiString,vtWideString,vtUnicodeString] then AnsiStrings.StrDispose(p[i].VPChar);
+   if params[i].VType in [vtAnsiString,vtWideString,vtUnicodeString] then FreeAnsiStr(p[i].VPChar);
  end;
 
 { TDatabase }
