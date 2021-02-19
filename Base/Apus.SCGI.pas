@@ -4,7 +4,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.SCGI;
 interface
- uses Windows,Apus.Database,Apus.Structs,SysUtils;
+ uses Apus.Database,Apus.Structs,SysUtils;
  const
   MAX_REQUESTS = 1000;
   MAX_RQUEUE = 1023; // 2^n-1
@@ -118,7 +118,8 @@ interface
  function ListHeaders:AnsiString; stdcall;
 
 implementation
- uses WinSock2, Apus.MyServis, Classes, Apus.ControlFiles, Apus.Logging, Apus.GeoIP;
+ uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ENDIF}
+    Apus.MyServis, Classes, Apus.ControlFiles, Apus.Logging, Apus.GeoIP;
  type
   // Worker thread
   TWorker=class(TThread)
@@ -552,7 +553,7 @@ implementation
     LoadTemplatesFromFile('templates\'+sr.name);
     r:=FindNext(sr);
    end;
-   FindClose(sr);
+   SysUtils.FindClose(sr);
    finally
     LeaveCriticalSection(critSect);
    end;
@@ -573,7 +574,7 @@ implementation
     end;
     r:=FindNext(sr);
    end;
-   FindClose(sr);
+   SysUtils.FindClose(sr);
   end;
 
 // ---------------------------------------------------------------
@@ -606,6 +607,17 @@ implementation
    end;
   end;
 
+ {$IFDEF MSWINDOWS}
+  // many routines have different declaration in different WinSock2 import units
+  {$IFDEF DELPHI}
+  function bind(s: TSocket; name: PSockAddr; namelen: Integer): Integer; stdcall; external 'ws2_32.dll';
+  {$ENDIF}
+  {$IFDEF FPC}
+  function WSAAccept(s:TSocket; addr:PSockAddr; addrlen:PLongint; lpfnCondition:LPCONDITIONPROC; dwCallbackData:DWORD ):TSocket; stdcall; external 'ws2_32.dll' name 'WSAAccept';
+  {$ENDIF}
+ {$ENDIF}
+
+
 // ---------------------------------------------------------------
 // Main thread internal functions
 // ---------------------------------------------------------------
@@ -625,7 +637,7 @@ implementation
    addr.sin_port:=htons(PORT);
    addr.sin_addr.S_addr:=htonl(local_IP);
 
-   res:=bind(MainSock,@addr,sizeof(addr));
+   res:=bind(MainSock,PSockAddr(@addr),sizeof(addr));
    if res<>0 then raise EError.Create('Bind failed: '+inttostr(WSAGetLastError));
 
    arg:=1;
@@ -769,7 +781,7 @@ implementation
   var
    s:TSocket;
    i,res:integer;
-   addr:sockaddr_in;
+   addr:TSockAddr;
    addrLen:integer;
    t:int64;
   begin
@@ -1020,11 +1032,15 @@ implementation
    startTime:=now;
    lastTimerTime:=MyTickCount;
 
+   {$IF Declared(SetPriorityClass)}
    if not SetPriorityClass(GetCurrentProcess,NORMAL_PRIORITY_CLASS) then
     LogMsg('Failed to set process priority',logWarn);
+   {$ENDIF}
 
+   {$IF Declared(SetThreadPriority)}
    if not SetThreadPriority(GetCurrentThread,THREAD_PRIORITY_ABOVE_NORMAL) then
     LogMsg('Failed to set main thread priority',logWarn);
+   {$ENDIF}
 
    InitGeoIP;
    InitMainSocket;
