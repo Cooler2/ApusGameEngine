@@ -466,7 +466,7 @@ procedure TestQuotes;
    i,j,k,test,errors:integer;
    t:int64;
    fl:boolean;
-   line:TVariants;
+   line:VariantArray;
    v:variant;
    sa,keys:AStringArr;
   begin
@@ -1076,28 +1076,28 @@ begin
  hash:=CheckSum64(@sour[0],size);
 
  FillDest(1000);
- patch:=CreateDiffPatch(@sour[0],@dest[0],size);
- ApplyDiffPatch(@dest[0],size,@patch[0],length(patch));
+ patch:=CreateBackupPatch(@sour[0],@dest[0],size);
+ ApplyBackupPatch(@dest[0],size,@patch[0],length(patch));
  if CheckSum64(@dest[0],size)<>hash then raise EError.Create('PATCH CASE 1 FAILED!')
-  else write('CASE 1 OK ');
+  else writeln('CASE 1 OK ');
 
  FillDest(100);
- patch:=CreateDiffPatch(@sour[0],@dest[0],size);
- ApplyDiffPatch(@dest[0],size,@patch[0],length(patch));
+ patch:=CreateBackupPatch(@sour[0],@dest[0],size);
+ ApplyBackupPatch(@dest[0],size,@patch[0],length(patch));
  if CheckSum64(@dest[0],size)<>hash then raise EError.Create('PATCH CASE 2 FAILED!')
-  else write('CASE 2 OK ');
+  else writeln('CASE 2 OK ');
 
  FillDest(10);
- patch:=CreateDiffPatch(@sour[0],@dest[0],size);
- ApplyDiffPatch(@dest[0],size,@patch[0],length(patch));
+ patch:=CreateBackupPatch(@sour[0],@dest[0],size);
+ ApplyBackupPatch(@dest[0],size,@patch[0],length(patch));
  if CheckSum64(@dest[0],size)<>hash then raise EError.Create('PATCH CASE 3 FAILED!')
-  else write('CASE 3 OK ');
+  else writeln('CASE 3 OK ');
 
  FillDest(0);
- patch:=CreateDiffPatch(@sour[0],@dest[0],size);
- ApplyDiffPatch(@dest[0],size,@patch[0],length(patch));
+ patch:=CreateBackupPatch(@sour[0],@dest[0],size);
+ ApplyBackupPatch(@dest[0],size,@patch[0],length(patch));
  if CheckSum64(@dest[0],size)<>hash then raise EError.Create('PATCH CASE 4 FAILED!')
-  else write('CASE 4 OK ');
+  else writeln('CASE 4 OK ');
 
 end;
 
@@ -1165,6 +1165,7 @@ procedure TestProfiling;
  var
   thread:TTestThread;
  begin
+  {$IFDEF MSWINDOWS}
   thread:=TTestThread.Create(false);
   AddThreadForProfiling(thread.Handle,'T1');
   StartProfiling(500,500);
@@ -1172,6 +1173,7 @@ procedure TestProfiling;
   StopProfiling;
   SaveProfilingResults('profiling.dat');
   writeln;
+  {$ENDIF}
  end;
 
 procedure TestMemoryStat;
@@ -1537,6 +1539,35 @@ procedure TestMemoryStat;
    for i:=1 to high(list) do ASSERT(list[i].c<=list[i-1].c);
   end;
 
+procedure TestFileIO;
+ const
+  fname='test.bin';
+ var
+  st:String8;
+  buf:ByteArray;
+ begin
+  if MyFileExists(fname) then DeleteFile(fname);
+  ASSERT(not MyFileExists(fname));
+  st:='0123456789';
+  SaveFile(fName,st);
+  buf:=LoadFileAsBytes(fName);
+  ASSERT(CompareMem(@buf[0],@st[1],length(buf)));
+  buf:=copy(buf,0,8);
+  SaveFile(fName,buf);
+  st:=LoadFileAsString(fName,100); // request to load more
+  ASSERT(CompareMem(@buf[0],@st[1],length(buf)));
+  WriteFile(fName,@st[1],8,8); // write beyond EOF
+  st:=st+st;
+  // partial read
+  buf:=LoadFileAsBytes(fName,6);
+  ASSERT((length(buf)=6) and CompareMem(@buf[0],@st[1],length(buf)));
+  // partial read with seek
+  buf:=LoadFileAsBytes(fName,7,8);
+  ASSERT((length(buf)=7) and CompareMem(@buf[0],@st[1],length(buf)));
+  // Load full
+  buf:=LoadFileAsBytes(fName);
+  ASSERT((length(buf)=length(st)) and CompareMem(@buf[0],@st[1],length(buf)));
+ end;
 
 var
  ar:array of cardinal;
@@ -1549,6 +1580,7 @@ var
 begin
  UseLogFile('log.txt',true);
  try
+  TestFileIO;
   TestSortItems;
   TestEval;
   TestConversions;
