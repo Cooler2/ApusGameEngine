@@ -117,7 +117,7 @@ interface
  procedure ChangeThreadPriority(priority:integer); // -2..2 where 0 is Normal
 
  function GetSystemInfo:string;
- function GetLastError:cardinal;
+ function GetLastErrorCode:cardinal;
  function GetLastErrorDesc:string;
 
  {$IFDEF IOS}
@@ -170,10 +170,10 @@ uses
  end;
 {$ENDIF}
 
- function GetLastError:cardinal;
+ function GetLastErrorCode:cardinal;
   begin
-   {$IF Declared(System.GetLastError)}
-    result:=System.GetLastError;
+   {$IF declared(GetLastError)}
+    result:=GetLastError;
    {$ELSE}
     {$IF Declared(fpGetErrno)}
      result:=fpGetErrno;
