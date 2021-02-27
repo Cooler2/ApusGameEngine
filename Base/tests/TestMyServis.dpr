@@ -78,6 +78,20 @@ procedure TestConversions;
   st8:=EncodeUTF8(testString);
   st16:=DecodeUTF8(st8);
   ASSERT(st16=testString);
+
+  ASSERT(ParseInt('  1234 x')=1234);
+  ASSERT(ParseInt('  1 234')=1234);
+  ASSERT(ParseInt(' - 1,234')=-1234);
+  ASSERT(ParseInt('[1,23,40]')=12340);
+  ASSERT(ParseInt(' 012345678901234 ')=12345678901234);
+  ASSERT(ParseInt('$1AbC0123456789')=$1ABC0123456789);
+
+  ASSERT(ParseInt(String8('  1234 x'))=1234);
+  ASSERT(ParseInt(String8('  1 234'))=1234);
+  ASSERT(ParseInt(String8(' - 1,234'))=-1234);
+  ASSERT(ParseInt(String8('[1,23,40]'))=12340);
+  ASSERT(ParseInt(String8(' 012345678901234 '))=12345678901234);
+  ASSERT(ParseInt(String8('$1AbC0'))=$1ABC0);
  end;
 
 procedure TestQuotes;
@@ -1386,11 +1400,14 @@ procedure TestMemoryStat;
   const
    TEST:UTF8String='[Привет!]';
    TEST_W:WideString='[Привет!]';
+   TEST_S:string='[Привет!]';
   begin
    CopyStrToClipboard(TEST);
    ASSERT(PasteStrFromClipboard=TEST,'Clipboard test 1');
    CopyStrToClipboard(TEST_W);
    ASSERT(PasteStrFromClipboardW=TEST_W,'Clipboard test 2');
+   CopyStrToClipboard(TEST_S);
+   ASSERT(PasteStrFromClipboardW=TEST_S,'Clipboard test 3');
   end;
 
  procedure TestPNG;
@@ -1580,10 +1597,10 @@ var
 begin
  UseLogFile('log.txt',true);
  try
+  TestConversions;
   TestFileIO;
   TestSortItems;
   TestEval;
-  TestConversions;
   TestTimes;
   TestZeroMem;
   TestEncode;

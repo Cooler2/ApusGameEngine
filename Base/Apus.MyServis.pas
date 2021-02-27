@@ -579,9 +579,9 @@ interface
  function StrToIp(ip:string):cardinal; // Строка в IP-адрес (младший байт - первый)
  function VarToStr(v:TVarRec):UnicodeString;  // Variant -> String
  function VarToAStr(v:TVarRec):String8;
- function ParseInt(st:string):int64; inline; overload; // wrong characters ignored
+ function ParseInt(st:string):int64; overload; // wrong characters ignored
  {$IFDEF ADDANSI}
- function ParseInt(st:String8):int64; inline; overload; {$ENDIF}
+ function ParseInt(st:String8):int64; overload; {$ENDIF}
  function ParseFloat(st:string):double; inline; // always use '.' as separator - replacement for SysUtils version
  function ParseIntList(st:string):IntArray; // '123 4,-12;3/5' -> [1234,-12,3,5]
  function ParseBool(st:string):boolean; overload;
@@ -1321,31 +1321,61 @@ function HexToAStr(v:int64;digits:integer=0):String8;
     raise EConvertError.Create(st+' is not a valid floating point number');
   end;
 
- function ParseInt(st:string):int64; inline; // wrong characters ignored
+ function ParseInt(st:string):int64; //inline; // wrong characters ignored
   var
-   i:integer;
+   i,state:integer;
   begin
    result:=0;
-   for i:=1 to length(st) do
-    if st[i] in ['0'..'9'] then result:=result*10+(byte(st[i])-$30);
-   for i:=1 to length(st) do begin
-    if st[i]='-' then result:=-result;
-    if st[i] in ['0'..'9'] then break;
+   state:=0;
+   i:=1;
+   while i<=length(st) do begin
+    if (st[i]>='0') and (st[i]<='9') then begin state:=1; break; end else
+    if st[i]='-' then begin state:=2; break; end else
+    if st[i]='$' then begin state:=3; break; end;
+    inc(i);
    end;
+   if state=3 then // hex
+    while i<=length(st) do begin
+     if st[i] in ['0'..'9','A'..'F','a'..'f'] then
+      result:=result shl 4+HexCharToInt(AnsiChar(st[i]));
+     inc(i);
+    end
+   else
+    while i<=length(st) do begin
+     if st[i] in ['0'..'9'] then
+      result:=result*10+(ord(st[i])-ord('0'));
+     inc(i);
+    end;
+   if state=2 then result:=-result;
   end;
 
  {$IFDEF ADDANSI}
  function ParseInt(st:String8):int64;  // wrong characters ignored
   var
-   i:integer;
+   i,state:integer;
   begin
-   result:=0;
-   for i:=1 to length(st) do
-    if st[i] in ['0'..'9'] then result:=result*10+(byte(st[i])-$30);
-   for i:=1 to length(st) do begin
-    if st[i]='-' then result:=-result;
-    if st[i] in ['0'..'9'] then break;
+   result:=0; /// TODO: add support for hex, rewrite
+   state:=0;
+   i:=1;
+   while i<=length(st) do begin
+    if (st[i]>='0') and (st[i]<='9') then begin state:=1; break; end else
+    if st[i]='-' then begin state:=2; break; end else
+    if st[i]='$' then begin state:=3; break; end;
+    inc(i);
    end;
+   if state=3 then // hex
+    while i<=length(st) do begin
+     if st[i] in ['0'..'9','A'..'F','a'..'f'] then
+      result:=result shl 4+HexCharToInt(AnsiChar(st[i]));
+     inc(i);
+    end
+   else
+    while i<=length(st) do begin
+     if st[i] in ['0'..'9'] then
+      result:=result*10+(ord(st[i])-ord('0'));
+     inc(i);
+    end;
+   if state=2 then result:=-result;
   end;
  {$ENDIF}
 
