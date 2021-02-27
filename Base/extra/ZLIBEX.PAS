@@ -605,7 +605,7 @@ var
   buffer: Pointer;
   size: Integer;
 begin
-  ZCompress(PChar(s), Length(s), buffer, size, level);
+  ZCompress(PAnsiChar(s), Length(s), buffer, size, level);
 
   SetLength(result, size);
   move(buffer^, pointer(result)^, size);
@@ -662,7 +662,7 @@ var
   buffer: Pointer;
   size: Integer;
 begin
-  ZDecompress(PChar(s), Length(s), buffer, size);
+  ZDecompress(PAnsiChar(s), Length(s), buffer, size);
 
   SetLength(result, size);
   move(buffer^, pointer(result)^, size);

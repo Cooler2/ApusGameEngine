@@ -56,7 +56,7 @@ interface
 
 implementation
  uses Apus.CrossPlatform,SysUtils,Classes,Apus.EventMan
-   {$IFDEF DELPHI},wininet,ZLibEx{$ENDIF}
+   {$IFDEF DELPHI},WinInet {$IFDEF CPU386},ZLibEx{$ENDIF}{$ENDIF}
    {$IFDEF IOS},iPhoneAll{$ENDIF}
    {$IFDEF FPC},fphttpclient{$ENDIF};
  type
@@ -648,7 +648,12 @@ procedure THTTPThread.ExecuteGetRequest;
   try
    SetLength(req.response,downloaded);
    move(data[0],req.response[1],downloaded);
-   if deflate then ZDecompressHTTP(RawByteString(req.response));
+   if deflate then
+    {$IFDEF CPU386}
+    ZDecompressHTTP(RawByteString(req.response));
+    {$ELSE}
+    ASSERT(false,'Deflate not implemented'); /// TODO: Implement deflate using System.ZLib unit
+    {$ENDIF}
    if req.status<>httpStatusFailed then
     req.status:=httpStatusCompleted;
    req.receivedBytes:=length(req.response);
