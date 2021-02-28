@@ -154,17 +154,28 @@ function TSoundLibImx.PlayMedia(media:TMediaFile;const settings:TPlaySettings):T
   end;
  end;
 
-procedure TSoundLibImx.SetChannelAttribute(channel:TChannel; attr:TChannelAttribute; value:single);
- begin
-
- end;
-
 procedure TSoundLibImx.SetVolume(volumeType:TVolumeType; volume:single);
  begin
   case volumeType of
    vtSounds:IMXSetGlobalVolumes(-1,round(volume*100),-1);
    vtMusic:IMXSetGlobalVolumes(round(volume*100),-1,round(volume*100));
   end;
+ end;
+
+procedure TSoundLibImx.SetChannelAttribute(channel:TChannel; attr:TChannelAttribute; value:single);
+ var
+  newPan,newVol,newFreq:integer;
+ begin
+  ASSERT(channel is TChannelImx);
+  newVol:=-1;
+  newPan:=-101;
+  newFreq:=0;
+  case attr of
+   caVolume:newVol:=Clamp(round(value*100),0,200);
+   caPanning:newPan:=Clamp(round(value*100),-100,100);
+   caSpeed:newFreq:=round(value*TChannelImx(channel).sampleRate);
+  end;
+  IMXChannelSetAttributes(TChannelImx(channel).handle,newVol,newPan,newFreq);
  end;
 
 procedure TSoundLibImx.SlideChannel(channel:TChannel; attr:TChannelAttribute; newValue,timeInterval:single);
@@ -192,7 +203,6 @@ procedure TSoundLibImx.StopChannel(var channel:TChannel);
  end;
 
 { TMediaFileImx }
-
 constructor TMediaFileImx.Create(h: HSample;mediaType:TMediaType;data:ByteArray);
  begin
   handle:=h;
