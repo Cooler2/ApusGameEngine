@@ -1,3 +1,6 @@
+// IMixerPro Sound System by Igor Lobanchikov: http://apus-software.com/imixer/
+// Installer (dll + lib + documentation): http://apus-software.com/imixer/bin/IMixerPro.exe
+// Don't confuse IMix* (IMixer) and IMX* (IMixerPro) - they are different things.
 unit IMixEx;
 
 interface
