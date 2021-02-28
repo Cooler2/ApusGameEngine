@@ -267,17 +267,18 @@ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean
    hndlist:array[1..150] of TEventHandler;
    allowBubble:boolean;
   begin
+   if tag=0 then begin
+    i:=event.LastIndexOf('::');
+    if i>0 then begin
+     tag:=ParseInt(Copy(event,i+2,length(event)));
+     SetLength(event,i);
+    end;
+   end;
+
    ev:=event;
    event:=UpperCase(event);
    trID:=GetCurrentThreadID;
    try
-    if tag=0 then begin
-     i:=event.LastIndexOf('::');
-     if i>0 then begin
-      tag:=ParseInt(Copy(event,i+2,length(event)));
-      SetLength(event,i-1);
-     end;
-    end;
    repeat
     allowBubble:=true;
     cnt:=0;
