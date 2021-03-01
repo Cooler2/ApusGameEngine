@@ -93,6 +93,7 @@ implementation
 
 uses SysUtils, Apus.ControlFiles, Apus.Structs, Apus.EventMan, Classes
   {$IFDEF IMX},Apus.Engine.SoundImx{$ENDIF}
+  {$IFDEF SDLMIX},Apus.Engine.SoundSDL{$ENDIF}
   {$IFDEF ANDROID},Apus.Android,Apus.AndroidSoundPool,Apus.AndroidMediaPlayer{$ENDIF}
   ;
 
@@ -782,6 +783,7 @@ procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:cardinal=0; waitFor
   end;
   case useLibrary of
    slIMixer:{$IFDEF IMX}soundLib:=TSoundLibImx.Create; {$ELSE} raise EError.Create('Define IMX'); {$ENDIF}
+   slSDL:{$IFDEF SDLMIX}soundLib:=TSoundLibSDL.Create; {$ELSE} raise EError.Create('Define SDLMIX'); {$ENDIF}
   end;
   thread:=TSoundThread.Create(false);
   thread.waitForPreload:=waitForPreload;
