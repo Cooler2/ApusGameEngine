@@ -95,9 +95,8 @@ implementation
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
    Apus.Engine.UIClasses,Apus.Engine.Game,Apus.Engine.Tools,
    Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,
-   Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle
-  {$IFDEF IMX},Apus.Engine.Sound{$ENDIF}
-  {$IFDEF BASS},Apus.Engine.SoundB{$ENDIF}
+   Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,
+   Apus.Engine.Sound
   {$IFDEF DIRECTX},Apus.Engine.DXGame8{$ENDIF}
   {$IFDEF OPENGL},Apus.Engine.OpenGL{$ENDIF}
   {$IFDEF STEAM},Apus.Engine.SteamAPI{$ENDIF};
@@ -459,11 +458,18 @@ procedure TGameApplication.Prepare;
  end;
 
 procedure TGameApplication.InitSound;
+var
+ lib:TSoundLib;
 begin
  Signal('GAMEAPP\InitSound');
+ lib:=slDefault;
  {$IFDEF IMX}
- Apus.Engine.Sound.Initialize(game.systemPlatform.GetWindowHandle,false);
+ lib:=slIMixer;
  {$ENDIF}
+ {$IFDEF SDLMIX}
+ lib:=slSDL;
+ {$ENDIF}
+ InitSoundSystem(lib,game.systemPlatform.GetWindowHandle);
 end;
 
 procedure EngineEventHandler(event:TEventStr;tag:TTag);
