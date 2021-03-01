@@ -30,7 +30,8 @@ var
 begin
  try
   UseLogFile('test.log',true);
-  soundFolderPath:='Res\';
+  soundFolderPath:='..\demo\SoundDemo\Res\';
+  soundConfigFile:='..\demo\SoundDemo\Res\sounds.ctl';
   writeln('Select backend library: ');
   writeln(' 1 - !Mixer (ImxEx.dll)');
   writeln(' 2 - BASS (bass.dll)');
