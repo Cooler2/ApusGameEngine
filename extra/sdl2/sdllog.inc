@@ -1,6 +1,6 @@
 
 //since the array of const in delphi is not C compatible:
-{$IFDEF FPC}
+//{$IFDEF FPC}
 
 {**
  *  \brief The maximum size of a log message
@@ -145,4 +145,4 @@ procedure SDL_LogGetOutputFunction(callback: PSDL_LogOutputFunction; userdata: P
  *}
 procedure SDL_LogSetOutputFunction(callback: TSDL_LogOutputFunction; userdata: Pointer) cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_LogSetOutputFunction' {$ENDIF} {$ENDIF};
 
-{$ENDIF}
+//{$ENDIF}
