@@ -59,6 +59,7 @@ var
  context:TSDL_GLContext;
  terminated:boolean;
  mouseState:byte;
+ savedLogHandler:TSDL_LogOutputFunction;
 
 { TSDLPlatform }
 
@@ -193,6 +194,15 @@ function TSDLPlatform.GetWindowHandle: THandle;
   result:=window.id;
  end;
 
+procedure MyLogHandler(userdata: Pointer; category: Integer; priority: TSDL_LogPriority; const msg: PAnsiChar);
+ begin
+  if priority>=SDL_LOG_PRIORITY_ERROR then
+   ForceLogMessage('SDL: '+msg)
+  else
+   LogMessage('SDL: '+msg);
+  if @savedLogHandler<>nil then savedLogHandler(userData,category,priority,msg);
+ end;
+
 constructor TSDLPlatform.Create;
  var
   plName:AnsiString;
@@ -202,6 +212,8 @@ constructor TSDLPlatform.Create;
    raise EError.Create('SDL init error: '+SDL_GetError);
   plName:=SDL_GetPlatform;
   SDL_GetVersion(@ver);
+  SDL_LogGetOutputFunction(@savedLogHandler,nil);
+  SDL_LogSetOutputFunction(MyLogHandler,nil);
   LogMessage('SDL Initialized. Platform: %s, version %d.%d',[plName,ver.major,ver.minor]);
  end;
 
