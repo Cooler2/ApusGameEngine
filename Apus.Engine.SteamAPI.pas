@@ -3,6 +3,7 @@
 // Copyright (C) 2011 Apus Software. Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+{$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 unit Apus.Engine.SteamAPI;
 interface
  const
