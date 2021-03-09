@@ -17,7 +17,8 @@ type
   procedure SlideChannel(channel:TChannel;attr:TChannelAttribute;newValue:single;timeInterval:single);
   procedure Done;
 
-  function CanSlide:boolean;
+  function CanSlide:TChannelAttributes;
+  function CanFadeMusic:boolean;
  end;
 
 implementation
@@ -32,11 +33,19 @@ type
   sampleChannel:integer; // negative - music
  end;
 
+var
+ globalMusicVolume,curMusicVolume,globalSoundVolume:single;
+
 { TSoundLibSDL }
 
-function TSoundLibSDL.CanSlide: boolean;
+function TSoundLibSDL.CanSlide: TChannelAttributes;
  begin
-  result:=false;
+  result:=[];
+ end;
+
+function TSoundLibSDL.CanFadeMusic:boolean;
+ begin
+  result:=true;
  end;
 
 procedure TSoundLibSDL.Init(windowHandle: THandle);
@@ -95,6 +104,11 @@ function TSoundLibSDL.OpenMediaFile(fname: string;
   result:=media;
  end;
 
+procedure UpdateCurMusicVolume;
+ begin
+  Mix_VolumeMusic(round(curMusicVolume*globalMusicVolume*MIX_MAX_VOLUME));
+ end;
+
 function TSoundLibSDL.PlayMedia(media: TMediaFile;
   const settings: TPlaySettings): TChannel;
  var
@@ -113,6 +127,7 @@ function TSoundLibSDL.PlayMedia(media: TMediaFile;
     ForceLogMessage('[SDL_MIX] failed to play sample: '+m.source);
     exit(nil);
    end;
+   Mix_Volume(res,round(settings.volume*globalSoundVolume*MIX_MAX_VOLUME));
   end else begin
    // Play music
    res:=Mix_PlayMusic(m.music,loops);
@@ -120,6 +135,8 @@ function TSoundLibSDL.PlayMedia(media: TMediaFile;
     ForceLogMessage('[SDL_MIX] failed to play music: '+m.source);
     exit(nil);
    end;
+   curMusicVolume:=settings.volume;
+   UpdateCurMusicVolume;
    res:=-999;
   end;
   ch:=TChannelSDL.Create;
@@ -136,15 +153,20 @@ procedure TSoundLibSDL.SetChannelAttribute(channel: TChannel;
 procedure TSoundLibSDL.SetVolume(volumeType: TVolumeType; volume: single);
  begin
   case volumeType of
-   vtSounds:;
-   vtMusic:Mix_VolumeMusic(round(volume*MIX_MAX_VOLUME));
+   vtSounds:globalSoundVolume:=volume;
+   vtMusic:begin
+    globalMusicVolume:=volume;
+    UpdateCurMusicVolume;
+   end;
   end;
  end;
 
 procedure TSoundLibSDL.SlideChannel(channel: TChannel; attr: TChannelAttribute;
   newValue, timeInterval: single);
  begin
-
+  if (channel is TChannelSDL) and (attr=caVolume) then begin
+   if newValue=0 then Mix_FadeOutMusic(round(timeInterval*1000));
+  end;
  end;
 
 procedure TSoundLibSDL.StopChannel(var channel: TChannel);

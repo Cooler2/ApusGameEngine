@@ -11,7 +11,7 @@
 //
 unit Apus.Engine.Sound;
 interface
-uses Apus.MyServis;
+uses Apus.MyServis, Apus.AnimatedValues;
 var
  soundFolderPath:string = 'Audio\';
  soundConfigFile:string = 'sounds.ctl';
@@ -38,10 +38,8 @@ type
   caPanning,  // -1=left, 1=right
   caSpeed);   // 1.0 - normal speed
 
-//var
- // global sound settings
- //musicVolume:integer=-1; // 0..100
- //soundVolume:integer=-1; // 0..100
+ TChannelAttributes = set of TChannelAttribute;
+
 
  TChannel=TObject;
  TMediaFile=class
@@ -77,8 +75,11 @@ type
   function PlayMedia(media:TMediaFile;const settings:TPlaySettings):TChannel;
   procedure StopChannel(var channel:TChannel); // frees and set to nil channel if success
   procedure SetChannelAttribute(channel:TChannel;attr:TChannelAttribute;value:single);
+  // Which channel attributes can be slided
+  function CanSlide:TChannelAttributes;
+  // If full volume slide not supported: can it fade in/out music?
+  function CanFadeMusic:boolean;
   // timeInterval - in seconds
-  function CanSlide:boolean;
   procedure SlideChannel(channel:TChannel;attr:TChannelAttribute;newValue:single;timeInterval:single);
   procedure Done;
  end;
@@ -123,8 +124,8 @@ type
   stopTime:int64; // stop channel at this time
   loopPos:double; // in seconds
   loopCount:integer; // Android: -1 - infinite loop, 0 - no loop
-  {$IFDEF ANDROID}
   curVolume:TAnimatedValue;
+  {$IFDEF ANDROID}
   player:TJNIMediaPlayer;
   {$ENDIF}
  end;
@@ -157,6 +158,7 @@ var
  sampleLib:array[1..5] of TMusicEntry;
  sampleLibCnt:integer;
 
+ // Global volume levels (multiply by particular volume)
  soundVolume:single=1.0;
  musicVolume:single=1.0;
 
@@ -312,9 +314,10 @@ procedure LoadConfig;
      if mediaFilesHash.HasValue(evt.fileName) then
       evt.sample:=pointer(mediaFilesHash.Get(evt.fileName));
     end;
-    if param[0]='VOL' then evt.volume:=StrToInt(param[1]);
-    if param[0]='PAN' then evt.pan:=StrToInt(param[1]);
+    if param[0]='VOL' then evt.volume:=StrToInt(param[1])/100;
+    if param[0]='PAN' then evt.pan:=StrToInt(param[1])/100;
     if param[0]='FREQ' then evt.speed:=StrToInt(param[1])/44100;
+    if param[0]='SPEED' then evt.speed:=ParseFloat(param[1]);
    end;
    evtHash.Put(evt.name,evt);
   end;
@@ -560,12 +563,115 @@ procedure PlaySound(event:string;tag:TTag);
   {$ENDIF}
  end;
 
+procedure PlayMusic(event:TEventStr;tag:TTag);
+ var
+  mus:TMusicEntry;
+  downtime:integer;
+  i:integer;
+ begin
+   mus:=nil;
+   if event<>'NONE' then
+    mus:=MusHash.Get(event);
+   // Позиция проигрывания
+   needMusicPlayFrom:=(tag shr 8)/100000;
+   tag:=tag and $FF;
+   if (tag and 128)>0 then
+    tag:=tag and $7F
+   else begin
+    // Может нужный трэк уже играет?
+    if (mus<>nil) and (curMusic=mus) then exit;
+   end;
+
+   case tag of
+    0:begin // обычный эффект: музыка гасится, затем запускается новая
+       downtime:=1200;
+       needslide:=0;
+       needMusicStartTime:=MyTickCount+1000;
+    end;
+    1:begin // музыка гасится быстро, новая запускается почти сразу же
+       downtime:=400;
+       needslide:=0;
+       needMusicStartTime:=MyTickCount+300;
+    end;
+    2:begin // музыка гасится очень медленно
+       downtime:=2500;
+       needslide:=0;
+       needMusicStartTime:=MyTickCount+3000;
+    end;
+    3:begin // музыка гасится медленно, новая нарастает плавно - кроссфейдинг
+       downtime:=2000;
+       needslide:=2000;
+       needMusicStartTime:=MyTickCount+800;
+    end;
+    4:begin // музыка гасится медленно, новая нарастает плавно - без фейдинга
+       downtime:=2500;
+       needslide:=2000;
+       needMusicStartTime:=MyTickCount+2000;
+    end;
+    5:begin // музыка гасится быстро, новая нарастает медленно - кроссфейдинг
+       downtime:=500;
+       needslide:=2000;
+       needMusicStartTime:=MyTickCount+400;
+    end;
+    6:begin // музыка гасится быстро, новая нарастает средне - кроссфейдинг
+       downtime:=500;
+       needslide:=500;
+       needMusicStartTime:=MyTickCount+250;
+    end;
+   end;
+   // Fade-Out all playing music streams
+   if curMusic<>nil then begin
+     if downTime>0 then begin
+      LogMessage('[SOUND] Fading out current music during '+inttostr(downtime));
+      if (caVolume in soundLib.CanSlide) or (soundLib.CanFadeMusic) then
+       soundLib.SlideChannel(curMusic.channel,caVolume,0,downTime/1000)
+      else begin
+       curMusic.curVolume.Init(curMusic.volume);
+      end;
+      curMusic.stopTime:=MyTickCount+downTime;
+     end else begin
+      LogMessage('[SOUND] Stop current music immediately');
+      soundLib.StopChannel(curMusic.channel);
+      curMusic:=nil;
+     end;
+   end else
+    needMusicStartTime:=MyTickCount;
+
+   if event<>'NONE' then begin
+    mus:=MusHash.Get(event);
+    if mus<>nil then needMusic:=mus
+     else LogMessage('[SOUND] Music not found: '+event);
+   end;
+ end;
+
+ procedure PauseMusic(pause:boolean);
+  var
+   mus:TMusicEntry;
+   st:string;
+  begin
+   st:=MusHash.FirstKey;
+   while st<>'' do begin
+    mus:=MusHash.Get(st);
+    if mus.channel<>nil then begin
+     {$IFDEF ANDROID}
+     if pause then begin
+      LogMessage('Pause music track '+mus.name);
+      mus.player.Pause;
+     end else begin
+      LogMessage('Resume music track '+mus.name);
+      mus.player.Resume;
+     end;
+     {$ENDIF}
+    end;
+    st:=MusHash.NextKey;
+   end;
+  end;
+
 procedure EventHandler(event:TEventStr;tag:TTag);
  var
   sa,sa2:stringarr;
-  mus:TMusicEntry;
   st:string;
-  i,p,downtime,v,freq,vol,pan,newpan,newfreq,slide:integer;
+  i,p,v,freq,vol,pan,newpan,newfreq,slide:integer;
   fl,volRelative:boolean;
   chan:integer;
   multFreq:single;
@@ -669,102 +775,17 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   end;
 
   if event.StartsWith('MUSICPOS') then begin
-   needMusicPlayFrom:=tag/1000000;
+   needMusicPlayFrom:=tag/100000;
    exit;
   end;
 
-  if (event='PAUSE') or (event='RESUME') then begin
-   st:=MusHash.FirstKey;
-   while st<>'' do begin
-    mus:=MusHash.Get(st);
-    if mus.channel<>nil then begin
-     {$IFDEF ANDROID}
-     if event='PAUSE' then begin
-      LogMessage('Pause music track '+mus.name);
-      mus.player.Pause;
-     end else begin
-      LogMessage('Resume music track '+mus.name);
-      mus.player.Resume;
-     end;
-     {$ENDIF}
-    end;
-    st:=MusHash.NextKey;
-   end;
-  end;
+  if event.StartsWith('PAUSE') or event.startsWith('RESUME') then
+   PauseMusic(event.StartsWith('PAUSE'));
 
   if pos('PLAYMUSIC\',event)=1 then begin
    LogMessage('[SOUND] '+event);
    delete(event,1,10);
-   mus:=nil;
-   if event<>'NONE' then
-    mus:=MusHash.Get(event);
-   // Позиция проигрывания
-   needMusicPlayFrom:=(tag shr 8)/100000;
-   tag:=tag and $FF;
-   if (tag and 128)>0 then
-    tag:=tag and $7F
-   else begin
-    // Может нужный трэк уже играет?
-    if (mus<>nil) and (curMusic=mus) then exit;
-   end;
-
-   case tag of
-    0:begin // обычный эффект: музыка гасится, затем запускается новая
-       downtime:=1200;
-       needslide:=0;
-       needMusicStartTime:=MyTickCount+1000;
-    end;
-    1:begin // музыка гасится быстро, новая запускается почти сразу же
-       downtime:=400;
-       needslide:=0;
-       needMusicStartTime:=MyTickCount+300;
-    end;
-    2:begin // музыка гасится очень медленно
-       downtime:=2500;
-       needslide:=0;
-       needMusicStartTime:=MyTickCount+3000;
-    end;
-    3:begin // музыка гасится медленно, новая нарастает плавно - кроссфейдинг
-       downtime:=2000;
-       needslide:=2000;
-       needMusicStartTime:=MyTickCount+800;
-    end;
-    4:begin // музыка гасится медленно, новая нарастает плавно - без фейдинга
-       downtime:=2500;
-       needslide:=2000;
-       needMusicStartTime:=MyTickCount+2000;
-    end;
-    5:begin // музыка гасится быстро, новая нарастает медленно - кроссфейдинг
-       downtime:=500;
-       needslide:=2000;
-       needMusicStartTime:=MyTickCount+400;
-    end;
-    6:begin // музыка гасится быстро, новая нарастает средне - кроссфейдинг
-       downtime:=500;
-       needslide:=500;
-       needMusicStartTime:=MyTickCount+250;
-    end;
-   end;
-   // Fade-Out all playing music streams
-   if curMusic<>nil then begin
-     if downTime>0 then begin
-      LogMessage('[SOUND] Fading out current music during '+inttostr(downtime));
-      soundLib.SlideChannel(curMusic.channel,caVolume,0,downTime/1000);
-      curMusic.stopTime:=MyTickCount+downTime;
-     end else begin
-      LogMessage('[SOUND] Stop current music immediately');
-      soundLib.StopChannel(curMusic.channel);
-      curMusic:=nil;
-     end;
-   end else
-    needMusicStartTime:=MyTickCount;
-
-   if event<>'NONE' then begin
-    mus:=MusHash.Get(event);
-    if mus<>nil then needMusic:=mus
-     else LogMessage('[SOUND] Music not found: '+event);
-   end;
-   exit;
+   PlayMusic(event,tag);
   end;
   except
    on e:exception do ForceLogMessage('Sound event ('+event+') error: '+ExceptionMsg(e));
