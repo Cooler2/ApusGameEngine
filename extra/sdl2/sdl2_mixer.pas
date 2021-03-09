@@ -47,7 +47,7 @@ const
       MIX_LibName = 'libSDL2_mixer.dylib';
     {$ELSE}
       {$IFDEF FPC}
-        MIX_LibName = 'libSDL2_mixer.so';
+        MIX_LibName = 'libSDL2_mixer-2.0.so';
       {$ELSE}
         MIX_LibName = 'libSDL2_mixer.so.0';
       {$ENDIF}

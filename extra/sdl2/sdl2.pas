@@ -158,11 +158,7 @@ const
     {$IFDEF DARWIN}
       SDL_LibName = 'libSDL2.dylib';
     {$ELSE}
-      {$IFDEF FPC}
-        SDL_LibName = {$IFDEF CPU64} 'libSDL2_64.so' {$ELSE} 'libSDL2_32.so' {$ENDIF};
-      {$ELSE}
-        SDL_LibName = 'libSDL2.so.0';
-      {$ENDIF}
+      SDL_LibName = 'libSDL2.so.0';
     {$ENDIF}
   {$ENDIF}
 
