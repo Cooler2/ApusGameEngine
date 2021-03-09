@@ -58,6 +58,8 @@ procedure TSoundLibSDL.Init(windowHandle: THandle);
   if res<>flags then raise EError.Create('[SDL_MIX] init failed: '+Mix_GetError);
   res:=Mix_OpenAudio(44100,AUDIO_S16,2,1764);
   if res<>0 then raise EError.Create('[SDL_MIX] open audio error '+Mix_GetError);
+  globalMusicVolume:=1.0;
+  globalSoundVolume:=1.0;
  end;
 
 procedure TSoundLibSDL.Done;

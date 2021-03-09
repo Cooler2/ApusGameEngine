@@ -873,6 +873,8 @@ begin
   RegisterThread('Sound(E3)');
   // initialization
   soundLib.Init(wndHandle);
+  soundLib.SetVolume(vtSounds,soundVolume);
+  soundLib.SetVolume(vtMusic,musicVolume);
 
   {$IFDEF ANDROID}
   pools[0]:=TSoundPool.Create; // Also registers current thread

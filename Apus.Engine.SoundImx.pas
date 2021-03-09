@@ -14,7 +14,8 @@ type
   function PlayMedia(media:TMediaFile;const settings:TPlaySettings):TChannel;
   procedure StopChannel(var channel:TChannel);
   procedure SetChannelAttribute(channel:TChannel;attr:TChannelAttribute;value:single);
-  function CanSlide:boolean;
+  function CanSlide:TChannelAttributes;
+  function CanFadeMusic:boolean;
   procedure SlideChannel(channel:TChannel;attr:TChannelAttribute;newValue:single;timeInterval:single);
   procedure Done;
  end;
@@ -68,10 +69,16 @@ procedure TSoundLibImx.Init(windowHandle:THandle);
   end;
  end;
 
-function TSoundLibImx.CanSlide: boolean;
+function TSoundLibImx.CanSlide:TChannelAttributes;
+ begin
+  result:=[caVolume,caPanning,caSpeed];
+ end;
+
+function TSoundLibImx.CanFadeMusic:boolean;
  begin
   result:=true;
  end;
+
 
 procedure TSoundLibImx.Done;
  begin
