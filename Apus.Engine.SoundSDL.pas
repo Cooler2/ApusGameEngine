@@ -58,8 +58,6 @@ procedure TSoundLibSDL.Init(windowHandle: THandle);
   if res<>flags then raise EError.Create('[SDL_MIX] init failed: '+Mix_GetError);
   res:=Mix_OpenAudio(44100,AUDIO_S16,2,1764);
   if res<>0 then raise EError.Create('[SDL_MIX] open audio error '+Mix_GetError);
-  globalMusicVolume:=1.0;
-  globalSoundVolume:=1.0;
  end;
 
 procedure TSoundLibSDL.Done;
@@ -148,8 +146,25 @@ function TSoundLibSDL.PlayMedia(media: TMediaFile;
 
 procedure TSoundLibSDL.SetChannelAttribute(channel: TChannel;
   attr: TChannelAttribute; value: single);
+ var
+  ch:integer;
+  left,right:byte;
  begin
-
+  ASSERT(channel is TChannelSDL);
+  ch:=TChannelSDL(channel).sampleChannel;
+  if ch<0 then begin
+   if attr=caVolume then begin
+    curMusicVolume:=value;
+    UpdateCurMusicVolume;
+   end;
+  end else begin
+   if attr=caVolume then MIX_Volume(ch,round(value*globalSoundVolume*MIX_MAX_VOLUME));
+   if attr=caPanning then begin
+    right:=clamp(round(255*(1+value)),0,255);
+    left:=clamp(round(255*(1-value)),0,255);
+    Mix_SetPanning(ch,left,right);
+   end;
+  end;
  end;
 
 procedure TSoundLibSDL.SetVolume(volumeType: TVolumeType; volume: single);

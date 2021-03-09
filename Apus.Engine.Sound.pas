@@ -152,7 +152,7 @@ var
  needMusic:TMusicEntry;
  needMusicPlayFrom:double; // position to play from (sec)
  needMusicStartTime:int64;       // Time to start playback
- needSlide:integer;    // Fade-in duration
+ needSlide:integer;    // Fade-in duration (ms)
  curMusic:TMusicEntry;
 
  sampleLib:array[1..5] of TMusicEntry;
@@ -667,6 +667,22 @@ procedure PlayMusic(event:TEventStr;tag:TTag);
    end;
   end;
 
+procedure AnimateMusicVolume(mus:TMusicEntry);
+ var
+  v:single;
+ begin
+  v:=mus.curVolume.Value;
+  soundLib.SetChannelAttribute(mus.channel,caVolume,v);
+  {$IFDEF ANDROID}
+  rVol:=mus.curVolume.Value/100;
+  mus.player.SetVolume(rVol,rVol);
+  if mus.curVolume.IsAnimating then
+    DelayedSignal(event,10,tag);
+  {$ENDIF}
+  if mus.curVolume.IsAnimating then
+   DelayedSignal('SOUND\AnimateMusicVol',10,TTag(mus));
+ end;
+
 procedure EventHandler(event:TEventStr;tag:TTag);
  var
   sa,sa2:stringarr;
@@ -681,18 +697,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   delete(event,1,6);
   event:=UpperCase(event);
 
-(* TODO
-  if event='ANIMATEMUSICVOL' then begin
-   mus:=pointer(cardinal(tag));
-   if not (mus is TMusic) then exit;
-   {$IFDEF ANDROID}
-   rVol:=mus.curVolume.Value/100;
-   mus.player.SetVolume(rVol,rVol);
-   if mus.curVolume.IsAnimating then
-     DelayedSignal(event,10,tag);
-   {$ENDIF}
-   exit;
-  end;  *)
+  if event='ANIMATEMUSICVOL' then AnimateMusicVolume(TMusicEntry(tag));
 
 (* TODO
   // Unload all loaded audio samples
@@ -843,7 +848,13 @@ begin
  curMusic:=needMusic;
  curMusic.channel:=soundLib.PlayMedia(needMusic.media,settings);
  if needSlide>0 then begin
-  soundLib.SlideChannel(curMusic.channel,caVolume,needMusic.volume,needSlide/1000);
+  if caVolume in soundLib.CanSlide then
+   soundLib.SlideChannel(curMusic.channel,caVolume,curMusic.volume,needSlide/1000)
+  else begin
+   curMusic.curVolume.Init(0);
+   curMusic.curVolume.Animate(curMusic.volume,needSlide,spline0);
+   DelayedSignal('SOUND\AnimateMusicVol',10,TTag(curMusic));
+  end;
  end;
  needmusic:=nil;
 end;
