@@ -105,6 +105,12 @@ interface
   TRect=types.TRect;
   TPoint=types.TPoint;
 {$ENDIF}
+ const
+  dummyConst = 0;
+{$IF not Declared(INVALID_HANDLE_VALUE)}
+  INVALID_HANDLE_VALUE = THandle(-1);
+{$ENDIF}
+
 
  function GetTickCount:cardinal;
  procedure QueryPerformanceCounter(out value:int64);
@@ -185,7 +191,7 @@ uses
   var
    code:cardinal;
   begin
-   code:=GetLastError;
+   code:=GetLastErrorCode;
    {$IF Declared(SysErrorMessage)}
     result:=SysErrorMessage(code);
    {$ELSE}
