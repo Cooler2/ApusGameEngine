@@ -19,8 +19,8 @@ const
   'Play\Stereo',
   'Play\Low',
   'Play\Wav',
-  'Play\sample',
-  'Play\sample');
+  'Play\sampleLeft',
+  'Play\sampleQuiet');
 
 
 var

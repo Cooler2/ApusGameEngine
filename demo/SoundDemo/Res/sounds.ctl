@@ -40,5 +40,6 @@ $Section SoundEvents
   Low       "sampleLow.ogg"
   Stereo    "sampleStereo.ogg"
   Wav       "sampleWav.wav"
-
+  sampleQuiet "sample.ogg,vol=30"
+  sampleLeft  "sample.ogg,pan=-90"
 $EndOfSection
