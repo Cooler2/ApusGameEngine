@@ -68,9 +68,6 @@ interface
 
    procedure FatalError(msg:string); virtual;
 
-   // Finalization
-   procedure DoneSound; virtual;
-
    procedure onResize; virtual;
   end;
 
@@ -309,19 +306,9 @@ procedure TGameApplication.CreateScenes;
 destructor TGameApplication.Destroy;
  begin
   if game<>nil then game.Stop;
-  {$IFDEF IMX}
-  DoneSound;
-  {$ENDIF}
+  DoneSoundSystem;
   inherited;
  end;
-
-
-procedure TGameApplication.DoneSound;
-begin
- {$IFDEF IMX}
- Apus.Engine.Sound.Finalize;
- {$ENDIF}
-end;
 
 procedure TGameApplication.FatalError(msg: string);
 begin

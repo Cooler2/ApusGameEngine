@@ -20,7 +20,6 @@ type
   function CanSlide:boolean;
  end;
 
-
 implementation
 uses Apus.MyServis, SysUtils, SDL2, sdl2_mixer;
 
@@ -42,11 +41,12 @@ function TSoundLibSDL.CanSlide: boolean;
 
 procedure TSoundLibSDL.Init(windowHandle: THandle);
  var
-  res:integer;
+  res,flags:integer;
  begin
   LogMessage('[SDL_MIX] Init');
-  res:=Mix_Init(MIX_INIT_MOD+MIX_INIT_MP3+MIX_INIT_OGG);
-  if res=0 then raise EError.Create('[SDL_MIX] init failed');
+  flags:=MIX_INIT_OGG;
+  res:=Mix_Init(flags);
+  if res<>flags then raise EError.Create('[SDL_MIX] init failed: '+Mix_GetError);
   res:=Mix_OpenAudio(44100,AUDIO_S16,2,1764);
   if res<>0 then raise EError.Create('[SDL_MIX] open audio error '+Mix_GetError);
  end;
@@ -75,7 +75,7 @@ function TSoundLibSDL.OpenMediaFile(fname: string;
    // Load as sample
    chunk:=Mix_LoadWAV(PAnsiChar(st));
    if chunk=nil then begin
-    LogMessage('[SDL_MIX] Failed to load media file: '+fName);
+    LogMessage('[SDL_MIX] Failed to load media file %s: %s ',[fName,Mix_GetError]);
     exit(nil);
    end;
    media:=TMediaFileSDL.Create;
@@ -84,7 +84,7 @@ function TSoundLibSDL.OpenMediaFile(fname: string;
    // Load as music
    music:=Mix_LoadMUS(PAnsiChar(st));
    if music=nil then begin
-    LogMessage('[SDL_MIX] Failed to load music file: '+fname);
+    LogMessage('[SDL_MIX] Failed to load music file %s: %s ',[fname,Mix_GetError]);
     exit(nil);
    end;
    media:=TMediaFileSDL.Create;

@@ -483,7 +483,7 @@ procedure PlaySound(event:string;tag:TTag);
   volRelative:boolean;
   ptr:int64;
  begin
-   LogMessage('[SOUND\] '+event+' '+IntToHex(tag,6));
+   LogMessage('[SOUND] '+event+' '+IntToHex(tag,6));
    if soundvolume=0 then exit;
    delete(event,1,5);
    sa:=split(',',event,'"');
@@ -693,7 +693,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   end;
 
   if pos('PLAYMUSIC\',event)=1 then begin
-   LogMessage('[SOUND\] '+event);
+   LogMessage('[SOUND] '+event);
    delete(event,1,10);
    mus:=nil;
    if event<>'NONE' then
