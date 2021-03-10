@@ -902,12 +902,12 @@ begin
    try
     PingThread;
     HandleSignals;
-    sleep(5);
     if (needmusic<>nil) and (MyTickCount>needMusicStartTime) then PlayNeededMusic;
     StopMusicChannels;
    except
     on e:exception do ForceLogMessage('[SOUND] Error: '+ExceptionMsg(e));
    end;
+   sleep(5);
   until Terminated;
   // Termination
 
