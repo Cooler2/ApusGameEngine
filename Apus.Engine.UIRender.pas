@@ -474,7 +474,7 @@ implementation
        exit;
       end;
       // SRC = filename?
-      lname:=lowercase(FileName(src));
+      lname:=FileName(src);
       p:=imgHash.Get(lname);
       if p=-1 then begin
        tex:=nil;

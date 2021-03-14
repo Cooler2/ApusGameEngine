@@ -288,6 +288,7 @@ function GetKeyCode(sdl_keycode:integer):integer;
    SDLK_INSERT:result:=VK_INSERT;
    SDLK_DELETE:result:=VK_DELETE;
    SDLK_BACKQUOTE:result:=$C0; //VK_OEM3
+   SDLK_BACKSPACE:result:=VK_BACK;
   end;
  end;
 
