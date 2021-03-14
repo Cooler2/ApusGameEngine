@@ -80,8 +80,6 @@ type
   function MouseWasInRect(r:TRect2s):boolean; overload; override;
 
   // Keyboard events utility functions
-  function KeyEventScanCode(tag:cardinal):cardinal; override;
-  function KeyEventVirtualCode(tag:cardinal):cardinal; override;
   procedure SuppressKbdEvent; override;
 
   function GetScene(name: string): TGameScene; override;
@@ -732,16 +730,6 @@ begin
    Halt;
   end;
  end;
-end;
-
-function TGame.KeyEventScanCode(tag: cardinal): cardinal;
-begin
- result:=(tag shr 24) and $FF;
-end;
-
-function TGame.KeyEventVirtualCode(tag: cardinal): cardinal;
-begin
- result:=tag and $FFFF;
 end;
 
 procedure TGame.SuppressKbdEvent;

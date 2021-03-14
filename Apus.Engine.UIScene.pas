@@ -281,40 +281,29 @@ procedure KbdEventHandler(event:TEventStr;tag:TTag);
 var
  c:TUIElement;
  shift:byte;
- key:integer;
+ key,scancode:integer;
 begin
  EnterCriticalSection(UICritSect);
  try
   lastShiftState:=shift;
   shift:=game.shiftState;
-  key:=tag and $FF;
+  key:=GetKeyEventVirtualCode(tag); // virtual key code
+  scancode:=GetKeyEventScancode(tag);
   event:=UpperCase(copy(event,5,length(event)-4));
   if event='KEYDOWN' then // Win+Ctrl+S
    if (key=ord('S')) and (shift=8+2) then PrintUILog;
 
   c:=FocusedControl;
-  if (event='KEYDOWN') and (c=nil) then begin
-   if game<>nil then
-    key:=game.systemPlatform.MapScanCodeToVirtualKey(key);
-   ProcessHotKey(key,shift);
-  end;
-  if c<>nil then begin
-   while c<>nil do begin
-    if not c.enabled then exit;
-    c:=c.parent;
-   end;
+  // No focused element - handle hotkey for all elements
+  if (event='KEYDOWN') and (c=nil) then ProcessHotKey(key,shift);
 
-   {$IFDEF MSWINDOWS} /// TODO!
+  if c.IsEnabled then begin
    if event='KEYDOWN' then
-    if focusedControl.onKey(key,true,shift) then begin
-     if game<>nil then
-      key:=game.systemPlatform.MapScanCodeToVirtualKey(key);
-     ProcessHotKey(key,shift);
-    end;
-   {$ENDIF}
+    if c.onKey(key,true,shift) then
+     ProcessHotKey(key,shift); // Hotkey processing is allowed by onKey handler
 
-   if event='KEYUP' then
-    if not focusedControl.onKey(key,false,shift) then exit;
+    if event='KEYUP' then
+     if not focusedControl.onKey(key,false,shift) then exit;
 
 {   if event='CHAR' then
     focusedControl.onChar(chr(tag and $FF),tag shr 8);

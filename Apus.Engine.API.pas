@@ -855,8 +855,6 @@ type
   function MouseWasInRect(r:TRect2s):boolean; overload; virtual; abstract;
 
   // Keyboard events utility functions
-  function KeyEventScanCode(tag:cardinal):cardinal; virtual; abstract;
-  function KeyEventVirtualCode(tag:cardinal):cardinal; virtual; abstract;
   procedure SuppressKbdEvent; virtual; abstract; // Suppress handling of the related keyboard event(s)
 
   procedure Minimize; virtual; abstract;
@@ -919,8 +917,22 @@ var
  // Process events/system messages and wait at least time ms
  procedure Delay(time:integer);
 
+ // Utility functions
+ function GetKeyEventScanCode(tag:cardinal):cardinal; // Extract scancode form KBD\KeyXXX event
+ function GetKeyEventVirtualCode(tag:cardinal):cardinal; // Extract virtual key code form KBD\KeyXXX event
+
 implementation
 uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game, TypInfo;
+
+ function GetKeyEventScanCode(tag: cardinal): cardinal;
+  begin
+   result:=(tag shr 24) and $FF;
+  end;
+
+ function GetKeyEventVirtualCode(tag: cardinal): cardinal;
+  begin
+   result:=tag and $FFFF;
+  end;
 
  constructor TGameBase.Create;
   begin
