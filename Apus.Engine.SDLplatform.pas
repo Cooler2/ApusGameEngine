@@ -259,9 +259,15 @@ function GetScancode(sdl_scancode:integer):byte;
  end;
 
 function GetKeyCode(sdl_keycode:integer):integer;
+ var
+  c:char;
  begin
   result:=sdl_keycode;
   case sdl_keycode of
+   ord('a')..ord('z'):begin
+    c:=UpCase(char(sdl_keycode));
+    result:=ord(c);
+   end;
    SDLK_F1:result:=VK_F1;
    SDLK_F2:result:=VK_F2;
    SDLK_F3:result:=VK_F3;
