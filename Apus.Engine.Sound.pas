@@ -901,7 +901,13 @@ begin
   repeat
    try
     PingThread;
-    HandleSignals;
+    try
+     HandleSignals;
+    except
+     on e:Exception do
+      LogMessage('Error '+ExceptionMsg(e));
+    end;
+
     if (needmusic<>nil) and (MyTickCount>needMusicStartTime) then PlayNeededMusic;
     StopMusicChannels;
    except

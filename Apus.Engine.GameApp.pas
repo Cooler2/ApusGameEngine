@@ -542,7 +542,14 @@ procedure TGameApplication.Run;
   InitStyles;
   if useConsoleScene then AddConsoleScene;
   if useTweakerScene then CreateTweakerScene(painter.GetFont('Default',6),painter.GetFont('Default',7));
-  CreateScenes;
+  try
+   CreateScenes;
+  except
+   on e:Exception do begin
+    ErrorMessage('Fatal error in scene creation: '+ExceptionMsg(e));
+    exit;
+   end;
+  end;
 
   game.ToggleCursor(crWait,false);
   Signal('GAMEAPP\Initialized');

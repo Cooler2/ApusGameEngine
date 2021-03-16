@@ -278,6 +278,7 @@ procedure TerminateThreads;
  var
   i:integer;
  begin
+  ForceLogMessage('Terminating ILQ threads');
   if (loadingThread<>nil) and not loadingThread.Terminated then begin
    loadingThread.Terminate;
    loadingThread.WaitFor;
