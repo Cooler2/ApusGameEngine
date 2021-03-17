@@ -58,7 +58,7 @@ implementation
  uses SysUtils,
    Apus.MyServis, Apus.EventMan,
    Apus.Engine.UIRender, Apus.Engine.CmdProc, Apus.Engine.Console,
-   Apus.Engine.UDict,Apus.Publics,Apus.Geom2D;
+   Apus.Publics,Apus.Geom2D;
 
 const
  statuses:array[TSceneStatus] of string=('frozen','background','active');
@@ -599,7 +599,7 @@ var
  i:integer;
 begin
  LogMessage('ShowHint: '+msg);
- msg:=translate(msg);
+ msg:=translate(Str16(msg));
  if (x=-1) or (y=-1) then begin
   x:=curMouseX; y:=curMouseY;
   hintRect:=rect(x-8,y-8,x+8,y+8);

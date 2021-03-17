@@ -614,12 +614,12 @@ type
   function LoadFont(fname:string;asName:string=''):string; overload; virtual; abstract; // возвращает имя шрифта
   function LoadFont(font:array of byte;asName:string=''):string; overload; virtual; abstract; // возвращает имя шрифта
   function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):cardinal; virtual; abstract; // возвращает хэндл шрифта
-  function TextWidth(font:cardinal;st:AnsiString):integer; virtual; abstract; // text width in pixels
-  function TextWidthW(font:cardinal;st:WideString):integer; virtual; abstract; // text width in pixels
+  function TextWidth(font:cardinal;st:String8):integer; virtual; abstract; // text width in pixels
+  function TextWidthW(font:cardinal;st:String16):integer; virtual; abstract; // text width in pixels
   function FontHeight(font:cardinal):integer; virtual; abstract; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
-  procedure TextOut(font:cardinal;x,y:integer;color:cardinal;st:AnsiString;align:TTextAlignment=taLeft;
+  procedure TextOut(font:cardinal;x,y:integer;color:cardinal;st:String8;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0); virtual; abstract;
-  procedure TextOutW(font:cardinal;x,y:integer;color:cardinal;st:WideString;align:TTextAlignment=taLeft;
+  procedure TextOutW(font:cardinal;x,y:integer;color:cardinal;st:String16;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0); virtual; abstract;
   procedure SetFontOption(handle:cardinal;option:cardinal;value:single); virtual; abstract;
   procedure MatchFont(oldfont,newfont:cardinal;addY:integer=0); virtual; abstract; // какой новый шрифт использовать вместо старого

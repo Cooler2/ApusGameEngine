@@ -113,7 +113,7 @@ implementation
     {$IFDEF OPENGL}Apus.Engine.GLImages,{$ENDIF}
     {$IFDEF ANDROID}Apus.Android,{$ENDIF}
     Apus.GfxFormats,Classes,Apus.Structs,Apus.Geom3D,Apus.FastGFX,Apus.GfxFilters,
-    Apus.Engine.UDict,Apus.Engine.ImgLoadQueue,Apus.Engine.ImageTools,Apus.Engine.GfxFormats3D;
+    Apus.Engine.ImgLoadQueue,Apus.Engine.ImageTools,Apus.Engine.GfxFormats3D;
 
 var
   serial:cardinal;

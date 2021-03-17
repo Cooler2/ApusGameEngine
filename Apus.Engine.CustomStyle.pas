@@ -20,7 +20,7 @@ interface
 implementation
  uses Classes,SysUtils, Types,
   Apus.MyServis, Apus.Colors, Apus.Images, Apus.Publics, Apus.Geom2D,
-  Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UIScript, Apus.Engine.UDict;
+  Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UIScript;
 
  type
   TAlphaMode=(amAuto,amSkip,amWrite);
@@ -201,7 +201,7 @@ implementation
          end;
           // Вывод обычным текстом (тут всё устаревшее и требует переосмысления)
           for j:=0 to length(sa)-1 do begin
-           painter.TextOutW(font,ix,iy,col,sa[j],mode,toAddBaseline);
+           painter.TextOutW(font,ix,iy,col,Str16(sa[j]),mode,toAddBaseline);
            if bStyle.underline then begin
             col:=ColorMult2(col,$80FFFFFF);
             k:=round(painter.FontHeight(font)*0.96);

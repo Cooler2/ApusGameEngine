@@ -8,6 +8,7 @@ unit Apus.Engine.UDict;
 {$ENDIF}
 
 interface
+ uses Apus.MyServis;
 
 var
     languageID:integer;
@@ -18,23 +19,23 @@ var
 
 
 procedure DictInit(fname:UTF8String='';fname2:UTF8String='');
-function Translate(s:UTF8String):UTF8String; overload;
-function Translate(s:widestring):widestring; overload;
+function Translate(s:String8):String8; overload;
+function Translate(s:String16):String16; overload;
 function Tr(s:UTF8String):UTF8String;
 function Simply(s:UTF8String):UTF8String;
 // Decode UTF8String from UTF8 to 8bit if dictionary is in UTF8
-function Decode(s:UTF8String):UTF8String;
-function Simplify(s:UTF8String):UTF8String; overload;
-function Simplify(s:widestring):widestring; overload;
+function Decode(s:String8):string8;
+function Simplify(s:String8):string8; overload;
+function Simplify(s:String16):String16; overload;
 
 implementation
-uses SysUtils, Apus.MyServis;
+uses SysUtils;
 
 type
 
  tconv=object
-  def,new:UTF8String;
-  defW,newW:widestring;
+  def,new:string8;
+  defW,newW:string16;
   age:integer;
  end;
 
@@ -92,8 +93,8 @@ begin
  end;
 end;
 
-procedure processString(s:AnsiString);
-var s1,s2:AnsiString;
+procedure processString(s:RawByteString);
+var s1,s2:RawByteString;
     i,q,w,e:integer;
     sa:StringArr;
 begin
@@ -242,7 +243,7 @@ end;
 
 procedure DictInit(fname:UTF8String='';fname2:UTF8String='');
 var f:text;
-    s:AnsiString;
+    s:RawByteString;
     q,w,e:integer;
 begin
  LogMessage('DictInit: '+fname);
@@ -405,7 +406,7 @@ begin
 //  result:=s;
 end;
 
-function Simplify(s:UTF8String):UTF8String;
+function Simplify(s:string8):string8;
 begin
  while (length(s)>0)and(s[1]='^') do
   s:=copy(s,2,16384);
@@ -414,7 +415,7 @@ begin
  result:=s;
 end;
 
-function Simplify(s:widestring):widestring;
+function Simplify(s:String16):String16;
 begin
  while (length(s)>0)and(s[1]='^') do
   s:=copy(s,2,16384);
@@ -424,8 +425,8 @@ begin
 end;
 
 
-function Translate(s:UTF8String):UTF8String;
-var ss:array[0..5] of UTF8String;
+function Translate(s:string8):string8;
+var ss:array[0..5] of String8;
     q,w:integer;
 
 begin
@@ -466,8 +467,8 @@ begin
  result:=s;
 end;
 
-function Translate(s:widestring):widestring; overload;
-var ss:array[0..5] of widestring;
+function Translate(s:String16):String16; overload;
+var ss:array[0..5] of String16;
     q,w,l:integer;
 begin
 // logmessage('translate: '+s);
@@ -476,7 +477,7 @@ begin
  q:=length(s);
  if (q>0)and(s[q]='%') then s:=s+#0; // fake padding to split '%%%' - must be removed later
  s:=s+'%%';
- q:=pos(WideString('%%'),s);
+ q:=pos(String16('%%'),s);
  while q>0 do
  begin
   ss[w]:=Simplify(copy(s,1,q-1));
@@ -484,12 +485,12 @@ begin
   if (l>0) and (ss[w][l]=#0) then SetLength(ss[w],l-1);
   inc(w);
   s:=copy(s,q+2,16384);
-  q:=pos(WideString('%%'),s);
+  q:=pos(String16('%%'),s);
  end;
  s:=simpletranslateW(ss[0]);
  for q:=1 to 5 do
  begin
-  w:=pos(WideString('%'+inttostr(q)),s);
+  w:=pos(String16('%'+inttostr(q)),s);
   if w>0 then
   begin
    ss[0]:=copy(s,w+2,16384);
@@ -510,13 +511,13 @@ begin
  result:=s;
 end;
 
-function Tr(s:UTF8String):UTF8String;
+function Tr(s:string8):string8;
 begin
 // result:=Translate('^'+s+'^');
  result:=Translate(s);
 end;
 
-function Decode(s:UTF8String):UTF8String;
+function Decode(s:string8):string8;
 var
  wst:WideString;
 begin

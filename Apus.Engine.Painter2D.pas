@@ -126,12 +126,12 @@ interface
   function LoadFont(fName:string;asName:string=''):string; override; // загрузка из файла, возвращает имя шрифта
   function LoadFont(font:array of byte;asName:string=''):string; override; // загрузка из памяти, возвращает имя шрифта
   function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):cardinal; override; // возвращает хэндл шрифта
-  function TextWidth(font:cardinal;st:AnsiString):integer; override;
-  function TextWidthW(font:cardinal;st:wideString):integer; override;
+  function TextWidth(font:cardinal;st:String8):integer; override;
+  function TextWidthW(font:cardinal;st:String16):integer; override;
   function FontHeight(font:cardinal):integer; override;
-  procedure TextOut(font:cardinal;x,y:integer;color:cardinal;st:AnsiString;align:TTextAlignment=taLeft;
+  procedure TextOut(font:cardinal;x,y:integer;color:cardinal;st:String8;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0); override;
-  procedure TextOutW(font:cardinal;x,y:integer;color:cardinal;st:widestring;align:TTextAlignment=taLeft;
+  procedure TextOutW(font:cardinal;x,y:integer;color:cardinal;st:String16;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0); override;
 //  procedure TextOutEx(x,y:integer;st:widestring;attribs:PCharAttr;align:TTextAlignment=taLeft;options:integer=0); override;
   procedure MatchFont(legacyfont,newfont:cardinal;addY:integer=0); override; // какой новый шрифт использовать вместо старого
@@ -223,7 +223,7 @@ var
  textCacheHeight:integer=512;
 
 implementation
-uses SysUtils,Apus.MyServis,Apus.Images,Apus.Engine.UDict,Apus.UnicodeFont,Apus.Geom2D,
+uses SysUtils,Apus.MyServis,Apus.Images,Apus.UnicodeFont,Apus.Geom2D,
      Apus.Colors,Apus.GlyphCaches{$IFDEF FREETYPE},Apus.FreeTypeFont{$ENDIF};
 
 const
@@ -1445,12 +1445,12 @@ begin
  textCaching:=false;
 end;
 
-function TBasicPainter.TextWidth(font:cardinal;st:AnsiString):integer;
+function TBasicPainter.TextWidth(font:cardinal;st:string8):integer;
 begin
  result:=TextWidthW(font,DecodeUTF8(st));
 end;
 
-function TBasicPainter.TextWidthW(font:cardinal;st:wideString):integer;
+function TBasicPainter.TextWidthW(font:cardinal;st:string16):integer;
 var
  width:integer;
  obj:TObject;
@@ -1513,14 +1513,14 @@ begin
   raise EWarning.Create('FH 1');
 end;
 
-procedure TBasicPainter.TextOut(font:cardinal;x,y:integer;color:cardinal;st:AnsiString;
+procedure TBasicPainter.TextOut(font:cardinal;x,y:integer;color:cardinal;st:string8;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
 begin
- TextOutW(font,x,y,color,DecodeUTF8(st),align,options,targetWidth,query);
+ TextOutW(font,x,y,color,Str16(st),align,options,targetWidth,query);
 end;
 
 
-procedure TBasicPainter.TextOutW(font:cardinal;x,y:integer;color:cardinal;st:widestring;
+procedure TBasicPainter.TextOutW(font:cardinal;x,y:integer;color:cardinal;st:string16;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
 var
  width:integer; //text width in pixels
@@ -2181,10 +2181,10 @@ begin // -----------------------------------------------------------
  if (length(st)=0) or (length(st)>1000) then exit;
 
  // Translation
- if (font and fhDontTranslate=0) and (options and toDontTranslate=0) then st:=translate(st);
+ if (font and fhDontTranslate=0) and (options and toDontTranslate=0) then st:=translate(String16(st));
 
  // Multiline?
- if pos(WideString(#13#10),st)>0 then begin
+ if pos(String16(#13#10),st)>0 then begin
   DrawMultiline;
   exit;
  end;
