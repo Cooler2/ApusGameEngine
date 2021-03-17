@@ -1597,6 +1597,7 @@ var
 begin
  UseLogFile('log.txt',true);
  try
+  LogMessage('Привет UTF8!');
   TestConversions;
   TestFileIO;
   TestSortItems;
