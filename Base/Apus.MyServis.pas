@@ -464,9 +464,11 @@ interface
  function Str16(st:UnicodeString):string16; overload; inline;
  function Str16(st:WideString):string16; overload; inline;
  function Str16(st:UTF8String):string16; overload; inline;
+ function Str16(st:AnsiString):string16; overload; inline;
  function Str8(st:UnicodeString):string8; overload; inline;
  function Str8(st:WideString):string8; overload; inline;
  function Str8(st:UTF8String):string8; overload; inline;
+ function Str8(st:AnsiString):string8; overload; inline;
 
  function DecodeUTF8(st:RawByteString):String16; overload;
  function DecodeUTF8(st:String16):String16; overload; // Does nothing
@@ -688,9 +690,12 @@ implementation
  var
   LogFileName:string='';
   LogMode:TLogModes=lmNormal;
+  logAlwaysOpened:boolean;
+  logFile:file;
+
   LogStart,logTime:int64;
   logThread:TLogThread;
-  cachebuf:string;
+  cachebuf:RawByteString;
   //cachesize:integer;
   cacheenabled,forceCacheUsage:boolean;  // forceCacheUsage - писать в кэш даже
 
@@ -711,9 +716,6 @@ implementation
 
   // Character case replacements
   fileNameRules:StringArr;
-
-  logAlwaysOpened:boolean;
-  logFile:TextFile;
 
   //
   performanceMeasures:array[1..16] of double;
@@ -2076,6 +2078,10 @@ procedure SimpleEncrypt2;
   begin
    result:=DecodeUTF8(st);
   end;
+ function Str16(st:AnsiString):string16; overload;
+  begin
+   result:=DecodeUTF8(st);
+  end;
  function Str8(st:UnicodeString):string8; overload;
   begin
    result:=EncodeUTF8(st);
@@ -2085,6 +2091,10 @@ procedure SimpleEncrypt2;
    result:=EncodeUTF8(st);
   end;
  function Str8(st:UTF8String):string8; overload;
+  begin
+   result:=st;
+  end;
+ function Str8(st:AnsiString):string8; overload;
   begin
    result:=st;
   end;
@@ -3918,8 +3928,9 @@ function BinToStr;
     LogStartDate:=Now;
     LogTime:=round(Frac(Now)*86400) mod 3600;
     if keepOpened then begin
-     assign(logFile,name);
-     append(logFile);
+     AssignFile(logFile,name);
+     Reset(logFile,1);
+     Seek(logFile,FileSize(logFile));
      logAlwaysOpened:=true;
     end;
    except
@@ -3945,25 +3956,32 @@ function BinToStr;
     loggroups[i]:=pos(st[i],groups)>0;
   end;
 
+ procedure AppendLogFile(var data;size:integer);
+  var
+   f:file;
+  begin
+   if logAlwaysOpened then begin
+    BlockWrite(logFile,data,size);
+   end else begin
+    AssignFile(f,LogFileName);
+    Reset(f,1);
+    Seek(f,FileSize(f));
+    try
+     BlockWrite(f,data,size);
+    finally
+     Close(f);
+    end;
+   end;
+  end;
+
  procedure IntFlushLog;
   var
-   f:text;
+   f:file;
   begin
    if logmode=lmSilent then exit;
    if LogFileName='' then exit;
    try
-    if logAlwaysOpened then begin
-     write(logFile,cacheBuf);
-     flush(logFile);
-    end else begin
-     assign(f,LogFileName);
-     append(f);
-     try
-      write(f,cachebuf);
-     finally
-      close(f);
-     end;
-    end;
+    AppendLogFile(cacheBuf[1],length(cacheBuf));
     cacheBuf:='';
    except
    end;
@@ -3971,7 +3989,7 @@ function BinToStr;
 
  procedure LogPhrase;
   var
-   f:TextFile;
+   f:file;
   begin
    if LogMode<lmNormal then exit;
    if LogFileName='' then exit;
@@ -3981,17 +3999,7 @@ function BinToStr;
      cacheBuf:=cacheBuf+text+#13#10;
     end else begin
      if cacheBuf<>'' then IntFlushLog;
-     if logAlwaysOpened then begin
-      write(logFile,text);
-     end else begin
-      assign(f,LogFileName);
-      append(f);
-      try
-       write(f,text);
-      finally
-       close(f);
-      end;
-     end;
+     AppendLogFile(text[1],length(text));
     end;
    finally
     MyLeaveCriticalSection(crSection);
@@ -4002,7 +4010,7 @@ function BinToStr;
  function AndroidLog(prio:longint;tag,text:pchar):longint; cdecl; varargs; external 'liblog.so' name '__android_log_print';
 {$ENDIF}
 
- function FormatLogText(const text:string):string;
+ function FormatLogText(const text:string8):string8;
  {$IFDEF MSWINDOWS}
   var
    mm,ss,ms:integer;
@@ -4044,21 +4052,11 @@ function BinToStr;
      if not forceCacheUsage then begin
       // запись в кэш необязательна, поэтому записать кэш а затем само сообщение напрямую
       if cacheBuf<>'' then IntFlushLog;
-      if logAlwaysOpened then begin
-       writeln(logFile,text);
-       flush(logFile);
-      end else begin
-       assign(f,LogFileName);
-       try
-        append(f);
-        try
-         writeln(f,text);
-        finally
-         close(f);
-        end;
-       except
-        on e:exception do ErrorMessage('Failed to write to the log:'#13#10+e.Message+#13#10+text);
-       end;
+      try
+       text:=text+#13#10;
+       AppendLogFile(text[1],length(text));
+      except
+       on e:exception do ErrorMessage('Failed to write to the log:'#13#10+e.Message+#13#10+text);
       end;
      end else begin
       // режим "писать только в кэш", а кэш переполнен
@@ -4121,27 +4119,12 @@ function BinToStr;
      end;
     end else begin
      // Обычный режим (форсированные сообщения пишутся напрямую, без кэша)
-     if cacheBuf<>'' then
-      IntFlushLog;
-     if logAlwaysOpened then begin
-      try
-       writeln(logFile,text);
-       flush(logFile);
-      except
+     if cacheBuf<>'' then IntFlushLog;
+     try
+      text:=text+#13#10;
+      AppendLogFile(text[1],length(text));
+     except
        on e:Exception do ErrorMessage('Failed to write to the log:'#13#10+e.Message+#13#10+text);
-      end;
-     end else begin
-      assign(f,LogFileName);
-      append(f);
-      try
-       try
-        writeln(f,text);
-       except
-        on e:Exception do ErrorMessage('Failed to write to the log:'#13#10+e.Message+#13#10+text);
-       end;
-      finally
-       close(f);
-      end;
      end;
     end;
    finally
