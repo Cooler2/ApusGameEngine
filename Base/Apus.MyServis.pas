@@ -29,6 +29,8 @@ interface
   PathSeparator='/';
   {$ENDIF}
  type
+  // !!! Use Str8() / Str16() to assign strings of different types !!!
+
   // 8-bit string type (assuming UTF-8 encoding)
   Char8=AnsiChar;
   String8=UTF8String;
@@ -378,7 +380,9 @@ interface
  function Escape(st:String8):String8;
 
  // Убрать пробельные символы в начале и в конце
- function Chop(st:string):string; overload;
+ function Chop(st:string16):string16; overload;
+ {$IFNDEF UNICODE}
+ function Chop(st:string):string; overload; {$ENDIF}
  {$IFDEF ADDANSI}
  function Chop(st:String8):String8; overload; {$ENDIF}
 
@@ -456,6 +460,13 @@ interface
  procedure EncodeUTF8(st:String16;var dest:String8); overload;
  function UStr(st:String16):string; // Convert 16-bit string to the default string type (utf8 or utf16)
  function WStr(st:string):string16; // Convert default string to the 16-bit string
+ // String assignment
+ function Str16(st:UnicodeString):string16; overload; inline;
+ function Str16(st:WideString):string16; overload; inline;
+ function Str16(st:UTF8String):string16; overload; inline;
+ function Str8(st:UnicodeString):string8; overload; inline;
+ function Str8(st:WideString):string8; overload; inline;
+ function Str8(st:UTF8String):string8; overload; inline;
 
  function DecodeUTF8(st:RawByteString):String16; overload;
  function DecodeUTF8(st:String16):String16; overload; // Does nothing
@@ -2052,6 +2063,32 @@ procedure SimpleEncrypt2;
    result:=DecodeUTF8(st);
    {$ENDIF}
   end;
+
+ function Str16(st:UnicodeString):string16; overload;
+  begin
+   result:=st;
+  end;
+ function Str16(st:WideString):string16; overload;
+  begin
+   result:=st;
+  end;
+ function Str16(st:UTF8String):string16; overload;
+  begin
+   result:=DecodeUTF8(st);
+  end;
+ function Str8(st:UnicodeString):string8; overload;
+  begin
+   result:=EncodeUTF8(st);
+  end;
+ function Str8(st:WideString):string8; overload;
+  begin
+   result:=EncodeUTF8(st);
+  end;
+ function Str8(st:UTF8String):string8; overload;
+  begin
+   result:=st;
+  end;
+
 
  procedure EncodeUTF8(st:String16;var dest:string);
   begin
@@ -3806,7 +3843,19 @@ function BinToStr;
    setlength(result,i);
   end;
  {$ENDIF}
+ {$IFNDEF UNICODE}
  function Chop(st:String):String; overload;
+  var
+   i:integer;
+  begin
+   result:=st;
+   while (length(result)>0) and (result[1]<=' ') do delete(result,1,1);
+   i:=length(result);
+   while (length(result)>0) and (result[i]<=' ') do dec(i);
+   setlength(result,i);
+  end;
+ {$ENDIF}
+ function Chop(st:String16):String16; overload;
   var
    i:integer;
   begin
