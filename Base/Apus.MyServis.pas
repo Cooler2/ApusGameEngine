@@ -32,7 +32,7 @@ interface
   // !!! Use Str8() / Str16() to assign strings of different types !!!
 
   // 8-bit string type (assuming UTF-8 encoding)
-  Char8=AnsiChar;
+  Char8=UTF8Char;
   String8=UTF8String;
   PString8=^String8;
   // 16-bit string type (can be UTF-16 or UCS-2)

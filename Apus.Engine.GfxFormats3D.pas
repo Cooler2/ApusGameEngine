@@ -89,6 +89,7 @@ implementation
    setLength(indices,10000);
    vHash.Init(2000);
    assign(f,fname);
+   SetTextCodePage(f,CP_UTF8);
    reset(f);
    while not eof(f) do begin
     readln(f,line);

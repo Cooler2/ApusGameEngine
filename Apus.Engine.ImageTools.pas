@@ -213,6 +213,7 @@ begin
  try
   path:=ExtractFilePath(fname);
   assign(f,FileName(fname+'.atl'));
+  SetTextCodePage(f,CP_UTF8);
   reset(f);
   readln(f,aw,ah,st);
   st:=chop(st);
