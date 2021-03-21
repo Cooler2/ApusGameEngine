@@ -94,6 +94,30 @@ procedure TestConversions;
   ASSERT(ParseInt(String8('$1AbC0'))=$1ABC0);
  end;
 
+procedure TestStringTypes;
+ const
+  ref='Привет!';
+ var
+  s8:String8;
+  s16:String16;
+  ws:WideString;
+  s:string;
+ begin
+  s:=ref;
+  ws:=ref;
+  s8:=ref;
+  s16:=ref;
+  ASSERT(Str8(s)=ws);
+  ASSERT(Str8(s8)=ws);
+  ASSERT(Str8(s16)=ws);
+  ASSERT(Str8(ws)=ws);
+
+  ASSERT(Str16(s)=ws);
+  ASSERT(Str16(s8)=ws);
+  ASSERT(Str16(s16)=ws);
+  ASSERT(Str16(ws)=ws);
+ end;
+
 procedure TestQuotes;
  const
   str:array[1..8] of string=('','A','"A','A"','""','"""','"A "" A"','A "A"A"A');
@@ -231,11 +255,15 @@ procedure TestQuotes;
    st:WideString;
    i:integer;
    t:cardinal;
+   s8:String8;
   begin
    writeln('== TestTranslations ==');
    LoadDictionary('translate.lng');
    st:=Translate('Goblin Warrior deals 3 damage to Snow Wolf.');
    writeln(st);
+   s8:='Attacks as soon as summoned.';
+   s8:=Translate(s8);
+   //ASSERT(s8='');
    t:=MyTickCount;
    for i:=1 to 100000 do begin
     st:=Translate('Attacks as soon as summoned.');
@@ -1597,7 +1625,7 @@ var
 begin
  UseLogFile('log.txt',true);
  try
-  LogMessage('Привет UTF8!');
+  TestStringTypes;
   TestConversions;
   TestFileIO;
   TestSortItems;
