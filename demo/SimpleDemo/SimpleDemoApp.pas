@@ -52,8 +52,8 @@ constructor TSimpleDemoApp.Create;
   gameTitle:='Simple Engine Demo'; // app window title
   configFileName:='SimpleDemo\game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  usedPlatform:=spWindows;
-  usedPlatform:=spSDL;
+  usedPlatform:=spDefault;
+  //usedPlatform:=spSDL;
   directRenderOnly:=true;
   //windowedMode:=false;
  end;
