@@ -169,7 +169,8 @@ type
                gaOpenGL,   // OpenGL 1.4 or higher with fixed function pipeline (deprecated)
                gaOpenGL2); // OpenGL 2.0 or higher with shaders
 
- TSystemPlatform=(spWindows, // Native Windows
+ TSystemPlatform=(spDefault, // OS default
+                  spWindows, // Native Windows
                   spSDL);    // SDL-2 library (cross-platform)
 
  // Режим блендинга (действие, применяемое к фону)

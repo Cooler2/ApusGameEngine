@@ -487,7 +487,10 @@ procedure TGameApplication.Run;
    {$ENDIF}
 
    {$IFDEF MSWINDOWS}
-   if usedPlatform=spWindows then plat:=TWindowsPlatform.Create;
+   if usedPlatform in [spWindows,spDefault] then plat:=TWindowsPlatform.Create;
+   {$ENDIF}
+   {$IFDEF UNIX}
+   if usedPlatform=spDefault then usedPlatform:=spSDL;
    {$ENDIF}
 
    if usedPlatform=spSDL then begin
