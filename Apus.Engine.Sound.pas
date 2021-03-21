@@ -799,6 +799,10 @@ procedure EventHandler(event:TEventStr;tag:TTag);
 
 procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:cardinal=0; waitForPreload:boolean=true);
  begin
+  if not FileExists(soundConfigFile) then begin
+   LogMessage('[SOUND] No config file found (%s). Sound system won''t initialize.',[soundConfigFile]);
+   exit;
+  end;
   wndHandle:=windowHandle;
   if useLibrary=slDefault then begin
    {$IFDEF WIN32}
