@@ -488,6 +488,8 @@ procedure TGameApplication.Run;
 
    {$IFDEF MSWINDOWS}
    if usedPlatform in [spWindows,spDefault] then plat:=TWindowsPlatform.Create;
+   {$ELSE}
+   if usedPlatform=spWindows then raise EFatalError.Create('Ooops! Windows platform on a non-windows system!');
    {$ENDIF}
    {$IFDEF UNIX}
    if usedPlatform=spDefault then usedPlatform:=spSDL;
