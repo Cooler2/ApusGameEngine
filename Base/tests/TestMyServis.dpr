@@ -1486,34 +1486,46 @@ procedure TestMemoryStat;
       raise EError.Create('Float values aren''t equal: %e <> %e , diff=%e',[v1,v2,v1-v2]);
     end;
    end;
+  procedure TestFloat(st:string;v2:double);
+   var
+    v1:double;
+   begin
+    v1:=ParseFloat(st);
+    TestEqual(v1,v2);
+    v1:=ParseFloat(Str8(st));
+    TestEqual(v1,v2);
+   end;
   begin
    // Floats
-   TestEqual(ParseFloat(''),0);
-   TestEqual(ParseFloat('0'),0);
-   TestEqual(ParseFloat('.000'),0);
-   TestEqual(ParseFloat(' 0.0 '),0);
-   TestEqual(ParseFloat('1234'),1234);
-   TestEqual(ParseFloat('1234.00'),1234);
-   TestEqual(ParseFloat('1234,01'),1234.01);
-   TestEqual(ParseFloat('-1234.'),-1234);
-   TestEqual(ParseFloat(' 1 234'),1234);
-   TestEqual(ParseFloat('1.234,2'),1234.2);
-   TestEqual(ParseFloat(' -123 490 '),-123490);
+   TestFloat('',0);
+   TestFloat('0',0);
+   TestFloat('.000',0);
+   TestFloat(' 0.0 ',0);
+   TestFloat('1234',1234);
+   TestFloat('1234.00',1234);
+   TestFloat('1234,01',1234.01);
+   TestFloat('-1234.',-1234);
+   TestFloat(' 1 234',1234);
+   TestFloat('1.234,2',1234.2);
+   TestFloat(' -123 490 ',-123490);
 
-   TestEqual(ParseFloat('0.000000000001'),0.000000000001);
-   TestEqual(ParseFloat('-123456789123456789'),-123456789123456789);
-   TestEqual(ParseFloat('12E49'),12E49);
-   TestEqual(ParseFloat(' - 12.99E1 '),-12.99E1);
-   TestEqual(ParseFloat('19E-5'),19E-5);
-   TestEqual(ParseFloat('1.023e-9'),1.023e-9);
-   TestEqual(ParseFloat(' .023e-9'),0.023e-9);
-   TestEqual(ParseFloat('0.345E99'),0.345E99);
+   TestFloat('0.000000000001',0.000000000001);
+   TestFloat('-123456789123456789',-123456789123456789);
+   TestFloat('12E49',12E49);
+   TestFloat(' - 12.99E1 ',-12.99E1);
+   TestFloat('19E-5',19E-5);
+   TestFloat('1.023e-9',1.023e-9);
+   TestFloat(' .023e-9',0.023e-9);
+   TestFloat('0.345E99',0.345E99);
 
    // Speed
    write('Float parsing times: my=');
    time:=MyTickCount;
    for i:=1 to 2000000 do v:=ParseFloat('-45.67');
    write(MyTickCount-time);
+   time:=MyTickCount;
+   for i:=1 to 2000000 do v:=ParseFloat(String8('-45.67'));
+   write(' Str8=',MyTickCount-time);
    time:=MyTickCount;
    for i:=1 to 2000000 do v:=StrToFloat('-45.67');
    write(' rtl=',MyTickCount-time);

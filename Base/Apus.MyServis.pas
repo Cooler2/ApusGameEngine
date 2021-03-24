@@ -593,13 +593,14 @@ interface
  function VarToStr(v:TVarRec):UnicodeString;  // Variant -> String
  function VarToAStr(v:TVarRec):String8;
  function ParseInt(st:string):int64; overload; // wrong characters ignored
- {$IFDEF ADDANSI}
- function ParseInt(st:String8):int64; overload; {$ENDIF}
- function ParseFloat(st:string):double; // replacement for SysUtils version
+ function ParseFloat(st:string):double; overload; // replacement for SysUtils version
  function ParseIntList(st:string):IntArray; // '123 4,-12;3/5' -> [1234,-12,3,5]
  function ParseBool(st:string):boolean; overload;
  {$IFDEF ADDANSI}
- function ParseBool(st:String8):boolean; overload; {$ENDIF}
+ function ParseInt(st:String8):int64; overload;
+ function ParseFloat(st:string8):double; overload;
+ function ParseBool(st:String8):boolean; overload;
+ {$ENDIF}
  function BoolToAStr(b:boolean;short:boolean=true):String8;
 
  function ListIntegers(a:array of integer;separator:char=','):string; overload; // array of integer => 'a[1],a[2],...,a[n]'
@@ -1322,6 +1323,61 @@ function HexToAStr(v:int64;digits:integer=0):String8;
 
  function ParseFloat(st:string):double;
   function GetDigit(ch:char):integer; inline;
+   begin
+    result:=ord(ch)-ord('0');
+   end;
+  var
+   i,exp,decPos,ePos:integer;
+   scale:double;
+  begin
+   result:=0; exp:=0; decPos:=0; ePos:=0;
+   for i:=1 to length(st) do begin
+    if st[i] in ['.',','] then decPos:=i else
+    if st[i] in ['e','E'] then ePos:=i;
+   end;
+   if ePos>0 then begin
+    i:=ePos+1;
+    while i<=length(st) do begin
+     if st[i] in ['0'..'9'] then
+      exp:=exp*10+GetDigit(st[i]);
+     inc(i);
+    end;
+    if (ePos<length(st)) and (st[ePos+1]='-') then exp:=-exp;
+    i:=ePos-1;
+   end else
+    i:=length(st);
+
+   if decPos>0 then begin
+    while i>decPos do begin
+     if st[i] in ['0'..'9'] then
+      result:=result/10+GetDigit(st[i]);
+     dec(i);
+    end;
+    result:=result/10;
+    dec(i);
+   end;
+
+   scale:=1;
+   while i>0 do begin
+    if st[i] in ['0'..'9'] then begin
+     result:=result+GetDigit(st[i])*scale;
+     scale:=scale*10;
+    end else
+    if st[i]='-' then begin
+     result:=-result; break;
+    end;
+    dec(i);
+   end;
+   while exp<>0 do begin
+    if exp>5 then begin result:=result*100000; dec(exp,5); end;
+    if exp<-5 then begin result:=result*0.00001; inc(exp,5); end;
+    if exp>0 then begin result:=result*10; dec(exp); end;
+    if exp<0 then begin result:=result*0.1; inc(exp); end;
+   end;
+  end;
+
+ function ParseFloat(st:string8):double;
+  function GetDigit(ch:char8):integer; inline;
    begin
     result:=ord(ch)-ord('0');
    end;
