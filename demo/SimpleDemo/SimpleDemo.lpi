@@ -42,7 +42,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="..\..\bin\SimpleDemo_fpc"/>
+      <Filename Value="..\..\bin64\SimpleDemo_fpc"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
@@ -51,7 +51,6 @@
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Parsing>
-      <Style Value="1"/>
       <SyntaxOptions>
         <SyntaxMode Value="Delphi"/>
         <IncludeAssertionCode Value="True"/>
@@ -78,6 +77,10 @@
     <Other>
       <CustomOptions Value="-dOPENGL
 -dSDL"/>
+      <OtherDefines Count="2">
+        <Define0 Value="OPENGL"/>
+        <Define1 Value="SDL"/>
+      </OtherDefines>
     </Other>
   </CompilerOptions>
   <Debugging>
