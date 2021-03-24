@@ -1475,8 +1475,49 @@ procedure TestMemoryStat;
 
  procedure TestParsers;
   var
+   i:integer;
    ia:IntArray;
+   time:int64;
+   v:double;
+  procedure TestEqual(v1,v2:double);
+   begin
+    if v1<>v2 then begin
+     if (v2<>0) and (abs(v1/v2-1.0)>1E-10) then
+      raise EError.Create('Float values aren''t equal: %e <> %e , diff=%e',[v1,v2,v1-v2]);
+    end;
+   end;
   begin
+   // Floats
+   TestEqual(ParseFloat(''),0);
+   TestEqual(ParseFloat('0'),0);
+   TestEqual(ParseFloat('.000'),0);
+   TestEqual(ParseFloat(' 0.0 '),0);
+   TestEqual(ParseFloat('1234'),1234);
+   TestEqual(ParseFloat('1234.00'),1234);
+   TestEqual(ParseFloat('1234,01'),1234.01);
+   TestEqual(ParseFloat('-1234.'),-1234);
+   TestEqual(ParseFloat(' 1 234'),1234);
+   TestEqual(ParseFloat('1.234,2'),1234.2);
+   TestEqual(ParseFloat(' -123 490 '),-123490);
+
+   TestEqual(ParseFloat('0.000000000001'),0.000000000001);
+   TestEqual(ParseFloat('-123456789123456789'),-123456789123456789);
+   TestEqual(ParseFloat('12E49'),12E49);
+   TestEqual(ParseFloat(' - 12.99E1 '),-12.99E1);
+   TestEqual(ParseFloat('19E-5'),19E-5);
+   TestEqual(ParseFloat('1.023e-9'),1.023e-9);
+   TestEqual(ParseFloat(' .023e-9'),0.023e-9);
+   TestEqual(ParseFloat('0.345E99'),0.345E99);
+
+   // Speed
+   write('Float parsing times: my=');
+   time:=MyTickCount;
+   for i:=1 to 2000000 do v:=ParseFloat('-45.67');
+   write(MyTickCount-time);
+   time:=MyTickCount;
+   for i:=1 to 2000000 do v:=StrToFloat('-45.67');
+   write(' rtl=',MyTickCount-time);
+
    ia:=ParseIntList('123 4,-12;3/-5');
    ASSERT((length(ia)=4) AND (ia[0]=1234) AND (ia[1]=-12) AND (ia[2]=3) AND (ia[3]=-5),'Test ParseIntList');
   end;
