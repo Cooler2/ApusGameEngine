@@ -27,6 +27,20 @@ interface
   libc = 'c';
 {$ENDIF}
 
+{$IFDEF FPC}
+ type
+  TSystemTimeHelper=record helper for TSystemTime
+   function wDay:word;
+   function wMonth:word;
+   function wYear:word;
+   function wHour:word;
+   function wMinute:word;
+   function wSecond:word;
+   function wMilliSeconds:word;
+  end;
+{$ENDIF}
+
+
 {$IFDEF MSWINDOWS}
  type
   TRect=windows.TRect;
@@ -655,6 +669,37 @@ function LaunchProcess(fname,params:string):boolean;
  function AnsiStrAlloc(size:integer):PAnsiChar;
   begin
    result:=StrAlloc(size);
+  end;
+ {$ENDIF}
+
+ {$IFDEF FPC}
+ function TSystemTimeHelper.wDay:word;
+  begin
+   result:=Day;
+  end;
+ function TSystemTimeHelper.wMonth:word;
+  begin
+   result:=Month;
+  end;
+ function TSystemTimeHelper.wYear:word;
+  begin
+   result:=Year;
+  end;
+ function TSystemTimeHelper.wHour:word;
+  begin
+   result:=Hour;
+  end;
+ function TSystemTimeHelper.wMinute:word;
+  begin
+   result:=Minute;
+  end;
+ function TSystemTimeHelper.wSecond:word;
+  begin
+   result:=Second;
+  end;
+ function TSystemTimeHelper.wMilliseconds:word;
+  begin
+   result:=Millisecond;
   end;
  {$ENDIF}
 
