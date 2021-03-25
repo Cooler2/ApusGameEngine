@@ -755,6 +755,7 @@ begin
    try
      // Frame log
      assign(f,'framelog.log');
+     SetTextCodePage(f,CP_UTF8);
      rewrite(f);
      writeln(f,'Previous:');
      write(f,prevFrameLog);
@@ -763,6 +764,7 @@ begin
      close(f);
      // Scenes & UI log
      assign(f,'UIdata.log');
+     SetTextCodePage(f,CP_UTF8);
      rewrite(f);
      writeln(f,'Scenes:');
      for i:=0 to high(scenes) do writeln(f,i:3,SceneInfo(scenes[i]));
