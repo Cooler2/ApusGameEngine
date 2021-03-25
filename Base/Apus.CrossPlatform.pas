@@ -33,11 +33,13 @@ interface
   TPoint=windows.TPoint;
   HCursor=windows.HCURSOR;
   HWND=windows.HWND;
-  {$IFDEF DELPHI}
+  {$IF not Declared(TThreadID)}
   TThreadID=cardinal;
-  UIntPtr=NativeUInt;
-  PtrUInt=UIntPtr;
   {$ENDIF}
+  {$IF not Declared(UIntPtr)}
+  UIntPtr=NativeUInt;
+  {$ENDIF}
+  PtrUInt=UIntPtr;
  const
   VK_SPACE=windows.VK_SPACE;
   VK_RETURN=windows.VK_RETURN;
