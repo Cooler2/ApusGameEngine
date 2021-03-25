@@ -11,7 +11,7 @@ interface
   procedure CopyStrToClipboard(st:UTF8String); overload;
   procedure CopyStrToClipboard(wst:Widestring); overload;
   function PasteStrFromClipboard:UTF8String;
-  function PasteStrFromClipboardW:Widestring;
+  function PasteStrFromClipboardW:WideString;
 
   // Supported images: TRAWImage
   procedure PutImageToClipboard(image:TObject);
@@ -84,10 +84,10 @@ implementation
       p:pointer;
       size:integer;
     begin
+      result:=0;
       Open;
       try
         data:=GetClipboardData(Format);
-        result:=0;
         if data<>0 then begin
           if format=CF_TEXT then begin
             result:=StrLen(StrLCopy(PAnsiChar(buffer),GlobalLock(Data),bufSize-1));
@@ -120,30 +120,26 @@ implementation
   function PasteStrFromClipboard:UTF8String;
     var
       size:Integer;
-      buf:array [0..250] of AnsiChar;
+      buf:array[0..2500] of byte;
     begin
-      Open;
-      size:=GetTextBuf(PChar(@buf),250,CF_TEXT);
+      size:=GetTextBuf(@buf,length(buf),CF_TEXT);
       result:='';
       if size>0 then begin
        SetLength(result,size);
        move(buf,result[1],size);
       end;
-      CloseClipboard;
     end;
 
-  function PasteStrFromClipboardW:Widestring;
+  function PasteStrFromClipboardW:WideString;
     var
       size:Integer;
-      buf: array [0..250] of AnsiChar;
+      buf:array[0..2500] of byte;
     begin
-      Open;
-      size:=GetTextBuf(PChar(@buf),250,CF_UNICODETEXT);
+      size:=GetTextBuf(@buf,length(buf),CF_UNICODETEXT);
       Result:='';
       if size>0 then
           result:=PWideChar(@buf);
       if result[length(result)]=#0 then SetLength(result,length(result)-1);
-      CloseClipboard;
     end;
 
   procedure PutImageToClipboard(image:TObject);
