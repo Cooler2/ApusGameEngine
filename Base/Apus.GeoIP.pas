@@ -13,7 +13,9 @@ interface
  function GetCountryByIP(ip:cardinal):string;
 
 implementation
- uses WinSock,Apus.MyServis,SysUtils;
+ uses {$IFDEF MSWINDOWS}WinSock,
+   {$ELSE}Sockets,{$ENDIF}
+   Apus.MyServis,SysUtils;
  type
   TRange=record
    ip,mask:cardinal;

@@ -631,8 +631,8 @@ function RegExprSubExpressions (const ARegExpr : string;
 
 implementation
 
-uses
- Windows; // CharUpper/Lower
+//uses
+// Windows; // CharUpper/Lower
 
 const
  TRegExprVersionMajor : integer = 0;
@@ -1171,9 +1171,9 @@ class function TRegExpr.InvertCaseFunction (const Ch : REChar) : REChar;
   else
   {$ENDIF}
    begin
-    Result := {$IFDEF FPC}AnsiUpperCase (Ch) [1]{$ELSE} REChar (CharUpper (PChar (Ch))){$ENDIF};
+    Result := {$IFDEF FPC}AnsiUpperCase (Ch) [1]{$ELSE} UpperCase (Ch)[1]{$ENDIF};
     if Result = Ch
-     then Result := {$IFDEF FPC}AnsiLowerCase (Ch) [1]{$ELSE} REChar (CharLower (PChar (Ch))){$ENDIF};
+     then Result := {$IFDEF FPC}AnsiLowerCase (Ch) [1]{$ELSE} LowerCase (Ch)[1]{$ENDIF};
    end;
  end; { of function TRegExpr.InvertCaseFunction
 --------------------------------------------------------------}

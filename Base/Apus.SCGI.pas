@@ -118,7 +118,7 @@ interface
  function ListHeaders:AnsiString; stdcall;
 
 implementation
- uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ENDIF}
+ uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, {$ENDIF}
     Apus.MyServis, Classes, Apus.ControlFiles, Apus.Logging, Apus.GeoIP;
  type
   // Worker thread

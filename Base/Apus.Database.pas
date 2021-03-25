@@ -98,7 +98,12 @@ interface
   function FormatQuery(query:RawByteString;params:array of const):RawByteString;
 
 implementation
- uses SysUtils,MySQL,Variants{$IFDEF DELPHI},AnsiStrings{$ENDIF};
+ uses SysUtils,
+   {$IFDEF MSWINDOWS}MySQL,{$ELSE}
+   mysql51,
+   {$ENDIF}
+   Variants
+   {$IFDEF DELPHI},AnsiStrings{$ENDIF};
  var
   counter:integer=0; // MySQL library usage counter
   lock:TMyCriticalSection;
@@ -296,11 +301,14 @@ begin
  inherited;
  lock.Enter;
  try
-  if counter=0 then
-  {$IFDEF CPU64}
-   libmysql_load('libmysql64.dll');
-  {$ELSE}
-   libmysql_load(nil);
+  {$IFDEF MSWINDOWS}
+  if counter=0 then begin
+   {$IFDEF CPU64}
+    libmysql_load('libmysql64.dll');
+   {$ELSE}
+    libmysql_load(nil);
+   {$ENDIF}
+  end;
   {$ENDIF}
   inc(counter);
   name:='DB-'+inttostr(counter);
@@ -316,7 +324,9 @@ begin
  inherited;
  dec(counter);
  if counter>0 then exit;
+ {$IFDEF MSWINDOWS}
  libmysql_free;
+ {$ENDIF}
 end;
 
 procedure TMySQLDatabase.Disconnect;
@@ -333,7 +343,11 @@ var
  r,flds,rows,i,j:integer;
  st:RawByteString;
  res:PMYSQL_RES;
+ {$IFDEF FPC}
+ myrow:MYSQL_ROW;
+ {$ELSE}
  myrow:PMYSQL_ROW;
+ {$ENDIF}
  t:int64;
 begin
   rowCount:=0; colCount:=0; insertID:=0;
