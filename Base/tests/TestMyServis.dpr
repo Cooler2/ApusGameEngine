@@ -1429,13 +1429,20 @@ procedure TestMemoryStat;
    TEST:UTF8String='[Привет!]';
    TEST_W:WideString='[Привет!]';
    TEST_S:string='[Привет!]';
+  var
+   res1:String8;
+   res2:String16;
+   res3:string;
   begin
    CopyStrToClipboard(TEST);
-   ASSERT(PasteStrFromClipboard=TEST,'Clipboard test 1');
+   res1:=PasteStrFromClipboard;
+   ASSERT(res1=TEST,'Clipboard test 1');
    CopyStrToClipboard(TEST_W);
-   ASSERT(PasteStrFromClipboardW=TEST_W,'Clipboard test 2');
+   res2:=PasteStrFromClipboardW;
+   ASSERT(res2=TEST_W,'Clipboard test 2');
    CopyStrToClipboard(TEST_S);
-   ASSERT(PasteStrFromClipboardW=TEST_S,'Clipboard test 3');
+   res3:=PasteStrFromClipboardW;
+   ASSERT(res3=TEST_S,'Clipboard test 3');
   end;
 
  procedure TestPNG;
@@ -1501,7 +1508,8 @@ procedure TestMemoryStat;
    TestFloat('0',0);
    TestFloat('.000',0);
    TestFloat(' 0.0 ',0);
-   TestFloat('1234',1234);
+   TestFloat('1312',1312);
+   TestFloat('23.34',23.34);
    TestFloat('1234.00',1234);
    TestFloat('1234,01',1234.01);
    TestFloat('-1234.',-1234);
@@ -1693,8 +1701,8 @@ begin
 
   TestQuotes;
   //TestPNG;
-  TestAnimations;
   TestClipboard;
+  TestAnimations;
   TestSortStrings;
   TestTStrHash;
   TestB64;
