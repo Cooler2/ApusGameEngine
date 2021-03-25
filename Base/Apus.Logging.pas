@@ -4,7 +4,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.Logging;
 interface
- uses windows,Apus.MyServis;
+ uses Apus.MyServis;
 
  const
   // Степени аварийности сообщений
@@ -60,7 +60,8 @@ interface
  procedure SaveLogMessages;
 
 implementation
- uses SysUtils,MMSystem;
+ uses SysUtils,Apus.CrossPlatform
+   {$IFDEF MSWINDOWS},windows,MMSystem{$ENDIF};
 
  type
   TMsgHeader=packed record
@@ -107,7 +108,7 @@ implementation
    i:integer;
   begin
    msgCount:=0; msgCount1:=0; result:=0;
-   EnterCriticalSection(logSect);
+   logSect.Enter;
    try
     buf:=firstBuffer;
     while buf<>nil do begin
@@ -119,7 +120,7 @@ implementation
      buf:=buf.next;
     end;
    finally
-    LeaveCriticalSection(logSect);
+    logSect.Leave;
    end;
   end;
 
@@ -155,7 +156,7 @@ implementation
    buf:TLogBuffer;
    dump:ByteArray;
   begin
-   EnterCriticalSection(logSect);
+   logSect.Enter;
    try
    Assign(f,logDir+'logDump.log');
    Rewrite(f,1);
@@ -180,7 +181,7 @@ implementation
    end;
    Close(f);
    finally
-    LeaveCriticalSection(logSect);
+    logSect.Leave;
    end;
   end;
 
@@ -197,7 +198,7 @@ implementation
    try
     fname:=logDir+'logDump.log';
     dump:=LoadFileAsBytes(fname);
-    EnterCriticalSection(logSect);
+    logSect.Enter;
     try
     p:=0;
     while p<high(dump) do begin
@@ -213,7 +214,7 @@ implementation
      AddLogMsg(date,level,kind,msg);
     end;
     finally
-     LeaveCriticalSection(logSect);
+     logSect.Leave;
     end;
    except
     on e:Exception do ForceLogMessage('Error in LoadOldMessages ('+fname+'): '+e.message);
@@ -223,6 +224,7 @@ implementation
  // 12-character time: HH:MM:SS.zzz
  procedure FormatTimeStr(p:PByte;time:TSystemTime);
   begin
+   {$IFDEF DELPHI}
    p^:=48+time.wHour div 10; inc(p);
    p^:=48+time.wHour mod 10; inc(p);
    p^:=ord(':'); inc(p);
@@ -235,6 +237,20 @@ implementation
    p^:=48+time.wMilliseconds div 100; inc(p);
    p^:=48+(time.wMilliseconds div 10) mod 10; inc(p);
    p^:=48+time.wMilliseconds mod 10;
+   {$ENDIF}
+   {$IFDEF FPC}
+   p^:=48+time.Hour div 10; inc(p);
+   p^:=48+time.Hour mod 10; inc(p);
+   p^:=ord(':'); inc(p);
+   p^:=48+time.Minute div 10; inc(p);
+   p^:=48+time.Minute mod 10; inc(p);
+   p^:=ord(':'); inc(p);
+   p^:=48+time.Second div 10; inc(p);
+   p^:=48+time.Second mod 10; inc(p);
+   p^:=ord('.'); inc(p);
+   p^:=48+time.Millisecond div 100; inc(p);
+   p^:=48+(time.Millisecond div 10) mod 10; inc(p);
+   p^:=48+time.Millisecond mod 10;   {$ENDIF}
   end;
 
  // Read "size" bytes from the cyclic log buffer starting from "posit"
@@ -265,7 +281,7 @@ implementation
    buf:TLogBuffer;
    timeStr:string[20];
   begin
-   EnterCriticalSection(logSect);
+   logSect.Enter;
    try
     try
      max:=limit; // initial array size
@@ -298,7 +314,7 @@ implementation
      end;
     end;
    finally
-    LeaveCriticalSection(logSect);
+    logSect.Leave;
    end;
   end;
 
@@ -308,7 +324,7 @@ implementation
    f:text;
    fname:string;
   begin
-   EnterCriticalSection(logSect);
+   logSect.Enter;
    try
     if logCache='' then exit;
     setLength(date,6);
@@ -331,7 +347,7 @@ implementation
      on e:exception do ForceLogMessage('ERROR: Can''t flush log to '+fname+': '+e.message);
     end;
    finally
-    LeaveCriticalSection(logSect);
+    logSect.Leave;
    end;
   end;
 
@@ -348,8 +364,9 @@ implementation
    if level=levelToCopyToMainLog then LogMessage(st);
    if level>levelToCopyToMainLog then ForceLogMessage(st);
    if not initialized then exit;
-   EnterCriticalSection(logSect);
+   logSect.Enter;
    try
+
     time:=GetUTCTime;
     if (time.wDay<>lastTime.wDay) and (logCache<>'') then FlushLogs; // day changed
     if time.wSecond<>lastTime.wSecond then begin
@@ -387,7 +404,7 @@ implementation
      if level>=logWarn then FlushLogs;
     end;
    finally
-    LeaveCriticalSection(logSect);
+    logSect.Leave;
    end;
   end;
 
@@ -408,7 +425,7 @@ implementation
    try
    amount:=amount*1024;
    if (amount<=0) or (amount>length(buffer)) then exit;
-   EnterCriticalSection(logSect);
+   logSect.Enter;
    try
     saveFirst:=firstUsedByte;
     space:=length(buffer)-freeSpace;
@@ -421,7 +438,7 @@ implementation
     log:=FetchLog(1,99999,0);
    finally
     firstUsedByte:=saveFirst;
-    LeaveCriticalSection(logSect);
+    logSect.Leave;
    end;
    Assign(F,filename);
    rewrite(f);
@@ -437,7 +454,7 @@ implementation
   begin
    if (memsize<1) or (memsize>1024) then raise EError.Create('Illegal log area size');
    try
-   EnterCriticalSection(logSect);
+   logSect.Enter;
    try
     if memsize>0 then begin
      freeSpace:=memsize*1024*1024;
@@ -460,7 +477,7 @@ implementation
      initialized:=true;
     end;
    finally
-    LeaveCriticalSection(logSect);
+    logSect.Leave;
    end;
    except
     on e:exception do ForceLogMessage('InitLogging error ('+logDir+'): '+e.message);
@@ -471,7 +488,7 @@ implementation
 
 constructor TLogBuffer.Create;
 begin
- EnterCriticalSection(logSect);
+ logSect.Enter;
  try
   count:=0; count1:=0;
   minDate:=MaxDateTime;
@@ -484,20 +501,20 @@ begin
   if firstBuffer=nil then firstBuffer:=self;
   lastBuffer:=self;
  finally
-  LeaveCriticalSection(logSect);
+  logSect.Leave;
  end;
 end;
 
 destructor TLogBuffer.Destroy;
 begin
- EnterCriticalSection(logSect);
+ logSect.Enter;
  try
   if firstBuffer=self then firstBuffer:=self.next;
   if lastBuffer=self then lastBuffer:=nil;
   dec(bufferCount);
   inherited;
  finally
-  LeaveCriticalSection(logSect);
+  logSect.Leave;
  end;
 end;
 
@@ -507,7 +524,7 @@ var
 begin
  SetLength(result,200000);
  p:=0;
- EnterCriticalSection(logSect);
+ logSect.Enter;
  try
  for i:=1 to count do begin
   if messages[i].level<minLevel then continue;
@@ -524,7 +541,7 @@ begin
   end;
  end;
  finally
-  LeaveCriticalSection(logSect);
+  logSect.Leave;
  end;
  SetLength(result,p);
 end;
