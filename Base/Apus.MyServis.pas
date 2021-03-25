@@ -108,15 +108,21 @@ interface
   TMyCriticalSection=packed record
    crs:TRTLCriticalSection;
    name:string;      // имя секции
-   caller:cardinal;  // точка, из которой была попытка завладеть секцией
-   owner:cardinal;   // точка, из которой произошел удачный захват секции
-   thread:cardinal;  // нить, пытающаяся захватить секцию
+   caller:UIntPtr;  // точка, из которой была попытка завладеть секцией
+   owner:UIntPtr;   // точка, из которой произошел удачный захват секции
+   {$IFNDEF MSWINDOWS}
+   owningThread:TThreadID;
+   {$ENDIF}
+   tryingThread:TThreadID;  // нить, пытающаяся захватить секцию
    time:int64;       // время наступления таймаута захвата
    lockCount:integer; // how many times locked (recursion)
    level:integer;     // it's not allowed to enter section with lower level from section with higher level
    prevSection:PCriticalSection;
    procedure Enter; inline; // for compatibility
    procedure Leave; inline; // for compatibility
+   function GetSysLockCount:integer; inline;
+   function GetSysOwner:TThreadID; inline;
+   function GetOwningThread:TThreadID; inline;
   end;
 
   {$IF Declared(SRWLOCK)}
@@ -282,9 +288,8 @@ interface
  procedure RunTimer(n:integer);
  function GetTimer(n:integer):double;
 
- {$IFDEF MSWINDOWS}
  function GetUTCTime:TSystemTime; /// TODO: implement
- {$ENDIF}
+
  function MyTickCount:int64; // Аналог GetTickCount, но без переполнения (больше не использует GetTickCount из-за недостаточной точности)
 
  // Возвращает строку с описанием распределения памяти
@@ -665,6 +670,7 @@ interface
 
 implementation
  uses Classes, Math, Apus.CrossPlatform, Apus.StackTrace, TypInfo
+    {$IFDEF UNIX},unixtype,BaseUnix,Syscall{$ENDIF}
     {$IFDEF MSWINDOWS},mmsystem{$ENDIF}
     {$IFDEF IOS},iphoneAll{$ENDIF}
     {$IFDEF ANDROID},dateutils,Android{$ENDIF};
@@ -680,6 +686,9 @@ implementation
    firstPing:integer;   // время первого отклика
    lastPing:integer;    // время последнего отклика
    lastCS:PCriticalSection; // последняя критсекция, захваченная в этом потоке
+   {$IFDEF UNIX}
+   tid:cardinal;
+   {$ENDIF}
    function GetStateInfo:string; // get thread state (call stack etc)
   end;
 
@@ -4106,22 +4115,16 @@ function BinToStr;
 {$ENDIF}
 
  function FormatLogText(const text:string8):string8;
- {$IFDEF MSWINDOWS}
   var
    mm,ss,ms:integer;
    time:TSystemTime;
-  {$ENDIF}
   begin
-   {$IFDEF MSWINDOWS}
    time:=GetUTCTime;
    result:=chr(48+time.wHour div 10)+chr(48+time.wHour mod 10)+':'+
            chr(48+time.wMinute div 10)+chr(48+time.wMinute mod 10)+':'+
            chr(48+time.wSecond div 10)+chr(48+time.wSecond mod 10)+'.'+
            chr(48+time.wMilliseconds div 100)+chr(48+(time.wMilliseconds div 10) mod 10)+chr(48+time.wMilliseconds mod 10)+
            '  '+text;
-   {$ELSE}
-   result:=FormatDateTime('hh:nn:ss.z',Now)+'  '+text;
-   {$ENDIF}
   end;
 
  procedure LogMessage(text:String8;group:byte=0);
@@ -4819,6 +4822,11 @@ procedure DumpDir(path:string);
    end else
     GetSystemTime(result);
   end;
+ {$ELSE}
+ function GetUTCTime:TSystemTime;
+  begin
+   GetUniversalTime(result);
+  end;
  {$ENDIF}
 
  procedure TestSystemPerformance;
@@ -5012,23 +5020,22 @@ procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
   i,lastLevel,trIdx:integer;
   prevSection:PCriticalSection;
  begin
-  {$IFDEF MSWINDOWS}
+  //{$IFDEF MSWINDOWS}
   {$IFDEF CPU386}
   if cr.caller=0 then
    if caller=nil then caller:=GetCaller;
   {$ENDIF}
+  threadID:=GetCurrentThreadID;
   if cr.lockCount>0 then begin
-   threadID:=GetCurrentThreadID;
    trIdx:=-1;
-   if threadID<>cr.crs.OwningThread then begin // from different thread?
-    cr.thread:=threadID;
+   if threadID<>cr.GetOwningThread then begin // from different thread?
+    cr.tryingThread:=threadID;
     cr.caller:=PtrUInt(caller);
    end;
    if cr.time=0 then cr.time:=MyTickCount+5000;
   end else // first attempt
   if debugCriticalSections then begin
    MyEnterCriticalSection(crSection);
-   threadID:=GetCurrentThreadID;
    trIdx:=0; prevSection:=nil;
    for i:=0 to high(threads) do
     if threads[i].ID=threadID then begin
@@ -5045,13 +5052,20 @@ procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
       [cr.name,cr.level,prevSection.name,lastLevel]));
   end;
 
+  {$IFDEF MSWINDOWS}
   windows.EnterCriticalSection(cr.crs);
+  {$ELSE}
+  System.EnterCriticalSection(cr.crs);
+  {$ENDIF}
+  {$IFNDEF MSWINDOWS}
+  cr.owningThread:=threadID;
+  {$ENDIF}
   cr.caller:=0;
-  cr.thread:=0;
+  cr.tryingThread:=0;
   cr.time:=0;
   inc(cr.lockCount);
   if caller=nil then caller:=GetCaller;
-  cr.owner:=cardinal(caller);
+  cr.owner:=UIntPtr(caller);
   if debugCriticalSections and (cr.lockCount=1) then begin
    MyEnterCriticalSection(crSection);
    for i:=0 to high(threads) do
@@ -5062,7 +5076,7 @@ procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
     end;
    MyLeaveCriticalSection(crSection);
   end;
-  {$ELSE}
+(*  {$ELSE}
 {  if cr.caller=0 then cr.caller:=cardinal(get_caller_addr(get_frame));
   cr.thread:=cardinal(GetCurrentThreadID);}
   system.EnterCriticalSection(cr.crs);
@@ -5070,7 +5084,7 @@ procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
 {  cr.thread:=0;
   cr.caller:=0;
   cr.owner:=cardinal(get_caller_addr(get_frame));}
-  {$ENDIF}
+  {$ENDIF}     *)
  end;
 
 procedure LeaveCriticalSection(var cr:TMyCriticalSection);
@@ -5130,7 +5144,7 @@ procedure SafeEnterCriticalSection(var cr:TMyCriticalSection); // Осторож
    mov adr,eax
   end;
   {$ENDIF}
-  cr.thread:=GetCurrentThreadID;
+  cr.tryingThread:=GetCurrentThreadID;
   cr.time:=MyTickCount+500;
   while (cr.crs.LockCount>=0) and (cr.crs.OwningThread<>id) do begin
    inc(i);
@@ -5146,7 +5160,7 @@ procedure SafeEnterCriticalSection(var cr:TMyCriticalSection); // Осторож
   if cr.caller=0 then cr.caller:=adr;
   windows.EnterCriticalSection(cr.crs);
   cr.caller:=0;
-  cr.thread:=0;
+  cr.tryingThread:=0;
   cr.time:=0;
   {$IFDEF CPU386}
   asm
@@ -5162,36 +5176,46 @@ procedure SafeEnterCriticalSection(var cr:TMyCriticalSection); // Осторож
 
 procedure DumpCritSects; // Вывести в лог состояние всех критсекций
  var
-  i,j:integer;
+  i:integer;
   st:string;
+  lockedCount:integer;
  begin
   try
+  lockedCount:=0;
   MyEnterCriticalSection(crSection);
   try
-  st:='CRITICAL SECTIONS:';
-  {$IFDEF MSWINDOWS}
+  st:='';
   for i:=1 to crSectCount do begin
    st:=st+#13#10#32+inttostr(i)+') '+crSections[i].name+' ';
-   if crSections[i].lockCount=0 then st:=st+'FREE' else begin
-    st:=st+'LOCKED '+inttostr(crSections[i].crs.RecursionCount)+' AT: '+
-     inttohex(crSections[i].owner,8)+' OWNED BY '+
-     GetNameOfThread(crSections[i].crs.OwningThread);
+   if crSections[i].lockCount=0 then
+    st:=st+'FREE'
+   else begin
+    inc(lockedCount);
+    {$IFDEF MSWINDOWS}
+    st:=st+'LOCKED '+inttostr(crSections[i].crs.RecursionCount)+
+     ' AT: '+inttohex(crSections[i].owner,8)+
+     ' OWNED BY '+GetNameOfThread(crSections[i].crs.OwningThread);
+    {$ELSE}
+    st:=st+'LOCKED '+inttostr(crSections[i].lockCount)+
+     ' AT: '+inttohex(crSections[i].owner,8)+
+     ' OWNED BY '+GetNameOfThread(crSections[i].owningThread);
+    {$ENDIF}
     if crSections[i].caller<>0 then
-     st:=st+' PENDING FROM '+GetNameOfThread(crSections[i].thread)+
+     st:=st+' PENDING FROM '+GetNameOfThread(crSections[i].tryingThread)+
       ' AT:'+inttohex(crSections[i].caller,8)+' time '+
       inttostr(MyTickCount-crSections[i].time);
    end;
   end;
-  {$ENDIF}
-  {$IFDEF IOS}
+ (* {$IFDEF IOS}
   for i:=1 to crSectCount do begin
    st:=st+#13#32+inttostr(i)+') '+crSections[i].name+' '+inttohex(crSections[i].status,4);
   end;
-  {$ENDIF}
+  {$ENDIF} *)
   finally
    MyLeaveCriticalSection(crSection);
   end;
-  ForceLogMessage(st);
+  if lockedCount>0 then
+   ForceLogMessage('CRITICAL SECTIONS:'+st);
   except
    on e:Exception do ForceLogMessage('DCS: '+ExceptionMsg(e));
   end;
@@ -5219,6 +5243,7 @@ procedure RegisterThread(name:string); // зарегистрировать по�
  var
   i:integer;
   threadID:TThreadID;
+  extra:string;
  begin
   MyEnterCriticalSection(crSection);
   try
@@ -5235,7 +5260,11 @@ procedure RegisterThread(name:string); // зарегистрировать по�
     ForceLogMessage('RT error: '+GetSystemError);}
    {$ENDIF};
    threads[i].lastCS:=nil;
-   LogMessage('Thread ID:'+inttostr(cardinal(threads[i].ID))+' named '+name);
+   {$IFDEF UNIX}
+   threads[i].tid:=Do_syscall(syscall_nr_gettid);
+   extra:='tid: '+IntToStr(threads[i].tid);
+   {$ENDIF}
+   LogMessage('Thread ID: %d named %s %s',[threads[i].ID,name,extra]);
    {$IFDEF ANDROID}
    AndroidInitThread;
    {$ENDIF}
@@ -5398,6 +5427,23 @@ procedure TMyCriticalSection.Enter;  // for compatibility
 procedure TMyCriticalSection.Leave; // for compatibility
  begin
   LeaveCriticalSection(self);
+ end;
+
+function TMyCriticalSection.GetSysLockCount:integer;
+ begin
+ end;
+
+function TMyCriticalSection.GetSysOwner:TThreadID;
+ begin
+ end;
+
+function TMyCriticalSection.GetOwningThread:TThreadID;
+ begin
+  {$IFDEF MSWINDOWS}
+  result:=crs.OwningThread;
+  {$ELSE}
+  result:=owningThread;
+  {$ENDIF}
  end;
 
 function HasParam(name:string):boolean;
@@ -5656,10 +5702,24 @@ function GetThreadStateInfo(id:TThreadID):string;
   ResumeThread(handle);
   CloseHandle(handle);
  end;
-{$ELSEIF Defined(UNIX)}
-function GetThreadStateInfo(id:TThreadID):string;
- begin
+{$ELSEIF Defined(UNIX) AND Defined(CPUAMD64)}
+const
+ PTRACE_GETREGS = 12;
+ PTRACE_ATTACH = 16;
+ PTRACE_DETACH = 17;
+function ptrace(__request:integer; PID: pid_t; Address: Pointer; Data: Longint): longint; cdecl; external libc name 'ptrace';
 
+function GetThreadStateInfo(id:TThreadID):string;
+ var
+  r1,r2,r3:longint;
+  regs:array[0..199] of UInt64;
+ begin
+  r1:=ptrace(PTRACE_ATTACH,id,nil,0);
+  if r1=-1 then LogMessage(IntToStr(fpGetErrno));
+  r2:=ptrace(PTRACE_GETREGS,id,nil,UIntPtr(@regs));
+  if r2=-1 then LogMessage(GetSystemError);
+  r3:=ptrace(PTRACE_DETACH,id,nil,0);
+  LogMessage('REGS: %d %x %x %x',[id,r1,r2,r3]);
  end;
 {$ELSE}
 function GetThreadStateInfo(id:TThreadID):string;
@@ -5674,7 +5734,7 @@ function TThreadInfo.GetStateInfo: string;
   if id=GetCurrentThreadID then
    st:='<current>'
   else
-   st:=GetThreadStateInfo(id);
+   st:=GetThreadStateInfo({$IFDEF UNIX}tid{$ELSE}id{$ENDIF});
   result:=Format('%20s ID=%d; %s ',[name,ID,st]);
  end;
 
