@@ -127,7 +127,6 @@ interface
   INVALID_HANDLE_VALUE = THandle(-1);
 {$ENDIF}
 
-
  function GetTickCount:cardinal; inline;
  procedure QueryPerformanceCounter(out value:int64); inline;
  procedure QueryPerformanceFrequency(out value:int64);
@@ -161,6 +160,9 @@ interface
  function MoveWindow(window:HWND;x,y,w,h:integer;repaint:boolean):boolean;
  function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString): Integer;
  {$ENDIF}
+ {$IFDEF UNIX}
+ function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString): Integer;
+ {$ENDIF}
 
  function GetDecimalSeparator:char; inline;
  procedure SetDecimalSeparator(c:char);
@@ -180,7 +182,7 @@ uses
   ShellAPI,
 {$ENDIF}
 {$IFDEF UNIX}
- unixtype,BaseUnix,
+ unixtype,BaseUnix,Process,
 {$ENDIF}
 {$IFDEF LINUX}
  Linux,
@@ -532,7 +534,19 @@ end;
   end;
 {$ENDIF}
 
+{$IFDEF UNIX}
+ function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString): Integer;
+  var
+   output:string;
+  begin
+   if RunCommand(aCmdLine,output) then begin
+    aOutput:=output;
+    result:=length(output);
+   end else
+    result:=0;
+  end;
 
+{$ENDIF}
 
 // iOS SET ===========================================================
 {$IFDEF IOS}
