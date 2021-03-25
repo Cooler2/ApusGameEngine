@@ -654,6 +654,7 @@ interface
 // procedure DumpThreads; // Выдать
  procedure PingThread; // сообщить о "живучести" потока
  function GetThreadName(threadID:cardinal=0):string; // вернуть имя (0=текущего) потока
+ procedure DumpNamedThreads; // dump state of all named threads to the log
 
  procedure CheckCritSections; // проверить критические секции на таймаут
 
@@ -675,13 +676,11 @@ implementation
   TThreadInfo=record
    ID:TThreadID;
    name:string;
-   counter:integer; // сколько раз отзывался
-   first:integer;   // время первого отклика
-   last:integer;    // время последнего отклика
-   lastreport:integer; // время последнего сообщения о задержке
-   at:integer;       // сглаженное примерное время между интервалами
-   handle:THandle;
+   pingCounter:integer; // сколько раз отзывался
+   firstPing:integer;   // время первого отклика
+   lastPing:integer;    // время последнего отклика
    lastCS:PCriticalSection; // последняя критсекция, захваченная в этом потоке
+   function GetStateInfo:string; // get thread state (call stack etc)
   end;
 
   TLogThread=class(TThread)
@@ -706,9 +705,8 @@ implementation
   crSections:array[1..100] of PCriticalSection;
   crSectCount:integer=0;
 
-  threads:array[0..100] of TThreadInfo;
-//  buffer2:array[0..16384] of cardinal;
-  trCount:integer; // записи могут быть не только в начале массива!!!
+  threads:array of TThreadInfo;
+  lastThreadReport:int64; // время последнего сообщения о задержке
 
   memcheck:array[0..127] of int64;
   lastTickCount:int64;
@@ -5032,7 +5030,7 @@ procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
    MyEnterCriticalSection(crSection);
    threadID:=GetCurrentThreadID;
    trIdx:=0; prevSection:=nil;
-   for i:=1 to high(threads) do
+   for i:=0 to high(threads) do
     if threads[i].ID=threadID then begin
      trIdx:=i;
      prevSection:=threads[i].lastCS;
@@ -5056,7 +5054,7 @@ procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
   cr.owner:=cardinal(caller);
   if debugCriticalSections and (cr.lockCount=1) then begin
    MyEnterCriticalSection(crSection);
-   for i:=1 to high(threads) do
+   for i:=0 to high(threads) do
     if threads[i].ID=threadID then begin
      cr.prevSection:=threads[i].lastCS;
      threads[i].lastCS:=@cr;
@@ -5087,7 +5085,7 @@ procedure LeaveCriticalSection(var cr:TMyCriticalSection);
   if debugCriticalSections and (cr.lockCount=0) then begin
    MyEnterCriticalSection(crSection);
    threadID:=GetCurrentThreadID;
-   for i:=1 to high(threads) do
+   for i:=0 to high(threads) do
     if threads[i].ID=threadID then begin
      if threads[i].lastCS=nil then
       raise EError.Create('Leaving wrong CS: '+cr.name);
@@ -5109,16 +5107,11 @@ function GetNameOfThread(id:TThreadID):string;
  var
   i,c:integer;
  begin
-  c:=trCount;
-  for i:=1 to high(threads) do
-   if cardinal(threads[i].ID)<>0 then
-    if threads[i].ID=id then begin
-     result:=threads[i].name;
-     exit;
-    end else begin
-     dec(c);
-     if c=0 then break;
-    end;
+  for i:=0 to high(threads) do
+   if threads[i].ID=id then begin
+    result:=threads[i].name;
+    exit;
+   end;
   result:='unknown('+inttostr(cardinal(id))+')';
  end;
 
@@ -5172,6 +5165,7 @@ procedure DumpCritSects; // Вывести в лог состояние всех
   i,j:integer;
   st:string;
  begin
+  try
   MyEnterCriticalSection(crSection);
   try
   st:='CRITICAL SECTIONS:';
@@ -5198,6 +5192,9 @@ procedure DumpCritSects; // Вывести в лог состояние всех
    MyLeaveCriticalSection(crSection);
   end;
   ForceLogMessage(st);
+  except
+   on e:Exception do ForceLogMessage('DCS: '+ExceptionMsg(e));
+  end;
  end;
 
 procedure CheckCritSections; // проверить критические секции на таймаут
@@ -5223,26 +5220,25 @@ procedure RegisterThread(name:string); // зарегистрировать по�
   i:integer;
   threadID:TThreadID;
  begin
-  if trCount>=length(threads) then raise EError.Create('Threads array overflow');
   MyEnterCriticalSection(crSection);
   try
    threadID:=GetCurrentThreadId;
-   for i:=1 to high(threads) do
+   for i:=0 to high(threads) do
     if cardinal(threads[i].ID)=threadID then exit; // already registered
-   for i:=1 to high(threads) do
-    if cardinal(threads[i].ID)=0 then begin
-     fillchar(threads[i],sizeof(TThreadInfo),0);
-     threads[i].ID:=threadID;
-     threads[i].name:=name;
-     threads[i].handle:={$IFDEF MSWINDOWS}GetCurrentThread{$ELSE}0{$ENDIF};
-     threads[i].lastCS:=nil;
-     inc(trCount);
-     LogMessage('Thread ID:'+inttostr(cardinal(threads[i].ID))+' named '+name);
-     {$IFDEF ANDROID}
-     AndroidInitThread;
-     {$ENDIF}
-     break;
-    end;
+   i:=length(threads);
+   SetLength(threads,i+1);
+   threads[i].ID:=threadID;
+   threads[i].name:=name;
+   {$IFDEF MSWINDOWS}
+{   if not DuplicateHandle(GetCurrentProcess,GetCurrentThread,0,@threads[i].handle,
+       0,false,DUPLICATE_CLOSE_SOURCE+DUPLICATE_SAME_ACCESS) then
+    ForceLogMessage('RT error: '+GetSystemError);}
+   {$ENDIF};
+   threads[i].lastCS:=nil;
+   LogMessage('Thread ID:'+inttostr(cardinal(threads[i].ID))+' named '+name);
+   {$IFDEF ANDROID}
+   AndroidInitThread;
+   {$ENDIF}
   finally
    MyLeaveCriticalSection(crSection);
   end;
@@ -5250,18 +5246,18 @@ procedure RegisterThread(name:string); // зарегистрировать по�
 
 procedure UnregisterThread; // удалить поток (нужно вызывать перед завершением потока)
  var
-  i:integer;
+  i,n:integer;
   id:TThreadID;
  begin
-  if trCount=0 then raise EError.Create('No threads to unreg');
   id:=GetCurrentThreadID;
   MyEnterCriticalSection(crSection);
   try
-   for i:=1 to high(threads) do
+   n:=high(threads);
+   for i:=0 to n do
     if threads[i].ID=id then begin
-     threads[i].ID:=0;
-     dec(trCount);
      LogMessage('Thread '+threads[i].name+' unregistered');
+     threads[i]:=threads[n];
+     SetLength(threads,n);
      {$IFDEF ANDROID}
      AndroidDoneThread;
      {$ENDIF}
@@ -5272,33 +5268,67 @@ procedure UnregisterThread; // удалить поток (нужно вызыв�
   end;
  end;
 
+procedure DumpNamedThreads;
+ var
+  i:integer;
+  st:string;
+ begin
+  if IsDebuggerPresent then exit;
+  try
+   MyEnterCriticalSection(crSection);
+   try
+    for i:=0 to high(threads) do
+     st:=st+#13#10'  '+threads[i].GetStateInfo;
+   finally
+    MyLeaveCriticalSection(crSection);
+   end;
+   ForceLogMessage('THREADS:'+st);
+  except
+   on e:Exception do ForceLogMessage('DNT: '+ExceptionMsg(e));
+  end;
+ end;
+
 procedure PingThread; // сообщить о "живучести" потока
  var
-  i,t:integer;
+  i:integer;
+  t:int64;
   id:TThreadID;
+  needDump:boolean;
+  st:string;
  begin
   t:=MyTickCount;
   id:=GetCurrentThreadID;
+  needDump:=false;
   MyEnterCriticalSection(crSection);
   try
-   for i:=1 to high(threads) do
-    if cardinal(threads[i].ID)<>0 then begin
-     if threads[i].id=id then with threads[i] do begin
-      inc(counter);
-      if counter=1 then first:=t else at:=(at*7+(t-last)) div 8;
-      last:=t;
-     end else
-      with threads[i] do begin
-       if counter>10 then begin
-//       avg:=(last-first) div (counter-1);
-        if (t-last>at*2+300) and (t>lastreport+800) then begin
-         ForceLogMessage('Thread '+name+' does not respond for '+inttostr(t-last));
-         if (t-last>1500) then DumpCritSects;
-         lastreport:=t;
+   for i:=0 to high(threads) do
+    if threads[i].id=id then // current thread => update
+     with threads[i] do begin
+      inc(pingCounter);
+      if pingCounter=1 then firstPing:=t;
+      lastPing:=t;
+     end
+    else // other thread => report
+    if t>lastThreadReport+1000 then
+     with threads[i] do begin
+      if pingCounter>0 then begin
+       if (t-lastPing>300) then begin
+        st:=st+#13#10+'  '+name+' for '+inttostr(t-lastPing);
+        if (t-lastPing>1500) then begin
+         needDump:=true;
         end;
        end;
       end;
-    end;
+     end;
+
+   if st<>'' then begin
+    ForceLogMessage('Threads not responding: '+st);
+    lastThreadReport:=t;
+   end;
+   if needDump then begin
+    DumpCritSects;
+    DumpNamedThreads;
+   end;
   finally
    MyLeaveCriticalSection(crSection);
   end;
@@ -5324,13 +5354,16 @@ procedure TLogThread.Execute;
 var
  tick:cardinal;
 begin
+ RegisterThread('LogThread');
  tick:=0;
  repeat
   inc(tick);
   sleep(10);
   if (length(cacheBuf)>20000) or (tick mod 50=0) then
    FlushLog;
+  PingThread;
  until terminated;
+ UnregisterThread;
 end;
 
 procedure StopLogThread;
@@ -5561,6 +5594,88 @@ function TBuffer.Slice(from, length: integer): TBuffer;
 function TBuffer.Slice(length: integer): TBuffer;
  begin
   result:=Slice(CurrentPos,length);
+ end;
+
+{ TThreadInfo }
+
+{$IF Defined(MSWINDOWS)}
+function OpenThread(DesiredAccess: DWORD; InheritHandle: BOOL; ThreadID: DWORD): THandle; stdcall; external 'kernel32.dll' delayed;
+
+function GetThreadStateInfo(id:TThreadID):string;
+ const
+  THREAD_GET_CONTEXT       = 08;
+  THREAD_SUSPEND_RESUME    = 02;
+ var
+  handle:THandle;
+  context:^TContext; // use dynamic variable to make sure it's 16-byte aligned (important!)
+  susp:integer;
+  _ip,_bp,sbp:NativeUInt;
+  st:string;
+  i:integer;
+  p:pointer;
+ begin
+  handle:=OpenThread(THREAD_SUSPEND_RESUME+THREAD_GET_CONTEXT,false,id);
+  susp:=SuspendThread(handle);
+  if susp<0 then
+   result:=GetSystemError;
+  New(context);
+  context.ContextFlags:=$00010007;
+  if GetThreadContext(handle,context^) then begin
+   {$IFDEF CPUX64}
+   _ip:=context.Rip;
+   _bp:=context.Rbp;
+   sbp:=_bp;
+   p:=pointer(PUInt64(_bp-8)^);
+   st:=PtrToStr(p)+'<-';
+   for i:=1 to 2 do begin
+    inc(_bp,$20);
+    p:=pointer(_bp+8);
+    p:=pointer(PUInt64(p)^);
+    if p=nil then break;
+    st:=st+PtrToStr(p)+'<-';
+    _bp:=PUInt64(_bp)^;
+    if (_bp>sbp+$1000) or (_bp<sbp) then break;
+   end;
+   {$ENDIF}
+   {$IFDEF CPU386}
+   _ip:=context.Eip;
+   _bp:=context.Ebp;
+   for i:=1 to 3 do begin
+    p:=pointer(_bp+4);
+    if p=nil then break;
+    p:=pointer(PCardinal(p)^);
+    if p=nil then break;
+    st:=st+PtrToStr(p)+'<-';
+    _bp:=PCardinal(_bp)^;
+   end;
+   {$ENDIF}
+   result:=Format('stack: %s ip=%x bp=%x',[st,_ip,sbp]);
+  end else
+   result:=GetSystemError;
+  Dispose(context);
+  ResumeThread(handle);
+  CloseHandle(handle);
+ end;
+{$ELSEIF Defined(UNIX)}
+function GetThreadStateInfo(id:TThreadID):string;
+ begin
+
+ end;
+{$ELSE}
+function GetThreadStateInfo(id:TThreadID):string;
+ begin
+ end;
+{$ENDIF}
+
+function TThreadInfo.GetStateInfo: string;
+ var
+  st:string;
+ begin
+  if id=GetCurrentThreadID then
+   st:='<current>'
+  else
+   st:=GetThreadStateInfo(id);
+  result:=Format('%20s ID=%d; %s ',[name,ID,st]);
  end;
 
 initialization

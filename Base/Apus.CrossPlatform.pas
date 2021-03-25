@@ -114,13 +114,15 @@ interface
 {$ENDIF}
 
 
- function GetTickCount:cardinal;
- procedure QueryPerformanceCounter(out value:int64);
+ function GetTickCount:cardinal; inline;
+ procedure QueryPerformanceCounter(out value:int64); inline;
  procedure QueryPerformanceFrequency(out value:int64);
 
- procedure Sleep(time:integer);
- function BeginThread(ThreadFunction:TThreadFunc; p:pointer; var ThreadId:TThreadID; stackSize:integer=1024*1024):THandle;
- function GetCurrentThreadID:TThreadId;
+ procedure Sleep(time:integer); inline;
+ function BeginThread(ThreadFunction:TThreadFunc; p:pointer; var ThreadId:TThreadID; stackSize:integer=1024*1024):THandle; overload;
+ function BeginThread(ThreadFunction:TThreadFunc):TThreadID; overload;
+
+ function GetCurrentThreadID:TThreadId; inline;
  procedure TerminateThread(threadHandle:TThreadID;exitCode:cardinal);
  procedure ChangeThreadPriority(priority:integer); // -2..2 where 0 is Normal
 
@@ -195,7 +197,7 @@ uses
   begin
    code:=GetLastErrorCode;
    {$IF Declared(SysErrorMessage)}
-    result:=SysErrorMessage(code);
+    result:=SysErrorMessage(code)+Format(' (%d)',[code]);
    {$ELSE}
     if code=0 then result:='NO ERROR'
      else result:=Format('CODE %d (%8x)',[code,code]);
@@ -314,6 +316,11 @@ uses
     {$IF DECLARED(STACK_SIZE_PARAM_IS_A_RESERVATION)}STACK_SIZE_PARAM_IS_A_RESERVATION{$ELSE}0{$IFEND},threadID);
    {$ENDIF}
    if result=0 then raise Exception.Create('Failed to start a thread: '+IntToHex(UInt64(@threadFunction),12));
+  end;
+
+ function BeginThread(ThreadFunction:TThreadFunc):TThreadID; overload;
+  begin
+   BeginThread(threadFunction,nil,result);
   end;
 
 // WINDOWS SET ===========================

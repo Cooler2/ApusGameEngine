@@ -1675,6 +1675,31 @@ procedure TestFileIO;
   ASSERT((length(buf)=length(st)) and CompareMem(@buf[0],@st[1],length(buf)));
  end;
 
+function ThreadedTest1:cardinal; stdcall;
+ var
+  i,j:integer;
+  a:array of integer;
+ begin
+  RegisterThread('WorkerThread');
+  PingThread;
+  for i:=1 to 2000 do
+   for j:=1 to 100000 do
+    SetLength(a,10+random(100));
+  UnregisterThread;
+ end;
+
+// Test for multithreaded program hang
+procedure TestThreadStall;
+ begin
+  LogCacheMode(true,false,true);
+  RegisterThread('MainThread');
+  PingThread; // start thread tracking
+  BeginThread(@ThreadedTest1);
+  Sleep(15000);
+  UnregisterThread;
+  halt;
+ end;
+
 var
  ar:array of cardinal;
  st:string;
@@ -1685,6 +1710,7 @@ var
 
 begin
  UseLogFile('log.txt',true);
+ TestThreadStall;
  try
   TestStringTypes;
   TestConversions;
