@@ -6,8 +6,13 @@
 {$APPTYPE CONSOLE}
 {$R+}
 program TestMyServis;
-uses
+ uses
+  {$IFDEF UNIX}
+  cthreads,
+  {$ENDIF}
+  {$IFDEF MSWINDOWS}
   windows,
+  {$ENDIF}
   variants,
   DateUtils,
   SysUtils,
@@ -22,7 +27,6 @@ uses
   Apus.ControlFiles in '..\Apus.ControlFiles.pas',
   Apus.CrossPlatform in '..\Apus.CrossPlatform.pas',
   Apus.Crypto in '..\Apus.Crypto.pas',
-  Apus.Database in '..\Apus.Database.pas',
   Apus.EventMan in '..\Apus.EventMan.pas',
   Apus.FastGFX in '..\Apus.FastGFX.pas',
   Apus.FreeTypeFont in '..\Apus.FreeTypeFont.pas',
@@ -40,17 +44,21 @@ uses
   Apus.MemoryLeakUtils in '..\Apus.MemoryLeakUtils.pas',
   Apus.MyServis in '..\Apus.MyServis.pas',
   Apus.Network in '..\Apus.Network.pas',
+  {$IFDEF MSWINDOWS}
+  Apus.Database in '..\Apus.Database.pas',
   Apus.Profiling in '..\Apus.Profiling.pas',
+  Apus.SCGI in '..\Apus.SCGI.pas',  /// TODO: make cross-platform - socket syntax issues
+  {$ENDIF}
   Apus.Publics in '..\Apus.Publics.pas',
   Apus.RegExpr in '..\Apus.RegExpr.pas',
   Apus.Regions in '..\Apus.Regions.pas',
   Apus.RSA in '..\Apus.RSA.pas',
-  Apus.SCGI in '..\Apus.SCGI.pas',
   Apus.StackTrace in '..\Apus.StackTrace.pas',
   Apus.Structs in '..\Apus.Structs.pas',
   Apus.TextUtils in '..\Apus.TextUtils.pas',
   Apus.Translation in '..\Apus.Translation.pas',
   Apus.UnicodeFont in '..\Apus.UnicodeFont.pas';
+
 
 var
  sa:StringArr;
@@ -1395,7 +1403,7 @@ procedure TestMemoryStat;
   var
    i:integer;
   begin
-   CreateThread(nil,0,@threadProc,nil,0,trID);
+   BeginThread(@threadProc);
    sleep(50);
    for i:=1 to 1501 do begin
     Signal('TESTEVENT\'+inttostr(i),i);
