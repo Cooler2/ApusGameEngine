@@ -123,7 +123,7 @@ type
   channel:TChannel;
   stopTime:int64; // stop channel at this time
   loopPos:double; // in seconds
-  loopCount:integer; // Android: -1 - infinite loop, 0 - no loop
+  loop:boolean;
   curVolume:TAnimatedValue;
   {$IFDEF ANDROID}
   player:TJNIMediaPlayer;
@@ -336,8 +336,8 @@ procedure LoadConfig;
    item:=TMusicEntry.Create;
    item.name:=name;
    fname:=ctlGetStr(path+'\file');
-   loop:=ctlGetBool(path+'\loop',false);
-   looppos:=ctlGetInt(path+'\loopPos',0);
+   item.loop:=ctlGetBool(path+'\loop',false);
+   item.looppos:=ctlGetInt(path+'\loopPos',0);
    fExt:=UpperCase(ExtractFileExt(fname));
    if (fExt='.OGG') or (fExt='.MP3') or (fExt='.WAW') then begin
     {$IFDEF ANDROID}
@@ -844,7 +844,7 @@ begin
  settings:=DefaultSettings;
  if needSlide=0 then settings.volume:=needMusic.volume
   else settings.volume:=0;
- if needMusic.loopCount>0 then begin
+ if needMusic.loop then begin
   settings.loop:=true;
   settings.loopStart:=needMusic.loopPos;
   settings.loopEnd:=0;
