@@ -343,10 +343,10 @@ var
  r,flds,rows,i,j:integer;
  st:RawByteString;
  res:PMYSQL_RES;
- {$IFDEF FPC}
- myrow:MYSQL_ROW;
- {$ELSE}
+ {$IFDEF MSWINDOWS}
  myrow:PMYSQL_ROW;
+ {$ELSE}
+ myrow:MYSQL_ROW;
  {$ENDIF}
  t:int64;
 begin

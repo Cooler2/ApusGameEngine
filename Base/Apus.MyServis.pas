@@ -5645,7 +5645,8 @@ function TBuffer.Slice(length: integer): TBuffer;
 { TThreadInfo }
 
 {$IF Defined(MSWINDOWS)}
-function OpenThread(DesiredAccess: DWORD; InheritHandle: BOOL; ThreadID: DWORD): THandle; stdcall; external 'kernel32.dll' delayed;
+function OpenThread(DesiredAccess: DWORD; InheritHandle: BOOL; ThreadID: DWORD): THandle;
+ stdcall; external 'kernel32.dll' {$IFNDEF FPC}delayed{$ENDIF};
 
 function GetThreadStateInfo(id:TThreadID):string;
  const
