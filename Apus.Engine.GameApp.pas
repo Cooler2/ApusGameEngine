@@ -651,6 +651,7 @@ constructor TLoadingScene.Create;
 begin
  inherited Create(true);
  v.Init;
+ zOrder:=-1; // place it below others
  SetStatus(ssActive);
 end;
 
