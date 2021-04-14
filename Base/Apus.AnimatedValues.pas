@@ -57,6 +57,13 @@ interface
       function InternalValueAt(time:int64):single; // No lock!
     end;
 
+  var
+   sfLinear:TSplineFunc=Spline0;
+   sfEaseOut:TSplineFunc=Spline2;
+   sfEaseIn:TSplineFunc=Spline2rev;
+   sfEaseInOut:TSplineFunc=Spline1;
+
+
 implementation
 
   uses
