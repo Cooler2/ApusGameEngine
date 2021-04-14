@@ -77,7 +77,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 15;
+ testnum:integer = 6;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -692,21 +692,21 @@ end;
 
 procedure TFontTest.Done;
 begin
- painter.FreeFont(fnt);
+// painter.FreeFont(fnt);
 end;
 
 procedure TFontTest.Init;
 var
  font:cardinal;
 begin
- painter.LoadFont('res\times1.fnt');
+{ painter.LoadFont('res\times1.fnt');
  painter.LoadFont('res\times2.fnt');
  painter.LoadFont('res\times3.fnt');
  painter.LoadFont('res\goodfish1.fnt');
  painter.LoadFont('res\goodfish2.fnt');
  //fnt:=painter.LoadFromFile('test');
  LoadRasterFont('res\test.fnt');
- fnt:=painter.PrepareFont(1);
+ fnt:=painter.PrepareFont(1);}
  painter.MatchFont(1,painter.GetFont('Times New Roman',11));
  font:=painter.GetFont('Times New Roman',12);
  painter.SetFontOption(font,foDownscaleFactor,1);
@@ -762,7 +762,7 @@ begin
  painter.TextOut(1,10,690,$FFFFFF40,'Hello World! Привет всем! Première tentative de l''écriture!');
 
  // Legacy text output
- painter.SetFont(fnt);
+{ painter.SetFont(fnt);
  painter.WriteSimple(10,10,$FFFFFFFF,'Hello');
  for i:=20 downto 4 do begin
   painter.FillRect(9,i*20+2,10+i*8,i*20+20,$C0404090);
@@ -797,7 +797,7 @@ begin
   textEffects[1].dy:=0;
   textEffects[1].power:=3;
   WriteEx(570,80,$FF500000,'Тест блура!',taCenter);
- end;
+ end; }
 
 // painter.FillRect(0,0,511,511,$FFFFFFFF);
 { if frame mod 40<10 then
