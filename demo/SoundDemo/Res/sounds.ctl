@@ -18,6 +18,7 @@ $Section Music
   $Section TestOGG
     File     "music.ogg"
     volume   50
+    loop     ON
   $EndOfSection
 
   $Section TestMP3
