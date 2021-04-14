@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<RadStudioObjectRepository Version="1.0">
+  <Creators>
+    <Creators CreatorIDString="ProjectRepositoryCreator"/>
+    <Creators CreatorIDString="ProjectTemplateCreator"/>
+    <Creators CreatorIDString="BorlandDelphiRepositoryCreator"/>
+    <Creators CreatorIDString="DelphiProjectRepositoryCreator"/>
+    <Creators CreatorIDString="SourceCreator"/>
+  </Creators>
+  <Items>
+    <Item IDString="C:\Apus\Engine\demo\ProjectTemplate\ProjectTemplate" CreatorIDString="ProjectRepositoryCreator">
+      <Name Value="AGE Project"/>
+      <Icon Value=""/>
+      <Description Value="Template project for the Apus Game Engine"/>
+      <Author Value="Ivan Polyacov"/>
+      <Personality Value="Delphi.Personality"/>
+      <Platforms Value=""/>
+      <Frameworks Value=""/>
+      <Identities Value="RADSTUDIO"/>
+      <Categories>
+        <Category Value="Borland.Delphi.New" Parent="Borland.Root">Delphi</Category>
+      </Categories>
+      <ProjectName Value="C:\Apus\Engine\demo\ProjectTemplate\ProjectTemplate.dproj"/>
+      <Files>
+        <File>C:\Apus\Engine\demo\ProjectTemplate\MainScene.pas</File>
+        <File>C:\Apus\Engine\demo\ProjectTemplate\ProjectTemplate.dpr</File>
+        <File>C:\Apus\Engine\demo\ProjectTemplate\ProjectTemplate.dproj</File>
+        <File>C:\Apus\Engine\demo\ProjectTemplate\ProjectTemplate.res</File>
+      </Files>
+    </Item>
+  </Items>
+</RadStudioObjectRepository>
