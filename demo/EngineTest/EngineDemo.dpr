@@ -77,7 +77,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 9;
+ testnum:integer = 15;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -1945,8 +1945,8 @@ begin
   15:test:=T3DCharacterTest.Create;
  end;
 
- //game:=MyGame.Create(TWindowsPlatform.Create, TOpenGL.Create); // Создаем объект
- game:=MyGame.Create(TSDLPlatform.Create, TOpenGL.Create); // Создаем объект
+ game:=MyGame.Create(TWindowsPlatform.Create, TOpenGL.Create); // Создаем объект
+ //game:=MyGame.Create(TSDLPlatform.Create, TOpenGL.Create); // Создаем объект
  game.showFPS:=true;
 
  // Начальные установки игры
