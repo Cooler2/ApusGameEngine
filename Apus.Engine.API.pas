@@ -453,6 +453,7 @@ type
  TMesh=class
   vertices:TVertices;
   indices:TIndices;
+  procedure Draw(tex:TTexture=nil); // draw whole mesh
  end;
 
  PMultiTexLayer=^TMultiTexLayer;
@@ -473,9 +474,9 @@ type
   textEffects:array[1..4] of TTextEffectLayer;
   textMetrics:array of TRect; // results of text measurement (if requested)
   zPlane:double; // default Z value for all primitives
-  viewMatrix:T3DMatrix; // текущая матрица камеры
-  objMatrix:T3DMatrix; // текущая матрица трансформации объекта (ибо OGL не хранит отдельно матрицы объекта и камеры)
-  projMatrix:T3DMatrix; // текущая матрица проекции
+  viewMatrix:T3DMatrix; // current view (camera) matrix
+  objMatrix:T3DMatrix; // current object (model) matrix
+  projMatrix:T3DMatrix; // current projection matrix
 
   texman:TTextureMan;
 
@@ -540,6 +541,7 @@ type
   // Set cull mode
   procedure SetCullMode(mode:TCullMode); virtual; abstract;
 
+  // Drawing settings
   procedure SetMode(blend:TBlendingMode); virtual; abstract; // Режим альфа-блендинга
   procedure SetTexMode(stage:byte;colorMode:TTexBlendingMode=tblModulate2X;alphaMode:TTexBlendingMode=tblModulate;
      filter:TTexFilter=fltUndefined;intFactor:single=0.0); virtual; abstract; //  Настройка стадий (операций) текстурирования
@@ -600,20 +602,6 @@ type
       image1,image2:TTexture;color:cardinal=$FF808080); virtual; abstract;
   // Заполнение прямоугольника несколькими текстурами (из списка)
   procedure DrawMultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080); virtual; abstract;
-
-  // Deprecated Text functions (Legacy Text Protocol 2003) ---------------------
-  function PrepareFont(fontNum:integer;border:integer=0):THandle; virtual; abstract;  // Подготовить шрифт (из DirectText) к использованию
-  procedure SetFontScale(font:THandle;scale:single); virtual; abstract;
-  procedure SaveToFile(font:THandle;name:string); virtual; abstract;  // Сохранить шрифт
-  function LoadFontFromFile(name:string):THandle; virtual; abstract;  // Загрузить из файла
-  procedure FreeFont(font:THandle); virtual; abstract;   // Удалить подготовленный шрифт
-  procedure SetFont(font:THandle); virtual; abstract;  // Выбрать шрифт
-  procedure SetTextOverlay(tex:TTexture;scale:single=1.0;relative:boolean=true); virtual; abstract;
-  function GetTextWidth(st:string;font:integer=0):integer; virtual; abstract;  // Определить ширину текста в пикселях (spacing=0)
-  function GetFontHeight:byte; virtual; abstract;  // Определить высоту шрифта в пикселях
-  procedure WriteSimple(x,y:integer;color:cardinal;st:string;align:TTextAlignment=taLeft;spacing:integer=0); virtual; abstract;  // Простейший вывод текста
-  // Навороченный вывод текста с применением эффектов
-  procedure WriteEx(x,y:integer;color:cardinal;st:string;align:TTextAlignment=taLeft;spacing:integer=0); virtual; abstract;
 
   // Recent Text functions (Text Protocol 2011) ---------------------------
   // font handle structure: xxxxxxxx ssssssss yyyyyyyy 00ffffff (f - font object index, s - scale, x - realtime effects, y - renderable effects and styles)
@@ -928,7 +916,8 @@ var
  function GetKeyEventVirtualCode(tag:cardinal):cardinal; // Extract virtual key code form KBD\KeyXXX event
 
 implementation
-uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game, TypInfo;
+uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
+ TypInfo, Apus.Engine.Tools;
 
  function GetKeyEventScanCode(tag: cardinal): cardinal;
   begin
@@ -1197,6 +1186,15 @@ function TDisplayFitModeHelper.ToString: string;
 function TDisplayScaleModeHelper.ToString: string;
  begin
   result:=GetEnumNameSafe(TypeInfo(TDisplayScaleMode),ord(self));
+ end;
+
+{ TMesh }
+procedure TMesh.Draw(tex:TTexture=nil); // draw whole mesh
+ begin
+  if length(indices)>0 then
+   DrawIndexedMesh(vertices,indices,tex)
+  else
+   DrawMesh(vertices,tex);
  end;
 
 initialization
