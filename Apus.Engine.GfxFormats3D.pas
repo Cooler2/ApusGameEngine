@@ -61,6 +61,7 @@ implementation
     sa:=Split('/',st);
     idx:=StrToIntDef(sa[0],1)-1;
     result:=vCnt;
+    vertices[vCnt].diffuse:=$FF808080;
     vertices[vCnt].x:=points[idx].x;
     vertices[vCnt].y:=points[idx].y;
     vertices[vCnt].z:=points[idx].z;
