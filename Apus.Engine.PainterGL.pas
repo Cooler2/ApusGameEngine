@@ -88,7 +88,6 @@ type
   chardrawer:integer;
 
   outputPos:TPoint; // output area in the default render target (bottom-left corner, relative to bottom-left RT corner)
-  renderWidth,renderHeight:integer; // size of render area for default target (virtual screen size)
   VPwidth,VPheight:integer; // viewport size for backbuffer
   targetScaleX,targetScaleY:single; // VPwidth/renderWidth
 

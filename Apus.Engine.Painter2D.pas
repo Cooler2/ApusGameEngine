@@ -73,6 +73,7 @@ interface
 
   // 3D management
   procedure SetupCamera(origin,target,up:TPoint3;turnCW:double=0); override;
+  procedure SetPerspective(fov:single;zMin,zMax:double); override;
   procedure SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); override;
 
   // State manipulation
@@ -150,6 +151,7 @@ interface
   sCnt:byte;
 
   curTarget:TTexture; // current render target
+  renderWidth,renderHeight:integer; // size of render area for default target
 
   // Texture interpolation settings
 //  texIntMode:array[0..3] of TTexInterpolateMode; // current interpolation mode for each texture unit
@@ -1430,6 +1432,18 @@ begin
  projMatrix[0,1]:=0;      projMatrix[1,1]:=2*zScreen/(yMax-yMin);  projMatrix[2,1]:=B;     projMatrix[3,1]:=0;
  projMatrix[0,2]:=0;      projMatrix[1,2]:=0;                      projMatrix[2,2]:=C;     projMatrix[3,2]:=D;
  projMatrix[0,3]:=0;      projMatrix[1,3]:=0;                      projMatrix[2,3]:=1;     projMatrix[3,3]:=0;
+end;
+
+procedure TBasicPainter.SetPerspective(fov:single;zMin,zMax:double);
+var
+ x,y,aspect:single;
+begin
+ x:=tangent(fov/2);
+ y:=x;
+ aspect:=renderWidth/renderHeight;
+ if aspect>1 then y:=y/aspect
+  else x:=x*aspect;
+ SetPerspective(-x,x,-y,y,1,zMin,zMax);
 end;
 
 procedure TBasicPainter.BeginTextBlock;
