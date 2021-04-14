@@ -37,8 +37,8 @@ constructor TMainApp.Create;
  begin
   inherited;
   // Alter some global settings
-  gameTitle:='Simple Engine Demo'; // app window title
-  configFileName:='SimpleDemo\game.ctl';
+  gameTitle:='Apus Game Engine'; // app window title
+  //configFileName:='game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   //usedPlatform:=spSDL;
