@@ -72,9 +72,11 @@ interface
   procedure PopRenderTarget; override;
 
   // 3D management
-  procedure SetupCamera(origin,target,up:TPoint3;turnCW:double=0); override;
+  procedure SetupCamera(origin,target,up:T3DPoint;turnCW:double=0); override;
   procedure SetPerspective(fov:single;zMin,zMax:double); override;
   procedure SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); override;
+  procedure Set3DTransform(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); override;
+
 
   // State manipulation
   function GetClipping: TRect; override;
@@ -482,8 +484,8 @@ var
  vrt:array[0..3] of TVertex;
  w,h:integer;
 begin
- w:=abs(r.Right-r.Left)-1;
- h:=abs(r.Bottom-r.top)-1;
+ w:=abs(r.width)-1;
+ h:=abs(r.height)-1;
  if tex.caps and tfScaled>0 then begin
   w:=round(w+1)-1;
   h:=round(h+1)-1;
@@ -1237,6 +1239,15 @@ begin
  permOfsX:=x; curOfsX:=x;
  permOfsY:=y; curOfsY:=y;
 end;}
+
+procedure TBasicPainter.Set3DTransform(oX, oY, oZ, scale, yaw, roll, pitch: single);
+var
+ m:T3DMatrix;
+begin
+ m.Init;
+ //if pitch<>0 then MultMat4();
+ Set3DTransform(m);
+end;
 
 procedure TBasicPainter.SetClipping(r: TRect);
 begin

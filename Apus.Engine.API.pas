@@ -463,6 +463,14 @@ type
   next:PMultiTexLayer;
  end;
 
+ TDepthBufferTest=(
+   dbDisabled, // disable depth test
+   dbPass,       // always pass depth test
+   dbPassLess,   // pass lesser values
+   dbPassLessEqual,  // pass lesser or equal values
+   dbPassGreater, // pass greater values
+   dbNever); // never pass depth test
+
  TCullMode=(cullNone, // Display both sides
    cullCW,    // Omit CW faces. This engine uses CW faces for 2D drawing
    cullCCW);  // Omit CCW faces. in OpenGL CCW-faces are considered front by default
@@ -532,11 +540,16 @@ type
   // Alternate way to set camera position and orientation
   // (origin - camera center, target - point to look, up - any point ABOVE camera view line, so plane OTU is vertical),
   // turnCW - camera turn angle (along view axis, CW direction)
-  procedure SetupCamera(origin,target,up:TPoint3;turnCW:double=0); virtual; abstract;
+  procedure SetupCamera(origin,target,up:T3DPoint;turnCW:double=0); virtual; abstract;
   // Set Model (model to world) transformation matrix (MUST BE USED AFTER setting the view/camera)
-  procedure Set3DTransform(mat:T3DMatrix); virtual; abstract;
+  procedure Set3DTransform(mat:T3DMatrix); overload; virtual; abstract;
+  // Set object position/scale/rotate
+  procedure Set3DTransform(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual; abstract;
   // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
   function GetMVPMatrix:T3DMatrix; virtual; abstract;
+
+  // Enable/setup depth test
+  procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); virtual; abstract;
 
   // Set cull mode
   procedure SetCullMode(mode:TCullMode); virtual; abstract;

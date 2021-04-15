@@ -122,7 +122,7 @@ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean
   i:=length(eventClass);
   if length(event)<=i then exit(false);
   if event[i+1]<>'\' then exit(false);
-  if not event.StartsText(eventClass,event) then exit(false);
+  if not event.StartsWith(eventClass,true) then exit(false);
   subEvent:=Copy(event,i+2,length(event));
   result:=true;
  end;

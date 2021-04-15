@@ -42,6 +42,8 @@ type
   procedure SetMask(rgb:boolean;alpha:boolean); override;
   procedure ResetMask; override; // вернуть маску на ту, которая была до предыдущего SetMask
 
+  procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); override;
+
   // Set camera (view) matrix
   procedure Set3DView(view:T3DMatrix); override;
   // Set model matrix
@@ -1112,6 +1114,23 @@ begin
  ResetTextures;
  except
   on e:exception do ForceLogMessage('Error in STTT '+inttostr(stage)+':('+rt.Describe+'): '+ExceptionMsg(e));
+ end;
+end;
+
+procedure TGLPainter.UseDepthBuffer(test:TDepthBufferTest; writeEnable:boolean);
+begin
+ if test=dbDisabled then begin
+  glDisable(GL_DEPTH_TEST)
+ end else begin
+  glEnable(GL_DEPTH_TEST);
+  case test of
+   dbPass:glDepthFunc(GL_ALWAYS);
+   dbPassLess:glDepthFunc(GL_LESS);
+   dbPassLessEqual:glDepthFunc(GL_LEQUAL);
+   dbPassGreater:glDepthFunc(GL_GREATER);
+   dbNever:glDepthFunc(GL_NEVER);
+  end;
+  glDepthMask(writeEnable);
  end;
 end;
 
