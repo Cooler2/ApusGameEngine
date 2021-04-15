@@ -72,7 +72,7 @@ interface
   procedure PopRenderTarget; override;
 
   // 3D management
-  procedure SetupCamera(origin,target,up:T3DPoint;turnCW:double=0); override;
+  procedure SetupCamera(origin,target,up:TPoint3;turnCW:double=0); override;
   procedure SetPerspective(fov:single;zMin,zMax:double); override;
   procedure SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); override;
   procedure Set3DTransform(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); override;
@@ -227,7 +227,7 @@ var
  textCacheHeight:integer=512;
 
 implementation
-uses SysUtils,Apus.MyServis,Apus.Images,Apus.UnicodeFont,Apus.Geom2D,
+uses SysUtils,Apus.MyServis,Apus.Images,Apus.UnicodeFont,Apus.Geom2D,Math,
      Apus.Colors,Apus.GlyphCaches{$IFDEF FREETYPE},Apus.FreeTypeFont{$ENDIF};
 
 const
@@ -1244,7 +1244,7 @@ procedure TBasicPainter.Set3DTransform(oX, oY, oZ, scale, yaw, roll, pitch: sing
 var
  m:T3DMatrix;
 begin
- m.Init;
+ //m.Init;
  //if pitch<>0 then MultMat4();
  Set3DTransform(m);
 end;
@@ -1449,7 +1449,7 @@ procedure TBasicPainter.SetPerspective(fov:single;zMin,zMax:double);
 var
  x,y,aspect:single;
 begin
- x:=tangent(fov/2);
+ x:=tan(fov/2);
  y:=x;
  aspect:=renderWidth/renderHeight;
  if aspect>1 then y:=y/aspect

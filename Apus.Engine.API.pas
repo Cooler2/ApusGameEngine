@@ -540,7 +540,7 @@ type
   // Alternate way to set camera position and orientation
   // (origin - camera center, target - point to look, up - any point ABOVE camera view line, so plane OTU is vertical),
   // turnCW - camera turn angle (along view axis, CW direction)
-  procedure SetupCamera(origin,target,up:T3DPoint;turnCW:double=0); virtual; abstract;
+  procedure SetupCamera(origin,target,up:TPoint3;turnCW:double=0); virtual; abstract;
   // Set Model (model to world) transformation matrix (MUST BE USED AFTER setting the view/camera)
   procedure Set3DTransform(mat:T3DMatrix); overload; virtual; abstract;
   // Set object position/scale/rotate
