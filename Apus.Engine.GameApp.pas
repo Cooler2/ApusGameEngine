@@ -659,6 +659,7 @@ procedure TLoadingScene.Render;
 var
  i,l:integer;
  x,y,a:double;
+ scene:TGameScene;
 begin
  if tex=nil then begin
   v.Animate(0.6,1500,Spline1);
@@ -680,6 +681,10 @@ begin
   painter.DrawRotScaled(x,y,1,1,-a,tex,cardinal(L shl 24)+$FFFFFF);
  end;
  Signal('LOADINGSCENE\Render');
+ // Turn scene off if it is not visible anymore
+ scene:=game.TopmostVisibleScene(true);
+ if (scene<>self) and (scene.effect=nil) then
+  SetStatus(ssFrozen);
 end;
 
 end.
