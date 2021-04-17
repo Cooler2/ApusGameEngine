@@ -9,7 +9,7 @@
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit Apus.Engine.PainterGL;
 interface
- uses Types, Apus.Engine.API, Apus.Engine.Painter2D;
+ uses Types, Apus.Engine.API, Apus.Engine.PainterBase;
 
 type
  TMatrixType=(mtModelView,mtProjection);
@@ -86,7 +86,6 @@ type
   // Text effect
   txttex:TTexture;
 
-  charmap:PCharMap;
   chardrawer:integer;
 
   outputPos:TPoint; // output area in the default render target (bottom-left corner, relative to bottom-left RT corner)
@@ -209,8 +208,8 @@ var
 begin
  try
  // Adjust font cache
- if game.screenWidth*game.screenHeight>3000000 then textCacheHeight:=max2(textCacheHeight,1024);
- //if game.screenWidth*game.screenHeight>5000000 then textCacheWidth:=max2(textCacheWidth,1024);
+ if game.screenWidth*game.screenHeight>2500000 then textCacheHeight:=max2(textCacheHeight,1024);
+ if game.screenWidth*game.screenHeight>3500000 then textCacheWidth:=max2(textCacheWidth,1024);
  texman:=TGLTextureMan.Create;
  inherited Create;
  defaultRenderTarget:=nil;

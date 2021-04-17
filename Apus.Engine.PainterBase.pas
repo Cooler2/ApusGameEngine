@@ -4,7 +4,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 {$R-}
-unit Apus.Engine.Painter2D;
+unit Apus.Engine.PainterBase;
 interface
  uses Types,Apus.Geom3D,Apus.Engine.API;
  const
@@ -25,24 +25,6 @@ interface
   TColorFunc=function(x,y:single;color:cardinal):cardinal;
   // Процедура модификации стиля отрисовки ссылок
   TTextLinkStyleProc=procedure(link:cardinal;var sUnderline:boolean;var color:cardinal);
-
-{ Point3Lit=record
-   x,y,z:single;
-   color:cardinal;
-   u,v:single;
-  end;
-  Point3Unlit=record
-   x,y,z:single;
-   nx,ny,nz:single;
-   color,specular:cardinal;
-   u,v:single;
-  end;}
-
- // Таблица перекодировки:
- // если число >=32 - индекс символа
- // <32 - ширина спецсимвола в пикселях
- PCharMap=^TCharMap;
- TCharMap=array[0..255] of byte;
 
  // Вставка картинок в текст (8 байт)
  TInlineImage=packed record
@@ -85,7 +67,6 @@ interface
   procedure ResetClipping; override;
   procedure SetClipping(r: TRect); override;
 
-  procedure UseCustomShader; override;
 
 //  procedure ScreenOffset(x, y: integer); override;
 
@@ -136,7 +117,6 @@ interface
      options:integer=0;targetWidth:integer=0;query:cardinal=0); override;
   procedure TextOutW(font:cardinal;x,y:integer;color:cardinal;st:String16;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0); override;
-//  procedure TextOutEx(x,y:integer;st:widestring;attribs:PCharAttr;align:TTextAlignment=taLeft;options:integer=0); override;
   procedure MatchFont(legacyfont,newfont:cardinal;addY:integer=0); override; // какой новый шрифт использовать вместо старого
   procedure SetFontOption(font:cardinal;option:cardinal;value:single); override;
   procedure SetTextTarget(buf:pointer;pitch:integer); override;
@@ -168,7 +148,6 @@ interface
   textBufUsage:integer; // number of vertices stored in textBuf
   softScaleOn:boolean deprecated; // current state of SoftScale mode (depends on render target)
 
-  charmap:PCharMap;
   chardrawer:integer;
   supportARGB:boolean;
   // Text effect
@@ -1242,11 +1221,23 @@ end;}
 
 procedure TBasicPainter.Set3DTransform(oX, oY, oZ, scale, yaw, roll, pitch: single);
 var
- m:T3DMatrix;
+ m,m2:T3DMatrix;
+ i,j:integer;
 begin
- //m.Init;
- //if pitch<>0 then MultMat4();
- Set3DTransform(m);
+ // rotation
+ if (yaw<>0) or (roll<>0) or (pitch<>0) then
+  m:=MatrixFromYawRollPitch4(yaw,roll,pitch)
+ else
+  m:=IdentMatrix4;
+ // scale
+ if scale<>1 then
+  for i:=0 to 2 do
+   for j:=0 to 2 do
+    m[i,j]:=m[i,j]*scale;
+ // position
+ MultMat4(TranslationMat4(ox,oy,oz),m,m2);
+
+ Set3DTransform(m2);
 end;
 
 procedure TBasicPainter.SetClipping(r: TRect);
@@ -1505,10 +1496,6 @@ begin
  end else
  {$ENDIF}
   raise EWarning.Create('GTW 1');
-end;
-
-procedure TBasicPainter.UseCustomShader;
-begin
 end;
 
 function TBasicPainter.FontHeight(font:cardinal):integer;

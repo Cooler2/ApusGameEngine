@@ -201,7 +201,7 @@ type
 
 implementation
  uses SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools
-     {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},Apus.Engine.Painter2D,
+     {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},Apus.Engine.PainterBase,
      Apus.EventMan, Apus.Engine.UIScene, Apus.Engine.UIClasses, Apus.Engine.Console,
      Apus.Publics, Apus.GfxFormats, Apus.Clipboard;
 

@@ -475,6 +475,16 @@ type
    cullCW,    // Omit CW faces. This engine uses CW faces for 2D drawing
    cullCCW);  // Omit CCW faces. in OpenGL CCW-faces are considered front by default
 
+ TDefaultShader=(
+  shader2D,  // default shader for 2D rendering (texture stages, no lightning)
+  shader3D); // default shader for 3D - with ambient+directional light and material properties
+
+ TShader=class
+  // Set uniform value
+  procedure SetUniform(name:String8;value:integer); overload; virtual; abstract;
+  procedure SetUniform(name:String8;value:TVector3s); overload; virtual; abstract;
+  procedure SetUniform(name:String8;value:T3DMatrix); overload; virtual; abstract;
+ end;
 
  // Drawing interface
  TPainter=class
@@ -513,6 +523,7 @@ type
   procedure SetClipping(r:TRect); virtual; abstract; // область отсечения (в пределах текущей)
   procedure ResetClipping; virtual; abstract; // Отменить предыдущее отсечение
   procedure OverrideClipping; virtual; abstract; // то же что setClipping по границам экрана без учета текущего отсечения
+  procedure RestoreClipping; virtual; abstract; // Установить параметры отсечения по текущему viewport'у
 
   // 3D / Camera  / Projection
   // -------------------------
@@ -550,22 +561,41 @@ type
 
   // Enable/setup depth test
   procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); virtual; abstract;
-
   // Set cull mode
   procedure SetCullMode(mode:TCullMode); virtual; abstract;
 
-  // Drawing settings
-  procedure SetMode(blend:TBlendingMode); virtual; abstract; // Режим альфа-блендинга
+  // Render settings for the default shader
+  // ------------------
+  // Set blending mode
+  procedure SetMode(blend:TBlendingMode); virtual; abstract;
+  // Set texture stage mode (for default shader)
   procedure SetTexMode(stage:byte;colorMode:TTexBlendingMode=tblModulate2X;alphaMode:TTexBlendingMode=tblModulate;
-     filter:TTexFilter=fltUndefined;intFactor:single=0.0); virtual; abstract; //  Настройка стадий (операций) текстурирования
-  procedure UseCustomShader; virtual; abstract; // указывает, что клиентский код включил собственный шейдер => движок не должен его переключать
+     filter:TTexFilter=fltUndefined;intFactor:single=0.0); virtual; abstract;
+  // Turn lighting off
+  procedure DisableLight; virtual; abstract;
+  // Turn lighting on: use directional light + ambient color
+  procedure UseDirectLight(direction:TVector3;power:single;color,ambientColor:cardinal); virtual; abstract;
+  // Turn lighting on: use point light + ambient color
+  procedure UsePointLight(position:TPoint3;power:single;color,ambientColor:cardinal); virtual; abstract;
+
+  // Shaders
+  // -------
+  // Compile custom shader program from source
+  function BuildShader(vSrc,fSrc:String8;extra:String8=''):TShader; virtual; abstract;
+  // Load and build shader from file(s)
+  function LoadShader(filename:String8;extra:String8=''):TShader; virtual; abstract;
+  // Set custom shader (pass 0 if it is already enabled because engine should know)
+  procedure UseCustomShader(shader:TShader); virtual; abstract;
+  // Set predefined built-in shader
+  procedure UseDefaultShader(shader:TDefaultShader); virtual; abstract;
+
   procedure ResetTexMode; virtual; abstract; // возврат к стандартному режиму текстурирования (втч после использования своего шейдера)
 
+  // Rendertarget write mask
   procedure SetMask(rgb:boolean;alpha:boolean); virtual; abstract;
   procedure ResetMask; virtual; abstract; // вернуть маску на ту, которая была до предыдущего SetMask
 
   procedure Restore; virtual; abstract; // Восстановить состояние акселератора (если оно было нарушено внешним кодом)
-  procedure RestoreClipping; virtual; abstract; // Установить параметры отсечения по текущему viewport'у
 
   // Upload texture to the Video RAM and make it active for given stage (don't call manually if you don't really need)
   procedure UseTexture(tex:TTexture;stage:integer=0); virtual; abstract;
@@ -694,6 +724,9 @@ type
   // Для изменения статуса использовать только это!
   procedure SetStatus(st:TSceneStatus); virtual;
 
+  // Called once from the main thread before first Render() call
+  procedure Initialize; virtual;
+
   // Обработка сцены, вызывается с заданной частотой если только сцена не заморожена
   // Этот метод может выполнять логику сцены, движение/изменение объектов и т.п.
   function Process:boolean; virtual;
@@ -730,6 +763,7 @@ type
   // Ввод
   KeyBuffer:array[0..63] of cardinal;
   first,last:byte;
+  initialized:boolean;
  end;
 
   // Main game interface
@@ -1021,6 +1055,10 @@ end;
 destructor TGameScene.Destroy;
 begin
  if status<>ssFrozen then raise EError.Create('Scene must be frozen before deletion: '+name+' ('+ClassName+')');
+end;
+
+procedure TGameScene.Initialize;
+begin
 end;
 
 function TGameScene.KeyPressed: boolean;
