@@ -94,11 +94,11 @@ implementation
 
  procedure DrawBtnImage(pos:TPoint2s;img:TTexture;color:cardinal;scaleX:single=1;scaleY:single=1);
   begin
-   painter.DrawRotScaled(pos.x,pos.y,scaleX,scaleY,0,img,color);
+   draw.RotScaled(pos.x,pos.y,scaleX,scaleY,0,img,color);
 {   if (scaleX=1) and (scaleY=1) then
-    painter.DrawImage(x,y,img,color)
+    draw.Image(x,y,img,color)
    else
-    painter.DrawScaled(x,y,x+(img.width-1)*scaleX,y+(img.height-1)*scaleY,img,color);}
+    draw.Scaled(x,y,x+(img.width-1)*scaleX,y+(img.height-1)*scaleY,img,color);}
   end;
 
  procedure DrawButton(but:TUIButton;sNum:integer);
@@ -186,13 +186,13 @@ implementation
          // перевод ДО разделения на подстроки!
          sa:=Split('~',translate(caption),#0);
          cRect:=but.GetClientPosOnScreen;
-         painter.SetClipping(cRect);
-         painter.TextColorX2:=true;
+         gfx.clip.Rect(cRect);
+         draw.TextColorX2:=true;
          if btnStyle=bsCheckbox then begin
           ix:=cRect.left+24+ix; iy:=cRect.top+2+iy;
           mode:=taLeft;
          end else begin
-          iy:=cRect.top+((globalrect.height-2-painter.FontHeight(font)*length(sa)) div 2)+byte(pressed)+iy;
+          iy:=cRect.top+((globalrect.height-2-txt.Height(font)*length(sa)) div 2)+byte(pressed)+iy;
           mode:=bStyle.alignment;
           if mode=taJustify then mode:=taCenter;
           if mode=taCenter then ix:=cRect.left+cRect.width div 2+byte(pressed)+ix else
@@ -201,23 +201,23 @@ implementation
          end;
           // Вывод обычным текстом (тут всё устаревшее и требует переосмысления)
           for j:=0 to length(sa)-1 do begin
-           painter.TextOutW(font,ix,iy,col,Str16(sa[j]),mode,toAddBaseline);
+           txt.WriteW(font,ix,iy,col,Str16(sa[j]),mode,toAddBaseline);
            if bStyle.underline then begin
             col:=ColorMult2(col,$80FFFFFF);
-            k:=round(painter.FontHeight(font)*0.96);
-            l:=painter.TextWidth(font,sa[j]);
+            k:=round(txt.Height(font)*0.96);
+            l:=txt.Width(font,sa[j]);
             if mode=taLeft then
-             painter.DrawLine(ix,iy+k,ix+l,iy+k,col);
+             draw.Line(ix,iy+k,ix+l,iy+k,col);
             if mode=taCenter then
-             painter.DrawLine(ix-l div 2,iy+k,ix+l div 2,iy+k,col);
+             draw.Line(ix-l div 2,iy+k,ix+l div 2,iy+k,col);
             if mode=taRight then
-             painter.DrawLine(ix-l,iy+k,ix,iy+k,col);
+             draw.Line(ix-l,iy+k,ix,iy+k,col);
            end;
-           inc(iy,painter.FontHeight(font));
+           inc(iy,txt.Height(font));
            if j=0 then inc(ix);
           end;
-         painter.TextColorX2:=false;
-         painter.ResetClipping;
+         draw.TextColorX2:=false;
+         gfx.clip.Restore;
         end;
 
      end; // style>0
@@ -251,11 +251,11 @@ implementation
    // Элемент - окно
    if control is TUISkinnedWindow then with control as TUISkinnedWindow do begin
     if background<>nil then begin    // нарисовать фон окна
-     if TranspBgnd then painter.SetMode(blMove);
+     if TranspBgnd then gfx.target.BlendMode(blMove);
      img:=background;
      if img is TTexture then
-      painter.DrawImage(globalRect.Left,globalRect.Top,img as TTexture,color);
-     if TranspBgnd then painter.SetMode(blAlpha);
+      draw.Image(globalRect.Left,globalRect.Top,img as TTexture,color);
+     if TranspBgnd then gfx.target.BlendMode(blAlpha);
     end;
    end;
 
@@ -269,7 +269,7 @@ implementation
 
     end else begin
      // вертикальная
-     painter.FillGradrect(x1,y1,x2,y2,d,c,false);
+     draw.FillGradrect(x1,y1,x2,y2,d,c,false);
      if enabled and (globalrect.height>=16) and (pagesize<max-min) then begin
       c:=colorMix(color,$FF909090,128);
       if over and not (hooked=control) then c:=ColorAdd(c,$101010);
@@ -279,10 +279,10 @@ implementation
       if j>=globalrect.height then j:=globalrect.height-1;
       if j>i+15 then begin
        d:=(j-i)*8+round(sqrt((j-i)*10));
-       painter.TexturedRect(x1,y1+i,x2,y1+j,scrollTex,0.02,0.5-d/1000,0.98,0.5-d/1000,0.98,0.5+d/1000,c);
+       draw.TexturedRect(x1,y1+i,x2,y1+j,scrollTex,0.02,0.5-d/1000,0.98,0.5-d/1000,0.98,0.5+d/1000,c);
        c:=colorAdd(c,$101010);
-       painter.DrawScaled(x1,y1+j-10,x2,y1+j,scroll2,c);
-       painter.DrawScaled(x1,y1+i,x2,y1+i+10,scroll1,c);
+       draw.Scaled(x1,y1+j-10,x2,y1+j,scroll2,c);
+       draw.Scaled(x1,y1+i,x2,y1+i+10,scroll1,c);
       end;
      end;
     end;
@@ -314,8 +314,8 @@ implementation
    if (sNum>0) then hash[j]:=sNum;
 
    if (snum>0) and (btnStyles[snum].alphamode<>amAuto) then begin
-    if btnStyles[snum].alphamode=amSkip then painter.SetMask(true,false)
-     else painter.SetMask(true,true);
+    if btnStyles[snum].alphamode=amSkip then gfx.target.Mask(true,false)
+     else gfx.target.Mask(true,true);
    end;
 
 
@@ -327,7 +327,7 @@ implementation
         iy:=round(y1-btnStyles[sNum].offsetY);
         if btnStyles[sNum].image=0 then
          raise EError.create('InpBox style has no image');
-        painter.DrawImage(ix,iy,btnImages[btnStyles[i].image].image,$FF808080);
+        draw.Image(ix,iy,btnImages[btnStyles[i].image].image,$FF808080);
       end;
       bool:=noborder;
       int:=backgnd;

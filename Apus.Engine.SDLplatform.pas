@@ -1,4 +1,4 @@
-// Windows-specific functions used by Game object
+﻿// Windows-specific functions used by Game object
 //
 // Copyright (C) 2020 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -358,9 +358,9 @@ procedure TSDLPlatform.ProcessSystemMessages;
     end;
 
     SDL_TEXTINPUT:begin
-     len:=StrLen(event.text.text);
+     len:=StrLen(event.txt.text);
      SetLength(ust,len);
-     move(event.text.text,ust[1],len);
+     move(event.txt.text,ust[1],len);
      wst:=DecodeUTF8(ust);
      for i:=1 to length(wst) do
       Signal('KBD\UNICHAR',word(wst[i]));

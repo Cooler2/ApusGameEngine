@@ -149,7 +149,7 @@ var
 begin
  i:=0;
  {$IFDEF DIRECTX}
- if painter.texman.InheritsFrom(TDxTextureMan) then begin
+ if draw.texman.InheritsFrom(TDxTextureMan) then begin
   // 1-я итерация - проверка альтернативных форматов
   case ForceFormat of
    ipfRGB:if supportRGB then exit else ForceFormat:=ipfXRGB;
@@ -576,7 +576,7 @@ end;
 procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
  begin
    if flags=liffDefault then flags:=defaultLoadImageFlags;
-   if img<>nil then painter.texman.FreeImage(TTexture(img));
+   if img<>nil then FreeImage(TTexture(img));
 
    if IsPathRelative(fName) then fName:=defaultImagesDir+fName;
    img:=LoadImageFromFile(fName,flags,ipf32bpp);
@@ -627,7 +627,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
   begin
    w:=image.width-(x2-x1)-(x4-x3);
    h:=image.height-(y2-y1)-(y4-y3);
-   result:=painter.texman.AllocImage(w,h,image.PixelFormat,0,image.name+'_shr') as TTexture;
+   result:=AllocImage(w,h,image.PixelFormat,0,image.name+'_shr') as TTexture;
    imgW:=image.width;
    imgH:=image.height;
    image.Lock(0,lmReadOnly);
@@ -659,7 +659,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    dh:=y2-y1;
    w:=image.width+dw;
    h:=image.height+dh;
-   result:=painter.texman.AllocImage(w,h,image.PixelFormat,0,image.name+'_expd') as TTexture;
+   result:=AllocImage(w,h,image.PixelFormat,0,image.name+'_expd') as TTexture;
    image.Lock(0,lmReadOnly);
    result.Lock;
    try
@@ -706,7 +706,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    end else
     flipY:=false;
 
-   result:=painter.texman.AllocImage(newWidth,newHeight,ipfARGB,
+   result:=AllocImage(newWidth,newHeight,ipfARGB,
        aiSysMem*byte(sysMem),'_'+image.name) as TTexture;
    result.Lock;
    if (newWidth>image.width) or (newHeight>image.height) then begin

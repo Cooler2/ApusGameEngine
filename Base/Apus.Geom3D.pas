@@ -200,6 +200,7 @@ interface
  procedure Invert3(const m:TMatrix3;out dest:TMatrix3);
  procedure Invert4(const m:TMatrix43;out dest:TMatrix43); overload;
  procedure Invert4(const m:TMatrix43s;out dest:TMatrix43s); overload;
+ // Complete inversion using Gauss method
  procedure Invert4Full(m:TMatrix4;out dest:TMatrix4);
 
  function Det(const m:TMatrix3):single;

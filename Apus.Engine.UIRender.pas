@@ -68,7 +68,7 @@ implementation
 
  procedure DrawGlobalShadow(color:cardinal);
   begin
-   painter.FillRect(0,0,game.renderWidth,game.renderHeight,color);
+   draw.FillRect(0,0,game.renderWidth,game.renderHeight,color);
   end;
 
  procedure DrawUI(item:TUIElement;customDraw:boolean=false);
@@ -89,7 +89,7 @@ implementation
    ///  Need to find a generic approach.
    maskChange:=(item.parent<>nil) and (item.parent.transpmode<>tmTransparent);
    maskChange:=false;
-   if maskChange then painter.SetMask(true,false);}
+   if maskChange then gfx.target.Mask(true,false);}
    try
     // Draw control
     if (item.customDraw=customDraw) and
@@ -103,7 +103,7 @@ implementation
      if (item=underMouse) or
         ((underMouse<>nil) and (item=underMouse.parent)) then
        with item.globalRect do begin
-         painter.Rect(left,top,right-1,bottom-1,$80FFFFFF xor ($FFFFFF*((MyTickCount shr 8) and 1)));
+         draw.Rect(left,top,right-1,bottom-1,$80FFFFFF xor ($FFFFFF*((MyTickCount shr 8) and 1)));
        end;
    except
     on E:Exception do begin
@@ -138,23 +138,23 @@ implementation
     clipping:=item.clipChildren;
     if clipping then begin
      r:=item.GetClientPosOnScreen;
-     painter.SetClipping(r);
+     gfx.clip.Rect(r);
     end;
 
     for i:=0 to cnt-1 do begin
      // если элемент не клипится и фон - не прозрачный - нарисовать без отсечения
      if clipping and not list[i].parentClip and not transpBgnd then begin
-      painter.OverrideClipping;
+      gfx.clip.Nothing;
       DrawUI(list[i]);
-      painter.ResetClipping;
+      gfx.clip.Restore;
      end else
       DrawUI(list[i]);
     end;
 
-    if clipping then painter.ResetClipping;
+    if clipping then gfx.clip.Restore;
    end;
 {   // вернуть маску назад
-   if maskChange then painter.ResetMask;}
+   if maskChange then gfx.target.UnMask;}
   end;
 
  procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string='');
@@ -175,34 +175,34 @@ implementation
     sa:=split('\n',hnt.simpleText,'"');
     wsa:=DecodeUTF8A(sa);
     if font=0 then font:=defaultHintFont;
-    if font=0 then font:=painter.GetFont('Default',7);
-    h:=round(painter.FontHeight(font)*1.5);
+    if font=0 then font:=txt.GetFont('Default',7);
+    h:=round(txt.Height(font)*1.5);
     iHeight:=h*length(sa)+9;
     iWidth:=0;
     for i:=1 to length(sa) do
-     if iWidth<painter.TextWidthW(font,wsa[i-1]) then
-      iWidth:=painter.TextWidthW(font,wsa[i-1]);
-    dw:=painter.TextWidthW(font,'M');
+     if iWidth<txt.WidthW(font,wsa[i-1]) then
+      iWidth:=txt.WidthW(font,wsa[i-1]);
+    dw:=txt.WidthW(font,'M');
     inc(iWidth,4+dw);
     LogMessage('[Re]alloc hint image');
-    if HintImage<>nil then painter.texman.FreeImage(HintImage);
-    HintImage:=painter.texman.AllocImage(iWidth,iHeight,pfRenderTargetAlpha,aiTexture+aiRenderTarget,'UI_HintImage');
+    if HintImage<>nil then FreeImage(HintImage);
+    HintImage:=AllocImage(iWidth,iHeight,pfRenderTargetAlpha,aiTexture+aiRenderTarget,'UI_HintImage');
     if hintImage=nil then
       raise EError.Create('Failed to alloc hint image!');
     size:=Point2s(iWidth,iHeight);
-    painter.BeginPaint(hintImage);
+    gfx.BeginPaint(hintImage);
     try
-     painter.SetMask(true,true); // потенциально может вредить отрисовке следующих элементов
-     painter.Clear(0,-1,-1);
-     painter.FillRect(1,2,iwidth-1,iheight-2,$80000000);
-     painter.FillRect(2,1,iwidth-2,iheight-1,$80000000);
-     painter.FillGradrect(0,0,iwidth-3,iheight-3,$FFFFFFD0,$FFE0E0A0,true);
-     painter.Rect(0,0,iwidth-3,iheight-3,$FF000000);
-     painter.ResetMask;
+     gfx.target.Mask(true,true); // потенциально может вредить отрисовке следующих элементов
+     gfx.target.Clear(0,-1,-1);
+     draw.FillRect(1,2,iwidth-1,iheight-2,$80000000);
+     draw.FillRect(2,1,iwidth-2,iheight-1,$80000000);
+     draw.FillGradrect(0,0,iwidth-3,iheight-3,$FFFFFFD0,$FFE0E0A0,true);
+     draw.Rect(0,0,iwidth-3,iheight-3,$FF000000);
+     gfx.target.UnMask;
      for i:=0 to length(sa)-1 do
-      painter.TextOutW(font,1+dw div 2,round(2+h div 7+(i+0.75)*h),$D0000000,wsa[i]);
+      txt.WriteW(font,1+dw div 2,round(2+h div 7+(i+0.75)*h),$D0000000,wsa[i]);
     finally
-     painter.EndPaint;
+     gfx.EndPaint;
     end;
    end;
   end;
@@ -228,10 +228,10 @@ implementation
    if centered then begin
     p:=c.TransformTo(c.GetRect.Center,c.parent);
     scale:=c.globalScale;
-    painter.DrawRotScaled(p.x,p.y,scale.x,scale.y,0,img);
+    draw.RotScaled(p.x,p.y,scale.x,scale.y,0,img);
    end else begin
     r:=c.GetPosOnScreen;
-    with r do painter.DrawScaled(left,top,right+1,bottom+1,img);
+    with r do draw.Scaled(left,top,right+1,bottom+1,img);
    end;
   end;
 
@@ -265,11 +265,11 @@ implementation
    c:=GetColor(control,0);
    c2:=GetColor(control,1);
    if c<>0 then begin
-    if transpBgnd and (control.shape<>shapeEmpty) then painter.SetMode(blMove);
-    painter.FillRect(x1,y1,x2,y2,c);
-    if transpBgnd then painter.SetMode(blAlpha);
+    if transpBgnd and (control.shape<>shapeEmpty) then gfx.target.BlendMode(blMove);
+    draw.FillRect(x1,y1,x2,y2,c);
+    if transpBgnd then gfx.target.BlendMode(blAlpha);
    end;
-   if c2<>0 then painter.Rect(x1,y1,x2,y2,c2);
+   if c2<>0 then draw.Rect(x1,y1,x2,y2,c2);
   end;
 
  procedure DrawUIHint(control:TUIHint;x1,y1,x2,y2:integer);
@@ -307,7 +307,7 @@ implementation
        v:=256-(MyTickCount-created) div 2;
        if v<=0 then begin
         ForceLogMessage('Delete expired hint '+inttohex(cardinal(control),8));
-        painter.texman.FreeImage(HintImage);
+        FreeImage(HintImage);
         HintImage:=nil;
         control.visible:=false;
         exit;
@@ -319,9 +319,9 @@ implementation
      end;
      if v>256 then v:=256;
      c:=ColorMix($FF808080,$808080,v);
-     painter.OverrideClipping;
-     painter.DrawImage(x1,y1,HintImage,c);
-     painter.ResetClipping;
+     gfx.clip.Nothing;
+     draw.Image(x1,y1,HintImage,c);
+     gfx.clip.Restore;
     end;
   end;
 
@@ -333,20 +333,20 @@ implementation
   begin
     with control do begin
      bg:=GetColor(control);
-     if bg<>0 then painter.FillRect(x1,y1,x2,y2,bg);
-     painter.SetClipping(globalRect);
+     if bg<>0 then draw.FillRect(x1,y1,x2,y2,bg);
+     gfx.clip.Rect(globalRect);
      //mY:=round(y1*0.3+y2*0.7)-topOffset;
-     mY:=round((y1+y2)*0.5+painter.FontHeight(font)*0.45)-topOffset;
+     mY:=round((y1+y2)*0.5+txt.Height(font)*0.45)-topOffset;
      wst:=DecodeUTF8(caption);
      if align=taLeft then
-      painter.TextOutW(font,x1,mY,color,wst);
+      txt.WriteW(font,x1,mY,color,wst);
      if align=taRight then
-      painter.TextOutW(font,x2,mY,color,wst,taRight);
+      txt.WriteW(font,x2,mY,color,wst,taRight);
      if align=taCenter then
-      painter.TextOutW(font,(x1+x2) div 2,mY,color,wst,taCenter);
+      txt.WriteW(font,(x1+x2) div 2,mY,color,wst,taCenter);
      if align=taJustify then
-      painter.TextOutW(font,x1,mY,color,wst,taJustify,0,x2-x1);
-     painter.ResetClipping;
+      txt.WriteW(font,x1,mY,color,wst,taJustify,0,x2-x1);
+     gfx.clip.Restore;
     end;
   end;
 
@@ -366,35 +366,35 @@ implementation
       if not enabled then c:=ColorMix(c,$FFA0A0A0,128);
       if enabled and (underMouse=control) then inc(c,$101010);
       if pressed then c:=c-$181010;
-      painter.FillGradRect(x1+1,y1+1,x2-1,y2-1,ColorAdd(c,$303030),ColorSub(c,$303030),true);
+      draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,ColorAdd(c,$303030),ColorSub(c,$303030),true);
       c:=GetColor(control,2); if c=0 then c:=$60000000;
       c2:=GetColor(control,3); if c2=0 then c2:=$80FFFFFF;
-      painter.ShadedRect(x1,y1,x2,y2,1,c,c2); // Внешняя рамка
-      if pressed then { painter.ShadedRect(x1+2,y1+2,x2-1,y2-1,1,$80FFFFFF,$50000000)}
+      draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // Внешняя рамка
+      if pressed then { draw.ShadedRect(x1+2,y1+2,x2-1,y2-1,1,$80FFFFFF,$50000000)}
        else if enabled then begin
          c:=GetColor(control,4); if c=0 then c:=$A0FFFFFF;
          c2:=GetColor(control,5); if c2=0 then c2:=$70000000;
-         painter.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
+         draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
        end
-         else painter.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,$80FFFFFF,$50000000);
+         else draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,$80FFFFFF,$50000000);
       // Нарисовать фокус (также если кнопка дефолтная и никакая другая не имеет фокуса)
       if (focusedControl=control) or
          (default and ((focusedControl=nil) or not (focusedControl is TUIButton))) then
-       painter.Rect(x1-1,y1-1,x2+1,y2+1,$80FFFF80);
+       draw.Rect(x1-1,y1-1,x2+1,y2+1,$80FFFF80);
       // Вывод надписи (если есть)
       if caption<>'' then begin
-       painter.SetClipping(Rect(x1+2,y1+2,x2-2,y2-2));
+       gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
        c:=GetColor(control,1); if c=0 then c:=$FF000000;
-       mY:=round(y1*0.5+y2*0.5+painter.FontHeight(font)*0.4); // учесть высоту шрифта!
+       mY:=round(y1*0.5+y2*0.5+txt.Height(font)*0.4); // учесть высоту шрифта!
        wSt:=DecodeUTF8(caption);
        if underMouse=control then c:=$FF300000;
        if enabled then
-        painter.TextOutW(font,(x1+x2) div 2+d,mY+d,c,wst,taCenter)
+        txt.WriteW(font,(x1+x2) div 2+d,mY+d,c,wst,taCenter)
        else begin
-        painter.TextOutW(font,(x1+x2) div 2+1,mY+1,$E0FFFFFF,wSt,taCenter);
-        painter.TextOutW(font,(x1+x2) div 2,mY,$80000000,wSt,taCenter);
+        txt.WriteW(font,(x1+x2) div 2+1,mY+1,$E0FFFFFF,wSt,taCenter);
+        txt.WriteW(font,(x1+x2) div 2,mY,$80000000,wSt,taCenter);
        end;
-       painter.ResetClipping;
+       gfx.clip.Restore;
       end;
      end else begin
       // кнопка - чекбокс или радиобокс
@@ -402,10 +402,10 @@ implementation
        // чекбокс
        v:=(y1+y2) div 2;
        if pressed then begin
-        painter.DrawLine(x1+3,v,x1+6,v+4,color);
-        painter.DrawLine(x1+6,v+4,x1+14,v-6,color);
-        painter.DrawLine(x1+3,v-1,x1+7,v+3,color);
-        painter.DrawLine(x1+6,v+3,x1+13,v-6,color);
+        draw.Line(x1+3,v,x1+6,v+4,color);
+        draw.Line(x1+6,v+4,x1+14,v-6,color);
+        draw.Line(x1+3,v-1,x1+7,v+3,color);
+        draw.Line(x1+6,v+3,x1+13,v-6,color);
        end;
        c:=ColorMix(color,$80FFFFFF,64);
        d:=ColorMix(color,$80000000,128);
@@ -417,21 +417,21 @@ implementation
         c:=colorMix(c,$80808080,200);
         d:=colorMix(d,$80808080,200);
        end;
-       painter.ShadedRect(x1,v-8,x1+15,v+7,2,d,c);
+       draw.ShadedRect(x1,v-8,x1+15,v+7,2,d,c);
       end else begin
        // радиобокс
       end;
-      painter.SetClipping(Rect(x1+19,y1,x2,y2));
+      gfx.clip.Rect(Rect(x1+19,y1,x2,y2));
       v:=round(y1+(y2-y1)*0.65);
       if FocusedControl=control then
-       painter.Rect(x1+19,y1,x1+painter.TextWidth(font,caption),y2,$40+color and $FFFFFF);
+       draw.Rect(x1+19,y1,x1+txt.Width(font,caption),y2,$40+color and $FFFFFF);
       if enabled then
-       painter.TextOut(font,x1+20,v,color,caption)
+       txt.Write(font,x1+20,v,color,caption)
       else begin
-       painter.TextOut(font,x1+21,v+1,$60FFFFFF,caption);
-       painter.TextOut(font,x1+20,v,ColorMix(color,$C0909090,200),caption);
+       txt.Write(font,x1+21,v+1,$60FFFFFF,caption);
+       txt.Write(font,x1+20,v,ColorMix(color,$C0909090,200),caption);
       end;
-      painter.ResetClipping;
+      gfx.clip.Restore;
      end;
     end;
   end;
@@ -445,8 +445,8 @@ implementation
    if c1=0 then c1:=$FF000000;
    c2:=GetColor(control,1);
    for i:=0 to round(control.paddingLeft)-1 do begin
-    if c2=0 then painter.Rect(x1+i,y1+i,x2-i,y2-i,c1)
-     else painter.ShadedRect(x1+i,y1+i,x2-i,y2-i,1,c1,c2);
+    if c2=0 then draw.Rect(x1+i,y1+i,x2-i,y2-i,c1)
+     else draw.ShadedRect(x1+i,y1+i,x2-i,y2-i,1,c1,c2);
    end;
   end;
 
@@ -482,7 +482,7 @@ implementation
        imgHash.Put(lname,UIntPtr(tex));
       end else
        tex:=pointer(p);
-      painter.DrawScaled(x1,y1,x2-1,y2-1,tex,control.color);
+      draw.Scaled(x1,y1,x2-1,y2-1,tex,control.color);
      end;
     end;
   end;
@@ -493,28 +493,28 @@ implementation
    tx,ty:integer;
   begin
     with control do begin
-    painter.FillRect(x1,y1,x2,y2,color);
+    draw.FillRect(x1,y1,x2,y2,color);
     if control=activeWnd then c:=$FF8080E0 // текущее окно
      else c:=$FFB0B0B0;
     c:=ColorMix(color,c,128);
     if resizeable then begin
-      painter.FillRect(x1,y1,x2,y1+header-1,c);
-      painter.FillRect(x1,y1+header,x1+wcFrameBorder-1,y2,c);
-      painter.FillRect(x2-wcFrameBorder+1,y1+header,x2,y2,c);
-      painter.FillRect(x1+wcFrameBorder,y2-wcFrameBorder+1,x2-wcFrameBorder,y2,c);
-      painter.ShadedRect(x1+wcFrameBorder-1,y1+header-1,x2-wcFrameBorder+1,y2-wcFrameBorder+1,1,$80000000,$80FFFFFF);
+      draw.FillRect(x1,y1,x2,y1+header-1,c);
+      draw.FillRect(x1,y1+header,x1+wcFrameBorder-1,y2,c);
+      draw.FillRect(x2-wcFrameBorder+1,y1+header,x2,y2,c);
+      draw.FillRect(x1+wcFrameBorder,y2-wcFrameBorder+1,x2-wcFrameBorder,y2,c);
+      draw.ShadedRect(x1+wcFrameBorder-1,y1+header-1,x2-wcFrameBorder+1,y2-wcFrameBorder+1,1,$80000000,$80FFFFFF);
     end else begin
-      painter.FillRect(x1,y1,x2,y1+header-1,c);
-      painter.ShadedRect(x1+3,y1+header-1,x2-3,y1+header,1,$80000000,$80FFFFFF);
+      draw.FillRect(x1,y1,x2,y1+header-1,c);
+      draw.ShadedRect(x1+3,y1+header-1,x2-3,y1+header,1,$80000000,$80FFFFFF);
     end;
-    painter.ShadedRect(x1,y1,x2,y2,2,$C0FFFFFF,$C0000000);
+    draw.ShadedRect(x1,y1,x2,y2,2,$C0FFFFFF,$C0000000);
 
-    painter.SetClipping(Rect(x1+2,y1+2,x2-2,y1+header-2));
+    gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y1+header-2));
     tx:=(x1+x2) div 2;
     ty:=y1+round(header*0.7);
-    painter.TextOut(font,tx+1,ty+1,$B0000000,DecodeUTF8(caption),taCenter);
-    painter.TextOut(font,tx,ty,$FFFFFFD0,DecodeUTF8(caption),taCenter);
-    painter.ResetClipping;
+    txt.Write(font,tx+1,ty+1,$B0000000,DecodeUTF8(caption),taCenter);
+    txt.Write(font,tx,ty,$FFFFFFD0,DecodeUTF8(caption),taCenter);
+    gfx.clip.Restore;
    end;
   end;
 
@@ -530,7 +530,7 @@ implementation
     iheight:=y2-y1;
     if horizontal then begin
      // Horizontal scrollbar
-     painter.FillGradrect(x1,y1,x2,y2,d,c,true);
+     draw.FillGradrect(x1,y1,x2,y2,d,c,true);
      if enabled and (iwidth>=8) and (pagesize<max-min) then begin
       v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
@@ -541,17 +541,17 @@ implementation
       if i<0 then i:=0;
       if j>=iwidth then j:=iwidth-1;
       if j>i+6 then begin
-       painter.FillGradrect(x1+i,y1,x1+j,y2,colorMix(v,$FFC0E0F0,192),colorMix(v,$FF0000A0,192),true);
-       if (hooked=control) then painter.ShadedRect(x1+i,y1,x1+j,y2,1,d,d)
-        else painter.ShadedRect(x1+i,y1,x1+j,y2,1,c,d);
+       draw.FillGradrect(x1+i,y1,x1+j,y2,colorMix(v,$FFC0E0F0,192),colorMix(v,$FF0000A0,192),true);
+       if (hooked=control) then draw.ShadedRect(x1+i,y1,x1+j,y2,1,d,d)
+        else draw.ShadedRect(x1+i,y1,x1+j,y2,1,c,d);
        i:=x1+(i+j) div 2;
-       painter.ShadedRect(i-2,y1+3,i-1,y2-3,1,d,c);
-       painter.ShadedRect(i+1,y1+3,i+2,y2-3,1,d,c);
+       draw.ShadedRect(i-2,y1+3,i-1,y2-3,1,d,c);
+       draw.ShadedRect(i+1,y1+3,i+2,y2-3,1,d,c);
       end;
      end;
     end else begin
      // Vertical scrollbar
-     painter.FillGradrect(x1,y1,x2,y2,d,c,false);
+     draw.FillGradrect(x1,y1,x2,y2,d,c,false);
      if enabled and (iheight>=8) and (pagesize<max-min) then begin
       v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
@@ -562,12 +562,12 @@ implementation
       if i<0 then i:=0;
       if j>iheight then j:=iheight;
       if j>i+6 then begin
-       painter.FillGradrect(x1,y1+i,x2,y1+j,colorMix(v,$FFC0E0F0,192),colorMix(v,$FF0000A0,192),false);
-       if (hooked=control) then painter.ShadedRect(x1,y1+i,x2,y1+j,1,d,d)
-        else painter.ShadedRect(x1,y1+i,x2,y1+j,1,c,d);
+       draw.FillGradrect(x1,y1+i,x2,y1+j,colorMix(v,$FFC0E0F0,192),colorMix(v,$FF0000A0,192),false);
+       if (hooked=control) then draw.ShadedRect(x1,y1+i,x2,y1+j,1,d,d)
+        else draw.ShadedRect(x1,y1+i,x2,y1+j,1,c,d);
        i:=y1+(i+j) div 2;
-       painter.ShadedRect(x1+3,i-2,x2-3,i-1,1,d,c);
-       painter.ShadedRect(x1+3,i+1,x2-3,i+2,1,d,c);
+       draw.ShadedRect(x1+3,i-2,x2-3,i-1,1,d,c);
+       draw.ShadedRect(x1+3,i+1,x2-3,i+2,1,d,c);
       end;
      end;
     end;
@@ -585,30 +585,30 @@ implementation
      c:=backgnd;
      if UnderMouse=control then
       c:=ColorAdd(backgnd,$404040);
-     painter.FillRect(x1,y1,x2,y2,c);
+     draw.FillRect(x1,y1,x2,y2,c);
     end;
     if not noborder then begin
-     painter.RRect(x1-1,y1-1,x2+1,y2+1,$A0000000+color and $FFFFFF,1);
+     draw.RRect(x1-1,y1-1,x2+1,y2+1,$A0000000+color and $FFFFFF,1);
     end;
 
 {    savey:=y1;
     savey2:=y2;
-    inc(y1,((y2-y1)-painter.GetFontHeight) div 2);
-    y2:=y1+painter.GetFontHeight;}
+    inc(y1,((y2-y1)-txt.GetFontHeight) div 2);
+    y2:=y1+txt.GetFontHeight;}
     wst:=realtext;
     if password then
       wst:=StringOfChar('*',length(wst));
-    if (scroll.X>0) and (painter.TextWidthW(font,wst)<(x2-x1)) then Scroll.X:=0;
-    i:=painter.TextWidthW(font,copy(wst,1,cursorpos)); // позиция курсора
+    if (scroll.X>0) and (txt.WidthW(font,wst)<(x2-x1)) then Scroll.X:=0;
+    i:=txt.WidthW(font,copy(wst,1,cursorpos)); // позиция курсора
 //    if cursorpos>0 then dec(i);
     if i-scroll.X<0 then scroll.X:=i;
     if i-scroll.X>(x2-x1-5-offset) then scroll.X:=i-(x2-x1-5-offset);
-    painter.SetClipping(Rect(x1+2,y1,x2-2,y2));
-    my:=round(y1*0.47+y2*0.53+painter.FontHeight(font)*0.4);
+    gfx.clip.Rect(Rect(x1+2,y1,x2-2,y2));
+    my:=round(y1*0.47+y2*0.53+txt.Height(font)*0.4);
     // Default text?
     if (realtext='') and (defaultText<>'') and (FocusedControl<>control) then begin
-     painter.TextOutW(font,x1+2+offset,mY,ColorMix(color,$00808080,160),defaultText,taLeft,toDontTranslate);
-     painter.ResetClipping;
+     txt.WriteW(font,x1+2+offset,mY,ColorMix(color,$00808080,160),defaultText,taLeft,toDontTranslate);
+     gfx.clip.Restore;
      exit;
     end;
     scrollPixels:=round(scroll.X*globalScale.x);
@@ -616,37 +616,37 @@ implementation
     if needpos>=0 then begin
      cursorpos:=0;
      while (cursorpos<length(wst)) and
-           (-scroll.X+painter.TextWidthW(font,copy(wst,1,cursorpos))<needPos-3) do
+           (-scroll.X+txt.WidthW(font,copy(wst,1,cursorpos))<needPos-3) do
        inc(cursorpos);
      needpos:=-1;
     end;
     if completion<>'' then begin
-     j:=x1+2-scrollPixels+painter.TextWidthW(font,wst);
-     painter.TextOutW(font,j+offset,mY,ColorMix(color,$00808080,160),
+     j:=x1+2-scrollPixels+txt.WidthW(font,wst);
+     txt.WriteW(font,j+offset,mY,ColorMix(color,$00808080,160),
        copy(completion,length(wst)+1,length(completion)),taLeft,toDontTranslate);
     end;
     if (selcount>0) and (focusedControl=control) then begin // часть текста выделена
      j:=x1+2-scrollPixels+offset;
-     painter.TextOutW(font,j,mY,color,copy(wst,1,selstart-1),taLeft,toDontTranslate); // до выделения
-     j:=j+painter.TextWidthW(font,copy(wst,1,selstart))-
-          painter.TextWidthW(font,copy(wst,selstart,1));
-     d:=painter.TextWidthW(font,copy(wst,selstart,selcount));
-     painter.FillRect(j,y1+1,j+d-1,y2-1,ColorSub(color,$60202020));
-     painter.TextOutW(font,j,mY,color and $FF000000,
+     txt.WriteW(font,j,mY,color,copy(wst,1,selstart-1),taLeft,toDontTranslate); // до выделения
+     j:=j+txt.WidthW(font,copy(wst,1,selstart))-
+          txt.WidthW(font,copy(wst,selstart,1));
+     d:=txt.WidthW(font,copy(wst,selstart,selcount));
+     draw.FillRect(j,y1+1,j+d-1,y2-1,ColorSub(color,$60202020));
+     txt.WriteW(font,j,mY,color and $FF000000,
         copy(wst,selstart,selcount),taLeft,toDontTranslate); // выделенная часть
      if selstart+selcount-1<=length(text) then begin
-      j:=j+painter.TextWidthW(font,copy(wst,selstart,selcount+1))-
-           painter.TextWidthW(font,copy(wst,selstart+selcount,1));
-      painter.TextOutW(font,j,mY,color,
+      j:=j+txt.WidthW(font,copy(wst,selstart,selcount+1))-
+           txt.WidthW(font,copy(wst,selstart+selcount,1));
+      txt.WriteW(font,j,mY,color,
          copy(wst,selstart+selcount,length(wst)-selstart-selcount+1),taLeft,toDontTranslate); // остаток
      end;
     end else
-     painter.TextOutW(font,x1+2-scrollPixels+offset,mY,color,wst,taLeft,toDontTranslate);
-    painter.ResetClipping;
+     txt.WriteW(font,x1+2-scrollPixels+offset,mY,color,wst,taLeft,toDontTranslate);
+    gfx.clip.Restore;
     if (focusedControl=control) and ((mytickcount-cursortimer) mod 360<200) then begin // курсор
      curX:=x1+2+i-scrollPixels+offset; // first pixel of the character
-     painter.DrawLine(curX,y1+2,curX,y2-2,colorAdd(color,$404040));
-//     painter.DrawLine(x1+4+i-scrollX,y1+2,x1+4+i-scrollX,y2-2,colorAdd(color,$404040));
+     draw.Line(curX,y1+2,curX,y2-2,colorAdd(color,$404040));
+//     draw.Line(x1+4+i-scrollX,y1+2,x1+4+i-scrollX,y2-2,colorAdd(color,$404040));
     end;
    end;
   end;
@@ -658,26 +658,26 @@ implementation
    scr:single;
   begin
     with control as TUIListBox do begin
-     if bgColor<>0 then painter.FillRect(x1,y1,x2,y2,bgColor);
+     if bgColor<>0 then draw.FillRect(x1,y1,x2,y2,bgColor);
      if scrollerV<>nil then scr:=scrollerV.value
       else scr:=0;
-     painter.SetClipping(Rect(x1,y1,x2+1,y2+1));
+     gfx.clip.Rect(Rect(x1,y1,x2+1,y2+1));
      for i:=0 to length(lines)-1 do begin
       lY:=y1+round(i*lineHeight-scr); /// TODO: check
       if lY+lineHeight<y1 then continue;
       if lY>y2 then break;
       if i=selectedLine then begin
-       painter.FillRect(x1,lY,x2,round(lY+lineHeight),bgSelColor);
+       draw.FillRect(x1,lY,x2,round(lY+lineHeight),bgSelColor);
        c:=selTextColor;
       end else
       if i=hoverLine then begin
-       painter.FillRect(x1,lY,x2,round(lY+lineHeight),bgHoverColor);
+       draw.FillRect(x1,lY,x2,round(lY+lineHeight),bgHoverColor);
        c:=hoverTextColor;
       end else
        c:=textColor;
-      painter.TextOut(font,x1+4,lY+round(lineHeight*0.73),c,lines[i],taLeft,toComplexText);
+      txt.Write(font,x1+4,lY+round(lineHeight*0.73),c,lines[i],taLeft,toComplexText);
      end;
-     painter.ResetClipping;
+     gfx.clip.Restore;
     end;
   end;
 
@@ -688,29 +688,29 @@ implementation
    c:cardinal;
   begin
    if (undermouse=combo) or combo.frame.visible then
-    painter.FillGradrect(x1+1,y1+1,x2-1,y2-1,$FFFFFFFF,$FFE0E0DC,true)
+    draw.FillGradrect(x1+1,y1+1,x2-1,y2-1,$FFFFFFFF,$FFE0E0DC,true)
    else
-    painter.FillGradrect(x1+1,y1+1,x2-1,y2-1,$FFE0E0DC,$FFFFFFFF,true);
+    draw.FillGradrect(x1+1,y1+1,x2-1,y2-1,$FFE0E0DC,$FFFFFFFF,true);
 
-   painter.RRect(x1,y1,x2,y2,$80000000,1);
+   draw.RRect(x1,y1,x2,y2,$80000000,1);
    if FocusedControl=combo then
-    painter.RRect(x1,y1,x2,y2,$90A00000);
+    draw.RRect(x1,y1,x2,y2,$90A00000);
    with combo do begin
     if (length(items)>0) and (curItem>=0) and (curItem<=high(items)) or
        (curItem<0) and (defaultText<>'') then begin
-     painter.SetClipping(Rect(x1+1,y1+1,x2-21,y2-1));
+     gfx.clip.Rect(Rect(x1+1,y1+1,x2-21,y2-1));
      if curItem>=0 then st:=items[curItem]
       else st:=defaultText;
-     painter.TextOutW(combo.font,x1+5,round(y2*0.7+y1*0.3),$FF000000,st);
-     painter.ResetClipping;
+     txt.WriteW(combo.font,x1+5,round(y2*0.7+y1*0.3),$FF000000,st);
+     gfx.clip.Restore;
     end;
     // Arrow
     cx:=x2-round((y2-y1)*0.4);
     cy:=(y1+y2) div 2-1;
     c:=$FF000000;
     for i:=0 to 2 do begin
-     painter.DrawLine(cx,cy+2+i,cx-4,cy-2+i,c);
-     painter.DrawLine(cx,cy+2+i,cx+4,cy-2+i,c);
+     draw.Line(cx,cy+2+i,cx-4,cy-2+i,c);
+     draw.Line(cx,cy+2+i,cx+4,cy-2+i,c);
     end;
    end;
   end;

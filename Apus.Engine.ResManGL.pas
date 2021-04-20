@@ -4,7 +4,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
-unit Apus.Engine.GLImages;
+unit Apus.Engine.ResManGL;
 interface
  uses Apus.Engine.API, Apus.Images, Apus.MyServis, Types;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE GLES11} {$DEFINE OPENGL} {$ENDIF}
@@ -31,13 +31,13 @@ type
   dCount:integer;
  end;
 
- TGLTextureMan=class(TTextureMan)
+ TGLResourceManager=class(TInterfacedObject,IResourceManager)
   maxFBwidth,maxFBheight,maxRBsize:integer;
   constructor Create; // Лимит видеопамяти в килобайтах (not used)
   destructor Destroy; override;
 
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
-                Flags:integer;name:texnamestr):TTexture; override;
+                Flags:integer;name:TTextureName):TTexture; override;
   procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer); override;
   function Clone(img:TTexture):TTexture; override;
   procedure FreeImage(var image:TTexture); override;

@@ -138,7 +138,7 @@ end;
 
 destructor TSwitchScreenEffect.Destroy;
 begin
- if buffer<>nil then painter.texman.FreeImage(buffer);
+ if buffer<>nil then FreeImage(buffer);
  inherited;
 end;
 
@@ -165,7 +165,7 @@ begin
  width:=game.GetSettings.width;
  height:=game.GetSettings.height;
  try
-  buffer:=painter.texman.AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'SceneEffect');
+  buffer:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'SceneEffect');
  except
   on e:exception do begin
    LogMessage('ERROR: eff allocation - '+ExceptionMsg(e));
@@ -184,9 +184,9 @@ var
 begin
  inherited;
  try
-  painter.BeginPaint(buffer);
+  gfx.BeginPaint(buffer);
   target.Render;
-  painter.EndPaint;
+  gfx.EndPaint;
   color:=round(255*timer/duration);
   DebugMessage('EffStage: '+inttostr(color));
   if color>255 then begin
@@ -197,9 +197,9 @@ begin
   end;
   color:=color shl 24+$808080;
   if buffer<>nil then begin
-   painter.BeginPaint(nil);
-   painter.DrawImage(0,0,buffer,color);
-   painter.EndPaint;
+   gfx.BeginPaint(nil);
+   draw.Image(0,0,buffer,color);
+   gfx.EndPaint;
   end;
  except
   on E:Exception do begin
@@ -234,7 +234,7 @@ end;
 
 destructor TRotScaleEffect.Destroy;
 begin
- painter.texman.FreeImage(buffer);
+ FreeImage(buffer);
  inherited;
 end;
 
@@ -245,11 +245,11 @@ begin
  width:=game.GetSettings.width;
  height:=game.GetSettings.height;
  try
-  buffer:=painter.texman.AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'TransEffect');
-  prevbuf:=painter.texman.AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'TransEffect2');
-  painter.BeginPaint(prevbuf);
+  buffer:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'TransEffect');
+  prevbuf:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'TransEffect2');
+  gfx.BeginPaint(prevbuf);
   target.Render;
-  painter.EndPaint;
+  gfx.EndPaint;
  except
   on e:exception do begin
    LogMessage('ERROR: RSE initialization - '+ExceptionMsg(e));
@@ -280,7 +280,7 @@ begin
    target.SetStatus(ssFrozen);
    if newscene is TUIScene then (target as TUIScene).UI.enabled:=true;
   end;
-  painter.BeginPaint(buffer);
+  gfx.BeginPaint(buffer);
   try
 
 {  device.SetTextureStageState(0,D3DTSS_ALPHAOP,D3DTOP_SELECTARG1);
@@ -296,18 +296,18 @@ begin
   l1.matrix[1,0]:=0; l1.matrix[1,1]:=1;
   l1.matrix[2,0]:=0; l1.matrix[2,1]:=0;
   l1.next:=nil;
-  painter.SetMode(blMove);
-  painter.DrawMultiTex(0,0,w,h,@l1,$FF808080);
+  gfx.target.BlendMode(blMove);
+  draw.DrawMultiTex(0,0,w,h,@l1,$FF808080);
   finally
-   painter.EndPaint;
+   gfx.EndPaint;
   end;
-  painter.SetMode(blAlpha);
+  gfx.target.BlendMode(blAlpha);
 
-  painter.BeginPaint(nil);
+  gfx.BeginPaint(nil);
   try
-   painter.DrawImage(0,0,buffer,$FF808080);
+   draw.Image(0,0,buffer,$FF808080);
   finally
-   painter.EndPaint;
+   gfx.EndPaint;
   end;
 
   tex:=buffer;
@@ -470,7 +470,7 @@ begin
 
  try
   LogMessage(Format('WndEffect: allocating %d x %d buffer',[w,h]));
-  buffer:=painter.texman.AllocImage(w,h,pfRenderTargetAlpha,aiRenderTarget+aiTexture,'WndEffect');
+  buffer:=AllocImage(w,h,pfRenderTargetAlpha,aiRenderTarget+aiTexture,'WndEffect');
   if buffer=nil then raise EError.Create('WndEffect: buffer not allocated!');
  except
    on e:exception do begin
@@ -487,7 +487,7 @@ destructor TShowWindowEffect.Destroy;
 begin
  try
   if not done then onDone;
-  if initialized and (buffer<>nil) then painter.texman.FreeImage(buffer);
+  if initialized and (buffer<>nil) then FreeImage(buffer);
   if target<>nil then begin
    PutMsg('WndEffDone('+(target as TUISCene).UI.name+')');
    target.shadowColor:=shadow;
@@ -516,17 +516,17 @@ begin
  end;
  try
   if buffer=nil then  raise EError.Create('WndEffect failure: buffer not allocated!');
-  painter.BeginPaint(buffer);
+  gfx.BeginPaint(buffer);
   try
    // Background is set to opaque for debug purpose: in transpBgnd mode scene MUST overwrite
    // alpha channel, not blend into it! If the background is transparent it's very easy to miss this mistake
-   painter.Clear($FF808080,-1,-1);
+   gfx.target.Clear($FF808080,-1,-1);
    target.Process;
    transpBgnd:=true;
    target.Render;
    transpBgnd:=false;
   finally
-   painter.EndPaint;
+   gfx.EndPaint;
    TUIScene(target).ui.position:=savePos;
   end;
  except
@@ -546,12 +546,12 @@ begin
  if shadow<>0 then
   target.shadowColor:=ColorMix(shadow,shadow and $FFFFFF,stage);
 
- painter.BeginPaint(nil);
+ gfx.BeginPaint(nil);
  try
  if eff=1 then begin
   // Эффект изменения прозрачности
   color:=cardinal(stage) shl 24+$808080;
-  painter.DrawImage(x,y,buffer,color);
+  draw.Image(x,y,buffer,color);
  end;
  if eff=2 then begin
   // Эффект "телевизора"
@@ -562,7 +562,7 @@ begin
   cx:=x+w div 2; cy:=y+h div 2;
   dx:=round(w*sqrt(sin(pi*stage/512))/2);
   dy:=round((h-4)*(1-sqrt(cos(pi*stage/512)))/2)+2;
-  painter.DrawScaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,color);
+  draw.Scaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,color);
  end;
  if eff=3 then begin
   // обратный телевизор (выключение)
@@ -573,7 +573,7 @@ begin
   cx:=x+w div 2; cy:=y+h div 2;
   dy:=round(h*exp(-stage/70)/2);
   dx:=round(w/2+exp(2+stage/60)-7);
-  painter.DrawScaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,color);
+  draw.Scaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,color);
  end;
  if eff in [4,8] then begin
   // появление снизу
@@ -582,7 +582,7 @@ begin
   dy:=round(h*spline(stage/256,0,0,1,0,0.7));
   cy:=round(36-sqr(stage-160)/256);
   if eff>7 then cy:=round((36-sqr(stage-160)/256)/3);
-  painter.DrawScaled(x,y+h-dy-cy,x+w,y+h-cy,buffer,color);
+  draw.Scaled(x,y+h-dy-cy,x+w,y+h-cy,buffer,color);
  end;
  if eff in [5,9] then begin
   // появление сверху
@@ -590,7 +590,7 @@ begin
   dy:=round(h*spline(stage/256,0,0,1,0,0.7));
   cy:=round(36-sqr(stage-160)/256);
   if eff>7 then cy:=round((36-sqr(stage-160)/256)/3);
-  painter.DrawScaled(x,y+cy,x+w,y+cy+dy,buffer,color);
+  draw.Scaled(x,y+cy,x+w,y+cy+dy,buffer,color);
  end;
  if eff in [6,10] then begin
   // появление слева
@@ -598,7 +598,7 @@ begin
   dx:=round(w*spline(stage/256,0,0,1,0,0.7));
   cx:=round(36-sqr(stage-160)/256);
   if eff>7 then cx:=round((36-sqr(stage-160)/256)/3);
-  painter.DrawScaled(x+cx,y,x+cx+dx,y+h,buffer,color);
+  draw.Scaled(x+cx,y,x+cx+dx,y+h,buffer,color);
  end;
  if eff in [7,11] then begin
   // появление справа
@@ -606,7 +606,7 @@ begin
   dx:=round(w*spline(stage/256,0,0,1,0,0.7));
   cx:=round(36-sqr(stage-160)/256);
   if eff>7 then cx:=round((36-sqr(stage-160)/256)/3);
-  painter.DrawScaled(x-cx+w-dx,y,x+w-cx,y+h,buffer,color);
+  draw.Scaled(x-cx+w-dx,y,x+w-cx,y+h,buffer,color);
  end;
  if eff=22 then begin
   // Эффект масштабирования (не особо линейного)
@@ -616,7 +616,7 @@ begin
   centerX:=x+w div 2; centerY:=y+h div 2;
   scaleX:=Spline(stage/255,0.6,0.3,1,0,0.5);
   scaleY:=scaleX;
-  painter.DrawScaled(centerX-scaleX*w/2,centerY-scaleY*h/2,
+  draw.Scaled(centerX-scaleX*w/2,centerY-scaleY*h/2,
     centerX+scaleX*w/2,centerY+scaleY*h/2,buffer,color);
  end;
  if eff=23 then begin
@@ -627,14 +627,14 @@ begin
   centerX:=x+w div 2; centerY:=y+h div 2;
   scaleX:=Spline(stage/255,0.6,0.3,1,0.05,0.5);
   scaleY:=Spline(stage/255,0.3,0.4,1,0.05,0.5);
-  painter.DrawScaled(centerX-scaleX*w/2,centerY-scaleY*h/2,
+  draw.Scaled(centerX-scaleX*w/2,centerY-scaleY*h/2,
     centerX+scaleX*w/2,centerY+scaleY*h/2,buffer,color);
  end;
 
  except
   on e:exception do ForcelogMessage('WndEff error: '+ExceptionMsg(e));
  end;
- painter.EndPaint;
+ gfx.EndPaint;
 end;
 
 procedure TShowWindowEffect.onDone;
@@ -727,8 +727,8 @@ destructor TBlurEffect.Destroy;
 begin
  inherited;
  blurLog:=blurLog+'F';
- painter.texman.FreeImage(buffer);
- painter.texman.FreeImage(buffer2);
+ FreeImage(buffer);
+ FreeImage(buffer2);
 // texman.FreeImage(buffer3);
 end;
 
@@ -762,7 +762,7 @@ var
 begin
  try
  if blurShader=0 then begin
-  if painter.classname='TGLPainter2' then begin
+  if draw.classname='TGLPainter2' then begin
    vsh:=vBlurShader2;
    fsh:=fBlurShader2;
    attrib:='aPosition,aColor,aTexcoord';
@@ -785,8 +785,8 @@ begin
   locTex2:=glGetUniformLocation(blurShader,'tex2');
  end;
 
- buffer:=painter.texman.AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf1');
- buffer2:=painter.texman.AllocImage(width div 2,height div 2,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf2');
+ buffer:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf1');
+ buffer2:=AllocImage(width div 2,height div 2,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf2');
  initialized:=true;
  blurLog:=blurLog+'I';
  except
@@ -811,46 +811,46 @@ begin
   if not initialized then Initialize;
   if dontPlay or ((power.value=0) and (power.finalValue=0)) then begin
    done:=true;
-   painter.BeginPaint(nil);
+   gfx.BeginPaint(nil);
    try
     target.Render;
    finally
-    painter.EndPaint;
+    gfx.EndPaint;
    end;
    exit;
   end;
   blurLog:=blurLog+'D';
   // Render source scene
-  painter.BeginPaint(buffer);
+  gfx.BeginPaint(buffer);
   try
    target.Render;
    inc(debug);
   finally
-   painter.EndPaint;
+   gfx.EndPaint;
   end;
 
   // Downsample
-{  painter.BeginPaint(buffer2);
+{  gfx.BeginPaint(buffer2);
   try
   u:=1+buffer.stepU*4;
   v:=1+buffer.stepV*4;
-  painter.TexturedRect(0,0,buffer2.width,buffer2.height,buffer,0,0,u,0,u,v,$FF808080);
+  draw.TexturedRect(0,0,buffer2.width,buffer2.height,buffer,0,0,u,0,u,v,$FF808080);
   finally
-   painter.EndPaint;
+   gfx.EndPaint;
   end;}
 
 {  f:=factor*power.value;
   if f>1 then begin
-   painter.BeginPaint(buffer3);
+   gfx.BeginPaint(buffer3);
    u:=1+buffer2.stepU*4;
    v:=1+buffer2.stepV*4;
-   painter.TexturedRect(0,0,buffer3.width,buffer3.height,buffer2,0,0,u,0,u,v,$FF808080);
-   painter.EndPaint;
+   draw.TexturedRect(0,0,buffer3.width,buffer3.height,buffer2,0,0,u,0,u,v,$FF808080);
+   gfx.EndPaint;
   end;}
 
-  painter.BeginPaint(nil);
+  gfx.BeginPaint(nil);
   try
-  painter.UseCustomShader;
+  draw.UseCustomShader;
   glUseProgram(blurShader);
   TGLPainter(painter).UseTexture(buffer2,1);
   phase:=power.Value;
@@ -872,17 +872,17 @@ begin
   for i:=0 to 2 do cf[i]:=(1-v)+cb[i]*v*2/255;
   glUniform4f(locCM,cf[2],cf[1],cf[0],1);
 
-  if painter.ClassName='TGLPainter2' then begin
+  if draw.ClassName='TGLPainter2' then begin
    u:=200*(1/buffer.width);
    v:=200*(1/buffer.height);
-   painter.DrawScaled(-100-u,-100-v,100+u,100+v,buffer);
-//   painter.DrawScaled(-20,-20,70,50,buffer);
+   draw.Scaled(-100-u,-100-v,100+u,100+v,buffer);
+//   draw.Scaled(-20,-20,70,50,buffer);
   end else
-   painter.DrawImage(0,0,buffer);
+   draw.Image(0,0,buffer);
 
-  painter.ResetTexMode;
+  draw.ResetTexMode;
   finally
-   painter.EndPaint;
+   gfx.EndPaint;
   end;
  except
   on e:exception do begin

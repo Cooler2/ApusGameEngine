@@ -1,4 +1,4 @@
-// Visual objects/sprites etc.
+п»ї// Visual objects/sprites etc.
 //
 // Copyright (C) 2014 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -11,21 +11,21 @@ interface
   DONT_CHANGE = -9987; // magic value which means "keep previous value"
   LIVE_OBJECT = $2468; // magic value for live object
  type
-  // Тип связи между объектами
+  // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
   TObjectRelation=(
-   orNone,      // Объект самостоятельный и независимый
-   orAttached,  // Объект присоединен к другому объекту, его координаты относительны, при удалении связанного объекта удаляется и этот
-   orMaster,    // Объект-хозяин, он обязан рисовать подчинённый объект, при удалении подчинённый объект становится свободным
-   orSlave);    // Подчинённый объект (не рисуется, не проверяется)
+   orNone,      // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+   orAttached,  // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ
+   orMaster,    // пїЅпїЅпїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+   orSlave);    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 
   TSide=(sNone  = 0,
          sTop   = 1,
          sRight = 2,
          sBottom = 4,
-         sLeft  = 8); // стороны
+         sLeft  = 8); // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
   {$ALIGN 4}
-  // Базовый класс с общим функционалом
+  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
   TVisualObjectClass=class of TVisualObject;
   TVisualObject=class(TSortableObject)
    private
@@ -36,23 +36,23 @@ interface
    public
     name:string;
     objID:cardinal;
-    tag:integer; // произвольное число (можно использовать как ссылку для внешних структур)
-    x,y,z:TAnimatedValue; // текущее положение (z=0 - норма, z>0 - приподнята)
+    tag:integer; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+    x,y,z:TAnimatedValue; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (z=0 - пїЅпїЅпїЅпїЅпїЅ, z>0 - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
     alpha,scale:TAnimatedValue;
-    width,height:single; // используется для поиска объекта в заданной точке (т.е. это размеры "непрозрачной" для мыши части объекта)
+    width,height:single; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅ.пїЅ. пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ" пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
     timeToDelete:int64;
-    realX,realY:single; // тут запоминается положение объекта в экранных координатах при последней отрисовке
-    aliveMagic:word; // $DEAD - если удалён, $2468 - если жив (проверка на доступ к удалённому объекту)
-    relation:TObjectRelation; // Тип связи между объектами
-    related:TVisualObject; // Связанный объект
+    realX,realY:single; // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+    aliveMagic:word; // $DEAD - пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, $2468 - пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+    relation:TObjectRelation; // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+    related:TVisualObject; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     constructor Create(x_,y_,z_,alpha_,scale_:single;layer_:string='';name_:string='');
     constructor Clone(obj:TVisualObject;toLayer:string='');
     destructor Destroy; override;
     function MoveTo(newX,newY,newZ:single;time:integer):TVisualObject; virtual;
     procedure Draw(fromX,fromY,fromZ:single); virtual;
-    procedure DeleteAfter(time:cardinal); // Удалить объект через time ms
+    procedure DeleteAfter(time:cardinal); // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ time ms
     function Compare(obj:TSortableObject):integer; override;
-    property layer:string read GetLayerName write SetLayer; // Текстовое имя слоя
+    property layer:string read GetLayerName write SetLayer; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
     function Describe:string; // object description
     procedure AttachTo(obj:TVisualObject); // attach this object to another
     function IsAlive:boolean;
@@ -60,11 +60,11 @@ interface
 
   TVisualObjects=array of TVisualObject;
 
-  // Объект - изображение
+  // пїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
   TImageObject=class(TVisualObject)
    protected
     image:TTexture;
-    tR,tG,tB:TAnimatedValue; // 0..255+ - где 255 - белый
+    tR,tG,tB:TAnimatedValue; // 0..255+ - пїЅпїЅпїЅ 255 - пїЅпїЅпїЅпїЅпїЅ
    public
     angle:TAnimatedValue;
     blendMode:TBlendingMode;
@@ -75,7 +75,7 @@ interface
     function SetColor(color:cardinal;time:integer;delay:integer=0):TImageObject;
   end;
 
-  // Текстовая надпись с эффектом свечения/тени (врисованная в текстуру)
+  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
   TTextObject=class(TImageObject)
    protected
     text:WideString;
@@ -95,47 +95,47 @@ interface
 
   // Single particle item
   TMyParticle=record
-   id:cardinal; // уникальный идентификатор партикла (>0) не меняется до удаления, содержит индекс в массиве (low word)
+   id:cardinal; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (>0) пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (low word)
    x,y,z,angle,scale:single;
    speedX,speedY,speedA,speedS:single; // change for x, y, angle and scale (per second)
    param:single; // default: gravity acceleration (+dSpeedY)
    color:cardinal;
-   age:single; // время жизни с момента создания (в сек), отрицательное - партикл удаляется
-   life:single; // время жизни (при достижении которого партикл удаляется)
+   age:single; // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅ пїЅпїЅпїЅ), пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+   life:single; // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
    kind:integer; // default: index in texture
   end;
 
-  // Базовый класс для партикловых эффектов
+  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
   TParticleEffect=class(TVisualObject)
    zDist:single; // default=1, override this value if needed
    constructor Create(x_,y_,z_:single;tex:TTexture;partSize:integer;layer_,name_:string);
    destructor Destroy; override;
-   // Обновляет состояние эффекта за прошедшее время time (ms), totalTime - сколько времени прошло с создания эффекта
+   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ time (ms), totalTime - пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
    procedure Update(time,totalTime:integer); virtual;
-   // Обновляет каждый конкретный партикл, генерирует выходной партикл
-   // time - время в секундах с предыдущей обработки (базовая версия применяет движение, гравитацию, время жизни)
+   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+   // time - пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ)
    procedure HandleParticle(time:single;var sour:TMyParticle;var dest:TParticle); virtual;
-   // Производит отрисовку. Дефолтная отрисовка просто рисует имеющиеся партиклы.
-   // Можно переопределить втч для того, чтобы генерить набор каждый кадр, а не использовать Update
+   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
+   // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ Update
    procedure Draw(fromX,fromY,fromZ:single); override;
-   // Добавляет новый партикл, возвращает его индекс в массиве
+   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
    function AddParticle:integer;
   protected
-   created:int64; // когда эффект был создан
-   lastDrawn:int64; // время последней отрисовки
-   texture:TTexture; // базовая текстура
-   size:integer; // базовый размер партиклов
-   parts:array of TMyParticle; // массив исходных партиклов (может содержать "дырки")
-//   count:integer; // общее кол-во партиклов
+   created:int64; // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+   lastDrawn:int64; // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+   texture:TTexture; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+   size:integer; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+   parts:array of TMyParticle; // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ "пїЅпїЅпїЅпїЅпїЅ")
+//   count:integer; // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ-пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
    renderParts:array of TParticle;
    renderCount:integer;
    lastID:integer;
-   newIdx:integer; // индекс, начиная с которого идёт поиск места для добавления партикла (сбрасывается при удалении)
+   newIdx:integer; // пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
    zMin,zMax:single; // Z filter
    procedure InternalDraw(x,y:integer;zMin,zMax:single);
   end;
 
-  // Вспомогательный объект-фильтр: "cлой" для разделения партикловых эффектов по Z
+  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅ: "cпїЅпїЅпїЅ" пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ Z
   TParticleEffectLayer=class(TVisualObject)
    constructor Create(mainObj:TParticleEffect;z_,zMin_,zMax_:single);
    procedure Draw(fromX,fromY,fromZ:single); override;
@@ -144,7 +144,7 @@ interface
    zMin,zMax:single;
   end;
 
-  // Текст в фигурной рамке (возможно со стрелкой)
+  // пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 {  THintObject=class(TVisualObject)
     constructor Create(x_,y_,z_:single;text:string;font,color,background,border:cardinal;
        sideArrow:TSide;rounded,borderWidth:single;layer_:string='';name_:string='');
@@ -156,13 +156,13 @@ interface
   end;}
 
 
- // Ф-ции, возвращающие объекты, и сами возвращаемые объекты использовать только при блокировке!
+ // пїЅ-пїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ!
  function FindObjByName(name:string):TVisualObject;
  function FindObjByID(ID:cardinal):TVisualObject;
  function FindObjectAt(x,y:integer;layers:string=''):TVisualObject;
  function GetLayerObjects(layers:string):TVisualObjects;
 
- // Можно вызывать без блокировки
+ // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
  procedure DeleteObject(ID:cardinal);
  procedure DeleteObjects(objNames:string); // list of object names (separated by comma, semicolon or space)
  procedure DeleteAllObjects(layers:string='All');
@@ -170,34 +170,34 @@ interface
  procedure LockObjects;
  procedure UnlockObjects;
 
- // Есть 3 режима перемещения:
- //  1 - time>0, smoothness - mode: более-менее равномерное перемещение в будущем (конечная точка заранее известна)
- //  2 - time=0, smoothness=0..100: перемещение в реальном времени со сглаживанием
- //  3 - time<0, мгновенная установка положения камеры
+ // пїЅпїЅпїЅпїЅ 3 пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ:
+ //  1 - time>0, smoothness - mode: пїЅпїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+ //  2 - time=0, smoothness=0..100: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+ //  3 - time<0, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
  procedure SetViewpoint(x,y,z:single;time:integer;smoothness:integer=0);
  procedure GetViewpoint(out x,y,z:single);
- // Только объекты перечисленных слоев будут отображаться и находиться
+ // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
  procedure EnableLayers(layers:string);
- // layers='All' - рисует все _включенные_ слои, онако можно перечислить и выключенные
+ // layers='All' - пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ _пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ_ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
  procedure DrawVisualObjects(zMin,zMax:single;layers:string='');
 
 
 implementation
  uses SysUtils, Types, Apus.Images, Apus.Engine.Tools;
  const
-  indexMask = $3FFF; // 16384 объектов в списке
+  indexMask = $3FFF; // 16384 пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
  var
   objList:array of TVisualObject;
   objCount:integer;
-  sorted:boolean; // объекты в списке отсортированы?
-  objIndex:array[0..indexMask] of TVisualObject; // индекс для быстрого поиска объектов по ID
-  lastID:cardinal; // свободный индекс
+  sorted:boolean; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ?
+  objIndex:array[0..indexMask] of TVisualObject; // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ ID
+  lastID:cardinal; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
   crSect:TMyCriticalSection;
   cameraX,cameraY,cameraZ:TAnimatedValue;
 
-  layerNames:array[0..31] of string; // 0 - безымянный слой, 1..31 - именные слои
+  layerNames:array[0..31] of string; // 0 - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, 1..31 - пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
   lCount:integer;
-  layersEnabled:cardinal=$FFFFFFFF; // маска включенных слоев
+  layersEnabled:cardinal=$FFFFFFFF; // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 { TVisualObject }
 
@@ -220,11 +220,11 @@ begin
  EnterCriticalSection(crSect);
  try
   aliveMagic:=$DEAD;
-  // Удалить из индекса
+  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
   ASSERT(objIndex[objID and indexMask]=self,'Wrong object in index: '+inttostr(objID));
   objIndex[objID and indexMask]:=nil;
 
-  // Удалить объект из списка
+  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
   for i:=0 to objCount-1 do
    if objList[i]=self then begin
     dec(objCount);
@@ -233,7 +233,7 @@ begin
     break;
    end;
 
-  // Удалить все ссылающиеся объекты (рекурсивно)
+  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
   i:=0;
   while i<objCount do
    if objList[i].related=self then objList[i].Free
@@ -245,7 +245,7 @@ end;
 
 procedure TVisualObject.Draw(fromX,fromY,fromZ:single);
 begin
- // Запоминаем позицию, в которой объект нарисован
+ // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
  realX:=x.Value-fromX;
  realY:=y.Value-fromY;
 end;
@@ -270,7 +270,7 @@ begin
  result:=self;
 end;
 
-// Возможно, какого-то из перечисленных слоев еще нет - нужно создать!
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ-пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ!
 function GetLayersMask(layers:string):cardinal;
 var
  i,j,k:integer;
@@ -332,7 +332,7 @@ var
  z1,z2:double;
 begin
  result:=0;
- if obj=self then exit; // Сравнение объекта с собой
+ if obj=self then exit; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ
  try
   z1:=z.Value;
   z2:=TVisualObject(obj).z.Value;
@@ -511,7 +511,7 @@ begin
  try
   n:=objCount-1;
   c:=0;
-  objCount:=0; // делаем вид, что список объектов пуст, чтобы избежать удаления объектов из него в деструкторе
+  objCount:=0; // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
   i:=0;
   while i<=n do begin
    if mask and (1 shl objList[i].layerID)>0 then begin
@@ -795,17 +795,17 @@ begin
   a:=angle.value;
   s:=scale.value;
   if blendMode<>blAlpha then
-   painter.SetMode(blendMode);
+   gfx.target.BlendMode(blendMode);
   if (s=1) and (a=0) then
-   painter.DrawImage(round(x.Value-width/2+0.4-fromX),
+   draw.Image(round(x.Value-width/2+0.4-fromX),
                      round(y.value-height/2+0.4-fromY),
                      image,globalColor)
   else
-   painter.DrawRotScaled(round(x.Value-fromX),
+   draw.RotScaled(round(x.Value-fromX),
                          round(y.value-fromY),s,s,a,
                          image,globalColor);
   if blendMode<>blAlpha then
-   painter.SetMode(blAlpha);
+   gfx.target.BlendMode(blAlpha);
  end;
 end;
 
@@ -876,7 +876,7 @@ begin
    p[n]:=renderParts[i];
    inc(n);
   end;
- painter.DrawParticles(x,y,@p[0],n,texture,size,zDist);
+ draw.DrawParticles(x,y,@p[0],n,texture,size,zDist);
 end;
 
 procedure TParticleEffect.Draw;
@@ -899,12 +899,12 @@ begin
  for i:=0 to high(parts) do
   if (parts[i].id>0) and (parts[i].age>=0) then begin
    HandleParticle(time,parts[i],renderParts[renderCount]);
-   if (parts[i].age>=0) and // повторная проверка необходима, т.к. партикл мог измениться (быть удалён)
+   if (parts[i].age>=0) and // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ.пїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ)
       (renderParts[renderCount].color and $FF000000>0) then inc(renderCount);
   end;
  // Draw
  InternalDraw(round(-fromX+x.value),round(-fromY+y.value),-99999,99999);
-// painter.DrawParticles(round(-fromX+x.value),round(-fromY+y.value),@p[0],n,texture,size,zDist);
+// draw.DrawParticles(round(-fromX+x.value),round(-fromY+y.value),@p[0],n,texture,size,zDist);
  // Delete dead particles
  for i:=0 to high(parts) do
   if (parts[i].age<0) or
@@ -912,7 +912,7 @@ begin
  except
   on e:exception do raise EWarning.Create('PE.Draw '+className+' error: '+ExceptionMsg(e));
  end;
- if (renderCount=0) and (t-created>1000) then timeToDelete:=1; // объект живет до последнего партикла, но не менее 1 сек
+ if (renderCount=0) and (t-created>1000) then timeToDelete:=1; // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ 1 пїЅпїЅпїЅ
 end;
 
 procedure TParticleEffect.HandleParticle(time:single;var sour: TMyParticle;

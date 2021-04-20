@@ -142,7 +142,7 @@ var
  col,font:cardinal;
 begin
  r:=item.globalRect;
- painter.SetClipping(r);
+ gfx.clip.Rect(r);
  // Write all text
  cnt:=GetMsgCount;
  consoleScene.scroll.max:=cnt*16+10;
@@ -161,8 +161,8 @@ begin
   LastMsgNum:=n;
  end;
  ypos:=cnt*16-round(item.scroll.Y)+20;
- font:=painter.GetFont('Default',7);
- painter.BeginTextBlock;
+ font:=txt.GetFont('Default',7);
+ draw.BeginTextBlock;
  for i:=1 to cnt do begin
   dec(n); dec(ypos,16);
   if (ypos<-15) or (ypos>=r.height+8) then continue;
@@ -174,11 +174,11 @@ begin
    41000:col:=$FFA0FFF0;
    else col:=$FFD0D0D0;
   end;
-  painter.TextOut(font,r.left+2,r.top+yPos,col,DecodeUTF8(st));
+  txt.Write(font,r.left+2,r.top+yPos,col,DecodeUTF8(st));
  end;
- painter.EndTextBlock;
- painter.ResetClipping;
- painter.DrawLine(r.left,r.bottom-1,r.right+17,r.Bottom-1,$40FFFFFF);
+ draw.EndTextBlock;
+ gfx.clip.Restore;
+ draw.Line(r.left,r.bottom-1,r.right+17,r.Bottom-1,$40FFFFFF);
 end;
 
 { TConsoleScene }
@@ -193,7 +193,7 @@ begin
  status:=ssFrozen;
  frequency:=12;
 
- font:=painter.GetFont('Default',7);
+ font:=txt.GetFont('Default',7);
  h:=round(game.renderHeight*0.7);
  wnd:=TUIWindow.Create(480,h,true,'ConsoleWnd','Console',font,UI);
  wnd.SetPos(10,10,pivotTopLeft);

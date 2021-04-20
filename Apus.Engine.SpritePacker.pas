@@ -1,4 +1,4 @@
-// Sprite (rect) packing algorithms
+﻿// Sprite (rect) packing algorithms
 
 // Copyright (C) Apus Software, 2019. Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)

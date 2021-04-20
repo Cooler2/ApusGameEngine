@@ -54,8 +54,6 @@ type
   procedure SetOrthographic(scale,zMin,zMax:double); override;
   procedure SetDefaultView; override;
 
-  procedure SetCullMode(mode:TCullMode); override;
-
   procedure UseTexture(tex:TTexture;stage:integer=0); override;
 
   // Extended shader functionality
@@ -926,21 +924,6 @@ begin
  glUniform3f(colorMatrixRed,  mat[0,0],mat[0,1],mat[0,2]);
  glUniform3f(colorMatrixGreen,mat[1,0],mat[1,1],mat[1,2]);
  glUniform3f(colorMatrixBlue, mat[2,0],mat[2,1],mat[2,2]);
-end;
-
-procedure TGLPainter.SetCullMode(mode: TCullMode);
-begin
- case mode of
-  cullCCW:begin
-   glEnable(GL_CULL_FACE);
-   glCullFace(GL_BACK);
-  end;
-  cullCW:begin
-   glEnable(GL_CULL_FACE);
-   glCullFace(GL_FRONT);
-  end;
-  cullNone:glDisable(GL_CULL_FACE);
- end;
 end;
 
 procedure TGLPainter.SetMask(rgb:boolean;alpha:boolean);

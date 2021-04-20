@@ -364,20 +364,20 @@ type
 
  // Control render target
  IRenderTarget=interface
-  procedure Reset; //< Set the default render target
-  procedure UseTexture(tex:TTexture); //< use texture as render target
+  procedure UseBackbuffer; //< Render to the backbuffer
+  procedure UseTexture(tex:TTexture); //< render to the texture
   procedure Push;  //< Save (push) current target in stack
   procedure Pop; //< Restore target from stack
   // Clear render target: fill colorbuffer and optionally depth buffer and stencil buffer
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1);
-  // Configure default render target to texture or backbuffer (nil)
-  procedure DefineDefault(rt:TTexture);
+  // Configure default render target as texture or backbuffer (nil)
+  procedure UseAsDefault(rt:TTexture);
   // Setup output position on default render target
   procedure SetDefaultRenderArea(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer);
   // Enable/setup depth test
   procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true);
   // Set blending mode
-  procedure SetBlendMode(blend:TBlendingMode);
+  procedure BlendMode(blend:TBlendingMode);
   // Set write mask (push previous mask)
   procedure Mask(rgb:boolean;alpha:boolean);
   // Restore (pop) previous mask
@@ -386,7 +386,7 @@ type
 
  // Control clipping
  IClipping=interface
-  procedure Apply(r:TRect;combine:boolean=true);  //< Set clipping rect (combine with previous or override), save previous
+  procedure Rect(r:TRect;combine:boolean=true);  //< Set clipping rect (combine with previous or override), save previous
   procedure Nothing; //< don't clip anything, save previous (the same as Apply() for the whole render target area)
   procedure Restore; //< restore previous clipping rect
   function  Get:TRect; //< return current clipping rect
@@ -439,6 +439,16 @@ type
   procedure UseCustom(shader:TShader);
   // Switch back to the internal shader
   procedure UseDefault;
+  // Internal shader settings
+  // ----
+  // Set texture stage mode (for default shader)
+  procedure TexMode(stage:byte;colorMode:TTexBlendingMode=tblModulate2X;alphaMode:TTexBlendingMode=tblModulate;
+     filter:TTexFilter=fltUndefined;intFactor:single=0.0);
+  // Restore default texturing mode: one stage with Modulate2X mode for color and Modulate mode for alpha
+  procedure DefaultTexMode;
+  // Upload texture to the Video RAM and make it active for the specified stage
+  // (usually you don't need to call this manually unless you're using a custom shader)
+  procedure UseTexture(tex:TTexture;stage:integer=0);
  end;
 
  // Control lighting and material
@@ -453,19 +463,20 @@ type
   procedure Material(color:cardinal;shininess:single);
  end;
 
- // Configure graphics system
+ // Configuration
  IGraphicsSystemConfig=interface
   procedure ChoosePixelFormats(out trueColor,trueColorAlpha,rtTrueColor,rtTrueColorAlpha:TImagePixelFormat;
     economyMode:boolean=false);
-  function CreatePainter:TObject;
-  function UseTextureAsDefaultRT:boolean;
   function SetVSyncDivider(n:integer):boolean; //< 0 - unlimited FPS, 1 - use monitor refresh rate
+  // Query options
+  function QueryMaxRTSize:integer; //< get max allowed dimension for RT textures
+  function ShouldUseTextureAsDefaultRT:boolean;
  end;
 
  // -------------------------------------------------------------------
- // TextureManager - менеджер изображений (фактически, менеджер текстурной памяти)
+ // ResourceManager - менеджер изображений (фактически, менеджер текстурной памяти)
  // -------------------------------------------------------------------
- ITextureManager=interface
+ IResourceManager=interface
   // Создать изображение (в случае ошибки будет исключение)
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
      flags:integer;name:TTextureName):TTexture;
@@ -572,7 +583,7 @@ type
  TFontHandle=cardinal;
 
  // Text output, fonts (text protocol 2011)
- ITextDrawing=interface
+ ITextDrawer=interface
   // Fonts
   function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
   function LoadFont(font:array of byte;asName:string=''):string; overload; // возвращает имя шрифта
@@ -587,6 +598,10 @@ type
   function Width(font:TFontHandle;st:String8):integer; // text width in pixels
   function WidthW(font:TFontHandle;st:String16):integer; // text width in pixels
   function Height(font:TFontHandle):integer; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
+  // Hyperlinks
+  procedure ClearLink; // Clear current link (call before text render)
+  function Link:integer; // get hyperlink under mouse (filled during text render)
+  function LinkRect:TRect; // get active hyperlink rect
   // Cache / misc
   procedure BeginBlock; // optimize performance when drawing multiple text entries
   procedure EndBlock;   // finish buffering and perform actual render
@@ -595,7 +610,7 @@ type
  end;
 
  // Drawing interface
- IDrawing=interface
+ IDrawer=interface
 {  TextColorX2:boolean; // true: white=FF808080 range, false: white=FFFFFFFF
   textEffects:array[1..4] of TTextEffectLayer;
   textMetrics:array of TRect; // results of text measurement (if requested)
@@ -639,7 +654,7 @@ type
 
   // Meshes ------------------
   // Draw textured tri-mesh (tex=nil -> colored mode)
-  procedure TrgListTex(pnts:PVertex;trgcount:integer;tex:TTexture);
+  procedure TrgList(vertices:PVertex;trgCount:integer;tex:TTexture);
   // Draw indexed tri-mesh (tex=nil -> colored mode)
   procedure IndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
 
@@ -668,44 +683,40 @@ type
 
  // Interface to the graphics subsystem: OpenGL, Vulkan or Direct3D
  IGraphicsSystem=interface
+  // Init subsystem and create all interface objects
   procedure Init(system:ISystemPlatform);
+  procedure Done;
   function GetVersion:single; // like 3.1 for OpenGL 3.1
   function GetName:string; // get implementation class name
 
+  // APIs
   function config:IGraphicsSystemConfig;
-  function texman:ITextureManager;
+  function resman:IResourceManager;
   function target:IRenderTarget;
+  function shader:IShaders;
   function clip:IClipping;
   function transform:ITransformation;
-  function draw:IDrawing;
-  function txt:ITextDrawing;
+  function light:ILighting;
+  function draw:IDrawer;
+  function txt:ITextDrawer;
 
   // Start drawing block using the specified render target (nil - use default target)
   procedure BeginPaint(target:TTexture);
   // Finish drawing block
   procedure EndPaint;
+  // Set cull mode
+  procedure SetCullMode(mode:TCullMode);
 
   // Get image from Backbuffer (screenshot etc)
   procedure CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
   // Present backbuffer to the screen
   procedure PresentFrame(system:ISystemPlatform);
 
-  // Set cull mode
-  procedure SetCullMode(mode:TCullMode);
-
-  // Set texture stage mode (for default shader)
-  procedure SetTexMode(stage:byte;colorMode:TTexBlendingMode=tblModulate2X;alphaMode:TTexBlendingMode=tblModulate;
-     filter:TTexFilter=fltUndefined;intFactor:single=0.0);
-
-  // Restore default texturing mode: one stage with Modulate2X mode for color and Modulate mode for alpha
-  procedure ResetTexMode;
-
   // Restore (invalidate) gfx settings
   procedure Restore;
 
-  // Upload texture to the Video RAM and make it active for the specified stage
-  // (usually you don't need to call this manually unless you're using a custom shader)
-  procedure UseTexture(tex:TTexture;stage:integer=0);
+  // show additional info
+  procedure DrawDebugOverlay(idx:integer);
  end;
 
  TGameScene=class;
@@ -940,11 +951,14 @@ type
  end;
 
 var
- // Global references to the key interfaces
+ // Global shortcuts to the key interfaces
  // ---------------------------------------
  systemPlatform:ISystemPlatform;
  gfx:IGraphicsSystem;
  game:TGameBase;
+
+ draw:IDrawer;    //< shortcut for gfx.draw
+ txt:ITextDrawer; //< shortcut for gfx.txt
 
  // Selected pixel formats for different tasks
  // Используемые форматы пикселя (в какие форматы грузить графику)
@@ -1008,11 +1022,6 @@ uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Eng
    game:=self;
    systemPlatform:=sysPlatform;
    gfx:=gfxSystem;
-  end;
-
- constructor TPainter.Create;
-  begin
-   painter:=self;
   end;
 
  constructor TTexture.CreateClone(src:TTexture);
@@ -1179,7 +1188,7 @@ end;
 procedure TPainter.DrawCentered(x, y, scale: single; tex: TTexture;
   color: cardinal);
  begin
-  DrawRotScaled(x,y,scale,scale,0,tex,color);
+  RotScaled(x,y,scale,scale,0,tex,color);
  end;
 
 procedure TPainter.DrawImage(x, y, scale: single; tex: TTexture;
@@ -1188,7 +1197,7 @@ procedure TPainter.DrawImage(x, y, scale: single; tex: TTexture;
   if scale=1.0 then
    DrawImage(round(x-tex.width*pivotX),round(y-tex.height*pivotY),tex,color)
   else
-   DrawRotScaled(x,y,scale,scale,0,tex,color,pivotX,pivotY);
+   RotScaled(x,y,scale,scale,0,tex,color,pivotX,pivotY);
  end;
 
 // Utils
@@ -1205,7 +1214,7 @@ function fGetFontHandle(params:string;tag:integer;context:pointer;contextClass:T
   style:=0; effects:=0;
   if length(sa)>2 then style:=round(EvalFloat(sa[2],nil,context,contextClass));
   if length(sa)>3 then effects:=round(EvalFloat(sa[3],nil,context,contextClass));
-  result:=painter.GetFont(sa[0],size,style,effects);
+  result:=txt.GetFont(sa[0],size,style,effects);
  end;
 
 function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
@@ -1224,18 +1233,18 @@ procedure LoadAtlas(fname:string;scale:single=1.0);
  end;
 
 function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
-                flags:integer=0;name:texnamestr=''):TTexture;
+                flags:integer=0;name:TTextureName=''):TTexture;
  begin
-  if painter<>nil then
-   result:=painter.texman.AllocImage(width,height,pixFmt,flags,name)
+  if gfx.texman<>nil then
+   result:=AllocImage(width,height,pixFmt,flags,name)
   else
-   raise EWarning.Create('Failed to alloc texture: no painter object');
+   raise EWarning.Create('Failed to alloc texture: no texture manager');
  end;
 
 procedure FreeImage(var img:TTexture);
  begin
   if img<>nil then
-   painter.texman.FreeImage(img);
+   FreeImage(img);
  end;
 
 function Translate(st:string8):string8; overload;

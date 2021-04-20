@@ -1,4 +1,4 @@
-// Windows-specific functions used by Game object
+п»ї// Windows-specific functions used by Game object
 //
 // Copyright (C) 2020 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -345,7 +345,7 @@ procedure TWindowsPlatform.ProcessSystemMessages;
     if not GetMessageW(mes,0,0,0) then
      raise EWarning.Create('Failed to get message');
 
-    if mes.message=wm_quit then // Если послана команда на выход
+    if mes.message=wm_quit then // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
      Signal('Engine\Cmd\Exit',0);
 
     TranslateMessage(Mes);

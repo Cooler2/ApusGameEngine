@@ -1,4 +1,4 @@
-// Support for common 3D model file formats
+﻿// Support for common 3D model file formats
 //
 // Copyright (C) 2019 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)

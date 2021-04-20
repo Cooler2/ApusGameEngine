@@ -1,4 +1,4 @@
-// Image loading queue for multithreading preload of images
+﻿// Image loading queue for multithreading preload of images
 // PNG/JPG/TGA/DDS/PVR only
 // JPEG with external RAW alpha channel NOT SUPPORTED!
 //

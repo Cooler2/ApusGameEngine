@@ -1,4 +1,4 @@
-// This unit published all UI elements so makes them accessible from scripts
+п»ї// This unit published all UI elements so makes them accessible from scripts
 //
 // Copyright (C) 2020 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -158,7 +158,7 @@ procedure CreateCmd(cmd:string);
 
 
     if c=nil then raise EError.Create('Unknown class - '+sa[0]);
-    // Доп. св-ва
+    // пїЅпїЅпїЅ. пїЅпїЅ-пїЅпїЅ
     if style<>0 then c.style:=style;
     if cursor<>0 then c.cursor:=cursor;
     if HintDelay<>0 then c.hintDelay:=hintDelay;

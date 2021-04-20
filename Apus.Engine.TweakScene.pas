@@ -1,4 +1,4 @@
-// Standard scene for visual editing of published variables (using MyServis unit)
+п»ї// Standard scene for visual editing of published variables (using MyServis unit)
 // Press Ctrl+[~] to show/hide
 //
 // Copyright (C) 2013-2014 Ivan Polyacov, Apus Software (ivan@apus-software.com)
@@ -68,7 +68,7 @@ implementation
   begin
    event:=UpperCase(event);
    if event='KBD\KEYDOWN' then begin
-    // Ctrl+[~] - показать/скрыть твикер
+    // Ctrl+[~] - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     if (tag and 255=192) and (tag and $20000>0) then begin
      if tweakerScene.status<>ssActive then
       tweakerScene.SetStatus(ssActive)
@@ -92,7 +92,7 @@ implementation
    end;
 
    if control.ClassType=TUIElement then begin
-    painter.FillRect(x1,y1,x2,y2,$60404040);
+    draw.FillRect(x1,y1,x2,y2,$60404040);
     exit;
    end;
 
@@ -104,9 +104,9 @@ implementation
 
    if control.ClassType=TUIButton then
     with control as TUIButton do begin
-//    painter.FillGradrect(x1,y1,x2,y2,$);
-//     painter.Rect(x1,y1,x2,y2,$50A0A0A0);
-     painter.TextOut(tweakerScene.tinyFont,(x1+x2) div 2-1,y2-2,$C0E0D0B0,caption);
+//    draw.FillGradrect(x1,y1,x2,y2,$);
+//     draw.Rect(x1,y1,x2,y2,$50A0A0A0);
+     txt.Write(tweakerScene.tinyFont,(x1+x2) div 2-1,y2-2,$C0E0D0B0,caption);
     end;
   end;
 
@@ -278,12 +278,12 @@ var
  fl:boolean;
  c:cardinal;
 begin
- //if self=focusedControl then painter.Rect(x1,y1,x2,y2,$80C0A0A0);
+ //if self=focusedControl then draw.Rect(x1,y1,x2,y2,$80C0A0A0);
 
  if self=focusedControl then c:=$2000 else c:=0;
  yy:=y1+round(height*0.48);
- painter.DrawLine(x1,yy-1,x2,yy-1,$80202020+c);
- painter.DrawLine(x1,yy+1,x2,yy+1,$80A0A0A0+c);
+ draw.Line(x1,yy-1,x2,yy-1,$80202020+c);
+ draw.Line(x1,yy+1,x2,yy+1,$80A0A0A0+c);
  step:=0.0001; j:=0;
  while (max-min)/step>40 do begin
   if j mod 3=0 then step:=step*2;    // ->0.2
@@ -300,11 +300,11 @@ begin
   xx:=ValueToX(i*step);
   if (xx>=0) and (xx<width) then begin
    if i mod j=0 then begin
-    painter.TextOut(tweakerScene.tinyFont,x1+round(xx*0.98+width*0.01),(yy+y2) div 2+4,$C0E0C8E0+c,
+    txt.Write(tweakerScene.tinyFont,x1+round(xx*0.98+width*0.01),(yy+y2) div 2+4,$C0E0C8E0+c,
       FloatToStrF(i*step,ffGeneral,5,0),taCenter);
-    painter.DrawLine(x1+xx,yy-4,x1+xx,yy+4,$90C0C0C0+c);
+    draw.Line(x1+xx,yy-4,x1+xx,yy+4,$90C0C0C0+c);
    end else
-    painter.DrawLine(x1+xx,yy-2,x1+xx,yy+3,$90A0A0A0+c);
+    draw.Line(x1+xx,yy-2,x1+xx,yy+3,$90A0A0A0+c);
   end;
  end;
  // Draw initial value
@@ -312,10 +312,10 @@ begin
   xx:=ValueToX(initialValue);
   if (xx>=0) and (xx<width) then begin
    inc(xx,x1);
-   painter.DrawLine(xx,yy,xx-4,yy-4,$D0C0B0A0);
-   painter.DrawLine(xx,yy,xx+4,yy-4,$D0C0B0A0);
-   painter.DrawLine(xx-4,yy-4,xx-4,yy-10,$D0C0B0A0);
-   painter.DrawLine(xx+4,yy-4,xx+4,yy-10,$D0C0B0A0);
+   draw.Line(xx,yy,xx-4,yy-4,$D0C0B0A0);
+   draw.Line(xx,yy,xx+4,yy-4,$D0C0B0A0);
+   draw.Line(xx-4,yy-4,xx-4,yy-10,$D0C0B0A0);
+   draw.Line(xx+4,yy-4,xx+4,yy-10,$D0C0B0A0);
   end;
  end;
  // Draw slider
@@ -331,7 +331,7 @@ begin
   end;
   inc(xx,x1);
   for i:=-4 to 4 do
-   painter.DrawLine(xx+i,yy-j,xx+i,yy-abs(i),c-$101010*abs(i));
+   draw.Line(xx+i,yy-j,xx+i,yy-abs(i),c-$101010*abs(i));
  end;
 end;
 
@@ -446,10 +446,10 @@ procedure TValueEditor.Draw(x1, y1, x2, y2: integer);
   vI:integer;
   vF:single;
  begin
-  painter.FillRect(x1,y1,x2,y2,$90202020);
+  draw.FillRect(x1,y1,x2,y2,$90202020);
   h:=y2-y1;
   if varname[2] in ['F','I'] then begin
-   painter.TextOut(tweakerScene.normalFont,x1+2,y1+round(h*0.26),
+   txt.Write(tweakerScene.normalFont,x1+2,y1+round(h*0.26),
      $FFF0E0C0,varname+'='+FloatToStrF(trackers[0].value,ffGeneral,4,0));
    if varname[2]='F' then begin
     vF:=trackers[0].value;
@@ -465,12 +465,12 @@ procedure TValueEditor.Draw(x1, y1, x2, y2: integer);
       round(trackers[1].value) shl 16+
       round(trackers[2].value) shl 8+
       round(trackers[3].value);
-   painter.TextOut(tweakerScene.normalFont,x1+2,y1+round(h*0.09),$FFF0E0C0,varname+'=');
-   painter.TextOut(tweakerScene.normalFont,x1+2,y1+round(h*0.20),$FFF0E0C0,IntToHex(c,8));
+   txt.Write(tweakerScene.normalFont,x1+2,y1+round(h*0.09),$FFF0E0C0,varname+'=');
+   txt.Write(tweakerScene.normalFont,x1+2,y1+round(h*0.20),$FFF0E0C0,IntToHex(c,8));
    yy:=y1+round(h*0.25);
-//   painter.FillRect(x1+5,yy,x1+60,y2-5,$FF
-   painter.FillGradrect(x1+5,yy,x1+60,y2-5,c,c or $FF000000,true);
-   painter.Rect(x1+4,yy-1,x1+61,y2-4,$90F0E0C0);
+//   draw.FillRect(x1+5,yy,x1+60,y2-5,$FF
+   draw.FillGradrect(x1+5,yy,x1+60,y2-5,c,c or $FF000000,true);
+   draw.Rect(x1+4,yy-1,x1+61,y2-4,$90F0E0C0);
    OverrideGlobal(varName,C,tweakerScene.context);
   end;
  end;

@@ -1,4 +1,4 @@
-// Import 3D models from OBJ file format
+﻿// Import 3D models from OBJ file format
 
 // Copyright (C) 2019 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)

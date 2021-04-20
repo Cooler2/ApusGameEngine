@@ -1,4 +1,4 @@
-// Complex text is a text string where characters has different attributes, such as
+﻿// Complex text is a text string where characters has different attributes, such as
 // font (including size and style), color, fill (background color) and link attribute
 // Complex text can be stored in different forms including HTML-style simplified markup language (SML)
 // This unit contains wide set of routines for manipulation with complex text strings

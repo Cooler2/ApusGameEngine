@@ -102,7 +102,7 @@ type
  procedure DrawSpinner(x,y,size:integer;color:cardinal;count:integer=12);
  procedure DrawSolidSpinner(x,y,size,width:integer;color:cardinal);
 
- // Формирует значение, содержащее координаты курсора для передачи в painter.TextOut
+ // Формирует значение, содержащее координаты курсора для передачи в draw.TextOut
  function EncodeMousePos:cardinal;
 
 
@@ -110,7 +110,6 @@ type
 
 implementation
  uses SysUtils,{$IFDEF DIRECTX}DirectXGraphics,d3d8,Apus.Engine.DxImages8,{$ENDIF}
-    {$IFDEF OPENGL}Apus.Engine.GLImages,{$ENDIF}
     {$IFDEF ANDROID}Apus.Android,{$ENDIF}
     Apus.GfxFormats,Classes,Apus.Structs,Apus.Geom3D,Apus.FastGFX,Apus.GfxFilters,
     Apus.Engine.ImgLoadQueue,Apus.Engine.ImageTools,Apus.Engine.GfxFormats3D;
@@ -210,10 +209,10 @@ procedure TTiledImage.Draw(x, y: integer; color: cardinal);
  var
   i,j:integer;
  begin
-  ASSERT(painter<>nil);
+  ASSERT(gfx.draw<>nil);
   for i:=0 to cntX-1 do
    for j:=0 to cntY-1 do
-    painter.DrawImage(x+i*stepX,y+j*stepY,tiles[i,j],color);
+    gfx.draw.Image(x+i*stepX,y+j*stepY,tiles[i,j],color);
  end;
 
 function TTiledImage.GetRegion: TRegion;
@@ -252,7 +251,7 @@ procedure TTiledImage.Precache(part: single);
   if n<=0 then exit;
   for i:=0 to cntX-1 do
    for j:=0 to cntY-1 do begin
-    painter.texman.MakeOnline(tiles[i,j]);
+    gfx.resman.MakeOnline(tiles[i,j]);
     dec(n);
     if n=0 then exit;
    end;
@@ -317,7 +316,7 @@ var
  i:integer;
 begin
  for i:=1 to count do
-  painter.DrawImagePart(x+points[i].x,y+points[i].Y,tex,color,rects[i]);
+  gfx.draw.ImagePart(x+points[i].x,y+points[i].Y,tex,color,rects[i]);
 end;
 
 function TPatchedImage.GetRegion: TRegion;
@@ -342,11 +341,11 @@ end;
    try
    st:=Translate(st);
    d:=GlowDepth+glowBlur;
-   w:=painter.TextWidthW(font,st)+4+2*d; h:=round(3*d+painter.FontHeight(font)*1.5);
+   w:=txt.WidthW(font,st)+4+2*d; h:=round(3*d+txt.Height(font)*1.5);
    GetMem(tmp,w*h*4);
    fillchar(tmp^,w*h*4,0);
-   painter.SetTextTarget(tmp,w*4);
-   painter.TextOutW(font,w div 2,round(h*0.77)-d,textColor,st,Apus.Engine.API.taCenter,toDrawToBitmap);
+   txt.SetTarget(tmp,w*4);
+   txt.WriteW(font,w div 2,round(h*0.77)-d,textColor,st,Apus.Engine.API.taCenter,toDrawToBitmap);
    dec(x,round(w/2));
    dec(y,round(h/2));
    if glowColor>$FFFFFF then begin
@@ -379,7 +378,7 @@ end;
   begin
    d:=GlowDepth+glowBlur;
    st:=Translate(st);
-   w:=painter.TextWidthW(font,st)+6+2*d; h:=round(3*d+painter.FontHeight(font)*1.5);
+   w:=txt.WidthW(font,st)+6+2*d; h:=round(3*d+txt.Height(font)*1.5);
 //   if w mod 2=0 then inc(w);
    img:=AllocImage(w,h,pfTrueColorAlpha,aiClampUV,'BTWG'+inttostr(serial)) as TTexture;
    inc(serial);
@@ -403,7 +402,7 @@ end;
    mat[3,0]:=originX;
    mat[3,1]:=originY;
    mat[3,3]:=1;
-   painter.Set3DTransform(mat);
+   gfx.transform.SetObj(mat);
   end;
 
  procedure Transform2DTurnAround(centerX,centerY,scale,angle:double);
@@ -422,7 +421,7 @@ end;
    mat[3,0]:=centerX-scale*(ca*centerX-sa*centerY);
    mat[3,1]:=centerY-scale*(sa*centerX+ca*centerY);
    mat[3,3]:=1;
-   painter.Set3DTransform(mat);
+   gfx.transform.SetObj(mat);
   end;
 
  procedure Transform2DScaleAround(centerX,centerY,scaleX,scaleY:double);
@@ -436,7 +435,7 @@ end;
    mat[3,0]:=centerX*(1-scaleX);
    mat[3,1]:=centerY*(1-scaleY);
    mat[3,3]:=1;
-   painter.Set3DTransform(mat);
+   gfx.transform.SetObj(mat);
   end;
 
  procedure Reset2DTransform;
@@ -459,7 +458,7 @@ end;
    du,dv,dx,dy:single;
   begin
    result:=TMesh.Create;
-   painter.texman.MakeOnline(img);
+   gfx.resman.MakeOnline(img);
    // Fill vertices
    with result do begin
    SetLength(vertices,(splitX+1)*(splitY+1));
@@ -498,12 +497,12 @@ end;
 
  procedure DrawIndexedMesh(vertices:TVertices;indices:TIndices;tex:TTexture);
   begin
-   painter.DrawIndexedMesh(@vertices[0],@indices[0],length(indices) div 3,length(vertices),tex);
+   draw.IndexedMesh(@vertices[0],@indices[0],length(indices) div 3,length(vertices),tex);
   end;
 
  procedure DrawMesh(vertices:TVertices;tex:TTexture);
   begin
-   painter.DrawTrgListTex(@vertices[0],length(vertices) div 3,tex);
+   draw.TrgList(@vertices[0],length(vertices) div 3,tex);
   end;
 
  procedure AddVertex(var vertices:TVertices;x,y,z,u,v:single;color:cardinal);
@@ -549,7 +548,7 @@ end;
     a:=a+step;
    end;
    inc(parts[n-1].index,partLoop);
-   painter.DrawBand(0,0,@parts[0],n,tex,rec);
+   draw.Band(0,0,@parts[0],n,tex,rec);
   end;
 
  procedure DrawSpinner(x,y,size:integer;color:cardinal;count:integer=12);
@@ -581,7 +580,7 @@ end;
     data[i*2+1].scale:=s;
     data[i*2+1].index:=partEndpoint;
    end;
-   painter.DrawBand(x,y,@data[0],count*2,nil,Rect(x-size,y-size,x+size,y+size));
+   draw.Band(x,y,@data[0],count*2,nil,Rect(x-size,y-size,x+size,y+size));
   end;
 
  procedure DrawSolidSpinner(x,y,size,width:integer;color:cardinal);
@@ -606,7 +605,7 @@ end;
     data[i].index:=0;
     if i=count-1 then data[i].index:=partLoop;
    end;
-   painter.DrawBand(x,y,@data[0],count,nil,Rect(x-size,y-size,x+size,y+size));
+   draw.Band(x,y,@data[0],count,nil,Rect(x-size,y-size,x+size,y+size));
   end;
 
 procedure MainLoop;
@@ -616,7 +615,7 @@ begin
    PingThread;
    CheckCritSections;
    Delay(5); // Handling signals is inside
-   game.systemPlatform.ProcessSystemMessages;
+   systemPlatform.ProcessSystemMessages;
   except
    on e:exception do ForceLogMessage('Error in MainLoop: '+ExceptionMsg(e));
   end;
