@@ -200,7 +200,6 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="..\..\Base\deprecated\Apus.DirectText.pas"/>
         <DCCReference Include="..\..\Apus.Engine.API.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UIClasses.pas"/>
         <DCCReference Include="..\..\Apus.Engine.PainterGL.pas"/>
@@ -223,10 +222,9 @@
         <DCCReference Include="..\..\Apus.Engine.CmdProc.pas"/>
         <DCCReference Include="..\..\Apus.Engine.ComplexText.pas"/>
         <DCCReference Include="..\..\Apus.Engine.SteamAPI.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.DxImages8.pas"/>
         <DCCReference Include="..\..\Apus.Engine.OpenGL.pas"/>
         <DCCReference Include="..\..\Apus.Engine.PainterGL2.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.GLImages.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.ResManGL.pas"/>
         <DCCReference Include="..\..\Apus.Engine.SoundBass.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Sound.pas"/>
         <DCCReference Include="..\..\Apus.Engine.WindowsPlatform.pas"/>
@@ -240,6 +238,7 @@
         <DCCReference Include="..\..\Apus.Engine.UIScript.pas"/>
         <DCCReference Include="..\..\Apus.Engine.GfxFormats3D.pas"/>
         <DCCReference Include="..\..\Apus.Engine.ImageTools.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Drawing.pas"/>
         <BuildConfiguration Include="Debug">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

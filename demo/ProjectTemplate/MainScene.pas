@@ -1,4 +1,4 @@
-// Project template for the Apus Game Engine framework
+﻿// Project template for the Apus Game Engine framework
 
 // Copyright (C) 2021 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -63,7 +63,7 @@ procedure TMainScene.CreateUI;
   font:cardinal;
   btn:TUIButton;
  begin
-  font:=painter.GetFont('Default',9);
+  font:=txt.GetFont('Default',9);
   // Create a button
   btn:=TUIButton.Create(100,32,'MainScene\Close','Exit',font,UI);
   btn.SetPos(game.renderWidth/2,game.renderHeight/2,pivotCenter);
@@ -77,7 +77,7 @@ procedure TMainScene.CreateUI;
 procedure TMainScene.Render;
  begin
   // 1. Draw scene background
-  painter.Clear($406080); // clear with black
+  gfx.target.Clear($406080); // clear with black
   // Draw some lines
   inherited;
  end;

@@ -20,7 +20,6 @@ uses
   Apus.EventMan,
   Apus.FastGFX,
   Apus.FreeTypeFont,
-  Apus.DirectText in '..\..\Base\deprecated\Apus.DirectText.pas',
   Apus.Engine.API in '..\..\Apus.Engine.API.pas',
   Apus.Engine.UIClasses in '..\..\Apus.Engine.UIClasses.pas',
   Apus.Engine.PainterGL in '..\..\Apus.Engine.PainterGL.pas',
@@ -44,23 +43,20 @@ uses
   Apus.Engine.ComplexText in '..\..\Apus.Engine.ComplexText.pas',
   {$IFDEF STEAM}
   Apus.Engine.SteamAPI in '..\..\Apus.Engine.SteamAPI.pas',
-  {$ENDIF}
-  {$IFDEF DIRECTX}
-  Apus.Engine.DxImages8 in '..\..\Apus.Engine.DxImages8.pas',
   {$ENDIF }
   {$IFDEF OPENGL}
   Apus.Engine.OpenGL in '..\..\Apus.Engine.OpenGL.pas',
   Apus.Engine.PainterGL2 in '..\..\Apus.Engine.PainterGL2.pas',
-  Apus.Engine.GLImages in '..\..\Apus.Engine.GLImages.pas',
+  Apus.Engine.ResManGL in '..\..\Apus.Engine.ResManGL.pas',
   {$ENDIF }
   {$IFDEF MSWINDOWS}
   Apus.Engine.SoundBass in '..\..\Apus.Engine.SoundBass.pas',
   Apus.Engine.Sound in '..\..\Apus.Engine.Sound.pas',
   Apus.Engine.WindowsPlatform in '..\..\Apus.Engine.WindowsPlatform.pas',
-  {$ENDIF}
+  {$ENDIF }
   {$IFDEF SDL}
   Apus.Engine.SDLplatform in '..\..\Apus.Engine.SDLplatform.pas',
-  {$ENDIF}
+  {$ENDIF }
   Apus.Engine.GameApp in '..\..\Apus.Engine.GameApp.pas',
   Apus.Engine.Model3D in '..\..\Apus.Engine.Model3D.pas',
   Apus.Engine.OBJLoader in '..\..\Apus.Engine.OBJLoader.pas',
@@ -69,7 +65,8 @@ uses
   Apus.Engine.ImgLoadQueue in '..\..\Apus.Engine.ImgLoadQueue.pas',
   Apus.Engine.UIScript in '..\..\Apus.Engine.UIScript.pas',
   Apus.Engine.GfxFormats3D in '..\..\Apus.Engine.GfxFormats3D.pas',
-  Apus.Engine.ImageTools in '..\..\Apus.Engine.ImageTools.pas';
+  Apus.Engine.ImageTools in '..\..\Apus.Engine.ImageTools.pas',
+  Apus.Engine.Drawing in '..\..\Apus.Engine.Drawing.pas';
 
 const
  wnd:boolean=true;
@@ -539,8 +536,8 @@ begin
  glDrawArrays(GL_TRIANGLES,0,3);     *)
 
  painter.DrawImage(1,1,tex1,$FF808080);
- painter.DrawScaled(200,100,350,250,tex1,$FF808080);
- painter.DrawScaled(200,300,299,399,tex1,$FF808080);
+ painter.Scaled(200,100,350,250,tex1,$FF808080);
+ painter.Scaled(200,300,299,399,tex1,$FF808080);
 
  x:=frame mod 100;
  r:=Rect(x,10,x+10,20);
@@ -553,16 +550,16 @@ begin
  painter.DrawImagePart90(230,50,tex1,$FF808080,Rect(2,2,20,10),1);
  painter.DrawImagePart90(260,50,tex1,$FF808080,Rect(2,2,20,10),2);
  painter.DrawImagePart90(290,50,tex1,$FF808080,Rect(2,2,20,10),3);
- painter.DrawRotScaled(450,200,2,2,1,tex2,$FF808080);
+ painter.RotScaled(450,200,2,2,1,tex2,$FF808080);
 
 
  s:=0.2+(MyTickCount mod 3000)/3000;
  painter.SetTexMode(0,tblModulate2X,tblModulate,fltTrilinear);
- painter.DrawRotScaled(450,420,s,s,0,texM);
+ painter.RotScaled(450,420,s,s,0,texM);
 
  if (frame div 100) and 1=0 then
    painter.SetTexMode(0,tblNone,tblNone,fltNearest);
- painter.DrawRotScaled(750,300,4,4,1,tex2,$FF808080);
+ painter.RotScaled(750,300,4,4,1,tex2,$FF808080);
  painter.SetTexMode(0,tblNone,tblNone,fltBilinear);
 
  painter.Rect(200-1,100-1,350+1,250+1,$FFFFFF80);
@@ -570,8 +567,8 @@ begin
  painter.DrawImage(10,200,tex2,$FF808080);
  painter.DrawImagePart(100,200,tex2,$FF808080,Rect(8,8,15,15));
  v:=1+0.5*sin(frame/35);
- painter.DrawRotScaled(200,500,v,v,frame/100,tex1,$FF808080);
- painter.DrawRotScaled(200,700,1,1,frame/300,tex1,$FF808080,0.2, 0);
+ painter.RotScaled(200,500,v,v,frame/100,tex1,$FF808080);
+ painter.RotScaled(200,700,1,1,frame/300,tex1,$FF808080,0.2, 0);
  painter.DrawImage(400,10,tex3);
 
  s:=(MyTickCount mod 100000)/2000;
@@ -580,8 +577,8 @@ begin
  s:=(2*s-v)*Pi/2;
  painter.FillRect(650-19,30-19,650+19,30+19,$FFC0A020);
  painter.FillRect(700-19,30-19,700+19,30+19,$FFC0A020);
- painter.DrawRotScaled(650,30,1,1,s,tex5,$FF808080);
- painter.DrawRotScaled(700,30,1,1,s,tex6,$FF808080);
+ painter.RotScaled(650,30,1,1,s,tex5,$FF808080);
+ painter.RotScaled(700,30,1,1,s,tex6,$FF808080);
 
 
  painter.DrawImage(800,160,texA,$FFFF6000);
@@ -1009,7 +1006,7 @@ begin
  painter.DrawImage(4,300,tex3,$FF808080);
  painter.DrawImage(4,4,tex2,$FF808080);
  painter.DrawImage(10,500,tex4,$FF808080);
- painter.DrawScaled(400+round(80*sin(1+frame/200)),200+round(80*sin(frame/300)),
+ painter.Scaled(400+round(80*sin(1+frame/200)),200+round(80*sin(frame/300)),
                     600+round(80*sin(frame/240)),400+round(2+80*sin(frame/250)),tex2,$FF808080);
  painter.EndPaint;
 end;
@@ -1058,7 +1055,7 @@ begin
  painter.Clear($FF000000+frame and 127,-1,-1);
  painter.BeginPaint(nil);
  painter.DrawImage(0,0,tex4);
-// painter.DrawScaled(10,10,50+100+100*sin(frame/100),50+100+100*sin(frame/100),tex1,$FF808080);
+// painter.Scaled(10,10,50+100+100*sin(frame/100),50+100+100*sin(frame/100),tex1,$FF808080);
  painter.DrawImage(10{+frame mod 200},10{+frame mod 200},tex1,$FF808080);
  painter.DrawImage(200,20,tex2,$FF808080);
  painter.DrawImage(400,20,tex3);
@@ -1154,10 +1151,10 @@ begin
  end;
 // if v mod 3=2 then painter.DrawImage(40,40,tex2);
 
-{ painter.DrawRotScaled(450,240,1,1,0,tex2);
- painter.DrawRotScaled(580.5,240,1,1,0,tex2);
- painter.DrawRotScaled(450,370.5,1,1,0,tex2);
- painter.DrawRotScaled(580.5,370.5,1,1,0,tex2);}
+{ painter.RotScaled(450,240,1,1,0,tex2);
+ painter.RotScaled(580.5,240,1,1,0,tex2);
+ painter.RotScaled(450,370.5,1,1,0,tex2);
+ painter.RotScaled(580.5,370.5,1,1,0,tex2);}
 
  // цвет от первой текстуры, альфа - пофигу
  painter.SetTexMode(1,tblKeep,tblKeep,fltUndefined);
