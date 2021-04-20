@@ -4,7 +4,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 {$R-}
-unit Apus.Engine.PainterBase;
+unit Apus.Engine.Drawing;
 interface
  uses Types,Apus.Geom3D,Apus.Engine.API;
  const
@@ -41,7 +41,7 @@ interface
                  bandIndBuf,    // буфер индексов для отрисовки полос/колец
                  textVertBuf);  // буфер вершин для вывода текста
 
- TBasicPainter=class(TPainter)
+ TDrawer=class(TInterfacedObject,IDrawing)
   PFTexWidth:integer; // width of texture for PrepareFont
   constructor Create;
 
@@ -288,46 +288,6 @@ procedure DefaultTextLinkStyle(link:cardinal;var sUnderline:boolean;var color:ca
  end;
 
 { TBasicPainter }
-
-procedure TBasicPainter.BeginPaint(target: TTexture);
-begin
- if (canPaint>0) and (target=curtarget) then
-   raise EWarning.Create('BP: target already set');
- PushRenderTarget;
- if target<>curtarget then begin
-  if target<>nil then SetTargetToTexture(target)
-   else ResetTarget;
- end else begin
-  RestoreClipping;
- end;
-
- inc(canPaint);
-end;
-
-procedure TBasicPainter.EndPaint;
-begin
- if canpaint=0 then exit;
-// LogMessage('EP: '+inttohex(integer(curtarget),8));
- PopRenderTarget;
- dec(canPaint);
-end;
-
-procedure TBasicPainter.PopRenderTarget;
-begin
- ASSERT(stackCnt>0);
- if targetStack[stackCnt]=nil then ResetTarget
-  else SetTargetToTexture(targetStack[stackcnt]);
- clipRect:=clipStack[stackcnt];
- dec(stackCnt);
-end;
-
-procedure TBasicPainter.PushRenderTarget;
-begin
- ASSERT(stackCnt<10);
- inc(stackCnt);
- targetStack[stackcnt]:=curtarget;
- clipStack[stackcnt]:=clipRect;
-end;
 
 
 constructor TBasicPainter.Create;

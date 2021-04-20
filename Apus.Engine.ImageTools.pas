@@ -297,7 +297,7 @@ begin
  /// TODO: load other file types
  ;
  // этап 2 - создание текстуры
- tex:=painter.texman.AllocImage(imginfo.width,imginfo.height,format,
+ tex:=AllocImage(imginfo.width,imginfo.height,format,
    aiTexture+aiMipmapping+aiPow2,fname) as TTexture;
 
  // этап 3 - Загрузка данных в текстуру
@@ -399,9 +399,6 @@ var
  doScale:boolean;
  st:string;
 begin
- if painter.texman=nil then
-  raise EError.Create(fname+' - Loading failed: texture manager doesn''t exist!');
-
  try
   // 1. ADJUST FILE NAME AND CHECK ATLAS
   fname:=FileName(fname);
@@ -482,7 +479,7 @@ begin
   if flags and liffMipMaps>0 then aflags:=aflags or aiTexture or aiPow2 or aiMipMapping;
   if imgInfo.miplevels>1 then flags:=flags or aiMipMapping;
   aFlags:=aFlags or (flags and $FF0000);
-  tex:=painter.texman.AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,copy(fname,pos('\',fname)+1,16)) as TTexture;
+  tex:=AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,copy(fname,pos('\',fname)+1,16)) as TTexture;
   tex.Lock(0);
   img:=tex.GetRawImage; // получить объект типа RAW Image для доступа к данным текстуры
 
@@ -541,7 +538,7 @@ var
  sp,dp:PByte;
 begin
  ASSERT((x>=0) and (y>=0) and (x+width<=source.width) and (y+height<=source.height));
- tex:=painter.texman.AllocImage(width,height,source.PixelFormat,flags,'p_'+source.name) as TTexture;
+ tex:=AllocImage(width,height,source.PixelFormat,flags,'p_'+source.name) as TTexture;
  tex.Lock;
  source.Lock(0,lmReadOnly);
  sp:=source.data;
