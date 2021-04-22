@@ -801,7 +801,7 @@ type
  VertexArray=array[0..100] of TVertex;
 var
  vrt:^VertexArray;
- idx:array of integer;  // ������ �������� ��������� (���������� �� z)
+ idx:array of integer;  // массив индексов партиклов (сортировка по z)
  i,j,n:integer;
  part:^PartArr;
  needSort:boolean;
@@ -821,7 +821,7 @@ begin
   if part[i].z<>0 then needSort:=true;
   idx[i]:=i;
  end;
- if needSort then // ���������� (� ������� �������� �� quicksort)
+ if needSort then // сортировка (в будущем заменить на quicksort)
   for i:=0 to count-2 do begin
    n:=i; minZ:=part[idx[n]].z;
    for j:=i+1 to count-1 do
@@ -830,7 +830,7 @@ begin
    idx[i]:=idx[n];
    idx[n]:=j;
   end;
- // �������� ��������� �����
+ // заполним вершинный буфер
  vrt:=renderDevice.LockBuffer(VertBuf,0,4*count*sizeof(TVertex));
  for i:=0 to count-1 do begin
   n:=idx[i];
@@ -840,8 +840,8 @@ begin
   sizeV:=part[n].index shr 20 and $F;
   if sizeU=0 then sizeU:=1;
   if sizeV=0 then sizeV:=1;
-  if part[n].z<-ZDist+0.01 then part[n].z:=-ZDist+0.01; // ����������� �������� ������, ���������!
-  // ������ ���������� �������� �-�� �������
+  if part[n].z<-ZDist+0.01 then part[n].z:=-ZDist+0.01; // модификация исходных данных, осторожно!
+  // сперва рассчитаем экранные к-ты частицы
   sx:=x+ZDist*part[n].x/(part[n].z+ZDist);
   sy:=y+ZDist*part[n].y/(part[n].z+ZDist);
   uStart:=tex.u1+tex.stepU*(1+2*size*startU);
@@ -856,7 +856,7 @@ begin
   rx:=size2*sizeU*cos(-part[n].angle); ry:=-size2*sizeU*sin(-part[n].angle);
   qx:=size2*sizeV*cos(-part[n].angle+1.5708); qy:=-size2*sizeV*sin(-part[n].angle+1.5708);
   color:=part[n].color;
-  // ������ �������
+  // первая вершина
   SetVertexT(vrt[i*4],   sx-rx+qx, sy-ry+qy, zPlane,color, uStart,      vStart);
   SetVertexT(vrt[i*4+1], sx+rx+qx, sy+ry+qy, zPlane,color, uStart+uSize,vStart);
   SetVertexT(vrt[i*4+2], sx+rx-qx, sy+ry-qy, zPlane,color, uStart+uSize,vStart+vSize);
@@ -893,7 +893,7 @@ begin
  if tex<>nil then gfx.shader.UseTexture(tex);
  part:=pointer(data);
  if count>MaxParticleCount then count:=MaxParticleCount;
-{ if part[count-1].index and (partEndpoint+partLoop)=0 then   // ����������� �������� ������ �����������!
+{ if part[count-1].index and (partEndpoint+partLoop)=0 then   // Модификация исходных данных недопустима!
   part[count-1].index:=part[count-1].index or partEndpoint; }
 
  if tex<>nil then begin
@@ -905,42 +905,42 @@ begin
   u1:=0; u2:=0; v1:=0; vstep:=0;
  end;
 
- // �������� ��������� �����
+ // заполним вершинный буфер
  noPrv:=true;
  loopstart:=0;
  primcount:=0;
  vrt:=renderDevice.LockBuffer(VertBuf,0,2*count*sizeof(TVertex));
  idx:=renderDevice.LockBuffer(bandIndBuf,0,6*count*2);
  for i:=0 to count-1 do begin
-   // ������ ���������� �������� �-�� �������
+   // сперва рассчитаем экранные к-ты частицы
    sx:=x+part[i].x;
    sy:=y+part[i].y;
 
    if noPrv or
      (part[i].index and partEndpoint>0) or
      ((i=count-1) and (part[i].index and partLoop=0)) then begin
-     // ��������� ���� �������� �������
+     // начальная либо конечная вершина
      if noPrv then begin
-       if part[i].index and partLoop>0 then begin // ������ ������� �����
+       if part[i].index and partLoop>0 then begin // первая вершина цикла
         j:=i+1;
         while (j<count) and (part[j].index and partLoop=0) do inc(j);
         part[i].index:=part[i].index and (not partLoop);
        end else
-        j:=i; // ������ ������� �����
+        j:=i; // первая вершина линии
        qx:=part[i+1].x-part[j].x;
        qy:=part[i+1].y-part[j].y;
      end else begin
-       // ��������� ������� �����
+       // последняя вершина линии
        qx:=part[i].x-part[i-1].x;
        qy:=part[i].y-part[i-1].y;
      end;
    end else begin
      if part[i].index and partLoop>0 then begin
-      // ��������� ������� �����
+      // последняя вершина цикла
       qx:=part[loopStart].x-part[i-1].x;
       qy:=part[loopStart].y-part[i-1].y;
      end else begin
-      // ������������� �������
+      // промежуточная вершина
       qx:=part[i+1].x-part[i-1].x;
       qy:=part[i+1].y-part[i-1].y;
      end;
@@ -953,7 +953,7 @@ begin
    end;
 
    color:=part[i].color;
-   // ������ �������
+   // первая вершина
    SetVertexT(vrt[i*2],   sx-rx,sy-ry, zPlane,color, u1,v1+vStep*(part[i].index and $FF));
    SetVertexT(vrt[i*2+1], sx+rx,sy+ry, zPlane,color, u2,v1+vStep*(part[i].index and $FF));
    noPrv:=false;
@@ -967,11 +967,11 @@ begin
      noprv:=true;
    end else
      next:=i+1;
-   // ������ ����������� - (0,1,2)
+   // первый треугольник - (0,1,2)
    idx^:=i*2; inc(idx);
    idx^:=i*2+1; inc(idx);
    idx^:=next*2; inc(idx);
-   // ������ ����������� - (2,1,3)
+   // второй треугольник - (2,1,3)
    idx^:=next*2; inc(idx);
    idx^:=i*2+1; inc(idx);
    idx^:=next*2+1; inc(idx);

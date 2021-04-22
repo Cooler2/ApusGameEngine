@@ -363,7 +363,7 @@ type
  end;
 
  // Control render target
- IRenderTarget=interface
+ IRenderTargets=interface
   procedure UseBackbuffer; //< Render to the backbuffer
   procedure UseTexture(tex:TTexture); //< render to the texture
   procedure Push;  //< Save (push) current target in stack
@@ -682,7 +682,7 @@ type
   // APIs
   function config:IGraphicsSystemConfig;
   function resman:IResourceManager;
-  function target:IRenderTarget;
+  function target:IRenderTargets;
   function shader:IShaders;
   function clip:IClipping;
   function transform:ITransformation;

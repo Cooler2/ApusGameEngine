@@ -63,7 +63,7 @@ type
   function  Get:TRect; //< return current clipping rect
  end;
 
- TRenderTargetAPI=class(TInterfacedObject,IRenderTarget)
+ TRenderTargetAPI=class(TInterfacedObject,IRenderTargets)
   constructor Create;
 
   procedure UseBackbuffer; virtual;
@@ -82,11 +82,13 @@ type
   function renderHeight:integer;
  private
   screenRect:TRect;
+  curBlend:TBlendingMode;
  end;
 
 var
  renderDevice:IRenderDevice;
  renderTargetAPI:TRenderTargetAPI;
+ transformationAPI:TTransformationAPI;
 
 implementation
  uses Math, Apus.Geom3D;
@@ -101,8 +103,20 @@ constructor TTransformationAPI.Create;
  end;
 
 procedure TTransformations.DefaultView;
+ var
+  w,h:integer;
  begin
-
+  w:=renderTargetAPI.screenRect.width;
+  h:=renderTargetAPI.screenRect.height;
+  if (w=0) and (h=0) then exit;
+  projMatrix[0,0]:=2/w;  projMatrix[1,0]:=0; projMatrix[2,0]:=0; projMatrix[3,0]:=-1+1/w;
+  if (curtarget<>defaultRenderTarget) then begin
+   projMatrix[0,1]:=0;  projMatrix[1,1]:=2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=-(1-1/h);
+  end else begin
+   projMatrix[0,1]:=0;  projMatrix[1,1]:=-2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=1-1/h;
+  end;
+  projMatrix[0,2]:=0;  projMatrix[1,2]:=0; projMatrix[2,2]:=-1; projMatrix[3,2]:=0;
+  projMatrix[0,3]:=0;  projMatrix[1,3]:=0; projMatrix[2,3]:=0; projMatrix[3,3]:=1;
  end;
 
 function TTransformations.GetMVPMatrix: T3DMatrix;
@@ -112,7 +126,19 @@ function TTransformations.GetMVPMatrix: T3DMatrix;
 
 procedure TTransformations.Orthographic(scale, zMin, zMax: double);
  begin
+  w:=(screenRect.Right-screenRect.Left);
+  h:=(screenRect.Bottom-screenRect.top);
 
+  projMatrix[0,0]:=scale*2/w;  projMatrix[1,0]:=0; projMatrix[2,0]:=0; projMatrix[3,0]:=0;
+  if (curtarget<>defaultRenderTarget) then begin
+   projMatrix[0,1]:=0;  projMatrix[1,1]:=scale*2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=0;
+  end else begin
+   projMatrix[0,1]:=0;  projMatrix[1,1]:=-scale*2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=0;
+  end;
+  projMatrix[0,2]:=0;  projMatrix[1,2]:=0; projMatrix[2,2]:=2/(zMax-zMin); projMatrix[3,2]:=-(zMax+zMin)/(zMax-zMin);
+  projMatrix[0,3]:=0;  projMatrix[1,3]:=0; projMatrix[2,3]:=0; projMatrix[3,3]:=1;
+
+  SetGLMatrix(mtProjection,@projMatrix);
  end;
 
 procedure TTransformations.Perspective(xMin, xMax, yMin, yMax, zScreen, zMin,
@@ -128,6 +154,12 @@ procedure TTransformations.Perspective(xMin, xMax, yMin, yMax, zScreen, zMin,
   projMatrix[0,1]:=0;      projMatrix[1,1]:=2*zScreen/(yMax-yMin);  projMatrix[2,1]:=B;     projMatrix[3,1]:=0;
   projMatrix[0,2]:=0;      projMatrix[1,2]:=0;                      projMatrix[2,2]:=C;     projMatrix[3,2]:=D;
   projMatrix[0,3]:=0;      projMatrix[1,3]:=0;                      projMatrix[2,3]:=1;     projMatrix[3,3]:=0;
+
+ if curtarget=defaultRenderTarget then // нужно переворачивать ось Y если только не рисуем в текстуру
+  for i:=0 to 3 do
+   projMatrix[i,1]:=-projMatrix[i,1];
+
+ SetGLMatrix(mtProjection,@projMatrix);
  end;
 
 procedure TTransformations.Perspective(fov: single; zMin, zMax: double);

@@ -799,12 +799,6 @@ var
  x,y,z:double;
 begin
  Invert4Full(view,viewMatrix);
- // Последний вектор: положение начала координат мировой системы в СК камеры
- {x:=view[3,0]; y:=view[3,1]; z:=view[3,2];
- view[3,0]:=-(x*view[0,0]+y*view[0,1]+z*view[0,2]);
- view[3,1]:=-(x*view[1,0]+y*view[1,1]+z*view[1,2]);
- view[3,2]:=-(x*view[2,0]+y*view[2,1]+z*view[2,2]);
- viewmatrix:=view;}
  Set3DTransform(objMatrix);
 end;
 

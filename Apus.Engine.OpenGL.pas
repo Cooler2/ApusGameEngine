@@ -24,7 +24,7 @@ type
   // Core interfaces
   function config:IGraphicsSystemConfig;
   function resman:IResourceManager;
-  function target:IRenderTarget;
+  function target:IRenderTargets;
   function shader:IShaders;
   function clip:IClipping;
   function transform:ITransformation;
@@ -241,7 +241,13 @@ function TOpenGL.SetVSyncDivider(n: integer):boolean;
 
 procedure TOpenGL.BeginPaint(target: TTexture);
  begin
-
+  {$IFNDEF GLES}
+  glEnable(GL_TEXTURE_2D);
+  {$ENDIF}
+  glUseProgram(defaultShader);
+  glActiveTexture(GL_TEXTURE0);
+  glUniform1i(uTex1,0);
+  CheckForGLError;
  end;
 
 procedure TOpenGL.EndPaint;
@@ -287,7 +293,7 @@ function TOpenGL.clip: IClipping;
  begin
 
  end;
-function TOpenGL.target: IRenderTarget;
+function TOpenGL.target: IRenderTargets;
  begin
   result:=renderTargetAPI;
  end;
@@ -337,15 +343,7 @@ function TOpenGL.GetVersion: single;
   if GL_VERSION_4_6 then result:=4.6;
  end;
 
-
-
 { TRenderDevice }
-procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
-  stride: integer);
- begin
-
- end;
-
 constructor TRenderDevice.Create;
  begin
 
@@ -357,6 +355,25 @@ destructor TRenderDevice.Destroy;
   inherited;
  end;
 
+procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
+  stride: integer);
+ var
+  vrt:PVertex;
+ begin
+  vrt:=vertices;
+  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vrt.x);
+  glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.color);
+  glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,stride,@vrt.u);
+
+  case primtype of
+   LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
+   LINE_STRIP:glDrawArrays(GL_LINE_STRIP,0,primCount+1);
+   TRG_LIST:glDrawArrays(GL_TRIANGLES,0,primCount*3);
+   TRG_FAN:glDrawArrays(GL_TRIANGLE_FAN,0,primCount+2);
+   TRG_STRIP:glDrawArrays(GL_TRIANGLE_STRIP,0,primCount+2);
+  end;
+ end;
+
 procedure TRenderDevice.Draw(primType, primCount, vrtStart: integer;
   vertexBuf: TPainterBuffer; stride: integer);
  begin
@@ -366,21 +383,53 @@ procedure TRenderDevice.Draw(primType, primCount, vrtStart: integer;
 procedure TRenderDevice.DrawIndexed(primType: integer; vertexBuf: PVertex;
   indBuf: PWord; stride, vrtStart, vrtCount, indStart, primCount: integer);
  begin
-
+  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vertexbuf.x);
+  glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vertexbuf.color);
+  glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,stride,@vertexbuf.u);
+  case primtype of
+   LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indBuf);
+   LINE_STRIP:glDrawElements(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,indBuf);
+   TRG_LIST:glDrawElements(GL_TRIANGLES,primCount*3,GL_UNSIGNED_SHORT,indBuf);
+   TRG_FAN:glDrawElements(GL_TRIANGLE_FAN,primCount+2,GL_UNSIGNED_SHORT,indBuf);
+   TRG_STRIP:glDrawElements(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,indBuf);
+  end;
  end;
 
 procedure TRenderDevice.DrawIndexed(primType: integer; vertexBuf,
   indBuf: TPainterBuffer; stride, vrtStart, vrtCount, indStart,
   primCount: integer);
+ var
+  vrt:PVertex;
+  ind:Pointer;
  begin
+  case vertexBuf of
+   vertBuf:vrt:=@partBuf[0];
+   textVertBuf:vrt:=@txtBuf[0];
+   else raise EWarning.Create('DIP: Wrong vertbuf');
+  end;
+  case indBuf of
+   partIndBuf:ind:=@partind[indStart];
+   bandIndBuf:ind:=@bandInd[indStart];
+   else raise EWarning.Create('DIP: Wrong indbuf');
+  end;
+  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vrt.x);
+  glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.color);
+  glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,stride,@vrt.u);
 
+  case primtype of
+   LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,ind);
+   LINE_STRIP:glDrawElements(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,ind);
+   TRG_LIST:glDrawElements(GL_TRIANGLES,primCount*3,GL_UNSIGNED_SHORT,ind);
+   TRG_FAN:glDrawElements(GL_TRIANGLE_FAN,primCount+2,GL_UNSIGNED_SHORT,ind);
+   TRG_STRIP:glDrawElements(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,ind);
+  end;
  end;
 
 { TGLRenderTargetAPI }
 
 procedure TGLRenderTargetAPI.BlendMode(blend: TBlendingMode);
 begin
- if blend=curblend then exit;
+ if blend=curBlend then exit;
  case blend of
   blNone:begin
    glDisable(GL_BLEND);
@@ -414,7 +463,7 @@ begin
  else
   raise EWarning.Create('Blending mode not supported');
  end;
- curblend:=blend;
+ curBlend:=blend;
  CheckForGLError(31);
 end;
 
