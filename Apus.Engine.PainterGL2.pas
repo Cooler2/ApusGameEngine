@@ -355,7 +355,7 @@ procedure TGLPainter2.DrawPrimitives(primType, primCount: integer;
  begin
   vrt:=vertices;
   glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vrt.x);
-  glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.diffuse);
+  glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.color);
   glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,stride,@vrt.u);
 
   case primtype of
@@ -375,7 +375,7 @@ var
 begin
  vrt:=vertices;
  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vrt.x);
- glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.diffuse);
+ glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.color);
  glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,stride,@vrt.u);
  if actualAttribArrays>3 then
   glVertexAttribPointer(3,2,GL_FLOAT,GL_FALSE,stride,@vrt.u2);
@@ -439,7 +439,7 @@ begin
   else raise EWarning.Create('DIP: Wrong indbuf');
  end;
  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vrt.x);
- glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.diffuse);
+ glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.color);
  glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,stride,@vrt.u);
 
  case primtype of
@@ -456,7 +456,7 @@ procedure TGLPainter2.DrawIndexedPrimitivesDirectly(primType: integer;
    vrtCount: integer; indStart, primCount: integer);
  begin
  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vertexbuf.x);
- glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vertexbuf.diffuse);
+ glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vertexbuf.color);
  glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,stride,@vertexbuf.u);
  case primtype of
   LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indBuf);

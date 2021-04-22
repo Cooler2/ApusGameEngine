@@ -85,7 +85,7 @@ type
 implementation
  uses {$IFDEF DIRECTX}{d3d8,directXGraphics,}{$ENDIF}
       SysUtils, Apus.Images, Apus.Geom2D,
-      {$IFDEF OPENGL}dglOpenGL, Apus.Engine.PainterGL, {$ENDIF}
+      {$IFDEF OPENGL}dglOpenGL, {$ENDIF}
       {$IFDEF ANDROID}gles20, Apus.Engine.PainterGL, {$ENDIF}
       Apus.Colors,Apus.Engine.UIClasses,Apus.Engine.Console,Apus.Engine.UIRender;
 
@@ -297,7 +297,7 @@ begin
   l1.matrix[2,0]:=0; l1.matrix[2,1]:=0;
   l1.next:=nil;
   gfx.target.BlendMode(blMove);
-  draw.DrawMultiTex(0,0,w,h,@l1,$FF808080);
+  draw.MultiTex(0,0,w,h,@l1,$FF808080);
   finally
    gfx.EndPaint;
   end;
@@ -720,7 +720,7 @@ const
   '}';
 
 var
- blurShader:integer=0;
+ blurShader:TShader;
  loc1,loc2,loc3,loc4,locCA,locCM,locTex1,locTex2:integer;
 
 destructor TBlurEffect.Destroy;
@@ -761,18 +761,12 @@ var
  vsh,fsh,attrib:string;
 begin
  try
- if blurShader=0 then begin
-  if draw.classname='TGLPainter2' then begin
-   vsh:=vBlurShader2;
-   fsh:=fBlurShader2;
-   attrib:='aPosition,aColor,aTexcoord';
-  end else begin
-   vsh:=vBlurShader;
-   fsh:=fBlurShader;
-   attrib:='';
-  end;
-  blurShader:=TGLPainter(painter).BuildShaderProgram(vsh,fsh,attrib);
-  if blurShader=0 then begin
+ if blurShader=nil then begin
+  vsh:=vBlurShader2;
+  fsh:=fBlurShader2;
+  attrib:='aPosition,aColor,aTexcoord';
+  blurShader:=gfx.shader.Create(vsh,fsh,attrib);
+  if blurShader=nil then begin
    dontPlay:=true; exit;
   end;
   loc1:=glGetUniformLocation(blurShader,'offsetX');
@@ -850,8 +844,8 @@ begin
 
   gfx.BeginPaint(nil);
   try
-  draw.UseCustomShader;
-  glUseProgram(blurShader);
+  gfx.shader.UseCustom(blurShader);
+  //glUseProgram(blurShader);
   TGLPainter(painter).UseTexture(buffer2,1);
   phase:=power.Value;
   v:=sqrt(phase*factor);
@@ -872,18 +866,15 @@ begin
   for i:=0 to 2 do cf[i]:=(1-v)+cb[i]*v*2/255;
   glUniform4f(locCM,cf[2],cf[1],cf[0],1);
 
-  if draw.ClassName='TGLPainter2' then begin
-   u:=200*(1/buffer.width);
-   v:=200*(1/buffer.height);
-   draw.Scaled(-100-u,-100-v,100+u,100+v,buffer);
-//   draw.Scaled(-20,-20,70,50,buffer);
-  end else
-   draw.Image(0,0,buffer);
+  u:=200*(1/buffer.width);
+  v:=200*(1/buffer.height);
+  draw.Scaled(-100-u,-100-v,100+u,100+v,buffer);
 
-  draw.ResetTexMode;
   finally
    gfx.EndPaint;
   end;
+  gfx.shader.UseDefault;
+
  except
   on e:exception do begin
    ForceLogMessage('Error in BlurEff: '+ExceptionMsg(e));

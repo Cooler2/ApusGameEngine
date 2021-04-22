@@ -279,7 +279,7 @@ var
  c:cardinal;
 begin
  //if self=focusedControl then draw.Rect(x1,y1,x2,y2,$80C0A0A0);
-
+ with gfx do begin
  if self=focusedControl then c:=$2000 else c:=0;
  yy:=y1+round(height*0.48);
  draw.Line(x1,yy-1,x2,yy-1,$80202020+c);
@@ -332,6 +332,7 @@ begin
   inc(xx,x1);
   for i:=-4 to 4 do
    draw.Line(xx+i,yy-j,xx+i,yy-abs(i),c-$101010*abs(i));
+ end;
  end;
 end;
 

@@ -202,18 +202,15 @@
         </DelphiCompile>
         <DCCReference Include="..\..\Apus.Engine.API.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UIClasses.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.PainterGL.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UIScene.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UIRender.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Tools.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Console.pas"/>
         <DCCReference Include="..\..\Apus.Engine.ConsoleScene.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.SceneEffects.pas"/>
         <DCCReference Include="..\..\Apus.Engine.BitmapStyle.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Networking2.pas"/>
         <DCCReference Include="..\..\Apus.Engine.IOSgame.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Game.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.Painter2D.pas"/>
         <DCCReference Include="..\..\Apus.Engine.TweakScene.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Networking3.pas"/>
         <DCCReference Include="..\..\Apus.Engine.UDict.pas"/>
@@ -223,7 +220,6 @@
         <DCCReference Include="..\..\Apus.Engine.ComplexText.pas"/>
         <DCCReference Include="..\..\Apus.Engine.SteamAPI.pas"/>
         <DCCReference Include="..\..\Apus.Engine.OpenGL.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.PainterGL2.pas"/>
         <DCCReference Include="..\..\Apus.Engine.ResManGL.pas"/>
         <DCCReference Include="..\..\Apus.Engine.SoundBass.pas"/>
         <DCCReference Include="..\..\Apus.Engine.Sound.pas"/>
@@ -238,7 +234,10 @@
         <DCCReference Include="..\..\Apus.Engine.UIScript.pas"/>
         <DCCReference Include="..\..\Apus.Engine.GfxFormats3D.pas"/>
         <DCCReference Include="..\..\Apus.Engine.ImageTools.pas"/>
-        <DCCReference Include="..\..\Apus.Engine.Drawing.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Draw.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.Classes.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.TextDraw.pas"/>
+        <DCCReference Include="..\..\Apus.Engine.ClassesGL.pas"/>
         <BuildConfiguration Include="Debug">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

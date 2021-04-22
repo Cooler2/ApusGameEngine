@@ -69,13 +69,13 @@ const
  tfCloned         = 4096; // Texture object is cloned from another, so don't free any underlying resources
 
  // Special flags for the "index" field of particles
- partPosU  = $00000001;
- partPosV  = $00000100;
- partSizeU = $00010000;
- partSizeV = $00100000;
- partFlip  = $01000000;
- partEndpoint = $02000000; // free end of a polyline
- partLoop = $04000000; // end of a polyline loop
+ partPosU  = $00000001; // horizontal position in the atlas (in cells)
+ partPosV  = $00000100; // vertical position in the atlas (in cells)
+ partSizeU = $00010000; // particle width (in cells)
+ partSizeV = $00100000; // particle height (in cells)
+ partFlip  = $01000000; // mirror
+ partEndpoint = $02000000; // indicate that particle is a free end of a polyline (draw.Band)
+ partLoop = $04000000; // indicate end of a polyline loop (draw.Band)
 
  // Primitive types
  LINE_LIST = 1;
@@ -84,7 +84,7 @@ const
  TRG_STRIP = 4;
  TRG_LIST = 5;
 
- // TextOut options flags (overrides font handle flags)
+ // txt.Write() options flags (overrides font handle flags)
  toDontTranslate  =  1; // Don't use UDict to translate
  toDrawToBitmap   =  2; // Draw to bitmap buffer instead of current render target
  toDontCache      =  4; // Text attributes are dynamic, so no need to cache glyphs for any long period (temp cache is used)
@@ -382,6 +382,9 @@ type
   procedure Mask(rgb:boolean;alpha:boolean);
   // Restore (pop) previous mask
   procedure UnMask;
+
+  function renderWidth:integer;  //< width of the render area in pixels
+  function renderHeight:integer; //< height of the render area in pixels
  end;
 
  // Control clipping
@@ -528,36 +531,26 @@ type
  PVertex=^TVertex;
  TVertex=packed record
   x,y,z:single;
-  {$IFDEF DIRECTX}
-  rhw:single;
-  {$ENDIF}
-  diffuse:cardinal;
-  {$IFDEF DIRECTX}
-  specular:cardinal;
-  {$ENDIF}
+  color:cardinal;
   u,v:single;
+  procedure Init(x,y,z,u,v:single;color:cardinal); inline;
  end;
 
  // Basic vertex format for drawing non-textured primitives
  TScrPointNoTex=record
   x,y,z:single;
-  {$IFDEF DIRECTX}
-  rhw:single;
-  {$ENDIF}
-  diffuse:cardinal;
-  {$IFDEF DIRECTX}
-  specular:cardinal;
-  {$ENDIF}
+  color:cardinal;
+  procedure Init(x,y,z:single;color:cardinal); inline;
  end;
 
- // Vertex format for drawing multitextured primitives
- PScrPoint3=^TScrPoint3;
- TScrPoint3=record
-  x,y,z,rhw:single;
-  diffuse,specular:cardinal;
+ // Vertex format for drawing double textured primitives
+ PScrPoint2=^TScrPoint2;
+ TScrPoint2=record
+  x,y,z:single;
+  color:cardinal;
   u,v:single;
   u2,v2:single;
-  u3,v3:single;
+  procedure Init(x,y,z,u,v,u2,v2:single;color:cardinal); inline;
  end;
 
  // vertex and index arrays
@@ -612,9 +605,6 @@ type
  // Drawing interface
  IDrawer=interface
 {  TextColorX2:boolean; // true: white=FF808080 range, false: white=FFFFFFFF
-  textEffects:array[1..4] of TTextEffectLayer;
-  textMetrics:array of TRect; // results of text measurement (if requested)
-  zPlane:double; // default Z value for all primitives
   viewMatrix:T3DMatrix; // current view (camera) matrix
   objMatrix:T3DMatrix; // current object (model) matrix
   projMatrix:T3DMatrix; // current projection matrix
@@ -1183,23 +1173,6 @@ begin
   inherited;
 end;
 
-{ TPainter }
-
-procedure TPainter.DrawCentered(x, y, scale: single; tex: TTexture;
-  color: cardinal);
- begin
-  RotScaled(x,y,scale,scale,0,tex,color);
- end;
-
-procedure TPainter.DrawImage(x, y, scale: single; tex: TTexture;
-  color: cardinal; pivotX, pivotY: single);
- begin
-  if scale=1.0 then
-   DrawImage(round(x-tex.width*pivotX),round(y-tex.height*pivotY),tex,color)
-  else
-   RotScaled(x,y,scale,scale,0,tex,color,pivotX,pivotY);
- end;
-
 // Utils
 function fGetFontHandle(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
  var
@@ -1207,7 +1180,7 @@ function fGetFontHandle(params:string;tag:integer;context:pointer;contextClass:T
   style,effects:byte;
   size:double;
  begin
-  if painter=nil then raise EWarning.Create('Painter is not ready');
+  if txt=nil then raise EWarning.Create('TextDrawer is not ready');
   sa:=split(',',params);
   if length(sa)<2 then raise EWarning.Create('Invalid parameters');
   size:=EvalFloat(sa[1],nil,context,contextClass);
@@ -1235,8 +1208,8 @@ procedure LoadAtlas(fname:string;scale:single=1.0);
 function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
                 flags:integer=0;name:TTextureName=''):TTexture;
  begin
-  if gfx.texman<>nil then
-   result:=AllocImage(width,height,pixFmt,flags,name)
+  if gfx.resman<>nil then
+   result:=gfx.resman.AllocImage(width,height,pixFmt,flags,name)
   else
    raise EWarning.Create('Failed to alloc texture: no texture manager');
  end;
@@ -1244,7 +1217,7 @@ function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
 procedure FreeImage(var img:TTexture);
  begin
   if img<>nil then
-   FreeImage(img);
+   gfx.resman.FreeImage(img);
  end;
 
 function Translate(st:string8):string8; overload;
@@ -1282,6 +1255,33 @@ procedure TMesh.Draw(tex:TTexture=nil); // draw whole mesh
    DrawIndexedMesh(vertices,indices,tex)
   else
    DrawMesh(vertices,tex);
+ end;
+
+{ TVertex }
+
+procedure TVertex.Init(x, y, z, u, v: single; color: cardinal);
+ begin
+  self.x:=x; self.y:=y; self.z:=z;
+  self.color:=color;
+  self.u:=u; self.v:=v;
+ end;
+
+{ TScrPointNoTex }
+
+procedure TScrPointNoTex.Init(x, y, z: single; color: cardinal);
+ begin
+  self.x:=x; self.y:=y; self.z:=z;
+  self.color:=color;
+ end;
+
+{ TScrPoint2 }
+
+procedure TScrPoint2.Init(x, y, z, u, v, u2, v2: single; color: cardinal);
+ begin
+  self.x:=x; self.y:=y; self.z:=z;
+  self.color:=color;
+  self.u:=u; self.v:=v;
+  self.u2:=u2; self.v2:=v2;
  end;
 
 initialization

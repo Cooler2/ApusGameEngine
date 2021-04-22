@@ -187,7 +187,7 @@ implementation
          sa:=Split('~',translate(caption),#0);
          cRect:=but.GetClientPosOnScreen;
          gfx.clip.Rect(cRect);
-         draw.TextColorX2:=true;
+         //draw.TextColorX2:=true;
          if btnStyle=bsCheckbox then begin
           ix:=cRect.left+24+ix; iy:=cRect.top+2+iy;
           mode:=taLeft;
@@ -216,7 +216,7 @@ implementation
            inc(iy,txt.Height(font));
            if j=0 then inc(ix);
           end;
-         draw.TextColorX2:=false;
+         //draw.TextColorX2:=false;
          gfx.clip.Restore;
         end;
 

@@ -471,7 +471,7 @@ end;
     for j:=0 to splitX do begin
      with vertices[n] do begin
       x:=j*dx-0.5; y:=i*dy-0.5; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
-      diffuse:=$FF808080;
+      color:=$FF808080;
       u:=img.u1+du*j;
       v:=img.v1+dv*i;
      end;
@@ -516,7 +516,7 @@ end;
    vertices[n].z:=z;
    vertices[n].u:=u;
    vertices[n].v:=v;
-   vertices[n].diffuse:=color;
+   vertices[n].color:=color;
   end;
 
  function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices;

@@ -108,7 +108,7 @@ procedure DrawBtnImage(btn:TUIButton;state:TButtonState;xc,yc:single;var img:TTe
    styleCls.BuildButtonImage(btn,state,img);
   x:=round(xc+0.1); y:=round(yc+0.1);
   if img<>nil then begin
-   draw.DrawCentered(x,y,img,color);
+   draw.Centered(x,y,img,color);
   end else begin
    dec(x,btn.globalrect.width div 2);
    dec(y,btn.globalrect.height div 2);
@@ -133,10 +133,10 @@ procedure DrawBtnImageInt(btn:TUIButton;xc,yc:single;var imgNormal,imgOver:TText
 //    if imgNormal.height and 1=1 then y:=round(yc+0.5);
     dec(x,imgNormal.width div 2);
     dec(y,imgNormal.height div 2);
-    draw.SetTexMode(1,tblInterpolate,tblInterpolate,fltBilinear,intFactor);
+    gfx.shader.TexMode(1,tblInterpolate,tblInterpolate,fltBilinear,intFactor);
 //    draw.SetTexInterpolationMode(1,tintFactor,intFactor);
-    draw.DrawDouble(x,y,imgNormal,imgOver,color);
-    draw.SetTexMode(1,tblDisable,tblDisable,fltUndefined);
+    draw.DoubleTex(x,y,imgNormal,imgOver,color);
+    gfx.shader.TexMode(1,tblDisable,tblDisable,fltUndefined);
   end;
  end;
 

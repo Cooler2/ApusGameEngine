@@ -12,10 +12,13 @@ interface
   DEFAULT_FONT_DOWNSCALE = 0.93;
   DEFAULT_FONT_UPSCALE = 1.1;
 
-  FTF_DEFAULT_LINE_HEIGHT = 24;
+  // FT-шрифты не имеют "базового" размера, поэтому scale задается относительно произвольно зафиксированного размера
+  FTF_DEFAULT_LINE_HEIGHT = 24; // Высота строки, соответствующей scale=100
 
  type
   TTextDrawer=class(TInterfacedObject,ITextDrawer)
+   textMetrics:array of TRect; // results of text measurement (if requested)
+
    constructor Create;
    destructor Destroy; virtual;
 
@@ -42,6 +45,8 @@ interface
    // Text render target
    procedure SetTarget(buf:pointer;pitch:integer); // set system memory target for text rendering (no clipping!)
   private
+   fonts:array[1..32] of TObject;
+
    textCaching:boolean;  // cache draw operations
    vertBufUsage:integer; // number of vertices stored in vertBuf
    textBufUsage:integer; // number of vertices stored in textBuf
@@ -58,8 +63,56 @@ interface
 implementation
  uses Apus.MyServis,
    Apus.UnicodeFont,
-   Apus.GlyphCaches
+   Apus.GlyphCaches,
+   Apus.Engine.Graphics
    {$IFDEF FREETYPE},Apus.FreeTypeFont{$ENDIF};
+
+const
+ // Font handle flags (not affecting rendered glyphs)
+ fhDontTranslate = $1000000;
+ fhItalic        = $2000000;
+ fhUnderline     = $4000000;
+ // Font handle flags (affecting rendered glyphs)
+ fhNoHinting     = $200;
+ fhAutoHinting   = $400;
+
+type
+ {$IFNDEF FREETYPE}
+ TFreeTypeFont=class // stub class
+ end;
+ {$ENDIF}
+
+ TUnicodeFontEx=class(TUnicodeFont)
+  spareFont:integer; // use this font for missed characters
+  spareScale:single; // scale difference: 2.0 means that spare font is 2 times smaller than this
+  downscaleFactor:single; // scale glyphs down if scale is less than this value
+  upscaleFactor:single; // scale glyphs up if scale is larger than this value
+  procedure InitDefaults; override;
+ end;
+
+ var
+  lastFontTex:TTexture; // 256x1024
+  FontTexUsage:integer; // y-coord of last used pixel in lastFontTex
+
+  glyphCache,altGlyphCache:TGlyphCache;
+
+
+procedure DefaultTextLinkStyle(link:cardinal;var sUnderline:boolean;var color:cardinal);
+ begin
+  sUnderline:=true;
+  if link=curTextLink then begin
+   color:=ColorAdd(color,$604030);
+  end;
+ end;
+
+{ TUnicodeFontEx }
+
+procedure TUnicodeFontEx.InitDefaults;
+ begin
+  inherited;
+  downscaleFactor:=DEFAULT_FONT_DOWNSCALE;
+  upscaleFactor:=DEFAULT_FONT_UPSCALE;
+ end;
 
 { TTextDrawer }
 
@@ -67,13 +120,13 @@ procedure TTextDrawer.FlushTextCache;
  begin
   if (vertBufUsage=0) and (textBufUsage=0) then exit;
 
-  UseTexture(textCache);
-  if vertBufUsage>0 then begin
-    DrawPrimitivesFromBuf(TRG_LIST,vertBufUsage div 3,0,VertBuf,sizeof(TVertex));
+  gfx.shader.UseTexture(textCache);
+  if vertBufUsage>0 then begin /// TODO: перенести функционал отрисовки буферов в device
+    renderDevice.Draw(TRG_LIST,vertBufUsage div 3,0,VertBuf,sizeof(TVertex));
     vertBufUsage:=0;
   end;
   if textBufUsage>0 then begin
-    DrawIndexedPrimitives(TRG_LIST,textVertBuf,partIndBuf,sizeof(TVertex),0,textBufUsage,0,textBufUsage div 2);
+    renderDevice.DrawIndexed(TRG_LIST,textVertBuf,partIndBuf,sizeof(TVertex),0,textBufUsage,0,textBufUsage div 2);
     textBufUsage:=0;
   end;
  end;
@@ -94,8 +147,8 @@ function TTextDrawer.LoadFont(fName:string;asName:string=''):string;
    {$IFDEF FREETYPE}
    ftf:=TFreeTypeFont.LoadFromFile(FileName(fname));
    for i:=1 to 32 do
-    if newFonts[i]=nil then begin
-     newFonts[i]:=ftf;
+    if fonts[i]=nil then begin
+     fonts[i]:=ftf;
      if asName<>'' then ftf.faceName:=asName;
      result:=ftf.faceName;
      exit;
@@ -105,15 +158,25 @@ function TTextDrawer.LoadFont(fName:string;asName:string=''):string;
   raise EError.Create('Failed to load font: '+fname);
  end;
 
+function TTextDrawer.Link: integer;
+ begin
+
+ end;
+
+function TTextDrawer.LinkRect: TRect;
+ begin
+
+ end;
+
 function TTextDrawer.LoadFont(font:array of byte;asName:string=''):string;
 var
  i:integer;
 begin
  for i:=1 to 32 do
-  if newFonts[i]=nil then begin
-   newFonts[i]:=TUnicodeFontEx.LoadFromMemory(font,true);
-   if asName<>'' then TUnicodeFontEx(newFonts[i]).header.fontName:=asName;
-   result:=TUnicodeFontEx(newFonts[i]).header.FontName;
+  if fonts[i]=nil then begin
+   fonts[i]:=TUnicodeFontEx.LoadFromMemory(font,true);
+   if asName<>'' then TUnicodeFontEx(fonts[i]).header.fontName:=asName;
+   result:=TUnicodeFontEx(fonts[i]).header.FontName;
    exit;
   end;
 end;
@@ -129,11 +192,11 @@ begin
  name:=lowercase(name);
  if flags and fsStrictMatch>0 then matchRate:=10000;
  // Browse
- for i:=1 to high(newFonts) do
-  if newFonts[i]<>nil then begin
+ for i:=1 to high(fonts) do
+  if fonts[i]<>nil then begin
    rate:=0;
-   if newFonts[i] is TUnicodeFont then
-    with newFonts[i] as TUnicodeFont do begin
+   if fonts[i] is TUnicodeFont then
+    with fonts[i] as TUnicodeFont do begin
      if lowercase(header.FontName)=name then rate:=matchRate;
      rate:=rate+round(3000-1000*(0.1*header.width/realsize+realsize/(0.1*header.width)));
      if rate>bestRate then begin
@@ -142,8 +205,8 @@ begin
      end;
     end;
    {$IFDEF FREETYPE}
-   if newFonts[i] is TFreeTypeFont then
-    with newFonts[i] as TFreeTypeFont do begin
+   if fonts[i] is TFreeTypeFont then
+    with fonts[i] as TFreeTypeFont do begin
      if lowercase(faceName)=name then rate:=matchRate*2;
      if rate>best then begin
        bestRate:=rate;
@@ -154,16 +217,16 @@ begin
   end;
  // Fill the result
  if best>0 then begin
-  if newFonts[best] is TUnicodeFont then begin
+  if fonts[best] is TUnicodeFont then begin
    if realsize>0 then
-    scale:=Clamp(realsize/(0.1*TUnicodeFont(newFonts[best]).header.width),0,6.5)
+    scale:=Clamp(realsize/(0.1*TUnicodeFont(fonts[best]).header.width),0,6.5)
    else
     scale:=1;
    result:=best+round(100*sqrt(scale)) shl 16;
   end else
-  if newFonts[best] is TFreeTypeFont then begin
+  if fonts[best] is TFreeTypeFont then begin
    scale:=Clamp(sqrt(size/20),0,2.55);
-   result:=best+round(100*scale) shl 16; // ������� - � ��������� ������������ ������� 20 (���� ������ - 51)
+   result:=best+round(100*scale) shl 16; // Масштаб - в процентах относительно размера 20 (макс размер - 51)
    if flags and fsNoHinting>0 then result:=result or fhNoHinting;
    if flags and fsAutoHinting>0 then result:=result or fhAutoHinting;
   end
@@ -176,36 +239,44 @@ begin
   else result:=0;
 end;
 
-procedure TTextDrawer.MatchFont(legacyfont, newfont: cardinal;addY:integer=0);
+function TTextDrawer.Height(font: TFontHandle): integer;
 begin
- if not (legacyFont in [1..32]) then exit;
- fontMatch[legacyFont]:=newFont;
- fontMatchAddY[legacyFont]:=addY;
+
 end;
 
 procedure TTextDrawer.SetFontOption(font:cardinal;option:cardinal;value:single);
 begin
  font:=font and $FF;
  ASSERT(font>0,'Invalid font handle');
- if newfonts[font] is TUnicodeFontEx then
+ if fonts[font] is TUnicodeFontEx then
   case option of
-   foDownscaleFactor:TUnicodeFontEx(newfonts[font]).downscaleFactor:=value;
-   foUpscaleFactor:TUnicodeFontEx(newfonts[font]).upscaleFactor:=value;
+   foDownscaleFactor:TUnicodeFontEx(fonts[font]).downscaleFactor:=value;
+   foUpscaleFactor:TUnicodeFontEx(fonts[font]).upscaleFactor:=value;
    else raise EWarning.Create('SFO: invalid option');
   end;
  {$IFDEF FREETYPE}
- if newfonts[font] is TFreeTypeFont then
+ if fonts[font] is TFreeTypeFont then
   case option of
-   foGlobalScale:TFreeTypeFont(newFonts[font]).globalScale:=value;
+   foGlobalScale:TFreeTypeFont(fonts[font]).globalScale:=value;
   end;
  {$ENDIF}
 end;
 
 
+procedure TTextDrawer.SetTarget(buf: pointer; pitch: integer);
+begin
+
+end;
+
 procedure TTextDrawer.SetTextTarget(buf:pointer;pitch:integer);
 begin
  TextBufferBitmap:=buf;
  TextBufferPitch:=pitch;
+end;
+
+procedure TTextDrawer.BeginBlock;
+begin
+
 end;
 
 procedure TTextDrawer.BeginTextBlock;
@@ -215,18 +286,39 @@ begin
  end;
 end;
 
-procedure TTextDrawer.EndTextBlock;
+procedure TTextDrawer.ClearLink;
 begin
- FlushTextCache;
- textCaching:=false;
+
 end;
 
-function TTextDrawer.TextWidth(font:cardinal;st:string8):integer;
+constructor TTextDrawer.Create;
+ begin
+  vertBufUsage:=0;
+  textCaching:=false;
+  if glyphCache=nil then glyphCache:=TDynamicGlyphCache.Create(textCacheWidth-96,textCacheHeight);
+  if altGlyphCache=nil then begin
+   altGlyphCache:=TDynamicGlyphCache.Create(96,textCacheHeight);
+   altGlyphCache.relX:=textCacheWidth-96;
+  end;
+ end;
+
+destructor TTextDrawer.Destroy;
+ begin
+
+ end;
+
+procedure TTextDrawer.EndBlock;
+ begin
+  FlushTextCache;
+  textCaching:=false;
+ end;
+
+function TTextDrawer.Width(font:cardinal;st:string8):integer;
 begin
- result:=TextWidthW(font,DecodeUTF8(st));
+ result:=WidthW(font,DecodeUTF8(st));
 end;
 
-function TTextDrawer.TextWidthW(font:cardinal;st:string16):integer;
+function TTextDrawer.WidthW(font:cardinal;st:string16):integer;
 var
  width:integer;
  obj:TObject;
@@ -239,7 +331,7 @@ begin
  end;
  scale:=sqr(((font shr 16) and $FF)/100);
  if scale=0 then scale:=1;
- obj:=newFonts[font and $1F];
+ obj:=fonts[font and $1F];
  if obj is TUnicodeFont then begin
   unifont:=obj as TUnicodeFontEx;
   width:=uniFont.GetTextWidth(st);
@@ -258,7 +350,7 @@ begin
   raise EWarning.Create('GTW 1');
 end;
 
-function TTextDrawer.FontHeight(font:cardinal):integer;
+function TTextDrawer.Height(font:cardinal):integer;
 var
  uniFont:TUnicodeFontEx;
  ftFont:TFreeTypeFont;
@@ -266,7 +358,7 @@ var
  obj:TObject;
 begin
  ASSERT(font<>0);
- obj:=newFonts[font and $FF];
+ obj:=fonts[font and $FF];
  scale:=sqr(((font shr 16) and $FF)/100);
  if scale=0 then scale:=1;
  if obj is TUnicodeFont then begin
@@ -285,14 +377,14 @@ begin
   raise EWarning.Create('FH 1');
 end;
 
-procedure TTextDrawer.TextOut(font:cardinal;x,y:integer;color:cardinal;st:string8;
+procedure TTextDrawer.Write(font:cardinal;x,y:integer;color:cardinal;st:string8;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
 begin
- TextOutW(font,x,y,color,Str16(st),align,options,targetWidth,query);
+ WriteW(font,x,y,color,Str16(st),align,options,targetWidth,query);
 end;
 
 
-procedure TTextDrawer.TextOutW(font:cardinal;x,y:integer;color:cardinal;st:string16;
+procedure TTextDrawer.WriteW(font:cardinal;x,y:integer;color:cardinal;st:string16;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
 var
  width:integer; //text width in pixels
@@ -311,8 +403,8 @@ var
  queryX,queryY:integer;
 
  // For complex text
- stack:array[0..7,0..31] of cardinal; // ���� ������� ��������� (0 - ��������� ��������)
- stackPos:array[0..7] of integer; // ��������� �� ��������� ������� � �����
+ stack:array[0..7,0..31] of cardinal; // стек текущих атрибутов (0 - дефолтное значение)
+ stackPos:array[0..7] of integer; // указатель на свободный элемент в стеке
  cmdList:array[0..127] of cardinal; // bits 0..7 - what to change, bits 8..9= 0 - clear, 1 - set, 2 - pop
  cmdIndex:array of byte; // total number of commands that must be executed before i-th character
  // Underlined
@@ -406,7 +498,7 @@ var
   begin
    // Object initialization
    uniFont:=nil; ftFont:=nil;
-   obj:=newFonts[font and $3F];
+   obj:=fonts[font and $3F];
    scale:=1; charScaleX:=1; charScaleY:=1;
 
    boldStyle:=(options and toBold>0) or (font and fsBold>0);
@@ -452,8 +544,8 @@ var
    end;
 
    width:=0;
-   charSpacing:=0; // ��� �������� ����� �������� ���������
-   spaceSpacing:=0; // ��� ������ ��������
+   charSpacing:=0; // доп интервал между обычными символами
+   spaceSpacing:=0; // доп ширина пробелов
    {$IFDEF FREETYPE}
    if (options and toLetterSpacing>0) or (font and fsLetterSpacing>0) then
     if ftFont<>nil then charSpacing:=round(ftFont.GetHeight(size)*0.1);
@@ -481,7 +573,7 @@ var
    for i:=1 to length(st) do
      if st[i]=' ' then inc(numSpaces);
 
-   width:=TextWidthW(font,st); // ������ ������� � �������� ��������
+   width:=WidthW(font,st); // ширина надписи в реальных пикселях
    case align of
     taRight:begin
      if targetWidth>0 then x:=x+targetWidth;
@@ -496,7 +588,7 @@ var
     end;
    end;
    {$IFDEF FREETYPE}
-   if (align=taCenter) and (obj is TFreeTypeFont) then begin // ��� ������������� ������ ������������
+   if (align=taCenter) and (obj is TFreeTypeFont) then begin // при центрировании отступ игнорируется
     dec(x,ftFont.CharPadding(st[1],size));
    end;
    {$ENDIF}
@@ -610,11 +702,11 @@ var
    inc(result.X); inc(result.Y); // padding
   end;
 
- // chardata - ��� ��� ����������� ����� (��� ������, �����, ������, �����)
- // pnt - ��������� ����� � ���������� ����
- // x,y - �������� ���������� ����� �������
- // imageX, imageY - ������� ����� ������������ ����� �������
- // imageWIdth, imageHeight - ������� �����
+ // chardata - хэш для кэширования глифа (сам символ, шрифт, размер, стиль)
+ // pnt - положение глифа в текстурном кэше
+ // x,y - экранные координаты точки курсора
+ // imageX, imageY - позиция глифа относительно точки курсора
+ // imageWIdth, imageHeight - размеры глифа
  procedure AddVertices(chardata:cardinal;pnt:TPoint;x,y:integer;imageX,imageY,imageWidth,imageHeight:integer;
    var data:PVertex;var counter:integer);
   var
@@ -626,9 +718,9 @@ var
     data.y:=vy;
     data.z:=0; {$IFDEF DIRECTX} data.rhw:=1; {$ENDIF}
     if @textColorFunc<>nil then
-     data.diffuse:=TextColorFunc(data.x,data.y,color)
+     data.color:=TextColorFunc(data.x,data.y,color)
     else
-     data.diffuse:=color;
+     data.color:=color;
     data.u:=u; data.v:=v;
     inc(data);
    end;
@@ -648,7 +740,7 @@ var
      AddVertex(data,x2,y2,u2,v2,color);
      AddVertex(data,x1,y2,u1,v2,color);
     end else begin
-     // ������ �������� (faux italics)
+     // Наклон символов (faux italics)
      dx1:=(y-y1)*0.25;
      dx2:=(y-y2)*0.25;
      AddVertex(data,x1+dx1,y1,u1,v1,color);
@@ -735,7 +827,7 @@ var
    fHeight:integer;
 //   v:cardinal;
   begin
-   px:=x; // ���������� � �������� �������� ��������
+   px:=x; // координата в реальных экранных пикселях
    if options and toMeasure>0 then begin
     fHeight:=round(FontHeight(font)*1.1);
     textMetrics[0]:=types.Rect(x,y-fHeight,x+1,y);
@@ -919,7 +1011,7 @@ var
    i:=0;
    while i<lpCount do begin
     ConvertColor(lineColors[i shr 1]);
-    Line(linePoints[i].x,linePoints[i].y,
+    draw.Line(linePoints[i].x,linePoints[i].y,
       linePoints[i+1].x,linePoints[i+1].y,lineColors[i shr 1]);
     inc(i,2);
    end;
@@ -931,23 +1023,23 @@ var
   begin
    i:=1;
    j:=1;
-   lineHeight:=round(FontHeight(font)*1.65);
+   lineHeight:=round(Height(font)*1.65);
    while j<length(st) do
     if (st[j]=#13) and (st[j+1]=#10) then begin
-     TextOutW(font,x,y,color,copy(st,i,j-i),align,options or toDontTranslate,targetWidth,query);
+     WriteW(font,x,y,color,copy(st,i,j-i),align,options or toDontTranslate,targetWidth,query);
      inc(y,lineHeight);
      inc(j,2);
      i:=j;
     end else
      inc(j);
-   TextOutW(font,x,y,color,copy(st,i,j-i+1),align,options or toDontTranslate,targetWidth,query);
+   WriteW(font,x,y,color,copy(st,i,j-i+1),align,options or toDontTranslate,targetWidth,query);
   end;
 
 begin // -----------------------------------------------------------
   // Special value to display font cache texture
  if font=MAGIC_TEXTCACHE then begin
-  FillRect(x,y,x+textCache.width,y+textCache.height,$FF000000);
-  Image(x,y,textCache,$FFFFFFFF); exit;
+  draw.FillRect(x,y,x+textCache.width,y+textCache.height,$FF000000);
+  draw.Image(x,y,textCache,$FFFFFFFF); exit;
  end;
  // Empty or too long string
  if (length(st)=0) or (length(st)>1000) then exit;
@@ -964,12 +1056,12 @@ begin // -----------------------------------------------------------
  // Special option: draw twice with offset
  if options and toWithShadow>0 then begin
   options:=options xor toWithShadow;
-  TextOutW(font,x+1,y+1,color and $FE000000 shr 1,st,align,options,targetWidth);
-  TextOutW(font,x,y,color,st,align,options,targetWidth);
+  WriteW(font,x+1,y+1,color and $FE000000 shr 1,st,align,options,targetWidth);
+  WriteW(font,x,y,color,st,align,options,targetWidth);
   exit;
  end;
 
- // ��������� ����������, ��������� ����������, ������������
+ // Установка переменных, коррекция параметров, выравнивание
  Initialize;
 
  // RENDER TO BITMAP?
@@ -990,7 +1082,7 @@ begin // -----------------------------------------------------------
 
  // NORMAL TEXT RENDERING
  if (options and toDontDraw=0) then begin
-  if not DefineRectAndSetState then exit;  // Clipping (��� ����� � ����������������)
+  if not DefineRectAndSetState then exit;  // Clipping (тут косяк с многострочностью)
 
   // Prevent text cache overflow
   if textBufUsage+length(st)*4>=4*MaxGlyphBufferCount then FlushTextCache;
@@ -1006,4 +1098,6 @@ begin // -----------------------------------------------------------
  if (lpCount>0) and (options and toDontDraw=0) then DrawUnderlines;
 end;
 
+initialization
+ textLinkStyleProc:=DefaultTextLinkStyle;
 end.

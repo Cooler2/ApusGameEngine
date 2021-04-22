@@ -162,7 +162,7 @@ begin
  end;
  ypos:=cnt*16-round(item.scroll.Y)+20;
  font:=txt.GetFont('Default',7);
- draw.BeginTextBlock;
+ txt.BeginBlock;
  for i:=1 to cnt do begin
   dec(n); dec(ypos,16);
   if (ypos<-15) or (ypos>=r.height+8) then continue;
@@ -176,7 +176,7 @@ begin
   end;
   txt.Write(font,r.left+2,r.top+yPos,col,DecodeUTF8(st));
  end;
- draw.EndTextBlock;
+ txt.EndBlock;
  gfx.clip.Restore;
  draw.Line(r.left,r.bottom-1,r.right+17,r.Bottom-1,$40FFFFFF);
 end;

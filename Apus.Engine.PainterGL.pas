@@ -9,7 +9,7 @@
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit Apus.Engine.PainterGL;
 interface
- uses Types, Apus.Engine.API, Apus.Engine.PainterBase;
+ uses Types, Apus.Engine.API;
 
 type
  TMatrixType=(mtModelView,mtProjection);
@@ -348,7 +348,7 @@ begin
   else raise EWarning.Create('DIP: Wrong indbuf');
  end;
  glVertexPointer(3,GL_FLOAT,stride,@vrt.x);
- glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.diffuse);
+ glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.color);
  glTexCoordPointer(2,GL_FLOAT,stride,@vrt.u);
  case primtype of
   LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,ind);
@@ -364,7 +364,7 @@ procedure TGLPainter.DrawIndexedPrimitivesDirectly(primType: integer;
   primCount: integer);
 begin
  glVertexPointer(3,GL_FLOAT,stride,@vertexBuf.x);
- glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vertexBuf.diffuse);
+ glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vertexBuf.color);
  glTexCoordPointer(2,GL_FLOAT,stride,@vertexBuf.u);
  case primtype of
   LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indBuf);
@@ -382,7 +382,7 @@ var
 begin
  vrt:=vertices;
  glVertexPointer(3,GL_FLOAT,stride,@vrt.x);
- glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.diffuse);
+ glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.color);
  glTexCoordPointer(2,GL_FLOAT,stride,@vrt.u);
  case primtype of
   LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
@@ -400,7 +400,7 @@ var
 begin
  vrt:=vertices;
  glVertexPointer(3,GL_FLOAT,stride,@vrt.x);
- glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.diffuse);
+ glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.color);
  glTexCoordPointer(2,GL_FLOAT,stride,@vrt.u);
  // Texture 2
  if stages>1 then begin
@@ -438,7 +438,7 @@ begin
   textVertBuf:vrt:=@txtBuf[0];
  end;
  glVertexPointer(3,GL_FLOAT,stride,@vrt.x);
- glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.diffuse);
+ glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.color);
  glTexCoordPointer(2,GL_FLOAT,stride,@vrt.u);
  case primtype of
   LINE_LIST:glDrawArrays(GL_LINES,vrtStart,primCount*2);
@@ -526,7 +526,7 @@ begin
  glClientActiveTexture(GL_TEXTURE0);
 
  glVertexPointer(3,GL_FLOAT,sizeof(TScrPoint3),@vrt);
- glColorPointer(4,GL_UNSIGNED_BYTE,sizeof(TScrPoint3),@vrt[0].diffuse);
+ glColorPointer(4,GL_UNSIGNED_BYTE,sizeof(TScrPoint3),@vrt[0].color);
 // glTexCoordPointer(2,GL_FLOAT,sizeof(TScrPoint3),@vrt[0].u);
  glDrawArrays(GL_TRIANGLE_FAN,0,4);
 

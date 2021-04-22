@@ -29,7 +29,7 @@ type
   function clip:IClipping;
   function transform:ITransformation;
   function light:ILighting;
-  function draw:IDrawer;
+  function draw:IDrawer; inline;
   function txt:ITextDrawer;
   // Functions
   procedure PresentFrame(system:ISystemPlatform);
@@ -49,11 +49,40 @@ type
  end;
 
 implementation
- uses Apus.MyServis,SysUtils,Apus.Engine.Drawing
+ uses Apus.MyServis, SysUtils,
+  Apus.Engine.Draw,
+  Apus.Engine.Graphics
   {$IFDEF MSWINDOWS},Windows{$ENDIF}
   {$IFDEF DGL},dglOpenGL{$ENDIF};
 
 type
+ TRenderDevice=class(TInterfacedObject,IRenderDevice)
+  constructor Create;
+  destructor Destroy; override;
+
+  procedure Draw(primType,primCount:integer;vertices:pointer;stride:integer); overload;
+  // Draw primitives using built-in buffer
+  procedure Draw(primType,primCount,vrtStart:integer;
+     vertexBuf:TPainterBuffer;stride:integer); overload;
+
+  // Draw indexed  primitives using in-memory buffers
+  procedure DrawIndexed(primType:integer;vertexBuf:PVertex;indBuf:PWord;
+     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer);  overload;
+  // Draw indexed  primitives using built-in buffer
+  procedure DrawIndexed(primType:integer;vertexBuf,indBuf:TPainterBuffer;
+     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer);  overload;
+ end;
+
+ TGLRenderTargetAPI=class(TRendertargetAPI)
+  procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1); override;
+  procedure UseAsDefault(rt:TTexture); override;
+  procedure SetDefaultRenderArea(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer); override;
+  procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); override;
+  procedure BlendMode(blend:TBlendingMode); override;
+  procedure Mask(rgb:boolean;alpha:boolean); override;
+  procedure UnMask; override;
+ end;
+
  TTransformationAPI=class(TInterfacedObject,ITransformation)
   // Switch to default 2D view (use screen coordinates)
   procedure DefaultView;
@@ -90,9 +119,20 @@ type
   function GetMVPMatrix:T3DMatrix;
  end;
 
-var
- drawer:TDrawer;
  //textureManager:TResource;
+
+procedure CheckForGLError(lab:integer=0); inline;
+var
+ error:cardinal;
+begin
+ if glDebug then begin
+  error:=glGetError;
+  if error<>GL_NO_ERROR then begin
+    ForceLogMessage('PGL Error ('+inttostr(lab)+'): '+inttostr(error)+' '+GetCallStack);
+  end;
+ end;
+end;
+
 
 { TOpenGL }
 procedure TOpenGL.Init(system:ISystemPlatform);
@@ -149,6 +189,7 @@ procedure TOpenGL.Init(system:ISystemPlatform);
    raise Exception.Create('OpenGL 2.0 or higher required!'#13#10'Please update your video drivers.');
   glVersionNum:=GetVersion;
 
+  renderDevice:=TRenderDevice.Create;
   drawer:=TDrawer.Create;
  end;
 
@@ -248,7 +289,7 @@ function TOpenGL.clip: IClipping;
  end;
 function TOpenGL.target: IRenderTarget;
  begin
-
+  result:=renderTargetAPI;
  end;
 function TOpenGL.resman: IResourceManager;
  begin
@@ -297,5 +338,148 @@ function TOpenGL.GetVersion: single;
  end;
 
 
+
+{ TRenderDevice }
+procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
+  stride: integer);
+ begin
+
+ end;
+
+constructor TRenderDevice.Create;
+ begin
+
+ end;
+
+destructor TRenderDevice.Destroy;
+ begin
+
+  inherited;
+ end;
+
+procedure TRenderDevice.Draw(primType, primCount, vrtStart: integer;
+  vertexBuf: TPainterBuffer; stride: integer);
+ begin
+
+ end;
+
+procedure TRenderDevice.DrawIndexed(primType: integer; vertexBuf: PVertex;
+  indBuf: PWord; stride, vrtStart, vrtCount, indStart, primCount: integer);
+ begin
+
+ end;
+
+procedure TRenderDevice.DrawIndexed(primType: integer; vertexBuf,
+  indBuf: TPainterBuffer; stride, vrtStart, vrtCount, indStart,
+  primCount: integer);
+ begin
+
+ end;
+
+{ TGLRenderTargetAPI }
+
+procedure TGLRenderTargetAPI.BlendMode(blend: TBlendingMode);
+begin
+ if blend=curblend then exit;
+ case blend of
+  blNone:begin
+   glDisable(GL_BLEND);
+  end;
+  blAlpha:begin
+   glEnable(GL_BLEND);
+   if GL_VERSION_2_0 then
+    glBlendFuncSeparate(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
+   else
+    glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+  end;
+  blAdd:begin
+   glEnable(GL_BLEND);
+   glBlendFunc(GL_SRC_ALPHA,GL_ONE);
+  end;
+  blSub:begin
+   raise EError.Create('blSub not supported');
+  end;
+  blModulate:begin
+   glEnable(GL_BLEND);
+   glBlendFuncSeparate(GL_ZERO,GL_SRC_COLOR,GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+  end;
+  blModulate2X:begin
+   glEnable(GL_BLEND);
+   glBlendFuncSeparate(GL_DST_COLOR,GL_SRC_COLOR,GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+  end;
+  blMove:begin
+   glEnable(GL_BLEND);
+   glBlendFunc(GL_ONE,GL_ZERO);
+  end
+ else
+  raise EWarning.Create('Blending mode not supported');
+ end;
+ curblend:=blend;
+ CheckForGLError(31);
+end;
+
+function ColorComponent(color:cardinal;idx:integer):single;
+ begin
+  result:=((color shr (idx*8)) and $FF)/255;
+ end;
+
+procedure TGLRenderTargetAPI.Clear(color:cardinal; zbuf:single;  stencil:integer);
+ var
+  mask:cardinal;
+ begin
+  mask:=GL_COLOR_BUFFER_BIT;
+  glDisable(GL_SCISSOR_TEST);
+  glClearColor(
+    ColorComponent(color,2),
+    ColorComponent(color,2),
+    ColorComponent(color,0),
+    ColorComponent(color,3));
+  if zBuf>=0 then begin
+   mask:=mask+GL_DEPTH_BUFFER_BIT;
+   {$IFDEF GLES}
+   glClearDepthf(zbuf);
+   {$ELSE}
+   glClearDepth(zbuf);
+   {$ENDIF}
+  end;
+  if stencil>=0 then begin
+   mask:=mask+GL_STENCIL_BUFFER_BIT;
+   glClearStencil(stencil);
+  end;
+  glClear(mask);
+  glEnable(GL_SCISSOR_TEST);
+ end;
+
+procedure TGLRenderTargetAPI.Mask(rgb, alpha: boolean);
+ begin
+  inherited;
+
+ end;
+
+procedure TGLRenderTargetAPI.SetDefaultRenderArea(oX, oY, VPwidth, VPheight,
+  renderWidth, renderHeight: integer);
+ begin
+  inherited;
+
+ end;
+
+procedure TGLRenderTargetAPI.UnMask;
+ begin
+  inherited;
+
+ end;
+
+procedure TGLRenderTargetAPI.UseAsDefault(rt: TTexture);
+ begin
+  inherited;
+
+ end;
+
+procedure TGLRenderTargetAPI.UseDepthBuffer(test: TDepthBufferTest;
+  writeEnable: boolean);
+ begin
+  inherited;
+
+ end;
 
 end.

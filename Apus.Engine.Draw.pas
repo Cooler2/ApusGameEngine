@@ -27,73 +27,45 @@ interface
   ind:word; // INLINE\group\ind
  end;
 
- // For internal use only - стандартные буферы
- TPainterBuffer=(noBuf,
-                 vertBuf,       // буфер вершин для отрисовки партиклов
-                 partIndBuf,    // буфер индексов для отрисовки прямоугольников (партиклов, символов текста и т.п)
-                 bandIndBuf,    // буфер индексов для отрисовки полос/колец
-                 textVertBuf);  // буфер вершин для вывода текста
-
  TDrawer=class(TInterfacedObject,IDrawer)
-  PFTexWidth:integer; // width of texture for PrepareFont
+  zPlane:double; // default Z value for all primitives
+
   constructor Create;
 
-  procedure BeginPaint(target:TTexture); override;
-  procedure EndPaint; override;
-  // Mostly for internal use or tricks, use Begin/EndPaint instead
-  procedure PushRenderTarget; override;
-  procedure PopRenderTarget; override;
-
-
-  // State manipulation
-  function GetClipping: TRect; override;
-  procedure NoClipping; override;
-  procedure OverrideClipping; override;
-  procedure ResetClipping; override;
-  procedure SetClipping(r: TRect); override;
-
-
-//  procedure ScreenOffset(x, y: integer); override;
-
   // Drawing methods
-  procedure Line(x1,y1,x2,y2:single;color:cardinal); override;
-  procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false); override;
-  procedure Polygon(points:PPoint2;cnt:integer;color:cardinal); override;
-  procedure Rect(x1,y1,x2,y2:integer;color:cardinal); override;
-  procedure RRect(x1,y1,x2,y2:integer;color:cardinal;r:integer=2); override;
-  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal); override;
-  procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal); override;
-  procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal); override;
-  procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal); override;
-  procedure FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean); override;
-  procedure Image(x_,y_:integer;tex:TTexture;color:cardinal=$FF808080); override;
-  procedure ImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=$FF808080); override;
-  procedure Centered(x,y:integer;tex:TTexture;color:cardinal=$FF808080); override;
-  procedure ImagePart(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect); override;
-  // �������� ����� �������� � ��������� ang ��� �� 90 ���� �� ������� �������
-  procedure ImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer); override;
-  procedure Scaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080); override;
-  procedure RotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5); override; // x,y - �����
-  function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; override;
-  function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; override;
+  procedure Line(x1,y1,x2,y2:single;color:cardinal);
+  procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
+  procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
+  procedure Rect(x1,y1,x2,y2:integer;color:cardinal);
+  procedure RRect(x1,y1,x2,y2:integer;color:cardinal;r:integer=2);
+  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal);
+  procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
+  procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
+  procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal);
+  procedure FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean);
+  procedure Image(x_,y_:integer;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure Image(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080;pivotX:single=0;pivotY:single=0); overload;
+  procedure ImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=$FF808080);
+  procedure Centered(x,y:integer;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure Centered(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure ImagePart(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect);
+  procedure ImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer);
+  procedure Scaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080);
+  procedure RotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);  // x,y - �����
+  function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
+  function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
 
-  // ������ ��� ����������� �� ���� ������ (����� ���������������������)
-  procedure DoubleTex(x_,y_:integer;image1,image2:TTexture;color:cardinal=$FF808080); override;
+  procedure DoubleTex(x_,y_:integer;image1,image2:TTexture;color:cardinal=$FF808080);
   procedure DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
-      image1,image2:TTexture;color:cardinal=$FF808080); override;
-  // State'� �� ��������������� - ����� ��� ������� ����������� ��������������
-  procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080); override;
-  procedure TrgList(pnts:PVertex;trgcount:integer;tex:TTexture); override;
-  procedure IndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); override;
+      image1,image2:TTexture;color:cardinal=$FF808080);
+  procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080);
+  procedure TrgList(pnts:PVertex;trgcount:integer;tex:TTexture);
+  procedure IndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
 
-  // ��������� ������ ��������� (�� ������������� ������������ ����� 500 ������!)
-  procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0); override;
-//  procedure DrawLineParticles(x,y:integer;old,cur:PParticle;count:integer;zDist:single=0); override;
-  procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect); override;
+  procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0);
+  procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
 
-  // ����� ��������� ������� (protocol 2011)
-
-  procedure DebugScreen1; // ���� � ������ ������
+  procedure DebugScreen1;
  protected
   canPaint:integer;
   CurFont:cardinal;
@@ -121,34 +93,14 @@ interface
   // last used legacy font texture
   lastFontTexture:TTexture;
 
-  // FOR INTERNAL USE
-  // ������ ����� ���������� �� �������� �� ��������� ������ (������ ������ - ScrPoint)
-  procedure DrawPrimitives(primType,primCount:integer;vertices:pointer;stride:integer); virtual; abstract;
-  // ������ ����� ���������� � ���������������������� (������ ������ - ScrPoint3) stages = 2 ��� 3
-  procedure DrawPrimitivesMulti(primType,primCount:integer;vertices:pointer;stride:integer;stages:integer); virtual; abstract;
-  // ������ ����� ���������� �� �������� �� ������������ ������ Painter'�
-  procedure DrawPrimitivesFromBuf(primType,primCount,vrtStart:integer;
-      vertBuf:TPainterBuffer;stride:integer); virtual; abstract;
-  // ������ ����� ���������� �� �������� �� ������������ ������ Painter'� � �������� �� ������������ ������
-  procedure DrawIndexedPrimitives(primType:integer;vertBuf,indBuf:TPainterBuffer;
-      stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); virtual; abstract;
-  // ������ ����� ���������� �� �������� �� ��������� ������ � �������� �� ��������� ������
-  procedure DrawIndexedPrimitivesDirectly(primType:integer;vertexBuf:PVertex;indBuf:PWord;
-    stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); virtual; abstract;
-
   // Common modes:
   // 0 - undefined state (must be configured by outer code)
   // 1 - 1 stage, Modulate2X
   // 2 - no texturing stages
   // 3 - 3 stages, 1st - Modulate2X, other - undefined
   // 4 - 1 stage, result=diffuse*2
-  function SetStates(state:byte;primRect:TRect;tex:TTexture=nil):boolean; virtual; abstract; // ���������� false ���� �������� ��������� ����������
-  procedure FlushTextCache; virtual;
+  function SetStates(state:byte;primRect:TRect;tex:TTexture=nil):boolean;
 
-  // ��������� ������ � ���������� ������, ���������� ��������� �� ������
-  // offset is measured in buffer units, not bytes! size - in bytes!
-  function LockBuffer(buf:TPainterBuffer;offset,size:cardinal):pointer; virtual; abstract;
-  procedure UnlockBuffer(buf:TPainterBuffer); virtual; abstract;
  end;
 
 var
@@ -156,8 +108,8 @@ var
  MaxGlyphBufferCount:integer=1000; // MUST NOT BE LARGER THAN MaxParticleCount!
  textColorFunc:TColorFunc=nil; // not thread-safe!
  textLinkStyleProc:TTextLinkStyleProc=nil; // not thread-safe!
- // ���� ��� ��������� ������ ������� ������ � ������������ �����, � ��� ����� ���������� �� �������� ������ -
- // �� ���� ������������ ����� ���� ������. ���������� ����� ���������� �����
+ // Если при отрисовке текста передан запрос с координатами точки, и эта точка приходится на рисуемую ссылку -
+ // то сюда записывается номер этой ссылки. Обнуляется перед отрисовкой кадра
  curTextLink:cardinal;
  curTextLinkRect:TRect;
 
@@ -166,89 +118,16 @@ var
  textCacheWidth:integer=512;
  textCacheHeight:integer=512;
 
+ // Singleton object
+ drawer:TDrawer;
+
 implementation
-uses SysUtils,Apus.MyServis,Apus.Images,Apus.Geom2D,Math,Apus.Colors;
+uses SysUtils,Math,
+  Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Colors,
+  Apus.Engine.Graphics;
 
-const
- // Font handle flags (not affecting rendered glyphs)
- fhDontTranslate = $1000000;
- fhItalic        = $2000000;
- fhUnderline     = $4000000;
- // Font handle flags (affecting rendered glyphs)
- fhNoHinting     = $200;
- fhAutoHinting   = $400;
-type
- {$IFNDEF FREETYPE}
- TFreeTypeFont=class
- end;
- {$ENDIF}
-
- // For WriteEx output
- TTextExCacheItem=record
-  tex:TTexture; // nil = empty item
-  text:string;
-  font:cardinal;
-  effHash:cardinal;
-  alignment:TTextAlignment;
-  dx,dy,width_,height_:integer;
-  next:integer; // index of next item in queue
- end;
-
- TUnicodeFontEx=class(TUnicodeFont)
-  spareFont:integer; // use this font for missed characters
-  spareScale:single; // scale difference: 2.0 means that spare font is 2 times smaller than this
-  downscaleFactor:single; // scale glyphs down if scale is less than this value
-  upscaleFactor:single; // scale glyphs up if scale is larger than this value
-  procedure InitDefaults; override;
- end;
-
-var
- lastFontTex:TTexture; // 256x1024
- FontTexUsage:integer; // y-coord of last used pixel in lastFontTex
- newFonts:array[1..32] of TObject;
- fontMatch:array[1..32] of cardinal; // ������ ������ ������� ������
- fontMatchAddY:array[1..32] of integer;
-
- glyphCache,altGlyphCache:TGlyphCache;
-
- textExCache:array[1..24] of TTextExCacheItem;
- textExRecent:integer; // index of the most recent cache item
-
- // Adjust color format if needed
- procedure ConvertColor(var color:cardinal); inline;
-  begin
-   if colorFormat=1 then
-    color:=color and $FF00FF00+(color and $FF) shl 16+(color and $FF0000) shr 16
-  end;
-
- // Adjust color format if needed
- procedure ConvertColors(color:PCardinal;count,stride:integer);
-  begin
-   while count>0 do begin
-    color^:=color^ and $FF00FF00+(color^ and $FF) shl 16+(color^ and $FF0000) shr 16;
-    inc(color,stride shr 2);
-    dec(count);
-   end;
-  end;
-
-
-procedure TUnicodeFontEx.InitDefaults;
- begin
-  inherited;
-  downscaleFactor:=DEFAULT_FONT_DOWNSCALE;
-  upscaleFactor:=DEFAULT_FONT_UPSCALE;
- end;
-
-procedure DefaultTextLinkStyle(link:cardinal;var sUnderline:boolean;var color:cardinal);
- begin
-  sUnderline:=true;
-  if link=curTextLink then begin
-   color:=ColorAdd(color,$604030);
-  end;
- end;
 
 { TBasicPainter }
-
 
 constructor TDrawer.Create;
 begin
@@ -257,19 +136,10 @@ begin
  stackcnt:=0;
  curtarget:=nil;
  canPaint:=0;
- textcolorx2:=false;
- PFTexWidth:=256;
- vertBufusage:=0;
- textCaching:=false;
- textExRecent:=0;
-// if glyphCache=nil then glyphCache:=TFixedGlyphCache.Create(textCacheWidth);
- if glyphCache=nil then glyphCache:=TDynamicGlyphCache.Create(textCacheWidth-96,textCacheHeight);
- if altGlyphCache=nil then begin
-  altGlyphCache:=TDynamicGlyphCache.Create(96,textCacheHeight);
-  altGlyphCache.relX:=textCacheWidth-96;
- end;
+ drawer:=self;
 end;
 
+{
 function TDrawer.GetClipping: TRect;
 begin
  result:=clipRect;
@@ -287,7 +157,23 @@ begin
  inc(scnt);
  saveclip[scnt]:=cliprect;
  ClipRect:=screenRect;
+end;   }
+
+procedure TDrawer.Centered(x, y, scale: single; tex: TTexture;
+  color: cardinal);
+begin
+  RotScaled(x,y,scale,scale,0,tex,color);
 end;
+
+procedure TDrawer.Image(x, y, scale: single; tex: TTexture;
+  color: cardinal; pivotX, pivotY: single);
+begin
+  if scale=1.0 then
+   Image(round(x-tex.width*pivotX),round(y-tex.height*pivotY),tex,color)
+  else
+   RotScaled(x,y,scale,scale,0,tex,color,pivotX,pivotY);
+end;
+
 
 procedure TDrawer.Centered(x,y:integer;tex:TTexture;color:cardinal=$FF808080);
 begin
@@ -302,7 +188,7 @@ begin
  {$IFDEF DIRECTX}
  vrt.rhw:=1;
  {$ENDIF}
- vrt.diffuse:=color;
+ vrt.color:=color;
  vrt.u:=u;
  vrt.v:=v;
 end;
@@ -315,7 +201,7 @@ begin
  {$IFDEF DIRECTX}
  vrt.rhw:=1;
  {$ENDIF}
- vrt.diffuse:=color;
+ vrt.color:=color;
 end;
 
 procedure SetVertexC(var vrt:TScrPointNoTex;x,y,z:single;color:cardinal); inline;
@@ -326,7 +212,7 @@ begin
  {$IFDEF DIRECTX}
  vrt.rhw:=1;
  {$ENDIF}
- vrt.diffuse:=color;
+ vrt.color:=color;
 end;
 
 
@@ -337,8 +223,7 @@ var
 begin
  ASSERT(tex<>nil);
  if not SetStates(STATE_TEXTURED2X,types.Rect(x_,y_,x_+tex.width-1,y_+tex.height-1),tex) then exit; // Textured, normal viewport
- ConvertColor(color);
- UseTexture(tex);
+ gfx.shader.gfx.shader.UseTexture(tex);
  dx:=tex.width;
  dy:=tex.height;
 
@@ -356,8 +241,7 @@ var
 begin
  ASSERT(tex<>nil);
  if not SetStates(STATE_TEXTURED2X,types.Rect(x_,y_,x_+tex.width-1,y_+tex.height-1),tex) then exit; // Textured, normal viewport
- ConvertColor(color);
- UseTexture(tex);
+ gfx.shader.UseTexture(tex);
  dx:=tex.width;
  dy:=tex.height;
 
@@ -390,8 +274,7 @@ begin
   h:=round(h+1)-1;
  end;
  if not SetStates(STATE_TEXTURED2X,types.Rect(x_,y_,x_+w-1,y_+h-1),tex) then exit; // Textured, normal viewport
- ConvertColor(color);
- UseTexture(tex);
+ gfx.shader.UseTexture(tex);
  SetVertexT(vrt[0], x_-0.5,y_-0.5,     zPlane,color, tex.u1+tex.stepU*2*r.left,tex.v1+tex.stepV*2*r.Top);
  SetVertexT(vrt[1], x_+w+0.5,y_-0.5,   zPlane,color, tex.u1+tex.stepU*r.Right*2,tex.v1+tex.stepV*r.top*2);
  SetVertexT(vrt[2], x_+w+0.5,y_+h+0.5, zPlane,color, tex.u1+tex.stepU*r.Right*2,tex.v1+tex.stepV*r.Bottom*2);
@@ -413,8 +296,7 @@ begin
   h:=r.Bottom-r.top-1;
  end;
  if not SetStates(STATE_TEXTURED2X,types.Rect(x_,y_,x_+w-1,y_+h-1),tex) then exit; // Textured, normal viewport
- ConvertColor(color);
- UseTexture(tex);
+ gfx.shader.UseTexture(tex);
 
  with vrt[(0-ang) and 3] do begin
   x:=x_-0.5; y:=y_-0.5; z:=zPlane; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
@@ -440,7 +322,7 @@ begin
  with vrt[3] do begin
   diffuse:=color; u:=tex.u1+tex.stepU*r.left*2; v:=tex.v1+tex.stepV*r.Bottom*2;
  end;
- DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TVertex));
+ renderDevice.Draw(TRG_FAN,2,@vrt,sizeof(TVertex));
 end;
 
 procedure TDrawer.Line(x1, y1, x2, y2: single; color: cardinal);
@@ -449,10 +331,9 @@ var
 begin
  if not SetStates(STATE_COLORED,
    types.Rect(trunc(min2d(x1,x2)),trunc(min2d(y1,y2)),trunc(max2d(x1,x2))+1,trunc(max2d(y1,y2))+1)) then exit; // Colored, normal viewport
- ConvertColor(color);
  SetVertexC(vrt[0],x1,y1,zPlane,color);
  SetVertexC(vrt[1],x2,y2,zPlane,color);
- DrawPrimitives(LINE_LIST,1,@vrt,sizeof(TScrPointNoTex));
+ renderDevice.Draw(LINE_LIST,1,@vrt,sizeof(TScrPointNoTex));
 end;
 
 procedure TDrawer.Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
@@ -475,58 +356,51 @@ begin
   inc(pnt);
  end;
  if not SetStates(STATE_COLORED,types.Rect(minX,minY,maxX,maxY)) then exit; // Colored, normal viewport
- ConvertColor(color);
  if closed then vrt[cnt]:=vrt[0];
-// DrawPrimitives(LINE_LIST,cnt div 2,@vrt[0],sizeof(ScrPointNoTex));
- DrawPrimitives(LINE_STRIP,cnt-1+byte(closed),@vrt[0],sizeof(TScrPointNoTex));
+ renderDevice.Draw(LINE_STRIP,cnt-1+byte(closed),@vrt[0],sizeof(TScrPointNoTex));
 end;
 
 procedure TDrawer.DoubleTex(x_, y_: integer; image1, image2: TTexture;color: cardinal);
 var
  w,h:integer;
- vrt:array[0..3] of TScrPoint3;
+ vrt:array[0..3] of TScrPoint2;
  au1,au2,bu1,bu2,av1,av2,bv1,bv2:single;
 begin
  ASSERT((image1<>nil) and (image2<>nil));
  w:=min2(image1.width,image2.width);
  h:=min2(image1.height,image2.height);
  if not SetStates(STATE_MULTITEX,types.Rect(x_,y_,x_+w,y_+h),nil) then exit; // Textured, normal viewport
- ConvertColor(color);
- UseTexture(image1,0);
- UseTexture(image2,1);
+ gfx.shader.UseTexture(image1,0);
+ gfx.shader.UseTexture(image2,1);
  au1:=image1.u1; au2:=image1.u1+w*image1.stepU*2;
  av1:=image1.v1; av2:=image1.v1+h*image1.stepV*2;
  bu1:=image2.u1; bu2:=image2.u1+w*image2.stepU*2;
  bv1:=image2.v1; bv2:=image2.v1+h*image2.stepV*2;
  with vrt[0] do begin
-  x:=x_-0.5; y:=y_-0.5; z:=zPlane; rhw:=1; diffuse:=color;
-  u:=au1; v:=av1;
-  u2:=bu1; v2:=bv1;
- end;
- with vrt[1] do begin
-  x:=x_+w-0.5; y:=y_-0.5; z:=zPlane; rhw:=1; diffuse:=color;
-  u:=au2; v:=av1;
-  u2:=bu2; v2:=bv1;
- end;
- with vrt[2] do begin
-  x:=x_+w-0.5; y:=y_+h-0.5; z:=zPlane; rhw:=1; diffuse:=color;
-  u:=au2; v:=av2;
-  u2:=bu2; v2:=bv2;
- end;
- with vrt[3] do begin
-  x:=x_-0.5; y:=y_+h-0.5; z:=zPlane; rhw:=1; diffuse:=color;
-  u:=au1; v:=av2;
-  u2:=bu1; v2:=bv2;
- end;
- DrawPrimitivesMulti(TRG_FAN,2,@vrt,sizeof(TScrPoint3),2);
-// UseTexture(nil,1);
+ vrt[0].Init(
+  x_-0.5,y_-0.5,zPlane,
+  au1,av1, bu1,bv1,
+  color);
+ vrt[1].Init(
+  x_+w-0.5,y_-0.5,zPlane,
+  au2,av1, bu2,bv1,
+  color);
+ vrt[2].Init(
+  x_+w-0.5,y_+h-0.5,zPlane,
+  au2,av2, bu2,bv2,
+  color);
+ vrt[3].Init(
+  x_-0.5,y_+h-0.5,zPlane,
+  au1,av2, bu1,bv2,
+  color);
+ renderDevice.Draw(TRG_FAN,2,@vrt,sizeof(TScrPoint2),2);
 end;
 
 procedure TDrawer.DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
   image1,image2:TTexture;color:cardinal=$FF808080);
 var
  w,h,w2,h2:single;
- vrt:array[0..3] of TScrPoint3;
+ vrt:array[0..3] of TScrPoint2;
  c,s:single;
  au1,au2,bu1,bu2,av1,av2,bv1,bv2,u,v:single;
 begin
@@ -540,7 +414,7 @@ begin
  if not SetStates(STATE_MULTITEX,types.Rect(trunc(x_-h-w),trunc(y_-h-w),trunc(x_+h+w),trunc(y_+h+w)),nil) then exit; // Textured, normal viewport
  x_:=x_-0.5; y_:=y_-0.5;
 
- // ��� ���� ���-�� ��������� �����, ����� �� ���� �������������
+ // Тут надо что-то придумать умное, чтобы не было заблуренности
 { if abs(round(w)-w)>0.1 then begin
   x_:=x_+0.5*cos(angle);
   y_:=y_+0.5*sin(angle);
@@ -550,9 +424,8 @@ begin
   y_:=y_+0.5*cos(angle);
  end;}
 
- ConvertColor(color);
- UseTexture(image1,0);
- UseTexture(image2,1);
+ gfx.shader.UseTexture(image1,0);
+ gfx.shader.UseTexture(image2,1);
 
  au1:=image1.u1; au2:=image1.u2;
  av1:=image1.v1; av2:=image1.v2;
@@ -579,34 +452,30 @@ begin
 
  c:=cos(angle); s:=sin(angle);
  h:=-h;
- with vrt[0] do begin
-  x:=x_-w*c-h*s; y:=y_+h*c-w*s; z:=zPlane; rhw:=1; diffuse:=color;
-  u:=au1; v:=av1;
-  u2:=bu1; v2:=bv1;
- end;
- with vrt[1] do begin
-  x:=x_+w*c-h*s; y:=y_+h*c+w*s;  z:=zPlane; rhw:=1; diffuse:=color;
-  u:=au2; v:=av1;
-  u2:=bu2; v2:=bv1;
- end;
- with vrt[2] do begin
-  x:=x_+w*c+h*s; y:=y_-h*c+w*s;  z:=zPlane; rhw:=1; diffuse:=color;
-  u:=au2; v:=av2;
-  u2:=bu2; v2:=bv2;
- end;
- with vrt[3] do begin
-  x:=x_-w*c+h*s; y:=y_-h*c-w*s;  z:=zPlane; rhw:=1; diffuse:=color;
-  u:=au1; v:=av2;
-  u2:=bu1; v2:=bv2;
- end;
+ vrt[0].Init(
+  x_-w*c-h*s,y_+h*c-w*s,zPlane,
+  au1,av1, bu1,bv1,
+  color);
+ vrt[1].Init(
+  x_+w*c-h*s,y_+h*c+w*s,zPlane,
+  au2,av1, bu2,bv1,
+  color);
+ vrt[2].Init(
+  x_+w*c+h*s,y_-h*c+w*s,zPlane,
+  au2,av2, bu2,bv2,
+  color);
+ vrt[3].Init(
+  x_-w*c+h*s,y_-h*c-w*s,zPlane,
+  au1,av2,bu1,bv2,
+  color);
 
- DrawPrimitivesMulti(TRG_FAN,2,@vrt,sizeof(TScrPoint3),2);
+ renderDevice.Draw(TRG_FAN,2,@vrt,sizeof(TScrPoint2),2);
 end;
 
 // ��� ������ �������� ������ � DX, � � OGL - ���� (���������������) ������, ������� �� ���������� ���
 procedure TDrawer.MultiTex(x1, y1, x2, y2: integer; layers:PMultiTexLayer; color: cardinal);
 var
- vrt:array[0..3] of TScrPoint3;
+ vrt:array[0..3] of TScrPoint2;
  lr:array[0..9] of TMultiTexLayer;
  i,lMax:integer;
  // ��������� ������� �� ������� �������� � �������� ����������� � ������������
@@ -648,7 +517,7 @@ begin
  // Copy layers
 { for i:=0 to lMax do lr[i]:=layers[i];
 
- UseTexture(l1.texture);
+ gfx.shader.UseTexture(l1.texture);
  if l1.texture.caps and tfTexture=0 then AdjustMatrix(ll1);
  geom2d.MultPnts(ll1.matrix,PPoint2s(@vrt[0].u),4,sizeof(TScrPoint3));
 
@@ -657,18 +526,18 @@ begin
   move(l2^,ll2,sizeof(ll2));
   if l2.texture.caps and tfTexture=0 then AdjustMatrix(ll2);
   geom2d.MultPnts(ll2.matrix,PPoint2s(@vrt[0].u2),4,sizeof(TScrPoint3));
-  UseTexture(l2.texture,1);
+  gfx.shader.UseTexture(l2.texture,1);
  end;
  // ���������� 3-� ������
  if l3<>nil then begin
   move(l3^,ll3,sizeof(ll3));
   if l3.texture.caps and tfTexture=0 then AdjustMatrix(ll3);
   geom2d.MultPnts(ll3.matrix,PPoint2s(@vrt[0].u3),4,sizeof(TScrPoint3));
-  UseTexture(l3.texture,2);
+  gfx.shader.UseTexture(l3.texture,2);
  end;
  DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPoint3));
- UseTexture(nil,1);
- if l3<>nil then UseTexture(nil,2);    }
+ gfx.shader.UseTexture(nil,1);
+ if l3<>nil then gfx.shader.UseTexture(nil,2);    }
 end;
 
 procedure TDrawer.Polygon(points: PPoint2; cnt: integer; color: cardinal);
@@ -682,7 +551,6 @@ var
 begin
  n:=cnt-2;
  if n<1 then exit;
- ConvertColor(color);
  SetLength(vrt,n*3);
  Triangulate(points,cnt);
  pnts:=pointer(points);
@@ -713,7 +581,6 @@ begin
  h:=(image.height)*scaleY;
  if not SetStates(STATE_TEXTURED2X,types.Rect(trunc(x0-h-w),trunc(y0-h-w),trunc(x0+h+w),trunc(y0+h+w)),image) then exit; // Textured, normal viewport
 
- ConvertColor(color);
  x0:=x0-0.5; y0:=Y0-0.5;
  if image.width and 1=1 then begin
   x0:=x0+0.5*cos(angle);
@@ -723,7 +590,7 @@ begin
   x0:=x0+0.5*sin(angle);
   y0:=y0+0.5*cos(angle);
  end;
- UseTexture(image);
+ gfx.shader.UseTexture(image);
  u1:=image.u1; u2:=image.u2;
  v1:=image.v1; v2:=image.v2;
  c:=cos(angle); s:=sin(angle);
@@ -748,10 +615,9 @@ var
  v,u1,v1,u2,v2:single;
 begin
  if not SetStates(STATE_TEXTURED2X,types.Rect(trunc(x1),trunc(y1),trunc(x2+0.999),trunc(y2+0.999)),image) then exit; // Textured, normal viewport
- ConvertColor(color);
  x1:=x1-0.01; y1:=y1-0.01;
  x2:=x2-0.01; y2:=y2-0.01;
- UseTexture(image);
+ gfx.shader.UseTexture(image);
  u1:=image.u1+image.StepU; u2:=image.u2-image.stepU;
  v1:=image.v1+image.StepV; v2:=image.v2-image.stepV;
 
@@ -776,11 +642,9 @@ procedure TDrawer.TrgList(pnts: PVertex; trgcount: integer;
 begin
  if tex<>nil then begin
   if not SetStates(STATE_TEXTURED2X,types.Rect(0,0,4096,2048),tex) then exit; // Textured, normal viewport
-  UseTexture(tex);
+  gfx.shader.UseTexture(tex);
  end else
   if not SetStates(STATE_COLORED,types.Rect(0,0,4096,2048),nil) then exit; // Colored, normal viewport
- if colorFormat>0 then
-  ConvertColors(@(pnts^.diffuse),trgCount*3,sizeof(TVertex));
  DrawPrimitives(TRG_LIST,trgcount,pnts,sizeof(TVertex));
 end;
 
@@ -790,9 +654,7 @@ var
 begin
  if tex<>nil then mode:=STATE_TEXTURED2X else mode:=STATE_COLORED;
  if not SetStates(mode,types.Rect(0,0,4096,2048),tex) then exit; // Textured, normal viewport
- if tex<>nil then UseTexture(tex);
- if colorFormat>0 then
-  ConvertColors(@(vertices^.diffuse),vrtCount,sizeof(TVertex));
+ if tex<>nil then gfx.shader.UseTexture(tex);
  DrawIndexedPrimitivesDirectly(TRG_LIST,vertices,indices,sizeof(TVertex),0,vrtCount,0,trgCount);
 end;
 
@@ -801,7 +663,6 @@ var
  vrt:array[0..4] of TScrPointNoTex;
 begin
  if not SetStates(STATE_COLORED,types.Rect(x1,y1,x2+1,y2+1)) then exit; // Colored, normal viewport
- ConvertColor(color);
  SetVertexC(vrt[0], x1,y1,zPlane,color);
  SetVertexC(vrt[1], x2,y1,zPlane,color);
  SetVertexC(vrt[2], x2,y2,zPlane,color);
@@ -815,7 +676,6 @@ var
  vrt:array[0..8] of TScrPointNoTex;
 begin
  if not SetStates(STATE_COLORED,types.Rect(x1,y1,x2+1,y2+1)) then exit; // Colored, normal viewport
- ConvertColor(color);
  SetVertexC(vrt[0],x1+r,y1,zPlane,color);
  SetVertexC(vrt[1],x2-r,y1,zPlane,color);
  SetVertexC(vrt[2],x2,y1+r,zPlane,color);
@@ -834,14 +694,12 @@ var
  vrt:array[0..3] of TScrPointNoTex;
 begin
  if not SetStates(STATE_COLORED,types.Rect(x1,y1,x2+1,y2+1)) then exit; // Colored, normal viewport
- ConvertColor(color1);
- ConvertColor(color2);
  SetVertexC(vrt[0], x1-0.5,y1-0.5,zPlane,color1);
  SetVertexC(vrt[1], x2+0.5,y1-0.5,zPlane,color1);
  SetVertexC(vrt[2], x2+0.5,y2+0.5,zPlane,color2);
  SetVertexC(vrt[3], x1-0.5,y2+0.5,zPlane,color1);
- if vertical then vrt[3].diffuse:=color2
-  else vrt[1].diffuse:=color2;
+ if vertical then vrt[3].color:=color2
+  else vrt[1].color:=color2;
 
  DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TScrPointNoTex));
 end;
@@ -856,9 +714,6 @@ begin
  minY:=trunc(Min3d(y1,y2,y3));
  maxY:=trunc(Max3d(y1,y2,y3))+1;
  if not SetStates(STATE_COLORED,types.Rect(minX,minY,maxX,maxY)) then exit; // Colored, normal viewport
- ConvertColor(color1);
- ConvertColor(color2);
- ConvertColor(color3);
  SetVertexC(vrt[0], x1-0.5,y1-0.5,zPlane,color1);
  SetVertexC(vrt[1], x2-0.5,y2-0.5,zPlane,color2);
  SetVertexC(vrt[2], x3-0.5,y3-0.5,zPlane,color3);
@@ -872,7 +727,6 @@ var
  sx1,sy1,sx2,sy2:single;
 begin
  if not SetStates(STATE_COLORED,types.Rect(x1,y1,x2+1,y2+1)) then exit; // Colored, normal viewport
- ConvertColor(color);
  sx1:=x1-0.5; sx2:=x2+0.5;
  sy1:=y1-0.5; sy2:=y2+0.5;
  SetVertexC(vrt[0], sx1,sy1,zPlane,color);
@@ -893,8 +747,6 @@ begin
  if not SetStates(STATE_COLORED,types.Rect(x1,y1,x2+1,y2+1)) then exit; // Colored, normal viewport
  inc(x1,depth-1); inc(y1,depth-1);
  dec(x2,depth-1); dec(y2,depth-1);
- ConvertColor(light);
- ConvertColor(dark);
  b1:=@light; b2:=@dark;
  inc(b1,3); inc(b2,3);
  for i:=0 to depth-1 do begin
@@ -922,7 +774,6 @@ var
  sx,dx,sy,dy:single;
 begin
  if not SetStates(STATE_TEXTURED2X,types.Rect(x1,y1,x2+1,y2+1),texture) then exit;
- ConvertColor(color);
  SetVertex(vrt[0], x1-0.5, y1-0.5, zPlane,color);
  SetVertex(vrt[1], x2+0.5, y1-0.5, zPlane,color);
  SetVertex(vrt[2], x2+0.5, y2+0.5, zPlane,color);
@@ -939,7 +790,7 @@ begin
  vrt[2].u:=u3;  vrt[2].v:=v3;
  vrt[3].u:=(u1+u3)-u2;
  vrt[3].v:=(v1+v3)-v2;
- UseTexture(texture);
+ gfx.shader.UseTexture(texture);
  DrawPrimitives(TRG_FAN,2,@vrt,sizeof(TVertex));
 end;
 
@@ -960,7 +811,7 @@ var
  color:cardinal;
 begin
  if not SetStates(STATE_TEXTURED2X,ClipRect,tex) then exit; // Textured, normal viewport
- UseTexture(tex);
+ gfx.shader.UseTexture(tex);
 
  part:=pointer(data);
  if count>MaxParticleCount then count:=MaxParticleCount;
@@ -980,7 +831,7 @@ begin
    idx[n]:=j;
   end;
  // �������� ��������� �����
- vrt:=LockBuffer(VertBuf,0,4*count*sizeof(TVertex));
+ vrt:=renderDevice.LockBuffer(VertBuf,0,4*count*sizeof(TVertex));
  for i:=0 to count-1 do begin
   n:=idx[i];
   startU:=part[n].index and $FF;
@@ -1005,20 +856,20 @@ begin
   rx:=size2*sizeU*cos(-part[n].angle); ry:=-size2*sizeU*sin(-part[n].angle);
   qx:=size2*sizeV*cos(-part[n].angle+1.5708); qy:=-size2*sizeV*sin(-part[n].angle+1.5708);
   color:=part[n].color;
-  ConvertColor(color);
   // ������ �������
   SetVertexT(vrt[i*4],   sx-rx+qx, sy-ry+qy, zPlane,color, uStart,      vStart);
   SetVertexT(vrt[i*4+1], sx+rx+qx, sy+ry+qy, zPlane,color, uStart+uSize,vStart);
   SetVertexT(vrt[i*4+2], sx+rx-qx, sy+ry-qy, zPlane,color, uStart+uSize,vStart+vSize);
   SetVertexT(vrt[i*4+3], sx-rx-qx, sy-ry-qy, zPlane,color, uStart,      vStart+vSize);
  end;
- UnlockBuffer(VertBuf);
- DrawIndexedPrimitives(TRG_LIST,VertBuf,partIndBuf,sizeof(TVertex),0,count*4,0,count*2);
+ renderDevice.UnlockBuffer(VertBuf);
+ renderDevice.DrawIndexed(TRG_LIST,VertBuf,partIndBuf,sizeof(TVertex),0,count*4,0,count*2);
 end;
 
 procedure TDrawer.DebugScreen1;
 begin
- TextOutW(MAGIC_TEXTCACHE,100,0,0,'');
+/// TODO: move to txt and check
+// txt.WriteW(MAGIC_TEXTCACHE,100,0,0,'');
 end;
 
 procedure TDrawer.Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
@@ -1039,7 +890,7 @@ begin
   else i:=STATE_TEXTURED2X;
 
  if not SetStates(i,ClipRect,tex) then exit; // Proper mode
- if tex<>nil then UseTexture(tex);
+ if tex<>nil then gfx.shader.UseTexture(tex);
  part:=pointer(data);
  if count>MaxParticleCount then count:=MaxParticleCount;
 { if part[count-1].index and (partEndpoint+partLoop)=0 then   // ����������� �������� ������ �����������!
@@ -1058,8 +909,8 @@ begin
  noPrv:=true;
  loopstart:=0;
  primcount:=0;
- vrt:=LockBuffer(VertBuf,0,2*count*sizeof(TVertex));
- idx:=LockBuffer(bandIndBuf,0,6*count*2);
+ vrt:=renderDevice.LockBuffer(VertBuf,0,2*count*sizeof(TVertex));
+ idx:=renderDevice.LockBuffer(bandIndBuf,0,6*count*2);
  for i:=0 to count-1 do begin
    // ������ ���������� �������� �-�� �������
    sx:=x+part[i].x;
@@ -1102,7 +953,6 @@ begin
    end;
 
    color:=part[i].color;
-   ConvertColor(color);
    // ������ �������
    SetVertexT(vrt[i*2],   sx-rx,sy-ry, zPlane,color, u1,v1+vStep*(part[i].index and $FF));
    SetVertexT(vrt[i*2+1], sx+rx,sy+ry, zPlane,color, u2,v1+vStep*(part[i].index and $FF));
@@ -1128,9 +978,9 @@ begin
    inc(primcount,2);
  end;
 
- UnlockBuffer(BandIndBuf);
- UnlockBuffer(VertBuf);
- DrawIndexedPrimitives(TRG_LIST,VertBuf,bandIndBuf,sizeof(TVertex),0,count*2,0,primCount);
+ renderDevice.UnlockBuffer(BandIndBuf);
+ renderDevice.UnlockBuffer(VertBuf);
+ renderDevice.DrawIndexed(TRG_LIST,VertBuf,bandIndBuf,sizeof(TVertex),0,count*2,0,primCount);
 end;
 
 {procedure TDrawer.ScreenOffset(x, y: integer);
@@ -1139,7 +989,7 @@ begin
  permOfsY:=y; curOfsY:=y;
 end;}
 
-
+{
 procedure TDrawer.SetClipping(r: TRect);
 begin
  if scnt>=15 then exit;
@@ -1156,7 +1006,7 @@ begin
  cliprect:=saveclip[scnt];
  dec(scnt);
 end;
-
+}
 
 
 function TDrawer.Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
@@ -1178,11 +1028,9 @@ begin
 end;
 
 function TDrawer.Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
-begin
- result:=Min2d((x2-x1)/texture.width,(y2-y1)/texture.height);
- RotScaled(x1+x2/2,y1+y2/2,result,result,0,texture,color);
-end;
+ begin
+  result:=Min2d((x2-x1)/texture.width,(y2-y1)/texture.height);
+  RotScaled(x1+x2/2,y1+y2/2,result,result,0,texture,color);
+ end;
 
-initialization
- textLinkStyleProc:=DefaultTextLinkStyle;
 end.

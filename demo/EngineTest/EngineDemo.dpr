@@ -22,18 +22,16 @@ uses
   Apus.FreeTypeFont,
   Apus.Engine.API in '..\..\Apus.Engine.API.pas',
   Apus.Engine.UIClasses in '..\..\Apus.Engine.UIClasses.pas',
-  Apus.Engine.PainterGL in '..\..\Apus.Engine.PainterGL.pas',
   Apus.Engine.UIScene in '..\..\Apus.Engine.UIScene.pas',
   Apus.Engine.UIRender in '..\..\Apus.Engine.UIRender.pas',
   Apus.Engine.Tools in '..\..\Apus.Engine.Tools.pas',
   Apus.Engine.Console in '..\..\Apus.Engine.Console.pas',
   Apus.Engine.ConsoleScene in '..\..\Apus.Engine.ConsoleScene.pas',
-  Apus.Engine.SceneEffects in '..\..\Apus.Engine.SceneEffects.pas',
+//  Apus.Engine.SceneEffects in '..\..\Apus.Engine.SceneEffects.pas',
   Apus.Engine.BitmapStyle in '..\..\Apus.Engine.BitmapStyle.pas',
   Apus.Engine.Networking2 in '..\..\Apus.Engine.Networking2.pas',
   Apus.Engine.IOSgame in '..\..\Apus.Engine.IOSgame.pas',
   Apus.Engine.Game in '..\..\Apus.Engine.Game.pas',
-  Apus.Engine.Painter2D in '..\..\Apus.Engine.Painter2D.pas',
   Apus.Engine.TweakScene in '..\..\Apus.Engine.TweakScene.pas',
   Apus.Engine.Networking3 in '..\..\Apus.Engine.Networking3.pas',
   Apus.Engine.UDict in '..\..\Apus.Engine.UDict.pas',
@@ -46,7 +44,6 @@ uses
   {$ENDIF }
   {$IFDEF OPENGL}
   Apus.Engine.OpenGL in '..\..\Apus.Engine.OpenGL.pas',
-  Apus.Engine.PainterGL2 in '..\..\Apus.Engine.PainterGL2.pas',
   Apus.Engine.ResManGL in '..\..\Apus.Engine.ResManGL.pas',
   {$ENDIF }
   {$IFDEF MSWINDOWS}
@@ -66,7 +63,10 @@ uses
   Apus.Engine.UIScript in '..\..\Apus.Engine.UIScript.pas',
   Apus.Engine.GfxFormats3D in '..\..\Apus.Engine.GfxFormats3D.pas',
   Apus.Engine.ImageTools in '..\..\Apus.Engine.ImageTools.pas',
-  Apus.Engine.Drawing in '..\..\Apus.Engine.Drawing.pas';
+  Apus.Engine.Draw in '..\..\Apus.Engine.Draw.pas',
+  Apus.Engine.Classes in '..\..\Apus.Engine.Classes.pas',
+  Apus.Engine.TextDraw in '..\..\Apus.Engine.TextDraw.pas',
+  Apus.Engine.ClassesGL in '..\..\Apus.Engine.ClassesGL.pas';
 
 const
  wnd:boolean=true;

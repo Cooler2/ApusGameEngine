@@ -797,11 +797,11 @@ begin
   if blendMode<>blAlpha then
    gfx.target.BlendMode(blendMode);
   if (s=1) and (a=0) then
-   draw.Image(round(x.Value-width/2+0.4-fromX),
+   gfx.draw.Image(round(x.Value-width/2+0.4-fromX),
                      round(y.value-height/2+0.4-fromY),
                      image,globalColor)
   else
-   draw.RotScaled(round(x.Value-fromX),
+   gfx.draw.RotScaled(round(x.Value-fromX),
                          round(y.value-fromY),s,s,a,
                          image,globalColor);
   if blendMode<>blAlpha then
@@ -876,7 +876,7 @@ begin
    p[n]:=renderParts[i];
    inc(n);
   end;
- draw.DrawParticles(x,y,@p[0],n,texture,size,zDist);
+ gfx.draw.Particles(x,y,@p[0],n,texture,size,zDist);
 end;
 
 procedure TParticleEffect.Draw;
