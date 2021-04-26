@@ -150,6 +150,7 @@ type
  PPoint2s = ^TPoint2s;
  // 3D Points
  TPoint3 = Apus.Geom3D.TPoint3;
+ TVector3 = TPoint3;
  PPoint3 = ^TPoint3;
  TPoint3s = Apus.Geom3D.TPoint3s;
  PPoint3s = ^TPoint3s;
@@ -190,6 +191,7 @@ type
                    tblModulate, // previous*texture
                    tblModulate2X, // previous*texture*2
                    tblAdd,     // previous+texture
+                   tblSub,     // previous-texture
                    tblInterpolate // previous*factor+texture*(1-factor) текстурные стадии смешиваются между собой
                    );
 { TTexInterpolateMode=(tintFactor, // factor=constant
@@ -211,26 +213,27 @@ type
                               // (вывод превращается в левый если реальная ширина строки слишком мала или строка заканчивается на #10 или #13)
 
  // Access mode for locked resources
- TLockMode=(lmReadOnly,       // read-only (do not invalidate data when unlocked)
-            lmReadWrite,      // read+write (invalidate the whole area)
-            lmCustomUpdate);  // read+write, do not invalidate anything (AddDirtyRect is required, partial lock is not allowed in this case)
+ TLockMode=(lmReadOnly,       //< read-only (do not invalidate data when unlocked)
+            lmReadWrite,      //< read+write (invalidate the whole area)
+            lmCustomUpdate);  //< read+write, do not invalidate anything (AddDirtyRect is required, partial lock is not allowed in this case)
 
- // Display target
- TDisplayMode=(dmNone,             // not specified
-               dmSwitchResolution, // Fullscreen: switch to desired display mode (change screen resolution)
-               dmFullScreen,       // Use current resolution with fullscreen window
-               dmFixedWindow,      // Use fixed-size window
-               dmWindow);          // Use resizeable window
+ // Display mode
+ TDisplayMode=(dmNone,             //< not specified
+               dmSwitchResolution, //< Fullscreen: switch to desired display mode (change screen resolution)
+               dmFullScreen,       //< Use current resolution with fullscreen window
+               dmFixedWindow,      //< Use fixed-size window
+               dmWindow);          //< Use resizeable window
 
- // How the default render target should appear in the output area
- TDisplayFitMode=(dfmCenter,           // render target is centered in the output window rect (1:1) (DisplayScaleMode is ignored)
-                  dfmFullSize,         // render target fills the whole output output window rect
-                  dfmKeepAspectRatio); // render target is stretched to fill the output window rect while keeping it's aspect ratio
+ // How the rendered image should appear in the output window (display)
+ TDisplayFitMode=(dfmCenter,           //< image is centered in the output window rect (1:1) (DisplayScaleMode is ignored)
+                  dfmFullSize,         //< image is stretched to fill the whole output window
+                  dfmKeepAspectRatio); //< image is stretched to fill the output window while keeping it's original aspect ratio (black padding)
 
- // How rendering is processed if back buffer size doesn't match the output rect
- TDisplayScaleMode=(dsmDontScale,   // Ignore the back buffer size and set it to match the output rect size
-                    dsmStretch,     // Render to the back buffer size and then stretch rendered image to the output rect
-                    dsmScale);      // Use scale transformation matrix to map render area to the output rect
+ // How rendering is processed if the backbuffer size doesn't match the output area
+ TDisplayScaleMode=(dsmDontScale,   //< Backbuffer size is updated to match the output area
+                    dsmStretch,     //< Stretch rendered image to the output rect
+                    dsmScale);      //< Use scale transformation matrix to map render area to the output rect (scaled rendering)
+                                    // Note that scaled rendering produces error in clipping due to rounding
 
  TDisplaySettings=record
   displayMode:TDisplayMode;
@@ -290,6 +293,7 @@ type
   procedure Unlock; virtual; abstract;
   procedure AddDirtyRect(rect:TRect); virtual; abstract; // mark area to update when unlocked (mode=lmCustomUpdate)
   procedure GenerateMipMaps(count:byte); virtual; abstract; // Сгенерировать изображения mip-map'ов
+  function HasFlag(flag:cardinal):boolean;
  protected
   locked:integer; // lock counter
  end;
@@ -350,16 +354,12 @@ type
    cullCW,    // Omit CW faces. This engine uses CW faces for 2D drawing
    cullCCW);  // Omit CCW faces. in OpenGL CCW-faces are considered front by default
 
- TDefaultShader=(
-  shader2D,  // default shader for 2D rendering (texture stages, no lightning)
-  shader3D); // default shader for 3D - with lighting and material properties
-
  // Base class for shader object
  TShader=class
   // Set uniform value
   procedure SetUniform(name:String8;value:integer); overload; virtual; abstract;
-  procedure SetUniform(name:String8;value:TVector3s); overload; virtual; abstract;
-  procedure SetUniform(name:String8;value:T3DMatrix); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TVector3s); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:T3DMatrix); overload; virtual; abstract;
  end;
 
  // Control render target
@@ -372,7 +372,7 @@ type
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1);
   // Configure default render target as texture or backbuffer (nil)
   procedure UseAsDefault(rt:TTexture);
-  // Setup output position on default render target
+  // Setup output position on the backbuffer
   procedure SetDefaultRenderArea(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer);
   // Enable/setup depth test
   procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true);
@@ -383,16 +383,22 @@ type
   // Restore (pop) previous mask
   procedure UnMask;
 
-  function renderWidth:integer;  //< width of the render area in pixels
-  function renderHeight:integer; //< height of the render area in pixels
+  function width:integer;  //< width of the render area in virtual pixels
+  function height:integer; //< height of the render area in virtual pixels
+  function aspect:single; // width/height
  end;
 
  // Control clipping
  IClipping=interface
   procedure Rect(r:TRect;combine:boolean=true);  //< Set clipping rect (combine with previous or override), save previous
-  procedure Nothing; //< don't clip anything, save previous (the same as Apply() for the whole render target area)
+  procedure Nothing; //< don't clip anything, save previous (the same as Rect() for the whole render target area)
   procedure Restore; //< restore previous clipping rect
   function  Get:TRect; //< return current clipping rect
+  // Call this before draw something within R.
+  // It sets actual clipping if needed.
+  // Returns false if R doesn't intersect the current clipping rect (so no need to draw anything inside R)
+  function Prepare(r:TRect):boolean; overload;
+  function Prepare(x1,y1,x2,y2:integer):boolean; overload;
  end;
 
  // Control transformation and projection
@@ -430,6 +436,8 @@ type
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
   // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
   function GetMVPMatrix:T3DMatrix;
+  // Transform point using combined MVP matrix
+  function Transform(source: TPoint3):TPoint3;
  end;
 
  // Shaders-related API
@@ -452,17 +460,15 @@ type
   // Upload texture to the Video RAM and make it active for the specified stage
   // (usually you don't need to call this manually unless you're using a custom shader)
   procedure UseTexture(tex:TTexture;stage:integer=0);
- end;
 
- // Control lighting and material
- ILighting=interface
-  // Turn lighting off (default)
-  procedure Disable;
-  // Turn lighting on: use directional light + ambient color
-  procedure UseDirect(direction:TVector3;power:single;color,ambientColor:cardinal);
-  // Turn lighting on: use point light + ambient color
-  procedure UsePoint(position:TPoint3;power:single;color,ambientColor:cardinal);
-  // Set material properties for lighting using the default shader
+  // Lighting and material
+  // ----
+  procedure AmbientLight(color:cardinal);
+  // Set directional light (set power<=0 to disable)
+  procedure DirectLight(direction:TVector3;power:single;color:cardinal);
+  // Set point light source (set power<=0 to disable)
+  procedure PointLight(position:TPoint3;power:single;color:cardinal);
+  // Define material properties
   procedure Material(color:cardinal;shininess:single);
  end;
 
@@ -527,30 +533,37 @@ type
   power:single; // Усиление эффекта
  end;
 
- // Basic vertex format for drawing textured primitives
+ // Basic vertex format for regular primitives
  PVertex=^TVertex;
  TVertex=packed record
   x,y,z:single;
   color:cardinal;
   u,v:single;
-  procedure Init(x,y,z,u,v:single;color:cardinal); inline;
+  procedure Init(x,y,z,u,v:single;color:cardinal); overload; inline;
+  procedure Init(x,y,z:single;color:cardinal); overload; inline;
+  class var layoutTex,layoutNoTex:cardinal;
  end;
 
- // Basic vertex format for drawing non-textured primitives
- TScrPointNoTex=record
-  x,y,z:single;
-  color:cardinal;
-  procedure Init(x,y,z:single;color:cardinal); inline;
- end;
-
- // Vertex format for drawing double textured primitives
- PScrPoint2=^TScrPoint2;
- TScrPoint2=record
+ // Vertex format for double textured primitives
+ PVertex2t=^TVertex2t;
+ TVertex2t=packed record
   x,y,z:single;
   color:cardinal;
   u,v:single;
   u2,v2:single;
   procedure Init(x,y,z,u,v,u2,v2:single;color:cardinal); inline;
+  class function Layout:cardinal; static;
+ end;
+
+ // Vertex format for 3D objects with lighting
+ PVertex3D=^TVertex3D;
+ TVertex3D=packed record
+  x,y,z:single;
+  color:cardinal;
+  nx,ny,nz:single;
+  extra:single;
+  u,v:single;
+  class function Layout:cardinal; static;
  end;
 
  // vertex and index arrays
@@ -604,15 +617,6 @@ type
 
  // Drawing interface
  IDrawer=interface
-{  TextColorX2:boolean; // true: white=FF808080 range, false: white=FFFFFFFF
-  viewMatrix:T3DMatrix; // current view (camera) matrix
-  objMatrix:T3DMatrix; // current object (model) matrix
-  projMatrix:T3DMatrix; // current projection matrix
-
-  texman:TTextureMan;
-
-  constructor Create;}
-
   // Basic primitives -----------------
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
   procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
@@ -657,18 +661,11 @@ type
   procedure DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
       image1,image2:TTexture;color:cardinal=$FF808080);
   // Заполнение прямоугольника несколькими текстурами (из списка)
-  procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080);
+  //procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080);
 
   // Particles ------------------------------------------
   procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0);
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
-{
- protected
-  // Максимальная область рендертаргета, доступная для отрисовки, т.е. это значение, которое принимает ClipRect при сбросе отсечения
-  // Используется при установке вьюпорта (при смене рендертаргета)
-  screenRect:TRect;  // maximal clipping area (0,0 - width,height) in virtual pixels (for current RT)
- // Устанавливается при установке отсечения (путём пересечения с текущей областью отсечения) с учётом ofsX/Y
-  clipRect:TRect;    // currently requested clipping area (in virtual pixels), might be different from actual clipping area}
  end;
 
  // Interface to the graphics subsystem: OpenGL, Vulkan or Direct3D
@@ -686,7 +683,6 @@ type
   function shader:IShaders;
   function clip:IClipping;
   function transform:ITransformation;
-  function light:ILighting;
   function draw:IDrawer;
   function txt:ITextDrawer;
 
@@ -995,7 +991,7 @@ var
 
 implementation
 uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
- TypInfo, Apus.Engine.Tools;
+ TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics;
 
  function GetKeyEventScanCode(tag: cardinal): cardinal;
   begin
@@ -1033,6 +1029,11 @@ uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Eng
     parent:=src;
    inc(parent.refCounter);
   end;
+
+function TTexture.HasFlag(flag: cardinal): boolean;
+ begin
+  result:=caps and flag>0;
+ end;
 
 function TTexture.IsLocked: boolean;
  begin
@@ -1266,17 +1267,15 @@ procedure TVertex.Init(x, y, z, u, v: single; color: cardinal);
   self.u:=u; self.v:=v;
  end;
 
-{ TScrPointNoTex }
-
-procedure TScrPointNoTex.Init(x, y, z: single; color: cardinal);
+procedure TVertex.Init(x, y, z: single; color: cardinal);
  begin
   self.x:=x; self.y:=y; self.z:=z;
   self.color:=color;
  end;
 
-{ TScrPoint2 }
+{ TVertex2t }
 
-procedure TScrPoint2.Init(x, y, z, u, v, u2, v2: single; color: cardinal);
+procedure TVertex2t.Init(x, y, z, u, v, u2, v2: single; color: cardinal);
  begin
   self.x:=x; self.y:=y; self.z:=z;
   self.color:=color;
@@ -1284,6 +1283,26 @@ procedure TScrPoint2.Init(x, y, z, u, v, u2, v2: single; color: cardinal);
   self.u2:=u2; self.v2:=v2;
  end;
 
+class function TVertex2t.Layout: cardinal;
+ var
+  v:PVertex2t;
+ begin
+  v:=nil;
+  result:=BuildVertexLayout(0,0,integer(@v.color),integer(@v.u),integer(@v.u2));
+ end;
+
+{ TVertex3D }
+
+class function TVertex3D.Layout: cardinal;
+ var
+  v:PVertex3D;
+ begin
+  v:=nil;
+  result:=BuildVertexLayout(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
+ end;
+
 initialization
  PublishFunction('GetFont',fGetFontHandle);
+ TVertex.layoutTex:=BuildVertexLayout(0,0,12,16,0); // color and uv1
+ TVertex.layoutNoTex:=BuildVertexLayout(0,0,12,0,0); // color only
 end.

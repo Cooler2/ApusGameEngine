@@ -16,6 +16,19 @@ interface
   FTF_DEFAULT_LINE_HEIGHT = 24; // Высота строки, соответствующей scale=100
 
  type
+  // Функция вычисления цвета в точке (для раскраски текста)
+  TColorFunc=function(x,y:single;color:cardinal):cardinal;
+  // Процедура модификации стиля отрисовки ссылок
+  TTextLinkStyleProc=procedure(link:cardinal;var sUnderline:boolean;var color:cardinal);
+
+  // Вставка картинок в текст (8 байт)
+  TInlineImage=packed record
+   width:byte;
+   padTop,padBottom:byte;
+   group:byte;
+   ind:word; // INLINE\group\ind
+  end;
+
   TTextDrawer=class(TInterfacedObject,ITextDrawer)
    textMetrics:array of TRect; // results of text measurement (if requested)
 
@@ -60,8 +73,22 @@ interface
    procedure FlushTextCache;
   end;
 
+ var
+  maxGlyphBufferCount:integer=1000; // MUST NOT BE LARGER THAN MaxParticleCount!
+  // Default width (or height) for modern text cache (must be 512, 1024 or 2048)
+  textCacheWidth:integer=512;
+  textCacheHeight:integer=512;
+
+  textColorFunc:TColorFunc=nil; // not thread-safe!
+  textLinkStyleProc:TTextLinkStyleProc=nil; // not thread-safe!
+  // Если при отрисовке текста передан запрос с координатами точки, и эта точка приходится на рисуемую ссылку -
+  // то сюда записывается номер этой ссылки. Обнуляется перед отрисовкой кадра
+  curTextLink:cardinal;
+  curTextLinkRect:TRect;
+
 implementation
  uses Apus.MyServis,
+   Apus.Colors,
    Apus.UnicodeFont,
    Apus.GlyphCaches,
    Apus.Engine.Graphics
@@ -160,7 +187,7 @@ function TTextDrawer.LoadFont(fName:string;asName:string=''):string;
 
 function TTextDrawer.Link: integer;
  begin
-
+  result:=
  end;
 
 function TTextDrawer.LinkRect: TRect;

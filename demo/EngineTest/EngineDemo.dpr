@@ -27,7 +27,6 @@ uses
   Apus.Engine.Tools in '..\..\Apus.Engine.Tools.pas',
   Apus.Engine.Console in '..\..\Apus.Engine.Console.pas',
   Apus.Engine.ConsoleScene in '..\..\Apus.Engine.ConsoleScene.pas',
-//  Apus.Engine.SceneEffects in '..\..\Apus.Engine.SceneEffects.pas',
   Apus.Engine.BitmapStyle in '..\..\Apus.Engine.BitmapStyle.pas',
   Apus.Engine.Networking2 in '..\..\Apus.Engine.Networking2.pas',
   Apus.Engine.IOSgame in '..\..\Apus.Engine.IOSgame.pas',
@@ -64,9 +63,8 @@ uses
   Apus.Engine.GfxFormats3D in '..\..\Apus.Engine.GfxFormats3D.pas',
   Apus.Engine.ImageTools in '..\..\Apus.Engine.ImageTools.pas',
   Apus.Engine.Draw in '..\..\Apus.Engine.Draw.pas',
-  Apus.Engine.Classes in '..\..\Apus.Engine.Classes.pas',
-  Apus.Engine.TextDraw in '..\..\Apus.Engine.TextDraw.pas',
-  Apus.Engine.ClassesGL in '..\..\Apus.Engine.ClassesGL.pas';
+  Apus.Engine.Graphics in '..\..\Apus.Engine.Graphics.pas',
+  Apus.Engine.TextDraw in '..\..\Apus.Engine.TextDraw.pas';
 
 const
  wnd:boolean=true;

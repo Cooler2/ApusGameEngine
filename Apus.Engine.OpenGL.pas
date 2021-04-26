@@ -28,7 +28,6 @@ type
   function shader:IShaders;
   function clip:IClipping;
   function transform:ITransformation;
-  function light:ILighting;
   function draw:IDrawer; inline;
   function txt:ITextDrawer;
   // Functions
@@ -42,7 +41,6 @@ type
   procedure DrawDebugOverlay(idx:integer);
 
   // For internal use
-
  private
   glVersion,glRenderer:string;
   glVersionNum:single;
@@ -50,6 +48,7 @@ type
 
 implementation
  uses Apus.MyServis, SysUtils,
+  Apus.Geom3D,
   Apus.Engine.Draw,
   Apus.Engine.Graphics
   {$IFDEF MSWINDOWS},Windows{$ENDIF}
@@ -60,7 +59,8 @@ type
   constructor Create;
   destructor Destroy; override;
 
-  procedure Draw(primType,primCount:integer;vertices:pointer;stride:integer); overload;
+  procedure Draw(primType,primCount:integer;vertices:pointer;
+    vertexLayout:TVertexLayout;stride:integer); overload;
   // Draw primitives using built-in buffer
   procedure Draw(primType,primCount,vrtStart:integer;
      vertexBuf:TPainterBuffer;stride:integer); overload;
@@ -71,6 +71,15 @@ type
   // Draw indexed  primitives using built-in buffer
   procedure DrawIndexed(primType:integer;vertexBuf,indBuf:TPainterBuffer;
      stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer);  overload;
+
+  function LockBuffer:pointer; override;
+  procedure UnlockBuffer; override;
+ protected
+  curTexMode:int64; // описание режима текстурирования, установленного клиентским кодом
+  actualTexMode:int64; // фактически установленный режим текстурирования
+  actualShader:byte; // тип текущего шейдера
+  actualAttribArrays:shortint; // кол-во включенных аттрибутов (-1 - неизвестно, 2+кол-во текстур)
+  procedure SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout;stride:integer);
  end;
 
  TGLRenderTargetAPI=class(TRendertargetAPI)
@@ -81,42 +90,26 @@ type
   procedure BlendMode(blend:TBlendingMode); override;
   procedure Mask(rgb:boolean;alpha:boolean); override;
   procedure UnMask; override;
+  procedure Apply; override;
  end;
 
- TTransformationAPI=class(TInterfacedObject,ITransformation)
+ TGLTransformationAPI=class(TTransformationAPI,ITransformation)
   // Switch to default 2D view (use screen coordinates)
-  procedure DefaultView;
+  procedure DefaultView; override;
+  procedure Update; override;
+ end;
 
-  // Set 3D view with given field of view (in radians) - set perspective projection matrix
-  // using screen dimensions for FoV and aspect ratio
-  procedure Perspective(fov:single;zMin,zMax:double); overload;
+ TGLShaderHandle=integer;
 
-  // Switch to 3D view - set perspective projection (in camera space: camera pos = 0,0,0, Z-forward, X-right, Y-down)
-  // zMin, zMax - near and far Z plane
-  // xMin,xMax - x coordinate range on the zScreen Z plane
-  // yMin,yMax - y coordinate range on the zScreen Z plane
-  // Т.е. точки (x,y,zScreen), где xMin <= x <= xMax, yMin <= y <= yMax - покрывают всю область вывода и только её
-  procedure Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); overload;
-  // Set orthographic projection matrix
-  // For example: scale=3 means that 1 unit in the world space is mapped to 3 pixels (in backbuffer)
-  procedure Orthographic(scale,zMin,zMax:double);
-  // Set view transformation matrix (camera position)
-  // View matrix is (R - right, D - down, F - forward, O - origin):
-  // Rx Ry Rz
-  // Dx Dy Dz
-  // Fx Fy Fz
-  // Ox Oy Oz
-  procedure SetView(view:T3DMatrix);
-  // Alternate way to set camera position and orientation
-  // (origin - camera center, target - point to look, up - any point ABOVE camera view line, so plane OTU is vertical),
-  // turnCW - camera turn angle (along view axis, CW direction)
-  procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0);
-  // Set Object (model to world) transformation matrix (must be used AFTER setting the view/camera)
-  procedure SetObj(mat:T3DMatrix); overload;
-  // Set object position/scale/rotate
-  procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
-  // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
-  function GetMVPMatrix:T3DMatrix;
+ TGLShader=class(TShader)
+  handle:TGLShaderHandle;
+  procedure SetUniform(name:String8;value:integer); overload; override;
+  procedure SetUniform(name:String8;const value:TVector3s); overload; override;
+  procedure SetUniform(name:String8;const value:T3DMatrix); overload; override;
+ end;
+
+ TGLShadersAPI=class(TShadersAPI,IShaders)
+
  end;
 
  //textureManager:TResource;
@@ -241,6 +234,16 @@ function TOpenGL.SetVSyncDivider(n: integer):boolean;
 
 procedure TOpenGL.BeginPaint(target: TTexture);
  begin
+  if (canPaint>0) and (target=curTarget) then
+    raise EWarning.Create('BP: target already set');
+  PushRenderTarget;
+  if target<>curtarget then begin
+   if target<>nil then SetTargetToTexture(target)
+    else ResetTarget;
+  end else begin
+   RestoreClipping;
+   inc(canPaint);
+  end;
   {$IFNDEF GLES}
   glEnable(GL_TEXTURE_2D);
   {$ENDIF}
@@ -252,7 +255,10 @@ procedure TOpenGL.BeginPaint(target: TTexture);
 
 procedure TOpenGL.EndPaint;
  begin
-
+  if canPaint=0 then exit;
+  // LogMessage('EP: '+inttohex(integer(curtarget),8));
+  PopRenderTarget;
+  dec(canPaint);
  end;
 
 procedure TOpenGL.ChoosePixelFormats(out trueColor, trueColorAlpha, rtTrueColor,
@@ -356,10 +362,11 @@ destructor TRenderDevice.Destroy;
  end;
 
 procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
-  stride: integer);
+  vertexLayout:TVertexLayout; stride: integer);
  var
   vrt:PVertex;
  begin
+  SetupAttributes(vertices,vertexLayout,stride);
   vrt:=vertices;
   glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vrt.x);
   glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.color);
@@ -425,7 +432,53 @@ procedure TRenderDevice.DrawIndexed(primType: integer; vertexBuf,
   end;
  end;
 
+
+function TRenderDevice.LockBuffer(buf: TPainterBuffer; offset,
+  size: cardinal): pointer;
+ begin
+  case buf of
+   vertBuf:begin result:=@partbuf[offset];end;
+   bandIndBuf:begin result:=@bandInd[offset]; end;
+   textVertBuf:begin result:=@txtBuf[offset]; end;
+   else raise EWarning.Create('Invalid buffer type');
+  end;
+ end;
+
+procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout;stride:integer);
+ var
+  i,v,n:integer;
+  p:pointer;
+ begin
+  for i:=0 to 4 do begin
+   v:=(vertexLayout and $F)*4;
+   vertexLayout:=vertexLayout shr 4;
+   p:=pointer(UIntPtr(vertices)+v);
+   if (v=0) and (i>0) then continue;
+   case i of
+    0:glVertexAttribPointer(n,3,GL_FLOAT,GL_FALSE,stride,p); // position
+    1:glVertexAttribPointer(n,3,GL_FLOAT,GL_FALSE,stride,p); // normal
+    2:glVertexAttribPointer(n,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,p); // color
+    3:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv1
+    4:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv2
+   end;
+   inc(n);
+   if vertexLayout=0 then break;
+  end;
+  if n<>actualAttribArrays then begin
+   glE
+  end;
+ end;
+
+procedure TRenderDevice.UnlockBuffer(buf: TPainterBuffer);
+ begin
+ end;
+
 { TGLRenderTargetAPI }
+
+procedure TGLRenderTargetAPI.Apply;
+ begin
+  if c
+ end;
 
 procedure TGLRenderTargetAPI.BlendMode(blend: TBlendingMode);
 begin
@@ -529,6 +582,191 @@ procedure TGLRenderTargetAPI.UseDepthBuffer(test: TDepthBufferTest;
  begin
   inherited;
 
+ end;
+
+(* --==  DEFAULT SHADER TEMPLATE ==--
+  Actual shaders are made from this template for each combination of
+  1) number of textures (0-1, 2, 3)
+  2) texturing mode
+
+ === Vertex shader ===
+ #version 330
+ uniform mat4 uMVP;
+ layout (location=0) in vec3 position;
+ layout (location=1) in vec4 color;
+ layout (location=2) in vec2 texCoord;
+ out vec4 vColor;
+ out vec2 vTexCoord;
+
+ void main(void)
+ {
+   gl_Position = uMVP * vec4(position, 1.0);
+   vColor = color;
+   vTexCoord = texCoord;
+ }
+
+ === Fragment shader ===
+ #version 330
+ uniform sampler2D tex;
+ uniform int colorOp;
+ uniform int alphaOp;
+ uniform float uFactor;
+ in vec4 vColor;
+ in vec2 vTexCoord;
+ out vec4 fragColor;
+
+ void main(void)
+ {
+   vec3 c = vec3(vColor.r, vColor.g, vColor.b);
+   float a = vColor.a;
+   vec4 t = texture2D(tex,vTexCoord);
+   switch (colorOp) {
+     case 3: // tblReplace
+       c = vec3(t.r, t.g, t.b);
+       break;
+     case 4: // tblModulate
+       c = c*vec3(t.r, t.g, t.b);
+       break;
+     case 5: // tblModulate2X
+       c = 2.0*c*vec3(t.r, t.g, t.b);
+       break;
+     case 6: // tblAdd
+       c = c+vec3(t.r, t.g, t.b);
+       break;
+     case 7: // tblSub
+       c = c-vec3(t.r, t.g, t.b);
+       break;
+     case 8: // tblInterpolate
+       c = mix(c, vec3(t.r, t.g, t.b), uFactor);
+       break;
+   }
+   switch (alphaOp) {
+     case 3: // tblReplace
+       a = t.a;
+       break;
+     case 4: // tblModulate
+       a = a*t.a;
+       break;
+     case 5: // tblModulate2X
+       a = 2.0*a*t.a;
+       break;
+     case 6: // tblAdd
+       a = a+t.a;
+       break;
+     case 7: // tblSub
+       a = a-t.a;
+       break;
+     case 8: // tblInterpolate
+       a = mix(a, t.a, uFactor);
+       break;
+   }
+   fragColor = vec4(c.r, c.g, c.b, a);
+ }
+
+ === end ===
+*)
+
+(*
+// Возвращает шейдер для заданного режима текстурирования (из кэша либо формирует новый)
+function TGLPainter2.SetCustomProgram(mode:int64):integer;
+var
+ vs,fs:AnsiString;
+ i,n:integer;
+ tm:PTexMode;
+begin
+ mode:=mode and $FF00FF00FF00FF;
+ result:=customShaders.Get(mode);
+ if result<0 then begin
+  tm:=@mode;
+  n:=0;
+  for i:=0 to 3 do
+   if (tm^[i] and $0f>2) or (tm^[i] and $f0>$20) then n:=i+1;
+
+  // Vertex shader
+  vs:=
+  'uniform mat4 uMVP;'#13#10+
+  'attribute vec3 aPosition;  '#13#10+
+  'attribute vec4 aColor;   '#13#10+
+  'varying vec4 vColor;     '#13#10;
+  for i:=1 to n do vs:=vs+
+    'attribute vec2 aTexcoord'+inttostr(i)+';'#13#10+
+    'varying vec2 vTexcoord'+inttostr(i)+';'#13#10;
+  vs:=vs+
+  'void main() '#13#10+
+  '{          '#13#10+
+  '    vColor = aColor;   '#13#10;
+  for i:=1 to n do vs:=vs+
+    '    vTexcoord'+inttostr(i)+' = aTexcoord'+inttostr(i)+'; '#13#10;
+  vs:=vs+
+  '    gl_Position = uMVP * vec4(aPosition, 1.0);  '#13#10+
+  '}';
+
+  // Fragment shader
+  fs:='varying vec4 vColor;   '#13#10;
+  for i:=1 to n do begin fs:=fs+
+    'uniform sampler2D tex'+inttostr(i)+'; '#13#10+
+    'varying vec2 vTexcoord'+inttostr(i)+'; '#13#10;
+   if ((tm[i-1] and $f)=ord(tblInterpolate)) or
+      ((tm[i-1] shr 4 and $f)=ord(tblInterpolate)) then
+    fs:=fs+'uniform float uFactor'+inttostr(i)+';'#13#10;
+  end;
+  fs:=fs+
+  'void main() '#13#10+
+  '{     '#13#10+
+  '  vec3 c = vec3(vColor.r,vColor.g,vColor.b); '#13#10+
+  '  float a = vColor.a; '#13#10+
+  '  vec4 t; '#13#10;
+  for i:=1 to n do begin
+   fs:=fs+'  t = texture2D(tex'+inttostr(i)+', vTexcoord'+inttostr(i)+'); '#13#10;
+   case (tm[i-1] and $f) of
+    ord(tblReplace):fs:=fs+'  c = vec3(t.r, t.g, t.b); '#13#10;
+    ord(tblModulate):fs:=fs+'  c = c * vec3(t.r, t.g, t.b); '#13#10;
+    ord(tblModulate2x):fs:=fs+'  c = 2.0 * c * vec3(t.r, t.g, t.b); '#13#10;
+    ord(tblAdd):fs:=fs+'  c = c + vec3(t.r, t.g, t.b); '#13#10;
+    ord(tblInterpolate):fs:=fs+'  c = mix(c, vec3(t.r, t.g, t.b), uFactor'+inttostr(i)+'); '#13#10;
+   end;
+   case ((tm[i-1] shr 4) and $f) of
+    ord(tblReplace):fs:=fs+'  a = t.a; '#13#10;
+    ord(tblModulate):fs:=fs+'  a = a * t.a; '#13#10;
+    ord(tblModulate2X):fs:=fs+'  a = 2.0 * a * t.a; '#13#10;
+    ord(tblAdd):fs:=fs+'  a = a + t.a; '#13#10;
+    ord(tblInterpolate):fs:=fs+'  a = mix(a, t.a, uFactor'+inttostr(i)+'); '#13#10;
+   end;
+  end;
+  fs:=fs+
+  '    gl_FragColor = vec4(c.r, c.g, c.b, a); '#13#10+
+  '}';
+
+  result:=BuildShaderProgram(vs,fs);
+  if result>0 then begin
+   customShaders.Put(mode,result);
+   glUseProgram(result);
+   // Set uniforms: texture indices
+   for i:=1 to n do
+    glUniform1i(glGetUniformLocation(result,PAnsiChar(AnsiString('tex'+inttostr(i)))),i-1);
+  end else begin
+   result:=defaultShader;
+   glUseProgram(result);
+  end;
+ end else
+  glUseProgram(result);
+end; *)
+
+
+{ TGLTransformationAPI }
+
+procedure TGLTransformationAPI.DefaultView;
+ begin
+  inherited;
+ end;
+
+procedure TGLTransformationAPI.Update;
+ begin
+  if modified then begin
+   CalcMVP;
+
+   modified:=false;
+  end;
  end;
 
 end.

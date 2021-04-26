@@ -447,7 +447,7 @@ procedure TValueEditor.Draw(x1, y1, x2, y2: integer);
   vI:integer;
   vF:single;
  begin
-  draw.FillRect(x1,y1,x2,y2,$90202020);
+  gfx.draw.FillRect(x1,y1,x2,y2,$90202020);
   h:=y2-y1;
   if varname[2] in ['F','I'] then begin
    txt.Write(tweakerScene.normalFont,x1+2,y1+round(h*0.26),
@@ -470,8 +470,8 @@ procedure TValueEditor.Draw(x1, y1, x2, y2: integer);
    txt.Write(tweakerScene.normalFont,x1+2,y1+round(h*0.20),$FFF0E0C0,IntToHex(c,8));
    yy:=y1+round(h*0.25);
 //   draw.FillRect(x1+5,yy,x1+60,y2-5,$FF
-   draw.FillGradrect(x1+5,yy,x1+60,y2-5,c,c or $FF000000,true);
-   draw.Rect(x1+4,yy-1,x1+61,y2-4,$90F0E0C0);
+   gfx.draw.FillGradrect(x1+5,yy,x1+60,y2-5,c,c or $FF000000,true);
+   gfx.draw.Rect(x1+4,yy-1,x1+61,y2-4,$90F0E0C0);
    OverrideGlobal(varName,C,tweakerScene.context);
   end;
  end;

@@ -41,7 +41,7 @@ type
 
    function SetStates(state:byte;primRect:TRect;tex:TTexture=nil):boolean; override; // возвращает false если примитив полностью отсекается
 
-   procedure DrawPrimitives(primType,primCount:integer;vertices:pointer;stride:integer); override;
+   procedure renderDevice.Draw(primType,primCount:integer;vertices:pointer;stride:integer); override;
    procedure DrawPrimitivesMulti(primType,primCount:integer;vertices:pointer;stride:integer;stages:integer); override;
 
    procedure DrawPrimitivesFromBuf(primType,primCount,vrtStart:integer;
@@ -84,16 +84,6 @@ type
 var
  customShaders:TSimpleHash;
 
-procedure CheckForGLError; inline;
-var
- error:cardinal;
-begin
- error:=glGetError;
- if error<>GL_NO_ERROR then
-   ForceLogMessage('PGL2 Error: '+inttostr(error)+' '+GetCallStack);
-end;
-
-
  { TGLPainter2 }
 
 procedure TGLPainter2.SetGLMatrix(mType: TMatrixType; mat: PDouble);
@@ -106,23 +96,6 @@ procedure TGLPainter2.SetGLMatrix(mType: TMatrixType; mat: PDouble);
   m:=Matrix4s(MVP);
   if actualShader<>AS_OWN then
    glUniformMatrix4fv(uMVP,1,GL_FALSE,@m);
- end;
-
-procedure TGLPainter2.SetMode(blend: TBlendingMode);
- begin
-  inherited;
- end;
-
-procedure TGLPainter2.BeginPaint(target:TTexture);
- begin
-  {$IFNDEF GLES}
-  glEnable(GL_TEXTURE_2D);
-  {$ENDIF}
-  glUseProgram(defaultShader);
-  glActiveTexture(GL_TEXTURE0);
-  glUniform1i(uTex1,0);
-  CheckForGLError;
-  inherited;
  end;
 
 procedure TGLPainter2.SetTexMode(stage: byte; colorMode, alphaMode: TTexBlendingMode;
@@ -145,130 +118,19 @@ procedure TGLPainter2.SetTexMode(stage: byte; colorMode, alphaMode: TTexBlending
   tm[stage]:=word(b)+round(intFactor*255) shl 8;
  end;
 
-function TGLPainter2.TestTransformation(source: TPoint3): TPoint3;
-var
- x,y,z,t:double;
-begin
-   x:=source.x*mvp[0,0]+source.y*mvp[1,0]+source.z*mvp[2,0]+mvp[3,0];
-   y:=source.x*mvp[0,1]+source.y*mvp[1,1]+source.z*mvp[2,1]+mvp[3,1];
-   z:=source.x*mvp[0,2]+source.y*mvp[1,2]+source.z*mvp[2,2]+mvp[3,2];
-   t:=source.x*mvp[0,3]+source.y*mvp[1,3]+source.z*mvp[2,3]+mvp[3,3];
-   if (t<>1) and (t<>0) then begin
-    x:=x/t; y:=y/t; z:=z/t;
-   end;
-   result.x:=x;
-   result.y:=y;
-   result.z:=z;
-end;
 
 procedure TGLPainter2.UseCustomShader;
 begin
  actualShader:=AS_OWN;
 end;
 
-// Возвращает шейдер для заданного режима текстурирования (из кэша либо формирует новый)
-function TGLPainter2.SetCustomProgram(mode:int64):integer;
-var
- vs,fs:AnsiString;
- i,n:integer;
- tm:PTexMode;
-begin
- mode:=mode and $FF00FF00FF00FF;
- result:=customShaders.Get(mode);
- if result<0 then begin
-  tm:=@mode;
-  n:=0;
-  for i:=0 to 3 do
-   if (tm^[i] and $0f>2) or (tm^[i] and $f0>$20) then n:=i+1;
-
-  // Vertex shader
-  vs:=
-  'uniform mat4 uMVP;'#13#10+
-  'attribute vec3 aPosition;  '#13#10+
-  'attribute vec4 aColor;   '#13#10+
-  'varying vec4 vColor;     '#13#10;
-  for i:=1 to n do vs:=vs+
-    'attribute vec2 aTexcoord'+inttostr(i)+';'#13#10+
-    'varying vec2 vTexcoord'+inttostr(i)+';'#13#10;
-  vs:=vs+
-  'void main() '#13#10+
-  '{          '#13#10+
-  '    vColor = aColor;   '#13#10;
-  for i:=1 to n do vs:=vs+
-    '    vTexcoord'+inttostr(i)+' = aTexcoord'+inttostr(i)+'; '#13#10;
-  vs:=vs+
-  '    gl_Position = uMVP * vec4(aPosition, 1.0);  '#13#10+
-  '}';
-
-  // Fragment shader
-  fs:='varying vec4 vColor;   '#13#10;
-  for i:=1 to n do begin fs:=fs+
-    'uniform sampler2D tex'+inttostr(i)+'; '#13#10+
-    'varying vec2 vTexcoord'+inttostr(i)+'; '#13#10;
-   if ((tm[i-1] and $f)=ord(tblInterpolate)) or
-      ((tm[i-1] shr 4 and $f)=ord(tblInterpolate)) then
-    fs:=fs+'uniform float uFactor'+inttostr(i)+';'#13#10;
-  end;
-  fs:=fs+
-  'void main() '#13#10+
-  '{     '#13#10+
-  '  vec3 c = vec3(vColor.r,vColor.g,vColor.b); '#13#10+
-  '  float a = vColor.a; '#13#10+
-  '  vec4 t; '#13#10;
-  for i:=1 to n do begin
-   fs:=fs+'  t = texture2D(tex'+inttostr(i)+', vTexcoord'+inttostr(i)+'); '#13#10;
-   case (tm[i-1] and $f) of
-    ord(tblReplace):fs:=fs+'  c = vec3(t.r, t.g, t.b); '#13#10;
-    ord(tblModulate):fs:=fs+'  c = c * vec3(t.r, t.g, t.b); '#13#10;
-    ord(tblModulate2x):fs:=fs+'  c = 2.0 * c * vec3(t.r, t.g, t.b); '#13#10;
-    ord(tblAdd):fs:=fs+'  c = c + vec3(t.r, t.g, t.b); '#13#10;
-    ord(tblInterpolate):fs:=fs+'  c = mix(c, vec3(t.r, t.g, t.b), uFactor'+inttostr(i)+'); '#13#10;
-   end;
-   case ((tm[i-1] shr 4) and $f) of
-    ord(tblReplace):fs:=fs+'  a = t.a; '#13#10;
-    ord(tblModulate):fs:=fs+'  a = a * t.a; '#13#10;
-    ord(tblModulate2X):fs:=fs+'  a = 2.0 * a * t.a; '#13#10;
-    ord(tblAdd):fs:=fs+'  a = a + t.a; '#13#10;
-    ord(tblInterpolate):fs:=fs+'  a = mix(a, t.a, uFactor'+inttostr(i)+'); '#13#10;
-   end;
-  end;
-  fs:=fs+
-  '    gl_FragColor = vec4(c.r, c.g, c.b, a); '#13#10+
-  '}';
-
-  result:=BuildShaderProgram(vs,fs);
-  if result>0 then begin
-   customShaders.Put(mode,result);
-   glUseProgram(result);
-   // Set uniforms: texture indices
-   for i:=1 to n do
-    glUniform1i(glGetUniformLocation(result,PAnsiChar(AnsiString('tex'+inttostr(i)))),i-1);
-  end else begin
-   result:=defaultShader;
-   glUseProgram(result);
-  end;
- end else
-  glUseProgram(result);
-end;
-
 function TGLPainter2.SetStates(state: byte; primRect: TRect; tex: TTexture): boolean;
 var
- f1,f2:byte;
- r:TRect;
  op:TPoint;
  i,n,prog:integer;
  tm:int64;
  m:TMatrix4s;
 begin
- // Check visibility
- f1:=IntersectRects(primRect,clipRect,r);
- if f1=0 then begin
-  // Primitive is outside the clipping area -> do nothing
-  result:=false;
-  exit;
- end else
-  result:=true;
-
  // Override color blending mode for alpha only textures
  if (tex<>nil) and (state=STATE_TEXTURED2X) then
   if (tex.PixelFormat in [ipfA8,ipfA4]) then state:=STATE_COLORED2X;
@@ -327,74 +189,8 @@ begin
   if actualShader=AS_DEFAULT then glUniform1i(uTexmode,state);
   curstate:=state;
  end;
-
- // Adjust the clipping area if primitive can be partially clipped
- if not EqualRect(clipRect,actualClip) then begin
-  f2:=IntersectRects(primRect,actualClip,r);
-  if (f1<>f2) or (f1>1) then begin
-   if curtarget=defaultRenderTarget then begin
-    if curtarget=nil then op:=outputPos else op:=Point(0,0);
-    glScissor(oP.x+round(clipRect.Left*targetScaleX),
-              oP.Y+round((screenRect.Bottom-clipRect.Bottom)*targetScaleY),
-              round((clipRect.Right-clipRect.left)*targetScaleX),
-              round((clipRect.Bottom-clipRect.Top)*targetScaleY));
-   end else
-     glScissor(clipRect.Left,
-               clipRect.Top,
-               clipRect.Right-clipRect.left,
-               clipRect.Bottom-clipRect.Top);
-   actualClip:=ClipRect;
-  end;
- end;
 end;
 
-procedure TGLPainter2.DrawPrimitives(primType, primCount: integer;
-   vertices: pointer; stride: integer);
- var
-  vrt:PVertex;
- begin
-  vrt:=vertices;
-  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vrt.x);
-  glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.color);
-  glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,stride,@vrt.u);
-
-  case primtype of
-   LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
-   LINE_STRIP:glDrawArrays(GL_LINE_STRIP,0,primCount+1);
-   TRG_LIST:glDrawArrays(GL_TRIANGLES,0,primCount*3);
-   TRG_FAN:glDrawArrays(GL_TRIANGLE_FAN,0,primCount+2);
-   TRG_STRIP:glDrawArrays(GL_TRIANGLE_STRIP,0,primCount+2);
-  end;
- end;
-
-procedure TGLPainter2.DrawPrimitivesMulti(primType, primCount: integer;
-   vertices: pointer; stride: integer; stages: integer);
-var
- vrt:PScrPoint3;
- i:integer;
-begin
- vrt:=vertices;
- glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vrt.x);
- glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.color);
- glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,stride,@vrt.u);
- if actualAttribArrays>3 then
-  glVertexAttribPointer(3,2,GL_FLOAT,GL_FALSE,stride,@vrt.u2);
- if actualAttribArrays>4 then
-  glVertexAttribPointer(4,2,GL_FLOAT,GL_FALSE,stride,@vrt.u3);
-
- case primtype of
-  LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
-  LINE_STRIP:glDrawArrays(GL_LINE_STRIP,0,primCount+1);
-  TRG_LIST:glDrawArrays(GL_TRIANGLES,0,primCount*3);
-  TRG_FAN:glDrawArrays(GL_TRIANGLE_FAN,0,primCount+2);
-  TRG_STRIP:glDrawArrays(GL_TRIANGLE_STRIP,0,primCount+2);
- end;
-end;
-
-function TGLPainter2.GetMVPMatrix: T3DMatrix;
-begin
- result:=MVP;
-end;
 
 procedure TGLPainter2.ResetTexMode;
 begin

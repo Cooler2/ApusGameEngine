@@ -102,7 +102,7 @@ type
   {$IFNDEF GLES20}
   function SetStates(state:byte;primRect:TRect;tex:TTexture=nil):boolean; override; // возвращает false если примитив полностью отсекается
 
-  procedure DrawPrimitives(primType,primCount:integer;vertices:pointer;stride:integer); override;
+  procedure renderDevice.Draw(primType,primCount:integer;vertices:pointer;stride:integer); override;
   procedure DrawPrimitivesMulti(primType,primCount:integer;vertices:pointer;stride:integer;stages:integer); override;
 
   procedure DrawPrimitivesFromBuf(primType,primCount,vrtStart:integer;
@@ -375,7 +375,7 @@ begin
  end;
 end;
 
-procedure TGLPainter.DrawPrimitives(primType, primCount: integer;
+procedure TGLPainter.renderDevice.Draw(primType, primCount: integer;
   vertices: pointer; stride: integer);
 var
  vrt:PVertex;
