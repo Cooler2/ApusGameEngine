@@ -32,25 +32,26 @@ type
  end;
 
  TGLResourceManager=class(TInterfacedObject,IResourceManager)
-  maxFBwidth,maxFBheight,maxRBsize:integer;
-  constructor Create; // Лимит видеопамяти в килобайтах (not used)
+  maxTextureSize,maxRTsize,maxRBsize:integer;
+
+  constructor Create;
   destructor Destroy; override;
 
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
-                Flags:integer;name:TTextureName):TTexture; override;
-  procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer); override;
-  function Clone(img:TTexture):TTexture; override;
-  procedure FreeImage(var image:TTexture); override;
-  procedure MakeOnline(img:TTexture;stage:integer=0); override;
-  procedure SetTexFilter(img:TTexture;filter:TTexFilter); virtual; // Works for ACTIVE texture only!
+                Flags:integer;name:TTextureName):TTexture;
+  procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer);
+  function Clone(img:TTexture):TTexture;
+  procedure FreeImage(var image:TTexture);
+  procedure MakeOnline(img:TTexture;stage:integer=0);
+  procedure SetTexFilter(img:TTexture;filter:TTexFilter);
 
-  function QueryParams(width,height:integer;format:TImagePixelFormat;usage:integer):boolean; override;
+  function QueryParams(width,height:integer;format:TImagePixelFormat;usage:integer):boolean;
 
   // Вспомогательные функции (для отладки/получения инфы)
-  function GetStatus(line:byte):string; override; // Формирует строки статуса
+  function GetStatus(line:byte):string; // Формирует строки статуса
 
   // Создает дамп использования и распределения видеопамяти
-  procedure Dump(st:string=''); override;
+  procedure Dump(st:string='');
 
  protected
   //CurTag:integer;
@@ -60,6 +61,9 @@ type
   procedure FreeVidMem; // Освободить некоторое кол-во видеопамяти
   procedure FreeMetaTexSpace(n:integer); // Освободить некоторое пространство в указанной метатекстуре
  end;
+
+ var
+  resourceManagerGL:TGLResourceManager;
 
  // Load image from file (TGA or JPG), result is expected in given pixel format or source pixel format
 // function LoadFromFile(filename:string;format:TImagePixelFormat=ipfNone):TDxManagedTexture;
@@ -87,7 +91,6 @@ const
 
 var
  mainThreadId:TThreadID;
- texman:TGLTextureMan;
  cSect:TMyCriticalSection;
  lastErrorTime:int64;
  errorTr:integer;
@@ -359,14 +362,14 @@ var
 begin
  if SameText(event,'GLImages\DeleteTexture') then begin
   tex:=TTexture(UIntPtr(tag));
-  texman.FreeImage(tex);
+  resourceManagerGL.FreeImage(tex);
  end;
 end;
 
-{ TGLTextureMan }
+{ TGLResourceManager }
 
-function TGLTextureMan.AllocImage(width, height: integer; PixFmt: TImagePixelFormat; Flags: integer;
-  name: texnamestr): TTexture;
+function TGLResourceManager.AllocImage(width, height: integer; PixFmt: TImagePixelFormat; Flags: integer;
+  name: TTextureName): TTexture;
 var
  tex:TGlTexture;
  status:cardinal;
@@ -408,9 +411,9 @@ begin
  if flags and aiRenderTarget>0 then begin
   LogMessage(sysUtils.Format('AllocImage RT %dx%d %d (%s)',[width,height,flags,name]));
   if flags and aiDontScale=0 then begin
-   width:=round(width*scaleX);
-   height:=round(height*scaleY);
-   if (width>maxFBwidth) or (height>maxFBheight) then raise EWarning.Create('AI: RT texture too large');
+   width:=round(width);
+   height:=round(height);
+   if max2(width,height)>maxRTsize then raise EWarning.Create('AI: RT texture too large');
   end;
   {$IFDEF GLES}
   {$IFDEF GLES11}
@@ -541,7 +544,7 @@ begin
  end;
 end;
 
-function TGLTextureMan.Clone(img: TTexture): TTexture;
+function TGLResourceManager.Clone(img: TTexture): TTexture;
 var
  res,src:TGLTexture;
 begin
@@ -558,30 +561,34 @@ begin
  result:=res;
 end;
 
-constructor TGLTextureMan.Create;
+constructor TGLResourceManager.Create;
+var
+ maxFBwidth,maxFBheight:integer;
 begin
  try
- scaleX:=1; scaleY:=1;
- glPixelStorei(GL_UNPACK_ALIGNMENT,1);
- fillChar(texNames,sizeof(texnames),0);
- mainThreadID:=GetCurrentThreadId;
- texman:=self;
- SetEventHandler('GLImages',EventHandler,emMixed);
- {$IFDEF GLES}
- glGetIntegerv(GL_MAX_TEXTURE_SIZE, @maxTextureSize);
- maxFBWidth:=maxTextureSize;
- maxFBheight:=maxTextureSize;
- maxRBsize:=maxTextureSize;
- {$ELSE}
- glGetIntegerv(GL_MAX_TEXTURE_SIZE, @maxTextureSize);
- glGetIntegerv(GL_MAX_FRAMEBUFFER_WIDTH, @maxFBwidth);
- glGetIntegerv(GL_MAX_FRAMEBUFFER_HEIGHT, @maxFBheight);
- glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, @maxRBsize);
- {$ENDIF}
- maxRTTextureSize:=min2(maxFBwidth,maxFBheight);
- LogMessage(Format('Maximal texture sizes: %d (FB: %d x %d, RB: %d)',[maxTextureSize,maxFBwidth,maxFBheight,maxRBsize]));
- if maxFBwidth=0 then maxFBwidth:=Max2(maxRBsize,1024);
- if maxFBheight=0 then maxFBheight:=Max2(maxRBsize,1024);
+  resourceManagerGL:=self;
+  _AddRef;
+
+  glPixelStorei(GL_UNPACK_ALIGNMENT,1);
+  ZeroMem(texNames,sizeof(texnames));
+  mainThreadID:=GetCurrentThreadId;
+  resourceManagerGL:=self;
+  SetEventHandler('GLImages',EventHandler,emMixed);
+  {$IFDEF GLES}
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, @maxTextureSize);
+  maxFBWidth:=maxTextureSize;
+  maxFBheight:=maxTextureSize;
+  maxRBsize:=maxTextureSize;
+  {$ELSE}
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, @maxTextureSize);
+  glGetIntegerv(GL_MAX_FRAMEBUFFER_WIDTH, @maxFBwidth);
+  glGetIntegerv(GL_MAX_FRAMEBUFFER_HEIGHT, @maxFBheight);
+  glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, @maxRBsize);
+  {$ENDIF}
+  maxRTsize:=min2(maxFBwidth,maxFBheight);
+  LogMessage(Format('Maximal sizes: TEX: %d / FB: %d x %d / RB: %d',[maxTextureSize,maxFBwidth,maxFBheight,maxRBsize]));
+  if maxFBwidth=0 then maxFBwidth:=Max2(maxRBsize,1024);
+  if maxFBheight=0 then maxFBheight:=Max2(maxRBsize,1024);
  except
   on e:Exception do begin
    ForceLogMessage('Error in GLTexMan constructor: '+ExceptionMsg(e));
@@ -590,17 +597,18 @@ begin
  end;
 end;
 
-destructor TGLTextureMan.Destroy;
+destructor TGLResourceManager.Destroy;
 begin
-  inherited;
+ resourceManagerGL:=nil;
+ inherited;
 end;
 
-procedure TGLTextureMan.Dump(st: string);
+procedure TGLResourceManager.Dump(st: string);
 begin
 
 end;
 
-procedure TGLTextureMan.FreeImage(var image: TTexture);
+procedure TGLResourceManager.FreeImage(var image: TTexture);
 var
  tex:TGLTexture;
 begin
@@ -654,22 +662,22 @@ begin
  end;
 end;
 
-procedure TGLTextureMan.FreeMetaTexSpace(n: integer);
+procedure TGLResourceManager.FreeMetaTexSpace(n: integer);
 begin
 
 end;
 
-procedure TGLTextureMan.FreeVidMem;
+procedure TGLResourceManager.FreeVidMem;
 begin
 
 end;
 
-function TGLTextureMan.GetStatus(line: byte): string;
+function TGLResourceManager.GetStatus(line: byte): string;
 begin
 
 end;
 
-procedure TGLTextureMan.SetTexFilter(img:TTexture;filter:TTexFilter);
+procedure TGLResourceManager.SetTexFilter(img:TTexture;filter:TTexFilter);
 var
   flt:cardinal;
 begin
@@ -685,7 +693,7 @@ begin
  TGlTexture(img).filter:=filter;
 end;
 
-procedure TGLTextureMan.MakeOnline(img: TTexture;stage:integer=0);
+procedure TGLResourceManager.MakeOnline(img: TTexture;stage:integer=0);
 var
  format,subformat,internalFormat,error:cardinal;
  needInit:boolean;
@@ -792,7 +800,7 @@ begin
  end;
 end;
 
-function TGLTextureMan.QueryParams(width, height: integer;
+function TGLResourceManager.QueryParams(width, height: integer;
   format: TImagePixelFormat; usage: integer): boolean;
 var
  res:integer;
@@ -816,7 +824,7 @@ begin
  {$ENDIF}
 end;
 
-procedure TGLTextureMan.ResizeTexture(var img: TTexture; newWidth,
+procedure TGLResourceManager.ResizeTexture(var img: TTexture; newWidth,
   newHeight: integer);
 var
  glFormat,subFormat,internalFormat:cardinal;

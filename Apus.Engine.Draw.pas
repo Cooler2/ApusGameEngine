@@ -77,6 +77,11 @@ interface
   // last used legacy font texture
   lastFontTexture:TTexture;
 
+  // buffers
+  partBuf:array of TVertex; // particles (vertices)
+  partInd:array of word; // quad indices (0,1,2, 0,2,3) ... persistent buffer (can only grow)
+  bandInd:array of word; // indices for bands drawing
+
   // Common modes:
   // 0 - undefined state (must be configured by outer code)
   // 1 - 1 stage, Modulate2X
@@ -537,7 +542,8 @@ begin
  renderDevice.Draw(TRG_LIST,n,@vrt[0],TVertex.layoutNoTex,sizeof(TVertex));
 end;
 
-procedure TDrawer.RotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);
+procedure TDrawer.RotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;
+  color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);
 var
  vrt:array[0..3] of TVertex;
  u1,v1,u2,v2,w,h,c,s:single;
@@ -621,15 +627,18 @@ begin
 end;
 
 procedure TDrawer.IndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
-var
- mode:byte;
 begin
- if tex<>nil then mode:=STATE_TEXTURED2X
-  else mode:=STATE_COLORED;
  clippingAPI.Prepare;
- SetRenderMode(mode,tex);
- if tex<>nil then gfx.shader.UseTexture(tex);
- DrawIndexedPrimitivesDirectly(TRG_LIST,vertices,indices,sizeof(TVertex),0,vrtCount,0,trgCount);
+ if tex<>nil then begin
+  SetRenderMode(STATE_TEXTURED2X,tex);
+  gfx.shader.UseTexture(tex);
+{{  renderDevice.DrawIndexed(TRG_LIST,vertices,indices,sizeof(TVertex),TVertex.layoutTex,
+    0,vrtCount,0,trgCount);}
+ end else begin
+  SetRenderMode(STATE_COLORED,tex);
+{{  renderDevice.DrawIndexed(TRG_LIST,vertices,indices,sizeof(TVertex),TVertex.layoutNoTex,
+    0,vrtCount,0,trgCount);}
+ end;
 end;
 
 procedure TDrawer.Rect(x1, y1, x2, y2: integer; color: cardinal);
@@ -776,10 +785,8 @@ end;
 procedure TDrawer.Particles(x, y: integer; data: PParticle;
   count: integer; tex: TTexture; size: integer; zDist: single);
 type
- PartArr=array[0..100] of TParticle;
- VertexArray=array[0..100] of TVertex;
+ PartArr=array[0..10000] of TParticle;
 var
- vrt:^VertexArray;
  idx:array of integer;  // массив индексов партиклов (сортировка по z)
  i,j,n:integer;
  part:^PartArr;
@@ -789,10 +796,6 @@ var
  startU,startV,sizeU,sizeV:integer;
  color:cardinal;
 begin
- clippingAPI.Prepare;
- SetRenderMode(STATE_TEXTURED2X,tex);
- gfx.shader.UseTexture(tex);
-
  part:=pointer(data);
  if count>MaxParticleCount then count:=MaxParticleCount;
  SetLength(idx,count);
@@ -811,7 +814,6 @@ begin
    idx[n]:=j;
   end;
  // заполним вершинный буфер
- vrt:=renderDevice.LockBuffer(VertBuf,0,4*count*sizeof(TVertex));
  for i:=0 to count-1 do begin
   n:=idx[i];
   startU:=part[n].index and $FF;
@@ -836,14 +838,18 @@ begin
   rx:=size2*sizeU*cos(-part[n].angle); ry:=-size2*sizeU*sin(-part[n].angle);
   qx:=size2*sizeV*cos(-part[n].angle+1.5708); qy:=-size2*sizeV*sin(-part[n].angle+1.5708);
   color:=part[n].color;
-  // первая вершина
-  vrt[i*4].  Init(sx-rx+qx, sy-ry+qy, zPlane, uStart,      vStart, color);
-  vrt[i*4+1].Init(sx+rx+qx, sy+ry+qy, zPlane, uStart+uSize,vStart, color);
-  vrt[i*4+2].Init(sx+rx-qx, sy+ry-qy, zPlane, uStart+uSize,vStart+vSize, color);
-  vrt[i*4+3].Init(sx-rx-qx, sy-ry-qy, zPlane, uStart,      vStart+vSize, color);
+  j:=i*4;
+  partBuf[j].  Init(sx-rx+qx, sy-ry+qy, zPlane, uStart,      vStart, color);
+  partBuf[j+1].Init(sx+rx+qx, sy+ry+qy, zPlane, uStart+uSize,vStart, color);
+  partBuf[j+2].Init(sx+rx-qx, sy+ry-qy, zPlane, uStart+uSize,vStart+vSize, color);
+  partBuf[j+3].Init(sx-rx-qx, sy-ry-qy, zPlane, uStart,      vStart+vSize, color);
  end;
- renderDevice.UnlockBuffer(VertBuf);
- renderDevice.DrawIndexed(TRG_LIST,VertBuf,partIndBuf,sizeof(TVertex),0,count*4,0,count*2);
+
+ clippingAPI.Prepare;
+ SetRenderMode(STATE_TEXTURED2X,tex);
+ gfx.shader.UseTexture(tex);
+ renderDevice.DrawIndexed(TRG_LIST,@partBuf[0],@partInd[0],TVertex.layoutTex,sizeof(TVertex),
+  0,count*4, 0,count*2);
 end;
 
 procedure TDrawer.DebugScreen1;
@@ -857,13 +863,13 @@ type
  PartArr=array[0..100] of TParticle;
  VertexArray=array[0..100] of TVertex;
 var
- vrt:^VertexArray;
+ //vrt:^VertexArray;
  i,j,n,loopStart,next,primcount:integer;
  part:^PartArr;
  u1,u2,v1,rx,ry,qx,qy,l,vstep:single;
  sx,sy:single;
  noPrv:boolean;
- idx:^word;
+ idx:integer;
  color:cardinal;
 begin
  if tex=nil then i:=STATE_COLORED
@@ -888,8 +894,7 @@ begin
  noPrv:=true;
  loopstart:=0;
  primcount:=0;
- vrt:=renderDevice.LockBuffer(VertBuf,0,2*count*sizeof(TVertex));
- idx:=renderDevice.LockBuffer(bandIndBuf,0,6*count*2);
+ idx:=0;
  for i:=0 to count-1 do begin
    // сперва рассчитаем экранные к-ты частицы
    sx:=x+part[i].x;
@@ -933,8 +938,8 @@ begin
 
    color:=part[i].color;
    // первая вершина
-   vrt[i*2].  Init(sx-rx,sy-ry, zPlane, u1,v1+vStep*(part[i].index and $FF),color);
-   vrt[i*2+1].Init(sx+rx,sy+ry, zPlane, u2,v1+vStep*(part[i].index and $FF),color);
+   partBuf[i*2].  Init(sx-rx,sy-ry, zPlane, u1,v1+vStep*(part[i].index and $FF),color);
+   partBuf[i*2+1].Init(sx+rx,sy+ry, zPlane, u2,v1+vStep*(part[i].index and $FF),color);
    noPrv:=false;
    if (part[i].index and partEndpoint>0) or
       ((i=count-1) and (part[i].index and partLoop=0)) then begin
@@ -947,18 +952,17 @@ begin
    end else
      next:=i+1;
    // первый треугольник - (0,1,2)
-   idx^:=i*2; inc(idx);
-   idx^:=i*2+1; inc(idx);
-   idx^:=next*2; inc(idx);
+   bandInd[idx]:=i*2; inc(idx);
+   bandInd[idx]:=i*2+1; inc(idx);
+   bandInd[idx]:=next*2; inc(idx);
    // второй треугольник - (2,1,3)
-   idx^:=next*2; inc(idx);
-   idx^:=i*2+1; inc(idx);
-   idx^:=next*2+1; inc(idx);
+   bandInd[idx]:=next*2; inc(idx);
+   bandInd[idx]:=i*2+1; inc(idx);
+   bandInd[idx]:=next*2+1; inc(idx);
    inc(primcount,2);
  end;
- renderDevice.UnlockBuffer(BandIndBuf);
- renderDevice.UnlockBuffer(VertBuf);
- renderDevice.DrawIndexed(TRG_LIST,VertBuf,bandIndBuf,sizeof(TVertex),0,count*2,0,primCount);
+ renderDevice.DrawIndexed(TRG_LIST,@partBuf[0],@bandInd[0],TVertex.layoutTex,
+  sizeof(TVertex), 0,count*2, 0,primCount);
 end;
 
 function TDrawer.Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;

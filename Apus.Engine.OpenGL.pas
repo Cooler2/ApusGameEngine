@@ -31,7 +31,7 @@ type
   function draw:IDrawer; inline;
   function txt:ITextDrawer;
   // Functions
-  procedure PresentFrame(system:ISystemPlatform);
+  procedure PresentFrame;
   procedure CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
 
   procedure BeginPaint(target:TTexture);
@@ -41,16 +41,22 @@ type
   procedure DrawDebugOverlay(idx:integer);
 
   // For internal use
- private
+ protected
   glVersion,glRenderer:string;
   glVersionNum:single;
+  sysPlatform:ISystemPlatform;
  end;
+
+var
+ debugGL:boolean = {$IFDEF MSWINDOWS} false {$ELSE} true {$ENDIF};
 
 implementation
  uses Apus.MyServis, SysUtils,
   Apus.Geom3D,
+  Apus.Engine.Graphics,
   Apus.Engine.Draw,
-  Apus.Engine.Graphics
+  Apus.Engine.TextDraw,
+  Apus.Engine.ResManGL
   {$IFDEF MSWINDOWS},Windows{$ENDIF}
   {$IFDEF DGL},dglOpenGL{$ENDIF};
 
@@ -60,20 +66,23 @@ type
   destructor Destroy; override;
 
   procedure Draw(primType,primCount:integer;vertices:pointer;
-    vertexLayout:TVertexLayout;stride:integer); overload;
-  // Draw primitives using built-in buffer
-  procedure Draw(primType,primCount,vrtStart:integer;
-     vertexBuf:TPainterBuffer;stride:integer); overload;
+    vertexLayout:TVertexLayout;stride:integer);
 
   // Draw indexed  primitives using in-memory buffers
-  procedure DrawIndexed(primType:integer;vertexBuf:PVertex;indBuf:PWord;
-     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer);  overload;
-  // Draw indexed  primitives using built-in buffer
-  procedure DrawIndexed(primType:integer;vertexBuf,indBuf:TPainterBuffer;
-     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer);  overload;
+  procedure DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
+     vertexLayout:TVertexLayout;stride:integer;
+     vrtStart,vrtCount:integer; indStart,primCount:integer);
 
-  function LockBuffer:pointer; override;
-  procedure UnlockBuffer; override;
+(*  // Draw primitives using built-in buffer
+  procedure DrawBuffer(primType,primCount,vrtStart:integer;
+     vertexBuf:TPainterBuffer;stride:integer); overload;
+
+  // Draw indexed primitives using built-in buffer
+  procedure DrawBuffer(primType:integer;vertexBuf,indBuf:TPainterBuffer;
+     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); overload;
+
+  function LockBuffer(buf:TPainterBuffer;offset,size:cardinal):pointer;
+  procedure UnlockBuffer(buf:TPainterBuffer);   *)
  protected
   curTexMode:int64; // описание режима текстурирования, установленного клиентским кодом
   actualTexMode:int64; // фактически установленный режим текстурирования
@@ -104,12 +113,16 @@ type
  TGLShader=class(TShader)
   handle:TGLShaderHandle;
   procedure SetUniform(name:String8;value:integer); overload; override;
+  procedure SetUniform(name:String8;value:single); overload; override;
   procedure SetUniform(name:String8;const value:TVector3s); overload; override;
   procedure SetUniform(name:String8;const value:T3DMatrix); overload; override;
  end;
 
  TGLShadersAPI=class(TShadersAPI,IShaders)
-
+  constructor Create;
+  procedure UseTexture(tex:TTexture;stage:integer=0); override;
+ private
+  curTextures:array[0..3] of TTexture;
  end;
 
  //textureManager:TResource;
@@ -118,14 +131,13 @@ procedure CheckForGLError(lab:integer=0); inline;
 var
  error:cardinal;
 begin
- if glDebug then begin
+ if debugGL then begin
   error:=glGetError;
   if error<>GL_NO_ERROR then begin
     ForceLogMessage('PGL Error ('+inttostr(lab)+'): '+inttostr(error)+' '+GetCallStack);
   end;
  end;
 end;
-
 
 { TOpenGL }
 procedure TOpenGL.Init(system:ISystemPlatform);
@@ -156,6 +168,7 @@ procedure TOpenGL.Init(system:ISystemPlatform);
 
  begin
   LogMessage('Init OpenGL');
+  sysPlatform:=system;
   {$IFDEF DGL}
   InitOpenGL;
   {$ENDIF}
@@ -182,23 +195,26 @@ procedure TOpenGL.Init(system:ISystemPlatform);
    raise Exception.Create('OpenGL 2.0 or higher required!'#13#10'Please update your video drivers.');
   glVersionNum:=GetVersion;
 
+  // Create API objects
   renderDevice:=TRenderDevice.Create;
-  drawer:=TDrawer.Create;
+  renderTargetAPI:=TGLRenderTargetAPI.Create;
+  transformationAPI:=TGLTransformationAPI.Create;
+  clippingAPI:=TClippingAPI.Create;
+  shadersAPI:=TGLShadersAPI.Create;
+
+  TGLResourceManager.Create;
+  TDrawer.Create;
+  TTextDrawer.Create;
  end;
 
-function TOpenGL.light: ILighting;
+procedure TOpenGL.PresentFrame;
  begin
-
+  sysPlatform.OGLSwapBuffers;
  end;
 
-procedure TOpenGL.PresentFrame(system: ISystemPlatform);
+function TOpenGL.QueryMaxRTSize:integer;
  begin
-  system.OGLSwapBuffers;
- end;
-
-function TOpenGL.QueryMaxRTSize: integer;
- begin
-  result:=texman.maxRTTextureSize;
+  result:=resourceManagerGL.maxRTsize;
  end;
 
 procedure TOpenGL.Restore;
@@ -234,7 +250,7 @@ function TOpenGL.SetVSyncDivider(n: integer):boolean;
 
 procedure TOpenGL.BeginPaint(target: TTexture);
  begin
-  if (canPaint>0) and (target=curTarget) then
+(*  if (canPaint>0) and (target=curTarget) then
     raise EWarning.Create('BP: target already set');
   PushRenderTarget;
   if target<>curtarget then begin
@@ -250,15 +266,15 @@ procedure TOpenGL.BeginPaint(target: TTexture);
   glUseProgram(defaultShader);
   glActiveTexture(GL_TEXTURE0);
   glUniform1i(uTex1,0);
-  CheckForGLError;
+  CheckForGLError;  *)
  end;
 
 procedure TOpenGL.EndPaint;
  begin
-  if canPaint=0 then exit;
+(*  if canPaint=0 then exit;
   // LogMessage('EP: '+inttohex(integer(curtarget),8));
   PopRenderTarget;
-  dec(canPaint);
+  dec(canPaint); *)
  end;
 
 procedure TOpenGL.ChoosePixelFormats(out trueColor, trueColorAlpha, rtTrueColor,
@@ -293,11 +309,11 @@ function TOpenGL.config: IGraphicsSystemConfig;
  end;
 function TOpenGL.shader: IShaders;
  begin
-
+  result:=shadersAPI;
  end;
 function TOpenGL.clip: IClipping;
  begin
-
+  result:=clippingAPI;
  end;
 function TOpenGL.target: IRenderTargets;
  begin
@@ -305,15 +321,15 @@ function TOpenGL.target: IRenderTargets;
  end;
 function TOpenGL.resman: IResourceManager;
  begin
-
+  result:=resourceManagerGL;
  end;
 function TOpenGL.transform: ITransformation;
  begin
-
+  result:=transformationAPI;
  end;
 function TOpenGL.txt: ITextDrawer;
  begin
-
+  result:=textDrawer;
  end;
 function TOpenGL.draw:IDrawer;
  begin
@@ -367,11 +383,6 @@ procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
   vrt:PVertex;
  begin
   SetupAttributes(vertices,vertexLayout,stride);
-  vrt:=vertices;
-  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vrt.x);
-  glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.color);
-  glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,stride,@vrt.u);
-
   case primtype of
    LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
    LINE_STRIP:glDrawArrays(GL_LINE_STRIP,0,primCount+1);
@@ -381,28 +392,22 @@ procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
   end;
  end;
 
-procedure TRenderDevice.Draw(primType, primCount, vrtStart: integer;
-  vertexBuf: TPainterBuffer; stride: integer);
+procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
+     vertexLayout:TVertexLayout;stride:integer;
+     vrtStart,vrtCount:integer; indStart,primCount:integer);
  begin
-
- end;
-
-procedure TRenderDevice.DrawIndexed(primType: integer; vertexBuf: PVertex;
-  indBuf: PWord; stride, vrtStart, vrtCount, indStart, primCount: integer);
- begin
-  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vertexbuf.x);
-  glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vertexbuf.color);
-  glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,stride,@vertexbuf.u);
+  SetupAttributes(vertices,vertexLayout,stride);
   case primtype of
-   LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indBuf);
-   LINE_STRIP:glDrawElements(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,indBuf);
-   TRG_LIST:glDrawElements(GL_TRIANGLES,primCount*3,GL_UNSIGNED_SHORT,indBuf);
-   TRG_FAN:glDrawElements(GL_TRIANGLE_FAN,primCount+2,GL_UNSIGNED_SHORT,indBuf);
-   TRG_STRIP:glDrawElements(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,indBuf);
+   LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices);
+   LINE_STRIP:glDrawElements(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,indices);
+   TRG_LIST:glDrawElements(GL_TRIANGLES,primCount*3,GL_UNSIGNED_SHORT,indices);
+   TRG_FAN:glDrawElements(GL_TRIANGLE_FAN,primCount+2,GL_UNSIGNED_SHORT,indices);
+   TRG_STRIP:glDrawElements(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,indices);
   end;
  end;
 
-procedure TRenderDevice.DrawIndexed(primType: integer; vertexBuf,
+(*
+procedure TRenderDevice.DrawBuffer(primType: integer; vertexBuf,
   indBuf: TPainterBuffer; stride, vrtStart, vrtCount, indStart,
   primCount: integer);
  var
@@ -432,7 +437,6 @@ procedure TRenderDevice.DrawIndexed(primType: integer; vertexBuf,
   end;
  end;
 
-
 function TRenderDevice.LockBuffer(buf: TPainterBuffer; offset,
   size: cardinal): pointer;
  begin
@@ -443,6 +447,11 @@ function TRenderDevice.LockBuffer(buf: TPainterBuffer; offset,
    else raise EWarning.Create('Invalid buffer type');
   end;
  end;
+
+procedure TRenderDevice.UnlockBuffer(buf: TPainterBuffer);
+ begin
+ end;
+*)
 
 procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout;stride:integer);
  var
@@ -464,20 +473,32 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
    inc(n);
    if vertexLayout=0 then break;
   end;
-  if n<>actualAttribArrays then begin
-   glE
+  // adjust number of vertex attrib arrays
+  if actualAttribArrays<0 then begin
+   for i:=0 to 4 do
+    if i<n then glEnableVertexAttribArray(i)
+     else glDisableVertexAttribArray(i);
+   actualAttribArrays:=n;
   end;
- end;
-
-procedure TRenderDevice.UnlockBuffer(buf: TPainterBuffer);
- begin
+  while n>actualAttribArrays do begin
+   glEnableVertexAttribArray(actualAttribArrays);
+   inc(actualAttribArrays);
+  end;
+  while n<actualAttribArrays do begin
+   dec(actualAttribArrays);
+   glDisableVertexAttribArray(actualAttribArrays);
+  end;
  end;
 
 { TGLRenderTargetAPI }
 
 procedure TGLRenderTargetAPI.Apply;
  begin
-  if c
+  if curTarget=nil then begin
+
+  end else begin
+
+  end;
  end;
 
 procedure TGLRenderTargetAPI.BlendMode(blend: TBlendingMode);
@@ -767,6 +788,64 @@ procedure TGLTransformationAPI.Update;
 
    modified:=false;
   end;
+ end;
+
+{ TGLShader }
+
+procedure SetUniformInternal(handle:TGLShaderHandle;shaderName:string8; name:string8;mode:integer;const value); inline;
+ var
+  loc:glint;
+ begin
+  loc:=glGetUniformLocation(handle,PAnsiChar(name));
+  if loc<0 then raise EWarning.Create('Uniform "%s" not found in shader %s',[name,shaderName]);
+  case mode of
+   1:glUniform1i(loc,integer(value));
+   2:glUniform1f(loc,single(value));
+   20:glUniform3fv(loc,1,@value);
+   30:glUniformMatrix4fv(loc,1,GL_FALSE,@value);
+  end;
+ end;
+
+
+procedure TGLShader.SetUniform(name: String8; value: integer);
+ begin
+  SetUniformInternal(handle,self.name,name,1,value);
+ end;
+
+procedure TGLShader.SetUniform(name: String8; value: single);
+ begin
+  SetUniformInternal(handle,self.name,name,2,value);
+ end;
+
+
+procedure TGLShader.SetUniform(name: String8; const value: TVector3s);
+ begin
+  SetUniformInternal(handle,self.name,name,20,value);
+ end;
+
+procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
+ begin
+  SetUniformInternal(handle,self.name,name,30,value);
+ end;
+
+{ TGLShadersAPI }
+
+constructor TGLShadersAPI.Create;
+ begin
+  inherited Create;
+ end;
+
+procedure TGLShadersAPI.UseTexture(tex: TTexture; stage: integer);
+ begin
+  if tex<>nil then begin
+   if tex.parent<>nil then tex:=tex.parent;
+   resourceManagerGL.MakeOnline(tex,stage);
+  end else begin
+   /// TODO: wtf?
+   glActiveTexture(GL_TEXTURE0+stage);
+   glBindTexture(GL_TEXTURE_2D,0);
+  end;
+  curTextures[stage]:=tex;
  end;
 
 end.

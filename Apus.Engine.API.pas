@@ -356,8 +356,10 @@ type
 
  // Base class for shader object
  TShader=class
+  name:string8;
   // Set uniform value
   procedure SetUniform(name:String8;value:integer); overload; virtual; abstract;
+  procedure SetUniform(name:String8;value:single); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:TVector3s); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:T3DMatrix); overload; virtual; abstract;
  end;
@@ -436,6 +438,7 @@ type
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
   // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
   function GetMVPMatrix:T3DMatrix;
+  function GetObjMatrix:T3DMatrix;
   // Transform point using combined MVP matrix
   function Transform(source: TPoint3):TPoint3;
  end;
@@ -443,7 +446,7 @@ type
  // Shaders-related API
  IShaders=interface
   // Compile custom shader program from source
-  function Create(vSrc,fSrc:String8;extra:String8=''):TShader;
+  function Build(vSrc,fSrc:String8;extra:String8=''):TShader;
   // Load and build shader from file(s)
   function Load(filename:String8;extra:String8=''):TShader;
   // Set custom shader (pass nil if it's already set - because the engine should know)
@@ -604,6 +607,8 @@ type
   function Width(font:TFontHandle;st:String8):integer; // text width in pixels
   function WidthW(font:TFontHandle;st:String16):integer; // text width in pixels
   function Height(font:TFontHandle):integer; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
+  function MeasuredCnt:integer; // length of the measured rects array
+  function MeasuredRect(idx:integer):TRect; // rect[idx] of text measurement command
   // Hyperlinks
   procedure ClearLink; // Clear current link (call before text render)
   function Link:integer; // get hyperlink under mouse (filled during text render)
@@ -696,7 +701,7 @@ type
   // Get image from Backbuffer (screenshot etc)
   procedure CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
   // Present backbuffer to the screen
-  procedure PresentFrame(system:ISystemPlatform);
+  procedure PresentFrame;
 
   // Restore (invalidate) gfx settings
   procedure Restore;

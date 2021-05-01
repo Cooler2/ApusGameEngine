@@ -8,13 +8,6 @@ interface
  uses Types,Apus.Engine.API;
 
 type
- // For internal use only - built-in buffers
- TPainterBuffer=(noBuf,
-                 vertBuf,       // буфер вершин для отрисовки партиклов
-                 partIndBuf,    // буфер индексов для отрисовки прямоугольников (партиклов, символов текста и т.п)
-                 bandIndBuf,    // буфер индексов для отрисовки полос/колец
-                 textVertBuf);  // буфер вершин для вывода текста
-
  // Packed description of the vertex layout
  // [0:3] - position (vec3s)
  // [4:7] - normal (vec3s)
@@ -23,24 +16,24 @@ type
  TVertexLayout=cardinal;
 
  IRenderDevice=interface
-  // Draw primitives using in-memory buffers
+  // Draw primitives
   procedure Draw(primType,primCount:integer;vertices:pointer;
-     vertexLayout:TVertexLayout;stride:integer); overload;
-  // Draw primitives using built-in buffer
-  procedure Draw(primType,primCount,vrtStart:integer;
+     vertexLayout:TVertexLayout;stride:integer);
+
+  // Draw indexed primitives
+  procedure DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
+     vertexLayout:TVertexLayout;stride:integer;
+     vrtStart,vrtCount:integer; indStart,primCount:integer);
+
+  // Работу с буферами нужно организовать как-то иначе.
+  // Нужен отдельный класс для буфера. Управлять ими должен resman.
+(*  // Draw primitives using built-in buffers
+  procedure DrawBuffer(primType,primCount,vrtStart:integer;
      vertexBuf:TPainterBuffer;stride:integer); overload;
 
-  // Draw indexed  primitives using in-memory buffers
-  procedure DrawIndexed(primType:integer;vertexBuf:PVertex;indBuf:PWord;
-     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer);  overload;
-  // Draw indexed  primitives using built-in buffer
-  procedure DrawIndexed(primType:integer;vertexBuf,indBuf:TPainterBuffer;
-     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer);  overload;
-
-  // Access to the built-in buffers
-  // !!! Offset is measured in buffer units, not bytes! size - in bytes!  TODO: заменить байты на юниты
-  function LockBuffer(buf:TPainterBuffer;offset,size:cardinal):pointer;
-  procedure UnlockBuffer(buf:TPainterBuffer);
+  // Draw indexed primitives using built-in buffer
+  procedure DrawBuffer(primType:integer;vertexBuf,indBuf:TPainterBuffer;
+     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); overload; *)
  end;
 
  TTransformationAPI=class(TInterfacedObject,ITransformation)
@@ -60,6 +53,7 @@ type
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
   procedure Update; virtual; abstract; // calculate combined matrix (if needed), pass data to the active shader
   function GetMVPMatrix:T3DMatrix;
+  function GetObjMatrix:T3DMatrix;
   function Transform(source:TPoint3):TPoint3;
  type
   TMatrixType=(mtModelView,mtProjection);
@@ -69,6 +63,7 @@ type
  end;
 
  TClippingAPI=class(TInterfacedObject,IClipping)
+  constructor Create;
   procedure Rect(r:TRect;combine:boolean=true);  //< Set clipping rect (combine with previous or override), save previous
   procedure Nothing; //< don't clip anything, save previous (the same as Apply() for the whole render target area)
   procedure Restore; //< restore previous clipping rect
@@ -120,8 +115,9 @@ type
  end;
 
  TShadersAPI=class(TInterfacedObject,IShaders)
+  constructor Create;
   // Compile custom shader program from source
-  function Create(vSrc,fSrc:String8;extra:String8=''):TShader; virtual; abstract;
+  function Build(vSrc,fSrc:String8;extra:String8=''):TShader; virtual; abstract;
   // Load and build shader from file(s)
   function Load(filename:String8;extra:String8=''):TShader; virtual;
   // Set custom shader (pass nil if it's already set - because the engine should know)
@@ -160,9 +156,9 @@ type
 var
  renderDevice:IRenderDevice;
  // APIs implementation
- renderTargetAPI:TRenderTargetAPI;
  transformationAPI:TTransformationAPI;
  clippingAPI:TClippingAPI;
+ renderTargetAPI:TRenderTargetAPI;
  shadersAPI:TShadersAPI;
 
  // Build vertex layout descriptor from fields offset (in bytes)
@@ -200,6 +196,7 @@ procedure TTransformationAPI.CalcMVP;
 
 constructor TTransformationAPI.Create;
  begin
+  _AddRef;
   viewMatrix:=IdentMatrix4;
   objMatrix:=IdentMatrix4;
   projMatrix:=IdentMatrix4;
@@ -228,6 +225,11 @@ procedure TTransformationAPI.DefaultView;
 function TTransformationAPI.GetMVPMatrix:T3DMatrix;
  begin
   result:=MVP;
+ end;
+
+function TTransformationAPI.GetObjMatrix:T3DMatrix;
+ begin
+  result:=objMatrix;
  end;
 
 procedure TTransformationAPI.Orthographic(scale, zMin, zMax: double);
@@ -370,7 +372,7 @@ procedure TRenderTargetAPI.ClipVirtual(const r: TRect);
 
 constructor TRenderTargetAPI.Create;
  begin
-  inherited Create;
+  _AddRef;
   curBlend:=blAlpha;
   defaultTarget:=nil; // backbuffer
   curTarget:=nil;
@@ -483,6 +485,13 @@ function TClippingAPI.Prepare(x1,y1,x2,y2:single):boolean;
   result:=Prepare(Types.Rect(trunc(x1),trunc(y1),trunc(x2)+1,trunc(y2)+1));
  end;
 
+constructor TClippingAPI.Create;
+ begin
+  _AddRef;
+  /// TODO: restore actual clipping
+  //clipRect:=Types.Rect(0,0,0,0);
+ end;
+
 function TClippingAPI.Get: TRect;
  begin
   result:=clipRect;
@@ -514,12 +523,19 @@ procedure TClippingAPI.Restore;
 
 { TShadersAPI }
 
+constructor TShadersAPI.Create;
+ begin
+  _AddRef;
+  curTexMode:=0;
+  actualTexMode:=-1;
+ end;
+
 function TShadersAPI.Load(filename, extra: String8): TShader;
  var
   vShader,fShader:String8;
  begin
   vShader:=LoadFileAsString(filename);
-  result:=Create(vShader,fShader,extra);
+  result:=Build(vShader,fShader,extra);
  end;
 
 procedure TShadersAPI.UpdateMatrices(const model, MVP: T3DMatrix);

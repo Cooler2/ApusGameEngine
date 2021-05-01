@@ -629,11 +629,30 @@ begin
 
  systemPlatform.SetupWindow(params);
  gfx.Init(systemPlatform);
+ // Choose pixel formats
+ gfx.config.ChoosePixelFormats(pfTrueColor,pfTrueColorAlpha,pfRenderTarget,pfRenderTargetAlpha);
+ LogMessage('Selected pixel formats:');
+ LogMessage('      TrueColor: '+PixFmt2Str(pfTrueColor));
+ LogMessage(' TrueColorAlpha: '+PixFmt2Str(pfTrueColorAlpha));
+ LogMessage(' as render target:');
+ LogMessage('    Opaque: '+PixFmt2Str(pfRenderTarget));
+ LogMessage('     Alpha: '+PixFmt2Str(pfRenderTargetAlpha));
+
  SetVSync(params.VSync);
+
  // Interface shortcuts
  draw:=gfx.draw;
  txt:=gfx.txt;
+ //
+ InitDefaultRenderTarget;
+ SetupRenderArea;
 
+ // Built-in fonts
+ txt.LoadFont(defaultFont8);
+ txt.LoadFont(defaultFont10);
+ txt.LoadFont(defaultFont12);
+
+ // Mouse cursors
  if params.showSystemCursor then begin
   RegisterCursor(crDefault,1,systemPlatform.GetSystemCursor(crDefault));
   RegisterCursor(crLink,2,systemPlatform.GetSystemCursor(crLink));
@@ -647,23 +666,15 @@ begin
   RegisterCursor(crNone,99,0);
  end;
  globalTintColor:=$FF808080;
+ systemPlatform.ProcessSystemMessages;
+ consoleSettings.popupCriticalMessages:=params.mode.displayMode<>dmSwitchResolution;
+
  AfterInitGraph;
 end;
 
 
 procedure TGame.AfterInitGraph;
 begin
- gfx.config.ChoosePixelFormats(pfTrueColor,pfTrueColorAlpha,pfRenderTarget,pfRenderTargetAlpha);
-
- LogMessage('Selected pixel formats:');
- LogMessage('      TrueColor: '+PixFmt2Str(pfTrueColor));
- LogMessage(' TrueColorAlpha: '+PixFmt2Str(pfTrueColorAlpha));
- LogMessage(' as render target:');
- LogMessage('    Opaque: '+PixFmt2Str(pfRenderTarget));
- LogMessage('     Alpha: '+PixFmt2Str(pfRenderTargetAlpha));
-
- systemPlatform.ProcessSystemMessages;
- consoleSettings.popupCriticalMessages:=params.mode.displayMode<>dmSwitchResolution;
  Signal('Engine\AfterInitGraph');
 end;
 
@@ -672,16 +683,12 @@ begin
  try
   LogMessage('Init main loop');
   InitGraph;
+
   LastFrameNum:=0;
   LastTickCount:=MyTickCount;
   FrameTime:=MyTickCount;
   LastOnFrameTime:=MyTickCount;
   LastRenderTime:=MyTickCount;
-  InitDefaultRenderTarget;
-  SetupRenderArea;
-  txt.LoadFont(defaultFont8);
-  txt.LoadFont(defaultFont10);
-  txt.LoadFont(defaultFont12);
 
   Signal('Engine\BeforeMainLoop');
   LogMessage('Game is running...');
@@ -1258,7 +1265,7 @@ procedure TGame.PresentFrame;
 
   FLog('Present');
   StartMeasure(1);
-  gfx.PresentFrame(systemPlatform);
+  gfx.PresentFrame;
   EndMeasure(1);
   inc(FrameNum);
  end;
@@ -1950,10 +1957,11 @@ procedure TMainThread.Execute;
    LogMessage(GetSystemInfo);
 
    systemPlatform.CreateWindow(gameEx.params.title);
+   gameEx.InitMainLoop; // вызывает InitGraph
 
    SetEventHandler('Engine\',EngineEvent,emInstant);
    SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
-   gameEx.InitMainLoop; // вызывает InitGraph
+
    game.running:=true; // Это как-бы семафор для завершения функции Run
    LogMessage('MainLoop started');
    // Главный цикл
