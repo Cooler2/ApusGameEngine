@@ -21,6 +21,7 @@ type
   procedure CreateWindow(title:string);
   procedure SetupWindow(params:TGameSettings);
   function GetWindowHandle:THandle;
+  procedure GetWindowSize(out width,height:integer);
   procedure DestroyWindow;
 
   procedure ShowWindow(show:boolean);
@@ -192,6 +193,12 @@ procedure TSDLPlatform.FreeCursor(cur:THandle);
 function TSDLPlatform.GetWindowHandle: THandle;
  begin
   result:=window.id;
+ end;
+
+procedure TSDLPlatform.GetWindowSize(out width, height: integer);
+ begin
+  width:=window.w;
+  height:=window.h;
  end;
 
 procedure MyLogHandler(userdata: Pointer; category: Integer; priority: TSDL_LogPriority; const msg: PAnsiChar);

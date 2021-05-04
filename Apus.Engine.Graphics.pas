@@ -45,13 +45,13 @@ type
   constructor Create;
   procedure DefaultView; virtual;
   procedure Perspective(fov:single;zMin,zMax:double); overload; virtual;
-  procedure Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); overload;
-  procedure Orthographic(scale,zMin,zMax:double);
-  procedure SetView(view:T3DMatrix);
-  procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0);
-  procedure SetObj(mat:T3DMatrix); overload;
-  procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
-  procedure Update; virtual; abstract; // calculate combined matrix (if needed), pass data to the active shader
+  procedure Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); overload; virtual;
+  procedure Orthographic(scale,zMin,zMax:double); virtual;
+  procedure SetView(view:T3DMatrix); virtual;
+  procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0); virtual;
+  procedure SetObj(mat:T3DMatrix); overload; virtual;
+  procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual;
+  procedure Update; virtual; // calculate combined matrix (if needed), pass data to the active shader
   function GetMVPMatrix:T3DMatrix;
   function GetObjMatrix:T3DMatrix;
   function Transform(source:TPoint3):TPoint3;
@@ -72,6 +72,8 @@ type
   function Prepare(r:TRect):boolean; overload; //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
   function Prepare(x1,y1,x2,y2:integer):boolean; overload; inline; //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
   function Prepare(x1,y1,x2,y2:single):boolean; overload; inline; //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
+
+  procedure AssignActual(r:TRect); // set actual clipping area (from gfx API)
  protected
   clipRect:TRect; //< current requested clipping area (in virtual pixels), might be different from actual clipping area}
   actualClip:TRect; //< real clipping area
@@ -82,13 +84,12 @@ type
  TRenderTargetAPI=class(TInterfacedObject,IRenderTargets)
   constructor Create;
 
-  procedure UseBackbuffer; virtual;
-  procedure UseTexture(tex:TTexture); virtual;
+  procedure Backbuffer; virtual;
+  procedure Texture(tex:TTexture); virtual;
   procedure Push; virtual;
   procedure Pop; virtual;
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1); virtual; abstract;
-  procedure UseAsDefault(rt:TTexture); virtual;
-  procedure SetDefaultRenderArea(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer); virtual;
+  procedure Viewport(oX,oY,VPwidth,VPheight:integer;renderWidth:integer=0;renderHeight:integer=0); virtual;
   procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); virtual;
   procedure BlendMode(blend:TBlendingMode); virtual; abstract;
   procedure Mask(rgb:boolean;alpha:boolean); virtual;
@@ -98,59 +99,20 @@ type
   function width:integer; // width of the current render target in virtual pixels
   function height:integer; // height of the current render target in virtual pixels
   function aspect:single; // width/height
-  function IsDefault:boolean;
 
   procedure ClipVirtual(const r:TRect); //< Set clip rect in virtual pixels
-  procedure Clip(x,y,w,h:integer); virtual; abstract; //< Set clip rect defined in real pixels
+  procedure Clip(x,y,w,h:integer); virtual; abstract; //< Set actual clip rect defined in real pixels
  protected
-  viewPort:TRect;  //< part of the backbuffer used for output (backbuffer only, RT-textures always use full surface)
+  vPort:TRect;  //< part of the backbuffer used for output (backbuffer only, RT-textures always use full surface)
   renderWidth,renderHeight:integer; //< size in virtual pixels
   realWidth,realHeight:integer; //< size of the whole target surface in real pixels
   curBlend:TBlendingMode;
-  defaultTarget:TTexture;
   curTarget:TTexture;
   // saved stack of render targets
   stack:array[1..10] of TTexture;
+  stackVP:array[1..10] of TRect;
+  stackRW,stackRH:array[1..10] of integer;
   stackCnt:integer;
- end;
-
- TShadersAPI=class(TInterfacedObject,IShaders)
-  constructor Create;
-  // Compile custom shader program from source
-  function Build(vSrc,fSrc:String8;extra:String8=''):TShader; virtual; abstract;
-  // Load and build shader from file(s)
-  function Load(filename:String8;extra:String8=''):TShader; virtual;
-  // Set custom shader (pass nil if it's already set - because the engine should know)
-  procedure UseCustom(shader:TShader); virtual; abstract;
-  // Switch back to the internal shader
-  procedure UseDefault; virtual; abstract;
-  // Default shader settings
-  // ----
-  // Set texture stage mode (for default shader)
-  procedure TexMode(stage:byte;colorMode:TTexBlendingMode=tblModulate2X;alphaMode:TTexBlendingMode=tblModulate;
-     filter:TTexFilter=fltUndefined;intFactor:single=0.0); virtual; abstract;
-  // Restore default texturing mode: one stage with Modulate2X mode for color and Modulate mode for alpha
-  procedure DefaultTexMode; virtual; abstract;
-  // Upload texture to the Video RAM and make it active for the specified stage
-  // (usually you don't need to call this manually unless you're using a custom shader)
-  procedure UseTexture(tex:TTexture;stage:integer=0); virtual; abstract;
-  // Update shader matrices
-  procedure UpdateMatrices(const model,MVP:T3DMatrix); virtual;
-
-  procedure AmbientLight(color:cardinal); virtual; abstract;
-  // Set directional light (set power<=0 to disable)
-  procedure DirectLight(direction:TVector3;power:single;color:cardinal); virtual; abstract;
-  // Set point light source (set power<=0 to disable)
-  procedure PointLight(position:TPoint3;power:single;color:cardinal); virtual; abstract;
-  // Define material properties
-  procedure Material(color:cardinal;shininess:single); virtual; abstract;
-
- protected
-  curTexMode:int64; // encoded shader mode requested by the client code
-  actualTexMode:int64; // actual shader mode
-
-  activeShader:TShader;
-  defaultShader:TShader;
  end;
 
 var
@@ -159,7 +121,6 @@ var
  transformationAPI:TTransformationAPI;
  clippingAPI:TClippingAPI;
  renderTargetAPI:TRenderTargetAPI;
- shadersAPI:TShadersAPI;
 
  // Build vertex layout descriptor from fields offset (in bytes)
  // Pass 0 for unused (absent) fields (except position - it is always used)
@@ -207,11 +168,11 @@ procedure TTransformationAPI.DefaultView;
  var
   w,h:integer;
  begin
-  w:=renderTargetAPI.viewPort.width;
-  h:=renderTargetAPI.viewPort.height;
+  w:=renderTargetAPI.vPort.width;
+  h:=renderTargetAPI.vPort.height;
   if (w=0) and (h=0) then exit;
   projMatrix[0,0]:=2/w;  projMatrix[1,0]:=0; projMatrix[2,0]:=0; projMatrix[3,0]:=-1+1/w;
-  if renderTargetAPI.isDefault then begin
+  if renderTargetAPI.curTarget<>nil then begin
    projMatrix[0,1]:=0;  projMatrix[1,1]:=2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=-(1-1/h);
   end else begin
    projMatrix[0,1]:=0;  projMatrix[1,1]:=-2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=1-1/h;
@@ -220,6 +181,7 @@ procedure TTransformationAPI.DefaultView;
   projMatrix[0,3]:=0;  projMatrix[1,3]:=0; projMatrix[2,3]:=0; projMatrix[3,3]:=1;
 
   modified:=true;
+  Update;
  end;
 
 function TTransformationAPI.GetMVPMatrix:T3DMatrix;
@@ -240,7 +202,7 @@ procedure TTransformationAPI.Orthographic(scale, zMin, zMax: double);
   h:=renderTargetAPI.height;
 
   projMatrix[0,0]:=scale*2/w;  projMatrix[1,0]:=0; projMatrix[2,0]:=0; projMatrix[3,0]:=0;
-  if renderTargetAPI.IsDefault then begin
+  if renderTargetAPI.curTarget=nil then begin
    projMatrix[0,1]:=0;  projMatrix[1,1]:=scale*2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=0;
   end else begin
    projMatrix[0,1]:=0;  projMatrix[1,1]:=-scale*2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=0;
@@ -266,7 +228,7 @@ procedure TTransformationAPI.Perspective(xMin, xMax, yMin, yMax, zScreen, zMin,
   projMatrix[0,2]:=0;      projMatrix[1,2]:=0;                      projMatrix[2,2]:=C;     projMatrix[3,2]:=D;
   projMatrix[0,3]:=0;      projMatrix[1,3]:=0;                      projMatrix[2,3]:=1;     projMatrix[3,3]:=0;
 
-  if renderTargetAPI.IsDefault then // нужно переворачивать ось Y если только не рисуем в текстуру
+  if renderTargetAPI.curTarget=nil then // нужно переворачивать ось Y если только не рисуем в текстуру
    for i:=0 to 3 do
     projMatrix[i,1]:=-projMatrix[i,1];
 
@@ -339,8 +301,28 @@ procedure TTransformationAPI.SetView(view: T3DMatrix);
  end;
 
 function TTransformationAPI.Transform(source: TPoint3): TPoint3;
+ var
+  x,y,z,t:double;
  begin
+  Update;
+  x:=source.x*mvp[0,0]+source.y*mvp[1,0]+source.z*mvp[2,0]+mvp[3,0];
+  y:=source.x*mvp[0,1]+source.y*mvp[1,1]+source.z*mvp[2,1]+mvp[3,1];
+  z:=source.x*mvp[0,2]+source.y*mvp[1,2]+source.z*mvp[2,2]+mvp[3,2];
+  t:=source.x*mvp[0,3]+source.y*mvp[1,3]+source.z*mvp[2,3]+mvp[3,3];
+  if (t<>1) and (t<>0) then begin
+   x:=x/t; y:=y/t; z:=z/t;
+  end;
+  result.x:=x;
+  result.y:=y;
+  result.z:=z;
+ end;
 
+procedure TTransformationAPI.Update;
+ begin
+  if not modified then exit;
+  CalcMVP;
+  gfx.shader.UpdateMatrices(objMatrix,mvp);
+  modified:=false;
  end;
 
 { TRenderTargetAPI }
@@ -356,32 +338,22 @@ procedure TRenderTargetAPI.ClipVirtual(const r: TRect);
   x,y,w,h:integer;
   scaleX,scaleY:single;
  begin
-  if curTarget=nil then begin
-    x:=viewPort.Left;
-    y:=viewPort.Top;
-    w:=viewPort.Width;
-    h:=viewPort.Height;
-    scaleX:=w/renderWidth;
-    scaleY:=h/renderHeight;
-    Clip(x+round(r.Left*scaleX),realHeight-y-round(h*scaleY),
-      round(r.Width*scaleX),round(r.height*scaleY));
-  end else begin
-    Clip(r.Left,r.Top,r.Width,r.Height);
-  end;
+  x:=vPort.Left;
+  y:=vPort.Top;
+  w:=vPort.Width;
+  h:=vPort.Height;
+  scaleX:=w/renderWidth;
+  scaleY:=h/renderHeight;
+  Clip(x+round(r.Left*scaleX),realHeight-y-round(h*scaleY),
+    round(r.Width*scaleX),round(r.height*scaleY));
  end;
 
 constructor TRenderTargetAPI.Create;
  begin
   _AddRef;
-  curBlend:=blAlpha;
-  defaultTarget:=nil; // backbuffer
+  curBlend:=blNone;
   curTarget:=nil;
-  /// TODO: get backbuffer dimensions screenRect:=
- end;
 
-function TRenderTargetAPI.IsDefault: boolean;
- begin
-  result:=curTarget=defaultTarget;
  end;
 
 procedure TRenderTargetAPI.Push;
@@ -389,16 +361,19 @@ procedure TRenderTargetAPI.Push;
   ASSERT(stackCnt<10);
   inc(stackCnt);
   stack[stackcnt]:=curTarget;
-  clippingAPI.Rect(Rect(0,0,width,height),false);
+  stackVP[stackCnt]:=vPort;
+  stackRW[stackCnt]:=renderWidth;
+  stackRH[stackCnt]:=renderHeight;
  end;
 
 procedure TRenderTargetAPI.Pop;
  begin
   ASSERT(stackCnt>0);
-  if stack[stackCnt]=nil then UseBackbuffer
-   else UseTexture(stack[stackcnt]);
+  Texture(stack[stackcnt]);
+  vPort:=stackVP[stackCnt];
+  renderWidth:=stackRW[stackCnt];
+  renderHeight:=stackRH[stackCnt];
   dec(stackCnt);
-  clippingAPI.Restore;
  end;
 
 function TRenderTargetAPI.height: integer;
@@ -411,10 +386,14 @@ function TRenderTargetAPI.width: integer;
   result:=renderWidth;
  end;
 
-procedure TRenderTargetAPI.SetDefaultRenderArea(oX, oY, VPwidth, VPheight,
+procedure TRenderTargetAPI.Viewport(oX, oY, VPwidth, VPheight,
   renderWidth, renderHeight: integer);
  begin
-
+  vPort:=Rect(oX,oY,ox+vpWidth,oY+vpHeight);
+  if renderWidth<=0 then renderWidth:=vpWidth;
+  if renderHeight<=0 then renderHeight:=vpHeight;
+  self.renderWidth:=renderWidth;
+  self.renderHeight:=renderHeight;
  end;
 
 procedure TRenderTargetAPI.Mask(rgb, alpha: boolean);
@@ -427,26 +406,20 @@ procedure TRenderTargetAPI.UnMask;
 
  end;
 
-procedure TRenderTargetAPI.UseAsDefault(rt: TTexture);
+procedure TRenderTargetAPI.Backbuffer;
  begin
-  ASSERT(rt.HasFlag(tfRenderTarget));
-  defaultTarget:=rt;
- end;
-
-procedure TRenderTargetAPI.UseBackbuffer;
- begin
+  curTarget:=nil;
  end;
 
 procedure TRenderTargetAPI.UseDepthBuffer(test: TDepthBufferTest;
   writeEnable: boolean);
  begin
-
  end;
 
-procedure TRenderTargetAPI.UseTexture(tex: TTexture);
+procedure TRenderTargetAPI.Texture(tex: TTexture);
  begin
   ASSERT(tex.HasFlag(tfRenderTarget));
-  //Use(tex);
+  curTarget:=tex;
  end;
 
 { TClipping }
@@ -485,11 +458,17 @@ function TClippingAPI.Prepare(x1,y1,x2,y2:single):boolean;
   result:=Prepare(Types.Rect(trunc(x1),trunc(y1),trunc(x2)+1,trunc(y2)+1));
  end;
 
+procedure TClippingAPI.AssignActual(r: TRect);
+ begin
+  actualClip:=r;
+ end;
+
 constructor TClippingAPI.Create;
  begin
   _AddRef;
-  /// TODO: restore actual clipping
-  //clipRect:=Types.Rect(0,0,0,0);
+  Nothing;
+  clipRect:=types.Rect(-100000,-100000,100000,100000);
+  actualClip:=clipRect;
  end;
 
 function TClippingAPI.Get: TRect;
@@ -499,7 +478,7 @@ function TClippingAPI.Get: TRect;
 
 procedure TClippingAPI.Nothing;
  begin
-  Rect(types.Rect(0,0,renderTargetAPI.width,renderTargetAPI.height),false);
+  Rect(types.Rect(-100000,-100000,100000,100000),false);
  end;
 
 procedure TClippingAPI.Rect(r: TRect; combine: boolean);
@@ -519,29 +498,6 @@ procedure TClippingAPI.Restore;
   ASSERT(stackPos>0);
   clipRect:=stack[stackPos];
   dec(stackPos);
- end;
-
-{ TShadersAPI }
-
-constructor TShadersAPI.Create;
- begin
-  _AddRef;
-  curTexMode:=0;
-  actualTexMode:=-1;
- end;
-
-function TShadersAPI.Load(filename, extra: String8): TShader;
- var
-  vShader,fShader:String8;
- begin
-  vShader:=LoadFileAsString(filename);
-  result:=Build(vShader,fShader,extra);
- end;
-
-procedure TShadersAPI.UpdateMatrices(const model, MVP: T3DMatrix);
- begin
-  activeShader.SetUniform('uMVP',MVP);
-  activeShader.SetUniform('uModel',model);
  end;
 
 end.

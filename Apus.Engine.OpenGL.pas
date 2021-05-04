@@ -45,18 +45,22 @@ type
   glVersion,glRenderer:string;
   glVersionNum:single;
   sysPlatform:ISystemPlatform;
+  canPaint:integer;
  end;
 
 var
  debugGL:boolean = {$IFDEF MSWINDOWS} false {$ELSE} true {$ENDIF};
 
 implementation
- uses Apus.MyServis, SysUtils,
+ uses Apus.MyServis,
+  SysUtils,
+  Types,
   Apus.Geom3D,
   Apus.Engine.Graphics,
   Apus.Engine.Draw,
   Apus.Engine.TextDraw,
-  Apus.Engine.ResManGL
+  Apus.Engine.ResManGL,
+  Apus.Engine.ShadersGL
   {$IFDEF MSWINDOWS},Windows{$ENDIF}
   {$IFDEF DGL},dglOpenGL{$ENDIF};
 
@@ -92,37 +96,17 @@ type
  end;
 
  TGLRenderTargetAPI=class(TRendertargetAPI)
+  procedure Backbuffer; override;
+  procedure Texture(tex:TTexture); override;
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1); override;
-  procedure UseAsDefault(rt:TTexture); override;
-  procedure SetDefaultRenderArea(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer); override;
+  procedure Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer); override;
   procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); override;
   procedure BlendMode(blend:TBlendingMode); override;
   procedure Mask(rgb:boolean;alpha:boolean); override;
   procedure UnMask; override;
-  procedure Apply; override;
- end;
-
- TGLTransformationAPI=class(TTransformationAPI,ITransformation)
-  // Switch to default 2D view (use screen coordinates)
-  procedure DefaultView; override;
-  procedure Update; override;
- end;
-
- TGLShaderHandle=integer;
-
- TGLShader=class(TShader)
-  handle:TGLShaderHandle;
-  procedure SetUniform(name:String8;value:integer); overload; override;
-  procedure SetUniform(name:String8;value:single); overload; override;
-  procedure SetUniform(name:String8;const value:TVector3s); overload; override;
-  procedure SetUniform(name:String8;const value:T3DMatrix); overload; override;
- end;
-
- TGLShadersAPI=class(TShadersAPI,IShaders)
-  constructor Create;
-  procedure UseTexture(tex:TTexture;stage:integer=0); override;
- private
-  curTextures:array[0..3] of TTexture;
+  procedure Clip(x,y,w,h:integer); override;
+ protected
+  scissor:boolean;
  end;
 
  //textureManager:TResource;
@@ -198,7 +182,7 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   // Create API objects
   renderDevice:=TRenderDevice.Create;
   renderTargetAPI:=TGLRenderTargetAPI.Create;
-  transformationAPI:=TGLTransformationAPI.Create;
+  transformationAPI:=TTransformationAPI.Create;
   clippingAPI:=TClippingAPI.Create;
   shadersAPI:=TGLShadersAPI.Create;
 
@@ -249,32 +233,37 @@ function TOpenGL.SetVSyncDivider(n: integer):boolean;
  end;
 
 procedure TOpenGL.BeginPaint(target: TTexture);
+ var
+  rw,rh:integer;
  begin
-(*  if (canPaint>0) and (target=curTarget) then
-    raise EWarning.Create('BP: target already set');
-  PushRenderTarget;
-  if target<>curtarget then begin
-   if target<>nil then SetTargetToTexture(target)
-    else ResetTarget;
-  end else begin
-   RestoreClipping;
-   inc(canPaint);
-  end;
-  {$IFNDEF GLES}
-  glEnable(GL_TEXTURE_2D);
-  {$ENDIF}
-  glUseProgram(defaultShader);
-  glActiveTexture(GL_TEXTURE0);
-  glUniform1i(uTex1,0);
-  CheckForGLError;  *)
+  {if (canPaint>0) and (target=curTarget) then
+    raise EWarning.Create('BP: target already set');}
+  if canPaint>0 then
+   renderTargetAPI.Push;
+  inc(canPaint);
+  rw:=renderTargetAPI.width;
+  rh:=renderTargetAPI.height;
+  shadersAPI.Reset;
+  drawer.Reset;
+  renderTargetAPI.Texture(target);
+  renderTargetAPI.Viewport(0,0,rw,rh);
+  renderTargetAPI.BlendMode(blAlpha);
+  transformationAPI.DefaultView;
+  clippingAPI.Rect(Rect(0,0,rw,rh),false); // push current clip rect to save
+  CheckForGLError;
  end;
 
 procedure TOpenGL.EndPaint;
  begin
-(*  if canPaint=0 then exit;
+  if canPaint=0 then exit;
   // LogMessage('EP: '+inttohex(integer(curtarget),8));
-  PopRenderTarget;
-  dec(canPaint); *)
+  /// TODO: flush any draw cashes
+
+  ASSERT(canPaint>0);
+  dec(canPaint);
+  if canPaint>0 then
+   renderTargetAPI.Pop;
+  clippingAPI.Restore;
  end;
 
 procedure TOpenGL.ChoosePixelFormats(out trueColor, trueColorAlpha, rtTrueColor,
@@ -382,6 +371,7 @@ procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
  var
   vrt:PVertex;
  begin
+  transformationAPI.Update;
   SetupAttributes(vertices,vertexLayout,stride);
   case primtype of
    LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
@@ -396,6 +386,7 @@ procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:po
      vertexLayout:TVertexLayout;stride:integer;
      vrtStart,vrtCount:integer; indStart,primCount:integer);
  begin
+  transformationAPI.Update;
   SetupAttributes(vertices,vertexLayout,stride);
   case primtype of
    LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices);
@@ -458,6 +449,7 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
   i,v,n:integer;
   p:pointer;
  begin
+  n:=0;
   for i:=0 to 4 do begin
    v:=(vertexLayout and $F)*4;
    vertexLayout:=vertexLayout shr 4;
@@ -491,15 +483,6 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
  end;
 
 { TGLRenderTargetAPI }
-
-procedure TGLRenderTargetAPI.Apply;
- begin
-  if curTarget=nil then begin
-
-  end else begin
-
-  end;
- end;
 
 procedure TGLRenderTargetAPI.BlendMode(blend: TBlendingMode);
 begin
@@ -554,7 +537,7 @@ procedure TGLRenderTargetAPI.Clear(color:cardinal; zbuf:single;  stencil:integer
   glDisable(GL_SCISSOR_TEST);
   glClearColor(
     ColorComponent(color,2),
-    ColorComponent(color,2),
+    ColorComponent(color,1),
     ColorComponent(color,0),
     ColorComponent(color,3));
   if zBuf>=0 then begin
@@ -573,17 +556,63 @@ procedure TGLRenderTargetAPI.Clear(color:cardinal; zbuf:single;  stencil:integer
   glEnable(GL_SCISSOR_TEST);
  end;
 
+procedure TGLRenderTargetAPI.Clip(x,y,w,h: integer);
+ begin
+  if scissor and (x<=0) and (y<=0) and (x+w>=realWidth) and (y+h>=realHeight) then begin
+   glDisable(GL_SCISSOR_TEST);
+   scissor:=false;
+   exit;
+  end;
+  if not scissor then begin
+   glEnable(GL_SCISSOR_TEST);
+   scissor:=true;
+  end;
+  if curTarget=nil then begin // invert Y-axis
+   y:=realHeight-y-h;
+  end;
+  glScissor(x,y,w,h);
+ end;
+
 procedure TGLRenderTargetAPI.Mask(rgb, alpha: boolean);
  begin
   inherited;
 
  end;
 
-procedure TGLRenderTargetAPI.SetDefaultRenderArea(oX, oY, VPwidth, VPheight,
-  renderWidth, renderHeight: integer);
+procedure TGLRenderTargetAPI.Backbuffer;
+ var
+  data:array[0..3] of GLInt;
  begin
   inherited;
+  {$IFDEF GLES11}
+  glBindFramebufferOES(GL_FRAMEBUFFER_OES,0);
+  {$ENDIF}
+  {$IFDEF GLES20}
+  glBindFramebuffer(GL_FRAMEBUFFER,0);
+  {$ENDIF}
+  {$IFNDEF GLES}
+  if GL_ARB_framebuffer_object then
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER,0);
+  {$ENDIF}
+  glGetIntegerv(GL_VIEWPORT,@data[0]);
+  realWidth:=data[2];
+  realHeight:=data[3];
+  CheckForGLError(3);
+  clippingAPI.AssignActual(Rect(0,0,realWidth,realHeight));
+ end;
 
+procedure TGLRenderTargetAPI.Texture(tex:TTexture);
+ begin
+  if tex=nil then begin
+   Backbuffer;
+   exit;
+  end;
+  inherited;
+  ASSERT(tex is TGLTExture);
+  TGLTexture(tex).SetAsRenderTarget;
+  realWidth:=tex.width;
+  realHeight:=tex.height;
+  clippingAPI.AssignActual(Rect(0,0,realWidth,realHeight));
  end;
 
 procedure TGLRenderTargetAPI.UnMask;
@@ -592,11 +621,6 @@ procedure TGLRenderTargetAPI.UnMask;
 
  end;
 
-procedure TGLRenderTargetAPI.UseAsDefault(rt: TTexture);
- begin
-  inherited;
-
- end;
 
 procedure TGLRenderTargetAPI.UseDepthBuffer(test: TDepthBufferTest;
   writeEnable: boolean);
@@ -605,247 +629,15 @@ procedure TGLRenderTargetAPI.UseDepthBuffer(test: TDepthBufferTest;
 
  end;
 
-(* --==  DEFAULT SHADER TEMPLATE ==--
-  Actual shaders are made from this template for each combination of
-  1) number of textures (0-1, 2, 3)
-  2) texturing mode
-
- === Vertex shader ===
- #version 330
- uniform mat4 uMVP;
- layout (location=0) in vec3 position;
- layout (location=1) in vec4 color;
- layout (location=2) in vec2 texCoord;
- out vec4 vColor;
- out vec2 vTexCoord;
-
- void main(void)
- {
-   gl_Position = uMVP * vec4(position, 1.0);
-   vColor = color;
-   vTexCoord = texCoord;
- }
-
- === Fragment shader ===
- #version 330
- uniform sampler2D tex;
- uniform int colorOp;
- uniform int alphaOp;
- uniform float uFactor;
- in vec4 vColor;
- in vec2 vTexCoord;
- out vec4 fragColor;
-
- void main(void)
- {
-   vec3 c = vec3(vColor.r, vColor.g, vColor.b);
-   float a = vColor.a;
-   vec4 t = texture2D(tex,vTexCoord);
-   switch (colorOp) {
-     case 3: // tblReplace
-       c = vec3(t.r, t.g, t.b);
-       break;
-     case 4: // tblModulate
-       c = c*vec3(t.r, t.g, t.b);
-       break;
-     case 5: // tblModulate2X
-       c = 2.0*c*vec3(t.r, t.g, t.b);
-       break;
-     case 6: // tblAdd
-       c = c+vec3(t.r, t.g, t.b);
-       break;
-     case 7: // tblSub
-       c = c-vec3(t.r, t.g, t.b);
-       break;
-     case 8: // tblInterpolate
-       c = mix(c, vec3(t.r, t.g, t.b), uFactor);
-       break;
-   }
-   switch (alphaOp) {
-     case 3: // tblReplace
-       a = t.a;
-       break;
-     case 4: // tblModulate
-       a = a*t.a;
-       break;
-     case 5: // tblModulate2X
-       a = 2.0*a*t.a;
-       break;
-     case 6: // tblAdd
-       a = a+t.a;
-       break;
-     case 7: // tblSub
-       a = a-t.a;
-       break;
-     case 8: // tblInterpolate
-       a = mix(a, t.a, uFactor);
-       break;
-   }
-   fragColor = vec4(c.r, c.g, c.b, a);
- }
-
- === end ===
-*)
-
-(*
-// Возвращает шейдер для заданного режима текстурирования (из кэша либо формирует новый)
-function TGLPainter2.SetCustomProgram(mode:int64):integer;
-var
- vs,fs:AnsiString;
- i,n:integer;
- tm:PTexMode;
-begin
- mode:=mode and $FF00FF00FF00FF;
- result:=customShaders.Get(mode);
- if result<0 then begin
-  tm:=@mode;
-  n:=0;
-  for i:=0 to 3 do
-   if (tm^[i] and $0f>2) or (tm^[i] and $f0>$20) then n:=i+1;
-
-  // Vertex shader
-  vs:=
-  'uniform mat4 uMVP;'#13#10+
-  'attribute vec3 aPosition;  '#13#10+
-  'attribute vec4 aColor;   '#13#10+
-  'varying vec4 vColor;     '#13#10;
-  for i:=1 to n do vs:=vs+
-    'attribute vec2 aTexcoord'+inttostr(i)+';'#13#10+
-    'varying vec2 vTexcoord'+inttostr(i)+';'#13#10;
-  vs:=vs+
-  'void main() '#13#10+
-  '{          '#13#10+
-  '    vColor = aColor;   '#13#10;
-  for i:=1 to n do vs:=vs+
-    '    vTexcoord'+inttostr(i)+' = aTexcoord'+inttostr(i)+'; '#13#10;
-  vs:=vs+
-  '    gl_Position = uMVP * vec4(aPosition, 1.0);  '#13#10+
-  '}';
-
-  // Fragment shader
-  fs:='varying vec4 vColor;   '#13#10;
-  for i:=1 to n do begin fs:=fs+
-    'uniform sampler2D tex'+inttostr(i)+'; '#13#10+
-    'varying vec2 vTexcoord'+inttostr(i)+'; '#13#10;
-   if ((tm[i-1] and $f)=ord(tblInterpolate)) or
-      ((tm[i-1] shr 4 and $f)=ord(tblInterpolate)) then
-    fs:=fs+'uniform float uFactor'+inttostr(i)+';'#13#10;
-  end;
-  fs:=fs+
-  'void main() '#13#10+
-  '{     '#13#10+
-  '  vec3 c = vec3(vColor.r,vColor.g,vColor.b); '#13#10+
-  '  float a = vColor.a; '#13#10+
-  '  vec4 t; '#13#10;
-  for i:=1 to n do begin
-   fs:=fs+'  t = texture2D(tex'+inttostr(i)+', vTexcoord'+inttostr(i)+'); '#13#10;
-   case (tm[i-1] and $f) of
-    ord(tblReplace):fs:=fs+'  c = vec3(t.r, t.g, t.b); '#13#10;
-    ord(tblModulate):fs:=fs+'  c = c * vec3(t.r, t.g, t.b); '#13#10;
-    ord(tblModulate2x):fs:=fs+'  c = 2.0 * c * vec3(t.r, t.g, t.b); '#13#10;
-    ord(tblAdd):fs:=fs+'  c = c + vec3(t.r, t.g, t.b); '#13#10;
-    ord(tblInterpolate):fs:=fs+'  c = mix(c, vec3(t.r, t.g, t.b), uFactor'+inttostr(i)+'); '#13#10;
-   end;
-   case ((tm[i-1] shr 4) and $f) of
-    ord(tblReplace):fs:=fs+'  a = t.a; '#13#10;
-    ord(tblModulate):fs:=fs+'  a = a * t.a; '#13#10;
-    ord(tblModulate2X):fs:=fs+'  a = 2.0 * a * t.a; '#13#10;
-    ord(tblAdd):fs:=fs+'  a = a + t.a; '#13#10;
-    ord(tblInterpolate):fs:=fs+'  a = mix(a, t.a, uFactor'+inttostr(i)+'); '#13#10;
-   end;
-  end;
-  fs:=fs+
-  '    gl_FragColor = vec4(c.r, c.g, c.b, a); '#13#10+
-  '}';
-
-  result:=BuildShaderProgram(vs,fs);
-  if result>0 then begin
-   customShaders.Put(mode,result);
-   glUseProgram(result);
-   // Set uniforms: texture indices
-   for i:=1 to n do
-    glUniform1i(glGetUniformLocation(result,PAnsiChar(AnsiString('tex'+inttostr(i)))),i-1);
-  end else begin
-   result:=defaultShader;
-   glUseProgram(result);
-  end;
- end else
-  glUseProgram(result);
-end; *)
-
-
-{ TGLTransformationAPI }
-
-procedure TGLTransformationAPI.DefaultView;
+procedure TGLRenderTargetAPI.Viewport(oX, oY, VPwidth, VPheight, renderWidth,
+  renderHeight: integer);
  begin
   inherited;
+  if curTarget<>nil then
+   glViewport(oX,oY,vpWidth,vpHeight)
+  else
+   glViewport(oX,realHeight-oY-vpHeight,vpWidth,vpHeight);
  end;
 
-procedure TGLTransformationAPI.Update;
- begin
-  if modified then begin
-   CalcMVP;
-
-   modified:=false;
-  end;
- end;
-
-{ TGLShader }
-
-procedure SetUniformInternal(handle:TGLShaderHandle;shaderName:string8; name:string8;mode:integer;const value); inline;
- var
-  loc:glint;
- begin
-  loc:=glGetUniformLocation(handle,PAnsiChar(name));
-  if loc<0 then raise EWarning.Create('Uniform "%s" not found in shader %s',[name,shaderName]);
-  case mode of
-   1:glUniform1i(loc,integer(value));
-   2:glUniform1f(loc,single(value));
-   20:glUniform3fv(loc,1,@value);
-   30:glUniformMatrix4fv(loc,1,GL_FALSE,@value);
-  end;
- end;
-
-
-procedure TGLShader.SetUniform(name: String8; value: integer);
- begin
-  SetUniformInternal(handle,self.name,name,1,value);
- end;
-
-procedure TGLShader.SetUniform(name: String8; value: single);
- begin
-  SetUniformInternal(handle,self.name,name,2,value);
- end;
-
-
-procedure TGLShader.SetUniform(name: String8; const value: TVector3s);
- begin
-  SetUniformInternal(handle,self.name,name,20,value);
- end;
-
-procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
- begin
-  SetUniformInternal(handle,self.name,name,30,value);
- end;
-
-{ TGLShadersAPI }
-
-constructor TGLShadersAPI.Create;
- begin
-  inherited Create;
- end;
-
-procedure TGLShadersAPI.UseTexture(tex: TTexture; stage: integer);
- begin
-  if tex<>nil then begin
-   if tex.parent<>nil then tex:=tex.parent;
-   resourceManagerGL.MakeOnline(tex,stage);
-  end else begin
-   /// TODO: wtf?
-   glActiveTexture(GL_TEXTURE0+stage);
-   glBindTexture(GL_TEXTURE_2D,0);
-  end;
-  curTextures[stage]:=tex;
- end;
 
 end.

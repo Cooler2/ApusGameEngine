@@ -7,12 +7,6 @@
 unit Apus.Engine.Draw;
 interface
  uses Types,Apus.Geom3D,Apus.Engine.API;
- const
-  // States
-  STATE_TEXTURED2X = 1;  // single textured: use TexMode[0] (default: color=texture*diffuse*2, alpha=texture*diffuse)
-  STATE_COLORED    = 2;  // no texture: color=diffuse, alpha=diffuse
-  STATE_MULTITEX   = 3;  // multitextured: use TexMode[n] for each enabled stage
-  STATE_COLORED2X  = 4;  // textured: alpha=texture*diffuse, color=diffuse*2
 
  type
  TDrawer=class(TInterfacedObject,IDrawer)
@@ -54,41 +48,22 @@ interface
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
 
   procedure DebugScreen1;
+  procedure Reset; // notification about shader change
  protected
-  canPaint:integer;
-  CurFont:cardinal;
-
-  saveClip:array[1..15] of TRect;
-  sCnt:byte;
-
-  curTarget:TTexture; // current render target
-  renderWidth,renderHeight:integer; // size of render area for default target
-
-  // Texture interpolation settings
-//  texIntMode:array[0..3] of TTexInterpolateMode; // current interpolation mode for each texture unit
-  texIntFactor:array[0..3] of single; // current interpolation factor constant for each texture unit
-
-  softScaleOn:boolean deprecated; // current state of SoftScale mode (depends on render target)
-
-  chardrawer:integer;
-  supportARGB:boolean;
-  // Text effect
-  efftex:TTexture;
-  // last used legacy font texture
-  lastFontTexture:TTexture;
-
   // buffers
   partBuf:array of TVertex; // particles (vertices)
   partInd:array of word; // quad indices (0,1,2, 0,2,3) ... persistent buffer (can only grow)
   bandInd:array of word; // indices for bands drawing
 
-  // Common modes:
+  // Render modes:
   // 0 - undefined state (must be configured by outer code)
   // 1 - 1 stage, Modulate2X
   // 2 - no texturing stages
-  // 3 - 3 stages, 1st - Modulate2X, other - undefined
+  // 3 - 2 stages, 1st - Modulate2X, 2-nd - undefined
   // 4 - 1 stage, result=diffuse*2
-  procedure SetRenderMode(state:byte;tex:TTexture=nil);
+  renderMode:integer;
+
+  procedure SetRenderMode(mode:byte;tex:TTexture=nil);
  end;
 
 var
@@ -102,15 +77,19 @@ uses SysUtils,Math,
   Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Colors,
   Apus.Engine.Graphics;
 
+ const
+  // Blending modes
+  MODE_TEXTURED2X = 1;  // single textured: use TexMode[0] (default: color=texture*diffuse*2, alpha=texture*diffuse)
+  MODE_COLORED    = 2;  // no texture: color=diffuse, alpha=diffuse
+  MODE_MULTITEX   = 3;  // multitextured: use TexMode[n] for each enabled stage
+  MODE_COLORED2X  = 4;  // textured: color=diffuse*2, alpha=texture*diffuse
 
 { TBasicPainter }
 
 constructor TDrawer.Create;
 begin
  ForceLogMessage('Creating '+self.ClassName);
- scnt:=0; zPlane:=0;
- curtarget:=nil;
- canPaint:=0;
+ zPlane:=0;
  drawer:=self;
 end;
 
@@ -162,7 +141,7 @@ var
 begin
  ASSERT(tex<>nil);
  if not clippingAPI.Prepare(x_,y_,x_+tex.width-1,y_+tex.height-1) then exit;
- SetRenderMode(STATE_TEXTURED2X,tex);
+ SetRenderMode(MODE_TEXTURED2X,tex);
  gfx.shader.UseTexture(tex);
  dx:=tex.width;
  dy:=tex.height;
@@ -181,7 +160,7 @@ var
 begin
  ASSERT(tex<>nil);
  if not clippingAPI.Prepare(x_,y_,x_+tex.width-1,y_+tex.height-1) then exit;
- SetRenderMode(STATE_TEXTURED2X,tex);
+ SetRenderMode(MODE_TEXTURED2X,tex);
  gfx.shader.UseTexture(tex);
  dx:=tex.width;
  dy:=tex.height;
@@ -215,7 +194,7 @@ begin
   h:=round(h+1)-1;
  end;
  if not clippingAPI.Prepare(x_,y_,x_+w-1,y_+h-1) then exit;
- SetRenderMode(STATE_TEXTURED2X,tex);
+ SetRenderMode(MODE_TEXTURED2X,tex);
  gfx.shader.UseTexture(tex);
  vrt[0].Init(x_-0.5,y_-0.5,     zPlane, tex.u1+tex.stepU*2*r.left,tex.v1+tex.stepV*2*r.Top,color);
  vrt[1].Init(x_+w+0.5,y_-0.5,   zPlane, tex.u1+tex.stepU*r.Right*2,tex.v1+tex.stepV*r.top*2,color);
@@ -238,7 +217,7 @@ begin
   h:=r.Bottom-r.top-1;
  end;
  if not clippingAPI.Prepare(x_,y_,x_+w-1,y_+h-1) then exit;
- SetRenderMode(STATE_TEXTURED2X,tex); // Textured, normal viewport
+ SetRenderMode(MODE_TEXTURED2X,tex); // Textured, normal viewport
  gfx.shader.UseTexture(tex);
 
  with vrt[(0-ang) and 3] do begin
@@ -274,7 +253,7 @@ var
  vrt:array[0..1] of TVertex;
 begin
  if not clippingAPI.Prepare(min2s(x1,x2),min2s(y1,y2),max2s(x1,x2),max2s(y1,y2)) then exit;
- SetRenderMode(STATE_COLORED); // Colored, normal viewport
+ SetRenderMode(MODE_COLORED); // Colored, normal viewport
  vrt[0].Init(x1,y1,zPlane,color);
  vrt[1].Init(x2,y2,zPlane,color);
  renderDevice.Draw(LINE_LIST,1,@vrt,TVertex.LayoutNoTex,sizeof(TVertex));
@@ -299,7 +278,7 @@ begin
   inc(pnt);
  end;
  if not clippingAPI.Prepare(minX,minY,maxX,maxY) then exit;
- SetRenderMode(STATE_COLORED); // Colored, normal viewport
+ SetRenderMode(MODE_COLORED); // Colored, normal viewport
  if closed then vrt[cnt]:=vrt[0];
  renderDevice.Draw(LINE_STRIP,cnt-1+byte(closed),@vrt[0],TVertex.LayoutNoTex,sizeof(TVertex));
 end;
@@ -314,7 +293,7 @@ begin
  w:=min2(image1.width,image2.width);
  h:=min2(image1.height,image2.height);
  if not clippingAPI.Prepare(x_,y_,x_+w,y_+h) then exit;
- SetRenderMode(STATE_MULTITEX);
+ SetRenderMode(MODE_MULTITEX);
  gfx.shader.UseTexture(image1,0);
  gfx.shader.UseTexture(image2,1);
  au1:=image1.u1; au2:=image1.u1+w*image1.stepU*2;
@@ -356,7 +335,7 @@ begin
  if w2<w then w:=w2;
  if h2<h then h:=h2;
  if not clippingAPI.Prepare(x_-h-w,y_-h-w,x_+h+w,y_+h+w) then exit;
- SetRenderMode(STATE_MULTITEX); // Textured, normal viewport
+ SetRenderMode(MODE_MULTITEX); // Textured, normal viewport
  x_:=x_-0.5; y_:=y_-0.5;
 
  // Тут надо что-то придумать умное, чтобы не было заблуренности
@@ -538,7 +517,7 @@ begin
    vrt[i].Init(x,y,zPlane,color);
 
  if not clippingAPI.Prepare(minX,minY,maxX,maxY) then exit;
- SetRenderMode(STATE_COLORED);
+ SetRenderMode(MODE_COLORED);
  renderDevice.Draw(TRG_LIST,n,@vrt[0],TVertex.layoutNoTex,sizeof(TVertex));
 end;
 
@@ -553,7 +532,7 @@ begin
  w:=(image.width)*scaleX;
  h:=(image.height)*scaleY;
  if not clippingAPI.Prepare(x0-h-w,y0-h-w,x0+h+w,y0+h+w) then exit;
- SetRenderMode(STATE_TEXTURED2X,image);
+ SetRenderMode(MODE_TEXTURED2X,image);
 
  x0:=x0-0.5; y0:=Y0-0.5;
  if image.width and 1=1 then begin
@@ -589,7 +568,7 @@ var
  v,u1,v1,u2,v2:single;
 begin
  if not clippingAPI.Prepare(x1,y1,x2,y2) then exit;
- SetRenderMode(STATE_TEXTURED2X,image);
+ SetRenderMode(MODE_TEXTURED2X,image);
  x1:=x1-0.01; y1:=y1-0.01;
  x2:=x2-0.01; y2:=y2-0.01;
  gfx.shader.UseTexture(image);
@@ -617,11 +596,11 @@ procedure TDrawer.TrgList(pnts: PVertex; trgcount: integer;
 begin
  clippingAPI.Prepare;
  if tex<>nil then begin
-  SetRenderMode(STATE_TEXTURED2X,tex);
+  SetRenderMode(MODE_TEXTURED2X,tex);
   gfx.shader.UseTexture(tex);
   renderDevice.Draw(TRG_LIST,trgcount,pnts,TVertex.layoutTex,sizeof(TVertex));
  end else begin
-  SetRenderMode(STATE_COLORED);
+  SetRenderMode(MODE_COLORED);
   renderDevice.Draw(TRG_LIST,trgcount,pnts,TVertex.layoutNoTex,sizeof(TVertex));
  end;
 end;
@@ -630,12 +609,12 @@ procedure TDrawer.IndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:i
 begin
  clippingAPI.Prepare;
  if tex<>nil then begin
-  SetRenderMode(STATE_TEXTURED2X,tex);
+  SetRenderMode(MODE_TEXTURED2X,tex);
   gfx.shader.UseTexture(tex);
 {{  renderDevice.DrawIndexed(TRG_LIST,vertices,indices,sizeof(TVertex),TVertex.layoutTex,
     0,vrtCount,0,trgCount);}
  end else begin
-  SetRenderMode(STATE_COLORED,tex);
+  SetRenderMode(MODE_COLORED,tex);
 {{  renderDevice.DrawIndexed(TRG_LIST,vertices,indices,sizeof(TVertex),TVertex.layoutNoTex,
     0,vrtCount,0,trgCount);}
  end;
@@ -646,7 +625,7 @@ var
  vrt:array[0..4] of TVertex;
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
- SetRenderMode(STATE_COLORED);
+ SetRenderMode(MODE_COLORED);
  vrt[0].Init(x1,y1,zPlane,color);
  vrt[1].Init(x2,y1,zPlane,color);
  vrt[2].Init(x2,y2,zPlane,color);
@@ -655,12 +634,17 @@ begin
  renderDevice.Draw(LINE_STRIP,4,@vrt,TVertex.layoutNoTex,sizeof(TVertex));
 end;
 
+procedure TDrawer.Reset;
+begin
+ renderMode:=0;
+end;
+
 procedure TDrawer.RRect(x1,y1,x2,y2:integer;color:cardinal;r:integer=2);
 var
  vrt:array[0..8] of TVertex;
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
- SetRenderMode(STATE_COLORED);
+ SetRenderMode(MODE_COLORED);
  vrt[0].Init(x1+r,y1,zPlane,color);
  vrt[1].Init(x2-r,y1,zPlane,color);
  vrt[2].Init(x2,y1+r,zPlane,color);
@@ -679,7 +663,7 @@ var
  vrt:array[0..3] of TVertex;
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
- SetRenderMode(STATE_COLORED);
+ SetRenderMode(MODE_COLORED);
  vrt[0].Init(x1-0.5,y1-0.5,zPlane,color1);
  vrt[1].Init(x2+0.5,y1-0.5,zPlane,color1);
  vrt[2].Init(x2+0.5,y2+0.5,zPlane,color2);
@@ -700,7 +684,7 @@ begin
  minY:=trunc(Min3d(y1,y2,y3));
  maxY:=trunc(Max3d(y1,y2,y3))+1;
  if not clippingAPI.Prepare(minX,minY,maxX,maxY) then exit;
- SetRenderMode(STATE_COLORED);
+ SetRenderMode(MODE_COLORED);
  vrt[0].Init(x1-0.5,y1-0.5,zPlane,color1);
  vrt[1].Init(x2-0.5,y2-0.5,zPlane,color2);
  vrt[2].Init(x3-0.5,y3-0.5,zPlane,color3);
@@ -713,7 +697,7 @@ var
  sx1,sy1,sx2,sy2:single;
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
- SetRenderMode(STATE_COLORED);
+ SetRenderMode(MODE_COLORED);
  sx1:=x1-0.5; sx2:=x2+0.5;
  sy1:=y1-0.5; sy2:=y2+0.5;
  vrt[0].Init(sx1,sy1,zPlane,color);
@@ -732,7 +716,7 @@ var
 begin
  ASSERT((depth>=1) and (depth<=3));
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
- SetRenderMode(STATE_COLORED);
+ SetRenderMode(MODE_COLORED);
  inc(x1,depth-1); inc(y1,depth-1);
  dec(x2,depth-1); dec(y2,depth-1);
  b1:=@light; b2:=@dark;
@@ -761,7 +745,7 @@ var
  sx,dx,sy,dy:single;
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
- SetRenderMode(STATE_TEXTURED2X,texture);
+ SetRenderMode(MODE_TEXTURED2X,texture);
  vrt[0].Init(x1-0.5, y1-0.5, zPlane,color);
  vrt[1].Init(x2+0.5, y1-0.5, zPlane,color);
  vrt[2].Init(x2+0.5, y2+0.5, zPlane,color);
@@ -846,7 +830,7 @@ begin
  end;
 
  clippingAPI.Prepare;
- SetRenderMode(STATE_TEXTURED2X,tex);
+ SetRenderMode(MODE_TEXTURED2X,tex);
  gfx.shader.UseTexture(tex);
  renderDevice.DrawIndexed(TRG_LIST,@partBuf[0],@partInd[0],TVertex.layoutTex,sizeof(TVertex),
   0,count*4, 0,count*2);
@@ -872,8 +856,8 @@ var
  idx:integer;
  color:cardinal;
 begin
- if tex=nil then i:=STATE_COLORED
-  else i:=STATE_TEXTURED2X;
+ if tex=nil then i:=MODE_COLORED
+  else i:=MODE_TEXTURED2X;
  SetRenderMode(i,tex);
  if tex<>nil then gfx.shader.UseTexture(tex);
  part:=pointer(data);
@@ -989,9 +973,26 @@ begin
  RotScaled(x1+x2/2,y1+y2/2,result,result,0,texture,color);
 end;
 
-procedure TDrawer.SetRenderMode(state: byte; tex: TTexture);
+procedure TDrawer.SetRenderMode(mode: byte; tex: TTexture);
 begin
-
+ if mode=renderMode then exit;
+ with gfx.shader do begin
+  case mode of
+   MODE_TEXTURED2X:begin
+    TexMode(0,tblModulate2X,tblModulate);
+   end;
+   MODE_COLORED:begin
+    TexMode(0,tblKeep,tblKeep);
+   end;
+   MODE_MULTITEX:begin
+    TexMode(0,tblModulate2X,tblModulate);
+   end;
+  end;
+  if renderMode=MODE_MULTITEX then // disable the 2-nd texture if it was enabled
+   TexMode(1,tblDisable,tblDisable);
+  Apply; // activate shader and its settings
+ end;
+ renderMode:=mode;
 end;
 
 

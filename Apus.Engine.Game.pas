@@ -325,7 +325,7 @@ begin
     [displayMode.ToString, displayFitMode.ToString, displayScaleMode.ToString,
      params.width, params.height]);
   systemPlatform.SetupWindow(params);
-  if gfx.target<>nil then gfx.target.UseBackbuffer;
+  if gfx.target<>nil then gfx.target.Backbuffer;
   SetupRenderArea;
   for i:=low(scenes) to high(scenes) do
    scenes[i].ModeChanged;
@@ -727,7 +727,6 @@ begin
    if params.zbuffer>0 then flags:=flags+aiUseZBuffer;
 
    dRT:=AllocImage(params.width,params.height,pfRenderTarget,flags,'DefaultRT');
-   gfx.target.UseAsDefault(dRT);
   end;
  except
   on e:exception do begin
@@ -1246,8 +1245,8 @@ procedure TGame.PresentFrame;
  begin
    if dRT<>nil then begin
     // Была отрисовка в текстуру - теперь нужно отрисовать её в RenderRect
-    gfx.target.SetDefaultRenderArea(0,0,windowWidth,windowHeight,windowWidth,windowHeight);
-    gfx.target.UseBackbuffer;
+    gfx.target.Viewport(0,0,windowWidth,windowHeight,windowWidth,windowHeight);
+    gfx.target.Backbuffer;
     gfx.BeginPaint(nil);
     try
     // Если есть неиспользуемые полосы - очистить их (но не каждый кадр, чтобы не тормозило)
@@ -1260,7 +1259,7 @@ procedure TGame.PresentFrame;
     finally
      gfx.EndPaint;
     end;
-    gfx.target.UseTexture(dRT);
+    gfx.target.Texture(dRT);
    end;
 
   FLog('Present');
@@ -1319,7 +1318,7 @@ begin
   h:=displayRect.Height;
   if dRT=nil then begin
    // Rendering directly to the framebuffer
-   gfx.target.SetDefaultRenderArea(displayRect.Left,windowHeight-displayRect.Bottom,
+   gfx.target.Viewport(displayRect.Left,windowHeight-displayRect.Bottom,
      w,h,params.width,params.height);
   end else begin
    // Rendering to a framebuffer texture
@@ -1351,12 +1350,7 @@ begin
 
   if not params.showSystemCursor and (n>=0) then begin
    // check if cursor is visible
-   gfx.BeginPaint(nil);
-   try
     /// TODO: draw custom cursor here
-   finally
-    gfx.EndPaint;
-   end;
   end;
 
   if params.showSystemCursor then begin
@@ -1380,7 +1374,6 @@ begin
  try
   if (draw<>nil) and ((showDebugInfo>0) or (showFPS) or (debugOverlay>0)) then begin
     FLog('RDebug');
-    gfx.BeginPaint(nil);
 
     if showDebugInfo>0 then begin
      font:=txt.GetFont('Default',7);
@@ -1404,13 +1397,10 @@ begin
      txt.Write(font,x+45,y+10,$FFFFFFFF,FloatToStrF(FPS,ffFixed,5,1),taRight);
      txt.Write(font,x+45,y+27,$FFFFFFFF,FloatToStrF(SmoothFPS,ffFixed,5,1),taRight);
     end;
-    gfx.EndPaint;
   end;
 
   // Capture screenshot?
   if (capturedTime>0) and (MyTickCount<CapturedTime+3000) and (gfx<>nil) then begin
-   gfx.BeginPaint(nil);
-   try
     x:=params.width div 2;
     y:=params.height div 2;
     draw.FillRect(x-200,y-40,x+200,y+40,$60000000);
@@ -1418,9 +1408,6 @@ begin
     font:=txt.GetFont('Default',7);
     txt.Write(font,x,y-24,$FFFFFFFF,'Screen captured to:',taCenter);
     txt.Write(font,x,y+4,$FFFFFFFF,capturedName,Apus.Engine.API.taCenter);
-   finally
-    gfx.EndPaint;
-   end;
   end;
 
  finally
@@ -1452,38 +1439,37 @@ begin
  EnterCriticalSection(crSect);
  try
   txt.ClearLink;
-  gfx.target.UseBackbuffer;
   try
-  // Очистим экран если нет ни одной background-сцены или они не покрывают всю область вывода
-  fl:=true;
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].fullscreen and (scenes[i].status=ssActive)
-    then fl:=false;
-  FLog('Clear '+booltostr(fl));
-  if fl then begin
-   if params.zbuffer>0 then z:=1 else z:=-1;
-   if params.stencil then s:=0 else s:=-1;
-   gfx.target.Clear($FF000000,z,s);
-  end;
+   // Очистим экран если нет ни одной background-сцены или они не покрывают всю область вывода
+   fl:=true;
+   for i:=low(scenes) to high(scenes) do
+    if scenes[i].fullscreen and (scenes[i].status=ssActive)
+     then fl:=false;
+   FLog('Clear '+booltostr(fl));
+   if fl then begin
+    if params.zbuffer>0 then z:=1 else z:=-1;
+    if params.stencil then s:=0 else s:=-1;
+    gfx.target.Clear($FF000000,z,s);
+   end;
   except
    on e:exception do CritMsg('RFrame1 '+ExceptionMsg(e));
   end;
   FLog('Eff');
   try
-  // Обработка эффектов на ВСЕХ сценах
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].effect<>nil then begin
-    FLog('Eff on '+scenes[i].ClassName+' is '+scenes[i].effect.ClassName+' : '+
-     inttostr(scenes[i].effect.timer)+','+booltostr(scenes[i].effect.done));
-    effect:=scenes[i].effect;
-    FLog('Eff ret');
-    inc(effect.timer,DeltaTime);
-    if effect.done then begin // Эффект завершился
-     Signal('ENGINE\EffectDone',cardinal(scenes[i])); // Посылаем сообщение о завершении эффекта
-     effect.Free;
-     scenes[i].effect:=nil;
+   // Обработка эффектов на ВСЕХ сценах
+   for i:=low(scenes) to high(scenes) do
+    if scenes[i].effect<>nil then begin
+     FLog('Eff on '+scenes[i].ClassName+' is '+scenes[i].effect.ClassName+' : '+
+      inttostr(scenes[i].effect.timer)+','+booltostr(scenes[i].effect.done));
+     effect:=scenes[i].effect;
+     FLog('Eff ret');
+     inc(effect.timer,DeltaTime);
+     if effect.done then begin // Эффект завершился
+      Signal('ENGINE\EffectDone',cardinal(scenes[i])); // Посылаем сообщение о завершении эффекта
+      effect.Free;
+      scenes[i].effect:=nil;
+     end;
     end;
-   end;
   except
    on e:exception do CritMsg('RFrame2 '+ExceptionMsg(e));
   end;
@@ -1491,20 +1477,20 @@ begin
  // Sort active scenes by Z order
   FLog('Sorting');
   try
-  n:=0;
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].status=ssActive then begin
-    // Сортировка вставкой. Найдем положение для вставки и вставим туда
-    if n=0 then begin
-     sc[1]:=scenes[i]; inc(n); continue;
+   n:=0;
+   for i:=low(scenes) to high(scenes) do
+    if scenes[i].status=ssActive then begin
+     // Сортировка вставкой. Найдем положение для вставки и вставим туда
+     if n=0 then begin
+      sc[1]:=scenes[i]; inc(n); continue;
+     end;
+     fl:=true;
+     for j:=n downto 1 do
+      if sc[j].zorder>scenes[i].zorder then sc[j+1]:=sc[j]
+       else begin sc[j+1]:=scenes[i]; fl:=false; break; end;
+     if fl then sc[1]:=scenes[i];
+     inc(n);
     end;
-    fl:=true;
-    for j:=n downto 1 do
-     if sc[j].zorder>scenes[i].zorder then sc[j+1]:=sc[j]
-      else begin sc[j+1]:=scenes[i]; fl:=false; break; end;
-    if fl then sc[1]:=scenes[i];
-    inc(n);
-   end;
   except
    on e:exception do CritMsg('RFrame3 '+ExceptionMsg(e));
   end;
@@ -1513,31 +1499,22 @@ begin
   LeaveCriticalSection(crSect); // активные сцены вынесены в отдельный массив - их нельзя удалять в процессе отрисовки
  end;
 
+ gfx.BeginPaint(dRT);
  // Draw all active scenes
  for i:=1 to n do try
   StartMeasure(i+4);
   // Draw shadow
-  if sc[i].shadowColor<>0 then begin
-   gfx.BeginPaint(nil);
-   try
-    draw.FillRect(0,0,renderWidth,renderHeight,sc[i].shadowColor);
-   finally
-    gfx.EndPaint;
-   end;
-  end;
+  if sc[i].shadowColor<>0 then
+   draw.FillRect(0,0,renderWidth,renderHeight,sc[i].shadowColor);
+
   if sc[i].effect<>nil then begin
    FLog('Drawing eff on '+sc[i].name);
    sc[i].effect.DrawScene;
    FLog('Drawing ret');
   end else begin
-   gfx.BeginPaint(nil);
-   try
    FLog('Drawing '+sc[i].ClassName);
    sc[i].Render;
    FLog('Drawing ret');
-   finally
-    gfx.EndPaint;
-   end;
   end;
   EndMeasure2(i+4);
  except
@@ -1550,13 +1527,14 @@ begin
  // Additional output
  DrawOverlays;
 
- //textLink:=curTextLink;
- //textLinkRect:=curTextLinkRect;
+  //textLink:=curTextLink;
+  //textLinkRect:=curTextLinkRect;
 
  {$IFDEF ANDROID}
  //DebugMessage(framelog);
  {$ENDIF}
 
+ gfx.EndPaint;
  FLog('RDone');
 end;
 

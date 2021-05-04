@@ -64,7 +64,8 @@ uses
   Apus.Engine.ImageTools in '..\..\Apus.Engine.ImageTools.pas',
   Apus.Engine.Draw in '..\..\Apus.Engine.Draw.pas',
   Apus.Engine.Graphics in '..\..\Apus.Engine.Graphics.pas',
-  Apus.Engine.TextDraw in '..\..\Apus.Engine.TextDraw.pas';
+  Apus.Engine.TextDraw in '..\..\Apus.Engine.TextDraw.pas',
+  Apus.Engine.ShadersGL in '..\..\Apus.Engine.ShadersGL.pas';
 
 const
  wnd:boolean=true;
@@ -298,7 +299,7 @@ begin
  gfx.target.Clear($FF000000+frame and 127,-1,-1);
  gfx.BeginPaint(nil);
 
- draw.FillRect(410,10,500,100,$30908079);
+ draw.FillRect(410,10,500,100,$400C08079);
 
  for i:=1 to 10 do begin
   draw.Line(10,10*i,100,10*i,$FFFFFFFF-i*24);
@@ -1675,7 +1676,7 @@ begin
  prog.SetUniform('offset',0.003*d);
  draw.Image(600,300,tex);
  // Switch back to the default shader
- gfx.shader.UseDefault;
+ gfx.shader.Reset;
  draw.FillGradrect(50,50,300,200,$FFF04000,$FF60C000,false);
  draw.FillRect(30,100,500,120,$FF000000);
  gfx.EndPaint;
@@ -1924,6 +1925,7 @@ begin
  game:=MyGame.Create(TWindowsPlatform.Create, TOpenGL.Create); // Создаем объект
  //game:=MyGame.Create(TSDLPlatform.Create, TOpenGL.Create); // Создаем объект
  game.showFPS:=true;
+ disableDRT:=true;
 
  // Начальные установки игры
  with s do begin

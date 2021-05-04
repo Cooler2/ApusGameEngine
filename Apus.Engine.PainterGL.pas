@@ -152,54 +152,6 @@ begin
 end;
 
 
-function SwapColor(color:cardinal):cardinal; inline;
-begin
- result:=color and $FF00FF00+(color and $FF) shl 16+(color and $FF0000) shr 16;
-end;
-
-function clRed(color:cardinal):single; inline;
-begin
- result:=((color shr 16) and $FF)/255;
-end;
-
-function clGreen(color:cardinal):single; inline;
-begin
- result:=((color shr 8) and $FF)/255;
-end;
-
-function clBlue(color:cardinal):single; inline;
-begin
- result:=(color and $FF)/255;
-end;
-
-function clAlpha(color:cardinal):single; inline;
-begin
- result:=((color shr 24) and $FF)/255;
-end;
-
-const
- vColorMatrix=
-  'void main(void)'#13#10+
-  '{'#13#10+
-  '    gl_TexCoord[0] = gl_MultiTexCoord0;                           '#13#10+
-  '    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;       '#13#10+
-  '}';
-
- fColorMatrix=
-  'uniform sampler2D tex1;    '#13#10+
-  'uniform vec3 newRed;   '#13#10+
-  'uniform vec3 newGreen;   '#13#10+
-  'uniform vec3 newBlue;   '#13#10+
-  'void main(void)                         '#13#10+
-  '{                                       '#13#10+
-  '    vec4 value = texture2D(tex1, vec2(gl_TexCoord[0]));  '#13#10+
-   '    float red = dot(value, vec4(newRed, 0));     '#13#10+
-   '    float green = dot(value, vec4(newGreen, 0)); '#13#10+
-   '    float blue = dot(value, vec4(newBlue,0));    '#13#10+
-   '    gl_FragColor = vec4(red,green,blue,value.a); '#13#10+
-  '}';
-
-
 constructor TGLPainter.Create;
 var
  i:integer;
@@ -315,20 +267,6 @@ begin
  result:=prog;
 end;
 
-function TGLPainter.LockBuffer(buf: TPainterBuffer; offset,
-  size: cardinal): pointer;
-begin
- case buf of
-  vertBuf:begin result:=@partbuf[offset];end;
-  bandIndBuf:begin result:=@bandInd[offset]; end;
-  textVertBuf:begin result:=@txtBuf[offset]; end;
-  else raise EWarning.Create('Invalid buffer type');
- end;
-end;
-
-procedure TGLPainter.UnlockBuffer(buf: TPainterBuffer);
-begin
-end;
 
 {$IFNDEF GLES20}
 procedure TGLPainter.DrawIndexedPrimitives(primType: integer; vertexBuf,

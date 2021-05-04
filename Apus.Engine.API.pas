@@ -312,6 +312,7 @@ type
   procedure SetupWindow(params:TGameSettings); // Configure/update window properties
   procedure ShowWindow(show:boolean);
   function GetWindowHandle:THandle;
+  procedure GetWindowSize(out width,height:integer);
   procedure MoveWindowTo(x,y:integer;width:integer=0;height:integer=0);
   procedure SetWindowCaption(text:string);
   procedure Minimize;
@@ -366,16 +367,11 @@ type
 
  // Control render target
  IRenderTargets=interface
-  procedure UseBackbuffer; //< Render to the backbuffer
-  procedure UseTexture(tex:TTexture); //< render to the texture
-  procedure Push;  //< Save (push) current target in stack
-  procedure Pop; //< Restore target from stack
   // Clear render target: fill colorbuffer and optionally depth buffer and stencil buffer
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1);
-  // Configure default render target as texture or backbuffer (nil)
-  procedure UseAsDefault(rt:TTexture);
-  // Setup output position on the backbuffer
-  procedure SetDefaultRenderArea(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer);
+  // Setup viewport (output position) for the current render target
+  // After viewport change don't forget to update projection and clipping
+  procedure Viewport(oX,oY,VPwidth,VPheight:integer;renderWidth:integer=0;renderHeight:integer=0);
   // Enable/setup depth test
   procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true);
   // Set blending mode
@@ -388,6 +384,11 @@ type
   function width:integer;  //< width of the render area in virtual pixels
   function height:integer; //< height of the render area in virtual pixels
   function aspect:single; // width/height
+
+  procedure Backbuffer; //< Render to the backbuffer
+  procedure Texture(tex:TTexture); //< render to the texture (nil - render to the Backbuffer)
+  procedure Push;  //< Save (push) current target in stack (including viewport)
+  procedure Pop; //< Restore target from stack
  end;
 
  // Control clipping
@@ -449,11 +450,11 @@ type
   function Build(vSrc,fSrc:String8;extra:String8=''):TShader;
   // Load and build shader from file(s)
   function Load(filename:String8;extra:String8=''):TShader;
-  // Set custom shader (pass nil if it's already set - because the engine should know)
+  // Set custom shader (pass nil if it's already set or there is no object - because the engine should know)
   procedure UseCustom(shader:TShader);
   // Switch back to the internal shader
-  procedure UseDefault;
-  // Internal shader settings
+  procedure Reset;
+  // Built-in shader settings
   // ----
   // Set texture stage mode (for default shader)
   procedure TexMode(stage:byte;colorMode:TTexBlendingMode=tblModulate2X;alphaMode:TTexBlendingMode=tblModulate;
@@ -466,6 +467,7 @@ type
 
   // Lighting and material
   // ----
+  // Ambient color is added to any pixels (set 0 to disable)
   procedure AmbientLight(color:cardinal);
   // Set directional light (set power<=0 to disable)
   procedure DirectLight(direction:TVector3;power:single;color:cardinal);
@@ -473,6 +475,11 @@ type
   procedure PointLight(position:TPoint3;power:single;color:cardinal);
   // Define material properties
   procedure Material(color:cardinal;shininess:single);
+
+  // Update and upload transformation matrices
+  procedure UpdateMatrices(const model,MVP:T3DMatrix);
+  // Apply shader configuration: call this after any mode changes before actual draw calls
+  procedure Apply;
  end;
 
  // Configuration

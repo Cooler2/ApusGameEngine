@@ -21,6 +21,7 @@ type
   procedure CreateWindow(title:string);
   procedure SetupWindow(params:TGameSettings);
   function GetWindowHandle:THandle;
+  procedure GetWindowSize(out width,height:integer);
   procedure DestroyWindow;
 
   procedure ShowWindow(show:boolean);
@@ -306,6 +307,14 @@ procedure TWindowsPlatform.FreeCursor(cur:THandle);
 function TWindowsPlatform.GetWindowHandle: THandle;
  begin
   result:=window;
+ end;
+
+procedure TWindowsPlatform.GetWindowSize(out width, height: integer);
+ var
+  r:TRect;
+ begin
+  GetClientRect(window,r);
+  width:=r.Width; height:=r.Height;
  end;
 
 procedure TWindowsPlatform.CreateWindow(title: string);
