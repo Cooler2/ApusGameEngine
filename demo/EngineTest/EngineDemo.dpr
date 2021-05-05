@@ -73,7 +73,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 1;
+ testnum:integer = 7;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -247,7 +247,7 @@ var
 
 function MyGame.OnFrame;
  begin
-  if frame and 63=63 then
+  if frame mod 10=0 then
    SetWindowCaption('FPS: '+inttostr(round(game.fps))+
      '  Avg FPS: '+FloatToStrF(1000*frame/(MyTickCount-SaveTime),ffFixed,6,1));
   result:=true;
@@ -299,7 +299,7 @@ begin
  gfx.target.Clear($FF000000+frame and 127,-1,-1);
  gfx.BeginPaint(nil);
 
- draw.FillRect(410,10,500,100,$400C08079);
+ draw.FillRect(410,10,500,100,$40C08079);
 
  for i:=1 to 10 do begin
   draw.Line(10,10*i,100,10*i,$FFFFFFFF-i*24);
@@ -650,9 +650,9 @@ end;
 
 procedure TPrimTest.RenderFrame;
 var
- pnts:array[0..4] of TPoint2;
+ pnts:array[0..40] of TPoint2;
  i:integer;
- a:single;
+ a,r:single;
 begin
  inc(frame);
 // if frame>3 then exit;
@@ -675,7 +675,19 @@ begin
  end;
  draw.Polygon(@pnts,5,$FFFF8000);
 
- draw.Rect(0,0,1023,767,$80FFFF30);
+ for i:=0 to 14 do begin
+  a:=i*0.42;
+  r:=40+20*sin(i*1.7)+10*sin(4+i*0.6);
+  pnts[i].x:=450+r*cos(a);
+  pnts[i].y:=250+r*sin(a);
+ end;
+ draw.Polygon(@pnts,15,$FF0080C0);
+
+ draw.RRect(50,250,100,270,$FFF0C0A0,3);
+ draw.FillTriangle(50,320,100,300,80,380,$10FF3030,$FF30FF30,$FF3030FF);
+
+
+ draw.Rect(0,0,1023,767,$FFFFFF30);
  gfx.EndPaint;
 end;
 
@@ -941,7 +953,6 @@ begin
   end;
  end;
  tex1.Unlock;
- gfx.shader.UseTexture(tex1);
 end;
 
 procedure TR2TextureTest.RenderFrame;
@@ -1949,7 +1960,7 @@ begin
   multisampling:=0;
   slowmotion:=false;
 //  customCursor:=false;
-  VSync:=0;
+  VSync:=1;
  end;
  game.SetSettings(s); // Задать установки
 
