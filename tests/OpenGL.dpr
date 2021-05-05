@@ -19,6 +19,8 @@ var
  shader:GLint;
  tex:GLint;
  shader1,shader2:GLint;
+ frame:integer;
+ time:int64;
 
 procedure EventHandler(event:TEventStr;tag:TTag);
 begin
@@ -276,18 +278,25 @@ begin
    mode.displayMode:=dmWindow;
    mode.displayFitMode:=dfmFullSize;
    mode.displayScaleMode:=dsmDontScale;
+   VSync:=0;
   end;
   systemPlatform.CreateWindow('Platform Test: '+systemPlatform.GetPlatformName);
   systemPlatform.SetupWindow(params);
 
   gfx.Init(systemPlatform);
+  gfx.config.SetVSyncDivider(0);
 
   Prepare;
+  time:=MyTickCount;
   repeat
    systemPlatform.ProcessSystemMessages;
    DrawFrame;
    gfx.PresentFrame;
    //sleep(1);
+   inc(frame);
+   if frame mod 10=0 then begin
+    systemPlatform.SetWindowCaption(Format('FPS: %.1f (%d)',[1000*frame/(MyTickCount-time),frame]));
+   end;
   until systemPlatform.isTerminated;
 
   gfx.Done;
