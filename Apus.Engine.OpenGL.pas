@@ -532,9 +532,11 @@ function ColorComponent(color:cardinal;idx:integer):single;
 procedure TGLRenderTargetAPI.Clear(color:cardinal; zbuf:single;  stencil:integer);
  var
   mask:cardinal;
+  val:GLboolean;
  begin
   mask:=GL_COLOR_BUFFER_BIT;
-  glDisable(GL_SCISSOR_TEST);
+  glGetBooleanv(GL_SCISSOR_TEST,@val);
+  if val then glDisable(GL_SCISSOR_TEST);
   glClearColor(
     ColorComponent(color,2),
     ColorComponent(color,1),
@@ -553,7 +555,7 @@ procedure TGLRenderTargetAPI.Clear(color:cardinal; zbuf:single;  stencil:integer
    glClearStencil(stencil);
   end;
   glClear(mask);
-  glEnable(GL_SCISSOR_TEST);
+  if val then glEnable(GL_SCISSOR_TEST);
  end;
 
 procedure TGLRenderTargetAPI.Clip(x,y,w,h: integer);

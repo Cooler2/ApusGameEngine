@@ -344,7 +344,7 @@ procedure TRenderTargetAPI.ClipVirtual(const r: TRect);
   h:=vPort.Height;
   scaleX:=w/renderWidth;
   scaleY:=h/renderHeight;
-  Clip(x+round(r.Left*scaleX),realHeight-y-round(h*scaleY),
+  Clip(x+round(r.Left*scaleX),y+round(r.top*scaleY),
     round(r.Width*scaleX),round(r.height*scaleY));
  end;
 

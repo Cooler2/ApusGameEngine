@@ -18,7 +18,7 @@ interface
  uses Classes, Apus.CrossPlatform, Apus.MyServis, Types, Apus.Engine.API;
 
 var
- onFrameDelay:integer=1; // Sleep this time every frame
+ onFrameDelay:integer=0; // Sleep this time every frame
  disableDRT:boolean=false; // always render directly to the backbuffer - no
 
 type
@@ -1313,7 +1313,7 @@ begin
   scenes[i].onResize;
  Signal('ENGINE\RESIZED');
 
- if gfx<>nil then begin
+ if (gfx<>nil) and (gfx.target<>nil) then begin
   w:=displayRect.Width;
   h:=displayRect.Height;
   if dRT=nil then begin
@@ -1933,12 +1933,12 @@ procedure TMainThread.Execute;
    LogMessage(TimeStamp+' Main thread started - '+inttostr(cardinal(GetCurrentThreadID)));
    RegisterThread('MainThread');
    LogMessage(GetSystemInfo);
+   SetEventHandler('Engine\',EngineEvent,emInstant);
+   SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
 
    systemPlatform.CreateWindow(gameEx.params.title);
    gameEx.InitMainLoop; // вызывает InitGraph
 
-   SetEventHandler('Engine\',EngineEvent,emInstant);
-   SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
 
    game.running:=true; // Это как-бы семафор для завершения функции Run
    LogMessage('MainLoop started');

@@ -91,6 +91,8 @@ begin
  ForceLogMessage('Creating '+self.ClassName);
  zPlane:=0;
  drawer:=self;
+ setLength(partBuf,4*MaxParticleCount);
+ setLength(partInd,6*MaxParticleCount);
 end;
 
 {

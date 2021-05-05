@@ -759,8 +759,11 @@ begin
    glCompressedTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,length(realData),realData)
   else begin
    {$IFNDEF GLES}
-   if needInit then // Specify texture size and pixel format
+   if needInit then begin // Specify texture size and pixel format
     glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,nil);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+   end;
    CheckForGLError('13');
     // Upload texture data
    glPixelStorei(GL_UNPACK_ROW_LENGTH,realWidth);
@@ -780,8 +783,11 @@ begin
    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,data);
    CheckForGLError('16');
    {$ENDIF}
-   if (caps and tfAutoMipMap>0) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then
+   if (caps and tfAutoMipMap>0) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
     glGenerateMipmap(GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+   end;
 
    if caps and tfClamped>0 then begin
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
