@@ -284,8 +284,9 @@ type
 
   // Create cloned image (separate object referencing the same image data). Original image can't be destroyed unless all its clones are destroyed
   constructor CreateClone(src:TTexture);
-  function Clone:TTexture;
-  function ClonePart(part:TRect):TTexture;
+  function Clone:TTexture; // Clone this texture and return the cloned instance
+  function ClonePart(part:TRect):TTexture; // Create cloned instance for part of this texture
+  procedure Clear(color:cardinal=$808080); // clear and fill the texture
   procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // 0-й уровень - самый верхний
   procedure LockNext; virtual; abstract; // lock next mip-map level
   function GetRawImage:TRawImage; virtual; abstract; // Create RAW image for the topmost MIP level (when locked)
@@ -456,7 +457,7 @@ type
   procedure Reset;
   // Built-in shader settings
   // ----
-  // Set texture stage mode (for default shader)
+  // Set custom texturing mode
   procedure TexMode(stage:byte;colorMode:TTexBlendingMode=tblModulate2X;alphaMode:TTexBlendingMode=tblModulate;
      filter:TTexFilter=fltUndefined;intFactor:single=0.0);
   // Restore default texturing mode: one stage with Modulate2X mode for color and Modulate mode for alpha
@@ -955,6 +956,7 @@ var
  gfx:IGraphicsSystem;
  game:TGameBase;
 
+ shader:IShaders; //< shortcut for gfx.shader
  draw:IDrawer;    //< shortcut for gfx.draw
  txt:ITextDrawer; //< shortcut for gfx.txt
 
@@ -1047,9 +1049,23 @@ function TTexture.HasFlag(flag: cardinal): boolean;
   result:=caps and flag>0;
  end;
 
-function TTexture.IsLocked: boolean;
+function TTexture.IsLocked:boolean;
  begin
   result:=locked>0;
+ end;
+
+procedure TTexture.Clear(color:cardinal);
+ var
+  pb:PByte;
+  y:integer;
+ begin
+  Lock;
+  pb:=data;
+  for y:=0 to height-1 do begin
+   FillDword(pb^,width,color);
+   inc(pb,pitch);
+  end;
+  Unlock;
  end;
 
 function TTexture.Clone:TTexture;
@@ -1283,6 +1299,7 @@ procedure TVertex.Init(x, y, z: single; color: cardinal);
  begin
   self.x:=x; self.y:=y; self.z:=z;
   self.color:=color;
+  self.u:=0.5; self.v:=0.5;
  end;
 
 { TVertex2t }
