@@ -73,7 +73,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 7;
+ testnum:integer = 1;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -318,7 +318,7 @@ begin
  for i:=1 to frame mod 4+1 do
   draw.Line(i*3,1,i*3,5,$FFFFFFFF);
 
- for i:=0 to 200 do
+ for i:=0 to 100 do
   draw.Line(i*4,500,i*4+2,510,$FF80FF00);
 
  gfx.EndPaint;
@@ -1892,7 +1892,7 @@ function MyRound(v:single):integer; inline;
 
 var
  v:single;
- i,n:integer;
+ i,n,key:integer;
  time:int64;
 begin
  time:=MyTickCount;
@@ -1969,8 +1969,17 @@ begin
  InitUI;
  // А можно и не делать - можно это сделать в обработчике события
  savetime:=MyTickCount;
+ key:=0;
  repeat
   delay(5);
+  if (game.keyState[59]>0) and (key=0) then begin // [F1]
+   s.VSync:=s.VSync xor 1;
+   game.SetVSync(s.VSync);
+   key:=1;
+   saveTime:=MyTickCount;
+   frame:=0;
+  end;
+  if game.keyState[59]=0 then key:=0;
  until (game.keyState[1]<>0) or (game.terminated);
  game.Stop;
 // ShowMessage('Average FPS: '+FloatToStrF(1000*frame/(getTickCount-SaveTime),ffGeneral,6,1),'FPS');
