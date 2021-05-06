@@ -314,6 +314,7 @@ constructor TTextDrawer.Create;
   pw:^word;
  begin
   textDrawer:=self;
+  txt:=self;
 
   SetLength(txtBuf,4*MaxGlyphBufferCount);
   SetLength(txtInd,6*MaxGlyphBufferCount);
@@ -1045,8 +1046,9 @@ var
     r:=types.Rect(x, y-height-height div 2,x+width+1,y+height div 2);
    end
    {$ENDIF};
-   if clippingAPI.Prepare(r) then exit(false);
+   if not clippingAPI.Prepare(r) then exit(false);
    /// TODO: set texture and mode SetStates(STATE_TEXTURED2X,r,textCache);
+   gfx.shader.TexMode(0,tblKeep,tblReplace);
    result:=true;
   end;
 

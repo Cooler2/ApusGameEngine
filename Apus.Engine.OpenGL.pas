@@ -68,6 +68,7 @@ type
  TRenderDevice=class(TInterfacedObject,IRenderDevice)
   constructor Create;
   destructor Destroy; override;
+  procedure Reset;
 
   procedure Draw(primType,primCount:integer;vertices:pointer;
     vertexLayout:TVertexLayout;stride:integer);
@@ -88,10 +89,10 @@ type
   function LockBuffer(buf:TPainterBuffer;offset,size:cardinal):pointer;
   procedure UnlockBuffer(buf:TPainterBuffer);   *)
  protected
-  curTexMode:int64; // описание режима текстурирования, установленного клиентским кодом
-  actualTexMode:int64; // фактически установленный режим текстурирования
-  actualShader:byte; // тип текущего шейдера
   actualAttribArrays:shortint; // кол-во включенных аттрибутов (-1 - неизвестно, 2+кол-во текстур)
+  lastVertices:pointer;
+  lastLayout:TVertexLayout;
+  lastStride:integer;
   procedure SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout;stride:integer);
  end;
 
@@ -371,6 +372,7 @@ procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
  var
   vrt:PVertex;
  begin
+  shader.Apply;
   transformationAPI.Update;
   SetupAttributes(vertices,vertexLayout,stride);
   case primtype of
@@ -386,6 +388,7 @@ procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:po
      vertexLayout:TVertexLayout;stride:integer;
      vrtStart,vrtCount:integer; indStart,primCount:integer);
  begin
+  shader.Apply;
   transformationAPI.Update;
   SetupAttributes(vertices,vertexLayout,stride);
   case primtype of
@@ -395,6 +398,11 @@ procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:po
    TRG_FAN:glDrawElements(GL_TRIANGLE_FAN,primCount+2,GL_UNSIGNED_SHORT,indices);
    TRG_STRIP:glDrawElements(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,indices);
   end;
+ end;
+
+procedure TRenderDevice.Reset;
+ begin
+  lastVertices:=nil;
  end;
 
 (*
@@ -449,6 +457,10 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
   i,v,n:integer;
   p:pointer;
  begin
+  if (lastVertices=vertices) and (lastLayout=vertexLayout) and (lastStride=stride) then exit;
+  lastVertices:=vertices;
+  lastLayout:=vertexLayout;
+  lastStride:=stride;
   n:=0;
   for i:=0 to 4 do begin
    v:=(vertexLayout and $F)*4;

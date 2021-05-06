@@ -7,7 +7,7 @@
 {$IF Defined(MSWINDOWS) or Defined(LINUX)} {$DEFINE DGL} {$ENDIF}
 unit Apus.Engine.ShadersGL;
 interface
-uses Apus.CrossPlatform, Apus.Geom3d, Apus.Engine.API, Apus.Engine.Graphics;
+uses Apus.CrossPlatform, Apus.Geom3d,  Apus.Structs, Apus.Engine.API, Apus.Engine.Graphics;
 
 type
  TGLShaderHandle=integer;
@@ -76,8 +76,8 @@ type
   curTexMode:TTexMode; // encoded shader mode requested by the client code
   actualTexMode:TTexMode; // actual shader mode
 
+  shaderCache:TSimpleHash;
   activeShader:TGLShader; // current OpenGL shader
-  baseShader:TGLShader; // shader used for 0-1 texture stages
   isCustom:boolean;
   lighting:boolean;
 
@@ -87,6 +87,7 @@ type
   procedure ActivateShader(shader:TShader);
   // Get/create shader for current render settings
   function GetShaderFor:TGLShader;
+  function CreateShaderFor:TGLShader;
   procedure SetShaderMatrices; // upload matrices to the shader uniforms
  end;
 
@@ -190,11 +191,11 @@ procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
 ' }');
 
 // === Fragment shader ===
- fShader:array[1..56] of string8=(
+ fShader:array[1..28] of string8=(
 ' #version 330',
 ' uniform sampler2D tex0;',
-' uniform int colorOp;',
-' uniform int alphaOp;',
+' uniform sampler2D tex1;',
+' uniform sampler2D tex2;',
 ' uniform float uFactor;',
 ' in vec4 vColor;',
 ' in vec2 vTexCoord;',
@@ -205,72 +206,84 @@ procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
 '   vec3 c = vec3(vColor.b, vColor.g, vColor.r);',
 '   float a = vColor.a;',
 '   vec4 t = texture2D(tex0,vTexCoord);',
-'   switch (colorOp) {',
-'     case 3: // tblReplace',
-'       c = vec3(t.r, t.g, t.b);',
-'       break;',
-'     case 4: // tblModulate',
-'       c = c*vec3(t.r, t.g, t.b);',
-'       break;',
-'     case 5: // tblModulate2X',
-'       c = 2.0*c*vec3(t.r, t.g, t.b);',
-'       break;',
-'     case 6: // tblAdd',
-'       c = c+vec3(t.r, t.g, t.b);',
-'       break;',
-'     case 7: // tblSub',
-'       c = c-vec3(t.r, t.g, t.b);',
-'       break;',
-'     case 8: // tblInterpolate',
-'       c = mix(c, vec3(t.r, t.g, t.b), uFactor);',
-'       break;',
-'   }',
-'   switch (alphaOp) {',
-'     case 3: // tblReplace',
-'       a = t.a;',
-'       break;',
-'     case 4: // tblModulate',
-'       a = a*t.a;',
-'       break;',
-'     case 5: // tblModulate2X',
-'       a = 2.0*a*t.a;',
-'       break;',
-'     case 6: // tblAdd',
-'       a = a+t.a;',
-'       break;',
-'     case 7: // tblSub',
-'       a = a-t.a;',
-'       break;',
-'     case 8: // tblInterpolate',
-'       a = mix(a, t.a, uFactor);',
-'       break;',
-'   }',
+'       c = vec3(t.r, t.g, t.b); // replace',
+'       c = c*vec3(t.r, t.g, t.b); // modulate',
+'       c = 2.0*c*vec3(t.r, t.g, t.b); // modulate2x',
+'       c = c+vec3(t.r, t.g, t.b); // add',
+'       c = c-vec3(t.r, t.g, t.b); // sub',
+'       c = mix(c, vec3(t.r, t.g, t.b), uFactor); // interpolate',
+'       a = t.a; // replace',
+'       a = a*t.a; // modulate',
+'       a = 2.0*a*t.a; // modulate2x',
+'       a = a+t.a; // add',
+'       a = a-t.a; // sub',
+'       a = mix(a, t.a, uFactor); // interpolate',
 '   fragColor = vec4(c.r, c.g, c.b, a);',
 ' }');
 
-constructor TGLShadersAPI.Create;
+function TGLShadersAPI.CreateShaderFor:TGLShader;
  var
-  vSrc,fSrc:string8;
+  vSrc,fSrc:String8;
   i:integer;
+  m:byte;
  begin
-  _AddRef;
-  for i:=1 to high(vShader) do
-   vSrc:=vSrc+vShader[i]+#13#10;
-  for i:=1 to high(fShader) do
-   fSrc:=fSrc+fShader[i]+#13#10;
-  baseShader:=Build(vSrc,fSrc) as TGLShader;
+  for i:=1 to high(vShader) do vSrc:=vSrc+vShader[i]+#13#10;
+  for i:=1 to 13 do fSrc:=fSrc+fShader[i]+#13#10;
+  for i:=0 to 2 do begin
+   m:=curTexMode.stage[i];
+   if m<>0 then begin
+    fSrc:=fSrc+'   vec4 t = texture2D(tex'+intToStr(i)+',vTexCoord);';
+    case m and $0F of
+     3:fSrc:=fSrc+'       c = vec3(t.r, t.g, t.b);'; // replace
+     4:fSrc:=fSrc+'       c = c*vec3(t.r, t.g, t.b);'; //
+     5:fSrc:=fSrc+'       c = 2.0*c*vec3(t.r, t.g, t.b);';
+     6:fSrc:=fSrc+'       c = c+vec3(t.r, t.g, t.b);';
+     7:fSrc:=fSrc+'       c = c-vec3(t.r, t.g, t.b);'; //
+     8:fSrc:=fSrc+'       c = mix(c, vec3(t.r, t.g, t.b), uFactor); '; //
+    end;
+    m:=m shr 4;
+    case m of
+     3:fSrc:=fSrc+'       a = t.a; '; //
+     4:fSrc:=fSrc+'       a = a*t.a; '; //
+     5:fSrc:=fSrc+'       a = 2.0*a*t.a;  '; //
+     6:fSrc:=fSrc+'       a = a+t.a;  '; //
+     7:fSrc:=fSrc+'       a = a-t.a;  '; //
+     8:fSrc:=fSrc+'       a = mix(a, t.a, uFactor);  '; //
+    end;
+   end;
+  end;
+
+  for i:=high(fShader)-1 to high(fShader) do fSrc:=fSrc+fShader[i]+#13#10;
+  result:=Build(vSrc,fSrc) as TGLShader;
  end;
 
 function TGLShadersAPI.GetShaderFor:TGLShader;
+ var
+  mode:cardinal;
+  v:int64;
  begin
-
+  mode:=curTexMode.mode;
+  v:=shaderCache.Get(mode);
+  if v<>-1 then exit(TGLShader(v));
+  result:=CreateShaderFor;
+  shaderCache.Put(mode,UIntPtr(result));
  end;
 
+constructor TGLShadersAPI.Create;
+ var
+  i:integer;
+ begin
+  _AddRef;
+  shadersAPI:=self;
+  shader:=self;
+  shaderCache.Init(32);
+ end;
 
 procedure TGLShadersAPI.DefaultTexMode;
  begin
   TexMode(0,tblModulate2X,tblModulate);
   TexMode(1,tblDisable,tblDisable);
+  Apply;
  end;
 
 procedure TGLShadersAPI.TexMode(stage:byte; colorMode,
@@ -370,7 +383,7 @@ procedure TGLShadersAPI.UseCustom(shader: TShader);
 
 procedure TGLShadersAPI.Reset;
  begin
-  ActivateShader(baseShader);
+  isCustom:=false;
   actualTexMode.mode:=0;
   lighting:=false;
   TexMode(0);
@@ -391,10 +404,12 @@ procedure TGLShadersAPI.UseTexture(tex: TTexture; stage: integer);
  const
   tNames:array[0..3] of string8=('tex0','tex1','tex2','tex3');
  begin
+  if curTextures[stage]=tex then exit;
   if tex<>nil then begin
    if tex.parent<>nil then tex:=tex.parent;
    resourceManagerGL.MakeOnline(tex,stage);
-   activeShader.SetUniform(tNames[stage],stage);
+   if Assigned(activeShader) then
+    activeShader.SetUniform(tNames[stage],stage);
   end else begin
    glActiveTexture(GL_TEXTURE0+stage);
    glBindTexture(GL_TEXTURE_2D,0);
@@ -495,17 +510,8 @@ procedure TGLShadersAPI.Apply;
  begin
   if isCustom then exit;
   if (actualTexMode.mode=curTexMode.mode) then exit;
-  if curTexMode.mode=curTexMode.mode and $FF then begin // use base shader
-   if activeShader<>baseShader then
-    ActivateShader(baseShader);
-   // set blend mode
-   baseShader.SetUniform('colorOp',curTexMode.stage[0] and $0F);
-   baseShader.SetUniform('alphaOp',curTexMode.stage[0] shr 4);
-  end else begin // use specific shader
-   shader:=GetShaderFor;
-   if activeShader<>shader then
-    ActivateShader(shader);
-  end;
+  shader:=GetShaderFor;
+  ActivateShader(shader);
   actualTexMode:=curtexMode;
  end;
 
