@@ -334,6 +334,10 @@ end;
 
 procedure TGame.SetVSync(divider: integer);
 begin
+ if (mainThread<>nil) and (mainThread.ThreadID<>GetCurrentThreadID) then begin
+  Signal('ENGINE\Cmd\SetSwapInterval',divider);
+  exit;
+ end;
  if gfx.config.SetVSyncDivider(divider) then exit;
  if systemPlatform.SetSwapInterval(divider) then exit;
  PutMsg('Failed to set VSync: no method available');
@@ -640,9 +644,6 @@ begin
 
  SetVSync(params.VSync);
 
- // Interface shortcuts
- draw:=gfx.draw;
- txt:=gfx.txt;
  //
  InitDefaultRenderTarget;
  SetupRenderArea;
@@ -1034,9 +1035,6 @@ begin
  end else
  if SameText(event,'SETGLOBALTINTCOLOR') then globalTintColor:=tag
  else
- if SameText(event,'SETSWAPINTERVAL') then begin
-  SetVSync(tag);
- end else
  if SameText(event,'MAINLOOPINIT') then begin
   InitMainLoop;
  end else
@@ -1104,6 +1102,9 @@ begin
   if mainThread<>nil then mainThread.Terminate;
  end
  else
+ if SameText(event,'SETSWAPINTERVAL') then begin
+  SetVSync(tag);
+ end else
  // Update mouse position when it is obsolete
  if SameText(event,'UPDATEMOUSEPOS') then begin
    pnt:=systemPlatform.GetMousePos;
