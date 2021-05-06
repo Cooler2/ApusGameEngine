@@ -429,6 +429,7 @@ interface
 
  procedure ZeroMem(var data;size:integer); inline;
  function IsZeroMem(buf:pointer;size:integer):boolean;
+ procedure FillDword(var data;size:integer;value:cardinal);
 
  // Простейшее шифрование/дешифрование (simple XOR)
  procedure SimpleEncrypt(var data;size,code:integer);
@@ -2112,6 +2113,18 @@ procedure SimpleEncrypt2;
     inc(i);
     pb^:=b;
     inc(pb);
+   end;
+  end;
+
+ procedure FillDword(var data;size:integer;value:cardinal);
+  var
+   pc:PCardinal;
+  begin
+   pc:=@data;
+   while size>0 do begin
+    pc^:=value;
+    inc(pc);
+    dec(size);
    end;
   end;
 
