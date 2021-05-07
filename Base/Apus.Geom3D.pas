@@ -25,10 +25,14 @@ interface
 
   TQuaternion=record
    x,y,z,w:double;
+   constructor Init(x,y,z,w:double);
   end;
 
   TQuaternionS=record
-   x,y,z,w:single;
+   constructor Init(x,y,z,w:single);
+   case integer of
+    1:( x,y,z,w:single; );
+    2:( v:array[0..3] of single; );
   end;
 
   // Infinite plane in space
@@ -1212,6 +1216,18 @@ var
 constructor TPoint3.Init(iX, iY, iZ: double);
  begin
   x:=iX; y:=iY; z:=iZ;
+ end;
+
+{ TQuaternion }
+
+constructor TQuaternion.Init(x, y, z, w: double);
+ begin
+  self.x:=x; self.y:=y; self.z:=z; self.w:=w;
+ end;
+
+constructor TQuaternionS.Init(x, y, z, w: single);
+ begin
+  self.x:=x; self.y:=y; self.z:=z; self.w:=w;
  end;
 
 initialization
