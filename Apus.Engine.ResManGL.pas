@@ -15,6 +15,7 @@ type
   texname:cardinal;
   realWidth,realHeight:integer; // real dimensions of underlying texture object (can be larger than requested)
   filter:TTexFilter;
+  procedure CloneFrom(src:TTexture); override;
   procedure SetAsRenderTarget; virtual;
   procedure Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); override; // 0-й уровень - самый верхний
   procedure AddDirtyRect(rect:TRect); override;
@@ -256,6 +257,11 @@ end;
 
 { TGLTexture }
 
+procedure TGLTexture.CloneFrom(src: TTexture);
+begin
+ inherited;
+end;
+
 function TGLTexture.Describe: string;
 begin
  if self is TGLTexture then
@@ -272,8 +278,8 @@ begin
  if texName<>0 then begin
   t:=self;
   resourceManagerGL.FreeImage(t);
- end;
- inherited;
+ end else
+  inherited;
 end;
 
 function TGLTexture.GetRawImage: TRawImage;
@@ -573,20 +579,21 @@ begin
  end;
 end;
 
-function TGLResourceManager.Clone(img: TTexture): TTexture;
+function TGLResourceManager.Clone(img:TTexture):TTexture;
 var
  res,src:TGLTexture;
 begin
  ASSERT(img is TGLTexture);
  src:=TGLTexture(img);
- res:=TGLTexture.CreateClone(img);
+
+ res:=TGLTexture.Create;
+ res.CloneFrom(img);
  res.texname:=src.texname;
  res.realWidth:=src.realWidth;
  res.realHeight:=src.realHeight;
  res.filter:=src.filter;
  res.online:=src.online;
  // Мда... И как тут сделать ссылку на данные!?
- ASSERT(false);
  result:=res;
 end;
 

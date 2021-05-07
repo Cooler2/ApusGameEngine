@@ -286,7 +286,7 @@ type
   pitch:integer;  // offset to next scanline
 
   // Create cloned image (separate object referencing the same image data). Original image can't be destroyed unless all its clones are destroyed
-  constructor CreateClone(src:TTexture);
+  procedure CloneFrom(src:TTexture); virtual;
   function Clone:TTexture; // Clone this texture and return the cloned instance
   function ClonePart(part:TRect):TTexture; // Create cloned instance for part of this texture
   procedure Clear(color:cardinal=$808080); // clear and fill the texture
@@ -1029,7 +1029,7 @@ uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Eng
    gfx:=gfxSystem;
   end;
 
- constructor TTexture.CreateClone(src:TTexture);
+ procedure TTexture.CloneFrom(src:TTexture);
   begin
    PixelFormat:=src.PixelFormat;
    left:=src.left;
@@ -1075,7 +1075,8 @@ procedure TTexture.Clear(color:cardinal);
 
 function TTexture.Clone:TTexture;
  begin
-  result:=TTexture.CreateClone(self);
+  result:=ClassType.Create as TTexture;
+  result.CloneFrom(self);
  end;
 
 function TTexture.ClonePart(part:TRect): TTexture;

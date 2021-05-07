@@ -72,7 +72,7 @@ type
   // Define material properties
   procedure Material(color:cardinal;shininess:single); virtual; abstract;
 
-  procedure Apply; inline;
+  procedure Apply;
 
  private
   curTextures:array[0..3] of TTexture;
@@ -520,6 +520,7 @@ procedure TGLShadersAPI.Apply;
  var
   shader:TGLShader;
   i:integer;
+  tex:TTexture;
  begin
   if not isCustom then
    if actualTexMode.mode<>curTexMode.mode then begin
@@ -531,7 +532,9 @@ procedure TGLShadersAPI.Apply;
   for i:=0 to 2 do
    if curTexChanged[i] then begin
     curTexChanged[i]:=false;
-    resourceManagerGL.MakeOnline(curTextures[i],i);
+    tex:=curTextures[i];
+    while tex.parent<>nil do tex:=tex.parent;
+    resourceManagerGL.MakeOnline(tex,i);
     if activeShader.uTex[i]>=0 then glUniform1i(activeShader.uTex[i],i);
    end;
  end;
