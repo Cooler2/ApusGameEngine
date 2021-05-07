@@ -11,6 +11,7 @@ interface
   MAGIC_TEXTCACHE = $01FF;
   DEFAULT_FONT_DOWNSCALE = 0.93;
   DEFAULT_FONT_UPSCALE = 1.1;
+  TXT_TEXTURE_8BIT = false;
 
   // FT-шрифты не имеют "базового" размера, поэтому scale задается относительно произвольно зафиксированного размера
   FTF_DEFAULT_LINE_HEIGHT = 24; // Высота строки, соответствующей scale=100
@@ -154,8 +155,7 @@ procedure TUnicodeFontEx.InitDefaults;
 procedure TTextDrawer.FlushTextCache;
  begin
   if textBufUsage=0 then exit;
-
-  gfx.shader.UseTexture(textCache);
+  shader.UseTexture(textCache);
   if textBufUsage>0 then begin
     renderDevice.DrawIndexed(TRG_LIST,txtBuf,txtInd,TVertex.layoutTex,sizeof(TVertex),
       0,textBufUsage, 0,textBufUsage div 2);
@@ -312,6 +312,7 @@ constructor TTextDrawer.Create;
  var
   i:integer;
   pw:^word;
+  format:TImagePixelFormat;
  begin
   textDrawer:=self;
   txt:=self;
@@ -340,8 +341,10 @@ constructor TTextDrawer.Create;
   i:=gfx.target.width*gfx.target.height; // screen pixels
   if i>2500000 then textCacheHeight:=max2(textCacheHeight,1024);
   if i>3500000 then textCacheWidth:=max2(textCacheWidth,1024);
-  textCache:=AllocImage(textCacheWidth,textCacheHeight,ipfA8,aiTexture,'textCache');
-
+  if TXT_TEXTURE_8BIT then format:=ipfA8
+   else format:=ipfARGB;
+  textCache:=AllocImage(textCacheWidth,textCacheHeight,format,aiTexture,'textCache');
+  if format=ipfARGB then textCache.Clear($808080);
  end;
 
 destructor TTextDrawer.Destroy;
@@ -606,10 +609,10 @@ var
    drawToBitmap:=(options and toDrawToBitmap>0);
 
    // Adjust color
-   if textCache.PixelFormat<>ipfA8 then begin
+{   if textCache.PixelFormat<>ipfA8 then begin
      if not drawToBitmap then // Convert color to FF808080 range
        color:=(color and $FF000000)+((color and $FEFEFE shr 1));
-   end;
+   end;}
 
    // Alignment
    if options and toAddBaseline>0 then begin
@@ -653,9 +656,13 @@ var
    v:byte;
   begin
    pLine:=textCache.data;
-   bpp:=PixelSize[textCache.pixelFormat] div 8;
+   bpp:=PixelSize[textCache.pixelFormat] div 8; // 1,2 or 4 bytes per pixel in target texture
    inc(pLine,X*bpp+Y*textCache.pitch);
-   fillchar(pLine^,(width+1)*bpp,0);
+   if bpp<4 then
+    Fillchar(pLine^,(width+1)*bpp,0)
+   else
+    FillDWord(pLine^,width+1,$808080);
+
    for tY:=0 to Height-1 do begin
     inc(pLine,textCache.pitch);
     pixelData:=pLine;
@@ -675,12 +682,12 @@ var
      end;
 
      if bpp=1 then
-      PByte(pixelData)^:=v
+      PByte(pixelData)^:=v // 8-bit alpha only texture
      else
      if bpp=2 then
-      PWord(pixelData)^:=(v and $F0) shl 8+$FFF
+      PWord(pixelData)^:=(v and $F0) shl 8+$888 // 4-4-4-4 texture
      else
-      PCardinal(pixelData)^:=v shl 24+$FFFFFF;
+      PCardinal(pixelData)^:=v shl 24+$808080; // ARGB with neutral color
     end;
     inc(pixelData,bpp);
     fillchar(pixelData^,bpp,0);
@@ -1047,8 +1054,11 @@ var
    end
    {$ENDIF};
    if not clippingAPI.Prepare(r) then exit(false);
-   /// TODO: set texture and mode SetStates(STATE_TEXTURED2X,r,textCache);
-   gfx.shader.TexMode(0,tblKeep,tblReplace);
+
+   if TXT_TEXTURE_8BIT then
+    shader.TexMode(0,tblKeep,tblReplace)
+   else
+    shader.TexMode(0,tblModulate2x,tblModulate);
    result:=true;
   end;
 
