@@ -67,6 +67,7 @@ const
  tfTexture        = 1024; // Texture corresponds to a texture object of the underlying API
  tfScaled         = 2048; // scale factors are used
  tfCloned         = 4096; // Texture object is cloned from another, so don't free any underlying resources
+ tfPixelated      = 8192; // No interpolation allowed for sampling this texture
 
  // Special flags for the "index" field of particles
  partPosU  = $00000001; // horizontal position in the atlas (in cells)
@@ -154,6 +155,8 @@ type
  PPoint3 = ^TPoint3;
  TPoint3s = Apus.Geom3D.TPoint3s;
  PPoint3s = ^TPoint3s;
+ TVector4 = TQuaternion;
+ TVector4s = TQuaternionS;
  // Matrices
  T3DMatrix = TMatrix4;
  T3DMatrixS = TMatrix4s;
@@ -295,6 +298,7 @@ type
   procedure AddDirtyRect(rect:TRect); virtual; abstract; // mark area to update when unlocked (mode=lmCustomUpdate)
   procedure GenerateMipMaps(count:byte); virtual; abstract; // Сгенерировать изображения mip-map'ов
   function HasFlag(flag:cardinal):boolean;
+  procedure SetFilter(allowInterpolation:boolean); virtual; abstract;
  protected
   locked:integer; // lock counter
  end;
@@ -363,6 +367,7 @@ type
   procedure SetUniform(name:String8;value:integer); overload; virtual; abstract;
   procedure SetUniform(name:String8;value:single); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:TVector3s); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TQuaternionS); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:T3DMatrix); overload; virtual; abstract;
  end;
 
@@ -551,7 +556,7 @@ type
   color:cardinal;
   u,v:single;
   procedure Init(x,y,z,u,v:single;color:cardinal); overload; inline;
-  procedure Init(x,y,z:single;color:cardinal); overload; inline;
+  procedure Init(x,y,z:single;color:cardinal); overload;
   class var layoutTex,layoutNoTex:cardinal;
  end;
 
