@@ -1247,7 +1247,6 @@ procedure TGame.PresentFrame;
    if dRT<>nil then begin
     // Была отрисовка в текстуру - теперь нужно отрисовать её в RenderRect
     gfx.target.Viewport(0,0,windowWidth,windowHeight,windowWidth,windowHeight);
-    gfx.target.Backbuffer;
     gfx.BeginPaint(nil);
     try
     // Если есть неиспользуемые полосы - очистить их (но не каждый кадр, чтобы не тормозило)
@@ -1255,12 +1254,11 @@ procedure TGame.PresentFrame;
        ((frameNum mod 5=0) or (frameNum<3)) then gfx.target.Clear($FF000000);
 
     with displayRect do begin
-     draw.TexturedRect(Left,Top,right-1,bottom-1,DRT,0,1,1,1,1,0,globalTintColor);
+     draw.TexturedRect(Left,Top,right-1,bottom-1,DRT,0,0,1,0,1,1,globalTintColor);
     end;
     finally
      gfx.EndPaint;
     end;
-    gfx.target.Texture(dRT);
    end;
 
   FLog('Present');
