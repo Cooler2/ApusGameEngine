@@ -67,7 +67,7 @@ interface
 
    txtBuf:array of TVertex;
    txtInd:array of word;
-   textBufUsage:integer; // number of vertices stored in textBuf
+   txtVertCount:integer; // number of vertices stored in textBuf
 
    textCache:TTexture; // texture with cached glyphs (textCacheWidth x 512, or another for new glyph cache structure)
 
@@ -154,12 +154,12 @@ procedure TUnicodeFontEx.InitDefaults;
 
 procedure TTextDrawer.FlushTextCache;
  begin
-  if textBufUsage=0 then exit;
+  if txtVertCount=0 then exit;
   shader.UseTexture(textCache);
-  if textBufUsage>0 then begin
+  if txtVertCount>0 then begin
     renderDevice.DrawIndexed(TRG_LIST,txtBuf,txtInd,TVertex.layoutTex,sizeof(TVertex),
-      0,textBufUsage, 0,textBufUsage div 2);
-    textBufUsage:=0;
+      0,txtVertCount, 0,txtVertCount div 2);
+    txtVertCount:=0;
   end;
  end;
 
@@ -329,7 +329,7 @@ constructor TTextDrawer.Create;
    pw^:=i*4+3; inc(pw);
   end;
 
-  textBufUsage:=0;
+  txtVertCount:=0;
   textCaching:=false;
   if glyphCache=nil then glyphCache:=TDynamicGlyphCache.Create(textCacheWidth-96,textCacheHeight);
   if altGlyphCache=nil then begin
@@ -899,7 +899,7 @@ var
    stepU:=textCache.stepU*2;
    stepV:=textCache.stepV*2;
    oldUL:=false; oldColor:=color;
-   outVertex:=@txtBuf[0];
+   outVertex:=@txtBuf[txtVertCount];
    for i:=1 to length(st) do begin
     if st[i]=#$FEFF then continue; // Skip BOM
     // Complex text
@@ -1034,7 +1034,7 @@ var
     if ftFont<>nil then ftFont.Unlock;
     {$ENDIF}
    end;
-   inc(textBufUsage,4*cnt);
+   inc(txtVertCount,4*cnt);
   end;
 
  function DefineRectAndSetState:boolean;
@@ -1142,7 +1142,7 @@ begin // -----------------------------------------------------------
   if not DefineRectAndSetState then exit;  // Clipping (тут косяк с многострочностью)
 
   // Prevent text cache overflow
-  if textBufUsage+length(st)*4>=4*MaxGlyphBufferCount then FlushTextCache;
+  if txtVertCount+length(st)*4>=4*MaxGlyphBufferCount then FlushTextCache;
  end;
 
  // Fill vertex buffer and update glyphs in cache when needed
