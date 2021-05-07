@@ -73,7 +73,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 1;
+ testnum:integer = 7;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -551,13 +551,12 @@ begin
 
 
  s:=0.2+(MyTickCount mod 3000)/3000;
- gfx.shader.TexMode(0,tblModulate2X,tblModulate,fltTrilinear);
+ texM.SetFilter(true);
  draw.RotScaled(450,420,s,s,0,texM);
 
  if (frame div 100) and 1=0 then
-   gfx.shader.TexMode(0,tblNone,tblNone,fltNearest);
+ tex2.SetFilter(false);
  draw.RotScaled(750,300,4,4,1,tex2,$FF808080);
- gfx.shader.TexMode(0,tblNone,tblNone,fltBilinear);
 
  draw.Rect(200-1,100-1,350+1,250+1,$FFFFFF80);
  draw.Rect(100-2,200-2,107+2,207+2,$FFFFFFFF);
@@ -974,7 +973,7 @@ begin
 { gfx.shader.TexMode(1,tblModulate2x,tblModulate,fltBilinear);
  draw.Double(140,30,tex1,tex0);}
  //
- gfx.shader.TexMode(1,tblInterpolate,tblInterpolate,fltBilinear,0.5);
+ gfx.shader.TexMode(1,tblInterpolate,tblInterpolate,fltUndefined,0.5);
  draw.DoubleTex(140,30,tex1,tex0);
 
  gfx.EndPaint;
@@ -1144,12 +1143,12 @@ begin
  v:=t div 2000;
 // if v mod 3=0 then draw.Image(40,40,tex1);
  if true or (v mod 3=1) then begin
-  gfx.shader.TexMode(1,tblInterpolate,tblModulate,fltBilinear,(t mod 2000)/2000);
+  gfx.shader.TexMode(1,tblInterpolate,tblModulate,fltUndefined,(t mod 2000)/2000);
   // плавный переход между двумя текстурами (в две стороны)
   draw.DoubleTex(40,40,tex2,tex1);
   draw.DoubleTex(150,40,tex1,tex2);
   // перемножение двух текстур
-  gfx.shader.TexMode(1,tblModulate2X,tblModulate,fltBilinear);
+  gfx.shader.TexMode(1,tblModulate2X,tblModulate);
   draw.DoubleTex(300,40,tex1,tex2);
  end;
 // if v mod 3=2 then draw.Image(40,40,tex2);
@@ -1160,10 +1159,10 @@ begin
  draw.RotScaled(580.5,370.5,1,1,0,tex2);}
 
  // цвет от первой текстуры, альфа - пофигу
- gfx.shader.TexMode(1,tblKeep,tblKeep,fltUndefined);
+ gfx.shader.TexMode(1,tblKeep,tblKeep);
  draw.DoubleRotScaled(470,100,1,1,1,1,0,tex1,tex2);
  // цвет от второй текстуры, альфа - пофигу
- gfx.shader.TexMode(1,tblReplace,tblNone,fltUndefined);
+ gfx.shader.TexMode(1,tblReplace,tblNone);
  draw.DoubleRotScaled(600,100,1,1,1,1,0,tex1,tex2);
 
  // цвет от первой текстуры, альфа - от третьей (вырезание круга из первой)
