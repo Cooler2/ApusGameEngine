@@ -283,11 +283,6 @@ begin
   gfx.BeginPaint(buffer);
   try
 
-{  device.SetTextureStageState(0,D3DTSS_ALPHAOP,D3DTOP_SELECTARG1);
-  device.SetTextureStageState(0,D3DTSS_ALPHAARG1,D3DTA_DIFFUSE);
-  device.SetTextureStageState(0,D3DTSS_COLOROP,D3DTOP_SELECTARG1);
-  device.SetTextureStageState(0,D3DTSS_COLORARG1,D3DTA_TEXTURE);}
-
   /// TODO: replace with proper value (probably renderRect)
   w:=game.GetSettings.width-1;
   h:=game.GetSettings.height-1;
@@ -297,7 +292,7 @@ begin
   l1.matrix[2,0]:=0; l1.matrix[2,1]:=0;
   l1.next:=nil;
   gfx.target.BlendMode(blMove);
-  draw.MultiTex(0,0,w,h,@l1,$FF808080);
+  //draw.MultiTex(0,0,w,h,@l1,$FF808080);
   finally
    gfx.EndPaint;
   end;
@@ -649,39 +644,6 @@ end;
 
 {$IFDEF OPENGL}
 const
- // version for GLPainter
- vBlurShader=
-  'uniform float offsetX;'+
-  'uniform float offsetY;'+
-  'void main(void)'+
-  '{'+
-  '        gl_TexCoord[0] = gl_MultiTexCoord0;                           '+
-  '        gl_TexCoord[1] = gl_MultiTexCoord0+vec4(offsetX,offsetY,0,0);   '+
-  '        gl_TexCoord[2] = gl_MultiTexCoord0+vec4(-offsetX,offsetY,0,0);  '+
-  '        gl_TexCoord[3] = gl_MultiTexCoord0+vec4(offsetX,-offsetY,0,0);  '+
-  '        gl_TexCoord[4] = gl_MultiTexCoord0+vec4(-offsetX,-offsetY,0,0); '+
-  '      '+
-  '        gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;       '+
-  '}';
-
- fBlurShader=
-  'uniform sampler2D tex1;                                       '+
-  'uniform sampler2D tex2; '+
-  'uniform float v1; '+
-  'uniform float v2; '+
-  'uniform vec4 colorAdd; '+
-  'uniform vec4 colorMult; '+
-  'void main(void)                                                       '+
-  '{                                                                     '+
-  '        vec4 value0 = texture2D(tex1, vec2(gl_TexCoord[0]));  '+
-  '        vec4 value1 = texture2D(tex2, vec2(gl_TexCoord[1]));  '+
-  '        vec4 value2 = texture2D(tex2, vec2(gl_TexCoord[2]));  '+
-  '        vec4 value3 = texture2D(tex2, vec2(gl_TexCoord[3]));  '+
-  '        vec4 value4 = texture2D(tex2, vec2(gl_TexCoord[4]));  '+
-  '                                                                      '+
-  '        gl_FragColor = colorAdd + (value0*v1 + value1*v2 + value2*v2 + value3*v2 + value4*v2)*colorMult;  '+
-  '}';
-
  // version for GLPainter2
  vBlurShader2=
   'attribute vec3 aPosition;   '#13#10+
@@ -721,7 +683,6 @@ const
 
 var
  blurShader:TShader;
- loc1,loc2,loc3,loc4,locCA,locCM,locTex1,locTex2:integer;
 
 destructor TBlurEffect.Destroy;
 begin
@@ -765,18 +726,10 @@ begin
   vsh:=vBlurShader2;
   fsh:=fBlurShader2;
   attrib:='aPosition,aColor,aTexcoord';
-  blurShader:=gfx.shader.Create(vsh,fsh,attrib);
+  blurShader:=gfx.shader.Build(vsh,fsh,attrib);
   if blurShader=nil then begin
    dontPlay:=true; exit;
   end;
-  loc1:=glGetUniformLocation(blurShader,'offsetX');
-  loc2:=glGetUniformLocation(blurShader,'offsetY');
-  loc3:=glGetUniformLocation(blurShader,'v1');
-  loc4:=glGetUniformLocation(blurShader,'v2');
-  locCA:=glGetUniformLocation(blurShader,'colorAdd');
-  locCM:=glGetUniformLocation(blurShader,'colorMult');
-  locTex1:=glGetUniformLocation(blurShader,'tex1');
-  locTex2:=glGetUniformLocation(blurShader,'tex2');
  end;
 
  buffer:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf1');
@@ -799,7 +752,7 @@ var
  u,v,f,phase:single;
  i:integer;
  cb:array[0..3] of byte;
- cf:array[0..3] of single;
+ cf:TVector4s;
 begin
  try
   if not initialized then Initialize;
@@ -844,27 +797,27 @@ begin
 
   gfx.BeginPaint(nil);
   try
-  gfx.shader.UseCustom(blurShader);
-  //glUseProgram(blurShader);
-  TGLPainter(painter).UseTexture(buffer2,1);
+  shader.UseCustom(blurShader);
+  shader.UseTexture(buffer2,1);
   phase:=power.Value;
   v:=sqrt(phase*factor);
 
-  glUniform1f(loc1,1.5*buffer2.stepU*v);
-  glUniform1f(loc2,1.5*buffer2.stepV*v);
-  glUniform1f(loc3,2/6 {1-v}); // amount of 1-sampled texture
-  glUniform1f(loc4,1/6 {v/4}); // amount of 4-sampled texture
-  glUniform1i(locTex1,0); // 1-sampled texture - reduced
-  glUniform1i(locTex2,0); // 4-sampled texture - original image
+  blurShader.SetUniform('offsetX',1.5*buffer2.stepU*v);
+  blurShader.SetUniform('offsetY',1.5*buffer2.stepV*v);
+  blurShader.SetUniform('v1',2/6);
+  blurShader.SetUniform('v2',1/6);
+  blurShader.SetUniform('tex1',0);
+  blurShader.SetUniform('tex2',0);
 
   v:=phase;
   move(mainColorAdd,cb,4);
-  for i:=0 to 2 do cf[i]:=cb[i]*v/255;
-  glUniform4f(locCA,cf[2],cf[1],cf[0],0);
+  cf.Init(cb[2]*v/255,cb[1]*v/255,cb[0]*v/255,0);
+  blurShader.SetUniform('colorAdd',cf);
 
   move(mainColorMult,cb,4);
-  for i:=0 to 2 do cf[i]:=(1-v)+cb[i]*v*2/255;
-  glUniform4f(locCM,cf[2],cf[1],cf[0],1);
+  for i:=0 to 2 do cf.v[i]:=(1-v)+cb[i]*v*2/255;
+  cf.v[3]:=0;
+  blurShader.SetUniform('colorMult',cf);
 
   u:=200*(1/buffer.width);
   v:=200*(1/buffer.height);
@@ -873,7 +826,7 @@ begin
   finally
    gfx.EndPaint;
   end;
-  gfx.shader.UseDefault;
+  shader.Reset;
 
  except
   on e:exception do begin
