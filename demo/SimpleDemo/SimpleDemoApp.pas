@@ -183,7 +183,7 @@ procedure TMainScene.HandleParticles;
   // Draw particles in additive mode
   if count>0 then begin
    gfx.target.BlendMode(blAdd);
-   draw.DrawParticles(0,0,@particles[0],count,particlesTex,16,1);
+   draw.Particles(0,0,@particles[0],count,particlesTex,16,1);
    gfx.target.BlendMode(blAlpha);
   end;
  end;
