@@ -28,7 +28,7 @@ program Scenes;
 
 procedure CreateScenes;
  begin
-  mainFont:=painter.GetFont('Default',9);
+  mainFont:=txt.GetFont('Default',9);
   TSceneA.Create;
   TSceneB.Create;
   TSceneW.Create;
@@ -100,10 +100,10 @@ procedure TSceneA.Render;
   i:integer;
  begin
 //  painter.Clear($FF306030);
-  painter.Clear($FF000000);
+  gfx.target.Clear($FF000000);
   for i:=1 to 3 do
-   painter.Rect(i*3,i*3,game.renderWidth-i*3-1,game.renderHeight-i*3-1,$FFF0F000);
-  painter.TextOut(mainFont,20,game.renderHeight-20,$FFC0C0C0,'Press [Win]+[~] to toggle the console window');
+   draw.Rect(i*3,i*3,game.renderWidth-i*3-1,game.renderHeight-i*3-1,$FFF0F000);
+  txt.Write(mainFont,20,game.renderHeight-20,$FFC0C0C0,'Press [Win]+[~] to toggle the console window');
   inherited;
  end;
 
@@ -119,7 +119,7 @@ constructor TSceneB.Create;
 
 procedure TSceneB.Render;
  begin
-  painter.Clear($FF303060);
+  gfx.target.Clear($FF303060);
   inherited;
  end;
 
@@ -144,8 +144,8 @@ procedure TSceneW.Render;
  begin
   r:=FindControl('SceneW\Frame').GetPosOnScreen; // don't use globalRect for items in a windowed scene!
   BackgroundRenderBegin; // needed ONLY because background drawn below has semi-transparent parts
-  painter.FillRect(r.left,r.top,r.right-1,r.bottom-1,$A0B0D0D0); // <-- semi-transparent color used
-  painter.Rect(r.left,r.top,r.right-1,r.bottom-1,$FF000000);
+  draw.FillRect(r.left,r.top,r.right-1,r.bottom-1,$A0B0D0D0); // <-- semi-transparent color used
+  draw.Rect(r.left,r.top,r.right-1,r.bottom-1,$FF000000);
   BackgroundRenderEnd;
   inherited;
  end;
@@ -154,7 +154,7 @@ begin
  SetEventHandler('GAMEAPP',EventHandler);
  SetEventHandler('Logic',EventHandler);
  usedAPI:=gaOpenGL2; // needed just for the Blur effect
- usedPlatform:=spSDL;
+ //usedPlatform:=spSDL;
  application:=TGameApplication.Create;
  application.Prepare;
  application.Run;
