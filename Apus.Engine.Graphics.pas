@@ -51,7 +51,7 @@ type
   procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0); virtual;
   procedure SetObj(mat:T3DMatrix); overload; virtual;
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual;
-  procedure Update; virtual; // calculate combined matrix (if needed), pass data to the active shader
+  procedure Update; // calculate combined matrix (if needed), pass data to the active shader
   function GetMVPMatrix:T3DMatrix;
   function GetObjMatrix:T3DMatrix;
   function Transform(source:TPoint3):TPoint3;
@@ -68,16 +68,16 @@ type
   procedure Nothing; //< don't clip anything, save previous (the same as Apply() for the whole render target area)
   procedure Restore; //< restore previous clipping rect
   function  Get:TRect; //< return current clipping rect
-  procedure Prepare; overload; inline; //<
+  procedure Prepare; overload; //<
   function Prepare(r:TRect):boolean; overload; //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
-  function Prepare(x1,y1,x2,y2:integer):boolean; overload; inline; //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
-  function Prepare(x1,y1,x2,y2:single):boolean; overload; inline; //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
+  function Prepare(x1,y1,x2,y2:integer):boolean; overload;  //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
+  function Prepare(x1,y1,x2,y2:single):boolean; overload;  //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
 
   procedure AssignActual(r:TRect); // set actual clipping area (from gfx API)
  protected
   clipRect:TRect; //< current requested clipping area (in virtual pixels), might be different from actual clipping area}
   actualClip:TRect; //< real clipping area
-  stack:array[1..50] of TRect;
+  stack:array[0..49] of TRect;
   stackPos:integer;
  end;
 
@@ -466,7 +466,7 @@ procedure TClippingAPI.AssignActual(r: TRect);
 constructor TClippingAPI.Create;
  begin
   _AddRef;
-  Nothing;
+  stackPos:=0;
   clipRect:=types.Rect(-100000,-100000,100000,100000);
   actualClip:=clipRect;
  end;

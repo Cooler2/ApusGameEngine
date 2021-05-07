@@ -22,6 +22,7 @@ type
   procedure Unlock; override;
   destructor Destroy; override;
   function Describe:string;
+  procedure SetFilter(allowInterpolation:boolean); override;
  private
   online:boolean;
   realData:array of byte; // sysmem instance of texture data
@@ -112,7 +113,6 @@ begin
  except
  end;
 end;
-
 
 procedure GetGLformat(ipf:TImagePixelFormat;out format,subFormat,internalFormat:cardinal);
 begin
@@ -266,7 +266,13 @@ begin
 end;
 
 destructor TGLTexture.Destroy;
+var
+ t:TTexture;
 begin
+ if texName<>0 then begin
+  t:=self;
+  resourceManagerGL.FreeImage(t);
+ end;
  inherited;
 end;
 
@@ -344,6 +350,29 @@ begin
  {$ENDIF}
  CheckForGLError('SART:'+Describe);
 end;
+
+procedure TGLTexture.SetFilter(allowInterpolation: boolean);
+ begin
+  if texname=0 then exit;
+  if allowInterpolation then begin
+   if HasFlag(tfPixelated) then exit;
+   caps:=caps or tfPixelated;
+   glActiveTexture(GL_TEXTURE0+9);
+   glBindTexture(GL_TEXTURE_2D,texname);
+   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+  end else begin
+   if not HasFlag(tfPixelated) then exit;
+   caps:=caps and not tfPixelated;
+   glActiveTexture(GL_TEXTURE0+9);
+   glBindTexture(GL_TEXTURE_2D,texname);
+   if mipmaps>0 then
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR)
+   else
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+  end;
+ end;
 
 procedure TGLTexture.Unlock;
 begin
@@ -651,7 +680,9 @@ begin
    {$ENDIF}
   end;
   if tex.rbo<>0 then glDeleteRenderbuffers(1,@tex.rbo);
+  tex.rbo:=0;
   if tex.texname<>0 then glDeleteTextures(1,@tex.texname);
+  tex.texname:=0;
   if Length(tex.realData)>0 then SetLength(tex.realData,0);
   tex.Free;
   image:=nil;
@@ -761,8 +792,13 @@ begin
    {$IFNDEF GLES}
    if needInit then begin // Specify texture size and pixel format
     glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,nil);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    if HasFlag(tfPixelated) then begin
+     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+    end else begin
+     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    end;
    end;
    CheckForGLError('13');
     // Upload texture data
@@ -783,7 +819,7 @@ begin
    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,data);
    CheckForGLError('16');
    {$ENDIF}
-   if (caps and tfAutoMipMap>0) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
+   if HasFlag(tfAutoMipMap) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
     glGenerateMipmap(GL_TEXTURE_2D);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);

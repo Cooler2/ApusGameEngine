@@ -372,7 +372,7 @@ procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
  var
   vrt:PVertex;
  begin
-  shader.Apply;
+  shadersAPI.Apply;
   transformationAPI.Update;
   SetupAttributes(vertices,vertexLayout,stride);
   case primtype of
@@ -612,6 +612,7 @@ procedure TGLRenderTargetAPI.Backbuffer;
   realWidth:=data[2];
   realHeight:=data[3];
   CheckForGLError(3);
+  glScissor(0,0,realWidth,realHeight);
   clippingAPI.AssignActual(Rect(0,0,realWidth,realHeight));
  end;
 

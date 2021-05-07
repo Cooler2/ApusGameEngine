@@ -265,7 +265,7 @@ begin
  shader.UseTexture(neutral);
  vrt[0].Init(x1,y1,zPlane,color);
  vrt[1].Init(x2,y2,zPlane,color);
- renderDevice.Draw(LINE_LIST,1,@vrt,TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(LINE_LIST,1,@vrt[0],TVertex.layoutTex,sizeof(TVertex));
 end;
 
 procedure TDrawer.Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);

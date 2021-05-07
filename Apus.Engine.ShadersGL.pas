@@ -25,10 +25,13 @@ type
  end;
 
  TGLShader=class(TShader)
+  texMode:integer;
   handle:TGLShaderHandle;
   uMVP:integer;   // MVP matrix (named "MVP")
   uModelMat:integer; // model matrix as-is (named "ModelMatrix")
   uNormalMat:integer; // normalized model matrix (named "NormalMatrix")
+  uTex:array[0..2] of integer;
+  vSrc,fSrc:String8;
 
   constructor Create(h:TGLShaderHandle);
   destructor Destroy; override;
@@ -36,6 +39,7 @@ type
   procedure SetUniform(name:String8;value:single); overload; override;
   procedure SetUniform(name:String8;const value:TVector3s); overload; override;
   procedure SetUniform(name:String8;const value:T3DMatrix); overload; override;
+  procedure SetUniform(name:String8;const value:TQuaternionS); overload; override;
  end;
 
  TGLShadersAPI=class(TInterfacedObject,IShaders)
@@ -68,10 +72,11 @@ type
   // Define material properties
   procedure Material(color:cardinal;shininess:single); virtual; abstract;
 
-  procedure Apply;
+  procedure Apply; inline;
 
  private
   curTextures:array[0..3] of TTexture;
+  curTexChanged:array[0..3] of boolean;
 
   curTexMode:TTexMode; // encoded shader mode requested by the client code
   actualTexMode:TTexMode; // actual shader mode
@@ -114,6 +119,7 @@ procedure SetUniformInternal(handle:TGLShaderHandle;shaderName:string8; name:str
    1:glUniform1i(loc,integer(value));
    2:glUniform1f(loc,single(value));
    20:glUniform3fv(loc,1,@value);
+   21:glUniform4fv(loc,1,@value);
    30:glUniformMatrix4fv(loc,1,GL_FALSE,@value);
   end;
  end;
@@ -134,6 +140,19 @@ procedure TGLShader.SetUniform(name: String8; const value: TVector3s);
   SetUniformInternal(handle,self.name,name,20,value);
  end;
 
+procedure TGLShader.SetUniform(name: String8; const value: TQuaternionS);
+ begin
+  SetUniformInternal(handle,self.name,name,21,value);
+ end;
+
+procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
+ var
+  m:T3DMatrixS;
+ begin
+  m:=Matrix4s(value); // convert double to float
+  SetUniformInternal(handle,self.name,name,30,m);
+ end;
+
 constructor TGLShader.Create(h: TGLShaderHandle);
  begin
   handle:=h;
@@ -141,6 +160,9 @@ constructor TGLShader.Create(h: TGLShaderHandle);
   uMVP:=glGetUniformLocation(h,'MVP');
   uModelMat:=glGetUniformLocation(h,'ModelMatrix');
   uNormalMat:=glGetUniformLocation(h,'NormalMatrix');
+  uTex[0]:=glGetUniformLocation(h,'tex0');
+  uTex[1]:=glGetUniformLocation(h,'tex1');
+  uTex[2]:=glGetUniformLocation(h,'tex2');
  end;
 
 destructor TGLShader.Destroy;
@@ -155,14 +177,6 @@ destructor TGLShader.Destroy;
   end;
   glDeleteProgram(handle);
   inherited;
- end;
-
-procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
- var
-  m:T3DMatrixS;
- begin
-  m:=Matrix4s(value); // convert double to float
-  SetUniformInternal(handle,self.name,name,30,m);
  end;
 
 { TGLShadersAPI }
@@ -192,34 +206,34 @@ procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
 
 // === Fragment shader ===
  fShader:array[1..28] of string8=(
-' #version 330',
-' uniform sampler2D tex0;',
-' uniform sampler2D tex1;',
-' uniform sampler2D tex2;',
-' uniform float uFactor;',
-' in vec4 vColor;',
-' in vec2 vTexCoord;',
-' out vec4 fragColor;',
-'',
-' void main(void)',
-' {',
-'   vec3 c = vec3(vColor.b, vColor.g, vColor.r);',
-'   float a = vColor.a;',
-'   vec4 t = texture2D(tex0,vTexCoord);',
-'       c = vec3(t.r, t.g, t.b); // replace',
-'       c = c*vec3(t.r, t.g, t.b); // modulate',
-'       c = 2.0*c*vec3(t.r, t.g, t.b); // modulate2x',
-'       c = c+vec3(t.r, t.g, t.b); // add',
-'       c = c-vec3(t.r, t.g, t.b); // sub',
-'       c = mix(c, vec3(t.r, t.g, t.b), uFactor); // interpolate',
-'       a = t.a; // replace',
-'       a = a*t.a; // modulate',
-'       a = 2.0*a*t.a; // modulate2x',
-'       a = a+t.a; // add',
-'       a = a-t.a; // sub',
-'       a = mix(a, t.a, uFactor); // interpolate',
-'   fragColor = vec4(c.r, c.g, c.b, a);',
-' }');
+ '#version 330',
+ 'uniform sampler2D tex0;',
+ 'uniform sampler2D tex1;',
+ 'uniform sampler2D tex2;',
+ 'uniform float uFactor;',
+ 'in vec4 vColor;',
+ 'in vec2 vTexCoord;',
+ 'out vec4 fragColor;',
+ '',
+ 'void main(void)',
+ '{',
+ '  vec3 c = vec3(vColor.b, vColor.g, vColor.r);',
+ '  float a = vColor.a;',
+ '  vec4 t;',
+ '      c = vec3(t.r, t.g, t.b); // replace',
+ '      c = c*vec3(t.r, t.g, t.b); // modulate',
+ '      c = 2.0*c*vec3(t.r, t.g, t.b); // modulate2x',
+ '      c = c+vec3(t.r, t.g, t.b); // add',
+ '      c = c-vec3(t.r, t.g, t.b); // sub',
+ '      c = mix(c, vec3(t.r, t.g, t.b), uFactor); // interpolate',
+ '      a = t.a; // replace',
+ '      a = a*t.a; // modulate',
+ '      a = 2.0*a*t.a; // modulate2x',
+ '      a = a+t.a; // add',
+ '      a = a-t.a; // sub',
+ '      a = mix(a, t.a, uFactor); // interpolate',
+ '  fragColor = vec4(c.r, c.g, c.b, a);',
+ '}');
 
 function TGLShadersAPI.CreateShaderFor:TGLShader;
  var
@@ -228,33 +242,37 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   m:byte;
  begin
   for i:=1 to high(vShader) do vSrc:=vSrc+vShader[i]+#13#10;
-  for i:=1 to 13 do fSrc:=fSrc+fShader[i]+#13#10;
+  fSrc:=fShader[1]+#13#10+'// Std shader for mode '+IntToHex(curTexMode.mode)+#13#10;
+  for i:=2 to 14 do fSrc:=fSrc+fShader[i]+#13#10;
   for i:=0 to 2 do begin
    m:=curTexMode.stage[i];
    if m<>0 then begin
-    fSrc:=fSrc+'   vec4 t = texture2D(tex'+intToStr(i)+',vTexCoord);';
+    fSrc:=fSrc+'   t = texture2D(tex'+intToStr(i)+',vTexCoord);'#13#10;
     case m and $0F of
-     3:fSrc:=fSrc+'       c = vec3(t.r, t.g, t.b);'; // replace
-     4:fSrc:=fSrc+'       c = c*vec3(t.r, t.g, t.b);'; //
-     5:fSrc:=fSrc+'       c = 2.0*c*vec3(t.r, t.g, t.b);';
-     6:fSrc:=fSrc+'       c = c+vec3(t.r, t.g, t.b);';
-     7:fSrc:=fSrc+'       c = c-vec3(t.r, t.g, t.b);'; //
-     8:fSrc:=fSrc+'       c = mix(c, vec3(t.r, t.g, t.b), uFactor); '; //
+     3:fSrc:=fSrc+'   c = vec3(t.r, t.g, t.b);'; // replace
+     4:fSrc:=fSrc+'   c = c*vec3(t.r, t.g, t.b);'; //
+     5:fSrc:=fSrc+'   c = 2.0*c*vec3(t.r, t.g, t.b);';
+     6:fSrc:=fSrc+'   c = c+vec3(t.r, t.g, t.b);';
+     7:fSrc:=fSrc+'   c = c-vec3(t.r, t.g, t.b);'; //
+     8:fSrc:=fSrc+'   c = mix(c, vec3(t.r, t.g, t.b), uFactor); '; //
     end;
+    fSrc:=fSrc+#13#10;
     m:=m shr 4;
     case m of
-     3:fSrc:=fSrc+'       a = t.a; '; //
-     4:fSrc:=fSrc+'       a = a*t.a; '; //
-     5:fSrc:=fSrc+'       a = 2.0*a*t.a;  '; //
-     6:fSrc:=fSrc+'       a = a+t.a;  '; //
-     7:fSrc:=fSrc+'       a = a-t.a;  '; //
-     8:fSrc:=fSrc+'       a = mix(a, t.a, uFactor);  '; //
+     3:fSrc:=fSrc+'   a = t.a; '; //
+     4:fSrc:=fSrc+'   a = a*t.a; '; //
+     5:fSrc:=fSrc+'   a = 2.0*a*t.a;  '; //
+     6:fSrc:=fSrc+'   a = a+t.a;  '; //
+     7:fSrc:=fSrc+'   a = a-t.a;  '; //
+     8:fSrc:=fSrc+'   a = mix(a, t.a, uFactor);  '; //
     end;
+    fSrc:=fSrc+#13#10;
    end;
   end;
 
   for i:=high(fShader)-1 to high(fShader) do fSrc:=fSrc+fShader[i]+#13#10;
   result:=Build(vSrc,fSrc) as TGLShader;
+  result.texMode:=curTexMode.mode;
  end;
 
 function TGLShadersAPI.GetShaderFor:TGLShader;
@@ -277,6 +295,7 @@ constructor TGLShadersAPI.Create;
   shadersAPI:=self;
   shader:=self;
   shaderCache.Init(32);
+  curTexChanged[0]:=true;
  end;
 
 procedure TGLShadersAPI.DefaultTexMode;
@@ -290,6 +309,9 @@ procedure TGLShadersAPI.TexMode(stage:byte; colorMode,
   alphaMode:TTexBlendingMode; filter:TTexFilter; intFactor:single);
  begin
   ASSERT(stage in [0..2]);
+  ASSERT(filter=fltUndefined,'Texture filter per stage not supported, use per texture filter instead');
+  if colorMode=tblNone then colorMode:=TTexBlendingMode(curTexMode.stage[stage] and $0F);
+  if alphaMode=tblNone then alphaMode:=TTexBlendingMode(curTexMode.stage[stage] shr 4);
   curTexMode.stage[stage]:=ord(colorMode)+ord(alphaMode) shl 4;
   if colorMode=tblDisable then
    while stage<3 do begin
@@ -401,20 +423,10 @@ procedure TGLShadersAPI.SetShaderMatrices;
  end;
 
 procedure TGLShadersAPI.UseTexture(tex: TTexture; stage: integer);
- const
-  tNames:array[0..3] of string8=('tex0','tex1','tex2','tex3');
  begin
   if curTextures[stage]=tex then exit;
-  if tex<>nil then begin
-   if tex.parent<>nil then tex:=tex.parent;
-   resourceManagerGL.MakeOnline(tex,stage);
-   if Assigned(activeShader) then
-    activeShader.SetUniform(tNames[stage],stage);
-  end else begin
-   glActiveTexture(GL_TEXTURE0+stage);
-   glBindTexture(GL_TEXTURE_2D,0);
-  end;
   curTextures[stage]:=tex;
+  curTexChanged[stage]:=true;
  end;
 
 
@@ -507,12 +519,21 @@ end; *)
 procedure TGLShadersAPI.Apply;
  var
   shader:TGLShader;
+  i:integer;
  begin
-  if isCustom then exit;
-  if (actualTexMode.mode=curTexMode.mode) then exit;
-  shader:=GetShaderFor;
-  ActivateShader(shader);
-  actualTexMode:=curtexMode;
+  if not isCustom then
+   if actualTexMode.mode<>curTexMode.mode then begin
+    shader:=GetShaderFor;
+    ActivateShader(shader);
+    actualTexMode:=curtexMode;
+   end;
+
+  for i:=0 to 2 do
+   if curTexChanged[i] then begin
+    curTexChanged[i]:=false;
+    resourceManagerGL.MakeOnline(curTextures[i],i);
+    if activeShader.uTex[i]>=0 then glUniform1i(activeShader.uTex[i],i);
+   end;
  end;
 
 procedure TGLShadersAPI.ActivateShader(shader:TShader);
