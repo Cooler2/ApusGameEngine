@@ -73,7 +73,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 7;
+ testnum:integer = 3;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -491,6 +491,7 @@ var
  vertices,transformed:TVertices;
  indices:TIndices;
  data:array of cardinal;
+ sub:TTexture;
 begin
 // sleep(10);
  inc(frame);
@@ -543,10 +544,17 @@ begin
  tex4.Unlock;
  draw.Image(800,10,tex4);
 
- draw.ImagePart90(200,50,tex1,$FF808080,Rect(2,2,20,10),-1);
- draw.ImagePart90(230,50,tex1,$FF808080,Rect(2,2,20,10),1);
- draw.ImagePart90(260,50,tex1,$FF808080,Rect(2,2,20,10),2);
- draw.ImagePart90(290,50,tex1,$FF808080,Rect(2,2,20,10),3);
+ sub:=tex1.ClonePart(Rect(2,0,12,10));
+ tex1.SetFilter(false);
+ draw.Scaled(200,0,260,40,sub);
+ tex1.SetFilter(true);
+ draw.Scaled(300,0,360,40,sub);
+ sub.Free;
+
+ draw.ImagePart90(200,60,tex1,$FF808080,Rect(2,2,20,10),-1);
+ draw.ImagePart90(230,60,tex1,$FF808080,Rect(2,2,20,10),1);
+ draw.ImagePart90(260,60,tex1,$FF808080,Rect(2,2,20,10),2);
+ draw.ImagePart90(290,60,tex1,$FF808080,Rect(2,2,20,10),3);
  draw.RotScaled(450,200,2,2,1,tex2,$FF808080);
 
 
@@ -829,7 +837,6 @@ begin
  gfx.BeginPaint(nil);
  // Unicode text output
 
-
  f:=txt.GetFont('Arial',30);
  txt.WriteW(f,10,40,$FFFFA080,'Première tentative de l''écriture!',taLeft);
  f:=txt.GetFont('Arial',24);
@@ -840,9 +847,11 @@ begin
  w:=txt.WidthW(f,'1) AV Привет - Hello!');
  h:=txt.Height(f);
  draw.FillRect(10,260-h-2,10+w,260+1,$FFC0C0C0);
+ txt.BeginBlock;
  txt.WriteW(f,10,200,$FFFFA080,'1) AV Привет - Hello!',taLeft);
  txt.WriteW(f,10,230,$FFFFFFFF,'1) AV Привет - Hello!',taLeft);
  txt.WriteW(f,10,260,$FF000000,'1) AV Привет - Hello!',taLeft);
+ txt.EndBlock;
 
  for i:=1 to 20 do
   txt.Write(f,10,270+i*20,$FFFFFFFF,'Line '+IntToStr(i),taLeft);
