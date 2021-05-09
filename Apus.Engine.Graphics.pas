@@ -113,6 +113,9 @@ type
   stackVP:array[1..10] of TRect;
   stackRW,stackRH:array[1..10] of integer;
   stackCnt:integer;
+  // stack of saved masks
+  maskStack:array[0..9] of byte;
+  maskStackPos:integer;
  end;
 
 var
@@ -389,6 +392,8 @@ function TRenderTargetAPI.width: integer;
 procedure TRenderTargetAPI.Viewport(oX, oY, VPwidth, VPheight,
   renderWidth, renderHeight: integer);
  begin
+  if vpWidth<=0 then vpWidth:=realWidth;
+  if vpHeight<=0 then vpHeight:=realHeight;
   vPort:=Rect(oX,oY,ox+vpWidth,oY+vpHeight);
   if renderWidth<=0 then renderWidth:=vpWidth;
   if renderHeight<=0 then renderHeight:=vpHeight;

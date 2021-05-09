@@ -40,6 +40,8 @@ type
   procedure Restore;
   procedure DrawDebugOverlay(idx:integer);
 
+  procedure PostDebugMsg(st:string8;id:integer=0);
+
   // For internal use
  protected
   glVersion,glRenderer:string;
@@ -97,6 +99,7 @@ type
  end;
 
  TGLRenderTargetAPI=class(TRendertargetAPI)
+  constructor Create;
   procedure Backbuffer; override;
   procedure Texture(tex:TTexture); override;
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1); override;
@@ -108,6 +111,7 @@ type
   procedure Clip(x,y,w,h:integer); override;
  protected
   scissor:boolean;
+  backBufferWidth,backBufferHeight:integer;
  end;
 
  //textureManager:TResource;
@@ -192,6 +196,13 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   TTextDrawer.Create;
  end;
 
+procedure TOpenGL.PostDebugMsg(st:string8;id:integer=0);
+ begin
+  if @glDebugMessageInsert<>nil then
+   glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION,GL_DEBUG_TYPE_MARKER, id, GL_DEBUG_SEVERITY_LOW,
+    length(st),@st[1]);
+ end;
+
 procedure TOpenGL.PresentFrame;
  begin
   sysPlatform.OGLSwapBuffers;
@@ -237,20 +248,23 @@ procedure TOpenGL.BeginPaint(target: TTexture);
  var
   rw,rh:integer;
  begin
+  if target=nil then
+   PostDebugMsg('BeginPaint')
+  else
+   PostDebugMsg('BeginPaint: '+target.name);
+
   {if (canPaint>0) and (target=curTarget) then
     raise EWarning.Create('BP: target already set');}
   if canPaint>0 then
    renderTargetAPI.Push;
   inc(canPaint);
-  rw:=renderTargetAPI.width;
-  rh:=renderTargetAPI.height;
   shadersAPI.Reset;
   drawer.Reset;
   renderTargetAPI.Texture(target);
-  renderTargetAPI.Viewport(0,0,rw,rh);
+  renderTargetAPI.Viewport(0,0,-1,-1);
   renderTargetAPI.BlendMode(blAlpha);
   transformationAPI.DefaultView;
-  clippingAPI.Rect(Rect(0,0,rw,rh),false); // push current clip rect to save
+  clippingAPI.Nothing;
   CheckForGLError;
  end;
 
@@ -262,8 +276,12 @@ procedure TOpenGL.EndPaint;
 
   ASSERT(canPaint>0);
   dec(canPaint);
-  if canPaint>0 then
+  if canPaint>0 then begin
    renderTargetAPI.Pop;
+   renderTargetAPI.Viewport(0,0,-1,-1);
+   renderTargetAPI.BlendMode(blAlpha);
+   transformationAPI.DefaultView;
+  end;
   clippingAPI.Restore;
  end;
 
@@ -587,15 +605,30 @@ procedure TGLRenderTargetAPI.Clip(x,y,w,h: integer);
   glScissor(x,y,w,h);
  end;
 
+constructor TGLRenderTargetAPI.Create;
+ var
+  data:array[0..3] of GLInt;
+ begin
+  inherited;
+  glGetIntegerv(GL_VIEWPORT,@data[0]);
+  backBufferWidth:=data[2];
+  backBufferHeight:=data[3];
+ end;
+
 procedure TGLRenderTargetAPI.Mask(rgb, alpha: boolean);
  begin
   inherited;
 
  end;
 
+
+procedure TGLRenderTargetAPI.UnMask;
+ begin
+  inherited;
+
+ end;
+
 procedure TGLRenderTargetAPI.Backbuffer;
- var
-  data:array[0..3] of GLInt;
  begin
   inherited;
   {$IFDEF GLES11}
@@ -608,9 +641,8 @@ procedure TGLRenderTargetAPI.Backbuffer;
   if GL_ARB_framebuffer_object then
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER,0);
   {$ENDIF}
-  glGetIntegerv(GL_VIEWPORT,@data[0]);
-  realWidth:=data[2];
-  realHeight:=data[3];
+  realWidth:=backBufferWidth;
+  realHeight:=backBufferHeight;
   CheckForGLError(3);
   glScissor(0,0,realWidth,realHeight);
   clippingAPI.AssignActual(Rect(0,0,realWidth,realHeight));
@@ -623,19 +655,14 @@ procedure TGLRenderTargetAPI.Texture(tex:TTexture);
    exit;
   end;
   inherited;
-  ASSERT(tex is TGLTExture);
+  ASSERT(tex is TGLTexture);
   TGLTexture(tex).SetAsRenderTarget;
   realWidth:=tex.width;
   realHeight:=tex.height;
+  renderWidth:=realWidth;
+  renderHeight:=realHeight;
   clippingAPI.AssignActual(Rect(0,0,realWidth,realHeight));
  end;
-
-procedure TGLRenderTargetAPI.UnMask;
- begin
-  inherited;
-
- end;
-
 
 procedure TGLRenderTargetAPI.UseDepthBuffer(test: TDepthBufferTest;
   writeEnable: boolean);
@@ -647,11 +674,11 @@ procedure TGLRenderTargetAPI.UseDepthBuffer(test: TDepthBufferTest;
 procedure TGLRenderTargetAPI.Viewport(oX, oY, VPwidth, VPheight, renderWidth,
   renderHeight: integer);
  begin
-  inherited;
+  inherited; // adjust viewport here
   if curTarget<>nil then
-   glViewport(oX,oY,vpWidth,vpHeight)
+   glViewport(vPort.Left,vPort.Top,vPort.Width,vPort.Height)
   else
-   glViewport(oX,realHeight-oY-vpHeight,vpWidth,vpHeight);
+   glViewport(vPort.Left,realHeight-vPort.Top-vPort.Height,vPort.Width,vPort.Height);
  end;
 
 
