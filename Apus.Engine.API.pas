@@ -373,7 +373,7 @@ type
 
  // Control render target
  IRenderTargets=interface
-  // Clear render target: fill colorbuffer and optionally depth buffer and stencil buffer
+  // Clear whole render target (not only the viewport): fill colorbuffer and optionally depth buffer and stencil buffer
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1);
   // Setup viewport (output position) for the current render target
   // After viewport change don't forget to update projection and clipping
@@ -705,7 +705,7 @@ type
   function txt:ITextDrawer;
 
   // Start drawing block using the specified render target (nil - use default target)
-  procedure BeginPaint(target:TTexture);
+  procedure BeginPaint(target:TTexture=nil);
   // Finish drawing block
   procedure EndPaint;
   // Set cull mode

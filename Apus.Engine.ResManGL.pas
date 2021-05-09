@@ -24,13 +24,14 @@ type
   destructor Destroy; override;
   function Describe:string;
   procedure SetFilter(allowInterpolation:boolean); override;
- private
+ protected
   online:boolean;
   realData:array of byte; // sysmem instance of texture data
   fbo:cardinal;
   rbo:cardinal;
   dirty:array[0..15] of TRect;
   dCount:integer;
+  procedure SetLabel; // submit name as label for OpenGL
  end;
 
  TGLResourceManager=class(TInterfacedObject,IResourceManager)
@@ -380,6 +381,16 @@ procedure TGLTexture.SetFilter(allowInterpolation: boolean);
   end;
  end;
 
+procedure TGLTexture.SetLabel;
+var
+ lab:String8;
+begin
+ if @glObjectLabel<>nil then begin
+  lab:=name;
+  glObjectLabel(GL_TEXTURE,texname,length(lab),@lab[1]);
+ end;
+end;
+
 procedure TGLTexture.Unlock;
 begin
  EnterCriticalSection(cSect);
@@ -462,6 +473,7 @@ begin
   {$ENDIF}
   glGenTextures(1,@tex.texname);
   glBindTexture(GL_TEXTURE_2D,tex.texname);
+  tex.SetLabel;
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
   tex.filter:=fltBilinear;
@@ -780,6 +792,7 @@ begin
    glGenTextures(1,@texname);
    CheckForGLError('11');
    glBindTexture(GL_TEXTURE_2D, texname);
+   SetLabel;
    CheckForGLError('12');
    texNames[stage]:=texname;
    needInit:=true;
