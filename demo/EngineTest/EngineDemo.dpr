@@ -73,7 +73,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 3;
+ testnum:integer = 5;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -444,7 +444,7 @@ begin
  texDuo.Unlock;
 
  try
- prog:=gfx.shader.Build(
+ prog:=shader.Build(
   'attribute vec3 aPosition;                              '+
   'attribute vec2 aTexcoord;                              '+
   'varying vec2 vTexcoord;                                '+
@@ -632,12 +632,12 @@ begin
  l1.matrix[2,0]:=0; l1.matrix[2,1]:=0;
  l2.matrix:=l1.matrix;
  x:=600; y:=400;
- gfx.shader.TexMode(0,tblModulate2X,tblModulate,fltBilinear);
- gfx.shader.TexMode(1,tblModulate,tblKeep,fltUndefined);
+ shader.TexMode(0,tblModulate2X,tblModulate,fltBilinear);
+ shader.TexMode(1,tblModulate,tblKeep,fltUndefined);
  draw.MultiTex(x,y,x+150,y+150,@l1,@l2,nil,$FF808080);
 
  draw.SetTexInterpolationMode(1,tintFactor,0.5+sin(gettickcount/300)/2);
- gfx.shader.TexMode(1,tblInterpolate,tblKeep,fltBilinear);
+ shader.TexMode(1,tblInterpolate,tblKeep,fltBilinear);
  x:=760;
  draw.MultiTex(x,y,x+150,y+150,@l1,@l2,nil,$FF808080);  }
 
@@ -968,21 +968,38 @@ begin
 // sleep(500);
  inc(frame);
 
+ // Uncomment for simplified test
+ gfx.BeginPaint;
+ gfx.target.Clear($FF000000+(frame div 2) and 127,-1,-1);
+ gfx.target.Viewport(100,100,500,350);
+ draw.FillRect(0,0,gfx.target.width,gfx.target.height,$FFFF4040); // fill the viewport with red
+ draw.FillRect(0,0,10,10,$FF008080); // little cyan box in the upper left corner
+
+ gfx.BeginPaint(tex2);
+ gfx.target.Clear($C0FF80,-1,-1);
+ gfx.EndPaint;  // < нужно восстановить viewport и прочее, что было изменено в BeginPaint
+
+ draw.Image(10,10,tex2); // should be right below the small cyan box
+ gfx.EndPaint;
+ exit;
+ //}
+
+
  gfx.BeginPaint(tex2);
  gfx.target.Clear($80FF80,-1,-1);
  draw.FillGradrect(4,4,255-4,255-4,$FF000000+round(120+120*sin(frame/400)),$FF000000+round(120+120*sin(1+frame/300)),true);
  draw.Image(20,20,tex1);
 
-{ gfx.shader.TexMode(0,tblAdd,tblKeep);
+{ shader.TexMode(0,tblAdd,tblKeep);
  draw.Image(140,30,tex0);}
  // Fixed! неправильный цвет при первой отрисовке!
-{ gfx.shader.TexMode(1,tblReplace,tblReplace);
+{ shader.TexMode(1,tblReplace,tblReplace);
  draw.Double(140,30,tex1,tex0);}
  // Fixed! Прыгает в другое место со 2-го кадра
-{ gfx.shader.TexMode(1,tblModulate2x,tblModulate,fltBilinear);
+{ shader.TexMode(1,tblModulate2x,tblModulate,fltBilinear);
  draw.Double(140,30,tex1,tex0);}
  //
- gfx.shader.TexMode(1,tblInterpolate,tblInterpolate,fltUndefined,0.5);
+ shader.TexMode(1,tblInterpolate,tblInterpolate,fltUndefined,0.5);
  draw.DoubleTex(140,30,tex1,tex0);
 
  gfx.EndPaint;
@@ -1043,7 +1060,7 @@ begin
  tex3:=LoadImageFromFile('res\test3');
  tex4:=LoadImageFromFile('res\logo');
  //tex1:=LoadTexture('circle',0);
-{ gfx.shader.TexMode(fltTrilinear);
+{ shader.TexMode(fltTrilinear);
  f:=0.5;
  device.SetTextureStageState(0,D3DTSS_MIPMAPLODBIAS,c);}
  t1:=AllocImage(40,40,ipfARGB,0,'t1');
@@ -1152,12 +1169,12 @@ begin
  v:=t div 2000;
 // if v mod 3=0 then draw.Image(40,40,tex1);
  if true or (v mod 3=1) then begin
-  gfx.shader.TexMode(1,tblInterpolate,tblModulate,fltUndefined,(t mod 2000)/2000);
+  shader.TexMode(1,tblInterpolate,tblModulate,fltUndefined,(t mod 2000)/2000);
   // плавный переход между двумя текстурами (в две стороны)
   draw.DoubleTex(40,40,tex2,tex1);
   draw.DoubleTex(150,40,tex1,tex2);
   // перемножение двух текстур
-  gfx.shader.TexMode(1,tblModulate2X,tblModulate);
+  shader.TexMode(1,tblModulate2X,tblModulate);
   draw.DoubleTex(300,40,tex1,tex2);
  end;
 // if v mod 3=2 then draw.Image(40,40,tex2);
@@ -1168,47 +1185,47 @@ begin
  draw.RotScaled(580.5,370.5,1,1,0,tex2);}
 
  // цвет от первой текстуры, альфа - пофигу
- gfx.shader.TexMode(1,tblKeep,tblKeep);
+ shader.TexMode(1,tblKeep,tblKeep);
  draw.DoubleRotScaled(470,100,1,1,1,1,0,tex1,tex2);
  // цвет от второй текстуры, альфа - пофигу
- gfx.shader.TexMode(1,tblReplace,tblNone);
+ shader.TexMode(1,tblReplace,tblNone);
  draw.DoubleRotScaled(600,100,1,1,1,1,0,tex1,tex2);
 
  // цвет от первой текстуры, альфа - от третьей (вырезание круга из первой)
- gfx.shader.TexMode(1,tblKeep,tblReplace);
+ shader.TexMode(1,tblKeep,tblReplace);
  draw.DoubleTex(20,190,tex1,tex3);
  // цвет - градиент, альфа - сплошная
- gfx.shader.TexMode(1,tblReplace,tblKeep);
+ shader.TexMode(1,tblReplace,tblKeep);
  draw.DoubleTex(100,190,tex1,tex3);
  // цвет - сумма, альфа - круг
- gfx.shader.TexMode(1,tblAdd,tblModulate);
+ shader.TexMode(1,tblAdd,tblModulate);
  draw.DoubleTex(180,190,tex1,tex3);
  // интерполяция цвета и альфы
- gfx.shader.TexMode(1,tblInterpolate,tblInterpolate,fltUndefined,0);
+ shader.TexMode(1,tblInterpolate,tblInterpolate,fltUndefined,0);
  draw.DoubleTex(180+80,190,tex1,tex3);
- gfx.shader.TexMode(1,tblInterpolate,tblInterpolate,fltUndefined,1);
+ shader.TexMode(1,tblInterpolate,tblInterpolate,fltUndefined,1);
  draw.DoubleTex(180+80*2,190,tex1,tex3);
- gfx.shader.TexMode(1,tblInterpolate,tblReplace,fltUndefined,0.5);
+ shader.TexMode(1,tblInterpolate,tblReplace,fltUndefined,0.5);
  draw.DoubleTex(180+80*3,190,tex1,tex3);
 
- gfx.shader.TexMode(1,tblDisable,tblDisable);
+ shader.TexMode(1,tblDisable,tblDisable);
 
  // Текстурирование 1-й текстурой
  // ----------------------------------
 
  // цвет - фиксированный, альфа - из текстуры
- gfx.shader.TexMode(0,tblKeep,tblModulate);
+ shader.TexMode(0,tblKeep,tblModulate);
  // Не работает! Потому что DrawXXX сама вызывает SetTexMode исходя из своих представлений, но только если тип отрисовки изменился с предыдущего вызова 
  draw.Image(20,270,tex3,$FF30A040);
  // цвет из текстуры, альфа - сплошная
- gfx.shader.TexMode(0,tblReplace,tblKeep);
+ shader.TexMode(0,tblReplace,tblKeep);
  draw.Image(20+80,270,tex3,$C0202020);
  // цвет и альфа - суммируются
- gfx.shader.TexMode(0,tblAdd,tblAdd);
+ shader.TexMode(0,tblAdd,tblAdd);
  draw.Image(20+80*2,270,tex3,$50000080);
 
  // Возврат стандартного значения
- gfx.shader.DefaultTexMode;
+ shader.DefaultTexMode;
 
  // Original images
  draw.Image(40,440,tex1);
@@ -1656,7 +1673,7 @@ var
  x,y:integer;
 begin
  try
- prog:=gfx.shader.Build(
+ prog:=shader.Build(
    LoadFileAsString('res\shader.vert'),
    LoadFileAsString('res\shader.frag'));
  //loc1:=glGetUniformLocation(prog,'offset');
@@ -1690,12 +1707,12 @@ begin
  gfx.BeginPaint(nil);
  gfx.target.Clear($FF000040);
  draw.Image(600,10,tex);
- gfx.shader.UseCustom(prog);
+ shader.UseCustom(prog);
  d:=1+sin(0.003*(myTickCount mod $FFFFFF));
  prog.SetUniform('offset',0.003*d);
  draw.Image(600,300,tex);
  // Switch back to the default shader
- gfx.shader.Reset;
+ shader.Reset;
  draw.FillGradrect(50,50,300,200,$FFF04000,$FF60C000,false);
  draw.FillRect(30,100,500,120,$FF000000);
  gfx.EndPaint;
