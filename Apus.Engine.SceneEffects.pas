@@ -197,9 +197,7 @@ begin
   end;
   color:=color shl 24+$808080;
   if buffer<>nil then begin
-   gfx.BeginPaint(nil);
    draw.Image(0,0,buffer,color);
-   gfx.EndPaint;
   end;
  except
   on E:Exception do begin
@@ -298,12 +296,7 @@ begin
   end;
   gfx.target.BlendMode(blAlpha);
 
-  gfx.BeginPaint(nil);
-  try
-   draw.Image(0,0,buffer,$FF808080);
-  finally
-   gfx.EndPaint;
-  end;
+  draw.Image(0,0,buffer,$FF808080);
 
   tex:=buffer;
   buffer:=prevbuf;
@@ -541,7 +534,6 @@ begin
  if shadow<>0 then
   target.shadowColor:=ColorMix(shadow,shadow and $FFFFFF,stage);
 
- gfx.BeginPaint(nil);
  try
  if eff=1 then begin
   // Эффект изменения прозрачности
@@ -629,7 +621,6 @@ begin
  except
   on e:exception do ForcelogMessage('WndEff error: '+ExceptionMsg(e));
  end;
- gfx.EndPaint;
 end;
 
 procedure TShowWindowEffect.onDone;
@@ -758,12 +749,7 @@ begin
   if not initialized then Initialize;
   if dontPlay or ((power.value=0) and (power.finalValue=0)) then begin
    done:=true;
-   gfx.BeginPaint(nil);
-   try
-    target.Render;
-   finally
-    gfx.EndPaint;
-   end;
+   target.Render;
    exit;
   end;
   blurLog:=blurLog+'D';
@@ -795,8 +781,6 @@ begin
    gfx.EndPaint;
   end;}
 
-  gfx.BeginPaint(nil);
-  try
   shader.UseCustom(blurShader);
   shader.UseTexture(buffer2,1);
   phase:=power.Value;
@@ -823,9 +807,6 @@ begin
   v:=200*(1/buffer.height);
   draw.Scaled(-100-u,-100-v,100+u,100+v,buffer);
 
-  finally
-   gfx.EndPaint;
-  end;
   shader.Reset;
 
  except
