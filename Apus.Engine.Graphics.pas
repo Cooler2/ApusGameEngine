@@ -94,7 +94,6 @@ type
   procedure BlendMode(blend:TBlendingMode); virtual; abstract;
   procedure Mask(rgb:boolean;alpha:boolean); virtual;
   procedure UnMask; virtual;
-  procedure Apply; virtual; abstract; //< Apply curTarget as actual render target
 
   function width:integer; // width of the current render target in virtual pixels
   function height:integer; // height of the current render target in virtual pixels
@@ -114,8 +113,10 @@ type
   stackRW,stackRH:array[1..10] of integer;
   stackCnt:integer;
   // stack of saved masks
-  maskStack:array[0..9] of byte;
+  maskStack:array[0..9] of integer;
   maskStackPos:integer;
+  curMask:integer;
+  procedure ApplyMask; virtual; abstract; //< Apply curMask
  end;
 
 var
@@ -399,16 +400,36 @@ procedure TRenderTargetAPI.Viewport(oX, oY, VPwidth, VPheight,
   if renderHeight<=0 then renderHeight:=vpHeight;
   self.renderWidth:=renderWidth;
   self.renderHeight:=renderHeight;
+  transformationAPI.DefaultView;
  end;
 
 procedure TRenderTargetAPI.Mask(rgb, alpha: boolean);
+ var
+  mask:integer;
  begin
-
+  ASSERT(maskStackPos<15);
+  mask:=0;
+  maskStack[maskStackPos]:=curmask;
+  inc(maskStackPos);
+  if rgb then mask:=mask+7;
+  if alpha then mask:=mask+8;
+  if curmask<>mask then begin
+   curMask:=mask;
+   ApplyMask;
+  end;
  end;
 
 procedure TRenderTargetAPI.UnMask;
+ var
+  mask:integer;
  begin
-
+  ASSERT(maskStackPos>0);
+  dec(maskStackPos);
+  mask:=maskStack[maskStackPos];
+  if curmask<>mask then begin
+   curMask:=mask;
+   ApplyMask;
+  end;
  end;
 
 procedure TRenderTargetAPI.Backbuffer;

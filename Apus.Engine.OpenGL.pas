@@ -106,9 +106,8 @@ type
   procedure Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer); override;
   procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); override;
   procedure BlendMode(blend:TBlendingMode); override;
-  procedure Mask(rgb:boolean;alpha:boolean); override;
-  procedure UnMask; override;
   procedure Clip(x,y,w,h:integer); override;
+  procedure ApplyMask; override;
  protected
   scissor:boolean;
   backBufferWidth,backBufferHeight:integer;
@@ -615,17 +614,19 @@ constructor TGLRenderTargetAPI.Create;
   backBufferHeight:=data[3];
  end;
 
-procedure TGLRenderTargetAPI.Mask(rgb, alpha: boolean);
+procedure TGLRenderTargetAPI.ApplyMask;
  begin
-  inherited;
-
- end;
-
-
-procedure TGLRenderTargetAPI.UnMask;
- begin
-  inherited;
-
+   {$IFDEF GLES}
+   glColorMask((curmask and 4),
+               (curmask and 2),
+               (curmask and 1),
+               (curmask and 8));
+   {$ELSE}
+   glColorMask((curmask and 4)>0,
+               (curmask and 2)>0,
+               (curmask and 1)>0,
+               (curmask and 8)>0);
+   {$ENDIF}
  end;
 
 procedure TGLRenderTargetAPI.Backbuffer;
