@@ -277,9 +277,7 @@ procedure TOpenGL.EndPaint;
   dec(canPaint);
   if canPaint>0 then begin
    renderTargetAPI.Pop;
-   renderTargetAPI.Viewport(0,0,-1,-1);
    renderTargetAPI.BlendMode(blAlpha);
-   transformationAPI.DefaultView;
   end;
   clippingAPI.Restore;
  end;

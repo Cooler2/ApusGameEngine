@@ -374,9 +374,8 @@ procedure TRenderTargetAPI.Pop;
  begin
   ASSERT(stackCnt>0);
   Texture(stack[stackcnt]);
-  vPort:=stackVP[stackCnt];
-  renderWidth:=stackRW[stackCnt];
-  renderHeight:=stackRH[stackCnt];
+  with stackVP[stackCnt] do
+   Viewport(left,top,width,height,stackRW[stackCnt],stackRH[stackCnt]);
   dec(stackCnt);
  end;
 
