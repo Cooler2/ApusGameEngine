@@ -637,17 +637,16 @@ end;
 const
  // version for GLPainter2
  vBlurShader2=
-  'attribute vec3 aPosition;   '#13#10+
-  'attribute vec4 aColor;      '#13#10+
-  'attribute vec2 aTexcoord;   '#13#10+
-  'varying vec2 vTexcoord;'#13#10+
-  'varying vec2 vPos;'#13#10+
+  '#version 330 '#13#10+
+  'layout (location=0) in vec3 aPosition;    '#13#10+
+  'layout (location=1) in vec4 color;      '#13#10+
+  'layout (location=2) in vec2 texCoord; '#13#10+
+  'out vec2 vTexcoord;'#13#10+
+  ''#13#10+
   'void main(void) '#13#10+
   '{ '#13#10+
-//  '  vTexcoord = aTexcoord;      '#13#10+
-  '  vTexcoord = vec2(0.5+aPosition.x/200,0.5-aPosition.y/200);    '#13#10+
+  '  vTexcoord = vec2(0.5+aPosition.x/200,0.5+aPosition.y/200);    '#13#10+
   '  gl_Position = vec4(0.01 * aPosition, 1.0);   '#13#10+
-  '  vPos = gl_Position; '#13#10+
   '}';
 
  fBlurShader2=
@@ -659,8 +658,7 @@ const
   'uniform float v2; '#13#10+
   'uniform vec4 colorAdd; '#13#10+
   'uniform vec4 colorMult; '#13#10+
-  'varying vec2 vTexcoord;'#13#10+
-  'varying vec2 vPos;'#13#10+
+  'in vec2 vTexcoord;'#13#10+
   'void main(void)   '#13#10+
   '{   '#13#10+
   '   vec4 value = v1 * texture2D(tex1, vTexcoord);  '#13#10+
@@ -669,7 +667,7 @@ const
   '   value += v2 * texture2D(tex2, vTexcoord+vec2(offsetX,-offsetY));  '#13#10+
   '   value += v2 * texture2D(tex2, vTexcoord+vec2(-offsetX,-offsetY));  '#13#10+
   '   gl_FragColor = colorAdd + value*colorMult;  '#13#10+
-//  '   gl_FragColor = vec4(fract(vPos.x), fract(vPos.y), 0.5, 1.0);  '#13#10+
+//  '   gl_FragColor = texture2D(tex1, vTexcoord)+vec4(0.1,0.1,0.1,0.0);  '#13#10+
   '}';
 
 var
@@ -782,6 +780,7 @@ begin
   end;}
 
   shader.UseCustom(blurShader);
+  shader.UseTexture(buffer,0);
   shader.UseTexture(buffer2,1);
   phase:=power.Value;
   v:=sqrt(phase*factor);
@@ -800,7 +799,7 @@ begin
 
   move(mainColorMult,cb,4);
   for i:=0 to 2 do cf.v[i]:=(1-v)+cb[i]*v*2/255;
-  cf.v[3]:=0;
+  cf.v[3]:=1.0;
   blurShader.SetUniform('colorMult',cf);
 
   u:=200*(1/buffer.width);
@@ -808,6 +807,8 @@ begin
   draw.Scaled(-100-u,-100-v,100+u,100+v,buffer);
 
   shader.Reset;
+
+  //draw.FillRect(0,0,1000,500,$FF009000);
 
  except
   on e:exception do begin
