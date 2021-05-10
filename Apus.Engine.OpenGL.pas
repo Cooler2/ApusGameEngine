@@ -587,9 +587,11 @@ procedure TGLRenderTargetAPI.Clear(color:cardinal; zbuf:single;  stencil:integer
 
 procedure TGLRenderTargetAPI.Clip(x,y,w,h: integer);
  begin
-  if scissor and (x<=0) and (y<=0) and (x+w>=realWidth) and (y+h>=realHeight) then begin
-   glDisable(GL_SCISSOR_TEST);
-   scissor:=false;
+  if (x<=0) and (y<=0) and (x+w>=realWidth) and (y+h>=realHeight) then begin
+   if scissor then begin
+    glDisable(GL_SCISSOR_TEST);
+    scissor:=false;
+   end;
    exit;
   end;
   if not scissor then begin
@@ -645,6 +647,8 @@ procedure TGLRenderTargetAPI.Backbuffer;
   CheckForGLError(3);
   glScissor(0,0,realWidth,realHeight);
   clippingAPI.AssignActual(Rect(0,0,realWidth,realHeight));
+  glDisable(GL_SCISSOR_TEST);
+  scissor:=false;
  end;
 
 procedure TGLRenderTargetAPI.Texture(tex:TTexture);
@@ -661,6 +665,8 @@ procedure TGLRenderTargetAPI.Texture(tex:TTexture);
   renderWidth:=realWidth;
   renderHeight:=realHeight;
   clippingAPI.AssignActual(Rect(0,0,realWidth,realHeight));
+  glDisable(GL_SCISSOR_TEST);
+  scissor:=false;
  end;
 
 procedure TGLRenderTargetAPI.UseDepthBuffer(test: TDepthBufferTest;
