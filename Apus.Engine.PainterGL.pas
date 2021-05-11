@@ -9,7 +9,7 @@
 {$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
 unit Apus.Engine.PainterGL;
 interface
- uses Types, Apus.Engine.API, Apus.Engine.Painter2D;
+ uses Types, Apus.Engine.API;
 
 type
  TMatrixType=(mtModelView,mtProjection);
@@ -54,8 +54,6 @@ type
   procedure SetOrthographic(scale,zMin,zMax:double); override;
   procedure SetDefaultView; override;
 
-  procedure SetCullMode(mode:TCullMode); override;
-
   procedure UseTexture(tex:TTexture;stage:integer=0); override;
 
   // Extended shader functionality
@@ -86,7 +84,6 @@ type
   // Text effect
   txttex:TTexture;
 
-  charmap:PCharMap;
   chardrawer:integer;
 
   outputPos:TPoint; // output area in the default render target (bottom-left corner, relative to bottom-left RT corner)
@@ -105,7 +102,7 @@ type
   {$IFNDEF GLES20}
   function SetStates(state:byte;primRect:TRect;tex:TTexture=nil):boolean; override; // возвращает false если примитив полностью отсекается
 
-  procedure DrawPrimitives(primType,primCount:integer;vertices:pointer;stride:integer); override;
+  procedure renderDevice.Draw(primType,primCount:integer;vertices:pointer;stride:integer); override;
   procedure DrawPrimitivesMulti(primType,primCount:integer;vertices:pointer;stride:integer;stages:integer); override;
 
   procedure DrawPrimitivesFromBuf(primType,primCount,vrtStart:integer;
@@ -155,62 +152,14 @@ begin
 end;
 
 
-function SwapColor(color:cardinal):cardinal; inline;
-begin
- result:=color and $FF00FF00+(color and $FF) shl 16+(color and $FF0000) shr 16;
-end;
-
-function clRed(color:cardinal):single; inline;
-begin
- result:=((color shr 16) and $FF)/255;
-end;
-
-function clGreen(color:cardinal):single; inline;
-begin
- result:=((color shr 8) and $FF)/255;
-end;
-
-function clBlue(color:cardinal):single; inline;
-begin
- result:=(color and $FF)/255;
-end;
-
-function clAlpha(color:cardinal):single; inline;
-begin
- result:=((color shr 24) and $FF)/255;
-end;
-
-const
- vColorMatrix=
-  'void main(void)'#13#10+
-  '{'#13#10+
-  '    gl_TexCoord[0] = gl_MultiTexCoord0;                           '#13#10+
-  '    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;       '#13#10+
-  '}';
-
- fColorMatrix=
-  'uniform sampler2D tex1;    '#13#10+
-  'uniform vec3 newRed;   '#13#10+
-  'uniform vec3 newGreen;   '#13#10+
-  'uniform vec3 newBlue;   '#13#10+
-  'void main(void)                         '#13#10+
-  '{                                       '#13#10+
-  '    vec4 value = texture2D(tex1, vec2(gl_TexCoord[0]));  '#13#10+
-   '    float red = dot(value, vec4(newRed, 0));     '#13#10+
-   '    float green = dot(value, vec4(newGreen, 0)); '#13#10+
-   '    float blue = dot(value, vec4(newBlue,0));    '#13#10+
-   '    gl_FragColor = vec4(red,green,blue,value.a); '#13#10+
-  '}';
-
-
 constructor TGLPainter.Create;
 var
  i:integer;
 begin
  try
  // Adjust font cache
- if game.screenWidth*game.screenHeight>3000000 then textCacheHeight:=max2(textCacheHeight,1024);
- //if game.screenWidth*game.screenHeight>5000000 then textCacheWidth:=max2(textCacheWidth,1024);
+ if game.screenWidth*game.screenHeight>2500000 then textCacheHeight:=max2(textCacheHeight,1024);
+ if game.screenWidth*game.screenHeight>3500000 then textCacheWidth:=max2(textCacheWidth,1024);
  texman:=TGLTextureMan.Create;
  inherited Create;
  defaultRenderTarget:=nil;
@@ -318,20 +267,6 @@ begin
  result:=prog;
 end;
 
-function TGLPainter.LockBuffer(buf: TPainterBuffer; offset,
-  size: cardinal): pointer;
-begin
- case buf of
-  vertBuf:begin result:=@partbuf[offset];end;
-  bandIndBuf:begin result:=@bandInd[offset]; end;
-  textVertBuf:begin result:=@txtBuf[offset]; end;
-  else raise EWarning.Create('Invalid buffer type');
- end;
-end;
-
-procedure TGLPainter.UnlockBuffer(buf: TPainterBuffer);
-begin
-end;
 
 {$IFNDEF GLES20}
 procedure TGLPainter.DrawIndexedPrimitives(primType: integer; vertexBuf,
@@ -351,7 +286,7 @@ begin
   else raise EWarning.Create('DIP: Wrong indbuf');
  end;
  glVertexPointer(3,GL_FLOAT,stride,@vrt.x);
- glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.diffuse);
+ glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.color);
  glTexCoordPointer(2,GL_FLOAT,stride,@vrt.u);
  case primtype of
   LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,ind);
@@ -367,7 +302,7 @@ procedure TGLPainter.DrawIndexedPrimitivesDirectly(primType: integer;
   primCount: integer);
 begin
  glVertexPointer(3,GL_FLOAT,stride,@vertexBuf.x);
- glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vertexBuf.diffuse);
+ glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vertexBuf.color);
  glTexCoordPointer(2,GL_FLOAT,stride,@vertexBuf.u);
  case primtype of
   LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indBuf);
@@ -378,14 +313,14 @@ begin
  end;
 end;
 
-procedure TGLPainter.DrawPrimitives(primType, primCount: integer;
+procedure TGLPainter.renderDevice.Draw(primType, primCount: integer;
   vertices: pointer; stride: integer);
 var
  vrt:PVertex;
 begin
  vrt:=vertices;
  glVertexPointer(3,GL_FLOAT,stride,@vrt.x);
- glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.diffuse);
+ glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.color);
  glTexCoordPointer(2,GL_FLOAT,stride,@vrt.u);
  case primtype of
   LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
@@ -403,7 +338,7 @@ var
 begin
  vrt:=vertices;
  glVertexPointer(3,GL_FLOAT,stride,@vrt.x);
- glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.diffuse);
+ glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.color);
  glTexCoordPointer(2,GL_FLOAT,stride,@vrt.u);
  // Texture 2
  if stages>1 then begin
@@ -441,7 +376,7 @@ begin
   textVertBuf:vrt:=@txtBuf[0];
  end;
  glVertexPointer(3,GL_FLOAT,stride,@vrt.x);
- glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.diffuse);
+ glColorPointer(4,GL_UNSIGNED_BYTE,stride,@vrt.color);
  glTexCoordPointer(2,GL_FLOAT,stride,@vrt.u);
  case primtype of
   LINE_LIST:glDrawArrays(GL_LINES,vrtStart,primCount*2);
@@ -529,7 +464,7 @@ begin
  glClientActiveTexture(GL_TEXTURE0);
 
  glVertexPointer(3,GL_FLOAT,sizeof(TScrPoint3),@vrt);
- glColorPointer(4,GL_UNSIGNED_BYTE,sizeof(TScrPoint3),@vrt[0].diffuse);
+ glColorPointer(4,GL_UNSIGNED_BYTE,sizeof(TScrPoint3),@vrt[0].color);
 // glTexCoordPointer(2,GL_FLOAT,sizeof(TScrPoint3),@vrt[0].u);
  glDrawArrays(GL_TRIANGLE_FAN,0,4);
 
@@ -802,12 +737,6 @@ var
  x,y,z:double;
 begin
  Invert4Full(view,viewMatrix);
- // Последний вектор: положение начала координат мировой системы в СК камеры
- {x:=view[3,0]; y:=view[3,1]; z:=view[3,2];
- view[3,0]:=-(x*view[0,0]+y*view[0,1]+z*view[0,2]);
- view[3,1]:=-(x*view[1,0]+y*view[1,1]+z*view[1,2]);
- view[3,2]:=-(x*view[2,0]+y*view[2,1]+z*view[2,2]);
- viewmatrix:=view;}
  Set3DTransform(objMatrix);
 end;
 
@@ -927,21 +856,6 @@ begin
  glUniform3f(colorMatrixRed,  mat[0,0],mat[0,1],mat[0,2]);
  glUniform3f(colorMatrixGreen,mat[1,0],mat[1,1],mat[1,2]);
  glUniform3f(colorMatrixBlue, mat[2,0],mat[2,1],mat[2,2]);
-end;
-
-procedure TGLPainter.SetCullMode(mode: TCullMode);
-begin
- case mode of
-  cullCCW:begin
-   glEnable(GL_CULL_FACE);
-   glCullFace(GL_BACK);
-  end;
-  cullCW:begin
-   glEnable(GL_CULL_FACE);
-   glCullFace(GL_FRONT);
-  end;
-  cullNone:glDisable(GL_CULL_FACE);
- end;
 end;
 
 procedure TGLPainter.SetMask(rgb:boolean;alpha:boolean);

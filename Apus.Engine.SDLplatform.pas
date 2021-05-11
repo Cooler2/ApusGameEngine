@@ -1,4 +1,4 @@
-// Windows-specific functions used by Game object
+﻿// Windows-specific functions used by Game object
 //
 // Copyright (C) 2020 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -21,6 +21,7 @@ type
   procedure CreateWindow(title:string);
   procedure SetupWindow(params:TGameSettings);
   function GetWindowHandle:THandle;
+  procedure GetWindowSize(out width,height:integer);
   procedure DestroyWindow;
 
   procedure ShowWindow(show:boolean);
@@ -192,6 +193,12 @@ procedure TSDLPlatform.FreeCursor(cur:THandle);
 function TSDLPlatform.GetWindowHandle: THandle;
  begin
   result:=window.id;
+ end;
+
+procedure TSDLPlatform.GetWindowSize(out width, height: integer);
+ begin
+  width:=window.w;
+  height:=window.h;
  end;
 
 procedure MyLogHandler(userdata: Pointer; category: Integer; priority: TSDL_LogPriority; const msg: PAnsiChar);

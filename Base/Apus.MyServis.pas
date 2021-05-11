@@ -429,6 +429,7 @@ interface
 
  procedure ZeroMem(var data;size:integer); inline;
  function IsZeroMem(buf:pointer;size:integer):boolean;
+ procedure FillDword(var data;size:integer;value:cardinal);
 
  // Простейшее шифрование/дешифрование (simple XOR)
  procedure SimpleEncrypt(var data;size,code:integer);
@@ -545,6 +546,8 @@ interface
  function Max2(a,b:integer):integer; inline;
  function Min2d(a,b:double):double; inline;
  function Max2d(a,b:double):double; inline;
+ function Min2s(a,b:single):single; inline;
+ function Max2s(a,b:single):single; inline;
  function Min3d(a,b,c:double):double; inline;
  function Max3d(a,b,c:double):double; inline;
 
@@ -797,6 +800,14 @@ implementation
    if a>b then result:=b else result:=a;
   end;
  function max2d(a,b:double):double; inline;
+  begin
+   if a>b then result:=a else result:=b;
+  end;
+function min2s(a,b:single):single; inline;
+  begin
+   if a>b then result:=b else result:=a;
+  end;
+ function max2s(a,b:single):single; inline;
   begin
    if a>b then result:=a else result:=b;
   end;
@@ -2102,6 +2113,18 @@ procedure SimpleEncrypt2;
     inc(i);
     pb^:=b;
     inc(pb);
+   end;
+  end;
+
+ procedure FillDword(var data;size:integer;value:cardinal);
+  var
+   pc:PCardinal;
+  begin
+   pc:=@data;
+   while size>0 do begin
+    pc^:=value;
+    inc(pc);
+    dec(size);
    end;
   end;
 

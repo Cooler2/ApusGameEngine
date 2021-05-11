@@ -85,7 +85,7 @@ type
 implementation
  uses {$IFDEF DIRECTX}{d3d8,directXGraphics,}{$ENDIF}
       SysUtils, Apus.Images, Apus.Geom2D,
-      {$IFDEF OPENGL}dglOpenGL, Apus.Engine.PainterGL, {$ENDIF}
+      {$IFDEF OPENGL}dglOpenGL, {$ENDIF}
       {$IFDEF ANDROID}gles20, Apus.Engine.PainterGL, {$ENDIF}
       Apus.Colors,Apus.Engine.UIClasses,Apus.Engine.Console,Apus.Engine.UIRender;
 
@@ -138,7 +138,7 @@ end;
 
 destructor TSwitchScreenEffect.Destroy;
 begin
- if buffer<>nil then painter.texman.FreeImage(buffer);
+ if buffer<>nil then FreeImage(buffer);
  inherited;
 end;
 
@@ -165,7 +165,7 @@ begin
  width:=game.GetSettings.width;
  height:=game.GetSettings.height;
  try
-  buffer:=painter.texman.AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'SceneEffect');
+  buffer:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'SceneEffect');
  except
   on e:exception do begin
    LogMessage('ERROR: eff allocation - '+ExceptionMsg(e));
@@ -184,9 +184,9 @@ var
 begin
  inherited;
  try
-  painter.BeginPaint(buffer);
+  gfx.BeginPaint(buffer);
   target.Render;
-  painter.EndPaint;
+  gfx.EndPaint;
   color:=round(255*timer/duration);
   DebugMessage('EffStage: '+inttostr(color));
   if color>255 then begin
@@ -197,9 +197,7 @@ begin
   end;
   color:=color shl 24+$808080;
   if buffer<>nil then begin
-   painter.BeginPaint(nil);
-   painter.DrawImage(0,0,buffer,color);
-   painter.EndPaint;
+   draw.Image(0,0,buffer,color);
   end;
  except
   on E:Exception do begin
@@ -234,7 +232,7 @@ end;
 
 destructor TRotScaleEffect.Destroy;
 begin
- painter.texman.FreeImage(buffer);
+ FreeImage(buffer);
  inherited;
 end;
 
@@ -245,11 +243,11 @@ begin
  width:=game.GetSettings.width;
  height:=game.GetSettings.height;
  try
-  buffer:=painter.texman.AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'TransEffect');
-  prevbuf:=painter.texman.AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'TransEffect2');
-  painter.BeginPaint(prevbuf);
+  buffer:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'TransEffect');
+  prevbuf:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'TransEffect2');
+  gfx.BeginPaint(prevbuf);
   target.Render;
-  painter.EndPaint;
+  gfx.EndPaint;
  except
   on e:exception do begin
    LogMessage('ERROR: RSE initialization - '+ExceptionMsg(e));
@@ -280,13 +278,8 @@ begin
    target.SetStatus(ssFrozen);
    if newscene is TUIScene then (target as TUIScene).UI.enabled:=true;
   end;
-  painter.BeginPaint(buffer);
+  gfx.BeginPaint(buffer);
   try
-
-{  device.SetTextureStageState(0,D3DTSS_ALPHAOP,D3DTOP_SELECTARG1);
-  device.SetTextureStageState(0,D3DTSS_ALPHAARG1,D3DTA_DIFFUSE);
-  device.SetTextureStageState(0,D3DTSS_COLOROP,D3DTOP_SELECTARG1);
-  device.SetTextureStageState(0,D3DTSS_COLORARG1,D3DTA_TEXTURE);}
 
   /// TODO: replace with proper value (probably renderRect)
   w:=game.GetSettings.width-1;
@@ -296,19 +289,14 @@ begin
   l1.matrix[1,0]:=0; l1.matrix[1,1]:=1;
   l1.matrix[2,0]:=0; l1.matrix[2,1]:=0;
   l1.next:=nil;
-  painter.SetMode(blMove);
-  painter.DrawMultiTex(0,0,w,h,@l1,$FF808080);
+  gfx.target.BlendMode(blMove);
+  //draw.MultiTex(0,0,w,h,@l1,$FF808080);
   finally
-   painter.EndPaint;
+   gfx.EndPaint;
   end;
-  painter.SetMode(blAlpha);
+  gfx.target.BlendMode(blAlpha);
 
-  painter.BeginPaint(nil);
-  try
-   painter.DrawImage(0,0,buffer,$FF808080);
-  finally
-   painter.EndPaint;
-  end;
+  draw.Image(0,0,buffer,$FF808080);
 
   tex:=buffer;
   buffer:=prevbuf;
@@ -470,7 +458,7 @@ begin
 
  try
   LogMessage(Format('WndEffect: allocating %d x %d buffer',[w,h]));
-  buffer:=painter.texman.AllocImage(w,h,pfRenderTargetAlpha,aiRenderTarget+aiTexture,'WndEffect');
+  buffer:=AllocImage(w,h,pfRenderTargetAlpha,aiRenderTarget+aiTexture,'WndEffect');
   if buffer=nil then raise EError.Create('WndEffect: buffer not allocated!');
  except
    on e:exception do begin
@@ -487,7 +475,7 @@ destructor TShowWindowEffect.Destroy;
 begin
  try
   if not done then onDone;
-  if initialized and (buffer<>nil) then painter.texman.FreeImage(buffer);
+  if initialized and (buffer<>nil) then FreeImage(buffer);
   if target<>nil then begin
    PutMsg('WndEffDone('+(target as TUISCene).UI.name+')');
    target.shadowColor:=shadow;
@@ -516,17 +504,17 @@ begin
  end;
  try
   if buffer=nil then  raise EError.Create('WndEffect failure: buffer not allocated!');
-  painter.BeginPaint(buffer);
+  gfx.BeginPaint(buffer);
   try
    // Background is set to opaque for debug purpose: in transpBgnd mode scene MUST overwrite
    // alpha channel, not blend into it! If the background is transparent it's very easy to miss this mistake
-   painter.Clear($FF808080,-1,-1);
+   gfx.target.Clear($FF808080,-1,-1);
    target.Process;
    transpBgnd:=true;
    target.Render;
    transpBgnd:=false;
   finally
-   painter.EndPaint;
+   gfx.EndPaint;
    TUIScene(target).ui.position:=savePos;
   end;
  except
@@ -546,12 +534,11 @@ begin
  if shadow<>0 then
   target.shadowColor:=ColorMix(shadow,shadow and $FFFFFF,stage);
 
- painter.BeginPaint(nil);
  try
  if eff=1 then begin
   // Эффект изменения прозрачности
   color:=cardinal(stage) shl 24+$808080;
-  painter.DrawImage(x,y,buffer,color);
+  draw.Image(x,y,buffer,color);
  end;
  if eff=2 then begin
   // Эффект "телевизора"
@@ -562,7 +549,7 @@ begin
   cx:=x+w div 2; cy:=y+h div 2;
   dx:=round(w*sqrt(sin(pi*stage/512))/2);
   dy:=round((h-4)*(1-sqrt(cos(pi*stage/512)))/2)+2;
-  painter.DrawScaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,color);
+  draw.Scaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,color);
  end;
  if eff=3 then begin
   // обратный телевизор (выключение)
@@ -573,7 +560,7 @@ begin
   cx:=x+w div 2; cy:=y+h div 2;
   dy:=round(h*exp(-stage/70)/2);
   dx:=round(w/2+exp(2+stage/60)-7);
-  painter.DrawScaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,color);
+  draw.Scaled(cx-dx,cy-dy,cx+dx,cy+dy,buffer,color);
  end;
  if eff in [4,8] then begin
   // появление снизу
@@ -582,7 +569,7 @@ begin
   dy:=round(h*spline(stage/256,0,0,1,0,0.7));
   cy:=round(36-sqr(stage-160)/256);
   if eff>7 then cy:=round((36-sqr(stage-160)/256)/3);
-  painter.DrawScaled(x,y+h-dy-cy,x+w,y+h-cy,buffer,color);
+  draw.Scaled(x,y+h-dy-cy,x+w,y+h-cy,buffer,color);
  end;
  if eff in [5,9] then begin
   // появление сверху
@@ -590,7 +577,7 @@ begin
   dy:=round(h*spline(stage/256,0,0,1,0,0.7));
   cy:=round(36-sqr(stage-160)/256);
   if eff>7 then cy:=round((36-sqr(stage-160)/256)/3);
-  painter.DrawScaled(x,y+cy,x+w,y+cy+dy,buffer,color);
+  draw.Scaled(x,y+cy,x+w,y+cy+dy,buffer,color);
  end;
  if eff in [6,10] then begin
   // появление слева
@@ -598,7 +585,7 @@ begin
   dx:=round(w*spline(stage/256,0,0,1,0,0.7));
   cx:=round(36-sqr(stage-160)/256);
   if eff>7 then cx:=round((36-sqr(stage-160)/256)/3);
-  painter.DrawScaled(x+cx,y,x+cx+dx,y+h,buffer,color);
+  draw.Scaled(x+cx,y,x+cx+dx,y+h,buffer,color);
  end;
  if eff in [7,11] then begin
   // появление справа
@@ -606,7 +593,7 @@ begin
   dx:=round(w*spline(stage/256,0,0,1,0,0.7));
   cx:=round(36-sqr(stage-160)/256);
   if eff>7 then cx:=round((36-sqr(stage-160)/256)/3);
-  painter.DrawScaled(x-cx+w-dx,y,x+w-cx,y+h,buffer,color);
+  draw.Scaled(x-cx+w-dx,y,x+w-cx,y+h,buffer,color);
  end;
  if eff=22 then begin
   // Эффект масштабирования (не особо линейного)
@@ -616,7 +603,7 @@ begin
   centerX:=x+w div 2; centerY:=y+h div 2;
   scaleX:=Spline(stage/255,0.6,0.3,1,0,0.5);
   scaleY:=scaleX;
-  painter.DrawScaled(centerX-scaleX*w/2,centerY-scaleY*h/2,
+  draw.Scaled(centerX-scaleX*w/2,centerY-scaleY*h/2,
     centerX+scaleX*w/2,centerY+scaleY*h/2,buffer,color);
  end;
  if eff=23 then begin
@@ -627,14 +614,13 @@ begin
   centerX:=x+w div 2; centerY:=y+h div 2;
   scaleX:=Spline(stage/255,0.6,0.3,1,0.05,0.5);
   scaleY:=Spline(stage/255,0.3,0.4,1,0.05,0.5);
-  painter.DrawScaled(centerX-scaleX*w/2,centerY-scaleY*h/2,
+  draw.Scaled(centerX-scaleX*w/2,centerY-scaleY*h/2,
     centerX+scaleX*w/2,centerY+scaleY*h/2,buffer,color);
  end;
 
  except
   on e:exception do ForcelogMessage('WndEff error: '+ExceptionMsg(e));
  end;
- painter.EndPaint;
 end;
 
 procedure TShowWindowEffect.onDone;
@@ -649,52 +635,18 @@ end;
 
 {$IFDEF OPENGL}
 const
- // version for GLPainter
- vBlurShader=
-  'uniform float offsetX;'+
-  'uniform float offsetY;'+
-  'void main(void)'+
-  '{'+
-  '        gl_TexCoord[0] = gl_MultiTexCoord0;                           '+
-  '        gl_TexCoord[1] = gl_MultiTexCoord0+vec4(offsetX,offsetY,0,0);   '+
-  '        gl_TexCoord[2] = gl_MultiTexCoord0+vec4(-offsetX,offsetY,0,0);  '+
-  '        gl_TexCoord[3] = gl_MultiTexCoord0+vec4(offsetX,-offsetY,0,0);  '+
-  '        gl_TexCoord[4] = gl_MultiTexCoord0+vec4(-offsetX,-offsetY,0,0); '+
-  '      '+
-  '        gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;       '+
-  '}';
-
- fBlurShader=
-  'uniform sampler2D tex1;                                       '+
-  'uniform sampler2D tex2; '+
-  'uniform float v1; '+
-  'uniform float v2; '+
-  'uniform vec4 colorAdd; '+
-  'uniform vec4 colorMult; '+
-  'void main(void)                                                       '+
-  '{                                                                     '+
-  '        vec4 value0 = texture2D(tex1, vec2(gl_TexCoord[0]));  '+
-  '        vec4 value1 = texture2D(tex2, vec2(gl_TexCoord[1]));  '+
-  '        vec4 value2 = texture2D(tex2, vec2(gl_TexCoord[2]));  '+
-  '        vec4 value3 = texture2D(tex2, vec2(gl_TexCoord[3]));  '+
-  '        vec4 value4 = texture2D(tex2, vec2(gl_TexCoord[4]));  '+
-  '                                                                      '+
-  '        gl_FragColor = colorAdd + (value0*v1 + value1*v2 + value2*v2 + value3*v2 + value4*v2)*colorMult;  '+
-  '}';
-
  // version for GLPainter2
  vBlurShader2=
-  'attribute vec3 aPosition;   '#13#10+
-  'attribute vec4 aColor;      '#13#10+
-  'attribute vec2 aTexcoord;   '#13#10+
-  'varying vec2 vTexcoord;'#13#10+
-  'varying vec2 vPos;'#13#10+
+  '#version 330 '#13#10+
+  'layout (location=0) in vec3 aPosition;    '#13#10+
+  'layout (location=1) in vec4 color;      '#13#10+
+  'layout (location=2) in vec2 texCoord; '#13#10+
+  'out vec2 vTexcoord;'#13#10+
+  ''#13#10+
   'void main(void) '#13#10+
   '{ '#13#10+
-//  '  vTexcoord = aTexcoord;      '#13#10+
-  '  vTexcoord = vec2(0.5+aPosition.x/200,0.5-aPosition.y/200);    '#13#10+
+  '  vTexcoord = vec2(0.5+aPosition.x/200,0.5+aPosition.y/200);    '#13#10+
   '  gl_Position = vec4(0.01 * aPosition, 1.0);   '#13#10+
-  '  vPos = gl_Position; '#13#10+
   '}';
 
  fBlurShader2=
@@ -706,8 +658,7 @@ const
   'uniform float v2; '#13#10+
   'uniform vec4 colorAdd; '#13#10+
   'uniform vec4 colorMult; '#13#10+
-  'varying vec2 vTexcoord;'#13#10+
-  'varying vec2 vPos;'#13#10+
+  'in vec2 vTexcoord;'#13#10+
   'void main(void)   '#13#10+
   '{   '#13#10+
   '   vec4 value = v1 * texture2D(tex1, vTexcoord);  '#13#10+
@@ -716,19 +667,18 @@ const
   '   value += v2 * texture2D(tex2, vTexcoord+vec2(offsetX,-offsetY));  '#13#10+
   '   value += v2 * texture2D(tex2, vTexcoord+vec2(-offsetX,-offsetY));  '#13#10+
   '   gl_FragColor = colorAdd + value*colorMult;  '#13#10+
-//  '   gl_FragColor = vec4(fract(vPos.x), fract(vPos.y), 0.5, 1.0);  '#13#10+
+//  '   gl_FragColor = texture2D(tex1, vTexcoord)+vec4(0.1,0.1,0.1,0.0);  '#13#10+
   '}';
 
 var
- blurShader:integer=0;
- loc1,loc2,loc3,loc4,locCA,locCM,locTex1,locTex2:integer;
+ blurShader:TShader;
 
 destructor TBlurEffect.Destroy;
 begin
  inherited;
  blurLog:=blurLog+'F';
- painter.texman.FreeImage(buffer);
- painter.texman.FreeImage(buffer2);
+ FreeImage(buffer);
+ FreeImage(buffer2);
 // texman.FreeImage(buffer3);
 end;
 
@@ -761,32 +711,18 @@ var
  vsh,fsh,attrib:string;
 begin
  try
- if blurShader=0 then begin
-  if painter.classname='TGLPainter2' then begin
-   vsh:=vBlurShader2;
-   fsh:=fBlurShader2;
-   attrib:='aPosition,aColor,aTexcoord';
-  end else begin
-   vsh:=vBlurShader;
-   fsh:=fBlurShader;
-   attrib:='';
-  end;
-  blurShader:=TGLPainter(painter).BuildShaderProgram(vsh,fsh,attrib);
-  if blurShader=0 then begin
+ if blurShader=nil then begin
+  vsh:=vBlurShader2;
+  fsh:=fBlurShader2;
+  attrib:='aPosition,aColor,aTexcoord';
+  blurShader:=gfx.shader.Build(vsh,fsh,attrib);
+  if blurShader=nil then begin
    dontPlay:=true; exit;
   end;
-  loc1:=glGetUniformLocation(blurShader,'offsetX');
-  loc2:=glGetUniformLocation(blurShader,'offsetY');
-  loc3:=glGetUniformLocation(blurShader,'v1');
-  loc4:=glGetUniformLocation(blurShader,'v2');
-  locCA:=glGetUniformLocation(blurShader,'colorAdd');
-  locCM:=glGetUniformLocation(blurShader,'colorMult');
-  locTex1:=glGetUniformLocation(blurShader,'tex1');
-  locTex2:=glGetUniformLocation(blurShader,'tex2');
  end;
 
- buffer:=painter.texman.AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf1');
- buffer2:=painter.texman.AllocImage(width div 2,height div 2,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf2');
+ buffer:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf1');
+ buffer2:=AllocImage(width div 2,height div 2,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf2');
  initialized:=true;
  blurLog:=blurLog+'I';
  except
@@ -805,85 +741,75 @@ var
  u,v,f,phase:single;
  i:integer;
  cb:array[0..3] of byte;
- cf:array[0..3] of single;
+ cf:TVector4s;
 begin
  try
   if not initialized then Initialize;
   if dontPlay or ((power.value=0) and (power.finalValue=0)) then begin
    done:=true;
-   painter.BeginPaint(nil);
-   try
-    target.Render;
-   finally
-    painter.EndPaint;
-   end;
+   target.Render;
    exit;
   end;
   blurLog:=blurLog+'D';
   // Render source scene
-  painter.BeginPaint(buffer);
+  gfx.BeginPaint(buffer);
   try
    target.Render;
    inc(debug);
   finally
-   painter.EndPaint;
+   gfx.EndPaint;
   end;
 
   // Downsample
-{  painter.BeginPaint(buffer2);
+{  gfx.BeginPaint(buffer2);
   try
   u:=1+buffer.stepU*4;
   v:=1+buffer.stepV*4;
-  painter.TexturedRect(0,0,buffer2.width,buffer2.height,buffer,0,0,u,0,u,v,$FF808080);
+  draw.TexturedRect(0,0,buffer2.width,buffer2.height,buffer,0,0,u,0,u,v,$FF808080);
   finally
-   painter.EndPaint;
+   gfx.EndPaint;
   end;}
 
 {  f:=factor*power.value;
   if f>1 then begin
-   painter.BeginPaint(buffer3);
+   gfx.BeginPaint(buffer3);
    u:=1+buffer2.stepU*4;
    v:=1+buffer2.stepV*4;
-   painter.TexturedRect(0,0,buffer3.width,buffer3.height,buffer2,0,0,u,0,u,v,$FF808080);
-   painter.EndPaint;
+   draw.TexturedRect(0,0,buffer3.width,buffer3.height,buffer2,0,0,u,0,u,v,$FF808080);
+   gfx.EndPaint;
   end;}
 
-  painter.BeginPaint(nil);
-  try
-  painter.UseCustomShader;
-  glUseProgram(blurShader);
-  TGLPainter(painter).UseTexture(buffer2,1);
+  shader.UseCustom(blurShader);
+  shader.UseTexture(buffer,0);
+  shader.UseTexture(buffer2,1);
   phase:=power.Value;
   v:=sqrt(phase*factor);
 
-  glUniform1f(loc1,1.5*buffer2.stepU*v);
-  glUniform1f(loc2,1.5*buffer2.stepV*v);
-  glUniform1f(loc3,2/6 {1-v}); // amount of 1-sampled texture
-  glUniform1f(loc4,1/6 {v/4}); // amount of 4-sampled texture
-  glUniform1i(locTex1,0); // 1-sampled texture - reduced
-  glUniform1i(locTex2,0); // 4-sampled texture - original image
+  blurShader.SetUniform('offsetX',1.5*buffer2.stepU*v);
+  blurShader.SetUniform('offsetY',1.5*buffer2.stepV*v);
+  blurShader.SetUniform('v1',2/6);
+  blurShader.SetUniform('v2',1/6);
+  blurShader.SetUniform('tex1',0);
+  blurShader.SetUniform('tex2',0);
 
   v:=phase;
   move(mainColorAdd,cb,4);
-  for i:=0 to 2 do cf[i]:=cb[i]*v/255;
-  glUniform4f(locCA,cf[2],cf[1],cf[0],0);
+  cf.Init(cb[2]*v/255,cb[1]*v/255,cb[0]*v/255,0);
+  blurShader.SetUniform('colorAdd',cf);
 
   move(mainColorMult,cb,4);
-  for i:=0 to 2 do cf[i]:=(1-v)+cb[i]*v*2/255;
-  glUniform4f(locCM,cf[2],cf[1],cf[0],1);
+  for i:=0 to 2 do cf.v[i]:=(1-v)+cb[i]*v*2/255;
+  cf.v[3]:=1.0;
+  blurShader.SetUniform('colorMult',cf);
 
-  if painter.ClassName='TGLPainter2' then begin
-   u:=200*(1/buffer.width);
-   v:=200*(1/buffer.height);
-   painter.DrawScaled(-100-u,-100-v,100+u,100+v,buffer);
-//   painter.DrawScaled(-20,-20,70,50,buffer);
-  end else
-   painter.DrawImage(0,0,buffer);
+  u:=200*(1/buffer.width);
+  v:=200*(1/buffer.height);
+  draw.Scaled(-100-u,-100-v,100+u,100+v,buffer);
 
-  painter.ResetTexMode;
-  finally
-   painter.EndPaint;
-  end;
+  shader.Reset;
+
+  //draw.FillRect(0,0,1000,500,$FF009000);
+
  except
   on e:exception do begin
    ForceLogMessage('Error in BlurEff: '+ExceptionMsg(e));

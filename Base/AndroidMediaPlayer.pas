@@ -1,4 +1,4 @@
-// Android MediaPlayer JNI interface
+﻿// Android MediaPlayer JNI interface
 // Copyright (C) 2017 Apus Software (www.apus-software.com)
 // Author: Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)

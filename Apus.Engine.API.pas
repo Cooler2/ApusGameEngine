@@ -67,15 +67,16 @@ const
  tfTexture        = 1024; // Texture corresponds to a texture object of the underlying API
  tfScaled         = 2048; // scale factors are used
  tfCloned         = 4096; // Texture object is cloned from another, so don't free any underlying resources
+ tfPixelated      = 8192; // No interpolation allowed for sampling this texture
 
  // Special flags for the "index" field of particles
- partPosU  = $00000001;
- partPosV  = $00000100;
- partSizeU = $00010000;
- partSizeV = $00100000;
- partFlip  = $01000000;
- partEndpoint = $02000000; // free end of a polyline
- partLoop = $04000000; // end of a polyline loop
+ partPosU  = $00000001; // horizontal position in the atlas (in cells)
+ partPosV  = $00000100; // vertical position in the atlas (in cells)
+ partSizeU = $00010000; // particle width (in cells)
+ partSizeV = $00100000; // particle height (in cells)
+ partFlip  = $01000000; // mirror
+ partEndpoint = $02000000; // indicate that particle is a free end of a polyline (draw.Band)
+ partLoop = $04000000; // indicate end of a polyline loop (draw.Band)
 
  // Primitive types
  LINE_LIST = 1;
@@ -84,7 +85,7 @@ const
  TRG_STRIP = 4;
  TRG_LIST = 5;
 
- // TextOut options flags (overrides font handle flags)
+ // txt.Write() options flags (overrides font handle flags)
  toDontTranslate  =  1; // Don't use UDict to translate
  toDrawToBitmap   =  2; // Draw to bitmap buffer instead of current render target
  toDontCache      =  4; // Text attributes are dynamic, so no need to cache glyphs for any long period (temp cache is used)
@@ -150,9 +151,12 @@ type
  PPoint2s = ^TPoint2s;
  // 3D Points
  TPoint3 = Apus.Geom3D.TPoint3;
+ TVector3 = TPoint3;
  PPoint3 = ^TPoint3;
  TPoint3s = Apus.Geom3D.TPoint3s;
  PPoint3s = ^TPoint3s;
+ TVector4 = TQuaternion;
+ TVector4s = TQuaternionS;
  // Matrices
  T3DMatrix = TMatrix4;
  T3DMatrixS = TMatrix4s;
@@ -190,6 +194,7 @@ type
                    tblModulate, // previous*texture
                    tblModulate2X, // previous*texture*2
                    tblAdd,     // previous+texture
+                   tblSub,     // previous-texture
                    tblInterpolate // previous*factor+texture*(1-factor) текстурные стадии смешиваются между собой
                    );
 { TTexInterpolateMode=(tintFactor, // factor=constant
@@ -211,26 +216,27 @@ type
                               // (вывод превращается в левый если реальная ширина строки слишком мала или строка заканчивается на #10 или #13)
 
  // Access mode for locked resources
- TLockMode=(lmReadOnly,       // read-only (do not invalidate data when unlocked)
-            lmReadWrite,      // read+write (invalidate the whole area)
-            lmCustomUpdate);  // read+write, do not invalidate anything (AddDirtyRect is required, partial lock is not allowed in this case)
+ TLockMode=(lmReadOnly,       //< read-only (do not invalidate data when unlocked)
+            lmReadWrite,      //< read+write (invalidate the whole area)
+            lmCustomUpdate);  //< read+write, do not invalidate anything (AddDirtyRect is required, partial lock is not allowed in this case)
 
- // Display target
- TDisplayMode=(dmNone,             // not specified
-               dmSwitchResolution, // Fullscreen: switch to desired display mode (change screen resolution)
-               dmFullScreen,       // Use current resolution with fullscreen window
-               dmFixedWindow,      // Use fixed-size window
-               dmWindow);          // Use resizeable window
+ // Display mode
+ TDisplayMode=(dmNone,             //< not specified
+               dmSwitchResolution, //< Fullscreen: switch to desired display mode (change screen resolution)
+               dmFullScreen,       //< Use current resolution with fullscreen window
+               dmFixedWindow,      //< Use fixed-size window
+               dmWindow);          //< Use resizeable window
 
- // How the default render target should appear in the output area
- TDisplayFitMode=(dfmCenter,           // render target is centered in the output window rect (1:1) (DisplayScaleMode is ignored)
-                  dfmFullSize,         // render target fills the whole output output window rect
-                  dfmKeepAspectRatio); // render target is stretched to fill the output window rect while keeping it's aspect ratio
+ // How the rendered image should appear in the output window (display)
+ TDisplayFitMode=(dfmCenter,           //< image is centered in the output window rect (1:1) (DisplayScaleMode is ignored)
+                  dfmFullSize,         //< image is stretched to fill the whole output window
+                  dfmKeepAspectRatio); //< image is stretched to fill the output window while keeping it's original aspect ratio (black padding)
 
- // How rendering is processed if back buffer size doesn't match the output rect
- TDisplayScaleMode=(dsmDontScale,   // Ignore the back buffer size and set it to match the output rect size
-                    dsmStretch,     // Render to the back buffer size and then stretch rendered image to the output rect
-                    dsmScale);      // Use scale transformation matrix to map render area to the output rect
+ // How rendering is processed if the backbuffer size doesn't match the output area
+ TDisplayScaleMode=(dsmDontScale,   //< Backbuffer size is updated to match the output area
+                    dsmStretch,     //< Stretch rendered image to the output rect
+                    dsmScale);      //< Use scale transformation matrix to map render area to the output rect (scaled rendering)
+                                    // Note that scaled rendering produces error in clipping due to rounding
 
  TDisplaySettings=record
   displayMode:TDisplayMode;
@@ -260,6 +266,45 @@ type
                       // в скорости - тогда возможна (но не гарантируется) оптимизация перерисовки
  end;
 
+  TTextureName=string;
+
+ // Базовый абстрактный класс - текстура или ее часть
+ TTexture=class
+  pixelFormat:TImagePixelFormat;
+  width,height:integer; // dimension (in virtual pixels)
+  left,top:integer; // position
+  mipmaps:byte; // кол-во уровней MIPMAP
+  caps:integer; // возможности и флаги
+  name:TTextureName; // texture name (for debug purposes)
+  refCounter:integer; // number of child textures referencing this texture data
+  parent:TTexture;
+  // These properties may not be valid if texture is not ONLINE
+  u1,v1,u2,v2:single; // texture coordinates
+  stepU,stepV:single; // halved texel step
+  // These properties are valid when texture is LOCKED
+  data:pointer;   // raw data
+  pitch:integer;  // offset to next scanline
+
+  // Create cloned image (separate object referencing the same image data). Original image can't be destroyed unless all its clones are destroyed
+  procedure CloneFrom(src:TTexture); virtual;
+  function Clone:TTexture; // Clone this texture and return the cloned instance
+  function ClonePart(part:TRect):TTexture; // Create cloned instance for part of this texture
+  procedure Clear(color:cardinal=$808080); // clear and fill the texture
+  procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // 0-й уровень - самый верхний
+  procedure LockNext; virtual; abstract; // lock next mip-map level
+  function GetRawImage:TRawImage; virtual; abstract; // Create RAW image for the topmost MIP level (when locked)
+  function IsLocked:boolean;
+  procedure Unlock; virtual; abstract;
+  procedure AddDirtyRect(rect:TRect); virtual; abstract; // mark area to update when unlocked (mode=lmCustomUpdate)
+  procedure GenerateMipMaps(count:byte); virtual; abstract; // Сгенерировать изображения mip-map'ов
+  function HasFlag(flag:cardinal):boolean;
+  procedure SetFilter(allowInterpolation:boolean); virtual; abstract;
+ protected
+  locked:integer; // lock counter
+ end;
+
+
+ // Interface to the native OS function or underlying library
  ISystemPlatform=interface
   // System information
   function GetPlatformName:string;
@@ -272,6 +317,7 @@ type
   procedure SetupWindow(params:TGameSettings); // Configure/update window properties
   procedure ShowWindow(show:boolean);
   function GetWindowHandle:THandle;
+  procedure GetWindowSize(out width,height:integer);
   procedure MoveWindowTo(x,y:integer;width:integer=0;height:integer=0);
   procedure SetWindowCaption(text:string);
   procedure Minimize;
@@ -301,84 +347,181 @@ type
   procedure DeleteOpenGLContext;
  end;
 
- IGraphicsSystem=interface
-  procedure Init(system:ISystemPlatform);
-  function GetVersion:single; // like 3.1 for OpenGL 3.1
+ // Depth buffer mode
+ TDepthBufferTest=(
+   dbDisabled, // disable depth test
+   dbPass,       // always pass depth test
+   dbPassLess,   // pass lesser values
+   dbPassLessEqual,  // pass lesser or equal values
+   dbPassGreater, // pass greater values
+   dbNever); // never pass depth test
+
+ TCullMode=(cullNone, // Display both sides
+   cullCW,    // Omit CW faces. This engine uses CW faces for 2D drawing
+   cullCCW);  // Omit CCW faces. in OpenGL CCW-faces are considered front by default
+
+ // Base class for shader object
+ TShader=class
+  name:string8;
+  // Set uniform value
+  procedure SetUniform(name:String8;value:integer); overload; virtual; abstract;
+  procedure SetUniform(name:String8;value:single); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TVector3s); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TQuaternionS); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:T3DMatrix); overload; virtual; abstract;
+ end;
+
+ // Control render target
+ IRenderTarget=interface
+  // Clear whole render target (not only the viewport): fill colorbuffer and optionally depth buffer and stencil buffer
+  procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1);
+  // Setup viewport (output position) for the current render target
+  // After viewport change don't forget to update projection and clipping
+  procedure Viewport(oX,oY,VPwidth,VPheight:integer;renderWidth:integer=0;renderHeight:integer=0);
+  // Enable/setup depth test
+  procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true);
+  // Set blending mode
+  procedure BlendMode(blend:TBlendingMode);
+  // Set write mask (push previous mask)
+  procedure Mask(rgb:boolean;alpha:boolean);
+  // Restore (pop) previous mask
+  procedure UnMask;
+
+  function width:integer;  //< width of the render area in virtual pixels
+  function height:integer; //< height of the render area in virtual pixels
+  function aspect:single; // width/height
+
+  procedure Backbuffer; //< Render to the backbuffer
+  procedure Texture(tex:TTexture); //< render to the texture (nil - render to the Backbuffer)
+  procedure Push;  //< Save (push) current target in stack (including viewport)
+  procedure Pop; //< Restore target from stack
+
+  procedure Resized(newWidth,newHeight:integer); // backbuffer size changed
+ end;
+
+ // Control clipping
+ IClipping=interface
+  procedure Rect(r:TRect;combine:boolean=true);  //< Set clipping rect (combine with previous or override), save previous
+  procedure Nothing; //< don't clip anything, save previous (the same as Rect() for the whole render target area)
+  procedure Restore; //< restore previous clipping rect
+  function  Get:TRect; //< return current clipping rect
+  // Call this before draw something within R.
+  // It sets actual clipping if needed.
+  // Returns false if R doesn't intersect the current clipping rect (so no need to draw anything inside R)
+  function Prepare(r:TRect):boolean; overload;
+  function Prepare(x1,y1,x2,y2:integer):boolean; overload;
+ end;
+
+ // Control transformation and projection
+ ITransformation=interface
+  // Switch to default 2D view (use screen coordinates)
+  procedure DefaultView;
+
+  // Set 3D view with given field of view (in radians) - set perspective projection matrix
+  // using screen dimensions for FoV and aspect ratio
+  procedure Perspective(fov:single;zMin,zMax:double); overload;
+
+  // Switch to 3D view - set perspective projection (in camera space: camera pos = 0,0,0, Z-forward, X-right, Y-down)
+  // zMin, zMax - near and far Z plane
+  // xMin,xMax - x coordinate range on the zScreen Z plane
+  // yMin,yMax - y coordinate range on the zScreen Z plane
+  // Т.е. точки (x,y,zScreen), где xMin <= x <= xMax, yMin <= y <= yMax - покрывают всю область вывода и только её
+  procedure Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); overload;
+  // Set orthographic projection matrix
+  // For example: scale=3 means that 1 unit in the world space is mapped to 3 pixels (in backbuffer)
+  procedure Orthographic(scale,zMin,zMax:double);
+  // Set view transformation matrix (camera position)
+  // View matrix is (R - right, D - down, F - forward, O - origin):
+  // Rx Ry Rz
+  // Dx Dy Dz
+  // Fx Fy Fz
+  // Ox Oy Oz
+  procedure SetView(view:T3DMatrix);
+  // Alternate way to set camera position and orientation
+  // (origin - camera center, target - point to look, up - any point ABOVE camera view line, so plane OTU is vertical),
+  // turnCW - camera turn angle (along view axis, CW direction)
+  procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0);
+  // Set Object (model to world) transformation matrix (must be used AFTER setting the view/camera)
+  procedure SetObj(mat:T3DMatrix); overload;
+  // Set object position/scale/rotate
+  procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
+  // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
+  function GetMVPMatrix:T3DMatrix;
+  function GetObjMatrix:T3DMatrix;
+  // Transform point using combined MVP matrix
+  function Transform(source: TPoint3):TPoint3;
+ end;
+
+ // Shaders-related API
+ IShader=interface
+  // Compile custom shader program from source
+  function Build(vSrc,fSrc:String8;extra:String8=''):TShader;
+  // Load and build shader from file(s)
+  function Load(filename:String8;extra:String8=''):TShader;
+  // Set custom shader (pass nil if it's already set or there is no object - because the engine should know)
+  procedure UseCustom(shader:TShader);
+  // Switch back to the internal shader
+  procedure Reset;
+  // Built-in shader settings
+  // ----
+  // Set custom texturing mode
+  procedure TexMode(stage:byte;colorMode:TTexBlendingMode=tblModulate2X;alphaMode:TTexBlendingMode=tblModulate;
+     filter:TTexFilter=fltUndefined;intFactor:single=0.0);
+  // Restore default texturing mode: one stage with Modulate2X mode for color and Modulate mode for alpha
+  procedure DefaultTexMode;
+  // Upload texture to the Video RAM and make it active for the specified stage
+  // (usually you don't need to call this manually unless you're using a custom shader)
+  procedure UseTexture(tex:TTexture;stage:integer=0);
+
+  // Lighting and material
+  // ----
+  // Ambient color is added to any pixels (set 0 to disable)
+  procedure AmbientLight(color:cardinal);
+  // Set directional light (set power<=0 to disable)
+  procedure DirectLight(direction:TVector3;power:single;color:cardinal);
+  // Set point light source (set power<=0 to disable)
+  procedure PointLight(position:TPoint3;power:single;color:cardinal);
+  // Define material properties
+  procedure Material(color:cardinal;shininess:single);
+
+  // Update and upload transformation matrices
+  procedure UpdateMatrices(const model,MVP:T3DMatrix);
+  // Apply shader configuration: call this after any mode changes before actual draw calls
+  procedure Apply;
+ end;
+
+ // Configuration
+ IGraphicsSystemConfig=interface
   procedure ChoosePixelFormats(out trueColor,trueColorAlpha,rtTrueColor,rtTrueColorAlpha:TImagePixelFormat;
     economyMode:boolean=false);
-
-  function CreatePainter:TObject;
+  function SetVSyncDivider(n:integer):boolean; //< 0 - unlimited FPS, 1 - use monitor refresh rate
+  // Query options
+  function QueryMaxRTSize:integer; //< get max allowed dimension for RT textures
   function ShouldUseTextureAsDefaultRT:boolean;
-  function SetVSyncDivider(n:integer):boolean; // 0 - unlimited FPS, 1 - use monitor refresh rate
-  procedure CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
-
-  procedure PresentFrame(system:ISystemPlatform);
- end;
-
-
-
- // -------------------------------------------------------------------
- // Textures - классы текстурных изображений
- // -------------------------------------------------------------------
- texnamestr=string;
-
- // Базовый абстрактный класс - текстура или ее часть
- TTexture=class
-  pixelFormat:TImagePixelFormat;
-  width,height:integer; // dimension (in virtual pixels)
-  left,top:integer; // position
-  mipmaps:byte; // кол-во уровней MIPMAP
-  caps:integer; // возможности и флаги
-  name:texnamestr; // texture name (for debug purposes)
-  refCounter:integer; // number of child textures referencing this texture data
-  parent:TTexture;
-  // These properties may not be valid if texture is not ONLINE
-  u1,v1,u2,v2:single; // texture coordinates
-  stepU,stepV:single; // halved texel step
-  // These properties are valid when texture is LOCKED
-  data:pointer;   // raw data
-  pitch:integer;  // offset to next scanline
-
-  // Create cloned image (separate object referencing the same image data). Original image can't be destroyed unless all its clones are destroyed
-  constructor CreateClone(src:TTexture);
-  function Clone:TTexture;
-  function ClonePart(part:TRect):TTexture;
-  procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // 0-й уровень - самый верхний
-  procedure LockNext; virtual; abstract; // lock next mip-map level
-  function GetRawImage:TRawImage; virtual; abstract; // Create RAW image for the topmost MIP level (when locked)
-  function IsLocked:boolean;
-  procedure Unlock; virtual; abstract;
-  procedure AddDirtyRect(rect:TRect); virtual; abstract; // mark area to update when unlocked (mode=lmCustomUpdate)
-  procedure GenerateMipMaps(count:byte); virtual; abstract; // Сгенерировать изображения mip-map'ов
- protected
-  locked:integer; // lock counter
  end;
 
  // -------------------------------------------------------------------
- // TextureManager - менеджер изображений (фактически, менеджер текстурной памяти)
+ // ResourceManager - менеджер изображений (фактически, менеджер текстурной памяти)
  // -------------------------------------------------------------------
-
- TTextureMan=class
-  scaleX,scaleY:single; // scale factor for render target allocation
-  maxTextureSize,maxRTtextureSize:integer;
+ IResourceManager=interface
   // Создать изображение (в случае ошибки будет исключение)
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
-     flags:integer;name:texnamestr):TTexture; virtual; abstract;
+     flags:integer;name:TTextureName):TTexture;
   // Change size of texture if it supports it (render target etc)
-  procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer); virtual; abstract;
-  function Clone(img:TTexture):TTexture; virtual; abstract;
+  procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer);
+  function Clone(img:TTexture):TTexture;
   // Освободить изображение
-  procedure FreeImage(var image:TTexture); overload; virtual; abstract;
+  procedure FreeImage(var image:TTexture); overload;
   // Сделать текстуру доступной для использования (может использоваться для менеджмента текстур)
   // необходимо вызывать всякий раз перед переключением на текстуру (обычно это делает код рисовалки)
-  procedure MakeOnline(img:TTexture;stage:integer=0); virtual; abstract;
+  procedure MakeOnline(img:TTexture;stage:integer=0);
   // Проверить возможность выделения текстуры в заданном формате с заданными флагами
   // Возвращает true если такую текстуру принципиально можно создать
-  function QueryParams(width,height:integer;format:TImagePixelFormat;aiFlags:integer):boolean; virtual; abstract;
+  function QueryParams(width,height:integer;format:TImagePixelFormat;aiFlags:integer):boolean;
   // Формирует строки статуса
-  function GetStatus(line:byte):string; virtual; abstract;
+  function GetStatus(line:byte):string;
   // Создает дамп использования и распределения видеопамяти
-  procedure Dump(st:string=''); virtual; abstract;
+  procedure Dump(st:string='');
  end;
 
  // Particle atributes
@@ -408,40 +551,37 @@ type
   power:single; // Усиление эффекта
  end;
 
- // Basic vertex format for drawing textured primitives
+ // Basic vertex format for regular primitives
  PVertex=^TVertex;
  TVertex=packed record
   x,y,z:single;
-  {$IFDEF DIRECTX}
-  rhw:single;
-  {$ENDIF}
-  diffuse:cardinal;
-  {$IFDEF DIRECTX}
-  specular:cardinal;
-  {$ENDIF}
+  color:cardinal;
   u,v:single;
+  procedure Init(x,y,z,u,v:single;color:cardinal); overload; inline;
+  procedure Init(x,y,z:single;color:cardinal); overload;
+  class var layoutTex,layoutNoTex:cardinal;
  end;
 
- // Basic vertex format for drawing non-textured primitives
- TScrPointNoTex=record
+ // Vertex format for double textured primitives
+ PVertex2t=^TVertex2t;
+ TVertex2t=packed record
   x,y,z:single;
-  {$IFDEF DIRECTX}
-  rhw:single;
-  {$ENDIF}
-  diffuse:cardinal;
-  {$IFDEF DIRECTX}
-  specular:cardinal;
-  {$ENDIF}
- end;
-
- // Vertex format for drawing multitextured primitives
- PScrPoint3=^TScrPoint3;
- TScrPoint3=record
-  x,y,z,rhw:single;
-  diffuse,specular:cardinal;
+  color:cardinal;
   u,v:single;
   u2,v2:single;
-  u3,v3:single;
+  procedure Init(x,y,z,u,v,u2,v2:single;color:cardinal); inline;
+  class function Layout:cardinal; static;
+ end;
+
+ // Vertex format for 3D objects with lighting
+ PVertex3D=^TVertex3D;
+ TVertex3D=packed record
+  x,y,z:single;
+  color:cardinal;
+  nx,ny,nz:single;
+  extra:single;
+  u,v:single;
+  class function Layout:cardinal; static;
  end;
 
  // vertex and index arrays
@@ -463,189 +603,126 @@ type
   next:PMultiTexLayer;
  end;
 
- TDepthBufferTest=(
-   dbDisabled, // disable depth test
-   dbPass,       // always pass depth test
-   dbPassLess,   // pass lesser values
-   dbPassLessEqual,  // pass lesser or equal values
-   dbPassGreater, // pass greater values
-   dbNever); // never pass depth test
+ // font handle structure: xxxxxxxx ssssssss yyyyyyyy 00ffffff (f - font object index, s - scale, x - realtime effects, y - renderable effects and styles)
+ TFontHandle=cardinal;
 
- TCullMode=(cullNone, // Display both sides
-   cullCW,    // Omit CW faces. This engine uses CW faces for 2D drawing
-   cullCCW);  // Omit CCW faces. in OpenGL CCW-faces are considered front by default
-
+ // Text output, fonts (text protocol 2011)
+ ITextDrawer=interface
+  // Fonts
+  function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
+  function LoadFont(font:array of byte;asName:string=''):string; overload; // возвращает имя шрифта
+  function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
+  procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
+  // Text output
+  procedure Write(font:TFontHandle;x,y:integer;color:cardinal;st:String8;align:TTextAlignment=taLeft;
+     options:integer=0;targetWidth:integer=0;query:cardinal=0);
+  procedure WriteW(font:TFontHandle;x,y:integer;color:cardinal;st:String16;align:TTextAlignment=taLeft;
+     options:integer=0;targetWidth:integer=0;query:cardinal=0);
+  // Measure text dimensions
+  function Width(font:TFontHandle;st:String8):integer; // text width in pixels
+  function WidthW(font:TFontHandle;st:String16):integer; // text width in pixels
+  function Height(font:TFontHandle):integer; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
+  function MeasuredCnt:integer; // length of the measured rects array
+  function MeasuredRect(idx:integer):TRect; // rect[idx] of text measurement command
+  // Hyperlinks
+  procedure ClearLink; // Clear current link (call before text render)
+  function Link:integer; // get hyperlink under mouse (filled during text render)
+  function LinkRect:TRect; // get active hyperlink rect
+  // Cache / misc
+  procedure BeginBlock; // optimize performance when drawing multiple text entries
+  procedure EndBlock;   // finish buffering and perform actual render
+  // Text render target
+  procedure SetTarget(buf:pointer;pitch:integer); // set system memory target for text rendering (no clipping!)
+ end;
 
  // Drawing interface
- TPainter=class
-  TextColorX2:boolean; // true: white=FF808080 range, false: white=FFFFFFFF
-  textEffects:array[1..4] of TTextEffectLayer;
-  textMetrics:array of TRect; // results of text measurement (if requested)
-  zPlane:double; // default Z value for all primitives
-  viewMatrix:T3DMatrix; // current view (camera) matrix
-  objMatrix:T3DMatrix; // current object (model) matrix
-  projMatrix:T3DMatrix; // current projection matrix
-
-  texman:TTextureMan;
-
-  constructor Create;
-  // Set default render target to texture or backbuffer (nil)
-  procedure SetDefaultRenderTarget(rt:TTexture); virtual; abstract;
-  // Setup output position on default render target
-  procedure SetDefaultRenderArea(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer); virtual; abstract;
-
-  // Начать рисование (использовать указанную текстуру либо основной буфер если она не указана)
-  procedure BeginPaint(target:TTexture); virtual; abstract;
-  // Завершить рисование
-  procedure EndPaint; virtual; abstract;
-
-  // Установка RenderTarget'а (потомки класса могут иметь дополнительные методы,
-  // характерные для конкретного 3D API, например D3D)
-  procedure ResetTarget; virtual; abstract; // Установить target в backbuffer
-  procedure SetTargetToTexture(tex:TTexture); virtual; abstract; // Установить target в указанную текстуру
-  procedure PushRenderTarget; virtual; abstract; // запомнить target в стеке
-  procedure PopRenderTarget; virtual; abstract; // восстановить target тиз стека
-  procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1); virtual; abstract;
-
-  // Clipping --------------------------
-  procedure NoClipping; virtual; abstract; // отсечение по границе экрана
-  function GetClipping:TRect; virtual; abstract;
-  procedure SetClipping(r:TRect); virtual; abstract; // область отсечения (в пределах текущей)
-  procedure ResetClipping; virtual; abstract; // Отменить предыдущее отсечение
-  procedure OverrideClipping; virtual; abstract; // то же что setClipping по границам экрана без учета текущего отсечения
-
-  // 3D / Camera  / Projection
-  // -------------------------
-  // Switch to default 2D view (use screen coordinates)
-  procedure SetDefaultView; virtual; abstract;
-  // Set 3D view with given field of view (in radians) - set perspective projection matrix
-  // using screen dimensions for FoV and aspect ratio
-  procedure SetPerspective(fov:single;zMin,zMax:double); overload; virtual; abstract;
-  // Switch to 3D view - set perspective projection (in camera space: camera pos = 0,0,0, Z-forward, X-right, Y-down)
-  // zMin, zMax - near and far Z plane
-  // xMin,xMax - x coordinate range on the zScreen Z plane
-  // yMin,yMax - y coordinate range on the zScreen Z plane
-  // Т.е. точки (x,y,zScreen), где xMin <= x <= xMax, yMin <= y <= yMax - покрывают всю область вывода и только её
-  procedure SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); overload; virtual; abstract;
-  // Set orthographic projection matrix
-  // For example: scale=3 means that 1 unit in the world space is mapped to 3 pixels (in backbuffer)
-  procedure SetOrthographic(scale,zMin,zMax:double); virtual; abstract;
-  // Set view transformation matrix (camera position)
-  // View matrix is (R - right, D - down, F - forward, O - origin):
-  // Rx Ry Rz
-  // Dx Dy Dz
-  // Fx Fy Fz
-  // Ox Oy Oz
-  procedure Set3DView(view:T3DMatrix); virtual; abstract;
-  // Alternate way to set camera position and orientation
-  // (origin - camera center, target - point to look, up - any point ABOVE camera view line, so plane OTU is vertical),
-  // turnCW - camera turn angle (along view axis, CW direction)
-  procedure SetupCamera(origin,target,up:TPoint3;turnCW:double=0); virtual; abstract;
-  // Set Model (model to world) transformation matrix (MUST BE USED AFTER setting the view/camera)
-  procedure Set3DTransform(mat:T3DMatrix); overload; virtual; abstract;
-  // Set object position/scale/rotate
-  procedure Set3DTransform(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual; abstract;
-  // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
-  function GetMVPMatrix:T3DMatrix; virtual; abstract;
-
-  // Enable/setup depth test
-  procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); virtual; abstract;
-
-  // Set cull mode
-  procedure SetCullMode(mode:TCullMode); virtual; abstract;
-
-  // Drawing settings
-  procedure SetMode(blend:TBlendingMode); virtual; abstract; // Режим альфа-блендинга
-  procedure SetTexMode(stage:byte;colorMode:TTexBlendingMode=tblModulate2X;alphaMode:TTexBlendingMode=tblModulate;
-     filter:TTexFilter=fltUndefined;intFactor:single=0.0); virtual; abstract; //  Настройка стадий (операций) текстурирования
-  procedure UseCustomShader; virtual; abstract; // указывает, что клиентский код включил собственный шейдер => движок не должен его переключать
-  procedure ResetTexMode; virtual; abstract; // возврат к стандартному режиму текстурирования (втч после использования своего шейдера)
-
-  procedure SetMask(rgb:boolean;alpha:boolean); virtual; abstract;
-  procedure ResetMask; virtual; abstract; // вернуть маску на ту, которая была до предыдущего SetMask
-
-  procedure Restore; virtual; abstract; // Восстановить состояние акселератора (если оно было нарушено внешним кодом)
-  procedure RestoreClipping; virtual; abstract; // Установить параметры отсечения по текущему viewport'у
-
-  // Upload texture to the Video RAM and make it active for given stage (don't call manually if you don't really need)
-  procedure UseTexture(tex:TTexture;stage:integer=0); virtual; abstract;
-
+ IDrawer=interface
   // Basic primitives -----------------
-  procedure DrawLine(x1,y1,x2,y2:single;color:cardinal); virtual; abstract;
-  procedure DrawPolyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false); virtual; abstract;
-  procedure DrawPolygon(points:PPoint2;cnt:integer;color:cardinal); virtual; abstract;
-  procedure Rect(x1,y1,x2,y2:integer;color:cardinal); virtual; abstract;
-  procedure RRect(x1,y1,x2,y2:integer;color:cardinal;r:integer=2); virtual; abstract;
-  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal); virtual; abstract;
-  procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal); virtual; abstract;
-  procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal); virtual; abstract;
-  procedure FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean); virtual; abstract;
+  procedure Line(x1,y1,x2,y2:single;color:cardinal);
+  procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
+  procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
+  procedure Rect(x1,y1,x2,y2:integer;color:cardinal);
+  procedure RRect(x1,y1,x2,y2:integer;color:cardinal;r:integer=2);
+  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal);
+  procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
+  procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
+  procedure FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean);
 
   // Textured primitives ---------------
   // Указываются к-ты тех пикселей, которые будут зарисованы (без границы)
-  procedure DrawImage(x_,y_:integer;tex:TTexture;color:cardinal=$FF808080); overload; virtual; abstract;
-  procedure DrawImage(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080;pivotX:single=0;pivotY:single=0); overload;
-  procedure DrawImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=$FF808080); virtual; abstract;
-  procedure DrawCentered(x,y:integer;tex:TTexture;color:cardinal=$FF808080); overload; virtual; abstract;
-  procedure DrawCentered(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080); overload;
-  procedure DrawImagePart(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect); virtual; abstract;
+  procedure Image(x_,y_:integer;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure Image(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080;pivotX:single=0;pivotY:single=0); overload;
+  procedure ImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=$FF808080);
+  procedure Centered(x,y:integer;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure Centered(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure ImagePart(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect);
   // Рисовать часть картинки с поворотом ang раз на 90 град по часовой стрелке
-  procedure DrawImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer); virtual; abstract;
-  procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal); virtual; abstract;
-  procedure DrawScaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080); virtual; abstract;
-  procedure DrawRotScaled(x,y,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5); virtual; abstract; // x,y - центр
+  procedure ImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer);
+  procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal);
+  procedure Scaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080);
+  procedure RotScaled(x,y,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);
 
   // Returns scale
-  function DrawImageCover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; virtual; abstract;
-  function DrawImageInside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single; virtual; abstract;
+  function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
+  function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
 
   // Meshes ------------------
   // Draw textured tri-mesh (tex=nil -> colored mode)
-  procedure DrawTrgListTex(pnts:PVertex;trgcount:integer;tex:TTexture); virtual; abstract;
+  procedure TrgList(vertices:PVertex;trgCount:integer;tex:TTexture);
   // Draw indexed tri-mesh (tex=nil -> colored mode)
-  procedure DrawIndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); virtual; abstract;
+  procedure IndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
 
   // Multitexturing functions ------------------
   // Режим мультитекстурирования должен быть предварительно настроен с помощью SetTexMode / SetTexInterpolationMode
   // а затем сброшен с помощью SetTexMode(1,tblDisable)
   // Рисует два изображения, наложенных друг на друга, за один проход (если размер отличается, будет видна лишь общая часть)
-  procedure DrawDouble(x,y:integer;image1,image2:TTexture;color:cardinal=$FF808080); virtual; abstract;
+  procedure DoubleTex(x,y:integer;image1,image2:TTexture;color:cardinal=$FF808080);
   // Рисует два изображения (каждое - с индвидуальным масштабом), повёрнутых на одинаковый угол. ЯЕсли итоговый размер отличается - будет видна лишь общая часть)
-  procedure DrawDoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
-      image1,image2:TTexture;color:cardinal=$FF808080); virtual; abstract;
+  procedure DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
+      image1,image2:TTexture;color:cardinal=$FF808080);
   // Заполнение прямоугольника несколькими текстурами (из списка)
-  procedure DrawMultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080); virtual; abstract;
-
-  // Recent Text functions (Text Protocol 2011) ---------------------------
-  // font handle structure: xxxxxxxx ssssssss yyyyyyyy 00ffffff (f - font object index, s - scale, x - realtime effects, y - renderable effects and styles)
-  function LoadFont(fname:string;asName:string=''):string; overload; virtual; abstract; // возвращает имя шрифта
-  function LoadFont(font:array of byte;asName:string=''):string; overload; virtual; abstract; // возвращает имя шрифта
-  function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):cardinal; virtual; abstract; // возвращает хэндл шрифта
-  function TextWidth(font:cardinal;st:String8):integer; virtual; abstract; // text width in pixels
-  function TextWidthW(font:cardinal;st:String16):integer; virtual; abstract; // text width in pixels
-  function FontHeight(font:cardinal):integer; virtual; abstract; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
-  procedure TextOut(font:cardinal;x,y:integer;color:cardinal;st:String8;align:TTextAlignment=taLeft;
-     options:integer=0;targetWidth:integer=0;query:cardinal=0); virtual; abstract;
-  procedure TextOutW(font:cardinal;x,y:integer;color:cardinal;st:String16;align:TTextAlignment=taLeft;
-     options:integer=0;targetWidth:integer=0;query:cardinal=0); virtual; abstract;
-  procedure SetFontOption(handle:cardinal;option:cardinal;value:single); virtual; abstract;
-  procedure MatchFont(oldfont,newfont:cardinal;addY:integer=0); virtual; abstract; // какой новый шрифт использовать вместо старого
-
-  // Text drawing cache / misc
-  procedure BeginTextBlock; virtual; abstract; // включает кэширование вывода текста
-  procedure EndTextBlock;  virtual; abstract; // выводит кэш и выключает кэширование
-  procedure SetTextTarget(buf:pointer;pitch:integer); virtual; abstract; // устанавливает буфер для отрисовки текста, отсечения нет - весь текст должен помещаться в буфере!
+  //procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080);
 
   // Particles ------------------------------------------
-  procedure DrawParticles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0); virtual; abstract;
-  procedure DrawBand(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect); virtual; abstract;
+  procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0);
+  procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
+ end;
 
- protected
-  // Максимальная область рендертаргета, доступная для отрисовки, т.е. это значение, которое принимает ClipRect при сбросе отсечения
-  // Используется при установке вьюпорта (при смене рендертаргета)
-  screenRect:TRect;  // maximal clipping area (0,0 - width,height) in virtual pixels (for current RT)
- // Устанавливается при установке отсечения (путём пересечения с текущей областью отсечения) с учётом ofsX/Y
-  clipRect:TRect;    // currently requested clipping area (in virtual pixels), might be different from actual clipping area
+ // Interface to the graphics subsystem: OpenGL, Vulkan or Direct3D
+ IGraphicsSystem=interface
+  // Init subsystem and create all interface objects
+  procedure Init(system:ISystemPlatform);
+  procedure Done;
+  function GetVersion:single; // like 3.1 for OpenGL 3.1
+  function GetName:string; // get implementation class name
+
+  // APIs
+  function config:IGraphicsSystemConfig;
+  function resman:IResourceManager;
+  function target:IRenderTarget;
+  function shader:IShader;
+  function clip:IClipping;
+  function transform:ITransformation;
+  function draw:IDrawer;
+  function txt:ITextDrawer;
+
+  // Start drawing block using the specified render target (nil - use default target)
+  procedure BeginPaint(target:TTexture=nil);
+  // Finish drawing block
+  procedure EndPaint;
+  // Set cull mode
+  procedure SetCullMode(mode:TCullMode);
+
+  // Get image from Backbuffer (screenshot etc)
+  procedure CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
+  // Present backbuffer to the screen
+  procedure PresentFrame;
+
+  // Restore (invalidate) gfx settings
+  procedure Restore;
+
+  // show additional info
+  procedure DrawDebugOverlay(idx:integer);
  end;
 
  TGameScene=class;
@@ -694,6 +771,9 @@ type
   // Для изменения статуса использовать только это!
   procedure SetStatus(st:TSceneStatus); virtual;
 
+  // Called once from the main thread before first Render() call
+  procedure Initialize; virtual;
+
   // Обработка сцены, вызывается с заданной частотой если только сцена не заморожена
   // Этот метод может выполнять логику сцены, движение/изменение объектов и т.п.
   function Process:boolean; virtual;
@@ -730,6 +810,7 @@ type
   // Ввод
   KeyBuffer:array[0..63] of cardinal;
   first,last:byte;
+  initialized:boolean;
  end;
 
   // Main game interface
@@ -771,10 +852,6 @@ type
 
   topmostScene:TGameScene;
   globalTintColor:cardinal; // multiplier (2X) for whole backbuffer ($FF808080 - neutral value)
-
-  // Key game objects
-  systemPlatform:ISystemPlatform;
-  gfx:IGraphicsSystem;
 
   constructor Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
 
@@ -880,10 +957,15 @@ type
  end;
 
 var
- // Global references to the key interfaces
+ // Global shortcuts to the key interfaces
  // ---------------------------------------
+ systemPlatform:ISystemPlatform;
+ gfx:IGraphicsSystem;
  game:TGameBase;
- painter:TPainter;
+
+ shader:IShader; //< shortcut for gfx.shader
+ draw:IDrawer;    //< shortcut for gfx.draw
+ txt:ITextDrawer; //< shortcut for gfx.txt
 
  // Selected pixel formats for different tasks
  // Используемые форматы пикселя (в какие форматы грузить графику)
@@ -913,7 +995,7 @@ var
 
  // Shortcuts to the texture manager
  function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
-                flags:integer=0;name:texnamestr=''):TTexture;
+                flags:integer=0;name:TTextureName=''):TTexture;
 
  procedure FreeImage(var img:TTexture);
 
@@ -930,7 +1012,7 @@ var
 
 implementation
 uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
- TypInfo, Apus.Engine.Tools;
+ TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics;
 
  function GetKeyEventScanCode(tag: cardinal): cardinal;
   begin
@@ -949,12 +1031,7 @@ uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Eng
    gfx:=gfxSystem;
   end;
 
- constructor TPainter.Create;
-  begin
-   painter:=self;
-  end;
-
- constructor TTexture.CreateClone(src:TTexture);
+ procedure TTexture.CloneFrom(src:TTexture);
   begin
    PixelFormat:=src.PixelFormat;
    left:=src.left;
@@ -974,14 +1051,34 @@ uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Eng
    inc(parent.refCounter);
   end;
 
-function TTexture.IsLocked: boolean;
+function TTexture.HasFlag(flag: cardinal): boolean;
+ begin
+  result:=caps and flag>0;
+ end;
+
+function TTexture.IsLocked:boolean;
  begin
   result:=locked>0;
  end;
 
+procedure TTexture.Clear(color:cardinal);
+ var
+  pb:PByte;
+  y:integer;
+ begin
+  Lock;
+  pb:=data;
+  for y:=0 to height-1 do begin
+   FillDword(pb^,width,color);
+   inc(pb,pitch);
+  end;
+  Unlock;
+ end;
+
 function TTexture.Clone:TTexture;
  begin
-  result:=TTexture.CreateClone(self);
+  result:=ClassType.Create as TTexture;
+  result.CloneFrom(self);
  end;
 
 function TTexture.ClonePart(part:TRect): TTexture;
@@ -1021,6 +1118,10 @@ end;
 destructor TGameScene.Destroy;
 begin
  if status<>ssFrozen then raise EError.Create('Scene must be frozen before deletion: '+name+' ('+ClassName+')');
+end;
+
+procedure TGameScene.Initialize;
+begin
 end;
 
 function TGameScene.KeyPressed: boolean;
@@ -1109,23 +1210,6 @@ begin
   inherited;
 end;
 
-{ TPainter }
-
-procedure TPainter.DrawCentered(x, y, scale: single; tex: TTexture;
-  color: cardinal);
- begin
-  DrawRotScaled(x,y,scale,scale,0,tex,color);
- end;
-
-procedure TPainter.DrawImage(x, y, scale: single; tex: TTexture;
-  color: cardinal; pivotX, pivotY: single);
- begin
-  if scale=1.0 then
-   DrawImage(round(x-tex.width*pivotX),round(y-tex.height*pivotY),tex,color)
-  else
-   DrawRotScaled(x,y,scale,scale,0,tex,color,pivotX,pivotY);
- end;
-
 // Utils
 function fGetFontHandle(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
  var
@@ -1133,14 +1217,14 @@ function fGetFontHandle(params:string;tag:integer;context:pointer;contextClass:T
   style,effects:byte;
   size:double;
  begin
-  if painter=nil then raise EWarning.Create('Painter is not ready');
+  if txt=nil then raise EWarning.Create('TextDrawer is not ready');
   sa:=split(',',params);
   if length(sa)<2 then raise EWarning.Create('Invalid parameters');
   size:=EvalFloat(sa[1],nil,context,contextClass);
   style:=0; effects:=0;
   if length(sa)>2 then style:=round(EvalFloat(sa[2],nil,context,contextClass));
   if length(sa)>3 then effects:=round(EvalFloat(sa[3],nil,context,contextClass));
-  result:=painter.GetFont(sa[0],size,style,effects);
+  result:=txt.GetFont(sa[0],size,style,effects);
  end;
 
 function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
@@ -1159,18 +1243,18 @@ procedure LoadAtlas(fname:string;scale:single=1.0);
  end;
 
 function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
-                flags:integer=0;name:texnamestr=''):TTexture;
+                flags:integer=0;name:TTextureName=''):TTexture;
  begin
-  if painter<>nil then
-   result:=painter.texman.AllocImage(width,height,pixFmt,flags,name)
+  if gfx.resman<>nil then
+   result:=gfx.resman.AllocImage(width,height,pixFmt,flags,name)
   else
-   raise EWarning.Create('Failed to alloc texture: no painter object');
+   raise EWarning.Create('Failed to alloc texture: no texture manager');
  end;
 
 procedure FreeImage(var img:TTexture);
  begin
   if img<>nil then
-   painter.texman.FreeImage(img);
+   gfx.resman.FreeImage(img);
  end;
 
 function Translate(st:string8):string8; overload;
@@ -1210,6 +1294,52 @@ procedure TMesh.Draw(tex:TTexture=nil); // draw whole mesh
    DrawMesh(vertices,tex);
  end;
 
+{ TVertex }
+
+procedure TVertex.Init(x, y, z, u, v: single; color: cardinal);
+ begin
+  self.x:=x; self.y:=y; self.z:=z;
+  self.color:=color;
+  self.u:=u; self.v:=v;
+ end;
+
+procedure TVertex.Init(x, y, z: single; color: cardinal);
+ begin
+  self.x:=x; self.y:=y; self.z:=z;
+  self.color:=color;
+  self.u:=0.5; self.v:=0.5;
+ end;
+
+{ TVertex2t }
+
+procedure TVertex2t.Init(x, y, z, u, v, u2, v2: single; color: cardinal);
+ begin
+  self.x:=x; self.y:=y; self.z:=z;
+  self.color:=color;
+  self.u:=u; self.v:=v;
+  self.u2:=u2; self.v2:=v2;
+ end;
+
+class function TVertex2t.Layout: cardinal;
+ var
+  v:PVertex2t;
+ begin
+  v:=nil;
+  result:=BuildVertexLayout(0,0,integer(@v.color),integer(@v.u),integer(@v.u2));
+ end;
+
+{ TVertex3D }
+
+class function TVertex3D.Layout: cardinal;
+ var
+  v:PVertex3D;
+ begin
+  v:=nil;
+  result:=BuildVertexLayout(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
+ end;
+
 initialization
  PublishFunction('GetFont',fGetFontHandle);
+ TVertex.layoutTex:=BuildVertexLayout(0,0,12,16,0); // color and uv1
+ TVertex.layoutNoTex:=BuildVertexLayout(0,0,12,0,0); // color only
 end.

@@ -321,12 +321,12 @@ end;
 
 procedure TUIScene.BackgroundRenderBegin;
 begin
- if transpBgnd then painter.SetMode(blMove);
+ if transpBgnd then gfx.target.BlendMode(blMove);
 end;
 
 procedure TUIScene.BackgroundRenderEnd;
 begin
- if transpBgnd then painter.SetMode(blAlpha);
+ if transpBgnd then gfx.target.BlendMode(blAlpha);
 end;
 
 constructor TUIScene.Create;

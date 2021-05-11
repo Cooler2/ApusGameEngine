@@ -1,4 +1,4 @@
-// Support for common 3D model file formats
+﻿// Support for common 3D model file formats
 //
 // Copyright (C) 2019 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -61,7 +61,7 @@ implementation
     sa:=Split('/',st);
     idx:=StrToIntDef(sa[0],1)-1;
     result:=vCnt;
-    vertices[vCnt].diffuse:=$FF808080;
+    vertices[vCnt].color:=$FF808080;
     vertices[vCnt].x:=points[idx].x;
     vertices[vCnt].y:=points[idx].y;
     vertices[vCnt].z:=points[idx].z;

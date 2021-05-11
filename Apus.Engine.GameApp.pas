@@ -456,7 +456,7 @@ begin
  {$IFDEF SDLMIX}
  lib:=slSDL;
  {$ENDIF}
- InitSoundSystem(lib,game.systemPlatform.GetWindowHandle);
+ InitSoundSystem(lib,systemPlatform.GetWindowHandle);
 end;
 
 procedure EngineEventHandler(event:TEventStr;tag:TTag);
@@ -546,7 +546,7 @@ procedure TGameApplication.Run;
   SelectFonts;
   InitStyles;
   if useConsoleScene then AddConsoleScene;
-  if useTweakerScene then CreateTweakerScene(painter.GetFont('Default',6),painter.GetFont('Default',7));
+  if useTweakerScene then CreateTweakerScene(txt.GetFont('Default',6),txt.GetFont('Default',7));
   try
    CreateScenes;
   except
@@ -671,14 +671,14 @@ begin
   FillRect(2,2,tex.width-3,tex.height-3,$FFFFFFFF);
   tex.unlock;
  end;
- painter.Clear($FF000000);
+ gfx.target.Clear($FF000000);
  for i:=0 to 12 do begin
   a:=i*3.1416/6.5;
   x:=game.renderWidth/2+32*cos(a);
   y:=game.renderHeight/2-32*sin(a);
   L:=50+round(-256*i/13-MyTickCount*0.3) and 255;
   L:=round(v.Value*L);
-  painter.DrawRotScaled(x,y,1,1,-a,tex,cardinal(L shl 24)+$FFFFFF);
+  draw.RotScaled(x,y,1,1,-a,tex,cardinal(L shl 24)+$FFFFFF);
  end;
  Signal('LOADINGSCENE\Render');
  // Turn scene off if it is not visible anymore

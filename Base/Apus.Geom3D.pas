@@ -13,6 +13,7 @@ interface
   PVector3=^TVector3;
   TPoint3=packed record
    x,y,z:double;
+   constructor Init(iX,iY,iZ:double);
   end;
   TVector3=TPoint3;
 
@@ -24,15 +25,19 @@ interface
 
   TQuaternion=record
    x,y,z,w:double;
+   constructor Init(x,y,z,w:double);
   end;
 
   TQuaternionS=record
-   x,y,z,w:single;
+   constructor Init(x,y,z,w:single);
+   case integer of
+    1:( x,y,z,w:single; );
+    2:( v:array[0..3] of single; );
   end;
 
   // Infinite plane in space
   TPlane=packed record
-   a,b,c,d:extended;
+   a,b,c,d:double;
   end;
 
   // Infinite oriented line in space
@@ -90,14 +95,14 @@ interface
  function Matrix4s(from:TMatrix4):TMatrix4s;
 
  // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой
- function DotProduct3(a,b:TVector3):extended; overload;
+ function DotProduct3(a,b:TVector3):double; overload;
  function DotProduct3(a,b:TVector3s):double; overload;
  // Векторное произведение: модуль равен площади ромба
  function CrossProduct3(a,b:TVector3):TVector3; overload;
  function CrossProduct3(a,b:TVector3s):TVector3s; overload;
- function GetLength3(v:TVector3):extended; overload;
+ function GetLength3(v:TVector3):double; overload;
  function GetLength3(v:TVector3s):double; overload;
- function GetSqrLength3(v:TVector3):extended; overload;
+ function GetSqrLength3(v:TVector3):double; overload;
  function GetSqrLength3(v:TVector3s):single; overload;
  procedure Normalize3(var v:TVector3); overload;
  procedure Normalize3(var v:TVector3s); overload;
@@ -126,6 +131,7 @@ interface
  procedure ToSingle43(sour:TMatrix43;out dest:TMatrix43s);
 
  function TranslationMat(x,y,z:double):TMatrix43;
+ function TranslationMat4(x,y,z:double):TMatrix4;
  function RotationXMat(angle:double):TMatrix43;
  function RotationYMat(angle:double):TMatrix43;
  function RotationZMat(angle:double):TMatrix43;
@@ -163,9 +169,12 @@ interface
  // roll - поворот вокруг X
  // pitch - затем поворот вокруг Y
  // yaw - наконец, поворот вокруг Z
- function MatrixFromYawRollPitch(yaw,roll,pitch:double):TMatrix43;
+ function MatrixFromYawRollPitch(yaw,roll,pitch:double):TMatrix3;
+ function MatrixFromYawRollPitch43(yaw,roll,pitch:double):TMatrix43;
+ function MatrixFromYawRollPitch4(yaw,roll,pitch:double):TMatrix4;
  procedure YawRollPitchFromMatrix(const mat:TMatrix43; var yaw,roll,pitch:double);
 
+ // Combined transformation M = M3*M2*M1 means do M1 then M2 and finally M3
  // target = M1*M2 (Смысл: перевести репер M1 из системы M2 в ту, где задана M2)
  // Другой смысл: суммарная трансформация: сперва M2, затем M1 (именно так!)
  // IMPORTANT! target MUST DIFFER from m1 and m2!
@@ -174,7 +183,7 @@ interface
  procedure MultMat4(const m1,m2:TMatrix43;out target:TMatrix43); overload;
  procedure MultMat4(const m1,m2:TMatrix43s;out target:TMatrix43s); overload;
  procedure MultMat4(const m1,m2:TMatrix4;out target:TMatrix4); overload;
- function MultMat4(const m1,m2:TMatrix43):TMatrix43; overload;
+ function  MultMat4(const m1,m2:TMatrix43):TMatrix43; overload;
 
  procedure MultPnt4(const m:TMatrix43;v:PPoint3;num,step:integer); overload;
  procedure MultPnt4(const m:TMatrix43s;v:Ppoint3s;num,step:integer); overload;
@@ -195,6 +204,7 @@ interface
  procedure Invert3(const m:TMatrix3;out dest:TMatrix3);
  procedure Invert4(const m:TMatrix43;out dest:TMatrix43); overload;
  procedure Invert4(const m:TMatrix43s;out dest:TMatrix43s); overload;
+ // Complete inversion using Gauss method
  procedure Invert4Full(m:TMatrix4;out dest:TMatrix4);
 
  function Det(const m:TMatrix3):single;
@@ -219,7 +229,7 @@ implementation
  uses Apus.CrossPlatform,SysUtils,Math,Apus.Geom2D;
 
  var
-  sse:boolean;
+  sse,sse2,sse3,ssse3,sse4:boolean;
 
  function Point3(x,y,z:double):TPoint3; overload; inline;
   begin
@@ -303,7 +313,7 @@ implementation
    end;
   end;
 
- function DotProduct3(a,b:TVector3):extended;
+ function DotProduct3(a,b:TVector3):double;
   begin
    result:=a.x*b.x+a.y*b.y+a.z*b.z;
   end;
@@ -323,7 +333,7 @@ implementation
    result.y:=-(a.x*b.z-a.z*b.x);
    result.z:=a.x*b.y-a.y*b.x;
   end;
- function GetLength3(v:TVector3):extended;
+ function GetLength3(v:TVector3):double;
   begin
    result:=sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
   end;
@@ -331,7 +341,7 @@ implementation
   begin
    result:=sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
   end;
- function GetSqrLength3(v:TVector3):extended;
+ function GetSqrLength3(v:TVector3):double;
   begin
    result:=v.x*v.x+v.y*v.y+v.z*v.z;
   end;
@@ -341,7 +351,7 @@ implementation
   end;
  procedure Normalize3(var v:TVector3);
   var
-   l:extended;
+   l:double;
   begin
    l:=GetLength3(v);
    ASSERT(l>Epsilon,'Normalize zero-length vector');
@@ -351,7 +361,7 @@ implementation
   end;
  procedure Normalize3(var v:TVector3s);
   var
-   l:extended;
+   l:double;
   begin
    l:=GetLength3(v);
    ASSERT(l>EpsilonS,'Normalize zero-length vector');
@@ -673,7 +683,7 @@ implementation
 
  procedure Invert3;
   var
-   la,lb,lc:extended;
+   la,lb,lc:double;
    mv:TMatrix3v absolute m;
   begin
    la:=GetSqrLength3(mv[0]);
@@ -851,6 +861,12 @@ implementation
  function TranslationMat(x,y,z:double):TMatrix43;
   begin
    result:=IdentMatrix43;
+   result[3,0]:=x; result[3,1]:=y; result[3,2]:=z;
+  end;
+
+ function TranslationMat4(x,y,z:double):TMatrix4;
+  begin
+   result:=IdentMatrix4;
    result[3,0]:=x; result[3,1]:=y; result[3,2]:=z;
   end;
 
@@ -1110,15 +1126,45 @@ implementation
    result:=true;
   end;
 
- function MatrixFromYawRollPitch(yaw,roll,pitch:double):TMatrix43;
+
+
+ procedure _MatrixFromYawRollPitch(yaw,roll,pitch:double;m:PDouble;width:integer);
   var
-   m,m2:TMatrix43;
+   ca,sa,cb,sb,cc,sc:double;
   begin
-   m2:=IdentMatrix43;
-   MultMat4(m2,RotationXMat(roll),m);
-   MultMat4(m,RotationYMat(pitch),m2);
-   MultMat4(m2,RotationZMat(Yaw),m);
-   result:=m;
+   ca:=cos(yaw); sa:=sin(yaw);
+   cb:=cos(roll); sb:=sin(roll);
+   cc:=cos(pitch); sc:=sin(pitch);
+   // row 0
+   m^:=ca*cb; inc(m);
+   m^:=sa*cc-ca*sb*sc; inc(m);
+   m^:=sa*sc+ca*sb*cc; inc(m,width-2);
+   // row 1
+   m^:=-sa*cb; inc(m);
+   m^:=ca*cc+sa*sb*sc; inc(m);
+   m^:=ca*sc-sa*sb*cc; inc(m,width-2);
+   // row 2
+   m^:=-sb; inc(m);
+   m^:=-cb*sc; inc(m);
+   m^:=cb*cc; inc(m,width-2);
+  end;
+
+ function MatrixFromYawRollPitch(yaw,roll,pitch:double):TMatrix3;
+  begin
+   _MatrixFromYawRollPitch(yaw,roll,pitch,@result,3);
+  end;
+
+ function MatrixFromYawRollPitch43(yaw,roll,pitch:double):TMatrix43;
+  begin
+   _MatrixFromYawRollPitch(yaw,roll,pitch,@result,3);
+   result[3,0]:=0;  result[3,1]:=0;  result[3,2]:=0;
+  end;
+
+ function MatrixFromYawRollPitch4(yaw,roll,pitch:double):TMatrix4;
+  begin
+   _MatrixFromYawRollPitch(yaw,roll,pitch,@result,4);
+   result[0,3]:=0;  result[1,3]:=0;  result[2,3]:=0;
+   result[3,0]:=0;  result[3,1]:=0;  result[3,2]:=0; result[3,3]:=1;
   end;
 
  procedure YawRollPitchFromMatrix(const mat:TMatrix43; var yaw,roll,pitch:double);
@@ -1163,10 +1209,26 @@ implementation
    end;
   end;
 
-{var
- a,b,c,o,t:TPoint3s;
- pb,pc,d:double;
- m:TMatrix3;}
+var
+ fSet1,fset2:cardinal;
+{ TPoint3 }
+
+constructor TPoint3.Init(iX, iY, iZ: double);
+ begin
+  x:=iX; y:=iY; z:=iZ;
+ end;
+
+{ TQuaternion }
+
+constructor TQuaternion.Init(x, y, z, w: double);
+ begin
+  self.x:=x; self.y:=y; self.z:=z; self.w:=w;
+ end;
+
+constructor TQuaternionS.Init(x, y, z, w: single);
+ begin
+  self.x:=x; self.y:=y; self.z:=z; self.w:=w;
+ end;
 
 initialization
  // Определение поддержки SSE
@@ -1175,12 +1237,18 @@ initialization
   pushad
   mov eax,1
   cpuid
-  test edx,2000000h
-  jz @noSSE
-  mov sse,1
-@noSSE:
+  mov fSet1,edx
+  mov fSet2,ecx
   popad
  end;
+ sse:=fset1 and $2000000>0;
+ sse2:=fset1 and $4000000>0;
+ sse3:=fset2 and 1>0;
+ ssse3:=fSet2 and $200>0;
+ sse4:=fSet2 and $180000>0;
+ {$ENDIF}
+ {$IFDEF CPUx64}
+ sse:=true;
  {$ENDIF}
 // m:=RotationAroundVector(Vector3(0,1,0),1);
 

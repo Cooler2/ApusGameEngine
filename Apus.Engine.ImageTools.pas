@@ -149,7 +149,7 @@ var
 begin
  i:=0;
  {$IFDEF DIRECTX}
- if painter.texman.InheritsFrom(TDxTextureMan) then begin
+ if draw.texman.InheritsFrom(TDxTextureMan) then begin
   // 1-я итерация - проверка альтернативных форматов
   case ForceFormat of
    ipfRGB:if supportRGB then exit else ForceFormat:=ipfXRGB;
@@ -297,7 +297,7 @@ begin
  /// TODO: load other file types
  ;
  // этап 2 - создание текстуры
- tex:=painter.texman.AllocImage(imginfo.width,imginfo.height,format,
+ tex:=AllocImage(imginfo.width,imginfo.height,format,
    aiTexture+aiMipmapping+aiPow2,fname) as TTexture;
 
  // этап 3 - Загрузка данных в текстуру
@@ -399,9 +399,6 @@ var
  doScale:boolean;
  st:string;
 begin
- if painter.texman=nil then
-  raise EError.Create(fname+' - Loading failed: texture manager doesn''t exist!');
-
  try
   // 1. ADJUST FILE NAME AND CHECK ATLAS
   fname:=FileName(fname);
@@ -482,7 +479,7 @@ begin
   if flags and liffMipMaps>0 then aflags:=aflags or aiTexture or aiPow2 or aiMipMapping;
   if imgInfo.miplevels>1 then flags:=flags or aiMipMapping;
   aFlags:=aFlags or (flags and $FF0000);
-  tex:=painter.texman.AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,copy(fname,pos('\',fname)+1,16)) as TTexture;
+  tex:=AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,copy(fname,pos('\',fname)+1,16)) as TTexture;
   tex.Lock(0);
   img:=tex.GetRawImage; // получить объект типа RAW Image для доступа к данным текстуры
 
@@ -541,7 +538,7 @@ var
  sp,dp:PByte;
 begin
  ASSERT((x>=0) and (y>=0) and (x+width<=source.width) and (y+height<=source.height));
- tex:=painter.texman.AllocImage(width,height,source.PixelFormat,flags,'p_'+source.name) as TTexture;
+ tex:=AllocImage(width,height,source.PixelFormat,flags,'p_'+source.name) as TTexture;
  tex.Lock;
  source.Lock(0,lmReadOnly);
  sp:=source.data;
@@ -579,7 +576,7 @@ end;
 procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
  begin
    if flags=liffDefault then flags:=defaultLoadImageFlags;
-   if img<>nil then painter.texman.FreeImage(TTexture(img));
+   if img<>nil then FreeImage(TTexture(img));
 
    if IsPathRelative(fName) then fName:=defaultImagesDir+fName;
    img:=LoadImageFromFile(fName,flags,ipf32bpp);
@@ -630,7 +627,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
   begin
    w:=image.width-(x2-x1)-(x4-x3);
    h:=image.height-(y2-y1)-(y4-y3);
-   result:=painter.texman.AllocImage(w,h,image.PixelFormat,0,image.name+'_shr') as TTexture;
+   result:=AllocImage(w,h,image.PixelFormat,0,image.name+'_shr') as TTexture;
    imgW:=image.width;
    imgH:=image.height;
    image.Lock(0,lmReadOnly);
@@ -662,7 +659,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    dh:=y2-y1;
    w:=image.width+dw;
    h:=image.height+dh;
-   result:=painter.texman.AllocImage(w,h,image.PixelFormat,0,image.name+'_expd') as TTexture;
+   result:=AllocImage(w,h,image.PixelFormat,0,image.name+'_expd') as TTexture;
    image.Lock(0,lmReadOnly);
    result.Lock;
    try
@@ -709,7 +706,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    end else
     flipY:=false;
 
-   result:=painter.texman.AllocImage(newWidth,newHeight,ipfARGB,
+   result:=AllocImage(newWidth,newHeight,ipfARGB,
        aiSysMem*byte(sysMem),'_'+image.name) as TTexture;
    result.Lock;
    if (newWidth>image.width) or (newHeight>image.height) then begin

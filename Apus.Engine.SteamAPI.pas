@@ -1,4 +1,4 @@
-// Translated from STEAM SDK headers
+п»ї// Translated from STEAM SDK headers
 
 // Copyright (C) 2011 Apus Software. Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -42,7 +42,7 @@ interface
   procedure DoneSteamAPI;
   //function VerifyOwnership:boolean;
 
-  // Получает тикет для передачи его серверу (HEX-строка)
+  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (HEX-пїЅпїЅпїЅпїЅпїЅпїЅ)
   function GetSteamAuthTicket:string;
 
   // Imported SteamAPI functions

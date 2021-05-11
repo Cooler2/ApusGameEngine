@@ -108,12 +108,12 @@ procedure DrawBtnImage(btn:TUIButton;state:TButtonState;xc,yc:single;var img:TTe
    styleCls.BuildButtonImage(btn,state,img);
   x:=round(xc+0.1); y:=round(yc+0.1);
   if img<>nil then begin
-   painter.DrawCentered(x,y,img,color);
+   draw.Centered(x,y,img,color);
   end else begin
    dec(x,btn.globalrect.width div 2);
    dec(y,btn.globalrect.height div 2);
-   painter.FillGradrect(x,y,x+btn.globalrect.width-1,y+btn.globalrect.height-1,$FFE0E0EE,$FFB0B0C0,true);
-   painter.Rect(x,y,x+btn.globalrect.width-1,y+btn.globalrect.height-1,$A0FFFFFF);
+   draw.FillGradrect(x,y,x+btn.globalrect.width-1,y+btn.globalrect.height-1,$FFE0E0EE,$FFB0B0C0,true);
+   draw.Rect(x,y,x+btn.globalrect.width-1,y+btn.globalrect.height-1,$A0FFFFFF);
   end;
  end;
 
@@ -133,10 +133,10 @@ procedure DrawBtnImageInt(btn:TUIButton;xc,yc:single;var imgNormal,imgOver:TText
 //    if imgNormal.height and 1=1 then y:=round(yc+0.5);
     dec(x,imgNormal.width div 2);
     dec(y,imgNormal.height div 2);
-    painter.SetTexMode(1,tblInterpolate,tblInterpolate,fltBilinear,intFactor);
-//    painter.SetTexInterpolationMode(1,tintFactor,intFactor);
-    painter.DrawDouble(x,y,imgNormal,imgOver,color);
-    painter.SetTexMode(1,tblDisable,tblDisable,fltUndefined);
+    gfx.shader.TexMode(1,tblInterpolate,tblInterpolate,fltBilinear,intFactor);
+//    draw.SetTexInterpolationMode(1,tintFactor,intFactor);
+    draw.DoubleTex(x,y,imgNormal,imgOver,color);
+    gfx.shader.TexMode(1,tblDisable,tblDisable,fltUndefined);
   end;
  end;
 
@@ -290,7 +290,7 @@ procedure TBitmapStyle.DrawItem(con: TUIElement);
      imgHash.Put(con.name,cardinal(img),true);
     end else
      img:=pointer(c);
-//    painter.DrawRotScaled(xc,yc,img,TUIImage(con).color);
+//    draw.RotScaled(xc,yc,img,TUIImage(con).color);
    end;
 
 

@@ -20,21 +20,17 @@ uses
   Apus.EventMan,
   Apus.FastGFX,
   Apus.FreeTypeFont,
-  Apus.DirectText in '..\..\Base\deprecated\Apus.DirectText.pas',
   Apus.Engine.API in '..\..\Apus.Engine.API.pas',
   Apus.Engine.UIClasses in '..\..\Apus.Engine.UIClasses.pas',
-  Apus.Engine.PainterGL in '..\..\Apus.Engine.PainterGL.pas',
   Apus.Engine.UIScene in '..\..\Apus.Engine.UIScene.pas',
   Apus.Engine.UIRender in '..\..\Apus.Engine.UIRender.pas',
   Apus.Engine.Tools in '..\..\Apus.Engine.Tools.pas',
   Apus.Engine.Console in '..\..\Apus.Engine.Console.pas',
   Apus.Engine.ConsoleScene in '..\..\Apus.Engine.ConsoleScene.pas',
-  Apus.Engine.SceneEffects in '..\..\Apus.Engine.SceneEffects.pas',
   Apus.Engine.BitmapStyle in '..\..\Apus.Engine.BitmapStyle.pas',
   Apus.Engine.Networking2 in '..\..\Apus.Engine.Networking2.pas',
   Apus.Engine.IOSgame in '..\..\Apus.Engine.IOSgame.pas',
   Apus.Engine.Game in '..\..\Apus.Engine.Game.pas',
-  Apus.Engine.Painter2D in '..\..\Apus.Engine.Painter2D.pas',
   Apus.Engine.TweakScene in '..\..\Apus.Engine.TweakScene.pas',
   Apus.Engine.Networking3 in '..\..\Apus.Engine.Networking3.pas',
   Apus.Engine.UDict in '..\..\Apus.Engine.UDict.pas',
@@ -44,23 +40,19 @@ uses
   Apus.Engine.ComplexText in '..\..\Apus.Engine.ComplexText.pas',
   {$IFDEF STEAM}
   Apus.Engine.SteamAPI in '..\..\Apus.Engine.SteamAPI.pas',
-  {$ENDIF}
-  {$IFDEF DIRECTX}
-  Apus.Engine.DxImages8 in '..\..\Apus.Engine.DxImages8.pas',
   {$ENDIF }
   {$IFDEF OPENGL}
   Apus.Engine.OpenGL in '..\..\Apus.Engine.OpenGL.pas',
-  Apus.Engine.PainterGL2 in '..\..\Apus.Engine.PainterGL2.pas',
-  Apus.Engine.GLImages in '..\..\Apus.Engine.GLImages.pas',
+  Apus.Engine.ResManGL in '..\..\Apus.Engine.ResManGL.pas',
   {$ENDIF }
   {$IFDEF MSWINDOWS}
   Apus.Engine.SoundBass in '..\..\Apus.Engine.SoundBass.pas',
   Apus.Engine.Sound in '..\..\Apus.Engine.Sound.pas',
   Apus.Engine.WindowsPlatform in '..\..\Apus.Engine.WindowsPlatform.pas',
-  {$ENDIF}
+  {$ENDIF }
   {$IFDEF SDL}
   Apus.Engine.SDLplatform in '..\..\Apus.Engine.SDLplatform.pas',
-  {$ENDIF}
+  {$ENDIF }
   Apus.Engine.GameApp in '..\..\Apus.Engine.GameApp.pas',
   Apus.Engine.Model3D in '..\..\Apus.Engine.Model3D.pas',
   Apus.Engine.OBJLoader in '..\..\Apus.Engine.OBJLoader.pas',
@@ -69,7 +61,11 @@ uses
   Apus.Engine.ImgLoadQueue in '..\..\Apus.Engine.ImgLoadQueue.pas',
   Apus.Engine.UIScript in '..\..\Apus.Engine.UIScript.pas',
   Apus.Engine.GfxFormats3D in '..\..\Apus.Engine.GfxFormats3D.pas',
-  Apus.Engine.ImageTools in '..\..\Apus.Engine.ImageTools.pas';
+  Apus.Engine.ImageTools in '..\..\Apus.Engine.ImageTools.pas',
+  Apus.Engine.Draw in '..\..\Apus.Engine.Draw.pas',
+  Apus.Engine.Graphics in '..\..\Apus.Engine.Graphics.pas',
+  Apus.Engine.TextDraw in '..\..\Apus.Engine.TextDraw.pas',
+  Apus.Engine.ShadersGL in '..\..\Apus.Engine.ShadersGL.pas';
 
 const
  wnd:boolean=true;
@@ -77,7 +73,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 6;
+ testnum:integer = 5;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -137,7 +133,8 @@ type
  end;
 
  TTexturesTest=class(TTest)
-  prog,uTex:integer;
+  prog:TShader;
+  uTex:integer;
   tex1,tex2,tex3,tex4,texA,tex5,tex6,texM,texDuo:TTexture;
   debug:ByteArray;
   procedure Init; override;
@@ -209,8 +206,7 @@ type
  end;
 
  TShaderTest=class(TTest)
-  prog:integer;
-  loc1:integer;
+  prog:TShader;
   tex:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
@@ -229,7 +225,7 @@ type
   model,modelObj:TModel3D;
   vertices,vertices2:array of T3DModelVertex;
   indices,indices2:TIndices;
-  shader,shader2:integer;
+  shader,shader2:TShader;
   tex:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
@@ -251,7 +247,7 @@ var
 
 function MyGame.OnFrame;
  begin
-  if frame and 63=63 then
+  if frame mod 10=0 then
    SetWindowCaption('FPS: '+inttostr(round(game.fps))+
      '  Avg FPS: '+FloatToStrF(1000*frame/(MyTickCount-SaveTime),ffFixed,6,1));
   result:=true;
@@ -260,10 +256,8 @@ function MyGame.OnFrame;
 
 procedure MyGame.RenderFrame;
 begin
- painter.ResetTarget;
+ //painter.ResetTarget;
  test.RenderFrame;
-{ if makeScreenShot then begin
- end;}
 end;
 
 procedure HEvent(event:TEventStr;tag:TTag);
@@ -302,32 +296,32 @@ var
  vrt:array[0..20] of TVertex;
 begin
  inc(frame);
- painter.Clear($FF000000+frame and 127,-1,-1);
- painter.BeginPaint(nil);
+ gfx.target.Clear($FF000000+frame and 127,-1,-1);
+ gfx.BeginPaint(nil);
 
- painter.FillRect(410,10,500,100,$30908079);
+ draw.FillRect(410,10,500,100,$40C08079);
 
  for i:=1 to 10 do begin
-  painter.DrawLine(10,10*i,100,10*i,$FFFFFFFF-i*24);
-  painter.DrawLine(10*i,10,10*i,100,$FFFFFFFF-(i*24) shl 16);
+  draw.Line(10,10*i,100,10*i,$FFFFFFFF-i*24);
+  draw.Line(10*i,10,10*i,100,$FFFFFFFF-(i*24) shl 16);
  end;
- painter.Rect(200-2,100-2,300+2,200+2,$FF00FF00);
- painter.DrawLine(200,100,300,200,$FFFF0000);
+ draw.Rect(200-2,100-2,300+2,200+2,$FF00FF00);
+ draw.Line(200,100,300,200,$FFFF0000);
  for i:=1 to 4 do begin
-  painter.DrawLine(200+i*20,100,300,100+i*20,$FF0000FF);
-  painter.DrawLine(200,100+i*20,200+i*20,200,$FF00FFFF);
+  draw.Line(200+i*20,100,300,100+i*20,$FF0000FF);
+  draw.Line(200,100+i*20,200+i*20,200,$FF00FFFF);
  end;
  for i:=1 to 5 do begin
   t:=frame/500+i*pi/2.5;
-  painter.DrawLine(200+5*cos(t),300+5*sin(t),200+50*cos(t),300+50*sin(t),$FFC0FF00);
+  draw.Line(200+5*cos(t),300+5*sin(t),200+50*cos(t),300+50*sin(t),$FFC0FF00);
  end;
  for i:=1 to frame mod 4+1 do
-  painter.DrawLine(i*3,1,i*3,5,$FFFFFFFF);
+  draw.Line(i*3,1,i*3,5,$FFFFFFFF);
 
- for i:=0 to 200 do
-  painter.DrawLine(i*4,500,i*4+2,510,$FF80FF00);
-  
- painter.EndPaint;
+ for i:=0 to 100 do
+  draw.Line(i*4,500,i*4+2,510,$FF80FF00);
+
+ gfx.EndPaint;
 end;
 
 { TTexturesTest }
@@ -450,7 +444,7 @@ begin
  texDuo.Unlock;
 
  try
- prog:=TGLPainter(painter).BuildShaderProgram(
+ prog:=shader.Build(
   'attribute vec3 aPosition;                              '+
   'attribute vec2 aTexcoord;                              '+
   'varying vec2 vTexcoord;                                '+
@@ -497,11 +491,12 @@ var
  vertices,transformed:TVertices;
  indices:TIndices;
  data:array of cardinal;
+ sub:TTexture;
 begin
 // sleep(10);
  inc(frame);
- painter.Clear($FF000040,-1,-1);
- painter.BeginPaint(nil);
+ gfx.target.Clear($FF000040,-1,-1);
+ gfx.BeginPaint(nil);
 // LogMessage('Frame '+inttostr(frame));
  tex:=tex1;
 
@@ -538,73 +533,76 @@ begin
 
  glDrawArrays(GL_TRIANGLES,0,3);     *)
 
- painter.DrawImage(1,1,tex1,$FF808080);
- painter.DrawScaled(200,100,350,250,tex1,$FF808080);
- painter.DrawScaled(200,300,299,399,tex1,$FF808080);
+ draw.Image(1,1,tex1,$FF808080);
+ draw.Scaled(200,100,350,250,tex1,$FF808080);
+ draw.Scaled(200,300,299,399,tex1,$FF808080);
 
  x:=frame mod 100;
  r:=Rect(x,10,x+10,20);
  tex4.Lock(0,lmReadWrite,@r);
  FilLRect(tex4.data,tex4.pitch,0,0,11,11,$FF0050C0+(frame mod 256) shl 16);
  tex4.Unlock;
- painter.DrawImage(800,10,tex4);
+ draw.Image(800,10,tex4);
 
- painter.DrawImagePart90(200,50,tex1,$FF808080,Rect(2,2,20,10),-1);
- painter.DrawImagePart90(230,50,tex1,$FF808080,Rect(2,2,20,10),1);
- painter.DrawImagePart90(260,50,tex1,$FF808080,Rect(2,2,20,10),2);
- painter.DrawImagePart90(290,50,tex1,$FF808080,Rect(2,2,20,10),3);
- painter.DrawRotScaled(450,200,2,2,1,tex2,$FF808080);
+ sub:=tex1.ClonePart(Rect(2,0,12,10));
+ tex1.SetFilter(false);
+ draw.Scaled(200,0,260,40,sub);
+ tex1.SetFilter(true);
+ draw.Scaled(300,0,360,40,sub);
+ sub.Free;
+
+ draw.ImagePart90(200,60,tex1,$FF808080,Rect(2,2,20,10),-1);
+ draw.ImagePart90(230,60,tex1,$FF808080,Rect(2,2,20,10),1);
+ draw.ImagePart90(260,60,tex1,$FF808080,Rect(2,2,20,10),2);
+ draw.ImagePart90(290,60,tex1,$FF808080,Rect(2,2,20,10),3);
+ draw.RotScaled(450,200,2,2,1,tex2,$FF808080);
 
 
  s:=0.2+(MyTickCount mod 3000)/3000;
- painter.SetTexMode(0,tblModulate2X,tblModulate,fltTrilinear);
- painter.DrawRotScaled(450,420,s,s,0,texM);
+ texM.SetFilter(true);
+ draw.RotScaled(450,420,s,s,0,texM);
 
  if (frame div 100) and 1=0 then
-   painter.SetTexMode(0,tblNone,tblNone,fltNearest);
- painter.DrawRotScaled(750,300,4,4,1,tex2,$FF808080);
- painter.SetTexMode(0,tblNone,tblNone,fltBilinear);
+ tex2.SetFilter(false);
+ draw.RotScaled(750,300,4,4,1,tex2,$FF808080);
 
- painter.Rect(200-1,100-1,350+1,250+1,$FFFFFF80);
- painter.Rect(100-2,200-2,107+2,207+2,$FFFFFFFF);
- painter.DrawImage(10,200,tex2,$FF808080);
- painter.DrawImagePart(100,200,tex2,$FF808080,Rect(8,8,15,15));
+ draw.Rect(200-1,100-1,350+1,250+1,$FFFFFF80);
+ draw.Rect(100-2,200-2,107+2,207+2,$FFFFFFFF);
+ draw.Image(10,200,tex2,$FF808080);
+ draw.ImagePart(100,200,tex2,$FF808080,Rect(8,8,15,15));
  v:=1+0.5*sin(frame/35);
- painter.DrawRotScaled(200,500,v,v,frame/100,tex1,$FF808080);
- painter.DrawRotScaled(200,700,1,1,frame/300,tex1,$FF808080,0.2, 0);
- painter.DrawImage(400,10,tex3);
+ draw.RotScaled(200,500,v,v,frame/100,tex1,$FF808080);
+ draw.RotScaled(200,700,1,1,frame/300,tex1,$FF808080,0.2, 0);
+ draw.Image(400,10,tex3);
 
  s:=(MyTickCount mod 100000)/2000;
  v:=2*frac(s);
  if v>1 then v:=1;
  s:=(2*s-v)*Pi/2;
- painter.FillRect(650-19,30-19,650+19,30+19,$FFC0A020);
- painter.FillRect(700-19,30-19,700+19,30+19,$FFC0A020);
- painter.DrawRotScaled(650,30,1,1,s,tex5,$FF808080);
- painter.DrawRotScaled(700,30,1,1,s,tex6,$FF808080);
+ draw.FillRect(650-19,30-19,650+19,30+19,$FFC0A020);
+ draw.FillRect(700-19,30-19,700+19,30+19,$FFC0A020);
+ draw.RotScaled(650,30,1,1,s,tex5,$FF808080);
+ draw.RotScaled(700,30,1,1,s,tex6,$FF808080);
 
 
- painter.DrawImage(800,160,texA,$FFFF6000);
- painter.DrawImage(900,160,texA,$FF008000);
+ draw.Image(800,160,texA,$FFFF6000);
+ draw.Image(900,160,texA,$FF008000);
 
- painter.DrawImage(600,700,texDuo,$FF808080);
+ draw.Image(600,700,texDuo,$FF808080);
 
- {$IFDEF DIRECTX}
-// if frame=10 then d3d8.DumpD3D;
- {$ENDIF}
  with vrt[0] do begin
-  x:=600; y:=10; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
-  diffuse:=$FF808080;
+  x:=600; y:=10; z:=0;
+  color:=$FF808080;
   u:=0; v:=0;
  end;
  with vrt[1] do begin
-  x:=750; y:=20; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
-  diffuse:=$FF808080;
+  x:=750; y:=20; z:=0;
+  color:=$FF808080;
   u:=1; v:=0;
  end;
  with vrt[2] do begin
-  x:=730; y:=250; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
-  diffuse:=$FF008000;
+  x:=730; y:=250; z:=0;
+  color:=$FF008000;
   u:=1; v:=1;
  end;
 
@@ -621,7 +619,7 @@ begin
  v:=1.5;
  Set2DTransform(800,600,v,v);
 { if getTickCount mod 1000<500 then
-  painter.DrawImage(0,0,tex1)
+  draw.Image(0,0,tex1)
  else}
  DrawIndexedMesh(mesh.vertices,mesh.indices,tex1);
  Reset2DTransform;
@@ -634,17 +632,17 @@ begin
  l1.matrix[2,0]:=0; l1.matrix[2,1]:=0;
  l2.matrix:=l1.matrix;
  x:=600; y:=400;
- painter.SetTexMode(0,tblModulate2X,tblModulate,fltBilinear);
- painter.SetTexMode(1,tblModulate,tblKeep,fltUndefined);
- painter.DrawMultiTex(x,y,x+150,y+150,@l1,@l2,nil,$FF808080);
+ shader.TexMode(0,tblModulate2X,tblModulate,fltBilinear);
+ shader.TexMode(1,tblModulate,tblKeep,fltUndefined);
+ draw.MultiTex(x,y,x+150,y+150,@l1,@l2,nil,$FF808080);
 
- painter.SetTexInterpolationMode(1,tintFactor,0.5+sin(gettickcount/300)/2);
- painter.SetTexMode(1,tblInterpolate,tblKeep,fltBilinear);
+ draw.SetTexInterpolationMode(1,tintFactor,0.5+sin(gettickcount/300)/2);
+ shader.TexMode(1,tblInterpolate,tblKeep,fltBilinear);
  x:=760;
- painter.DrawMultiTex(x,y,x+150,y+150,@l1,@l2,nil,$FF808080);  }
+ draw.MultiTex(x,y,x+150,y+150,@l1,@l2,nil,$FF808080);  }
 
-// painter.Update;
- painter.EndPaint;
+// draw.Update;
+ gfx.EndPaint;
 end;
 
 { TPrimTest }
@@ -659,61 +657,72 @@ end;
 
 procedure TPrimTest.RenderFrame;
 var
- pnts:array[0..4] of TPoint2;
+ pnts:array[0..40] of TPoint2;
  i:integer;
- a:single;
+ a,r:single;
 begin
  inc(frame);
 // if frame>3 then exit;
- painter.Clear($FF000000+(frame div 4) and 127,-1,-1);
- painter.BeginPaint(nil);
- painter.FillRect(1,1,30,30,$FF80FF00);
- painter.FillRect(40,1,70,30,$80FFFFFF);
- painter.FillGradrect(100,100,140,140,$FF0000FF,$FFFF0000,true);
- painter.FillGradrect(150,100,190,140,$FF0000FF,$FFFF0000,false);
- painter.FillGradrect(100,150,140,190,$FFFFFF00,$0FFFFF00,true);
- painter.FillGradrect(150,150,190,190,$FFFFFF00,$0FFFFF00,false);
+ gfx.target.Clear($FF000000+(frame div 4) and 127,-1,-1);
+ gfx.BeginPaint(nil);
+ draw.FillRect(1,1,30,30,$FF80FF00);
+ draw.FillRect(40,1,70,30,$80FFFFFF);
+ draw.FillGradrect(100,100,140,140,$FF0000FF,$FFFF0000,true);
+ draw.FillGradrect(150,100,190,140,$FF0000FF,$FFFF0000,false);
+ draw.FillGradrect(100,150,140,190,$FFFFFF00,$0FFFFF00,true);
+ draw.FillGradrect(150,150,190,190,$FFFFFF00,$0FFFFF00,false);
 
- painter.ShadedRect(300,50,400,90,3,$FFC0C0C0,$FF808080);
- painter.ShadedRect(300,100,400,130,1,$FFC0C0C0,$FF808080);
+ draw.ShadedRect(300,50,400,90,3,$FFC0C0C0,$FF808080);
+ draw.ShadedRect(300,100,400,130,1,$FFC0C0C0,$FF808080);
 
  for i:=0 to 4 do begin
   a:=frame/50;
   pnts[i].x:=250+30*cos(a+i);
   pnts[i].y:=250+30*sin(a+i);
  end;
- painter.DrawPolygon(@pnts,5,$FFFF8000);
+ draw.Polygon(@pnts,5,$FFFF8000);
 
- painter.Rect(0,0,1023,767,$80FFFF30);
- painter.EndPaint;
+ for i:=0 to 14 do begin
+  a:=i*0.42;
+  r:=40+20*sin(i*1.7)+10*sin(4+i*0.6);
+  pnts[i].x:=450+r*cos(a);
+  pnts[i].y:=250+r*sin(a);
+ end;
+ draw.Polygon(@pnts,15,$FF0080C0);
+
+ draw.RRect(50,250,100,270,$FFF0C0A0,3);
+ draw.FillTriangle(50,320,100,300,80,380,$10FF3030,$FF30FF30,$FF3030FF);
+
+
+ draw.Rect(0,0,1023,767,$FFFFFF30);
+ gfx.EndPaint;
 end;
 
 { TFontTest }
 
 procedure TFontTest.Done;
 begin
-// painter.FreeFont(fnt);
+// draw.FreeFont(fnt);
 end;
 
 procedure TFontTest.Init;
 var
  font:cardinal;
 begin
-{ painter.LoadFont('res\times1.fnt');
- painter.LoadFont('res\times2.fnt');
- painter.LoadFont('res\times3.fnt');
- painter.LoadFont('res\goodfish1.fnt');
- painter.LoadFont('res\goodfish2.fnt');
- //fnt:=painter.LoadFromFile('test');
+{ draw.LoadFont('res\times1.fnt');
+ draw.LoadFont('res\times2.fnt');
+ draw.LoadFont('res\times3.fnt');
+ draw.LoadFont('res\goodfish1.fnt');
+ draw.LoadFont('res\goodfish2.fnt');
+ //fnt:=draw.LoadFromFile('test');
  LoadRasterFont('res\test.fnt');
- fnt:=painter.PrepareFont(1);}
- painter.MatchFont(1,painter.GetFont('Times New Roman',11));
- font:=painter.GetFont('Times New Roman',12);
- painter.SetFontOption(font,foDownscaleFactor,1);
- painter.SetFontOption(font,foUpscaleFactor,1);
- font:=painter.GetFont('Times New Roman',9);
- painter.SetFontOption(font,foDownscaleFactor,1);
- painter.SetFontOption(font,foUpscaleFactor,1);
+ fnt:=draw.PrepareFont(1);}
+ font:=txt.GetFont('Times New Roman',12);
+ txt.SetFontOption(font,foDownscaleFactor,1);
+ txt.SetFontOption(font,foUpscaleFactor,1);
+ font:=txt.GetFont('Times New Roman',9);
+ txt.SetFontOption(font,foDownscaleFactor,1);
+ txt.SetFontOption(font,foUpscaleFactor,1);
 end;
 
 procedure TFontTest.RenderFrame;
@@ -724,61 +733,60 @@ var
 begin
 // if frame>0 then exit;
  inc(frame);
- painter.Clear($FF000080 { $ FF000000+frame and 127},-1,-1);
- painter.BeginPaint(nil);
+ gfx.target.Clear($FF000080 { $ FF000000+frame and 127},-1,-1);
+ gfx.BeginPaint(nil);
  // Unicode text output
 
- handle:=painter.GetFont('Times New Roman',10);
- painter.TextOut(handle,200+(getTickCount div 300) mod 40,60,$FFFFF0A0,'Water Elemental',taRight);
+ handle:=txt.GetFont('Times New Roman',10);
+ txt.Write(handle,200+(getTickCount div 300) mod 40,60,$FFFFF0A0,'Water Elemental',taRight);
 // color:=$FFF0A0A0+$100*round(40*sin(frame*0.01))+round(40*(frame*0.02));
 
  // Нагрузка на кэш
-{ handle:=painter.GetFont('Times New Roman',20);
- painter.TextOut(handle,10,540,$FFE0E0FF,chr(33+frame mod 210));
- handle:=painter.GetFont('Times New Roman',15);
- painter.TextOut(handle,50,540,$FFE0E0FF,chr(33+frame mod 210));
- handle:=painter.GetFont('Goodfish',12);
- painter.TextOut(handle,90,540,$FFE0E0FF,chr(33+frame mod 100));}
+{ handle:=txt.GetFont('Times New Roman',20);
+ txt.Write(handle,10,540,$FFE0E0FF,chr(33+frame mod 210));
+ handle:=txt.GetFont('Times New Roman',15);
+ txt.Write(handle,50,540,$FFE0E0FF,chr(33+frame mod 210));
+ handle:=txt.GetFont('Goodfish',12);
+ txt.Write(handle,90,540,$FFE0E0FF,chr(33+frame mod 100));}
 
  color:=$FFFFF0A0;
- painter.TextColorX2:=false;
  for i:=1 to 8 do begin
-  painter.FillRect(580-round(19.7*(9+i*0.6)),72+i*68,
+  draw.FillRect(580-round(19.7*(9+i*0.6)),72+i*68,
                    580+round(19.7*(9+i*0.6)),122+i*68,$FF404090);
-  handle:=painter.GetFont('Times New Roman',9+i*0.6);
-  painter.TextOut(handle,580,90+i*68,color,'Hello Kitty!® Première l''écriture! $27 = €34',taCenter);
-  painter.TextOut(handle,580,115+i*68,color,'Нам не страшен враг любой, Лукашенко - наш герой! ©',taCenter);
+  handle:=txt.GetFont('Times New Roman',9+i*0.6);
+  txt.Write(handle,580,90+i*68,color,'Hello Kitty!® Première l''écriture! $27 = €34',taCenter);
+  txt.Write(handle,580,115+i*68,color,'Нам не страшен враг любой, Лукашенко - наш герой! ©',taCenter);
  end;
 
  size:=Pike((frame div 10) mod 255,128,200,350,200)/200;
  size:=8*sqr(size);
- handle:=painter.GetFont('Times New Roman',size);
- painter.TextOut(handle,520,722,color,'Hello Kitty!® Première l''écriture! $27 = €34',taCenter);
- painter.TextOut(handle,520,750,color,'Нам не страшен враг любой, Лукашенко - наш герой! ©',taCenter);
+ handle:=txt.GetFont('Times New Roman',size);
+ txt.Write(handle,520,722,color,'Hello Kitty!® Première l''écriture! $27 = €34',taCenter);
+ txt.Write(handle,520,750,color,'Нам не страшен враг любой, Лукашенко - наш герой! ©',taCenter);
 
  // Show text cache texture
-// painter.TextOut(0,0,0,0,'');
+// txt.Write(0,0,0,0,'');
 
- painter.TextOut(1,10,690,$FFFFFF40,'Hello World! Привет всем! Première tentative de l''écriture!');
+ txt.Write(1,10,690,$FFFFFF40,'Hello World! Привет всем! Première tentative de l''écriture!');
 
  // Legacy text output
-{ painter.SetFont(fnt);
- painter.WriteSimple(10,10,$FFFFFFFF,'Hello');
+{ draw.SetFont(fnt);
+ draw.WriteSimple(10,10,$FFFFFFFF,'Hello');
  for i:=20 downto 4 do begin
-  painter.FillRect(9,i*20+2,10+i*8,i*20+20,$C0404090);
-  painter.WriteSimple(10,i*20,$FFFFFF00+i*12-(i*12) shl 16,copy('я 12345678901234567890',1,i));
+  draw.FillRect(9,i*20+2,10+i*8,i*20+20,$C0404090);
+  draw.WriteSimple(10,i*20,$FFFFFF00+i*12-(i*12) shl 16,copy('я 12345678901234567890',1,i));
  end;
 
- painter.FillRect(500,10,640,50,$FF8080F0);
- painter.FillRect(500,70,640,120,$FF000064);
- painter.DrawLine(500,30,640,30,$FF000000);
- painter.DrawLine(500,75,640,75,$50FFFFFF);
- painter.DrawLine(500,90,640,90,$80FFFFFF);
- painter.DrawLine(500,103,640,103,$50FFFFFF);
- painter.DrawLine(570,10,570,110,$50FFFFFF);
- painter.DrawLine(524,10,524,110,$50FFFFFF);
- painter.DrawLine(616,10,616,110,$50FFFFFF);
- fillchar(painter.textEffects,sizeof(painter.textEffects),0);
+ draw.FillRect(500,10,640,50,$FF8080F0);
+ draw.FillRect(500,70,640,120,$FF000064);
+ draw.Line(500,30,640,30,$FF000000);
+ draw.Line(500,75,640,75,$50FFFFFF);
+ draw.Line(500,90,640,90,$80FFFFFF);
+ draw.Line(500,103,640,103,$50FFFFFF);
+ draw.Line(570,10,570,110,$50FFFFFF);
+ draw.Line(524,10,524,110,$50FFFFFF);
+ draw.Line(616,10,616,110,$50FFFFFF);
+ fillchar(draw.textEffects,sizeof(draw.textEffects),0);
  with painter do begin
   textEffects[1].enabled:=true;
   textEffects[1].blur:=1;
@@ -799,11 +807,11 @@ begin
   WriteEx(570,80,$FF500000,'Тест блура!',taCenter);
  end; }
 
-// painter.FillRect(0,0,511,511,$FFFFFFFF);
+// draw.FillRect(0,0,511,511,$FFFFFFFF);
 { if frame mod 40<10 then
-  painter.TextOut(MAGIC_TEXTCACHE,0,0,$FFFFFFFF,'');}
+  txt.Write(MAGIC_TEXTCACHE,0,0,$FFFFFFFF,'');}
 
- painter.EndPaint;
+ gfx.EndPaint;
 end;
 
 procedure TFontTest2.Init;
@@ -811,7 +819,7 @@ begin
  //font:=TFreeTypeFont.LoadFromFile('res\arial.ttf');
 // font:=TFreeTypeFont.LoadFromFile('12460.ttf');
  buf:=AllocImage(400,50,ipfARGB,0,'txtbuf');
- painter.LoadFont('res\arial.ttf');
+ txt.LoadFont('res\arial.ttf');
 end;
 
 procedure TFontTest2.RenderFrame;
@@ -825,43 +833,44 @@ var
 begin
 // if frame>0 then exit;
  inc(frame);
- painter.Clear($FF000080 { $ FF000000+frame and 127},-1,-1);
- painter.BeginPaint(nil);
+ gfx.target.Clear($FF000080 { $ FF000000+frame and 127},-1,-1);
+ gfx.BeginPaint(nil);
  // Unicode text output
 
+ f:=txt.GetFont('Arial',30);
+ txt.WriteW(f,10,40,$FFFFA080,'Première tentative de l''écriture!',taLeft);
+ f:=txt.GetFont('Arial',24);
+ txt.WriteW(f,10,80,$FFFFA080,'Кракозябры! אַﭠﮚﻼ№җ£©α²',taLeft);
+ txt.WriteW(f,10,115,$FFFFA080,'Кракозябры!',taLeft,toItalic);
 
- f:=painter.GetFont('Arial',30);
- painter.TextOutW(f,10,40,$FFFFA080,'Première tentative de l''écriture!',taLeft);
- f:=painter.GetFont('Arial',24);
- painter.TextOutW(f,10,80,$FFFFA080,'Кракозябры! אַﭠﮚﻼ№җ£©α²',taLeft);
- painter.TextOutW(f,10,115,$FFFFA080,'Кракозябры!',taLeft,toItalic);
-
- f:=painter.GetFont('Arial',14,toDontTranslate);
- w:=painter.TextWidthW(f,'1) AV Привет - Hello!');
- h:=painter.FontHeight(f);
- painter.FillRect(10,260-h-2,10+w,260+1,$FFC0C0C0);
- painter.TextOutW(f,10,200,$FFFFA080,'1) AV Привет - Hello!',taLeft);
- painter.TextOutW(f,10,230,$FFFFFFFF,'1) AV Привет - Hello!',taLeft);
- painter.TextOutW(f,10,260,$FF000000,'1) AV Привет - Hello!',taLeft);
+ f:=txt.GetFont('Arial',14,toDontTranslate);
+ w:=txt.WidthW(f,'1) AV Привет - Hello!');
+ h:=txt.Height(f);
+ draw.FillRect(10,260-h-2,10+w,260+1,$FFC0C0C0);
+ txt.BeginBlock;
+ txt.WriteW(f,10,200,$FFFFA080,'1) AV Привет - Hello!',taLeft);
+ txt.WriteW(f,10,230,$FFFFFFFF,'1) AV Привет - Hello!',taLeft);
+ txt.WriteW(f,10,260,$FF000000,'1) AV Привет - Hello!',taLeft);
+ txt.EndBlock;
 
  for i:=1 to 20 do
-  painter.TextOut(f,10,270+i*20,$FFFFFFFF,'Line '+IntToStr(i),taLeft);
+  txt.Write(f,10,270+i*20,$FFFFFFFF,'Line '+IntToStr(i),taLeft);
 
- f:=painter.GetFont('Arial',12,toDontTranslate);
- painter.TextOutW(f,220,160,$FFE0E0E0,'Hinting mode: DEFAULT');
- painter.TextOutW(f,220,180,$FFE0E0E0,'Hinting mode: OFF',taLeft,toNoHinting);
- painter.TextOutW(f,220,200,$FFE0E0E0,'Hinting mode: AUTO',taLeft,toAutoHinting);
- painter.TextOutW(f,220,220,$FFE0E0E0,'Hinting mode: AUTO',taLeft,toAutoHinting+toItalic);
- painter.TextOutW(f,220,240,$FFE0E0E0,'Text mode: BOLD',taLeft,toBold);
- painter.TextOutW(f,220,260,$FFE0E0E0,'Text mode: Bold Italic',taLeft,toItalic+toBold);
- painter.TextOutW(f,220,280,$FFE0E0F0,'Mode: underlined',taLeft,toUnderline);
- painter.TextOutW(f,220,300,$FFE0E0F0,'Measure {b}complex{/b} text',taLeft,toMeasure+toComplexText);
- for i:=0 to high(painter.textMetrics) do
-  with painter.textMetrics[i] do
-   painter.DrawLine(left,bottom,left,bottom+5,$90FFFFFF);
+ f:=txt.GetFont('Arial',12,toDontTranslate);
+ txt.WriteW(f,220,160,$FFE0E0E0,'Hinting mode: DEFAULT');
+ txt.WriteW(f,220,180,$FFE0E0E0,'Hinting mode: OFF',taLeft,toNoHinting);
+ txt.WriteW(f,220,200,$FFE0E0E0,'Hinting mode: AUTO',taLeft,toAutoHinting);
+ txt.WriteW(f,220,220,$FFE0E0E0,'Hinting mode: AUTO',taLeft,toAutoHinting+toItalic);
+ txt.WriteW(f,220,240,$FFE0E0E0,'Text mode: BOLD',taLeft,toBold);
+ txt.WriteW(f,220,260,$FFE0E0E0,'Text mode: Bold Italic',taLeft,toItalic+toBold);
+ txt.WriteW(f,220,280,$FFE0E0F0,'Mode: underlined',taLeft,toUnderline);
+ txt.WriteW(f,220,300,$FFE0E0F0,'Measure {b}complex{/b} text',taLeft,toMeasure+toComplexText);
+ for i:=0 to txt.MeasuredCnt do
+  with txt.MeasuredRect(i) do
+   draw.Line(left,bottom,left,bottom+5,$90FFFFFF);
    
  curTextLink:=0;
- painter.TextOutW(f,220,330,$FFE0E0F0,'Text with a {L=01}link{/L}!',taLeft,toMeasure+toComplexText,0,
+ txt.WriteW(f,220,330,$FFE0E0F0,'Text with a {L=01}link{/L}!',taLeft,toMeasure+toComplexText,0,
    game.mouseX and $FFFF+game.mouseY shl 16);
 
 { buf.Lock;
@@ -869,43 +878,43 @@ begin
  FillRect(buf.data,buf.pitch,0,30,buf.width-1,30,$FFA0A0A0);
  font.RenderText(buf.data,buf.pitch,5,30,'1) AV Привет - Hello!',$FF400000,20+8*sin(frame/100));
  buf.Unlock;
- painter.DrawImage(10,10,buf);}
+ draw.Image(10,10,buf);}
 
- f:=painter.GetFont('Arial',14,toDontTranslate);
+ f:=txt.GetFont('Arial',14,toDontTranslate);
 
- painter.TextOut(f,220,760,$FF6FF000,EncodeUTF8('Привет! @^#(!''"/n ( {C=FFE08080}1010{/C} / 700 )'),taLeft,toComplexText);
+ txt.Write(f,220,760,$FF6FF000,EncodeUTF8('Привет! @^#(!''"/n ( {C=FFE08080}1010{/C} / 700 )'),taLeft,toComplexText);
 
-// painter.BeginTextBlock;
+// draw.BeginTextBlock;
  for i:=1 to 10 do
-  painter.TextOutW(f,220,760-i*25,$FF6FF000,
+  txt.WriteW(f,220,760-i*25,$FF6FF000,
     '{u}This{!u} {I}is {!I}an{/i/i} {u}example {C=FF90E0C0}of {B}complex{/B/C/u} text',taLeft,toComplexText);
-// painter.EndTextBlock; 
-// painter.TextOutW(f,220,725,$FFFF0000,'This {B}is {!B}an{/b/b} example {C=FFC0E090}of complex{/C} text',taLeft);
-// painter.TextOutW(f,220,750,$FFFF0000,'This {B}is {!B}an{/b/b} example {C=FFC0E090}of complex{/C} text',taLeft);
+// draw.EndTextBlock;
+// txt.WriteW(f,220,725,$FFFF0000,'This {B}is {!B}an{/b/b} example {C=FFC0E090}of complex{/C} text',taLeft);
+// txt.WriteW(f,220,750,$FFFF0000,'This {B}is {!B}an{/b/b} example {C=FFC0E090}of complex{/C} text',taLeft);
 
- painter.TextOutW(f,150,710,$FFC0C0C0,IntToStr(intervalHashMiss));
- painter.TextOutW(f,150,730,$FFC0C0C0,IntToStr(glyphWidthHashMiss));
- painter.TextOutW(f,150,750,$FFC0C0C0,IntToStr(frame));
+ txt.WriteW(f,150,710,$FFC0C0C0,IntToStr(intervalHashMiss));
+ txt.WriteW(f,150,730,$FFC0C0C0,IntToStr(glyphWidthHashMiss));
+ txt.WriteW(f,150,750,$FFC0C0C0,IntToStr(frame));
 
- painter.DrawLine(700,672,700,730,$80FFFF50);
- painter.FillRect(700-28,670,700+28,690,$60000000);
- painter.TextOutW(f,700,690,$FFC0C0C0,'Center',taCenter);
- painter.TextOutW(f,700,720,$FFC0C0C0,'Right',taRight);
- painter.FillRect(600,732,600+290,757,$60000000);
- painter.TextOutW(f,600,750,$FFC0C0C0,'Justify {i}this{/i} {u}simple and small{/u} text',
+ draw.Line(700,672,700,730,$80FFFF50);
+ draw.FillRect(700-28,670,700+28,690,$60000000);
+ txt.WriteW(f,700,690,$FFC0C0C0,'Center',taCenter);
+ txt.WriteW(f,700,720,$FFC0C0C0,'Right',taRight);
+ draw.FillRect(600,732,600+290,757,$60000000);
+ txt.WriteW(f,600,750,$FFC0C0C0,'Justify {i}this{/i} {u}simple and small{/u} text',
    taJustify,toComplexText,290);
 
  i:=(MyTickCount div 1000);
  st:=words[i mod 3]+#13#10+words[(i+1) mod 3]+#13#10+words[(i+2) mod 3];
- w:=painter.TextWidth(f,st);
- painter.Rect(120,320,120+w,400,$60FFFFFF);
- painter.TextOutW(f,120,340,$FFC0C0C0,st);
+ w:=txt.Width(f,st);
+ draw.Rect(120,320,120+w,400,$60FFFFFF);
+ txt.WriteW(f,120,340,$FFC0C0C0,st);
 
  if getTickCount mod 1200<800 then begin
-  painter.FillRect(512,0,1023,511,$FFFFFFFF);
-  painter.TextOut(MAGIC_TEXTCACHE,512,0,$FFFFFFFF,'');
+  draw.FillRect(512,0,1023,511,$FFFFFFFF);
+  txt.Write(MAGIC_TEXTCACHE,512,0,$FFFFFFFF,'');
  end;
- painter.EndPaint;
+ gfx.EndPaint;
 end;
 
 
@@ -952,7 +961,6 @@ begin
   end;
  end;
  tex1.Unlock;
- painter.UseTexture(tex1);
 end;
 
 procedure TR2TextureTest.RenderFrame;
@@ -960,58 +968,75 @@ begin
 // sleep(500);
  inc(frame);
 
- painter.BeginPaint(tex2);
- painter.Clear($80FF80,-1,-1);
- painter.FillGradrect(4,4,255-4,255-4,$FF000000+round(120+120*sin(frame/400)),$FF000000+round(120+120*sin(1+frame/300)),true);
- painter.DrawImage(20,20,tex1);
+ // Uncomment for simplified test
+ gfx.BeginPaint;
+ gfx.target.Clear($FF000000+(frame div 2) and 127,-1,-1);
+ gfx.target.Viewport(100,100,500,350);
+ draw.FillRect(0,0,gfx.target.width,gfx.target.height,$FFFF4040); // fill the viewport with red
+ draw.FillRect(0,0,10,10,$FF008080); // little cyan box in the upper left corner
 
-{ painter.SetTexMode(0,tblAdd,tblKeep);
- painter.DrawImage(140,30,tex0);}
+ gfx.BeginPaint(tex2);
+ gfx.target.Clear($C0FF80,-1,-1);
+ gfx.EndPaint;  // < нужно восстановить viewport и прочее, что было изменено в BeginPaint
+
+ draw.Image(10,10,tex2); // should be right below the small cyan box
+ gfx.EndPaint;
+ exit;
+ //}
+
+
+ gfx.BeginPaint(tex2);
+ gfx.target.Clear($80FF80,-1,-1);
+ draw.FillGradrect(4,4,255-4,255-4,$FF000000+round(120+120*sin(frame/400)),$FF000000+round(120+120*sin(1+frame/300)),true);
+ draw.Image(20,20,tex1);
+
+{ shader.TexMode(0,tblAdd,tblKeep);
+ draw.Image(140,30,tex0);}
  // Fixed! неправильный цвет при первой отрисовке!
-{ painter.SetTexMode(1,tblReplace,tblReplace);
- painter.DrawDouble(140,30,tex1,tex0);}
+{ shader.TexMode(1,tblReplace,tblReplace);
+ draw.Double(140,30,tex1,tex0);}
  // Fixed! Прыгает в другое место со 2-го кадра
-{ painter.SetTexMode(1,tblModulate2x,tblModulate,fltBilinear);
- painter.DrawDouble(140,30,tex1,tex0);}
+{ shader.TexMode(1,tblModulate2x,tblModulate,fltBilinear);
+ draw.Double(140,30,tex1,tex0);}
  //
- painter.SetTexMode(1,tblInterpolate,tblInterpolate,fltBilinear,0.5);
- painter.DrawDouble(140,30,tex1,tex0);
+ shader.TexMode(1,tblInterpolate,tblInterpolate,fltUndefined,0.5);
+ draw.DoubleTex(140,30,tex1,tex0);
 
- painter.EndPaint;
+ gfx.EndPaint;
 
- painter.BeginPaint(tex3);
- painter.Clear(0,-1,-1);
- painter.FillRect(25,25,120,80,$FFE00000);
- painter.DrawImage(1,1,tex1,$FF808080);
- painter.DrawImage(50,50,tex1,$FF808080);
- painter.Rect(0,0,127,127,$FFFFFFFF);
- painter.EndPaint;
+ gfx.BeginPaint(tex3);
+ gfx.target.Clear(0,-1,-1);
+ draw.FillRect(25,25,120,80,$FFE00000);
+ draw.Image(1,1,tex1,$FF808080);
+ draw.Image(50,50,tex1,$FF808080);
+ draw.Rect(0,0,127,127,$FFFFFFFF);
+ gfx.EndPaint;
 
- painter.BeginPaint(tex4);
- painter.Clear(0,-1,-1);
- painter.FillRect(0,0,70,60,$FFFFFFE0);
+ gfx.BeginPaint(tex4);
+ gfx.target.Clear(0,-1,-1);
+ draw.FillRect(0,0,70,60,$FFFFFFE0);
 { device.SetRenderState(D3DRS_ZENABLE,0);
  device.SetRenderState(D3DRS_COLORWRITEENABLE,15);
  device.SetRenderState(D3DRS_ALPHABLENDENABLE,1);
  device.SetRenderState(D3DRS_BLENDOP,D3DBLENDOP_ADD);
  device.SetRenderState(D3DRS_SRCBLEND,D3DBLEND_SRCALPHA);
  device.SetRenderState(D3DRS_DESTBLEND,D3DBLEND_INVSRCALPHA);}
- painter.DrawImage(40,40,tex1,$FF808080);
+ draw.Image(40,40,tex1,$FF808080);
 // device.SetRenderState(D3DRS_COLORWRITEENABLE,15);
-// painter.DrawImage(-20,15,tex1,$FF808080);
- painter.EndPaint;
- painter.Restore;
+// draw.Image(-20,15,tex1,$FF808080);
+ gfx.EndPaint;
+ gfx.Restore;
 
- painter.BeginPaint(nil);
- painter.Clear($FF000000+(frame div 2) and 127,-1,-1);
- painter.Rect(10,10,450,350,$FF00C000);
- painter.DrawImage(140,400,tex0,$FF808080);
- painter.DrawImage(4,300,tex3,$FF808080);
- painter.DrawImage(4,4,tex2,$FF808080);
- painter.DrawImage(10,500,tex4,$FF808080);
- painter.DrawScaled(400+round(80*sin(1+frame/200)),200+round(80*sin(frame/300)),
+ gfx.BeginPaint(nil);
+ gfx.target.Clear($FF000000+(frame div 2) and 127,-1,-1);
+ draw.Rect(10,10,450,350,$FF00C000);
+ draw.Image(140,400,tex0,$FF808080);
+ draw.Image(4,300,tex3,$FF808080);
+ draw.Image(4,4,tex2,$FF808080);
+ draw.Image(10,500,tex4,$FF808080);
+ draw.Scaled(400+round(80*sin(1+frame/200)),200+round(80*sin(frame/300)),
                     600+round(80*sin(frame/240)),400+round(2+80*sin(frame/250)),tex2,$FF808080);
- painter.EndPaint;
+ gfx.EndPaint;
 end;
 
 { TToolsTest }
@@ -1035,7 +1060,7 @@ begin
  tex3:=LoadImageFromFile('res\test3');
  tex4:=LoadImageFromFile('res\logo');
  //tex1:=LoadTexture('circle',0);
-{ painter.SetTexMode(fltTrilinear);
+{ shader.TexMode(fltTrilinear);
  f:=0.5;
  device.SetTextureStageState(0,D3DTSS_MIPMAPLODBIAS,c);}
  t1:=AllocImage(40,40,ipfARGB,0,'t1');
@@ -1055,19 +1080,19 @@ procedure TToolsTest.RenderFrame;
 begin
 // sleep(10);
  inc(frame);
- painter.Clear($FF000000+frame and 127,-1,-1);
- painter.BeginPaint(nil);
- painter.DrawImage(0,0,tex4);
-// painter.DrawScaled(10,10,50+100+100*sin(frame/100),50+100+100*sin(frame/100),tex1,$FF808080);
- painter.DrawImage(10{+frame mod 200},10{+frame mod 200},tex1,$FF808080);
- painter.DrawImage(200,20,tex2,$FF808080);
- painter.DrawImage(400,20,tex3);
- painter.DrawImage(200,200,t1);
- painter.DrawImage(300,200,t2);
- painter.DrawImage(200,300,t3);
- painter.DrawImage(300,300,t4);
- painter.DrawImage(100,500,tex5);
- painter.EndPaint;
+ gfx.target.Clear($FF000000+frame and 127,-1,-1);
+ gfx.BeginPaint(nil);
+ draw.Image(0,0,tex4);
+// draw.Scaled(10,10,50+100+100*sin(frame/100),50+100+100*sin(frame/100),tex1,$FF808080);
+ draw.Image(10{+frame mod 200},10{+frame mod 200},tex1,$FF808080);
+ draw.Image(200,20,tex2,$FF808080);
+ draw.Image(400,20,tex3);
+ draw.Image(200,200,t1);
+ draw.Image(300,200,t2);
+ draw.Image(200,300,t3);
+ draw.Image(300,300,t4);
+ draw.Image(100,500,tex5);
+ gfx.EndPaint;
 end;
 
 
@@ -1137,77 +1162,77 @@ var
 begin
  inc(frame);
  t:=GetTickCount;
- painter.BeginPaint(nil);
- painter.Clear($FF000040);
+ gfx.BeginPaint(nil);
+ gfx.target.Clear($FF000040);
 
 
  v:=t div 2000;
-// if v mod 3=0 then painter.DrawImage(40,40,tex1);
+// if v mod 3=0 then draw.Image(40,40,tex1);
  if true or (v mod 3=1) then begin
-  painter.SetTexMode(1,tblInterpolate,tblModulate,fltBilinear,(t mod 2000)/2000);
+  shader.TexMode(1,tblInterpolate,tblModulate,fltUndefined,(t mod 2000)/2000);
   // плавный переход между двумя текстурами (в две стороны)
-  painter.DrawDouble(40,40,tex2,tex1);
-  painter.DrawDouble(150,40,tex1,tex2);
+  draw.DoubleTex(40,40,tex2,tex1);
+  draw.DoubleTex(150,40,tex1,tex2);
   // перемножение двух текстур
-  painter.SetTexMode(1,tblModulate2X,tblModulate,fltBilinear);
-  painter.DrawDouble(300,40,tex1,tex2);
+  shader.TexMode(1,tblModulate2X,tblModulate);
+  draw.DoubleTex(300,40,tex1,tex2);
  end;
-// if v mod 3=2 then painter.DrawImage(40,40,tex2);
+// if v mod 3=2 then draw.Image(40,40,tex2);
 
-{ painter.DrawRotScaled(450,240,1,1,0,tex2);
- painter.DrawRotScaled(580.5,240,1,1,0,tex2);
- painter.DrawRotScaled(450,370.5,1,1,0,tex2);
- painter.DrawRotScaled(580.5,370.5,1,1,0,tex2);}
+{ draw.RotScaled(450,240,1,1,0,tex2);
+ draw.RotScaled(580.5,240,1,1,0,tex2);
+ draw.RotScaled(450,370.5,1,1,0,tex2);
+ draw.RotScaled(580.5,370.5,1,1,0,tex2);}
 
  // цвет от первой текстуры, альфа - пофигу
- painter.SetTexMode(1,tblKeep,tblKeep,fltUndefined);
- painter.DrawDoubleRotScaled(470,100,1,1,1,1,0,tex1,tex2);
+ shader.TexMode(1,tblKeep,tblKeep);
+ draw.DoubleRotScaled(470,100,1,1,1,1,0,tex1,tex2);
  // цвет от второй текстуры, альфа - пофигу
- painter.SetTexMode(1,tblReplace,tblNone,fltUndefined);
- painter.DrawDoubleRotScaled(600,100,1,1,1,1,0,tex1,tex2);
+ shader.TexMode(1,tblReplace,tblNone);
+ draw.DoubleRotScaled(600,100,1,1,1,1,0,tex1,tex2);
 
  // цвет от первой текстуры, альфа - от третьей (вырезание круга из первой)
- painter.SetTexMode(1,tblKeep,tblReplace);
- painter.DrawDouble(20,190,tex1,tex3);
+ shader.TexMode(1,tblKeep,tblReplace);
+ draw.DoubleTex(20,190,tex1,tex3);
  // цвет - градиент, альфа - сплошная
- painter.SetTexMode(1,tblReplace,tblKeep);
- painter.DrawDouble(100,190,tex1,tex3);
+ shader.TexMode(1,tblReplace,tblKeep);
+ draw.DoubleTex(100,190,tex1,tex3);
  // цвет - сумма, альфа - круг
- painter.SetTexMode(1,tblAdd,tblModulate);
- painter.DrawDouble(180,190,tex1,tex3);
+ shader.TexMode(1,tblAdd,tblModulate);
+ draw.DoubleTex(180,190,tex1,tex3);
  // интерполяция цвета и альфы
- painter.SetTexMode(1,tblInterpolate,tblInterpolate,fltUndefined,0);
- painter.DrawDouble(180+80,190,tex1,tex3);
- painter.SetTexMode(1,tblInterpolate,tblInterpolate,fltUndefined,1);
- painter.DrawDouble(180+80*2,190,tex1,tex3);
- painter.SetTexMode(1,tblInterpolate,tblReplace,fltUndefined,0.5);
- painter.DrawDouble(180+80*3,190,tex1,tex3);
+ shader.TexMode(1,tblInterpolate,tblInterpolate,fltUndefined,0);
+ draw.DoubleTex(180+80,190,tex1,tex3);
+ shader.TexMode(1,tblInterpolate,tblInterpolate,fltUndefined,1);
+ draw.DoubleTex(180+80*2,190,tex1,tex3);
+ shader.TexMode(1,tblInterpolate,tblReplace,fltUndefined,0.5);
+ draw.DoubleTex(180+80*3,190,tex1,tex3);
 
- painter.SetTexMode(1,tblDisable,tblDisable);
+ shader.TexMode(1,tblDisable,tblDisable);
 
  // Текстурирование 1-й текстурой
  // ----------------------------------
 
  // цвет - фиксированный, альфа - из текстуры
- painter.SetTexMode(0,tblKeep,tblModulate);
+ shader.TexMode(0,tblKeep,tblModulate);
  // Не работает! Потому что DrawXXX сама вызывает SetTexMode исходя из своих представлений, но только если тип отрисовки изменился с предыдущего вызова 
- painter.DrawImage(20,270,tex3,$FF30A040);
+ draw.Image(20,270,tex3,$FF30A040);
  // цвет из текстуры, альфа - сплошная
- painter.SetTexMode(0,tblReplace,tblKeep);
- painter.DrawImage(20+80,270,tex3,$C0202020);
+ shader.TexMode(0,tblReplace,tblKeep);
+ draw.Image(20+80,270,tex3,$C0202020);
  // цвет и альфа - суммируются
- painter.SetTexMode(0,tblAdd,tblAdd);
- painter.DrawImage(20+80*2,270,tex3,$50000080);
+ shader.TexMode(0,tblAdd,tblAdd);
+ draw.Image(20+80*2,270,tex3,$50000080);
 
  // Возврат стандартного значения
- painter.ResetTexMode;
+ shader.DefaultTexMode;
 
  // Original images
- painter.DrawImage(40,440,tex1);
- painter.DrawImage(210,440,tex2);
- painter.DrawImage(390,440,tex3); 
+ draw.Image(40,440,tex1);
+ draw.Image(210,440,tex2);
+ draw.Image(390,440,tex3);
 
- painter.EndPaint;
+ gfx.EndPaint;
 end;
 
 { TParticlesTest }
@@ -1267,10 +1292,10 @@ var
  i:integer;
 begin
  inc(frame);
- painter.Clear($FF000000,-1,-1);
- painter.BeginPaint(nil);
- painter.DrawImage(10,10,tex,$FF808080);
- painter.DrawImage(50,10,tex2,$FF808080);
+ gfx.target.Clear($FF000000,-1,-1);
+ gfx.BeginPaint(nil);
+ draw.Image(10,10,tex,$FF808080);
+ draw.Image(50,10,tex2,$FF808080);
  for i:=1 to 500 do with particles[i] do begin
   x:=120*cos(frame/100+i/9);
   y:=120*sin(frame/100+i/9);
@@ -1280,7 +1305,7 @@ begin
   angle:=0;
   index:=i mod 2;
  end;
- painter.DrawParticles(500,400,@particles,500,tex,19,3);
+ draw.Particles(500,400,@particles,500,tex,19,3);
  for i:=1 to 50 do with particles[i] do begin
   x:=20*sin(frame/100+i*1.2)+25*cos(frame/130+i*1.04+2);
   y:=20*cos(frame/110+i*1.93)+25*sin(frame/120-i*1.56+4);
@@ -1290,10 +1315,10 @@ begin
   angle:=0;
   index:=0;
  end;
- painter.SetMode(blAdd);
- painter.DrawParticles(100,100,@particles,50,tex2,19,1);
- painter.SetMode(blAlpha);
- painter.EndPaint;
+ gfx.target.BlendMode(blAdd);
+ draw.Particles(100,100,@particles,50,tex2,19,1);
+ gfx.target.BlendMode(blAlpha);
+ gfx.EndPaint;
 end;
 
 { TBandTest }
@@ -1344,9 +1369,9 @@ var
 begin
  inc(frame);
  t:=MyTickCount/1000;
- painter.Clear($FF000000,-1,-1);
- painter.BeginPaint(nil);
- painter.DrawImage(10,10,tex,$FF808080);
+ gfx.target.Clear($FF000000,-1,-1);
+ gfx.BeginPaint(nil);
+ draw.Image(10,10,tex,$FF808080);
  n:=0;
  // Линии
  for i:=1 to 5 do
@@ -1399,8 +1424,8 @@ begin
  inc(n);
  p[n].x:=450; p[n].y:=680; p[n].color:=$FF808080; p[n].scale:=5; p[n].index:=5+partLoop;   
 
- painter.DrawBand(0,0,@p,n,tex,rect(0,0,19,1));
- painter.EndPaint;
+ draw.Band(0,0,@p,n,tex,rect(0,0,19,1));
+ gfx.EndPaint;
 end;
 
 { TClipTest }
@@ -1421,27 +1446,26 @@ var
  t:single;
 begin
  inc(frame);
- painter.Clear($FF000000+frame and 127,-1,-1);
- painter.BeginPaint(nil);
+ gfx.target.Clear($FF000000+frame and 127,-1,-1);
+ gfx.BeginPaint(nil);
 
- painter.Rect(99,99,200,200,$FFF0C080);
- painter.SetClipping(rect(100,100,200,200));
+ draw.Rect(99,99,200,200,$FFF0C080);
+ gfx.clip.Rect(Rect(100,100,200,200));
  t:=frame/150;
  x:=150+round(50*cos(t));
  y:=150-round(50*sin(t));
- painter.FillRect(x-20,y-20,x+20,y+20,$FF3080C0);
- painter.ResetClipping;
+ draw.FillRect(x-20,y-20,x+20,y+20,$FF3080C0);
+ gfx.clip.Restore;
 
- painter.Rect(299,99,400,200,$FF30C080);
- painter.SetClipping(rect(300,100,400,200));
+ draw.Rect(299,99,400,200,$FF30C080);
+ gfx.clip.Rect(Rect(300,100,400,200));
  t:=frame/300;
  x:=350+round(50*cos(t));
  y:=150-round(50*sin(t));
- painter.FillRect(x-20,y-20,x+20,y+20,$FFD0A040);
- painter.ResetClipping;
+ draw.FillRect(x-20,y-20,x+20,y+20,$FFD0A040);
+ gfx.clip.Restore;
 
-
- painter.EndPaint;
+ gfx.EndPaint;
 end;
 
 { T3DTest }
@@ -1459,8 +1483,8 @@ end;
 function MakeVertex(x,y,z:single;color:cardinal):TVertex;
 begin
  fillchar(result,sizeof(result),0);
- result.x:=x; result.y:=y; result.z:=z; {$IFDEF DIRECTX} result.rhw:=1; {$ENDIF}
- result.diffuse:=color;
+ result.x:=x; result.y:=y; result.z:=z;
+ result.color:=color;
 end;
 
 procedure T3DTest.RenderFrame;
@@ -1478,32 +1502,32 @@ var
 begin
  inc(frame);
  sleep(1);
- painter.Clear($FF000000+frame and 127,1,-1);
- painter.BeginPaint(nil);
-// painter.FillRect(10,10,20,20,$FF709090);
+ gfx.target.Clear($FF000000+frame and 127,1,-1);
+ gfx.BeginPaint(nil);
+// draw.FillRect(10,10,20,20,$FF709090);
 
-// painter.SetDefaultView;
+// draw.SetDefaultView;
  x:=1024/2; y:=768/2; z:=500;
  t:=frame/100;
 
- painter.SetPerspective(-30,30,-20,20,40,1,100);
-// painter.SetOrthographic(30,0,100);
+ gfx.transform.Perspective(-30,30,-20,20,40,1,100);
+// draw.SetOrthographic(30,0,100);
 
-// painter.SetupCamera(Point3(20*sin(frame/100),-10,20*cos(frame/100)),Point3(0,0,0),Point3(0,1000,0));
+// draw.SetupCamera(Point3(20*sin(frame/100),-10,20*cos(frame/100)),Point3(0,0,0),Point3(0,1000,0));
 // t:=1;
- painter.SetupCamera(Point3(20*cos(t),7,20*sin(t)),Point3(0,3,0),Point3(0,1000,00));
+ gfx.transform.SetCamera(Point3(20*cos(t),7,20*sin(t)),Point3(0,3,0),Point3(0,1000,00));
 // if frame mod 200<100 then
-// painter.SetupCamera(Point3(20,5,0),Point3(0,0,0),Point3(0,-1000,0));
+// draw.SetupCamera(Point3(20,5,0),Point3(0,0,0),Point3(0,-1000,0));
 
- painter.Set3DTransform(IdentMatrix4); // вызывать обязательно!
+ gfx.transform.SetObj(IdentMatrix4);
  glDisable(GL_CULL_FACE);
 
  glEnable(GL_DEPTH_TEST);
  glDepthFunc(GL_LESS);
 
- pnt[1]:=TGLPainter2(painter).TestTransformation(Point3(0,3,0));
- pnt[2]:=TGLPainter2(painter).TestTransformation(Point3(0,10,0));
- pnt[3]:=TGLPainter2(painter).TestTransformation(Point3(0,0,10));
+ pnt[1]:=gfx.transform.Transform(Point3(0,3,0));
+ pnt[2]:=gfx.transform.Transform(Point3(0,10,0));
+ pnt[3]:=gfx.transform.Transform(Point3(0,0,10));
 
  // X axis
  AddVertex(vertices,0,-1,0,0,0,$FF0000C0);
@@ -1587,33 +1611,33 @@ begin
 
  DrawMesh(vertices,nil);
 
-// painter.Set3DTransform(Matrix4(MultMat4(RotationYMat(frame/150),TranslationMat(490+20*sin(frame/500),390,350))));
+// draw.Set3DTransform(Matrix4(MultMat4(RotationYMat(frame/150),TranslationMat(490+20*sin(frame/500),390,350))));
 
 { vertices[0]:=MakeVertex(-10,-10,0,$FF00C000);
  vertices[1]:=MakeVertex(30,-10,0,$FF00C080);
  vertices[2]:=MakeVertex(30,30,0,$FFC0C000);
  vertices[3]:=MakeVertex(-10,30,0,$FF0000F0);
- painter.DrawIndexedMesh(@vertices[0],@indices[0],2,4,nil);
+ draw.IndexedMesh(@vertices[0],@indices[0],2,4,nil);
 
 
- painter.Set3DTransform(IdentMatrix4); // вызывать обязательно!
+ draw.Set3DTransform(IdentMatrix4); // вызывать обязательно!
 
-// painter.Set3DTransform();
+// draw.Set3DTransform();
  vertices[0]:=MakeVertex(100,100,0,$FF00C000);
  vertices[1]:=MakeVertex(200,100,0,$FF00C080);
  vertices[2]:=MakeVertex(200,200,0,$FFC0C000);
  vertices[3]:=MakeVertex(100,200,0,$FFC0C0C0);
- painter.DrawIndexedMesh(@vertices[0],@indices[0],2,4,nil);
+ draw.IndexedMesh(@vertices[0],@indices[0],2,4,nil);
 
- painter.FillRect(500,200,700,250,$FFC0B020);    }
+ draw.FillRect(500,200,700,250,$FFC0B020);    }
 
-{ painter.SetupCamera(Point3(0,0,0),
+{ draw.SetupCamera(Point3(0,0,0),
     Point3(x,y,0),
     Point3(x,y-1000,z));}
 
  glDisable(GL_DEPTH_TEST);
 
- painter.EndPaint;
+ gfx.EndPaint;
 end;
 
 { TTest }
@@ -1649,10 +1673,10 @@ var
  x,y:integer;
 begin
  try
- prog:=TGLPainter(painter).BuildShaderProgram(
+ prog:=shader.Build(
    LoadFileAsString('res\shader.vert'),
    LoadFileAsString('res\shader.frag'));
- loc1:=glGetUniformLocation(prog,'offset');
+ //loc1:=glGetUniformLocation(prog,'offset');
 
  tex:=AllocImage(256,256,ipfARGB,0,'tex');
  tex.Lock;
@@ -1680,18 +1704,18 @@ var
  d:double;
 begin
  inc(frame);
- painter.BeginPaint(nil);
- painter.Clear($FF000040);
- painter.DrawImage(600,10,tex);
- glUseProgram(prog);
+ gfx.BeginPaint(nil);
+ gfx.target.Clear($FF000040);
+ draw.Image(600,10,tex);
+ shader.UseCustom(prog);
  d:=1+sin(0.003*(myTickCount mod $FFFFFF));
- glUniform1f(loc1,0.003*d);
- painter.DrawImage(600,300,tex);
- glUseProgram(0);
- painter.Restore;
- painter.FillGradrect(50,50,300,200,$FFF04000,$FF60C000,false);
- painter.FillRect(30,100,500,120,$FF000000);
- painter.EndPaint;
+ prog.SetUniform('offset',0.003*d);
+ draw.Image(600,300,tex);
+ // Switch back to the default shader
+ shader.Reset;
+ draw.FillGradrect(50,50,300,200,$FFF04000,$FF60C000,false);
+ draw.FillRect(30,100,500,120,$FF000000);
+ gfx.EndPaint;
 end;
 
 { TVideoTest }
@@ -1728,10 +1752,10 @@ begin
   libvlc_media_release(media);         }
  end;
  inc(frame);
- painter.Clear($FF000040);
- painter.BeginPaint(nil);
- painter.FillRect(30,100,500,120,$FFFFFF00);
- painter.EndPaint;
+ gfx.target.Clear($FF000040);
+ gfx.BeginPaint(nil);
+ draw.FillRect(30,100,500,120,$FFFFFF00);
+ gfx.EndPaint;
 end;
 
 
@@ -1786,11 +1810,11 @@ begin
  // Prepare shaders
  vSrc:=LoadFileAsString(FileName('res\knight.vsh'));
  fSrc:=LoadFileAsString(FileName('res\knight.fsh'));
- shader:=TGLPainter(painter).BuildShaderProgram(vSrc,fSrc);
+ shader:=gfx.shader.Build(vSrc,fSrc);
 
  vSrc:=LoadFileAsString(FileName('res\tex.vsh'));
  fSrc:=LoadFileAsString(FileName('res\tex.fsh'));
- shader2:=TGLPainter(painter).BuildShaderProgram(vSrc,fSrc);
+ shader2:=gfx.shader.Build(vSrc,fSrc);
 end;
 
 procedure T3DCharacterTest.RenderFrame;
@@ -1802,15 +1826,15 @@ var
  MVP,uModel:TMatrix4s;
 begin
  time:=MyTickCount/1200;
- painter.Clear($FF101020,1);
+ gfx.target.Clear($FF101020,1);
  // Setup camera and projection
- painter.SetPerspective(-10,10,-7,7,10,5,1000);
- painter.SetupCamera(Point3(30,0,15),Point3(0,0,8),Vector3(0,0,1000));
- painter.Set3DTransform(IdentMatrix4);
+ gfx.transform.Perspective(-10,10,-7,7,10,5,1000);
+ gfx.transform.SetCamera(Point3(30,0,15),Point3(0,0,8),Vector3(0,0,1000));
+ gfx.transform.SetObj(IdentMatrix4);
 
  // Make sure everything is OK (just for debug)
- pnt:=TGLPainter2(painter).TestTransformation(Point3(0,0,0));
- pnt:=TGLPainter2(painter).TestTransformation(Point3(1,1,1));
+ pnt:=gfx.transform.Transform(Point3(0,0,0));
+ pnt:=gfx.transform.Transform(Point3(1,1,1));
 
  // Make animation
  model.AnimateBones;
@@ -1819,25 +1843,20 @@ begin
  // Setup rendering mode
  glEnable(GL_DEPTH_TEST);
  glDepthFunc(GL_LEQUAL);
- painter.FillRect(-15,-15,15,15,$C000A030);
+ draw.FillRect(-15,-15,15,15,$C000A030);
 
  // Set model position
  MultMat4(ScaleMat(2,2,2),RotationZMat(time),objMat);
  objMat[3,2]:=3;
- painter.Set3DTransform(Matrix4(objMat));
+ gfx.transform.SetObj(Matrix4(objMat));
 
  // Switch to our custom shader
- painter.UseCustomShader;
- glUseProgram(shader);
+ gfx.shader.UseCustom(shader);
 
  // After shader changing we MUST set uniforms
- mvp:=Matrix4s(painter.GetMVPMatrix);
- loc:=glGetUniformLocation(shader,'uMVP');
- glUniformMatrix4fv(loc,1,FALSE,@mvp);
+ shader.SetUniform('uMVP',gfx.transform.GetMVPMatrix);
  // model matrix
- loc:=glGetUniformLocation(shader,'uModel');
- uModel:=Matrix4s(Matrix4(objMat));
- glUniformMatrix4fv(loc,1,FALSE,@uModel);
+ shader.SetUniform('uModel',gfx.transform.GetObjMatrix);
 
  // Setup mesh data source arrays
  glEnableVertexAttribArray(0);
@@ -1848,40 +1867,34 @@ begin
  glVertexAttribPointer(2,2,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0].u);
 
  // DRAW IT!
- painter.SetCullMode(cullCW);
+ gfx.SetCullMode(cullCW);
  glDrawElements(GL_TRIANGLES,length(indices),GL_UNSIGNED_SHORT,@indices[0]);
-
 
  // SECOND MODEL (OBJ)
 
  // Textured shader
- glUseProgram(shader2);
+ gfx.shader.UseCustom(shader2);
 
  // Set model position
  MultMat4(ScaleMat(4,4,4),RotationZMat(time),objMat);
  objMat[3,1]:=16;
  objMat[3,0]:=5;
  objMat[3,2]:=1.5;
- painter.Set3DTransform(Matrix4(objMat));
+ gfx.transform.SetObj(Matrix4(objMat));
  // Upload matrices
- mvp:=Matrix4s(painter.GetMVPMatrix);
- loc:=glGetUniformLocation(shader2,'uMVP');
- glUniformMatrix4fv(loc,1,FALSE,@mvp);
+ shader2.SetUniform('uMVP',gfx.transform.GetMVPMatrix);
  // model matrix
- loc:=glGetUniformLocation(shader2,'uModel');
- uModel:=Matrix4s(Matrix4(objMat));
- glUniformMatrix4fv(loc,1,FALSE,@uModel);
+ shader2.SetUniform('uModel',gfx.transform.GetObjMatrix);
  // Setup mesh data arrays
  glVertexAttribPointer(0,3,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0]);
  glVertexAttribPointer(1,3,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0].nX);
  glVertexAttribPointer(2,2,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0].u);
 
  // Setup texture
- painter.texMan.MakeOnline(tex,0);
+ gfx.resMan.MakeOnline(tex,0);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
- loc:=glGetUniformLocation(shader2,'tex');
- glUniform1i(loc,0);
+ shader2.SetUniform('tex',0);
 
  // Draw IT
  glDrawElements(GL_TRIANGLES,length(indices2),GL_UNSIGNED_SHORT,@indices2[0]);
@@ -1889,9 +1902,9 @@ begin
 
  // Reset everything back
  glDisable(GL_DEPTH_TEST);
- painter.ResetTexMode;
- painter.SetDefaultView;
- painter.SetCullMode(cullNone);
+ gfx.shader.DefaultTexMode;
+ gfx.transform.DefaultView;
+ gfx.SetCullMode(cullNone);
 end;
 
 function MyRound(v:single):integer; inline;
@@ -1904,7 +1917,7 @@ function MyRound(v:single):integer; inline;
 
 var
  v:single;
- i,n:integer;
+ i,n,key:integer;
  time:int64;
 begin
  time:=MyTickCount;
@@ -1948,6 +1961,7 @@ begin
  game:=MyGame.Create(TWindowsPlatform.Create, TOpenGL.Create); // Создаем объект
  //game:=MyGame.Create(TSDLPlatform.Create, TOpenGL.Create); // Создаем объект
  game.showFPS:=true;
+ disableDRT:=true;
 
  // Начальные установки игры
  with s do begin
@@ -1971,7 +1985,7 @@ begin
   multisampling:=0;
   slowmotion:=false;
 //  customCursor:=false;
-  VSync:=0;
+  VSync:=1;
  end;
  game.SetSettings(s); // Задать установки
 
@@ -1980,8 +1994,17 @@ begin
  InitUI;
  // А можно и не делать - можно это сделать в обработчике события
  savetime:=MyTickCount;
+ key:=0;
  repeat
   delay(5);
+  if (game.keyState[59]>0) and (key=0) then begin // [F1]
+   s.VSync:=s.VSync xor 1;
+   game.SetVSync(s.VSync);
+   key:=1;
+   saveTime:=MyTickCount;
+   frame:=0;
+  end;
+  if game.keyState[59]=0 then key:=0;
  until (game.keyState[1]<>0) or (game.terminated);
  game.Stop;
 // ShowMessage('Average FPS: '+FloatToStrF(1000*frame/(getTickCount-SaveTime),ffGeneral,6,1),'FPS');

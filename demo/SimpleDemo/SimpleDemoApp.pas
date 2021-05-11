@@ -1,4 +1,4 @@
-// Simple demo of the Apus Game Engine framework
+﻿// Simple demo of the Apus Game Engine framework
 
 // Copyright (C) 2017 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -54,7 +54,7 @@ constructor TSimpleDemoApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   //usedPlatform:=spSDL;
-  directRenderOnly:=true;
+  //directRenderOnly:=true;
   //windowedMode:=false;
  end;
 
@@ -64,7 +64,11 @@ procedure TSimpleDemoApp.SetupGameSettings(var settings: TGameSettings);
   inherited; // global settings are applied to the instance settings here, so there is no sense to change them later
 
   settings.mode.displayMode:=dmWindow; // run in window
-  //settings.mode.displayFitMode:=dfmFullSize;
+  settings.mode.displayFitMode:=dfmFullSize;
+  //settings.mode.displayFitMode:=dfmCenter;
+  settings.mode.displayFitMode:=dfmKeepAspectRatio;
+
+  settings.mode.displayScaleMode:=dsmScale;
 
   // Here you can override instance settings
 {  // Primary mode settings
@@ -106,7 +110,7 @@ procedure TMainScene.CreateUI;
   box.styleinfo:='E0C0C8D0'; // fill color for the default style
   box.SetAnchors(0.5, 0.5, 0.5, 0.5); // make it always centered
 
-  font:=painter.GetFont('Default',9);  // select a font for UI
+  font:=txt.GetFont('Default',9);  // select a font for UI
 
   // Create an edit box. I don't want to use a variable for it
   TUIEditBox.Create(250,26,'MainScene\Edit',font,$FF000030,box).SetPos(200,100,pivotCenter);
@@ -182,9 +186,9 @@ procedure TMainScene.HandleParticles;
 
   // Draw particles in additive mode
   if count>0 then begin
-   painter.SetMode(blAdd);
-   painter.DrawParticles(0,0,@particles[0],count,particlesTex,16,1);
-   painter.SetMode(blAlpha);
+   gfx.target.BlendMode(blAdd);
+   draw.Particles(0,0,@particles[0],count,particlesTex,16,1);
+   gfx.target.BlendMode(blAlpha);
   end;
  end;
 
@@ -195,7 +199,7 @@ procedure TMainScene.Render;
   font:cardinal;
  begin
   // 1. Draw scene background
-  painter.Clear(0); // clear with black
+  gfx.target.Clear(0); // clear with black
   // Draw some lines
   maxX:=game.renderWidth-1;
   maxY:=game.renderHeight-1;
@@ -205,17 +209,17 @@ procedure TMainScene.Render;
     x2:=maxX; y2:=maxY*i/n;
     x3:=maxX-maxX*i/n; y3:=maxY;
     x4:=0; y4:=maxY-maxY*i/n;
-    painter.DrawLine(x1,y1,x2,y2,$8020C0F0);
-    painter.DrawLine(x2,y2,x3,y3,$8020C0F0);
-    painter.DrawLine(x3,y3,x4,y4,$8020C0F0);
-    painter.DrawLine(x4,y4,x1,y1,$8020C0F0);
+    draw.Line(x1,y1,x2,y2,$8020C0F0);
+    draw.Line(x2,y2,x3,y3,$8020C0F0);
+    draw.Line(x3,y3,x4,y4,$8020C0F0);
+    draw.Line(x4,y4,x1,y1,$8020C0F0);
   end;
   // Border rects
-  painter.Rect(0,0,maxX,maxY, $FFFFC020);
-  painter.Rect(10,10,maxX-10,maxY-10, $FFC00000);
+  draw.Rect(0,0,maxX,maxY, $FFFFC020);
+  draw.Rect(10,10,maxX-10,maxY-10, $FFC00000);
 
-  font:=painter.GetFont('Default',7); // Select font (no need to do this every frame)
-  painter.TextOut(font,300,200,$FFFFFFFF,'Hello world!'); // Write text using the font
+  font:=txt.GetFont('Default',7); // Select font (no need to do this every frame)
+  txt.Write(font,300,200,$FFFFFFFF,'Hello world!'); // Write text using the font
 
   inherited; // Here all the UI is displayed
 

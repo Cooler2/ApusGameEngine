@@ -1,4 +1,4 @@
-// Class for 3D model with skeletal (rigged) animation
+п»ї// Class for 3D model with skeletal (rigged) animation
 //
 // Copyright (C) 2019 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -274,7 +274,7 @@ procedure TModel3D.FillVertexBuffer(data: pointer; vrtCount, stride:integer; use
   var
    p1,p2:TPoint3s;
   begin
-   if transform then begin // Можно оптимизировать
+   if transform then begin // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     p1:=vp[i];
     if vb[i].weight1>0 then begin
      MultPnt4(bones[vb[i].bone1].combined,@p1,1,0);

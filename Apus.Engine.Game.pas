@@ -18,7 +18,7 @@ interface
  uses Classes, Apus.CrossPlatform, Apus.MyServis, Types, Apus.Engine.API;
 
 var
- onFrameDelay:integer=1; // Задержка каждый кадр
+ onFrameDelay:integer=0; // Sleep this time every frame
  disableDRT:boolean=false; // always render directly to the backbuffer - no
 
 type
@@ -201,14 +201,13 @@ type
 
 implementation
  uses SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools
-     {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},Apus.Engine.Painter2D,
+     {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},
      Apus.EventMan, Apus.Engine.UIScene, Apus.Engine.UIClasses, Apus.Engine.Console,
      Apus.Publics, Apus.GfxFormats, Apus.Clipboard;
 
 type
  TMainThread=class(TThread)
   errorMsg:string;
-  owner:TGame;
   procedure Execute; override;
  end;
 
@@ -239,7 +238,7 @@ var
  lastThreadID:NativeInt;
  threads:array[1..16] of TCustomThread;
  RA_sect:TMyCriticalSection;
-// game:TGame;
+ gameEx:TGame;
 
 // Default raster fonts (exact sizes are 6.0, 7.0 and 9.0)
 {$I defaultFont8.inc}
@@ -326,7 +325,7 @@ begin
     [displayMode.ToString, displayFitMode.ToString, displayScaleMode.ToString,
      params.width, params.height]);
   systemPlatform.SetupWindow(params);
-  if painter<>nil then painter.ResetTarget;
+  if gfx.target<>nil then gfx.target.Backbuffer;
   SetupRenderArea;
   for i:=low(scenes) to high(scenes) do
    scenes[i].ModeChanged;
@@ -335,7 +334,11 @@ end;
 
 procedure TGame.SetVSync(divider: integer);
 begin
- if gfx.SetVSyncDivider(divider) then exit;
+ if (mainThread<>nil) and (mainThread.ThreadID<>GetCurrentThreadID) then begin
+  Signal('ENGINE\Cmd\SetSwapInterval',divider);
+  exit;
+ end;
+ if gfx.config.SetVSyncDivider(divider) then exit;
  if systemPlatform.SetSwapInterval(divider) then exit;
  PutMsg('Failed to set VSync: no method available');
 end;
@@ -556,8 +559,7 @@ end;
 procedure TGame.DoneGraph;
 begin
  Signal('Engine\BeforeDoneGraph');
- painter.Free;
- painter:=nil;
+ gfx.Done;
  LogMessage('DoneGraph');
 
  systemPlatform.ShowWindow(false);
@@ -574,7 +576,7 @@ var
  rawImage:TRawImage;
 begin
   if magnifierTex=nil then begin
-   magnifierTex:=painter.texMan.AllocImage(128,128,ipfARGB,aiTexture,'Magnifier');
+   magnifierTex:=AllocImage(128,128,ipfARGB,aiTexture,'Magnifier');
   end;
   cx:=mouseX-64;
   cy:=mouseY+64;
@@ -585,8 +587,8 @@ begin
   rawImage.Free;
   color:=GetPixel(64,64);
   magnifierTex.Unlock;
-  painter.UseTexture(magnifierTex);
-  painter.SetTexMode(0,tblNone,tblNone,fltNearest);
+  gfx.shader.UseTexture(magnifierTex);
+  gfx.shader.TexMode(0,tblNone,tblNone,fltNearest);
   width:=min2(512,round(renderWidth*0.4));
   height:=min2(512,renderHeight);
   if mouseX<renderWidth div 2 then left:=renderWidth-width
@@ -595,16 +597,16 @@ begin
   if (shiftstate and sscShift)>0 then zoom:=8;
   du:=width/(256*zoom); dv:=-height/(256*zoom);
   u:=0.5; v:=0.5;
-  painter.TexturedRect(left,0,left+width,height,magnifierTex,u-du,v-dv,u+du,v-dv,u+du,v+dv,$FF808080);
+  draw.TexturedRect(left,0,left+width,height,magnifierTex,u-du,v-dv,u+du,v-dv,u+du,v+dv,$FF808080);
   // Color picker
   if zoom>5 then begin
    ox:=left+(width div 2);
    oy:=(height div 2);
-   painter.Rect(ox,oy,ox+zoom,oy+zoom,$80FFFFFF);
-   painter.Rect(ox-1,oy-1,ox+zoom+1,oy+zoom+1,$80000000);
-   painter.FillRect(ox-50,height-22,ox+50,height-5,$80000000);
+   draw.Rect(ox,oy,ox+zoom,oy+zoom,$80FFFFFF);
+   draw.Rect(ox-1,oy-1,ox+zoom+1,oy+zoom+1,$80000000);
+   draw.FillRect(ox-50,height-22,ox+50,height-5,$80000000);
    text:=Format('%2x %2x %2x',[(color shr 16) and $FF,(color shr 8) and $FF,color and $FF]);
-   painter.TextOutW(painter.GetFont('Default',7.5),ox,height-10,$FFFFFFFF,text,taCenter);
+   txt.WriteW(txt.GetFont('Default',7.5),ox,height-10,$FFFFFFFF,text,taCenter);
   end;
 end;
 
@@ -629,6 +631,29 @@ begin
  Signal('Engine\BeforeInitGraph');
  aspectRatio:=params.width/params.height;
 
+ systemPlatform.SetupWindow(params);
+ gfx.Init(systemPlatform);
+ // Choose pixel formats
+ gfx.config.ChoosePixelFormats(pfTrueColor,pfTrueColorAlpha,pfRenderTarget,pfRenderTargetAlpha);
+ LogMessage('Selected pixel formats:');
+ LogMessage('      TrueColor: '+PixFmt2Str(pfTrueColor));
+ LogMessage(' TrueColorAlpha: '+PixFmt2Str(pfTrueColorAlpha));
+ LogMessage(' as render target:');
+ LogMessage('    Opaque: '+PixFmt2Str(pfRenderTarget));
+ LogMessage('     Alpha: '+PixFmt2Str(pfRenderTargetAlpha));
+
+ SetVSync(params.VSync);
+
+ //
+ InitDefaultRenderTarget;
+ SetupRenderArea;
+
+ // Built-in fonts
+ txt.LoadFont(defaultFont8);
+ txt.LoadFont(defaultFont10);
+ txt.LoadFont(defaultFont12);
+
+ // Mouse cursors
  if params.showSystemCursor then begin
   RegisterCursor(crDefault,1,systemPlatform.GetSystemCursor(crDefault));
   RegisterCursor(crLink,2,systemPlatform.GetSystemCursor(crLink));
@@ -641,11 +666,9 @@ begin
   RegisterCursor(crCross,6,systemPlatform.GetSystemCursor(crCross));
   RegisterCursor(crNone,99,0);
  end;
-
  globalTintColor:=$FF808080;
- systemPlatform.SetupWindow(params);
- gfx.Init(systemPlatform);
- SetVSync(params.VSync);
+ systemPlatform.ProcessSystemMessages;
+ consoleSettings.popupCriticalMessages:=params.mode.displayMode<>dmSwitchResolution;
 
  AfterInitGraph;
 end;
@@ -653,17 +676,6 @@ end;
 
 procedure TGame.AfterInitGraph;
 begin
- gfx.ChoosePixelFormats(pfTrueColor,pfTrueColorAlpha,pfRenderTarget,pfRenderTargetAlpha);
-
- LogMessage('Selected pixel formats:');
- LogMessage('      TrueColor: '+PixFmt2Str(pfTrueColor));
- LogMessage(' TrueColorAlpha: '+PixFmt2Str(pfTrueColorAlpha));
- LogMessage(' as render target:');
- LogMessage('    Opaque: '+PixFmt2Str(pfRenderTarget));
- LogMessage('     Alpha: '+PixFmt2Str(pfRenderTargetAlpha));
-
- systemPlatform.ProcessSystemMessages;
- consoleSettings.popupCriticalMessages:=params.mode.displayMode<>dmSwitchResolution;
  Signal('Engine\AfterInitGraph');
 end;
 
@@ -672,17 +684,12 @@ begin
  try
   LogMessage('Init main loop');
   InitGraph;
+
   LastFrameNum:=0;
   LastTickCount:=MyTickCount;
   FrameTime:=MyTickCount;
   LastOnFrameTime:=MyTickCount;
   LastRenderTime:=MyTickCount;
-  painter:=gfx.CreatePainter as TPainter;
-  InitDefaultRenderTarget;
-  SetupRenderArea;
-  painter.LoadFont(defaultFont8);
-  painter.LoadFont(defaultFont10);
-  painter.LoadFont(defaultFont12);
 
   Signal('Engine\BeforeMainLoop');
   LogMessage('Game is running...');
@@ -714,14 +721,13 @@ begin
    LogMessage('Default RT disabled');
   end;
   if not fl and
-     gfx.ShouldUseTextureAsDefaultRT and
-     (painter.texman.maxRTTextureSize>=params.width) then begin
+     gfx.config.ShouldUseTextureAsDefaultRT and
+     (gfx.config.QueryMaxRTSize>=params.width) then begin
    LogMessage('Switching to the modern rendering model');
    flags:=aiRenderTarget;
    if params.zbuffer>0 then flags:=flags+aiUseZBuffer;
 
-   dRT:=painter.texman.AllocImage(params.width,params.height,pfRenderTarget,flags,'DefaultRT');
-   painter.SetDefaultRenderTarget(dRT);
+   dRT:=AllocImage(params.width,params.height,pfRenderTarget,flags,'DefaultRT');
   end;
  except
   on e:exception do begin
@@ -774,7 +780,7 @@ begin
      writeln(f,DumpUI);
      close(f);
 
-     painter.texman.Dump('User request');
+     gfx.resman.Dump('User request');
    finally
     crSect.Leave;
    end;
@@ -819,13 +825,10 @@ var
 begin
  if running then exit;
  game:=self;
+ gameEx:=self;
 
  if useMainThread then begin
-  mainThread:=TMainThread.Create(true);
-  with mainThread as TMainThread do begin
-   owner:=self;
-  end;
-  mainThread.Resume;
+  mainThread:=TMainThread.Create;
  end else begin
   mainThread:=nil;
   SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
@@ -1032,9 +1035,6 @@ begin
  end else
  if SameText(event,'SETGLOBALTINTCOLOR') then globalTintColor:=tag
  else
- if SameText(event,'SETSWAPINTERVAL') then begin
-  SetVSync(tag);
- end else
  if SameText(event,'MAINLOOPINIT') then begin
   InitMainLoop;
  end else
@@ -1102,6 +1102,9 @@ begin
   if mainThread<>nil then mainThread.Terminate;
  end
  else
+ if SameText(event,'SETSWAPINTERVAL') then begin
+  SetVSync(tag);
+ end else
  // Update mouse position when it is obsolete
  if SameText(event,'UPDATEMOUSEPOS') then begin
    pnt:=systemPlatform.GetMousePos;
@@ -1112,7 +1115,7 @@ begin
  else
  // Make window flash to draw attention
  if SameText(event,'FLASH') then
-  game.systemPlatform.FlashWindow(tag);
+  systemPlatform.FlashWindow(tag);
 end;
 
 // Handle KBD\* event
@@ -1174,7 +1177,7 @@ begin
  repeat
   HandleSignals;
   if (game<>nil) and (GetCurrentThreadId=TGame(game).mainThread.ThreadID) then
-   game.systemPlatform.ProcessSystemMessages;
+   systemPlatform.ProcessSystemMessages;
   Sleep(Clamp(t-myTickCount,0,20));
  until MyTickCount>=t;
 end;
@@ -1243,26 +1246,24 @@ procedure TGame.PresentFrame;
  begin
    if dRT<>nil then begin
     // Была отрисовка в текстуру - теперь нужно отрисовать её в RenderRect
-    painter.SetDefaultRenderArea(0,0,windowWidth,windowHeight,windowWidth,windowHeight);
-    painter.ResetTarget;
-    painter.BeginPaint(nil);
+    gfx.target.Viewport(0,0,windowWidth,windowHeight,windowWidth,windowHeight);
+    gfx.BeginPaint(nil);
     try
     // Если есть неиспользуемые полосы - очистить их (но не каждый кадр, чтобы не тормозило)
     if not types.EqualRect(displayRect,types.Rect(0,0,windowWidth,windowHeight)) and
-       ((frameNum mod 5=0) or (frameNum<3)) then painter.Clear($FF000000);
+       ((frameNum mod 5=0) or (frameNum<3)) then gfx.target.Clear($FF000000);
 
     with displayRect do begin
-     painter.TexturedRect(Left,Top,right-1,bottom-1,DRT,0,1,1,1,1,0,globalTintColor);
+     draw.TexturedRect(Left,Top,right-1,bottom-1,DRT,0,0,1,0,1,1,globalTintColor);
     end;
     finally
-     painter.EndPaint;
+     gfx.EndPaint;
     end;
-    painter.SetDefaultRenderTarget(dRT);
    end;
 
   FLog('Present');
   StartMeasure(1);
-  gfx.PresentFrame(systemPlatform);
+  gfx.PresentFrame;
   EndMeasure(1);
   inc(FrameNum);
  end;
@@ -1292,7 +1293,7 @@ begin
    h:=windowHeight;
    if w>round(h*aspectRatio*1.01) then w:=round(h*aspectRatio);
    if h>round(w/aspectRatio*1.01) then h:=round(w/aspectRatio);
-   if params.mode.displayScaleMode=dsmDontScale then begin
+   if params.mode.displayScaleMode in [dsmDontScale] then begin
     params.width:=w;
     params.height:=h;
    end;
@@ -1311,12 +1312,13 @@ begin
   scenes[i].onResize;
  Signal('ENGINE\RESIZED');
 
- if painter<>nil then begin
+ if (gfx<>nil) and (gfx.target<>nil) then begin
+  gfx.target.Resized(windowWidth,windowHeight);
   w:=displayRect.Width;
   h:=displayRect.Height;
   if dRT=nil then begin
    // Rendering directly to the framebuffer
-   painter.SetDefaultRenderArea(displayRect.Left,windowHeight-displayRect.Bottom,
+   gfx.target.Viewport(displayRect.Left,windowHeight-displayRect.Bottom,
      w,h,params.width,params.height);
   end else begin
    // Rendering to a framebuffer texture
@@ -1325,8 +1327,9 @@ begin
        (displayScaleMode in [dsmDontScale,dsmScale]) and
        ((dRT.width<>w) or (dRT.height<>h)) then begin
      LogMessage('Resizing framebuffer');
-     painter.texman.ResizeTexture(dRT,w,h);
+     gfx.resman.ResizeTexture(dRT,w,h);
     end;
+   gfx.target.Viewport(0,0,dRT.width,drt.height,params.width,params.height);
   end;
  end;
 end;
@@ -1348,12 +1351,7 @@ begin
 
   if not params.showSystemCursor and (n>=0) then begin
    // check if cursor is visible
-   painter.BeginPaint(nil);
-   try
     /// TODO: draw custom cursor here
-   finally
-    painter.EndPaint;
-   end;
   end;
 
   if params.showSystemCursor then begin
@@ -1375,55 +1373,49 @@ var
 begin
  EnterCriticalSection(crSect);
  try
-  if (painter<>nil) and ((showDebugInfo>0) or (showFPS) or (debugOverlay>0)) then begin
+  if (draw<>nil) and ((showDebugInfo>0) or (showFPS) or (debugOverlay>0)) then begin
     FLog('RDebug');
-    painter.BeginPaint(nil);
 
     if showDebugInfo>0 then begin
-     font:=painter.GetFont('Default',7);
+     font:=txt.GetFont('Default',7);
 
-     painter.TextOut(font,10,20,$FFFFFFFF,inttostr(round(fps)));
+     txt.Write(font,10,20,$FFFFFFFF,inttostr(round(fps)));
      if (showDebugInfo>1) then begin
-      painter.TextOut(font,10,40,$FFFFFFFF,painter.texman.GetStatus(1));
-      painter.TextOut(font,10,60,$FFFFFFFF,painter.texman.GetStatus(2));
-      painter.TextOut(font,10,80,$FFFFFFFF,GetStatus(1));
+      txt.Write(font,10,40,$FFFFFFFF,gfx.resman.GetStatus(1));
+      txt.Write(font,10,60,$FFFFFFFF,gfx.resman.GetStatus(2));
+      txt.Write(font,10,80,$FFFFFFFF,GetStatus(1));
      end;
     end else
      case debugOverlay of
-      2:TBasicPainter(painter).DebugScreen1; // Painter's debug overlay
+      2:gfx.DrawDebugOverlay(1); // painter's debug overlay
       3:DrawMagnifier;
      end;
 
     if showFPS or (debugOverlay>0) then begin
      x:=renderWidth-50; y:=1;
-     font:=painter.GetFont('Default',7);
-     painter.FillRect(x,y,x+48,y+30,$80000000);
-     painter.TextOut(font,x+45,y+10,$FFFFFFFF,FloatToStrF(FPS,ffFixed,5,1),taRight);
-     painter.TextOut(font,x+45,y+27,$FFFFFFFF,FloatToStrF(SmoothFPS,ffFixed,5,1),taRight);
+     font:=txt.GetFont('Default',7);
+     draw.FillRect(x,y,x+48,y+30,$80000000);
+     txt.Write(font,x+45,y+10,$FFFFFFFF,FloatToStrF(FPS,ffFixed,5,1),taRight);
+     txt.Write(font,x+45,y+27,$FFFFFFFF,FloatToStrF(SmoothFPS,ffFixed,5,1),taRight);
     end;
-    painter.EndPaint;
   end;
 
   // Capture screenshot?
-  if (capturedTime>0) and (MyTickCount<CapturedTime+3000) and (painter<>nil) then begin
-   painter.BeginPaint(nil);
-   try
+  if (capturedTime>0) and (MyTickCount<CapturedTime+3000) and (gfx<>nil) then begin
     x:=params.width div 2;
     y:=params.height div 2;
-    painter.FillRect(x-200,y-40,x+200,y+40,$60000000);
-    painter.Rect(x-200,y-40,x+200,y+40,$A0FFFFFF);
-    font:=painter.GetFont('Default',7);
-    painter.TextOut(font,x,y-24,$FFFFFFFF,'Screen captured to:',taCenter);
-    painter.TextOut(font,x,y+4,$FFFFFFFF,capturedName,Apus.Engine.API.taCenter);
-   finally
-    painter.EndPaint;
-   end;
+    draw.FillRect(x-200,y-40,x+200,y+40,$60000000);
+    draw.Rect(x-200,y-40,x+200,y+40,$A0FFFFFF);
+    font:=txt.GetFont('Default',7);
+    txt.Write(font,x,y-24,$FFFFFFFF,'Screen captured to:',taCenter);
+    txt.Write(font,x,y+4,$FFFFFFFF,capturedName,Apus.Engine.API.taCenter);
   end;
 
  finally
   LeaveCriticalSection(crSect);
  end;
 end;
+
 
 procedure TGame.RenderFrame;
 var
@@ -1447,39 +1439,38 @@ begin
  // в полноэкранном режиме вывод по центру
  EnterCriticalSection(crSect);
  try
-  curTextLink:=0;
-  painter.ResetTarget;
+  txt.ClearLink;
   try
-  // Очистим экран если нет ни одной background-сцены или они не покрывают всю область вывода
-  fl:=true;
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].fullscreen and (scenes[i].status=ssActive)
-    then fl:=false;
-  FLog('Clear '+booltostr(fl));
-  if fl then begin
-   if params.zbuffer>0 then z:=1 else z:=-1;
-   if params.stencil then s:=0 else s:=-1;
-   painter.Clear($FF000000,z,s);
-  end;
+   // Очистим экран если нет ни одной background-сцены или они не покрывают всю область вывода
+   fl:=true;
+   for i:=low(scenes) to high(scenes) do
+    if scenes[i].fullscreen and (scenes[i].status=ssActive)
+     then fl:=false;
+   FLog('Clear '+booltostr(fl));
+   if fl then begin
+    if params.zbuffer>0 then z:=1 else z:=-1;
+    if params.stencil then s:=0 else s:=-1;
+    gfx.target.Clear($FF000000,z,s);
+   end;
   except
    on e:exception do CritMsg('RFrame1 '+ExceptionMsg(e));
   end;
   FLog('Eff');
   try
-  // Обработка эффектов на ВСЕХ сценах
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].effect<>nil then begin
-    FLog('Eff on '+scenes[i].ClassName+' is '+scenes[i].effect.ClassName+' : '+
-     inttostr(scenes[i].effect.timer)+','+booltostr(scenes[i].effect.done));
-    effect:=scenes[i].effect;
-    FLog('Eff ret');
-    inc(effect.timer,DeltaTime);
-    if effect.done then begin // Эффект завершился
-     Signal('ENGINE\EffectDone',cardinal(scenes[i])); // Посылаем сообщение о завершении эффекта
-     effect.Free;
-     scenes[i].effect:=nil;
+   // Обработка эффектов на ВСЕХ сценах
+   for i:=low(scenes) to high(scenes) do
+    if scenes[i].effect<>nil then begin
+     FLog('Eff on '+scenes[i].ClassName+' is '+scenes[i].effect.ClassName+' : '+
+      inttostr(scenes[i].effect.timer)+','+booltostr(scenes[i].effect.done));
+     effect:=scenes[i].effect;
+     FLog('Eff ret');
+     inc(effect.timer,DeltaTime);
+     if effect.done then begin // Эффект завершился
+      Signal('ENGINE\EffectDone',cardinal(scenes[i])); // Посылаем сообщение о завершении эффекта
+      effect.Free;
+      scenes[i].effect:=nil;
+     end;
     end;
-   end;
   except
    on e:exception do CritMsg('RFrame2 '+ExceptionMsg(e));
   end;
@@ -1487,20 +1478,20 @@ begin
  // Sort active scenes by Z order
   FLog('Sorting');
   try
-  n:=0;
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].status=ssActive then begin
-    // Сортировка вставкой. Найдем положение для вставки и вставим туда
-    if n=0 then begin
-     sc[1]:=scenes[i]; inc(n); continue;
+   n:=0;
+   for i:=low(scenes) to high(scenes) do
+    if scenes[i].status=ssActive then begin
+     // Сортировка вставкой. Найдем положение для вставки и вставим туда
+     if n=0 then begin
+      sc[1]:=scenes[i]; inc(n); continue;
+     end;
+     fl:=true;
+     for j:=n downto 1 do
+      if sc[j].zorder>scenes[i].zorder then sc[j+1]:=sc[j]
+       else begin sc[j+1]:=scenes[i]; fl:=false; break; end;
+     if fl then sc[1]:=scenes[i];
+     inc(n);
     end;
-    fl:=true;
-    for j:=n downto 1 do
-     if sc[j].zorder>scenes[i].zorder then sc[j+1]:=sc[j]
-      else begin sc[j+1]:=scenes[i]; fl:=false; break; end;
-    if fl then sc[1]:=scenes[i];
-    inc(n);
-   end;
   except
    on e:exception do CritMsg('RFrame3 '+ExceptionMsg(e));
   end;
@@ -1509,31 +1500,23 @@ begin
   LeaveCriticalSection(crSect); // активные сцены вынесены в отдельный массив - их нельзя удалять в процессе отрисовки
  end;
 
+ gfx.BeginPaint(dRT);
+ SetupRenderArea;
  // Draw all active scenes
  for i:=1 to n do try
   StartMeasure(i+4);
   // Draw shadow
-  if sc[i].shadowColor<>0 then begin
-   painter.BeginPaint(nil);
-   try
-    painter.FillRect(0,0,renderWidth,renderHeight,sc[i].shadowColor);
-   finally
-    painter.EndPaint;
-   end;
-  end;
+  if sc[i].shadowColor<>0 then
+   draw.FillRect(0,0,renderWidth,renderHeight,sc[i].shadowColor);
+
   if sc[i].effect<>nil then begin
    FLog('Drawing eff on '+sc[i].name);
    sc[i].effect.DrawScene;
    FLog('Drawing ret');
   end else begin
-   painter.BeginPaint(nil);
-   try
    FLog('Drawing '+sc[i].ClassName);
    sc[i].Render;
    FLog('Drawing ret');
-   finally
-    painter.EndPaint;
-   end;
   end;
   EndMeasure2(i+4);
  except
@@ -1546,13 +1529,14 @@ begin
  // Additional output
  DrawOverlays;
 
- textLink:=curTextLink;
- textLinkRect:=curTextLinkRect;
+  //textLink:=curTextLink;
+  //textLinkRect:=curTextLinkRect;
 
  {$IFDEF ANDROID}
  //DebugMessage(framelog);
  {$ENDIF}
 
+ gfx.EndPaint;
  FLog('RDone');
 end;
 
@@ -1925,90 +1909,91 @@ procedure TGame.FrameLoop;
 
 { TCustomThread }
 procedure TCustomThread.Execute;
-begin
- LogMessage('CustomThread '+name+' started!');
- RegisterThread(name);
- running:=true;
- try
-  ReturnValue:=func(param);
-  LogMessage('CustomThread done');
- except
-  on e:exception do ForceLogMessage('RunAsync: failure - '+ExceptionMsg(e));
+ begin
+  LogMessage('CustomThread '+name+' started!');
+  RegisterThread(name);
+  running:=true;
+  try
+   ReturnValue:=func(param);
+   LogMessage('CustomThread done');
+  except
+   on e:exception do ForceLogMessage('RunAsync: failure - '+ExceptionMsg(e));
+  end;
+  FinishTime:=MyTickCount;
+  running:=false;
+  Signal('engine\thread\done\'+PtrToStr(@func),ReturnValue);
+  UnregisterThread;
  end;
- FinishTime:=MyTickCount;
- running:=false;
- Signal('engine\thread\done\'+PtrToStr(@func),ReturnValue);
- UnregisterThread;
-end;
 
 
 { TMainThread }
 procedure TMainThread.Execute;
-begin
- // Инициализация
- errorMsg:='';
- try
-  LogMessage(TimeStamp+' Main thread started - '+inttostr(cardinal(GetCurrentThreadID)));
-  RegisterThread('MainThread');
-  LogMessage(GetSystemInfo);
+ begin
+  // Инициализация
+  errorMsg:='';
+  try
+   LogMessage(TimeStamp+' Main thread started - '+inttostr(cardinal(GetCurrentThreadID)));
+   RegisterThread('MainThread');
+   LogMessage(GetSystemInfo);
+   SetEventHandler('Engine\',EngineEvent,emInstant);
+   SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
 
-  owner.systemPlatform.CreateWindow(owner.params.title);
+   systemPlatform.CreateWindow(gameEx.params.title);
+   gameEx.InitMainLoop; // вызывает InitGraph
 
-  SetEventHandler('Engine\',EngineEvent,emInstant);
-  SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
-  owner.InitMainLoop; // вызывает InitGraph
-  owner.running:=true; // Это как-бы семафор для завершения функции Run
-  LogMessage('MainLoop started');
-  // Главный цикл
-  repeat
-   try
-    owner.FrameLoop;
-   except
-    on e:Exception do CritMsg('Error in main loop: '+ExceptionMsg(e));
+
+   game.running:=true; // Это как-бы семафор для завершения функции Run
+   LogMessage('MainLoop started');
+   // Главный цикл
+   repeat
+    try
+     gameEx.FrameLoop;
+    except
+     on e:Exception do CritMsg('Error in main loop: '+ExceptionMsg(e));
+    end;
+   until terminated;
+   ForceLogMessage('Main loop exit');
+   gameEx.terminated:=true;
+   Signal('Engine\AfterMainLoop');
+
+   // Состояние ожидания команды остановки потока из безопасного места
+   while not gameEx.canExitNow do sleep(20);
+   ForceLogMessage('Finalization');
+
+   // Финализация
+   gameEx.DoneGraph;
+   systemPlatform.DestroyWindow;
+  except
+   on e:Exception do begin
+    errorMsg:=ExceptionMsg(e);
+    CritMsg('Global error: '+ExceptionMsg(e));
    end;
-  until terminated;
-  ForceLogMessage('Main loop exit');
-  owner.terminated:=true;
-  Signal('Engine\AfterMainLoop');
-
-  // Состояние ожидания команды остановки потока из безопасного места
-  while not owner.canExitNow do sleep(20);
-  ForceLogMessage('Finalization');
-
-  // Финализация
-  owner.DoneGraph;
-  owner.systemPlatform.DestroyWindow;
- except
-  on e:Exception do begin
-   errorMsg:=ExceptionMsg(e);
-   CritMsg('Global error: '+ExceptionMsg(e));
   end;
- end;
 
- UnregisterThread;
- ForceLogMessage('Main thread done');
- owner.running:=false; // Эта строчка должна быть ПОСЛЕДНЕЙ!
-end;
+  UnregisterThread;
+  ForceLogMessage('Main thread done');
+  game.running:=false; // Эта строчка должна быть ПОСЛЕДНЕЙ!
+ end;
 
 { TVarTypeGameClass }
 
 class function TVarTypeGameClass.GetField(variable: pointer; fieldName: string;
   out varClass: TVarClass): pointer;
-begin
+ begin
 
-end;
+ end;
 
 class function TVarTypeGameClass.ListFields: string;
-var
- i:integer;
- sa:StringArr;
-begin
- with TGame(game) do begin
-  for i:=0 to high(scenes) do
-   AddString(sa,'scene-'+scenes[i].name);
+ var
+  i:integer;
+  sa:StringArr;
+ begin
+  with TGame(game) do begin
+   for i:=0 to high(scenes) do
+    AddString(sa,'scene-'+scenes[i].name);
+  end;
+  result:=join(sa,',');
  end;
- result:=join(sa,',');
-end;
 
 initialization
  InitCritSect(RA_sect,'Game_RA',110);
