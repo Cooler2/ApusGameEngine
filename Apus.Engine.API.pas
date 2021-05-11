@@ -372,7 +372,7 @@ type
  end;
 
  // Control render target
- IRenderTargets=interface
+ IRenderTarget=interface
   // Clear whole render target (not only the viewport): fill colorbuffer and optionally depth buffer and stencil buffer
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1);
   // Setup viewport (output position) for the current render target
@@ -451,7 +451,7 @@ type
  end;
 
  // Shaders-related API
- IShaders=interface
+ IShader=interface
   // Compile custom shader program from source
   function Build(vSrc,fSrc:String8;extra:String8=''):TShader;
   // Load and build shader from file(s)
@@ -697,8 +697,8 @@ type
   // APIs
   function config:IGraphicsSystemConfig;
   function resman:IResourceManager;
-  function target:IRenderTargets;
-  function shader:IShaders;
+  function target:IRenderTarget;
+  function shader:IShader;
   function clip:IClipping;
   function transform:ITransformation;
   function draw:IDrawer;
@@ -961,7 +961,7 @@ var
  gfx:IGraphicsSystem;
  game:TGameBase;
 
- shader:IShaders; //< shortcut for gfx.shader
+ shader:IShader; //< shortcut for gfx.shader
  draw:IDrawer;    //< shortcut for gfx.draw
  txt:ITextDrawer; //< shortcut for gfx.txt
 

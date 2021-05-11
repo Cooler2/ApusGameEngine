@@ -24,8 +24,8 @@ type
   // Core interfaces
   function config:IGraphicsSystemConfig;
   function resman:IResourceManager;
-  function target:IRenderTargets;
-  function shader:IShaders;
+  function target:IRenderTarget;
+  function shader:IShader;
   function clip:IClipping;
   function transform:ITransformation;
   function draw:IDrawer; inline;
@@ -312,7 +312,7 @@ function TOpenGL.config: IGraphicsSystemConfig;
  begin
   result:=self;
  end;
-function TOpenGL.shader: IShaders;
+function TOpenGL.shader: IShader;
  begin
   result:=shadersAPI;
  end;
@@ -320,7 +320,7 @@ function TOpenGL.clip: IClipping;
  begin
   result:=clippingAPI;
  end;
-function TOpenGL.target: IRenderTargets;
+function TOpenGL.target: IRenderTarget;
  begin
   result:=renderTargetAPI;
  end;

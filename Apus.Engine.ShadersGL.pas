@@ -42,7 +42,7 @@ type
   procedure SetUniform(name:String8;const value:TQuaternionS); overload; override;
  end;
 
- TGLShadersAPI=class(TInterfacedObject,IShaders)
+ TGLShadersAPI=class(TInterfacedObject,IShader)
   constructor Create;
   function Build(vSrc,fSrc:String8;extra:string8=''):TShader;
   function Load(filename:String8;extra:String8=''):TShader;

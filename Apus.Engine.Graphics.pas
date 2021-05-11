@@ -81,7 +81,7 @@ type
   stackPos:integer;
  end;
 
- TRenderTargetAPI=class(TInterfacedObject,IRenderTargets)
+ TRenderTargetAPI=class(TInterfacedObject,IRenderTarget)
   constructor Create;
 
   procedure Backbuffer; virtual;
