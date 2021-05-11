@@ -395,6 +395,8 @@ type
   procedure Texture(tex:TTexture); //< render to the texture (nil - render to the Backbuffer)
   procedure Push;  //< Save (push) current target in stack (including viewport)
   procedure Pop; //< Restore target from stack
+
+  procedure Resized(newWidth,newHeight:integer); // backbuffer size changed
  end;
 
  // Control clipping

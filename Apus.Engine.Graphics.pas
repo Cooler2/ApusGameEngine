@@ -101,6 +101,7 @@ type
 
   procedure ClipVirtual(const r:TRect); //< Set clip rect in virtual pixels
   procedure Clip(x,y,w,h:integer); virtual; abstract; //< Set actual clip rect defined in real pixels
+  procedure Resized(newWidth,newHeight:integer); virtual; abstract; // backbuffer size changed
  protected
   vPort:TRect;  //< part of the backbuffer used for output (backbuffer only, RT-textures always use full surface)
   renderWidth,renderHeight:integer; //< size in virtual pixels
@@ -172,8 +173,8 @@ procedure TTransformationAPI.DefaultView;
  var
   w,h:integer;
  begin
-  w:=renderTargetAPI.vPort.width;
-  h:=renderTargetAPI.vPort.height;
+  w:=renderTargetAPI.width;
+  h:=renderTargetAPI.height;
   if (w=0) and (h=0) then exit;
   projMatrix[0,0]:=2/w;  projMatrix[1,0]:=0; projMatrix[2,0]:=0; projMatrix[3,0]:=-1+1/w;
   if renderTargetAPI.curTarget<>nil then begin

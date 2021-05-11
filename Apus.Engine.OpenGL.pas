@@ -108,6 +108,7 @@ type
   procedure BlendMode(blend:TBlendingMode); override;
   procedure Clip(x,y,w,h:integer); override;
   procedure ApplyMask; override;
+  procedure Resized(newWidth,newHeight:integer); override;
  protected
   scissor:boolean;
   backBufferWidth,backBufferHeight:integer;
@@ -612,6 +613,12 @@ constructor TGLRenderTargetAPI.Create;
   glGetIntegerv(GL_VIEWPORT,@data[0]);
   backBufferWidth:=data[2];
   backBufferHeight:=data[3];
+ end;
+
+procedure TGLRenderTargetAPI.Resized(newWidth, newHeight: integer);
+ begin
+  backbufferWidth:=newWidth;
+  backbufferHeight:=newHeight;
  end;
 
 procedure TGLRenderTargetAPI.ApplyMask;

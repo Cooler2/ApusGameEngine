@@ -1293,7 +1293,7 @@ begin
    h:=windowHeight;
    if w>round(h*aspectRatio*1.01) then w:=round(h*aspectRatio);
    if h>round(w/aspectRatio*1.01) then h:=round(w/aspectRatio);
-   if params.mode.displayScaleMode=dsmDontScale then begin
+   if params.mode.displayScaleMode in [dsmDontScale] then begin
     params.width:=w;
     params.height:=h;
    end;
@@ -1313,6 +1313,7 @@ begin
  Signal('ENGINE\RESIZED');
 
  if (gfx<>nil) and (gfx.target<>nil) then begin
+  gfx.target.Resized(windowWidth,windowHeight);
   w:=displayRect.Width;
   h:=displayRect.Height;
   if dRT=nil then begin
@@ -1328,6 +1329,7 @@ begin
      LogMessage('Resizing framebuffer');
      gfx.resman.ResizeTexture(dRT,w,h);
     end;
+   gfx.target.Viewport(0,0,dRT.width,drt.height,params.width,params.height);
   end;
  end;
 end;
@@ -1499,6 +1501,7 @@ begin
  end;
 
  gfx.BeginPaint(dRT);
+ SetupRenderArea;
  // Draw all active scenes
  for i:=1 to n do try
   StartMeasure(i+4);
