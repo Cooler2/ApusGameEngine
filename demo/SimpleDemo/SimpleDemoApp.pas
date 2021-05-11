@@ -54,7 +54,7 @@ constructor TSimpleDemoApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   //usedPlatform:=spSDL;
-  directRenderOnly:=true;
+  //directRenderOnly:=true;
   //windowedMode:=false;
  end;
 
@@ -64,7 +64,11 @@ procedure TSimpleDemoApp.SetupGameSettings(var settings: TGameSettings);
   inherited; // global settings are applied to the instance settings here, so there is no sense to change them later
 
   settings.mode.displayMode:=dmWindow; // run in window
-  //settings.mode.displayFitMode:=dfmFullSize;
+  settings.mode.displayFitMode:=dfmFullSize;
+  //settings.mode.displayFitMode:=dfmCenter;
+  settings.mode.displayFitMode:=dfmKeepAspectRatio;
+
+  settings.mode.displayScaleMode:=dsmScale;
 
   // Here you can override instance settings
 {  // Primary mode settings
