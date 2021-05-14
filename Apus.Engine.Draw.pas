@@ -41,8 +41,8 @@ interface
   procedure DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
       image1,image2:TTexture;color:cardinal=$FF808080);
   //procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080);
-  procedure TrgList(pnts:PVertex;trgcount:integer;tex:TTexture);
-  procedure IndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
+  procedure TrgList(pnts:PVertex3D;trgcount:integer;tex:TTexture);
+  procedure IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
 
   procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0);
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
@@ -596,27 +596,22 @@ begin
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex,sizeof(TVertex));
 end;
 
-procedure TDrawer.TrgList(pnts: PVertex; trgcount: integer;
+procedure TDrawer.TrgList(pnts: PVertex3D; trgcount: integer;
   tex: TTexture);
 begin
  clippingAPI.Prepare;
  if tex=nil then tex:=neutral;
  shader.UseTexture(tex);
- renderDevice.Draw(TRG_LIST,trgcount,pnts,TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_LIST,trgcount,pnts,TVertex3D.Layout,sizeof(TVertex));
 end;
 
-procedure TDrawer.IndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
+procedure TDrawer.IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
 begin
  clippingAPI.Prepare;
- if tex<>nil then begin
-  shader.UseTexture(tex);
-{{  renderDevice.DrawIndexed(TRG_LIST,vertices,indices,sizeof(TVertex),TVertex.layoutTex,
-    0,vrtCount,0,trgCount);}
- end else begin
-  shader.UseTexture(neutral);
-{{  renderDevice.DrawIndexed(TRG_LIST,vertices,indices,sizeof(TVertex),TVertex.layoutTex,
-    0,vrtCount,0,trgCount);}
- end;
+ if tex=nil then tex:=neutral;
+ shader.UseTexture(tex);
+ renderDevice.DrawIndexed(TRG_LIST,vertices,indices,TVertex3D.layout,sizeof(TVertex3D),
+    0,vrtCount,0,trgCount);
 end;
 
 procedure TDrawer.Rect(x1, y1, x2, y2: integer; color: cardinal);

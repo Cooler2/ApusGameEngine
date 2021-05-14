@@ -88,8 +88,8 @@ type
  function LoadMesh(fname:string):TMesh;
  function BuildMeshForImage(img:TTexture;splitX,splitY:integer):TMesh;
  function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices;
- procedure DrawIndexedMesh(vertices:TVertices;indices:TIndices;tex:TTexture);
- procedure DrawMesh(vertices:TVertices;tex:TTexture);
+ procedure DrawIndexedMesh(vertices:TVertices3D;indices:TIndices;tex:TTexture);
+ procedure DrawMesh(vertices:TVertices3D;tex:TTexture);
  procedure AddVertex(var vertices:TVertices;x,y,z,u,v:single;color:cardinal);
 
 // procedure BuildNPatchMesh(img:TTexture;splitU,splitV,weightU,weightW:SingleArray;var vertices:TVertices;var indices:TIndices);
@@ -495,12 +495,12 @@ end;
    end;
   end;
 
- procedure DrawIndexedMesh(vertices:TVertices;indices:TIndices;tex:TTexture);
+ procedure DrawIndexedMesh(vertices:TVertices3D;indices:TIndices;tex:TTexture);
   begin
    draw.IndexedMesh(@vertices[0],@indices[0],length(indices) div 3,length(vertices),tex);
   end;
 
- procedure DrawMesh(vertices:TVertices;tex:TTexture);
+ procedure DrawMesh(vertices:TVertices3D;tex:TTexture);
   begin
    draw.TrgList(@vertices[0],length(vertices) div 3,tex);
   end;

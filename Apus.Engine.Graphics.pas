@@ -8,13 +8,6 @@ interface
  uses Types,Apus.Engine.API;
 
 type
- // Packed description of the vertex layout
- // [0:3] - position (vec3s)
- // [4:7] - normal (vec3s)
- // [8:11]  - color (vec4b)
- // [12:15] - uv1 (vec2s)
- TVertexLayout=cardinal;
-
  IRenderDevice=interface
   // Draw primitives
   procedure Draw(primType,primCount:integer;vertices:pointer;
@@ -163,6 +156,7 @@ procedure TTransformationAPI.CalcMVP;
 constructor TTransformationAPI.Create;
  begin
   _AddRef;
+  Apus.Engine.API.transform:=self;
   viewMatrix:=IdentMatrix4;
   objMatrix:=IdentMatrix4;
   projMatrix:=IdentMatrix4;
@@ -184,6 +178,9 @@ procedure TTransformationAPI.DefaultView;
   end;
   projMatrix[0,2]:=0;  projMatrix[1,2]:=0; projMatrix[2,2]:=-1; projMatrix[3,2]:=0;
   projMatrix[0,3]:=0;  projMatrix[1,3]:=0; projMatrix[2,3]:=0; projMatrix[3,3]:=1;
+
+  viewMatrix:=IdentMatrix4;
+  objMatrix:=IdentMatrix4;
 
   modified:=true;
   Update;
@@ -258,12 +255,12 @@ procedure TTransformationAPI.SetCamera(origin, target, up: TPoint3;
   mat:TMatrix4;
   v1,v2,v3:TVector3;
  begin
-  v1:=Vector3(origin,target);
+  v1:=Vector3(origin,target); // front
   Normalize3(v1);
   v2:=Vector3(origin,up);
-  v3:=CrossProduct3(v2,v1);
+  v3:=CrossProduct3(v1,v2); // right
   Normalize3(v3); // Right vector
-  v2:=CrossProduct3(v3,v1); // Down vector
+  v2:=CrossProduct3(v1,v3); // Down vector
   mat[0,0]:=v3.x; mat[0,1]:=v3.y; mat[0,2]:=v3.z; mat[0,3]:=0;
   mat[1,0]:=v2.x; mat[1,1]:=v2.y; mat[1,2]:=v2.z; mat[1,3]:=0;
   mat[2,0]:=v1.x; mat[2,1]:=v1.y; mat[2,2]:=v1.z; mat[2,3]:=0;
@@ -301,7 +298,8 @@ procedure TTransformationAPI.SetObj(mat: T3DMatrix);
 
 procedure TTransformationAPI.SetView(view: T3DMatrix);
  begin
-  viewMatrix:=view;
+  // Original matrix is "Camera space->World space" but we need reverse transformation: "World->Camera"
+  Invert4Full(view,viewMatrix);
   modified:=true;
  end;
 

@@ -388,7 +388,7 @@ procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
  var
   vrt:PVertex;
  begin
-  shadersAPI.Apply;
+  shadersAPI.Apply(vertexLayout);
   transformationAPI.Update;
   SetupAttributes(vertices,vertexLayout,stride);
   case primtype of
@@ -404,7 +404,7 @@ procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:po
      vertexLayout:TVertexLayout;stride:integer;
      vrtStart,vrtCount:integer; indStart,primCount:integer);
  begin
-  shader.Apply;
+  shader.Apply(vertexLayout);
   transformationAPI.Update;
   SetupAttributes(vertices,vertexLayout,stride);
   case primtype of
@@ -420,53 +420,6 @@ procedure TRenderDevice.Reset;
  begin
   lastVertices:=nil;
  end;
-
-(*
-procedure TRenderDevice.DrawBuffer(primType: integer; vertexBuf,
-  indBuf: TPainterBuffer; stride, vrtStart, vrtCount, indStart,
-  primCount: integer);
- var
-  vrt:PVertex;
-  ind:Pointer;
- begin
-  case vertexBuf of
-   vertBuf:vrt:=@partBuf[0];
-   textVertBuf:vrt:=@txtBuf[0];
-   else raise EWarning.Create('DIP: Wrong vertbuf');
-  end;
-  case indBuf of
-   partIndBuf:ind:=@partind[indStart];
-   bandIndBuf:ind:=@bandInd[indStart];
-   else raise EWarning.Create('DIP: Wrong indbuf');
-  end;
-  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,stride,@vrt.x);
-  glVertexAttribPointer(1,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,@vrt.color);
-  glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,stride,@vrt.u);
-
-  case primtype of
-   LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,ind);
-   LINE_STRIP:glDrawElements(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,ind);
-   TRG_LIST:glDrawElements(GL_TRIANGLES,primCount*3,GL_UNSIGNED_SHORT,ind);
-   TRG_FAN:glDrawElements(GL_TRIANGLE_FAN,primCount+2,GL_UNSIGNED_SHORT,ind);
-   TRG_STRIP:glDrawElements(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,ind);
-  end;
- end;
-
-function TRenderDevice.LockBuffer(buf: TPainterBuffer; offset,
-  size: cardinal): pointer;
- begin
-  case buf of
-   vertBuf:begin result:=@partbuf[offset];end;
-   bandIndBuf:begin result:=@bandInd[offset]; end;
-   textVertBuf:begin result:=@txtBuf[offset]; end;
-   else raise EWarning.Create('Invalid buffer type');
-  end;
- end;
-
-procedure TRenderDevice.UnlockBuffer(buf: TPainterBuffer);
- begin
- end;
-*)
 
 procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout;stride:integer);
  var
@@ -676,11 +629,21 @@ procedure TGLRenderTargetAPI.Texture(tex:TTexture);
   scissor:=false;
  end;
 
-procedure TGLRenderTargetAPI.UseDepthBuffer(test: TDepthBufferTest;
-  writeEnable: boolean);
+procedure TGLRenderTargetAPI.UseDepthBuffer(test:TDepthBufferTest; writeEnable:boolean);
  begin
-  inherited;
-
+  if test=dbDisabled then begin
+   glDisable(GL_DEPTH_TEST)
+  end else begin
+   glEnable(GL_DEPTH_TEST);
+   case test of
+    dbPass:glDepthFunc(GL_ALWAYS);
+    dbPassLess:glDepthFunc(GL_LESS);
+    dbPassLessEqual:glDepthFunc(GL_LEQUAL);
+    dbPassGreater:glDepthFunc(GL_GREATER);
+    dbNever:glDepthFunc(GL_NEVER);
+   end;
+   glDepthMask(writeEnable);
+  end;
  end;
 
 procedure TGLRenderTargetAPI.Viewport(oX, oY, VPwidth, VPheight, renderWidth,

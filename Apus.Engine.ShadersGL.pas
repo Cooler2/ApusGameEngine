@@ -64,15 +64,15 @@ type
   // Update shader matrices
   procedure UpdateMatrices(const model,MVP:T3DMatrix);
 
-  procedure AmbientLight(color:cardinal); virtual; abstract;
+  procedure AmbientLight(color:cardinal);
   // Set directional light (set power<=0 to disable)
-  procedure DirectLight(direction:TVector3;power:single;color:cardinal); virtual; abstract;
+  procedure DirectLight(direction:TVector3;power:single;color:cardinal);
   // Set point light source (set power<=0 to disable)
   procedure PointLight(position:TPoint3;power:single;color:cardinal); virtual; abstract;
   // Define material properties
-  procedure Material(color:cardinal;shininess:single); virtual; abstract;
+  procedure Material(color:cardinal;shininess:single);
 
-  procedure Apply;
+  procedure Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
 
  private
   curTextures:array[0..3] of TTexture;
@@ -80,6 +80,12 @@ type
 
   curTexMode:TTexMode; // encoded shader mode requested by the client code
   actualTexMode:TTexMode; // actual shader mode
+  actualVertexLayout:TVertexLayout; // vertex layout for the current shader
+
+  // current direct light
+  directLightDir:TVector3s;
+  directLightPower:single;
+  directLightColor:cardinal;
 
   shaderCache:TSimpleHash;
   activeShader:TGLShader; // current OpenGL shader
@@ -106,6 +112,11 @@ uses
   Apus.Engine.ResManGL
   {$IFDEF MSWINDOWS},Windows{$ENDIF}
   {$IFDEF DGL},dglOpenGL{$ENDIF};
+
+const
+ LIGHT_AMBIENT_ON = 1;
+ LIGHT_DIRECT_ON  = 2;
+ LIGHT_POINT_ON   = 4;
 
 { TGLShader }
 
@@ -181,106 +192,119 @@ destructor TGLShader.Destroy;
 
 { TGLShadersAPI }
 
-(* --==  DEFAULT SHADER TEMPLATE ==--
-  Actual shaders are made from this template for each combination of
-  1) number of textures (0-1, 2, 3)
-  2) texturing mode
+procedure AddLine(var st:String8;const line:String8='';condition:boolean=true);
+ begin
+  if condition then st:=st+line+#13#10;
+ end;
 
- === Vertex shader ===    *)
- const
-  vShader:array[1..14] of string8=(
-' #version 330',
-' uniform mat4 MVP;',
-' layout (location=0) in vec3 position;',
-' layout (location=1) in vec4 color;',
-' layout (location=2) in vec2 texCoord;',
-' out vec4 vColor;',
-' out vec2 vTexCoord;',
-'',
-' void main(void)',
-' {',
-'   gl_Position = MVP * vec4(position, 1.0);',
-'   vColor = color;',
-'   vTexCoord = texCoord;',
-' }');
+function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean):String8;
+ var
+  ch:AnsiChar;
+ begin
+  AddLine(result,'#version 330');
+  AddLine(result,'// '+notes);
+  AddLine(result,'uniform mat4 MVP;');
+  AddLine(result,'uniform mat4 ModelMatrix;',hasNormal);
+  AddLine(result,'layout (location=0) in vec3 position;');
+  ch:='0';
+  if hasNormal then begin
+   inc(ch);
+   AddLine(result,'layout (location='+ch+') in vec3 normal;');
+   AddLine(result,'out vec3 vNormal;');
+  end;
+  if hasColor then begin
+   inc(ch);
+   AddLine(result,'layout (location='+ch+') in vec4 color;');
+   AddLine(result,'out vec4 vColor;');
+  end;
+  if hasUV then begin
+   inc(ch);
+   AddLine(result,'layout (location='+ch+') in vec2 texCoord;');
+   AddLine(result,'out vec2 vTexCoord;');
+  end;
+  AddLine(result);
+  AddLine(result,'void main(void)');
+  AddLine(result,' {');
+  AddLine(result,'   gl_Position = MVP*vec4(position,1.0);');
+  AddLine(result,'   vNormal = mat3(ModelMatrix)*normal;',hasNormal);
+  AddLine(result,'   vColor = color;',hasColor);
+  AddLine(result,'   vTexCoord = texCoord;',hasUV);
+  AddLine(result,'}');
+ end;
 
-// === Fragment shader ===
- fShader:array[1..28] of string8=(
- '#version 330',
- 'uniform sampler2D tex0;',
- 'uniform sampler2D tex1;',
- 'uniform sampler2D tex2;',
- 'uniform float uFactor;',
- 'in vec4 vColor;',
- 'in vec2 vTexCoord;',
- 'out vec4 fragColor;',
- '',
- 'void main(void)',
- '{',
- '  vec3 c = vec3(vColor.b, vColor.g, vColor.r);',
- '  float a = vColor.a;',
- '  vec4 t;',
- '      c = vec3(t.r, t.g, t.b); // replace',
- '      c = c*vec3(t.r, t.g, t.b); // modulate',
- '      c = 2.0*c*vec3(t.r, t.g, t.b); // modulate2x',
- '      c = c+vec3(t.r, t.g, t.b); // add',
- '      c = c-vec3(t.r, t.g, t.b); // sub',
- '      c = mix(c, vec3(t.r, t.g, t.b), uFactor); // interpolate',
- '      a = t.a; // replace',
- '      a = a*t.a; // modulate',
- '      a = 2.0*a*t.a; // modulate2x',
- '      a = a+t.a; // add',
- '      a = a-t.a; // sub',
- '      a = mix(a, t.a, uFactor); // interpolate',
- '  fragColor = vec4(c.r, c.g, c.b, a);',
- '}');
+function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texMode:TTexMode):String8;
+ var
+  i:integer;
+  m,colorMode,alphaMode:byte;
+ begin
+  AddLine(result,'#version 330');
+  AddLine(result,'// '+notes);
+  AddLine(result,'uniform sampler2D tex0;');
+  AddLine(result,'uniform sampler2D tex1;',texMode.stage[1]>0);
+  AddLine(result,'uniform sampler2D tex2;',texMode.stage[2]>0);
+  AddLine(result,'uniform float uFactor;');
+  AddLine(result,'in vec3 vNormal;',hasNormal);
+  AddLine(result,'in vec4 vColor;',hasColor);
+  AddLine(result,'in vec2 vTexCoord;',hasUV);
+  AddLine(result,'out vec4 fragColor;');
+  AddLine(result);
+  AddLine(result,'void main(void)');
+  AddLine(result,'{');
+  AddLine(result,'  vec3 c = vec3(vColor.b,vColor.g,vColor.r);',hasColor);
+  AddLine(result,'  float a = vColor.a;',hasColor);
+  AddLine(result,'  vec3 c = vec3(1.0,1.0,1.0); float a = 1.0;',not hasColor);
+  AddLine(result,'  vec4 t;');
+  // Blending
+  for i:=0 to 2 do begin
+   m:=texMode.stage[i];
+   if m<>0 then begin
+    colorMode:=m and $0F;
+    alphaMode:=m shr 4;
+    if (colorMode>=3) or (alphaMode>=3) then
+     AddLine(result,'  t = texture2D(tex'+intToStr(i)+',vTexCoord);');
+    case colorMode of
+     3:AddLine(result,'   c = vec3(t.r, t.g, t.b);'); // replace
+     4:AddLine(result,'   c = c*vec3(t.r, t.g, t.b);'); // modulate
+     5:AddLine(result,'   c = 2.0*c*vec3(t.r, t.g, t.b);');
+     6:AddLine(result,'   c = c+vec3(t.r, t.g, t.b);');
+     7:AddLine(result,'   c = c-vec3(t.r, t.g, t.b);');
+     8:AddLine(result,'   c = mix(c, vec3(t.r, t.g, t.b), uFactor); ');
+    end;
+    case alphaMode of
+     3:AddLine(result,'   a = t.a; '); //
+     4:AddLine(result,'   a = a*t.a; '); //
+     5:AddLine(result,'   a = 2.0*a*t.a;  '); //
+     6:AddLine(result,'   a = a+t.a;  '); //
+     7:AddLine(result,'   a = a-t.a;  '); //
+     8:AddLine(result,'   a = mix(a, t.a, uFactor);  '); //
+    end;
+   end;
+  end;
+  AddLine(result,'  fragColor = vec4(c.r, c.g, c.b, a);');
+  AddLine(result,'}');
+ end;
 
 function TGLShadersAPI.CreateShaderFor:TGLShader;
  var
-  vSrc,fSrc:String8;
-  i:integer;
-  m:byte;
+  vSrc,fSrc,notes:String8;
+  hasNormal,hasColor,hasUV:boolean;
  begin
-  for i:=1 to high(vShader) do vSrc:=vSrc+vShader[i]+#13#10;
-  fSrc:=fShader[1]+#13#10+'// Std shader for mode '+IntToHex(curTexMode.mode)+#13#10;
-  for i:=2 to 14 do fSrc:=fSrc+fShader[i]+#13#10;
-  for i:=0 to 2 do begin
-   m:=curTexMode.stage[i];
-   if m<>0 then begin
-    fSrc:=fSrc+'   t = texture2D(tex'+intToStr(i)+',vTexCoord);'#13#10;
-    case m and $0F of
-     3:fSrc:=fSrc+'   c = vec3(t.r, t.g, t.b);'; // replace
-     4:fSrc:=fSrc+'   c = c*vec3(t.r, t.g, t.b);'; //
-     5:fSrc:=fSrc+'   c = 2.0*c*vec3(t.r, t.g, t.b);';
-     6:fSrc:=fSrc+'   c = c+vec3(t.r, t.g, t.b);';
-     7:fSrc:=fSrc+'   c = c-vec3(t.r, t.g, t.b);'; //
-     8:fSrc:=fSrc+'   c = mix(c, vec3(t.r, t.g, t.b), uFactor); '; //
-    end;
-    fSrc:=fSrc+#13#10;
-    m:=m shr 4;
-    case m of
-     3:fSrc:=fSrc+'   a = t.a; '; //
-     4:fSrc:=fSrc+'   a = a*t.a; '; //
-     5:fSrc:=fSrc+'   a = 2.0*a*t.a;  '; //
-     6:fSrc:=fSrc+'   a = a+t.a;  '; //
-     7:fSrc:=fSrc+'   a = a-t.a;  '; //
-     8:fSrc:=fSrc+'   a = mix(a, t.a, uFactor);  '; //
-    end;
-    fSrc:=fSrc+#13#10;
-   end;
-  end;
-
-  for i:=high(fShader)-1 to high(fShader) do fSrc:=fSrc+fShader[i]+#13#10;
+  hasNormal:=actualVertexLayout and $F0>0;
+  hasColor:=actualVertexLayout and $F00>0;
+  hasUV:=actualVertexLayout and $F000>0;
+  notes:='Std shader for mode '+IntToHex(curTexMode.mode)+' layout='+IntToHex(actualVertexLayout);
+  vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV);
+  fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,curTexMode);
   result:=Build(vSrc,fSrc) as TGLShader;
   result.texMode:=curTexMode.mode;
  end;
 
 function TGLShadersAPI.GetShaderFor:TGLShader;
  var
-  mode:cardinal;
+  mode:int64;
   v:int64;
  begin
-  mode:=curTexMode.mode;
+  mode:=curTexMode.mode+actualVertexLayout shl 32;
   v:=shaderCache.Get(mode);
   if v<>-1 then exit(TGLShader(v));
   result:=CreateShaderFor;
@@ -296,6 +320,24 @@ constructor TGLShadersAPI.Create;
   shader:=self;
   shaderCache.Init(32);
   curTexChanged[0]:=true;
+ end;
+
+procedure TGLShadersAPI.DirectLight(direction:TVector3; power:single; color:cardinal);
+ begin
+  directLightDir:=Vector3s(direction);
+  directLightPower:=power;
+  directLightColor:=color;
+  SetFlag(curTexMode.lighting,LIGHT_DIRECT_ON,power>0);
+ end;
+
+procedure TGLShadersAPI.AmbientLight(color: cardinal);
+ begin
+
+ end;
+
+procedure TGLShadersAPI.Material(color: cardinal; shininess: single);
+ begin
+
  end;
 
 procedure TGLShadersAPI.DefaultTexMode;
@@ -363,7 +405,9 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   glShaderSource(vsh,1,@str,@len);
   glCompileShader(vsh);
   glGetShaderiv(vsh,GL_COMPILE_STATUS,@res);
-  if res=0 then raise EError.Create('VShader compilation failed: '+GetShaderError(vsh));
+  if res=0 then
+   raise EError.Create('VShader compilation failed: '+GetShaderError(vsh));
+
 
   // Fragment shader
   fsh:=glCreateShader(GL_FRAGMENT_SHADER);
@@ -429,101 +473,15 @@ procedure TGLShadersAPI.UseTexture(tex: TTexture; stage: integer);
   curTexChanged[stage]:=true;
  end;
 
-
-(*
-// Возвращает шейдер для заданного режима текстурирования (из кэша либо формирует новый)
-function TGLPainter2.SetCustomProgram(mode:int64):integer;
-var
- vs,fs:AnsiString;
- i,n:integer;
- tm:PTexMode;
-begin
- mode:=mode and $FF00FF00FF00FF;
- result:=customShaders.Get(mode);
- if result<0 then begin
-  tm:=@mode;
-  n:=0;
-  for i:=0 to 3 do
-   if (tm^[i] and $0f>2) or (tm^[i] and $f0>$20) then n:=i+1;
-
-  // Vertex shader
-  vs:=
-  'uniform mat4 uMVP;'#13#10+
-  'attribute vec3 aPosition;  '#13#10+
-  'attribute vec4 aColor;   '#13#10+
-  'varying vec4 vColor;     '#13#10;
-  for i:=1 to n do vs:=vs+
-    'attribute vec2 aTexcoord'+inttostr(i)+';'#13#10+
-    'varying vec2 vTexcoord'+inttostr(i)+';'#13#10;
-  vs:=vs+
-  'void main() '#13#10+
-  '{          '#13#10+
-  '    vColor = aColor;   '#13#10;
-  for i:=1 to n do vs:=vs+
-    '    vTexcoord'+inttostr(i)+' = aTexcoord'+inttostr(i)+'; '#13#10;
-  vs:=vs+
-  '    gl_Position = uMVP * vec4(aPosition, 1.0);  '#13#10+
-  '}';
-
-  // Fragment shader
-  fs:='varying vec4 vColor;   '#13#10;
-  for i:=1 to n do begin fs:=fs+
-    'uniform sampler2D tex'+inttostr(i)+'; '#13#10+
-    'varying vec2 vTexcoord'+inttostr(i)+'; '#13#10;
-   if ((tm[i-1] and $f)=ord(tblInterpolate)) or
-      ((tm[i-1] shr 4 and $f)=ord(tblInterpolate)) then
-    fs:=fs+'uniform float uFactor'+inttostr(i)+';'#13#10;
-  end;
-  fs:=fs+
-  'void main() '#13#10+
-  '{     '#13#10+
-  '  vec3 c = vec3(vColor.r,vColor.g,vColor.b); '#13#10+
-  '  float a = vColor.a; '#13#10+
-  '  vec4 t; '#13#10;
-  for i:=1 to n do begin
-   fs:=fs+'  t = texture2D(tex'+inttostr(i)+', vTexcoord'+inttostr(i)+'); '#13#10;
-   case (tm[i-1] and $f) of
-    ord(tblReplace):fs:=fs+'  c = vec3(t.r, t.g, t.b); '#13#10;
-    ord(tblModulate):fs:=fs+'  c = c * vec3(t.r, t.g, t.b); '#13#10;
-    ord(tblModulate2x):fs:=fs+'  c = 2.0 * c * vec3(t.r, t.g, t.b); '#13#10;
-    ord(tblAdd):fs:=fs+'  c = c + vec3(t.r, t.g, t.b); '#13#10;
-    ord(tblInterpolate):fs:=fs+'  c = mix(c, vec3(t.r, t.g, t.b), uFactor'+inttostr(i)+'); '#13#10;
-   end;
-   case ((tm[i-1] shr 4) and $f) of
-    ord(tblReplace):fs:=fs+'  a = t.a; '#13#10;
-    ord(tblModulate):fs:=fs+'  a = a * t.a; '#13#10;
-    ord(tblModulate2X):fs:=fs+'  a = 2.0 * a * t.a; '#13#10;
-    ord(tblAdd):fs:=fs+'  a = a + t.a; '#13#10;
-    ord(tblInterpolate):fs:=fs+'  a = mix(a, t.a, uFactor'+inttostr(i)+'); '#13#10;
-   end;
-  end;
-  fs:=fs+
-  '    gl_FragColor = vec4(c.r, c.g, c.b, a); '#13#10+
-  '}';
-
-  result:=BuildShaderProgram(vs,fs);
-  if result>0 then begin
-   customShaders.Put(mode,result);
-   glUseProgram(result);
-   // Set uniforms: texture indices
-   for i:=1 to n do
-    glUniform1i(glGetUniformLocation(result,PAnsiChar(AnsiString('tex'+inttostr(i)))),i-1);
-  end else begin
-   result:=defaultShader;
-   glUseProgram(result);
-  end;
- end else
-  glUseProgram(result);
-end; *)
-
-procedure TGLShadersAPI.Apply;
+procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
  var
   shader:TGLShader;
   i:integer;
   tex:TTexture;
  begin
   if not isCustom then
-   if actualTexMode.mode<>curTexMode.mode then begin
+   if (actualTexMode.mode<>curTexMode.mode) or (actualVertexLayout<>vertexLayout) then begin
+    actualVertexLayout:=vertexLayout;
     shader:=GetShaderFor;
     ActivateShader(shader);
     actualTexMode:=curtexMode;
