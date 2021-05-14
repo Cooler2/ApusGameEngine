@@ -164,7 +164,18 @@ type
 
  TRect2s = Apus.Geom2D.TRect2s;
 
+ // Packed description of the vertex layout
+ // [0:3] - position (vec3s)
+ // [4:7] - normal (vec3s)
+ // [8:11]  - color (vec4b)
+ // [12:15] - uv1 (vec2s)
+ TVertexLayout=cardinal;
 
+const
+ // Vertex layout with 3 attributes: position[3] (location=0), color[3] (location=1) and uv[2] (location=2)
+ DEFAULT_VERTEX_LAYOUT = $4300;
+
+type
  TImagePixelFormat = Apus.Images.TImagePixelFormat;
 
  // Which API use for rendering
@@ -486,8 +497,8 @@ type
 
   // Update and upload transformation matrices
   procedure UpdateMatrices(const model,MVP:T3DMatrix);
-  // Apply shader configuration: call this after any mode changes before actual draw calls
-  procedure Apply;
+  // Apply shader configuration (build/set proper shader). Must be called after any mode changes before actual draw calls
+  procedure Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
  end;
 
  // Configuration
@@ -586,12 +597,13 @@ type
 
  // vertex and index arrays
  TVertices=array of TVertex;
+ TVertices3D=array of TVertex3D;
  TIndices=array of word;
  TTexCoords=array of TPoint2s;
 
  // Simple 3D mesh
  TMesh=class
-  vertices:TVertices;
+  vertices:TVertices3D;
   indices:TIndices;
   procedure Draw(tex:TTexture=nil); // draw whole mesh
  end;
@@ -668,9 +680,9 @@ type
 
   // Meshes ------------------
   // Draw textured tri-mesh (tex=nil -> colored mode)
-  procedure TrgList(vertices:PVertex;trgCount:integer;tex:TTexture);
+  procedure TrgList(vertices:PVertex3D;trgCount:integer;tex:TTexture);
   // Draw indexed tri-mesh (tex=nil -> colored mode)
-  procedure IndexedMesh(vertices:PVertex;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
+  procedure IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
 
   // Multitexturing functions ------------------
   // Режим мультитекстурирования должен быть предварительно настроен с помощью SetTexMode / SetTexInterpolationMode
@@ -966,6 +978,7 @@ var
  shader:IShader; //< shortcut for gfx.shader
  draw:IDrawer;    //< shortcut for gfx.draw
  txt:ITextDrawer; //< shortcut for gfx.txt
+ transform:ITransformation; //< Shortcut for gfx.transform
 
  // Selected pixel formats for different tasks
  // Используемые форматы пикселя (в какие форматы грузить графику)
