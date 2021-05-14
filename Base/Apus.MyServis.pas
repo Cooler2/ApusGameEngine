@@ -508,6 +508,14 @@ interface
  function Pike(x,arg,a,b,c:integer):integer;
  function PikeD(x,arg,a,b,c:double):double; // [0..1] range
 
+ // Bit manipulation procedures
+ procedure SetFlag(var v:uint64;flag:uint64); overload;
+ procedure SetFlag(var v:cardinal;flag:cardinal); overload;
+ procedure SetFlag(var v:byte;flag:byte); overload;
+ procedure ClearFlag(var v:uint64;flag:uint64); overload;
+ procedure ClearFlag(var v:cardinal;flag:cardinal); overload;
+ procedure ClearFlag(var v:byte;flag:byte); overload;
+
  // Spline functions
  // ----------------------------------------
  // Quadratic clamped spline from [0..1] to [0..255] where: 0->a, 0.5->b, 1.0->c
@@ -3156,6 +3164,31 @@ function BinToStr;
    if x>=1 then begin result:=c; exit; end;
    if x<arg then result:=a+(b-a)*x/arg
     else result:=b+(c-b)*(x-arg)/(1-arg);
+  end;
+
+ procedure SetFlag(var v:uint64;flag:uint64); overload;
+  begin
+   v:=v or flag;
+  end;
+ procedure SetFlag(var v:cardinal;flag:cardinal); overload;
+  begin
+   v:=v or flag;
+  end;
+ procedure SetFlag(var v:byte;flag:byte); overload;
+  begin
+   v:=v or flag;
+  end;
+ procedure ClearFlag(var v:uint64;flag:uint64); overload;
+  begin
+   v:=v and (not flag);
+  end;
+ procedure ClearFlag(var v:cardinal;flag:cardinal); overload;
+  begin
+   v:=v and (not flag);
+  end;
+ procedure ClearFlag(var v:byte;flag:byte); overload;
+  begin
+   v:=v and (not flag);
   end;
 
  function SatSpline(x:single;a,b,c:integer):byte;
