@@ -91,8 +91,13 @@ interface
  function Vector3s(vector:TVector3):TVector3s; overload; inline;
  function Quaternion(x,y,z,w:double):TQuaternion; overload; inline;
  function Quaternion(x,y,z,w:single):TQuaternionS; overload; inline;
+ // Matrix conversion
  function Matrix4(from:TMatrix43):TMatrix4;
  function Matrix4s(from:TMatrix4):TMatrix4s;
+ function Matrix3(from:TMatrix4):TMatrix3; overload;
+ function Matrix3s(from:TMatrix3):TMatrix3s; overload;
+ function Matrix3s(from:TMatrix4):TMatrix3s; overload;
+ function Matrix3s(from:TMatrix4s):TMatrix3s; overload;
 
  // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой
  function DotProduct3(a,b:TVector3):double; overload;
@@ -310,6 +315,39 @@ implementation
     result[i,1]:=from[i,1];
     result[i,2]:=from[i,2];
     result[i,3]:=from[i,3];
+   end;
+  end;
+
+ function Matrix3(from:TMatrix4):TMatrix3; overload;
+  begin
+   move(from[0],result[0],sizeof(result[0]));
+   move(from[1],result[1],sizeof(result[1]));
+   move(from[2],result[2],sizeof(result[2]));
+  end;
+ function Matrix3s(from:TMatrix4s):TMatrix3s; overload;
+  begin
+   move(from[0],result[0],sizeof(result[0]));
+   move(from[1],result[1],sizeof(result[1]));
+   move(from[2],result[2],sizeof(result[2]));
+  end;
+ function Matrix3s(from:TMatrix3):TMatrix3s; overload;
+  var
+   i:integer;
+  begin
+   for i:=0 to 2 do begin
+    result[i,0]:=from[i,0];
+    result[i,1]:=from[i,1];
+    result[i,2]:=from[i,2];
+   end;
+  end;
+ function Matrix3s(from:TMatrix4):TMatrix3s; overload;
+  var
+   i:integer;
+  begin
+   for i:=0 to 2 do begin
+    result[i,0]:=from[i,0];
+    result[i,1]:=from[i,1];
+    result[i,2]:=from[i,2];
    end;
   end;
 
