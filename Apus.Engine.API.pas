@@ -625,7 +625,7 @@ type
   function LoadFont(font:array of byte;asName:string=''):string; overload; // возвращает имя шрифта
   function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
   procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
-  // Text output
+  // Text output (use handle 0 for default font)
   procedure Write(font:TFontHandle;x,y:integer;color:cardinal;st:String8;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0);
   procedure WriteW(font:TFontHandle;x,y:integer;color:cardinal;st:String16;align:TTextAlignment=taLeft;

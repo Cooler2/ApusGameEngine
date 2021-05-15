@@ -92,6 +92,7 @@ interface
   curTextLinkRect:TRect;
 
   textDrawer:TTextDrawer;
+  defaultFontHandle:cardinal;
 
 implementation
  uses Apus.MyServis,
@@ -209,6 +210,8 @@ begin
    fonts[i]:=TUnicodeFontEx.LoadFromMemory(font,true);
    if asName<>'' then TUnicodeFontEx(fonts[i]).header.fontName:=asName;
    result:=TUnicodeFontEx(fonts[i]).header.FontName;
+   if defaultFontHandle=0 then
+    defaultFontHandle:=GetFont(result);
    exit;
   end;
 end;
@@ -384,6 +387,7 @@ begin
  if length(st)=0 then begin
   result:=0; exit;
  end;
+ if font=0 then font:=defaultFontHandle;
  scale:=sqr(((font shr 16) and $FF)/100);
  if scale=0 then scale:=1;
  obj:=fonts[font and $1F];
@@ -412,7 +416,7 @@ var
  scale:single;
  obj:TObject;
 begin
- ASSERT(font<>0);
+ if font=0 then font:=defaultFontHandle;
  obj:=fonts[font and $FF];
  scale:=sqr(((font shr 16) and $FF)/100);
  if scale=0 then scale:=1;
@@ -1098,6 +1102,7 @@ begin // -----------------------------------------------------------
   draw.FillRect(x,y,x+textCache.width,y+textCache.height,$FF000000);
   draw.Image(x,y,textCache,$FFFFFFFF); exit;
  end;
+ if font=0 then font:=defaultFontHandle;
  // Empty or too long string
  if (length(st)=0) or (length(st)>1000) then exit;
 

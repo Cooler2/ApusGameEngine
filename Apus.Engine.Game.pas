@@ -203,7 +203,7 @@ implementation
  uses SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools
      {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},
      Apus.EventMan, Apus.Engine.UIScene, Apus.Engine.UIClasses, Apus.Engine.Console,
-     Apus.Publics, Apus.GfxFormats, Apus.Clipboard;
+     Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw;
 
 type
  TMainThread=class(TThread)
@@ -652,6 +652,7 @@ begin
  txt.LoadFont(defaultFont8);
  txt.LoadFont(defaultFont10);
  txt.LoadFont(defaultFont12);
+ defaultFontHandle:=txt.GetFont('Default',2+0.2*(screenHeight+renderHeight)/screenDPI);
 
  // Mouse cursors
  if params.showSystemCursor then begin
