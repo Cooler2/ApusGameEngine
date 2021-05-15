@@ -20,7 +20,7 @@ interface
 
 implementation
  uses Apus.MyServis,SysUtils,Apus.EventMan,Apus.Geom3D,Apus.AnimatedValues,
-   Apus.Engine.Tools,Apus.Engine.UIClasses,Apus.Engine.UIScene;
+   Apus.Engine.Tools,Apus.Engine.UIClasses,Apus.Engine.UIScene,Apus.Publics;
 
  type
   // This will be our single scene
@@ -45,6 +45,8 @@ constructor TMainApp.Create;
  begin
   inherited;
   // Alter some global settings
+  useTweakerScene:=true;
+
   gameTitle:='Simple 3D Demo'; // app window title
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
@@ -105,6 +107,7 @@ procedure TMainScene.Render;
   gfx.target.Clear(0,1);
   // Set 3D view
   transform.Perspective(1/cameraZoom.Value,0.1,100);
+  //transform.Orthographic(25*cameraZoom.value,1,100);
   distance:=30;
   transform.SetCamera(
     Point3(distance*cos(cameraAngle),distance*sin(cameraAngle),distance*0.4),
@@ -125,13 +128,16 @@ procedure TMainScene.Render;
   draw.Line(0,10,1,9,$FF007000);
   draw.Line(0,10,-1,9,$FF007000);
 
-  gfx.target.UseDepthBuffer(dbPassLess);
+  gfx.target.UseDepthBuffer(dbPassLess); // clip anything below the floor plane
 
-  // Objects
-  transform.SetObj(0,0,1.5+1.3*sin(time), 2);
-  //shader.TexMode(0,tblReplace,tblKeep);
-  shader.DirectLight(Vector3(1,0.5,1),1,$FFFFFF);
+  // Setup light and material
+  shader.AmbientLight($303030);
+  shader.DirectLight(Vector3(1,0.5,1),0.5,$FFFFFF);
   shader.Material($FF408090,0);
+
+  // Draw objects
+  transform.SetObj(0,0,1.5+1.3*sin(time), 2); // Set object position and scale
+  //shader.TexMode(0,tblReplace,tblKeep);
   //texCube.Draw(texture);
   objGear.Draw;
   //objCube.Draw;
@@ -143,7 +149,7 @@ procedure TMainScene.Render;
   shader.DefaultTexMode;
   gfx.target.UseDepthBuffer(dbDisabled); // Disable depth buffer
 
-  txt.Write(0,10,20,$FFD0D0D0,'Use mouse to rotate/zoom camera.');
+  txt.Write(0,10,20,$FFD0D0D0,'[Ctrl]+[~] - tweaker. Mouse - rotate/zoom.');
   inherited;
  end;
 
