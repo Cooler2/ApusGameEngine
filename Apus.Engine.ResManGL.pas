@@ -41,7 +41,7 @@ type
   destructor Destroy; override;
 
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
-                Flags:integer;name:TTextureName):TTexture;
+                flags:cardinal;name:TTextureName):TTexture;
   procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer);
   function Clone(img:TTexture):TTexture;
   procedure FreeImage(var image:TTexture);
@@ -414,7 +414,7 @@ end;
 
 { TGLResourceManager }
 
-function TGLResourceManager.AllocImage(width, height: integer; PixFmt: TImagePixelFormat; Flags: integer;
+function TGLResourceManager.AllocImage(width, height: integer; PixFmt: TImagePixelFormat; Flags: cardinal;
   name: TTextureName): TTexture;
 var
  tex:TGlTexture;
