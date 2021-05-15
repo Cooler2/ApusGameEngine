@@ -285,7 +285,7 @@ procedure TTransformationAPI.SetObj(oX, oY, oZ, scale, yaw, roll,
     for j:=0 to 2 do
      m[i,j]:=m[i,j]*scale;
   // position
-  MultMat4(TranslationMat4(ox,oy,oz),m,m2);
+  MultMat4(m,TranslationMat4(ox,oy,oz),m2);
 
   SetObj(m2);
  end;
