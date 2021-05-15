@@ -25,13 +25,13 @@ type
  end;
 
  TGLShader=class(TShader)
-  texMode:integer;
   handle:TGLShaderHandle;
+  texMode:integer;
   uMVP:integer;   // MVP matrix (named "MVP")
   uModelMat:integer; // model matrix as-is (named "ModelMatrix")
   uNormalMat:integer; // normalized model matrix (named "NormalMatrix")
-  uTex:array[0..2] of integer;
-  vSrc,fSrc:String8;
+  uTex:array[0..2] of integer; // texture samplers (named "tex0".."tex2")
+  vSrc,fSrc:String8; // shader source code
 
   constructor Create(h:TGLShaderHandle);
   destructor Destroy; override;
@@ -68,9 +68,11 @@ type
   // Set directional light (set power<=0 to disable)
   procedure DirectLight(direction:TVector3;power:single;color:cardinal);
   // Set point light source (set power<=0 to disable)
-  procedure PointLight(position:TPoint3;power:single;color:cardinal); virtual; abstract;
+  procedure PointLight(position:TPoint3;power:single;color:cardinal);
   // Define material properties
   procedure Material(color:cardinal;shininess:single);
+
+  procedure LightOff;
 
   procedure Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
 
@@ -86,6 +88,7 @@ type
   directLightDir:TVector3s;
   directLightPower:single;
   directLightColor:cardinal;
+  directLightModified:boolean;
 
   shaderCache:TSimpleHash;
   activeShader:TGLShader; // current OpenGL shader
@@ -118,6 +121,28 @@ const
  LIGHT_DIRECT_ON  = 2;
  LIGHT_POINT_ON   = 4;
 
+function VectorFromColor3(color:cardinal):TVector3s;
+ var
+  c:PARGBColor;
+ begin
+  c:=@color;
+  result.x:=c.b/255;
+  result.y:=c.g/255;
+  result.z:=c.r/255;
+ end;
+
+function VectorFromColor(color:cardinal):TVector4s;
+ var
+  c:PARGBColor;
+ begin
+  c:=@color;
+  result.x:=c.b/255;
+  result.y:=c.g/255;
+  result.z:=c.r/255;
+  result.w:=c.a/255;
+ end;
+
+
 { TGLShader }
 
 procedure SetUniformInternal(handle:TGLShaderHandle;shaderName:string8; name:string8;mode:integer;const value); inline;
@@ -134,7 +159,6 @@ procedure SetUniformInternal(handle:TGLShaderHandle;shaderName:string8; name:str
    30:glUniformMatrix4fv(loc,1,GL_FALSE,@value);
   end;
  end;
-
 
 procedure TGLShader.SetUniform(name: String8; value: integer);
  begin
@@ -243,6 +267,11 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
   AddLine(result,'uniform sampler2D tex1;',texMode.stage[1]>0);
   AddLine(result,'uniform sampler2D tex2;',texMode.stage[2]>0);
   AddLine(result,'uniform float uFactor;');
+  if HasFlag(texMode.lighting,LIGHT_DIRECT_ON) then begin
+   AddLine(result,'uniform vec3 lightDir;');
+   AddLine(result,'uniform vec3 lightColor;');
+   AddLine(result,'uniform float lightPower;');
+  end;
   AddLine(result,'in vec3 vNormal;',hasNormal);
   AddLine(result,'in vec4 vColor;',hasColor);
   AddLine(result,'in vec2 vTexCoord;',hasUV);
@@ -254,6 +283,12 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
   AddLine(result,'  float a = vColor.a;',hasColor);
   AddLine(result,'  vec3 c = vec3(1.0,1.0,1.0); float a = 1.0;',not hasColor);
   AddLine(result,'  vec4 t;');
+  if HasFlag(texMode.lighting,LIGHT_DIRECT_ON) then begin
+   AddLine(result,'  vec3 normal = normalize(vNormal);',hasNormal); // use attribute normal if present
+   AddLine(result,'  vec3 normal = vec3(0.0,0.0,-1.0);',not hasNormal); // default normal in 2D mode (if no attribute)
+   AddLine(result,'  float diff = lightPower*max(dot(normal,lightDir),0.0);');
+   AddLine(result,'  c = c*lightColor*diff;');
+  end;
   // Blending
   for i:=0 to 2 do begin
    m:=texMode.stage[i];
@@ -328,11 +363,11 @@ procedure TGLShadersAPI.DirectLight(direction:TVector3; power:single; color:card
   directLightPower:=power;
   directLightColor:=color;
   SetFlag(curTexMode.lighting,LIGHT_DIRECT_ON,power>0);
+  directLightModified:=true;
  end;
 
 procedure TGLShadersAPI.AmbientLight(color: cardinal);
  begin
-
  end;
 
 procedure TGLShadersAPI.Material(color: cardinal; shininess: single);
@@ -340,11 +375,20 @@ procedure TGLShadersAPI.Material(color: cardinal; shininess: single);
 
  end;
 
+procedure TGLShadersAPI.PointLight(position: TPoint3; power: single;
+  color: cardinal);
+ begin
+ end;
+
+procedure TGLShadersAPI.LightOff;
+ begin
+  ClearFlag(curTexMode.lighting,LIGHT_DIRECT_ON+LIGHT_AMBIENT_ON+LIGHT_POINT_ON);
+ end;
+
 procedure TGLShadersAPI.DefaultTexMode;
  begin
   TexMode(0,tblModulate2X,tblModulate);
   TexMode(1,tblDisable,tblDisable);
-  Apply;
  end;
 
 procedure TGLShadersAPI.TexMode(stage:byte; colorMode,
@@ -416,7 +460,8 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   glShaderSource(fsh,1,@str,@len);
   glCompileShader(fsh);
   glGetShaderiv(fsh,GL_COMPILE_STATUS,@res);
-  if res=0 then raise EError.Create('FShader compilation failed: '+GetShaderError(fsh));
+  if res=0 then
+   raise EError.Create('FShader compilation failed: '+GetShaderError(fsh));
 
   // Build program object
   prog:=glCreateProgram;
@@ -486,7 +531,7 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
     ActivateShader(shader);
     actualTexMode:=curtexMode;
    end;
-
+  // set uniforms (if modified)
   for i:=0 to 2 do
    if curTexChanged[i] then begin
     curTexChanged[i]:=false;
@@ -495,6 +540,12 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
     resourceManagerGL.MakeOnline(tex,i);
     if activeShader.uTex[i]>=0 then glUniform1i(activeShader.uTex[i],i);
    end;
+  if directLightModified then begin
+   activeShader.SetUniform('lightDir',directLightDir);
+   activeShader.SetUniform('lightPower',directLightPower);
+   activeShader.SetUniform('lightColor',VectorFromColor3(directLightColor));
+   directLightModified:=false;
+  end;
  end;
 
 procedure TGLShadersAPI.ActivateShader(shader:TShader);

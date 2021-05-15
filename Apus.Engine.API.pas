@@ -6,7 +6,7 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D;
+ uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors;
 
 const
  // Image allocation flags (ai - AllocImage)
@@ -170,6 +170,10 @@ type
  // [8:11]  - color (vec4b)
  // [12:15] - uv1 (vec2s)
  TVertexLayout=cardinal;
+
+ // Packed ARGB color
+ TARGBColor=Apus.Colors.TARGBColor;
+ PARGBColor=Apus.Colors.PARGBColor;
 
 const
  // Vertex layout with 3 attributes: position[3] (location=0), color[3] (location=1) and uv[2] (location=2)
@@ -488,10 +492,12 @@ type
   // ----
   // Ambient color is added to any pixels (set 0 to disable)
   procedure AmbientLight(color:cardinal);
-  // Set directional light (set power<=0 to disable)
+  // Set direction TO the light source (sun) (set power<=0 to disable)
   procedure DirectLight(direction:TVector3;power:single;color:cardinal);
   // Set point light source (set power<=0 to disable)
   procedure PointLight(position:TPoint3;power:single;color:cardinal);
+  // Disable lighting
+  procedure LightOff;
   // Define material properties
   procedure Material(color:cardinal;shininess:single);
 

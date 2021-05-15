@@ -7,6 +7,13 @@
 unit Apus.Colors;
 interface
 
+type
+ // Packed ARGB color
+ TARGBColor=packed record
+  b,g,r,a:byte;
+ end;
+ PARGBColor=^TARGBColor;
+
  function MyColor(r,g,b:cardinal):cardinal; overload;
  function MyColor(a,r,g,b:cardinal):cardinal; overload;
  function GrayColor(gray:integer):cardinal; // FFxxxxxx
@@ -35,10 +42,6 @@ interface
 implementation
  uses Apus.MyServis;
  {$R-,Q-}
- type
-  TARGBcolor=packed record
-   b,g,r,a:byte;
-  end;
 
  function SwapColor(color:cardinal):cardinal; // swap red<->blue bytes
   begin
