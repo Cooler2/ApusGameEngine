@@ -84,6 +84,10 @@ type
   actualTexMode:TTexMode; // actual shader mode
   actualVertexLayout:TVertexLayout; // vertex layout for the current shader
 
+  // Ambient light
+  ambientLightColor:cardinal;
+  ambientLightModified:boolean;
+
   // current direct light
   directLightDir:TVector3s;
   directLightPower:single;
@@ -267,6 +271,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
   AddLine(result,'uniform sampler2D tex1;',texMode.stage[1]>0);
   AddLine(result,'uniform sampler2D tex2;',texMode.stage[2]>0);
   AddLine(result,'uniform float uFactor;');
+  AddLine(result,'uniform vec3 ambientColor;',HasFlag(texMode.lighting,LIGHT_AMBIENT_ON));
   if HasFlag(texMode.lighting,LIGHT_DIRECT_ON) then begin
    AddLine(result,'uniform vec3 lightDir;');
    AddLine(result,'uniform vec3 lightColor;');
@@ -287,7 +292,8 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
    AddLine(result,'  vec3 normal = normalize(vNormal);',hasNormal); // use attribute normal if present
    AddLine(result,'  vec3 normal = vec3(0.0,0.0,-1.0);',not hasNormal); // default normal in 2D mode (if no attribute)
    AddLine(result,'  float diff = lightPower*max(dot(normal,lightDir),0.0);');
-   AddLine(result,'  c = c*lightColor*diff;');
+   AddLine(result,'  vec3 ambientColor = vec3(0,0,0);',not HasFlag(texMode.lighting,LIGHT_AMBIENT_ON));
+   AddLine(result,'  c = c*lightColor*diff+ambientColor;');
   end;
   // Blending
   for i:=0 to 2 do begin
@@ -366,8 +372,11 @@ procedure TGLShadersAPI.DirectLight(direction:TVector3; power:single; color:card
   directLightModified:=true;
  end;
 
-procedure TGLShadersAPI.AmbientLight(color: cardinal);
+procedure TGLShadersAPI.AmbientLight(color:cardinal);
  begin
+  ambientLightColor:=color;
+  SetFlag(curTexMode.lighting,LIGHT_AMBIENT_ON,color<>0);
+  ambientLightModified:=true;
  end;
 
 procedure TGLShadersAPI.Material(color: cardinal; shininess: single);
@@ -545,6 +554,10 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
    activeShader.SetUniform('lightPower',directLightPower);
    activeShader.SetUniform('lightColor',VectorFromColor3(directLightColor));
    directLightModified:=false;
+  end;
+  if ambientLightModified then begin
+   activeShader.SetUniform('ambientColor',VectorFromColor3(ambientLightColor));
+   ambientLightModified:=false;
   end;
  end;
 
