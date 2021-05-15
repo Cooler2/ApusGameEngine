@@ -509,12 +509,15 @@ interface
  function PikeD(x,arg,a,b,c:double):double; // [0..1] range
 
  // Bit manipulation procedures
- procedure SetFlag(var v:uint64;flag:uint64); overload;
- procedure SetFlag(var v:cardinal;flag:cardinal); overload;
- procedure SetFlag(var v:byte;flag:byte); overload;
- procedure ClearFlag(var v:uint64;flag:uint64); overload;
- procedure ClearFlag(var v:cardinal;flag:cardinal); overload;
- procedure ClearFlag(var v:byte;flag:byte); overload;
+ function HasFlag(v:uint64;flag:uint64):boolean; overload; inline;
+ function HasFlag(v:cardinal;flag:cardinal):boolean; overload; inline;
+ function HasFlag(v:byte;flag:byte):boolean; overload; inline;
+ procedure SetFlag(var v:uint64;flag:uint64;value:boolean=true); overload; inline;
+ procedure SetFlag(var v:cardinal;flag:cardinal;value:boolean=true); overload; inline;
+ procedure SetFlag(var v:byte;flag:byte;value:boolean=true); overload; inline;
+ procedure ClearFlag(var v:uint64;flag:uint64); overload; inline;
+ procedure ClearFlag(var v:cardinal;flag:cardinal); overload; inline;
+ procedure ClearFlag(var v:byte;flag:byte); overload; inline;
 
  // Spline functions
  // ----------------------------------------
@@ -3166,17 +3169,33 @@ function BinToStr;
     else result:=b+(c-b)*(x-arg)/(1-arg);
   end;
 
- procedure SetFlag(var v:uint64;flag:uint64); overload;
+ function HasFlag(v:uint64;flag:uint64):boolean; overload; inline;
   begin
-   v:=v or flag;
+   result:=v and flag>0;
   end;
- procedure SetFlag(var v:cardinal;flag:cardinal); overload;
+ function HasFlag(v:cardinal;flag:cardinal):boolean; overload; inline;
   begin
-   v:=v or flag;
+   result:=v and flag>0;
   end;
- procedure SetFlag(var v:byte;flag:byte); overload;
+ function HasFlag(v:byte;flag:byte):boolean; overload; inline;
   begin
-   v:=v or flag;
+   result:=v and flag>0;
+  end;
+
+ procedure SetFlag(var v:uint64;flag:uint64;value:boolean=true); overload;
+  begin
+   if value then v:=v or flag
+    else v:=v and (not flag);
+  end;
+ procedure SetFlag(var v:cardinal;flag:cardinal;value:boolean=true); overload;
+  begin
+   if value then v:=v or flag
+    else v:=v and (not flag);
+  end;
+ procedure SetFlag(var v:byte;flag:byte;value:boolean=true); overload;
+  begin
+   if value then v:=v or flag
+    else v:=v and (not flag);
   end;
  procedure ClearFlag(var v:uint64;flag:uint64); overload;
   begin
