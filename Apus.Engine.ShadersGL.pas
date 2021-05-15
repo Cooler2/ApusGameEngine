@@ -126,9 +126,9 @@ function VectorFromColor3(color:cardinal):TVector3s;
   c:PARGBColor;
  begin
   c:=@color;
-  result.x:=c.b/255;
+  result.x:=c.r/255;
   result.y:=c.g/255;
-  result.z:=c.r/255;
+  result.z:=c.b/255;
  end;
 
 function VectorFromColor(color:cardinal):TVector4s;
@@ -136,9 +136,9 @@ function VectorFromColor(color:cardinal):TVector4s;
   c:PARGBColor;
  begin
   c:=@color;
-  result.x:=c.b/255;
+  result.x:=c.r/255;
   result.y:=c.g/255;
-  result.z:=c.r/255;
+  result.z:=c.b/255;
   result.w:=c.a/255;
  end;
 
