@@ -110,6 +110,8 @@ procedure TMainScene.Render;
     Point3(distance*cos(cameraAngle),distance*sin(cameraAngle),distance*0.4),
     Point3(0,0,3),Point3(0,0,1000));
 
+  gfx.target.UseDepthBuffer(dbPass);
+
   gfx.SetCullMode(cullNone);
   transform.Transform(Point3(0,0,0));
   // 2D primitives are drawn on XY plane (z=0) so it's OK to draw floor like this :)
@@ -126,21 +128,22 @@ procedure TMainScene.Render;
   gfx.target.UseDepthBuffer(dbPassLess);
 
   // Objects
-  transform.SetObj(0,0,1.5+sin(time));
+  transform.SetObj(0,0,1.5+1.3*sin(time), 2);
   //shader.TexMode(0,tblReplace,tblKeep);
-  shader.DirectLight(Vector3(0,1,-1),1,$FFFFFF);
+  shader.DirectLight(Vector3(1,0.5,1),1,$FFFFFF);
   shader.Material($FF408090,0);
-  texCube.Draw(texture);
-  //objGear.Draw;
+  //texCube.Draw(texture);
+  objGear.Draw;
   //objCube.Draw;
 
 
   // Turn back to 2D view
   transform.DefaultView;
+  shader.LightOff;
   shader.DefaultTexMode;
   gfx.target.UseDepthBuffer(dbDisabled); // Disable depth buffer
 
-  draw.Rect(0,0,100,20,$FFC0C0C0);
+  txt.Write(0,10,20,$FFD0D0D0,'Use mouse to rotate/zoom camera.');
   inherited;
  end;
 
