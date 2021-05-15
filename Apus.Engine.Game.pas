@@ -652,7 +652,7 @@ begin
  txt.LoadFont(defaultFont8);
  txt.LoadFont(defaultFont10);
  txt.LoadFont(defaultFont12);
- defaultFontHandle:=txt.GetFont('Default',2+0.2*(screenHeight+renderHeight)/screenDPI);
+ defaultFontHandle:=txt.GetFont('Default',2+0.25*(screenHeight+renderHeight)/screenDPI);
 
  // Mouse cursors
  if params.showSystemCursor then begin
@@ -1509,6 +1509,13 @@ begin
   // Draw shadow
   if sc[i].shadowColor<>0 then
    draw.FillRect(0,0,renderWidth,renderHeight,sc[i].shadowColor);
+
+  if not sc[i].initialized then try
+   sc[i].Initialize;
+   sc[i].initialized:=true;
+  except
+   on e:Exception do CritMsg('Scene '+sc[i].name+' initialization error: '+ExceptionMsg(e));
+  end;
 
   if sc[i].effect<>nil then begin
    FLog('Drawing eff on '+sc[i].name);

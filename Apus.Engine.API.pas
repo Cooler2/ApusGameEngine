@@ -775,6 +775,7 @@ type
   activated:boolean; // true если сцена уже начала показываться или показалась, но еще не имеет эффекта закрытия
   shadowColor:cardinal; // если не 0, то рисуется перед отрисовкой сцены
   ignoreKeyboardEvents:boolean; // если true - такая сцена не будет получать сигналы о клавиатурном вводе, даже будучи верхней
+  initialized:boolean;
 
   // Внутренние величины
   accumTime:integer; // накопленное время (в мс)
@@ -789,7 +790,7 @@ type
   // Для изменения статуса использовать только это!
   procedure SetStatus(st:TSceneStatus); virtual;
 
-  // Called once from the main thread before first Render() call
+  // Called only once from the main thread before first Render() call
   procedure Initialize; virtual;
 
   // Обработка сцены, вызывается с заданной частотой если только сцена не заморожена
@@ -828,7 +829,6 @@ type
   // Ввод
   KeyBuffer:array[0..63] of cardinal;
   first,last:byte;
-  initialized:boolean;
  end;
 
   // Main game interface
