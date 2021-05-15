@@ -18,7 +18,7 @@ const
 // aiWriteOnly      = 32; // Can be locked, but for write only operation
  aiDontScale      = 64; // Use exact width/height for render target allocation (otherwise they're scaled using current scale factor)
  aiClampUV        = 128; // clamp texture coordinates instead of wrapping them (for aiTexture only)
- aiUseZBuffer     = 256; // allocate Depth Buffer for this image (for aiRenderTarget only)
+ aiDepthBuffer     = 256; // allocate Depth Buffer for this image (for aiRenderTarget only)
 
  // DynamicAtlas dimension flags
  aiMW256   = $010000;

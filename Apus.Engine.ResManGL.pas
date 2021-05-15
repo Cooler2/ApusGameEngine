@@ -515,7 +515,7 @@ begin
    CheckForGLError('4');
    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex.texname,0);
 
-   if flags and aiUseZBuffer>0 then begin
+   if flags and aiDepthBuffer>0 then begin
     glGenRenderbuffers(1,@renderBuffer);
     glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);

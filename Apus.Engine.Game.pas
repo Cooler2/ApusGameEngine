@@ -726,7 +726,7 @@ begin
      (gfx.config.QueryMaxRTSize>=params.width) then begin
    LogMessage('Switching to the modern rendering model');
    flags:=aiRenderTarget;
-   if params.zbuffer>0 then flags:=flags+aiUseZBuffer;
+   if params.zbuffer>0 then flags:=flags+aiDepthBuffer;
 
    dRT:=AllocImage(params.width,params.height,pfRenderTarget,flags,'DefaultRT');
   end;
