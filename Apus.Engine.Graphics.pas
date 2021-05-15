@@ -205,9 +205,9 @@ procedure TTransformationAPI.Orthographic(scale, zMin, zMax: double);
 
   projMatrix[0,0]:=scale*2/w;  projMatrix[1,0]:=0; projMatrix[2,0]:=0; projMatrix[3,0]:=0;
   if renderTargetAPI.curTarget=nil then begin
-   projMatrix[0,1]:=0;  projMatrix[1,1]:=scale*2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=0;
-  end else begin
    projMatrix[0,1]:=0;  projMatrix[1,1]:=-scale*2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=0;
+  end else begin
+   projMatrix[0,1]:=0;  projMatrix[1,1]:=scale*2/h; projMatrix[2,1]:=0; projMatrix[3,1]:=0;
   end;
   projMatrix[0,2]:=0;  projMatrix[1,2]:=0; projMatrix[2,2]:=2/(zMax-zMin); projMatrix[3,2]:=-(zMax+zMin)/(zMax-zMin);
   projMatrix[0,3]:=0;  projMatrix[1,3]:=0; projMatrix[2,3]:=0; projMatrix[3,3]:=1;
