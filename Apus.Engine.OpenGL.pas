@@ -536,6 +536,7 @@ procedure TGLRenderTargetAPI.Clear(color:cardinal; zbuf:single;  stencil:integer
    glClearStencil(stencil);
   end;
   glClear(mask);
+  CheckForGLError(101);
   if val then glEnable(GL_SCISSOR_TEST);
  end;
 
