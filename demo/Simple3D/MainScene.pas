@@ -106,7 +106,7 @@ procedure TMainScene.Render;
   time:=MyTickCount/1000;
   gfx.target.Clear(0,1);
   // Set 3D view
-  transform.Perspective(1/cameraZoom.Value,0.1,100);
+  transform.Perspective(1/cameraZoom.Value,1,1000);
   //transform.Orthographic(25*cameraZoom.value,1,100);
   distance:=30;
   transform.SetCamera(
