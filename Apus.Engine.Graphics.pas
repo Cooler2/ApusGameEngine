@@ -46,6 +46,8 @@ type
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual;
   procedure Update; // calculate combined matrix (if needed), pass data to the active shader
   function GetMVPMatrix:T3DMatrix;
+  function GetProjMatrix:T3DMatrix;
+  function GetViewMatrix:T3DMatrix;
   function GetObjMatrix:T3DMatrix;
   function Transform(source:TPoint3):TPoint3;
  type
@@ -194,6 +196,16 @@ function TTransformationAPI.GetMVPMatrix:T3DMatrix;
 function TTransformationAPI.GetObjMatrix:T3DMatrix;
  begin
   result:=objMatrix;
+ end;
+
+function TTransformationAPI.GetProjMatrix: T3DMatrix;
+ begin
+  result:=projMatrix;
+ end;
+
+function TTransformationAPI.GetViewMatrix: T3DMatrix;
+ begin
+  result:=viewMatrix;
  end;
 
 procedure TTransformationAPI.Orthographic(scale, zMin, zMax: double);

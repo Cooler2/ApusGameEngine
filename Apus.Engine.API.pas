@@ -434,6 +434,8 @@ type
 
   // Set 3D view with given field of view (in radians) - set perspective projection matrix
   // using screen dimensions for FoV and aspect ratio
+  // Use big enough zMin and zMax since z-range is not linear and precision near zMax is much lower than near zMin.
+  // So use values where main visible geometry is at least in the near 10% Z-range
   procedure Perspective(fov:single;zMin,zMax:double); overload;
 
   // Switch to 3D view - set perspective projection (in camera space: camera pos = 0,0,0, Z-forward, X-right, Y-down)
@@ -462,6 +464,8 @@ type
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
   // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
   function GetMVPMatrix:T3DMatrix;
+  function GetProjMatrix:T3DMatrix;
+  function GetViewMatrix:T3DMatrix;
   function GetObjMatrix:T3DMatrix;
   // Transform point using combined MVP matrix
   function Transform(source: TPoint3):TPoint3;
