@@ -20,7 +20,8 @@ interface
 
 implementation
  uses Apus.MyServis,SysUtils,Apus.EventMan,Apus.Geom3D,Apus.AnimatedValues,
-   Apus.Engine.Tools,Apus.Engine.UIClasses,Apus.Engine.UIScene,Apus.Publics;
+   Apus.Engine.Tools,Apus.Engine.UIClasses,Apus.Engine.UIScene,Apus.Publics,
+   dglOpenGL;
 
  type
   // This will be our single scene
@@ -30,6 +31,9 @@ implementation
    objHoney:TMesh;
    time:single;
    shadowMap:TTexture;
+   lightDir:TVector3;
+   sDepth,sMain,sMain2d:TShader;
+   lightMatrix:T3DMatrix;
    constructor Create;
    procedure Initialize; override;
    procedure Render; override;
@@ -82,7 +86,11 @@ procedure TMainScene.Initialize;
  begin
   // No pixel format for the image buffer means that only depth buffer should be allocated
   shadowMap:=gfx.resman.AllocImage(1024,1024,TImagePixelFormat.ipfNone,
-   aiRenderTarget+aiDepthBuffer,'ShadowMap');
+   aiRenderTarget+aiDepthBuffer+aiClampUV,'ShadowMap');
+
+  sDepth:=shader.Load(baseDir+'res\shadowmap');
+  sMain:=shader.Load(baseDir+'res\main');
+  sMain2d:=shader.Load(baseDir+'res\main2d');
  end;
 
 procedure TMainScene.onMouseMove(x, y: integer);
@@ -100,15 +108,21 @@ procedure TMainScene.onMouseWheel(delta: integer);
   inherited;
   // Camera zoom
   if (delta<0) and (cameraZoom.FinalValue>0.7) then
-   cameraZoom.Animate(cameraZoom.FinalValue/1.3,250,sfEaseInOut);
-  if (delta>0) and (cameraZoom.FinalValue<2) then
-   cameraZoom.Animate(cameraZoom.FinalValue*1.3,250,sfEaseInOut);
+   cameraZoom.Animate(cameraZoom.FinalValue/1.2,250,sfEaseInOut);
+  if (delta>0) and (cameraZoom.FinalValue<1.5) then
+   cameraZoom.Animate(cameraZoom.FinalValue*1.2,250,sfEaseInOut);
  end;
 
 procedure TMainScene.DrawScene(mainPass: boolean);
  begin
+  gfx.target.UseDepthBuffer(dbPassLess);
   // 2D primitives are drawn on XY plane (z=0) so it's OK to draw floor like this :)
-  draw.FillRect(-20,-20,20,20,$FF80A0B0);
+  if mainPass then begin
+   shader.UseCustom(sMain2d);
+   sMain2d.SetUniform('LightMatrix',lightMatrix);
+   shader.UseTexture(shadowMap,1);
+  end;
+  draw.FillRect(-25,-25,25,25,$FF80A0B0);
   if mainPass then begin
    gfx.target.UseDepthBuffer(dbPass);
    // X axis
@@ -123,14 +137,18 @@ procedure TMainScene.DrawScene(mainPass: boolean);
 
   gfx.target.UseDepthBuffer(dbPassLess); // clip anything below the floor plane
 
-  // Setup light and material
-  shader.AmbientLight($303030);
-  shader.DirectLight(Vector3(1,0.5,1),0.5,$FFFFFF);
-  shader.Material($FF408090,0);
+  if mainPass then begin
+   shader.UseCustom(sMain);
+   // Setup light and material
+   shader.AmbientLight($303030);
+   shader.DirectLight(lightDir, 0.5,$FFFFFF);
+   shader.Material($FF408090,0);
+  end;
 
   // Draw objects
   transform.SetObj(0,0,3, 2, 0,time/2,time); // Set object position and scale
   objHoney.Draw;
+  if mainPass then glFlush;
  end;
 
 
@@ -138,23 +156,45 @@ procedure TMainScene.Render;
  var
   distance:single;
  begin
+  // setup
   time:=MyTickCount/1000;
-  gfx.target.Clear(0,1);
+  lightDir:=Vector3(1, 0.5, 1);
+
   gfx.SetCullMode(cullNone);
+  // 1-st pass: build shadowmap
+  gfx.BeginPaint(shadowMap);
+  gfx.target.Clear(0,1);
+  // Set ortho view from the light source
+  transform.SetCamera(Vect3Mult(lightDir,30), Point3(0,0,0), Point3(0,0,1000));
+  transform.Orthographic(30, 1,100); // Z range: 0..100
+  MultMat4(transform.GetViewMatrix,transform.GetProjMatrix, lightMatrix);
+
+  shader.UseCustom(sDepth);
+  DrawScene(false);
+  shader.Reset;
+  gfx.EndPaint;
+
+  // 2-nd pass
+  gfx.target.Clear(0,1);
 
   // Set 3D view
-  transform.Perspective(1/cameraZoom.Value,0.1,100);
-  distance:=30;
+  distance:=30/cameraZoom.value;
+  transform.Perspective(1/cameraZoom.Value,1,1000);
   transform.SetCamera(
     Point3(distance*cos(cameraAngleX)*cos(cameraAngleY),
            distance*sin(cameraAngleX)*cos(cameraAngleY),
            distance*sin(cameraAngleY)),
     Point3(0,0,3),Point3(0,0,1000));
 
+{  transform.SetCamera(Vect3Mult(lightDir,30), Point3(0,0,0), Point3(0,0,1000));
+  transform.Orthographic(30, 1,100); // Z range: 0..100}
+
+
   DrawScene(true);
 
   // Turn back to 2D view
   transform.DefaultView;
+  shader.Reset;
   shader.LightOff;
   shader.DefaultTexMode;
   gfx.target.UseDepthBuffer(dbDisabled); // Disable depth buffer
