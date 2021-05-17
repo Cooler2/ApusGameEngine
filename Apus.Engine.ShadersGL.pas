@@ -154,6 +154,7 @@ procedure SetUniformInternal(handle:TGLShaderHandle;shaderName:string8; name:str
   loc:GLint;
  begin
   loc:=glGetUniformLocation(handle,PAnsiChar(name));
+  if loc<0 then exit;
   if loc<0 then raise EWarning.Create('Uniform "%s" not found in shader %s',[name,shaderName]);
   case mode of
    1:glUniform1i(loc,integer(value));
@@ -337,6 +338,7 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV);
   fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,curTexMode);
   result:=Build(vSrc,fSrc) as TGLShader;
+  result.name:=notes;
   result.texMode:=curTexMode.mode;
  end;
 
@@ -425,6 +427,7 @@ function TGLShadersAPI.Load(filename,extra:String8):TShader;
   fname:=ChangeFileExt(filename,'.fsh');
   fSrc:=LoadFileAsString(fName);
   result:=Build(vSrc,fSrc,extra);
+  result.name:=filename;
  end;
 
 function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
