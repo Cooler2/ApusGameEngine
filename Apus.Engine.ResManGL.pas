@@ -423,9 +423,10 @@ var
  dataSize:integer;
  renderBuffer:GLUint;
  drawBuffers:GLenum;
+ prevFramebuffer:GLint;
 begin
  ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
- ASSERT(pixFmt<>ipfNone,'Invalid pixel format for '+name);
+ ASSERT((pixFmt<>ipfNone) or HasFlag(flags,aiDepthBuffer),'Invalid pixel format for '+name);
  if (flags and aiSysMem=0) and ((width>maxTextureSize) or (height>maxTextureSize)) then raise EWarning.Create('AI: Texture too large');
  try
  EnterCriticalSection(cSect);
@@ -456,11 +457,7 @@ begin
 
  if flags and aiRenderTarget>0 then begin
   LogMessage(sysUtils.Format('AllocImage RT %dx%d %d (%s)',[width,height,flags,name]));
-  if flags and aiDontScale=0 then begin
-   width:=round(width);
-   height:=round(height);
-   if max2(width,height)>maxRTsize then raise EWarning.Create('AI: RT texture too large');
-  end;
+  if max2(width,height)>maxRTsize then raise EWarning.Create('AI: RT texture too large');
   {$IFDEF GLES}
   {$IFDEF GLES11}
   width:=GetPow2(width);
@@ -494,66 +491,56 @@ begin
   {$ENDIF GLES}
 
   {$IFNDEF GLES}
-  if GL_ARB_framebuffer_object then begin
-   // Standard way: use FBO
-   glGenFramebuffers(1,@tex.fbo);
-   glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
-   CheckForGLError('2');
-   glGenTextures(1,@tex.texname);
-   glBindTexture(GL_TEXTURE_2D,tex.texname);
-   CheckForGLError('3');
-   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-   tex.filter:=fltBilinear;
-   if flags and aiClampUV>0 then begin
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-    tex.caps:=tex.caps or tfClamped;
-   end;
+  // Standard way: use FBO
+  glGenFramebuffers(1,@tex.fbo);
+  CheckForGLError('1');
+  // Save current framebuffer
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,@prevFramebuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
+  CheckForGLError('2');
+  glGenTextures(1,@tex.texname);
+  glBindTexture(GL_TEXTURE_2D,tex.texname);
+  CheckForGLError('3');
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+  tex.filter:=fltBilinear;
+  if HasFlag(flags,aiClampUV) then begin
+   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+   tex.caps:=tex.caps or tfClamped;
+  end;
+  if (pixFmt=ipfNone) and HasFlag(flags,aiDepthBuffer) then begin
+   // No pixel format, but need depth buffer: allocate depth texture
+   glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT,width,height,0,GL_DEPTH_COMPONENT,GL_FLOAT,nil);
+   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+
+   glFramebufferTexture2D(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_TEXTURE_2D,tex.texname,0);
+   glDrawBuffer(GL_NONE);
+   glReadBuffer(GL_NONE);
+  end else begin
    GetGLFormat(PixFmt,format,subFormat,internalFormat);
    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,format,subFormat,nil);
    CheckForGLError('4');
    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex.texname,0);
 
-   if flags and aiDepthBuffer>0 then begin
+   if HasFlag(flags,aiDepthBuffer) then begin
     glGenRenderbuffers(1,@renderBuffer);
     glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
     glFramebufferRenderBuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
     tex.rbo:=renderBuffer;
    end;
-
-   drawBuffers:=GL_COLOR_ATTACHMENT0;
-   glDrawBuffers(1, @drawBuffers);
-
-   status:=glCheckFramebufferStatus(GL_FRAMEBUFFER);
-   if status<>GL_FRAMEBUFFER_COMPLETE then
-    raise EError.Create('FBO status: '+inttostr(status));
-  end else begin
-   // FBO not supported - try something else...
-   if GL_EXT_framebuffer_object then begin
-    glGenFramebuffersEXT(1,@tex.fbo);
-    glBindFramebufferEXT(GL_FRAMEBUFFER,tex.fbo);
-    CheckForGLError('5');
-    glGenTextures(1,@tex.texname);
-    glBindTexture(GL_TEXTURE_2D,tex.texname);
-    CheckForGLError('6');
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-    tex.filter:=fltBilinear;
-    GetGLFormat(PixFmt,format,subFormat,internalFormat);
-    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,format,subFormat,nil);
-    CheckForGLError('7');
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex.texname,0);
-
-    status:=glCheckFramebufferStatusEXT(GL_FRAMEBUFFER);
-    if status<>GL_FRAMEBUFFER_COMPLETE then
-     raise EError.Create('FBO EXT status: '+inttostr(status));
-   end else begin
-     raise EError.Create('Render target not supported!');
-   end;
-   CheckForGLError('8');
+   glDrawBuffer(GL_COLOR_ATTACHMENT0);
   end;
+
+  status:=glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  // Restore previous framebuffer
+  glBindFramebuffer(GL_FRAMEBUFFER,prevFramebuffer);
+
+  if status<>GL_FRAMEBUFFER_COMPLETE then
+   raise EError.Create('FBO status: '+inttostr(status));
+
   {$ENDIF}
   tex.caps:=tex.caps or (tfRenderTarget+tfNoRead+tfNoWrite);
   tex.online:=true;
