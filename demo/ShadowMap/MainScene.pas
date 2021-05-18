@@ -54,7 +54,7 @@ constructor TMainApp.Create;
   // Alter some global settings
   useTweakerScene:=true;
   //noVSync:=true;
-  gameTitle:='Simple 3D Demo'; // app window title
+  gameTitle:='Shadow Map Demo'; // app window title
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   //usedPlatform:=spSDL;
@@ -170,10 +170,12 @@ procedure TMainScene.Render;
   gfx.target.Clear(0,1);
   // Set ortho view from the light source
   transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
-  transform.Orthographic(25, 1,100); // Z range: 0..100, scale should be enough to cover all scene
+  // Scale 25 should be enough to cover all scene
+  // If scene is too large, this method won't work: you need either
+  transform.Orthographic(25, 1,100); // Z range: 0..100
   MultMat4(transform.GetViewMatrix,transform.GetProjMatrix,lightMatrix);
   MultMat4(transform.GetViewMatrix,transform.GetProjMatrix, tmp);
-  zBias:=0.001;
+  zBias:=0.002;
   ZeroMem(frustum,sizeof(frustum));
   frustum[0,0]:=0.5; frustum[3,0]:=0.5;
   frustum[1,1]:=0.5; frustum[3,1]:=0.5;

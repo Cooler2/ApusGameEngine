@@ -25,7 +25,7 @@ void main(void)
   float diff = 0;
   if (shadow > 0) {
    vec3 normal = normalize(vNormal);
-   diff = lightPower*max(dot(normal,lightDir),0.0);
+   diff = shadow*lightPower*max(dot(normal,lightDir),0.0);
   }
   c = c*(lightColor*diff+ambientColor);
   fragColor = vec4(c.r, c.g, c.b, a);
