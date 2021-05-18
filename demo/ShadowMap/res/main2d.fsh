@@ -12,12 +12,10 @@ out vec4 fragColor;
 void main(void)
 {
   vec3 c = vColor.bgr;
-  vec4 lPos = vLightPos;
-  //vec4 lPos = 0.5*vLightPos + vec4(0.5, 0.5, 0.5, 0.0);
-  float depth = texture(tex1, lPos.xy).r;
-  //fragColor = vec4(lPos.xy, 0.0, 1.0);
-  //fragColor = vec4(depth,depth,depth, 1.0);
-  //fragColor = vec4(depth, lPos.z, 0.0, vColor.a);
-  if (depth < lPos.z-0.001) { c = c*0.5; } // shadow
+  float depth = texture(tex1, vLightPos.xy).r;
+  //fragColor = vec4(vLightPos.xy, 0.0, 1.0);  // debug: view light space position
+  //fragColor = vec4(depth,depth,depth, 1.0);  // debug: view shadowmap depth
+  //fragColor = vec4(depth, vLightPos.z, 0.0, vColor.a);
+  if (depth < vLightPos.z-0.001) { c = c*0.5; } // shadow
   fragColor = vec4(c, vColor.a);
 }

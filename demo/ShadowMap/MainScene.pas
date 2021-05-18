@@ -140,6 +140,9 @@ procedure TMainScene.DrawScene(mainPass: boolean);
 
   if mainPass then begin
    shader.UseCustom(sMain);
+   sMain.SetUniform('LightMatrix',lightMatrix);
+   shader.UseTexture(shadowMap,1);
+
    // Setup light and material
    shader.AmbientLight($303030);
    shader.DirectLight(lightDir, 0.5,$FFFFFF);

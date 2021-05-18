@@ -1,4 +1,5 @@
 #version 330
+// Shader for drawing meshes (with normals)
 uniform mat4 MVP;
 uniform mat4 ModelMatrix;
 uniform mat4 LightMatrix;
@@ -9,6 +10,7 @@ layout (location=2) in vec4 color;
 out vec4 vColor;
 layout (location=3) in vec2 texCoord;
 out vec2 vTexCoord;
+out vec4 vLightPos;
 
 void main(void)
  {
@@ -16,4 +18,5 @@ void main(void)
    vNormal = mat3(ModelMatrix)*normal;
    vColor = color;
    vTexCoord = texCoord;
+   vLightPos = LightMatrix * ModelMatrix * vec4(position,1.0); // this is MVP in the light space
 }

@@ -16,5 +16,4 @@ void main(void)
    vColor = color;
    vTexCoord = texCoord;
    vLightPos = LightMatrix * ModelMatrix * vec4(position,1.0); // this is MVP in the light space
-   //vLightPos = 0.5*vLightPos+0.5;
 }
