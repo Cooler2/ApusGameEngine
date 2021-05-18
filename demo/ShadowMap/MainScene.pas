@@ -122,7 +122,8 @@ procedure TMainScene.DrawScene(mainPass: boolean);
    sMain2d.SetUniform('LightMatrix',lightMatrix);
    shader.UseTexture(shadowMap,1);
   end;
-  draw.FillRect(-25,-25,25,25,$FF80A0B0);
+  draw.FillRect(-20,-20,20,20,$FF80A0B0);
+  if mainPass then glFlush;
   if mainPass then begin
    gfx.target.UseDepthBuffer(dbPass);
    // X axis
@@ -148,13 +149,13 @@ procedure TMainScene.DrawScene(mainPass: boolean);
   // Draw objects
   transform.SetObj(0,0,3, 2, 0,time/2,time); // Set object position and scale
   objHoney.Draw;
-  if mainPass then glFlush;
  end;
 
 
 procedure TMainScene.Render;
  var
   distance:single;
+  frustum,tmp:T3DMatrix;
  begin
   // setup
   time:=MyTickCount/1000;
@@ -165,9 +166,16 @@ procedure TMainScene.Render;
   gfx.BeginPaint(shadowMap);
   gfx.target.Clear(0,1);
   // Set ortho view from the light source
-  transform.SetCamera(Vect3Mult(lightDir,30), Point3(0,0,0), Point3(0,0,1000));
-  transform.Orthographic(30, 1,100); // Z range: 0..100
-  MultMat4(transform.GetViewMatrix,transform.GetProjMatrix, lightMatrix);
+  transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
+  transform.Orthographic(25, 1,100); // Z range: 0..100
+  MultMat4(transform.GetViewMatrix,transform.GetProjMatrix,lightMatrix);
+  MultMat4(transform.GetViewMatrix,transform.GetProjMatrix, tmp);
+  ZeroMem(frustum,sizeof(frustum));
+  frustum[0,0]:=0.5; frustum[3,0]:=0.5;
+  frustum[1,1]:=0.5; frustum[3,1]:=0.5;
+  frustum[2,2]:=0.5; frustum[3,2]:=0.5;
+  frustum[3,3]:=1;
+  Multmat4(tmp,frustum,lightMatrix);
 
   shader.UseCustom(sDepth);
   DrawScene(false);
@@ -186,17 +194,18 @@ procedure TMainScene.Render;
            distance*sin(cameraAngleY)),
     Point3(0,0,3),Point3(0,0,1000));
 
-{  transform.SetCamera(Vect3Mult(lightDir,30), Point3(0,0,0), Point3(0,0,1000));
-  transform.Orthographic(30, 1,100); // Z range: 0..100}
+{  transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
+  transform.Orthographic(25, 1,100); // Z range: 0..100}
 
+  transform.Transform(Point3(0,0,0));
 
   DrawScene(true);
 
   // Turn back to 2D view
-  transform.DefaultView;
   shader.Reset;
   shader.LightOff;
   shader.DefaultTexMode;
+  transform.DefaultView;
   gfx.target.UseDepthBuffer(dbDisabled); // Disable depth buffer
 
   txt.Write(0,10,20,$FFD0D0D0,'[Ctrl]+[~] - tweaker. Mouse - rotate/zoom.');
