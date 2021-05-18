@@ -499,9 +499,15 @@ procedure TGLShadersAPI.UpdateMatrices(const model, MVP: T3DMatrix);
  end;
 
 procedure TGLShadersAPI.UseCustom(shader: TShader);
+ var
+  stage:integer;
  begin
   isCustom:=true;
   ActivateShader(shader);
+  // mark textures as changed to force update
+  for stage:=0 to 2 do
+   if curTextures[stage]<>nil then
+    curTexChanged[stage]:=true;
  end;
 
 procedure TGLShadersAPI.Reset;
