@@ -123,7 +123,7 @@ procedure TMainScene.DrawScene(mainPass: boolean);
    shader.UseTexture(shadowMap,1);
   end;
   draw.FillRect(-20,-20,20,20,$FF80A0B0);
-  if mainPass then glFlush;
+  if mainPass then glFlush; // This is just a breakpoint for gDebugger. It does nothing meaningful.
   if mainPass then begin
    gfx.target.UseDepthBuffer(dbPass);
    // X axis
@@ -164,7 +164,7 @@ procedure TMainScene.Render;
   time:=MyTickCount/1000;
   lightDir:=Vector3(1, 0.5, 1);
 
-  gfx.SetCullMode(cullNone);
+  gfx.SetCullMode(cullCW); // this is a trick! Draw back faces only into the shadowmap (cullNone will work too, but not cullCCW)
   // 1-st pass: build shadowmap
   gfx.BeginPaint(shadowMap);
   gfx.target.Clear(0,1);
@@ -172,6 +172,7 @@ procedure TMainScene.Render;
   transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
   // Scale 25 should be enough to cover all scene
   // If scene is too large, this method won't work: you need either
+  // cascaded shadow maps or (better) compressed (non-linear) shadow maps
   transform.Orthographic(25, 1,100); // Z range: 0..100
   MultMat4(transform.GetViewMatrix,transform.GetProjMatrix,lightMatrix);
   MultMat4(transform.GetViewMatrix,transform.GetProjMatrix, tmp);
@@ -190,6 +191,7 @@ procedure TMainScene.Render;
 
   // 2-nd pass
   gfx.target.Clear(0,1);
+  gfx.SetCullMode(cullCCW); // normal culling mode
 
   // Set 3D view
   distance:=30/cameraZoom.value;
@@ -200,14 +202,15 @@ procedure TMainScene.Render;
            distance*sin(cameraAngleY)),
     Point3(0,0,3),Point3(0,0,1000));
 
-{  transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
+{ // Uncomment to view from the light position
+  transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
   transform.Orthographic(25, 1,100); // Z range: 0..100}
 
   transform.Transform(Point3(0,0,0));
 
   DrawScene(true);
 
-  // Turn back to 2D view
+  // Turn back to 2D view and everything
   shader.Reset;
   shader.LightOff;
   shader.DefaultTexMode;
