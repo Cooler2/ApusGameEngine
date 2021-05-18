@@ -10,7 +10,7 @@ layout (location=2) in vec4 color;
 out vec4 vColor;
 layout (location=3) in vec2 texCoord;
 out vec2 vTexCoord;
-out vec4 vLightPos;
+out vec3 vLightPos;
 
 void main(void)
  {
@@ -18,5 +18,5 @@ void main(void)
    vNormal = mat3(ModelMatrix)*normal;
    vColor = color;
    vTexCoord = texCoord;
-   vLightPos = LightMatrix * ModelMatrix * vec4(position,1.0); // this is MVP in the light space
+   vLightPos = vec3(LightMatrix * ModelMatrix * vec4(position,1.0)); // this is MVP in the light space
 }

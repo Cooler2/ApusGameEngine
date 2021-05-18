@@ -53,7 +53,7 @@ constructor TMainApp.Create;
   inherited;
   // Alter some global settings
   useTweakerScene:=true;
-
+  //noVSync:=true;
   gameTitle:='Simple 3D Demo'; // app window title
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
@@ -157,7 +157,7 @@ procedure TMainScene.DrawScene(mainPass: boolean);
 
 procedure TMainScene.Render;
  var
-  distance:single;
+  distance,zBias:single;
   frustum,tmp:T3DMatrix;
  begin
   // setup
@@ -170,13 +170,14 @@ procedure TMainScene.Render;
   gfx.target.Clear(0,1);
   // Set ortho view from the light source
   transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
-  transform.Orthographic(25, 1,100); // Z range: 0..100
+  transform.Orthographic(25, 1,100); // Z range: 0..100, scale should be enough to cover all scene
   MultMat4(transform.GetViewMatrix,transform.GetProjMatrix,lightMatrix);
   MultMat4(transform.GetViewMatrix,transform.GetProjMatrix, tmp);
+  zBias:=0.001;
   ZeroMem(frustum,sizeof(frustum));
   frustum[0,0]:=0.5; frustum[3,0]:=0.5;
   frustum[1,1]:=0.5; frustum[3,1]:=0.5;
-  frustum[2,2]:=0.5; frustum[3,2]:=0.5;
+  frustum[2,2]:=0.5; frustum[3,2]:=0.5-zBias;
   frustum[3,3]:=1;
   Multmat4(tmp,frustum,lightMatrix);
 
