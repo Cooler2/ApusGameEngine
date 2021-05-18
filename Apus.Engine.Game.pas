@@ -271,6 +271,10 @@ begin
     VK_F1:ToggleDebugOverlay(1);
     VK_F2:ToggleDebugOverlay(2);
     VK_F3:ToggleDebugOverlay(3);
+    VK_F11:begin
+     SetVSync(params.VSync xor 1); // toggle vsync
+     showFPS:=params.VSync=0;
+    end;
    end;
   end;
 
@@ -338,6 +342,7 @@ begin
   Signal('ENGINE\Cmd\SetSwapInterval',divider);
   exit;
  end;
+ params.VSync:=divider;
  if gfx.config.SetVSyncDivider(divider) then exit;
  if systemPlatform.SetSwapInterval(divider) then exit;
  PutMsg('Failed to set VSync: no method available');
