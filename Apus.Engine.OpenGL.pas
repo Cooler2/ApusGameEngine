@@ -388,8 +388,8 @@ procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
  var
   vrt:PVertex;
  begin
-  shadersAPI.Apply(vertexLayout);
   transformationAPI.Update;
+  shadersAPI.Apply(vertexLayout);
   SetupAttributes(vertices,vertexLayout,stride);
   case primtype of
    LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);

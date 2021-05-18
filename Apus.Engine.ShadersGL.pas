@@ -511,7 +511,7 @@ procedure TGLShadersAPI.Reset;
   lighting:=false;
   TexMode(0);
   TexMode(1,tblDisable,tblDisable);
-  Apply;
+  //Apply;
  end;
 
 procedure TGLShadersAPI.SetShaderMatrices;
@@ -568,7 +568,7 @@ procedure TGLShadersAPI.ActivateShader(shader:TShader);
  begin
   activeShader:=shader as TGLShader;
   glUseProgram(activeShader.handle);
-  SetShaderMatrices;
+  //SetShaderMatrices;
  end;
 
 end.

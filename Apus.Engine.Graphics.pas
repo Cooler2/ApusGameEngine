@@ -185,7 +185,7 @@ procedure TTransformationAPI.DefaultView;
   objMatrix:=IdentMatrix4;
 
   modified:=true;
-  Update;
+  //Update;
  end;
 
 function TTransformationAPI.GetMVPMatrix:T3DMatrix;
@@ -319,7 +319,7 @@ function TTransformationAPI.Transform(source: TPoint3): TPoint3;
  var
   x,y,z,t:double;
  begin
-  Update;
+  CalcMVP;
   x:=source.x*mvp[0,0]+source.y*mvp[1,0]+source.z*mvp[2,0]+mvp[3,0];
   y:=source.x*mvp[0,1]+source.y*mvp[1,1]+source.z*mvp[2,1]+mvp[3,1];
   z:=source.x*mvp[0,2]+source.y*mvp[1,2]+source.z*mvp[2,2]+mvp[3,2];
@@ -336,7 +336,7 @@ procedure TTransformationAPI.Update;
  begin
   if not modified then exit;
   CalcMVP;
-  gfx.shader.UpdateMatrices(objMatrix,mvp);
+  shader.UpdateMatrices(objMatrix,mvp);
   modified:=false;
  end;
 
