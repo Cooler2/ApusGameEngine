@@ -30,7 +30,8 @@ type
   uMVP:integer;   // MVP matrix (named "MVP")
   uModelMat:integer; // model matrix as-is (named "ModelMatrix")
   uNormalMat:integer; // normalized model matrix (named "NormalMatrix")
-  uTex:array[0..2] of integer; // texture samplers (named "tex0".."tex2")
+  uShadowMapMat:integer; // light space matrix for shadow mapping
+  uTex:array[0..3] of integer; // texture samplers (named "tex0".."tex3")
   vSrc,fSrc:String8; // shader source code
 
   constructor Create(h:TGLShaderHandle);
@@ -72,6 +73,7 @@ type
   // Define material properties
   procedure Material(color:cardinal;shininess:single);
 
+  procedure Shadow(mode:TShadowMapMode;shadowMap:TTexture=nil;depthBias:single=0.002);
   procedure LightOff;
 
   procedure Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
@@ -99,7 +101,7 @@ type
   isCustom:boolean;
   lighting:boolean;
 
-  mvpMatrix,modelMatrix:T3DMatrixS;
+  mvpMatrix,modelMatrix,viewProjMatrix,shadowMapMatrix:T3DMatrixS;
 
   // Switch to the specified shader and upload matrices (if applicable)
   procedure ActivateShader(shader:TShader);
@@ -121,9 +123,13 @@ uses
   {$IFDEF DGL},dglOpenGL{$ENDIF};
 
 const
+ // Flags for the lighting mode
  LIGHT_AMBIENT_ON = 1;
  LIGHT_DIRECT_ON  = 2;
  LIGHT_POINT_ON   = 4;
+ LIGHT_SPECULAR   = 16; // add specular calculation
+ LIGHT_SHADOWMAP  = 32; // use shadowmap for light calculations (use ambient light only for pixels in shadow)
+ LIGHT_DEPTHPASS  = 64; // use empty shader for rendering into a depth texture
 
 function VectorFromColor3(color:cardinal):TVector3s;
  var
@@ -200,9 +206,11 @@ constructor TGLShader.Create(h: TGLShaderHandle);
   uMVP:=glGetUniformLocation(h,'MVP');
   uModelMat:=glGetUniformLocation(h,'ModelMatrix');
   uNormalMat:=glGetUniformLocation(h,'NormalMatrix');
+  uShadowMapMat:=glGetUniformLocation(h,'ShadowMapMatrix');
   uTex[0]:=glGetUniformLocation(h,'tex0');
   uTex[1]:=glGetUniformLocation(h,'tex1');
   uTex[2]:=glGetUniformLocation(h,'tex2');
+  uTex[3]:=glGetUniformLocation(h,'texShadowMap'); // used for shadowmap
  end;
 
 destructor TGLShader.Destroy;
@@ -226,14 +234,22 @@ procedure AddLine(var st:String8;const line:String8='';condition:boolean=true);
   if condition then st:=st+line+#13#10;
  end;
 
-function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean):String8;
+function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighting:integer):String8;
  var
   ch:AnsiChar;
+  depthPass,shadowMap:boolean;
  begin
+  depthPass:=HasFlag(lighting,LIGHT_DEPTHPASS);
+  if depthPass then begin
+   hasNormal:=false; hasColor:=false; hasUV:=false;
+  end;
+  shadowMap:=HasFlag(lighting,LIGHT_SHADOWMAP);
+  // Now build shader source
   AddLine(result,'#version 330');
   AddLine(result,'// '+notes);
   AddLine(result,'uniform mat4 MVP;');
-  AddLine(result,'uniform mat4 ModelMatrix;',hasNormal);
+  AddLine(result,'uniform mat4 ModelMatrix;',hasNormal or shadowMap);
+  AddLine(result,'uniform mat4 ShadowMapMatrix;',shadowMap);
   AddLine(result,'layout (location=0) in vec3 position;');
   ch:='0';
   if hasNormal then begin
@@ -251,6 +267,8 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean):Strin
    AddLine(result,'layout (location='+ch+') in vec2 texCoord;');
    AddLine(result,'out vec2 vTexCoord;');
   end;
+  AddLine(result,'out vec3 vLightPos;',shadowMap);
+
   AddLine(result);
   AddLine(result,'void main(void)');
   AddLine(result,' {');
@@ -258,6 +276,7 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean):Strin
   AddLine(result,'   vNormal = mat3(ModelMatrix)*normal;',hasNormal);
   AddLine(result,'   vColor = color;',hasColor);
   AddLine(result,'   vTexCoord = texCoord;',hasUV);
+  AddLine(result,'   vLightPos = vec3(ShadowMapMatrix * ModelMatrix * vec4(position,1.0));',shadowMap);
   AddLine(result,'}');
  end;
 
@@ -265,12 +284,21 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
  var
   i:integer;
   m,colorMode,alphaMode:byte;
+  shadowMap,lighting:boolean;
  begin
+  lighting:=HasFlag(texMode.lighting,LIGHT_AMBIENT_ON+LIGHT_DIRECT_ON);
+  shadowMap:=HasFlag(texMode.lighting,LIGHT_SHADOWMAP);
+
   AddLine(result,'#version 330');
   AddLine(result,'// '+notes);
+  if HasFlag(texMode.lighting,LIGHT_DEPTHPASS) then begin
+   AddLine(result,'void main(void) {} ');
+   exit;
+  end;
   AddLine(result,'uniform sampler2D tex0;');
   AddLine(result,'uniform sampler2D tex1;',texMode.stage[1]>0);
   AddLine(result,'uniform sampler2D tex2;',texMode.stage[2]>0);
+  AddLine(result,'uniform sampler2DShadow texShadowMap;',shadowMap);
   AddLine(result,'uniform float uFactor;');
   AddLine(result,'uniform vec3 ambientColor;',HasFlag(texMode.lighting,LIGHT_AMBIENT_ON));
   if HasFlag(texMode.lighting,LIGHT_DIRECT_ON) then begin
@@ -281,20 +309,26 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
   AddLine(result,'in vec3 vNormal;',hasNormal);
   AddLine(result,'in vec4 vColor;',hasColor);
   AddLine(result,'in vec2 vTexCoord;',hasUV);
+  AddLine(result,'in vec3 vLightPos;',shadowMap);
   AddLine(result,'out vec4 fragColor;');
   AddLine(result);
   AddLine(result,'void main(void)');
   AddLine(result,'{');
-  AddLine(result,'  vec3 c = vec3(vColor.b,vColor.g,vColor.r);',hasColor);
+  AddLine(result,'  vec3 c = vColor.bgr;',hasColor);
   AddLine(result,'  float a = vColor.a;',hasColor);
   AddLine(result,'  vec3 c = vec3(1.0,1.0,1.0); float a = 1.0;',not hasColor);
+  AddLine(result,'  float shadow = texture(texShadowMap, vLightPos);',shadowMap);
   AddLine(result,'  vec4 t;');
-  if HasFlag(texMode.lighting,LIGHT_DIRECT_ON) then begin
-   AddLine(result,'  vec3 normal = normalize(vNormal);',hasNormal); // use attribute normal if present
-   AddLine(result,'  vec3 normal = vec3(0.0,0.0,-1.0);',not hasNormal); // default normal in 2D mode (if no attribute)
-   AddLine(result,'  float diff = lightPower*max(dot(normal,lightDir),0.0);');
-   AddLine(result,'  vec3 ambientColor = vec3(0,0,0);',not HasFlag(texMode.lighting,LIGHT_AMBIENT_ON));
-   AddLine(result,'  c = c*lightColor*diff+ambientColor;');
+  if lighting then begin
+   AddLine(result,'  float diff = 0.0;');
+   AddLine(result,'  if (shadow>0) {',shadowMap);
+   AddLine(result,'   vec3 normal = normalize(vNormal);',hasNormal); // use attribute normal if present
+   AddLine(result,'   vec3 normal = vec3(0.0,0.0,-1.0);',not hasNormal); // default normal in 2D mode (if no attribute)
+   AddLine(result,'   diff = shadow*lightPower*max(dot(normal,lightDir),0.0);');
+   AddLine(result,'   vec3 ambientColor = vec3(0,0,0);',not HasFlag(texMode.lighting,LIGHT_AMBIENT_ON));
+   AddLine(result,'  }',shadowMap);
+  end else begin
+   AddLine(result,'  c = c*(0.7+0.3*shadow); ',shadowMap); // 30% shadow if no lighting enabled
   end;
   // Blending
   for i:=0 to 2 do begin
@@ -322,10 +356,14 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
     end;
    end;
   end;
+  AddLine(result,'  c = c*(lightColor*diff+ambientColor);',lighting);
+
   AddLine(result,'  fragColor = vec4(c.r, c.g, c.b, a);');
+//  AddLine(result,'  fragColor = vec4(vLightPos.xyz, vColor.a);',shadowMap); // for debug output
   AddLine(result,'}');
  end;
 
+// Build shader for the current TexMode and current vertex layout
 function TGLShadersAPI.CreateShaderFor:TGLShader;
  var
   vSrc,fSrc,notes:String8;
@@ -335,18 +373,21 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   hasColor:=actualVertexLayout and $F00>0;
   hasUV:=actualVertexLayout and $F000>0;
   notes:='Std shader for mode '+IntToHex(curTexMode.mode)+' layout='+IntToHex(actualVertexLayout);
-  vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV);
+  vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting);
   fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,curTexMode);
   result:=Build(vSrc,fSrc) as TGLShader;
   result.name:=notes;
   result.texMode:=curTexMode.mode;
  end;
 
+// Get shader for the current TexMode and current vertex layout
 function TGLShadersAPI.GetShaderFor:TGLShader;
  var
   mode:int64;
   v:int64;
  begin
+  if HasFlag(curTexMode.lighting,LIGHT_DEPTHPASS) then
+   actualVertexLayout:=actualVertexLayout and $F; // use only position when rendering to the shadowmap
   mode:=curTexMode.mode+actualVertexLayout shl 32;
   v:=shaderCache.Get(mode);
   if v<>-1 then exit(TGLShader(v));
@@ -504,10 +545,6 @@ procedure TGLShadersAPI.UseCustom(shader: TShader);
  begin
   isCustom:=true;
   ActivateShader(shader);
-  // mark textures as changed to force update
-  for stage:=0 to 2 do
-   if curTextures[stage]<>nil then
-    curTexChanged[stage]:=true;
  end;
 
 procedure TGLShadersAPI.Reset;
@@ -526,6 +563,29 @@ procedure TGLShadersAPI.SetShaderMatrices;
    with activeShader do begin
    if uMVP>=0 then glUniformMatrix4fv(uMVP,1,GL_FALSE,@mvpMatrix);
    if uModelMat>=0 then glUniformMatrix4fv(uModelMat,1,GL_FALSE,@modelMatrix);
+   if uShadowMapMat>=0 then glUniformMatrix4fv(uShadowMapMat,1,GL_FALSE,@shadowMapMatrix);
+  end;
+ end;
+
+procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:single);
+ function CalcShadowMapMatrix:TMatrix4s;
+  var
+   frustum:T3DMatrixS;
+  begin
+    ZeroMem(frustum,sizeof(frustum));
+    frustum[0,0]:=0.5; frustum[3,0]:=0.5;
+    frustum[1,1]:=0.5; frustum[3,1]:=0.5;
+    frustum[2,2]:=0.5; frustum[3,2]:=0.5-depthBias;
+    frustum[3,3]:=1;
+    Multmat4(viewProjMatrix,frustum,shadowMapMatrix);
+  end;
+ begin
+  SetFlag(curTexMode.lighting,LIGHT_SHADOWMAP,mode=shadowMainPass);
+  SetFlag(curTexMode.lighting,LIGHT_DEPTHPASS,mode=shadowDepthPass);
+  UseTexture(shadowMap,3);
+  case mode of
+   shadowDepthPass:ZeroMem(viewProjMatrix,sizeof(viewProjMatrix)); // Invalidate viewProjMatrix
+   shadowMainPass:CalcShadowMapMatrix;
   end;
  end;
 
@@ -541,6 +601,7 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
   shader:TGLShader;
   i:integer;
   tex:TTexture;
+  mat:T3DMatrix;
  begin
   if not isCustom then
    if (actualTexMode.mode<>curTexMode.mode) or (actualVertexLayout<>vertexLayout) then begin
@@ -548,15 +609,22 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
     shader:=GetShaderFor;
     ActivateShader(shader);
     actualTexMode:=curtexMode;
+    if HasFlag(curTexMode.lighting,LIGHT_DEPTHPASS) and
+     IsZeroMem(viewProjMatrix,sizeof(viewProjMatrix)) then begin
+      MultMat4(transformationAPI.GetViewMatrix,transformationAPI.GetProjMatrix,mat);
+      viewProjMatrix:=Matrix4s(mat);
+    end;
    end;
   // set uniforms (if modified)
-  for i:=0 to 2 do
+  for i:=0 to high(curTexChanged) do
    if curTexChanged[i] then begin
     curTexChanged[i]:=false;
     tex:=curTextures[i];
-    while tex.parent<>nil do tex:=tex.parent;
-    resourceManagerGL.MakeOnline(tex,i);
-    if activeShader.uTex[i]>=0 then glUniform1i(activeShader.uTex[i],i);
+    if tex<>nil then begin
+     while tex.parent<>nil do tex:=tex.parent;
+     resourceManagerGL.MakeOnline(tex,i);
+     if activeShader.uTex[i]>=0 then glUniform1i(activeShader.uTex[i],i);
+    end;
    end;
   if directLightModified then begin
    activeShader.SetUniform('lightDir',directLightDir);
@@ -571,10 +639,15 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
  end;
 
 procedure TGLShadersAPI.ActivateShader(shader:TShader);
+ var
+  stage:integer;
  begin
   activeShader:=shader as TGLShader;
   glUseProgram(activeShader.handle);
-  //SetShaderMatrices;
+  // mark textures as changed to force update
+  for stage:=0 to 3 do
+   if curTextures[stage]<>nil then
+    curTexChanged[stage]:=true;
  end;
 
 end.

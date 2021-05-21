@@ -375,6 +375,11 @@ type
    cullCW,    // Omit CW faces. This engine uses CW faces for 2D drawing
    cullCCW);  // Omit CCW faces. in OpenGL CCW-faces are considered front by default
 
+ // Shader mode for shadow mapping
+ TShadowMapMode=(shadowDisabled,  // No shadow mapping (default, no shadows)
+                 shadowDepthPass, // Render shadowmap (depth-only, no color output)
+                 shadowMainPass); // Render using shadowmap (enable shadows)
+
  // Base class for shader object
  TShader=class
   name:string8;
@@ -504,6 +509,8 @@ type
   procedure LightOff;
   // Define material properties
   procedure Material(color:cardinal;shininess:single);
+  // Shadow mapping
+  procedure Shadow(mode:TShadowMapMode;shadowMap:TTexture=nil;depthBias:single=0.002);
 
   // Update and upload transformation matrices
   procedure UpdateMatrices(const model,MVP:T3DMatrix);
