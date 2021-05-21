@@ -4,10 +4,18 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 // ------------------------------------------------------
+//
+// Unlike OpenGL, this unit assume matrices are row-major.
+// However, their in-memory layout is identical to what OpenGL or DirectX use.
+// This means that:
+// - vector transformation is v*M (not M*v)
+// - multiple transformation is v*M1*M2*..*Mn, so combined transformation is M1*M2*..*Mn (not Mn*...*M1)
+//   in particular, MVP matrix is Model*View*Projection
+// Since OpenGL assume column-major matrices, only notional (imaginable) transpose occurs when matrix is
+// uploaded, so no real transpose/data modification. The same binary data is just used differently in the GLSL shaders.
 {$IFDEF FPC}{$PIC OFF}{$ENDIF}
 unit Apus.Geom3D;
 interface
-
  type
   PPoint3=^TPoint3;
   PVector3=^TVector3;
@@ -188,6 +196,7 @@ interface
  procedure MultMat4(const m1,m2:TMatrix43;out target:TMatrix43); overload;
  procedure MultMat4(const m1,m2:TMatrix43s;out target:TMatrix43s); overload;
  procedure MultMat4(const m1,m2:TMatrix4;out target:TMatrix4); overload;
+ procedure MultMat4(const m1,m2:TMatrix4s;out target:TMatrix4s); overload;
  function  MultMat4(const m1,m2:TMatrix43):TMatrix43; overload;
 
  procedure MultPnt4(const m:TMatrix43;v:PPoint3;num,step:integer); overload;
@@ -646,6 +655,15 @@ implementation
   end;
 
  procedure MultMat4(const m1,m2:TMatrix4;out target:TMatrix4);
+  var
+   i,j:integer;
+  begin
+   for i:=0 to 3 do
+    for j:=0 to 3 do
+     target[i,j]:=m1[i,0]*m2[0,j]+m1[i,1]*m2[1,j]+m1[i,2]*m2[2,j]+m1[i,3]*m2[3,j];
+  end;
+
+ procedure MultMat4(const m1,m2:TMatrix4s;out target:TMatrix4s);
   var
    i,j:integer;
   begin
