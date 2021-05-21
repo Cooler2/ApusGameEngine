@@ -32,7 +32,6 @@ implementation
    time:single;
    shadowMap:TTexture;
    lightDir:TVector3;
-   sDepth,sMain,sMain2d:TShader;
    lightMatrix:T3DMatrix;
    constructor Create;
    procedure Initialize; override;
@@ -87,10 +86,6 @@ procedure TMainScene.Initialize;
   // No pixel format for the image buffer means that only depth buffer should be allocated
   shadowMap:=gfx.resman.AllocImage(1024,1024,TImagePixelFormat.ipfNone,
    aiRenderTarget+aiDepthBuffer+aiClampUV,'ShadowMap');
-
-  sDepth:=shader.Load(baseDir+'res\shadowmap');
-  sMain:=shader.Load(baseDir+'res\main');
-  sMain2d:=shader.Load(baseDir+'res\main2d');
  end;
 
 procedure TMainScene.onMouseMove(x, y: integer);
@@ -115,17 +110,10 @@ procedure TMainScene.onMouseWheel(delta: integer);
 
 procedure TMainScene.DrawScene(mainPass: boolean);
  begin
-  gfx.target.UseDepthBuffer(dbPassLess);
+  gfx.target.UseDepthBuffer(dbPass);
   // 2D primitives are drawn on XY plane (z=0) so it's OK to draw floor like this :)
-  if mainPass then begin
-   shader.UseCustom(sMain2d);
-   sMain2d.SetUniform('LightMatrix',lightMatrix);
-   shader.UseTexture(shadowMap,1);
-  end;
   draw.FillRect(-20,-20,20,20,$FF80A0B0);
-  if mainPass then glFlush; // This is just a breakpoint for gDebugger. It does nothing meaningful.
   if mainPass then begin
-   gfx.target.UseDepthBuffer(dbPass);
    // X axis
    draw.Line(0,0,10,0,$FF000090);
    draw.Line(10,0,9,1,$FF000090);
@@ -139,19 +127,17 @@ procedure TMainScene.DrawScene(mainPass: boolean);
   gfx.target.UseDepthBuffer(dbPassLess); // clip anything below the floor plane
 
   if mainPass then begin
-   shader.UseCustom(sMain);
-   sMain.SetUniform('LightMatrix',lightMatrix);
-   shader.UseTexture(shadowMap,1);
-
    // Setup light and material
-   shader.AmbientLight($303030);
-   shader.DirectLight(lightDir, 0.5,$FFFFFF);
+   shader.AmbientLight($505050);
+   shader.DirectLight(lightDir, 0.7,$FFFFFF);
    shader.Material($FF408090,0);
   end;
 
   // Draw objects
-  transform.SetObj(0,0,3, 2, 0,time/2,time); // Set object position and scale
+  transform.SetObj(0,0,3, 2, 0,time/2,time); // Set object position, scale and rotation
   objHoney.Draw;
+  if mainPass then glFlush; // This is just a breakpoint for gDebugger. It does nothing meaningful.
+
  end;
 
 
@@ -168,29 +154,20 @@ procedure TMainScene.Render;
   // 1-st pass: build shadowmap
   gfx.BeginPaint(shadowMap);
   gfx.target.Clear(0,1);
+  shader.Shadow(shadowDepthPass);
   // Set ortho view from the light source
   transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
   // Scale 25 should be enough to cover all scene
   // If scene is too large, this method won't work: you need either
   // cascaded shadow maps or (better) compressed (non-linear) shadow maps
   transform.Orthographic(25, 1,100); // Z range: 0..100
-  MultMat4(transform.GetViewMatrix,transform.GetProjMatrix,lightMatrix);
-  MultMat4(transform.GetViewMatrix,transform.GetProjMatrix, tmp);
-  zBias:=0.002;
-  ZeroMem(frustum,sizeof(frustum));
-  frustum[0,0]:=0.5; frustum[3,0]:=0.5;
-  frustum[1,1]:=0.5; frustum[3,1]:=0.5;
-  frustum[2,2]:=0.5; frustum[3,2]:=0.5-zBias;
-  frustum[3,3]:=1;
-  Multmat4(tmp,frustum,lightMatrix);
 
-  shader.UseCustom(sDepth);
   DrawScene(false);
-  shader.Reset;
   gfx.EndPaint;
 
-  // 2-nd pass
-  gfx.target.Clear(0,1);
+  shader.Shadow(shadowMainPass,shadowMap);
+  // 2-nd pass: render scene with shadows
+  gfx.target.Clear($20,1);
   gfx.SetCullMode(cullCCW); // normal culling mode
 
   // Set 3D view
@@ -206,12 +183,13 @@ procedure TMainScene.Render;
   transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
   transform.Orthographic(25, 1,100); // Z range: 0..100}
 
-  transform.Transform(Point3(0,0,0));
+  //transform.Transform(Point3(0,0,0));
 
   DrawScene(true);
 
+  shader.Shadow(shadowDisabled);
+
   // Turn back to 2D view and everything
-  shader.Reset;
   shader.LightOff;
   shader.DefaultTexMode;
   transform.DefaultView;
