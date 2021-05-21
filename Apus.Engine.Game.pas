@@ -1279,7 +1279,12 @@ var
  i:integer;
  w,h:integer;
  scale:single;
+ oldDisplayRect:TRect;
+ oldRW,oldRH:integer;
 begin
+ oldRW:=renderWidth;
+ oldRH:=renderHeight;
+ oldDisplayRect:=displayRect;
  w:=0; h:=0;
  case params.mode.displayFitMode of
   dfmCenter:begin
@@ -1310,6 +1315,11 @@ begin
 
  renderWidth:=params.width;
  renderHeight:=params.height;
+
+ // Nothing changed?
+ if (displayRect=oldDisplayRect) and
+    (renderWidth=oldRW) and (renderHeight=oldRH) then exit;
+
  LogMessage(Format('Set render area: (%d x %d) (%d,%d) -> (%d,%d)',
    [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Right,displayRect.Bottom]));
  SetDisplaySize(renderWidth,renderHeight); // UI display size
