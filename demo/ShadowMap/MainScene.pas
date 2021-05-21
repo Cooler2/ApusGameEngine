@@ -136,7 +136,7 @@ procedure TMainScene.DrawScene(mainPass: boolean);
   // Draw objects
   transform.SetObj(0,0,3, 2, 0,time/2,time); // Set object position, scale and rotation
   objHoney.Draw;
-  if mainPass then glFlush; // This is just a breakpoint for gDebugger. It does nothing meaningful.
+  //if mainPass then glFlush; // This is just a breakpoint for gDebugger. It does nothing meaningful.
 
  end;
 
@@ -157,9 +157,10 @@ procedure TMainScene.Render;
   shader.Shadow(shadowDepthPass);
   // Set ortho view from the light source
   transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
-  // Scale 25 should be enough to cover all scene
+  // Scale 25 should be enough to cover all scene even at minimal zoom level.
   // If scene is too large, this method won't work: you need either
   // cascaded shadow maps or (better) compressed (non-linear) shadow maps
+  // It's reasonable to change scale with zoom to keep the shade fidelity, but I'm using fixed scale.
   transform.Orthographic(25, 1,100); // Z range: 0..100
 
   DrawScene(false);
@@ -168,7 +169,7 @@ procedure TMainScene.Render;
   shader.Shadow(shadowMainPass,shadowMap);
   // 2-nd pass: render scene with shadows
   gfx.target.Clear($20,1);
-  gfx.SetCullMode(cullCCW); // normal culling mode
+  gfx.SetCullMode(cullCCW); // cull back faces (!! don't forget to restore, as engine used the opposite face direction)
 
   // Set 3D view
   distance:=30/cameraZoom.value;
@@ -194,7 +195,9 @@ procedure TMainScene.Render;
   shader.DefaultTexMode;
   transform.DefaultView;
   gfx.target.UseDepthBuffer(dbDisabled); // Disable depth buffer
+  gfx.SetCullMode(cullNone);
 
+  //glFlush;
   txt.Write(0,10,20,$FFD0D0D0,'[Ctrl]+[~] - tweaker. Mouse - rotate/zoom.');
   inherited;
  end;
