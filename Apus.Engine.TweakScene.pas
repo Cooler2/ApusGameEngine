@@ -64,12 +64,14 @@ implementation
  var
   tweakerScene:TTweakerScene;
 
+ /// TODO: сейчас у сцены UI - окно, а не экран. Окно должно быть дочерним элементом плноэкранного корневого элемента!
+
  procedure EventHandler(event:TEventStr;tag:TTag);
   begin
    event:=UpperCase(event);
    if event='KBD\KEYDOWN' then begin
-    // Ctrl+[~] - ��������/������ ������
-    if (tag and 255=192) and (tag and $20000>0) then begin
+    // Ctrl+[~] - toggle scene
+    if (GetKeyEventVirtualCode(tag)=$C0) and (game.shiftState and sscCtrl>0) then begin
      if tweakerScene.status<>ssActive then
       tweakerScene.SetStatus(ssActive)
      else
