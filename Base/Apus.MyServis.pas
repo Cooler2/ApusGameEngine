@@ -428,7 +428,7 @@ interface
  procedure DecodeHex(st:String8;buf:pointer); overload;
 
  procedure ZeroMem(var data;size:integer); inline;
- function IsZeroMem(buf:pointer;size:integer):boolean;
+ function IsZeroMem(var data;size:integer):boolean;
  procedure FillDword(var data;size:integer;value:cardinal);
 
  // Простейшее шифрование/дешифрование (simple XOR)
@@ -2144,14 +2144,14 @@ procedure SimpleEncrypt2;
    fillchar(data,size,0);
   end;
 
- function IsZeroMem(buf:pointer;size:integer):boolean;
+ function IsZeroMem(var data;size:integer):boolean;
   var
    i:integer;
    pc:^NativeUInt;
    pb:PByte;
   begin
    result:=false;
-   pb:=buf;
+   pb:=@data;
    if size<=8 then begin
     // Unaligned version
     while size>0 do begin
