@@ -128,8 +128,10 @@ procedure TMainScene.DrawScene(mainPass: boolean);
 
   if mainPass then begin
    // Setup light and material
-   shader.AmbientLight($505050);
-   shader.DirectLight(lightDir, 0.7,$FFFFFF);
+   SetGlobals('GC0=$505050;GF0=0.7','Light');
+
+   shader.AmbientLight(GC0);
+   shader.DirectLight(lightDir, gF0,$FFFFFF);
    shader.Material($FF408090,0);
   end;
 
@@ -148,7 +150,8 @@ procedure TMainScene.Render;
  begin
   // setup
   time:=MyTickCount/1000;
-  lightDir:=Vector3(1, 0.5, 1);
+  SetGlobals('GF0=1;GF1=0.5;GF2=1','LightDir');
+  lightDir:=Vector3(gF0, gF1, gF2);
 
   gfx.SetCullMode(cullCW); // this is a trick! Draw back faces only into the shadowmap (cullNone will work too, but not cullCCW)
   // 1-st pass: build shadowmap
