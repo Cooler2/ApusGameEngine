@@ -697,7 +697,8 @@ type
 
   // Meshes ------------------
   // Draw textured tri-mesh (tex=nil -> colored mode)
-  procedure TrgList(vertices:PVertex3D;trgCount:integer;tex:TTexture);
+  procedure TrgList(vertices:PVertex;trgCount:integer;tex:TTexture); overload;
+  procedure TrgList3D(vertices:PVertex3D;trgCount:integer;tex:TTexture); overload;
   // Draw indexed tri-mesh (tex=nil -> colored mode)
   procedure IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
 

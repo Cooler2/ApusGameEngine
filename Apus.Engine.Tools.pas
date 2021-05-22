@@ -52,6 +52,7 @@ type
  end;
 
  TVertexHandler=procedure(var vertex:TVertex);
+ TVertex3DHandler=procedure(var vertex:TVertex3D);
 
  // Common purpose routines
 
@@ -87,9 +88,11 @@ type
  // Meshes
  function LoadMesh(fname:string):TMesh;
  function BuildMeshForImage(img:TTexture;splitX,splitY:integer):TMesh;
- function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices;
+ function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices; overload;
+ function TransformVertices(vertices:TVertices3D;shader:TVertex3DHandler):TVertices3D; overload;
  procedure DrawIndexedMesh(vertices:TVertices3D;indices:TIndices;tex:TTexture);
- procedure DrawMesh(vertices:TVertices3D;tex:TTexture);
+ procedure DrawMesh(vertices:TVertices;tex:TTexture); overload;
+ procedure DrawMesh(vertices:TVertices3D;tex:TTexture); overload;
  procedure AddVertex(var vertices:TVertices;x,y,z,u,v:single;color:cardinal);
 
 // procedure BuildNPatchMesh(img:TTexture;splitU,splitV,weightU,weightW:SingleArray;var vertices:TVertices;var indices:TIndices);
@@ -500,6 +503,11 @@ end;
    draw.IndexedMesh(@vertices[0],@indices[0],length(indices) div 3,length(vertices),tex);
   end;
 
+ procedure DrawMesh(vertices:TVertices;tex:TTexture);
+  begin
+   draw.TrgList(@vertices[0],length(vertices) div 3,tex);
+  end;
+
  procedure DrawMesh(vertices:TVertices3D;tex:TTexture);
   begin
    draw.TrgList(@vertices[0],length(vertices) div 3,tex);
@@ -520,6 +528,17 @@ end;
   end;
 
  function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices;
+  var
+   i:integer;
+  begin
+   SetLength(result,length(vertices));
+   for i:=0 to length(vertices)-1 do begin
+    result[i]:=vertices[i];
+    Shader(result[i]);
+   end;
+  end;
+
+ function TransformVertices(vertices:TVertices3D;shader:TVertex3DHandler):TVertices3D;
   var
    i:integer;
   begin
