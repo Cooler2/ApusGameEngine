@@ -118,6 +118,7 @@ implementation
 uses
   Apus.MyServis,
   SysUtils,
+  StrUtils,
   Apus.Engine.ResManGL
   {$IFDEF MSWINDOWS},Windows{$ENDIF}
   {$IFDEF DGL},dglOpenGL{$ENDIF};
@@ -324,7 +325,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
    AddLine(result,'  if (shadow>0) {',shadowMap);
    AddLine(result,'   vec3 normal = normalize(vNormal);',hasNormal); // use attribute normal if present
    AddLine(result,'   vec3 normal = vec3(0.0,0.0,-1.0);',not hasNormal); // default normal in 2D mode (if no attribute)
-   AddLine(result,'   diff = shadow*lightPower*max(dot(normal,lightDir),0.0);');
+   AddLine(result,'   diff = '+IfThen(shadowMap,'shadow*','')+'lightPower*max(dot(normal,lightDir),0.0);');
    AddLine(result,'   vec3 ambientColor = vec3(0,0,0);',not HasFlag(texMode.lighting,LIGHT_AMBIENT_ON));
    AddLine(result,'  }',shadowMap);
   end else begin
@@ -373,6 +374,7 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   hasColor:=actualVertexLayout and $F00>0;
   hasUV:=actualVertexLayout and $F000>0;
   notes:='Std shader for mode '+IntToHex(curTexMode.mode)+' layout='+IntToHex(actualVertexLayout);
+  LogMessage('Building: '+notes);
   vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting);
   fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,curTexMode);
   result:=Build(vSrc,fSrc) as TGLShader;
@@ -503,7 +505,8 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   glCompileShader(vsh);
   glGetShaderiv(vsh,GL_COMPILE_STATUS,@res);
   if res=0 then
-   raise EError.Create('VShader compilation failed: '+GetShaderError(vsh));
+   raise EError.Create('VShader compilation failed: '+GetShaderError(vsh)+
+    #13#10'Shader code: '#13#10+vSrc);
 
 
   // Fragment shader
@@ -514,7 +517,8 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   glCompileShader(fsh);
   glGetShaderiv(fsh,GL_COMPILE_STATUS,@res);
   if res=0 then
-   raise EError.Create('FShader compilation failed: '+GetShaderError(fsh));
+   raise EError.Create('FShader compilation failed: '+GetShaderError(fsh)+
+    #13#10'Shader code: '#13#10+fSrc);
 
   // Build program object
   prog:=glCreateProgram;
