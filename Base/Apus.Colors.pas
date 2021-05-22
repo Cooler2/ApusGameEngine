@@ -23,8 +23,9 @@ type
  function ColorAdd(c1,c2:cardinal):cardinal;
  function ColorSub(c1,c2:cardinal):cardinal;
  function ColorMult2(c1,c2:cardinal):cardinal;
- // Умножает альфу на цвет
+ // Multiply color by (alpha,1,1,1)
  function ColorAlpha(color:cardinal;alpha:single):cardinal;
+ function ReplaceAlpha(color:cardinal;alpha:single):cardinal;
  // value=0 -> c2, value=256 -> c1
  function ColorMix(c1,c2:cardinal;value:integer):cardinal; register; // Линейная интерполяция
  function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // Качественный квази-линейный бленд (гораздо медленнее!)
@@ -175,9 +176,14 @@ implementation
 
  function ColorAlpha(color:cardinal;alpha:single):cardinal;
   begin
-   if alpha>1 then alpha:=1;
    alpha:=Clamp(alpha,0,1);
    result:=color and $FFFFFF+round(alpha*(color and $FF000000)) and $FF000000;
+  end;
+
+ function ReplaceAlpha(color:cardinal;alpha:single):cardinal;
+  begin
+   alpha:=Clamp(alpha,0,1);
+   result:=color and $FFFFFF+round(alpha*255) shl 24;
   end;
 
  function ColorMix(c1,c2:cardinal;value:integer):cardinal;
