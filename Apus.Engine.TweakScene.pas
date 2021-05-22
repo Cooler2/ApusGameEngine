@@ -11,7 +11,7 @@ interface
  procedure CreateTweakerScene(tinyFont,normalFont:cardinal);
 
 implementation
- uses Apus.CrossPlatform, SysUtils, Apus.MyServis, Apus.Engine.API,
+ uses Apus.CrossPlatform, SysUtils, Apus.MyServis, Apus.Engine.API, Apus.Colors,
    Apus.Publics, Math, Apus.Engine.UIClasses, Apus.Engine.UIScene, Apus.EventMan,
    Apus.Engine.UIRender;
 
@@ -32,7 +32,7 @@ implementation
 
   TValueType=(vtFloat=1,
               vtInteger=2,
-              vtAlpha=3,
+              vtAlpha=3, // color components
               vtRed=4,
               vtGreen=5,
               vtBlue=6);
@@ -246,6 +246,7 @@ begin
   if game.shiftstate and sscAlt>0 then step:=step*4;
  end;
  value:=value+step;
+ if vType in [vtAlpha..vtBlue] then value:=Clamp(value,0,255);
  onMouseButtons(1,false);
 end;
 
@@ -277,12 +278,13 @@ var
  i,j:integer;
  xx,yy:integer;
  step:single;
- fl:boolean;
+ fl,focused:boolean;
  c:cardinal;
 begin
+ focused:=self=focusedControl;
  //if self=focusedControl then draw.Rect(x1,y1,x2,y2,$80C0A0A0);
  with gfx do begin
- if self=focusedControl then c:=$2000 else c:=0;
+ if focused then c:=$2000 else c:=0;
  yy:=y1+round(height*0.48);
  draw.Line(x1,yy-1,x2,yy-1,$80202020+c);
  draw.Line(x1,yy+1,x2,yy+1,$80A0A0A0+c);
@@ -332,6 +334,7 @@ begin
    vtBlue: c:=$FFA0A0F0;
   end;
   inc(xx,x1);
+  if focused then c:=ColorAlpha(c,0.9+0.2*sin(game.frameStartTime/50));
   for i:=-4 to 4 do
    draw.Line(xx+i,yy-j,xx+i,yy-abs(i),c-$101010*abs(i));
  end;
@@ -341,12 +344,14 @@ end;
 function TTracker.onKey(keycode: byte; pressed: boolean;
   shiftstate: byte): boolean;
 begin
- if pressed then begin
-  if keycode=VK_LEFT then ChangeValue(-1);
-  if keycode=VK_RIGHT then ChangeValue(+1);
-  // [R] - reset to initial value
-  if keycode=82 then value:=initialValue;
- end;
+ if pressed then
+  case keyCode of
+   VK_LEFT:ChangeValue(-1);
+   VK_RIGHT:ChangeValue(+1);
+   VK_UP:SetFocusToPrev;
+   VK_DOWN:SetFocusToNext;
+   byte('R'):value:=initialValue;   // [R] - reset to initial value
+  end;
 end;
 
 procedure TTracker.onMouseButtons(button: byte; state: boolean);
