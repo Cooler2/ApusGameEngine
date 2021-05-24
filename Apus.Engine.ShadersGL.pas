@@ -90,9 +90,8 @@ type
   ambientLightColor:cardinal;
   ambientLightModified:boolean;
 
-  // current direct light
-  directLightDir:TVector3s;
-  directLightPower:single;
+  // Current direct light
+  directLightDir:TVector3s; //< direction * power
   directLightColor:cardinal;
   directLightModified:boolean;
 
@@ -305,7 +304,6 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
   if HasFlag(texMode.lighting,LIGHT_DIRECT_ON) then begin
    AddLine(result,'uniform vec3 lightDir;');
    AddLine(result,'uniform vec3 lightColor;');
-   AddLine(result,'uniform float lightPower;');
   end;
   AddLine(result,'in vec3 vNormal;',hasNormal);
   AddLine(result,'in vec4 vColor;',hasColor);
@@ -325,7 +323,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
    AddLine(result,'  if (shadow>0) {',shadowMap);
    AddLine(result,'   vec3 normal = normalize(vNormal);',hasNormal); // use attribute normal if present
    AddLine(result,'   vec3 normal = vec3(0.0,0.0,-1.0);',not hasNormal); // default normal in 2D mode (if no attribute)
-   AddLine(result,'   diff = '+IfThen(shadowMap,'shadow*','')+'lightPower*max(dot(normal,lightDir),0.0);');
+   AddLine(result,'   diff = '+IfThen(shadowMap,'shadow*','')+'max(dot(normal,lightDir),0.0);');
    AddLine(result,'   vec3 ambientColor = vec3(0,0,0);',not HasFlag(texMode.lighting,LIGHT_AMBIENT_ON));
    AddLine(result,'  }',shadowMap);
   end else begin
@@ -411,7 +409,8 @@ constructor TGLShadersAPI.Create;
 procedure TGLShadersAPI.DirectLight(direction:TVector3; power:single; color:cardinal);
  begin
   directLightDir:=Vector3s(direction);
-  directLightPower:=power;
+  directLightDir.Normalize;
+  VectMult(directLightDir,power);
   directLightColor:=color;
   SetFlag(curTexMode.lighting,LIGHT_DIRECT_ON,power>0);
   directLightModified:=true;
@@ -632,7 +631,6 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
    end;
   if directLightModified then begin
    activeShader.SetUniform('lightDir',directLightDir);
-   activeShader.SetUniform('lightPower',directLightPower);
    activeShader.SetUniform('lightColor',VectorFromColor3(directLightColor));
    directLightModified:=false;
   end;
