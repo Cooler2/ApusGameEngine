@@ -73,7 +73,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 5;
+ testnum:integer = 15;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -471,7 +471,7 @@ end;
 var
  globalS:double;
 
-procedure Shader1(var vertex:TVertex);
+procedure Shader1(var vertex:TVertex3D);
 begin
  with vertex do begin
   x:=x+3*sin(globalS+y*0.18)-0.1*y;
