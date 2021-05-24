@@ -21,19 +21,24 @@ interface
   PVector3=^TVector3;
   TPoint3=packed record
    x,y,z:double;
-   constructor Init(iX,iY,iZ:double);
+   constructor Init(X,Y,Z:double);
+   procedure Normalize;
   end;
   TVector3=TPoint3;
 
   PPoint3s=^TPoint3s;
   TPoint3s=packed record
    x,y,z:single;
+   constructor Init(X,Y,Z:single);
+   procedure Normalize;
   end;
   TVector3s=TPoint3s;
 
   TQuaternion=record
-   x,y,z,w:double;
    constructor Init(x,y,z,w:double);
+   case integer of
+    1:( x,y,z,w:double; );
+    2:( v:array[0..3] of double; );
   end;
 
   TQuaternionS=record
@@ -42,6 +47,9 @@ interface
     1:( x,y,z,w:single; );
     2:( v:array[0..3] of single; );
   end;
+
+  TVector4=TQuaternion;
+  TVector4s=TQuaternionS;
 
   // Infinite plane in space
   TPlane=packed record
@@ -1269,9 +1277,25 @@ var
  fSet1,fset2:cardinal;
 { TPoint3 }
 
-constructor TPoint3.Init(iX, iY, iZ: double);
+constructor TPoint3.Init(X,Y,Z:double);
  begin
-  x:=iX; y:=iY; z:=iZ;
+  self.x:=X; self.y:=Y; self.z:=Z;
+ end;
+
+procedure TPoint3.Normalize;
+ begin
+  Normalize3(self);
+ end;
+
+{ TPoint3s }
+constructor TPoint3s.Init(X,Y,Z:single);
+ begin
+  self.x:=x; self.y:=y; self.z:=z;
+ end;
+
+procedure TPoint3s.Normalize;
+ begin
+  Normalize3(self);
  end;
 
 { TQuaternion }
