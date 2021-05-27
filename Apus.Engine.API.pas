@@ -468,10 +468,10 @@ type
   // Set object position/scale/rotate
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
   // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
-  function GetMVPMatrix:T3DMatrix;
-  function GetProjMatrix:T3DMatrix;
-  function GetViewMatrix:T3DMatrix;
-  function GetObjMatrix:T3DMatrix;
+  function MVPMatrix:T3DMatrix;
+  function ProjMatrix:T3DMatrix;
+  function ViewMatrix:T3DMatrix;
+  function ObjMatrix:T3DMatrix;
   // Transform point using combined MVP matrix
   function Transform(source: TPoint3):TPoint3;
  end;

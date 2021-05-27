@@ -49,6 +49,10 @@ type
   function GetProjMatrix:T3DMatrix;
   function GetViewMatrix:T3DMatrix;
   function GetObjMatrix:T3DMatrix;
+  function ITransformation.MVPMatrix = GetMVPMatrix;
+  function ITransformation.ProjMatrix = GetProjMatrix;
+  function ITransformation.ViewMatrix = GetViewMatrix;
+  function ITransformation.ObjMatrix = GetObjMatrix;
   function Transform(source:TPoint3):TPoint3;
  type
   TMatrixType=(mtModelView,mtProjection);

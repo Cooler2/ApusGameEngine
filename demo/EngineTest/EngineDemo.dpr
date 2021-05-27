@@ -1510,24 +1510,24 @@ begin
  x:=1024/2; y:=768/2; z:=500;
  t:=frame/100;
 
- gfx.transform.Perspective(-30,30,-20,20,40,1,100);
+ transform.Perspective(-30,30,-20,20,40,1,100);
 // draw.SetOrthographic(30,0,100);
 
 // draw.SetupCamera(Point3(20*sin(frame/100),-10,20*cos(frame/100)),Point3(0,0,0),Point3(0,1000,0));
 // t:=1;
- gfx.transform.SetCamera(Point3(20*cos(t),7,20*sin(t)),Point3(0,3,0),Point3(0,1000,00));
+ transform.SetCamera(Point3(20*cos(t),7,20*sin(t)),Point3(0,3,0),Point3(0,1000,00));
 // if frame mod 200<100 then
 // draw.SetupCamera(Point3(20,5,0),Point3(0,0,0),Point3(0,-1000,0));
 
- gfx.transform.SetObj(IdentMatrix4);
+ transform.SetObj(IdentMatrix4);
  glDisable(GL_CULL_FACE);
 
  glEnable(GL_DEPTH_TEST);
  glDepthFunc(GL_LESS);
 
- pnt[1]:=gfx.transform.Transform(Point3(0,3,0));
- pnt[2]:=gfx.transform.Transform(Point3(0,10,0));
- pnt[3]:=gfx.transform.Transform(Point3(0,0,10));
+ pnt[1]:=transform.Transform(Point3(0,3,0));
+ pnt[2]:=transform.Transform(Point3(0,10,0));
+ pnt[3]:=transform.Transform(Point3(0,0,10));
 
  // X axis
  AddVertex(vertices,0,-1,0,0,0,$FF0000C0);
@@ -1828,13 +1828,13 @@ begin
  time:=MyTickCount/1200;
  gfx.target.Clear($FF101020,1);
  // Setup camera and projection
- gfx.transform.Perspective(-10,10,-7,7,10,5,1000);
- gfx.transform.SetCamera(Point3(30,0,15),Point3(0,0,8),Vector3(0,0,1000));
- gfx.transform.SetObj(IdentMatrix4);
+ transform.Perspective(-10,10,-7,7,10,5,1000);
+ transform.SetCamera(Point3(30,0,15),Point3(0,0,8),Vector3(0,0,1000));
+ transform.SetObj(IdentMatrix4);
 
  // Make sure everything is OK (just for debug)
- pnt:=gfx.transform.Transform(Point3(0,0,0));
- pnt:=gfx.transform.Transform(Point3(1,1,1));
+ pnt:=transform.Transform(Point3(0,0,0));
+ pnt:=transform.Transform(Point3(1,1,1));
 
  // Make animation
  model.AnimateBones;
@@ -1848,15 +1848,15 @@ begin
  // Set model position
  MultMat4(ScaleMat(2,2,2),RotationZMat(time),objMat);
  objMat[3,2]:=3;
- gfx.transform.SetObj(Matrix4(objMat));
+ transform.SetObj(Matrix4(objMat));
 
  // Switch to our custom shader
  gfx.shader.UseCustom(shader);
 
  // After shader changing we MUST set uniforms
- shader.SetUniform('uMVP',gfx.transform.GetMVPMatrix);
+ shader.SetUniform('uMVP',transform.MVPMatrix);
  // model matrix
- shader.SetUniform('uModel',gfx.transform.GetObjMatrix);
+ shader.SetUniform('uModel',transform.ObjMatrix);
 
  // Setup mesh data source arrays
  glEnableVertexAttribArray(0);
@@ -1880,11 +1880,11 @@ begin
  objMat[3,1]:=16;
  objMat[3,0]:=5;
  objMat[3,2]:=1.5;
- gfx.transform.SetObj(Matrix4(objMat));
+ transform.SetObj(Matrix4(objMat));
  // Upload matrices
- shader2.SetUniform('uMVP',gfx.transform.GetMVPMatrix);
+ shader2.SetUniform('uMVP',transform.MVPMatrix);
  // model matrix
- shader2.SetUniform('uModel',gfx.transform.GetObjMatrix);
+ shader2.SetUniform('uModel',transform.ObjMatrix);
  // Setup mesh data arrays
  glVertexAttribPointer(0,3,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0]);
  glVertexAttribPointer(1,3,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0].nX);
@@ -1903,7 +1903,7 @@ begin
  // Reset everything back
  glDisable(GL_DEPTH_TEST);
  gfx.shader.DefaultTexMode;
- gfx.transform.DefaultView;
+ transform.DefaultView;
  gfx.SetCullMode(cullNone);
 end;
 
