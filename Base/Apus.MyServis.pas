@@ -357,6 +357,8 @@ interface
  // Search for a substring from specified point
  function PosFrom(substr,str:string;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
  function PosFrom(substr,str:WideString;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
+ {$IFDEF ADDANSI}
+ function PosFrom(substr,str:String8;minIndex:integer=1;ignoreCase:boolean=false):integer; overload; {$ENDIF}
  function LastPos(substr,str:String8;ignoreCase:boolean=false):integer; overload;
  // Extract substring "prefix|xxx|suffix"
  function ExtractStr(str,prefix,suffix:string;out prefIndex:integer):string;
@@ -3500,6 +3502,28 @@ function BinToStr;
     inc(minIndex);
    end;
   end;
+
+{$IFDEF ADDANSI}
+ function PosFrom(substr,str:String8;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
+  var
+   m,n,i:integer;
+  begin
+   result:=0;
+   if ignoreCase then
+    substr:=UpperCase(substr);
+   n:=length(substr);
+   m:=length(str)-n+1;
+   while minIndex<=m do begin
+    i:=0;
+    if ignoreCase then
+     while (i<n) and (UpCase(str[minIndex+i])=substr[i+1]) do inc(i)
+    else
+     while (i<n) and (str[minIndex+i]=substr[i+1]) do inc(i);
+    if i=n then exit(minIndex);
+    inc(minIndex);
+   end;
+  end;
+  {$ENDIF}
 
  function LastPos(substr,str:String8;ignoreCase:boolean=false):integer; overload;
   var
