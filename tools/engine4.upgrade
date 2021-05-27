@@ -1,0 +1,40 @@
+Engine4 upgrade script:
+MyServis -> Apus.MyServis
+EventMan -> Apus.EventMan
+CrossPlatform -> Apus.CrossPlatform
+AnimatedValues -> Apus.AnimatedValues
+Structs       -> Apus.Structs
+Publics       -> Apus.Publics
+Geom2D        -> Apus.Geom2D
+Geom3D        -> Apus.Geom3D
+Images        -> Apus.Images
+FastGFX       -> Apus.FastGFX
+GfxFormats    -> Apus.GfxFormats
+Colors        -> Apus.Colors
+Logging       -> Apus.Logging
+StackTrace    -> Apus.StackTrace
+MyRegExpr     -> Apus.RegExpr
+
+EngineAPI     -> Apus.Engine.API 
+UIScene       -> Apus.Engine.UIScene
+GameApp       -> Apus.Engine.GameApp
+CustomStyle   -> Apus.Engine.CustomStyle
+ConsoleScene  -> Apus.Engine.ConsoleScene
+CmdProc       -> Apus.Engine.CmdProc
+UIClasses     -> Apus.Engine.UIClasses
+UIRender      -> Apus.Engine.UIRender
+TweakScene    -> Apus.Engine.TweakScene
+stdEffects    -> Apus.Engine.SceneEffects
+OBJLoader     -> Apus.Engine.OBJLoader
+Model3D       -> Apus.Engine.Model3D
+EngineTools   -> _remove_
+
+SetGameSettings( -> SetupGameSettings(
+TTextureImage -> TTexture
+CreateDiffPatch( -> CreateBackupPatch(
+ApplyDiffPatch( -> ApplyBackupPatch(
+
+painter.TextOut( -> txt->Write(
+painter.TextOutW( -> txt->WriteW(
+
+painter. -> draw.
