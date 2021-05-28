@@ -578,7 +578,8 @@ procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
    if flags=liffDefault then flags:=defaultLoadImageFlags;
    if img<>nil then FreeImage(TTexture(img));
 
-   if IsPathRelative(fName) then fName:=defaultImagesDir+fName;
+   if IsPathRelative(fName) and
+     not fName.StartsWith('..') then fName:=defaultImagesDir+fName;
    img:=LoadImageFromFile(fName,flags,ipf32bpp);
  end;
 
