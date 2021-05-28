@@ -389,6 +389,7 @@ type
   procedure SetUniform(name:String8;const value:TVector3s); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:TQuaternionS); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:T3DMatrix); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:T3DMatrixS); overload; virtual; abstract;
  end;
 
  // Control render target
@@ -1041,6 +1042,15 @@ var
  function GetKeyEventScanCode(tag:cardinal):cardinal; // Extract scancode form KBD\KeyXXX event
  function GetKeyEventVirtualCode(tag:cardinal):cardinal; // Extract virtual key code form KBD\KeyXXX event
 
+ // Is mouse button pressed?
+ function IsMouseBtn(btn:integer):boolean;
+ // Is key down?
+ function IsKeyDown(scanCode:integer):boolean;
+ // Was key pressed since last frame?
+ function IsKeyPressed(scanCode:integer):boolean;
+ // Was key released since last frame?
+ function IsKeyReleased(scanCode:integer):boolean;
+
 implementation
 uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
  TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics;
@@ -1314,6 +1324,30 @@ function TDisplayFitModeHelper.ToString: string;
 function TDisplayScaleModeHelper.ToString: string;
  begin
   result:=GetEnumNameSafe(TypeInfo(TDisplayScaleMode),ord(self));
+ end;
+
+function IsMouseBtn(btn:integer):boolean;
+ begin
+  ASSERT(game<>nil);
+  result:=HasFlag(game.mouseButtons,1 shl (btn-1));
+ end;
+
+function IsKeyDown(scanCode:integer):boolean;
+ begin
+  ASSERT(game<>nil);
+  result:=HasFlag(game.keyState[scanCode],1);
+ end;
+
+function IsKeyPressed(scanCode:integer):boolean;
+ begin
+  ASSERT(game<>nil);
+  result:=game.keyState[scanCode] and $3=1;
+ end;
+
+function IsKeyReleased(scanCode:integer):boolean;
+ begin
+  ASSERT(game<>nil);
+  result:=game.keyState[scanCode] and $3=2;
  end;
 
 { TMesh }
