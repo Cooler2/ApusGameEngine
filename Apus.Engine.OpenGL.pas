@@ -239,6 +239,7 @@ function TOpenGL.SetVSyncDivider(n: integer):boolean;
   {$IFDEF MSWINDOWS}
   if WGL_EXT_swap_control then begin
    wglSwapIntervalEXT(n);
+   LogMessage('VSync: swap interval=%d',[n]);
    exit(true);
   end;
   {$ENDIF}
