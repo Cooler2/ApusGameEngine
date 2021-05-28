@@ -208,22 +208,17 @@ begin
   if copy(event,1,7)='BTNDOWN' then begin
    c:=nil;
    e:=FindControlAt(curMouseX,curMouseY,c);
-   if e and (c<>nil) then begin
-    if tag and 1>0 then c.onMouseButtons(1,true);
-    if tag and 2>0 then c.onMouseButtons(2,true);
-    if tag and 4>0 then c.onMouseButtons(3,true);
-   end;
-   if (c<>nil) and (not c.enabled) and (c.handleMouseIfDisabled) then begin
-    if tag and 1>0 then c.onMouseButtons(1,true);
-    if tag and 2>0 then c.onMouseButtons(2,true);
-    if tag and 4>0 then c.onMouseButtons(3,true);
-   end;
+   if e and (c<>nil) then
+    c.onMouseButtons(tag,true)
+   else
+    if (c<>nil) and (not c.enabled) and (c.handleMouseIfDisabled) then
+     c.onMouseButtons(tag,true);
 
-   // Таскание элементов правой кнопкой с Ctrl
-   if (tag and 2>0) and
-      (designmode or (lastShiftState and 2>0)) then hookedItem:=c;
+   // Drag elements with Ctrl+RMB
+   if (tag=2) and
+      (designmode or HasFlag(lastShiftState,sscCtrl)) then hookedItem:=c;
    // Показать название и св-ва элемента
-   if (tag=4) and (lastShiftState and 2>0) then
+   if (tag=3) and HasFlag(lastShiftState,sscCtrl) then
     if c<>nil then begin
       st:=c.name;
       c2:=c;
@@ -242,17 +237,14 @@ begin
      ShowSimpleHint(st,nil,-1,-1,500+4000*byte(c<>nil));
     end;
   end;
-  // Отпускание кнопки
+  // Button release
   if copy(event,1,5)='BTNUP' then begin
-   if (hookedItem<>nil) and (tag and 2>0) then begin
+   if (hookedItem<>nil) and (tag=2) then begin
     PutMsg('x='+inttostr(round(hookeditem.position.x))+' y='+inttostr(round(hookeditem.position.y)));
     hookedItem:=nil;
    end;
-   if FindControlAt(curMouseX,curMouseY,c) then begin
-    if tag and 1>0 then c.onMouseButtons(1,false);
-    if tag and 2>0 then c.onMouseButtons(2,false);
-    if tag and 4>0 then c.onMouseButtons(3,false);
-   end;
+   if FindControlAt(curMouseX,curMouseY,c) then
+    c.onMouseButtons(tag,false);
   end;
   // Скроллинг
   if copy(event,1,6)='SCROLL' then
@@ -285,7 +277,7 @@ var
 begin
  EnterCriticalSection(UICritSect);
  try
-  lastShiftState:=shift;
+  lastShiftState:=game.shiftState;
   shift:=game.shiftState;
   key:=GetKeyEventVirtualCode(tag); // virtual key code
   scancode:=GetKeyEventScancode(tag);
