@@ -325,7 +325,7 @@ begin
   x_-0.5,y_+h-0.5,zPlane,
   au1,av2, bu1,bv2,
   color);
- renderDevice.Draw(TRG_FAN,2,@vrt,sizeof(TVertex2t),2);
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex2t.Layout,sizeof(TVertex2t));
 end;
 
 procedure TDrawer.DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
@@ -401,7 +401,7 @@ begin
   au1,av2,bu1,bv2,
   color);
 
- renderDevice.Draw(TRG_FAN,2,@vrt,sizeof(TVertex2t),2);
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex2t.Layout,sizeof(TVertex2t));
 end;
 
 (* Obsolete, probably should not be used
