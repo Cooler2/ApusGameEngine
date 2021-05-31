@@ -41,6 +41,7 @@ type
   procedure DrawDebugOverlay(idx:integer);
 
   procedure PostDebugMsg(st:string8;id:integer=0);
+  procedure Breakpoint;
 
   // For internal use
  protected
@@ -282,6 +283,11 @@ procedure TOpenGL.EndPaint;
    renderTargetAPI.BlendMode(blAlpha);
   end;
   clippingAPI.Restore;
+ end;
+
+procedure TOpenGL.Breakpoint;
+ begin
+  glFlush;
  end;
 
 procedure TOpenGL.ChoosePixelFormats(out trueColor, trueColorAlpha, rtTrueColor,

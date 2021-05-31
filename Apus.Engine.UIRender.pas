@@ -184,11 +184,13 @@ implementation
       iWidth:=txt.WidthW(font,wsa[i-1]);
     dw:=txt.WidthW(font,'M');
     inc(iWidth,4+dw);
-    LogMessage('[Re]alloc hint image');
-    if HintImage<>nil then FreeImage(HintImage);
-    HintImage:=AllocImage(iWidth,iHeight,pfRenderTargetAlpha,aiTexture+aiRenderTarget,'UI_HintImage');
-    if hintImage=nil then
-      raise EError.Create('Failed to alloc hint image!');
+    if (hintImage=nil) or (hintImage.width<>iWidth) or (hintImage.height<>iHeight) then begin
+     LogMessage('[Re]alloc hint image');
+     if HintImage<>nil then FreeImage(HintImage);
+     hintImage:=AllocImage(iWidth,iHeight,pfRenderTargetAlpha,aiTexture+aiRenderTarget,'UI_HintImage');
+     if hintImage=nil then
+       raise EError.Create('Failed to alloc hint image!');
+    end;
     size:=Point2s(iWidth,iHeight);
     gfx.BeginPaint(hintImage);
     try
@@ -306,9 +308,9 @@ implementation
       else begin
        v:=256-(MyTickCount-created) div 2;
        if v<=0 then begin
-        ForceLogMessage('Delete expired hint '+inttohex(cardinal(control),8));
-        FreeImage(HintImage);
-        HintImage:=nil;
+        LogMessage('Hide expired hint '+inttohex(cardinal(control),8));
+        {FreeImage(HintImage);
+        HintImage:=nil;}
         control.visible:=false;
         exit;
        end;

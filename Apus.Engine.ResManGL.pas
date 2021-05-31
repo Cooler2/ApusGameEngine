@@ -469,6 +469,7 @@ begin
   glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
   {$ENDIF}
   glGenTextures(1,@tex.texname);
+  glActiveTexture(GL_TEXTURE0+9); // don't damage units 0..8
   glBindTexture(GL_TEXTURE_2D,tex.texname);
   tex.SetLabel;
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
@@ -499,6 +500,7 @@ begin
   glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
   CheckForGLError('2');
   glGenTextures(1,@tex.texname);
+  glActiveTexture(GL_TEXTURE0+9); // don't damage units 0..8
   glBindTexture(GL_TEXTURE_2D,tex.texname);
   CheckForGLError('3');
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
