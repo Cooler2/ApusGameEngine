@@ -7,7 +7,6 @@ Structs       -> Apus.Structs
 Publics       -> Apus.Publics
 Geom2D        -> Apus.Geom2D
 Geom3D        -> Apus.Geom3D
-Images        -> Apus.Images
 FastGFX       -> Apus.FastGFX
 GfxFormats    -> Apus.GfxFormats
 Colors        -> Apus.Colors
@@ -29,6 +28,8 @@ OBJLoader     -> Apus.Engine.OBJLoader
 Model3D       -> Apus.Engine.Model3D
 EngineTools   -> _remove_
 
+EventStr -> TEventStr
+
 SetGameSettings( -> SetupGameSettings(
 TTextureImage -> TTexture
 CreateDiffPatch( -> CreateBackupPatch(
@@ -36,5 +37,22 @@ ApplyDiffPatch( -> ApplyBackupPatch(
 
 painter.TextOut( -> txt->Write(
 painter.TextOutW( -> txt->WriteW(
-
 painter. -> draw.
+draw.SetClipping( -> gfx.clip.rect(
+TUIControl -> TUIElement
+texman.AllocImage( -> AllocImage(
+draw.GetMVPMatrix -> transform.MVPMatrix
+draw.ResetTexMode -> shader.DefaultTexMode
+texMan. -> gfx.resMan.
+draw.SetOrthographic -> transform.Orthographic
+draw.SetPerspective -> transform.Perspective
+draw.SetupCamera -> transform.SetCamera
+draw.LoadFont( -> txt.LoadFont(
+draw.GetFont( -> txt.GetFont(
+DrawPolyline( -> Polyline(
+draw.ResetClipping -> gfx.clip.Restore
+
+dfmStretch -> dfmFullSize
+transpmode -> shape
+tmOpaque -> shapeFull
+tmTransparent -> shapeEmpty
