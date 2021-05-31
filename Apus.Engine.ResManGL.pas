@@ -870,7 +870,7 @@ begin
  GetGLFormat(format,glFormat,subFormat,internalFormat);
  glTexImage2D(GL_PROXY_TEXTURE_2D,0,internalFormat,width,height,0,glFormat,subFormat,nil);
  glGetTexLevelParameteriv(GL_PROXY_TEXTURE_2D,0,GL_TEXTURE_INTERNAL_FORMAT,@res);
- CheckForGLError('21');
+ CheckForGLError('18');
  if res=0 then result:=false;
  {$ENDIF}
 end;
@@ -888,7 +888,7 @@ begin
    width:=newWidth;
    height:=newHeight;
    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,glFormat,subFormat,nil);
-   CheckForGLError('31');
+   CheckForGLError('19');
    if rbo<>0 then begin
     glBindRenderbuffer(GL_RENDERBUFFER, rbo);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);

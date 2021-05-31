@@ -51,7 +51,7 @@ type
  end;
 
 var
- debugGL:boolean = {$IFDEF MSWINDOWS} false {$ELSE} true {$ENDIF};
+ debugGL:boolean = {$IFDEF MSWINDOWS} true {$ELSE} true {$ENDIF};
 
 implementation
  uses Apus.MyServis,
@@ -399,6 +399,7 @@ procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
    TRG_FAN:glDrawArrays(GL_TRIANGLE_FAN,0,primCount+2);
    TRG_STRIP:glDrawArrays(GL_TRIANGLE_STRIP,0,primCount+2);
   end;
+  CheckForGLError(111);
  end;
 
 procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
@@ -415,6 +416,7 @@ procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:po
    TRG_FAN:glDrawElements(GL_TRIANGLE_FAN,primCount+2,GL_UNSIGNED_SHORT,indices);
    TRG_STRIP:glDrawElements(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,indices);
   end;
+  CheckForGLError(112);
  end;
 
 procedure TRenderDevice.Reset;
@@ -503,7 +505,7 @@ begin
   raise EWarning.Create('Blending mode not supported');
  end;
  curBlend:=blend;
- CheckForGLError(31);
+ CheckForGLError(103);
 end;
 
 function ColorComponent(color:cardinal;idx:integer):single;
@@ -606,7 +608,7 @@ procedure TGLRenderTargetAPI.Backbuffer;
   {$ENDIF}
   realWidth:=backBufferWidth;
   realHeight:=backBufferHeight;
-  CheckForGLError(3);
+  CheckForGLError(100);
   glScissor(0,0,realWidth,realHeight);
   clippingAPI.AssignActual(Rect(0,0,realWidth,realHeight));
   glDisable(GL_SCISSOR_TEST);
