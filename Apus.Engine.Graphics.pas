@@ -372,7 +372,7 @@ constructor TRenderTargetAPI.Create;
   _AddRef;
   curBlend:=blNone;
   curTarget:=nil;
-
+  curMask:=15;
  end;
 
 procedure TRenderTargetAPI.Push;
