@@ -748,12 +748,12 @@ type
   procedure CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
   // Present backbuffer to the screen
   procedure PresentFrame;
-
   // Restore (invalidate) gfx settings
   procedure Restore;
-
   // show additional info
   procedure DrawDebugOverlay(idx:integer);
+  // Do something meaningless (like glFlush) that can be detected by an external gfx debugger
+  procedure Breakpoint;
  end;
 
  TGameScene=class;
