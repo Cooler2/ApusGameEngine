@@ -232,7 +232,8 @@ interface
  procedure LogMessage(text:String8;group:byte=0); overload; // with CR
  procedure LogMessage(text:String8;params:array of const;group:byte=0); overload;
  procedure LogError(text:string8);
- procedure ForceLogMessage(text:string8); // то же самое, но с более высоким приоритетом
+ procedure ForceLogMessage(text:string8); overload; // то же самое, но с более высоким приоритетом
+ procedure ForceLogMessage(text:String8;params:array of const); overload;
  procedure DebugMessage(text:string8); // альтернативное имя для ForceLogMessage (для удобства поиска по коду)
  procedure LogCacheMode(enable:boolean;enforceCache:boolean=false;runThread:boolean=false);
  procedure FlushLog; // сбросить накопенное в кэше содержимое в лог
@@ -4288,7 +4289,7 @@ function BinToStr;
    {$ENDIF}
   end;
 
- procedure ForceLogMessage;
+ procedure ForceLogMessage(text:String8); overload;
   var
    f:TextFile;
   begin
@@ -4327,6 +4328,12 @@ function BinToStr;
    finally
     MyLeaveCriticalSection(crSection);
    end;
+  end;
+
+ procedure ForceLogMessage(text:String8;params:array of const); overload;
+  begin
+   text:=Format(text,params);
+   ForceLogMessage(text);
   end;
 
  procedure FlushLog;
