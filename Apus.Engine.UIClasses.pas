@@ -337,7 +337,8 @@ type
                bsSwitch,   // кнопка-переключатель (фиксирующаяся в нажатом положении)
                bsCheckbox);    // кнопка-надпись (чекбокс)
  TUIButton=class(TUIImage)
-  caption:string;
+  caption:string; // button's label
+  font:cardinal;
   default:boolean; // кнопка по умолчанию (влияет только на отрисовку, но не на поведение!!!)
   pressed:boolean; // кнопка вдавлена
   pending:boolean; // состояние временной недоступности (не реагирует на нажатия)
@@ -345,7 +346,7 @@ type
 
   btnStyle:TButtonStyle; // тип кнопки (влияет как на отрисовку, так и на поведение)
   group:integer;   // Группа переключателей
-  font:cardinal;
+  handler:pointer;
   constructor Create(width,height:single;btnName,btnCaption:string;btnFont:cardinal;parent_:TUIElement);
 
   procedure onMouseButtons(button:byte;state:boolean); override;
@@ -574,8 +575,8 @@ var
             enabled,password,noborder:boolean);
 
  // Установка свойст элемента по имени
- procedure SetControlState(name:string;visible:boolean;enabled:boolean=true);
- procedure SetControlText(name:string;text:string);
+ procedure SetElementState(name:string;visible:boolean;enabled:boolean=true);
+ procedure SetElementText(name:string;text:string);
 
  // Поиск элементов по имени. Если элемент не найден, то...
  // mustExists=true - исключение, false - будет создан (а в лог будет сообщение об этом)
@@ -710,7 +711,7 @@ begin
 end;
 
 
-procedure SetControlState(name:string;visible:boolean;enabled:boolean=true);
+procedure SetElementState(name:string;visible:boolean;enabled:boolean=true);
 var
  c:TUIElement;
 begin
@@ -720,7 +721,7 @@ begin
  c.enabled:=enabled;
 end;
 
-procedure SetControlText(name:string;text:string);
+procedure SetElementText(name:string;text:string);
 var
  c:TUIElement;
 begin
