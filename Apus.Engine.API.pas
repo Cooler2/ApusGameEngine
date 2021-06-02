@@ -852,7 +852,7 @@ type
   running:boolean;
   renderWidth,renderHeight:integer; // Size of render area in virtual pixels (primitive of this size fills the whole renderRect)
   displayRect:TRect;     // render area (inside window's client area) in screen pixels (default - full client area)
-  screenWidth,screenHeight:integer; // real screen size in pixels
+  screenWidth,screenHeight:integer; // real full screen size in pixels
   windowWidth,windowHeight:integer; // window client size in pixels
   screenDPI:integer;    // DPI according to system settings
   active:boolean;       // Окно активно, цикл перерисовки выполняется
