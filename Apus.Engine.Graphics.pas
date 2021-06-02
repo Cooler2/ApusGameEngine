@@ -27,6 +27,8 @@ type
   // Draw indexed primitives using built-in buffer
   procedure DrawBuffer(primType:integer;vertexBuf,indBuf:TPainterBuffer;
      stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); overload; *)
+
+  procedure Reset; // Invalidate rendering settings
  end;
 
  TTransformationAPI=class(TInterfacedObject,ITransformation)
@@ -194,6 +196,7 @@ procedure TTransformationAPI.DefaultView;
 
 function TTransformationAPI.GetMVPMatrix:T3DMatrix;
  begin
+  if modified then CalcMVP;  
   result:=MVP;
  end;
 
