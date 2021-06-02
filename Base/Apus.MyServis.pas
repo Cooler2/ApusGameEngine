@@ -522,6 +522,16 @@ interface
  procedure ClearFlag(var v:cardinal;flag:cardinal); overload; inline;
  procedure ClearFlag(var v:byte;flag:byte); overload; inline;
 
+ procedure Toggle(var b:boolean); inline;
+ function GetBit(data:cardinal;index:integer):boolean; overload; inline;
+ function GetBit(data:uint64;index:integer):boolean; overload; inline;
+ procedure SetBit(var data:byte;index:integer); overload; inline;
+ procedure SetBit(var data:cardinal;index:integer); overload; inline;
+ procedure SetBit(var data:uint64;index:integer); overload; inline;
+ procedure ClearBit(var data:byte;index:integer); overload; inline;
+ procedure ClearBit(var data:cardinal;index:integer); overload; inline;
+ procedure ClearBit(var data:uint64;index:integer); overload; inline;
+
  // Spline functions
  // ----------------------------------------
  // Quadratic clamped spline from [0..1] to [0..255] where: 0->a, 0.5->b, 1.0->c
@@ -2183,6 +2193,11 @@ procedure SimpleEncrypt2;
    result:=true;
   end;
 
+ procedure Toggle(var b:boolean);
+  begin
+   b:=not b;
+  end;
+
  function IsUTF8(st:RawByteString):boolean; inline;
   begin
    if (length(st)>=3) and (st[1]=#$EF) and (st[2]=#$BB) and (st[3]=#$BF) then result:=true
@@ -3211,6 +3226,41 @@ function BinToStr;
  procedure ClearFlag(var v:byte;flag:byte); overload;
   begin
    v:=v and (not flag);
+  end;
+
+ function GetBit(data:cardinal;index:integer):boolean; overload; inline;
+  begin
+   result:=data and (1 shl index)<>0;
+  end;
+ function GetBit(data:uint64;index:integer):boolean; overload; inline;
+  begin
+   result:=data and (1 shl index)<>0;
+  end;
+
+ procedure SetBit(var data:byte;index:integer); overload; inline;
+  begin
+   data:=data or (1 shl index);
+  end;
+ procedure SetBit(var data:cardinal;index:integer); overload; inline;
+  begin
+   data:=data or (1 shl index);
+  end;
+ procedure SetBit(var data:uint64;index:integer); overload; inline;
+  begin
+   data:=data or (1 shl index);
+  end;
+
+ procedure ClearBit(var data:byte;index:integer); overload; inline;
+  begin
+   data:=data and not (1 shl index);
+  end;
+ procedure ClearBit(var data:cardinal;index:integer); overload; inline;
+  begin
+   data:=data and not (1 shl index);
+  end;
+ procedure ClearBit(var data:uint64;index:integer); overload; inline;
+  begin
+   data:=data and not (1 shl index);
   end;
 
  function SatSpline(x:single;a,b,c:integer):byte;
