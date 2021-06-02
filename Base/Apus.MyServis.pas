@@ -64,6 +64,7 @@ interface
   PointerArray=array of pointer;
   VariantArray=array of variant;
 
+  TProcedure=procedure;
 
   // 8-bit strings encodings
   TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8);

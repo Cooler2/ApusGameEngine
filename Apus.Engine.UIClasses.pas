@@ -346,7 +346,7 @@ type
 
   btnStyle:TButtonStyle; // тип кнопки (влияет как на отрисовку, так и на поведение)
   group:integer;   // Группа переключателей
-  handler:pointer;
+  onClick:TProcedure;
   constructor Create(width,height:single;btnName,btnCaption:string;btnFont:cardinal;parent_:TUIElement);
 
   procedure onMouseButtons(button:byte;state:boolean); override;
@@ -1756,6 +1756,7 @@ begin
      (pressed or (btnStyle=bsCheckbox)) then begin
     Signal('UI\'+name+'\Click',byte(pressed));
     Signal('UI\onButtonDown\'+name,PtrUInt(self));
+    if Assigned(onClick) then onClick;    
   end;
  end else begin
   if pending then exit;
@@ -1763,6 +1764,7 @@ begin
   if (sendSignals<>ssNone) and (MyTickCount>lastPressed+50) then begin
    Signal('UI\'+name+'\Click',byte(pressed));
    Signal('UI\onButtonClick\'+name,PtrUInt(self));
+   if Assigned(onClick) then onClick;
    lastPressed:=MyTickCount;
   end;
  end;
