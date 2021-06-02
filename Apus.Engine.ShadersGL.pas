@@ -33,6 +33,7 @@ type
   uShadowMapMat:integer; // light space matrix for shadow mapping
   uTex:array[0..3] of integer; // texture samplers (named "tex0".."tex3")
   vSrc,fSrc:String8; // shader source code
+  isCustom:boolean;
 
   constructor Create(h:TGLShaderHandle);
   destructor Destroy; override;
@@ -118,7 +119,8 @@ uses
   Apus.MyServis,
   SysUtils,
   StrUtils,
-  Apus.Engine.ResManGL
+  Apus.Engine.ResManGL,
+  Apus.Engine.OpenGL
   {$IFDEF MSWINDOWS},Windows{$ENDIF}
   {$IFDEF DGL},dglOpenGL{$ENDIF};
 
@@ -131,37 +133,18 @@ const
  LIGHT_SHADOWMAP  = 32; // use shadowmap for light calculations (use ambient light only for pixels in shadow)
  LIGHT_DEPTHPASS  = 64; // use empty shader for rendering into a depth texture
 
-function VectorFromColor3(color:cardinal):TVector3s;
- var
-  c:PARGBColor;
- begin
-  c:=@color;
-  result.x:=c.r/255;
-  result.y:=c.g/255;
-  result.z:=c.b/255;
- end;
-
-function VectorFromColor(color:cardinal):TVector4s;
- var
-  c:PARGBColor;
- begin
-  c:=@color;
-  result.x:=c.r/255;
-  result.y:=c.g/255;
-  result.z:=c.b/255;
-  result.w:=c.a/255;
- end;
-
-
 { TGLShader }
 
-procedure SetUniformInternal(handle:TGLShaderHandle;shaderName:string8; name:string8;mode:integer;const value); inline;
+procedure SetUniformInternal(shader:TGLShader; name:string8;mode:integer;const value); inline;
  var
   loc:GLint;
  begin
-  loc:=glGetUniformLocation(handle,PAnsiChar(name));
-  if loc<0 then exit;
-  if loc<0 then raise EWarning.Create('Uniform "%s" not found in shader %s',[name,shaderName]);
+  loc:=glGetUniformLocation(shader.handle,PAnsiChar(name));
+  if (loc<0) then exit;
+{  if (loc<0) then begin
+   if not shader.isCustom then exit;
+   raise EWarning.Create('Uniform "%s" not found in shader %s',[name,shader.Name]);
+  end;}
   case mode of
    1:glUniform1i(loc,integer(value));
    2:glUniform1f(loc,single(value));
@@ -169,26 +152,27 @@ procedure SetUniformInternal(handle:TGLShaderHandle;shaderName:string8; name:str
    21:glUniform4fv(loc,1,@value);
    30:glUniformMatrix4fv(loc,1,GL_FALSE,@value);
   end;
+  CheckForGLError(401);
  end;
 
 procedure TGLShader.SetUniform(name: String8; value: integer);
  begin
-  SetUniformInternal(handle,self.name,name,1,value);
+  SetUniformInternal(self,name,1,value);
  end;
 
 procedure TGLShader.SetUniform(name: String8; value: single);
  begin
-  SetUniformInternal(handle,self.name,name,2,value);
+  SetUniformInternal(self,name,2,value);
  end;
 
 procedure TGLShader.SetUniform(name: String8; const value: TVector3s);
  begin
-  SetUniformInternal(handle,self.name,name,20,value);
+  SetUniformInternal(self,name,20,value);
  end;
 
 procedure TGLShader.SetUniform(name: String8; const value: TQuaternionS);
  begin
-  SetUniformInternal(handle,self.name,name,21,value);
+  SetUniformInternal(self,name,21,value);
  end;
 
 procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
@@ -196,12 +180,13 @@ procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
   m:T3DMatrixS;
  begin
   m:=Matrix4s(value); // convert double to float
-  SetUniformInternal(handle,self.name,name,30,m);
+  SetUniformInternal(self,name,30,m);
  end;
 
 constructor TGLShader.Create(h: TGLShaderHandle);
  begin
   handle:=h;
+  isCustom:=true;
   // predefined uniforms
   uMVP:=glGetUniformLocation(h,'MVP');
   uModelMat:=glGetUniformLocation(h,'ModelMatrix');
@@ -378,6 +363,7 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   result:=Build(vSrc,fSrc) as TGLShader;
   result.name:=notes;
   result.texMode:=curTexMode.mode;
+  result.isCustom:=false;
  end;
 
 // Get shader for the current TexMode and current vertex layout
@@ -631,11 +617,11 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
    end;
   if directLightModified then begin
    activeShader.SetUniform('lightDir',directLightDir);
-   activeShader.SetUniform('lightColor',VectorFromColor3(directLightColor));
+   activeShader.SetUniform('lightColor',TShader.VectorFromColor3(directLightColor));
    directLightModified:=false;
   end;
   if ambientLightModified then begin
-   activeShader.SetUniform('ambientColor',VectorFromColor3(ambientLightColor));
+   activeShader.SetUniform('ambientColor',TShader.VectorFromColor3(ambientLightColor));
    ambientLightModified:=false;
   end;
  end;
