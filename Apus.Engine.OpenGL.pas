@@ -458,13 +458,13 @@ procedure TRenderDevice.DrawInstanced(primType:integer;vertices:pointer;indices:
   shader.Apply(vertexLayout);
   transformationAPI.Update;
   SetupAttributes(vertices,vertexLayout,stride);
-{  case primtype of
-   LINE_LIST:glDrawElementsInstanced(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices);
-   LINE_STRIP:glDrawElementsInstanced(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,indices);
-   TRG_LIST:glDrawElementsInstanced(GL_TRIANGLES,primCount*3,GL_UNSIGNED_SHORT,indices);
-   TRG_FAN:glDrawElementsInstanced(GL_TRIANGLE_FAN,primCount+2,GL_UNSIGNED_SHORT,indices);
-   TRG_STRIP:glDrawElementsInstanced(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,indices);
-  end;}
+  case primtype of
+   LINE_LIST:glDrawElementsInstanced(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices,instances);
+   LINE_STRIP:glDrawElementsInstanced(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,indices,instances);
+   TRG_LIST:glDrawElementsInstanced(GL_TRIANGLES,primCount*3,GL_UNSIGNED_SHORT,indices,instances);
+   TRG_FAN:glDrawElementsInstanced(GL_TRIANGLE_FAN,primCount+2,GL_UNSIGNED_SHORT,indices,instances);
+   TRG_STRIP:glDrawElementsInstanced(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,indices,instances);
+  end;
   CheckForGLError(113);
  end;
 
