@@ -73,7 +73,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 15;
+ testnum:integer = 8;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -1920,6 +1920,8 @@ var
  i,n,key:integer;
  time:int64;
 begin
+ try ChDir('..\demo\EngineTest'); except end;
+
  time:=MyTickCount;
  v:=10.6;
  for i:=0 to 10000000 do begin
