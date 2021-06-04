@@ -78,13 +78,6 @@ const
  partEndpoint = $02000000; // indicate that particle is a free end of a polyline (draw.Band)
  partLoop = $04000000; // indicate end of a polyline loop (draw.Band)
 
- // Primitive types
- LINE_LIST = 1;
- LINE_STRIP = 2;
- TRG_FAN = 3;
- TRG_STRIP = 4;
- TRG_LIST = 5;
-
  // txt.Write() options flags (overrides font handle flags)
  toDontTranslate  =  1; // Don't use UDict to translate
  toDrawToBitmap   =  2; // Draw to bitmap buffer instead of current render target
@@ -165,7 +158,7 @@ type
  TRect2s = Apus.Geom2D.TRect2s;
 
  // Packed description of the vertex layout
- // [0:3] - position (vec3s)
+ // [0:3] - position (vec3s) (if offset=15 then position is vec2s at offset=0)
  // [4:7] - normal (vec3s)
  // [8:11]  - color (vec4b)
  // [12:15] - uv1 (vec2s)
@@ -174,6 +167,15 @@ type
  // Packed ARGB color
  TARGBColor=Apus.Colors.TARGBColor;
  PARGBColor=Apus.Colors.PARGBColor;
+
+ // Primitive types
+ TPrimitiveType=(
+   LINE_LIST,
+   LINE_STRIP,
+   TRG_FAN,
+   TRG_STRIP,
+   TRG_LIST);
+
 
 const
  // Vertex layout with 3 attributes: position[3] (location=0), color[3] (location=1) and uv[2] (location=2)

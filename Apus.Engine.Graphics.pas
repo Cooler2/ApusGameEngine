@@ -10,20 +10,20 @@ interface
 type
  IRenderDevice=interface
   // Draw primitives
-  procedure Draw(primType,primCount:integer;vertices:pointer;
+  procedure Draw(primType:TPrimitiveType;primCount:integer;vertices:pointer;
      vertexLayout:TVertexLayout;stride:integer);
 
   // Draw indexed primitives
-  procedure DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
+  procedure DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;stride,primCount:integer); overload;
 
   // Ranged version
-  procedure DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
+  procedure DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;stride:integer;
      vrtStart,vrtCount:integer; indStart,primCount:integer); overload;
 
   // Draw instanced indexed primitives
-  procedure DrawInstanced(primType:integer;vertices:pointer;indices:pointer;
+  procedure DrawInstanced(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;stride,primCount,instances:integer);
 
 

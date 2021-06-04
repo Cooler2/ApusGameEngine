@@ -75,19 +75,19 @@ type
   destructor Destroy; override;
   procedure Reset;
 
-  procedure Draw(primType,primCount:integer;vertices:pointer;
+  procedure Draw(primType:TPrimitiveType;primCount:integer;vertices:pointer;
     vertexLayout:TVertexLayout;stride:integer);
 
   // Draw indexed  primitives using in-memory buffers
-  procedure DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
+  procedure DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;stride:integer; primCount:integer); overload;
 
   // Ranged version
-  procedure DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
+  procedure DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;stride:integer;
      vrtStart,vrtCount:integer; indStart,primCount:integer); overload;
 
-  procedure DrawInstanced(primType:integer;vertices:pointer;indices:pointer;
+  procedure DrawInstanced(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;stride,primCount,instances:integer);
 
 (*  // Draw primitives using built-in buffer
@@ -403,7 +403,7 @@ destructor TRenderDevice.Destroy;
   inherited;
  end;
 
-procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
+procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertices: pointer;
   vertexLayout:TVertexLayout; stride: integer);
  begin
   shadersAPI.Apply(vertexLayout);
@@ -419,7 +419,7 @@ procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
   CheckForGLError(111);
  end;
 
-procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
+procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;stride,primCount:integer);
  begin
   shader.Apply(vertexLayout);
@@ -435,7 +435,7 @@ procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:po
   CheckForGLError(112);
  end;
 
-procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
+procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;stride:integer;
      vrtStart,vrtCount:integer; indStart,primCount:integer);
  begin
@@ -452,7 +452,7 @@ procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:po
   CheckForGLError(112);
  end;
 
-procedure TRenderDevice.DrawInstanced(primType:integer;vertices:pointer;indices:pointer;
+procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;stride,primCount,instances:integer);
  begin
   shader.Apply(vertexLayout);
@@ -480,7 +480,7 @@ procedure TRenderDevice.Reset;
 
 procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout;stride:integer);
  var
-  i,v,n:integer;
+  i,v,n,dim:integer;
   p:pointer;
  begin
   if (lastVertices=vertices) and (lastLayout=vertexLayout) and (lastStride=stride) then exit;
@@ -493,8 +493,12 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
    vertexLayout:=vertexLayout shr 4;
    p:=pointer(UIntPtr(vertices)+v);
    if (v=0) and (i>0) then continue;
+   if (i=0) and (v=15*4) then begin // position is 2D
+    dim:=2; p:=vertices;
+   end else
+    dim:=3;
    case i of
-    0:glVertexAttribPointer(n,3,GL_FLOAT,GL_FALSE,stride,p); // position
+    0:glVertexAttribPointer(n,dim,GL_FLOAT,GL_FALSE,stride,p); // position
     1:glVertexAttribPointer(n,3,GL_FLOAT,GL_FALSE,stride,p); // normal
     2:glVertexAttribPointer(n,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,p); // color
     3:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv1
