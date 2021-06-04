@@ -15,8 +15,17 @@ type
 
   // Draw indexed primitives
   procedure DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
+     vertexLayout:TVertexLayout;stride,primCount:integer); overload;
+
+  // Ranged version
+  procedure DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;stride:integer;
-     vrtStart,vrtCount:integer; indStart,primCount:integer);
+     vrtStart,vrtCount:integer; indStart,primCount:integer); overload;
+
+  // Draw instanced indexed primitives
+  procedure DrawInstanced(primType:integer;vertices:pointer;indices:pointer;
+     vertexLayout:TVertexLayout;stride,primCount,instances:integer);
+
 
   // Работу с буферами нужно организовать как-то иначе.
   // Нужен отдельный класс для буфера. Управлять ими должен resman.

@@ -80,8 +80,15 @@ type
 
   // Draw indexed  primitives using in-memory buffers
   procedure DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
+     vertexLayout:TVertexLayout;stride:integer; primCount:integer); overload;
+
+  // Ranged version
+  procedure DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;stride:integer;
-     vrtStart,vrtCount:integer; indStart,primCount:integer);
+     vrtStart,vrtCount:integer; indStart,primCount:integer); overload;
+
+  procedure DrawInstanced(primType:integer;vertices:pointer;indices:pointer;
+     vertexLayout:TVertexLayout;stride,primCount,instances:integer);
 
 (*  // Draw primitives using built-in buffer
   procedure DrawBuffer(primType,primCount,vrtStart:integer;
@@ -398,8 +405,6 @@ destructor TRenderDevice.Destroy;
 
 procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
   vertexLayout:TVertexLayout; stride: integer);
- var
-  vrt:PVertex;
  begin
   shadersAPI.Apply(vertexLayout);
   transformationAPI.Update;
@@ -415,8 +420,7 @@ procedure TRenderDevice.Draw(primType, primCount: integer; vertices: pointer;
  end;
 
 procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
-     vertexLayout:TVertexLayout;stride:integer;
-     vrtStart,vrtCount:integer; indStart,primCount:integer);
+     vertexLayout:TVertexLayout;stride,primCount:integer);
  begin
   shader.Apply(vertexLayout);
   transformationAPI.Update;
@@ -429,6 +433,39 @@ procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:po
    TRG_STRIP:glDrawElements(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,indices);
   end;
   CheckForGLError(112);
+ end;
+
+procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:pointer;
+     vertexLayout:TVertexLayout;stride:integer;
+     vrtStart,vrtCount:integer; indStart,primCount:integer);
+ begin
+  shader.Apply(vertexLayout);
+  transformationAPI.Update;
+  SetupAttributes(vertices,vertexLayout,stride);
+  case primtype of
+   LINE_LIST:glDrawRangeElements(GL_LINES,vrtStart,vrtStart+vrtCount-1,primCount*2,GL_UNSIGNED_SHORT,indices);
+   LINE_STRIP:glDrawRangeElements(GL_LINE_STRIP,vrtStart,vrtStart+vrtCount-1,primCount+1,GL_UNSIGNED_SHORT,indices);
+   TRG_LIST:glDrawRangeElements(GL_TRIANGLES,vrtStart,vrtStart+vrtCount-1,primCount*3,GL_UNSIGNED_SHORT,indices);
+   TRG_FAN:glDrawRangeElements(GL_TRIANGLE_FAN,vrtStart,vrtStart+vrtCount-1,primCount+2,GL_UNSIGNED_SHORT,indices);
+   TRG_STRIP:glDrawRangeElements(GL_TRIANGLE_STRIP,vrtStart,vrtStart+vrtCount-1,primCount+2,GL_UNSIGNED_SHORT,indices);
+  end;
+  CheckForGLError(112);
+ end;
+
+procedure TRenderDevice.DrawInstanced(primType:integer;vertices:pointer;indices:pointer;
+     vertexLayout:TVertexLayout;stride,primCount,instances:integer);
+ begin
+  shader.Apply(vertexLayout);
+  transformationAPI.Update;
+  SetupAttributes(vertices,vertexLayout,stride);
+{  case primtype of
+   LINE_LIST:glDrawElementsInstanced(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices);
+   LINE_STRIP:glDrawElementsInstanced(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,indices);
+   TRG_LIST:glDrawElementsInstanced(GL_TRIANGLES,primCount*3,GL_UNSIGNED_SHORT,indices);
+   TRG_FAN:glDrawElementsInstanced(GL_TRIANGLE_FAN,primCount+2,GL_UNSIGNED_SHORT,indices);
+   TRG_STRIP:glDrawElementsInstanced(GL_TRIANGLE_STRIP,primCount+2,GL_UNSIGNED_SHORT,indices);
+  end;}
+  CheckForGLError(113);
  end;
 
 procedure TRenderDevice.Reset;
