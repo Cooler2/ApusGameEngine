@@ -434,6 +434,8 @@ interface
  procedure ZeroMem(var data;size:integer); inline;
  function IsZeroMem(var data;size:integer):boolean;
  procedure FillDword(var data;size:integer;value:cardinal);
+ // Check if pointer is between baseAddress and baseAddress+size-1
+ function PointerInRange(p:pointer;baseAddress:pointer;size:UIntPtr):boolean; inline;
 
  // Простейшее шифрование/дешифрование (simple XOR)
  procedure SimpleEncrypt(var data;size,code:integer);
@@ -2192,6 +2194,15 @@ procedure SimpleEncrypt2;
     end;
    end;
    result:=true;
+  end;
+
+ function PointerInRange(p:pointer;baseAddress:pointer;size:UIntPtr):boolean;
+  var
+   b,v:UIntPtr;
+  begin
+   b:=UIntPtr(baseAddress);
+   v:=UIntPtr(p);
+   result:=(v>=b) and (v<b+size);
   end;
 
  procedure Toggle(var b:boolean);
