@@ -389,9 +389,11 @@ type
   procedure SetUniform(name:String8;value:integer); overload; virtual; abstract;
   procedure SetUniform(name:String8;value:single); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:TVector3s); overload; virtual; abstract;
-  procedure SetUniform(name:String8;const value:TQuaternionS); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TVector4s); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:T3DMatrix); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:T3DMatrixS); overload; virtual; abstract;
+  class function VectorFromColor3(color:cardinal):TVector3s;
+  class function VectorFromColor(color:cardinal):TVector4s;
  end;
 
  // Control render target
@@ -1403,6 +1405,29 @@ class function TVertex3D.Layout: cardinal;
  begin
   v:=nil;
   result:=BuildVertexLayout(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
+ end;
+
+{ TShader }
+
+class function TShader.VectorFromColor(color: cardinal):TVector4s;
+ var
+  c:PARGBColor;
+ begin
+  c:=@color;
+  result.x:=c.r/255;
+  result.y:=c.g/255;
+  result.z:=c.b/255;
+  result.w:=c.a/255;
+ end;
+
+class function TShader.VectorFromColor3(color: cardinal): TVector3s;
+ var
+  c:PARGBColor;
+ begin
+  c:=@color;
+  result.x:=c.r/255;
+  result.y:=c.g/255;
+  result.z:=c.b/255;
  end;
 
 initialization

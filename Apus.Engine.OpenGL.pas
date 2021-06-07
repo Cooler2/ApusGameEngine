@@ -54,6 +54,8 @@ type
 var
  debugGL:boolean = {$IFDEF MSWINDOWS} true {$ELSE} true {$ENDIF};
 
+ procedure CheckForGLError(lab:integer=0); inline;
+
 implementation
  uses Apus.MyServis,
   SysUtils,
@@ -124,7 +126,8 @@ begin
  if debugGL then begin
   error:=glGetError;
   if error<>GL_NO_ERROR then begin
-    ForceLogMessage('PGL Error ('+inttostr(lab)+'): '+inttostr(error)+' '+GetCallStack);
+    raise EError.Create(Format('GL Error %d: code %d (%x) :: %s',[lab,error,error,GetCallStack]));
+    //ForceLogMessage('GL Error %d: code %d (%x) :: %s',[lab,error,error,GetCallStack]);
   end;
  end;
 end;
@@ -216,7 +219,10 @@ function TOpenGL.QueryMaxRTSize:integer;
 
 procedure TOpenGL.Restore;
  begin
-
+  renderDevice.Reset;
+  shader.Reset;
+  shader.DefaultTexMode;
+  transform.DefaultView;
  end;
 
 procedure TOpenGL.SetCullMode(mode: TCullMode);
@@ -426,8 +432,13 @@ procedure TRenderDevice.DrawIndexed(primType:integer;vertices:pointer;indices:po
  end;
 
 procedure TRenderDevice.Reset;
+ var
+  i: Integer;
  begin
   lastVertices:=nil;
+  lastLayout:=0;
+  for i:=0 to 9 do glDisableVertexAttribArray(i);
+  actualAttribArrays:=0;
  end;
 
 procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout;stride:integer);

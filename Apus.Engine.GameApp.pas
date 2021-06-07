@@ -30,7 +30,7 @@ interface
 
    deviceDPI:integer=96; //
    noVSync:boolean=false;
-   directRenderOnly:boolean=false; // true -> for OpenGL: always render directly to the backbuffer, false -> allow frame render into texture
+   directRenderOnly:boolean=true; // true -> for OpenGL: always render directly to the backbuffer, false -> allow frame render into texture
    checkForSteam:boolean=false;  // Check if STEAM client is running and get AppID
    useSystemCursor:boolean=true; // true - system hardware cursor, false - system cursor is disabled, custom cursor must be drawn
    useCustomStyle:boolean=false; // init cuttom style?

@@ -2931,7 +2931,7 @@ begin
  for i:=0 to high(item.children) do begin
   c:=item.children[i];
   if not c.visible then continue;
-  r:=c.TransformTo(c.GetRect,nil);
+  r:=c.TransformTo(c.GetRect,item);
   if fHorizontal then begin
    delta.x:=pos-r.x1;
    pos:=pos+r.width+fSpaceBetween;

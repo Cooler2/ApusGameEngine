@@ -683,11 +683,11 @@ var
  vrt:array[0..2] of TVertex;
  minX,minY,maxX,maxY:integer;
 begin
- minX:=trunc(Min3d(x1,x2,x3));
+{ minX:=trunc(Min3d(x1,x2,x3));
  maxX:=trunc(Max3d(x1,x2,x3))+1;
  minY:=trunc(Min3d(y1,y2,y3));
  maxY:=trunc(Max3d(y1,y2,y3))+1;
- if not clippingAPI.Prepare(minX,minY,maxX,maxY) then exit;
+ if not clippingAPI.Prepare(minX,minY,maxX,maxY) then exit;     }
  shader.UseTexture(neutral);
  vrt[0].Init(x1-0.5,y1-0.5,zPlane,color1);
  vrt[1].Init(x2-0.5,y2-0.5,zPlane,color2);
