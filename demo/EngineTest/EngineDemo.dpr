@@ -73,7 +73,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 8;
+ testnum:integer = 3;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -471,11 +471,14 @@ end;
 var
  globalS:double;
 
-procedure Shader1(var vertex:TVertex3D);
+procedure Shader1(var vertex:TVertex);
+var
+ sx,sy:single;
 begin
  with vertex do begin
-  x:=x+3*sin(globalS+y*0.18)-0.1*y;
-  y:=y+3*cos(globalS+x*0.3);
+  sx:=x; sy:=y;
+  x:=sx+3*sin(globalS+sy*0.18)-0.1*sy;
+  y:=sy+3*cos(globalS+sx*0.3);
  end; 
 end;
 
@@ -559,8 +562,8 @@ begin
 
 
  s:=0.2+(MyTickCount mod 3000)/3000;
- texM.SetFilter(true);
- draw.RotScaled(450,420,s,s,0,texM);
+ texM.SetFilter(false);
+ draw.RotScaled(450,420,s,s,0,texM);    // Mip-map test
 
  if (frame div 100) and 1=0 then
  tex2.SetFilter(false);
@@ -608,7 +611,7 @@ begin
 
  mesh:=BuildMeshForImage(tex1,32,32);
  globalS:=MyTickCount/200;
- mesh.vertices:=TransformVertices(mesh.vertices,shader1);
+ TransformVertices(mesh.vertices,mesh.vCount,shader1);
 { for i:=0 to length(vertices)-1 do
   with vertices[i] do begin
    //ou:=x/tex1.width; ov:=y/tex1.height;
@@ -621,7 +624,8 @@ begin
 { if getTickCount mod 1000<500 then
   draw.Image(0,0,tex1)
  else}
- DrawIndexedMesh(mesh.vertices,mesh.indices,tex1);
+ mesh.Draw(tex1);
+ mesh.Free;
  Reset2DTransform;
  //(painter as TDXPainter8).DrawTrgListTex(@vrt,1,tex2);
 

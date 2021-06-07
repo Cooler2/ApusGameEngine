@@ -88,8 +88,8 @@ type
  // Meshes
  function LoadMesh(fname:string):TMesh;
  function BuildMeshForImage(img:TTexture;splitX,splitY:integer):TMesh;
- function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices; overload;
- function TransformVertices(vertices:TVertices3D;shader:TVertex3DHandler):TVertices3D; overload;
+ procedure TransformVertices(vertices:PVertex;vCount:integer;shader:TVertexHandler); overload;
+ procedure TransformVertices(vertices:PVertex3D;vCount:integer;shader:TVertex3DHandler); overload;
  procedure DrawIndexedMesh(vertices:TVertices3D;indices:TIndices;tex:TTexture);
  procedure DrawMesh(vertices:TVertices;tex:TTexture); overload;
  procedure DrawMesh(vertices:TVertices3D;tex:TTexture); overload;
@@ -459,43 +459,33 @@ end;
   var
    i,j,n,v:integer;
    du,dv,dx,dy:single;
+   vert:TVertex;
   begin
-   result:=TMesh.Create;
-   gfx.resman.MakeOnline(img);
+   ASSERT(TVertex.layoutTex.stride=sizeof(vert));
+   result:=TMesh.Create(TVertex.layoutTex,(splitX+1)*(splitY+1),splitX*splitY*2*3);
    // Fill vertices
-   with result do begin
-   SetLength(vertices,(splitX+1)*(splitY+1));
    du:=(img.u2-img.u1)/splitX;
    dv:=(img.v2-img.v1)/splitY;
    dx:=img.width/splitX;
    dy:=img.height/splitY;
    n:=0;
    for i:=0 to splitY do
-    for j:=0 to splitX do begin
-     with vertices[n] do begin
-      x:=j*dx-0.5; y:=i*dy-0.5; z:=0; {$IFDEF DIRECTX} rhw:=1; {$ENDIF}
+    for j:=0 to splitX do
+     with vert do begin
+      x:=j*dx-0.5; y:=i*dy-0.5; z:=0;
       color:=$FF808080;
       u:=img.u1+du*j;
       v:=img.v1+dv*i;
+      result.AddVertex(vert);
      end;
-     inc(n);
-    end;
+
    // Fill indices
-   SetLength(indices,splitX*splitY*2*3);
-   n:=0;
    for i:=0 to splitY-1 do
     for j:=0 to splitX-1 do begin
      v:=i*(splitX+1)+j;
-     indices[n]:=v; inc(v);
-     indices[n+1]:=v; inc(v,splitX+1);
-     indices[n+2]:=v;
-     inc(n,3);
-     indices[n]:=v; dec(v);
-     indices[n+1]:=v; dec(v,splitX+1);
-     indices[n+2]:=v;
-     inc(n,3);
+     result.AddTrg(v,v+1,v+splitX+1);
+     result.AddTrg(v+splitX+1,v+1,v+splitX+2);
     end;
-   end;
   end;
 
  procedure DrawIndexedMesh(vertices:TVertices3D;indices:TIndices;tex:TTexture);
@@ -527,25 +517,21 @@ end;
    vertices[n].color:=color;
   end;
 
- function TransformVertices(vertices:TVertices;shader:TVertexHandler):TVertices;
-  var
-   i:integer;
+ procedure TransformVertices(vertices:PVertex;vCount:integer;shader:TVertexHandler);
   begin
-   SetLength(result,length(vertices));
-   for i:=0 to length(vertices)-1 do begin
-    result[i]:=vertices[i];
-    Shader(result[i]);
+   while vCount>0 do begin
+    Shader(vertices^);
+    inc(vertices);
+    dec(vCount);
    end;
   end;
 
- function TransformVertices(vertices:TVertices3D;shader:TVertex3DHandler):TVertices3D;
-  var
-   i:integer;
+ procedure TransformVertices(vertices:PVertex3D;vCount:integer;shader:TVertex3DHandler);
   begin
-   SetLength(result,length(vertices));
-   for i:=0 to length(vertices)-1 do begin
-    result[i]:=vertices[i];
-    Shader(result[i]);
+   while vCount>0 do begin
+    Shader(vertices^);
+    inc(vertices);
+    dec(vCount);
    end;
   end;
 
