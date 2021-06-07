@@ -1462,7 +1462,7 @@ class function TVertex3D.Layout:TVertexLayout;
  begin
   v:=nil;
   result:=BuildVertexLayout(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
-  ASSERT(result.stride=sizeof(TVertex3D));
+  result.stride:=Sizeof(TVertex3D);
  end;
 
 { TShader }
