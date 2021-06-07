@@ -27,6 +27,7 @@ implementation
    indices:TIndices;
    iCnt:integer;
    vHash:TSimpleHashS;
+   layout:TVertexLayout;
 
   procedure AddPoint;
    var
@@ -150,7 +151,7 @@ implementation
    // Trim arrays
    SetLength(vertices,vCnt);
    SetLength(indices,iCnt);
-   result:=TMesh.Create;
+   result:=TMesh.Create(TVertex3D.Layout,0,0);
    result.vertices:=vertices;
    result.indices:=indices;
   end;

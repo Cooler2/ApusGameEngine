@@ -77,7 +77,7 @@ type
   procedure Shadow(mode:TShadowMapMode;shadowMap:TTexture=nil;depthBias:single=0.002);
   procedure LightOff;
 
-  procedure Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
+  procedure Apply(vertexLayout:TVertexLayout);
 
  private
   curTextures:array[0..3] of TTexture;
@@ -85,7 +85,7 @@ type
 
   curTexMode:TTexMode; // encoded shader mode requested by the client code
   actualTexMode:TTexMode; // actual shader mode
-  actualVertexLayout:TVertexLayout; // vertex layout for the current shader
+  actualVertexLayout:cardinal; // vertex layout for the current shader
 
   // Ambient light
   ambientLightColor:cardinal;
@@ -585,7 +585,7 @@ procedure TGLShadersAPI.UseTexture(tex: TTexture; stage: integer);
   curTexChanged[stage]:=true;
  end;
 
-procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
+procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
  var
   shader:TGLShader;
   i:integer;
@@ -593,8 +593,8 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
   mat:T3DMatrix;
  begin
   if not isCustom then
-   if (actualTexMode.mode<>curTexMode.mode) or (actualVertexLayout<>vertexLayout) then begin
-    actualVertexLayout:=vertexLayout;
+   if (actualTexMode.mode<>curTexMode.mode) or (actualVertexLayout<>vertexLayout.layout) then begin
+    actualVertexLayout:=vertexLayout.layout;
     shader:=GetShaderFor;
     ActivateShader(shader);
     actualTexMode:=curtexMode;

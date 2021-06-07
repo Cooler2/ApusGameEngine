@@ -76,19 +76,18 @@ type
   procedure Reset;
 
   procedure Draw(primType:TPrimitiveType;primCount:integer;vertices:pointer;
-    vertexLayout:TVertexLayout;stride:integer);
+    vertexLayout:TVertexLayout);
 
   // Draw indexed  primitives using in-memory buffers
   procedure DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
-     vertexLayout:TVertexLayout;stride:integer; primCount:integer); overload;
+     vertexLayout:TVertexLayout; primCount:integer); overload;
 
   // Ranged version
   procedure DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
-     vertexLayout:TVertexLayout;stride:integer;
-     vrtStart,vrtCount:integer; indStart,primCount:integer); overload;
+     vertexLayout:TVertexLayout; vrtStart,vrtCount:integer; indStart,primCount:integer); overload;
 
   procedure DrawInstanced(primType:TPrimitiveType;vertices:pointer;indices:pointer;
-     vertexLayout:TVertexLayout;stride,primCount,instances:integer);
+     vertexLayout:TVertexLayout;primCount,instances:integer);
 
 (*  // Draw primitives using built-in buffer
   procedure DrawBuffer(primType,primCount,vrtStart:integer;
@@ -105,7 +104,7 @@ type
   lastVertices:pointer;
   lastLayout:TVertexLayout;
   lastStride:integer;
-  procedure SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout;stride:integer);
+  procedure SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout);
  end;
 
  TGLRenderTargetAPI=class(TRendertargetAPI)
@@ -404,11 +403,11 @@ destructor TRenderDevice.Destroy;
  end;
 
 procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertices: pointer;
-  vertexLayout:TVertexLayout; stride: integer);
+  vertexLayout:TVertexLayout);
  begin
   shadersAPI.Apply(vertexLayout);
   transformationAPI.Update;
-  SetupAttributes(vertices,vertexLayout,stride);
+  SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
    LINE_STRIP:glDrawArrays(GL_LINE_STRIP,0,primCount+1);
@@ -420,11 +419,11 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
  end;
 
 procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
-     vertexLayout:TVertexLayout;stride,primCount:integer);
+     vertexLayout:TVertexLayout;primCount:integer);
  begin
   shader.Apply(vertexLayout);
   transformationAPI.Update;
-  SetupAttributes(vertices,vertexLayout,stride);
+  SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices);
    LINE_STRIP:glDrawElements(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,indices);
@@ -436,12 +435,11 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
  end;
 
 procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
-     vertexLayout:TVertexLayout;stride:integer;
-     vrtStart,vrtCount:integer; indStart,primCount:integer);
+     vertexLayout:TVertexLayout; vrtStart,vrtCount:integer; indStart,primCount:integer);
  begin
   shader.Apply(vertexLayout);
   transformationAPI.Update;
-  SetupAttributes(vertices,vertexLayout,stride);
+  SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawRangeElements(GL_LINES,vrtStart,vrtStart+vrtCount-1,primCount*2,GL_UNSIGNED_SHORT,indices);
    LINE_STRIP:glDrawRangeElements(GL_LINE_STRIP,vrtStart,vrtStart+vrtCount-1,primCount+1,GL_UNSIGNED_SHORT,indices);
@@ -453,11 +451,11 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
  end;
 
 procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;indices:pointer;
-     vertexLayout:TVertexLayout;stride,primCount,instances:integer);
+     vertexLayout:TVertexLayout;primCount,instances:integer);
  begin
   shader.Apply(vertexLayout);
   transformationAPI.Update;
-  SetupAttributes(vertices,vertexLayout,stride);
+  SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawElementsInstanced(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices,instances);
    LINE_STRIP:glDrawElementsInstanced(GL_LINE_STRIP,primCount+1,GL_UNSIGNED_SHORT,indices,instances);
@@ -473,40 +471,40 @@ procedure TRenderDevice.Reset;
   i: Integer;
  begin
   lastVertices:=nil;
-  lastLayout:=0;
+  lastLayout.stride:=0;
   for i:=0 to 9 do glDisableVertexAttribArray(i);
   actualAttribArrays:=0;
  end;
 
-procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout;stride:integer);
+procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout);
  var
   i,v,n,dim:integer;
   p:pointer;
  begin
-  if (lastVertices=vertices) and (lastLayout=vertexLayout) and (lastStride=stride) then exit;
+  if (lastVertices=vertices) and (vertexLayout.Equals(lastLayout)) then exit;
   lastVertices:=vertices;
   lastLayout:=vertexLayout;
-  lastStride:=stride;
   n:=0;
-  for i:=0 to 4 do begin
-   v:=(vertexLayout and $F)*4;
-   vertexLayout:=vertexLayout shr 4;
-   p:=pointer(UIntPtr(vertices)+v);
-   if (v=0) and (i>0) then continue;
-   if (i=0) and (v=15*4) then begin // position is 2D
-    dim:=2; p:=vertices;
-   end else
-    dim:=3;
-   case i of
-    0:glVertexAttribPointer(n,dim,GL_FLOAT,GL_FALSE,stride,p); // position
-    1:glVertexAttribPointer(n,3,GL_FLOAT,GL_FALSE,stride,p); // normal
-    2:glVertexAttribPointer(n,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,p); // color
-    3:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv1
-    4:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv2
+  with vertexLayout do
+   for i:=0 to 4 do begin
+    v:=(layout and $F)*4;
+    layout:=layout shr 4;
+    p:=pointer(UIntPtr(vertices)+v);
+    if (v=0) and (i>0) then continue;
+    if (i=0) and (v=15*4) then begin // position is 2D
+     dim:=2; p:=vertices;
+    end else
+     dim:=3;
+    case i of
+     0:glVertexAttribPointer(n,dim,GL_FLOAT,GL_FALSE,stride,p); // position
+      1:glVertexAttribPointer(n,3,GL_FLOAT,GL_FALSE,stride,p); // normal
+     2:glVertexAttribPointer(n,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,p); // color
+     3:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv1
+     4:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv2
    end;
-   inc(n);
-   if vertexLayout=0 then break;
-  end;
+    inc(n);
+    if layout=0 then break;
+   end;
   // adjust number of vertex attrib arrays
   if actualAttribArrays<0 then begin
    for i:=0 to 4 do

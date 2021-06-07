@@ -162,7 +162,12 @@ type
  // [4:7] - normal (vec3s)
  // [8:11]  - color (vec4b)
  // [12:15] - uv1 (vec2s)
- TVertexLayout=cardinal;
+ TVertexLayout=record
+  layout:cardinal;
+  stride:integer;
+  procedure Init(position,normal,color,uv1,uv2:integer);
+  function Equals(l:TVertexLayout):boolean; inline;
+ end;
 
  // Packed ARGB color
  TARGBColor=Apus.Colors.TARGBColor;
@@ -179,7 +184,7 @@ type
 
 const
  // Vertex layout with 3 attributes: position[3] (location=0), color[3] (location=1) and uv[2] (location=2)
- DEFAULT_VERTEX_LAYOUT = $4300;
+ DEFAULT_VERTEX_LAYOUT : TVertexLayout = (layout: $4300; stride: 6*4;);
 
 type
  TImagePixelFormat = Apus.Images.TImagePixelFormat;
@@ -520,7 +525,7 @@ type
   // Update and upload transformation matrices
   procedure UpdateMatrices(const model,MVP:T3DMatrix);
   // Apply shader configuration (build/set proper shader). Must be called after any mode changes before actual draw calls
-  procedure Apply(vertexLayout:TVertexLayout=DEFAULT_VERTEX_LAYOUT);
+  procedure Apply(vertexLayout:TVertexLayout);
  end;
 
  // Configuration
@@ -592,7 +597,7 @@ type
   u,v:single;
   procedure Init(x,y,z,u,v:single;color:cardinal); overload; inline;
   procedure Init(x,y,z:single;color:cardinal); overload;
-  class var layoutTex,layoutNoTex:cardinal;
+  class var layoutTex,layoutNoTex:TVertexLayout;
  end;
 
  // Vertex format for double textured primitives
@@ -603,7 +608,7 @@ type
   u,v:single;
   u2,v2:single;
   procedure Init(x,y,z,u,v,u2,v2:single;color:cardinal); inline;
-  class function Layout:cardinal; static;
+  class function Layout:TVertexLayout; static;
  end;
 
  // Vertex format for 3D objects with lighting
@@ -614,7 +619,7 @@ type
   nx,ny,nz:single;
   extra:single;
   u,v:single;
-  class function Layout:cardinal; static;
+  class function Layout:TVertexLayout; static;
  end;
 
  // vertex and index arrays
@@ -623,11 +628,21 @@ type
  TIndices=array of word;
  TTexCoords=array of TPoint2s;
 
- // Simple 3D mesh
+ // Simple mesh
  TMesh=class
-  vertices:TVertices3D;
-  indices:TIndices;
+  layout:TVertexLayout;
+  vertices:pointer;
+  indices:TIndices; // Optional, can be empty
+  vCount:integer;
+  constructor Create(vertexLayout:TVertexLayout;vertCount,indCount:integer);
+  procedure SetVertices(data:pointer;sizeInBytes:integer);
+  procedure AddVertex(var vertexData);
+  procedure AddTrg(v0,v1,v2:integer);
   procedure Draw(tex:TTexture=nil); // draw whole mesh
+  destructor Destroy; override;
+ private
+  vData:PByte;
+  idx:integer;
  end;
 
  PMultiTexLayer=^TMultiTexLayer;
@@ -703,9 +718,11 @@ type
   // Meshes ------------------
   // Draw textured tri-mesh (tex=nil -> colored mode)
   procedure TrgList(vertices:PVertex;trgCount:integer;tex:TTexture); overload;
+  procedure TrgList(vertices:pointer;layout:TVertexLayout;trgCount:integer;tex:TTexture); overload;
   procedure TrgList3D(vertices:PVertex3D;trgCount:integer;tex:TTexture); overload;
   // Draw indexed tri-mesh (tex=nil -> colored mode)
-  procedure IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
+  procedure IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); overload;
+  procedure IndexedMesh(vertices:pointer;layout:TVertexLayout;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); overload;
 
   // Multitexturing functions ------------------
   // Режим мультитекстурирования должен быть предварительно настроен с помощью SetTexMode / SetTexInterpolationMode
@@ -1355,12 +1372,51 @@ function IsKeyReleased(scanCode:integer):boolean;
  end;
 
 { TMesh }
+procedure TMesh.AddTrg(v0, v1, v2: integer);
+ begin
+  indices[idx]:=v0; inc(idx);
+  indices[idx]:=v1; inc(idx);
+  indices[idx]:=v2; inc(idx);
+ end;
+
+procedure TMesh.AddVertex(var vertexData);
+ begin
+  ASSERT(PointerInRange(vData,vertices,vCount*layout.stride));
+  move(vertexData,vData^,layout.stride);
+  inc(vData,layout.stride);
+ end;
+
+constructor TMesh.Create(vertexLayout: TVertexLayout; vertCount, indCount: integer);
+ begin
+  layout:=vertexLayout;
+  vCount:=vertCount;
+  if vCount>0 then GetMem(vertices,vCount*layout.stride);
+  SetLength(indices,indCount);
+  vData:=vertices;
+  idx:=0;
+ end;
+
+destructor TMesh.Destroy;
+ begin
+  FreeMem(vertices);
+  inherited;
+ end;
+
 procedure TMesh.Draw(tex:TTexture=nil); // draw whole mesh
  begin
   if length(indices)>0 then
-   DrawIndexedMesh(vertices,indices,tex)
+   Apus.Engine.API.draw.IndexedMesh(vertices,layout,@indices[0],
+     length(indices) div 3,vCount,tex)
   else
-   DrawMesh(vertices,tex);
+   Apus.Engine.API.draw.TrgList(vertices,layout,vCount div 3,tex)
+ end;
+
+procedure TMesh.SetVertices(data: pointer; sizeInBytes: integer);
+ begin
+  FreeMem(vertices);
+  vertices:=data;
+  vCount:=sizeInBytes div layout.stride;
+  vData:=vertices;
  end;
 
 { TVertex }
@@ -1389,22 +1445,24 @@ procedure TVertex2t.Init(x, y, z, u, v, u2, v2: single; color: cardinal);
   self.u2:=u2; self.v2:=v2;
  end;
 
-class function TVertex2t.Layout: cardinal;
+class function TVertex2t.Layout:TVertexLayout;
  var
   v:PVertex2t;
  begin
   v:=nil;
   result:=BuildVertexLayout(0,0,integer(@v.color),integer(@v.u),integer(@v.u2));
+  ASSERT(result.stride=sizeof(TVertex2t));
  end;
 
 { TVertex3D }
 
-class function TVertex3D.Layout: cardinal;
+class function TVertex3D.Layout:TVertexLayout;
  var
   v:PVertex3D;
  begin
   v:=nil;
   result:=BuildVertexLayout(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
+  ASSERT(result.stride=sizeof(TVertex3D));
  end;
 
 { TShader }
@@ -1430,8 +1488,22 @@ class function TShader.VectorFromColor3(color: cardinal): TVector3s;
   result.z:=c.b/255;
  end;
 
+{ TVertexLayout }
+
+function TVertexLayout.Equals(l: TVertexLayout): boolean;
+ begin
+  result:=(l.layout=layout) and (l.stride=stride);
+ end;
+
+procedure TVertexLayout.Init(position, normal, color, uv1, uv2: integer);
+ begin
+  self:=BuildVertexLayout(position,normal,color,uv1,uv2);
+ end;
+
 initialization
  PublishFunction('GetFont',fGetFontHandle);
  TVertex.layoutTex:=BuildVertexLayout(0,0,12,16,0); // color and uv1
+ TVertex.layoutTex.stride:=Sizeof(TVertex);
  TVertex.layoutNoTex:=BuildVertexLayout(0,0,12,0,0); // color only
+ TVertex.layoutNoTex.stride:=Sizeof(TVertex);
 end.

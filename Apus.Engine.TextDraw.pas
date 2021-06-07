@@ -158,7 +158,7 @@ procedure TTextDrawer.FlushTextCache;
   if txtVertCount=0 then exit;
   shader.UseTexture(textCache);
   if txtVertCount>0 then begin
-    renderDevice.DrawIndexed(TRG_LIST,txtBuf,txtInd,TVertex.layoutTex,sizeof(TVertex),
+    renderDevice.DrawIndexed(TRG_LIST,txtBuf,txtInd,TVertex.layoutTex,
       0,txtVertCount, 0,txtVertCount div 2);
     txtVertCount:=0;
   end;
