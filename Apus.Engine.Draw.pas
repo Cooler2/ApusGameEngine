@@ -41,9 +41,11 @@ interface
   procedure DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
       image1,image2:TTexture;color:cardinal=$FF808080);
   //procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080);
-  procedure TrgList(pnts:PVertex;trgcount:integer;tex:TTexture);
+  procedure TrgList(pnts:PVertex;trgcount:integer;tex:TTexture); overload;
+  procedure TrgList(vertices:pointer;layout:TVertexLayout;trgCount:integer;tex:TTexture); overload;
   procedure TrgList3D(pnts:PVertex3D;trgcount:integer;tex:TTexture);
-  procedure IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
+  procedure IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); overload;
+  procedure IndexedMesh(vertices:pointer;layout:TVertexLayout;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); overload;
 
   procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0);
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
@@ -163,7 +165,7 @@ begin
  vrt[1].Init(x_+dx-0.5,y_-0.5,   zPlane,tex.u2,tex.v1,color);
  vrt[2].Init(x_+dx-0.5,y_+dy-0.5,zPlane,tex.u2,tex.v2,color);
  vrt[3].Init(x_-0.5,y_+dy-0.5,   zPlane,tex.u1,tex.v2,color);
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex);
 end;
 
 procedure TDrawer.ImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=$FF808080);
@@ -190,7 +192,7 @@ begin
   Swap(vrt[0].v,vrt[3].v);
   Swap(vrt[1].v,vrt[2].v);
  end;
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex);
 end;
 
 procedure TDrawer.ImagePart(x_, y_: integer; tex: TTexture;
@@ -211,7 +213,7 @@ begin
  vrt[1].Init(x_+w+0.5,y_-0.5,   zPlane, tex.u1+tex.stepU*r.Right*2,tex.v1+tex.stepV*r.top*2,color);
  vrt[2].Init(x_+w+0.5,y_+h+0.5, zPlane, tex.u1+tex.stepU*r.Right*2,tex.v1+tex.stepV*r.Bottom*2,color);
  vrt[3].Init(x_-0.5,y_+h+0.5,   zPlane, tex.u1+tex.stepU*r.left*2,tex.v1+tex.stepV*r.Bottom*2,color);
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex);
 end;
 
 procedure TDrawer.ImagePart90(x_, y_: integer; tex: TTexture;
@@ -255,7 +257,7 @@ begin
   u:=tex.u1+tex.stepU*r.left*2; v:=tex.v1+tex.stepV*r.Bottom*2;
  end;
  for i:=0 to 3 do vrt[i].color:=color;
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex);
 end;
 
 procedure TDrawer.Line(x1, y1, x2, y2: single; color: cardinal);
@@ -266,7 +268,7 @@ begin
  shader.UseTexture(neutral);
  vrt[0].Init(x1,y1,zPlane,color);
  vrt[1].Init(x2,y2,zPlane,color);
- renderDevice.Draw(LINE_LIST,1,@vrt[0],TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(LINE_LIST,1,@vrt[0],TVertex.layoutTex);
 end;
 
 procedure TDrawer.Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
@@ -290,7 +292,7 @@ begin
  if not clippingAPI.Prepare(minX,minY,maxX,maxY) then exit;
  shader.UseTexture(neutral);
  if closed then vrt[cnt]:=vrt[0];
- renderDevice.Draw(LINE_STRIP,cnt-1+byte(closed),@vrt[0],TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(LINE_STRIP,cnt-1+byte(closed),@vrt[0],TVertex.layoutTex);
 end;
 
 procedure TDrawer.DoubleTex(x_, y_: integer; image1, image2: TTexture;color: cardinal);
@@ -325,7 +327,7 @@ begin
   x_-0.5,y_+h-0.5,zPlane,
   au1,av2, bu1,bv2,
   color);
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex2t.Layout,sizeof(TVertex2t));
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex2t.Layout);
 end;
 
 procedure TDrawer.DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
@@ -401,7 +403,7 @@ begin
   au1,av2,bu1,bv2,
   color);
 
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex2t.Layout,sizeof(TVertex2t));
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex2t.Layout);
 end;
 
 (* Obsolete, probably should not be used
@@ -526,7 +528,7 @@ begin
 
  if not clippingAPI.Prepare(minX,minY,maxX,maxY) then exit;
  shader.UseTexture(neutral);
- renderDevice.Draw(TRG_LIST,n,@vrt[0],TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_LIST,n,@vrt[0],TVertex.layoutTex);
 end;
 
 procedure TDrawer.RotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;
@@ -565,7 +567,7 @@ begin
  vrt[1].Init(x0+wc2-hs1, y0+hc1+ws2, zPlane, u2, v1, color);
  vrt[2].Init(x0+wc2+hs2, y0-hc2+ws2, zPlane, u2, v2, color);
  vrt[3].Init(x0-wc1+hs2, y0-hc2-ws1, zPlane, u1, v2, color);
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
 procedure TDrawer.Scaled(x1, y1, x2, y2: single; image: TTexture;
@@ -594,7 +596,7 @@ begin
  vrt[2].Init(x2,y2, zPlane, u2, v2, color);
  vrt[3].Init(x1,y2, zPlane, u1, v2, color);
 
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
 procedure TDrawer.TrgList(pnts: PVertex; trgcount: integer;
@@ -603,7 +605,15 @@ begin
  clippingAPI.Prepare;
  if tex=nil then tex:=neutral;
  shader.UseTexture(tex);
- renderDevice.Draw(TRG_LIST,trgcount,pnts,TVertex.LayoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_LIST,trgcount,pnts,TVertex.LayoutTex);
+end;
+
+procedure TDrawer.TrgList(vertices:pointer;layout:TVertexLayout;trgCount:integer;tex:TTexture);
+begin
+ clippingAPI.Prepare;
+ if tex=nil then tex:=neutral;
+ shader.UseTexture(tex);
+ renderDevice.Draw(TRG_LIST,trgcount,vertices,layout);
 end;
 
 procedure TDrawer.TrgList3D(pnts: PVertex3D; trgcount: integer;
@@ -612,7 +622,7 @@ begin
  clippingAPI.Prepare;
  if tex=nil then tex:=neutral;
  shader.UseTexture(tex);
- renderDevice.Draw(TRG_LIST,trgcount,pnts,TVertex3D.Layout,sizeof(TVertex3D));
+ renderDevice.Draw(TRG_LIST,trgcount,pnts,TVertex3D.Layout);
 end;
 
 procedure TDrawer.IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
@@ -620,8 +630,16 @@ begin
  clippingAPI.Prepare;
  if tex=nil then tex:=neutral;
  shader.UseTexture(tex);
- renderDevice.DrawIndexed(TRG_LIST,vertices,indices,TVertex3D.layout,sizeof(TVertex3D),
+ renderDevice.DrawIndexed(TRG_LIST,vertices,indices,TVertex3D.layout,
     0,vrtCount,0,trgCount);
+end;
+
+procedure TDrawer.IndexedMesh(vertices:pointer;layout:TVertexLayout;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
+begin
+ clippingAPI.Prepare;
+ if tex=nil then tex:=neutral;
+ shader.UseTexture(tex);
+ renderDevice.DrawIndexed(TRG_LIST,vertices,indices,layout,0,vrtCount,0,trgCount);
 end;
 
 procedure TDrawer.Rect(x1, y1, x2, y2: integer; color: cardinal);
@@ -635,7 +653,7 @@ begin
  vrt[2].Init(x2,y2,zPlane,color);
  vrt[3].Init(x1,y2,zPlane,color);
  vrt[4]:=vrt[0];
- renderDevice.Draw(LINE_STRIP,4,@vrt,TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(LINE_STRIP,4,@vrt,TVertex.layoutTex);
 end;
 
 procedure TDrawer.Reset;
@@ -658,7 +676,7 @@ begin
  vrt[6].Init(x1,y2-r,zPlane,color);
  vrt[7].Init(x1,y1+r,zPlane,color);
  vrt[8]:=vrt[0];
- renderDevice.Draw(LINE_STRIP,8,@vrt,TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(LINE_STRIP,8,@vrt,TVertex.layoutTex);
 end;
 
 procedure TDrawer.FillGradrect(x1, y1, x2, y2: integer; color1,
@@ -675,7 +693,7 @@ begin
  if vertical then vrt[3].color:=color2
   else vrt[1].color:=color2;
 
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
 procedure TDrawer.FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
@@ -692,7 +710,7 @@ begin
  vrt[0].Init(x1-0.5,y1-0.5,zPlane,color1);
  vrt[1].Init(x2-0.5,y2-0.5,zPlane,color2);
  vrt[2].Init(x3-0.5,y3-0.5,zPlane,color3);
- renderDevice.Draw(TRG_LIST,1,@vrt,TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_LIST,1,@vrt,TVertex.layoutTex);
 end;
 
 procedure TDrawer.FillRect(x1, y1, x2, y2: integer; color: cardinal);
@@ -708,7 +726,7 @@ begin
  vrt[1].Init(sx2,sy1,zPlane,color);
  vrt[2].Init(sx2,sy2,zPlane,color);
  vrt[3].Init(sx1,sy2,zPlane,color);
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
 procedure TDrawer.ShadedRect(x1, y1, x2, y2, depth: integer; light,
@@ -739,7 +757,7 @@ begin
   b1^:=b1^ div 2+32; b2^:=(b2^*3+255) shr 2;
   dec(x1); dec(y1); inc(x2); inc(y2);
  end;
- renderDevice.Draw(LINE_LIST,depth*4,@vrt,TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(LINE_LIST,depth*4,@vrt,TVertex.layoutTex);
 end;
 
 procedure TDrawer.TexturedRect(x1, y1, x2, y2: integer; texture: TTexture; u1,
@@ -766,7 +784,7 @@ begin
  vrt[3].u:=(u1+u3)-u2;
  vrt[3].v:=(v1+v3)-v2;
  shader.UseTexture(texture);
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex,sizeof(TVertex));
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
 procedure TDrawer.Particles(x, y: integer; data: PParticle;
@@ -834,7 +852,7 @@ begin
 
  clippingAPI.Prepare;
  shader.UseTexture(tex);
- renderDevice.DrawIndexed(TRG_LIST,@partBuf[0],@partInd[0],TVertex.layoutTex,sizeof(TVertex),
+ renderDevice.DrawIndexed(TRG_LIST,@partBuf[0],@partInd[0],TVertex.layoutTex,
   0,count*4, 0,count*2);
 end;
 
@@ -946,7 +964,7 @@ begin
    inc(primcount,2);
  end;
  renderDevice.DrawIndexed(TRG_LIST,@partBuf[0],@bandInd[0],TVertex.layoutTex,
-  sizeof(TVertex), 0,count*2, 0,primCount);
+   0,count*2, 0,primCount);
 end;
 
 function TDrawer.Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;

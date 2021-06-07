@@ -64,6 +64,7 @@ interface
   PointerArray=array of pointer;
   VariantArray=array of variant;
 
+  TProcedure=procedure;
 
   // 8-bit strings encodings
   TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8);
@@ -433,6 +434,8 @@ interface
  procedure ZeroMem(var data;size:integer); inline;
  function IsZeroMem(var data;size:integer):boolean;
  procedure FillDword(var data;size:integer;value:cardinal);
+ // Check if pointer is between baseAddress and baseAddress+size-1
+ function PointerInRange(p:pointer;baseAddress:pointer;size:UIntPtr):boolean; inline;
 
  // Простейшее шифрование/дешифрование (simple XOR)
  procedure SimpleEncrypt(var data;size,code:integer);
@@ -521,6 +524,16 @@ interface
  procedure ClearFlag(var v:uint64;flag:uint64); overload; inline;
  procedure ClearFlag(var v:cardinal;flag:cardinal); overload; inline;
  procedure ClearFlag(var v:byte;flag:byte); overload; inline;
+
+ procedure Toggle(var b:boolean); inline;
+ function GetBit(data:cardinal;index:integer):boolean; overload; inline;
+ function GetBit(data:uint64;index:integer):boolean; overload; inline;
+ procedure SetBit(var data:byte;index:integer); overload; inline;
+ procedure SetBit(var data:cardinal;index:integer); overload; inline;
+ procedure SetBit(var data:uint64;index:integer); overload; inline;
+ procedure ClearBit(var data:byte;index:integer); overload; inline;
+ procedure ClearBit(var data:cardinal;index:integer); overload; inline;
+ procedure ClearBit(var data:uint64;index:integer); overload; inline;
 
  // Spline functions
  // ----------------------------------------
@@ -2183,6 +2196,20 @@ procedure SimpleEncrypt2;
    result:=true;
   end;
 
+ function PointerInRange(p:pointer;baseAddress:pointer;size:UIntPtr):boolean;
+  var
+   b,v:UIntPtr;
+  begin
+   b:=UIntPtr(baseAddress);
+   v:=UIntPtr(p);
+   result:=(v>=b) and (v<b+size);
+  end;
+
+ procedure Toggle(var b:boolean);
+  begin
+   b:=not b;
+  end;
+
  function IsUTF8(st:RawByteString):boolean; inline;
   begin
    if (length(st)>=3) and (st[1]=#$EF) and (st[2]=#$BB) and (st[3]=#$BF) then result:=true
@@ -3211,6 +3238,41 @@ function BinToStr;
  procedure ClearFlag(var v:byte;flag:byte); overload;
   begin
    v:=v and (not flag);
+  end;
+
+ function GetBit(data:cardinal;index:integer):boolean; overload; inline;
+  begin
+   result:=data and (1 shl index)<>0;
+  end;
+ function GetBit(data:uint64;index:integer):boolean; overload; inline;
+  begin
+   result:=data and (1 shl index)<>0;
+  end;
+
+ procedure SetBit(var data:byte;index:integer); overload; inline;
+  begin
+   data:=data or (1 shl index);
+  end;
+ procedure SetBit(var data:cardinal;index:integer); overload; inline;
+  begin
+   data:=data or (1 shl index);
+  end;
+ procedure SetBit(var data:uint64;index:integer); overload; inline;
+  begin
+   data:=data or (1 shl index);
+  end;
+
+ procedure ClearBit(var data:byte;index:integer); overload; inline;
+  begin
+   data:=data and not (1 shl index);
+  end;
+ procedure ClearBit(var data:cardinal;index:integer); overload; inline;
+  begin
+   data:=data and not (1 shl index);
+  end;
+ procedure ClearBit(var data:uint64;index:integer); overload; inline;
+  begin
+   data:=data and not (1 shl index);
   end;
 
  function SatSpline(x:single;a,b,c:integer):byte;

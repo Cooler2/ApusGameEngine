@@ -471,11 +471,14 @@ end;
 var
  globalS:double;
 
-procedure Shader1(var vertex:TVertex3D);
+procedure Shader1(var vertex:TVertex);
+var
+ sx,sy:single;
 begin
  with vertex do begin
-  x:=x+3*sin(globalS+y*0.18)-0.1*y;
-  y:=y+3*cos(globalS+x*0.3);
+  sx:=x; sy:=y;
+  x:=sx+3*sin(globalS+sy*0.18)-0.1*sy;
+  y:=sy+3*cos(globalS+sx*0.3);
  end; 
 end;
 
@@ -609,7 +612,7 @@ begin
 
  mesh:=BuildMeshForImage(tex1,32,32);
  globalS:=MyTickCount/200;
- mesh.vertices:=TransformVertices(mesh.vertices,shader1);
+ TransformVertices(mesh.vertices,mesh.vCount,shader1);
 { for i:=0 to length(vertices)-1 do
   with vertices[i] do begin
    //ou:=x/tex1.width; ov:=y/tex1.height;
@@ -622,7 +625,8 @@ begin
 { if getTickCount mod 1000<500 then
   draw.Image(0,0,tex1)
  else}
- DrawIndexedMesh(mesh.vertices,mesh.indices,tex1);
+ mesh.Draw(tex1);
+ mesh.Free;
  Reset2DTransform;
  //(painter as TDXPainter8).DrawTrgListTex(@vrt,1,tex2);
 
@@ -1921,6 +1925,8 @@ var
  i,n,key:integer;
  time:int64;
 begin
+ try ChDir('..\demo\EngineTest'); except end;
+
  time:=MyTickCount;
  v:=10.6;
  for i:=0 to 10000000 do begin
