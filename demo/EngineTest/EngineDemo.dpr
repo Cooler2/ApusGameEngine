@@ -73,7 +73,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 15;
+ testnum:integer = 3;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -135,7 +135,7 @@ type
  TTexturesTest=class(TTest)
   prog:TShader;
   uTex:integer;
-  tex1,tex2,tex3,tex4,texA,tex5,tex6,texM,texDuo:TTexture;
+  tex1,tex2,tex3,tex4,texA,tex5,tex6,texMip,texDuo:TTexture;
   debug:ByteArray;
   procedure Init; override;
   procedure RenderFrame; override;
@@ -341,7 +341,7 @@ begin
  tex3:=AllocImage(64,64,ipfARGB,aiTexture,'test3');
  tex4:=AllocImage(128,128,ipfARGB,aiTexture,'test4');
  texA:=AllocImage(100,100,ipfA8,aiTexture,'testA');
- texM:=AllocImage(128,128,ipfARGB,aiTexture+aiMipMapping,'testMipMap');
+ texMip:=AllocImage(128,128,ipfARGB,aiTexture+aiMipMapping,'testMipMap');
  texDuo:=AllocImage(32,32,ipfDuo8,aiTexture,'testDuo');
 // tex1:=LoadImageFromFile('test1.tga') as TTexture;
  tex1.Lock;
@@ -377,11 +377,11 @@ begin
  end;
  tex2.Unlock;
 
- texM.Lock;
- for i:=0 to texM.height-1 do begin
-  pb:=texM.data;
-  inc(pb,texM.pitch*i);
-  for j:=0 to texM.width-1 do begin
+ texMip.Lock;
+ for i:=0 to texMip.height-1 do begin
+  pb:=texMip.data;
+  inc(pb,texMip.pitch*i);
+  for j:=0 to texMip.width-1 do begin
    r:=(j and 1)*180;
    pb^:=200; inc(pb);
    pb^:=r; inc(pb);
@@ -389,7 +389,7 @@ begin
    pb^:=255; inc(pb);
   end;
  end;
- texM.Unlock;
+ texMip.Unlock;
 
  tex3.Lock;
  for i:=0 to tex3.height-1 do begin
@@ -545,9 +545,9 @@ begin
  draw.Image(800,10,tex4);
 
  sub:=tex1.ClonePart(Rect(2,0,12,10));
- tex1.SetFilter(false);
- draw.Scaled(200,0,260,40,sub);
- tex1.SetFilter(true);
+ tex1.SetFilter(fltNearest);
+ draw.Scaled(200,0,260,40,sub); // pixelated test
+ tex1.SetFilter(fltTrilinear);
  draw.Scaled(300,0,360,40,sub);
  sub.Free;
 
@@ -559,12 +559,13 @@ begin
 
 
  s:=0.2+(MyTickCount mod 3000)/3000;
- texM.SetFilter(true);
- draw.RotScaled(450,420,s,s,0,texM);
+ texMip.SetFilter(fltTrilinear);
+ //texMip.SetFilter(fltBilinear);
+ draw.RotScaled(450,420,s,s,0,texMip); // MipMap test
 
  if (frame div 100) and 1=0 then
- tex2.SetFilter(false);
- draw.RotScaled(750,300,4,4,1,tex2,$FF808080);
+ tex2.SetFilter(fltNearest);
+ draw.RotScaled(750,300,4,4,1,tex2,$FF808080); // Pixelated test
 
  draw.Rect(200-1,100-1,350+1,250+1,$FFFFFF80);
  draw.Rect(100-2,200-2,107+2,207+2,$FFFFFFFF);

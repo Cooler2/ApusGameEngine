@@ -18,7 +18,8 @@ const
 // aiWriteOnly      = 32; // Can be locked, but for write only operation
  aiDontScale      = 64; // Use exact width/height for render target allocation (otherwise they're scaled using current scale factor)
  aiClampUV        = 128; // clamp texture coordinates instead of wrapping them (for aiTexture only)
- aiDepthBuffer     = 256; // allocate Depth Buffer for this image (for aiRenderTarget only)
+ aiDepthBuffer    = 256; // allocate Depth Buffer for this image (for aiRenderTarget only)
+ aiPixelated      = 8192; // disable tri/bilinear filtering for this image
 
  // DynamicAtlas dimension flags
  aiMW256   = $010000;
@@ -313,7 +314,8 @@ type
   procedure AddDirtyRect(rect:TRect); virtual; abstract; // mark area to update when unlocked (mode=lmCustomUpdate)
   procedure GenerateMipMaps(count:byte); virtual; abstract; // Сгенерировать изображения mip-map'ов
   function HasFlag(flag:cardinal):boolean;
-  procedure SetFilter(allowInterpolation:boolean); virtual; abstract;
+  // Limit texture filtering to the specified mode (i.e. bilinear mode disables mip-mapping)
+  procedure SetFilter(filter:TTexFilter); virtual; abstract;
  protected
   locked:integer; // lock counter
  end;
