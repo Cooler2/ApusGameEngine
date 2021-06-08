@@ -149,10 +149,9 @@ implementation
    end;
    close(f);
    // Trim arrays
-   SetLength(vertices,vCnt);
    SetLength(indices,iCnt);
-   result:=TMesh.Create(TVertex3D.Layout,0,0);
-   result.vertices:=vertices;
+   result:=TMesh.Create(TVertex3D.Layout,vCnt,iCnt);
+   move(vertices[0],result.vertices^,vCnt*sizeof(TVertex3D));
    result.indices:=indices;
   end;
 
