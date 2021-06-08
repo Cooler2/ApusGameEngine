@@ -137,8 +137,8 @@ procedure TMainScene.Render;
   // Draw objects
   transform.SetObj(0,0,1.5+1.3*sin(time), 2); // Set object position and scale
   //shader.TexMode(0,tblReplace,tblKeep);
-  //texCube.Draw(texture);
-  objGear.Draw;
+  texCube.Draw(texture);
+  //objGear.Draw;
   //objCube.Draw;
 
 

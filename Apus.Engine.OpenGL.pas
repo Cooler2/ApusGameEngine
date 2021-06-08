@@ -421,7 +421,6 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
 procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;primCount:integer);
  begin
-  transformationAPI.Update;
   shader.Apply(vertexLayout);
   SetupAttributes(vertices,vertexLayout);
   case primtype of
@@ -438,7 +437,6 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
      vertexLayout:TVertexLayout; vrtStart,vrtCount:integer; indStart,primCount:integer);
  begin
   shader.Apply(vertexLayout);
-  transformationAPI.Update;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawRangeElements(GL_LINES,vrtStart,vrtStart+vrtCount-1,primCount*2,GL_UNSIGNED_SHORT,indices);
@@ -454,7 +452,6 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;i
      vertexLayout:TVertexLayout;primCount,instances:integer);
  begin
   shader.Apply(vertexLayout);
-  transformationAPI.Update;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawElementsInstanced(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices,instances);
