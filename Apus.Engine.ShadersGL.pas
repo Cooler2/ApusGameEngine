@@ -40,6 +40,7 @@ type
   destructor Destroy; override;
   procedure SetUniform(name:String8;value:integer); overload; override;
   procedure SetUniform(name:String8;value:single); overload; override;
+  procedure SetUniform(name:String8;const value:TVector2s); overload; override;
   procedure SetUniform(name:String8;const value:TVector3s); overload; override;
   procedure SetUniform(name:String8;const value:T3DMatrix); overload; override;
   procedure SetUniform(name:String8;const value:TQuaternionS); overload; override;
@@ -150,8 +151,9 @@ procedure SetUniformInternal(shader:TGLShader; name:string8;mode:integer;const v
   case mode of
    1:glUniform1i(loc,integer(value));
    2:glUniform1f(loc,single(value));
-   20:glUniform3fv(loc,1,@value);
-   21:glUniform4fv(loc,1,@value);
+   22:glUniform2fv(loc,1,@value);
+   23:glUniform3fv(loc,1,@value);
+   24:glUniform4fv(loc,1,@value);
    30:glUniformMatrix4fv(loc,1,GL_FALSE,@value);
   end;
   CheckForGLError(401);
@@ -167,14 +169,19 @@ procedure TGLShader.SetUniform(name: String8; value: single);
   SetUniformInternal(self,name,2,value);
  end;
 
+procedure TGLShader.SetUniform(name: String8; const value: TVector2s);
+ begin
+  SetUniformInternal(self,name,22,value);
+ end;
+
 procedure TGLShader.SetUniform(name: String8; const value: TVector3s);
  begin
-  SetUniformInternal(self,name,20,value);
+  SetUniformInternal(self,name,23,value);
  end;
 
 procedure TGLShader.SetUniform(name: String8; const value: TQuaternionS);
  begin
-  SetUniformInternal(self,name,21,value);
+  SetUniformInternal(self,name,24,value);
  end;
 
 procedure TGLShader.UpdateMatrices(revision: integer;const shadowMapMatrix:T3DMatrixS);

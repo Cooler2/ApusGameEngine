@@ -142,6 +142,7 @@ type
  TPoint2 = Apus.Geom2D.TPoint2;
  PPoint2 = Apus.Geom2D.PPoint2;
  TPoint2s = Apus.Geom2D.TPoint2s;
+ TVector2s = Apus.Geom2D.TVector2s;
  PPoint2s = ^TPoint2s;
  // 3D Points
  TPoint3 = Apus.Geom3D.TPoint3;
@@ -395,6 +396,7 @@ type
   // Set uniform value
   procedure SetUniform(name:String8;value:integer); overload; virtual; abstract;
   procedure SetUniform(name:String8;value:single); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TVector2s); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:TVector3s); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:TVector4s); overload; virtual; abstract;
   procedure SetUniform(name:String8;const value:T3DMatrix); overload; virtual; abstract;
