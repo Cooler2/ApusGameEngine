@@ -83,8 +83,7 @@ type
    disableEffects:boolean=false; // true - disable all effects
 
 implementation
- uses {$IFDEF DIRECTX}{d3d8,directXGraphics,}{$ENDIF}
-      SysUtils, Apus.Images, Apus.Geom2D,
+ uses Math,SysUtils, Apus.Images, Apus.Geom2D,
       {$IFDEF OPENGL}dglOpenGL, {$ENDIF}
       {$IFDEF ANDROID}gles20, Apus.Engine.PainterGL, {$ENDIF}
       Apus.Colors,Apus.Engine.UIClasses,Apus.Engine.Console,Apus.Engine.UIRender;
@@ -641,11 +640,12 @@ const
   'layout (location=0) in vec3 aPosition;    '#13#10+
   'layout (location=1) in vec4 color;      '#13#10+
   'layout (location=2) in vec2 texCoord; '#13#10+
+  'uniform float yFactor; '#13#10+
   'out vec2 vTexcoord;'#13#10+
   ''#13#10+
   'void main(void) '#13#10+
   '{ '#13#10+
-  '  vTexcoord = vec2(0.5+aPosition.x/200,0.5+aPosition.y/200);    '#13#10+
+  '  vTexcoord = vec2(0.5+aPosition.x/200,0.5+aPosition.y*yFactor/200);    '#13#10+
   '  gl_Position = vec4(0.01 * aPosition, 1.0);   '#13#10+
   '}';
 
@@ -667,7 +667,6 @@ const
   '   value += v2 * texture2D(tex2, vTexcoord+vec2(offsetX,-offsetY));  '#13#10+
   '   value += v2 * texture2D(tex2, vTexcoord+vec2(-offsetX,-offsetY));  '#13#10+
   '   gl_FragColor = colorAdd + value*colorMult;  '#13#10+
-//  '   gl_FragColor = texture2D(tex1, vTexcoord)+vec4(0.1,0.1,0.1,0.0);  '#13#10+
   '}';
 
 var
@@ -791,6 +790,8 @@ begin
   blurShader.SetUniform('v2',1/6);
   blurShader.SetUniform('tex1',0);
   blurShader.SetUniform('tex2',0);
+  // Since we don't use engine's transformation, we should manually flip Y-coordinate when needed
+  blurShader.SetUniform('yFactor',IfThen(gfx.transform.ProjMatrix[1,1]>0,1.0,-1.0));
 
   v:=phase;
   move(mainColorAdd,cb,4);
