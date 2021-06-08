@@ -563,10 +563,12 @@ interface
  // ease-in with 30% overflow
  function Spline4a(x,x0,x1,y0,y1:single):single;
 
- // Получить ближайшую степень двойки, не меньшую данного числа
+ // Get the nearest Power-of-two value not less than V
  function GetPow2(v:integer):integer;
  // Get power of 2
  function Pow2(e:integer):int64;
+ // Get the smallest number E so 2^E is not less than V
+ function Log2i(v:integer):integer;
 
  // Minimum / Maximum
  function Min2(a,b:integer):integer; inline;
@@ -994,11 +996,25 @@ function min2s(a,b:single):single; inline;
    while result<v do result:=result*2;
   end;
 
- function pow2(e:integer):int64;
+ function Pow2(e:integer):int64;
   begin
    result:=0;
    if (e>=0) and (e<64) then
     result:=1 shl e;
+  end;
+
+ function Log2i(v:integer):integer;
+  begin
+   result:=0;
+   dec(v);
+   if v>1024 then begin
+    result:=10;
+    v:=v shr 10;
+   end;
+   while v>0 do begin
+    v:=v shr 1;
+    inc(result);
+   end;
   end;
 
  function CalcCheckSum(adr:pointer;size:integer):cardinal;
