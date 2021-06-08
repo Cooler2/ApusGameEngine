@@ -14,9 +14,6 @@ uses
   {$IFDEF OPENGL}
   dglOpenGL,
   {$ENDIF }
-  {$IFDEF DIRECTX}
-  DirectXGraphics,
-  {$ENDIF }
   Apus.EventMan,
   Apus.FastGFX,
   Apus.FreeTypeFont,
@@ -65,7 +62,8 @@ uses
   Apus.Engine.Draw in '..\..\Apus.Engine.Draw.pas',
   Apus.Engine.Graphics in '..\..\Apus.Engine.Graphics.pas',
   Apus.Engine.TextDraw in '..\..\Apus.Engine.TextDraw.pas',
-  Apus.Engine.ShadersGL in '..\..\Apus.Engine.ShadersGL.pas';
+  Apus.Engine.ShadersGL in '..\..\Apus.Engine.ShadersGL.pas',
+  Apus.Engine.SceneEffects in '..\..\Apus.Engine.SceneEffects.pas';
 
 const
  wnd:boolean=true;
@@ -73,7 +71,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 3;
+ testnum:integer = 5;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
