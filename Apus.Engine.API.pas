@@ -524,8 +524,6 @@ type
   // Shadow mapping
   procedure Shadow(mode:TShadowMapMode;shadowMap:TTexture=nil;depthBias:single=0.002);
 
-  // Update and upload transformation matrices
-  procedure UpdateMatrices(const model,MVP:T3DMatrix);
   // Apply shader configuration (build/set proper shader). Must be called after any mode changes before actual draw calls
   procedure Apply(vertexLayout:TVertexLayout);
  end;

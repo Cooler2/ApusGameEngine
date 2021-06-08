@@ -1,4 +1,4 @@
-// ShadersAPI implementation for OpenGL
+﻿// ShadersAPI implementation for OpenGL
 //
 // Copyright (C) 2021 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -34,6 +34,7 @@ type
   uTex:array[0..3] of integer; // texture samplers (named "tex0".."tex3")
   vSrc,fSrc:String8; // shader source code
   isCustom:boolean;
+  matrixRevision:integer;
 
   constructor Create(h:TGLShaderHandle);
   destructor Destroy; override;
@@ -42,6 +43,7 @@ type
   procedure SetUniform(name:String8;const value:TVector3s); overload; override;
   procedure SetUniform(name:String8;const value:T3DMatrix); overload; override;
   procedure SetUniform(name:String8;const value:TQuaternionS); overload; override;
+  procedure UpdateMatrices(revision:integer;const shadowMapMatrix:T3DMatrixS); // Get transformation matrices and upload them to uniforms
  end;
 
  TGLShadersAPI=class(TInterfacedObject,IShader)
@@ -63,8 +65,6 @@ type
   // Upload texture to the Video RAM and make it active for the specified stage
   // (usually you don't need to call this manually unless you're using a custom shader)
   procedure UseTexture(tex:TTexture;stage:integer=0);
-  // Update shader matrices
-  procedure UpdateMatrices(const model,MVP:T3DMatrix);
 
   procedure AmbientLight(color:cardinal);
   // Set directional light (set power<=0 to disable)
@@ -101,14 +101,16 @@ type
   isCustom:boolean;
   lighting:boolean;
 
-  mvpMatrix,modelMatrix,viewProjMatrix,shadowMapMatrix:T3DMatrixS;
+  matrixRevision:integer; // increments when transformation changed, so matrices can be uploaded to shaders
+  //mvpMatrix,modelMatrix,
+  viewProjMatrix:T3DMatrixS; // lightspace matrix used for shadowmap
+  shadowMapMatrix:T3DMatrixS; // frustrum->viewport transformation matrix for the main shadow rendering phase
 
   // Switch to the specified shader and upload matrices (if applicable)
   procedure ActivateShader(shader:TShader);
   // Get/create shader for current render settings
   function GetShaderFor:TGLShader;
   function CreateShaderFor:TGLShader;
-  procedure SetShaderMatrices; // upload matrices to the shader uniforms
  end;
 
 var
@@ -173,6 +175,24 @@ procedure TGLShader.SetUniform(name: String8; const value: TVector3s);
 procedure TGLShader.SetUniform(name: String8; const value: TQuaternionS);
  begin
   SetUniformInternal(self,name,21,value);
+ end;
+
+procedure TGLShader.UpdateMatrices(revision: integer;const shadowMapMatrix:T3DMatrixS);
+ var
+  mat:T3DMatrixS;
+ begin
+  matrixRevision:=revision;
+  if uMVP>=0 then begin
+   mat:=Matrix4s(transformationAPI.MVP);
+   glUniformMatrix4fv(uMVP,1,GL_FALSE,@mat);
+  end;
+  if uModelMat>=0 then begin
+   mat:=Matrix4s(transformationAPI.objMatrix);
+   glUniformMatrix4fv(uModelMat,1,GL_FALSE,@mat);
+  end;
+  if uShadowMapMat>=0 then begin
+   glUniformMatrix4fv(uShadowMapMat,1,GL_FALSE,@shadowMapMatrix);
+  end;
  end;
 
 procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
@@ -521,13 +541,6 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   result:=TGLShader.Create(prog);
  end;
 
-procedure TGLShadersAPI.UpdateMatrices(const model, MVP: T3DMatrix);
- begin
-  modelMatrix:=Matrix4s(model);
-  mvpMatrix:=Matrix4s(mvp);
-  SetShaderMatrices;
- end;
-
 procedure TGLShadersAPI.UseCustom(shader: TShader);
  var
   stage:integer;
@@ -544,16 +557,6 @@ procedure TGLShadersAPI.Reset;
   TexMode(0);
   TexMode(1,tblDisable,tblDisable);
   //Apply;
- end;
-
-procedure TGLShadersAPI.SetShaderMatrices;
- begin
-  if activeShader=nil then exit;
-   with activeShader do begin
-   if uMVP>=0 then glUniformMatrix4fv(uMVP,1,GL_FALSE,@mvpMatrix);
-   if uModelMat>=0 then glUniformMatrix4fv(uModelMat,1,GL_FALSE,@modelMatrix);
-   if uShadowMapMat>=0 then glUniformMatrix4fv(uShadowMapMat,1,GL_FALSE,@shadowMapMatrix);
-  end;
  end;
 
 procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:single);
@@ -600,11 +603,19 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
     actualTexMode:=curtexMode;
     if HasFlag(curTexMode.lighting,LIGHT_DEPTHPASS) and
      IsZeroMem(viewProjMatrix,sizeof(viewProjMatrix)) then begin
+      // Save view-projection matrix used during depth rendering phase for later use
       MultMat4(transformationAPI.GetViewMatrix,transformationAPI.GetProjMatrix,mat);
       viewProjMatrix:=Matrix4s(mat);
     end;
    end;
-  // set uniforms (if modified)
+  // Set uniforms (if modified)
+  // Transformations
+  if transformationAPI.Update then
+   inc(matrixRevision);
+  if activeShader.matrixRevision<>matrixRevision then begin
+   activeShader.UpdateMatrices(matrixRevision,shadowMapMatrix);
+  end;
+  // Textures
   for i:=0 to high(curTexChanged) do
    if curTexChanged[i] then begin
     curTexChanged[i]:=false;

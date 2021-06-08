@@ -293,6 +293,7 @@ procedure TOpenGL.EndPaint;
   if canPaint>0 then begin
    renderTargetAPI.Pop;
    renderTargetAPI.BlendMode(blAlpha);
+   transformationAPI.DefaultView;
   end;
   clippingAPI.Restore;
  end;
@@ -406,7 +407,6 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
   vertexLayout:TVertexLayout);
  begin
   shadersAPI.Apply(vertexLayout);
-  transformationAPI.Update;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
@@ -421,8 +421,8 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
 procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;primCount:integer);
  begin
-  shader.Apply(vertexLayout);
   transformationAPI.Update;
+  shader.Apply(vertexLayout);
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices);

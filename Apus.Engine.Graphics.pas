@@ -54,7 +54,7 @@ type
   procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0); virtual;
   procedure SetObj(mat:T3DMatrix); overload; virtual;
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual;
-  procedure Update; // calculate combined matrix (if needed), pass data to the active shader
+  function Update:boolean; // Сalculate combined matrix (if needed), returns true if matrix was changed
   function GetMVPMatrix:T3DMatrix;
   function GetProjMatrix:T3DMatrix;
   function GetViewMatrix:T3DMatrix;
@@ -363,12 +363,12 @@ function TTransformationAPI.Transform(source: TPoint3): TPoint3;
   result.z:=z;
  end;
 
-procedure TTransformationAPI.Update;
+function TTransformationAPI.Update:boolean;
  begin
-  if not modified then exit;
+  if not modified then exit(false);
   CalcMVP;
-  shader.UpdateMatrices(objMatrix,mvp);
   modified:=false;
+  result:=true;
  end;
 
 { TRenderTargetAPI }
