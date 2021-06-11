@@ -1343,7 +1343,7 @@ begin
        (displayScaleMode in [dsmDontScale,dsmScale]) and
        ((dRT.width<>w) or (dRT.height<>h)) then begin
      LogMessage('Resizing framebuffer');
-     gfx.resman.ResizeTexture(dRT,w,h);
+     gfx.resman.ResizeImage(dRT,w,h);
     end;
    gfx.target.Viewport(0,0,dRT.width,drt.height,params.width,params.height);
   end;

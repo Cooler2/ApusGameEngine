@@ -43,7 +43,7 @@ type
 
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
                 flags:cardinal;name:TTextureName):TTexture;
-  procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer);
+  procedure ResizeImage(var img:TTexture;newWidth,newHeight:integer);
   function Clone(img:TTexture):TTexture;
   procedure FreeImage(var image:TTexture);
   procedure MakeOnline(img:TTexture;stage:integer=0);
@@ -896,7 +896,7 @@ begin
  {$ENDIF}
 end;
 
-procedure TGLResourceManager.ResizeTexture(var img: TTexture; newWidth,
+procedure TGLResourceManager.ResizeImage(var img: TTexture; newWidth,
   newHeight: integer);
 var
  glFormat,subFormat,internalFormat:cardinal;

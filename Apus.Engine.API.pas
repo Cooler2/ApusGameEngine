@@ -548,7 +548,7 @@ type
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
      flags:cardinal;name:TTextureName):TTexture;
   // Change size of texture if it supports it (render target etc)
-  procedure ResizeTexture(var img:TTexture;newWidth,newHeight:integer);
+  procedure ResizeImage(var img:TTexture;newWidth,newHeight:integer);
   function Clone(img:TTexture):TTexture;
   // Освободить изображение
   procedure FreeImage(var image:TTexture); overload;
