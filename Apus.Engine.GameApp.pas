@@ -20,7 +20,7 @@ interface
    gameTitle:string='Engine3 Game Template';
    configFileName:string=''; // load this config file (can contain path, which is discarded after file is loaded)
 
-   usedAPI:TGraphicsAPI=gaOpenGL;
+   usedAPI:TGraphicsAPI=gaAuto;
    usedPlatform:TSystemPlatform {$IFNDEF MSWINDOWS} = spSDL{$ENDIF};
    windowedMode:boolean=true;
    windowWidth:integer=1024;
