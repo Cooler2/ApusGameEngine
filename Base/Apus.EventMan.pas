@@ -31,6 +31,9 @@ type
  // In fact, return value is ignored
  TEventHandler=procedure(event:TEventStr;tag:TTag);
 
+ TProcedure=procedure;
+ TObjProcedure=procedure of object;
+
  // Set event handling procedure
  // event may contain multiple values (comma-separated)
  procedure SetEventHandler(event:TEventStr;handler:TEventHandler;mode:TEventMode=emInstant);
@@ -51,6 +54,8 @@ type
  procedure Unlink(event,linkedEvent:TEventStr);
  // Удалить все связанные события (втч для всех подсобытий)
  procedure UnlinkAll(event:TEventStr='');
+
+ procedure LinkProc(event:TEventStr;handler:TProcedure);
 
  // Check if event has form of XXX\YYY where XXX is eventClass (case-insensitive). Returns YYY part in subEvent
  function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean;
@@ -388,7 +393,6 @@ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean
    end;
   end;
 
-
  procedure Signal(event:TEventStr;tag:TTag=0);
   var
    callerIP:cardinal; // адрес, откуда вызвана процедура
@@ -402,7 +406,6 @@ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean
    {$ELSE}
    callerIP:=0;
    {$ENDIF}
-//   LogMessage('Signal: '+event+'='+inttostr(tag)+' thread='+inttostr(GetCurrentThreadID),4);
    EnterCriticalSection(CritSect);
    try
     HandleEvent(event,tag,0,callerIP);
@@ -572,9 +575,30 @@ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean
    end;
   end;
 
+ procedure LinkProc(event:TEventStr;handler:TProcedure); overload;
+  begin
+   Link(event,'Event\CallProc',TTag(@handler),true);
+  end;
+
+{ procedure LinkProc(event:TEventStr;handler:TObjProcedure); overload;
+  begin
+   Link(event,'Event\CallObjProc',TTag(@handler),true);
+  end;}
+
+ procedure EventHandler(event:TEventStr;tag:TTag);
+  var
+   p1:TProcedure;
+  begin
+   event:=copy(event,7,100);
+   if SameText(event,'CallProc') then begin
+    p1:=TProcedure(tag);
+    p1;
+   end;
+  end;
+
 initialization
  InitCritSect(critSect,'EventMan',300);
-// InitializeCriticalSection(critSect);
+ SetEventHandler('Event',EventHandler);
 
 finalization
  DeleteCritSect(critSect);
