@@ -26,6 +26,7 @@ procedure CreateScenes;
 constructor TMainScene.Create;
  begin
   inherited Create('MainScene');
+  SetStatus(ssActive);
  end;
 
 procedure TMainScene.Render;
@@ -38,11 +39,11 @@ procedure TMainScene.Render;
  end;
 
 begin
- SetEventHandler('GAMEAPP',EventHandler);
- SetEventHandler('Logic',EventHandler);
- usedAPI:=gaOpenGL2; // needed just for the Blur effect
+ usedAPI:=gaOpenGL2;
+ useDefaultLoaderScene:=false;
  //usedPlatform:=spSDL;
  //directRenderOnly:=false;
+
  LinkProc('GameApp\CreateScenes',CreateScenes);
  application:=TGameApplication.Create;
  application.Prepare;
