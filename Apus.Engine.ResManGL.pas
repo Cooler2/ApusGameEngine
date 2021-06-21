@@ -25,14 +25,27 @@ type
   function Describe:string;
   procedure SetFilter(filter:TTexFilter); override;
  protected
-  online:boolean;
+  online:boolean; // true when image data is uploaded and ready to use (uv's are valid), false when local image data was modified and should be uploaded
   realData:array of byte; // sysmem instance of texture data
-  fbo:cardinal;
-  rbo:cardinal;
+  fbo:cardinal; // framebuffer object (for a render target texture)
+  rbo:cardinal; // renderbuffer object - for a render target texture with a depth buffer attached (but not for depth buffer textures)
   dirty:array[0..15] of TRect;
   dCount:integer;
   procedure SetLabel; // submit name as label for OpenGL
   procedure UpdateFilter;
+  procedure FreeData; virtual;
+  procedure UploadData; virtual; // upload modified data (using dirty rects)
+ end;
+
+ TGLTextureArray=class(TGLTexture)
+  constructor Create(numLayers:integer);
+  procedure Lock(index:integer;miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); overload; virtual;
+  procedure AddDirtyRect(index:integer;rect:TRect); overload; virtual;
+  procedure Unlock(index:integer); overload; virtual;
+ protected
+  layers:array of TGLTexture; // fake texture objects used to
+  procedure FreeData; override;
+  procedure UploadData; override;
  end;
 
  TGLResourceManager=class(TInterfacedObject,IResourceManager)
@@ -46,6 +59,12 @@ type
   procedure ResizeImage(var img:TTexture;newWidth,newHeight:integer);
   function Clone(img:TTexture):TTexture;
   procedure FreeImage(var image:TTexture);
+
+  // Allocate texture array
+  function AllocArray(width,height:integer;PixFmt:TImagePixelFormat;
+                arraySize,mipLevels:integer;
+                flags:cardinal;name:TTextureName):TGLTextureArray;
+
   procedure MakeOnline(img:TTexture;stage:integer=0);
   procedure SetTexFilter(img:TTexture;filter:TTexFilter);
 
@@ -64,6 +83,7 @@ type
   texFilters:array[0..3] of TTexFilter;
   procedure FreeVidMem; // Освободить некоторое кол-во видеопамяти
   procedure FreeMetaTexSpace(n:integer); // Освободить некоторое пространство в указанной метатекстуре
+  procedure AllocRenderTarget(tex:TGLTexture;flags:cardinal);
  end;
 
  var
@@ -95,7 +115,7 @@ const
 
 var
  mainThreadId:TThreadID;
- cSect:TMyCriticalSection;
+ cSect:TMyCriticalSection; // TODO: зачем? Нет глобальных данных, нуждающихся в защите
  lastErrorTime:int64;
  errorTr:integer;
 
@@ -257,6 +277,44 @@ begin
  end;
 end;
 
+{ TGLTextureArray }
+
+procedure TGLTextureArray.AddDirtyRect(index: integer; rect: TRect);
+begin
+
+end;
+
+constructor TGLTextureArray.Create(numLayers: integer);
+var
+ i:integer;
+begin
+ SetLength(layers,numLayers);
+ for i:=0 to numLayers-1 do layers[i]:=TGLTexture.Create;
+end;
+
+
+procedure TGLTextureArray.FreeData;
+begin
+  inherited;
+
+end;
+
+procedure TGLTextureArray.Lock(index:integer; miplevel:byte; mode:TlockMode; r:PRect);
+begin
+ layers[index].Lock(mipLevel,mode,r);
+end;
+
+procedure TGLTextureArray.Unlock(index: integer);
+begin
+ layers[index].Unlock;
+end;
+
+procedure TGLTextureArray.UploadData;
+begin
+  inherited;
+
+end;
+
 { TGLTexture }
 
 procedure TGLTexture.CloneFrom(src: TTexture);
@@ -284,6 +342,11 @@ begin
   inherited;
 end;
 
+procedure TGLTexture.FreeData;
+begin
+
+end;
+
 function TGLTexture.GetRawImage: TRawImage;
 begin
  result:=TRawImage.Create;
@@ -297,7 +360,7 @@ begin
  result.palSize:=0;
 end;
 
-procedure TGLTexture.Lock(miplevel: byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil);
+procedure TGLTexture.Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil);
 var
  size:integer;
  lockRect:TRect;
@@ -423,6 +486,71 @@ begin
  CheckForGLError('16');
 end;
 
+procedure TGLTexture.UploadData;
+var
+ needInit:boolean;
+ format,subformat,internalFormat,error:cardinal;
+ i,bpp:integer;
+begin
+  needInit:=false;
+  if locked>0 then raise EWarning.Create('MO for a locked texture: '+name);
+  if texname=0 then begin // allocate texture name
+   glGenTextures(1,@texname);
+   CheckForGLError('11');
+   glBindTexture(GL_TEXTURE_2D, texname);
+   SetLabel;
+   CheckForGLError('12');
+   needInit:=true;
+  end;
+
+  // Upload texture data
+  GetGLFormat(PixelFormat,format,subFormat,internalFormat);
+
+  if format=GL_COMPRESSED_TEXTURE_FORMATS then
+   glCompressedTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,length(realData),realData)
+  else begin
+   {$IFNDEF GLES}
+   if needInit then begin  // Specify texture size and pixel format
+    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,nil);
+    CheckForGLError('13');
+    UpdateFilter;
+   end;
+   if dCount>0 then begin
+    // Upload texture data
+    glPixelStorei(GL_UNPACK_ROW_LENGTH,realWidth);
+    CheckForGLError('14');
+    bpp:=pixelSize[pixelFormat] div 8;
+    for i:=0 to dCount-1 do
+     with dirty[i] do
+      glTexSubImage2D(GL_TEXTURE_2D,0,Left,Top,right-left+1,bottom-top+1,
+         format,subFormat,@realData[(left+top*realWidth)*bpp]);
+    CheckForGLError('15');
+    dCount:=0;
+   end;
+   {$ELSE}
+   // GLES doesn't support UNPACK_ROW_LENGTH so it's not possible to upload just a portion of
+   // the source texture data
+   if format=GL_RGBA then ConvertColors32(data,realwidth*realheight);
+   if format=GL_RGB then ConvertColors24(data,realwidth*realheight);
+   glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,data);
+   CheckForGLError('16');
+   {$ENDIF}
+   if HasFlag(tfAutoMipMap) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
+    glGenerateMipmap(GL_TEXTURE_2D);
+   end;
+
+   if caps and tfClamped>0 then begin
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+   end else begin
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+   end;
+   CheckForGLError('17');
+  end;
+  online:=true;
+end;
+
 procedure EventHandler(event:TEventStr;tag:TTag);
 var
  tex:TTexture;
@@ -435,53 +563,16 @@ end;
 
 { TGLResourceManager }
 
-function TGLResourceManager.AllocImage(width, height: integer; PixFmt: TImagePixelFormat; Flags: cardinal;
-  name: TTextureName): TTexture;
+procedure TGLResourceManager.AllocRenderTarget(tex:TGLTexture;flags:cardinal);
 var
- tex:TGlTexture;
- status:cardinal;
  format,SubFormat,internalFormat:cardinal;
- dataSize:integer;
- renderBuffer:GLUint;
- drawBuffers:GLenum;
+ status:cardinal;
  prevFramebuffer:GLint;
+ renderBuffer:GLUint;
 begin
- ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
- ASSERT((pixFmt<>ipfNone) or HasFlag(flags,aiDepthBuffer),'Invalid pixel format for '+name);
- if (flags and aiSysMem=0) and ((width>maxTextureSize) or (height>maxTextureSize)) then raise EWarning.Create('AI: Texture too large');
- try
- EnterCriticalSection(cSect);
- try
- tex:=TGLTexture.Create;
- result:=tex;
- tex.rbo:=0;
- tex.fbo:=0;
- tex.left:=0;
- tex.top:=0;
- tex.width:=width;
- tex.height:=height;
- if (flags and aiPow2>0) {$IFNDEF GLES} or
-     not GL_ARB_texture_non_power_of_two {$ENDIF} then begin
-  width:=GetPow2(width);
-  height:=GetPow2(height);
- end;
- tex.realwidth:=width;
- tex.realHeight:=height;
- tex.name:=name;
- tex.PixelFormat:=PixFmt;
- tex.caps:=0;
- tex.online:=false;
- tex.texname:=0;
- if HasFlag(flags,aiPixelated) then
-  tex.filter:=fltNearest
- else
-  tex.filter:=fltTrilinear;
-// sx:=1; sy:=1;
-// if flags and aiWriteOnly>0 then
-
- if flags and aiRenderTarget>0 then begin
-  LogMessage(sysUtils.Format('AllocImage RT %dx%d %d (%s)',[width,height,flags,name]));
-  if max2(width,height)>maxRTsize then raise EWarning.Create('AI: RT texture too large');
+ begin
+  LogMessage(sysUtils.Format('AllocImage RT %dx%d %d (%s)',[tex.width,tex.height,flags,tex.name]));
+  if max2(tex.width,tex.height)>maxRTsize then raise EWarning.Create('AI: RT texture too large');
   {$IFDEF GLES}
   {$IFDEF GLES11}
   width:=GetPow2(width);
@@ -535,9 +626,9 @@ begin
    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
    tex.caps:=tex.caps or tfClamped;
   end;
-  if (pixFmt=ipfNone) and HasFlag(flags,aiDepthBuffer) then begin
+  if (tex.pixelFormat=ipfNone) and HasFlag(flags,aiDepthBuffer) then begin
    // No pixel format, but need depth buffer: allocate depth texture only
-   glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT,width,height,0,GL_DEPTH_COMPONENT,GL_FLOAT,nil);
+   glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT,tex.width,tex.height,0,GL_DEPTH_COMPONENT,GL_FLOAT,nil);
    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_COMPARE_MODE,GL_COMPARE_REF_TO_TEXTURE); // enable comparison mode
@@ -547,15 +638,15 @@ begin
    glDrawBuffer(GL_NONE);
    glReadBuffer(GL_NONE);
   end else begin
-   GetGLFormat(PixFmt,format,subFormat,internalFormat);
-   glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,format,subFormat,nil);
+   GetGLFormat(tex.pixelFormat,format,subFormat,internalFormat);
+   glTexImage2D(GL_TEXTURE_2D,0,internalFormat,tex.width,tex.height,0,format,subFormat,nil);
    CheckForGLError('4');
    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex.texname,0);
 
    if HasFlag(flags,aiDepthBuffer) then begin
     glGenRenderbuffers(1,@renderBuffer);
     glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, tex.width, tex.height);
     glFramebufferRenderBuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
     tex.rbo:=renderBuffer;
    end;
@@ -563,7 +654,7 @@ begin
   end;
 
   status:=glCheckFramebufferStatus(GL_FRAMEBUFFER);
-  // Restore previous framebuffer
+  // Restore previous framebuffer binding
   glBindFramebuffer(GL_FRAMEBUFFER,prevFramebuffer);
 
   if status<>GL_FRAMEBUFFER_COMPLETE then
@@ -572,6 +663,44 @@ begin
   {$ENDIF}
   tex.caps:=tex.caps or (tfRenderTarget+tfNoRead+tfNoWrite);
   tex.online:=true;
+ end;
+end;
+
+
+function TGLResourceManager.AllocImage(width, height: integer; PixFmt: TImagePixelFormat; flags: cardinal;
+  name: TTextureName): TTexture;
+var
+ tex:TGlTexture;
+ dataSize:integer;
+begin
+ ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
+ ASSERT((pixFmt<>ipfNone) or HasFlag(flags,aiDepthBuffer),'Invalid pixel format for '+name);
+ if (flags and aiSysMem=0) and ((width>maxTextureSize) or (height>maxTextureSize)) then
+  raise EWarning.Create('AI: Texture too large');
+ try
+ EnterCriticalSection(cSect);
+ try
+ tex:=TGLTexture.Create;
+ result:=tex;
+ tex.width:=width;
+ tex.height:=height;
+ if HasFlag(flags,aiPow2) {$IFNDEF GLES} or
+     not GL_ARB_texture_non_power_of_two {$ENDIF} then begin
+  width:=GetPow2(width);
+  height:=GetPow2(height);
+ end;
+ tex.realwidth:=width;
+ tex.realHeight:=height;
+ tex.name:=name;
+ tex.PixelFormat:=PixFmt;
+ tex.online:=false;
+ if HasFlag(flags,aiPixelated) then
+  tex.filter:=fltNearest
+ else
+  tex.filter:=fltTrilinear;
+
+ if flags and aiRenderTarget>0 then begin
+  AllocRenderTarget(tex,flags);
  end else begin
   // Not render target -> NO ANY GL* CALLS TO ALLOW MULTITHREADED ALLOCATION
   tex.pitch:=width*pixelSize[pixFmt] div 8;
@@ -588,8 +717,75 @@ begin
   // Mip-maps
   if flags and aiMipMapping>0 then begin
    tex.caps:=tex.caps or tfAutoMipMap;
-   tex.mipmaps:=GetPow2(max2(width,height));
+   tex.mipmaps:=Log2i(max2(width,height));
   end;
+ end;
+
+ // Image can use the texture partialy
+ tex.u1:=0; tex.u2:=tex.width/width;
+ tex.v1:=0; tex.v2:=tex.height/height;
+ tex.stepU:=0.5*(tex.u2-tex.u1)/tex.width;
+ tex.stepV:=0.5*(tex.v2-tex.v1)/tex.height;
+ finally LeaveCriticalSection(cSect);
+ end;
+ except
+  on e:Exception do begin
+   if tex<>nil then tex.Free;
+   result:=nil;
+   LogMessage('AllocImage error: '+ExceptionMsg(e));
+   raise;
+  end;
+ end;
+end;
+
+function TGLResourceManager.AllocArray(width,height:integer;PixFmt:TImagePixelFormat;
+                arraySize,mipLevels:integer;
+                flags:cardinal;name:TTextureName):TGLTextureArray;
+var
+ tex:TGlTextureArray;
+ dataSize:integer;
+begin
+ ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
+ ASSERT((pixFmt<>ipfNone) or HasFlag(flags,aiDepthBuffer),'Invalid pixel format for '+name);
+ if (flags and aiSysMem=0) and ((width>maxTextureSize) or (height>maxTextureSize)) then
+  raise EWarning.Create('AI: Texture too large');
+ try
+ EnterCriticalSection(cSect);
+ try
+ tex:=TGLTextureArray.Create(arraySize);
+ result:=tex;
+ tex.width:=width;
+ tex.height:=height;
+ if (flags and aiPow2>0) {$IFNDEF GLES} or
+     not GL_ARB_texture_non_power_of_two {$ENDIF} then begin
+  width:=GetPow2(width);
+  height:=GetPow2(height);
+ end;
+ tex.realwidth:=width;
+ tex.realHeight:=height;
+ tex.name:=name;
+ tex.pixelFormat:=pixFmt;
+ tex.online:=false;
+ if HasFlag(flags,aiPixelated) then
+  tex.filter:=fltNearest
+ else
+  tex.filter:=fltTrilinear;
+
+ tex.pitch:=width*pixelSize[pixFmt] div 8;
+ datasize:=tex.pitch*height;
+ if pixFMT in [ipfDXT1,ipfDXT3,ipfDXT5] then begin
+  tex.pitch:=tex.pitch div 4;
+  datasize:=datasize div 16;
+ end;
+ SetLength(tex.realData,datasize);
+
+ tex.caps:=tex.caps or tfDirectAccess; // Can be locked
+ if flags and aiClampUV>0 then
+  tex.caps:=tex.caps or tfClamped;
+  // Mip-maps
+ if flags and aiMipMapping>0 then begin
+  tex.caps:=tex.caps or tfAutoMipMap;
+  tex.mipmaps:=Log2i(max2(width,height));
  end;
 
  tex.u1:=0; tex.u2:=tex.width/width;
@@ -607,6 +803,7 @@ begin
   end;
  end;
 end;
+
 
 function TGLResourceManager.Clone(img:TTexture):TTexture;
 var
@@ -691,7 +888,7 @@ begin
  dec(image.refCounter);
  if image.refCounter>=0 then begin
   image:=nil;
-  exit; // prevent deletion
+  exit; // prevent object deletion
  end;
 
  if image.parent<>nil then FreeImage(image.parent);
@@ -761,10 +958,6 @@ begin
 end;
 
 procedure TGLResourceManager.MakeOnline(img: TTexture;stage:integer=0);
-var
- format,subformat,internalFormat,error:cardinal;
- needInit:boolean;
- i,bpp:integer;
 
  procedure ConvertColors32(buf:PCardinal;count:integer);
   var
@@ -795,80 +988,17 @@ var
   end;
 
 begin
- EnterCriticalSection(cSect);
- try
  if img=nil then begin
   texNames[stage]:=0;
   exit;
  end;
- glActiveTexture(GL_TEXTURE0+stage);
- needInit:=false;
+ ASSERT(img is TGLTexture);
  with img as TGLTexture do begin
-  if locked>0 then raise EWarning.Create('MO for a locked texture: '+img.name);
-  if texname=0 then begin // allocate texture name
-   glGenTextures(1,@texname);
-   CheckForGLError('11');
-   glBindTexture(GL_TEXTURE_2D, texname);
-   SetLabel;
-   CheckForGLError('12');
-   texNames[stage]:=texname;
-   needInit:=true;
-  end else
-   if texNames[stage]<>texname then begin
-    glBindTexture(GL_TEXTURE_2D, texname);
-    texNames[stage]:=texname;
-   end;
-  if online then exit; // already online
-
-  // Upload texture data
-  GetGLFormat(PixelFormat,format,subFormat,internalFormat);
-
-  if format=GL_COMPRESSED_TEXTURE_FORMATS then
-   glCompressedTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,length(realData),realData)
-  else begin
-   {$IFNDEF GLES}
-   if needInit then begin  // Specify texture size and pixel format
-    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,nil);
-    CheckForGLError('13');
-    UpdateFilter;
-   end;
-   if dCount>0 then begin
-    // Upload texture data
-    glPixelStorei(GL_UNPACK_ROW_LENGTH,realWidth);
-    CheckForGLError('14');
-    bpp:=pixelSize[pixelFormat] div 8;
-    for i:=0 to dCount-1 do
-     with dirty[i] do
-      glTexSubImage2D(GL_TEXTURE_2D,0,Left,Top,right-left+1,bottom-top+1,
-         format,subFormat,@realData[(left+top*realWidth)*bpp]);
-    CheckForGLError('15');
-    dCount:=0;
-   end;
-   {$ELSE}
-   // GLES doesn't support UNPACK_ROW_LENGTH so it's not possible to upload just a portion of
-   // the source texture data
-   if format=GL_RGBA then ConvertColors32(data,realwidth*realheight);
-   if format=GL_RGB then ConvertColors24(data,realwidth*realheight);
-   glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,data);
-   CheckForGLError('16');
-   {$ENDIF}
-   if HasFlag(tfAutoMipMap) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
-    glGenerateMipmap(GL_TEXTURE_2D);
-   end;
-
-   if caps and tfClamped>0 then begin
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-   end else begin
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
-   end;
-   CheckForGLError('17');
-  end;
-  online:=true;
- end;
- finally
-  LeaveCriticalSection(cSect);
+  if (texNames[stage]=texname) and online then exit;
+  glActiveTexture(GL_TEXTURE0+stage);
+  if texNames[stage]<>texname then glBindTexture(GL_TEXTURE_2D, texname);
+  texNames[stage]:=texname;
+  UploadData;
  end;
 end;
 
@@ -916,10 +1046,10 @@ begin
    end;
    exit;
   end;
-  // Delete and allocate again
-  old:=img;
-  img:=AllocImage(newWidth,newHeight,img.PixelFormat,img.caps,img.name);
-  FreeImage(old);
+ // Delete and allocate again
+ old:=img;
+ img:=AllocImage(newWidth,newHeight,img.PixelFormat,img.caps,img.name);
+ FreeImage(old);
 end;
 
 begin

@@ -298,11 +298,11 @@ type
   width,height:integer; // dimension (in virtual pixels)
   left,top:integer; // position
   mipmaps:byte; // кол-во уровней MIPMAP
-  caps:integer; // возможности и флаги
+  caps:cardinal; // возможности и флаги
   name:TTextureName; // texture name (for debug purposes)
   refCounter:integer; // number of child textures referencing this texture data
-  parent:TTexture;
-  // These properties may not be valid if texture is not ONLINE
+  parent:TTexture;    // reference to a parent texture (
+  // These properties may not be valid unless texture is ONLINE
   u1,v1,u2,v2:single; // texture coordinates
   stepU,stepV:single; // halved texel step
   // These properties are valid when texture is LOCKED
@@ -313,13 +313,12 @@ type
   procedure CloneFrom(src:TTexture); virtual;
   function Clone:TTexture; // Clone this texture and return the cloned instance
   function ClonePart(part:TRect):TTexture; // Create cloned instance for part of this texture
-  procedure Clear(color:cardinal=$808080); // clear and fill the texture
+  procedure Clear(color:cardinal=$808080); // Clear and fill the texture with given color
   procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // 0-й уровень - самый верхний
-  procedure LockNext; virtual; abstract; // lock next mip-map level
   function GetRawImage:TRawImage; virtual; abstract; // Create RAW image for the topmost MIP level (when locked)
   function IsLocked:boolean;
   procedure Unlock; virtual; abstract;
-  procedure AddDirtyRect(rect:TRect); virtual; abstract; // mark area to update when unlocked (mode=lmCustomUpdate)
+  procedure AddDirtyRect(rect:TRect); virtual; abstract; // mark area to update (when locked with mode=lmCustomUpdate)
   procedure GenerateMipMaps(count:byte); virtual; abstract; // Сгенерировать изображения mip-map'ов
   function HasFlag(flag:cardinal):boolean;
   // Limit texture filtering to the specified mode (i.e. bilinear mode disables mip-mapping)
