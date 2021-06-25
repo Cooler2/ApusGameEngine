@@ -46,8 +46,10 @@ interface
   PString16=^String16;
 
   // String arrays
-  AStringArr=array of String8;
-  WStringArr=array of String16;
+  StringArr8=array of String8;
+  AStringArr=StringArr8;
+  StringArr16=array of String16;
+  WStringArr=StringArr16;
   StringArr=array of string; // depends on UNICODE mode
 
   {$IF Declared(TBytes)}
@@ -316,7 +318,9 @@ interface
  procedure RemoveString(var sa:AStringArr;index:integer); overload;
  procedure RemoveString(var sa:WStringArr;index:integer); overload;
  // Ищет строку в массиве, возвращает её индекс либо -1
- function FindString(var sa:StringArr;st:string;ignoreCase:boolean=false):integer;
+ function FindString(var sa:StringArr;st:string;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArr8;st:string8;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArr16;st:string16;ignoreCase:boolean=false):integer; overload;
  // Ищет число в массиве, возвращает его индекс либо -1
  function FindInteger(var a:IntArray;v:integer):integer;
  // Вставляет (добавляет) число в массив чисел
@@ -3493,6 +3497,35 @@ function BinToStr;
     for i:=0 to high(sa) do
      if sa[i]=st then exit(i);
   end;
+
+ function FindString(var sa:StringArr8;st:string8;ignoreCase:boolean=false):integer; overload;
+  var
+   i:integer;
+  begin
+   result:=-1;
+   if ignoreCase then begin
+    st:=lowercase(st);
+    for i:=0 to high(sa) do
+     if lowercase(sa[i])=st then exit(i);
+   end else
+    for i:=0 to high(sa) do
+     if sa[i]=st then exit(i);
+  end;
+
+ function FindString(var sa:StringArr16;st:string16;ignoreCase:boolean=false):integer; overload;
+  var
+   i:integer;
+  begin
+   result:=-1;
+   if ignoreCase then begin
+    st:=lowercase(st);
+    for i:=0 to high(sa) do
+     if lowercase(sa[i])=st then exit(i);
+   end else
+    for i:=0 to high(sa) do
+     if sa[i]=st then exit(i);
+  end;
+
 
  function FindInteger(var a:IntArray;v:integer):integer;
   var
