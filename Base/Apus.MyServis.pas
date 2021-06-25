@@ -6,9 +6,9 @@
 
 {$IFDEF FPC}{$MODE DELPHI}{$ENDIF}
 {$IFDEF IOS}{$modeswitch objectivec1}{$ENDIF}
-{$IFNDEF FPC}{$IFNDEF DELPHI}
+(*{$IFNDEF FPC}{$IFNDEF DELPHI} /// This directive in combination with HasFlag() makes Delphi hang!
 For Delphi - please define global symbol "DELPHI"!
-{$ENDIF}{$ENDIF}
+{$ENDIF}{$ENDIF} *)
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 {$IFDEF UNICODE} {$DEFINE ADDANSI} {$ENDIF} // Make separate implementations for String and AnsiString types
 
