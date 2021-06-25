@@ -7,7 +7,7 @@
 {$IF Defined(MSWINDOWS) or Defined(LINUX)} {$DEFINE DGL} {$ENDIF}
 unit Apus.Engine.ShadersGL;
 interface
-uses Apus.CrossPlatform, Apus.Geom3d,  Apus.Structs, Apus.Engine.API, Apus.Engine.Graphics;
+uses Apus.MyServis, Apus.Geom3d,  Apus.Structs, Apus.Engine.API, Apus.Engine.Graphics;
 
 type
  TGLShaderHandle=integer;
@@ -49,11 +49,12 @@ type
 
  TGLShadersAPI=class(TInterfacedObject,IShader)
   constructor Create;
-  function Build(vSrc,fSrc:String8;extra:string8=''):TShader;
+  function Build(vSrc,fSrc:String8;extra:string8=''):TShader; overload;
   function Load(filename:String8;extra:String8=''):TShader;
 
   // Use custom shader
   procedure UseCustom(shader:TShader);
+  procedure UseCustomized(colorCalc:String8);
   // Switch back to a built-in shader
   procedure Reset;
   // Default shader settings
@@ -87,6 +88,7 @@ type
   curTexMode:TTexMode; // encoded shader mode requested by the client code
   actualTexMode:TTexMode; // actual shader mode
   actualVertexLayout:cardinal; // vertex layout for the current shader
+  customized:StringArr8;
 
   // Ambient light
   ambientLightColor:cardinal;
@@ -119,7 +121,6 @@ var
 
 implementation
 uses
-  Apus.MyServis,
   SysUtils,
   StrUtils,
   Apus.Engine.ResManGL,
@@ -135,6 +136,7 @@ const
  LIGHT_SPECULAR   = 16; // add specular calculation
  LIGHT_SHADOWMAP  = 32; // use shadowmap for light calculations (use ambient light only for pixels in shadow)
  LIGHT_DEPTHPASS  = 64; // use empty shader for rendering into a depth texture
+ LIGHT_CUSTOMIZED = 128; // customized color calculation (low 4 bits contain index of customized shader code)
 
 { TGLShader }
 
@@ -212,6 +214,7 @@ procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
 
 constructor TGLShader.Create(h: TGLShaderHandle);
  begin
+  inherited Create;
   handle:=h;
   isCustom:=true;
   // predefined uniforms
@@ -296,12 +299,14 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
  var
   i:integer;
   m,colorMode,alphaMode:byte;
-  shadowMap,lighting:boolean;
+  shadowMap,lighting,customized:boolean;
  begin
-  lighting:=HasFlag(texMode.lighting,LIGHT_AMBIENT_ON+LIGHT_DIRECT_ON);
-  shadowMap:=HasFlag(texMode.lighting,LIGHT_SHADOWMAP);
+  customized:=HasFlag(texMode.lighting,LIGHT_CUSTOMIZED);
+  lighting:=HasFlag(texMode.lighting,LIGHT_AMBIENT_ON+LIGHT_DIRECT_ON) and not customized;
+  shadowMap:=HasFlag(texMode.lighting,LIGHT_SHADOWMAP) and not customized;
 
   AddLine(result,'#version 330');
+  if customized then notes:='[Customized] '+notes;
   AddLine(result,'// '+notes);
   if HasFlag(texMode.lighting,LIGHT_DEPTHPASS) then begin
    AddLine(result,'void main(void) {} ');
@@ -325,6 +330,11 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
   AddLine(result);
   AddLine(result,'void main(void)');
   AddLine(result,'{');
+  if customized then begin
+   AddLine(result,' '+shadersAPI.customized[texMode.lighting and $F]);
+   AddLine(result,'}');
+   exit;
+  end;
   AddLine(result,'  vec3 c = vColor.bgr;',hasColor);
   AddLine(result,'  float a = vColor.a;',hasColor);
   AddLine(result,'  vec3 c = vec3(1.0,1.0,1.0); float a = 1.0;',not hasColor);
@@ -401,7 +411,7 @@ function TGLShadersAPI.GetShaderFor:TGLShader;
  begin
   if HasFlag(curTexMode.lighting,LIGHT_DEPTHPASS) then
    actualVertexLayout:=actualVertexLayout and $F; // use only position when rendering to the shadowmap
-  mode:=curTexMode.mode+actualVertexLayout shl 32;
+  mode:=curTexMode.mode+UInt64(actualVertexLayout) shl 32;
   v:=shaderCache.Get(mode);
   if v<>-1 then exit(TGLShader(v));
   result:=CreateShaderFor;
@@ -556,10 +566,22 @@ procedure TGLShadersAPI.UseCustom(shader: TShader);
   ActivateShader(shader);
  end;
 
+procedure TGLShadersAPI.UseCustomized(colorCalc:String8);
+ var
+  idx:integer;
+ begin
+  idx:=FindString(customized,colorCalc);
+  if idx<0 then idx:=AddString(customized,colorCalc);
+  ASSERT((idx>=0) and (idx<16));
+  curTexMode.lighting:=idx+LIGHT_CUSTOMIZED;
+  isCustom:=false;
+ end;
+
 procedure TGLShadersAPI.Reset;
  begin
   isCustom:=false;
   actualTexMode.mode:=0;
+  ClearFlag(curTexMode.lighting,LIGHT_CUSTOMIZED);
   lighting:=false;
   TexMode(0);
   TexMode(1,tblDisable,tblDisable);

@@ -495,8 +495,11 @@ type
   function Build(vSrc,fSrc:String8;extra:String8=''):TShader;
   // Load and build shader from file(s)
   function Load(filename:String8;extra:String8=''):TShader;
+
   // Set custom shader (pass nil if it's already set or there is no object - because the engine should know)
   procedure UseCustom(shader:TShader);
+  // Use customized shader: where just the pixel (fragment) color calculation is modified
+  procedure UseCustomized(colorCalc:String8);
   // Switch back to the internal shader
   procedure Reset;
   // Built-in shader settings

@@ -71,7 +71,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 5;
+ testnum:integer = 13;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -1718,6 +1718,11 @@ begin
  shader.Reset;
  draw.FillGradrect(50,50,300,200,$FFF04000,$FF60C000,false);
  draw.FillRect(30,100,500,120,$FF000000);
+
+ // simplified method of using customized shaders
+ shader.UseCustomized(' fragColor = vec4(vTexCoord,0.5,1.0);'); // visualize UV
+ draw.Image(50,400,tex);
+ shader.Reset;
  gfx.EndPaint;
 end;
 
