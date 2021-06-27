@@ -26,7 +26,7 @@ type
   procedure SetFilter(filter:TTexFilter); override;
  protected
   online:boolean; // true when image data is uploaded and ready to use (uv's are valid), false when local image data was modified and should be uploaded
-  realData:array of byte; // sysmem instance of texture data
+  realData:ByteArray; // sysmem instance of texture data
   fbo:cardinal; // framebuffer object (for a render target texture)
   rbo:cardinal; // renderbuffer object - for a render target texture with a depth buffer attached (but not for depth buffer textures)
   dirty:array[0..15] of TRect;
@@ -35,17 +35,22 @@ type
   procedure UpdateFilter;
   procedure FreeData; virtual;
   procedure UploadData; virtual; // upload modified data (using dirty rects)
+  procedure Bind; virtual;
+  function GetTextureTarget:integer; virtual;
  end;
 
  TGLTextureArray=class(TGLTexture)
   constructor Create(numLayers:integer);
   procedure Lock(index:integer;miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); overload; virtual;
+  procedure Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); overload; override; // treat mip level as array index for convenience
   procedure AddDirtyRect(index:integer;rect:TRect); overload; virtual;
-  procedure Unlock(index:integer); overload; virtual;
+  procedure Unlock; override;
  protected
   layers:array of TGLTexture; // fake texture objects used to
+  lockedLayer:integer;
   procedure FreeData; override;
   procedure UploadData; override;
+  function GetTextureTarget:integer; override;
  end;
 
  TGLResourceManager=class(TInterfacedObject,IResourceManager)
@@ -62,8 +67,7 @@ type
 
   // Allocate texture array
   function AllocArray(width,height:integer;PixFmt:TImagePixelFormat;
-                arraySize,mipLevels:integer;
-                flags:cardinal;name:TTextureName):TGLTextureArray;
+                arraySize:integer;flags:cardinal;name:TTextureName):TGLTextureArray;
 
   procedure MakeOnline(img:TTexture;stage:integer=0);
   procedure SetTexFilter(img:TTexture;filter:TTexFilter);
@@ -79,7 +83,7 @@ type
  protected
   //CurTag:integer;
   //data:TObject;
-  texNames:array[0..3] of cardinal;
+  curTextures:array[0..3] of TGlTexture;
   texFilters:array[0..3] of TTexFilter;
   procedure FreeVidMem; // Освободить некоторое кол-во видеопамяти
   procedure FreeMetaTexSpace(n:integer); // Освободить некоторое пространство в указанной метатекстуре
@@ -289,7 +293,8 @@ var
  i:integer;
 begin
  SetLength(layers,numLayers);
- for i:=0 to numLayers-1 do layers[i]:=TGLTexture.Create;
+ for i:=0 to numLayers-1 do
+  layers[i]:=TGLTexture.Create;
 end;
 
 
@@ -299,23 +304,112 @@ begin
 
 end;
 
-procedure TGLTextureArray.Lock(index:integer; miplevel:byte; mode:TlockMode; r:PRect);
+function TGLTextureArray.GetTextureTarget: integer;
 begin
- layers[index].Lock(mipLevel,mode,r);
+ result:=GL_TEXTURE_2D_ARRAY;
 end;
 
-procedure TGLTextureArray.Unlock(index: integer);
+procedure TGLTextureArray.Lock(index:integer; miplevel:byte; mode:TlockMode; r:PRect);
 begin
- layers[index].Unlock;
+ inc(locked);
+ layers[index].Lock(mipLevel,mode,r);
+ data:=layers[index].data;
+ pitch:=layers[index].pitch;
+ lockedLayer:=index;
+end;
+
+procedure TGLTextureArray.Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil);
+begin
+ Lock(mipLevel,0,mode,r);
+end;
+
+procedure TGLTextureArray.Unlock;
+begin
+ layers[lockedLayer].Unlock;
+ dec(locked);
 end;
 
 procedure TGLTextureArray.UploadData;
+var
+ needInit:boolean;
+ format,subformat,internalFormat,error:cardinal;
+ i,bpp,z,depth:integer;
 begin
-  inherited;
+  needInit:=false;
+  if locked>0 then raise EWarning.Create('MO for a locked texture: '+name);
+
+  if texname=0 then begin // allocate texture name
+   glGenTextures(1,@texname);
+   CheckForGLError('11');
+   Bind;
+   SetLabel;
+   CheckForGLError('12');
+   needInit:=true;
+  end;
+
+  // Upload texture data
+  GetGLFormat(PixelFormat,format,subFormat,internalFormat);
+  depth:=length(layers);
+  if format=GL_COMPRESSED_TEXTURE_FORMATS then begin
+   for z:=0 to depth-1 do
+    glCompressedTexImage3D(GL_TEXTURE_2D_ARRAY,0,internalFormat,realwidth,realheight,depth,0,
+      length(layers[z].realData),realData);
+  end else begin
+   {$IFNDEF GLES}
+   if needInit then begin  // Specify texture size and pixel format
+    glTexImage3D(GL_TEXTURE_2D_ARRAY,0,internalFormat,realwidth,realheight,depth,0,
+      format,subFormat,nil);
+    CheckForGLError('13');
+    UpdateFilter;
+   end;
+    // Upload texture data
+    glPixelStorei(GL_UNPACK_ROW_LENGTH,realWidth);
+    CheckForGLError('14');
+    bpp:=pixelSize[pixelFormat] div 8;
+    for z:=0 to depth-1 do
+     with layers[z] do begin
+      for i:=0 to dCount-1 do
+       with dirty[i] do
+        glTexSubImage3D(GL_TEXTURE_2D_ARRAY,0,Left,Top,z,right-left+1,bottom-top+1,1,
+           format,subFormat,@realData[(left+top*realWidth)*bpp]);
+      dCount:=0;
+     end;
+    CheckForGLError('15');
+   {$ELSE}
+   // GLES doesn't support UNPACK_ROW_LENGTH so it's not possible to upload just a portion of
+   // the source texture data
+   NotSupported('');
+{   for z:=0 to depth-1 do
+    with layers[z] do begin
+    if format=GL_RGBA then ConvertColors32(data,realwidth*realheight);
+    if format=GL_RGB then ConvertColors24(data,realwidth*realheight);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY,0,internalFormat,realwidth,realheight,1,0,format,subFormat,data);
+   end;}
+   CheckForGLError('16');
+   {$ENDIF}
+   if HasFlag(tfAutoMipMap) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
+    glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+   end;
+
+   if caps and tfClamped>0 then begin
+    glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+   end else begin
+    glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_S,GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_T,GL_REPEAT);
+   end;
+   CheckForGLError('17');
+  end;
+  online:=true;
 
 end;
 
 { TGLTexture }
+
+procedure TGLTexture.Bind;
+begin
+ glBindTexture(GetTextureTarget,texname);
+end;
 
 procedure TGLTexture.CloneFrom(src: TTexture);
 begin
@@ -358,6 +452,11 @@ begin
  result.paletteFormat:=palNone;
  result.palette:=nil;
  result.palSize:=0;
+end;
+
+function TGLTexture.GetTextureTarget: integer;
+begin
+ result:=GL_TEXTURE_2D;
 end;
 
 procedure TGLTexture.Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil);
@@ -452,6 +551,7 @@ end;
 procedure TGLTexture.UpdateFilter;
 var
  fMin,fMax:integer;
+ target,aTex:GLInt;
 begin
  if texname=0 then exit;
  case filter of
@@ -479,11 +579,14 @@ begin
    end;
   end;
  end;
- glActiveTexture(GL_TEXTURE0+9);
- glBindTexture(GL_TEXTURE_2D,texname);
- glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,fMin);
- glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,fMax);
+ target:=GetTextureTarget;
+ glGetIntegerv(GL_ACTIVE_TEXTURE,@aTex);
+ if aTex<>GL_TEXTURE0+9 then glActiveTexture(GL_TEXTURE0+9);
+ glBindTexture(target,texname);
+ glTexParameteri(target,GL_TEXTURE_MIN_FILTER,fMin);
+ glTexParameteri(target,GL_TEXTURE_MAG_FILTER,fMax);
  CheckForGLError('16');
+ if aTex<>GL_TEXTURE0+9 then glActiveTexture(aTex);
 end;
 
 procedure TGLTexture.UploadData;
@@ -714,7 +817,7 @@ begin
   tex.caps:=tex.caps or tfDirectAccess; // Can be locked
   if flags and aiClampUV>0 then
    tex.caps:=tex.caps or tfClamped;
-  // Mip-maps
+  // Mip-maps -> enable automatic generation
   if flags and aiMipMapping>0 then begin
    tex.caps:=tex.caps or tfAutoMipMap;
    tex.mipmaps:=Log2i(max2(width,height));
@@ -739,11 +842,10 @@ begin
 end;
 
 function TGLResourceManager.AllocArray(width,height:integer;PixFmt:TImagePixelFormat;
-                arraySize,mipLevels:integer;
-                flags:cardinal;name:TTextureName):TGLTextureArray;
+                arraySize:integer;flags:cardinal;name:TTextureName):TGLTextureArray;
 var
  tex:TGlTextureArray;
- dataSize:integer;
+ dataSize,z:integer;
 begin
  ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
  ASSERT((pixFmt<>ipfNone) or HasFlag(flags,aiDepthBuffer),'Invalid pixel format for '+name);
@@ -777,7 +879,12 @@ begin
   tex.pitch:=tex.pitch div 4;
   datasize:=datasize div 16;
  end;
- SetLength(tex.realData,datasize);
+ for z:=0 to high(tex.layers) do begin
+  tex.layers[z].width:=width;
+  tex.layers[z].height:=height;
+  tex.layers[z].pitch:=tex.pitch;
+  SetLength(tex.layers[z].realData,datasize);
+ end;
 
  tex.caps:=tex.caps or tfDirectAccess; // Can be locked
  if flags and aiClampUV>0 then
@@ -832,7 +939,6 @@ begin
   _AddRef;
 
   glPixelStorei(GL_UNPACK_ALIGNMENT,1);
-  ZeroMem(texNames,sizeof(texnames));
   mainThreadID:=GetCurrentThreadId;
   resourceManagerGL:=self;
   SetEventHandler('GLImages',EventHandler,emMixed);
@@ -958,48 +1064,20 @@ begin
 end;
 
 procedure TGLResourceManager.MakeOnline(img: TTexture;stage:integer=0);
-
- procedure ConvertColors32(buf:PCardinal;count:integer);
-  var
-   c:cardinal;
-  begin
-   while count>0 do begin
-    c:=buf^;
-    buf^:=c and $FF00FF00+(c and $FF) shl 16+(c and $FF0000) shr 16;
-    inc(buf);
-    dec(count);
-   end;
-  end;
-
- procedure ConvertColors24(buf:PByte;count:integer);
-  var
-   pb:PByte;
-   b:byte;
-  begin
-   pb:=buf; inc(pb,2);
-   while count>0 do begin
-    b:=pb^;
-    pb^:=buf^;
-    buf^:=b;
-    inc(buf,3);
-    inc(pb,3);
-    dec(count);
-   end;
-  end;
-
+var
+ tex:TGLTexture;
 begin
  if img=nil then begin
-  texNames[stage]:=0;
+  curTextures[stage]:=nil;
   exit;
  end;
  ASSERT(img is TGLTexture);
- with img as TGLTexture do begin
-  if (texNames[stage]=texname) and online then exit;
-  glActiveTexture(GL_TEXTURE0+stage);
-  if texNames[stage]<>texname then glBindTexture(GL_TEXTURE_2D, texname);
-  texNames[stage]:=texname;
-  UploadData;
- end;
+ tex:=TGLTexture(img);
+ if (curTextures[stage]=tex) and tex.online then exit;
+ glActiveTexture(GL_TEXTURE0+stage);
+ if curTextures[stage]<>tex then tex.Bind;
+ curTextures[stage]:=tex;
+ tex.UploadData;
 end;
 
 function TGLResourceManager.QueryParams(width, height: integer;
