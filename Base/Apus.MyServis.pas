@@ -4231,7 +4231,7 @@ function BinToStr;
    FlushLog;
    MyEnterCriticalSection(crSection);
    try
-   LogFileName:=name;
+   LogFileName:=ExpandFileName(name);
    age:=FileAge(ParamStr(0));
    dt:=FileDateToDateTime(age);
    try
