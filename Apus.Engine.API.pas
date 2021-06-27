@@ -1053,8 +1053,10 @@ var
  // Shortcuts to the texture manager
  function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
                 flags:integer=0;name:TTextureName=''):TTexture;
-
  procedure FreeImage(var img:TTexture);
+
+ // Lock the texture (if not yet locked) and set it as draw target for FastGFX unit (don't forget to unlock)
+ procedure DrawToTexture(tex:TTexture;mipLevel:integer=0);
 
  // Translate string using localization dictionary (UDict)
  function Translate(st:string8):string8; overload; inline;
@@ -1078,7 +1080,7 @@ var
 
 implementation
 uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
- TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics;
+ TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX;
 
  function GetKeyEventScanCode(tag: cardinal): cardinal;
   begin
@@ -1374,6 +1376,13 @@ function IsKeyReleased(scanCode:integer):boolean;
   ASSERT(game<>nil);
   result:=game.keyState[scanCode] and $3=2;
  end;
+
+procedure DrawToTexture(tex:TTexture;mipLevel:integer=0);
+ begin
+  if tex.locked=0 then tex.Lock(mipLevel);
+  SetRenderTarget(tex.data,tex.pitch,tex.width shr mipLevel,tex.height shr mipLevel);
+ end;
+
 
 { TMesh }
 procedure TMesh.AddTrg(v0, v1, v2: integer);
