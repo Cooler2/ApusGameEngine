@@ -1610,14 +1610,14 @@ procedure TestMemoryStat;
    FillChar(buf,sizeof(buf),0);
    for i:=1 to 100 do
     for j:=1 to 10 do
-     ASSERT(IsZeroMem(@buf[j],i));
+     ASSERT(IsZeroMem(buf[j],i));
 
    for i:=1 to 10000 do begin
     start:=random(40);
     size:=1+random(150);
     j:=start+random(size);
     buf[j]:=1+random(100);
-    ASSERT(IsZeroMem(@buf[start],size)=false,Format('%d, %d, %d',[i,start,size]));
+    ASSERT(IsZeroMem(buf[start],size)=false,Format('%d, %d, %d',[i,start,size]));
     buf[j]:=0;
    end;
 
