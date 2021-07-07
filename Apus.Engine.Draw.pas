@@ -32,7 +32,8 @@ interface
   procedure Centered(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080); overload;
   procedure ImagePart(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect);
   procedure ImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer);
-  procedure Scaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080);
+  procedure Scaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080); overload;
+  procedure Scaled(x,y,scale:single;image:TTexture;color:cardinal=$FF808080); overload;
   procedure RotScaled(x0,y0,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);  // x,y - �����
   function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
   function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
@@ -543,19 +544,23 @@ begin
  h:=(image.height)*scaleY;
  if not clippingAPI.Prepare(x0-h-w,y0-h-w,x0+h+w,y0+h+w) then exit;
 
+ if angle<>0 then begin
+  c:=cos(angle); s:=sin(angle);
+ end else begin
+  c:=1; s:=0;
+ end;
  x0:=x0-0.5; y0:=Y0-0.5;
  if image.width and 1=1 then begin
-  x0:=x0+0.5*cos(angle);
-  y0:=y0+0.5*sin(angle);
+  x0:=x0+0.5*c;
+  y0:=y0+0.5*s;
  end;
  if image.height and 1=1 then begin
-  x0:=x0+0.5*sin(angle);
-  y0:=y0+0.5*cos(angle);
+  x0:=x0+0.5*s;
+  y0:=y0+0.5*c;
  end;
  shader.UseTexture(image);
  u1:=image.u1; u2:=image.u2;
  v1:=image.v1; v2:=image.v2;
- c:=cos(angle); s:=sin(angle);
 
  h:=-h;
  wc2:=w*c; wc1:=wc2*pivotX; wc2:=wc2-wc1;
@@ -597,6 +602,11 @@ begin
  vrt[3].Init(x1,y2, zPlane, u1, v2, color);
 
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
+end;
+
+procedure TDrawer.Scaled(x,y,scale:single; image:TTexture; color:cardinal);
+begin
+  RotScaled(x,y,scale,scale,0,image,color);
 end;
 
 procedure TDrawer.TrgList(pnts: PVertex; trgcount: integer;
