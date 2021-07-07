@@ -71,7 +71,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 13;
+ testnum:integer = 3;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -562,7 +562,7 @@ begin
  s:=0.2+(MyTickCount mod 3000)/3000;
  texMip.SetFilter(fltTrilinear);
  //texMip.SetFilter(fltBilinear);
- draw.RotScaled(450,420,s,s,0,texMip); // MipMap test
+ draw.Scaled(450,420,s,texMip); // MipMap test
 
  if (frame div 100) and 1=0 then
  tex2.SetFilter(fltNearest);
