@@ -1077,7 +1077,7 @@ begin
  glActiveTexture(GL_TEXTURE0+stage);
  if curTextures[stage]<>tex then tex.Bind;
  curTextures[stage]:=tex;
- tex.UploadData;
+ if not tex.online then tex.UploadData;
 end;
 
 function TGLResourceManager.QueryParams(width, height: integer;
