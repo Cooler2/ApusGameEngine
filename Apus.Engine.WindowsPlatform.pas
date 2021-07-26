@@ -59,6 +59,7 @@ uses Windows, Messages, Types, Apus.MyServis, SysUtils, Apus.EventMan;
 
 var
  terminated:boolean;
+ noPenAPI:boolean=false;
 
 {$IF Declared(FlashWindowEx)} {$ELSE}
 const
@@ -93,17 +94,42 @@ begin
  result:=byte(ast[1]);
 end;
 
+procedure ProcessPointerMessage(Message:cardinal;WParam,LParam:NativeInt);
+var
+ id:cardinal;
+ pType:POINTER_INPUT_TYPE;
+ penInfo:POINTER_PEN_INFO;
+begin
+ if noPenAPI then exit;
+ try
+  id:=Word(wParam);
+  GetPointerType(id,@pType);
+  if pType=Word(tagPOINTER_INPUT_TYPE.PT_PEN) then begin
+    GetPointerPenInfo(id,@penInfo);
+    if HasFlag(penInfo.penMask,PEN_MASK_PRESSURE) then
+      Signal('PEN\PRESSURE',penInfo.pressure);
+    if HasFlag(penInfo.penMask,PEN_MASK_ROTATION) then
+      Signal('PEN\ROTATION',penInfo.rotation);
+    //writeln('Pen: type=',pType,'  ',penInfo.pressure,' ',penInfo.rotation,' ',penInfo.penFlags,' ',penInfo.penMask);
+  end;
+ except
+  noPenAPI:=true;
+ end;
+end;
+
 function WindowProc(Window:HWnd;Message:cardinal;WParam,LParam:NativeInt):LongInt; stdcall;
 var
  i,charCode,scanCode:integer;
 begin
  try
  result:=0;
+ //writeln('WinMSG: ',IntTOHex(message):10,'  W=',IntToHex(wParam),'  L=',IntToHex(lParam));
  case Message of
   wm_Destroy:begin
    terminated:=true;
    Signal('Engine\Cmd\Exit',0);
   end;
+  WM_POINTERUPDATE,WM_POINTERENTER,WM_POINTERLEAVE:ProcessPointerMessage(Message,WParam,LParam);
 
   WM_MOUSEMOVE:Signal('MOUSE\CLIENTMOVE',lParam);
 
