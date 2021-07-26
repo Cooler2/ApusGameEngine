@@ -51,6 +51,22 @@ draw.LoadFont( -> txt.LoadFont(
 draw.GetFont( -> txt.GetFont(
 DrawPolyline( -> Polyline(
 draw.ResetClipping -> gfx.clip.Restore
+draw.TextOutW( -> txt.WriteW(
+draw.TextOut( -> txt.Write(
+draw.TextWidthW( -> txt.WidthW(
+draw.TextWidth( -> txt.Width(
+draw.DrawScaled( -> draw.Scaled(
+draw.DrawRotScaled( -> draw.RotScaled(
+draw.DrawImage( -> draw.Image(
+draw.DrawParticles( -> draw.Particles(
+draw.DrawDouble( -> draw.DoubleTex(
+draw.DrawCentered( -> draw.Centered(
+draw.DrawLine( -> draw.Line(
+
+draw.SetMode( -> gfx.target.BlendMode(
+draw.SetMask( -> gfx.target.Mask(
+draw.ResetMask -> gfx.target.UnMask
+draw.SetTexMode( -> shader.TexMode(
 
 dfmStretch -> dfmFullSize
 transpmode -> shape
