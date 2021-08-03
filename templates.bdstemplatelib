@@ -1,0 +1,16 @@
+  <TemplateLibrary Version="1.0" id="ApusEngine">
+    <Name>Apus Game Engine</Name>
+    <Description>Template Projects for the Apus Game Engine</Description>
+    <Items>
+      <Item id="AE.Project" Creator="DelphiProjectRepositoryCreator">
+        <Name>Apus Engine Project</Name>
+        <Description>Custom Project Template</Description>
+        <Author>Ivan Polyacov</Author>
+        <Icon>MyTemplate\MyTemplateIcon.ico</Icon>
+        <ProjectFile>ProjectTemplate.dproj</ProjectFile>
+        <DefaultProjectName>EngineProject</DefaultProjectName>
+        <FilePath>demo\ProjectTemplate</FilePath>
+        <Identities>RadStudio</Identities>
+      </Item>
+    </Items>
+  </TemplateLibrary>
