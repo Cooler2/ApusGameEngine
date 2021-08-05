@@ -53,14 +53,60 @@ type
  end;
 
 implementation
-uses Types, Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.Game, Apus.Images, Apus.GfxFormats, sdl2;
+uses Types, Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.Game, Apus.Images,
+  Apus.GfxFormats, sdl2, Apus.Engine.Controller;
 
+type
+ TSDLController=record
+  joystick:PSDL_Joystick;
+  controller:TSDL_GameController;
+ end;
 var
  window:PSDL_Window;
  context:TSDL_GLContext;
  terminated:boolean;
  mouseState:byte;
  savedLogHandler:TSDL_LogOutputFunction;
+ SDLcontrollers:array[0..high(controllers)] of TSDLController;
+
+procedure InitJoystick(idx:integer);
+ begin
+   ASSERT(idx in [0..high(controllers)]);
+   if idx>high(controllers) then begin
+    LogMessage('SDL joystick %d not supported',[idx]);
+    exit;
+   end;
+   LogMessage('Init SDL joystick %d',[idx]);
+   ZeroMem(controllers[idx],sizeof(controllers[idx]));
+   with SDLcontrollers[idx] do begin
+    joystick:=SDL_JoystickOpen(idx);
+    if joystick<>nil then with controllers[idx] do begin
+      controllerType:=gcJoystick;
+      numAxes:=SDL_JoystickNumAxes(joystick);
+      numButtons:=SDL_JoystickNumButtons(joystick);
+      name:=SDL_JoystickName(joystick);
+      LogMessage('SDL joystick: "%s" axes:%d, buttons:%d',[name,numAxes,numButtons]);
+    end;
+    if SDL_IsGameController(idx)=SDL_TRUE then begin
+      LogMessage('SDL: joystick %d is controller',[idx]);
+      controller:=SDL_GameControllerOpen(idx);
+      if controller<>nil then begin
+        controllers[idx].controllerType:=gcGamepad;
+      end;
+    end;
+   end;
+   controllers[idx].index:=idx;
+ end;
+
+procedure InitControllers;
+ var
+  i,n:integer;
+ begin
+  n:=SDL_NumJoysticks;
+  for i:=0 to Clamp(n-1,0,3) do begin
+   InitJoystick(i);
+  end;
+ end;
 
 { TSDLPlatform }
 
@@ -215,13 +261,14 @@ constructor TSDLPlatform.Create;
   plName:AnsiString;
   ver:TSDL_Version;
  begin
-  if SDL_Init(SDL_INIT_VIDEO+SDL_INIT_EVENTS)<>0 then
+  if SDL_Init(SDL_INIT_EVERYTHING)<>0 then
    raise EError.Create('SDL init error: '+SDL_GetError);
   plName:=SDL_GetPlatform;
   SDL_GetVersion(@ver);
   SDL_LogGetOutputFunction(@savedLogHandler,nil);
   SDL_LogSetOutputFunction(MyLogHandler,nil);
   LogMessage('SDL Initialized. Platform: %s, version %d.%d',[plName,ver.major,ver.minor]);
+  InitControllers;
  end;
 
 procedure TSDLPlatform.CreateWindow(title: string);
@@ -305,6 +352,85 @@ function GetKeyCode(sdl_keycode:integer):integer;
   end;
  end;
 
+procedure ProcessControllerEvent(event:TSDL_Event);
+ var
+  n,axis,button:integer;
+  cButton:TConButtonType;
+ function ValidN:boolean;
+  begin
+   result:=(n>=0) and (n<=high(controllers));
+  end;
+ begin
+  case event.type_ of
+   SDL_JOYDEVICEADDED:InitJoystick(event.jdevice.which);
+
+   SDL_JOYDEVICEREMOVED:begin
+    n:=event.jdevice.which;
+    if not ValidN then exit;
+    LogMessage('SDL: delete controller %d',[n]);
+    controllers[n].controllerType:=gcUnplugged;
+    with SDLcontrollers[n] do begin
+     if controller<>nil then begin
+      SDL_GameControllerClose(controller);
+      controller:=nil;
+     end;
+     if joystick<>nil then begin
+      SDL_JoystickClose(joystick);
+      joystick:=nil;
+     end;
+    end;
+   end;
+
+   SDL_JOYAXISMOTION:begin
+    n:=event.jaxis.which;
+    if not ValidN then exit;
+    axis:=event.jaxis.axis;
+    if axis in [0..7] then
+     controllers[n].axes[TConAxisType(axis)]:=Clamp(event.jaxis.value/32767,-1,1);
+   end;
+
+   SDL_JOYBUTTONDOWN,SDL_JOYBUTTONUP:begin
+    n:=event.jbutton.which;
+    if not ValidN then exit;
+    button:=event.jbutton.button;
+    if button in [0..15] then begin
+     if event.type_=SDL_JOYBUTTONDOWN then
+      SetBit(controllers[n].buttons,button)
+     else
+      ClearBit(controllers[n].buttons,button);
+    end;
+   end;
+
+   SDL_CONTROLLERAXISMOTION:begin
+    //event.caxis.which
+   end;
+
+   SDL_CONTROLLERBUTTONDOWN,SDL_CONTROLLERBUTTONUP:begin
+    n:=event.cbutton.which;
+    if not ValidN then exit;
+    case event.cbutton.button of
+     SDL_CONTROLLER_BUTTON_A: cButton:=btButtonA;
+     SDL_CONTROLLER_BUTTON_B: cButton:=btButtonB;
+     SDL_CONTROLLER_BUTTON_X: cButton:=btButtonX;
+     SDL_CONTROLLER_BUTTON_Y: cButton:=btButtonY;
+     SDL_CONTROLLER_BUTTON_BACK: cButton:=btButtonBack;
+     SDL_CONTROLLER_BUTTON_GUIDE: cButton:=btButtonGuide;
+     SDL_CONTROLLER_BUTTON_START: cButton:=btButtonStart;
+     SDL_CONTROLLER_BUTTON_DPAD_UP: cButton:=btButtonDPadUp;
+     SDL_CONTROLLER_BUTTON_DPAD_DOWN: cButton:=btButtonDPadDown;
+     SDL_CONTROLLER_BUTTON_DPAD_LEFT: cButton:=btButtonDPadLeft;
+     SDL_CONTROLLER_BUTTON_DPAD_RIGHT: cButton:=btButtonDPadRight;
+     else cButton:=btButton0;
+    end;
+    if cButton<btButtonA then exit;
+    if event.type_=SDL_CONTROLLERBUTTONDOWN then
+     SetBit(controllers[n].buttons,ord(cButton))
+    else
+     ClearBit(controllers[n].buttons,ord(cButton));
+   end;
+  end;
+ end;
+
 procedure TSDLPlatform.ProcessSystemMessages;
  var
   event:TSDL_Event;
@@ -377,6 +503,9 @@ procedure TSDLPlatform.ProcessSystemMessages;
      terminated:=true;
      Signal('Engine\Cmd\Exit',0);
     end;
+
+    SDL_JOYAXISMOTION..SDL_JOYDEVICEREMOVED:ProcessControllerEvent(event);
+    SDL_CONTROLLERAXISMOTION..SDL_CONTROLLERDEVICEREMAPPED:ProcessControllerEvent(event);
 
    end;
   end;
