@@ -29,7 +29,7 @@ jobs:
         lazarus-version: stable
     - run: pwd
     - name: Compile
-      run: lazbuild --quiet Base/tests/TestMyServis.lpi
+      run: lazbuild -q -q Base/tests/TestMyServis.lpi
       
   test-windows:
     # The type of runner that the job will run on
@@ -47,4 +47,4 @@ jobs:
         lazarus-version: stable
     - run: pwd
     - name: Compile
-      run: lazbuild --quiet Base/tests/TestMyServis.lpi
+      run: lazbuild -q -q Base/tests/TestMyServis.lpi
