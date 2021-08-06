@@ -13,8 +13,7 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
+  test-linux:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
@@ -30,5 +29,22 @@ jobs:
         lazarus-version: stable
     - run: pwd
     - name: Compile
-      run: lazbuild Base/tests/TestMyServis.lpi
-        # include-packages: # optional
+      run: lazbuild --quiet Base/tests/TestMyServis.lpi
+      
+  test-windows:
+    # The type of runner that the job will run on
+    runs-on: windows-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Setup Lazarus environment
+      # You may pin to the exact commit or the version.
+      # uses: gcarreno/setup-lazarus@815641b356c1e4e0e68795d237fb13e89484e25b
+      uses: gcarreno/setup-lazarus@v3.0.2
+      with:
+        lazarus-version: stable
+    - run: pwd
+    - name: Compile
+      run: lazbuild --quiet Base/tests/TestMyServis.lpi
