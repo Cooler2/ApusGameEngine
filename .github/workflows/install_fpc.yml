@@ -29,5 +29,6 @@ jobs:
       with:
         lazarus-version: stable
     - name: Compile
-      run: lazbuild base/tests/TestMyServis.lpi
+      run: pwd
+      run: lazbuild Base/tests/TestMyServis.lpi
         # include-packages: # optional
