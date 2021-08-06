@@ -60,6 +60,9 @@ type
  // Check if event has form of XXX\YYY where XXX is eventClass (case-insensitive). Returns YYY part in subEvent
  function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean;
 
+ function PackTag(byte0,byte1:byte;byte2:byte=0;byte3:byte=0):TTag; overload;
+ function PackTag(loWord,hiWord:word):TTag; overload;
+
 implementation
  uses Apus.CrossPlatform, SysUtils, Apus.MyServis;
 const
@@ -119,6 +122,16 @@ var
  links:array[0..255] of PLink;
 
  critSect:TMyCriticalSection;
+
+function PackTag(byte0,byte1:byte;byte2:byte=0;byte3:byte=0):TTag; overload;
+ begin
+  result:=TTag(byte0+byte1 shl 8+byte2 shl 16+byte3 shl 24);
+ end;
+
+function PackTag(loWord,hiWord:word):TTag; overload;
+ begin
+  result:=TTag(loWord+hiWord shl 16);
+ end;
 
 function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean;
  var
@@ -575,7 +588,7 @@ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean
    end;
   end;
 
- procedure LinkProc(event:TEventStr;handler:TProcedure); overload;
+ procedure LinkProc(event:TEventStr;handler:TProcedure);
   begin
    Link(event,'Event\CallProc',TTag(@handler),true);
   end;

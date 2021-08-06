@@ -66,13 +66,13 @@ type
   buttons:cardinal;
   axes:array[TConAxisType] of single; // -1..1 range
   function GetButton(btn:TConButtonType):boolean;
-  function GetButtonName(btn:TConButtonType):String8;
  end;
  PGameController=^TGameController;
 
 var
  controllers:array[0..3] of TGameController;
 
+ function GetButtonName(btn:TConButtonType):String8;
 
 implementation
  uses SysUtils;
@@ -83,7 +83,7 @@ function TGameController.GetButton(btn:TConButtonType): boolean;
   result:=GetBit(buttons,ord(btn));
  end;
 
-function TGameController.GetButtonName(btn: TConButtonType): String8;
+function GetButtonName(btn: TConButtonType): String8;
 const
  conButtonNames:array[btButtonA..btButtonRightShoulder] of String8=(
   'A','B','X','Y','Back','Guide','Start',
