@@ -63,7 +63,8 @@ uses
   Apus.Engine.Graphics in '..\..\Apus.Engine.Graphics.pas',
   Apus.Engine.TextDraw in '..\..\Apus.Engine.TextDraw.pas',
   Apus.Engine.ShadersGL in '..\..\Apus.Engine.ShadersGL.pas',
-  Apus.Engine.SceneEffects in '..\..\Apus.Engine.SceneEffects.pas';
+  Apus.Engine.SceneEffects in '..\..\Apus.Engine.SceneEffects.pas',
+  Apus.Engine.Controller in '..\..\Apus.Engine.Controller.pas';
 
 const
  wnd:boolean=true;
@@ -1928,6 +1929,7 @@ var
  i,n,key:integer;
  time:int64;
 begin
+ a:=Clamp(10,0,2);
  try ChDir('..\demo\EngineTest'); except end;
 
  time:=MyTickCount;
