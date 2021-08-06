@@ -110,7 +110,7 @@ procedure DrawControllerState(x,y,width,height:integer;const con:TGameController
   if con.controllerType=gcGamepad then begin
    for btn:=btButtonA to btButtonRightShoulder do
     if con.GetButton(btn) then begin
-     txt.WriteW(font,x,yy,$FF000000,Format('Button %s pressed',[con.GetButtonName(btn)]));
+     txt.WriteW(font,x,yy,$FF000000,Format('Button %s pressed',[GetButtonName(btn)]));
      inc(yy,round(scale*20));
     end;
   end else
