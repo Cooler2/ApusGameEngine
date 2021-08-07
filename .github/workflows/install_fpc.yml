@@ -30,7 +30,8 @@ jobs:
     - run: pwd
     - name: Compile
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
-      
+    - run: Base/bin/TestMyServis
+
   test-windows:
     # The type of runner that the job will run on
     runs-on: windows-latest
@@ -48,3 +49,5 @@ jobs:
     - run: pwd
     - name: Compile
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
+      
+    - run: Base/bin/TestMyServis
