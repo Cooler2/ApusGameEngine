@@ -1736,6 +1736,7 @@ var
  wst:WideString;
 
 begin
+ SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
  try
   TestStringTypes;
