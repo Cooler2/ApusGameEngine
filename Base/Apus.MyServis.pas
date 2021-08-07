@@ -432,8 +432,10 @@ interface
  procedure DecodeHex(st:String8;buf:pointer); overload;
 
  function DumpStr(s:string):string; overload;
- function DumpStr(s:string8):string; overload;
- function DumpStr(s:string16):string; overload;
+ {$IFDEF ADDANSI}
+ function DumpStr(s:string8):string; overload; {$ENDIF}
+ {$IFNDEF UNICODE}
+ function DumpStr(s:string16):string; overload; {$ENDIF}
 
  procedure ZeroMem(var data;size:integer); inline;
  function IsZeroMem(var data;size:integer):boolean;
@@ -2171,15 +2173,19 @@ procedure SimpleEncrypt2;
    result:=Format('Str:L=%d,w=%d:%s',[length(s),sizeof(char),EncodeHex(@s[1],length(s)*sizeof(char))]);
   end;
 
+ {$IFDEF ADDANSI}
  function DumpStr(s:string8):string; overload;
   begin
    result:=Format('Str8:L=%d:%s',[length(s),EncodeHex(@s[1],length(s))]);
   end;
+ {$ENDIF}
 
+ {$IFNDEF UNICODE}
  function DumpStr(s:string16):string; overload;
   begin
    result:=Format('Str16:L=%d:%s',[length(s),EncodeHex(@s[1],length(s)*2)]);
   end;
+ {$ENDIF}
 
  procedure FillDword(var data;size:integer;value:cardinal);
   var
@@ -3280,24 +3286,24 @@ function BinToStr;
 
  function GetBit(data:cardinal;index:integer):boolean; overload; inline;
   begin
-   result:=data and (1 shl index)<>0;
+   result:=data and (cardinal(1) shl index)<>0;
   end;
  function GetBit(data:uint64;index:integer):boolean; overload; inline;
   begin
-   result:=data and (1 shl index)<>0;
+   result:=data and (uint64(1) shl index)<>0;
   end;
 
  procedure SetBit(var data:byte;index:integer); overload; inline;
   begin
-   data:=data or (1 shl index);
+   data:=data or (byte(1) shl index);
   end;
  procedure SetBit(var data:cardinal;index:integer); overload; inline;
   begin
-   data:=data or (1 shl index);
+   data:=data or (cardinal(1) shl index);
   end;
  procedure SetBit(var data:uint64;index:integer); overload; inline;
   begin
-   data:=data or (1 shl index);
+   data:=data or (uint64(1) shl index);
   end;
 
  procedure ClearBit(var data:byte;index:integer); overload; inline;

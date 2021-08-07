@@ -78,7 +78,7 @@ procedure TestConversions;
   st16:String16;
  begin
   ASSERT(HexToInt(String('123456789ABCDEF'))=$123456789ABCDEF);
-  ASSERT(HexToInt(AnsiString('123456789ABCDEF'))=$123456789ABCDEF);
+  ASSERT(HexToInt(String8('123456789ABCDEF'))=$123456789ABCDEF);
   // String conversions
   st:=UStr(testString);
   st16:=WStr(st);
@@ -1573,7 +1573,7 @@ procedure TestMemoryStat;
  procedure TestEncode;
   var
    i,j,size:integer;
-   src,dst,res:AnsiString;
+   src,dst,res:String8;
    time:int64;
   begin
    // Correctness
@@ -1583,7 +1583,7 @@ procedure TestMemoryStat;
     for j:=1 to high(src) do src[j]:=AnsiChar(random(256));
     dst:=EncodeHex(src);
     res:=DecodeHex(dst);
-    ASSERT(res=src,'HEX: test #'+IntToStr(i)+#13#10'src='+src+#13#10'dst='+dst);
+    ASSERT(res=src,'HEX: test #'+IntToStr(i));
     dst:=EncodeB64(@src[1],length(src));
     SetLength(res,length(src));
     DecodeB64(dst,@res[1],size);
@@ -1709,13 +1709,24 @@ procedure TestThreadStall;
   halt;
  end;
 
+procedure Test;
+ var
+  m:cardinal;
+  h:integer;
+ begin
+  m:=1;
+  h:=31;
+  m:=m or (1 shl 31); // This works in FPC but cause a range check error in Delphi
+  m:=m or (1 shl h); // This works in Delphi, but cause a range check error (RunError 201) in FPC
+  SetBit(m,31); // The same code works in FPC if inlined, doesn't work if not inlined
+ end;
+
 var
  ar:array of cardinal;
  st:string;
  pc:PChar;
  rc:array[1..10] of integer;
  wst:WideString;
- ast:AnsiString;
 
 begin
  UseLogFile('log.txt',true);
@@ -1749,7 +1760,7 @@ begin
   TestGeoIP;
   TestSplines;
   TestRLE;
-  TestProfiling;
+  //TestProfiling;
   TestMemoryStat;
   TestDateTime;
   TestTextUtils;

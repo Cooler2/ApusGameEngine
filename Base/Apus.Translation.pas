@@ -182,8 +182,8 @@ implementation
     if ((w<$E1FA) or (w>$E1FF)) and
        ((wPrv<$E1FA) or (wPrv>$E1FF)) then begin // pair of non-special characters
      h:=(w xor wPrv) and 63;
-     if h>=32 then m2:=m2 or (1 shl (h-32))
-      else m1:=m1 or (1 shl h);
+     if h>=32 then m2:=m2 or (cardinal(1) shl (h-32))
+      else m1:=m1 or (cardinal(1) shl h);
     end;
     wPrv:=w;
    end;
