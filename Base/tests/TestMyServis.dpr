@@ -1578,15 +1578,16 @@ procedure TestMemoryStat;
   begin
    // Correctness
    for i:=1 to 1000 do begin
+    randSeed:=i;
     SetLength(src,10+random(100));
     for j:=1 to high(src) do src[j]:=AnsiChar(random(256));
     dst:=EncodeHex(src);
     res:=DecodeHex(dst);
-    ASSERT(res=src);
+    ASSERT(res=src,'HEX: test #'+IntToStr(i)+' s='+dst);
     dst:=EncodeB64(@src[1],length(src));
     SetLength(res,length(src));
     DecodeB64(dst,@res[1],size);
-    ASSERT((res=src) AND (size=length(src)));
+    ASSERT((res=src) AND (size=length(src)),'B64: test #'+IntToStr(i));
    end;
    // Speed
    time:=MyTickCount;
