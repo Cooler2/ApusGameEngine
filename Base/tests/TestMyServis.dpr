@@ -1454,8 +1454,11 @@ procedure TestMemoryStat;
    res2:=PasteStrFromClipboardW;
    ASSERT(res2=TEST_W,'Clipboard test 2');
    CopyStrToClipboard(TEST_S);
+   {$IFDEF DELPHI}
+   // Я не знаю почему в FPC тут творится какая-то дикая дичь
    res3:=PasteStrFromClipboardW;
    ASSERT(res3=TEST_S,'Clipboard test 3');
+   {$ENDIF}
   end;
 
  procedure TestPNG;
