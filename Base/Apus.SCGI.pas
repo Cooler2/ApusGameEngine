@@ -641,7 +641,7 @@ implementation
    if res<>0 then raise EError.Create('Bind failed: '+inttostr(WSAGetLastError));
 
    arg:=1;
-   if ioctlsocket(MainSock,FIONBIO,arg)<>0 then
+   if ioctlsocket(MainSock,longint(FIONBIO),arg)<>0 then
     raise EError.Create('Cannot make non-blocking socket');
 
    res:=listen(MainSock,SOMAXCONN);
