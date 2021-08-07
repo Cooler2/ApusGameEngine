@@ -97,10 +97,13 @@ end;
 procedure ProcessPointerMessage(Message:cardinal;WParam,LParam:NativeInt);
 var
  id:cardinal;
+ {$IFDEF DELPHI}
  pType:POINTER_INPUT_TYPE;
  penInfo:POINTER_PEN_INFO;
+ {$ENDIF}
 begin
  if noPenAPI then exit;
+ {$IFDEF DELPHI}
  try
   id:=Word(wParam);
   GetPointerType(id,@pType);
@@ -110,11 +113,11 @@ begin
       Signal('PEN\PRESSURE',penInfo.pressure);
     if HasFlag(penInfo.penMask,PEN_MASK_ROTATION) then
       Signal('PEN\ROTATION',penInfo.rotation);
-    //writeln('Pen: type=',pType,'  ',penInfo.pressure,' ',penInfo.rotation,' ',penInfo.penFlags,' ',penInfo.penMask);
   end;
  except
   noPenAPI:=true;
  end;
+ {$ENDIF}
 end;
 
 function WindowProc(Window:HWnd;Message:cardinal;WParam,LParam:NativeInt):LongInt; stdcall;
@@ -129,7 +132,9 @@ begin
    terminated:=true;
    Signal('Engine\Cmd\Exit',0);
   end;
+  {$IFDEF DELPHI} // FPC currently has no declaration of MS Pointer Input API
   WM_POINTERUPDATE,WM_POINTERENTER,WM_POINTERLEAVE:ProcessPointerMessage(Message,WParam,LParam);
+  {$ENDIF}
 
   WM_MOUSEMOVE:Signal('MOUSE\CLIENTMOVE',lParam);
 

@@ -1929,7 +1929,6 @@ var
  i,n,key:integer;
  time:int64;
 begin
- a:=Clamp(10,0,2);
  try ChDir('..\demo\EngineTest'); except end;
 
  time:=MyTickCount;

@@ -834,7 +834,7 @@ begin
  gameEx:=self;
 
  if useMainThread then begin
-  mainThread:=TMainThread.Create;
+  mainThread:=TMainThread.Create(false);
  end else begin
   mainThread:=nil;
   SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);

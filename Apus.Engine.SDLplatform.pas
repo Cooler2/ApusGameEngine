@@ -395,7 +395,7 @@ procedure ProcessControllerEvent(event:TSDL_Event);
     if not ValidN then exit;
     button:=event.jbutton.button;
     if button in [0..15] then begin
-     tag:=PackTag(button,n);
+     tag:=PackTag(button,n,0,0);
      if event.type_=SDL_JOYBUTTONDOWN then begin
       SetBit(controllers[n].buttons,button);
       Signal('JOY\BTNDOWN',tag);
@@ -428,7 +428,7 @@ procedure ProcessControllerEvent(event:TSDL_Event);
      else cButton:=btButton0;
     end;
     if cButton<btButtonA then exit;
-    tag:=PackTag(ord(cButton),n);
+    tag:=PackTag(ord(cButton),n,0,0);
     if event.type_=SDL_CONTROLLERBUTTONDOWN then begin
      SetBit(controllers[n].buttons,ord(cButton));
      Signal('GAMEPAD\BTNDOWN\'+Apus.Engine.Controller.GetButtonName(cButton),tag);

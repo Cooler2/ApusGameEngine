@@ -292,10 +292,6 @@ interface
  procedure RunTimer(n:integer);
  function GetTimer(n:integer):double;
 
- function GetUTCTime:TSystemTime; /// TODO: implement
-
- function MyTickCount:int64; // Аналог GetTickCount, но без переполнения (больше не использует GetTickCount из-за недостаточной точности)
-
  // Возвращает строку с описанием распределения памяти
  function GetMemoryState:string;
  // Возвращает объем выделенной памяти
@@ -623,7 +619,7 @@ interface
  function HexToInt(st:string):int64; overload;  // Распознать шестнадцатиричное число
  {$IFDEF ADDANSI}
  function HexToInt(st:String8):int64; overload; {$ENDIF}
- function HexToAStr(v:int64;digits:integer=0):String8;
+ function FormatHex(v:int64;digits:integer=0):String8;
  function SizeToStr(size:int64):string; // строка с короткой записью размера, типа 15.3M
  function FormatTime(time:int64):string; // строка с временным интервалом (time - в ms)
  function FormatInt(int:int64):string; // строка с числом (пробел разделяет группы цифр)
@@ -675,9 +671,12 @@ interface
  {$IFDEF ADDANSI}
  function StrHash(const st:String8):cardinal; overload; {$ENDIF}
 
- // Текущее время и дата (GMT)
- function NowGMT:TDateTime;
- function TimeStamp:string;
+ // Current date/time
+ function NowGMT:TDateTime; // UTC datetime in TDateTime format
+ function GetUTCTime:TSystemTime; // using high precision platform-dependent format
+
+ function MyTickCount:int64; // better replacement for GetTickCount (higher precision and no overflow)
+ function TimeStamp:string; // some string representation of MyTickCount
 
  // Синхронизация и многопоточность
  // --------------------------------
@@ -705,8 +704,8 @@ interface
  procedure DisableDEP;
 
 implementation
- uses Classes, Math, Apus.CrossPlatform, Apus.StackTrace, TypInfo
-    {$IFDEF UNIX},unixtype,BaseUnix,Syscall,dateutils{$ENDIF}
+ uses Classes, Math, Apus.CrossPlatform, Apus.StackTrace, TypInfo, dateutils
+    {$IFDEF UNIX},unixtype,BaseUnix,Syscall{$ENDIF}
     {$IFDEF MSWINDOWS},mmsystem{$ENDIF}
     {$IFDEF IOS},iphoneAll{$ENDIF}
     {$IFDEF ANDROID},Android{$ENDIF};
@@ -1236,7 +1235,7 @@ function min2s(a,b:single):single; inline;
   end;
  {$ENDIF}
 
-function HexToAStr(v:int64;digits:integer=0):String8;
+function FormatHex(v:int64;digits:integer=0):String8;
  var
   l:integer;
   vv:int64;
@@ -5024,13 +5023,19 @@ procedure DumpDir(path:string);
    p:pointer;
    ft:TFileTime;
   begin
+   {$IF Declared(GetUniversalTime)}
+   GetUniversalTime(result);
+   {$ELSE}
+   DateTimeToSystemTime(NowGMT,result);
+   {$ENDIF}
+
    if preciseTimeSupport=0 then begin
     p:=TryLoadFunction('kernel32.dll','GetSystemTimePreciseAsFileTime');
     if p<>nil then begin
-     preciseTimeSupport:=1;
+     preciseTimeSupport:=1; // supported
      GetSystemTimePreciseAsFileTime:=p;
     end else
-     preciseTimeSupport:=-1;
+     preciseTimeSupport:=-1; // not supported
    end;
 
    if preciseTimeSupport>0 then begin
@@ -5042,7 +5047,11 @@ procedure DumpDir(path:string);
  {$ELSE}
  function GetUTCTime:TSystemTime;
   begin
+   {$IF Declared(GetUniversalTime)}
    GetUniversalTime(result);
+   {$ELSE}
+   DateTimeToSystemTime(NowGMT,result);
+   {$ENDIF}
   end;
  {$ENDIF}
 

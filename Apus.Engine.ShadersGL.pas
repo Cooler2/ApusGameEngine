@@ -249,7 +249,7 @@ procedure AddLine(var st:String8;const line:String8='';condition:boolean=true);
   if condition then st:=st+line+#13#10;
  end;
 
-function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighting:integer):String8;
+function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighting:cardinal):String8;
  var
   ch:AnsiChar;
   depthPass,shadowMap:boolean;
@@ -393,7 +393,7 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   hasNormal:=actualVertexLayout and $F0>0;
   hasColor:=actualVertexLayout and $F00>0;
   hasUV:=actualVertexLayout and $F000>0;
-  notes:='Std shader for mode '+IntToHex(curTexMode.mode)+' layout='+IntToHex(actualVertexLayout);
+  notes:='Std shader for mode '+FormatHex(curTexMode.mode)+' layout='+FormatHex(actualVertexLayout);
   LogMessage('Building: '+notes);
   vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting);
   fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,curTexMode);
@@ -505,17 +505,17 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
  function GetShaderError(shader:GLuint):string;
   var
    maxlen:integer;
-   errorLog:PAnsiChar;
+   errorLog:AnsiString;
   begin
    glGetShaderiv(shader,GL_INFO_LOG_LENGTH,@maxlen);
-   errorLog:=AnsiStrAlloc(maxlen);
+   SetLength(errorLog,maxLen);
    {$IFDEF GLES}
-   glGetShaderInfoLog(shader,maxLen,@maxLen,errorLog);
+   glGetShaderInfoLog(shader,maxLen,@maxLen,PGLChar(errorLog));
    {$ELSE}
-   glGetShaderInfoLog(shader,maxLen,@maxLen,errorLog);
+   glGetShaderInfoLog(shader,maxLen,@maxLen,PGLChar(errorLog));
    {$ENDIF}
    glDeleteShader(shader);
-   result:=errorLog;
+   result:=PAnsiChar(errorLog);
   end;
  begin
   if not GL_VERSION_2_0 then exit(nil);
