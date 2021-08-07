@@ -2092,8 +2092,8 @@ procedure SimpleEncrypt2;
      inc(p);
      sour:=ord(st[p])-64;
     end;
-    dest:=dest shr 1+(sour shl 2) and $80;
-    sour:=sour shl 1;
+    dest:=byte(dest shr 1+(sour shl 2) and $80);
+    sour:=byte(sour shl 1);
     if i mod 8=7 then begin
      pb^:=dest;
      dest:=0;
@@ -4067,14 +4067,16 @@ function BinToStr;
     end;
     j:=1;
     l:=length(strings[i]);
-    src:=@strings[i][1];
-    while j<=l do begin
-     result[n]:=src^; inc(n);
-     if n+1+dl>=s then begin
-      s:=s*2; SetLength(result,s);
+    if l>0 then begin
+     src:=@strings[i][1];
+     while j<=l do begin
+      result[n]:=src^; inc(n);
+      if n+1+dl>=s then begin
+       s:=s*2; SetLength(result,s);
+      end;
+      inc(j);
+      inc(src);
      end;
-     inc(j);
-     inc(src);
     end;
     inc(i);
    end;

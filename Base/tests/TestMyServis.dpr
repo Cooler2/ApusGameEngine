@@ -1718,7 +1718,6 @@ var
 
 begin
  UseLogFile('log.txt',true);
- TestThreadStall;
  try
   TestStringTypes;
   TestConversions;
@@ -1771,7 +1770,8 @@ begin
   writeln('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
   writeln('!!!!!!!!!! TESTS FAILED !!!!!!!!!!!!!!');
   writeln('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+  ExitCode:=1;
  end else
   writeln('--------------------- DONE! ---------------------'#13#10' Everything is OK!');
- readln;
+ //readln;
 end.

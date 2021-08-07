@@ -200,10 +200,14 @@
     <Parsing>
       <SyntaxOptions>
         <SyntaxMode Value="Delphi"/>
+        <IncludeAssertionCode Value="True"/>
       </SyntaxOptions>
     </Parsing>
     <CodeGeneration>
       <SmartLinkUnit Value="True"/>
+      <Checks>
+        <RangeChecks Value="True"/>
+      </Checks>
       <Optimizations>
         <OptimizationLevel Value="2"/>
       </Optimizations>
