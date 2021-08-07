@@ -1583,7 +1583,7 @@ procedure TestMemoryStat;
     for j:=1 to high(src) do src[j]:=AnsiChar(random(256));
     dst:=EncodeHex(src);
     res:=DecodeHex(dst);
-    ASSERT(res=src,'HEX: test #'+IntToStr(i)+' s='+dst);
+    ASSERT(res=src,'HEX: test #'+IntToStr(i)+#13#10'src='+src+#13#10'dst='+dst);
     dst:=EncodeB64(@src[1],length(src));
     SetLength(res,length(src));
     DecodeB64(dst,@res[1],size);

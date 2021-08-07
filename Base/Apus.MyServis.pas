@@ -431,6 +431,10 @@ interface
  function DecodeHex(hexStr:String8):String8; overload;
  procedure DecodeHex(st:String8;buf:pointer); overload;
 
+ function DumpStr(s:string):string; overload;
+ function DumpStr(s:string8):string; overload;
+ function DumpStr(s:string16):string; overload;
+
  procedure ZeroMem(var data;size:integer); inline;
  function IsZeroMem(var data;size:integer):boolean;
  procedure FillDword(var data;size:integer;value:cardinal);
@@ -2160,6 +2164,21 @@ procedure SimpleEncrypt2;
     pb^:=b;
     inc(pb);
    end;
+  end;
+
+ function DumpStr(s:string):string; overload;
+  begin
+   result:=Format('Str:L=%d,w=%d:%s',[length(s),sizeof(char),EncodeHex(@s[1],length(s)*sizeof(char))]);
+  end;
+
+ function DumpStr(s:string8):string; overload;
+  begin
+   result:=Format('Str8:L=%d:%s',[length(s),EncodeHex(@s[1],length(s))]);
+  end;
+
+ function DumpStr(s:string16):string; overload;
+  begin
+   result:=Format('Str16:L=%d:%s',[length(s),EncodeHex(@s[1],length(s)*2)]);
   end;
 
  procedure FillDword(var data;size:integer;value:cardinal);
