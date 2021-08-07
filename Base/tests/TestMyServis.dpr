@@ -115,10 +115,15 @@ procedure TestStringTypes;
   ws:=ref;
   s8:=ref;
   s16:=ref;
-  ASSERT(Str8(s)=ws);
-  ASSERT(Str8(s8)=ws);
-  ASSERT(Str8(s16)=ws);
-  ASSERT(Str8(ws)=ws);
+  ASSERT(Str8(s)=s8);
+  ASSERT(Str8(s8)=s8);
+  ASSERT(Str8(s16)=s8);
+  ASSERT(Str8(ws)=s8);
+
+  ASSERT(DecodeUTF8(Str8(s))=ws);
+  ASSERT(DecodeUTF8(Str8(s8))=ws);
+  ASSERT(DecodeUTF8(Str8(s16))=ws);
+  ASSERT(DecodeUTF8(Str8(ws))=ws);
 
   ASSERT(Str16(s)=ws);
   ASSERT(Str16(s8)=ws);
@@ -1554,8 +1559,10 @@ procedure TestMemoryStat;
   var
    output:AnsiString;
   begin
-   ExecAndCapture('cmd /C dir',output);
+   writeln('Test capture');
+   ExecAndCapture('cmd /C dir',output,1000);
    ASSERT(output<>'');
+   writeln('OK');
   end;
 
  procedure TestTimes;

@@ -221,7 +221,7 @@ interface
 
  function GetWindowRect(window:HWND;out rect:TRect):boolean;
  function MoveWindow(window:HWND;x,y,w,h:integer;repaint:boolean):boolean;
- function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString): Integer;
+ function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString; timeout:integer=-1): Integer;
  {$ENDIF}
  {$IFDEF UNIX}
  function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString): Integer;
@@ -439,7 +439,7 @@ uses
 
 // This function taken from http://forum.codecall.net/topic/72472-execute-a-console-program-and-capture-its-output/
 // Author: Luthfi
-function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString): Integer;
+function ExecAndCapture(const ACmdLine:AnsiString; var AOutput:AnsiString; timeout:integer=-1): Integer;
 const
   cBufferSize = 2048;
 type
@@ -456,6 +456,7 @@ var
   vStdInPipe : TAnoPipe;
   vStdOutPipe: TAnoPipe;
   str:AnsiString;
+  time:int64;
 begin
   LogMessage('Exec: '+ACmdLine);
 
@@ -501,9 +502,15 @@ begin
           raise Exception.Create('Failed creating the console process. System error msg: ' + SysErrorMessage(GetLastError));
 
         try
+          if timeout>0 then time:=MyTickCount+timeout;
           // wait until the console program terminated
-          while WaitForSingleObject(vProcessInfo.hProcess, 10)=WAIT_TIMEOUT do
+          while WaitForSingleObject(vProcessInfo.hProcess, 10)=WAIT_TIMEOUT do begin
+            if (timeout>0) and (MyTickCount>time) then begin
+             ForceLogMessage('!!! EAC: child process timeout, trying to read partial output.');
+             break;
+            end;
             Sleep(0);
+          end;
 
           // clear the output storage
           AOutput := '';
