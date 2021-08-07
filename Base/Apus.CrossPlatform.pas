@@ -224,7 +224,7 @@ interface
  function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString; timeout:integer=-1): Integer;
  {$ENDIF}
  {$IFDEF UNIX}
- function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString): Integer;
+ function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString; timeout:integer=-1): Integer;
  {$ENDIF}
 
  function GetDecimalSeparator:char; inline;
@@ -605,7 +605,7 @@ end;
 {$ENDIF}
 
 {$IFDEF UNIX}
- function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString): Integer;
+ function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString; timeout:integer=-1): Integer;
   var
    output:string;
   begin
