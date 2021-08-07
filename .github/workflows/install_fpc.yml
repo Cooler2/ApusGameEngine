@@ -16,6 +16,7 @@ jobs:
   test-linux:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -31,10 +32,12 @@ jobs:
     - name: Compile
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
     - run: Base/tests/TestMyServis-fpc
+      timeout-minutes: 2    
 
   test-windows:
     # The type of runner that the job will run on
     runs-on: windows-latest
+    timeout-minutes: 10
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -51,3 +54,4 @@ jobs:
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
     - run: dir Base/tests
     - run: Base/tests/TestMyServis-fpc
+      timeout-minutes: 2
