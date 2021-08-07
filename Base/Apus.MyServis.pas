@@ -706,10 +706,10 @@ interface
 
 implementation
  uses Classes, Math, Apus.CrossPlatform, Apus.StackTrace, TypInfo
-    {$IFDEF UNIX},unixtype,BaseUnix,Syscall{$ENDIF}
+    {$IFDEF UNIX},unixtype,BaseUnix,Syscall,dateutils{$ENDIF}
     {$IFDEF MSWINDOWS},mmsystem{$ENDIF}
     {$IFDEF IOS},iphoneAll{$ENDIF}
-    {$IFDEF ANDROID},dateutils,Android{$ENDIF};
+    {$IFDEF ANDROID},Android{$ENDIF};
 
  {$IFOPT R+}{$DEFINE RANGECHECK}{$ENDIF} // Used to disable range check when needed and restore it back
  const
