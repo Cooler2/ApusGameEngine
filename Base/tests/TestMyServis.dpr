@@ -1562,7 +1562,7 @@ procedure TestMemoryStat;
    writeln('Test capture');
    ExecAndCapture('cmd /C dir',output,1000);
    ASSERT(output<>'');
-   writeln('OK');
+   writeln('OK: '#13#10+output);
   end;
 
  procedure TestTimes;
