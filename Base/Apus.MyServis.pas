@@ -4901,7 +4901,7 @@ procedure DumpDir(path:string);
   begin
    f:=FileOpen(fName,fmOpenWrite);
    if f=INVALID_HANDLE_VALUE then
-    f:=FileCreate(fName,fmOpenWrite);
+    f:=FileCreate(fName);
    if f=INVALID_HANDLE_VALUE then
     raise EError.Create('Can''t create/open file "%s": %s',[fName,GetSystemError]);
    try
@@ -4918,7 +4918,7 @@ procedure DumpDir(path:string);
   var
    f:THandle;
   begin
-   f:=FileCreate(fName,fmOpenWrite);
+   f:=FileCreate(fName);
    if f=INVALID_HANDLE_VALUE then
     raise EError.Create('Can''t create file "%s": %s',[fName,GetSystemError]);
    try
