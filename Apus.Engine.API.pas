@@ -870,6 +870,12 @@ type
   first,last:byte;
  end;
 
+ // Enable built-in gamepad navigation with DPad and X/Y buttons
+ TGamepadNavigationMode=(
+   gnmDisabled,  // no gamepad navigation
+   gnmCustom,    // enable navigation over manually specified points
+   gnmAuto);     // enable navigation over manual points and clickable UI elements
+
   // Main game interface
  TGameBase=class
   // Глобально доступные переменные
@@ -886,17 +892,21 @@ type
   frameNum:integer;     // incremented per frame
   frameStartTime:int64; // MyTickCount when frame started
 
-  // Input state
+  // Input state:
+  // Mouse
   mouseX,mouseY:integer; // положение мыши внутри окна/экрана
   oldMouseX,oldMouseY:integer; // предыдущее положение мыши (не на предыдущем кадре, а вообще!)
   mouseMovedAt:int64; // Момент времени, когда положение мыши изменилось
   mouseButtons:byte;     // Флаги "нажатости" кнопок мыши (0-левая, 1-правая, 2-средняя)
   oldMouseButtons:byte;  // предыдущее (отличающееся) значение mouseButtons
 
+  // Keyboard
   shiftState:byte; // состояние клавиш сдвига (1-shift, 2-ctrl, 4-alt, 8-win)
   // bit 0 - pressed, bit 1 - was pressed last frame. So 01 means key was just pressed, 10 - just released
   // indexed by scancode (NOT virtual key code!)
   keyState:array[0..255] of byte;
+
+  gamepadNavigationMode:TGamepadNavigationMode; // used to enable gamepad (DPad) navigation over UI elements and user-defined objects
 
   // Text link (TODO: move out)
   textLink:cardinal; // Вычисленный на предыдущем кадре номер ссылки под мышью записывается здесь (сам по себе он не вычисляется, для этого надо запускать отрисовку текста особым образом)
@@ -1001,6 +1011,11 @@ type
   procedure Minimize; virtual; abstract;
   procedure MoveWindowTo(x, y, width, height: integer); virtual; abstract;
   procedure SetWindowCaption(text: string); virtual; abstract;
+
+  // Gamepad navigation
+  // This should be called every frame for each point that should be available for navigation
+  // during the next frame
+  procedure DPadCustomPoint(x,y:integer); virtual; abstract;
  end;
 
  TDisplayModeHelper = record helper for TDisplayMode

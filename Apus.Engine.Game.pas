@@ -90,6 +90,8 @@ type
   procedure SetSettings(s:TGameSettings); override; // этот метод служит для изменения режима или его параметров
   function GetSettings:TGameSettings; override; // этот метод служит для изменения режима или его параметров
 
+  procedure DPadCustomPoint(x,y:integer); override;
+
  protected
   useMainThread:boolean; // true - launch "main" thread with main loop,
                          // false - no main thread, catch frame events
@@ -129,6 +131,8 @@ type
   frameLog,prevFrameLog:string;
   avgTime,avgTime2:double;
   timerFrame:cardinal;
+
+  customPoints,activeCustomPoints:array of TPoint; // custom navigation points
 
   // Debug utilities
   debugOverlay:integer; // индекс отладочного оверлея, включаемого клавишами Alt+Fn (0 - отсутствует)
@@ -194,6 +198,8 @@ type
   procedure DrawMagnifier; virtual;
   // Internal hotkeys such as PrintScreen, Alt+F1 etc
   procedure HandleInternalHotkeys(keyCode:integer;pressed:boolean); virtual;
+
+  procedure HandleGamepadNavigation;
  end;
 
  // Для использования из главного потока
@@ -246,6 +252,22 @@ var
 {$I defaultFont12.inc}
 
 { TBasicGame }
+
+procedure TGame.HandleGamepadNavigation;
+var
+ i:integer;
+begin
+ if gamepadNavigationMode=gnmDisabled then exit;
+ EnterCritSect;
+ try
+  activeCustomPoints:=customPoints;
+  SetLength(customPoints,0);
+  if gamepadNavigationMode=gnmAuto then begin
+  end;
+ finally
+  LeaveCritSect;
+ end;
+end;
 
 procedure TGame.HandleInternalHotkeys(keyCode: integer; pressed: boolean);
  procedure ToggleDebugOverlay(n:integer);
@@ -569,6 +591,20 @@ begin
 
  systemPlatform.ShowWindow(false);
  Signal('Engine\AfterDoneGraph');
+end;
+
+procedure TGame.DPadCustomPoint(x, y: integer);
+var
+ n:integer;
+begin
+ EnterCritSect;
+ try
+  n:=Length(customPoints);
+  SetLength(customPoints,n+1);
+  customPoints[n]:=Point(x,y);
+ finally
+  LeaveCritSect;
+ end;
 end;
 
 procedure TGame.DrawMagnifier;
@@ -1272,6 +1308,7 @@ procedure TGame.PresentFrame;
   gfx.PresentFrame;
   EndMeasure(1);
   inc(FrameNum);
+  HandleGamepadNavigation;
  end;
 
 procedure TGame.SetupRenderArea;
