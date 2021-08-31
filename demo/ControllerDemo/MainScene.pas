@@ -31,6 +31,7 @@ implementation
   sceneMain:TMainScene;
   baseDir:string;
   imgJoystick,imgGamepad:TTexture;
+  uiTestMode:boolean;
 
 { TSimpleDemoApp }
 
@@ -49,6 +50,11 @@ constructor TMainApp.Create;
    baseDir:='..\Demo\ControllerDemo\';
  end;
 
+procedure OnToggleBtn;
+ begin
+  uiTestMode:=not uiTestMode;
+ end;
+
 procedure TMainApp.CreateScenes;
  begin
   inherited;
@@ -56,6 +62,9 @@ procedure TMainApp.CreateScenes;
   LoadImage(imgGamepad,baseDir+'gamepad');
   // initialize our main scene
   sceneMain:=TMainScene.Create;
+  TUIButton.Create(200,32,'ToggleInput','Toggle UI Test',txt.GetFont('Default',9),
+   sceneMain.UI).SetPos(game.renderWidth/2,game.renderHeight-25,pivotCenter);
+  UIButton('ToggleInput').onClick:=OnToggleBtn;
   sceneMain.SetStatus(ssActive);
  end;
 
@@ -121,6 +130,19 @@ procedure DrawControllerState(x,y,width,height:integer;const con:TGameController
     end;
  end;
 
+procedure DrawManualUI;
+ var
+  i,x,y:integer;
+ begin
+  randSeed:=2;
+  for i:=1 to 10 do begin
+   x:=20+random(game.renderWidth-40);
+   y:=20+random(game.renderHeight-100);
+   draw.FillRect(x-10,y-10,x+10,y+10,$80F00000); // Draw custom object
+   game.DPadCustomPoint(x,y); // Tell the engine that this point should be available for gamepad navigation
+  end;
+ end;
+
 procedure TMainScene.Render;
  var
   w2,h2:integer;
@@ -135,6 +157,8 @@ procedure TMainScene.Render;
   DrawControllerState(w2,0, w2,h2,controllers[1]);
   DrawControllerState(0,h2, w2,h2,controllers[2]);
   DrawControllerState(w2,h2,w2,h2,controllers[3]);
+
+  if uiTestMode then DrawManualUI;
   inherited;
  end;
 
