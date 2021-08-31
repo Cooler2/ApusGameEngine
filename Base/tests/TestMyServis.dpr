@@ -1731,13 +1731,6 @@ procedure Test;
   SetBit(m,31); // The same code works in FPC if inlined, doesn't work if not inlined
  end;
 
-var
- ar:array of cardinal;
- st:string;
- pc:PChar;
- rc:array[1..10] of integer;
- wst:WideString;
-
 begin
  SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
