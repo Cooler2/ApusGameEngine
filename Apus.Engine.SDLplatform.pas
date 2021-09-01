@@ -34,6 +34,7 @@ type
   function IsTerminated:boolean;
 
   function GetMousePos:TPoint; // Get mouse position on screen
+  procedure SetMousePos(scrX,scrY:integer); // Move mouse cursor (screen coordinates)
   function GetSystemCursor(cursorId:integer):THandle;
   function LoadCursor(fname:string):THandle;
   procedure SetCursor(cur:THandle);
@@ -116,7 +117,17 @@ function TSDLPlatform.CanChangeSettings: boolean;
  end;
 
 procedure TSDLPlatform.ClientToScreen(var p: TPoint);
+ var
+  x,y:integer;
  begin
+  SDL_GetWindowPosition(window,@x,@y);
+  inc(p.x,x);
+  inc(p.y,y);
+ end;
+
+procedure TSDLPlatform.ScreenToClient(var p: TPoint);
+ begin
+
  end;
 
 procedure TSDLPlatform.DestroyWindow;
@@ -128,13 +139,14 @@ procedure TSDLPlatform.FlashWindow(count: integer);
  begin
  end;
 
-procedure TSDLPlatform.ScreenToClient(var p: TPoint);
- begin
- end;
-
 function TSDLPlatform.GetMousePos: TPoint;
  begin
   SDL_GetMouseState(@result.X, @result.Y)
+ end;
+
+procedure TSDLPlatform.SetMousePos(scrX,scrY:integer);
+ begin
+  SDL_WarpMouseGlobal(scrX,scrY);
  end;
 
 function TSDLPlatform.GetPlatformName: string;
@@ -428,6 +440,7 @@ procedure ProcessControllerEvent(event:TSDL_Event);
      else cButton:=btButton0;
     end;
     if cButton<btButtonA then exit;
+    // Tag: byte0 = button, byte1 = controller
     tag:=PackTag(ord(cButton),n,0,0);
     if event.type_=SDL_CONTROLLERBUTTONDOWN then begin
      SetBit(controllers[n].buttons,ord(cButton));
