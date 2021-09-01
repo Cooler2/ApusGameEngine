@@ -357,6 +357,7 @@ type
   procedure FreeCursor(cur:THandle);
   function MapScanCodeToVirtualKey(key:integer):integer;
   function GetMousePos:TPoint; // Get mouse position on screen (screen may mean client when platform doesn't support real screen space)
+  procedure SetMousePos(scrX,scrY:integer); // Move mouse cursor (screen coordinates)
   function GetMouseButtons:cardinal;
   function GetShiftKeysState:cardinal;
 

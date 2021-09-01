@@ -34,6 +34,7 @@ type
   function IsTerminated:boolean;
 
   function GetMousePos:TPoint; // Get mouse position on screen
+  procedure SetMousePos(scrX,scrY:integer); // Move mouse cursor (screen coordinates)
   function GetSystemCursor(cursorId:integer):THandle;
   function LoadCursor(filename:string):THandle;
   procedure SetCursor(cur:THandle);
@@ -260,6 +261,11 @@ procedure TWindowsPlatform.ScreenToClient(var p: TPoint);
 function TWindowsPlatform.GetMousePos: TPoint;
  begin
   GetCursorPos(result);
+ end;
+
+procedure TWindowsPlatform.SetMousePos(scrX,scrY:integer);
+ begin
+  SetCursorPos(scrX,scrY);
  end;
 
 function TWindowsPlatform.GetPlatformName: string;
