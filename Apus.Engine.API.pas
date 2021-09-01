@@ -896,7 +896,7 @@ type
   // Mouse
   mouseX,mouseY:integer; // положение мыши внутри окна/экрана
   oldMouseX,oldMouseY:integer; // предыдущее положение мыши (не на предыдущем кадре, а вообще!)
-  mouseMovedAt:int64; // Момент времени, когда положение мыши изменилось
+  mouseMovedTime:int64; // Момент времени, когда положение мыши изменилось
   mouseButtons:byte;     // Флаги "нажатости" кнопок мыши (0-левая, 1-правая, 2-средняя)
   oldMouseButtons:byte;  // предыдущее (отличающееся) значение mouseButtons
 

@@ -412,7 +412,7 @@ begin
   oldMouseY:=MouseY;
   mouseX:=newX;
   mouseY:=newY;
-  mouseMovedAt:=MyTickCount;
+  mouseMovedTime:=MyTickCount;
   Signal('MOUSE\MOVE',mouseX and $FFFF+(mouseY and $FFFF) shl 16);
   TGame(game).NotifyScenesAboutMouseMove;
   // Если курсор рисуется вручную, то нужно обновить экран
