@@ -53,6 +53,11 @@ constructor TMainApp.Create;
 procedure OnToggleBtn;
  begin
   uiTestMode:=not uiTestMode;
+  if uiTestMode then
+   game.gamepadNavigationMode:=gnmAuto
+  else
+   game.gamepadNavigationMode:=gnmDisabled;
+  game.DebugFeature(dfShowNavigationPoints,uiTestMode);
  end;
 
 procedure TMainApp.CreateScenes;
@@ -130,7 +135,7 @@ procedure DrawControllerState(x,y,width,height:integer;const con:TGameController
     end;
  end;
 
-procedure DrawManualUI;
+procedure DefineManualUI;
  var
   i,x,y:integer;
  begin
@@ -138,7 +143,6 @@ procedure DrawManualUI;
   for i:=1 to 10 do begin
    x:=20+random(game.renderWidth-40);
    y:=20+random(game.renderHeight-100);
-   draw.FillRect(x-10,y-10,x+10,y+10,$80F00000); // Draw custom object
    game.DPadCustomPoint(x,y); // Tell the engine that this point should be available for gamepad navigation
   end;
  end;
@@ -158,7 +162,7 @@ procedure TMainScene.Render;
   DrawControllerState(0,h2, w2,h2,controllers[2]);
   DrawControllerState(w2,h2,w2,h2,controllers[3]);
 
-  if uiTestMode then DrawManualUI;
+  DefineManualUI;
   inherited;
  end;
 
