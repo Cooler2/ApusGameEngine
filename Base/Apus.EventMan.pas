@@ -62,6 +62,9 @@ type
 
  function PackTag(byte0,byte1:byte;byte2:byte=0;byte3:byte=0):TTag; overload;
  function PackTag(loWord,hiWord:word):TTag; overload;
+ function ByteFromTag(tag:TTag;byteIdx:integer):byte;
+ function WordFromTag(tag:TTag;wordIdx:integer):word;
+
 
 implementation
  uses Apus.CrossPlatform, SysUtils, Apus.MyServis;
@@ -131,6 +134,16 @@ function PackTag(byte0,byte1:byte;byte2:byte=0;byte3:byte=0):TTag; overload;
 function PackTag(loWord,hiWord:word):TTag; overload;
  begin
   result:=TTag(loWord+hiWord shl 16);
+ end;
+
+function ByteFromTag(tag:TTag;byteIdx:integer):byte;
+ begin
+  result:=byte(tag shr (byteIdx*8));
+ end;
+
+function WordFromTag(tag:TTag;wordIdx:integer):word;
+ begin
+  result:=word(tag shr (wordIdx*16));
  end;
 
 function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean;
