@@ -877,6 +877,12 @@ type
    gnmCustom,    // enable navigation over manually specified points
    gnmAuto);     // enable navigation over manual points and clickable UI elements
 
+ TDebugFeature=(
+   dfShowFPS,                 // Display frame rate
+   dfShowGlyphCache,          // Display glyphs cache
+   dfShowNavigationPoints     // Display gamepad navigation points
+ );
+
   // Main game interface
  TGameBase=class
   // Глобально доступные переменные
@@ -980,6 +986,8 @@ type
   function GetStatus(n:integer):string; virtual; abstract;
   // Show message in engine-driven pop-up (3 sec)
   procedure FireMessage(st:String8); virtual; abstract;
+  // Enable/disable debug overlays
+  procedure DebugFeature(feature:TDebugFeature;enabled:boolean); virtual; abstract;
 
   // Synchronization
   // ---------------

@@ -60,6 +60,7 @@ type
   procedure FLog(st:string); override;
   function GetStatus(n:integer):string; override;
   procedure FireMessage(st:string8); override;
+  procedure DebugFeature(feature:TDebugFeature;enabled:boolean); override;
 
   procedure EnterCritSect; override;
   procedure LeaveCritSect; override;
@@ -137,6 +138,7 @@ type
   // Debug utilities
   debugOverlay:integer; // индекс отладочного оверлея, включаемого клавишами Alt+Fn (0 - отсутствует)
   magnifierTex:TTexture;
+  debugFeatures:set of TDebugFeature;
 
   dRT:TTexture; // default render target (can be nil)
 
@@ -1422,10 +1424,20 @@ end;
 procedure TGame.DrawOverlays;
 var
  font:cardinal;
- x,y:integer;
+ i,x,y:integer;
+ feature:TDebugFeature;
 begin
  EnterCriticalSection(crSect);
  try
+  for feature in debugFeatures do
+   case feature of
+    dfShowNavigationPoints:begin
+      for i:=0 to high(activeCustomPoints) do
+       with activeCustomPoints[i] do
+        draw.FillRect(x-10,y-10,x+10,y+10,$70E00000);
+    end;
+   end;
+
   if (draw<>nil) and ((showDebugInfo>0) or (showFPS) or (debugOverlay>0)) then begin
     FLog('RDebug');
 
@@ -1687,6 +1699,12 @@ end;
 procedure TGame.SetWindowCaption(text: string);
 begin
  systemPlatform.SetWindowCaption(text);
+end;
+
+procedure TGame.DebugFeature(feature: TDebugFeature; enabled: boolean);
+begin
+ if enabled then Include(debugFeatures,feature)
+  else Exclude(debugFeatures,feature);
 end;
 
 procedure TGame.ClientToGame(var p:TPoint);
