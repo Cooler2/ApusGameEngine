@@ -184,6 +184,8 @@ type
   procedure onMouseEvent(event:string;tag:NativeInt); virtual;
   // Called when JOYSTICK\* event is fired
   procedure onJoystickEvent(event:string;tag:NativeInt); virtual;
+  // Called when GAMEPAD\* event is fired
+  procedure onGamepadEvent(event:string;tag:NativeInt); virtual;
 
   // Event processors
   procedure MouseMovedTo(newX,newY:integer); virtual;
@@ -211,7 +213,7 @@ implementation
  uses SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools
      {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},
      Apus.EventMan, Apus.Engine.UIScene, Apus.Engine.UIClasses, Apus.Engine.Console,
-     Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw;
+     Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw, Apus.Engine.Controller;
 
 type
  TMainThread=class(TThread)
@@ -265,6 +267,7 @@ begin
   activeCustomPoints:=customPoints;
   SetLength(customPoints,0);
   if gamepadNavigationMode=gnmAuto then begin
+   // Add clickable UI objects
   end;
  finally
   LeaveCritSect;
@@ -861,6 +864,12 @@ begin
  TGame(game).onJoystickEvent(event,tag);
 end;
 
+procedure GameGamepadEvent(event:TEventStr;tag:TTag);
+begin
+ if game=nil then exit;
+ TGame(game).onGamepadEvent(event,tag);
+end;
+
 
 procedure TGame.Run;
 var
@@ -882,6 +891,7 @@ begin
  SetEventHandler('KBD\',GameKbdEvent,emInstant);
  SetEventHandler('MOUSE\',GameMouseEvent,emInstant);
  SetEventHandler('JOYSTICK\',GameJoystickEvent,emInstant);
+ SetEventHandler('GAMEPAD\',GameGamepadEvent,emInstant);
 
  for i:=1 to 400 do
   if not running then sleep(50) else break;
@@ -1093,7 +1103,7 @@ begin
    ClientToGame(p);
    MouseX:=p.x;
    MouseY:=p.y;
-   mouseMovedAt:=MyTickCount;
+   mouseMovedTime:=MyTickCount;
    Signal('Mouse\Move',mouseX+mouseY shl 16);
    NotifyScenesAboutMouseMove;
    Signal('Mouse\BtnDown\Left',1);
@@ -1109,7 +1119,7 @@ begin
    ClientToGame(p);
    MouseX:=p.x;
    MouseY:=p.y;
-   mouseMovedAt:=MyTickCount;
+   mouseMovedTime:=MyTickCount;
    Signal('Mouse\Move',mouseX+mouseY shl 16);
    NotifyScenesAboutMouseMove;
    Timing;
@@ -1121,7 +1131,7 @@ begin
    OldMouseX:=mouseX;
    OldMouseY:=MouseY;
    mouseX:=4095; mouseY:=4095;
-   mouseMovedAt:=MyTickCount;
+   mouseMovedTime:=MyTickCount;
    Signal('Mouse\Move',mouseX+mouseY shl 16);
    NotifyScenesAboutMouseMove;
    Timing;
@@ -1210,8 +1220,60 @@ end;
 // Handle JOYSTICK\* event
 procedure TGame.onJoystickEvent(event:string;tag:NativeInt);
 begin
- event:=Copy(event,10,200);
 end;
+
+// Handle GAMEPAD\* event
+procedure TGame.onGamepadEvent(event:string;tag:NativeInt);
+var
+ evt:TEventStr;
+ btn:TConButtonType;
+ procedure Navigate(nx,ny:integer);
+  var
+   i,dx,dy,d,best:integer;
+   bestPnt:TPoint;
+  begin
+   EnterCritSect;
+   try
+    best:=100000;
+    for i:=0 to high(activeCustomPoints) do
+     with activeCustomPoints[i] do begin
+      dx:=x-mouseX; dy:=y-mouseY;
+      d:=dx*nx+dy*ny; // расстояние в направлении вектора (скалярное произведение)
+      if d<=1 then continue;
+      d:=d+4*abs(dx*ny+dy*nx);
+      //if d<abs(dx*ny+dy*nx) then continue; // расстояние в перпендикулярном направлении больше?
+      if d<best then begin
+       best:=d; bestPnt:=activeCustomPoints[i];
+      end;
+     end;
+   finally
+    LeaveCritSect;
+   end;
+   if best<100000 then begin
+    GameToClient(bestPnt);
+    systemPlatform.ClientToScreen(bestPnt);
+    systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
+   end;
+  end;
+begin
+ if (gamepadNavigationMode<>gnmDisabled) then begin
+  if (EventOfClass(event,'GAMEPAD\BTNDOWN',evt)) then begin
+   btn:=TConButtonType(ByteFromTag(tag,0));
+   case btn of
+     btButtonDPadUp:Navigate(0,-1);
+     btButtonDPadDown:Navigate(0,1);
+     btButtonDPadLeft:Navigate(-1,0);
+     btButtonDPadRight:Navigate(1,0);
+     btButtonX,btButtonY:Signal('MOUSE\BTNDOWN',1);
+   end;
+  end else
+  if (EventOfClass(event,'GAMEPAD\BTNUP',evt)) then begin
+   btn:=TConButtonType(ByteFromTag(tag,0));
+   if btn in [btButtonX,btButtonY] then Signal('MOUSE\BTNUP',1);
+  end;
+ end;
+end;
+
 
 procedure Delay(time:integer);
 var
