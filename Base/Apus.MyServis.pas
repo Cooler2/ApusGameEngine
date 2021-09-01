@@ -5498,7 +5498,11 @@ procedure RegisterThread(name:string); // зарегистрировать по�
   threadID:TThreadID;
   extra:string;
  begin
+  {$IFDEF DELPHI}
   {$IF Declared(TThread.NameThreadForDebugging)}
+  TThread.NameThreadForDebugging(name);
+  {$ENDIF}
+  {$ELSE}
   TThread.NameThreadForDebugging(name);
   {$ENDIF}
   MyEnterCriticalSection(crSection);
