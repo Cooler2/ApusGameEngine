@@ -5498,6 +5498,9 @@ procedure RegisterThread(name:string); // зарегистрировать по�
   threadID:TThreadID;
   extra:string;
  begin
+  {$IF Declared(TThread.NameThreadForDebugging)}
+  TThread.NameThreadForDebugging(name);
+  {$ENDIF}
   MyEnterCriticalSection(crSection);
   try
    threadID:=GetCurrentThreadId;
