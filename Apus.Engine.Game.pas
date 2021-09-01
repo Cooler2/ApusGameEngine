@@ -260,6 +260,20 @@ var
 procedure TGame.HandleGamepadNavigation;
 var
  i:integer;
+ scene:TUIScene;
+ procedure Traverse(e:TUIElement);
+  var
+   child:TUIElement;
+   pnt:TPoint;
+  begin
+   if e=nil then exit;
+   with e do begin
+    if not (enabled and visible) then exit;
+    pnt:=GetPosOnScreen.CenterPoint;
+    if e is TUIButton then activeCustomPoints:=activeCustomPoints+[pnt];
+    for child in children do Traverse(child);
+   end;
+  end;
 begin
  if gamepadNavigationMode=gnmDisabled then exit;
  EnterCritSect;
@@ -268,6 +282,9 @@ begin
   SetLength(customPoints,0);
   if gamepadNavigationMode=gnmAuto then begin
    // Add clickable UI objects
+   if topmostScene is TUIScene then scene:=TUIScene(topmostScene)
+    else exit;
+   Traverse(scene.UI);
   end;
  finally
   LeaveCritSect;
@@ -599,14 +616,10 @@ begin
 end;
 
 procedure TGame.DPadCustomPoint(x, y: integer);
-var
- n:integer;
 begin
  EnterCritSect;
  try
-  n:=Length(customPoints);
-  SetLength(customPoints,n+1);
-  customPoints[n]:=Point(x,y);
+  customPoints:=customPoints+[Point(x,y)];
  finally
   LeaveCritSect;
  end;
@@ -1264,12 +1277,12 @@ begin
      btButtonDPadDown:Navigate(0,1);
      btButtonDPadLeft:Navigate(-1,0);
      btButtonDPadRight:Navigate(1,0);
-     btButtonX,btButtonY:Signal('MOUSE\BTNDOWN',1);
+     btButtonA,btButtonB:Signal('MOUSE\BTNDOWN',1);
    end;
   end else
   if (EventOfClass(event,'GAMEPAD\BTNUP',evt)) then begin
    btn:=TConButtonType(ByteFromTag(tag,0));
-   if btn in [btButtonX,btButtonY] then Signal('MOUSE\BTNUP',1);
+   if btn in [btButtonA,btButtonB] then Signal('MOUSE\BTNUP',1);
   end;
  end;
 end;
