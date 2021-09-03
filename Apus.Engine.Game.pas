@@ -1637,7 +1637,7 @@ begin
   except
    on e:exception do CritMsg('RFrame3 '+ExceptionMsg(e));
   end;
-  topmostScene:=sc[n];
+  if n>0 then topmostScene:=sc[n];
  finally
   LeaveCriticalSection(crSect); // активные сцены вынесены в отдельный массив - их нельзя удалять в процессе отрисовки
  end;
