@@ -80,6 +80,8 @@ type
   function MouseWasInRect(r:TRect):boolean; overload; override;
   function MouseWasInRect(r:TRect2s):boolean; overload; override;
 
+  procedure WaitFor(pb:PBoolean;msg:string=''); override;
+
   // Keyboard events utility functions
   procedure SuppressKbdEvent; override;
 
@@ -1744,6 +1746,20 @@ begin
   end;
  finally
   LeaveCriticalSection(crSect);
+ end;
+end;
+
+procedure TGame.WaitFor(pb: PBoolean; msg: string);
+var
+ i:integer;
+begin
+ i:=0;
+ if msg='' then msg:=PtrToStr(GetCaller);
+ while not pb^ do begin
+  if i mod 10=0 then LogMessage('WaitFor '+msg);
+  ToggleCursor(crWait,true);
+  sleep(30);
+  ToggleCursor(crWait,false);
  end;
 end;
 

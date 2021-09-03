@@ -1014,9 +1014,14 @@ type
   function MouseWasInRect(r:TRect):boolean;overload; virtual; abstract;
   function MouseWasInRect(r:TRect2s):boolean; overload; virtual; abstract;
 
+  // Wait until pb^ is not false (not zero), toggle crWait cursor during waiting
+  procedure WaitFor(pb:PBoolean;msg:string=''); virtual; abstract;
+
   // Keyboard events utility functions
   procedure SuppressKbdEvent; virtual; abstract; // Suppress handling of the related keyboard event(s)
 
+  // Window control functions
+  // -----------------
   procedure Minimize; virtual; abstract;
   procedure MoveWindowTo(x, y, width, height: integer); virtual; abstract;
   procedure SetWindowCaption(text: string); virtual; abstract;
