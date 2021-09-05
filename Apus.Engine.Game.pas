@@ -93,7 +93,7 @@ type
   procedure SetSettings(s:TGameSettings); override; // этот метод служит для изменения режима или его параметров
   function GetSettings:TGameSettings; override; // этот метод служит для изменения режима или его параметров
 
-  procedure DPadCustomPoint(x,y:integer); override;
+  procedure DPadCustomPoint(x,y:single); override;
 
  protected
   useMainThread:boolean; // true - launch "main" thread with main loop,
@@ -617,11 +617,11 @@ begin
  Signal('Engine\AfterDoneGraph');
 end;
 
-procedure TGame.DPadCustomPoint(x, y: integer);
+procedure TGame.DPadCustomPoint(x, y: single);
 begin
  EnterCritSect;
  try
-  customPoints:=customPoints+[Point(x,y)];
+  customPoints:=customPoints+[Point(round(x),round(y))];
  finally
   LeaveCritSect;
  end;

@@ -1029,7 +1029,7 @@ type
   // Gamepad navigation
   // This should be called every frame for each point that should be available for navigation
   // during the next frame
-  procedure DPadCustomPoint(x,y:integer); virtual; abstract;
+  procedure DPadCustomPoint(x,y:single); virtual; abstract;
  end;
 
  TDisplayModeHelper = record helper for TDisplayMode
