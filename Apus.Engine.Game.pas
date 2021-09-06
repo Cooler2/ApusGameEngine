@@ -1242,11 +1242,19 @@ procedure TGame.onGamepadEvent(event:string;tag:NativeInt);
 var
  evt:TEventStr;
  btn:TConButtonType;
- procedure Navigate(nx,ny:integer);
+ conId:integer;
+ btnDown:boolean;
+ procedure Navigate(dragMode:boolean;nx,ny:integer);
   var
    i,dx,dy,d,best:integer;
    bestPnt:TPoint;
   begin
+   if dragMode then begin
+     bestPnt:=Point(mouseX+nx*20,mouseY+ny*20);
+     systemPlatform.ClientToScreen(bestPnt);
+     systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
+     exit;
+   end;
    EnterCritSect;
    try
     best:=100000;
@@ -1277,11 +1285,14 @@ begin
  if (gamepadNavigationMode<>gnmDisabled) then begin
   if (EventOfClass(event,'GAMEPAD\BTNDOWN',evt)) then begin
    btn:=TConButtonType(ByteFromTag(tag,0));
+   conID:=ByteFromTag(tag,1);
+   with controllers[conID] do
+    btnDown:=GetButton(btButtonA) or GetButton(btButtonB);
    case btn of
-     btButtonDPadUp:Navigate(0,-1);
-     btButtonDPadDown:Navigate(0,1);
-     btButtonDPadLeft:Navigate(-1,0);
-     btButtonDPadRight:Navigate(1,0);
+     btButtonDPadUp:Navigate(btnDown,0,-1);
+     btButtonDPadDown:Navigate(btnDown,0,1);
+     btButtonDPadLeft:Navigate(btnDown,-1,0);
+     btButtonDPadRight:Navigate(btnDown,1,0);
      btButtonA,btButtonB:Signal('MOUSE\BTNDOWN',1);
    end;
   end else
