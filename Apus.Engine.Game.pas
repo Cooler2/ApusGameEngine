@@ -1255,8 +1255,11 @@ var
       dx:=x-mouseX; dy:=y-mouseY;
       d:=dx*nx+dy*ny; // расстояние в направлении вектора (скалярное произведение)
       if d<=1 then continue;
-      d:=d+4*abs(dx*ny+dy*nx);
-      //if d<abs(dx*ny+dy*nx) then continue; // расстояние в перпендикулярном направлении больше?
+      // расстояние в перпендикулярном направлении больше?
+      if d<abs(dx*ny+dy*nx) then
+        d:=5000+round(sqrt(dx*dx+dy*dy)) // тогда просто ближайшая точка но со штрафом
+      else
+        d:=d+abs(dx*ny+dy*nx);
       if d<best then begin
        best:=d; bestPnt:=activeCustomPoints[i];
       end;

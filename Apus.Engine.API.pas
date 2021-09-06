@@ -6,7 +6,8 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors;
+ uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D,
+   Apus.Colors, Apus.EventMan;
 
 const
  // Image allocation flags (ai - AllocImage)
@@ -657,15 +658,17 @@ type
   next:PMultiTexLayer;
  end;
 
- // font handle structure: xxxxxxxx ssssssss yyyyyyyy 00ffffff (f - font object index, s - scale, x - realtime effects, y - renderable effects and styles)
+ // font handle structure: xxxxxxxx ssssssss yyyyyyyy 00ffffff (f - font object index, s - scale (percents), x - realtime effects, y - renderable effects and styles)
  TFontHandle=cardinal;
 
  // Text output, fonts (text protocol 2011)
  ITextDrawer=interface
-  // Fonts
-  function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
-  function LoadFont(font:array of byte;asName:string=''):string; overload; // возвращает имя шрифта
-  function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
+  // Load font data
+  function LoadFont(fname:string;asName:string=''):string; overload; // Returns name of the loaded font
+  function LoadFont(font:array of byte;asName:string=''):string; overload; // Returns name of the loaded font
+  // Get font handle (size=0 - default font size)
+  function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle;
+  // Change option on a font handle
   procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
   // Text output (use handle 0 for default font)
   procedure Write(font:TFontHandle;x,y:integer;color:cardinal;st:String8;align:TTextAlignment=taLeft;
@@ -682,7 +685,7 @@ type
   procedure ClearLink; // Clear current link (call before text render)
   function Link:integer; // get hyperlink under mouse (filled during text render)
   function LinkRect:TRect; // get active hyperlink rect
-  // Cache / misc
+  // Cache text output
   procedure BeginBlock; // optimize performance when drawing multiple text entries
   procedure EndBlock;   // finish buffering and perform actual render
   // Text render target
@@ -1096,8 +1099,8 @@ var
  procedure Delay(time:integer);
 
  // Utility functions
- function GetKeyEventScanCode(tag:cardinal):cardinal; // Extract scancode form KBD\KeyXXX event
- function GetKeyEventVirtualCode(tag:cardinal):cardinal; // Extract virtual key code form KBD\KeyXXX event
+ function GetKeyEventScanCode(tag:TTag):cardinal; // Extract scancode form KBD\KeyXXX event
+ function GetKeyEventVirtualCode(tag:TTag):cardinal; // Extract virtual key code form KBD\KeyXXX event
 
  // Is mouse button pressed?
  function IsMouseBtn(btn:integer):boolean;
@@ -1112,12 +1115,12 @@ implementation
 uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
  TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX;
 
- function GetKeyEventScanCode(tag: cardinal): cardinal;
+ function GetKeyEventScanCode(tag: TTag): cardinal;
   begin
    result:=(tag shr 24) and $FF;
   end;
 
- function GetKeyEventVirtualCode(tag: cardinal): cardinal;
+ function GetKeyEventVirtualCode(tag: TTag): cardinal;
   begin
    result:=tag and $FFFF;
   end;

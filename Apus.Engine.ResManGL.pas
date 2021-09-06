@@ -531,7 +531,7 @@ procedure TGLTexture.SetLabel;
 var
  lab:String8;
 begin
- if @glObjectLabel<>nil then begin
+ if (name<>'') and (@glObjectLabel<>nil) then begin
   lab:=name;
   glObjectLabel(GL_TEXTURE,texname,length(lab),@lab[1]);
  end;
