@@ -4479,9 +4479,9 @@ function BinToStr;
    data:array of char;
   begin
    if LogFileName='' then exit;
-   if cacheBuf='' then exit;
    MyEnterCriticalSection(crSection);
    try
+    if cacheBuf='' then exit;
     try
      IntFlushLog;
     except
