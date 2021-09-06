@@ -433,6 +433,8 @@ begin
 // logmessage('translate: '+s);
  for q:=0 to 5 do ss[q]:='';
  w:=0;
+ q:=length(s);
+ if (q>0)and(s[q]='%') then s:=s+#0; // fake padding to split '%%%' - must be removed later
  s:=s+'%%';
  q:=pos('%%',s);
  while q>0 do
