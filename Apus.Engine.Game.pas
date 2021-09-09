@@ -60,6 +60,7 @@ type
   procedure FLog(st:string); override;
   function GetStatus(n:integer):string; override;
   procedure FireMessage(st:string8); override;
+  procedure DebugFeature(feature:TDebugFeature;enabled:boolean); override;
 
   procedure EnterCritSect; override;
   procedure LeaveCritSect; override;
@@ -79,6 +80,8 @@ type
   function MouseWasInRect(r:TRect):boolean; overload; override;
   function MouseWasInRect(r:TRect2s):boolean; overload; override;
 
+  procedure WaitFor(pb:PBoolean;msg:string=''); override;
+
   // Keyboard events utility functions
   procedure SuppressKbdEvent; override;
 
@@ -89,6 +92,8 @@ type
 
   procedure SetSettings(s:TGameSettings); override; // этот метод служит для изменения режима или его параметров
   function GetSettings:TGameSettings; override; // этот метод служит для изменения режима или его параметров
+
+  procedure DPadCustomPoint(x,y:single); override;
 
  protected
   useMainThread:boolean; // true - launch "main" thread with main loop,
@@ -130,9 +135,12 @@ type
   avgTime,avgTime2:double;
   timerFrame:cardinal;
 
+  customPoints,activeCustomPoints:array of TPoint; // custom navigation points
+
   // Debug utilities
   debugOverlay:integer; // индекс отладочного оверлея, включаемого клавишами Alt+Fn (0 - отсутствует)
   magnifierTex:TTexture;
+  debugFeatures:set of TDebugFeature;
 
   dRT:TTexture; // default render target (can be nil)
 
@@ -178,6 +186,8 @@ type
   procedure onMouseEvent(event:string;tag:NativeInt); virtual;
   // Called when JOYSTICK\* event is fired
   procedure onJoystickEvent(event:string;tag:NativeInt); virtual;
+  // Called when GAMEPAD\* event is fired
+  procedure onGamepadEvent(event:string;tag:NativeInt); virtual;
 
   // Event processors
   procedure MouseMovedTo(newX,newY:integer); virtual;
@@ -194,6 +204,8 @@ type
   procedure DrawMagnifier; virtual;
   // Internal hotkeys such as PrintScreen, Alt+F1 etc
   procedure HandleInternalHotkeys(keyCode:integer;pressed:boolean); virtual;
+
+  procedure HandleGamepadNavigation;
  end;
 
  // Для использования из главного потока
@@ -203,7 +215,7 @@ implementation
  uses SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools
      {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},
      Apus.EventMan, Apus.Engine.UIScene, Apus.Engine.UIClasses, Apus.Engine.Console,
-     Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw;
+     Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw, Apus.Engine.Controller;
 
 type
  TMainThread=class(TThread)
@@ -246,6 +258,40 @@ var
 {$I defaultFont12.inc}
 
 { TBasicGame }
+
+procedure TGame.HandleGamepadNavigation;
+var
+ i:integer;
+ scene:TUIScene;
+ procedure Traverse(e:TUIElement);
+  var
+   child:TUIElement;
+   pnt:TPoint;
+  begin
+   if e=nil then exit;
+   with e do begin
+    if not (enabled and visible) then exit;
+    pnt:=GetPosOnScreen.CenterPoint;
+    if e is TUIButton then activeCustomPoints:=activeCustomPoints+[pnt];
+    for child in children do Traverse(child);
+   end;
+  end;
+begin
+ if gamepadNavigationMode=gnmDisabled then exit;
+ EnterCritSect;
+ try
+  activeCustomPoints:=customPoints;
+  SetLength(customPoints,0);
+  if gamepadNavigationMode=gnmAuto then begin
+   // Add clickable UI objects
+   if topmostScene is TUIScene then scene:=TUIScene(topmostScene)
+    else exit;
+   Traverse(scene.UI);
+  end;
+ finally
+  LeaveCritSect;
+ end;
+end;
 
 procedure TGame.HandleInternalHotkeys(keyCode: integer; pressed: boolean);
  procedure ToggleDebugOverlay(n:integer);
@@ -390,7 +436,7 @@ begin
   oldMouseY:=MouseY;
   mouseX:=newX;
   mouseY:=newY;
-  mouseMovedAt:=MyTickCount;
+  mouseMovedTime:=MyTickCount;
   Signal('MOUSE\MOVE',mouseX and $FFFF+(mouseY and $FFFF) shl 16);
   TGame(game).NotifyScenesAboutMouseMove;
   // Если курсор рисуется вручную, то нужно обновить экран
@@ -569,6 +615,16 @@ begin
 
  systemPlatform.ShowWindow(false);
  Signal('Engine\AfterDoneGraph');
+end;
+
+procedure TGame.DPadCustomPoint(x, y: single);
+begin
+ EnterCritSect;
+ try
+  customPoints:=customPoints+[Point(round(x),round(y))];
+ finally
+  LeaveCritSect;
+ end;
 end;
 
 procedure TGame.DrawMagnifier;
@@ -823,6 +879,12 @@ begin
  TGame(game).onJoystickEvent(event,tag);
 end;
 
+procedure GameGamepadEvent(event:TEventStr;tag:TTag);
+begin
+ if game=nil then exit;
+ TGame(game).onGamepadEvent(event,tag);
+end;
+
 
 procedure TGame.Run;
 var
@@ -834,7 +896,7 @@ begin
  gameEx:=self;
 
  if useMainThread then begin
-  mainThread:=TMainThread.Create;
+  mainThread:=TMainThread.Create(false);
  end else begin
   mainThread:=nil;
   SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
@@ -844,6 +906,7 @@ begin
  SetEventHandler('KBD\',GameKbdEvent,emInstant);
  SetEventHandler('MOUSE\',GameMouseEvent,emInstant);
  SetEventHandler('JOYSTICK\',GameJoystickEvent,emInstant);
+ SetEventHandler('GAMEPAD\',GameGamepadEvent,emInstant);
 
  for i:=1 to 400 do
   if not running then sleep(50) else break;
@@ -1055,7 +1118,7 @@ begin
    ClientToGame(p);
    MouseX:=p.x;
    MouseY:=p.y;
-   mouseMovedAt:=MyTickCount;
+   mouseMovedTime:=MyTickCount;
    Signal('Mouse\Move',mouseX+mouseY shl 16);
    NotifyScenesAboutMouseMove;
    Signal('Mouse\BtnDown\Left',1);
@@ -1071,7 +1134,7 @@ begin
    ClientToGame(p);
    MouseX:=p.x;
    MouseY:=p.y;
-   mouseMovedAt:=MyTickCount;
+   mouseMovedTime:=MyTickCount;
    Signal('Mouse\Move',mouseX+mouseY shl 16);
    NotifyScenesAboutMouseMove;
    Timing;
@@ -1083,7 +1146,7 @@ begin
    OldMouseX:=mouseX;
    OldMouseY:=MouseY;
    mouseX:=4095; mouseY:=4095;
-   mouseMovedAt:=MyTickCount;
+   mouseMovedTime:=MyTickCount;
    Signal('Mouse\Move',mouseX+mouseY shl 16);
    NotifyScenesAboutMouseMove;
    Timing;
@@ -1172,8 +1235,74 @@ end;
 // Handle JOYSTICK\* event
 procedure TGame.onJoystickEvent(event:string;tag:NativeInt);
 begin
- event:=Copy(event,10,200);
 end;
+
+// Handle GAMEPAD\* event
+procedure TGame.onGamepadEvent(event:string;tag:NativeInt);
+var
+ evt:TEventStr;
+ btn:TConButtonType;
+ conId:integer;
+ btnDown:boolean;
+ procedure Navigate(dragMode:boolean;nx,ny:integer);
+  var
+   i,dx,dy,d,best:integer;
+   bestPnt:TPoint;
+  begin
+   if dragMode then begin
+     bestPnt:=Point(mouseX+nx*20,mouseY+ny*20);
+     systemPlatform.ClientToScreen(bestPnt);
+     systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
+     exit;
+   end;
+   EnterCritSect;
+   try
+    best:=100000;
+    for i:=0 to high(activeCustomPoints) do
+     with activeCustomPoints[i] do begin
+      dx:=x-mouseX; dy:=y-mouseY;
+      d:=dx*nx+dy*ny; // расстояние в направлении вектора (скалярное произведение)
+      if d<=1 then continue;
+      // расстояние в перпендикулярном направлении больше?
+      if d<abs(dx*ny+dy*nx) then
+        d:=5000+round(sqrt(dx*dx+dy*dy)) // тогда просто ближайшая точка но со штрафом
+      else
+        d:=d+abs(dx*ny+dy*nx);
+      if d<best then begin
+       best:=d; bestPnt:=activeCustomPoints[i];
+      end;
+     end;
+   finally
+    LeaveCritSect;
+   end;
+   if best<100000 then begin
+    GameToClient(bestPnt);
+    systemPlatform.ClientToScreen(bestPnt);
+    systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
+   end;
+  end;
+begin
+ if (gamepadNavigationMode<>gnmDisabled) then begin
+  if (EventOfClass(event,'GAMEPAD\BTNDOWN',evt)) then begin
+   btn:=TConButtonType(ByteFromTag(tag,0));
+   conID:=ByteFromTag(tag,1);
+   with controllers[conID] do
+    btnDown:=GetButton(btButtonA) or GetButton(btButtonB);
+   case btn of
+     btButtonDPadUp:Navigate(btnDown,0,-1);
+     btButtonDPadDown:Navigate(btnDown,0,1);
+     btButtonDPadLeft:Navigate(btnDown,-1,0);
+     btButtonDPadRight:Navigate(btnDown,1,0);
+     btButtonA,btButtonB:Signal('MOUSE\BTNDOWN',1);
+   end;
+  end else
+  if (EventOfClass(event,'GAMEPAD\BTNUP',evt)) then begin
+   btn:=TConButtonType(ByteFromTag(tag,0));
+   if btn in [btButtonA,btButtonB] then Signal('MOUSE\BTNUP',1);
+  end;
+ end;
+end;
+
 
 procedure Delay(time:integer);
 var
@@ -1272,6 +1401,7 @@ procedure TGame.PresentFrame;
   gfx.PresentFrame;
   EndMeasure(1);
   inc(FrameNum);
+  HandleGamepadNavigation;
  end;
 
 procedure TGame.SetupRenderArea;
@@ -1385,10 +1515,20 @@ end;
 procedure TGame.DrawOverlays;
 var
  font:cardinal;
- x,y:integer;
+ i,x,y:integer;
+ feature:TDebugFeature;
 begin
  EnterCriticalSection(crSect);
  try
+  for feature in debugFeatures do
+   case feature of
+    dfShowNavigationPoints:begin
+      for i:=0 to high(activeCustomPoints) do
+       with activeCustomPoints[i] do
+        draw.FillRect(x-10,y-10,x+10,y+10,$70E00000);
+    end;
+   end;
+
   if (draw<>nil) and ((showDebugInfo>0) or (showFPS) or (debugOverlay>0)) then begin
     FLog('RDebug');
 
@@ -1511,7 +1651,7 @@ begin
   except
    on e:exception do CritMsg('RFrame3 '+ExceptionMsg(e));
   end;
-  topmostScene:=sc[n];
+  if n>0 then topmostScene:=sc[n];
  finally
   LeaveCriticalSection(crSect); // активные сцены вынесены в отдельный массив - их нельзя удалять в процессе отрисовки
  end;
@@ -1623,6 +1763,20 @@ begin
  end;
 end;
 
+procedure TGame.WaitFor(pb: PBoolean; msg: string);
+var
+ i:integer;
+begin
+ i:=0;
+ if msg='' then msg:=PtrToStr(GetCaller);
+ while not pb^ do begin
+  if i mod 10=0 then LogMessage('WaitFor '+msg);
+  ToggleCursor(crWait,true);
+  sleep(30);
+  ToggleCursor(crWait,false);
+ end;
+end;
+
 procedure TGame.MoveWindowTo(x, y, width, height: integer);
 begin
  systemPlatform.MoveWindowTo(x,y,width,height);
@@ -1650,6 +1804,12 @@ end;
 procedure TGame.SetWindowCaption(text: string);
 begin
  systemPlatform.SetWindowCaption(text);
+end;
+
+procedure TGame.DebugFeature(feature: TDebugFeature; enabled: boolean);
+begin
+ if enabled then Include(debugFeatures,feature)
+  else Exclude(debugFeatures,feature);
 end;
 
 procedure TGame.ClientToGame(var p:TPoint);

@@ -91,6 +91,8 @@ procedure TMainScene.Initialize;
 procedure TMainScene.onMouseMove(x, y: integer);
  begin
   inherited;
+  // If element under mouse doesn't belong to this scene - ignore movement!
+  if underMouse.GetRoot<>UI then exit;
   // Turn camera around
   if game.mouseButtons and mbLeft>0 then begin
    cameraAngleX:=cameraAngleX-(x-game.oldMouseX)*0.01;
@@ -128,7 +130,7 @@ procedure TMainScene.DrawScene(mainPass: boolean);
 
   if mainPass then begin
    // Setup light and material
-   SetGlobals('GC0=$505050;GF0=0.7','Light');
+   SetGlobals('GC0=$505050;GF0=0.7','Ambient Light');
 
    shader.AmbientLight(GC0);
    shader.DirectLight(lightDir, gF0,$FFFFFF);
@@ -150,6 +152,7 @@ procedure TMainScene.Render;
  begin
   // setup
   time:=MyTickCount/1000;
+  // This allows to adjust the light direction at runtime via the Tweaker
   SetGlobals('GF0=1;GF1=0.5;GF2=1','LightDir');
   lightDir:=Vector3(gF0, gF1, gF2);
 

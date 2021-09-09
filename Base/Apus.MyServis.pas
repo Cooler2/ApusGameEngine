@@ -292,10 +292,6 @@ interface
  procedure RunTimer(n:integer);
  function GetTimer(n:integer):double;
 
- function GetUTCTime:TSystemTime; /// TODO: implement
-
- function MyTickCount:int64; // Аналог GetTickCount, но без переполнения (больше не использует GetTickCount из-за недостаточной точности)
-
  // Возвращает строку с описанием распределения памяти
  function GetMemoryState:string;
  // Возвращает объем выделенной памяти
@@ -434,6 +430,12 @@ interface
  function EncodeHex(data:pointer;size:integer):String8; overload;
  function DecodeHex(hexStr:String8):String8; overload;
  procedure DecodeHex(st:String8;buf:pointer); overload;
+
+ function DumpStr(s:string):string; overload;
+ {$IFDEF ADDANSI}
+ function DumpStr(s:string8):string; overload; {$ENDIF}
+ {$IFNDEF UNICODE}
+ function DumpStr(s:string16):string; overload; {$ENDIF}
 
  procedure ZeroMem(var data;size:integer); inline;
  function IsZeroMem(var data;size:integer):boolean;
@@ -623,7 +625,7 @@ interface
  function HexToInt(st:string):int64; overload;  // Распознать шестнадцатиричное число
  {$IFDEF ADDANSI}
  function HexToInt(st:String8):int64; overload; {$ENDIF}
- function HexToAStr(v:int64;digits:integer=0):String8;
+ function FormatHex(v:int64;digits:integer=0):String8;
  function SizeToStr(size:int64):string; // строка с короткой записью размера, типа 15.3M
  function FormatTime(time:int64):string; // строка с временным интервалом (time - в ms)
  function FormatInt(int:int64):string; // строка с числом (пробел разделяет группы цифр)
@@ -675,9 +677,12 @@ interface
  {$IFDEF ADDANSI}
  function StrHash(const st:String8):cardinal; overload; {$ENDIF}
 
- // Текущее время и дата (GMT)
- function NowGMT:TDateTime;
- function TimeStamp:string;
+ // Current date/time
+ function NowGMT:TDateTime; // UTC datetime in TDateTime format
+ function GetUTCTime:TSystemTime; // using high precision platform-dependent format
+
+ function MyTickCount:int64; // better replacement for GetTickCount (higher precision and no overflow)
+ function TimeStamp:string; // some string representation of MyTickCount
 
  // Синхронизация и многопоточность
  // --------------------------------
@@ -705,11 +710,11 @@ interface
  procedure DisableDEP;
 
 implementation
- uses Classes, Math, Apus.CrossPlatform, Apus.StackTrace, TypInfo
+ uses Classes, Math, Apus.CrossPlatform, Apus.StackTrace, TypInfo, dateutils
     {$IFDEF UNIX},unixtype,BaseUnix,Syscall{$ENDIF}
     {$IFDEF MSWINDOWS},mmsystem{$ENDIF}
     {$IFDEF IOS},iphoneAll{$ENDIF}
-    {$IFDEF ANDROID},dateutils,Android{$ENDIF};
+    {$IFDEF ANDROID},Android{$ENDIF};
 
  {$IFOPT R+}{$DEFINE RANGECHECK}{$ENDIF} // Used to disable range check when needed and restore it back
  const
@@ -1236,7 +1241,7 @@ function min2s(a,b:single):single; inline;
   end;
  {$ENDIF}
 
-function HexToAStr(v:int64;digits:integer=0):String8;
+function FormatHex(v:int64;digits:integer=0):String8;
  var
   l:integer;
   vv:int64;
@@ -2093,8 +2098,8 @@ procedure SimpleEncrypt2;
      inc(p);
      sour:=ord(st[p])-64;
     end;
-    dest:=dest shr 1+(sour shl 2) and $80;
-    sour:=sour shl 1;
+    dest:=byte(dest shr 1+(sour shl 2) and $80);
+    sour:=byte(sour shl 1);
     if i mod 8=7 then begin
      pb^:=dest;
      dest:=0;
@@ -2162,6 +2167,25 @@ procedure SimpleEncrypt2;
     inc(pb);
    end;
   end;
+
+ function DumpStr(s:string):string; overload;
+  begin
+   result:=Format('Str:L=%d,w=%d:%s',[length(s),sizeof(char),EncodeHex(@s[1],length(s)*sizeof(char))]);
+  end;
+
+ {$IFDEF ADDANSI}
+ function DumpStr(s:string8):string; overload;
+  begin
+   result:=Format('Str8:L=%d:%s',[length(s),EncodeHex(@s[1],length(s))]);
+  end;
+ {$ENDIF}
+
+ {$IFNDEF UNICODE}
+ function DumpStr(s:string16):string; overload;
+  begin
+   result:=Format('Str16:L=%d:%s',[length(s),EncodeHex(@s[1],length(s)*2)]);
+  end;
+ {$ENDIF}
 
  procedure FillDword(var data;size:integer;value:cardinal);
   var
@@ -3262,24 +3286,24 @@ function BinToStr;
 
  function GetBit(data:cardinal;index:integer):boolean; overload; inline;
   begin
-   result:=data and (1 shl index)<>0;
+   result:=data and (cardinal(1) shl index)<>0;
   end;
  function GetBit(data:uint64;index:integer):boolean; overload; inline;
   begin
-   result:=data and (1 shl index)<>0;
+   result:=data and (uint64(1) shl index)<>0;
   end;
 
  procedure SetBit(var data:byte;index:integer); overload; inline;
   begin
-   data:=data or (1 shl index);
+   data:=data or (byte(1) shl index);
   end;
  procedure SetBit(var data:cardinal;index:integer); overload; inline;
   begin
-   data:=data or (1 shl index);
+   data:=data or (cardinal(1) shl index);
   end;
  procedure SetBit(var data:uint64;index:integer); overload; inline;
   begin
-   data:=data or (1 shl index);
+   data:=data or (uint64(1) shl index);
   end;
 
  procedure ClearBit(var data:byte;index:integer); overload; inline;
@@ -4068,14 +4092,16 @@ function BinToStr;
     end;
     j:=1;
     l:=length(strings[i]);
-    src:=@strings[i][1];
-    while j<=l do begin
-     result[n]:=src^; inc(n);
-     if n+1+dl>=s then begin
-      s:=s*2; SetLength(result,s);
+    if l>0 then begin
+     src:=@strings[i][1];
+     while j<=l do begin
+      result[n]:=src^; inc(n);
+      if n+1+dl>=s then begin
+       s:=s*2; SetLength(result,s);
+      end;
+      inc(j);
+      inc(src);
      end;
-     inc(j);
-     inc(src);
     end;
     inc(i);
    end;
@@ -4453,9 +4479,9 @@ function BinToStr;
    data:array of char;
   begin
    if LogFileName='' then exit;
-   if cacheBuf='' then exit;
    MyEnterCriticalSection(crSection);
    try
+    if cacheBuf='' then exit;
     try
      IntFlushLog;
     except
@@ -4875,7 +4901,7 @@ procedure DumpDir(path:string);
   begin
    f:=FileOpen(fName,fmOpenWrite);
    if f=INVALID_HANDLE_VALUE then
-    f:=FileCreate(fName,fmOpenWrite);
+    f:=FileCreate(fName);
    if f=INVALID_HANDLE_VALUE then
     raise EError.Create('Can''t create/open file "%s": %s',[fName,GetSystemError]);
    try
@@ -4892,7 +4918,7 @@ procedure DumpDir(path:string);
   var
    f:THandle;
   begin
-   f:=FileCreate(fName,fmOpenWrite);
+   f:=FileCreate(fName);
    if f=INVALID_HANDLE_VALUE then
     raise EError.Create('Can''t create file "%s": %s',[fName,GetSystemError]);
    try
@@ -5024,13 +5050,19 @@ procedure DumpDir(path:string);
    p:pointer;
    ft:TFileTime;
   begin
+   {$IF Declared(GetUniversalTime)}
+   GetUniversalTime(result);
+   {$ELSE}
+   DateTimeToSystemTime(NowGMT,result);
+   {$ENDIF}
+
    if preciseTimeSupport=0 then begin
     p:=TryLoadFunction('kernel32.dll','GetSystemTimePreciseAsFileTime');
     if p<>nil then begin
-     preciseTimeSupport:=1;
+     preciseTimeSupport:=1; // supported
      GetSystemTimePreciseAsFileTime:=p;
     end else
-     preciseTimeSupport:=-1;
+     preciseTimeSupport:=-1; // not supported
    end;
 
    if preciseTimeSupport>0 then begin
@@ -5042,7 +5074,11 @@ procedure DumpDir(path:string);
  {$ELSE}
  function GetUTCTime:TSystemTime;
   begin
+   {$IF Declared(GetUniversalTime)}
    GetUniversalTime(result);
+   {$ELSE}
+   DateTimeToSystemTime(NowGMT,result);
+   {$ENDIF}
   end;
  {$ENDIF}
 
@@ -5462,6 +5498,13 @@ procedure RegisterThread(name:string); // зарегистрировать по�
   threadID:TThreadID;
   extra:string;
  begin
+  {$IFDEF DELPHI}
+  {$IF Declared(TThread.NameThreadForDebugging)}
+  TThread.NameThreadForDebugging(name);
+  {$ENDIF}
+  {$ELSE}
+  TThread.NameThreadForDebugging(name);
+  {$ENDIF}
   MyEnterCriticalSection(crSection);
   try
    threadID:=GetCurrentThreadId;

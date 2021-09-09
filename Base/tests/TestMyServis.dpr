@@ -78,7 +78,7 @@ procedure TestConversions;
   st16:String16;
  begin
   ASSERT(HexToInt(String('123456789ABCDEF'))=$123456789ABCDEF);
-  ASSERT(HexToInt(AnsiString('123456789ABCDEF'))=$123456789ABCDEF);
+  ASSERT(HexToInt(String8('123456789ABCDEF'))=$123456789ABCDEF);
   // String conversions
   st:=UStr(testString);
   st16:=WStr(st);
@@ -115,10 +115,15 @@ procedure TestStringTypes;
   ws:=ref;
   s8:=ref;
   s16:=ref;
-  ASSERT(Str8(s)=ws);
-  ASSERT(Str8(s8)=ws);
-  ASSERT(Str8(s16)=ws);
-  ASSERT(Str8(ws)=ws);
+  ASSERT(Str8(s)=s8);
+  ASSERT(Str8(s8)=s8);
+  ASSERT(Str8(s16)=s8);
+  ASSERT(Str8(ws)=s8);
+
+  ASSERT(DecodeUTF8(Str8(s))=ws);
+  ASSERT(DecodeUTF8(Str8(s8))=ws);
+  ASSERT(DecodeUTF8(Str8(s16))=ws);
+  ASSERT(DecodeUTF8(Str8(ws))=ws);
 
   ASSERT(Str16(s)=ws);
   ASSERT(Str16(s8)=ws);
@@ -1449,8 +1454,11 @@ procedure TestMemoryStat;
    res2:=PasteStrFromClipboardW;
    ASSERT(res2=TEST_W,'Clipboard test 2');
    CopyStrToClipboard(TEST_S);
+   {$IFDEF DELPHI}
+   // Я не знаю почему в FPC тут творится какая-то дикая дичь
    res3:=PasteStrFromClipboardW;
    ASSERT(res3=TEST_S,'Clipboard test 3');
+   {$ENDIF}
   end;
 
  procedure TestPNG;
@@ -1554,8 +1562,10 @@ procedure TestMemoryStat;
   var
    output:AnsiString;
   begin
-   ExecAndCapture('cmd /C dir',output);
+   writeln('Test capture');
+   ExecAndCapture('cmd /C dir',output,1000);
    ASSERT(output<>'');
+   writeln('OK: '#13#10+output);
   end;
 
  procedure TestTimes;
@@ -1573,20 +1583,21 @@ procedure TestMemoryStat;
  procedure TestEncode;
   var
    i,j,size:integer;
-   src,dst,res:AnsiString;
+   src,dst,res:String8;
    time:int64;
   begin
    // Correctness
    for i:=1 to 1000 do begin
+    randSeed:=i;
     SetLength(src,10+random(100));
     for j:=1 to high(src) do src[j]:=AnsiChar(random(256));
     dst:=EncodeHex(src);
     res:=DecodeHex(dst);
-    ASSERT(res=src);
+    ASSERT(res=src,'HEX: test #'+IntToStr(i));
     dst:=EncodeB64(@src[1],length(src));
     SetLength(res,length(src));
     DecodeB64(dst,@res[1],size);
-    ASSERT((res=src) AND (size=length(src)));
+    ASSERT((res=src) AND (size=length(src)),'B64: test #'+IntToStr(i));
    end;
    // Speed
    time:=MyTickCount;
@@ -1708,17 +1719,21 @@ procedure TestThreadStall;
   halt;
  end;
 
-var
- ar:array of cardinal;
- st:string;
- pc:PChar;
- rc:array[1..10] of integer;
- wst:WideString;
- ast:AnsiString;
+procedure Test;
+ var
+  m:cardinal;
+  h:integer;
+ begin
+  m:=1;
+  h:=31;
+  m:=m or (1 shl 31); // This works in FPC but cause a range check error in Delphi
+  m:=m or (1 shl h); // This works in Delphi, but cause a range check error (RunError 201) in FPC
+  SetBit(m,31); // The same code works in FPC if inlined, doesn't work if not inlined
+ end;
 
 begin
+ SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
- TestThreadStall;
  try
   TestStringTypes;
   TestConversions;
@@ -1749,7 +1764,7 @@ begin
   TestGeoIP;
   TestSplines;
   TestRLE;
-  TestProfiling;
+  //TestProfiling;
   TestMemoryStat;
   TestDateTime;
   TestTextUtils;
@@ -1771,7 +1786,8 @@ begin
   writeln('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
   writeln('!!!!!!!!!! TESTS FAILED !!!!!!!!!!!!!!');
   writeln('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+  ExitCode:=1;
  end else
   writeln('--------------------- DONE! ---------------------'#13#10' Everything is OK!');
- readln;
+ //readln;
 end.

@@ -541,7 +541,7 @@ procedure TGLTexture.SetLabel;
 var
  lab:String8;
 begin
- if @glObjectLabel<>nil then begin
+ if (name<>'') and (@glObjectLabel<>nil) then begin
   lab:=name;
   glObjectLabel(GL_TEXTURE,texname,length(lab),@lab[1]);
  end;
@@ -1087,7 +1087,7 @@ begin
  glActiveTexture(GL_TEXTURE0+stage);
  if curTextures[stage]<>tex then tex.Bind;
  curTextures[stage]:=tex;
- tex.UploadData;
+ if not tex.online then tex.UploadData;
 end;
 
 function TGLResourceManager.QueryParams(width, height: integer;

@@ -1707,7 +1707,7 @@ end;
 procedure TUIImage.SetRenderProc(proc:pointer);
 begin
  style:=0;
- src:='proc:'+HexToAStr(UIntPtr(proc));
+ src:='proc:'+FormatHex(UIntPtr(proc));
 end;
 
 { TUIButton }

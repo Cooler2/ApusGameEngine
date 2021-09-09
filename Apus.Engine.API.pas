@@ -6,7 +6,8 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors;
+ uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D,
+   Apus.Colors, Apus.EventMan;
 
 const
  // Image allocation flags (ai - AllocImage)
@@ -357,6 +358,7 @@ type
   procedure FreeCursor(cur:THandle);
   function MapScanCodeToVirtualKey(key:integer):integer;
   function GetMousePos:TPoint; // Get mouse position on screen (screen may mean client when platform doesn't support real screen space)
+  procedure SetMousePos(scrX,scrY:integer); // Move mouse cursor (screen coordinates)
   function GetMouseButtons:cardinal;
   function GetShiftKeysState:cardinal;
 
@@ -656,15 +658,17 @@ type
   next:PMultiTexLayer;
  end;
 
- // font handle structure: xxxxxxxx ssssssss yyyyyyyy 00ffffff (f - font object index, s - scale, x - realtime effects, y - renderable effects and styles)
+ // font handle structure: xxxxxxxx ssssssss yyyyyyyy 00ffffff (f - font object index, s - scale (percents), x - realtime effects, y - renderable effects and styles)
  TFontHandle=cardinal;
 
  // Text output, fonts (text protocol 2011)
  ITextDrawer=interface
-  // Fonts
-  function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
-  function LoadFont(font:array of byte;asName:string=''):string; overload; // возвращает имя шрифта
-  function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
+  // Load font data
+  function LoadFont(fname:string;asName:string=''):string; overload; // Returns name of the loaded font
+  function LoadFont(font:array of byte;asName:string=''):string; overload; // Returns name of the loaded font
+  // Get font handle (size=0 - default font size)
+  function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle;
+  // Change option on a font handle
   procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
   // Text output (use handle 0 for default font)
   procedure Write(font:TFontHandle;x,y:integer;color:cardinal;st:String8;align:TTextAlignment=taLeft;
@@ -681,7 +685,7 @@ type
   procedure ClearLink; // Clear current link (call before text render)
   function Link:integer; // get hyperlink under mouse (filled during text render)
   function LinkRect:TRect; // get active hyperlink rect
-  // Cache / misc
+  // Cache text output
   procedure BeginBlock; // optimize performance when drawing multiple text entries
   procedure EndBlock;   // finish buffering and perform actual render
   // Text render target
@@ -870,6 +874,18 @@ type
   first,last:byte;
  end;
 
+ // Enable built-in gamepad navigation with DPad and X/Y buttons
+ TGamepadNavigationMode=(
+   gnmDisabled,  // no gamepad navigation
+   gnmCustom,    // enable navigation over manually specified points
+   gnmAuto);     // enable navigation over manual points and clickable UI elements
+
+ TDebugFeature=(
+   dfShowFPS,                 // Display frame rate
+   dfShowGlyphCache,          // Display glyphs cache
+   dfShowNavigationPoints     // Display gamepad navigation points
+ );
+
   // Main game interface
  TGameBase=class
   // Глобально доступные переменные
@@ -886,17 +902,21 @@ type
   frameNum:integer;     // incremented per frame
   frameStartTime:int64; // MyTickCount when frame started
 
-  // Input state
+  // Input state:
+  // Mouse
   mouseX,mouseY:integer; // положение мыши внутри окна/экрана
   oldMouseX,oldMouseY:integer; // предыдущее положение мыши (не на предыдущем кадре, а вообще!)
-  mouseMovedAt:int64; // Момент времени, когда положение мыши изменилось
+  mouseMovedTime:int64; // Момент времени, когда положение мыши изменилось
   mouseButtons:byte;     // Флаги "нажатости" кнопок мыши (0-левая, 1-правая, 2-средняя)
   oldMouseButtons:byte;  // предыдущее (отличающееся) значение mouseButtons
 
+  // Keyboard
   shiftState:byte; // состояние клавиш сдвига (1-shift, 2-ctrl, 4-alt, 8-win)
   // bit 0 - pressed, bit 1 - was pressed last frame. So 01 means key was just pressed, 10 - just released
   // indexed by scancode (NOT virtual key code!)
   keyState:array[0..255] of byte;
+
+  gamepadNavigationMode:TGamepadNavigationMode; // used to enable gamepad (DPad) navigation over UI elements and user-defined objects
 
   // Text link (TODO: move out)
   textLink:cardinal; // Вычисленный на предыдущем кадре номер ссылки под мышью записывается здесь (сам по себе он не вычисляется, для этого надо запускать отрисовку текста особым образом)
@@ -969,6 +989,8 @@ type
   function GetStatus(n:integer):string; virtual; abstract;
   // Show message in engine-driven pop-up (3 sec)
   procedure FireMessage(st:String8); virtual; abstract;
+  // Enable/disable debug overlays
+  procedure DebugFeature(feature:TDebugFeature;enabled:boolean); virtual; abstract;
 
   // Synchronization
   // ---------------
@@ -995,12 +1017,22 @@ type
   function MouseWasInRect(r:TRect):boolean;overload; virtual; abstract;
   function MouseWasInRect(r:TRect2s):boolean; overload; virtual; abstract;
 
+  // Wait until pb^ is not false (not zero), toggle crWait cursor during waiting
+  procedure WaitFor(pb:PBoolean;msg:string=''); virtual; abstract;
+
   // Keyboard events utility functions
   procedure SuppressKbdEvent; virtual; abstract; // Suppress handling of the related keyboard event(s)
 
+  // Window control functions
+  // -----------------
   procedure Minimize; virtual; abstract;
   procedure MoveWindowTo(x, y, width, height: integer); virtual; abstract;
   procedure SetWindowCaption(text: string); virtual; abstract;
+
+  // Gamepad navigation
+  // This should be called every frame for each point that should be available for navigation
+  // during the next frame
+  procedure DPadCustomPoint(x,y:single); virtual; abstract;
  end;
 
  TDisplayModeHelper = record helper for TDisplayMode
@@ -1067,8 +1099,8 @@ var
  procedure Delay(time:integer);
 
  // Utility functions
- function GetKeyEventScanCode(tag:cardinal):cardinal; // Extract scancode form KBD\KeyXXX event
- function GetKeyEventVirtualCode(tag:cardinal):cardinal; // Extract virtual key code form KBD\KeyXXX event
+ function GetKeyEventScanCode(tag:TTag):cardinal; // Extract scancode form KBD\KeyXXX event
+ function GetKeyEventVirtualCode(tag:TTag):cardinal; // Extract virtual key code form KBD\KeyXXX event
 
  // Is mouse button pressed?
  function IsMouseBtn(btn:integer):boolean;
@@ -1083,12 +1115,12 @@ implementation
 uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
  TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX;
 
- function GetKeyEventScanCode(tag: cardinal): cardinal;
+ function GetKeyEventScanCode(tag: TTag): cardinal;
   begin
    result:=(tag shr 24) and $FF;
   end;
 
- function GetKeyEventVirtualCode(tag: cardinal): cardinal;
+ function GetKeyEventVirtualCode(tag: TTag): cardinal;
   begin
    result:=tag and $FFFF;
   end;

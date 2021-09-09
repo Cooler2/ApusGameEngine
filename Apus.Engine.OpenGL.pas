@@ -58,6 +58,8 @@ var
 
 implementation
  uses Apus.MyServis,
+  {$IFDEF MSWINDOWS}Windows,{$ENDIF}
+  {$IFDEF DGL}dglOpenGL,{$ENDIF}
   SysUtils,
   Types,
   Apus.Geom3D,
@@ -65,9 +67,7 @@ implementation
   Apus.Engine.Draw,
   Apus.Engine.TextDraw,
   Apus.Engine.ResManGL,
-  Apus.Engine.ShadersGL
-  {$IFDEF MSWINDOWS},Windows{$ENDIF}
-  {$IFDEF DGL},dglOpenGL{$ENDIF};
+  Apus.Engine.ShadersGL;
 
 type
  TRenderDevice=class(TInterfacedObject,IRenderDevice)

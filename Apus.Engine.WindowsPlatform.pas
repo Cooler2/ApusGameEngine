@@ -34,6 +34,7 @@ type
   function IsTerminated:boolean;
 
   function GetMousePos:TPoint; // Get mouse position on screen
+  procedure SetMousePos(scrX,scrY:integer); // Move mouse cursor (screen coordinates)
   function GetSystemCursor(cursorId:integer):THandle;
   function LoadCursor(filename:string):THandle;
   procedure SetCursor(cur:THandle);
@@ -59,6 +60,7 @@ uses Windows, Messages, Types, Apus.MyServis, SysUtils, Apus.EventMan;
 
 var
  terminated:boolean;
+ noPenAPI:boolean=false;
 
 {$IF Declared(FlashWindowEx)} {$ELSE}
 const
@@ -93,17 +95,47 @@ begin
  result:=byte(ast[1]);
 end;
 
+procedure ProcessPointerMessage(Message:cardinal;WParam,LParam:NativeInt);
+var
+ id:cardinal;
+ {$IFDEF DELPHI}
+ pType:POINTER_INPUT_TYPE;
+ penInfo:POINTER_PEN_INFO;
+ {$ENDIF}
+begin
+ if noPenAPI then exit;
+ {$IFDEF DELPHI}
+ try
+  id:=Word(wParam);
+  GetPointerType(id,@pType);
+  if pType=Word(tagPOINTER_INPUT_TYPE.PT_PEN) then begin
+    GetPointerPenInfo(id,@penInfo);
+    if HasFlag(penInfo.penMask,PEN_MASK_PRESSURE) then
+      Signal('PEN\PRESSURE',penInfo.pressure);
+    if HasFlag(penInfo.penMask,PEN_MASK_ROTATION) then
+      Signal('PEN\ROTATION',penInfo.rotation);
+  end;
+ except
+  noPenAPI:=true;
+ end;
+ {$ENDIF}
+end;
+
 function WindowProc(Window:HWnd;Message:cardinal;WParam,LParam:NativeInt):LongInt; stdcall;
 var
  i,charCode,scanCode:integer;
 begin
  try
  result:=0;
+ //writeln('WinMSG: ',IntTOHex(message):10,'  W=',IntToHex(wParam),'  L=',IntToHex(lParam));
  case Message of
   wm_Destroy:begin
    terminated:=true;
    Signal('Engine\Cmd\Exit',0);
   end;
+  {$IFDEF DELPHI} // FPC currently has no declaration of MS Pointer Input API
+  WM_POINTERUPDATE,WM_POINTERENTER,WM_POINTERLEAVE:ProcessPointerMessage(Message,WParam,LParam);
+  {$ENDIF}
 
   WM_MOUSEMOVE:Signal('MOUSE\CLIENTMOVE',lParam);
 
@@ -229,6 +261,11 @@ procedure TWindowsPlatform.ScreenToClient(var p: TPoint);
 function TWindowsPlatform.GetMousePos: TPoint;
  begin
   GetCursorPos(result);
+ end;
+
+procedure TWindowsPlatform.SetMousePos(scrX,scrY:integer);
+ begin
+  SetCursorPos(scrX,scrY);
  end;
 
 function TWindowsPlatform.GetPlatformName: string;

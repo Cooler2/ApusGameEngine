@@ -38,7 +38,7 @@ interface
 
    function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
    function LoadFont(font:array of byte;asName:string=''):string; overload; // возвращает имя шрифта
-   function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
+   function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
    procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
    // Text output
    procedure Write(font:TFontHandle;x,y:integer;color:cardinal;st:String8;align:TTextAlignment=taLeft;
@@ -211,16 +211,17 @@ begin
    if asName<>'' then TUnicodeFontEx(fonts[i]).header.fontName:=asName;
    result:=TUnicodeFontEx(fonts[i]).header.FontName;
    if defaultFontHandle=0 then
-    defaultFontHandle:=GetFont(result);
+    defaultFontHandle:=100 shl 16+i;
    exit;
   end;
 end;
 
-function TTextDrawer.GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):cardinal;
+function TTextDrawer.GetFont(name:string;size:single;flags:integer=0;effects:byte=0):cardinal;
 var
  i,best,rate,bestRate,matchRate:integer;
  realsize,scale:single;
 begin
+ ASSERT(size>0);
  best:=0; bestRate:=0;
  realsize:=size;
  matchRate:=800;
