@@ -175,6 +175,16 @@ begin
    format:=GL_RED;
    subFormat:=GL_UNSIGNED_SHORT;
   end;
+  ipfMono16s:begin
+   internalFormat:=GL_R16_SNORM;
+   format:=GL_RED;
+   subFormat:=GL_SHORT;
+  end;
+  ipfMono16i:begin
+   internalFormat:=GL_R16I;
+   format:=GL_RED;
+   subFormat:=GL_SHORT;
+  end;
   ipfDuo8:begin
    internalFormat:=GL_RG8;
    format:=GL_RG;
