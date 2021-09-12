@@ -92,7 +92,7 @@ interface
   curTextLinkRect:TRect;
 
   textDrawer:TTextDrawer;
-  defaultFontHandle:cardinal;
+  defaultFontHandle:cardinal; // first loaded font (unless overriden), used to substitute 0-handle
 
 implementation
  uses Apus.MyServis,
@@ -179,7 +179,7 @@ function TTextDrawer.LoadFont(fName:string;asName:string=''):string;
   end else begin
    {$IFDEF FREETYPE}
    ftf:=TFreeTypeFont.LoadFromFile(FileName(fname));
-   for i:=1 to 32 do
+   for i:=1 to high(fonts) do
     if fonts[i]=nil then begin
      fonts[i]:=ftf;
      if asName<>'' then ftf.faceName:=asName;
@@ -205,7 +205,7 @@ function TTextDrawer.LoadFont(font:array of byte;asName:string=''):string;
 var
  i:integer;
 begin
- for i:=1 to 32 do
+ for i:=1 to high(fonts) do
   if fonts[i]=nil then begin
    fonts[i]:=TUnicodeFontEx.LoadFromMemory(font,true);
    if asName<>'' then TUnicodeFontEx(fonts[i]).header.fontName:=asName;
@@ -314,7 +314,7 @@ end;
 
 constructor TTextDrawer.Create;
  var
-  i:integer;
+  i,w:integer;
   pw:^word;
   format:TImagePixelFormat;
  begin
@@ -335,20 +335,23 @@ constructor TTextDrawer.Create;
 
   txtVertCount:=0;
   textCaching:=false;
-  if glyphCache=nil then glyphCache:=TDynamicGlyphCache.Create(textCacheWidth-96,textCacheHeight);
+  w:=textCacheWidth div 8+textCacheWidth div 16;
+  if glyphCache=nil then glyphCache:=TDynamicGlyphCache.Create(textCacheWidth-w,textCacheHeight);
   if altGlyphCache=nil then begin
-   altGlyphCache:=TDynamicGlyphCache.Create(96,textCacheHeight);
-   altGlyphCache.relX:=textCacheWidth-96;
+   altGlyphCache:=TDynamicGlyphCache.Create(w,textCacheHeight);
+   altGlyphCache.relX:=textCacheWidth-w;
   end;
 
   // Adjust text cache texture size
   i:=gfx.target.width*gfx.target.height; // screen pixels
   if i>2500000 then textCacheHeight:=max2(textCacheHeight,1024);
   if i>3500000 then textCacheWidth:=max2(textCacheWidth,1024);
+  if i>5500000 then textCacheHeight:=max2(textCacheHeight,2048);
   if TXT_TEXTURE_8BIT then format:=ipfA8
    else format:=ipfARGB;
   textCache:=AllocImage(textCacheWidth,textCacheHeight,format,aiTexture,'textCache');
   if format=ipfARGB then textCache.Clear($808080);
+  LogMessage('TextCache: %d x %d, %s',[textCacheWidth,textCacheHeight,PixFmt2Str(format)]);
  end;
 
 destructor TTextDrawer.Destroy;
