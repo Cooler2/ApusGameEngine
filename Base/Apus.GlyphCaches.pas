@@ -75,7 +75,7 @@ type
   freeSpace:integer; // сколько свободно
  end;
 
- // ПРИНЦИП РАБОТЫ: все пространство (размером от 512x512 до 1024x1024) представляет собой кэш из кэшей т.е. набор полос,
+ // ПРИНЦИП РАБОТЫ: все пространство (размером от 512x512 до 2048x2048) представляет собой кэш из кэшей т.е. набор полос,
  // где каждая полоса работает как отдельный кэш. Ключевая особенность: элементы добавляются только в конец полосы,
  // если места не хватает - выделяется новая полоса, удаление происходит только целыми полосами.
  // Поэтому Keep() гарантирует, что значительная часть кэша свободна, чтобы не пришлось удалять полосы с нужными элементами.
@@ -105,6 +105,7 @@ type
   function CanCreateBand(height:integer):boolean;
   function CreateNewBand(height:integer):integer;
   procedure FreeOldBand;
+  function GetState:string;
  end;
 
 implementation
@@ -456,37 +457,36 @@ end;
 function TDynamicGlyphCache.Alloc(width, height,dx,dy: integer;
   chardata: cardinal): TPoint;
 var
- i,best,bandHeight:integer;
+ i,best,bandHeight,spareHeight:integer;
  r:cardinal;
 begin
  // 1. Find the most suitable band
- i:=firstBand; best:=-1; r:=1000; bandHeight:=0;
+ i:=firstBand; best:=-1; spareHeight:=100000; bandHeight:=0;
  while i>=0 do begin
+  // Look for a band with minimal spare height
   if (bands[i].height>=height) and
      (bands[i].freeSpace>=width) and
-     (bands[i].height-height<r) then begin
-   best:=i; r:=bands[i].height-height;
+     (bands[i].height-height<spareHeight) then begin
+   best:=i; spareHeight:=bands[i].height-height;
   end;
+  // Get max height of smaller but usable bands
   if (bands[i].freeSpace>32+width*2) and
      (bands[i].height<height) and
      (bands[i].height>bandHeight) then bandHeight:=bands[i].height;
   i:=bands[i].next;
  end;
- // 2 случая, когда нужно создать новую полосу:
- // а) подходящей полосы, где можно разместить элемент - нет
+ // 2 cases when we should create a new band:
+ // а) there is no suitable band
  if best<0 then begin
   // Полоса должна быть хотя бы на 25% толще, чем существующая более-менее свободная полоса
-  bandHeight:=bandHeight+1+bandHeight div 4;
-  if height>bandHeight then bandHeight:=height;
+  bandHeight:=max2(height, bandHeight+1+bandHeight div 4);
  end;
- // б) подходящая полоса есть, но она намного выше элемента, а свободного места еще много. Создаем более тонкую полосу
+ // б) suitable band is too high and we have much free space -> create a more suitable band
  if (best>=0) and
-    (r>1+bands[best].height shr 2) and
+    (spareHeight>1+bands[best].height shr 2) and
     CanCreateBand(height*3) then begin
   best:=-1; // Вот тут стоит избегать создания полос, которые "чуть-чуть" больше имеющихся свободных
-  bandHeight:=bandHeight+1+bandHeight div 4;
-  if height>bandHeight then bandHeight:=height;
-//  bandHeight:=height;
+  bandHeight:=max2(height,bandHeight+1+bandHeight div 4);
  end;
  // New band required?
  if best<0 then
@@ -495,9 +495,10 @@ begin
  result.y:=bands[best].y;
  result.x:=aWidth-bands[best].freeSpace;
  dec(bands[best].freeSpace,width);
- r:=byte(width)+byte(height) shl 8+byte(dx+128) shl 16+byte(dy+128) shl 24;
+ r:=PackBytes(width,height,dx+128,dy+128);
  hash1.Put(chardata,r);
  r:=result.Y shl 16+result.x;
+ r:=PackWords(result.x,result.y);
  hash2.Put(chardata,r);
 end;
 
@@ -512,6 +513,7 @@ begin
  bCount:=0;
  firstBand:=-1; lastBand:=-1;
  relX:=0; relY:=0;
+ LogMessage('GlyphCache created %d,%d',[width,height]);
 end;
 
 destructor TDynamicGlyphCache.Destroy;
@@ -576,6 +578,15 @@ begin
  end;
 end;
 
+function TDynamicGlyphCache.GetState: string;
+var
+ i:integer;
+begin
+ result:=Format('[%d] %d-%d;',[hash1.count,freeMin,freeMax]);
+ for i:=0 to bCount do
+  result:=result+Format('%d_%d %d;',[bands[i].y,bands[i].height,bands[i].freeSpace]);
+end;
+
 function TDynamicGlyphCache.CreateNewBand(height:integer):integer;
 var
  i,y,b:integer;
@@ -583,9 +594,9 @@ begin
  // get new band position
  if (freeMin+height<=aHeight) then y:=freeMin else
   if (aHeight+height-1<=freeMax) then y:=aHeight else
-   raise EWarning.Create('DGC: cache overflow 1');
+   raise EWarning.Create('DGC: cache overflow 1: '+GetState);
  if freeMin+height>freeMax then
-  raise EWarning.Create('DGC: cache overflow 3');
+  raise EWarning.Create('DGC: cache overflow 3: '+GetState);
  // Find free band record
  b:=-1;
  for i:=0 to bCount-1 do
@@ -595,7 +606,7 @@ begin
  // Add band record if needed
  if b=-1 then begin
   if bCount>=99 then
-   raise EWarning.Create('DGC: cache overflow 2');
+   raise EWarning.Create('DGC: cache overflow 2: '+GetState);
   b:=bCount;
   inc(bCount);
  end;
