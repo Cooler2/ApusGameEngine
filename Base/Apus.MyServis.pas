@@ -110,7 +110,7 @@ interface
   PCriticalSection=^TMyCriticalSection;
   TMyCriticalSection=packed record
    crs:TRTLCriticalSection;
-   name:string;      // имя секции
+   name:String8;      // имя секции
    caller:UIntPtr;  // точка, из которой была попытка завладеть секцией
    owner:UIntPtr;   // точка, из которой произошел удачный захват секции
    {$IFNDEF MSWINDOWS}
@@ -513,7 +513,9 @@ interface
  // Fast consistent rounding, equivalent to SimpleRoundTo(x,0) i.e. 0.5->1, 1.5->2 etc. (NOT PRECISE!)
  function FRound(v:double):integer; inline;
  // Precise version of rounding (still quite fast)
- function PRound(v:double):integer; inline;
+ function PRound(v:double):integer; inline; overload;
+ // Single version of precise rounding
+ function SRound(v:single):integer; inline; overload;
 
  // Вычислить ломаную функцию, определенную на отрезке [0..256] имеющую пик (экстремум)
  // в точке arg и принимающую значения a, b и c (a и c - на концах отрезка, b - в экстремуме)
@@ -540,6 +542,15 @@ interface
  procedure ClearBit(var data:byte;index:integer); overload; inline;
  procedure ClearBit(var data:cardinal;index:integer); overload; inline;
  procedure ClearBit(var data:uint64;index:integer); overload; inline;
+
+ // Pack/unpack data
+ function PackBytes(b0,b1:byte):word; overload; inline;
+ function PackBytes(b0,b1,b2,b3:byte):cardinal; overload; inline;
+ function PackBytes(b0,b1,b2,b3,b4,b5,b6,b7:byte):UInt64; overload; inline;
+ function PackWords(w0,w1:word):cardinal; overload; inline;
+ function PackWords(w0,w1,w2,w3:word):UInt64; overload; inline;
+ function ExtractByte(data:cardinal;index:integer):byte; overload; inline;
+ function ExtractByte(data:UInt64;index:integer):byte; overload; inline;
 
  // Spline functions
  // ----------------------------------------
@@ -689,7 +700,7 @@ interface
  // level - используется только в отладочном режиме для проверки отсутствия циклов в графе захвата секций (чтобы гарантировать отсутствие блокировок)
  // Допускается входить в секцию с бОльшим уровнем будучи уже в секции с меньшим уровнем, но не наоборот.
  // Т.о. чем ниже уровень кода, тем ВЫШЕ должно быть значение level в секции, которой этот код оперирует
- procedure InitCritSect(var cr:TMyCriticalSection;name:string;level:integer=100); // Создать и зарегить критсекцию
+ procedure InitCritSect(var cr:TMyCriticalSection;name:String8;level:integer=100); // Создать и зарегить критсекцию
  procedure DeleteCritSect(var cr:TMyCriticalSection);
  procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
  procedure LeaveCriticalSection(var cr:TMyCriticalSection);
@@ -3226,6 +3237,12 @@ function BinToStr;
     else result:=trunc(v-0.5);
   end;
 
+ function SRound(v:single):integer; inline;
+  begin
+   if v>0 then result:=trunc(v+0.5)
+    else result:=trunc(v-0.5);
+  end;
+
  // Return value of pike function
  function Pike(x,arg,a,b,c:integer):integer;
   begin
@@ -3318,6 +3335,49 @@ function BinToStr;
   begin
    data:=data and not (1 shl index);
   end;
+
+ function PackBytes(b0,b1:byte):word; overload; inline;
+  begin
+   result:=b0+word(b1) shl 8;
+  end;
+ function PackBytes(b0,b1,b2,b3:byte):cardinal; overload; inline;
+  begin
+   result:=b0+cardinal(b1) shl 8+cardinal(b2) shl 16+cardinal(b3) shl 24;
+  end;
+ function PackBytes(b0,b1,b2,b3,b4,b5,b6,b7:byte):UInt64; overload; inline;
+  var
+   b:array[0..7] of byte;
+   r:UInt64 absolute b;
+  begin
+   b[0]:=b0; b[1]:=b1;
+   b[2]:=b2; b[3]:=b3;
+   b[4]:=b4; b[5]:=b5;
+   b[6]:=b6; b[7]:=b7;
+   result:=r;
+  end;
+ function PackWords(w0,w1:word):cardinal; overload; inline;
+  begin
+   result:=w0+w1 shl 16;
+  end;
+ function PackWords(w0,w1,w2,w3:word):UInt64; overload; inline;
+  var
+   w:array[0..3] of word;
+   r:UInt64 absolute w;
+  begin
+   w[0]:=w0; w[1]:=w1;
+   w[2]:=w2; w[3]:=w3;
+   result:=r;
+  end;
+
+ function ExtractByte(data:cardinal;index:integer):byte; overload; inline;
+  begin
+   result:=byte(data shr (index*8));
+  end;
+ function ExtractByte(data:UInt64;index:integer):byte; overload; inline;
+  begin
+   result:=byte(data shr (index*8));
+  end;
+
 
  function SatSpline(x:single;a,b,c:integer):byte;
   var
@@ -5218,12 +5278,12 @@ begin
  {$ENDIF}
 end;
 
-constructor TBaseException.Create(const msg:string; fields:array of const);
+constructor TBaseException.Create(const msg:String; fields:array of const);
 begin
  Create(Format(msg,fields));
 end;
 
-procedure InitCritSect(var cr:TMyCriticalSection;name:string;level:integer=100); //
+procedure InitCritSect(var cr:TMyCriticalSection;name:String8;level:integer=100); //
  begin
   MyEnterCriticalSection(crSection);
   try
