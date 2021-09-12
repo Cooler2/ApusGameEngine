@@ -41,9 +41,9 @@ interface
    function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
    procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
    // Text output
-   procedure Write(font:TFontHandle;x,y:integer;color:cardinal;st:String8;align:TTextAlignment=taLeft;
+   procedure Write(font:TFontHandle;x,y:single;color:cardinal;st:String8;align:TTextAlignment=taLeft;
       options:integer=0;targetWidth:integer=0;query:cardinal=0);
-   procedure WriteW(font:TFontHandle;x,y:integer;color:cardinal;st:String16;align:TTextAlignment=taLeft;
+   procedure WriteW(font:TFontHandle;xx,yy:single;color:cardinal;st:String16;align:TTextAlignment=taLeft;
       options:integer=0;targetWidth:integer=0;query:cardinal=0);
    // Measure text dimensions
    function Width(font:TFontHandle;st:String8):integer; // text width in pixels
@@ -437,16 +437,17 @@ begin
   raise EWarning.Create('FH 1');
 end;
 
-procedure TTextDrawer.Write(font:cardinal;x,y:integer;color:cardinal;st:string8;
+procedure TTextDrawer.Write(font:cardinal;x,y:single;color:cardinal;st:string8;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
 begin
  WriteW(font,x,y,color,Str16(st),align,options,targetWidth,query);
 end;
 
 
-procedure TTextDrawer.WriteW(font:cardinal;x,y:integer;color:cardinal;st:string16;
+procedure TTextDrawer.WriteW(font:cardinal;xx,yy:single;color:cardinal;st:string16;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
 var
+ x,y:integer;
  width:integer; //text width in pixels
  uniFont:TUnicodeFontEx;
  ftFont:TFreeTypeFont;
@@ -1098,7 +1099,8 @@ var
   end;
 
 begin // -----------------------------------------------------------
-  // Special value to display font cache texture
+ x:=SRound(xx); y:=SRound(yy);
+ // Special value to display font cache texture
  if font=MAGIC_TEXTCACHE then begin
   draw.FillRect(x,y,x+textCache.width,y+textCache.height,$FF000000);
   draw.Image(x,y,textCache,$FFFFFFFF); exit;

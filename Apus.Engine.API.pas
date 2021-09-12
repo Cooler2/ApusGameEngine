@@ -671,9 +671,9 @@ type
   // Change option on a font handle
   procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
   // Text output (use handle 0 for default font)
-  procedure Write(font:TFontHandle;x,y:integer;color:cardinal;st:String8;align:TTextAlignment=taLeft;
+  procedure Write(font:TFontHandle;x,y:single;color:cardinal;st:String8;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0);
-  procedure WriteW(font:TFontHandle;x,y:integer;color:cardinal;st:String16;align:TTextAlignment=taLeft;
+  procedure WriteW(font:TFontHandle;x,y:single;color:cardinal;st:String16;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0);
   // Measure text dimensions
   function Width(font:TFontHandle;st:String8):integer; // text width in pixels
@@ -698,9 +698,11 @@ type
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
   procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
   procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
-  procedure Rect(x1,y1,x2,y2:integer;color:cardinal);
-  procedure RRect(x1,y1,x2,y2:integer;color:cardinal;r:integer=2);
-  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal);
+  procedure Rect(x1,y1,x2,y2:integer;color:cardinal); overload;
+  procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
+  procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2);
+  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal); overload;
+  procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
   procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
   procedure FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean);
@@ -882,25 +884,35 @@ type
 
  TDebugFeature=(
    dfShowFPS,                 // Display frame rate
+   dfShowMagnifier,           // Magnifier (Alt+F3)
    dfShowGlyphCache,          // Display glyphs cache
    dfShowNavigationPoints     // Display gamepad navigation points
  );
 
+ // Hotkey used to toggle debug overlay mode
+ TDebugHotkey=(dhAltFx, dhCtrlAltFx);
+
   // Main game interface
  TGameBase=class
-  // Глобально доступные переменные
-  running:boolean;
+  // Global variables
+  running:boolean;     // true when main loop is running
   renderWidth,renderHeight:integer; // Size of render area in virtual pixels (primitive of this size fills the whole renderRect)
   displayRect:TRect;     // render area (inside window's client area) in screen pixels (default - full client area)
   screenWidth,screenHeight:integer; // real full screen size in pixels
   windowWidth,windowHeight:integer; // window client size in pixels
   screenDPI:integer;    // DPI according to system settings
-  active:boolean;       // Окно активно, цикл перерисовки выполняется
-  paused:boolean;       // Режим паузы (изначально сброшен, движком не изменяется и не используется)
-  terminated:boolean;   // Работа цикла завершена, можно начинать деинициализацию и выходить
-  screenChanged:boolean;      // Нужно ли перерисовывать экран (аналог результата onFrame, только можно менять в разных местах)
-  frameNum:integer;     // incremented per frame
+  active:boolean;       // true when window is visible and updated; when active is false frame is not rendered
+  paused:boolean;       // pause rendering regardless if window is active
+  terminated:boolean;   // true when main loop is finished
+  screenChanged:boolean;  // set this to true to request frame rendering regardless of scenes processing
+  frameNum:integer;     // increments every frame
   frameStartTime:int64; // MyTickCount when frame started
+  FPS,smoothFPS:single; // current and smoothed FPS
+
+  // Default (built-in) font handles (for debug overlays etc)
+  smallFont,defaultFont,largerFont:TFontHandle; // font sizes are selected according to the screen DPI
+  defaultLineHeight:integer; // line height (in pixels) for the default font
+  screenScale:single; // screen scale factor (depends on DPI, rounded) like 1.0, 1.5 etc
 
   // Input state:
   // Mouse
@@ -916,6 +928,8 @@ type
   // indexed by scancode (NOT virtual key code!)
   keyState:array[0..255] of byte;
 
+  debugHotkey:TDebugHotkey; // Hotkey used to toggle debug overlays (default - Alt+F1)
+
   gamepadNavigationMode:TGamepadNavigationMode; // used to enable gamepad (DPad) navigation over UI elements and user-defined objects
 
   // Text link (TODO: move out)
@@ -923,11 +937,7 @@ type
                      // TODO: плохо, что этот параметр глобальный, надо сделать его свойством сцен либо элементов UI, чтобы можно было проверять объект под мышью с учётом наложений
   textLinkRect:TRect; // область ссылки, по номеру textLink
 
-  FPS,smoothFPS:single;
-  showFPS:boolean;      // отображать FPS в углу экрана
-  showDebugInfo:integer; // Кол-во строк отладочной инфы
-
-  topmostScene:TGameScene;
+  topmostScene:TGameScene; // last topmost scene
   globalTintColor:cardinal; // multiplier (2X) for whole backbuffer ($FF808080 - neutral value)
 
   constructor Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
@@ -992,7 +1002,7 @@ type
   // Enable/disable debug overlays
   procedure DebugFeature(feature:TDebugFeature;enabled:boolean); virtual; abstract;
 
-  // Synchronization
+  // Synchronization (access to the internal critical section)
   // ---------------
   procedure EnterCritSect; virtual; abstract;
   procedure LeaveCritSect; virtual; abstract;
@@ -1130,6 +1140,7 @@ uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Eng
    game:=self;
    systemPlatform:=sysPlatform;
    gfx:=gfxSystem;
+   debugHotkey:=dhAltFx;
   end;
 
  procedure TTexture.CloneFrom(src:TTexture);
