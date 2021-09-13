@@ -75,6 +75,7 @@ interface
    textBufferBitmap:pointer;
    textBufferPitch:integer;
 
+   procedure CreateTextCache;
    procedure FlushTextCache;
   end;
 
@@ -314,11 +315,11 @@ end;
 
 constructor TTextDrawer.Create;
  var
-  i,w:integer;
+  i:integer;
   pw:^word;
-  format:TImagePixelFormat;
  begin
   textDrawer:=self;
+  textCache:=nil;
   txt:=self;
 
   SetLength(txtBuf,4*MaxGlyphBufferCount);
@@ -335,28 +336,35 @@ constructor TTextDrawer.Create;
 
   txtVertCount:=0;
   textCaching:=false;
+ end;
+
+destructor TTextDrawer.Destroy;
+ begin
+
+ end;
+
+procedure TTextDrawer.CreateTextCache;
+ var
+  i,w:integer;
+  format:TImagePixelFormat;
+ begin
+  // Adjust text cache texture size
+  i:=gfx.target.width*gfx.target.height; // screen pixels
+  if i>2500000 then textCacheHeight:=max2(textCacheHeight,1024);
+  if i>3500000 then textCacheWidth:=max2(textCacheWidth,1024);
+  //if i>5500000 then textCacheHeight:=max2(textCacheHeight,2048);
+  if TXT_TEXTURE_8BIT then format:=ipfA8
+   else format:=ipfARGB;
+  textCache:=AllocImage(textCacheWidth,textCacheHeight,format,aiTexture,'textCache');
+  if format=ipfARGB then textCache.Clear($808080);
+  LogMessage('TextCache: %d x %d, %s',[textCacheWidth,textCacheHeight,PixFmt2Str(format)]);
+
   w:=textCacheWidth div 8+textCacheWidth div 16;
   if glyphCache=nil then glyphCache:=TDynamicGlyphCache.Create(textCacheWidth-w,textCacheHeight);
   if altGlyphCache=nil then begin
    altGlyphCache:=TDynamicGlyphCache.Create(w,textCacheHeight);
    altGlyphCache.relX:=textCacheWidth-w;
   end;
-
-  // Adjust text cache texture size
-  i:=gfx.target.width*gfx.target.height; // screen pixels
-  if i>2500000 then textCacheHeight:=max2(textCacheHeight,1024);
-  if i>3500000 then textCacheWidth:=max2(textCacheWidth,1024);
-  if i>5500000 then textCacheHeight:=max2(textCacheHeight,2048);
-  if TXT_TEXTURE_8BIT then format:=ipfA8
-   else format:=ipfARGB;
-  textCache:=AllocImage(textCacheWidth,textCacheHeight,format,aiTexture,'textCache');
-  if format=ipfARGB then textCache.Clear($808080);
-  LogMessage('TextCache: %d x %d, %s',[textCacheWidth,textCacheHeight,PixFmt2Str(format)]);
- end;
-
-destructor TTextDrawer.Destroy;
- begin
-
  end;
 
 procedure TTextDrawer.EndBlock;
@@ -450,7 +458,7 @@ end;
 procedure TTextDrawer.WriteW(font:cardinal;xx,yy:single;color:cardinal;st:string16;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
 var
- x,y:integer;
+ x,y,ofs:integer;
  width:integer; //text width in pixels
  uniFont:TUnicodeFontEx;
  ftFont:TFreeTypeFont;
@@ -1102,6 +1110,7 @@ var
   end;
 
 begin // -----------------------------------------------------------
+ if textCache=nil then CreateTextCache;
  x:=SRound(xx); y:=SRound(yy);
  // Special value to display font cache texture
  if font=MAGIC_TEXTCACHE then begin
@@ -1124,7 +1133,8 @@ begin // -----------------------------------------------------------
  // Special option: draw twice with offset
  if options and toWithShadow>0 then begin
   options:=options xor toWithShadow;
-  WriteW(font,x+1,y+1,color and $FE000000 shr 1,st,align,options,targetWidth);
+  ofs:=Max2(1,round(Height(font)/12));
+  WriteW(font,x+ofs,y+ofs,color and $FE000000 shr 1,st,align,options,targetWidth);
   WriteW(font,x,y,color,st,align,options,targetWidth);
   exit;
  end;
