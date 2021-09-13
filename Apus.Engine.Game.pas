@@ -744,7 +744,7 @@ begin
  txt.LoadFont(defaultFont8);
  txt.LoadFont(defaultFont10);
  txt.LoadFont(defaultFont12);
- size:=2+0.25*(screenHeight+renderHeight)/screenDPI;
+ size:=2+0.07*screenDPI;
  defaultFont:=txt.GetFont('Default',size);
  smallFont:=txt.GetFont('Default',size*0.8);
  largerFont:=txt.GetFont('Default',size*1.25);
