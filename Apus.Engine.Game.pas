@@ -1964,10 +1964,10 @@ function TGame.GetThreadResult(h: THandle): integer;
 var
  i:integer;
 begin
- result:=-2;
+ result:=-1; // not found
  EnterCriticalSection(RA_sect);
  try
- for i:=1 to 16 do
+ for i:=1 to high(threads) do
   if (threads[i]<>nil) and (threads[i].id=h) then begin
    if threads[i].running then result:=0  // еще выполняется
     else result:=threads[i].ReturnValue;
@@ -1987,7 +1987,7 @@ begin
  best:=0; t:=mytickcount;
  EnterCriticalSection(RA_Sect);
  try
- for i:=1 to 16 do
+ for i:=1 to high(threads) do
   if threads[i]=nil then begin best:=i; break; end
    else
     if (not threads[i].running) and (threads[i].FinishTime<t) then
@@ -2001,7 +2001,7 @@ begin
  threads[best].running:=true;
  threads[best].func:=threadFunc;
  threads[best].param:=param;
- if name='' then name:=inttohex(cardinal(threadFunc),8);
+ if name='' then name:=PtrToStr(threadFunc);
  threads[best].name:='RA_'+name;
  inc(LastThreadID);
  threads[best].id:=lastThreadID;
