@@ -68,7 +68,7 @@ procedure TSimpleDemoApp.SetupGameSettings(var settings: TGameSettings);
   //settings.mode.displayFitMode:=dfmCenter;
   settings.mode.displayFitMode:=dfmKeepAspectRatio;
 
-  settings.mode.displayScaleMode:=dsmScale;
+  //settings.mode.displayScaleMode:=dsmScale;
 
   // Here you can override instance settings
 {  // Primary mode settings

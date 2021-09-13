@@ -72,7 +72,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 3;
+ testnum:integer = 12;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -841,8 +841,8 @@ begin
  gfx.BeginPaint(nil);
  // Unicode text output
 
- f:=txt.GetFont('Arial',30);
- txt.WriteW(f,10,40,$FFFFA080,'Première tentative de l''écriture!',taLeft);
+ f:=txt.GetFont('Arial',40);
+ txt.WriteW(f,10,45,$FFFFA080,'Première tentative de l''écriture!',taLeft);
  f:=txt.GetFont('Arial',24);
  txt.WriteW(f,10,80,$FFFFA080,'Кракозябры! אַﭠﮚﻼ№җ£©α²',taLeft);
  txt.WriteW(f,10,115,$FFFFA080,'Кракозябры!',taLeft,toItalic);
@@ -1971,7 +1971,7 @@ begin
 
  game:=MyGame.Create(TWindowsPlatform.Create, TOpenGL.Create); // Создаем объект
  //game:=MyGame.Create(TSDLPlatform.Create, TOpenGL.Create); // Создаем объект
- game.showFPS:=true;
+ game.DebugFeature(dfShowFPS,true);
  disableDRT:=true;
 
  // Начальные установки игры
