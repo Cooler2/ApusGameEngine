@@ -516,8 +516,6 @@ procedure TGameApplication.Run;
   else
    ForceLogMessage('Running in exclusive mode');
 
-  if DebugMode then game.ShowDebugInfo:=3;
-
   SetEventHandler('ENGINE',EngineEventHandler);
 
   // LAUNCH GAME OBJECT
@@ -638,7 +636,7 @@ begin
    slowmotion:=false;
    if noVSync then begin
     VSync:=0;
-    game.showFPS:=true;
+    game.DebugFeature(dfShowFPS,true);
    end else
     VSync:=1;
   end;

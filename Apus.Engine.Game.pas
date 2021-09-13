@@ -60,7 +60,8 @@ type
   procedure FLog(st:string); override;
   function GetStatus(n:integer):string; override;
   procedure FireMessage(st:string8); override;
-  procedure DebugFeature(feature:TDebugFeature;enabled:boolean); override;
+  procedure DebugFeature(feature:TDebugFeature;enable:boolean); override;
+  procedure ToggleDebugFeature(feature:TDebugFeature);
 
   procedure EnterCritSect; override;
   procedure LeaveCritSect; override;
@@ -311,20 +312,36 @@ begin
   if (keyCode=VK_SNAPSHOT) or (keyCode=VK_F12) then
     RequestScreenshot(shiftState and sscAlt=0);
 
-  // Alt+[F1..F3] - debug overlays
+  if HasFlag(shiftState,sscAlt) then
+   if (debugHotKey=dhAltFx) or (debugHotkey=dhCtrlAltFx) and HasFlag(shiftState,sscCtrl) then begin
+    if keyCode=VK_F1 then begin
+      if debugOverlay=0 then begin
+       debugOverlay:=1;
+       DebugFeature(dfShowFPS,true);
+      end else begin
+       debugOverlay:=0;
+       debugFeatures:=[];
+      end;
+    end else
+    if keyCode=VK_F3 then
+      ToggleDebugFeature(dfShowMagnifier);
+   end;
+
+  // [Alt]+[1] .. [Alt]+[9] - switch debug overlay when enabled
+  if (debugOverlay>0) and (keyCode in [ord('1')..ord('9')]) and HasFlag(shiftState,sscAlt) then
+   debugOverlay:=1+keyCode-ord('1');
+
   if shiftState and sscAlt>0 then begin
    case keyCode of
-    VK_F1:ToggleDebugOverlay(1);
-    VK_F2:ToggleDebugOverlay(2);
-    VK_F3:ToggleDebugOverlay(3);
     VK_F11:begin
      SetVSync(params.VSync xor 1); // toggle vsync
-     showFPS:=params.VSync=0;
+     if params.VSync=0 then Include(debugFeatures,dfShowFPS)
+      else Exclude(debugFeatures,dfShowFPS);
     end;
    end;
   end;
 
-  // Shift+Alt+F1 - Create debug
+  // Shift+Alt+F1 - Create debug logs
   if (keyCode=VK_F1) and
      (shiftState and sscAlt>0) and
      (shiftState and sscShift>0) then CreateDebugLogs;
@@ -555,7 +572,6 @@ begin
  fps:=0;
  SmoothFPS:=60;
  params.VSync:=1;
- ShowDebugInfo:=0;
  fillchar(keystate,sizeof(keystate),0);
  InitCritSect(crSect,'MainGameObj',20);
  // Primary display
@@ -563,8 +579,6 @@ begin
  screenDPI:=systemPlatform.GetScreenDPI;
  LogMessage('Screen: %dx%d DPI=%d',[screenWidth,screenHeight,screenDPI]);
 
- PublishVar(@showDebugInfo,'ShowDebugInfo',TVarTypeInteger);
- PublishVar(@showFPS,'showFPS',TVarTypeBool);
  SetLength(scenes,0);
  PublishVar(@renderWidth,'RenderWidth',TVarTypeInteger);
  PublishVar(@renderHeight,'RenderHeight',TVarTypeInteger);
@@ -603,7 +617,6 @@ destructor TGame.Destroy;
 begin
  if running then Stop;
  DeleteCritSect(crSect);
- UnpublishVar(@ShowDebugInfo);
  Inherited;
 end;
 
@@ -648,8 +661,8 @@ begin
   rawImage.Free;
   color:=GetPixel(64,64);
   magnifierTex.Unlock;
+  magnifierTex.SetFilter(fltNearest);
   gfx.shader.UseTexture(magnifierTex);
-  gfx.shader.TexMode(0,tblNone,tblNone,fltNearest);
   width:=min2(512,round(renderWidth*0.4));
   height:=min2(512,renderHeight);
   if mouseX<renderWidth div 2 then left:=renderWidth-width
@@ -1514,14 +1527,30 @@ end;
 
 procedure TGame.DrawOverlays;
 var
- font:cardinal;
- i,x,y:integer;
+ i,x,y,w,h:integer;
  feature:TDebugFeature;
 begin
  EnterCriticalSection(crSect);
  try
+  FLog('RDebug');
+  case debugOverlay of
+   1:;
+//   1:DrawHelp;
+  end;
+
   for feature in debugFeatures do
    case feature of
+    dfShowFPS:begin
+     w:=SRound(48*screenScale);
+     h:=SRound(36*screenScale);
+     x:=renderWidth-w; y:=1;
+     draw.FillRect(x,y,x+w-2,y+h,$80000000);
+     txt.WriteW(defaultFont,x+w-5,y+h*0.4,$FFFFFFFF,FloatToStrF(FPS,ffFixed,5,1),taRight);
+     txt.WriteW(defaultFont,x+w-5,y+h*0.9,$FFFFFFFF,FloatToStrF(SmoothFPS,ffFixed,5,1),taRight);
+    end;
+
+    dfShowMagnifier:DrawMagnifier;
+
     dfShowNavigationPoints:begin
       for i:=0 to high(activeCustomPoints) do
        with activeCustomPoints[i] do
@@ -1529,42 +1558,14 @@ begin
     end;
    end;
 
-  if (draw<>nil) and ((showDebugInfo>0) or (showFPS) or (debugOverlay>0)) then begin
-    FLog('RDebug');
-
-    if showDebugInfo>0 then begin
-     font:=txt.GetFont('Default',7);
-
-     txt.Write(font,10,20,$FFFFFFFF,inttostr(round(fps)));
-     if (showDebugInfo>1) then begin
-      txt.Write(font,10,40,$FFFFFFFF,gfx.resman.GetStatus(1));
-      txt.Write(font,10,60,$FFFFFFFF,gfx.resman.GetStatus(2));
-      txt.Write(font,10,80,$FFFFFFFF,GetStatus(1));
-     end;
-    end else
-     case debugOverlay of
-      2:gfx.DrawDebugOverlay(1); // painter's debug overlay
-      3:DrawMagnifier;
-     end;
-
-    if showFPS or (debugOverlay>0) then begin
-     x:=renderWidth-50; y:=1;
-     font:=txt.GetFont('Default',7);
-     draw.FillRect(x,y,x+48,y+30,$80000000);
-     txt.Write(font,x+45,y+10,$FFFFFFFF,FloatToStrF(FPS,ffFixed,5,1),taRight);
-     txt.Write(font,x+45,y+27,$FFFFFFFF,FloatToStrF(SmoothFPS,ffFixed,5,1),taRight);
-    end;
-  end;
-
   // Capture screenshot?
   if (capturedTime>0) and (MyTickCount<CapturedTime+3000) and (gfx<>nil) then begin
     x:=params.width div 2;
     y:=params.height div 2;
-    draw.FillRect(x-200,y-40,x+200,y+40,$60000000);
-    draw.Rect(x-200,y-40,x+200,y+40,$A0FFFFFF);
-    font:=txt.GetFont('Default',7);
-    txt.Write(font,x,y-24,$FFFFFFFF,'Screen captured to:',taCenter);
-    txt.Write(font,x,y+4,$FFFFFFFF,capturedName,Apus.Engine.API.taCenter);
+    draw.FillRect(x-200*screenScale,y-40*screenScale,x+200*screenScale,y+40*screenScale,$60000000);
+    draw.Rect(x-200*screenScale,y-40*screenScale,x+200*screenScale,y+40*screenScale,$A0FFFFFF);
+    txt.Write(largerFont,x,y-16*screenScale,$FFFFFFFF,'Screen captured to:',taCenter);
+    txt.Write(defaultFont,x,y+8*screenScale,$FFFFFFFF,capturedName,Apus.Engine.API.taCenter);
   end;
 
  finally
@@ -1806,11 +1807,18 @@ begin
  systemPlatform.SetWindowCaption(text);
 end;
 
-procedure TGame.DebugFeature(feature: TDebugFeature; enabled: boolean);
+procedure TGame.DebugFeature(feature: TDebugFeature; enable: boolean);
 begin
- if enabled then Include(debugFeatures,feature)
+ if enable then Include(debugFeatures,feature)
   else Exclude(debugFeatures,feature);
 end;
+
+procedure TGame.ToggleDebugFeature(feature:TDebugFeature);
+begin
+ if feature in debugFeatures then Exclude(debugFeatures,feature)
+  else Include(debugFeatures,feature);
+end;
+
 
 procedure TGame.ClientToGame(var p:TPoint);
  begin
