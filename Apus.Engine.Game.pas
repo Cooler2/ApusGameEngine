@@ -700,6 +700,9 @@ begin
 end;
 
 procedure TGame.InitGraph;
+var
+ size:single;
+ baseDPI:integer;
 begin
  LogMessage('InitGraph');
  Signal('Engine\BeforeInitGraph');
@@ -722,11 +725,29 @@ begin
  InitDefaultRenderTarget;
  SetupRenderArea;
 
+ screenScale:=1.0;
+ if params.mode.displayScaleMode=dsmDontScale then begin
+   baseDPI:=96;
+   {$IFDEF ANDROID}
+    baseDPI:=192;
+   {$ENDIF}
+   {$IFDEF IOS}
+    baseDPI:=192;
+   {$ENDIF}
+   if screenDPI>0.95*baseDPI*1.2 then screenScale:=1.2;
+   if screenDPI>0.94*baseDPI*1.5 then screenScale:=1.5;
+   if screenDPI>0.93*baseDPI*2.0 then screenScale:=2.0;
+   if screenDPI>0.92*baseDPI*2.5 then screenScale:=2.5;
+ end;
+
  // Built-in fonts
  txt.LoadFont(defaultFont8);
  txt.LoadFont(defaultFont10);
  txt.LoadFont(defaultFont12);
- defaultFontHandle:=txt.GetFont('Default',2+0.25*(screenHeight+renderHeight)/screenDPI);
+ size:=2+0.25*(screenHeight+renderHeight)/screenDPI;
+ defaultFont:=txt.GetFont('Default',size);
+ smallFont:=txt.GetFont('Default',size*0.8);
+ largerFont:=txt.GetFont('Default',size*1.25);
 
  // Mouse cursors
  if params.showSystemCursor then begin
