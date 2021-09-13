@@ -557,6 +557,7 @@ var
  key:cardinal;
 begin
  ASSERT(firstBand>=0);
+ LogMessage('GlyphCache: free band %d-%d',[freeMin,freeMax]);
  // Clear hash items
  y:=bands[firstBand].y;
  for i:=0 to hash2.count-1 do
