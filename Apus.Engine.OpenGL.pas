@@ -314,6 +314,8 @@ procedure TOpenGL.ChoosePixelFormats(out trueColor, trueColorAlpha, rtTrueColor,
 procedure TOpenGL.CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
  begin
   ASSERT(image.pixelFormat in [ipfARGB,ipfXRGB]);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER,0);
+  glReadBuffer(GL_BACK);
   image.Lock;
   glReadPixels(srcX,srcY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,image.data);
   image.Unlock;
@@ -657,7 +659,7 @@ procedure TGLRenderTargetAPI.Backbuffer;
   {$ENDIF}
   {$IFNDEF GLES}
   if GL_ARB_framebuffer_object then
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER,0);
+    glBindFramebuffer(GL_FRAMEBUFFER,0);
   {$ENDIF}
   realWidth:=backBufferWidth;
   realHeight:=backBufferHeight;
