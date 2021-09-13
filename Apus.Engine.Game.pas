@@ -659,7 +659,7 @@ begin
   rawImage:=magnifierTex.GetRawImage;
   gfx.CopyFromBackbuffer(cx,renderHeight-cy,rawImage);
   rawImage.Free;
-  color:=GetPixel(64,64);
+  color:=GetPixel(64,63);
   magnifierTex.Unlock;
   magnifierTex.SetFilter(fltNearest);
   gfx.shader.UseTexture(magnifierTex);
@@ -1550,13 +1550,29 @@ procedure TGame.DrawOverlays;
 var
  i,x,y,w,h:integer;
  feature:TDebugFeature;
+
+ procedure DrawHelp;
+  const
+   lines:array[1..3] of String8=(
+    'this help page',
+    'glyphs cache',
+    'scenes');
+  var
+   i,y:integer;
+  begin
+   y:=0;
+   for i:=1 to high(lines) do begin
+    inc(y,round(18*screenScale));
+    txt.Write(defaultFont,5,y,$FFFFFFFF,'Alt+'+inttostr(i)+': '+lines[i],taLeft,toDontTranslate+toWithShadow);
+   end;
+  end;
 begin
  EnterCriticalSection(crSect);
  try
   FLog('RDebug');
   case debugOverlay of
-   1:;
-//   1:DrawHelp;
+   1:DrawHelp;
+   2:txt.WriteW(MAGIC_TEXTCACHE,1,1,$FFFFFFFF,'');
   end;
 
   for feature in debugFeatures do
