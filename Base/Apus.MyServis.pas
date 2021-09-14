@@ -3262,15 +3262,15 @@ function BinToStr;
 
  function HasFlag(v:uint64;flag:uint64):boolean; overload; inline;
   begin
-   result:=v and flag>0;
+   result:=v and flag=flag;
   end;
  function HasFlag(v:cardinal;flag:cardinal):boolean; overload; inline;
   begin
-   result:=v and flag>0;
+   result:=v and flag=flag;
   end;
  function HasFlag(v:byte;flag:byte):boolean; overload; inline;
   begin
-   result:=v and flag>0;
+   result:=v and flag=flag;
   end;
 
  procedure SetFlag(var v:uint64;flag:uint64;value:boolean=true); overload;
