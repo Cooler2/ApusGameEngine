@@ -56,7 +56,7 @@ interface
    function Link:integer; // get hyperlink under mouse (filled during text render)
    function LinkRect:TRect; // get active hyperlink rect
    // Cache / misc
-   procedure BeginBlock; // optimize performance when drawing multiple text entries
+   procedure BeginBlock(addOptions:cardinal=0); // optimize performance when drawing multiple text entries
    procedure EndBlock;   // finish buffering and perform actual render
    // Text render target
    procedure SetTarget(buf:pointer;pitch:integer); // set system memory target for text rendering (no clipping!)
@@ -64,6 +64,7 @@ interface
    fonts:array[1..32] of TObject;
 
    textCaching:boolean;  // cache draw operations
+   textBlockOptions:cardinal; // block-level options to add
 
    txtBuf:array of TVertex;
    txtInd:array of word;
@@ -301,10 +302,11 @@ begin
  TextBufferPitch:=pitch;
 end;
 
-procedure TTextDrawer.BeginBlock;
+procedure TTextDrawer.BeginBlock(addOptions:cardinal=0);
 begin
  if not textCaching then begin
   textCaching:=true;
+  textBlockOptions:=addOptions;
  end;
 end;
 
@@ -1115,8 +1117,12 @@ begin // -----------------------------------------------------------
  // Special value to display font cache texture
  if font=MAGIC_TEXTCACHE then begin
   draw.FillRect(x,y,x+textCache.width,y+textCache.height,$FF000000);
-  draw.Image(x,y,textCache,$FFFFFFFF); exit;
+  draw.Image(x,y,textCache,$FFFFFFFF);
+  exit;
  end;
+
+ if textCaching then options:=options or textBlockOptions;
+
  if font=0 then font:=defaultFontHandle;
  // Empty or too long string
  if (length(st)=0) or (length(st)>1000) then exit;

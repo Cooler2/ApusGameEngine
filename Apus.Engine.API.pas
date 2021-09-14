@@ -686,7 +686,7 @@ type
   function Link:integer; // get hyperlink under mouse (filled during text render)
   function LinkRect:TRect; // get active hyperlink rect
   // Cache text output
-  procedure BeginBlock; // optimize performance when drawing multiple text entries
+  procedure BeginBlock(addOptions:cardinal=0); // optimize performance when drawing multiple text entries
   procedure EndBlock;   // finish buffering and perform actual render
   // Text render target
   procedure SetTarget(buf:pointer;pitch:integer); // set system memory target for text rendering (no clipping!)
