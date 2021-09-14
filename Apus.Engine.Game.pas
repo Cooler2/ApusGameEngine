@@ -308,9 +308,16 @@ begin
         (params.altMode.displayMode<>dmNone) then
        SwitchToAltSettings;
 
-  // F12 or PrintScreen - screenshot (JPEG), Alt - (loseless)
+  // Alt+F11
+  if (keyCode=VK_F11) and HasFlag(shiftState,sscAlt) then begin
+    SetVSync(params.VSync xor 1); // toggle vsync
+    if params.VSync=0 then Include(debugFeatures,dfShowFPS)
+     else Exclude(debugFeatures,dfShowFPS);
+  end;
+
+  // F12 or PrintScreen - screenshot (JPEG), Alt+F12 - (loseless)
   if (keyCode=VK_SNAPSHOT) or (keyCode=VK_F12) then
-    RequestScreenshot(shiftState and sscAlt=0);
+    RequestScreenshot(not HasFlag(shiftState,sscAlt));
 
   if HasFlag(shiftState,sscAlt) then
    if (debugHotKey=dhAltFx) or (debugHotkey=dhCtrlAltFx) and HasFlag(shiftState,sscCtrl) then begin
@@ -330,16 +337,6 @@ begin
   // [Alt]+[1] .. [Alt]+[9] - switch debug overlay when enabled
   if (debugOverlay>0) and (keyCode in [ord('1')..ord('9')]) and HasFlag(shiftState,sscAlt) then
    debugOverlay:=1+keyCode-ord('1');
-
-  if shiftState and sscAlt>0 then begin
-   case keyCode of
-    VK_F11:begin
-     SetVSync(params.VSync xor 1); // toggle vsync
-     if params.VSync=0 then Include(debugFeatures,dfShowFPS)
-      else Exclude(debugFeatures,dfShowFPS);
-    end;
-   end;
-  end;
 
   // Shift+Alt+F1 - Create debug logs
   if (keyCode=VK_F1) and
@@ -1553,18 +1550,67 @@ var
 
  procedure DrawHelp;
   const
-   lines:array[1..3] of String8=(
-    'this help page',
-    'glyphs cache',
-    'scenes');
+   lines:array[1..12] of String8=(
+    'Hotkeys:',
+    '[Alt+F1] - show/hide debug overlays:',
+    '  [Alt+1] this help page',
+    '  [Alt+2] glyphs cache',
+    '  [Alt+3] scenes',
+    '',
+    '[Shift+Alt+F1] - dump debug logs',
+    '[Alt+F3] - toggle magnifier',
+    '[Win+~] - show console',
+    '[Alt+F11] - toggle VSync',
+    '[F12] - take a screenshot (JPEG)',
+    '[Alt+F12] - take a screenshot (PNG)');
   var
    i,y:integer;
   begin
+   draw.FillRect(0,0,320*screenScale,(length(lines)+0.4)*18*screenScale,$80000000);
+   txt.BeginBlock;
    y:=0;
    for i:=1 to high(lines) do begin
     inc(y,round(18*screenScale));
-    txt.Write(defaultFont,5,y,$FFFFFFFF,'Alt+'+inttostr(i)+': '+lines[i],taLeft,toDontTranslate+toWithShadow);
+    txt.Write(defaultFont,5,y,$FFFFFFFF,lines[i],taLeft,toDontTranslate);
    end;
+   txt.EndBlock;
+  end;
+ procedure ListScenes;
+  var
+   i,n,y:integer;
+   c:cardinal;
+   sList:array of TGameScene;
+  begin
+   EnterCritSect;
+   try
+    n:=length(scenes);
+    SetLength(sList,n);
+    for i:=0 to high(scenes) do sList[i]:=scenes[i];
+   finally
+    LeaveCritSect;
+   end;
+   y:=0;
+   draw.FillRect(0,0,screenScale*360,(n+0.4)*screenScale*16,$80000000);
+   txt.BeginBlock(toDontTranslate);
+   for i:=0 to high(sList) do begin
+    inc(y,round(16*screenScale));
+    c:=$FFA0A0A0;
+    if sList[i].status=ssActive then begin
+     c:=$FFFFFFC0;
+     txt.WriteW(smallFont,50*screenScale,y,c,IntToStr(sList[i].zOrder),taRight);
+    end else
+    if sList[i].status=ssBackground then
+     c:=$FFC0D0E0;
+    txt.WriteW(smallFont,60*screenScale,y,c,sList[i].name);
+    txt.WriteW(smallFont,200*screenScale,y,c,sList[i].ClassName);
+    if sList[i].effect<>nil then
+     txt.WriteW(smallFont,360*screenScale,y,c,sList[i].effect.ClassName);
+   end;
+   txt.EndBlock;
+  end;
+ procedure ListUI;
+  begin
+
   end;
 begin
  EnterCriticalSection(crSect);
@@ -1573,6 +1619,8 @@ begin
   case debugOverlay of
    1:DrawHelp;
    2:txt.WriteW(MAGIC_TEXTCACHE,1,1,$FFFFFFFF,'');
+   3:ListScenes;
+   4:ListUI;
   end;
 
   for feature in debugFeatures do
