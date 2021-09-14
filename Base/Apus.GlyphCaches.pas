@@ -460,6 +460,7 @@ var
  i,best,bandHeight,spareHeight:integer;
  r:cardinal;
 begin
+ try
  // 1. Find the most suitable band
  i:=firstBand; best:=-1; spareHeight:=100000; bandHeight:=0;
  while i>=0 do begin
@@ -500,6 +501,10 @@ begin
  r:=result.Y shl 16+result.x;
  r:=PackWords(result.x,result.y);
  hash2.Put(chardata,r);
+ except
+  on e:Exception do
+   raise EWarning.Create('GC.Alloc(%d,%d) failed'+ExceptionMsg(e),[width,height]);
+ end;
 end;
 
 constructor TDynamicGlyphCache.Create(width, height: integer);
