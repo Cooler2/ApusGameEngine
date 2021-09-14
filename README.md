@@ -15,14 +15,16 @@ https://www.patreon.com/ApusGameEngine
 ![Embarcadero](http://apus-software.com/engine/embarcadero.png)
 
 **This release was possible because of support of my patrons:**
-* Rad72
-* Евгений Румянцев
-* Алексей Воронин
-* Mattew Vesperman
 * Eli M
 * Dave W
 * Ken Ramsey
-and others...
+* Michalis Kamburelis (Castle Game Engine)
+* Gary Chike
+* Gerry Chike
+* MuminjonGuru
+* Tristan Marlow
+* add your name - support me on Patreon!
+
 
 ---
 VK group: https://vk.com/apusgameengine
