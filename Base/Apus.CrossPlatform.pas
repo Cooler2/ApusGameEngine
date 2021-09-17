@@ -190,13 +190,21 @@ interface
   SCAN_N = 49;
   SCAN_M = 50;
 
+ type
+  {$IFDEF MSWINDOWS}
+  TThreadIdentifier=THandle;
+  {$ENDIF}
+  {$IFDEF UNIX}
+  TThreadIdentifier=TThreadID;
+  {$ENDIF}
+
  function GetTickCount:cardinal; inline;
  procedure QueryPerformanceCounter(out value:int64); inline;
  procedure QueryPerformanceFrequency(out value:int64);
 
  procedure Sleep(time:integer); inline;
- function BeginThread(ThreadFunction:TThreadFunc; p:pointer; var ThreadId:TThreadID; stackSize:integer=1024*1024):THandle; overload;
- function BeginThread(ThreadFunction:TThreadFunc):TThreadID; overload;
+ function BeginThread(ThreadFunction:TThreadFunc; p:pointer; var ThreadId:TThreadID; stackSize:integer=1024*1024):TThreadIdentifier; overload;
+ function BeginThread(ThreadFunction:TThreadFunc):TThreadIdentifier; overload;
 
  function GetCurrentThreadID:TThreadId; inline;
  procedure TerminateThread(threadHandle:TThreadID;exitCode:cardinal);
@@ -384,21 +392,23 @@ uses
    {$ENDIF}
   end;
 
- function BeginThread(threadFunction:TThreadFunc; p:pointer; var threadId:TThreadID; stackSize:integer=1024*1024):THandle;
+ function BeginThread(threadFunction:TThreadFunc; p:pointer; var threadId:TThreadID; stackSize:integer=1024*1024):TThreadIdentifier;
   begin
    {$IFDEF FPC}
    result:=system.BeginThread(ThreadFunction,p,ThreadID,stackSize);
    {$ENDIF}
    {$IFDEF DELPHI}
    result:=system.BeginThread(nil,stackSize,ThreadFunction,p,
-    {$IF DECLARED(STACK_SIZE_PARAM_IS_A_RESERVATION)}STACK_SIZE_PARAM_IS_A_RESERVATION{$ELSE}0{$IFEND},threadID);
+    {$IF DECLARED(STACK_SIZE_PARAM_IS_A_RESERVATION)}STACK_SIZE_PARAM_IS_A_RESERVATION{$ELSE}0{$IFEND},threadId);
    {$ENDIF}
    if result=0 then raise Exception.Create('Failed to start a thread: '+IntToHex(UInt64(@threadFunction),12));
   end;
 
- function BeginThread(ThreadFunction:TThreadFunc):TThreadID; overload;
+ function BeginThread(ThreadFunction:TThreadFunc):TThreadIdentifier; overload;
+  var
+   id:TThreadID;
   begin
-   BeginThread(threadFunction,nil,result);
+   result:=BeginThread(threadFunction,nil,id);
   end;
 
 // WINDOWS SET ===========================
