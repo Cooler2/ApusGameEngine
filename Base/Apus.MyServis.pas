@@ -978,20 +978,20 @@ function min2s(a,b:single):single; inline;
    result:=''; pb:=buf; ascii:='';
    for i:=1 to size do begin
     if hex then
-     result:=result+IntToHex(pb^,2)+' '
+     result:=result+FormatHex(pb^,2)+' '
     else
      result:=result+
-      chr($30+pb^ div 100)+
-      chr($30+(pb^ mod 100) div 10)+
-      chr($30+pb^ mod 10)+' ';
-    if pb^>=32 then ascii:=ascii+chr(pb^)
+      String8(AnsiChar($30+pb^ div 100))+
+      String8(AnsiChar($30+(pb^ mod 100) div 10))+
+      String8(AnsiChar($30+pb^ mod 10))+' ';
+    if pb^>=32 then ascii:=ascii+AnsiChar(pb^)
      else ascii:=ascii+'.';
     if i mod 16=8 then begin
      result:=result+' ';
      ascii:=ascii+' ';
     end;
     if i mod 16=0 then begin
-     result:=result+'   '+ascii+#13#10;
+     result:=result+String8('   ')+String8(ascii)+#13#10;
      ascii:='';
     end;
     inc(pb);
@@ -1226,7 +1226,7 @@ function min2s(a,b:single):single; inline;
      result:=-result;
      break;
     end;
-    if not (st[i] in ['0'..'9','A'..'F','a'..'f']) then continue;
+    if not CharInSet(st[i],['0'..'9','A'..'F','a'..'f']) then continue;
     result:=result+HexCharToInt(AnsiChar(st[i]))*v;
     v:=v*16;
    end;
@@ -1370,8 +1370,8 @@ function FormatHex(v:int64;digits:integer=0):String8;
    case v.VType of
     vtInteger:result:=IntToStr(v.VInteger);
     vtBoolean:result:=BoolToStr(v.VBoolean,true);
-    vtChar:result:=v.VChar;
-    vtString:result:=ShortString(v.VString^);
+    vtChar:result:=UnicodeString(v.VChar);
+    vtString:result:=UnicodeString(ShortString(v.VString^));
     vtAnsiString:result:=DecodeUTF8(String8(v.VAnsiString));
     vtExtended:result:=FloatToStrF(v.vExtended^,ffGeneral,12,0);
     vtVariant:result:=v.VVariant^;
@@ -1386,16 +1386,16 @@ function FormatHex(v:int64;digits:integer=0):String8;
  function VarToAStr(v:TVarRec):String8;
   begin
    case v.VType of
-    vtInteger:result:=IntToStr(v.VInteger);
+    vtInteger:result:=String8(IntToStr(v.VInteger));
     vtBoolean:result:=BoolToAStr(v.VBoolean);
     vtChar:result:=v.VChar;
     vtString:result:=ShortString(v.VString^);
     vtAnsiString:result:=String8(v.VAnsiString);
-    vtExtended:result:=FloatToStrF(v.vExtended^,ffGeneral,12,0);
-    vtVariant:result:=v.VVariant^;
-    vtWideChar:result:=v.VWideChar;
+    vtExtended:result:=String8(FloatToStrF(v.vExtended^,ffGeneral,12,0));
+    vtVariant:result:=String8(v.VVariant^);
+    vtWideChar:result:=String8(v.VWideChar);
     vtWideString:result:=EncodeUTF8(WideString(v.vWideString));
-    vtInt64:result:=IntToStr(v.vInt64^);
+    vtInt64:result:=String8(IntToStr(v.vInt64^));
     vtUnicodeString:result:=EncodeUTF8(UnicodeString(v.VUnicodeString));
     else raise EWarning.Create('Incorrect variable type: '+inttostr(v.vtype));
    end;
@@ -1413,13 +1413,13 @@ function FormatHex(v:int64;digits:integer=0):String8;
   begin
    result:=0; exp:=0; decPos:=0; ePos:=0;
    for i:=1 to length(st) do begin
-    if st[i] in ['.',','] then decPos:=i else
-    if st[i] in ['e','E'] then ePos:=i;
+    if CharInSet(st[i],['.',',']) then decPos:=i else
+    if CharInSet(st[i],['e','E']) then ePos:=i;
    end;
    if ePos>0 then begin
     i:=ePos+1;
     while i<=length(st) do begin
-     if st[i] in ['0'..'9'] then
+     if CharInSet(st[i],['0'..'9']) then
       exp:=exp*10+GetDigit(st[i]);
      inc(i);
     end;
@@ -1430,7 +1430,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
 
    if decPos>0 then begin
     while i>decPos do begin
-     if st[i] in ['0'..'9'] then
+     if CharInSet(st[i],['0'..'9']) then
       result:=result/10+GetDigit(st[i]);
      dec(i);
     end;
@@ -1440,7 +1440,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
 
    scale:=1;
    while i>0 do begin
-    if st[i] in ['0'..'9'] then begin
+    if CharInSet(st[i],['0'..'9']) then begin
      result:=result+GetDigit(st[i])*scale;
      scale:=scale*10;
     end else
@@ -1468,13 +1468,13 @@ function FormatHex(v:int64;digits:integer=0):String8;
   begin
    result:=0; exp:=0; decPos:=0; ePos:=0;
    for i:=1 to length(st) do begin
-    if st[i] in ['.',','] then decPos:=i else
-    if st[i] in ['e','E'] then ePos:=i;
+    if CharInSet(st[i],['.',',']) then decPos:=i else
+    if CharInSet(st[i],['e','E']) then ePos:=i;
    end;
    if ePos>0 then begin
     i:=ePos+1;
     while i<=length(st) do begin
-     if st[i] in ['0'..'9'] then
+     if CharInSet(st[i],['0'..'9']) then
       exp:=exp*10+GetDigit(st[i]);
      inc(i);
     end;
@@ -1485,7 +1485,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
 
    if decPos>0 then begin
     while i>decPos do begin
-     if st[i] in ['0'..'9'] then
+     if CharInSet(st[i],['0'..'9']) then
       result:=result/10+GetDigit(st[i]);
      dec(i);
     end;
@@ -1495,7 +1495,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
 
    scale:=1;
    while i>0 do begin
-    if st[i] in ['0'..'9'] then begin
+    if CharInSet(st[i],['0'..'9']) then begin
      result:=result+GetDigit(st[i])*scale;
      scale:=scale*10;
     end else
@@ -1527,13 +1527,13 @@ function FormatHex(v:int64;digits:integer=0):String8;
    end;
    if state=3 then // hex
     while i<=length(st) do begin
-     if st[i] in ['0'..'9','A'..'F','a'..'f'] then
+     if CharInSet(st[i],['0'..'9','A'..'F','a'..'f']) then
       result:=result shl 4+HexCharToInt(AnsiChar(st[i]));
      inc(i);
     end
    else
     while i<=length(st) do begin
-     if st[i] in ['0'..'9'] then
+     if CharInSet(st[i],['0'..'9']) then
       result:=result*10+(ord(st[i])-ord('0'));
      inc(i);
     end;
@@ -1556,13 +1556,13 @@ function FormatHex(v:int64;digits:integer=0):String8;
    end;
    if state=3 then // hex
     while i<=length(st) do begin
-     if st[i] in ['0'..'9','A'..'F','a'..'f'] then
+     if CharInSet(st[i],['0'..'9','A'..'F','a'..'f']) then
       result:=result shl 4+HexCharToInt(AnsiChar(st[i]));
      inc(i);
     end
    else
     while i<=length(st) do begin
-     if st[i] in ['0'..'9'] then
+     if CharInSet(st[i],['0'..'9']) then
       result:=result*10+(ord(st[i])-ord('0'));
      inc(i);
     end;
@@ -1582,7 +1582,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
     if (st[i]='-') and (result[cnt]=0) then begin
      neg:=true; continue;
     end;
-    if st[i] in ['0'..'9'] then result[cnt]:=result[cnt]*10+(ord(st[i])-ord('0'))
+    if CharInSet(st[i],['0'..'9']) then result[cnt]:=result[cnt]*10+(ord(st[i])-ord('0'))
     else
     if st[i]<=' ' then continue
     else begin
@@ -2067,7 +2067,7 @@ procedure SimpleEncrypt2;
    SetLength(result,p);
   end;
 
- function EncodeB64;
+ function EncodeB64(data:pointer;size:integer):String8;
   var
    i:integer;
    sour,dest,offset:byte;
@@ -2084,13 +2084,13 @@ procedure SimpleEncrypt2;
     dest:=byte(dest shl 1) or byte(sour and 1);
     sour:=sour shr 1;
     if i mod 6=5 then begin
-     result:=result+AnsiChar(64+dest);
+     result:=result+String8(AnsiChar(64+dest));
      dest:=0;
     end;
    end;
    if (size*8-1) mod 6<>5 then begin
     offset:=(length(result)+1)*6-size*8;
-    result:=result+AnsiChar(64+dest shl offset);
+    result:=result+String8(AnsiChar(64+dest shl offset));
    end;
   end;
 
@@ -2868,7 +2868,7 @@ procedure SimpleEncrypt2;
     inc(result,state.smallBlockTypeStates[i].AllocatedBlockCount*
      state.smallBlockTypeStates[i].UseableBlockSize);
    end;
-   result:=result+state.TotalAllocatedMediumBlockSize+state.TotalAllocatedLargeBlockSize;
+   result:=result+int64(state.TotalAllocatedMediumBlockSize+state.TotalAllocatedLargeBlockSize);
   end;
 {$ELSE}
   begin

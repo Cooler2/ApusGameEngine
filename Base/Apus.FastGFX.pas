@@ -1421,6 +1421,7 @@ const
     c:=$FF000000+pal^; inc(pal);
     c:=c+pal^ shl 8; inc(pal);
     c:=c+pal^ shl 16;
+    dp^:=c;
     inc(sp); inc(dp);
    end;
   end;

@@ -371,7 +371,6 @@ uses
 
  function IsDebuggerPresent:boolean;
   begin
-   result:=false;
    {$IFDEF MSWINDOWS}
    result:=windows.IsDebuggerPresent;
    {$ENDIF}
@@ -458,7 +457,7 @@ var
   str:AnsiString;
   time:int64;
 begin
-  LogMessage('Exec: '+ACmdLine);
+  LogMessage('Exec: '+String8(ACmdLine));
 
   with vSecurityAttributes do
   begin

@@ -155,22 +155,22 @@ type
  // Допускает возможность хранения нескольких значений для каждого ключа,
  // в таком режиме структуру можно рассматривать как индексированную таблицу
  THash=object
-  keys:array of AnsiString;
+  keys:array of String8;
   count:integer; // number of keys (can be less than length of keys array!)
   values:VariantArray;
   vcount:integer; // number of values (can be less than length of values array!)
   constructor Init(allowMultiple:boolean=false); // not thread-safe!
   // Добавить значение, соответствующее ключу
   // replace - только для режима multi: добавляет новое значение к ключу, либо перезаписывает существующее
-  procedure Put(const key:AnsiString;value:variant;replace:boolean=false);
+  procedure Put(const key:String8;value:variant;replace:boolean=false);
   // Получить значение, соответствующее ключу. Если разрешено множество значений на ключ, то можно выбрать элемент с номером item (начиная с 0)
-  function Get(const key:AnsiString;item:integer=0):variant; // get value associated with the key, or Unassigned if none
-  function GetAll(const key:AnsiString):VariantArray; // get array of values (not thread-safe!)
+  function Get(const key:String8;item:integer=0):variant; // get value associated with the key, or Unassigned if none
+  function GetAll(const key:String8):VariantArray; // get array of values (not thread-safe!)
   function GetNext:variant; // get next value associated with the key, or Unassigned if none (not thread-safe!!!)
   function AllKeys:AStringArr;
   procedure SortKeys; // ключи без значений удаляются
-  function HasKey(const key:AnsiString):boolean;
-  procedure Remove(const key:AnsiString);
+  function HasKey(const key:String8):boolean;
+  procedure Remove(const key:String8);
  private
   lock:integer;
   multi:boolean; // допускается несколько значений для любого ключа
@@ -181,8 +181,8 @@ type
   vNext:array of integer; // для каждого значения - ссылка на следующее значение, принадлежащее тому же ключу
   lastIndex:integer; // индекс последнего взятого значения (в режиме multi)
   hMask:integer;
-  function HashValue(const v:AnsiString):integer;
-  function Find(const key:AnsiString):integer;
+  function HashValue(const v:String8):integer;
+  function Find(const key:String8):integer;
   procedure AddValue(const v:variant);
   procedure RemoveKey(index:integer);
   procedure BuildHash; // Заполняет массивы next и links
@@ -228,18 +228,18 @@ type
   fFree:integer; // начало списка свободных элементов (если они вообще есть, иначе -1)
  end;
 
- // AnsiString -> int64
+ // String8 -> int64
  TSimpleHashAS=object
   keys:AStringArr;
   values:array of int64;
   count:integer; // how many items in keys/values/links are occupied - must be used instead of Length!!!
   procedure Init(estimatedCount:integer);
   procedure Clear;
-  procedure Put(key:AnsiString;value:int64);
-  function Get(key:AnsiString):int64;  // returns -1 if no value
-  function Add(key:AnsiString;v:int64):int64; // add v to given value (put 0 if absent) and return result
-  function HasValue(key:AnsiString):boolean;
-  procedure Remove(key:AnsiString);
+  procedure Put(key:String8;value:int64);
+  function Get(key:String8):int64;  // returns -1 if no value
+  function Add(key:String8;v:int64):int64; // add v to given value (put 0 if absent) and return result
+  function HasValue(key:String8):boolean;
+  procedure Remove(key:String8);
  private
   lock:integer;
   links:array of integer; // hash->firstItem: начало списка для каждого возможного значения хэша
@@ -251,12 +251,12 @@ type
  TStringQueue=object
   procedure Init(size:integer);
   procedure Clear;
-  procedure Add(st:AnsiString);
-  function Get:AnsiString;
+  procedure Add(st:String8);
+  function Get:String8;
   function Empty:boolean;
  private
   lock:integer;
-  data:array of AnsiString;
+  data:array of String8;
   used:integer; // first used element (if not equal to last)
   free:integer; // first free element
  end;
@@ -814,13 +814,13 @@ constructor THash.Init(allowMultiple:boolean=false);
   lock:=0;
  end;
 
-function THash.Find(const key: AnsiString): integer;
+function THash.Find(const key: String8): integer;
  begin
   result:=links[HashValue(key)];
   while (result>=0) and (keys[result]<>key) do result:=next[result];
  end;
 
-function THash.HashValue(const v: AnsiString): integer;
+function THash.HashValue(const v: String8): integer;
  var
   i:integer;
  begin
@@ -832,7 +832,7 @@ function THash.HashValue(const v: AnsiString): integer;
   result:=result and hMask;
  end;
 
-function THash.HasKey(const key:AnsiString):boolean;
+function THash.HasKey(const key:String8):boolean;
  begin
   SpinLock(lock);
   try
@@ -842,7 +842,7 @@ function THash.HasKey(const key:AnsiString):boolean;
   end;
  end;
 
- procedure THash.Remove(const key:AnsiString);
+ procedure THash.Remove(const key:String8);
   var
    idx:integer;
   begin
@@ -855,7 +855,7 @@ function THash.HasKey(const key:AnsiString):boolean;
   end;
 
 
-function THash.Get(const key: AnsiString;item:integer=0): variant;
+function THash.Get(const key: String8;item:integer=0): variant;
  var
   index:integer;
  begin
@@ -896,7 +896,7 @@ function THash.GetNext:variant; // get next value associated with the key, or Un
   end;
  end;
 
-function THash.GetAll(const key:AnsiString):VariantArray; // get array of values
+function THash.GetAll(const key:String8):VariantArray; // get array of values
  var
   c:integer;
   v:variant;
@@ -957,7 +957,7 @@ procedure THash.RemoveKey(index:integer);
   end;
  end;
 
-procedure THash.Put(const key:AnsiString; value:variant; replace:boolean=false);
+procedure THash.Put(const key:String8; value:variant; replace:boolean=false);
  var
   h,index,size,vIdx:integer;
  begin
@@ -1382,7 +1382,7 @@ procedure THash.SortKeys;
   end;
 
  // Integer version
- procedure TSimpleHashAS.Put(key:AnsiString;value:int64);
+ procedure TSimpleHashAS.Put(key:String8;value:int64);
   var
    h,i,n:integer;
   begin
@@ -1421,7 +1421,7 @@ procedure THash.SortKeys;
    finally lock:=0; end;
   end;
 
- function TSimpleHashAS.Get(key:AnsiString):int64;
+ function TSimpleHashAS.Get(key:String8):int64;
   var
    h,i:integer;
   begin
@@ -1434,7 +1434,7 @@ procedure THash.SortKeys;
    finally lock:=0; end;
   end;
 
- function TSimpleHashAS.Add(key:AnsiString;v:int64):int64;
+ function TSimpleHashAS.Add(key:String8;v:int64):int64;
   var
    h,i:integer;
   begin
@@ -1454,7 +1454,7 @@ procedure THash.SortKeys;
    result:=v;
   end;
 
- function TSimpleHashAS.HasValue(key:AnsiString):boolean;
+ function TSimpleHashAS.HasValue(key:String8):boolean;
   var
    h,i:integer;
   begin
@@ -1467,7 +1467,7 @@ procedure THash.SortKeys;
    finally lock:=0; end;
   end;
 
- procedure TSimpleHashAS.Remove(key:AnsiString);
+ procedure TSimpleHashAS.Remove(key:String8);
   var
    h,i,prev:integer;
   begin
@@ -1521,11 +1521,8 @@ procedure THash.SortKeys;
   end;
 
  procedure TBitStream.Allocate(count: Integer);
-  var
-   s:integer;
   begin
    if size+count>capacity then begin
-    s:=length(data);
     capacity:=round((capacity+1024)*1.5);
     SetLength(data,capacity div 32);
    end;
@@ -1584,7 +1581,7 @@ procedure THash.SortKeys;
 
 { TStringQueue }
 
-procedure TStringQueue.Add(st: AnsiString);
+procedure TStringQueue.Add(st: String8);
  var
   f:integer;
  begin
@@ -1618,7 +1615,7 @@ function TStringQueue.Empty: boolean;
   lock:=0;
  end;
 
-function TStringQueue.Get: AnsiString;
+function TStringQueue.Get: String8;
  begin
   if length(data)=0 then exit;
   SpinLock(lock);
