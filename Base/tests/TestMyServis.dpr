@@ -1552,9 +1552,15 @@ procedure TestMemoryStat;
  procedure TestExecute;
   var
    output:AnsiString;
+   cmd:string;
   begin
    writeln('Test capture');
-   ExecAndCapture('cmd /C dir',output,1000);
+   {$IFDEF MSWINDOWS}
+   cmd:='cmd /C dir';
+   {$ELSE}
+   cmd:='ls';
+   {$ENDIF}
+   ExecAndCapture(cmd,output,1000);
    ASSERT(output<>'');
    writeln('OK: '#13#10+output);
   end;
