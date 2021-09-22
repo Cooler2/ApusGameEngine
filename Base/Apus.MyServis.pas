@@ -4578,7 +4578,7 @@ function BinToStr;
    s2:=StrAlloc(length(caption)+1);
    StrPCopy(s1,text);
    StrPCopy(s2,caption);
-   result:=MessageBox(WindowHandle,s1,s2,flags);
+   result:=MessageBox(WindowHandle,s1,s2,flags+MB_SYSTEMMODAL);
    StrDispose(s1);
    StrDispose(s2);
    {$ENDIF}
