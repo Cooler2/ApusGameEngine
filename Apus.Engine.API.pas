@@ -96,7 +96,7 @@ const
  toUnderline      =  $4000000; // Overrides font style flag
  toLetterSpacing  = $10000000; // Additional spacing between letters
 
- // GetFont style flags
+ // GetFont() style flags
  fsDontTranslate = 1; // Don't use UDict to translate strings
  fsNoHinting     = 2; // Disable hinting for vector fonts (good for large text)
  fsAutoHinting   = 4; // Force use of FT-autohinting (may produce better or more uniform results)

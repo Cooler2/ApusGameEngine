@@ -758,7 +758,7 @@ var
  i:integer;
  b1,b2:PByte;
 begin
- ASSERT((depth>=1) and (depth<=3));
+ ASSERT((depth>=1) and (depth<=4),'depth='+IntToStr(depth));
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
  shader.UseTexture(neutral);
  inc(x1,depth-1); inc(y1,depth-1);
