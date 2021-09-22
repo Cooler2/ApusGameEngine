@@ -456,7 +456,14 @@ begin
  {$IFDEF SDLMIX}
  lib:=slSDL;
  {$ENDIF}
- InitSoundSystem(lib,systemPlatform.GetWindowHandle);
+ try
+  InitSoundSystem(lib,systemPlatform.GetWindowHandle);
+ except
+  on e:Exception do begin
+   ForceLogMessage('Sound initialization failed. Continue without sound. '+e.message);
+   ShowMessage('No sound available. See log for details.'#13#10'Press OK to continue without sound.','Sound system error');
+  end;
+ end;
 end;
 
 procedure EngineEventHandler(event:TEventStr;tag:TTag);
