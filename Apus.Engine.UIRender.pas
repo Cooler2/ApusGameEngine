@@ -428,10 +428,10 @@ implementation
       if FocusedControl=control then
        draw.Rect(x1+19,y1,x1+txt.Width(font,caption),y2,$40+color and $FFFFFF);
       if enabled then
-       txt.Write(font,x1+20,v,color,caption)
+       txt.WriteW(font,x1+20,v,color,caption)
       else begin
-       txt.Write(font,x1+21,v+1,$60FFFFFF,caption);
-       txt.Write(font,x1+20,v,ColorMix(color,$C0909090,200),caption);
+       txt.WriteW(font,x1+21,v+1,$60FFFFFF,caption);
+       txt.WriteW(font,x1+20,v,ColorMix(color,$C0909090,200),caption);
       end;
       gfx.clip.Restore;
      end;
@@ -514,8 +514,8 @@ implementation
     gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y1+header-2));
     tx:=(x1+x2) div 2;
     ty:=y1+round(header*0.7);
-    txt.Write(font,tx+1,ty+1,$B0000000,DecodeUTF8(caption),taCenter);
-    txt.Write(font,tx,ty,$FFFFFFD0,DecodeUTF8(caption),taCenter);
+    txt.WriteW(font,tx+1,ty+1,$B0000000,caption,taCenter);
+    txt.WriteW(font,tx,ty,$FFFFFFD0,caption,taCenter);
     gfx.clip.Restore;
    end;
   end;
@@ -677,7 +677,7 @@ implementation
        c:=hoverTextColor;
       end else
        c:=textColor;
-      txt.Write(font,x1+4,lY+round(lineHeight*0.73),c,lines[i],taLeft,toComplexText);
+      txt.WriteW(font,x1+4,lY+round(lineHeight*0.73),c,lines[i],taLeft,toComplexText);
      end;
      gfx.clip.Restore;
     end;
