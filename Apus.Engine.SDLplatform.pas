@@ -54,7 +54,8 @@ type
  end;
 
 implementation
-uses Types, Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.Game, Apus.Images,
+uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
+  Types, Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.Game, Apus.Images,
   Apus.GfxFormats, sdl2, Apus.Engine.Controller;
 
 type
@@ -273,6 +274,9 @@ constructor TSDLPlatform.Create;
   plName:AnsiString;
   ver:TSDL_Version;
  begin
+  {$IFDEF MSWINDOWS}
+  SetEnvironmentVariable('SDL_AUDIODRIVER','winmm');
+  {$ENDIF}
   if SDL_Init(SDL_INIT_EVERYTHING)<>0 then
    raise EError.Create('SDL init error: '+SDL_GetError);
   plName:=SDL_GetPlatform;
