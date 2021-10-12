@@ -54,6 +54,7 @@ type
   procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0); virtual;
   procedure SetObj(mat:T3DMatrix); overload; virtual;
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual;
+  procedure ResetObj; virtual;
   function Update:boolean; // Сalculate combined matrix (if needed), returns true if matrix was changed
   function GetMVPMatrix:T3DMatrix;
   function GetProjMatrix:T3DMatrix;
@@ -331,6 +332,11 @@ procedure TTransformationAPI.SetObj(oX, oY, oZ, scale, yaw, roll,
   MultMat4(m,TranslationMat4(ox,oy,oz),m2);
 
   SetObj(m2);
+ end;
+
+procedure TTransformationAPI.ResetObj;
+ begin
+  SetObj(IdentMatrix4);
  end;
 
 procedure TTransformationAPI.SetObj(mat: T3DMatrix);
