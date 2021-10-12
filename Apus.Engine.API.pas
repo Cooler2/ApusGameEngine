@@ -38,7 +38,7 @@ const
  liffTexture = aiTexture; // Image will be allocated as a whole texture (wrap UV enabled, otherwise - disabled!)
  liffPow2    = aiPow2; // Image dimensions will be increased to the nearest pow2
  liffMipMaps = aiMipMapping; // Image will be loaded with mip-maps (auto-generated if no mips in the file)
- liffAllowChange = $100;
+ liffAllowChange = $100;    // Ensure that image won't be read-only
  liffDefault = $FFFFFFFF;   // Use defaultLoadImageFlags for default flag values
 
  // width and height of atlas-texture
@@ -290,7 +290,7 @@ type
                       // в скорости - тогда возможна (но не гарантируется) оптимизация перерисовки
  end;
 
-  TTextureName=string;
+ TTextureName=string;
 
  // Базовый абстрактный класс - текстура или ее часть
  TTexture=class
@@ -327,6 +327,13 @@ type
   locked:integer; // lock counter
  end;
 
+ // Nine Patch: resizable image
+ TNinePatch=class
+  minWidth,minHeight:integer; // minimal possible dimension (in pixels, when scale=1.0)
+  baseWidth,baseHeight:integer; // dimension without any stretching (in pixels, when scale=1.0)
+  scaleFactor:single; // scale modifier: for example, use 0.5 for images with double resolution
+  procedure Draw(x,y,width,height:single;scale:single=1.0); virtual; abstract;
+ end;
 
  // Interface to the native OS function or underlying library
  ISystemPlatform=interface
@@ -481,6 +488,8 @@ type
   procedure SetObj(mat:T3DMatrix); overload;
   // Set object position/scale/rotate
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
+  // Reset object matrix to default
+  procedure ResetObj;
   // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
   function MVPMatrix:T3DMatrix;
   function ProjMatrix:T3DMatrix;
@@ -1075,6 +1084,11 @@ var
  // Not thread-safe! Don't load atlases in one thread and create images in other thread
  procedure LoadAtlas(fname:string;scale:single=1.0);
 
+ // Load image from the specified file and create a Nine Patch object from it (image must be marked)
+ // Set scale factor to 2 if image has double resolution
+ function LoadNinePatch(fName:string;scale2x:boolean=false):TNinePatch;
+ function CreateNinePatch(image:TTexture;scale2x:boolean=false):TNinePatch;
+
  // Shortcuts to the texture manager
  function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
                 flags:integer=0;name:TTextureName=''):TTexture;
@@ -1105,7 +1119,7 @@ var
 
 implementation
 uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
- TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX;
+ TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX, Apus.Engine.NinePatch;
 
  function GetKeyEventScanCode(tag: cardinal): cardinal;
   begin
@@ -1333,6 +1347,20 @@ procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
 procedure LoadAtlas(fname:string;scale:single=1.0);
  begin
    Apus.Engine.ImageTools.LoadAtlas(fname,scale);
+ end;
+
+function LoadNinePatch(fName:string;scale2x:boolean=false):TNinePatch;
+ var
+  img:TTexture;
+ begin
+  img:=LoadImageFromFile(fName,liffAllowChange);
+  result:=CreateNinePatch(img,scale2x);
+ end;
+
+function CreateNinePatch(image:TTexture;scale2x:boolean=false):TNinePatch;
+ begin
+  result:=TCustomNinePatch.Create(image);
+  if scale2x then result.scaleFactor:=0.5;
  end;
 
 function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
