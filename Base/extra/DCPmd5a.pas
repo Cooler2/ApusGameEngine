@@ -53,7 +53,6 @@ procedure MD5(var data;size:integer;out hash:TMD5Hash);
    HashBuffer: array[0..63] of byte;
    fInitialized:boolean;
    a:array[0..15] of byte;
-   i:integer;
 
  function LRot32(a, b: longword): longword;
  begin

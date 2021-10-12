@@ -61,12 +61,7 @@ program TestMyServis;
 
 
 var
- sa:StringArr;
- t,c:cardinal;
- i,j:integer;
- a:array of cardinal;
- pb:PByte;
-
+ i:integer;
  testsFailed:boolean;
 
 procedure TestConversions;
@@ -216,11 +211,7 @@ procedure TestQuotes;
  procedure TestCompression;
   var
    date,baseDate:TDateTime;
-   st:string;
-   i:integer;
-   f:file;
-   buf,buf2:array of smallint;
-   dest:array of byte;
+   st:string8;
   begin
    writeln('== Test Compression ==');
    st:=LoadFileAsString(paramStr(1));
@@ -325,7 +316,7 @@ procedure TestQuotes;
   var
    hash:THash;
    i,j,v,k,n,m,errors:integer;
-   key:string;
+   key:String8;
    t,t2,t3:cardinal;
    ref:array of integer;
    vr,vr2,vr3:variant;
@@ -913,7 +904,7 @@ end;
    sa:StringArr;
    hash:TStrHash;
    key:string;
-   v,sum:integer;
+   i,v,sum:integer;
   begin
    writeln('== Test TStrHash ==');
    hash:=TStrHash.Create;
@@ -1355,11 +1346,9 @@ procedure TestMemoryStat;
 
  procedure TestTextUtils;
   var
-   i,j,k:integer;
+   i,k:integer;
    t:int64;
    w1,w2:WideString;
-   ia:IntArray;
-   sa:WStringArr;
   begin
 {   t:=MyTickCount;
    for i:=1 to 100000 do
@@ -1447,6 +1436,7 @@ procedure TestMemoryStat;
    res2:String16;
    res3:string;
   begin
+   {$IFDEF MSWINDOWS}
    CopyStrToClipboard(TEST);
    res1:=PasteStrFromClipboard;
    ASSERT(res1=TEST,'Clipboard test 1');
@@ -1458,6 +1448,7 @@ procedure TestMemoryStat;
    // Я не знаю почему в FPC тут творится какая-то дикая дичь
    res3:=PasteStrFromClipboardW;
    ASSERT(res3=TEST_S,'Clipboard test 3');
+   {$ENDIF}
    {$ENDIF}
   end;
 
@@ -1561,9 +1552,15 @@ procedure TestMemoryStat;
  procedure TestExecute;
   var
    output:AnsiString;
+   cmd:string;
   begin
    writeln('Test capture');
-   ExecAndCapture('cmd /C dir',output,1000);
+   {$IFDEF MSWINDOWS}
+   cmd:='cmd /C dir';
+   {$ELSE}
+   cmd:='ls';
+   {$ENDIF}
+   ExecAndCapture(cmd,output,1000);
    ASSERT(output<>'');
    writeln('OK: '#13#10+output);
   end;
@@ -1731,7 +1728,7 @@ procedure Test;
   SetBit(m,31); // The same code works in FPC if inlined, doesn't work if not inlined
  end;
 
-begin
+ begin
  SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
  try

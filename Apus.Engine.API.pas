@@ -6,7 +6,8 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors;
+ uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D,
+   Apus.Colors, Apus.EventMan;
 
 const
  // Image allocation flags (ai - AllocImage)
@@ -95,7 +96,7 @@ const
  toUnderline      =  $4000000; // Overrides font style flag
  toLetterSpacing  = $10000000; // Additional spacing between letters
 
- // GetFont style flags
+ // GetFont() style flags
  fsDontTranslate = 1; // Don't use UDict to translate strings
  fsNoHinting     = 2; // Disable hinting for vector fonts (good for large text)
  fsAutoHinting   = 4; // Force use of FT-autohinting (may produce better or more uniform results)
@@ -666,20 +667,22 @@ type
   next:PMultiTexLayer;
  end;
 
- // font handle structure: xxxxxxxx ssssssss yyyyyyyy 00ffffff (f - font object index, s - scale, x - realtime effects, y - renderable effects and styles)
+ // font handle structure: xxxxxxxx ssssssss yyyyyyyy 00ffffff (f - font object index, s - scale (percents), x - realtime effects, y - renderable effects and styles)
  TFontHandle=cardinal;
 
  // Text output, fonts (text protocol 2011)
  ITextDrawer=interface
-  // Fonts
-  function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
-  function LoadFont(font:array of byte;asName:string=''):string; overload; // возвращает имя шрифта
-  function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
+  // Load font data
+  function LoadFont(fname:string;asName:string=''):string; overload; // Returns name of the loaded font
+  function LoadFont(font:array of byte;asName:string=''):string; overload; // Returns name of the loaded font
+  // Get font handle (size=0 - default font size)
+  function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle;
+  // Change option on a font handle
   procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
   // Text output (use handle 0 for default font)
-  procedure Write(font:TFontHandle;x,y:integer;color:cardinal;st:String8;align:TTextAlignment=taLeft;
+  procedure Write(font:TFontHandle;x,y:single;color:cardinal;st:String8;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0);
-  procedure WriteW(font:TFontHandle;x,y:integer;color:cardinal;st:String16;align:TTextAlignment=taLeft;
+  procedure WriteW(font:TFontHandle;x,y:single;color:cardinal;st:String16;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0);
   // Measure text dimensions
   function Width(font:TFontHandle;st:String8):integer; // text width in pixels
@@ -691,8 +694,8 @@ type
   procedure ClearLink; // Clear current link (call before text render)
   function Link:integer; // get hyperlink under mouse (filled during text render)
   function LinkRect:TRect; // get active hyperlink rect
-  // Cache / misc
-  procedure BeginBlock; // optimize performance when drawing multiple text entries
+  // Cache text output
+  procedure BeginBlock(addOptions:cardinal=0); // optimize performance when drawing multiple text entries
   procedure EndBlock;   // finish buffering and perform actual render
   // Text render target
   procedure SetTarget(buf:pointer;pitch:integer); // set system memory target for text rendering (no clipping!)
@@ -704,9 +707,11 @@ type
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
   procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
   procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
-  procedure Rect(x1,y1,x2,y2:integer;color:cardinal);
-  procedure RRect(x1,y1,x2,y2:integer;color:cardinal;r:integer=2);
-  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal);
+  procedure Rect(x1,y1,x2,y2:integer;color:cardinal); overload;
+  procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
+  procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2);
+  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal); overload;
+  procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
   procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
   procedure FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean);
@@ -888,25 +893,35 @@ type
 
  TDebugFeature=(
    dfShowFPS,                 // Display frame rate
+   dfShowMagnifier,           // Magnifier (Alt+F3)
    dfShowGlyphCache,          // Display glyphs cache
    dfShowNavigationPoints     // Display gamepad navigation points
  );
 
+ // Hotkey used to toggle debug overlay mode
+ TDebugHotkey=(dhAltFx, dhCtrlAltFx);
+
   // Main game interface
  TGameBase=class
-  // Глобально доступные переменные
-  running:boolean;
+  // Global variables
+  running:boolean;     // true when main loop is running
   renderWidth,renderHeight:integer; // Size of render area in virtual pixels (primitive of this size fills the whole renderRect)
   displayRect:TRect;     // render area (inside window's client area) in screen pixels (default - full client area)
   screenWidth,screenHeight:integer; // real full screen size in pixels
   windowWidth,windowHeight:integer; // window client size in pixels
   screenDPI:integer;    // DPI according to system settings
-  active:boolean;       // Окно активно, цикл перерисовки выполняется
-  paused:boolean;       // Режим паузы (изначально сброшен, движком не изменяется и не используется)
-  terminated:boolean;   // Работа цикла завершена, можно начинать деинициализацию и выходить
-  screenChanged:boolean;      // Нужно ли перерисовывать экран (аналог результата onFrame, только можно менять в разных местах)
-  frameNum:integer;     // incremented per frame
+  active:boolean;       // true when window is visible and updated; when active is false frame is not rendered
+  paused:boolean;       // pause rendering regardless if window is active
+  terminated:boolean;   // true when main loop is finished
+  screenChanged:boolean;  // set this to true to request frame rendering regardless of scenes processing
+  frameNum:integer;     // increments every frame
   frameStartTime:int64; // MyTickCount when frame started
+  FPS,smoothFPS:single; // current and smoothed FPS
+
+  // Default (built-in) font handles (for debug overlays etc)
+  smallFont,defaultFont,largerFont:TFontHandle; // font sizes are selected according to the screen DPI
+  defaultLineHeight:integer; // line height (in pixels) for the default font
+  screenScale:single; // screen scale factor (depends on DPI, rounded) like 1.0, 1.5 etc
 
   // Input state:
   // Mouse
@@ -922,6 +937,8 @@ type
   // indexed by scancode (NOT virtual key code!)
   keyState:array[0..255] of byte;
 
+  debugHotkey:TDebugHotkey; // Hotkey used to toggle debug overlays (default - Alt+F1)
+
   gamepadNavigationMode:TGamepadNavigationMode; // used to enable gamepad (DPad) navigation over UI elements and user-defined objects
 
   // Text link (TODO: move out)
@@ -929,11 +946,7 @@ type
                      // TODO: плохо, что этот параметр глобальный, надо сделать его свойством сцен либо элементов UI, чтобы можно было проверять объект под мышью с учётом наложений
   textLinkRect:TRect; // область ссылки, по номеру textLink
 
-  FPS,smoothFPS:single;
-  showFPS:boolean;      // отображать FPS в углу экрана
-  showDebugInfo:integer; // Кол-во строк отладочной инфы
-
-  topmostScene:TGameScene;
+  topmostScene:TGameScene; // last topmost scene
   globalTintColor:cardinal; // multiplier (2X) for whole backbuffer ($FF808080 - neutral value)
 
   constructor Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
@@ -998,7 +1011,7 @@ type
   // Enable/disable debug overlays
   procedure DebugFeature(feature:TDebugFeature;enabled:boolean); virtual; abstract;
 
-  // Synchronization
+  // Synchronization (access to the internal critical section)
   // ---------------
   procedure EnterCritSect; virtual; abstract;
   procedure LeaveCritSect; virtual; abstract;
@@ -1023,9 +1036,14 @@ type
   function MouseWasInRect(r:TRect):boolean;overload; virtual; abstract;
   function MouseWasInRect(r:TRect2s):boolean; overload; virtual; abstract;
 
+  // Wait until pb^ is not false (not zero), toggle crWait cursor during waiting
+  procedure WaitFor(pb:PBoolean;msg:string=''); virtual; abstract;
+
   // Keyboard events utility functions
   procedure SuppressKbdEvent; virtual; abstract; // Suppress handling of the related keyboard event(s)
 
+  // Window control functions
+  // -----------------
   procedure Minimize; virtual; abstract;
   procedure MoveWindowTo(x, y, width, height: integer); virtual; abstract;
   procedure SetWindowCaption(text: string); virtual; abstract;
@@ -1033,7 +1051,7 @@ type
   // Gamepad navigation
   // This should be called every frame for each point that should be available for navigation
   // during the next frame
-  procedure DPadCustomPoint(x,y:integer); virtual; abstract;
+  procedure DPadCustomPoint(x,y:single); virtual; abstract;
  end;
 
  TDisplayModeHelper = record helper for TDisplayMode
@@ -1105,8 +1123,8 @@ var
  procedure Delay(time:integer);
 
  // Utility functions
- function GetKeyEventScanCode(tag:cardinal):cardinal; // Extract scancode form KBD\KeyXXX event
- function GetKeyEventVirtualCode(tag:cardinal):cardinal; // Extract virtual key code form KBD\KeyXXX event
+ function GetKeyEventScanCode(tag:TTag):cardinal; // Extract scancode form KBD\KeyXXX event
+ function GetKeyEventVirtualCode(tag:TTag):cardinal; // Extract virtual key code form KBD\KeyXXX event
 
  // Is mouse button pressed?
  function IsMouseBtn(btn:integer):boolean;
@@ -1121,12 +1139,12 @@ implementation
 uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
  TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX, Apus.Engine.NinePatch;
 
- function GetKeyEventScanCode(tag: cardinal): cardinal;
+ function GetKeyEventScanCode(tag: TTag): cardinal;
   begin
    result:=(tag shr 24) and $FF;
   end;
 
- function GetKeyEventVirtualCode(tag: cardinal): cardinal;
+ function GetKeyEventVirtualCode(tag: TTag): cardinal;
   begin
    result:=tag and $FFFF;
   end;
@@ -1136,6 +1154,7 @@ uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Eng
    game:=self;
    systemPlatform:=sysPlatform;
    gfx:=gfxSystem;
+   debugHotkey:=dhAltFx;
   end;
 
  procedure TTexture.CloneFrom(src:TTexture);

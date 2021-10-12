@@ -60,7 +60,8 @@ type
   procedure FLog(st:string); override;
   function GetStatus(n:integer):string; override;
   procedure FireMessage(st:string8); override;
-  procedure DebugFeature(feature:TDebugFeature;enabled:boolean); override;
+  procedure DebugFeature(feature:TDebugFeature;enable:boolean); override;
+  procedure ToggleDebugFeature(feature:TDebugFeature);
 
   procedure EnterCritSect; override;
   procedure LeaveCritSect; override;
@@ -80,6 +81,8 @@ type
   function MouseWasInRect(r:TRect):boolean; overload; override;
   function MouseWasInRect(r:TRect2s):boolean; overload; override;
 
+  procedure WaitFor(pb:PBoolean;msg:string=''); override;
+
   // Keyboard events utility functions
   procedure SuppressKbdEvent; override;
 
@@ -91,7 +94,7 @@ type
   procedure SetSettings(s:TGameSettings); override; // этот метод служит для изменения режима или его параметров
   function GetSettings:TGameSettings; override; // этот метод служит для изменения режима или его параметров
 
-  procedure DPadCustomPoint(x,y:integer); override;
+  procedure DPadCustomPoint(x,y:single); override;
 
  protected
   useMainThread:boolean; // true - launch "main" thread with main loop,
@@ -305,24 +308,37 @@ begin
         (params.altMode.displayMode<>dmNone) then
        SwitchToAltSettings;
 
-  // F12 or PrintScreen - screenshot (JPEG), Alt - (loseless)
-  if (keyCode=VK_SNAPSHOT) or (keyCode=VK_F12) then
-    RequestScreenshot(shiftState and sscAlt=0);
-
-  // Alt+[F1..F3] - debug overlays
-  if shiftState and sscAlt>0 then begin
-   case keyCode of
-    VK_F1:ToggleDebugOverlay(1);
-    VK_F2:ToggleDebugOverlay(2);
-    VK_F3:ToggleDebugOverlay(3);
-    VK_F11:begin
-     SetVSync(params.VSync xor 1); // toggle vsync
-     showFPS:=params.VSync=0;
-    end;
-   end;
+  // Alt+F11
+  if (keyCode=VK_F11) and HasFlag(shiftState,sscAlt) then begin
+    SetVSync(params.VSync xor 1); // toggle vsync
+    if params.VSync=0 then Include(debugFeatures,dfShowFPS)
+     else Exclude(debugFeatures,dfShowFPS);
   end;
 
-  // Shift+Alt+F1 - Create debug
+  // F12 or PrintScreen - screenshot (JPEG), Alt+F12 - (loseless)
+  if (keyCode=VK_SNAPSHOT) or (keyCode=VK_F12) then
+    RequestScreenshot(not HasFlag(shiftState,sscAlt));
+
+  if HasFlag(shiftState,sscAlt) then
+   if (debugHotKey=dhAltFx) or (debugHotkey=dhCtrlAltFx) and HasFlag(shiftState,sscCtrl) then begin
+    if keyCode=VK_F1 then begin
+      if debugOverlay=0 then begin
+       debugOverlay:=1;
+       DebugFeature(dfShowFPS,true);
+      end else begin
+       debugOverlay:=0;
+       debugFeatures:=[];
+      end;
+    end else
+    if keyCode=VK_F3 then
+      ToggleDebugFeature(dfShowMagnifier);
+   end;
+
+  // [Alt]+[1] .. [Alt]+[9] - switch debug overlay when enabled
+  if (debugOverlay>0) and (keyCode in [ord('1')..ord('9')]) and HasFlag(shiftState,sscAlt) then
+   debugOverlay:=1+keyCode-ord('1');
+
+  // Shift+Alt+F1 - Create debug logs
   if (keyCode=VK_F1) and
      (shiftState and sscAlt>0) and
      (shiftState and sscShift>0) then CreateDebugLogs;
@@ -553,7 +569,6 @@ begin
  fps:=0;
  SmoothFPS:=60;
  params.VSync:=1;
- ShowDebugInfo:=0;
  fillchar(keystate,sizeof(keystate),0);
  InitCritSect(crSect,'MainGameObj',20);
  // Primary display
@@ -561,8 +576,6 @@ begin
  screenDPI:=systemPlatform.GetScreenDPI;
  LogMessage('Screen: %dx%d DPI=%d',[screenWidth,screenHeight,screenDPI]);
 
- PublishVar(@showDebugInfo,'ShowDebugInfo',TVarTypeInteger);
- PublishVar(@showFPS,'showFPS',TVarTypeBool);
  SetLength(scenes,0);
  PublishVar(@renderWidth,'RenderWidth',TVarTypeInteger);
  PublishVar(@renderHeight,'RenderHeight',TVarTypeInteger);
@@ -601,7 +614,6 @@ destructor TGame.Destroy;
 begin
  if running then Stop;
  DeleteCritSect(crSect);
- UnpublishVar(@ShowDebugInfo);
  Inherited;
 end;
 
@@ -615,11 +627,11 @@ begin
  Signal('Engine\AfterDoneGraph');
 end;
 
-procedure TGame.DPadCustomPoint(x, y: integer);
+procedure TGame.DPadCustomPoint(x, y: single);
 begin
  EnterCritSect;
  try
-  customPoints:=customPoints+[Point(x,y)];
+  customPoints:=customPoints+[Point(round(x),round(y))];
  finally
   LeaveCritSect;
  end;
@@ -644,10 +656,10 @@ begin
   rawImage:=magnifierTex.GetRawImage;
   gfx.CopyFromBackbuffer(cx,renderHeight-cy,rawImage);
   rawImage.Free;
-  color:=GetPixel(64,64);
+  color:=GetPixel(64,63);
   magnifierTex.Unlock;
+  magnifierTex.SetFilter(fltNearest);
   gfx.shader.UseTexture(magnifierTex);
-  gfx.shader.TexMode(0,tblNone,tblNone,fltNearest);
   width:=min2(512,round(renderWidth*0.4));
   height:=min2(512,renderHeight);
   if mouseX<renderWidth div 2 then left:=renderWidth-width
@@ -685,6 +697,9 @@ begin
 end;
 
 procedure TGame.InitGraph;
+var
+ size:single;
+ baseDPI:integer;
 begin
  LogMessage('InitGraph');
  Signal('Engine\BeforeInitGraph');
@@ -707,11 +722,29 @@ begin
  InitDefaultRenderTarget;
  SetupRenderArea;
 
+ screenScale:=1.0;
+ if params.mode.displayScaleMode=dsmDontScale then begin
+   baseDPI:=96;
+   {$IFDEF ANDROID}
+    baseDPI:=192;
+   {$ENDIF}
+   {$IFDEF IOS}
+    baseDPI:=192;
+   {$ENDIF}
+   if screenDPI>0.95*baseDPI*1.2 then screenScale:=1.2;
+   if screenDPI>0.94*baseDPI*1.5 then screenScale:=1.5;
+   if screenDPI>0.93*baseDPI*2.0 then screenScale:=2.0;
+   if screenDPI>0.92*baseDPI*2.5 then screenScale:=2.5;
+ end;
+
  // Built-in fonts
  txt.LoadFont(defaultFont8);
  txt.LoadFont(defaultFont10);
  txt.LoadFont(defaultFont12);
- defaultFontHandle:=txt.GetFont('Default',2+0.25*(screenHeight+renderHeight)/screenDPI);
+ size:=2+0.07*screenDPI;
+ defaultFont:=txt.GetFont('Default',size);
+ smallFont:=txt.GetFont('Default',size*0.8);
+ largerFont:=txt.GetFont('Default',size*1.25);
 
  // Mouse cursors
  if params.showSystemCursor then begin
@@ -1240,11 +1273,19 @@ procedure TGame.onGamepadEvent(event:string;tag:NativeInt);
 var
  evt:TEventStr;
  btn:TConButtonType;
- procedure Navigate(nx,ny:integer);
+ conId:integer;
+ btnDown:boolean;
+ procedure Navigate(dragMode:boolean;nx,ny:integer);
   var
    i,dx,dy,d,best:integer;
    bestPnt:TPoint;
   begin
+   if dragMode then begin
+     bestPnt:=Point(mouseX+nx*20,mouseY+ny*20);
+     systemPlatform.ClientToScreen(bestPnt);
+     systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
+     exit;
+   end;
    EnterCritSect;
    try
     best:=100000;
@@ -1253,8 +1294,11 @@ var
       dx:=x-mouseX; dy:=y-mouseY;
       d:=dx*nx+dy*ny; // расстояние в направлении вектора (скалярное произведение)
       if d<=1 then continue;
-      d:=d+4*abs(dx*ny+dy*nx);
-      //if d<abs(dx*ny+dy*nx) then continue; // расстояние в перпендикулярном направлении больше?
+      // расстояние в перпендикулярном направлении больше?
+      if d<abs(dx*ny+dy*nx) then
+        d:=5000+round(sqrt(dx*dx+dy*dy)) // тогда просто ближайшая точка но со штрафом
+      else
+        d:=d+abs(dx*ny+dy*nx);
       if d<best then begin
        best:=d; bestPnt:=activeCustomPoints[i];
       end;
@@ -1272,11 +1316,14 @@ begin
  if (gamepadNavigationMode<>gnmDisabled) then begin
   if (EventOfClass(event,'GAMEPAD\BTNDOWN',evt)) then begin
    btn:=TConButtonType(ByteFromTag(tag,0));
+   conID:=ByteFromTag(tag,1);
+   with controllers[conID] do
+    btnDown:=GetButton(btButtonA) or GetButton(btButtonB);
    case btn of
-     btButtonDPadUp:Navigate(0,-1);
-     btButtonDPadDown:Navigate(0,1);
-     btButtonDPadLeft:Navigate(-1,0);
-     btButtonDPadRight:Navigate(1,0);
+     btButtonDPadUp:Navigate(btnDown,0,-1);
+     btButtonDPadDown:Navigate(btnDown,0,1);
+     btButtonDPadLeft:Navigate(btnDown,-1,0);
+     btButtonDPadRight:Navigate(btnDown,1,0);
      btButtonA,btButtonB:Signal('MOUSE\BTNDOWN',1);
    end;
   end else
@@ -1498,14 +1545,97 @@ end;
 
 procedure TGame.DrawOverlays;
 var
- font:cardinal;
- i,x,y:integer;
+ i,x,y,w,h:integer;
  feature:TDebugFeature;
+
+ procedure DrawHelp;
+  const
+   lines:array[1..12] of String8=(
+    'Hotkeys:',
+    '[Alt+F1] - show/hide debug overlays:',
+    '  [Alt+1] this help page',
+    '  [Alt+2] glyphs cache',
+    '  [Alt+3] scenes',
+    '',
+    '[Shift+Alt+F1] - dump debug logs',
+    '[Alt+F3] - toggle magnifier',
+    '[Win+~] - show console',
+    '[Alt+F11] - toggle VSync',
+    '[F12] - take a screenshot (JPEG)',
+    '[Alt+F12] - take a screenshot (PNG)');
+  var
+   i,y:integer;
+  begin
+   draw.FillRect(0,0,320*screenScale,(length(lines)+0.4)*18*screenScale,$80000000);
+   txt.BeginBlock;
+   y:=0;
+   for i:=1 to high(lines) do begin
+    inc(y,round(18*screenScale));
+    txt.Write(defaultFont,5,y,$FFFFFFFF,lines[i],taLeft,toDontTranslate);
+   end;
+   txt.EndBlock;
+  end;
+ procedure ListScenes;
+  var
+   i,n,y:integer;
+   c:cardinal;
+   sList:array of TGameScene;
+  begin
+   EnterCritSect;
+   try
+    n:=length(scenes);
+    SetLength(sList,n);
+    for i:=0 to high(scenes) do sList[i]:=scenes[i];
+   finally
+    LeaveCritSect;
+   end;
+   y:=0;
+   draw.FillRect(0,0,screenScale*360,(n+0.4)*screenScale*16,$80000000);
+   txt.BeginBlock(toDontTranslate);
+   for i:=0 to high(sList) do begin
+    inc(y,round(16*screenScale));
+    c:=$FFA0A0A0;
+    if sList[i].status=ssActive then begin
+     c:=$FFFFFFC0;
+     txt.WriteW(smallFont,50*screenScale,y,c,IntToStr(sList[i].zOrder),taRight);
+    end else
+    if sList[i].status=ssBackground then
+     c:=$FFC0D0E0;
+    txt.WriteW(smallFont,60*screenScale,y,c,sList[i].name);
+    txt.WriteW(smallFont,200*screenScale,y,c,sList[i].ClassName);
+    if sList[i].effect<>nil then
+     txt.WriteW(smallFont,360*screenScale,y,c,sList[i].effect.ClassName);
+   end;
+   txt.EndBlock;
+  end;
+ procedure ListUI;
+  begin
+
+  end;
 begin
  EnterCriticalSection(crSect);
  try
+  FLog('RDebug');
+  case debugOverlay of
+   1:DrawHelp;
+   2:txt.WriteW(MAGIC_TEXTCACHE,1,1,$FFFFFFFF,'');
+   3:ListScenes;
+   4:ListUI;
+  end;
+
   for feature in debugFeatures do
    case feature of
+    dfShowFPS:begin
+     w:=SRound(48*screenScale);
+     h:=SRound(36*screenScale);
+     x:=renderWidth-w; y:=1;
+     draw.FillRect(x,y,x+w-2,y+h,$80000000);
+     txt.WriteW(defaultFont,x+w-5,y+h*0.4,$FFFFFFFF,FloatToStrF(FPS,ffFixed,5,1),taRight);
+     txt.WriteW(defaultFont,x+w-5,y+h*0.9,$FFFFFFFF,FloatToStrF(SmoothFPS,ffFixed,5,1),taRight);
+    end;
+
+    dfShowMagnifier:DrawMagnifier;
+
     dfShowNavigationPoints:begin
       for i:=0 to high(activeCustomPoints) do
        with activeCustomPoints[i] do
@@ -1513,42 +1643,14 @@ begin
     end;
    end;
 
-  if (draw<>nil) and ((showDebugInfo>0) or (showFPS) or (debugOverlay>0)) then begin
-    FLog('RDebug');
-
-    if showDebugInfo>0 then begin
-     font:=txt.GetFont('Default',7);
-
-     txt.Write(font,10,20,$FFFFFFFF,inttostr(round(fps)));
-     if (showDebugInfo>1) then begin
-      txt.Write(font,10,40,$FFFFFFFF,gfx.resman.GetStatus(1));
-      txt.Write(font,10,60,$FFFFFFFF,gfx.resman.GetStatus(2));
-      txt.Write(font,10,80,$FFFFFFFF,GetStatus(1));
-     end;
-    end else
-     case debugOverlay of
-      2:gfx.DrawDebugOverlay(1); // painter's debug overlay
-      3:DrawMagnifier;
-     end;
-
-    if showFPS or (debugOverlay>0) then begin
-     x:=renderWidth-50; y:=1;
-     font:=txt.GetFont('Default',7);
-     draw.FillRect(x,y,x+48,y+30,$80000000);
-     txt.Write(font,x+45,y+10,$FFFFFFFF,FloatToStrF(FPS,ffFixed,5,1),taRight);
-     txt.Write(font,x+45,y+27,$FFFFFFFF,FloatToStrF(SmoothFPS,ffFixed,5,1),taRight);
-    end;
-  end;
-
   // Capture screenshot?
   if (capturedTime>0) and (MyTickCount<CapturedTime+3000) and (gfx<>nil) then begin
     x:=params.width div 2;
     y:=params.height div 2;
-    draw.FillRect(x-200,y-40,x+200,y+40,$60000000);
-    draw.Rect(x-200,y-40,x+200,y+40,$A0FFFFFF);
-    font:=txt.GetFont('Default',7);
-    txt.Write(font,x,y-24,$FFFFFFFF,'Screen captured to:',taCenter);
-    txt.Write(font,x,y+4,$FFFFFFFF,capturedName,Apus.Engine.API.taCenter);
+    draw.FillRect(x-200*screenScale,y-40*screenScale,x+200*screenScale,y+40*screenScale,$60000000);
+    draw.Rect(x-200*screenScale,y-40*screenScale,x+200*screenScale,y+40*screenScale,$A0FFFFFF);
+    txt.Write(largerFont,x,y-16*screenScale,$FFFFFFFF,'Screen captured to:',taCenter);
+    txt.Write(defaultFont,x,y+8*screenScale,$FFFFFFFF,capturedName,Apus.Engine.API.taCenter);
   end;
 
  finally
@@ -1635,7 +1737,7 @@ begin
   except
    on e:exception do CritMsg('RFrame3 '+ExceptionMsg(e));
   end;
-  topmostScene:=sc[n];
+  if n>0 then topmostScene:=sc[n];
  finally
   LeaveCriticalSection(crSect); // активные сцены вынесены в отдельный массив - их нельзя удалять в процессе отрисовки
  end;
@@ -1747,6 +1849,20 @@ begin
  end;
 end;
 
+procedure TGame.WaitFor(pb: PBoolean; msg: string);
+var
+ i:integer;
+begin
+ i:=0;
+ if msg='' then msg:=PtrToStr(GetCaller);
+ while not pb^ do begin
+  if i mod 10=0 then LogMessage('WaitFor '+msg);
+  ToggleCursor(crWait,true);
+  sleep(30);
+  ToggleCursor(crWait,false);
+ end;
+end;
+
 procedure TGame.MoveWindowTo(x, y, width, height: integer);
 begin
  systemPlatform.MoveWindowTo(x,y,width,height);
@@ -1776,11 +1892,18 @@ begin
  systemPlatform.SetWindowCaption(text);
 end;
 
-procedure TGame.DebugFeature(feature: TDebugFeature; enabled: boolean);
+procedure TGame.DebugFeature(feature: TDebugFeature; enable: boolean);
 begin
- if enabled then Include(debugFeatures,feature)
+ if enable then Include(debugFeatures,feature)
   else Exclude(debugFeatures,feature);
 end;
+
+procedure TGame.ToggleDebugFeature(feature:TDebugFeature);
+begin
+ if feature in debugFeatures then Exclude(debugFeatures,feature)
+  else Include(debugFeatures,feature);
+end;
+
 
 procedure TGame.ClientToGame(var p:TPoint);
  begin
@@ -1905,10 +2028,10 @@ function TGame.GetThreadResult(h: THandle): integer;
 var
  i:integer;
 begin
- result:=-2;
+ result:=-1; // not found
  EnterCriticalSection(RA_sect);
  try
- for i:=1 to 16 do
+ for i:=1 to high(threads) do
   if (threads[i]<>nil) and (threads[i].id=h) then begin
    if threads[i].running then result:=0  // еще выполняется
     else result:=threads[i].ReturnValue;
@@ -1928,7 +2051,7 @@ begin
  best:=0; t:=mytickcount;
  EnterCriticalSection(RA_Sect);
  try
- for i:=1 to 16 do
+ for i:=1 to high(threads) do
   if threads[i]=nil then begin best:=i; break; end
    else
     if (not threads[i].running) and (threads[i].FinishTime<t) then
@@ -1942,7 +2065,7 @@ begin
  threads[best].running:=true;
  threads[best].func:=threadFunc;
  threads[best].param:=param;
- if name='' then name:=inttohex(cardinal(threadFunc),8);
+ if name='' then name:=PtrToStr(threadFunc);
  threads[best].name:='RA_'+name;
  inc(LastThreadID);
  threads[best].id:=lastThreadID;

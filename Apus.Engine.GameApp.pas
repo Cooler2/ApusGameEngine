@@ -456,7 +456,14 @@ begin
  {$IFDEF SDLMIX}
  lib:=slSDL;
  {$ENDIF}
- InitSoundSystem(lib,systemPlatform.GetWindowHandle);
+ try
+  InitSoundSystem(lib,systemPlatform.GetWindowHandle);
+ except
+  on e:Exception do begin
+   ForceLogMessage('Sound initialization failed. Continue without sound. '+e.message);
+   ShowMessage('No sound available. See log for details.'#13#10'Press OK to continue without sound.','Sound system error');
+  end;
+ end;
 end;
 
 procedure EngineEventHandler(event:TEventStr;tag:TTag);
@@ -515,8 +522,6 @@ procedure TGameApplication.Run;
    ForceLogMessage('Running in cooperative mode')
   else
    ForceLogMessage('Running in exclusive mode');
-
-  if DebugMode then game.ShowDebugInfo:=3;
 
   SetEventHandler('ENGINE',EngineEventHandler);
 
@@ -638,7 +643,7 @@ begin
    slowmotion:=false;
    if noVSync then begin
     VSync:=0;
-    game.showFPS:=true;
+    game.DebugFeature(dfShowFPS,true);
    end else
     VSync:=1;
   end;

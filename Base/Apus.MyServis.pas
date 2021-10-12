@@ -110,7 +110,7 @@ interface
   PCriticalSection=^TMyCriticalSection;
   TMyCriticalSection=packed record
    crs:TRTLCriticalSection;
-   name:string;      // имя секции
+   name:String8;      // имя секции
    caller:UIntPtr;  // точка, из которой была попытка завладеть секцией
    owner:UIntPtr;   // точка, из которой произошел удачный захват секции
    {$IFNDEF MSWINDOWS}
@@ -513,7 +513,9 @@ interface
  // Fast consistent rounding, equivalent to SimpleRoundTo(x,0) i.e. 0.5->1, 1.5->2 etc. (NOT PRECISE!)
  function FRound(v:double):integer; inline;
  // Precise version of rounding (still quite fast)
- function PRound(v:double):integer; inline;
+ function PRound(v:double):integer; inline; overload;
+ // Single version of precise rounding
+ function SRound(v:single):integer; inline; overload;
 
  // Вычислить ломаную функцию, определенную на отрезке [0..256] имеющую пик (экстремум)
  // в точке arg и принимающую значения a, b и c (a и c - на концах отрезка, b - в экстремуме)
@@ -540,6 +542,15 @@ interface
  procedure ClearBit(var data:byte;index:integer); overload; inline;
  procedure ClearBit(var data:cardinal;index:integer); overload; inline;
  procedure ClearBit(var data:uint64;index:integer); overload; inline;
+
+ // Pack/unpack data
+ function PackBytes(b0,b1:byte):word; overload; inline;
+ function PackBytes(b0,b1,b2,b3:byte):cardinal; overload; inline;
+ function PackBytes(b0,b1,b2,b3,b4,b5,b6,b7:byte):UInt64; overload; inline;
+ function PackWords(w0,w1:word):cardinal; overload; inline;
+ function PackWords(w0,w1,w2,w3:word):UInt64; overload; inline;
+ function ExtractByte(data:cardinal;index:integer):byte; overload; inline;
+ function ExtractByte(data:UInt64;index:integer):byte; overload; inline;
 
  // Spline functions
  // ----------------------------------------
@@ -689,7 +700,7 @@ interface
  // level - используется только в отладочном режиме для проверки отсутствия циклов в графе захвата секций (чтобы гарантировать отсутствие блокировок)
  // Допускается входить в секцию с бОльшим уровнем будучи уже в секции с меньшим уровнем, но не наоборот.
  // Т.о. чем ниже уровень кода, тем ВЫШЕ должно быть значение level в секции, которой этот код оперирует
- procedure InitCritSect(var cr:TMyCriticalSection;name:string;level:integer=100); // Создать и зарегить критсекцию
+ procedure InitCritSect(var cr:TMyCriticalSection;name:String8;level:integer=100); // Создать и зарегить критсекцию
  procedure DeleteCritSect(var cr:TMyCriticalSection);
  procedure EnterCriticalSection(var cr:TMyCriticalSection;caller:pointer=nil);
  procedure LeaveCriticalSection(var cr:TMyCriticalSection);
@@ -967,20 +978,20 @@ function min2s(a,b:single):single; inline;
    result:=''; pb:=buf; ascii:='';
    for i:=1 to size do begin
     if hex then
-     result:=result+IntToHex(pb^,2)+' '
+     result:=result+FormatHex(pb^,2)+' '
     else
      result:=result+
-      chr($30+pb^ div 100)+
-      chr($30+(pb^ mod 100) div 10)+
-      chr($30+pb^ mod 10)+' ';
-    if pb^>=32 then ascii:=ascii+chr(pb^)
+      String8(AnsiChar($30+pb^ div 100))+
+      String8(AnsiChar($30+(pb^ mod 100) div 10))+
+      String8(AnsiChar($30+pb^ mod 10))+' ';
+    if pb^>=32 then ascii:=ascii+AnsiChar(pb^)
      else ascii:=ascii+'.';
     if i mod 16=8 then begin
      result:=result+' ';
      ascii:=ascii+' ';
     end;
     if i mod 16=0 then begin
-     result:=result+'   '+ascii+#13#10;
+     result:=result+String8('   ')+String8(ascii)+#13#10;
      ascii:='';
     end;
     inc(pb);
@@ -1215,7 +1226,7 @@ function min2s(a,b:single):single; inline;
      result:=-result;
      break;
     end;
-    if not (st[i] in ['0'..'9','A'..'F','a'..'f']) then continue;
+    if not CharInSet(st[i],['0'..'9','A'..'F','a'..'f']) then continue;
     result:=result+HexCharToInt(AnsiChar(st[i]))*v;
     v:=v*16;
    end;
@@ -1359,8 +1370,8 @@ function FormatHex(v:int64;digits:integer=0):String8;
    case v.VType of
     vtInteger:result:=IntToStr(v.VInteger);
     vtBoolean:result:=BoolToStr(v.VBoolean,true);
-    vtChar:result:=v.VChar;
-    vtString:result:=ShortString(v.VString^);
+    vtChar:result:=UnicodeString(v.VChar);
+    vtString:result:=UnicodeString(ShortString(v.VString^));
     vtAnsiString:result:=DecodeUTF8(String8(v.VAnsiString));
     vtExtended:result:=FloatToStrF(v.vExtended^,ffGeneral,12,0);
     vtVariant:result:=v.VVariant^;
@@ -1375,16 +1386,16 @@ function FormatHex(v:int64;digits:integer=0):String8;
  function VarToAStr(v:TVarRec):String8;
   begin
    case v.VType of
-    vtInteger:result:=IntToStr(v.VInteger);
+    vtInteger:result:=String8(IntToStr(v.VInteger));
     vtBoolean:result:=BoolToAStr(v.VBoolean);
     vtChar:result:=v.VChar;
     vtString:result:=ShortString(v.VString^);
     vtAnsiString:result:=String8(v.VAnsiString);
-    vtExtended:result:=FloatToStrF(v.vExtended^,ffGeneral,12,0);
-    vtVariant:result:=v.VVariant^;
-    vtWideChar:result:=v.VWideChar;
+    vtExtended:result:=String8(FloatToStrF(v.vExtended^,ffGeneral,12,0));
+    vtVariant:result:=String8(v.VVariant^);
+    vtWideChar:result:=String8(v.VWideChar);
     vtWideString:result:=EncodeUTF8(WideString(v.vWideString));
-    vtInt64:result:=IntToStr(v.vInt64^);
+    vtInt64:result:=String8(IntToStr(v.vInt64^));
     vtUnicodeString:result:=EncodeUTF8(UnicodeString(v.VUnicodeString));
     else raise EWarning.Create('Incorrect variable type: '+inttostr(v.vtype));
    end;
@@ -1402,13 +1413,13 @@ function FormatHex(v:int64;digits:integer=0):String8;
   begin
    result:=0; exp:=0; decPos:=0; ePos:=0;
    for i:=1 to length(st) do begin
-    if st[i] in ['.',','] then decPos:=i else
-    if st[i] in ['e','E'] then ePos:=i;
+    if CharInSet(st[i],['.',',']) then decPos:=i else
+    if CharInSet(st[i],['e','E']) then ePos:=i;
    end;
    if ePos>0 then begin
     i:=ePos+1;
     while i<=length(st) do begin
-     if st[i] in ['0'..'9'] then
+     if CharInSet(st[i],['0'..'9']) then
       exp:=exp*10+GetDigit(st[i]);
      inc(i);
     end;
@@ -1419,7 +1430,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
 
    if decPos>0 then begin
     while i>decPos do begin
-     if st[i] in ['0'..'9'] then
+     if CharInSet(st[i],['0'..'9']) then
       result:=result/10+GetDigit(st[i]);
      dec(i);
     end;
@@ -1429,7 +1440,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
 
    scale:=1;
    while i>0 do begin
-    if st[i] in ['0'..'9'] then begin
+    if CharInSet(st[i],['0'..'9']) then begin
      result:=result+GetDigit(st[i])*scale;
      scale:=scale*10;
     end else
@@ -1457,13 +1468,13 @@ function FormatHex(v:int64;digits:integer=0):String8;
   begin
    result:=0; exp:=0; decPos:=0; ePos:=0;
    for i:=1 to length(st) do begin
-    if st[i] in ['.',','] then decPos:=i else
-    if st[i] in ['e','E'] then ePos:=i;
+    if CharInSet(st[i],['.',',']) then decPos:=i else
+    if CharInSet(st[i],['e','E']) then ePos:=i;
    end;
    if ePos>0 then begin
     i:=ePos+1;
     while i<=length(st) do begin
-     if st[i] in ['0'..'9'] then
+     if CharInSet(st[i],['0'..'9']) then
       exp:=exp*10+GetDigit(st[i]);
      inc(i);
     end;
@@ -1474,7 +1485,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
 
    if decPos>0 then begin
     while i>decPos do begin
-     if st[i] in ['0'..'9'] then
+     if CharInSet(st[i],['0'..'9']) then
       result:=result/10+GetDigit(st[i]);
      dec(i);
     end;
@@ -1484,7 +1495,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
 
    scale:=1;
    while i>0 do begin
-    if st[i] in ['0'..'9'] then begin
+    if CharInSet(st[i],['0'..'9']) then begin
      result:=result+GetDigit(st[i])*scale;
      scale:=scale*10;
     end else
@@ -1516,13 +1527,13 @@ function FormatHex(v:int64;digits:integer=0):String8;
    end;
    if state=3 then // hex
     while i<=length(st) do begin
-     if st[i] in ['0'..'9','A'..'F','a'..'f'] then
+     if CharInSet(st[i],['0'..'9','A'..'F','a'..'f']) then
       result:=result shl 4+HexCharToInt(AnsiChar(st[i]));
      inc(i);
     end
    else
     while i<=length(st) do begin
-     if st[i] in ['0'..'9'] then
+     if CharInSet(st[i],['0'..'9']) then
       result:=result*10+(ord(st[i])-ord('0'));
      inc(i);
     end;
@@ -1545,13 +1556,13 @@ function FormatHex(v:int64;digits:integer=0):String8;
    end;
    if state=3 then // hex
     while i<=length(st) do begin
-     if st[i] in ['0'..'9','A'..'F','a'..'f'] then
+     if CharInSet(st[i],['0'..'9','A'..'F','a'..'f']) then
       result:=result shl 4+HexCharToInt(AnsiChar(st[i]));
      inc(i);
     end
    else
     while i<=length(st) do begin
-     if st[i] in ['0'..'9'] then
+     if CharInSet(st[i],['0'..'9']) then
       result:=result*10+(ord(st[i])-ord('0'));
      inc(i);
     end;
@@ -1571,7 +1582,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
     if (st[i]='-') and (result[cnt]=0) then begin
      neg:=true; continue;
     end;
-    if st[i] in ['0'..'9'] then result[cnt]:=result[cnt]*10+(ord(st[i])-ord('0'))
+    if CharInSet(st[i],['0'..'9']) then result[cnt]:=result[cnt]*10+(ord(st[i])-ord('0'))
     else
     if st[i]<=' ' then continue
     else begin
@@ -2056,7 +2067,7 @@ procedure SimpleEncrypt2;
    SetLength(result,p);
   end;
 
- function EncodeB64;
+ function EncodeB64(data:pointer;size:integer):String8;
   var
    i:integer;
    sour,dest,offset:byte;
@@ -2073,13 +2084,13 @@ procedure SimpleEncrypt2;
     dest:=byte(dest shl 1) or byte(sour and 1);
     sour:=sour shr 1;
     if i mod 6=5 then begin
-     result:=result+AnsiChar(64+dest);
+     result:=result+String8(AnsiChar(64+dest));
      dest:=0;
     end;
    end;
    if (size*8-1) mod 6<>5 then begin
     offset:=(length(result)+1)*6-size*8;
-    result:=result+AnsiChar(64+dest shl offset);
+    result:=result+String8(AnsiChar(64+dest shl offset));
    end;
   end;
 
@@ -2857,7 +2868,7 @@ procedure SimpleEncrypt2;
     inc(result,state.smallBlockTypeStates[i].AllocatedBlockCount*
      state.smallBlockTypeStates[i].UseableBlockSize);
    end;
-   result:=result+state.TotalAllocatedMediumBlockSize+state.TotalAllocatedLargeBlockSize;
+   result:=result+int64(state.TotalAllocatedMediumBlockSize+state.TotalAllocatedLargeBlockSize);
   end;
 {$ELSE}
   begin
@@ -3226,6 +3237,12 @@ function BinToStr;
     else result:=trunc(v-0.5);
   end;
 
+ function SRound(v:single):integer; inline;
+  begin
+   if v>0 then result:=trunc(v+0.5)
+    else result:=trunc(v-0.5);
+  end;
+
  // Return value of pike function
  function Pike(x,arg,a,b,c:integer):integer;
   begin
@@ -3245,15 +3262,15 @@ function BinToStr;
 
  function HasFlag(v:uint64;flag:uint64):boolean; overload; inline;
   begin
-   result:=v and flag>0;
+   result:=v and flag=flag;
   end;
  function HasFlag(v:cardinal;flag:cardinal):boolean; overload; inline;
   begin
-   result:=v and flag>0;
+   result:=v and flag=flag;
   end;
  function HasFlag(v:byte;flag:byte):boolean; overload; inline;
   begin
-   result:=v and flag>0;
+   result:=v and flag=flag;
   end;
 
  procedure SetFlag(var v:uint64;flag:uint64;value:boolean=true); overload;
@@ -3318,6 +3335,49 @@ function BinToStr;
   begin
    data:=data and not (1 shl index);
   end;
+
+ function PackBytes(b0,b1:byte):word; overload; inline;
+  begin
+   result:=b0+word(b1) shl 8;
+  end;
+ function PackBytes(b0,b1,b2,b3:byte):cardinal; overload; inline;
+  begin
+   result:=b0+cardinal(b1) shl 8+cardinal(b2) shl 16+cardinal(b3) shl 24;
+  end;
+ function PackBytes(b0,b1,b2,b3,b4,b5,b6,b7:byte):UInt64; overload; inline;
+  var
+   b:array[0..7] of byte;
+   r:UInt64 absolute b;
+  begin
+   b[0]:=b0; b[1]:=b1;
+   b[2]:=b2; b[3]:=b3;
+   b[4]:=b4; b[5]:=b5;
+   b[6]:=b6; b[7]:=b7;
+   result:=r;
+  end;
+ function PackWords(w0,w1:word):cardinal; overload; inline;
+  begin
+   result:=w0+w1 shl 16;
+  end;
+ function PackWords(w0,w1,w2,w3:word):UInt64; overload; inline;
+  var
+   w:array[0..3] of word;
+   r:UInt64 absolute w;
+  begin
+   w[0]:=w0; w[1]:=w1;
+   w[2]:=w2; w[3]:=w3;
+   result:=r;
+  end;
+
+ function ExtractByte(data:cardinal;index:integer):byte; overload; inline;
+  begin
+   result:=byte(data shr (index*8));
+  end;
+ function ExtractByte(data:UInt64;index:integer):byte; overload; inline;
+  begin
+   result:=byte(data shr (index*8));
+  end;
+
 
  function SatSpline(x:single;a,b,c:integer):byte;
   var
@@ -4479,9 +4539,9 @@ function BinToStr;
    data:array of char;
   begin
    if LogFileName='' then exit;
-   if cacheBuf='' then exit;
    MyEnterCriticalSection(crSection);
    try
+    if cacheBuf='' then exit;
     try
      IntFlushLog;
     except
@@ -4518,7 +4578,7 @@ function BinToStr;
    s2:=StrAlloc(length(caption)+1);
    StrPCopy(s1,text);
    StrPCopy(s2,caption);
-   result:=MessageBox(WindowHandle,s1,s2,flags);
+   result:=MessageBox(WindowHandle,s1,s2,flags+MB_SYSTEMMODAL);
    StrDispose(s1);
    StrDispose(s2);
    {$ENDIF}
@@ -5218,12 +5278,12 @@ begin
  {$ENDIF}
 end;
 
-constructor TBaseException.Create(const msg:string; fields:array of const);
+constructor TBaseException.Create(const msg:String; fields:array of const);
 begin
  Create(Format(msg,fields));
 end;
 
-procedure InitCritSect(var cr:TMyCriticalSection;name:string;level:integer=100); //
+procedure InitCritSect(var cr:TMyCriticalSection;name:String8;level:integer=100); //
  begin
   MyEnterCriticalSection(crSection);
   try

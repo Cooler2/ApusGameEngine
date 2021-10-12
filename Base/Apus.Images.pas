@@ -41,7 +41,9 @@ type
                    ipfXBGR,     // 32bpp
                    ipfMono8,    // 1-channel 8 bit image (grayscale or red)
                    ipfDuo8,     // 2-channels 8 bit image (for example, red-green)
-                   ipfMono16,   // 1-channel 16 bit image (grayscale or red)
+                   ipfMono16,   // 1-channel 16 bit image (grayscale or red) - unsigned normalized
+                   ipfMono16s,  // 1-channel 16 bit image (grayscale or red) - signed normalized
+                   ipfMono16i,  // 1-channel 16 bit image (grayscale or red) - signed non-normalized integer
                    ipf32bpp);   // generic 32bpp: XRGB or ARGB
 
  // Форматы представления палитры
@@ -145,7 +147,7 @@ type
 
  const
   // Размер пикселя в битах
-  pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,16,16,32);
+  pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,16,16,16,16,32);
   palEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
 
  procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;count:integer;

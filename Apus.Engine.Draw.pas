@@ -18,9 +18,11 @@ interface
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
   procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
   procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
-  procedure Rect(x1,y1,x2,y2:integer;color:cardinal);
-  procedure RRect(x1,y1,x2,y2:integer;color:cardinal;r:integer=2);
-  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal);
+  procedure Rect(x1,y1,x2,y2:integer;color:cardinal); overload;
+  procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
+  procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2);
+  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal); overload;
+  procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
   procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
   procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal);
@@ -666,12 +668,17 @@ begin
  renderDevice.Draw(LINE_STRIP,4,@vrt,TVertex.layoutTex);
 end;
 
+procedure TDrawer.Rect(x1,y1,x2,y2:single;color:cardinal);
+begin
+ Rect(SRound(x1),SRound(y1),SRound(x2),SRound(y2),color);
+end;
+
 procedure TDrawer.Reset;
 begin
 
 end;
 
-procedure TDrawer.RRect(x1,y1,x2,y2:integer;color:cardinal;r:integer=2);
+procedure TDrawer.RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2);
 var
  vrt:array[0..8] of TVertex;
 begin
@@ -739,6 +746,11 @@ begin
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
+procedure TDrawer.FillRect(x1, y1, x2, y2: single; color: cardinal);
+begin
+ FillRect(SRound(x1),SRound(y1),SRound(x2),SRound(y2),color);
+end;
+
 procedure TDrawer.ShadedRect(x1, y1, x2, y2, depth: integer; light,
   dark: cardinal);
 var
@@ -746,7 +758,7 @@ var
  i:integer;
  b1,b2:PByte;
 begin
- ASSERT((depth>=1) and (depth<=3));
+ ASSERT((depth>=1) and (depth<=4),'depth='+IntToStr(depth));
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
  shader.UseTexture(neutral);
  inc(x1,depth-1); inc(y1,depth-1);

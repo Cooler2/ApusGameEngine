@@ -38,12 +38,12 @@ interface
 
    function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
    function LoadFont(font:array of byte;asName:string=''):string; overload; // возвращает имя шрифта
-   function GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
+   function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
    procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
    // Text output
-   procedure Write(font:TFontHandle;x,y:integer;color:cardinal;st:String8;align:TTextAlignment=taLeft;
+   procedure Write(font:TFontHandle;x,y:single;color:cardinal;st:String8;align:TTextAlignment=taLeft;
       options:integer=0;targetWidth:integer=0;query:cardinal=0);
-   procedure WriteW(font:TFontHandle;x,y:integer;color:cardinal;st:String16;align:TTextAlignment=taLeft;
+   procedure WriteW(font:TFontHandle;xx,yy:single;color:cardinal;st:String16;align:TTextAlignment=taLeft;
       options:integer=0;targetWidth:integer=0;query:cardinal=0);
    // Measure text dimensions
    function Width(font:TFontHandle;st:String8):integer; // text width in pixels
@@ -56,7 +56,7 @@ interface
    function Link:integer; // get hyperlink under mouse (filled during text render)
    function LinkRect:TRect; // get active hyperlink rect
    // Cache / misc
-   procedure BeginBlock; // optimize performance when drawing multiple text entries
+   procedure BeginBlock(addOptions:cardinal=0); // optimize performance when drawing multiple text entries
    procedure EndBlock;   // finish buffering and perform actual render
    // Text render target
    procedure SetTarget(buf:pointer;pitch:integer); // set system memory target for text rendering (no clipping!)
@@ -64,6 +64,7 @@ interface
    fonts:array[1..32] of TObject;
 
    textCaching:boolean;  // cache draw operations
+   textBlockOptions:cardinal; // block-level options to add
 
    txtBuf:array of TVertex;
    txtInd:array of word;
@@ -75,6 +76,7 @@ interface
    textBufferBitmap:pointer;
    textBufferPitch:integer;
 
+   procedure CreateTextCache;
    procedure FlushTextCache;
   end;
 
@@ -92,7 +94,7 @@ interface
   curTextLinkRect:TRect;
 
   textDrawer:TTextDrawer;
-  defaultFontHandle:cardinal;
+  defaultFontHandle:cardinal; // first loaded font (unless overriden), used to substitute 0-handle
 
 implementation
  uses Apus.MyServis,
@@ -179,7 +181,7 @@ function TTextDrawer.LoadFont(fName:string;asName:string=''):string;
   end else begin
    {$IFDEF FREETYPE}
    ftf:=TFreeTypeFont.LoadFromFile(FileName(fname));
-   for i:=1 to 32 do
+   for i:=1 to high(fonts) do
     if fonts[i]=nil then begin
      fonts[i]:=ftf;
      if asName<>'' then ftf.faceName:=asName;
@@ -205,22 +207,23 @@ function TTextDrawer.LoadFont(font:array of byte;asName:string=''):string;
 var
  i:integer;
 begin
- for i:=1 to 32 do
+ for i:=1 to high(fonts) do
   if fonts[i]=nil then begin
    fonts[i]:=TUnicodeFontEx.LoadFromMemory(font,true);
    if asName<>'' then TUnicodeFontEx(fonts[i]).header.fontName:=asName;
    result:=TUnicodeFontEx(fonts[i]).header.FontName;
    if defaultFontHandle=0 then
-    defaultFontHandle:=GetFont(result);
+    defaultFontHandle:=100 shl 16+i;
    exit;
   end;
 end;
 
-function TTextDrawer.GetFont(name:string;size:single=0.0;flags:integer=0;effects:byte=0):cardinal;
+function TTextDrawer.GetFont(name:string;size:single;flags:integer=0;effects:byte=0):cardinal;
 var
  i,best,rate,bestRate,matchRate:integer;
  realsize,scale:single;
 begin
+ ASSERT(size>0);
  best:=0; bestRate:=0;
  realsize:=size;
  matchRate:=800;
@@ -299,10 +302,11 @@ begin
  TextBufferPitch:=pitch;
 end;
 
-procedure TTextDrawer.BeginBlock;
+procedure TTextDrawer.BeginBlock(addOptions:cardinal=0);
 begin
  if not textCaching then begin
   textCaching:=true;
+  textBlockOptions:=addOptions;
  end;
 end;
 
@@ -315,9 +319,9 @@ constructor TTextDrawer.Create;
  var
   i:integer;
   pw:^word;
-  format:TImagePixelFormat;
  begin
   textDrawer:=self;
+  textCache:=nil;
   txt:=self;
 
   SetLength(txtBuf,4*MaxGlyphBufferCount);
@@ -334,25 +338,35 @@ constructor TTextDrawer.Create;
 
   txtVertCount:=0;
   textCaching:=false;
-  if glyphCache=nil then glyphCache:=TDynamicGlyphCache.Create(textCacheWidth-96,textCacheHeight);
-  if altGlyphCache=nil then begin
-   altGlyphCache:=TDynamicGlyphCache.Create(96,textCacheHeight);
-   altGlyphCache.relX:=textCacheWidth-96;
-  end;
-
-  // Adjust text cache texture size
-  i:=gfx.target.width*gfx.target.height; // screen pixels
-  if i>2500000 then textCacheHeight:=max2(textCacheHeight,1024);
-  if i>3500000 then textCacheWidth:=max2(textCacheWidth,1024);
-  if TXT_TEXTURE_8BIT then format:=ipfA8
-   else format:=ipfARGB;
-  textCache:=AllocImage(textCacheWidth,textCacheHeight,format,aiTexture,'textCache');
-  if format=ipfARGB then textCache.Clear($808080);
  end;
 
 destructor TTextDrawer.Destroy;
  begin
 
+ end;
+
+procedure TTextDrawer.CreateTextCache;
+ var
+  i,w:integer;
+  format:TImagePixelFormat;
+ begin
+  // Adjust text cache texture size
+  i:=gfx.target.width*gfx.target.height; // screen pixels
+  if i>2500000 then textCacheHeight:=max2(textCacheHeight,1024);
+  if i>3500000 then textCacheWidth:=max2(textCacheWidth,1024);
+  //if i>5500000 then textCacheHeight:=max2(textCacheHeight,2048);
+  if TXT_TEXTURE_8BIT then format:=ipfA8
+   else format:=ipfARGB;
+  textCache:=AllocImage(textCacheWidth,textCacheHeight,format,aiTexture,'textCache');
+  if format=ipfARGB then textCache.Clear($808080);
+  LogMessage('TextCache: %d x %d, %s',[textCacheWidth,textCacheHeight,PixFmt2Str(format)]);
+
+  w:=textCacheWidth div 8+textCacheWidth div 16;
+  if glyphCache=nil then glyphCache:=TDynamicGlyphCache.Create(textCacheWidth-w,textCacheHeight);
+  if altGlyphCache=nil then begin
+   altGlyphCache:=TDynamicGlyphCache.Create(w,textCacheHeight);
+   altGlyphCache.relX:=textCacheWidth-w;
+  end;
  end;
 
 procedure TTextDrawer.EndBlock;
@@ -436,16 +450,17 @@ begin
   raise EWarning.Create('FH 1');
 end;
 
-procedure TTextDrawer.Write(font:cardinal;x,y:integer;color:cardinal;st:string8;
+procedure TTextDrawer.Write(font:cardinal;x,y:single;color:cardinal;st:string8;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
 begin
  WriteW(font,x,y,color,Str16(st),align,options,targetWidth,query);
 end;
 
 
-procedure TTextDrawer.WriteW(font:cardinal;x,y:integer;color:cardinal;st:string16;
+procedure TTextDrawer.WriteW(font:cardinal;xx,yy:single;color:cardinal;st:string16;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
 var
+ x,y,ofs:integer;
  width:integer; //text width in pixels
  uniFont:TUnicodeFontEx;
  ftFont:TFreeTypeFont;
@@ -1097,11 +1112,17 @@ var
   end;
 
 begin // -----------------------------------------------------------
-  // Special value to display font cache texture
+ if textCache=nil then CreateTextCache;
+ x:=SRound(xx); y:=SRound(yy);
+ // Special value to display font cache texture
  if font=MAGIC_TEXTCACHE then begin
   draw.FillRect(x,y,x+textCache.width,y+textCache.height,$FF000000);
-  draw.Image(x,y,textCache,$FFFFFFFF); exit;
+  draw.Image(x,y,textCache,$FFFFFFFF);
+  exit;
  end;
+
+ if textCaching then options:=options or textBlockOptions;
+
  if font=0 then font:=defaultFontHandle;
  // Empty or too long string
  if (length(st)=0) or (length(st)>1000) then exit;
@@ -1118,7 +1139,8 @@ begin // -----------------------------------------------------------
  // Special option: draw twice with offset
  if options and toWithShadow>0 then begin
   options:=options xor toWithShadow;
-  WriteW(font,x+1,y+1,color and $FE000000 shr 1,st,align,options,targetWidth);
+  ofs:=Max2(1,round(Height(font)/12));
+  WriteW(font,x+ofs,y+ofs,color and $FE000000 shr 1,st,align,options,targetWidth);
   WriteW(font,x,y,color,st,align,options,targetWidth);
   exit;
  end;
