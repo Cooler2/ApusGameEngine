@@ -198,6 +198,7 @@
     </SearchPaths>
     <Conditionals Value="DELPHI"/>
     <Parsing>
+      <Style Value="1"/>
       <SyntaxOptions>
         <SyntaxMode Value="Delphi"/>
         <IncludeAssertionCode Value="True"/>
@@ -213,6 +214,9 @@
       </Optimizations>
     </CodeGeneration>
     <Linking>
+      <Debugging>
+        <DebugInfoType Value="dsDwarf3"/>
+      </Debugging>
       <LinkSmart Value="True"/>
     </Linking>
   </CompilerOptions>
