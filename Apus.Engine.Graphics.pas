@@ -321,8 +321,14 @@ procedure TTransformationAPI.SetObj(oX, oY, oZ, scale, yaw, roll,
   // rotation
   if (yaw<>0) or (roll<>0) or (pitch<>0) then
    m:=MatrixFromYawRollPitch4(yaw,roll,pitch)
-  else
+  else begin
+   if scale=1 then begin
+    // translation only
+    SetObj(TranslationMat4(ox,oy,oz));
+    exit;
+   end;
    m:=IdentMatrix4;
+  end;
   // scale
   if scale<>1 then
    for i:=0 to 2 do
