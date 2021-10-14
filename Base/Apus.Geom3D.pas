@@ -248,10 +248,8 @@ interface
  function IntersectTrgLine(A,B,C,O,T:PPoint3s;var pb,pc,d:double):boolean;
 
 implementation
- uses Apus.CrossPlatform,SysUtils,Math,Apus.Geom2D;
+ uses Apus.CPU,Apus.CrossPlatform,SysUtils,Math,Apus.Geom2D;
 
- var
-  sse,sse2,sse3,ssse3,sse4:boolean;
 
  function Point3(x,y,z:double):TPoint3; overload; inline;
   begin
@@ -1311,25 +1309,6 @@ constructor TQuaternionS.Init(x, y, z, w: single);
  end;
 
 initialization
- // Определение поддержки SSE
- {$IFDEF CPU386}
- asm
-  pushad
-  mov eax,1
-  cpuid
-  mov fSet1,edx
-  mov fSet2,ecx
-  popad
- end;
- sse:=fset1 and $2000000>0;
- sse2:=fset1 and $4000000>0;
- sse3:=fset2 and 1>0;
- ssse3:=fSet2 and $200>0;
- sse4:=fSet2 and $180000>0;
- {$ENDIF}
- {$IFDEF CPUx64}
- sse:=true;
- {$ENDIF}
 // m:=RotationAroundVector(Vector3(0,1,0),1);
 
 end.
