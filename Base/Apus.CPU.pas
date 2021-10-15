@@ -21,13 +21,17 @@ type
  end;
 var
  cpu:TCPU;
+ v:byte;
 
  //procedure SetSSERoundMode();
 
 implementation
-
  procedure CheckCPU;
   {$IF Defined(CPUx64) or Defined(CPUX86_64) or Defined(CPUx86)}
+  {$IFDEF CPUx86}
+  const
+   rip = 0;
+  {$ENDIF}
   asm
    {$IFDEF CPUx86}
    push ebx
@@ -43,53 +47,53 @@ implementation
    cpuid
    // AVX2
    bt ebx,5
-   adc cpu.avx2,0
+   adc [rip+cpu.avx2],0
    // BMI1
    bt ebx,3
-   adc cpu.bmi1,0
+   adc [rip+cpu.bmi1],0
    // BMI2
    bt ebx,8
-   adc cpu.bmi2,0
+   adc [rip+cpu.bmi2],0
 
 @01:
    mov eax,1
    cpuid
-   mov cpu.version,eax
-   mov cpu.flags1,edx
-   mov cpu.flags2,ecx
+   mov [rip+cpu.version],eax
+   mov [rip+cpu.flags1],edx
+   mov [rip+cpu.flags2],ecx
    // MMX
    bt edx,23
-   adc cpu.mmx,0
+   adc [rip+cpu.mmx],0
    // SSE
    bt edx,25
-   adc cpu.sse,0
+   adc [rip+cpu.sse],0
    // SSE2
    bt edx,26
-   adc cpu.sse2,0
+   adc [rip+cpu.sse2],0
    // SSE3
    bt ecx,0
-   adc cpu.sse3,0
+   adc [rip+cpu.sse3],0
    // SSSE3
    bt ecx,9
-   adc cpu.ssse3,0
+   adc [rip+cpu.ssse3],0
    // SSE4
    bt ecx,19
-   adc cpu.sse4,0
+   adc [rip+cpu.sse4],0
    // SSE42
    bt ecx,20
-   adc cpu.sse42,0
+   adc [rip+cpu.sse42],0
    // AVX
    bt ecx,28
-   adc cpu.avx,0
+   adc [rip+cpu.avx],0
    // AES
    bt ecx,25
-   adc cpu.aes,0
+   adc [rip+cpu.aes],0
    // RDRAND
    bt ecx,30
-   adc cpu.rdrand,0
+   adc [rip+cpu.rdrand],0
    // HYPERVISOR
    bt ecx,31
-   adc cpu.hypervisor,0
+   adc [rip+cpu.hypervisor],0
 
    {$IFDEF CPUx86}
    pop ebx
