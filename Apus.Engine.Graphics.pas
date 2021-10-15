@@ -140,41 +140,10 @@ var
  // Build vertex layout descriptor from fields offset (in bytes)
  // Pass 0 for unused (absent) fields (except position - it is always used)
  // Pass >=255 for position to use 2D position vectors
- function BuildVertexLayout(position,normal,color,uv1,uv2:integer):TVertexLayout;
+ //function BuildVertexLayout(position,normal,color,uv1,uv2:integer):TVertexLayout;
 
 implementation
  uses Math, Apus.MyServis, Apus.Geom3D, Apus.Geom2D;
-
- function BuildVertexLayout(position,normal,color,uv1,uv2:integer):TVertexLayout;
-  var
-   size:integer;
-  function Field(idx,value:integer):cardinal;
-   begin
-    ASSERT(value and 3=0);
-    ASSERT(value<64);
-    result:=(value shr 2) shl (idx*4);
-    if value>0 then
-     case idx of
-      1:inc(size,3);
-      2:inc(size,1);
-      3:inc(size,2);
-      4:inc(size,2);
-     end;
-   end;
-  begin
-   if position>=255 then begin
-    position:=60;
-    size:=2;
-   end else
-    size:=3;
-   result.layout:=
-     Field(0,position)+
-     Field(1,normal)+
-     Field(2,color)+
-     Field(3,uv1)+
-     Field(4,uv2);
-   result.stride:=size*4;
-  end;
 
 { TTransformationsAPI }
 

@@ -7,7 +7,7 @@
 unit Apus.Engine.API;
 interface
  uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D,
-   Apus.Colors, Apus.EventMan;
+   Apus.Colors, Apus.EventMan, Apus.VertexLayout;
 
 const
  // Image allocation flags (ai - AllocImage)
@@ -160,17 +160,7 @@ type
 
  TRect2s = Apus.Geom2D.TRect2s;
 
- // Packed description of the vertex layout
- // [0:3] - position (vec3s) (if offset=15 then position is vec2s at offset=0)
- // [4:7] - normal (vec3s)
- // [8:11]  - color (vec4b)
- // [12:15] - uv1 (vec2s)
- TVertexLayout=record
-  layout:cardinal;
-  stride:integer;
-  procedure Init(position,normal,color,uv1,uv2:integer);
-  function Equals(l:TVertexLayout):boolean; inline;
- end;
+ TVertexLayout=Apus.VertexLayout.TVertexLayout;
 
  // Packed ARGB color
  TARGBColor=Apus.Colors.TARGBColor;
@@ -655,6 +645,7 @@ type
   procedure AddTrg(v0,v1,v2:integer);
   procedure Draw(tex:TTexture=nil); // draw whole mesh
   destructor Destroy; override;
+  function DumpVertex(n:cardinal):String8;
  private
   vData:PByte;
   idx:integer;
@@ -1471,6 +1462,12 @@ procedure TMesh.AddVertex(var vertexData);
   inc(vData,layout.stride);
  end;
 
+function TMesh.DumpVertex(n:cardinal):String8;
+ begin
+  ASSERT(n<vCount);
+ // result:=Format('',[]
+ end;
+
 constructor TMesh.Create(vertexLayout: TVertexLayout; vertCount, indCount: integer);
  begin
   layout:=vertexLayout;
@@ -1535,7 +1532,7 @@ class function TVertex2t.Layout:TVertexLayout;
   v:PVertex2t;
  begin
   v:=nil;
-  result:=BuildVertexLayout(0,0,integer(@v.color),integer(@v.u),integer(@v.u2));
+  result.Init(0,0,integer(@v.color),integer(@v.u),integer(@v.u2));
   ASSERT(result.stride=sizeof(TVertex2t));
  end;
 
@@ -1546,7 +1543,7 @@ class function TVertex3D.Layout:TVertexLayout;
   v:PVertex3D;
  begin
   v:=nil;
-  result:=BuildVertexLayout(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
+  result.Init(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
   result.stride:=Sizeof(TVertex3D);
  end;
 
@@ -1573,22 +1570,10 @@ class function TShader.VectorFromColor3(color: cardinal): TVector3s;
   result.z:=c.b/255;
  end;
 
-{ TVertexLayout }
-
-function TVertexLayout.Equals(l: TVertexLayout): boolean;
- begin
-  result:=(l.layout=layout) and (l.stride=stride);
- end;
-
-procedure TVertexLayout.Init(position, normal, color, uv1, uv2: integer);
- begin
-  self:=BuildVertexLayout(position,normal,color,uv1,uv2);
- end;
-
 initialization
  PublishFunction('GetFont',fGetFontHandle);
- TVertex.layoutTex:=BuildVertexLayout(0,0,12,16,0); // color and uv1
+ TVertex.layoutTex.Init(0,0,12,16,0); // color and uv1
  TVertex.layoutTex.stride:=Sizeof(TVertex);
- TVertex.layoutNoTex:=BuildVertexLayout(0,0,12,0,0); // color only
+ TVertex.layoutNoTex.Init(0,0,12,0,0); // color only
  TVertex.layoutNoTex.stride:=Sizeof(TVertex);
 end.
