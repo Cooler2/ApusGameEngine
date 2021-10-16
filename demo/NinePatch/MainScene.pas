@@ -87,12 +87,37 @@ procedure TMainScene.CreateUI;
 
 
 procedure TMainScene.Render;
+ var
+  i,w,h:integer;
  begin
   // 1. Draw scene background
   gfx.target.Clear($406080); // clear with black
 
-  if redPatch<>nil then
-   redPatch.Draw(10,10,100,60);
+  if redPatch<>nil then begin
+   w:=100; h:=60;
+   draw.Rect(9,9,10+w,10+h,$50FFFFFF);
+   redPatch.Draw(10,10,w,h);
+
+   w:=60; h:=30;
+   draw.Rect(129,9,130+w,10+h,$50FFFFFF);
+   redPatch.Draw(130,10,w,h);
+  end;
+
+  // Stress test #1 - random size
+{  randSeed:=1;
+  for i:=1 to 1000 do begin
+   w:=60+random(100); h:=30+random(100);
+   redPatch.Draw(random(700),100+random(500),w,h);
+  end;}
+
+  // Stress test #2 - (almost) same size
+{  randSeed:=1;
+  for i:=1 to 1000 do begin
+   if i and 63=0 then begin
+    w:=60+random(100); h:=30+random(100);
+   end;
+   redPatch.Draw(random(700),100+random(500),w,h);
+  end;}
 
   inherited;
  end;
