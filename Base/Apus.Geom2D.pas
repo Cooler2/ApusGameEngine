@@ -71,7 +71,7 @@ interface
 
 
  const
-  NaN = 1.0/1.0;
+  NaN = 0.0/0.0;
   IdentMatrix2:TMatrix2=((1,0),(0,1));
   IdentMatrix32:TMatrix32=((1,0),(0,1),(0,0));
   IdentMatrix2s:TMatrix2s=((1,0),(0,1));

@@ -77,7 +77,7 @@ function TVertexLayout.DumpVertex(var vertex):string;
    result:=result+Format(', u=%f, v=%f',[p2.x,p2.y]);
   c:=GetColor(vertex);
   if c<>InvalidColor then
-   result:=result+Format(', c=%8h',[c]);
+   result:=result+Format(', c=%8x',[c]);
  end;
 
 function TVertexLayout.Equals(l: TVertexLayout): boolean;

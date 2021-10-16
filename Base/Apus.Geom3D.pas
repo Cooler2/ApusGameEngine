@@ -94,7 +94,7 @@ interface
   TMatrix43vs=array[0..3] of TVector3s;
 
  const
-  NaN = 1.0/1.0;
+  NaN=0.0/0.0;
   IdentMatrix3:TMatrix3=((1,0,0),(0,1,0),(0,0,1));
   IdentMatrix3s:TMatrix3s=((1,0,0),(0,1,0),(0,0,1));
   IdentMatrix43:TMatrix43=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
@@ -1288,7 +1288,7 @@ constructor TPoint3.Init(X,Y,Z:double);
 
 function TPoint3.IsValid: boolean;
  begin
-  result:=x<>NaN;
+  result:=x=x;
  end;
 
 procedure TPoint3.Normalize;
@@ -1309,7 +1309,7 @@ procedure TPoint3s.Normalize;
 
 function TPoint3s.IsValid: boolean;
  begin
-  result:=x<>NaN;
+  result:=x=x;
  end;
 
 
