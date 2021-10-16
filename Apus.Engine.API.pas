@@ -1463,9 +1463,13 @@ procedure TMesh.AddVertex(var vertexData);
  end;
 
 function TMesh.DumpVertex(n:cardinal):String8;
+ var
+  pb:PByte;
  begin
   ASSERT(n<vCount);
- // result:=Format('',[]
+  pb:=vertices;
+  inc(pb,n*layout.stride);
+  result:=layout.DumpVertex(pb^);
  end;
 
 constructor TMesh.Create(vertexLayout: TVertexLayout; vertCount, indCount: integer);
