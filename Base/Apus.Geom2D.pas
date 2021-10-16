@@ -21,12 +21,16 @@ interface
   // Point on plane
   TPoint2=packed record
    x,y:double;
+   function IsValid:boolean;
+   procedure Init(x,y:double);
   end;
   TVector2=TPoint2; // Alias for point type
   PPoint2=^TPoint2;
 
   TPoint2s=packed record
    x,y:single;
+   function IsValid:boolean;
+   procedure Init(x,y:single);
   end;
   TVector2s=TPoint2s;
   PPoint2s=^TPoint2s;
@@ -67,10 +71,14 @@ interface
 
 
  const
+  NaN = 1.0/1.0;
   IdentMatrix2:TMatrix2=((1,0),(0,1));
   IdentMatrix32:TMatrix32=((1,0),(0,1),(0,0));
   IdentMatrix2s:TMatrix2s=((1,0),(0,1));
   IdentMatrix32s:TMatrix32s=((1,0),(0,1),(0,0));
+
+  InvalidPoint2:TPoint2=(x:NaN;y:NaN);
+  InvalidPoint2s:TPoint2s=(x:NaN;y:NaN);
 
  // Vector functions
  function DotProduct(a,b:TVector2):double; inline;
@@ -845,5 +853,30 @@ function TRect2s.Width: single;
    Include(r.x1,r.y1);
    Include(r.x2,r.y2);
   end;
+
+{ TPoint2 }
+
+procedure TPoint2.Init(x, y: double);
+ begin
+  self.x:=x; self.y:=y;
+ end;
+
+function TPoint2.IsValid: boolean;
+ begin
+  result:=x<>NaN;
+ end;
+
+{ TPoint2s }
+
+function TPoint2s.IsValid: boolean;
+ begin
+  result:=x<>NaN;
+ end;
+
+procedure TPoint2s.Init(x, y: single);
+ begin
+  self.x:=x; self.y:=y;
+ end;
+
 
 end.

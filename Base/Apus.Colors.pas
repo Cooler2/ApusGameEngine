@@ -7,6 +7,8 @@
 unit Apus.Colors;
 interface
 
+const
+ InvalidColor = $0000007F;
 type
  // Packed ARGB color
  TARGBColor=packed record

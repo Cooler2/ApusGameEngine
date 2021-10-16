@@ -23,6 +23,7 @@ interface
    x,y,z:double;
    constructor Init(X,Y,Z:double);
    procedure Normalize;
+   function IsValid:boolean;
   end;
   TVector3=TPoint3;
 
@@ -31,6 +32,7 @@ interface
    x,y,z:single;
    constructor Init(X,Y,Z:single);
    procedure Normalize;
+   function IsValid:boolean;
   end;
   TVector3s=TPoint3s;
 
@@ -92,11 +94,15 @@ interface
   TMatrix43vs=array[0..3] of TVector3s;
 
  const
+  NaN = 1.0/1.0;
   IdentMatrix3:TMatrix3=((1,0,0),(0,1,0),(0,0,1));
   IdentMatrix3s:TMatrix3s=((1,0,0),(0,1,0),(0,0,1));
   IdentMatrix43:TMatrix43=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
   IdentMatrix43s:TMatrix43s=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
   IdentMatrix4:TMatrix4=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+
+  InvalidPoint3:TPoint3=(x:NaN;y:NaN;z:NaN);
+  InvalidPoint3s:TPoint3s=(x:NaN;y:NaN;z:NaN);
 
  function Point3(x,y,z:double):TPoint3; overload; inline;
  function Point3s(x,y,z:single):TPoint3s; overload; inline;
@@ -1280,6 +1286,11 @@ constructor TPoint3.Init(X,Y,Z:double);
   self.x:=X; self.y:=Y; self.z:=Z;
  end;
 
+function TPoint3.IsValid: boolean;
+ begin
+  result:=x<>NaN;
+ end;
+
 procedure TPoint3.Normalize;
  begin
   Normalize3(self);
@@ -1295,6 +1306,12 @@ procedure TPoint3s.Normalize;
  begin
   Normalize3(self);
  end;
+
+function TPoint3s.IsValid: boolean;
+ begin
+  result:=x<>NaN;
+ end;
+
 
 { TQuaternion }
 
