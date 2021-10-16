@@ -256,8 +256,6 @@ procedure TPatchInfo.ClearBorder;
  end;
 
 constructor TPatchInfo.Create(tex:TTexture);
- var
-  x,y,n,i:integer;
  begin
   overlapped:=false;
   tiled:=false;
@@ -387,7 +385,7 @@ procedure TCustomNinePatch.BuildMeshForSize(w,h:single);
    with data.vRanges[i] do begin
     yy[i+1]:=yy[i]+(1+pTo-pFrom);
     if rType<>rtFixed then
-     yy[i+1]:=yy[i+1]+addW*data.vWeights[i];
+     yy[i+1]:=yy[i+1]+addH*data.vWeights[i];
    end;
 
   // Adjust vertices
@@ -435,7 +433,8 @@ procedure TCustomNinePatch.Draw(x,y,width,height:single;scale:single);
   rWidth:=width/scale;
   rHeight:=height/scale;
   BuildMeshForSize(rWidth,rHeight);
-  transform.SetObj(x,y,0,scale);
+  transform.SetObj(x-0.5,y-0.5,0,scale);
+  mesh.DumpVertex(0);
   mesh.Draw(tex);
   transform.ResetObj;
  end;
