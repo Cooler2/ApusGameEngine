@@ -19,12 +19,14 @@ type
   function GetColor(var vertex):cardinal;
   function GetNormal(var vertex):TVector3s;
   function GetUV(var vertex;idx:cardinal=0):TPoint2s;
+  function DumpVertex(var vertex):string;
  private
   procedure GetField(var vertex;offset,size:integer;var target);
  end;
 
 
 implementation
+ uses Apus.Colors, SysUtils;
 
  function BuildVertexLayout(position,normal,color,uv1,uv2:integer):TVertexLayout;
   var
@@ -59,6 +61,25 @@ implementation
 
 { TVertexLayout }
 
+function TVertexLayout.DumpVertex(var vertex):string;
+ var
+  p:TPoint3s;
+  p2:TPoint2s;
+  c:cardinal;
+ begin
+  p:=GetPos(vertex);
+  result:=Format('X=%f, Y=%f, Z=%f',[p.x,p.y,p.z]);
+  p:=GetNormal(vertex);
+  if p.IsValid then
+   result:=result+Format(', nX=%f, nY=%f, nZ=%f',[p.x,p.y,p.z]);
+  p2:=GetUV(vertex);
+  if p2.IsValid then
+   result:=result+Format(', u=%f, v=%f',[p2.x,p2.y]);
+  c:=GetColor(vertex);
+  if c<>InvalidColor then
+   result:=result+Format(', c=%8h',[c]);
+ end;
+
 function TVertexLayout.Equals(l: TVertexLayout): boolean;
  begin
   result:=(l.layout=layout) and (l.stride=stride);
@@ -73,14 +94,22 @@ procedure TVertexLayout.GetField(var vertex; offset, size: integer; var target);
   move(pb^,target,size);
  end;
 
-function TVertexLayout.GetColor(var vertex): cardinal;
+function TVertexLayout.GetColor(var vertex):cardinal;
+ var
+  p:integer;
  begin
-  GetField(vertex,(layout and $F00) shr 6,sizeof(result),result);
+  p:=(layout shr 8) and $F;
+  if p>0 then GetField(vertex,(layout and $F00) shr 6,sizeof(result),result)
+   else result:=InvalidColor;
  end;
 
 function TVertexLayout.GetNormal(var vertex): TVector3s;
+ var
+  p:integer;
  begin
-  GetField(vertex,(layout and $F0) shr 2,sizeof(result),result);
+  p:=(layout shr 4) and $F;
+  if p>0 then GetField(vertex,p*4,sizeof(result),result)
+   else result:=InvalidPoint3s;
  end;
 
 function TVertexLayout.GetPos(var vertex): TPoint3s;
@@ -96,12 +125,16 @@ function TVertexLayout.GetPos(var vertex): TPoint3s;
  end;
 
 function TVertexLayout.GetUV(var vertex; idx:cardinal):TPoint2s;
+ var
+  p:integer;
  begin
   ASSERT(idx<2);
   case idx of
-   0:GetField(vertex,(layout and $F000) shr 10,sizeof(result),result);
-   1:GetField(vertex,(layout and $F0000) shr 14,sizeof(result),result);
+   0:p:=(layout shr 12) and $F;
+   1:p:=(layout shr 16) and $F;
   end;
+  if p>0 then GetField(vertex,p*4,sizeof(result),result)
+   else result:=InvalidPoint2s;
  end;
 
 procedure TVertexLayout.Init(position, normal, color, uv1, uv2: integer);
