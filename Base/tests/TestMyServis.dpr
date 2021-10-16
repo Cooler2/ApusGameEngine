@@ -19,6 +19,7 @@ program TestMyServis;
   Math,
   classes,
   DCPmd5a,
+  Apus.CPU in '..\Apus.CPU.pas',
   Apus.ADPCM in '..\Apus.ADPCM.pas',
   Apus.Android in '..\Apus.Android.pas',
   Apus.AnimatedValues in '..\Apus.AnimatedValues.pas',
