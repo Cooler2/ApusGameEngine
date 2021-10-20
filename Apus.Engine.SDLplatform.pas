@@ -475,12 +475,12 @@ procedure TSDLPlatform.ProcessSystemMessages;
      case event.window.event of
       SDL_WINDOWEVENT_FOCUS_GAINED:Signal('ENGINE\SETACTIVE',1);
       SDL_WINDOWEVENT_FOCUS_LOST:Signal('ENGINE\SETACTIVE',0);
-      //SDL_WINDOWEVENT_RESIZED:Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
-      SDL_WINDOWEVENT_SIZE_CHANGED:begin
-{       LogMessage('SDL_SIZE_CHANGED: reported size - (%d x %d), render size - (%d,%d)',
-         [event.window.data1,event.window.data2,w,h]);}
+      SDL_WINDOWEVENT_RESIZED:Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
+      {SDL_WINDOWEVENT_SIZE_CHANGED:begin
+       LogMessage('SDL_SIZE_CHANGED: reported size - (%d x %d), render size - (%d,%d)',
+         [event.window.data1,event.window.data2,w,h]);
        Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
-      end;
+      end;}
      end;
     end;
 
