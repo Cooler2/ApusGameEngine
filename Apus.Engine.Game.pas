@@ -1769,9 +1769,11 @@ begin
   end;
   EndMeasure2(i+4);
  except
-  on e:exception do
+  on e:exception do begin
    if sc[i] is TUIScene then CritMsg('SceneRender '+(sc[i] as TUIScene).name+' error '+ExceptionMsg(e)+' FLog: '+frameLog)
     else CritMsg('SceneRender '+sc[i].ClassName+' error '+ExceptionMsg(e));
+   halt;
+  end;
  end;
 
  DrawCursor;
