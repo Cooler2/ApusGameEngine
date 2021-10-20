@@ -7,7 +7,7 @@
 unit Apus.Engine.API;
 interface
  uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D,
-   Apus.Colors, Apus.EventMan;
+   Apus.Colors, Apus.EventMan, Apus.VertexLayout;
 
 const
  // Image allocation flags (ai - AllocImage)
@@ -39,7 +39,7 @@ const
  liffTexture = aiTexture; // Image will be allocated as a whole texture (wrap UV enabled, otherwise - disabled!)
  liffPow2    = aiPow2; // Image dimensions will be increased to the nearest pow2
  liffMipMaps = aiMipMapping; // Image will be loaded with mip-maps (auto-generated if no mips in the file)
- liffAllowChange = $100;
+ liffAllowChange = $100;    // Ensure that image won't be read-only
  liffDefault = $FFFFFFFF;   // Use defaultLoadImageFlags for default flag values
 
  // width and height of atlas-texture
@@ -160,17 +160,7 @@ type
 
  TRect2s = Apus.Geom2D.TRect2s;
 
- // Packed description of the vertex layout
- // [0:3] - position (vec3s) (if offset=15 then position is vec2s at offset=0)
- // [4:7] - normal (vec3s)
- // [8:11]  - color (vec4b)
- // [12:15] - uv1 (vec2s)
- TVertexLayout=record
-  layout:cardinal;
-  stride:integer;
-  procedure Init(position,normal,color,uv1,uv2:integer);
-  function Equals(l:TVertexLayout):boolean; inline;
- end;
+ TVertexLayout=Apus.VertexLayout.TVertexLayout;
 
  // Packed ARGB color
  TARGBColor=Apus.Colors.TARGBColor;
@@ -291,7 +281,7 @@ type
                       // в скорости - тогда возможна (но не гарантируется) оптимизация перерисовки
  end;
 
-  TTextureName=string;
+ TTextureName=string;
 
  // Базовый абстрактный класс - текстура или ее часть
  TTexture=class
@@ -328,6 +318,13 @@ type
   locked:integer; // lock counter
  end;
 
+ // Nine Patch: resizable image
+ TNinePatch=class
+  minWidth,minHeight:integer; // minimal possible dimension (in pixels, when scale=1.0)
+  baseWidth,baseHeight:integer; // dimension without any stretching (in pixels, when scale=1.0)
+  scaleFactor:single; // scale modifier: for example, use 0.5 for images with double resolution
+  procedure Draw(x,y,width,height:single;scale:single=1.0); virtual; abstract;
+ end;
 
  // Interface to the native OS function or underlying library
  ISystemPlatform=interface
@@ -482,6 +479,8 @@ type
   procedure SetObj(mat:T3DMatrix); overload;
   // Set object position/scale/rotate
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
+  // Reset object matrix to default
+  procedure ResetObj;
   // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
   function MVPMatrix:T3DMatrix;
   function ProjMatrix:T3DMatrix;
@@ -646,6 +645,7 @@ type
   procedure AddTrg(v0,v1,v2:integer);
   procedure Draw(tex:TTexture=nil); // draw whole mesh
   destructor Destroy; override;
+  function DumpVertex(n:cardinal):String8;
  private
   vData:PByte;
   idx:integer;
@@ -1093,6 +1093,11 @@ var
  // Not thread-safe! Don't load atlases in one thread and create images in other thread
  procedure LoadAtlas(fname:string;scale:single=1.0);
 
+ // Load image from the specified file and create a Nine Patch object from it (image must be marked)
+ // Set scale factor to 2 if image has double resolution
+ function LoadNinePatch(fName:string;scale2x:boolean=false):TNinePatch;
+ function CreateNinePatch(image:TTexture;scale2x:boolean=false):TNinePatch;
+
  // Shortcuts to the texture manager
  function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
                 flags:integer=0;name:TTextureName=''):TTexture;
@@ -1123,7 +1128,7 @@ var
 
 implementation
 uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
- TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX;
+ TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX, Apus.Engine.NinePatch;
 
  function GetKeyEventScanCode(tag: TTag): cardinal;
   begin
@@ -1354,6 +1359,20 @@ procedure LoadAtlas(fname:string;scale:single=1.0);
    Apus.Engine.ImageTools.LoadAtlas(fname,scale);
  end;
 
+function LoadNinePatch(fName:string;scale2x:boolean=false):TNinePatch;
+ var
+  img:TTexture;
+ begin
+  img:=LoadImageFromFile(fName,liffAllowChange);
+  result:=CreateNinePatch(img,scale2x);
+ end;
+
+function CreateNinePatch(image:TTexture;scale2x:boolean=false):TNinePatch;
+ begin
+  result:=TCustomNinePatch.Create(image);
+  if scale2x then result.scaleFactor:=0.5;
+ end;
+
 function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
                 flags:integer=0;name:TTextureName=''):TTexture;
  begin
@@ -1443,6 +1462,16 @@ procedure TMesh.AddVertex(var vertexData);
   inc(vData,layout.stride);
  end;
 
+function TMesh.DumpVertex(n:cardinal):String8;
+ var
+  pb:PByte;
+ begin
+  ASSERT(n<vCount);
+  pb:=vertices;
+  inc(pb,n*layout.stride);
+  result:=layout.DumpVertex(pb^);
+ end;
+
 constructor TMesh.Create(vertexLayout: TVertexLayout; vertCount, indCount: integer);
  begin
   layout:=vertexLayout;
@@ -1507,7 +1536,7 @@ class function TVertex2t.Layout:TVertexLayout;
   v:PVertex2t;
  begin
   v:=nil;
-  result:=BuildVertexLayout(0,0,integer(@v.color),integer(@v.u),integer(@v.u2));
+  result.Init(0,0,integer(@v.color),integer(@v.u),integer(@v.u2));
   ASSERT(result.stride=sizeof(TVertex2t));
  end;
 
@@ -1518,7 +1547,7 @@ class function TVertex3D.Layout:TVertexLayout;
   v:PVertex3D;
  begin
   v:=nil;
-  result:=BuildVertexLayout(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
+  result.Init(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
   result.stride:=Sizeof(TVertex3D);
  end;
 
@@ -1545,22 +1574,10 @@ class function TShader.VectorFromColor3(color: cardinal): TVector3s;
   result.z:=c.b/255;
  end;
 
-{ TVertexLayout }
-
-function TVertexLayout.Equals(l: TVertexLayout): boolean;
- begin
-  result:=(l.layout=layout) and (l.stride=stride);
- end;
-
-procedure TVertexLayout.Init(position, normal, color, uv1, uv2: integer);
- begin
-  self:=BuildVertexLayout(position,normal,color,uv1,uv2);
- end;
-
 initialization
  PublishFunction('GetFont',fGetFontHandle);
- TVertex.layoutTex:=BuildVertexLayout(0,0,12,16,0); // color and uv1
+ TVertex.layoutTex.Init(0,0,12,16,0); // color and uv1
  TVertex.layoutTex.stride:=Sizeof(TVertex);
- TVertex.layoutNoTex:=BuildVertexLayout(0,0,12,0,0); // color only
+ TVertex.layoutNoTex.Init(0,0,12,0,0); // color only
  TVertex.layoutNoTex.stride:=Sizeof(TVertex);
 end.

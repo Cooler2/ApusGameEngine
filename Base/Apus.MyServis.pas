@@ -441,7 +441,7 @@ interface
  function IsZeroMem(var data;size:integer):boolean;
  procedure FillDword(var data;size:integer;value:cardinal);
  // Check if pointer is between baseAddress and baseAddress+size-1
- function PointerInRange(p:pointer;baseAddress:pointer;size:UIntPtr):boolean; inline;
+ function PointerInRange(const p:pointer;baseAddress:pointer;size:UIntPtr):boolean; inline;
 
  // Простейшее шифрование/дешифрование (simple XOR)
  procedure SimpleEncrypt(var data;size,code:integer);
@@ -2251,7 +2251,7 @@ procedure SimpleEncrypt2;
    result:=true;
   end;
 
- function PointerInRange(p:pointer;baseAddress:pointer;size:UIntPtr):boolean;
+ function PointerInRange(const p:pointer;baseAddress:pointer;size:UIntPtr):boolean;
   var
    b,v:UIntPtr;
   begin
