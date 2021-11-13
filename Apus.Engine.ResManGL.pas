@@ -123,7 +123,7 @@ var
  lastErrorTime:int64;
  errorTr:integer;
 
-procedure CheckForGLError(msg:string); inline;
+procedure CheckForGLError(msg:string); //inline;
 var
  error:cardinal;
  t:int64;
@@ -941,8 +941,6 @@ begin
 end;
 
 constructor TGLResourceManager.Create;
-var
- maxFBwidth,maxFBheight:integer;
 begin
  try
   resourceManagerGL:=self;
@@ -954,25 +952,20 @@ begin
   SetEventHandler('GLImages',EventHandler,emMixed);
   {$IFDEF GLES}
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, @maxTextureSize);
-  maxFBWidth:=maxTextureSize;
-  maxFBheight:=maxTextureSize;
   maxRBsize:=maxTextureSize;
   {$ELSE}
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, @maxTextureSize);
-  glGetIntegerv(GL_MAX_FRAMEBUFFER_WIDTH, @maxFBwidth);
-  glGetIntegerv(GL_MAX_FRAMEBUFFER_HEIGHT, @maxFBheight);
   glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, @maxRBsize);
   {$ENDIF}
-  maxRTsize:=min2(maxFBwidth,maxFBheight);
-  LogMessage(Format('Maximal sizes: TEX: %d / FB: %d x %d / RB: %d',[maxTextureSize,maxFBwidth,maxFBheight,maxRBsize]));
-  if maxFBwidth=0 then maxFBwidth:=Max2(maxRBsize,1024);
-  if maxFBheight=0 then maxFBheight:=Max2(maxRBsize,1024);
+  maxRTsize:=min2(maxTextureSize,maxRBsize);
+  LogMessage(Format('Maximal sizes: TEX: %d / RT: %d / RB: %d',[maxTextureSize,maxRTsize,maxRBsize]));
  except
   on e:Exception do begin
    ForceLogMessage('Error in GLTexMan constructor: '+ExceptionMsg(e));
    raise EFatalError.Create('GLTextMan: '+ExceptionMsg(e));
   end;
  end;
+ CheckForGLError('ResMan.Create');
 end;
 
 destructor TGLResourceManager.Destroy;
