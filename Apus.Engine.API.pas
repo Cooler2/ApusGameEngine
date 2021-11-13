@@ -441,7 +441,8 @@ type
   // It sets actual clipping if needed.
   // Returns false if R doesn't intersect the current clipping rect (so no need to draw anything inside R)
   function Prepare(r:TRect):boolean; overload;
-  function Prepare(x1,y1,x2,y2:integer):boolean; overload;
+  function Prepare(x1,y1,x2,y2:NativeInt):boolean; overload;
+  function Prepare(x1,y1,x2,y2:single):boolean; overload;  //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
  end;
 
  // Control transformation and projection
@@ -698,10 +699,10 @@ type
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
   procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
   procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
-  procedure Rect(x1,y1,x2,y2:integer;color:cardinal); overload;
+  procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2);
-  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal); overload;
+  procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
   procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
@@ -709,10 +710,10 @@ type
 
   // Textured primitives ---------------
   // Указываются к-ты тех пикселей, которые будут зарисованы (без границы)
-  procedure Image(x_,y_:integer;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure Image(x_,y_:NativeInt;tex:TTexture;color:cardinal=$FF808080); overload;
   procedure Image(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080;pivotX:single=0;pivotY:single=0); overload;
   procedure ImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=$FF808080);
-  procedure Centered(x,y:integer;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure Centered(x,y:NativeInt;tex:TTexture;color:cardinal=$FF808080); overload;
   procedure Centered(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080); overload;
   procedure ImagePart(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect);
   // Рисовать часть картинки с поворотом ang раз на 90 град по часовой стрелке

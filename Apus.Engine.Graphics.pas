@@ -80,7 +80,7 @@ type
   function  Get:TRect; //< return current clipping rect
   procedure Prepare; overload; //<
   function Prepare(r:TRect):boolean; overload; //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
-  function Prepare(x1,y1,x2,y2:integer):boolean; overload;  //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
+  function Prepare(x1,y1,x2,y2:NativeInt):boolean; overload;  //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
   function Prepare(x1,y1,x2,y2:single):boolean; overload;  //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
 
   procedure AssignActual(r:TRect); // set actual clipping area (from gfx API)
@@ -496,7 +496,7 @@ function TClippingAPI.Prepare(r:TRect):boolean;
   end;
  end;
 
-function TClippingAPI.Prepare(x1,y1,x2,y2:integer):boolean;
+function TClippingAPI.Prepare(x1,y1,x2,y2:NativeInt):boolean;
  begin
   result:=Prepare(Types.Rect(x1,y1,x2,y2));
  end;
