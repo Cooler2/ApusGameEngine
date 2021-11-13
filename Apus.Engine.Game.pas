@@ -2135,7 +2135,7 @@ procedure TGame.FrameLoop;
      on e:exception do ForceLogMessage('Error in FrameLoop 2: '+ExceptionMsg(e));
     end;
 
-    if active or (params.mode.displayMode<>dmSwitchResolution) then begin
+    if active {or (params.mode.displayMode<>dmSwitchResolution)} then begin
      // Если программа активна, то выполним отрисовку кадра
      if screenChanged then begin
       try
@@ -2218,7 +2218,6 @@ procedure TMainThread.Execute;
 
    systemPlatform.CreateWindow(gameEx.params.title);
    gameEx.InitMainLoop; // вызывает InitGraph
-
 
    game.running:=true; // Это как-бы семафор для завершения функции Run
    LogMessage('MainLoop started');
