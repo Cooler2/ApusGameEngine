@@ -1449,7 +1449,7 @@ procedure DrawToTexture(tex:TTexture;mipLevel:integer=0);
 
 
 { TMesh }
-procedure TMesh.AddTrg(v0, v1, v2: integer);
+procedure TMesh.AddTrg(v0,v1,v2: integer);
  begin
   indices[idx]:=v0; inc(idx);
   indices[idx]:=v1; inc(idx);
