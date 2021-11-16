@@ -123,10 +123,10 @@ procedure TMainScene.Render;
     DrawPatchWithFrame(200,10,100,60,redPatch);
     DrawPatchWithFrame(400,10,60,30,redPatch);
    end;
-{   if overPatch<>nil then begin
+   if overPatch<>nil then begin
     DrawPatchWithFrame(200,150,100,90,overPatch);
-    DrawPatchWithFrame(400,150,200,300,overPatch);
-   end;}
+    DrawPatchWithFrame(400,150,200,140,overPatch);
+   end;
 {   if tiledPatch<>nil then begin
     DrawPatchWithFrame(200,300,100,90,tiledPatch);
     DrawPatchWithFrame(400,300,200,300,tiledPatch);
