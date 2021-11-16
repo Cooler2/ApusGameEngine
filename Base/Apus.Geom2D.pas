@@ -21,16 +21,16 @@ interface
   // Point on plane
   TPoint2=packed record
    x,y:double;
-   function IsValid:boolean;
-   procedure Init(x,y:double);
+   function IsValid:boolean; inline;
+   procedure Init(x,y:double); inline;
   end;
   TVector2=TPoint2; // Alias for point type
   PPoint2=^TPoint2;
 
   TPoint2s=packed record
    x,y:single;
-   function IsValid:boolean;
-   procedure Init(x,y:single);
+   function IsValid:boolean; inline;
+   procedure Init(x,y:single); inline;
   end;
   TVector2s=TPoint2s;
   PPoint2s=^TPoint2s;
@@ -51,7 +51,7 @@ interface
    procedure MoveBy(delta:TVector2s); overload; inline;
    procedure Include(x,y:single); overload; inline;
    procedure Include(r:TRect2s); overload; inline;
-   function IsEmpty:boolean;
+   function IsEmpty:boolean; inline;
    function Center:TPoint2s; inline;
   end;
 
@@ -863,14 +863,14 @@ procedure TPoint2.Init(x, y: double);
 
 function TPoint2.IsValid: boolean;
  begin
-  result:=x<>NaN;
+  result:=x=x;
  end;
 
 { TPoint2s }
 
 function TPoint2s.IsValid: boolean;
  begin
-  result:=x<>NaN;
+  result:=x=x;
  end;
 
 procedure TPoint2s.Init(x, y: single);
