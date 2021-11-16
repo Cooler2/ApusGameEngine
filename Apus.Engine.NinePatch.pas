@@ -41,6 +41,7 @@ type
   padLeft,padTop,padRight,padBottom:integer;
   usedCells:array of cardinal; // bitmap of cell status (1 - cell is empty)
   numCells:integer; // total number of non-empty cells
+  overlapCells:array of cardinal; // bitmap: 1 - for overlapped cells, these cells are "upper layer"
 
   procedure BuildRanges(tex:TTexture);
   procedure CheckCells;
@@ -51,6 +52,8 @@ type
   function CreateSimpleMesh(nH,nW:integer;du,dv:single):TMesh;
   function CreateOverlappedMesh(nH,nW:integer;du,dv:single):TMesh;
   function CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:TGridArray):TMesh;
+  procedure AdjustSimpleMesh(nW,nH:Integer;var xx,yy:TGridArray);
+  procedure AdjustOverlappedMesh(nW,nH:Integer;var xx,yy:TGridArray);
  end;
 
 implementation
@@ -163,11 +166,16 @@ procedure TCustomNinePatch.CheckCells;
  begin
    // Mark empty cells
    SetLength(usedCells,length(vRanges));
+   SetLength(overlapCells,length(vRanges));
    numCells:=0;
    for i:=0 to high(usedCells) do begin
     for j:=0 to high(hRanges) do begin
+     // Overlapped cell?
+     if (hRanges[j].rType=rtFixed) and (vRanges[i].rType=rtFixed) then
+       SetBit(overlapCells[i],j);
+
+     // try to find non-transparent pixels (every 4-th pixel is checked)
      y:=vRanges[i].pFrom;
-     // try to find non-transparent pixels
      while y<=vRanges[i].pTo do begin
       x:=hRanges[j].pFrom+(y and 1);
       while x<=hRanges[j].pTo do begin
@@ -297,16 +305,28 @@ procedure TCustomNinePatch.ResizeGrid(reqWidth,reqHeight:single;var xx,yy:TGridA
   for i:=0 to high(hRanges) do
    with hRanges[i] do begin
     xx[i+1]:=xx[i]+(1+pTo-pFrom);
-    if rType<>rtFixed then
+    if rType<>rtFixed then begin
      xx[i+1]:=xx[i+1]+addW*hWeights[i];
+     // overlap?
+     if i>0 then
+      xx[i+1]:=xx[i+1]-hRanges[i-1].overlap2*scaleFactor;
+     if i<high(hRanges) then
+      xx[i+1]:=xx[i+1]-hRanges[i+1].overlap1*scaleFactor;
+    end;
    end;
 
   yy[0]:=0;
   for i:=0 to high(vRanges) do
    with vRanges[i] do begin
     yy[i+1]:=yy[i]+(1+pTo-pFrom);
-    if rType<>rtFixed then
+    if rType<>rtFixed then begin
      yy[i+1]:=yy[i+1]+addH*vWeights[i];
+     // Overlap?
+     if i>0 then
+      yy[i+1]:=yy[i+1]-vRanges[i-1].overlap2*scaleFactor;
+     if i<high(vRanges) then
+      yy[i+1]:=yy[i+1]-vRanges[i+1].overlap1*scaleFactor;
+    end;
    end;
  end;
 
@@ -340,32 +360,36 @@ function TCustomNinePatch.CreateSimpleMesh(nH,nW:integer;du,dv:single):TMesh;
 
 function TCustomNinePatch.CreateOverlappedMesh(nH,nW:integer;du,dv:single):TMesh;
  var
-  i,j,base:integer;
-  vrt1,vrt2,vrt3,vrt4:TVertex;
+  i,j,base,pass:integer;
+  vrt:TVertex;
   u1,v1,u2,v2:single;
  begin
-   result:=TMesh.Create(DEFAULT_VERTEX_LAYOUT,nW*nH*6,0);
+   result:=TMesh.Create(TVertex.layoutTex,numCells*4,numCells*6);
+   base:=0;
    // Fill vertices
-   for i:=0 to nH-1 do begin
+   for pass:=0 to 1 do
+    for i:=0 to nH-1 do begin
      v1:=vRanges[i].pFrom*dv;
      v2:=vRanges[i].pTo*dv+dv;
      for j:=0 to nW-1 do begin
       if not GetBit(usedCells[i],j) then continue; // skip this cell
+      if byte(GetBit(overlapCells[i],j))<>pass then continue;
       u1:=hRanges[j].pFrom*du;
       u2:=hRanges[j].pTo*du+du;
       // Define 4 vertices for a quad
-      vrt1.Init(0,0,0,u1,v1,$FF808080); // position will be filled later
-      vrt2.Init(0,0,0,u2,v1,$FF808080);
-      vrt3.Init(0,0,0,u2,v2,$FF808080);
-      vrt4.Init(0,0,0,u1,v2,$FF808080);
+      vrt.Init(0,0,0,u1,v1,$FF808080); // position will be filled later
+      result.AddVertex(vrt);
+      vrt.Init(0,0,0,u2,v1,$FF808080);
+      result.AddVertex(vrt);
+      vrt.Init(0,0,0,u2,v2,$FF808080);
+      result.AddVertex(vrt);
+      vrt.Init(0,0,0,u1,v2,$FF808080);
+      result.AddVertex(vrt);
       // 1-st triangle
-      result.AddVertex(vrt1);
-      result.AddVertex(vrt2);
-      result.AddVertex(vrt3);
+      result.AddTrg(base,base+1,base+2);
       // 2-nd triangle
-      result.AddVertex(vrt1);
-      result.AddVertex(vrt3);
-      result.AddVertex(vrt4);
+      result.AddTrg(base,base+2,base+3);
+      inc(base,4);
      end;
    end;
  end;
@@ -402,13 +426,66 @@ function TCustomNinePatch.CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:T
    end;
  end;
 
+procedure TCustomNinePatch.AdjustSimpleMesh(nW,nH:Integer;var xx,yy:TGridArray);
+ var
+  i,j:Integer;
+  pVrt:PVertex;
+ begin
+  // Simple 9-patch
+  pVrt:=mesh.vertices;
+  for i:=0 to nH do
+    for j:=0 to nW do
+    begin
+      pVrt.x:=xx[j];
+      pVrt.y:=yy[i];
+      inc(pVrt);
+    end;
+ end;
+
+procedure TCustomNinePatch.AdjustOverlappedMesh(nW,nH:Integer;var xx,yy:TGridArray);
+ var
+  i,j,pass:integer;
+  pVrt:PVertex;
+  x1,y1,x2,y2:single;
+ begin
+  // Overlapped 9-patch
+  pVrt:=mesh.vertices;
+  for pass:=0 to 1 do
+   for i:=0 to nH-1 do
+    for j:=0 to nW-1 do
+     if GetBit(usedCells[i],j) then
+      if byte(GetBit(overlapCells[i],j))=pass then begin
+       // Calculate cell position
+       x1:=xx[j];
+       if j>0 then x1:=x1-hRanges[j-1].overlap2*scaleFactor;
+       x2:=xx[j+1];
+       if j<nW-1 then x2:=x2+hRanges[j+1].overlap1*scaleFactor;
+       y1:=yy[i];
+       if i>0 then y1:=y1-vRanges[i-1].overlap2*scaleFactor;
+       y2:=yy[i+1];
+       if i<nH-1 then y2:=y2+vRanges[i+1].overlap1*scaleFactor;
+       // Update vertices
+       pVrt.x:=x1;
+       pVrt.y:=y1;
+       inc(pVrt);
+       pVrt.x:=x2;
+       pVrt.y:=y1;
+       inc(pVrt);
+       pVrt.x:=x2;
+       pVrt.y:=y2;
+       inc(pVrt);
+       pVrt.x:=x1;
+       pVrt.y:=y2;
+       inc(pVrt);
+     end;
+ end;
+
 { TNinePatch }
 procedure TCustomNinePatch.BuildMeshForSize(w,h:single);
  var
   i,j,nH,nW:integer;
   du,dv:single;
   xx,yy:TGridArray;
-  pVrt:PVertex;
  begin
   if (meshWidth=w) and (meshHeight=w) then exit;
   if tiled and (mesh<>nil) then FreeAndNil(mesh); // Always rebuild mesh for a complex tiled patch
@@ -437,19 +514,10 @@ procedure TCustomNinePatch.BuildMeshForSize(w,h:single);
    ResizeGrid(w,h,xx,yy);
 
    // Adjust vertices
-   if not overlapped then begin
-    // Simple 9-patch
-    pVrt:=mesh.vertices;
-    for i:=0 to nH do
-       for j:=0 to nW do begin
-        pVrt.x:=xx[j];
-        pVrt.y:=yy[i];
-        inc(pVrt);
-       end;
-   end else begin
-    // Overlapped 9-patch
-
-   end;
+   if not overlapped then
+    AdjustSimpleMesh(nW,nH,xx,yy)
+   else
+    AdjustOverlappedMesh(nW,nH,xx,yy);
   end;
   meshWidth:=w; meshHeight:=h;
  end;
