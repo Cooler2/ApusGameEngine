@@ -34,6 +34,7 @@ type
     rType:TRangeType;
   end;
   TGridArray=array[0..9] of single;
+  TIntGridArray=array[0..9] of integer;
  var
   overlapped,tiled:boolean;
   hRanges,vRanges:array of TPatchRange;
@@ -41,7 +42,7 @@ type
   padLeft,padTop,padRight,padBottom:integer;
   usedCells:array of cardinal; // bitmap of cell status (1 - cell is empty)
   numCells:integer; // total number of non-empty cells
-  overlapCells:array of cardinal; // bitmap: 1 - for overlapped cells, these cells are "upper layer"
+  overlapCells:array of cardinal; // bitmap: 1 - for fixed-size overlapped cells, these cells are "upper layer"
 
   procedure BuildRanges(tex:TTexture);
   procedure CheckCells;
@@ -54,6 +55,7 @@ type
   function CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:TGridArray):TMesh;
   procedure AdjustSimpleMesh(nW,nH:Integer;var xx,yy:TGridArray);
   procedure AdjustOverlappedMesh(nW,nH:Integer;var xx,yy:TGridArray);
+  procedure BuildTiledGrid(var xx,yy:TGridArray;var x1,y1,x2,y2:TGridArray;var gridW,gridH:TIntGridArray);
  end;
 
 implementation
@@ -309,9 +311,9 @@ procedure TCustomNinePatch.ResizeGrid(reqWidth,reqHeight:single;var xx,yy:TGridA
      xx[i+1]:=xx[i+1]+addW*hWeights[i];
      // overlap?
      if i>0 then
-      xx[i+1]:=xx[i+1]-hRanges[i-1].overlap2*scaleFactor;
+      xx[i+1]:=xx[i+1]-hRanges[i-1].overlap2;
      if i<high(hRanges) then
-      xx[i+1]:=xx[i+1]-hRanges[i+1].overlap1*scaleFactor;
+      xx[i+1]:=xx[i+1]-hRanges[i+1].overlap1;
     end;
    end;
 
@@ -323,9 +325,9 @@ procedure TCustomNinePatch.ResizeGrid(reqWidth,reqHeight:single;var xx,yy:TGridA
      yy[i+1]:=yy[i+1]+addH*vWeights[i];
      // Overlap?
      if i>0 then
-      yy[i+1]:=yy[i+1]-vRanges[i-1].overlap2*scaleFactor;
+      yy[i+1]:=yy[i+1]-vRanges[i-1].overlap2;
      if i<high(vRanges) then
-      yy[i+1]:=yy[i+1]-vRanges[i+1].overlap1*scaleFactor;
+      yy[i+1]:=yy[i+1]-vRanges[i+1].overlap1;
     end;
    end;
  end;
@@ -394,44 +396,78 @@ function TCustomNinePatch.CreateOverlappedMesh(nH,nW:integer;du,dv:single):TMesh
    end;
  end;
 
+function CalcGridSize(size,tileSize:single):integer;
+ begin
+  size:=size-0.01;
+  result:=1+2*trunc(0.5+size/tileSize*2);
+ end;
+
+procedure FillCellMesh(mesh:TMesh; x1,y1,x2,y2, u1,v1,u2,v2, tileWidth,tileHeight:single);
+ var
+  vrt:TVertex;
+  i,j:integer;
+ begin
+{       // Define 4 vertices for a quad
+       vrt.Init(0,0,0,u1,v1,$FF808080); // position will be filled later
+       mesh.AddVertex(vrt);
+       vrt.Init(0,0,0,u2,v1,$FF808080);
+       mesh.AddVertex(vrt);
+       vrt.Init(0,0,0,u2,v2,$FF808080);
+       mesh.AddVertex(vrt);
+       vrt.Init(0,0,0,u1,v2,$FF808080);
+       mesh.AddVertex(vrt);
+       // 1-st triangle
+       result.AddVertex();
+       result.AddVertex();
+       result.AddVertex();
+       // 2-nd triangle
+       result.AddVertex();
+       result.AddVertex();
+       result.AddVertex();}
+ end;
+
 function TCustomNinePatch.CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:TGridArray):TMesh;
  var
-  i,j,base:integer;
-  vrt1,vrt2,vrt3,vrt4:TVertex;
+  i,j,pass,vCount,iCount:integer;
+  gridW,gridH:TIntGridArray;
+  x1,y1,x2,y2:TGridArray;
   u1,v1,u2,v2:single;
+  tileWidth,tileHeight:single;
  begin
-   result:=TMesh.Create(DEFAULT_VERTEX_LAYOUT,nW*nH*6,0);
-   // Fill vertices
+  BuildTiledGrid(xx,yy, x1,y1,x2,y2,gridW,gridH);
+  // Calculate mesh size
+  vCount:=0; iCount:=0;
+  for i:=0 to nH-1 do
+   for j:=0 to nW-1 do
+    if GetBit(usedCells[i],j) then begin
+     inc(vCount,(gridW[j]+1)*(gridH[i]+1));
+     inc(iCount,6*(gridW[j])*(gridH[i]));
+    end;
+  // Create mesh
+  result:=TMesh.Create(DEFAULT_VERTEX_LAYOUT,vCount,iCount);
+  // Fill mesh
+  for pass:=0 to 1 do
    for i:=0 to nH-1 do begin
      v1:=vRanges[i].pFrom*dv;
      v2:=vRanges[i].pTo*dv+dv;
-     for j:=0 to nW-1 do begin
-      if not GetBit(usedCells[i],j) then continue; // skip this cell
-      u1:=hRanges[j].pFrom*du;
-      u2:=hRanges[j].pTo*du+du;
-      // Define 4 vertices for a quad
-      vrt1.Init(0,0,0,u1,v1,$FF808080); // position will be filled later
-      vrt2.Init(0,0,0,u2,v1,$FF808080);
-      vrt3.Init(0,0,0,u2,v2,$FF808080);
-      vrt4.Init(0,0,0,u1,v2,$FF808080);
-      // 1-st triangle
-      result.AddVertex(vrt1);
-      result.AddVertex(vrt2);
-      result.AddVertex(vrt3);
-      // 2-nd triangle
-      result.AddVertex(vrt1);
-      result.AddVertex(vrt3);
-      result.AddVertex(vrt4);
+     tileHeight:=vRanges[i].pTo-vRanges[i].pFrom;
+     for j:=0 to nW-1 do
+      if GetBit(usedCells[i],j) then begin
+       if (pass=0) and GetBit(overlapCells[i],j) then continue;
+       u1:=hRanges[j].pFrom*du;
+       u2:=hRanges[j].pTo*du+du;
+       tileWidth:=hRanges[j].pTo-hRanges[j].pFrom;
+       FillCellMesh(mesh, x1[j],y1[i],x2[j],y2[i], u1,v1,u2,v2, tileWidth,tileHeight);
      end;
    end;
  end;
 
+// Simple 9-patch mesh
 procedure TCustomNinePatch.AdjustSimpleMesh(nW,nH:Integer;var xx,yy:TGridArray);
  var
   i,j:Integer;
   pVrt:PVertex;
  begin
-  // Simple 9-patch
   pVrt:=mesh.vertices;
   for i:=0 to nH do
     for j:=0 to nW do
@@ -442,13 +478,13 @@ procedure TCustomNinePatch.AdjustSimpleMesh(nW,nH:Integer;var xx,yy:TGridArray);
     end;
  end;
 
+// Overlapped 9-patch
 procedure TCustomNinePatch.AdjustOverlappedMesh(nW,nH:Integer;var xx,yy:TGridArray);
  var
   i,j,pass:integer;
   pVrt:PVertex;
   x1,y1,x2,y2:single;
  begin
-  // Overlapped 9-patch
   pVrt:=mesh.vertices;
   for pass:=0 to 1 do
    for i:=0 to nH-1 do
@@ -457,13 +493,13 @@ procedure TCustomNinePatch.AdjustOverlappedMesh(nW,nH:Integer;var xx,yy:TGridArr
       if byte(GetBit(overlapCells[i],j))=pass then begin
        // Calculate cell position
        x1:=xx[j];
-       if j>0 then x1:=x1-hRanges[j-1].overlap2*scaleFactor;
+       if j>0 then x1:=x1-hRanges[j-1].overlap2;
        x2:=xx[j+1];
-       if j<nW-1 then x2:=x2+hRanges[j+1].overlap1*scaleFactor;
+       if j<nW-1 then x2:=x2+hRanges[j+1].overlap1;
        y1:=yy[i];
-       if i>0 then y1:=y1-vRanges[i-1].overlap2*scaleFactor;
+       if i>0 then y1:=y1-vRanges[i-1].overlap2;
        y2:=yy[i+1];
-       if i<nH-1 then y2:=y2+vRanges[i+1].overlap1*scaleFactor;
+       if i<nH-1 then y2:=y2+vRanges[i+1].overlap1;
        // Update vertices
        pVrt.x:=x1;
        pVrt.y:=y1;
@@ -480,6 +516,43 @@ procedure TCustomNinePatch.AdjustOverlappedMesh(nW,nH:Integer;var xx,yy:TGridArr
      end;
  end;
 
+procedure TCustomNinePatch.BuildTiledGrid(var xx,yy:TGridArray;var x1,y1,x2,y2:TGridArray;var gridW,gridH:TIntGridArray);
+var
+  i,nW,nH:Integer;
+begin
+  nW:=length(hRanges);
+  nH:=length(vRanges);
+  // Build overlapped grid
+  for i:=0 to nW-1 do
+  begin
+    x1[i]:=xx[i];
+    x2[i]:=xx[i+1];
+    if hRanges[i].rType<>rtFixed then begin
+      if i>0 then
+       x1[i]:=x1[i]-hRanges[i-1].overlap2;
+      if i<nW then
+       x2[i]:=x2[i]-hRanges[i+1].overlap1;
+      gridW[i]:=CalcGridSize(x2[i]-x1[i],hRanges[i].pTo-hRanges[i].pFrom);
+    end else
+     gridW[i]:=1;
+  end;
+  for i:=0 to nH-1 do
+  begin
+    y1[i]:=yy[i];
+    y2[i]:=yy[i+1];
+    if vRanges[i].rType<>rtFixed then
+    begin
+      if i>0 then
+       y1[i]:=y1[i]-vRanges[i-1].overlap2;
+      if i<nW then
+       y2[i]:=y2[i]-vRanges[i+1].overlap1;
+      gridH[i]:=CalcGridSize(y2[i]-y1[i],vRanges[i].pTo-vRanges[i].pFrom);
+    end
+    else
+     gridH[i]:=1;
+  end;
+end;
+
 { TNinePatch }
 procedure TCustomNinePatch.BuildMeshForSize(w,h:single);
  var
@@ -487,7 +560,6 @@ procedure TCustomNinePatch.BuildMeshForSize(w,h:single);
   du,dv:single;
   xx,yy:TGridArray;
  begin
-  if (meshWidth=w) and (meshHeight=w) then exit;
   if tiled and (mesh<>nil) then FreeAndNil(mesh); // Always rebuild mesh for a complex tiled patch
   nW:=length(hRanges);
   nH:=length(vRanges);
@@ -551,7 +623,8 @@ procedure TCustomNinePatch.Draw(x,y,width,height:single;scale:single);
   scale:=scale*scaleFactor;
   rWidth:=width/scale;
   rHeight:=height/scale;
-  BuildMeshForSize(rWidth,rHeight);
+  if (meshWidth<>rWidth) or (meshHeight<>rHeight) then
+   BuildMeshForSize(rWidth,rHeight);
   transform.SetObj(x-0.5,y-0.5,0,scale);
   mesh.DumpVertex(0);
   mesh.Draw(tex);
