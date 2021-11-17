@@ -21,7 +21,7 @@ type
   meshWidth,meshHeight:single;
   mesh:TMesh;
   tex:TTexture;
-  procedure BuildMeshForSize(w,h:single);
+  procedure BuildMeshForSize(width,height:single);
  private
  type
   TRangeType=(
@@ -42,7 +42,6 @@ type
   padLeft,padTop,padRight,padBottom:integer;
   usedCells:array of cardinal; // bitmap of cell status (1 - cell is empty)
   numCells:integer; // total number of non-empty cells
-  overlapCells:array of cardinal; // bitmap: 1 - for fixed-size overlapped cells, these cells are "upper layer"
 
   procedure BuildRanges(tex:TTexture);
   procedure CheckCells;
@@ -56,6 +55,7 @@ type
   procedure AdjustSimpleMesh(nW,nH:Integer;var xx,yy:TGridArray);
   procedure AdjustOverlappedMesh(nW,nH:Integer;var xx,yy:TGridArray);
   procedure BuildTiledGrid(var xx,yy:TGridArray;var x1,y1,x2,y2:TGridArray;var gridW,gridH:TIntGridArray);
+  function PassForCell(row,col:integer):integer; // returns 0..2
  end;
 
 implementation
@@ -168,14 +168,9 @@ procedure TCustomNinePatch.CheckCells;
  begin
    // Mark empty cells
    SetLength(usedCells,length(vRanges));
-   SetLength(overlapCells,length(vRanges));
    numCells:=0;
    for i:=0 to high(usedCells) do begin
     for j:=0 to high(hRanges) do begin
-     // Overlapped cell?
-     if (hRanges[j].rType=rtFixed) and (vRanges[i].rType=rtFixed) then
-       SetBit(overlapCells[i],j);
-
      // try to find non-transparent pixels (every 4-th pixel is checked)
      y:=vRanges[i].pFrom;
      while y<=vRanges[i].pTo do begin
@@ -369,66 +364,101 @@ function TCustomNinePatch.CreateOverlappedMesh(nH,nW:integer;du,dv:single):TMesh
    result:=TMesh.Create(TVertex.layoutTex,numCells*4,numCells*6);
    base:=0;
    // Fill vertices
-   for pass:=0 to 1 do
+   for pass:=0 to 2 do
     for i:=0 to nH-1 do begin
      v1:=vRanges[i].pFrom*dv;
      v2:=vRanges[i].pTo*dv+dv;
-     for j:=0 to nW-1 do begin
-      if not GetBit(usedCells[i],j) then continue; // skip this cell
-      if byte(GetBit(overlapCells[i],j))<>pass then continue;
-      u1:=hRanges[j].pFrom*du;
-      u2:=hRanges[j].pTo*du+du;
-      // Define 4 vertices for a quad
-      vrt.Init(0,0,0,u1,v1,$FF808080); // position will be filled later
-      result.AddVertex(vrt);
-      vrt.Init(0,0,0,u2,v1,$FF808080);
-      result.AddVertex(vrt);
-      vrt.Init(0,0,0,u2,v2,$FF808080);
-      result.AddVertex(vrt);
-      vrt.Init(0,0,0,u1,v2,$FF808080);
-      result.AddVertex(vrt);
-      // 1-st triangle
-      result.AddTrg(base,base+1,base+2);
-      // 2-nd triangle
-      result.AddTrg(base,base+2,base+3);
-      inc(base,4);
-     end;
-   end;
+     for j:=0 to nW-1 do
+      if GetBit(usedCells[i],j) then begin
+       if pass<>PassForCell(i,j) then continue;
+       u1:=hRanges[j].pFrom*du;
+       u2:=hRanges[j].pTo*du+du;
+       // Define 4 vertices for a quad
+       vrt.Init(0,0,0,u1,v1,$FF808080); // position will be filled later
+       result.AddVertex(vrt);
+       vrt.Init(0,0,0,u2,v1,$FF808080);
+       result.AddVertex(vrt);
+       vrt.Init(0,0,0,u2,v2,$FF808080);
+       result.AddVertex(vrt);
+       vrt.Init(0,0,0,u1,v2,$FF808080);
+       result.AddVertex(vrt);
+       // 1-st triangle
+       result.AddTrg(base,base+1,base+2);
+       // 2-nd triangle
+       result.AddTrg(base,base+2,base+3);
+       inc(base,4);
+      end;
+    end;
  end;
 
 function CalcGridSize(size,tileSize:single):integer;
  begin
-  size:=size-0.01;
-  result:=1+2*trunc(0.5+size/tileSize*2);
+  size:=size-1.01;
+  result:=1+2*trunc(0.5+size/(tileSize*2));
  end;
 
-procedure FillCellMesh(mesh:TMesh; x1,y1,x2,y2, u1,v1,u2,v2, tileWidth,tileHeight:single);
+procedure FillCellMesh(mesh:TMesh;tile:integer; x1,y1,x2,y2, u1,v1,u2,v2, tileWidth,tileHeight:single);
  var
   vrt:TVertex;
-  i,j:integer;
+  i,j,w,h,base:integer;
+  x,y,xx,yy,x0,y0,k:single;
+  tu1,tu2,tv1,tv2:single;
  begin
-{       // Define 4 vertices for a quad
-       vrt.Init(0,0,0,u1,v1,$FF808080); // position will be filled later
-       mesh.AddVertex(vrt);
-       vrt.Init(0,0,0,u2,v1,$FF808080);
-       mesh.AddVertex(vrt);
-       vrt.Init(0,0,0,u2,v2,$FF808080);
-       mesh.AddVertex(vrt);
-       vrt.Init(0,0,0,u1,v2,$FF808080);
-       mesh.AddVertex(vrt);
-       // 1-st triangle
-       result.AddVertex();
-       result.AddVertex();
-       result.AddVertex();
-       // 2-nd triangle
-       result.AddVertex();
-       result.AddVertex();
-       result.AddVertex();}
+  // Base corner of the central tile
+  x0:=(x1+x2-tileWidth)/2; y0:=(y1+y2-tileHeight)/2;
+  // Amount of tiles
+  w:=CalcGridSize(x2-x1,tileWidth);
+  h:=CalcGridSize(y2-y1,tileHeight);
+  x0:=x0-(w div 2)*tileWidth;
+  y0:=y0-(h div 2)*tileHeight;
+  for i:=0 to h-1 do
+   for j:=0 to w-1 do begin
+     // temp values
+     x:=x0+j*tileWidth;
+     y:=y0+i*tileHeight;
+     xx:=x+tileWidth;
+     yy:=y+tileHeight;
+     tu1:=u1; tv1:=v1;
+     tu2:=u2; tv2:=v2;
+     if x<x1 then begin
+      k:=(x1-x+0.5)/tileWidth;
+      tu1:=u1+(u2-u1)*k;
+      x:=x1;
+     end;
+     if xx>x2 then begin
+      k:=(xx-x2-0.5)/tileWidth;
+      tu2:=u2-(u2-u1)*k;
+      xx:=x2;
+     end;
+     if y<y1 then begin
+      k:=(y1-y+0.5)/tileHeight;
+      tv1:=v1+(v2-v1)*k;
+      y:=y1;
+     end;
+     if yy>y2 then begin
+      k:=(yy-y2-0.5)/tileHeight;
+      tv2:=v2-(v2-v1)*k;
+      yy:=y2;
+     end;
+     // Add quad
+     vrt.Init(x,y,0,tu1,tv1,$FF808080);
+     mesh.AddVertex(vrt);
+     vrt.Init(xx,y,0,tu2,tv1,$FF808080);
+     mesh.AddVertex(vrt);
+     vrt.Init(xx,yy,0,tu2,tv2,$FF808080);
+     mesh.AddVertex(vrt);
+     vrt.Init(x,yy,0,tu1,tv2,$FF808080);
+     mesh.AddVertex(vrt);
+     // Add triangles
+     base:=tile*4;
+     mesh.AddTrg(base,base+1,base+2);
+     mesh.AddTrg(base,base+2,base+3);
+   end;
  end;
 
 function TCustomNinePatch.CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:TGridArray):TMesh;
  var
-  i,j,pass,vCount,iCount:integer;
+  i,j,pass,tile,tileCount:integer;
   gridW,gridH:TIntGridArray;
   x1,y1,x2,y2:TGridArray;
   u1,v1,u2,v2:single;
@@ -436,30 +466,38 @@ function TCustomNinePatch.CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:T
  begin
   BuildTiledGrid(xx,yy, x1,y1,x2,y2,gridW,gridH);
   // Calculate mesh size
-  vCount:=0; iCount:=0;
+  tileCount:=0;
   for i:=0 to nH-1 do
    for j:=0 to nW-1 do
     if GetBit(usedCells[i],j) then begin
-     inc(vCount,(gridW[j]+1)*(gridH[i]+1));
-     inc(iCount,6*(gridW[j])*(gridH[i]));
+     inc(tileCount,gridW[j]*gridH[i]);
     end;
   // Create mesh
-  result:=TMesh.Create(DEFAULT_VERTEX_LAYOUT,vCount,iCount);
+  result:=TMesh.Create(DEFAULT_VERTEX_LAYOUT,tileCount*4,tileCount*6);
   // Fill mesh
-  for pass:=0 to 1 do
+  tile:=0;
+  for pass:=0 to 2 do
    for i:=0 to nH-1 do begin
-     v1:=vRanges[i].pFrom*dv;
-     v2:=vRanges[i].pTo*dv+dv;
+     v1:=vRanges[i].pFrom*dv+dv/2;
+     v2:=vRanges[i].pTo*dv+dv/2;
      tileHeight:=vRanges[i].pTo-vRanges[i].pFrom;
      for j:=0 to nW-1 do
       if GetBit(usedCells[i],j) then begin
-       if (pass=0) and GetBit(overlapCells[i],j) then continue;
-       u1:=hRanges[j].pFrom*du;
-       u2:=hRanges[j].pTo*du+du;
+       if pass<>PassForCell(i,j) then continue;
+       u1:=hRanges[j].pFrom*du+du/2;
+       u2:=hRanges[j].pTo*du+du/2;
        tileWidth:=hRanges[j].pTo-hRanges[j].pFrom;
-       FillCellMesh(mesh, x1[j],y1[i],x2[j],y2[i], u1,v1,u2,v2, tileWidth,tileHeight);
+       FillCellMesh(result,tile, x1[j],y1[i],x2[j],y2[i], u1,v1,u2,v2, tileWidth,tileHeight);
+       inc(tile);
      end;
    end;
+ end;
+
+function TCustomNinePatch.PassForCell(row,col:integer):integer;
+ begin
+  result:=0;
+  if vRanges[row].rType=rtFixed then inc(result);
+  if hRanges[col].rType=rtFixed then inc(result);
  end;
 
 // Simple 9-patch mesh
@@ -486,11 +524,11 @@ procedure TCustomNinePatch.AdjustOverlappedMesh(nW,nH:Integer;var xx,yy:TGridArr
   x1,y1,x2,y2:single;
  begin
   pVrt:=mesh.vertices;
-  for pass:=0 to 1 do
+  for pass:=0 to 2 do
    for i:=0 to nH-1 do
     for j:=0 to nW-1 do
      if GetBit(usedCells[i],j) then
-      if byte(GetBit(overlapCells[i],j))=pass then begin
+      if pass=PassForCell(i,j) then begin
        // Calculate cell position
        x1:=xx[j];
        if j>0 then x1:=x1-hRanges[j-1].overlap2;
@@ -522,7 +560,7 @@ var
 begin
   nW:=length(hRanges);
   nH:=length(vRanges);
-  // Build overlapped grid
+  // Build overlapped grid for tiled patch
   for i:=0 to nW-1 do
   begin
     x1[i]:=xx[i];
@@ -531,7 +569,7 @@ begin
       if i>0 then
        x1[i]:=x1[i]-hRanges[i-1].overlap2;
       if i<nW then
-       x2[i]:=x2[i]-hRanges[i+1].overlap1;
+       x2[i]:=x2[i]+hRanges[i+1].overlap1;
       gridW[i]:=CalcGridSize(x2[i]-x1[i],hRanges[i].pTo-hRanges[i].pFrom);
     end else
      gridW[i]:=1;
@@ -545,7 +583,7 @@ begin
       if i>0 then
        y1[i]:=y1[i]-vRanges[i-1].overlap2;
       if i<nW then
-       y2[i]:=y2[i]-vRanges[i+1].overlap1;
+       y2[i]:=y2[i]+vRanges[i+1].overlap1;
       gridH[i]:=CalcGridSize(y2[i]-y1[i],vRanges[i].pTo-vRanges[i].pFrom);
     end
     else
@@ -554,7 +592,7 @@ begin
 end;
 
 { TNinePatch }
-procedure TCustomNinePatch.BuildMeshForSize(w,h:single);
+procedure TCustomNinePatch.BuildMeshForSize(width,height:single);
  var
   i,j,nH,nW:integer;
   du,dv:single;
@@ -576,22 +614,22 @@ procedure TCustomNinePatch.BuildMeshForSize(w,h:single);
    end else begin
      // Tiled patch - complex case
      // Such mesh is always created for specific size and not adjusted later
-     ResizeGrid(w,h,xx,yy);
+     ResizeGrid(width,height,xx,yy);
      mesh:=CreateTiledMesh(nH,nW,du,dv,xx,yy);
    end;
   end;
-
+  // Adjust previously created mesh
   if not tiled then begin
    // Adjust patch grid
-   ResizeGrid(w,h,xx,yy);
-
+   ResizeGrid(width,height,xx,yy);
    // Adjust vertices
    if not overlapped then
     AdjustSimpleMesh(nW,nH,xx,yy)
    else
     AdjustOverlappedMesh(nW,nH,xx,yy);
   end;
-  meshWidth:=w; meshHeight:=h;
+  // Remember new mesh dimensions for reuse
+  meshWidth:=width; meshHeight:=height;
  end;
 
 constructor TCustomNinePatch.Create(fromImage: TTexture);
