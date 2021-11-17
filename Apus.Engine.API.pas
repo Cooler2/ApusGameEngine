@@ -639,7 +639,7 @@ type
   layout:TVertexLayout;
   vertices:pointer;
   indices:TIndices; // Optional, can be empty
-  vCount:integer;
+  vCount:integer; // Number of vertices allocated
   constructor Create(vertexLayout:TVertexLayout;vertCount,indCount:integer);
   procedure SetVertices(data:pointer;sizeInBytes:integer);
   procedure AddVertex(var vertexData);
@@ -647,6 +647,7 @@ type
   procedure Draw(tex:TTexture=nil); // draw whole mesh
   destructor Destroy; override;
   function DumpVertex(n:cardinal):String8;
+  function vPos:integer; // Returns number of vertices stored via AddVertex (current write position)
  private
   vData:PByte;
   idx:integer;
@@ -1504,6 +1505,11 @@ procedure TMesh.SetVertices(data: pointer; sizeInBytes: integer);
   vertices:=data;
   vCount:=sizeInBytes div layout.stride;
   vData:=vertices;
+ end;
+
+function TMesh.vPos: integer;
+ begin
+  result:=(UIntPtr(vData)-UIntPtr(vertices)) div layout.stride;
  end;
 
 { TVertex }
