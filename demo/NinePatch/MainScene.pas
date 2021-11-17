@@ -135,8 +135,11 @@ procedure TMainScene.Render;
     DrawPatchWithFrame(600,120,120+dW,100+dH,overPatch);
    end;
    if tiledPatch<>nil then begin
-    DrawPatchWithFrame(200,300,100,90,tiledPatch);
+    dH:=round(50*sin(time+2));
+    DrawPatchWithFrame(200,300,101,90,tiledPatch);
+    DrawPatchWithFrame(200,400,170,190,tiledPatch,1.5);
     DrawPatchWithFrame(400,300,200,300,tiledPatch);
+    DrawPatchWithFrame(620,300,150+dW,130+dH,tiledPatch);
    end;
   end;
 
