@@ -397,7 +397,7 @@ function CalcGridSize(size,tileSize:single):integer;
   result:=1+2*trunc(0.5+size/(tileSize*2));
  end;
 
-procedure FillCellMesh(mesh:TMesh;tile:integer; x1,y1,x2,y2, u1,v1,u2,v2, tileWidth,tileHeight:single);
+procedure FillCellMesh(mesh:TMesh; x1,y1,x2,y2, u1,v1,u2,v2, tileWidth,tileHeight:single);
  var
   vrt:TVertex;
   i,j,w,h,base:integer;
@@ -405,7 +405,8 @@ procedure FillCellMesh(mesh:TMesh;tile:integer; x1,y1,x2,y2, u1,v1,u2,v2, tileWi
   tu1,tu2,tv1,tv2:single;
  begin
   // Base corner of the central tile
-  x0:=(x1+x2-tileWidth)/2; y0:=(y1+y2-tileHeight)/2;
+  x0:=(x1+x2-tileWidth)/2;
+  y0:=(y1+y2-tileHeight)/2;
   // Amount of tiles
   w:=CalcGridSize(x2-x1,tileWidth);
   h:=CalcGridSize(y2-y1,tileHeight);
@@ -441,6 +442,7 @@ procedure FillCellMesh(mesh:TMesh;tile:integer; x1,y1,x2,y2, u1,v1,u2,v2, tileWi
       yy:=y2;
      end;
      // Add quad
+     base:=mesh.vPos;
      vrt.Init(x,y,0,tu1,tv1,$FF808080);
      mesh.AddVertex(vrt);
      vrt.Init(xx,y,0,tu2,tv1,$FF808080);
@@ -450,7 +452,6 @@ procedure FillCellMesh(mesh:TMesh;tile:integer; x1,y1,x2,y2, u1,v1,u2,v2, tileWi
      vrt.Init(x,yy,0,tu1,tv2,$FF808080);
      mesh.AddVertex(vrt);
      // Add triangles
-     base:=tile*4;
      mesh.AddTrg(base,base+1,base+2);
      mesh.AddTrg(base,base+2,base+3);
    end;
@@ -458,7 +459,7 @@ procedure FillCellMesh(mesh:TMesh;tile:integer; x1,y1,x2,y2, u1,v1,u2,v2, tileWi
 
 function TCustomNinePatch.CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:TGridArray):TMesh;
  var
-  i,j,pass,tile,tileCount:integer;
+  i,j,pass,tileCount:integer;
   gridW,gridH:TIntGridArray;
   x1,y1,x2,y2:TGridArray;
   u1,v1,u2,v2:single;
@@ -475,7 +476,6 @@ function TCustomNinePatch.CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:T
   // Create mesh
   result:=TMesh.Create(DEFAULT_VERTEX_LAYOUT,tileCount*4,tileCount*6);
   // Fill mesh
-  tile:=0;
   for pass:=0 to 2 do
    for i:=0 to nH-1 do begin
      v1:=vRanges[i].pFrom*dv+dv/2;
@@ -487,8 +487,7 @@ function TCustomNinePatch.CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:T
        u1:=hRanges[j].pFrom*du+du/2;
        u2:=hRanges[j].pTo*du+du/2;
        tileWidth:=hRanges[j].pTo-hRanges[j].pFrom;
-       FillCellMesh(result,tile, x1[j],y1[i],x2[j],y2[i], u1,v1,u2,v2, tileWidth,tileHeight);
-       inc(tile);
+       FillCellMesh(result, x1[j],y1[i],x2[j],y2[i], u1,v1,u2,v2, tileWidth,tileHeight);
      end;
    end;
  end;
