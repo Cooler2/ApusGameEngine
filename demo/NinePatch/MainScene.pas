@@ -90,47 +90,54 @@ procedure TMainScene.CreateUI;
   // Buttons bar
   bar:=TUIElement.Create(130,300,UI).SetPos(0,0).SetPaddings(5);
   bar.layout:=TRowLayout.Create(false,10,true);
-  // 1-st speedbuttons group
-  group1:=TUIElement.Create(120,90,bar);
+  // 1-nd speedbuttons group
+  group1:=TUIElement.Create(120,90,bar,'Group1');
   group1.layout:=TRowLayout.Create(false,0,true);
-  TUIButton.Create(120,30,'Patch1','Patch 1',game.defaultFont,group1);
-  TUIButton.Create(120,30,'Patch2','Patch 2',game.defaultFont,group1);
-  TUIButton.Create(120,30,'Patch3','Patch 3',game.defaultFont,group1).MakeSwitches;
-  // 2-nd speedbuttons group
-  group2:=TUIElement.Create(120,90,bar);
+  TUIButton.Create(120,30,'DrawTest','Draw Test',game.defaultFont,group1);
+  TUIButton.Create(120,30,'Stress1','Stress Test 1',game.defaultFont,group1);
+  TUIButton.Create(120,30,'Stress2','Stress Test 2',game.defaultFont,group1).MakeSwitches;
+  // 2-st speedbuttons group
+  group2:=TUIElement.Create(120,90,bar,'Group2');
   group2.layout:=TRowLayout.Create(false,0,true);
-  TUIButton.Create(120,30,'DrawTest','Draw Test',game.defaultFont,group2);
-  TUIButton.Create(120,30,'Stress1','Stress Test 1',game.defaultFont,group2);
-  TUIButton.Create(120,30,'Stress2','Stress Test 2',game.defaultFont,group2).MakeSwitches;
+  TUIButton.Create(120,30,'Patch1','Patch 1',game.defaultFont,group2);
+  TUIButton.Create(120,30,'Patch2','Patch 2',game.defaultFont,group2);
+  TUIButton.Create(120,30,'Patch3','Patch 3',game.defaultFont,group2).MakeSwitches;
  end;
-
 
 procedure TMainScene.Render;
  var
-  i,w,h:integer;
+  i,w,h,dW,dH:integer;
   patch:TNinePatch;
- procedure DrawPatchWithFrame(x,y,w,h:integer;patch:TNinePatch);
+  time:double;
+ procedure DrawPatchWithFrame(x,y,w,h:integer;patch:TNinePatch;scale:single=1);
   begin
    draw.Rect(x-1,y-1,x+w,y+h,$50FFFFFF);
-   patch.Draw(x,y,w,h);
+   patch.Draw(x,y,w,h,scale);
   end;
  begin
   // 1. Draw scene background
   gfx.target.Clear($406080); // clear with black
+  FindControl('group2').visible:=not UIButton('DrawTest').pressed;
 
   if UIButton('DrawTest').pressed then begin
+   time:=game.frameStartTime/1000;
+   dW:=round(20*sin(time));
+   dH:=round(20*sin(time+2));
    if redPatch<>nil then begin
     DrawPatchWithFrame(200,10,100,60,redPatch);
-    DrawPatchWithFrame(400,10,60,30,redPatch);
+    DrawPatchWithFrame(350,20,60,30,redPatch);
+    DrawPatchWithFrame(500,10,100,70,redPatch,1.5);
+    DrawPatchWithFrame(650,10,100+dW,80+dH,redPatch);
    end;
    if overPatch<>nil then begin
     DrawPatchWithFrame(200,150,100,90,overPatch);
-    DrawPatchWithFrame(400,150,200,140,overPatch);
+    DrawPatchWithFrame(350,120,200,140,overPatch);
+    DrawPatchWithFrame(600,120,120+dW,100+dH,overPatch);
    end;
-{   if tiledPatch<>nil then begin
+   if tiledPatch<>nil then begin
     DrawPatchWithFrame(200,300,100,90,tiledPatch);
     DrawPatchWithFrame(400,300,200,300,tiledPatch);
-   end;}
+   end;
   end;
 
   if UIButton('Patch1').pressed then
