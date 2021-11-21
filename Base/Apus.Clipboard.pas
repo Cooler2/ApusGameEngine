@@ -139,7 +139,9 @@ implementation
       Result:='';
       if size>0 then
           result:=PWideChar(@buf);
-      if result[length(result)]=#0 then SetLength(result,length(result)-1);
+      if result<>'' then
+       if result[length(result)]=#0 then
+        SetLength(result,length(result)-1);
     end;
 
   procedure PutImageToClipboard(image:TObject);
