@@ -21,6 +21,7 @@ interface
   {$IFDEF MSWINDOWS}
   windows,
   {$ENDIF}
+  Apus.Types,
   SysUtils;
  const
   {$IFDEF MSWINDOWS}
@@ -29,44 +30,36 @@ interface
   PathSeparator='/';
   {$ENDIF}
  type
-  // !!! Use Str8() / Str16() to assign strings of different types !!!
+  // Type aliases declared because this unit is assumed to be primarily used (instead of Apus.Types)
 
+  // !!! Use Str8() / Str16() to assign strings of different types !!!
   // 8-bit string type (assuming UTF-8 encoding)
-  Char8=UTF8Char;
-  String8=UTF8String;
-  PString8=^String8;
-  // 16-bit string type (can be UTF-16 or UCS-2)
-  {$IFDEF UNICODE}
-  Char16=Char;
-  String16=UnicodeString;
-  {$ELSE}
-  char16=WideChar;
-  String16=WideString;
-  {$ENDIF}
-  PString16=^String16;
+  Char8=Apus.Types.Char8;
+  String8=Apus.Types.String8;
+  PString8=Apus.Types.PString8;
+
+  Char16=Apus.Types.Char16;
+  String16=Apus.Types.String16;
+  PString16=Apus.Types.PString16;
+
+  ShortStr=Apus.Types.ShortStr;
 
   // String arrays
-  StringArr8=array of String8;
-  AStringArr=StringArr8;
-  StringArr16=array of String16;
-  WStringArr=StringArr16;
-  StringArr=array of string; // depends on UNICODE mode
+  StringArray8=Apus.Types.StringArray8;
+  AStringArr=StringArray8;
+  StringArray16=Apus.Types.StringArray16;
+  WStringArr=StringArray16;
+  StringArr=Apus.Types.StringArray;
 
-  {$IF Declared(TBytes)}
-  ByteArray=TBytes;
-  {$ELSE}
-  ByteArray=array of byte;
-  {$ENDIF}
-  WordArray=array of word;
-  IntArray=array of integer;
-  UIntArray=array of cardinal;
-  SingleArray=array of single;
-  FloatArray=array of double;
-  ShortStr=string[31];
-  PointerArray=array of pointer;
-  VariantArray=array of variant;
+  ByteArray=Apus.Types.ByteArray;
+  WordArray=Apus.Types.WordArray;
+  IntArray=Apus.Types.IntArray;
+  UIntArray=Apus.Types.UIntArray;
+  SingleArray=Apus.Types.SingleArray;
+  FloatArray=Apus.Types.FloatArray;
+  PointerArray=Apus.Types.PointerArray;
+  VariantArray=Apus.Types.VariantArray;
 
-  TProcedure=procedure;
 
   // 8-bit strings encodings
   TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8);
@@ -315,8 +308,8 @@ interface
  procedure RemoveString(var sa:WStringArr;index:integer); overload;
  // Ищет строку в массиве, возвращает её индекс либо -1
  function FindString(var sa:StringArr;st:string;ignoreCase:boolean=false):integer; overload;
- function FindString(var sa:StringArr8;st:string8;ignoreCase:boolean=false):integer; overload;
- function FindString(var sa:StringArr16;st:string16;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArray8;st:string8;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArray16;st:string16;ignoreCase:boolean=false):integer; overload;
  // Ищет число в массиве, возвращает его индекс либо -1
  function FindInteger(var a:IntArray;v:integer):integer;
  // Вставляет (добавляет) число в массив чисел
@@ -687,6 +680,9 @@ interface
  function StrHash(const st:string):cardinal; overload;
  {$IFDEF ADDANSI}
  function StrHash(const st:String8):cardinal; overload; {$ENDIF}
+ // Ultrafast case-insensitive string hash
+ function FastHash(const st:string8):cardinal; inline; overload;
+ function FastHash(const st:String16):cardinal; inline; overload;
 
  // Current date/time
  function NowGMT:TDateTime; // UTC datetime in TDateTime format
@@ -1084,6 +1080,39 @@ function min2s(a,b:single):single; inline;
     result:=result*$20844 xor byte(st[i]);
   end;
  {$ENDIF}
+
+ function FastHash(const st:String8):cardinal; overload;
+  var
+   l,i:integer;
+  begin
+   l:=length(st);
+   if l<4 then begin
+    result:=0;
+    for i:=1 to l do
+     result:=result*31+byte(st[i]) and $1F;
+   end else begin
+    result:=l*131+byte(st[1]) and $1F;
+    for i:=l-3 to l do begin
+     result:=result*3+byte(st[l]) and $1F;
+    end;
+   end;
+  end;
+
+ function FastHash(const st:String16):cardinal; overload;
+  var
+   l,i:integer;
+  begin
+   l:=length(st);
+   if l<4 then begin
+    result:=0;
+    for i:=1 to l do
+     result:=result*31+byte(st[i]) and $1F;
+   end else begin
+    result:=l*131+byte(st[1]) and $1F;
+    for i:=l-3 to l do begin
+     result:=result*3+byte(st[l]) and $1F;
+    end;
+   end;  end;
 
  procedure FillRandom(var buf;size:integer);
   var
@@ -3582,7 +3611,7 @@ function BinToStr;
      if sa[i]=st then exit(i);
   end;
 
- function FindString(var sa:StringArr8;st:string8;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArray8;st:string8;ignoreCase:boolean=false):integer; overload;
   var
    i:integer;
   begin
@@ -3596,7 +3625,7 @@ function BinToStr;
      if sa[i]=st then exit(i);
   end;
 
- function FindString(var sa:StringArr16;st:string16;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArray16;st:string16;ignoreCase:boolean=false):integer; overload;
   var
    i:integer;
   begin
