@@ -22,6 +22,7 @@ interface
   windows,
   {$ENDIF}
   Apus.Types,
+  Apus.Classes,
   SysUtils;
  const
   {$IFDEF MSWINDOWS}
@@ -34,32 +35,36 @@ interface
 
   // !!! Use Str8() / Str16() to assign strings of different types !!!
   // 8-bit string type (assuming UTF-8 encoding)
-  Char8=Apus.Types.Char8;
-  String8=Apus.Types.String8;
-  PString8=Apus.Types.PString8;
+  Char8 = Apus.Types.Char8;
+  String8 = Apus.Types.String8;
+  PString8 = Apus.Types.PString8;
 
-  Char16=Apus.Types.Char16;
-  String16=Apus.Types.String16;
-  PString16=Apus.Types.PString16;
+  Char16 = Apus.Types.Char16;
+  String16 = Apus.Types.String16;
+  PString16 = Apus.Types.PString16;
 
-  ShortStr=Apus.Types.ShortStr;
+  ShortStr = Apus.Types.ShortStr;
 
   // String arrays
-  StringArray8=Apus.Types.StringArray8;
-  AStringArr=StringArray8;
-  StringArray16=Apus.Types.StringArray16;
-  WStringArr=StringArray16;
-  StringArr=Apus.Types.StringArray;
+  StringArray8 = Apus.Types.StringArray8;
+  AStringArr = StringArray8;
+  StringArray16 = Apus.Types.StringArray16;
+  WStringArr = StringArray16;
+  StringArr = Apus.Types.StringArray;
 
-  ByteArray=Apus.Types.ByteArray;
-  WordArray=Apus.Types.WordArray;
-  IntArray=Apus.Types.IntArray;
-  UIntArray=Apus.Types.UIntArray;
-  SingleArray=Apus.Types.SingleArray;
-  FloatArray=Apus.Types.FloatArray;
-  PointerArray=Apus.Types.PointerArray;
-  VariantArray=Apus.Types.VariantArray;
+  ByteArray = Apus.Types.ByteArray;
+  WordArray = Apus.Types.WordArray;
+  IntArray = Apus.Types.IntArray;
+  UIntArray = Apus.Types.UIntArray;
+  SingleArray = Apus.Types.SingleArray;
+  FloatArray = Apus.Types.FloatArray;
+  PointerArray = Apus.Types.PointerArray;
+  VariantArray = Apus.Types.VariantArray;
 
+  TProcedure = Apus.Types.TProcedure;
+
+  TObjectEx = Apus.Classes.TObjectEx;
+  TNamedObject = Apus.Classes.TNamedObject;
 
   // 8-bit strings encodings
   TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8);
