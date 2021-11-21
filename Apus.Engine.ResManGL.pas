@@ -60,14 +60,14 @@ type
   destructor Destroy; override;
 
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
-                flags:cardinal;name:TTextureName):TTexture;
+                flags:cardinal;name:String8):TTexture;
   procedure ResizeImage(var img:TTexture;newWidth,newHeight:integer);
   function Clone(img:TTexture):TTexture;
   procedure FreeImage(var image:TTexture);
 
   // Allocate texture array
   function AllocArray(width,height:integer;PixFmt:TImagePixelFormat;
-                arraySize:integer;flags:cardinal;name:TTextureName):TGLTextureArray;
+                arraySize:integer;flags:cardinal;name:String8):TGLTextureArray;
 
   procedure MakeOnline(img:TTexture;stage:integer=0);
   procedure SetTexFilter(img:TTexture;filter:TTexFilter);
@@ -780,8 +780,8 @@ begin
 end;
 
 
-function TGLResourceManager.AllocImage(width, height: integer; PixFmt: TImagePixelFormat; flags: cardinal;
-  name: TTextureName): TTexture;
+function TGLResourceManager.AllocImage(width,height:integer; PixFmt:TImagePixelFormat; flags:cardinal;
+  name:String8):TTexture;
 var
  tex:TGlTexture;
  dataSize:integer;
@@ -852,7 +852,7 @@ begin
 end;
 
 function TGLResourceManager.AllocArray(width,height:integer;PixFmt:TImagePixelFormat;
-                arraySize:integer;flags:cardinal;name:TTextureName):TGLTextureArray;
+                arraySize:integer;flags:cardinal;name:String8):TGLTextureArray;
 var
  tex:TGlTextureArray;
  dataSize,z:integer;

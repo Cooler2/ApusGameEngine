@@ -281,19 +281,17 @@ type
                       // в скорости - тогда возможна (но не гарантируется) оптимизация перерисовки
  end;
 
- TTextureName=string;
-
  // Базовый абстрактный класс - текстура или ее часть
- TTexture=class
+ TTexture=class(TNamedObject)
   pixelFormat:TImagePixelFormat;
   width,height:integer; // dimension (in virtual pixels)
-  left,top:integer; // position
+  left,top:integer; // position in the underlying resource
   mipmaps:byte; // кол-во уровней MIPMAP
   caps:cardinal; // возможности и флаги
-  name:TTextureName; // texture name (for debug purposes)
   refCounter:integer; // number of child textures referencing this texture data
-  parent:TTexture;    // reference to a parent texture (
-  // These properties may not be valid unless texture is ONLINE
+  parent:TTexture;    // reference to a parent texture
+  src:String8; // file name if loaded from a file
+  // These properties are valid when texture is ONLINE (uploaded)
   u1,v1,u2,v2:single; // texture coordinates
   stepU,stepV:single; // halved texel step
   // These properties are valid when texture is LOCKED
@@ -550,7 +548,7 @@ type
  IResourceManager=interface
   // Создать изображение (в случае ошибки будет исключение)
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
-     flags:cardinal;name:TTextureName):TTexture;
+     flags:cardinal;name:String8):TTexture;
   // Change size of texture if it supports it (render target etc)
   procedure ResizeImage(var img:TTexture;newWidth,newHeight:integer);
   function Clone(img:TTexture):TTexture;
@@ -1102,7 +1100,7 @@ var
 
  // Shortcuts to the texture manager
  function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
-                flags:integer=0;name:TTextureName=''):TTexture;
+                flags:integer=0;name:String8=''):TTexture;
  procedure FreeImage(var img:TTexture);
 
  // Lock the texture (if not yet locked) and set it as draw target for FastGFX unit (don't forget to unlock)
@@ -1287,7 +1285,6 @@ end;
 
 procedure TGameScene.Render;
 begin
-
 end;
 
 procedure TGameScene.SetStatus(st: TSceneStatus);
@@ -1376,7 +1373,7 @@ function CreateNinePatch(image:TTexture;scale2x:boolean=false):TNinePatch;
  end;
 
 function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
-                flags:integer=0;name:TTextureName=''):TTexture;
+                flags:integer=0;name:String8=''):TTexture;
  begin
   if gfx.resman<>nil then
    result:=gfx.resman.AllocImage(width,height,pixFmt,flags,name)
@@ -1450,6 +1447,7 @@ procedure DrawToTexture(tex:TTexture;mipLevel:integer=0);
 
 
 { TMesh }
+
 procedure TMesh.AddTrg(v0,v1,v2: integer);
  begin
   indices[idx]:=v0; inc(idx);
@@ -1559,7 +1557,6 @@ class function TVertex3D.Layout:TVertexLayout;
  end;
 
 { TShader }
-
 class function TShader.VectorFromColor(color: cardinal):TVector4s;
  var
   c:PARGBColor;

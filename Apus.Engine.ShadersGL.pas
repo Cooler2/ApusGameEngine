@@ -88,7 +88,7 @@ type
   curTexMode:TTexMode; // encoded shader mode requested by the client code
   actualTexMode:TTexMode; // actual shader mode
   actualVertexLayout:cardinal; // vertex layout for the current shader
-  customized:StringArr8;
+  customized:StringArray8;
 
   // Ambient light
   ambientLightColor:cardinal;
