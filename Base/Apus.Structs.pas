@@ -287,12 +287,6 @@ implementation
  uses SysUtils,variants
    {$IFDEF DELPHI},windows{$ENDIF}; // FPC has built-in support (RTL) for atomic operations
 
- procedure SpinLock(var lock:integer); inline;
-  begin
-   // LOCK CMPXCHG is very slow (~20-50 cycles) so no need for additional spin rounds for quick operations
-   while InterlockedCompareExchange(lock,1,0)<>0 do sleep(0);
-  end;
-
 {  constructor TVarHash.Init;
    begin
     KeyCount:=0;

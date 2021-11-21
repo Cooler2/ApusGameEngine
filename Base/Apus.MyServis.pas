@@ -698,6 +698,7 @@ interface
 
  // Синхронизация и многопоточность
  // --------------------------------
+ procedure SpinLock(var lock:integer); inline; // the simpliest lock
  // level - используется только в отладочном режиме для проверки отсутствия циклов в графе захвата секций (чтобы гарантировать отсутствие блокировок)
  // Допускается входить в секцию с бОльшим уровнем будучи уже в секции с меньшим уровнем, но не наоборот.
  // Т.о. чем ниже уровень кода, тем ВЫШЕ должно быть значение level в секции, которой этот код оперирует
@@ -5316,6 +5317,12 @@ constructor TBaseException.Create(const msg:String; fields:array of const);
 begin
  Create(Format(msg,fields));
 end;
+
+procedure SpinLock(var lock:integer); inline; // the simpliest lock
+ begin
+   // LOCK CMPXCHG is very slow (~20-50 cycles) so no need for additional spin rounds for quick operations
+   while InterlockedCompareExchange(lock,1,0)<>0 do sleep(0);
+ end;
 
 procedure InitCritSect(var cr:TMyCriticalSection;name:String8;level:integer=100); //
  begin
