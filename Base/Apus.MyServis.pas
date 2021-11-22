@@ -65,6 +65,7 @@ interface
 
   TObjectEx = Apus.Classes.TObjectEx;
   TNamedObject = Apus.Classes.TNamedObject;
+  TNamedObjects = Apus.Classes.TNamedObjects;
 
   // 8-bit strings encodings
   TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8);
@@ -393,7 +394,11 @@ interface
  {$IFDEF ADDANSI}
  function Chop(st:String8):String8; overload; {$ENDIF}
 
- // Возвращает последний символ строки (#0 если строка пустая)
+ // Case-insensetive comparison - equivalent of SameText()
+ function SameStr(const s1,s2:String8):boolean; overload;
+ function SameStr(const s1,s2:String16):boolean; overload;
+
+ // Возвращает последний символ строки (#0 if empty)
  function LastChar(st:string):char; overload;
  {$IFDEF ADDANSI}
  function LastChar(st:String8):AnsiChar; overload; {$ENDIF}
@@ -4310,6 +4315,40 @@ function BinToStr;
    i:=length(result);
    while (length(result)>0) and (result[i]<=' ') do dec(i);
    setlength(result,i);
+  end;
+
+ function SameStr(const s1,s2:String8):boolean; overload;
+  var
+   i,l:integer;
+   b1,b2:byte;
+  begin
+   l:=length(s1);
+   if length(s2)<>l then exit(false);
+   for i:=1 to l do begin
+    b1:=byte(s1[i]);
+    if (b1>=ord('a')) and (b1<=ord('z')) then b1:=b1 xor $20;
+    b2:=byte(s2[i]);
+    if (b2>=ord('a')) and (b2<=ord('z')) then b2:=b2 xor $20;
+    if b1<>b2 then exit(false);
+   end;
+   result:=true;
+  end;
+
+ function SameStr(const s1,s2:String16):boolean; overload;
+  var
+   i,l:integer;
+   b1,b2:word;
+  begin
+   l:=length(s1);
+   if length(s2)<>l then exit(false);
+   for i:=1 to l do begin
+    b1:=word(s1[i]);
+    if (b1>=ord('a')) and (b1<=ord('z')) then b1:=b1 xor $20;
+    b2:=word(s2[i]);
+    if (b2>=ord('a')) and (b2<=ord('z')) then b2:=b2 xor $20;
+    if b1<>b2 then exit(false);
+   end;
+   result:=true;
   end;
 
  function LastChar(st:string):char;
