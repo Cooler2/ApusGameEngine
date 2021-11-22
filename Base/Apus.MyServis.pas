@@ -687,7 +687,9 @@ interface
  function CalcCheckSum(adr:pointer;size:integer):cardinal;
  function CheckSum64(adr:pointer;size:integer):int64; pascal;
  procedure FillRandom(var buf;size:integer);
- function StrHash(const st:string):cardinal; overload;
+ function StrHash(const st:string16):cardinal; overload;
+ {$IFNDEF UNICODE}
+ function StrHash(const st:string):cardinal; overload; {$ENDIF}
  {$IFDEF ADDANSI}
  function StrHash(const st:String8):cardinal; overload; {$ENDIF}
  // Ultrafast case-insensitive string hash
@@ -1072,6 +1074,16 @@ function min2s(a,b:single):single; inline;
    end;
   end;
 
+ function StrHash(const st:string16):cardinal; overload;
+  var
+   i:integer;
+  begin
+   result:=0;
+   for i:=1 to length(st) do
+    result:=cardinal(result*$20844) xor byte(st[i]);
+  end;
+
+ {$IFNDEF UNICODE}
  function StrHash(const st:string):cardinal;
   var
    i:integer;
@@ -1080,6 +1092,7 @@ function min2s(a,b:single):single; inline;
    for i:=1 to length(st) do
     result:=cardinal(result*$20844) xor byte(st[i]);
   end;
+ {$ENDIF}
 
  {$IFDEF ADDANSI}
  function StrHash(const st:String8):cardinal; overload;
