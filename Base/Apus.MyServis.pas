@@ -11,6 +11,7 @@ For Delphi - please define global symbol "DELPHI"!
 {$ENDIF}{$ENDIF} *)
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 {$IFDEF UNICODE} {$DEFINE ADDANSI} {$ENDIF} // Make separate implementations for String and AnsiString types
+{$IFOPT R+} {$DEFINE RANGECHECKS_ON} {$ENDIF}
 
 unit Apus.MyServis;
 interface
@@ -693,8 +694,8 @@ interface
  {$IFDEF ADDANSI}
  function StrHash(const st:String8):cardinal; overload; {$ENDIF}
  // Ultrafast case-insensitive string hash
- function FastHash(const st:string8):cardinal; inline; overload;
- function FastHash(const st:String16):cardinal; inline; overload;
+ function FastHash(const st:string8):cardinal; overload;
+ function FastHash(const st:String16):cardinal; overload;
 
  // Current date/time
  function NowGMT:TDateTime; // UTC datetime in TDateTime format
@@ -1109,15 +1110,16 @@ function min2s(a,b:single):single; inline;
   var
    l,i:integer;
   begin
+   result:=0;
    l:=length(st);
    if l<4 then begin
     result:=0;
     for i:=1 to l do
-     result:=result*31+byte(st[i]) and $1F;
+     result:=result*$20844 xor (byte(st[i]) and $1F);
    end else begin
     result:=l*131+byte(st[1]) and $1F;
     for i:=l-3 to l do begin
-     result:=result*3+byte(st[l]) and $1F;
+     result:=result*$20844 xor (byte(st[i]) and $1F);
     end;
    end;
   end;
@@ -4330,19 +4332,23 @@ function BinToStr;
    setlength(result,i);
   end;
 
+ {$R-}
  function SameStr(const s1,s2:String8):boolean; overload;
   var
    i,l:integer;
    b1,b2:byte;
   begin
+   //if s1=s2 then exit(true);  // fast check
    l:=length(s1);
    if length(s2)<>l then exit(false);
    for i:=1 to l do begin
     b1:=byte(s1[i]);
-    if (b1>=ord('a')) and (b1<=ord('z')) then b1:=b1 xor $20;
     b2:=byte(s2[i]);
-    if (b2>=ord('a')) and (b2<=ord('z')) then b2:=b2 xor $20;
-    if b1<>b2 then exit(false);
+    if b1<>b2 then begin
+     if (b1>=ord('a')) and (b1<=ord('z')) then b1:=b1 xor $20;
+     if (b2>=ord('a')) and (b2<=ord('z')) then b2:=b2 xor $20;
+     if b1<>b2 then exit(false);
+    end;
    end;
    result:=true;
   end;
@@ -4352,6 +4358,7 @@ function BinToStr;
    i,l:integer;
    b1,b2:word;
   begin
+   if s1=s2 then exit(true);
    l:=length(s1);
    if length(s2)<>l then exit(false);
    for i:=1 to l do begin
@@ -4363,6 +4370,7 @@ function BinToStr;
    end;
    result:=true;
   end;
+ {$IFDEF RANGECHECKS_ON} {$R+} {$ENDIF}
 
  function LastChar(st:string):char;
   begin
