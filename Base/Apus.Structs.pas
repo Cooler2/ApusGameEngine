@@ -248,7 +248,7 @@ type
   fFree:integer; // начало списка свободных элементов (если они вообще есть, иначе -1)
  end;
 
- // Hash for quick access to named objects (case-insensitive)
+ // Open-address hash for quick access to named objects (case-insensitive)
  // Objects with empty name are legit, but won't be added and can't be found
  // If multiple objects with the same name were added, only one of them can be found
  TObjectHash=object
@@ -264,7 +264,7 @@ type
   initialized:string;
   lock:integer;
   mask:cardinal;
-  hashMiss:integer;
+  hashMiss:integer; // for performance test
   values:array of TNamedObject;
   procedure Resize; // Increase capasity *2. Resizing is quite slow so
   function InternalListKeys:StringArray8;

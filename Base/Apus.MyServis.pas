@@ -1128,17 +1128,19 @@ function min2s(a,b:single):single; inline;
   var
    l,i:integer;
   begin
+   result:=0;
    l:=length(st);
    if l<4 then begin
     result:=0;
     for i:=1 to l do
-     result:=result*31+byte(st[i]) and $1F;
+     result:=result*$20844 xor (byte(st[i]) and $1F);
    end else begin
     result:=l*131+byte(st[1]) and $1F;
     for i:=l-3 to l do begin
-     result:=result*3+byte(st[l]) and $1F;
+     result:=result*$20844 xor (byte(st[i]) and $1F);
     end;
-   end;  end;
+   end;
+  end;
 
  procedure FillRandom(var buf;size:integer);
   var
