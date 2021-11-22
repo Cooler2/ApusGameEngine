@@ -60,7 +60,7 @@ program TestMyServis;
   Apus.Translation in '..\Apus.Translation.pas',
   Apus.UnicodeFont in '..\Apus.UnicodeFont.pas',
   Apus.Classes in '..\Apus.Classes.pas',
-  Apus.Types in 'Apus.Types.pas';
+  Apus.Types in '..\Apus.Types.pas';
 
 var
  i:integer;
@@ -1503,7 +1503,7 @@ procedure TestMemoryStat;
    ASSERT(res1=TEST,'Clipboard test 1');
    CopyStrToClipboard(TEST_W);
    res2:=PasteStrFromClipboardW;
-   ASSERT(res2=TEST_W,'Clipboard test 2');
+   ASSERT(res2=TEST_W,'Clipboard test 2:'+res2);
    CopyStrToClipboard(TEST_S);
    {$IFDEF DELPHI}
    // Я не знаю почему в FPC тут творится какая-то дикая дичь
