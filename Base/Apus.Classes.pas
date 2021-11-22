@@ -4,7 +4,7 @@ uses Apus.Types;
 
 type
  TObjectEx=class
-  function Hash:cardinal;
+  function Hash:cardinal; virtual;
  end;
 
  TNamedObject=class(TObjectEx)
@@ -12,6 +12,7 @@ type
   fName:String8;
   procedure SetName(name:String8); virtual;
  public
+  function Hash:cardinal; override;
   property name:String8 read fName write SetName;
   // Maintain list of objects of this class so they can be found by name
   class procedure TrackObjectNames; virtual;
@@ -23,6 +24,7 @@ type
   class function FindClassTrackRecord:integer; // -1 - not found (untracked)
  end;
  TNamedObjectClass=class of TNamedObject;
+ TNamedObjects=array of TNamedObject;
 
 implementation
 uses Apus.MyServis,Apus.Structs;
@@ -30,7 +32,7 @@ uses Apus.MyServis,Apus.Structs;
 type
  TTrackedClass=record
   objClass:TClass;
-  hash:TSimpleHashAS;
+  hash:TObjectHash;
  end;
 
 var
@@ -47,8 +49,7 @@ class function TNamedObject.FindByName(name:String8):TNamedObject;
   n:=FindClassTrackRecord;
   if n<0 then
     raise EWarning.Create('Can''t find object "%s": class "%s" is not tracked',[name,className]);
-  val:=trackedClasses[n].hash.Get(name);
-  result:=TNamedObject(pointer(val));
+  result:=trackedClasses[n].hash.Get(name);
  end;
 
 class procedure TNamedObject.TrackObjectNames;
@@ -82,6 +83,11 @@ class function TNamedObject.FindClassTrackRecord:integer;
   ASSERT(cls=trackedClasses[result].objClass);
  end;
 
+function TNamedObject.Hash: cardinal;
+ begin
+  result:=FastHash(name);
+ end;
+
 procedure TNamedObject.SetName(name:String8);
  var
   n:integer;
@@ -89,13 +95,8 @@ procedure TNamedObject.SetName(name:String8);
   n:=FindClassTrackRecord;
   if n>0 then
    with trackedClasses[n] do begin
-    if fName<>'' then
-     hash.Remove(fName);
-    if name<>'' then begin
-     if hash.HasValue(name) then
-       LogMessage('Duplicated object name: "%d" of class "%s"',[name,className]);
-     hash.Put(name,UIntPtr(self));
-    end;
+    if fName<>'' then hash.Remove(self);
+    if name<>'' then hash.Put(self);
    end;
   fName:=name;
  end;
