@@ -1106,6 +1106,7 @@ function min2s(a,b:single):single; inline;
   end;
  {$ENDIF}
 
+ {$R-}
  function FastHash(const st:String8):cardinal; overload;
   var
    l,i:integer;
@@ -1141,6 +1142,7 @@ function min2s(a,b:single):single; inline;
     end;
    end;
   end;
+ {$IFDEF RANGECHECKS_ON} {$R+} {$ENDIF}
 
  procedure FillRandom(var buf;size:integer);
   var

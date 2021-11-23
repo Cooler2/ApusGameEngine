@@ -308,6 +308,7 @@ function WStrPos(substr,str:MyString;index:integer):integer; inline;
   end;
  end;
 
+// Забагованная процедура!
 function TRulesSet.Translate(st: MyString): MyString;
  var
   i,j,k,r,p1,p2:integer;

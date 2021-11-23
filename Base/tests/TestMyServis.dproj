@@ -261,6 +261,8 @@
         <DCCReference Include="..\Apus.TextUtils.pas"/>
         <DCCReference Include="..\Apus.Translation.pas"/>
         <DCCReference Include="..\Apus.UnicodeFont.pas"/>
+        <DCCReference Include="..\Apus.Classes.pas"/>
+        <DCCReference Include="..\Apus.Types.pas"/>
         <BuildConfiguration Include="Debug">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -312,6 +314,12 @@
                 </DeployFile>
                 <DeployFile LocalName="TestMyServis.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
+                        <RemoteName>TestMyServis.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="TestMyServis.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win64">
                         <RemoteName>TestMyServis.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>

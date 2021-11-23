@@ -136,6 +136,8 @@ procedure TestFastHash;
   dist:array[0..255] of integer;
   time:int64;
   h:cardinal;
+  ws:String16;
+  s:String8;
  begin
   for i:=0 to 255 do begin
    s1[i]:=IntToStr(i);
@@ -145,9 +147,9 @@ procedure TestFastHash;
    s1[i+256]:='Long_String\Item'+IntToStr(i);
    s2[i+256]:='Long_String\Item'+IntToStr(i);
   end;
-  for i:=0 to 511 do begin
-   ASSERT(FastHash(Str16(s1[i]))=FastHash(s1[i])); // both version should produce the same hash value
-   ASSERT(FastHash(UpperCase(s2[i]))=FastHash(LowerCase(s2[i]))); // cae-insensitive
+  for i:=0 to high(s1) do begin
+   ASSERT(FastHash(Str16(s1[i]))=FastHash(s1[i]), s1[i]); // both version should produce the same hash value
+   ASSERT(FastHash(UpperCase(s2[i]))=FastHash(LowerCase(s2[i]))); // case-insensitive
    ASSERT(FastHash(Str8(UpperCase(s2[i])))=FastHash(Str8(LowerCase(s2[i])))); // cae-insensitive
   end;
   ZeroMem(dist,sizeof(dist));
@@ -324,6 +326,7 @@ procedure TestQuotes;
   begin
    writeln('== TestTranslations ==');
    LoadDictionary('translate.lng');
+   {
    st:=Translate('Goblin Warrior deals 3 damage to Snow Wolf.');
    writeln(st);
    s8:='Attacks as soon as summoned.';
@@ -337,7 +340,7 @@ procedure TestQuotes;
     st:=Translate('Hello. Any damage dealt by player''s spells is increased by 1. Unlocks "Flaming Tower". test');
    end;
    t:=MyTickCount-t;
-   writeln(t,trRuleFault:8,' ',st);
+   writeln(t,trRuleFault:8,' ',st);}
   end;
 
  procedure TestAnimations;
@@ -1793,8 +1796,8 @@ procedure Test;
  SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
  try
-  TestStringTypes;
   TestFastHash;
+  TestStringTypes;
   TestConversions;
   TestFileIO;
   TestSortItems;
