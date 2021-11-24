@@ -32,7 +32,7 @@ jobs:
     - name: Compile TestMyServis
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
     - name: Compile TestStructs
-      run: fpc.exe -B -MDelphi -Scghi -O1 -g -gl -l -vewnhibq -Fu.. TestStructs.dpr
+      run: fpc -B -MDelphi -Scghi -O1 -g -gl -l -vewnhibq -Fu.. TestStructs.dpr
     - run: Base/tests/TestMyServis-fpc
     - run: Base/tests/TestStructs
       timeout-minutes: 2    
@@ -56,7 +56,7 @@ jobs:
     - name: Compile
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
     - name: Compile TestStructs		
-      run: lazbuild -q -q Base/tests/TestStructs.lpi
+      run: fpc -B -MDelphi -Scghi -O1 -g -gl -l -vewnhibq -Fu.. TestStructs.dpr
     - run: dir Base/tests
     - run: Base/tests/TestMyServis-fpc
     - run: Base/tests/TestStructs
