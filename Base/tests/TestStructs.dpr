@@ -3,7 +3,7 @@ program TestStructs;
 uses
   Apus.MyServis in '..\Apus.MyServis.pas',
   Apus.Structs in '..\Apus.Structs.pas',
-  System.SysUtils;
+  SysUtils;
 
 procedure TestObjHash;
  var
@@ -109,10 +109,43 @@ procedure TestObjHash;
   writeln('ObjHash - OK');
  end;
 
-procedure TestNamedObjects;
- begin
-  TNamedObject.TrackObjectNames;
+ type
+  TChild=class(TNamedObject)
+   class function ClassHash:pointer; override;
+  end;
 
+  TChild2=class(TChild)
+  end;
+ var
+  childHash:TObjectHash;
+
+procedure TestNamedObjects;
+ var
+  i:integer;
+  a,b,c,obj:TNamedObject;
+ begin
+  a:=TNamedObject.Create;
+  a.name:='Object A';
+  b:=TChild.Create;
+  b.name:='Object B';
+  c:=TChild2.Create;
+  c.name:='Object C';
+  ASSERT(TChild.FindByName('object b')=b);
+  ASSERT(TChild.FindByName('object c')=c);
+  c.name:='Renamed C';
+  ASSERT(b.FindByName('object b')=b);
+  ASSERT(b.FindByName('renamed c')=c);
+  ASSERT(b.FindByName('object c')=nil);
+  b.Free;
+  ASSERT(TChild.FindByName('object b')=nil);
+  writeln('NamedObjects - OK');
+ end;
+
+{ TChild }
+
+class function TChild.ClassHash: pointer;
+ begin
+  result:=@childHash;
  end;
 
 begin
