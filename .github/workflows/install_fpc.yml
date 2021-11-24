@@ -31,9 +31,9 @@ jobs:
     - run: pwd
     - name: Compile	 
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
-		run: lazbuild -q -q Base/tests/TestStructs.lpi
+      run: lazbuild -q -q Base/tests/TestStructs.lpi
     - run: Base/tests/TestMyServis-fpc
-	 - run: Base/tests/TestStructs
+    - run: Base/tests/TestStructs
       timeout-minutes: 2    
 
   test-windows:
@@ -57,5 +57,5 @@ jobs:
       run: lazbuild -q -q Base/tests/TestStructs.lpi		
     - run: dir Base/tests
     - run: Base/tests/TestMyServis-fpc
-	 - run: Base/tests/TestStructs
+    - run: Base/tests/TestStructs
       timeout-minutes: 2
