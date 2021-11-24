@@ -106,6 +106,7 @@ procedure TestObjHash;
      simpleHash.Get(objects[j].name);
   end;
   write(' simple.get: ',MyTickCount-time);
+  writeln;
   writeln('ObjHash - OK');
  end;
 
@@ -151,4 +152,5 @@ class function TChild.ClassHash: pointer;
 begin
  TestObjHash;
  TestNamedObjects;
+ readln;
 end.

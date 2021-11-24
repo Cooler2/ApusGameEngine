@@ -1764,9 +1764,10 @@ function TObjectHash.Get(key:String8):TNamedObject;
  var
   h:cardinal;
  begin
+  h:=FastHash(key);
   SpinLock(lock);
   try
-   h:=FastHash(key) and mask;
+   h:=h and mask;
    while values[h]<>nil do begin
     if IsValid(values[h]) and SameStr(key,values[h].name) then exit(values[h]);
     inc(hashMiss);
@@ -1783,10 +1784,11 @@ procedure TObjectHash.Remove(value:TNamedObject);
   h,next:cardinal;
  begin
   if (value=nil) or (value.name='') then exit;
+  h:=FastHash(value.name);
   SpinLock(lock);
   try
    // 1. Find object
-   h:=FastHash(value.name) and mask;
+   h:=h and mask;
    while values[h]<>value do begin
     if values[h]=nil then exit; // not found
     h:=(h+1) and mask;
