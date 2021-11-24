@@ -15,7 +15,7 @@
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
-    <BuildModes>
+    <BuildModes count="1">
       <Item Name="Default" Default="True"/>
     </BuildModes>
     <PublishOptions>
@@ -26,26 +26,26 @@
       <FormatVersion Value="2"/>
     </RunParams>
     <Units>
-      <Unit>
+      <Unit0>
         <Filename Value="TestStructs.dpr"/>
         <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
+      </Unit0>
+      <Unit1>
         <Filename Value="..\Apus.MyServis.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
+      </Unit1>
+      <Unit2>
         <Filename Value="..\Apus.Structs.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
+      </Unit2>
+      <Unit3>
         <Filename Value="..\Apus.Classes.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
+      </Unit3>
+      <Unit4>
         <Filename Value="..\Apus.Types.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit>
+      </Unit4>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
