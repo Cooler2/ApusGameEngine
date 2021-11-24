@@ -2,7 +2,7 @@
 program TestStructs;
 uses
   Apus.MyServis in '..\Apus.MyServis.pas',
-  Apus.Structs in '..\Apus.Structs.pas',
+  Apus.Structs in '..\Apus.Structs.pas', Apus.Types, Apus.Classes,
   SysUtils;
 
 procedure TestObjHash;
