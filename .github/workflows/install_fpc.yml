@@ -29,8 +29,9 @@ jobs:
       with:
         lazarus-version: stable
     - run: pwd
-    - name: Compile	 
+    - name: Compile TestMyServis
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
+    - name: Compile TestStructs
       run: lazbuild -q -q Base/tests/TestStructs.lpi
     - run: Base/tests/TestMyServis-fpc
     - run: Base/tests/TestStructs
@@ -54,6 +55,7 @@ jobs:
     - run: pwd
     - name: Compile
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
+    - name: Compile TestStructs		
       run: lazbuild -q -q Base/tests/TestStructs.lpi		
     - run: dir Base/tests
     - run: Base/tests/TestMyServis-fpc
