@@ -11,76 +11,31 @@ type
  protected
   fName:String8;
   procedure SetName(name:String8); virtual;
+  class function ClassHash:pointer; virtual; // override this to provide hash for object instances
  public
+  destructor Destroy; override;
   function Hash:cardinal; override;
   property name:String8 read fName write SetName;
-  // Maintain list of objects of this class so they can be found by name
-  class procedure TrackObjectNames; virtual;
   // Find object of given class by its name (case insensitive)
   class function FindByName(name:String8):TNamedObject; virtual;
- private
-  class var trackRecordID:integer; // for this class
-  // find trackRecordID of this class or its parents
-  class function FindClassTrackRecord:integer; // -1 - not found (untracked)
  end;
  TNamedObjectClass=class of TNamedObject;
  TNamedObjects=array of TNamedObject;
 
 implementation
-uses Apus.MyServis,Apus.Structs;
-
-type
- TTrackedClass=record
-  objClass:TClass;
-  hash:TObjectHash;
- end;
-
-var
- trackedClasses:array of TTrackedClass;
- lock:integer;
+uses Apus.MyServis, Apus.Structs;
 
 { TNamedObject }
 
 class function TNamedObject.FindByName(name:String8):TNamedObject;
  var
-  n:integer;
-  val:int64;
+  hash:PObjectHash;
  begin
-  n:=FindClassTrackRecord;
-  if n<0 then
-    raise EWarning.Create('Can''t find object "%s": class "%s" is not tracked',[name,className]);
-  result:=trackedClasses[n].hash.Get(name);
- end;
-
-class procedure TNamedObject.TrackObjectNames;
- var
-  n:integer;
- begin
-  SpinLock(lock);
-  try
-   n:=length(trackedClasses);
-   SetLength(trackedClasses,n+1);
-   trackedClasses[n].objClass:=self;
-   trackedClasses[n].hash.Init(256);
-   trackRecordID:=$10000+n;
-  finally
-   lock:=0;
-  end;
- end;
-
-class function TNamedObject.FindClassTrackRecord:integer;
- var
-  cls:TNamedObjectClass;
- begin
-  cls:=self;
-  while cls.trackRecordID=0 do
-   if cls<>TNamedObject then
-    cls:=TNamedObjectClass(cls.ClassParent)
-   else
-    break;
-  if cls.trackRecordID=0 then exit(-1); // object of an untracked class
-  result:=cls.trackRecordID and $FFFF;
-  ASSERT(cls=trackedClasses[result].objClass);
+  hash:=ClassHash;
+  if hash<>nil then
+   result:=hash.Get(name)
+  else
+   raise EWarning.Create('Can''t find object "%s": class "%s" is not tracked',[name,className]);
  end;
 
 function TNamedObject.Hash: cardinal;
@@ -91,15 +46,33 @@ function TNamedObject.Hash: cardinal;
 procedure TNamedObject.SetName(name:String8);
  var
   n:integer;
+  hash:PObjectHash;
  begin
-  n:=FindClassTrackRecord;
-  if n>0 then
-   with trackedClasses[n] do begin
+  hash:=ClassHash;
+  if hash<>nil then begin
     if fName<>'' then hash.Remove(self);
+    fName:=name;
     if name<>'' then hash.Put(self);
-   end;
-  fName:=name;
+   end
+  else
+   fName:=name;
  end;
+
+class function TNamedObject.ClassHash:pointer;
+ begin
+  result:=nil;
+ end;
+
+destructor TNamedObject.Destroy;
+ var
+  hash:PObjectHash;
+ begin
+  if name<>'' then begin
+   hash:=ClassHash;
+   if hash<>nil then hash.Remove(self);
+  end;
+ end;
+
 
 { TObjectEx }
 

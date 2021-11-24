@@ -251,6 +251,7 @@ type
  // Open-address hash for quick access to named objects (case-insensitive)
  // Objects with empty name are legit, but won't be added and can't be found
  // If multiple objects with the same name were added, only one of them can be found
+ PObjectHash=^TObjectHash;
  TObjectHash=object
   count:integer; // all the keys
   procedure Init(estimatedCount:integer=256); // automatically called upon 1-st Put() call
