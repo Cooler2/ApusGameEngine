@@ -9,7 +9,7 @@
 unit Apus.Engine.UIClasses;
 interface
  uses Contnrs, Types,
-   Apus.Engine.API, Apus.CrossPlatform, Apus.MyServis, Apus.AnimatedValues, Apus.Regions, Apus.Geom2d;
+   Apus.Classes, Apus.Engine.API, Apus.CrossPlatform, Apus.MyServis, Apus.AnimatedValues, Apus.Regions, Apus.Geom2d;
 {$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
@@ -91,7 +91,7 @@ type
  end;
 
  // Base class of the UI element
- TUIElement=class
+ TUIElement=class(TNamedObject)
   position:TPoint2s;  // Положение root point in parent's client rect (если предка нет - положение на экране)
   pivot:TPoint2s; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
   scale:TVector2s; // scale factor for this element (size) and all children elements
@@ -236,11 +236,11 @@ type
 
   // Find a descendant UI element at the given point (in screen coordinates)
   // Returns true if the found element (and all its parents) are enabled
-  function FindItemAt(x,y:integer;out c:TUIElement):boolean;
+  function FindElementAt(x,y:integer;out c:TUIElement):boolean;
   // Same as FindItemAt, but ignores elements transparency mode
-  function FindAnyItemAt(x,y:integer;out c:TUIElement):boolean;
+  function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
   // Find a descendant element by its name
-  function FindByName(name:string):TUIElement;
+  function FindElementByName(name:string8):TUIElement;
 
   // Установить либо удалить "горячую клавишу" для данного эл-та
   procedure SetHotKey(keycode:byte;shiftstate:byte);
@@ -265,6 +265,7 @@ type
   function GetGlobalScale:TVector2s;
   procedure SetName(n:String8);
   procedure SetStyleInfo(sInfo:String8);
+  class function ClassHash:pointer; override;
  public
   property name:String8 read fName write SetName;
   property width:single read size.x write size.x;
@@ -559,13 +560,16 @@ var
  // обработать нажатие горячей клавиши (передать всем элементам с
  procedure ProcessHotKey(keycode:integer;shiftstate:byte);
 
- // Найти элемент по имени
- function FindControl(name:string;mustExist:boolean=true):TUIElement;
+ // Найти элемент по имени (через хэш - среди всех)
+ function FindElement(name:string8;mustExist:boolean=true):TUIElement;
+ function FindControl(name:string8;mustExist:boolean=true):TUIElement; deprecated 'Use FindElement';
  // Найти элемент в заданной точке экрана (возвращает true если элемент найден и он
  // enabled - c учетом всех предков), игнорирует "прозрачные" в данной точке элементы
- function FindControlAt(x,y:integer;out c:TUIElement):boolean;
+ function FindElementAt(x,y:integer;out c:TUIElement):boolean;
+ function FindControlAt(x,y:integer;out c:TUIElement):boolean; deprecated 'Use FindElementAt';
  // Поиск элемента в данной точке не игнорируя "прозрачные" (полезно для отладки)
- function FindAnyControlAt(x,y:integer;out c:TUIElement):boolean;
+ function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
+ function FindAnyControlAt(x,y:integer;out c:TUIElement):boolean; deprecated 'Use FindAnyElementAt';
 
  // Controls setup
  procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;btnType:TButtonStyle;
@@ -591,7 +595,7 @@ var
  function DumpUI:String8;
 
 implementation
- uses Classes, SysUtils, Apus.EventMan, Apus.Clipboard;
+ uses Classes, SysUtils, Apus.EventMan, Apus.Clipboard, Apus.Structs;
 
 type
  // Горячая клавиша
@@ -603,6 +607,7 @@ type
 var
  HotKeys:array[0..1023] of THotKey;
  HotKeysCnt:integer;
+ UIHash:TObjectHash;
 
  fControl:TUIElement; // элемент, имеющий фокус ввода (с клавиатуры)
                       // устанавливается автоматически либо вручную
@@ -650,23 +655,18 @@ begin
   end;
 end;
 
-function FindControl(name:string;mustExist:boolean=true):TUIElement;
-var
- i:integer;
+function FindElement(name:string8;mustExist:boolean=true):TUIElement;
 begin
- result:=nil;
- UICritSect.Enter;
- try
- SortRootControls;
- for i:=0 to high(rootControls) do begin
-  result:=rootControls[i].FindByName(name);
-  if result<>nil then exit;
- end;
- if mustExist and (result=nil) then
+ result:=TUIElement.FindByName(name) as TUIElement;
+ if mustExist and (result=nil) then begin
   raise EWarning.Create('Control '+name+' not found');
- finally
-  UICritSect.Leave;
  end;
+end;
+
+
+function FindControl(name:string8;mustExist:boolean=true):TUIElement;
+begin
+ result:=FindElement(name,mustExist);
 end;
 
 function FindControlAtInternal(x,y:integer;any:boolean;out c:TUIElement):boolean;
@@ -681,8 +681,8 @@ begin
  SortRootControls;
  // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
  for i:=0 to high(rootControls) do begin
-  if any then enabl:=rootControls[i].FindAnyItemAt(x,y,ct)
-   else enabl:=rootControls[i].FindItemAt(x,y,ct);
+  if any then enabl:=rootControls[i].FindAnyElementAt(x,y,ct)
+   else enabl:=rootControls[i].FindElementAt(x,y,ct);
   if ct<>nil then begin
    c2:=ct; // найдем корневого предка ct (вдруг это не rootControls[i]?)
    while c2.parent<>nil do c2:=c2.parent;
@@ -699,6 +699,15 @@ begin
  end;
 end;
 
+function FindElementAt(x,y:integer;out c:TUIElement):boolean;
+begin
+ result:=FindControlAtInternal(x,y,false,c);
+end;
+
+function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
+begin
+ result:=FindControlAtInternal(x,y,true,c);
+end;
 
 function FindControlAt(x,y:integer;out c:TUIElement):boolean;
 begin
@@ -899,6 +908,11 @@ begin
   SetFocus;
 end;
 
+class function TUIElement.ClassHash:pointer;
+begin
+ result:=@UIHash;
+end;
+
 procedure TUIElement.Clear;
 var
  i:integer;
@@ -1003,7 +1017,7 @@ begin
  if shouldAddToRootControls then AddToRootControls;
 end;
 
-procedure TUIElement.AttachTo(newParent: TUIElement);
+procedure TUIElement.AttachTo(newParent:TUIElement);
 var
  n:integer;
 begin
@@ -1019,7 +1033,7 @@ begin
  parent.children[n]:=self;
 end;
 
-function TUIElement.FindByName(name: string): TUIElement;
+function TUIElement.FindElementByName(name:string8):TUIElement;
 var
  i:integer;
  c:TUIElement;
@@ -1029,7 +1043,7 @@ begin
   result:=self; exit;
  end;
  for i:=0 to length(children)-1 do begin
-  c:=children[i].FindByName(name);
+  c:=children[i].FindElementByName(name);
   if c<>nil then begin
    result:=c; exit;
   end;
@@ -1037,7 +1051,7 @@ begin
  result:=nil;
 end;
 
-function TUIElement.FindItemAt(x, y: integer; out c: TUIElement): boolean;
+function TUIElement.FindElementAt(x, y: integer; out c: TUIElement): boolean;
 var
  r,r2:Trect;
  p:TPoint;
@@ -1077,7 +1091,7 @@ begin
  // Теперь порядок правильный, нужно искать
  fl:=false;
  for i:=0 to cnt-1 do begin
-  en:=ca[i].FindItemAt(x,y,c2);
+  en:=ca[i].FindElementAt(x,y,c2);
   if c2<>nil then begin
    c:=c2; result:=result and en;
    fl:=true; break;
@@ -1091,7 +1105,7 @@ begin
  if c=nil then result:=false;
 end;
 
-function TUIElement.FindAnyItemAt(x, y: integer; out c: TUIElement): boolean;
+function TUIElement.FindAnyElementAt(x, y: integer; out c: TUIElement): boolean;
 var
  r,r2:Trect;
  p:TPoint;
@@ -1131,7 +1145,7 @@ begin
  // Теперь порядок правильный, нужно искать
  fl:=false;
  for i:=0 to cnt-1 do begin
-  en:=ca[i].FindItemAt(x,y,c2);
+  en:=ca[i].FindElementAt(x,y,c2);
   if c2<>nil then begin
    c:=c2; result:=result and en;
    fl:=true; break;
@@ -1144,7 +1158,7 @@ begin
  if c=nil then result:=false;
 end;
 
-function TUIElement.GetName: string;
+function TUIElement.GetName:string;
 begin
  if self<>nil then result:=name
   else result:='empty';
