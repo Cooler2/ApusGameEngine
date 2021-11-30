@@ -193,7 +193,7 @@ end;
 
 procedure NormalizeFName(var fname:string);
 var
- ext:string[20];
+ ext:string;
 begin
  fname:=UpperCase(fname);
  ext:=ExtractFileExt(fname);
@@ -232,7 +232,7 @@ begin
    aFiles[aSubCount]:=st;
    aHash[aSubCount]:=strHash(st);
    if length(st)>15 then st:=copy(st,length(st)-14,15);
-   img.name:=st;
+   img.name:=Str8(st);
 //   if scale<>1.0 then ScaleImage(img,scale,scale);
   end;
   close(f);

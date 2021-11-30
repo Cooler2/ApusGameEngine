@@ -202,7 +202,7 @@ interface
   debugCriticalSections:boolean=false;
 
  // Returns e.message with exception address and call stack (if available)
- function ExceptionMsg(const e:Exception):string;
+ function ExceptionMsg(const e:Exception):string; overload;
  // Raise exception with "Not implemented" message
  procedure NotImplemented(msg:string=''); inline;
  procedure NotSupported(msg:string=''); inline;
@@ -232,10 +232,13 @@ interface
  procedure UseLogFile(name:string;keepOpened:boolean=false); // Specify log name
  procedure SetLogMode(mode:TLogModes;groups:string=''); //
  procedure LogPhrase(text:string8); // without CR
+ procedure LogMessage(text:String;group:byte=0); overload; // with CR
  procedure LogMessage(text:String8;group:byte=0); overload; // with CR
+ procedure LogMessage(text:String;params:array of const;group:byte=0); overload;
  procedure LogMessage(text:String8;params:array of const;group:byte=0); overload;
  procedure LogError(text:string8);
  procedure ForceLogMessage(text:string8); overload; // то же самое, но с более высоким приоритетом
+ procedure ForceLogMessage(text:string); overload;
  procedure ForceLogMessage(text:String8;params:array of const); overload;
  procedure DebugMessage(text:string8); // альтернативное имя для ForceLogMessage (для удобства поиска по коду)
  procedure LogCacheMode(enable:boolean;enforceCache:boolean=false;runThread:boolean=false);
@@ -4566,7 +4569,6 @@ function BinToStr;
 
  function FormatLogText(const text:string8):string8;
   var
-   mm,ss,ms:integer;
    time:TSystemTime;
   begin
    time:=GetUTCTime;
@@ -4577,9 +4579,12 @@ function BinToStr;
            '  '+text;
   end;
 
+ procedure LogMessage(text:String;group:byte=0);
+  begin
+   LogMessage(Str8(text),group);
+  end;
+
  procedure LogMessage(text:String8;group:byte=0);
-  var
-   f:TextFile;
   begin
    if LogMode<lmNormal then exit;
    if (group>0) and not loggroups[group] then exit;
@@ -4625,6 +4630,13 @@ function BinToStr;
    LogMessage(text,group);
   end;
 
+ procedure LogMessage(text:String;params:array of const;group:byte=0);
+  begin
+   text:=Format(text,params);
+   LogMessage(Str8(text),group);
+  end;
+
+
  procedure LogError(text:String8);
   begin
    ForceLogMessage(text);
@@ -4639,9 +4651,12 @@ function BinToStr;
    {$ENDIF}
   end;
 
+ procedure ForceLogMessage(text:string); overload;
+  begin
+   ForceLogMessage(Str8(text));
+  end;
+
  procedure ForceLogMessage(text:String8); overload;
-  var
-   f:TextFile;
   begin
    if logmode=lmSilent then exit;
    {$IFDEF IOS}

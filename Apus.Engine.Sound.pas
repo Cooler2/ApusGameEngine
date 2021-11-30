@@ -13,8 +13,8 @@ unit Apus.Engine.Sound;
 interface
 uses Apus.MyServis, Apus.AnimatedValues;
 var
- soundFolderPath:string = 'Audio\';
- soundConfigFile:string = 'sounds.ctl';
+ soundFolderPath:string8 = 'Audio\';
+ soundConfigFile:string8 = 'sounds.ctl';
 
 type
  TSoundLib = (
@@ -401,7 +401,7 @@ procedure LoadConfig;
   var
    evt:TSoundEvent;
    i:integer;
-   st,fName:string;
+   st,fName:string8;
    list:PointerArray;
   begin
    path:=ctlRoot+'Settings\';
@@ -685,13 +685,7 @@ procedure AnimateMusicVolume(mus:TMusicEntry);
 
 procedure EventHandler(event:TEventStr;tag:TTag);
  var
-  sa,sa2:stringarr;
-  st:string;
   i,p,v,freq,vol,pan,newpan,newfreq,slide:integer;
-  fl,volRelative:boolean;
-  chan:integer;
-  multFreq:single;
-  rVol:single;
  begin
   try
   delete(event,1,6);

@@ -734,7 +734,7 @@ procedure SetElementText(name:string;text:string);
 var
  c:TUIElement;
 begin
- c:=FindControl(name,false);
+ c:=FindElement(name,false);
  if c=nil then exit;
  if c is TUILabel then
   TUILabel(c).caption:=text
@@ -751,7 +751,7 @@ function UIButton(name:string;mustExist:boolean=false):TUIButton;
 var
  c:TUIElement;
 begin
- c:=FindControl(name,mustExist);
+ c:=FindElement(name,mustExist);
  if not (c is TUIButton) then c:=nil;
  if c=nil then c:=TUIButton.Create(0,0,name,'',0,nil);
  result:=c as TUIButton;
@@ -761,7 +761,7 @@ function UIEditBox(name:string;mustExist:boolean=false):TUIEditBox;
 var
  c:TUIElement;
 begin
- c:=FindControl(name,mustExist);
+ c:=FindElement(name,mustExist);
  if not (c is TUIEditBox) then c:=nil;
  if c=nil then c:=TUIEditBox.Create(0,0,name,0,0,nil);
  result:=c as TUIEditBox;
@@ -771,7 +771,7 @@ function UILabel(name:string;mustExist:boolean=false):TUILabel;
 var
  c:TUIElement;
 begin
- c:=FindControl(name,mustExist);
+ c:=FindElement(name,mustExist);
  if not (c is TUILabel) then c:=nil;
  if c=nil then c:=TUILabel.Create(0,0,name,'',0,0,nil);
  result:=c as TUILabel;
@@ -781,7 +781,7 @@ function UIScrollBar(name:string;mustExist:boolean=false):TUIScrollBar;
 var
  c:TUIElement;
 begin
- c:=FindControl(name,mustExist);
+ c:=FindElement(name,mustExist);
  if not (c is TUIScrollBar) then c:=nil;
  if c=nil then c:=TUIScrollBar.Create(0,0,name,nil);
  result:=c as TUIScrollBar;
@@ -801,7 +801,7 @@ function UIListBox(name:string;mustExist:boolean=false):TUIListBox;
 var
  c:TUIElement;
 begin
- c:=FindControl(name,mustExist);
+ c:=FindElement(name,mustExist);
  if not (c is TUIListBox) then c:=nil;
  if c=nil then c:=TUIListBox.Create(0,0,0,name,0,nil);
  result:=c as TUIListBox;
