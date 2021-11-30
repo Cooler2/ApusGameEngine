@@ -11,11 +11,12 @@ type
  protected
   fName:String8;
   procedure SetName(name:String8); virtual;
-  class function ClassHash:pointer; virtual; // override this to provide hash for object instances
+  function GetName:String8;
+  class function ClassHash:pointer; virtual; // override this to provide a separate hash for object instances
  public
   destructor Destroy; override;
   function Hash:cardinal; override;
-  property name:String8 read fName write SetName;
+  property name:String8 read GetName write SetName;
   // Find object of given class by its name (case insensitive)
   class function FindByName(name:String8):TNamedObject; virtual;
  end;
@@ -38,6 +39,12 @@ class function TNamedObject.FindByName(name:String8):TNamedObject;
    raise EWarning.Create('Can''t find object "%s": class "%s" is not tracked',[name,className]);
  end;
 
+function TNamedObject.GetName:String8;
+ begin
+  if self=nil then result:='empty'
+   else result:=fName;
+ end;
+
 function TNamedObject.Hash: cardinal;
  begin
   result:=FastHash(name);
@@ -45,7 +52,6 @@ function TNamedObject.Hash: cardinal;
 
 procedure TNamedObject.SetName(name:String8);
  var
-  n:integer;
   hash:PObjectHash;
  begin
   hash:=ClassHash;

@@ -365,9 +365,13 @@ interface
  // Extract substring "prefix|xxx|suffix"
  function ExtractStr(str,prefix,suffix:string;out prefIndex:integer):string;
  // Basic uppercase
- function UpperCaseA(st:String8):String8;
+ function UpperCaseA(st:String8):String8; deprecated 'use UpperCase8';
+ function UpperCase8(st:String8):String8;
+ function LowerCaseA(st:String8):String8; deprecated 'use LowerCase8';
+ function LowerCase8(st:String8):String8;
  // Ignore case
- function SameChar(a,b:AnsiChar):boolean;
+ function SameChar(a,b:AnsiChar):boolean; inline;
+ function SameText8(a,b:String8):boolean;
 
  // Возвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
  function SafeStrItem(sa:AStringArr;idx:integer):string8; overload;
@@ -511,8 +515,8 @@ interface
  // Вернуть "насыщенное" значение, т.е. привести b внутрь допустимого диапазона [min..max]
  function Clamp(b,min,max:integer):integer; overload;
  function Clamp(b,min,max:double):double; overload;
- function Sat(b,min,max:integer):integer; deprecated;
- function SatD(b,min,max:double):double; deprecated;
+ function Sat(b,min,max:integer):integer; deprecated 'use Clamp';
+ function SatD(b,min,max:double):double; deprecated 'use Clamp';
 
  // Fast consistent rounding, equivalent to SimpleRoundTo(x,0) i.e. 0.5->1, 1.5->2 etc. (NOT PRECISE!)
  function FRound(v:double):integer; inline;
@@ -1111,7 +1115,6 @@ function min2s(a,b:single):single; inline;
   var
    l,i:integer;
   begin
-   result:=0;
    l:=length(st);
    if l<4 then begin
     result:=0;
@@ -1129,7 +1132,6 @@ function min2s(a,b:single):single; inline;
   var
    l,i:integer;
   begin
-   result:=0;
    l:=length(st);
    if l<4 then begin
     result:=0;
@@ -1413,7 +1415,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
    result:=0;
    v:=0;
    for i:=1 to length(ip) do begin
-    if ip[i] in ['0'..'9'] then
+    if CharInSet(ip[i],['0'..'9']) then
      v:=v*10+(byte(ip[i])-$30)
     else
     if ip[i]='.' then begin
@@ -1664,7 +1666,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
  {$IFDEF ADDANSI}
  function ParseBool(st:String8):boolean; overload;
   begin
-   st:=UpperCase(st);
+   st:=UpperCase8(st);
    result:=(st='Y') or (st='TRUE') or (st='1') or (st='-1') or (st='+');
   end;
  {$ENDIF}
@@ -2378,7 +2380,7 @@ procedure SimpleEncrypt2;
   end;
  function Str8(st:AnsiString):string8; overload;
   begin
-   result:=st;
+   result:=String8(st);
   end;
 
 
@@ -2439,7 +2441,7 @@ procedure SimpleEncrypt2;
    if (length(st)>=3) and (st[1]=#$EF) and
       (st[2]=#$BB) and (st[3]=#$BF) then delete(st,1,3); // remove BOM
    SetLength(result,length(st));
-   w:=0; l:=0;
+   l:=0;
    i:=1;
    while i<=length(st) do begin
     w:=0;
@@ -2592,11 +2594,14 @@ procedure SimpleEncrypt2;
 
  {$IFDEF ADDANSI}
  function HTMLString(st:String8):String8;
+  var
+   s:string;
   begin
-   st:=StringReplace(st,'&','&amp;',[rfReplaceAll]);
-   st:=StringReplace(st,'<','&lt;',[rfReplaceAll]);
-   st:=StringReplace(st,'>','&gt;',[rfReplaceAll]);
-   result:=st;
+   s:=String(st);
+   s:=StringReplace(s,'&','&amp;',[rfReplaceAll]);
+   s:=StringReplace(s,'<','&lt;',[rfReplaceAll]);
+   s:=StringReplace(s,'>','&gt;',[rfReplaceAll]);
+   result:=Str8(s);
   end;
  {$ENDIF}
 
@@ -3828,11 +3833,60 @@ function BinToStr;
    end;
   end;
 
+ function UpperCase8(st:String8):String8;
+  var
+   i:integer;
+   pb:PByte;
+  begin
+   result:=st;
+   pb:=@result[1];
+   for i:=1 to length(result) do begin
+    if (pb^>=byte('a')) and (pb^<=byte('z')) then dec(pb^,byte('a')-byte('A'));
+    inc(pb);
+   end;
+  end;
+
+ function LowerCaseA(st:String8):String8; deprecated 'use LowerCase8';
+  var
+   i:integer;
+   pb:PByte;
+  begin
+   result:=st;
+   pb:=@result[1];
+   for i:=1 to length(result) do begin
+    if (pb^>=byte('A')) and (pb^<=byte('Z')) then inc(pb^,byte('a')-byte('A'));
+    inc(pb);
+   end;
+  end;
+ function LowerCase8(st:String8):String8;
+  var
+   i:integer;
+   pb:PByte;
+  begin
+   result:=st;
+   pb:=@result[1];
+   for i:=1 to length(result) do begin
+    if (pb^>=byte('A')) and (pb^<=byte('Z')) then inc(pb^,byte('a')-byte('A'));
+    inc(pb);
+   end;
+  end;
+
  function SameChar(a,b:AnsiChar):boolean;
   begin
    if (byte(a)>=byte('a')) and (byte(a)<=byte('z')) then dec(byte(a),byte('a')-byte('A'));
    if (byte(b)>=byte('a')) and (byte(b)<=byte('z')) then dec(byte(b),byte('a')-byte('A'));
    result:=a=b;
+  end;
+
+ function SameText8(a,b:String8):boolean;
+  var
+   i,l:integer;
+  begin
+   l:=length(a);
+   if length(b)<>l then exit(false);
+   for i:=1 to l do
+    if not SameChar(a[i],b[i]) then exit(false);
+   result:=true;
   end;
 
  function Split(divider,st:string;quotes:char):StringArr; overload;
@@ -4633,9 +4687,6 @@ function BinToStr;
   end;
 
  procedure FlushLog;
-  var
-   f:File;
-   data:array of char;
   begin
    if LogFileName='' then exit;
    MyEnterCriticalSection(crSection);
@@ -4803,9 +4854,6 @@ function BinToStr;
  function CopyDir;
   var
    sr:TSearchRec;
-   buf:pointer;
-   f,f2:file;
-   size:integer;
   begin
    result:=true;
    CreateDir(dest);
@@ -4952,7 +5000,6 @@ procedure DumpDir(path:string);
  function GetFileSize(fname:String8):int64;
   {$IFDEF MSWINDOWS}
   var
-   openbuff:TOFSTRUCT;
    h:HFile;
    data:array[0..1] of cardinal;
   begin

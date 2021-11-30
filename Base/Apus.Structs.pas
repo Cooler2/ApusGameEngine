@@ -310,7 +310,7 @@ type
  end;}
 
 implementation
- uses SysUtils,variants
+ uses SysUtils,variants, Apus.CrossPlatform
    {$IFDEF DELPHI},windows{$ENDIF}; // FPC has built-in support (RTL) for atomic operations
 
  const
@@ -1075,7 +1075,7 @@ procedure THash.SortKeys;
  procedure QuickSort(a,b:integer);
   var
    lo,hi,v:integer;
-   mid,key:string;
+   mid,key:string8;
    vr:variant;
   begin
    lo:=a; hi:=b;
@@ -1596,7 +1596,7 @@ procedure THash.SortKeys;
    pb:PByte;
   begin
    // простая, неэффективная версия
-   pb:=@buf;
+   //pb:=@buf;
    for i:=0 to count-1 do begin
     GetBit(readPos);
     inc(readPos);
@@ -1781,7 +1781,7 @@ function TObjectHash.Get(key:String8):TNamedObject;
 
 procedure TObjectHash.Remove(value:TNamedObject);
  var
-  h,next:cardinal;
+  h:cardinal;
  begin
   if (value=nil) or (value.name='') then exit;
   h:=FastHash(value.name);
