@@ -232,13 +232,10 @@ interface
  procedure UseLogFile(name:string;keepOpened:boolean=false); // Specify log name
  procedure SetLogMode(mode:TLogModes;groups:string=''); //
  procedure LogPhrase(text:string8); // without CR
- procedure LogMessage(text:String;group:byte=0); overload; // with CR
  procedure LogMessage(text:String8;group:byte=0); overload; // with CR
  procedure LogMessage(text:String;params:array of const;group:byte=0); overload;
- procedure LogMessage(text:String8;params:array of const;group:byte=0); overload;
  procedure LogError(text:string8);
  procedure ForceLogMessage(text:string8); overload; // то же самое, но с более высоким приоритетом
- procedure ForceLogMessage(text:string); overload;
  procedure ForceLogMessage(text:String8;params:array of const); overload;
  procedure DebugMessage(text:string8); // альтернативное имя для ForceLogMessage (для удобства поиска по коду)
  procedure LogCacheMode(enable:boolean;enforceCache:boolean=false;runThread:boolean=false);
@@ -4579,11 +4576,6 @@ function BinToStr;
            '  '+text;
   end;
 
- procedure LogMessage(text:String;group:byte=0);
-  begin
-   LogMessage(Str8(text),group);
-  end;
-
  procedure LogMessage(text:String8;group:byte=0);
   begin
    if LogMode<lmNormal then exit;
@@ -4624,12 +4616,6 @@ function BinToStr;
    end;
   end;
 
- procedure LogMessage(text:String8;params:array of const;group:byte=0);
-  begin
-   text:=Format(text,params);
-   LogMessage(text,group);
-  end;
-
  procedure LogMessage(text:String;params:array of const;group:byte=0);
   begin
    text:=Format(text,params);
@@ -4649,11 +4635,6 @@ function BinToStr;
    {$IFDEF DEBUGLOG}
    ForceLogMessage(text);
    {$ENDIF}
-  end;
-
- procedure ForceLogMessage(text:string); overload;
-  begin
-   ForceLogMessage(Str8(text));
   end;
 
  procedure ForceLogMessage(text:String8); overload;
