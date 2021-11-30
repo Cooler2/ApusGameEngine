@@ -255,7 +255,6 @@ type
  protected
   focusedChild:TUIElement;
  private
-  fName:String8;  // Имя - используется при посылке сигналов. Изначально отсутствует, что запрещает посылку сигналов
   fStyleInfo:String8; // дополнительные сведения для стиля
   fInitialSize:TVector2s;
   procedure AddToRootControls;
@@ -263,7 +262,7 @@ type
   function GetClientWidth:single;
   function GetClientHeight:single;
   function GetGlobalScale:TVector2s;
-  procedure SetName(n:String8);
+  procedure SetName(n:String8); override;
   procedure SetStyleInfo(sInfo:String8);
   class function ClassHash:pointer; override;
  public
@@ -942,7 +941,7 @@ begin
  parent:=parent_;
  parentClip:=true;
  clipChildren:=true;
- fName:=name_;
+ name:=name_;
  hint:=''; hintIfDisabled:='';
  hintDelay:=1000;
  hintDuration:=3000;
@@ -1165,11 +1164,13 @@ begin
 end;
 
 procedure TUIElement.SetName(n:String8);
+var
+ oldName:String8;
 begin
- if fName<>n then begin
-  fName:=n;
-  Signal('UI\ItemRenamed',integer(self));
- end;
+ oldName:=name;
+ inherited;
+ if (oldName<>'') and (name<>oldName) then
+   Signal('UI\ItemRenamed',TTag(self));
 end;
 
 procedure TUIElement.Snap(snapTo: TSnapMode);
@@ -1559,7 +1560,7 @@ begin
  result:=self;
 end;
 
-procedure TUIElement.SetStyleInfo(sInfo: String8);
+procedure TUIElement.SetStyleInfo(sInfo:String8);
 begin
  if fStyleInfo<>sInfo then begin
   fStyleInfo:=sInfo;
@@ -1769,7 +1770,7 @@ begin
   if (sendSignals<>ssNone) and
      (pressed or (btnStyle=bsCheckbox)) then begin
     Signal('UI\'+name+'\Click',byte(pressed));
-    Signal('UI\onButtonDown\'+name,PtrUInt(self));
+    Signal('UI\onButtonDown\'+name,TTag(self));
     if Assigned(onClick) then onClick;    
   end;
  end else begin
@@ -1777,7 +1778,7 @@ begin
   // Защита от двойных кликов
   if (sendSignals<>ssNone) and (MyTickCount>lastPressed+50) then begin
    Signal('UI\'+name+'\Click',byte(pressed));
-   Signal('UI\onButtonClick\'+name,PtrUInt(self));
+   Signal('UI\onButtonClick\'+name,TTag(self));
    if Assigned(onClick) then onClick;
    lastPressed:=MyTickCount;
   end;
@@ -2288,7 +2289,7 @@ begin
  end;
  if (sendSignals=ssAll) and (oldText<>realText) then begin
   savedText:=oldText;
-  Signal('UI\'+name+'\changed',0);
+  Signal('UI\'+name+'\changed');
  end;
 end;
 
@@ -2354,7 +2355,7 @@ begin
  inherited;
  SelectAll;
  {$IFDEF IOS}
- Signal('UI\EditBox\onSetFocus',cardinal(self));
+ Signal('UI\EditBox\onSetFocus',TTag(self));
  {$ENDIF}
 end;
 
@@ -2362,7 +2363,7 @@ procedure TUIEditBox.onLostFocus;
 begin
  inherited;
  {$IFDEF IOS}
- Signal('UI\EditBox\onLostFocus',cardinal(self));
+ Signal('UI\EditBox\onLostFocus',TTag(self));
  {$ENDIF}
 end;
 
@@ -2687,7 +2688,7 @@ begin
    selectedLine:=hoverLine;
    if sendSignals<>ssNone then begin
     Signal('UI\'+name+'\SELECTED',selectedLine);
-    Signal('UI\ListBox\onSelect\'+name,PtrUInt(self));
+    Signal('UI\ListBox\onSelect\'+name,TTag(self));
    end;
   end;
  end;
@@ -2871,7 +2872,7 @@ begin
   if popup.selectedLine>=0 then curItem:=popup.selectedLine;
   if curItem<>i then begin
    Signal('UI\'+name+'\ONSELECT',i);
-   Signal('UI\COMBOBOX\ONSELECT\'+name,PtrUInt(self));
+   Signal('UI\COMBOBOX\ONSELECT\'+name,TTag(self));
   end;
   frame.visible:=false;
   frame.AttachTo(self);
