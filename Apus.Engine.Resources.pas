@@ -101,7 +101,7 @@ implementation
    inc(parent.refCounter);
   end;
 
-function TTexture.HasFlag(flag: cardinal): boolean;
+function TTexture.HasFlag(flag:cardinal): boolean;
  begin
   result:=caps and flag>0;
  end;

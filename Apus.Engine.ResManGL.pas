@@ -401,7 +401,7 @@ begin
     glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
    end;
 
-   if caps and tfClamped>0 then begin
+   if HasFlag(tfClamped) then begin
     glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
    end else begin
@@ -474,9 +474,9 @@ var
  size:integer;
  lockRect:TRect;
 begin
- if (caps and tfNoRead>0) then
+ if HasFlag(tfNoRead) then
    raise EWarning.Create('Can''t lock texture '+name+' for reading');
- if (caps and tfNoWrite>0) and (mode<>lmReadOnly) then
+ if HasFlag(tfNoWrite) and (mode<>lmReadOnly) then
    raise EWarning.Create('Can''t lock texture '+name+' for writing');
  if r=nil then lockRect:=Rect(0,0,(width-1) shr mipLevel,(height-1) shr mipLevel)
   else lockRect:=r^;
@@ -513,7 +513,7 @@ end;
 
 procedure TGLTexture.SetAsRenderTarget;
 begin
- assert(caps and tfRenderTarget>0);
+ Assert(HasFlag(tfRenderTarget));
  {$IFDEF GLES11}
  glBindFramebufferOES(GL_FRAMEBUFFER_OES,fbo);
  {$ENDIF}
@@ -652,7 +652,7 @@ begin
     glGenerateMipmap(GL_TEXTURE_2D);
    end;
 
-   if caps and tfClamped>0 then begin
+   if HasFlag(tfClamped) then begin
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
    end else begin
@@ -737,7 +737,7 @@ begin
   if HasFlag(flags,aiClampUV) then begin
    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-   tex.caps:=tex.caps or tfClamped;
+   SetFlag(tex.caps,tfClamped);
   end;
   if (tex.pixelFormat=ipfNone) and HasFlag(flags,aiDepthBuffer) then begin
    // No pixel format, but need depth buffer: allocate depth texture only
@@ -774,7 +774,7 @@ begin
    raise EError.Create('FBO status: '+inttostr(status));
 
   {$ENDIF}
-  tex.caps:=tex.caps or (tfRenderTarget+tfNoRead+tfNoWrite);
+  SetFlag(tex.caps,tfRenderTarget+tfNoRead+tfNoWrite);
   tex.online:=true;
  end;
 end;
@@ -824,12 +824,12 @@ begin
   end;
   SetLength(tex.realData,datasize);
 
-  tex.caps:=tex.caps or tfDirectAccess; // Can be locked
-  if flags and aiClampUV>0 then
-   tex.caps:=tex.caps or tfClamped;
+  SetFlag(tex.caps,tfDirectAccess); // Can be locked
+  if HasFlag(flags,aiClampUV) then
+   SetFlag(tex.caps,tfClamped);
   // Mip-maps -> enable automatic generation
-  if flags and aiMipMapping>0 then begin
-   tex.caps:=tex.caps or tfAutoMipMap;
+  if HasFlag(flags,aiMipMapping) then begin
+   SetFlag(tex.caps,tfAutoMipMap);
    tex.mipmaps:=Log2i(max2(width,height));
   end;
  end;
@@ -896,12 +896,12 @@ begin
   SetLength(tex.layers[z].realData,datasize);
  end;
 
- tex.caps:=tex.caps or tfDirectAccess; // Can be locked
- if flags and aiClampUV>0 then
-  tex.caps:=tex.caps or tfClamped;
+ SetFlag(tex.caps,tfDirectAccess); // Can be locked
+ if HasFlag(flags,aiClampUV) then
+  SetFlag(tex.caps,tfClamped);
   // Mip-maps
- if flags and aiMipMapping>0 then begin
-  tex.caps:=tex.caps or tfAutoMipMap;
+ if HasFlag(flags,aiMipMapping) then begin
+  SetFlag(tex.caps,tfAutoMipMap);
   tex.mipmaps:=Log2i(max2(width,height));
  end;
 
@@ -1113,7 +1113,7 @@ var
  glFormat,subFormat,internalFormat:cardinal;
  old:TTexture;
 begin
- if img.caps and tfRenderTarget>0 then
+ if img.HasFlag(tfRenderTarget) then
   with img as TGLTexture do begin
    glBindTexture(GL_TEXTURE_2D, texname);
    GetGLFormat(img.PixelFormat,glFormat,subFormat,internalFormat);
