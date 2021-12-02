@@ -55,7 +55,7 @@ interface
    pitch:integer;  // offset to next scanline
 
    // Create cloned image (separate object referencing the same image data). Original image can't be destroyed unless all its clones are destroyed
-   procedure CloneFrom(src:TTexture); virtual;
+   procedure CloneFrom(from:TTexture); virtual;
    function Clone:TTexture; // Clone this texture and return the cloned instance
    function ClonePart(part:TRect):TTexture; // Create cloned instance for part of this texture
    procedure Clear(color:cardinal=$808080); // Clear and fill the texture with given color
@@ -78,26 +78,26 @@ implementation
  uses Apus.Structs;
 
  var
-  textureHash:TObjectHash;
+  textureHash:TObjectHash; // Search hash: name->texture
 
- procedure TTexture.CloneFrom(src:TTexture);
+ procedure TTexture.CloneFrom(from:TTexture);
   begin
-   PixelFormat:=src.PixelFormat;
-   self.src:=src.src;
-   left:=src.left;
-   top:=src.top;
-   width:=src.width;
-   height:=src.height;
-   u1:=src.u1; v1:=src.v1;
-   u2:=src.u2; v2:=src.v2;
-   stepU:=src.stepU; stepV:=src.stepV;
-   mipmaps:=src.mipmaps;
-   caps:=src.caps or tfCloned;
-   name:=src.name;
-   if src.parent<>nil then
-    parent:=src.parent
+   PixelFormat:=from.PixelFormat;
+   src:=from.src;
+   left:=from.left;
+   top:=from.top;
+   width:=from.width;
+   height:=from.height;
+   u1:=from.u1; v1:=from.v1;
+   u2:=from.u2; v2:=from.v2;
+   stepU:=from.stepU; stepV:=from.stepV;
+   mipmaps:=from.mipmaps;
+   caps:=from.caps or tfCloned;
+   name:=from.name+'_clone';
+   if from.parent<>nil then
+    parent:=from.parent
    else
-    parent:=src;
+    parent:=from;
    inc(parent.refCounter);
   end;
 
