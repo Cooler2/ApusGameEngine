@@ -375,7 +375,7 @@ implementation
 
  function TFloatItem.Compare;
   begin
-   if not (item is TFloatItem) then exit;
+   if not (item is TFloatItem) then exit(0);
    if value>(item as TFloatItem).value then result:=1 else
     if value<(item as TFloatItem).value then result:=-1 else
      result:=0;
@@ -397,7 +397,7 @@ implementation
 
  function TStrItem.Compare;
   begin
-   if not (item is TStrItem) then exit;
+   if not (item is TStrItem) then exit(0);
    if value^>(item as TStrItem).value^ then result:=1 else
     if value^<(item as TStrItem).value^ then result:=-1 else
      result:=0;

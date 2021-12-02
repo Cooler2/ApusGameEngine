@@ -567,7 +567,6 @@ procedure PlayMusic(event:TEventStr;tag:TTag);
  var
   mus:TMusicEntry;
   downtime:integer;
-  i:integer;
  begin
    mus:=nil;
    if event<>'NONE' then

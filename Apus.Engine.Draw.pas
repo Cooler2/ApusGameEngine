@@ -716,13 +716,7 @@ end;
 procedure TDrawer.FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
 var
  vrt:array[0..2] of TVertex;
- minX,minY,maxX,maxY:integer;
 begin
-{ minX:=trunc(Min3d(x1,x2,x3));
- maxX:=trunc(Max3d(x1,x2,x3))+1;
- minY:=trunc(Min3d(y1,y2,y3));
- maxY:=trunc(Max3d(y1,y2,y3))+1;
- if not clippingAPI.Prepare(minX,minY,maxX,maxY) then exit;     }
  shader.UseTexture(neutral);
  vrt[0].Init(x1-0.5,y1-0.5,zPlane,color1);
  vrt[1].Init(x2-0.5,y2-0.5,zPlane,color2);
@@ -995,7 +989,7 @@ var
  u,v,r1,r2:single;
 begin
  u:=0; v:=0;
- if (x2=x1) or (y2=y1) then exit;
+ if (x2=x1) or (y2=y1) then exit(0);
  r1:=texture.width/texture.height;
  r2:=(x2-x1)/(y2-y1);
  if r1>r2 then begin // texture is wider

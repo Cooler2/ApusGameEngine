@@ -693,7 +693,7 @@ interface
 
  // Вычисление контрольной суммы
  function CalcCheckSum(adr:pointer;size:integer):cardinal;
- function CheckSum64(adr:pointer;size:integer):int64; pascal;
+ function CheckSum64(adr:pointer;size:integer):int64;
  procedure FillRandom(var buf;size:integer);
  function StrHash(const st:string16):cardinal; overload;
  {$IFNDEF UNICODE}
@@ -3668,9 +3668,9 @@ function BinToStr;
   begin
    result:=-1;
    if ignoreCase then begin
-    st:=lowercase(st);
+    st:=lowercase8(st);
     for i:=0 to high(sa) do
-     if lowercase(sa[i])=st then exit(i);
+     if lowercase8(sa[i])=st then exit(i);
    end else
     for i:=0 to high(sa) do
      if sa[i]=st then exit(i);
@@ -3689,7 +3689,6 @@ function BinToStr;
     for i:=0 to high(sa) do
      if sa[i]=st then exit(i);
   end;
-
 
  function FindInteger(var a:IntArray;v:integer):integer;
   var
@@ -4545,8 +4544,6 @@ function BinToStr;
   end;
 
  procedure IntFlushLog;
-  var
-   f:file;
   begin
    if logmode=lmSilent then exit;
    if LogFileName='' then exit;
@@ -4558,8 +4555,6 @@ function BinToStr;
   end;
 
  procedure LogPhrase;
-  var
-   f:file;
   begin
    if LogMode<lmNormal then exit;
    if LogFileName='' then exit;
@@ -5180,7 +5175,7 @@ procedure DumpDir(path:string);
 
  procedure StartMeasure;
   begin
-   if (n<1) or (n>16) then exit;
+   ASSERT(n in [1..high(values)]);
    QueryPerformanceCounter(values[n]);
   end;
 
@@ -5188,7 +5183,7 @@ procedure DumpDir(path:string);
   var
    v:Int64;
   begin
-   if (n<1) or (n>16) then exit;
+   ASSERT(n in [1..high(values)]);
    QueryPerformanceCounter(v);
    v:=v-values[n];
    result:=v*Perfkoef; // duration in ms
@@ -5204,7 +5199,7 @@ procedure DumpDir(path:string);
   var
    v:Int64;
   begin
-   if (n<1) or (n>16) then exit;
+   ASSERT(n in [1..high(values)]);
    QueryPerformanceCounter(v);
    v:=v-values[n];
    result:=v*Perfkoef;
@@ -5213,13 +5208,13 @@ procedure DumpDir(path:string);
 
  function GetTaskPerformance;
   begin
-   if (n<1) or (n>16) then exit;
+   ASSERT(n in [1..high(values)]);
    result:=PerformanceMeasures[n];
   end;
 
  procedure RunTimer;
   begin
-   if (n<1) or (n>16) then exit;
+   ASSERT(n in [1..high(values)]);
    QueryPerformanceCounter(timers[n]);
   end;
 

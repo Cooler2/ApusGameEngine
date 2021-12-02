@@ -242,7 +242,7 @@ implementation
    result:=result or cardinal((byte(c1)*value+byte(c2)*val2) and $FF00); // green part
    c1:=c1 shr 8; c2:=c2 shr 8;
    result:=result or cardinal(((byte(c1)*value+byte(c2)*val2) shl 8) and $FF0000); // red part
-   c1:=c1 shr 8; c2:=c2 shr 8;
+   //c1:=c1 shr 8; c2:=c2 shr 8;
   end;
 {  var
    val2,m:integer;

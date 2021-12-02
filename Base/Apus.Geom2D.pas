@@ -193,8 +193,6 @@ interface
 
 implementation
  uses {$IFDEF DELPHI}Apus.CrossPlatform,{$ENDIF} Apus.MyServis, SysUtils, Math;
- var
-  sse:boolean;
 
  function DotProduct(a,b:TVector2):double;
   begin

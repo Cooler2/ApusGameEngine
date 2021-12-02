@@ -1719,8 +1719,8 @@ begin
 
  // Sort active scenes by Z order
   FLog('Sorting');
+  n:=0;
   try
-   n:=0;
    for i:=low(scenes) to high(scenes) do
     if scenes[i].status=ssActive then begin
      // Сортировка вставкой. Найдем положение для вставки и вставим туда

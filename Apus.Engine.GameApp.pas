@@ -18,7 +18,7 @@ interface
  var
    // Default global settings
    gameTitle:string='Engine3 Game Template';
-   configFileName:string=''; // load this config file (can contain path, which is discarded after file is loaded)
+   configFileName:string8=''; // load this config file (can contain path, which is discarded after file is loaded)
 
    usedAPI:TGraphicsAPI=gaAuto;
    usedPlatform:TSystemPlatform {$IFNDEF MSWINDOWS} = spSDL{$ENDIF};

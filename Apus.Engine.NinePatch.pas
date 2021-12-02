@@ -39,7 +39,7 @@ type
   overlapped,tiled:boolean;
   hRanges,vRanges:array of TPatchRange;
   hWeights,vWeights:array of single;
-  padLeft,padTop,padRight,padBottom:integer;
+  //padLeft,padTop,padRight,padBottom:integer;
   usedCells:array of cardinal; // bitmap of cell status (1 - cell is empty)
   numCells:integer; // total number of non-empty cells
 
