@@ -19,7 +19,7 @@ interface
   application:TSimpleDemoApp;
 
 implementation
- uses Apus.CrossPlatform,Apus.EventMan,Apus.Colors,
+ uses SysUtils, Apus.CrossPlatform,Apus.EventMan,Apus.Colors,
    Apus.Engine.SceneEffects,Apus.Engine.UIClasses,Apus.Engine.UIScene;
 
  type
@@ -46,11 +46,19 @@ implementation
 { TSimpleDemoApp }
 
 constructor TSimpleDemoApp.Create;
+ var
+  st:string;
  begin
   inherited;
+  // Change dir from \bin or \bin64 to the demo folder
+  st:=ExtractFileDir(ParamStr(0));
+  SetCurrentDir(st);
+  if DirectoryExists('../demo/SimpleDemo') then
+    SetCurrentDir('../demo/SimpleDemo');
+
   // Alter some global settings
   gameTitle:='Simple Engine Demo'; // app window title
-  configFileName:='SimpleDemo\game.ctl';
+  configFileName:='game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   //usedPlatform:=spSDL;
@@ -127,7 +135,7 @@ procedure TMainScene.CreateUI;
 
 procedure TMainScene.InitParticles;
  begin
-  particlesTex:=LoadImageFromFile('SimpleDemo\particles');
+  particlesTex:=LoadImageFromFile('particles');
  end;
 
 

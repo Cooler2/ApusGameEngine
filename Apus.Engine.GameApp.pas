@@ -390,7 +390,7 @@ procedure TGameApplication.Prepare;
   try
    PublishVar(@gameLangCode,'gameLangCode',TVarTypeString);
    RegisterThread('ControlThread');
-   SetCurrentDir(ExtractFileDir(ParamStr(0)));
+   //SetCurrentDir(ExtractFileDir(ParamStr(0)));
    Randomize;
 
    if DirectoryExists('Logs') then begin
