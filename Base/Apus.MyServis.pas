@@ -232,11 +232,11 @@ interface
  procedure UseLogFile(name:string;keepOpened:boolean=false); // Specify log name
  procedure SetLogMode(mode:TLogModes;groups:string=''); //
  procedure LogPhrase(text:string8); // without CR
- procedure LogMessage(text:String8;group:byte=0); overload; // with CR
+ procedure LogMessage(text:String;group:byte=0); overload; // with CR
  procedure LogMessage(text:String;params:array of const;group:byte=0); overload;
- procedure LogError(text:string8);
- procedure ForceLogMessage(text:string8); overload; // то же самое, но с более высоким приоритетом
- procedure ForceLogMessage(text:String8;params:array of const); overload;
+ procedure LogError(text:string);
+ procedure ForceLogMessage(text:string); overload; // то же самое, но с более высоким приоритетом
+ procedure ForceLogMessage(text:String;params:array of const); overload;
  procedure DebugMessage(text:string8); // альтернативное имя для ForceLogMessage (для удобства поиска по коду)
  procedure LogCacheMode(enable:boolean;enforceCache:boolean=false;runThread:boolean=false);
  procedure FlushLog; // сбросить накопенное в кэше содержимое в лог
@@ -534,6 +534,9 @@ interface
  function HasFlag(v:uint64;flag:uint64):boolean; overload; inline;
  function HasFlag(v:cardinal;flag:cardinal):boolean; overload; inline;
  function HasFlag(v:byte;flag:byte):boolean; overload; inline;
+ function NoFlag(v:uint64;flag:uint64):boolean; overload; inline;
+ function NoFlag(v:cardinal;flag:cardinal):boolean; overload; inline;
+ function NoFlag(v:byte;flag:byte):boolean; overload; inline;
  procedure SetFlag(var v:uint64;flag:uint64;value:boolean=true); overload; inline;
  procedure SetFlag(var v:cardinal;flag:cardinal;value:boolean=true); overload; inline;
  procedure SetFlag(var v:byte;flag:byte;value:boolean=true); overload; inline;
@@ -3337,6 +3340,19 @@ function BinToStr;
    result:=v and flag=flag;
   end;
 
+ function NoFlag(v:uint64;flag:uint64):boolean; overload; inline;
+  begin
+   result:=v and flag=0;
+  end;
+ function NoFlag(v:cardinal;flag:cardinal):boolean; overload; inline;
+  begin
+   result:=v and flag=0;
+  end;
+ function NoFlag(v:byte;flag:byte):boolean; overload; inline;
+  begin
+   result:=v and flag=0;
+  end;
+
  procedure SetFlag(var v:uint64;flag:uint64;value:boolean=true); overload;
   begin
    if value then v:=v or flag
@@ -4564,7 +4580,7 @@ function BinToStr;
  function AndroidLog(prio:longint;tag,text:pchar):longint; cdecl; varargs; external 'liblog.so' name '__android_log_print';
 {$ENDIF}
 
- function FormatLogText(const text:string8):string8;
+ function FormatLogText(const text:string):string;
   var
    time:TSystemTime;
   begin
@@ -4576,30 +4592,33 @@ function BinToStr;
            '  '+text;
   end;
 
- procedure LogMessage(text:String8;group:byte=0);
+ procedure LogMessage(text:String;group:byte=0);
+  var
+   st:String8;
   begin
    if LogMode<lmNormal then exit;
    if (group>0) and not loggroups[group] then exit;
    {$IFDEF ANDROID} {$IFDEF DEBUGLOG}
-   AndroidLog(3,'ApusLib',PChar(text));
+   st:=Str8(text);
+   AndroidLog(3,'ApusLib',PAnsiChar(st));
    {$ENDIF} {$ENDIF}
    if LogFileName='' then exit;
 
    if group>0 then text:='['+inttostr(group)+'] '+text;
-   text:=FormatLogText(text);
+   st:=FormatLogText(text);
    MyEnterCriticalSection(crSection);
    try
-    if cacheenabled and (length(cacheBuf)+length(text)<65000) then begin
+    if cacheenabled and (length(cacheBuf)+length(st)<65000) then begin
      // кэш доступен и позволяет вместить сообщение
-     cacheBuf:=cacheBuf+text+#13#10;
+     cacheBuf:=cacheBuf+st+#13#10;
     end else begin
      // кэш отключен либо его размер недостаточен
      if not forceCacheUsage then begin
       // запись в кэш необязательна, поэтому записать кэш а затем само сообщение напрямую
       if cacheBuf<>'' then IntFlushLog;
       try
-       text:=text+#13#10;
-       AppendLogFile(text[1],length(text));
+       st:=st+#13#10;
+       AppendLogFile(st[1],length(st));
       except
        on e:exception do ErrorMessage('Failed to write to the log:'#13#10+e.Message+#13#10+text);
       end;
@@ -4619,11 +4638,11 @@ function BinToStr;
  procedure LogMessage(text:String;params:array of const;group:byte=0);
   begin
    text:=Format(text,params);
-   LogMessage(Str8(text),group);
+   LogMessage(text,group);
   end;
 
 
- procedure LogError(text:String8);
+ procedure LogError(text:String);
   begin
    ForceLogMessage(text);
    InterlockedIncrement(logErrorCount);
@@ -4637,24 +4656,28 @@ function BinToStr;
    {$ENDIF}
   end;
 
- procedure ForceLogMessage(text:String8); overload;
+ procedure ForceLogMessage(text:String); overload;
+  var
+   st:String8;
   begin
    if logmode=lmSilent then exit;
    {$IFDEF IOS}
-   NSLog(NSStr(PChar(text)));
+   st:=Str8(text);
+   NSLog(NSStr(PAnsiChar(st)));
    {$ENDIF}
    {$IFDEF ANDROID} {$IFDEF DEBUGLOG}
-   AndroidLog(4,'ApusLib',PChar(text));
+   st:=Str8(text);
+   AndroidLog(4,'ApusLib',PAnsiChar(st));
    {$ENDIF} {$ENDIF}
    if LogFileName='' then exit;
 
-   text:=FormatLogText(text);
+   st:=FormatLogText(text);
    MyEnterCriticalSection(crSection);
    try
     if forceCacheUsage then begin
      // Режим "писать только в кэш"
-     if (length(cacheBuf)+length(text)<65000) then begin
-      cacheBuf:=cacheBuf+text+#13#10;
+     if (length(cacheBuf)+length(st)<65000) then begin
+      cacheBuf:=cacheBuf+st+#13#10;
      end else begin
       // режим "писать только в кэш", а кэш переполнен
       if length(cacheBuf)<65500 then begin
@@ -4665,8 +4688,8 @@ function BinToStr;
      // Обычный режим (форсированные сообщения пишутся напрямую, без кэша)
      if cacheBuf<>'' then IntFlushLog;
      try
-      text:=text+#13#10;
-      AppendLogFile(text[1],length(text));
+      st:=st+#13#10;
+      AppendLogFile(st[1],length(text));
      except
        on e:Exception do ErrorMessage('Failed to write to the log:'#13#10+e.Message+#13#10+text);
      end;
@@ -4676,7 +4699,7 @@ function BinToStr;
    end;
   end;
 
- procedure ForceLogMessage(text:String8;params:array of const); overload;
+ procedure ForceLogMessage(text:String;params:array of const); overload;
   begin
    text:=Format(text,params);
    ForceLogMessage(text);
@@ -4708,7 +4731,7 @@ function BinToStr;
    end;
   end;
 
- procedure SystemLogMessage(text:string); // Post message to OS log
+ procedure SystemLogMessage(text:string); // Post message to the OS log
   begin
    {$IFDEF MSWINDOWS}
 
