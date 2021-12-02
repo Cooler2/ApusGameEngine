@@ -133,10 +133,10 @@ procedure DrawBtnImageInt(btn:TUIButton;xc,yc:single;var imgNormal,imgOver:TText
 //    if imgNormal.height and 1=1 then y:=round(yc+0.5);
     dec(x,imgNormal.width div 2);
     dec(y,imgNormal.height div 2);
-    gfx.shader.TexMode(1,tblInterpolate,tblInterpolate,fltBilinear,intFactor);
+    gfx.shader.TexMode(1,tblInterpolate,tblInterpolate,TTexFilter.fltBilinear,intFactor);
 //    draw.SetTexInterpolationMode(1,tintFactor,intFactor);
     draw.DoubleTex(x,y,imgNormal,imgOver,color);
-    gfx.shader.TexMode(1,tblDisable,tblDisable,fltUndefined);
+    gfx.shader.TexMode(1,tblDisable,tblDisable);
   end;
  end;
 

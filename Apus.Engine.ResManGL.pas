@@ -6,7 +6,7 @@
 
 unit Apus.Engine.ResManGL;
 interface
- uses Apus.Engine.API, Apus.Images, Apus.MyServis, Types;
+ uses Apus.Engine.API, Apus.Images, Apus.MyServis, Types, Apus.Engine.Resources;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE GLES11} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE GLES20} {$DEFINE OPENGL} {$ENDIF}
 type
@@ -41,8 +41,8 @@ type
 
  TGLTextureArray=class(TGLTexture)
   constructor Create(numLayers:integer);
-  procedure Lock(index:integer;miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); overload; virtual;
-  procedure Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); overload; override; // treat mip level as array index for convenience
+  procedure Lock(index:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); reintroduce; overload;
+  procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); overload; override; // treat mip level as array index for convenience
   procedure AddDirtyRect(index:integer;rect:TRect); overload; virtual;
   procedure Unlock; override;
  protected
@@ -788,7 +788,7 @@ var
 begin
  ASSERT((width>0) AND (height>0),'Zero width or height: '+name);
  ASSERT((pixFmt<>ipfNone) or HasFlag(flags,aiDepthBuffer),'Invalid pixel format for '+name);
- if (flags and aiSysMem=0) and ((width>maxTextureSize) or (height>maxTextureSize)) then
+ if NoFlag(flags,aiSysMem) and ((width>maxTextureSize) or (height>maxTextureSize)) then
   raise EWarning.Create('AI: Texture too large');
  try
  EnterCriticalSection(cSect);

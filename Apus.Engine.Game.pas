@@ -658,7 +658,7 @@ begin
   rawImage.Free;
   color:=GetPixel(64,63);
   magnifierTex.Unlock;
-  magnifierTex.SetFilter(fltNearest);
+  magnifierTex.SetFilter(TTexFilter.fltNearest);
   gfx.shader.UseTexture(magnifierTex);
   width:=min2(512,round(renderWidth*0.4));
   height:=min2(512,renderHeight);

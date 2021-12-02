@@ -85,7 +85,8 @@ interface
 
 implementation
 uses Apus.MyServis, SysUtils, Apus.Structs, Types, Apus.GfxFormats,
-   Apus.Engine.ImgLoadQueue, Apus.FastGFX, Apus.Geom3D, Apus.Colors, Apus.GfxFilters;
+   Apus.Engine.ImgLoadQueue, Apus.FastGFX, Apus.Geom3D, Apus.Colors,
+   Apus.GfxFilters, Apus.Engine.Resources;
 
 const
   max_subimages = 5000;
@@ -382,7 +383,6 @@ function FindProperFile(fname:string):string;
   {$ENDIF}
  end;
 
-//function LoadImageFromFile(fname:string;mtwidth:integer=0;mtheight:integer=0;sysmem:boolean=false;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
 function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
 var
  i,j,k:integer;
