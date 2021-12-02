@@ -57,7 +57,7 @@ type
 
 implementation
 uses Windows, Messages, Types, Apus.MyServis, SysUtils, Apus.EventMan;
-
+{$IFOPT R+} {$DEFINE RANGECHECK_ON} {$ENDIF}
 var
  terminated:boolean;
  noPenAPI:boolean=false;
@@ -95,7 +95,7 @@ begin
  result:=byte(ast[1]);
 end;
 
-procedure ProcessPointerMessage(Message:cardinal;WParam,LParam:NativeInt);
+procedure ProcessPointerMessage(Message:cardinal;WParam:UIntPtr;LParam:IntPtr);
 var
  id:cardinal;
  {$IFDEF DELPHI}
@@ -121,7 +121,7 @@ begin
  {$ENDIF}
 end;
 
-function WindowProc(Window:HWnd;Message:cardinal;WParam,LParam:NativeInt):LongInt; stdcall;
+function WindowProc(Window:HWnd;Message:cardinal;WParam:UIntPtr;LParam:IntPtr):LongInt; stdcall;
 var
  i,charCode,scanCode:integer;
 begin
@@ -199,7 +199,9 @@ begin
   end;
  end;
 
- result:=longint(DefWindowProcW(Window,Message,UIntPtr(WParam),IntPtr(LParam)));
+ {$R-}
+ result:=Longint(DefWindowProcW(Window,Message,WParam,LParam));
+ {$IFDEF RANGECHECK_ON} {$R+} {$ENDIF}
  except
   on e:Exception do ForceLogMessage('WindowProc error: '+ExceptionMsg(e));
  end;
