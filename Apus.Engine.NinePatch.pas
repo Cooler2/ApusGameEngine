@@ -638,6 +638,7 @@ constructor TCustomNinePatch.Create(fromImage: TTexture);
   ASSERT((fromImage.width>=3) and (fromImage.height>=3));
   scaleFactor:=1;
   tex:=fromImage;
+  name:=tex.name;
   overlapped:=false;
   tiled:=false;
   EditImage(tex);

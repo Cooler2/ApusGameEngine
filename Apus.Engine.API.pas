@@ -269,11 +269,13 @@ type
  end;
 
  // Nine Patch: resizable image
- TNinePatch=class
+ TNinePatch=class(TNamedObject)
   minWidth,minHeight:integer; // minimal possible dimension (in pixels, when scale=1.0)
   baseWidth,baseHeight:integer; // dimension without any stretching (in pixels, when scale=1.0)
   scaleFactor:single; // scale modifier: for example, use 0.5 for images with double resolution
   procedure Draw(x,y,width,height:single;scale:single=1.0); virtual; abstract;
+ protected
+  class function ClassHash:pointer; override; // override this to provide a separate hash for object instances
  end;
 
  // Interface to the native OS function or underlying library
@@ -1079,8 +1081,11 @@ var
  function IsKeyReleased(scanCode:integer):boolean;
 
 implementation
-uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
- TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX, Apus.Engine.NinePatch, Apus.Structs;
+ uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
+   TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX, Apus.Engine.NinePatch, Apus.Structs;
+
+ var
+  ninePatchHash:TObjectHash;
 
  function GetKeyEventScanCode(tag: TTag): cardinal;
   begin
@@ -1465,6 +1470,13 @@ class function TShader.VectorFromColor3(color: cardinal): TVector3s;
   result.x:=c.r/255;
   result.y:=c.g/255;
   result.z:=c.b/255;
+ end;
+
+{ TNinePatch }
+
+class function TNinePatch.ClassHash: pointer;
+ begin
+  result:=@ninePatchHash;
  end;
 
 initialization
