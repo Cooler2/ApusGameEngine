@@ -50,6 +50,7 @@ implementation
    img:TRawImage;
    format:TImageFileType;
    info:TImageFileInfo;
+   timeLoaded,timeUnpacked:int64;
    next:PQueueEntry;
   end;
  var
@@ -69,6 +70,8 @@ implementation
   loadingThread:TLoadingThread;
   // These threads are unpacking compressed images (JPG/PNG)
   unpackThreads:array[1..4] of TUnpackThread;
+
+  maxUnpackTime:integer;
 
  function GetImageFromQueue(fname:string;mode:TQueueRequestMode=qrmWait):TRawImage;
   var
@@ -131,9 +134,9 @@ implementation
    cSect.Enter;
    try
     New(item);
+    ZeroMem(item^,sizeof(TQueueEntry));
     item.status:=lqsWaiting;
     item.fname:=fname;
-    item.next:=nil;
     if lastItem<>nil then lastItem.next:=item;
     MemoryBarrier;
     lastItem:=item;
@@ -193,6 +196,7 @@ procedure TLoadingThread.Execute;
      LogMessage('Preloading '+fname);
      try
       srcData:=LoadFileAsBytes(fname);
+      timeLoaded:=MyTickCount;
      except
       on e:Exception do ForceLogMessage('Loader error; '+ExceptionMsg(e));
      end;
@@ -258,6 +262,8 @@ procedure TUnpackThread.Execute;
       LogMessage('Preloaded: '+fname+', time='+IntToStr(MyTickCount-t));
       Setlength(srcData,0);
       status:=lqsReady;
+      timeUnpacked:=MyTickCount;
+      maxUnpackTime:=max2(maxUnpackTime,timeUnpacked-timeLoaded);
       sleep(0);
      except
       on e:exception do begin
@@ -288,6 +294,7 @@ procedure TerminateThreads;
     unpackThreads[i].Terminate;
     unpackThreads[i].WaitFor;
    end;
+  LogMessage('ILQ threads terminated. Max unpack time was '+inttostr(maxUnpackTime));
  end;
 
 initialization
