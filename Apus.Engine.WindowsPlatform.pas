@@ -188,7 +188,7 @@ begin
     Signal('MOUSE\BTNUP',i);
   end;
 
-  WM_MOUSEWHEEL:Signal('MOUSE\SCROLL',wParam div 65536);
+  WM_MOUSEWHEEL:Signal('MOUSE\SCROLL',smallint(hiWord(wParam)));
 
   WM_SIZE:Signal('ENGINE\RESIZE',lParam);
 
