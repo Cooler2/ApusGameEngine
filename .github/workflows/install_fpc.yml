@@ -35,7 +35,7 @@ jobs:
       run: lazbuild -q -q Base/tests/TestStructs.lpi
     - run: Base/tests/TestMyServis-fpc
     - run: Base/tests/TestStructs
-      timeout-minutes: 2    
+ 
 
   test-windows:
     # The type of runner that the job will run on
@@ -61,17 +61,17 @@ jobs:
     - run: Base/tests/TestMyServis-fpc
     - run: Base/tests/TestStructs
     - name: Compile SimpleDemo
-      run: lazbuild -q -q Base/demo/SimpleDemo/SimpleDemo.lpi
+      run: lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
     - name: Compile Scenes
-      run: lazbuild -q -q Base/demo/01-Scenes/scenes.lpi
+      run: lazbuild -q -q demo/01-Scenes/scenes.lpi
     - name: Compile NinePatch
-      run: lazbuild -q -q Base/demo/NinePatch/NinePatch.lpi
+      run: lazbuild -q -q demo/NinePatch/NinePatch.lpi
     - name: Compile Simple3D
-      run: lazbuild -q -q Base/demo/Simple3D/Simple3D.lpi
+      run: lazbuild -q -q demo/Simple3D/Simple3D.lpi
     - name: Compile ControllerDemo
-      run: lazbuild -q -q Base/demo/ControllerDemo/ControllerDemo.lpi
+      run: lazbuild -q -q demo/ControllerDemo/ControllerDemo.lpi
     - name: Compile ShadowMap
-      run: lazbuild -q -q Base/demo/ShadowMap/ShadowMap.lpi
+      run: lazbuild -q -q demo/ShadowMap/ShadowMap.lpi
     - name: Compile SoundDemo
-      run: lazbuild -q -q Base/demo/SoundDemo/soundDemo.lpi
-      timeout-minutes: 2
+      run: lazbuild -q -q demo/SoundDemo/soundDemo.lpi
+
