@@ -8,11 +8,10 @@
         <MainUnitHasCreateFormStatements Value="False"/>
         <MainUnitHasTitleStatement Value="False"/>
         <MainUnitHasScaledStatement Value="False"/>
-        <UseDefaultCompilerOptions Value="True"/>
       </Flags>
       <SessionStorage Value="InProjectDir"/>
       <MainUnit Value="0"/>
-      <Title Value="soundDemo"/>
+      <Title Value="scenes"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
@@ -29,7 +28,7 @@
     </RunParams>
     <Units Count="1">
       <Unit0>
-        <Filename Value="soundDemo.dpr"/>
+        <Filename Value="scenes.dpr"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
     </Units>
@@ -38,7 +37,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="..\..\bin64\SoundDemo_fpc"/>
+      <Filename Value="..\..\bin64\Scenes_fpc"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
@@ -73,14 +72,7 @@
     </Linking>
     <Other>
       <CustomOptions Value="-dOPENGL
--dSDL
--dSDLMIX"/>
-      <OtherDefines Count="4">
-        <Define0 Value="OPENGL"/>
-        <Define1 Value="SDL"/>
-        <Define2 Value="IMX"/>
-        <Define3 Value="SDLMIX"/>
-      </OtherDefines>
+-dSDL"/>
     </Other>
   </CompilerOptions>
 </CONFIG>

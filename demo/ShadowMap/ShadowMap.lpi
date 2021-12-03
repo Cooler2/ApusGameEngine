@@ -12,7 +12,7 @@
       </Flags>
       <SessionStorage Value="InProjectDir"/>
       <MainUnit Value="0"/>
-      <Title Value="soundDemo"/>
+      <Title Value="ShadowMap"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
@@ -29,7 +29,7 @@
     </RunParams>
     <Units Count="1">
       <Unit0>
-        <Filename Value="soundDemo.dpr"/>
+        <Filename Value="ShadowMap.dpr"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
     </Units>
@@ -38,7 +38,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="..\..\bin64\SoundDemo_fpc"/>
+      <Filename Value="..\..\bin64\ShadowMap_fpc"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
@@ -73,14 +73,7 @@
     </Linking>
     <Other>
       <CustomOptions Value="-dOPENGL
--dSDL
--dSDLMIX"/>
-      <OtherDefines Count="4">
-        <Define0 Value="OPENGL"/>
-        <Define1 Value="SDL"/>
-        <Define2 Value="IMX"/>
-        <Define3 Value="SDLMIX"/>
-      </OtherDefines>
+-dSDL"/>
     </Other>
   </CompilerOptions>
 </CONFIG>

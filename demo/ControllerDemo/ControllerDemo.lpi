@@ -8,11 +8,10 @@
         <MainUnitHasCreateFormStatements Value="False"/>
         <MainUnitHasTitleStatement Value="False"/>
         <MainUnitHasScaledStatement Value="False"/>
-        <UseDefaultCompilerOptions Value="True"/>
       </Flags>
       <SessionStorage Value="InProjectDir"/>
       <MainUnit Value="0"/>
-      <Title Value="soundDemo"/>
+      <Title Value="ControllerDemo"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
@@ -27,18 +26,22 @@
       <FormatVersion Value="2"/>
       <Modes Count="0"/>
     </RunParams>
-    <Units Count="1">
+    <Units Count="2">
       <Unit0>
-        <Filename Value="soundDemo.dpr"/>
+        <Filename Value="ControllerDemo.dpr"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
+      <Unit1>
+        <Filename Value="MainScene.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit1>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="..\..\bin64\SoundDemo_fpc"/>
+      <Filename Value="..\..\bin64\ControllerDemo_fpc"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
@@ -73,14 +76,7 @@
     </Linking>
     <Other>
       <CustomOptions Value="-dOPENGL
--dSDL
--dSDLMIX"/>
-      <OtherDefines Count="4">
-        <Define0 Value="OPENGL"/>
-        <Define1 Value="SDL"/>
-        <Define2 Value="IMX"/>
-        <Define3 Value="SDLMIX"/>
-      </OtherDefines>
+-dSDL"/>
     </Other>
   </CompilerOptions>
 </CONFIG>
