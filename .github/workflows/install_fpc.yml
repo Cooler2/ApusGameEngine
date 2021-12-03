@@ -35,7 +35,7 @@ jobs:
       run: lazbuild -q -q Base/tests/TestStructs.lpi
     - run: Base/tests/TestMyServis-fpc
     - run: Base/tests/TestStructs
- 
+
     - name: Compile SimpleDemo
       run: lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
     - name: Compile Scenes
@@ -75,7 +75,7 @@ jobs:
     - run: dir Base/tests
     - run: Base/tests/TestMyServis-fpc
     - run: Base/tests/TestStructs
-	 
+
     - name: Compile SimpleDemo
       run: lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
     - name: Compile Scenes
