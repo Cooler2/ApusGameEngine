@@ -45,55 +45,103 @@ implementation
    mov eax,7
    xor ecx,ecx
    cpuid
-   // AVX2
+   {$IFDEF DELPHI}
    bt ebx,5
-   adc byte ptr [rip+cpu.avx2],0
+   adc cpu.avx2,0
    // BMI1
    bt ebx,3
-   adc byte ptr [rip+cpu.bmi1],0
+   adc cpu.bmi1,0
    // BMI2
    bt ebx,8
-   adc byte ptr [rip+cpu.bmi2],0
+   adc cpu.bmi2,0
+   {$ELSE}
+   // AVX2
+   bt ebx,5
+   adc byte ptr [cpu.avx2+rip],0
+   // BMI1
+   bt ebx,3
+   adc byte ptr [cpu.bmi1+rip],0
+   // BMI2
+   bt ebx,8
+   adc byte ptr [cpu.bmi2+rip],0
+   {$ENDIF}
 
 @01:
    mov eax,1
    cpuid
-   mov [rip+cpu.version],eax
-   mov [rip+cpu.flags1],edx
-   mov [rip+cpu.flags2],ecx
+   mov [cpu.version+rip],eax
+   mov [cpu.flags1+rip],edx
+   mov [cpu.flags2+rip],ecx
+   {$IFDEF DELPHI} // Workaround for Delphi x64 code generation bug
    // MMX
    bt edx,23
-   adc byte ptr [rip+cpu.mmx],0
+   adc cpu.mmx,0
    // SSE
    bt edx,25
-   adc byte ptr [rip+cpu.sse],0
+   adc cpu.sse,0
    // SSE2
    bt edx,26
-   adc byte ptr [rip+cpu.sse2],0
+   adc cpu.sse2,0
    // SSE3
    bt ecx,0
-   adc byte ptr [rip+cpu.sse3],0
+   adc cpu.sse3,0
    // SSSE3
    bt ecx,9
-   adc byte ptr [rip+cpu.ssse3],0
+   adc cpu.ssse3,0
    // SSE4
    bt ecx,19
-   adc byte ptr [rip+cpu.sse4],0
+   adc cpu.sse4,0
    // SSE42
    bt ecx,20
-   adc byte ptr [rip+cpu.sse42],0
+   adc cpu.sse42,0
    // AVX
    bt ecx,28
-   adc byte ptr [rip+cpu.avx],0
+   adc cpu.avx,0
    // AES
    bt ecx,25
-   adc byte ptr [rip+cpu.aes],0
+   adc cpu.aes,0
    // RDRAND
    bt ecx,30
-   adc byte ptr [rip+cpu.rdrand],0
+   adc cpu.rdrand,0
    // HYPERVISOR
    bt ecx,31
-   adc byte ptr [rip+cpu.hypervisor],0
+   adc cpu.hypervisor,0
+
+   {$ELSE}
+   // MMX
+   bt edx,23
+   adc byte ptr [cpu.mmx+rip],0
+   // SSE
+   bt edx,25
+   adc byte ptr [cpu.sse+rip],0
+   // SSE2
+   bt edx,26
+   adc byte ptr [cpu.sse2+rip],0
+   // SSE3
+   bt ecx,0
+   adc byte ptr [cpu.sse3+rip],0
+   // SSSE3
+   bt ecx,9
+   adc byte ptr [cpu.ssse3+rip],0
+   // SSE4
+   bt ecx,19
+   adc byte ptr [cpu.sse4+rip],0
+   // SSE42
+   bt ecx,20
+   adc byte ptr [cpu.sse42+rip],0
+   // AVX
+   bt ecx,28
+   adc byte ptr [cpu.avx+rip],0
+   // AES
+   bt ecx,25
+   adc byte ptr [cpu.aes+rip],0
+   // RDRAND
+   bt ecx,30
+   adc byte ptr [cpu.rdrand+rip],0
+   // HYPERVISOR
+   bt ecx,31
+   adc byte ptr [cpu.hypervisor+rip],0
+   {$ENDIF}
 
    {$IFDEF CPUx86}
    pop ebx
