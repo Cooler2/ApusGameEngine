@@ -77,7 +77,7 @@ jobs:
     - run: Base/tests/TestStructs
 
     - name: Compile SimpleDemo
-      run: lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
+      run: lazbuild -q -q --bm=win32 demo/SimpleDemo/SimpleDemo.lpi
     - name: Compile Scenes
       run: lazbuild -q -q demo/01-Scenes/scenes.lpi
     - name: Compile NinePatch
