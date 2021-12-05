@@ -358,7 +358,7 @@ procedure TWindowsPlatform.GetWindowSize(out width, height: integer);
 
 procedure TWindowsPlatform.CreateWindow(title: string);
  var
-  WindowClass:TWndClass;
+  WindowClass:TWndClassW;
   style:cardinal;
   i:integer;
  begin
@@ -371,18 +371,18 @@ procedure TWindowsPlatform.CreateWindow(title: string);
     hInstance:=0;
     hIcon:=LoadIcon(MainInstance,'MAINICON');
     hCursor:=0;
-    hbrBackground:=GetStockObject (Black_Brush);
+    hbrBackground:=GetStockObject(Black_Brush);
     lpszMenuName:='';
     lpszClassName:='GameWindowClass';
    end;
-   If windows.RegisterClass(WindowClass)=0 then
+   If windows.RegisterClassW(WindowClass)=0 then
     raise EFatalError.Create('Cannot register window class');
 
    style:=0;
-   Window:=windows.CreateWindow('GameWindowClass', PChar(title),
+   Window:=windows.CreateWindowW('GameWindowClass', PWideChar(WideString(title)),
     style, 0, 0, 100, 100, 0, 0, HInstance, nil);
-   SetWindowLongW(window,GWL_WNDPROC,longint(@WindowProc));
-   SetWindowCaption(title);
+   //SetWindowLong(window,GWL_WNDPROC,longint(@WindowProc));
+   //SetWindowCaption(title);
   end;
 
 procedure TWindowsPlatform.ProcessSystemMessages;
@@ -529,10 +529,10 @@ procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
 
 procedure TWindowsPlatform.SetWindowCaption(text: string);
  var
-  wst:WideString;
+  wst:String16;
   t:PWideChar;
  begin
-  wst:=text;
+  wst:=Str16(text);
   t:=@wst[1];
   SetWindowTextW(window,t);
  end;
