@@ -29,6 +29,7 @@ type
  // value=0 -> c2, value=256 -> c1
  function ColorMix(c1,c2:cardinal;value:integer):cardinal; register; // Линейная интерполяция
  function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // Качественный квази-линейный бленд (гораздо медленнее!)
+ function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single; inline;  // Билинейная интерполяция
  function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; // Билинейная интерполяция
  function BilinearBlend(c0,c1,c2,c3:cardinal;v1,v2:single):cardinal; // Качественный квази-билинейный бленд (гораздо медленнее!)
  function Blend(background,foreground:cardinal):cardinal; // Качественный альфа-блендинг
@@ -253,27 +254,20 @@ implementation
    result:=a shl 24+r shl 16+g shl 8+b;
   end;}
 
+ function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single; // Билинейная интерполяция
+  begin
+   result:=v0*(1-u)*(1-v)+v1*u*(1-v)+v2*(1-u)*v+v3*u*v;
+  end;
+
  function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; // Билинейная интерполяция
   // Integer version
   var
    v0,v1,v2,v3:integer;
-//   v0,v1,v2,v3:single;
   begin
    v3:=round(256*(u)*(v));
    v1:=round(256*(u)*(1-v));
    v0:=round(256*(1-u)*(1-v));
    v2:=round(256*(1-u)*(v));
-{   v0:=(1-u)*(1-v);
-   v1:=u*(1-v);
-   v2:=(1-u)*v;
-   v3:=u*v;
-   result:=round(byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3); // blue part
-   c0:=c0 shr 8; c1:=c1 shr 8; c2:=c2 shr 8; c3:=c3 shr 8;
-   result:=result+round(byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) shl 8; // green part
-   c0:=c0 shr 8; c1:=c1 shr 8; c2:=c2 shr 8; c3:=c3 shr 8;
-   result:=result+round((byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3)) shl 16; // red part
-   c0:=c0 shr 8; c1:=c1 shr 8; c2:=c2 shr 8; c3:=c3 shr 8;
-   result:=result+round((byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3)) shl 24; // alpha part  }
    result:=(byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) shr 8; // blue part
    c0:=c0 shr 8; c1:=c1 shr 8; c2:=c2 shr 8; c3:=c3 shr 8;
    result:=result or cardinal((byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) and $FF00); // green part
