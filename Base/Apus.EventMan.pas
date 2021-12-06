@@ -185,17 +185,8 @@ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean
   end;
 
  function Hash(st:TEventStr):byte;
-  var
-   i,l:integer;
   begin
-   result:=length(st);
-   l:=length(st);
-   if l>0 then begin
-    // first + last + middle
-    inc(result,byte(st[1]));
-    inc(result,byte(st[l]));
-    inc(result,byte(st[l shr 1]));
-   end;
+   result:=FastHash(st);
   end;
 
  procedure SetEventHandler(event:TEventStr;handler:TEventHandler;mode:TEventMode=emInstant);
@@ -557,12 +548,12 @@ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean
    n:byte;
    prev,link:PLink;
   begin
+   event:=UpperCase(event);
+   n:=Hash(event);
    EnterCriticalSection(CritSect);
    try
-    n:=Hash(event);
     prev:=nil; link:=links[n];
     if link=nil then exit;
-    event:=UpperCase(event);
     linkedEvent:=UpperCase(linkedEvent);
     repeat
      if (link.event=event) and
@@ -583,6 +574,7 @@ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean
    i:integer;
    prev,link:PLink;
   begin
+   event:=UpperCase(event);
    EnterCriticalSection(CritSect);
    try
     for i:=0 to 255 do

@@ -46,8 +46,9 @@ constructor TMainApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spSDL; // Important!
   //directRenderOnly:=true;
-  if DirectoryExists('..\Demo\ControllerDemo') then
-   baseDir:='..\Demo\ControllerDemo\';
+  baseDir:='';
+  if DirectoryExists('../Demo/ControllerDemo') then
+   baseDir:='../Demo/ControllerDemo/';
  end;
 
 procedure OnToggleBtn;
@@ -63,8 +64,8 @@ procedure OnToggleBtn;
 procedure TMainApp.CreateScenes;
  begin
   inherited;
-  LoadImage(imgJoystick,baseDir+'joystick');
-  LoadImage(imgGamepad,baseDir+'gamepad');
+  imgJoystick:=LoadImageFromFile(baseDir+'joystick');
+  imgGamepad:=LoadImageFromFile(baseDir+'gamepad');
   // initialize our main scene
   sceneMain:=TMainScene.Create;
   TUIButton.Create(200,32,'ToggleInput','Toggle UI Test',txt.GetFont('Default',9),

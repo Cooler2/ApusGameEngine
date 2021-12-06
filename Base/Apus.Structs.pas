@@ -213,7 +213,7 @@ type
   keys:StringArr;
   values:array of int64;
   count:integer; // how many items in keys/values/links are occupied - must be used instead of Length!!!
-  procedure Init(estimatedCount:integer);
+  procedure Init(estimatedCount:integer=256);
   procedure Clear;
   procedure Put(key:string;value:int64);
   function Get(key:string):int64;  // returns -1 if no value
@@ -233,7 +233,7 @@ type
   keys:AStringArr;
   values:array of int64;
   count:integer; // how many items in keys/values/links are occupied - must be used instead of Length!!!
-  procedure Init(estimatedCount:integer);
+  procedure Init(estimatedCount:integer=256);
   procedure Clear;
   procedure Put(key:String8;value:int64);
   function Get(key:String8):int64;  // returns -1 if no value
@@ -248,6 +248,32 @@ type
   fFree:integer; // начало списка свободных элементов (если они вообще есть, иначе -1)
  end;
 
+ // Open-address hash for quick access to named objects (case-insensitive)
+ // Objects with empty name are legit, but won't be added and can't be found
+ // If multiple objects with the same name were added, only one of them can be found
+ PObjectHash=^TObjectHash;
+ TObjectHash=object
+  count:integer; // all the keys
+  procedure Init(estimatedCount:integer=256); // automatically called upon 1-st Put() call
+  procedure Clear;
+  procedure Put(value:TNamedObject);
+  function Get(key:String8):TNamedObject;
+  procedure Remove(value:TNamedObject);
+  function ListKeys:StringArray8; // List all object names
+  function ListObjects:TNamedObjects; // List all objects
+ private
+  initialized:string;
+  lock:integer;
+  mask:cardinal;
+  hashMiss:integer; // for performance test
+  values:array of TNamedObject;
+  procedure Resize; // Increase capasity *2. Resizing is quite slow so
+  function InternalListKeys:StringArray8;
+  function InternalListObjects:TNamedObjects; // List all objects
+  procedure InternalPut(value:TNamedObject); //inline;
+ end;
+
+ // Queue of strings
  TStringQueue=object
   procedure Init(size:integer);
   procedure Clear;
@@ -284,14 +310,17 @@ type
  end;}
 
 implementation
- uses SysUtils,variants
+ uses SysUtils,variants, Apus.CrossPlatform
    {$IFDEF DELPHI},windows{$ENDIF}; // FPC has built-in support (RTL) for atomic operations
 
- procedure SpinLock(var lock:integer); inline;
-  begin
-   // LOCK CMPXCHG is very slow (~20-50 cycles) so no need for additional spin rounds for quick operations
-   while InterlockedCompareExchange(lock,1,0)<>0 do sleep(0);
-  end;
+ const
+  _INITIALIZED_:string='INITIALIZED';
+  DELETED_PTR:pointer=pointer(1);
+
+  function IsValid(p:pointer):boolean; inline;
+   begin
+    result:=UIntPtr(p)>=16;
+   end;
 
 {  constructor TVarHash.Init;
    begin
@@ -346,7 +375,7 @@ implementation
 
  function TFloatItem.Compare;
   begin
-   if not (item is TFloatItem) then exit;
+   if not (item is TFloatItem) then exit(0);
    if value>(item as TFloatItem).value then result:=1 else
     if value<(item as TFloatItem).value then result:=-1 else
      result:=0;
@@ -368,7 +397,7 @@ implementation
 
  function TStrItem.Compare;
   begin
-   if not (item is TStrItem) then exit;
+   if not (item is TStrItem) then exit(0);
    if value^>(item as TStrItem).value^ then result:=1 else
     if value^<(item as TStrItem).value^ then result:=-1 else
      result:=0;
@@ -1046,7 +1075,7 @@ procedure THash.SortKeys;
  procedure QuickSort(a,b:integer);
   var
    lo,hi,v:integer;
-   mid,key:string;
+   mid,key:string8;
    vr:variant;
   begin
    lo:=a; hi:=b;
@@ -1567,7 +1596,7 @@ procedure THash.SortKeys;
    pb:PByte;
   begin
    // простая, неэффективная версия
-   pb:=@buf;
+   //pb:=@buf;
    for i:=0 to count-1 do begin
     GetBit(readPos);
     inc(readPos);
@@ -1636,6 +1665,155 @@ procedure TStringQueue.Init(size: integer);
   SetLength(data,size);
   used:=0; free:=0;
   lock:=0;
+ end;
+
+{ TObjectHash }
+procedure TObjectHash.Init(estimatedCount:integer);
+ begin
+  count:=0;
+  lock:=0;
+  mask:=GetPow2(estimatedCount*2);
+  SetLength(values,mask);
+  dec(mask);
+  initialized:=_INITIALIZED_;
+  hashMiss:=0;
+ end;
+
+procedure TObjectHash.Clear;
+ begin
+  SpinLock(lock);
+  try
+   count:=0;
+   ZeroMem(values[0],length(values)*sizeof(pointer));
+   hashMiss:=0;
+  finally
+   lock:=0;
+  end;
+ end;
+
+function TObjectHash.ListKeys:StringArray8;
+ begin
+  SpinLock(lock);
+  try
+   result:=InternalListKeys;
+  finally
+   lock:=0;
+  end;
+ end;
+
+function TObjectHash.InternalListKeys:StringArray8;
+ var
+  i,n:integer;
+ begin
+   SetLength(result,count);
+   n:=0;
+   for i:=0 to high(values) do
+    if IsValid(values[i]) then begin
+     result[n]:=values[i].name;
+     inc(n);
+    end;
+ end;
+
+function TObjectHash.InternalListObjects:TNamedObjects;
+ var
+  i,n:integer;
+ begin
+  SetLength(result,count);
+  n:=0;
+  for i:=0 to high(values) do
+   if IsValid(values[i]) then begin
+    result[n]:=values[i];
+    inc(n);
+   end;
+ end;
+
+function TObjectHash.ListObjects:TNamedObjects;
+ begin
+  SpinLock(lock);
+  try
+   result:=InternalListObjects;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TObjectHash.Put(value:TNamedObject);
+ begin
+  if initialized='' then Init;
+  if (value=nil) or (value.name='') then exit;
+  SpinLock(lock);
+  try
+   InternalPut(value);
+   if count*2>mask then Resize;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TObjectHash.InternalPut(value:TNamedObject);
+ var
+  h:cardinal;
+ begin
+  h:=FastHash(value.name);
+  while UIntPtr(values[h and mask])>1 do inc(h); // find the closest unused cell
+  values[h and mask]:=value;
+  inc(count);
+ end;
+
+function TObjectHash.Get(key:String8):TNamedObject;
+ var
+  h:cardinal;
+ begin
+  h:=FastHash(key);
+  SpinLock(lock);
+  try
+   h:=h and mask;
+   while values[h]<>nil do begin
+    if IsValid(values[h]) and SameStr(key,values[h].name) then exit(values[h]);
+    inc(hashMiss);
+    h:=(h+1) and mask;
+   end;
+   result:=nil;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TObjectHash.Remove(value:TNamedObject);
+ var
+  h:cardinal;
+ begin
+  if (value=nil) or (value.name='') then exit;
+  h:=FastHash(value.name);
+  SpinLock(lock);
+  try
+   // 1. Find object
+   h:=h and mask;
+   while values[h]<>value do begin
+    if values[h]=nil then exit; // not found
+    h:=(h+1) and mask;
+   end;
+   // 2. Delete
+   values[h]:=DELETED_PTR; // deleted
+   dec(count);
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TObjectHash.Resize;
+ var
+  list:TNamedObjects;
+  i:integer;
+ begin
+  // No need to lock as it's called safely (internally)
+  list:=InternalListObjects;
+  count:=0;
+  SetLength(values,0);
+  mask:=(mask+1)*2-1;
+  SetLength(values,mask+1); // cleared
+  for i:=0 to high(list) do
+   InternalPut(list[i]);
  end;
 
 end.

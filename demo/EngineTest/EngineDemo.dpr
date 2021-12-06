@@ -64,7 +64,9 @@ uses
   Apus.Engine.TextDraw in '..\..\Apus.Engine.TextDraw.pas',
   Apus.Engine.ShadersGL in '..\..\Apus.Engine.ShadersGL.pas',
   Apus.Engine.SceneEffects in '..\..\Apus.Engine.SceneEffects.pas',
-  Apus.Engine.Controller in '..\..\Apus.Engine.Controller.pas';
+  Apus.Engine.Controller in '..\..\Apus.Engine.Controller.pas',
+  Apus.Engine.Resources in '..\..\Apus.Engine.Resources.pas',
+  Apus.Engine.NinePatch in '..\..\Apus.Engine.NinePatch.pas';
 
 const
  wnd:boolean=true;

@@ -61,7 +61,7 @@ type
   // ----
   // Set texture stage mode (for default shader)
   procedure TexMode(stage:byte;colorMode:TTexBlendingMode=tblModulate2X;alphaMode:TTexBlendingMode=tblModulate;
-     filter:TTexFilter=fltUndefined;intFactor:single=0.0);
+     filter:TTexFilter=TTexFilter.fltUndefined;intFactor:single=0.0);
   // Restore default texturing mode: one stage with Modulate2X mode for color and Modulate mode for alpha
   procedure DefaultTexMode;
   // Upload texture to the Video RAM and make it active for the specified stage
@@ -88,7 +88,7 @@ type
   curTexMode:TTexMode; // encoded shader mode requested by the client code
   actualTexMode:TTexMode; // actual shader mode
   actualVertexLayout:cardinal; // vertex layout for the current shader
-  customized:StringArr8;
+  customized:StringArray8;
 
   // Ambient light
   ambientLightColor:cardinal;
@@ -471,7 +471,7 @@ procedure TGLShadersAPI.TexMode(stage:byte; colorMode,
   alphaMode:TTexBlendingMode; filter:TTexFilter; intFactor:single);
  begin
   ASSERT(stage in [0..2]);
-  ASSERT(filter=fltUndefined,'Texture filter per stage not supported, use per texture filter instead');
+  ASSERT(filter=TTexFilter.fltUndefined,'Texture filter per stage not supported, use per texture filter instead');
   if colorMode=tblNone then colorMode:=TTexBlendingMode(curTexMode.stage[stage] and $0F);
   if alphaMode=tblNone then alphaMode:=TTexBlendingMode(curTexMode.stage[stage] shr 4);
   curTexMode.stage[stage]:=ord(colorMode)+ord(alphaMode) shl 4;

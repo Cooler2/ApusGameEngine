@@ -464,23 +464,48 @@ procedure TSDLPlatform.ProcessSystemMessages;
   wst:String16;
   i,len:integer;
   mbtn:integer;
-  w,h:integer;
-  r:TRect;
-  info:TSDL_SysWMinfo;
  begin
   while SDL_PollEvent(@event)<>0 do begin
    if game=nil then continue;
    case event.type_ of
     SDL_WINDOWEVENT:begin
      case event.window.event of
-      SDL_WINDOWEVENT_FOCUS_GAINED:Signal('ENGINE\SETACTIVE',1);
-      SDL_WINDOWEVENT_FOCUS_LOST:Signal('ENGINE\SETACTIVE',0);
-      //SDL_WINDOWEVENT_RESIZED:Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
-      SDL_WINDOWEVENT_SIZE_CHANGED:begin
-{       LogMessage('SDL_SIZE_CHANGED: reported size - (%d x %d), render size - (%d,%d)',
-         [event.window.data1,event.window.data2,w,h]);}
-       Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
+      SDL_WINDOWEVENT_FOCUS_GAINED:;
+      SDL_WINDOWEVENT_FOCUS_LOST:;
+      SDL_WINDOWEVENT_HIDDEN:begin
+       LogMessage('Window hidden');
+       Signal('ENGINE\SETACTIVE',0);
+       Signal('ENGINE\WINDOW\HIDDEN');
       end;
+      SDL_WINDOWEVENT_SHOWN:begin
+       LogMessage('Window shown');
+       Signal('ENGINE\SETACTIVE',1);
+       Signal('ENGINE\WINDOW\SHOWN');
+      end;
+      SDL_WINDOWEVENT_MINIMIZED:begin
+       LogMessage('Window minimized');
+       Signal('ENGINE\SETACTIVE',0);
+       Signal('ENGINE\WINDOW\MINIMIZED');
+      end;
+      SDL_WINDOWEVENT_RESTORED:begin
+       LogMessage('Window restored');
+       Signal('ENGINE\SETACTIVE',1);
+       Signal('ENGINE\WINDOW\RESTORED');
+      end;
+      SDL_WINDOWEVENT_MAXIMIZED:begin
+       LogMessage('Window maximized');
+       Signal('ENGINE\WINDOW\MAXIMIZED');
+      end;
+      SDL_WINDOWEVENT_CLOSE:begin
+       LogMessage('Window close');
+       Signal('ENGINE\WINDOW\CLOSE');
+      end;
+      SDL_WINDOWEVENT_RESIZED:Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
+      {SDL_WINDOWEVENT_SIZE_CHANGED:begin
+       LogMessage('SDL_SIZE_CHANGED: reported size - (%d x %d), render size - (%d,%d)',
+         [event.window.data1,event.window.data2,w,h]);
+       Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
+      end;}
      end;
     end;
 

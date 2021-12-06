@@ -759,7 +759,7 @@ var
   begin
    // 1 transparent pixel in padding
    result:=glyphCache.Alloc(imageWidth+2+byte(boldStyle),imageHeight+2,dX,dY,chardata);
-   if not textCache.IsLocked then textCache.Lock(0,lmCustomUpdate);
+   if not textCache.IsLocked then textCache.Lock(0,TLockMode.lmCustomUpdate);
    UnpackGlyph(result.x,result.Y,imageWidth,imageHeight,data,glyphType=1);
    if boldStyle then MakeItBold(result.x,result.Y,imageWidth,imageHeight);
    fl:=true;

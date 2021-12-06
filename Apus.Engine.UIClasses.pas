@@ -9,7 +9,7 @@
 unit Apus.Engine.UIClasses;
 interface
  uses Contnrs, Types,
-   Apus.Engine.API, Apus.CrossPlatform, Apus.MyServis, Apus.AnimatedValues, Apus.Regions, Apus.Geom2d;
+   Apus.Classes, Apus.Engine.API, Apus.CrossPlatform, Apus.MyServis, Apus.AnimatedValues, Apus.Regions, Apus.Geom2d;
 {$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
@@ -91,7 +91,7 @@ type
  end;
 
  // Base class of the UI element
- TUIElement=class
+ TUIElement=class(TNamedObject)
   position:TPoint2s;  // Положение root point in parent's client rect (если предка нет - положение на экране)
   pivot:TPoint2s; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
   scale:TVector2s; // scale factor for this element (size) and all children elements
@@ -236,11 +236,11 @@ type
 
   // Find a descendant UI element at the given point (in screen coordinates)
   // Returns true if the found element (and all its parents) are enabled
-  function FindItemAt(x,y:integer;out c:TUIElement):boolean;
+  function FindElementAt(x,y:integer;out c:TUIElement):boolean;
   // Same as FindItemAt, but ignores elements transparency mode
-  function FindAnyItemAt(x,y:integer;out c:TUIElement):boolean;
+  function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
   // Find a descendant element by its name
-  function FindByName(name:string):TUIElement;
+  function FindElementByName(name:string8):TUIElement;
 
   // Установить либо удалить "горячую клавишу" для данного эл-та
   procedure SetHotKey(keycode:byte;shiftstate:byte);
@@ -255,7 +255,6 @@ type
  protected
   focusedChild:TUIElement;
  private
-  fName:String8;  // Имя - используется при посылке сигналов. Изначально отсутствует, что запрещает посылку сигналов
   fStyleInfo:String8; // дополнительные сведения для стиля
   fInitialSize:TVector2s;
   procedure AddToRootControls;
@@ -263,8 +262,9 @@ type
   function GetClientWidth:single;
   function GetClientHeight:single;
   function GetGlobalScale:TVector2s;
-  procedure SetName(n:String8);
+  procedure SetName(n:String8); override;
   procedure SetStyleInfo(sInfo:String8);
+  class function ClassHash:pointer; override;
  public
   property name:String8 read fName write SetName;
   property width:single read size.x write size.x;
@@ -559,13 +559,16 @@ var
  // обработать нажатие горячей клавиши (передать всем элементам с
  procedure ProcessHotKey(keycode:integer;shiftstate:byte);
 
- // Найти элемент по имени
- function FindControl(name:string;mustExist:boolean=true):TUIElement;
+ // Найти элемент по имени (через хэш - среди всех)
+ function FindElement(name:string8;mustExist:boolean=true):TUIElement;
+ function FindControl(name:string8;mustExist:boolean=true):TUIElement; deprecated 'Use FindElement';
  // Найти элемент в заданной точке экрана (возвращает true если элемент найден и он
  // enabled - c учетом всех предков), игнорирует "прозрачные" в данной точке элементы
- function FindControlAt(x,y:integer;out c:TUIElement):boolean;
+ function FindElementAt(x,y:integer;out c:TUIElement):boolean;
+ function FindControlAt(x,y:integer;out c:TUIElement):boolean; deprecated 'Use FindElementAt';
  // Поиск элемента в данной точке не игнорируя "прозрачные" (полезно для отладки)
- function FindAnyControlAt(x,y:integer;out c:TUIElement):boolean;
+ function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
+ function FindAnyControlAt(x,y:integer;out c:TUIElement):boolean; deprecated 'Use FindAnyElementAt';
 
  // Controls setup
  procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;btnType:TButtonStyle;
@@ -591,7 +594,7 @@ var
  function DumpUI:String8;
 
 implementation
- uses Classes, SysUtils, Apus.EventMan, Apus.Clipboard;
+ uses Classes, SysUtils, Apus.EventMan, Apus.Clipboard, Apus.Structs;
 
 type
  // Горячая клавиша
@@ -603,6 +606,7 @@ type
 var
  HotKeys:array[0..1023] of THotKey;
  HotKeysCnt:integer;
+ UIHash:TObjectHash;
 
  fControl:TUIElement; // элемент, имеющий фокус ввода (с клавиатуры)
                       // устанавливается автоматически либо вручную
@@ -650,23 +654,18 @@ begin
   end;
 end;
 
-function FindControl(name:string;mustExist:boolean=true):TUIElement;
-var
- i:integer;
+function FindElement(name:string8;mustExist:boolean=true):TUIElement;
 begin
- result:=nil;
- UICritSect.Enter;
- try
- SortRootControls;
- for i:=0 to high(rootControls) do begin
-  result:=rootControls[i].FindByName(name);
-  if result<>nil then exit;
- end;
- if mustExist and (result=nil) then
+ result:=TUIElement.FindByName(name) as TUIElement;
+ if mustExist and (result=nil) then begin
   raise EWarning.Create('Control '+name+' not found');
- finally
-  UICritSect.Leave;
  end;
+end;
+
+
+function FindControl(name:string8;mustExist:boolean=true):TUIElement;
+begin
+ result:=FindElement(name,mustExist);
 end;
 
 function FindControlAtInternal(x,y:integer;any:boolean;out c:TUIElement):boolean;
@@ -681,8 +680,8 @@ begin
  SortRootControls;
  // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
  for i:=0 to high(rootControls) do begin
-  if any then enabl:=rootControls[i].FindAnyItemAt(x,y,ct)
-   else enabl:=rootControls[i].FindItemAt(x,y,ct);
+  if any then enabl:=rootControls[i].FindAnyElementAt(x,y,ct)
+   else enabl:=rootControls[i].FindElementAt(x,y,ct);
   if ct<>nil then begin
    c2:=ct; // найдем корневого предка ct (вдруг это не rootControls[i]?)
    while c2.parent<>nil do c2:=c2.parent;
@@ -699,6 +698,15 @@ begin
  end;
 end;
 
+function FindElementAt(x,y:integer;out c:TUIElement):boolean;
+begin
+ result:=FindControlAtInternal(x,y,false,c);
+end;
+
+function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
+begin
+ result:=FindControlAtInternal(x,y,true,c);
+end;
 
 function FindControlAt(x,y:integer;out c:TUIElement):boolean;
 begin
@@ -725,7 +733,7 @@ procedure SetElementText(name:string;text:string);
 var
  c:TUIElement;
 begin
- c:=FindControl(name,false);
+ c:=FindElement(name,false);
  if c=nil then exit;
  if c is TUILabel then
   TUILabel(c).caption:=text
@@ -742,7 +750,7 @@ function UIButton(name:string;mustExist:boolean=false):TUIButton;
 var
  c:TUIElement;
 begin
- c:=FindControl(name,mustExist);
+ c:=FindElement(name,mustExist);
  if not (c is TUIButton) then c:=nil;
  if c=nil then c:=TUIButton.Create(0,0,name,'',0,nil);
  result:=c as TUIButton;
@@ -752,7 +760,7 @@ function UIEditBox(name:string;mustExist:boolean=false):TUIEditBox;
 var
  c:TUIElement;
 begin
- c:=FindControl(name,mustExist);
+ c:=FindElement(name,mustExist);
  if not (c is TUIEditBox) then c:=nil;
  if c=nil then c:=TUIEditBox.Create(0,0,name,0,0,nil);
  result:=c as TUIEditBox;
@@ -762,7 +770,7 @@ function UILabel(name:string;mustExist:boolean=false):TUILabel;
 var
  c:TUIElement;
 begin
- c:=FindControl(name,mustExist);
+ c:=FindElement(name,mustExist);
  if not (c is TUILabel) then c:=nil;
  if c=nil then c:=TUILabel.Create(0,0,name,'',0,0,nil);
  result:=c as TUILabel;
@@ -772,7 +780,7 @@ function UIScrollBar(name:string;mustExist:boolean=false):TUIScrollBar;
 var
  c:TUIElement;
 begin
- c:=FindControl(name,mustExist);
+ c:=FindElement(name,mustExist);
  if not (c is TUIScrollBar) then c:=nil;
  if c=nil then c:=TUIScrollBar.Create(0,0,name,nil);
  result:=c as TUIScrollBar;
@@ -792,7 +800,7 @@ function UIListBox(name:string;mustExist:boolean=false):TUIListBox;
 var
  c:TUIElement;
 begin
- c:=FindControl(name,mustExist);
+ c:=FindElement(name,mustExist);
  if not (c is TUIListBox) then c:=nil;
  if c=nil then c:=TUIListBox.Create(0,0,0,name,0,nil);
  result:=c as TUIListBox;
@@ -899,6 +907,11 @@ begin
   SetFocus;
 end;
 
+class function TUIElement.ClassHash:pointer;
+begin
+ result:=@UIHash;
+end;
+
 procedure TUIElement.Clear;
 var
  i:integer;
@@ -928,7 +941,7 @@ begin
  parent:=parent_;
  parentClip:=true;
  clipChildren:=true;
- fName:=name_;
+ name:=name_;
  hint:=''; hintIfDisabled:='';
  hintDelay:=1000;
  hintDuration:=3000;
@@ -1003,7 +1016,7 @@ begin
  if shouldAddToRootControls then AddToRootControls;
 end;
 
-procedure TUIElement.AttachTo(newParent: TUIElement);
+procedure TUIElement.AttachTo(newParent:TUIElement);
 var
  n:integer;
 begin
@@ -1019,7 +1032,7 @@ begin
  parent.children[n]:=self;
 end;
 
-function TUIElement.FindByName(name: string): TUIElement;
+function TUIElement.FindElementByName(name:string8):TUIElement;
 var
  i:integer;
  c:TUIElement;
@@ -1029,7 +1042,7 @@ begin
   result:=self; exit;
  end;
  for i:=0 to length(children)-1 do begin
-  c:=children[i].FindByName(name);
+  c:=children[i].FindElementByName(name);
   if c<>nil then begin
    result:=c; exit;
   end;
@@ -1037,7 +1050,7 @@ begin
  result:=nil;
 end;
 
-function TUIElement.FindItemAt(x, y: integer; out c: TUIElement): boolean;
+function TUIElement.FindElementAt(x, y: integer; out c: TUIElement): boolean;
 var
  r,r2:Trect;
  p:TPoint;
@@ -1077,7 +1090,7 @@ begin
  // Теперь порядок правильный, нужно искать
  fl:=false;
  for i:=0 to cnt-1 do begin
-  en:=ca[i].FindItemAt(x,y,c2);
+  en:=ca[i].FindElementAt(x,y,c2);
   if c2<>nil then begin
    c:=c2; result:=result and en;
    fl:=true; break;
@@ -1091,7 +1104,7 @@ begin
  if c=nil then result:=false;
 end;
 
-function TUIElement.FindAnyItemAt(x, y: integer; out c: TUIElement): boolean;
+function TUIElement.FindAnyElementAt(x, y: integer; out c: TUIElement): boolean;
 var
  r,r2:Trect;
  p:TPoint;
@@ -1131,7 +1144,7 @@ begin
  // Теперь порядок правильный, нужно искать
  fl:=false;
  for i:=0 to cnt-1 do begin
-  en:=ca[i].FindItemAt(x,y,c2);
+  en:=ca[i].FindElementAt(x,y,c2);
   if c2<>nil then begin
    c:=c2; result:=result and en;
    fl:=true; break;
@@ -1144,18 +1157,20 @@ begin
  if c=nil then result:=false;
 end;
 
-function TUIElement.GetName: string;
+function TUIElement.GetName:string;
 begin
  if self<>nil then result:=name
   else result:='empty';
 end;
 
 procedure TUIElement.SetName(n:String8);
+var
+ oldName:String8;
 begin
- if fName<>n then begin
-  fName:=n;
-  Signal('UI\ItemRenamed',integer(self));
- end;
+ oldName:=name;
+ inherited;
+ if (oldName<>'') and (name<>oldName) then
+   Signal('UI\ItemRenamed',TTag(self));
 end;
 
 procedure TUIElement.Snap(snapTo: TSnapMode);
@@ -1545,7 +1560,7 @@ begin
  result:=self;
 end;
 
-procedure TUIElement.SetStyleInfo(sInfo: String8);
+procedure TUIElement.SetStyleInfo(sInfo:String8);
 begin
  if fStyleInfo<>sInfo then begin
   fStyleInfo:=sInfo;
@@ -1755,7 +1770,7 @@ begin
   if (sendSignals<>ssNone) and
      (pressed or (btnStyle=bsCheckbox)) then begin
     Signal('UI\'+name+'\Click',byte(pressed));
-    Signal('UI\onButtonDown\'+name,PtrUInt(self));
+    Signal('UI\onButtonDown\'+name,TTag(self));
     if Assigned(onClick) then onClick;    
   end;
  end else begin
@@ -1763,7 +1778,7 @@ begin
   // Защита от двойных кликов
   if (sendSignals<>ssNone) and (MyTickCount>lastPressed+50) then begin
    Signal('UI\'+name+'\Click',byte(pressed));
-   Signal('UI\onButtonClick\'+name,PtrUInt(self));
+   Signal('UI\onButtonClick\'+name,TTag(self));
    if Assigned(onClick) then onClick;
    lastPressed:=MyTickCount;
   end;
@@ -2274,7 +2289,7 @@ begin
  end;
  if (sendSignals=ssAll) and (oldText<>realText) then begin
   savedText:=oldText;
-  Signal('UI\'+name+'\changed',0);
+  Signal('UI\'+name+'\changed');
  end;
 end;
 
@@ -2340,7 +2355,7 @@ begin
  inherited;
  SelectAll;
  {$IFDEF IOS}
- Signal('UI\EditBox\onSetFocus',cardinal(self));
+ Signal('UI\EditBox\onSetFocus',TTag(self));
  {$ENDIF}
 end;
 
@@ -2348,7 +2363,7 @@ procedure TUIEditBox.onLostFocus;
 begin
  inherited;
  {$IFDEF IOS}
- Signal('UI\EditBox\onLostFocus',cardinal(self));
+ Signal('UI\EditBox\onLostFocus',TTag(self));
  {$ENDIF}
 end;
 
@@ -2673,7 +2688,7 @@ begin
    selectedLine:=hoverLine;
    if sendSignals<>ssNone then begin
     Signal('UI\'+name+'\SELECTED',selectedLine);
-    Signal('UI\ListBox\onSelect\'+name,PtrUInt(self));
+    Signal('UI\ListBox\onSelect\'+name,TTag(self));
    end;
   end;
  end;
@@ -2857,7 +2872,7 @@ begin
   if popup.selectedLine>=0 then curItem:=popup.selectedLine;
   if curItem<>i then begin
    Signal('UI\'+name+'\ONSELECT',i);
-   Signal('UI\COMBOBOX\ONSELECT\'+name,PtrUInt(self));
+   Signal('UI\COMBOBOX\ONSELECT\'+name,TTag(self));
   end;
   frame.visible:=false;
   frame.AttachTo(self);

@@ -30,7 +30,7 @@
         <Mode0 Name="default"/>
       </Modes>
     </RunParams>
-    <Units Count="38">
+    <Units Count="41">
       <Unit0>
         <Filename Value="TestMyServis.dpr"/>
         <IsPartOfProject Value="True"/>
@@ -183,6 +183,18 @@
         <Filename Value="..\Apus.UnicodeFont.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit37>
+      <Unit38>
+        <Filename Value="..\Apus.CPU.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit38>
+      <Unit39>
+        <Filename Value="..\Apus.Classes.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit39>
+      <Unit40>
+        <Filename Value="..\Apus.Types.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit40>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -198,6 +210,7 @@
     </SearchPaths>
     <Conditionals Value="DELPHI"/>
     <Parsing>
+      <Style Value="1"/>
       <SyntaxOptions>
         <SyntaxMode Value="Delphi"/>
         <IncludeAssertionCode Value="True"/>
@@ -213,6 +226,9 @@
       </Optimizations>
     </CodeGeneration>
     <Linking>
+      <Debugging>
+        <DebugInfoType Value="dsDwarf3"/>
+      </Debugging>
       <LinkSmart Value="True"/>
     </Linking>
   </CompilerOptions>

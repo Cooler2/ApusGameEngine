@@ -7,6 +7,8 @@
 unit Apus.Colors;
 interface
 
+const
+ InvalidColor = $0000007F;
 type
  // Packed ARGB color
  TARGBColor=packed record
@@ -19,6 +21,7 @@ type
  function GrayColor(gray:integer):cardinal; // FFxxxxxx
  function GrayAlpha(alpha:single):cardinal; // aa808080
  function SwapColor(color:cardinal):cardinal; // swap red<->blue bytes
+ function GetAlpha(color:cardinal):single;
 
  function ColorAdd(c1,c2:cardinal):cardinal;
  function ColorSub(c1,c2:cardinal):cardinal;
@@ -78,6 +81,11 @@ implementation
    result:=a shl 24+r shl 16+g shl 8+b;
   end;
   {$ENDIF}
+
+ function GetAlpha(color:cardinal):single;
+  begin
+   result:=(color shr 24)/255;
+  end;
 
  function GrayColor(gray:integer):cardinal;
   begin
@@ -235,7 +243,7 @@ implementation
    result:=result or cardinal((byte(c1)*value+byte(c2)*val2) and $FF00); // green part
    c1:=c1 shr 8; c2:=c2 shr 8;
    result:=result or cardinal(((byte(c1)*value+byte(c2)*val2) shl 8) and $FF0000); // red part
-   c1:=c1 shr 8; c2:=c2 shr 8;
+   //c1:=c1 shr 8; c2:=c2 shr 8;
   end;
 {  var
    val2,m:integer;

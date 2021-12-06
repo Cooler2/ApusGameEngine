@@ -81,13 +81,14 @@ begin
  end;
 end;
 
-constructor TBasicRegion.CreateFrom(img: TRawImage; trColor, trMask: integer);
+constructor TBasicRegion.CreateFrom(img:TRawImage; trColor,trMask:integer);
 var
  x,y:integer;
  size,pos,v:integer;
  pb:PByte;
 begin
- width:=img.width;
+ ASSERT(false,'Not implemented');
+{ width:=img.width;
  height:=img.height;
  size:=10000;
  setLength(data,size);
@@ -100,7 +101,7 @@ begin
 
   end;
  end;
- img.Unlock;
+ img.Unlock;}
 end;
 
 procedure TBasicRegion.Invert;

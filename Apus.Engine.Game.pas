@@ -658,7 +658,7 @@ begin
   rawImage.Free;
   color:=GetPixel(64,63);
   magnifierTex.Unlock;
-  magnifierTex.SetFilter(fltNearest);
+  magnifierTex.SetFilter(TTexFilter.fltNearest);
   gfx.shader.UseTexture(magnifierTex);
   width:=min2(512,round(renderWidth*0.4));
   height:=min2(512,renderHeight);
@@ -1719,8 +1719,8 @@ begin
 
  // Sort active scenes by Z order
   FLog('Sorting');
+  n:=0;
   try
-   n:=0;
    for i:=low(scenes) to high(scenes) do
     if scenes[i].status=ssActive then begin
      // Сортировка вставкой. Найдем положение для вставки и вставим туда
@@ -1769,9 +1769,11 @@ begin
   end;
   EndMeasure2(i+4);
  except
-  on e:exception do
+  on e:exception do begin
    if sc[i] is TUIScene then CritMsg('SceneRender '+(sc[i] as TUIScene).name+' error '+ExceptionMsg(e)+' FLog: '+frameLog)
     else CritMsg('SceneRender '+sc[i].ClassName+' error '+ExceptionMsg(e));
+   halt;
+  end;
  end;
 
  DrawCursor;
@@ -2133,7 +2135,7 @@ procedure TGame.FrameLoop;
      on e:exception do ForceLogMessage('Error in FrameLoop 2: '+ExceptionMsg(e));
     end;
 
-    if active or (params.mode.displayMode<>dmSwitchResolution) then begin
+    if active {or (params.mode.displayMode<>dmSwitchResolution)} then begin
      // Если программа активна, то выполним отрисовку кадра
      if screenChanged then begin
       try
@@ -2216,7 +2218,6 @@ procedure TMainThread.Execute;
 
    systemPlatform.CreateWindow(gameEx.params.title);
    gameEx.InitMainLoop; // вызывает InitGraph
-
 
    game.running:=true; // Это как-бы семафор для завершения функции Run
    LogMessage('MainLoop started');

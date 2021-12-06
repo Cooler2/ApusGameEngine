@@ -182,6 +182,7 @@ procedure TOpenGL.Init(system:ISystemPlatform);
    InitOnWindows(system);
    {$ENDIF}
   end;
+  CheckForGLError(011);
 
   glVersion:=glGetString(GL_VERSION);
   glRenderer:=glGetString(GL_RENDERER);
@@ -189,6 +190,7 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   ForceLogMessage('OpenGL vendor: '+PAnsiChar(glGetString(GL_VENDOR)));
   ForceLogMessage('OpenGL renderer: '+glRenderer);
   ForceLogMessage('OpenGL extensions: '+#13#10+StringReplace(PAnsiChar(glGetString(GL_EXTENSIONS)),' ',#13#10,[rfReplaceAll]));
+  CheckForGLError(012);
 
   if not GL_VERSION_2_0 then
    raise Exception.Create('OpenGL 2.0 or higher required!'#13#10'Please update your video drivers.');
@@ -200,10 +202,12 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   transformationAPI:=TTransformationAPI.Create;
   clippingAPI:=TClippingAPI.Create;
   shadersAPI:=TGLShadersAPI.Create;
+  CheckForGLError(013);
 
   TGLResourceManager.Create;
   TDrawer.Create;
   TTextDrawer.Create;
+  CheckForGLError(014);
  end;
 
 procedure TOpenGL.PostDebugMsg(st:string8;id:integer=0);
@@ -575,6 +579,7 @@ procedure TGLRenderTargetAPI.Clear(color:cardinal; zbuf:single;  stencil:integer
  begin
   mask:=GL_COLOR_BUFFER_BIT;
   glGetBooleanv(GL_SCISSOR_TEST,@val);
+  CheckForGLError(101);
   if val then glDisable(GL_SCISSOR_TEST);
   glClearColor(
     ColorComponent(color,2),

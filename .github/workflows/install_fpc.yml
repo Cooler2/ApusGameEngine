@@ -29,10 +29,28 @@ jobs:
       with:
         lazarus-version: stable
     - run: pwd
-    - name: Compile
+    - name: Compile TestMyServis
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
+    - name: Compile TestStructs
+      run: lazbuild -q -q Base/tests/TestStructs.lpi
     - run: Base/tests/TestMyServis-fpc
-      timeout-minutes: 2    
+    - run: Base/tests/TestStructs
+
+    - name: Compile SimpleDemo
+      run: lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
+    - name: Compile Scenes
+      run: lazbuild -q -q demo/01-Scenes/scenes.lpi
+    - name: Compile NinePatch
+      run: lazbuild -q -q demo/NinePatch/NinePatch.lpi
+    - name: Compile Simple3D
+      run: lazbuild -q -q demo/Simple3D/Simple3D.lpi
+    - name: Compile ControllerDemo
+      run: lazbuild -q -q demo/ControllerDemo/ControllerDemo.lpi
+    - name: Compile ShadowMap
+      run: lazbuild -q -q demo/ShadowMap/ShadowMap.lpi
+    - name: Compile SoundDemo
+      run: lazbuild -q -q demo/SoundDemo/soundDemo.lpi
+ 
 
   test-windows:
     # The type of runner that the job will run on
@@ -52,6 +70,24 @@ jobs:
     - run: pwd
     - name: Compile
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
+    - name: Compile TestStructs		
+      run: lazbuild -q -q Base/tests/TestStructs.lpi
     - run: dir Base/tests
     - run: Base/tests/TestMyServis-fpc
-      timeout-minutes: 2
+    - run: Base/tests/TestStructs
+
+    - name: Compile SimpleDemo
+      run: lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
+    - name: Compile Scenes
+      run: lazbuild -q -q demo/01-Scenes/scenes.lpi
+    - name: Compile NinePatch
+      run: lazbuild -q -q demo/NinePatch/NinePatch.lpi
+    - name: Compile Simple3D
+      run: lazbuild -q -q demo/Simple3D/Simple3D.lpi
+    - name: Compile ControllerDemo
+      run: lazbuild -q -q demo/ControllerDemo/ControllerDemo.lpi
+    - name: Compile ShadowMap
+      run: lazbuild -q -q demo/ShadowMap/ShadowMap.lpi
+    - name: Compile SoundDemo
+      run: lazbuild -q -q demo/SoundDemo/soundDemo.lpi
+

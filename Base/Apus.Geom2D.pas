@@ -21,12 +21,16 @@ interface
   // Point on plane
   TPoint2=packed record
    x,y:double;
+   function IsValid:boolean; inline;
+   procedure Init(x,y:double); inline;
   end;
   TVector2=TPoint2; // Alias for point type
   PPoint2=^TPoint2;
 
   TPoint2s=packed record
    x,y:single;
+   function IsValid:boolean; inline;
+   procedure Init(x,y:single); inline;
   end;
   TVector2s=TPoint2s;
   PPoint2s=^TPoint2s;
@@ -47,7 +51,7 @@ interface
    procedure MoveBy(delta:TVector2s); overload; inline;
    procedure Include(x,y:single); overload; inline;
    procedure Include(r:TRect2s); overload; inline;
-   function IsEmpty:boolean;
+   function IsEmpty:boolean; inline;
    function Center:TPoint2s; inline;
   end;
 
@@ -67,10 +71,14 @@ interface
 
 
  const
+  NaN = 0.0/0.0;
   IdentMatrix2:TMatrix2=((1,0),(0,1));
   IdentMatrix32:TMatrix32=((1,0),(0,1),(0,0));
   IdentMatrix2s:TMatrix2s=((1,0),(0,1));
   IdentMatrix32s:TMatrix32s=((1,0),(0,1),(0,0));
+
+  InvalidPoint2:TPoint2=(x:NaN;y:NaN);
+  InvalidPoint2s:TPoint2s=(x:NaN;y:NaN);
 
  // Vector functions
  function DotProduct(a,b:TVector2):double; inline;
@@ -185,8 +193,6 @@ interface
 
 implementation
  uses {$IFDEF DELPHI}Apus.CrossPlatform,{$ENDIF} Apus.MyServis, SysUtils, Math;
- var
-  sse:boolean;
 
  function DotProduct(a,b:TVector2):double;
   begin
@@ -845,5 +851,30 @@ function TRect2s.Width: single;
    Include(r.x1,r.y1);
    Include(r.x2,r.y2);
   end;
+
+{ TPoint2 }
+
+procedure TPoint2.Init(x, y: double);
+ begin
+  self.x:=x; self.y:=y;
+ end;
+
+function TPoint2.IsValid: boolean;
+ begin
+  result:=x=x;
+ end;
+
+{ TPoint2s }
+
+function TPoint2s.IsValid: boolean;
+ begin
+  result:=x=x;
+ end;
+
+procedure TPoint2s.Init(x, y: single);
+ begin
+  self.x:=x; self.y:=y;
+ end;
+
 
 end.

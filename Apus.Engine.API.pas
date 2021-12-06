@@ -7,19 +7,19 @@
 unit Apus.Engine.API;
 interface
  uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D,
-   Apus.Colors, Apus.EventMan;
+   Apus.Colors, Apus.EventMan, Apus.VertexLayout, Apus.Engine.Resources;
 
 const
  // Image allocation flags (ai - AllocImage)
  aiMipMapping     =  1; // Allocate mip-map levels (may be auto-generated upon of implementation)
- aiTexture        =  2; // Allocate full texture object of the underlying API (no texture sharing)
+ aiTexture        =  2; // Allocate full texture object of the underlying API (no texture sharing, no dynamic atlas)
  aiRenderTarget   =  4; // Image can be used as Render Target for GPU (no CPU access)
  aiSysMem         =  8; // Image will have its buffer in system RAM, so can be accessed by CPU
  aiPow2           = 16; // Enlarge dimensions to be PoT
 // aiWriteOnly      = 32; // Can be locked, but for write only operation
  aiDontScale      = 64; // Use exact width/height for render target allocation (otherwise they're scaled using current scale factor)
  aiClampUV        = 128; // clamp texture coordinates instead of wrapping them (for aiTexture only)
- aiDepthBuffer    = 256; // allocate Depth Buffer for this image (for aiRenderTarget only)
+ aiDepthBuffer    = 256; // allocate a Depth Buffer for this image (for aiRenderTarget only)
  aiPixelated      = 8192; // disable tri/bilinear filtering for this image
 
  // DynamicAtlas dimension flags
@@ -39,7 +39,7 @@ const
  liffTexture = aiTexture; // Image will be allocated as a whole texture (wrap UV enabled, otherwise - disabled!)
  liffPow2    = aiPow2; // Image dimensions will be increased to the nearest pow2
  liffMipMaps = aiMipMapping; // Image will be loaded with mip-maps (auto-generated if no mips in the file)
- liffAllowChange = $100;
+ liffAllowChange = $100;    // Ensure that image won't be read-only
  liffDefault = $FFFFFFFF;   // Use defaultLoadImageFlags for default flag values
 
  // width and height of atlas-texture
@@ -55,21 +55,10 @@ const
  liffMH2048  = aiMH2048;
  liffMH4096  = aiMH4096;
 
- // Texture features flags
- tfCanBeLost      = 1;   // Texture data can be lost at any moment
- tfDirectAccess   = 2;   // CPU access allowed, texture can be locked
- tfNoRead         = 4;   // Reading of texture data is not allowed
- tfNoWrite        = 8;   // Writing to texture data is not allowed
- tfRenderTarget   = 16;  // Can be used as a target for GPU rendering
- tfAutoMipMap     = 32;  // MIPMAPs are generated automatically, don't need to fill manually
- tfNoLock         = 64;  // No need to lock the texture to access its data
- tfClamped        = 128; // By default texture coordinates are clamped (otherwise - not clamped)
- tfVidmemOnly     = 256; // Texture uses only VRAM (can't be accessed by CPU)
- tfSysmemOnly     = 512; // Texture uses only System RAM (can't be used by GPU)
- tfTexture        = 1024; // Texture corresponds to a texture object of the underlying API
- tfScaled         = 2048; // scale factors are used
- tfCloned         = 4096; // Texture object is cloned from another, so don't free any underlying resources
- tfPixelated      = 8192; // No interpolation allowed for sampling this texture
+ // Some texture flags (not all)
+ tfRenderTarget = Apus.Engine.Resources.tfRenderTarget;
+ tfScaled       = Apus.Engine.Resources.tfScaled;
+ tfTexture      = Apus.Engine.Resources.tfTexture;
 
  // Special flags for the "index" field of particles
  partPosU  = $00000001; // horizontal position in the atlas (in cells)
@@ -160,17 +149,7 @@ type
 
  TRect2s = Apus.Geom2D.TRect2s;
 
- // Packed description of the vertex layout
- // [0:3] - position (vec3s) (if offset=15 then position is vec2s at offset=0)
- // [4:7] - normal (vec3s)
- // [8:11]  - color (vec4b)
- // [12:15] - uv1 (vec2s)
- TVertexLayout=record
-  layout:cardinal;
-  stride:integer;
-  procedure Init(position,normal,color,uv1,uv2:integer);
-  function Equals(l:TVertexLayout):boolean; inline;
- end;
+ TVertexLayout=Apus.VertexLayout.TVertexLayout;
 
  // Packed ARGB color
  TARGBColor=Apus.Colors.TARGBColor;
@@ -228,22 +207,20 @@ type
                       tintCurrent); // factor=previous stage alpha}
 
  // Режим интерполяции текстур
- TTexFilter=(fltUndefined,    // filter not defined
-             fltNearest,      // Без интерполяции
-             fltBilinear,     // Билинейная интерполяция
-             fltTrilinear,    // Трилинейная (только для mip-map)
-             fltAnisotropic); // Анизотропная (только для mip-map)
+ TTexFilter = Apus.Engine.Resources.TTexFilter;
 
+ // Access mode for locked resources
+ TLockMode = Apus.Engine.Resources.TLockMode;
+
+ // Base texture class
+ TTexture = Apus.Engine.Resources.TTexture;
+
+ // Text alignment
  TTextAlignment=(taLeft,      // обычный вывод
                  taCenter,    // точка вывода указывает на центр надписи
                  taRight,     // точка вывода указывает на правую границу
                  taJustify);  // точка вывода указывает на левую границу, а spacing - ширина строки
                               // (вывод превращается в левый если реальная ширина строки слишком мала или строка заканчивается на #10 или #13)
-
- // Access mode for locked resources
- TLockMode=(lmReadOnly,       //< read-only (do not invalidate data when unlocked)
-            lmReadWrite,      //< read+write (invalidate the whole area)
-            lmCustomUpdate);  //< read+write, do not invalidate anything (AddDirtyRect is required, partial lock is not allowed in this case)
 
  // Display mode
  TDisplayMode=(dmNone,             //< not specified
@@ -262,7 +239,7 @@ type
                     dsmStretch,     //< Stretch rendered image to the output rect
                     dsmScale);      //< Use scale transformation matrix to map render area to the output rect (scaled rendering)
                                     // Note that scaled rendering produces error in clipping due to rounding
-
+ // Display settings
  TDisplaySettings=record
   displayMode:TDisplayMode;
   displayFitMode:TDisplayFitMode;
@@ -291,43 +268,15 @@ type
                       // в скорости - тогда возможна (но не гарантируется) оптимизация перерисовки
  end;
 
-  TTextureName=string;
-
- // Базовый абстрактный класс - текстура или ее часть
- TTexture=class
-  pixelFormat:TImagePixelFormat;
-  width,height:integer; // dimension (in virtual pixels)
-  left,top:integer; // position
-  mipmaps:byte; // кол-во уровней MIPMAP
-  caps:cardinal; // возможности и флаги
-  name:TTextureName; // texture name (for debug purposes)
-  refCounter:integer; // number of child textures referencing this texture data
-  parent:TTexture;    // reference to a parent texture (
-  // These properties may not be valid unless texture is ONLINE
-  u1,v1,u2,v2:single; // texture coordinates
-  stepU,stepV:single; // halved texel step
-  // These properties are valid when texture is LOCKED
-  data:pointer;   // raw data
-  pitch:integer;  // offset to next scanline
-
-  // Create cloned image (separate object referencing the same image data). Original image can't be destroyed unless all its clones are destroyed
-  procedure CloneFrom(src:TTexture); virtual;
-  function Clone:TTexture; // Clone this texture and return the cloned instance
-  function ClonePart(part:TRect):TTexture; // Create cloned instance for part of this texture
-  procedure Clear(color:cardinal=$808080); // Clear and fill the texture with given color
-  procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // 0-й уровень - самый верхний
-  function GetRawImage:TRawImage; virtual; abstract; // Create RAW image for the topmost MIP level (when locked)
-  function IsLocked:boolean;
-  procedure Unlock; virtual; abstract;
-  procedure AddDirtyRect(rect:TRect); virtual; abstract; // mark area to update (when locked with mode=lmCustomUpdate)
-  procedure GenerateMipMaps(count:byte); virtual; abstract; // Сгенерировать изображения mip-map'ов
-  function HasFlag(flag:cardinal):boolean;
-  // Limit texture filtering to the specified mode (i.e. bilinear mode disables mip-mapping)
-  procedure SetFilter(filter:TTexFilter); virtual; abstract;
+ // Nine Patch: resizable image
+ TNinePatch=class(TNamedObject)
+  minWidth,minHeight:integer; // minimal possible dimension (in pixels, when scale=1.0)
+  baseWidth,baseHeight:integer; // dimension without any stretching (in pixels, when scale=1.0)
+  scaleFactor:single; // scale modifier: for example, use 0.5 for images with double resolution
+  procedure Draw(x,y,width,height:single;scale:single=1.0); virtual; abstract;
  protected
-  locked:integer; // lock counter
+  class function ClassHash:pointer; override; // override this to provide a separate hash for object instances
  end;
-
 
  // Interface to the native OS function or underlying library
  ISystemPlatform=interface
@@ -444,7 +393,8 @@ type
   // It sets actual clipping if needed.
   // Returns false if R doesn't intersect the current clipping rect (so no need to draw anything inside R)
   function Prepare(r:TRect):boolean; overload;
-  function Prepare(x1,y1,x2,y2:integer):boolean; overload;
+  function Prepare(x1,y1,x2,y2:NativeInt):boolean; overload;
+  function Prepare(x1,y1,x2,y2:single):boolean; overload;  //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
  end;
 
  // Control transformation and projection
@@ -482,6 +432,8 @@ type
   procedure SetObj(mat:T3DMatrix); overload;
   // Set object position/scale/rotate
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
+  // Reset object matrix to default
+  procedure ResetObj;
   // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
   function MVPMatrix:T3DMatrix;
   function ProjMatrix:T3DMatrix;
@@ -550,7 +502,7 @@ type
  IResourceManager=interface
   // Создать изображение (в случае ошибки будет исключение)
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
-     flags:cardinal;name:TTextureName):TTexture;
+     flags:cardinal;name:String8):TTexture;
   // Change size of texture if it supports it (render target etc)
   procedure ResizeImage(var img:TTexture;newWidth,newHeight:integer);
   function Clone(img:TTexture):TTexture;
@@ -639,13 +591,15 @@ type
   layout:TVertexLayout;
   vertices:pointer;
   indices:TIndices; // Optional, can be empty
-  vCount:integer;
+  vCount:integer; // Number of vertices allocated
   constructor Create(vertexLayout:TVertexLayout;vertCount,indCount:integer);
   procedure SetVertices(data:pointer;sizeInBytes:integer);
   procedure AddVertex(var vertexData);
   procedure AddTrg(v0,v1,v2:integer);
   procedure Draw(tex:TTexture=nil); // draw whole mesh
   destructor Destroy; override;
+  function DumpVertex(n:cardinal):String8;
+  function vPos:integer; // Returns number of vertices stored via AddVertex (current write position)
  private
   vData:PByte;
   idx:integer;
@@ -698,10 +652,10 @@ type
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
   procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
   procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
-  procedure Rect(x1,y1,x2,y2:integer;color:cardinal); overload;
+  procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2);
-  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal); overload;
+  procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
   procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
@@ -709,10 +663,10 @@ type
 
   // Textured primitives ---------------
   // Указываются к-ты тех пикселей, которые будут зарисованы (без границы)
-  procedure Image(x_,y_:integer;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure Image(x_,y_:NativeInt;tex:TTexture;color:cardinal=$FF808080); overload;
   procedure Image(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080;pivotX:single=0;pivotY:single=0); overload;
   procedure ImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=$FF808080);
-  procedure Centered(x,y:integer;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure Centered(x,y:NativeInt;tex:TTexture;color:cardinal=$FF808080); overload;
   procedure Centered(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080); overload;
   procedure ImagePart(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect);
   // Рисовать часть картинки с поворотом ang раз на 90 град по часовой стрелке
@@ -1093,9 +1047,14 @@ var
  // Not thread-safe! Don't load atlases in one thread and create images in other thread
  procedure LoadAtlas(fname:string;scale:single=1.0);
 
+ // Load image from the specified file and create a Nine Patch object from it (image must be marked)
+ // Set scale factor to 2 if image has double resolution
+ function LoadNinePatch(fName:string;scale2x:boolean=false):TNinePatch;
+ function CreateNinePatch(image:TTexture;scale2x:boolean=false):TNinePatch;
+
  // Shortcuts to the texture manager
  function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
-                flags:integer=0;name:TTextureName=''):TTexture;
+                flags:integer=0;name:String8=''):TTexture;
  procedure FreeImage(var img:TTexture);
 
  // Lock the texture (if not yet locked) and set it as draw target for FastGFX unit (don't forget to unlock)
@@ -1122,8 +1081,11 @@ var
  function IsKeyReleased(scanCode:integer):boolean;
 
 implementation
-uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
- TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX;
+ uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
+   TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX, Apus.Engine.NinePatch, Apus.Structs;
+
+ var
+  ninePatchHash:TObjectHash;
 
  function GetKeyEventScanCode(tag: TTag): cardinal;
   begin
@@ -1142,69 +1104,6 @@ uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Eng
    gfx:=gfxSystem;
    debugHotkey:=dhAltFx;
   end;
-
- procedure TTexture.CloneFrom(src:TTexture);
-  begin
-   PixelFormat:=src.PixelFormat;
-   left:=src.left;
-   top:=src.top;
-   width:=src.width;
-   height:=src.height;
-   u1:=src.u1; v1:=src.v1;
-   u2:=src.u2; v2:=src.v2;
-   stepU:=src.stepU; stepV:=src.stepV;
-   mipmaps:=src.mipmaps;
-   caps:=src.caps or tfCloned;
-   name:=src.name;
-   if src.parent<>nil then
-    parent:=src.parent
-   else
-    parent:=src;
-   inc(parent.refCounter);
-  end;
-
-function TTexture.HasFlag(flag: cardinal): boolean;
- begin
-  result:=caps and flag>0;
- end;
-
-function TTexture.IsLocked:boolean;
- begin
-  result:=locked>0;
- end;
-
-procedure TTexture.Clear(color:cardinal);
- var
-  pb:PByte;
-  y:integer;
- begin
-  Lock;
-  pb:=data;
-  for y:=0 to height-1 do begin
-   FillDword(pb^,width,color);
-   inc(pb,pitch);
-  end;
-  Unlock;
- end;
-
-function TTexture.Clone:TTexture;
- begin
-  result:=ClassType.Create as TTexture;
-  result.CloneFrom(self);
- end;
-
-function TTexture.ClonePart(part:TRect): TTexture;
- begin
-  result:=Clone;
-  result.left:=left+part.Left;
-  result.top:=top+part.Top;
-  result.width:=part.Width;
-  result.height:=part.Height;
-  result.u1:=u1+part.left*stepU*2;
-  result.u2:=u1+part.right*stepU*2;
-  result.v1:=v1+part.top*stepV*2;
-  result.v2:=v1+part.bottom*stepV*2;
- end;
 
 { TGameScene }
 
@@ -1280,7 +1179,6 @@ end;
 
 procedure TGameScene.Render;
 begin
-
 end;
 
 procedure TGameScene.SetStatus(st: TSceneStatus);
@@ -1354,8 +1252,22 @@ procedure LoadAtlas(fname:string;scale:single=1.0);
    Apus.Engine.ImageTools.LoadAtlas(fname,scale);
  end;
 
+function LoadNinePatch(fName:string;scale2x:boolean=false):TNinePatch;
+ var
+  img:TTexture;
+ begin
+  img:=LoadImageFromFile(fName,liffAllowChange);
+  result:=CreateNinePatch(img,scale2x);
+ end;
+
+function CreateNinePatch(image:TTexture;scale2x:boolean=false):TNinePatch;
+ begin
+  result:=TCustomNinePatch.Create(image);
+  if scale2x then result.scaleFactor:=0.5;
+ end;
+
 function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
-                flags:integer=0;name:TTextureName=''):TTexture;
+                flags:integer=0;name:String8=''):TTexture;
  begin
   if gfx.resman<>nil then
    result:=gfx.resman.AllocImage(width,height,pixFmt,flags,name)
@@ -1423,13 +1335,14 @@ function IsKeyReleased(scanCode:integer):boolean;
 
 procedure DrawToTexture(tex:TTexture;mipLevel:integer=0);
  begin
-  if tex.locked=0 then tex.Lock(mipLevel);
+  if not tex.IsLocked then tex.Lock(mipLevel);
   SetRenderTarget(tex.data,tex.pitch,tex.width shr mipLevel,tex.height shr mipLevel);
  end;
 
 
 { TMesh }
-procedure TMesh.AddTrg(v0, v1, v2: integer);
+
+procedure TMesh.AddTrg(v0,v1,v2: integer);
  begin
   indices[idx]:=v0; inc(idx);
   indices[idx]:=v1; inc(idx);
@@ -1441,6 +1354,16 @@ procedure TMesh.AddVertex(var vertexData);
   ASSERT(PointerInRange(vData,vertices,vCount*layout.stride));
   move(vertexData,vData^,layout.stride);
   inc(vData,layout.stride);
+ end;
+
+function TMesh.DumpVertex(n:cardinal):String8;
+ var
+  pb:PByte;
+ begin
+  ASSERT(n<vCount);
+  pb:=vertices;
+  inc(pb,n*layout.stride);
+  result:=layout.DumpVertex(pb^);
  end;
 
 constructor TMesh.Create(vertexLayout: TVertexLayout; vertCount, indCount: integer);
@@ -1476,6 +1399,11 @@ procedure TMesh.SetVertices(data: pointer; sizeInBytes: integer);
   vData:=vertices;
  end;
 
+function TMesh.vPos: integer;
+ begin
+  result:=(UIntPtr(vData)-UIntPtr(vertices)) div layout.stride;
+ end;
+
 { TVertex }
 
 procedure TVertex.Init(x, y, z, u, v: single; color: cardinal);
@@ -1507,7 +1435,7 @@ class function TVertex2t.Layout:TVertexLayout;
   v:PVertex2t;
  begin
   v:=nil;
-  result:=BuildVertexLayout(0,0,integer(@v.color),integer(@v.u),integer(@v.u2));
+  result.Init(0,0,integer(@v.color),integer(@v.u),integer(@v.u2));
   ASSERT(result.stride=sizeof(TVertex2t));
  end;
 
@@ -1518,12 +1446,11 @@ class function TVertex3D.Layout:TVertexLayout;
   v:PVertex3D;
  begin
   v:=nil;
-  result:=BuildVertexLayout(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
+  result.Init(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
   result.stride:=Sizeof(TVertex3D);
  end;
 
 { TShader }
-
 class function TShader.VectorFromColor(color: cardinal):TVector4s;
  var
   c:PARGBColor;
@@ -1545,22 +1472,17 @@ class function TShader.VectorFromColor3(color: cardinal): TVector3s;
   result.z:=c.b/255;
  end;
 
-{ TVertexLayout }
+{ TNinePatch }
 
-function TVertexLayout.Equals(l: TVertexLayout): boolean;
+class function TNinePatch.ClassHash: pointer;
  begin
-  result:=(l.layout=layout) and (l.stride=stride);
- end;
-
-procedure TVertexLayout.Init(position, normal, color, uv1, uv2: integer);
- begin
-  self:=BuildVertexLayout(position,normal,color,uv1,uv2);
+  result:=@ninePatchHash;
  end;
 
 initialization
  PublishFunction('GetFont',fGetFontHandle);
- TVertex.layoutTex:=BuildVertexLayout(0,0,12,16,0); // color and uv1
+ TVertex.layoutTex.Init(0,0,12,16,0); // color and uv1
  TVertex.layoutTex.stride:=Sizeof(TVertex);
- TVertex.layoutNoTex:=BuildVertexLayout(0,0,12,0,0); // color only
+ TVertex.layoutNoTex.Init(0,0,12,0,0); // color only
  TVertex.layoutNoTex.stride:=Sizeof(TVertex);
 end.

@@ -35,7 +35,7 @@ type
   constructor Create(scene,nextScene:TGameScene;TotalTime:integer);
   procedure DrawScene; override;
   destructor Destroy; override;
-  procedure Initialize; virtual;
+  procedure Initialize; override;
  private
   buffer,prevbuf:TTexture;
   initialized,DontPlay:boolean;

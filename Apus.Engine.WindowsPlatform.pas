@@ -57,7 +57,7 @@ type
 
 implementation
 uses Windows, Messages, Types, Apus.MyServis, SysUtils, Apus.EventMan;
-
+{$IFOPT R+} {$DEFINE RANGECHECK_ON} {$ENDIF}
 var
  terminated:boolean;
  noPenAPI:boolean=false;
@@ -95,7 +95,7 @@ begin
  result:=byte(ast[1]);
 end;
 
-procedure ProcessPointerMessage(Message:cardinal;WParam,LParam:NativeInt);
+procedure ProcessPointerMessage(Message:cardinal;WParam:UIntPtr;LParam:IntPtr);
 var
  id:cardinal;
  {$IFDEF DELPHI}
@@ -121,7 +121,7 @@ begin
  {$ENDIF}
 end;
 
-function WindowProc(Window:HWnd;Message:cardinal;WParam,LParam:NativeInt):LongInt; stdcall;
+function WindowProc(Window:HWnd;Message:cardinal;WParam:UIntPtr;LParam:IntPtr):LongInt; stdcall;
 var
  i,charCode,scanCode:integer;
 begin
@@ -188,7 +188,7 @@ begin
     Signal('MOUSE\BTNUP',i);
   end;
 
-  WM_MOUSEWHEEL:Signal('MOUSE\SCROLL',wParam div 65536);
+  WM_MOUSEWHEEL:Signal('MOUSE\SCROLL',smallint(hiWord(wParam)));
 
   WM_SIZE:Signal('ENGINE\RESIZE',lParam);
 
@@ -199,7 +199,9 @@ begin
   end;
  end;
 
- result:=longint(DefWindowProcW(Window,Message,UIntPtr(WParam),IntPtr(LParam)));
+ {$R-}
+ result:=Longint(DefWindowProcW(Window,Message,WParam,LParam));
+ {$IFDEF RANGECHECK_ON} {$R+} {$ENDIF}
  except
   on e:Exception do ForceLogMessage('WindowProc error: '+ExceptionMsg(e));
  end;
@@ -356,7 +358,7 @@ procedure TWindowsPlatform.GetWindowSize(out width, height: integer);
 
 procedure TWindowsPlatform.CreateWindow(title: string);
  var
-  WindowClass:TWndClass;
+  WindowClass:TWndClassW;
   style:cardinal;
   i:integer;
  begin
@@ -369,18 +371,18 @@ procedure TWindowsPlatform.CreateWindow(title: string);
     hInstance:=0;
     hIcon:=LoadIcon(MainInstance,'MAINICON');
     hCursor:=0;
-    hbrBackground:=GetStockObject (Black_Brush);
+    hbrBackground:=GetStockObject(Black_Brush);
     lpszMenuName:='';
     lpszClassName:='GameWindowClass';
    end;
-   If windows.RegisterClass(WindowClass)=0 then
+   If windows.RegisterClassW(WindowClass)=0 then
     raise EFatalError.Create('Cannot register window class');
 
    style:=0;
-   Window:=windows.CreateWindow('GameWindowClass', PChar(title),
+   Window:=windows.CreateWindowW('GameWindowClass', PWideChar(WideString(title)),
     style, 0, 0, 100, 100, 0, 0, HInstance, nil);
-   SetWindowLongW(window,GWL_WNDPROC,longint(@WindowProc));
-   SetWindowCaption(title);
+   //SetWindowLong(window,GWL_WNDPROC,longint(@WindowProc));
+   //SetWindowCaption(title);
   end;
 
 procedure TWindowsPlatform.ProcessSystemMessages;
@@ -527,10 +529,10 @@ procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
 
 procedure TWindowsPlatform.SetWindowCaption(text: string);
  var
-  wst:WideString;
+  wst:String16;
   t:PWideChar;
  begin
-  wst:=text;
+  wst:=Str16(text);
   t:=@wst[1];
   SetWindowTextW(window,t);
  end;

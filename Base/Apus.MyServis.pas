@@ -11,6 +11,7 @@ For Delphi - please define global symbol "DELPHI"!
 {$ENDIF}{$ENDIF} *)
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 {$IFDEF UNICODE} {$DEFINE ADDANSI} {$ENDIF} // Make separate implementations for String and AnsiString types
+{$IFOPT R+} {$DEFINE RANGECHECKS_ON} {$ENDIF}
 
 unit Apus.MyServis;
 interface
@@ -21,6 +22,8 @@ interface
   {$IFDEF MSWINDOWS}
   windows,
   {$ENDIF}
+  Apus.Types,
+  Apus.Classes,
   SysUtils;
  const
   {$IFDEF MSWINDOWS}
@@ -29,44 +32,41 @@ interface
   PathSeparator='/';
   {$ENDIF}
  type
-  // !!! Use Str8() / Str16() to assign strings of different types !!!
+  // Type aliases declared because this unit is assumed to be primarily used (instead of Apus.Types)
 
+  // !!! Use Str8() / Str16() to assign strings of different types !!!
   // 8-bit string type (assuming UTF-8 encoding)
-  Char8=UTF8Char;
-  String8=UTF8String;
-  PString8=^String8;
-  // 16-bit string type (can be UTF-16 or UCS-2)
-  {$IFDEF UNICODE}
-  Char16=Char;
-  String16=UnicodeString;
-  {$ELSE}
-  char16=WideChar;
-  String16=WideString;
-  {$ENDIF}
-  PString16=^String16;
+  Char8 = Apus.Types.Char8;
+  String8 = Apus.Types.String8;
+  PString8 = Apus.Types.PString8;
+
+  Char16 = Apus.Types.Char16;
+  String16 = Apus.Types.String16;
+  PString16 = Apus.Types.PString16;
+
+  ShortStr = Apus.Types.ShortStr;
 
   // String arrays
-  StringArr8=array of String8;
-  AStringArr=StringArr8;
-  StringArr16=array of String16;
-  WStringArr=StringArr16;
-  StringArr=array of string; // depends on UNICODE mode
+  StringArray8 = Apus.Types.StringArray8;
+  AStringArr = StringArray8;
+  StringArray16 = Apus.Types.StringArray16;
+  WStringArr = StringArray16;
+  StringArr = Apus.Types.StringArray;
 
-  {$IF Declared(TBytes)}
-  ByteArray=TBytes;
-  {$ELSE}
-  ByteArray=array of byte;
-  {$ENDIF}
-  WordArray=array of word;
-  IntArray=array of integer;
-  UIntArray=array of cardinal;
-  SingleArray=array of single;
-  FloatArray=array of double;
-  ShortStr=string[31];
-  PointerArray=array of pointer;
-  VariantArray=array of variant;
+  ByteArray = Apus.Types.ByteArray;
+  WordArray = Apus.Types.WordArray;
+  IntArray = Apus.Types.IntArray;
+  UIntArray = Apus.Types.UIntArray;
+  SingleArray = Apus.Types.SingleArray;
+  FloatArray = Apus.Types.FloatArray;
+  PointerArray = Apus.Types.PointerArray;
+  VariantArray = Apus.Types.VariantArray;
 
-  TProcedure=procedure;
+  TProcedure = Apus.Types.TProcedure;
+
+  TObjectEx = Apus.Classes.TObjectEx;
+  TNamedObject = Apus.Classes.TNamedObject;
+  TNamedObjects = Apus.Classes.TNamedObjects;
 
   // 8-bit strings encodings
   TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8);
@@ -202,7 +202,7 @@ interface
   debugCriticalSections:boolean=false;
 
  // Returns e.message with exception address and call stack (if available)
- function ExceptionMsg(const e:Exception):string;
+ function ExceptionMsg(const e:Exception):string; overload;
  // Raise exception with "Not implemented" message
  procedure NotImplemented(msg:string=''); inline;
  procedure NotSupported(msg:string=''); inline;
@@ -232,11 +232,11 @@ interface
  procedure UseLogFile(name:string;keepOpened:boolean=false); // Specify log name
  procedure SetLogMode(mode:TLogModes;groups:string=''); //
  procedure LogPhrase(text:string8); // without CR
- procedure LogMessage(text:String8;group:byte=0); overload; // with CR
- procedure LogMessage(text:String8;params:array of const;group:byte=0); overload;
- procedure LogError(text:string8);
- procedure ForceLogMessage(text:string8); overload; // то же самое, но с более высоким приоритетом
- procedure ForceLogMessage(text:String8;params:array of const); overload;
+ procedure LogMessage(text:String;group:byte=0); overload; // with CR
+ procedure LogMessage(text:String;params:array of const;group:byte=0); overload;
+ procedure LogError(text:string);
+ procedure ForceLogMessage(text:string); overload; // то же самое, но с более высоким приоритетом
+ procedure ForceLogMessage(text:String;params:array of const); overload;
  procedure DebugMessage(text:string8); // альтернативное имя для ForceLogMessage (для удобства поиска по коду)
  procedure LogCacheMode(enable:boolean;enforceCache:boolean=false;runThread:boolean=false);
  procedure FlushLog; // сбросить накопенное в кэше содержимое в лог
@@ -315,8 +315,8 @@ interface
  procedure RemoveString(var sa:WStringArr;index:integer); overload;
  // Ищет строку в массиве, возвращает её индекс либо -1
  function FindString(var sa:StringArr;st:string;ignoreCase:boolean=false):integer; overload;
- function FindString(var sa:StringArr8;st:string8;ignoreCase:boolean=false):integer; overload;
- function FindString(var sa:StringArr16;st:string16;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArray8;st:string8;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArray16;st:string16;ignoreCase:boolean=false):integer; overload;
  // Ищет число в массиве, возвращает его индекс либо -1
  function FindInteger(var a:IntArray;v:integer):integer;
  // Вставляет (добавляет) число в массив чисел
@@ -365,9 +365,13 @@ interface
  // Extract substring "prefix|xxx|suffix"
  function ExtractStr(str,prefix,suffix:string;out prefIndex:integer):string;
  // Basic uppercase
- function UpperCaseA(st:String8):String8;
+ function UpperCaseA(st:String8):String8; deprecated 'use UpperCase8';
+ function UpperCase8(st:String8):String8;
+ function LowerCaseA(st:String8):String8; deprecated 'use LowerCase8';
+ function LowerCase8(st:String8):String8;
  // Ignore case
- function SameChar(a,b:AnsiChar):boolean;
+ function SameChar(a,b:AnsiChar):boolean; inline;
+ function SameText8(a,b:String8):boolean;
 
  // Возвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
  function SafeStrItem(sa:AStringArr;idx:integer):string8; overload;
@@ -395,7 +399,11 @@ interface
  {$IFDEF ADDANSI}
  function Chop(st:String8):String8; overload; {$ENDIF}
 
- // Возвращает последний символ строки (#0 если строка пустая)
+ // Case-insensetive comparison - equivalent of SameText()
+ function SameStr(const s1,s2:String8):boolean; overload;
+ function SameStr(const s1,s2:String16):boolean; overload;
+
+ // Возвращает последний символ строки (#0 if empty)
  function LastChar(st:string):char; overload;
  {$IFDEF ADDANSI}
  function LastChar(st:String8):AnsiChar; overload; {$ENDIF}
@@ -441,7 +449,7 @@ interface
  function IsZeroMem(var data;size:integer):boolean;
  procedure FillDword(var data;size:integer;value:cardinal);
  // Check if pointer is between baseAddress and baseAddress+size-1
- function PointerInRange(p:pointer;baseAddress:pointer;size:UIntPtr):boolean; inline;
+ function PointerInRange(const p:pointer;baseAddress:pointer;size:UIntPtr):boolean; inline;
 
  // Простейшее шифрование/дешифрование (simple XOR)
  procedure SimpleEncrypt(var data;size,code:integer);
@@ -507,8 +515,8 @@ interface
  // Вернуть "насыщенное" значение, т.е. привести b внутрь допустимого диапазона [min..max]
  function Clamp(b,min,max:integer):integer; overload;
  function Clamp(b,min,max:double):double; overload;
- function Sat(b,min,max:integer):integer; deprecated;
- function SatD(b,min,max:double):double; deprecated;
+ function Sat(b,min,max:integer):integer; deprecated 'use Clamp';
+ function SatD(b,min,max:double):double; deprecated 'use Clamp';
 
  // Fast consistent rounding, equivalent to SimpleRoundTo(x,0) i.e. 0.5->1, 1.5->2 etc. (NOT PRECISE!)
  function FRound(v:double):integer; inline;
@@ -526,6 +534,9 @@ interface
  function HasFlag(v:uint64;flag:uint64):boolean; overload; inline;
  function HasFlag(v:cardinal;flag:cardinal):boolean; overload; inline;
  function HasFlag(v:byte;flag:byte):boolean; overload; inline;
+ function NoFlag(v:uint64;flag:uint64):boolean; overload; inline;
+ function NoFlag(v:cardinal;flag:cardinal):boolean; overload; inline;
+ function NoFlag(v:byte;flag:byte):boolean; overload; inline;
  procedure SetFlag(var v:uint64;flag:uint64;value:boolean=true); overload; inline;
  procedure SetFlag(var v:cardinal;flag:cardinal;value:boolean=true); overload; inline;
  procedure SetFlag(var v:byte;flag:byte;value:boolean=true); overload; inline;
@@ -682,11 +693,16 @@ interface
 
  // Вычисление контрольной суммы
  function CalcCheckSum(adr:pointer;size:integer):cardinal;
- function CheckSum64(adr:pointer;size:integer):int64; pascal;
+ function CheckSum64(adr:pointer;size:integer):int64;
  procedure FillRandom(var buf;size:integer);
- function StrHash(const st:string):cardinal; overload;
+ function StrHash(const st:string16):cardinal; overload;
+ {$IFNDEF UNICODE}
+ function StrHash(const st:string):cardinal; overload; {$ENDIF}
  {$IFDEF ADDANSI}
  function StrHash(const st:String8):cardinal; overload; {$ENDIF}
+ // Ultrafast case-insensitive string hash
+ function FastHash(const st:string8):cardinal; overload;
+ function FastHash(const st:String16):cardinal; overload;
 
  // Current date/time
  function NowGMT:TDateTime; // UTC datetime in TDateTime format
@@ -697,6 +713,7 @@ interface
 
  // Синхронизация и многопоточность
  // --------------------------------
+ procedure SpinLock(var lock:integer); inline; // the simpliest lock
  // level - используется только в отладочном режиме для проверки отсутствия циклов в графе захвата секций (чтобы гарантировать отсутствие блокировок)
  // Допускается входить в секцию с бОльшим уровнем будучи уже в секции с меньшим уровнем, но не наоборот.
  // Т.о. чем ниже уровень кода, тем ВЫШЕ должно быть значение level в секции, которой этот код оперирует
@@ -1065,6 +1082,16 @@ function min2s(a,b:single):single; inline;
    end;
   end;
 
+ function StrHash(const st:string16):cardinal; overload;
+  var
+   i:integer;
+  begin
+   result:=0;
+   for i:=1 to length(st) do
+    result:=cardinal(result*$20844) xor byte(st[i]);
+  end;
+
+ {$IFNDEF UNICODE}
  function StrHash(const st:string):cardinal;
   var
    i:integer;
@@ -1073,6 +1100,7 @@ function min2s(a,b:single):single; inline;
    for i:=1 to length(st) do
     result:=cardinal(result*$20844) xor byte(st[i]);
   end;
+ {$ENDIF}
 
  {$IFDEF ADDANSI}
  function StrHash(const st:String8):cardinal; overload;
@@ -1084,6 +1112,42 @@ function min2s(a,b:single):single; inline;
     result:=result*$20844 xor byte(st[i]);
   end;
  {$ENDIF}
+
+ {$R-}
+ function FastHash(const st:String8):cardinal; overload;
+  var
+   l,i:integer;
+  begin
+   l:=length(st);
+   if l<4 then begin
+    result:=0;
+    for i:=1 to l do
+     result:=result*$20844 xor (byte(st[i]) and $1F);
+   end else begin
+    result:=l*131+byte(st[1]) and $1F;
+    for i:=l-3 to l do begin
+     result:=result*$20844 xor (byte(st[i]) and $1F);
+    end;
+   end;
+  end;
+
+ function FastHash(const st:String16):cardinal; overload;
+  var
+   l,i:integer;
+  begin
+   l:=length(st);
+   if l<4 then begin
+    result:=0;
+    for i:=1 to l do
+     result:=result*$20844 xor (byte(st[i]) and $1F);
+   end else begin
+    result:=l*131+byte(st[1]) and $1F;
+    for i:=l-3 to l do begin
+     result:=result*$20844 xor (byte(st[i]) and $1F);
+    end;
+   end;
+  end;
+ {$IFDEF RANGECHECKS_ON} {$R+} {$ENDIF}
 
  procedure FillRandom(var buf;size:integer);
   var
@@ -1354,7 +1418,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
    result:=0;
    v:=0;
    for i:=1 to length(ip) do begin
-    if ip[i] in ['0'..'9'] then
+    if CharInSet(ip[i],['0'..'9']) then
      v:=v*10+(byte(ip[i])-$30)
     else
     if ip[i]='.' then begin
@@ -1605,7 +1669,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
  {$IFDEF ADDANSI}
  function ParseBool(st:String8):boolean; overload;
   begin
-   st:=UpperCase(st);
+   st:=UpperCase8(st);
    result:=(st='Y') or (st='TRUE') or (st='1') or (st='-1') or (st='+');
   end;
  {$ENDIF}
@@ -2251,7 +2315,7 @@ procedure SimpleEncrypt2;
    result:=true;
   end;
 
- function PointerInRange(p:pointer;baseAddress:pointer;size:UIntPtr):boolean;
+ function PointerInRange(const p:pointer;baseAddress:pointer;size:UIntPtr):boolean;
   var
    b,v:UIntPtr;
   begin
@@ -2319,7 +2383,7 @@ procedure SimpleEncrypt2;
   end;
  function Str8(st:AnsiString):string8; overload;
   begin
-   result:=st;
+   result:=String8(st);
   end;
 
 
@@ -2380,7 +2444,7 @@ procedure SimpleEncrypt2;
    if (length(st)>=3) and (st[1]=#$EF) and
       (st[2]=#$BB) and (st[3]=#$BF) then delete(st,1,3); // remove BOM
    SetLength(result,length(st));
-   w:=0; l:=0;
+   l:=0;
    i:=1;
    while i<=length(st) do begin
     w:=0;
@@ -2533,11 +2597,14 @@ procedure SimpleEncrypt2;
 
  {$IFDEF ADDANSI}
  function HTMLString(st:String8):String8;
+  var
+   s:string;
   begin
-   st:=StringReplace(st,'&','&amp;',[rfReplaceAll]);
-   st:=StringReplace(st,'<','&lt;',[rfReplaceAll]);
-   st:=StringReplace(st,'>','&gt;',[rfReplaceAll]);
-   result:=st;
+   s:=String(st);
+   s:=StringReplace(s,'&','&amp;',[rfReplaceAll]);
+   s:=StringReplace(s,'<','&lt;',[rfReplaceAll]);
+   s:=StringReplace(s,'>','&gt;',[rfReplaceAll]);
+   result:=Str8(s);
   end;
  {$ENDIF}
 
@@ -3273,6 +3340,19 @@ function BinToStr;
    result:=v and flag=flag;
   end;
 
+ function NoFlag(v:uint64;flag:uint64):boolean; overload; inline;
+  begin
+   result:=v and flag=0;
+  end;
+ function NoFlag(v:cardinal;flag:cardinal):boolean; overload; inline;
+  begin
+   result:=v and flag=0;
+  end;
+ function NoFlag(v:byte;flag:byte):boolean; overload; inline;
+  begin
+   result:=v and flag=0;
+  end;
+
  procedure SetFlag(var v:uint64;flag:uint64;value:boolean=true); overload;
   begin
    if value then v:=v or flag
@@ -3582,7 +3662,21 @@ function BinToStr;
      if sa[i]=st then exit(i);
   end;
 
- function FindString(var sa:StringArr8;st:string8;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArray8;st:string8;ignoreCase:boolean=false):integer; overload;
+  var
+   i:integer;
+  begin
+   result:=-1;
+   if ignoreCase then begin
+    st:=lowercase8(st);
+    for i:=0 to high(sa) do
+     if lowercase8(sa[i])=st then exit(i);
+   end else
+    for i:=0 to high(sa) do
+     if sa[i]=st then exit(i);
+  end;
+
+ function FindString(var sa:StringArray16;st:string16;ignoreCase:boolean=false):integer; overload;
   var
    i:integer;
   begin
@@ -3595,21 +3689,6 @@ function BinToStr;
     for i:=0 to high(sa) do
      if sa[i]=st then exit(i);
   end;
-
- function FindString(var sa:StringArr16;st:string16;ignoreCase:boolean=false):integer; overload;
-  var
-   i:integer;
-  begin
-   result:=-1;
-   if ignoreCase then begin
-    st:=lowercase(st);
-    for i:=0 to high(sa) do
-     if lowercase(sa[i])=st then exit(i);
-   end else
-    for i:=0 to high(sa) do
-     if sa[i]=st then exit(i);
-  end;
-
 
  function FindInteger(var a:IntArray;v:integer):integer;
   var
@@ -3769,11 +3848,60 @@ function BinToStr;
    end;
   end;
 
+ function UpperCase8(st:String8):String8;
+  var
+   i:integer;
+   pb:PByte;
+  begin
+   result:=st;
+   pb:=@result[1];
+   for i:=1 to length(result) do begin
+    if (pb^>=byte('a')) and (pb^<=byte('z')) then dec(pb^,byte('a')-byte('A'));
+    inc(pb);
+   end;
+  end;
+
+ function LowerCaseA(st:String8):String8; deprecated 'use LowerCase8';
+  var
+   i:integer;
+   pb:PByte;
+  begin
+   result:=st;
+   pb:=@result[1];
+   for i:=1 to length(result) do begin
+    if (pb^>=byte('A')) and (pb^<=byte('Z')) then inc(pb^,byte('a')-byte('A'));
+    inc(pb);
+   end;
+  end;
+ function LowerCase8(st:String8):String8;
+  var
+   i:integer;
+   pb:PByte;
+  begin
+   result:=st;
+   pb:=@result[1];
+   for i:=1 to length(result) do begin
+    if (pb^>=byte('A')) and (pb^<=byte('Z')) then inc(pb^,byte('a')-byte('A'));
+    inc(pb);
+   end;
+  end;
+
  function SameChar(a,b:AnsiChar):boolean;
   begin
    if (byte(a)>=byte('a')) and (byte(a)<=byte('z')) then dec(byte(a),byte('a')-byte('A'));
    if (byte(b)>=byte('a')) and (byte(b)<=byte('z')) then dec(byte(b),byte('a')-byte('A'));
    result:=a=b;
+  end;
+
+ function SameText8(a,b:String8):boolean;
+  var
+   i,l:integer;
+  begin
+   l:=length(a);
+   if length(b)<>l then exit(false);
+   for i:=1 to l do
+    if not SameChar(a[i],b[i]) then exit(false);
+   result:=true;
   end;
 
  function Split(divider,st:string;quotes:char):StringArr; overload;
@@ -4277,6 +4405,46 @@ function BinToStr;
    setlength(result,i);
   end;
 
+ {$R-}
+ function SameStr(const s1,s2:String8):boolean; overload;
+  var
+   i,l:integer;
+   b1,b2:byte;
+  begin
+   //if s1=s2 then exit(true);  // fast check
+   l:=length(s1);
+   if length(s2)<>l then exit(false);
+   for i:=1 to l do begin
+    b1:=byte(s1[i]);
+    b2:=byte(s2[i]);
+    if b1<>b2 then begin
+     if (b1>=ord('a')) and (b1<=ord('z')) then b1:=b1 xor $20;
+     if (b2>=ord('a')) and (b2<=ord('z')) then b2:=b2 xor $20;
+     if b1<>b2 then exit(false);
+    end;
+   end;
+   result:=true;
+  end;
+
+ function SameStr(const s1,s2:String16):boolean; overload;
+  var
+   i,l:integer;
+   b1,b2:word;
+  begin
+   if s1=s2 then exit(true);
+   l:=length(s1);
+   if length(s2)<>l then exit(false);
+   for i:=1 to l do begin
+    b1:=word(s1[i]);
+    if (b1>=ord('a')) and (b1<=ord('z')) then b1:=b1 xor $20;
+    b2:=word(s2[i]);
+    if (b2>=ord('a')) and (b2<=ord('z')) then b2:=b2 xor $20;
+    if b1<>b2 then exit(false);
+   end;
+   result:=true;
+  end;
+ {$IFDEF RANGECHECKS_ON} {$R+} {$ENDIF}
+
  function LastChar(st:string):char;
   begin
    if st='' then result:=#0
@@ -4376,8 +4544,6 @@ function BinToStr;
   end;
 
  procedure IntFlushLog;
-  var
-   f:file;
   begin
    if logmode=lmSilent then exit;
    if LogFileName='' then exit;
@@ -4389,8 +4555,6 @@ function BinToStr;
   end;
 
  procedure LogPhrase;
-  var
-   f:file;
   begin
    if LogMode<lmNormal then exit;
    if LogFileName='' then exit;
@@ -4411,9 +4575,8 @@ function BinToStr;
  function AndroidLog(prio:longint;tag,text:pchar):longint; cdecl; varargs; external 'liblog.so' name '__android_log_print';
 {$ENDIF}
 
- function FormatLogText(const text:string8):string8;
+ function FormatLogText(const text:string):string;
   var
-   mm,ss,ms:integer;
    time:TSystemTime;
   begin
    time:=GetUTCTime;
@@ -4424,32 +4587,33 @@ function BinToStr;
            '  '+text;
   end;
 
- procedure LogMessage(text:String8;group:byte=0);
+ procedure LogMessage(text:String;group:byte=0);
   var
-   f:TextFile;
+   st:String8;
   begin
    if LogMode<lmNormal then exit;
    if (group>0) and not loggroups[group] then exit;
    {$IFDEF ANDROID} {$IFDEF DEBUGLOG}
-   AndroidLog(3,'ApusLib',PChar(text));
+   st:=Str8(text);
+   AndroidLog(3,'ApusLib',PAnsiChar(st));
    {$ENDIF} {$ENDIF}
    if LogFileName='' then exit;
 
    if group>0 then text:='['+inttostr(group)+'] '+text;
-   text:=FormatLogText(text);
+   st:=FormatLogText(text);
    MyEnterCriticalSection(crSection);
    try
-    if cacheenabled and (length(cacheBuf)+length(text)<65000) then begin
+    if cacheenabled and (length(cacheBuf)+length(st)<65000) then begin
      // кэш доступен и позволяет вместить сообщение
-     cacheBuf:=cacheBuf+text+#13#10;
+     cacheBuf:=cacheBuf+st+#13#10;
     end else begin
      // кэш отключен либо его размер недостаточен
      if not forceCacheUsage then begin
       // запись в кэш необязательна, поэтому записать кэш а затем само сообщение напрямую
       if cacheBuf<>'' then IntFlushLog;
       try
-       text:=text+#13#10;
-       AppendLogFile(text[1],length(text));
+       st:=st+#13#10;
+       AppendLogFile(st[1],length(st));
       except
        on e:exception do ErrorMessage('Failed to write to the log:'#13#10+e.Message+#13#10+text);
       end;
@@ -4466,13 +4630,14 @@ function BinToStr;
    end;
   end;
 
- procedure LogMessage(text:String8;params:array of const;group:byte=0);
+ procedure LogMessage(text:String;params:array of const;group:byte=0);
   begin
    text:=Format(text,params);
    LogMessage(text,group);
   end;
 
- procedure LogError(text:String8);
+
+ procedure LogError(text:String);
   begin
    ForceLogMessage(text);
    InterlockedIncrement(logErrorCount);
@@ -4486,26 +4651,28 @@ function BinToStr;
    {$ENDIF}
   end;
 
- procedure ForceLogMessage(text:String8); overload;
+ procedure ForceLogMessage(text:String); overload;
   var
-   f:TextFile;
+   st:String8;
   begin
    if logmode=lmSilent then exit;
    {$IFDEF IOS}
-   NSLog(NSStr(PChar(text)));
+   st:=Str8(text);
+   NSLog(NSStr(PAnsiChar(st)));
    {$ENDIF}
    {$IFDEF ANDROID} {$IFDEF DEBUGLOG}
-   AndroidLog(4,'ApusLib',PChar(text));
+   st:=Str8(text);
+   AndroidLog(4,'ApusLib',PAnsiChar(st));
    {$ENDIF} {$ENDIF}
    if LogFileName='' then exit;
 
-   text:=FormatLogText(text);
+   st:=FormatLogText(text);
    MyEnterCriticalSection(crSection);
    try
     if forceCacheUsage then begin
      // Режим "писать только в кэш"
-     if (length(cacheBuf)+length(text)<65000) then begin
-      cacheBuf:=cacheBuf+text+#13#10;
+     if (length(cacheBuf)+length(st)<65000) then begin
+      cacheBuf:=cacheBuf+st+#13#10;
      end else begin
       // режим "писать только в кэш", а кэш переполнен
       if length(cacheBuf)<65500 then begin
@@ -4516,8 +4683,8 @@ function BinToStr;
      // Обычный режим (форсированные сообщения пишутся напрямую, без кэша)
      if cacheBuf<>'' then IntFlushLog;
      try
-      text:=text+#13#10;
-      AppendLogFile(text[1],length(text));
+      st:=st+#13#10;
+      AppendLogFile(st[1],length(text));
      except
        on e:Exception do ErrorMessage('Failed to write to the log:'#13#10+e.Message+#13#10+text);
      end;
@@ -4527,16 +4694,13 @@ function BinToStr;
    end;
   end;
 
- procedure ForceLogMessage(text:String8;params:array of const); overload;
+ procedure ForceLogMessage(text:String;params:array of const); overload;
   begin
    text:=Format(text,params);
    ForceLogMessage(text);
   end;
 
  procedure FlushLog;
-  var
-   f:File;
-   data:array of char;
   begin
    if LogFileName='' then exit;
    MyEnterCriticalSection(crSection);
@@ -4562,7 +4726,7 @@ function BinToStr;
    end;
   end;
 
- procedure SystemLogMessage(text:string); // Post message to OS log
+ procedure SystemLogMessage(text:string); // Post message to the OS log
   begin
    {$IFDEF MSWINDOWS}
 
@@ -4704,9 +4868,6 @@ function BinToStr;
  function CopyDir;
   var
    sr:TSearchRec;
-   buf:pointer;
-   f,f2:file;
-   size:integer;
   begin
    result:=true;
    CreateDir(dest);
@@ -4853,7 +5014,6 @@ procedure DumpDir(path:string);
  function GetFileSize(fname:String8):int64;
   {$IFDEF MSWINDOWS}
   var
-   openbuff:TOFSTRUCT;
    h:HFile;
    data:array[0..1] of cardinal;
   begin
@@ -5015,7 +5175,7 @@ procedure DumpDir(path:string);
 
  procedure StartMeasure;
   begin
-   if (n<1) or (n>16) then exit;
+   ASSERT(n in [1..high(values)]);
    QueryPerformanceCounter(values[n]);
   end;
 
@@ -5023,7 +5183,7 @@ procedure DumpDir(path:string);
   var
    v:Int64;
   begin
-   if (n<1) or (n>16) then exit;
+   ASSERT(n in [1..high(values)]);
    QueryPerformanceCounter(v);
    v:=v-values[n];
    result:=v*Perfkoef; // duration in ms
@@ -5039,7 +5199,7 @@ procedure DumpDir(path:string);
   var
    v:Int64;
   begin
-   if (n<1) or (n>16) then exit;
+   ASSERT(n in [1..high(values)]);
    QueryPerformanceCounter(v);
    v:=v-values[n];
    result:=v*Perfkoef;
@@ -5048,13 +5208,13 @@ procedure DumpDir(path:string);
 
  function GetTaskPerformance;
   begin
-   if (n<1) or (n>16) then exit;
+   ASSERT(n in [1..high(values)]);
    result:=PerformanceMeasures[n];
   end;
 
  procedure RunTimer;
   begin
-   if (n<1) or (n>16) then exit;
+   ASSERT(n in [1..high(values)]);
    QueryPerformanceCounter(timers[n]);
   end;
 
@@ -5282,6 +5442,12 @@ constructor TBaseException.Create(const msg:String; fields:array of const);
 begin
  Create(Format(msg,fields));
 end;
+
+procedure SpinLock(var lock:integer); inline; // the simpliest lock
+ begin
+   // LOCK CMPXCHG is very slow (~20-50 cycles) so no need for additional spin rounds for quick operations
+   while InterlockedCompareExchange(lock,1,0)<>0 do sleep(0);
+ end;
 
 procedure InitCritSect(var cr:TMyCriticalSection;name:String8;level:integer=100); //
  begin

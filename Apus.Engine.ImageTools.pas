@@ -85,7 +85,8 @@ interface
 
 implementation
 uses Apus.MyServis, SysUtils, Apus.Structs, Types, Apus.GfxFormats,
-   Apus.Engine.ImgLoadQueue, Apus.FastGFX, Apus.Geom3D, Apus.Colors, Apus.GfxFilters;
+   Apus.Engine.ImgLoadQueue, Apus.FastGFX, Apus.Geom3D, Apus.Colors,
+   Apus.GfxFilters, Apus.Engine.Resources;
 
 const
   max_subimages = 5000;
@@ -193,7 +194,7 @@ end;
 
 procedure NormalizeFName(var fname:string);
 var
- ext:string[20];
+ ext:string;
 begin
  fname:=UpperCase(fname);
  ext:=ExtractFileExt(fname);
@@ -232,7 +233,7 @@ begin
    aFiles[aSubCount]:=st;
    aHash[aSubCount]:=strHash(st);
    if length(st)>15 then st:=copy(st,length(st)-14,15);
-   img.name:=st;
+   img.name:=Str8(st);
 //   if scale<>1.0 then ScaleImage(img,scale,scale);
   end;
   close(f);
@@ -382,10 +383,33 @@ function FindProperFile(fname:string):string;
   {$ENDIF}
  end;
 
-//function LoadImageFromFile(fname:string;mtwidth:integer=0;mtheight:integer=0;sysmem:boolean=false;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
+// Make file name:
+// - relative to defaultImagesDir if it is inside defaultImagesDir
+// - relative to the executable path if possible
+// - absolute otherwise
+// Result is always in lower case
+function MakeImageFilename(filename:string):string;
+ var
+  st:string;
+ begin
+  filename:=LowerCase(filename);
+  st:=Lowercase(defaultImagesDir);
+  if filename.StartsWith(st) then begin
+   delete(filename,1,length(st));
+   exit(filename);
+  end;
+  st:=Lowercase(ExtractFilePath(ParamStr(0)));
+  if filename.StartsWith(st) then begin
+   delete(filename,1,length(st));
+   exit(filename);
+  end;
+  result:=LowerCase(ExpandFileName(filename));
+ end;
+
 function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
 var
  i,j,k:integer;
+ texName:string;
  tex:TTexture;
  img,txtImage,preloaded:TRawImage;
  aFlags,mtWidth,mtHeight:integer;
@@ -478,8 +502,10 @@ begin
   if flags and liffPow2>0 then aflags:=aflags or aiTexture or aiPow2;
   if flags and liffMipMaps>0 then aflags:=aflags or aiTexture or aiPow2 or aiMipMapping;
   if imgInfo.miplevels>1 then flags:=flags or aiMipMapping;
-  aFlags:=aFlags or (flags and $FF0000);
-  tex:=AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,copy(fname,pos('\',fname)+1,16)) as TTexture;
+  aFlags:=aFlags or (flags and $FF0000); // keep some flags
+  texName:=MakeImageFilename(fName);
+  tex:=AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,texName) as TTexture;
+  tex.src:=texName;
   tex.Lock(0);
   img:=tex.GetRawImage; // получить объект типа RAW Image для доступа к данным текстуры
 

@@ -54,6 +54,7 @@ type
   procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0); virtual;
   procedure SetObj(mat:T3DMatrix); overload; virtual;
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual;
+  procedure ResetObj; virtual;
   function Update:boolean; // Сalculate combined matrix (if needed), returns true if matrix was changed
   function GetMVPMatrix:T3DMatrix;
   function GetProjMatrix:T3DMatrix;
@@ -79,7 +80,7 @@ type
   function  Get:TRect; //< return current clipping rect
   procedure Prepare; overload; //<
   function Prepare(r:TRect):boolean; overload; //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
-  function Prepare(x1,y1,x2,y2:integer):boolean; overload;  //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
+  function Prepare(x1,y1,x2,y2:NativeInt):boolean; overload;  //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
   function Prepare(x1,y1,x2,y2:single):boolean; overload;  //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
 
   procedure AssignActual(r:TRect); // set actual clipping area (from gfx API)
@@ -139,41 +140,10 @@ var
  // Build vertex layout descriptor from fields offset (in bytes)
  // Pass 0 for unused (absent) fields (except position - it is always used)
  // Pass >=255 for position to use 2D position vectors
- function BuildVertexLayout(position,normal,color,uv1,uv2:integer):TVertexLayout;
+ //function BuildVertexLayout(position,normal,color,uv1,uv2:integer):TVertexLayout;
 
 implementation
  uses Math, Apus.MyServis, Apus.Geom3D, Apus.Geom2D;
-
- function BuildVertexLayout(position,normal,color,uv1,uv2:integer):TVertexLayout;
-  var
-   size:integer;
-  function Field(idx,value:integer):cardinal;
-   begin
-    ASSERT(value and 3=0);
-    ASSERT(value<64);
-    result:=(value shr 2) shl (idx*4);
-    if value>0 then
-     case idx of
-      1:inc(size,3);
-      2:inc(size,1);
-      3:inc(size,2);
-      4:inc(size,2);
-     end;
-   end;
-  begin
-   if position>=255 then begin
-    position:=60;
-    size:=2;
-   end else
-    size:=3;
-   result.layout:=
-     Field(0,position)+
-     Field(1,normal)+
-     Field(2,color)+
-     Field(3,uv1)+
-     Field(4,uv2);
-   result.stride:=size*4;
-  end;
 
 { TTransformationsAPI }
 
@@ -320,8 +290,14 @@ procedure TTransformationAPI.SetObj(oX, oY, oZ, scale, yaw, roll,
   // rotation
   if (yaw<>0) or (roll<>0) or (pitch<>0) then
    m:=MatrixFromYawRollPitch4(yaw,roll,pitch)
-  else
+  else begin
+   if scale=1 then begin
+    // translation only
+    SetObj(TranslationMat4(ox,oy,oz));
+    exit;
+   end;
    m:=IdentMatrix4;
+  end;
   // scale
   if scale<>1 then
    for i:=0 to 2 do
@@ -331,6 +307,11 @@ procedure TTransformationAPI.SetObj(oX, oY, oZ, scale, yaw, roll,
   MultMat4(m,TranslationMat4(ox,oy,oz),m2);
 
   SetObj(m2);
+ end;
+
+procedure TTransformationAPI.ResetObj;
+ begin
+  SetObj(IdentMatrix4);
  end;
 
 procedure TTransformationAPI.SetObj(mat: T3DMatrix);
@@ -515,7 +496,7 @@ function TClippingAPI.Prepare(r:TRect):boolean;
   end;
  end;
 
-function TClippingAPI.Prepare(x1,y1,x2,y2:integer):boolean;
+function TClippingAPI.Prepare(x1,y1,x2,y2:NativeInt):boolean;
  begin
   result:=Prepare(Types.Rect(x1,y1,x2,y2));
  end;

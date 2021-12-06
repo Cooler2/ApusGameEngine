@@ -413,7 +413,7 @@ begin
   sp:=src.data;
   dp:=data;
   for i:=0 to height-1 do begin
-   ConvertLine(sp^,dp^,src.PixelFormat,pixelFormat,dp^,palNone,width);
+   ConvertLine(sp^,dp^,src.PixelFormat,pixelFormat,width);
    inc(sp,src.pitch);
    inc(dp,pitch);
   end;

@@ -2,8 +2,6 @@ program ControllerDemo;
  uses
   MainScene in 'MainScene.pas';
 
-{$R *.res}
-
 begin
  application:=TMainApp.Create;
  application.Prepare;

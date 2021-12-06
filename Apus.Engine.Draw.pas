@@ -18,19 +18,19 @@ interface
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
   procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
   procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
-  procedure Rect(x1,y1,x2,y2:integer;color:cardinal); overload;
+  procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2);
-  procedure FillRect(x1,y1,x2,y2:integer;color:cardinal); overload;
+  procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
   procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
   procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal);
   procedure FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean);
-  procedure Image(x_,y_:integer;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure Image(x_,y_:NativeInt;tex:TTexture;color:cardinal=$FF808080); overload;
   procedure Image(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080;pivotX:single=0;pivotY:single=0); overload;
   procedure ImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=$FF808080);
-  procedure Centered(x,y:integer;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure Centered(x,y:NativeInt;tex:TTexture;color:cardinal=$FF808080); overload;
   procedure Centered(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080); overload;
   procedure ImagePart(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect);
   procedure ImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer);
@@ -148,12 +148,12 @@ begin
 end;
 
 
-procedure TDrawer.Centered(x,y:integer;tex:TTexture;color:cardinal=$FF808080);
+procedure TDrawer.Centered(x,y:NativeInt;tex:TTexture;color:cardinal=$FF808080);
 begin
  Image(x-tex.width div 2,y-tex.height div 2,tex,color);
 end;
 
-procedure TDrawer.Image(x_, y_: integer; tex: TTexture; color: cardinal);
+procedure TDrawer.Image(x_, y_:NativeInt; tex:TTexture; color:cardinal);
 var
  vrt:array[0..3] of TVertex;
  dx,dy:single;
@@ -654,7 +654,7 @@ begin
  renderDevice.DrawIndexed(TRG_LIST,vertices,indices,layout,0,vrtCount,0,trgCount);
 end;
 
-procedure TDrawer.Rect(x1, y1, x2, y2: integer; color: cardinal);
+procedure TDrawer.Rect(x1,y1,x2,y2:NativeInt;color:cardinal);
 var
  vrt:array[0..4] of TVertex;
 begin
@@ -716,13 +716,7 @@ end;
 procedure TDrawer.FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
 var
  vrt:array[0..2] of TVertex;
- minX,minY,maxX,maxY:integer;
 begin
-{ minX:=trunc(Min3d(x1,x2,x3));
- maxX:=trunc(Max3d(x1,x2,x3))+1;
- minY:=trunc(Min3d(y1,y2,y3));
- maxY:=trunc(Max3d(y1,y2,y3))+1;
- if not clippingAPI.Prepare(minX,minY,maxX,maxY) then exit;     }
  shader.UseTexture(neutral);
  vrt[0].Init(x1-0.5,y1-0.5,zPlane,color1);
  vrt[1].Init(x2-0.5,y2-0.5,zPlane,color2);
@@ -730,7 +724,7 @@ begin
  renderDevice.Draw(TRG_LIST,1,@vrt,TVertex.layoutTex);
 end;
 
-procedure TDrawer.FillRect(x1, y1, x2, y2: integer; color: cardinal);
+procedure TDrawer.FillRect(x1,y1,x2,y2:NativeInt;color:cardinal);
 var
  vrt:array[0..3] of TVertex;
  sx1,sy1,sx2,sy2:single;
@@ -995,7 +989,7 @@ var
  u,v,r1,r2:single;
 begin
  u:=0; v:=0;
- if (x2=x1) or (y2=y1) then exit;
+ if (x2=x1) or (y2=y1) then exit(0);
  r1:=texture.width/texture.height;
  r2:=(x2-x1)/(y2-y1);
  if r1>r2 then begin // texture is wider

@@ -2,8 +2,6 @@ program Simple3D;
  uses
   MainScene in 'MainScene.pas';
 
-{$R *.res}
-
 begin
  application:=TMainApp.Create;
  application.Prepare;

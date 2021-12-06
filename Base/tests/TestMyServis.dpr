@@ -9,16 +9,17 @@ program TestMyServis;
  uses
   {$IFDEF UNIX}
   cthreads,
-  {$ENDIF}
+  {$ENDIF }
   {$IFDEF MSWINDOWS}
   windows,
-  {$ENDIF}
+  {$ENDIF }
   variants,
   DateUtils,
   SysUtils,
   Math,
   classes,
   DCPmd5a,
+  Apus.CPU in '..\Apus.CPU.pas',
   Apus.ADPCM in '..\Apus.ADPCM.pas',
   Apus.Android in '..\Apus.Android.pas',
   Apus.AnimatedValues in '..\Apus.AnimatedValues.pas',
@@ -47,8 +48,8 @@ program TestMyServis;
   {$IFDEF MSWINDOWS}
   Apus.Database in '..\Apus.Database.pas',
   Apus.Profiling in '..\Apus.Profiling.pas',
-  Apus.SCGI in '..\Apus.SCGI.pas',  /// TODO: make cross-platform - socket syntax issues
-  {$ENDIF}
+  Apus.SCGI in '..\Apus.SCGI.pas',
+  {$ENDIF }
   Apus.Publics in '..\Apus.Publics.pas',
   Apus.RegExpr in '..\Apus.RegExpr.pas',
   Apus.Regions in '..\Apus.Regions.pas',
@@ -57,8 +58,9 @@ program TestMyServis;
   Apus.Structs in '..\Apus.Structs.pas',
   Apus.TextUtils in '..\Apus.TextUtils.pas',
   Apus.Translation in '..\Apus.Translation.pas',
-  Apus.UnicodeFont in '..\Apus.UnicodeFont.pas';
-
+  Apus.UnicodeFont in '..\Apus.UnicodeFont.pas',
+  Apus.Classes in '..\Apus.Classes.pas',
+  Apus.Types in '..\Apus.Types.pas';
 
 var
  i:integer;
@@ -124,6 +126,67 @@ procedure TestStringTypes;
   ASSERT(Str16(s8)=ws);
   ASSERT(Str16(s16)=ws);
   ASSERT(Str16(ws)=ws);
+ end;
+
+procedure TestFastHash;
+ var
+  i,j:integer;
+  s1:array[0..511] of String8;
+  s2:array[0..511] of String16;
+  dist:array[0..255] of integer;
+  time:int64;
+  h:cardinal;
+  ws:String16;
+  s:String8;
+ begin
+  for i:=0 to 255 do begin
+   s1[i]:=IntToStr(i);
+   s2[i]:=IntToStr(i);
+{   s1[i+256]:=s1[i];
+   s2[i+256]:=s2[i];}
+   s1[i+256]:='Long_String\Item'+IntToStr(i);
+   s2[i+256]:='Long_String\Item'+IntToStr(i);
+  end;
+  for i:=0 to high(s1) do begin
+   ASSERT(FastHash(Str16(s1[i]))=FastHash(s1[i]), s1[i]); // both version should produce the same hash value
+   ASSERT(FastHash(UpperCase(s2[i]))=FastHash(LowerCase(s2[i]))); // case-insensitive
+   ASSERT(FastHash(Str8(UpperCase(s2[i])))=FastHash(Str8(LowerCase(s2[i])))); // cae-insensitive
+  end;
+  ZeroMem(dist,sizeof(dist));
+  time:=MyTickCount;
+  for i:=0 to 10000 do
+   for j:=0 to 511 do begin
+    h:=FastHash(s1[j]);
+    inc(dist[h and $FF]);
+   end;
+  write(' FastHash8=',MyTickCount-time);
+  ZeroMem(dist,sizeof(dist));
+  time:=MyTickCount;
+  for i:=0 to 10000 do
+   for j:=0 to 511 do begin
+    h:=FastHash(s2[j]);
+    inc(dist[h and $FF]);
+   end;
+  write(' FastHash16=',MyTickCount-time);
+
+  ZeroMem(dist,sizeof(dist));
+  time:=MyTickCount;
+  for i:=0 to 10000 do
+   for j:=0 to 511 do begin
+    h:=StrHash(s1[j]);
+    inc(dist[h and $FF]);
+   end;
+  write(' StrHash8=',MyTickCount-time);
+  ZeroMem(dist,sizeof(dist));
+
+  time:=MyTickCount;
+  for i:=0 to 10000 do
+   for j:=0 to 511 do begin
+    h:=StrHash(s2[j]);
+    inc(dist[h and $FF]);
+   end;
+  write(' StrHash16=',MyTickCount-time);
+  writeln;
  end;
 
 procedure TestQuotes;
@@ -263,6 +326,7 @@ procedure TestQuotes;
   begin
    writeln('== TestTranslations ==');
    LoadDictionary('translate.lng');
+   {
    st:=Translate('Goblin Warrior deals 3 damage to Snow Wolf.');
    writeln(st);
    s8:='Attacks as soon as summoned.';
@@ -276,7 +340,7 @@ procedure TestQuotes;
     st:=Translate('Hello. Any damage dealt by player''s spells is increased by 1. Unlocks "Flaming Tower". test');
    end;
    t:=MyTickCount-t;
-   writeln(t,trRuleFault:8,' ',st);
+   writeln(t,trRuleFault:8,' ',st);}
   end;
 
  procedure TestAnimations;
@@ -1442,7 +1506,7 @@ procedure TestMemoryStat;
    ASSERT(res1=TEST,'Clipboard test 1');
    CopyStrToClipboard(TEST_W);
    res2:=PasteStrFromClipboardW;
-   ASSERT(res2=TEST_W,'Clipboard test 2');
+   ASSERT(res2=TEST_W,'Clipboard test 2:'+res2);
    CopyStrToClipboard(TEST_S);
    {$IFDEF DELPHI}
    // Я не знаю почему в FPC тут творится какая-то дикая дичь
@@ -1732,6 +1796,7 @@ procedure Test;
  SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
  try
+  TestFastHash;
   TestStringTypes;
   TestConversions;
   TestFileIO;

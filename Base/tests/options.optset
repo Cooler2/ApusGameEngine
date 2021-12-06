@@ -1,0 +1,25 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <DCC_DebugInformation>1</DCC_DebugInformation>
+        <DCC_WriteableConstants>true</DCC_WriteableConstants>
+        <DCC_ImageBase>00400000</DCC_ImageBase>
+        <DCC_DcuOutput>..\units</DCC_DcuOutput>
+        <DCC_UnitSearchPath>..;..\extra;..\deprecated;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_Define>DELPHI;OPENGL;TXTIMAGES;$(DCC_Define)</DCC_Define>
+        <SanitizedProjectName>TestMyServis</SanitizedProjectName>
+        <VerInfo_Locale>1059</VerInfo_Locale>
+        <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+        <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;Winapi;FMX;Vcl.Imaging;DUnitX;FireDAC.Phys;Vcl;Vcl.Touch;Vcl.Samples;Vcl.Shell;$(DCC_Namespace)</DCC_Namespace>
+        <Icon_MainIcon>$(BDS)\bin\delphi_PROJECTICON.ico</Icon_MainIcon>
+        <Icns_MainIcns>$(BDS)\bin\delphi_PROJECTICNS.icns</Icns_MainIcns>
+        <DCC_RangeChecking>true</DCC_RangeChecking>
+    </PropertyGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+        <Borland.ProjectType>OptionSet</Borland.ProjectType>
+        <BorlandProject>
+            <Delphi.Personality/>
+        </BorlandProject>
+        <ProjectFileVersion>12</ProjectFileVersion>
+    </ProjectExtensions>
+</Project>
