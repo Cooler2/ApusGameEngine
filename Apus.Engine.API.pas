@@ -6,7 +6,7 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.CrossPlatform, Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D,
+ uses Apus.CrossPlatform, Apus.Engine.Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D,
    Apus.Colors, Apus.EventMan, Apus.VertexLayout, Apus.Engine.Resources;
 
 const
@@ -128,40 +128,34 @@ type
  String8 = Apus.MyServis.String8;
  String16 = Apus.MyServis.String16;
 
- // 2D points
- TPoint2 = Apus.Geom2D.TPoint2;
- PPoint2 = Apus.Geom2D.PPoint2;
- TPoint2s = Apus.Geom2D.TPoint2s;
- TVector2s = Apus.Geom2D.TVector2s;
- PPoint2s = ^TPoint2s;
- // 3D Points
- TPoint3 = Apus.Geom3D.TPoint3;
- TVector3 = TPoint3;
- PPoint3 = ^TPoint3;
- TPoint3s = Apus.Geom3D.TPoint3s;
- PPoint3s = ^TPoint3s;
- TVector4 = TQuaternion;
- TVector4s = TQuaternionS;
+ // 2D Vector
+ TPoint2   = Apus.Engine.Types.TPoint2;
+ PPoint2   = Apus.Engine.Types.PPoint2;
+ TPoint2s  = Apus.Engine.Types.TPoint2s;
+ TVector2s = Apus.Engine.Types.TVector2s;
+ PPoint2s  = Apus.Engine.Types.PPoint2s;
+ // 3D Vector
+ TPoint3   = Apus.Engine.Types.TPoint3;
+ TVector3  = Apus.Engine.Types.TVector3;
+ PPoint3   = Apus.Engine.Types.PPoint3;
+ TPoint3s  = Apus.Engine.Types.TPoint3s;
+ PPoint3s  = Apus.Engine.Types.PPoint3s;
+ TVector3s = Apus.Engine.Types.TVector3s;
+ TVector4  = Apus.Engine.Types.TVector4;
+ TVector4s = Apus.Engine.Types.TVector4s;
  // Matrices
- T3DMatrix = TMatrix4;
- T3DMatrixS = TMatrix4s;
- T2DMatrix = TMatrix32s;
+ T3DMatrix  = Apus.Engine.Types.T3DMatrix;
+ T3DMatrixS = Apus.Engine.Types.T3DMatrixS;
+ T2DMatrix  = Apus.Engine.Types.T2DMatrix;
 
- TRect2s = Apus.Geom2D.TRect2s;
+ // Other types
+ TRect2s = Apus.Engine.Types.TRect2s;
 
- TVertexLayout=Apus.VertexLayout.TVertexLayout;
+ TVertexLayout = Apus.Engine.Types.TVertexLayout;
 
  // Packed ARGB color
- TARGBColor=Apus.Colors.TARGBColor;
- PARGBColor=Apus.Colors.PARGBColor;
-
- // Primitive types
- TPrimitiveType=(
-   LINE_LIST,
-   LINE_STRIP,
-   TRG_FAN,
-   TRG_STRIP,
-   TRG_LIST);
+ TARGBColor = Apus.Engine.Types.TARGBColor;
+ PARGBColor = Apus.Engine.Types.PARGBColor;
 
 
 const
@@ -340,20 +334,7 @@ type
                  shadowDepthPass, // Render shadowmap (depth-only, no color output)
                  shadowMainPass); // Render using shadowmap (enable shadows)
 
- // Base class for shader object
- TShader=class
-  name:string8;
-  // Set uniform value
-  procedure SetUniform(name:String8;value:integer); overload; virtual; abstract;
-  procedure SetUniform(name:String8;value:single); overload; virtual; abstract;
-  procedure SetUniform(name:String8;const value:TVector2s); overload; virtual; abstract;
-  procedure SetUniform(name:String8;const value:TVector3s); overload; virtual; abstract;
-  procedure SetUniform(name:String8;const value:TVector4s); overload; virtual; abstract;
-  procedure SetUniform(name:String8;const value:T3DMatrix); overload; virtual; abstract;
-  procedure SetUniform(name:String8;const value:T3DMatrixS); overload; virtual; abstract;
-  class function VectorFromColor3(color:cardinal):TVector3s;
-  class function VectorFromColor(color:cardinal):TVector4s;
- end;
+ TShader = Apus.Engine.Resources.TShader;
 
  // Control render target
  IRenderTarget=interface
@@ -1448,28 +1429,6 @@ class function TVertex3D.Layout:TVertexLayout;
   v:=nil;
   result.Init(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
   result.stride:=Sizeof(TVertex3D);
- end;
-
-{ TShader }
-class function TShader.VectorFromColor(color: cardinal):TVector4s;
- var
-  c:PARGBColor;
- begin
-  c:=@color;
-  result.x:=c.r/255;
-  result.y:=c.g/255;
-  result.z:=c.b/255;
-  result.w:=c.a/255;
- end;
-
-class function TShader.VectorFromColor3(color: cardinal): TVector3s;
- var
-  c:PARGBColor;
- begin
-  c:=@color;
-  result.x:=c.r/255;
-  result.y:=c.g/255;
-  result.z:=c.b/255;
  end;
 
 { TNinePatch }

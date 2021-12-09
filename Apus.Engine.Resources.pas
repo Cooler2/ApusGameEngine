@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.Resources;
 interface
- uses Apus.MyServis, Types, Apus.Classes, Apus.Images;
+ uses Apus.MyServis, Types, Apus.Classes, Apus.Images, Apus.Engine.Types;
 
  const
   // Texture features flags
@@ -73,12 +73,30 @@ interface
    class function ClassHash:pointer; override;
   end;
 
+ // Base class for shader object
+ TShader=class(TNamedObject)
+  // Set uniform value
+  procedure SetUniform(name:String8;value:integer); overload; virtual; abstract;
+  procedure SetUniform(name:String8;value:single); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TVector2s); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TVector3s); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TVector4s); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:T3DMatrix); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:T3DMatrixS); overload; virtual; abstract;
+  class function VectorFromColor3(color:cardinal):TVector3s;
+  class function VectorFromColor(color:cardinal):TVector4s;
+ protected
+  class function ClassHash:pointer; override;
+ end;
+
+
 
 implementation
  uses Apus.Structs;
 
  var
-  textureHash:TObjectHash; // Search hash: name->texture
+  texturesHash:TObjectHash; // Search hash: name->texture
+  shadersHash:TObjectHash; // Search hash: name->shader
 
  procedure TTexture.CloneFrom(from:TTexture);
   begin
@@ -113,7 +131,7 @@ function TTexture.IsLocked:boolean;
 
 class function TTexture.ClassHash: pointer;
  begin
-  result:=@textureHash;
+  result:=@texturesHash;
  end;
 
 procedure TTexture.Clear(color:cardinal);
@@ -147,6 +165,33 @@ function TTexture.ClonePart(part:TRect): TTexture;
   result.u2:=u1+part.right*stepU*2;
   result.v1:=v1+part.top*stepV*2;
   result.v2:=v1+part.bottom*stepV*2;
+ end;
+
+{ TShader }
+class function TShader.ClassHash: pointer;
+ begin
+  result:=@shadersHash;
+ end;
+
+class function TShader.VectorFromColor(color: cardinal):TVector4s;
+ var
+  c:PARGBColor;
+ begin
+  c:=@color;
+  result.x:=c.r/255;
+  result.y:=c.g/255;
+  result.z:=c.b/255;
+  result.w:=c.a/255;
+ end;
+
+class function TShader.VectorFromColor3(color: cardinal): TVector3s;
+ var
+  c:PARGBColor;
+ begin
+  c:=@color;
+  result.x:=c.r/255;
+  result.y:=c.g/255;
+  result.z:=c.b/255;
  end;
 
 

@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.TextDraw;
 interface
- uses Types,Apus.Engine.API;
+ uses Types, Apus.Engine.API;
 
  const
   MAGIC_TEXTCACHE = $01FF;
@@ -103,6 +103,7 @@ implementation
    Apus.Images,
    Apus.UnicodeFont,
    Apus.GlyphCaches,
+   Apus.Engine.Types,
    Apus.Engine.Graphics
    {$IFDEF FREETYPE},Apus.FreeTypeFont{$ENDIF};
 

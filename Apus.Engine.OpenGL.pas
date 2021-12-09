@@ -63,6 +63,7 @@ implementation
   SysUtils,
   Types,
   Apus.Geom3D,
+  Apus.Engine.Types,
   Apus.Engine.Graphics,
   Apus.Engine.Draw,
   Apus.Engine.TextDraw,

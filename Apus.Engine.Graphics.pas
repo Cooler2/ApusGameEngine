@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.Graphics;
 interface
- uses Types,Apus.Engine.API;
+ uses Types, Apus.Engine.Types, Apus.Engine.API;
 
 type
  IRenderDevice=interface
