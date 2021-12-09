@@ -229,6 +229,7 @@ procedure TMainScene.Render;
   font:=txt.GetFont('Default',7); // Select font (no need to do this every frame)
   txt.Write(font,300,200,$FFFFFFFF,'Hello world!'); // Write text using the font
 
+  txt.Write(0,10,20,$FFD0D0D0,'RMB - particles, [Win]+[~] - toggle console. ');
   inherited; // Here all the UI is displayed
 
   // I want particles to be drawn over the UI so handle them here
