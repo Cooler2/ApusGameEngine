@@ -68,6 +68,7 @@ interface
    function HasFlag(flag:cardinal):boolean;
    // Limit texture filtering to the specified mode (i.e. bilinear mode disables mip-mapping)
    procedure SetFilter(filter:TTexFilter); virtual; abstract;
+   function Size:TSize;
   protected
    locked:integer; // lock counter
    class function ClassHash:pointer; override;
@@ -127,6 +128,12 @@ function TTexture.HasFlag(flag:cardinal): boolean;
 function TTexture.IsLocked:boolean;
  begin
   result:=locked>0;
+ end;
+
+function TTexture.Size:TSize;
+ begin
+  result.cx:=width;
+  result.cy:=height;
  end;
 
 class function TTexture.ClassHash: pointer;
