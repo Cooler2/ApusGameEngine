@@ -356,6 +356,7 @@ type
   procedure onTimer; override; // отжимает кнопку по таймеру
   procedure SetPressed(pr:boolean); virtual;
   procedure MakeSwitches(sameGroup:boolean=true); // make all sibling buttons with the same size - switches
+  procedure Click; virtual; // simulate click
  protected
   procedure DoClick;
  private
@@ -1726,6 +1727,12 @@ begin
 end;
 
 { TUIButton }
+
+procedure TUIButton.Click;
+begin
+ onMouseButtons(1,true);
+ onMouseButtons(1,false);
+end;
 
 constructor TUIButton.Create;
 var
