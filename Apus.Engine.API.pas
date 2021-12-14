@@ -6,7 +6,7 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.CrossPlatform, Apus.Engine.Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D,
+ uses Apus.CrossPlatform, Types, Apus.Engine.Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D,
    Apus.Colors, Apus.EventMan, Apus.VertexLayout, Apus.Engine.Resources;
 
 const
@@ -150,8 +150,8 @@ type
 
  // Other types
  TRect2s = Apus.Engine.Types.TRect2s;
-
  TVertexLayout = Apus.Engine.Types.TVertexLayout;
+ TPrimitiveType = Apus.Engine.Types.TPrimitiveType;
 
  // Packed ARGB color
  TARGBColor = Apus.Engine.Types.TARGBColor;
@@ -964,6 +964,8 @@ type
   function MouseWasInRect(r:TRect):boolean;overload; virtual; abstract;
   function MouseWasInRect(r:TRect2s):boolean; overload; virtual; abstract;
 
+  function RenderSize:TSize; // returns (renderWidth,renderHeight)
+
   // Wait until pb^ is not false (not zero), toggle crWait cursor during waiting
   procedure WaitFor(pb:PBoolean;msg:string=''); virtual; abstract;
 
@@ -1438,6 +1440,12 @@ class function TVertex3D.Layout:TVertexLayout;
 class function TNinePatch.ClassHash: pointer;
  begin
   result:=@ninePatchHash;
+ end;
+
+function TGameBase.RenderSize:TSize;
+ begin
+  result.cx:=renderWidth;
+  result.cy:=renderHeight;
  end;
 
 initialization
