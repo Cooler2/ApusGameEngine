@@ -525,6 +525,8 @@ interface
  // Single version of precise rounding
  function SRound(v:single):integer; inline; overload;
 
+ function FastInvSqrt(v:single):single;
+
  // Вычислить ломаную функцию, определенную на отрезке [0..256] имеющую пик (экстремум)
  // в точке arg и принимающую значения a, b и c (a и c - на концах отрезка, b - в экстремуме)
  function Pike(x,arg,a,b,c:integer):integer;
@@ -3308,6 +3310,17 @@ function BinToStr;
   begin
    if v>0 then result:=trunc(v+0.5)
     else result:=trunc(v-0.5);
+  end;
+
+ // Based on Quake-3 code
+ function FastInvSqrt(v:single):single;
+  var
+   vInt:UInt32 absolute result;
+  begin
+   result:=v;
+   vInt:=$5F3759DF-(vInt shr 1);
+   result:=result*(1.5-(v*0.5*result*result));     // 1st iteration
+   result:=result*(1.5-(v*0.5*result*result));   // 2nd iteration, this can be removed
   end;
 
  // Return value of pike function
