@@ -50,6 +50,7 @@ type
   procedure Perspective(fov:single;zMin,zMax:double); overload; virtual;
   procedure Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); overload; virtual;
   procedure Orthographic(scale,zMin,zMax:double); virtual;
+  procedure SetProjection(proj:T3DMatrix); virtual;
   procedure SetView(view:T3DMatrix); virtual;
   procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0); virtual;
   procedure SetObj(mat:T3DMatrix); overload; virtual;
@@ -309,18 +310,24 @@ procedure TTransformationAPI.SetObj(oX, oY, oZ, scale, yaw, roll,
   SetObj(m2);
  end;
 
+procedure TTransformationAPI.SetProjection(proj:T3DMatrix);
+ begin
+  projMatrix:=proj;
+  modified:=true;
+ end;
+
 procedure TTransformationAPI.ResetObj;
  begin
   SetObj(IdentMatrix4);
  end;
 
-procedure TTransformationAPI.SetObj(mat: T3DMatrix);
+procedure TTransformationAPI.SetObj(mat:T3DMatrix);
  begin
   objMatrix:=mat;
   modified:=true;
  end;
 
-procedure TTransformationAPI.SetView(view: T3DMatrix);
+procedure TTransformationAPI.SetView(view:T3DMatrix);
  begin
   // Original matrix is "Camera space->World space" but we need reverse transformation: "World->Camera"
   Invert4Full(view,viewMatrix);

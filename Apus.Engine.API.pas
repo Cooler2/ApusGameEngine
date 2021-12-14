@@ -398,6 +398,8 @@ type
   // Set orthographic projection matrix
   // For example: scale=3 means that 1 unit in the world space is mapped to 3 pixels (in backbuffer)
   procedure Orthographic(scale,zMin,zMax:double);
+  // Set arbitrary projection matrix
+  procedure SetProjection(proj:T3DMatrix);
   // Set view transformation matrix (camera position)
   // View matrix is (R - right, D - down, F - forward, O - origin):
   // Rx Ry Rz
