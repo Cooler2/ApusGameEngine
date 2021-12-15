@@ -4697,7 +4697,7 @@ function BinToStr;
      if cacheBuf<>'' then IntFlushLog;
      try
       st:=st+#13#10;
-      AppendLogFile(st[1],length(text));
+      AppendLogFile(st[1],length(st));
      except
        on e:Exception do ErrorMessage('Failed to write to the log:'#13#10+e.Message+#13#10+text);
      end;
