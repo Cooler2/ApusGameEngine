@@ -3016,6 +3016,8 @@ initialization
  TUIElement.handleMouseIfDisabled:=false;
  TUIButton.handleMouseIfDisabled:=true;
  TUIComboBox.handleMouseIfDisabled:=false;
+
+ UIHash.Init;
 finalization
  DeleteCritSect(UICritSect);
 end.
