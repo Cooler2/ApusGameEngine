@@ -44,7 +44,15 @@ interface
   end;
 
   TQuaternionS=record
-   constructor Init(x,y,z,w:single);
+   constructor Init(x,y,z,w:single); overload;
+   constructor Init(vec3:TVector3s); overload;
+   procedure Add(q:TQuaternionS); overload;
+   procedure Add(q:TQuaternionS;scale:single); overload;
+   procedure Mul(scalar:single); overload;
+   procedure Mul(q:TQuaternionS); overload;
+   function DotProd(q:TQuaternionS):single;
+   function Length:single;
+   procedure Normalize;
    case integer of
     1:( x,y,z,w:single; );
     2:( v:array[0..3] of single; );
@@ -1324,6 +1332,91 @@ constructor TQuaternionS.Init(x, y, z, w: single);
  begin
   self.x:=x; self.y:=y; self.z:=z; self.w:=w;
  end;
+
+constructor TQuaternionS.Init(vec3:TVector3s);
+ begin
+  x:=vec3.x; y:=vec3.y; z:=vec3.z; w:=0;
+ end;
+
+function TQuaternionS.Length:single;
+ asm
+ {$IFDEF CPUx64}
+  // rcx=@self, rdx=@q
+  movups xmm0,[rcx]
+  mulps xmm0,xmm0
+  haddps xmm0,xmm0
+  haddps xmm0,xmm0
+  sqrtss xmm0,xmm0
+ {$ENDIF}
+ end;
+
+procedure TQuaternionS.Normalize;
+ asm
+ {$IFDEF CPUx64}
+  // rcx=@self
+  movups xmm0,[rcx]
+  mulps xmm0,xmm0
+  haddps xmm0,xmm0
+  haddps xmm0,xmm0
+  sqrtss xmm0,xmm0
+ {$ENDIF}
+ end;
+
+procedure TQuaternionS.Add(q:TQuaternionS);
+ asm
+ {$IFDEF CPUx64}
+  // rcx=@self, rdx=q
+  movups xmm0,[rcx]
+  addps xmm0,[rdx]
+  movups [rcx],xmm0
+ {$ENDIF}
+ end;
+
+procedure TQuaternionS.Add(q:TQuaternionS;scale:single);
+ asm
+ {$IFDEF CPUx64}
+  // rcx=@self, rdx=@q, XMM2=scale
+  shufps xmm2,xmm2,0
+  movups xmm0,[rdx]
+  mulps xmm0,xmm2
+  addps xmm0,[rcx]
+  movups [rcx],xmm0
+ {$ENDIF}
+ end;
+
+function TQuaternionS.DotProd(q:TQuaternionS):single;
+ asm
+ {$IFDEF CPUx64}
+  // rcx=@self, rdx=@q
+  movups xmm0,[rcx]
+  mulps xmm0,[rdx]
+  haddps xmm0,xmm0
+  haddps xmm0,xmm0
+ {$ENDIF}
+ end;
+
+procedure TQuaternionS.Mul(q:TQuaternionS);
+ asm
+ {$IFDEF CPUx64}
+  // rcx=@self, rdx=@q
+  movups xmm0,[rcx]
+  mulps xmm0,[rdx]
+  movups [rcx],xmm0
+ {$ENDIF}
+ end;
+
+procedure TQuaternionS.Mul(scalar:single);
+ asm
+ {$IFDEF CPUx64}
+  // rcx=@self, XMM1=scalar
+  shufps xmm1,xmm1,0
+  movups xmm0,[rcx]
+  mulps xmm0,xmm1
+  movups [rcx],xmm0
+ {$ENDIF}
+ end;
+
+
 
 initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
