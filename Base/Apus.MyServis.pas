@@ -513,10 +513,10 @@ interface
  // Some useful mathematic functions
  // -----------------------------------------------------------------
  // Вернуть "насыщенное" значение, т.е. привести b внутрь допустимого диапазона [min..max]
- function Clamp(b,min,max:integer):integer; overload;
- function Clamp(b,min,max:double):double; overload;
- function Sat(b,min,max:integer):integer; deprecated 'use Clamp';
- function SatD(b,min,max:double):double; deprecated 'use Clamp';
+ function Clamp(b,min,max:integer):integer; inline; overload;
+ function Clamp(b,min,max:double):double; inline; overload;
+ function Sat(b,min,max:integer):integer; inline; deprecated 'use Clamp';
+ function SatD(b,min,max:double):double; inline; deprecated 'use Clamp';
 
  // Fast consistent rounding, equivalent to SimpleRoundTo(x,0) i.e. 0.5->1, 1.5->2 etc. (NOT PRECISE!)
  function FRound(v:double):integer; inline;
