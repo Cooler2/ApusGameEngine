@@ -1,9 +1,10 @@
 {$APPTYPE CONSOLE}
+{$EXCESSPRECISION OFF}
 program TestGFX;
 uses
-  Apus.MyServis,
-  System.SysUtils,
   Apus.Colors,
+  Apus.MyServis,
+  SysUtils,
   Apus.FastGFX;
 
 procedure TestBilinear;
@@ -14,11 +15,13 @@ procedure TestBilinear;
   c:array[0..4] of cardinal;
   f:single;
   col:cardinal;
+  uu,vv:single;
  begin
   // float values
   v[0]:=0; v[1]:=1; v[2]:=2; v[3]:=-2;
   // Reference version
-  f:=BilinearMixF(v[0],v[1],v[2],v[3],0.6,0.4);
+  uu:=0.6; vv:=0.4;
+  f:=BilinearMixF(v[0],v[1],v[2],v[3],uu,vv);
   ASSERT(abs(f-0.2)<0.001);
   // SSE version
   f:=BilinearMixF(@v,0.6,0.4);
@@ -26,19 +29,20 @@ procedure TestBilinear;
   f:=0;
   time:=MyTickCount;
   for i:=0 to 10000000 do begin
-   f:=f+BilinearMixF(v[0],v[1],v[2],v[3],0.6,0.4)+
-        BilinearMixF(v[0],v[1],v[2],v[3],0.3,0.5);
+   f:=f+BilinearMixF(v[0],v[1],v[2],v[3],uu,vv)+
+        BilinearMixF(v[0],v[1],v[2],v[3],vv,uu);
   end;
   time:=MyTickCount-time;
-  writeln('Bilinear time: ',time);
+  writeln('Bilinear time: ',time,f:20:2);
 
+  f:=0;
   time:=MyTickCount;
   for i:=0 to 10000000 do begin
-   f:=f+BilinearMixF(@v,0.6,0.4)+
-        BilinearMixF(@v,0.3,0.5);
+   f:=f+BilinearMixF(@v,uu,vv)+
+        BilinearMixF(@v,vv,uu);
   end;
   time:=MyTickCount-time;
-  writeln('Bilinear time (SSE): ',time);
+  writeln('Bilinear time (SSE): ',time,f:20:2);
 
   // Colors
   c[0]:=$FF000000; c[1]:=$FF800000;
@@ -105,4 +109,5 @@ begin
    halt(255);
   end;
  end;
+ readln;
 end.
