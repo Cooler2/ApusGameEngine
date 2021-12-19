@@ -43,14 +43,17 @@ interface
     2:( v:array[0..3] of double; );
   end;
 
+  { TQuaternionS }
+
   TQuaternionS=record
    constructor Init(x,y,z,w:single); overload;
    constructor Init(vec3:TVector3s); overload;
-   procedure Add(q:TQuaternionS); overload;
-   procedure Add(q:TQuaternionS;scale:single); overload;
+   procedure Test(var q:TQuaternionS);
+   procedure Add(var q:TQuaternionS); overload;
+   procedure Add(var q:TQuaternionS;scale:single); overload;
    procedure Mul(scalar:single); overload;
-   procedure Mul(q:TQuaternionS); overload;
-   function DotProd(q:TQuaternionS):single;
+   procedure Mul(var q:TQuaternionS); overload;
+   function DotProd(var q:TQuaternionS):single;
    function Length:single;
    procedure Normalize;
    case integer of
@@ -1338,11 +1341,20 @@ constructor TQuaternionS.Init(vec3:TVector3s);
   x:=vec3.x; y:=vec3.y; z:=vec3.z; w:=0;
  end;
 
+procedure TQuaternionS.Test;
+ begin
+  self:=q;
+ end;
+
 function TQuaternionS.Length:single;
  asm
  {$IFDEF CPUx64}
-  // rcx=@self, rdx=@q
+  {$IFDEF MSWINDOWS}
   movups xmm0,[rcx]
+  {$ENDIF}
+  {$IFDEF UNIX}
+  movups xmm0,[rdi]
+  {$ENDIF}
   mulps xmm0,xmm0
   haddps xmm0,xmm0
   haddps xmm0,xmm0
@@ -1354,7 +1366,12 @@ procedure TQuaternionS.Normalize;
  asm
  {$IFDEF CPUx64}
   // rcx=@self
+  {$IFDEF MSWINDOWS}
   movups xmm0,[rcx]
+  {$ENDIF}
+  {$IFDEF UNIX}
+  movups xmm0,[rdi]
+  {$ENDIF}
   mulps xmm0,xmm0
   haddps xmm0,xmm0
   haddps xmm0,xmm0
@@ -1362,57 +1379,101 @@ procedure TQuaternionS.Normalize;
  {$ENDIF}
  end;
 
-procedure TQuaternionS.Add(q:TQuaternionS);
+procedure TQuaternionS.Add(var q:TQuaternionS);
  asm
  {$IFDEF CPUx64}
+  {$IFDEF UNIX}
+  // rdi=@self, rsi=q
+  movups xmm0,[rdi]
+  addps xmm0,[rsi]
+  movups [rdi],xmm0
+  {$ENDIF}
+  {$IFDEF MSWINDOWS}
   // rcx=@self, rdx=q
   movups xmm0,[rcx]
   addps xmm0,[rdx]
   movups [rcx],xmm0
+  {$ENDIF}
  {$ENDIF}
  end;
 
-procedure TQuaternionS.Add(q:TQuaternionS;scale:single);
+procedure TQuaternionS.Add(var q:TQuaternionS;scale:single);
  asm
  {$IFDEF CPUx64}
+  {$IFDEF MSWINDOWS}
   // rcx=@self, rdx=@q, XMM2=scale
   shufps xmm2,xmm2,0
   movups xmm0,[rdx]
   mulps xmm0,xmm2
   addps xmm0,[rcx]
   movups [rcx],xmm0
+  {$ENDIF}
+  {$IFDEF UNIX}
+  // rdi=@self, rsi=@q, XMM0=scale
+  shufps xmm0,xmm0,0
+  movups xmm2,[rsi]
+  mulps xmm2,xmm0
+  addps xmm2,[rdi]
+  movups [rdi],xmm2
+  {$ENDIF}
  {$ENDIF}
  end;
 
-function TQuaternionS.DotProd(q:TQuaternionS):single;
+function TQuaternionS.DotProd(var q:TQuaternionS):single;
  asm
  {$IFDEF CPUx64}
+  {$IFDEF MSWINDOWS}
   // rcx=@self, rdx=@q
   movups xmm0,[rcx]
   mulps xmm0,[rdx]
   haddps xmm0,xmm0
   haddps xmm0,xmm0
+  {$ENDIF}
+  {$IFDEF UNIX}
+  // rdi=@self, rsi=@q
+  movups xmm0,[rdi]
+  mulps xmm0,[rsi]
+  haddps xmm0,xmm0
+  haddps xmm0,xmm0
+  {$ENDIF}
  {$ENDIF}
  end;
 
-procedure TQuaternionS.Mul(q:TQuaternionS);
+procedure TQuaternionS.Mul(var q:TQuaternionS);
  asm
  {$IFDEF CPUx64}
+  {$IFDEF MSWINDOWS}
   // rcx=@self, rdx=@q
   movups xmm0,[rcx]
   mulps xmm0,[rdx]
   movups [rcx],xmm0
+  {$ENDIF}
+  {$IFDEF UNIX}
+  // rdi=@self, rsi=@q
+  movups xmm0,[rdi] // load self
+  mulps xmm0,[rsi]
+  movups [rdi],xmm0 // save self
+  {$ENDIF}
  {$ENDIF}
  end;
 
 procedure TQuaternionS.Mul(scalar:single);
  asm
  {$IFDEF CPUx64}
+  {$IFDEF MSWINDOWS}
   // rcx=@self, XMM1=scalar
   shufps xmm1,xmm1,0
   movups xmm0,[rcx]
   mulps xmm0,xmm1
   movups [rcx],xmm0
+  {$ENDIF}
+  {$IFDEF UNIX}
+  // rdi=@self, XMM0=scalar
+  shufps xmm0,xmm0,0
+  movups xmm1,[rdi]
+  mulps xmm1,xmm0
+  movups [rdi],xmm1
+  {$ENDIF}
  {$ENDIF}
  end;
 

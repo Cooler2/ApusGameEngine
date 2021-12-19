@@ -265,6 +265,7 @@ implementation
  function BilinearMixF(values:PSingle;u,v:single):single; overload;  // Билинейная интерполяция
   asm
   {$IFDEF CPUx64}
+   {$IFDEF MSWINDOWS}
    // rcx=@values, xmm1=u,xmm2=v
    movups xmm0,[rcx]
    shufps xmm1,xmm1,0
@@ -279,6 +280,23 @@ implementation
    mulps xmm0,xmm2
    haddps xmm0,xmm0
    haddps xmm0,xmm0
+   {$ENDIF}
+   {$IFDEF UNIX}
+   // rdi=@values, xmm0=u,xmm1=v
+   movups xmm2,[rdi]
+   shufps xmm0,xmm0,0
+   shufps xmm1,xmm1,0
+   mulss xmm0,[rip+MINUS_ONE]
+   mulss xmm1,[rip+MINUS_ONE]
+   addss xmm0,[rip+ONE]
+   addss xmm1,[rip+ONE]
+   shufps xmm0,xmm0,$44 // (u, 1-u, u, 1-u)
+   shufps xmm1,xmm1,$50 // (v, v, 1-v, 1-v)
+   mulps xmm0,xmm1
+   mulps xmm0,xmm2
+   haddps xmm0,xmm0
+   haddps xmm0,xmm0
+   {$ENDIF}
   {$ENDIF}
   end;
 
@@ -305,6 +323,7 @@ implementation
  function BilinearMix(values:PCardinal;u,v:single):cardinal; overload;
   asm
   {$IFDEF CPUx64}
+   {$IFDEF MSWINDOWS}
    // rcx=values, xmm1=u, xmm2=v
    mov rax,[rip+SSE_CONST]
    pmovzxbd xmm0,[rcx+12]
@@ -342,6 +361,46 @@ implementation
    packusdw xmm0,xmm0
    packuswb xmm0,xmm0
    movd eax,xmm0
+   {$ENDIF}
+   {$IFDEF UNIX}
+   // rdi=values, xmm0=u, xmm1=v
+   mov rax,[rip+SSE_CONST]
+   pmovzxbd xmm2,[rdi+12]
+   cvtdq2ps xmm3,xmm2  // values[3]
+   shufps xmm0,xmm0,0
+   mulps xmm3,xmm0  // *u
+   shufps xmm1,xmm1,0
+   mulps xmm3,xmm1  // xmm3=values[3]*u*v
+   // next value
+   pmovzxbd xmm2,[rdi+8]
+   cvtdq2ps xmm2,xmm2  // values[2]
+   movaps xmm4,xmm0
+   mulps xmm4,[rax+16] // -u
+   addps xmm4,[rax] // xmm4=1-u
+   mulps xmm2,xmm1 // *v
+   mulps xmm2,xmm4 // xmm2=values[2]*(1-u)*v
+   addps xmm3,xmm2
+   // next value
+   pmovzxbd xmm2,[rdi+4]
+   cvtdq2ps xmm2,xmm2  // values[1]
+   movaps xmm5,xmm1
+   mulps xmm5,[rax+16] // -v
+   addps xmm5,[rax] // xmm5=1-v
+   mulps xmm2,xmm0 // *u
+   mulps xmm2,xmm5 // xmm2=values[1]*u*(1-v)
+   addps xmm3,xmm2
+   // final value
+   pmovzxbd xmm2,[rdi]
+   cvtdq2ps xmm2,xmm2  // values[0]
+   mulps xmm2,xmm4 // *(1-u)
+   mulps xmm2,xmm5 // xmm2=values[0]*(1-u)*(1-v)
+   addps xmm3,xmm2
+   // pack result color
+   cvtps2dq xmm2,xmm3
+   packusdw xmm2,xmm2
+   packuswb xmm2,xmm2
+   movd eax,xmm2
+   {$ENDIF}
   {$ENDIF}
   end;
 
