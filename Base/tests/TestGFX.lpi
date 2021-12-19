@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectOptions>
+    <Version Value="12"/>
+    <PathDelim Value="\"/>
+    <General>
+      <Flags>
+        <MainUnitHasCreateFormStatements Value="False"/>
+        <MainUnitHasTitleStatement Value="False"/>
+        <MainUnitHasScaledStatement Value="False"/>
+        <UseDefaultCompilerOptions Value="True"/>
+      </Flags>
+      <SessionStorage Value="InProjectDir"/>
+      <Title Value="TestGFX"/>
+      <UseAppBundle Value="False"/>
+      <ResourceType Value="res"/>
+    </General>
+    <BuildModes>
+      <Item Name="Default" Default="True"/>
+    </BuildModes>
+    <PublishOptions>
+      <Version Value="2"/>
+      <UseFileFilters Value="True"/>
+    </PublishOptions>
+    <RunParams>
+      <FormatVersion Value="2"/>
+    </RunParams>
+    <Units>
+      <Unit>
+        <Filename Value="TestGFX.dpr"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+    </Units>
+  </ProjectOptions>
+  <CompilerOptions>
+    <Version Value="11"/>
+    <PathDelim Value="\"/>
+    <Target>
+      <Filename Value="..\..\bin\demo_fpc"/>
+    </Target>
+    <SearchPaths>
+      <IncludeFiles Value="$(ProjOutDir)"/>
+      <Libraries Value=".;..\..\bin;..\..\bin64"/>
+      <OtherUnitFiles Value="..\..;..\..\extra;..\..\extra\sdl2;..\..\Base;..\..\Base\extra"/>
+      <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
+    </SearchPaths>
+    <Parsing>
+      <Style Value="1"/>
+      <SyntaxOptions>
+        <SyntaxMode Value="Delphi"/>
+        <IncludeAssertionCode Value="True"/>
+      </SyntaxOptions>
+    </Parsing>
+    <CodeGeneration>
+      <Checks>
+        <RangeChecks Value="True"/>
+      </Checks>
+      <Optimizations>
+        <OptimizationLevel Value="2"/>
+      </Optimizations>
+    </CodeGeneration>
+    <Linking>
+      <Debugging>
+        <StripSymbols Value="True"/>
+        <UseExternalDbgSyms Value="True"/>
+      </Debugging>
+      <Options>
+        <PassLinkerOptions Value="True"/>
+        <LinkerOptions Value="-rpath=."/>
+        <Win32>
+          <GraphicApplication Value="True"/>
+        </Win32>
+      </Options>
+    </Linking>
+    <Other>
+      <CustomOptions Value="-dOPENGL
+-dSDL"/>
+    </Other>
+  </CompilerOptions>
+</CONFIG>
