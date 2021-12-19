@@ -109,5 +109,5 @@ begin
    halt(255);
   end;
  end;
- readln;
+ if HasParam('wait') then readln;
 end.
