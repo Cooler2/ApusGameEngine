@@ -54,12 +54,22 @@ type
 implementation
  uses Apus.MyServis;
  {$R-,Q-}
+ {$EXCESSPRECISION OFF}
 
+ type
+  TVector4=array[0..3] of single;
+  TSSEConst=record
+    ONE:TVector4;
+    MINUS_ONE:TVector4;
+  end;
  const
-  ONE_PACKED:array[0..3] of single=(1,1,1,1);
-  MINUS_ONE_PACKED:array[0..3] of single=(-1,-1,-1,-1);
   ONE:single = 1.0;
   MINUS_ONE:single = -1.0;
+  ONE_PACKED:TVector4=(1,1,1,1);
+  MINUS_ONE_PACKED:TVector4=(-1,-1,-1,-1);
+
+ var
+  SSE_CONST:^TSSEConst;
 
  function SwapColor(color:cardinal):cardinal; // swap red<->blue bytes
   begin
@@ -247,16 +257,10 @@ implementation
   end;
 
  function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single; // Билинейная интерполяция
-(*  {$IFDEF CPUx64}
-  asm
-   // xmm0..xmm3 - v0..v3
-
-  end;
-  {$ELSE} *)
   begin
-   result:=v0*(1-u)*(1-v)+v1*u*(1-v)+v2*(1-u)*v+v3*u*v;
+   //result:=v0*(1-u)*(1-v)+v1*u*(1-v)+v2*(1-u)*v+v3*u*v;
+   result:=v0+u*(v1-v0)+v*(v2-v0)+u*v*(v0+v3-v1-v2); // faster when u/v aren'c constant
   end;
-//  {$ENDIF}
 
  function BilinearMixF(values:PSingle;u,v:single):single; overload;  // Билинейная интерполяция
   asm
@@ -265,10 +269,10 @@ implementation
    movups xmm0,[rcx]
    shufps xmm1,xmm1,0
    shufps xmm2,xmm2,0
-   mulss xmm1,rip+MINUS_ONE
-   mulss xmm2,rip+MINUS_ONE
-   addss xmm1,rip+ONE
-   addss xmm2,rip+ONE
+   mulss xmm1,[rip+MINUS_ONE]
+   mulss xmm2,[rip+MINUS_ONE]
+   addss xmm1,[rip+ONE]
+   addss xmm2,[rip+ONE]
    shufps xmm1,xmm1,$44 // (u, 1-u, u, 1-u)
    shufps xmm2,xmm2,$50 // (v, v, 1-v, 1-v)
    mulps xmm0,xmm1
@@ -302,6 +306,7 @@ implementation
   asm
   {$IFDEF CPUx64}
    // rcx=values, xmm1=u, xmm2=v
+   mov rax,[rip+SSE_CONST]
    pmovzxbd xmm0,[rcx+12]
    cvtdq2ps xmm3,xmm0  // values[3]
    shufps xmm1,xmm1,0
@@ -312,8 +317,8 @@ implementation
    pmovzxbd xmm0,[rcx+8]
    cvtdq2ps xmm0,xmm0  // values[2]
    movaps xmm4,xmm1
-   mulps xmm4,rip+MINUS_ONE_PACKED // -u
-   addps xmm4,rip+ONE_PACKED // xmm4=1-u
+   mulps xmm4,[rax+16] // -u
+   addps xmm4,[rax] // xmm4=1-u
    mulps xmm0,xmm2 // *v
    mulps xmm0,xmm4 // xmm0=values[2]*(1-u)*v
    addps xmm3,xmm0
@@ -321,8 +326,8 @@ implementation
    pmovzxbd xmm0,[rcx+4]
    cvtdq2ps xmm0,xmm0  // values[1]
    movaps xmm5,xmm2
-   mulps xmm5,rip+MINUS_ONE_PACKED // -v
-   addps xmm5,rip+ONE_PACKED // xmm5=1-v
+   mulps xmm5,[rax+16] // -v
+   addps xmm5,[rax] // xmm5=1-v
    mulps xmm0,xmm1 // *u
    mulps xmm0,xmm5 // xmm0=values[1]*u*(1-v)
    addps xmm3,xmm0
@@ -414,4 +419,8 @@ implementation
    result:=0.002*sqr(col1.r-col2.r)+0.003*sqr(col1.g-col2.g)+0.001*sqr(col1.b-col2.b)+0.001*sqr(col1.a-col2.a);
   end;
 
+initialization
+ new(SSE_CONST);
+ SSE_CONST.ONE:=ONE_PACKED;
+ SSE_CONST.MINUS_ONE:=MINUS_ONE_PACKED;
 end.
