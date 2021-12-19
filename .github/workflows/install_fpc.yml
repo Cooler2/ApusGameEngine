@@ -33,8 +33,11 @@ jobs:
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
     - name: Compile TestStructs
       run: lazbuild -q -q Base/tests/TestStructs.lpi
+    - name: Compile TestGFX
+      run: lazbuild -q -q Base/tests/TestGFX.lpi
     - run: Base/tests/TestMyServis-fpc
     - run: Base/tests/TestStructs
+    - run: Base/tests/TestGFX
 
     - name: Compile SimpleDemo
       run: lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
@@ -50,7 +53,7 @@ jobs:
       run: lazbuild -q -q demo/ShadowMap/ShadowMap.lpi
     - name: Compile SoundDemo
       run: lazbuild -q -q demo/SoundDemo/soundDemo.lpi
- 
+
 
   test-windows:
     # The type of runner that the job will run on
@@ -70,11 +73,14 @@ jobs:
     - run: pwd
     - name: Compile
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
-    - name: Compile TestStructs		
+    - name: Compile TestStructs
       run: lazbuild -q -q Base/tests/TestStructs.lpi
+    - name: Compile TestGFX
+      run: lazbuild -q -q Base/tests/TestGFX.lpi
     - run: dir Base/tests
     - run: Base/tests/TestMyServis-fpc
     - run: Base/tests/TestStructs
+    - run: Base/tests/TestGFX
 
     - name: Compile SimpleDemo
       run: lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
