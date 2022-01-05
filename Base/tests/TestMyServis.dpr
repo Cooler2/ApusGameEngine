@@ -1792,6 +1792,9 @@ procedure TestSSE;
   v1.Add(v2,2);
   r:=v1.DotProd(v2);
   ASSERT(r=99);
+  ASSERT(abs(v2.Length-sqrt(15))<0.00001);
+  v2.Normalize;
+  ASSERT(abs(v2.Length-1.0)<0.0001);
  end;
 
 begin
