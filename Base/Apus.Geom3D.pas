@@ -51,6 +51,8 @@ interface
    procedure Test(var q:TQuaternionS);
    procedure Add(var q:TQuaternionS); overload;
    procedure Add(var q:TQuaternionS;scale:single); overload;
+   procedure Middle(var q:TQuaternionS;scale:single);  // interpolate between current value and Q
+   procedure Sub(var q:TQuaternionS); overload;
    procedure Mul(scalar:single); overload;
    procedure Mul(var q:TQuaternionS); overload;
    function DotProd(var q:TQuaternionS):single;
@@ -1372,10 +1374,37 @@ procedure TQuaternionS.Normalize;
   {$IFDEF UNIX}
   movups xmm0,[rdi]
   {$ENDIF}
+  movaps xmm1,xmm0
   mulps xmm0,xmm0
   haddps xmm0,xmm0
   haddps xmm0,xmm0
-  sqrtss xmm0,xmm0
+  rsqrtss xmm0,xmm0   // length
+  shufps xmm0,xmm0,0
+  mulps xmm1,xmm0
+  {$IFDEF MSWINDOWS}
+  movups [rcx],xmm1
+  {$ENDIF}
+  {$IFDEF UNIX}
+  movups [rdi],xmm1
+  {$ENDIF}
+ {$ENDIF}
+ end;
+
+procedure TQuaternionS.Sub(var q:TQuaternionS);
+ asm
+ {$IFDEF CPUx64}
+  {$IFDEF UNIX}
+  // rdi=@self, rsi=q
+  movups xmm0,[rdi]
+  subps xmm0,[rsi]
+  movups [rdi],xmm0
+  {$ENDIF}
+  {$IFDEF MSWINDOWS}
+  // rcx=@self, rdx=q
+  movups xmm0,[rcx]
+  subps xmm0,[rdx]
+  movups [rcx],xmm0
+  {$ENDIF}
  {$ENDIF}
  end;
 
@@ -1418,6 +1447,34 @@ procedure TQuaternionS.Add(var q:TQuaternionS;scale:single);
   {$ENDIF}
  {$ENDIF}
  end;
+
+procedure TQuaternionS.Middle(var q:TQuaternionS;scale:single);
+ asm
+ {$IFDEF CPUx64}
+  {$IFDEF MSWINDOWS}
+  // rcx=@self, rdx=@q, XMM2=scale
+  movups xmm0,[rcx]
+  movups xmm1,[rdx]
+  shufps xmm2,xmm2,0
+  subps xmm1,xmm0 // xmm1=q-self
+  mulps xmm1,xmm2
+  addps xmm0,xmm1
+  movups [rcx],xmm0
+  {$ENDIF}
+  {$IFDEF UNIX}
+  // rdi=@self, rsi=@q, XMM0=scale
+  movups xmm1,[rdi]
+  movups xmm2,[rsi]
+  shufps xmm0,xmm0,0
+  subps xmm2,xmm1 // xmm2=q-self
+  mulps xmm2,xmm0
+  addps xmm1,xmm2
+  movups [rdi],xmm1
+  {$ENDIF}
+ {$ENDIF}
+ end;
+
+
 
 function TQuaternionS.DotProd(var q:TQuaternionS):single;
  asm
