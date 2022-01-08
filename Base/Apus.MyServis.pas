@@ -5075,7 +5075,7 @@ procedure DumpDir(path:string);
    if result<>'' then exit;
    {$ENDIF}
    ASSERT(startFrom>=0);
-   f:=FileOpen(fname,fmOpenRead);
+   f:=FileOpen(fname,fmOpenRead+fmShareDenyNone);
    if f=INVALID_HANDLE_VALUE then
     raise EError.Create('Can''t open file "%s": %s',[fName,GetSystemError]);
    try
@@ -5101,7 +5101,7 @@ procedure DumpDir(path:string);
   var
    f:THandle;
   begin
-   f:=FileOpen(fName,fmOpenRead);
+   f:=FileOpen(fName,fmOpenRead+fmShareDenyNone);
    if f=INVALID_HANDLE_VALUE then
     raise EError.Create('Can''t open file "%s": %s',[fName,GetSystemError]);
    try
