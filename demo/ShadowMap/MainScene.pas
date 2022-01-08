@@ -111,6 +111,8 @@ procedure TMainScene.onMouseWheel(delta: integer);
  end;
 
 procedure TMainScene.DrawScene(mainPass: boolean);
+ var
+  i:integer;
  begin
   gfx.target.UseDepthBuffer(dbPass);
   // 2D primitives are drawn on XY plane (z=0) so it's OK to draw floor like this :)
@@ -140,6 +142,11 @@ procedure TMainScene.DrawScene(mainPass: boolean);
   // Draw objects
   transform.SetObj(0,0,3, 2, 0,time/2,time); // Set object position, scale and rotation
   objHoney.Draw;
+  // Benchmark
+{  for i:=1 to 100 do begin
+   transform.SetObj((i mod 10)*5-25+i div 10,(i div 10)*5-25-i mod 10,10, 2, 0,time/2,time); // Set object position, scale and rotation
+   objHoney.Draw;
+  end;}
   //if mainPass then glFlush; // This is just a breakpoint for gDebugger. It does nothing meaningful.
 
  end;
