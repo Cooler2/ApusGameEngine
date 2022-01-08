@@ -1780,22 +1780,28 @@ procedure TestThreadStall;
   halt;
  end;
 
-procedure Test;
+procedure TestSSE;
  var
-  m:cardinal;
-  h:integer;
+  v1,v2,v3:TQuaternionS;
+  r:single;
  begin
-  m:=1;
-  h:=31;
-  m:=m or (1 shl 31); // This works in FPC but cause a range check error in Delphi
-  m:=m or (1 shl h); // This works in Delphi, but cause a range check error (RunError 201) in FPC
-  SetBit(m,31); // The same code works in FPC if inlined, doesn't work if not inlined
+  v1.Init(11,12,13,14);
+  v2.Init(-1,1,2,3);
+  v1.Add(v2);
+  v1.Add(v2,-1);
+  v1.Add(v2,2);
+  r:=v1.DotProd(v2);
+  ASSERT(r=99);
+  ASSERT(abs(v2.Length-sqrt(15))<0.00001);
+  v2.Normalize;
+  ASSERT(abs(v2.Length-1.0)<0.0001);
  end;
 
- begin
+begin
  SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
  try
+  TestSSE;
   TestFastHash;
   TestStringTypes;
   TestConversions;

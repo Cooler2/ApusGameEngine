@@ -40,10 +40,13 @@ type
                    ipfABGR,     // 32bpp
                    ipfXBGR,     // 32bpp
                    ipfMono8,    // 1-channel 8 bit image (grayscale or red)
+                   ipfMono8u,   // 1-channel 8 bit image - unsigned non-normalized integer
                    ipfDuo8,     // 2-channels 8 bit image (for example, red-green)
                    ipfMono16,   // 1-channel 16 bit image (grayscale or red) - unsigned normalized
                    ipfMono16s,  // 1-channel 16 bit image (grayscale or red) - signed normalized
                    ipfMono16i,  // 1-channel 16 bit image (grayscale or red) - signed non-normalized integer
+                   ipfMono32f,  // 1-channel 32 bit floating point image
+                   ipfDuo32f,   // 2-channel 32 bit floating point image
                    ipf32bpp);   // generic 32bpp: XRGB or ARGB
 
  // Форматы представления палитры
@@ -124,6 +127,7 @@ type
   procedure Clear(color:cardinal); virtual;
   function GetPixel(x,y:integer):cardinal; virtual;
   procedure SetPixel(x,y:integer;value:cardinal); virtual;
+  function GetPixelAddress(x,y:integer):pointer;
   function ScanLine(y:integer):pointer;
   procedure CopyPixelDataFrom(src:TRawImage); // copy from another image with pixel format conversion (if needed)
   procedure SetAsRenderTarget;
@@ -147,7 +151,7 @@ type
 
  const
   // Размер пикселя в битах
-  pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,16,16,16,16,32);
+  pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,8,16,16,16,16,32,64,32);
   palEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
 
  procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;count:integer;
@@ -161,7 +165,7 @@ type
  function PixFmt2Str(ipf:TImagePixelFormat):string;
 
 implementation
- uses Apus.CrossPlatform, Apus.MyServis;
+ uses SysUtils, Apus.CrossPlatform, Apus.MyServis;
 
 function PixFmt2Str(ipf:TImagePixelFormat):string;
  begin
@@ -185,7 +189,16 @@ function PixFmt2Str(ipf:TImagePixelFormat):string;
    ipf32bpp:result:='32bpp';
    ipfA4:result:='A4';
    ipfA8:result:='A8';
+   ipfMono8:result:='Mono8';
+   ipfMono8u:result:='Mono8u';
+   ipfMono16:result:='Mono16';
+   ipfMono16i:result:='Mono16i';
+   ipfMono16s:result:='Mono16s';
+   ipfMono32f:result:='Mono32f';
+   ipfDuo32f:result:='Duo32f';
    ipfL4A4:result:='L4A4';
+  else
+   result:='other('+IntToStr(ord(ipf))+')';
   end;
  end;
 
@@ -434,6 +447,16 @@ begin
  size:=pixelSize[PixelFormat] shr 3;
  inc(pb,y*pitch+x*size);
  move(pb^,result,size);
+end;
+
+function TRawImage.GetPixelAddress(x,y:integer):pointer;
+var
+ pb:PByte;
+begin
+ ASSERT((x>=0) and (y>=0) and (x<width) and (y<height));
+ pb:=data;
+ inc(pb,y*pitch+x*(pixelSize[PixelFormat] shr 3));
+ result:=pb;
 end;
 
 procedure TRawImage.SetAsRenderTarget;

@@ -513,10 +513,10 @@ interface
  // Some useful mathematic functions
  // -----------------------------------------------------------------
  // Вернуть "насыщенное" значение, т.е. привести b внутрь допустимого диапазона [min..max]
- function Clamp(b,min,max:integer):integer; overload;
- function Clamp(b,min,max:double):double; overload;
- function Sat(b,min,max:integer):integer; deprecated 'use Clamp';
- function SatD(b,min,max:double):double; deprecated 'use Clamp';
+ function Clamp(b,min,max:integer):integer; inline; overload;
+ function Clamp(b,min,max:double):double; inline; overload;
+ function Sat(b,min,max:integer):integer; inline; deprecated 'use Clamp';
+ function SatD(b,min,max:double):double; inline; deprecated 'use Clamp';
 
  // Fast consistent rounding, equivalent to SimpleRoundTo(x,0) i.e. 0.5->1, 1.5->2 etc. (NOT PRECISE!)
  function FRound(v:double):integer; inline;
@@ -524,6 +524,8 @@ interface
  function PRound(v:double):integer; inline; overload;
  // Single version of precise rounding
  function SRound(v:single):integer; inline; overload;
+
+ function FastInvSqrt(v:single):single;
 
  // Вычислить ломаную функцию, определенную на отрезке [0..256] имеющую пик (экстремум)
  // в точке arg и принимающую значения a, b и c (a и c - на концах отрезка, b - в экстремуме)
@@ -3310,6 +3312,17 @@ function BinToStr;
     else result:=trunc(v-0.5);
   end;
 
+ // Based on Quake-3 code
+ function FastInvSqrt(v:single):single;
+  var
+   vInt:UInt32 absolute result;
+  begin
+   result:=v;
+   vInt:=$5F3759DF-(vInt shr 1);
+   result:=result*(1.5-(v*0.5*result*result));     // 1st iteration
+   result:=result*(1.5-(v*0.5*result*result));   // 2nd iteration, this can be removed
+  end;
+
  // Return value of pike function
  function Pike(x,arg,a,b,c:integer):integer;
   begin
@@ -4684,7 +4697,7 @@ function BinToStr;
      if cacheBuf<>'' then IntFlushLog;
      try
       st:=st+#13#10;
-      AppendLogFile(st[1],length(text));
+      AppendLogFile(st[1],length(st));
      except
        on e:Exception do ErrorMessage('Failed to write to the log:'#13#10+e.Message+#13#10+text);
      end;

@@ -170,6 +170,11 @@ begin
    format:=GL_RED;
    subFormat:=GL_UNSIGNED_BYTE;
   end;
+  ipfMono8u:begin
+   internalFormat:=GL_R8UI;
+   format:=GL_RED_INTEGER;
+   subFormat:=GL_UNSIGNED_BYTE;
+  end;
   ipfMono16:begin
    internalFormat:=GL_R16;
    format:=GL_RED;
@@ -177,13 +182,23 @@ begin
   end;
   ipfMono16s:begin
    internalFormat:=GL_R16_SNORM;
-   format:=GL_RED;
+   format:=GL_RED_INTEGER;
    subFormat:=GL_SHORT;
   end;
   ipfMono16i:begin
    internalFormat:=GL_R16I;
-   format:=GL_RED;
+   format:=GL_RED_INTEGER;
    subFormat:=GL_SHORT;
+  end;
+  ipfMono32f:begin
+   internalFormat:=GL_R32F;
+   format:=GL_RED;
+   subFormat:=GL_FLOAT;
+  end;
+  ipfDuo32f:begin
+   internalFormat:=GL_RG32F;
+   format:=GL_RG;
+   subFormat:=GL_FLOAT;
   end;
   ipfDuo8:begin
    internalFormat:=GL_RG8;
@@ -505,6 +520,7 @@ begin
   dirty[dCount]:=rect;
   inc(dCount);
  end else begin
+  // Too many rects - invalidate all
   dCount:=1;
   dirty[0]:=Types.Rect(0,0,width-1,height-1);
  end;

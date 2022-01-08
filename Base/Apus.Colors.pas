@@ -12,7 +12,9 @@ const
 type
  // Packed ARGB color
  TARGBColor=packed record
-  b,g,r,a:byte;
+  case integer of
+  0:(b,g,r,a:byte);
+  1:(color:cardinal);
  end;
  PARGBColor=^TARGBColor;
 
@@ -32,8 +34,10 @@ type
  // value=0 -> c2, value=256 -> c1
  function ColorMix(c1,c2:cardinal;value:integer):cardinal; register; // Линейная интерполяция
  function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // Качественный квази-линейный бленд (гораздо медленнее!)
- function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single; inline;  // Билинейная интерполяция
- function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; // Билинейная интерполяция
+ function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single; overload; inline;  // Билинейная интерполяция
+ function BilinearMixF(values:PSingle;u,v:single):single; overload;  // Билинейная интерполяция
+ function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; overload; // Билинейная интерполяция
+ function BilinearMix(values:PCardinal;u,v:single):cardinal; overload; // Bilinear interpolation (SSE)
  function BilinearBlend(c0,c1,c2,c3:cardinal;v1,v2:single):cardinal; // Качественный квази-билинейный бленд (гораздо медленнее!)
  function Blend(background,foreground:cardinal):cardinal; // Качественный альфа-блендинг
 
@@ -44,9 +48,28 @@ type
  // Value - 0..500, 256 - neutral
  function Contrast(c:cardinal;value:integer):cardinal;
 
+ function SimpleColorDiff(c1,c2:cardinal):integer; // Simple color difference (fast)
+ function ColorDiff(c1,c2:cardinal):single;  // Relative visual color difference (0..1+)
+
 implementation
  uses Apus.MyServis;
  {$R-,Q-}
+ {$EXCESSPRECISION OFF}
+
+ type
+  TVector4=array[0..3] of single;
+  TSSEConst=record
+    ONE:TVector4;
+    MINUS_ONE:TVector4;
+  end;
+ const
+  ONE:single = 1.0;
+  MINUS_ONE:single = -1.0;
+  ONE_PACKED:TVector4=(1,1,1,1);
+  MINUS_ONE_PACKED:TVector4=(-1,-1,-1,-1);
+
+ var
+  SSE_CONST:^TSSEConst;
 
  function SwapColor(color:cardinal):cardinal; // swap red<->blue bytes
   begin
@@ -208,19 +231,6 @@ implementation
    c1:=c1 shr 8; c2:=c2 shr 8;
    result:=result+cardinal(((byte(c1)*value+byte(c2)*val2) and $FF00) shl 16); // alpha part
   end;
-{  var
-   val2:integer;
-   a,r,g,b:byte;
-   col1:TARGBColor absolute c1;
-   col2:TARGBColor absolute c2;
-  begin
-   val2:=256-value;
-   a:=(col1.a*value+col2.a*val2) shr 8;
-   r:=(col1.r*value+col2.r*val2) shr 8;
-   g:=(col1.g*value+col2.g*val2) shr 8;
-   b:=(col1.b*value+col2.b*val2) shr 8;
-   result:=a shl 24+r shl 16+g shl 8+b;
-  end; }
 
  function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // Качественный линейный бленд
   var
@@ -245,26 +255,49 @@ implementation
    result:=result or cardinal(((byte(c1)*value+byte(c2)*val2) shl 8) and $FF0000); // red part
    //c1:=c1 shr 8; c2:=c2 shr 8;
   end;
-{  var
-   val2,m:integer;
-   a,r,g,b:byte;
-   col1:TARGBColor absolute c1;
-   col2:TARGBColor absolute c2;
-  begin
-   val2:=256-value;
-   a:=(col1.a*value+col2.a*val2) shr 8;
-   m:=16842752 div (col1.a*value+col2.a*val2+1);
-   value:=m*(value*col1.a) shr 16;
-   val2:=m*(val2*col2.a) shr 16;
-   r:=(col1.r*value+col2.r*val2) shr 8;
-   g:=(col1.g*value+col2.g*val2) shr 8;
-   b:=(col1.b*value+col2.b*val2) shr 8;
-   result:=a shl 24+r shl 16+g shl 8+b;
-  end;}
 
  function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single; // Билинейная интерполяция
   begin
-   result:=v0*(1-u)*(1-v)+v1*u*(1-v)+v2*(1-u)*v+v3*u*v;
+   //result:=v0*(1-u)*(1-v)+v1*u*(1-v)+v2*(1-u)*v+v3*u*v;
+   result:=v0+u*(v1-v0)+v*(v2-v0)+u*v*(v0+v3-v1-v2); // faster when u/v aren'c constant
+  end;
+
+ function BilinearMixF(values:PSingle;u,v:single):single; overload;  // Билинейная интерполяция
+  asm
+  {$IFDEF CPUx64}
+   {$IFDEF MSWINDOWS}
+   // rcx=@values, xmm1=u,xmm2=v
+   movups xmm0,[rcx]
+   shufps xmm1,xmm1,0
+   shufps xmm2,xmm2,0
+   mulss xmm1,[rip+MINUS_ONE]
+   mulss xmm2,[rip+MINUS_ONE]
+   addss xmm1,[rip+ONE]
+   addss xmm2,[rip+ONE]
+   shufps xmm1,xmm1,$44 // (u, 1-u, u, 1-u)
+   shufps xmm2,xmm2,$50 // (v, v, 1-v, 1-v)
+   mulps xmm0,xmm1
+   mulps xmm0,xmm2
+   haddps xmm0,xmm0
+   haddps xmm0,xmm0
+   {$ENDIF}
+   {$IFDEF UNIX}
+   // rdi=@values, xmm0=u,xmm1=v
+   movups xmm2,[rdi]
+   shufps xmm0,xmm0,0
+   shufps xmm1,xmm1,0
+   mulss xmm0,[rip+MINUS_ONE]
+   mulss xmm1,[rip+MINUS_ONE]
+   addss xmm0,[rip+ONE]
+   addss xmm1,[rip+ONE]
+   shufps xmm0,xmm0,$44 // (u, 1-u, u, 1-u)
+   shufps xmm1,xmm1,$50 // (v, v, 1-v, 1-v)
+   mulps xmm0,xmm1
+   mulps xmm0,xmm2
+   haddps xmm0,xmm0
+   haddps xmm0,xmm0
+   {$ENDIF}
+  {$ENDIF}
   end;
 
  function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; // Билинейная интерполяция
@@ -283,6 +316,92 @@ implementation
    result:=result or cardinal(((byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) shl 8) and $FF0000); // red part
    c0:=c0 shr 8; c1:=c1 shr 8; c2:=c2 shr 8; c3:=c3 shr 8;
    result:=result or cardinal(((byte(c0)*v0+byte(c1)*v1+byte(c2)*v2+byte(c3)*v3) and $FF00) shl 16); // alpha part
+  end;
+
+  // Bilinear interpolation (SSE)
+  // 6x faster than reference version
+ function BilinearMix(values:PCardinal;u,v:single):cardinal; overload;
+  asm
+  {$IFDEF CPUx64}
+   {$IFDEF MSWINDOWS}
+   // rcx=values, xmm1=u, xmm2=v
+   mov rax,[rip+SSE_CONST]
+   pmovzxbd xmm0,[rcx+12]
+   cvtdq2ps xmm3,xmm0  // values[3]
+   shufps xmm1,xmm1,0
+   mulps xmm3,xmm1  // *u
+   shufps xmm2,xmm2,0
+   mulps xmm3,xmm2  // xmm3=values[3]*u*v
+   // next value
+   pmovzxbd xmm0,[rcx+8]
+   cvtdq2ps xmm0,xmm0  // values[2]
+   movaps xmm4,xmm1
+   mulps xmm4,[rax+16] // -u
+   addps xmm4,[rax] // xmm4=1-u
+   mulps xmm0,xmm2 // *v
+   mulps xmm0,xmm4 // xmm0=values[2]*(1-u)*v
+   addps xmm3,xmm0
+   // next value
+   pmovzxbd xmm0,[rcx+4]
+   cvtdq2ps xmm0,xmm0  // values[1]
+   movaps xmm5,xmm2
+   mulps xmm5,[rax+16] // -v
+   addps xmm5,[rax] // xmm5=1-v
+   mulps xmm0,xmm1 // *u
+   mulps xmm0,xmm5 // xmm0=values[1]*u*(1-v)
+   addps xmm3,xmm0
+   // final value
+   pmovzxbd xmm0,[rcx]
+   cvtdq2ps xmm0,xmm0  // values[0]
+   mulps xmm0,xmm4 // *(1-u)
+   mulps xmm0,xmm5 // xmm0=values[0]*(1-u)*(1-v)
+   addps xmm3,xmm0
+   // pack result color
+   cvtps2dq xmm0,xmm3
+   packusdw xmm0,xmm0
+   packuswb xmm0,xmm0
+   movd eax,xmm0
+   {$ENDIF}
+   {$IFDEF UNIX}
+   // rdi=values, xmm0=u, xmm1=v
+   mov rax,[rip+SSE_CONST]
+   pmovzxbd xmm2,[rdi+12]
+   cvtdq2ps xmm3,xmm2  // values[3]
+   shufps xmm0,xmm0,0
+   mulps xmm3,xmm0  // *u
+   shufps xmm1,xmm1,0
+   mulps xmm3,xmm1  // xmm3=values[3]*u*v
+   // next value
+   pmovzxbd xmm2,[rdi+8]
+   cvtdq2ps xmm2,xmm2  // values[2]
+   movaps xmm4,xmm0
+   mulps xmm4,[rax+16] // -u
+   addps xmm4,[rax] // xmm4=1-u
+   mulps xmm2,xmm1 // *v
+   mulps xmm2,xmm4 // xmm2=values[2]*(1-u)*v
+   addps xmm3,xmm2
+   // next value
+   pmovzxbd xmm2,[rdi+4]
+   cvtdq2ps xmm2,xmm2  // values[1]
+   movaps xmm5,xmm1
+   mulps xmm5,[rax+16] // -v
+   addps xmm5,[rax] // xmm5=1-v
+   mulps xmm2,xmm0 // *u
+   mulps xmm2,xmm5 // xmm2=values[1]*u*(1-v)
+   addps xmm3,xmm2
+   // final value
+   pmovzxbd xmm2,[rdi]
+   cvtdq2ps xmm2,xmm2  // values[0]
+   mulps xmm2,xmm4 // *(1-u)
+   mulps xmm2,xmm5 // xmm2=values[0]*(1-u)*(1-v)
+   addps xmm3,xmm2
+   // pack result color
+   cvtps2dq xmm2,xmm3
+   packusdw xmm2,xmm2
+   packuswb xmm2,xmm2
+   movd eax,xmm2
+   {$ENDIF}
+  {$ENDIF}
   end;
 
  function BilinearBlend(c0,c1,c2,c3:cardinal;v1,v2:single):cardinal; // Качественный билинейный бленд
@@ -343,4 +462,24 @@ implementation
   asm
   end;
 
+ function SimpleColorDiff(c1,c2:cardinal):integer; // Simple color difference (fast)
+  var
+   col1:TARGBColor absolute c1;
+   col2:TARGBColor absolute c2;
+  begin
+   result:=abs(col1.r-col2.r)+abs(col1.g-col2.g)+abs(col1.b-col2.b)+abs(col1.a-col2.a);
+  end;
+
+ function ColorDiff(c1,c2:cardinal):single; // relative color difference (0..1+)
+  var
+   col1:TARGBColor absolute c1;
+   col2:TARGBColor absolute c2;
+  begin
+   result:=0.002*sqr(col1.r-col2.r)+0.003*sqr(col1.g-col2.g)+0.001*sqr(col1.b-col2.b)+0.001*sqr(col1.a-col2.a);
+  end;
+
+initialization
+ new(SSE_CONST);
+ SSE_CONST.ONE:=ONE_PACKED;
+ SSE_CONST.MINUS_ONE:=MINUS_ONE_PACKED;
 end.

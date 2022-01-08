@@ -485,12 +485,38 @@ procedure TGLShadersAPI.TexMode(stage:byte; colorMode,
 function TGLShadersAPI.Load(filename,extra:String8):TShader;
  var
   vSrc,fSrc:String8;
+  lines:StringArray8;
   fname:string;
+  i,mode:integer;
  begin
-  fname:=ChangeFileExt(filename,'.vsh');
-  vSrc:=LoadFileAsString(fName);
-  fname:=ChangeFileExt(filename,'.fsh');
-  fSrc:=LoadFileAsString(fName);
+  fName:=fileName+'.glsl';
+  if not FileExists(fName) then
+   fName:=fileName+'.shader';
+  if not FileExists(fName) then begin
+   // load separate shader files
+   fname:=ChangeFileExt(filename,'.vsh');
+   vSrc:=LoadFileAsString(fName);
+   fname:=ChangeFileExt(filename,'.fsh');
+   fSrc:=LoadFileAsString(fName);
+  end else begin
+   // Load combined shader file
+   vSrc:=LoadFileAsString(fName);
+   lines:=SplitA(#13#10,vSrc);
+   vSrc:=''; mode:=0;
+   for i:=0 to high(lines) do begin
+    if pos('[VERTEX]',lines[i])>0 then begin
+     mode:=1; continue;
+    end;
+    if pos('[FRAGMENT]',lines[i])>0 then begin
+     mode:=2; continue;
+    end;
+    if pos('[COMMON]',lines[i])>0 then begin
+     mode:=0; continue;
+    end;
+    if mode in [0,1] then vSrc:=vSrc+lines[i]+#13#10;
+    if mode in [0,2] then fSrc:=fSrc+lines[i]+#13#10;
+   end;
+  end;
   result:=Build(vSrc,fSrc,extra);
   result.name:=filename;
  end;
