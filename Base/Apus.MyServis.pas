@@ -447,7 +447,7 @@ interface
 
  procedure ZeroMem(var data;size:integer); inline;
  function IsZeroMem(var data;size:integer):boolean;
- procedure FillDword(var data;size:integer;value:cardinal);
+ procedure FillDword(var data;count:integer;value:cardinal);
  // Check if pointer is between baseAddress and baseAddress+size-1
  function PointerInRange(const p:pointer;baseAddress:pointer;size:UIntPtr):boolean; inline;
 
@@ -2264,15 +2264,15 @@ procedure SimpleEncrypt2;
   end;
  {$ENDIF}
 
- procedure FillDword(var data;size:integer;value:cardinal);
+ procedure FillDword(var data;count:integer;value:cardinal);
   var
    pc:PCardinal;
   begin
    pc:=@data;
-   while size>0 do begin
+   while count>0 do begin
     pc^:=value;
     inc(pc);
-    dec(size);
+    dec(count);
    end;
   end;
 
