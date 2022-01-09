@@ -11,7 +11,7 @@ interface
 
 const
  // Image allocation flags (ai - AllocImage)
- aiMipMapping     =  1; // Allocate mip-map levels (may be auto-generated upon of implementation)
+ aiAutoMipmap     =  1; // Automatically generate mip-map levels (number of levels is implementation-dependent)
  aiTexture        =  2; // Allocate full texture object of the underlying API (no texture sharing, no dynamic atlas)
  aiRenderTarget   =  4; // Image can be used as Render Target for GPU (no CPU access)
  aiSysMem         =  8; // Image will have its buffer in system RAM, so can be accessed by CPU
@@ -38,7 +38,7 @@ const
  liffSysMem  = aiSysMem; // Image will be allocated in system memory only and can't be used for accelerated rendering!
  liffTexture = aiTexture; // Image will be allocated as a whole texture (wrap UV enabled, otherwise - disabled!)
  liffPow2    = aiPow2; // Image dimensions will be increased to the nearest pow2
- liffMipMaps = aiMipMapping; // Image will be loaded with mip-maps (auto-generated if no mips in the file)
+ liffMipMaps = aiAutoMipmap; // Image will be loaded with mip-maps (auto-generated if no mips in the file)
  liffAllowChange = $100;    // Ensure that image won't be read-only
  liffDefault = $FFFFFFFF;   // Use defaultLoadImageFlags for default flag values
 

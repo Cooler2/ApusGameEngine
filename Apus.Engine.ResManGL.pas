@@ -12,13 +12,16 @@ interface
 type
  // Текстура OpenGL
  TGLTexture=class(TTexture)
+ const
+  MAX_LEVEL = 5;  // maximal number of supported mip level [0..MAX_LEVEL]
+ var
   texname:cardinal;
   realWidth,realHeight:integer; // real dimensions of underlying texture object (can be larger than requested)
   filter:TTexFilter;
   procedure CloneFrom(src:TTexture); override;
   procedure SetAsRenderTarget; virtual;
   procedure Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); override; // 0-й уровень - самый верхний
-  procedure AddDirtyRect(rect:TRect); override;
+  procedure AddDirtyRect(rect:TRect;level:integer); override;
   function GetRawImage:TRawImage; override; // Создать RAW image и назначить его на верхний уровень текстуры (только когда текстура залочна!!!)
   procedure Unlock; override;
   destructor Destroy; override;
@@ -26,11 +29,11 @@ type
   procedure SetFilter(filter:TTexFilter); override;
  protected
   online:boolean; // true when image data is uploaded and ready to use (uv's are valid), false when local image data was modified and should be uploaded
-  realData:ByteArray; // sysmem instance of texture data
+  realData:array[0..MAX_LEVEL] of ByteArray; // sysmem instance of texture data
   fbo:cardinal; // framebuffer object (for a render target texture)
   rbo:cardinal; // renderbuffer object - for a render target texture with a depth buffer attached (but not for depth buffer textures)
-  dirty:array[0..15] of TRect;
-  dCount:integer;
+  dirty:array[0..MAX_LEVEL,0..15] of TRect;
+  dCount:array[0..MAX_LEVEL] of integer; // per each mip level
   procedure SetLabel; // submit name as label for OpenGL
   procedure UpdateFilter;
   procedure FreeData; virtual;
@@ -358,7 +361,7 @@ procedure TGLTextureArray.UploadData;
 var
  needInit:boolean;
  format,subformat,internalFormat,error:cardinal;
- i,bpp,z,depth:integer;
+ i,bpp,z,depth,level:integer;
 begin
   needInit:=false;
   if locked>0 then raise EWarning.Create('MO for a locked texture: '+name);
@@ -377,8 +380,10 @@ begin
   depth:=length(layers);
   if format=GL_COMPRESSED_TEXTURE_FORMATS then begin
    for z:=0 to depth-1 do
-    glCompressedTexImage3D(GL_TEXTURE_2D_ARRAY,0,internalFormat,realwidth,realheight,depth,0,
-      length(layers[z].realData),realData);
+    for level:=0 to MAX_LEVEL do
+     if length(realData[level])>0 then
+      glCompressedTexImage3D(GL_TEXTURE_2D_ARRAY,level,internalFormat,realwidth,realheight,depth,0,
+       length(layers[z].realData[level]),@realData[level,0]);
   end else begin
    {$IFNDEF GLES}
    if needInit then begin  // Specify texture size and pixel format
@@ -392,13 +397,14 @@ begin
     CheckForGLError('14');
     bpp:=pixelSize[pixelFormat] div 8;
     for z:=0 to depth-1 do
-     with layers[z] do begin
-      for i:=0 to dCount-1 do
-       with dirty[i] do
-        glTexSubImage3D(GL_TEXTURE_2D_ARRAY,0,Left,Top,z,right-left+1,bottom-top+1,1,
-           format,subFormat,@realData[(left+top*realWidth)*bpp]);
-      dCount:=0;
-     end;
+     with layers[z] do
+      for level:=0 to MAX_LEVEL do begin
+       for i:=0 to dCount[level]-1 do
+        with dirty[level,i] do
+         glTexSubImage3D(GL_TEXTURE_2D_ARRAY,level,Left,Top,z,right-left+1,bottom-top+1,1,
+            format,subFormat,@realData[level,(left+top*realWidth)*bpp]);
+       dCount[level]:=0;
+      end;
     CheckForGLError('15');
    {$ELSE}
    // GLES doesn't support UNPACK_ROW_LENGTH so it's not possible to upload just a portion of
@@ -426,7 +432,6 @@ begin
    CheckForGLError('17');
   end;
   online:=true;
-
 end;
 
 { TGLTexture }
@@ -444,8 +449,8 @@ end;
 function TGLTexture.Describe: string;
 begin
  if self is TGLTexture then
-  result:=Format('GLTexture(%8x):%s w=%d h=%d c=%x l=%d o=%d tn=%d fbo=%d dC=%d',
-    [cardinal(self),name,width,height,caps,byte(locked),byte(online),texname,fbo,dCount])
+  result:=Format('GLTexture(%8x):%s w=%d h=%d m=%d c=%x l=%d o=%d tn=%d fbo=%d dC=%d',
+    [cardinal(self),name,width,height,mipmaps,caps,byte(locked),byte(online),texname,fbo,dCount[0]])
  else
   result:='Not a GL Texture at: '+inttohex(cardinal(self),8);
 end;
@@ -489,40 +494,50 @@ var
  size:integer;
  lockRect:TRect;
 begin
+ ASSERT(mipLevel<=MAX_LEVEL);
  if HasFlag(tfNoRead) then
    raise EWarning.Create('Can''t lock texture '+name+' for reading');
  if HasFlag(tfNoWrite) and (mode<>lmReadOnly) then
    raise EWarning.Create('Can''t lock texture '+name+' for writing');
- if r=nil then lockRect:=Rect(0,0,(width-1) shr mipLevel,(height-1) shr mipLevel)
+ if r=nil then lockRect:=Rect(0,0,(width-1) shr mipLevel,(height-1) shr mipLevel) // full rect
   else lockRect:=r^;
  if (mode=lmCustomUpdate) and (r<>nil) then
-  raise EWarning.Create('GLI: partial lock with custom update');
+  raise EWarning.Create('GLTex: for custom update must lock full surface');
  EnterCriticalSection(cSect);
  try
-  ASSERT(length(realdata)>0);
-  if r=nil then data:=realData
-   else data:=@realData[lockRect.left*PixelSize[pixelFormat] shr 3+lockRect.Top*pitch];
+  mipmaps:=max2(mipmaps,mipLevel);
+  if length(realdata[mipLevel])=0 then begin // alloc another mip level
+   size:=max2(width shr mipLevel,1)*max2(height shr mipLevel,1); // number of texels
+   size:=size*pixelSize[pixelFormat] div 8;
+   SetLength(realdata[mipLevel],size);
+  end;
+  pitch:=max2(width shr mipLevel,1)*pixelSize[pixelFormat] shr 3;
+  if r=nil then data:=@realData[mipLevel,0]
+   else data:=@realData[mipLevel,lockRect.left*PixelSize[pixelFormat] shr 3+lockRect.Top*pitch];
   inc(locked);
 
   if mode=lmReadWrite then begin
    online:=false;
-   AddDirtyRect(lockRect);
+   AddDirtyRect(lockRect,mipLevel);
   end;
  finally
   LeaveCriticalSection(cSect);
  end;
 end;
 
-procedure TGLTexture.AddDirtyRect(rect: TRect);
+procedure TGLTexture.AddDirtyRect(rect:TRect;level:integer);
+var
+ n:integer;
 begin
  online:=false;
- if dCount<high(dirty) then begin
-  dirty[dCount]:=rect;
-  inc(dCount);
+ n:=dCount[level];
+ if n<high(dirty[level]) then begin
+  dirty[level,n]:=rect;
+  inc(dCount[level]);
  end else begin
   // Too many rects - invalidate all
-  dCount:=1;
-  dirty[0]:=Types.Rect(0,0,width-1,height-1);
+  dCount[level]:=1;
+  dirty[level,0]:=Types.Rect(0,0,width-1,height-1);
  end;
 end;
 
@@ -589,7 +604,8 @@ begin
   fltBilinear:begin
    if mipmaps>0 then begin
     fMin:=GL_LINEAR_MIPMAP_NEAREST;
-    fMax:=GL_LINEAR_MIPMAP_NEAREST;
+    //fMin:=GL_LINEAR;
+    fMax:=GL_LINEAR;
    end else begin
     fMin:=GL_LINEAR;
     fMax:=GL_LINEAR;
@@ -598,28 +614,41 @@ begin
   fltTrilinear:begin
    if mipmaps>0 then begin
     fMin:=GL_LINEAR_MIPMAP_LINEAR;
-    fMax:=GL_LINEAR_MIPMAP_LINEAR;
+    fMax:=GL_LINEAR;
    end else begin
     fMin:=GL_LINEAR;
     fMax:=GL_LINEAR;
    end;
   end;
  end;
- target:=GetTextureTarget;
- glGetIntegerv(GL_ACTIVE_TEXTURE,@aTex);
- if aTex<>GL_TEXTURE0+9 then glActiveTexture(GL_TEXTURE0+9);
- glBindTexture(target,texname);
- glTexParameteri(target,GL_TEXTURE_MIN_FILTER,fMin);
- glTexParameteri(target,GL_TEXTURE_MAG_FILTER,fMax);
- CheckForGLError('16');
- if aTex<>GL_TEXTURE0+9 then glActiveTexture(aTex);
+ if @glTextureParameteri<>nil then begin
+  // GL 4.5 mode
+  glTextureParameteri(texname,GL_TEXTURE_MIN_FILTER,fMin);
+  glTextureParameteri(texname,GL_TEXTURE_MAG_FILTER,fMax);
+ end else
+ if @glTextureParameteriEXT<>nil then begin
+  // EXT_direct_state_access mode
+  target:=GetTextureTarget;
+  glTextureParameteriEXT(texname,target,GL_TEXTURE_MIN_FILTER,fMin);
+  glTextureParameteriEXT(texname,target,GL_TEXTURE_MAG_FILTER,fMax);
+ end else begin
+  // 4.4- compatibility mode
+  target:=GetTextureTarget;
+  glGetIntegerv(GL_ACTIVE_TEXTURE,@aTex);
+  if aTex<>GL_TEXTURE0+9 then glActiveTexture(GL_TEXTURE0+9);
+  glBindTexture(target,texname);
+  glTexParameteri(target,GL_TEXTURE_MIN_FILTER,fMin);
+  glTexParameteri(target,GL_TEXTURE_MAG_FILTER,fMax);
+  CheckForGLError('16');
+  if aTex<>GL_TEXTURE0+9 then glActiveTexture(aTex);
+ end;
 end;
 
 procedure TGLTexture.UploadData;
 var
  needInit:boolean;
  format,subformat,internalFormat,error:cardinal;
- i,bpp:integer;
+ i,bpp,level:integer;
 begin
   needInit:=false;
   if locked>0 then raise EWarning.Create('MO for a locked texture: '+name);
@@ -632,30 +661,38 @@ begin
    needInit:=true;
   end;
 
-  // Upload texture data
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
-
-  if format=GL_COMPRESSED_TEXTURE_FORMATS then
-   glCompressedTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,length(realData),realData)
-  else begin
+  // Upload texture data
+  if format=GL_COMPRESSED_TEXTURE_FORMATS then begin
+   for level:=0 to MAX_LEVEL do
+    if length(realData[level])>0 then
+     glCompressedTexImage2D(GL_TEXTURE_2D,level,internalFormat,realwidth,realheight,0,
+       length(realData[level]),@realData[level,0]);
+  end else begin
    {$IFNDEF GLES}
    if needInit then begin  // Specify texture size and pixel format
-    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,nil);
+    for level:=0 to MAX_LEVEL do
+     if length(realData[level])>0 then
+      glTexImage2D(GL_TEXTURE_2D,level,internalFormat,
+        max2(realwidth shr level,1),max2(realheight shr level,1),0,format,subFormat,nil);
     CheckForGLError('13');
     UpdateFilter;
    end;
-   if dCount>0 then begin
-    // Upload texture data
-    glPixelStorei(GL_UNPACK_ROW_LENGTH,realWidth);
-    CheckForGLError('14');
-    bpp:=pixelSize[pixelFormat] div 8;
-    for i:=0 to dCount-1 do
-     with dirty[i] do
-      glTexSubImage2D(GL_TEXTURE_2D,0,Left,Top,right-left+1,bottom-top+1,
-         format,subFormat,@realData[(left+top*realWidth)*bpp]);
-    CheckForGLError('15');
-    dCount:=0;
-   end;
+   for level:=0 to MAX_LEVEL do
+    if dCount[level]>0 then begin
+     // Upload texture data
+     glPixelStorei(GL_UNPACK_ROW_LENGTH,realWidth shr level);
+     CheckForGLError('14');
+     bpp:=pixelSize[pixelFormat] div 8;
+     for i:=0 to dCount[level]-1 do
+      with dirty[level,i] do
+       glTexSubImage2D(GL_TEXTURE_2D,level,Left,Top,right-left+1,bottom-top+1,
+          format,subFormat,@realData[level,(left+top*realWidth)*bpp]);
+     CheckForGLError('15');
+     dCount[level]:=0;
+    end;
+   // Set level limit - otherwise texture sampler will produce black
+   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,mipmaps);
    {$ELSE}
    // GLES doesn't support UNPACK_ROW_LENGTH so it's not possible to upload just a portion of
    // the source texture data
@@ -838,13 +875,13 @@ begin
    tex.pitch:=tex.pitch div 4;
    datasize:=datasize div 16;
   end;
-  SetLength(tex.realData,datasize);
+  SetLength(tex.realData[0],datasize);
 
   SetFlag(tex.caps,tfDirectAccess); // Can be locked
   if HasFlag(flags,aiClampUV) then
    SetFlag(tex.caps,tfClamped);
   // Mip-maps -> enable automatic generation
-  if HasFlag(flags,aiMipMapping) then begin
+  if HasFlag(flags,aiAutoMipmap) then begin
    SetFlag(tex.caps,tfAutoMipMap);
    tex.mipmaps:=Log2i(max2(width,height));
   end;
@@ -908,15 +945,15 @@ begin
  for z:=0 to high(tex.layers) do begin
   tex.layers[z].width:=width;
   tex.layers[z].height:=height;
-  tex.layers[z].pitch:=tex.pitch;
-  SetLength(tex.layers[z].realData,datasize);
+  tex.layers[z].pixelFormat:=tex.pixelFormat;
+  SetLength(tex.layers[z].realData[0],datasize);
  end;
 
  SetFlag(tex.caps,tfDirectAccess); // Can be locked
  if HasFlag(flags,aiClampUV) then
   SetFlag(tex.caps,tfClamped);
   // Mip-maps
- if HasFlag(flags,aiMipMapping) then begin
+ if HasFlag(flags,aiAutoMipmap) then begin
   SetFlag(tex.caps,tfAutoMipMap);
   tex.mipmaps:=Log2i(max2(width,height));
  end;
@@ -998,6 +1035,7 @@ end;
 procedure TGLResourceManager.FreeImage(var image: TTexture);
 var
  tex:TGLTexture;
+ level:integer;
 begin
  if image=nil then exit;
  // Wrong thread?
@@ -1041,7 +1079,6 @@ begin
   tex.rbo:=0;
   if tex.texname<>0 then glDeleteTextures(1,@tex.texname);
   tex.texname:=0;
-  if Length(tex.realData)>0 then SetLength(tex.realData,0);
   tex.Free;
   image:=nil;
  end else
@@ -1067,19 +1104,9 @@ begin
 end;
 
 procedure TGLResourceManager.SetTexFilter(img:TTexture;filter:TTexFilter);
-var
-  flt:cardinal;
 begin
- case filter of
-  fltNearest:flt:=GL_NEAREST;
-  fltBilinear:flt:=GL_LINEAR;
-  fltTrilinear:flt:=GL_LINEAR_MIPMAP_LINEAR;
-  fltAnisotropic:flt:=GL_LINEAR_MIPMAP_LINEAR;
-  fltUndefined:flt:=GL_NEAREST;
- end;
- glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,flt);
- glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,flt);
- TGlTexture(img).filter:=filter;
+ TGLTexture(img).filter:=filter;
+ TGLTexture(img).UpdateFilter;
 end;
 
 procedure TGLResourceManager.MakeOnline(img: TTexture;stage:integer=0);

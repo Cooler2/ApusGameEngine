@@ -358,7 +358,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
     colorMode:=m and $0F;
     alphaMode:=m shr 4;
     if (colorMode>=3) or (alphaMode>=3) then
-     AddLine(result,'  t = texture2D(tex'+intToStr(i)+',vTexCoord);');
+     AddLine(result,'  t = texture(tex'+intToStr(i)+',vTexCoord);');
     case colorMode of
      3:AddLine(result,'   c = vec3(t.r, t.g, t.b);'); // replace
      4:AddLine(result,'   c = c*vec3(t.r, t.g, t.b);'); // modulate

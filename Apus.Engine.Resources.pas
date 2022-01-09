@@ -63,7 +63,7 @@ interface
    function GetRawImage:TRawImage; virtual; abstract; // Create RAW image for the topmost MIP level (when locked)
    function IsLocked:boolean;
    procedure Unlock; virtual; abstract;
-   procedure AddDirtyRect(rect:TRect); virtual; abstract; // mark area to update (when locked with mode=lmCustomUpdate)
+   procedure AddDirtyRect(rect:TRect;level:integer=0); virtual; abstract; // mark area to update (when locked with mode=lmCustomUpdate)
    procedure GenerateMipMaps(count:byte); virtual; abstract; // —генерировать изображени€ mip-map'ов
    function HasFlag(flag:cardinal):boolean;
    // Limit texture filtering to the specified mode (i.e. bilinear mode disables mip-mapping)

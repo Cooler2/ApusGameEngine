@@ -299,7 +299,7 @@ begin
  ;
  // этап 2 - создание текстуры
  tex:=AllocImage(imginfo.width,imginfo.height,format,
-   aiTexture+aiMipmapping+aiPow2,fname) as TTexture;
+   aiTexture+aiAutoMipmap+aiPow2,fname) as TTexture;
 
  // этап 3 - Загрузка данных в текстуру
  for i:=0 to tex.mipmaps-1 do begin
@@ -500,8 +500,8 @@ begin
   if flags and liffTexture>0 then aflags:=aflags or aiTexture
     else aFlags:=aFlags or aiClampUV;
   if flags and liffPow2>0 then aflags:=aflags or aiTexture or aiPow2;
-  if flags and liffMipMaps>0 then aflags:=aflags or aiTexture or aiPow2 or aiMipMapping;
-  if imgInfo.miplevels>1 then flags:=flags or aiMipMapping;
+  if flags and liffMipMaps>0 then aflags:=aflags or aiTexture or aiPow2 or aiAutoMipmap;
+  if imgInfo.miplevels>1 then flags:=flags or aiAutoMipmap;
   aFlags:=aFlags or (flags and $FF0000); // keep some flags
   texName:=MakeImageFilename(fName);
   tex:=AllocImage(ImgInfo.width,ImgInfo.height,ForceFormat,aFlags,texName) as TTexture;
