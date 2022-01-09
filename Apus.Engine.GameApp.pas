@@ -1,4 +1,4 @@
-﻿// Engine3 Game launcher class
+﻿// Game Framework launcher class
 // Copyright (C) 2017 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
@@ -17,7 +17,7 @@ interface
 
  var
    // Default global settings
-   gameTitle:string='Engine3 Game Template';
+   gameTitle:string='Apus Game Engine Template';
    configFileName:string8=''; // load this config file (can contain path, which is discarded after file is loaded)
 
    usedAPI:TGraphicsAPI=gaAuto;
