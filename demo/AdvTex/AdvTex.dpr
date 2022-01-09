@@ -38,20 +38,29 @@ procedure TMainScene.Initialize;
   x,y,z:integer;
  begin
   inherited;
-  mipTex:=gfx.resman.AllocImage(128,128,TImagePixelFormat.ipfARGB,0{aiMipMapping},'mipTex');
+  mipTex:=gfx.resman.AllocImage(128,128,TImagePixelFormat.ipfARGB,0,'mipTex');
+  //mipTex:=gfx.resman.AllocImage(128,128,TImagePixelFormat.ipfARGB,aiAutoMipMap,'mipTex');
+  // Fill base level
   DrawToTexture(mipTex,0);
   for y:=0 to 127 do
    for x:=0 to 127 do
     PutPixel(x,y,MyColor($C0*byte(y and 15<2),$A0*byte(x and 15<2),x*2));
   mipTex.Unlock;
+  // Fill second level
   DrawToTexture(mipTex,1);
   for y:=0 to 63 do
    for x:=0 to 63 do
     PutPixel(x,y,MyColor($C0*byte(y and 7<1),$A0*byte(x and 7<1),0));
   mipTex.Unlock;
+  // Fill third level
+  DrawToTexture(mipTex,2);
+  for y:=0 to 31 do
+   for x:=0 to 31 do
+    PutPixel(x,y,$FFC000C0);
+  mipTex.Unlock;
 
   // 4 layers texture array
-  arrTex:=resourceManagerGL.AllocArray(128,128,TImagePixelFormat.ipfARGB,4,aiMipMapping,'arrTex');
+  arrTex:=resourceManagerGL.AllocArray(128,128,TImagePixelFormat.ipfARGB,4,aiAutoMipMap,'arrTex');
   for z:=0 to 3 do begin
    arrTex.Lock(z);
    SetRenderTarget(arrTex.data,arrTex.pitch,128,128);
@@ -89,13 +98,13 @@ procedure TMainScene.Render;
   draw.Scaled(580,550,scale,mipTex);
   txt.WriteW(game.defaultFont,580,720,$FFFFFFFF,'Trilinear',taCenter);
 
-
   // Texture array
   shader.UseCustom(arrShader);
   draw.Image(800,20,arrTex);
   draw.Scaled(860,220,0.6,arrTex);
   draw.Scaled(860,300,0.3,arrTex);
   shader.Reset;
+  txt.WriteW(game.defaultFont,860,420,$FFFFFFFF,'Array',taCenter);
  end;
 
 begin

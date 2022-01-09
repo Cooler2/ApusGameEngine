@@ -342,7 +342,7 @@ begin
  tex3:=AllocImage(64,64,ipfARGB,aiTexture,'test3');
  tex4:=AllocImage(128,128,ipfARGB,aiTexture,'test4');
  texA:=AllocImage(100,100,ipfA8,aiTexture,'testA');
- texMip:=AllocImage(128,128,ipfARGB,aiTexture+aiMipMapping,'testMipMap');
+ texMip:=AllocImage(128,128,ipfARGB,aiTexture+aiAutoMipmap,'testMipMap');
  texDuo:=AllocImage(32,32,ipfDuo8,aiTexture,'testDuo');
 // tex1:=LoadImageFromFile('test1.tga') as TTexture;
  tex1.Lock;
