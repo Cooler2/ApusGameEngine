@@ -57,6 +57,15 @@ type
   procedure UseCustomized(colorCalc:String8);
   // Switch back to a built-in shader
   procedure Reset;
+  // Set uniform value
+  procedure SetUniform(name:String8;value:integer); overload;
+  procedure SetUniform(name:String8;value:single); overload;
+  procedure SetUniform(name:String8;const value:TVector2s); overload;
+  procedure SetUniform(name:String8;const value:TVector3s); overload;
+  procedure SetUniform(name:String8;const value:TVector4s); overload;
+  procedure SetUniform(name:String8;const value:T3DMatrix); overload;
+  procedure SetUniform(name:String8;const value:T3DMatrixS); overload;
+
   // Default shader settings
   // ----
   // Set texture stage mode (for default shader)
@@ -66,7 +75,8 @@ type
   procedure DefaultTexMode;
   // Upload texture to the Video RAM and make it active for the specified stage
   // (usually you don't need to call this manually unless you're using a custom shader)
-  procedure UseTexture(tex:TTexture;stage:integer=0);
+  procedure UseTexture(tex:TTexture;stage:integer=0); overload;
+  procedure UseTexture(tex:TTexture;uniformName:string8;stage:integer=0); overload; // use custom sampler name
 
   procedure AmbientLight(color:cardinal);
   // Set directional light (set power<=0 to disable)
@@ -140,7 +150,7 @@ const
 
 { TGLShader }
 
-procedure SetUniformInternal(shader:TGLShader; name:string8;mode:integer;const value); inline;
+procedure SetUniformInternal(shader:TGLShader; name:string8;mode:integer;const value); // inline;
  var
   loc:GLint;
  begin
@@ -152,7 +162,10 @@ procedure SetUniformInternal(shader:TGLShader; name:string8;mode:integer;const v
   end;}
   case mode of
    1:glUniform1i(loc,integer(value));
-   2:glUniform1f(loc,single(value));
+   2:if @glProgramUniform1f<>nil then
+      glProgramUniform1f(shader.handle,loc,single(value))
+     else
+      glUniform1f(loc,single(value));
    22:glUniform2fv(loc,1,@value);
    23:glUniform3fv(loc,1,@value);
    24:glUniform4fv(loc,1,@value);
@@ -603,6 +616,12 @@ procedure TGLShadersAPI.UseCustomized(colorCalc:String8);
   isCustom:=false;
  end;
 
+procedure TGLShadersAPI.UseTexture(tex:TTexture;uniformName:string8;stage:integer);
+ begin
+  UseTexture(tex,stage);
+  SetUniform(uniformName,stage);
+ end;
+
 procedure TGLShadersAPI.Reset;
  begin
   isCustom:=false;
@@ -612,6 +631,48 @@ procedure TGLShadersAPI.Reset;
   TexMode(0);
   TexMode(1,tblDisable,tblDisable);
   //Apply;
+ end;
+
+procedure TGLShadersAPI.SetUniform(name:String8; const value:TVector2s);
+ begin
+  ASSERT(activeShader<>nil);
+  activeShader.SetUniform(name,value);
+ end;
+
+procedure TGLShadersAPI.SetUniform(name:String8;value:single);
+ begin
+  ASSERT(activeShader<>nil);
+  activeShader.SetUniform(name,value);
+ end;
+
+procedure TGLShadersAPI.SetUniform(name:String8;value:integer);
+ begin
+  ASSERT(activeShader<>nil);
+  activeShader.SetUniform(name,value);
+ end;
+
+procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector3s);
+ begin
+  ASSERT(activeShader<>nil);
+  activeShader.SetUniform(name,value);
+ end;
+
+procedure TGLShadersAPI.SetUniform(name:String8;const value:T3DMatrixS);
+ begin
+  ASSERT(activeShader<>nil);
+  activeShader.SetUniform(name,value);
+ end;
+
+procedure TGLShadersAPI.SetUniform(name:String8;const value:T3DMatrix);
+ begin
+  ASSERT(activeShader<>nil);
+  activeShader.SetUniform(name,value);
+ end;
+
+procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector4s);
+ begin
+  ASSERT(activeShader<>nil);
+  activeShader.SetUniform(name,value);
  end;
 
 procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:single);

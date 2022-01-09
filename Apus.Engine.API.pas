@@ -439,6 +439,15 @@ type
   procedure UseCustomized(colorCalc:String8);
   // Switch back to the internal shader
   procedure Reset;
+  // Set uniform value for the current shader
+  procedure SetUniform(name:String8;value:integer); overload;
+  procedure SetUniform(name:String8;value:single); overload;
+  procedure SetUniform(name:String8;const value:TVector2s); overload;
+  procedure SetUniform(name:String8;const value:TVector3s); overload;
+  procedure SetUniform(name:String8;const value:TVector4s); overload;
+  procedure SetUniform(name:String8;const value:T3DMatrix); overload;
+  procedure SetUniform(name:String8;const value:T3DMatrixS); overload;
+
   // Built-in shader settings
   // ----
   // Set custom texturing mode
@@ -448,7 +457,8 @@ type
   procedure DefaultTexMode;
   // Upload texture to the Video RAM and make it active for the specified stage
   // (usually you don't need to call this manually unless you're using a custom shader)
-  procedure UseTexture(tex:TTexture;stage:integer=0);
+  procedure UseTexture(tex:TTexture;stage:integer=0); overload;
+  procedure UseTexture(tex:TTexture;uniformName:string8;stage:integer=0); overload; // use custom sampler name
 
   // Lighting and material
   // ----
