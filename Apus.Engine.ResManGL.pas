@@ -102,7 +102,7 @@ type
 // function LoadFromFile(filename:string;format:TImagePixelFormat=ipfNone):TDxManagedTexture;
 
 implementation
- uses Apus.CrossPlatform, Apus.EventMan, SysUtils, Apus.GfxFormats,
+ uses Apus.CrossPlatform, Apus.EventMan, SysUtils, Apus.Structs, Apus.GfxFormats,
    {$IFDEF MSWINDOWS}dglOpenGl{$ENDIF}
    {$IFDEF LINUX}dglOpenGL{$ENDIF}
    {$IFDEF IOS}gles11,glext{$ENDIF}
@@ -187,7 +187,7 @@ begin
   end;
   ipfMono16s:begin
    internalFormat:=GL_R16_SNORM;
-   format:=GL_RED_INTEGER;
+   format:=GL_RED;
    subFormat:=GL_SHORT;
   end;
   ipfMono16i:begin
@@ -1066,7 +1066,18 @@ begin
 end;
 
 destructor TGLResourceManager.Destroy;
+var
+ hash:PObjectHash;
+ list:TNamedObjects;
+ i:integer;
 begin
+ // Free all remaining textures
+ hash:=TGLTexture.ClassHash;
+ if hash<>nil then begin
+  list:=hash.ListObjects;
+  for i:=0 to high(list) do
+   FreeImage(TTexture(list[i]));
+ end;
  resourceManagerGL:=nil;
  inherited;
 end;
