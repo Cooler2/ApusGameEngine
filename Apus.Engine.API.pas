@@ -423,7 +423,7 @@ type
   function ViewMatrix:T3DMatrix;
   function ObjMatrix:T3DMatrix;
   // Transform point using combined MVP matrix
-  function Transform(source: TPoint3):TPoint3;
+  function Transform(source:TPoint3):TPoint3;
  end;
 
  // Shaders-related API

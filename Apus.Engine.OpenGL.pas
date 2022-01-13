@@ -211,6 +211,14 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   CheckForGLError(014);
  end;
 
+procedure TOpenGL.Done;
+ begin
+  //FreeAndNil(textDrawer);
+  //FreeAndNil(drawer);
+  // Тут нужно сперва уменьшить счётчик ссылок
+  //FreeAndNil(resourceManagerGL);
+ end;
+
 procedure TOpenGL.PostDebugMsg(st:string8;id:integer=0);
  begin
   if @glDebugMessageInsert<>nil then
@@ -324,11 +332,6 @@ procedure TOpenGL.CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
   image.Lock;
   glReadPixels(srcX,srcY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,image.data);
   image.Unlock;
- end;
-
-procedure TOpenGL.Done;
- begin
-
  end;
 
 function TOpenGL.ShouldUseTextureAsDefaultRT:boolean;
