@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <ProjectOptions>
-    <Version Value="12"/>
+    <Version Value="11"/>
     <PathDelim Value="\"/>
     <General>
       <Flags>
         <MainUnitHasCreateFormStatements Value="False"/>
         <MainUnitHasTitleStatement Value="False"/>
         <MainUnitHasScaledStatement Value="False"/>
-        <CompatibilityMode Value="True"/>
       </Flags>
       <SessionStorage Value="InProjectDir"/>
+      <MainUnit Value="0"/>
       <Title Value="My Application"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
@@ -221,6 +221,7 @@
       <Checks>
         <RangeChecks Value="True"/>
       </Checks>
+      <TargetOS Value="win64"/>
       <Optimizations>
         <OptimizationLevel Value="2"/>
       </Optimizations>
