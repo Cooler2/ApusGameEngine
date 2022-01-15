@@ -550,12 +550,13 @@ interface
  function GetBit(data:cardinal;index:integer):boolean; overload; inline;
  function GetBit(data:uint64;index:integer):boolean; overload; inline;
  procedure SetBit(var data:byte;index:integer); overload; inline;
+ procedure SetBit(var data:word;index:integer); overload; inline;
  procedure SetBit(var data:cardinal;index:integer); overload; inline;
  procedure SetBit(var data:uint64;index:integer); overload; inline;
  procedure ClearBit(var data:byte;index:integer); overload; inline;
+ procedure ClearBit(var data:word;index:integer); overload; inline;
  procedure ClearBit(var data:cardinal;index:integer); overload; inline;
  procedure ClearBit(var data:uint64;index:integer); overload; inline;
-
  // Bit field manipulation
  function GetBits(const data:cardinal;index,size:integer):cardinal;
  procedure SetBits(var data:byte;index,size,value:integer); overload;
@@ -3414,6 +3415,10 @@ function BinToStr;
   begin
    data:=data or (byte(1) shl index);
   end;
+ procedure SetBit(var data:word;index:integer); overload; inline;
+  begin
+   data:=data or (word(1) shl index);
+  end;
  procedure SetBit(var data:cardinal;index:integer); overload; inline;
   begin
    data:=data or (cardinal(1) shl index);
@@ -3426,6 +3431,10 @@ function BinToStr;
  procedure ClearBit(var data:byte;index:integer); overload; inline;
   begin
    data:=data and not (byte(1) shl index);
+  end;
+ procedure ClearBit(var data:word;index:integer); overload; inline;
+  begin
+   data:=data and not (word(1) shl index);
   end;
  procedure ClearBit(var data:cardinal;index:integer); overload; inline;
   begin

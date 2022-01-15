@@ -1797,10 +1797,71 @@ procedure TestSSE;
   ASSERT(abs(v2.Length-1.0)<0.0001);
  end;
 
+procedure TestBitFunc;
+ var
+  b:byte;
+  w:word;
+  d:cardinal;
+  q:uint64;
+  i:integer;
+ begin
+  for i:=0 to 7 do begin
+   b:=0;
+   SetBit(b,i);
+   ASSERT(b=1 shl i);
+   ASSERT(GetBit(b,i));
+   ClearBit(b,i);
+   ASSERT(b=0);
+   ASSERT(not GetBit(b,i));
+  end;
+  for i:=0 to 15 do begin
+   w:=0;
+   SetBit(w,i);
+   ASSERT(w=1 shl i);
+   ASSERT(GetBit(w,i));
+   ClearBit(w,i);
+   ASSERT(w=0);
+   ASSERT(not GetBit(w,i));
+  end;
+  for i:=0 to 31 do begin
+   d:=0;
+   SetBit(d,i);
+   ASSERT(d=1 shl i);
+   ASSERT(GetBit(d,i));
+   ClearBit(d,i);
+   ASSERT(d=0);
+   ASSERT(not GetBit(d,i));
+  end;
+  for i:=0 to 63 do begin
+   q:=0;
+   SetBit(q,i);
+   ASSERT(q=uint64(1) shl i);
+   ASSERT(GetBit(q,i));
+   ClearBit(q,i);
+   ASSERT(q=0);
+   ASSERT(not GetBit(q,i));
+  end;
+  // Bit fields
+  b:=$EE;
+  SetBits(b,3,4,11);
+  ASSERT(GetBits(b,3,4)=11);
+  w:=$EE;
+  SetBits(w,7,4,11);
+  ASSERT(GetBits(w,7,4)=11);
+  d:=$EE;
+  SetBits(d,22,4,11);
+  ASSERT(GetBits(d,22,4)=11);
+  q:=$EE;
+  SetBits(q,37,4,11);
+  ASSERT(GetBits(q,37,4)=11);
+  writeln('BitFunc test OK');
+ end;
+
 begin
  SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
  try
+  TestBitFunc;
   TestSSE;
   TestFastHash;
   TestStringTypes;
