@@ -33,7 +33,8 @@ type
 
  TRect2s = Apus.Geom2D.TRect2s;
 
- TVertexLayout=Apus.VertexLayout.TVertexLayout;
+ TVertexComponent = Apus.VertexLayout.TVertexComponent;
+ TVertexLayout = Apus.VertexLayout.TVertexLayout;
 
  // Packed ARGB color
  TARGBColor=Apus.Colors.TARGBColor;

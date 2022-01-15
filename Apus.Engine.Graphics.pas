@@ -334,7 +334,7 @@ procedure TTransformationAPI.SetView(view:T3DMatrix);
   modified:=true;
  end;
 
-function TTransformationAPI.Transform(source: TPoint3): TPoint3;
+function TTransformationAPI.Transform(source:TPoint3):TPoint3;
  var
   x,y,z,t:double;
  begin

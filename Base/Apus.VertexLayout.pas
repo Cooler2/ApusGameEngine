@@ -3,6 +3,14 @@ interface
 uses Apus.Geom2D,Apus.Geom3D;
 
 type
+ // Components for TVertexLayout.Init()
+ TVertexComponent=(
+   vcPosition2d,
+   vcPosition3d,
+   vcNormal,
+   vcColor,
+   vcUV1,
+   vcUV2);
  // Packed description of the vertex layout
  // [0:3] - position (vec3s) (if offset=15 then position is vec2s at offset=0)
  // [4:7] - normal (vec3s)
@@ -12,7 +20,8 @@ type
  TVertexLayout=record
   layout:cardinal;
   stride:integer;
-  procedure Init(position,normal,color,uv1,uv2:integer);
+  procedure Init(position,normal,color,uv1,uv2:integer); overload;
+  procedure Init(items:array of TVertexComponent); overload; // pass some TVertexComponent's
   function Equals(l:TVertexLayout):boolean; inline;
   // Field manipulation
   function GetPos(var vertex):TPoint3s;
@@ -26,7 +35,7 @@ type
 
 
 implementation
- uses Apus.Colors, SysUtils;
+ uses Apus.MyServis, Apus.Colors, SysUtils;
 
  function BuildVertexLayout(position,normal,color,uv1,uv2:integer):TVertexLayout;
   var
@@ -137,7 +146,29 @@ function TVertexLayout.GetUV(var vertex; idx:cardinal):TPoint2s;
    else result:=InvalidPoint2s;
  end;
 
-procedure TVertexLayout.Init(position, normal, color, uv1, uv2: integer);
+procedure TVertexLayout.Init(items:array of TVertexComponent);
+ var
+  i,ofs:integer;
+ begin
+  layout:=0;
+  ofs:=0;
+  for i:=0 to high(items) do begin
+   case items[i] of
+    vcPosition2d:begin
+     ASSERT(ofs=0,'Position2D must came first');
+     SetBits(layout,0,4,15); inc(ofs,2);
+    end;
+    vcPosition3d:begin SetBits(layout,0,4,ofs); inc(ofs,3); end;
+    vcNormal:    begin SetBits(layout,4,4,ofs); inc(ofs,3); end;
+    vcColor:     begin SetBits(layout,8,4,ofs); inc(ofs,1); end;
+    vcUV1:       begin SetBits(layout,12,4,ofs); inc(ofs,2); end;
+    vcUV2:       begin SetBits(layout,16,4,ofs); inc(ofs,2); end;
+   end;
+  end;
+  stride:=ofs*4;
+ end;
+
+procedure TVertexLayout.Init(position,normal,color,uv1,uv2:integer);
  begin
   self:=BuildVertexLayout(position,normal,color,uv1,uv2);
  end;
