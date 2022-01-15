@@ -3425,15 +3425,15 @@ function BinToStr;
 
  procedure ClearBit(var data:byte;index:integer); overload; inline;
   begin
-   data:=data and not (1 shl index);
+   data:=data and not (byte(1) shl index);
   end;
  procedure ClearBit(var data:cardinal;index:integer); overload; inline;
   begin
-   data:=data and not (1 shl index);
+   data:=data and not (cardinal(1) shl index);
   end;
  procedure ClearBit(var data:uint64;index:integer); overload; inline;
   begin
-   data:=data and not (1 shl index);
+   data:=data and not (uint64(1) shl index);
   end;
 
  const
