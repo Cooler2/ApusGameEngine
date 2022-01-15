@@ -1826,7 +1826,7 @@ procedure TestBitFunc;
   for i:=0 to 31 do begin
    d:=0;
    SetBit(d,i);
-   ASSERT(d=1 shl i);
+   ASSERT(d=cardinal(1) shl i);
    ASSERT(GetBit(d,i));
    ClearBit(d,i);
    ASSERT(d=0);
