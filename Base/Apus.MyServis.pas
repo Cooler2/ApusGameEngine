@@ -545,7 +545,7 @@ interface
  procedure ClearFlag(var v:uint64;flag:uint64); overload; inline;
  procedure ClearFlag(var v:cardinal;flag:cardinal); overload; inline;
  procedure ClearFlag(var v:byte;flag:byte); overload; inline;
-
+ // Bit manipulation
  procedure Toggle(var b:boolean); inline;
  function GetBit(data:cardinal;index:integer):boolean; overload; inline;
  function GetBit(data:uint64;index:integer):boolean; overload; inline;
@@ -555,6 +555,13 @@ interface
  procedure ClearBit(var data:byte;index:integer); overload; inline;
  procedure ClearBit(var data:cardinal;index:integer); overload; inline;
  procedure ClearBit(var data:uint64;index:integer); overload; inline;
+
+ // Bit field manipulation
+ function GetBits(const data:cardinal;index,size:integer):cardinal;
+ procedure SetBits(var data:byte;index,size,value:integer); overload;
+ procedure SetBits(var data:word;index,size,value:integer); overload;
+ procedure SetBits(var data:cardinal;index,size,value:integer); overload;
+ procedure SetBits(var data:UInt64;index,size,value:integer); overload;
 
  // Pack/unpack data
  function PackBytes(b0,b1:byte):word; overload; inline;
@@ -3429,6 +3436,52 @@ function BinToStr;
    data:=data and not (1 shl index);
   end;
 
+ const
+  FIELD_MASK:array[0..31] of cardinal=(0,1,3,7,15,31,63,127,255,
+    $1FF,$3FF,$7FF,$FFF,$1FFF,$3FFF,$7FFF,$FFFF,
+    $1FFFF,$3FFFF,$7FFFF,$FFFFF,$1FFFFF,$3FFFFF,$7FFFFF,$FFFFFF,
+    $1FFFFFF,$3FFFFFF,$7FFFFFF,$FFFFFFF,$1FFFFFFF,$3FFFFFFF,$7FFFFFFF);
+
+ function GetBits(const data:cardinal;index,size:integer):cardinal;
+  begin
+   {$IFDEF DEBUG}
+   ASSERT(size<32);
+   {$ENDIF}
+   result:=(data shr index) and FIELD_MASK[size];
+  end;
+ procedure SetBits(var data:byte;index,size,value:integer); overload;
+  begin
+   {$IFDEF DEBUG}
+   ASSERT(size<8);
+   ASSERT(value<=FIELD_MASK[size]); // check for overflow
+   {$ENDIF}
+   data:=data and not (FIELD_MASK[size] shl index)+cardinal(value) shl index;
+  end;
+ procedure SetBits(var data:word;index,size,value:integer); overload;
+  begin
+   {$IFDEF DEBUG}
+   ASSERT(size<16);
+   ASSERT(value<=FIELD_MASK[size]); // check for overflow
+   {$ENDIF}
+   data:=data and not (FIELD_MASK[size] shl index)+cardinal(value) shl index;
+  end;
+ procedure SetBits(var data:cardinal;index,size,value:integer); overload;
+  begin
+   {$IFDEF DEBUG}
+   ASSERT(size<32);
+   ASSERT(value<=FIELD_MASK[size]); // check for overflow
+   {$ENDIF}
+   data:=data and not (FIELD_MASK[size] shl index)+cardinal(value) shl index;
+  end;
+ procedure SetBits(var data:uint64;index,size,value:integer); overload;
+  begin
+   {$IFDEF DEBUG}
+   ASSERT(size<32);
+   ASSERT(value<=FIELD_MASK[size]); // check for overflow
+   {$ENDIF}
+   data:=data and not (FIELD_MASK[size] shl index)+cardinal(value) shl index;
+  end;
+
  function PackBytes(b0,b1:byte):word; overload; inline;
   begin
    result:=b0+word(b1) shl 8;
@@ -5409,7 +5462,7 @@ var
  n,i:integer;
  adrs:array[1..6] of cardinal;
 begin
- {$IFDEF WIN32}
+ {$IFDEF CPU386}
  asm
   pushad
   mov edx,ebp
@@ -6044,7 +6097,6 @@ function TNameValue.Named(st: string): boolean;
  end;
 
 { TBuffer }
-
 constructor TBuffer.Create(sour:pointer; sizeInBytes:integer);
  begin
   data:=sour;
