@@ -53,6 +53,7 @@ interface
    procedure Include(r:TRect2s); overload; inline;
    function IsEmpty:boolean; inline;
    function Center:TPoint2s; inline;
+   function GetIntRect:TRect;
   end;
 
   TSegment2=packed record
@@ -816,6 +817,11 @@ implementation
    result.x:=(x1+x2)/2;
    result.y:=(y1+y2)/2;
   end;
+
+function TRect2s.GetIntRect:TRect;
+ begin
+  result:=Rect(Floor(x1),Floor(y1),Floor(x2)+1,Floor(y2)+1);
+ end;
 
 function TRect2s.Height: single;
   begin
