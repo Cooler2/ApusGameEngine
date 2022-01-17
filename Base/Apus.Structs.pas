@@ -287,6 +287,24 @@ type
   free:integer; // first free element
  end;
 
+ TPriorityItem=record
+  priority:single;
+  data:integer;
+  ptr:pointer;
+ end;
+
+ // Priotity queue
+ TPriorityQueue=object
+  procedure Init(size:integer);
+  procedure Add(const item:TPriorityItem);
+  function Get(out item:TPriorityItem):boolean;
+  function Empty:boolean;
+ private
+  lock:integer;
+  count:integer;
+  data:array of TPriorityItem;
+ end;
+
  // Bit array
  TBitStream=record
   data:array of cardinal;
@@ -1814,6 +1832,69 @@ procedure TObjectHash.Resize;
   SetLength(values,mask+1); // cleared
   for i:=0 to high(list) do
    InternalPut(list[i]);
+ end;
+
+{ TPriorityQueue }
+
+procedure TPriorityQueue.Add(const item:TPriorityItem);
+ var
+  p:integer;
+ begin
+  SpinLock(lock);
+  try
+   ASSERT(count<high(data),'Queue overflow');
+   inc(count);
+   p:=count;
+   while (p>1) and (item.priority>data[p div 2].priority) do begin
+    data[p]:=data[p div 2];
+    p:=p div 2;
+   end;
+   data[p]:=item;
+  finally
+   lock:=0;
+  end;
+ end;
+
+function TPriorityQueue.Empty:boolean;
+ begin
+  result:=count=0;
+ end;
+
+function TPriorityQueue.Get(out item:TPriorityItem):boolean;
+ var
+  p,p1,p2:integer;
+ begin
+  SpinLock(lock);
+  try
+   if count=0 then exit(false);
+   item:=data[1];
+   dec(count);
+   p:=1;
+   repeat
+    p1:=p*2;
+    if p1>count then break;
+    p2:=p1+1;
+    if (p2<=count) and (data[p2].priority>data[p1].priority) then
+      p1:=p2;
+    if data[p1].priority>data[count+1].priority then begin
+     data[p]:=data[p1];
+     p:=p1;
+    end else break;
+   until false;
+   data[p]:=data[count+1];
+   data[count+1].priority:=0.0/0.0;
+   result:=true;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TPriorityQueue.Init(size:integer);
+ begin
+  lock:=0;
+  count:=0;
+  SetLength(data,size+1);
+  data[0].priority:=1.0e38;
  end;
 
 end.
