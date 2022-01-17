@@ -247,6 +247,7 @@ type
   hMask:integer;
   fFree:integer; // начало списка свободных элементов (если они вообще есть, иначе -1)
  end;
+ TSimpleHash8=TSimpleHashAS; // type alias
 
  // Open-address hash for quick access to named objects (case-insensitive)
  // Objects with empty name are legit, but won't be added and can't be found
@@ -304,6 +305,20 @@ type
  private
   lock:integer;
   data:array of TPriorityItem;
+ end;
+
+ // Simple list of objects (
+ TObjectList=object
+  count:integer;
+  procedure Clear;
+  procedure Add(obj:TObject);
+  procedure Remove(obj:TObject); // removes only the 1-st found reference
+  function Get:TObject; // get the last object
+ private
+  initialized:string;
+  lock:integer;
+  data:array of TObject;
+  procedure Init;
  end;
 
  // Bit array
@@ -1910,6 +1925,74 @@ function TPriorityQueue.WaitFor(out item:TPriorityItem;timeMS:integer):boolean;
    if Get(item) then exit(true);
   until MyTickCount>=time;
   result:=false;
+ end;
+
+{ TObjectList }
+
+procedure TObjectList.Add(obj:TObject);
+ begin
+  if initialized='' then Init;
+  SpinLock(lock);
+  try
+   if count>high(data) then
+    SetLength(data,count+count div 2);
+   data[count]:=obj;
+   inc(count);
+  finally
+   lock:=0;
+  end;
+ end;
+
+function TObjectList.Get:TObject;
+ begin
+  if initialized='' then Init;
+  SpinLock(lock);
+  try
+   if count>0 then begin
+    dec(count);
+    result:=data[count];
+   end else
+    result:=nil;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TObjectList.Remove(obj:TObject);
+ var
+  i:integer;
+ begin
+  if initialized='' then Init;
+  SpinLock(lock);
+  try
+   for i:=0 to count-1 do
+    if data[i]=obj then begin
+     dec(count);
+     data[i]:=data[count];
+     break;
+    end;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TObjectList.Clear;
+ begin
+  if initialized='' then Init;
+  SpinLock(lock);
+  try
+   count:=0;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TObjectList.Init;
+ begin
+  lock:=0;
+  count:=0;
+  SetLength(data,32);
+  initialized:=_INITIALIZED_;
  end;
 
 end.
