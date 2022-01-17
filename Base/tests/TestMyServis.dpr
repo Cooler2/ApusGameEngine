@@ -60,7 +60,8 @@ program TestMyServis;
   Apus.Translation in '..\Apus.Translation.pas',
   Apus.UnicodeFont in '..\Apus.UnicodeFont.pas',
   Apus.Classes in '..\Apus.Classes.pas',
-  Apus.Types in '..\Apus.Types.pas';
+  Apus.Types in '..\Apus.Types.pas',
+  Apus.ProdCons in '..\Apus.ProdCons.pas';
 
 var
  i:integer;

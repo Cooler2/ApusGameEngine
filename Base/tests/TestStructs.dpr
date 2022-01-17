@@ -176,15 +176,16 @@ procedure TestPriorityQueue;
      lastPrior:=item.priority;
      buf[item.data]:=0;
     end;
-    ASSERT(q.Empty);
+    ASSERT(q.IsEmpty);
+    ASSERT(q.Get(item)=false);
     ASSERT(IsZeroMem(buf,sizeof(buf)));
    end;
   end;
+  writeln('PriorityQueue - OK');
  end;
 
 begin
  TestPriorityQueue;
  TestObjHash;
  TestNamedObjects;
- readln;
 end.
