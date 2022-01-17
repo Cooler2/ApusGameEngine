@@ -295,13 +295,14 @@ type
 
  // Priotity queue
  TPriorityQueue=object
+  count:integer;
   procedure Init(size:integer);
-  procedure Add(const item:TPriorityItem);
+  function Add(const item:TPriorityItem):boolean; // returns true if added, false - queue is full
   function Get(out item:TPriorityItem):boolean;
-  function Empty:boolean;
+  function WaitFor(out item:TPriorityItem;timeMS:integer=100):boolean;
+  function IsEmpty:boolean; // just for name
  private
   lock:integer;
-  count:integer;
   data:array of TPriorityItem;
  end;
 
@@ -1836,13 +1837,14 @@ procedure TObjectHash.Resize;
 
 { TPriorityQueue }
 
-procedure TPriorityQueue.Add(const item:TPriorityItem);
+function TPriorityQueue.Add(const item:TPriorityItem):boolean;
  var
   p:integer;
  begin
   SpinLock(lock);
   try
-   ASSERT(count<high(data),'Queue overflow');
+   if count>=high(data) then exit(false);
+   result:=true;
    inc(count);
    p:=count;
    while (p>1) and (item.priority>data[p div 2].priority) do begin
@@ -1855,7 +1857,7 @@ procedure TPriorityQueue.Add(const item:TPriorityItem);
   end;
  end;
 
-function TPriorityQueue.Empty:boolean;
+function TPriorityQueue.IsEmpty:boolean;
  begin
   result:=count=0;
  end;
@@ -1895,6 +1897,19 @@ procedure TPriorityQueue.Init(size:integer);
   count:=0;
   SetLength(data,size+1);
   data[0].priority:=1.0e38;
+ end;
+
+function TPriorityQueue.WaitFor(out item:TPriorityItem;timeMS:integer):boolean;
+ var
+  time:int64;
+ begin
+  if Get(item) then exit(true);
+  time:=MyTickCount+timeMS;
+  repeat
+   sleep(1);
+   if Get(item) then exit(true);
+  until MyTickCount>=time;
+  result:=false;
  end;
 
 end.
