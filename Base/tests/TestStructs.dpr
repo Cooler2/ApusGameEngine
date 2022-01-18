@@ -154,7 +154,7 @@ procedure TestPriorityQueue;
   i,size,cnt:integer;
   q:TPriorityQueue;
   buf:array[1..100] of byte;
-  item:TPriorityItem;
+  item:TDataItem;
   lastPrior:single;
  begin
   for size:=1 to 100 do begin
@@ -163,7 +163,7 @@ procedure TestPriorityQueue;
     zeromem(buf,sizeof(buf));
     // put items
     for i:=1 to cnt do begin
-     item.priority:=random(100);
+     item.value:=random(100);
      item.data:=i;
      buf[i]:=1;
      q.Add(item);
@@ -172,8 +172,8 @@ procedure TestPriorityQueue;
     lastPrior:=100000;
     for i:=1 to cnt do begin
      ASSERT(q.Get(item));
-     ASSERT(item.priority<=lastPrior);
-     lastPrior:=item.priority;
+     ASSERT(item.value<=lastPrior);
+     lastPrior:=item.value;
      buf[item.data]:=0;
     end;
     ASSERT(q.IsEmpty);
