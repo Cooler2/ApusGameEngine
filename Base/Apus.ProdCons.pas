@@ -5,42 +5,53 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.ProdCons;
 interface
-uses Classes, Apus.Classes, Apus.Structs;
+uses Classes, SyncObjs, Apus.Classes, Apus.Structs;
+
+const
+ // Use this magic number to specify number of threads like (NUM_CPU_CORES-1) or (NUM_CPU_CORES div 2)
+ NUM_CPU_CORES = $1000;
 
 type
- TDataItem=record
-  data:integer;
-  value:single; // used as priority for priorited queue
-  ptr:pointer;
- end;
+ TDataItem = Apus.Structs.TDataItem; // type alias
 
  TProducerConsumer=class
   // bufferSize - max number of items to queue for processing
-  constructor Create(bufferSize:integer;numThreads:integer=0);
+  constructor Create(bufferSize:integer;numThreads:integer=NUM_CPU_CORES);
   destructor Destroy; override;
   // Add an item to process. Wait up to waitMS ms if there is no room for a new item right now.
   // Returns true if item was successfully added.
-  function Produce(const item:TDataItem;waitMS:integer):boolean; virtual;
-  function Consume(out item:TDataItem):boolean; virtual; abstract;
-  procedure Process(const item:TDataItem); virtual; abstract; // override this
+  function Produce(const item:TDataItem;waitMS:integer=0):boolean; virtual;
  protected
+  syncEvent:TEvent;
   threads:array of TThread;
-  function InternalProduce(const item:TDataItem):boolean; virtual; abstract;
+  function Consume(out item:TDataItem):boolean; virtual; abstract;
+  function InternalProduce(const item:TDataItem):boolean; virtual; abstract; // just queue an item
+  function ItemsToConsume:integer; virtual; abstract;
+  procedure Process(const item:TDataItem); virtual; abstract; // override this: process an item
  end;
 
+ // Use a FIFO queue (item.value can hold any data)
+ TProducerConsumerFIFO=class(TProducerConsumer)
+  constructor Create(bufferSize:integer;numThreads:integer=0);
+  function Consume(out item:TDataItem):boolean; override;
+ protected
+  queue:TQueue;
+  function InternalProduce(const item:TDataItem):boolean; override;
+  function ItemsToConsume:integer; override;
+ end;
+
+ // Use a priorited queue (item.value is priority)
  TProducerConsumerPriority=class(TProducerConsumer)
   constructor Create(bufferSize:integer;numThreads:integer=0);
   function Consume(out item:TDataItem):boolean; override;
  protected
   queue:TPriorityQueue;
   function InternalProduce(const item:TDataItem):boolean; override;
+  function ItemsToConsume:integer; override;
  end;
 
 implementation
  uses Apus.CrossPlatform, Apus.MyServis;
-
-const
- DEFAULT_NUM_THREADS = 4;
 
 var
  objList:TObjectList;
@@ -48,7 +59,7 @@ var
 type
  TConsumerThread=class(TThread)
   consumer:TProducerConsumer;
-  threadIdx,sleepTime:integer;
+  threadIdx:integer;
   constructor Create(consumer:TProducerConsumer;idx:integer);
   procedure Execute; override;
  end;
@@ -58,7 +69,13 @@ constructor TProducerConsumer.Create(bufferSize:integer;numThreads:integer);
  var
   i:integer;
  begin
-  if numThreads=0 then numThreads:=DEFAULT_NUM_THREADS;
+  syncEvent:=TEvent.Create(nil,false,false,ClassName+'_Event');
+  if numThreads>256 then begin
+   i:=numThreads-NUM_CPU_CORES;
+   if abs(i)<10 then numThreads:=CPUcount+i
+    else numThreads:=round(CPUcount*(numThreads/NUM_CPU_CORES));
+  end;
+  numThreads:=Clamp(numThreads,1,32); // max 32 threads allowed
   SetLength(threads,numThreads);
   for i:=0 to high(threads) do
    threads[i]:=TConsumerThread.Create(self,i);
@@ -74,14 +91,19 @@ destructor TProducerConsumer.Destroy;
    threads[i].Terminate;
   for i:=0 to high(threads) do
    threads[i].Free;
+  syncEvent.Free;
   inherited;
  end;
 
-function TProducerConsumer.Produce(const item:TDataItem;waitMS:integer):boolean;
+function TProducerConsumer.Produce(const item:TDataItem;waitMS:integer=0):boolean;
  var
   time:int64;
  begin
-  if InternalProduce(item) then exit(true);
+  if InternalProduce(item) then begin
+   if ItemsToConsume=1 then
+    syncEvent.SetEvent;
+   exit(true);
+  end;
   if waitMS<=0 then exit(false);
   time:=MyTickCount+waitMS;
   repeat
@@ -108,7 +130,6 @@ constructor TConsumerThread.Create(consumer:TProducerConsumer;idx:integer);
  begin
   self.consumer:=consumer;
   self.threadIdx:=idx;
-  sleepTime:=0;
   inherited Create(false);
  end;
 
@@ -118,11 +139,12 @@ procedure TConsumerThread.Execute;
  begin
   repeat
    if consumer.Consume(item) then begin
+    if consumer.ItemsToConsume>1 then
+      consumer.syncEvent.SetEvent; // awake more threads
     consumer.Process(item);
-    sleepTime:=0;
    end else begin
-    Sleep(sleepTime+threadIdx);
-    if sleepTime=0 then inc(sleepTime);
+    // No items available
+    consumer.syncEvent.WaitFor(10)
    end;
   until terminated;
  end;
@@ -135,25 +157,43 @@ constructor TProducerConsumerPriority.Create(bufferSize,numThreads:integer);
   inherited Create(bufferSize,numThreads);
  end;
 
-
+// Try to get an item from queue
 function TProducerConsumerPriority.Consume(out item:TDataItem):boolean;
- var
-  v:TPriorityItem;
  begin
-  result:=queue.Get(v);
-  item.data:=v.data;
-  item.value:=v.priority;
-  item.ptr:=v.ptr;
+  result:=queue.Get(item);
  end;
 
+// Put item into the priorited queue
 function TProducerConsumerPriority.InternalProduce(const item:TDataItem):boolean;
- var
-  v:TPriorityItem;
  begin
-  v.data:=item.data;
-  v.priority:=item.value;
-  v.ptr:=item.ptr;
-  result:=queue.Add(v);
+  result:=queue.Add(item);
+ end;
+
+function TProducerConsumerPriority.ItemsToConsume:integer;
+ begin
+  result:=queue.count;
+ end;
+
+{ TProducerConsumerFIFO }
+constructor TProducerConsumerFIFO.Create(bufferSize,numThreads:integer);
+ begin
+  queue.Init(bufferSize);
+  inherited Create(bufferSize,numThreads);
+ end;
+
+function TProducerConsumerFIFO.Consume(out item:TDataItem): boolean;
+ begin
+  result:=queue.Get(item);
+ end;
+
+function TProducerConsumerFIFO.InternalProduce(const item:TDataItem):boolean;
+ begin
+  result:=queue.Add(item);
+ end;
+
+function TProducerConsumerFIFO.ItemsToConsume: integer;
+ begin
+  result:=queue.Count;
  end;
 
 initialization
