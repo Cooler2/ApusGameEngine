@@ -10,7 +10,7 @@ type
  // CPU Features flags
  TCPU=record
   version:cardinal;
-  flags1,flags2:cardinal; // EDX and ECX flags
+  flags1,flags2,flags3:cardinal; // EDX, ECX and EBX flags
   MMX:boolean;
   SSE:boolean; // SSE instructions are available
   SSE2,SSE3,SSSE3,SSE4,SSE42:boolean;
@@ -21,9 +21,6 @@ type
  end;
 var
  cpu:TCPU;
- v:byte;
-
- //procedure SetSSERoundMode();
 
 implementation
  procedure CheckCPU;
@@ -72,6 +69,7 @@ implementation
    mov [cpu.version+rip],eax
    mov [cpu.flags1+rip],edx
    mov [cpu.flags2+rip],ecx
+   mov [cpu.flags3+rip],ebx
    {$IFDEF DELPHI} // Workaround for Delphi x64 code generation bug
    // MMX
    bt edx,23
