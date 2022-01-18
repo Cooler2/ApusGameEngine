@@ -13,7 +13,7 @@ unit Apus.Structs;
 {$ENDIF}
 
 interface
- uses Apus.MyServis, Classes;
+ uses Apus.Types, Apus.MyServis, Classes;
 type
  TErrorState=(
   esNoError       =  0,
@@ -307,17 +307,18 @@ type
   data:array of TPriorityItem;
  end;
 
- // Simple list of objects (
+ // Simple list of objects
  TObjectList=object
   count:integer;
   procedure Clear;
-  procedure Add(obj:TObject);
-  procedure Remove(obj:TObject); // removes only the 1-st found reference
+  function Add(obj:TObject;uniqueOnly:boolean=false):boolean;
+  function Remove(obj:TObject):boolean; // removes only the 1-st found reference, returns false if not found
   function Get:TObject; // get the last object
+  procedure FreeAll; // Free all objects and clear the list
  private
   initialized:string;
   lock:integer;
-  data:array of TObject;
+  data:TObjectArray;
   procedure Init;
  end;
 
@@ -1929,11 +1930,18 @@ function TPriorityQueue.WaitFor(out item:TPriorityItem;timeMS:integer):boolean;
 
 { TObjectList }
 
-procedure TObjectList.Add(obj:TObject);
+function TObjectList.Add(obj:TObject;uniqueOnly:boolean=false):boolean;
+ var
+  i:integer;
  begin
+  ASSERT(obj<>nil);
   if initialized='' then Init;
   SpinLock(lock);
   try
+   if uniqueOnly then
+    for i:=0 to count-1 do
+     if data[i]=obj then exit(false);
+   result:=true;
    if count>high(data) then
     SetLength(data,count+count div 2);
    data[count]:=obj;
@@ -1958,17 +1966,19 @@ function TObjectList.Get:TObject;
   end;
  end;
 
-procedure TObjectList.Remove(obj:TObject);
+function TObjectList.Remove(obj:TObject):boolean;
  var
   i:integer;
  begin
   if initialized='' then Init;
+  result:=false;
   SpinLock(lock);
   try
    for i:=0 to count-1 do
     if data[i]=obj then begin
      dec(count);
      data[i]:=data[count];
+     result:=true;
      break;
     end;
   finally
@@ -1982,9 +1992,28 @@ procedure TObjectList.Clear;
   SpinLock(lock);
   try
    count:=0;
+   SetLength(data,32);
   finally
    lock:=0;
   end;
+ end;
+
+procedure TObjectList.FreeAll;
+ var
+  list:TObjectArray;
+  obj:TObject;
+ begin
+  if initialized='' then exit;
+  SpinLock(lock);
+  try
+   list:=copy(data,0,count);
+   count:=0;
+   SetLength(data,32);
+  finally
+   lock:=0;
+  end;
+  for obj in list do
+   obj.Free;
  end;
 
 procedure TObjectList.Init;
