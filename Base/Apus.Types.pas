@@ -41,6 +41,7 @@ type
   ShortStr = string[31];
   PointerArray = array of pointer;
   VariantArray = array of variant;
+  TObjectArray = array of TObject;
 
   TProcedure = procedure;
 
