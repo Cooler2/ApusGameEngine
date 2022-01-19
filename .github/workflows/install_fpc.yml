@@ -27,7 +27,7 @@ jobs:
       # uses: gcarreno/setup-lazarus@815641b356c1e4e0e68795d237fb13e89484e25b
       uses: gcarreno/setup-lazarus@v3.0.2
       with:
-        lazarus-version: stable
+        lazarus-version: v2_2_0
     - run: pwd
     - name: Compile TestMyServis
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
