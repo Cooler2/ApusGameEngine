@@ -324,6 +324,21 @@ type
   free:integer; // first free element
  end;
 
+ // Generic queue
+ TGenQueue<T>=record
+  procedure Init(size:integer);
+  procedure Clear;
+  function Add(const item:T):boolean;
+  function Get(out item:T):boolean;
+  function Empty:boolean;
+  function Count:integer;
+ private
+  data:array of T;
+  lock:integer;
+  used:integer; // first used element (if not equal to last)
+  free:integer; // first free element
+ end;
+
  // Priotity queue
  TPriorityQueue=object
   count:integer;
@@ -1864,6 +1879,77 @@ procedure TQueue.Init(size:integer);
   used:=0; free:=0;
   lock:=0;
  end;
+
+ { TGenQueue }
+
+function TGenQueue<T>.Add(const item:T):boolean;
+ var
+  f:integer;
+ begin
+  ASSERT(length(data)>0);
+  SpinLock(lock);
+  try
+   f:=free;
+   inc(f);
+   if f>high(data) then f:=0;
+   if f=used then exit(false);
+   data[free]:=item;
+   free:=f;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TGenQueue<T>.Clear;
+ var
+  i:integer;
+ begin
+  SpinLock(lock);
+  used:=0; free:=0;
+  lock:=0;
+ end;
+
+function TGenQueue<T>.Count:integer;
+ begin
+  SpinLock(lock);
+  result:=free-used;
+  if result<0 then inc(result,length(data));
+  lock:=0;
+ end;
+
+function TGenQueue<T>.Empty:boolean;
+ begin
+  SpinLock(lock);
+  result:=used=free;
+  lock:=0;
+ end;
+
+function TGenQueue<T>.Get(out item:T):boolean;
+ begin
+  ASSERT(length(data)>0);
+  if length(data)=0 then exit;
+  SpinLock(lock);
+  try
+   if used<>free then begin
+    result:=true;
+    item:=data[used];
+    inc(used);
+    if used>high(data) then used:=0;
+   end else
+    result:=false;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TGenQueue<T>.Init(size:integer);
+ begin
+  ASSERT(data=nil);
+  SetLength(data,size);
+  used:=0; free:=0;
+  lock:=0;
+ end;
+
 
 { TObjectHash }
 procedure TObjectHash.Init(estimatedCount:integer);
