@@ -23,6 +23,9 @@ type
 
   String32 = UCS4String;
 
+  DWORD = cardinal;
+  QWORD = uint64;
+
   // String arrays
   StringArray8 = array of String8;
   StringArray16 = array of String16;
@@ -44,6 +47,18 @@ type
   TObjectArray = array of TObject;
 
   TProcedure = procedure;
+
+  // 128bit vector data
+  m128=record
+   case byte of
+   0:(x,y,z,t:single );
+   1:(b:array[0..15] of byte );
+   2:(w:array[0..7] of word );
+   3:(dw:array[0..3] of dword );
+   4:(qw:array[0..1] of qword );
+   5:(f:array[0..3] of single );
+   6:(d:array[0..1] of double );
+  end;
 
 implementation
 
