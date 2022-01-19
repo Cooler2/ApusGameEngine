@@ -22,7 +22,7 @@ type
   // Returns true if item was successfully added.
   function Produce(const item:TDataItem;waitMS:integer=0):boolean; virtual;
  protected
-  syncEvent:TEvent;
+  syncEvent:TEvent; // event is in signalled state when queue is not empty
   threads:array of TThread;
   function Consume(out item:TDataItem):boolean; virtual; abstract;
   function InternalProduce(const item:TDataItem):boolean; virtual; abstract; // just queue an item
@@ -33,9 +33,9 @@ type
  // Use a FIFO queue (item.value can hold any data)
  TProducerConsumerFIFO=class(TProducerConsumer)
   constructor Create(bufferSize:integer;numThreads:integer=0);
-  function Consume(out item:TDataItem):boolean; override;
  protected
   queue:TQueue;
+  function Consume(out item:TDataItem):boolean; override;
   function InternalProduce(const item:TDataItem):boolean; override;
   function ItemsToConsume:integer; override;
  end;
@@ -43,9 +43,9 @@ type
  // Use a priorited queue (item.value is priority)
  TProducerConsumerPriority=class(TProducerConsumer)
   constructor Create(bufferSize:integer;numThreads:integer=0);
-  function Consume(out item:TDataItem):boolean; override;
  protected
   queue:TPriorityQueue;
+  function Consume(out item:TDataItem):boolean; override;
   function InternalProduce(const item:TDataItem):boolean; override;
   function ItemsToConsume:integer; override;
  end;
@@ -98,13 +98,16 @@ destructor TProducerConsumer.Destroy;
 function TProducerConsumer.Produce(const item:TDataItem;waitMS:integer=0):boolean;
  var
   time:int64;
+  needEvent:boolean;
  begin
+  needEvent:=ItemsToConsume=0;
   if InternalProduce(item) then begin
-   if ItemsToConsume=1 then
+   if needEvent then
     syncEvent.SetEvent;
    exit(true);
   end;
   if waitMS<=0 then exit(false);
+  // queue is full - wait
   time:=MyTickCount+waitMS;
   repeat
     Sleep(0);
@@ -139,12 +142,10 @@ procedure TConsumerThread.Execute;
  begin
   repeat
    if consumer.Consume(item) then begin
-    if consumer.ItemsToConsume>1 then
-      consumer.syncEvent.SetEvent; // awake more threads
     consumer.Process(item);
    end else begin
     // No items available
-    consumer.syncEvent.WaitFor(10)
+    consumer.syncEvent.WaitFor(10);
    end;
   until terminated;
  end;
@@ -161,6 +162,7 @@ constructor TProducerConsumerPriority.Create(bufferSize,numThreads:integer);
 function TProducerConsumerPriority.Consume(out item:TDataItem):boolean;
  begin
   result:=queue.Get(item);
+  if not result then syncEvent.ResetEvent;
  end;
 
 // Put item into the priorited queue
@@ -184,6 +186,7 @@ constructor TProducerConsumerFIFO.Create(bufferSize,numThreads:integer);
 function TProducerConsumerFIFO.Consume(out item:TDataItem): boolean;
  begin
   result:=queue.Get(item);
+  if not result then syncEvent.ResetEvent;
  end;
 
 function TProducerConsumerFIFO.InternalProduce(const item:TDataItem):boolean;
