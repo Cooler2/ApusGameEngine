@@ -221,7 +221,6 @@
       <Checks>
         <RangeChecks Value="True"/>
       </Checks>
-      <TargetOS Value="win64"/>
       <Optimizations>
         <OptimizationLevel Value="2"/>
       </Optimizations>
