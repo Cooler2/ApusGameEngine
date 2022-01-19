@@ -25,9 +25,9 @@ jobs:
     - name: Setup Lazarus environment
       # You may pin to the exact commit or the version.
       # uses: gcarreno/setup-lazarus@815641b356c1e4e0e68795d237fb13e89484e25b
-      uses: gcarreno/setup-lazarus@v3.0.2
+      uses: gcarreno/setup-lazarus@v3.0.16
       with:
-        lazarus-version: v2_2_0
+        lazarus-version: stable
     - run: pwd
     - name: Compile TestMyServis
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
