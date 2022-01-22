@@ -136,7 +136,7 @@ function TBuffer.CurrentPos:integer;
 
 function TBuffer.BytesLeft:integer;
  begin
-  result:=(UIntPtr(readPos)+size-UIntPtr(data));
+  result:=(UIntPtr(data)+size-UIntPtr(readPos));
  end;
 
 procedure TBuffer.Read(var dest; numBytes:integer);
