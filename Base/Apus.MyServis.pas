@@ -72,39 +72,11 @@ interface
   TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8);
 
   // "name = value" string pair
-  TNameValue=record
-   name,value:string;
-   procedure Init(st:string;splitter:string='='); // split and trim
-   function Named(st:string):boolean;
-   function GetInt:integer;
-   function GetFloat:double;
-   function GetDate:TDateTime;
-   function Join(separator:string='='):string; // convert back to "name=value"
-  end;
+  TNameValue = Apus.Types.TNameValue;
 
   // Helper object represents in-memory binary buffer, doesn't own data
   // Useful to pass arbitrary data instead of pointer:size pair
-  TBuffer=record
-   data:PByte;
-   readPos:PByte;
-   size:integer;
-   constructor Create(sour:pointer;sizeInBytes:integer);
-   class function CreateFrom(sour:pointer;sizeInBytes:integer):TBuffer; overload; static;
-   class function CreateFrom(var sour;sizeInBytes:integer):TBuffer; overload; static;
-   class function CreateFrom(bytes:ByteArray):TBuffer; overload; static;
-   class function CreateFrom(st:String8):TBuffer; overload; static;
-   function Slice(length:integer):TBuffer; overload;
-   function Slice(from,length:integer):TBuffer; overload;
-   function ReadByte:byte;
-   function ReadWord:word;
-   function ReadInt:integer;
-   function ReadUInt:cardinal;
-   procedure Skip(numBytes:integer); // advance read pos by
-   procedure Seek(pos:integer);
-   procedure Read(var dest;numBytes:integer);
-   function BytesLeft:integer; inline;
-   function CurrentPos:integer; inline;
-  end;
+  TBuffer = Apus.Types.TBuffer;
 
   // Critical section wrapper: provides better debug info
   PCriticalSection=^TMyCriticalSection;
@@ -6000,146 +5972,6 @@ end;
 
 var
  v:Int64;
-
-{ TNameValue }
-
-function TNameValue.GetDate: TDateTime;
- begin
-  result:=ParseDate(value);
- end;
-
-function TNameValue.GetFloat: double;
- begin
-  result:=ParseFloat(value);
- end;
-
-function TNameValue.GetInt: integer;
- begin
-  result:=ParseInt(value);
- end;
-
-procedure TNameValue.Init(st, splitter: string);
- var
-  p:integer;
- begin
-  p:=pos(splitter,st);
-  if p=0 then begin
-   name:=st; value:='';
-  end else begin
-   name:=copy(st,1,p-1);
-   value:=copy(st,p+length(splitter),length(st));
-  end;
-  name:=name.Trim;
-  value:=value.Trim;
- end;
-
-function TNameValue.Join(separator: string): string;
- begin
-  result:=name+separator+value;
- end;
-
-function TNameValue.Named(st: string): boolean;
- begin
-  result:=SameText(name,st);
- end;
-
-{ TBuffer }
-
-constructor TBuffer.Create(sour:pointer; sizeInBytes:integer);
- begin
-  data:=sour;
-  size:=sizeInBytes;
-  readPos:=sour;
- end;
-
-class function TBuffer.CreateFrom(sour:pointer; sizeInBytes:integer):TBuffer;
- begin
-  result.Create(sour,sizeInBytes);
- end;
-
-class function TBuffer.CreateFrom(var sour; sizeInBytes:integer):TBuffer;
- begin
-  result.Create(@sour,sizeInBytes);
- end;
-
-class function TBuffer.CreateFrom(bytes: ByteArray):TBuffer;
- begin
-  result.Create(@bytes[0],length(bytes));
- end;
-
-class function TBuffer.CreateFrom(st: String8):TBuffer;
- begin
-  result.Create(@st[low(st)],length(st));
- end;
-
-function TBuffer.CurrentPos: integer;
- begin
-  result:=UIntPtr(readPos)-UIntPtr(data);
- end;
-
-function TBuffer.BytesLeft: integer;
- begin
-  result:=(UIntPtr(readPos)+size-UIntPtr(data));
- end;
-
-procedure TBuffer.Read(var dest; numBytes: integer);
- begin
-  ASSERT(BytesLeft>=numBytes);
-  move(readPos^,dest,numBytes);
-  inc(readPos,numBytes);
- end;
-
-function TBuffer.ReadByte: byte;
- begin
-  ASSERT(BytesLeft>0);
-  result:=readPos^;
-  inc(readPos);
- end;
-
-function TBuffer.ReadInt: integer;
- begin
-  ASSERT(BytesLeft>=4);
-  result:=PInteger(readPos)^;
-  inc(readPos,4);
- end;
-
-function TBuffer.ReadUInt: cardinal;
- begin
-  ASSERT(BytesLeft>=4);
-  result:=PCardinal(readPos)^;
-  inc(readPos,4);
- end;
-
-function TBuffer.ReadWord: word;
- begin
-  ASSERT(BytesLeft>=2);
-  result:=PWord(readPos)^;
-  inc(readPos,2);
- end;
-
-procedure TBuffer.Seek(pos: integer);
- begin
-  ASSERT((pos>=0) and (pos<size));
-  readPos:=PByte(UIntPtr(data)+pos);
- end;
-
-procedure TBuffer.Skip(numBytes: integer);
- begin
-  ASSERT(BytesLeft>=numBytes);
-  inc(readPos,numBytes);
- end;
-
-function TBuffer.Slice(from, length: integer): TBuffer;
- begin
-  ASSERT((from>=0) and (length>=0));
-  ASSERT(from+length<=size);
-  result.Create(pointer(UIntPtr(data)+from),length);
- end;
-
-function TBuffer.Slice(length: integer): TBuffer;
- begin
-  result:=Slice(CurrentPos,length);
- end;
 
 { TThreadInfo }
 
