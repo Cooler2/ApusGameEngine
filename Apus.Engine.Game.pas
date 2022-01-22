@@ -471,7 +471,7 @@ begin
 
   // Send to scenes
   wst:=WideChar(charcode);
-  ast:=wst; // convert to ANSI
+  ast:=AnsiString(wst); // convert to ANSI
   key:=byte(ast[1])+(scancode and $FF) shl 8+(charcode and $FFFF) shl 16;
   for i:=low(scenes) to high(scenes) do
     if scenes[i].status=ssActive then
@@ -600,12 +600,12 @@ begin
  end;
 end;
 
-function TGame.GetSettings: TGameSettings;
+function TGame.GetSettings:TGameSettings;
 begin
  result:=params;
 end;
 
-function TGame.GetStatus(n: integer): string;
+function TGame.GetStatus(n:integer):string;
 begin
 
 end;
@@ -677,7 +677,7 @@ begin
    draw.Rect(ox-1,oy-1,ox+zoom+1,oy+zoom+1,$80000000);
    draw.FillRect(ox-50,height-22,ox+50,height-5,$80000000);
    text:=Format('%2x %2x %2x',[(color shr 16) and $FF,(color shr 8) and $FF,color and $FF]);
-   txt.WriteW(txt.GetFont('Default',7.5),ox,height-10,$FFFFFFFF,text,taCenter);
+   txt.WriteW(txt.GetFont('Default',7.5),ox,height-10,$FFFFFFFF,Str16(text),taCenter);
   end;
 end;
 
@@ -1325,6 +1325,7 @@ begin
      btButtonDPadLeft:Navigate(btnDown,-1,0);
      btButtonDPadRight:Navigate(btnDown,1,0);
      btButtonA,btButtonB:Signal('MOUSE\BTNDOWN',1);
+    else
    end;
   end else
   if (EventOfClass(event,'GAMEPAD\BTNUP',evt)) then begin
@@ -1599,14 +1600,14 @@ var
     c:=$FFA0A0A0;
     if sList[i].status=ssActive then begin
      c:=$FFFFFFC0;
-     txt.WriteW(smallFont,50*screenScale,y,c,IntToStr(sList[i].zOrder),taRight);
+     txt.WriteW(smallFont,50*screenScale,y,c,Str16(IntToStr(sList[i].zOrder)),taRight);
     end else
     if sList[i].status=ssBackground then
      c:=$FFC0D0E0;
-    txt.WriteW(smallFont,60*screenScale,y,c,sList[i].name);
-    txt.WriteW(smallFont,200*screenScale,y,c,sList[i].ClassName);
+    txt.WriteW(smallFont,60*screenScale,y,c,Str16(sList[i].name));
+    txt.WriteW(smallFont,200*screenScale,y,c,Str16(sList[i].ClassName));
     if sList[i].effect<>nil then
-     txt.WriteW(smallFont,360*screenScale,y,c,sList[i].effect.ClassName);
+     txt.WriteW(smallFont,360*screenScale,y,c,Str16(sList[i].effect.ClassName));
    end;
    txt.EndBlock;
   end;
@@ -1748,7 +1749,7 @@ begin
  SetupRenderArea;
  // Draw all active scenes
  for i:=1 to n do try
-  StartMeasure(i+4);
+  StartMeasure(integer(i+4));
   // Draw shadow
   if sc[i].shadowColor<>0 then
    draw.FillRect(0,0,renderWidth,renderHeight,sc[i].shadowColor);
@@ -2079,7 +2080,7 @@ begin
   LeaveCriticalSection(RA_Sect);
  end;
  LogMessage('[RA] thread launched, pos='+inttostr(best)+', id='+inttostr(result)+
-   ', func='+inttohex(integer(threadFunc),8)+', time: '+inttostr(threads[best].TimeToKill),8);
+   ', func='+PtrToStr(threadFunc)+', time: '+inttostr(threads[best].TimeToKill),8);
 end;
 
 procedure TGame.FrameLoop;
@@ -2160,13 +2161,13 @@ procedure TGame.FrameLoop;
     for i:=1 to 16 do
      if threads[i]<>nil then with threads[i] do
       if threads[i].running and (timetokill<MyTickCount) then begin
-       ForceLogMessage(timestamp+' ALERT: thread terminated by timeout, '+inttohex(cardinal(@func),8)+
+       ForceLogMessage(timestamp+' ALERT: thread terminated by timeout, '+PtrToStr(@func)+
         ', curtime: '+inttostr(MyTickCount));
        {$IFNDEF IOS}
        TerminateThread(Handle,0);
        {$ENDIF}
        ReturnValue:=-1;
-       Signal('Engine\thread\done\'+inttohex(cardinal(@func),8),-1);
+       Signal('Engine\thread\done\'+PtrToStr(@func),-1);
        Signal('Error\Thread TimeOut',0);
        threads[i].running:=false;
      end;
@@ -2256,13 +2257,13 @@ procedure TMainThread.Execute;
 
 { TVarTypeGameClass }
 
-class function TVarTypeGameClass.GetField(variable: pointer; fieldName: string;
-  out varClass: TVarClass): pointer;
+class function TVarTypeGameClass.GetField(variable:pointer;fieldName:string;
+  out varClass:TVarClass):pointer;
  begin
 
  end;
 
-class function TVarTypeGameClass.ListFields: string;
+class function TVarTypeGameClass.ListFields:string;
  var
   i:integer;
   sa:StringArr;

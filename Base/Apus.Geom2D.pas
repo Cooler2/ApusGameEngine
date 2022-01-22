@@ -23,6 +23,7 @@ interface
    x,y:double;
    function IsValid:boolean; inline;
    procedure Init(x,y:double); inline;
+   function GetRound:TPoint;
   end;
   TVector2=TPoint2; // Alias for point type
   PPoint2=^TPoint2;
@@ -31,6 +32,7 @@ interface
    x,y:single;
    function IsValid:boolean; inline;
    procedure Init(x,y:single); inline;
+   function GetRound:TPoint;
   end;
   TVector2s=TPoint2s;
   PPoint2s=^TPoint2s;
@@ -88,6 +90,8 @@ interface
  function GetLength(v:TVector2s):double; overload; inline;
  function Distance(p1,p2:TPoint2):double; overload;
  function Distance(p1,p2:TPoint2s):single; overload;
+ function Distance2(p1,p2:TPoint2):double; overload;
+ function Distance2(p1,p2:TPoint2s):single; overload;
  function GetSqrLength(v:TVector2):double; inline;
  procedure Normalize(var v:TVector2); inline;
  function PointAdd(p:TPoint2;v:TVector2;factor:double=1.0):TPoint2; inline; overload;
@@ -223,6 +227,15 @@ implementation
  function Distance(p1,p2:TPoint2s):single; overload;
   begin
    result:=sqrt(sqr(p2.x-p1.x)+sqr(p2.y-p1.y));
+  end;
+
+ function Distance2(p1,p2:TPoint2):double; overload;
+  begin
+   result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y);
+  end;
+ function Distance2(p1,p2:TPoint2s):single; overload;
+  begin
+   result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y);
   end;
 
 
@@ -870,11 +883,23 @@ function TPoint2.IsValid: boolean;
   result:=x=x;
  end;
 
+function TPoint2.GetRound:TPoint;
+ begin
+  result.x:=round(x);
+  result.y:=round(y);
+ end;
+
 { TPoint2s }
 
 function TPoint2s.IsValid: boolean;
  begin
   result:=x=x;
+ end;
+
+function TPoint2s.GetRound:TPoint;
+ begin
+  result.x:=round(x);
+  result.y:=round(y);
  end;
 
 procedure TPoint2s.Init(x, y: single);

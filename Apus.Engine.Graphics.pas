@@ -52,8 +52,10 @@ type
   procedure Orthographic(scale,zMin,zMax:double); virtual;
   procedure SetProjection(proj:T3DMatrix); virtual;
   procedure SetView(view:T3DMatrix); virtual;
-  procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0); virtual;
+  procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0); overload; virtual;
+  procedure SetCamera(origin,target,up:TPoint3s;turnCW:single=0); overload; virtual;
   procedure SetObj(mat:T3DMatrix); overload; virtual;
+  procedure SetObj(mat:T3DMatrixS); overload; virtual;
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual;
   procedure ResetObj; virtual;
   function Update:boolean; // Сalculate combined matrix (if needed), returns true if matrix was changed
@@ -65,7 +67,8 @@ type
   function ITransformation.ProjMatrix = GetProjMatrix;
   function ITransformation.ViewMatrix = GetViewMatrix;
   function ITransformation.ObjMatrix = GetObjMatrix;
-  function Transform(source:TPoint3):TPoint3;
+  function Transform(source:TPoint3):TPoint3; overload;
+  function Transform(source:TPoint3s):TPoint3s; overload;
  type
   TMatrixType=(mtModelView,mtProjection);
  protected
@@ -282,6 +285,11 @@ procedure TTransformationAPI.SetCamera(origin, target, up: TPoint3;
   SetView(mat);
  end;
 
+procedure TTransformationAPI.SetCamera(origin,target,up:TPoint3s; turnCW:single);
+ begin
+  SetCamera(Point3(origin),Point3(target),Point3(up),turnCW);
+ end;
+
 procedure TTransformationAPI.SetObj(oX, oY, oZ, scale, yaw, roll,
   pitch: single);
  var
@@ -327,6 +335,13 @@ procedure TTransformationAPI.SetObj(mat:T3DMatrix);
   modified:=true;
  end;
 
+procedure TTransformationAPI.SetObj(mat:T3DMatrixS);
+ begin
+  objMatrix:=Matrix4(mat);
+  modified:=true;
+ end;
+
+
 procedure TTransformationAPI.SetView(view:T3DMatrix);
  begin
   // Original matrix is "Camera space->World space" but we need reverse transformation: "World->Camera"
@@ -349,6 +364,11 @@ function TTransformationAPI.Transform(source:TPoint3):TPoint3;
   result.x:=x;
   result.y:=y;
   result.z:=z;
+ end;
+
+function TTransformationAPI.Transform(source:TPoint3s):TPoint3s;
+ begin
+  result:=Point3s(Transform(Point3(source)));
  end;
 
 function TTransformationAPI.Update:boolean;

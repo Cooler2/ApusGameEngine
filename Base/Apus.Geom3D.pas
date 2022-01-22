@@ -119,6 +119,8 @@ interface
 
  function Point3(x,y,z:double):TPoint3; overload; inline;
  function Point3s(x,y,z:single):TPoint3s; overload; inline;
+ function Point3(p:TPoint3s):TPoint3; overload; inline;
+ function Point3s(p:TPoint3):TPoint3s; overload; inline;
  function Vector3(x,y,z:double):TVector3; overload; inline;
  function Vector3s(x,y,z:single):TVector3s; overload; inline;
  function Vector3(from,target:TPoint3):TVector3; overload; inline;
@@ -127,7 +129,8 @@ interface
  function Quaternion(x,y,z,w:double):TQuaternion; overload; inline;
  function Quaternion(x,y,z,w:single):TQuaternionS; overload; inline;
  // Matrix conversion
- function Matrix4(from:TMatrix43):TMatrix4;
+ function Matrix4(from:TMatrix43):TMatrix4; overload;
+ function Matrix4(from:TMatrix4s):TMatrix4; overload;
  function Matrix4s(from:TMatrix4):TMatrix4s;
  function Matrix3(from:TMatrix4):TMatrix3; overload;
  function Matrix3s(from:TMatrix3):TMatrix3s; overload;
@@ -153,7 +156,8 @@ interface
  procedure VectMult(var a:TVector3s;k:double); overload;
  function Vect3Mult(a:TVector3;k:double):TVector3; overload;
  function Vect3Mult(a:TVector3s;k:double):TVector3s; overload;
- function PointAdd(p:TPoint3;v:TVector3;factor:double=1.0):TPoint3; inline;
+ function PointAdd(p:TPoint3;v:TVector3;factor:double=1.0):TPoint3; overload; inline;
+ function PointAdd(p:TPoint3s;v:TVector3s;factor:single=1.0):TPoint3s; overload; inline;
  function Distance(p1,p2:TPoint3):double; overload;
  function Distance(p1,p2:TPoint3s):single; overload;
  function Distance2(p1,p2:TPoint3):double; overload;
@@ -282,6 +286,18 @@ implementation
    result.y:=y;
    result.z:=z;
   end;
+ function Point3(p:TPoint3s):TPoint3; overload; inline;
+  begin
+   result.x:=p.x;
+   result.y:=p.y;
+   result.z:=p.z;
+  end;
+ function Point3s(p:TPoint3):TPoint3s; overload; inline;
+  begin
+   result.x:=p.x;
+   result.y:=p.y;
+   result.z:=p.z;
+  end;
  function Vector3(x,y,z:double):TVector3;
   begin
    result.x:=x;
@@ -341,6 +357,18 @@ implementation
   end;
 
  function Matrix4s(from:TMatrix4):TMatrix4s;
+  var
+   i:integer;
+  begin
+   for i:=0 to 3 do begin
+    result[i,0]:=from[i,0];
+    result[i,1]:=from[i,1];
+    result[i,2]:=from[i,2];
+    result[i,3]:=from[i,3];
+   end;
+  end;
+
+ function Matrix4(from:TMatrix4s):TMatrix4;
   var
    i:integer;
   begin
@@ -486,6 +514,12 @@ implementation
   end;
 
  function PointAdd(p:TPoint3;v:TVector3;factor:double=1.0):TPoint3; inline;
+  begin
+   result.x:=p.x+v.x*factor;
+   result.y:=p.y+v.y*factor;
+   result.z:=p.z+v.z*factor;
+  end;
+ function PointAdd(p:TPoint3s;v:TVector3s;factor:single=1.0):TPoint3s; overload; inline;
   begin
    result.x:=p.x+v.x*factor;
    result.y:=p.y+v.y*factor;
