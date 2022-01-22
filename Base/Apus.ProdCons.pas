@@ -8,7 +8,8 @@ interface
 uses Classes, SyncObjs, Apus.Classes, Apus.Structs;
 
 const
- // Use this magic number to specify number of threads like (NUM_CPU_CORES-1) or (NUM_CPU_CORES div 2)
+ // You can use this magic number to specify number of threads like (NUM_CPU_CORES-1) or (NUM_CPU_CORES div 2)
+ // when you can't use CPUcount variable
  NUM_CPU_CORES = $1000;
 
 type
