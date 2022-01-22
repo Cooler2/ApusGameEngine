@@ -24,6 +24,7 @@ interface
    function IsValid:boolean; inline;
    procedure Init(x,y:double); inline;
    function GetRound:TPoint;
+   procedure Wrap(max:double); inline;
   end;
   TVector2=TPoint2; // Alias for point type
   PPoint2=^TPoint2;
@@ -33,6 +34,7 @@ interface
    function IsValid:boolean; inline;
    procedure Init(x,y:single); inline;
    function GetRound:TPoint;
+   procedure Wrap(max:single); inline;
   end;
   TVector2s=TPoint2s;
   PPoint2s=^TPoint2s;
@@ -883,6 +885,12 @@ function TPoint2.IsValid: boolean;
   result:=x=x;
  end;
 
+procedure TPoint2.Wrap(max:double);
+ begin
+  x:=Apus.MyServis.Wrap(x,max);
+  y:=Apus.MyServis.Wrap(y,max);
+ end;
+
 function TPoint2.GetRound:TPoint;
  begin
   result.x:=round(x);
@@ -907,5 +915,10 @@ procedure TPoint2s.Init(x, y: single);
   self.x:=x; self.y:=y;
  end;
 
+procedure TPoint2s.Wrap(max:single);
+ begin
+  x:=Apus.MyServis.Wrap(x,max);
+  y:=Apus.MyServis.Wrap(y,max);
+ end;
 
 end.

@@ -529,7 +529,12 @@ interface
  // Single version of precise rounding
  function SRound(v:single):integer; inline; overload;
 
+ // Q3-based, not really fast
  function FastInvSqrt(v:single):single;
+
+ // Wrap value around [0..max) range
+ function Wrap(value,max:single):single; overload; inline;
+ function Wrap(value,max:double):double; overload; inline;
 
  // Вычислить ломаную функцию, определенную на отрезке [0..256] имеющую пик (экстремум)
  // в точке arg и принимающую значения a, b и c (a и c - на концах отрезка, b - в экстремуме)
@@ -3333,6 +3338,22 @@ function BinToStr;
    vInt:=$5F3759DF-(vInt shr 1);
    result:=result*(1.5-(v*0.5*result*result));     // 1st iteration
    result:=result*(1.5-(v*0.5*result*result));   // 2nd iteration, this can be removed
+  end;
+
+ function Wrap(value,max:single):single;
+  begin
+   if (value<0) or (value>=max) then
+    result:=value-Floor(value/max)*max
+   else
+    result:=value;
+  end;
+
+ function Wrap(value,max:double):double;
+  begin
+   if (value<0) or (value>=max) then
+    result:=value-Floor(value/max)*max
+   else
+    result:=value;
   end;
 
  // Return value of pike function
