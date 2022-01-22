@@ -68,7 +68,8 @@ interface
    function HasFlag(flag:cardinal):boolean;
    // Limit texture filtering to the specified mode (i.e. bilinear mode disables mip-mapping)
    procedure SetFilter(filter:TTexFilter); virtual; abstract;
-   function Size:TSize;
+   function Size:TSize; // (width,height)
+   procedure Dump(filename:string8=''); virtual; abstract; // for debug purposes
   protected
    locked:integer; // lock counter
    class function ClassHash:pointer; override;

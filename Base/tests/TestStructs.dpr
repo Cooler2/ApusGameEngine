@@ -149,8 +149,43 @@ class function TChild.ClassHash: pointer;
   result:=@childHash;
  end;
 
+procedure TestPriorityQueue;
+ var
+  i,size,cnt:integer;
+  q:TPriorityQueue;
+  buf:array[1..100] of byte;
+  item:TDataItem;
+  lastPrior:single;
+ begin
+  for size:=1 to 100 do begin
+   for cnt:=1 to size do begin
+    q.Init(size);
+    zeromem(buf,sizeof(buf));
+    // put items
+    for i:=1 to cnt do begin
+     item.value:=random(100);
+     item.data:=i;
+     buf[i]:=1;
+     q.Add(item);
+    end;
+    // get items
+    lastPrior:=100000;
+    for i:=1 to cnt do begin
+     ASSERT(q.Get(item));
+     ASSERT(item.value<=lastPrior);
+     lastPrior:=item.value;
+     buf[item.data]:=0;
+    end;
+    ASSERT(q.IsEmpty);
+    ASSERT(q.Get(item)=false);
+    ASSERT(IsZeroMem(buf,sizeof(buf)));
+   end;
+  end;
+  writeln('PriorityQueue - OK');
+ end;
+
 begin
+ TestPriorityQueue;
  TestObjHash;
  TestNamedObjects;
- readln;
 end.

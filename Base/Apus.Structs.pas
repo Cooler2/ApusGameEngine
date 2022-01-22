@@ -13,7 +13,7 @@ unit Apus.Structs;
 {$ENDIF}
 
 interface
- uses Apus.MyServis, Classes;
+ uses Apus.Types, Apus.MyServis, Classes;
 type
  TErrorState=(
   esNoError       =  0,
@@ -247,6 +247,7 @@ type
   hMask:integer;
   fFree:integer; // начало списка свободных элементов (если они вообще есть, иначе -1)
  end;
+ TSimpleHash8=TSimpleHashAS; // type alias
 
  // Open-address hash for quick access to named objects (case-insensitive)
  // Objects with empty name are legit, but won't be added and can't be found
@@ -275,7 +276,7 @@ type
 
  // Queue of strings
  TStringQueue=object
-  procedure Init(size:integer);
+  procedure Init(size:integer); // can be called only once
   procedure Clear;
   procedure Add(st:String8);
   function Get:String8;
@@ -285,6 +286,70 @@ type
   data:array of String8;
   used:integer; // first used element (if not equal to last)
   free:integer; // first free element
+ end;
+
+ // Queue of objects
+ TObjectQueue=object
+  procedure Init(size:integer);
+  procedure Clear;
+  procedure Add(obj:TObject);
+  function Get:TObject;
+  function Empty:boolean;
+ private
+  lock:integer;
+  data:TObjectArray;
+  used:integer; // first used element (if not equal to last)
+  free:integer; // first free element
+ end;
+
+ // Data item for FIFO or priorited queues
+ TDataItem=record
+  data:integer;
+  value:single; // used as priority for priorited queue
+  ptr:pointer;
+ end;
+
+ // Generic data queue
+ TQueue=object
+  procedure Init(size:integer);
+  procedure Clear;
+  function Add(const item:TDataItem):boolean;
+  function Get(out item:TDataItem):boolean;
+  function Empty:boolean;
+  function Count:integer;
+ private
+  data:array of TDataItem;
+  lock:integer;
+  used:integer; // first used element (if not equal to last)
+  free:integer; // first free element
+ end;
+
+ // Priotity queue
+ TPriorityQueue=object
+  count:integer;
+  procedure Init(size:integer);
+  function Add(const item:TDataItem):boolean; // returns true if added, false - queue is full
+  function Get(out item:TDataItem):boolean;
+  function WaitFor(out item:TDataItem;timeMS:integer=100):boolean;
+  function IsEmpty:boolean; // just for name
+ private
+  lock:integer;
+  data:array of TDataItem;
+ end;
+
+ // Simple list of objects
+ TObjectList=object
+  count:integer;
+  procedure Clear;
+  function Add(obj:TObject;uniqueOnly:boolean=false):boolean;
+  function Remove(obj:TObject):boolean; // removes only the 1-st found reference, returns false if not found
+  function Get:TObject; // get the last object
+  procedure FreeAll; // Free all objects and clear the list
+ private
+  initialized:string;
+  lock:integer;
+  data:TObjectArray;
+  procedure Init;
  end;
 
  // Bit array
@@ -1549,7 +1614,7 @@ procedure THash.SortKeys;
    result:=(data[index shr 5] shr (index and 31)) and 1;
   end;
 
- procedure TBitStream.Allocate(count: Integer);
+ procedure TBitStream.Allocate(count:Integer);
   begin
    if size+count>capacity then begin
     capacity:=round((capacity+1024)*1.5);
@@ -1609,11 +1674,11 @@ procedure THash.SortKeys;
   end;
 
 { TStringQueue }
-
-procedure TStringQueue.Add(st: String8);
+procedure TStringQueue.Add(st:String8);
  var
   f:integer;
  begin
+  ASSERT(length(data)>0);
   SpinLock(lock);
   try
    f:=free;
@@ -1637,15 +1702,16 @@ procedure TStringQueue.Clear;
   lock:=0;
  end;
 
-function TStringQueue.Empty: boolean;
+function TStringQueue.Empty:boolean;
  begin
   SpinLock(lock);
   result:=used=free;
   lock:=0;
  end;
 
-function TStringQueue.Get: String8;
+function TStringQueue.Get:String8;
  begin
+  ASSERT(length(data)>0);
   if length(data)=0 then exit;
   SpinLock(lock);
   try
@@ -1659,7 +1725,139 @@ function TStringQueue.Get: String8;
   end;
  end;
 
-procedure TStringQueue.Init(size: integer);
+procedure TStringQueue.Init(size:integer);
+ begin
+  ASSERT(data=nil);
+  SetLength(data,size);
+  used:=0; free:=0;
+  lock:=0;
+ end;
+
+{ TObjectQueue }
+
+procedure TObjectQueue.Add(obj:TObject);
+ var
+  f:integer;
+ begin
+  ASSERT(length(data)>0);
+  SpinLock(lock);
+  try
+   f:=free;
+   inc(f);
+   if f>high(data) then f:=0;
+   if f=used then raise EWarning.Create('ObjectQueue overflow');
+   data[free]:=obj;
+   free:=f;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TObjectQueue.Clear;
+ var
+  i:integer;
+ begin
+  SpinLock(lock);
+  for i:=0 to high(data) do data[i]:=nil;
+  used:=0; free:=0;
+  lock:=0;
+ end;
+
+function TObjectQueue.Empty: boolean;
+ begin
+  SpinLock(lock);
+  result:=used=free;
+  lock:=0;
+ end;
+
+function TObjectQueue.Get:TObject;
+ begin
+  ASSERT(length(data)>0);
+  if length(data)=0 then exit;
+  SpinLock(lock);
+  try
+   if used<>free then begin
+    result:=data[used];
+    inc(used);
+    if used>high(data) then used:=0;
+   end else
+    result:=nil;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TObjectQueue.Init(size: integer);
+ begin
+  ASSERT(data=nil);
+  SetLength(data,size);
+  used:=0; free:=0;
+  lock:=0;
+ end;
+
+{ TQueue }
+
+function TQueue.Add(const item:TDataItem):boolean;
+ var
+  f:integer;
+ begin
+  ASSERT(length(data)>0);
+  SpinLock(lock);
+  try
+   f:=free;
+   inc(f);
+   if f>high(data) then f:=0;
+   if f=used then exit(false);
+   data[free]:=item;
+   free:=f;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TQueue.Clear;
+ var
+  i:integer;
+ begin
+  SpinLock(lock);
+  used:=0; free:=0;
+  lock:=0;
+ end;
+
+function TQueue.Count:integer;
+ begin
+  SpinLock(lock);
+  result:=free-used;
+  if result<0 then inc(result,length(data));
+  lock:=0;
+ end;
+
+function TQueue.Empty:boolean;
+ begin
+  SpinLock(lock);
+  result:=used=free;
+  lock:=0;
+ end;
+
+function TQueue.Get(out item:TDataItem):boolean;
+ begin
+  ASSERT(length(data)>0);
+  if length(data)=0 then exit;
+  SpinLock(lock);
+  try
+   if used<>free then begin
+    result:=true;
+    item:=data[used];
+    inc(used);
+    if used>high(data) then used:=0;
+   end else
+    result:=false;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TQueue.Init(size:integer);
  begin
   ASSERT(data=nil);
   SetLength(data,size);
@@ -1814,6 +2012,179 @@ procedure TObjectHash.Resize;
   SetLength(values,mask+1); // cleared
   for i:=0 to high(list) do
    InternalPut(list[i]);
+ end;
+
+{ TPriorityQueue }
+
+function TPriorityQueue.Add(const item:TDataItem):boolean;
+ var
+  p:integer;
+ begin
+  SpinLock(lock);
+  try
+   if count>=high(data) then exit(false);
+   result:=true;
+   inc(count);
+   p:=count;
+   while (p>1) and (item.value>data[p div 2].value) do begin
+    data[p]:=data[p div 2];
+    p:=p div 2;
+   end;
+   data[p]:=item;
+  finally
+   lock:=0;
+  end;
+ end;
+
+function TPriorityQueue.IsEmpty:boolean;
+ begin
+  result:=count=0;
+ end;
+
+function TPriorityQueue.Get(out item:TDataItem):boolean;
+ var
+  p,p1,p2:integer;
+ begin
+  SpinLock(lock);
+  try
+   if count=0 then exit(false);
+   item:=data[1];
+   dec(count);
+   p:=1;
+   repeat
+    p1:=p*2;
+    if p1>count then break;
+    p2:=p1+1;
+    if (p2<=count) and (data[p2].value>data[p1].value) then
+      p1:=p2;
+    if data[p1].value>data[count+1].value then begin
+     data[p]:=data[p1];
+     p:=p1;
+    end else break;
+   until false;
+   data[p]:=data[count+1];
+   data[count+1].value:=0.0/0.0;
+   result:=true;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TPriorityQueue.Init(size:integer);
+ begin
+  lock:=0;
+  count:=0;
+  SetLength(data,size+1);
+  data[0].value:=1.0e38;
+ end;
+
+function TPriorityQueue.WaitFor(out item:TDataItem;timeMS:integer):boolean;
+ var
+  time:int64;
+ begin
+  if Get(item) then exit(true);
+  time:=MyTickCount+timeMS;
+  repeat
+   sleep(1);
+   if Get(item) then exit(true);
+  until MyTickCount>=time;
+  result:=false;
+ end;
+
+{ TObjectList }
+
+function TObjectList.Add(obj:TObject;uniqueOnly:boolean=false):boolean;
+ var
+  i:integer;
+ begin
+  ASSERT(obj<>nil);
+  if initialized='' then Init;
+  SpinLock(lock);
+  try
+   if uniqueOnly then
+    for i:=0 to count-1 do
+     if data[i]=obj then exit(false);
+   result:=true;
+   if count>high(data) then
+    SetLength(data,count+count div 2);
+   data[count]:=obj;
+   inc(count);
+  finally
+   lock:=0;
+  end;
+ end;
+
+function TObjectList.Get:TObject;
+ begin
+  if initialized='' then Init;
+  SpinLock(lock);
+  try
+   if count>0 then begin
+    dec(count);
+    result:=data[count];
+   end else
+    result:=nil;
+  finally
+   lock:=0;
+  end;
+ end;
+
+function TObjectList.Remove(obj:TObject):boolean;
+ var
+  i:integer;
+ begin
+  if initialized='' then Init;
+  result:=false;
+  SpinLock(lock);
+  try
+   for i:=0 to count-1 do
+    if data[i]=obj then begin
+     dec(count);
+     data[i]:=data[count];
+     result:=true;
+     break;
+    end;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TObjectList.Clear;
+ begin
+  if initialized='' then Init;
+  SpinLock(lock);
+  try
+   count:=0;
+   SetLength(data,32);
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TObjectList.FreeAll;
+ var
+  list:TObjectArray;
+  obj:TObject;
+ begin
+  if initialized='' then exit;
+  SpinLock(lock);
+  try
+   list:=copy(data,0,count);
+   count:=0;
+   SetLength(data,32);
+  finally
+   lock:=0;
+  end;
+  for obj in list do
+   obj.Free;
+ end;
+
+procedure TObjectList.Init;
+ begin
+  lock:=0;
+  count:=0;
+  SetLength(data,32);
+  initialized:=_INITIALIZED_;
  end;
 
 end.

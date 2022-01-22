@@ -917,11 +917,13 @@ implementation
    result.y:=v.x*m[0,1]+v.y*m[1,1]+v.z*m[2,1]+m[3,1];
    result.z:=v.x*m[0,2]+v.y*m[1,2]+v.z*m[2,2]+m[3,2];
           t:=v.x*m[0,3]+v.y*m[1,3]+v.z*m[2,3]+m[3,3];
-   if (t<>1) and (t<>0) then begin
+   if (t<>1) and (t>0) then begin
     result.x:=result.x/t;
     result.y:=result.y/t;
     result.z:=result.z/t;
-   end;
+   end else
+   if t<=0 then
+    result:=InvalidPoint3s;
   end;
 
  function TransformPoint(const m:TMatrix4;v:PPoint3):TPoint3; overload;
@@ -932,11 +934,13 @@ implementation
    result.y:=v.x*m[0,1]+v.y*m[1,1]+v.z*m[2,1]+m[3,1];
    result.z:=v.x*m[0,2]+v.y*m[1,2]+v.z*m[2,2]+m[3,2];
           t:=v.x*m[0,3]+v.y*m[1,3]+v.z*m[2,3]+m[3,3];
-   if (t<>1) and (t<>0) then begin
+   if (t<>1) and (t>0) then begin
     result.x:=result.x/t;
     result.y:=result.y/t;
     result.z:=result.z/t;
-   end;
+   end else
+   if t<=0 then
+    result:=InvalidPoint3;
   end;
 
  function TranslationMat(x,y,z:double):TMatrix43;

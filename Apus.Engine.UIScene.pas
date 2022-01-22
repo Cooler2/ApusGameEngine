@@ -418,7 +418,6 @@ begin
  Signal('Scenes\ProcessScene\'+name);
  EnterCriticalSection(UICritSect);
  // отложенное удаление элементов
- toDelete.Clear;
 
  // Размер корневого эл-та - полный экран
 { if (UI.ClassType=TUIControl) and (UI.x=0) and (UI.y=0) then begin

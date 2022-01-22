@@ -27,6 +27,7 @@ type
   destructor Destroy; override;
   function Describe:string;
   procedure SetFilter(filter:TTexFilter); override;
+  procedure Dump(filename:string8=''); override;
  protected
   online:boolean; // true when image data is uploaded and ready to use (uv's are valid), false when local image data was modified and should be uploaded
   realData:array[0..MAX_LEVEL] of ByteArray; // sysmem instance of texture data
@@ -48,6 +49,7 @@ type
   procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); overload; override; // treat mip level as array index for convenience
   procedure AddDirtyRect(index:integer;rect:TRect); overload; virtual;
   procedure Unlock; override;
+  procedure Dump(filename:string8=''); override;
  protected
   layers:array of TGLTexture; // fake texture objects used to
   lockedLayer:integer;
@@ -100,7 +102,7 @@ type
 // function LoadFromFile(filename:string;format:TImagePixelFormat=ipfNone):TDxManagedTexture;
 
 implementation
- uses Apus.CrossPlatform, Apus.EventMan, SysUtils, Apus.GfxFormats,
+ uses Apus.CrossPlatform, Apus.EventMan, SysUtils, Apus.Structs, Apus.GfxFormats,
    {$IFDEF MSWINDOWS}dglOpenGl{$ENDIF}
    {$IFDEF LINUX}dglOpenGL{$ENDIF}
    {$IFDEF IOS}gles11,glext{$ENDIF}
@@ -185,7 +187,7 @@ begin
   end;
   ipfMono16s:begin
    internalFormat:=GL_R16_SNORM;
-   format:=GL_RED_INTEGER;
+   format:=GL_RED;
    subFormat:=GL_SHORT;
   end;
   ipfMono16i:begin
@@ -326,10 +328,34 @@ begin
 end;
 
 
+procedure TGLTextureArray.Dump(filename:string8);
+var
+ layer,itemSize:integer;
+ texData,data:ByteArray;
+ image:TRawImage;
+begin
+ if filename='' then filename:='tex_'+name+'_';
+ if texname=0 then begin
+   SaveFile(filename+'.tex','Not allocated');
+   exit;
+  end;
+ Bind;
+ itemSize:=width*height*4;
+ SetLength(texData,itemSize*length(layers));
+ glGetTexImage(GetTextureTarget,0,GL_BGRA,GL_UNSIGNED_INT_8_8_8_8_REV,@texData[0]);
+ image:=TBitmapImage.Create(width,height,ipfARGB);
+ for layer:=0 to high(layers) do begin
+  image.data:=@texData[itemSize*layer];
+  image.data:=@(layers[layer].realData[0,0]);
+  data:=SavePNG(image);
+  SaveFile(filename+inttostr(layer)+'.png',data);
+ end;
+ image.Free;
+end;
+
 procedure TGLTextureArray.FreeData;
 begin
-  inherited;
-
+ inherited;
 end;
 
 function TGLTextureArray.GetTextureTarget: integer;
@@ -464,6 +490,24 @@ begin
   resourceManagerGL.FreeImage(t);
  end else
   inherited;
+end;
+
+procedure TGLTexture.Dump(filename:string8);
+var
+ data:ByteArray;
+ image:TRawImage;
+begin
+ if filename='' then filename:='tex'+name+'.png';
+ if texname=0 then begin
+  SaveFile(filename,'Not allocated');
+  exit;
+ end;
+ image:=TBitmapImage.Create(width,height,ipfARGB);
+ Bind;
+ glGetTexImage(GetTextureTarget,0,GL_BGRA,GL_UNSIGNED_INT_8_8_8_8,image.data);
+ data:=SavePNG(image);
+ image.Free;
+ SaveFile(filename,data);
 end;
 
 procedure TGLTexture.FreeData;
@@ -1022,12 +1066,23 @@ begin
 end;
 
 destructor TGLResourceManager.Destroy;
+var
+ hash:PObjectHash;
+ list:TNamedObjects;
+ i:integer;
 begin
+ // Free all remaining textures
+ hash:=TGLTexture.ClassHash;
+ if hash<>nil then begin
+  list:=hash.ListObjects;
+  for i:=0 to high(list) do
+   FreeImage(TTexture(list[i]));
+ end;
  resourceManagerGL:=nil;
  inherited;
 end;
 
-procedure TGLResourceManager.Dump(st: string);
+procedure TGLResourceManager.Dump(st:string);
 begin
 
 end;

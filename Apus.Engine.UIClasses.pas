@@ -8,8 +8,8 @@
 // ------------------------------------------------------
 unit Apus.Engine.UIClasses;
 interface
- uses Contnrs, Types,
-   Apus.Classes, Apus.Engine.API, Apus.CrossPlatform, Apus.MyServis, Apus.AnimatedValues, Apus.Regions, Apus.Geom2d;
+ uses Types, Apus.Classes, Apus.Engine.API, Apus.CrossPlatform,
+   Apus.MyServis, Apus.AnimatedValues, Apus.Regions, Apus.Geom2d;
 {$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
@@ -143,8 +143,8 @@ type
   constructor Create(width,height:single;parent_:TUIElement;name_:string='');
   // Удаляет элемент (а также все вложенные в него)
   destructor Destroy; override;
-  // Поставить элемент в очередь на удаление
-  procedure SafeDelete;
+  // Queue element to destroy somewhere later (before the next frame)
+  procedure SafeDestroy;
 
   // Найти следующий по порядку элемент того же уровня
   function GetNext:TUIElement; virtual;
@@ -163,7 +163,7 @@ type
   // Есть ли у данного элемента указанный потомок (direct or indirect) (HasChild(self)=true)
   function HasChild(c:TUIElement):boolean;
   // Delete all children elements
-  procedure Clear;
+  procedure DeleteChildren;
 
   // Attach to a new parent
   procedure AttachTo(newParent:TUIElement);
@@ -548,9 +548,6 @@ var
  // по порядку, начиная с 1-го
  rootControls:array of TUIElement;
 
- // элементы для отложенного удаления. Нужно периодически их удалять
- toDelete:TObjectList;
-
  UICritSect:TMyCriticalSection; // для многопоточного доступа к глобальным переменным UI
 
  function DescribeControl(c:TUIElement):string;
@@ -591,6 +588,9 @@ var
  function UIComboBox(name:string;mustExist:boolean=false):TUIComboBox;
  function UIListBox(name:string;mustExist:boolean=false):TUIListBox;
 
+ // Destroy elements queued by SafeDestroy
+ procedure DestroyQueuedElements;
+
  // Dump all important UI data
  function DumpUI:String8;
 
@@ -611,6 +611,9 @@ var
 
  fControl:TUIElement; // элемент, имеющий фокус ввода (с клавиатуры)
                       // устанавливается автоматически либо вручную
+
+ // элементы для отложенного удаления. Нужно периодически их удалять
+ toDelete:TObjectList;
 
 function DescribeControl(c:TUIElement):string;
 begin
@@ -913,7 +916,7 @@ begin
  result:=@UIHash;
 end;
 
-procedure TUIElement.Clear;
+procedure TUIElement.DeleteChildren;
 var
  i:integer;
 begin
@@ -990,7 +993,7 @@ begin
    RemoveFromRootControls
   else
    Detach(false);
-  Clear;
+  DeleteChildren;
   FreeAndNil(shapeRegion);
  except
   on e:Exception do raise EError.Create(Format('Destroy error for %s: %s',[name,ExceptionMsg(e)]));
@@ -1592,10 +1595,9 @@ begin
  if scrollerV<>nil then scrollerV.pagesize:=clientHeight;
 end;
 
-procedure TUIElement.SafeDelete;
+procedure TUIElement.SafeDestroy;
 begin
- if toDelete.IndexOf(self)<0 then
-  toDelete.Add(self);
+ toDelete.Add(self,true);
 end;
 
 procedure TUIElement.ScrollTo(newX, newY: integer);
@@ -3008,10 +3010,19 @@ function DumpUI:String8;
       result:=result+DumpUITree(rootControls[i])+#13#10;
  end;
 
+procedure DestroyQueuedElements;
+ begin
+  UICritSect.Enter;
+  try
+   toDelete.FreeAll;
+  finally
+   UICritSect.Leave;
+  end;
+ end;
+
 initialization
  InitCritSect(UICritSect,'UI',30);
 // InitializeCriticalSection(UICritSect);
- toDelete:=TObjectList.Create;
 
  TUIElement.handleMouseIfDisabled:=false;
  TUIButton.handleMouseIfDisabled:=true;

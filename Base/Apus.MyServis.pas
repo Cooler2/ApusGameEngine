@@ -256,8 +256,12 @@ interface
  // StartMeasure(n) ... EndMeasure(n);
  // Это может исполняться как один раз, так и много раз
  // GetTaskPerformance - среднее время выполнения участка (в мс.)
- procedure StartMeasure(n:integer);
- function EndMeasure(n:integer):double;
+ procedure StartMeasure(n:integer); overload;
+ function EndMeasure(n:integer):double; overload;
+ // простое высокоточное измерение интервала времени в мс.
+ procedure StartMeasure(var t:int64); overload;
+ function EndMeasure(var t:int64):double; overload;
+
  // аналогично, но результат не усредняется за весь период, а просто сглаживается
  function EndMeasure2(n:integer):double;
  function  GetTaskPerformance(n:integer):double;
@@ -517,16 +521,24 @@ interface
  procedure ClearFlag(var v:uint64;flag:uint64); overload; inline;
  procedure ClearFlag(var v:cardinal;flag:cardinal); overload; inline;
  procedure ClearFlag(var v:byte;flag:byte); overload; inline;
-
+ // Bit manipulation
  procedure Toggle(var b:boolean); inline;
  function GetBit(data:cardinal;index:integer):boolean; overload; inline;
  function GetBit(data:uint64;index:integer):boolean; overload; inline;
  procedure SetBit(var data:byte;index:integer); overload; inline;
+ procedure SetBit(var data:word;index:integer); overload; inline;
  procedure SetBit(var data:cardinal;index:integer); overload; inline;
  procedure SetBit(var data:uint64;index:integer); overload; inline;
  procedure ClearBit(var data:byte;index:integer); overload; inline;
+ procedure ClearBit(var data:word;index:integer); overload; inline;
  procedure ClearBit(var data:cardinal;index:integer); overload; inline;
  procedure ClearBit(var data:uint64;index:integer); overload; inline;
+ // Bit field manipulation
+ function GetBits(const data:cardinal;index,size:integer):cardinal;
+ procedure SetBits(var data:byte;index,size,value:integer); overload;
+ procedure SetBits(var data:word;index,size,value:integer); overload;
+ procedure SetBits(var data:cardinal;index,size,value:integer); overload;
+ procedure SetBits(var data:UInt64;index,size,value:integer); overload;
 
  // Pack/unpack data
  function PackBytes(b0,b1:byte):word; overload; inline;
@@ -3379,6 +3391,10 @@ function BinToStr;
   begin
    data:=data or (byte(1) shl index);
   end;
+ procedure SetBit(var data:word;index:integer); overload; inline;
+  begin
+   data:=data or (word(1) shl index);
+  end;
  procedure SetBit(var data:cardinal;index:integer); overload; inline;
   begin
    data:=data or (cardinal(1) shl index);
@@ -3390,15 +3406,65 @@ function BinToStr;
 
  procedure ClearBit(var data:byte;index:integer); overload; inline;
   begin
-   data:=data and not (1 shl index);
+   data:=data and not (byte(1) shl index);
+  end;
+ procedure ClearBit(var data:word;index:integer); overload; inline;
+  begin
+   data:=data and not (word(1) shl index);
   end;
  procedure ClearBit(var data:cardinal;index:integer); overload; inline;
   begin
-   data:=data and not (1 shl index);
+   data:=data and not (cardinal(1) shl index);
   end;
  procedure ClearBit(var data:uint64;index:integer); overload; inline;
   begin
-   data:=data and not (1 shl index);
+   data:=data and not (uint64(1) shl index);
+  end;
+
+ const
+  FIELD_MASK:array[0..31] of cardinal=(0,1,3,7,15,31,63,127,255,
+    $1FF,$3FF,$7FF,$FFF,$1FFF,$3FFF,$7FFF,$FFFF,
+    $1FFFF,$3FFFF,$7FFFF,$FFFFF,$1FFFFF,$3FFFFF,$7FFFFF,$FFFFFF,
+    $1FFFFFF,$3FFFFFF,$7FFFFFF,$FFFFFFF,$1FFFFFFF,$3FFFFFFF,$7FFFFFFF);
+
+ function GetBits(const data:cardinal;index,size:integer):cardinal;
+  begin
+   {$IFDEF DEBUG}
+   ASSERT(size<32);
+   {$ENDIF}
+   result:=(data shr index) and FIELD_MASK[size];
+  end;
+ procedure SetBits(var data:byte;index,size,value:integer); overload;
+  begin
+   {$IFDEF DEBUG}
+   ASSERT(size<8);
+   ASSERT(value<=FIELD_MASK[size]); // check for overflow
+   {$ENDIF}
+   data:=data and not (FIELD_MASK[size] shl index)+cardinal(value) shl index;
+  end;
+ procedure SetBits(var data:word;index,size,value:integer); overload;
+  begin
+   {$IFDEF DEBUG}
+   ASSERT(size<16);
+   ASSERT(value<=FIELD_MASK[size]); // check for overflow
+   {$ENDIF}
+   data:=data and not (FIELD_MASK[size] shl index)+cardinal(value) shl index;
+  end;
+ procedure SetBits(var data:cardinal;index,size,value:integer); overload;
+  begin
+   {$IFDEF DEBUG}
+   ASSERT(size<32);
+   ASSERT(value<=FIELD_MASK[size]); // check for overflow
+   {$ENDIF}
+   data:=data and not (FIELD_MASK[size] shl index)+cardinal(value) shl index;
+  end;
+ procedure SetBits(var data:uint64;index,size,value:integer); overload;
+  begin
+   {$IFDEF DEBUG}
+   ASSERT(size<32);
+   ASSERT(value<=FIELD_MASK[size]); // check for overflow
+   {$ENDIF}
+   data:=data and not (FIELD_MASK[size] shl index)+cardinal(value) shl index;
   end;
 
  function PackBytes(b0,b1:byte):word; overload; inline;
@@ -5158,13 +5224,26 @@ procedure DumpDir(path:string);
    end;
   end;
 
- procedure StartMeasure;
+ procedure StartMeasure(var t:int64);
+  begin
+   QueryPerformanceCounter(t);
+  end;
+
+ function EndMeasure(var t:int64):double;
+  var
+   time:int64;
+  begin
+   QueryPerformanceCounter(time);
+   result:=(time-t)*perfkoef;
+  end;
+
+ procedure StartMeasure(n:integer);
   begin
    ASSERT(n in [1..high(values)]);
    QueryPerformanceCounter(values[n]);
   end;
 
- function EndMeasure;
+ function EndMeasure(n:integer):double;
   var
    v:Int64;
   begin
@@ -5381,7 +5460,7 @@ var
  n,i:integer;
  adrs:array[1..6] of cardinal;
 begin
- {$IFDEF WIN32}
+ {$IFDEF CPU386}
  asm
   pushad
   mov edx,ebp

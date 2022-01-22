@@ -150,6 +150,7 @@ type
 
  // Other types
  TRect2s = Apus.Engine.Types.TRect2s;
+ TVertexComponent = Apus.Engine.Types.TVertexComponent;
  TVertexLayout = Apus.Engine.Types.TVertexLayout;
  TPrimitiveType = Apus.Engine.Types.TPrimitiveType;
 
@@ -423,7 +424,7 @@ type
   function ViewMatrix:T3DMatrix;
   function ObjMatrix:T3DMatrix;
   // Transform point using combined MVP matrix
-  function Transform(source: TPoint3):TPoint3;
+  function Transform(source:TPoint3):TPoint3;
  end;
 
  // Shaders-related API
@@ -1460,8 +1461,8 @@ function TGameBase.RenderSize:TSize;
 
 initialization
  PublishFunction('GetFont',fGetFontHandle);
- TVertex.layoutTex.Init(0,0,12,16,0); // color and uv1
+ TVertex.layoutTex.Init([vcPosition3d,vcColor,vcUV1]);
  TVertex.layoutTex.stride:=Sizeof(TVertex);
- TVertex.layoutNoTex.Init(0,0,12,0,0); // color only
+ TVertex.layoutNoTex.Init([vcPosition3d,vcColor]);
  TVertex.layoutNoTex.stride:=Sizeof(TVertex);
 end.

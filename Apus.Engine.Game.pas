@@ -1356,6 +1356,8 @@ var
  p:pointer;
 begin
  result:=false;
+ DestroyQueuedElements; // delete queued UI elements
+
  EnterCriticalSection(crSect);
  try
  // Сортировка сцен
