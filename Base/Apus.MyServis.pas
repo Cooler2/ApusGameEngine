@@ -974,11 +974,11 @@ function min2s(a,b:single):single; inline;
 
  function RealDump(buf:pointer;size:integer;hex:boolean):String8;
   var
-   i:integer;
+   i,pad:integer;
    pb:PByte;
    ascii:string[18];
   begin
-   result:=''; pb:=buf; ascii:='';
+   result:=''; pb:=buf; ascii:=''; pad:=49;
    for i:=1 to size do begin
     if hex then
      result:=result+FormatHex(pb^,2)+' '
@@ -987,17 +987,26 @@ function min2s(a,b:single):single; inline;
       String8(AnsiChar($30+pb^ div 100))+
       String8(AnsiChar($30+(pb^ mod 100) div 10))+
       String8(AnsiChar($30+pb^ mod 10))+' ';
-    if pb^>=32 then ascii:=ascii+AnsiChar(pb^)
+    dec(pad,3);
+    if (pb^>=32) and (pb^<128) then ascii:=ascii+AnsiChar(pb^)
      else ascii:=ascii+'.';
     if i mod 16=8 then begin
      result:=result+' ';
      ascii:=ascii+' ';
+     dec(pad);
     end;
     if i mod 16=0 then begin
      result:=result+String8('   ')+String8(ascii)+#13#10;
-     ascii:='';
+     ascii:=''; pad:=49;
     end;
     inc(pb);
+   end;
+   if pad<49 then begin
+    while pad>0 do begin
+     result:=result+' ';
+     dec(pad);
+    end;
+    result:=result+String8('   ')+String8(ascii);
    end;
   end;
 
@@ -1308,9 +1317,9 @@ function FormatHex(v:int64;digits:integer=0):String8;
   vv:int64;
  begin
   vv:=v;
-  if vv=0 then exit('0');
+  //if vv=0 then exit('0');
   l:=0;
-  while vv<>0 do begin
+  while vv<>0 do begin // calculate length
    inc(l);
    vv:=vv shr 4;
   end;
