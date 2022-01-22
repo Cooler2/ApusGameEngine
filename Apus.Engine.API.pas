@@ -411,9 +411,11 @@ type
   // Alternate way to set camera position and orientation
   // (origin - camera center, target - point to look, up - any point ABOVE camera view line, so plane OTU is vertical),
   // turnCW - camera turn angle (along view axis, CW direction)
-  procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0);
+  procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0); overload;
+  procedure SetCamera(origin,target,up:TPoint3s;turnCW:single=0); overload;
   // Set Object (model to world) transformation matrix (must be used AFTER setting the view/camera)
   procedure SetObj(mat:T3DMatrix); overload;
+  procedure SetObj(mat:T3DMatrixS); overload;
   // Set object position/scale/rotate
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
   // Reset object matrix to default
@@ -424,7 +426,8 @@ type
   function ViewMatrix:T3DMatrix;
   function ObjMatrix:T3DMatrix;
   // Transform point using combined MVP matrix
-  function Transform(source:TPoint3):TPoint3;
+  function Transform(source:TPoint3):TPoint3; overload;
+  function Transform(source:TPoint3s):TPoint3s; overload;
  end;
 
  // Shaders-related API
