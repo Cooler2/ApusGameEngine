@@ -52,7 +52,7 @@ type
  end;
 
 implementation
- uses Apus.CrossPlatform, Apus.MyServis;
+ uses Apus.CrossPlatform, Apus.MyServis, SysUtils;
 
 var
  objList:TObjectList;
@@ -141,6 +141,7 @@ procedure TConsumerThread.Execute;
  var
   item:TDataItem;
  begin
+  RegisterThread(className+'_'+IntToStr(threadIDX));
   repeat
    if consumer.Consume(item) then begin
     consumer.Process(item);
@@ -149,6 +150,7 @@ procedure TConsumerThread.Execute;
     consumer.syncEvent.WaitFor(10);
    end;
   until terminated;
+  UnregisterThread;
  end;
 
 { TProducerConsumerPriority }
