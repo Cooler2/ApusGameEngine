@@ -60,12 +60,14 @@ procedure TMainScene.Initialize;
   mipTex.Unlock;
 
   // 4 layers texture array
-  arrTex:=resourceManagerGL.AllocArray(128,128,TImagePixelFormat.ipfARGB,4,aiAutoMipMap,'arrTex');
+  //arrTex:=resourceManagerGL.AllocArray(128,128,TImagePixelFormat.ipfARGB,4,aiAutoMipMap,'arrTex');
+  arrTex:=resourceManagerGL.AllocArray(512,512,TImagePixelFormat.ipfARGB,24,aiAutoMipMap,'arrTex');
   for z:=0 to 3 do begin
    arrTex.Lock(z);
-   SetRenderTarget(arrTex.data,arrTex.pitch,128,128);
-   for y:=0 to 127 do
-    for x:=0 to 127 do
+   DrawToTexture(arrTex);
+   //SetRenderTarget(arrTex.data,arrTex.pitch,arrTex.width,arrTex.height);
+   for y:=0 to arrTex.height-1 do
+    for x:=0 to arrTex.width-1 do
      PutPixel(x,y,MyColor(z*70,(x xor y)*2,(x xor y))); // same texture with different RED channel for each layer
    arrTex.Unlock;
   end;
@@ -100,7 +102,7 @@ procedure TMainScene.Render;
 
   // Texture array
   shader.UseCustom(arrShader);
-  draw.Image(800,20,arrTex);
+  draw.Image(100,20,arrTex);
   draw.Scaled(860,220,0.6,arrTex);
   draw.Scaled(860,300,0.3,arrTex);
   shader.Reset;

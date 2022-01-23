@@ -142,7 +142,9 @@ end;
 { TOpenGL }
 procedure TOpenGL.Init(system:ISystemPlatform);
  var
-  pName:string;
+  i:integer;
+  cnt:GLINT;
+  pName,exList:string;
 
  {$IFDEF SDL}
  procedure InitOnSDL(system:ISystemPlatform);
@@ -160,9 +162,11 @@ procedure TOpenGL.Init(system:ISystemPlatform);
    RC:HGLRC;
   begin
    DC:=GetDC(system.GetWindowHandle);
-   RC:=system.CreateOpenGLContext;
+   RC:=system.CreateOpenGLContext; // Create basic GL context
    LogMessage('Activate GL context');
-   ActivateRenderingContext(DC,RC); // ����� ���������� �������� �������� ������� OpenGL
+   ActivateRenderingContext(DC,RC); // Load all OpenGL functions and extensions
+   // Now create main context
+
   end;
  {$ENDIF}
 
@@ -190,11 +194,15 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   ForceLogMessage('OpenGL version: '+glVersion);
   ForceLogMessage('OpenGL vendor: '+PAnsiChar(glGetString(GL_VENDOR)));
   ForceLogMessage('OpenGL renderer: '+glRenderer);
-  ForceLogMessage('OpenGL extensions: '+#13#10+StringReplace(PAnsiChar(glGetString(GL_EXTENSIONS)),' ',#13#10,[rfReplaceAll]));
+  if not GL_VERSION_3_0 then
+   raise Exception.Create('OpenGL 3.0 or higher required!'#13#10'Please update your video drivers.');
+
+  glGetIntegerv(GL_NUM_EXTENSIONS,@cnt);
+  for i:=0 to cnt-1 do
+   exList:=exList+#13#10+PAnsiChar(glGetStringi(GL_EXTENSIONS,i));
+  ForceLogMessage('OpenGL extensions: '+exList);
   CheckForGLError(012);
 
-  if not GL_VERSION_2_0 then
-   raise Exception.Create('OpenGL 2.0 or higher required!'#13#10'Please update your video drivers.');
   glVersionNum:=GetVersion;
 
   // Create API objects
@@ -508,10 +516,11 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
      2:glVertexAttribPointer(n,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,p); // color
      3:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv1
      4:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv2
-   end;
+    end;
     inc(n);
     if layout=0 then break;
    end;
+
   // adjust number of vertex attrib arrays
   if actualAttribArrays<0 then begin
    for i:=0 to 4 do
@@ -519,10 +528,12 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
      else glDisableVertexAttribArray(i);
    actualAttribArrays:=n;
   end;
+
   while n>actualAttribArrays do begin
    glEnableVertexAttribArray(actualAttribArrays);
    inc(actualAttribArrays);
   end;
+
   while n<actualAttribArrays do begin
    dec(actualAttribArrays);
    glDisableVertexAttribArray(actualAttribArrays);
