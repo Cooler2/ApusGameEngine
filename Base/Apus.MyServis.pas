@@ -5492,15 +5492,16 @@ asm
  jz @not_found
  add rdx,8
  mov rax,[rdx]
+ // this workd for Delphi only
  sub rax,$10
  cmp rax,rdx
  jne @01
  // found
  mov rax,[rdx+8]
- ret
+ jmp @exit
 @not_found:
- mov rcx,-1
- ret
+ mov rax,-1
+@exit:
 end;
 {$ELSE}
 begin
