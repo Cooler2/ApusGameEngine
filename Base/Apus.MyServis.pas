@@ -5492,9 +5492,29 @@ begin
 end;
 
 function GetCaller:pointer;
-{$IFDEF CPU386}
+{$IF Defined(CPU386)}
 asm
  mov eax,[ebp+4]
+end;
+{$ELSEIF Defined(WIN64)}
+asm
+ mov rdx,rsp
+ mov rcx,32
+@01:
+ dec rcx
+ test rcx,rcx
+ jz @not_found
+ add rdx,8
+ mov rax,[rdx]
+ sub rax,$10
+ cmp rax,rdx
+ jne @01
+ // found
+ mov rax,[rdx+8]
+ ret
+@not_found:
+ mov rcx,-1
+ ret
 end;
 {$ELSE}
 begin
