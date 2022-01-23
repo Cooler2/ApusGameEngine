@@ -132,10 +132,15 @@ interface
   TSRWLock=packed record
    lock:SRWLock;
    name:string;
+   // Debug facilities
+   lockedEx:boolean;
+   lastLockedEx:pointer;
+   lockRead:integer;
+   lastLockedRead:pointer;
    procedure Init(name:string);
-   procedure StartRead;
+   procedure StartRead(caller:pointer=nil);
    procedure FinishRead;
-   procedure StartWrite;
+   procedure StartWrite(caller:pointer=nil);
    procedure FinishWrite;
   end;
   {$ENDIF}
@@ -6094,26 +6099,40 @@ function GetParam(name:string):string;
 procedure TSRWLock.Init(name: string);
 begin
  self.name:=name;
+ lockedEx:=false;
+ lockRead:=0;
  InitializeSrwLock(lock);
 end;
 
-procedure TSRWLock.StartRead;
+procedure TSRWLock.StartRead(caller:pointer);
 begin
  AcquireSRWLockShared(lock);
+ InterlockedIncrement(lockRead);
+ if caller=nil then
+  lastLockedRead:=GetCaller
+ else
+  lastLockedRead:=caller;
 end;
 
 procedure TSRWLock.FinishRead;
 begin
+ InterlockedDecrement(lockRead);
  ReleaseSRWLockShared(lock);
 end;
 
-procedure TSRWLock.StartWrite;
+procedure TSRWLock.StartWrite(caller:pointer);
 begin
  AcquireSRWLockExclusive(lock);
+ lockedEx:=true;
+ if caller=nil then
+  lastLockedEx:=GetCaller
+ else
+  lastLockedEx:=caller;
 end;
 
 procedure TSRWLock.FinishWrite;
 begin
+ lockedEx:=false;
  ReleaseSRWLockExclusive(lock);
 end;
 {$ENDIF}
