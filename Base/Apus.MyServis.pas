@@ -5483,17 +5483,20 @@ asm
  mov eax,[ebp+4]
 end;
 {$ELSEIF Defined(WIN64)}
+assembler;
 asm
- mov rdx,rsp
- mov rcx,32
-@01:
- dec rcx
- test rcx,rcx
- jz @not_found
- add rdx,8
+ xor rcx,rcx
+@01: // scan stack for saved rbp
+ inc rcx
+ cmp rcx,30
+ je @not_found
+ lea rdx,[rsp+rcx*8]
  mov rax,[rdx]
- // this workd for Delphi only
+ {$IF Defined(DELPHI)}
  sub rax,$10
+ {$ELSEIF Defined(FPC)}
+ sub rax,$50
+ {$ENDIF}
  cmp rax,rdx
  jne @01
  // found
@@ -5551,7 +5554,7 @@ begin
  end;
  {$ELSE}
   {$IFDEF FPC}
-  inherited create(msg+' caller: '+inttohex(cardinal(get_caller_addr(get_frame)),8));
+  inherited create(msg+' caller: '+PtrToStr(get_caller_addr(get_frame)));
   {$ELSE}
   inherited create(msg);
   {$ENDIF}

@@ -1858,10 +1858,51 @@ procedure TestBitFunc;
   writeln('BitFunc test OK');
  end;
 
+(* // Debug GetCaller
+
+var
+ stackPos:PtrUInt;
+ stack:array[0..80] of pointer;
+ a1,a2,cc:pointer;
+
+procedure GetStack;
+ asm
+ {$IFDEF CPUx64}
+  xor rcx,rcx
+  mov [rip+stackPos],rsp
+  lea rdx,[rip+stack]
+@loop:
+  mov rax,[rsp+rcx*8]
+  mov [rdx+rcx*8],rax
+  inc rcx
+  test rcx,63
+  jnz @loop
+ {$ENDIF}
+ end;
+
+procedure Test1(p1,p2,p3:integer);
+ var
+  i:integer;
+  l:array[0..4] of integer;
+ begin
+  cc:=GetCaller;
+  //GetStack;
+  a1:=@Test1;
+  a2:=@GetStack;
+  writeln('A1=',PtrToStr(a1));
+  writeln('A2=',PtrToStr(a2));
+  for i:=0 to 61 do
+    writeln(i:2,IntToHex(stackPos+i*8,10):12,PtrToStr(stack[i]):14);
+  writeln(p1,p2,p3);
+  writeln(PtrToStr(cc));
+  readln;
+ end;      *)
+
 begin
  SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
  try
+  //Test1(1,2,3);
   TestBitFunc;
   TestSSE;
   TestFastHash;
