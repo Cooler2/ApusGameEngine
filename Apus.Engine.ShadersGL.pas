@@ -541,10 +541,12 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   i,len,res:integer;
   prog:integer;
   sa:AStringArr;
- function GetShaderError(shader:GLuint):string;
+ function GetShaderError(shader:GLuint;source:string):string;
   var
+   i,j,nearLine:integer;
    maxlen:integer;
    errorLog:AnsiString;
+   lines:StringArray8;
   begin
    glGetShaderiv(shader,GL_INFO_LOG_LENGTH,@maxlen);
    SetLength(errorLog,maxLen);
@@ -555,6 +557,27 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
    {$ENDIF}
    glDeleteShader(shader);
    result:=PAnsiChar(errorLog);
+   nearLine:=0;
+   for i:=1 to length(result)-6 do
+    if (result[i]='(') then begin
+     j:=PosFrom(')',result,i+1);
+     if (j>i) and (j<i+4) then begin
+      nearLine:=ParseInt(copy(result,i+1,j-i-1));
+      break;
+     end;
+    end;
+
+   if source<>'' then
+    result:=result+#13#10'Source code:';
+
+   lines:=SplitA(#13#10,source);
+   if nearLine>=high(lines) then nearLine:=high(lines)-25;
+   nearLine:=max2(nearLine-15,0);
+   for i:=1 to 25 do begin
+    if nearLine<=high(lines) then
+     result:=result+Format(#13#10'%3d %s',[nearline+1,lines[nearLine]]);
+    inc(nearLine);
+   end;
   end;
  begin
   if not GL_VERSION_2_0 then exit(nil);
@@ -566,8 +589,7 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   glCompileShader(vsh);
   glGetShaderiv(vsh,GL_COMPILE_STATUS,@res);
   if res=0 then
-   raise EError.Create('VShader compilation failed: '+GetShaderError(vsh)+
-    #13#10'Shader code: '#13#10+vSrc);
+   raise EError.Create('VShader compilation failed: '+GetShaderError(vsh,vSrc));
 
 
   // Fragment shader
@@ -578,8 +600,7 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   glCompileShader(fsh);
   glGetShaderiv(fsh,GL_COMPILE_STATUS,@res);
   if res=0 then
-   raise EError.Create('FShader compilation failed: '+GetShaderError(fsh)+
-    #13#10'Shader code: '#13#10+fSrc);
+   raise EError.Create('FShader compilation failed: '+GetShaderError(fsh,fSrc));
 
   // Build program object
   prog:=glCreateProgram;
