@@ -31,7 +31,7 @@ type
   uModelMat:integer; // model matrix as-is (named "ModelMatrix")
   uNormalMat:integer; // normalized model matrix (named "NormalMatrix")
   uShadowMapMat:integer; // light space matrix for shadow mapping
-  uTex:array[0..3] of integer; // texture samplers (named "tex0".."tex3")
+  uTex:array[0..15] of integer; // texture samplers (named "tex0".."texN")
   vSrc,fSrc:String8; // shader source code
   isCustom:boolean;
   matrixRevision:integer;
@@ -92,8 +92,9 @@ type
   procedure Apply(vertexLayout:TVertexLayout);
 
  private
-  curTextures:array[0..3] of TTexture;
-  curTexChanged:array[0..3] of boolean;
+  // поддержка 16 текстурных юнитов
+  curTextures:array[0..15] of TTexture;
+  curTexChanged:array[0..15] of boolean;
 
   curTexMode:TTexMode; // encoded shader mode requested by the client code
   actualTexMode:TTexMode; // actual shader mode
@@ -641,6 +642,7 @@ procedure TGLShadersAPI.UseTexture(tex:TTexture;uniformName:string8;stage:intege
  begin
   UseTexture(tex,stage);
   SetUniform(uniformName,stage);
+  //curTexChanged[stage]:=false; // prevent further processing
  end;
 
 procedure TGLShadersAPI.Reset;
@@ -760,7 +762,10 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
     if tex<>nil then begin
      while tex.parent<>nil do tex:=tex.parent;
      resourceManagerGL.MakeOnline(tex,i);
-     if activeShader.uTex[i]>=0 then glUniform1i(activeShader.uTex[i],i);
+     if activeShader.uTex[i]>0 then begin
+      glUniform1i(activeShader.uTex[i],i);
+      CheckForGLError(421);
+     end;
     end;
    end;
   if directLightModified then begin

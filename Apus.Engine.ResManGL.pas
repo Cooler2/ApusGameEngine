@@ -88,8 +88,8 @@ type
  protected
   //CurTag:integer;
   //data:TObject;
-  curTextures:array[0..3] of TGlTexture;
-  texFilters:array[0..3] of TTexFilter;
+  curTextures:array[0..15] of TGlTexture;
+  //texFilters:array[0..15] of TTexFilter;
   procedure FreeVidMem; // Освободить некоторое кол-во видеопамяти
   procedure FreeMetaTexSpace(n:integer); // Освободить некоторое пространство в указанной метатекстуре
   procedure AllocRenderTarget(tex:TGLTexture;flags:cardinal);
