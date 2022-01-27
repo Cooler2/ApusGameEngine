@@ -786,7 +786,7 @@ procedure TGLShadersAPI.ActivateShader(shader:TShader);
   activeShader:=shader as TGLShader;
   glUseProgram(activeShader.handle);
   // mark textures as changed to force update
-  for stage:=0 to 3 do
+  for stage:=0 to high(curTextures) do
    if curTextures[stage]<>nil then
     curTexChanged[stage]:=true;
  end;
