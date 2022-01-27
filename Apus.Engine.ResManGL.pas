@@ -43,9 +43,10 @@ type
   function GetTextureTarget:integer; virtual;
  end;
 
+ // Used for both 2D texture arrays and 3D textures
  TGLTextureArray=class(TGLTexture)
   constructor Create(numLayers:integer);
-  procedure Lock(index:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); reintroduce; overload;
+  procedure Lock(index:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil);  overload;
   procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); overload; override; // treat mip level as array index for convenience
   procedure AddDirtyRect(index:integer;rect:TRect); overload; virtual;
   procedure Unlock; override;
@@ -205,6 +206,11 @@ begin
    format:=GL_RG;
    subFormat:=GL_FLOAT;
   end;
+  ipfQuad32f:begin
+   internalFormat:=GL_RGBA32F;
+   format:=GL_RGBA;
+   subFormat:=GL_FLOAT;
+  end;
   ipfDuo8:begin
    internalFormat:=GL_RG8;
    format:=GL_RG;
@@ -358,9 +364,12 @@ begin
  inherited;
 end;
 
-function TGLTextureArray.GetTextureTarget: integer;
+function TGLTextureArray.GetTextureTarget:integer;
 begin
- result:=GL_TEXTURE_2D_ARRAY;
+ if HasFlag(tfTexture) then
+  result:=GL_TEXTURE_3D
+ else
+  result:=GL_TEXTURE_2D_ARRAY;
 end;
 
 procedure TGLTextureArray.Lock(index:integer; miplevel:byte; mode:TlockMode; r:PRect);
@@ -388,6 +397,7 @@ var
  needInit:boolean;
  format,subformat,internalFormat,error:cardinal;
  i,bpp,z,depth,level:integer;
+ glTarget:integer;
 begin
   needInit:=false;
   if locked>0 then raise EWarning.Create('MO for a locked texture: '+name);
@@ -402,18 +412,19 @@ begin
   end;
 
   // Upload texture data
+  glTarget:=GetTextureTarget;
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
   depth:=length(layers);
   if format=GL_COMPRESSED_TEXTURE_FORMATS then begin
    for z:=0 to depth-1 do
     for level:=0 to MAX_LEVEL do
      if length(realData[level])>0 then
-      glCompressedTexImage3D(GL_TEXTURE_2D_ARRAY,level,internalFormat,realwidth,realheight,depth,0,
+      glCompressedTexImage3D(glTarget,level,internalFormat,realwidth,realheight,depth,0,
        length(layers[z].realData[level]),@realData[level,0]);
   end else begin
    {$IFNDEF GLES}
    if needInit then begin  // Specify texture size and pixel format
-    glTexImage3D(GL_TEXTURE_2D_ARRAY,0,internalFormat,realwidth,realheight,depth,0,
+    glTexImage3D(glTarget,0,internalFormat,realwidth,realheight,depth,0,
       format,subFormat,nil);
     CheckForGLError('13');
     UpdateFilter;
@@ -427,7 +438,7 @@ begin
       for level:=0 to MAX_LEVEL do begin
        for i:=0 to dCount[level]-1 do
         with dirty[level,i] do
-         glTexSubImage3D(GL_TEXTURE_2D_ARRAY,level,Left,Top,z,right-left+1,bottom-top+1,1,
+         glTexSubImage3D(glTarget,level,Left,Top,z,right-left+1,bottom-top+1,1,
             format,subFormat,@realData[level,(left+top*realWidth)*bpp]);
        dCount[level]:=0;
       end;
@@ -445,15 +456,15 @@ begin
    CheckForGLError('16');
    {$ENDIF}
    if HasFlag(tfAutoMipMap) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
-    glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+    glGenerateMipmap(glTarget);
    end;
 
    if HasFlag(tfClamped) then begin
-    glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+    glTexParameteri(glTarget,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+    glTexParameteri(glTarget,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
    end else begin
-    glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_S,GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_T,GL_REPEAT);
+    glTexParameteri(glTarget,GL_TEXTURE_WRAP_S,GL_REPEAT);
+    glTexParameteri(glTarget,GL_TEXTURE_WRAP_T,GL_REPEAT);
    end;
    CheckForGLError('17');
   end;
@@ -979,6 +990,8 @@ begin
   tex.filter:=fltNearest
  else
   tex.filter:=fltTrilinear;
+
+ if HasFlag(flags,aiTexture3D) then SetFlag(tex.caps,tfTexture);
 
  tex.pitch:=width*pixelSize[pixFmt] div 8;
  datasize:=tex.pitch*height;

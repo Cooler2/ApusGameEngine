@@ -39,7 +39,7 @@ type
                    ipf4444r,    // 16bpp 4-4-4-4 format with $BGRA structure
                    ipfABGR,     // 32bpp
                    ipfXBGR,     // 32bpp
-                   ipfMono8,    // 1-channel 8 bit image (grayscale or red)
+                   ipfMono8,    // 1-channel 8 bit image (grayscale or red) - unsigned normalized
                    ipfMono8u,   // 1-channel 8 bit image - unsigned non-normalized integer
                    ipfDuo8,     // 2-channels 8 bit image (for example, red-green)
                    ipfMono16,   // 1-channel 16 bit image (grayscale or red) - unsigned normalized
@@ -47,6 +47,7 @@ type
                    ipfMono16i,  // 1-channel 16 bit image (grayscale or red) - signed non-normalized integer
                    ipfMono32f,  // 1-channel 32 bit floating point image
                    ipfDuo32f,   // 2-channel 32 bit floating point image
+                   ipfQuad32f,  // 4-channel 32 bit floating point vectors
                    ipf32bpp);   // generic 32bpp: XRGB or ARGB
 
  // Форматы представления палитры
@@ -151,7 +152,7 @@ type
 
  const
   // Размер пикселя в битах
-  pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,8,16,16,16,16,32,64,32);
+  pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,8,16,16,16,16,32,64,128,32);
   palEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
 
  procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;count:integer;
