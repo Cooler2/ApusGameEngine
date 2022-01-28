@@ -669,7 +669,8 @@ type
   procedure ImagePart(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect);
   // Рисовать часть картинки с поворотом ang раз на 90 град по часовой стрелке
   procedure ImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer);
-  procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal);
+  procedure TexturedRect(r:TRect;texture:TTexture;color:cardinal=$FF808080); overload;
+  procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal=$FF808080); overload;
   procedure Scaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080); overload;
   procedure Scaled(x,y,scale:single;image:TTexture;color:cardinal=$FF808080); overload;
   procedure RotScaled(x,y,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);

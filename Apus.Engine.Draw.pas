@@ -25,7 +25,8 @@ interface
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
   procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
-  procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal);
+  procedure TexturedRect(r:TRect;texture:TTexture;color:cardinal=$FF808080); overload;
+  procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal=$FF808080); overload;
   procedure FillGradrect(x1,y1,x2,y2:integer;color1,color2:cardinal;vertical:boolean);
   procedure Image(x_,y_:NativeInt;tex:TTexture;color:cardinal=$FF808080); overload;
   procedure Image(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080;pivotX:single=0;pivotY:single=0); overload;
@@ -740,7 +741,7 @@ begin
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
-procedure TDrawer.FillRect(x1, y1, x2, y2: single; color: cardinal);
+procedure TDrawer.FillRect(x1,y1,x2,y2:single;color:cardinal);
 begin
  FillRect(SRound(x1),SRound(y1),SRound(x2),SRound(y2),color);
 end;
@@ -774,6 +775,11 @@ begin
   dec(x1); dec(y1); inc(x2); inc(y2);
  end;
  renderDevice.Draw(LINE_LIST,depth*4,@vrt,TVertex.layoutTex);
+end;
+
+procedure TDrawer.TexturedRect(r:TRect;texture:TTexture;color:cardinal=$FF808080);
+begin
+ Scaled(r.left,r.top,r.Right-1,r.bottom-1,texture,color);
 end;
 
 procedure TDrawer.TexturedRect(x1, y1, x2, y2: integer; texture: TTexture; u1,
