@@ -28,6 +28,8 @@ type
   function Describe:string;
   procedure SetFilter(filter:TTexFilter); override;
   procedure Dump(filename:string8=''); override;
+  function GetLayer(layer:integer):TTexture; override;
+  procedure LockLayer(index:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); override;
  protected
   online:boolean; // true when image data is uploaded and ready to use (uv's are valid), false when local image data was modified and should be uploaded
   realData:array[0..MAX_LEVEL] of ByteArray; // sysmem instance of texture data
@@ -46,7 +48,8 @@ type
  // Used for both 2D texture arrays and 3D textures
  TGLTextureArray=class(TGLTexture)
   constructor Create(numLayers:integer);
-  procedure Lock(index:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil);  overload;
+  function GetLayer(layer:integer):TTexture; override;
+  procedure LockLayer(index:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); override;
   procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); overload; override; // treat mip level as array index for convenience
   procedure AddDirtyRect(index:integer;rect:TRect); overload; virtual;
   procedure Unlock; override;
@@ -364,6 +367,12 @@ begin
  inherited;
 end;
 
+function TGLTextureArray.GetLayer(layer:integer):TTexture;
+begin
+ ASSERT((layer>=0) and (layer<=high(layers)));
+ result:=layers[layer];
+end;
+
 function TGLTextureArray.GetTextureTarget:integer;
 begin
  if HasFlag(tfTexture) then
@@ -372,18 +381,19 @@ begin
   result:=GL_TEXTURE_2D_ARRAY;
 end;
 
-procedure TGLTextureArray.Lock(index:integer; miplevel:byte; mode:TlockMode; r:PRect);
+procedure TGLTextureArray.LockLayer(index:integer; miplevel:byte; mode:TlockMode; r:PRect);
 begin
  inc(locked);
  layers[index].Lock(mipLevel,mode,r);
  data:=layers[index].data;
  pitch:=layers[index].pitch;
  lockedLayer:=index;
+ online:=false;
 end;
 
 procedure TGLTextureArray.Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil);
 begin
- Lock(mipLevel,0,mode,r);
+ raise EError.Create('Use LockLevel instead');
 end;
 
 procedure TGLTextureArray.Unlock;
@@ -526,6 +536,11 @@ begin
 
 end;
 
+function TGLTexture.GetLayer(layer:integer):TTexture;
+begin
+ result:=self;
+end;
+
 function TGLTexture.GetRawImage: TRawImage;
 begin
  result:=TRawImage.Create;
@@ -578,6 +593,11 @@ begin
  finally
   LeaveCriticalSection(cSect);
  end;
+end;
+
+procedure TGLTexture.LockLayer(index:integer;miplevel:byte;mode:TLockMode;r:PRect);
+begin
+ Lock(mipLevel,mode,r);
 end;
 
 procedure TGLTexture.AddDirtyRect(rect:TRect;level:integer);
@@ -1000,10 +1020,13 @@ begin
   datasize:=datasize div 16;
  end;
  for z:=0 to high(tex.layers) do begin
-  tex.layers[z].width:=width;
+  tex.layers[z]:=AllocImage(width,height,pixFmt,0,name+'_lay'+inttostr(z)) as TGLTexture;
+{  tex.layers[z].width:=width;
   tex.layers[z].height:=height;
   tex.layers[z].pixelFormat:=tex.pixelFormat;
-  SetLength(tex.layers[z].realData[0],datasize);
+  tex.layers[z].realwidth:=width;
+  tex.layers[z].realheight:=height;
+  SetLength(tex.layers[z].realData[0],datasize);}
  end;
 
  SetFlag(tex.caps,tfDirectAccess); // Can be locked

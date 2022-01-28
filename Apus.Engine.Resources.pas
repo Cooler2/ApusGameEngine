@@ -60,6 +60,8 @@ interface
    function ClonePart(part:TRect):TTexture; // Create cloned instance for part of this texture
    procedure Clear(color:cardinal=$808080); // Clear and fill the texture with given color
    procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // 0-й уровень - самый верхний
+   procedure LockLayer(layer:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // Lock layer of 3D texture or texture array
+   function GetLayer(layer:integer):TTexture; virtual; abstract; // return 2D texture object of a texture array element or 3D texture layer
    function GetRawImage:TRawImage; virtual; abstract; // Create RAW image for the topmost MIP level (when locked)
    function IsLocked:boolean;
    procedure Unlock; virtual; abstract;
