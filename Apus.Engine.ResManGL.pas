@@ -606,12 +606,13 @@ var
 begin
  online:=false;
  n:=dCount[level];
+ if n<0 then exit;
  if n<high(dirty[level]) then begin
   dirty[level,n]:=rect;
   inc(dCount[level]);
  end else begin
   // Too many rects - invalidate all
-  dCount[level]:=1;
+  dCount[level]:=-1; // forbid any more rects
   dirty[level,0]:=Types.Rect(0,0,width-1,height-1);
  end;
 end;
@@ -754,11 +755,12 @@ begin
     UpdateFilter;
    end;
    for level:=0 to MAX_LEVEL do
-    if dCount[level]>0 then begin
+    if dCount[level]<>0 then begin
      // Upload texture data
      glPixelStorei(GL_UNPACK_ROW_LENGTH,realWidth shr level);
      CheckForGLError('14');
      bpp:=pixelSize[pixelFormat] div 8;
+     if dCount[level]<0 then dCount[level]:=1;
      for i:=0 to dCount[level]-1 do
       with dirty[level,i] do
        glTexSubImage2D(GL_TEXTURE_2D,level,Left,Top,right-left+1,bottom-top+1,
