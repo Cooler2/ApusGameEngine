@@ -141,7 +141,7 @@ procedure TConsumerThread.Execute;
  var
   item:TDataItem;
  begin
-  RegisterThread(className+'_'+IntToStr(threadIDX));
+  RegisterThread(consumer.className+'_'+IntToStr(threadIDX));
   repeat
    if consumer.Consume(item) then begin
     consumer.Process(item);
