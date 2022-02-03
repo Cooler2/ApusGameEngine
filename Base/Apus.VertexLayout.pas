@@ -39,8 +39,9 @@ type
   x,y,z:single;
   color:cardinal;
   u,v:single;
-  procedure Init(x,y,z,u,v:single;color:cardinal); overload; inline;
-  procedure Init(x,y,z:single;color:cardinal); overload;
+  procedure Init(x,y,z,u,v:single;color:cardinal=$FF808080); overload; inline;
+  procedure Init(x,y,z:single;color:cardinal=$FF808080); overload;
+  procedure Init(pos:TPoint3s;color:cardinal=$FF808080); overload;
   class var layoutTex,layoutNoTex:TVertexLayout;
  end;
 
@@ -63,10 +64,12 @@ type
   nx,ny,nz:single;
   extra:single;
   u,v:single;
-  procedure Init(x,y,z:single;color:cardinal=$FFFFFFFF); overload; inline;
-  procedure Init(pos:TPoint3s;color:cardinal=$FFFFFFFF); overload;
+  procedure Init(x,y,z:single;color:cardinal=$FF808080); overload; inline;
+  procedure Init(pos:TPoint3s;color:cardinal=$FF808080); overload;
   procedure SetNormal(nx,ny,nz:single); overload; inline;
   procedure SetNormal(n:TVector3s); overload;
+  procedure SetUV(u,v:single); overload; inline;
+  procedure SetUV(uv:TPoint2s); overload;
   class function Layout(hasUV:boolean=true):TVertexLayout; static;
  end;
 
@@ -213,18 +216,23 @@ procedure TVertexLayout.Init(position,normal,color,uv1,uv2:integer);
 
 { TVertex }
 
-procedure TVertex.Init(x, y, z, u, v: single; color: cardinal);
+procedure TVertex.Init(x,y,z,u,v:single;color:cardinal);
  begin
   self.x:=x; self.y:=y; self.z:=z;
   self.color:=color;
   self.u:=u; self.v:=v;
  end;
 
-procedure TVertex.Init(x, y, z: single; color: cardinal);
+procedure TVertex.Init(x,y,z:single;color:cardinal);
  begin
   self.x:=x; self.y:=y; self.z:=z;
   self.color:=color;
   self.u:=0.5; self.v:=0.5;
+ end;
+
+procedure TVertex.Init(pos:TPoint3s;color:cardinal);
+ begin
+  Init(pos.x,pos.y,pos.z);
  end;
 
 { TVertexDT }
@@ -271,6 +279,17 @@ procedure TVertex3D.SetNormal(nx,ny,nz:single);
 procedure TVertex3D.SetNormal(n:TVector3s);
  begin
   SetNormal(n.x,n.y,n.z);
+ end;
+
+procedure TVertex3D.SetUV(uv:TPoint2s);
+ begin
+  SetUV(uv.x,uv.y);
+ end;
+
+procedure TVertex3D.SetUV(u,v:single);
+ begin
+  self.u:=u;
+  self.v:=v;
  end;
 
 class function TVertex3D.Layout(hasUV:boolean=true):TVertexLayout;
