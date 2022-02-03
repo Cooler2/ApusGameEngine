@@ -118,6 +118,7 @@ type
   // Следующие данные не обязательно всегда доступны, это зависит от типа изображения
   data:pointer;  // Указатель на данные (пиксель 0,0)
   pitch:integer; // смещение к очередной строке
+  dataSize:integer; // size of data (in bytes)
   palette:pointer; // указатель на палитру, nil если ее нет
   palSize:integer; // размер палитры (число эл-тов)
 
@@ -332,7 +333,7 @@ end;
 constructor TBitmapImage.Create(w, h: integer; pf: TImagePixelFormat;
   pal: ImagePaletteFormat; pSize: integer);
 var
- size,palElSize:integer;
+ palElSize:integer;
 begin
  if (w<=0) or (h<=0) or (psize<0) then
   raise EError.Create('Images: Invalid parameters in TBMI.Create');
@@ -350,9 +351,9 @@ begin
  end;
  PixelFormat:=pf;
  PaletteFormat:=pal;
- size:=pitch*h;
- GetMem(data,size);
- fillchar(data^,size,0);
+ dataSize:=pitch*h;
+ data:=AllocMem(dataSize);
+ //fillchar(data^,dataSize,0);
 
  if pal<>palNone then begin
   case pal of
