@@ -33,6 +33,44 @@ type
   procedure GetField(var vertex;offset,size:integer;var target);
  end;
 
+ // Basic vertex format for regular primitives
+ PVertex=^TVertex;
+ TVertex=packed record
+  x,y,z:single;
+  color:cardinal;
+  u,v:single;
+  procedure Init(x,y,z,u,v:single;color:cardinal); overload; inline;
+  procedure Init(x,y,z:single;color:cardinal); overload;
+  class var layoutTex,layoutNoTex:TVertexLayout;
+ end;
+
+ // Vertex format for double textured primitives
+ PVertexDT=^TVertexDT;
+ TVertexDT=packed record
+  x,y,z:single;
+  color:cardinal;
+  u,v:single;
+  u2,v2:single;
+  procedure Init(x,y,z,u,v,u2,v2:single;color:cardinal); inline;
+  class function Layout:TVertexLayout; static;
+ end;
+
+ // Vertex format for 3D objects with lighting
+ PVertex3D=^TVertex3D;
+ TVertex3D=packed record
+  x,y,z:single;
+  color:cardinal;
+  nx,ny,nz:single;
+  extra:single;
+  u,v:single;
+  procedure Init(x,y,z:single;color:cardinal=$FFFFFFFF); overload; inline;
+  procedure Init(pos:TPoint3s;color:cardinal=$FFFFFFFF); overload;
+  procedure SetNormal(nx,ny,nz:single); overload; inline;
+  procedure SetNormal(n:TVector3s); overload;
+  class function Layout(hasUV:boolean=true):TVertexLayout; static;
+ end;
+
+
 
 implementation
  uses Apus.MyServis, Apus.Colors, SysUtils;
@@ -172,5 +210,82 @@ procedure TVertexLayout.Init(position,normal,color,uv1,uv2:integer);
  begin
   self:=BuildVertexLayout(position,normal,color,uv1,uv2);
  end;
+
+{ TVertex }
+
+procedure TVertex.Init(x, y, z, u, v: single; color: cardinal);
+ begin
+  self.x:=x; self.y:=y; self.z:=z;
+  self.color:=color;
+  self.u:=u; self.v:=v;
+ end;
+
+procedure TVertex.Init(x, y, z: single; color: cardinal);
+ begin
+  self.x:=x; self.y:=y; self.z:=z;
+  self.color:=color;
+  self.u:=0.5; self.v:=0.5;
+ end;
+
+{ TVertexDT }
+
+procedure TVertexDT.Init(x, y, z, u, v, u2, v2: single; color: cardinal);
+ begin
+  self.x:=x; self.y:=y; self.z:=z;
+  self.color:=color;
+  self.u:=u; self.v:=v;
+  self.u2:=u2; self.v2:=v2;
+ end;
+
+class function TVertexDT.Layout:TVertexLayout;
+ var
+  v:PVertexDT;
+ begin
+  v:=nil;
+  result.Init(0,0,integer(@v.color),integer(@v.u),integer(@v.u2));
+  ASSERT(result.stride=sizeof(TVertexDT));
+ end;
+
+{ TVertex3D }
+
+procedure TVertex3D.Init(x,y,z:single;color:cardinal);
+ begin
+  self.x:=x;
+  self.y:=y;
+  self.z:=z;
+  self.color:=color;
+ end;
+
+procedure TVertex3D.Init(pos:TPoint3s;color:cardinal);
+ begin
+  Init(pos.x,pos.y,pos.z,color);
+ end;
+
+procedure TVertex3D.SetNormal(nx,ny,nz:single);
+ begin
+  self.nx:=nx;
+  self.ny:=ny;
+  self.nz:=nz;
+ end;
+
+procedure TVertex3D.SetNormal(n:TVector3s);
+ begin
+  SetNormal(n.x,n.y,n.z);
+ end;
+
+class function TVertex3D.Layout(hasUV:boolean=true):TVertexLayout;
+ var
+  v:PVertex3D;
+  uvPos:integer;
+ begin
+  v:=nil;
+  if hasUV then
+   uvPos:=integer(@v.nx)
+  else
+   uvPos:=0;
+  result.Init(0,uvPos,integer(@v.color),integer(@v.u),0);
+  result.stride:=Sizeof(TVertex3D);
+ end;
+
 
 end.

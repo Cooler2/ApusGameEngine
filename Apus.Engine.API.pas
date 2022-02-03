@@ -546,37 +546,14 @@ type
  end;
 
  // Basic vertex format for regular primitives
- PVertex=^TVertex;
- TVertex=packed record
-  x,y,z:single;
-  color:cardinal;
-  u,v:single;
-  procedure Init(x,y,z,u,v:single;color:cardinal); overload; inline;
-  procedure Init(x,y,z:single;color:cardinal); overload;
-  class var layoutTex,layoutNoTex:TVertexLayout;
- end;
-
- // Vertex format for double textured primitives
- PVertex2t=^TVertex2t;
- TVertex2t=packed record
-  x,y,z:single;
-  color:cardinal;
-  u,v:single;
-  u2,v2:single;
-  procedure Init(x,y,z,u,v,u2,v2:single;color:cardinal); inline;
-  class function Layout:TVertexLayout; static;
- end;
-
- // Vertex format for 3D objects with lighting
- PVertex3D=^TVertex3D;
- TVertex3D=packed record
-  x,y,z:single;
-  color:cardinal;
-  nx,ny,nz:single;
-  extra:single;
-  u,v:single;
-  class function Layout:TVertexLayout; static;
- end;
+ PVertex = Apus.VertexLayout.PVertex;
+ TVertex = Apus.VertexLayout.TVertex;
+ // Double texture coordinates
+ PVertexDT = Apus.VertexLayout.PVertexDT;
+ TVertexDT = Apus.VertexLayout.TVertexDT;
+ // Vertex format with normal (for 3D lighting)
+ PVertex3D = Apus.VertexLayout.PVertex3D;
+ TVertex3D = Apus.VertexLayout.TVertex3D;
 
  // vertex and index arrays
  TVertices=array of TVertex;
@@ -1367,7 +1344,7 @@ function TMesh.DumpVertex(n:cardinal):String8;
   result:=layout.DumpVertex(pb^);
  end;
 
-constructor TMesh.Create(vertexLayout: TVertexLayout; vertCount, indCount: integer);
+constructor TMesh.Create(vertexLayout:TVertexLayout; vertCount,indCount:integer);
  begin
   layout:=vertexLayout;
   vCount:=vertCount;
@@ -1392,7 +1369,7 @@ procedure TMesh.Draw(tex:TTexture=nil); // draw whole mesh
    Apus.Engine.API.draw.TrgList(vertices,layout,vCount div 3,tex)
  end;
 
-procedure TMesh.SetVertices(data: pointer; sizeInBytes: integer);
+procedure TMesh.SetVertices(data:pointer; sizeInBytes:integer);
  begin
   FreeMem(vertices);
   vertices:=data;
@@ -1400,60 +1377,14 @@ procedure TMesh.SetVertices(data: pointer; sizeInBytes: integer);
   vData:=vertices;
  end;
 
-function TMesh.vPos: integer;
+function TMesh.vPos:integer;
  begin
   result:=(UIntPtr(vData)-UIntPtr(vertices)) div layout.stride;
  end;
 
-{ TVertex }
-
-procedure TVertex.Init(x, y, z, u, v: single; color: cardinal);
- begin
-  self.x:=x; self.y:=y; self.z:=z;
-  self.color:=color;
-  self.u:=u; self.v:=v;
- end;
-
-procedure TVertex.Init(x, y, z: single; color: cardinal);
- begin
-  self.x:=x; self.y:=y; self.z:=z;
-  self.color:=color;
-  self.u:=0.5; self.v:=0.5;
- end;
-
-{ TVertex2t }
-
-procedure TVertex2t.Init(x, y, z, u, v, u2, v2: single; color: cardinal);
- begin
-  self.x:=x; self.y:=y; self.z:=z;
-  self.color:=color;
-  self.u:=u; self.v:=v;
-  self.u2:=u2; self.v2:=v2;
- end;
-
-class function TVertex2t.Layout:TVertexLayout;
- var
-  v:PVertex2t;
- begin
-  v:=nil;
-  result.Init(0,0,integer(@v.color),integer(@v.u),integer(@v.u2));
-  ASSERT(result.stride=sizeof(TVertex2t));
- end;
-
-{ TVertex3D }
-
-class function TVertex3D.Layout:TVertexLayout;
- var
-  v:PVertex3D;
- begin
-  v:=nil;
-  result.Init(0,integer(@v.nx),integer(@v.color),integer(@v.u),0);
-  result.stride:=Sizeof(TVertex3D);
- end;
-
 { TNinePatch }
 
-class function TNinePatch.ClassHash: pointer;
+class function TNinePatch.ClassHash:pointer;
  begin
   result:=@ninePatchHash;
  end;

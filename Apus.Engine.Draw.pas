@@ -302,7 +302,7 @@ end;
 procedure TDrawer.DoubleTex(x_, y_: integer; image1, image2: TTexture;color: cardinal);
 var
  w,h:integer;
- vrt:array[0..3] of TVertex2t;
+ vrt:array[0..3] of TVertexDT;
  au1,au2,bu1,bu2,av1,av2,bv1,bv2:single;
 begin
  ASSERT((image1<>nil) and (image2<>nil));
@@ -331,14 +331,14 @@ begin
   x_-0.5,y_+h-0.5,zPlane,
   au1,av2, bu1,bv2,
   color);
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex2t.Layout);
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertexDT.Layout);
 end;
 
 procedure TDrawer.DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
   image1,image2:TTexture;color:cardinal=$FF808080);
 var
  w,h,w2,h2:single;
- vrt:array[0..3] of TVertex2t;
+ vrt:array[0..3] of TVertexDT;
  c,s:single;
  au1,au2,bu1,bu2,av1,av2,bv1,bv2,u,v:single;
 begin
@@ -407,7 +407,7 @@ begin
   au1,av2,bu1,bv2,
   color);
 
- renderDevice.Draw(TRG_FAN,2,@vrt,TVertex2t.Layout);
+ renderDevice.Draw(TRG_FAN,2,@vrt,TVertexDT.Layout);
 end;
 
 (* Obsolete, probably should not be used
