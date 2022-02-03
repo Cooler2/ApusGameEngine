@@ -365,32 +365,34 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
   end else begin
    AddLine(result,'  c = c*(0.7+0.3*shadow); ',shadowMap); // 30% shadow if no lighting enabled
   end;
-  // Blending
-  for i:=0 to 2 do begin
-   m:=texMode.stage[i];
-   if m<>0 then begin
-    colorMode:=m and $0F;
-    alphaMode:=m shr 4;
-    if (colorMode>=3) or (alphaMode>=3) then
-     AddLine(result,'  t = texture(tex'+intToStr(i)+',vTexCoord);');
-    case colorMode of
-     3:AddLine(result,'   c = vec3(t.r, t.g, t.b);'); // replace
-     4:AddLine(result,'   c = c*vec3(t.r, t.g, t.b);'); // modulate
-     5:AddLine(result,'   c = 2.0*c*vec3(t.r, t.g, t.b);');
-     6:AddLine(result,'   c = c+vec3(t.r, t.g, t.b);');
-     7:AddLine(result,'   c = c-vec3(t.r, t.g, t.b);');
-     8:AddLine(result,'   c = mix(c, vec3(t.r, t.g, t.b), uFactor); ');
-    end;
-    case alphaMode of
-     3:AddLine(result,'   a = t.a; '); //
-     4:AddLine(result,'   a = a*t.a; '); //
-     5:AddLine(result,'   a = 2.0*a*t.a;  '); //
-     6:AddLine(result,'   a = a+t.a;  '); //
-     7:AddLine(result,'   a = a-t.a;  '); //
-     8:AddLine(result,'   a = mix(a, t.a, uFactor);  '); //
+  // Texture blending stages
+  if hasUV then
+   for i:=0 to 2 do begin
+    m:=texMode.stage[i];
+    if m<>0 then begin
+     colorMode:=m and $0F; // blending function for color component
+     alphaMode:=m shr 4; // blending function for alpha component
+     if (colorMode>=ord(tblReplace)) or (alphaMode>=ord(tblReplace)) then // texture is used in blending stage
+       AddLine(result,'  t = texture(tex'+intToStr(i)+',vTexCoord);');
+     case colorMode of
+      ord(tblReplace)    : AddLine(result,'   c = vec3(t.r, t.g, t.b);');
+      ord(tblModulate)   : AddLine(result,'   c = c*vec3(t.r, t.g, t.b);');
+      ord(tblModulate2x) : AddLine(result,'   c = 2.0*c*vec3(t.r, t.g, t.b);');
+      ord(tblAdd)        : AddLine(result,'   c = c+vec3(t.r, t.g, t.b);');
+      ord(tblSub)        : AddLine(result,'   c = c-vec3(t.r, t.g, t.b);');
+      ord(tblInterpolate): AddLine(result,'   c = mix(c, vec3(t.r, t.g, t.b), uFactor); ');
+     end;
+     case alphaMode of
+      ord(tblReplace)    : AddLine(result,'   a = t.a; ');
+      ord(tblModulate)   : AddLine(result,'   a = a*t.a; ');
+      ord(tblModulate2x) : AddLine(result,'   a = 2.0*a*t.a; ');
+      ord(tblAdd)        : AddLine(result,'   a = a+t.a; ');
+      ord(tblSub)        : AddLine(result,'   a = a-t.a; ');
+      ord(tblInterpolate): AddLine(result,'   a = mix(a, t.a, uFactor); ');
+     end;
     end;
    end;
-  end;
+  // Lighting
   AddLine(result,'  c = c*(lightColor*diff+ambientColor);',lighting);
 
   AddLine(result,'  fragColor = vec4(c.r, c.g, c.b, a);');
