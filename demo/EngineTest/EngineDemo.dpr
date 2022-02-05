@@ -74,7 +74,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 12;
+ testnum:integer = 15;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -1881,6 +1881,7 @@ begin
  gfx.SetCullMode(cullCW);
  glDrawElements(GL_TRIANGLES,length(indices),GL_UNSIGNED_SHORT,@indices[0]);
 
+
  // SECOND MODEL (OBJ)
 
  // Textured shader
@@ -1896,6 +1897,7 @@ begin
  shader2.SetUniform('uMVP',transform.MVPMatrix);
  // model matrix
  shader2.SetUniform('uModel',transform.ObjMatrix);
+
  // Setup mesh data arrays
  glVertexAttribPointer(0,3,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0]);
  glVertexAttribPointer(1,3,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0].nX);
@@ -1913,9 +1915,7 @@ begin
 
  // Reset everything back
  glDisable(GL_DEPTH_TEST);
- gfx.shader.DefaultTexMode;
- transform.DefaultView;
- gfx.SetCullMode(cullNone);
+ gfx.Restore;
 end;
 
 function MyRound(v:single):integer; inline;
