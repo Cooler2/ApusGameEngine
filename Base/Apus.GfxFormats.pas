@@ -206,6 +206,7 @@ procedure LoadDDS(data:ByteArray;var image:TRawImage;allocate:boolean=false);
    for y:=0 to height-1 do begin
     sp:=pointer(pc); inc(sp,y*width*PixelSize[format] div 8);
     dp:=image.data; inc(dp,y*image.pitch);
+    ASSERT(PointerInRange(dp,image.data,image.dataSize));
     if format<>image.PixelFormat then begin
      // Copy data with format conversion
      ConvertLine(sp^,dp^,format,image.PixelFormat,sp^,palNone,width);

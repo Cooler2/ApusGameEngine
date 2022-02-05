@@ -248,8 +248,8 @@ procedure TOpenGL.Restore;
  begin
   renderDevice.Reset;
   shader.Reset;
-  shader.DefaultTexMode;
   transform.DefaultView;
+  SetCullMode(cullNone);
  end;
 
 procedure TOpenGL.SetCullMode(mode: TCullMode);
