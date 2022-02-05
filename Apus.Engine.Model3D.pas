@@ -8,11 +8,6 @@ unit Apus.Engine.Model3D;
 interface
 uses Apus.MyServis, Apus.Geom2D, Apus.Geom3D;
 const
- // 3D properties
- propPosition = 1;
- propRotation = 2; // Normalized quaternion
- propScale    = 3;
-
  // Bone flags
  bfDefaultPos = 1; // default matrix updated (model->bone)
  bfCurrentPos = 2; // current matrix updated (bone->model)
@@ -34,6 +29,9 @@ type
   firstVrt,vrtCount:integer;  // vertices used in the part (may also conatain other vertices)
  end;
 
+ {$MinEnumSize 1}
+ TBoneProperty=(bpPosition,bpRotation,bpScale);
+
  // Definition of bone
  TBone=record
   boneName:string;
@@ -52,17 +50,19 @@ type
  // This record (20 bytes) stores one cell of this table
  // Sorted by frame,boneIdx
  TAnimationValue=packed record
-  frame:word;
+  frame:word;   // time marker
   boneIdx:byte; // bone index
-  prop:byte;    // which bone property is affected (position, rotation or scale)
-  w,x,y,z:single;
+  prop:TBoneProperty;    // which bone property is affected (position, rotation or scale)
+  value:TQuaternionS;
  end;
  TAnimationValues=array of TAnimationValue;
 
+ // Single animation timeline
  TAnimation=record
   animationName:string;
   values:TAnimationValues;
-  numFrames:integer;
+  numFrames:integer; // duration in frames
+  duration:single;  // duration in seconds
   loop:boolean; // play infinitely
   smooth:boolean; // play smoothly - interpolate between animation frames (only when key data exists for neighboring frames)
   playing:boolean; // is it playing now?
@@ -71,6 +71,7 @@ type
   procedure UpdateBonesForFrame(const bones:TBonesArray;frame:single);
  end;
 
+ // Vertex bindings
  TBoneWeight=packed record
   bone1,bone2:byte;
   weight1,weight2:byte;
@@ -179,7 +180,7 @@ procedure TModel3D.UpdateBoneMatrices(forwardOnly:boolean=false);
 
 { TAnimation }
 
-procedure TAnimation.UpdateBonesForFrame(const bones: TBonesArray; frame: single);
+procedure TAnimation.UpdateBonesForFrame(const bones:TBonesArray; frame:single);
 var
  a,b,i:integer;
  intFrame:integer;
@@ -193,7 +194,7 @@ begin
   intFrame:=Sat(trunc(frame),0,numFrames-1);
   blend:=frac(frame);
  end;
- // seek frame 1
+ // Seek frame 1
  a:=0; b:=high(values);
  repeat
   i:=(a+b+1) div 2;
@@ -204,9 +205,9 @@ begin
   with values[a] do begin
    b:=boneIdx;
    case prop of
-    propPosition:bones[b].pos:=Point3s(x,y,z);
-    propRotation:bones[b].rot:=Quaternion(x,y,z,w);
-    propScale:bones[b].scale:=Point3s(x,y,z);
+    bpPosition:bones[b].pos:=value.xyz;
+    bpRotation:bones[b].rot:=value;
+    bpScale:bones[b].scale:=value.xyz;
    end;
    bones[b].flags:=bones[b].flags and (not bfCurrentPos);
    inc(a);
@@ -226,16 +227,16 @@ begin
     b:=boneIdx;
     if bones[b].flags and bfCurrentPos=0 then // bone has values
      case prop of
-      propPosition:begin
+      bpPosition:begin
        VectMult(bones[b].pos,1-blend);
-       VectAdd3(bones[b].pos,Vect3Mult(Point3s(x,y,z),blend));
+       VectAdd3(bones[b].pos,Vect3Mult(value.xyz,blend));
       end;
-      propRotation:begin
-       bones[b].rot:=QInterpolate(bones[b].rot,Quaternion(x,y,z,w),blend);
+      bpRotation:begin
+       bones[b].rot:=QInterpolate(bones[b].rot,value,blend);
       end;
-      propScale:begin
+      bpScale:begin
        VectMult(bones[b].scale,1-blend);
-       VectAdd3(bones[b].scale,Vect3Mult(Point3s(x,y,z),blend));
+       VectAdd3(bones[b].scale,Vect3Mult(value.xyz,blend));
       end;
      end;
     inc(a);
@@ -352,7 +353,7 @@ procedure TModel3D.FlipX;
   for i:=0 to high(animations) do
    for j:=0 to high(animations[i].values) do
     with animations[i].values[j] do
-     if prop in [propPosition,propRotation] then x:=-x;
+     if prop in [bpPosition,bpRotation] then value.x:=-value.x;
 
   // TODO: flip bones and animations
  end;

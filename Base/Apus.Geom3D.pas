@@ -61,6 +61,7 @@ interface
    case integer of
     1:( x,y,z,w:single; );
     2:( v:array[0..3] of single; );
+    3:( xyz:TPoint3s; t:single; );
   end;
 
   TVector4=TQuaternion;

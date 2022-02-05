@@ -342,10 +342,10 @@ implementation
         // read position
         frame:=i;
         boneIdx:=j;
-        prop:=propPosition;
-        x:=Unpack(0);
-        y:=Unpack(1);
-        z:=Unpack(2);
+        prop:=bpPosition;
+        value.x:=Unpack(0);
+        value.y:=Unpack(1);
+        value.z:=Unpack(2);
         inc(n);
        end;
       if pose.channelmask and $78>0 then
@@ -353,14 +353,14 @@ implementation
         // read rotation
         frame:=i;
         boneIdx:=j;
-        prop:=propRotation;
-        x:=Unpack(3);
-        y:=Unpack(4);
-        z:=Unpack(5);
+        prop:=bpRotation;
+        value.x:=Unpack(3);
+        value.y:=Unpack(4);
+        value.z:=Unpack(5);
         if pose.channelmask and $40>0 then
-         w:=Unpack(6)
+         value.w:=Unpack(6)
         else
-         w:=-Sqrt(1-sqr(x)-sqr(y)-sqr(z));
+         value.w:=-Sqrt(1-sqr(value.x)-sqr(value.y)-sqr(value.z));
         inc(n);
        end;
       if pose.channelmask and $380>0 then
@@ -368,10 +368,10 @@ implementation
         // read scale
         frame:=i;
         boneIdx:=j;
-        prop:=propScale;
-        x:=Unpack(7);
-        y:=Unpack(8);
-        z:=Unpack(9);
+        prop:=bpScale;
+        value.x:=Unpack(7);
+        value.y:=Unpack(8);
+        value.z:=Unpack(9);
         inc(n);
        end;
       inc(pose);
