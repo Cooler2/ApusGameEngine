@@ -161,6 +161,8 @@ interface
  function GetSqrLength3(v:TVector3s):single; overload;
  procedure Normalize3(var v:TVector3); overload;
  procedure Normalize3(var v:TVector3s); overload;
+ procedure Normalize(var v:TVector3); overload; inline;
+ procedure Normalize(var v:TVector3s); overload; inline;
  procedure VectAdd3(var a:TVector3;b:TVector3); overload;
  procedure VectAdd3(var a:TVector3s;b:TVector3s); overload;
  procedure VectSub3(var a:TVector3;b:TVector3);
@@ -542,20 +544,31 @@ implementation
   begin
    l:=GetLength3(v);
    ASSERT(l>Epsilon,'Normalize zero-length vector');
-   v.x:=v.x/l;
-   v.y:=v.y/l;
-   v.z:=v.z/l;
+   l:=1/l;
+   v.x:=v.x*l;
+   v.y:=v.y*l;
+   v.z:=v.z*l;
   end;
  procedure Normalize3(var v:TVector3s);
   var
-   l:double;
+   l:single;
   begin
    l:=GetLength3(v);
    ASSERT(l>EpsilonS,'Normalize zero-length vector');
-   v.x:=v.x/l;
-   v.y:=v.y/l;
-   v.z:=v.z/l;
+   l:=1/l;
+   v.x:=v.x*l;
+   v.y:=v.y*l;
+   v.z:=v.z*l;
   end;
+ procedure Normalize(var v:TVector3); overload;
+  begin
+   Normalize3(v);
+  end;
+ procedure Normalize(var v:TVector3s); overload;
+  begin
+   Normalize3(v);
+  end;
+
  procedure VectAdd3(var a:TVector3;b:TVector3);
   begin
    a.x:=b.x+a.x;
