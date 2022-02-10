@@ -302,7 +302,10 @@ interface
  // Complete inversion using Gauss method
  procedure Invert4Full(m:TMatrix4;out dest:TMatrix4);
 
- function Det(const m:TMatrix3):single;
+ function Det(const m:TMatrix3):double; overload;
+ function Det(const m:TMatrix3s):single; overload;
+ function Det(const m:TMatrix4):double; overload;
+ function Det(const m:TMatrix4s):single; overload;
 
  // Bounding boxes
  procedure BBoxInclude(var b:TBBox3s;x,y,z:single);
@@ -1563,12 +1566,61 @@ implementation
    result:=pnt.x*p.a+pnt.y*p.b+pnt.z*p.c+p.d;
   end;
 
- function Det(const m:TMatrix3):single;
+ function Det(const m:TMatrix3):double;
   begin
    result:=m[0,0]*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
            m[0,1]*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
            m[0,2]*(m[1,0]*m[2,1]-m[1,1]*m[2,0]);
   end;
+ function Det(const m:TMatrix3s):single;
+  begin
+   result:=m[0,0]*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
+           m[0,1]*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
+           m[0,2]*(m[1,0]*m[2,1]-m[1,1]*m[2,0]);
+  end;
+
+ function Det(const m:TMatrix4):double;
+  begin
+   result:=0;
+   if m[3,3]<>0 then
+    result:=result+(m[0,0]*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
+                    m[0,1]*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
+                    m[0,2]*(m[1,0]*m[2,1]-m[1,1]*m[2,0]))*m[3,3];
+   if m[2,3]<>0 then
+    result:=result-(m[0,0]*(m[1,1]*m[3,2]-m[1,2]*m[3,1])-
+                    m[0,1]*(m[1,0]*m[3,2]-m[1,2]*m[3,0])+
+                    m[0,2]*(m[1,0]*m[3,1]-m[1,1]*m[3,0]))*m[2,3];
+   if m[1,3]<>0 then
+    result:=result+(m[0,0]*(m[2,1]*m[3,2]-m[2,2]*m[3,1])-
+                    m[0,1]*(m[2,0]*m[3,2]-m[2,2]*m[3,0])+
+                    m[0,2]*(m[2,0]*m[3,1]-m[2,1]*m[3,0]))*m[1,3];
+   if m[0,3]<>0 then
+    result:=result-(m[1,0]*(m[2,1]*m[3,2]-m[2,2]*m[3,1])-
+                    m[1,1]*(m[2,0]*m[3,2]-m[2,2]*m[3,0])+
+                    m[1,2]*(m[2,0]*m[3,1]-m[2,1]*m[3,0]))*m[0,3];
+  end;
+
+ function Det(const m:TMatrix4s):single;
+  begin
+   result:=0;
+   if m[3,3]<>0 then
+    result:=result+(m[0,0]*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
+                    m[0,1]*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
+                    m[0,2]*(m[1,0]*m[2,1]-m[1,1]*m[2,0]))*m[3,3];
+   if m[2,3]<>0 then
+    result:=result-(m[0,0]*(m[1,1]*m[3,2]-m[1,2]*m[3,1])-
+                    m[0,1]*(m[1,0]*m[3,2]-m[1,2]*m[3,0])+
+                    m[0,2]*(m[1,0]*m[3,1]-m[1,1]*m[3,0]))*m[2,3];
+   if m[1,3]<>0 then
+    result:=result+(m[0,0]*(m[2,1]*m[3,2]-m[2,2]*m[3,1])-
+                    m[0,1]*(m[2,0]*m[3,2]-m[2,2]*m[3,0])+
+                    m[0,2]*(m[2,0]*m[3,1]-m[2,1]*m[3,0]))*m[1,3];
+   if m[0,3]<>0 then
+    result:=result-(m[1,0]*(m[2,1]*m[3,2]-m[2,2]*m[3,1])-
+                    m[1,1]*(m[2,0]*m[3,2]-m[2,2]*m[3,0])+
+                    m[1,2]*(m[2,0]*m[3,1]-m[2,1]*m[3,0]))*m[0,3];
+  end;
+
 
  function IntersectTrgLine(A,B,C,O,T:PPoint3s;var pb,pc,d:double):boolean;
   var
