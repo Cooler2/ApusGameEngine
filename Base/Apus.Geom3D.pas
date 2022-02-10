@@ -1476,6 +1476,9 @@ implementation
     qZ.Normalize;
    end;
    // Convert to quaternion
+   move(qX,mat3[0],12);
+   move(qY,mat3[1],12);
+   move(qZ,mat3[2],12);
    rotation:=MatrixToQuaternion(mat3);
   end;
 
