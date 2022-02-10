@@ -187,14 +187,14 @@ interface
 
  function IsEqual(d1,d2:double):boolean; overload; inline;
  function IsEqual(s1,s2:single):boolean; overload; inline;
- function IsEqual(m1,m2:TMatrix4):boolean; overload; inline;
- function IsEqual(m1,m2:TMatrix4s):boolean; overload; inline;
- function IsEqual(m1,m2:TMatrix43):boolean; overload; inline;
- function IsEqual(m1,m2:TMatrix3):boolean; overload; inline;
- function IsEqual(m1,m2:TMatrix3s):boolean; overload; inline;
+ function IsEqual(m1,m2:TMatrix4;precision:single=4.0):boolean; overload; inline;
+ function IsEqual(m1,m2:TMatrix4s;precision:single=4.0):boolean; overload; inline;
+ function IsEqual(m1,m2:TMatrix43;precision:single=4.0):boolean; overload; inline;
+ function IsEqual(m1,m2:TMatrix3;precision:single=4.0):boolean; overload; inline;
+ function IsEqual(m1,m2:TMatrix3s;precision:single=4.0):boolean; overload; inline;
 
- function CompareSingle(s1,s2:PSingle;count:integer):boolean;
- function CompareDouble(s1,s2:PDouble;count:integer):boolean;
+ function CompareSingle(s1,s2:PSingle;count:integer;precision:single=1.0):boolean;
+ function CompareDouble(s1,s2:PDouble;count:integer;precision:single=1.0):boolean;
 
  // Convert matrix to single precision
  procedure ToSingle43(sour:TMatrix43;out dest:TMatrix43s);
@@ -701,47 +701,53 @@ implementation
     result:=CompareSingle(@s1,@s2,1);
   end;
 
- function IsEqual(m1,m2:TMatrix4):boolean; overload;
+ function IsEqual(m1,m2:TMatrix4;precision:single=4.0):boolean; overload;
   begin
-    result:=CompareDouble(@m1,@m2,16);
+    result:=CompareDouble(@m1,@m2,16,precision);
   end;
 
- function IsEqual(m1,m2:TMatrix4s):boolean; overload;
+ function IsEqual(m1,m2:TMatrix4s;precision:single=4.0):boolean; overload;
   begin
-    result:=CompareSingle(@m1,@m2,16);
+    result:=CompareSingle(@m1,@m2,16,precision);
   end;
 
- function IsEqual(m1,m2:TMatrix43):boolean; overload;
+ function IsEqual(m1,m2:TMatrix43;precision:single=4.0):boolean; overload;
   begin
-    result:=CompareDouble(@m1,@m2,12);
+    result:=CompareDouble(@m1,@m2,12,precision);
   end;
 
- function IsEqual(m1,m2:TMatrix3):boolean; overload;
+ function IsEqual(m1,m2:TMatrix3;precision:single=4.0):boolean; overload;
   begin
-    result:=CompareDouble(@m1,@m2,9);
+    result:=CompareDouble(@m1,@m2,9,precision);
   end;
 
- function IsEqual(m1,m2:TMatrix3s):boolean; overload;
+ function IsEqual(m1,m2:TMatrix3s;precision:single=4.0):boolean; overload;
   begin
-    result:=CompareSingle(@m1,@m2,9);
+    result:=CompareSingle(@m1,@m2,9,precision);
   end;
 
- function CompareSingle(s1,s2:PSingle;count:integer):boolean;
+ function CompareSingle(s1,s2:PSingle;count:integer;precision:single):boolean;
+  var
+   threshold:single;
   begin
    result:=true;
+   threshold:=EpsilonS*precision;
    repeat
-    if s1^-s2^>EpsilonS then exit(false);
+    if abs(s1^-s2^)>threshold then exit(false);
     if count=1 then break;
     dec(count);
     inc(s1); inc(s2);
    until false
   end;
 
- function CompareDouble(s1,s2:PDouble;count:integer):boolean;
+ function CompareDouble(s1,s2:PDouble;count:integer;precision:single):boolean;
+  var
+   threshold:double;
   begin
    result:=true;
+   threshold:=Epsilon*precision;
    repeat
-    if s1^-s2^>EPSILON then exit(false);
+    if abs(s1^-s2^)>threshold then exit(false);
     if count=1 then break;
     dec(count);
     inc(s1); inc(s2);
