@@ -1391,15 +1391,38 @@ implementation
   var
    t,k:single;
   begin
-   t:=1+mat[0,0]+mat[1,1]+mat[2,2];
-   if t<EpsilonS then begin
-    ASSERT(false,'Quternion special case');
+   t:=mat[0,0]+mat[1,1]+mat[2,2];
+   if t>0 then begin
+    k:=sqrt(1+t);
+    result.w:=k*0.5;
+    k:=0.5/k;
+    result.x:=-(mat[2,1]-mat[1,2])*k;
+    result.y:=-(mat[0,2]-mat[2,0])*k;
+    result.z:=-(mat[1,0]-mat[0,1])*k;
+   end else
+   if (mat[0,0]>mat[1,1]) and (mat[0,0]>mat[2,2]) then begin
+    k:=sqrt(1+mat[0,0]-mat[1,1]-mat[2,2]);
+    result.x:=k*0.5;
+    k:=0.5/k;
+    result.w:=(mat[1,2]-mat[2,1])*k;
+    result.y:=(mat[0,1]+mat[1,0])*k;
+    result.z:=(mat[0,2]+mat[2,0])*k;
+   end else
+   if mat[1,1]>mat[2,2] then begin
+    k:=sqrt(1+mat[1,1]-mat[0,0]-mat[2,2]);
+    result.y:=k*0.5;
+    k:=0.5/k;
+    result.w:=(mat[2,0]-mat[0,2])*k;
+    result.x:=(mat[0,1]+mat[1,0])*k;
+    result.z:=(mat[1,2]+mat[2,1])*k;
+   end else begin
+    k:=sqrt(1+mat[2,2]-mat[0,0]-mat[1,1]);
+    result.z:=k*0.5;
+    k:=0.5/k;
+    result.w:=(mat[0,1]-mat[1,0])*k;
+    result.x:=(mat[0,2]+mat[2,0])*k;
+    result.y:=(mat[1,2]+mat[2,1])*k;
    end;
-   result.w:=sqrt(t)/2;
-   k:=-1/(result.w*4.0); // - for transpose
-   result.x:=(mat[2,1]-mat[1,2])*k;
-   result.y:=(mat[0,2]-mat[2,0])*k;
-   result.z:=(mat[1,0]-mat[0,1])*k;
   end;
 
  function MatrixToQuaternion(const mat:TMatrix3):TQuaternion; overload;
