@@ -189,6 +189,12 @@ interface
 
  function IsEqual(d1,d2:double):boolean; overload; inline;
  function IsEqual(s1,s2:single):boolean; overload; inline;
+
+ function IsEqual(v1,v2:TVector3s;precision:single=2.0):boolean; overload; inline;
+ function IsEqual(v1,v2:TVector4s;precision:single=2.0):boolean; overload; inline;
+ function IsEqual(v1,v2:TVector3;precision:single=2.0):boolean; overload; inline;
+ function IsEqual(v1,v2:TVector4;precision:single=2.0):boolean; overload; inline;
+
  function IsEqual(m1,m2:TMatrix4;precision:single=4.0):boolean; overload; inline;
  function IsEqual(m1,m2:TMatrix4s;precision:single=4.0):boolean; overload; inline;
  function IsEqual(m1,m2:TMatrix43;precision:single=4.0):boolean; overload; inline;
@@ -722,6 +728,26 @@ implementation
  function IsEqual(s1,s2:single):boolean; overload;
   begin
     result:=CompareSingle(@s1,@s2,1);
+  end;
+
+ function IsEqual(v1,v2:TVector3s;precision:single=2.0):boolean; overload; inline;
+  begin
+    result:=CompareSingle(@v1,@v2,3,precision);
+  end;
+
+ function IsEqual(v1,v2:TVector4s;precision:single=2.0):boolean; overload; inline;
+  begin
+    result:=CompareSingle(@v1,@v2,4,precision);
+  end;
+
+ function IsEqual(v1,v2:TVector3;precision:single=2.0):boolean; overload; inline;
+  begin
+    result:=CompareDouble(@v1,@v2,3,precision);
+  end;
+
+ function IsEqual(v1,v2:TVector4;precision:single=2.0):boolean; overload; inline;
+  begin
+    result:=CompareDouble(@v1,@v2,4,precision);
   end;
 
  function IsEqual(m1,m2:TMatrix4;precision:single=4.0):boolean; overload;
@@ -1444,7 +1470,7 @@ implementation
  procedure DecomposeMartix(mat:TMatrix4s;out translation,rotation,scale:TQuaternionS);
   var
    qX,qY,qZ:TQuaternionS;
-   mat3:TMatrix3s absolute qX;
+   mat3:TMatrix3s;
    v:single;
   begin
    translation:=MatRow(mat,3);
