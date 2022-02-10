@@ -207,6 +207,9 @@ interface
  function RotationXMat(angle:double):TMatrix43;
  function RotationYMat(angle:double):TMatrix43;
  function RotationZMat(angle:double):TMatrix43;
+ function RotationXMat3s(angle:single):TMatrix3s;
+ function RotationYMat3s(angle:single):TMatrix3s;
+ function RotationZMat3s(angle:single):TMatrix3s;
  function RotationXMat4s(angle:single):TMatrix4s;
  function RotationYMat4s(angle:single):TMatrix4s;
  function RotationZMat4s(angle:single):TMatrix4s;
@@ -257,6 +260,10 @@ interface
  function MatrixFromYawRollPitch(yaw,roll,pitch:double):TMatrix3;
  function MatrixFromYawRollPitch43(yaw,roll,pitch:double):TMatrix43;
  function MatrixFromYawRollPitch4(yaw,roll,pitch:double):TMatrix4;
+ function MatrixFromYawRollPitchS(yaw,roll,pitch:single):TMatrix3s;
+ function MatrixFromYawRollPitch43s(yaw,roll,pitch:single):TMatrix43s;
+ function MatrixFromYawRollPitch4s(yaw,roll,pitch:single):TMatrix4s;
+
  procedure YawRollPitchFromMatrix(const mat:TMatrix43; var yaw,roll,pitch:double);
 
  // Combined transformation M = M3*M2*M1 means do M1 then M2 and finally M3
@@ -1201,6 +1208,37 @@ implementation
    result[2,2]:=scaleZ;
   end;
 
+ function RotationXMat3s(angle:single):TMatrix3s;
+  var
+   c,s:single;
+  begin
+   c:=cos(angle); s:=sin(angle);
+   result:=IdentMatrix3s;
+   result[1,1]:=c; result[1,2]:=s;
+   result[2,1]:=-s; result[2,2]:=c;
+  end;
+
+ function RotationYMat3s(angle:single):TMatrix3s;
+  var
+   c,s:single;
+  begin
+   c:=cos(angle); s:=sin(angle);
+   result:=IdentMatrix3s;
+   result[0,0]:=c; result[0,2]:=-s;
+   result[2,0]:=s; result[2,2]:=c;
+  end;
+
+ function RotationZMat3s(angle:single):TMatrix3s;
+  var
+   c,s:single;
+  begin
+   c:=cos(angle); s:=sin(angle);
+   result:=IdentMatrix3s;
+   result[0,0]:=c; result[0,1]:=s;
+   result[1,0]:=-s; result[1,1]:=c;
+  end;
+
+
  function TranslationMat4s(x,y,z:single):TMatrix4s;
   begin
    result:=IdentMatrix4s;
@@ -1265,8 +1303,31 @@ implementation
 
  function RotationAroundVector(v:TVector3s;angle:single):TMatrix3s;
   var
+   x2,y2,z2:single;
+   xy,xz,yz:single;
+   co,si,nco:single;
+  begin
+   Normalize(v);
+   x2:=sqr(v.x);
+   y2:=sqr(v.y);
+   z2:=sqr(v.z);
+   xy:=v.x*v.y;
+   xz:=v.x*v.z;
+   yz:=v.y*v.z;
+   co:=cos(angle);
+   si:=sin(angle);
+   nco:=1-co;
+
+   result[0,0]:=co+nco*x2;      result[0,1]:=xy*nco+v.z*si;  result[0,2]:=xz*nco-v.y*si;
+   result[1,0]:=xy*nco-v.z*si;  result[1,1]:=co+nco*y2;      result[1,2]:=yz*nco+v.x*si;
+   result[2,0]:=xz*nco+v.y*si;  result[2,1]:=yz*nco-v.x*si;  result[2,2]:=co+nco*z2;
+  end;
+
+{ function RotationAroundVector(v:TVector3s;angle:single):TMatrix3s;
+  var
    l2,m2,n2,lm,ln,mn,co,si,nco:single;
   begin
+   Normalize(v);
    l2:=v.x*v.x;
    lm:=v.x*v.y;
    ln:=v.x*v.z;
@@ -1276,10 +1337,10 @@ implementation
    co:=cos(angle);
    si:=sin(angle);
    nco:=1-co;
-   result[0,0]:=l2+(m2+n2)*co;  result[0,1]:=lm*nco-v.z*si; result[0,2]:=ln*nco+v.y*si;
-   result[1,0]:=lm*nco+v.z*si; result[1,1]:=m2+(l2+n2)*co;  result[1,2]:=mn*nco-v.x*si;
-   result[2,0]:=ln*nco-v.y*si; result[2,1]:=mn*nco+v.x*si; result[2,2]:=n2+(l2+m2)*co;
-  end;
+   result[0,0]:=l2+(m2+n2)*co;  result[1,0]:=lm*nco-v.z*si;  result[2,0]:=ln*nco+v.y*si;
+   result[0,1]:=lm*nco+v.z*si;  result[1,1]:=m2+(l2+n2)*co;  result[2,1]:=mn*nco-v.x*si;
+   result[0,2]:=ln*nco-v.y*si;  result[1,2]:=mn*nco+v.x*si;  result[2,2]:=n2+(l2+m2)*co;
+  end; }
 
  procedure MatrixFromQuaternion(const q:TQuaternion;out mat:TMatrix3); overload;
   var
@@ -1552,15 +1613,36 @@ implementation
    cc:=cos(pitch); sc:=sin(pitch);
    // row 0
    m^:=ca*cb; inc(m);
-   m^:=sa*cc-ca*sb*sc; inc(m);
-   m^:=sa*sc+ca*sb*cc; inc(m,width-2);
+   m^:=sa*cb; inc(m);
+   m^:=-sb; inc(m,width-2);
    // row 1
-   m^:=-sa*cb; inc(m);
-   m^:=ca*cc+sa*sb*sc; inc(m);
-   m^:=ca*sc-sa*sb*cc; inc(m,width-2);
+   m^:=ca*sb*sc-sa*cc; inc(m);
+   m^:=sa*sb*sc+ca*cc; inc(m);
+   m^:=cb*sc; inc(m,width-2);
    // row 2
-   m^:=-sb; inc(m);
-   m^:=-cb*sc; inc(m);
+   m^:=ca*sb*cc+sa*sc; inc(m);
+   m^:=sa*sb*cc-ca*sc; inc(m);
+   m^:=cb*cc; inc(m,width-2);
+  end;
+
+ procedure _MatrixFromYawRollPitchS(yaw,roll,pitch:single;m:PSingle;width:integer);
+  var
+   ca,sa,cb,sb,cc,sc:double;
+  begin
+   ca:=cos(yaw); sa:=sin(yaw);
+   cb:=cos(roll); sb:=sin(roll);
+   cc:=cos(pitch); sc:=sin(pitch);
+   // row 0
+   m^:=ca*cb; inc(m);
+   m^:=sa*cb; inc(m);
+   m^:=-sb; inc(m,width-2);
+   // row 1
+   m^:=ca*sb*sc-sa*cc; inc(m);
+   m^:=sa*sb*sc+ca*cc; inc(m);
+   m^:=cb*sc; inc(m,width-2);
+   // row 2
+   m^:=ca*sb*cc+sa*sc; inc(m);
+   m^:=sa*sb*cc-ca*sc; inc(m);
    m^:=cb*cc; inc(m,width-2);
   end;
 
@@ -1578,6 +1660,24 @@ implementation
  function MatrixFromYawRollPitch4(yaw,roll,pitch:double):TMatrix4;
   begin
    _MatrixFromYawRollPitch(yaw,roll,pitch,@result,4);
+   result[0,3]:=0;  result[1,3]:=0;  result[2,3]:=0;
+   result[3,0]:=0;  result[3,1]:=0;  result[3,2]:=0; result[3,3]:=1;
+  end;
+
+ function MatrixFromYawRollPitchS(yaw,roll,pitch:single):TMatrix3s;
+  begin
+   _MatrixFromYawRollPitchS(yaw,roll,pitch,@result,3);
+  end;
+
+ function MatrixFromYawRollPitch43s(yaw,roll,pitch:single):TMatrix43s;
+  begin
+   _MatrixFromYawRollPitchS(yaw,roll,pitch,@result,3);
+   result[3,0]:=0;  result[3,1]:=0;  result[3,2]:=0;
+  end;
+
+ function MatrixFromYawRollPitch4s(yaw,roll,pitch:single):TMatrix4s;
+  begin
+   _MatrixFromYawRollPitchS(yaw,roll,pitch,@result,4);
    result[0,3]:=0;  result[1,3]:=0;  result[2,3]:=0;
    result[3,0]:=0;  result[3,1]:=0;  result[3,2]:=0; result[3,3]:=1;
   end;
