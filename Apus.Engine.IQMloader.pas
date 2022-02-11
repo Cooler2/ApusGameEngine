@@ -383,25 +383,26 @@ implementation
     SetLength(model.animations,count);
     for i:=0 to count-1 do
      with model.animations[i] do begin
-      animationName:=GetString(animations.name);
+      name:=GetString(animations.name);
       smooth:=true;
       curFrame:=-1;
       playing:=false;
       numFrames:=animations.num_frames;
       model.fps:=animations.framerate;
-      values:=frameData;
+      keyFrames:=frameData;
      end;
    end;
 
   begin
    try
-    data:=LoadFileAsBytes(FileName(fname));
+    fName:=FileName(fName);
+    data:=LoadFileAsBytes(fname);
     ASSERT(length(data)>=sizeof(header),'File is too short');
     header:=@data[0];
     ASSERT(header.magic=MAGIC,'Wrong file format');
 
     ParseData;
-    model:=TModel3D.Create;
+    model:=TModel3D.Create(ChangeFileExt(ExtractFileName(fname),''),fname);
     model.fps:=30;
     BuildVertexData;
     BuildMeshData;
@@ -423,11 +424,12 @@ implementation
   begin
    ASSERT(false,'LoadIQE not implemented!');
    try
-    assign(f,fname);
-    reset(f);
-    readln(f,st);
+    fName:=FileName(fName);
+    Assign(f,fname);
+    Reset(f);
+    Readln(f,st);
     ASSERT(st='# Inter-Quake Export','Wrong file format '+fname);
-    model:=TModel3D.Create;
+    model:=TModel3D.Create(ChangeFileExt(ExtractFileName(fName),''),fName);
 
     {ParseData;
     BuildVertexData;

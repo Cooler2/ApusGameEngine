@@ -151,7 +151,7 @@ implementation
    end;
 
   begin
-   m:=TModel3D.Create;
+   m:=TModel3D.Create('');
    vHash.Init(500);
 
     pb:=@data[0];
@@ -235,9 +235,14 @@ implementation
 
 
  function Load3DModelOBJ(fname:string):TModel3D;
+  var
+   name:string;
   begin
    try
-    result:=LoadOBJInternal(LoadFileAsBytes(FileName(fname)));
+    name:=FileName(fname);
+    result:=LoadOBJInternal(LoadFileAsBytes(name));
+    result.name:=ChangeFileExt(ExtractFileName(name),'');
+    result.src:=name;
    except
     on e:Exception do raise EError.Create('Error in LoadOBJ('+fname+'): '+ExceptionMsg(e));
    end;
