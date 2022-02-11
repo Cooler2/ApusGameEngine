@@ -169,7 +169,7 @@ procedure TMainScene.Render;
   gfx.target.Clear(0,1);
   shader.Shadow(shadowDepthPass);
   // Set ortho view from the light source
-  transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
+  transform.SetCamera(VecMult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
   // Scale 25 should be enough to cover all scene even at minimal zoom level.
   // If scene is too large, this method won't work: you need either
   // cascaded shadow maps or (better) compressed (non-linear) shadow maps

@@ -86,20 +86,21 @@ interface
   InvalidPoint2s:TPoint2s=(x:NaN;y:NaN);
 
  // Vector functions
- function DotProduct(a,b:TVector2):double; inline;
- function CrossProduct(a,b:TVector2):double; inline;
+ function DotProduct(const a,b:TVector2):double; overload; inline;
+ function CrossProduct(const a,b:TVector2):double; overload; inline;
  function GetLength(v:TVector2):double; overload; inline;
  function GetLength(v:TVector2s):double; overload; inline;
  function Distance(p1,p2:TPoint2):double; overload;
  function Distance(p1,p2:TPoint2s):single; overload;
  function Distance2(p1,p2:TPoint2):double; overload;
  function Distance2(p1,p2:TPoint2s):single; overload;
- function GetSqrLength(v:TVector2):double; inline;
- procedure Normalize(var v:TVector2); inline;
+ function GetSqrLength(v:TVector2):double; overload; inline;
+ procedure Normalize(var v:TVector2); overload; inline;
+ procedure Normalize(var v:TVector2s); overload; inline;
  function PointAdd(p:TPoint2;v:TVector2;factor:double=1.0):TPoint2; inline; overload;
  function PointAdd(p:TPoint2s;v:TVector2s;factor:double=1.0):TPoint2s; inline; overload;
- procedure VectAdd(var a:TVector2;const b:TVector2); inline; overload;
- procedure VectSub(var a:Tvector2;const b:TVector2); inline; overload;
+ procedure VectAdd(var a:TVector2;const b:TVector2); overload; inline;
+ procedure VectSub(var a:Tvector2;const b:TVector2); overload; inline;
  procedure VectAdd(var a:TVector2s;const b:TVector2s); inline; overload;
  procedure VectSub(var a:Tvector2s;const b:TVector2s); inline; overload;
  function VectMult(v:TVector2;value:double):TVector2; inline; overload;
@@ -176,8 +177,8 @@ interface
  function ScaleMat(scaleX,scaleY:double):TMatrix32;
 
  // target = M1*M2
- procedure MultMat2(m1,m2:TMatrix2;out target:TMatrix2);
- procedure MultMat(m1,m2:TMatrix32;out target:TMatrix32);
+ procedure MultMat(m1,m2:TMatrix2;out target:TMatrix2); overload;
+ procedure MultMat(m1,m2:TMatrix32;out target:TMatrix32); overload;
 
  procedure MultPnts(m:TMatrix32s;v:Ppoint2s;num,step:integer);
 
@@ -201,12 +202,12 @@ interface
 implementation
  uses {$IFDEF DELPHI}Apus.CrossPlatform,{$ENDIF} Apus.MyServis, SysUtils, Math;
 
- function DotProduct(a,b:TVector2):double;
+ function DotProduct(const a,b:TVector2):double;
   begin
    result:=a.x*b.x+a.y*b.y;
   end;
 
- function CrossProduct;
+ function CrossProduct(const a,b:TVector2):double;
   begin
    result:=a.x*b.y-a.y*b.x;
   end;
@@ -255,6 +256,17 @@ implementation
    v.x:=v.x/l;
    v.y:=v.y/l;
   end;
+
+ procedure Normalize(var v:TVector2s);
+  var
+   l:double;
+  begin
+   l:=GetLength(v);
+   ASSERT(l>EpsilonS,'Normalize zero-length vector');
+   v.x:=v.x/l;
+   v.y:=v.y/l;
+  end;
+
 
  procedure VectAdd(var a:TVector2;const b:TVector2); inline;
   begin
@@ -604,7 +616,7 @@ implementation
   end;
 
  // target = M1*M2
- procedure MultMat2(m1,m2:TMatrix2;out target:TMatrix2);
+ procedure MultMat(m1,m2:TMatrix2;out target:TMatrix2);
   begin
    target[0,0]:=m1[0,0]*m2[0,0]+m1[0,1]*m2[1,0];
    target[0,1]:=m1[0,0]*m2[0,1]+m1[0,1]*m2[1,1];

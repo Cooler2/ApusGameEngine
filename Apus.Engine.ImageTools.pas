@@ -787,7 +787,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    ASSERT(image.PixelFormat in [ipfARGB,ipfxRGB]);
    image.lock;
    try
-    MultMat4(Apus.GfxFilters.Saturation(saturation),BrightnessContrast(brightness,contrast),mat);
+    MultMat(Apus.GfxFilters.Saturation(saturation),BrightnessContrast(brightness,contrast),mat);
     MixRGB(image.data,image.pitch,image.width,image.height,mat);
    finally
     image.unlock;
@@ -801,7 +801,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
    ASSERT(image.PixelFormat in [ipfARGB,ipfxRGB]);
    image.lock;
    try
-    MultMat4(Apus.GfxFilters.Saturation(saturation),Apus.GfxFilters.Hue(hue),mat);
+    MultMat(Apus.GfxFilters.Saturation(saturation),Apus.GfxFilters.Hue(hue),mat);
     MixRGB(image.data,image.pitch,image.width,image.height,mat);
    finally
     image.unlock;

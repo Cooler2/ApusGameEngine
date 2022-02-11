@@ -17,7 +17,7 @@ uses
    m4:TMAtrix4s;
    v:single;
   begin
-   m3:=MatrixFromYawRollPitchS(1,-1,0.5);
+   MatrixFromYawRollPitch(m3,1,-1,0.5);
    v:=Det(m3);
    ASSERT(IsEqual(v,1));
    writeln('Matrices OK');
@@ -38,19 +38,19 @@ uses
    for i:=-20 to 30 do begin
     angle:=i/3;
     // Z
-    m1:=MatrixFromYawRollPitchS(angle,0,0);
+    MatrixFromYawRollPitch(m1,angle,0,0);
     m2:=RotationAroundVector(Vector3s(0,0,1),angle);
     m3:=RotationZMat3s(angle);
     ASSERT(IsEqual(m1,m2));
     ASSERT(IsEqual(m1,m3));
     // Y
-    m1:=MatrixFromYawRollPitchS(0,angle,0);
+    MatrixFromYawRollPitch(m1,0,angle,0);
     m2:=RotationAroundVector(Vector3s(0,1,0),angle);
     m3:=RotationYMat3s(angle);
     ASSERT(IsEqual(m1,m2));
     ASSERT(IsEqual(m1,m3));
     // X
-    m1:=MatrixFromYawRollPitchS(0,0,angle);
+    MatrixFromYawRollPitch(m1,0,0,angle);
     m2:=RotationAroundVector(Vector3s(1,0,0),angle);
     m3:=RotationXMat3s(angle);
     ASSERT(IsEqual(m1,m2));
@@ -59,7 +59,7 @@ uses
 
    m1:=RotationAroundVector(Vector3s(1,1,1),1);
    m2:=RotationAroundVector(Vector3s(1,1,1),-1);
-   MultMat3(m1,m2,m3);
+   MultMat(m1,m2,m3);
    ASSERT(IsEqual(m3,IdentMatrix3s));
 
    for i:=1 to 100 do begin
@@ -113,8 +113,8 @@ uses
    end;
 
    mat:=ScaleMat4s(1.5, 1.7, 1.9);
-   mat:=MultMat4(mat,RotationZMat4s(0.1));
-   mat:=MultMat4(mat,TranslationMat4s(2,2.5,3));
+   mat:=MultMat(mat,RotationZMat4s(0.1));
+   mat:=MultMat(mat,TranslationMat4s(2,2.5,3));
    DecomposeMartix(mat,q1,q2,q3);
    ASSERT(IsEqual(q1.xyz,Vector3s(2,2.5,3)));
    ASSERT(IsEqual(q3.xyz,Vector3s(1.5, 1.7, 1.9)));

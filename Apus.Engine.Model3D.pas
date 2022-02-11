@@ -155,23 +155,23 @@ procedure TModel3D.UpdateBoneMatrices(forwardOnly:boolean=false);
      mScale[1,1]:=y;
      mScale[2,2]:=z;
      mTmp:=mat;
-     MultMat4(mTmp,mScale,mat);
+     MultMat(mTmp,mScale,mat);
     end;
    move(bones[index].pos,mat[3],sizeof(TPoint3s));
    if p>=0 then
-    MultMat4(mat,bones[p].currentPos,bones[index].currentPos)
+    MultMat(mat,bones[p].currentPos,bones[index].currentPos)
    else
     bones[index].currentPos:=mat;
    if newFlags and bfDefaultPos>0 then begin
-    Invert4(bones[index].currentPos,bones[index].defaultPos);
+    Invert(bones[index].currentPos,bones[index].defaultPos);
     {$IFDEF DEBUG}
     // verify
-    MultMat4(bones[index].currentPos,bones[index].defaultPos,mat);
+    MultMat(bones[index].currentPos,bones[index].defaultPos,mat);
     //ASSERT(IsIdentity(mat));
     {$ENDIF}
    end;
    with bones[index] do begin
-    MultMat4(defaultPos,currentPos,combined);
+    MultMat(defaultPos,currentPos,combined);
     //combined:=currentPos;
     flags:=flags or newFlags;
    end;
@@ -236,14 +236,14 @@ begin
      case prop of
       bpPosition:begin
        VectMult(bones[b].pos,1-fracFrame);
-       VectAdd3(bones[b].pos,Vect3Mult(value.xyz,fracFrame));
+       VectAdd(bones[b].pos,VecMult(value.xyz,fracFrame));
       end;
       bpRotation:begin
        bones[b].rot:=QInterpolate(bones[b].rot,value,fracFrame);
       end;
       bpScale:begin
        VectMult(bones[b].scale,1-fracFrame);
-       VectAdd3(bones[b].scale,Vect3Mult(value.xyz,fracFrame));
+       VectAdd(bones[b].scale,VecMult(value.xyz,fracFrame));
       end;
      end;
     inc(a);
@@ -292,14 +292,14 @@ procedure TModel3D.FillVertexBuffer(data: pointer; vrtCount, stride:integer; use
    if transform then begin // ����� ��������������
     p1:=vp[i];
     if vb[i].weight1>0 then begin
-     MultPnt4(bones[vb[i].bone1].combined,@p1,1,0);
+     MultPnt(bones[vb[i].bone1].combined,@p1,1,0);
      VectMult(p1,vb[i].weight1/255);
     end;
     if vb[i].weight2>0 then begin
      p2:=vp[i];
-     MultPnt4(bones[vb[i].bone2].combined,@p2,1,0);
+     MultPnt(bones[vb[i].bone2].combined,@p2,1,0);
      VectMult(p2,vb[i].weight2/255);
-     VectAdd3(p1,p2);
+     VectAdd(p1,p2);
     end;
     move(p1,dest^,sizeof(TPoint3s))
    end else

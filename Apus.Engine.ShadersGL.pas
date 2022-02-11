@@ -710,7 +710,7 @@ procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:
     frustum[1,1]:=0.5; frustum[3,1]:=0.5;
     frustum[2,2]:=0.5; frustum[3,2]:=0.5-depthBias;
     frustum[3,3]:=1;
-    Multmat4(viewProjMatrix,frustum,shadowMapMatrix);
+    MultMat(viewProjMatrix,frustum,shadowMapMatrix);
   end;
  begin
   SetFlag(curTexMode.lighting,LIGHT_SHADOWMAP,mode=shadowMainPass);
@@ -745,7 +745,7 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
     if HasFlag(curTexMode.lighting,LIGHT_DEPTHPASS) and
      IsZeroMem(viewProjMatrix,sizeof(viewProjMatrix)) then begin
       // Save view-projection matrix used during depth rendering phase for later use
-      MultMat4(transformationAPI.GetViewMatrix,transformationAPI.GetProjMatrix,mat);
+      MultMat(transformationAPI.GetViewMatrix,transformationAPI.GetProjMatrix,mat);
       viewProjMatrix:=Matrix4s(mat);
     end;
    end;

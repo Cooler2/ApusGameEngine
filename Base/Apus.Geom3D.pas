@@ -150,26 +150,24 @@ interface
  function MatCol(const mat:TMatrix3s; n:integer):TVector3s; overload;
 
  // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой
- function DotProduct3(a,b:TVector3):double; overload;
- function DotProduct3(a,b:TVector3s):double; overload;
+ function DotProduct(a,b:TVector3):double; overload;
+ function DotProduct(a,b:TVector3s):double; overload;
  // Векторное произведение: модуль равен площади ромба
- function CrossProduct3(a,b:TVector3):TVector3; overload;
- function CrossProduct3(a,b:TVector3s):TVector3s; overload;
- function GetLength3(v:TVector3):double; overload;
- function GetLength3(v:TVector3s):double; overload;
- function GetSqrLength3(v:TVector3):double; overload;
- function GetSqrLength3(v:TVector3s):single; overload;
- procedure Normalize3(var v:TVector3); overload;
- procedure Normalize3(var v:TVector3s); overload;
- procedure Normalize(var v:TVector3); overload; inline;
- procedure Normalize(var v:TVector3s); overload; inline;
- procedure VectAdd3(var a:TVector3;b:TVector3); overload;
- procedure VectAdd3(var a:TVector3s;b:TVector3s); overload;
- procedure VectSub3(var a:TVector3;b:TVector3);
+ function CrossProduct(a,b:TVector3):TVector3; overload;
+ function CrossProduct(a,b:TVector3s):TVector3s; overload;
+ function GetLength(v:TVector3):double; overload;
+ function GetLength(v:TVector3s):double; overload;
+ function GetSqrLength(v:TVector3):double; overload;
+ function GetSqrLength(v:TVector3s):single; overload;
+ procedure Normalize(var v:TVector3); overload;
+ procedure Normalize(var v:TVector3s); overload;
+ procedure VectAdd(var a:TVector3;b:TVector3); overload;
+ procedure VectAdd(var a:TVector3s;b:TVector3s); overload;
+ procedure VectSub(var a:TVector3;b:TVector3);
  procedure VectMult(var a:TVector3;k:double); overload;
  procedure VectMult(var a:TVector3s;k:double); overload;
- function Vect3Mult(a:TVector3;k:double):TVector3; overload;
- function Vect3Mult(a:TVector3s;k:double):TVector3s; overload;
+ function VecMult(a:TVector3;k:double):TVector3; overload;
+ function VecMult(a:TVector3s;k:double):TVector3s; overload;
  function PointAdd(p:TPoint3;v:TVector3;factor:double=1.0):TPoint3; overload; inline;
  function PointAdd(p:TPoint3s;v:TVector3s;factor:single=1.0):TPoint3s; overload; inline;
  function Distance(p1,p2:TPoint3):double; overload;
@@ -263,12 +261,12 @@ interface
  // roll - поворот вокруг X
  // pitch - затем поворот вокруг Y
  // yaw - наконец, поворот вокруг Z
- function MatrixFromYawRollPitch(yaw,roll,pitch:double):TMatrix3;
- function MatrixFromYawRollPitch43(yaw,roll,pitch:double):TMatrix43;
- function MatrixFromYawRollPitch4(yaw,roll,pitch:double):TMatrix4;
- function MatrixFromYawRollPitchS(yaw,roll,pitch:single):TMatrix3s;
- function MatrixFromYawRollPitch43s(yaw,roll,pitch:single):TMatrix43s;
- function MatrixFromYawRollPitch4s(yaw,roll,pitch:single):TMatrix4s;
+ procedure MatrixFromYawRollPitch(out mat:TMatrix3;yaw,roll,pitch:double); overload;
+ procedure MatrixFromYawRollPitch(out mat:TMatrix3s;yaw,roll,pitch:double); overload;
+ procedure MatrixFromYawRollPitch(out mat:TMatrix4;yaw,roll,pitch:double); overload;
+ procedure MatrixFromYawRollPitch(out mat:TMatrix4s;yaw,roll,pitch:double); overload;
+ procedure MatrixFromYawRollPitch(out mat:TMatrix43;yaw,roll,pitch:double); overload;
+ procedure MatrixFromYawRollPitch(out mat:TMatrix43s;yaw,roll,pitch:double); overload;
 
  procedure YawRollPitchFromMatrix(const mat:TMatrix43; var yaw,roll,pitch:double);
 
@@ -276,37 +274,42 @@ interface
  // target = M1*M2 (Смысл: перевести репер M1 из системы M2 в ту, где задана M2)
  // Другой смысл: суммарная трансформация: сперва M2, затем M1 (именно так!)
  // IMPORTANT! target MUST DIFFER from m1 and m2!
- procedure MultMat3(const m1,m2:TMatrix3;out target:TMatrix3); overload;
- procedure MultMat3(const m1,m2:TMatrix3s;out target:TMatrix3s); overload;
- procedure MultMat4(const m1,m2:TMatrix43;out target:TMatrix43); overload;
- procedure MultMat4(const m1,m2:TMatrix43s;out target:TMatrix43s); overload;
- procedure MultMat4(const m1,m2:TMatrix4;out target:TMatrix4); overload;
- procedure MultMat4(const m1,m2:TMatrix4s;out target:TMatrix4s); overload;
- function  MultMat4(const m1,m2:TMatrix43):TMatrix43; overload;
- function  MultMat4(const m1,m2:TMatrix4):TMatrix4; overload;
- function  MultMat4(const m1,m2:TMatrix4s):TMatrix4s; overload;
+ procedure MultMat(const m1,m2:TMatrix3;out target:TMatrix3); overload;
+ procedure MultMat(const m1,m2:TMatrix3s;out target:TMatrix3s); overload;
+ procedure MultMat(const m1,m2:TMatrix43;out target:TMatrix43); overload;
+ procedure MultMat(const m1,m2:TMatrix43s;out target:TMatrix43s); overload;
+ procedure MultMat(const m1,m2:TMatrix4;out target:TMatrix4); overload;
+ procedure MultMat(const m1,m2:TMatrix4s;out target:TMatrix4s); overload;
+ function  MultMat(const m1,m2:TMatrix43):TMatrix43; overload;
+ function  MultMat(const m1,m2:TMatrix4):TMatrix4; overload;
+ function  MultMat(const m1,m2:TMatrix4s):TMatrix4s; overload;
 
- procedure MultPnt4(const m:TMatrix43;v:PPoint3;num,step:integer); overload;
- procedure MultPnt4(const m:TMatrix43s;v:Ppoint3s;num,step:integer); overload;
- procedure MultPnt3(const m:TMatrix3;v:PPoint3;num,step:integer); overload;
- procedure MultPnt3(const m:TMatrix3s;v:Ppoint3s;num,step:integer); overload;
+ procedure MultPnt(const m:TMatrix43;v:PPoint3;num,step:integer); overload;
+ procedure MultPnt(const m:TMatrix43s;v:Ppoint3s;num,step:integer); overload;
+ procedure MultPnt(const m:TMatrix3;v:PPoint3;num,step:integer); overload;
+ procedure MultPnt(const m:TMatrix3s;v:Ppoint3s;num,step:integer); overload;
 
  // Complete 3D transformation (with normalization)
  function TransformPoint(const m:TMatrix4s;v:PPoint3s):TPoint3s; overload;
  function TransformPoint(const m:TMatrix4;v:PPoint3):TPoint3; overload;
 
  // Transpose (для ортонормированной матрицы - это будт обратная)
- procedure Transp3(const m:TMatrix3;out dest:TMatrix3); overload;
- procedure Transp3(const m:TMatrix3s;out dest:TMatrix3s); overload;
- procedure Transp4(const m:TMatrix43;out dest:TMatrix43); overload;
- procedure Transp4(const m:TMatrix43s;out dest:TMatrix43s); overload;
- procedure Transp4(const m:TMatrix4;out dest:TMatrix4); overload;
- // Вычисление обратной матрицы (осторожно!)
- procedure Invert3(const m:TMatrix3;out dest:TMatrix3);
- procedure Invert4(const m:TMatrix43;out dest:TMatrix43); overload;
- procedure Invert4(const m:TMatrix43s;out dest:TMatrix43s); overload;
+ procedure Transpose(const m:TMatrix3;out dest:TMatrix3); overload;
+ procedure Transpose(const m:TMatrix3s;out dest:TMatrix3s); overload;
+ procedure Transpose(const m:TMatrix43;out dest:TMatrix43); overload;
+ procedure Transpose(const m:TMatrix43s;out dest:TMatrix43s); overload;
+ procedure Transpose(const m:TMatrix4;out dest:TMatrix4); overload;
+ procedure Transpose(var m:TMatrix4); overload;
+ procedure Transpose(var m:TMatrix4s); overload;
+ procedure Transpose(var m:TMatrix3); overload;
+ procedure Transpose(var m:TMatrix3s); overload;
+
+ // Calculate inverted matrix (for Orthogonal atrix only!)
+ procedure Invert(const m:TMatrix3;out dest:TMatrix3); overload;
+ procedure Invert(const m:TMatrix43;out dest:TMatrix43); overload;
+ procedure Invert(const m:TMatrix43s;out dest:TMatrix43s); overload;
  // Complete inversion using Gauss method
- procedure Invert4Full(m:TMatrix4;out dest:TMatrix4);
+ procedure InvertFull(m:TMatrix4;out dest:TMatrix4);
 
  function Det(const m:TMatrix3):double; overload;
  function Det(const m:TMatrix3s):single; overload;
@@ -332,6 +335,19 @@ interface
 implementation
  uses Apus.CPU,Apus.CrossPlatform,SysUtils,Math,Apus.Geom2D;
 
+ procedure Swap(a,b:single); overload; inline;
+  var
+   t:single;
+  begin
+   t:=a; a:=b; b:=t;
+  end;
+
+ procedure Swap(a,b:double); overload; inline;
+  var
+   t:double;
+  begin
+   t:=a; a:=b; b:=t;
+  end;
 
  function Point3(x,y,z:double):TPoint3; overload; inline;
   begin
@@ -339,54 +355,63 @@ implementation
    result.y:=y;
    result.z:=z;
   end;
+
  function Point3s(x,y,z:single):TPoint3s; overload; inline;
   begin
    result.x:=x;
    result.y:=y;
    result.z:=z;
   end;
+
  function Point3(p:TPoint3s):TPoint3; overload; inline;
   begin
    result.x:=p.x;
    result.y:=p.y;
    result.z:=p.z;
   end;
+
  function Point3s(p:TPoint3):TPoint3s; overload; inline;
   begin
    result.x:=p.x;
    result.y:=p.y;
    result.z:=p.z;
   end;
+
  function Vector3(x,y,z:double):TVector3;
   begin
    result.x:=x;
    result.y:=y;
    result.z:=z;
   end;
+
  function Vector3s(x,y,z:single):TVector3s;
   begin
    result.x:=x;
    result.y:=y;
    result.z:=z;
   end;
+
  function Vector3(from,target:TPoint3):TVector3; overload; inline;
   begin
    result.x:=target.x-from.x;
    result.y:=target.y-from.y;
    result.z:=target.z-from.z;
   end;
+
  function Vector3s(from,target:TPoint3s):TVector3s; overload; inline;
   begin
    result.x:=target.x-from.x;
    result.y:=target.y-from.y;
    result.z:=target.z-from.z;
   end;
+
  function Vector3s(vector:TVector3):TVector3s; overload; inline;
   begin
    result.x:=vector.x;
    result.y:=vector.y;
    result.z:=vector.z;
   end;
+
  function Quaternion(x,y,z,w:double):TQuaternion; overload; inline;
   begin
    result.x:=x;
@@ -394,6 +419,7 @@ implementation
    result.z:=z;
    result.w:=w;
   end;
+
  function QuaternionS(x,y,z,w:single):TQuaternionS; overload; inline;
   begin
    result.x:=x;
@@ -458,12 +484,14 @@ implementation
    move(from[1],result[1],sizeof(result[1]));
    move(from[2],result[2],sizeof(result[2]));
   end;
+
  function Matrix3s(from:TMatrix4s):TMatrix3s; overload;
   begin
    move(from[0],result[0],sizeof(result[0]));
    move(from[1],result[1],sizeof(result[1]));
    move(from[2],result[2],sizeof(result[2]));
   end;
+
  function Matrix3s(from:TMatrix3):TMatrix3s; overload;
   var
    i:integer;
@@ -474,6 +502,7 @@ implementation
     result[i,2]:=from[i,2];
    end;
   end;
+
  function Matrix3s(from:TMatrix4):TMatrix3s; overload;
   var
    i:integer;
@@ -489,10 +518,12 @@ implementation
   begin
    move(mat[n],result,sizeof(result));
   end;
+
  function MatRow(const mat:TMatrix43s;n:integer):TVector3s;
   begin
    move(mat[n],result,sizeof(result));
   end;
+
  function MatRow(const mat:TMatrix3s; n:integer):TVector3s;
   begin
    move(mat[n],result,sizeof(result));
@@ -505,12 +536,14 @@ implementation
    result.z:=mat[2,n];
    result.w:=mat[3,n];
   end;
+
  function MatCol(const mat:TMatrix43s;n:integer):TVector3s;
   begin
    result.x:=mat[0,n];
    result.y:=mat[1,n];
    result.z:=mat[2,n];
   end;
+
  function MatCol(const mat:TMatrix3s; n:integer):TVector3s;
   begin
    result.x:=mat[0,n];
@@ -518,111 +551,117 @@ implementation
    result.z:=mat[2,n];
   end;
 
- function DotProduct3(a,b:TVector3):double;
+ function DotProduct(a,b:TVector3):double;
   begin
    result:=a.x*b.x+a.y*b.y+a.z*b.z;
   end;
- function DotProduct3(a,b:TVector3s):double;
+
+ function DotProduct(a,b:TVector3s):double;
   begin
    result:=a.x*b.x+a.y*b.y+a.z*b.z;
   end;
- function CrossProduct3(a,b:TVector3):TVector3;
+
+ function CrossProduct(a,b:TVector3):TVector3;
   begin
    result.x:=a.y*b.z-a.z*b.y;
    result.y:=-(a.x*b.z-a.z*b.x);
    result.z:=a.x*b.y-a.y*b.x;
   end;
- function CrossProduct3(a,b:TVector3s):TVector3s;
+
+ function CrossProduct(a,b:TVector3s):TVector3s;
   begin
    result.x:=a.y*b.z-a.z*b.y;
    result.y:=-(a.x*b.z-a.z*b.x);
    result.z:=a.x*b.y-a.y*b.x;
   end;
- function GetLength3(v:TVector3):double;
+
+ function GetLength(v:TVector3):double;
   begin
    result:=sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
   end;
- function GetLength3(v:TVector3s):double;
+
+ function GetLength(v:TVector3s):double;
   begin
    result:=sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
   end;
- function GetSqrLength3(v:TVector3):double;
+
+ function GetSqrLength(v:TVector3):double;
   begin
    result:=v.x*v.x+v.y*v.y+v.z*v.z;
   end;
- function GetSqrLength3(v:TVector3s):single;
+
+ function GetSqrLength(v:TVector3s):single;
   begin
    result:=v.x*v.x+v.y*v.y+v.z*v.z;
   end;
- procedure Normalize3(var v:TVector3);
+
+ procedure Normalize(var v:TVector3);
   var
    l:double;
   begin
-   l:=GetLength3(v);
+   l:=GetLength(v);
    ASSERT(l>Epsilon,'Normalize zero-length vector');
    l:=1/l;
    v.x:=v.x*l;
    v.y:=v.y*l;
    v.z:=v.z*l;
   end;
- procedure Normalize3(var v:TVector3s);
+
+ procedure Normalize(var v:TVector3s);
   var
    l:single;
   begin
-   l:=GetLength3(v);
+   l:=GetLength(v);
    ASSERT(l>EpsilonS,'Normalize zero-length vector');
    l:=1/l;
    v.x:=v.x*l;
    v.y:=v.y*l;
    v.z:=v.z*l;
   end;
- procedure Normalize(var v:TVector3); overload;
-  begin
-   Normalize3(v);
-  end;
- procedure Normalize(var v:TVector3s); overload;
-  begin
-   Normalize3(v);
-  end;
 
- procedure VectAdd3(var a:TVector3;b:TVector3);
-  begin
-   a.x:=b.x+a.x;
-   a.y:=b.y+a.y;
-   a.z:=b.z+a.z;
-  end;
- procedure VectAdd3(var a:TVector3s;b:TVector3s);
+ procedure VectAdd(var a:TVector3;b:TVector3);
   begin
    a.x:=b.x+a.x;
    a.y:=b.y+a.y;
    a.z:=b.z+a.z;
   end;
 
- procedure VectSub3(var a:TVector3;b:TVector3);
+ procedure VectAdd(var a:TVector3s;b:TVector3s);
+  begin
+   a.x:=b.x+a.x;
+   a.y:=b.y+a.y;
+   a.z:=b.z+a.z;
+  end;
+
+ procedure VectSub(var a:TVector3;b:TVector3);
   begin
    a.x:=a.x-b.x;
    a.y:=a.y-b.y;
    a.z:=a.z-b.z;
   end;
+
  procedure VectMult(var a:TVector3;k:double);
   begin
    a.x:=a.x*k;
    a.y:=a.y*k;
    a.z:=a.z*k;
   end;
+
  procedure VectMult(var a:TVector3s;k:double);
   begin
    a.x:=a.x*k;
    a.y:=a.y*k;
    a.z:=a.z*k;
   end;
-  function Vect3Mult(a:TVector3;k:double):TVector3;
+
+  function VecMult(a:TVector3;k:double):TVector3;
   begin
    result.x:=a.x*k;
    result.y:=a.y*k;
    result.z:=a.z*k;
   end;
-  function Vect3Mult(a:TVector3s;k:double):TVector3s;
+
+  function VecMult(a:TVector3s;k:double):TVector3s;
   begin
    result.x:=a.x*k;
    result.y:=a.y*k;
@@ -656,6 +695,7 @@ implementation
   begin
    result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y)+sqr(p2.z-p1.z);
   end;
+
  function Distance2(p1,p2:TPoint3s):single; overload;
   begin
    result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y)+sqr(p2.z-p1.z);
@@ -870,7 +910,7 @@ implementation
      dest[i,j]:=sour[i,j];
   end;
 
- procedure MultMat3(const m1,m2:TMatrix3;out target:TMatrix3);
+ procedure MultMat(const m1,m2:TMatrix3;out target:TMatrix3);
   begin
    target[0,0]:=m1[0,0]*m2[0,0] + m1[0,1]*m2[1,0] + m1[0,2]*m2[2,0];
    target[0,1]:=m1[0,0]*m2[0,1] + m1[0,1]*m2[1,1] + m1[0,2]*m2[2,1];
@@ -885,7 +925,7 @@ implementation
    target[2,2]:=m1[2,0]*m2[0,2] + m1[2,1]*m2[1,2] + m1[2,2]*m2[2,2];
   end;
 
- procedure MultMat3(const m1,m2:TMatrix3s;out target:TMatrix3s);
+ procedure MultMat(const m1,m2:TMatrix3s;out target:TMatrix3s);
   begin
    target[0,0]:=m1[0,0]*m2[0,0] + m1[0,1]*m2[1,0] + m1[0,2]*m2[2,0];
    target[0,1]:=m1[0,0]*m2[0,1] + m1[0,1]*m2[1,1] + m1[0,2]*m2[2,1];
@@ -900,19 +940,19 @@ implementation
    target[2,2]:=m1[2,0]*m2[0,2] + m1[2,1]*m2[1,2] + m1[2,2]*m2[2,2];
   end;
 
- procedure MultMat4(const m1,m2:TMatrix43;out target:TMatrix43);
+ procedure MultMat(const m1,m2:TMatrix43;out target:TMatrix43);
   var
    am1:TMatrix3 absolute m1;
    am2:TMatrix3 absolute m2;
    am3:TMatrix3 absolute target;
   begin
-   MultMat3(am1,am2,am3);
+   MultMat(am1,am2,am3);
    target[3,0]:=m1[3,0]*m2[0,0] + m1[3,1]*m2[1,0] + m1[3,2]*m2[2,0] + m2[3,0];
    target[3,1]:=m1[3,0]*m2[0,1] + m1[3,1]*m2[1,1] + m1[3,2]*m2[2,1] + m2[3,1];
    target[3,2]:=m1[3,0]*m2[0,2] + m1[3,1]*m2[1,2] + m1[3,2]*m2[2,2] + m2[3,2];
   end;
 
- procedure MultMat4(const m1,m2:TMatrix4;out target:TMatrix4);
+ procedure MultMat(const m1,m2:TMatrix4;out target:TMatrix4);
   var
    i,j:integer;
   begin
@@ -921,7 +961,7 @@ implementation
      target[i,j]:=m1[i,0]*m2[0,j]+m1[i,1]*m2[1,j]+m1[i,2]*m2[2,j]+m1[i,3]*m2[3,j];
   end;
 
- procedure MultMat4(const m1,m2:TMatrix4s;out target:TMatrix4s);
+ procedure MultMat(const m1,m2:TMatrix4s;out target:TMatrix4s);
   var
    i,j:integer;
   begin
@@ -930,71 +970,71 @@ implementation
      target[i,j]:=m1[i,0]*m2[0,j]+m1[i,1]*m2[1,j]+m1[i,2]*m2[2,j]+m1[i,3]*m2[3,j];
   end;
 
- function MultMat4(const m1,m2:TMatrix43):TMatrix43; overload;
+ function MultMat(const m1,m2:TMatrix43):TMatrix43; overload;
   begin
-   MultMat4(m1,m2,result);
+   MultMat(m1,m2,result);
   end;
 
- function  MultMat4(const m1,m2:TMatrix4):TMatrix4; overload;
+ function MultMat(const m1,m2:TMatrix4):TMatrix4; overload;
   begin
-   MultMat4(m1,m2,result);
+   MultMat(m1,m2,result);
   end;
 
- function  MultMat4(const m1,m2:TMatrix4s):TMatrix4s; overload;
+ function MultMat(const m1,m2:TMatrix4s):TMatrix4s; overload;
   begin
-   MultMat4(m1,m2,result);
+   MultMat(m1,m2,result);
   end;
 
 
- procedure MultMat4(const m1,m2:TMatrix43s;out target:TMatrix43s);
+ procedure MultMat(const m1,m2:TMatrix43s;out target:TMatrix43s);
   var
    am1:TMatrix3s absolute m1;
    am2:TMatrix3s absolute m2;
    am3:TMatrix3s absolute target;
   begin
-   MultMat3(am1,am2,am3);
+   MultMat(am1,am2,am3);
    target[3,0]:=m1[3,0]*m2[0,0] + m1[3,1]*m2[1,0] + m1[3,2]*m2[2,0] + m2[3,0];
    target[3,1]:=m1[3,0]*m2[0,1] + m1[3,1]*m2[1,1] + m1[3,2]*m2[2,1] + m2[3,1];
    target[3,2]:=m1[3,0]*m2[0,2] + m1[3,1]*m2[1,2] + m1[3,2]*m2[2,2] + m2[3,2];
   end;
 
- procedure Transp3(const m:TMatrix3;out dest:TMatrix3);
+ procedure Transpose(const m:TMatrix3;out dest:TMatrix3);
   begin
    dest[0,0]:=m[0,0];   dest[0,1]:=m[1,0];   dest[0,2]:=m[2,0];
    dest[1,0]:=m[0,1];   dest[1,1]:=m[1,1];   dest[1,2]:=m[2,1];
    dest[2,0]:=m[0,2];   dest[2,1]:=m[1,2];   dest[2,2]:=m[2,2];
   end;
 
- procedure Transp3(const m:TMatrix3s;out dest:TMatrix3s);
+ procedure Transpose(const m:TMatrix3s;out dest:TMatrix3s);
   begin
    dest[0,0]:=m[0,0];   dest[0,1]:=m[1,0];   dest[0,2]:=m[2,0];
    dest[1,0]:=m[0,1];   dest[1,1]:=m[1,1];   dest[1,2]:=m[2,1];
    dest[2,0]:=m[0,2];   dest[2,1]:=m[1,2];   dest[2,2]:=m[2,2];
   end;
 
- procedure Transp4(const m:TMatrix43;out dest:TMatrix43);
+ procedure Transpose(const m:TMatrix43;out dest:TMatrix43);
   var
    m1:TMatrix3 absolute m;
    m2:TMatrix3 absolute dest;
    mv:TMatrix43v absolute m;
   begin
-   Transp3(m1,m2);
-   dest[3,0]:=-DotProduct3(mv[0],mv[3]);
-   dest[3,1]:=-DotProduct3(mv[1],mv[3]);
-   dest[3,2]:=-DotProduct3(mv[2],mv[3]);
+   Transpose(m1,m2);
+   dest[3,0]:=-DotProduct(mv[0],mv[3]);
+   dest[3,1]:=-DotProduct(mv[1],mv[3]);
+   dest[3,2]:=-DotProduct(mv[2],mv[3]);
   end;
- procedure Transp4(const m:TMatrix43s;out dest:TMatrix43s);
+ procedure Transpose(const m:TMatrix43s;out dest:TMatrix43s);
   var
    m1:TMatrix3s absolute m;
    m2:TMatrix3s absolute dest;
    mv:TMatrix43vs absolute m;
   begin
-   Transp3(m1,m2);
-   dest[3,0]:=-DotProduct3(mv[0],mv[3]);
-   dest[3,1]:=-DotProduct3(mv[1],mv[3]);
-   dest[3,2]:=-DotProduct3(mv[2],mv[3]);
+   Transpose(m1,m2);
+   dest[3,0]:=-DotProduct(mv[0],mv[3]);
+   dest[3,1]:=-DotProduct(mv[1],mv[3]);
+   dest[3,2]:=-DotProduct(mv[2],mv[3]);
   end;
- procedure Transp4(const m:TMatrix4;out dest:TMatrix4);
+ procedure Transpose(const m:TMatrix4;out dest:TMatrix4);
   var
    i:integer;
   begin
@@ -1006,55 +1046,89 @@ implementation
    end;
   end;
 
- procedure Invert3;
+ procedure Transpose(var m:TMatrix4);
+  begin
+   Swap(m[1,0],m[0,1]);
+   Swap(m[2,0],m[0,2]);
+   Swap(m[2,1],m[1,2]);
+   Swap(m[3,1],m[1,3]);
+   Swap(m[3,2],m[2,3]);
+   Swap(m[3,3],m[3,3]);
+  end;
+
+ procedure Transpose(var m:TMatrix4s);
+  begin
+   Swap(m[1,0],m[0,1]);
+   Swap(m[2,0],m[0,2]);
+   Swap(m[2,1],m[1,2]);
+   Swap(m[3,1],m[1,3]);
+   Swap(m[3,2],m[2,3]);
+   Swap(m[3,3],m[3,3]);
+  end;
+
+ procedure Transpose(var m:TMatrix3);
+  begin
+   Swap(m[1,0],m[0,1]);
+   Swap(m[2,0],m[0,2]);
+   Swap(m[2,1],m[1,2]);
+  end;
+
+ procedure Transpose(var m:TMatrix3s);
+  begin
+   Swap(m[1,0],m[0,1]);
+   Swap(m[2,0],m[0,2]);
+   Swap(m[2,1],m[1,2]);
+  end;
+
+ procedure Invert(const m:TMatrix3;out dest:TMatrix3);
   var
    la,lb,lc:double;
    mv:TMatrix3v absolute m;
   begin
-   la:=GetSqrLength3(mv[0]);
-   lb:=GetSqrLength3(mv[1]);
-   lc:=GetSqrLength3(mv[2]);
+   la:=GetSqrLength(mv[0]);
+   lb:=GetSqrLength(mv[1]);
+   lc:=GetSqrLength(mv[2]);
    if (la=0) or (lb=0) or (lc=0) then
     raise Exception.Create('Cannot invert matrix!');
-   Transp3(m,dest);
+   Transpose(m,dest);
    dest[0,0]:=dest[0,0]/la;   dest[1,0]:=dest[1,0]/la;   dest[2,0]:=dest[2,0]/la;
    dest[0,1]:=dest[0,1]/lb;   dest[1,1]:=dest[1,1]/lb;   dest[2,1]:=dest[2,1]/lb;
    dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;
   end;
 
- procedure Invert4(const m:TMatrix43;out dest:TMatrix43); overload;
+ procedure Invert(const m:TMatrix43;out dest:TMatrix43); overload;
   var
    la,lb,lc:double;
    mv:TMatrix43v absolute m;
   begin
-   la:=GetSqrLength3(mv[0]);
-   lb:=GetSqrLength3(mv[1]);
-   lc:=GetSqrLength3(mv[2]);
+   la:=GetSqrLength(mv[0]);
+   lb:=GetSqrLength(mv[1]);
+   lc:=GetSqrLength(mv[2]);
    if (la=0) or (lb=0) or (lc=0) then
     raise Exception.Create('Cannot invert matrix!');
-   Transp4(m,dest);
+   Transpose(m,dest);
    dest[0,0]:=dest[0,0]/la;   dest[1,0]:=dest[1,0]/la;   dest[2,0]:=dest[2,0]/la;   dest[3,0]:=dest[3,0]/la;
    dest[0,1]:=dest[0,1]/lb;   dest[1,1]:=dest[1,1]/lb;   dest[2,1]:=dest[2,1]/lb;   dest[3,1]:=dest[3,1]/lb;
    dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;   dest[3,2]:=dest[3,2]/lc;
   end;
 
- procedure Invert4(const m:TMatrix43s;out dest:TMatrix43s); overload;
+ procedure Invert(const m:TMatrix43s;out dest:TMatrix43s); overload;
   var
    la,lb,lc:single;
    mv:TMatrix43vs absolute m;
   begin
-   la:=GetSqrLength3(mv[0]);
-   lb:=GetSqrLength3(mv[1]);
-   lc:=GetSqrLength3(mv[2]);
+   la:=GetSqrLength(mv[0]);
+   lb:=GetSqrLength(mv[1]);
+   lc:=GetSqrLength(mv[2]);
    if (la=0) or (lb=0) or (lc=0) then
     raise Exception.Create('Cannot invert matrix!');
-   Transp4(m,dest);
+   Transpose(m,dest);
    dest[0,0]:=dest[0,0]/la;   dest[1,0]:=dest[1,0]/la;   dest[2,0]:=dest[2,0]/la;   dest[3,0]:=dest[3,0]/la;
    dest[0,1]:=dest[0,1]/lb;   dest[1,1]:=dest[1,1]/lb;   dest[2,1]:=dest[2,1]/lb;   dest[3,1]:=dest[3,1]/lb;
    dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;   dest[3,2]:=dest[3,2]/lc;
   end;
 
- procedure Invert4Full(m:TMatrix4;out dest:TMatrix4);
+ procedure InvertFull(m:TMatrix4;out dest:TMatrix4);
   var
    i,k:integer;
    v:double;
@@ -1098,7 +1172,7 @@ implementation
      AddRow(i,k,-m[k,i]);
   end;
 
- procedure MultPnt4(const m:TMatrix43;v:PPoint3;num,step:integer);
+ procedure MultPnt(const m:TMatrix43;v:PPoint3;num,step:integer);
   var
    i:integer;
    x,y,z:double;
@@ -1112,7 +1186,7 @@ implementation
    end;
   end;
 
- procedure MultPnt4(const m:TMatrix43s;v:PPoint3s;num,step:integer);
+ procedure MultPnt(const m:TMatrix43s;v:PPoint3s;num,step:integer);
   var
    i:integer;
    x,y,z:single;
@@ -1126,7 +1200,7 @@ implementation
    end;
   end;
 
- procedure MultPnt3(const m:TMatrix3;v:PPoint3;num,step:integer);
+ procedure MultPnt(const m:TMatrix3;v:PPoint3;num,step:integer);
   var
    i:integer;
    x,y,z:double;
@@ -1139,7 +1213,7 @@ implementation
     v:=PPoint3(PtrUInt(v)+step);
    end;
   end;
- procedure MultPnt3(const m:TMatrix3s;v:Ppoint3s;num,step:integer);
+ procedure MultPnt(const m:TMatrix3s;v:Ppoint3s;num,step:integer);
   var
    i:integer;
    x,y,z:single;
@@ -1606,7 +1680,7 @@ implementation
 
  procedure InitPlane(point,normal:TVector3;var p:TPlane);
   begin
-   Normalize3(normal);
+   Normalize(normal);
    p.a:=normal.x;
    p.b:=normal.y;
    p.c:=normal.z;
@@ -1684,7 +1758,7 @@ implementation
    m[0,0]:=B.x-A.x; m[0,1]:=B.y-A.y; m[0,2]:=B.z-A.z;
    m[1,0]:=C.x-A.x; m[1,1]:=C.y-A.y; m[1,2]:=C.z-A.z;
    m[2,0]:=T.x-O.x; m[2,1]:=T.y-O.y; m[2,2]:=T.z-O.z;
-   Normalize3(mv[2]);
+   Normalize(mv[2]);
    dt:=det(m);
    result:=false;
    if abs(dt)<0.0001 then exit;
@@ -1706,9 +1780,7 @@ implementation
    result:=true;
   end;
 
-
-
- procedure _MatrixFromYawRollPitch(yaw,roll,pitch:double;m:PDouble;width:integer);
+ procedure _MatrixFromYawRollPitch(yaw,roll,pitch:double;m:PDouble;width:integer); inline;
   var
    ca,sa,cb,sb,cc,sc:double;
   begin
@@ -1729,7 +1801,7 @@ implementation
    m^:=cb*cc; inc(m,width-2);
   end;
 
- procedure _MatrixFromYawRollPitchS(yaw,roll,pitch:single;m:PSingle;width:integer);
+ procedure _MatrixFromYawRollPitchS(yaw,roll,pitch:single;m:PSingle;width:integer); inline;
   var
    ca,sa,cb,sb,cc,sc:double;
   begin
@@ -1750,40 +1822,40 @@ implementation
    m^:=cb*cc; inc(m,width-2);
   end;
 
- function MatrixFromYawRollPitch(yaw,roll,pitch:double):TMatrix3;
+ procedure MatrixFromYawRollPitch(out mat:TMatrix3;yaw,roll,pitch:double); overload;
   begin
-   _MatrixFromYawRollPitch(yaw,roll,pitch,@result,3);
+   _MatrixFromYawRollPitch(yaw,roll,pitch,@mat,3);
   end;
 
- function MatrixFromYawRollPitch43(yaw,roll,pitch:double):TMatrix43;
+ procedure MatrixFromYawRollPitch(out mat:TMatrix3s;yaw,roll,pitch:double); overload;
   begin
-   _MatrixFromYawRollPitch(yaw,roll,pitch,@result,3);
-   result[3,0]:=0;  result[3,1]:=0;  result[3,2]:=0;
+   _MatrixFromYawRollPitchS(yaw,roll,pitch,@mat,3);
   end;
 
- function MatrixFromYawRollPitch4(yaw,roll,pitch:double):TMatrix4;
+ procedure MatrixFromYawRollPitch(out mat:TMatrix4;yaw,roll,pitch:double); overload;
   begin
-   _MatrixFromYawRollPitch(yaw,roll,pitch,@result,4);
-   result[0,3]:=0;  result[1,3]:=0;  result[2,3]:=0;
-   result[3,0]:=0;  result[3,1]:=0;  result[3,2]:=0; result[3,3]:=1;
+   _MatrixFromYawRollPitch(yaw,roll,pitch,@mat,4);
+   mat[0,3]:=0; mat[1,3]:=0; mat[2,3]:=0;
+   mat[3,0]:=0; mat[3,1]:=0; mat[3,2]:=0; mat[3,3]:=1;
   end;
 
- function MatrixFromYawRollPitchS(yaw,roll,pitch:single):TMatrix3s;
+ procedure MatrixFromYawRollPitch(out mat:TMatrix4s;yaw,roll,pitch:double); overload;
   begin
-   _MatrixFromYawRollPitchS(yaw,roll,pitch,@result,3);
+   _MatrixFromYawRollPitchS(yaw,roll,pitch,@mat,4);
+   mat[0,3]:=0; mat[1,3]:=0; mat[2,3]:=0;
+   mat[3,0]:=0; mat[3,1]:=0; mat[3,2]:=0; mat[3,3]:=1;
   end;
 
- function MatrixFromYawRollPitch43s(yaw,roll,pitch:single):TMatrix43s;
+ procedure MatrixFromYawRollPitch(out mat:TMatrix43;yaw,roll,pitch:double); overload;
   begin
-   _MatrixFromYawRollPitchS(yaw,roll,pitch,@result,3);
-   result[3,0]:=0;  result[3,1]:=0;  result[3,2]:=0;
+   _MatrixFromYawRollPitch(yaw,roll,pitch,@mat,3);
+   mat[3,0]:=0; mat[3,1]:=0; mat[3,2]:=0;
   end;
 
- function MatrixFromYawRollPitch4s(yaw,roll,pitch:single):TMatrix4s;
+ procedure MatrixFromYawRollPitch(out mat:TMatrix43s;yaw,roll,pitch:double); overload;
   begin
-   _MatrixFromYawRollPitchS(yaw,roll,pitch,@result,4);
-   result[0,3]:=0;  result[1,3]:=0;  result[2,3]:=0;
-   result[3,0]:=0;  result[3,1]:=0;  result[3,2]:=0; result[3,3]:=1;
+   _MatrixFromYawRollPitchS(yaw,roll,pitch,@mat,3);
+   mat[3,0]:=0; mat[3,1]:=0; mat[3,2]:=0;
   end;
 
  procedure YawRollPitchFromMatrix(const mat:TMatrix43; var yaw,roll,pitch:double);
@@ -1794,32 +1866,32 @@ implementation
    mv:TMatrix43v absolute m;
   begin
    m:=mat;
-   Normalize3(mv[0]);
-   Normalize3(mv[1]);
-   Normalize3(mv[2]);
-   skewA:=DotProduct3(mv[0],mv[1]);
-   skewB:=DotProduct3(mv[2],mv[0]); // !??
-   skewC:=DotProduct3(mv[2],mv[1]); // !??
+   Normalize(mv[0]);
+   Normalize(mv[1]);
+   Normalize(mv[2]);
+   skewA:=DotProduct(mv[0],mv[1]);
+   skewB:=DotProduct(mv[2],mv[0]); // !??
+   skewC:=DotProduct(mv[2],mv[1]); // !??
    mv[1].x:=mv[1].x-mv[0].x*skewA;
    mv[1].y:=mv[1].y-mv[0].y*skewA;
    mv[1].z:=mv[1].z-mv[0].z*skewA;
-   Normalize3(mv[1]);
-   mv[2]:=CrossProduct3(mv[0],mv[1]);
+   Normalize(mv[1]);
+   mv[2]:=CrossProduct(mv[0],mv[1]);
 
    v:=mv[0]; v.z:=0;
-   if GetSqrLength3(v)<0.000001 then Yaw:=0 else begin
-    Normalize3(v);
+   if GetSqrLength(v)<0.000001 then Yaw:=0 else begin
+    Normalize(v);
     if v.x<-0.999 then Yaw:=pi else begin
      Yaw:=arccos(v.x);
      if v.y<0 then Yaw:=-Yaw;
     end;
-    MultMat4(m,RotationZMat(-Yaw),m2);
+    MultMat(m,RotationZMat(-Yaw),m2);
     m:=m2;
    end;
    // pitch
    if mv[0].x<-0.999 then pitch:=pi else
     Pitch:=arcsin(mv[0].z);
-   MultMat4(m,RotationYMat(-pitch),m2);
+   MultMat(m,RotationYMat(-pitch),m2);
    m:=m2;
    // roll
    if mv[1].y<-0.999 then roll:=pi else begin
@@ -1844,7 +1916,7 @@ function TPoint3.IsValid: boolean;
 
 procedure TPoint3.Normalize;
  begin
-  Normalize3(self);
+  Apus.Geom3D.Normalize(self);
  end;
 
 { TPoint3s }
@@ -1855,7 +1927,7 @@ constructor TPoint3s.Init(X,Y,Z:single);
 
 procedure TPoint3s.Normalize;
  begin
-  Normalize3(self);
+  Apus.Geom3D.Normalize(self);
  end;
 
 function TPoint3s.IsValid: boolean;

@@ -1798,8 +1798,8 @@ begin
  b2:=IdentMatrix43s;
  b1[3,0]:=3;
  b2[3,1]:=2;
- MultMat4(b1,b2,b);
- MultPnt4(b,@pnt,1,0);
+ MultMat(b1,b2,b);
+ MultPnt(b,@pnt,1,0);
 
  // Prepare buffers
  count:=length(model.vp);
@@ -1857,7 +1857,7 @@ begin
  draw.FillRect(-15,-15,15,15,$C000A030);
 
  // Set model position
- MultMat4(ScaleMat(2,2,2),RotationZMat(time),objMat);
+ MultMat(ScaleMat(2,2,2),RotationZMat(time),objMat);
  objMat[3,2]:=3;
  transform.SetObj(Matrix4(objMat));
 
@@ -1888,7 +1888,7 @@ begin
  gfx.shader.UseCustom(shader2);
 
  // Set model position
- MultMat4(ScaleMat(4,4,4),RotationZMat(time),objMat);
+ MultMat(ScaleMat(4,4,4),RotationZMat(time),objMat);
  objMat[3,1]:=16;
  objMat[3,0]:=5;
  objMat[3,2]:=1.5;

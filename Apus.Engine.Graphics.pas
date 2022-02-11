@@ -147,7 +147,7 @@ var
  //function BuildVertexLayout(position,normal,color,uv1,uv2:integer):TVertexLayout;
 
 implementation
- uses Math, Apus.MyServis, Apus.Geom3D, Apus.Geom2D;
+ uses Math, Apus.MyServis, Apus.Geom2D, Apus.Geom3D;
 
 { TTransformationsAPI }
 
@@ -155,8 +155,8 @@ procedure TTransformationAPI.CalcMVP;
  var
   tmp:T3DMatrix;
  begin
-  MultMat4(objMatrix,viewMatrix,tmp);
-  MultMat4(tmp,projMatrix,MVP);
+  MultMat(objMatrix,viewMatrix,tmp);
+  MultMat(tmp,projMatrix,MVP);
  end;
 
 constructor TTransformationAPI.Create;
@@ -273,11 +273,11 @@ procedure TTransformationAPI.SetCamera(origin, target, up: TPoint3;
   v1,v2,v3:TVector3;
  begin
   v1:=Vector3(origin,target); // front
-  Normalize3(v1);
+  Normalize(v1);
   v2:=Vector3(origin,up);
-  v3:=CrossProduct3(v1,v2); // right
-  Normalize3(v3); // Right vector
-  v2:=CrossProduct3(v1,v3); // Down vector
+  v3:=CrossProduct(v1,v2); // right
+  Normalize(v3); // Right vector
+  v2:=CrossProduct(v1,v3); // Down vector
   mat[0,0]:=v3.x; mat[0,1]:=v3.y; mat[0,2]:=v3.z; mat[0,3]:=0;
   mat[1,0]:=v2.x; mat[1,1]:=v2.y; mat[1,2]:=v2.z; mat[1,3]:=0;
   mat[2,0]:=v1.x; mat[2,1]:=v1.y; mat[2,2]:=v1.z; mat[2,3]:=0;
@@ -298,7 +298,7 @@ procedure TTransformationAPI.SetObj(oX, oY, oZ, scale, yaw, roll,
  begin
   // rotation
   if (yaw<>0) or (roll<>0) or (pitch<>0) then
-   m:=MatrixFromYawRollPitch4(yaw,roll,pitch)
+   MatrixFromYawRollPitch(m,yaw,roll,pitch)
   else begin
    if scale=1 then begin
     // translation only
@@ -313,7 +313,7 @@ procedure TTransformationAPI.SetObj(oX, oY, oZ, scale, yaw, roll,
     for j:=0 to 2 do
      m[i,j]:=m[i,j]*scale;
   // position
-  MultMat4(m,TranslationMat4(ox,oy,oz),m2);
+  MultMat(m,TranslationMat4(ox,oy,oz),m2);
 
   SetObj(m2);
  end;
@@ -345,7 +345,7 @@ procedure TTransformationAPI.SetObj(mat:T3DMatrixS);
 procedure TTransformationAPI.SetView(view:T3DMatrix);
  begin
   // Original matrix is "Camera space->World space" but we need reverse transformation: "World->Camera"
-  Invert4Full(view,viewMatrix);
+  InvertFull(view,viewMatrix);
   modified:=true;
  end;
 
