@@ -217,7 +217,7 @@ type
   procedure Clear;
   procedure Put(key:string;value:int64);
   function Get(key:string):int64;  // returns -1 if no value
-  function Add(key:string;v:int64):int64; // add v to given value (put 0 if absent) and return result
+  function Increment(key:string;v:int64):int64; // add v to given value (put 0 if absent) and return result
   function HasValue(key:string):boolean;
   procedure Remove(key:string);
  private
@@ -237,7 +237,7 @@ type
   procedure Clear;
   procedure Put(key:String8;value:int64);
   function Get(key:String8):int64;  // returns -1 if no value
-  function Add(key:String8;v:int64):int64; // add v to given value (put 0 if absent) and return result
+  function Increment(key:String8;v:int64):int64; // add v to given value (put 0 if absent) and return result
   function HasValue(key:String8):boolean;
   procedure Remove(key:String8);
  private
@@ -1403,7 +1403,7 @@ procedure THash.SortKeys;
    finally lock:=0; end;
   end;
 
- function TSimpleHashS.Add(key:string;v:int64):int64;
+ function TSimpleHashS.Increment(key:string;v:int64):int64;
   var
    h,i:integer;
   begin
@@ -1543,7 +1543,7 @@ procedure THash.SortKeys;
    finally lock:=0; end;
   end;
 
- function TSimpleHashAS.Add(key:String8;v:int64):int64;
+ function TSimpleHashAS.Increment(key:String8;v:int64):int64;
   var
    h,i:integer;
   begin
