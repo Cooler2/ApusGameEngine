@@ -151,6 +151,17 @@ interface
   // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
   TSplineFunc=function(x,x0,x1,y0,y1:single):single;
 
+  TSplines=record
+   linear:TSplineFunc;
+   easeIn:TSplineFunc;
+   easeOut:TSplineFunc;
+   easeInOut:TSplineFunc;
+   easierIn:TSplineFunc;
+   easierOut:TSplineFunc;
+   easierInOut:TSplineFunc;
+   bounce:TSplineFunc;
+  end;
+
   TSortableObject=class
    // Compare self to obj: return 1 if self>obj and -1 if self<obj
    function Compare(obj:TSortableObject):integer; virtual; // Stub
@@ -166,6 +177,7 @@ interface
              lmNormal,   // выводятся только forced-собщения и сообщения без групп (default)
              lmVerbose); // выводятся все сообщения
  var
+  splines:TSplines; // common spline functions
   fileSysError:integer=0;  // last error
   windowHandle:cardinal=0; // handle for messages, can be 0
   logGroups:array[1..30] of boolean;
@@ -6237,6 +6249,14 @@ initialization
  startTimeMS:=GetTickCount;
  {$ENDIF}
  startTime:=MyTickCount;
+ with splines do begin
+  linear:=Spline0;
+  easeIn:=Spline2rev;
+  easeOut:=Spline2;
+  easeInOut:=Spline1a;
+  easierInOut:=Spline1;
+  bounce:=Spline3;
+ end;
 
 finalization
  if logThread<>nil then StopLogThread;
