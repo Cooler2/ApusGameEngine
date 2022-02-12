@@ -31,10 +31,10 @@ interface
       // Начать новую анимацию: к указанному значению в течение указанного времени
       // Если текущая анимация приводит к тому же значению - новая не создаётся
       // Если конечное значение совпадает с начальным - анимация не создаётся
-      procedure Animate(newValue:single; duration:cardinal; spline:TSplineFunc;
+      procedure Animate(newValue:single; duration:cardinal; spline:TSplineFunc=nil;
         delay:integer=0);
       // То же самое, что animate, но сработает только если finalvalue<>newValue
-      procedure AnimateIf(newValue:single; duration:cardinal; spline:TSplineFunc;
+      procedure AnimateIf(newValue:single; duration:cardinal; spline:TSplineFunc=nil;
         delay:integer=0);
       // Возвращает значение анимируемой величины в текущий момент времени
       function Value:single;
@@ -258,13 +258,13 @@ implementation
     end;
 
   procedure TAnimatedValue.AnimateIf(newValue:single; duration:cardinal;
-    spline:TSplineFunc; delay:integer=0);
+    spline:TSplineFunc=nil; delay:integer=0);
     begin
       if FinalValue<>newValue then
           Animate(newValue,duration,spline,delay);
     end;
 
-  procedure TAnimatedValue.Animate(newValue:single; duration:cardinal; spline:TSplineFunc;
+  procedure TAnimatedValue.Animate(newValue:single; duration:cardinal; spline:TSplineFunc=nil;
     delay:integer=0);
     var
       n:integer;
@@ -272,6 +272,7 @@ implementation
       t:int64;
     begin
       if PtrUInt(@Self)<4096 then raise EError.Create('Animating invalid object');
+      if @spline=nil then spline:=splines.linear;
       SpinLock(lock);
       try
         try
