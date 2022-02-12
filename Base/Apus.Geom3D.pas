@@ -59,6 +59,7 @@ interface
    function Length:single;
    function Length2:single; // Square length
    procedure Normalize;
+   function IsValid:boolean;
    case integer of
     1:( x,y,z,w:single; );
     2:( v:array[0..3] of single; );
@@ -174,6 +175,9 @@ interface
  function Distance(p1,p2:TPoint3s):single; overload;
  function Distance2(p1,p2:TPoint3):double; overload;
  function Distance2(p1,p2:TPoint3s):single; overload;
+
+ procedure PointBetween(const p1,p2:TPoint3;t:double;out p:TPoint3); overload;
+ procedure PointBetween(const p1,p2:TPoint3s;t:single;out p:TPoint3s); overload;
 
  function IsNearS(a,b:TPoint3s):single;
  function IsNear(a,b:TPoint3):double;
@@ -699,6 +703,26 @@ implementation
  function Distance2(p1,p2:TPoint3s):single; overload;
   begin
    result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y)+sqr(p2.z-p1.z);
+  end;
+
+ procedure PointBetween(const p1,p2:TPoint3;t:double;out p:TPoint3); overload;
+  var
+   nt:double;
+  begin
+   nt:=1-t;
+   p.x:=p1.x*nt+p2.x*t;
+   p.y:=p1.y*nt+p2.y*t;
+   p.z:=p1.z*nt+p2.z*t;
+  end;
+
+ procedure PointBetween(const p1,p2:TPoint3s;t:single;out p:TPoint3s); overload;
+  var
+   nt:single;
+  begin
+   nt:=1-t;
+   p.x:=p1.x*nt+p2.x*t;
+   p.y:=p1.y*nt+p2.y*t;
+   p.z:=p1.z*nt+p2.z*t;
   end;
 
  function IsNearS(a,b:TPoint3s):single;
@@ -1951,6 +1975,11 @@ constructor TQuaternionS.Init(x, y, z, w: single);
 constructor TQuaternionS.Init(vec3:TVector3s);
  begin
   x:=vec3.x; y:=vec3.y; z:=vec3.z; w:=0;
+ end;
+
+function TQuaternionS.IsValid:boolean;
+ begin
+  result:=x=x;
  end;
 
 procedure TQuaternionS.Test;
