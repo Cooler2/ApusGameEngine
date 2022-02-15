@@ -1205,6 +1205,7 @@ implementation
    dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;   dest[3,2]:=dest[3,2]/lc;
   end;
 
+
  procedure InvertFull(const m:TMatrix4;out dest:TMatrix4);
   var
    mat:TMatrix4;
@@ -1215,7 +1216,7 @@ implementation
     i:integer;
    begin
     for i:=0 to 3 do begin
-     mat[target,i]:=mat[target,i]+factor*m[src,i];
+     mat[target,i]:=mat[target,i]+factor*mat[src,i];
      dest[target,i]:=dest[target,i]+factor*dest[src,i];
     end;
    end;
