@@ -31,11 +31,14 @@ jobs:
     - run: pwd
     - name: Compile TestMyServis
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
+    - name: Compile TestMath
+      run: lazbuild -q -q Base/tests/TestMath.lpi
     - name: Compile TestStructs
       run: lazbuild -q -q Base/tests/TestStructs.lpi
     - name: Compile TestGFX
       run: lazbuild -q -q Base/tests/TestGFX.lpi
     - run: Base/tests/TestMyServis-fpc
+    - run: Base/tests/TestMath	 
     - run: Base/tests/TestStructs
     - run: Base/tests/TestGFX
 
@@ -71,14 +74,17 @@ jobs:
       with:
         lazarus-version: stable
     - run: pwd
-    - name: Compile
+    - name: Compile TestMyServis
       run: lazbuild -q -q Base/tests/TestMyServis.lpi
+    - name: Compile TestMath
+      run: lazbuild -q -q Base/tests/TestMath.lpi
     - name: Compile TestStructs
       run: lazbuild -q -q Base/tests/TestStructs.lpi
     - name: Compile TestGFX
       run: lazbuild -q -q Base/tests/TestGFX.lpi
     - run: dir Base/tests
     - run: Base/tests/TestMyServis-fpc
+    - run: Base/tests/TestMath
     - run: Base/tests/TestStructs
     - run: Base/tests/TestGFX
 
