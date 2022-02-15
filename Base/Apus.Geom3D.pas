@@ -232,6 +232,7 @@ interface
  // Build rotation matrix from a NORMALIZED quaternion
  procedure MatrixFromQuaternion(const q:TQuaternion;out mat:TMatrix3); overload;
  procedure MatrixFromQuaternion(const q:TQuaternionS;out mat:TMatrix3s); overload;
+ procedure MatrixFromQuaternion(const q:TQuaternionS;out mat:TMatrix4s); overload;
  procedure QuaternionToMatrix(const q:TQuaternion;out mat:TMatrix3); overload; inline; // alias
  procedure QuaternionToMatrix(const q:TQuaternionS;out mat:TMatrix3s); overload; inline; // alias
 
@@ -314,7 +315,8 @@ interface
  procedure Invert(const m:TMatrix43;out dest:TMatrix43); overload;
  procedure Invert(const m:TMatrix43s;out dest:TMatrix43s); overload;
  // Complete inversion using Gauss method
- procedure InvertFull(m:TMatrix4;out dest:TMatrix4);
+ procedure InvertFull(const m:TMatrix4;out dest:TMatrix4); overload;
+ procedure InvertFull(const m:TMatrix4s;out dest:TMatrix4s); overload;
 
  function Det(const m:TMatrix3):double; overload;
  function Det(const m:TMatrix3s):single; overload;
@@ -339,6 +341,13 @@ interface
 
 implementation
  uses Apus.CPU,Apus.CrossPlatform,SysUtils,Math,Apus.Geom2D;
+
+ const
+  vec0001s:TVector4s=(x:0; y:0; z:0; w:1);
+
+  // Compensation for stack frame allocation in x64 mode
+  RSP_BIAS = {$IFDEF FPC} 0 {$ELSE} 8 {$ENDIF};
+
 
  procedure Swap(a,b:single); overload; inline;
   var
@@ -987,6 +996,48 @@ implementation
   end;
 
  procedure MultMat(const m1,m2:TMatrix4s;out target:TMatrix4s);
+  {$IFDEF CPUx64}
+  asm
+   // save xmm6-7
+   movdqa [rsp-$10-RSP_BIAS],xmm6
+   movdqa [rsp-$20-RSP_BIAS],xmm7
+
+   // Load matrix M2
+   movaps xmm4,dqword [m2+$00]
+   movaps xmm5,dqword [m2+$10]
+   movaps xmm6,dqword [m2+$20]
+   movaps xmm7,dqword [m2+$30]
+
+   mov eax,4
+@loop:
+   movaps xmm0,dqword [m1]
+   movaps xmm1,xmm0
+   movaps xmm2,xmm0
+   movaps xmm3,xmm0
+   shufps xmm0,xmm0, $00  // a0
+   shufps xmm1,xmm1, $55  // a1
+   shufps xmm2,xmm2, $AA  // a2
+   shufps xmm3,xmm3, $FF  // a3
+
+   mulps xmm0,xmm4 // a0*X
+   mulps xmm1,xmm5 // a1*Y
+   mulps xmm2,xmm6 // a2*Z
+   mulps xmm3,xmm7 // a3*T
+   addps xmm0,xmm1
+   addps xmm2,xmm3
+   addps xmm0,xmm2
+   movups dqword [target],xmm0
+
+   add m1,$10
+   add target,$10
+   dec eax
+   jnz @loop
+
+   // restore xmm6-7
+   movdqa xmm6,[rsp-$10-RSP_BIAS]
+   movdqa xmm7,[rsp-$20-RSP_BIAS]
+  end;
+  {$ELSE}
   var
    i,j:integer;
   begin
@@ -994,6 +1045,7 @@ implementation
     for j:=0 to 3 do
      target[i,j]:=m1[i,0]*m2[0,j]+m1[i,1]*m2[1,j]+m1[i,2]*m2[2,j]+m1[i,3]*m2[3,j];
   end;
+  {$ENDIF}
 
  function MultMat(const m1,m2:TMatrix43):TMatrix43; overload;
   begin
@@ -1153,8 +1205,9 @@ implementation
    dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;   dest[3,2]:=dest[3,2]/lc;
   end;
 
- procedure InvertFull(m:TMatrix4;out dest:TMatrix4);
+ procedure InvertFull(const m:TMatrix4;out dest:TMatrix4);
   var
+   mat:TMatrix4;
    i,k:integer;
    v:double;
   procedure AddRow(src,target:integer;factor:double);
@@ -1162,7 +1215,7 @@ implementation
     i:integer;
    begin
     for i:=0 to 3 do begin
-     m[target,i]:=m[target,i]+factor*m[src,i];
+     mat[target,i]:=mat[target,i]+factor*m[src,i];
      dest[target,i]:=dest[target,i]+factor*dest[src,i];
     end;
    end;
@@ -1171,30 +1224,66 @@ implementation
     i:integer;
    begin
     for i:=0 to 3 do begin
-     m[row,i]:=m[row,i]*factor;
+     mat[row,i]:=mat[row,i]*factor;
      dest[row,i]:=dest[row,i]*factor;
     end;
    end;
   begin
+   mat:=m;
    dest:=IdentMatrix4;
    for i:=0 to 3 do begin
-     v:=m[i,i];
+     v:=mat[i,i];
      if v=0 then begin
       for k:=i+1 to 3 do
-       if m[k,i]<>0 then begin
+       if mat[k,i]<>0 then begin
         AddRow(k,i,1);
         break;
        end;
-      v:=m[i,i];
+      v:=mat[i,i];
       if v=0 then raise Exception.Create('Cannot invert matrix!');
      end;
      MultRow(i,1/v);
      for k:=i+1 to 3 do
-      AddRow(i,k,-m[k,i]);
+      AddRow(i,k,-mat[k,i]);
     end;
    for i:=3 downto 1 do
     for k:=i-1 downto 0 do
-     AddRow(i,k,-m[k,i]);
+     AddRow(i,k,-mat[k,i]);
+  end;
+
+ procedure InvertFull(const m:TMatrix4s;out dest:TMatrix4s);
+  var
+   mat:TMatrix4s;
+   i,k:integer;
+   v:single;
+  begin
+   mat:=m;
+   dest:=IdentMatrix4s;
+   for i:=0 to 3 do begin
+     v:=mat[i,i];
+     if abs(v)<EpsilonS then begin // fix zero diagonal element
+      for k:=i+1 to 3 do
+       if abs(mat[k,i])>EpsilonS then begin
+        TVector4s(dest[i]).Add(TVector4s(dest[k]),1);
+        TVector4s(mat[i]).Add(TVector4s(mat[k]),1);
+        break;
+       end;
+      v:=mat[i,i];
+      if v=0 then raise Exception.Create('Cannot invert matrix!');
+     end;
+     v:=1/v;
+     TVector4s(mat[i]).Mul(v);
+     TVector4s(dest[i]).Mul(v);
+
+     for k:=i+1 to 3 do begin
+      v:=-mat[k,i];
+      TVector4s(dest[k]).Add(TVector4s(dest[i]),v);
+      TVector4s(mat[k]).Add(TVector4s(mat[i]),v);
+     end;
+    end;
+   for i:=3 downto 1 do
+    for k:=i-1 downto 0 do
+     TVector4s(dest[k]).Add(TVector4s(dest[i]),-mat[k,i]);
   end;
 
  procedure MultPnt(const m:TMatrix43;v:PPoint3;num,step:integer);
@@ -1500,6 +1589,25 @@ implementation
    mat[0,0]:=1.0-(yy+zz);  mat[1,0]:=xy-wz;        mat[2,0]:=xz+wy;
    mat[0,1]:=xy+wz;        mat[1,1]:=1.0-(xx+zz);  mat[2,1]:=yz-wx;
    mat[0,2]:=xz-wy;        mat[1,2]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
+  end;
+
+ procedure MatrixFromQuaternion(const q:TQuaternionS;out mat:TMatrix4s); overload;
+  var
+   wx,wy,wz,xx,yy,yz,xy,xz,zz,x2,y2,z2:single;
+  begin
+   x2:=q.x*2;
+   y2:=q.y*2;
+   z2:=q.z*2;
+   xx:=q.x*x2;   xy:=q.x*y2;   xz:=q.x*z2;
+   yy:=q.y*y2;   yz:=q.y*z2;   zz:=q.z*z2;
+   wx:=q.w*x2;   wy:=q.w*y2;   wz:=q.w*z2;
+
+
+   mat[0,0]:=1.0-(yy+zz);  mat[1,0]:=xy-wz;        mat[2,0]:=xz+wy;
+   mat[0,1]:=xy+wz;        mat[1,1]:=1.0-(xx+zz);  mat[2,1]:=yz-wx;
+   mat[0,2]:=xz-wy;        mat[1,2]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
+   mat[0,3]:=0;            mat[1,3]:=0;            mat[2,3]:=0;
+   TVector4s(mat[3]):=vec0001s;
   end;
 
  procedure QuaternionToMatrix(const q:TQuaternion;out mat:TMatrix3); overload;
@@ -2207,7 +2315,7 @@ procedure TQuaternionS.Mul(var q:TQuaternionS);
   {$IFDEF MSWINDOWS}
   // rcx=@self, rdx=@q
   movups xmm0,[rcx]
-  mulps xmm0,[rdx]
+  mulps xmm0,dqword [q]
   movups [rcx],xmm0
   {$ENDIF}
   {$IFDEF UNIX}
