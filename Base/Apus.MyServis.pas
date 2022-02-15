@@ -2338,14 +2338,36 @@ procedure SimpleEncrypt2;
   end;
 
  function IsNaN(const v:single):boolean; overload;
+  {$IFDEF CPUx64}
+  asm
+   //movsd xmm0,v
+   ucomiss xmm0,xmm0
+   setp al
+   setnz cl
+   or al,cl
+   movzx rax,al
+  end;
+  {$ELSE}
   begin
    result:=v<>v;
   end;
+  {$ENDIF}
 
  function IsNaN(const v:double):boolean; overload;
+  {$IFDEF CPUx64}
+  asm
+   //movsd xmm0,v
+   ucomisd xmm0,xmm0
+   setp al
+   setnz cl
+   or al,cl
+   movzx rax,al
+  end;
+  {$ELSE}
   begin
    result:=v<>v;
   end;
+  {$ENDIF}
 
  procedure ZeroMem(var data;size:integer); inline;
   begin

@@ -1786,6 +1786,17 @@ procedure TestSSE;
   v1,v2,v3:TQuaternionS;
   r:single;
  begin
+  ASSERT(not IsNan(single(0.0)));
+  ASSERT(not IsNan(single(0.5)));
+  ASSERT(not IsNan(single(-0.5)));
+  ASSERT(IsNan(single(NaN)));
+
+  ASSERT(not IsNan(double(0.0)));
+  ASSERT(not IsNan(double(0.5)));
+  ASSERT(not IsNan(double(-0.5)));
+  ASSERT(IsNan(double(NaN)));
+
+
   v1.Init(11,12,13,14);
   v2.Init(-1,1,2,3);
   v1.Add(v2);
@@ -1796,6 +1807,7 @@ procedure TestSSE;
   ASSERT(abs(v2.Length-sqrt(15))<0.00001);
   v2.Normalize;
   ASSERT(abs(v2.Length-1.0)<0.0001);
+  writeln('SSE OK');
  end;
 
 procedure TestBitFunc;
