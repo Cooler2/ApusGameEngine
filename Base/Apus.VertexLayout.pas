@@ -66,14 +66,14 @@ type
   u,v:single;
   procedure Init(x,y,z:single;color:cardinal=$FF808080); overload; inline;
   procedure Init(pos:TPoint3s;color:cardinal=$FF808080); overload;
+  procedure SetPos(pos:TVector4s); overload; inline;
+  procedure SetPos(pos:TVector3s); overload; inline;
   procedure SetNormal(nx,ny,nz:single); overload; inline;
   procedure SetNormal(n:TVector3s); overload;
   procedure SetUV(u,v:single); overload; inline;
   procedure SetUV(uv:TPoint2s); overload;
   class function Layout(hasUV:boolean=true):TVertexLayout; static;
  end;
-
-
 
 implementation
  uses Apus.MyServis, Apus.Colors, SysUtils;
@@ -279,6 +279,20 @@ procedure TVertex3D.SetNormal(nx,ny,nz:single);
 procedure TVertex3D.SetNormal(n:TVector3s);
  begin
   SetNormal(n.x,n.y,n.z);
+ end;
+
+procedure TVertex3D.SetPos(pos:TVector4s);
+ begin
+  x:=pos.x;
+  y:=pos.y;
+  z:=pos.z;
+ end;
+
+procedure TVertex3D.SetPos(pos:TVector3s);
+ begin
+  x:=pos.x;
+  y:=pos.y;
+  z:=pos.z;
  end;
 
 procedure TVertex3D.SetUV(uv:TPoint2s);
