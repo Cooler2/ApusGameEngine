@@ -10,16 +10,47 @@ uses
 
  var
   time:int64;
+  i:integer;
+
+ procedure StartTimer;
+  begin
+   time:=MyTickCount;
+  end;
+
+ procedure EndTimer(msg:string);
+  begin
+   writeln(msg,': ',MyTickCount-time);
+   time:=MyTickCount;
+  end;
 
  procedure TestMatrices;
   var
+   m4,mInv,m4a:TMatrix4s;
    m3:TMatrix3s;
-   m4:TMAtrix4s;
    v:single;
   begin
    MatrixFromYawRollPitch(m3,1,-1,0.5);
    v:=Det(m3);
    ASSERT(IsEqual(v,1));
+
+   TVector4s(m4[0]):=QuaternionS(0,1,2,3);
+   TVector4s(m4[1]):=QuaternionS(2,0,3,1);
+   TVector4s(m4[2]):=QuaternionS(1,3,2,1);
+   TVector4s(m4[3]):=QuaternionS(2,1,3,0);
+
+   InvertFull(m4,mInv);
+   MultMat(m4,mInv,m4a);
+   ASSERT(IsEqual(m4a,IdentMatrix4s));
+
+   StartTimer;
+   for i:=1 to 2000000 do
+    InvertFull(m4,mInv);
+   EndTimer('Invert4Full time');
+
+   for i:=1 to 5000000 do
+    MultMat(m4,mInv,m4a);
+   EndTimer('Mult4s time');
+
    writeln('Matrices OK');
   end;
 
@@ -120,6 +151,12 @@ uses
    ASSERT(IsEqual(q3.xyz,Vector3s(1.5, 1.7, 1.9)));
    ASSERT(IsEqual(q2,QuaternionS(0,0,0.04998,0.99875)));
    ASSERT(IsEqual(q2.Length,1));
+
+   // Perf
+   time:=MyTickCount;
+   for i:=0 to 10000000 do
+    MatrixFromQuaternion(q2,mat);
+   writeln('Conv time: ',MyTickCount-time);
 
    writeln('Quaternion conversions OK');
   end;

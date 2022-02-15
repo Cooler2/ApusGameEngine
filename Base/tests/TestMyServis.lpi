@@ -30,7 +30,7 @@
         <Mode0 Name="default"/>
       </Modes>
     </RunParams>
-    <Units Count="41">
+    <Units Count="42">
       <Unit0>
         <Filename Value="TestMyServis.dpr"/>
         <IsPartOfProject Value="True"/>
@@ -195,6 +195,10 @@
         <Filename Value="..\Apus.Types.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit40>
+      <Unit41>
+        <Filename Value="..\Apus.ProdCons.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit41>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -221,6 +225,7 @@
       <Checks>
         <RangeChecks Value="True"/>
       </Checks>
+      <TargetOS Value="win64"/>
       <Optimizations>
         <OptimizationLevel Value="2"/>
       </Optimizations>

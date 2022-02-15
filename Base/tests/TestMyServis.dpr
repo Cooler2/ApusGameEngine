@@ -16,7 +16,7 @@ program TestMyServis;
   variants,
   DateUtils,
   SysUtils,
-  Math,
+  //Math,
   classes,
   DCPmd5a,
   Apus.CPU in '..\Apus.CPU.pas',
