@@ -441,6 +441,12 @@ interface
  procedure ZeroMem(var data;size:integer); inline;
  function IsZeroMem(var data;size:integer):boolean;
  procedure FillDword(var data;count:integer;value:cardinal);
+ procedure FillSingleNaN(var data;count:integer);
+ procedure FillDoubleNaN(var data;count:integer);
+
+ function IsNaN(const v:single):boolean; overload;
+ function IsNaN(const v:double):boolean; overload;
+
  // Check if pointer is between baseAddress and baseAddress+size-1
  function PointerInRange(const p:pointer;baseAddress:pointer;size:UIntPtr):boolean; inline;
 
@@ -772,6 +778,22 @@ implementation
   TLogThread=class(TThread)
    procedure Execute; override;
   end;
+
+  TSingleAsBinary=record
+   case byte of
+    0:(float:single;);
+    1:(bin:cardinal;);
+  end;
+
+  TDoubleAsBinary=record
+   case byte of
+    0:(float:double;);
+    1:(bin:uint64;);
+  end;
+
+ const
+  NAN_SINGLE:TSingleAsBinary=(float:0.0/0.0;);
+  NAN_DOUBLE:TDoubleAsBinary=(float:0.0/0.0;);
 
  var
   LogFileName:string='';
@@ -2289,6 +2311,40 @@ procedure SimpleEncrypt2;
     inc(pc);
     dec(count);
    end;
+  end;
+
+ procedure FillSingleNaN(var data;count:integer);
+  var
+   pc:PCardinal;
+  begin
+   pc:=@data;
+   while count>0 do begin
+    pc^:=NAN_SINGLE.bin;
+    inc(pc);
+    dec(count);
+   end;
+  end;
+
+ procedure FillDoubleNaN(var data;count:integer);
+  var
+   pc:^uint64;
+  begin
+   pc:=@data;
+   while count>0 do begin
+    pc^:=NAN_DOUBLE.bin;
+    inc(pc);
+    dec(count);
+   end;
+  end;
+
+ function IsNaN(const v:single):boolean; overload;
+  begin
+   result:=v<>v;
+  end;
+
+ function IsNaN(const v:double):boolean; overload;
+  begin
+   result:=v<>v;
   end;
 
  procedure ZeroMem(var data;size:integer); inline;

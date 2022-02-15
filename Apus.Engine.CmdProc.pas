@@ -247,7 +247,7 @@ implementation
       (leftClass.InheritsFrom(TVarTypeCardinal)) or
       (leftClass.InheritsFrom(TVarTypeSingle)) then begin
     v:=EvalFloat(sa[1],nil,curObj,curObjClass);
-    if IsNAN(v) then raise EWarning.Create('Invalid expression: '+sa[1]);
+    if Math.IsNAN(v) then raise EWarning.Create('Invalid expression: '+sa[1]);
     if not leftClass.InheritsFrom(TVarTypeSingle) then v:=round(v);
     sa[1]:=FloatToStr(v);
    end;

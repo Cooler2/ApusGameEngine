@@ -373,9 +373,9 @@ implementation
       end;
      end;
     end;
-    if fl and not IsNaN(result) then result:=-result;
+    if fl and not Math.IsNaN(result) then result:=-result;
    end;
-   if IsNAN(result) then raise EWarning.Create('Invalid expression: '+expression);
+   if Math.IsNAN(result) then raise EWarning.Create('Invalid expression: '+expression);
   end;
 
  function IsStringConstant(expression:string):boolean;
