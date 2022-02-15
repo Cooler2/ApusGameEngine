@@ -14,6 +14,7 @@
 // Since OpenGL assume column-major matrices, only notional (imaginable) transpose occurs when matrix is
 // uploaded, so no real transpose/data modification. The same binary data is just used differently in the GLSL shaders.
 {$IFDEF FPC}{$PIC OFF}{$ENDIF}
+{$EXCESSPRECISION OFF}
 unit Apus.Geom3D;
 interface
  type
