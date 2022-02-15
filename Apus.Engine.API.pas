@@ -467,7 +467,7 @@ type
 
   // Lighting and material
   // ----
-  // Ambient color is added to any pixels (set 0 to disable)
+  // Ambient color is added to any pixels (set 0 to disable), RGB value, alpha component ignored
   procedure AmbientLight(color:cardinal);
   // Set direction TO the light source (sun) (set power<=0 to disable)
   procedure DirectLight(direction:TVector3;power:single;color:cardinal);

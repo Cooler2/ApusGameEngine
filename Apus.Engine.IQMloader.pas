@@ -306,9 +306,8 @@ implementation
      with model.bones[i] do begin
       boneName:=GetString(joints.name);
       parent:=joints.parent;
-      flags:=0;
-      move(joints.translate,pos,sizeof(pos));
-      move(joints.rotate,rot,sizeof(rot));
+      move(joints.translate,position,sizeof(position));
+      move(joints.rotate,rotation,sizeof(rotation));
       move(joints.scale,scale,sizeof(scale));
       inc(joints);
      end;
@@ -318,7 +317,7 @@ implementation
    var
     i,j,n,count:integer;
     pose:^TIQMPose;
-    frameData:TAnimationValues;
+    frameData:TAnimationKeyframes;
    function Unpack(channelID:integer):single;
     begin
      if pose.channelmask and (1 shl channelID)>0 then begin
@@ -385,10 +384,9 @@ implementation
      with model.animations[i] do begin
       name:=GetString(animations.name);
       smooth:=true;
-      curFrame:=-1;
-      playing:=false;
       numFrames:=animations.num_frames;
       model.fps:=animations.framerate;
+      fps:=animations.framerate;
       keyFrames:=frameData;
      end;
    end;
@@ -409,7 +407,7 @@ implementation
     LoadBones;
     LoadAnimations;
 
-    model.UpdateBoneMatrices(false); // Calculate skeleton matrices
+    model.Prepare;
     result:=model;
    except
     on e:Exception do raise EError.Create('Error in LoadIQM('+fname+'): '+ExceptionMsg(e));

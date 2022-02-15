@@ -290,8 +290,7 @@ procedure TTransformationAPI.SetCamera(origin,target,up:TPoint3s; turnCW:single)
   SetCamera(Point3(origin),Point3(target),Point3(up),turnCW);
  end;
 
-procedure TTransformationAPI.SetObj(oX, oY, oZ, scale, yaw, roll,
-  pitch: single);
+procedure TTransformationAPI.SetObj(oX,oY,oZ,scale,yaw,roll,pitch:single);
  var
   m,m2:T3DMatrix;
   i,j:integer;
@@ -340,7 +339,6 @@ procedure TTransformationAPI.SetObj(mat:T3DMatrixS);
   objMatrix:=Matrix4(mat);
   modified:=true;
  end;
-
 
 procedure TTransformationAPI.SetView(view:T3DMatrix);
  begin

@@ -6,21 +6,21 @@
 
 unit Apus.Engine.Model3D;
 interface
-uses Apus.MyServis, Apus.Geom2D, Apus.Geom3D, Apus.Structs;
+uses Apus.MyServis, Apus.Geom2D, Apus.Geom3D, Apus.Structs, Apus.AnimatedValues, Apus.Engine.API;
 const
  // Bone flags
  bfDefaultPos = 1; // default matrix updated (model->bone)
  bfCurrentPos = 2; // current matrix updated (bone->model)
 
 type
- // Vertex for a typical 3D mesh
+(* // Vertex for a typical 3D mesh
  T3DModelVertex=record
   x,y,z:single;
   color:cardinal;
   nX,nY,nZ:single;
   attr:cardinal;
   u,v:single;
- end;
+ end; *)
 
  // Part of mesh surface
  TModelPart=record
@@ -33,16 +33,15 @@ type
  TBoneProperty=(bpPosition,bpRotation,bpScale);
 
  // Definition of bone
- TBone=record
+ TBone=packed record
   boneName:string;
   parent:integer; // index of the parent bone
-  pos:TPoint3s;
-  scale:Tvector3s;
-  rot:TQuaternionS;
-  flags:cardinal;        // bfXXX
-  defaultPos:TMatrix43s; // model space -> bone space (in reference position)
-  currentPos:TMatrix43s; // bone space (in current position) -> model space
-  combined:TMatrix43s;  // Combined transform: defaultPos * currentPos
+  // default values
+  position:TPoint3s;
+  scale:TVector3s;
+  {$IFDEF CPUx64} padding:array[0..2] of cardinal;  {$ENDIF} // align by 16
+  rotation:TQuaternionS;
+  matrix:TMatrix4s; // model space -> bone space (in reference position)
  end;
  TBonesArray=array of TBone;
 
@@ -55,19 +54,40 @@ type
   prop:TBoneProperty;    // which bone property is affected (position, rotation or scale)
   value:TQuaternionS;
  end;
- TAnimationValues=array of TKeyFrame;
+ TAnimationKeyFrames=array of TKeyFrame;
+
+ // Single bone state
+ TBoneState=record
+  position:TVector4s;
+  rotation:TQuaternionS;
+  scale:TVector4s;
+ end;
+
+ // Per-frame bone states
+ TTimeline=record
+  positions:array of TVector4s;
+  rotations:array of TQuaternionS;
+  scales:array of TVector4s;
+ end;
 
  // Single animation timeline
  TAnimation=record
   name:string;
-  keyFrames:TAnimationValues;
   numFrames:integer; // duration in frames
-  duration:single;  // duration in seconds
-  loop:boolean; // play infinitely
-  smooth:boolean; // play smoothly - interpolate between animation frames (only when key data exists for neighboring frames)
-  playing:boolean; // is it playing now?
-  curFrame:single; // current playback position
-  startTime:int64; // when animation playback was started
+  fps:single;  // frames per second
+  keyFrames:TAnimationKeyFrames; // individual keyframes (source)
+  loopFrom,loopTo:integer; // loop frame range (0 - don't loop)
+  smooth:boolean; // play smoothly - interpolate between animation frames
+  procedure SetLoop(loop:boolean=true); overload;
+  procedure SetLoop(fromFrame,toFrame:integer); overload;
+  procedure BuildTimeline(numBones:integer);
+  // Get timeline values
+  function GetBonePosition(bone:integer;frame:single):TVector4s;
+  function GetBoneRotation(bone:integer;frame:single):TQuaternionS;
+  function GetBoneScale(bone:integer;frame:single):TVector4s;
+ private
+  timeline:array of TTimeline; // timeline for each bone (can contain empty arrays)
+  defaultBoneState:array of TBoneState; // state of bones with no timeline
   procedure UpdateBonesForFrame(const bones:TBonesArray;frame:single);
  end;
 
@@ -76,6 +96,8 @@ type
   bone1,bone2:byte;
   weight1,weight2:byte; // 0..255 range
  end;
+
+ TModelInstance=class;
 
  // 3D model with rigged animation support
  TModel3D=class
@@ -100,10 +122,11 @@ type
   fps:single;
 
   constructor Create(name:string;src:string='');
+  procedure Prepare; // precalculate bone matrices, build animation timelines etc...
+  // Instantiate a model
+  function CreateInstance:TModelInstance;
 
-  // Flip model along X axis (right\left CS conversion)
-  procedure FlipX;
-
+  procedure FlipX; // Flip model along X axis (right\left CS conversion)
   function FindBone(bName:string):integer;
 
   // Build vertex data buffer. Transformed=true - apply bone matrices and weights to vertex positions and normals
@@ -111,16 +134,40 @@ type
   procedure FillVertexBuffer(data:pointer;vrtCount,stride:integer; useBones:boolean;
     vpOffset,vtOffset,vt2Offset,vnOffset,vcOffset:integer);
 
-  // Calculate bone matrices: forwardOnly - don't calc inverse matrices (Model->Bone), just only Bone->Model
-  procedure UpdateBoneMatrices(forwardOnly:boolean=false);
-
-  //
-  procedure PlayAnimation(name:string='');
-  procedure StopAnimation(name:string='');
   // Update bones: values and matrices
   procedure AnimateBones;
  private
   bonesHash:TSimpleHashS;
+  procedure CalcBoneMatrix(bone:integer);
+ end;
+
+ // For each underlying model's animation there is a state object
+ TInstanceAnimation=record
+  weight:TAnimatedValue;
+  playing:boolean; // is it playing now?
+  stopping:boolean; // don't loop if stopping
+  curFrame:single; // current playback position (in frames)
+  startTime:int64; // when animation playback was started
+ end;
+
+ // An animated instance of a 3D model
+ TModelInstance=class
+  model:TModel3D;
+  constructor Create(model:TModel3D);
+  procedure PlayAnimation(name:string='';easeTimeMS:integer=0);
+  procedure StopAnimation(name:string='';easeTimeMS:integer=0);
+  procedure Update; // update animations and calculate bones
+  procedure Draw(tex:TTexture);
+ protected
+  lastUpdated:int64; // when state was last updated
+  animations:array of TInstanceAnimation;
+  bones:array of TBoneState;
+  boneMatrices:array of TMatrix4s;
+  vertices:array of TVertex3D;
+  procedure AdvanceAnimations(time:integer);
+  procedure UpdateBones;
+  procedure UpdateBoneMatrices;
+  procedure FillVertexBuffer;
  end;
 
 implementation
@@ -130,62 +177,170 @@ implementation
   defaultColor:cardinal=$FF808080;
 
 
-{ TModel3D }
-procedure TModel3D.UpdateBoneMatrices(forwardOnly:boolean=false);
+{ TAnimation }
+procedure TAnimation.BuildTimeline(numBones:integer);
  var
-  i:integer;
- procedure CalculateBoneMatrices(index,newFlags:integer);
-  var
-   p:integer;
-   mat,mScale,mTmp:TMatrix43s;
-   m3:TMatrix3s absolute mat;
-  begin
-   if bones[index].flags and newFlags=newFlags then exit; // nothing to do
-   p:=bones[index].parent;
-   // recursion
-   if p>=0 then begin
-    if bones[p].flags and newFlags<>newFlags then
-     CalculateBoneMatrices(p,newFlags);
-   end;
-   MatrixFromQuaternion(bones[index].rot,m3);
-   if not IsIdentity(bones[index].scale) then
-    with bones[index].scale do begin
-     mScale:=IdentMatrix43s;
-     mScale[0,0]:=x;
-     mScale[1,1]:=y;
-     mScale[2,2]:=z;
-     mTmp:=mat;
-     MultMat(mTmp,mScale,mat);
+  i,j,n,bone,frame,lastKeyFrame,firstKeyFrame:integer;
+  nn,step:single;
+  dwNN:cardinal absolute nn;
+  vec:TVector4s;
+ begin
+  SetLength(defaultBoneState,numBones);
+  SetLength(timeline,numBones);
+
+  // Store keyframes in the timeline
+  nn:=NAN;
+  for i:=0 to high(keyFrames) do begin
+   bone:=keyFrames[i].boneIdx;
+   frame:=keyFrames[i].frame;
+   ASSERT(frame<numFrames);
+   case keyFrames[i].prop of
+    bpPosition:begin
+      if timeline[bone].positions=nil then begin
+       SetLength(timeline[bone].positions,numFrames);
+       FillDword(timeline[bone].positions[0],numFrames*3,dwNN);
+      end;
+      timeline[bone].positions[frame]:=keyFrames[i].value;
     end;
-   move(bones[index].pos,mat[3],sizeof(TPoint3s));
-   if p>=0 then
-    MultMat(mat,bones[p].currentPos,bones[index].currentPos)
-   else
-    bones[index].currentPos:=mat;
-   if newFlags and bfDefaultPos>0 then begin
-    Invert(bones[index].currentPos,bones[index].defaultPos);
-    {$IFDEF DEBUG}
-    // verify
-    MultMat(bones[index].currentPos,bones[index].defaultPos,mat);
-    //ASSERT(IsIdentity(mat));
-    {$ENDIF}
-   end;
-   with bones[index] do begin
-    MultMat(defaultPos,currentPos,combined);
-    //combined:=currentPos;
-    flags:=flags or newFlags;
+    bpRotation:begin
+      if timeline[bone].rotations=nil then begin
+       SetLength(timeline[bone].rotations,numFrames);
+       FillDword(timeline[bone].rotations[0],numFrames*4,dwNN);
+      end;
+      timeline[bone].rotations[frame]:=keyFrames[i].value;
+    end;
+    bpScale:begin
+      if timeline[bone].scales=nil then begin
+       SetLength(timeline[bone].scales,numFrames);
+       FillDword(timeline[bone].scales[0],numFrames*3,dwNN);
+      end;
+      timeline[bone].scales[frame]:=keyFrames[i].value;
+    end;
    end;
   end;
- begin
-  // Clear flags
-{  for i:=0 to high(bones) do
-   bones[i].flags:=bones[i].flags and ($FFFFFFFF-bfDefaultPos-bfCurrentPos);}
 
-  for i:=0 to high(bones) do
-   CalculateBoneMatrices(i,bfCurrentPos+bfDefaultPos*byte(not forwardOnly));
+  // Fill the gaps - interpolate keyframe values, and reduce arrays with just single value
+  for i:=0 to high(timeline) do
+   with timeline[i] do begin
+    // Process position
+    if length(positions)=numFrames then begin
+     lastKeyFrame:=-1; firstKeyFrame:=-1;
+     // 1-st pass: fill the gaps between keyframes
+     for frame:=0 to numFrames-1 do
+      if positions[frame].IsValid then begin
+       if (lastKeyFrame>=0) and (frame-lastKeyFrame>1) then begin
+        step:=1/(frame-lastKeyFrame);
+        for j:=lastKeyFrame+1 to frame-1 do begin
+         positions[j]:=positions[lastKeyFrame];
+         positions[j].Middle(positions[frame],(j-lastKeyFrame)*step);
+        end;
+       end;
+       lastKeyFrame:=frame;
+       if firstKeyFrame<0 then firstKeyFrame:=frame;
+      end;
+     if firstKeyFrame=lastKeyFrame then begin // only one keyframe -> constant value among whole timeline
+      defaultBoneState[i].position:=positions[firstKeyFrame];
+      SetLength(positions,0);
+     end else begin
+      // Fill leading and trailing values
+      for frame:=0 to firstKeyFrame-1 do
+       positions[frame]:=positions[firstKeyframe];
+      for frame:=lastKeyFrame+1 to numFrames-1 do
+       positions[frame]:=positions[lastKeyframe];
+     end;
+    end;
+    // Process rotation
+    if length(rotations)=numFrames then begin
+     lastKeyFrame:=-1; firstKeyFrame:=-1;
+     // 1-st pass: fill the gaps between keyframes
+     for frame:=0 to numFrames-1 do
+      if rotations[frame].IsValid then begin
+       if (lastKeyFrame>=0) and (frame-lastKeyFrame>1) then begin
+        step:=1/(frame-lastKeyFrame);
+        for j:=lastKeyFrame+1 to frame-1 do
+         rotations[j]:=QInterpolate(rotations[lastKeyFrame],rotations[frame],(j-lastKeyFrame)*step); // with normalization
+       end;
+       lastKeyFrame:=frame;
+       if firstKeyFrame<0 then firstKeyFrame:=frame;
+      end;
+     if firstKeyFrame=lastKeyFrame then begin // only one keyframe -> constant value among whole timeline
+      defaultBoneState[i].rotation:=rotations[firstKeyFrame];
+      SetLength(rotations,0);
+     end else begin
+      // Fill leading and trailing values
+      for frame:=0 to firstKeyFrame-1 do
+       rotations[frame]:=rotations[firstKeyframe];
+      for frame:=lastKeyFrame+1 to numFrames-1 do
+       rotations[frame]:=rotations[lastKeyframe];
+     end;
+    end;
+    // Process scale
+    if length(scales)=numFrames then begin
+     lastKeyFrame:=-1; firstKeyFrame:=-1;
+     // 1-st pass: fill the gaps between keyframes
+     for frame:=0 to numFrames-1 do
+      if scales[frame].IsValid then begin
+       if (lastKeyFrame>=0) and (frame-lastKeyFrame>1) then begin
+        step:=1/(frame-lastKeyFrame);
+        for j:=lastKeyFrame+1 to frame-1 do begin
+         scales[j]:=scales[lastKeyFrame];
+         scales[j].Middle(scales[frame],(j-lastKeyFrame)*step);
+        end;
+       end;
+       lastKeyFrame:=frame;
+       if firstKeyFrame<0 then firstKeyFrame:=frame;
+      end;
+     if firstKeyFrame=lastKeyFrame then begin // only one keyframe -> constant value among whole timeline
+      defaultBoneState[i].scale:=scales[firstKeyFrame];
+      SetLength(scales,0);
+     end else begin
+      // Fill leading and trailing values
+      for frame:=0 to firstKeyFrame-1 do
+       scales[frame]:=scales[firstKeyframe];
+      for frame:=lastKeyFrame+1 to numFrames-1 do
+       scales[frame]:=scales[lastKeyframe];
+     end;
+    end;
+   end;
  end;
 
-{ TAnimation }
+function TAnimation.GetBonePosition(bone:integer;frame:single):TVector4s;
+ begin
+  if timeline[bone].positions<>nil then
+   result:=timeline[bone].positions[round(frame)]
+  else
+   result:=defaultBoneState[bone].position;
+ end;
+
+function TAnimation.GetBoneRotation(bone:integer;frame:single):TQuaternionS;
+ begin
+  if timeline[bone].rotations<>nil then
+   result:=timeline[bone].rotations[round(frame)]
+  else
+   result:=defaultBoneState[bone].rotation;
+ end;
+
+function TAnimation.GetBoneScale(bone:integer;frame:single):TVector4s;
+ begin
+  if timeline[bone].scales<>nil then
+   result:=timeline[bone].positions[round(frame)]
+  else
+   result:=defaultBoneState[bone].scale;
+ end;
+
+procedure TAnimation.SetLoop(fromFrame,toFrame:integer);
+ begin
+  loopFrom:=fromFrame;
+  loopTo:=toFrame;
+ end;
+
+procedure TAnimation.SetLoop(loop:boolean=true);
+ begin
+  if loop then
+   SetLoop(0,numFrames-1)
+  else
+   SetLoop(0,0);
+ end;
 
 procedure TAnimation.UpdateBonesForFrame(const bones:TBonesArray; frame:single);
 var
@@ -193,7 +348,7 @@ var
  intFrame:integer;
  fracFrame:single;
 begin
- if keyFrames=nil then exit;
+{ if keyFrames=nil then exit;
  if not smooth then begin
   intFrame:=Clamp(round(frame),0,numFrames-1);
   fracFrame:=0;
@@ -249,7 +404,7 @@ begin
     inc(a);
    end;
  end;
- curFrame:=frame;
+ curFrame:=frame;}
 end;
 
 procedure TModel3D.AnimateBones;
@@ -258,7 +413,7 @@ procedure TModel3D.AnimateBones;
   i:integer;
   frame:single;
  begin
-  time:=MyTickCount;
+{  time:=MyTickCount;
   for i:=0 to high(animations) do
    if animations[i].playing then begin
     frame:=fps*(time-animations[i].startTime)/1000;
@@ -270,7 +425,40 @@ procedure TModel3D.AnimateBones;
     if animations[i].curFrame<>frame then
      animations[i].UpdateBonesForFrame(bones,frame);
    end;
-  UpdateBoneMatrices(true);
+  UpdateBoneMatrices(true);  }
+ end;
+
+{ TModel3D }
+
+procedure TModel3D.CalcBoneMatrix(bone:integer);
+ var
+  mat,mScale,mTemp:TMatrix4s;
+  parent:integer;
+ begin
+   parent:=bones[bone].parent;
+   // recursion
+   if parent>=0 then begin
+    if IsNaN(bones[parent].matrix[0,0]) then
+     CalcBoneMatrix(parent);
+   end;
+   MatrixFromQuaternion(bones[bone].rotation,mat);
+   if not IsIdentity(bones[bone].scale) then
+    with bones[bone] do begin
+     mScale:=IdentMatrix4s;
+     mScale[0,0]:=scale.x;
+     mScale[1,1]:=scale.y;
+     mScale[2,2]:=scale.z;
+     mTemp:=mat;
+     MultMat(mScale,mTemp,mat);
+    end;
+   move(bones[bone].position,mat[3],sizeof(TPoint3s));
+   InvertFull(mat,mTemp);
+
+   // Combine with parent bone
+   if parent>=0 then
+    MultMat(mTemp,bones[parent].matrix,bones[bone].matrix)
+   else
+    bones[bone].matrix:=mTemp;
  end;
 
 constructor TModel3D.Create(name:string;src:string='');
@@ -278,6 +466,11 @@ constructor TModel3D.Create(name:string;src:string='');
   inherited Create;
   self.name:=name;
   self.src:=src;
+ end;
+
+function TModel3D.CreateInstance:TModelInstance;
+ begin
+  result:=TModelInstance.Create(self);
  end;
 
 procedure TModel3D.FillVertexBuffer(data: pointer; vrtCount, stride:integer; useBones:boolean;
@@ -289,7 +482,7 @@ procedure TModel3D.FillVertexBuffer(data: pointer; vrtCount, stride:integer; use
   var
    p1,p2:TPoint3s;
   begin
-   if transform then begin // ����� ��������������
+(*   if transform then begin // ����� ��������������
     p1:=vp[i];
     if vb[i].weight1>0 then begin
      MultPnt(bones[vb[i].bone1].combined,@p1,1,0);
@@ -303,7 +496,7 @@ procedure TModel3D.FillVertexBuffer(data: pointer; vrtCount, stride:integer; use
     end;
     move(p1,dest^,sizeof(TPoint3s))
    end else
-    move(vp[i],dest^,sizeof(TPoint3s))
+    move(vp[i],dest^,sizeof(TPoint3s))   *)
   end;
 
  begin
@@ -372,40 +565,231 @@ procedure TModel3D.FlipX;
   for i:=0 to high(vn) do vn[i].x:=-vn[i].x;
   // bones
   for i:=0 to high(bones) do begin
-   bones[i].pos.x:=-bones[i].pos.x;
-   bones[i].rot.x:=-bones[i].rot.x;
+   bones[i].position.x:=-bones[i].position.x;
+   bones[i].rotation.x:=-bones[i].rotation.x;
   end;
   // animations
   for i:=0 to high(animations) do
    for j:=0 to high(animations[i].keyFrames) do
     with animations[i].keyFrames[j] do
      if prop in [bpPosition,bpRotation] then value.x:=-value.x;
-
-  // TODO: flip bones and animations
  end;
 
-procedure TModel3D.PlayAnimation(name:string);
-var
- i:integer;
-begin
- for i:=0 to high(animations) do
-  if (name='') or (SameText(name,animations[i].name)) then begin
-   animations[i].playing:=true;
-   animations[i].startTime:=MyTickCount;
-   animations[i].curFrame:=-1;
-   exit;
-  end;
-end;
 
-procedure TModel3D.StopAnimation(name: string);
-var
- i:integer;
-begin
- for i:=0 to high(animations) do
-  if (name='') or (SameText(name,animations[i].name)) then begin
-   animations[i].playing:=false;
-   exit;
+procedure TModel3D.Prepare;
+ var
+  i:integer;
+ begin
+  for i:=0 to high(bones) do
+   bones[i].matrix[0,0]:=NaN;
+  for i:=0 to high(bones) do
+   CalcBoneMatrix(i);
+
+  // Build animation timelines
+  for i:=0 to high(animations) do
+   animations[i].BuildTimeline(length(bones));
+ end;
+
+{ TModelInstance }
+
+constructor TModelInstance.Create(model:TModel3D);
+ var
+  i:integer;
+ begin
+  self.model:=model;
+  SetLength(animations,length(model.animations));
+  for i:=0 to high(animations) do
+   animations[i].weight.Init;
+ end;
+
+procedure TModelInstance.Draw(tex:TTexture);
+ begin
+  FillVertexBuffer;
+  gfx.draw.IndexedMesh(@vertices[0],@model.trgList[0],length(model.trgList),length(vertices),tex);
+ end;
+
+procedure TModelInstance.FillVertexBuffer;
+ var
+  i,vCount:integer;
+ begin
+  vCount:=length(model.vp);
+  if length(vertices)<>vCount then begin
+   SetLength(vertices,vCount);
+   // Texture coordinates
+   if length(model.vt)=vCount then
+    for i:=0 to vCount-1 do
+     vertices[i].SetUV(model.vt[i]);
+   // Vertex colors
+   if length(model.vc)=vCount then
+    for i:=0 to vCount-1 do
+     vertices[i].color:=model.vc[i];
   end;
-end;
+
+  for i:=0 to vCount-1 do begin
+   vertices[i].SetPos(model.vp[i]);
+   vertices[i].SetNormal(model.vn[i]);
+  end;
+ end;
+
+procedure TModelInstance.PlayAnimation(name:string;easeTimeMS:integer);
+ var
+  i:integer;
+ begin
+  for i:=0 to high(model.animations) do
+   if SameText(name,model.animations[i].name) then begin
+    animations[i].playing:=true;
+    animations[i].stopping:=false;
+    animations[i].curFrame:=0;
+    animations[i].startTime:=game.frameStartTime;
+    animations[i].weight.Animate(1,easeTimeMS);
+    exit;
+   end;
+  raise EWarning.Create('Animation "%s" not found',[name]);
+ end;
+
+procedure TModelInstance.StopAnimation(name:string;easeTimeMS:integer);
+ var
+  i:integer;
+ begin
+  for i:=0 to high(model.animations) do
+   if SameText(name,model.animations[i].name) then begin
+    animations[i].stopping:=true;
+    animations[i].weight.Animate(0,easeTimeMS);
+    exit;
+   end;
+  raise EWarning.Create('Animation "%s" not found',[name]);
+ end;
+
+procedure TModelInstance.Update;
+ var
+  time:integer;
+ begin
+  if lastUpdated>0 then
+   time:=game.frameStartTime-lastUpdated
+  else
+   time:=-1;
+  lastUpdated:=game.frameStartTime;
+
+  AdvanceAnimations(time);
+  UpdateBones;
+  UpdateBoneMatrices;
+ end;
+
+procedure TModelInstance.AdvanceAnimations(time:integer);
+ var
+  i,t,loop:integer;
+ begin
+  for i:=0 to high(animations) do
+   with animations[i] do
+    if playing then begin
+     t:=time;
+     if t<0 then t:=game.frameStartTime-startTime;
+     curFrame:=curFrame+t*model.animations[i].fps/1000;
+     loop:=model.animations[i].loopTo;
+     if (loop>0) and not stopping then
+      while curFrame>loop do
+       curFrame:=curFrame-(loop-model.animations[i].loopFrom+1);
+     if curFrame>model.animations[i].numFrames-1 then begin
+      playing:=false;
+      curFrame:=model.animations[i].numFrames-1;
+     end;
+    end;
+ end;
+
+//
+procedure TModelInstance.UpdateBones;
+ var
+  i,j,bCount,anim:integer;
+  fullWeight,frame:single;
+  aCount:integer; // number of active animations
+  aIdx:array[0..5] of integer;
+  weights:array[0..5] of single; // max 6 active animations
+  vec:TVector4s;
+ begin
+  // Find active animations and calculate weights
+  fullWeight:=0;
+  aCount:=0;
+  for i:=0 to high(animations) do begin
+   if animations[i].playing then begin
+    aIdx[aCount]:=i;
+    weights[aCount]:=animations[i].weight.ValueAt(game.frameStartTime);
+    fullWeight:=fullWeight+weights[aCount];
+    inc(aCount);
+    if aCount>=length(aIdx) then break;
+   end
+  end;
+  if aCount=0 then exit; // no active animations
+  // Normalize weights
+  for i:=0 to aCount-1 do
+   weights[i]:=weights[i]/fullWeight;
+  // Prepare bones array
+  bCount:=length(model.bones);
+  if length(bones)<>bCount then
+   SetLength(bones,bCount);
+  ZeroMem(bones[0],sizeof(bones[0])*bCount);
+  // Calculate bones
+  for i:=0 to bCount-1 do begin
+   for j:=0 to aCount-1 do begin
+    anim:=aIdx[j];
+    frame:=animations[anim].curFrame;
+    // position
+    vec:=model.animations[anim].GetBonePosition(i,frame);
+    bones[i].position.Add(vec,weights[j]);
+    // rotation
+    vec:=model.animations[anim].GetBoneRotation(i,frame);
+    bones[i].rotation.Add(vec,weights[j]);
+    // scale
+    vec:=model.animations[anim].GetBoneScale(i,frame);
+    bones[i].scale.Add(vec,weights[j]);
+   end;
+   if aCount>1 then bones[i].rotation.Normalize; // sum of multiple rotations
+  end;
+ end;
+
+procedure TModelInstance.UpdateBoneMatrices;
+ procedure CalculateBoneMatrix(bone:integer);
+  var
+   mat,mScale,mTemp:TMatrix4s;
+   parent:integer;
+  begin
+   parent:=model.bones[bone].parent;
+   // recursion
+   if parent>=0 then begin
+    if IsNaN(boneMatrices[parent][0,0]) then
+     CalculateBoneMatrix(parent);
+   end;
+   MatrixFromQuaternion(bones[bone].rotation,mat);
+   if not IsIdentity(bones[bone].scale.xyz) then
+    with bones[bone] do begin
+     mScale:=IdentMatrix4s;
+     mScale[0,0]:=scale.x;
+     mScale[1,1]:=scale.y;
+     mScale[2,2]:=scale.z;
+     mTemp:=mat;
+     MultMat(mScale,mTemp,mat); // TODO: !проверить порядок!
+    end;
+   move(bones[bone].position.xyz,mat[3],sizeof(TPoint3s));
+   // Combine with parent bone
+   if parent>=0 then
+    MultMat(mat,boneMatrices[parent],mTemp)
+   else
+    mTemp:=mat;
+   // Combine with
+   with bones[bone] do begin
+    MultMat(model.bones[bone].matrix,mTemp,boneMatrices[bone]);
+   end;
+  end;
+
+ var
+  i,n:integer;
+ begin
+  n:=length(bones);
+  if n=0 then exit;
+  if length(boneMatrices)<>n then SetLength(boneMatrices,n);
+  FillSingleNAN(boneMatrices[0],n*16);
+  for i:=0 to n-1 do
+   CalculateBoneMatrix(i);
+ end;
+
 
 end.

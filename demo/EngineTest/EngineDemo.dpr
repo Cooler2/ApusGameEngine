@@ -224,9 +224,9 @@ type
 
  T3DCharacterTest=class(TTest)
   model,modelObj:TModel3D;
-  vertices,vertices2:array of T3DModelVertex;
+  modelInstance,modelInstanceObj:TModelInstance;
+  vertices,vertices2:array of TVertex3D;
   indices,indices2:TIndices;
-  shader,shader2:TShader;
   tex:TTexture;
   procedure Init; override;
   procedure RenderFrame; override;
@@ -1785,136 +1785,76 @@ var
  pnt:TPoint3s;
  b1,b2,b:TMatrix43s;
 begin
- modelObj:=Load3DModelOBJ('res\test.obj');
- tex:=LoadImageFromFile('res\texTest.png',liffTexture+liffMipMaps);
-
  model:=Load3DModelIQM('res\test2.iqm');
 // model:=LoadIQM('res\knight.iqm');
 // model.FlipX;
 // model.UpdateBoneMatrices; // Prepare
-
- pnt:=Point3s(10,0,0);
- b1:=IdentMatrix43s;
- b2:=IdentMatrix43s;
- b1[3,0]:=3;
- b2[3,1]:=2;
- MultMat(b1,b2,b);
- MultPnt(b,@pnt,1,0);
-
- // Prepare buffers
- count:=length(model.vp);
- SetLength(vertices,count);
- model.FillVertexBuffer(@vertices[0],count,sizeof(vertices[0]),true, 0,32,-1,16,12);
- model.animations[0].loop:=true;
- model.PlayAnimation;
- SetLength(indices,length(model.trgList));
- move(model.trgList[0],indices[0],length(indices)*2);
+ model.animations[0].SetLoop;
+ modelInstance:=model.CreateInstance;
 
  // Second model
- count:=length(modelObj.vp);
- SetLength(vertices2,count);
- modelObj.FillVertexBuffer(@vertices2[0],count,sizeof(vertices2[0]),false, 0,32,-1,16,12);
- SetLength(indices2,length(modelObj.trgList));
- move(modelObj.trgList[0],indices2[0],length(indices2)*2);
-
-
- // Prepare shaders
- vSrc:=LoadFileAsString(FileName('res\knight.vsh'));
- fSrc:=LoadFileAsString(FileName('res\knight.fsh'));
- shader:=gfx.shader.Build(vSrc,fSrc);
-
- vSrc:=LoadFileAsString(FileName('res\tex.vsh'));
- fSrc:=LoadFileAsString(FileName('res\tex.fsh'));
- shader2:=gfx.shader.Build(vSrc,fSrc);
+ modelObj:=Load3DModelOBJ('res\test.obj');
+ modelInstanceObj:=modelObj.CreateInstance;
+ tex:=LoadImageFromFile('res\texTest.png',liffTexture+liffMipMaps);
 end;
 
 procedure T3DCharacterTest.RenderFrame;
 var
  pnt:TPoint3;
  time:double;
- objMat:TMatrix43;
+ objMat:TMatrix4s;
  loc:integer;
- MVP,uModel:TMatrix4s;
+ //MVP,uModel:TMatrix4s;
 begin
  time:=MyTickCount/1200;
  gfx.target.Clear($FF101020,1);
  // Setup camera and projection
  transform.Perspective(-10,10,-7,7,10,5,1000);
  transform.SetCamera(Point3(30,0,15),Point3(0,0,8),Vector3(0,0,1000));
- transform.SetObj(IdentMatrix4);
+ transform.SetObj(IdentMatrix4s);
 
  // Make sure everything is OK (just for debug)
  pnt:=transform.Transform(Point3(0,0,0));
  pnt:=transform.Transform(Point3(1,1,1));
 
  // Make animation
- model.AnimateBones;
- model.FillVertexBuffer(@vertices[0],length(model.vp),sizeof(vertices[0]),true, 0,32,-1,16,12);
+{ model.AnimateBones;
+ model.FillVertexBuffer(@vertices[0],length(model.vp),sizeof(vertices[0]),true, 0,32,-1,16,12);}
+
+ modelInstance.Update;
 
  // Setup rendering mode
- glEnable(GL_DEPTH_TEST);
- glDepthFunc(GL_LEQUAL);
  draw.FillRect(-15,-15,15,15,$C000A030);
 
+ gfx.target.UseDepthBuffer(dbPassLess); // clip anything below the floor plane
+
+ // Setup light and material
+ //shader.AmbientLight($303030);
+ //shader.DirectLight(Vector3(1,0.5,1),0.5,$FFFFFF);
+ //shader.Material($FF408090,0);
+
  // Set model position
- MultMat(ScaleMat(2,2,2),RotationZMat(time),objMat);
+ MultMat(ScaleMat4s(2,2,2),RotationZMat4s(time),objMat);
  objMat[3,2]:=3;
- transform.SetObj(Matrix4(objMat));
+ //transform.SetObj(objMat);
 
- // Switch to our custom shader
- gfx.shader.UseCustom(shader);
-
- // After shader changing we MUST set uniforms
- shader.SetUniform('uMVP',transform.MVPMatrix);
- // model matrix
- shader.SetUniform('uModel',transform.ObjMatrix);
-
- // Setup mesh data source arrays
- glEnableVertexAttribArray(0);
- glVertexAttribPointer(0,3,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0]);
- glEnableVertexAttribArray(1);
- glVertexAttribPointer(1,3,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0].nX);
- glEnableVertexAttribArray(2);
- glVertexAttribPointer(2,2,GL_FLOAT,false,sizeof(vertices[0]),@vertices[0].u);
-
- // DRAW IT!
- gfx.SetCullMode(cullCW);
- glDrawElements(GL_TRIANGLES,length(indices),GL_UNSIGNED_SHORT,@indices[0]);
-
+ //modelInstance.Draw(nil);
 
  // SECOND MODEL (OBJ)
 
- // Textured shader
- gfx.shader.UseCustom(shader2);
-
  // Set model position
- MultMat(ScaleMat(4,4,4),RotationZMat(time),objMat);
+ MultMat(ScaleMat4s(4,4,4),RotationZMat4s(time),objMat);
  objMat[3,1]:=16;
  objMat[3,0]:=5;
  objMat[3,2]:=1.5;
- transform.SetObj(Matrix4(objMat));
- // Upload matrices
- shader2.SetUniform('uMVP',transform.MVPMatrix);
- // model matrix
- shader2.SetUniform('uModel',transform.ObjMatrix);
+ //transform.SetObj(objMat);
 
- // Setup mesh data arrays
- glVertexAttribPointer(0,3,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0]);
- glVertexAttribPointer(1,3,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0].nX);
- glVertexAttribPointer(2,2,GL_FLOAT,false,sizeof(vertices2[0]),@vertices2[0].u);
+ //modelInstanceObj.Draw(tex);
 
- // Setup texture
- gfx.resMan.MakeOnline(tex,0);
- glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
- glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
- shader2.SetUniform('tex',0);
-
- // Draw IT
- glDrawElements(GL_TRIANGLES,length(indices2),GL_UNSIGNED_SHORT,@indices2[0]);
-
-
- // Reset everything back
- glDisable(GL_DEPTH_TEST);
+ // Restore
+ shader.LightOff;
+ shader.DefaultTexMode;
+ gfx.target.UseDepthBuffer(dbDisabled);
  gfx.Restore;
 end;
 
