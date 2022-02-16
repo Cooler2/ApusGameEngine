@@ -1792,6 +1792,7 @@ begin
  model.animations[0].SetLoop;
  modelInstance:=model.CreateInstance;
  modelInstance.PlayAnimation;
+ modelInstance.SetAnimationPos('',0);
 
  // Second model
  modelObj:=Load3DModelOBJ('res\test.obj');
@@ -1839,8 +1840,8 @@ begin
  objMat[3,2]:=3;
  transform.SetObj(objMat);
 
- //modelInstance.Update;
- //modelInstance.Draw(nil);
+ modelInstance.Update;
+ modelInstance.Draw(nil);
 
  // SECOND MODEL (OBJ)
 
