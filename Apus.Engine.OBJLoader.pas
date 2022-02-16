@@ -230,6 +230,7 @@ implementation
     SetLength(m.vt,vCnt);
     SetLength(m.trgList,iCnt);
 
+    m.Prepare;
     result:=m;
   end;
 

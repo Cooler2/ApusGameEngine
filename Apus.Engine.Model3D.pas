@@ -70,6 +70,9 @@ type
   scales:array of TVector4s;
  end;
 
+ TModel3D=class;
+ TModelInstance=class;
+
  // Single animation timeline
  TAnimation=record
   name:string;
@@ -80,7 +83,7 @@ type
   smooth:boolean; // play smoothly - interpolate between animation frames
   procedure SetLoop(loop:boolean=true); overload;
   procedure SetLoop(fromFrame,toFrame:integer); overload;
-  procedure BuildTimeline(numBones:integer);
+  procedure BuildTimeline(model:TModel3D);
   // Get timeline values
   function GetBonePosition(bone:integer;frame:single):TVector4s;
   function GetBoneRotation(bone:integer;frame:single):TQuaternionS;
@@ -96,8 +99,6 @@ type
   bone1,bone2:byte;
   weight1,weight2:byte; // 0..255 range
  end;
-
- TModelInstance=class;
 
  // 3D model with rigged animation support
  TModel3D=class
@@ -164,7 +165,8 @@ type
   bones:array of TBoneState;
   boneMatrices:array of TMatrix4s;
   vertices:array of TVertex3D;
-  procedure AdvanceAnimations(time:integer);
+  dirty:boolean;
+  function AdvanceAnimations(time:integer):boolean;
   procedure UpdateBones;
   procedure UpdateBoneMatrices;
   procedure FillVertexBuffer;
@@ -178,15 +180,22 @@ implementation
 
 
 { TAnimation }
-procedure TAnimation.BuildTimeline(numBones:integer);
+procedure TAnimation.BuildTimeline(model:TModel3D);
  var
+  numBones:integer;
   i,j,n,bone,frame,lastKeyFrame,firstKeyFrame:integer;
   nn,step:single;
   dwNN:cardinal absolute nn;
   vec:TVector4s;
  begin
-  SetLength(defaultBoneState,numBones);
+  numBones:=length(model.bones);
   SetLength(timeline,numBones);
+  SetLength(defaultBoneState,numBones);
+  for i:=0 to numBones-1 do begin // default values
+   defaultBoneState[i].position:=Vector4s(model.bones[i].position);
+   defaultBoneState[i].rotation:=model.bones[i].rotation;
+   defaultBoneState[i].scale:=Vector4s(model.bones[i].scale);
+  end;
 
   // Store keyframes in the timeline
   nn:=NAN;
@@ -587,7 +596,7 @@ procedure TModel3D.Prepare;
 
   // Build animation timelines
   for i:=0 to high(animations) do
-   animations[i].BuildTimeline(length(bones));
+   animations[i].BuildTimeline(self);
  end;
 
 { TModelInstance }
@@ -608,13 +617,38 @@ procedure TModelInstance.Draw(tex:TTexture);
   gfx.draw.IndexedMesh(@vertices[0],@model.trgList[0],length(model.trgList),length(vertices),tex);
  end;
 
+function BlendVec(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte):TVector3s;
+ var
+  tmp,src:TVector4s;
+ begin
+  if weight1+weight2>0 then begin
+   ZeroMem(tmp,sizeof(tmp));
+   src:=Vector4s(vec);
+   if weight1>0 then begin
+    MultPnt(m1,@src,1,0);
+    tmp.Add(src,weight1/255);
+   end;
+   if weight2>0 then begin
+    src:=Vector4s(vec);
+    MultPnt(m2,@src,1,0);
+    tmp.Add(src,weight2/255);
+   end;
+   move(tmp,result,sizeof(result));
+  end else
+   result:=vec;
+ end;
+
 procedure TModelInstance.FillVertexBuffer;
  var
+  v1,v2:TVector4s;
   i,vCount:integer;
+  rigged:boolean;
+  binding:TVertexBinding;
  begin
   vCount:=length(model.vp);
   if length(vertices)<>vCount then begin
    SetLength(vertices,vCount);
+   dirty:=true;
    // Texture coordinates
    if length(model.vt)=vCount then
     for i:=0 to vCount-1 do
@@ -622,13 +656,35 @@ procedure TModelInstance.FillVertexBuffer;
    // Vertex colors
    if length(model.vc)=vCount then
     for i:=0 to vCount-1 do
-     vertices[i].color:=model.vc[i];
+     vertices[i].color:=model.vc[i]
+   else
+    for i:=0 to vCount-1 do
+     vertices[i].color:=$FFFFFFFF;
   end;
+  if not dirty then exit;
 
+  rigged:=(length(model.vb)=vCount) and
+          (length(model.bones)=length(boneMatrices));
   for i:=0 to vCount-1 do begin
-   vertices[i].SetPos(model.vp[i]);
-   vertices[i].SetNormal(model.vn[i]);
+   if rigged then begin
+    binding:=model.vb[i];
+    with binding do begin
+     vertices[i].SetPos(BlendVec(model.vp[i],
+      boneMatrices[bone1],
+      boneMatrices[bone2],
+      weight1,weight2));
+
+     vertices[i].SetNormal(BlendVec(model.vn[i],
+      boneMatrices[bone1],
+      boneMatrices[bone2],
+      weight1,weight2));
+    end;
+   end else begin
+    vertices[i].SetPos(model.vp[i]);
+    vertices[i].SetNormal(model.vn[i]);
+   end;
   end;
+  dirty:=false;
  end;
 
 procedure TModelInstance.PlayAnimation(name:string;easeTimeMS:integer);
@@ -636,7 +692,7 @@ procedure TModelInstance.PlayAnimation(name:string;easeTimeMS:integer);
   i:integer;
  begin
   for i:=0 to high(model.animations) do
-   if SameText(name,model.animations[i].name) then begin
+   if (name='') or SameText(name,model.animations[i].name) then begin
     animations[i].playing:=true;
     animations[i].stopping:=false;
     animations[i].curFrame:=0;
@@ -670,20 +726,23 @@ procedure TModelInstance.Update;
    time:=-1;
   lastUpdated:=game.frameStartTime;
 
-  AdvanceAnimations(time);
+  dirty:=AdvanceAnimations(time);
   UpdateBones;
   UpdateBoneMatrices;
  end;
 
-procedure TModelInstance.AdvanceAnimations(time:integer);
+function TModelInstance.AdvanceAnimations(time:integer):boolean;
  var
   i,t,loop:integer;
+  oldFrame:integer;
  begin
+  result:=false;
   for i:=0 to high(animations) do
    with animations[i] do
     if playing then begin
      t:=time;
      if t<0 then t:=game.frameStartTime-startTime;
+     oldFrame:=round(curFrame);
      curFrame:=curFrame+t*model.animations[i].fps/1000;
      loop:=model.animations[i].loopTo;
      if (loop>0) and not stopping then
@@ -693,6 +752,8 @@ procedure TModelInstance.AdvanceAnimations(time:integer);
       playing:=false;
       curFrame:=model.animations[i].numFrames-1;
      end;
+     if model.animations[i].smooth or
+        (round(curFrame)<>oldFrame) then result:=true;
     end;
  end;
 
