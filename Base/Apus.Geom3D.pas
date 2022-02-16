@@ -68,7 +68,9 @@ interface
   end;
 
   TVector4=TQuaternion;
+  PVector4=^TVector4;
   TVector4s=TQuaternionS;
+  PVector4s=^TVector4s;
 
   // Infinite plane in space
   TPlane=packed record
@@ -131,6 +133,8 @@ interface
  function Vector3(from,target:TPoint3):TVector3; overload; inline;
  function Vector3s(from,target:TPoint3s):TVector3s; overload; inline;
  function Vector3s(vector:TVector3):TVector3s; overload; inline;
+ function Vector4(vector:TVector3):TVector4; overload; inline;
+ function Vector4s(vector:TVector3s):TVector4s; overload; inline;
  function Quaternion(x,y,z,w:double):TQuaternion; overload; inline;
  function QuaternionS(x,y,z,w:single):TQuaternionS; overload; inline;
  // Matrix conversion
@@ -290,6 +294,7 @@ interface
  function  MultMat(const m1,m2:TMatrix4):TMatrix4; overload;
  function  MultMat(const m1,m2:TMatrix4s):TMatrix4s; overload;
 
+ procedure MultPnt(const m:TMatrix4s;v:PVector4s;num,step:integer); overload;
  procedure MultPnt(const m:TMatrix43;v:PPoint3;num,step:integer); overload;
  procedure MultPnt(const m:TMatrix43s;v:Ppoint3s;num,step:integer); overload;
  procedure MultPnt(const m:TMatrix3;v:PPoint3;num,step:integer); overload;
@@ -424,6 +429,22 @@ implementation
    result.x:=vector.x;
    result.y:=vector.y;
    result.z:=vector.z;
+  end;
+
+ function Vector4(vector:TVector3):TVector4; overload; inline;
+  begin
+   result.x:=vector.x;
+   result.y:=vector.y;
+   result.z:=vector.z;
+   result.w:=1;
+  end;
+
+ function Vector4s(vector:TVector3s):TVector4s; overload; inline;
+  begin
+   result.x:=vector.x;
+   result.y:=vector.y;
+   result.z:=vector.z;
+   result.w:=1;
   end;
 
  function Quaternion(x,y,z,w:double):TQuaternion; overload; inline;
@@ -1285,6 +1306,22 @@ implementation
    for i:=3 downto 1 do
     for k:=i-1 downto 0 do
      TVector4s(dest[k]).Add(TVector4s(dest[i]),-mat[k,i]);
+  end;
+
+ procedure MultPnt(const m:TMatrix4s;v:PVector4s;num,step:integer); overload;
+  var
+   i:integer;
+   vec:TVector4s;
+  begin
+   for i:=1 to num do begin
+    vec.x:=v^.x*m[0,0]+v^.y*m[1,0]+v^.z*m[2,0]+v.w*m[3,0];
+    vec.y:=v^.x*m[0,1]+v^.y*m[1,1]+v^.z*m[2,1]+v.w*m[3,1];
+    vec.z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2]+v.w*m[3,2];
+    vec.w:=v^.x*m[0,3]+v^.y*m[1,3]+v^.z*m[2,3]+v.w*m[3,3];
+
+    v^:=vec;
+    v:=PVector4s(PtrUInt(v)+step);
+   end;
   end;
 
  procedure MultPnt(const m:TMatrix43;v:PPoint3;num,step:integer);
