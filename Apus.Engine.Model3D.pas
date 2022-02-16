@@ -146,6 +146,7 @@ type
  TInstanceAnimation=record
   weight:TAnimatedValue;
   playing:boolean; // is it playing now?
+  paused:boolean;
   stopping:boolean; // don't loop if stopping
   curFrame:single; // current playback position (in frames)
   startTime:int64; // when animation playback was started
@@ -157,6 +158,10 @@ type
   constructor Create(model:TModel3D);
   procedure PlayAnimation(name:string='';easeTimeMS:integer=0);
   procedure StopAnimation(name:string='';easeTimeMS:integer=0);
+  procedure PauseAnimation(name:string='');
+  procedure ResumeAnimation(name:string='');
+  procedure SetAnimationPos(name:string;frame:integer);
+
   procedure Update; // update animations and calculate bones
   procedure Draw(tex:TTexture);
  protected
@@ -170,6 +175,7 @@ type
   procedure UpdateBones;
   procedure UpdateBoneMatrices;
   procedure FillVertexBuffer;
+  function FindAnimation(name:string):integer;
  end;
 
 implementation
@@ -444,6 +450,7 @@ procedure TModel3D.CalcBoneMatrix(bone:integer);
   mat,mScale,mTemp:TMatrix4s;
   parent:integer;
  begin
+   if not IsNAN(bones[bone].matrix[0,0]) then exit; // already calculated
    parent:=bones[bone].parent;
    // recursion
    if parent>=0 then begin
@@ -607,8 +614,9 @@ constructor TModelInstance.Create(model:TModel3D);
  begin
   self.model:=model;
   SetLength(animations,length(model.animations));
-  for i:=0 to high(animations) do
+  for i:=0 to high(animations) do begin
    animations[i].weight.Init;
+  end;
  end;
 
 procedure TModelInstance.Draw(tex:TTexture);
@@ -687,33 +695,62 @@ procedure TModelInstance.FillVertexBuffer;
   dirty:=false;
  end;
 
-procedure TModelInstance.PlayAnimation(name:string;easeTimeMS:integer);
+function TModelInstance.FindAnimation(name:string):integer;
  var
   i:integer;
  begin
   for i:=0 to high(model.animations) do
-   if (name='') or SameText(name,model.animations[i].name) then begin
-    animations[i].playing:=true;
-    animations[i].stopping:=false;
-    animations[i].curFrame:=0;
-    animations[i].startTime:=game.frameStartTime;
-    animations[i].weight.Animate(1,easeTimeMS);
-    exit;
+   if (name='') or SameText(name,model.animations[i].name) then
+    exit(i);
+  raise EWarning.Create('Animation "%s" not found in model "%s"',[name,model.name]);
+ end;
+
+procedure TModelInstance.PlayAnimation(name:string;easeTimeMS:integer);
+ begin
+  with animations[FindAnimation(name)] do begin
+    playing:=true;
+    stopping:=false;
+    paused:=false;
+    curFrame:=0;
+    startTime:=MyTickCount;
+    weight.Animate(1,easeTimeMS);
    end;
-  raise EWarning.Create('Animation "%s" not found',[name]);
+ end;
+
+procedure TModelInstance.PauseAnimation(name:string);
+ begin
+  animations[FindAnimation(name)].paused:=true;
+ end;
+
+procedure TModelInstance.ResumeAnimation(name:string);
+ begin
+  animations[FindAnimation(name)].paused:=false;
+ end;
+
+procedure TModelInstance.SetAnimationPos(name:string;frame:integer);
+ var
+  i,max:integer;
+ begin
+  i:=FindAnimation(name);
+  with animations[i] do begin
+   playing:=true;
+   stopping:=false;
+   weight.Assign(1);
+   paused:=true;
+   max:=model.animations[i].numFrames-1;
+   if frame>=0 then
+    curFrame:=Clamp(frame,0,max)
+   else
+    curFrame:=Clamp(max-frame,0,max);
+  end;
  end;
 
 procedure TModelInstance.StopAnimation(name:string;easeTimeMS:integer);
- var
-  i:integer;
  begin
-  for i:=0 to high(model.animations) do
-   if SameText(name,model.animations[i].name) then begin
-    animations[i].stopping:=true;
-    animations[i].weight.Animate(0,easeTimeMS);
-    exit;
-   end;
-  raise EWarning.Create('Animation "%s" not found',[name]);
+  with animations[FindAnimation(name)] do begin
+   stopping:=true;
+   weight.Animate(0,easeTimeMS);
+  end;
  end;
 
 procedure TModelInstance.Update;
@@ -739,7 +776,7 @@ function TModelInstance.AdvanceAnimations(time:integer):boolean;
   result:=false;
   for i:=0 to high(animations) do
    with animations[i] do
-    if playing then begin
+    if playing and not paused then begin
      t:=time;
      if t<0 then t:=game.frameStartTime-startTime;
      oldFrame:=round(curFrame);
