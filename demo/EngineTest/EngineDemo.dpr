@@ -1791,6 +1791,7 @@ begin
 // model.UpdateBoneMatrices; // Prepare
  model.animations[0].SetLoop;
  modelInstance:=model.CreateInstance;
+ modelInstance.PlayAnimation;
 
  // Second model
  modelObj:=Load3DModelOBJ('res\test.obj');
@@ -1808,9 +1809,10 @@ var
 begin
  time:=MyTickCount/1200;
  gfx.target.Clear($FF101020,1);
+ gfx.BeginPaint(nil);
  // Setup camera and projection
  transform.Perspective(-10,10,-7,7,10,5,1000);
- transform.SetCamera(Point3(30,0,15),Point3(0,0,8),Vector3(0,0,1000));
+ transform.SetCamera(Point3(30,0,20),Point3(0,0,8),Vector3(0,0,1000));
  transform.SetObj(IdentMatrix4s);
 
  // Make sure everything is OK (just for debug)
@@ -1821,23 +1823,23 @@ begin
 { model.AnimateBones;
  model.FillVertexBuffer(@vertices[0],length(model.vp),sizeof(vertices[0]),true, 0,32,-1,16,12);}
 
- modelInstance.Update;
-
  // Setup rendering mode
- draw.FillRect(-15,-15,15,15,$C000A030);
+ draw.FillRect(-15,-15,15,15,$FF70A090);
 
  gfx.target.UseDepthBuffer(dbPassLess); // clip anything below the floor plane
 
  // Setup light and material
- //shader.AmbientLight($303030);
- //shader.DirectLight(Vector3(1,0.5,1),0.5,$FFFFFF);
- //shader.Material($FF408090,0);
+ shader.AmbientLight($303030);
+ shader.DirectLight(Vector3(1,0.5,1),0.5,$FFFFFF);
+ shader.Material($FF408090,0);
 
  // Set model position
- MultMat(ScaleMat4s(2,2,2),RotationZMat4s(time),objMat);
+ MultMat(ScaleMat4s(2,2,2),RotationZMat4s(0{time}),objMat);
+ objMat[3,1]:=-8;
  objMat[3,2]:=3;
- //transform.SetObj(objMat);
+ transform.SetObj(objMat);
 
+ //modelInstance.Update;
  //modelInstance.Draw(nil);
 
  // SECOND MODEL (OBJ)
@@ -1845,17 +1847,18 @@ begin
  // Set model position
  MultMat(ScaleMat4s(4,4,4),RotationZMat4s(time),objMat);
  objMat[3,1]:=16;
- objMat[3,0]:=5;
+ objMat[3,0]:=-5;
  objMat[3,2]:=1.5;
- //transform.SetObj(objMat);
+ transform.SetObj(objMat);
+ pnt:=transform.Transform(Point3(0,0,0));
 
- //modelInstanceObj.Draw(tex);
+ modelInstanceObj.Draw(tex);
 
  // Restore
  shader.LightOff;
  shader.DefaultTexMode;
  gfx.target.UseDepthBuffer(dbDisabled);
- gfx.Restore;
+ gfx.EndPaint;
 end;
 
 function MyRound(v:single):integer; inline;
