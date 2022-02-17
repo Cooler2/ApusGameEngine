@@ -176,7 +176,7 @@ type
   bones:array of TBoneState;
   boneMatrices:array of TBoneMatrices; // "default pos -> animated pos" transformation matrix
   vertices:array of TVertex3D;
-  dirty:boolean;
+  dirty:boolean; // flag to update vertices bound to bones (if bones were changed)
   function AdvanceAnimations(time:integer):boolean;
   procedure UpdateBones;
   procedure UpdateBoneMatrices;
@@ -633,7 +633,7 @@ constructor TModelInstance.Create(model:TModel3D);
 procedure TModelInstance.Draw(tex:TTexture);
  begin
   FillVertexBuffer;
-  gfx.draw.IndexedMesh(@vertices[0],@model.trgList[0],length(model.trgList),length(vertices),tex);
+  gfx.draw.IndexedMesh(@vertices[0],@model.trgList[0],length(model.trgList) div 3,length(vertices),tex);
  end;
 
 function BlendVec(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte):TVector3s;
@@ -665,10 +665,11 @@ procedure TModelInstance.FillVertexBuffer;
   binding:TVertexBinding;
  begin
   vCount:=length(model.vp);
+  // Init vertex buffer
   if length(vertices)<>vCount then begin
    SetLength(vertices,vCount);
-   dirty:=true;
-   // Texture coordinates
+   dirty:=true; // mark to fill vertex data
+   // Tex coords and vertex colors are permanent - filled just once
    if length(model.vt)=vCount then
     for i:=0 to vCount-1 do
      vertices[i].SetUV(model.vt[i]);
@@ -680,7 +681,7 @@ procedure TModelInstance.FillVertexBuffer;
     for i:=0 to vCount-1 do
      vertices[i].color:=$FFFFFFFF;
   end;
-  if not dirty then exit;
+  if not dirty then exit;  // nothing changed -> no need to update vertices
 
   rigged:=(length(model.vb)=vCount) and
           (length(model.bones)=length(boneMatrices));

@@ -47,7 +47,7 @@ implementation
   begin
    ASSERT(length(sa)>=3);
    result.x:=ParseFloat(sa[1]);
-   result.y:=1-ParseFloat(sa[2]);
+   result.y:=1-ParseFloat(sa[2]); // flip y-coordinate because of lower-left texture origin in OBJ models
   end;
 
  function LoadOBJInternal(data:ByteArray):TModel3D;
