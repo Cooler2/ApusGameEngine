@@ -2105,12 +2105,13 @@ procedure TGame.FrameLoop;
 
     StartMeasure(14);
     systemPlatform.ProcessSystemMessages;
-    if active then try
+    try
      HandleSignals;
     except
      on e:exception do ForceLogMessage('Error in FrameLoop 1: '+ExceptionMsg(e));
-    end else
-     Delay(10); // limit speed in inactive state
+    end;
+    if not active then
+     Delay(5); // limit speed in inactive state
     EndMeasure2(14);
 
     // Расчет fps
@@ -2138,7 +2139,7 @@ procedure TGame.FrameLoop;
      on e:exception do ForceLogMessage('Error in FrameLoop 2: '+ExceptionMsg(e));
     end;
 
-    if active {or (params.mode.displayMode<>dmSwitchResolution)} then begin
+    if active or (params.mode.displayMode<>dmSwitchResolution) then begin
      // Если программа активна, то выполним отрисовку кадра
      if screenChanged then begin
       try
