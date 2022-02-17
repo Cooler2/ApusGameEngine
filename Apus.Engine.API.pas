@@ -844,6 +844,9 @@ type
   defaultLineHeight:integer; // line height (in pixels) for the default font
   screenScale:single; // screen scale factor (depends on DPI, rounded) like 1.0, 1.5 etc
 
+  // Default checkers texture 32x32 with 8x8 blocks (for debug purposes)
+  defaultTexture:TTexture;
+
   // Input state:
   // Mouse
   mouseX,mouseY:integer; // положение мыши внутри окна/экрана

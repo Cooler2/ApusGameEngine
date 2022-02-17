@@ -150,6 +150,7 @@ type
 
   // вызов только из главного потока
   procedure InitGraph; virtual; // Инициализация графической части (переключить режим и все такое прочее)
+  procedure InitDefaultResources; virtual;
   procedure AfterInitGraph; virtual; // Вызывается после инициализации графики
   // Set window size/style/position
   //procedure ConfigureMainWindow; virtual;
@@ -696,9 +697,46 @@ begin
  LeaveCriticalSection(crSect);
 end;
 
+procedure TGame.InitDefaultResources;
+var
+ x,y:integer;
+ size:single;
+begin
+ // Built-in fonts
+ txt.LoadFont(defaultFont8);
+ txt.LoadFont(defaultFont10);
+ txt.LoadFont(defaultFont12);
+ size:=2+0.07*screenDPI;
+ defaultFont:=txt.GetFont('Default',size);
+ smallFont:=txt.GetFont('Default',size*0.8);
+ largerFont:=txt.GetFont('Default',size*1.25);
+
+ // Default texture
+ defaultTexture:=AllocImage(32,32,ipfARGB,aiTexture+aiAutoMipMap,'defaultTex');
+ DrawToTexture(defaultTexture);
+ for y:=0 to defaultTexture.height-1 do
+   for x:=0 to defaultTexture.width-1 do
+    PutPixel(x,y,$FF606060+$404040*(((x div 8) xor (y div 8)) and 1));
+  defaultTexture.Unlock;
+ //defaultTexture.SetFilter(TTexFilter.fltNearest);
+
+ // Mouse cursors
+ if params.showSystemCursor then begin
+  RegisterCursor(crDefault,1,systemPlatform.GetSystemCursor(crDefault));
+  RegisterCursor(crLink,2,systemPlatform.GetSystemCursor(crLink));
+  RegisterCursor(crWait,9,systemPlatform.GetSystemCursor(crWait));
+  RegisterCursor(crInput,3,systemPlatform.GetSystemCursor(crInput));
+  RegisterCursor(crHelp,3,systemPlatform.GetSystemCursor(crHelp));
+  RegisterCursor(crResizeH,5,systemPlatform.GetSystemCursor(crResizeH));
+  RegisterCursor(crResizeW,5,systemPlatform.GetSystemCursor(crResizeW));
+  RegisterCursor(crResizeHW,6,systemPlatform.GetSystemCursor(crResizeHW));
+  RegisterCursor(crCross,6,systemPlatform.GetSystemCursor(crCross));
+  RegisterCursor(crNone,99,0);
+ end;
+end;
+
 procedure TGame.InitGraph;
 var
- size:single;
  baseDPI:integer;
 begin
  LogMessage('InitGraph');
@@ -737,28 +775,8 @@ begin
    if screenDPI>0.92*baseDPI*2.5 then screenScale:=2.5;
  end;
 
- // Built-in fonts
- txt.LoadFont(defaultFont8);
- txt.LoadFont(defaultFont10);
- txt.LoadFont(defaultFont12);
- size:=2+0.07*screenDPI;
- defaultFont:=txt.GetFont('Default',size);
- smallFont:=txt.GetFont('Default',size*0.8);
- largerFont:=txt.GetFont('Default',size*1.25);
+ InitDefaultResources;
 
- // Mouse cursors
- if params.showSystemCursor then begin
-  RegisterCursor(crDefault,1,systemPlatform.GetSystemCursor(crDefault));
-  RegisterCursor(crLink,2,systemPlatform.GetSystemCursor(crLink));
-  RegisterCursor(crWait,9,systemPlatform.GetSystemCursor(crWait));
-  RegisterCursor(crInput,3,systemPlatform.GetSystemCursor(crInput));
-  RegisterCursor(crHelp,3,systemPlatform.GetSystemCursor(crHelp));
-  RegisterCursor(crResizeH,5,systemPlatform.GetSystemCursor(crResizeH));
-  RegisterCursor(crResizeW,5,systemPlatform.GetSystemCursor(crResizeW));
-  RegisterCursor(crResizeHW,6,systemPlatform.GetSystemCursor(crResizeHW));
-  RegisterCursor(crCross,6,systemPlatform.GetSystemCursor(crCross));
-  RegisterCursor(crNone,99,0);
- end;
  globalTintColor:=$FF808080;
  systemPlatform.ProcessSystemMessages;
  consoleSettings.popupCriticalMessages:=params.mode.displayMode<>dmSwitchResolution;
