@@ -13,15 +13,6 @@ const
  bfCurrentPos = 2; // current matrix updated (bone->model)
 
 type
-(* // Vertex for a typical 3D mesh
- T3DModelVertex=record
-  x,y,z:single;
-  color:cardinal;
-  nX,nY,nZ:single;
-  attr:cardinal;
-  u,v:single;
- end; *)
-
  // Part of mesh surface
  TModelPart=record
   partName,materialName:AnsiString;
@@ -93,7 +84,6 @@ type
  private
   timeline:array of TTimeline; // timeline for each bone (can contain empty arrays)
   defaultBoneState:TBoneStates;  // state of bones with no timeline
-  procedure UpdateBonesForFrame(const bones:TBonesArray;frame:single);
  end;
 
  // Vertex bindings
@@ -132,13 +122,6 @@ type
   procedure FlipX; // Flip model along X axis (right\left CS conversion)
   function FindBone(bName:string):integer;
 
-  // Build vertex data buffer. Transformed=true - apply bone matrices and weights to vertex positions and normals
-  // Negative offset -> don't fill data
-  procedure FillVertexBuffer(data:pointer;vrtCount,stride:integer; useBones:boolean;
-    vpOffset,vtOffset,vt2Offset,vnOffset,vcOffset:integer);
-
-  // Update bones: values and matrices
-  procedure AnimateBones;
  private
   bonesHash:TSimpleHashS;
   procedure CalcBoneMatrix(bone:integer);
@@ -369,92 +352,6 @@ procedure TAnimation.SetLoop(loop:boolean=true);
    SetLoop(0,0);
  end;
 
-procedure TAnimation.UpdateBonesForFrame(const bones:TBonesArray; frame:single);
-var
- a,b,i:integer;
- intFrame:integer;
- fracFrame:single;
-begin
-{ if keyFrames=nil then exit;
- if not smooth then begin
-  intFrame:=Clamp(round(frame),0,numFrames-1);
-  fracFrame:=0;
- end else begin
-  intFrame:=Clamp(trunc(frame),0,numFrames-1);
-  fracFrame:=frac(frame);
- end;
- // Seek frame 1
- a:=0; b:=high(keyFrames);
- repeat
-  i:=(a+b+1) div 2;
-  if keyFrames[i].frame<intFrame then a:=i else b:=i;
- until a>=b-1;
- while (a<high(keyFrames)) and (keyFrames[a].frame<intFrame) do inc(a);
- while (a<=high(keyFrames)) and (keyFrames[a].frame=intFrame) do
-  with keyFrames[a] do begin
-   b:=boneIdx;
-   case prop of
-    bpPosition:bones[b].pos:=value.xyz;
-    bpRotation:bones[b].rot:=value;
-    bpScale:bones[b].scale:=value.xyz;
-   end;
-   bones[b].flags:=bones[b].flags and (not bfCurrentPos);
-   inc(a);
-  end;
-
- // Smooth?
- if fracFrame>0 then begin
-  inc(intFrame);
-  if intFrame>=numFrames then
-   if loop then begin
-    intFrame:=0;
-    a:=0;
-   end else
-    intFrame:=numFrames-1;
-  while (a<=high(keyFrames)) and (keyFrames[a].frame=intFrame) do
-   with keyFrames[a] do begin
-    b:=boneIdx;
-    if bones[b].flags and bfCurrentPos=0 then // bone has values
-     case prop of
-      bpPosition:begin
-       VectMult(bones[b].pos,1-fracFrame);
-       VectAdd(bones[b].pos,VecMult(value.xyz,fracFrame));
-      end;
-      bpRotation:begin
-       bones[b].rot:=QInterpolate(bones[b].rot,value,fracFrame);
-      end;
-      bpScale:begin
-       VectMult(bones[b].scale,1-fracFrame);
-       VectAdd(bones[b].scale,VecMult(value.xyz,fracFrame));
-      end;
-     end;
-    inc(a);
-   end;
- end;
- curFrame:=frame;}
-end;
-
-procedure TModel3D.AnimateBones;
- var
-  time:int64;
-  i:integer;
-  frame:single;
- begin
-{  time:=MyTickCount;
-  for i:=0 to high(animations) do
-   if animations[i].playing then begin
-    frame:=fps*(time-animations[i].startTime)/1000;
-    if not animations[i].smooth then frame:=round(frame);
-    if animations[i].loop then
-     frame:=frac(frame)+(trunc(frame) mod animations[i].numFrames)
-    else
-     if frame>=animations[i].numFrames then animations[i].playing:=false;
-    if animations[i].curFrame<>frame then
-     animations[i].UpdateBonesForFrame(bones,frame);
-   end;
-  UpdateBoneMatrices(true);  }
- end;
-
 { TModel3D }
 
 procedure TModel3D.CalcBoneMatrix(bone:integer);
@@ -497,77 +394,6 @@ constructor TModel3D.Create(name:string;src:string='');
 function TModel3D.CreateInstance:TModelInstance;
  begin
   result:=TModelInstance.Create(self);
- end;
-
-procedure TModel3D.FillVertexBuffer(data: pointer; vrtCount, stride:integer; useBones:boolean;
-  vpOffset,vtOffset,vt2Offset,vnOffset,vcOffset: integer);
- var
-  i:integer;
-  vpp,vtp,vcp,vnp:PByte;
- procedure StorePos(index:integer;dest:PByte;transform:boolean);
-  var
-   p1,p2:TPoint3s;
-  begin
-(*   if transform then begin // ����� ��������������
-    p1:=vp[i];
-    if vb[i].weight1>0 then begin
-     MultPnt(bones[vb[i].bone1].combined,@p1,1,0);
-     VectMult(p1,vb[i].weight1/255);
-    end;
-    if vb[i].weight2>0 then begin
-     p2:=vp[i];
-     MultPnt(bones[vb[i].bone2].combined,@p2,1,0);
-     VectMult(p2,vb[i].weight2/255);
-     VectAdd(p1,p2);
-    end;
-    move(p1,dest^,sizeof(TPoint3s))
-   end else
-    move(vp[i],dest^,sizeof(TPoint3s))   *)
-  end;
-
- begin
-  if vpOffset>=0 then vpp:=PByte(PtrUInt(data)+vpOffset)
-   else vpp:=nil;
-  if vtOffset>=0 then vtp:=PByte(PtrUInt(data)+vtOffset)
-   else vtp:=nil;
-  if vcOffset>=0 then vcp:=PByte(PtrUInt(data)+vcOffset)
-   else vcp:=nil;
-  if vnOffset>=0 then vnp:=PByte(PtrUInt(data)+vnOffset)
-   else vnp:=nil;
-
-  if vpp<>nil then
-   for i:=0 to vrtCount-1 do begin
-    // Position
-    if vp<>nil then StorePos(i,vpp,useBones)
-     else fillchar(vpp^,sizeof(TPoint3s),0);
-    inc(vpp,stride);
-   end;
-
-  // Normal
-  if vnp<>nil then
-   for i:=0 to vrtCount-1 do begin
-    if vn<>nil then move(vn[i],vnp^,sizeof(TPoint3s))
-     else fillchar(vnp^,sizeof(TPoint3s),0);
-    inc(vnp,stride);
-   end;
-
-  // Texture coords
-  if vtp<>nil then
-   for i:=0 to vrtCount-1 do begin
-    if vt<>nil then move(vt[i],vtp^,sizeof(TPoint2s))
-     else fillchar(vtp^,sizeof(TPoint2s),0);
-    inc(vtp,stride);
-   end;
-
-  // Color
-  if vcp<>nil then
-   for i:=0 to vrtCount-1 do begin
-    if vc<>nil then move(vc[i],vcp^,4)
-     else move(defaultColor,vcp^,4);
-    inc(vcp,stride);
-   end;
-
-  ASSERT((vt2Offset<0),'Not yet implemented');
  end;
 
 function TModel3D.FindBone(bName:string):integer;
