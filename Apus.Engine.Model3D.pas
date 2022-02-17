@@ -84,6 +84,7 @@ type
  private
   timeline:array of TTimeline; // timeline for each bone (can contain empty arrays)
   defaultBoneState:TBoneStates;  // state of bones with no timeline
+  procedure SmoothMove(var frame:single;out frame1,frame2:integer);
  end;
 
  // Vertex bindings
@@ -315,19 +316,37 @@ procedure TAnimation.BuildTimeline(model:TModel3D);
  end;
 
 function TAnimation.GetBonePosition(bone:integer;frame:single):TVector4s;
+ var
+  frame1,frame2:integer;
  begin
-  if timeline[bone].positions<>nil then
-   result:=timeline[bone].positions[round(frame)]
-  else
-   result:=defaultBoneState[bone].position;
+  if timeline[bone].positions=nil then
+   exit(defaultBoneState[bone].position);
+
+  if smooth then begin
+   SmoothMove(frame,frame1,frame2);
+   with timeline[bone] do begin
+    result:=positions[frame1];
+    result.Middle(positions[frame2],frame);
+   end;
+  end else
+   result:=timeline[bone].positions[round(frame)];
  end;
 
 function TAnimation.GetBoneRotation(bone:integer;frame:single):TQuaternionS;
+ var
+  frame1,frame2:integer;
+  s:single;
  begin
-  if timeline[bone].rotations<>nil then
-   result:=timeline[bone].rotations[round(frame)]
-  else
-   result:=defaultBoneState[bone].rotation;
+  if timeline[bone].rotations=nil then
+   exit(defaultBoneState[bone].rotation);
+
+  if smooth then begin
+   s:=frame;
+   SmoothMove(frame,frame1,frame2);
+   with timeline[bone] do
+    result:=QInterpolate(rotations[frame1],rotations[frame2],frame);
+  end else
+   result:=timeline[bone].rotations[round(frame)];
  end;
 
 function TAnimation.GetBoneScale(bone:integer;frame:single):TVector4s;
@@ -337,6 +356,20 @@ function TAnimation.GetBoneScale(bone:integer;frame:single):TVector4s;
   else
    result:=defaultBoneState[bone].scale;
  end;
+
+procedure TAnimation.SmoothMove(var frame:single;out frame1,frame2:integer);
+ begin
+   frame2:=trunc(frame+1);
+   frame1:=frame2-1;
+   frame:=frame-frame1;
+   if frame2>=numFrames then frame2:=0; // no wrapping around loopTo since frames[loopTo] must be equal to frames[loopFrom]
+   if frame1<0 then
+    if loopTo>0 then
+     frame1:=loopTo-1
+    else
+     frame1:=numFrames-1;
+ end;
+
 
 procedure TAnimation.SetLoop(fromFrame,toFrame:integer);
  begin

@@ -263,7 +263,7 @@ interface
  function QMult(q1,q2:TQuaternion):TQuaternion; overload;
  function QMult(q1,q2:TQuaternionS):TQuaternionS; overload;
 
- // SLERP interpolation from Q1 to Q2 with factor changing from 0 to 1
+ // SLERP (!??) linear interpolation from Q1 to Q2 with factor changing from 0 to 1
  function QInterpolate(q1,q2:TQuaternionS;factor:single):TQuaternionS;
 
 

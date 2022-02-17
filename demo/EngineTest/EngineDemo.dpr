@@ -1790,6 +1790,7 @@ begin
 // model.FlipX;
 // model.UpdateBoneMatrices; // Prepare
  model.animations[0].SetLoop; // loop whole animation
+ model.animations[0].smooth:=true;
  modelInstance:=model.CreateInstance;
  modelInstance.PlayAnimation; // start playback
  //modelInstance.SetAnimationPos('',0);
