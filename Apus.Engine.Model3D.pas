@@ -142,16 +142,6 @@ type
   procedure CalcBoneMatrix(bone:integer);
  end;
 
- // For each underlying model's animation there is a state object
- TInstanceAnimation=record
-  weight:TAnimatedValue;
-  playing:boolean; // is it playing now?
-  paused:boolean;
-  stopping:boolean; // don't loop if stopping
-  curFrame:single; // current playback position (in frames)
-  startTime:int64; // when animation playback was started
- end;
-
  // An animated instance of a 3D model
  TModelInstance=class
   model:TModel3D;
@@ -165,10 +155,26 @@ type
   procedure Update; // update animations and calculate bones
   procedure Draw(tex:TTexture);
  protected
+ type
+  TBoneMatrices=record
+   toModel:TMatrix4s; // transform to the model space
+   combined:TMatrix4s; // combined transformation from default pos to animated pos
+  end;
+
+  // For each underlying model's animation there is a state object
+  TInstanceAnimation=record
+   weight:TAnimatedValue;
+   playing:boolean; // is it playing now?
+   paused:boolean;
+   stopping:boolean; // don't loop if stopping
+   curFrame:single; // current playback position (in frames)
+   startTime:int64; // when animation playback was started
+  end;
+ var
   lastUpdated:int64; // when state was last updated
   animations:array of TInstanceAnimation;
   bones:array of TBoneState;
-  boneMatrices:array of TMatrix4s;
+  boneMatrices:array of TBoneMatrices; // "default pos -> animated pos" transformation matrix
   vertices:array of TVertex3D;
   dirty:boolean;
   function AdvanceAnimations(time:integer):boolean;
@@ -683,13 +689,13 @@ procedure TModelInstance.FillVertexBuffer;
     binding:=model.vb[i];
     with binding do begin
      vertices[i].SetPos(BlendVec(model.vp[i],
-      boneMatrices[bone1],
-      boneMatrices[bone2],
+      boneMatrices[bone1].combined,
+      boneMatrices[bone2].combined,
       weight1,weight2));
 
      vertices[i].SetNormal(BlendVec(model.vn[i],
-      boneMatrices[bone1],
-      boneMatrices[bone2],
+      boneMatrices[bone1].combined,
+      boneMatrices[bone2].combined,
       weight1,weight2));
     end;
    end else begin
@@ -855,11 +861,11 @@ procedure TModelInstance.UpdateBoneMatrices;
    mat,mScale,mTemp:TMatrix4s;
    parent:integer;
   begin
-   if not IsNAN(boneMatrices[bone][0,0]) then exit; // already calculated
+   if not IsNAN(boneMatrices[bone].toModel[0,0]) then exit; // already calculated
    parent:=model.bones[bone].parent;
    // recursion
    if parent>=0 then begin
-    if IsNaN(boneMatrices[parent][0,0]) then
+    if IsNaN(boneMatrices[parent].toModel[0,0]) then
      CalculateBoneMatrix(parent);
    end;
    MatrixFromQuaternion(bones[bone].rotation,mat);
@@ -873,14 +879,19 @@ procedure TModelInstance.UpdateBoneMatrices;
      MultMat(mScale,mTemp,mat); // TODO: !проверить порядок!
     end;
    move(bones[bone].position.xyz,mat[3],sizeof(TPoint3s));
+   // Искомая матрица получается как цепочка преобразований:
+   // из дефолтной позиции (1)-> в пространство кости (2)-> в пространство кости-предка (3)-> в мировые к-ты
+   // матрица (1) постоянна и вычислена заранее - это model.bones[bone].matrix
+   // матрица (2) вычислена здесь - это mat
+   // матрица (3) вычислена в процессе рекурсии
    // Combine with parent bone
    if parent>=0 then
-    MultMat(mat,boneMatrices[parent],mTemp)
+    MultMat(mat,boneMatrices[parent].toModel,boneMatrices[bone].toModel)
    else
-    mTemp:=mat;
+    boneMatrices[bone].toModel:=mat;
    // Combine with
    with bones[bone] do begin
-    MultMat(model.bones[bone].matrix,mTemp,boneMatrices[bone]);
+    MultMat(model.bones[bone].matrix,boneMatrices[bone].toModel,boneMatrices[bone].combined);
    end;
   end;
 
@@ -890,7 +901,8 @@ procedure TModelInstance.UpdateBoneMatrices;
   n:=length(bones);
   if n=0 then exit;
   if length(boneMatrices)<>n then SetLength(boneMatrices,n);
-  FillSingleNAN(boneMatrices[0],n*16);
+  for i:=0 to n-1 do
+   boneMatrices[i].toModel[0,0]:=NaN;
   for i:=0 to n-1 do
    CalculateBoneMatrix(i);
  end;
