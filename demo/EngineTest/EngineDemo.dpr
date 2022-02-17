@@ -1789,10 +1789,10 @@ begin
 // model:=LoadIQM('res\knight.iqm');
 // model.FlipX;
 // model.UpdateBoneMatrices; // Prepare
- model.animations[0].SetLoop;
+ model.animations[0].SetLoop; // loop whole animation
  modelInstance:=model.CreateInstance;
- modelInstance.PlayAnimation;
- modelInstance.SetAnimationPos('',0);
+ modelInstance.PlayAnimation; // start playback
+ //modelInstance.SetAnimationPos('',0);
 
  // Second model
  modelObj:=Load3DModelOBJ('res\test.obj');
@@ -1820,11 +1820,7 @@ begin
  pnt:=transform.Transform(Point3(0,0,0));
  pnt:=transform.Transform(Point3(1,1,1));
 
- // Make animation
-{ model.AnimateBones;
- model.FillVertexBuffer(@vertices[0],length(model.vp),sizeof(vertices[0]),true, 0,32,-1,16,12);}
-
- // Setup rendering mode
+ // Draw floor
  draw.FillRect(-15,-15,15,15,$FF70A090);
 
  gfx.target.UseDepthBuffer(dbPassLess); // clip anything below the floor plane
@@ -1835,11 +1831,12 @@ begin
  shader.Material($FF408090,0);
 
  // Set model position
- MultMat(ScaleMat4s(2,2,2),RotationZMat4s(0{time}),objMat);
+ MultMat(ScaleMat4s(2,2,2),RotationZMat4s(time/2),objMat);
  objMat[3,1]:=-8;
  objMat[3,2]:=3;
  transform.SetObj(objMat);
 
+// modelInstance.SetAnimationPos('',round(time*5) mod 50); // alternative
  modelInstance.Update;
  modelInstance.Draw(nil);
 
@@ -1859,6 +1856,8 @@ begin
  shader.LightOff;
  shader.DefaultTexMode;
  gfx.target.UseDepthBuffer(dbDisabled);
+ transform.DefaultView;
+ txt.WriteW(game.defaultFont,10,30,$FFFFFFFF,Format('%.1f',[modelInstance.GetAnimationPos]));
  gfx.EndPaint;
 end;
 
