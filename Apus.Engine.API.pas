@@ -7,7 +7,7 @@
 unit Apus.Engine.API;
 interface
  uses Apus.CrossPlatform, Types, Apus.Engine.Types, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D,
-   Apus.Colors, Apus.EventMan, Apus.VertexLayout, Apus.Engine.Resources;
+   Apus.Colors, Apus.Structs, Apus.EventMan, Apus.VertexLayout, Apus.Engine.Resources;
 
 const
  // Image allocation flags (ai - AllocImage)
@@ -801,9 +801,8 @@ type
   // For non-fullscreen scenes return occupied area
   function GetArea:TRect; virtual; abstract;
  private
-  // Ввод
-  KeyBuffer:array[0..63] of cardinal;
-  first,last:byte;
+  // Keyboard input
+  keyBuffer:TQueue;
  end;
 
  // Enable built-in gamepad navigation with DPad and X/Y buttons
@@ -1063,7 +1062,7 @@ var
 
 implementation
  uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
-   TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX, Apus.Engine.NinePatch, Apus.Structs;
+   TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX, Apus.Engine.NinePatch;
 
  var
   ninePatchHash:TObjectHash;
@@ -1090,7 +1089,7 @@ implementation
 
 procedure TGameScene.ClearKeyBuf;
 begin
- first:=0; last:=0;
+ keyBuffer.Clear;
 end;
 
 constructor TGameScene.Create(fullScreen:boolean=true);
@@ -1098,7 +1097,7 @@ begin
  status:=ssFrozen;
  self.fullscreen:=fullscreen;
  frequency:=60;
- first:=0; last:=0;
+ keyBuffer.Init(64);
  zorder:=0;
  activated:=false;
  effect:=nil;
@@ -1114,11 +1113,6 @@ end;
 
 procedure TGameScene.Initialize;
 begin
-end;
-
-function TGameScene.KeyPressed: boolean;
-begin
- result:=first<>last;
 end;
 
 procedure TGameScene.ModeChanged;
@@ -1150,12 +1144,28 @@ procedure TGameScene.onCreate;
 begin
 end;
 
-function TGameScene.ReadKey: cardinal;
+function TGameScene.KeyPressed:boolean;
 begin
- if first<>last then begin
-  result:=KeyBuffer[first];
-  first:=(first+1) and 63;
- end else result:=0;
+ result:=not keyBuffer.Empty;
+end;
+
+
+function TGameScene.ReadKey:cardinal;
+var
+ item:TDataItem;
+begin
+ if keyBuffer.Get(item) then
+  result:=cardinal(item.data)
+ else
+  result:=0;
+end;
+
+procedure TGameScene.WriteKey(key:cardinal);
+var
+ item:TDataItem;
+begin
+ item.data:=integer(key);
+ keyBuffer.Add(item);
 end;
 
 procedure TGameScene.Render;
@@ -1167,14 +1177,6 @@ begin
  status:=st;
  if status=ssActive then activated:=true
   else activated:=false;
-end;
-
-procedure TGameScene.WriteKey(key: cardinal);
-begin
- KeyBuffer[last]:=key;
- last:=(last+1) and 63;
- if last=first then
- first:=(first+1) and 63;
 end;
 
 { TSceneEffect }
