@@ -6,7 +6,7 @@
 
 unit MainScene;
 interface
- uses Apus.Engine.GameApp,Apus.Engine.API;
+ uses Apus.Engine.GameApp, Apus.Engine.API;
  type
   // Let's override to have a custom app class
   TMainApp=class(TGameApplication)
@@ -116,8 +116,9 @@ procedure TMainScene.Render;
 
   gfx.SetCullMode(cullNone);
   transform.Transform(Point3(0,0,0));
+  gfx.clip.Nothing;
   // 2D primitives are drawn on XY plane (z=0) so it's OK to draw floor like this :)
-  draw.FillRect(-20,-20,20,20,$FF80A0B0);
+  draw.TexturedRect(-20,-20,20,20,game.defaultTexture,-0.125,-0.125,10.125,-0.125,10.125,10.125,$FFFFFFFF);
   // X axis
   draw.Line(0,0,10,0,$FF000090);
   draw.Line(10,0,9,1,$FF000090);
@@ -126,6 +127,8 @@ procedure TMainScene.Render;
   draw.Line(0,0,0,10,$FF007000);
   draw.Line(0,10,1,9,$FF007000);
   draw.Line(0,10,-1,9,$FF007000);
+
+  gfx.clip.Restore;
 
   gfx.target.UseDepthBuffer(dbPassLess); // clip anything below the floor plane
 
