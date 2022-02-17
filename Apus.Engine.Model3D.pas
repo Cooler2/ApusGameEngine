@@ -61,7 +61,9 @@ type
   position:TVector4s;
   rotation:TQuaternionS;
   scale:TVector4s;
+  function IsEqual(state:TBoneState):boolean;
  end;
+ TBoneStates=array of TBoneState;
 
  // Per-frame bone states
  TTimeline=record
@@ -79,7 +81,7 @@ type
   numFrames:integer; // duration in frames
   fps:single;  // frames per second
   keyFrames:TAnimationKeyFrames; // individual keyframes (source)
-  loopFrom,loopTo:integer; // loop frame range (0 - don't loop)
+  loopFrom,loopTo:integer; // loop frame range [loopFrom..loopTo-1] (0 - don't loop), if loopTo frame exist it should be equal to loopFrom frame
   smooth:boolean; // play smoothly - interpolate between animation frames
   procedure SetLoop(loop:boolean=true); overload;
   procedure SetLoop(fromFrame,toFrame:integer); overload;
@@ -90,7 +92,7 @@ type
   function GetBoneScale(bone:integer;frame:single):TVector4s;
  private
   timeline:array of TTimeline; // timeline for each bone (can contain empty arrays)
-  defaultBoneState:array of TBoneState; // state of bones with no timeline
+  defaultBoneState:TBoneStates;  // state of bones with no timeline
   procedure UpdateBonesForFrame(const bones:TBonesArray;frame:single);
  end;
 
@@ -146,11 +148,15 @@ type
  TModelInstance=class
   model:TModel3D;
   constructor Create(model:TModel3D);
+  // Control animation
   procedure PlayAnimation(name:string='';easeTimeMS:integer=0);
   procedure StopAnimation(name:string='';easeTimeMS:integer=0);
   procedure PauseAnimation(name:string='');
   procedure ResumeAnimation(name:string='');
-  procedure SetAnimationPos(name:string;frame:integer);
+  procedure SetAnimationPos(name:string;frame:integer); overload;
+  procedure SetAnimationPos(name:string;frame:single); overload;
+  function GetAnimationPos(name:string=''):single;
+  function GetAnimationSize(name:string=''):integer;
 
   procedure Update; // update animations and calculate bones
   procedure Draw(tex:TTexture);
@@ -173,12 +179,12 @@ type
  var
   lastUpdated:int64; // when state was last updated
   animations:array of TInstanceAnimation;
-  bones:array of TBoneState;
+  bones:TBoneStates;
   boneMatrices:array of TBoneMatrices; // "default pos -> animated pos" transformation matrix
   vertices:array of TVertex3D;
   dirty:boolean; // flag to update vertices bound to bones (if bones were changed)
-  function AdvanceAnimations(time:integer):boolean;
-  procedure UpdateBones;
+  procedure AdvanceAnimations(time:integer);
+  function UpdateBones:boolean;
   procedure UpdateBoneMatrices;
   procedure FillVertexBuffer;
   function FindAnimation(name:string):integer;
@@ -358,7 +364,7 @@ procedure TAnimation.SetLoop(fromFrame,toFrame:integer);
 procedure TAnimation.SetLoop(loop:boolean=true);
  begin
   if loop then
-   SetLoop(0,numFrames-1)
+   SetLoop(0,numFrames)
   else
    SetLoop(0,0);
  end;
@@ -739,7 +745,7 @@ procedure TModelInstance.ResumeAnimation(name:string);
   animations[FindAnimation(name)].paused:=false;
  end;
 
-procedure TModelInstance.SetAnimationPos(name:string;frame:integer);
+procedure TModelInstance.SetAnimationPos(name:string;frame:single);
  var
   i,max:integer;
  begin
@@ -755,6 +761,24 @@ procedure TModelInstance.SetAnimationPos(name:string;frame:integer);
    else
     curFrame:=Clamp(max-frame,0,max);
   end;
+ end;
+
+procedure TModelInstance.SetAnimationPos(name:string;frame:integer);
+ begin
+  SetAnimationPos(name,round(frame));
+ end;
+
+function TModelInstance.GetAnimationPos(name:string):single;
+ begin
+  result:=animations[FindAnimation(name)].curFrame;
+ end;
+
+function TModelInstance.GetAnimationSize(name:string):integer;
+ var
+  i:integer;
+ begin
+  i:=FindAnimation(name);
+  result:=model.animations[i].numFrames;
  end;
 
 procedure TModelInstance.StopAnimation(name:string;easeTimeMS:integer);
@@ -775,17 +799,16 @@ procedure TModelInstance.Update;
    time:=-1;
   lastUpdated:=game.frameStartTime;
 
-  dirty:=AdvanceAnimations(time);
-  UpdateBones;
+  AdvanceAnimations(time);
+  dirty:=UpdateBones;
   UpdateBoneMatrices;
  end;
 
-function TModelInstance.AdvanceAnimations(time:integer):boolean;
+procedure TModelInstance.AdvanceAnimations(time:integer);
  var
-  i,t,loop:integer;
+  i,t,loopTo:integer;
   oldFrame:integer;
  begin
-  result:=false;
   for i:=0 to high(animations) do
    with animations[i] do
     if playing and not paused then begin
@@ -793,21 +816,22 @@ function TModelInstance.AdvanceAnimations(time:integer):boolean;
      if t<0 then t:=game.frameStartTime-startTime;
      oldFrame:=round(curFrame);
      curFrame:=curFrame+t*model.animations[i].fps/1000;
-     loop:=model.animations[i].loopTo;
-     if (loop>0) and not stopping then
-      while curFrame>loop do
-       curFrame:=curFrame-(loop-model.animations[i].loopFrom+1);
-     if curFrame>model.animations[i].numFrames-1 then begin
-      playing:=false;
-      curFrame:=model.animations[i].numFrames-1;
-     end;
-     if model.animations[i].smooth or
-        (round(curFrame)<>oldFrame) then result:=true;
+     loopTo:=model.animations[i].loopTo;
+     if (loopTo>0) and not stopping then begin // loop animation
+      while round(curFrame)>=loopTo do
+       curFrame:=curFrame-(loopTo-model.animations[i].loopFrom);
+     end else
+      if round(curFrame)>model.animations[i].numFrames-1 then begin
+       playing:=false;
+       curFrame:=model.animations[i].numFrames-1;
+      end;
+     if round(curFrame)<0 then
+      Sleep(0);
     end;
  end;
 
-//
-procedure TModelInstance.UpdateBones;
+// Returns true if bones were changed
+function TModelInstance.UpdateBones:boolean;
  var
   i,j,bCount,anim:integer;
   fullWeight,frame:single;
@@ -815,7 +839,9 @@ procedure TModelInstance.UpdateBones;
   aIdx:array[0..5] of integer;
   weights:array[0..5] of single; // max 6 active animations
   vec:TVector4s;
+  bState:TBoneState;
  begin
+  result:=false;
   // Find active animations and calculate weights
   fullWeight:=0;
   aCount:=0;
@@ -834,25 +860,29 @@ procedure TModelInstance.UpdateBones;
    weights[i]:=weights[i]/fullWeight;
   // Prepare bones array
   bCount:=length(model.bones);
-  if length(bones)<>bCount then
+  if length(bones)<>bCount then begin
+   result:=true;
    SetLength(bones,bCount);
-  ZeroMem(bones[0],sizeof(bones[0])*bCount);
+  end;
   // Calculate bones
   for i:=0 to bCount-1 do begin
+   ZeroMem(bState,sizeof(bState));
    for j:=0 to aCount-1 do begin
     anim:=aIdx[j];
     frame:=animations[anim].curFrame;
     // position
     vec:=model.animations[anim].GetBonePosition(i,frame);
-    bones[i].position.Add(vec,weights[j]);
+    bState.position.Add(vec,weights[j]);
     // rotation
     vec:=model.animations[anim].GetBoneRotation(i,frame);
-    bones[i].rotation.Add(vec,weights[j]);
+    bState.rotation.Add(vec,weights[j]);
     // scale
     vec:=model.animations[anim].GetBoneScale(i,frame);
-    bones[i].scale.Add(vec,weights[j]);
+    bState.scale.Add(vec,weights[j]);
    end;
-   if aCount>1 then bones[i].rotation.Normalize; // sum of multiple rotations
+   if aCount>1 then bState.rotation.Normalize; // sum of multiple rotations
+   if not bState.IsEqual(bones[i]) then result:=true; // modified
+   bones[i]:=bState;
   end;
  end;
 
@@ -908,5 +938,14 @@ procedure TModelInstance.UpdateBoneMatrices;
    CalculateBoneMatrix(i);
  end;
 
+{ TBoneState }
+
+function TBoneState.IsEqual(state:TBoneState):boolean;
+ begin
+  result:=
+    Apus.Geom3D.IsEqual(position,state.position,10) and
+    Apus.Geom3D.IsEqual(rotation,state.rotation,10) and
+    Apus.Geom3D.IsEqual(scale,state.scale,10);
+ end;
 
 end.
