@@ -468,13 +468,11 @@ procedure TModel3D.CalcBoneMatrix(bone:integer);
      MultMat(mScale,mTemp,mat);
     end;
    move(bones[bone].position,mat[3],sizeof(TPoint3s));
-   InvertFull(mat,mTemp);
-
    // Combine with parent bone
    if parent>=0 then
-    MultMat(mTemp,bones[parent].matrix,bones[bone].matrix)
+    MultMat(mat,bones[parent].matrix,bones[bone].matrix)
    else
-    bones[bone].matrix:=mTemp;
+    bones[bone].matrix:=mat;
  end;
 
 constructor TModel3D.Create(name:string;src:string='');
@@ -594,12 +592,19 @@ procedure TModel3D.FlipX;
 
 procedure TModel3D.Prepare;
  var
+  mTemp:TMatrix4s;
   i:integer;
  begin
   for i:=0 to high(bones) do
    bones[i].matrix[0,0]:=NaN;
+  // Calculate "bone->world" matrices
   for i:=0 to high(bones) do
    CalcBoneMatrix(i);
+  // Invert bone matrices to get "world->bone" matrix
+  for i:=0 to high(bones) do begin
+   mTemp:=bones[i].matrix;
+   InvertFull(mTemp,bones[i].matrix);
+  end;
 
   // Build animation timelines
   for i:=0 to high(animations) do
@@ -850,6 +855,7 @@ procedure TModelInstance.UpdateBoneMatrices;
    mat,mScale,mTemp:TMatrix4s;
    parent:integer;
   begin
+   if not IsNAN(boneMatrices[bone][0,0]) then exit; // already calculated
    parent:=model.bones[bone].parent;
    // recursion
    if parent>=0 then begin
