@@ -388,6 +388,8 @@ implementation
       model.fps:=animations.framerate;
       fps:=animations.framerate;
       keyFrames:=frameData;
+      loopFrom:=0;
+      loopTo:=numFrames;
      end;
    end;
 
