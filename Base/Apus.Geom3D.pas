@@ -39,9 +39,19 @@ interface
 
   TQuaternion=record
    constructor Init(x,y,z,w:double);
+   procedure Add(var q:TQuaternion); overload;
+   procedure Add(var q:TQuaternion;scale:double); overload;
+   procedure Mul(scalar:double); overload;
+   procedure Mul(var q:TQuaternion); overload;
+   function DotProd(var q:TQuaternion):double;
+   function Length:double;
+   function Length2:double;
+   procedure Normalize;
+   function IsValid:boolean;
    case integer of
     1:( x,y,z,w:double; );
     2:( v:array[0..3] of double; );
+    3:( xyz:TPoint3; t:double; );
   end;
 
   { TQuaternionS }
@@ -49,6 +59,7 @@ interface
   TQuaternionS=record
    constructor Init(x,y,z,w:single); overload;
    constructor Init(vec3:TVector3s); overload;
+   constructor Init(q:TQuaternion); overload;
    procedure Test(var q:TQuaternionS);
    procedure Add(var q:TQuaternionS); overload;
    procedure Add(var q:TQuaternionS;scale:single); overload;
@@ -149,9 +160,11 @@ interface
 
  // Extract matrix row/column
  function MatRow(const mat:TMatrix4s; n:integer):TQuaternionS; overload; inline;
+ function MatRow(const mat:TMatrix4;  n:integer):TQuaternion;  overload; inline;
  function MatRow(const mat:TMatrix43s;n:integer):TVector3s; overload; inline;
  function MatRow(const mat:TMatrix3s; n:integer):TVector3s; overload; inline;
  function MatCol(const mat:TMatrix4s; n:integer):TQuaternionS; overload;
+ function MatCol(const mat:TMatrix4;  n:integer):TQuaternion; overload;
  function MatCol(const mat:TMatrix43s;n:integer):TVector3s; overload;
  function MatCol(const mat:TMatrix3s; n:integer):TVector3s; overload;
 
@@ -245,7 +258,8 @@ interface
  function MatrixToQuaternion(const mat:TMatrix3):TQuaternion; overload;
 
  // Extract translation rotation and scale from transformation matrix
- procedure DecomposeMartix(mat:TMatrix4s;out translation,rotation,scale:TQuaternionS);
+ procedure DecomposeMartix(mat:TMatrix4s;out translation,rotation,scale:TQuaternionS); overload;
+ procedure DecomposeMartix(mat:TMatrix4;out translation,rotation,scale:TQuaternion); overload;
 
  // Quaternion operations
  function QLength(q:TQuaternion):double; overload;
@@ -554,6 +568,11 @@ implementation
    move(mat[n],result,sizeof(result));
   end;
 
+ function MatRow(const mat:TMatrix4; n:integer):TQuaternion;
+  begin
+   move(mat[n],result,sizeof(result));
+  end;
+
  function MatRow(const mat:TMatrix43s;n:integer):TVector3s;
   begin
    move(mat[n],result,sizeof(result));
@@ -565,6 +584,14 @@ implementation
   end;
 
  function MatCol(const mat:TMatrix4s; n:integer):TQuaternionS;
+  begin
+   result.x:=mat[0,n];
+   result.y:=mat[1,n];
+   result.z:=mat[2,n];
+   result.w:=mat[3,n];
+  end;
+
+ function MatCol(const mat:TMatrix4; n:integer):TQuaternion;
   begin
    result.x:=mat[0,n];
    result.y:=mat[1,n];
@@ -1255,9 +1282,9 @@ implementation
    dest:=IdentMatrix4;
    for i:=0 to 3 do begin
      v:=mat[i,i];
-     if v=0 then begin
+     if abs(v)<EpsilonS then begin
       for k:=i+1 to 3 do
-       if mat[k,i]<>0 then begin
+       if abs(mat[k,i])>EpsilonS then begin
         AddRow(k,i,1);
         break;
        end;
@@ -1309,6 +1336,37 @@ implementation
   end;
 
  procedure MultPnt(const m:TMatrix4s;v:PVector4s;num,step:integer); overload;
+  {$IFDEF CPUx64}
+  asm
+   // rcx=@matrix, rdx=@vector, r8=num, @r9=step
+@loop:
+   movups xmm0,[rdx]
+   // multiply
+   movaps xmm1,xmm0
+   shufps xmm1,xmm1,$00 // (x,x,x,x)
+   mulps xmm1,[rcx+$00]   // xmm1=x*col[0]
+   movaps xmm2,xmm0
+   shufps xmm2,xmm2,$55 // (y,y,y,y)
+   mulps xmm2,[rcx+$10]   // xmm2=y*col[1]
+   movaps xmm3,xmm0
+   shufps xmm3,xmm3,$AA // (z,z,z,z)
+   mulps xmm3,[rcx+$20]   // xmm3=z*col[2]
+   movaps xmm4,xmm0
+   shufps xmm4,xmm4,$FF // (t,t,t,t)
+   mulps xmm4,[rcx+$30]   // xmm4=t*col[3]
+
+   addps xmm1,xmm2
+   addps xmm3,xmm4
+   addps xmm1,xmm3
+   movups [rdx],xmm1
+
+   dec r8
+   jz @exit
+   add rdx,r9
+   jmp @loop
+@exit:
+  end;
+  {$ELSE}
   var
    i:integer;
    vec:TVector4s;
@@ -1323,6 +1381,7 @@ implementation
     v:=PVector4s(PtrUInt(v)+step);
    end;
   end;
+  {$ENDIF}
 
  procedure MultPnt(const m:TMatrix43;v:PPoint3;num,step:integer);
   var
@@ -1753,6 +1812,48 @@ implementation
    rotation:=MatrixToQuaternion(mat3);
   end;
 
+ procedure DecomposeMartix(mat:TMatrix4;out translation,rotation,scale:TQuaternion);
+  var
+   qX,qY,qZ:TQuaternion;
+   mat3:TMatrix3;
+   v:double;
+  begin
+   translation:=MatRow(mat,3);
+   qX:=MatRow(mat,0);
+   qY:=MatRow(mat,1);
+   qZ:=MatRow(mat,2);
+   // Scale part
+   scale.x:=QLength(qX);
+   scale.y:=QLength(qY);
+   scale.z:=QLength(qZ);
+   scale.w:=0;
+   qX.Mul(1/scale.x);
+   qY.Mul(1/scale.y);
+   qZ.Mul(1/scale.z);
+   // Make sure the rotation part is orthogonal
+   v:=qY.DotProd(qX);
+   if abs(v)>EpsilonS then begin
+    qY.Add(qX,-v);
+    qY.Normalize;
+   end;
+   v:=qZ.DotProd(qX);
+   if abs(v)>EpsilonS then begin
+    qZ.Add(qX,-v);
+    qZ.Normalize;
+   end;
+   v:=qZ.DotProd(qY);
+   if abs(v)>EpsilonS then begin
+    qZ.Add(qY,-v);
+    qZ.Normalize;
+   end;
+   // Convert to quaternion
+   move(qX,mat3[0],12);
+   move(qY,mat3[1],12);
+   move(qZ,mat3[2],12);
+   rotation:=MatrixToQuaternion(mat3);
+  end;
+
+
  function QLength(q:TQuaternion):double; overload;
   begin
    result:=Sqrt(q.w*q.w+q.x*q.x+q.y*q.y+q.z*q.z);
@@ -2109,10 +2210,63 @@ function TPoint3s.IsValid: boolean;
 
 { TQuaternion }
 
-constructor TQuaternion.Init(x, y, z, w: double);
+constructor TQuaternion.Init(x,y,z,w:double);
  begin
   self.x:=x; self.y:=y; self.z:=z; self.w:=w;
  end;
+
+function TQuaternion.IsValid:boolean;
+ begin
+  result:=x=x;
+ end;
+
+procedure TQuaternion.Add(var q:TQuaternion;scale:double);
+ begin
+  x:=x+q.x*scale;
+  y:=y+q.y*scale;
+  z:=z+q.z*scale;
+  w:=w+q.w*scale;
+ end;
+
+procedure TQuaternion.Add(var q:TQuaternion);
+ begin
+  x:=x+q.x; y:=y+q.y; z:=z+q.z; w:=w+q.w;
+ end;
+
+function TQuaternion.DotProd(var q:TQuaternion):double;
+ begin
+  result:=x*q.x+y*q.y+z*q.z+w*q.w;
+ end;
+
+function TQuaternion.Length:double;
+ begin
+  result:=QLength(self);
+ end;
+
+function TQuaternion.Length2:double;
+ begin
+  result:=w*w + x*x + y*y + z*z;
+ end;
+
+procedure TQuaternion.Mul(scalar:double);
+ begin
+  QScale(self,scalar);
+ end;
+
+procedure TQuaternion.Mul(var q:TQuaternion);
+ begin
+  x:=x*q.x;
+  y:=y*q.y;
+  z:=z*q.z;
+  w:=w*q.w;
+ end;
+
+procedure TQuaternion.Normalize;
+ begin
+  QNormalize(self);
+ end;
+
+{ TQuaternionS }
 
 constructor TQuaternionS.Init(x, y, z, w: single);
  begin
@@ -2122,6 +2276,11 @@ constructor TQuaternionS.Init(x, y, z, w: single);
 constructor TQuaternionS.Init(vec3:TVector3s);
  begin
   x:=vec3.x; y:=vec3.y; z:=vec3.z; w:=0;
+ end;
+
+constructor TQuaternionS.Init(q:TQuaternion);
+ begin
+  x:=q.x; y:=q.y; z:=q.z; w:=q.w;
  end;
 
 function TQuaternionS.IsValid:boolean;
@@ -2398,9 +2557,6 @@ procedure TQuaternionS.Mul(scalar:single);
   w:=w*scalar;
  end;
  {$ENDIF}
-
-
-
 
 initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
