@@ -147,6 +147,7 @@ type
 
   procedure Update; // update animations and calculate bones
   procedure Draw(tex:TTexture);
+  procedure DrawSkeleton;
  protected
  type
   TBoneMatrices=record
@@ -507,6 +508,74 @@ procedure TModelInstance.Draw(tex:TTexture);
  begin
   FillVertexBuffer;
   gfx.draw.IndexedMesh(@vertices[0],@model.trgList[0],length(model.trgList) div 3,length(vertices),tex);
+ end;
+
+procedure TModelInstance.DrawSkeleton;
+ var
+  i,n:integer;
+  vertices:array of TVertex3D;
+  indices:array of word;
+  vCnt,iCnt:integer;
+  procedure AddBoneGeometry(bone,parent:integer);
+   var
+    p1,p2,dir:TVector4s;
+    c:cardinal;
+   begin
+    p1:=MatRow(boneMatrices[bone].toModel,3);
+    p2:=MatRow(boneMatrices[parent].toModel,3);
+    c:=$FFFFFFFF;
+    //if bone=12 then c:=$FF00FF00;
+    vertices[vCnt+0].Init(p1.x+1,p1.y,p1.z,c);
+    vertices[vCnt+1].Init(p1.x,p1.y+1,p1.z,c);
+    vertices[vCnt+2].Init(p1.x,p1.y,p1.z+1,c);
+    vertices[vCnt+3].Init(p1.x-1,p1.y,p1.z,c);
+    vertices[vCnt+4].Init(p1.x,p1.y-1,p1.z,c);
+    vertices[vCnt+5].Init(p1.x,p1.y,p1.z-1,c);
+    vertices[vCnt+0].Init(p2.xyz);
+
+    indices[iCnt+0]:=vCnt;
+    indices[iCnt+1]:=vCnt+1;
+    indices[iCnt+2]:=vCnt+2;
+
+    indices[iCnt+3]:=vCnt+1;
+    indices[iCnt+4]:=vCnt+3;
+    indices[iCnt+5]:=vCnt+2;
+
+    indices[iCnt+6]:=vCnt+3;
+    indices[iCnt+7]:=vCnt+4;
+    indices[iCnt+8]:=vCnt+2;
+
+    indices[iCnt+09]:=vCnt+4;
+    indices[iCnt+10]:=vCnt+0;
+    indices[iCnt+11]:=vCnt+2;
+
+    indices[iCnt+12]:=vCnt+1;
+    indices[iCnt+13]:=vCnt+0;
+    indices[iCnt+14]:=vCnt+5;
+
+    indices[iCnt+15]:=vCnt+3;
+    indices[iCnt+16]:=vCnt+1;
+    indices[iCnt+17]:=vCnt+5;
+
+    indices[iCnt+18]:=vCnt+4;
+    indices[iCnt+19]:=vCnt+3;
+    indices[iCnt+20]:=vCnt+5;
+
+    indices[iCnt+21]:=vCnt+0;
+    indices[iCnt+22]:=vCnt+4;
+    indices[iCnt+23]:=vCnt+5;
+
+    inc(vCnt,6); inc(iCnt,24);
+   end;
+ begin
+  n:=length(bones);
+  SetLength(vertices,n*6);
+  SetLength(indices,8*3);
+  vCnt:=0; iCnt:=0;
+  for i:=0 to high(bones) do
+   if model.bones[i].parent>=0 then
+    AddBoneGeometry(i,model.bones[i].parent);
+  gfx.draw.IndexedMesh(@vertices[0],@indices[0],iCnt div 3,vCnt,nil);
  end;
 
 function BlendVec(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte):TVector3s;
