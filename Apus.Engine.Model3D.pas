@@ -182,6 +182,9 @@ type
   globalDirty:integer;
 
 implementation
+{$IFDEF FPC}
+  {$CODEALIGN LOCALMIN=16} // local SSE alignment
+{$ENDIF}
  uses Apus.CrossPlatform, SysUtils;
 
  const
