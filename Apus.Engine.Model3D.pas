@@ -107,6 +107,7 @@ type
   parts:array of TModelPart;  // Model may contain multiple parts
   // Bones
   bones:TBonesArray;
+  bonesRelative:boolean; // true if each bone is specified in it's parent bone space, false - absolute values
   // Animation sequences
   animations:array of TAnimation;
 
@@ -139,6 +140,8 @@ type
   procedure ResumeAnimation(name:string='');
   procedure SetAnimationPos(name:string;frame:integer); overload;
   procedure SetAnimationPos(name:string;frame:single); overload;
+  function IsAnimationPlaying(name:string=''):boolean; // playing and not paused
+  function IsAnimationPaused(name:string=''):boolean; // paused
   function GetAnimationPos(name:string=''):single;
   function GetAnimationSize(name:string=''):integer;
 
@@ -173,6 +176,9 @@ type
   procedure FillVertexBuffer;
   function FindAnimation(name:string):integer;
  end;
+
+ var
+  globalDirty:integer;
 
 implementation
  uses Apus.CrossPlatform, SysUtils;
@@ -209,7 +215,7 @@ procedure TAnimation.BuildTimeline(model:TModel3D);
     bpPosition:begin
       if timeline[bone].positions=nil then begin
        SetLength(timeline[bone].positions,numFrames);
-       FillDword(timeline[bone].positions[0],numFrames*3,dwNN);
+       FillDword(timeline[bone].positions[0],numFrames*4,dwNN);
       end;
       timeline[bone].positions[frame]:=keyFrames[i].value;
     end;
@@ -223,7 +229,7 @@ procedure TAnimation.BuildTimeline(model:TModel3D);
     bpScale:begin
       if timeline[bone].scales=nil then begin
        SetLength(timeline[bone].scales,numFrames);
-       FillDword(timeline[bone].scales[0],numFrames*3,dwNN);
+       FillDword(timeline[bone].scales[0],numFrames*4,dwNN);
       end;
       timeline[bone].scales[frame]:=keyFrames[i].value;
     end;
@@ -343,8 +349,9 @@ function TAnimation.GetBoneRotation(bone:integer;frame:single):TQuaternionS;
   if smooth then begin
    s:=frame;
    SmoothMove(frame,frame1,frame2);
-   with timeline[bone] do
+   with timeline[bone] do begin
     result:=QInterpolate(rotations[frame1],rotations[frame2],frame);
+   end;
   end else
    result:=timeline[bone].rotations[round(frame)];
  end;
@@ -352,7 +359,7 @@ function TAnimation.GetBoneRotation(bone:integer;frame:single):TQuaternionS;
 function TAnimation.GetBoneScale(bone:integer;frame:single):TVector4s;
  begin
   if timeline[bone].scales<>nil then
-   result:=timeline[bone].positions[round(frame)]
+   result:=timeline[bone].scales[round(frame)]
   else
    result:=defaultBoneState[bone].scale;
  end;
@@ -395,7 +402,7 @@ procedure TModel3D.CalcBoneMatrix(bone:integer);
    if not IsNAN(bones[bone].matrix[0,0]) then exit; // already calculated
    parent:=bones[bone].parent;
    // recursion
-   if parent>=0 then begin
+   if (parent>=0) and bonesRelative then begin
     if IsNaN(bones[parent].matrix[0,0]) then
      CalcBoneMatrix(parent);
    end;
@@ -411,7 +418,7 @@ procedure TModel3D.CalcBoneMatrix(bone:integer);
     end;
    move(bones[bone].position,mat[3],sizeof(TPoint3s));
    // Combine with parent bone
-   if parent>=0 then
+   if (parent>=0) and bonesRelative then
     MultMat(mat,bones[parent].matrix,bones[bone].matrix)
    else
     bones[bone].matrix:=mat;
@@ -422,6 +429,7 @@ constructor TModel3D.Create(name:string;src:string='');
   inherited Create;
   self.name:=name;
   self.src:=src;
+  bonesRelative:=true;
  end;
 
 function TModel3D.CreateInstance:TModelInstance;
@@ -591,7 +599,17 @@ procedure TModelInstance.PlayAnimation(name:string;easeTimeMS:integer);
     curFrame:=0;
     startTime:=MyTickCount;
     weight.Animate(1,easeTimeMS);
+    LogMessage('PlayAni "%s" for "%s"',[name,model.name]);
    end;
+ end;
+
+procedure TModelInstance.StopAnimation(name:string;easeTimeMS:integer);
+ begin
+  with animations[FindAnimation(name)] do begin
+   stopping:=true;
+   weight.Animate(0,easeTimeMS);
+   LogMessage('StopAni "%s" for "%s"',[name,model.name]);
+  end;
  end;
 
 procedure TModelInstance.PauseAnimation(name:string);
@@ -615,6 +633,7 @@ procedure TModelInstance.SetAnimationPos(name:string;frame:single);
    weight.Assign(1);
    paused:=true;
    max:=model.animations[i].numFrames-1;
+   if round(frame)>max then frame:=frame-(max+1);
    if frame>=0 then
     curFrame:=Clamp(frame,0,max)
    else
@@ -640,12 +659,16 @@ function TModelInstance.GetAnimationSize(name:string):integer;
   result:=model.animations[i].numFrames;
  end;
 
-procedure TModelInstance.StopAnimation(name:string;easeTimeMS:integer);
+function TModelInstance.IsAnimationPaused(name: string): boolean;
  begin
-  with animations[FindAnimation(name)] do begin
-   stopping:=true;
-   weight.Animate(0,easeTimeMS);
-  end;
+  with animations[FindAnimation(name)] do
+   result:=paused;
+ end;
+
+function TModelInstance.IsAnimationPlaying(name:string):boolean;
+ begin
+  with animations[FindAnimation(name)] do
+   result:=playing and not paused;
  end;
 
 procedure TModelInstance.Update;
@@ -657,10 +680,14 @@ procedure TModelInstance.Update;
   else
    time:=-1;
   lastUpdated:=game.frameStartTime;
+  if time=0 then exit;
 
   AdvanceAnimations(time);
-  dirty:=UpdateBones;
-  UpdateBoneMatrices;
+  if UpdateBones then begin
+   UpdateBoneMatrices;
+   dirty:=true;
+   inc(globalDirty);
+  end;
  end;
 
 procedure TModelInstance.AdvanceAnimations(time:integer);
@@ -684,8 +711,11 @@ procedure TModelInstance.AdvanceAnimations(time:integer);
        playing:=false;
        curFrame:=model.animations[i].numFrames-1;
       end;
-     if round(curFrame)<0 then
-      Sleep(0);
+     if stopping and (weight.Value=0) then begin
+      playing:=false;
+      stopping:=false;
+      curFrame:=0;
+     end;
     end;
  end;
 
@@ -725,6 +755,11 @@ function TModelInstance.UpdateBones:boolean;
   end;
   // Calculate bones
   for i:=0 to bCount-1 do begin
+   // Use default bones
+   bones[i].position.xyz:=model.bones[i].position;
+   bones[i].rotation:=model.bones[i].rotation;
+   bones[i].scale.xyz:=model.bones[i].scale;
+   //if i<>40 then continue;
    ZeroMem(bState,sizeof(bState));
    for j:=0 to aCount-1 do begin
     anim:=aIdx[j];
@@ -775,7 +810,7 @@ procedure TModelInstance.UpdateBoneMatrices;
    // матрица (2) вычислена здесь - это mat
    // матрица (3) вычислена в процессе рекурсии
    // Combine with parent bone
-   if parent>=0 then
+   if (parent>=0) and model.bonesRelative then
     MultMat(mat,boneMatrices[parent].toModel,boneMatrices[bone].toModel)
    else
     boneMatrices[bone].toModel:=mat;
