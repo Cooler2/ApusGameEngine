@@ -79,6 +79,7 @@ constructor TMainScene.Create;
   tex1:=LoadImageFromFile(baseDir+'res\material1_diffuse',liffTexture);
   tex2:=LoadImageFromFile(baseDir+'res\material2_diffuse',liffTexture);
   model:=Load3DModelIQM(baseDir+'res\character.iqm');
+  //model.animations[0].smooth:=false;  // speed up
   mainChar:=model.CreateInstance;
   mainChar.PlayAnimation;
  end;
@@ -152,6 +153,8 @@ procedure TMainScene.Render;
   gfx.target.UseDepthBuffer(dbDisabled); // Disable depth buffer
 
   txt.Write(0,10,20,$FFD0D0D0,'Mouse - rotate/zoom.');
+  txt.Write(0,10,40,$FFD0D0D0,IntToStr(globalDirty));
+
   inherited;
  end;
 
