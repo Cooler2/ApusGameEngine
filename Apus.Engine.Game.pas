@@ -295,7 +295,7 @@ begin
  end;
 end;
 
-procedure TGame.HandleInternalHotkeys(keyCode: integer; pressed: boolean);
+procedure TGame.HandleInternalHotkeys(keyCode:integer; pressed:boolean);
  procedure ToggleDebugOverlay(n:integer);
   begin
    if debugOverlay=n then debugOverlay:=0
@@ -461,6 +461,7 @@ end;
 procedure TGame.CharEntered(charCode,scanCode:integer);
 var
  i:integer;
+ scene:TGameScene;
  key:cardinal;
  wst:WideString;
  ast:AnsiString;
@@ -470,17 +471,14 @@ begin
   end;
   if shiftstate=sscCtrl then exit; // Ignore Ctrl+*
 
-  // Send to scenes
-  wst:=WideChar(charcode);
-  ast:=AnsiString(wst); // convert to ANSI
-  key:=byte(ast[1])+(scancode and $FF) shl 8+(charcode and $FFFF) shl 16;
-  for i:=low(scenes) to high(scenes) do
-    if scenes[i].status=ssActive then
-     scenes[i].WriteKey(key);
-
-  // Символ в 16-битном юникоде
-  {Signal('Kbd\UniChar',charcode+scanCode shl 16);
-  Signal('Kbd\Char',key);}
+  // Send to active scene
+  scene:=TopmostSceneForKbd;
+  if scene<>nil then begin
+   wst:=WideChar(charcode);
+   ast:=AnsiString(wst); // convert to ANSI
+   key:=byte(ast[1])+(scancode and $FF) shl 8+(charcode and $FFFF) shl 16;
+   scene.WriteKey(key);
+  end;
 end;
 
 procedure TGame.KeyPressed(keyCode,scanCode:integer;pressed:boolean=true);
@@ -492,6 +490,8 @@ begin
   code:=keyCode and $FFFF+shiftstate shl 16+scancode shl 24;
   uCode:=keyCode and $FFFF+scanCode shl 24;
   scene:=TopmostSceneForKbd;
+  if pressed and (scene<>nil) then
+   scene.WriteKey(scancode shl 8+keyCode);
   HandleInternalHotkeys(keyCode,pressed);
 
   if pressed then begin
