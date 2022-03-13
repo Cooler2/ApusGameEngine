@@ -780,7 +780,7 @@ type
 
   // Определить есть ли нажатия клавиш в буфере
   function KeyPressed:boolean; virtual;
-  // Прочитать клавишу из буфера: 0xAAAABBCC
+  // Read buffered key event: 0xAAAABBCC or 0 if no any keys were pressed
   // AAAA - unicode char, BB - scancode, CC - ansi char
   function ReadKey:cardinal; virtual;
   // Записать клавишу в буфер
@@ -1051,6 +1051,10 @@ var
  function GetKeyEventScanCode(tag:TTag):cardinal; // Extract scancode form KBD\KeyXXX event
  function GetKeyEventVirtualCode(tag:TTag):cardinal; // Extract virtual key code form KBD\KeyXXX event
 
+ function GetKeyUniChar(keyCode:cardinal):cardinal;  // Extract unicode character for value from ReadKey
+ function GetKeyCode(keyCode:cardinal):cardinal;     // Extract virtual key code for value from ReadKey
+ function GetKeyScanCode(keyCode:cardinal):cardinal; // Extract scancode for value from ReadKey
+
  // Is mouse button pressed?
  function IsMouseBtn(btn:integer):boolean;
  // Is key down?
@@ -1075,6 +1079,23 @@ implementation
  function GetKeyEventVirtualCode(tag: TTag): cardinal;
   begin
    result:=tag and $FFFF;
+  end;
+
+ function GetKeyUniChar(keyCode:cardinal):cardinal;
+  begin
+   result:=keyCode shr 16;
+  end;
+
+ function GetKeyCode(keyCode:cardinal):cardinal;
+  begin
+   result:=0;
+   if (keyCode and $FFFF0000=0) then
+    result:=keyCode and $FF
+  end;
+
+ function GetKeyScanCode(keyCode:cardinal):cardinal;
+  begin
+   result:=(keyCode shr 8) and $FF;
   end;
 
  constructor TGameBase.Create;
