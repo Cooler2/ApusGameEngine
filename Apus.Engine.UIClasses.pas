@@ -1158,7 +1158,7 @@ begin
  if c=nil then result:=false;
 end;
 
-function TUIElement.GetName:string;
+function TUIElement.GetName:string8;
 begin
  if self<>nil then result:=name
   else result:='empty';
