@@ -298,7 +298,7 @@ begin
        result:=@obj.clipchildren; varClass:=TVarTypeBool;
       end else
       if fieldname='customdraw' then begin
-       result:=@obj.customdraw; varClass:=TVarTypeBool;
+       result:=@obj.manualDraw; varClass:=TVarTypeBool;
       end;
   'd':if (fieldname='default') and (obj is TUIButton) then begin
        result:=@TUIButton(obj).default; varClass:=TVarTypeBool;

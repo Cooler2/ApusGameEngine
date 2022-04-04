@@ -15,9 +15,10 @@ interface
  var
   defaultBtnColor:cardinal=$FFB0A0C0;
 
- // Render an UI element and all its descendants
- // Use customDraw=true to draw only elements with customDraw=true, otherwise these elements will be skipped
- procedure DrawUI(item:TUIElement;customDraw:boolean=false);
+ // Render an UI element and all its descendants (skip elements with manualDraw=true)
+ procedure DrawUI(item:TUIElement);
+ // Draw just this element (and it descedants with manualDraw=true)
+ procedure DrawManualUI(item:TUIElement;recursive:boolean=false);
 
  procedure DrawGlobalShadow(color:cardinal);
 
@@ -71,7 +72,7 @@ implementation
    draw.FillRect(0,0,game.renderWidth,game.renderHeight,color);
   end;
 
- procedure DrawUI(item:TUIElement;customDraw:boolean=false);
+ procedure DrawUITree(item:TUIElement;manualDraw:boolean;recursive:boolean);
   var
    i,j,n,cnt:integer;
    tmp:pointer;
@@ -92,7 +93,7 @@ implementation
    if maskChange then gfx.target.Mask(true,false);}
    try
     // Draw control
-    if (item.customDraw=customDraw) and
+    if (item.manualDraw=manualDraw) and
        (item.style>=0) and
        (item.style<=high(styleDrawers)) then begin
         ASSERT(@styleDrawers[item.style]<>nil,'Style not registered');
@@ -111,6 +112,8 @@ implementation
      sleep(0);
     end;
    end;
+
+   if not recursive then exit;
 
    // Now prepare list of child elements to draw
    n:=length(item.children);
@@ -145,16 +148,26 @@ implementation
      // если элемент не клипится и фон - не прозрачный - нарисовать без отсечения
      if clipping and not list[i].parentClip and not transpBgnd then begin
       gfx.clip.Nothing;
-      DrawUI(list[i]);
+      DrawUITree(list[i],manualDraw,true);
       gfx.clip.Restore;
      end else
-      DrawUI(list[i]);
+      DrawUITree(list[i],manualDraw,true);
     end;
 
     if clipping then gfx.clip.Restore;
    end;
 {   // вернуть маску назад
    if maskChange then gfx.target.UnMask;}
+  end;
+
+ procedure DrawUI(item:TUIElement);
+  begin
+   DrawUITree(item,false,true);
+  end;
+
+ procedure DrawManualUI(item:TUIElement;recursive:boolean=false);
+  begin
+   DrawUITree(item,true,recursive);
   end;
 
  procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string='');

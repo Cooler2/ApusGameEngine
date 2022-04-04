@@ -107,7 +107,7 @@ type
 
   enabled:boolean; // Должен ли элемент реагировать на пользовательский ввод
   visible:boolean; // должен ли элемент рисоваться
-  customDraw:boolean; // Указывает на то, что элемент рисуется специальным кодом, а DrawUI его игнорирует
+  manualDraw:boolean; // Указывает на то, что элемент рисуется специальным кодом, а DrawUI его игнорирует
   cursor:integer; // Идентификатор курсора (0 - default)
   order:integer; // Определяет порядок отрисовки ($10000 - база для StayOnTop-эл-тов), отрицательные значения - специальные
   // Define how the element should be displayed
