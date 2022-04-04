@@ -69,6 +69,9 @@ interface
    procedure FatalError(msg:string); virtual;
 
    procedure onResize; virtual;
+
+   procedure ShowMessage(mes:String8;OkEvent:String8='';x:integer=0;y:integer=0); virtual;
+   procedure Ask(mes,YesEvent,NoEvent:String8;x:integer=0;y:integer=0); virtual;
   end;
 
  {$IFDEF ANDROID}
@@ -91,7 +94,7 @@ implementation
    SysUtils,Apus.MyServis,Apus.AnimatedValues,Apus.ControlFiles,Apus.Engine.UDict,
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
    Apus.Engine.UIClasses,Apus.Engine.Game,Apus.Engine.Tools,
-   Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,
+   Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,Apus.Engine.MessageScene,
    Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,
    Apus.Engine.Sound
   {$IFDEF DIRECTX},Apus.Engine.DXGame8{$ENDIF}
@@ -311,10 +314,20 @@ destructor TGameApplication.Destroy;
  end;
 
 procedure TGameApplication.FatalError(msg: string);
-begin
- ErrorMessage(msg);
- halt;
-end;
+ begin
+  ErrorMessage(msg);
+  halt;
+ end;
+
+procedure TGameApplication.Ask(mes, YesEvent, NoEvent: String8; x, y: integer);
+ begin
+  Apus.Engine.MessageScene.Ask(mes,YesEvent,NoEvent,x,y);
+ end;
+
+procedure TGameApplication.ShowMessage(mes, OkEvent: String8; x, y: integer);
+ begin
+  Apus.Engine.MessageScene.ShowMessage(mes,OkEvent,x,y);
+ end;
 
 procedure TGameApplication.HandleParam(param: string);
  begin
@@ -550,6 +563,7 @@ procedure TGameApplication.Run;
   LoadFonts;
   SelectFonts;
   InitStyles;
+  InitMessageScene;
   if useConsoleScene then AddConsoleScene;
   if useTweakerScene then CreateTweakerScene(txt.GetFont('Default',6),txt.GetFont('Default',7));
   try
