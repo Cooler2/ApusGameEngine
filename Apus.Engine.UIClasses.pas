@@ -113,6 +113,7 @@ type
   // Define how the element should be displayed
   style:byte;    // Стиль для отрисовки (0 - использует отрисовщик по умолчанию)
   styleInfoChanged:boolean; // set true whenever styleInfo changes
+  font:TFontHandle; // not used directly, can be inherited by children or used by custom draw routines
 
   canHaveFocus:boolean; // может ли элемент обладать фокусом ввода
   hint,hintIfDisabled:string; // текст всплывающей подсказки (отдельный вариант - для ситуации, когда элемент disabled, причем именно этот элемент, а не за счёт предков)
@@ -125,14 +126,14 @@ type
 
   timer:integer; // таймер - указывает время в мс через которое будет вызван onTimer() (но не раньше чем через кадр, 0 - не вызывать)
 
-  tag:NativeInt; // Произвольные данные (могут использоваться отрисовщиком)
-  customPtr:pointer; // произвольные данные
+  tag:NativeInt; // custom data for manual use
+  customPtr:pointer; // custom data for manual use
 
   parent:TUIElement; // Ссылка на элемент-предок
   children:array of TUIElement; // Список вложенных элементов
   layout:TLayouter; // layout child elements
 
-  // эти параметры (вторичные св-ва) вычисляются первичными событиями,
+  // Derived attributes. Эти параметры (вторичные св-ва) вычисляются первичными событиями,
   // поэтому пользоваться ими нужно аккуратно
   globalRect:TRect;  // положение элемента на экране (может быть устаревшим! для точного положения - GetPosOnScreen)
 
@@ -250,13 +251,15 @@ type
   function IsOpaque(x,y:single):boolean; virtual;
 
   // Static method => nil-safe
-  function GetName:string;
+  function GetName:string8;
+  function GetFont:TFontHandle; // returns own or inherited font handle
 
  protected
   focusedChild:TUIElement;
  private
   fStyleInfo:String8; // дополнительные сведения для стиля
   fInitialSize:TVector2s;
+    fName: String8;
   procedure AddToRootControls;
   procedure RemoveFromRootControls;
   function GetClientWidth:single;
@@ -311,7 +314,6 @@ type
  // создающий код либо отрисовщик могут дополнить или использовать значения по умолчанию
  TUIHint=class(TUIImage)
   simpleText:string; // текст надписи
-  font:cardinal; // шрифт
   active:boolean; // если true - значит хинт активный, не кэшируется и содержит вложенные эл-ты
   created:int64; // момент создания (в мс.)
   adjusted:boolean; // отрисовщик может использовать это для корректировки параметров хинта
@@ -327,9 +329,8 @@ type
   caption:string;
   color:cardinal;
   align:TTextAlignment;
-  font:cardinal;
   topOffset:integer; // сдвиг текста вверх
-  constructor Create(width,height:single;labelname,text:string;color_,bFont:cardinal;parent_:TUIElement);
+  constructor Create(width,height:single;labelname,text:string;color_:cardinal;bFont:TFontHandle;parent_:TUIElement);
  end;
 
  // Тип кнопок
@@ -338,7 +339,6 @@ type
                bsCheckbox);    // кнопка-надпись (чекбокс)
  TUIButton=class(TUIImage)
   caption:string; // button's label
-  font:cardinal;
   default:boolean; // кнопка по умолчанию (влияет только на отрисовку, но не на поведение!!!)
   pressed:boolean; // кнопка вдавлена
   pending:boolean; // состояние временной недоступности (не реагирует на нажатия)
@@ -347,7 +347,7 @@ type
   btnStyle:TButtonStyle; // тип кнопки (влияет как на отрисовку, так и на поведение)
   group:integer;   // Группа переключателей
   onClick:TProcedure;
-  constructor Create(width,height:single;btnName,btnCaption:string;btnFont:cardinal;parent_:TUIElement);
+  constructor Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement);
 
   procedure onMouseButtons(button:byte;state:boolean); override;
   procedure onMouseMove; override;
@@ -374,14 +374,13 @@ type
 
  TUIWindow=class(TUIImage)
   caption:string;
-  font:cardinal;
   header:integer; // Высота заголовка
   autoBringToFront:boolean; // автоматически переносить окно на передний план при клике по нему или любому вложенному эл-ту
   moveable:boolean;    // окно можно перемещать
   resizeable:boolean;  // окно можно растягивать
   minW,minH,maxW,maxH:integer; // максимальные и минимальные размеры (для растягивающихся окон)
 
-  constructor Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,wndCaption:string;wndFont:cardinal;parent_:TUIElement);
+  constructor Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,wndCaption:string;wndFont:TFontHandle;parent_:TUIElement);
 
   // Возвращает флаги типа области в указанной точке (к-ты экранные (в пикселях)
   // а также курсор, который нужно заюзать для этой области
@@ -405,7 +404,7 @@ type
  TUISkinnedWindow=class(TUIWindow)
   dragRegion:TRegion; // область, за которую можно таскать окно (если не задана - то за любую точку)
   background:pointer; // некий указатель на фон окна (т.к. вопросы отрисовки в этом модуле не затрагиваются)
-  constructor Create(wndName,wndCaption:string;wndFont:cardinal;parent_:TUIElement;canmove:boolean=true);
+  constructor Create(wndName,wndCaption:string;wndFont:TFontHandle;parent_:TUIElement;canmove:boolean=true);
   destructor Destroy; override;
   function GetAreaType(x,y:integer;out cur:integer):integer; override; // x,y - screen space coordinates
  end;
@@ -415,7 +414,6 @@ type
   realText:WideString; // реальный текст (лучше использовать это поле, а не text)
   completion:WideString; // grayed background text, if it is not empty and enter is pressed, then it is set to realText
   defaultText:WideString; // grayed background text, displayed if realText is empty
-  font:cardinal;        // Шрифт
   color,backgnd:cardinal;
   cursorpos:integer;      // Положение курсора (номер символа, после которого находится курсор)
   maxlength:integer;      // максимальная длина редактируемой строки
@@ -428,7 +426,7 @@ type
   protection:byte;   // xor всех символов с этим числом
   offset:integer; // сдвиг вправо содержимого на столько пикселей
 
-  constructor Create(width,height:single;boxName:string;boxFont:cardinal;color_:cardinal;parent_:TUIElement);
+  constructor Create(width,height:single;boxName:string;boxFont:TFontHandle;color_:cardinal;parent_:TUIElement);
   procedure onChar(ch:char;scancode:byte); override;
   procedure onUniChar(ch:WideChar;scancode:byte); override;
   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
@@ -492,9 +490,8 @@ type
   lineHeight:single; // in self CS
   selectedLine,hoverLine:integer; // выделенная строка, строка под мышью (0..count-1), -1 == отсутствует
   autoSelectMode:boolean; // режим, при котором всегда выделяется строка под мышью (для попапов)
-  font:cardinal;
   bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // цвета отрисовки
-  constructor Create(width,height:single;lHeight:single;listName:string;font_:cardinal;parent:TUIElement);
+  constructor Create(width,height:single;lHeight:single;listName:string;font_:TFontHandle;parent:TUIElement);
   destructor Destroy; override;
   procedure AddLine(line:string;tag:cardinal=0;hint:string=''); virtual;
   procedure SetLine(index:integer;line:string;tag:cardinal=0;hint:string=''); virtual;
@@ -515,7 +512,7 @@ type
   frame:TUIFrame;
   popup:TUIListBox;
   maxlines:integer; // max lines to show without scrolling
-  constructor Create(width,height:single;bFont:cardinal;list:WStringArr;parent_:TUIElement;name:string);
+  constructor Create(width,height:single;bFont:TFontHandle;list:WStringArr;parent_:TUIElement;name:string);
   procedure AddItem(item:WideString;tag:cardinal=0;hint:WideString=''); virtual;
   procedure SetItem(index:integer;item:WideString;tag:cardinal=0;hint:string=''); virtual;
   procedure ClearItems;
@@ -957,7 +954,7 @@ begin
  cursor:=crDefault;
  enabled:=true;
  visible:=true;
- customDraw:=false;
+ manualDraw:=false;
  if parent<>nil then begin
   n:=length(parent.children);
   inc(n); order:=n;
@@ -1492,6 +1489,19 @@ begin
  result:=size.x-paddingLeft-paddingRight;
 end;
 
+function TUIElement.GetFont:TFontHandle;
+var
+ item:TUIElement;
+begin
+ if self=nil then exit(0);
+ result:=font;
+ item:=parent;
+ while (font=0) and (item<>nil) do begin
+  font:=item.font;
+  item:=item.parent;
+ end;
+end;
+
 function TUIElement.GetClientHeight:single;
 begin
  result:=size.y-paddingTop-paddingBottom;
@@ -1908,7 +1918,7 @@ end;
 
 { TUILabel }
 
-constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFont:cardinal;
+constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFont:TFontHandle;
   parent_: TUIElement);
 begin
  inherited Create(width,height,parent_,labelName);
@@ -1925,7 +1935,7 @@ end;
 { TUIWindow }
 
 constructor TUIWindow.Create(innerWidth,innerHeight:single; sizeable:boolean; wndName,
-  wndCaption: string; wndFont: cardinal; parent_: TUIElement);
+  wndCaption: string; wndFont:TFontHandle; parent_: TUIElement);
 var
  deltaX,deltaY:integer;
 begin
@@ -2077,7 +2087,7 @@ begin
 end;
 
 constructor TUIEditBox.Create(width,height:single; boxName: string;
-  boxFont:cardinal;color_:cardinal;parent_:TUIElement);
+  boxFont:TFontHandle;color_:cardinal;parent_:TUIElement);
 begin
  inherited Create(width,height,parent_,boxName);
  shape:=shapeFull;
@@ -2538,7 +2548,7 @@ end;
 { TUISkinnedWindow }
 
 constructor TUISkinnedWindow.Create(wndName, wndCaption: string;
-  wndFont: cardinal; parent_: TUIElement;canmove:boolean=true);
+  wndFont:TFontHandle; parent_: TUIElement;canmove:boolean=true);
 begin
  inherited Create(100,100,false,wndName,wndCaption,wndFont,parent_);
  dragRegion:=nil;
@@ -2658,7 +2668,7 @@ begin
  UpdateScroller;
 end;
 
-constructor TUIListBox.Create(width,height:single;lHeight:single; listName:string; font_:cardinal; parent: TUIElement);
+constructor TUIListBox.Create(width,height:single;lHeight:single; listName:string; font_:TFontHandle; parent: TUIElement);
 begin
  inherited Create(width,height,parent,listName);
  shape:=shapeFull;
@@ -2787,7 +2797,7 @@ begin
  SetLength(hints,0);
 end;
 
-constructor TUIComboBox.Create(width,height:single; bFont:cardinal; list: WStringArr;
+constructor TUIComboBox.Create(width,height:single; bFont:TFontHandle; list: WStringArr;
   parent_: TUIElement;name:string);
 var
  btn:TUIButton;
