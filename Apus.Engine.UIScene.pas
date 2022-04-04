@@ -7,6 +7,10 @@ unit Apus.Engine.UIScene;
 interface
  uses Apus.Engine.API, Apus.Engine.UIClasses, Apus.CrossPlatform, Types;
 
+var
+ defaultScale:single=1.0;
+ windowScale:single=1.0;
+
 const
  defaultHintStyle:integer=0; // style of hints, can be changed
  modalShadowColor:cardinal=0; // color of global "under modal" shadow
@@ -330,8 +334,14 @@ begin
  UI:=TUIElement.Create(rootWidth,rootHeight,nil,sceneName);
  UI.enabled:=false;
  UI.visible:=false;
- if not fullscreen then ui.shape:=shapeEmpty
-  else ui.shape:=shapeFull;
+ if fullscreen then begin
+  UI.shape:=shapeFull;
+  UI.SetScale(defaultScale);
+ end else begin
+  // windowed
+  UI.shape:=shapeEmpty;
+  UI.SetScale(windowScale);
+ end;
 
  if classType=TUIScene then onCreate;
  if game<>nil then game.AddScene(self);
