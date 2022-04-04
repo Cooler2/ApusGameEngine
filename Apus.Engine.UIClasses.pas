@@ -259,7 +259,6 @@ type
  private
   fStyleInfo:String8; // дополнительные сведения для стиля
   fInitialSize:TVector2s;
-    fName: String8;
   procedure AddToRootControls;
   procedure RemoveFromRootControls;
   function GetClientWidth:single;

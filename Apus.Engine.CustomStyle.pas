@@ -224,7 +224,7 @@ implementation
    end;
   end;
 
- procedure CustomStyleHandler(control:TUIElement);
+ procedure CustomStyleHandler(item:TUIElement);
   var
    i,j:integer;
    img:TObject;
@@ -237,19 +237,19 @@ implementation
    int,sNum:integer;
   begin
    // Определение общих св-в элемента
-   enabl:=control.enabled;
-   con:=control;
+   enabl:=item.enabled;
+   con:=item;
    while con.parent<>nil do begin
     con:=con.parent;
     enabl:=enabl and con.enabled;
    end;
-   with control.globalrect do begin
+   with item.globalrect do begin
     x1:=Left; x2:=right-1;
     y1:=top; y2:=bottom-1;
    end;
 
    // Элемент - окно
-   if control is TUISkinnedWindow then with control as TUISkinnedWindow do begin
+   if item is TUISkinnedWindow then with item as TUISkinnedWindow do begin
     if background<>nil then begin    // нарисовать фон окна
      if TranspBgnd then gfx.target.BlendMode(blMove);
      img:=background;
@@ -260,7 +260,7 @@ implementation
    end;
 
    // Полоса прокрутки
-   if control is TUIScrollBar then with control as TUIScrollBar do begin
+   if item is TUIScrollBar then with item as TUIScrollBar do begin
     v:=colorMix(color,$40101010,96);
     c:=colorAdd(v,$202020);
     d:=ColorSub(v,$202020);
@@ -272,7 +272,7 @@ implementation
      draw.FillGradrect(x1,y1,x2,y2,d,c,false);
      if enabled and (globalrect.height>=16) and (pagesize<max-min) then begin
       c:=colorMix(color,$FF909090,128);
-      if over and not (hooked=control) then c:=ColorAdd(c,$101010);
+      if over and not (hooked=item) then c:=ColorAdd(c,$101010);
       i:=round((globalrect.height-16)*value/max);
       j:=15+round((globalrect.height-16)*(value+pagesize)/max);
       if i<0 then i:=0;
@@ -290,25 +290,25 @@ implementation
 
    // Поиск стиля
    sNum:=0;
-   j:=(cardinal(control) div 3) and $FF;
+   j:=(cardinal(item) div 3) and $FF;
    i:=hash[j];
    if (i>0) then
-    if ((control.styleinfo<>'') and (UpperCase(btnstyles[i].name)=UpperCase(control.styleinfo))) or
-       ((btnStyles[i].assigned<>'') and (pos(UpperCase(control.name)+',',btnStyles[i].assigned)>0)) or
+    if ((item.styleinfo<>'') and (UpperCase(btnstyles[i].name)=UpperCase(item.styleinfo))) or
+       ((btnStyles[i].assigned<>'') and (pos(UpperCase(item.name)+',',btnStyles[i].assigned)>0)) or
        ((btnStyles[i].assigned='') and
-        (control.styleinfo='') and
-        (btnStyles[i].width=control.globalrect.width) and
-        (btnStyles[i].height=control.globalrect.height)) then begin
+        (item.styleinfo='') and
+        (btnStyles[i].width=item.globalrect.width) and
+        (btnStyles[i].height=item.globalrect.height)) then begin
      sNum:=i;
     end;
    if sNum=0 then
    for i:=1 to btnStylesCnt do
-    if ((control.styleinfo<>'') and (UpperCase(btnstyles[i].name)=UpperCase(control.styleinfo))) or
-       ((btnStyles[i].assigned<>'') and (pos(UpperCase(control.name)+',',btnStyles[i].assigned)>0)) or
+    if ((item.styleinfo<>'') and (UpperCase(btnstyles[i].name)=UpperCase(item.styleinfo))) or
+       ((btnStyles[i].assigned<>'') and (pos(UpperCase(item.name)+',',btnStyles[i].assigned)>0)) or
        ((btnStyles[i].assigned='') and
-        (control.styleinfo='') and
-        (btnStyles[i].width=control.globalrect.width) and
-        (btnStyles[i].height=control.globalrect.height)) then begin
+        (item.styleinfo='') and
+        (btnStyles[i].width=item.globalrect.width) and
+        (btnStyles[i].height=item.globalrect.height)) then begin
      sNum:=i; break;
     end;
    if (sNum>0) then hash[j]:=sNum;
@@ -320,8 +320,8 @@ implementation
 
 
    // поле ввода
-   if control.ClassType=TUIEditBox then
-    with control as TUIEditbox do begin
+   if item.ClassType=TUIEditBox then
+    with item as TUIEditbox do begin
       if sNum>0 then begin
         ix:=round(x1-btnStyles[sNum].offsetX);
         iy:=round(y1-btnStyles[sNum].offsetY);
@@ -333,14 +333,14 @@ implementation
       int:=backgnd;
       noborder:=true;
       backgnd:=0;
-      DefaultDrawer(control);
+      DrawUIElement(item,0);
       noborder:=bool;
       backgnd:=int;
     end;
 
    // Кнопка
-   if control.ClassType=TUIButton then
-    DrawButton(control as TUIButton,sNum);
+   if item.ClassType=TUIButton then
+    DrawButton(item as TUIButton,sNum);
   end;
 
  procedure InitCustomStyle;
