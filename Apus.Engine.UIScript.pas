@@ -39,6 +39,11 @@ type
   class function GetValue(variable:pointer):string; override;
  end;
 
+ TVarTypeElementFont=class(TVarType)
+  class procedure SetValue(variable:pointer;v:string); override;
+  class function GetValue(variable:pointer):string; override;
+ end;
+
  TVarTypeTranspMode=class(TVarTypeEnum)
   class procedure SetValue(variable:pointer;v:string); override;
   class function GetValue(variable:pointer):string; override;
@@ -307,14 +312,8 @@ begin
        result:=@obj.enabled; varClass:=TVarTypeBool;
       end;
   'f':if fieldname='font' then begin
-       if obj is TUIButton then result:=@TUIButton(obj).font else
-       if obj is TUILabel then result:=@TUILabel(obj).font else
-       if obj is TUIEditBox then result:=@TUIEditBox(obj).font else
-       if obj is TUIListBox then result:=@TUIListBox(obj).font else
-       if obj is TUIComboBox then result:=@TUIComboBox(obj).font else
-       if obj is TUIWindow then result:=@TUIWindow(obj).font else
-        exit;
-       varClass:=TVarTypeCardinal;
+       result:=obj;
+       varClass:=TVarTypeElementFont;
       end;
   'g':if (fieldname='group') and (obj is TUIButton) then begin
        result:=@TUIButton(obj).group; varClass:=TVarTypeInteger;
@@ -510,19 +509,31 @@ class procedure TVarTypePivot.SetValue(variable: pointer; v: string);
 
 { TVarTypeStyleinfo }
 
-class function TVarTypeStyleinfo.GetValue(variable: pointer): string;
-begin
- result:=TUIElement(variable).styleInfo;
-end;
+class function TVarTypeStyleinfo.GetValue(variable:pointer):string;
+ begin
+  result:=TUIElement(variable).styleInfo;
+ end;
 
-class procedure TVarTypeStyleinfo.SetValue(variable: pointer; v: string);
-begin
- TUIElement(variable).styleInfo:=v;
-end;
+class procedure TVarTypeStyleinfo.SetValue(variable:pointer; v:string);
+ begin
+  TUIElement(variable).styleInfo:=v;
+ end;
+
+{ TVarTypeElementFont }
+
+class function TVarTypeElementFont.GetValue(variable:pointer):string;
+ begin
+  result:='$'+IntToHex(TUIElement(variable).font,sizeof(TFontHandle) div 2);
+ end;
+
+class procedure TVarTypeElementFont.SetValue(variable:pointer; v:string);
+ begin
+  TUIElement(variable).font:=TFontHandle(ParseInt(v));
+ end;
 
 { TVarTypeAlignment }
 
-class function TVarTypeAlignment.GetValue(variable: pointer): string;
+class function TVarTypeAlignment.GetValue(variable:pointer):string;
  var
   a:TTextAlignment;
  begin
@@ -535,7 +546,7 @@ class function TVarTypeAlignment.GetValue(variable: pointer): string;
   end;
  end;
 
-class procedure TVarTypeAlignment.SetValue(variable: pointer; v: string);
+class procedure TVarTypeAlignment.SetValue(variable:pointer; v:string);
  var
   a:^TTextAlignment;
  begin

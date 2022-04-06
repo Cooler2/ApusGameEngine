@@ -523,7 +523,7 @@ begin
   end;
  lastRenderTime:=t;
 
- Apus.Engine.UIRender.Frametime:=frametime;
+ //Apus.Engine.UIRender.Frametime:=frametime;
  Signal('Scenes\'+name+'\BeforeRender');
  StartMeasure(11);
  if UI<>nil then begin

@@ -113,7 +113,6 @@ type
   // Define how the element should be displayed
   style:byte;    // Стиль для отрисовки (0 - использует отрисовщик по умолчанию)
   styleInfoChanged:boolean; // set true whenever styleInfo changes
-  font:TFontHandle; // not used directly, can be inherited by children or used by custom draw routines
 
   canHaveFocus:boolean; // может ли элемент обладать фокусом ввода
   hint,hintIfDisabled:string; // текст всплывающей подсказки (отдельный вариант - для ситуации, когда элемент disabled, причем именно этот элемент, а не за счёт предков)
@@ -258,6 +257,7 @@ type
   focusedChild:TUIElement;
  private
   fStyleInfo:String8; // дополнительные сведения для стиля
+  fFont:TFontHandle; // not used directly, can be inherited by children or used by custom draw routines
   fInitialSize:TVector2s;
   procedure AddToRootControls;
   procedure RemoveFromRootControls;
@@ -276,6 +276,7 @@ type
   property globalScale:TVector2s read GetGlobalScale; // element scale in screen pixels
   property initialSize:TVector2s read fInitialSize; // Size when created
   property styleInfo:String8 read fStyleInfo write SetStyleInfo;
+  property font:TFontHandle read GetFont write fFont;
  end;
 
  // Элемент с ограничениями размера
@@ -1493,10 +1494,10 @@ var
  item:TUIElement;
 begin
  if self=nil then exit(0);
- result:=font;
+ result:=fFont;
  item:=parent;
- while (font=0) and (item<>nil) do begin
-  font:=item.font;
+ while (result=0) and (item<>nil) do begin
+  result:=item.fFont;
   item:=item.parent;
  end;
 end;
