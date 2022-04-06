@@ -11,6 +11,7 @@ type
   constructor Create;
   procedure ScrollToEnd;
   procedure SetStatus(status:TSceneStatus); override;
+  function Process:boolean; override;
  private
   editbox:TUIEditBox;
   scroll:TUIScrollBar;
@@ -189,7 +190,7 @@ var
  h:integer;
 begin
  inherited Create('CONSOLE',false); // pure foreground scene
- ignoreKeyboardEvents:=true;
+ //ignoreKeyboardEvents:=true;
  status:=ssFrozen;
  frequency:=12;
 
@@ -225,6 +226,12 @@ begin
  img.scrollerV:=scroll;
 
  SetEventHandler('UI\Console\Input\Enter',ConsoleOnEnter);
+end;
+
+function TConsoleScene.Process:boolean;
+begin
+ ignoreKeyboardEvents:=(FocusedControl<>editBox);
+ result:=inherited;
 end;
 
 procedure TConsoleScene.ScrollToEnd;
