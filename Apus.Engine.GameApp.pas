@@ -604,6 +604,8 @@ procedure TGameApplication.SaveOptions;
 
 procedure TGameApplication.SelectFonts;
  begin
+  if msgMainFont=0 then msgMainFont:=txt.GetFont('Default',8.5);
+  if msgTitleFont=0 then msgTitleFont:=txt.GetFont('Default',11);
   Signal('GAMEAPP\SelectFonts');
  end;
 

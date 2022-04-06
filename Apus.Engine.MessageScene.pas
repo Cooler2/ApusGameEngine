@@ -3,7 +3,7 @@ interface
  uses Apus.MyServis;
 
  var
-  msgFont:cardinal; // regular font for text and buttons (0 - use inherited or default)
+  msgMainFont:cardinal; // regular font for text and buttons (0 - use inherited or default)
   msgTitleFont:cardinal; // large font for message title (0 - use inherited or default)
 
  procedure InitMessageScene;
@@ -139,14 +139,15 @@ procedure TMessageScene.Initialize;
   wnd.shape:=shapeFull;
   wnd.manualDraw:=true;
   wnd.styleInfo:='FFD0D8E0 C0C0C8D0';
+  wnd.font:=msgMainFont;
 
-  btnOk:=TUIButton.Create(90,35,'Message\OK','Ok',msgFont,wnd);
+  btnOk:=TUIButton.Create(90,35,'Message\OK','Ok',0,wnd);
   btnOk.SetPos(200,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
 
-  btnYes:=TUIButton.Create(90,35,'Message\YES','Yes',msgFont,wnd);
+  btnYes:=TUIButton.Create(90,35,'Message\YES','Yes',0,wnd);
   btnYes.SetPos(200-70,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
 
-  btnNo:=TUIButton.Create(90,35,'Message\NO','No',msgFont,wnd);
+  btnNo:=TUIButton.Create(90,35,'Message\NO','No',0,wnd);
   btnNo.SetPos(200+70,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
  end;
 
@@ -168,12 +169,13 @@ procedure TMessageScene.UpdateUI(msgText:string;mode,x,y:integer);
   width:=round(300*windowScale);
   if title<>'' then width:=Max2(width,txt.WidthW(msgTitleFont,title));
   for i:=0 to high(lines) do
-   width:=max2(width,txt.WidthW(msgFont,lines[i]));
+   width:=max2(width,txt.WidthW(msgMainFont,lines[i]));
 
   inc(width,round(100*windowScale));
   height:=round((120+30*length(lines)+40*byte(title<>''))*windowScale);
 
   wnd.Resize(width,height);
+  wnd.font:=msgMainFont;
 
   btnOk.visible:=(mode=MODE_MSG);
   btnYes.visible:=(mode=MODE_ASK);
@@ -205,7 +207,7 @@ procedure TMessageScene.Render;
    inc(y,round(8*windowScale));
 
   for i:=0 to high(lines) do begin
-   txt.WriteW(msgFont,x,y,$FF202020,lines[i],taCenter);
+   txt.WriteW(msgMainFont,x,y,$FF202020,lines[i],taCenter);
    inc(y,round(30*windowScale));
   end;
   // Buttons and child elements
