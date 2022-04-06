@@ -70,6 +70,10 @@ procedure EventHandler(event:TEventStr;tag:TTag);
     TShowWindowEffect.Create(TUIScene(game.GetScene('SceneW')),400,sweHide,2);
     if blurEffect<>nil then blurEffect.Remove(400);
     blurEffect:=nil;
+   end
+   else
+   if SameText(e,'AskExit') then begin
+    application.Ask('[Confirmation]~Do you really want to~exit this great demo?','Engine\Cmd\Exit','');
    end;
   end;
  end;
@@ -93,6 +97,10 @@ constructor TSceneA.Create;
   TUIButton.Create(250,50,'SceneA\BtnShow2','Show Window (blur)',mainFont,ui).
    SetPos(ui.width/2, ui.height*0.5, pivotCenter);
   Link('UI\SceneA\BtnShow2\Click','Logic\ShowWindowWithBlur');
+
+  TUIButton.Create(250,50,'SceneA\BtnAsk','Exit?',mainFont,ui).
+   SetPos(ui.width/2, ui.height*0.6, pivotCenter);
+  Link('UI\SceneA\BtnAsk\Click','Logic\AskExit');
  end;
 
 procedure TSceneA.Render;
