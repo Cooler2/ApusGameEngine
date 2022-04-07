@@ -1,9 +1,23 @@
 {$APPTYPE CONSOLE}
 program TestStructs;
-uses
+ uses
   Apus.MyServis in '..\Apus.MyServis.pas',
   Apus.Structs in '..\Apus.Structs.pas', Apus.Types, Apus.Classes,
   SysUtils;
+
+ var
+  time:int64;
+
+ procedure StartTimer;
+  begin
+   time:=MyTickCount;
+  end;
+
+ procedure EndTimer(msg:string);
+  begin
+   writeln(msg,': ',MyTickCount-time);
+   time:=MyTickCount;
+  end;
 
 procedure TestObjHash;
  var
@@ -169,6 +183,11 @@ procedure TestVarHash;
    ASSERT(keys[n]=name);
    ASSERT(ParseInt(values[n])=n);
   end;
+  // Performance
+  StartTimer;
+  for i:=1 to 1000000 do
+   value:=hash.Get(keys[i and 1023]);
+  EndTimer('Get (1M queries)');
   writeln('VarHash - OK');
  end;
 
