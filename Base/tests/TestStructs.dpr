@@ -2,7 +2,10 @@
 program TestStructs;
  uses
   Apus.MyServis in '..\Apus.MyServis.pas',
-  Apus.Structs in '..\Apus.Structs.pas', Apus.Types, Apus.Classes,
+  Apus.Structs in '..\Apus.Structs.pas',
+  Apus.Types,
+  Apus.Classes,
+  Variants,
   SysUtils;
 
  var
@@ -266,10 +269,39 @@ procedure TestPriorityQueue;
   writeln('PriorityQueue - OK');
  end;
 
+procedure TestClassAttributes;
+ var
+  obj:TNamedObject;
+ begin
+  obj:=TNamedObject.Create;
+  ASSERT(obj.GetClassAttribute('mode')=unassigned);
+  ASSERT(TNamedObject.GetClassAttribute('mode')=unassigned);
+
+  obj.SetClassAttribute('mode','Value1');
+  ASSERT(obj.GetClassAttribute('mode')='Value1');
+  ASSERT(TNamedObject.GetClassAttribute('mode')='Value1');
+  ASSERT(TChild.GetClassAttribute('mode')='Value1');
+  ASSERT(TChild2.GetClassAttribute('mode')='Value1');
+
+  TChild2.SetClassAttribute('mode',99);
+  ASSERT(TChild.GetClassAttribute('mode')='Value1');
+  ASSERT(TChild2.GetClassAttribute('mode')=99);
+
+  TNamedObject.SetClassAttribute('a','href');
+  ASSERT(obj.GetClassAttribute('mode')='Value1');
+  ASSERT(TNamedObject.GetClassAttribute('mode')='Value1');
+  ASSERT(obj.GetClassAttribute('A')='href');
+  ASSERT(TNamedObject.GetClassAttribute('A')='href');
+
+  writeln('ClassAttributes - OK');
+ end;
+
 begin
  TestVarHash;
  TestObjHash;
  TestPriorityQueue;
  TestNamedObjects;
+ TestClassAttributes;
+
  if IsDebuggerPresent then Readln;
 end.
