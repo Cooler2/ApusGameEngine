@@ -199,6 +199,8 @@ interface
  function GetCallStack:string;
  // Returns caller address
  function GetCaller:pointer;
+ // True if running under debugger/IDE
+ function IsDebuggerPresent:boolean;
 
  // OS errors
  function GetSystemErrorCode:cardinal;
@@ -5529,6 +5531,12 @@ function GetSystemError:string;
  begin
   result:=GetLastErrorDesc;
  end;
+
+function IsDebuggerPresent:boolean;
+ begin
+  result:=Apus.CrossPlatform.IsDebuggerPresent;
+ end;
+
 
 function GetCallStack:string;
 var
