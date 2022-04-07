@@ -687,6 +687,8 @@ interface
  function ListIntegers(a:array of integer;separator:char=','):string; overload; // array of integer => 'a[1],a[2],...,a[n]'
  function ListIntegers(a:system.PInteger;count:integer;separator:char=','):string; overload;
 
+ function HasValue(const v:variant):boolean;
+
  // Сортировки
  procedure SortObjects(obj:PSortableObjects;count:integer);
  // Sort array of arbitrary items with value field
@@ -754,7 +756,7 @@ interface
  procedure DisableDEP;
 
 implementation
- uses Classes, Math, Apus.CrossPlatform, Apus.StackTrace, TypInfo, dateutils
+ uses Classes, Math, Apus.CrossPlatform, Apus.StackTrace, TypInfo, Variants, dateutils
     {$IFDEF UNIX},unixtype,BaseUnix,Syscall{$ENDIF}
     {$IFDEF MSWINDOWS},mmsystem{$ENDIF}
     {$IFDEF IOS},iphoneAll{$ENDIF}
@@ -1743,6 +1745,11 @@ function ListIntegers(a:array of integer;separator:char=','):string;
    result:=result+IntToStr(a[i]);
    if i<high(a) then result:=result+separator;
   end;
+ end;
+
+function HasValue(const v:variant):boolean;
+ begin
+  result:=v<>unassigned;
  end;
 
 function SimpleCompress(data:String8):String8;
