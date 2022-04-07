@@ -16,6 +16,7 @@ procedure TestObjHash;
   keys:StringArray8;
   simpleHash:TSimpleHashAS;
  begin
+  writeln('Test ObjHash');
 {  hash.Init(10);
   for i:=0 to 30 do begin
    objects[i]:=TNamedObject.Create;
@@ -110,6 +111,68 @@ procedure TestObjHash;
   writeln('ObjHash - OK');
  end;
 
+procedure TestVarHash;
+ var
+  i,j,n:integer;
+  keys:array[0..2000] of String8;
+  values:array[0..2000] of variant;
+  time:int64;
+  name:String8;
+  hash:TVarHash;
+  value:variant;
+  allKeys:StringArray8;
+ begin
+  writeln('Test VarHash');
+  // -----
+  for i:=0 to high(keys) do begin
+   keys[i]:='Item #'+inttostr(i);
+   values[i]:=i;
+   hash.Put(keys[i],values[i]);
+  end;
+  // Remove some values
+  for i:=1 to 1000 do begin
+   n:=random(2000);
+   hash.Remove(keys[n]);
+   keys[n]:=''; values[n]:='';
+  end;
+
+  // Add some more... and remove some
+  for i:=1 to 1000 do begin
+   n:=random(2000);
+   if keys[n]='' then begin // add
+    keys[n]:='New item '+inttostr(n);
+    values[n]:='Value '+inttostr(n);
+    hash.Put(keys[n],values[n]);
+   end;
+   if i mod 5=0 then begin
+    n:=random(2000); // delete
+    hash.Remove(keys[n]);
+    keys[n]:=''; values[n]:='';
+   end;
+  end;
+  // Now check
+  n:=0;
+  for i:=0 to high(keys) do begin
+   if keys[i]<>'' then begin
+    inc(n);
+    name:=Lowercase(keys[i]);
+    value:=hash.Get(name);
+    ASSERT(value=values[i],String(name));
+   end;
+  end;
+  ASSERT(hash.count=n);
+  // Check if no other objects
+  allKeys:=hash.ListKeys;
+  for name in allKeys do begin
+   n:=ParseInt(name);
+   ASSERT((n>=0) and (n<length(keys)));
+   ASSERT(keys[n]=name);
+   ASSERT(ParseInt(values[n])=n);
+  end;
+  writeln('VarHash - OK');
+ end;
+
+
  type
   TChild=class(TNamedObject)
    class function ClassHash:pointer; override;
@@ -185,7 +248,9 @@ procedure TestPriorityQueue;
  end;
 
 begin
- TestPriorityQueue;
+ TestVarHash;
  TestObjHash;
+ TestPriorityQueue;
  TestNamedObjects;
+ if IsDebuggerPresent then Readln;
 end.
