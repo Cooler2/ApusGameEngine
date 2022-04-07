@@ -274,6 +274,29 @@ type
   procedure InternalPut(value:TNamedObject); //inline;
  end;
 
+ // Open-address hash (case-insensitive) string8 -> variant
+ PVarHash=^TVarHash;
+ TVarHash=object
+  count:integer; // all the keys
+  procedure Init(estimatedCount:integer=256); // automatically called upon 1-st Put() call
+  procedure Clear;
+  procedure Put(key:String8;value:variant); // unassigned value is not allowed, use Remove() to clear key
+  function Get(key:String8):variant;
+  procedure Remove(key:String8);
+  function ListKeys:StringArray8;
+ private
+  initialized:string;
+  lock:integer;
+  mask:cardinal;
+  hashMiss:integer; // for performance test
+  keys:array of string8;
+  values:array of variant;
+  procedure Resize; // Increase capasity *2. Resizing is quite slow so
+  function InternalListKeys:StringArray8;
+  function InternalListValues:VariantArray;
+  procedure InternalPut(key:string8;value:variant);
+ end;
+
  // Queue of strings
  TStringQueue=object
   procedure Init(size:integer); // can be called only once
@@ -394,8 +417,8 @@ implementation
    {$IFDEF DELPHI},windows{$ENDIF}; // FPC has built-in support (RTL) for atomic operations
 
  const
-  _INITIALIZED_:string='INITIALIZED';
-  DELETED_PTR:pointer=pointer(1);
+  _INITIALIZED_:string='INITIALIZED'; // marker string used to check whether a structure was initialized
+  DELETED_PTR:pointer=pointer(1);     // special pointer value used to mark deleted items
 
   function IsValid(p:pointer):boolean; inline;
    begin
@@ -2099,6 +2122,157 @@ procedure TObjectHash.Resize;
   for i:=0 to high(list) do
    InternalPut(list[i]);
  end;
+
+{ TVarHash }
+procedure TVarHash.Init(estimatedCount:integer);
+ begin
+  count:=0;
+  lock:=0;
+  mask:=GetPow2(estimatedCount*2);
+  SetLength(keys,mask);
+  SetLength(values,mask);
+  dec(mask);
+  initialized:=_INITIALIZED_;
+  hashMiss:=0;
+ end;
+
+procedure TVarHash.Clear;
+ var
+  i:integer;
+ begin
+  SpinLock(lock);
+  try
+   count:=0;
+   for i:=0 to high(keys) do begin
+    keys[i]:='';
+    values[i]:=Unassigned;
+   end;
+   hashMiss:=0;
+  finally
+   lock:=0;
+  end;
+ end;
+
+function TVarHash.ListKeys:StringArray8;
+ begin
+  SpinLock(lock);
+  try
+   result:=InternalListKeys;
+  finally
+   lock:=0;
+  end;
+ end;
+
+function TVarHash.InternalListKeys:StringArray8;
+ var
+  i,n:integer;
+ begin
+   SetLength(result,count);
+   n:=0;
+   for i:=0 to high(keys) do
+    if values[i]<>unassigned then begin
+     result[n]:=keys[i];
+     inc(n);
+    end;
+ end;
+
+function TVarHash.InternalListValues:VariantArray;
+ var
+  i,n:integer;
+ begin
+   SetLength(result,count);
+   n:=0;
+   for i:=0 to high(values) do
+    if values[i]<>unassigned then begin
+     result[n]:=values[i];
+     inc(n);
+    end;
+ end;
+
+procedure TVarHash.Put(key:string8;value:variant);
+ begin
+  if initialized='' then Init;
+  if (key='') or (value=unassigned) then exit;
+  SpinLock(lock);
+  try
+   InternalPut(key,value);
+   if count*2>mask then Resize;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TVarHash.InternalPut(key:string8;value:variant);
+ var
+  h:cardinal;
+ begin
+  h:=FastHash(key);
+  while values[h and mask]<>unassigned do inc(h); // find the closest unused cell
+  keys[h and mask]:=key;
+  values[h and mask]:=value;
+  inc(count);
+ end;
+
+function TVarHash.Get(key:String8):variant;
+ var
+  h:cardinal;
+ begin
+  h:=FastHash(key);
+  SpinLock(lock);
+  try
+   h:=h and mask;
+   while keys[h]<>'' do begin
+    if SameStr(key,keys[h]) and (values[h]<>unassigned) then exit(values[h]);
+    inc(hashMiss);
+    h:=(h+1) and mask;
+   end;
+   result:=unassigned;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TVarHash.Remove(key:String8);
+ var
+  h:cardinal;
+ begin
+  if (key='') then exit;
+  h:=FastHash(key);
+  SpinLock(lock);
+  try
+   // 1. Find item
+   h:=h and mask;
+   while keys[h]<>key do begin
+    if keys[h]='' then exit; // not found
+    h:=(h+1) and mask;
+   end;
+   // 2. Delete
+   values[h]:=unassigned; // value cleared, but key remains
+   dec(count);
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TVarHash.Resize;
+ var
+  allKeys:StringArray8;
+  allValues:VariantArray;
+  i:integer;
+ begin
+  // No need to lock as it's called safely (internally)
+  allKeys:=InternalListKeys;
+  allValues:=InternalListValues;
+  count:=0;
+  SetLength(keys,0);
+  SetLength(values,0);
+  mask:=(mask+1)*2-1;
+  SetLength(keys,mask+1); // cleared
+  SetLength(values,mask+1); // cleared
+  for i:=0 to high(allKeys) do
+   InternalPut(allKeys[i],allValues[i]);
+ end;
+
 
 { TPriorityQueue }
 
