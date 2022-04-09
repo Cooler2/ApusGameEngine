@@ -48,6 +48,8 @@ type
    TRG_STRIP,
    TRG_LIST);
 
+ TFontHandle=cardinal;
+
 
 implementation
 

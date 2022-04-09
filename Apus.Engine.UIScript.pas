@@ -11,7 +11,7 @@ uses Apus.Publics;
 
 implementation
 uses Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.CmdProc,
-   Apus.Engine.API, Apus.Engine.UIClasses, Apus.Geom2d;
+   Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UITypes, Apus.Geom2d;
 
 type
  TDefaults=record

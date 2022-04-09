@@ -86,7 +86,7 @@ implementation
  uses Math,SysUtils, Apus.Images, Apus.Geom2D,
       {$IFDEF OPENGL}dglOpenGL, {$ENDIF}
       {$IFDEF ANDROID}gles20, Apus.Engine.PainterGL, {$ENDIF}
-      Apus.Colors,Apus.Engine.UIClasses,Apus.Engine.Console,Apus.Engine.UIRender;
+      Apus.Colors,Apus.Engine.UI,Apus.Engine.Console,Apus.Engine.UIRender;
 
  var
   ModalStack:array[1..8] of TUIElement;
@@ -98,7 +98,7 @@ implementation
 
 constructor TSwitchScreenEffect.Create(scene: TGameScene; totalTime: integer);
 begin
- EnterCriticalSection(UICritSect);
+ LockUI(GetCaller);
  try
  if scene.effect<>nil then begin
   ForceLogMessage('Scene '+scene.name+' already has an effect!');
@@ -110,12 +110,12 @@ begin
  if prevScene is TUIScene then LogMessage('Prev scene: '+TUIScene(prevScene).name);
  inherited Create(scene,totaltime);
  finally
-  LeaveCriticalSection(UICritSect);
+  UnlockUI;
  end;
 
- target.SetStatus(ssActive);
+ target.SetStatus(TSceneStatus.ssActive);
 
- EnterCriticalSection(UICritSect);
+ LockUI(GetCaller);
  try
  if target is TUIScene then (target as TUIScene).UI.enabled:=false;
 
@@ -131,7 +131,7 @@ begin
  dontPlay:=disableEffects;
  if pfRenderTarget=ipfNone then dontPlay:=true;
  finally
-  LeaveCriticalSection(UICritSect);
+  UnlockUI;
  end;
 end;
 
@@ -144,7 +144,7 @@ end;
 procedure TSwitchScreenEffect.DrawScene;
 begin
  if DontPlay then begin
-  done:=true; prevscene.SetStatus(ssFrozen);
+  done:=true; prevscene.SetStatus(TSceneStatus.ssFrozen);
   if target is TUIScene then
    TUIScene(target).UI.enabled:=true;
   exit;
@@ -157,7 +157,7 @@ var
  width,height:integer;
 begin
  if prevscene is TUIScene then begin
-  if FocusedControl.GetRoot=(prevscene as TUIscene).UI then
+  if FocusedElement.GetRoot=(prevscene as TUIscene).UI then
    SetFocusTo(nil);
   (prevscene as TUIscene).UI.enabled:=false;
  end;
@@ -191,7 +191,7 @@ begin
   if color>255 then begin
    color:=255;
    done:=true;
-   prevscene.SetStatus(ssFrozen);
+   prevscene.SetStatus(TSceneStatus.ssFrozen);
    if target is TUIScene then (target as TUIScene).UI.enabled:=true;
   end;
   color:=color shl 24+$808080;
@@ -226,7 +226,7 @@ begin
  buffer:=nil;
  DontPlay:=DisableEffects;
  if pfRenderTarget=ipfNone then DontPlay:=true;
- newScene.SetStatus(ssActive);
+ newScene.SetStatus(TSceneStatus.ssActive);
 end;
 
 destructor TRotScaleEffect.Destroy;
@@ -264,7 +264,8 @@ var
  tex:TTexture;
 begin
  if DontPlay then begin
-  done:=true; target.SetStatus(ssFrozen);
+  done:=true;
+  target.SetStatus(TSceneStatus.ssFrozen);
   exit;
  end;
  try
@@ -274,7 +275,7 @@ begin
   t:=round(255*timer/duration);
   if t>=255 then begin
    done:=true;
-   target.SetStatus(ssFrozen);
+   target.SetStatus(TSceneStatus.ssFrozen);
    if newscene is TUIScene then (target as TUIScene).UI.enabled:=true;
   end;
   gfx.BeginPaint(buffer);
@@ -317,7 +318,7 @@ begin
  st:='';
  for i:=1 to modalstacksize do
   st:=st+modalstack[i].GetName+' > ';
- st:=st+'('+modalcontrol.GetName+')';
+ st:=st+'('+modalElement.GetName+')';
  LogMessage('ModalStack: '+st+' #'+inttostr(modalStackSize));
 end;
 
@@ -330,7 +331,7 @@ var
  i:integer;
 begin
  try
- if (effMode in [sweSHow,sweShowModal]) and (scene.status=ssActive) then begin
+ if (effMode in [sweSHow,sweShowModal]) and scene.IsActive then begin
   LogMessage('SWE for active scene IGNORED! '+scene.name+' : '+scene.UI.name);
   exit;
  end;
@@ -354,9 +355,9 @@ begin
 { if (mode=sweShowModal) or (mode=sweShow) then
   scene.UI.visible:=true;}
 
- if (mode<>sweHide) and (target.status<>ssActive) then begin
+ if (mode<>sweHide) and not target.IsActive) then begin
   savedSceneStatus:=target.status;
-  target.SetStatus(ssActive);
+  target.SetStatus(TSceneStatus.ssActive);
  end;
  scene.UI.enabled:=(mode<>sweHide);
 
@@ -364,11 +365,11 @@ begin
   scene.shadowColor:=0;
   // симуляция отпускания кнопок мыши
   SetFocusTo(nil);
-  if modalcontrol<>nil then begin
+  if modalElement<>nil then begin
    // поищем, какой сцене принадлежит текущий модальный элемент и если
    // новое окно находится в том же слое - поместим его поверху. В противном случае
    // вставим новую сцену в нужное место в стэке
-   c:=modalControl;
+   c:=modalElement;
    while c.parent<>nil do c:=c.parent;
    if (c.order and $FF0000=scene.UI.order and $FF0000) and
       (c.order>scene.UI.order) then scene.UI.order:=c.order+1;
@@ -385,25 +386,25 @@ begin
    dec(i);
    LogMessage('ModalStack: insert');
   end;
-  modalStack[i]:=modalControl;
+  modalStack[i]:=modalElement;
   if i=modalStackSize then begin
-   modalControl:=(target as TUIScene).UI;
-   modalControl.SetFocus;
+   SetModalElement((target as TUIScene).UI);
+   modalElement.SetFocus;
   end;
   LogModalStack;
  end;
  // сцена закрывается
  if (mode=sweHide) then begin
-  if focusedControl.GetRoot=scene.UI then
+  if focusedElement.GetRoot=scene.UI then
     SetFocusTo(nil);
   scene.activated:=false;
   // проверим, есть ли данная сцена в стеке модальности
   if modalStackSize>0 then begin
    i:=1;
    while (i<=modalStackSize) and (modalStack[i]<>scene.UI) do inc(i);
-   if (i>modalStackSize) and (modalControl=scene.UI) then begin // сцена на вершине стека
-    modalControl:=modalStack[modalStackSize];
-    if modalControl<>nil then modalControl.SetFocus;
+   if (i>modalStackSize) and (modalElement=scene.UI) then begin // сцена на вершине стека
+    SetModalElement(modalStack[modalStackSize]);
+    if modalElement<>nil then modalElement.SetFocus;
     dec(modalStackSize);
    end;
    if (i>1) and (i<=modalStackSize) then begin // Сцена где-то внутре
@@ -416,7 +417,7 @@ begin
    end;
   end;
   LogModalStack;
-  if modalControl=nil then
+  if modalElement=nil then
     Signal('UI\SetGlobalShadow',duration shl 8);
  end;
 

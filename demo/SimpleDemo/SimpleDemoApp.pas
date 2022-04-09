@@ -20,7 +20,7 @@ interface
 
 implementation
  uses SysUtils, Apus.CrossPlatform,Apus.EventMan,Apus.Colors,
-   Apus.Engine.SceneEffects,Apus.Engine.UIClasses,Apus.Engine.UIScene;
+   Apus.Engine.SceneEffects,Apus.Engine.UI;
 
  type
   TParticleData=record

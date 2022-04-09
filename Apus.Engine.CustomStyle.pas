@@ -8,8 +8,6 @@
 {$R-}
 unit Apus.Engine.CustomStyle;
 interface
- uses Apus.Engine.UIClasses;
-
  var
   loadScrollBarTextures:boolean=false;
 
@@ -20,7 +18,8 @@ interface
 implementation
  uses Classes,SysUtils, Types,
   Apus.MyServis, Apus.Colors, Apus.Images, Apus.Publics, Apus.Geom2D,
-  Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UIScript;
+  Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIWidgets,
+  Apus.Engine.UIRender, Apus.Engine.UIScript;
 
  type
   TAlphaMode=(amAuto,amSkip,amWrite);
@@ -156,7 +155,7 @@ implementation
         if (default) and (bStyle.imageDefault<>0) then
          DrawBtnImage(bpos,btnImages[bStyle.imageDefault].image,bStyle.imageColor,sx,sy);
         // Кнопка имеет фокус
-        if (focusedControl=but) and (bStyle.imageFocused<>0) then
+        if (focusedElement=but) and (bStyle.imageFocused<>0) then
          DrawBtnImage(bpos,btnImages[bStyle.imageFocused].image,bStyle.imageColor,sx,sy);
         // Подсветка
         if enabled and (tag>0) and not pressed then
@@ -174,7 +173,7 @@ implementation
          // Вычисление цвета надписи
          col2:=bStyle.ColorShadow;
          if bStyle.color<>0 then col:=bStyle.color;
-         if not pressed and (focusedControl=but) and (bStyle.colorFocused<>0) then
+         if not pressed and (focusedElement=but) and (bStyle.colorFocused<>0) then
            col:=bStyle.colorFocused;
          if not enabled then begin
            if bStyle.colorDisabled<>0 then col:=bStyle.colorDisabled;

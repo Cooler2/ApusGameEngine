@@ -93,7 +93,7 @@ implementation
   {$IFDEF ANDROID}Apus.Android,Apus.Engine.AndroidGame,{$ENDIF}
    SysUtils,Apus.MyServis,Apus.AnimatedValues,Apus.ControlFiles,Apus.Engine.UDict,
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
-   Apus.Engine.UIClasses,Apus.Engine.Game,Apus.Engine.Tools,
+   Apus.Engine.UI,Apus.Engine.Game,Apus.Engine.Tools,
    Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,Apus.Engine.MessageScene,
    Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,
    Apus.Engine.Sound

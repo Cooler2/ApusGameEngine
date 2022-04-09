@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.ConsoleScene;
 interface
- uses Apus.Engine.API, Apus.Engine.UIClasses, Apus.Engine.UIScene;
+ uses Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UIScene;
 type
  TConsoleScene=class(TUIScene)
   constructor Create;
@@ -26,6 +26,7 @@ var
 implementation
  uses SysUtils, Classes,
   Apus.CrossPlatform, Apus.MyServis, Apus.EventMan,
+  Apus.Engine.UIWidgets, Apus.Engine.UITypes,
   Apus.Engine.CmdProc, Apus.Engine.Console;
 
  var
@@ -52,7 +53,7 @@ begin
 
  // Если консоль открыта, а фокуса нигде нет, то по любому нажатию перевести фокус на консоль
  if (consoleScene.Activated) and
-    (focusedControl=nil) then
+    (focusedElement=nil) then
     SetFocusTo(consoleScene.editbox);
 
  // TAB - переместить консоль зеркально
@@ -65,7 +66,7 @@ begin
  // Выбор из предыдущих команд
  if (consoleScene.activated) and
     (game.shiftState=0) and
-    (focusedControl=consoleScene.editbox) then
+    (focusedElement=consoleScene.editbox) then
   with consoleScene do begin
    // [UP] / {DOWN] - select previous commands
    if (tag and $FF=VK_UP) or (tag and $FF=VK_DOWN) then begin
@@ -212,7 +213,6 @@ begin
  editbox.backgnd:=$40000000;
  editBox.SetAnchors(0,1,1,1);
  editbox.noborder:=true;
- editbox.encoding:=teUTF8;
 
  TUIButton.Create(20,18,'Console\Enter','>',font,wnd).SetPos(480,h,pivotBottomRight).SetAnchors(1,1,1,1);
  Link('UI\Console\Enter\Click','UI\Console\Input\Enter');
@@ -223,14 +223,14 @@ begin
  scroll.step:=32;
  scroll.SetAnchors(1,0,1,1);
  scroll.Link(img);
- img.scrollerV:=scroll;
+ img.scrollerV:=scroll.GetScroller;
 
  SetEventHandler('UI\Console\Input\Enter',ConsoleOnEnter);
 end;
 
 function TConsoleScene.Process:boolean;
 begin
- ignoreKeyboardEvents:=(FocusedControl<>editBox);
+ ignoreKeyboardEvents:=(FocusedElement<>editBox);
  result:=inherited;
 end;
 

@@ -7,7 +7,7 @@
 // ------------------------------------------------------
 unit Apus.Engine.UIRender;
 interface
- uses Apus.Engine.API, Apus.Engine.UIClasses;
+ uses Apus.Engine.API, Apus.Engine.UI;
  type
   // процедура отрисовки элемента
   TUIDrawer=procedure(control:TUIElement);
@@ -22,6 +22,8 @@ interface
  // Render single UI element
  procedure DrawUIElement(item:TUIElement;styleOverride:integer=-1);
 
+ procedure BackgroundRenderBegin;
+ procedure BackgroundRenderEnd;
 
  procedure DrawGlobalShadow(color:cardinal);
 
@@ -53,6 +55,16 @@ implementation
  procedure DrawGlobalShadow(color:cardinal);
   begin
    draw.FillRect(0,0,game.renderWidth,game.renderHeight,color);
+  end;
+
+ procedure BackgroundRenderBegin;
+  begin
+   if transpBgnd then gfx.target.BlendMode(blMove);
+  end;
+
+ procedure BackgroundRenderEnd;
+  begin
+   if transpBgnd then gfx.target.BlendMode(blAlpha);
   end;
 
  procedure DrawUITree(item:TUIElement;manualDraw:boolean;recursive:boolean);
@@ -161,7 +173,7 @@ implementation
 
  procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string='');
   begin
-   ASSERT(style in [1..high(styleDrawers)]);
+   ASSERT(style in [0..high(styleDrawers)]);
    styleDrawers[style]:=drawer;
    if name<>'' then LogMessage(Format('UI style registered: %d - %s',[style,name]));
   end;
@@ -182,6 +194,4 @@ implementation
    end;
   end;
 
-initialization
- StyleDrawers[0]:=DefaultDrawer;
 end.

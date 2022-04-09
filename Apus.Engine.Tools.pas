@@ -10,7 +10,7 @@ unit Apus.Engine.Tools;
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 interface
  uses Apus.Engine.API, Apus.Images,
-    Apus.Engine.UIClasses, Apus.Regions, Apus.MyServis,
+    Apus.Engine.UIWidgets, Apus.Regions, Apus.MyServis,
     Apus.UnicodeFont, Apus.CrossPlatform, Apus.Engine.Game;
 
 var

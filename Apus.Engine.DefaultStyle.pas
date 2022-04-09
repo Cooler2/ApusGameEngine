@@ -6,14 +6,14 @@
 
 unit Apus.Engine.DefaultStyle;
 interface
-uses Apus.Engine.UIClasses;
+uses Apus.Engine.UI;
 
  procedure DefaultDrawer(control:TUIElement);
 
 implementation
  uses Apus.CrossPlatform, Apus.Images, SysUtils, Types, Apus.MyServis,
     Apus.Colors, Apus.Structs, Apus.EventMan, Apus.Geom2D,
-    Apus.Engine.API, Apus.Engine.UIRender;
+    Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender;
 
  var
   imgHash:TSimpleHashS;  // hash of loaded images: filename -> UIntPtr(TTexture)
@@ -221,8 +221,8 @@ implementation
        end
          else draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,$80FFFFFF,$50000000);
       // Нарисовать фокус (также если кнопка дефолтная и никакая другая не имеет фокуса)
-      if (focusedControl=control) or
-         (default and ((focusedControl=nil) or not (focusedControl is TUIButton))) then
+      if (FocusedElement=control) or
+         (default and ((FocusedElement=nil) or not (FocusedElement is TUIButton))) then
        draw.Rect(x1-1,y1-1,x2+1,y2+1,$80FFFF80);
       // Вывод надписи (если есть)
       if caption<>'' then begin
@@ -266,7 +266,7 @@ implementation
       end;
       gfx.clip.Rect(Rect(x1+19,y1,x2,y2));
       v:=round(y1+(y2-y1)*0.65);
-      if FocusedControl=control then
+      if FocusedElement=control then
        draw.Rect(x1+19,y1,x1+txt.Width(font,caption),y2,$40+color and $FFFFFF);
       if enabled then
        txt.WriteW(font,x1+20,v,color,caption)
@@ -330,14 +330,14 @@ implementation
     end;
   end;
 
- procedure DrawUIWindow(control:TUIWindow;x1,y1,x2,y2:integer);
+ procedure DrawUIWindow(element:TUIWindow;x1,y1,x2,y2:integer);
   var
    c:cardinal;
    tx,ty:integer;
   begin
-    with control do begin
+    with element do begin
     draw.FillRect(x1,y1,x2,y2,color);
-    if control=activeWnd then c:=$FF8080E0 // текущее окно
+    if element.IsActiveWindow then c:=$FF8080E0 // текущее окно
      else c:=$FFB0B0B0;
     c:=ColorMix(color,c,128);
     if resizeable then begin
@@ -449,7 +449,7 @@ implementation
     gfx.clip.Rect(Rect(x1+2,y1,x2-2,y2));
     my:=round(y1*0.47+y2*0.53+txt.Height(font)*0.4);
     // Default text?
-    if (realtext='') and (defaultText<>'') and (FocusedControl<>control) then begin
+    if (realtext='') and (defaultText<>'') and (FocusedElement<>control) then begin
      txt.WriteW(font,x1+2+offset,mY,ColorMix(color,$00808080,160),defaultText,taLeft,toDontTranslate);
      gfx.clip.Restore;
      exit;
@@ -468,7 +468,7 @@ implementation
      txt.WriteW(font,j+offset,mY,ColorMix(color,$00808080,160),
        copy(completion,length(wst)+1,length(completion)),taLeft,toDontTranslate);
     end;
-    if (selcount>0) and (focusedControl=control) then begin // часть текста выделена
+    if (selcount>0) and (FocusedElement=control) then begin // часть текста выделена
      j:=x1+2-scrollPixels+offset;
      txt.WriteW(font,j,mY,color,copy(wst,1,selstart-1),taLeft,toDontTranslate); // до выделения
      j:=j+txt.WidthW(font,copy(wst,1,selstart))-
@@ -486,7 +486,7 @@ implementation
     end else
      txt.WriteW(font,x1+2-scrollPixels+offset,mY,color,wst,taLeft,toDontTranslate);
     gfx.clip.Restore;
-    if (focusedControl=control) and ((mytickcount-cursortimer) mod 360<200) then begin // курсор
+    if (FocusedElement=control) and ((mytickcount-cursortimer) mod 360<200) then begin // курсор
      curX:=x1+2+i-scrollPixels+offset; // first pixel of the character
      draw.Line(curX,y1+2,curX,y2-2,colorAdd(color,$404040));
 //     draw.Line(x1+4+i-scrollX,y1+2,x1+4+i-scrollX,y2-2,colorAdd(color,$404040));
@@ -502,7 +502,7 @@ implementation
   begin
     with control as TUIListBox do begin
      if bgColor<>0 then draw.FillRect(x1,y1,x2,y2,bgColor);
-     if scrollerV<>nil then scr:=scrollerV.value
+     if scrollerV<>nil then scr:=scrollerV.GetValue
       else scr:=0;
      gfx.clip.Rect(Rect(x1,y1,x2+1,y2+1));
      for i:=0 to length(lines)-1 do begin
@@ -536,7 +536,7 @@ implementation
     draw.FillGradrect(x1+1,y1+1,x2-1,y2-1,$FFE0E0DC,$FFFFFFFF,true);
 
    draw.RRect(x1,y1,x2,y2,$80000000,1);
-   if FocusedControl=combo then
+   if FocusedElement=combo then
     draw.RRect(x1,y1,x2,y2,$90A00000);
    with combo do begin
     if (length(items)>0) and (curItem>=0) and (curItem<=high(items)) or
@@ -624,4 +624,6 @@ implementation
     DrawUIControl(control,x1,y1,x2,y2);
   end;
 
+initialization
+ RegisterUIStyle(0,DefaultDrawer,'Default');
 end.

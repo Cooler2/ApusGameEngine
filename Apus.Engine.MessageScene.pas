@@ -14,7 +14,8 @@ interface
 
 implementation
  uses Apus.CrossPlatform, SysUtils, Apus.EventMan, Apus.Structs,
-   Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UIScene, Apus.Engine.UIClasses, Apus.Engine.SceneEffects;
+   Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UITypes, Apus.Engine.UI, Apus.Engine.UIScene,
+   Apus.Engine.SceneEffects;
 
  const
   MODE_MSG = 1;

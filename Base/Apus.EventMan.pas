@@ -197,14 +197,14 @@ function EventOfClass(event,eventClass:TEventStr;out subEvent:TEventStr):boolean
    caller:pointer;
   begin
    caller:=GetCaller;
+   repeat
+    i:=pos(',',event);
+    if i=0 then break;
+    SetEventHandler(copy(event,1,i-1),handler,mode);
+    delete(event,1,i);
+   until false;
    // Если обработчик уже есть - повторно установлен не будет
    try
-    repeat
-     i:=pos(',',event);
-     if i=0 then break;
-     SetEventHandler(copy(event,1,i-1),handler,mode);
-     delete(event,1,i);
-    until false;
     EnterCriticalSection(CritSect);
     if event[length(event)]='\' then SetLength(event,length(event)-1);
 

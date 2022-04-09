@@ -216,7 +216,7 @@ type
 implementation
  uses SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools
      {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},
-     Apus.EventMan, Apus.Engine.UIScene, Apus.Engine.UIClasses, Apus.Engine.Console,
+     Apus.EventMan, Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene, Apus.Engine.Console,
      Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw, Apus.Engine.Controller;
 
 type
@@ -515,7 +515,7 @@ var
  i:integer;
 begin
   for i:=low(scenes) to high(scenes) do
-   if scenes[i].status=ssActive then
+   if scenes[i].IsActive then
     scenes[i].onMouseWheel(value);
 end;
 
@@ -1112,7 +1112,7 @@ var
   i:integer;
 begin
  for i:=low(scenes) to High(scenes) do
-  if scenes[i].status=ssActive then
+  if scenes[i].IsActive then
    scenes[i].onMouseMove(mouseX,mouseY);
 end;
 
@@ -1121,7 +1121,7 @@ var
   i:integer;
 begin
  for i:=low(scenes) to high(scenes) do
-  if scenes[i].status=ssActive then
+  if scenes[i].IsActive then
    scenes[i].onMouseBtn(c,pressed);
 end;
 
@@ -1408,7 +1408,7 @@ begin
  LastOnFrameTime:=MyTickCount;
  // Обработка всех активных сцен
  for i:=low(scenes) to high(scenes) do
-  if scenes[i].status<>ssFrozen then begin
+  if scenes[i].status<>TSceneStatus.ssFrozen then begin
    // Обработка сцены
    if scenes[i].frequency>0 then begin // Сцена обрабатывается с заданной частотой
     time:=1000 div scenes[i].frequency;
@@ -1616,11 +1616,11 @@ var
    for i:=0 to high(sList) do begin
     inc(y,round(16*screenScale));
     c:=$FFA0A0A0;
-    if sList[i].status=ssActive then begin
+    if sList[i].IsActive then begin
      c:=$FFFFFFC0;
      txt.WriteW(smallFont,50*screenScale,y,c,Str16(IntToStr(sList[i].zOrder)),taRight);
     end else
-    if sList[i].status=ssBackground then
+    if sList[i].status=TSceneStatus.ssBackground then
      c:=$FFC0D0E0;
     txt.WriteW(smallFont,60*screenScale,y,c,Str16(sList[i].name));
     txt.WriteW(smallFont,200*screenScale,y,c,Str16(sList[i].ClassName));
@@ -1707,7 +1707,7 @@ begin
    // Очистим экран если нет ни одной background-сцены или они не покрывают всю область вывода
    fl:=true;
    for i:=low(scenes) to high(scenes) do
-    if scenes[i].fullscreen and (scenes[i].status=ssActive)
+    if scenes[i].fullscreen and (scenes[i].IsActive)
      then fl:=false;
    FLog('Clear '+booltostr(fl));
    if fl then begin
@@ -1743,7 +1743,7 @@ begin
   n:=0;
   try
    for i:=low(scenes) to high(scenes) do
-    if scenes[i].status=ssActive then begin
+    if scenes[i].IsActive then begin
      // Сортировка вставкой. Найдем положение для вставки и вставим туда
      if n=0 then begin
       sc[1]:=scenes[i]; inc(n); continue;
@@ -1860,7 +1860,7 @@ begin
  try
  result:=nil;
  for i:=low(scenes) to high(scenes) do
-  if scenes[i].status=ssActive then begin
+  if scenes[i].IsActive then begin
    if fullscreenOnly and not scenes[i].fullscreen then continue;
    if result=nil then
     result:=scenes[i]
@@ -2028,13 +2028,13 @@ begin
   result:=nil;
   maxZ:=-10000000;
   for i:=low(scenes) to high(scenes) do
-   if (scenes[i].status=ssActive) and
+   if (scenes[i].IsActive) and
       not scenes[i].ignoreKeyboardEvents then begin
     // UI Scene?
     if scenes[i] is TUIScene then begin
      sc:=TUIScene(scenes[i]);
      if not sc.UI.enabled then exit;
-     if (modalControl<>nil) and not modalControl.HasParent(sc.UI) then exit;
+     if (modalElement<>nil) and not modalElement.HasParent(sc.UI) then exit;
     end;
     // Topmost?
     if scenes[i].zorder>maxZ then begin

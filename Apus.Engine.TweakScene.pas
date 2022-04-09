@@ -12,7 +12,7 @@ interface
 
 implementation
  uses Apus.CrossPlatform, SysUtils, Apus.MyServis, Apus.Engine.API, Apus.Colors,
-   Apus.Publics, Math, Apus.Engine.UIClasses, Apus.Engine.UIScene, Apus.EventMan,
+   Apus.Publics, Math, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene, Apus.EventMan,
    Apus.Engine.UIRender;
 
  type
@@ -188,7 +188,7 @@ begin
  if ui.position.y<5 then ui.position.y:=5;
 end;
 
-procedure TTweakerScene.SetStatus(st: TSceneStatus);
+procedure TTweakerScene.SetStatus(st:TSceneStatus);
 var
  sa:StringArr;
  lastIdx:integer;
@@ -281,7 +281,7 @@ var
  fl,focused:boolean;
  c:cardinal;
 begin
- focused:=self=focusedControl;
+ focused:=self=focusedElement;
  //if self=focusedControl then draw.Rect(x1,y1,x2,y2,$80C0A0A0);
  with gfx do begin
  if focused then c:=$2000 else c:=0;

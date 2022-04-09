@@ -9,7 +9,7 @@
 unit Apus.Engine.BitmapStyle;
 interface
  uses Apus.Engine.API,
-      Apus.Engine.UIClasses;
+      Apus.Engine.UI;
 
  type
   TButtonState=(bsNormal,bsOver,bsDown,bsDisabled);
