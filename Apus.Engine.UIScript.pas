@@ -44,6 +44,11 @@ type
   class function GetValue(variable:pointer):string; override;
  end;
 
+ TVarTypeElementName=class(TVarType)
+  class procedure SetValue(variable:pointer;v:string); override;
+  class function GetValue(variable:pointer):string; override;
+ end;
+
  TVarTypeTranspMode=class(TVarTypeEnum)
   class procedure SetValue(variable:pointer;v:string); override;
   class function GetValue(variable:pointer):string; override;
@@ -346,7 +351,7 @@ begin
        varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).max;
       end;
   'n':if fieldname='name' then begin
-       result:=@obj.name; varClass:=TVarTypeString8;
+       result:=@obj; varClass:=TVarTypeElementName;
       end else
       if (fieldname='noborder') and (obj is TUIEditBox) then begin
        result:=@TUIEditBox(obj).noborder; varClass:=TVarTypeBool;
@@ -398,7 +403,8 @@ begin
       end else
       if fieldname='scaley' then begin
        result:=@obj.scale.y; varClass:=TVarTypeSingle;
-      end else      if fieldname='signals' then begin
+      end else
+      if fieldname='signals' then begin
        result:=@obj.sendsignals; varClass:=TVarTypeSendSignals;
       end else
       if (fieldname='src') and (obj is TUIImage) then begin
@@ -557,6 +563,18 @@ class procedure TVarTypeAlignment.SetValue(variable:pointer; v:string);
 function GetVarTypeFor(typeName:string):TVarClass;
  begin
   if SameText(typeName,'TTextAlignment') then result:=TVarTypeAlignment;
+ end;
+
+{ TVarTypeElementName }
+
+class function TVarTypeElementName.GetValue(variable:pointer):string;
+ begin
+  result:=TUIElement(variable).name;
+ end;
+
+class procedure TVarTypeElementName.SetValue(variable:pointer;v:string);
+ begin
+  TUIElement(variable).name:=v;
  end;
 
 initialization

@@ -1222,7 +1222,7 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    canHaveFocus:=true;
    sendSignals:=ssMajor;
 
-   scrollBar:=TUIScrollBar.Create(19,height-2,listName+'-scroll',self);
+   scrollBar:=TUIScrollBar.Create(19,height-2,listName+'_scroll',self);
    scrollBar.SetPos(width,1,pivotTopLeft).SetAnchors(1,0,1,1);
    scrollBar.horizontal:=false;
    scrollerV:=scrollBar.GetScroller;

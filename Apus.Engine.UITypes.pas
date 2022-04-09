@@ -261,7 +261,6 @@ type
   fStyleInfo:String8; // дополнительные сведения для стиля
   fFont:TFontHandle; // not used directly, can be inherited by children or used by custom draw routines
   fInitialSize:TVector2s;
-    fName: String8;
   procedure AddToRootElements;
   procedure RemoveFromRootElements;
   function GetClientWidth:single;
@@ -271,7 +270,6 @@ type
   procedure SetStyleInfo(sInfo:String8);
   class function ClassHash:pointer; override;
  public
-  property name:String8 read fName write SetName;
   property width:single read size.x write size.x;
   property height:single read size.y write size.y;
   property clientWidth:single read GetClientWidth;
