@@ -72,10 +72,10 @@ implementation
    if event='KBD\KEYDOWN' then begin
     // Ctrl+[~] - toggle scene
     if (GetKeyEventVirtualCode(tag)=$C0) and (game.shiftState and sscCtrl>0) then begin
-     if tweakerScene.status<>ssActive then
-      tweakerScene.SetStatus(ssActive)
+     if not tweakerScene.IsActive then
+      tweakerScene.SetStatus(TSceneStatus.ssActive)
      else
-      tweakerScene.SetStatus(ssFrozen);
+      tweakerScene.SetStatus(TSceneStatus.ssFrozen);
     end;
    end;
    if event='UI\TWEAKER\LIST\SELECTED' then
@@ -193,7 +193,7 @@ var
  sa:StringArr;
  lastIdx:integer;
 begin
- if st=ssActive then begin
+ if st=TSceneStatus.ssActive then begin
   // Update UI Layout
   ui.Resize(round(200+game.renderWidth*0.1),-1);
   ui.position.x:=game.mouseX-ui.width/2;

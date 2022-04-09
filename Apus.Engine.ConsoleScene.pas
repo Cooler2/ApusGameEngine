@@ -42,11 +42,11 @@ begin
  if (tag and 255=$C0) and (game.shiftState and sscWin>0) then begin
   if consoleScene.activated then begin
    if consoleScene.UI.hasFocus then
-    consoleScene.SetStatus(ssFrozen)
+    consoleScene.SetStatus(TSceneStatus.ssFrozen)
    else
     consoleScene.UI.SetFocus;
    end else begin
-    consoleScene.SetStatus(ssActive);
+    consoleScene.SetStatus(TSceneStatus.ssActive);
     game.SuppressKbdEvent; // avoid [`] in the edit box
    end;
  end;
@@ -192,7 +192,7 @@ var
 begin
  inherited Create('CONSOLE',false); // pure foreground scene
  //ignoreKeyboardEvents:=true;
- status:=ssFrozen;
+ status:=TSceneStatus.ssFrozen;
  frequency:=12;
 
  font:=txt.GetFont('Default',7);

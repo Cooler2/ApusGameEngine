@@ -355,7 +355,7 @@ begin
 { if (mode=sweShowModal) or (mode=sweShow) then
   scene.UI.visible:=true;}
 
- if (mode<>sweHide) and not target.IsActive) then begin
+ if (mode<>sweHide) and not target.IsActive then begin
   savedSceneStatus:=target.status;
   target.SetStatus(TSceneStatus.ssActive);
  end;
@@ -628,7 +628,7 @@ var
  needStatus:TSceneStatus;
 begin
  needStatus:=savedSceneStatus;
- if needStatus=ssActive then needStatus:=ssFrozen;
+ if needStatus=TSceneStatus.ssActive then needStatus:=TSceneStatus.ssFrozen;
  if (mode=sweHide) and (target.status<>needStatus) then target.SetStatus(needStatus);
  done:=true;
 end;

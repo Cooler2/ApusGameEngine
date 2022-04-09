@@ -18,7 +18,7 @@ uses
   Apus.FastGFX,
   Apus.FreeTypeFont,
   Apus.Engine.API in '..\..\Apus.Engine.API.pas',
-  Apus.Engine.UIClasses in '..\..\Apus.Engine.UIClasses.pas',
+  Apus.Engine.UITypes in '..\..\Apus.Engine.UITypes.pas',
   Apus.Engine.UIScene in '..\..\Apus.Engine.UIScene.pas',
   Apus.Engine.UIRender in '..\..\Apus.Engine.UIRender.pas',
   Apus.Engine.Tools in '..\..\Apus.Engine.Tools.pas',
@@ -66,7 +66,12 @@ uses
   Apus.Engine.SceneEffects in '..\..\Apus.Engine.SceneEffects.pas',
   Apus.Engine.Controller in '..\..\Apus.Engine.Controller.pas',
   Apus.Engine.Resources in '..\..\Apus.Engine.Resources.pas',
-  Apus.Engine.NinePatch in '..\..\Apus.Engine.NinePatch.pas';
+  Apus.Engine.NinePatch in '..\..\Apus.Engine.NinePatch.pas',
+  Apus.Engine.DefaultStyle in '..\..\Apus.Engine.DefaultStyle.pas',
+  Apus.Engine.UIWidgets in '..\..\Apus.Engine.UIWidgets.pas',
+  Apus.Engine.UI in '..\..\Apus.Engine.UI.pas',
+  Apus.Engine.Scene in '..\..\Apus.Engine.Scene.pas',
+  Apus.Engine.Types in '..\..\Apus.Engine.Types.pas';
 
 const
  wnd:boolean=true;

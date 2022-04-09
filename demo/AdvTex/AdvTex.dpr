@@ -3,7 +3,7 @@
 // - Manual Mip-Map levels
 program AdvTex;
  uses Apus.MyServis, SysUtils, Types, Apus.Colors, Apus.EventMan, Apus.Engine.API,
-   Apus.Engine.GameApp, Apus.Engine.UIScene, Apus.Engine.UIClasses,
+   Apus.Engine.GameApp, Apus.Engine.UIScene, Apus.Engine.UI,
    Apus.FastGFX, Apus.Engine.ResManGL;
 
  type
@@ -30,7 +30,7 @@ procedure CreateScenes;
 constructor TMainScene.Create;
  begin
   inherited Create('MainScene');
-  SetStatus(ssActive);
+  SetStatus(TSceneStatus.ssActive);
  end;
 
 procedure TMainScene.Initialize;

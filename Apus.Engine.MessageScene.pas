@@ -68,7 +68,7 @@ implementation
  // Проверить наличие в очереди сообщения и если оно есть - показать окошко
  procedure CheckQueue;
   begin
-   if scene.status=ssActive then exit;
+   if scene.IsActive then exit;
    if curMsg<>nil then curMsg.Free;
    curMsg:=TQueuedMessage(queue.Get);
    if curMsg=nil then exit;

@@ -1,6 +1,6 @@
 program Scenes;
  uses Apus.MyServis, SysUtils, Types, Apus.EventMan, Apus.Engine.API,
-   Apus.Engine.GameApp, Apus.Engine.UIScene, Apus.Engine.UIClasses,
+   Apus.Engine.GameApp, Apus.Engine.UIScene, Apus.Engine.UI,
    Apus.Engine.SceneEffects, Apus.Engine.UIRender;
 
  type
@@ -60,7 +60,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
    else
    if SameText(e,'ShowWindowWithBlur') then begin
     scene:=TUIScene(game.GetScene('SceneW'));
-    if scene.status=ssActive then exit;
+    if scene.IsActive then exit;
     scene.shadowColor:=0;
     blurEffect:=TBlurEffect.Create(game.TopmostVisibleScene, 0.3, 400, $202020, $404040);
     TShowWindowEffect.Create(scene,400,sweShow,4);
@@ -140,7 +140,7 @@ constructor TSceneW.Create;
   zOrder:=100; // Important: it should be above other scenes
   c:=TUIElement.Create(300,140,ui,'SceneW\Frame');
   c.SetPos(ui.width/2,ui.height*0.6, pivotCenter);
-  c.shape:=shapeFull; // Important! Opaque elements define the scene area used for effects, it should not be void
+  c.shape:=TElementShape.shapeFull; // Important! Opaque elements define the scene area used for effects, it should not be void
   TUIButton.Create(100,40,'SceneW\Btn1','Close',mainFont,c).
    SetPos(c.width/2, c.height*0.5, pivotCenter);
   Link('UI\onButtonClick\SceneW\Btn1','Logic\CloseWindow');

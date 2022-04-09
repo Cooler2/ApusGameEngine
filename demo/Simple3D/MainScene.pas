@@ -20,7 +20,7 @@ interface
 
 implementation
  uses Apus.MyServis,SysUtils,Apus.EventMan,Apus.Geom3D,Apus.AnimatedValues,
-   Apus.Engine.Tools,Apus.Engine.UIClasses,Apus.Engine.UIScene,Apus.Publics;
+   Apus.Engine.Tools,Apus.Engine.UI,Apus.Engine.UIScene,Apus.Publics;
 
  type
   // This will be our single scene
@@ -63,7 +63,7 @@ procedure TMainApp.CreateScenes;
   inherited;
   // initialize our main scene
   sceneMain:=TMainScene.Create;
-  sceneMain.SetStatus(ssActive);
+  sceneMain.SetStatus(TSceneStatus.ssActive);
  end;
 
 constructor TMainScene.Create;

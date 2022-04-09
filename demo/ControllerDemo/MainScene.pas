@@ -19,7 +19,7 @@ interface
 
 implementation
  uses Apus.MyServis,Apus.EventMan,Apus.Colors,SysUtils,
-   Apus.Engine.SceneEffects,Apus.Engine.UIClasses,Apus.Engine.UIScene,Apus.Engine.Controller;
+   Apus.Engine.SceneEffects,Apus.Engine.UI,Apus.Engine.UIScene,Apus.Engine.Controller;
 
  type
   // This will be our single scene
@@ -71,7 +71,7 @@ procedure TMainApp.CreateScenes;
   TUIButton.Create(200,32,'ToggleInput','Toggle UI Test',txt.GetFont('Default',9),
    sceneMain.UI).SetPos(game.renderWidth/2,game.renderHeight-25,pivotCenter);
   UIButton('ToggleInput').onClick:=OnToggleBtn;
-  sceneMain.SetStatus(ssActive);
+  sceneMain.SetStatus(TSceneStatus.ssActive);
  end;
 
 { TMainScene }

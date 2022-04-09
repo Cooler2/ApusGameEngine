@@ -673,7 +673,7 @@ begin
  inherited Create(true);
  v.Init;
  zOrder:=-1; // place it below others
- SetStatus(ssActive);
+ SetStatus(TSceneStatus.ssActive);
 end;
 
 procedure TLoadingScene.Render;
@@ -705,7 +705,7 @@ begin
  // Turn scene off if it is not visible anymore
  scene:=game.TopmostVisibleScene(true);
  if (scene<>self) and (scene.effect=nil) then
-  SetStatus(ssFrozen);
+  SetStatus(TSceneStatus.ssFrozen);
 end;
 
 end.

@@ -66,7 +66,7 @@ procedure TMainApp.CreateScenes;
   // initialize our main scene
   sceneMain:=TMainScene.Create;
   // switch to the main scene using fade transition effect
-  sceneMain.SetStatus(ssActive);
+  sceneMain.SetStatus(TSceneStatus.ssActive);
  end;
 
 { TMainScene }
