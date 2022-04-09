@@ -1349,7 +1349,7 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
   var
    e:TUIElement;
   begin
-   if event.StartsText('MOUSE\BTNDOWN',event) then begin
+   if HasPrefix(event,'MOUSE\BTNDOWN',true) then begin
     // if clicked on an element which is not child of the active combobox - hide it
     e:=underMouse;
     if (comboPop<>nil) and (e<>nil) and
