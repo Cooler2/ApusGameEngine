@@ -127,6 +127,11 @@ procedure TestStringTypes;
   ASSERT(Str16(s8)=ws);
   ASSERT(Str16(s16)=ws);
   ASSERT(Str16(ws)=ws);
+
+  ASSERT(HasPrefix('HellO WorlD','heLLo ',true));
+  ASSERT(not HasPrefix('HellO WorlD','Hallo',true));
+  ASSERT(HasPrefix('HellO WorlD','HellO',false));
+  ASSERT(not HasPrefix('HellO WorlD','heLLo ',false));
  end;
 
 procedure TestFastHash;

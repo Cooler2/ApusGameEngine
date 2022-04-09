@@ -4530,9 +4530,9 @@ function BinToStr;
    if length(st)<length(prefix) then exit;
    for i:=1 to length(prefix) do
     if ignoreCase then begin
-     if st[i]<>prefix[i] then exit;
-    end else
      if not SameChar(st[i],prefix[i]) then exit;
+    end else
+     if st[i]<>prefix[i] then exit;
    result:=true;
   end;
 
