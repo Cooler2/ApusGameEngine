@@ -19,7 +19,7 @@ interface
 
 implementation
  uses SysUtils,Apus.MyServis,Apus.EventMan,Apus.Colors,
-   Apus.Engine.SceneEffects,Apus.Engine.UIClasses,Apus.Engine.UIScene;
+   Apus.Engine.SceneEffects,Apus.Engine.UI,Apus.Engine.UIScene;
 
  type
   // This will be our single scene
@@ -71,7 +71,7 @@ procedure TMainApp.CreateScenes;
   sceneMain:=TMainScene.Create;
   sceneMain.CreateUI;
   // switch to the main scene using fade transition effect
-  sceneMain.SetStatus(ssActive);
+  sceneMain.SetStatus(TSceneStatus.ssActive);
  end;
 
 { TMainScene }

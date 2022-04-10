@@ -30,6 +30,11 @@ interface
   TUIComboBox  = Apus.Engine.UIWidgets.TUIComboBox;
   TUIListBox   = Apus.Engine.UIWidgets.TUIListBox;
 
+  // Layouters
+  TLayouter  = Apus.Engine.UITypes.TLayouter;
+  TRowLayout = Apus.Engine.UITypes.TRowLayout;
+
+  // Other types
   TElementShape = Apus.Engine.UITypes.TElementShape;
 
 
