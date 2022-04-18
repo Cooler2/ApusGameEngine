@@ -222,12 +222,12 @@ interface
  function IsDebuggerPresent:boolean; inline;
 
  {$IFDEF MSWINDOWS}
-{ function LoadCursorFromFile(fname:PChar):HCursor;
+ function LoadCursorFromFile(fname:PChar):HCursor;
  function LoadCursor(instance:cardinal;name:PChar):HCursor;
  function GetCursor:HCursor;
  procedure SetCursor(cursor:HCursor);
  function GetWindowRect(window:HWND;out rect:TRect):boolean;
- function MoveWindow(window:HWND;x,y,w,h:integer;repaint:boolean):boolean; }
+ function MoveWindow(window:HWND;x,y,w,h:integer;repaint:boolean):boolean;
  function ExecAndCapture(const ACmdLine: AnsiString; var AOutput: AnsiString; timeout:integer=-1): Integer;
  {$ENDIF}
  {$IFDEF UNIX}
@@ -573,7 +573,7 @@ end;
    SetThreadPriority(GetCurrentThread,priority);
   end;
 
-{ function LoadCursorFromFile(fname:PChar):HCursor;
+ function LoadCursorFromFile(fname:PChar):HCursor;
   begin
    result:=windows.LoadCursorFromFile(fname);
   end;
@@ -588,7 +588,7 @@ end;
  procedure SetCursor(cursor:HCursor);
   begin
    windows.SetCursor(cursor);
-  end; }
+  end;
  function GetTickCount:cardinal;
   begin
    result:=windows.getTickCount;
@@ -601,14 +601,14 @@ end;
   begin
    windows.QueryPerformanceFrequency(value);
   end;
-{ function GetWindowRect(window:HWND;out rect:TRect):boolean;
+ function GetWindowRect(window:HWND;out rect:TRect):boolean;
   begin
    result:=windows.GetWindowRect(window,rect);
   end;
  function MoveWindow(window:HWND;x,y,w,h:integer;repaint:boolean):boolean;
   begin
    result:=windows.MoveWindow(window,x,y,w,h,repaint);
-  end;}
+  end;
 {$ENDIF}
 
 {$IFDEF UNIX}
