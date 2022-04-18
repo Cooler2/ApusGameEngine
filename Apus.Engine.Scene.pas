@@ -1,58 +1,57 @@
-// Base Scene and SceneEffect classes
+п»ї// Base Scene and SceneEffect classes
 //
 // Copyright (C) 2022 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.Scene;
 interface
-uses Types, Apus.Structs;
+uses Types, Apus.Classes, Apus.Structs;
 
 type
  TGameScene=class;
 
- // Базовый эффект для background-сцены
+ // Р‘Р°Р·РѕРІС‹Р№ СЌС„С„РµРєС‚ РґР»СЏ background-СЃС†РµРЅС‹
  TSceneEffect=class
-  timer:integer; // время (в тысячных секунды), прошедшее с момента начала эффекта
-  duration:integer;  // время, за которое эффект должен выполнится
-  done:boolean;  // Флаг, сигнализирующий о том, что эффект завершен
+  timer:integer; // РІСЂРµРјСЏ (РІ С‚С‹СЃСЏС‡РЅС‹С… СЃРµРєСѓРЅРґС‹), РїСЂРѕС€РµРґС€РµРµ СЃ РјРѕРјРµРЅС‚Р° РЅР°С‡Р°Р»Р° СЌС„С„РµРєС‚Р°
+  duration:integer;  // РІСЂРµРјСЏ, Р·Р° РєРѕС‚РѕСЂРѕРµ СЌС„С„РµРєС‚ РґРѕР»Р¶РµРЅ РІС‹РїРѕР»РЅРёС‚СЃСЏ
+  done:boolean;  // Р¤Р»Р°Рі, СЃРёРіРЅР°Р»РёР·РёСЂСѓСЋС‰РёР№ Рѕ С‚РѕРј, С‡С‚Рѕ СЌС„С„РµРєС‚ Р·Р°РІРµСЂС€РµРЅ
   target:TGameScene;
   name:string; // description for debug reasons
-  constructor Create(scene:TGameScene;TotalTime:integer); // создать эффект на заданное время (в мс.)
-  procedure DrawScene; virtual; abstract; // Процедура должна полностью выполнить отрисовку сцены с эффектом (в текущий RT)
+  constructor Create(scene:TGameScene;TotalTime:integer); // СЃРѕР·РґР°С‚СЊ СЌС„С„РµРєС‚ РЅР° Р·Р°РґР°РЅРЅРѕРµ РІСЂРµРјСЏ (РІ РјСЃ.)
+  procedure DrawScene; virtual; abstract; // РџСЂРѕС†РµРґСѓСЂР° РґРѕР»Р¶РЅР° РїРѕР»РЅРѕСЃС‚СЊСЋ РІС‹РїРѕР»РЅРёС‚СЊ РѕС‚СЂРёСЃРѕРІРєСѓ СЃС†РµРЅС‹ СЃ СЌС„С„РµРєС‚РѕРј (РІ С‚РµРєСѓС‰РёР№ RT)
   destructor Destroy; override;
  end;
 
  // -------------------------------------------------------------------
- // TGameScene - произвольная сцена
+ // TGameScene - РїСЂРѕРёР·РІРѕР»СЊРЅР°СЏ СЃС†РµРЅР°
  // -------------------------------------------------------------------
- TSceneStatus=(ssFrozen,     // сцена полностью "заморожена"
-               ssBackground, // сцена обрабатывается, но не рисуется
-                             // (живет где-то в фоновом режиме и не влияет на экран)
-               ssActive);    // сцена активна, т.е. обрабатывается и рисуется
+ TSceneStatus=(ssFrozen,     // СЃС†РµРЅР° РїРѕР»РЅРѕСЃС‚СЊСЋ "Р·Р°РјРѕСЂРѕР¶РµРЅР°"
+               ssBackground, // СЃС†РµРЅР° РѕР±СЂР°Р±Р°С‚С‹РІР°РµС‚СЃСЏ, РЅРѕ РЅРµ СЂРёСЃСѓРµС‚СЃСЏ
+                             // (Р¶РёРІРµС‚ РіРґРµ-С‚Рѕ РІ С„РѕРЅРѕРІРѕРј СЂРµР¶РёРјРµ Рё РЅРµ РІР»РёСЏРµС‚ РЅР° СЌРєСЂР°РЅ)
+               ssActive);    // СЃС†РµРЅР° Р°РєС‚РёРІРЅР°, С‚.Рµ. РѕР±СЂР°Р±Р°С‚С‹РІР°РµС‚СЃСЏ Рё СЂРёСЃСѓРµС‚СЃСЏ
 
- TGameScene=class
+ TGameScene=class(TNamedObject)
   status:TSceneStatus;
-  name:string;
   fullscreen:boolean; // true - opaque scene, no any underlying scenes can be seen, false - scene layer is drawn above underlying image
-  frequency:integer; // Сколько раз в секунду нужно вызывать обработчик сцены (0 - каждый кадр)
-  effect:TSceneEffect; // Эффект, применяемый при выводе сцены
-  zOrder:integer; // Определяет порядок отрисовки сцен
-  activated:boolean; // true если сцена уже начала показываться или показалась, но еще не имеет эффекта закрытия
-  shadowColor:cardinal; // если не 0, то рисуется перед отрисовкой сцены
-  ignoreKeyboardEvents:boolean; // если true - такая сцена не будет получать сигналы о клавиатурном вводе, даже будучи верхней
+  frequency:integer; // РЎРєРѕР»СЊРєРѕ СЂР°Р· РІ СЃРµРєСѓРЅРґСѓ РЅСѓР¶РЅРѕ РІС‹Р·С‹РІР°С‚СЊ РѕР±СЂР°Р±РѕС‚С‡РёРє СЃС†РµРЅС‹ (0 - РєР°Р¶РґС‹Р№ РєР°РґСЂ)
+  effect:TSceneEffect; // Р­С„С„РµРєС‚, РїСЂРёРјРµРЅСЏРµРјС‹Р№ РїСЂРё РІС‹РІРѕРґРµ СЃС†РµРЅС‹
+  zOrder:integer; // РћРїСЂРµРґРµР»СЏРµС‚ РїРѕСЂСЏРґРѕРє РѕС‚СЂРёСЃРѕРІРєРё СЃС†РµРЅ
+  activated:boolean; // true РµСЃР»Рё СЃС†РµРЅР° СѓР¶Рµ РЅР°С‡Р°Р»Р° РїРѕРєР°Р·С‹РІР°С‚СЊСЃСЏ РёР»Рё РїРѕРєР°Р·Р°Р»Р°СЃСЊ, РЅРѕ РµС‰Рµ РЅРµ РёРјРµРµС‚ СЌС„С„РµРєС‚Р° Р·Р°РєСЂС‹С‚РёСЏ
+  shadowColor:cardinal; // РµСЃР»Рё РЅРµ 0, С‚Рѕ СЂРёСЃСѓРµС‚СЃСЏ РїРµСЂРµРґ РѕС‚СЂРёСЃРѕРІРєРѕР№ СЃС†РµРЅС‹
+  ignoreKeyboardEvents:boolean; // РµСЃР»Рё true - С‚Р°РєР°СЏ СЃС†РµРЅР° РЅРµ Р±СѓРґРµС‚ РїРѕР»СѓС‡Р°С‚СЊ СЃРёРіРЅР°Р»С‹ Рѕ РєР»Р°РІРёР°С‚СѓСЂРЅРѕРј РІРІРѕРґРµ, РґР°Р¶Рµ Р±СѓРґСѓС‡Рё РІРµСЂС…РЅРµР№
   initialized:boolean;
 
-  // Внутренние величины
-  accumTime:integer; // накопленное время (в мс)
+  // Р’РЅСѓС‚СЂРµРЅРЅРёРµ РІРµР»РёС‡РёРЅС‹
+  accumTime:integer; // РЅР°РєРѕРїР»РµРЅРЅРѕРµ РІСЂРµРјСЏ (РІ РјСЃ)
 
   constructor Create(fullscreen:boolean=true);
   destructor Destroy; override;
 
-  // Вызывается из конструктора, можно переопределить для инициализации без влезания в конструктор
+  // Р’С‹Р·С‹РІР°РµС‚СЃСЏ РёР· РєРѕРЅСЃС‚СЂСѓРєС‚РѕСЂР°, РјРѕР¶РЅРѕ РїРµСЂРµРѕРїСЂРµРґРµР»РёС‚СЊ РґР»СЏ РёРЅРёС†РёР°Р»РёР·Р°С†РёРё Р±РµР· РІР»РµР·Р°РЅРёСЏ РІ РєРѕРЅСЃС‚СЂСѓРєС‚РѕСЂ
   // !!! Call this manually from constructor!
   procedure onCreate; virtual;
 
-  // Для изменения статуса использовать только это!
+  // Р”Р»СЏ РёР·РјРµРЅРµРЅРёСЏ СЃС‚Р°С‚СѓСЃР° РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ С‚РѕР»СЊРєРѕ СЌС‚Рѕ!
   procedure SetStatus(st:TSceneStatus); virtual;
 
   // status=ssActive
@@ -61,38 +60,42 @@ type
   // Called only once from the main thread before first Render() call
   procedure Initialize; virtual;
 
-  // Обработка сцены, вызывается с заданной частотой если только сцена не заморожена
-  // Этот метод может выполнять логику сцены, движение/изменение объектов и т.п.
+  // РћР±СЂР°Р±РѕС‚РєР° СЃС†РµРЅС‹, РІС‹Р·С‹РІР°РµС‚СЃСЏ СЃ Р·Р°РґР°РЅРЅРѕР№ С‡Р°СЃС‚РѕС‚РѕР№ РµСЃР»Рё С‚РѕР»СЊРєРѕ СЃС†РµРЅР° РЅРµ Р·Р°РјРѕСЂРѕР¶РµРЅР°
+  // Р­С‚РѕС‚ РјРµС‚РѕРґ РјРѕР¶РµС‚ РІС‹РїРѕР»РЅСЏС‚СЊ Р»РѕРіРёРєСѓ СЃС†РµРЅС‹, РґРІРёР¶РµРЅРёРµ/РёР·РјРµРЅРµРЅРёРµ РѕР±СЉРµРєС‚РѕРІ Рё С‚.Рї.
   function Process:boolean; virtual;
 
-  // Рисование сцены. Вызывается каждый кадр только если сцена активна и изменилась
-  // На момент вызова установлен RenderTarget и все готово к рисованию
-  // Если сцена соержит свой слой UI, то этот метод должен вызвать
-  // рисовалку UI для его отображения
+  // Р РёСЃРѕРІР°РЅРёРµ СЃС†РµРЅС‹. Р’С‹Р·С‹РІР°РµС‚СЃСЏ РєР°Р¶РґС‹Р№ РєР°РґСЂ С‚РѕР»СЊРєРѕ РµСЃР»Рё СЃС†РµРЅР° Р°РєС‚РёРІРЅР° Рё РёР·РјРµРЅРёР»Р°СЃСЊ
+  // РќР° РјРѕРјРµРЅС‚ РІС‹Р·РѕРІР° СѓСЃС‚Р°РЅРѕРІР»РµРЅ RenderTarget Рё РІСЃРµ РіРѕС‚РѕРІРѕ Рє СЂРёСЃРѕРІР°РЅРёСЋ
+  // Р•СЃР»Рё СЃС†РµРЅР° СЃРѕРµСЂР¶РёС‚ СЃРІРѕР№ СЃР»РѕР№ UI, С‚Рѕ СЌС‚РѕС‚ РјРµС‚РѕРґ РґРѕР»Р¶РµРЅ РІС‹Р·РІР°С‚СЊ
+  // СЂРёСЃРѕРІР°Р»РєСѓ UI РґР»СЏ РµРіРѕ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ
   procedure Render; virtual;
 
-  // Определить есть ли нажатия клавиш в буфере
+  // РћРїСЂРµРґРµР»РёС‚СЊ РµСЃС‚СЊ Р»Рё РЅР°Р¶Р°С‚РёСЏ РєР»Р°РІРёС€ РІ Р±СѓС„РµСЂРµ
   function KeyPressed:boolean; virtual;
   // Read buffered key event: 0xAAAABBCC or 0 if no any keys were pressed
   // AAAA - unicode char, BB - scancode, CC - ansi char
   function ReadKey:cardinal; virtual;
-  // Записать клавишу в буфер
+  // Р—Р°РїРёСЃР°С‚СЊ РєР»Р°РІРёС€Сѓ РІ Р±СѓС„РµСЂ
   procedure WriteKey(key:cardinal); virtual;
-  // Очистить буфер нажатий
+  // РћС‡РёСЃС‚РёС‚СЊ Р±СѓС„РµСЂ РЅР°Р¶Р°С‚РёР№
   procedure ClearKeyBuf; virtual;
 
-  // Смена режима (что именно изменилось - можно узнать косвенно)
+  // РЎРјРµРЅР° СЂРµР¶РёРјР° (С‡С‚Рѕ РёРјРµРЅРЅРѕ РёР·РјРµРЅРёР»РѕСЃСЊ - РјРѕР¶РЅРѕ СѓР·РЅР°С‚СЊ РєРѕСЃРІРµРЅРЅРѕ)
   procedure ModeChanged; virtual;
 
-  // Сообщение о том, что область отрисовки (она может быть частью окна) изменила размер, сцена может отреагировать на это
+  // РЎРѕРѕР±С‰РµРЅРёРµ Рѕ С‚РѕРј, С‡С‚Рѕ РѕР±Р»Р°СЃС‚СЊ РѕС‚СЂРёСЃРѕРІРєРё (РѕРЅР° РјРѕР¶РµС‚ Р±С‹С‚СЊ С‡Р°СЃС‚СЊСЋ РѕРєРЅР°) РёР·РјРµРЅРёР»Р° СЂР°Р·РјРµСЂ, СЃС†РµРЅР° РјРѕР¶РµС‚ РѕС‚СЂРµР°РіРёСЂРѕРІР°С‚СЊ РЅР° СЌС‚Рѕ
   procedure onResize; virtual;
-  // События мыши
+  // РЎРѕР±С‹С‚РёСЏ РјС‹С€Рё
   procedure onMouseMove(x,y:integer); virtual;
   procedure onMouseBtn(btn:byte;pressed:boolean); virtual;
   procedure onMouseWheel(delta:integer); virtual;
 
   // For non-fullscreen scenes return occupied area
   function GetArea:TRect; virtual; abstract;
+
+ protected
+  class function ClassHash:pointer; override;
+
  private
   // Keyboard input
   keyBuffer:TQueue;
@@ -102,7 +105,15 @@ type
 implementation
  uses Apus.MyServis, SysUtils;
 
+ var
+  scenesHash:TObjectHash;
+
  { TGameScene }
+
+ class function TGameScene.ClassHash: pointer;
+  begin
+   result:=@scenesHash;
+  end;
 
  procedure TGameScene.ClearKeyBuf;
   begin
@@ -225,4 +236,6 @@ procedure TGameScene.ModeChanged;
     inherited;
   end;
 
+initialization
+ scenesHash.Init(40);
 end.

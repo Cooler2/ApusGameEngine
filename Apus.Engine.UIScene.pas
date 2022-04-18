@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.UIScene;
 interface
- uses Apus.Crossplatform, Apus.Engine.Scene, Apus.Engine.UITypes;
+ uses Apus.Crossplatform, Apus.Types, Apus.Engine.Scene, Apus.Engine.UITypes;
 
 var
  defaultScale:single=1.0;
@@ -42,6 +42,9 @@ type
   lastRenderTime:int64;
 //  prevModal:TUIControl;
  end;
+
+ // Get scene by name
+ function UIScene(name:String8):TUIScene;
 
  // No need to call manually as it is called when any UIScene object is created
  procedure InitUI;
@@ -84,6 +87,11 @@ var
  startShadowChange,shadowChangeDuration:int64;
 
  lastShiftState:byte;
+
+function UIScene(name:String8):TUIScene;
+ begin
+  result:=TUIScene.FindByName(name) as TUIScene;
+ end;
 
 procedure SetDisplaySize(width,height:integer);
  begin
