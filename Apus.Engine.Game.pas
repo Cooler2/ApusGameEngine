@@ -2285,11 +2285,11 @@ class function TVarTypeGameClass.GetField(variable:pointer;fieldName:string;
 class function TVarTypeGameClass.ListFields:string;
  var
   i:integer;
-  sa:StringArr;
+  sa:StringArray8;
  begin
   with TGame(game) do begin
    for i:=0 to high(scenes) do
-    AddString(sa,'scene-'+scenes[i].name);
+    AddString(sa,String8('scene-'+scenes[i].name));
   end;
   result:=join(sa,',');
  end;
