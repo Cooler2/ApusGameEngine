@@ -90,10 +90,13 @@ implementation
     try
      gfx.target.Mask(true,true); // потенциально может вредить отрисовке следующих элементов
      gfx.target.Clear(0,-1,-1);
-     draw.FillRect(1,2,iwidth-1,iheight-2,$80000000);
-     draw.FillRect(2,1,iwidth-2,iheight-1,$80000000);
      draw.FillGradrect(0,0,iwidth-3,iheight-3,$FFFFFFD0,$FFE0E0A0,true);
      draw.Rect(0,0,iwidth-3,iheight-3,$FF000000);
+     // shadow
+     draw.Line(1,iHeight-2,iwidth-2,iheight-2,$50000000);
+     draw.Line(iwidth-2,iheight-2,iwidth-2,0.5,$50000000);
+     draw.Line(2,iHeight-1,iwidth-1,iheight-1,$28000000);
+     draw.Line(iwidth-1,iheight-2,iwidth-1,1.5,$28000000);
      gfx.target.UnMask;
      for i:=0 to length(sa)-1 do
       txt.WriteW(font,1+dw div 2,round(2+h div 7+(i+0.75)*h),$D0000000,wsa[i]);
