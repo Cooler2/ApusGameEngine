@@ -71,6 +71,7 @@ interface
    procedure onResize; virtual;
 
    procedure ShowMessage(mes:String8;OkEvent:String8='';x:integer=0;y:integer=0); virtual;
+   procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0); virtual;
    procedure Ask(mes,YesEvent,NoEvent:String8;x:integer=0;y:integer=0); virtual;
   end;
 
@@ -322,6 +323,12 @@ procedure TGameApplication.FatalError(msg: string);
 procedure TGameApplication.Ask(mes, YesEvent, NoEvent: String8; x, y: integer);
  begin
   Apus.Engine.MessageScene.Ask(mes,YesEvent,NoEvent,x,y);
+ end;
+
+procedure TGameApplication.Confirm(mes, OkEvent, CancelEvent: String8; x,
+  y: integer);
+ begin
+  Apus.Engine.MessageScene.Confirm(mes,OkEvent,CancelEvent,x,y);
  end;
 
 procedure TGameApplication.ShowMessage(mes, OkEvent: String8; x, y: integer);

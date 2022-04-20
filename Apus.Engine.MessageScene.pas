@@ -11,6 +11,7 @@ interface
  // String separator: CRLF or '~'
  procedure ShowMessage(mes:String8;OkEvent:String8='';x:integer=0;y:integer=0);
  procedure Ask(mes,YesEvent,NoEvent:String8;x:integer=0;y:integer=0);
+ procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0);
 
 implementation
  uses Apus.CrossPlatform, SysUtils, Apus.EventMan, Apus.Structs,
@@ -20,6 +21,7 @@ implementation
  const
   MODE_MSG = 1;
   MODE_ASK = 2;
+  MODE_CONFIRM = 3;
 
  type
   TMessageScene=class(TUIScene)
@@ -89,6 +91,12 @@ implementation
  procedure Ask(mes,YesEvent,NoEvent:String8;x:integer=0;y:integer=0);
   begin
    QueueMsg(mes,YesEvent,NoEvent,MODE_ASK,x,y);
+   CheckQueue;
+  end;
+
+ procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0);
+  begin
+   QueueMsg(mes,OkEvent,CancelEvent,MODE_CONFIRM,x,y);
    CheckQueue;
   end;
 
@@ -179,8 +187,17 @@ procedure TMessageScene.UpdateUI(msgText:string;mode,x,y:integer);
   wnd.font:=msgMainFont;
 
   btnOk.visible:=(mode=MODE_MSG);
-  btnYes.visible:=(mode=MODE_ASK);
-  btnNo.visible:=(mode=MODE_ASK);
+  btnYes.visible:=(mode in [MODE_ASK,MODE_CONFIRM]);
+  btnNo.visible:=(mode in [MODE_ASK,MODE_CONFIRM]);
+
+  if mode=MODE_ASK then begin
+   btnYes.caption:='Yes';
+   btnNo.caption:='No';
+  end;
+  if mode=MODE_CONFIRM then begin
+   btnYes.caption:='Ok';
+   btnNo.caption:='Cancel';
+  end;
 
   if (x>0) or (y>0) then begin
    wnd.position.x:=x;
