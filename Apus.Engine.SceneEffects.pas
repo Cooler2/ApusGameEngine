@@ -10,6 +10,13 @@ interface
  uses Types, Apus.Engine.API, Apus.EventMan, Apus.Engine.UIScene, Apus.MyServis, Apus.AnimatedValues;
 
 type
+ // Base scene switcher
+ TBaseSceneSwitcher=class(TSceneSwitcher)
+  procedure SwitchToScene(name:string); override; // switch to a fullscreen scene
+  procedure ShowWindowScene(name:string;modal:boolean=true); override; // show a windowed scene
+  procedure HideWindowScene(name:string); override; // hide a windowed scene
+ end;
+
  // Base class for effects used to switch fullscreen scenes from the current topmost visible scene to a chosen one
  TSwitchScreenEffect=class(TSceneEffect)
   prevScene:TGameScene;
@@ -80,7 +87,7 @@ type
  {$ENDIF}
 
  var
-   disableEffects:boolean=false; // true - disable all effects
+  disableEffects:boolean=false; // true - disable all effects
 
 implementation
  uses Math,SysUtils, Apus.Images, Apus.Geom2D,
@@ -826,5 +833,30 @@ begin
 end;
 {$ENDIF}
 
+{ TSceneSwitcher }
 
+procedure TBaseSceneSwitcher.HideWindowScene(name:string);
+ begin
+  TShowWindowEffect.Create(game.GetScene(name) as TUIScene,250,sweHide,0);
+ end;
+
+procedure TBaseSceneSwitcher.ShowWindowScene(name:string;modal:boolean=true);
+ var
+  mode:TShowMode;
+ begin
+  if modal then mode:=sweShowModal
+   else mode:=sweShow;
+  TShowWindowEffect.Create(game.GetScene(name) as TUIScene,250,mode,0);
+ end;
+
+procedure TBaseSceneSwitcher.SwitchToScene(name:string);
+ var
+  scene:TGameScene;
+ begin
+  TTransitionEffect.Create(game.GetScene(name),250);
+ end;
+
+
+initialization
+ TSceneSwitcher.defaultSwitcher:=TBaseSceneSwitcher.Create;
 end.

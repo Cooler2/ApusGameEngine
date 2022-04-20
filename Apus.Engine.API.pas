@@ -722,6 +722,7 @@ type
  TGameScene = Apus.Engine.Scene.TGameScene;
  TSceneStatus = Apus.Engine.Scene.TSceneStatus;
  TSceneEffect = Apus.Engine.Scene.TSceneEffect;
+ TSceneSwitcher = Apus.Engine.Scene.TSceneSwitcher;
  TUIScene = Apus.Engine.UIScene.TUIScene;
 
  // Enable built-in gamepad navigation with DPad and X/Y buttons
@@ -740,7 +741,7 @@ type
  // Hotkey used to toggle debug overlay mode
  TDebugHotkey=(dhAltFx, dhCtrlAltFx);
 
-  // Main game interface
+  // Main game interface (abstract class)
  TGameBase=class
   // Global variables
   running:boolean;     // true when main loop is running
@@ -817,6 +818,10 @@ type
   procedure RemoveScene(scene:TGameScene); virtual; abstract;
   function TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene; virtual; abstract;
   function GetScene(name:string):TGameScene; virtual; abstract;
+
+  procedure SwitchToScene(name:string); virtual; abstract; // switch to a fullscreen scene
+  procedure ShowWindowScene(name:string;modal:boolean=true); virtual; abstract; // show a windowed scene
+  procedure HideWindowScene(name:string); virtual; abstract; // hide a windowed scene
 
   // Cursors
   // -------

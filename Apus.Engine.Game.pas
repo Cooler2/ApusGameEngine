@@ -43,6 +43,10 @@ type
   procedure AddScene(scene:TGameScene); override;    // Добавить сцену в список сцен
   procedure RemoveScene(scene:TGameScene); override;  // Убрать сцену из списка сцен
   function TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene; override; // Find the topmost active scene
+  function GetScene(name:string):TGameScene; override;
+  procedure SwitchToScene(name:string); override;
+  procedure ShowWindowScene(name:string;modal:boolean=true); override;
+  procedure HideWindowScene(name:string); override;
 
   // Cursors
   procedure RegisterCursor(CursorID,priority:integer;cursorHandle:THandle); override;
@@ -86,7 +90,6 @@ type
   // Keyboard events utility functions
   procedure SuppressKbdEvent; override;
 
-  function GetScene(name: string): TGameScene; override;
   procedure Minimize; override;
   procedure MoveWindowTo(x, y, width, height: integer); override;
   procedure SetWindowCaption(text: string); override;
@@ -216,8 +219,9 @@ type
 implementation
  uses SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools
      {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},
-     Apus.EventMan, Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene, Apus.Engine.Console,
-     Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw, Apus.Engine.Controller;
+     Apus.EventMan, Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene,
+     Apus.Engine.Console, Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw,
+     Apus.Engine.Controller;
 
 type
  TMainThread=class(TThread)
@@ -259,7 +263,7 @@ var
 {$I defaultFont10.inc}
 {$I defaultFont12.inc}
 
-{ TBasicGame }
+{ TGame }
 
 procedure TGame.HandleGamepadNavigation;
 var
@@ -587,66 +591,63 @@ begin
  PublishVar(@game,'game',TVarTypeGameClass);
 end;
 
-function TGame.GetScene(name: string):TGameScene;
-var
- i:integer;
-begin
- EnterCritSect;
- try
-  for i:=0 to high(scenes) do
-   if SameText(name,scenes[i].name) then exit(scenes[i]);
-  exit(nil);
- finally
-  LeaveCritSect;
+function TGame.GetScene(name:string):TGameScene;
+ begin
+  EnterCritSect;
+  try
+   result:=TGameScene.FindByName(name) as TGameScene;
+  finally
+   LeaveCritSect;
+  end;
+  ASSERT(result<>nil,'Scene '+name+' not found!');
  end;
-end;
 
 function TGame.GetSettings:TGameSettings;
-begin
- result:=params;
-end;
+ begin
+  result:=params;
+ end;
 
 function TGame.GetStatus(n:integer):string;
-begin
+ begin
 
-end;
+ end;
 
 destructor TGame.Destroy;
-begin
- if running then Stop;
- DeleteCritSect(crSect);
- Inherited;
-end;
+ begin
+  if running then Stop;
+  DeleteCritSect(crSect);
+  inherited;
+ end;
 
 procedure TGame.DoneGraph;
-begin
- Signal('Engine\BeforeDoneGraph');
- gfx.Done;
- LogMessage('DoneGraph');
+ begin
+  Signal('Engine\BeforeDoneGraph');
+  gfx.Done;
+  LogMessage('DoneGraph');
 
- systemPlatform.ShowWindow(false);
- Signal('Engine\AfterDoneGraph');
-end;
+  systemPlatform.ShowWindow(false);
+  Signal('Engine\AfterDoneGraph');
+ end;
 
 procedure TGame.DPadCustomPoint(x, y: single);
-begin
- EnterCritSect;
- try
-  customPoints:=customPoints+[Point(round(x),round(y))];
- finally
-  LeaveCritSect;
+ begin
+  EnterCritSect;
+  try
+   customPoints:=customPoints+[Point(round(x),round(y))];
+  finally
+   LeaveCritSect;
+  end;
  end;
-end;
 
 procedure TGame.DrawMagnifier;
-var
- width,height,left:integer;
- u,v,du,dv:single;
- cx,cy,zoom,ox,oy:integer;
- text:string;
- color:cardinal;
- rawImage:TRawImage;
-begin
+ var
+  width,height,left:integer;
+  u,v,du,dv:single;
+  cx,cy,zoom,ox,oy:integer;
+  text:string;
+  color:cardinal;
+  rawImage:TRawImage;
+ begin
   if magnifierTex=nil then begin
    magnifierTex:=AllocImage(128,128,ipfARGB,aiTexture,'Magnifier');
   end;
@@ -680,22 +681,22 @@ begin
    text:=Format('%2x %2x %2x',[(color shr 16) and $FF,(color shr 8) and $FF,color and $FF]);
    txt.WriteW(txt.GetFont('Default',7.5),ox,height-10,$FFFFFFFF,Str16(text),taCenter);
   end;
-end;
+ end;
 
 procedure TGame.FLog(st: string);
-begin
- FrameLog:=FrameLog+st+#13#10;
-end;
+ begin
+  FrameLog:=FrameLog+st+#13#10;
+ end;
 
 procedure TGame.EnterCritSect;
-begin
- EnterCriticalSection(crSect,GetCaller);
-end;
+ begin
+  EnterCriticalSection(crSect,GetCaller);
+ end;
 
 procedure TGame.LeaveCritSect;
-begin
- LeaveCriticalSection(crSect);
-end;
+ begin
+  LeaveCriticalSection(crSect);
+ end;
 
 procedure TGame.InitDefaultResources;
 var
@@ -711,7 +712,7 @@ begin
  smallFont:=txt.GetFont('Default',size*0.8);
  largerFont:=txt.GetFont('Default',size*1.25);
 
- // Default texture
+ // Default checker texture
  defaultTexture:=AllocImage(32,32,ipfARGB,aiTexture+aiAutoMipMap,'defaultTex');
  DrawToTexture(defaultTexture);
  for y:=0 to defaultTexture.height-1 do
@@ -1887,28 +1888,43 @@ begin
 end;
 
 procedure TGame.MoveWindowTo(x, y, width, height: integer);
-begin
- systemPlatform.MoveWindowTo(x,y,width,height);
-end;
+ begin
+  systemPlatform.MoveWindowTo(x,y,width,height);
+ end;
 
 procedure TGame.Minimize;
-begin
- systemPlatform.Minimize;
-end;
+ begin
+  systemPlatform.Minimize;
+ end;
 
 procedure TGame.FireMessage(st: string8);
-begin
+ begin
 
-end;
+ end;
 
 procedure TGame.SwitchToAltSettings; // Alt+Enter
-begin
+ begin
   LogMessage('Alt+Enter: switch to alt settings');
   Swap(params.width,altWidth);
   Swap(params.height,altHeight);
   Swap(params.mode,params.altMode,sizeof(params.mode));
   SetSettings(params);
-end;
+ end;
+
+procedure TGame.SwitchToScene(name:string);
+ begin
+  TSceneSwitcher.defaultSwitcher.SwitchToScene(name);
+ end;
+
+procedure TGame.ShowWindowScene(name:string;modal:boolean);
+ begin
+  TSceneSwitcher.defaultSwitcher.ShowWindowScene(name,modal);
+ end;
+
+procedure TGame.HideWindowScene(name:string);
+ begin
+  TSceneSwitcher.defaultSwitcher.HideWindowScene(name);
+ end;
 
 procedure TGame.SetWindowCaption(text: string);
 begin
@@ -1916,17 +1932,16 @@ begin
 end;
 
 procedure TGame.DebugFeature(feature: TDebugFeature; enable: boolean);
-begin
- if enable then Include(debugFeatures,feature)
-  else Exclude(debugFeatures,feature);
-end;
+ begin
+  if enable then Include(debugFeatures,feature)
+   else Exclude(debugFeatures,feature);
+ end;
 
 procedure TGame.ToggleDebugFeature(feature:TDebugFeature);
-begin
- if feature in debugFeatures then Exclude(debugFeatures,feature)
-  else Include(debugFeatures,feature);
-end;
-
+ begin
+  if feature in debugFeatures then Exclude(debugFeatures,feature)
+   else Include(debugFeatures,feature);
+ end;
 
 procedure TGame.ClientToGame(var p:TPoint);
  begin
@@ -2224,7 +2239,6 @@ procedure TCustomThread.Execute;
   Signal('engine\thread\done\'+PtrToStr(@func),ReturnValue);
   UnregisterThread;
  end;
-
 
 { TMainThread }
 procedure TMainThread.Execute;

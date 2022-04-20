@@ -89,8 +89,13 @@ var
  lastShiftState:byte;
 
 function UIScene(name:String8):TUIScene;
+ var
+  scene:TObject;
  begin
-  result:=TUIScene.FindByName(name) as TUIScene;
+  scene:=TUIScene.FindByName(name);
+  ASSERT(scene<>nil,'Scene '+name+' not found!');
+  ASSERT(scene is TUIScene,'Scene '+name+' is not a TUIScene');
+  result:=scene as TUIScene;
  end;
 
 procedure SetDisplaySize(width,height:integer);

@@ -22,6 +22,15 @@ type
   destructor Destroy; override;
  end;
 
+ // Base scene switcher interface
+ TSceneSwitcher=class
+  class var defaultSwitcher:TSceneSwitcher;
+  procedure SwitchToScene(name:string); virtual; abstract; // switch to a fullscreen scene
+  procedure ShowWindowScene(name:string;modal:boolean=true); virtual; abstract; // show a windowed scene
+  procedure HideWindowScene(name:string); virtual; abstract; // hide a windowed scene
+ end;
+
+
  // -------------------------------------------------------------------
  // TGameScene - произвольная сцена
  // -------------------------------------------------------------------
