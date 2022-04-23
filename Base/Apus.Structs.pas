@@ -380,8 +380,9 @@ type
   count:integer;
   procedure Clear;
   function Add(obj:TObject;uniqueOnly:boolean=false):boolean;
-  function Remove(obj:TObject):boolean; // removes only the 1-st found reference, returns false if not found
+  function Remove(obj:TObject;keepOrder:boolean=false):boolean; // removes only the 1-st found reference, returns false if not found
   function Get:TObject; // get the last object
+  function GetFirst:TObject; // get the first object
   procedure FreeAll; // Free all objects and clear the list
  private
   initialized:string;
@@ -2389,7 +2390,24 @@ function TObjectList.Get:TObject;
   end;
  end;
 
-function TObjectList.Remove(obj:TObject):boolean;
+function TObjectList.GetFirst:TObject;
+ begin
+  if initialized='' then Init;
+  SpinLock(lock);
+  try
+   if count>0 then begin
+    result:=data[0];
+    dec(count);
+    if count>0 then
+     move(data[1],data[0],count*sizeof(pointer));
+   end else
+    result:=nil;
+  finally
+   lock:=0;
+  end;
+ end;
+
+function TObjectList.Remove(obj:TObject;keepOrder:boolean=false):boolean;
  var
   i:integer;
  begin
@@ -2400,7 +2418,10 @@ function TObjectList.Remove(obj:TObject):boolean;
    for i:=0 to count-1 do
     if data[i]=obj then begin
      dec(count);
-     data[i]:=data[count];
+     if keepOrder then
+      move(data[i+1],data[i],(count-i)*sizeof(pointer))
+     else
+      data[i]:=data[count];
      result:=true;
      break;
     end;
