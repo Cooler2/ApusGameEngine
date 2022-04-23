@@ -390,7 +390,7 @@ type
   // using screen dimensions for FoV and aspect ratio
   // Use big enough zMin and zMax since z-range is not linear and precision near zMax is much lower than near zMin.
   // So use values where main visible geometry is at least in the near 10% Z-range
-  procedure Perspective(fov:single;zMin,zMax:double); overload;
+  procedure Perspective(fovRad:single;zMin,zMax:double); overload;
 
   // Switch to 3D view - set perspective projection (in camera space: camera pos = 0,0,0, Z-forward, X-right, Y-down)
   // zMin, zMax - near and far Z plane

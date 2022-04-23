@@ -1202,7 +1202,7 @@ begin
  TGLTexture(img).UpdateFilter;
 end;
 
-procedure TGLResourceManager.MakeOnline(img: TTexture;stage:integer=0);
+procedure TGLResourceManager.MakeOnline(img:TTexture;stage:integer=0);
 var
  tex:TGLTexture;
 begin
