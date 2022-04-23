@@ -48,7 +48,8 @@ type
   activated:boolean; // true если сцена уже начала показываться или показалась, но еще не имеет эффекта закрытия
   shadowColor:cardinal; // если не 0, то рисуется перед отрисовкой сцены
   ignoreKeyboardEvents:boolean; // если true - такая сцена не будет получать сигналы о клавиатурном вводе, даже будучи верхней
-  initialized:boolean;
+  initialized:boolean; // true if Initialize is called
+  loaded:boolean;
 
   // Внутренние величины
   accumTime:integer; // накопленное время (в мс)
@@ -68,6 +69,9 @@ type
 
   // Called only once from the main thread before first Render() call
   procedure Initialize; virtual;
+
+  // Should be called during game initialization not from the main thread (load required resources here)
+  procedure Load; virtual;
 
   // Обработка сцены, вызывается с заданной частотой если только сцена не заморожена
   // Этот метод может выполнять логику сцены, движение/изменение объектов и т.п.
@@ -102,6 +106,8 @@ type
   // For non-fullscreen scenes return occupied area
   function GetArea:TRect; virtual; abstract;
 
+  class procedure LoadAllScenes;
+
  protected
   class function ClassHash:pointer; override;
 
@@ -116,6 +122,7 @@ implementation
 
  var
   scenesHash:TObjectHash;
+  scenesToLoad:TObjectList;
 
  { TGameScene }
 
@@ -130,6 +137,9 @@ implementation
   end;
 
  constructor TGameScene.Create(fullScreen:boolean=true);
+  var
+   m:procedure of object;
+   base:pointer;
   begin
    status:=ssFrozen;
    self.fullscreen:=fullscreen;
@@ -141,11 +151,20 @@ implementation
    name:=ClassName;
    ignoreKeyboardEvents:=false;
    if classType=TGameScene then onCreate; // each generic child class must call this in the constructors last string
+   // Check if Load method is overriden
+   m:=self.Load;
+   base:=@TGameScene.Load;
+   if @m<>base then begin
+    loaded:=false;
+    scenesToLoad.Add(self);
+   end else
+    loaded:=true;
   end;
 
  destructor TGameScene.Destroy;
   begin
    if status<>ssFrozen then raise EError.Create('Scene must be frozen before deletion: '+name+' ('+ClassName+')');
+   scenesToLoad.Remove(self);
   end;
 
  procedure TGameScene.Initialize;
@@ -191,6 +210,21 @@ procedure TGameScene.ModeChanged;
    result:=not keyBuffer.Empty;
   end;
 
+ procedure TGameScene.Load;
+  begin
+   loaded:=true;
+  end;
+
+ class procedure TGameScene.LoadAllScenes;
+  var
+   scene:TGameScene;
+  begin
+   repeat
+    scene:=scenesToLoad.GetFirst as TGameScene;
+    if scene=nil then break;
+    if not scene.loaded then scene.Load;
+   until false;
+  end;
 
  function TGameScene.ReadKey:cardinal;
   var
@@ -214,8 +248,10 @@ procedure TGameScene.ModeChanged;
   begin
   end;
 
- procedure TGameScene.SetStatus(st: TSceneStatus);
+ procedure TGameScene.SetStatus(st:TSceneStatus);
   begin
+   if (st=ssActive) and not loaded then
+    LogMessage('WARN! Activating scene "%s" which was not loaded',[name]);
    status:=st;
    if status=ssActive then activated:=true
     else activated:=false;

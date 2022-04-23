@@ -64,6 +64,7 @@ interface
    procedure SelectFonts; virtual;  // Select font constants (may be called many times)
    procedure InitStyles; virtual; // Which styles to add?
    procedure CreateScenes; virtual; // Create and add game scenes
+   procedure LoadScenes; virtual;
    procedure InitCursors; virtual;
 
    procedure FatalError(msg:string); virtual;
@@ -307,6 +308,14 @@ procedure TGameApplication.CreateScenes;
   Signal('GAMEAPP\CreateScenes');
  end;
 
+procedure TGameApplication.LoadScenes;
+ var
+  scene:TGameScene;
+ begin
+  Signal('GAMEAPP\LoadScenes');
+  TGameScene.LoadAllScenes;
+ end;
+
 destructor TGameApplication.Destroy;
  begin
   if game<>nil then game.Stop;
@@ -396,6 +405,7 @@ procedure TGameApplication.LoadOptions;
    on e:exception do ForceLogMessage('Options error: '+ExceptionMsg(e));
   end;
  end;
+
 
 procedure TGameApplication.onResize;
  begin
@@ -573,8 +583,18 @@ procedure TGameApplication.Run;
   InitMessageScene;
   if useConsoleScene then AddConsoleScene;
   if useTweakerScene then CreateTweakerScene(txt.GetFont('Default',6),txt.GetFont('Default',7));
+  // Create scenes
   try
    CreateScenes;
+  except
+   on e:Exception do begin
+    ErrorMessage('Fatal error in scene creation: '+ExceptionMsg(e));
+    exit;
+   end;
+  end;
+  // Load scene resources
+  try
+   LoadScenes;
   except
    on e:Exception do begin
     ErrorMessage('Fatal error in scene creation: '+ExceptionMsg(e));
