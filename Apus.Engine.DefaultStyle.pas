@@ -85,7 +85,7 @@ implementation
      if hintImage=nil then
        raise EError.Create('Failed to alloc hint image!');
     end;
-    size:=Point2s(iWidth,iHeight);
+    size:=Point2s(iWidth/globalScale.x,iHeight/globalScale.y);
     gfx.BeginPaint(hintImage);
     try
      gfx.target.Mask(true,true); // потенциально может вредить отрисовке следующих элементов
