@@ -1221,6 +1221,15 @@ begin
   if mainThread<>nil then mainThread.Terminate;
  end
  else
+ if HasPrefix(event,'SWITCHTOSCENE\') then begin
+  SwitchToScene(Copy(event,15,100));
+ end else
+ if HasPrefix(event,'SHOWWINDOW\') then begin
+  ShowWindowScene(Copy(event,15,100));
+ end else
+ if HasPrefix(event,'HIDEWINDOW\') then begin
+  HideWindowScene(Copy(event,15,100));
+ end else
  if SameText(event,'SETSWAPINTERVAL') then begin
   SetVSync(tag);
  end else
