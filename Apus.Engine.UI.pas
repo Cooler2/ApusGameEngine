@@ -12,10 +12,14 @@ interface
  const
   // Predefined pivot point configuration
   pivotTopLeft:TPoint2s=(x:0; y:0);
+  pivotTopCenter:TPoint2s=(x:0.5; y:0);
   pivotTopRight:TPoint2s=(x:1; y:0);
   pivotBottomLeft:TPoint2s=(x:0; y:1);
+  pivotBottomCenter:TPoint2s=(x:0.5; y:1);
   pivotBottomRight:TPoint2s=(x:1; y:1);
   pivotCenter:TPoint2s=(x:0.5; y:0.5);
+  pivotCenterLeft:TPoint2s=(x:0; y:0.5);
+  pivotCenterRight:TPoint2s=(x:1; y:0.5);
 
  type
   // Standard widgets
