@@ -383,6 +383,7 @@ procedure SetDisplaySize(width,height:integer);
     UI.shape:=shapeEmpty;
     UI.SetScale(windowScale);
    end;
+   UI.Resize(rootWidth/UI.scale.x,rootHeight/UI.scale.y); // adjust size to fit the full screen
 
    if classType=TUIScene then onCreate;
    if game<>nil then game.AddScene(self);
