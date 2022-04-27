@@ -248,6 +248,7 @@ interface
    procedure SetLine(index:integer;line:string;tag:cardinal=0;hint:string=''); virtual;
    procedure ClearLines;
    procedure SetLines(newLines:StringArr); virtual;
+   procedure SelectLine(line:integer); virtual;
    procedure onMouseMove; override;
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure UpdateScroller;
@@ -1248,13 +1249,8 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
   begin
    inherited;
    if (button=1) then begin
-    if hoverLine>=0 then begin
-     selectedLine:=hoverLine;
-     if sendSignals<>ssNone then begin
-      Signal('UI\'+name+'\SELECTED',selectedLine);
-      Signal('UI\ListBox\onSelect\'+name,TTag(self));
-     end;
-    end;
+    if hoverLine>=0 then
+     SelectLine(hoverLine);
    end;
   end;
 
@@ -1275,7 +1271,19 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    if (hoverLine>=0) and (hoverLine<=high(hints)) then hint:=hints[hoverLine];
   end;
 
- procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:string='');
+ procedure TUIListBox.SelectLine(line:integer);
+  begin
+   if (line>=0) and (line<=high(lines)) then begin
+    selectedLine:=line;
+    if sendSignals<>ssNone then begin
+     Signal('UI\'+name+'\SELECTED',selectedLine);
+     Signal('UI\ListBox\onSelect\'+name,TTag(self));
+    end;
+   end else
+    selectedLine:=-1;
+  end;
+
+procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:string='');
   begin
    lines[index]:=line;
    tags[index]:=tag;
