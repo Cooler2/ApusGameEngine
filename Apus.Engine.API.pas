@@ -6,8 +6,8 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.CrossPlatform, Types, Apus.Engine.Types, Apus.MyServis, Apus.Images,
-   Apus.Geom2D, Apus.Geom3D, Apus.Colors, Apus.Structs, Apus.EventMan,
+ uses Apus.CrossPlatform, Types, Apus.Engine.Types, Apus.MyServis, Apus.AnimatedValues,
+   Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors, Apus.Structs, Apus.EventMan,
    Apus.VertexLayout, Apus.Engine.Resources, Apus.Engine.Scene, Apus.Engine.UIScene;
 
 const
@@ -975,7 +975,10 @@ var
  function Translate(st:string16):string16; overload; inline;
 
  // Process events/system messages and wait at least time ms
- procedure Delay(time:integer);
+ procedure Delay(time:integer); inline;
+
+ // Returns value of the Animated Value sampled at the current frame time
+ function CurValue(var av:TAnimatedValue):single; inline;
 
  // Utility functions
  function GetKeyEventScanCode(tag:TTag):cardinal; // Extract scancode form KBD\KeyXXX event
@@ -1110,6 +1113,11 @@ function Translate(st:string16):string16; overload;
 procedure Delay(time:integer);
  begin
   Apus.Engine.Game.Delay(time);
+ end;
+
+function CurValue(var av:TAnimatedValue):single;
+ begin
+  result:=av.ValueAt(game.frameStartTime);
  end;
 
 function TDisplayModeHelper.ToString:string;
