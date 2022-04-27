@@ -148,9 +148,6 @@ interface
   // избежать возможной порчи данных при последующих вызовах, следует немедленно прекратить работу)
   EFatalError=class(TBaseException);
 
-  // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
-  TSplineFunc=function(x,x0,x1,y0,y1:single):single;
-
   TSplines=record
    linear:TSplineFunc;
    easeIn:TSplineFunc;

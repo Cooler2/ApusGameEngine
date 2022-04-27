@@ -7,7 +7,7 @@
 unit Apus.AnimatedValues;
 
 interface
-  uses Apus.MyServis;
+  uses Apus.Types;
 
   type
     // Одиночная анимация значения
@@ -58,17 +58,16 @@ interface
     end;
 
   var
-   sfLinear:TSplineFunc=Spline0;
-   sfEaseOut:TSplineFunc=Spline2;
-   sfEaseIn:TSplineFunc=Spline2rev;
-   sfEaseInOut:TSplineFunc=Spline1;
+   sfLinear:TSplineFunc;
+   sfEaseOut:TSplineFunc;
+   sfEaseIn:TSplineFunc;
+   sfEaseInOut:TSplineFunc;
 
 
 implementation
-
   uses
   {$IFDEF MSWINDOWS}Windows,{$ENDIF}
-  Apus.CrossPlatform,SysUtils;
+    Apus.MyServis, Apus.CrossPlatform, SysUtils;
 
   procedure SpinLock(var lock:integer); inline;
     begin
@@ -319,4 +318,9 @@ implementation
       end;
     end;
 
+initialization
+  sfLinear:=Spline0;
+  sfEaseOut:=Spline2;
+  sfEaseIn:=Spline2rev;
+  sfEaseInOut:=Spline1;
 end.

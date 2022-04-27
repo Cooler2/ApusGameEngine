@@ -5,7 +5,6 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.Types;
 interface
-
 type
   // 8-bit string type (assuming UTF-8 encoding)
   Char8 = UTF8Char;
@@ -47,6 +46,10 @@ type
   TObjectArray = array of TObject;
 
   TProcedure = procedure;
+
+  // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
+  TSplineFunc=function(x,x0,x1,y0,y1:single):single;
+
 
   // 128bit vector data
   m128=record
