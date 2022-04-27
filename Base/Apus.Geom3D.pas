@@ -17,6 +17,7 @@
 {$EXCESSPRECISION OFF}
 unit Apus.Geom3D;
 interface
+ uses Apus.Geom2D;
  type
   PPoint3=^TPoint3;
   PVector3=^TVector3;
@@ -30,10 +31,14 @@ interface
 
   PPoint3s=^TPoint3s;
   TPoint3s=packed record
-   x,y,z:single;
-   constructor Init(X,Y,Z:single);
+   constructor Init(X,Y,Z:single); overload;
+   constructor Init(p:TPoint3); overload;
    procedure Normalize;
    function IsValid:boolean;
+   case integer of
+   0:( x,y,z:single; );
+   1:( v:array[0..2] of single; );
+   2:( xy:TPoint2s; t:single; );
   end;
   TVector3s=TPoint3s;
 
@@ -359,7 +364,7 @@ interface
  function IntersectTrgLine(A,B,C,O,T:PPoint3s;var pb,pc,d:double):boolean;
 
 implementation
- uses Apus.CPU,Apus.CrossPlatform,SysUtils,Math,Apus.Geom2D;
+ uses Apus.CPU,Apus.CrossPlatform,SysUtils,Math;
 
  const
   vec0001s:TVector4s=(x:0; y:0; z:0; w:1);
@@ -2218,6 +2223,13 @@ procedure TPoint3.Normalize;
 constructor TPoint3s.Init(X,Y,Z:single);
  begin
   self.x:=x; self.y:=y; self.z:=z;
+ end;
+
+constructor TPoint3s.Init(p:TPoint3);
+ begin
+  self.x:=p.x;
+  self.y:=p.y;
+  self.z:=p.z;
  end;
 
 procedure TPoint3s.Normalize;
