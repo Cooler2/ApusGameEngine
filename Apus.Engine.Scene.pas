@@ -102,6 +102,7 @@ type
   procedure onMouseMove(x,y:integer); virtual;
   procedure onMouseBtn(btn:byte;pressed:boolean); virtual;
   procedure onMouseWheel(delta:integer); virtual;
+  procedure onShow; virtual; // called when status changed to Active
 
   // For non-fullscreen scenes return occupied area
   function GetArea:TRect; virtual; abstract;
@@ -196,7 +197,11 @@ procedure TGameScene.ModeChanged;
   begin
   end;
 
- function TGameScene.Process:boolean;
+ procedure TGameScene.onShow;
+  begin
+  end;
+
+function TGameScene.Process:boolean;
   begin
    result:=true;
   end;
@@ -255,6 +260,7 @@ procedure TGameScene.ModeChanged;
    status:=st;
    if status=ssActive then activated:=true
     else activated:=false;
+   if status=ssActive then onShow;
   end;
 
  { TSceneEffect }
