@@ -94,8 +94,8 @@ type
  end;
 
  // 3D model with rigged animation support
- TModel3D=class
-  name,src:string; // Model name and source file name (if available)
+ TModel3D=class(TNamedObject)
+  src:string; // Model name and source file name (if available)
   // Vertex data (no more than 64K vertices!)
   vp:array of TPoint3s;  // vertex positions
   vn:array of TVector3s; // vertex normals (optional)
@@ -127,6 +127,7 @@ type
  private
   bonesHash:TSimpleHashS;
   procedure CalcBoneMatrix(bone:integer);
+  class function ClassHash:pointer; override;
  end;
 
  // An animated instance of a 3D model
@@ -190,6 +191,8 @@ implementation
  const
   defaultColor:cardinal=$FF808080;
 
+ var
+  modelsHash:TObjectHash;
 
 { TAnimation }
 procedure TAnimation.BuildTimeline(model:TModel3D);
@@ -426,6 +429,11 @@ procedure TModel3D.CalcBoneMatrix(bone:integer);
     MultMat(mat,bones[parent].matrix,bones[bone].matrix)
    else
     bones[bone].matrix:=mat;
+ end;
+
+class function TModel3D.ClassHash:pointer;
+ begin
+  result:=@modelsHash;
  end;
 
 constructor TModel3D.Create(name:string;src:string='');
@@ -914,4 +922,6 @@ function TBoneState.IsEqual(state:TBoneState):boolean;
     Apus.Geom3D.IsEqual(scale,state.scale,10);
  end;
 
+initialization
+ modelsHash.Init(1000);
 end.
