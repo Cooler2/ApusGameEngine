@@ -38,12 +38,17 @@ jobs:
     - name: Compile TestGFX
       run: lazbuild -q -q Base/tests/TestGFX.lpi
     - run: Base/tests/TestMyServis-fpc
-    - run: Base/tests/TestMath	 
+    - run: Base/tests/TestMath
     - run: Base/tests/TestStructs
     - run: Base/tests/TestGFX
 
     - name: Compile SimpleDemo
       run: lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
+    - name: Save output
+      uses: actions/upload-artifact@v3
+      with:
+        name: saved_output
+        path: demo/SimpleDemo/lib/x86_64-linux/Apus.Engine.ShadersGL.s
     - name: Compile Scenes
       run: lazbuild -q -q demo/01-Scenes/scenes.lpi
     - name: Compile NinePatch

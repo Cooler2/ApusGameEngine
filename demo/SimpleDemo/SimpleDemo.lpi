@@ -115,7 +115,8 @@
           </Linking>
           <Other>
             <CustomOptions Value="-dOPENGL
--dSDL"/>
+-dSDL
+-al"/>
             <OtherDefines Count="2">
               <Define0 Value="OPENGL"/>
               <Define1 Value="SDL"/>
