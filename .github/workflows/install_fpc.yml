@@ -48,7 +48,7 @@ jobs:
       if: failure()
       with:
         name: saved_output
-        path: demo/SimpleDemo/lib/x86_64-linux/Apus.Engine.ShadersGL.s
+        path: demo/SimpleDemo/
     - name: Compile Scenes
       run: lazbuild -q -q demo/01-Scenes/scenes.lpi
     - name: Compile NinePatch
