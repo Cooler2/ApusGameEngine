@@ -44,8 +44,8 @@ jobs:
 
     - name: Compile SimpleDemo
       run: lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
-    - name: Save output
-      uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v3
+      if: failure()
       with:
         name: saved_output
         path: demo/SimpleDemo/lib/x86_64-linux/Apus.Engine.ShadersGL.s
