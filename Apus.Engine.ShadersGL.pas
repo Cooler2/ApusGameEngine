@@ -110,6 +110,11 @@ type
   directLightColor:cardinal;
   directLightModified:boolean;
 
+  // Current point light
+  pointLightPos:TPoint3s;
+  pointLightColor:TVector3s; // light color multiplied by power
+  pointLightModified:boolean;
+
   shaderCache:TSimpleHash;
   activeShader:TGLShader; // current OpenGL shader
   isCustom:boolean;
@@ -175,32 +180,32 @@ procedure SetUniformInternal(shader:TGLShader; name:string8;mode:integer;const v
   CheckForGLError(401);
  end;
 
-procedure TGLShader.SetUniform(name: String8; value: integer);
+procedure TGLShader.SetUniform(name:String8;value:integer);
  begin
   SetUniformInternal(self,name,1,value);
  end;
 
-procedure TGLShader.SetUniform(name: String8; value: single);
+procedure TGLShader.SetUniform(name:String8;value:single);
  begin
   SetUniformInternal(self,name,2,value);
  end;
 
-procedure TGLShader.SetUniform(name: String8; const value: TVector2s);
+procedure TGLShader.SetUniform(name:String8;const value:TVector2s);
  begin
   SetUniformInternal(self,name,22,value);
  end;
 
-procedure TGLShader.SetUniform(name: String8; const value: TVector3s);
+procedure TGLShader.SetUniform(name: String8;const value:TVector3s);
  begin
   SetUniformInternal(self,name,23,value);
  end;
 
-procedure TGLShader.SetUniform(name: String8; const value: TQuaternionS);
+procedure TGLShader.SetUniform(name: String8;const value:TQuaternionS);
  begin
   SetUniformInternal(self,name,24,value);
  end;
 
-procedure TGLShader.UpdateMatrices(revision: integer;const shadowMapMatrix:T3DMatrixS);
+procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:T3DMatrixS);
  var
   mat:T3DMatrixS;
  begin
@@ -462,14 +467,14 @@ procedure TGLShadersAPI.AmbientLight(color:cardinal);
   ambientLightModified:=true;
  end;
 
-procedure TGLShadersAPI.Material(color: cardinal; shininess: single);
+procedure TGLShadersAPI.Material(color:cardinal;shininess:single);
  begin
 
  end;
 
-procedure TGLShadersAPI.PointLight(position: TPoint3; power: single;
-  color: cardinal);
+procedure TGLShadersAPI.PointLight(position:TPoint3;power:single;color:cardinal);
  begin
+  SetFlag(curTexMode.lighting,LIGHT_POINT_ON,power>0);
  end;
 
 procedure TGLShadersAPI.LightOff;
@@ -658,7 +663,7 @@ procedure TGLShadersAPI.Reset;
   //Apply;
  end;
 
-procedure TGLShadersAPI.SetUniform(name:String8; const value:TVector2s);
+procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector2s);
  begin
   ASSERT(activeShader<>nil);
   activeShader.SetUniform(name,value);
