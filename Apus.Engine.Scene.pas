@@ -232,7 +232,10 @@ function TGameScene.Process:boolean;
    repeat
     scene:=scenesToLoad.GetFirst as TGameScene;
     if scene=nil then break;
-    if not scene.loaded then scene.Load;
+    if not scene.loaded then begin
+     scene.Load;
+     scene.loaded:=true;
+    end;
    until false;
   end;
 
