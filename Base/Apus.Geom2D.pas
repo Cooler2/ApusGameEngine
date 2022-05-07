@@ -23,7 +23,8 @@ interface
   TPoint2=packed record
    x,y:double;
    function IsValid:boolean; inline;
-   procedure Init(x,y:double); inline;
+   procedure Init(x,y:double); overload; inline;
+   procedure Init(pnt:TPoint); overload; inline;
    function GetRound:TPoint;
    procedure Wrap(max:double); inline;
   end;
@@ -33,7 +34,8 @@ interface
   TPoint2s=packed record
    x,y:single;
    function IsValid:boolean; inline;
-   procedure Init(x,y:single); inline;
+   procedure Init(x,y:single); overload; inline;
+   procedure Init(pnt:TPoint); overload; inline;
    function GetRound:TPoint;
    procedure Wrap(max:single); inline;
   end;
@@ -133,7 +135,8 @@ interface
  function Point2(pnt:TPoint2s):TPoint2; overload; inline;
  function Point2s(x,y:double):TPoint2s; overload; inline;
  function Point2s(pnt:TPoint2):TPoint2s; overload; inline;
- function PointBlend(p1,p2:TPoint2;factor:double):TPoint2;
+ function PointBlend(p1,p2:TPoint2;factor:double):TPoint2; overload;
+ function PointBlend(p1,p2:TPoint2s;factor:single):TPoint2s; overload;
  // Setup vector (from source to target)
  function Vector2(source,target:TPoint2):TVector2; inline;
  // Unit vector with given direction (CCW from X-axis)
@@ -464,6 +467,12 @@ implementation
   end;
 
  function PointBlend(p1,p2:TPoint2;factor:double):TPoint2;
+  begin
+   result.x:=p1.x*(1-factor)+p2.x*factor;
+   result.y:=p1.y*(1-factor)+p2.y*factor;
+  end;
+
+ function PointBlend(p1,p2:TPoint2s;factor:single):TPoint2s;
   begin
    result.x:=p1.x*(1-factor)+p2.x*factor;
    result.y:=p1.y*(1-factor)+p2.y*factor;
@@ -893,6 +902,12 @@ procedure TPoint2.Init(x, y: double);
   self.x:=x; self.y:=y;
  end;
 
+procedure TPoint2.Init(pnt: TPoint);
+ begin
+  x:=pnt.x;
+  y:=pnt.y;
+ end;
+
 function TPoint2.IsValid: boolean;
  begin
   result:=x=x;
@@ -911,6 +926,12 @@ function TPoint2.GetRound:TPoint;
  end;
 
 { TPoint2s }
+
+procedure TPoint2s.Init(pnt:TPoint);
+ begin
+  x:=pnt.x;
+  y:=pnt.y;
+ end;
 
 function TPoint2s.IsValid: boolean;
  begin
