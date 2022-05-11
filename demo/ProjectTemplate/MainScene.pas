@@ -19,7 +19,7 @@ interface
 
 implementation
  uses Apus.CrossPlatform,Apus.EventMan,Apus.Colors,
-   Apus.Engine.SceneEffects,Apus.Engine.UIClasses,Apus.Engine.UIScene;
+   Apus.Engine.SceneEffects,Apus.Engine.UI;
 
  type
   // This will be our single scene
@@ -51,10 +51,10 @@ procedure TMainApp.CreateScenes;
  begin
   inherited;
   // initialize our main scene
-  sceneMain:=TMainScene.Create;
+  sceneMain:=TMainScene.Create('Main');
   sceneMain.CreateUI;
   // switch to the main scene using fade transition effect
-  sceneMain.SetStatus(ssActive);
+  game.SwitchToScene('Main');
  end;
 
 { TMainScene }
@@ -65,12 +65,12 @@ procedure TMainScene.CreateUI;
  begin
   font:=txt.GetFont('Default',9);
   // Create a button
-  btn:=TUIButton.Create(100,32,'MainScene\Close','Exit',font,UI);
-  btn.SetPos(game.renderWidth/2,game.renderHeight/2,pivotCenter);
+  btn:=TUIButton.Create(100,32,'Main\Close','Exit',font,UI);
+  btn.SetPos(UI.width/2,UI.height/2,pivotCenter);
   btn.hint:='Press this button to exit';
 
   // Link the button click signal to the engine termination signal
-  Link('UI\MainScene\Close\Click','Engine\Cmd\Exit');
+  Link('UI\Main\Close\Click','Engine\Cmd\Exit');
  end;
 
 
