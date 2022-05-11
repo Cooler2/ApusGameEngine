@@ -205,6 +205,7 @@ var
 
  // Set active render target buffer
  procedure SetRenderTarget(buf:pointer;pitch:integer;width,height:integer);
+ procedure ClearRenderTarget(color:cardinal);
 
  function GetPixel(x,y:integer):cardinal; // read ARGB pixel from current render target (clamp coordinates)
  procedure PutPixel(x,y:integer;color:cardinal); // store ARGB pixes AS IS (ignore out of range coordinates)
@@ -245,6 +246,11 @@ const
    rWidth:=width;
    rHeight:=height;
    blender:=blBlend;
+  end;
+
+ procedure ClearRenderTarget(color:cardinal);
+  begin
+   FillRect(0,0,rWidth-1,rHeight-1,color);
   end;
 
  procedure HLine32;
