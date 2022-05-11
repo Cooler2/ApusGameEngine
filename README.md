@@ -18,10 +18,11 @@ https://www.patreon.com/ApusGameEngine
 * Eli M
 * Dave W
 * Ken Ramsey
+* David Millington
 * Michalis Kamburelis (Castle Game Engine)
 * Gary Chike
 * Gerry Chike
-* MuminjonGuru
+* David York
 * Tristan Marlow
 * add your name - support me on Patreon!
 
