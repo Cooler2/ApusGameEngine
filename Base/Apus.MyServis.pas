@@ -51,6 +51,7 @@ interface
   AStringArr = StringArray8;
   StringArray16 = Apus.Types.StringArray16;
   WStringArr = StringArray16;
+  StringArray = Apus.Types.StringArray;
   StringArr = Apus.Types.StringArray;
 
   ByteArray = Apus.Types.ByteArray;
@@ -5648,7 +5649,7 @@ begin
   stack:=stack+inttohex(adrs[i],8);
   if i>1 then stack:=stack+'->';
  end;
- inherited create(stack+'] '+msg);
+ inherited Create(stack+'] '+msg);
  asm
   mov edx,[ebp+4]
   mov eax,self
@@ -5656,9 +5657,9 @@ begin
  end;
  {$ELSE}
   {$IFDEF FPC}
-  inherited create(msg+' caller: '+PtrToStr(get_caller_addr(get_frame)));
+  inherited Create(msg+' caller: '+PtrToStr(get_caller_addr(get_frame)));
   {$ELSE}
-  inherited create(msg);
+  inherited Create(msg);
   {$ENDIF}
  {$ENDIF}
 end;

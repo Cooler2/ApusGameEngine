@@ -3,13 +3,13 @@
 //
 unit Apus.Engine.Types;
 interface
- uses Apus.CrossPlatform, Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Geom3D,
+ uses Apus.CrossPlatform, Apus.Types, Apus.Images, Apus.Geom2D, Apus.Geom3D,
    Apus.Colors, Apus.EventMan, Apus.VertexLayout;
 
 type
  // Strings
- String8 = Apus.MyServis.String8;
- String16 = Apus.MyServis.String16;
+ String8 = Apus.Types.String8;
+ String16 = Apus.Types.String16;
 
  // 2D points
  TPoint2 = Apus.Geom2D.TPoint2;

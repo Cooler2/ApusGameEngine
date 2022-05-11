@@ -6,7 +6,7 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.CrossPlatform, Types, Apus.Engine.Types, Apus.MyServis, Apus.AnimatedValues,
+ uses Apus.CrossPlatform, Types, Apus.Engine.Types, Apus.Classes, Apus.AnimatedValues,
    Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors, Apus.Structs, Apus.EventMan,
    Apus.VertexLayout, Apus.Engine.Resources, Apus.Engine.Scene, Apus.Engine.UIScene;
 
@@ -127,8 +127,8 @@ const
 
 type
  // Strings
- String8 = Apus.MyServis.String8;
- String16 = Apus.MyServis.String16;
+ String8 = Apus.Engine.Types.String8;
+ String16 = Apus.Engine.Types.String16;
 
  // 2D Vector
  TPoint2   = Apus.Engine.Types.TPoint2;
@@ -998,7 +998,7 @@ var
  function IsKeyReleased(scanCode:integer):boolean;
 
 implementation
- uses SysUtils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
+ uses SysUtils, Apus.Publics, Apus.MyServis, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
    TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX, Apus.Engine.NinePatch;
 
  var
