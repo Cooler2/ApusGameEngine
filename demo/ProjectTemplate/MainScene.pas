@@ -19,19 +19,17 @@ interface
 
 implementation
  uses Apus.CrossPlatform,Apus.EventMan,Apus.Colors,
-   Apus.Engine.SceneEffects,Apus.Engine.UI;
+   Apus.Engine.UI;
 
  type
   // This will be our single scene
   TMainScene=class(TUIScene)
-   procedure CreateUI;
+   procedure Load; override;
    procedure Render; override;
   end;
 
  var
   sceneMain:TMainScene;
-
-{ TSimpleDemoApp }
 
 constructor TMainApp.Create;
  begin
@@ -52,13 +50,12 @@ procedure TMainApp.CreateScenes;
   inherited;
   // initialize our main scene
   sceneMain:=TMainScene.Create('Main');
-  sceneMain.CreateUI;
   // switch to the main scene using fade transition effect
   game.SwitchToScene('Main');
  end;
 
 { TMainScene }
-procedure TMainScene.CreateUI;
+procedure TMainScene.Load;
  var
   font:cardinal;
   btn:TUIButton;
