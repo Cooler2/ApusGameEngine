@@ -36,6 +36,16 @@ const
  aiMH2048  = $400000;
  aiMH4096  = $500000;
 
+ // Color values
+ clNeutral = $FF808080;
+ clWhite   = $FFFFFFFF;
+ clBlack   = $FF000000;
+ clTransparent = 0;
+ clTranspWhite = $FFFFFF;
+ clRed     = $FFFF0000;
+ clGreen   = $FF00FF00;
+ clBlue    = $FF0000FF;
+
  // LoadImageFromFile flags
  liffSysMem  = aiSysMem; // Image will be allocated in system memory only and can't be used for accelerated rendering!
  liffTexture = aiTexture; // Image will be allocated as a whole texture (wrap UV enabled, otherwise - disabled!)
@@ -436,6 +446,9 @@ type
   function RightVec:TVector3s; // camera right (screen X+) vector
   function DownVec:TVector3s;  // camera down (screen Y+) vector
   function CameraPos:TPoint3s; // get current camera position
+  function Depth(pnt:TPoint3s):single; // get point depth (i.e. distance along camera view vector)
+  function MinDepth:single; // get minimal depth value (zMin)
+  function MaxDepth:single; // get maximal depth value (zMax)
  end;
 
  // Shaders-related API
@@ -645,23 +658,23 @@ type
 
   // Textured primitives ---------------
   // Указываются к-ты тех пикселей, которые будут зарисованы (без границы)
-  procedure Image(x_,y_:NativeInt;tex:TTexture;color:cardinal=$FF808080); overload;
-  procedure Image(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080;pivotX:single=0;pivotY:single=0); overload;
-  procedure ImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=$FF808080);
-  procedure Centered(x,y:NativeInt;tex:TTexture;color:cardinal=$FF808080); overload;
-  procedure Centered(x,y,scale:single;tex:TTexture;color:cardinal=$FF808080); overload;
+  procedure Image(x_,y_:NativeInt;tex:TTexture;color:cardinal=clNeutral); overload;
+  procedure Image(x,y,scale:single;tex:TTexture;color:cardinal=clNeutral;pivotX:single=0;pivotY:single=0); overload;
+  procedure ImageFlipped(x_,y_:integer;tex:TTexture;flipHorizontal,flipVertical:boolean;color:cardinal=clNeutral);
+  procedure Centered(x,y:NativeInt;tex:TTexture;color:cardinal=clNeutral); overload;
+  procedure Centered(x,y,scale:single;tex:TTexture;color:cardinal=clNeutral); overload;
   procedure ImagePart(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect);
-  // Рисовать часть картинки с поворотом ang раз на 90 град по часовой стрелке
+  // Draw part of the image rotated ang times by 90 deg CW
   procedure ImagePart90(x_,y_:integer;tex:TTexture;color:cardinal;r:TRect;ang:integer);
-  procedure TexturedRect(r:TRect;texture:TTexture;color:cardinal=$FF808080); overload;
-  procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal=$FF808080); overload;
-  procedure Scaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=$FF808080); overload;
-  procedure Scaled(x,y,scale:single;image:TTexture;color:cardinal=$FF808080); overload;
-  procedure RotScaled(x,y,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=$FF808080;pivotX:single=0.5;pivotY:single=0.5);
-
+  procedure TexturedRect(r:TRect;texture:TTexture;color:cardinal=clNeutral); overload;
+  procedure TexturedRect(x1,y1,x2,y2:integer;texture:TTexture;u1,v1,u2,v2,u3,v3:single;color:cardinal=clNeutral); overload;
+  procedure Scaled(x1,y1,x2,y2:single;image:TTexture;color:cardinal=clNeutral); overload;
+  procedure Scaled(x,y,scale:single;image:TTexture;color:cardinal=clNeutral); overload;
+  procedure RotScaled(x,y,scaleX,scaleY,angle:double;image:TTexture;color:cardinal=clNeutral;pivotX:single=0.5;pivotY:single=0.5);
   // Returns scale
-  function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
-  function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
+  function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=clNeutral):single;
+  function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=clNeutral):single;
+
 
   // Meshes ------------------
   // Draw textured tri-mesh (tex=nil -> colored mode)
@@ -676,12 +689,12 @@ type
   // Режим мультитекстурирования должен быть предварительно настроен с помощью SetTexMode / SetTexInterpolationMode
   // а затем сброшен с помощью SetTexMode(1,tblDisable)
   // Рисует два изображения, наложенных друг на друга, за один проход (если размер отличается, будет видна лишь общая часть)
-  procedure DoubleTex(x,y:integer;image1,image2:TTexture;color:cardinal=$FF808080);
+  procedure DoubleTex(x,y:integer;image1,image2:TTexture;color:cardinal=clNeutral);
   // Рисует два изображения (каждое - с индвидуальным масштабом), повёрнутых на одинаковый угол. ЯЕсли итоговый размер отличается - будет видна лишь общая часть)
   procedure DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
-      image1,image2:TTexture;color:cardinal=$FF808080);
+      image1,image2:TTexture;color:cardinal=clNeutral);
   // Заполнение прямоугольника несколькими текстурами (из списка)
-  //procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=$FF808080);
+  //procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=clNeutral);
 
   // Particles ------------------------------------------
   procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0);
@@ -796,7 +809,7 @@ type
   textLinkRect:TRect; // область ссылки, по номеру textLink
 
   topmostScene:TGameScene; // last topmost scene
-  globalTintColor:cardinal; // multiplier (2X) for whole backbuffer ($FF808080 - neutral value)
+  globalTintColor:cardinal; // multiplier (2X) for whole backbuffer (clNeutral - neutral value)
 
   constructor Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
 

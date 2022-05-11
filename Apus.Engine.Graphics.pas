@@ -79,10 +79,14 @@ type
   function RightVec:TVector3s; // camera front vector
   function DownVec:TVector3s; // camera front vector
   function CameraPos:TPoint3s; // get current camera position
+  function Depth(pnt:TPoint3s):single; overload; // get point depth (i.e. distance along camera view vector)
+  function MinDepth:single; // get minimal depth value (zMin)
+  function MaxDepth:single; // get maximal depth value (zMax)
  type
   TMatrixType=(mtModelView,mtProjection);
  protected
   modified,modifiedVP:boolean;
+  zMin,zMax:single;
   procedure CalcMVP;
   procedure CalcInvVP;
  end;
@@ -213,6 +217,12 @@ procedure TTransformationAPI.DefaultView;
   //Update;
  end;
 
+function TTransformationAPI.Depth(pnt:TPoint3s):single;
+ begin
+  pnt:=Vector3s(pnt,CameraPos);
+  result:=DotProduct(pnt,ViewVec);
+ end;
+
 function TTransformationAPI.GetMVPMatrix:T3DMatrix;
  begin
   if modified then CalcMVP;  
@@ -234,6 +244,16 @@ function TTransformationAPI.GetViewMatrix:T3DMatrix;
   result:=viewMatrix;
  end;
 
+function TTransformationAPI.MaxDepth:single;
+ begin
+  result:=zMax;
+ end;
+
+function TTransformationAPI.MinDepth:single;
+ begin
+  result:=zMin;
+ end;
+
 procedure TTransformationAPI.Orthographic(scale,zMin,zMax:double);
  var
   w,h:integer;
@@ -250,6 +270,8 @@ procedure TTransformationAPI.Orthographic(scale,zMin,zMax:double);
   projMatrix[0,2]:=0;  projMatrix[1,2]:=0; projMatrix[2,2]:=2/(zMax-zMin); projMatrix[3,2]:=-(zMax+zMin)/(zMax-zMin);
   projMatrix[0,3]:=0;  projMatrix[1,3]:=0; projMatrix[2,3]:=0; projMatrix[3,3]:=1;
 
+  self.zMin:=zMin;
+  self.zMax:=zMax;
   modified:=true;
  end;
 
@@ -272,6 +294,8 @@ procedure TTransformationAPI.Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,
    for i:=0 to 3 do
     projMatrix[i,1]:=-projMatrix[i,1];
 
+  self.zMin:=zMin;
+  self.zMax:=zMax;
   modified:=true;
  end;
 

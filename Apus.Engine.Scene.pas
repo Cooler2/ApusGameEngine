@@ -24,7 +24,7 @@ type
 
  // Base scene switcher interface
  TSceneSwitcher=class
-  class var defaultSwitcher:TSceneSwitcher;
+  class var defaultSwitcher:TSceneSwitcher; // global scene switcher is here
   procedure SwitchToScene(name:string); virtual; abstract; // switch to a fullscreen scene
   procedure ShowWindowScene(name:string;modal:boolean=true); virtual; abstract; // show a windowed scene
   procedure HideWindowScene(name:string); virtual; abstract; // hide a windowed scene
@@ -67,14 +67,14 @@ type
   // status=ssActive
   function IsActive:boolean;
 
-  // Called only once from the main thread before first Render() call
-  procedure Initialize; virtual;
-
-  // Should be called during game initialization not from the main thread (load required resources here)
+  // Called once during game initialization outside of the main thread (load required resources here)
   procedure Load; virtual;
 
-  // Обработка сцены, вызывается с заданной частотой если только сцена не заморожена
-  // Этот метод может выполнять логику сцены, движение/изменение объектов и т.п.
+  // Called only once from the MAIN (render) thread before the first Render() call (so must be fast)
+  procedure Initialize; virtual;
+
+  // Called with the specified frequency (regardless of the FPS) unless scene is Frozen
+  // Can return false if scene doesn't change and doesn't need to be rendered
   function Process:boolean; virtual;
 
   // Рисование сцены. Вызывается каждый кадр только если сцена активна и изменилась
@@ -83,7 +83,7 @@ type
   // рисовалку UI для его отображения
   procedure Render; virtual;
 
-  // Определить есть ли нажатия клавиш в буфере
+  // Check if there are any key events in the keys buffer
   function KeyPressed:boolean; virtual;
   // Read buffered key event: 0xAAAABBCC or 0 if no any keys were pressed
   // AAAA - unicode char, BB - scancode, CC - ansi char
@@ -108,6 +108,7 @@ type
   // For non-fullscreen scenes return occupied area
   function GetArea:TRect; virtual; abstract;
 
+  // Call "Load" for all scenes (if applicable)
   class procedure LoadAllScenes;
 
  protected
@@ -123,8 +124,8 @@ implementation
  uses Apus.MyServis, SysUtils;
 
  var
-  scenesHash:TObjectHash;
-  scenesToLoad:TObjectList;
+  scenesHash:TObjectHash; // used to search scenes by name
+  scenesToLoad:TObjectList; // order of scenes to load
 
  { TGameScene }
 
