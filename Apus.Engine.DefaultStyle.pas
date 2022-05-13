@@ -211,7 +211,7 @@ implementation
       d:=byte(pressed);
       if not enabled then c:=ColorMix(c,$FFA0A0A0,128);
       if enabled and (underMouse=control) then inc(c,$101010);
-      if pressed then c:=c-$181010;
+      if pressed then c:=c-$282020;
       draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,ColorAdd(c,$303030),ColorSub(c,$303030),true);
       c:=GetColor(control,2); if c=0 then c:=$60000000;
       c2:=GetColor(control,3); if c2=0 then c2:=$80FFFFFF;
