@@ -399,7 +399,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
    end;
   // Lighting
   AddLine(result,'  c = c*(lightColor*diff+ambientColor);',lighting);
-
+  AddLine(result,'  if (a<0.01) discard;'); // don't dirty depth buffer with transparent pixels
   AddLine(result,'  fragColor = vec4(c.r, c.g, c.b, a);');
 //  AddLine(result,'  fragColor = vec4(vLightPos.xyz, vColor.a);',shadowMap); // for debug output
   AddLine(result,'}');
