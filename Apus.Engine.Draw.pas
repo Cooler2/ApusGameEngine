@@ -41,6 +41,13 @@ interface
   function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
   function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
 
+  procedure Billboard(screenScale:boolean;pos:TPoint3s;scale:single;tex:TTexture;pivotX:single=0.5;
+      pivotY:single=0.5;color:cardinal=clNeutral); overload;
+  procedure Billboard(pos:TPoint3s;texelSize:single;tex:TTexture;pivotX:single=0.5;
+      pivotY:single=0.5;color:cardinal=clNeutral); overload; inline;
+  procedure Billboard(pos:TPoint3s;tex:TTexture;screenScale:single;
+      pivotX:single=0.5;pivotY:single=0.5;color:cardinal=clNeutral); overload; inline;
+
   procedure DoubleTex(x_,y_:integer;image1,image2:TTexture;color:cardinal=$FF808080);
   procedure DoubleRotScaled(x_,y_:single;scale1X,scale1Y,scale2X,scale2Y,angle:single;
       image1,image2:TTexture;color:cardinal=$FF808080);
@@ -135,18 +142,18 @@ end;   }
 
 procedure TDrawer.Centered(x, y, scale: single; tex: TTexture;
   color: cardinal);
-begin
+ begin
   RotScaled(x,y,scale,scale,0,tex,color);
-end;
+ end;
 
 procedure TDrawer.Image(x, y, scale: single; tex: TTexture;
   color: cardinal; pivotX, pivotY: single);
-begin
+ begin
   if scale=1.0 then
    Image(round(x-tex.width*pivotX),round(y-tex.height*pivotY),tex,color)
   else
    RotScaled(x,y,scale,scale,0,tex,color,pivotX,pivotY);
-end;
+ end;
 
 
 procedure TDrawer.Centered(x,y:NativeInt;tex:TTexture;color:cardinal=$FF808080);
@@ -220,8 +227,8 @@ begin
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex);
 end;
 
-procedure TDrawer.ImagePart90(x_, y_: integer; tex: TTexture;
-  color: cardinal; r: TRect; ang: integer);
+procedure TDrawer.ImagePart90(x_,y_:integer;tex:TTexture;
+  color:cardinal;r:TRect;ang:integer);
 var
  vrt:array[0..3] of TVertex;
  i,w,h:integer;
@@ -263,6 +270,48 @@ begin
  for i:=0 to 3 do vrt[i].color:=color;
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex);
 end;
+
+procedure TDrawer.Billboard(screenScale:boolean;pos:TPoint3s;scale:single;tex:TTexture;
+  pivotX,pivotY:single;color:cardinal);
+ var
+  p2:TPoint3s;
+  vrt:array[0..3] of TVertex;
+  rVec,dVec:TVector3s;
+  depth,bbWidth,bbHeight:single; // billboard dimension in world space
+ begin
+  depth:=transformationAPI.Depth(pos);
+  if depth<transformationAPI.MinDepth then exit;
+  ASSERT(tex<>nil);
+  shader.UseTexture(tex);
+  rVec:=transformationAPI.RightVec;
+  dVec:=transformationAPI.DownVec;
+  bbWidth:=scale*tex.width;
+  bbHeight:=scale*tex.height;
+  pos:=PointAdd(pos,rVec,bbWidth*(pivotX-1));
+  pos:=PointAdd(pos,dVec,-bbHeight*pivotY);
+  vrt[0].Init(pos.x,pos.y,pos.z, tex.u1,tex.v1,color);
+  p2:=PointAdd(pos,rVec,bbWidth);
+  vrt[1].Init(p2.x,p2.y,p2.z, tex.u2,tex.v1,color);
+  p2:=PointAdd(p2,dVec,bbHeight);
+  vrt[2].Init(p2.x,p2.y,p2.z, tex.u2,tex.v2,color);
+  p2:=PointAdd(pos,dVec,bbHeight);
+  vrt[3].Init(p2.x,p2.y,p2.z, tex.u1,tex.v2,color);
+
+  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex);
+ end;
+
+procedure TDrawer.Billboard(pos:TPoint3s;tex:TTexture;screenScale:single;
+  pivotX,pivotY:single;color:cardinal);
+ begin
+  Billboard(false,pos,screenScale,tex,pivotX,pivotY,color);
+ end;
+
+procedure TDrawer.Billboard(pos:TPoint3s;texelSize:single;tex:TTexture;
+  pivotX,pivotY:single;color:cardinal);
+ begin
+  Billboard(true,pos,texelSize,tex,pivotX,pivotY,color);
+ end;
+
 
 procedure TDrawer.Line(x1, y1, x2, y2: single; color: cardinal);
 var

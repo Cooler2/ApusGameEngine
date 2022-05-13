@@ -676,6 +676,13 @@ type
   function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=clNeutral):single;
   function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=clNeutral):single;
 
+  // Draw a billboard: place this texture at the specified 3D point toward camera
+  // texelSize - size of one billboard texel in world CS
+  procedure Billboard(pos:TPoint3s;texelSize:single;tex:TTexture;pivotX:single=0.5;pivotY:single=0.5;
+      color:cardinal=clNeutral); overload;
+  // screenScale - number of screen pixels per texel (so 2.0 results in tex upscaled 2x on screen)
+  procedure Billboard(pos:TPoint3s;tex:TTexture;screenScale:single;pivotX:single=0.5;pivotY:single=0.5;
+      color:cardinal=clNeutral); overload;
 
   // Meshes ------------------
   // Draw textured tri-mesh (tex=nil -> colored mode)
