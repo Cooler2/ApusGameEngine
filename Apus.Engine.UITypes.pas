@@ -71,6 +71,8 @@ type
  // resizeToContent - make item size match
  // center - align elements to item's central line
  TRowLayout=class(TLayouter)
+  constructor CreateVertical(spaceBetween:single=0;resizeToContent:boolean=false);
+  constructor CreateHorizontal(spaceBetween:single=0;resizeToContent:boolean=false);
   constructor Create(horizontal:boolean=true; spaceBetween:single=0; resizeToContent:boolean=false; center:boolean=false);
   procedure Layout(item:TUIElement); override;
  private
@@ -1307,7 +1309,17 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    fCenter:=center;
   end;
 
- procedure TRowLayout.Layout(item:TUIElement);
+ constructor TRowLayout.CreateHorizontal(spaceBetween:single;resizeToContent:boolean);
+  begin
+   Create(true,spaceBetween,resizeToContent,false);
+  end;
+
+ constructor TRowLayout.CreateVertical(spaceBetween:single;resizeToContent:boolean);
+  begin
+   Create(false,spaceBetween,resizeToContent,true);
+  end;
+
+procedure TRowLayout.Layout(item:TUIElement);
   var
    i:integer;
    pos:single;
