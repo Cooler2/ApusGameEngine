@@ -382,6 +382,7 @@ type
   procedure Rect(r:TRect;combine:boolean=true);  //< Set clipping rect (combine with previous or override), save previous
   procedure Nothing; //< don't clip anything, save previous (the same as Rect() for the whole render target area)
   procedure Restore; //< restore previous clipping rect
+  procedure Reject(rejectPrimitives:boolean); // enable/disable primitive-level rejection base on clip area
   function  Get:TRect; //< return current clipping rect
   // Call this before draw something within R.
   // It sets actual clipping if needed.

@@ -75,13 +75,13 @@ type
   // Единичный вектор из камеры в направлении экранного пикселя
   function ViewDir(scrX,scrY:integer):TVector3s; overload; // view direction vector
   function ViewDir(viewPos:TPoint2s):TVector3s; overload; // viewPos in range of -1..1 (y axis is up)
-  function ViewVec:TVector3s; // camera front vector
-  function RightVec:TVector3s; // camera front vector
-  function DownVec:TVector3s; // camera front vector
-  function CameraPos:TPoint3s; // get current camera position
+  function ViewVec:TVector3s; inline; // camera front vector
+  function RightVec:TVector3s; inline; // camera front vector
+  function DownVec:TVector3s; inline; // camera front vector
+  function CameraPos:TPoint3s; inline; // get current camera position
   function Depth(pnt:TPoint3s):single; overload; // get point depth (i.e. distance along camera view vector)
-  function MinDepth:single; // get minimal depth value (zMin)
-  function MaxDepth:single; // get maximal depth value (zMax)
+  function MinDepth:single; inline; // get minimal depth value (zMin)
+  function MaxDepth:single; inline; // get maximal depth value (zMax)
  type
   TMatrixType=(mtModelView,mtProjection);
  protected
@@ -96,6 +96,7 @@ type
   procedure Rect(r:TRect;combine:boolean=true);  //< Set clipping rect (combine with previous or override), save previous
   procedure Nothing; //< don't clip anything, save previous (the same as Apply() for the whole render target area)
   procedure Restore; //< restore previous clipping rect
+  procedure Reject(rejectPrimitives:boolean);
   function  Get:TRect; //< return current clipping rect
   procedure Prepare; overload; //<
   function Prepare(r:TRect):boolean; overload; //< return false if r doesn't intersect the current clipping rect (so no need to draw anything inside r)
@@ -108,6 +109,7 @@ type
   actualClip:TRect; //< real clipping area
   stack:array[0..49] of TRect;
   stackPos:integer;
+  rejectMode:boolean;
  end;
 
  TRenderTargetAPI=class(TInterfacedObject,IRenderTarget)
@@ -219,7 +221,7 @@ procedure TTransformationAPI.DefaultView;
 
 function TTransformationAPI.Depth(pnt:TPoint3s):single;
  begin
-  pnt:=Vector3s(pnt,CameraPos);
+  pnt:=Vector3s(CameraPos,pnt);
   result:=DotProduct(pnt,ViewVec);
  end;
 
@@ -597,6 +599,7 @@ function TClippingAPI.Prepare(r:TRect):boolean;
   outRect:TRect;
   f1,f2:integer;
  begin
+  if not rejectMode then exit(true);
   f1:=IntersectRects(r,clipRect,outRect);
   if f1=0 then exit(false);
   result:=true;
@@ -620,7 +623,7 @@ function TClippingAPI.Prepare(x1,y1,x2,y2:single):boolean;
   result:=Prepare(Types.Rect(trunc(x1),trunc(y1),trunc(x2)+1,trunc(y2)+1));
  end;
 
-procedure TClippingAPI.AssignActual(r: TRect);
+procedure TClippingAPI.AssignActual(r:TRect);
  begin
   actualClip:=r;
  end;
@@ -643,7 +646,7 @@ procedure TClippingAPI.Nothing;
   Rect(types.Rect(-100000,-100000,100000,100000),false);
  end;
 
-procedure TClippingAPI.Rect(r: TRect; combine: boolean);
+procedure TClippingAPI.Rect(r:TRect;combine:boolean);
  begin
   ASSERT(stackPos<high(stack));
   inc(stackPos);
@@ -653,6 +656,11 @@ procedure TClippingAPI.Rect(r: TRect; combine: boolean);
     cliprect:=types.Rect(-1,-1,-1,-1);
   end else
    clipRect:=r;
+ end;
+
+procedure TClippingAPI.Reject(rejectPrimitives:boolean);
+ begin
+  rejectMode:=rejectPrimitives;
  end;
 
 procedure TClippingAPI.Restore;
