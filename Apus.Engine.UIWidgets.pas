@@ -95,6 +95,10 @@ interface
    group:integer;   // Группа переключателей
    onClick:TProcedure;
    constructor Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement);
+   constructor CreateSwitch(width,height:single;btnName,btnCaption:string;group:integer;
+     btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false);
+   constructor CreateCheckbox(width,height:single;btnName,btnCaption:string;group:integer;
+     btnFont:TFontHandle;parent_:TUIElement;checked:boolean=false);
 
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
@@ -348,7 +352,25 @@ implementation
    lastPressed:=0;
   end;
 
- procedure TUIButton.DoClick;
+ constructor TUIButton.CreateCheckbox(width,height:single;btnName,
+    btnCaption:string;group:integer;btnFont:TFontHandle;parent_:TUIElement;checked:boolean=false);
+  begin
+   Create(width,height,btnName,btnCaption,btnFont,parent_);
+   btnStyle:=bsCheckbox;
+   self.group:=group;
+   self.pressed:=pressed;
+  end;
+
+ constructor TUIButton.CreateSwitch(width,height:single;btnName,btnCaption:string;
+    group:integer;btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false);
+  begin
+   Create(width,height,btnName,btnCaption,btnFont,parent_);
+   btnStyle:=bsSwitch;
+   self.group:=group;
+   self.pressed:=pressed;
+  end;
+
+procedure TUIButton.DoClick;
   var
    i:integer;
   begin
