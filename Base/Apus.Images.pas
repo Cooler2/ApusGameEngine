@@ -167,7 +167,7 @@ type
  function PixFmt2Str(ipf:TImagePixelFormat):string;
 
 implementation
- uses SysUtils, Apus.CrossPlatform, Apus.MyServis;
+ uses SysUtils, Apus.Types, Apus.MyServis;
 
 function PixFmt2Str(ipf:TImagePixelFormat):string;
  begin
@@ -489,7 +489,7 @@ end;
 
 function TRawImage.ScanLine(y: integer): pointer;
 begin
- result:=pointer( PtrUInt(data)+y*pitch);
+ result:=pointer(PtrUInt(data)+y*pitch);
 end;
 
 procedure TRawImage.Unlock;

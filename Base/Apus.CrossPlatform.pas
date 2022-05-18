@@ -43,17 +43,11 @@ interface
 
 {$IFDEF MSWINDOWS}
  type
-  TRect=windows.TRect;
-  TPoint=windows.TPoint;
   HCursor=windows.HCURSOR;
   HWND=windows.HWND;
   {$IF not Declared(TThreadID)}
   TThreadID=cardinal;
   {$ENDIF}
-  {$IF not Declared(UIntPtr)}
-  UIntPtr=NativeUInt;
-  {$ENDIF}
-  PtrUInt=UIntPtr;
  const
   VK_SPACE=windows.VK_SPACE;
   VK_RETURN=windows.VK_RETURN;
@@ -118,8 +112,6 @@ interface
   TThreadID=system.TThreadID;
   HCURSOR=cardinal;
   HWND=pointer;
-  TRect=types.TRect;
-  TPoint=types.TPoint;
 {$ENDIF}
  const
   dummyConst = 0;

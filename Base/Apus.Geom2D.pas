@@ -204,7 +204,7 @@ interface
  procedure Triangulate(pnts:PPoint2;count:integer);
 
 implementation
- uses {$IFDEF DELPHI}Apus.CrossPlatform,{$ENDIF} Apus.MyServis, SysUtils, Math;
+ uses Apus.Types, Apus.MyServis, SysUtils, Math;
 
  function DotProduct(const a,b:TVector2):double;
   begin

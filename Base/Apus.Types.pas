@@ -5,6 +5,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.Types;
 interface
+uses Types;
 type
   // 8-bit string type (assuming UTF-8 encoding)
   Char8 = UTF8Char;
@@ -24,6 +25,14 @@ type
 
   DWORD = cardinal;
   QWORD = uint64;
+
+  TPoint = Types.TPoint;
+  TRect = Types.TRect;
+
+  {$IF not Declared(UIntPtr)}
+  UIntPtr=NativeUInt;
+  {$ENDIF}
+  PtrUInt=UIntPtr;
 
   // String arrays
   StringArray8 = array of String8;

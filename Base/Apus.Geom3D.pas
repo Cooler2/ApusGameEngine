@@ -364,7 +364,7 @@ interface
  function IntersectTrgLine(A,B,C,O,T:PPoint3s;var pb,pc,d:double):boolean;
 
 implementation
- uses Apus.CPU,Apus.CrossPlatform,SysUtils,Math;
+ uses Apus.CPU, Apus.Types, SysUtils, Math;
 
  const
   vec0001s:TVector4s=(x:0; y:0; z:0; w:1);
