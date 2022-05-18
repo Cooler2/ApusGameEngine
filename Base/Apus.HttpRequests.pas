@@ -28,7 +28,7 @@ interface
 
  // Perform HTTP GET request and wait for data
  // Returns true if request is successful
- function HTTPSyncRequestGet(url:string;var response:AnsiString;timeout:integer=0):boolean;
+ function HTTPSyncRequestGet(url:string;var response:String8;timeout:integer=0):boolean;
 
  // Start HTTP request to URL, if postdata='' then request is GET, otherwise - POST
  // Upon completion (or in case of failure), "event" will be signaled with tag=requestID
@@ -41,14 +41,14 @@ interface
  // Return request status (HTTP code or error constant) and response text
  // If request is completed - this destroys request object, so it's ID and data can't be used anymore
  // returns request status
- function GetRequestResult(ID:integer;out response:AnsiString;httpStatus:PInteger=nil):integer;
+ function GetRequestResult(ID:integer;out response:String8;httpStatus:PInteger=nil):integer;
  // Если статут запроса - Sent или Completed - возвращает кол-во скачанных байт
  function GetRequestState(ID:integer):integer;
  // Возвращает код ошибки запроса, который завершился неудачей
  function GetRequestError(ID:integer):integer;
 
  // Format POST body with specified parameters using specified content type
- function FormatPostBody(paramNames,paramValues:StringArr;contentType:TContentType=ctAuto):AnsiString;
+ function FormatPostBody(paramNames,paramValues:StringArr;contentType:TContentType=ctAuto):String8;
 
  // Both procedures are not required to call!
  procedure InitHTTPrequests;
@@ -80,7 +80,7 @@ implementation
   {$IFDEF DELPHI}
   THTTPConnection=record
    HCon:HInternet;
-   server:AnsiString;
+   server:String8;
    port:word;
    free:boolean; // используется ли в данный момент для запроса?
   end;
@@ -468,7 +468,7 @@ implementation
    LogMessage('Request not found'+inttostr(reqID));
   end;
 
- function GetRequestResult(ID:integer;out response:AnsiString;httpStatus:PInteger=nil):integer;
+ function GetRequestResult(ID:integer;out response:String8;httpStatus:PInteger=nil):integer;
   var
    i:integer;
   begin
@@ -535,7 +535,7 @@ implementation
    end;
   end;
 
-function HTTPSyncRequestGet(url:string;var response:AnsiString;timeout:integer=0):boolean;
+function HTTPSyncRequestGet(url:string;var response:String8;timeout:integer=0):boolean;
  var
   req,res:integer;
   time:int64;
@@ -690,7 +690,7 @@ procedure THTTPThread.ExecutePostRequest;
   handle:HInternet;
   data:array of byte;
   lines:AStringArr;
-  headers,boundary,serverName,request:AnsiString;
+  headers,boundary,serverName,request:String8;
   multipart:boolean;
   HConnect:HInternet;
  begin
@@ -952,7 +952,7 @@ procedure THTTPThread.Execute;
    {$ENDIF}
   end;
 
- function FormatPostBody(paramNames,paramValues:StringArr;contentType:TContentType):AnsiString;
+ function FormatPostBody(paramNames,paramValues:StringArr;contentType:TContentType):String8;
   var
    i,j,c,s:integer;
    boundary:string;

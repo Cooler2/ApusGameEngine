@@ -4,7 +4,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.SCGI;
 interface
- uses Apus.Database,Apus.Structs,SysUtils;
+ uses Apus.Types, Apus.Database, Apus.Structs, SysUtils;
  const
   MAX_REQUESTS = 1000;
   MAX_RQUEUE = 1023; // 2^n-1
@@ -23,7 +23,7 @@ interface
   local_IP:cardinal=$7F000001; // localhost
 
   rootDir:string; // root dir for site "/" path (ends with '\')
-  URIprefix:Ansistring; // this prefix is removed from URI before request is processed
+  URIprefix:String8; // this prefix is removed from URI before request is processed
 
  threadvar
   db:TDataBase; // worker's database connection
@@ -32,22 +32,22 @@ interface
   workerID:integer;
   // Per-request values
   requestIdx:integer;
-  headers:AnsiString;    // заголовки из SCGI-запроса (as-is, разделены #0)
-  requestBody:AnsiString;
-  uri,query:AnsiString; // Запрос (до знака ? и после него)
-  clientIP:AnsiString;  // remote IP address
-  clientCountry:AnsiString;
-  httpMethod:AnsiString;   // 'GET', 'POST'
-  setCookies:AnsiString; // Сюда заносятся куки, которые нужно установить юзеру (используется в FormatHeaders)
+  headers:String8;    // заголовки из SCGI-запроса (as-is, разделены #0)
+  requestBody:String8;
+  uri,query:String8; // Запрос (до знака ? и после него)
+  clientIP:String8;  // remote IP address
+  clientCountry:String8;
+  httpMethod:String8;   // 'GET', 'POST'
+  setCookies:String8; // Сюда заносятся куки, которые нужно установить юзеру (используется в FormatHeaders)
   userID:integer; // обнуляется при каждом запросе, служит для определения авторизации юзеров (ID профиля)
-  uploadedFileName:AnsiString; // при вызове Param() для поля с файлом - сюда заносится исходное имя загруженного файла
+  uploadedFileName:String8; // при вызове Param() для поля с файлом - сюда заносится исходное имя загруженного файла
 
   // Язык клиента (xx) - определяется по куке, либо по заголовкам
-  clientLang:AnsiString;
+  clientLang:String8;
 
  type
   // Page builder function type
-  TRequestHandler=function:AnsiString; stdcall;
+  TRequestHandler=function:String8; stdcall;
 
   // Exceptions for standard HTTP response codes
   E200=class(Exception) end; // Normal response returned via exception mechanism
@@ -64,7 +64,7 @@ interface
  // Add page handler (with or without '/', i.e. pass index.cgi for '/index.cgi') (case insensitive)
  // Use xxx* to match first part of URI
  // Use '*' to set default handler
- procedure AddHandler(uri:AnsiString;handler:TRequestHandler);
+ procedure AddHandler(uri:String8;handler:TRequestHandler);
 
  // Load configuration
  procedure Initialize;
@@ -78,44 +78,44 @@ interface
 
  // Aux functions for use from request handlers
  // Extract value of parameter [name] from [headers] (name is case insensitive)
- function Param(name:AnsiString):AnsiString;
- function IntParam(name:AnsiString;default:integer=-1):integer;
+ function Param(name:String8):String8;
+ function IntParam(name:String8;default:integer=-1):integer;
  // Extract value of cookie [name] from [headers] (name is case insensitive)
- function Cookie(name:AnsiString):AnsiString;
+ function Cookie(name:String8):String8;
  // Установить куку (будет отправлено при формировании заголовков через FormatHeaders)
- procedure SetCookie(name,value:AnsiString;permanent:boolean;httpOnly:boolean=true);
- procedure DeleteCookie(name:AnsiString);
+ procedure SetCookie(name,value:String8;permanent:boolean;httpOnly:boolean=true);
+ procedure DeleteCookie(name:String8);
  // Extract value of SCGI request header [name] from [headers] (name is case-insensitive)
- function GetHeader(headers,name:AnsiString):AnsiString;
+ function GetHeader(headers,name:String8):String8;
 
  // Build page text based on global and local templates
  // template can be name (#NAME) or plain text to be translated
- function BuildTemplate(template:AnsiString):AnsiString;
+ function BuildTemplate(template:String8):String8;
 
  // Combine values into response header
- function FormatHeaders(contentType:AnsiString;status:AnsiString='';other:AnsiString=''):AnsiString;
+ function FormatHeaders(contentType:String8;status:String8='';other:String8=''):String8;
 
  // Build headers for Error response
- function FormatError(code:integer;msgToLog:AnsiString):AnsiString;
+ function FormatError(code:integer;msgToLog:String8):String8;
 
  // Build headers for redirection
- function FormatRedirect(url:AnsiString;extra:AnsiString=''):AnsiString;
+ function FormatRedirect(url:String8;extra:String8=''):String8;
 
  // Ensure that string is number
- function MakeNumber(st:AnsiString):AnsiString;
+ function MakeNumber(st:String8):String8;
 
  // yyyymmddhhnnss
- function CurrentTimeStamp:AnsiString;
- function ParseTimeStamp(timestamp:AnsiString):TDateTime;
+ function CurrentTimeStamp:String8;
+ function ParseTimeStamp(timestamp:String8):TDateTime;
 
  // Add task (request, async job) to process (st=url, like received)
- procedure AddTask(task:AnsiString;data:AnsiString='');
+ procedure AddTask(task:String8;data:String8='');
 
  // Execute DB query in a queued task
- procedure PostQuery(query:AnsiString;params:array of const);
+ procedure PostQuery(query:String8;params:array of const);
 
  // Test request that output HTTP headers
- function ListHeaders:AnsiString; stdcall;
+ function ListHeaders:String8; stdcall;
 
 implementation
  uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, {$ENDIF}
@@ -144,14 +144,14 @@ implementation
    timestamp:int64; // when status changed last time? (MyTickCount used)
    executionTime:integer;  // total time spent (including pending/waiting) to complete request
    socket:TSocket;
-   request,response:AnsiString;
+   request,response:String8;
    contentLength,totalLength,bytesSent:integer;
-   headers,body:AnsiString;
+   headers,body:String8;
    timeToProcess:int64; // don't handle before this time (MyTickCOunt)
   end;
 
   THandler=record
-   uri:AnsiString;    // always uppercase
+   uri:String8;    // always uppercase
    wildcard:integer;  // URI starts or ends with '*' (1 - prefix, 2 - suffix)
    handler:TRequestHandler;
   end;
@@ -203,13 +203,13 @@ implementation
 // AUX CGI functions
 // -------------------------------------------------------
 
- function Param(name:AnsiString):AnsiString;
+ function Param(name:String8):String8;
   var
    p,e:integer;
-   params,cType:AnsiString;
-   function ExtractMultipartValue:AnsiString;
+   params,cType:String8;
+   function ExtractMultipartValue:String8;
     var
-     boundary,fHeaders:AnsiString;
+     boundary,fHeaders:String8;
      i,p,q:integer;
     begin
      result:='';
@@ -259,16 +259,16 @@ implementation
    end;
   end;
 
- function IntParam(name:AnsiString;default:integer=-1):integer;
+ function IntParam(name:String8;default:integer=-1):integer;
   begin
    result:=StrToIntDef(Param(name),default);
   end;
 
- function Cookie(name:AnsiString):AnsiString;
+ function Cookie(name:String8):String8;
   var
    p,e,i:integer;
    cookies,items:StringArr;
-   st:AnsiString;
+   st:String8;
   begin
    result:='';
    name:=UpperCase(name);
@@ -282,7 +282,7 @@ implementation
    end;
   end;
 
- procedure SetCookie(name,value:AnsiString;permanent:boolean;httpOnly:boolean=true);
+ procedure SetCookie(name,value:String8;permanent:boolean;httpOnly:boolean=true);
   begin
    setCookies:=setCookies+'Set-Cookie: '+name+'='+value+'; Path=/';
    if permanent then setCookies:=setCookies+'; Expires=30-Dec-2098 00:00:00 GMT';
@@ -290,12 +290,12 @@ implementation
    setCookies:=setCookies+#13#10;
   end;
 
- procedure DeleteCookie(name:AnsiString);
+ procedure DeleteCookie(name:String8);
   begin
    setCookies:=setCookies+'Set-Cookie: '+name+'=; Expires=31-Dec-2000 00:00:00 GMT'#13#10;
   end;
 
- function GetHeader(headers,name:AnsiString):AnsiString;
+ function GetHeader(headers,name:String8):String8;
   var
    p,e:integer;
   begin
@@ -309,7 +309,7 @@ implementation
    end;
   end;
 
- function MakeNumber(st:AnsiString):AnsiString;
+ function MakeNumber(st:String8):String8;
   var
    i:integer;
   begin
@@ -318,12 +318,12 @@ implementation
    result:=StringReplace(st,' ','',[rfReplaceAll]);
   end;
 
- function CurrentTimeStamp:AnsiString;
+ function CurrentTimeStamp:String8;
   begin
    result:=FormatDateTime('yyyymmddhhnnss',NowGMT);
   end;
 
- function ParseTimeStamp(timestamp:AnsiString):TDateTime;
+ function ParseTimeStamp(timestamp:String8):TDateTime;
   var
    year,month,day,hour,min,sec:integer;
   begin
@@ -344,7 +344,7 @@ implementation
  // Templates-related functions
  // -------------------------------------------------------
 
- function FormatHeaders(contentType:AnsiString;status:AnsiString='';other:AnsiString=''):AnsiString;
+ function FormatHeaders(contentType:String8;status:String8='';other:String8=''):String8;
   begin
    result:='';
    if contentType<>'' then result:=result+'Content-type: '+contentType+#13#10;
@@ -354,14 +354,14 @@ implementation
    result:=result+#13#10;
   end;
 
- function FormatRedirect(url:AnsiString;extra:AnsiString=''):AnsiString;
+ function FormatRedirect(url:String8;extra:String8=''):String8;
   begin
    url:='Location: '+url;
    if extra<>'' then url:=url+#13#10+extra;
    result:=FormatHeaders('','303 See Other',url);
   end;
 
- function FormatError(code:integer;msgToLog:AnsiString):AnsiString;
+ function FormatError(code:integer;msgToLog:String8):String8;
   begin
    LogMsg('ErrorCode '+IntToStr(code)+': '+msgToLog,logNormal);
    result:=FormatHeaders('text/html',IntToStr(code));
@@ -374,11 +374,11 @@ implementation
    end;
   end;
 
- // Apply templates to a AnsiString
- function TranslateString(st:AnsiString):AnsiString;
+ // Apply templates to a String8
+ function TranslateString(st:String8):String8;
   var
    i,j,k,p,q,r,start,after,action:integer;
-   key,subst,tmp,pName,pValue:AnsiString;
+   key,subst,tmp,pName,pValue:String8;
    keep,bad:boolean;
    sa:StringArr;
   begin
@@ -474,7 +474,7 @@ implementation
    result:=st;
   end;
 
- function BuildTemplate(template:AnsiString):AnsiString;
+ function BuildTemplate(template:String8):String8;
   begin
    EnterCriticalSection(critSect);
    try
@@ -494,10 +494,10 @@ implementation
  // Возможны 2 варианта:
  // 1) файл целиком - один шаблон, имя шаблона = имя файла (uppercase)
  // 2) Файл содержит несколько шаблонов, т.е. содержит строки вида #NAME:
- procedure LoadTemplatesFromFile(fname:AnsiString);
+ procedure LoadTemplatesFromFile(fname:String8);
   var
    f:text;
-   st,name,value:AnsiString;
+   st,name,value:String8;
    i,j,p:integer;
    fl,firstName:boolean;
   begin
@@ -527,7 +527,7 @@ implementation
        fl:=true; // единственная строка, игнорировать всё, что дальше
        break;
       end;
-     if not fl then value:=''; // no characters in value AnsiString
+     if not fl then value:=''; // no characters in value String8
     end else
      // not new template
      if not fl then
@@ -942,7 +942,7 @@ implementation
    end;
   end;
 
- procedure AddFakeRequest(rType,data:AnsiString);
+ procedure AddFakeRequest(rType,data:String8);
   var
    i:integer;
   begin
@@ -971,7 +971,7 @@ implementation
 // Main interface functions
 // ---------------------------------------------------------------
 
- procedure AddHandler(uri:AnsiString;handler:TRequestHandler);
+ procedure AddHandler(uri:String8;handler:TRequestHandler);
   begin
    EnterCriticalSection(critSect);
    try
@@ -1118,11 +1118,11 @@ implementation
 // -------------------------------------------------------
 
 // Returns: true - request completed, false - pending (process it later again)
-function HandleRequest(pending:boolean;out resp:AnsiString):boolean;
+function HandleRequest(pending:boolean;out resp:String8):boolean;
  var
   i,p:integer;
   found:integer;
-  st,uriUp:AnsiString;
+  st,uriUp:String8;
   t:int64;
  begin
   try
@@ -1341,23 +1341,23 @@ procedure TWorker.Execute;
   InterlockedDecrement(liveWorkers);
  end;
 
- procedure AddTask(task:AnsiString;data:AnsiString='');
+ procedure AddTask(task:String8;data:String8='');
   begin
    AddFakeRequest(task,data);
   end;
 
- procedure PostQuery(query:AnsiString;params:array of const);
+ procedure PostQuery(query:String8;params:array of const);
   begin
    query:=FormatQuery(query,params);
    AddTask('DB',query);
   end;
 
  // Test request
- function ListHeaders:AnsiString; stdcall;
+ function ListHeaders:String8; stdcall;
   var
    i:integer;
    sa:stringArr;
-   st:AnsiString;
+   st:String8;
   begin
    sa:=split(#0,headers);
    st:='<html><body><table cellpadding=3 style="background-color:#e6d8ce">';
@@ -1372,7 +1372,7 @@ procedure TWorker.Execute;
 
 
 var
- st:AnsiString;
+ st:String8;
 begin
  // Default handler
  handlers[0].uri:='';
