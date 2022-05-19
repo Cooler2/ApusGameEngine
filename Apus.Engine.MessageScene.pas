@@ -14,7 +14,7 @@ interface
  procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0);
 
 implementation
- uses Apus.CrossPlatform, SysUtils, Apus.EventMan, Apus.Structs,
+ uses Types, Apus.CrossPlatform, SysUtils, Apus.EventMan, Apus.Structs,
    Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UITypes, Apus.Engine.UI, Apus.Engine.UIScene,
    Apus.Engine.SceneEffects;
 

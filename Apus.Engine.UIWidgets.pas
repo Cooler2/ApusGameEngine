@@ -7,7 +7,7 @@
 // ------------------------------------------------------
 unit Apus.Engine.UIWidgets;
 interface
- uses Apus.MyServis, Apus.CrossPlatform, Apus.AnimatedValues,
+ uses Apus.MyServis, Apus.AnimatedValues,
    Apus.Engine.API, Apus.Engine.UITypes;
 
  {$WRITEABLECONST ON}
@@ -282,7 +282,7 @@ interface
   end;
 
 implementation
- uses SysUtils, Types, Apus.EventMan, Apus.Geom2D, Apus.Clipboard;
+ uses SysUtils, Types, Apus.Types, Apus.CrossPlatform, Apus.EventMan, Apus.Geom2D, Apus.Clipboard;
 
  type
   TScrollBarInterface=class(TInterfacedObject, IScroller)

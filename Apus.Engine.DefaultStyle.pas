@@ -11,7 +11,7 @@ uses Apus.Engine.UI;
  procedure DefaultDrawer(control:TUIElement);
 
 implementation
- uses Apus.CrossPlatform, Apus.Images, SysUtils, Types, Apus.MyServis,
+ uses Apus.Types, Apus.Images, SysUtils, Types, Apus.MyServis,
     Apus.Colors, Apus.Structs, Apus.EventMan, Apus.Geom2D,
     Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender;
 
