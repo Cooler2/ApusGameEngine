@@ -22,6 +22,11 @@ const
  pivotCenter:TPoint2s=(x:0.5; y:0.5);
 
 type
+ TAnchorMode=record
+  aLeft,aTop,aRight,aBottom:single;
+ end;
+
+type
  // UI snapping modes
  TSnapMode=(smNone,
             smTop,     // width=parents clientwidth, top=0
@@ -215,8 +220,9 @@ type
   function SetPos(x,y:single):TUIElement; overload;
   // Move by given screen pixels
   procedure MoveBy(dx,dy:single);
-  // Set element position using new pivot point
-  function SetAnchors(left,top,right,bottom:single):TUIElement;
+  // Set element anchors
+  function SetAnchors(left,top,right,bottom:single):TUIElement; overload;
+  function SetAnchors(anchorMode:TAnchorMode):TUIElement; overload;
   // Set all padding and resize client area
   function SetPaddings(padding:single):TUIElement; overload;
   function SetPaddings(left,top,right,bottom:single):TUIElement; overload;
@@ -1195,7 +1201,14 @@ function TUIElement.IsChild(c:TUIElement):boolean;
     scrollerV.SetValue(scroll.Y);
   end;
 
- procedure TUIElement.SetFocus;
+ function TUIElement.SetAnchors(anchorMode:TAnchorMode):TUIElement;
+  begin
+   with anchorMode do
+    SetAnchors(aLeft,aTop,aRight,aBottom);
+   result:=self;
+  end;
+
+procedure TUIElement.SetFocus;
   var
    c:TUIElement;
    i:integer;
