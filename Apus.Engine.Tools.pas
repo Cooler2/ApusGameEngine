@@ -11,7 +11,7 @@ unit Apus.Engine.Tools;
 interface
  uses Apus.Engine.API, Apus.Images,
     Apus.Engine.UIWidgets, Apus.Regions, Apus.MyServis,
-    Apus.UnicodeFont, Apus.CrossPlatform, Apus.Engine.Game;
+    Apus.UnicodeFont, Apus.Types, Apus.Engine.Game;
 
 var
  rootDir:string='';

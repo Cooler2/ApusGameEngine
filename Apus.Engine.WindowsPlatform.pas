@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.WindowsPlatform;
 interface
-uses Apus.CrossPlatform, Apus.Engine.API;
+uses Apus.Types, Apus.CrossPlatform, Apus.Engine.API;
 
 type
  

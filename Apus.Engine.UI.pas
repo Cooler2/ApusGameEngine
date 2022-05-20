@@ -21,6 +21,14 @@ interface
   pivotCenterLeft:TPoint2s=(x:0; y:0.5);
   pivotCenterRight:TPoint2s=(x:1; y:0.5);
 
+  // Predefined anchor modes
+  anchorCenter:TAnchorMode=(aLeft:0.5; aTop:0.5; aRight:0.5; aBottom: 0.5);
+  anchorTop:TAnchorMode=(aLeft:0; aTop:0; aRight:1; aBottom: 0);
+  anchorLeft:TAnchorMode=(aLeft:0; aTop:0; aRight:0; aBottom: 1);
+  anchorBottom:TAnchorMode=(aLeft:0; aTop:1; aRight:1; aBottom: 1);
+  anchorRight:TAnchorMode=(aLeft:1; aTop:0; aRight:1; aBottom: 1);
+
+
  type
   // Standard widgets
   TUIElement   = Apus.Engine.UITypes.TUIElement;

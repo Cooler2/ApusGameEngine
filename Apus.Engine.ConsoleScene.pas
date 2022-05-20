@@ -24,7 +24,7 @@ var
  procedure AddConsoleScene;
 
 implementation
- uses SysUtils, Classes,
+ uses SysUtils, Classes, Types,
   Apus.CrossPlatform, Apus.MyServis, Apus.EventMan,
   Apus.Engine.UIWidgets, Apus.Engine.UITypes,
   Apus.Engine.CmdProc, Apus.Engine.Console;

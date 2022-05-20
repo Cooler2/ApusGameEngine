@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.SDLplatform;
 interface
-uses Apus.CrossPlatform, Apus.Engine.API;
+uses Types, Apus.Engine.API;
 
 type
  
@@ -55,7 +55,7 @@ type
 
 implementation
 uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
-  Types, Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.Game, Apus.Images,
+  Apus.CrossPlatform, Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.Game, Apus.Images,
   Apus.GfxFormats, sdl2, Apus.Engine.Controller;
 
 type

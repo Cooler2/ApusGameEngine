@@ -19,56 +19,56 @@ type
  end;
 
 var
- NW3ErrorMessage:string; // ����� ��������� ������ (���� ��� ������ Net\Conn3\Error)
- mainLoopDelay:integer=10; // ������������� �������� ����� � �� (������ �������� � ��������/����
-                           // ���������, �� �������� ���������� �� � ���� ������
+ NW3ErrorMessage:string; // текст последней ошибки (если был сигнал Net\Conn3\Error)
+ mainLoopDelay:integer=10; // периодичность главного цикла в мс (вносит задержку в отправку/приём
+                           // сообщений, но помогает объединять их в один запрос
 
- failedRequests:integer; // ������ ������� ������ ����������� �������, �������� - ��������
- lastPollSent:TDateTime; // ����� �������� ���������� POLL-�������
+ failedRequests:integer; // каждый сбойный запрос увеличивает счётчик, успешный - обнуляет
+ lastPollSent:TDateTime; // время отправки последнего POLL-запроса
 
- // �������� ���� ��������� ��������:
- //  NET\Conn3\AccountCreated - ������� ������� ������ (CreateAccount)
- //  NET\Conn3\AccountFailed - ������ �������� �������� ������ (CreateAccount), �� ������� -
- //                            ���-�� �� ���, ��. errorMessage � ��� ������ � ����
- //  NET\Conn3\ConnectionFailed - �� ������� ������������ � ������� (��� ���������, ������������ �����, ������ �����)
- //  NET\Conn3\ConnectionRejected - ������ ������� � ����������� (���)
- //  NET\Conn3\ConnectionClosed - ������ ������ ����������
- //  NET\Conn3\ConnectionBroken - ������������� ���������� ��������� �� ����������� ��������
- //  NET\Conn3\Connected - ���������� �����������, �� �� ������������
- //  NET\Conn3\Logged - ����������� ������� �������� - ����� ��������
- //  NET\Conn3\AccessDenied - ����������� �� ������, ���������� �������, ������� - � ������ ������
- //  NET\Conn3\Error - ��������� �����-�� ���� ������
- //  NET\Conn3\DataReceived - �������� ��������� (����� � ����)
+ // Перечень всех возможных сигналов:
+ //  NET\Conn3\AccountCreated - аккаунт успешно создан (CreateAccount)
+ //  NET\Conn3\AccountFailed - запрос создания аккаунта принят (CreateAccount), но отклонён -
+ //                            что-то не так, см. errorMessage и код ошибки в тэге
+ //  NET\Conn3\ConnectionFailed - не удалось подключиться к серверу (нет интернета, неправильный адрес, сервер лежит)
+ //  NET\Conn3\ConnectionRejected - сервер отказал в подключении (бан)
+ //  NET\Conn3\ConnectionClosed - сервер закрыл соединение
+ //  NET\Conn3\ConnectionBroken - установленное соединение разорвано по техническим причинам
+ //  NET\Conn3\Connected - соединение установлено, но не авторизовано
+ //  NET\Conn3\Logged - авторизация успешно пройдена - можно работать
+ //  NET\Conn3\AccessDenied - авторизация не прошла, соединение закрыто, причина - в тексте ошибки
+ //  NET\Conn3\Error - произошла какая-то иная ошибка
+ //  NET\Conn3\DataReceived - получено сообщение (хэндл в тэге)
 
- // �������� ������ ��������. (extras - ����� �������������� �����, ���������� #9 (\t)
+ // Создание нового аккаунта. (extras - набор дополнительных полей, разделённых #9 (\t)
  procedure CreateAccount(server,login,password,name,extras:string);
 
- // ������������� ���������� � �������� �� ���������� ������/�����.
- // ����������� ���������� ����������, ����������� � ���������� ����� ��������
- // �������� ����������� � ������������ ��� ��� ��
+ // Устанавливает соединение с сервером по указанному адресу/порту.
+ // Подключение происходит асинхронно, уведомление о результате придёт сигналом
+ // возможно подключение с авторизацией или без неё
  procedure Connect(server,login,password,clientinfo:string);
 
- // �������� ������� ������
+ // Отправка массива данных
  procedure SendData(data:array of const);
 
- // true - ���� �������� �������� ������ ����� SendData
+ // true - если возможна отправка данных через SendData
  function Connected:boolean;
 
- // �������� ���������� ������������ ��������� (����� ���������� � ���� ������� Net\Conn3\UserMsg)
+ // Получить содержимое поступившего сообщения (хэндл передается в тэге сигнала Net\Conn3\UserMsg)
  procedure GetNetMessage(handle:integer;var msg:TNetMessage);
 
- // ����������� ������ ��������� �� ������� ��������
+ // Форматирует строку сообщения из массива значений
 // function FormatMessage(data:array of const):string;
 
- // ��������� ����������, � ���������� �������� ������ ����������� ������ �� ���� �����
+ // Закрывает соединение, в нормальных условиях сервер максимально быстро об этом узнаёт
  procedure Disconnect(extraInfo:string='');
 
- // �������� ����������� ����� (�� ������� ��������� ����������)
+ // Проверка незанятости имени (не требует установки соединения)
 // procedure CheckName(name:string);
 
- // ������ � �������� (���� ����������) �����, �������� � ���� ������
- // ��������!!! ����� ������ ����� �������!
- procedure GetInternetAddress(address:AnsiString;var ip:cardinal;var port:word);
+ // Парсит и ресолвит (если необходимо) адрес, заданный в виде строки
+ // Внимание!!! Может занять много времени!
+ procedure GetInternetAddress(address:String8;var ip:cardinal;var port:word);
 
  // Is internet connection available? positive - yes, negative - no
  function CheckInternetConnection:integer;
@@ -85,13 +85,13 @@ implementation
    procedure Execute; override;
   end;
 
-  TConnectionState=(csNone,           // �� �������������
-                    csConnecting,     // ����������� (��������� ���������� ID)
-                    csConnected,      // ����������, �� �� ������������
-                    csLogging,        // ��� �����������
-                    csLogged,         // ����������� ������ - ����� ��������
+  TConnectionState=(csNone,           // до инициализации
+                    csConnecting,     // подключение (получение временного ID)
+                    csConnected,      // подключено, но не авторизовано
+                    csLogging,        // идёт авторизация
+                    csLogged,         // авторизация прошла - можно работать
                     csDisconnecting,
-                    csDisconnected);  // ���������� ��������� (��������� ��� �� �� ������)
+                    csDisconnected);  // соединение завершено (нормально или же по ошибке)
 
  var
   mainThread:TMainThread;
@@ -102,7 +102,7 @@ implementation
   serial:cardinal; // request serial number
   activePollRequest:integer; // current poll request ID (0 - no active poll request)
   activePostRequest:integer; // current post request ID (0 - no active post request)
-  lastPostSent:TDateTime; // ����� ������ �������� POST-������� � ID=activePostRequest (��� ��������)
+  lastPostSent:TDateTime; // when the first POST-request was sent с ID=activePostRequest (for timeout)
   lastPollURL:string;
   lastPostURL,lastPostData:string;
   lastPostType:TContentType;
@@ -113,10 +113,10 @@ implementation
   outStart,outFree:integer;
 
   // inbox messages
-  // ��������� �������� � ��������� ������ ���������, ������ ���������������� ������
+  // сообщения хранятся в кольцевом буфере постоянно, старые перезаписываются новыми
   inQueue:array[0..63] of string;
   inQueueTag:array[0..63] of integer;
-  inPos:integer; // ���� ����� ������ ��������� ���������
+  inPos:integer; // сюда нужно писать очередное сообщение
   lastTag:integer;
 
 {$IFDEF DARWIN}{$DEFINE NETLIB_C}{$ENDIF}
@@ -199,7 +199,7 @@ implementation
 var
  WSAInit:boolean;
 
-procedure GetInternetAddress(address:AnsiString;var ip:cardinal;var port:word);
+procedure GetInternetAddress(address:String8;var ip:cardinal;var port:word);
  var
   i:integer;
   h:PHostEnt;
@@ -255,7 +255,7 @@ function ShortMD5(st:string):string;
 procedure EventHandler(event:TEventStr;tag:TTag);
  var
   i,code,t,e1,e2,httpStatus:integer;
-  response:AnsiString;
+  response:String8;
   sa:AStringArr;
  begin
   if (event='HTTP_Event\ResendPost') and (activePostRequest>0) then begin
@@ -334,7 +334,6 @@ procedure EventHandler(event:TEventStr;tag:TTag);
         sa:=SplitA(#13#10,response);
         LogMessage('NW3: '+IntToStr(length(sa))+' messages received from request #'+inttostr(tag));
         for i:=0 to length(sa)-1 do begin
-         // ����� ��� ���, ������������ ����� ���������
          sa[i]:=UnEscape(sa[i]);
 {         sa[i]:=StringReplace(sa[i],'\n',#13#10,[rfReplaceAll]);
          sa[i]:=StringReplace(sa[i],'\\','\',[rfReplaceAll]);}
@@ -351,19 +350,19 @@ procedure EventHandler(event:TEventStr;tag:TTag);
        activePollRequest:=0;
       end;
       if tag=activePostRequest then begin
-       // ����� ���� �������� activePostRequest (����� ��������� ����������� �������� ������)
-       // ���� ����������� ������
+       // Нужно либо обнулить activePostRequest (чтобы разрешить последующую отправку данных)
+       // либо перевыслать запрос
        if (response<>'OK') and (response<>'IGNORED') then begin
         LogMessage('NW3: bad response to request '+inttostr(tag)+': '+response);
-        if (Now>lastPostSent+120/86400) or    // ���������� ������� ����������� ���� �� ������� ��������� ����� �� 120 ������
-           (httpStatus>400) then begin // �������� ����������
+        if (Now>lastPostSent+120/86400) or    // соединение считать разорванным если не удалось доставить пакет за 120 секунд
+           (httpStatus>400) then begin // доставка невозможна
          LogMessage('NW3: delivery timeout');
          activePostRequest:=0;
          state:=csDisconnected;
          Signal('NET\Conn3\ConnectionBroken',3);
          exit;
         end;
-        DelayedSignal('HTTP_Event\ResendPost',3000); // ����������� ����� 3 �������
+        DelayedSignal('HTTP_Event\ResendPost',3000); // try to re-send in 3 seconds
        end else
         activePostRequest:=0;
       end;
@@ -387,7 +386,7 @@ function StrToHex(st:string):string;
   end;
  end;
 
-// ��������� ���� ������� �� ������� ��������� ��������� � ���������� ������
+// Формирует тело запроса из очереди исходящих сообщений и отправляет запрос
 procedure SendMessages(server:string);
  var
   i,size,count:integer;
@@ -396,15 +395,15 @@ procedure SendMessages(server:string);
   names,values:StringArr;
   cType:TContentType;
  begin
-  // ��� ����� ������������ ����� �������� ���������� ���������
+  // Тут нужно определиться каким способом отправлять сообщения
   size:=0; count:=0;
-  while (outStart<>outFree) and (count<10) do begin // ������ 10 ��������� �� ��� �� ����������
+  while (outStart<>outFree) and (count<10) do begin // don't send more than 10 messages at once
    inc(count);
    inc(size,length(outQueue[outStart]));
    msgs[count]:=outStart;
    outStart:=(outStart+1) and 255;
   end;
-  // ������ ���! � ����� - ������ POST
+  // old code! new code always use POST (because GET is not guaranteed bo be volatile and can be captured/cached)
 {  if size<300 then begin // �������� ������� GET
    query:=server+'/'+inttostr(userID)+'?';
    data:='';
@@ -473,7 +472,7 @@ procedure TMainThread.Execute;
   SetEventHandler('HTTP_Event',EventHandler,emQueued);
   try
    state:=csNone;
-   // ������� ����
+   // Main loop
    repeat
     // simple login
     if state=csNone then begin
@@ -508,7 +507,7 @@ procedure TMainThread.Execute;
    if activePollRequest<>0 then CancelRequest(activePollRequest);
    if activePostRequest<>0 then CancelRequest(activePostRequest);
 
-   // ����������
+   // Logout
    if (UserID>0) and (userID<10000) and (state=csLogged) then begin
     if logoutInfo<>'' then logoutInfo:='&C='+EncodeHex(logoutInfo);
     HTTPRequest(server+'/logout?A='+IntToStr(userID)+'&B='+ShortMD5(inttostr(userID)+MD5pwd)+logoutInfo,'','HTTP_Event');
@@ -516,7 +515,7 @@ procedure TMainThread.Execute;
    end;
 
    state:=csDisconnected;
-   DoneHTTPrequests; // ����� �� ����? - ������ ����� ���� �����!
+   DoneHTTPrequests; // может не надо? - сессий может быть много!
   except
    on e:exception do begin
     state:=csDisconnected;
@@ -563,11 +562,11 @@ procedure Connect(server,login,password,clientinfo:string);
   mainThread.Resume;
  end;
 
-// �������� ��������
+// Account creation
 procedure EventHandler2(event:TEventStr;tag:TTag);
  var
   code:integer;
-  response:AnsiString;
+  response:String8;
  begin
   code:=GetRequestResult(tag,response);
   if code<>httpStatusCompleted then begin
