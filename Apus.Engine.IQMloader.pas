@@ -426,6 +426,7 @@ implementation
    try
     fName:=FileName(fName);
     Assign(f,fname);
+    SetTextCodePage(f,CP_UTF8);
     Reset(f);
     Readln(f,st);
     ASSERT(st='# Inter-Quake Export','Wrong file format '+fname);

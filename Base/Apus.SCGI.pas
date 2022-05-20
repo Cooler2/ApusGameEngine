@@ -503,6 +503,8 @@ implementation
   begin
    assign(f,fname);
    reset(f);
+   //SetTextCodePage(f,$FFFF);
+   SetTextCodePage(f,65001);
    name:=UpperCase(ExtractFileName(fname));
    value:='';
    firstName:=true;

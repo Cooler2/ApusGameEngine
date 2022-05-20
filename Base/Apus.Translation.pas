@@ -100,6 +100,7 @@ implementation
   begin
    assign(f,filename);
    try
+    SetTextCodePage(f,CP_UTF8);
     reset(f);
     curSet:=0;
     localSet:=-1;

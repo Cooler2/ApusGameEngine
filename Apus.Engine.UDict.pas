@@ -243,7 +243,7 @@ end;
 
 procedure DictInit(fname:UTF8String='';fname2:UTF8String='');
 var f:text;
-    s:RawByteString;
+    s:String8;
     q,w,e:integer;
 begin
  LogMessage('DictInit: '+fname);
@@ -260,10 +260,11 @@ begin
  begin
   langFileName:=ExtractFileName(fname);
   assign(f,fname);
+  SetTextCodePage(f,CP_UTF8);
   reset(f);
   while not eof(f) do
   begin
-   readln(f,s);  // WARN! Should not be UTF8String!
+   readln(f,s);
    processstring(s);
   end;
   close(f);
@@ -271,6 +272,7 @@ begin
  if fileexists(fname2) then
  begin
   assign(f,fname2);
+  SetTextCodePage(f,CP_UTF8);
   reset(f);
   while not eof(f) do
   begin
