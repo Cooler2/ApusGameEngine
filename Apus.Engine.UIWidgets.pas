@@ -78,6 +78,9 @@ interface
    align:TTextAlignment;
    topOffset:integer; // сдвиг текста вверх
    constructor Create(width,height:single;labelname,text:string;color_:cardinal;bFont:TFontHandle;parent_:TUIElement);
+   constructor CreateLeft(width,height:single;labelname,text:string;color_:cardinal;parent_:TUIElement;font:TFontHandle=0);
+   constructor CreateCentered(width,height:single;labelname,text:string;color_:cardinal;parent_:TUIElement;font:TFontHandle=0);
+   constructor CreateRight(width,height:single;labelname,text:string;color_:cardinal;parent_:TUIElement;font:TFontHandle=0);
   end;
 
   // Тип кнопок
@@ -94,7 +97,8 @@ interface
    btnStyle:TButtonStyle; // тип кнопки (влияет как на отрисовку, так и на поведение)
    group:integer;   // Группа переключателей
    onClick:TProcedure;
-   constructor Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement);
+   constructor Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement); overload;
+   constructor Create(width,height:single;btnName,btnCaption:string;parent_:TUIElement); overload;
    constructor CreateSwitch(width,height:single;btnName,btnCaption:string;group:integer;
      btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false);
    constructor CreateCheckbox(width,height:single;btnName,btnCaption:string;group:integer;
@@ -326,7 +330,7 @@ implementation
    onMouseButtons(1,false);
   end;
 
- constructor TUIButton.Create;
+ constructor TUIButton.Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement);
   var
    i:integer;
   begin
@@ -352,7 +356,13 @@ implementation
    lastPressed:=0;
   end;
 
- constructor TUIButton.CreateCheckbox(width,height:single;btnName,
+ // Without font
+ constructor TUIButton.Create(width,height:single;btnName,btnCaption:string; parent_:TUIElement);
+  begin
+   Create(width,height,btnName,btnCaption,0,parent_);
+  end;
+
+constructor TUIButton.CreateCheckbox(width,height:single;btnName,
     btnCaption:string;group:integer;btnFont:TFontHandle;parent_:TUIElement;checked:boolean=false);
   begin
    Create(width,height,btnName,btnCaption,btnFont,parent_);
@@ -515,8 +525,28 @@ procedure TUIButton.DoClick;
    caption:=text;
   end;
 
+ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;color_:cardinal;
+   parent_:TUIElement;font:TFontHandle=0);
+  begin
+   Create(width,height,labelName,text,color_,font,parent_);
+   align:=taCenter;
+  end;
 
- { TUIWindow }
+ constructor TUILabel.CreateLeft(width,height:single;labelname,text:string;color_:cardinal;
+   parent_:TUIElement;font:TFontHandle=0);
+  begin
+   Create(width,height,labelName,text,color_,font,parent_);
+   align:=taLeft;
+  end;
+
+ constructor TUILabel.CreateRight(width,height:single;labelname,text:string;color_:cardinal;
+   parent_:TUIElement;font:TFontHandle=0);
+  begin
+   Create(width,height,labelName,text,color_,font,parent_);
+   align:=taCenter;
+  end;
+
+{ TUIWindow }
 
  constructor TUIWindow.Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,
     wndCaption:string;wndFont:TFontHandle;parent_:TUIElement);
