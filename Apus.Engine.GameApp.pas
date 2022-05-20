@@ -10,6 +10,7 @@ interface
   Apus.Engine.API;
 
  type
+  // How window/screen area should be used
   TGameAppMode=(gamScaleWithAspectRatio,  // Scale W/H of the render area to output rect while keeping its aspect ratio (fixed design)
                 gamScaleWithFixedHeight,  // Scale width of the render area to match the output rect (fixed height design)
                 gamKeepAspectRatio,       // Modify W/H of the render area to fit the output rect keeping its aspect ratio (fixed design with flexible scale)

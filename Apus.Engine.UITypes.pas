@@ -226,13 +226,13 @@ type
   // Set all padding and resize client area
   function SetPaddings(padding:single):TUIElement; overload;
   function SetPaddings(left,top,right,bottom:single):TUIElement; overload;
-  // Set same value for X/Y scale
-  function SetScale(newScale:single):TUIElement;
+  // Set same value for X/Y scale and optionally resize to keep the original dimensions
+  function SetScale(newScale:single;resize:boolean=true):TUIElement;
   // Change element size and adjust children elements !!! new size IN PARENTs space!
   // Pass -1 to keep current value
   procedure Resize(newWidth,newHeight:single); virtual;
-  // разместить элемент по центру клиентской области предка либо экрана (если предка нет)
-  procedure Center;
+  // Place element at the parent's center (and optionally set anchors to follow the center point)
+  procedure Center(setAnchors:boolean=true);
   // Прикрепляет элемент к какой-либо части предка
   procedure Snap(snapTo:TSnapMode);
   // Скроллинг в указанную позицию (с обработкой подчиненных скроллбаров если они есть)
@@ -442,21 +442,15 @@ implementation
    result:=TransformTo(GetRect,parent);
   end;
 
- procedure TUIElement.Center;
+ procedure TUIElement.Center(setAnchors:boolean=true);
   var
    r,rP:TRect2s;
    pW,pH,dx,dy:single;
   begin
    r:=GetRect;
    ASSERT(parent<>nil,'Cannot center a root UI element');
-   pW:=parent.size.x;
-   pH:=parent.size.y;
-   r:=TransformTo(r,parent);
-   rP:=parent.GetClientRect;
-   dx:=-((r.x1-rP.x1)-(rP.x2-r.x2))/2;
-   dy:=-((r.y1-rP.y1)-(rP.y2-r.y2))/2;
-   position.x:=position.x+dx;
-   position.y:=position.y+dy;
+   SetPos(parent.width/2,parent.height/2,pivotCenter);
+   if setAnchors then self.SetAnchors(0.5,0.5,0.5,0.5);
   end;
 
   {procedure TUIControl.Scale(sX,sY:single);
@@ -1149,11 +1143,13 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    result:=SetPaddings(padding,padding,padding,padding);
   end;
 
- function TUIElement.SetScale(newScale:single):TUIElement;
+ function TUIElement.SetScale(newScale:single;resize:boolean=true):TUIElement;
   begin
+   if resize then
+    self.Resize(width*scale.x/newScale,height*scale.y/newScale);
+   result:=self;
    scale.x:=newScale;
    scale.y:=newScale;
-   result:=self;
   end;
 
  procedure TUIElement.SetStyleInfo(sInfo:String8);
