@@ -449,7 +449,7 @@ begin
  result:=Sqr(mouseX-x)+Sqr(mouseY-y)<=sqr(radius);
 end;
 
-procedure TGame.MouseMovedTo(newX, newY: integer);
+procedure TGame.MouseMovedTo(newX,newY:integer);
 begin
   oldMouseX:=mouseX;
   oldMouseY:=MouseY;
@@ -1273,6 +1273,8 @@ begin
    pnt:=Point(SmallInt(tag),SmallInt(tag shr 16));
    ClientToGame(pnt);
    MouseMovedTo(pnt.x,pnt.y); // process motion in game space
+   if params.showSystemCursor then
+    systemPlatform.SetCursor(wndCursor);
  end else
  if SameText(event,'GLOBALMOVE') then begin
    pnt:=Point(SmallInt(tag),SmallInt(tag shr 16));
@@ -1566,7 +1568,8 @@ begin
    c:=wndCursor;
    if n<0 then wndCursor:=0
     else wndCursor:=TGameCursor(cursors[n]).handle;
-   systemPlatform.SetCursor(wndCursor);
+   if wndCursor<>c then
+    systemPlatform.SetCursor(wndCursor);
   end;
   curPrior:=j;
  finally
