@@ -45,6 +45,20 @@ type
   function GetTextureTarget:integer; virtual;
  end;
 
+ TVertexBufferGL=class(TVertexBuffer)
+  procedure Upload(fromVertex,numVertices:integer;vertexData:pointer); override;
+  destructor Destroy; override;
+ protected
+  buffer:cardinal;
+ end;
+
+ TIndexBufferGL=class(TIndexBuffer)
+  procedure Upload(fromIndex,numIndices:integer;indexData:pointer); override;
+  destructor Destroy; override;
+ protected
+  buffer:cardinal;
+ end;
+
  // Used for both 2D texture arrays and 3D textures
  TGLTextureArray=class(TGLTexture)
   constructor Create(numLayers:integer);
@@ -88,6 +102,13 @@ type
 
   // Создает дамп использования и распределения видеопамяти
   procedure Dump(st:string='');
+
+  // Data buffers
+  function AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;usage:TBufferUsage=buStatic):TVertexBuffer;
+  procedure UseVertexBuffer(vb:TVertexBuffer);
+  function AllocIndexBuffer(indCount:integer;elementSize:integer=2;usage:TBufferUsage=buStatic):TIndexBuffer;
+  procedure UseIndexBuffer(ib:TIndexBuffer);
+  procedure FreeBuffer(buf:TEngineBuffer);
 
  protected
   //CurTag:integer;
@@ -909,7 +930,6 @@ begin
  end;
 end;
 
-
 function TGLResourceManager.AllocImage(width,height:integer; PixFmt:TImagePixelFormat; flags:cardinal;
   name:String8):TTexture;
 var
@@ -1055,7 +1075,6 @@ begin
   end;
  end;
 end;
-
 
 function TGLResourceManager.Clone(img:TTexture):TTexture;
 var
@@ -1268,6 +1287,94 @@ begin
  img:=AllocImage(newWidth,newHeight,img.PixelFormat,img.caps,img.name);
  FreeImage(old);
 end;
+
+// ---- Data buffers ----
+function TGLResourceManager.AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;usage:TBufferUsage):TVertexBuffer;
+var
+ vb:TVertexBufferGL;
+ u:gluint;
+begin
+ vb:=TVertexBufferGL.Create(layout,numVertices);
+ glGenBuffers(1,@vb.buffer);
+ ASSERT(vb.buffer<>0);
+ glBindBuffer(GL_ARRAY_BUFFER,vb.buffer);
+ case usage of
+  buStatic:    u:=GL_STATIC_DRAW;
+  buDynamic:   u:=GL_DYNAMIC_DRAW;
+  buTemporary: u:=GL_STREAM_DRAW;
+ end;
+ glBufferData(GL_ARRAY_BUFFER,layout.stride*numVertices,nil,u);
+ result:=vb;
+ CheckForGLError('AllocVB');
+end;
+
+function TGLResourceManager.AllocIndexBuffer(indCount:integer;elementSize:integer;usage:TBufferUsage):TIndexBuffer;
+var
+ u:gluint;
+ ib:TIndexBufferGL;
+begin
+ ASSERT(elementSize in [2,4]);
+ ib:=TIndexBufferGL.Create(indCount,elementSize);
+ glGenBuffers(1,@ib.buffer);
+ ASSERT(ib.buffer<>0);
+ glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ib.buffer);
+ case usage of
+  buStatic:    u:=GL_STATIC_DRAW;
+  buDynamic:   u:=GL_DYNAMIC_DRAW;
+  buTemporary: u:=GL_STREAM_DRAW;
+ end;
+ glBufferData(GL_ELEMENT_ARRAY_BUFFER,indCount*elementSize,nil,u);
+ result:=ib;
+ CheckForGLError('AllocIB');
+end;
+
+procedure TGLResourceManager.UseVertexBuffer(vb:TVertexBuffer);
+begin
+ if vb<>nil then
+  glBindBuffer(GL_ARRAY_BUFFER,TVertexBufferGL(vb).buffer)
+ else
+  glBindBuffer(GL_ARRAY_BUFFER,0);
+end;
+
+procedure TGLResourceManager.UseIndexBuffer(ib:TIndexBuffer);
+begin
+ if ib<>nil then
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,TIndexBufferGL(ib).buffer)
+ else
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
+end;
+
+procedure TGLResourceManager.FreeBuffer(buf:TEngineBuffer);
+begin
+ if buf<>nil then buf.Free;
+end;
+
+{ TVertexBufferGL }
+
+destructor TVertexBufferGL.Destroy;
+begin
+ if buffer<>0 then glDeleteBuffers(1,@buffer);
+ inherited;
+end;
+
+destructor TIndexBufferGL.Destroy;
+begin
+ if buffer<>0 then glDeleteBuffers(1,@buffer);
+ inherited;
+end;
+
+procedure TVertexBufferGL.Upload(fromVertex,numVertices:integer;vertexData:pointer);
+begin
+ glBindBuffer(GL_ARRAY_BUFFER,buffer);
+ glBufferSubData(GL_ARRAY_BUFFER,fromVertex*layout.stride,numVertices*layout.stride,vertexData);
+end;
+
+procedure TIndexBufferGL.Upload(fromIndex,numIndices:integer;indexData:pointer);
+begin
+ glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,buffer);
+ glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,fromIndex*bytesPerIndex,numIndices*bytesPerIndex,indexData);
+end;
+
 
 begin
  InitCritSect(cSect,'GLTexMan',160);

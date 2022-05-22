@@ -90,16 +90,13 @@ type
   procedure DrawInstanced(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;primCount,instances:integer);
 
-(*  // Draw primitives using built-in buffer
-  procedure DrawBuffer(primType,primCount,vrtStart:integer;
-     vertexBuf:TPainterBuffer;stride:integer); overload;
+{  // Draw primitives using custom buffers
+  procedure DrawBuffer(primType:TPrimitiveType;vb:TVertexBuffer;ib:TIndexBuffer); overload;
 
   // Draw indexed primitives using built-in buffer
   procedure DrawBuffer(primType:integer;vertexBuf,indBuf:TPainterBuffer;
-     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); overload;
+     stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); overload;}
 
-  function LockBuffer(buf:TPainterBuffer;offset,size:cardinal):pointer;
-  procedure UnlockBuffer(buf:TPainterBuffer);   *)
  protected
   actualAttribArrays:shortint; // кол-во включенных аттрибутов (-1 - неизвестно, 2+кол-во текстур)
   lastVertices:pointer;

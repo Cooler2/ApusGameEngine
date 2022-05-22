@@ -222,6 +222,12 @@ type
  // Base texture class
  TTexture = Apus.Engine.Resources.TTexture;
 
+ // Buffer classes
+ TVertexBuffer = Apus.Engine.Resources.TVertexBuffer;
+ TIndexBuffer = Apus.Engine.Resources.TIndexBuffer;
+ // Buffer usage options
+ TBufferUsage = Apus.Engine.Resources.TBufferusage;
+
  // Text alignment
  TTextAlignment=(taLeft,      // обычный вывод
                  taCenter,    // точка вывода указывает на центр надписи
@@ -533,6 +539,13 @@ type
   // Проверить возможность выделения текстуры в заданном формате с заданными флагами
   // Возвращает true если такую текстуру принципиально можно создать
   function QueryParams(width,height:integer;format:TImagePixelFormat;aiFlags:integer):boolean;
+
+  function AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;usage:TBufferUsage=buStatic):TVertexBuffer;
+  procedure UseVertexBuffer(vb:TVertexBuffer);
+  function AllocIndexBuffer(indCount:integer;indSize:integer=2;usage:TBufferUsage=buStatic):TIndexBuffer;
+  procedure UseIndexBuffer(ib:TIndexBuffer);
+  procedure FreeBuffer(buf:TEngineBuffer);
+
   // Формирует строки статуса
   function GetStatus(line:byte):string;
   // Создает дамп использования и распределения видеопамяти
@@ -692,6 +705,8 @@ type
   // Draw indexed tri-mesh (tex=nil -> colored mode)
   procedure IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); overload;
   procedure IndexedMesh(vertices:pointer;layout:TVertexLayout;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); overload;
+  procedure IndexedMesh(vb:TVertexBuffer;ib:TIndexBuffer;tex:TTexture); overload;
+
 
   // Multitexturing functions ------------------
   // Режим мультитекстурирования должен быть предварительно настроен с помощью SetTexMode / SetTexInterpolationMode
@@ -1236,7 +1251,7 @@ procedure TMesh.Draw(tex:TTexture=nil); // draw whole mesh
    Apus.Engine.API.draw.TrgList(vertices,layout,vCount div 3,tex)
  end;
 
-procedure TMesh.SetVertices(data:pointer; sizeInBytes:integer);
+procedure TMesh.SetVertices(data:pointer;sizeInBytes:integer);
  begin
   FreeMem(vertices);
   vertices:=data;

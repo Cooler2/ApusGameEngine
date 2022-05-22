@@ -93,7 +93,26 @@ interface
   class function ClassHash:pointer; override;
  end;
 
+ TBufferUsage=(buStatic,   // filled once, used many times
+               buDynamic,  // filled many times, used many times
+               buTemporary);  // one-time buffer: filled once, used once
 
+ TEngineBuffer=class(TObjectEx)
+ end;
+
+ TVertexBuffer=class(TEngineBuffer)
+  count:integer;
+  layout:TVertexLayout;
+  constructor Create(layout:TVertexLayout;count:integer);
+  procedure Upload(fromVertex,numVertices:integer;vertexData:pointer); virtual; abstract;
+ end;
+
+ TIndexBuffer=class(TEngineBuffer)
+  count:integer;
+  bytesPerIndex:integer; // 2 or 4
+  constructor Create(count:integer;elementSize:integer);
+  procedure Upload(fromIndex,numIndices:integer;indexData:pointer); virtual; abstract;
+ end;
 
 implementation
  uses Apus.Structs;
@@ -204,5 +223,21 @@ class function TShader.VectorFromColor3(color: cardinal): TVector3s;
   result.z:=c.b/255;
  end;
 
+
+{ TVertexBuffer }
+
+constructor TVertexBuffer.Create(layout:TVertexLayout;count:integer);
+ begin
+  self.layout:=layout;
+  self.count:=count;
+ end;
+
+{ TIndexBuffer }
+
+constructor TIndexBuffer.Create(count,elementSize:integer);
+ begin
+  self.count:=count;
+  self.bytesPerIndex:=elementSize;
+ end;
 
 end.

@@ -57,6 +57,7 @@ interface
   procedure TrgList3D(pnts:PVertex3D;trgcount:integer;tex:TTexture);
   procedure IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); overload;
   procedure IndexedMesh(vertices:pointer;layout:TVertexLayout;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); overload;
+  procedure IndexedMesh(vb:TVertexBuffer;ib:TIndexBuffer;tex:TTexture); overload;
 
   procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0);
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
@@ -702,6 +703,18 @@ begin
  if tex=nil then tex:=neutral;
  shader.UseTexture(tex);
  renderDevice.DrawIndexed(TRG_LIST,vertices,indices,layout,0,vrtCount,0,trgCount);
+end;
+
+procedure TDrawer.IndexedMesh(vb:TVertexBuffer;ib:TIndexBuffer;tex:TTexture);
+begin
+ clippingAPI.Prepare;
+ if tex=nil then tex:=neutral;
+ shader.UseTexture(tex);
+ gfx.resman.UseVertexBuffer(vb);
+ gfx.resman.UseIndexBuffer(ib);
+ renderDevice.DrawIndexed(TRG_LIST,nil,nil,vb.layout,0,vb.count,0,ib.count div 3);
+ gfx.resman.UseVertexBuffer(nil);
+ gfx.resman.UseIndexBuffer(nil);
 end;
 
 procedure TDrawer.Rect(x1,y1,x2,y2:NativeInt;color:cardinal);
