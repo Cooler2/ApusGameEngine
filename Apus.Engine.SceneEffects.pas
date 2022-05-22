@@ -162,6 +162,7 @@ end;
 procedure TSwitchScreenEffect.Initialize;
 var
  width,height:integer;
+ flags:cardinal;
 begin
  if prevscene is TUIScene then begin
   if FocusedElement.GetRoot=(prevscene as TUIscene).UI then
@@ -170,8 +171,10 @@ begin
  end;
  width:=game.GetSettings.width;
  height:=game.GetSettings.height;
+ flags:=aiRenderTarget+aiTexture;
+ if game.GetSettings.zbuffer>0 then SetFlag(flags,aiDepthBuffer);
  try
-  buffer:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiTexture,'SceneEffect');
+  buffer:=AllocImage(width,height,pfRenderTarget,flags,'SceneEffect');
  except
   on e:exception do begin
    LogMessage('ERROR: eff allocation - '+ExceptionMsg(e));

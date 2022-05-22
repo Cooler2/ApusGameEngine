@@ -265,11 +265,11 @@ type
                         // они могут и отличаться
   colorDepth:integer; // Желаемый формат бэкбуфера (16/24/32)
   refresh:integer;   // Частота регенерации экрана (0 - default)
-  VSync:integer;     // Синхронизация с обновлением монитора (0 - максимальный FPS, N - FPS = refresh/N
+  vSync:integer;     // Синхронизация с обновлением монитора (0 - максимальный FPS, N - FPS = refresh/N
   mode,altMode:TDisplaySettings; // Основной режим запуска и альтернативный режим (для переключения по Alt+Enter)
   showSystemCursor:boolean; // Показывать ли системный курсор? если false - курсор рисуется движком программно
-  zbuffer:byte; // желательная глубина z-буфера (0 - не нужен)
-  stencil:boolean; // нужен ли stencil-буфер (8-bit)
+  zbuffer:byte; // desired precision for a depth buffer (0 - don't use depth buffer)
+  stencil:boolean; // request a stencil-buffer (at least 8-bit)
   multisampling:byte; // включить мультисэмплинг (fs-антиалиасинг) - кол-во сэмплов (<2 - отключен)
   slowmotion:boolean; // true - если преобладают медленные сцены или если есть большой разброс
                       // в скорости - тогда возможна (но не гарантируется) оптимизация перерисовки
@@ -491,9 +491,9 @@ type
   // Ambient color is added to any pixels (set 0 to disable), RGB value, alpha component ignored
   procedure AmbientLight(color:cardinal);
   // Set direction TO the light source (sun) (set power<=0 to disable)
-  procedure DirectLight(direction:TVector3;power:single;color:cardinal);
+  procedure DirectLight(direction:TVector3;power:single;color:cardinal=$FFFFFF);
   // Set point light source (set power<=0 to disable)
-  procedure PointLight(position:TPoint3;power:single;color:cardinal);
+  procedure PointLight(position:TPoint3;power:single;color:cardinal=$FFFFFF);
   // Disable lighting
   procedure LightOff;
   // Define material properties

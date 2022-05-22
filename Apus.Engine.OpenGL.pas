@@ -587,7 +587,7 @@ function ColorComponent(color:cardinal;idx:integer):single;
   result:=((color shr (idx*8)) and $FF)/255;
  end;
 
-procedure TGLRenderTargetAPI.Clear(color:cardinal; zbuf:single;  stencil:integer);
+procedure TGLRenderTargetAPI.Clear(color:cardinal;zbuf:single;stencil:integer);
  var
   mask:cardinal;
   val:GLboolean;
