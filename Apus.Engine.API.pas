@@ -609,9 +609,12 @@ type
   destructor Destroy; override;
   function DumpVertex(n:cardinal):String8;
   function vPos:integer; // Returns number of vertices stored via AddVertex (current write position)
+  procedure UseBuffers; // Create vertex index buffers and upload mesh data for faster rendering
  private
   vData:PByte;
   idx:integer;
+  vb:TVertexBuffer;
+  ib:TIndexBuffer;
  end;
 
  PMultiTexLayer=^TMultiTexLayer;
@@ -1244,6 +1247,10 @@ destructor TMesh.Destroy;
 
 procedure TMesh.Draw(tex:TTexture=nil); // draw whole mesh
  begin
+  if (vb<>nil) then begin // buffers are used
+   Apus.Engine.API.draw.IndexedMesh(vb,ib,tex);
+   exit;
+  end;
   if length(indices)>0 then
    Apus.Engine.API.draw.IndexedMesh(vertices,layout,@indices[0],
      length(indices) div 3,vCount,tex)
@@ -1257,6 +1264,17 @@ procedure TMesh.SetVertices(data:pointer;sizeInBytes:integer);
   vertices:=data;
   vCount:=sizeInBytes div layout.stride;
   vData:=vertices;
+ end;
+
+procedure TMesh.UseBuffers;
+ begin
+  ASSERT((vb=nil) and (ib=nil),'Already buffered');
+  vb:=gfx.resMan.AllocVertexBuffer(layout,vCount);
+  vb.Upload(0,vCount,vertices);
+  FreeMem(vertices);
+  ib:=gfx.resMan.AllocIndexBuffer(length(indices));
+  ib.Upload(0,length(indices),@indices[0]);
+  SetLength(indices,0);
  end;
 
 function TMesh.vPos:integer;
