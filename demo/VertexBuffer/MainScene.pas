@@ -24,6 +24,7 @@ implementation
   // This will be our single scene
   TMainScene=class(TUIScene)
    procedure Load; override;
+   procedure Initialize; override;
    procedure Render; override;
   end;
 
@@ -50,13 +51,10 @@ constructor TMainApp.Create;
   //windowedMode:=false;
  end;
 
-// Most app initialization is here. Default spinner is running
 procedure TMainApp.CreateScenes;
  begin
   inherited;
-  // initialize our main scene
   sceneMain:=TMainScene.Create('Main');
-  // switch to the main scene using fade transition effect
  end;
 
 procedure BuildMesh;
@@ -94,6 +92,7 @@ procedure BuildMesh;
   // Create mesh
   trgCount:=MESH_SECTIONS*MESH_SEGMENTS*2;
   mesh:=TMesh.Create(TVertex3D.Layout(false),MESH_SEGMENTS*(MESH_SECTIONS+1),trgCount*3);
+  // Add vertices
   for i:=0 to MESH_SECTIONS do
    for j:=0 to MESH_SEGMENTS-1 do begin
     u:=j/MESH_SEGMENTS;
@@ -103,7 +102,7 @@ procedure BuildMesh;
     vertex.color:=$FF808080;
     mesh.AddVertex(vertex);
    end;
-
+  // Add triangles
   for i:=0 to MESH_SECTIONS-1 do
    for j:=0 to MESH_SEGMENTS-1 do
     if i mod 2=0 then begin
@@ -113,7 +112,6 @@ procedure BuildMesh;
      mesh.AddTrg(GetVertex(j,i),GetVertex(j,i+1),GetVertex(j+1,i+1));
      mesh.AddTrg(GetVertex(j,i),GetVertex(j+1,i+1),GetVertex(j+1,i));
     end;
-
  end;
 
 { TMainScene }
@@ -123,6 +121,11 @@ procedure TMainScene.Load;
   game.SwitchToScene('Main');
  end;
 
+procedure TMainScene.Initialize;
+ begin
+  // Create buffers and upload mesh data to VRAM - must be called from the main thread
+  mesh.UseBuffers;
+ end;
 
 procedure TMainScene.Render;
  var
@@ -131,11 +134,10 @@ procedure TMainScene.Render;
   gfx.target.Clear($204030,1);
   transform.Perspective(1,1,1000);
   transform.SetCamera(Point3s(0,30,10),Point3s(0,0,2),Point3s(0,0,1000));
+  gfx.target.UseDepthBuffer(dbPassLess);
 
   shader.AmbientLight($404030);
   shader.DirectLight(Vector3(1,1,1),2,$907060);
-  gfx.target.UseDepthBuffer(dbPassLess);
-
   transform.SetObj(0,3,3,3, 1, game.frameStartTime/1000,-0.6);
   mesh.Draw;
 
@@ -151,8 +153,11 @@ procedure TMainScene.Render;
   transform.DefaultView;
   gfx.target.UseDepthBuffer(dbDisabled);
   inherited;
+  // Text overlays
   txt.WriteW(0,10,20,clWhite,'Mesh triangles: '+IntToStr(trgCount div 1000)+'K');
   txt.WriteW(0,10,40,clWhite,'Total triangles: '+IntToStr(trgCount*21 div 1000)+'K');
+  txt.WriteW(0,10,game.renderHeight-30,clWhite,'[Ctrl]+[Alt]+[F11] - toggle VSync');
+  txt.WriteW(0,10,game.renderHeight-10,clWhite,'[Alt]+[Enter] - toggle Fullscreen');
  end;
 
 end.
