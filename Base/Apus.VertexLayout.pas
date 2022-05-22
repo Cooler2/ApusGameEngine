@@ -313,10 +313,10 @@ class function TVertex3D.Layout(hasUV:boolean=true):TVertexLayout;
  begin
   v:=nil;
   if hasUV then
-   uvPos:=integer(@v.nx)
+   uvPos:=integer(@v.u)
   else
    uvPos:=0;
-  result.Init(0,uvPos,integer(@v.color),integer(@v.u),0);
+  result.Init(0,integer(@v.nx),integer(@v.color),uvPos,0);
   result.stride:=Sizeof(TVertex3D);
  end;
 
