@@ -502,9 +502,8 @@ implementation
    fl,firstName:boolean;
   begin
    assign(f,fname);
+   SetTextCodePage(f,CP_UTF8);
    reset(f);
-   //SetTextCodePage(f,$FFFF);
-   SetTextCodePage(f,65001);
    name:=UpperCase(ExtractFileName(fname));
    value:='';
    firstName:=true;
