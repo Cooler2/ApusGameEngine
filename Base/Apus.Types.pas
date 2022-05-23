@@ -72,6 +72,20 @@ type
    6:(d:array[0..1] of double );
   end;
 
+  TIntRange=record
+   min,max:integer;
+   procedure Init(min,max:integer);
+   function Width:integer; // max-min
+   function Rand:integer;
+  end;
+
+  TFloatRange=record
+   min,max:single;
+   procedure Init(min,max:single);
+   function Width:single; // max-min
+   function Rand:single;
+  end;
+
   // "name = value" string pair
   TNameValue=record
    name,value:string;
@@ -114,19 +128,19 @@ implementation
 
 { TBuffer }
 
-constructor TBuffer.Create(sour:pointer; sizeInBytes:integer);
+constructor TBuffer.Create(sour:pointer;sizeInBytes:integer);
  begin
   data:=sour;
   size:=sizeInBytes;
   readPos:=sour;
  end;
 
-constructor TBuffer.CreateFrom(sour:pointer; sizeInBytes:integer);
+constructor TBuffer.CreateFrom(sour:pointer;sizeInBytes:integer);
  begin
   Create(sour,sizeInBytes);
  end;
 
-constructor TBuffer.CreateFrom(var sour; sizeInBytes:integer);
+constructor TBuffer.CreateFrom(var sour;sizeInBytes:integer);
  begin
   Create(@sour,sizeInBytes);
  end;
@@ -151,7 +165,7 @@ function TBuffer.BytesLeft:integer;
   result:=(UIntPtr(data)+size-UIntPtr(readPos));
  end;
 
-procedure TBuffer.Read(var dest; numBytes:integer);
+procedure TBuffer.Read(var dest;numBytes:integer);
  begin
   ASSERT(BytesLeft>=numBytes);
   move(readPos^,dest,numBytes);
@@ -227,17 +241,17 @@ function TBuffer.Slice(length:integer;advance:boolean=false):TBuffer;
 
 { TNameValue }
 
-function TNameValue.GetDate: TDateTime;
+function TNameValue.GetDate:TDateTime;
  begin
   result:=ParseDate(value);
  end;
 
-function TNameValue.GetFloat: double;
+function TNameValue.GetFloat:double;
  begin
   result:=ParseFloat(value);
  end;
 
-function TNameValue.GetInt: integer;
+function TNameValue.GetInt:integer;
  begin
   result:=ParseInt(value);
  end;
@@ -257,14 +271,50 @@ procedure TNameValue.Init(st,splitter:string);
   value:=value.Trim;
  end;
 
-function TNameValue.Join(separator: string): string;
+function TNameValue.Join(separator:string):string;
  begin
   result:=name+separator+value;
  end;
 
-function TNameValue.Named(st: string): boolean;
+function TNameValue.Named(st:string):boolean;
  begin
   result:=SameText(name,st);
+ end;
+
+{ TIntRange }
+
+procedure TIntRange.Init(min,max:integer);
+ begin
+  self.min:=min;
+  self.max:=max;
+ end;
+
+function TIntRange.Rand:integer;
+ begin
+  result:=min+Random(max-min+1);
+ end;
+
+function TIntRange.Width:integer;
+ begin
+  result:=max-min;
+ end;
+
+{ TFloatRange }
+
+procedure TFloatRange.Init(min,max:single);
+ begin
+  self.min:=min;
+  self.max:=max;
+ end;
+
+function TFloatRange.Rand:single;
+ begin
+  result:=min+random*(max-min);
+ end;
+
+function TFloatRange.Width:single;
+ begin
+  result:=max-min;
  end;
 
 end.
