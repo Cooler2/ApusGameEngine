@@ -1,4 +1,4 @@
-// -----------------------------------------------------
+п»ї// -----------------------------------------------------
 // Standard widget classes
 //
 // Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)
@@ -14,9 +14,9 @@ interface
  {$IFDEF CPUARM} {$R-} {$ENDIF}
 
  const
-  // Константы окна (дефолтное поведение, можно менять)
-  wcFrameBorder:integer=5;   // Ширина рамки окна
-  wcTitleHeight:integer=24;  // Высота заголовка окна
+  // РљРѕРЅСЃС‚Р°РЅС‚С‹ РѕРєРЅР° (РґРµС„РѕР»С‚РЅРѕРµ РїРѕРІРµРґРµРЅРёРµ, РјРѕР¶РЅРѕ РјРµРЅСЏС‚СЊ)
+  wcFrameBorder:integer=5;   // РЁРёСЂРёРЅР° СЂР°РјРєРё РѕРєРЅР°
+  wcTitleHeight:integer=24;  // Р’С‹СЃРѕС‚Р° Р·Р°РіРѕР»РѕРІРєР° РѕРєРЅР°
 
   // Window area flags
   wcLeftFrame   =  1;
@@ -27,21 +27,21 @@ interface
   wcClient      = 32; // client part of the window
 
  type
-  // Элемент с ограничениями размера
+  // Р­Р»РµРјРµРЅС‚ СЃ РѕРіСЂР°РЅРёС‡РµРЅРёСЏРјРё СЂР°Р·РјРµСЂР°
   TUIFlexControl=class(TUIElement)
    minWidth,minHeight:integer;
    maxWidth,maxHeight:integer;
   end;
 
-  // Элемент "изображение". Содержит простое статическое изображение
+  // Р­Р»РµРјРµРЅС‚ "РёР·РѕР±СЂР°Р¶РµРЅРёРµ". РЎРѕРґРµСЂР¶РёС‚ РїСЂРѕСЃС‚РѕРµ СЃС‚Р°С‚РёС‡РµСЃРєРѕРµ РёР·РѕР±СЂР°Р¶РµРЅРёРµ
   TUIImage=class(TUIElement)
    color:cardinal;  // drawing color (default is $FF808080)
-   src:string; // здесь может быть имя файла или строка "event:xxx", "proc:XXXXXXXX" etc...
+   src:string; // Р·РґРµСЃСЊ РјРѕР¶РµС‚ Р±С‹С‚СЊ РёРјСЏ С„Р°Р№Р»Р° РёР»Рё СЃС‚СЂРѕРєР° "event:xxx", "proc:XXXXXXXX" etc...
    constructor Create(width,height:single;imgname:string;parent_:TUIElement);
    procedure SetRenderProc(proc:pointer); // sugar for use "proc:XXX" src for the default style
   end;
 
-  // Скроллер для тачскрина - размещается независимо либо поверх другого элемента, который он и скроллит
+  // РЎРєСЂРѕР»Р»РµСЂ РґР»СЏ С‚Р°С‡СЃРєСЂРёРЅР° - СЂР°Р·РјРµС‰Р°РµС‚СЃСЏ РЅРµР·Р°РІРёСЃРёРјРѕ Р»РёР±Рѕ РїРѕРІРµСЂС… РґСЂСѓРіРѕРіРѕ СЌР»РµРјРµРЅС‚Р°, РєРѕС‚РѕСЂС‹Р№ РѕРЅ Рё СЃРєСЂРѕР»Р»РёС‚
   // It captures mouse drag events, but passes clicks through
   TUIScrollArea=class(TUIElement)
    fullWidth,fullHeight:single; // full content area
@@ -56,14 +56,15 @@ interface
    isHooked:boolean;
   end;
 
-  // Окошко хинта
-  // обычно создается незаполненным или неполностью заполненным,
-  // создающий код либо отрисовщик могут дополнить или использовать значения по умолчанию
+  // РћРєРѕС€РєРѕ С…РёРЅС‚Р°
+  // РѕР±С‹С‡РЅРѕ СЃРѕР·РґР°РµС‚СЃСЏ РЅРµР·Р°РїРѕР»РЅРµРЅРЅС‹Рј РёР»Рё РЅРµРїРѕР»РЅРѕСЃС‚СЊСЋ Р·Р°РїРѕР»РЅРµРЅРЅС‹Рј,
+  // СЃРѕР·РґР°СЋС‰РёР№ РєРѕРґ Р»РёР±Рѕ РѕС‚СЂРёСЃРѕРІС‰РёРє РјРѕРіСѓС‚ РґРѕРїРѕР»РЅРёС‚СЊ РёР»Рё РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ Р·РЅР°С‡РµРЅРёСЏ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
   TUIHint=class(TUIImage)
-   simpleText:string; // текст надписи
-   active:boolean; // если true - значит хинт активный, не кэшируется и содержит вложенные эл-ты
-   created:int64; // момент создания (в мс.)
-   adjusted:boolean; // отрисовщик может использовать это для корректировки параметров хинта
+   simpleText:string; // С‚РµРєСЃС‚ РЅР°РґРїРёСЃРё
+   active:boolean; // РµСЃР»Рё true - Р·РЅР°С‡РёС‚ С…РёРЅС‚ Р°РєС‚РёРІРЅС‹Р№, РЅРµ РєСЌС€РёСЂСѓРµС‚СЃСЏ Рё СЃРѕРґРµСЂР¶РёС‚ РІР»РѕР¶РµРЅРЅС‹Рµ СЌР»-С‚С‹
+   created:int64; // РјРѕРјРµРЅС‚ СЃРѕР·РґР°РЅРёСЏ (РІ РјСЃ.)
+   adjusted:boolean; // РѕС‚СЂРёСЃРѕРІС‰РёРє РјРѕР¶РµС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ СЌС‚Рѕ РґР»СЏ РєРѕСЂСЂРµРєС‚РёСЂРѕРІРєРё РїР°СЂР°РјРµС‚СЂРѕРІ С…РёРЅС‚Р°
+   hiding:boolean;
 
    constructor Create(x,y:single;text:string;act:boolean;parent_:TUIElement);
    destructor Destroy; override;
@@ -76,26 +77,26 @@ interface
    caption:string;
    color:cardinal;
    align:TTextAlignment;
-   topOffset:integer; // сдвиг текста вверх
+   topOffset:integer; // СЃРґРІРёРі С‚РµРєСЃС‚Р° РІРІРµСЂС…
    constructor Create(width,height:single;labelname,text:string;color_:cardinal;bFont:TFontHandle;parent_:TUIElement);
    constructor CreateLeft(width,height:single;labelname,text:string;color_:cardinal;parent_:TUIElement;font:TFontHandle=0);
    constructor CreateCentered(width,height:single;labelname,text:string;color_:cardinal;parent_:TUIElement;font:TFontHandle=0);
    constructor CreateRight(width,height:single;labelname,text:string;color_:cardinal;parent_:TUIElement;font:TFontHandle=0);
   end;
 
-  // Тип кнопок
-  TButtonStyle=(bsNormal,   // обычная кнопка
-                bsSwitch,   // кнопка-переключатель (фиксирующаяся в нажатом положении)
-                bsCheckbox);    // кнопка-надпись (чекбокс)
+  // РўРёРї РєРЅРѕРїРѕРє
+  TButtonStyle=(bsNormal,   // РѕР±С‹С‡РЅР°СЏ РєРЅРѕРїРєР°
+                bsSwitch,   // РєРЅРѕРїРєР°-РїРµСЂРµРєР»СЋС‡Р°С‚РµР»СЊ (С„РёРєСЃРёСЂСѓСЋС‰Р°СЏСЃСЏ РІ РЅР°Р¶Р°С‚РѕРј РїРѕР»РѕР¶РµРЅРёРё)
+                bsCheckbox);    // РєРЅРѕРїРєР°-РЅР°РґРїРёСЃСЊ (С‡РµРєР±РѕРєСЃ)
   TUIButton=class(TUIImage)
    caption:string; // button's label
-   default:boolean; // кнопка по умолчанию (влияет только на отрисовку, но не на поведение!!!)
-   pressed:boolean; // кнопка вдавлена
-   pending:boolean; // состояние временной недоступности (не реагирует на нажатия)
-   autoPendingTime:integer; // время (в мс) на которое кнопка переводится в состояние pending при нажатии (0 - не переводится)
+   default:boolean; // РєРЅРѕРїРєР° РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ (РІР»РёСЏРµС‚ С‚РѕР»СЊРєРѕ РЅР° РѕС‚СЂРёСЃРѕРІРєСѓ, РЅРѕ РЅРµ РЅР° РїРѕРІРµРґРµРЅРёРµ!!!)
+   pressed:boolean; // РєРЅРѕРїРєР° РІРґР°РІР»РµРЅР°
+   pending:boolean; // СЃРѕСЃС‚РѕСЏРЅРёРµ РІСЂРµРјРµРЅРЅРѕР№ РЅРµРґРѕСЃС‚СѓРїРЅРѕСЃС‚Рё (РЅРµ СЂРµР°РіРёСЂСѓРµС‚ РЅР° РЅР°Р¶Р°С‚РёСЏ)
+   autoPendingTime:integer; // РІСЂРµРјСЏ (РІ РјСЃ) РЅР° РєРѕС‚РѕСЂРѕРµ РєРЅРѕРїРєР° РїРµСЂРµРІРѕРґРёС‚СЃСЏ РІ СЃРѕСЃС‚РѕСЏРЅРёРµ pending РїСЂРё РЅР°Р¶Р°С‚РёРё (0 - РЅРµ РїРµСЂРµРІРѕРґРёС‚СЃСЏ)
 
-   btnStyle:TButtonStyle; // тип кнопки (влияет как на отрисовку, так и на поведение)
-   group:integer;   // Группа переключателей
+   btnStyle:TButtonStyle; // С‚РёРї РєРЅРѕРїРєРё (РІР»РёСЏРµС‚ РєР°Рє РЅР° РѕС‚СЂРёСЃРѕРІРєСѓ, С‚Р°Рє Рё РЅР° РїРѕРІРµРґРµРЅРёРµ)
+   group:integer;   // Р“СЂСѓРїРїР° РїРµСЂРµРєР»СЋС‡Р°С‚РµР»РµР№
    onClick:TProcedure;
    constructor Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement); overload;
    constructor Create(width,height:single;btnName,btnCaption:string;parent_:TUIElement); overload;
@@ -108,7 +109,7 @@ interface
    procedure onMouseMove; override;
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure onHotKey(keycode:byte;shiftstate:byte); override;
-   procedure onTimer; override; // отжимает кнопку по таймеру
+   procedure onTimer; override; // РѕС‚Р¶РёРјР°РµС‚ РєРЅРѕРїРєСѓ РїРѕ С‚Р°Р№РјРµСЂСѓ
    procedure SetPressed(pr:boolean); virtual;
    procedure MakeSwitches(sameGroup:boolean=true); // make all sibling buttons with the same size - switches
    procedure Click; virtual; // simulate click
@@ -119,28 +120,28 @@ interface
    lastOver:boolean; // was under mouse when onMouseMove was called last time
   end;
 
-  // Рамка
+  // Р Р°РјРєР°
   TUIFrame=class(TUIElement)
    constructor Create(width,height:single;depth,style_:integer;parent_:TUIElement);
    procedure SetBorderWidth(w:integer); virtual;
   protected
-   borderWidth:integer; // ширина рамки
+   borderWidth:integer; // С€РёСЂРёРЅР° СЂР°РјРєРё
   end;
 
   // Basic window
   TUIWindow=class(TUIImage)
    caption:string;
-   header:integer; // Высота заголовка
-   autoBringToFront:boolean; // автоматически переносить окно на передний план при клике по нему или любому вложенному эл-ту
-   moveable:boolean;    // окно можно перемещать
-   resizeable:boolean;  // окно можно растягивать
-   minW,minH,maxW,maxH:integer; // максимальные и минимальные размеры (для растягивающихся окон)
+   header:integer; // Р’С‹СЃРѕС‚Р° Р·Р°РіРѕР»РѕРІРєР°
+   autoBringToFront:boolean; // Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РїРµСЂРµРЅРѕСЃРёС‚СЊ РѕРєРЅРѕ РЅР° РїРµСЂРµРґРЅРёР№ РїР»Р°РЅ РїСЂРё РєР»РёРєРµ РїРѕ РЅРµРјСѓ РёР»Рё Р»СЋР±РѕРјСѓ РІР»РѕР¶РµРЅРЅРѕРјСѓ СЌР»-С‚Сѓ
+   moveable:boolean;    // РѕРєРЅРѕ РјРѕР¶РЅРѕ РїРµСЂРµРјРµС‰Р°С‚СЊ
+   resizeable:boolean;  // РѕРєРЅРѕ РјРѕР¶РЅРѕ СЂР°СЃС‚СЏРіРёРІР°С‚СЊ
+   minW,minH,maxW,maxH:integer; // РјР°РєСЃРёРјР°Р»СЊРЅС‹Рµ Рё РјРёРЅРёРјР°Р»СЊРЅС‹Рµ СЂР°Р·РјРµСЂС‹ (РґР»СЏ СЂР°СЃС‚СЏРіРёРІР°СЋС‰РёС…СЃСЏ РѕРєРѕРЅ)
 
    constructor Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,wndCaption:string;wndFont:TFontHandle;parent_:TUIElement);
 
-   // Возвращает флаги типа области в указанной точке (к-ты экранные (в пикселях)
-   // а также курсор, который нужно заюзать для этой области
-   // Эту ф-цию нужно переопределить для создания окон специальной формы или поведения
+   // Р’РѕР·РІСЂР°С‰Р°РµС‚ С„Р»Р°РіРё С‚РёРїР° РѕР±Р»Р°СЃС‚Рё РІ СѓРєР°Р·Р°РЅРЅРѕР№ С‚РѕС‡РєРµ (Рє-С‚С‹ СЌРєСЂР°РЅРЅС‹Рµ (РІ РїРёРєСЃРµР»СЏС…)
+   // Р° С‚Р°РєР¶Рµ РєСѓСЂСЃРѕСЂ, РєРѕС‚РѕСЂС‹Р№ РЅСѓР¶РЅРѕ Р·Р°СЋР·Р°С‚СЊ РґР»СЏ СЌС‚РѕР№ РѕР±Р»Р°СЃС‚Рё
+   // Р­С‚Сѓ С„-С†РёСЋ РЅСѓР¶РЅРѕ РїРµСЂРµРѕРїСЂРµРґРµР»РёС‚СЊ РґР»СЏ СЃРѕР·РґР°РЅРёСЏ РѕРєРѕРЅ СЃРїРµС†РёР°Р»СЊРЅРѕР№ С„РѕСЂРјС‹ РёР»Рё РїРѕРІРµРґРµРЅРёСЏ
    function GetAreaType(x,y:integer;out cur:integer):integer; virtual;
 
    procedure onMouseMove; override;
@@ -150,36 +151,36 @@ interface
    class function IsWindow:boolean; override;
   private
    hooked:boolean;
-   area:integer;   // тип области под курсором
+   area:integer;   // С‚РёРї РѕР±Р»Р°СЃС‚Рё РїРѕРґ РєСѓСЂСЃРѕСЂРѕРј
   end;
 
-  // Разновидность окна: окно со скином
-  // ключевые особенности: имеет фиксированный размер и зачастую непрямоугольную форму,
-  // а также фон в виде картинки
-  // такое окно создается с дефолтными параметрами и должно далее настраиваться извне
+  // Р Р°Р·РЅРѕРІРёРґРЅРѕСЃС‚СЊ РѕРєРЅР°: РѕРєРЅРѕ СЃРѕ СЃРєРёРЅРѕРј
+  // РєР»СЋС‡РµРІС‹Рµ РѕСЃРѕР±РµРЅРЅРѕСЃС‚Рё: РёРјРµРµС‚ С„РёРєСЃРёСЂРѕРІР°РЅРЅС‹Р№ СЂР°Р·РјРµСЂ Рё Р·Р°С‡Р°СЃС‚СѓСЋ РЅРµРїСЂСЏРјРѕСѓРіРѕР»СЊРЅСѓСЋ С„РѕСЂРјСѓ,
+  // Р° С‚Р°РєР¶Рµ С„РѕРЅ РІ РІРёРґРµ РєР°СЂС‚РёРЅРєРё
+  // С‚Р°РєРѕРµ РѕРєРЅРѕ СЃРѕР·РґР°РµС‚СЃСЏ СЃ РґРµС„РѕР»С‚РЅС‹РјРё РїР°СЂР°РјРµС‚СЂР°РјРё Рё РґРѕР»Р¶РЅРѕ РґР°Р»РµРµ РЅР°СЃС‚СЂР°РёРІР°С‚СЊСЃСЏ РёР·РІРЅРµ
   TUISkinnedWindow=class(TUIWindow)
-   dragRegion:TRegion; // область, за которую можно таскать окно (если не задана - то за любую точку)
-   background:pointer; // некий указатель на фон окна (т.к. вопросы отрисовки в этом модуле не затрагиваются)
+   dragRegion:TRegion; // РѕР±Р»Р°СЃС‚СЊ, Р·Р° РєРѕС‚РѕСЂСѓСЋ РјРѕР¶РЅРѕ С‚Р°СЃРєР°С‚СЊ РѕРєРЅРѕ (РµСЃР»Рё РЅРµ Р·Р°РґР°РЅР° - С‚Рѕ Р·Р° Р»СЋР±СѓСЋ С‚РѕС‡РєСѓ)
+   background:pointer; // РЅРµРєРёР№ СѓРєР°Р·Р°С‚РµР»СЊ РЅР° С„РѕРЅ РѕРєРЅР° (С‚.Рє. РІРѕРїСЂРѕСЃС‹ РѕС‚СЂРёСЃРѕРІРєРё РІ СЌС‚РѕРј РјРѕРґСѓР»Рµ РЅРµ Р·Р°С‚СЂР°РіРёРІР°СЋС‚СЃСЏ)
    constructor Create(wndName,wndCaption:string;wndFont:TFontHandle;parent_:TUIElement;canmove:boolean=true);
    destructor Destroy; override;
    function GetAreaType(x,y:integer;out cur:integer):integer; override; // x,y - screen space coordinates
   end;
 
   TUIEditBox=class(TUIElement)
-   realText:WideString; // реальный текст (лучше использовать это поле, а не text)
+   realText:WideString; // СЂРµР°Р»СЊРЅС‹Р№ С‚РµРєСЃС‚ (Р»СѓС‡С€Рµ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ СЌС‚Рѕ РїРѕР»Рµ, Р° РЅРµ text)
    completion:WideString; // grayed background text, if it is not empty and enter is pressed, then it is set to realText
    defaultText:WideString; // grayed background text, displayed if realText is empty
    color,backgnd:cardinal;
-   cursorpos:integer;      // Положение курсора (номер символа, после которого находится курсор)
-   maxlength:integer;      // максимальная длина редактируемой строки
-   password:boolean;    // поле для ввода пароля
-   noborder:boolean;    // рисовать ли рамку или только редактируемый текст (для встраивания в другие эл-ты)
-   selstart,selcount:integer; // выделенный фрагмент текста
-   cursortimer:int64;    // Начальный таймер для отрисовки курсора
-   needpos:integer;    // желаемое положение курсора в пикселях (для отрисовщика)
-   msselect:boolean;  // Выделение мышью
-   protection:byte;   // xor всех символов с этим числом
-   offset:integer; // сдвиг вправо содержимого на столько пикселей
+   cursorpos:integer;      // РџРѕР»РѕР¶РµРЅРёРµ РєСѓСЂСЃРѕСЂР° (РЅРѕРјРµСЂ СЃРёРјРІРѕР»Р°, РїРѕСЃР»Рµ РєРѕС‚РѕСЂРѕРіРѕ РЅР°С…РѕРґРёС‚СЃСЏ РєСѓСЂСЃРѕСЂ)
+   maxlength:integer;      // РјР°РєСЃРёРјР°Р»СЊРЅР°СЏ РґР»РёРЅР° СЂРµРґР°РєС‚РёСЂСѓРµРјРѕР№ СЃС‚СЂРѕРєРё
+   password:boolean;    // РїРѕР»Рµ РґР»СЏ РІРІРѕРґР° РїР°СЂРѕР»СЏ
+   noborder:boolean;    // СЂРёСЃРѕРІР°С‚СЊ Р»Рё СЂР°РјРєСѓ РёР»Рё С‚РѕР»СЊРєРѕ СЂРµРґР°РєС‚РёСЂСѓРµРјС‹Р№ С‚РµРєСЃС‚ (РґР»СЏ РІСЃС‚СЂР°РёРІР°РЅРёСЏ РІ РґСЂСѓРіРёРµ СЌР»-С‚С‹)
+   selstart,selcount:integer; // РІС‹РґРµР»РµРЅРЅС‹Р№ С„СЂР°РіРјРµРЅС‚ С‚РµРєСЃС‚Р°
+   cursortimer:int64;    // РќР°С‡Р°Р»СЊРЅС‹Р№ С‚Р°Р№РјРµСЂ РґР»СЏ РѕС‚СЂРёСЃРѕРІРєРё РєСѓСЂСЃРѕСЂР°
+   needpos:integer;    // Р¶РµР»Р°РµРјРѕРµ РїРѕР»РѕР¶РµРЅРёРµ РєСѓСЂСЃРѕСЂР° РІ РїРёРєСЃРµР»СЏС… (РґР»СЏ РѕС‚СЂРёСЃРѕРІС‰РёРєР°)
+   msselect:boolean;  // Р’С‹РґРµР»РµРЅРёРµ РјС‹С€СЊСЋ
+   protection:byte;   // xor РІСЃРµС… СЃРёРјРІРѕР»РѕРІ СЃ СЌС‚РёРј С‡РёСЃР»РѕРј
+   offset:integer; // СЃРґРІРёРі РІРїСЂР°РІРѕ СЃРѕРґРµСЂР¶РёРјРѕРіРѕ РЅР° СЃС‚РѕР»СЊРєРѕ РїРёРєСЃРµР»РµР№
 
    constructor Create(width,height:single;boxName:string;boxFont:TFontHandle;color_:cardinal;parent_:TUIElement);
    procedure onChar(ch:char;scancode:byte); override;
@@ -194,15 +195,15 @@ interface
   private
    savedText:WideString;
    lastClickTime:int64;
-   msSelStart:integer; // после символа с этим номером находится точка начала выделения мышью
+   msSelStart:integer; // РїРѕСЃР»Рµ СЃРёРјРІРѕР»Р° СЃ СЌС‚РёРј РЅРѕРјРµСЂРѕРј РЅР°С…РѕРґРёС‚СЃСЏ С‚РѕС‡РєР° РЅР°С‡Р°Р»Р° РІС‹РґРµР»РµРЅРёСЏ РјС‹С€СЊСЋ
    procedure AdjustState;
    function GetText:String8;
    procedure SetText(s:String8);
   public
-   property text:String8 read GetText write SetText;         // Редактируемый текст (в заданной кодировке)
+   property text:String8 read GetText write SetText;         // Р РµРґР°РєС‚РёСЂСѓРµРјС‹Р№ С‚РµРєСЃС‚ (РІ Р·Р°РґР°РЅРЅРѕР№ РєРѕРґРёСЂРѕРІРєРµ)
   end;
 
-  // Полоса прокрутки
+  // РџРѕР»РѕСЃР° РїСЂРѕРєСЂСѓС‚РєРё
   TUIScrollBar=class(TUIElement)
   private
    rValue:TAnimatedValue;
@@ -212,8 +213,8 @@ interface
    procedure SetPageSize(pageSize:single);
    function GetStep:single;
   public
-   min,max:single; // границы диапазона
-   pagesize:single; // размер ползунка (в пределах диапазона)
+   min,max:single; // РіСЂР°РЅРёС†С‹ РґРёР°РїР°Р·РѕРЅР°
+   pagesize:single; // СЂР°Р·РјРµСЂ РїРѕР»Р·СѓРЅРєР° (РІ РїСЂРµРґРµР»Р°С… РґРёР°РїР°Р·РѕРЅР°)
    step:single; // add/subtract this amount with mouse scroll or similar events
    color:cardinal;
    horizontal:boolean;
@@ -221,12 +222,12 @@ interface
    constructor Create(width,height:single;barName:string;parent_:TUIElement);
    function GetScroller:IScroller;
    function SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
-   // Переместить ползунок в указанную позицию
+   // РџРµСЂРµРјРµСЃС‚РёС‚СЊ РїРѕР»Р·СѓРЅРѕРє РІ СѓРєР°Р·Р°РЅРЅСѓСЋ РїРѕР·РёС†РёСЋ
    procedure MoveTo(val:single;smooth:boolean=false); virtual;
    procedure MoveRel(delta:single;smooth:boolean=false); virtual;
-   // Связать значение с внешней переменной
+   // РЎРІСЏР·Р°С‚СЊ Р·РЅР°С‡РµРЅРёРµ СЃ РІРЅРµС€РЅРµР№ РїРµСЂРµРјРµРЅРЅРѕР№
    procedure Link(elem:TUIElement); virtual;
-   // Сигналы от этих кнопок будут использоваться для перемещения ползунка
+   // РЎРёРіРЅР°Р»С‹ РѕС‚ СЌС‚РёС… РєРЅРѕРїРѕРє Р±СѓРґСѓС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊСЃСЏ РґР»СЏ РїРµСЂРµРјРµС‰РµРЅРёСЏ РїРѕР»Р·СѓРЅРєР°
    procedure UseButtons(lessBtn,moreBtn:string);
 
    procedure onMouseMove; override;
@@ -236,8 +237,8 @@ interface
    property isAnimating:boolean read GetAnimating;
   protected
    linkedControl:TUIElement;
-   delta:integer; // смещение точки курсора относительно точки начала ползунка (если hooked)
-   needval:integer; // значение, к которому нужно плавно прийти
+   delta:integer; // СЃРјРµС‰РµРЅРёРµ С‚РѕС‡РєРё РєСѓСЂСЃРѕСЂР° РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ С‚РѕС‡РєРё РЅР°С‡Р°Р»Р° РїРѕР»Р·СѓРЅРєР° (РµСЃР»Рё hooked)
+   needval:integer; // Р·РЅР°С‡РµРЅРёРµ, Рє РєРѕС‚РѕСЂРѕРјСѓ РЅСѓР¶РЅРѕ РїР»Р°РІРЅРѕ РїСЂРёР№С‚Рё
    moving:boolean;
    scroller:TObject;
   end;
@@ -245,11 +246,11 @@ interface
   TUIListBox=class(TUIElement)
    lines:StringArr;
    tags:array of cardinal;
-   hints:StringArr; // у каждого элемента может быть свой хинт (показываемый при наведении на него)
+   hints:StringArr; // Сѓ РєР°Р¶РґРѕРіРѕ СЌР»РµРјРµРЅС‚Р° РјРѕР¶РµС‚ Р±С‹С‚СЊ СЃРІРѕР№ С…РёРЅС‚ (РїРѕРєР°Р·С‹РІР°РµРјС‹Р№ РїСЂРё РЅР°РІРµРґРµРЅРёРё РЅР° РЅРµРіРѕ)
    lineHeight:single; // in self CS
-   selectedLine,hoverLine:integer; // выделенная строка, строка под мышью (0..count-1), -1 == отсутствует
-   autoSelectMode:boolean; // режим, при котором всегда выделяется строка под мышью (для попапов)
-   bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // цвета отрисовки
+   selectedLine,hoverLine:integer; // РІС‹РґРµР»РµРЅРЅР°СЏ СЃС‚СЂРѕРєР°, СЃС‚СЂРѕРєР° РїРѕРґ РјС‹С€СЊСЋ (0..count-1), -1 == РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚
+   autoSelectMode:boolean; // СЂРµР¶РёРј, РїСЂРё РєРѕС‚РѕСЂРѕРј РІСЃРµРіРґР° РІС‹РґРµР»СЏРµС‚СЃСЏ СЃС‚СЂРѕРєР° РїРѕРґ РјС‹С€СЊСЋ (РґР»СЏ РїРѕРїР°РїРѕРІ)
+   bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // С†РІРµС‚Р° РѕС‚СЂРёСЃРѕРІРєРё
    constructor Create(width,height:single;lHeight:single;listName:string;font_:TFontHandle;parent:TUIElement);
    destructor Destroy; override;
    procedure AddLine(line:string;tag:cardinal=0;hint:string=''); virtual;
@@ -262,7 +263,7 @@ interface
    procedure UpdateScroller;
   end;
 
-  // Выпадающий список
+  // Р’С‹РїР°РґР°СЋС‰РёР№ СЃРїРёСЃРѕРє
   TUIComboBox=class(TUIButton)
    items,hints:WStringArr;
    tags:IntArray;
@@ -278,7 +279,7 @@ interface
    procedure ClearItems;
    procedure onDropDown; virtual;
    procedure onMouseButtons(button:byte;state:boolean); override;
-   procedure onTimer; override; // трюк: используется для слежения за всплывающим списком, чтобы не заморачиваться с сигналами
+   procedure onTimer; override; // С‚СЂСЋРє: РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РґР»СЏ СЃР»РµР¶РµРЅРёСЏ Р·Р° РІСЃРїР»С‹РІР°СЋС‰РёРј СЃРїРёСЃРєРѕРј, С‡С‚РѕР±С‹ РЅРµ Р·Р°РјРѕСЂР°С‡РёРІР°С‚СЊСЃСЏ СЃ СЃРёРіРЅР°Р»Р°РјРё
    procedure SetCurItem(item:integer); virtual;
    procedure SetCurItemByTag(tag:integer); virtual;
    property curItem:integer read fCurItem write SetCurItem;
@@ -304,7 +305,7 @@ implementation
   end;
 
  var
-  comboPop:TUIComboBox;      // если существует выпавший комбобокс (а он может быть только один) - он тут
+  comboPop:TUIComboBox;      // РµСЃР»Рё СЃСѓС‰РµСЃС‚РІСѓРµС‚ РІС‹РїР°РІС€РёР№ РєРѕРјР±РѕР±РѕРєСЃ (Р° РѕРЅ РјРѕР¶РµС‚ Р±С‹С‚СЊ С‚РѕР»СЊРєРѕ РѕРґРёРЅ) - РѕРЅ С‚СѓС‚
 
  { TUIimage }
 
@@ -402,7 +403,7 @@ procedure TUIButton.DoClick;
     end;
    end else begin
     if pending then exit;
-    // Защита от двойных кликов
+    // Р—Р°С‰РёС‚Р° РѕС‚ РґРІРѕР№РЅС‹С… РєР»РёРєРѕРІ
     if (sendSignals<>ssNone) and (MyTickCount>lastPressed+50) then begin
      Signal('UI\'+name+'\Click',byte(pressed));
      Signal('UI\onButtonClick\'+name,TTag(self));
@@ -439,8 +440,8 @@ procedure TUIButton.DoClick;
    end;
    // Regular button
    if (button=1) and (btnStyle=bsNormal) then begin
-    if not pressed and state then SetPressed(true); // нажать
-    if pressed and not state then begin // отпустить и среагировать
+    if not pressed and state then SetPressed(true); // РЅР°Р¶Р°С‚СЊ
+    if pressed and not state then begin // РѕС‚РїСѓСЃС‚РёС‚СЊ Рё СЃСЂРµР°РіРёСЂРѕРІР°С‚СЊ
      DoClick;
      SetPressed(false);
     end;
@@ -574,7 +575,7 @@ procedure TUIButton.DoClick;
    maxW:=1600; maxH:=1200;
    color:=$FFBCB8B0;
    area:=0;
-   order:=100; // выше чем прочие элементы.
+   order:=100; // РІС‹С€Рµ С‡РµРј РїСЂРѕС‡РёРµ СЌР»РµРјРµРЅС‚С‹.
   end;
 
  function TUIWindow.GetAreaType(x,y:integer;out cur:integer):integer;
@@ -700,7 +701,7 @@ procedure TUIButton.DoClick;
    protection:=0;
    needPos:=-1;
    offset:=0;
-   // Свойства предка
+   // РЎРІРѕР№СЃС‚РІР° РїСЂРµРґРєР°
    canhavefocus:=true; //CheckAndSetFocus;
    sendSignals:=ssAll;
    completion:='';
@@ -802,7 +803,7 @@ procedure TUIButton.DoClick;
 
     if (keycode=VK_LEFT) then begin // Left
      step:=1;
-     if shiftstate and sscCtrl>0 then begin // Сдвиг более чем на 1 символ
+     if shiftstate and sscCtrl>0 then begin // РЎРґРІРёРі Р±РѕР»РµРµ С‡РµРј РЅР° 1 СЃРёРјРІРѕР»
       while (cursorpos-step>0) and (realtext[cursorpos-step]>='A') do inc(step);
      end;
 
@@ -821,7 +822,7 @@ procedure TUIButton.DoClick;
 
     if (keycode=VK_RIGHT) and (cursorpos<length(realtext)) then begin // Right
      step:=1;
-     if shiftstate and sscCtrl>0 then begin // Сдвиг более чем на 1 символ
+     if shiftstate and sscCtrl>0 then begin // РЎРґРІРёРі Р±РѕР»РµРµ С‡РµРј РЅР° 1 СЃРёРјРІРѕР»
       while (cursorpos+step<length(realtext)) and not ((realtext[cursorpos+step+1]>='A')
        and not (realtext[cursorpos+step]>='A')) do inc(step);
      end;
@@ -1175,7 +1176,7 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
   begin
    inherited Create(1,1,'hint',parent_);
    SetPos(x,y,pivotTopLeft);
-   shape:=shapeFull;
+   shape:=shapeEmpty;
    font:=0;
    simpleText:=text;
    active:=act;
@@ -1191,9 +1192,9 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
 
  procedure TUIHint.Hide;
   begin
-   if shape<>shapeEmpty then begin
+   if not hiding then begin
     LogMessage('UIHint Hide');
-    shape:=shapeEmpty;
+    hiding:=true;
     created:=MyTickCount;
    end;
   end;
@@ -1201,12 +1202,12 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
  procedure TUIHint.onMouseButtons(button:byte;state:boolean);
   begin
    inherited;
-   if state then hide;
+   if state then Hide;
   end;
 
  procedure TUIHint.onTimer;
   begin
-   hide;
+   Hide;
   end;
 
  { TUIScrollArea }
@@ -1428,7 +1429,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
    font:=bFont;
    items:=Copy(list);
    SetLength(tags,length(items));
-   // Исходные строки могут быть в формате "tag|text|hint" либо "tag|text" либо "text"
+   // РСЃС…РѕРґРЅС‹Рµ СЃС‚СЂРѕРєРё РјРѕРіСѓС‚ Р±С‹С‚СЊ РІ С„РѕСЂРјР°С‚Рµ "tag|text|hint" Р»РёР±Рѕ "tag|text" Р»РёР±Рѕ "text"
    for i:=0 to high(items) do begin
     j:=pos('|',items[i]);
     if (j>1) and (items[i][1] in ['0'..'9']) then begin
@@ -1536,7 +1537,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
 
  procedure TUIComboBox.onTimer;
   begin
-   // не вызывать inherited, т.к. там поведение другое
+   // РЅРµ РІС‹Р·С‹РІР°С‚СЊ inherited, С‚.Рє. С‚Р°Рј РїРѕРІРµРґРµРЅРёРµ РґСЂСѓРіРѕРµ
    if frame.visible then begin
     timer:=1;
     if (popup.selectedLine>=0) or (FocusedElement<>self) then onDropDown;

@@ -107,7 +107,7 @@ procedure SetDisplaySize(width,height:integer);
   rootHeight:=height;
  end;
 
- procedure ShowSimpleHint;
+ procedure ShowSimpleHint(msg:string;parent:TUIElement;x,y,time:integer;font:cardinal=0);
   var
    hint:TUIHint;
    i:integer;

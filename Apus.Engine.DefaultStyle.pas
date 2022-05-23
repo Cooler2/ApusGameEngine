@@ -148,23 +148,24 @@ implementation
       x1:=control.globalRect.Left;
       y1:=control.globalRect.Top;
      end;
-     if shape=shapeFull then v:=(MyTickCount-created)*2
-      else begin
-       v:=256-(MyTickCount-created) div 2;
-       if v<=0 then begin
+     if not hiding then
+      v:=(MyTickCount-created)*2
+     else begin
+      v:=256-(MyTickCount-created) div 2;
+      if v<=0 then begin
         LogMessage('Hide expired hint '+inttohex(cardinal(control),8));
         {FreeImage(HintImage);
         HintImage:=nil;}
         control.visible:=false;
         exit;
-       end;
       end;
+     end;
      if hintImage=nil then begin
       ForceLogMessage('Hint has no image! '+inttohex(cardinal(control),8));
       exit;
      end;
      if v>256 then v:=256;
-     c:=ColorMix($FF808080,$808080,v);
+     c:=ColorAlpha(clNeutral,v/256);
      gfx.clip.Nothing;
      draw.Image(x1,y1,HintImage,c);
      gfx.clip.Restore;
