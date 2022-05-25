@@ -7,6 +7,8 @@
 unit Apus.Engine.DefaultStyle;
 interface
 uses Apus.Engine.UI;
+ var
+  defaultBtnColor:cardinal=$FFB0A0C0;
 
  procedure DefaultDrawer(control:TUIElement);
 

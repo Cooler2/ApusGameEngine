@@ -12,9 +12,6 @@ interface
   // процедура отрисовки элемента
   TUIDrawer=procedure(control:TUIElement);
 
- var
-  defaultBtnColor:cardinal=$FFB0A0C0;
-
  // Render an UI element and all its descendants (skip elements with manualDraw=true)
  procedure DrawUI(item:TUIElement);
  // Draw just this element (and it descedants with manualDraw=true)
