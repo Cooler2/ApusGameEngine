@@ -79,7 +79,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 15;
+ testnum:integer = 2;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -699,9 +699,15 @@ begin
   pnts[i].x:=450+r*cos(a);
   pnts[i].y:=250+r*sin(a);
  end;
- draw.Polygon(@pnts,15,$FF0080C0);
+ //draw.Polygon(@pnts,15,$FF0080C0);
 
  draw.RRect(50,250,100,270,$FFF0C0A0,3);
+ draw.RRect(120,250,180,280,$FFF0C0A0,5,1);
+ draw.RRect(120,300,180,330,$FFF0C0A0,7);
+
+ draw.FillRRect(120,350,180,380,$C0F0C0A0,9);
+
+// draw.RRect(120,300,180,330,$FFF0C0A0,3+(game.frameStartTime div 500) mod 10,4);
  draw.FillTriangle(50,320,100,300,80,380,$10FF3030,$FF30FF30,$FF3030FF);
 
 

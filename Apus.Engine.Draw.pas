@@ -20,9 +20,11 @@ interface
   procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
   procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
-  procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2);
+  procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0);
   procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
+  procedure FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single=2;steps:integer=0); overload;
+  procedure FillRRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload;
   procedure FillTriangle(x1,y1,x2,y2,x3,y3:single;color1,color2,color3:cardinal);
   procedure ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
   procedure TexturedRect(r:TRect;texture:TTexture;color:cardinal=$FF808080); overload;
@@ -741,22 +743,33 @@ begin
 
 end;
 
-procedure TDrawer.RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2);
+procedure TDrawer.RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0);
 var
- vrt:array[0..8] of TVertex;
+ i:integer;
+ vrt:array[0..54] of TVertex;
+ a,dx,dy:single;
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
  shader.UseTexture(neutral);
+ if steps=0 then steps:=Clamp(round(r*0.6),1,12);
  vrt[0].Init(x1+r,y1,zPlane,color);
  vrt[1].Init(x2-r,y1,zPlane,color);
- vrt[2].Init(x2,y1+r,zPlane,color);
- vrt[3].Init(x2,y2-r,zPlane,color);
- vrt[4].Init(x2-r,y2,zPlane,color);
- vrt[5].Init(x1+r,y2,zPlane,color);
- vrt[6].Init(x1,y2-r,zPlane,color);
- vrt[7].Init(x1,y1+r,zPlane,color);
- vrt[8]:=vrt[0];
- renderDevice.Draw(LINE_STRIP,8,@vrt,TVertex.layoutTex);
+ vrt[1+steps].Init(x2,y1+r,zPlane,color);
+ vrt[2+steps].Init(x2,y2-r,zPlane,color);
+ vrt[2+steps*2].Init(x2-r,y2,zPlane,color);
+ vrt[3+steps*2].Init(x1+r,y2,zPlane,color);
+ vrt[3+steps*3].Init(x1,y2-r,zPlane,color);
+ vrt[4+steps*3].Init(x1,y1+r,zPlane,color);
+ vrt[4+steps*4]:=vrt[0];
+ for i:=1 to steps-1 do begin
+  a:=0.5*Pi*(i/steps);
+  dx:=r*sin(a); dy:=r*cos(a);
+  vrt[1+i].Init(x2-r+dx,y1+r-dy,zPlane,color);
+  vrt[2+steps+i].Init(x2-r+dy,y2-r+dx,zPlane,color);
+  vrt[3+steps*2+i].Init(x1+r-dx,y2-r+dy,zPlane,color);
+  vrt[4+steps*3+i].Init(x1+r-dy,y1+r-dx,zPlane,color);
+ end;
+ renderDevice.Draw(LINE_STRIP,4+steps*4,@vrt,TVertex.layoutTex);
 end;
 
 procedure TDrawer.FillGradrect(x1, y1, x2, y2: integer; color1,
@@ -808,8 +821,37 @@ begin
  FillRect(SRound(x1),SRound(y1),SRound(x2),SRound(y2),color);
 end;
 
-procedure TDrawer.ShadedRect(x1, y1, x2, y2, depth: integer; light,
-  dark: cardinal);
+procedure TDrawer.FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single;steps:integer);
+ var
+  i:integer;
+  vrt:array[0..70] of TVertex;
+  sx1,sy1,sx2,sy2,ds,dc,a:single;
+ begin
+  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
+  if steps=0 then steps:=Clamp(round(r*0.6),1,12);
+  shader.UseTexture(neutral);
+  sx1:=x1-0.5+r; sx2:=x2+0.5-r;
+  sy1:=y1-0.5+r; sy2:=y2+0.5-r;
+
+  vrt[0].Init((sx1+sx2)/2,(sy1+sy2)/2,zPlane,color);
+  for i:=0 to steps do begin
+   a:=0.5*Pi*i/(steps);
+   dc:=r*cos(a); ds:=r*sin(a);
+   vrt[1+i].Init(sx1-dc,sy1-ds,zPlane,color);
+   vrt[2+steps+i].Init(sx2+ds,sy1-dc,zPlane,color);
+   vrt[3+steps*2+i].Init(sx2+dc,sy2+ds,zPlane,color);
+   vrt[4+steps*3+i].Init(sx1-ds,sy2+dc,zPlane,color);
+  end;
+  vrt[5+steps*4]:=vrt[1];
+  renderDevice.Draw(TRG_FAN,4+steps*4,@vrt,TVertex.layoutTex);
+ end;
+
+procedure TDrawer.FillRRect(x1,y1,x2,y2:single;color:cardinal;r:single;steps:integer);
+ begin
+  FillRRect(SRound(x1),SRound(y1),SRound(x2),SRound(y2),color,r,steps);
+ end;
+
+procedure TDrawer.ShadedRect(x1,y1,x2,y2,depth:integer;light,dark:cardinal);
 var
  vrt:array[0..23] of TVertex;
  i:integer;
