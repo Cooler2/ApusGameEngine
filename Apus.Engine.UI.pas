@@ -1,4 +1,4 @@
-// UI API unit with most UI-related declarations and utility functions
+п»ї// UI API unit with most UI-related declarations and utility functions
 //
 // Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -49,10 +49,11 @@ interface
 
   // Other types
   TElementShape = Apus.Engine.UITypes.TElementShape;
+  TSendSignals = Apus.Engine.UITypes.TSendSignals;
+  TButtonStyle = Apus.Engine.UIWidgets.TButtonStyle;
 
-
-  // Поиск элементов по имени. Если элемент не найден, то...
-  // mustExists=true - исключение, false - будет создан (а в лог будет сообщение об этом)
+  // РџРѕРёСЃРє СЌР»РµРјРµРЅС‚РѕРІ РїРѕ РёРјРµРЅРё. Р•СЃР»Рё СЌР»РµРјРµРЅС‚ РЅРµ РЅР°Р№РґРµРЅ, С‚Рѕ...
+  // mustExists=true - РёСЃРєР»СЋС‡РµРЅРёРµ, false - Р±СѓРґРµС‚ СЃРѕР·РґР°РЅ (Р° РІ Р»РѕРі Р±СѓРґРµС‚ СЃРѕРѕР±С‰РµРЅРёРµ РѕР± СЌС‚РѕРј)
   function UIButton(name:string;mustExist:boolean=false):TUIButton;
   function UIEditBox(name:string;mustExist:boolean=false):TUIEditBox;
   function UILabel(name:string;mustExist:boolean=false):TUILabel;
@@ -67,13 +68,13 @@ interface
   procedure SetupEditBox(edit:TUIEditBox;text:string;style:byte;cursor,maxlength:integer;
              enabled,password,noborder:boolean);
 
-  // Установка свойст элемента по имени
+  // РЈСЃС‚Р°РЅРѕРІРєР° СЃРІРѕР№СЃС‚ СЌР»РµРјРµРЅС‚Р° РїРѕ РёРјРµРЅРё
   procedure SetElementState(name:string;visible:boolean;enabled:boolean=true);
   procedure SetElementText(name:string;text:string);
 
-  // Полезные функции общего применения
+  // РџРѕР»РµР·РЅС‹Рµ С„СѓРЅРєС†РёРё РѕР±С‰РµРіРѕ РїСЂРёРјРµРЅРµРЅРёСЏ
   // -------
-  // Создать всплывающее окно, прицепить его к указанному предку
+  // РЎРѕР·РґР°С‚СЊ РІСЃРїР»С‹РІР°СЋС‰РµРµ РѕРєРЅРѕ, РїСЂРёС†РµРїРёС‚СЊ РµРіРѕ Рє СѓРєР°Р·Р°РЅРЅРѕРјСѓ РїСЂРµРґРєСѓ
   procedure ShowSimpleHint(msg:string;parent:TUIElement;x,y,time:integer;font:cardinal=0);
 
   // Shortcut to the element under mouse
@@ -83,14 +84,14 @@ interface
   function ModalElement:TUIElement;
   procedure SetModalElement(e:TUIElement);
 
-  // Найти элемент по имени (через хэш - среди всех)
+  // РќР°Р№С‚Рё СЌР»РµРјРµРЅС‚ РїРѕ РёРјРµРЅРё (С‡РµСЂРµР· С…СЌС€ - СЃСЂРµРґРё РІСЃРµС…)
   function FindElement(name:String8;mustExist:boolean=true):TUIElement;
   function FindControl(name:String8;mustExist:boolean=true):TUIElement; deprecated 'Use FindElement';
-  // Найти элемент в заданной точке экрана (возвращает true если элемент найден и он
-  // enabled - c учетом всех предков), игнорирует "прозрачные" в данной точке элементы
+  // РќР°Р№С‚Рё СЌР»РµРјРµРЅС‚ РІ Р·Р°РґР°РЅРЅРѕР№ С‚РѕС‡РєРµ СЌРєСЂР°РЅР° (РІРѕР·РІСЂР°С‰Р°РµС‚ true РµСЃР»Рё СЌР»РµРјРµРЅС‚ РЅР°Р№РґРµРЅ Рё РѕРЅ
+  // enabled - c СѓС‡РµС‚РѕРј РІСЃРµС… РїСЂРµРґРєРѕРІ), РёРіРЅРѕСЂРёСЂСѓРµС‚ "РїСЂРѕР·СЂР°С‡РЅС‹Рµ" РІ РґР°РЅРЅРѕР№ С‚РѕС‡РєРµ СЌР»РµРјРµРЅС‚С‹
   function FindElementAt(x,y:integer;out c:TUIElement):boolean;
   function FindControlAt(x,y:integer;out c:TUIElement):boolean; deprecated 'Use FindElementAt';
-  // Поиск элемента в данной точке не игнорируя "прозрачные" (полезно для отладки)
+  // РџРѕРёСЃРє СЌР»РµРјРµРЅС‚Р° РІ РґР°РЅРЅРѕР№ С‚РѕС‡РєРµ РЅРµ РёРіРЅРѕСЂРёСЂСѓСЏ "РїСЂРѕР·СЂР°С‡РЅС‹Рµ" (РїРѕР»РµР·РЅРѕ РґР»СЏ РѕС‚Р»Р°РґРєРё)
   function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
   function FindAnyControlAt(x,y:integer;out c:TUIElement):boolean; deprecated 'Use FindAnyElementAt';
 
@@ -226,17 +227,17 @@ implementation
    UICritSect.Enter;
    try
    SortRootElements;
-   // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
+   // РџСЂРёРЅС†РёРї РїСЂРѕСЃС‚РѕР№: РёСЃРєР°С‚СЊ СЌР»РµРјРµРЅС‚ РЅР° РІРµСЂС…РЅРµРј СЃР»РѕРµ, РµСЃР»Рё РЅРµ РЅР°С€Р»РѕСЃСЊ - РЅР° СЃР»РµРґСѓСЋС‰РµРј Рё С‚.Рґ.
    for i:=0 to high(rootElements) do begin
     if any then enabl:=rootElements[i].FindAnyElementAt(x,y,ct)
      else enabl:=rootElements[i].FindElementAt(x,y,ct);
     if ct<>nil then begin
-     c2:=ct; // найдем корневого предка ct (вдруг это не rootControls[i]?)
+     c2:=ct; // РЅР°Р№РґРµРј РєРѕСЂРЅРµРІРѕРіРѕ РїСЂРµРґРєР° ct (РІРґСЂСѓРі СЌС‚Рѕ РЅРµ rootControls[i]?)
      while c2.parent<>nil do c2:=c2.parent;
      if (modalElement<>nil) and (c2<>modalElement) then begin
       continue;
      end;
-     // выбор элемента с максимальным уровнем Z
+     // РІС‹Р±РѕСЂ СЌР»РµРјРµРЅС‚Р° СЃ РјР°РєСЃРёРјР°Р»СЊРЅС‹Рј СѓСЂРѕРІРЅРµРј Z
      if c2.order>maxZ then begin c:=ct; maxZ:=c2.order; end;
     end;
    end;
