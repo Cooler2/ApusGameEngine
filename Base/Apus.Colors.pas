@@ -15,11 +15,13 @@ type
   case integer of
   0:(b,g,r,a:byte);
   1:(color:cardinal);
+  2:(m:array[0..3] of byte);
  end;
  PARGBColor=^TARGBColor;
 
  function MyColor(r,g,b:cardinal):cardinal; overload;
  function MyColor(a,r,g,b:cardinal):cardinal; overload;
+ function MyColorF(a,r,g,b:single):cardinal; overload;
  function GrayColor(gray:integer):cardinal; // FFxxxxxx
  function GrayAlpha(alpha:single):cardinal; // aa808080
  function SwapColor(color:cardinal):cardinal; // swap red<->blue bytes
@@ -104,6 +106,15 @@ implementation
    result:=a shl 24+r shl 16+g shl 8+b;
   end;
   {$ENDIF}
+
+ function MyColorF(a,r,g,b:single):cardinal;
+  begin
+   result:=SRound(a*255) shl 24+
+     SRound(r*255) shl 16+
+     SRound(g*255) shl 8+
+     SRound(b*255);
+  end;
+
 
  function GetAlpha(color:cardinal):single;
   begin
