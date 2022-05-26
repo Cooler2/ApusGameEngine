@@ -20,7 +20,8 @@ interface
   procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
   procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
-  procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0);
+  procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload;
+  procedure RRect(x1,y1,x2,y2:single;width,r:single;color:cardinal;steps:integer=0); overload;
   procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single=2;steps:integer=0); overload;
@@ -770,6 +771,38 @@ begin
   vrt[4+steps*3+i].Init(x1+r-dy,y1+r-dx,zPlane,color);
  end;
  renderDevice.Draw(LINE_STRIP,4+steps*4,@vrt,TVertex.layoutTex);
+end;
+
+procedure TDrawer.RRect(x1,y1,x2,y2:single;width,r:single;color:cardinal;steps:integer=0);
+var
+ i,b:integer;
+ vrt:array[0..99] of TVertex;
+ a,dx,dy,ca,sa:single;
+begin
+ if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
+ shader.UseTexture(neutral);
+ r:=r+0.4; x2:=x2+0.5; x1:=x1-0.5; y1:=y1-0.5; y2:=y2+0.5;
+ if steps=0 then steps:=Clamp(round(r*0.4),1,10);
+ b:=(steps+1)*2;
+ for i:=0 to steps do begin
+  a:=0.5*Pi*i/steps;
+  ca:=cos(a); sa:=sin(a);
+  // inner
+  dx:=(r-width)*ca; dy:=(r-width)*sa;
+  vrt[i*2].Init(x1+r-dx,y1+r-dy,zPlane,color);
+  vrt[i*2+b].Init(x2-r+dy,y1+r-dx,zPlane,color);
+  vrt[i*2+b*2].Init(x2-r+dx,y2-r+dy,zPlane,color);
+  vrt[i*2+b*3].Init(x1+r-dy,y2-r+dx,zPlane,color);
+  // outer
+  dx:=r*ca; dy:=r*sa;
+  vrt[i*2+1].Init(x1+r-dx,y1+r-dy,zPlane,color);
+  vrt[i*2+b+1].Init(x2-r+dy,y1+r-dx,zPlane,color);
+  vrt[i*2+b*2+1].Init(x2-r+dx,y2-r+dy,zPlane,color);
+  vrt[i*2+b*3+1].Init(x1+r-dy,y2-r+dx,zPlane,color);
+ end;
+ vrt[b*4]:=vrt[0];
+ vrt[b*4+1]:=vrt[1];
+ renderDevice.Draw(TRG_STRIP,(steps+1)*8,@vrt,TVertex.layoutTex);
 end;
 
 procedure TDrawer.FillGradrect(x1, y1, x2, y2: integer; color1,

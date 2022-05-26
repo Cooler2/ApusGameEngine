@@ -666,7 +666,8 @@ type
   procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
   procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
-  procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0);
+  procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload;
+  procedure RRect(x1,y1,x2,y2:single;width,r:single;color:cardinal;steps:integer=0); overload;
   procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single=2;steps:integer=0); overload;

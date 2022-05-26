@@ -704,8 +704,12 @@ begin
  draw.RRect(50,250,100,270,$FFF0C0A0,3);
  draw.RRect(120,250,180,280,$FFF0C0A0,5,1);
  draw.RRect(120,300,180,330,$FFF0C0A0,7);
+ draw.RRect(120,350,180,385,4,13,$FFF0C0A0);
+ draw.Rect(320,350,490,485,$40FFFFFF);
+ draw.RRect(320,350,490,485,5,40,$FFF0C0A0);
+ draw.RRect(360,360,460,460,10,50,$FF90E0A0);
 
- draw.FillRRect(120,350,180,380,$C0F0C0A0,9);
+ draw.FillRRect(120,400,180,430,$C0F0C0A0,9);
 
 // draw.RRect(120,300,180,330,$FFF0C0A0,3+(game.frameStartTime div 500) mod 10,4);
  draw.FillTriangle(50,320,100,300,80,380,$10FF3030,$FF30FF30,$FF3030FF);
