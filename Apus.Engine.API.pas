@@ -695,6 +695,12 @@ type
   function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=clNeutral):single;
   function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=clNeutral):single;
 
+  // Gradients
+  procedure WithGradient(const gradient:TColorGradient;stretch:boolean=false); overload;
+  procedure WithGradient(color1,color2:cardinal;angle,scale:single); overload;
+  procedure WithGradient(color1,color2:cardinal;angle:single); overload;
+  procedure NoGradient;
+
   // Draw a billboard: place this texture at the specified 3D point toward camera
   // texelSize - size of one billboard texel in world CS
   procedure Billboard(pos:TPoint3s;texelSize:single;tex:TTexture;pivotX:single=0.5;pivotY:single=0.5;

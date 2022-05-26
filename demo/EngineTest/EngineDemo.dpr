@@ -714,6 +714,12 @@ begin
 // draw.RRect(120,300,180,330,$FFF0C0A0,3+(game.frameStartTime div 500) mod 10,4);
  draw.FillTriangle(50,320,100,300,80,380,$10FF3030,$FF30FF30,$FF3030FF);
 
+ draw.WithGradient($FFA08040,$FF4080A0,Pi/4);
+ draw.FillRect(20,450,80,490,$FF509050);
+ draw.WithGradient($FFA08040,$FF4080A0,3*Pi/4);
+ draw.FillRect(120,450,180,490,$FF509050);
+ draw.NoGradient;
+
 
  draw.Rect(0,0,1023,767,$FFFFFF30);
  gfx.EndPaint;

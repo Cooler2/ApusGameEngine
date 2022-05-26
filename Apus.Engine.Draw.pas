@@ -6,7 +6,7 @@
 {$R-}
 unit Apus.Engine.Draw;
 interface
- uses Types,Apus.Geom3D,Apus.Engine.API;
+ uses Types, Apus.Engine.Types, Apus.Geom3D, Apus.Engine.API;
 
  type
  TDrawer=class(TInterfacedObject,IDrawer)
@@ -44,6 +44,13 @@ interface
   function Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
   function Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
 
+  // Gradients
+  procedure WithGradient(const gradient:TColorGradient;stretch:boolean=false); overload;
+  procedure WithGradient(color1,color2:cardinal;angle,scale:single); overload;
+  procedure WithGradient(color1,color2:cardinal;angle:single); overload;
+  procedure NoGradient;
+
+  // Billboards
   procedure Billboard(screenScale:boolean;pos:TPoint3s;scale:single;tex:TTexture;pivotX:single=0.5;
       pivotY:single=0.5;color:cardinal=clNeutral); overload;
   procedure Billboard(pos:TPoint3s;texelSize:single;tex:TTexture;pivotX:single=0.5;
@@ -74,6 +81,11 @@ interface
   bandInd:array of word; // indices for bands drawing
 
   neutral:TTexture; // neutral (gray) texture to keep color for non-textured primitives
+
+  useGradient:boolean; // use gradient to color primitives
+  gradient:TColorGradient;
+  stretchGradient:boolean; // stretch gradient over primitive area (i.e. use -1..1 range)
+  procedure CalcGradient(width,height:single;out gx,gy:single); inline;
  end;
 
 var
@@ -85,7 +97,7 @@ var
 implementation
 uses SysUtils,Math,
   Apus.MyServis, Apus.Images, Apus.Geom2D, Apus.Colors,
-  Apus.Engine.Types, Apus.Engine.Graphics, Apus.VertexLayout;
+  Apus.Engine.Graphics, Apus.VertexLayout;
 
  const
   // Blending modes
@@ -143,6 +155,15 @@ begin
  saveclip[scnt]:=cliprect;
  ClipRect:=screenRect;
 end;   }
+
+procedure TDrawer.CalcGradient(width,height:single; out gx,gy:single);
+ begin
+  if stretchGradient then begin
+   gx:=1; gy:=1;
+  end else begin
+   gx:=width/2; gy:=height/2;
+  end;
+ end;
 
 procedure TDrawer.Centered(x, y, scale: single; tex: TTexture;
   color: cardinal);
@@ -691,6 +712,34 @@ begin
  renderDevice.Draw(TRG_LIST,trgcount,pnts,TVertex3D.Layout);
 end;
 
+procedure TDrawer.WithGradient(const gradient:TColorGradient;stretch:boolean=false);
+begin
+ useGradient:=true;
+ self.gradient:=gradient;
+ stretchGradient:=stretch;
+end;
+
+procedure TDrawer.WithGradient(color1,color2:cardinal;angle,scale:single);
+var
+ grad:TColorGradient;
+begin
+ grad.Init(color1,color2,angle,scale);
+ WithGradient(grad,false);
+end;
+
+procedure TDrawer.WithGradient(color1,color2:cardinal;angle:single);
+var
+ grad:TColorGradient;
+begin
+ grad.Init(color1,color2,angle,1);
+ WithGradient(grad,true);
+end;
+
+procedure TDrawer.NoGradient;
+begin
+ useGradient:=false;
+end;
+
 procedure TDrawer.IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
 begin
  clippingAPI.Prepare;
@@ -836,16 +885,24 @@ end;
 procedure TDrawer.FillRect(x1,y1,x2,y2:NativeInt;color:cardinal);
 var
  vrt:array[0..3] of TVertex;
- sx1,sy1,sx2,sy2:single;
+ sx1,sy1,sx2,sy2,gx,gy:single;
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
  shader.UseTexture(neutral);
  sx1:=x1-0.5; sx2:=x2+0.5;
  sy1:=y1-0.5; sy2:=y2+0.5;
- vrt[0].Init(sx1,sy1,zPlane,color);
- vrt[1].Init(sx2,sy1,zPlane,color);
- vrt[2].Init(sx2,sy2,zPlane,color);
- vrt[3].Init(sx1,sy2,zPlane,color);
+ if useGradient then begin
+  CalcGradient(sx2-sx1,sy2-sy1,gx,gy);
+  vrt[0].Init(sx1,sy1,zPlane,gradient.ColorAt(-gx,-gy));
+  vrt[1].Init(sx2,sy1,zPlane,gradient.ColorAt(gx,-gy));
+  vrt[2].Init(sx2,sy2,zPlane,gradient.ColorAt(gx,gy));
+  vrt[3].Init(sx1,sy2,zPlane,gradient.ColorAt(-gx,gy));
+ end else begin
+  vrt[0].Init(sx1,sy1,zPlane,color);
+  vrt[1].Init(sx2,sy1,zPlane,color);
+  vrt[2].Init(sx2,sy2,zPlane,color);
+  vrt[3].Init(sx1,sy2,zPlane,color);
+ end;
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
