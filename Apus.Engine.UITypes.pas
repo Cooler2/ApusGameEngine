@@ -135,6 +135,7 @@ type
 
   tag:NativeInt; // custom data for manual use
   customPtr:pointer; // custom data for manual use
+  linkedValue:pointer;
 
   parent:TUIElement; // Ссылка на элемент-предок
   children:array of TUIElement; // Список вложенных элементов

@@ -475,6 +475,8 @@ procedure TUIButton.DoClick;
  procedure TUIButton.SetPressed(pr: boolean);
   begin
    pressed:=pr;
+   if linkedValue<>nil then
+    PBoolean(linkedValue)^:=pressed;
    if (sendSignals<>ssNone) then begin
     if btnStyle<>bsNormal then begin
      Signal('UI\onButtonSwitch\'+name);
