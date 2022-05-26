@@ -121,7 +121,7 @@ procedure SetDisplaySize(width,height:integer);
     hintRect:=Rect(0,0,4000,4000);
    end;
    if parent=nil then begin
-    FindControlAt(x,y,parent);
+    FindElementAt(x,y,parent);
     if parent=nil then begin
      for i:=0 to high(rootElements) do
       if rootElements[i].visible then begin
@@ -204,13 +204,13 @@ procedure SetDisplaySize(width,height:integer);
      if hookedItem<>nil then
       hookedItem.MoveBy(curMouseX-oldMouseX,curMouseY-oldMouseY);
 
-     e1:=FindControlAt(oldMouseX,oldMouseY,c);
-     e2:=FindControlAt(curMouseX,curMouseY,c2);
+     e1:=FindElementAt(oldMouseX,oldMouseY,c);
+     e2:=FindElementAt(curMouseX,curMouseY,c2);
      if e2 then SetUnderMouse(c2)
       else SetUnderMouse(nil);
      if e1 then c.onMouseMove;
      if e2 and (c2<>c) then c2.onMouseMove;
-     e2:=FindControlAt(curMouseX,curMouseY,c2);
+     e2:=FindElementAt(curMouseX,curMouseY,c2);
 
      // Курсор
      if e2 and (c2.cursor<>curCursor) then begin
@@ -261,7 +261,7 @@ procedure SetDisplaySize(width,height:integer);
     // Нажатие кнопки
     if copy(event,1,7)='BTNDOWN' then begin
      c:=nil;
-     e:=FindControlAt(curMouseX,curMouseY,c);
+     e:=FindElementAt(curMouseX,curMouseY,c);
      if e and (c<>nil) then
       c.onMouseButtons(tag,true)
      else
@@ -287,7 +287,7 @@ procedure SetDisplaySize(width,height:integer);
           ExecCmd('use '+c.name);
       end else begin
        st:='No opaque item here';
-       FindAnyControlAt(curMouseX,curMouseY,c);
+       FindAnyElementAt(curMouseX,curMouseY,c);
        if c<>nil then st:=st+'; '+c.ClassName+'('+c.name+')';
        ShowSimpleHint(st,nil,-1,-1,500+4000*byte(c<>nil));
       end;
@@ -298,12 +298,12 @@ procedure SetDisplaySize(width,height:integer);
       PutMsg('x='+inttostr(round(hookeditem.position.x))+' y='+inttostr(round(hookeditem.position.y)));
       hookedItem:=nil;
      end;
-     if FindControlAt(curMouseX,curMouseY,c) then
+     if FindElementAt(curMouseX,curMouseY,c) then
       c.onMouseButtons(tag,false);
     end;
     // Скроллинг
     if copy(event,1,6)='SCROLL' then
-     if FindControlAt(curMouseX,curMouseY,c) then
+     if FindElementAt(curMouseX,curMouseY,c) then
       c.onMouseScroll(tag);
 
    finally
@@ -319,7 +319,7 @@ procedure SetDisplaySize(width,height:integer);
    st:=' mouse clipping: '+inttostr(ord(clipMouse))+' ('+
      inttostr(clipMouserect.left)+','+inttostr(clipMouserect.top)+':'+
      inttostr(clipMouserect.right)+','+inttostr(clipMouserect.bottom)+')'#13#10;
-   st:=st+' Modal control: ';
+   st:=st+' Modal element: ';
    if modalElement<>nil then st:=st+modalElement.name else st:=st+'none';
    ForceLogMessage('UI state'#13#10+st);
   end;
@@ -445,7 +445,7 @@ procedure SetDisplaySize(width,height:integer);
    c:TUIElement;
    time:cardinal;
    st:string;
-   procedure ProcessControl(c:TUIElement);
+   procedure ProcessElement(c:TUIElement);
     var
      j:integer;
      cnt:integer;
@@ -461,7 +461,7 @@ procedure SetDisplaySize(width,height:integer);
      cnt:=clamp(length(c.children),0,length(list)); // Can't process more than 255 nested elements
      if cnt>0 then begin
       for j:=0 to cnt-1 do list[j]:=c.children[j];
-      for j:=0 to cnt-1 do ProcessControl(list[j]);
+      for j:=0 to cnt-1 do ProcessElement(list[j]);
      end;
     end;
   begin
@@ -477,7 +477,7 @@ procedure SetDisplaySize(width,height:integer);
    end;}
 
    try
-    FindControlAt(curMouseX,curMouseY,c);
+    FindElementAt(curMouseX,curMouseY,c);
     SetUnderMouse(c);
 
     // Обработка фокуса: если элемент с фокусом невидим или недоступен - убрать с него фокус
@@ -510,11 +510,11 @@ procedure SetDisplaySize(width,height:integer);
     end;
     time:=MyTickCount;
     delta:=time-LastHandleTime;
-    if UI<>nil then ProcessControl(UI);
+    if UI<>nil then ProcessElement(UI);
 
     // обработка хинтов
     if (itemShowHintTime>LastHandleTime) and (itemShowHintTime<=Time) then begin
-     FindControlAt(game.mouseX,game.mouseY,c);
+     FindElementAt(game.mouseX,game.mouseY,c);
      if (c<>nil) then begin
       if c.enabled then st:=c.hint
        else st:=c.hintIfDisabled;
@@ -546,7 +546,7 @@ procedure SetDisplaySize(width,height:integer);
   begin
    delete(event,1,length('UI\SETFOCUS\'));
    if (event<>'') and (event<>'NIL') then
-    FindControl(event,true).setFocus
+    FindElement(event,true).setFocus
    else
     SetFocusTo(nil);
   end;

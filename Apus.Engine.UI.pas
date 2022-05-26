@@ -169,7 +169,7 @@ implementation
   var
    c:TUIElement;
   begin
-   c:=FindControl(name,mustExist);
+   c:=FindElement(name,mustExist);
    if not (c is TUIComboBox) then c:=nil;
    if c=nil then c:=TUIComboBox.Create(0,0,0,nil,nil,name);
    result:=c as TUIComboBox;
@@ -207,7 +207,7 @@ implementation
   begin
    result:=TUIElement.FindByName(name) as TUIElement;
    if mustExist and (result=nil) then begin
-    raise EWarning.Create('Control '+name+' not found');
+    raise EWarning.Create('UI element '+name+' not found');
    end;
   end;
 
@@ -296,14 +296,14 @@ implementation
   var
    c:TUIElement;
   begin
-   c:=FindControl(name,false);
+   c:=FindElement(name,false);
    if c=nil then exit;
    c.visible:=visible;
    c.enabled:=enabled;
   end;
 
  function DumpUITree(root:TUIElement):String8;
-   function DumpControl(c:TUIElement;indent:String8):String8;
+   function DumpElement(c:TUIElement;indent:String8):String8;
     var
      i:integer;
     begin
@@ -314,10 +314,10 @@ implementation
        [c.position.x,c.position.y,c.size.x,c.size.y,c.globalRect.Left,c.globalRect.Top]),
        ''],#13#10);
      for i:=0 to length(c.children)-1 do
-      result:=result+DumpControl(c.children[i],indent+'+ ');
+      result:=result+DumpElement(c.children[i],indent+'+ ');
     end;
    begin
-    result:=DumpControl(root,'');
+    result:=DumpElement(root,'');
    end;
 
  function DumpUI:String8;
