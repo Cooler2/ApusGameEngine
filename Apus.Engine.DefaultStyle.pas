@@ -10,12 +10,32 @@ uses Apus.Engine.UI;
  var
   defaultBtnColor:cardinal=$FFB0A0C0;
 
- procedure DefaultDrawer(control:TUIElement);
+ procedure DefaultDrawer(element:TUIElement);
 
 implementation
- uses Apus.Types, Apus.Images, SysUtils, Types, Apus.MyServis,
+ uses Apus.Types, Apus.Images, SysUtils, Types, Apus.MyServis, Apus.AnimatedValues,
     Apus.Colors, Apus.Structs, Apus.EventMan, Apus.Geom2D,
     Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender;
+
+ type
+  TStyleSheet=record
+   sheetName:string;
+   borderWidth,borderRadius:single;
+   borderColor,backgroundColor:cardinal;
+   fadeIn,fadeOut:integer;
+   weight:TAnimatedValue;
+   procedure InitFromString(st:string);
+  end;
+
+  TStyleSheets=array of TStyleSheet;
+
+  TElementStyle=record
+   defaultStyle:TStyleSheet;
+   actualStyle:TStyleSheet;
+   styles:TStyleSheets;
+   procedure CalcActualStyle; // calculate weighted values
+  end;
+  PElementStyle=^TElementStyle;
 
  var
   imgHash:TSimpleHashS;  // hash of loaded images: filename -> UIntPtr(TTexture)
@@ -564,71 +584,81 @@ implementation
    end;
   end;
 
+ procedure UpdateElementStyle(element:TUIElement);
+  begin
+
+  end;
+
  // Отрисовщик по умолчанию
- procedure DefaultDrawer(control:TUIElement);
+ procedure DefaultDrawer(element:TUIElement);
   var
-   enabl:boolean;
-   con:TUIElement;
    x1,y1,x2,y2:integer;
   begin
-   enabl:=control.enabled;
-   con:=control;
-   while con.parent<>nil do begin
-    con:=con.parent;
-    enabl:=enabl and con.enabled;
-   end;
-
-   with control.globalrect do begin
+   with element.globalrect do begin
     x1:=Left; x2:=right-1;
     y1:=top; y2:=bottom-1;
    end;
 
+   if element.styleInfoChanged then UpdateElementStyle(element);
+
    // Просто контейнер - заливка плюс рамка
-   if control.ClassType=TUIElement then
-    DrawUIControl(control,x1,y1,x2,y2)
+   if element.ClassType=TUIElement then
+    DrawUIControl(element,x1,y1,x2,y2)
    else
    // Надпись
-   if control is TUILabel then
-    DrawUILabel(control as TUILabel,x1,y1,x2,y2)
+   if element is TUILabel then
+    DrawUILabel(element as TUILabel,x1,y1,x2,y2)
    else
    // Кнопка
-   if control.ClassType=TUIButton then
-    DrawUIButton(control as TUIButton,x1,y1,x2,y2)
+   if element.ClassType=TUIButton then
+    DrawUIButton(element as TUIButton,x1,y1,x2,y2)
    else
    // Рамка
-   if control.ClassType=TUIFrame then
-    DrawUIFrame(control as TUIFrame,x1,y1,x2,y2)
+   if element.ClassType=TUIFrame then
+    DrawUIFrame(element as TUIFrame,x1,y1,x2,y2)
    else
    // Произвольное изображение
-   if control.ClassType=TUIImage then
-    DrawUIImage(control as TUIImage,x1,y1,x2,y2)
+   if element.ClassType=TUIImage then
+    DrawUIImage(element as TUIImage,x1,y1,x2,y2)
    else
    // всплывающий хинт
-   if control is TUIHint then
-    DrawUIHint(control as TUIHint,x1,y1,x2,y2)
+   if element is TUIHint then
+    DrawUIHint(element as TUIHint,x1,y1,x2,y2)
    else
    // Window
-   if control.ClassType=TUIWindow then
-    DrawUIWindow(control as TUIWindow,x1,y1,x2,y2)
+   if element.ClassType=TUIWindow then
+    DrawUIWindow(element as TUIWindow,x1,y1,x2,y2)
    else
    // Scrollbar
-   if control.ClassType=TUIScrollBar then
-    DrawUIScrollbar(control as TUIScrollbar,x1,y1,x2,y2)
+   if element.ClassType=TUIScrollBar then
+    DrawUIScrollbar(element as TUIScrollbar,x1,y1,x2,y2)
    else
    // EditBox
-   if control.ClassType=TUIEditBox then
-    DrawUIEditBox(control as TUIEditBox,x1,y1,x2,y2)
+   if element.ClassType=TUIEditBox then
+    DrawUIEditBox(element as TUIEditBox,x1,y1,x2,y2)
    else
    // ListBox
-   if control is TUIListBox then
-    DrawUIListBox(control as TUIListBox,x1,y1,x2,y2)
+   if element is TUIListBox then
+    DrawUIListBox(element as TUIListBox,x1,y1,x2,y2)
    else
    // Combo box
-   if control is TUIComboBox then
-    DrawUIComboBox(x1,y1,x2,y2,control as TUIComboBox)
+   if element is TUIComboBox then
+    DrawUIComboBox(x1,y1,x2,y2,element as TUIComboBox)
    else
-    DrawUIControl(control,x1,y1,x2,y2);
+    DrawUIControl(element,x1,y1,x2,y2);
   end;
+
+{ TStyleSheet }
+procedure TStyleSheet.InitFromString(st:string);
+ begin
+
+ end;
+
+{ TElementStyle }
+procedure TElementStyle.CalcActualStyle;
+ begin
+
+ end;
 
 initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
