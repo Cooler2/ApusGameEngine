@@ -1,4 +1,4 @@
-// Default UI style (0) inspired by CSS
+п»ї// Default UI style (0) inspired by CSS
 //
 // Copyright (C) 2022 Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -110,7 +110,7 @@ implementation
     size:=Point2s(iWidth/globalScale.x,iHeight/globalScale.y);
     gfx.BeginPaint(hintImage);
     try
-     gfx.target.Mask(true,true); // потенциально может вредить отрисовке следующих элементов
+     gfx.target.Mask(true,true); // РїРѕС‚РµРЅС†РёР°Р»СЊРЅРѕ РјРѕР¶РµС‚ РІСЂРµРґРёС‚СЊ РѕС‚СЂРёСЃРѕРІРєРµ СЃР»РµРґСѓСЋС‰РёС… СЌР»РµРјРµРЅС‚РѕРІ
      gfx.target.Clear(0,-1,-1);
      draw.FillGradrect(0,0,iwidth-3,iheight-3,$FFFFFFD0,$FFE0E0A0,true);
      draw.Rect(0,0,iwidth-3,iheight-3,$FF000000);
@@ -149,7 +149,7 @@ implementation
     with control as TUIHint do begin
      if pfRenderTargetAlpha=ipfNone then exit;
      if not adjusted then begin
-      // нужно провести инициализацию
+      // РЅСѓР¶РЅРѕ РїСЂРѕРІРµСЃС‚Рё РёРЅРёС†РёР°Р»РёР·Р°С†РёСЋ
       ForceLogMessage('InitHint '+inttohex(cardinal(control),8));
       if not active then try
        BuildSimpleHint(control as TUIHint);
@@ -160,7 +160,7 @@ implementation
         exit;
        end;
       end;
-      // уточнить положение на экране (чтобы всегда был виден)
+      // СѓС‚РѕС‡РЅРёС‚СЊ РїРѕР»РѕР¶РµРЅРёРµ РЅР° СЌРєСЂР°РЅРµ (С‡С‚РѕР±С‹ РІСЃРµРіРґР° Р±С‹Р» РІРёРґРµРЅ)
       savePos:=position;
       AdjustHint(x1,y1,control as TUIHint);
       VectSub(savePos,position);
@@ -228,7 +228,7 @@ implementation
   begin
     with control as TUIButton do begin
      if btnStyle<>bsCheckbox then begin
-      // обычная кнопка
+      // РѕР±С‹С‡РЅР°СЏ РєРЅРѕРїРєР°
       c:=GetColor(control,0); // main (background) color
       if c=0 then c:=defaultBtnColor;
       d:=byte(pressed);
@@ -238,7 +238,7 @@ implementation
       draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,ColorAdd(c,$303030),ColorSub(c,$303030),true);
       c:=GetColor(control,2); if c=0 then c:=$60000000;
       c2:=GetColor(control,3); if c2=0 then c2:=$80FFFFFF;
-      draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // Внешняя рамка
+      draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // Р’РЅРµС€РЅСЏСЏ СЂР°РјРєР°
       if pressed then { draw.ShadedRect(x1+2,y1+2,x2-1,y2-1,1,$80FFFFFF,$50000000)}
        else if enabled then begin
          c:=GetColor(control,4); if c=0 then c:=$A0FFFFFF;
@@ -246,15 +246,15 @@ implementation
          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
        end
          else draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,$80FFFFFF,$50000000);
-      // Нарисовать фокус (также если кнопка дефолтная и никакая другая не имеет фокуса)
+      // РќР°СЂРёСЃРѕРІР°С‚СЊ С„РѕРєСѓСЃ (С‚Р°РєР¶Рµ РµСЃР»Рё РєРЅРѕРїРєР° РґРµС„РѕР»С‚РЅР°СЏ Рё РЅРёРєР°РєР°СЏ РґСЂСѓРіР°СЏ РЅРµ РёРјРµРµС‚ С„РѕРєСѓСЃР°)
       if (FocusedElement=control) or
          (default and ((FocusedElement=nil) or not (FocusedElement is TUIButton))) then
        draw.Rect(x1-1,y1-1,x2+1,y2+1,$80FFFF80);
-      // Вывод надписи (если есть)
+      // Р’С‹РІРѕРґ РЅР°РґРїРёСЃРё (РµСЃР»Рё РµСЃС‚СЊ)
       if caption<>'' then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
        c:=GetColor(control,1); if c=0 then c:=$FF000000;
-       mY:=round(y1*0.5+y2*0.5+txt.Height(font)*0.4); // учесть высоту шрифта!
+       mY:=round(y1*0.5+y2*0.5+txt.Height(font)*0.4); // СѓС‡РµСЃС‚СЊ РІС‹СЃРѕС‚Сѓ С€СЂРёС„С‚Р°!
        wSt:=DecodeUTF8(caption);
        if underMouse=control then c:=$FF300000;
        if enabled then
@@ -266,9 +266,9 @@ implementation
        gfx.clip.Restore;
       end;
      end else begin
-      // кнопка - чекбокс или радиобокс
+      // РєРЅРѕРїРєР° - С‡РµРєР±РѕРєСЃ РёР»Рё СЂР°РґРёРѕР±РѕРєСЃ
       if group=0 then begin
-       // чекбокс
+       // С‡РµРєР±РѕРєСЃ
        v:=(y1+y2) div 2;
        if pressed then begin
         draw.Line(x1+3,v,x1+6,v+4,color);
@@ -288,7 +288,7 @@ implementation
        end;
        draw.ShadedRect(x1,v-8,x1+15,v+7,2,d,c);
       end else begin
-       // радиобокс
+       // СЂР°РґРёРѕР±РѕРєСЃ
       end;
       gfx.clip.Rect(Rect(x1+19,y1,x2,y2));
       v:=round(y1+(y2-y1)*0.65);
@@ -363,7 +363,7 @@ implementation
   begin
     with element do begin
     draw.FillRect(x1,y1,x2,y2,color);
-    if element.IsActiveWindow then c:=$FF8080E0 // текущее окно
+    if element.IsActiveWindow then c:=$FF8080E0 // С‚РµРєСѓС‰РµРµ РѕРєРЅРѕ
      else c:=$FFB0B0B0;
     c:=ColorMix(color,c,128);
     if resizeable then begin
@@ -468,7 +468,7 @@ implementation
     if password then
       wst:=StringOfChar('*',length(wst));
     if (scroll.X>0) and (txt.WidthW(font,wst)<(x2-x1)) then Scroll.X:=0;
-    i:=txt.WidthW(font,copy(wst,1,cursorpos)); // позиция курсора
+    i:=txt.WidthW(font,copy(wst,1,cursorpos)); // РїРѕР·РёС†РёСЏ РєСѓСЂСЃРѕСЂР°
 //    if cursorpos>0 then dec(i);
     if i-scroll.X<0 then scroll.X:=i;
     if i-scroll.X>(x2-x1-5-offset) then scroll.X:=i-(x2-x1-5-offset);
@@ -494,25 +494,25 @@ implementation
      txt.WriteW(font,j+offset,mY,ColorMix(color,$00808080,160),
        copy(completion,length(wst)+1,length(completion)),taLeft,toDontTranslate);
     end;
-    if (selcount>0) and (FocusedElement=control) then begin // часть текста выделена
+    if (selcount>0) and (FocusedElement=control) then begin // С‡Р°СЃС‚СЊ С‚РµРєСЃС‚Р° РІС‹РґРµР»РµРЅР°
      j:=x1+2-scrollPixels+offset;
-     txt.WriteW(font,j,mY,color,copy(wst,1,selstart-1),taLeft,toDontTranslate); // до выделения
+     txt.WriteW(font,j,mY,color,copy(wst,1,selstart-1),taLeft,toDontTranslate); // РґРѕ РІС‹РґРµР»РµРЅРёСЏ
      j:=j+txt.WidthW(font,copy(wst,1,selstart))-
           txt.WidthW(font,copy(wst,selstart,1));
      d:=txt.WidthW(font,copy(wst,selstart,selcount));
      draw.FillRect(j,y1+1,j+d-1,y2-1,ColorSub(color,$60202020));
      txt.WriteW(font,j,mY,color and $FF000000,
-        copy(wst,selstart,selcount),taLeft,toDontTranslate); // выделенная часть
+        copy(wst,selstart,selcount),taLeft,toDontTranslate); // РІС‹РґРµР»РµРЅРЅР°СЏ С‡Р°СЃС‚СЊ
      if selstart+selcount-1<=length(text) then begin
       j:=j+txt.WidthW(font,copy(wst,selstart,selcount+1))-
            txt.WidthW(font,copy(wst,selstart+selcount,1));
       txt.WriteW(font,j,mY,color,
-         copy(wst,selstart+selcount,length(wst)-selstart-selcount+1),taLeft,toDontTranslate); // остаток
+         copy(wst,selstart+selcount,length(wst)-selstart-selcount+1),taLeft,toDontTranslate); // РѕСЃС‚Р°С‚РѕРє
      end;
     end else
      txt.WriteW(font,x1+2-scrollPixels+offset,mY,color,wst,taLeft,toDontTranslate);
     gfx.clip.Restore;
-    if (FocusedElement=control) and ((mytickcount-cursortimer) mod 360<200) then begin // курсор
+    if (FocusedElement=control) and ((mytickcount-cursortimer) mod 360<200) then begin // РєСѓСЂСЃРѕСЂ
      curX:=x1+2+i-scrollPixels+offset; // first pixel of the character
      draw.Line(curX,y1+2,curX,y2-2,colorAdd(color,$404040));
 //     draw.Line(x1+4+i-scrollX,y1+2,x1+4+i-scrollX,y2-2,colorAdd(color,$404040));
@@ -589,7 +589,7 @@ implementation
 
   end;
 
- // Отрисовщик по умолчанию
+ // РћС‚СЂРёСЃРѕРІС‰РёРє РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
  procedure DefaultDrawer(element:TUIElement);
   var
    x1,y1,x2,y2:integer;
@@ -601,27 +601,27 @@ implementation
 
    if element.styleInfoChanged then UpdateElementStyle(element);
 
-   // Просто контейнер - заливка плюс рамка
+   // РџСЂРѕСЃС‚Рѕ РєРѕРЅС‚РµР№РЅРµСЂ - Р·Р°Р»РёРІРєР° РїР»СЋСЃ СЂР°РјРєР°
    if element.ClassType=TUIElement then
     DrawUIControl(element,x1,y1,x2,y2)
    else
-   // Надпись
+   // РќР°РґРїРёСЃСЊ
    if element is TUILabel then
     DrawUILabel(element as TUILabel,x1,y1,x2,y2)
    else
-   // Кнопка
+   // РљРЅРѕРїРєР°
    if element.ClassType=TUIButton then
     DrawUIButton(element as TUIButton,x1,y1,x2,y2)
    else
-   // Рамка
+   // Р Р°РјРєР°
    if element.ClassType=TUIFrame then
     DrawUIFrame(element as TUIFrame,x1,y1,x2,y2)
    else
-   // Произвольное изображение
+   // РџСЂРѕРёР·РІРѕР»СЊРЅРѕРµ РёР·РѕР±СЂР°Р¶РµРЅРёРµ
    if element.ClassType=TUIImage then
     DrawUIImage(element as TUIImage,x1,y1,x2,y2)
    else
-   // всплывающий хинт
+   // РІСЃРїР»С‹РІР°СЋС‰РёР№ С…РёРЅС‚
    if element is TUIHint then
     DrawUIHint(element as TUIHint,x1,y1,x2,y2)
    else
