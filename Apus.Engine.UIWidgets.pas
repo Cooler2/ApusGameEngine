@@ -563,8 +563,8 @@ procedure TUIButton.DoClick;
     deltaX:=2; deltay:=2;
    end;
    inherited Create(innerWidth+deltaX*2,innerHeight+deltay+wcTitleHeight,wndName,parent_);
-   paddingLeft:=deltaX; paddingTop:=wcTitleHeight;
-   paddingRight:=deltaX; paddingBottom:=deltaY;
+   padding.Left:=deltaX; padding.Top:=wcTitleHeight;
+   padding.Right:=deltaX; padding.Bottom:=deltaY;
 
    shape:=shapeFull;
    caption:=wndCaption;
@@ -1150,8 +1150,8 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    dragRegion:=nil;
    background:=nil;
    moveable:=canmove;
-   paddingTop:=0; paddingLeft:=0;
-   paddingRight:=0; paddingBottom:=0;
+   padding.Top:=0; padding.Left:=0;
+   padding.Right:=0; padding.Bottom:=0;
   end;
 
  destructor TUISkinnedWindow.Destroy;
@@ -1382,8 +1382,8 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
    shape:=shapeFull;
    borderWidth:=depth;
    style:=style_;
-   paddingLeft:=depth;  paddingTop:=depth;
-   paddingRight:=depth; paddingBottom:=depth;
+   padding.Left:=depth;  padding.Top:=depth;
+   padding.Right:=depth; padding.Bottom:=depth;
   end;
 
  { TUIComboBox }
@@ -1571,7 +1571,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
  procedure TUIFrame.SetBorderWidth(w:integer);
   begin
    borderWidth:=w;
-   paddingLeft:=w; paddingRight:=w; paddingBottom:=w; paddingTop:=w;
+   padding.Left:=w; padding.Right:=w; padding.Bottom:=w; padding.Top:=w;
   end;
 
  { TScrollBarInterface }

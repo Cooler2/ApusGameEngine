@@ -274,7 +274,7 @@ begin
        result:=@TUILabel(obj).align; varClass:=TVarTypeAlignment;
       end else
       if (fieldname='anchors') then begin
-       result:=@obj.anchorLeft; varClass:=TVarTypeRect2s;
+       result:=@obj.anchors; varClass:=TVarTypeRect2s;
       end else
       if (fieldname='autopendingtime') and (obj is TUIButton) then begin
        result:=@TUIButton(obj).autopendingtime; varClass:=TVarTypeInteger;
@@ -378,16 +378,16 @@ begin
        result:=@TUIEditBox(obj).password; varClass:=TVarTypeBool;
       end else
       if fieldname='paddingleft' then begin
-       result:=@obj.paddingLeft; varClass:=TVarTypeSingle;
+       result:=@obj.padding.Left; varClass:=TVarTypeSingle;
       end else
       if fieldname='paddingright' then begin
-       result:=@obj.paddingright; varClass:=TVarTypeSingle;
+       result:=@obj.padding.right; varClass:=TVarTypeSingle;
       end else
       if fieldname='paddingtop' then begin
-       result:=@obj.paddingtop; varClass:=TVarTypeSingle;
+       result:=@obj.padding.top; varClass:=TVarTypeSingle;
       end else
       if fieldname='paddingbottom' then begin
-       result:=@obj.paddingbottom; varClass:=TVarTypeSingle;
+       result:=@obj.padding.bottom; varClass:=TVarTypeSingle;
       end else
       if (fieldname='pagesize') and (obj is TUIScrollBar) then begin
        varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).pagesize;

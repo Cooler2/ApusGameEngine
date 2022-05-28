@@ -22,11 +22,11 @@ const
  pivotCenter:TPoint2s=(x:0.5; y:0.5);
 
 type
- TAnchorMode=record
-  aLeft,aTop,aRight,aBottom:single;
+ TUIRect=record
+  left,top,right,bottom:single;
  end;
+ TAnchorMode=TUIRect;
 
-type
  // UI snapping modes
  TSnapMode=(smNone,
             smTop,     // width=parents clientwidth, top=0
@@ -78,7 +78,7 @@ type
  TRowLayout=class(TLayouter)
   constructor CreateVertical(spaceBetween:single=0;resizeToContent:boolean=false);
   constructor CreateHorizontal(spaceBetween:single=0;resizeToContent:boolean=false);
-  constructor Create(horizontal:boolean=true; spaceBetween:single=0; resizeToContent:boolean=false; center:boolean=false);
+  constructor Create(horizontal:boolean=true;spaceBetween:single=0;resizeToContent:boolean=false;center:boolean=false);
   procedure Layout(item:TUIElement); override;
  private
   fHorizontal,fResize,fCenter:boolean;
@@ -104,14 +104,13 @@ type
   pivot:TPoint2s; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
   scale:TVector2s; // scale factor for this element (size) and all children elements
   size:TVector2s; // dimension of this element
-  paddingLeft,paddingTop,paddingRight,paddingBottom:single; // рамка отсечения при отрисовке вложенных эл-тов (может также использоваться для других целей)
+  padding:TUIRect; // рамка отсечения при отрисовке вложенных эл-тов (может также использоваться для других целей)
+  anchors:TUIRect;
   shape:TElementShape;  // Режим прозрачности для событий ввода
   shapeRegion:TRegion;   // задает область непрозрачности в режиме tmCustom (поведение по умолчанию)
   scroll:TVector2s; // смещение (используется для вложенных эл-тов!) SUBTRACT from children pos
   scrollerH,scrollerV:IScroller;  // если для прокрутки используются скроллбары - здесь можно их определить
   placementMode:TUIPlacementMode;  // Реакция на изменение размеров предка
-  anchorLeft,anchorTop:single; // если эти якоря не установлены, то при изменении размера должны меняться x и y
-  anchorRight,anchorBottom:single; // "якоря" для привязки соответствующих краев к краям предка (при изменении размера предка)
 
   enabled:boolean; // Должен ли элемент реагировать на пользовательский ввод
   visible:boolean; // должен ли элемент рисоваться
@@ -405,8 +404,8 @@ implementation
      //  result.x:=result.x-size.x*pivot.x; // теперь относительно pivot point
      //  result.x:=result.x*scale.x; // теперь в масштабе предка
      //  result.x:=position.x-parentScrollX+result.x; // теперь относительно верхнего левого угла клиентской области предка
-     result.x:=position.x-parentScrollX-scale.x*(size.x*pivot.x-(result.x+paddingLeft));
-     result.y:=position.y-parentScrollY-scale.y*(size.y*pivot.y-(result.y+paddingTop));
+     result.x:=position.x-parentScrollX-scale.x*(size.x*pivot.x-(result.x+padding.Left));
+     result.y:=position.y-parentScrollY-scale.y*(size.y*pivot.y-(result.y+padding.Top));
     end;
     c:=c.parent;
    until (c=nil) or (c=target);
@@ -424,18 +423,18 @@ implementation
 
  function TUIElement.GetRect:TRect2s; // Get element's area in own CS
   begin
-   result.x1:=-paddingLeft;
-   result.y1:=-paddingTop;
-   result.x2:=size.x-paddingLeft;
-   result.y2:=size.y-paddingTop;
+   result.x1:=-padding.Left;
+   result.y1:=-padding.Top;
+   result.x2:=size.x-padding.Left;
+   result.y2:=size.y-padding.Top;
   end;
 
  function TUIElement.GetClientRect:TRect2s; // Get element's client area in own CS
   begin
    result.x1:=0;
    result.y1:=0;
-   result.x2:=size.x-paddingLeft-paddingRight;
-   result.y2:=size.y-paddingTop-paddingBottom;
+   result.x2:=size.x-padding.Left-padding.Right;
+   result.y2:=size.y-padding.Top-padding.Bottom;
   end;
 
  function TUIElement.GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
@@ -503,7 +502,7 @@ implementation
    fInitialSize:=size;
    scale:=Point2s(1,1);
    pivot:=Point2s(0,0);
-   paddingLeft:=0; paddingRight:=0; paddingTop:=0; paddingBottom:=0;
+   //paddingLeft:=0; paddingRight:=0; paddingTop:=0; paddingBottom:=0;
    shape:=shapeEmpty;
    timer:=0;
    parent:=parent_;
@@ -514,10 +513,7 @@ implementation
    hintDelay:=1000;
    hintDuration:=3000;
    // No anchors: element's size doesn't change when parent is resized
-   anchorLeft:=0;
-   anchorTop:=0;
-   anchorRight:=0;
-   anchorBottom:=0;
+   //anchors:=anchorNone;
    cursor:=crDefault;
    enabled:=true;
    visible:=true;
@@ -760,19 +756,19 @@ implementation
    r:=TransformTo(GetRect,parent);
    case snapTo of
     smTop:begin
-      anchorTop:=0; anchorLeft:=0; anchorRight:=1; anchorBottom:=0;
+      SetAnchors(0,0,1,0);
     end;
     smLeft:begin
-      anchorTop:=0; anchorLeft:=0; anchorRight:=0; anchorBottom:=1;
+      SetAnchors(0,0,0,1);
     end;
     smRight:begin
-      anchorTop:=0; anchorLeft:=1; anchorRight:=1; anchorBottom:=1;
+      SetAnchors(1,0,1,1);
     end;
     smBottom:begin
-      anchorTop:=1; anchorLeft:=0; anchorRight:=1; anchorBottom:=1;
+      SetAnchors(0,1,1,1);
     end;
     smParent:begin
-      anchorTop:=0; anchorLeft:=0; anchorRight:=1; anchorBottom:=1;
+      SetAnchors(0,0,1,1);
     end;
    end;
    if snapTo in [smTop,smLeft,smParent] then begin
@@ -1063,7 +1059,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  function TUIElement.GetClientWidth:single;
   begin
-   result:=size.x-paddingLeft-paddingRight;
+   result:=size.x-padding.left-padding.right;
   end;
 
  function TUIElement.GetFont:TFontHandle;
@@ -1081,7 +1077,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  function TUIElement.GetClientHeight:single;
   begin
-   result:=size.y-paddingTop-paddingBottom;
+   result:=size.y-padding.Top-padding.Bottom;
   end;
 
  function TUIElement.GetGlobalScale:TVector2s;
@@ -1122,19 +1118,19 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  function TUIElement.SetAnchors(left,top,right,bottom:single):TUIElement;
   begin
-   anchorLeft:=left;
-   anchorTop:=top;
-   anchorBottom:=bottom;
-   anchorRight:=right;
+   anchors.Left:=left;
+   anchors.Top:=top;
+   anchors.Bottom:=bottom;
+   anchors.Right:=right;
    result:=self;
   end;
 
  function TUIElement.SetPaddings(left,top,right,bottom:single):TUIElement;
   begin
-   paddingLeft:=left;
-   paddingTop:=top;
-   paddingRight:=right;
-   paddingBottom:=bottom;
+   padding.Left:=left;
+   padding.Top:=top;
+   padding.Right:=right;
+   padding.Bottom:=bottom;
    Resize(size.x,size.y);
    result:=self;
   end;
@@ -1171,12 +1167,12 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    if newHeight>-1 then dH:=newHeight-size.y else dH:=0;
    VectAdd(size,Point2s(dW,dH));
    for i:=0 to length(children)-1 do with children[i] do begin
-    Resize(size.x+dW*(anchorRight-anchorLeft),size.y+dH*(anchorBottom-anchorTop));
+    Resize(size.x+dW*(anchors.Right-anchors.Left),size.y+dH*(anchors.Bottom-anchors.Top));
     childRect:=TransformTo(GetRect(),parent);
-    childRect.x1:=childRect.x1+dW*anchorLeft;
-    childRect.y1:=childRect.y1+dH*anchorTop;
-    childRect.x2:=childRect.x2+dW*anchorRight;
-    childRect.y2:=childRect.y2+dH*anchorBottom;
+    childRect.x1:=childRect.x1+dW*anchors.Left;
+    childRect.y1:=childRect.y1+dH*anchors.Top;
+    childRect.x2:=childRect.x2+dW*anchors.Right;
+    childRect.y2:=childRect.y2+dH*anchors.Bottom;
     position.x:=childRect.x1*(1-pivot.x)+childRect.x2*pivot.x;
     position.y:=childRect.y1*(1-pivot.y)+childRect.y2*pivot.y;
    end;
@@ -1200,8 +1196,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  function TUIElement.SetAnchors(anchorMode:TAnchorMode):TUIElement;
   begin
-   with anchorMode do
-    SetAnchors(aLeft,aTop,aRight,aBottom);
+   anchors:=anchorMode;
    result:=self;
   end;
 
@@ -1356,8 +1351,8 @@ procedure TRowLayout.Layout(item:TUIElement);
     VectAdd(c.position,delta);
    end;
    if fResize then begin
-    if fHorizontal then item.size.x:=pos-fSpaceBetween+item.paddingLeft+item.paddingRight
-     else item.size.y:=pos-fSpaceBetween+item.paddingTop+item.paddingBottom;
+    if fHorizontal then item.size.x:=pos-fSpaceBetween+item.padding.Left+item.padding.Right
+     else item.size.y:=pos-fSpaceBetween+item.padding.Top+item.padding.Bottom;
    end;
   end;
 

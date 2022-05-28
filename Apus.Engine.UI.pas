@@ -22,13 +22,13 @@ interface
   pivotCenterRight:TPoint2s=(x:1; y:0.5);
 
   // Predefined anchor modes
-  anchorAll:TAnchorMode=(aLeft:0; aTop:0; aRight:1; aBottom: 1);
-  anchorNone:TAnchorMode=(aLeft:0; aTop:0; aRight:0; aBottom: 0);
-  anchorCenter:TAnchorMode=(aLeft:0.5; aTop:0.5; aRight:0.5; aBottom: 0.5);
-  anchorTop:TAnchorMode=(aLeft:0; aTop:0; aRight:1; aBottom: 0);
-  anchorLeft:TAnchorMode=(aLeft:0; aTop:0; aRight:0; aBottom: 1);
-  anchorBottom:TAnchorMode=(aLeft:0; aTop:1; aRight:1; aBottom: 1);
-  anchorRight:TAnchorMode=(aLeft:1; aTop:0; aRight:1; aBottom: 1);
+  anchorAll:TAnchorMode=    (left:0; top:0; right:1; bottom: 1);
+  anchorNone:TAnchorMode=   (left:0; top:0; right:0; bottom: 0);
+  anchorTop:TAnchorMode=    (left:0; top:0; right:1; bottom: 0);
+  anchorLeft:TAnchorMode=   (left:0; top:0; right:0; bottom: 1);
+  anchorBottom:TAnchorMode= (left:0; top:1; right:1; bottom: 1);
+  anchorRight:TAnchorMode=  (left:1; top:0; right:1; bottom: 1);
+  anchorCenter:TAnchorMode= (left:0.5; top:0.5; right:0.5; bottom: 0.5);
 
  type
   // Standard widgets
