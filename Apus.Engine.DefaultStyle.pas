@@ -313,7 +313,7 @@ implementation
    c1:=GetColor(control,0);
    if c1=0 then c1:=$FF000000;
    c2:=GetColor(control,1);
-   for i:=0 to round(control.paddingLeft)-1 do begin
+   for i:=0 to round(control.padding.Left)-1 do begin
     if c2=0 then draw.Rect(x1+i,y1+i,x2-i,y2-i,c1)
      else draw.ShadedRect(x1+i,y1+i,x2-i,y2-i,1,c1,c2);
    end;
