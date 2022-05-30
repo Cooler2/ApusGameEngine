@@ -518,6 +518,8 @@ implementation
     inc(n); order:=n;
     SetLength(parent.children,n);
     parent.children[n-1]:=self;
+    if width=-1 then size.x:=parent.clientWidth;
+    if height=-1 then size.y:=parent.clientHeight;
    end else begin
     // Элемент без предка -> занести в список
     AddToRootElements;
@@ -1127,12 +1129,12 @@ function TUIElement.IsChild(c:TUIElement):boolean;
     if (round(r.x2-parent.clientWidth)=0) and (round(r.y2-parent.clientHeight)=0) then begin
      anchors.right:=1; anchors.bottom:=1;
      if round(r.Width-parent.clientWidth)=0 then begin // snap to the bottom
-      anchors.left:=1;
+      anchors.left:=0;
       if r.height>parent.clientHeight*0.8 then anchors.top:=0;
       if r.height<parent.clientHeight*0.2 then anchors.top:=1;
      end;
      if round(r.Height-parent.clientHeight)=0 then begin // snap to the right
-      anchors.top:=1;
+      anchors.top:=0;
       if r.width>parent.clientWidth*0.8 then anchors.left:=0;
       if r.width<parent.clientWidth*0.2 then anchors.left:=1;
      end;
