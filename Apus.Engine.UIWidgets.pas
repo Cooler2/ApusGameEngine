@@ -78,8 +78,8 @@ interface
    color:cardinal;
    align:TTextAlignment;
    topOffset:integer; // сдвиг текста вверх
-   constructor Create(width,height:single;labelname,text:string;color_:cardinal;bFont:TFontHandle;parent_:TUIElement);
-   constructor CreateLeft(width,height:single;labelname,text:string;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
+   constructor Create(width,height:single;labelname,text:string;color_:cardinal;bFont:TFontHandle;parent_:TUIElement); overload;
+   constructor Create(width,height:single;labelname,text:string;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault); overload;
    constructor CreateCentered(width,height:single;labelname,text:string;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
    constructor CreateRight(width,height:single;labelname,text:string;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
   end;
@@ -535,7 +535,7 @@ procedure TUIButton.DoClick;
    align:=taCenter;
   end;
 
- constructor TUILabel.CreateLeft(width,height:single;labelname,text:string;
+ constructor TUILabel.Create(width,height:single;labelname,text:string;
    parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
   begin
    Create(width,height,labelName,text,color_,font,parent_);
