@@ -107,7 +107,7 @@ procedure TRowLayout.Layout(item:TUIElement);
 
  procedure TFlexboxLayout.Layout(item:TUIElement);
   var
-   childSize,ownSize,extraSpace,weightSum,delta:single;
+   childSize,ownSize,extraSpace,weightSum,delta,pos:single;
    i:integer;
   begin
    childSize:=0;
@@ -121,13 +121,19 @@ procedure TRowLayout.Layout(item:TUIElement);
     if vertical then ownSize:=size.y
      else ownSize:=size.x;
     extraSpace:=ownSize-high(children)*spaceBetween-childSize;
-    // Distribute extra space among children
+    // Distribute extra space among children and position them
+    pos:=0;
     for i:=0 to high(children) do begin
      delta:=extraSpace*children[i].layoutData/weightSum;
-     if vertical then
-      children[i].Resize(-1,children[i].size.y+delta)
-     else
+     if vertical then begin
+      children[i].Resize(-1,children[i].size.y+delta);
+      children[i].position.y:=pos;
+      pos:=pos+children[i].size.y+spaceBetween;
+     end else begin
       children[i].Resize(children[i].size.x+delta,-1);
+      children[i].position.x:=pos;
+      pos:=pos+children[i].size.x+spaceBetween;
+     end;
     end;
    end;
   end;
