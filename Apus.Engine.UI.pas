@@ -7,7 +7,7 @@
 
 unit Apus.Engine.UI;
 interface
- uses Apus.Types, Apus.Geom2D, Apus.Engine.UITypes, Apus.Engine.UIWidgets;
+ uses Apus.Types, Apus.Geom2D, Apus.Engine.UITypes, Apus.Engine.UILayout, Apus.Engine.UIWidgets;
 
  const
   // Predefined pivot point configuration
@@ -45,7 +45,8 @@ interface
 
   // Layouters
   TLayouter  = Apus.Engine.UITypes.TLayouter;
-  TRowLayout = Apus.Engine.UITypes.TRowLayout;
+  TRowLayout = Apus.Engine.UILayout.TRowLayout;
+  TFlexboxLayout = Apus.Engine.UILayout.TFlexboxLayout;
 
   // Other types
   TElementShape = Apus.Engine.UITypes.TElementShape;
