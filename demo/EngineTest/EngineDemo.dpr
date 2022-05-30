@@ -71,7 +71,8 @@ uses
   Apus.Engine.UIWidgets in '..\..\Apus.Engine.UIWidgets.pas',
   Apus.Engine.UI in '..\..\Apus.Engine.UI.pas',
   Apus.Engine.Scene in '..\..\Apus.Engine.Scene.pas',
-  Apus.Engine.Types in '..\..\Apus.Engine.Types.pas';
+  Apus.Engine.Types in '..\..\Apus.Engine.Types.pas',
+  Apus.Engine.UILayout in '..\..\Apus.Engine.UILayout.pas';
 
 const
  wnd:boolean=true;
