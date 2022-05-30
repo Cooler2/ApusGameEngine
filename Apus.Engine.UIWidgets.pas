@@ -142,7 +142,7 @@ interface
    // Возвращает флаги типа области в указанной точке (к-ты экранные (в пикселях)
    // а также курсор, который нужно заюзать для этой области
    // Эту ф-цию нужно переопределить для создания окон специальной формы или поведения
-   function GetAreaType(x,y:integer;out cur:integer):integer; virtual;
+   function GetAreaType(x,y:integer;out cur:NativeInt):integer; virtual;
 
    procedure onMouseMove; override;
    procedure onMouseButtons(button:byte;state:boolean); override;
@@ -163,7 +163,7 @@ interface
    background:pointer; // некий указатель на фон окна (т.к. вопросы отрисовки в этом модуле не затрагиваются)
    constructor Create(wndName,wndCaption:string;wndFont:TFontHandle;parent_:TUIElement;canmove:boolean=true);
    destructor Destroy; override;
-   function GetAreaType(x,y:integer;out cur:integer):integer; override; // x,y - screen space coordinates
+   function GetAreaType(x,y:integer;out cur:NativeInt):integer; override; // x,y - screen space coordinates
   end;
 
   TUIEditBox=class(TUIElement)
@@ -580,7 +580,7 @@ procedure TUIButton.DoClick;
    order:=100; // выше чем прочие элементы.
   end;
 
- function TUIWindow.GetAreaType(x,y:integer;out cur:integer):integer;
+ function TUIWindow.GetAreaType(x,y:integer;out cur:NativeInt):integer;
   var
    c:byte;
    r:TRect;
@@ -1160,7 +1160,7 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    inherited;
   end;
 
- function TUISkinnedWindow.GetAreaType(x,y:integer;out cur:integer):integer;
+ function TUISkinnedWindow.GetAreaType(x,y:integer;out cur:NativeInt):integer;
   begin
    result:=0; cur:=crDefault;
    dec(x,globalrect.Left);
