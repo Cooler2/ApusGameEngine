@@ -45,7 +45,7 @@ implementation
 
  {$R-}
  // styleinfo="00000000 11111111 22222222 33333333" - list of colors (hex)
- function GetColor(control:TUIElement;index:integer=0):cardinal;
+ function GetStyleColor(control:TUIElement;index:integer=0):cardinal;
   var
    i,v:integer;
   begin
@@ -70,8 +70,8 @@ implementation
    st:string;
   begin
    if control.styleinfo='' then exit;
-   c:=GetColor(control,0);
-   c2:=GetColor(control,1);
+   c:=GetStyleColor(control,0);
+   c2:=GetStyleColor(control,1);
    if c<>0 then begin
     if transpBgnd and (control.shape<>shapeEmpty) then gfx.target.BlendMode(blMove);
     draw.FillRect(x1,y1,x2,y2,c);
@@ -201,7 +201,7 @@ implementation
    bg:cardinal;
   begin
     with control do begin
-     bg:=GetColor(control);
+     bg:=GetStyleColor(control);
      if bg<>0 then draw.FillRect(x1,y1,x2,y2,bg);
      gfx.clip.Rect(globalRect);
      //mY:=round(y1*0.3+y2*0.7)-topOffset;
@@ -229,20 +229,20 @@ implementation
     with control as TUIButton do begin
      if btnStyle<>bsCheckbox then begin
       // обычная кнопка
-      c:=GetColor(control,0); // main (background) color
+      c:=GetStyleColor(control,0); // main (background) color
       if c=0 then c:=defaultBtnColor;
       d:=byte(pressed);
       if not enabled then c:=ColorMix(c,$FFA0A0A0,128);
       if enabled and (underMouse=control) then inc(c,$101010);
       if pressed then c:=c-$282020;
       draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,ColorAdd(c,$303030),ColorSub(c,$303030),true);
-      c:=GetColor(control,2); if c=0 then c:=$60000000;
-      c2:=GetColor(control,3); if c2=0 then c2:=$80FFFFFF;
+      c:=GetStyleColor(control,2); if c=0 then c:=$60000000;
+      c2:=GetStyleColor(control,3); if c2=0 then c2:=$80FFFFFF;
       draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // Внешняя рамка
       if pressed then { draw.ShadedRect(x1+2,y1+2,x2-1,y2-1,1,$80FFFFFF,$50000000)}
        else if enabled then begin
-         c:=GetColor(control,4); if c=0 then c:=$A0FFFFFF;
-         c2:=GetColor(control,5); if c2=0 then c2:=$70000000;
+         c:=GetStyleColor(control,4); if c=0 then c:=$A0FFFFFF;
+         c2:=GetStyleColor(control,5); if c2=0 then c2:=$70000000;
          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
        end
          else draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,$80FFFFFF,$50000000);
@@ -253,7 +253,7 @@ implementation
       // Вывод надписи (если есть)
       if caption<>'' then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
-       c:=GetColor(control,1); if c=0 then c:=$FF000000;
+       c:=GetStyleColor(control,1); if c=0 then c:=$FF000000;
        mY:=round(y1*0.5+y2*0.5+txt.Height(font)*0.4); // учесть высоту шрифта!
        wSt:=DecodeUTF8(caption);
        if underMouse=control then c:=$FF300000;
@@ -310,9 +310,9 @@ implementation
    c1,c2:cardinal;
    i:integer;
   begin
-   c1:=GetColor(control,0);
+   c1:=GetStyleColor(control,0);
    if c1=0 then c1:=$FF000000;
-   c2:=GetColor(control,1);
+   c2:=GetStyleColor(control,1);
    for i:=0 to round(control.padding.Left)-1 do begin
     if c2=0 then draw.Rect(x1+i,y1+i,x2-i,y2-i,c1)
      else draw.ShadedRect(x1+i,y1+i,x2-i,y2-i,1,c1,c2);

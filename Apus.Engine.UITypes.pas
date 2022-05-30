@@ -254,13 +254,15 @@ type
   // Static method => nil-safe
   function GetName:string8;
   function GetFont:TFontHandle; // returns own or inherited font handle
+  function GetColor:cardinal;
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
  private
   fStyleInfo:String8; // дополнительные сведения для стиля
   fFont:TFontHandle; // not used directly, can be inherited by children or used by custom draw routines
-  fInitialSize:TVector2s;
+  fColor:cardinal; // color value to be inherited by children
+  fInitialSize:TVector2s; // element's initial size (used for proportional resize)
   procedure AddToRootElements;
   procedure RemoveFromRootElements;
   function GetClientWidth:single;
@@ -278,6 +280,7 @@ type
   property initialSize:TVector2s read fInitialSize; // Size when created
   property styleInfo:String8 read fStyleInfo write SetStyleInfo;
   property font:TFontHandle read GetFont write fFont;
+  property color:cardinal read GetColor write fColor;
  end;
 
 var
@@ -1066,6 +1069,20 @@ function TUIElement.IsChild(c:TUIElement):boolean;
     item:=item.parent;
    end;
   end;
+
+ function TUIElement.GetColor:cardinal;
+  var
+   item:TUIElement;
+  begin
+   if self=nil then exit(clDefault);
+   result:=fColor;
+   item:=parent;
+   while (result=clDefault) and (item<>nil) do begin
+    result:=item.fFont;
+    item:=item.parent;
+   end;
+  end;
+
 
  function TUIElement.GetClientHeight:single;
   begin
