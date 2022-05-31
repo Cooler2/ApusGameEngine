@@ -344,31 +344,31 @@ function TOpenGL.ShouldUseTextureAsDefaultRT:boolean;
   result:=GL_VERSION_3_0;
  end;
 
-function TOpenGL.config: IGraphicsSystemConfig;
+function TOpenGL.config:IGraphicsSystemConfig;
  begin
   result:=self;
  end;
-function TOpenGL.shader: IShader;
+function TOpenGL.shader:IShader;
  begin
   result:=shadersAPI;
  end;
-function TOpenGL.clip: IClipping;
+function TOpenGL.clip:IClipping;
  begin
   result:=clippingAPI;
  end;
-function TOpenGL.target: IRenderTarget;
+function TOpenGL.target:IRenderTarget;
  begin
   result:=renderTargetAPI;
  end;
-function TOpenGL.resman: IResourceManager;
+function TOpenGL.resman:IResourceManager;
  begin
   result:=resourceManagerGL;
  end;
-function TOpenGL.transform: ITransformation;
+function TOpenGL.transform:ITransformation;
  begin
   result:=transformationAPI;
  end;
-function TOpenGL.txt: ITextDrawer;
+function TOpenGL.txt:ITextDrawer;
  begin
   result:=textDrawer;
  end;
