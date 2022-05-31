@@ -20,7 +20,8 @@ const
 // aiWriteOnly      = 32; // Can be locked, but for write only operation
  aiDontScale      = 64;  // Use exact width/height for render target allocation (otherwise they're scaled using current scale factor)
  aiClampUV        = 128; // clamp texture coordinates instead of wrapping them (for aiTexture only)
- aiDepthBuffer    = 256; // allocate a Depth Buffer for this image (for aiRenderTarget only)
+ aiDepthBuffer    = 256; // allocate a Depth Buffer for this image (requires aiRenderTarget flag)
+                         // use ipfNone or ipfDepth to allocate only depth buffer without image
  aiTexture3D      = 512; // allocate a 3D texture instead of 2D texture array
  aiPixelated      = 8192; // disable tri/bilinear filtering for this image
 
@@ -643,6 +644,8 @@ type
   function LoadFont(font:array of byte;asName:string=''):string; overload; // Returns name of the loaded font
   // Get font handle (size=0 - default font size)
   function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle;
+  // Return handle for the same font enlarged scale times
+  function ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
   // Change option on a font handle
   procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
   // Text output (use handle 0 for default font)

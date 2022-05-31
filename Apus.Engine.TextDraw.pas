@@ -39,6 +39,7 @@ interface
    function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
    function LoadFont(font:array of byte;asName:string=''):string; overload; // возвращает имя шрифта
    function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
+   function ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
    procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
    // Text output
    procedure Write(font:TFontHandle;x,y:single;color:cardinal;st:String8;align:TTextAlignment=taLeft;
@@ -136,7 +137,6 @@ type
 
   glyphCache,altGlyphCache:TGlyphCache;
 
-
 procedure DefaultTextLinkStyle(link:cardinal;var sUnderline:boolean;var color:cardinal);
  begin
   sUnderline:=true;
@@ -145,13 +145,22 @@ procedure DefaultTextLinkStyle(link:cardinal;var sUnderline:boolean;var color:ca
   end;
  end;
 
-{ TUnicodeFontEx }
-
-procedure TUnicodeFontEx.InitDefaults;
+function ScaleFromHandle(font:TFontHandle):single;
+ var
+  b:byte;
  begin
-  inherited;
-  downscaleFactor:=DEFAULT_FONT_DOWNSCALE;
-  upscaleFactor:=DEFAULT_FONT_UPSCALE;
+  b:=(font shr 16) and $FF;
+  if b=0 then exit(1.0);
+  result:=sqr((b+30)/100);
+ end;
+
+procedure EncodeScale(scale:single;var font:TFontHandle);
+ var
+  b:byte;
+ begin
+  scale:=Clamp(sqrt(scale),0.31,2.85);
+  b:=round(scale*100)-30;
+  font:=(font and $FF00FFFF)+b shl 16;
  end;
 
 { TTextDrawer }
@@ -261,11 +270,12 @@ begin
     scale:=Clamp(realsize/(0.1*TUnicodeFont(fonts[best]).header.width),0,6.5)
    else
     scale:=1;
-   result:=best+round(100*sqrt(scale)) shl 16;
+   result:=best;
+   EncodeScale(scale,result);
   end else
   if fonts[best] is TFreeTypeFont then begin
-   scale:=Clamp(sqrt(size/20),0,2.55);
-   result:=best+round(100*scale) shl 16; // Масштаб - в процентах относительно размера 20 (макс размер - 51)
+   result:=best;
+   EncodeScale(size/20,result); // Масштаб - в процентах относительно размера 20 (макс размер - 51)
    if flags and fsNoHinting>0 then result:=result or fhNoHinting;
    if flags and fsAutoHinting>0 then result:=result or fhAutoHinting;
   end
@@ -296,6 +306,22 @@ begin
  {$ENDIF}
 end;
 
+function TTextDrawer.ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
+var
+ s:single;
+ obj:TObject;
+begin
+ s:=ScaleFromHandle(font);
+ obj:=fonts[font and $FF];
+ if obj is TFreeTypeFont then begin
+  result:=font;
+  EncodeScale(s*scale,result);
+ end else
+ if obj is TUnicodeFont then begin
+  result:=GetFont(TUnicodeFont(obj).header.FontName,s*scale);
+ end else
+  raise EWarning.Create('Not implemented for '+obj.ClassName);
+end;
 
 procedure TTextDrawer.SetTarget(buf:pointer;pitch:integer);
 begin
@@ -403,8 +429,7 @@ begin
   result:=0; exit;
  end;
  if font=0 then font:=defaultFontHandle;
- scale:=sqr(((font shr 16) and $FF)/100);
- if scale=0 then scale:=1;
+ scale:=ScaleFromHandle(font);
  obj:=fonts[font and $1F];
  if obj is TUnicodeFont then begin
   unifont:=obj as TUnicodeFontEx;
@@ -433,8 +458,7 @@ var
 begin
  if font=0 then font:=defaultFontHandle;
  obj:=fonts[font and $FF];
- scale:=sqr(((font shr 16) and $FF)/100);
- if scale=0 then scale:=1;
+ scale:=ScaleFromHandle(font);
  if obj is TUnicodeFont then begin
   unifont:=obj as TUnicodeFontEx;
   if (scale>=unifont.downscaleFactor) and
@@ -595,7 +619,7 @@ var
    {$IFDEF FREETYPE}
    if obj is TFreeTypeFont then begin
      ftFont:=obj as TFreeTypeFont;
-     size:=20*sqr(((font shr 16) and $FF)/100);
+     size:=20*ScaleFromHandle(font);
      ftHintMode:=0;
      if (options and toNoHinting>0) or (font and fhNoHinting>0) then begin
        ftHintMode:=ftHintMode or FTF_NO_HINTING;
@@ -609,8 +633,7 @@ var
    {$ENDIF}
    if obj is TUnicodeFont then begin
      unifont:=obj as TUnicodeFontEx;
-     scale:=sqr(((font shr 16) and $FF)/100);
-     if scale=0 then scale:=1;
+     scale:=ScaleFromHandle(font);
      charScaleX:=1; charScaleY:=1;
      if (scale<unifont.downscaleFactor) or
         (scale>unifont.upscaleFactor) then begin
@@ -1182,6 +1205,14 @@ begin // -----------------------------------------------------------
  // Underlines
  if (lpCount>0) and (options and toDontDraw=0) then DrawUnderlines;
 end;
+
+{ TUnicodeFontEx }
+procedure TUnicodeFontEx.InitDefaults;
+ begin
+  inherited;
+  downscaleFactor:=DEFAULT_FONT_DOWNSCALE;
+  upscaleFactor:=DEFAULT_FONT_UPSCALE;
+ end;
 
 initialization
  textLinkStyleProc:=DefaultTextLinkStyle;
