@@ -86,7 +86,10 @@ type
                 flags:cardinal;name:String8):TTexture;
   procedure ResizeImage(var img:TTexture;newWidth,newHeight:integer);
   function Clone(img:TTexture):TTexture;
+  function Copy(img:TTexture):TTexture;
+  procedure AttachDepthBuffer(tex:TTexture;dBuf:TTexture);
   procedure FreeImage(var image:TTexture);
+
 
   // Allocate texture array
   function AllocArray(width,height:integer;PixFmt:TImagePixelFormat;
@@ -153,6 +156,7 @@ var
  lastErrorTime:int64;
  errorTr:integer;
 
+{$REGION UTILS}
 procedure CheckForGLError(msg:string); //inline;
 var
  error:cardinal;
@@ -340,9 +344,10 @@ begin
    raise EError.Create('Unsupported pixel format: '+PixFmt2Str(ipf));
  end;
 end;
+{$ENDREGION}
 
 { TGLTextureArray }
-
+{$REGION TextureArray}
 procedure TGLTextureArray.AddDirtyRect(index: integer; rect: TRect);
 begin
 
@@ -501,15 +506,16 @@ begin
   end;
   online:=true;
 end;
+{$ENDREGION}
 
 { TGLTexture }
-
+{$REGION Texture}
 procedure TGLTexture.Bind;
 begin
  glBindTexture(GetTextureTarget,texname);
 end;
 
-procedure TGLTexture.CloneFrom(src: TTexture);
+procedure TGLTexture.CloneFrom(src:TTexture);
 begin
  inherited;
 end;
@@ -814,6 +820,7 @@ begin
   end;
   online:=true;
 end;
+{$ENDREGION}
 
 procedure EventHandler(event:TEventStr;tag:TTag);
 var
@@ -826,7 +833,7 @@ begin
 end;
 
 { TGLResourceManager }
-
+{$REGION ResourceManager}
 procedure TGLResourceManager.AllocRenderTarget(tex:TGLTexture;flags:cardinal);
 var
  format,SubFormat,internalFormat:cardinal;
@@ -890,17 +897,27 @@ begin
    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
    SetFlag(tex.caps,tfClamped);
   end;
-  if (tex.pixelFormat=ipfNone) and HasFlag(flags,aiDepthBuffer) then begin
-   // No pixel format, but need depth buffer: allocate depth texture only
-   glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT,tex.width,tex.height,0,GL_DEPTH_COMPONENT,GL_FLOAT,nil);
-   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_COMPARE_MODE,GL_COMPARE_REF_TO_TEXTURE); // enable comparison mode
-   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_COMPARE_FUNC,GL_LESS); // enable comparison mode
+  if (tex.pixelFormat in [ipfNone,ipfDepth32f]) and HasFlag(flags,aiDepthBuffer) then begin
+   // No pixel format, but need depth buffer: allocate depth buffer only
+   if tex.pixelFormat=ipfNone then begin
+    // No need to access depth values - allocate renderbuffer storage
+    glGenRenderbuffers(1,@renderBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, tex.width, tex.height);
+    glFramebufferRenderBuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
+    tex.rbo:=renderBuffer;
+   end else begin
+    // Allocate texture storage
+    glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT,tex.width,tex.height,0,GL_DEPTH_COMPONENT,GL_FLOAT,nil);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_COMPARE_MODE,GL_COMPARE_REF_TO_TEXTURE); // enable comparison mode
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_COMPARE_FUNC,GL_LESS); // enable comparison mode
 
-   glFramebufferTexture2D(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_TEXTURE_2D,tex.texname,0);
-   glDrawBuffer(GL_NONE);
-   glReadBuffer(GL_NONE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_TEXTURE_2D,tex.texname,0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+   end;
   end else begin
    GetGLFormat(tex.pixelFormat,format,subFormat,internalFormat);
    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,tex.width,tex.height,0,format,subFormat,nil);
@@ -1094,6 +1111,11 @@ begin
  result:=res;
 end;
 
+function TGLResourceManager.Copy(img:TTexture):TTexture;
+begin
+
+end;
+
 constructor TGLResourceManager.Create;
 begin
  try
@@ -1268,13 +1290,16 @@ var
  glFormat,subFormat,internalFormat:cardinal;
  old:TTexture;
 begin
+ // Render target -> resize
  if img.HasFlag(tfRenderTarget) then
   with img as TGLTexture do begin
-   glBindTexture(GL_TEXTURE_2D, texname);
-   GetGLFormat(img.PixelFormat,glFormat,subFormat,internalFormat);
    width:=newWidth;
    height:=newHeight;
-   glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,glFormat,subFormat,nil);
+   if texName<>0 then begin
+    glBindTexture(GL_TEXTURE_2D,texname);
+    GetGLFormat(img.PixelFormat,glFormat,subFormat,internalFormat);
+    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,glFormat,subFormat,nil);
+   end;
    CheckForGLError('19');
    if rbo<>0 then begin
     glBindRenderbuffer(GL_RENDERBUFFER, rbo);
@@ -1282,13 +1307,36 @@ begin
    end;
    exit;
   end;
- // Delete and allocate again
+ // Regular texture -> re-allocate
  old:=img;
  img:=AllocImage(newWidth,newHeight,img.PixelFormat,img.caps,img.name);
  FreeImage(old);
 end;
 
+procedure TGLResourceManager.AttachDepthBuffer(tex,dBuf:TTexture);
+var
+ target,depth:TGLTexture;
+ prevFrameBuffer:glint;
+begin
+ ASSERT(tex.HasFlag(tfRenderTarget));
+ ASSERT(dBuf.HasFlag(tfRenderTarget));
+ target:=tex as TGLTexture;
+ depth:=dBuf as TGLTexture;
+ // Save framebuffer binding
+ glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,@prevFramebuffer);
+ glBindFramebuffer(target.fbo);
+ if depth.rbo<>0 then
+  glFramebufferRenderBuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,depth.rbo)
+ else
+  glFramebufferTexture(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,depth.texname,0);
+
+ // Restore framebuffer binding
+ glBindFramebuffer(prevFrameBuffer);
+end;
+{$ENDREGION}
+
 // ---- Data buffers ----
+{$REGION BUFFERS}
 function TGLResourceManager.AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;usage:TBufferUsage):TVertexBuffer;
 var
  vb:TVertexBufferGL;
@@ -1374,7 +1422,7 @@ begin
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,buffer);
  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,fromIndex*bytesPerIndex,numIndices*bytesPerIndex,indexData);
 end;
-
+{$ENDREGION}
 
 begin
  InitCritSect(cSect,'GLTexMan',160);

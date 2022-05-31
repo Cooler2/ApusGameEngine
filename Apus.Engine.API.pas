@@ -529,23 +529,31 @@ type
   // Создать изображение (в случае ошибки будет исключение)
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
      flags:cardinal;name:String8):TTexture;
+  // Check if it is possible to allocate an image with given settings
+  function QueryParams(width,height:integer;format:TImagePixelFormat;aiFlags:integer):boolean;
+  // Free texture
+  procedure FreeImage(var image:TTexture); overload;
+
   // Change size of texture if it supports it (render target etc)
   procedure ResizeImage(var img:TTexture;newWidth,newHeight:integer);
+  // Clone object: create a new texture object referencing the same data
   function Clone(img:TTexture):TTexture;
-  // Освободить изображение
-  procedure FreeImage(var image:TTexture); overload;
-  // Сделать текстуру доступной для использования (может использоваться для менеджмента текстур)
-  // необходимо вызывать всякий раз перед переключением на текстуру (обычно это делает код рисовалки)
-  procedure MakeOnline(img:TTexture;stage:integer=0);
-  // Проверить возможность выделения текстуры в заданном формате с заданными флагами
-  // Возвращает true если такую текстуру принципиально можно создать
-  function QueryParams(width,height:integer;format:TImagePixelFormat;aiFlags:integer):boolean;
+  // Create a new texture object with copy of the specified texture image
+  function Copy(img:TTexture):TTexture;
+  // Attach a depth buffer to a render-target texture. Specify nil to detach buffer.
+  procedure AttachDepthBuffer(tex:TTexture;dBuf:TTexture);
 
+  // Make image ready to use by GFX API (upload content to the VRAM, if required)
+  procedure MakeOnline(img:TTexture;stage:integer=0);
+
+  // Vertex/Index buffers
   function AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;usage:TBufferUsage=buStatic):TVertexBuffer;
-  procedure UseVertexBuffer(vb:TVertexBuffer);
   function AllocIndexBuffer(indCount:integer;indSize:integer=2;usage:TBufferUsage=buStatic):TIndexBuffer;
-  procedure UseIndexBuffer(ib:TIndexBuffer);
   procedure FreeBuffer(buf:TEngineBuffer);
+  // Set vb=nil to disable vertex buffer
+  procedure UseVertexBuffer(vb:TVertexBuffer);
+  // Set ib=nil to disable index buffer
+  procedure UseIndexBuffer(ib:TIndexBuffer);
 
   // Формирует строки статуса
   function GetStatus(line:byte):string;

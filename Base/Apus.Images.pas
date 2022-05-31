@@ -16,7 +16,7 @@ interface
 
 type
  // Форматы представления изображения
- TImagePixelFormat=(ipfNone,     // формат по умолчанию
+ TImagePixelFormat=(ipfNone,    // Default format or no image data
                    ipf1Bit,     // 1bpp (2 colors) - monochrome
                    ipf4Bit,     // 4bpp (16 colors, indexed)
                    ipf8Bit,     // 8bpp (256 colors, indexed)
@@ -48,6 +48,7 @@ type
                    ipfMono32f,  // 1-channel 32 bit floating point image
                    ipfDuo32f,   // 2-channel 32 bit floating point image
                    ipfQuad32f,  // 4-channel 32 bit floating point vectors
+                   ipfDepth32f, // 32bit float depth
                    ipf32bpp);   // generic 32bpp: XRGB or ARGB
 
  // Форматы представления палитры
@@ -153,7 +154,7 @@ type
 
  const
   // Размер пикселя в битах
-  pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,8,16,16,16,16,32,64,128,32);
+  pixelSize:array[TImagePixelFormat] of byte=(0,1,4,8,16,16,16,16,24,24,32,32,64,128,128,128,4,4,8,8,16,32,32,8,8,16,16,16,16,32,64,128,32,32);
   palEntrySize:array[ImagePaletteFormat] of byte=(0,24,32,32);
 
  procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;count:integer;
