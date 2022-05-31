@@ -914,7 +914,7 @@ begin
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_COMPARE_MODE,GL_COMPARE_REF_TO_TEXTURE); // enable comparison mode
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_COMPARE_FUNC,GL_LESS); // enable comparison mode
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_TEXTURE_2D,tex.texname,0);
+    glFramebufferTexture(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,tex.texname,0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
    end;
@@ -922,7 +922,7 @@ begin
    GetGLFormat(tex.pixelFormat,format,subFormat,internalFormat);
    glTexImage2D(GL_TEXTURE_2D,0,internalFormat,tex.width,tex.height,0,format,subFormat,nil);
    CheckForGLError('4');
-   glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,tex.texname,0);
+   glFramebufferTexture(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,tex.texname,0);
 
    if HasFlag(flags,aiDepthBuffer) then begin
     glGenRenderbuffers(1,@renderBuffer);
@@ -1324,14 +1324,14 @@ begin
  depth:=dBuf as TGLTexture;
  // Save framebuffer binding
  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,@prevFramebuffer);
- glBindFramebuffer(target.fbo);
+ glBindFramebuffer(GL_FRAMEBUFFER,target.fbo);
  if depth.rbo<>0 then
   glFramebufferRenderBuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,depth.rbo)
  else
   glFramebufferTexture(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,depth.texname,0);
 
  // Restore framebuffer binding
- glBindFramebuffer(prevFrameBuffer);
+ glBindFramebuffer(GL_FRAMEBUFFER,prevFrameBuffer);
 end;
 {$ENDREGION}
 
