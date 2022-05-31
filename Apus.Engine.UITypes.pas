@@ -219,7 +219,7 @@ type
   function SetPaddings(padding:single):TUIElement; overload;
   function SetPaddings(left,top,right,bottom:single):TUIElement; overload;
   // Set same value for X/Y scale and optionally resize to keep the original dimensions
-  function SetScale(newScale:single;resize:boolean=true):TUIElement;
+  function SetScale(newScale:single;maintainDimensions:boolean=true):TUIElement;
   // Change element size and adjust children elements !!! new size IN PARENTs space!
   // Pass -1 to keep current value
   procedure Resize(newWidth,newHeight:single); virtual;
@@ -1062,14 +1062,20 @@ function TUIElement.IsChild(c:TUIElement):boolean;
  function TUIElement.GetFont:TFontHandle;
   var
    item:TUIElement;
+   upscale:single;
   begin
    if self=nil then exit(0);
    result:=fFont;
+   upscale:=(scale.x+scale.y)*0.5;
    item:=parent;
    while (result=0) and (item<>nil) do begin
     result:=item.fFont;
+    if result=0 then
+     upscale:=upscale*(item.scale.x+item.scale.y)*0.5;
     item:=item.parent;
    end;
+   if (result<>0) and (abs(upscale-1)>0.1) then
+    result:=txt.ScaleFont(result,upScale);
   end;
 
  function TUIElement.GetColor:cardinal;
@@ -1182,9 +1188,9 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    result:=SetPaddings(padding,padding,padding,padding);
   end;
 
- function TUIElement.SetScale(newScale:single;resize:boolean=true):TUIElement;
+ function TUIElement.SetScale(newScale:single;maintainDimensions:boolean=true):TUIElement;
   begin
-   if resize then
+   if maintainDimensions then
     self.Resize(width*scale.x/newScale,height*scale.y/newScale);
    result:=self;
    scale.x:=newScale;
