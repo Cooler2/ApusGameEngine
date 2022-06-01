@@ -631,6 +631,7 @@ procedure TClippingAPI.AssignActual(r:TRect);
 constructor TClippingAPI.Create;
  begin
   _AddRef;
+  rejectMode:=true;
   stackPos:=0;
   clipRect:=types.Rect(-100000,-100000,100000,100000);
   actualClip:=clipRect;
