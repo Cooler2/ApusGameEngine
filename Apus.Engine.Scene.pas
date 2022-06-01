@@ -230,14 +230,18 @@ function TGameScene.Process:boolean;
   var
    scene:TGameScene;
   begin
+   ForceLogMessage('Loading all scenes');
    repeat
     scene:=scenesToLoad.GetFirst as TGameScene;
     if scene=nil then break;
     if not scene.loaded then begin
+     LogMessage('Loading scene: "%s"',[scene.name]);
      scene.Load;
+     LogMessage('Scene "%s" loaded!',[scene.name]);
      scene.loaded:=true;
     end;
    until false;
+   ForceLogMessage('All scenes loaded!');
   end;
 
  function TGameScene.ReadKey:cardinal;
