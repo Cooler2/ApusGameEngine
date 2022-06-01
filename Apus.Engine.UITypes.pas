@@ -225,8 +225,9 @@ type
   procedure Resize(newWidth,newHeight:single); virtual;
   // Place element at the parent's center (and optionally set anchors to follow the center point)
   procedure Center(setAnchors:boolean=true);
-  // Прикрепляет элемент к какой-либо части предка
-  procedure Snap(snapTo:TSnapMode);
+  // Snap element to parent's edge
+  // Optionally shrink parent's client area
+  procedure Snap(snapTo:TSnapMode;shrinkParent:boolean=true);
   // Скроллинг в указанную позицию (с обработкой подчиненных скроллбаров если они есть)
   procedure ScrollTo(newX,newY:integer); virtual;
   // Если данный элемент может обладать фокусом, но ни один другой не имеет фокуса - взять фокус на себя
@@ -404,7 +405,6 @@ implementation
     end;
     c:=c.parent;
    until (c=nil) or (c=target);
-
   end;
 
  function TUIElement.TransformTo(const r:TRect2s;target:TUIElement):TRect2s;
@@ -735,49 +735,33 @@ implementation
      Signal('UI\ItemRenamed',TTag(self));
   end;
 
- procedure TUIElement.Snap(snapTo:TSnapMode);
+ procedure TUIElement.Snap(snapTo:TSnapMode;shrinkParent:boolean=true);
   var
-   clientW,clientH:single;
-   r,parentRect:TRect2s;
-   dx,dy:single;
-   offset:TVector2s;
+   r:TUIRect;
   begin
    if parent=nil then exit;
    if snapTo=smNone then exit;
-   parentRect:=parent.GetClientRect;
-   clientW:=parentRect.x2-parentRect.x1;
-   clientH:=parentRect.y2-parentRect.y1;
-   if snapTo in [smTop,smBottom] then Resize(clientW,-1);
-   if snapTo in [smLeft,smRight] then Resize(-1,clientH);
-   if snapTo=smParent then Resize(clientW,clientH);
-   r:=TransformTo(GetRect,parent);
+   if snapTo in [smTop,smBottom] then Resize(parent.clientWidth,-1);
+   if snapTo in [smLeft,smRight] then Resize(-1,parent.clientHeight);
+   if snapTo=smParent then Resize(parent.clientWidth,parent.clientHeight);
    case snapTo of
-    smTop:begin
-      SetAnchors(0,0,1,0);
-    end;
-    smLeft:begin
-      SetAnchors(0,0,0,1);
-    end;
-    smRight:begin
-      SetAnchors(1,0,1,1);
-    end;
-    smBottom:begin
-      SetAnchors(0,1,1,1);
-    end;
-    smParent:begin
-      SetAnchors(0,0,1,1);
-    end;
+    smTop:SetAnchors(0,0,1,0).SetPos(0,0,pivotTopLeft);
+    smLeft:SetAnchors(0,0,0,1).SetPos(0,0,pivotTopLeft);
+    smRight:SetAnchors(1,0,1,1).SetPos(parent.clientWidth,0,pivotTopRight);
+    smBottom:SetAnchors(0,1,1,1).SetPos(0,parent.clientHeight,pivotBottomLeft);
+    smParent:SetAnchors(0,0,1,1).SetPos(0,0,pivotTopLeft);
    end;
-   if snapTo in [smTop,smLeft,smParent] then begin
-    // Make upper-left corner match parent's same corner
-    offset.x:=r.x1-parentRect.x1;
-    offset.y:=r.y1-parentRect.y1;
-   end else begin
-    // Make bottom-right corner match parent's same corner
-    offset.x:=parentRect.x2-r.x2;
-    offset.y:=parentRect.y2-r.y2;
-   end;
-   VectAdd(position,offset);
+
+{   if shrinkParent then begin
+    r:=parent.padding;
+    case snapTo of
+     smTop:r.top:=r.top+
+     smLeft:SetAnchors(0,0,0,1).SetPos(0,0,pivotTopLeft);
+     smRight:SetAnchors(1,0,1,1).SetPos(parent.clientWidth,0,pivotTopRight);
+     smBottom:SetAnchors(0,1,1,1).SetPos(0,parent.clientHeight,pivotBottomLeft);
+     smParent:SetAnchors(0,0,1,1).SetPos(0,0,pivotTopLeft);
+    end;
+   end;}
   end;
 
  function TUIElement.GetNext:TUIElement;
