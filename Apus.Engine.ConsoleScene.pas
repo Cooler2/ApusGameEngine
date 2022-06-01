@@ -139,7 +139,7 @@ end;
 procedure DrawContent(item:TUIImage);
 var
  r:TRect;
- i,n,cnt,ypos,cls:integer;
+ i,n,cnt,ypos,msgClass:integer;
  st:string;
  col,font:cardinal;
 begin
@@ -168,15 +168,15 @@ begin
  for i:=1 to cnt do begin
   dec(n); dec(ypos,16);
   if (ypos<-15) or (ypos>=r.height+8) then continue;
-  st:=GetSavedMsg(n+1,cls);
-  case cls of
+  st:=GetSavedMsg(n+1,msgClass);
+  case msgClass of
    -1:col:=$FFFF6060;
    55000:col:=$FF80FF80;
    41001:col:=$FFFFD040;
    41000:col:=$FFA0FFF0;
    else col:=$FFD0D0D0;
   end;
-  txt.Write(font,r.left+2,r.top+yPos,col,DecodeUTF8(st));
+  txt.WriteW(font,r.left+2,r.top+yPos,col,Str16(st));
  end;
  txt.EndBlock;
  gfx.clip.Restore;
