@@ -498,7 +498,7 @@ implementation
    scale:=Point2s(1,1);
    pivot:=Point2s(0,0);
    //paddingLeft:=0; paddingRight:=0; paddingTop:=0; paddingBottom:=0;
-   shape:=shapeEmpty;
+   shape:=shapeFull;
    timer:=0;
    parent:=parent_;
    parentClip:=true;
