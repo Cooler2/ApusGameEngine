@@ -113,6 +113,7 @@ const
  fhDontTranslate = $1000000;
  fhItalic        = $2000000;
  fhUnderline     = $4000000;
+ fhBold          = $8000000;
  // Font handle flags (affecting rendered glyphs)
  fhNoHinting     = $200;
  fhAutoHinting   = $400;
@@ -284,6 +285,7 @@ begin
 
   if flags and fsDontTranslate>0 then result:=result or fhDontTranslate;
   if flags and fsItalic>0 then result:=result or fhItalic;
+  if flags and fsBold>0 then result:=result or fhBold;
  end
   else result:=0;
 end;
@@ -308,7 +310,7 @@ end;
 
 function TTextDrawer.ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
 var
- s:single;
+ s,size:single;
  obj:TObject;
 begin
  s:=ScaleFromHandle(font);
@@ -318,7 +320,8 @@ begin
   EncodeScale(s*scale,result);
  end else
  if obj is TUnicodeFont then begin
-  result:=GetFont(TUnicodeFont(obj).header.FontName,s*scale);
+  size:=s*TUnicodeFont(obj).header.width/10;
+  result:=GetFont(TUnicodeFont(obj).header.FontName,size*scale);
  end else
   raise EWarning.Create('Not implemented for '+obj.ClassName);
 end;
