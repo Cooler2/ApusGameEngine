@@ -86,8 +86,8 @@ procedure TRowLayout.Layout(item:TUIElement);
     VectAdd(c.position,delta);
    end;
    if fResize then begin
-    if fHorizontal then item.size.x:=pos-fSpaceBetween+item.padding.Left+item.padding.Right
-     else item.size.y:=pos-fSpaceBetween+item.padding.Top+item.padding.Bottom;
+    if fHorizontal then item.ResizeClient(pos-fSpaceBetween,-1)
+     else item.ResizeClient(-1,pos-fSpaceBetween);
    end;
   end;
 
@@ -118,8 +118,8 @@ procedure TRowLayout.Layout(item:TUIElement);
        else childSize:=childSize+children[i].size.x;
      weightSum:=weightSum+children[i].layoutData;
     end;
-    if vertical then ownSize:=size.y
-     else ownSize:=size.x;
+    if vertical then ownSize:=item.clientHeight
+     else ownSize:=item.clientWidth;
     extraSpace:=ownSize-high(children)*spaceBetween-childSize;
     // Distribute extra space among children and position them
     pos:=0;

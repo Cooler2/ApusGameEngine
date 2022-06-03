@@ -223,6 +223,7 @@ type
   // Change element size and adjust children elements !!! new size IN PARENTs space!
   // Pass -1 to keep current value
   procedure Resize(newWidth,newHeight:single); virtual;
+  procedure ResizeClient(newClientWidth,newClientHeight:single); virtual;
   // Place element at the parent's center (and optionally set anchors to follow the center point)
   procedure Center(setAnchors:boolean=true);
   // Snap element to parent's edge
@@ -1179,6 +1180,19 @@ function TUIElement.GetClientHeight:single;
    if newWidth>-1 then size.x:=newWidth;
    if newHeight>-1 then size.y:=newHeight;
    ClientSizeChanged(clientWidth-oldW,clientHeight-oldH); // update children
+  end;
+
+ procedure TUIElement.ResizeClient(newClientWidth,newClientHeight:single);
+  var
+   dW,dH:single;
+  begin
+   dW:=newClientWidth-clientWidth;
+   dH:=newClientHeight-clientHeight;
+   if newClientWidth<0 then dW:=0;
+   if newClientHeight<0 then dH:=0;
+   size.x:=size.x+dW*scale;
+   size.y:=size.y+dH*scale;
+   ClientSizeChanged(dW,dH); // update children
   end;
 
  procedure TUIElement.ClientSizeChanged(dX,dY:single);
