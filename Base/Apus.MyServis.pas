@@ -25,12 +25,16 @@ interface
   Apus.Types,
   Apus.Classes,
   SysUtils;
+
  const
   {$IFDEF MSWINDOWS}
   PathSeparator='\';
   {$ELSE}
   PathSeparator='/';
   {$ENDIF}
+  MAX_FLOAT = 3.4E38;
+  MIN_FLOAT = 1.18E-38;
+
  type
   // Type aliases declared because this unit is assumed to be primarily used (instead of Apus.Types)
 
@@ -444,6 +448,7 @@ interface
  procedure FillSingleNaN(var data;count:integer);
  procedure FillDoubleNaN(var data;count:integer);
 
+ // Check if the FP value is NaN
  function IsNaN(const v:single):boolean; overload;
  function IsNaN(const v:double):boolean; overload;
 
@@ -511,7 +516,7 @@ interface
 
  // Some useful mathematic functions
  // -----------------------------------------------------------------
- // Вернуть "насыщенное" значение, т.е. привести b внутрь допустимого диапазона [min..max]
+ // Saturate value - clamp it to the range [min..max]
  function Clamp(b,min,max:integer):integer; inline; overload;
  function Clamp(b,min,max:double):double; inline; overload;
  function Sat(b,min,max:integer):integer; inline; deprecated 'use Clamp';
@@ -523,6 +528,9 @@ interface
  function PRound(v:double):integer; inline; overload;
  // Single version of precise rounding
  function SRound(v:single):integer; inline; overload;
+
+ // Calculate max(|a|,|b|)/min(|a|,|b|) (zero-safe)
+ function Ratio(a,b:single):single;
 
  // Q3-based, not really fast
  function FastInvSqrt(v:single):single;
@@ -3410,6 +3418,15 @@ function BinToStr;
   begin
    if v>0 then result:=trunc(v+0.5)
     else result:=trunc(v-0.5);
+  end;
+
+ function Ratio(a,b:single):single;
+  begin
+   if a<0 then a:=-a;
+   if b<0 then b:=-b;
+   if a<b then Swap(a,b);
+   if b=0 then exit(MAX_FLOAT);
+   result:=a/b;
   end;
 
  // Based on Quake-3 code
