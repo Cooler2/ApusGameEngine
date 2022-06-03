@@ -836,12 +836,12 @@ implementation
    y2:=y+height;
   end;
 
- function TRect2s.IsEmpty: boolean;
+ function TRect2s.IsEmpty:boolean;
   begin
    result:=(y2<y1);
   end;
 
- procedure TRect2s.MoveBy(dx, dy: single);
+ procedure TRect2s.MoveBy(dx,dy:single);
   begin
    x1:=x1+dx; x2:=x2+dx;
    y1:=y1+dy; y2:=y2+dy;
@@ -863,20 +863,20 @@ function TRect2s.GetIntRect:TRect;
   result:=Rect(Floor(x1),Floor(y1),Floor(x2)+1,Floor(y2)+1);
  end;
 
-function TRect2s.Height: single;
+function TRect2s.Height:single;
   begin
    result:=y2-y1;
+  end;
+
+function TRect2s.Width:single;
+  begin
+   result:=x2-x1;
   end;
 
  procedure TRect2s.Init;
   begin
    x1:=0; y1:=0;
    x2:=-1; y2:=-1;
-  end;
-
-function TRect2s.Width: single;
-  begin
-   result:=x2-x1;
   end;
 
  procedure TRect2s.Include(x,y:single);
