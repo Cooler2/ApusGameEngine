@@ -460,9 +460,10 @@ implementation
 
  function TUIElement.GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
   begin
-   result.topLeft:=position;
-   result.right:=position.x+size.x;
-   result.bottom:=position.y+size.y;
+   result.left:=position.x-size.x*pivot.x;
+   result.top:=position.y-size.y*pivot.y;
+   result.right:=position.x+size.x*(1-pivot.x);
+   result.bottom:=position.y+size.y*(1-pivot.y);
   end;
 
  procedure TUIElement.Center(setAnchors:boolean=true);
