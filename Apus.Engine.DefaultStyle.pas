@@ -254,7 +254,7 @@ implementation
       if caption<>'' then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
        c:=GetStyleColor(control,1); if c=0 then c:=$FF000000;
-       mY:=round(y1*0.5+y2*0.5+txt.Height(font)*0.4); // учесть высоту шрифта!
+       mY:=round((y1+y2)*0.5+txt.Height(font)*0.45);
        wSt:=DecodeUTF8(caption);
        if underMouse=control then c:=$FF300000;
        if enabled then
