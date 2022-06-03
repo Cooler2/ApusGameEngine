@@ -1150,7 +1150,7 @@ begin // -----------------------------------------------------------
 
  if textCaching then options:=options or textBlockOptions;
 
- if font=0 then font:=defaultFontHandle;
+ if font=0 then font:=game.defaultFont;
  // Empty or too long string
  if (length(st)=0) or (length(st)>1000) then exit;
 
