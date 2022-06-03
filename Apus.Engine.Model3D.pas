@@ -262,6 +262,9 @@ procedure TAnimation.BuildTimeline(model:TModel3D);
        lastKeyFrame:=frame;
        if firstKeyFrame<0 then firstKeyFrame:=frame;
       end;
+     if firstKeyFrame<0 then begin // no keyframes at all -> keep default value
+      SetLength(positions,0);
+     end else
      if firstKeyFrame=lastKeyFrame then begin // only one keyframe -> constant value among whole timeline
       defaultBoneState[i].position:=positions[firstKeyFrame];
       SetLength(positions,0);
@@ -287,6 +290,9 @@ procedure TAnimation.BuildTimeline(model:TModel3D);
        lastKeyFrame:=frame;
        if firstKeyFrame<0 then firstKeyFrame:=frame;
       end;
+     if firstKeyFrame<0 then
+      SetLength(rotations,0)
+     else
      if firstKeyFrame=lastKeyFrame then begin // only one keyframe -> constant value among whole timeline
       defaultBoneState[i].rotation:=rotations[firstKeyFrame];
       SetLength(rotations,0);
@@ -314,6 +320,9 @@ procedure TAnimation.BuildTimeline(model:TModel3D);
        lastKeyFrame:=frame;
        if firstKeyFrame<0 then firstKeyFrame:=frame;
       end;
+     if firstKeyFrame<0 then
+      SetLength(scales,0)
+     else
      if firstKeyFrame=lastKeyFrame then begin // only one keyframe -> constant value among whole timeline
       defaultBoneState[i].scale:=scales[firstKeyFrame];
       SetLength(scales,0);

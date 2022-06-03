@@ -58,7 +58,7 @@ implementation
 
   lastMsgNum,msgCount:integer;
 
-  // очередь сохраняемых сообщений (если 256 - будет мало, сделаем больше ;)
+  // очередь сохраняемых сообщений
   queue:array[0..511] of string;
   clsqueue:array[0..511] of integer;
   firstUsed,firstFree:integer;

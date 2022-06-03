@@ -1885,7 +1885,7 @@ begin
  end;
 end;
 
-procedure TGame.WaitFor(pb: PBoolean; msg: string);
+procedure TGame.WaitFor(pb:PBoolean; msg:string);
 var
  i:integer;
 begin
@@ -1899,7 +1899,7 @@ begin
  end;
 end;
 
-procedure TGame.MoveWindowTo(x, y, width, height: integer);
+procedure TGame.MoveWindowTo(x,y,width,height:integer);
  begin
   systemPlatform.MoveWindowTo(x,y,width,height);
  end;
@@ -1924,7 +1924,11 @@ procedure TGame.SwitchToAltSettings; // Alt+Enter
  end;
 
 procedure TGame.SwitchToScene(name:string);
+ var
+  scene:TGameScene;
  begin
+  scene:=TGameScene.FindByName(name) as TGameScene;
+  WaitFor(@scene.loaded,'Scene '+scene.name+' not loaded');
   TSceneSwitcher.defaultSwitcher.SwitchToScene(name);
  end;
 

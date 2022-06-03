@@ -52,6 +52,7 @@ interface
   TElementShape = Apus.Engine.UITypes.TElementShape;
   TSendSignals = Apus.Engine.UITypes.TSendSignals;
   TButtonStyle = Apus.Engine.UIWidgets.TButtonStyle;
+  TSnapMode = Apus.Engine.UITypes.TSnapMode;
 
   // Поиск элементов по имени. Если элемент не найден, то...
   // mustExists=true - исключение, false - будет создан (а в лог будет сообщение об этом)
