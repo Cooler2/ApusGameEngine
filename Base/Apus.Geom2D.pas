@@ -49,7 +49,6 @@ interface
 
   PRect2s=^TRect2s;
   TRect2s=packed record
-   x1,y1,x2,y2:single;
    function Width:single;
    function Height:single;
    procedure Init; overload; inline; // init empty
@@ -61,6 +60,10 @@ interface
    function IsEmpty:boolean; inline;
    function Center:TPoint2s; inline;
    function GetIntRect:TRect;
+   case integer of
+    0:( x1,y1,x2,y2:single; );
+    1:( left,top,right,bottom:single; );
+    2:( topLeft,bottomRight:TPoint2s; );
   end;
 
   TSegment2=packed record
