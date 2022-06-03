@@ -243,8 +243,8 @@ type
   function FindElementByName(name:string8):TUIElement;
 
   // Установить либо удалить "горячую клавишу" для данного эл-та
-  procedure SetHotKey(vKeyCode:byte;shiftstate:byte);
-  procedure ReleaseHotKey(vKeyCode:byte;shiftstate:byte);
+  procedure SetHotKey(vKeyCode:byte;shiftstate:byte=0);
+  procedure ReleaseHotKey(vKeyCode:byte;shiftstate:byte=0);
 
   // Check if point is opaque in tmCustom mode (relative coordinates in [0..1] range)
   function IsOpaque(x,y:single):boolean; virtual;
@@ -341,17 +341,17 @@ implementation
  procedure ProcessHotKey(keycode:integer;shiftstate:byte);
   var
    i:integer;
-   c,r:TUIElement;
+   c:TUIElement;
   begin
-   r:=modalElement;
    for i:=0 to hotKeysCnt-1 do
     if (hotKeys[i].vKey=keycode) then
       if (HotKeys[i].shiftstate=shiftstate) or
          ((HotKeys[i].shiftstate>0) and (HotKeys[i].shiftstate and ShiftState=HotKeys[i].shiftstate)) then
        begin
         c:=hotkeys[i].element;
-        while (c<>r) and (c.parent<>nil) and c.enabled and c.visible do c:=c.parent;
-        if c=r then hotkeys[i].element.onHotKey(keycode,shiftstate);
+        if c.IsVisible and c.IsEnabled then
+         if (modalElement=nil) or (c.HasParent(modalElement)) then
+          c.onHotKey(keycode,shiftstate);
        end;
   end;
 
@@ -911,7 +911,6 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  procedure TUIElement.onHotKey(keycode,shiftstate:byte);
   begin
-
   end;
 
  function TUIElement.onKey(keycode:byte; pressed:boolean;shiftstate:byte):boolean;
