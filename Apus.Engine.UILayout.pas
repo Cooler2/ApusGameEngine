@@ -114,6 +114,7 @@ procedure TRowLayout.Layout(item:TUIElement);
    weightSum:=0;
    with item do begin
     for i:=0 to high(children) do begin
+     if not children[i].visible then continue;
      if vertical then childSize:=childSize+children[i].size.y
        else childSize:=childSize+children[i].size.x;
      weightSum:=weightSum+children[i].layoutData;
@@ -124,6 +125,7 @@ procedure TRowLayout.Layout(item:TUIElement);
     // Distribute extra space among children and position them
     pos:=0;
     for i:=0 to high(children) do begin
+     if not children[i].visible then continue;
      delta:=extraSpace*children[i].layoutData/weightSum;
      if vertical then begin
       children[i].Resize(-1,children[i].size.y+delta);
