@@ -398,11 +398,8 @@ begin
       if fieldname='styleinfo' then begin
        result:=obj; varClass:=TVarTypeStyleinfo;
       end else
-      if fieldname='scalex' then begin
-       result:=@obj.scale.x; varClass:=TVarTypeSingle;
-      end else
-      if fieldname='scaley' then begin
-       result:=@obj.scale.y; varClass:=TVarTypeSingle;
+      if fieldname='scale' then begin
+       result:=@obj.scale; varClass:=TVarTypeSingle;
       end else
       if fieldname='signals' then begin
        result:=@obj.sendsignals; varClass:=TVarTypeSendSignals;

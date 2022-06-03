@@ -22,9 +22,7 @@ const
  pivotCenter:TPoint2s=(x:0.5; y:0.5);
 
 type
- TUIRect=record
-  left,top,right,bottom:single;
- end;
+ TUIRect=TRect2s;
  TAnchorMode=TUIRect;
 
  // UI snapping modes
@@ -60,7 +58,7 @@ type
  // Behaviour: how element reacts on parent resize
  TUIPlacementMode=(pmAnchored,      // Anchors are used
                    pmProportional,  // Elements area (position/size) is changed proportionally
-                   pmCenter);       // Elements center is moved proportionally, but size remains
+                   pmMoveProportional);  // Elements is moved proportionally, but size remains
 
  TUIElement=class;
  TRegion = Apus.Regions.TRegion;
@@ -86,14 +84,16 @@ type
 
  // Base class of the UI element
  TUIElement=class(TNamedObject)
+  // This define element's OUTER rect - in PARENT coordinates (i.e. scale doesn't affect this)
   position:TPoint2s;  // root point position in parent's client rect
-  pivot:TPoint2s; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
-  scale:TVector2s; // scale factor for this element (size) and all children elements
   size:TVector2s; // dimension of this element
-  padding:TUIRect; // defines element's client area (how much to deduct from the element's area)
+  pivot:TPoint2s; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
   anchors:TUIRect; // how much left/top/right/bottom border should absorb from parent's size change delta
   shape:TElementShape;  // define which part of the element can react on mouse input (opaque part)
   shapeRegion:TRegion;   // задает область непрозрачности в режиме tmCustom (поведение по умолчанию)
+  // Inner parts - scaled
+  scale:single; // scale factor for INNER parts of the element and all its children elements
+  padding:TUIRect; // defines element's client area (how much to deduct from the element's area)
   scroll:TVector2s; // смещение (используется для вложенных эл-тов!) SUBTRACT from children pos
   scrollerH,scrollerV:IScroller;  // если для прокрутки используются скроллбары - здесь можно их определить
   placementMode:TUIPlacementMode;  // Реакция на изменение размеров предка
@@ -219,7 +219,7 @@ type
   function SetPaddings(padding:single):TUIElement; overload;
   function SetPaddings(left,top,right,bottom:single):TUIElement; overload;
   // Set same value for X/Y scale and optionally resize to keep the original dimensions
-  function SetScale(newScale:single;maintainDimensions:boolean=true):TUIElement;
+  function SetScale(newScale:single):TUIElement;
   // Change element size and adjust children elements !!! new size IN PARENTs space!
   // Pass -1 to keep current value
   procedure Resize(newWidth,newHeight:single); virtual;
@@ -267,19 +267,21 @@ type
   procedure RemoveFromRootElements;
   function GetClientWidth:single;
   function GetClientHeight:single;
-  function GetGlobalScale:TVector2s;
+  function GetGlobalScale:single;
   procedure SetName(n:String8); override;
   procedure SetStyleInfo(sInfo:String8);
+  procedure ClientSizeChanged(dX,dY:single); // client area was resized because of size or scale change
+  procedure ParentSizeChanged(dX,dY:single); // parent's client area was resized - adopt element position/size
   class function ClassHash:pointer; override;
  public
   property width:single read size.x write size.x;
   property height:single read size.y write size.y;
   property clientWidth:single read GetClientWidth;
   property clientHeight:single read GetClientHeight;
-  property globalScale:TVector2s read GetGlobalScale; // element scale in screen pixels
-  property initialSize:TVector2s read fInitialSize; // Size when created
+  property globalScale:single read GetGlobalScale; // how many screen pixels are in an element with size=1.0
+  property initialSize:TVector2s read fInitialSize; // size when created
   property styleInfo:String8 read fStyleInfo write SetStyleInfo;
-  property font:TFontHandle read GetFont write fFont;
+  property font:TFontHandle read GetFont write fFont; // not scaled by SELF scale, scaled by PARENT scale
   property color:cardinal read GetColor write fColor;
  end;
 
@@ -378,6 +380,8 @@ implementation
 
  { TUIElement }
 
+ // Transform point from element own CS to the target parent element's CS (nil - to the screen)
+ // I.e. (0,0) is a top-left corner of the element's CLIENT area
  function TUIElement.TransformTo(const p:TPoint2s;target:TUIElement):TPoint2s;
   var
    parentScrollX,parentScrollY:single;
@@ -399,8 +403,8 @@ implementation
      //  result.x:=result.x-size.x*pivot.x; // теперь относительно pivot point
      //  result.x:=result.x*scale.x; // теперь в масштабе предка
      //  result.x:=position.x-parentScrollX+result.x; // теперь относительно верхнего левого угла клиентской области предка
-     result.x:=position.x-parentScrollX-scale.x*(size.x*pivot.x-(result.x+padding.Left));
-     result.y:=position.y-parentScrollY-scale.y*(size.y*pivot.y-(result.y+padding.Top));
+     result.x:=position.x-parentScrollX-size.x*pivot.x+scale*(result.x+padding.Left);
+     result.y:=position.y-parentScrollY-size.y*pivot.y+scale*(result.y+padding.Top);
     end;
     c:=c.parent;
    until (c=nil) or (c=target);
@@ -416,52 +420,56 @@ implementation
    result:=Rect2s(p1.x,p1.y, p2.x,p2.y);
   end;
 
+ function TUIElement.TransformToScreen(const p:TPoint2s):TPoint2s;
+  begin
+   result:=TransformTo(p,nil);
+  end;
+
+ function TUIElement.TransformToScreen(const r:TRect2s):TRect2s;
+  begin
+   result:=TransformTo(r,nil);
+  end;
+
+ function TUIElement.GetPosOnScreen:TRect;
+  begin
+   globalRect:=RoundRect(TransformToScreen(GetRect));
+   result:=globalRect;
+  end;
+
+ function TUIElement.GetClientPosOnScreen:TRect;
+  begin
+   result:=RoundRect(TransformToScreen(GetClientRect));
+  end;
+
  function TUIElement.GetRect:TRect2s; // Get element's area in own CS
   begin
    result.x1:=-padding.Left;
    result.y1:=-padding.Top;
-   result.x2:=size.x-padding.Left;
-   result.y2:=size.y-padding.Top;
+   result.x2:=size.x/scale-padding.Left;
+   result.y2:=size.y/scale-padding.Top;
   end;
 
  function TUIElement.GetClientRect:TRect2s; // Get element's client area in own CS
   begin
    result.x1:=0;
    result.y1:=0;
-   result.x2:=size.x-padding.Left-padding.Right;
-   result.y2:=size.y-padding.Top-padding.Bottom;
+   result.x2:=size.x/scale-padding.Left-padding.Right;
+   result.y2:=size.y/scale-padding.Top-padding.Bottom;
   end;
 
  function TUIElement.GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
   begin
-   result:=TransformTo(GetRect,parent);
+   result.topLeft:=position;
+   result.right:=position.x+size.x;
+   result.bottom:=position.y+size.y;
   end;
 
  procedure TUIElement.Center(setAnchors:boolean=true);
-  var
-   r,rP:TRect2s;
-   pW,pH,dx,dy:single;
   begin
-   r:=GetRect;
    ASSERT(parent<>nil,'Cannot center a root UI element');
-   SetPos(parent.width/2,parent.height/2,pivotCenter);
+   SetPos(parent.clientWidth/2,parent.clientHeight/2,pivotCenter);
    if setAnchors then self.SetAnchors(0.5,0.5,0.5,0.5);
   end;
-
-  {procedure TUIControl.Scale(sX,sY:single);
-  var
-   c:TUIControl;
-  begin
-   if (x>0) or (y>0) or
-      (width<rootWidth) or (height<rootHeight) then begin
-    x:=round(x*sX);
-    y:=round(y*sY);
-    width:=round(width*sX);
-    height:=round(height*sY);
-   end;
-   for c in children do
-    c.Scale(sx,sy);
-  end;}
 
  procedure TUIElement.CheckAndSetFocus;
   begin
@@ -495,7 +503,7 @@ implementation
    position:=Point2s(0,0);
    size:=Point2s(width,height);
    fInitialSize:=size;
-   scale:=Point2s(1,1);
+   scale:=1.0;
    pivot:=Point2s(0,0);
    //paddingLeft:=0; paddingRight:=0; paddingTop:=0; paddingBottom:=0;
    shape:=shapeEmpty;
@@ -849,27 +857,6 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    end;
   end;
 
- function TUIElement.TransformToScreen(const p:TPoint2s):TPoint2s;
-  begin
-   result:=TransformTo(p,nil);
-  end;
-
- function TUIElement.TransformToScreen(const r:TRect2s):TRect2s;
-  begin
-   result:=TransformTo(r,nil);
-  end;
-
- function TUIElement.GetPosOnScreen:TRect;
-  begin
-   globalRect:=RoundRect(TransformToScreen(GetRect));
-   result:=globalRect;
-  end;
-
- function TUIElement.GetClientPosOnScreen:TRect;
-  begin
-   result:=RoundRect(TransformToScreen(GetClientRect));
-  end;
-
  function TUIElement.GetPrev:TUIElement;
   var
    i,n:integer;
@@ -1056,7 +1043,12 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  function TUIElement.GetClientWidth:single;
   begin
-   result:=size.x-padding.left-padding.right;
+   result:=size.x/scale-padding.left-padding.right;
+  end;
+
+function TUIElement.GetClientHeight:single;
+  begin
+   result:=size.y/scale-padding.Top-padding.Bottom;
   end;
 
  function TUIElement.GetFont:TFontHandle;
@@ -1066,15 +1058,15 @@ function TUIElement.IsChild(c:TUIElement):boolean;
   begin
    if self=nil then exit(0);
    result:=fFont;
-   upscale:=(scale.x+scale.y)*0.5;
+   upscale:=1.0;
    item:=parent;
    while (result=0) and (item<>nil) do begin
     result:=item.fFont;
     if result=0 then
-     upscale:=upscale*(item.scale.x+item.scale.y)*0.5;
+     upscale:=upscale*item.scale;
     item:=item.parent;
    end;
-   if (result<>0) and (abs(upscale-1)>0.1) then
+   if (result<>0) and (Ratio(upscale,1)>1.1) then
     result:=txt.ScaleFont(result,upScale);
   end;
 
@@ -1091,21 +1083,14 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    end;
   end;
 
-
- function TUIElement.GetClientHeight:single;
-  begin
-   result:=size.y-padding.Top-padding.Bottom;
-  end;
-
- function TUIElement.GetGlobalScale:TVector2s;
+  function TUIElement.GetGlobalScale:single;
   var
    c:TUIElement;
   begin
-   result:=scale;
+   result:=1.0;
    c:=parent;
    while c<>nil do begin
-    result.x:=result.x*c.scale.x;
-    result.y:=result.y*c.scale.y;
+    result:=result*c.scale;
     c:=c.parent;
    end;
   end;
@@ -1156,12 +1141,12 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  procedure TUIElement.MoveBy(dx,dy:single);
   var
+   s:single;
    delta:TVector2s;
   begin
-   delta:=globalScale;
-   VectInv(delta);
-   delta:=VectMult(Point2s(dx,dy),delta);
-   VectAdd(position,delta);
+   s:=1/globalScale;
+   dx:=dx*s; dy:=dy*s;
+   VectAdd(position,Point2s(dx,dy));
   end;
 
  function TUIElement.SetAnchors(left,top,right,bottom:single):TUIElement;
@@ -1188,13 +1173,68 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    result:=SetPaddings(padding,padding,padding,padding);
   end;
 
- function TUIElement.SetScale(newScale:single;maintainDimensions:boolean=true):TUIElement;
+ function TUIElement.SetScale(newScale:single):TUIElement;
+  var
+   oldW,oldH:single;
   begin
-   if maintainDimensions then
-    self.Resize(width*scale.x/newScale,height*scale.y/newScale);
    result:=self;
-   scale.x:=newScale;
-   scale.y:=newScale;
+   if newScale<>scale then begin
+    oldW:=clientWidth;
+    oldH:=clientHeight;
+    scale:=newScale;
+    ClientSizeChanged(clientWidth-oldW,clientHeight-oldH); // update children
+   end;
+  end;
+
+ procedure TUIElement.Resize(newWidth,newHeight:single);
+  var
+   oldW,oldH:single;
+  begin
+   oldW:=clientWidth;
+   oldH:=clientHeight;
+   if newWidth>-1 then size.x:=newWidth;
+   if newHeight>-1 then size.y:=newHeight;
+   ClientSizeChanged(clientWidth-oldW,clientHeight-oldH); // update children
+  end;
+
+ procedure TUIElement.ClientSizeChanged(dX,dY:single);
+  var
+   i:integer;
+  begin
+   for i:=0 to length(children)-1 do
+    children[i].ParentSizeChanged(dX,dY);
+   if scrollerH<>nil then scrollerH.SetPageSize(clientWidth);
+   if scrollerV<>nil then scrollerV.SetPageSize(clientHeight);
+  end;
+
+ procedure TUIElement.ParentSizeChanged(dX,dY:single);
+  var
+   rect:TRect2s;
+   pW,pH,rX,rY:single;
+  begin
+   case placementMode of
+    pmAnchored:begin // move/resize considering anchors
+     Resize(size.x+dX*(anchors.Right-anchors.Left),size.y+dY*(anchors.Bottom-anchors.Top));
+     rect:=GetRectInParentSpace;
+     // adjust rect boundary according to anchors
+     rect.x1:=rect.left+dX*anchors.Left;
+     rect.y1:=rect.top+dY*anchors.Top;
+     rect.x2:=rect.right+dX*anchors.Right;
+     rect.y2:=rect.bottom+dY*anchors.Bottom;
+     // set position to the calculated pivot point
+     position.x:=rect.x1*(1-pivot.x)+rect.x2*pivot.x;
+     position.y:=rect.y1*(1-pivot.y)+rect.y2*pivot.y;
+    end;
+    pmProportional,pmMoveProportional:begin // parent is "rubber", move proportionally
+     pW:=parent.clientWidth;
+     rX:=pW/(pW-dX);
+     pH:=parent.clientHeight;
+     rY:=pH/(pH-dY);
+     if placementMode=pmProportional then
+      Resize(size.x*rX,size.y*rY);
+     VectMult(position,Point2s(rX,rY));
+    end;
+   end;
   end;
 
  procedure TUIElement.SetStyleInfo(sInfo:String8);
@@ -1203,29 +1243,6 @@ function TUIElement.IsChild(c:TUIElement):boolean;
     fStyleInfo:=sInfo;
     styleInfoChanged:=true;
    end;
-  end;
-
- procedure TUIElement.Resize(newWidth,newHeight:single);
-  var
-   i:integer;
-   childRect:TRect2s;
-   dW,dH:single;
-  begin
-   if newWidth>-1 then dW:=newwidth-size.x else dW:=0;
-   if newHeight>-1 then dH:=newHeight-size.y else dH:=0;
-   VectAdd(size,Point2s(dW,dH));
-   for i:=0 to length(children)-1 do with children[i] do begin
-    Resize(size.x+dW*(anchors.Right-anchors.Left),size.y+dH*(anchors.Bottom-anchors.Top));
-    childRect:=TransformTo(GetRect(),parent);
-    childRect.x1:=childRect.x1+dW*anchors.Left;
-    childRect.y1:=childRect.y1+dH*anchors.Top;
-    childRect.x2:=childRect.x2+dW*anchors.Right;
-    childRect.y2:=childRect.y2+dH*anchors.Bottom;
-    position.x:=childRect.x1*(1-pivot.x)+childRect.x2*pivot.x;
-    position.y:=childRect.y1*(1-pivot.y)+childRect.y2*pivot.y;
-   end;
-   if scrollerH<>nil then scrollerH.SetPageSize(clientWidth);
-   if scrollerV<>nil then scrollerV.SetPageSize(clientHeight);
   end;
 
  procedure TUIElement.SafeDestroy;

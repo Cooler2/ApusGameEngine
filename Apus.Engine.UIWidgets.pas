@@ -634,13 +634,13 @@ procedure TUIButton.DoClick;
 
  procedure TUIWindow.onMouseMove;
   var
-   iScale:Tvector2s;
+   iScale:single;
    dx,dy:single;
   begin
    if hooked then begin
-    iScale:=VectDiv(scale,globalScale); // pixels to parent's space scale
-    dx:=(curMouseX-oldMouseX)*iScale.x;
-    dy:=(curMouseY-oldMouseY)*iScale.y;
+    iScale:=scale/globalScale; // pixels to parent's space scale
+    dx:=(curMouseX-oldMouseX)*iScale;
+    dy:=(curMouseY-oldMouseY)*iScale;
     // Drag
     if area=wcHeader then begin
      position:=PointAdd(position, Point2s(dx,dy));

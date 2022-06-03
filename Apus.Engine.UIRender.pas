@@ -178,15 +178,13 @@ implementation
  procedure DrawControlWithImage(c:TUIElement;img:TTexture;centered:boolean=false);
   var
    r:TRect;
-   p:TPoint2s;
-   scale:TVector2s;
+   scale:single;
   begin
+   r:=c.GetPosOnScreen;
    if centered then begin
-    p:=c.TransformTo(c.GetRect.Center,c.parent);
     scale:=c.globalScale;
-    draw.RotScaled(p.x,p.y,scale.x,scale.y,0,img);
+    draw.RotScaled((r.left+r.right)/2,(r.top+r.bottom)/2,scale,scale,0,img);
    end else begin
-    r:=c.GetPosOnScreen;
     with r do draw.Scaled(left,top,right+1,bottom+1,img);
    end;
   end;

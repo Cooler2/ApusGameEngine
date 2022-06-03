@@ -107,7 +107,7 @@ implementation
      if hintImage=nil then
        raise EError.Create('Failed to alloc hint image!');
     end;
-    size:=Point2s(iWidth/globalScale.x,iHeight/globalScale.y);
+    size:=Point2s(iWidth/globalScale,iHeight/globalScale);
     gfx.BeginPaint(hintImage);
     try
      gfx.target.Mask(true,true); // потенциально может вредить отрисовке следующих элементов
@@ -480,7 +480,7 @@ implementation
      gfx.clip.Restore;
      exit;
     end;
-    scrollPixels:=round(scroll.X*globalScale.x);
+    scrollPixels:=round(scroll.X*globalScale);
 
     if needpos>=0 then begin
      cursorpos:=0;

@@ -102,7 +102,8 @@ implementation
 
  procedure DrawButton(but:TUIButton;sNum:integer);
   var
-   bPos,bScale:TPoint2s;
+   bPos:TPoint2s;
+   bScale:single;
    cRect:TRect;
    i,j,k,l,ix,iy,v:integer;
    col,col2,c:cardinal;
@@ -116,10 +117,10 @@ implementation
         bStyle:=@btnStyles[sNum];
         bScale:=but.globalScale;
         bPos:=but.TransformToScreen(Point2s(but.size.x/2,but.size.y/2));
-        bPos.x:=bPos.x+bStyle.offsetX*bScale.x;
-        bPos.y:=bPos.y+bStyle.offsetY*bScale.y;
-        sx:=bStyle.scaleX*bScale.x;
-        sy:=bStyle.scaleY*bScale.y;
+        bPos.x:=bPos.x+bStyle.offsetX*bScale;
+        bPos.y:=bPos.y+bStyle.offsetY*bScale;
+        sx:=bStyle.scaleX*bScale;
+        sy:=bStyle.scaleY*bScale;
 
         v:=bStyle.opacity;
         if not enabled then tag:=0;
