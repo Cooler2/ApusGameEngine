@@ -249,6 +249,9 @@ type
   // Check if point is opaque in tmCustom mode (relative coordinates in [0..1] range)
   function IsOpaque(x,y:single):boolean; virtual;
 
+  // Out-of-order elements are not affected by layouter and other group operations
+  function IsOutOfOrder:boolean; virtual;
+
   // Helper methods
   procedure Show;
   procedure Hide;
@@ -925,6 +928,11 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    result:=false;
    if shapeRegion<>nil then
     result:=shapeRegion.TestPoint(x,y);
+  end;
+
+ function TUIElement.IsOutOfOrder:boolean;
+  begin
+   result:=(order<0) or (order>=$10000);
   end;
 
  procedure TUIElement.onChar(ch:char; scancode:byte);

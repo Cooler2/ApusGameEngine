@@ -71,6 +71,7 @@ procedure TRowLayout.Layout(item:TUIElement);
    for i:=0 to high(item.children) do begin
     c:=item.children[i];
     if not c.visible then continue;
+    if c.IsOutOfOrder then continue;
     r:=c.TransformTo(c.GetRect,item);
     if fHorizontal then begin
      delta.x:=pos-r.x1;
@@ -115,6 +116,7 @@ procedure TRowLayout.Layout(item:TUIElement);
    with item do begin
     for i:=0 to high(children) do begin
      if not children[i].visible then continue;
+     if children[i].IsOutOfOrder then continue;
      if vertical then childSize:=childSize+children[i].size.y
        else childSize:=childSize+children[i].size.x;
      weightSum:=weightSum+children[i].layoutData;
@@ -126,6 +128,7 @@ procedure TRowLayout.Layout(item:TUIElement);
     pos:=0;
     for i:=0 to high(children) do begin
      if not children[i].visible then continue;
+     if children[i].IsOutOfOrder then continue;
      delta:=extraSpace*children[i].layoutData/weightSum;
      if vertical then begin
       children[i].Resize(-1,children[i].size.y+delta);
