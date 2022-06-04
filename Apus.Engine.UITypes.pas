@@ -249,11 +249,17 @@ type
   // Check if point is opaque in tmCustom mode (relative coordinates in [0..1] range)
   function IsOpaque(x,y:single):boolean; virtual;
 
+  // Helper methods
+  procedure Show;
+  procedure Hide;
+  procedure Toggle;
+  procedure Enable;
+  procedure Disable;
+
   // Whether element behave as window: track focused child
   class function IsWindow:boolean; virtual;
   function IsActiveWindow:boolean; virtual;
 
-  // Static method => nil-safe
   function GetName:string8;
   function GetFont:TFontHandle; // returns own or inherited font handle
   function GetColor:cardinal;
@@ -791,6 +797,31 @@ implementation
    result:=self;
    if self=nil then exit;
    while result.parent<>nil do result:=result.parent;
+  end;
+
+ procedure TUIElement.Show;
+  begin
+   visible:=true;
+  end;
+
+ procedure TUIElement.Hide;
+  begin
+   visible:=false;
+  end;
+
+ procedure TUIElement.Toggle;
+  begin
+   visible:=not visible;
+  end;
+
+ procedure TUIElement.Enable;
+  begin
+   enabled:=true;
+  end;
+
+ procedure TUIElement.Disable;
+  begin
+   enabled:=false;
   end;
 
  function TUIElement.IsVisible:boolean;
