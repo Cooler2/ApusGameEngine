@@ -113,6 +113,7 @@ interface
    procedure SetPressed(pr:boolean); virtual;
    procedure MakeSwitches(sameGroup:boolean=true); // make all sibling buttons with the same size - switches
    procedure Click; virtual; // simulate click
+   class var active:TUIButton; // link to the active button (can be used in click handlers)
   protected
    procedure DoClick;
   private
@@ -386,6 +387,7 @@ procedure TUIButton.DoClick;
    i:integer;
   begin
    // Toggle switch button
+   active:=self;
    if btnStyle<>bsNormal then begin
     if group=0 then SetPressed(not pressed)
      else begin
