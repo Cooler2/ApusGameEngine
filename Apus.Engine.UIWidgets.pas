@@ -409,7 +409,7 @@ procedure TUIButton.DoClick;
     if (sendSignals<>ssNone) and (MyTickCount>lastPressed+50) then begin
      Signal('UI\'+name+'\Click',byte(pressed));
      Signal('UI\onButtonClick\'+name,TTag(self));
-     if Assigned(onClick) then onClick;
+     if Assigned(onClick) then game.RunAsync(@onClick);
      lastPressed:=MyTickCount;
     end;
    end;
