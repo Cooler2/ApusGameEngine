@@ -35,6 +35,9 @@ interface
    constructor Init(p:TPoint3); overload;
    procedure Normalize;
    function IsValid:boolean;
+   function Length:single;  // Vector length
+   function Length2:single; // Square length
+   procedure Multiply(scalar:single);
    case integer of
    0:( x,y,z:single; );
    1:( v:array[0..2] of single; );
@@ -2242,6 +2245,22 @@ function TPoint3s.IsValid: boolean;
   result:=x=x;
  end;
 
+function TPoint3s.Length:single;
+ begin
+  result:=sqrt(x*x+y*y+z*z);
+ end;
+
+function TPoint3s.Length2:single;
+ begin
+  result:=x*x+y*y+z*z;
+ end;
+
+procedure TPoint3s.Multiply(scalar:single);
+ begin
+  x:=x*scalar;
+  y:=y*scalar;
+  z:=z*scalar;
+ end;
 
 { TQuaternion }
 
