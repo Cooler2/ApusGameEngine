@@ -49,7 +49,7 @@ type
 
   constructor Create;
   procedure DefaultView; virtual;
-  procedure Perspective(fov:single;zMin,zMax:double); overload; virtual;
+  procedure Perspective(fov:single;zMin,zMax:double); overload; virtual; // FOV in radians - on larger screen axis
   procedure Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); overload; virtual;
   procedure Orthographic(scale,zMin,zMax:double); virtual;
   procedure SetProjection(proj:T3DMatrix); virtual;
@@ -73,11 +73,13 @@ type
   function Transform(source:TPoint3s):TPoint3s; overload;
 
   // Единичный вектор из камеры в направлении экранного пикселя
-  function ViewDir(scrX,scrY:integer):TVector3s; overload; // view direction vector
+  function ViewDir(scrX,scrY:integer):TVector3s; overload; // unit vector to pixel (scrX,scrY)
   function ViewDir(viewPos:TPoint2s):TVector3s; overload; // viewPos in range of -1..1 (y axis is up)
-  function ViewVec:TVector3s; inline; // camera front vector
-  function RightVec:TVector3s; inline; // camera front vector
-  function DownVec:TVector3s; inline; // camera front vector
+  function ViewVec:TVector3s; inline; // camera front unit vector
+  function RightVec:TVector3s; inline; // camera right unit vector
+  function DownVec:TVector3s; inline; // camera down unit vector
+  function ProjWidth:single; inline; // screen projection width in camera view (xMax-xMin)
+  function ProjHeight:single; inline; // screen projection height in camera view (yMax-yMin)
   function CameraPos:TPoint3s; inline; // get current camera position
   function Depth(pnt:TPoint3s):single; overload; // get point depth (i.e. distance along camera view vector)
   function MinDepth:single; inline; // get minimal depth value (zMin)
@@ -86,7 +88,7 @@ type
   TMatrixType=(mtModelView,mtProjection);
  protected
   modified,modifiedVP:boolean;
-  zMin,zMax:single;
+  zMin,zMax,xMax,xMin,yMax,yMin:single;
   procedure CalcMVP;
   procedure CalcInvVP;
  end;
@@ -298,7 +300,21 @@ procedure TTransformationAPI.Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,
 
   self.zMin:=zMin;
   self.zMax:=zMax;
+  self.xMin:=xMin;
+  self.xMax:=xMax;
+  self.yMin:=yMin;
+  self.yMax:=yMax;
   modified:=true;
+ end;
+
+function TTransformationAPI.ProjHeight:single;
+ begin
+  result:=yMax-yMin;
+ end;
+
+function TTransformationAPI.ProjWidth:single;
+ begin
+  result:=xMax-xMin;
  end;
 
 procedure TTransformationAPI.Perspective(fov:single;zMin,zMax:double);

@@ -454,6 +454,8 @@ type
   function ViewVec:TVector3s; // camera front vector
   function RightVec:TVector3s; // camera right (screen X+) vector
   function DownVec:TVector3s;  // camera down (screen Y+) vector
+  function ProjWidth:single; // screen projection width in camera view (xMax-xMin)
+  function ProjHeight:single; // screen projection height in camera view (yMax-yMin)
   function CameraPos:TPoint3s; // get current camera position
   function Depth(pnt:TPoint3s):single; // get point depth (i.e. distance along camera view vector)
   function MinDepth:single; // get minimal depth value (zMin)
