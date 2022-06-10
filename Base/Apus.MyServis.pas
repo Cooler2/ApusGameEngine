@@ -561,6 +561,12 @@ interface
  procedure Toggle(var b:boolean); inline;
  function GetBit(data:cardinal;index:integer):boolean; overload; inline;
  function GetBit(data:uint64;index:integer):boolean; overload; inline;
+ // Set bit to the specified value
+ procedure SetBit(var data:byte;index:integer;value:boolean); overload; inline;
+ procedure SetBit(var data:word;index:integer;value:boolean); overload; inline;
+ procedure SetBit(var data:cardinal;index:integer;value:boolean); overload; inline;
+ procedure SetBit(var data:uint64;index:integer;value:boolean); overload; inline;
+ // Set bit to 1
  procedure SetBit(var data:byte;index:integer); overload; inline;
  procedure SetBit(var data:word;index:integer); overload; inline;
  procedure SetBit(var data:cardinal;index:integer); overload; inline;
@@ -3534,6 +3540,27 @@ function BinToStr;
  function GetBit(data:uint64;index:integer):boolean; overload; inline;
   begin
    result:=data and (uint64(1) shl index)<>0;
+  end;
+
+ procedure SetBit(var data:byte;index:integer;value:boolean); overload; inline;
+  begin
+   if value then data:=data or (byte(1) shl index)
+    else data:=data and not (byte(1) shl index);
+  end;
+ procedure SetBit(var data:word;index:integer;value:boolean); overload; inline;
+  begin
+   if value then data:=data or (word(1) shl index)
+    else data:=data and not (word(1) shl index);
+  end;
+ procedure SetBit(var data:cardinal;index:integer;value:boolean); overload; inline;
+  begin
+   if value then data:=data or (cardinal(1) shl index)
+    else data:=data and not (cardinal(1) shl index);
+  end;
+ procedure SetBit(var data:uint64;index:integer;value:boolean); overload; inline;
+  begin
+   if value then data:=data or (uint64(1) shl index)
+    else data:=data and not (uint64(1) shl index);
   end;
 
  procedure SetBit(var data:byte;index:integer); overload; inline;
