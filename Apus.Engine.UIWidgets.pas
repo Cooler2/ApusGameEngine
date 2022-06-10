@@ -7,7 +7,7 @@
 // ------------------------------------------------------
 unit Apus.Engine.UIWidgets;
 interface
- uses Apus.MyServis, Apus.AnimatedValues,
+ uses Types, Apus.MyServis, Apus.AnimatedValues,
    Apus.Engine.API, Apus.Engine.UITypes;
 
  {$WRITEABLECONST ON}
@@ -208,18 +208,21 @@ interface
   TUIScrollBar=class(TUIElement)
   private
    rValue:TAnimatedValue;
+   sliderRect:TRect;
    function GetValue:single;
    procedure SetValue(v:single);
    function GetAnimating:boolean;
    procedure SetPageSize(pageSize:single);
    function GetStep:single;
   public
-   min,max:single; // границы диапазона
-   pagesize:single; // размер ползунка (в пределах диапазона)
+   horizontal:boolean; // orientation
+   isInteger:boolean; // should value be always integer
+   min,max:single; // range
+   pagesize:single; // slider size (within range)
    step:single; // add/subtract this amount with mouse scroll or similar events
-   color:cardinal;
-   horizontal:boolean;
-   over:boolean;
+   minSliderSize:integer; // minimal slider size in pixels
+   sliderUnder:boolean; // mouse is over slider
+   sliderStart,sliderEnd:single; // relative position of slider (in 0..size.x/y range)
    constructor Create(width,height:single;barName:string;parent_:TUIElement);
    function GetScroller:IScroller;
    function SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
@@ -230,6 +233,7 @@ interface
    procedure Link(elem:TUIElement); virtual;
    // Сигналы от этих кнопок будут использоваться для перемещения ползунка
    procedure UseButtons(lessBtn,moreBtn:string);
+   procedure CalcSliderPos;
 
    procedure onMouseMove; override;
    procedure onMouseButtons(button:byte;state:boolean); override;
@@ -239,7 +243,6 @@ interface
   protected
    linkedControl:TUIElement;
    delta:integer; // смещение точки курсора относительно точки начала ползунка (если hooked)
-   needval:integer; // значение, к которому нужно плавно прийти
    moving:boolean;
    scroller:TObject;
   end;
@@ -288,7 +291,7 @@ interface
   end;
 
 implementation
- uses SysUtils, Types, Apus.Types, Apus.CrossPlatform, Apus.EventMan, Apus.Geom2D, Apus.Clipboard;
+ uses SysUtils, Apus.Types, Apus.CrossPlatform, Apus.EventMan, Apus.Geom2D, Apus.Clipboard;
 
  type
   TScrollBarInterface=class(TInterfacedObject, IScroller)
@@ -989,7 +992,7 @@ procedure TUIButton.DoClick;
    min:=0; max:=100; rValue.Init(0); pagesize:=0;
    linkedControl:=nil; step:=1;
    color:=$FFB0B0B0;
-   horizontal:=width>height;
+   horizontal:=size.x>size.y;
    // hooked:=false;
    scroller:=TScrollBarInterface.Create(self);
   end;
@@ -1000,24 +1003,29 @@ procedure TUIButton.DoClick;
   end;
 
 function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
+  var
+   pSize:single;
   begin
    min:=newMin; max:=newMax; pageSize:=newPageSize;
+   pSize:=Clamp(pageSize,0,max-min);
+   rValue.Assign(Clamp(rValue.FinalValue,min,max-pSize));
   end;
 
  function TUIScrollBar.GetValue:single;
   begin
    result:=rValue.value;
-   if result>max-pagesize then result:=max-pageSize;
-   if result<min then result:=min;
+   if isInteger then result:=round(result);
+   Clamp(result,min,max-pageSize);
   end;
 
  procedure TUIScrollBar.Link(elem:TUIElement);
   begin
-   LinkedControl:=elem;
+   linkedControl:=elem;
   end;
 
  procedure TUIScrollBar.SetValue(v:single);
   begin
+   v:=Clamp(v,min,max-pageSize);
    rValue.Assign(v);
   end;
 
@@ -1035,6 +1043,42 @@ function TUIScrollBar.GetStep:single;
   begin
    result:=step;
   end;
+
+procedure TUIScrollBar.CalcSliderPos;
+ var
+  minSliderSize,fullSize,v,pSize:single;
+ begin
+  if horizontal then begin
+   minSliderSize:=size.y*0.75;
+   fullSize:=size.x;
+  end else begin
+   minSliderSize:=size.x*0.75;
+   fullSize:=size.y;
+  end;
+  pSize:=pageSize;
+  if pSize>max-min then pSize:=max-min;
+  v:=rValue.Value;
+  v:=Clamp(v,min,max-pSize);
+  sliderStart:=fullSize*(v-min)/(max-min);
+  if sliderStart<0 then sliderStart:=0;
+  sliderEnd:=fullSize*(v+pSize-min)/(max-min);
+  if sliderEnd>fullSize then sliderEnd:=fullSize;
+  if sliderEnd-sliderStart<minSliderSize then begin
+   // slider is too small - treat it as a point
+   fullSize:=fullSize-minSliderSize;
+   sliderStart:=fullSize*(v-min)/(max-min);
+   sliderEnd:=sliderStart+minSliderSize;
+  end;
+  sliderRect:=globalRect;
+  if horizontal then begin
+   sliderRect.left:=globalRect.left+round(globalRect.Width*(sliderStart/size.x));
+   sliderRect.right:=globalRect.left+round(globalRect.Width*(sliderEnd/size.x));
+  end else begin
+   sliderRect.Top:=globalRect.top+round(globalRect.Height*(sliderStart/size.y));
+   sliderRect.Bottom:=globalRect.top+round(globalRect.Height*(sliderEnd/size.y));
+  end;
+  sliderUnder:=PtInRect(sliderRect,Point(curMouseX,curMouseY));
+ end;
 
 procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
   begin
@@ -1068,28 +1112,33 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    p:single;
   begin
    inherited;
-   if state and (hooked=nil) and over then begin
+   globalRect:=GetPosOnScreen;
+   CalcSliderPos;
+   // Mouse pressed over the slider - hook it!
+   if state and (hooked=nil) and sliderUnder then begin
     hooked:=self;
     delta:=-1;
     clipMouse:=cmVirtual;
     clipMouseRect:=globalrect;
    end;
+   // Mouse released when slider is hooked - release it
    if (hooked=self) and not state then begin
     hooked:=nil;
     clipmouse:=cmNo;
-    signal('Mouse\UpdatePos');
+    Signal('Mouse\UpdatePos');
    end;
-   if not (over or (hooked=self)) and state and globalrect.Contains(Point(curMouseX,curMouseY)) then begin
-    // Assume that 0-sized page trackbar is 8 pixels wide
+   // Slider not hooked, pressed outside slider
+   if not (sliderUnder or (hooked=self)) and state and
+      globalrect.Contains(Point(curMouseX,curMouseY)) then begin
     if horizontal then
-     p:=(curMouseX-globalRect.Left-4)/(globalRect.Width-8)
+     p:=(curMouseX-globalRect.Left)/(globalRect.Width)
     else
-     p:=(curMouseY-globalRect.Top-4)/(globalRect.Height-8);
-    if p<0 then p:=0;
-    if p>1 then p:=1;
+     p:=(curMouseY-globalRect.Top)/(globalRect.Height);
+
+    Clamp(p,0,1);
     MoveTo(min+round((max-min-pagesize)*p));
     onMouseMove;
-    onMouseButtons(button,true);
+    //onMouseButtons(button,true);
    end;
   end;
 
@@ -1128,11 +1177,11 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    if p1<0 then p1:=0;
    if p2>1 then p2:=1;
    if horizontal then begin
-    over:=(curMouseY>=globalrect.Top) and (curMouseY<globalrect.Bottom) and
+    sliderUnder:=(curMouseY>=globalrect.Top) and (curMouseY<globalrect.Bottom) and
           (curMouseX>=globalrect.Left+round(p1*(globalRect.width-8))) and
           (curMouseX<globalrect.Left+8+round(p2*(globalrect.width-8)));
    end else begin
-    over:=(curMouseX>=globalrect.Left) and (curMouseX<globalrect.Right) and
+    sliderUnder:=(curMouseX>=globalrect.Left) and (curMouseX<globalrect.Right) and
           (curMouseY>=globalrect.Top+round(p1*(globalrect.height-8))) and
           (curMouseY<globalrect.top+8+round(p2*(globalrect.height-8)));
    end;
@@ -1632,5 +1681,4 @@ function TScrollBarInterface.GetElement:TUIElement;
 initialization
  TUIButton.SetClassAttribute('handleMouseIfDisabled',true);
  TUIComboBox.SetClassAttribute('handleMouseIfDisabled',false);
-
 end.

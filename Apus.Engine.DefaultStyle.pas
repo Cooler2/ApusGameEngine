@@ -390,25 +390,27 @@ implementation
  procedure DrawUIScrollbar(control:TUIScrollbar;x1,y1,x2,y2:integer);
   var
    c,d,v:cardinal;
-   i,j,iWidth,iHeight:integer;
+   i,j,iWidth,iHeight,minWidth:integer;
   begin
    with control do begin
     c:=colorAdd(color,$202020);
     d:=ColorSub(color,$202020);
     iwidth:=x2-x1;
     iheight:=y2-y1;
+    CalcSliderPos;
     if horizontal then begin
      // Horizontal scrollbar
      draw.FillGradrect(x1,y1,x2,y2,d,c,true);
-     if enabled and (iwidth>=8) and (pagesize<max-min) then begin
+     minWidth:=max2(8,round((y2-y1)*0.75));
+     if enabled and (iwidth>=minWidth) and (pagesize<max-min) then begin
       v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
       d:=colorMix(v,$FF404040,128);
-      if over and not (hooked=control) then v:=ColorAdd(v,$101010);
-      i:=round((iwidth-8)*value/max);
-      j:=9+round((iwidth-8)*(value+pagesize)/max);
+      if sliderUnder and not (hooked=control) then v:=ColorAdd(v,$101010);
+      i:=round((x2-x1)*(sliderStart/size.x));
+      j:=round((x2-x1)*(sliderEnd/size.x));
       if i<0 then i:=0;
-      if j>=iwidth then j:=iwidth-1;
+      if j>iwidth then j:=iwidth;
       if j>i+6 then begin
        draw.FillGradrect(x1+i,y1,x1+j,y2,colorMix(v,$FFC0E0F0,192),colorMix(v,$FF0000A0,192),true);
        if (hooked=control) then draw.ShadedRect(x1+i,y1,x1+j,y2,1,d,d)
@@ -421,13 +423,14 @@ implementation
     end else begin
      // Vertical scrollbar
      draw.FillGradrect(x1,y1,x2,y2,d,c,false);
-     if enabled and (iheight>=8) and (pagesize<max-min) then begin
+     minWidth:=max2(8,round((x2-x1)*0.75));
+     if enabled and (iheight>=minWidth) and (pagesize<max-min) then begin
       v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
       d:=colorMix(v,$FF404040,128);
-      if over and not (hooked=control) then v:=ColorAdd(v,$101010);
-      i:=round((iheight-8)*value/max);
-      j:=9+round((iheight-8)*(value+pagesize)/max);
+      if sliderUnder and not (hooked=control) then v:=ColorAdd(v,$101010);
+      i:=round((y2-y1)*(sliderStart/size.y));
+      j:=round((y2-y1)*(sliderEnd/size.y));
       if i<0 then i:=0;
       if j>iheight then j:=iheight;
       if j>i+6 then begin

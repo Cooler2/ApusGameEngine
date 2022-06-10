@@ -272,7 +272,7 @@ implementation
      draw.FillGradrect(x1,y1,x2,y2,d,c,false);
      if enabled and (globalrect.height>=16) and (pagesize<max-min) then begin
       c:=colorMix(color,$FF909090,128);
-      if over and not (hooked=item) then c:=ColorAdd(c,$101010);
+      if sliderUnder and not (hooked=item) then c:=ColorAdd(c,$101010);
       i:=round((globalrect.height-16)*value/max);
       j:=15+round((globalrect.height-16)*(value+pagesize)/max);
       if i<0 then i:=0;

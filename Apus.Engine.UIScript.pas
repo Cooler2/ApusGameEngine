@@ -290,7 +290,6 @@ begin
        if obj is TUILabel then result:=@TUILabel(obj).color else
        if obj is TUIEditBox then result:=@TUIEditBox(obj).color else
        if obj is TUIImage then result:=@TUIImage(obj).color else
-       if obj is TUIScrollBar then result:=@TUIScrollBar(obj).color else
         exit;
        varClass:=TVarTypeARGB;
       end else
