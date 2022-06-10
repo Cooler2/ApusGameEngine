@@ -161,11 +161,16 @@ type
   function HasChild(c:TUIElement):boolean;
   // Delete all children elements
   procedure DeleteChildren;
+  // Return child index in children array (-1) if no parent
+  function ChildIndex:integer;
 
-  // Attach to a new parent
-  procedure AttachTo(newParent:TUIElement);
+  // Attach to a new parent (at children[pos] or at the end of the children list if pos<0)
+  procedure AttachTo(newParent:TUIElement;pos:integer=-1);
   // Detach from parent
   procedure Detach(shouldAddToRootControls:boolean=true);
+  // Insert as a sibling before/after the specified element
+  procedure InsertAfter(element:TUIElement);
+  procedure InsertBefore(element:TUIElement);
 
   // Transformations. Element's coordinate system is (0,0 - clientWidth,clinetHeight) where
   //   0,0 - is upper-left corner of the client area. This CS is for internal use.
@@ -283,6 +288,7 @@ type
   procedure SetStyleInfo(sInfo:String8);
   procedure ClientSizeChanged(dX,dY:single); // client area was resized because of size or scale change
   procedure ParentSizeChanged(dX,dY:single); // parent's client area was resized - adopt element position/size
+  procedure InsertRel(element:TUIElement;rel:integer);
   class function ClassHash:pointer; override;
  public
   property width:single read size.x write size.x;
@@ -597,9 +603,9 @@ implementation
    if shouldAddToRootControls then AddToRootElements;
   end;
 
- procedure TUIElement.AttachTo(newParent:TUIElement);
+ procedure TUIElement.AttachTo(newParent:TUIElement;pos:integer=-1);
   var
-   n:integer;
+   i,n:integer;
   begin
    ASSERT(newParent<>nil);
    if parent=newParent then exit;
@@ -607,10 +613,34 @@ implementation
     else RemoveFromRootElements;
    parent:=newParent;
    n:=length(parent.children);
-   {if n>0 then order:=parent.children[n-1].order+1
-    else order:=1;}
    SetLength(parent.children,n+1);
-   parent.children[n]:=self;
+   if pos<0 then pos:=n
+    else
+     for i:=n downto pos+1 do
+      parent.children[i]:=parent.children[i-1];
+   parent.children[pos]:=self;
+  end;
+
+ procedure TUIElement.InsertRel(element:TUIElement;rel:integer);
+  var
+   p:TUIElement;
+   n:integer;
+  begin
+   p:=element.parent;
+   ASSERT(p<>nil);
+   Detach(false);
+   n:=element.ChildIndex;
+   AttachTo(p,n+rel);
+  end;
+
+ procedure TUIElement.InsertAfter(element:TUIElement);
+  begin
+   InsertRel(element,1);
+  end;
+
+ procedure TUIElement.InsertBefore(element:TUIElement);
+  begin
+   InsertRel(element,0);
   end;
 
  function TUIElement.FindElementByName(name:string8):TUIElement;
@@ -783,16 +813,36 @@ implementation
    end;}
   end;
 
+ function TUIElement.ChildIndex:integer;
+  var
+   i:integer;
+   p:TUIElement;
+  begin
+   result:=-1;
+   p:=parent;
+   if p=nil then exit;
+   for i:=0 to high(p.children) do
+    if p.children[i]=self then exit(i);
+  end;
+
  function TUIElement.GetNext:TUIElement;
+  var
+   i:integer;
+  begin
+   if parent=nil then exit(self);
+   i:=childIndex+1;
+   if i>high(parent.children) then i:=0;
+   result:=parent.children[i];
+  end;
+
+ function TUIElement.GetPrev:TUIElement;
   var
    i,n:integer;
   begin
-   if parent=nil then begin result:=self; exit; end;
-   result:=nil;
-   n:=length(parent.children);
-   for i:=0 to n-1 do
-    if parent.children[i]=self then
-     result:=parent.children[(i+1) mod n];
+   if parent=nil then exit(self);
+   i:=childIndex-1;
+   if i<0 then i:=high(parent.children);
+   result:=parent.children[i];
   end;
 
  function TUIElement.GetRoot:TUIElement;
@@ -875,19 +925,6 @@ function TUIElement.IsChild(c:TUIElement):boolean;
      result:=true; exit;
     end;
    end;
-  end;
-
- function TUIElement.GetPrev:TUIElement;
-  var
-   i,n:integer;
-  begin
-   if parent=nil then begin result:=self; exit; end;
-   result:=nil;
-   n:=length(parent.children);
-   for i:=0 to n-1 do
-    if parent.children[i]=self then
-     if i=0 then result:=parent.children[n-1]
-      else result:=parent.children[i-1];
   end;
 
  function TUIElement.HasFocus:boolean;
@@ -1388,6 +1425,7 @@ procedure TUIElement.SetFocus;
 
  procedure TUIElement.SetFocusToPrev;
   begin
+   NotImplemented;
   end;
 
  procedure TUIElement.SetHotKey(vKeyCode,shiftstate:byte);
