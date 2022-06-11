@@ -216,11 +216,6 @@ function TGameScene.Process:boolean;
   begin
   end;
 
- function TGameScene.KeyPressed:boolean;
-  begin
-   result:=not keyBuffer.Empty;
-  end;
-
  procedure TGameScene.Load;
   begin
    loaded:=true;
@@ -244,13 +239,27 @@ function TGameScene.Process:boolean;
    ForceLogMessage('All scenes loaded!');
   end;
 
+ function TGameScene.KeyPressed:boolean;
+  begin
+   result:=not keyBuffer.Empty;
+  end;
+
  function TGameScene.ReadKey:cardinal;
   var
-   item:TDataItem;
+   item,next:TDataItem;
   begin
-   if keyBuffer.Get(item) then
-    result:=cardinal(item.data)
-   else
+   if keyBuffer.Get(item) then begin
+    result:=cardinal(item.data);
+    if not keyBuffer.Empty then begin
+     // It's possible that one keystroke event is logged twice: once for KEY event and then for CHAR event
+     // So check this out: if this event is for KEY and there is another for CHAR - drop this one and return the second one.
+     keyBuffer.Get(next);
+     if (next.data) and $FF00=(item.data) and $FF00 then  // same scancode
+      result:=cardinal(item.data)
+     else
+      keyBuffer.Add(next); // put back (although order may change)
+    end;
+   end else
     result:=0;
   end;
 
