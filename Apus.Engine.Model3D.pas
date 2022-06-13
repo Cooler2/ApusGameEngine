@@ -612,7 +612,7 @@ procedure TModelInstance.DrawSkeleton;
   gfx.draw.IndexedMesh(@vertices[0],@indices[0],iCnt div 3,vCnt,nil);
  end;
 
-function BlendVec(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte):TVector3s;
+function BlendPnt(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte):TVector3s;
  var
   tmp,src:TVector4s;
  begin
@@ -632,6 +632,32 @@ function BlendVec(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte
   end else
    result:=vec;
  end;
+
+function BlendNormal(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte):TVector3s;
+ var
+  nMat:TMatrix4s;
+  tmp,src:TVector4s;
+ begin
+  if weight1+weight2>0 then begin
+   ZeroMem(tmp,sizeof(tmp));
+   ZeroMem(nMat[3],16);
+   src:=Vector4s(vec);
+   if weight1>0 then begin
+    move(m1,nMat,16*3);
+    MultPnt(nMat,@src,1,0);
+    tmp.Add(src,weight1/255);
+   end;
+   if weight2>0 then begin
+    src:=Vector4s(vec);
+    move(m2,nMat,16*3);
+    MultPnt(m2,@src,1,0);
+    tmp.Add(src,weight2/255);
+   end;
+   move(tmp,result,sizeof(result));
+  end else
+   result:=vec;
+ end;
+
 
 procedure TModelInstance.FillVertexBuffer;
  var
@@ -665,12 +691,12 @@ procedure TModelInstance.FillVertexBuffer;
    if rigged then begin
     binding:=model.vb[i];
     with binding do begin
-     vertices[i].SetPos(BlendVec(model.vp[i],
+     vertices[i].SetPos(BlendPnt(model.vp[i],
       boneMatrices[bone1].combined,
       boneMatrices[bone2].combined,
       weight1,weight2));
 
-     vertices[i].SetNormal(BlendVec(model.vn[i],
+     vertices[i].SetNormal(BlendNormal(model.vn[i],
       boneMatrices[bone1].combined,
       boneMatrices[bone2].combined,
       weight1,weight2));
