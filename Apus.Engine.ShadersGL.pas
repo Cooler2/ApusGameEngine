@@ -35,7 +35,6 @@ type
   vSrc,fSrc:String8; // shader source code
   isCustom:boolean;
   matrixRevision:integer;
-
   constructor Create(h:TGLShaderHandle);
   destructor Destroy; override;
   procedure SetUniform(name:String8;value:integer); overload; override;
@@ -78,19 +77,21 @@ type
   procedure UseTexture(tex:TTexture;stage:integer=0); overload;
   procedure UseTexture(tex:TTexture;uniformName:string8;stage:integer=0); overload; // use custom sampler name
 
+  // Set ambient light
   procedure AmbientLight(color:cardinal);
   // Set directional light (set power<=0 to disable)
   procedure DirectLight(direction:TVector3;power:single;color:cardinal);
   // Set point light source (set power<=0 to disable)
   procedure PointLight(position:TPoint3;power:single;color:cardinal);
+  // Disable lighting
+  procedure LightOff;
+
   // Define material properties
   procedure Material(color:cardinal;shininess:single);
 
   procedure Shadow(mode:TShadowMapMode;shadowMap:TTexture=nil;depthBias:single=0.002);
-  procedure LightOff;
 
   procedure Apply(vertexLayout:TVertexLayout);
-
  private
   // поддержка 16 текстурных юнитов
   curTextures:array[0..15] of TTexture;
