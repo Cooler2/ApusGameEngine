@@ -67,6 +67,7 @@ type
  TModelInstance=class;
 
  // Single animation timeline
+ PAnimation=^TAnimation;
  TAnimation=record
   name:string;
   numFrames:integer; // duration in frames
@@ -74,6 +75,7 @@ type
   keyFrames:TAnimationKeyFrames; // individual keyframes (source)
   loopFrom,loopTo:integer; // loop frame range [loopFrom..loopTo-1] (0 - don't loop), if loopTo frame exist it should be equal to loopFrom frame
   smooth:boolean; // play smoothly - interpolate between animation frames
+  priority:single; // weight when played
   procedure SetLoop(loop:boolean=true); overload;
   procedure SetLoop(fromFrame,toFrame:integer); overload;
   procedure BuildTimeline(model:TModel3D);
@@ -124,6 +126,8 @@ type
   procedure FlipX; // Flip model along X axis (right\left CS conversion)
   function FindBone(bName:string):integer;
 
+  function Animation(name:string):PAnimation;
+
  private
   bonesHash:TSimpleHashS;
   procedure CalcBoneMatrix(bone:integer);
@@ -143,8 +147,9 @@ type
   procedure SetAnimationPos(name:string;frame:single); overload;
   function IsAnimationPlaying(name:string=''):boolean; // playing and not paused
   function IsAnimationPaused(name:string=''):boolean; // paused
-  function GetAnimationPos(name:string=''):single;
-  function GetAnimationSize(name:string=''):integer;
+  function GetAnimationPos(name:string=''):single; // current frame
+  function GetAnimationLength(name:string=''):integer; // number of frames
+  function GetAnimationDuration(name:string=''):single; // in seconds
 
   procedure Update; // update animations and calculate bones
   procedure Draw(tex:TTexture);
@@ -409,6 +414,15 @@ procedure TAnimation.SetLoop(loop:boolean=true);
  end;
 
 { TModel3D }
+
+function TModel3D.Animation(name:string):PAnimation;
+ var
+  i:integer;
+ begin
+  for i:=0 to high(animations) do
+   if SameText(name,animations[i].name) then exit(@animations[i]);
+  raise EWarning.Create('Animation "%s" not found in model "%s"',[name,self.name]);
+ end;
 
 procedure TModel3D.CalcBoneMatrix(bone:integer);
  var
@@ -680,14 +694,20 @@ function TModelInstance.FindAnimation(name:string):integer;
  end;
 
 procedure TModelInstance.PlayAnimation(name:string;easeTimeMS:integer);
+ var
+  n:integer;
+  priority:single;
  begin
-  with animations[FindAnimation(name)] do begin
+  n:=FindAnimation(name);
+  with animations[n] do begin
     playing:=true;
     stopping:=false;
     paused:=false;
     curFrame:=0;
     startTime:=MyTickCount;
-    weight.Animate(1,easeTimeMS);
+    priority:=model.animations[n].priority;
+    if priority<=0 then priority:=1; // default value
+    weight.Animate(priority,easeTimeMS);
     LogMessage('PlayAni "%s" for "%s"',[name,model.name]);
    end;
  end;
@@ -740,12 +760,21 @@ function TModelInstance.GetAnimationPos(name:string):single;
   result:=animations[FindAnimation(name)].curFrame;
  end;
 
-function TModelInstance.GetAnimationSize(name:string):integer;
+function TModelInstance.GetAnimationLength(name:string):integer;
  var
   i:integer;
  begin
   i:=FindAnimation(name);
   result:=model.animations[i].numFrames;
+ end;
+
+function TModelInstance.GetAnimationDuration(name:string=''):single;
+ var
+  i:integer;
+ begin
+  i:=FindAnimation(name);
+  with model.animations[i] do
+   result:=numFrames/fps;
  end;
 
 function TModelInstance.IsAnimationPaused(name: string): boolean;
