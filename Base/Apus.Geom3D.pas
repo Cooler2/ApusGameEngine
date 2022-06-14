@@ -33,6 +33,7 @@ interface
   TPoint3s=packed record
    constructor Init(X,Y,Z:single); overload;
    constructor Init(p:TPoint3); overload;
+   constructor Init(p0,p1:TPoint3s;t:single); overload;
    procedure Normalize;
    function IsValid:boolean;
    function Length:single;  // Vector length
@@ -2233,6 +2234,16 @@ constructor TPoint3s.Init(p:TPoint3);
   self.x:=p.x;
   self.y:=p.y;
   self.z:=p.z;
+ end;
+
+constructor TPoint3s.Init(p0,p1:TPoint3s;t:single);
+ var
+  t1:single;
+ begin
+  t1:=1-t;
+  x:=p0.x*t1+p1.x*t;
+  y:=p0.y*t1+p1.y*t;
+  z:=p0.z*t1+p1.z*t;
  end;
 
 procedure TPoint3s.Normalize;
