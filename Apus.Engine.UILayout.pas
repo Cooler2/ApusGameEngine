@@ -1,4 +1,4 @@
-// -----------------------------------------------------
+﻿// -----------------------------------------------------
 // Standard UI Layouters
 //
 // Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)
