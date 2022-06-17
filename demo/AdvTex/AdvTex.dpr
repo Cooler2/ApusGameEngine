@@ -15,6 +15,7 @@ program AdvTex;
    mipTex:TTexture;
    arrTex:TGLTextureArray;
    arrShader:TShader;
+   dirTex:TTexture;
   end;
 
  var
@@ -36,6 +37,7 @@ constructor TMainScene.Create;
 procedure TMainScene.Initialize;
  var
   x,y,z:integer;
+  data:array[0..63,0..63] of cardinal;
  begin
   inherited;
   mipTex:=gfx.resman.AllocImage(128,128,TImagePixelFormat.ipfARGB,0,'mipTex');
@@ -60,10 +62,10 @@ procedure TMainScene.Initialize;
   mipTex.Unlock;
 
   // 4 layers texture array
-  //arrTex:=resourceManagerGL.AllocArray(128,128,TImagePixelFormat.ipfARGB,4,aiAutoMipMap,'arrTex');
-  arrTex:=resourceManagerGL.AllocArray(512,512,TImagePixelFormat.ipfARGB,24,aiAutoMipMap,'arrTex');
+  arrTex:=resourceManagerGL.AllocArray(128,128,TImagePixelFormat.ipfARGB,4,aiAutoMipMap,'arrTex');
+  //arrTex:=resourceManagerGL.AllocArray(512,512,TImagePixelFormat.ipfARGB,24,aiAutoMipMap,'arrTex');
   for z:=0 to 3 do begin
-   arrTex.Lock(z);
+   arrTex.LockLayer(z);
    DrawToTexture(arrTex);
    //SetRenderTarget(arrTex.data,arrTex.pitch,arrTex.width,arrTex.height);
    for y:=0 to arrTex.height-1 do
@@ -72,14 +74,22 @@ procedure TMainScene.Initialize;
    arrTex.Unlock;
   end;
   arrShader:=shader.Load('res\arrShader');
+
+  // Direct access texture
+  dirTex:=AllocImage(64,64);
+  for y:=0 to 63 do
+   for x:=0 to 63 do
+    data[y,x]:=MyColor($FF,y*16 and $FF,x*16 and $FF,0);
+  dirTex.Upload(@data,256,TImagePixelFormat.ipfARGB);
  end;
 
 procedure TMainScene.Render;
  var
   i:integer;
   scale:single;
+  data:array[0..31,0..15] of cardinal;
  begin
-  gfx.target.Clear($FF000000);
+  gfx.target.Clear($FF005000);
   scale:=0.9+0.6*sin(MyTickCount/1000);
   mipTex.SetFilter(TTexFilter.fltNearest);
   draw.Scaled(120,50,0.4,mipTex);
@@ -102,11 +112,17 @@ procedure TMainScene.Render;
 
   // Texture array
   shader.UseCustom(arrShader);
-  draw.Image(100,20,arrTex);
+  draw.Image(800,20,arrTex);
   draw.Scaled(860,220,0.6,arrTex);
   draw.Scaled(860,300,0.3,arrTex);
   shader.Reset;
   txt.WriteW(game.defaultFont,860,420,$FFFFFFFF,'Array',taCenter);
+
+  // Direct texture update
+  FillDword(data,16*32,MyColor(255,0,0,game.frameNum*3));
+  dirTex.UploadPart(0,16,16,32,16,@data,32*4,TImagePixelFormat.ipfARGB);
+  draw.Image(840,480,dirTex);
+  txt.WriteW(0,860,570,$FFFFFFFF,'Direct texture upload',taCenter);
  end;
 
 begin

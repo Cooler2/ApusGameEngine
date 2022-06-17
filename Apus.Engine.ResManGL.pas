@@ -31,7 +31,8 @@ type
   function GetLayer(layer:integer):TTexture; override;
   procedure LockLayer(index:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); override;
   procedure Upload(pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); override;
-  procedure UploadPart(x,y,width,height:integer;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); override;
+  procedure Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); override;
+  procedure UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); override;
 
  protected
   online:boolean; // true when image data is uploaded and ready to use (uv's are valid), false when local image data was modified and should be uploaded
@@ -42,8 +43,9 @@ type
   dCount:array[0..MAX_LEVEL] of integer; // per each mip level
   procedure SetLabel; // submit name as label for OpenGL
   procedure UpdateFilter;
-  procedure FreeData; virtual;
+  procedure InitStorage; virtual; // allocate GL texture object (if needed)
   procedure UploadData; virtual; // upload modified data (using dirty rects)
+  procedure FreeData; virtual;
   procedure Bind; virtual;
   function GetTextureTarget:integer; virtual;
  end;
@@ -173,7 +175,8 @@ begin
   if errorTr<5 then begin
    lastErrorTime:=t;
    ForceLogMessage('GLI Error ('+msg+') '+inttostr(error)+' '+GetCallStack);
-  end;
+  end else
+   raise EError.Create('GLI Error ('+msg+') '+inttostr(error)+' '+GetCallStack);
  except
  end;
 end;
@@ -422,7 +425,7 @@ end;
 
 procedure TGLTextureArray.Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil);
 begin
- raise EError.Create('Use LockLevel instead');
+ raise EError.Create('Use LockLayer instead');
 end;
 
 procedure TGLTextureArray.Unlock;
@@ -516,6 +519,7 @@ end;
 procedure TGLTexture.Bind;
 begin
  glBindTexture(GetTextureTarget,texname);
+ CheckForGLError('181');
 end;
 
 procedure TGLTexture.CloneFrom(src:TTexture);
@@ -752,16 +756,75 @@ end;
 
 procedure TGLTexture.Upload(pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat);
  begin
-  ASSERT(locked=0);
-  /// TODO
+  Upload(0,pixelData,pitch,pixelFormat);
  end;
 
-procedure TGLTexture.UploadPart(x,y,width,height:integer;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat);
+procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat);
+ var
+  format,subformat,internalFormat,error:cardinal;
+  bpp:integer;
  begin
   ASSERT(locked=0);
-  /// TODO
-
+  ASSERT(mipLevel<=MAX_LEVEL);
+  if mipLevel>mipmaps then mipMaps:=mipLevel;
+  if texName=0 then
+    InitStorage;
+  GetGLFormat(PixelFormat,format,subFormat,internalFormat);
+  bpp:=pixelSize[pixelFormat] div 8;
+  glPixelStorei(GL_UNPACK_ROW_LENGTH,pitch div bpp);
+  glTexImage2D(GL_TEXTURE_2D,mipLevel,internalFormat,
+    max2(realwidth shr mipLevel,1),max2(realheight shr mipLevel,1),0,format,subFormat,pixelData);
  end;
+
+procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat);
+ var
+  format,subformat,internalFormat,error:cardinal;
+  bpp:integer;
+ begin
+  ASSERT(locked=0);
+  ASSERT(texName<>0,'Texture '+name+' must be initialized before partial update');
+  Bind;
+  GetGLFormat(PixelFormat,format,subFormat,internalFormat);
+  bpp:=pixelSize[pixelFormat] div 8;
+  glPixelStorei(GL_UNPACK_ROW_LENGTH,pitch div bpp);
+  glTexSubImage2D(GL_TEXTURE_2D,mipLevel,x,y,width,height,format,subFormat,pixelData);
+ end;
+
+procedure TGLTexture.InitStorage;
+ var
+  format,subformat,internalFormat,error:cardinal;
+  mipLevel:integer;
+ begin
+  if texName=0 then begin
+   glGenTextures(1,@texname);
+   CheckForGLError('11');
+   Bind;
+   SetLabel;
+   CheckForGLError('12');
+   UpdateFilter;
+   if HasFlag(tfClamped) then begin
+     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+    end else begin
+     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+    end;
+    CheckForGLError('13');
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,mipmaps);
+    CheckForGLError('14');
+  end else
+    Bind;
+
+  // Allocate texture storage
+  GetGLFormat(PixelFormat,format,subFormat,internalFormat);
+  CheckForGLError('15');
+  for mipLevel:=0 to mipMaps do begin
+    glTexImage2D(GL_TEXTURE_2D,mipLevel,internalFormat,
+      max2(realwidth shr mipLevel,1),max2(realheight shr mipLevel,1),0,format,subFormat,nil);
+    CheckForGLError('17');
+  end;
+ end;
+
 
 procedure TGLTexture.UploadData;
 var
@@ -771,14 +834,7 @@ var
 begin
   needInit:=false;
   if locked>0 then raise EWarning.Create('MO for a locked texture: '+name);
-  if texname=0 then begin // allocate texture name
-   glGenTextures(1,@texname);
-   CheckForGLError('11');
-   glBindTexture(GL_TEXTURE_2D, texname);
-   SetLabel;
-   CheckForGLError('12');
-   needInit:=true;
-  end;
+  InitStorage;
 
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
   // Upload texture data
