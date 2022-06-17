@@ -30,6 +30,9 @@ type
   procedure Dump(filename:string8=''); override;
   function GetLayer(layer:integer):TTexture; override;
   procedure LockLayer(index:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); override;
+  procedure Upload(pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); override;
+  procedure UploadPart(x,y,width,height:integer;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); override;
+
  protected
   online:boolean; // true when image data is uploaded and ready to use (uv's are valid), false when local image data was modified and should be uploaded
   realData:array[0..MAX_LEVEL] of ByteArray; // sysmem instance of texture data
@@ -747,6 +750,19 @@ begin
  end;
 end;
 
+procedure TGLTexture.Upload(pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat);
+ begin
+  ASSERT(locked=0);
+  /// TODO
+ end;
+
+procedure TGLTexture.UploadPart(x,y,width,height:integer;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat);
+ begin
+  ASSERT(locked=0);
+  /// TODO
+
+ end;
+
 procedure TGLTexture.UploadData;
 var
  needInit:boolean;
@@ -820,6 +836,7 @@ begin
   end;
   online:=true;
 end;
+
 {$ENDREGION}
 
 procedure EventHandler(event:TEventStr;tag:TTag);
