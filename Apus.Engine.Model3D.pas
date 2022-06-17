@@ -614,42 +614,36 @@ procedure TModelInstance.DrawSkeleton;
 
 function BlendPnt(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte):TVector3s;
  var
-  tmp,src:TVector4s;
+  vec1,vec2:TVector4s;
  begin
   if weight1+weight2>0 then begin
-   ZeroMem(tmp,sizeof(tmp));
-   src:=Vector4s(vec);
-   if weight1>0 then begin
-    MultPnt(m1,@src,1,0);
-    tmp.Add(src,weight1/255);
-   end;
+   vec1:=Vector4s(vec);
+   MultPnt(m1,@vec1,1,0);
    if weight2>0 then begin
-    src:=Vector4s(vec);
-    MultPnt(m2,@src,1,0);
-    tmp.Add(src,weight2/255);
+    vec1.Mul(weight1/255);
+    vec2:=Vector4s(vec);
+    MultPnt(m2,@vec2,1,0);
+    vec1.Add(vec2,weight2/255);
    end;
-   move(tmp,result,sizeof(result));
+   move(vec1,result,sizeof(result));
   end else
    result:=vec;
  end;
 
 function BlendNormal(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte):TVector3s;
  var
-  tmp,src:TVector4s;
+  vec1,vec2:TVector4s;
  begin
   if weight1+weight2>0 then begin
-   ZeroMem(tmp,sizeof(tmp));
-   src:=Vector4s(vec);
-   if weight1>0 then begin
-    MultNormal(m1,@src,1,0);
-    tmp.Add(src,weight1/255);
-   end;
+   vec1:=Vector4s(vec);
+   MultNormal(m1,@vec1,1,0);
    if weight2>0 then begin
-    src:=Vector4s(vec);
-    MultNormal(m2,@src,1,0);
-    tmp.Add(src,weight2/255);
+    vec1.Mul(weight1/255);
+    vec2:=Vector4s(vec);
+    MultNormal(m2,@vec2,1,0);
+    vec1.Add(vec2,weight2/255);
    end;
-   move(tmp,result,sizeof(result));
+   move(vec1,result,sizeof(result));
   end else
    result:=vec;
  end;

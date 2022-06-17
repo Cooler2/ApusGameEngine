@@ -264,6 +264,10 @@ implementation
        bone2:=bi[base+1];
        weight1:=round(bw[base]*factor);
        weight2:=255-weight1;
+       if weight1=0 then begin
+        Swap(weight1,weight2);
+        Swap(bone1,bone2);
+       end;
       end;
      end;
     end;
