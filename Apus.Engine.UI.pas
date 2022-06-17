@@ -56,6 +56,7 @@ interface
 
   // Поиск элементов по имени. Если элемент не найден, то...
   // mustExists=true - исключение, false - будет создан (а в лог будет сообщение об этом)
+  function UIElement(name:string;mustExist:boolean=false):TUIElement;
   function UIButton(name:string;mustExist:boolean=false):TUIButton;
   function UIEditBox(name:string;mustExist:boolean=false):TUIEditBox;
   function UILabel(name:string;mustExist:boolean=false):TUILabel;
@@ -125,6 +126,12 @@ implementation
    else
    if c is TUIEditBox then
     TUIEditBox(c).realText:=text;
+  end;
+
+ function UIElement(name:string;mustExist:boolean=false):TUIElement;
+  begin
+   result:=FindElement(name,mustExist);
+   if result=nil then result:=TUIElement.Create(0,0,nil,name);
   end;
 
  function UIButton(name:string;mustExist:boolean=false):TUIButton;
