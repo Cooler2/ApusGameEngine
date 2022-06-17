@@ -635,22 +635,18 @@ function BlendPnt(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte
 
 function BlendNormal(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte):TVector3s;
  var
-  nMat:TMatrix4s;
   tmp,src:TVector4s;
  begin
   if weight1+weight2>0 then begin
    ZeroMem(tmp,sizeof(tmp));
-   ZeroMem(nMat[3],16);
    src:=Vector4s(vec);
    if weight1>0 then begin
-    move(m1,nMat,16*3);
-    MultPnt(nMat,@src,1,0);
+    MultNormal(m1,@src,1,0);
     tmp.Add(src,weight1/255);
    end;
    if weight2>0 then begin
     src:=Vector4s(vec);
-    move(m2,nMat,16*3);
-    MultPnt(m2,@src,1,0);
+    MultNormal(m2,@src,1,0);
     tmp.Add(src,weight2/255);
    end;
    move(tmp,result,sizeof(result));

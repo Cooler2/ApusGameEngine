@@ -322,6 +322,8 @@ interface
  procedure MultPnt(const m:TMatrix43s;v:Ppoint3s;num,step:integer); overload;
  procedure MultPnt(const m:TMatrix3;v:PPoint3;num,step:integer); overload;
  procedure MultPnt(const m:TMatrix3s;v:Ppoint3s;num,step:integer); overload;
+ // Same as MultPnt, but ignores the translation part
+ procedure MultNormal(const m:TMatrix4s;v:PVector4s;num,step:integer);
 
  // Complete 3D transformation (with normalization)
  function TransformPoint(const m:TMatrix4s;v:PPoint3s):TPoint3s; overload;
@@ -1391,6 +1393,52 @@ implementation
    end;
   end;
   {$ENDIF}
+
+ // Ignore translation part
+ procedure MultNormal(const m:TMatrix4s;v:PVector4s;num,step:integer);
+ {$IFDEF CPUx64}
+  asm
+   // rcx=@matrix, rdx=@vector, r8=num, @r9=step
+@loop:
+   movups xmm0,[rdx]
+   // multiply
+   movaps xmm1,xmm0
+   shufps xmm1,xmm1,$00 // (x,x,x,x)
+   mulps xmm1,[rcx+$00]   // xmm1=x*col[0]
+   movaps xmm2,xmm0
+   shufps xmm2,xmm2,$55 // (y,y,y,y)
+   mulps xmm2,[rcx+$10]   // xmm2=y*col[1]
+   movaps xmm3,xmm0
+   shufps xmm3,xmm3,$AA // (z,z,z,z)
+   mulps xmm3,[rcx+$20]   // xmm3=z*col[2]
+
+   addps xmm1,xmm2
+   addps xmm1,xmm3
+   movups [rdx],xmm1
+
+   dec r8
+   jz @exit
+   add rdx,r9
+   jmp @loop
+@exit:
+  end;
+  {$ELSE}
+  var
+   i:integer;
+   vec:TVector4s;
+  begin
+   for i:=1 to num do begin
+    vec.x:=v^.x*m[0,0]+v^.y*m[1,0]+v^.z*m[2,0];
+    vec.y:=v^.x*m[0,1]+v^.y*m[1,1]+v^.z*m[2,1];
+    vec.z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2];
+    vec.w:=1.0;
+
+    v^:=vec;
+    v:=PVector4s(PtrUInt(v)+step);
+   end;
+  end;
+  {$ENDIF}
+
 
  procedure MultPnt(const m:TMatrix43;v:PPoint3;num,step:integer);
   var
