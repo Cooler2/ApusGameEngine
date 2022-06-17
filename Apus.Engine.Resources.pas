@@ -1,4 +1,4 @@
-// Base resource classes and types - extracted from Engine.API
+п»ї// Base resource classes and types - extracted from Engine.API
 //
 // Copyright (C) 2021 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -25,26 +25,26 @@ interface
   tfPixelated      = 8192; // No interpolation allowed for sampling this texture
 
  type
-  // Режим интерполяции текстур
+  // Р РµР¶РёРј РёРЅС‚РµСЂРїРѕР»СЏС†РёРё С‚РµРєСЃС‚СѓСЂ
   TTexFilter=(fltUndefined,    // filter not defined
-              fltNearest,      // Без интерполяции
-              fltBilinear,     // Билинейная интерполяция
-              fltTrilinear,    // Трилинейная (только для mip-map)
-              fltAnisotropic); // Анизотропная (только для mip-map)
+              fltNearest,      // Р‘РµР· РёРЅС‚РµСЂРїРѕР»СЏС†РёРё
+              fltBilinear,     // Р‘РёР»РёРЅРµР№РЅР°СЏ РёРЅС‚РµСЂРїРѕР»СЏС†РёСЏ
+              fltTrilinear,    // РўСЂРёР»РёРЅРµР№РЅР°СЏ (С‚РѕР»СЊРєРѕ РґР»СЏ mip-map)
+              fltAnisotropic); // РђРЅРёР·РѕС‚СЂРѕРїРЅР°СЏ (С‚РѕР»СЊРєРѕ РґР»СЏ mip-map)
 
   // Access mode for locked resources
   TLockMode=(lmReadOnly,       //< read-only (do not invalidate data when unlocked)
              lmReadWrite,      //< read+write (invalidate the whole area)
              lmCustomUpdate);  //< read+write, do not invalidate anything (AddDirtyRect is required, partial lock is not allowed in this case)
 
-  // Базовый абстрактный класс - текстура или ее часть
+  // Р‘Р°Р·РѕРІС‹Р№ Р°Р±СЃС‚СЂР°РєС‚РЅС‹Р№ РєР»Р°СЃСЃ - С‚РµРєСЃС‚СѓСЂР° РёР»Рё РµРµ С‡Р°СЃС‚СЊ
   TTexture=class(TNamedObject)
    src:String8; // file name if loaded from a file
    pixelFormat:TImagePixelFormat;
    width,height:integer; // dimension (in virtual pixels)
    left,top:integer; // position in the underlying resource
-   mipmaps:byte; // кол-во уровней MIPMAP
-   caps:cardinal; // возможности и флаги
+   mipmaps:byte; // РєРѕР»-РІРѕ СѓСЂРѕРІРЅРµР№ MIPMAP
+   caps:cardinal; // РІРѕР·РјРѕР¶РЅРѕСЃС‚Рё Рё С„Р»Р°РіРё
    refCounter:integer; // number of child textures referencing this texture data
    parent:TTexture;    // reference to a parent texture
    // These properties are valid when texture is ONLINE (uploaded)
@@ -59,14 +59,16 @@ interface
    function Clone:TTexture; // Clone this texture and return the cloned instance
    function ClonePart(part:TRect):TTexture; // Create cloned instance for part of this texture
    procedure Clear(color:cardinal=$808080); // Clear and fill the texture with given color
-   procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // 0-й уровень - самый верхний
+   procedure Upload(pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); virtual; abstract;
+   procedure UploadPart(x,y,width,height:integer;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); virtual; abstract;
+   procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // 0-Р№ СѓСЂРѕРІРµРЅСЊ - СЃР°РјС‹Р№ РІРµСЂС…РЅРёР№
    procedure LockLayer(layer:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // Lock layer of 3D texture or texture array
    function GetLayer(layer:integer):TTexture; virtual; abstract; // return 2D texture object of a texture array element or 3D texture layer
    function GetRawImage:TRawImage; virtual; abstract; // Create RAW image for the topmost MIP level (when locked)
    function IsLocked:boolean;
    procedure Unlock; virtual; abstract;
    procedure AddDirtyRect(rect:TRect;level:integer=0); virtual; abstract; // mark area to update (when locked with mode=lmCustomUpdate)
-   procedure GenerateMipMaps(count:byte); virtual; abstract; // Сгенерировать изображения mip-map'ов
+   procedure GenerateMipMaps(count:byte); virtual; abstract; // РЎРіРµРЅРµСЂРёСЂРѕРІР°С‚СЊ РёР·РѕР±СЂР°Р¶РµРЅРёСЏ mip-map'РѕРІ
    function HasFlag(flag:cardinal):boolean;
    // Limit texture filtering to the specified mode (i.e. bilinear mode disables mip-mapping)
    procedure SetFilter(filter:TTexFilter); virtual; abstract;
