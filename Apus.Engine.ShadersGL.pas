@@ -93,9 +93,9 @@ type
 
   procedure Apply(vertexLayout:TVertexLayout);
  private
-  // поддержка 16 текстурных юнитов
+  // поддержка до 16 текстурных юнитов
   curTextures:array[0..15] of TTexture;
-  curTexChanged:array[0..15] of boolean;
+  curTexChanged:cardinal; // битовая маска изменённых текстур
 
   curTexMode:TTexMode; // encoded shader mode requested by the client code
   actualTexMode:TTexMode; // actual shader mode
@@ -415,7 +415,9 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   hasNormal:=actualVertexLayout and $F0>0;
   hasColor:=actualVertexLayout and $F00>0;
   hasUV:=actualVertexLayout and $F000>0;
-  notes:='Std shader for mode '+FormatHex(curTexMode.mode)+' layout='+FormatHex(actualVertexLayout);
+  if HasFlag(curTexMode.lighting,LIGHT_CUSTOMIZED) then notes:='Cust '
+   else notes:='Std ';
+  notes:=notes+'shader for mode '+FormatHex(curTexMode.mode)+' layout='+FormatHex(actualVertexLayout);
   LogMessage('Building: '+notes);
   vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting);
   fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,curTexMode);
@@ -423,6 +425,8 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   result.name:=notes;
   result.texMode:=curTexMode.mode;
   result.isCustom:=false;
+  result.vSrc:=vSrc;
+  result.fSrc:=fSrc;
  end;
 
 // Get shader for the current TexMode and current vertex layout
@@ -448,7 +452,7 @@ constructor TGLShadersAPI.Create;
   shadersAPI:=self;
   shader:=self;
   shaderCache.Init(32);
-  curTexChanged[0]:=true;
+  SetBit(curTexChanged,0);
  end;
 
 procedure TGLShadersAPI.DirectLight(direction:TVector3; power:single; color:cardinal);
@@ -732,7 +736,7 @@ procedure TGLShadersAPI.UseTexture(tex: TTexture; stage: integer);
  begin
   if curTextures[stage]=tex then exit;
   curTextures[stage]:=tex;
-  curTexChanged[stage]:=true;
+  SetBit(curTexChanged,stage);
  end;
 
 procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
@@ -763,9 +767,10 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
    activeShader.UpdateMatrices(matrixRevision,shadowMapMatrix);
   end;
   // Textures
-  for i:=0 to high(curTexChanged) do
-   if curTexChanged[i] then begin
-    curTexChanged[i]:=false;
+  i:=0;
+  while curTexChanged<>0 do begin
+   if GetBit(curTexChanged,i) then begin
+    ClearBit(curTexChanged,i);
     tex:=curTextures[i];
     if tex<>nil then begin
      while tex.parent<>nil do tex:=tex.parent;
@@ -776,6 +781,9 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
      end;
     end;
    end;
+   inc(i);
+  end;
+
   if directLightModified then begin
    activeShader.SetUniform('lightDir',directLightDir);
    activeShader.SetUniform('lightColor',TShader.VectorFromColor3(directLightColor));
@@ -796,7 +804,7 @@ procedure TGLShadersAPI.ActivateShader(shader:TShader);
   // mark textures as changed to force update
   for stage:=0 to high(curTextures) do
    if curTextures[stage]<>nil then
-    curTexChanged[stage]:=true;
+    SetBit(curTexChanged,stage);
  end;
 
 end.
