@@ -91,6 +91,8 @@ procedure TMainScene.Render;
   i:integer;
   scale:single;
   data:array[0..31,0..15] of cardinal;
+  v:TVector4s;
+  c:cardinal;
  begin
   gfx.target.Clear($FF005000);
   scale:=0.9+0.6*sin(MyTickCount/1000);
@@ -138,6 +140,16 @@ procedure TMainScene.Render;
   dirFill.Unlock;
   draw.Image(840,580,dirFill);
   txt.WriteW(0,860,660,$FFFFFFFF,'Direct texture fill',taCenter);
+
+  // Automatic tests
+  c:=gfx.GetPixelValue(847,587);
+  ASSERT(ColorDiff(c,$FFC0A000)<0.1);
+  c:=gfx.GetPixelValue(873,597);
+  ASSERT(ColorDiff(c,$FF4040FF)<0.1);
+  c:=gfx.GetPixelValue(862,621);
+  ASSERT(ColorDiff(c,$FF00A000)<0.1);
+  c:=gfx.GetPixelValue(882,623);
+  ASSERT(ColorDiff(c,$FF00A080)<0.1);
  end;
 
 begin
