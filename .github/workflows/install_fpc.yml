@@ -16,7 +16,7 @@ jobs:
   test-linux:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -55,6 +55,8 @@ jobs:
       run: lazbuild -q -q demo/NinePatch/NinePatch.lpi
     - name: Compile Simple3D
       run: lazbuild -q -q demo/Simple3D/Simple3D.lpi
+    - name: Compile AdvTex
+      run: lazbuild -q -q demo/AdvTex/AdvTex.lpi
     - name: Compile ControllerDemo
       run: lazbuild -q -q demo/ControllerDemo/ControllerDemo.lpi
     - name: Compile ShadowMap
@@ -66,7 +68,7 @@ jobs:
   test-windows:
     # The type of runner that the job will run on
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -101,6 +103,8 @@ jobs:
       run: lazbuild -q -q demo/NinePatch/NinePatch.lpi
     - name: Compile Simple3D
       run: lazbuild -q -q demo/Simple3D/Simple3D.lpi
+    - name: Compile AdvTex
+      run: lazbuild -q -q demo/AdvTex/AdvTex.lpi      
     - name: Compile ControllerDemo
       run: lazbuild -q -q demo/ControllerDemo/ControllerDemo.lpi
     - name: Compile ShadowMap
