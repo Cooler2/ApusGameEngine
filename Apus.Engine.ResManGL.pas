@@ -55,6 +55,8 @@ type
   procedure Bind; virtual;
   function GetTextureTarget:integer; virtual;
   procedure InvalidateInternalLevel(mipLevel:integer); virtual;
+  // Download texture data into the internal storage
+  procedure DownloadLevel(mipLevel:integer); virtual;
  end;
 
  TVertexBufferGL=class(TVertexBuffer)
@@ -195,94 +197,94 @@ begin
  end;
 end;
 
-procedure GetGLformat(ipf:TImagePixelFormat;out format,subFormat,internalFormat:cardinal);
+procedure GetGLformat(ipf:TImagePixelFormat;out format,dataType,internalFormat:cardinal);
 begin
  case ipf of
   {$IFNDEF GLES}
   ipf8Bit:begin
    internalFormat:=4;
    format:=GL_COLOR_INDEX;
-   subFormat:=GL_UNSIGNED_BYTE;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfRGB:begin
    internalFormat:=GL_RGB;
    format:=GL_BGR;
-   subFormat:=GL_UNSIGNED_BYTE;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfARGB:begin
    internalFormat:=GL_RGBA;
    format:=GL_BGRA;
-   subFormat:=GL_UNSIGNED_BYTE;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfXRGB:begin
    internalFormat:=GL_RGB;
    format:=GL_BGRA;
-   subFormat:=GL_UNSIGNED_BYTE;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfMono8:begin
    internalFormat:=GL_R8;
    format:=GL_RED;
-   subFormat:=GL_UNSIGNED_BYTE;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfMono8u:begin
    internalFormat:=GL_R8UI;
    format:=GL_RED_INTEGER;
-   subFormat:=GL_UNSIGNED_BYTE;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfMono16:begin
    internalFormat:=GL_R16;
    format:=GL_RED;
-   subFormat:=GL_UNSIGNED_SHORT;
+   dataType:=GL_UNSIGNED_SHORT;
   end;
   ipfMono16s:begin
    internalFormat:=GL_R16_SNORM;
    format:=GL_RED;
-   subFormat:=GL_SHORT;
+   dataType:=GL_SHORT;
   end;
   ipfMono16i:begin
    internalFormat:=GL_R16I;
    format:=GL_RED_INTEGER;
-   subFormat:=GL_SHORT;
+   dataType:=GL_SHORT;
   end;
   ipfMono32f:begin
    internalFormat:=GL_R32F;
    format:=GL_RED;
-   subFormat:=GL_FLOAT;
+   dataType:=GL_FLOAT;
   end;
   ipfDuo32f:begin
    internalFormat:=GL_RG32F;
    format:=GL_RG;
-   subFormat:=GL_FLOAT;
+   dataType:=GL_FLOAT;
   end;
   ipfQuad32f:begin
    internalFormat:=GL_RGBA32F;
    format:=GL_RGBA;
-   subFormat:=GL_FLOAT;
+   dataType:=GL_FLOAT;
   end;
   ipfDuo8:begin
    internalFormat:=GL_RG8;
    format:=GL_RG;
-   subFormat:=GL_UNSIGNED_BYTE;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipf565:begin
    internalFormat:=GL_RGB5;
    format:=GL_RGB;
-   subFormat:=GL_UNSIGNED_SHORT_5_6_5;
+   dataType:=GL_UNSIGNED_SHORT_5_6_5;
   end;
   ipf1555:begin
    internalFormat:=GL_RGB5;
    format:=GL_RGBA;
-   subFormat:=GL_UNSIGNED_SHORT_5_5_5_1;
+   dataType:=GL_UNSIGNED_SHORT_5_5_5_1;
   end;
   ipf4444:begin
    internalFormat:=GL_RGBA4;
    format:=GL_RGBA;
-   subFormat:=GL_UNSIGNED_SHORT_4_4_4_4_REV;
+   dataType:=GL_UNSIGNED_SHORT_4_4_4_4_REV;
   end;
   ipf4444r:begin
    internalFormat:=GL_RGBA4;
    format:=GL_RGBA;
-   subFormat:=GL_UNSIGNED_SHORT_4_4_4_4;
+   dataType:=GL_UNSIGNED_SHORT_4_4_4_4;
   end;
   ipfDXT1:begin
    internalFormat:=GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
@@ -299,17 +301,17 @@ begin
   ipfA4:begin
    internalFormat:=GL_ALPHA4;
    format:=GL_ALPHA;
-   subFormat:=GL_UNSIGNED_BYTE;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfL4A4:begin
    internalFormat:=GL_LUMINANCE4_ALPHA4;
    format:=GL_LUMINANCE_ALPHA;
-   subFormat:=GL_UNSIGNED_BYTE;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfA8:begin
    internalFormat:=GL_ALPHA8;
    format:=GL_ALPHA;
-   subFormat:=GL_UNSIGNED_BYTE;
+   dataType:=GL_UNSIGNED_BYTE;
   end;
   {$ENDIF}
   {$IFDEF GLES}
@@ -539,6 +541,7 @@ end;
 procedure TGLTexture.Clear(color:cardinal);
 begin
  ASSERT(pixelFormat in [ipfARGB,ipfXRGB,ipfABGR,ipfXBGR,ipf32bpp],'Unsupported pixel format');
+ InitStorage;
  if (texName<>0) and (@glClearTexImage<>nil) and InMainThread then begin
   // Clear directly
   glClearTexImage(texName,0,GL_BGRA,GL_UNSIGNED_BYTE,@color);
@@ -563,9 +566,9 @@ begin
   // Upload remaining data if needed
   UploadData;
   // Clear directly
-  glClearTexSubImage(texName,mipLevel,x,y,0,width,height,0,GL_BGRA,GL_UNSIGNED_BYTE,@color);
+  glClearTexSubImage(texName,mipLevel,x,y,0,width,height,1,GL_BGRA,GL_UNSIGNED_BYTE,@color);
   CheckForGLError('221');
-  SetLength(realData[mipLevel],0); // destroy internal storage
+  InvalidateInternalLevel(0);
  end else begin
   // Clear in the internal storage
   r:=Rect(x,y,x+width-1,y+width-1);
@@ -603,6 +606,18 @@ begin
   resourceManagerGL.FreeImage(t);
  end else
   inherited;
+end;
+
+procedure TGLTexture.DownloadLevel(mipLevel:integer);
+var
+ format,dataType,internal:cardinal;
+begin
+  Bind;
+  GetGLformat(pixelFormat,format,dataType,internal);
+  glGetTexImage(GetTextureTarget,mipLevel,format,dataType,realData[mipLevel]);
+  CheckForGLError('DownL');
+  realDataObsolete[mipLevel]:=false;
+  dCount[mipLevel]:=0;
 end;
 
 procedure TGLTexture.Dump(filename:string8);
@@ -668,10 +683,14 @@ begin
  EnterCriticalSection(cSect);
  try
   mipmaps:=max2(mipmaps,mipLevel);
-  if length(realdata[mipLevel])=0 then begin // alloc another mip level
+  if length(realdata[mipLevel])=0 then begin // alloc internal storage
    size:=max2(width shr mipLevel,1)*max2(height shr mipLevel,1); // number of texels
    size:=size*pixelSize[pixelFormat] div 8;
    SetLength(realdata[mipLevel],size);
+   if realDataObsolete[mipLevel] and (mode<>lmWriteOnly) then begin
+    ASSERT(InMainThread,'Trying to read modified texture data outside the main thread');
+    DownloadLevel(mipLevel);
+   end;
   end;
   pitch:=max2(width shr mipLevel,1)*pixelSize[pixelFormat] shr 3;
   if r=nil then data:=@realData[mipLevel,0]

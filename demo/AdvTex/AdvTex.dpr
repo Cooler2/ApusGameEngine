@@ -127,8 +127,15 @@ procedure TMainScene.Render;
   draw.Image(840,480,dirTex);
   txt.WriteW(0,860,560,$FFFFFFFF,'Direct texture upload',taCenter);
 
+  // Combining direct vs managed access - the worst case!
   dirFill.Clear($FFC0A000);
-  dirFill.ClearPart(0,16,4,32,8,$FF4040FF);
+  DrawToTexture(dirFill);
+  FillRect(40,10,45,60,$FF00A080);
+  dirFill.Unlock;
+  dirFill.ClearPart(0,16,14,32,8,$FF4040FF);
+  DrawToTexture(dirFill);
+  FillRect(20,10,25,60,$FF00A000);
+  dirFill.Unlock;
   draw.Image(840,580,dirFill);
   txt.WriteW(0,860,660,$FFFFFFFF,'Direct texture fill',taCenter);
  end;
