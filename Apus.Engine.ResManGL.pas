@@ -18,6 +18,8 @@ type
   texname:cardinal;
   realWidth,realHeight:integer; // real dimensions of underlying texture object (can be larger than requested)
   filter:TTexFilter;
+  procedure Clear(color:cardinal=$808080); override;
+  procedure ClearPart(mipLevel:byte;x,y,width,height:integer;color:cardinal); override;
   procedure CloneFrom(src:TTexture); override;
   procedure SetAsRenderTarget; virtual;
   procedure Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); override; // 0-й уровень - самый верхний
@@ -30,17 +32,21 @@ type
   procedure Dump(filename:string8=''); override;
   function GetLayer(layer:integer):TTexture; override;
   procedure LockLayer(index:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); override;
+  // Direct upload - destroys internal storage
   procedure Upload(pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); override;
   procedure Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); override;
   procedure UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); override;
 
  protected
   online:boolean; // true when image data is uploaded and ready to use (uv's are valid), false when local image data was modified and should be uploaded
-  realData:array[0..MAX_LEVEL] of ByteArray; // sysmem instance of texture data
+  realData:array[0..MAX_LEVEL] of ByteArray; // internal storage of texture data
   fbo:cardinal; // framebuffer object (for a render target texture)
   rbo:cardinal; // renderbuffer object - for a render target texture with a depth buffer attached (but not for depth buffer textures)
+  // Define area of the internal storage which is recently updated and need to be uploaded
   dirty:array[0..MAX_LEVEL,0..15] of TRect;
   dCount:array[0..MAX_LEVEL] of integer; // per each mip level
+  // Which levels of internal storage are obsolete
+  realDataObsolete:array[0..MAX_LEVEL] of boolean;
   procedure SetLabel; // submit name as label for OpenGL
   procedure UpdateFilter;
   procedure InitStorage; virtual; // allocate GL texture object (if needed)
@@ -48,6 +54,7 @@ type
   procedure FreeData; virtual;
   procedure Bind; virtual;
   function GetTextureTarget:integer; virtual;
+  procedure InvalidateInternalLevel(mipLevel:integer); virtual;
  end;
 
  TVertexBufferGL=class(TVertexBuffer)
@@ -162,6 +169,11 @@ var
  errorTr:integer;
 
 {$REGION UTILS}
+function InMainThread:boolean; inline;
+begin
+ result:=GetCurrentThreadID=mainThreadID;
+end;
+
 procedure CheckForGLError(msg:string); //inline;
 var
  error:cardinal;
@@ -519,7 +531,51 @@ end;
 procedure TGLTexture.Bind;
 begin
  glBindTexture(GetTextureTarget,texname);
- CheckForGLError('181');
+ CheckForGLError('211');
+end;
+
+procedure TGLTexture.Clear(color:cardinal);
+begin
+ ASSERT(pixelFormat in [ipfARGB,ipfXRGB,ipfABGR,ipfXBGR,ipf32bpp],'Unsupported pixel format');
+ if (texName<>0) and (@glClearTexImage<>nil) and InMainThread then begin
+  // Clear directly
+  glClearTexImage(texName,0,GL_BGRA,GL_UNSIGNED_BYTE,@color);
+  CheckForGLError('191');
+  InvalidateInternalLevel(0);
+ end else begin
+  // Clear in the internal storage
+  Lock;
+  FillDword(realData[0][0],length(realData[0]) div 4,color);
+  Unlock;
+ end;
+end;
+
+procedure TGLTexture.ClearPart(mipLevel:byte;x,y,width,height:integer;color:cardinal);
+var
+ yy:integer;
+ pb:PByte;
+ r:TRect;
+begin
+ ASSERT(pixelFormat in [ipfARGB,ipfXRGB,ipfABGR,ipfXBGR,ipf32bpp],'Unsupported pixel format');
+ if (texName<>0) and (@glClearTexSubImage<>nil) and InMainThread then begin
+  // Upload remaining data if needed
+  UploadData;
+  // Clear directly
+  glClearTexSubImage(texName,mipLevel,x,y,0,width,height,0,GL_BGRA,GL_UNSIGNED_BYTE,@color);
+  CheckForGLError('221');
+  SetLength(realData[mipLevel],0); // destroy internal storage
+ end else begin
+  // Clear in the internal storage
+  r:=Rect(x,y,x+width-1,y+width-1);
+  Lock(mipLevel,lmReadWrite,@r);
+  pb:=data;
+  inc(pb,y*pitch+x*4);
+  for yy:=y to y+height-1 do begin
+   FillDword(pb^,width,color);
+   inc(pb,pitch);
+  end;
+  Unlock;
+ end;
 end;
 
 procedure TGLTexture.CloneFrom(src:TTexture);
@@ -774,6 +830,9 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
   glPixelStorei(GL_UNPACK_ROW_LENGTH,pitch div bpp);
   glTexImage2D(GL_TEXTURE_2D,mipLevel,internalFormat,
     max2(realwidth shr mipLevel,1),max2(realheight shr mipLevel,1),0,format,subFormat,pixelData);
+  CheckForGLError('231');
+  online:=true;
+  InvalidateInternalLevel(mipLevel);
  end;
 
 procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat);
@@ -788,6 +847,8 @@ procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData
   bpp:=pixelSize[pixelFormat] div 8;
   glPixelStorei(GL_UNPACK_ROW_LENGTH,pitch div bpp);
   glTexSubImage2D(GL_TEXTURE_2D,mipLevel,x,y,width,height,format,subFormat,pixelData);
+  CheckForGLError('241');
+  InvalidateInternalLevel(mipLevel);
  end;
 
 procedure TGLTexture.InitStorage;
@@ -795,26 +856,24 @@ procedure TGLTexture.InitStorage;
   format,subformat,internalFormat,error:cardinal;
   mipLevel:integer;
  begin
-  if texName=0 then begin
-   glGenTextures(1,@texname);
-   CheckForGLError('11');
-   Bind;
-   SetLabel;
-   CheckForGLError('12');
-   UpdateFilter;
-   if HasFlag(tfClamped) then begin
-     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-    end else begin
-     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
-     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
-    end;
-    CheckForGLError('13');
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,mipmaps);
-    CheckForGLError('14');
-  end else
-    Bind;
-
+  if texName<>0 then exit;
+  glGenTextures(1,@texname);
+  CheckForGLError('11');
+  Bind;
+  SetLabel;
+  CheckForGLError('12');
+  UpdateFilter;
+  if HasFlag(tfClamped) then begin
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+  end else begin
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+  end;
+  CheckForGLError('13');
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,mipmaps);
+  CheckForGLError('14');
+ 
   // Allocate texture storage
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
   CheckForGLError('15');
@@ -825,6 +884,11 @@ procedure TGLTexture.InitStorage;
   end;
  end;
 
+procedure TGLTexture.InvalidateInternalLevel(mipLevel: integer);
+begin
+  SetLength(realData[0],0); // destroy internal storage
+  realDataObsolete[0]:=true;
+end;
 
 procedure TGLTexture.UploadData;
 var
@@ -837,23 +901,9 @@ begin
   InitStorage;
 
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
+  {$IFNDEF GLES}
   // Upload texture data
-  if format=GL_COMPRESSED_TEXTURE_FORMATS then begin
-   for level:=0 to MAX_LEVEL do
-    if length(realData[level])>0 then
-     glCompressedTexImage2D(GL_TEXTURE_2D,level,internalFormat,realwidth,realheight,0,
-       length(realData[level]),@realData[level,0]);
-  end else begin
-   {$IFNDEF GLES}
-   if needInit then begin  // Specify texture size and pixel format
-    for level:=0 to MAX_LEVEL do
-     if length(realData[level])>0 then
-      glTexImage2D(GL_TEXTURE_2D,level,internalFormat,
-        max2(realwidth shr level,1),max2(realheight shr level,1),0,format,subFormat,nil);
-    CheckForGLError('13');
-    UpdateFilter;
-   end;
-   for level:=0 to MAX_LEVEL do
+  for level:=0 to MAX_LEVEL do
     if dCount[level]<>0 then begin
      // Upload texture data
      glPixelStorei(GL_UNPACK_ROW_LENGTH,realWidth shr level);
@@ -867,28 +917,18 @@ begin
      CheckForGLError('15');
      dCount[level]:=0;
     end;
-   // Set level limit - otherwise texture sampler will produce black
-   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,mipmaps);
-   {$ELSE}
-   // GLES doesn't support UNPACK_ROW_LENGTH so it's not possible to upload just a portion of
-   // the source texture data
-   if format=GL_RGBA then ConvertColors32(data,realwidth*realheight);
-   if format=GL_RGB then ConvertColors24(data,realwidth*realheight);
-   glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,data);
-   CheckForGLError('16');
-   {$ENDIF}
-   if HasFlag(tfAutoMipMap) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
-    glGenerateMipmap(GL_TEXTURE_2D);
-   end;
-
-   if HasFlag(tfClamped) then begin
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-   end else begin
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
-   end;
-   CheckForGLError('17');
+  // Set level limit - otherwise texture sampler will produce black
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,mipmaps);
+  {$ELSE}
+  // GLES doesn't support UNPACK_ROW_LENGTH so it's not possible to upload just a portion of
+  // the source texture data
+  if format=GL_RGBA then ConvertColors32(data,realwidth*realheight);
+  if format=GL_RGB then ConvertColors24(data,realwidth*realheight);
+  glTexImage2D(GL_TEXTURE_2D,0,internalFormat,realwidth,realheight,0,format,subFormat,data);
+  CheckForGLError('16');
+  {$ENDIF}
+  if HasFlag(tfAutoMipMap) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
+   glGenerateMipmap(GL_TEXTURE_2D);
   end;
   online:=true;
 end;
@@ -1246,7 +1286,7 @@ var
 begin
  if image=nil then exit;
  // Wrong thread?
- if GetCurrentThreadID<>mainThreadID then begin
+ if not InMainThread then begin
   if not (image is TGLTexture) then raise EError.Create('Not a GLTexture! '+IntToHEx(cardinal(image),8));
   Signal('GLIMAGES\DeleteTexture',cardinal(image));
   image:=nil;

@@ -35,6 +35,7 @@ interface
   // Access mode for locked resources
   TLockMode=(lmReadOnly,       //< read-only (do not invalidate data when unlocked)
              lmReadWrite,      //< read+write (invalidate the whole area)
+             lmWriteOnly,      //< write-only (don't download texture data into the internal storage)
              lmCustomUpdate);  //< read+write, do not invalidate anything (AddDirtyRect is required, partial lock is not allowed in this case)
 
   // Базовый абстрактный класс - текстура или ее часть
@@ -43,8 +44,8 @@ interface
    pixelFormat:TImagePixelFormat;
    width,height:integer; // dimension (in virtual pixels)
    left,top:integer; // position in the underlying resource
-   mipmaps:byte; // кол-во уровней MIPMAP
-   caps:cardinal; // возможности и флаги
+   mipmaps:byte; // highest available mip-map level
+   caps:cardinal; // capability flags
    refCounter:integer; // number of child textures referencing this texture data
    parent:TTexture;    // reference to a parent texture
    // These properties are valid when texture is ONLINE (uploaded)
@@ -58,17 +59,21 @@ interface
    procedure CloneFrom(from:TTexture); virtual;
    function Clone:TTexture; // Clone this texture and return the cloned instance
    function ClonePart(part:TRect):TTexture; // Create cloned instance for part of this texture
-   procedure Clear(color:cardinal=$808080); // Clear and fill the texture with given color
+   procedure Clear(color:cardinal=$808080); virtual; abstract; // Clear and fill the texture with given color
+   procedure ClearPart(mipLevel:byte;x,y,width,height:integer;color:cardinal=$808080); virtual; abstract; // clear part of texture
+   // Define (upload) texture content directly from user defined storage
    procedure Upload(pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); overload; virtual; abstract;
    procedure Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); overload; virtual; abstract;
    procedure UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat); virtual; abstract;
-   procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // 0-й уровень - самый верхний
-   procedure LockLayer(layer:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // Lock layer of 3D texture or texture array
+   // Access to the internal texture content
+   procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // mipLevel=0..mipMaps
+   procedure LockLayer(layer:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;rect:PRect=nil); virtual; abstract; // lock layer of 3D texture or texture array
    function GetLayer(layer:integer):TTexture; virtual; abstract; // return 2D texture object of a texture array element or 3D texture layer
    function GetRawImage:TRawImage; virtual; abstract; // Create RAW image for the topmost MIP level (when locked)
    function IsLocked:boolean;
    procedure Unlock; virtual; abstract;
    procedure AddDirtyRect(rect:TRect;level:integer=0); virtual; abstract; // mark area to update (when locked with mode=lmCustomUpdate)
+   // Utilities
    procedure GenerateMipMaps(count:byte); virtual; abstract; // Сгенерировать изображения mip-map'ов
    function HasFlag(flag:cardinal):boolean;
    // Limit texture filtering to the specified mode (i.e. bilinear mode disables mip-mapping)
@@ -164,20 +169,6 @@ function TTexture.Size:TSize;
 class function TTexture.ClassHash: pointer;
  begin
   result:=@texturesHash;
- end;
-
-procedure TTexture.Clear(color:cardinal);
- var
-  pb:PByte;
-  y:integer;
- begin
-  Lock;
-  pb:=data;
-  for y:=0 to height-1 do begin
-   FillDword(pb^,width,color);
-   inc(pb,pitch);
-  end;
-  Unlock;
  end;
 
 function TTexture.Clone:TTexture;
