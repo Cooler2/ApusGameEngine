@@ -677,9 +677,11 @@ procedure TGame.DrawMagnifier;
    oy:=(height div 2);
    draw.Rect(ox,oy,ox+zoom,oy+zoom,$80FFFFFF);
    draw.Rect(ox-1,oy-1,ox+zoom+1,oy+zoom+1,$80000000);
-   draw.FillRect(ox-50,height-22,ox+50,height-5,$80000000);
+   draw.FillRect(ox-50,height-30,ox+50,height-2,$80000000);
    text:=Format('%2x %2x %2x',[(color shr 16) and $FF,(color shr 8) and $FF,color and $FF]);
-   txt.WriteW(txt.GetFont('Default',7.5),ox,height-10,$FFFFFFFF,Str16(text),taCenter);
+   txt.WriteW(defaultFont,ox,height-17,$FFFFFFFF,Str16(text),taCenter);
+   text:=Format('x: %d y: %d',[mousex,mouseY]);
+   txt.WriteW(smallFont,ox,height-5,$FFFFFFFF,Str16(text),taCenter);
   end;
  end;
 
