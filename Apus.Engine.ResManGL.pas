@@ -540,9 +540,8 @@ end;
 
 procedure TGLTexture.Clear(color:cardinal);
 begin
- ASSERT(pixelFormat in [ipfARGB,ipfXRGB,ipfABGR,ipfXBGR,ipf32bpp],'Unsupported pixel format');
- InitStorage;
- if (texName<>0) and (@glClearTexImage<>nil) and InMainThread then begin
+ if InMainThread and (@glClearTexImage<>nil) then begin
+  InitStorage;
   // Clear directly
   glClearTexImage(texName,0,GL_BGRA,GL_UNSIGNED_BYTE,@color);
   CheckForGLError('191');
@@ -561,8 +560,7 @@ var
  pb:PByte;
  r:TRect;
 begin
- ASSERT(pixelFormat in [ipfARGB,ipfXRGB,ipfABGR,ipfXBGR,ipf32bpp],'Unsupported pixel format');
- if (texName<>0) and (@glClearTexSubImage<>nil) and InMainThread then begin
+ if (texName<>0) and InMainThread and (@glClearTexSubImage<>nil) then begin
   // Upload remaining data if needed
   UploadInternalData;
   // Clear directly
