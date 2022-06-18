@@ -95,7 +95,9 @@ type
   destructor Destroy; override;
 
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
-                flags:cardinal;name:String8):TTexture;
+                flags:cardinal;name:String8):TTexture; overload;
+  function AllocImage(width,height,mipLevels:integer;PixFmt:TImagePixelFormat;
+     flags:cardinal;name:String8):TTexture; overload;
   procedure ResizeImage(var img:TTexture;newWidth,newHeight:integer);
   function Clone(img:TTexture):TTexture;
   function Copy(img:TTexture):TTexture;
@@ -820,6 +822,7 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
   format,subformat,internalFormat,error:cardinal;
   bpp:integer;
  begin
+  ASSERT(InMainThread,'Direct upload is available in the main thread only');
   ASSERT(locked=0);
   ASSERT(mipLevel<=MAX_LEVEL);
   if mipLevel>mipmaps then mipMaps:=mipLevel;
@@ -840,6 +843,7 @@ procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData
   format,subformat,internalFormat,error:cardinal;
   bpp:integer;
  begin
+  ASSERT(InMainThread,'Direct upload is available in the main thread only');
   ASSERT(locked=0);
   ASSERT(texName<>0,'Texture '+name+' must be initialized before partial update');
   Bind;
@@ -1062,6 +1066,12 @@ end;
 
 function TGLResourceManager.AllocImage(width,height:integer; PixFmt:TImagePixelFormat; flags:cardinal;
   name:String8):TTexture;
+begin
+ result:=AllocImage(width,height,0,pixFmt,flags,name);
+end;
+
+function TGLResourceManager.AllocImage(width,height,mipLevels:integer; PixFmt:TImagePixelFormat; flags:cardinal;
+  name:String8):TTexture;
 var
  tex:TGlTexture;
  dataSize:integer;
@@ -1110,7 +1120,7 @@ begin
   // Mip-maps -> enable automatic generation
   if HasFlag(flags,aiAutoMipmap) then begin
    SetFlag(tex.caps,tfAutoMipMap);
-   tex.mipmaps:=Log2i(max2(width,height));
+   tex.mipmaps:=Clamp(Log2i(max2(width,height)),0,tex.MAX_LEVEL);
   end;
  end;
 

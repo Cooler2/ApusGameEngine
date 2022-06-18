@@ -531,11 +531,13 @@ type
  IResourceManager=interface
   // Создать изображение (в случае ошибки будет исключение)
   function AllocImage(width,height:integer;PixFmt:TImagePixelFormat;
-     flags:cardinal;name:String8):TTexture;
+     flags:cardinal;name:String8):TTexture; overload;
+  function AllocImage(width,height,mipLevels:integer;PixFmt:TImagePixelFormat;
+     flags:cardinal;name:String8):TTexture; overload;
   // Check if it is possible to allocate an image with given settings
   function QueryParams(width,height:integer;format:TImagePixelFormat;aiFlags:integer):boolean;
   // Free texture
-  procedure FreeImage(var image:TTexture); overload;
+  procedure FreeImage(var image:TTexture);
 
   // Change size of texture if it supports it (render target etc)
   procedure ResizeImage(var img:TTexture;newWidth,newHeight:integer);
@@ -1026,7 +1028,9 @@ var
 
  // Shortcuts to the texture manager
  function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
-                flags:integer=0;name:String8=''):TTexture;
+                flags:integer=0;name:String8=''):TTexture; overload;
+ function AllocImage(width,height,addMipLevels:integer;pixFmt:TImagePixelFormat=ipfARGB;
+                flags:integer=0;name:String8=''):TTexture; overload;
  procedure FreeImage(var img:TTexture);
 
  // Lock the texture (if not yet locked) and set it as draw target for FastGFX unit (don't forget to unlock)
@@ -1150,8 +1154,14 @@ function CreateNinePatch(image:TTexture;scale2x:boolean=false):TNinePatch;
 function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
                 flags:integer=0;name:String8=''):TTexture;
  begin
+  result:=AllocImage(width,height,0,pixFmt,flags,name);
+ end;
+
+function AllocImage(width,height,addMipLevels:integer;pixFmt:TImagePixelFormat=ipfARGB;
+                flags:integer=0;name:String8=''):TTexture;
+ begin
   if gfx.resman<>nil then
-   result:=gfx.resman.AllocImage(width,height,pixFmt,flags,name)
+   result:=gfx.resman.AllocImage(width,height,addMipLevels,pixFmt,flags,name)
   else
    raise EWarning.Create('Failed to alloc texture: no texture manager');
  end;
