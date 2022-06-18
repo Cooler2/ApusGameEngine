@@ -844,7 +844,9 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
   ASSERT(mipLevel<=MAX_LEVEL);
   if mipLevel>mipmaps then mipMaps:=mipLevel;
   if texName=0 then
-    InitStorage;
+   InitStorage
+  else
+   Bind;
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
   bpp:=pixelSize[pixelFormat] div 8;
   glPixelStorei(GL_UNPACK_ROW_LENGTH,pitch div bpp);
