@@ -50,7 +50,7 @@ type
   procedure SetLabel; // submit name as label for OpenGL
   procedure UpdateFilter;
   procedure InitStorage; virtual; // allocate GL texture object (if needed)
-  procedure UploadData; virtual; // upload modified data (using dirty rects)
+  procedure UploadInternalData; virtual; // upload modified internal storage data (using dirty rects)
   procedure FreeData; virtual;
   procedure Bind; virtual;
   function GetTextureTarget:integer; virtual;
@@ -86,7 +86,7 @@ type
   layers:array of TGLTexture; // fake texture objects used to
   lockedLayer:integer;
   procedure FreeData; override;
-  procedure UploadData; override;
+  procedure UploadInternalData; override;
   function GetTextureTarget:integer; override;
  end;
 
@@ -184,17 +184,17 @@ var
  t:int64;
 begin
  error:=glGetError;
- if error<>GL_NO_ERROR then try
+ if error<>GL_NO_ERROR then {try
   t:=MyTickCount;
   if t<lastErrorTime+1000 then inc(errorTr)
    else errorTr:=0;
   if errorTr<5 then begin
    lastErrorTime:=t;
    ForceLogMessage('GLI Error ('+msg+') '+inttostr(error)+' '+GetCallStack);
-  end else
+  end else}
    raise EError.Create('GLI Error ('+msg+') '+inttostr(error)+' '+GetCallStack);
- except
- end;
+{ except
+ end;}
 end;
 
 procedure GetGLformat(ipf:TImagePixelFormat;out format,dataType,internalFormat:cardinal);
@@ -207,17 +207,17 @@ begin
    dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfRGB:begin
-   internalFormat:=GL_RGB;
+   internalFormat:=GL_RGB8;
    format:=GL_BGR;
    dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfARGB:begin
-   internalFormat:=GL_RGBA;
+   internalFormat:=GL_RGBA8;
    format:=GL_BGRA;
    dataType:=GL_UNSIGNED_BYTE;
   end;
   ipfXRGB:begin
-   internalFormat:=GL_RGB;
+   internalFormat:=GL_RGB8;
    format:=GL_BGRA;
    dataType:=GL_UNSIGNED_BYTE;
   end;
@@ -272,7 +272,7 @@ begin
    dataType:=GL_UNSIGNED_SHORT_5_6_5;
   end;
   ipf1555:begin
-   internalFormat:=GL_RGB5;
+   internalFormat:=GL_RGB5_A1;
    format:=GL_RGBA;
    dataType:=GL_UNSIGNED_SHORT_5_5_5_1;
   end;
@@ -450,7 +450,7 @@ begin
  dec(locked);
 end;
 
-procedure TGLTextureArray.UploadData;
+procedure TGLTextureArray.UploadInternalData;
 var
  needInit:boolean;
  format,subformat,internalFormat,error:cardinal;
@@ -564,7 +564,7 @@ begin
  ASSERT(pixelFormat in [ipfARGB,ipfXRGB,ipfABGR,ipfXBGR,ipf32bpp],'Unsupported pixel format');
  if (texName<>0) and (@glClearTexSubImage<>nil) and InMainThread then begin
   // Upload remaining data if needed
-  UploadData;
+  UploadInternalData;
   // Clear directly
   glClearTexSubImage(texName,mipLevel,x,y,0,width,height,1,GL_BGRA,GL_UNSIGNED_BYTE,@color);
   CheckForGLError('221');
@@ -881,10 +881,10 @@ procedure TGLTexture.InitStorage;
  begin
   if texName<>0 then exit;
   glGenTextures(1,@texname);
-  CheckForGLError('11');
+  CheckForGLError('S11');
   Bind;
   SetLabel;
-  CheckForGLError('12');
+  CheckForGLError('S12');
   UpdateFilter;
   if HasFlag(tfClamped) then begin
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
@@ -893,18 +893,18 @@ procedure TGLTexture.InitStorage;
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
   end;
-  CheckForGLError('13');
+  CheckForGLError('S13');
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,mipmaps);
-  CheckForGLError('14');
- 
+  CheckForGLError('S14');
+
   // Allocate texture storage
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
-  CheckForGLError('15');
-  for mipLevel:=0 to mipMaps do begin
-    glTexImage2D(GL_TEXTURE_2D,mipLevel,internalFormat,
+  CheckForGLError('S15');
+   for mipLevel:=0 to mipMaps do begin
+    glTexImage2D(GetTextureTarget,mipLevel,internalFormat,
       max2(realwidth shr mipLevel,1),max2(realheight shr mipLevel,1),0,format,subFormat,nil);
-    CheckForGLError('17');
-  end;
+    CheckForGLError('S17');
+   end;
  end;
 
 procedure TGLTexture.InvalidateInternalLevel(mipLevel: integer);
@@ -913,7 +913,7 @@ begin
   realDataObsolete[0]:=true;
 end;
 
-procedure TGLTexture.UploadData;
+procedure TGLTexture.UploadInternalData;
 var
  needInit:boolean;
  format,subformat,internalFormat,error:cardinal;
@@ -926,7 +926,7 @@ begin
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
   {$IFNDEF GLES}
   // Upload texture data
-  for level:=0 to MAX_LEVEL do
+  for level:=0 to mipmaps do
     if dCount[level]<>0 then begin
      // Upload texture data
      glPixelStorei(GL_UNPACK_ROW_LENGTH,realWidth shr level);
@@ -1399,7 +1399,7 @@ begin
  glActiveTexture(GL_TEXTURE0+stage);
  if curTextures[stage]<>tex then tex.Bind;
  curTextures[stage]:=tex;
- if not tex.online then tex.UploadData;
+ if not tex.online then tex.UploadInternalData;
 end;
 
 function TGLResourceManager.QueryParams(width, height: integer;
