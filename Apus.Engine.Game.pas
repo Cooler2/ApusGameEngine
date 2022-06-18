@@ -1710,6 +1710,7 @@ var
  memState:TMemoryManagerState; // real-time memory manager state
  {$ENDIF}
 begin
+ if systemPlatform.IsTerminated then exit;
  DeltaTime:=MyTickCount-LastRenderTime;
  LastRenderTime:=MyTickCOunt;
  FLog('RF1');
@@ -1794,6 +1795,7 @@ begin
    on e:Exception do CritMsg('Scene '+sc[i].name+' initialization error: '+ExceptionMsg(e));
   end;
 
+  if systemPlatform.IsTerminated then exit;
   if sc[i].effect<>nil then begin
    FLog('Drawing eff on '+sc[i].name);
    sc[i].effect.DrawScene;
@@ -2173,6 +2175,7 @@ procedure TGame.FrameLoop;
      LastFrameNum:=FrameNum;
      LastTickCount:=ticks;
     end;
+    if mainThread.CheckTerminated then exit;
 
     i:=MyTickCount-FrameTime;
     if i>500 then
@@ -2189,6 +2192,7 @@ procedure TGame.FrameLoop;
     except
      on e:exception do ForceLogMessage('Error in FrameLoop 2: '+ExceptionMsg(e));
     end;
+    if SystemPlatform.IsTerminated then exit;
 
     if active or (params.mode.displayMode<>dmSwitchResolution) then begin
      // Если программа активна, то выполним отрисовку кадра

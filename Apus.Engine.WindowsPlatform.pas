@@ -130,6 +130,7 @@ begin
  //writeln('WinMSG: ',IntTOHex(message):10,'  W=',IntToHex(wParam),'  L=',IntToHex(lParam));
  case Message of
   wm_Destroy:begin
+   LogMessage('WM_Destroy');
    terminated:=true;
    Signal('Engine\Cmd\Exit',0);
   end;
