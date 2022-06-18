@@ -26,7 +26,7 @@ type
 
  TGLShader=class(TShader)
   handle:TGLShaderHandle;
-  texMode:integer;
+  texMode:cardinal;
   uMVP:integer;   // MVP matrix (named "MVP")
   uModelMat:integer; // model matrix as-is (named "ModelMatrix")
   uNormalMat:integer; // normalized model matrix (named "NormalMatrix")
