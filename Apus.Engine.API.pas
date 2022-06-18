@@ -382,7 +382,7 @@ type
   procedure Push;  //< Save (push) current target in stack (including viewport)
   procedure Pop; //< Restore target from stack
 
-  procedure Resized(newWidth,newHeight:integer); // backbuffer size changed
+  procedure Resized(newWidth,newHeight:integer); // Must be called by external code when backbuffer size was changed
  end;
 
  // Control clipping
@@ -777,8 +777,10 @@ type
   // Set cull mode
   procedure SetCullMode(mode:TCullMode);
 
-  // Get image from Backbuffer (screenshot etc)
+  // Get image from the Backbuffer (screenshot etc)
   procedure CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
+  // Get a single pixel value from the backbuffer (for debug/test purposes
+  function GetPixelValue(X,Y:integer):cardinal;
   // Present backbuffer to the screen
   procedure PresentFrame;
   // Restore (invalidate) gfx settings

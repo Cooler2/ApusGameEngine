@@ -33,6 +33,7 @@ type
   // Functions
   procedure PresentFrame;
   procedure CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
+  function GetPixelValue(X,Y:integer):cardinal;
 
   procedure BeginPaint(target:TTexture);
   procedure EndPaint;
@@ -337,6 +338,12 @@ procedure TOpenGL.CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
   image.Lock;
   glReadPixels(srcX,srcY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,image.data);
   image.Unlock;
+ end;
+function TOpenGL.GetPixelValue(x,y:integer):cardinal;
+ begin
+  glBindBuffer(GL_PIXEL_PACK_BUFFER,0);
+  glReadBuffer(GL_BACK);
+  glReadPixels(x,target.height-y-1,1,1,GL_BGRA,GL_UNSIGNED_BYTE,@result);
  end;
 
 function TOpenGL.ShouldUseTextureAsDefaultRT:boolean;
