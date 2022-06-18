@@ -15,7 +15,7 @@ program AdvTex;
    mipTex:TTexture;
    arrTex:TGLTextureArray;
    arrShader:TShader;
-   dirTex:TTexture;
+   dirTex,dirFill:TTexture;
   end;
 
  var
@@ -40,7 +40,7 @@ procedure TMainScene.Initialize;
   data:array[0..63,0..63] of cardinal;
  begin
   inherited;
-  mipTex:=gfx.resman.AllocImage(128,128,TImagePixelFormat.ipfARGB,0,'mipTex');
+  mipTex:=AllocImage(128,128,TImagePixelFormat.ipfARGB,0,'mipTex');
   //mipTex:=gfx.resman.AllocImage(128,128,TImagePixelFormat.ipfARGB,aiAutoMipMap,'mipTex');
   // Fill base level
   DrawToTexture(mipTex,0);
@@ -81,6 +81,9 @@ procedure TMainScene.Initialize;
    for x:=0 to 63 do
     data[y,x]:=MyColor($FF,y*16 and $FF,x*16 and $FF,0);
   dirTex.Upload(@data,256,TImagePixelFormat.ipfARGB);
+
+  // Direct texture fill
+  dirFill:=AllocImage(64,64);
  end;
 
 procedure TMainScene.Render;
@@ -122,7 +125,12 @@ procedure TMainScene.Render;
   FillDword(data,16*32,MyColor(255,0,0,game.frameNum*3));
   dirTex.UploadPart(0,16,16,32,16,@data,32*4,TImagePixelFormat.ipfARGB);
   draw.Image(840,480,dirTex);
-  txt.WriteW(0,860,570,$FFFFFFFF,'Direct texture upload',taCenter);
+  txt.WriteW(0,860,560,$FFFFFFFF,'Direct texture upload',taCenter);
+
+  dirFill.Clear($FFC0A000);
+  dirFill.ClearPart(0,16,4,32,8,$FF4040FF);
+  draw.Image(840,580,dirFill);
+  txt.WriteW(0,860,660,$FFFFFFFF,'Direct texture fill',taCenter);
  end;
 
 begin
