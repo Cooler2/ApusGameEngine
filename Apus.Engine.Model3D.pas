@@ -768,7 +768,7 @@ procedure TModelInstance.SetAnimationPos(name:string;frame:single);
 
 procedure TModelInstance.SetAnimationPos(name:string;frame:integer);
  begin
-  SetAnimationPos(name,round(frame));
+  SetAnimationPos(name,single(round(frame)));
  end;
 
 function TModelInstance.GetAnimationPos(name:string):single;
