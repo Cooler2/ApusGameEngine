@@ -108,7 +108,7 @@ interface
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
-   procedure onHotKey(keycode:byte;shiftstate:byte); override;
+   function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
    procedure onTimer; override; // отжимает кнопку по таймеру
    procedure SetPressed(pr:boolean); virtual;
    procedure MakeSwitches(sameGroup:boolean=true); // make all sibling buttons with the same size - switches
@@ -418,14 +418,19 @@ procedure TUIButton.DoClick;
    end;
   end;
 
- procedure TUIButton.onHotKey(keycode,shiftstate:byte);
+ function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
   begin
+   result:=false;
    if btnStyle=bsNormal then begin
     SetPressed(true);
     DoClick;
     timer:=150;
+    result:=true;
    end else
-    DoClick;
+    if not pressed then begin
+     DoClick;
+     result:=true;
+    end;
   end;
 
  function TUIButton.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
