@@ -732,9 +732,13 @@ procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:
   end;
  end;
 
-procedure TGLShadersAPI.UseTexture(tex: TTexture; stage: integer);
+procedure TGLShadersAPI.UseTexture(tex:TTexture;stage:integer);
  begin
-  if curTextures[stage]=tex then exit;
+  if curTextures[stage]=tex then begin
+   if tex.HasFlag(tfDirty) then
+    resourceManagerGL.MakeOnline(tex,stage);
+   exit;
+  end;
   curTextures[stage]:=tex;
   SetBit(curTexChanged,stage);
  end;

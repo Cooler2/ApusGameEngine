@@ -370,9 +370,9 @@ end;
 
 { TGLTextureArray }
 {$REGION TextureArray}
-procedure TGLTextureArray.AddDirtyRect(index: integer; rect: TRect);
+procedure TGLTextureArray.AddDirtyRect(index:integer;rect:TRect);
 begin
-
+ NotImplemented;
 end;
 
 constructor TGLTextureArray.Create(numLayers: integer);
@@ -437,6 +437,7 @@ begin
  pitch:=layers[index].pitch;
  lockedLayer:=index;
  online:=false;
+ SetFlag(caps,tfDirty);
 end;
 
 procedure TGLTextureArray.Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil);
@@ -527,6 +528,7 @@ begin
    CheckForGLError('17');
   end;
   online:=true;
+  ClearFlag(caps,tfDirty);
 end;
 {$ENDREGION}
 
@@ -697,6 +699,7 @@ begin
 
   if mode=lmReadWrite then begin
    online:=false;
+   SetFlag(caps,tfDirty);
    AddDirtyRect(lockRect,mipLevel);
   end;
  finally
@@ -713,7 +716,7 @@ procedure TGLTexture.AddDirtyRect(rect:TRect;level:integer);
 var
  n:integer;
 begin
- online:=false;
+ online:=false; SetFlag(caps,tfDirty);
  n:=dCount[level];
  if n<0 then exit;
  if n<high(dirty[level]) then begin
@@ -853,7 +856,7 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
   glTexImage2D(GL_TEXTURE_2D,mipLevel,internalFormat,
     max2(realwidth shr mipLevel,1),max2(realheight shr mipLevel,1),0,format,subFormat,pixelData);
   CheckForGLError('231');
-  online:=true;
+  online:=true; ClearFlag(caps,tfDirty);
   InvalidateInternalLevel(mipLevel);
  end;
 
@@ -953,7 +956,7 @@ begin
   if HasFlag(tfAutoMipMap) and (GL_VERSION_3_0 or GL_ARB_framebuffer_object) then begin
    glGenerateMipmap(GL_TEXTURE_2D);
   end;
-  online:=true;
+  online:=true; ClearFlag(caps,tfDirty);
 end;
 
 {$ENDREGION}
@@ -1079,7 +1082,7 @@ begin
 
   {$ENDIF}
   SetFlag(tex.caps,tfRenderTarget+tfNoRead+tfNoWrite);
-  tex.online:=true;
+  tex.online:=true; ClearFlag(tex.caps,tfDirty);
  end;
 end;
 
@@ -1116,6 +1119,7 @@ begin
  tex.name:=name;
  tex.PixelFormat:=PixFmt;
  tex.online:=false;
+ SetFlag(tex.caps,tfDirty);
  if HasFlag(flags,aiPixelated) then
   tex.filter:=fltNearest
  else
@@ -1187,6 +1191,7 @@ begin
  tex.name:=name;
  tex.pixelFormat:=pixFmt;
  tex.online:=false;
+ SetFlag(tex.caps,tfDirty);
  if HasFlag(flags,aiPixelated) then
   tex.filter:=fltNearest
  else

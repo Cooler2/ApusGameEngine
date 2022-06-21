@@ -9,20 +9,21 @@ interface
 
  const
   // Texture features flags
-  tfCanBeLost      = 1;   // Texture data can be lost at any moment
-  tfDirectAccess   = 2;   // CPU access allowed, texture can be locked
-  tfNoRead         = 4;   // Reading of texture data is not allowed
-  tfNoWrite        = 8;   // Writing to texture data is not allowed
-  tfRenderTarget   = 16;  // Can be used as a target for GPU rendering
-  tfAutoMipMap     = 32;  // MIPMAPs are generated automatically, don't need to fill manually
-  tfNoLock         = 64;  // No need to lock the texture to access its data
-  tfClamped        = 128; // By default texture coordinates are clamped (otherwise - not clamped)
-  tfVidmemOnly     = 256; // Texture uses only VRAM (can't be accessed by CPU)
-  tfSysmemOnly     = 512; // Texture uses only System RAM (can't be used by GPU)
+  tfCanBeLost      = 1;    // Texture data can be lost at any moment
+  tfDirectAccess   = 2;    // CPU access allowed, texture can be locked
+  tfNoRead         = 4;    // Reading of texture data is not allowed
+  tfNoWrite        = 8;    // Writing to texture data is not allowed
+  tfRenderTarget   = 16;   // Can be used as a target for GPU rendering
+  tfAutoMipMap     = 32;   // MIPMAPs are generated automatically, don't need to fill manually
+  tfNoLock         = 64;   // No need to lock the texture to access its data
+  tfClamped        = 128;  // By default texture coordinates are clamped (otherwise - not clamped)
+  tfVidmemOnly     = 256;  // Texture uses only VRAM (download operation is required to access pixel data)
+  tfSysmemOnly     = 512;  // Texture uses only System RAM (can't be used by GPU)
   tfTexture        = 1024; // Texture corresponds to a texture object of the underlying API
   tfScaled         = 2048; // scale factors are used
   tfCloned         = 4096; // Texture object is cloned from another, so don't free any underlying resources
   tfPixelated      = 8192; // No interpolation allowed for sampling this texture
+  tfDirty          = 16384; // Texture is "dirty" - internal storage was modified
 
  type
   // Режим интерполяции текстур
