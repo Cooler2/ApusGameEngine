@@ -419,6 +419,8 @@ procedure TUIButton.DoClick;
   end;
 
  function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
+  var
+   i:integer;
   begin
    result:=false;
    if btnStyle=bsNormal then begin
@@ -426,11 +428,15 @@ procedure TUIButton.DoClick;
     DoClick;
     timer:=150;
     result:=true;
-   end else
-    if not pressed then begin
+   end else begin
+    // don't click on button if it has no effect: i.e. it is pressed and there are other group buttons
+    if pressed and (parent<>nil) and (group<>0) then
+      for i:=0 to high(parent.children) do
+       if (parent.children[i]<>self) and (parent.children[i] is TUIButton) and
+          ((parent.children[i] as TUIButton).group=group) then exit;
      DoClick;
      result:=true;
-    end;
+   end;
   end;
 
  function TUIButton.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
