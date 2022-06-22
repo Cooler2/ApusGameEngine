@@ -1882,7 +1882,7 @@ procedure TestFloor;
  begin
   StartMeasure(t);
   for i:=1 to 100000000 do
-   f:=Floor(-0.35);
+   f:=FastFloor(-0.35);
   Writeln('Floor time: ',EndMeasure(t):5:2);
  end;
 
