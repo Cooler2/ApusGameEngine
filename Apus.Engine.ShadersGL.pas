@@ -735,7 +735,7 @@ procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:
 procedure TGLShadersAPI.UseTexture(tex:TTexture;stage:integer);
  begin
   if curTextures[stage]=tex then begin
-   if tex.HasFlag(tfDirty) then
+   if (tex<>nil) and tex.HasFlag(tfDirty) then
     resourceManagerGL.MakeOnline(tex,stage);
    exit;
   end;
