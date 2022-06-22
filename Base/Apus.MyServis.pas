@@ -620,11 +620,13 @@ interface
  function Spline4a(x,x0,x1,y0,y1:single):single;
 
  // Get the nearest Power-of-two value not less than V
- function GetPow2(v:integer):integer;
+ function GetPow2(v:integer):integer; inline;
  // Get power of 2
- function Pow2(e:integer):int64;
+ function Pow2(e:integer):int64; inline;
  // Get the smallest number E so 2^E is not less than V
  function Log2i(v:integer):integer;
+ // Fast floor (SSE version 5x faster than RTL version)
+ function FastFloor(v:single):integer;
 
  // Minimum / Maximum
  function Min2(a,b:integer):integer; inline;
@@ -1108,6 +1110,21 @@ function min2s(a,b:single):single; inline;
     inc(result);
    end;
   end;
+
+ function FastFloor(v:single):integer;
+  asm
+   roundss xmm0,xmm0,01
+   {$IFDEF CPUx64}
+   cvtss2si rax,xmm0
+   {$ELSE}
+   cvtss2si eax,xmm0
+   {$ENDIF}
+  end;
+
+{ function Floor(v:single):single; inline;
+  begin
+   result:=Math.Floor(v);
+  end;}
 
  function CalcCheckSum(adr:pointer;size:integer):cardinal;
   var

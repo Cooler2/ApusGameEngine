@@ -16,7 +16,6 @@ program TestMyServis;
   variants,
   DateUtils,
   SysUtils,
-  //Math,
   classes,
   DCPmd5a,
   Apus.CPU in '..\Apus.CPU.pas',
@@ -685,7 +684,7 @@ procedure TestQuotes;
   begin
    result:=NaN;
    if name='width' then result:=51;
-   if IsNaN(result) then begin
+   if Apus.MyServis.IsNaN(result) then begin
     v:=FindVar(name,vc);
     if v<>nil then result:=StrToFloat(vc.GetValue(v));
    end;
@@ -697,7 +696,7 @@ procedure TestQuotes;
    time:int64;
   procedure Compare(v1,v2:double);
    begin
-    if IsNaN(v1) then begin
+    if Apus.MyServis.IsNaN(v1) then begin
      writeln('FAILED - NAN!'); exit;
     end;
     if v1=v2 then writeln('Passed')
@@ -1875,6 +1874,18 @@ procedure TestBitFunc;
   writeln('BitFunc test OK');
  end;
 
+procedure TestFloor;
+ var
+  t:int64;
+  i:integer;
+  f:single;
+ begin
+  StartMeasure(t);
+  for i:=1 to 100000000 do
+   f:=Floor(-0.35);
+  Writeln('Floor time: ',EndMeasure(t):5:2);
+ end;
+
 (* // Debug GetCaller
 
 var
@@ -1920,6 +1931,7 @@ begin
  UseLogFile('log.txt',true);
  try
   //Test1(1,2,3);
+  TestFloor;
   TestBitFunc;
   TestSSE;
   TestFastHash;
