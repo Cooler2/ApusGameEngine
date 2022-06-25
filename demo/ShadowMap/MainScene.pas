@@ -84,7 +84,7 @@ constructor TMainScene.Create;
 procedure TMainScene.Initialize;
  begin
   // No pixel format for the image buffer means that only depth buffer should be allocated
-  shadowMap:=gfx.resman.AllocImage(1024,1024,TImagePixelFormat.ipfNone,
+  shadowMap:=gfx.resman.AllocImage(1024,1024,TImagePixelFormat.ipfDepth32f,
    aiRenderTarget+aiDepthBuffer+aiClampUV,'ShadowMap');
  end;
 

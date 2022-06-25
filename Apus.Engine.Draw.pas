@@ -132,6 +132,7 @@ begin
  setLength(bandInd,4*MaxParticleCount);
 
  neutral:=AllocImage(4,4);
+ neutral.name:='_neutral_';
  neutral.Clear($FF808080);
  shader.UseTexture(neutral);
 end;

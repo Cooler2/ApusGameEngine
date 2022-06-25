@@ -53,6 +53,7 @@ type
   procedure UploadInternalData; virtual; // upload modified internal storage data (using dirty rects)
   procedure FreeData; virtual;
   procedure Bind; virtual;
+  function IsBound(stage:integer):boolean; virtual;
   function GetTextureTarget:integer; virtual;
   procedure InvalidateInternalLevel(mipLevel:integer); virtual;
   // Download texture data into the internal storage
@@ -132,7 +133,6 @@ type
  protected
   //CurTag:integer;
   //data:TObject;
-  curTextures:array[0..15] of TGlTexture;
   //texFilters:array[0..15] of TTexFilter;
   procedure FreeVidMem; // Освободить некоторое кол-во видеопамяти
   procedure FreeMetaTexSpace(n:integer); // Освободить некоторое пространство в указанной метатекстуре
@@ -172,11 +172,52 @@ var
  lastErrorTime:int64;
  errorTr:integer;
 
+ activeTex:integer; // currently active texture unit
+ boundTex2D:array[0..15] of TTexture; // current texture bound
+ boundTex3D:array[0..15] of TTexture;
+ boundTex2D_Arr:array[0..15] of TTexture;
+
 {$REGION UTILS}
 function InMainThread:boolean; inline;
 begin
  result:=GetCurrentThreadID=mainThreadID;
 end;
+
+
+procedure ActiveTextureUnit(u:integer);
+ begin
+  ASSERT((u>=0) and (u<16));
+  glActiveTexture(GL_TEXTURE0+u);
+  activeTex:=u;
+ end;
+
+procedure UnbindTex(tex:TTexture);
+ var
+  i:integer;
+ begin
+  for i:=0 to high(boundTex2D) do
+   if boundTex2D[i]=tex then boundTex2D[i]:=nil;
+  for i:=0 to high(boundTex3D) do
+   if boundTex3D[i]=tex then boundTex3D[i]:=nil;
+  for i:=0 to high(boundTex2D_Arr) do
+   if boundTex2D_Arr[i]=tex then boundTex2D_Arr[i]:=nil;
+ end;
+
+var
+ saveActiveTex:GLInt=-1;
+procedure SaveActiveTexture;
+ begin
+  ASSERT(saveActiveTex=-1);
+  glGetIntegerv(GL_ACTIVE_TEXTURE,@saveActiveTex);
+  if saveActiveTex<>GL_TEXTURE0+9 then ActiveTextureUnit(9);
+ end;
+
+procedure RestoreActiveTexture;
+ begin
+  ASSERT(saveActiveTex<>-1);
+  if saveActiveTex<>GL_TEXTURE0+9 then ActiveTextureUnit(saveActiveTex-GL_TEXTURE0);
+  saveActiveTex:=-1;
+ end;
 
 procedure CheckForGLError(msg:string); //inline;
 var
@@ -535,9 +576,17 @@ end;
 { TGLTexture }
 {$REGION Texture}
 procedure TGLTexture.Bind;
+var
+ target:integer;
 begin
- glBindTexture(GetTextureTarget,texname);
+ target:=GetTextureTarget;
+ glBindTexture(target,texname);
  CheckForGLError('211');
+ case target of
+  GL_TEXTURE_2D:boundTex2D[activeTex]:=self;
+  GL_TEXTURE_3D:boundTex3D[activeTex]:=self;
+  GL_TEXTURE_2D_ARRAY:boundTex2D_Arr[activeTex]:=self;
+ end;
 end;
 
 procedure TGLTexture.Clear(color:cardinal);
@@ -763,6 +812,7 @@ begin
  if (name<>'') and (@glObjectLabel<>nil) then begin
   lab:=name;
   glObjectLabel(GL_TEXTURE,texname,length(lab),@lab[1]);
+  CheckForGLError('L01');
  end;
 end;
 
@@ -822,13 +872,12 @@ begin
  end else begin
   // 4.4- compatibility mode
   target:=GetTextureTarget;
-  glGetIntegerv(GL_ACTIVE_TEXTURE,@aTex);
-  if aTex<>GL_TEXTURE0+9 then glActiveTexture(GL_TEXTURE0+9);
-  glBindTexture(target,texname);
+  SaveActiveTexture;
+  Bind;
   glTexParameteri(target,GL_TEXTURE_MIN_FILTER,fMin);
   glTexParameteri(target,GL_TEXTURE_MAG_FILTER,fMax);
   CheckForGLError('16');
-  if aTex<>GL_TEXTURE0+9 then glActiveTexture(aTex);
+  RestoreActiveTexture;
  end;
 end;
 
@@ -885,10 +934,8 @@ procedure TGLTexture.InitStorage;
   if texName<>0 then exit;
   glGenTextures(1,@texname);
   CheckForGLError('S11');
+  SaveActiveTexture;
   Bind;
-  SetLabel;
-  CheckForGLError('S12');
-  UpdateFilter;
   if HasFlag(tfClamped) then begin
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
@@ -899,22 +946,36 @@ procedure TGLTexture.InitStorage;
   CheckForGLError('S13');
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_LEVEL,mipmaps);
   CheckForGLError('S14');
-
   // Allocate texture storage
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
   CheckForGLError('S15');
-   for mipLevel:=0 to mipMaps do begin
-    glTexImage2D(GetTextureTarget,mipLevel,internalFormat,
-      max2(realwidth shr mipLevel,1),max2(realheight shr mipLevel,1),0,format,subFormat,nil);
-    CheckForGLError('S17');
-   end;
+  for mipLevel:=0 to mipMaps do begin
+   glTexImage2D(GetTextureTarget,mipLevel,internalFormat,
+     max2(realwidth shr mipLevel,1),max2(realheight shr mipLevel,1),0,format,subFormat,nil);
+   CheckForGLError('S17');
+  end;
+  RestoreActiveTexture;
+  SetLabel;
+  UpdateFilter;
  end;
 
 procedure TGLTexture.InvalidateInternalLevel(mipLevel: integer);
-begin
+ begin
   SetLength(realData[0],0); // destroy internal storage
   realDataObsolete[0]:=true;
-end;
+ end;
+
+function TGLTexture.IsBound(stage:integer):boolean;
+ var
+  target:integer;
+ begin
+  target:=GetTextureTarget;
+  case target of
+   GL_TEXTURE_2D:result:=boundTex2D[stage]=self;
+   GL_TEXTURE_3D:result:=boundTex3D[stage]=self;
+   GL_TEXTURE_2D_ARRAY:result:=boundTex2D_Arr[stage]=self;
+  end;
+ end;
 
 procedure TGLTexture.UploadInternalData;
 var
@@ -926,6 +987,7 @@ begin
   if locked>0 then raise EWarning.Create('MO for a locked texture: '+name);
   InitStorage;
 
+  Bind;
   GetGLFormat(PixelFormat,format,subFormat,internalFormat);
   {$IFNDEF GLES}
   // Upload texture data
@@ -994,9 +1056,8 @@ begin
   glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
   {$ENDIF}
   glGenTextures(1,@tex.texname);
-  glActiveTexture(GL_TEXTURE0+9); // don't damage units 0..8
-  glBindTexture(GL_TEXTURE_2D,tex.texname);
-  tex.SetLabel;
+  ActiveTextureUnit(9);
+  tex.Bind;
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
   tex.filter:=fltBilinear;
@@ -1025,8 +1086,8 @@ begin
   glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
   CheckForGLError('2');
   glGenTextures(1,@tex.texname);
-  glActiveTexture(GL_TEXTURE0+9); // don't damage units 0..8
-  glBindTexture(GL_TEXTURE_2D,tex.texname);
+  ActiveTextureUnit(9);
+  tex.Bind;
   CheckForGLError('3');
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
@@ -1360,6 +1421,7 @@ begin
   tex.rbo:=0;
   if tex.texname<>0 then glDeleteTextures(1,@tex.texname);
   tex.texname:=0;
+  UnbindTex(tex);
   tex.Free;
   image:=nil;
  end else
@@ -1395,15 +1457,16 @@ var
  tex:TGLTexture;
 begin
  if img=nil then begin
-  curTextures[stage]:=nil;
+  //curTextures[stage]:=nil;
   exit;
  end;
  ASSERT(img is TGLTexture);
  tex:=TGLTexture(img);
- if (curTextures[stage]=tex) and tex.online then exit;
- glActiveTexture(GL_TEXTURE0+stage);
- if curTextures[stage]<>tex then tex.Bind;
- curTextures[stage]:=tex;
+ if tex.IsBound(stage) and tex.online then exit;
+ if boundTex2D[stage]<>tex then begin
+  ActiveTextureUnit(stage);
+  tex.Bind;
+ end;
  if not tex.online then tex.UploadInternalData;
 end;
 
@@ -1431,8 +1494,7 @@ begin
  {$ENDIF}
 end;
 
-procedure TGLResourceManager.ResizeImage(var img: TTexture; newWidth,
-  newHeight: integer);
+procedure TGLResourceManager.ResizeImage(var img:TTexture;newWidth,newHeight:integer);
 var
  glFormat,subFormat,internalFormat:cardinal;
  old:TTexture;
@@ -1442,8 +1504,8 @@ begin
   with img as TGLTexture do begin
    width:=newWidth;
    height:=newHeight;
-   if texName<>0 then begin
-    glBindTexture(GL_TEXTURE_2D,texname);
+   if texName<>0 then begin /// TODO: check carefuly
+    Bind;
     GetGLFormat(img.PixelFormat,glFormat,subFormat,internalFormat);
     glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,glFormat,subFormat,nil);
    end;
