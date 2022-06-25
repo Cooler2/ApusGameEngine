@@ -150,6 +150,7 @@ procedure TMainScene.Load;
   baloon2:=LoadImageFromFile(baseDir+'res\baloonTop');
 
   // Scene loaded - show it
+  loaded:=true;
   game.SwitchToScene('Main');
  end;
 
