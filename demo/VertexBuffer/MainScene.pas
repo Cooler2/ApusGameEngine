@@ -118,6 +118,7 @@ procedure BuildMesh;
 procedure TMainScene.Load;
  begin
   BuildMesh;
+  loaded:=true;
   game.SwitchToScene('Main');
  end;
 

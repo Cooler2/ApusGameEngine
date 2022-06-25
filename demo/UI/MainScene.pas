@@ -25,7 +25,7 @@ implementation
  type
   // This will be our single scene
   TMainScene=class(TUIScene)
-   procedure Load; override;
+   procedure Initialize; override;
    procedure Render; override;
   end;
 
@@ -87,26 +87,35 @@ procedure TestWidgets;
 //  TUILabel.Create()
  end;
 
+procedure TestLayouts;
+ begin
+  InitTestLayer;
+  // Status bar
+
+ end;
 
 { TMainScene }
-procedure TMainScene.Load;
+procedure TMainScene.Initialize;
  var
   font:cardinal;
   btn:TUIButton;
   panel:TUIElement;
  begin
-  UI.font:=txt.GetFont('',7.0);
+  UI.font:=txt.GetFont('',7.0,fsBold);
   // Create menu panel
-  panel:=TUIElement.Create(250,200,UI,'MainMenu');
+  panel:=TUIElement.Create(250,400,UI,'MainMenu');
+  panel.scale:=1.5;
   panel.Center;
   panel.SetAnchors(anchorCenter);
   panel.layout:=TRowLayout.CreateVertical(10,true);
   panel.SetPaddings(15);
-  panel.styleInfo:='40E0E0E0 60E0E0E0';
+  //panel.styleInfo:='40E0E0E0 60E0E0E0';
+  panel.styleInfo:='background-color=4EEE; border-color=6EEE; border-radius=7;';
 
   // Create menu buttons
   TUIButton.Create(120,30,'Main\Widgets','Widgets',panel).onClick:=@TestWidgets;
   TUIButton.Create(120,30,'Main\Buttons','Buttons',panel).onClick:=@TestButtons;
+  TUIButton.Create(120,30,'Main\Layouts','Layouts',panel).onClick:=@TestLayouts;
   TUIButton.Create(120,30,'Main\Close','Exit',0,panel);
   Link('UI\Main\Close\Click','Engine\Cmd\Exit');
 

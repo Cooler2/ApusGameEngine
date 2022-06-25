@@ -74,9 +74,9 @@ procedure TSimpleDemoApp.SetupGameSettings(var settings: TGameSettings);
   settings.mode.displayMode:=dmWindow; // run in window
   settings.mode.displayFitMode:=dfmFullSize;
   //settings.mode.displayFitMode:=dfmCenter;
-  settings.mode.displayFitMode:=dfmKeepAspectRatio;
+  //settings.mode.displayFitMode:=dfmKeepAspectRatio;
 
-  //settings.mode.displayScaleMode:=dsmScale;
+  settings.mode.displayScaleMode:=dsmDontScale;
 
   // Here you can override instance settings
 {  // Primary mode settings
@@ -227,9 +227,11 @@ procedure TMainScene.Render;
   draw.Rect(10,10,maxX-10,maxY-10, $FFC00000);
 
   font:=txt.GetFont('Default',7); // Select font (no need to do this every frame)
-  txt.Write(font,300,200,$FFFFFFFF,'Hello world!'); // Write text using the font
+  txt.WriteW(font,300,200,$FFFFFFFF,'Hello world!'); // Write text using the font
 
-  txt.Write(0,10,20,$FFD0D0D0,'RMB - particles, [Win]+[~] - toggle console. ');
+  txt.WriteW(0,10,20,$FFD0D0D0,'RMB - particles, [Win]+[~] - toggle console. ');
+  txt.WriteW(game.largerFont,10,50,$FFD0D0D0,'RMB - particles, [Win]+[~] - toggle console. ');
+  txt.WriteW(game.smallFont,10,70,$FFD0D0D0,'RMB - particles, [Win]+[~] - toggle console. ');
   inherited; // Here all the UI is displayed
 
   // I want particles to be drawn over the UI so handle them here
