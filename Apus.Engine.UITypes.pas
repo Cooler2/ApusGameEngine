@@ -200,7 +200,7 @@ type
   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual; // Нужно вернуть false для запрета дальнейшей обработки клавиши
   procedure onChar(ch:char;scancode:byte); virtual;
   procedure onUniChar(ch:WideChar;scancode:byte); virtual;
-  procedure onHotKey(keycode:byte;shiftstate:byte); virtual;
+  function onHotKey(keycode:byte;shiftstate:byte):boolean; virtual;
   procedure onTimer; virtual;
   procedure onLostFocus; virtual;
 
@@ -364,9 +364,11 @@ implementation
          ((HotKeys[i].shiftstate>0) and (HotKeys[i].shiftstate and ShiftState=HotKeys[i].shiftstate)) then
        begin
         c:=hotkeys[i].element;
+        // Element should be visible and enabled
         if c.IsVisible and c.IsEnabled then
+         // If there is a modal element - it should be parent
          if (modalElement=nil) or (c.HasParent(modalElement)) then
-          c.onHotKey(keycode,shiftstate);
+          if c.onHotKey(keycode,shiftstate) then exit;
        end;
   end;
 
@@ -986,8 +988,9 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    end;
   end;
 
- procedure TUIElement.onHotKey(keycode,shiftstate:byte);
+ function TUIElement.onHotKey(keycode,shiftstate:byte):boolean;
   begin
+   result:=false;
   end;
 
  function TUIElement.onKey(keycode:byte; pressed:boolean;shiftstate:byte):boolean;

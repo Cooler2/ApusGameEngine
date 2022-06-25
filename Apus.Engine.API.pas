@@ -73,6 +73,7 @@ const
  tfRenderTarget = Apus.Engine.Resources.tfRenderTarget;
  tfScaled       = Apus.Engine.Resources.tfScaled;
  tfTexture      = Apus.Engine.Resources.tfTexture;
+ tfDirty        = Apus.Engine.Resources.tfDirty;
 
  // Special flags for the "index" field of particles
  partPosU  = $00000001; // horizontal position in the atlas (in cells)

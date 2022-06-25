@@ -242,7 +242,7 @@ constructor TFreeTypeFont.LoadFromFile(fname: string;index:integer=0);
   LoadFromMemory(data,index);}
  end;
 
-constructor TFreeTypeFont.LoadFromMemory(data: ByteArray;index:integer=0);
+constructor TFreeTypeFont.LoadFromMemory(data:ByteArray;index:integer=0);
  begin
   raise EWarning.Create('Can''t load font from memory due to libFT bugs...');
  end;
@@ -258,25 +258,25 @@ begin
 end;
 
 
-function TFreeTypeFont.RenderGlyph(ch: WideChar; size: single; flags:integer; out dx, dy,
-  width, height: integer;out pitch:integer): pointer;
+function TFreeTypeFont.RenderGlyph(ch:WideChar;size:single;flags:integer;out dx,dy,
+  width,height:integer;out pitch:integer): pointer;
 var
  err:integer;
  bitmap:^FT_Bitmap;
 begin
  Lock;
  try
- SetSize(size);
+  SetSize(size);
 
- err:=FT_Load_Char(face,word(ch),FT_LOAD_RENDER+flags);
- if err<>0 then raise EWarning.Create('Failed to render char, '+IntToStr(err));
- bitmap:=@face.glyph.bitmap;
- pitch:=bitmap.pitch;
- width:=bitmap.width;
- height:=bitmap.rows;
- dx:=face.glyph.bitmap_left;
- dy:=face.glyph.bitmap_top;
- result:=bitmap.buffer;
+  err:=FT_Load_Char(face,word(ch),FT_LOAD_RENDER+flags);
+  if err<>0 then raise EWarning.Create('Failed to render char, '+IntToStr(err));
+  bitmap:=@face.glyph.bitmap;
+  pitch:=bitmap.pitch;
+  width:=bitmap.width;
+  height:=bitmap.rows;
+  dx:=face.glyph.bitmap_left;
+  dy:=face.glyph.bitmap_top;
+  result:=bitmap.buffer;
  finally
   Unlock;
  end;
