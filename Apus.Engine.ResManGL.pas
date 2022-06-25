@@ -889,9 +889,25 @@ procedure TGLTexture.Upload(pixelData:pointer;pitch:integer;pixelFormat:TImagePi
 procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelFormat:TImagePixelFormat);
  var
   format,subformat,internalFormat,error:cardinal;
-  bpp:integer;
+  bpp,y,lineSize:integer;
+  sp,dp:PByte;
  begin
-  ASSERT(InMainThread,'Direct upload is available in the main thread only');
+  if not InMainThread then begin // deferred upload via internal storage
+   ASSERT(self.pixelFormat=pixelFormat);
+   Lock(mipLevel);
+   sp:=pixelData;
+   dp:=self.data;
+   bpp:=pixelSize[pixelFormat] div 8;
+   lineSize:=(realWidth shr mipLevel)*bpp;
+   for y:=0 to realHeight shr mipLevel do begin
+    move(sp^,dp^,lineSize);
+    inc(sp,pitch);
+    inc(dp,self.pitch);
+   end;
+   Unlock;
+   exit;
+  end;
+  // Direct upload
   ASSERT(locked=0);
   ASSERT(mipLevel<=MAX_LEVEL);
   if mipLevel>mipmaps then mipMaps:=mipLevel;
