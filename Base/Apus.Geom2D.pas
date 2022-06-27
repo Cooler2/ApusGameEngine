@@ -94,6 +94,8 @@ interface
  // Vector functions
  function DotProduct(const a,b:TVector2):double; overload; inline;
  function CrossProduct(const a,b:TVector2):double; overload; inline;
+ function DotProduct(const a,b:TVector2s):single; overload; inline;
+ function CrossProduct(const a,b:TVector2s):single; overload; inline;
  function GetLength(v:TVector2):double; overload; inline;
  function GetLength(v:TVector2s):double; overload; inline;
  function Distance(p1,p2:TPoint2):double; overload;
@@ -119,10 +121,12 @@ interface
  function Turn90R(v:TVector2):TVector2; inline;
  procedure Turn90Left(var v:TVector2); inline;
  function Turn90L(v:TVector2):TVector2; inline;
- // angle between vectors (radians)
+ // Angle between vectors (radians)
  function VectAngle(v1,v2:TVector2):double; overload;
+ function VectAngle(v1,v2:TVector2s):single; overload;
  // Angle between vector and X axis (CCW direction if Y is up), -Pi..Pi
  function VectAngle(v:TVector2):double; overload; inline;
+ function VectAngle(v:TVector2s):single; overload; inline;
  // how much vector v1 must be rotated in clockwise direction to obtain v2 direction
  function VectAngleClockwise(v1,v2:TVector2):double; inline;
  // Difference between 2 directions (angle) (result is signed: from -Pi to +Pi)!
@@ -142,6 +146,7 @@ interface
  function PointBlend(p1,p2:TPoint2s;factor:single):TPoint2s; overload;
  // Setup vector (from source to target)
  function Vector2(source,target:TPoint2):TVector2; inline;
+ function Vector2s(source,target:TPoint2s):TVector2s; inline;
  // Unit vector with given direction (CCW from X-axis)
  function Direction(angle:double):TVector2; inline;
  // Setup line by points
@@ -215,6 +220,16 @@ implementation
   end;
 
  function CrossProduct(const a,b:TVector2):double;
+  begin
+   result:=a.x*b.y-a.y*b.x;
+  end;
+
+ function DotProduct(const a,b:TVector2s):single;
+  begin
+   result:=a.x*b.x+a.y*b.y;
+  end;
+
+ function CrossProduct(const a,b:TVector2s):single;
   begin
    result:=a.x*b.y-a.y*b.x;
   end;
@@ -392,6 +407,22 @@ implementation
    result:=ArcTan2(v.y,v.x);
   end;
 
+ function VectAngle(v1,v2:TVector2s):single;
+  var
+   p:single;
+  begin
+   Normalize(v1);
+   Normalize(v2);
+   p:=DotProduct(v1,v2);
+   if p>1 then p:=1;
+   result:=ArcCos(p);
+  end;
+
+ function VectAngle(v:TVector2s):single;
+  begin
+   result:=ArcTan2(v.y,v.x);
+  end;
+
  function VectAngleClockwise(v1,v2:TVector2):double;
   var
    a:double;
@@ -482,6 +513,12 @@ implementation
   end;
 
  function Vector2(source,target:TPoint2):TVector2;
+  begin
+   result.x:=target.x-source.x;
+   result.y:=target.y-source.y;
+  end;
+
+ function Vector2s(source,target:TPoint2s):TVector2s;
   begin
    result.x:=target.x-source.x;
    result.y:=target.y-source.y;
