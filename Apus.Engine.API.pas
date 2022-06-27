@@ -450,6 +450,7 @@ type
   // Transform point using combined MVP matrix
   function Transform(source:TPoint3):TPoint3; overload;
   function Transform(source:TPoint3s):TPoint3s; overload;
+  function ProjectPoint(source:TPoint3s):TPoint3s;
   function ViewDir(scrX,scrY:integer):TVector3s; overload; // view direction vector
   function ViewDir(viewPos:TPoint2s):TVector3s; overload; // viewPos in range of -1..1
   function ViewVec:TVector3s; // camera front vector

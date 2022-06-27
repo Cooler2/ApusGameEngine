@@ -71,6 +71,7 @@ type
   function ITransformation.ObjMatrix = GetObjMatrix;
   function Transform(source:TPoint3):TPoint3; overload;
   function Transform(source:TPoint3s):TPoint3s; overload;
+  function ProjectPoint(source:TPoint3s):TPoint3s;
 
   // Единичный вектор из камеры в направлении экранного пикселя
   function ViewDir(scrX,scrY:integer):TVector3s; overload; // unit vector to pixel (scrX,scrY)
@@ -305,6 +306,13 @@ procedure TTransformationAPI.Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,
   self.yMin:=yMin;
   self.yMax:=yMax;
   modified:=true;
+ end;
+
+function TTransformationAPI.ProjectPoint(source:TPoint3s):TPoint3s;
+ begin
+  result:=Transform(source);
+  result.x:=renderTargetAPI.width*(1+result.x)*0.5;
+  result.y:=renderTargetAPI.height*(1-result.y)*0.5;
  end;
 
 function TTransformationAPI.ProjHeight:single;
