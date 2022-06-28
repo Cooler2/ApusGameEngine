@@ -119,7 +119,6 @@ type
   shaderCache:TSimpleHash;
   activeShader:TGLShader; // current OpenGL shader
   isCustom:boolean;
-  lighting:boolean;
 
   matrixRevision:integer; // increments when transformation changed, so matrices can be uploaded to shaders
   //mvpMatrix,modelMatrix,
@@ -661,8 +660,8 @@ procedure TGLShadersAPI.Reset;
  begin
   isCustom:=false;
   actualTexMode.mode:=0;
-  ClearFlag(curTexMode.lighting,LIGHT_CUSTOMIZED);
-  lighting:=false;
+  if HasFlag(curTexMode.lighting,LIGHT_CUSTOMIZED) then
+   curTexMode.lighting:=curTexMode.lighting and $70;
   TexMode(0);
   TexMode(1,tblDisable,tblDisable);
   //Apply;
