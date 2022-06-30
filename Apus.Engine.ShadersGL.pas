@@ -31,6 +31,7 @@ type
   uModelMat:integer; // model matrix as-is (named "ModelMatrix")
   uNormalMat:integer; // normalized model matrix (named "NormalMatrix")
   uShadowMapMat:integer; // light space matrix for shadow mapping
+  uTexShadowMap:integer; // shadow texture sampler
   uTex:array[0..15] of integer; // texture samplers (named "tex0".."texN")
   vSrc,fSrc:String8; // shader source code
   isCustom:boolean;
@@ -53,7 +54,7 @@ type
 
   // Use custom shader
   procedure UseCustom(shader:TShader);
-  procedure UseCustomized(colorCalc:String8);
+  procedure UseCustomized(colorCalc:String8;numTextures:integer=1);
   // Switch back to a built-in shader
   procedure Reset;
   // Set uniform value
@@ -231,7 +232,10 @@ procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
   SetUniformInternal(self,name,30,m);
  end;
 
-constructor TGLShader.Create(h: TGLShaderHandle);
+constructor TGLShader.Create(h:TGLShaderHandle);
+ var
+  i:integer;
+  st:string8;
  begin
   inherited Create;
   handle:=h;
@@ -241,10 +245,11 @@ constructor TGLShader.Create(h: TGLShaderHandle);
   uModelMat:=glGetUniformLocation(h,'ModelMatrix');
   uNormalMat:=glGetUniformLocation(h,'NormalMatrix');
   uShadowMapMat:=glGetUniformLocation(h,'ShadowMapMatrix');
-  uTex[0]:=glGetUniformLocation(h,'tex0');
-  uTex[1]:=glGetUniformLocation(h,'tex1');
-  uTex[2]:=glGetUniformLocation(h,'tex2');
-  uTex[3]:=glGetUniformLocation(h,'texShadowMap'); // used for shadowmap
+  for i:=0 to 7 do begin
+   st:='tex'+inttostr(i);
+   uTex[i]:=glGetUniformLocation(h,PAnsiChar(st));
+  end;
+  uTexShadowMap:=glGetUniformLocation(h,'texShadowMap'); // used for shadowmap
  end;
 
 destructor TGLShader.Destroy;
@@ -332,8 +337,12 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
    exit;
   end;
   AddLine(result,'uniform sampler2D tex0;');
-  AddLine(result,'uniform sampler2D tex1;',texMode.stage[1]>0);
-  AddLine(result,'uniform sampler2D tex2;',texMode.stage[2]>0);
+  if not customized then begin
+   AddLine(result,'uniform sampler2D tex1;',texMode.stage[1]>0);
+   AddLine(result,'uniform sampler2D tex2;',texMode.stage[2]>0);
+  end else
+   for i:=1 to texMode.stage[2]-1 do
+    AddLine(result,'uniform sampler2D tex'+inttostr(i)+';');
   AddLine(result,'uniform sampler2DShadow texShadowMap;',shadowMap);
   AddLine(result,'uniform float uFactor;');
   AddLine(result,'uniform vec3 ambientColor;',HasFlag(texMode.lighting,LIGHT_AMBIENT_ON));
@@ -638,7 +647,7 @@ procedure TGLShadersAPI.UseCustom(shader: TShader);
   ActivateShader(shader);
  end;
 
-procedure TGLShadersAPI.UseCustomized(colorCalc:String8);
+procedure TGLShadersAPI.UseCustomized(colorCalc:String8;numTextures:integer=1);
  var
   idx:integer;
  begin
@@ -646,6 +655,7 @@ procedure TGLShadersAPI.UseCustomized(colorCalc:String8);
   if idx<0 then idx:=AddString(customized,colorCalc);
   ASSERT((idx>=0) and (idx<16));
   curTexMode.lighting:=idx+LIGHT_CUSTOMIZED;
+  curTexmode.stage[2]:=numTextures; // for customized shader this is a placeholder for texture samplers number
   isCustom:=false;
  end;
 

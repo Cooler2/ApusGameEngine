@@ -474,7 +474,7 @@ type
   // Set custom shader (pass nil if it's already set or there is no object - because the engine should know)
   procedure UseCustom(shader:TShader);
   // Use customized shader: where just the pixel (fragment) color calculation is modified
-  procedure UseCustomized(colorCalc:String8);
+  procedure UseCustomized(colorCalc:String8;numTextures:integer=1);
   // Switch back to the internal shader
   procedure Reset;
   // Set uniform value for the current shader
