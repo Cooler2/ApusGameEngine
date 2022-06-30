@@ -1267,14 +1267,14 @@ begin
  if flags and aiRenderTarget>0 then begin
   AllocRenderTarget(tex,flags);
  end else begin
-  // Not render target -> NO ANY GL* CALLS TO ALLOW MULTITHREADED ALLOCATION
+  {// Not render target -> NO ANY GL* CALLS TO ALLOW MULTITHREADED ALLOCATION
   tex.pitch:=width*pixelSize[pixFmt] div 8;
   datasize:=tex.pitch*height;
   if pixFMT in [ipfDXT1,ipfDXT3,ipfDXT5] then begin
    tex.pitch:=tex.pitch div 4;
    datasize:=datasize div 16;
   end;
-  SetLength(tex.realData[0],datasize);
+  SetLength(tex.realData[0],datasize);}
 
   SetFlag(tex.caps,tfDirectAccess); // Can be locked
   if HasFlag(flags,aiClampUV) then
