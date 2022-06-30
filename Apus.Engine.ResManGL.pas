@@ -6,7 +6,7 @@
 
 unit Apus.Engine.ResManGL;
 interface
- uses Apus.Engine.API, Apus.Images, Apus.MyServis, Types, Apus.Engine.Resources;
+ uses Apus.Engine.API, Apus.Images, Apus.MyServis, Types, Apus.Engine.Resources, SyncObjs;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE GLES11} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE GLES20} {$DEFINE OPENGL} {$ENDIF}
 type
@@ -48,7 +48,7 @@ type
    x,y,width,height:integer;
   end;
  var
-  cs:TMyCriticalSection;
+  cs:TCriticalSection;
   online:boolean; // true when image data is uploaded and ready to use (uv's are valid), false when local image data was modified and should be uploaded
   realData:array[0..MAX_LEVEL] of ByteArray; // internal storage of texture data
   fbo:cardinal; // framebuffer object (for a render target texture)
@@ -606,7 +606,7 @@ end;
 procedure TGLTexture.Clear(color:cardinal);
 begin
  if InMainThread and (@glClearTexImage<>nil) then begin
-  EnterCriticalSection(cs);
+  cs.Enter;
   try
    InitStorage;
    // Clear directly
@@ -614,7 +614,7 @@ begin
    CheckForGLError('191');
    InvalidateInternalLevel(0);
   finally
-   LeaveCriticalSection(cs);
+   cs.Leave;
   end;
  end else begin
   // Clear in the internal storage
@@ -633,14 +633,14 @@ begin
  if (texName<>0) and InMainThread and (@glClearTexSubImage<>nil) then begin
   // Upload remaining data if needed
   UploadInternalData;
-  EnterCriticalSection(cs);
+  cs.Enter;
   try
    // Clear directly
    glClearTexSubImage(texName,mipLevel,x,y,0,width,height,1,GL_BGRA,GL_UNSIGNED_BYTE,@color);
    CheckForGLError('221');
    InvalidateInternalLevel(mipLevel);
   finally
-   LeaveCriticalSection(cs);
+   cs.Leave;
   end;
  end else begin
   // Clear in the internal storage
@@ -664,7 +664,7 @@ end;
 constructor TGLTexture.Create;
 begin
  inherited;
- InitCritSect(cs,'Tex_');
+ cs:=TCriticalSection.Create;
 end;
 
 destructor TGLTexture.Destroy;
@@ -679,7 +679,7 @@ begin
    uploadrequest.data:=nil;
    sleep(10);
   end;
-  DeleteCritSect(cs);
+  FreeAndNil(cs);
   inherited;
  end;
 end;
@@ -761,7 +761,7 @@ begin
    raise EWarning.Create('Can''t lock texture '+name+' for reading');
  if HasFlag(tfNoWrite) and (mode<>lmReadOnly) then
    raise EWarning.Create('Can''t lock texture '+name+' for writing');
- EnterCriticalSection(cs);
+ cs.Enter;
  if r=nil then lockRect:=Rect(0,0,(width-1) shr mipLevel,(height-1) shr mipLevel) // full rect
   else lockRect:=r^;
  if (mode=lmCustomUpdate) and (r<>nil) then
@@ -792,7 +792,7 @@ procedure TGLTexture.Unlock;
 begin
  ASSERT(locked>0,'Texture not locked: '+name);
  dec(locked);
- LeaveCriticalSection(cs);
+ cs.Leave;
 end;
 
 procedure TGLTexture.LockLayer(index:integer;miplevel:byte;mode:TLockMode;r:PRect);
@@ -802,13 +802,13 @@ end;
 
 procedure TGLTexture.ProcessUploadRequest;
 begin
- EnterCriticalSection(cs);
+ cs.Enter;
  try
   if uploadrequest.data=nil then exit;
   Upload(uploadRequest.mipLevel,uploadRequest.data,uploadrequest.pitch,uploadRequest.pf);
   ZeroMem(uploadRequest,sizeof(uploadRequest));
  finally
-  LeaveCriticalSection(cs);
+  cs.Leave;
  end;
 end;
 
@@ -935,9 +935,9 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
   if not InMainThread then begin // upload request from non-main thread: sync
    ASSERT(self.pixelFormat=pixelFormat);
    repeat
-    EnterCriticalSection(cs);
+    cs.Enter;
     if uploadRequest.data=nil then break;
-    LeaveCriticalSection(cs);
+    cs.Leave;
     sleep(0);
    until false;
    uploadRequest.pitch:=pitch;
@@ -948,7 +948,7 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
    uploadRequest.width:=0;
    uploadRequest.height:=0;
    uploadRequest.data:=pixelData;
-   LeaveCriticalSection(cs);
+   cs.Leave;
    Signal('GLImages\Upload',TTag(self));
    // wait until request is complete
    while uploadRequest.data<>nil do Sleep(0);
@@ -956,7 +956,7 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
   end;
   // Direct upload
   ASSERT(mipLevel<=MAX_LEVEL);
-  EnterCriticalSection(cs);
+  cs.Enter;
   try
    if mipLevel>mipmaps then mipMaps:=mipLevel;
    if texName=0 then InitStorage;
@@ -970,7 +970,7 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
    online:=true; ClearFlag(caps,tfDirty);
    InvalidateInternalLevel(mipLevel);
   finally
-   LeaveCriticalSection(cs);
+   cs.Leave;
   end;
  end;
 
@@ -980,7 +980,7 @@ procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData
   bpp:integer;
  begin
   ASSERT(InMainThread,'Direct upload is available in the main thread only');
-  EnterCriticalSection(cs);
+  cs.Enter;
   try
    ASSERT(texName<>0,'Texture '+name+' must be initialized before partial update');
    Bind;
@@ -991,7 +991,7 @@ procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData
    CheckForGLError('241');
    InvalidateInternalLevel(mipLevel);
   finally
-   LeaveCriticalSection(cs);
+   cs.Leave;
   end;
  end;
 
@@ -1053,7 +1053,7 @@ procedure TGLTexture.UploadInternalData;
   i,bpp,level:integer;
  begin
   needInit:=false;
-  EnterCriticalSection(cs);
+  cs.Enter;
   try
   InitStorage;
 
@@ -1090,7 +1090,7 @@ procedure TGLTexture.UploadInternalData;
   end;
   online:=true; ClearFlag(caps,tfDirty);
   finally
-   LeaveCriticalSection(cs);
+   cs.Leave;
   end;
  end;
 
