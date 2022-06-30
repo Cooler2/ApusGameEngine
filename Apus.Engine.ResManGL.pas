@@ -1283,7 +1283,8 @@ begin
   if HasFlag(flags,aiAutoMipmap) then begin
    SetFlag(tex.caps,tfAutoMipMap);
    tex.mipmaps:=Clamp(Log2i(max2(width,height)),0,tex.MAX_LEVEL);
-  end;
+  end else
+   tex.mipmaps:=mipLevels;
  end;
 
  // Image can use the texture partialy
