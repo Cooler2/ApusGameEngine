@@ -44,6 +44,7 @@ type
  // Use a priorited queue (item.value is priority)
  TProducerConsumerPriority=class(TProducerConsumer)
   constructor Create(bufferSize:integer;numThreads:integer=0);
+  procedure UpdatePriorities(priorityFunc:TPriorityFunc); virtual;
  protected
   queue:TPriorityQueue;
   function Consume(out item:TDataItem):boolean; override;
@@ -177,6 +178,11 @@ function TProducerConsumerPriority.InternalProduce(const item:TDataItem):boolean
 function TProducerConsumerPriority.ItemsToConsume:integer;
  begin
   result:=queue.count;
+ end;
+
+procedure TProducerConsumerPriority.UpdatePriorities(priorityFunc:TPriorityFunc);
+ begin
+  queue.UpdatePriorities(priorityFunc);
  end;
 
 { TProducerConsumerFIFO }
