@@ -604,25 +604,28 @@ begin
 end;
 
 procedure TGLTexture.Clear(color:cardinal);
-begin
- if InMainThread and (@glClearTexImage<>nil) then begin
-  cs.Enter;
-  try
-   InitStorage;
-   // Clear directly
-   glClearTexImage(texName,0,GL_BGRA,GL_UNSIGNED_BYTE,@color);
-   CheckForGLError('191');
-   InvalidateInternalLevel(0);
-  finally
-   cs.Leave;
+ var
+  level:integer;
+ begin
+  if InMainThread and (@glClearTexImage<>nil) then begin
+   cs.Enter;
+   try
+    InitStorage;
+    // Clear directly
+    for level:=0 to mipmaps do
+     glClearTexImage(texName,level,GL_BGRA,GL_UNSIGNED_BYTE,@color);
+    CheckForGLError('191');
+    InvalidateInternalLevel(0);
+   finally
+     cs.Leave;
+   end;
+  end else begin
+   // Clear in the internal storage
+   Lock;
+   FillDword(realData[0][0],length(realData[0]) div 4,color);
+   Unlock;
   end;
- end else begin
-  // Clear in the internal storage
-  Lock;
-  FillDword(realData[0][0],length(realData[0]) div 4,color);
-  Unlock;
  end;
-end;
 
 procedure TGLTexture.ClearPart(mipLevel:byte;x,y,width,height:integer;color:cardinal);
 var
