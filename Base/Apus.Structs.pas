@@ -331,6 +331,7 @@ type
   value:single; // used as priority for priorited queue
   ptr:pointer;
  end;
+ TDataItems=array of TDataItem;
 
  // Generic data queue
  TQueue=object
@@ -362,6 +363,8 @@ type
   free:integer; // first free element
  end;
 
+ TPriorityFunc=function(const item:TDataItem):single;
+
  // Priotity queue
  TPriorityQueue=object
   count:integer;
@@ -370,9 +373,10 @@ type
   function Get(out item:TDataItem):boolean;
   function WaitFor(out item:TDataItem;timeMS:integer=100):boolean;
   function IsEmpty:boolean; // just for name
+  procedure UpdatePriorities(priorityFunc:TPriorityFunc);
  private
   lock:integer;
-  data:array of TDataItem;
+  data:TDataItems;
  end;
 
  // Simple list of objects
@@ -2326,6 +2330,32 @@ function TPriorityQueue.Get(out item:TDataItem):boolean;
    data[p]:=data[count+1];
    data[count+1].value:=0.0/0.0;
    result:=true;
+  finally
+   lock:=0;
+  end;
+ end;
+
+procedure TPriorityQueue.UpdatePriorities(priorityFunc:TPriorityFunc);
+ var
+  tmp:TDataItems;
+  i,cnt,p:integer;
+ begin
+  if count=0 then exit;
+  SpinLock(lock);
+  try
+   tmp:=Copy(data,1,count);
+   cnt:=count;
+   count:=0;
+   for i:=0 to high(tmp) do begin
+    tmp[i].value:=PriorityFunc(tmp[i]);
+    inc(count);
+    p:=count;
+    while (p>1) and (tmp[i].value>data[p div 2].value) do begin
+     data[p]:=data[p div 2];
+     p:=p div 2;
+    end;
+    data[p]:=tmp[i];
+   end;
   finally
    lock:=0;
   end;
