@@ -19,6 +19,7 @@ type
   // bufferSize - max number of items to queue for processing
   constructor Create(bufferSize:integer;numThreads:integer=NUM_CPU_CORES);
   destructor Destroy; override;
+  procedure SetThreadPriority(priority:TThreadPriority); virtual;
   // Add an item to process. Wait up to waitMS ms if there is no room for a new item right now.
   // Returns true if item was successfully added.
   function Produce(const item:TDataItem;waitMS:integer=0):boolean; virtual;
@@ -56,7 +57,7 @@ implementation
  uses Apus.CrossPlatform, Apus.MyServis, SysUtils;
 
 var
- objList:TObjectList;
+ objList:TObjectList; // List of all the ProducerConsumers to terminate
 
 type
  TConsumerThread=class(TThread)
@@ -79,8 +80,10 @@ constructor TProducerConsumer.Create(bufferSize:integer;numThreads:integer);
   end;
   numThreads:=Clamp(numThreads,1,32); // max 32 threads allowed
   SetLength(threads,numThreads);
-  for i:=0 to high(threads) do
+  for i:=0 to high(threads) do begin
    threads[i]:=TConsumerThread.Create(self,i);
+   threads[i].Priority:=tpLower;
+  end;
   objList.Add(self);
  end;
 
@@ -116,6 +119,14 @@ function TProducerConsumer.Produce(const item:TDataItem;waitMS:integer=0):boolea
     if InternalProduce(item) then exit(true);
   until MyTickCount>time;
   result:=false;
+ end;
+
+procedure TProducerConsumer.SetThreadPriority(priority:TThreadPriority);
+ var
+  i:integer;
+ begin
+  for i:=0 to high(threads) do
+   threads[i].Priority:=priority;
  end;
 
 procedure TerminateAll;
