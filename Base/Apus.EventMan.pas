@@ -58,7 +58,8 @@ type
  procedure LinkProc(event:TEventStr;handler:TProcedure);
 
  // Check if event has form of XXX\YYY where XXX is eventClass (case-insensitive). Returns YYY part in subEvent
- function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean;
+ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean; overload;
+ function EventOfClass(var event:TeventStr;eventClass:TEventStr):boolean; inline; overload;
 
  function PackTag(byte0,byte1:byte;byte2:byte=0;byte3:byte=0):TTag; overload;
  function PackTag(loWord,hiWord:word):TTag; overload;
@@ -144,6 +145,11 @@ function ByteFromTag(tag:TTag;byteIdx:integer):byte;
 function WordFromTag(tag:TTag;wordIdx:integer):word;
  begin
   result:=word(tag shr (wordIdx*16));
+ end;
+
+function EventOfClass(var event:TeventStr;eventClass:TEventStr):boolean; inline; overload;
+ begin
+  result:=EventOfClass(event,eventClass,event);
  end;
 
 function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean;
