@@ -72,6 +72,7 @@ interface
   procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0);
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
 
+  procedure SetZ(z:single);
   procedure DebugScreen1;
   procedure Reset; // notification about shader change
  protected
@@ -685,6 +686,11 @@ end;
 procedure TDrawer.Scaled(x,y,scale:single; image:TTexture; color:cardinal);
 begin
   RotScaled(x,y,scale,scale,0,image,color);
+end;
+
+procedure TDrawer.SetZ(z:single);
+begin
+ zPlane:=z;
 end;
 
 procedure TDrawer.TrgList(pnts: PVertex; trgcount: integer;

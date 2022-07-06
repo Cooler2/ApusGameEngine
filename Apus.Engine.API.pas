@@ -752,6 +752,9 @@ type
   // Particles ------------------------------------------
   procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0);
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
+
+  // Settings
+  procedure SetZ(z:single=0.0); // Set Z coordinate for all 2D primitives
  end;
 
  // Interface to the graphics subsystem: OpenGL, Vulkan or Direct3D
