@@ -110,6 +110,8 @@ implementation
     v3:integer;
    begin
     if high(sa)<3 then exit;
+    if iCnt+6>length(indices) then
+     SetLength(indices,iCnt*2);
     indices[iCnt]:=GetVertexIdx(sa[1]); inc(icnt);
     indices[iCnt]:=GetVertexIdx(sa[2]); inc(icnt);
     indices[iCnt]:=GetVertexIdx(sa[3]); inc(icnt);
@@ -129,9 +131,9 @@ implementation
    SetLength(indices,10000);
    SetLength(normals,10000);
    vHash.Init(2000);
-   assign(f,fname);
+   Assign(f,fname);
    SetTextCodePage(f,CP_UTF8);
-   reset(f);
+   Reset(f);
    while not eof(f) do begin
     readln(f,line);
     if line='' then continue;
@@ -147,7 +149,7 @@ implementation
     // Faces
     if sa[0]='f' then AddFace;
    end;
-   close(f);
+   Close(f);
    // Trim arrays
    SetLength(indices,iCnt);
    result:=TMesh.Create(TVertex3D.Layout,vCnt,iCnt);
