@@ -280,11 +280,11 @@ function TGameScene.Process:boolean;
    if status=st then exit; // no change
    if (st=ssActive) and not loaded then
     LogMessage('WARN! Activating scene "%s" which was not loaded',[name]);
+   if st=ssActive then onShow; // make sure to call this BEFORE the scene become active
    status:=st;
    if status=ssActive then activated:=true
     else activated:=false;
-   if status=ssActive then onShow
-    else onHide;
+   if status<>ssActive then onHide;
   end;
 
  { TSceneEffect }

@@ -612,7 +612,6 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   if res=0 then
    raise EError.Create('VShader compilation failed: '+GetShaderError(vsh,vSrc));
 
-
   // Fragment shader
   fsh:=glCreateShader(GL_FRAGMENT_SHADER);
   str:=PAnsiChar(fSrc);

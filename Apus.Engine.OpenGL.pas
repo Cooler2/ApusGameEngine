@@ -516,7 +516,7 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
      dim:=3;
     case i of
      0:glVertexAttribPointer(n,dim,GL_FLOAT,GL_FALSE,stride,p); // position
-      1:glVertexAttribPointer(n,3,GL_FLOAT,GL_FALSE,stride,p); // normal
+     1:glVertexAttribPointer(n,3,GL_FLOAT,GL_FALSE,stride,p); // normal
      2:glVertexAttribPointer(n,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,p); // color
      3:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv1
      4:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv2
