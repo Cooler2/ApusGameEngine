@@ -743,6 +743,7 @@ procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:
 procedure TGLShadersAPI.UseTexture(tex:TTexture;stage:integer);
  begin
   if curTextures[stage]=tex then begin
+   // This texture already used, but maybe it needs update?
    if (tex<>nil) and tex.HasFlag(tfDirty) then
     resourceManagerGL.MakeOnline(tex,stage);
    exit;
