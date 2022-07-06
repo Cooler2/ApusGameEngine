@@ -34,6 +34,7 @@ interface
    constructor Init(X,Y,Z:single); overload;
    constructor Init(p:TPoint3); overload;
    constructor Init(p0,p1:TPoint3s;t:single); overload;
+   constructor SetBetween(p0,p1:TPoint3s;t:single);
    procedure Normalize;
    function IsValid:boolean;
    function Length:single;  // Vector length
@@ -2285,6 +2286,16 @@ constructor TPoint3s.Init(p:TPoint3);
  end;
 
 constructor TPoint3s.Init(p0,p1:TPoint3s;t:single);
+ begin
+  SetBetween(p0,p1,t);
+ end;
+
+procedure TPoint3s.Normalize;
+ begin
+  Apus.Geom3D.Normalize(self);
+ end;
+
+constructor TPoint3s.SetBetween(p0,p1:TPoint3s;t:single);
  var
   t1:single;
  begin
@@ -2292,11 +2303,6 @@ constructor TPoint3s.Init(p0,p1:TPoint3s;t:single);
   x:=p0.x*t1+p1.x*t;
   y:=p0.y*t1+p1.y*t;
   z:=p0.z*t1+p1.z*t;
- end;
-
-procedure TPoint3s.Normalize;
- begin
-  Apus.Geom3D.Normalize(self);
  end;
 
 function TPoint3s.IsValid: boolean;
