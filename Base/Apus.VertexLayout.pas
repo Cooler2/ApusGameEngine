@@ -10,13 +10,17 @@ type
    vcNormal,
    vcColor,
    vcUV1,
-   vcUV2);
+   vcUV2,
+   vcTangent,
+   vcExtra4);
  // Packed description of the vertex layout
  // [0:3] - position (vec3s) (if offset=15 then position is vec2s at offset=0)
  // [4:7] - normal (vec3s)
  // [8:11]  - color (vec4b)
  // [12:15] - uv1 (vec2s)
  // [16:19] - uv2 (vec2s)
+ // [20..23] - tangent (vec3s)
+ // [24..27] - extra (vec4s)
  TVertexLayout=record
   layout:cardinal;
   stride:integer;
@@ -135,7 +139,7 @@ function TVertexLayout.Equals(l: TVertexLayout): boolean;
   result:=(l.layout=layout) and (l.stride=stride);
  end;
 
-procedure TVertexLayout.GetField(var vertex; offset, size: integer; var target);
+procedure TVertexLayout.GetField(var vertex;offset,size:integer;var target);
  var
   pb:PByte;
  begin
@@ -174,7 +178,7 @@ function TVertexLayout.GetPos(var vertex): TPoint3s;
    GetField(vertex,v*4,sizeof(result),result);
  end;
 
-function TVertexLayout.GetUV(var vertex; idx:cardinal):TPoint2s;
+function TVertexLayout.GetUV(var vertex;idx:cardinal):TPoint2s;
  var
   p:integer;
  begin
@@ -204,6 +208,8 @@ procedure TVertexLayout.Init(items:array of TVertexComponent);
     vcColor:     begin SetBits(layout,8,4,ofs); inc(ofs,1); end;
     vcUV1:       begin SetBits(layout,12,4,ofs); inc(ofs,2); end;
     vcUV2:       begin SetBits(layout,16,4,ofs); inc(ofs,2); end;
+    vcTangent:   begin SetBits(layout,20,4,ofs); inc(ofs,3); end;
+    vcExtra4:    begin SetBits(layout,24,4,ofs); inc(ofs,4); end;
    end;
   end;
   stride:=ofs*4;
@@ -237,7 +243,7 @@ procedure TVertex.Init(pos:TPoint3s;color:cardinal);
 
 { TVertexDT }
 
-procedure TVertexDT.Init(x, y, z, u, v, u2, v2: single; color: cardinal);
+procedure TVertexDT.Init(x,y,z,u,v,u2,v2:single;color:cardinal);
  begin
   self.x:=x; self.y:=y; self.z:=z;
   self.color:=color;
