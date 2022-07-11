@@ -15,7 +15,7 @@
 {$R-}
 unit Apus.Engine.Game;
 interface
- uses Classes, Apus.CrossPlatform, Apus.MyServis, Types, Apus.Engine.API;
+ uses Classes, Apus.CrossPlatform, Apus.MyServis, Apus.Engine.Types, Types, Apus.Engine.API;
 
 var
  onFrameDelay:integer=0; // Sleep this time every frame
@@ -55,7 +55,7 @@ type
   procedure ClientToGame(var p:TPoint); override;
   procedure GameToClient(var p:TPoint); override;
 
-  function RunAsync(threadFunc:TThreadFunc;param:UIntPtr=0;ttl:single=0;name:string=''):THandle; override;
+  function RunAsync(threadFunc:TAsyncProc;param:UIntPtr=0;ttl:single=0;name:string=''):THandle; override;
   function GetThreadResult(h:THandle):integer; override;
 
   procedure FLog(st:string); override;
@@ -230,7 +230,7 @@ type
   id:cardinal;
   TimeToKill:int64;
   running:boolean;
-  func:TThreadFunc;
+  func:TAsyncProc;
   FinishTime:int64;
   param:UIntPtr;
   name:string;
@@ -1924,11 +1924,11 @@ procedure TGame.SwitchToAltSettings; // Alt+Enter
   SetSettings(params);
  end;
 
-function WaitAndSwitch(sPtr:pointer):integer;
+function WaitAndSwitch(sPtr:UIntPtr):integer;
  var
   scene:TGameScene;
  begin
-  scene:=sPtr;
+  scene:=pointer(sPtr);
   WaitFor(scene.loaded,10000); // 10 sec wait for scene to load
   TSceneSwitcher.defaultSwitcher.SwitchToScene(scene.name);
  end;
@@ -2108,7 +2108,7 @@ begin
  end;
 end;
 
-function TGame.RunAsync(threadFunc:TThreadFunc;param:UIntPtr;ttl:single;name:string):THandle;
+function TGame.RunAsync(threadFunc:TAsyncProc;param:UIntPtr;ttl:single;name:string):THandle;
 var
  i,best:integer;
  t:int64;
@@ -2259,7 +2259,7 @@ procedure TCustomThread.Execute;
   RegisterThread(name);
   running:=true;
   try
-   ReturnValue:=func(pointer(param));
+   ReturnValue:=func(param);
    LogMessage('CustomThread done');
   except
    on e:exception do ForceLogMessage('RunAsync: failure - '+ExceptionMsg(e));

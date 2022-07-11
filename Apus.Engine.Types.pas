@@ -33,6 +33,8 @@ type
 
  TRect2s = Apus.Geom2D.TRect2s;
 
+ TAsyncProc = function(param:UIntPtr):integer;
+
  TVertexComponent = Apus.VertexLayout.TVertexComponent;
  TVertexLayout = Apus.VertexLayout.TVertexLayout;
 
