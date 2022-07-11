@@ -39,8 +39,8 @@ constructor TMainApp.Create;
   //configFileName:='game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
-  //usedPlatform:=spSDL;
-  //directRenderOnly:=true;
+  //usedPlatform:=spSDL;   // alternative cross-platform solution
+  //directRenderOnly:=true; // draw to backbuffer (instead of a screen-size RT-texture for post-processing)
   //windowedMode:=false;
  end;
 
@@ -51,11 +51,12 @@ procedure TMainApp.CreateScenes;
   // initialize our main scene
   sceneMain:=TMainScene.Create('Main');
   // switch to the main scene using fade transition effect
-  game.SwitchToScene('Main');
+  // (this will wait in a separate thread until scene's Load() is executed
+  game.SwitchToScene('Main');  
  end;
 
 { TMainScene }
-procedure TMainScene.Load;
+procedure TMainScene.Load; // This is called from the launch thread, no draw calls allowed
  var
   font:cardinal;
   btn:TUIButton;
@@ -70,13 +71,13 @@ procedure TMainScene.Load;
   Link('UI\Main\Close\Click','Engine\Cmd\Exit');
  end;
 
-
 procedure TMainScene.Render;
  begin
-  // 1. Draw scene background
-  gfx.target.Clear($406080); // clear with black
-  // Draw some lines
-  inherited;
+  // Clear scene background
+  gfx.target.Clear($406080); // clear with blue
+  // Draw something here...  
+  inherited; // this will draw the UI elements
+  // You can draw something here over the UI
  end;
 
 end.
