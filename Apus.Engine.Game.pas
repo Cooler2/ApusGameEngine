@@ -22,9 +22,6 @@ var
  disableDRT:boolean=false; // always render directly to the backbuffer - no
 
 type
- // Функция для асинхронного (параллельного) исполнения
- TThreadFunc=function(param:cardinal):integer;
-
  { TGame }
  TGame=class(TGameBase)
   constructor Create(systemPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem); // Создать экземпляр
@@ -58,7 +55,7 @@ type
   procedure ClientToGame(var p:TPoint); override;
   procedure GameToClient(var p:TPoint); override;
 
-  function RunAsync(threadFunc:pointer;param:cardinal=0;ttl:single=0;name:string=''):THandle; override;
+  function RunAsync(threadFunc:TThreadFunc;param:UIntPtr=0;ttl:single=0;name:string=''):THandle; override;
   function GetThreadResult(h:THandle):integer; override;
 
   procedure FLog(st:string); override;
@@ -235,7 +232,7 @@ type
   running:boolean;
   func:TThreadFunc;
   FinishTime:int64;
-  param:cardinal;
+  param:UIntPtr;
   name:string;
   procedure Execute; override;
  end;
@@ -1927,13 +1924,24 @@ procedure TGame.SwitchToAltSettings; // Alt+Enter
   SetSettings(params);
  end;
 
+function WaitAndSwitch(sPtr:pointer):integer;
+ var
+  scene:TGameScene;
+ begin
+  scene:=sPtr;
+  WaitFor(scene.loaded,10000); // 10 sec wait for scene to load
+  TSceneSwitcher.defaultSwitcher.SwitchToScene(scene.name);
+ end;
+
 procedure TGame.SwitchToScene(name:string);
  var
   scene:TGameScene;
  begin
   scene:=TGameScene.FindByName(name) as TGameScene;
-  WaitFor(@scene.loaded,'Scene '+scene.name+' not loaded');
-  TSceneSwitcher.defaultSwitcher.SwitchToScene(name);
+  if scene.loaded then
+   TSceneSwitcher.defaultSwitcher.SwitchToScene(name)
+  else
+   game.RunAsync(WaitAndSwitch,UIntPtr(scene),0,'SwitchToScene:'+scene.name);
  end;
 
 procedure TGame.ShowWindowScene(name:string;modal:boolean);
@@ -2100,7 +2108,7 @@ begin
  end;
 end;
 
-function TGame.RunAsync(threadFunc:pointer; param:cardinal; ttl: single;name:string): THandle;
+function TGame.RunAsync(threadFunc:TThreadFunc;param:UIntPtr;ttl:single;name:string):THandle;
 var
  i,best:integer;
  t:int64;
@@ -2123,7 +2131,7 @@ begin
  threads[best].running:=true;
  threads[best].func:=threadFunc;
  threads[best].param:=param;
- if name='' then name:=PtrToStr(threadFunc);
+ if name='' then name:=PtrToStr(@threadFunc);
  threads[best].name:='RA_'+name;
  inc(LastThreadID);
  threads[best].id:=lastThreadID;
@@ -2133,7 +2141,7 @@ begin
   LeaveCriticalSection(RA_Sect);
  end;
  LogMessage('[RA] thread launched, pos='+inttostr(best)+', id='+inttostr(result)+
-   ', func='+PtrToStr(threadFunc)+', time: '+inttostr(threads[best].TimeToKill),8);
+   ', func='+PtrToStr(@threadFunc)+', time: '+inttostr(threads[best].TimeToKill),8);
 end;
 
 procedure TGame.FrameLoop;
@@ -2251,7 +2259,7 @@ procedure TCustomThread.Execute;
   RegisterThread(name);
   running:=true;
   try
-   ReturnValue:=func(param);
+   ReturnValue:=func(pointer(param));
    LogMessage('CustomThread done');
   except
    on e:exception do ForceLogMessage('RunAsync: failure - '+ExceptionMsg(e));
