@@ -445,6 +445,7 @@ interface
  procedure ZeroMem(var data;size:integer); inline;
  function IsZeroMem(var data;size:integer):boolean;
  procedure FillDword(var data;count:integer;value:cardinal);
+ procedure FillSingle(var data;count:integer;value:single);
  procedure FillSingleNaN(var data;count:integer);
  procedure FillDoubleNaN(var data;count:integer);
 
@@ -2342,6 +2343,18 @@ procedure SimpleEncrypt2;
  procedure FillDword(var data;count:integer;value:cardinal);
   var
    pc:PCardinal;
+  begin
+   pc:=@data;
+   while count>0 do begin
+    pc^:=value;
+    inc(pc);
+    dec(count);
+   end;
+  end;
+
+ procedure FillSingle(var data;count:integer;value:single);
+  var
+   pc:PSingle;
   begin
    pc:=@data;
    while count>0 do begin
