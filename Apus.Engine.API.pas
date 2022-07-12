@@ -756,7 +756,7 @@ type
   procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;gridSize:integer;zDist:single=0); overload; // 2D particles
   procedure Particles(x,y:integer;data:PParticle;stride:integer;count:integer;tex:TTexture;gridSize:integer;zDist:single=0); overload; // 2D particles
   procedure Particles(data:PParticle;count:integer;tex:TTexture;gridSize:integer); overload; // 3D particles
-  procedure Particles(data:PParticle;stride:integer;count:integer;tex:TTexture;gridSize:integer); overload; // 3D particles
+  procedure Particles(data:PParticle;stride:integer;count:integer;tex:TTexture;gridSize:integer;sort:boolean=true); overload; // 3D particles
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
 
   // Settings

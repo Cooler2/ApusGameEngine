@@ -72,7 +72,7 @@ interface
   procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;gridSize:integer;zDist:single=0); overload;
   procedure Particles(x,y:integer;data:PParticle;stride,count:integer;tex:TTexture;gridSize:integer;zDist:single=0); overload;
   procedure Particles(data:PParticle;count:integer;tex:TTexture;gridSize:integer); overload;
-  procedure Particles(data:PParticle;stride,count:integer;tex:TTexture;gridSize:integer); overload;
+  procedure Particles(data:PParticle;stride,count:integer;tex:TTexture;gridSize:integer;sort:boolean=true); overload;
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
 
   procedure SetZ(z:single);
@@ -1141,20 +1141,32 @@ begin
 end;
 
 // 3D particles
-procedure TDrawer.Particles(data:PParticle;stride,count:integer;tex:TTexture;gridSize:integer);
+procedure TDrawer.Particles(data:PParticle;stride,count:integer;tex:TTexture;gridSize:integer;sort:boolean=true);
 type
  TParticleData=record
   position:TPoint3s;
   color:cardinal;
   uv1,uv2:TPoint2s;
-  scaleX,scaleY,angle:single;
+  scale,res,angle:single;
  end;
 var
  vrt:array[0..3] of TPoint2s;
  layout,extraLayout:TVertexLayout;
  pData:array of TParticleData;
  i:integer;
+ pb:PByte;
+ uu,vv:single;
+ u0,v0,sizeU,sizeV:integer;
+ frontVec:TVector3s;
 begin
+ shader.UseCustom(partShader3D);
+ shader.SetUniform('vecRight',transform.RightVec);
+ shader.SetUniform('vecDown',transform.DownVec);
+ shader.UseTexture(tex);
+ uu:=gridSize/tex.width;
+ vv:=gridSize/tex.height;
+ frontVec:=transform.ViewVec;
+
  // Base quad
  layout.Init([vcPosition2d]);
  vrt[0].Init(-0.5,-0.5);
@@ -1163,23 +1175,31 @@ begin
  vrt[3].Init(-0.5,0.5);
  // Per-particle data
  SetLength(pData,count);
- // Sorting (add later)
+ pb:=pointer(data);
  for i:=0 to count-1 do begin
   pData[i].position.x:=data.x;
   pData[i].position.y:=data.y;
   pData[i].position.z:=data.z;
   pData[i].color:=data.color;
-  pData[i].uv1:=Point2s(0,0);
-  pData[i].uv2:=Point2s(1,1);
-  pData[i].scaleX:=data.scale;
-  pData[i].scaleY:=data.scale;
+  u0:=byte(data.index);
+  v0:=byte(data.index shr 8);
+  sizeU:=(data.index shr 16) and $F;
+  sizeV:=(data.index shr 20) and $F;
+  if sizeU=0 then sizeU:=1;
+  if sizeV=0 then sizeV:=1;
+  pData[i].uv1.x:=u0*uu;
+  pData[i].uv1.y:=v0*vv;
+  pData[i].uv2.x:=(u0+sizeU)*uu;
+  pData[i].uv2.y:=(v0+sizeV)*vv;
+  pData[i].scale:=data.scale;
   pData[i].angle:=data.angle;
-  inc(data);
+  pData[i].res:=-DotProduct(pData[i].position,frontVec);
+  inc(pb,stride);
+  data:=PParticle(pb);
  end;
- shader.UseCustom(partShader3D);
- shader.SetUniform('vecRight',transform.RightVec);
- shader.SetUniform('vecDown',transform.DownVec);
- shader.UseTexture(tex);
+ // Sorting
+ SortRecordsByFloat(pData[0],sizeof(TParticleData),count,9*4);
+
  extraLayout.Init([vcPosition3d,vcColor,vcUV1,vcUV2,vcNormal]);
  renderDevice.UseExtraVertexData(@pData[0],extraLayout);
  renderDevice.SetVertexDataDivisors(0,1);
