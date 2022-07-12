@@ -543,6 +543,7 @@ interface
  // Вычислить ломаную функцию, определенную на отрезке [0..256] имеющую пик (экстремум)
  // в точке arg и принимающую значения a, b и c (a и c - на концах отрезка, b - в экстремуме)
  function Pike(x,arg,a,b,c:integer):integer;
+ function PikeS(x,arg,a,b,c:single):single; // [0..1] range
  function PikeD(x,arg,a,b,c:double):double; // [0..1] range
 
  // Bit manipulation procedures
@@ -3499,6 +3500,14 @@ function BinToStr;
    if x>255 then exit(c);
    if x<arg then result:=a+(b-a)*x div arg
     else result:=b+(c-b)*(x-arg) div (256-arg);
+  end;
+
+ function PikeS(x,arg,a,b,c:single):single; // [0..1] range
+  begin
+   if x<=0 then begin result:=a; exit; end;
+   if x>=1 then begin result:=c; exit; end;
+   if x<arg then result:=a+(b-a)*x/arg
+    else result:=b+(c-b)*(x-arg)/(1-arg);
   end;
 
  function PikeD(x,arg,a,b,c:double):double; // [0..1] range
