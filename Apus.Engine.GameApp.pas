@@ -32,6 +32,7 @@ interface
    deviceDPI:integer=96; //
    noVSync:boolean=false;
    directRenderOnly:boolean=true; // true -> for OpenGL: always render directly to the backbuffer, false -> allow frame render into texture
+   useDepthTexture:boolean=false; // use depth texture instead of the regular depth buffer (not available with direct render)
    checkForSteam:boolean=false;  // Check if STEAM client is running and get AppID
    useSystemCursor:boolean=true; // true - system hardware cursor, false - system cursor is disabled, custom cursor must be drawn
    useCustomStyle:boolean=false; // init cuttom style?
@@ -450,6 +451,7 @@ procedure TGameApplication.Prepare;
 
    {$IFDEF OPENGL}
    if directRenderOnly then disableDRT:=true;
+   Apus.Engine.Game.useDepthTexture:=useDepthTexture;
    {$ENDIF}
 
    {$IFDEF STEAM}

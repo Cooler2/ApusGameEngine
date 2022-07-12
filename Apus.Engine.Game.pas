@@ -20,6 +20,7 @@ interface
 var
  onFrameDelay:integer=0; // Sleep this time every frame
  disableDRT:boolean=false; // always render directly to the backbuffer - no
+ useDepthTexture:boolean=false; // when default RT is used, allocate a depth buffer texture instead of regular depth buffer
 
 type
  { TGame }
@@ -87,6 +88,8 @@ type
   // Keyboard events utility functions
   procedure SuppressKbdEvent; override;
 
+  function GetDepthBufferTex:TTexture; override;
+
   procedure Minimize; override;
   procedure MoveWindowTo(x, y, width, height: integer); override;
   procedure SetWindowCaption(text: string); override;
@@ -144,6 +147,7 @@ type
   debugFeatures:set of TDebugFeature;
 
   dRT:TTexture; // default render target (can be nil)
+  dRTdepth:TTexture; // depth buffer texture
 
   procedure ApplyNewSettings; virtual; // apply newParams to params - must be called from main thread!
   procedure SetVSync(divider:integer);
@@ -836,9 +840,14 @@ begin
      (gfx.config.QueryMaxRTSize>=params.width) then begin
    LogMessage('Switching to the modern rendering model');
    flags:=aiRenderTarget;
-   if params.zbuffer>0 then flags:=flags+aiDepthBuffer;
+   if (params.zbuffer>0) and not useDepthTexture then
+    flags:=flags+aiDepthBuffer;
 
    dRT:=AllocImage(params.width,params.height,pfRenderTarget,flags,'DefaultRT');
+   if useDepthTexture then begin
+    dRTdepth:=AllocImage(params.width,params.height,ipfDepth32f,aiDepthBuffer+aiRenderTarget,'DefaultDepth');
+    gfx.resman.AttachDepthBuffer(dRT,dRTdepth);
+   end;
   end;
  except
   on e:exception do begin
@@ -1998,6 +2007,11 @@ begin
  finally
   LeaveCriticalSection(crSect);
  end;
+end;
+
+function TGame.GetDepthBufferTex:TTexture;
+begin
+ result:=dRTdepth;
 end;
 
 procedure TGame.RegisterCursor(CursorID, priority: integer;

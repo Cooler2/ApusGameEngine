@@ -974,6 +974,7 @@ type
   // Keyboard events utility functions
   procedure SuppressKbdEvent; virtual; abstract; // Suppress handling of the related keyboard event(s)
 
+  function GetDepthBufferTex:TTexture; virtual; abstract; // return current depth buffer as a texture (if used)
   // Window control functions
   // -----------------
   procedure Minimize; virtual; abstract;
