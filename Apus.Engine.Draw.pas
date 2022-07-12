@@ -75,6 +75,9 @@ interface
   procedure Particles(data:PParticle;stride,count:integer;tex:TTexture;gridSize:integer;sort:boolean=true); overload;
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
 
+  procedure EnableSoftParticles(depthRange:single;depthTex:TTexture=nil);
+  procedure DisableSoftParticles;
+
   procedure SetZ(z:single);
   procedure DebugScreen1;
   procedure Reset; // notification about shader change
@@ -90,6 +93,8 @@ interface
   gradient:TColorGradient;
   stretchGradient:boolean; // stretch gradient over primitive area (i.e. use -1..1 range)
   partShader3D:TShader;
+  softParticlesRange:single;
+  depthTexture:TTexture;
   procedure CalcGradient(width,height:single;out gx,gy:single); inline;
  end;
 
@@ -145,12 +150,20 @@ uses SysUtils,Math,
   PART_SHADER_3D_FRAG =
    '#version 330 // 3D particles '#13#10+
    'uniform sampler2D tex0; '#13#10+
+   'uniform sampler2D depthTex; '#13#10+
+   'uniform float softRange; '#13#10+
    'in vec4 vColor; '#13#10+
    'in vec2 uv; '#13#10+
    'out vec4 fragColor; '#13#10+
    ''#13#10+
    'void main(void) {'#13#10+
-   ' fragColor = texture(tex0,uv)*vColor*vec4(2.0,2.0,2.0,1.0);'#13#10+
+   ' float alpha=1.0; '#13#10+
+   ' if (softRange>0.0) { '#13#10+
+   '   vec2 depthUV = gl_FragCoord.xy/vec2(textureSize(depthTex,0)); '#13#10+
+   '   float delta = texture(depthTex,depthUV).r-gl_FragCoord.z; '#13#10+
+   '   alpha = min(delta*5000.0,1.0); '#13#10+
+   ' } '#13#10+
+   ' fragColor = texture(tex0,uv)*vColor*vec4(2.0,2.0,2.0,alpha);'#13#10+
    ' if (fragColor.a<0.01) discard;'#13#10+
    '}';
 
@@ -1150,7 +1163,7 @@ type
   scale,res,angle:single;
  end;
 var
- vrt:array[0..3] of TPoint2s;
+ vrt:array[0..3] of TPoint2s; // just a 2D quad
  layout,extraLayout:TVertexLayout;
  pData:array of TParticleData;
  i:integer;
@@ -1163,6 +1176,11 @@ begin
  shader.SetUniform('vecRight',transform.RightVec);
  shader.SetUniform('vecDown',transform.DownVec);
  shader.UseTexture(tex);
+ if (softParticlesRange>=0) and (depthTexture<>nil) then begin
+  shader.UseTexture(depthTexture,1);
+  shader.SetUniform('depthTex',1);
+ end;
+ shader.SetUniform('softRange',softParticlesRange);
  uu:=gridSize/tex.width;
  vv:=gridSize/tex.height;
  frontVec:=transform.ViewVec;
@@ -1198,7 +1216,7 @@ begin
   inc(pb,stride);
   data:=PParticle(pb);
  end;
- // Sorting (эта сортировка медленная - лучше сортировать индексы, а не записи)
+ // Sorting (it's quite slow - TODO: sort indices to avoid the data move)
  if sort then
   SortRecordsByFloat(pData[0],sizeof(TParticleData),count,9*4);
 
@@ -1210,10 +1228,16 @@ begin
  shader.Reset;
 end;
 
-procedure TDrawer.DebugScreen1;
+procedure TDrawer.EnableSoftParticles(depthRange:single;depthTex:TTexture);
 begin
-/// TODO: move to txt and check
-// txt.WriteW(MAGIC_TEXTCACHE,100,0,0,'');
+ softParticlesRange:=depthRange;
+ if depthTex=nil then depthTex:=game.GetDepthBufferTex;
+ depthTexture:=depthTex;
+end;
+
+procedure TDrawer.DisableSoftParticles;
+begin
+ softParticlesRange:=-1;
 end;
 
 procedure TDrawer.Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
@@ -1343,6 +1367,12 @@ function TDrawer.Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF8
 begin
  result:=Min2d((x2-x1)/texture.width,(y2-y1)/texture.height);
  RotScaled(x1+x2/2,y1+y2/2,result,result,0,texture,color);
+end;
+
+procedure TDrawer.DebugScreen1;
+begin
+/// TODO: move to txt and check
+// txt.WriteW(MAGIC_TEXTCACHE,100,0,0,'');
 end;
 
 end.

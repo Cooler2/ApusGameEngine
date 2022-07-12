@@ -22,7 +22,7 @@ const
  aiClampUV        = 128; // clamp texture coordinates instead of wrapping them (for aiTexture only)
  aiDepthBuffer    = 256; // allocate a Depth Buffer for this image (requires aiRenderTarget flag)
                          // use ipfNone or ipfDepth to allocate only depth buffer without image
- aiTexture3D      = 512; // allocate a 3D texture instead of 2D texture array
+ aiTexture3D      = 512;  // allocate a 3D texture instead of 2D texture array
  aiPixelated      = 8192; // disable tri/bilinear filtering for this image
 
  // DynamicAtlas dimension flags
@@ -758,6 +758,9 @@ type
   procedure Particles(data:PParticle;count:integer;tex:TTexture;gridSize:integer); overload; // 3D particles
   procedure Particles(data:PParticle;stride:integer;count:integer;tex:TTexture;gridSize:integer;sort:boolean=true); overload; // 3D particles
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
+  // Make soft particles using specified depth texture (nil - get texture from game object)
+  procedure EnableSoftParticles(depthRange:single;depthTex:TTexture=nil);
+  procedure DisableSoftParticles;
 
   // Settings
   procedure SetZ(z:single=0.0); // Set Z coordinate for all 2D primitives
@@ -975,6 +978,7 @@ type
   procedure SuppressKbdEvent; virtual; abstract; // Suppress handling of the related keyboard event(s)
 
   function GetDepthBufferTex:TTexture; virtual; abstract; // return current depth buffer as a texture (if used)
+
   // Window control functions
   // -----------------
   procedure Minimize; virtual; abstract;
