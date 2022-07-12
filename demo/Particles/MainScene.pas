@@ -51,8 +51,8 @@ constructor TMainApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   //usedPlatform:=spSDL;
-  //directRenderOnly:=false;
-  //useDepthTexture:=true;
+  directRenderOnly:=false;
+  useDepthTexture:=true;
   //windowedMode:=false;
   if DirectoryExists('..\Demo\Particles') then
    baseDir:='..\Demo\Particles\';
@@ -62,7 +62,7 @@ procedure SetupCamera;
  var
   cameraPos:TPoint3s;
  begin
-  transform.Perspective(1/cameraZoom.Value,1,4000);
+  transform.Perspective(1/cameraZoom.Value,1,1000);
   cameraPos.x:=30*cos(cameraAngleX)*cos(cameraAngleY);
   cameraPos.y:=30*sin(cameraAngleX)*cos(cameraAngleY);
   cameraPos.z:=30*sin(cameraAngleY);
@@ -161,13 +161,13 @@ procedure StartGalaxy;
   for i:=0 to high(particles) do
    with particles[i] do begin
     r:=(random-random+random-random)*20;
-    a:=random-random+random-random+abs(r)*0.12;
+    a:=sqr(random-random+random-random)+random-random+abs(r)*0.22;
     x:=r*cos(a)+random-random;
     y:=r*sin(a)+random-random;
     z:=(random-random+random-random+random-random)*0.5;
-    color:=MyColor(150,110-random(80),110-random(80),110-random(80));
-    scale:=(3+random(random(10)))*0.02;
-    angle:=0;
+    color:=MyColor(120,110-random(80),110-random(80),110-random(80));
+    scale:=(3+random(random(10)))*0.04;
+    angle:=i/10;
     index:=partPosV*1;
    end;
 
@@ -202,27 +202,27 @@ procedure SoftTest;
   n:=0;
   for i:=0 to high(particles) do begin
    if particles[i].custom=0 then begin
-    if n>2 then continue;
+    if n>1 then continue;
     inc(n);
     particles[i].x:=(random-random)*6;
     particles[i].y:=(random-random)*6;
     particles[i].z:=-2;
     particles[i].scale:=1+random;
     particles[i].custom:=100;
-    particles[i].index:=1+partPosV;
+    particles[i].index:=i mod 2;
    end else begin
     dec(particles[i].custom);
-    particles[i].x:=particles[i].x*1.001+0.001*((i*49 mod 13)-6);
-    particles[i].y:=particles[i].y*1.001+0.001*(((i+16)*67 mod 15)-7);
+    //particles[i].x:=particles[i].x*1.001+0.001*((i*49 mod 13)-6);
+    //particles[i].y:=particles[i].y*1.001+0.001*(((i+16)*67 mod 15)-7);
     particles[i].z:=particles[i].z+0.07+(i mod 3)*0.002;
-    particles[i].angle:=i/10;
-    particles[i].scale:=particles[i].scale+0.01;
+    particles[i].angle:=0;
+    //particles[i].scale:=particles[i].scale+0.01;
    end;
-   particles[i].color:=GrayAlpha(PikeS(1-particles[i].custom/100,0.3,0.4,1,0));
+   particles[i].color:=GrayAlpha(PikeS(1-particles[i].custom/100,0.2,1,1,0));
   end;
 
   gfx.target.UseDepthBuffer(dbPassLess,false);
-  draw.EnableSoftParticles(0.5);
+  draw.EnableSoftParticles(0.9);
   draw.Particles(@particles[0],length(particles),tex,16);
 
   gfx.target.UseDepthBuffer(dbDisabled);
