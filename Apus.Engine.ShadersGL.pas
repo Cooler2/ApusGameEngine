@@ -125,6 +125,7 @@ type
   //mvpMatrix,modelMatrix,
   viewProjMatrix:T3DMatrixS; // lightspace matrix used for shadowmap
   shadowMapMatrix:T3DMatrixS; // frustrum->viewport transformation matrix for the main shadow rendering phase
+  shadowMap:TTexture;
 
   // Switch to the specified shader and upload matrices (if applicable)
   procedure ActivateShader(shader:TShader);
@@ -734,10 +735,13 @@ procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:
  begin
   SetFlag(curTexMode.lighting,LIGHT_SHADOWMAP,mode=shadowMainPass);
   SetFlag(curTexMode.lighting,LIGHT_DEPTHPASS,mode=shadowDepthPass);
-  UseTexture(shadowMap,3);
   case mode of
+   shadowDisabled:self.shadowMap:=nil;
    shadowDepthPass:ZeroMem(viewProjMatrix,sizeof(viewProjMatrix)); // Invalidate viewProjMatrix
-   shadowMainPass:CalcShadowMapMatrix;
+   shadowMainPass:begin
+    CalcShadowMapMatrix;
+    self.shadowMap:=shadowMap;
+   end;
   end;
  end;
 
@@ -795,6 +799,10 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
     end;
    end;
    inc(i);
+  end;
+  if activeShader.uTexShadowMap>0 then begin
+   UseTexture(shadowMap,9);
+   glUniform1i(activeShader.uTexShadowMap,9);
   end;
 
   if directLightModified then begin
