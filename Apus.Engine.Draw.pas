@@ -69,7 +69,10 @@ interface
   procedure IndexedMesh(vertices:pointer;layout:TVertexLayout;indices:PWord;trgCount,vrtCount:integer;tex:TTexture); overload;
   procedure IndexedMesh(vb:TVertexBuffer;ib:TIndexBuffer;tex:TTexture); overload;
 
-  procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0);
+  procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;gridSize:integer;zDist:single=0); overload;
+  procedure Particles(x,y:integer;data:PParticle;stride,count:integer;tex:TTexture;gridSize:integer;zDist:single=0); overload;
+  procedure Particles(data:PParticle;count:integer;tex:TTexture;gridSize:integer); overload;
+  procedure Particles(data:PParticle;stride,count:integer;tex:TTexture;gridSize:integer); overload;
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
 
   procedure SetZ(z:single);
@@ -86,6 +89,7 @@ interface
   useGradient:boolean; // use gradient to color primitives
   gradient:TColorGradient;
   stretchGradient:boolean; // stretch gradient over primitive area (i.e. use -1..1 range)
+  partShader3D:TShader;
   procedure CalcGradient(width,height:single;out gx,gy:single); inline;
  end;
 
@@ -106,6 +110,50 @@ uses SysUtils,Math,
   MODE_COLORED    = 2;  // no texture: color=diffuse, alpha=diffuse
   MODE_MULTITEX   = 3;  // multitextured: use TexMode[n] for each enabled stage
   MODE_COLORED2X  = 4;  // textured: color=diffuse*2, alpha=texture*diffuse
+
+ // Particles Shader 3D
+
+  PART_SHADER_3D_VERT =
+   '#version 330 // 3D particles '#13#10+
+   'uniform mat4 MVP; '#13#10+
+   'uniform vec3 vecDown; '#13#10+
+   'uniform vec3 vecRight; '#13#10+
+   ''#13#10+
+   'layout (location=0) in vec2 vertex; '#13#10+
+   'layout (location=1) in vec3 position; '#13#10+
+   'layout (location=2) in vec3 extra; '#13#10+
+   'layout (location=3) in vec4 color; '#13#10+
+   'layout (location=4) in vec2 uv1; '#13#10+
+   'layout (location=5) in vec2 uv2; '#13#10+
+   'out vec4 vColor; '#13#10+
+   'out vec2 uv; '#13#10+
+   ''#13#10+
+   'void main(void) { '#13#10+
+   ' float size = extra.x; '#13#10+
+   ' float angle = extra.z; '#13#10+
+   ' float c = cos(angle); '#13#10+
+   ' float s = sin(angle); '#13#10+
+   ' vec2 v = vertex*size; '#13#10+
+   ' v = v*mat2(c,-s,s,c); '#13#10+
+   ' vec3 pos=position+vecRight*v.x+vecDown*v.y; '#13#10+
+   ' gl_Position = MVP*vec4(pos,1.0); '#13#10+
+   ' vColor = color; '#13#10+
+   ' uv.x = mix(uv1.x,uv2.x,vertex.x+0.5); '#13#10+
+   ' uv.y = mix(uv1.y,uv2.y,vertex.y+0.5); '#13#10+
+   '}';
+
+  PART_SHADER_3D_FRAG =
+   '#version 330 // 3D particles '#13#10+
+   'uniform sampler2D tex0; '#13#10+
+   'in vec4 vColor; '#13#10+
+   'in vec2 uv; '#13#10+
+   'out vec4 fragColor; '#13#10+
+   ''#13#10+
+   'void main(void) {'#13#10+
+   ' fragColor = texture(tex0,uv)*vColor*vec4(2.0,2.0,2.0,1.0);'#13#10+
+   ' if (fragColor.a<0.01) discard;'#13#10+
+   '}';
+
 
 { TBasicPainter }
 
@@ -136,6 +184,7 @@ begin
  neutral.name:='_neutral_';
  neutral.Clear($FF808080);
  shader.UseTexture(neutral);
+ partShader3D:=shader.Build(PART_SHADER_3D_VERT,PART_SHADER_3D_FRAG);
 end;
 
 {
@@ -1010,8 +1059,14 @@ begin
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
-procedure TDrawer.Particles(x, y: integer; data: PParticle;
-  count: integer; tex: TTexture; size: integer; zDist: single);
+procedure TDrawer.Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;
+   gridSize:integer;zDist:single);
+begin
+ Particles(x,y,data,sizeof(TParticle),count,tex,gridSize,zDist);
+end;
+
+procedure TDrawer.Particles(x,y:integer;data:PParticle;stride,count:integer;tex:TTexture;
+   gridSize:integer;zDist:single);
 type
  PartArr=array[0..10000] of TParticle;
 var
@@ -1054,15 +1109,15 @@ begin
   // сперва рассчитаем экранные к-ты частицы
   sx:=x+ZDist*part[n].x/(part[n].z+ZDist);
   sy:=y+ZDist*part[n].y/(part[n].z+ZDist);
-  uStart:=tex.u1+tex.stepU*(1+2*size*startU);
-  vStart:=tex.v1+tex.stepV*(1+2*size*startV);
-  uSize:=2*tex.stepU*(size*sizeU-1);
-  vSize:=2*tex.stepV*(size*sizeV-1);
+  uStart:=tex.u1+tex.stepU*(1+2*gridSize*startU);
+  vStart:=tex.v1+tex.stepV*(1+2*gridSize*startV);
+  uSize:=2*tex.stepU*(gridSize*sizeU-1);
+  vSize:=2*tex.stepV*(gridSize*sizeV-1);
   if part[n].index and partFlip>0 then begin
    uStart:=uStart+uSize;
    usize:=-uSize;
   end;
-  size2:=0.70711*0.5*size*part[n].scale*zDist/(part[n].z+ZDist);
+  size2:=0.70711*0.5*gridSize*part[n].scale*zDist/(part[n].z+ZDist);
   rx:=size2*sizeU*cos(-part[n].angle); ry:=-size2*sizeU*sin(-part[n].angle);
   qx:=size2*sizeV*cos(-part[n].angle+1.5708); qy:=-size2*sizeV*sin(-part[n].angle+1.5708);
   color:=part[n].color;
@@ -1077,6 +1132,60 @@ begin
  shader.UseTexture(tex);
  renderDevice.DrawIndexed(TRG_LIST,@partBuf[0],@partInd[0],TVertex.layoutTex,
   0,count*4, 0,count*2);
+end;
+
+// 3D particles
+procedure TDrawer.Particles(data:PParticle;count:integer;tex:TTexture;gridSize:integer);
+begin
+ Particles(data,sizeof(TParticle),count,tex,gridSize);
+end;
+
+// 3D particles
+procedure TDrawer.Particles(data:PParticle;stride,count:integer;tex:TTexture;gridSize:integer);
+type
+ TParticleData=record
+  position:TPoint3s;
+  color:cardinal;
+  uv1,uv2:TPoint2s;
+  scaleX,scaleY,angle:single;
+ end;
+var
+ vrt:array[0..3] of TPoint2s;
+ layout,extraLayout:TVertexLayout;
+ pData:array of TParticleData;
+ i:integer;
+begin
+ // Base quad
+ layout.Init([vcPosition2d]);
+ vrt[0].Init(-0.5,-0.5);
+ vrt[1].Init(0.5,-0.5);
+ vrt[2].Init(0.5,0.5);
+ vrt[3].Init(-0.5,0.5);
+ // Per-particle data
+ SetLength(pData,count);
+ // Sorting (add later)
+ for i:=0 to count-1 do begin
+  pData[i].position.x:=data.x;
+  pData[i].position.y:=data.y;
+  pData[i].position.z:=data.z;
+  pData[i].color:=data.color;
+  pData[i].uv1:=Point2s(0,0);
+  pData[i].uv2:=Point2s(1,1);
+  pData[i].scaleX:=data.scale;
+  pData[i].scaleY:=data.scale;
+  pData[i].angle:=data.angle;
+  inc(data);
+ end;
+ shader.UseCustom(partShader3D);
+ shader.SetUniform('vecRight',transform.RightVec);
+ shader.SetUniform('vecDown',transform.DownVec);
+ shader.UseTexture(tex);
+ extraLayout.Init([vcPosition3d,vcColor,vcUV1,vcUV2,vcNormal]);
+ renderDevice.UseExtraVertexData(@pData[0],extraLayout);
+ renderDevice.SetVertexDataDivisors(0,1);
+ renderDevice.DrawInstanced(TRG_FAN,@vrt,layout,2,count);
+ renderDevice.UseExtraVertexData(nil,extraLayout);
+ shader.Reset;
 end;
 
 procedure TDrawer.DebugScreen1;

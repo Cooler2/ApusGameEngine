@@ -143,6 +143,9 @@ type
  String8 = Apus.Engine.Types.String8;
  String16 = Apus.Engine.Types.String16;
 
+ // Animated value
+ TAnimatedValue = Apus.AnimatedValues.TAnimatedValue;
+
  // 2D Vector
  TPoint2   = Apus.Engine.Types.TPoint2;
  PPoint2   = Apus.Engine.Types.PPoint2;
@@ -176,7 +179,7 @@ type
 
 const
  // Vertex layout with 3 attributes: position[3] (location=0), color[3] (location=1) and uv[2] (location=2)
- DEFAULT_VERTEX_LAYOUT : TVertexLayout = (layout: $4300; stride: 6*4;);
+ DEFAULT_VERTEX_LAYOUT : TVertexLayout = (layout:$4300; stride:6*4;);
 
 type
  TImagePixelFormat = Apus.Images.TImagePixelFormat;
@@ -750,7 +753,10 @@ type
   //procedure MultiTex(x1,y1,x2,y2:integer;layers:PMultiTexLayer;color:cardinal=clNeutral);
 
   // Particles ------------------------------------------
-  procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;size:integer;zDist:single=0);
+  procedure Particles(x,y:integer;data:PParticle;count:integer;tex:TTexture;gridSize:integer;zDist:single=0); overload; // 2D particles
+  procedure Particles(x,y:integer;data:PParticle;stride:integer;count:integer;tex:TTexture;gridSize:integer;zDist:single=0); overload; // 2D particles
+  procedure Particles(data:PParticle;count:integer;tex:TTexture;gridSize:integer); overload; // 3D particles
+  procedure Particles(data:PParticle;stride:integer;count:integer;tex:TTexture;gridSize:integer); overload; // 3D particles
   procedure Band(x,y:integer;data:PParticle;count:integer;tex:TTexture;r:TRect);
 
   // Settings

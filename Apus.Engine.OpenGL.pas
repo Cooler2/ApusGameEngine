@@ -89,7 +89,13 @@ type
      vertexLayout:TVertexLayout; vrtStart,vrtCount:integer; indStart,primCount:integer); overload;
 
   procedure DrawInstanced(primType:TPrimitiveType;vertices:pointer;indices:pointer;
-     vertexLayout:TVertexLayout;primCount,instances:integer);
+     vertexLayout:TVertexLayout;primCount,instances:integer); overload;
+
+  procedure DrawInstanced(primType:TPrimitiveType;vertices:pointer;
+     vertexLayout:TVertexLayout;primCount,instances:integer); overload;
+
+  procedure UseExtraVertexData(vertices:pointer;vertexLayout:TVertexLayout);
+  procedure SetVertexDataDivisors(baseDivisor,extraDivisor:integer);
 
 {  // Draw primitives using custom buffers
   procedure DrawBuffer(primType:TPrimitiveType;vb:TVertexBuffer;ib:TIndexBuffer); overload;
@@ -103,6 +109,10 @@ type
   lastVertices:pointer;
   lastLayout:TVertexLayout;
   lastStride:integer;
+  baseDivisor,extraDivisor:integer;
+  extraVertices:pointer;
+  extraLayout:TVertexLayout;
+  divisors:array[0..9] of integer;
   procedure SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout);
  end;
 
@@ -416,12 +426,10 @@ function TOpenGL.GetVersion: single;
 { TRenderDevice }
 constructor TRenderDevice.Create;
  begin
-
  end;
 
 destructor TRenderDevice.Destroy;
  begin
-
   inherited;
  end;
 
@@ -485,6 +493,21 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;i
   CheckForGLError(113);
  end;
 
+procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;
+     vertexLayout:TVertexLayout;primCount,instances:integer);
+ begin
+  shader.Apply(vertexLayout);
+  SetupAttributes(vertices,vertexLayout);
+  case primtype of
+   LINE_LIST:glDrawArraysInstanced(GL_LINES,0,primCount*2,instances);
+   LINE_STRIP:glDrawArraysInstanced(GL_LINE_STRIP,0,primCount+1,instances);
+   TRG_LIST:glDrawArraysInstanced(GL_TRIANGLES,0,primCount*3,instances);
+   TRG_FAN:glDrawArraysInstanced(GL_TRIANGLE_FAN,0,primCount+2,instances);
+   TRG_STRIP:glDrawArraysInstanced(GL_TRIANGLE_STRIP,0,primCount+2,instances);
+  end;
+  CheckForGLError(113);
+ end;
+
 procedure TRenderDevice.Reset;
  var
   i: Integer;
@@ -497,51 +520,92 @@ procedure TRenderDevice.Reset;
 
 procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout);
  var
-  i,v,n,dim:integer;
-  p:pointer;
+  n,baseN:integer;
+ procedure ProcessLayout(vertices:pointer;vLayout:TVertexLayout);
+  var
+   i,v,dim:integer;
+   p:pointer;
+  begin
+   with vLayout do
+    for i:=0 to 5 do begin
+     v:=(layout and $F)*4;
+     layout:=layout shr 4;
+     p:=pointer(UIntPtr(vertices)+v);
+     if (v=0) and (i>0) then continue;
+     if (i=0) and (v=15*4) then begin // position is 2D
+      dim:=2; p:=vertices;
+      end else
+      dim:=3;
+     case i of
+      0:glVertexAttribPointer(n,dim,GL_FLOAT,GL_FALSE,stride,p); // position
+      1,5:glVertexAttribPointer(n,3,GL_FLOAT,GL_FALSE,stride,p); // normal
+      2:glVertexAttribPointer(n,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,p); // color
+      3,4:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv1
+     end;
+     inc(n);
+     if layout=0 then break;
+    end;
+  end;
+ procedure EnableDisableArrays;
+  var
+   i:integer;
+  begin
+   // adjust number of vertex attrib arrays
+   if actualAttribArrays<0 then begin // unknown
+    for i:=0 to 7 do
+     if i<n then glEnableVertexAttribArray(i)
+      else glDisableVertexAttribArray(i);
+    actualAttribArrays:=n;
+   end;
+   // enable more if used
+   while n>actualAttribArrays do begin
+    glEnableVertexAttribArray(actualAttribArrays);
+    inc(actualAttribArrays);
+   end;
+   // disable unused
+   while n<actualAttribArrays do begin
+    dec(actualAttribArrays);
+    glDisableVertexAttribArray(actualAttribArrays);
+   end;
+  end;
+ procedure SetArrayDivisors;
+  var
+   i,d:integer;
+  begin
+   // set divisors
+   for i:=0 to n-1 do begin
+    if i<baseN then d:=baseDivisor
+     else d:=extraDivisor;
+    if divisors[i]<>d then begin
+     glVertexAttribDivisor(i,d);
+     divisors[i]:=d;
+    end;
+   end;
+  end;
  begin
   if (lastVertices=vertices) and (vertexLayout.Equals(lastLayout)) then exit;
   lastVertices:=vertices;
   lastLayout:=vertexLayout;
   n:=0;
-  with vertexLayout do
-   for i:=0 to 4 do begin
-    v:=(layout and $F)*4;
-    layout:=layout shr 4;
-    p:=pointer(UIntPtr(vertices)+v);
-    if (v=0) and (i>0) then continue;
-    if (i=0) and (v=15*4) then begin // position is 2D
-     dim:=2; p:=vertices;
-    end else
-     dim:=3;
-    case i of
-     0:glVertexAttribPointer(n,dim,GL_FLOAT,GL_FALSE,stride,p); // position
-     1:glVertexAttribPointer(n,3,GL_FLOAT,GL_FALSE,stride,p); // normal
-     2:glVertexAttribPointer(n,4,GL_UNSIGNED_BYTE,GL_TRUE,stride,p); // color
-     3:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv1
-     4:glVertexAttribPointer(n,2,GL_FLOAT,GL_FALSE,stride,p); // uv2
-    end;
-    inc(n);
-    if layout=0 then break;
-   end;
+  ProcessLayout(vertices,vertexLayout);
+  baseN:=n;
+  if extraVertices<>nil then  // additional vertex buffer
+   ProcessLayout(extraVertices,extraLayout);
 
-  // adjust number of vertex attrib arrays
-  if actualAttribArrays<0 then begin
-   for i:=0 to 4 do
-    if i<n then glEnableVertexAttribArray(i)
-     else glDisableVertexAttribArray(i);
-   actualAttribArrays:=n;
-  end;
+  EnableDisableArrays;
+  SetArrayDivisors;
+ end;
 
-  while n>actualAttribArrays do begin
-   glEnableVertexAttribArray(actualAttribArrays);
-   inc(actualAttribArrays);
-  end;
+procedure TRenderDevice.SetVertexDataDivisors(baseDivisor,extraDivisor:integer);
+ begin
+  self.baseDivisor:=baseDivisor;
+  self.extraDivisor:=extraDivisor;
+ end;
 
-  while n<actualAttribArrays do begin
-   dec(actualAttribArrays);
-   glDisableVertexAttribArray(actualAttribArrays);
-  end;
+procedure TRenderDevice.UseExtraVertexData(vertices:pointer;vertexLayout:TVertexLayout);
+ begin
+  extraVertices:=vertices;
+  extraLayout:=vertexLayout;
  end;
 
 { TGLRenderTargetAPI }

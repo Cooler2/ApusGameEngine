@@ -23,8 +23,16 @@ type
 
   // Draw instanced indexed primitives
   procedure DrawInstanced(primType:TPrimitiveType;vertices:pointer;indices:pointer;
-     vertexLayout:TVertexLayout;primCount,instances:integer);
+     vertexLayout:TVertexLayout;primCount,instances:integer); overload;
 
+  procedure DrawInstanced(primType:TPrimitiveType;vertices:pointer;
+     vertexLayout:TVertexLayout;primCount,instances:integer); overload;
+
+  // Use additional vertex buffer (and set attrib divisors for instanced rendering)
+  procedure UseExtraVertexData(vertices:pointer;vertexLayout:TVertexLayout);
+
+  // Set vertex attribute array divisors (for instanced rendering)
+  procedure SetVertexDataDivisors(baseDivisor,extraDivisor:integer);
 
   // Работу с буферами нужно организовать как-то иначе.
   // Нужен отдельный класс для буфера. Управлять ими должен resman.
