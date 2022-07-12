@@ -161,7 +161,7 @@ uses SysUtils,Math,
    ' if (softRange>0.0) { '#13#10+
    '   vec2 depthUV = gl_FragCoord.xy/vec2(textureSize(depthTex,0)); '#13#10+
    '   float delta = texture(depthTex,depthUV).r-gl_FragCoord.z; '#13#10+
-   '   alpha = min(delta*5000.0,1.0); '#13#10+
+   '   alpha = smoothstep(0,softRange,delta); '#13#10+
    ' } '#13#10+
    ' fragColor = texture(tex0,uv)*vColor*vec4(2.0,2.0,2.0,alpha);'#13#10+
    ' if (fragColor.a<0.01) discard;'#13#10+
@@ -1171,6 +1171,7 @@ var
  uu,vv:single;
  u0,v0,sizeU,sizeV:integer;
  frontVec:TVector3s;
+ d,realDepthRange:single;
 begin
  shader.UseCustom(partShader3D);
  shader.SetUniform('vecRight',transform.RightVec);
@@ -1179,8 +1180,11 @@ begin
  if (softParticlesRange>=0) and (depthTexture<>nil) then begin
   shader.UseTexture(depthTexture,1);
   shader.SetUniform('depthTex',1);
- end;
- shader.SetUniform('softRange',softParticlesRange);
+  d:=transform.Depth(Point3s(0,0,0));
+  realDepthRange:=1/d-1/(d+softParticlesRange);
+ end else
+  realDepthRange:=-1;
+ shader.SetUniform('softRange',realDepthRange);
  uu:=gridSize/tex.width;
  vv:=gridSize/tex.height;
  frontVec:=transform.ViewVec;
