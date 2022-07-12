@@ -51,7 +51,8 @@ constructor TMainApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   //usedPlatform:=spSDL;
-  //directRenderOnly:=true;
+  //directRenderOnly:=false;
+  //useDepthTexture:=true;
   //windowedMode:=false;
   if DirectoryExists('..\Demo\Particles') then
    baseDir:='..\Demo\Particles\';
@@ -61,7 +62,7 @@ procedure SetupCamera;
  var
   cameraPos:TPoint3s;
  begin
-  transform.Perspective(1/cameraZoom.Value,1,1000);
+  transform.Perspective(1/cameraZoom.Value,1,4000);
   cameraPos.x:=30*cos(cameraAngleX)*cos(cameraAngleY);
   cameraPos.y:=30*sin(cameraAngleX)*cos(cameraAngleY);
   cameraPos.z:=30*sin(cameraAngleY);
@@ -221,10 +222,12 @@ procedure SoftTest;
   end;
 
   gfx.target.UseDepthBuffer(dbPassLess,false);
+  draw.EnableSoftParticles(0.5);
   draw.Particles(@particles[0],length(particles),tex,16);
 
   gfx.target.UseDepthBuffer(dbDisabled);
   transform.DefaultView;
+
  end;
 
 procedure StartSoft;
