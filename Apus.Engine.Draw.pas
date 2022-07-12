@@ -1193,12 +1193,14 @@ begin
   pData[i].uv2.y:=(v0+sizeV)*vv;
   pData[i].scale:=data.scale;
   pData[i].angle:=data.angle;
-  pData[i].res:=-DotProduct(pData[i].position,frontVec);
+  if sort then
+   pData[i].res:=-DotProduct(pData[i].position,frontVec);
   inc(pb,stride);
   data:=PParticle(pb);
  end;
- // Sorting
- SortRecordsByFloat(pData[0],sizeof(TParticleData),count,9*4);
+ // Sorting (эта сортировка медленная - лучше сортировать индексы, а не записи)
+ if sort then
+  SortRecordsByFloat(pData[0],sizeof(TParticleData),count,9*4);
 
  extraLayout.Init([vcPosition3d,vcColor,vcUV1,vcUV2,vcNormal]);
  renderDevice.UseExtraVertexData(@pData[0],extraLayout);
