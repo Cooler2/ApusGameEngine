@@ -77,15 +77,19 @@ type
  TVertexBufferGL=class(TVertexBuffer)
   procedure Upload(fromVertex,numVertices:integer;vertexData:pointer); override;
   destructor Destroy; override;
+  procedure Resize(newCount:integer); override;
  protected
   buffer:cardinal;
+  usage:cardinal;
  end;
 
  TIndexBufferGL=class(TIndexBuffer)
   procedure Upload(fromIndex,numIndices:integer;indexData:pointer); override;
   destructor Destroy; override;
+  procedure Resize(newCount:integer); override;
  protected
   buffer:cardinal;
+  usage:cardinal;
  end;
 
  // Used for both 2D texture arrays and 3D textures
@@ -1631,25 +1635,23 @@ end;
 function TGLResourceManager.AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;usage:TBufferUsage):TVertexBuffer;
 var
  vb:TVertexBufferGL;
- u:gluint;
 begin
  vb:=TVertexBufferGL.Create(layout,numVertices);
  glGenBuffers(1,@vb.buffer);
  ASSERT(vb.buffer<>0);
  glBindBuffer(GL_ARRAY_BUFFER,vb.buffer);
  case usage of
-  buStatic:    u:=GL_STATIC_DRAW;
-  buDynamic:   u:=GL_DYNAMIC_DRAW;
-  buTemporary: u:=GL_STREAM_DRAW;
+  buStatic:    vb.usage:=GL_STATIC_DRAW;
+  buDynamic:   vb.usage:=GL_DYNAMIC_DRAW;
+  buTemporary: vb.usage:=GL_STREAM_DRAW;
  end;
- glBufferData(GL_ARRAY_BUFFER,layout.stride*numVertices,nil,u);
+ glBufferData(GL_ARRAY_BUFFER,layout.stride*numVertices,nil,vb.usage);
  result:=vb;
  CheckForGLError('AllocVB');
 end;
 
 function TGLResourceManager.AllocIndexBuffer(indCount:integer;elementSize:integer;usage:TBufferUsage):TIndexBuffer;
 var
- u:gluint;
  ib:TIndexBufferGL;
 begin
  ASSERT(elementSize in [2,4]);
@@ -1658,11 +1660,11 @@ begin
  ASSERT(ib.buffer<>0);
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ib.buffer);
  case usage of
-  buStatic:    u:=GL_STATIC_DRAW;
-  buDynamic:   u:=GL_DYNAMIC_DRAW;
-  buTemporary: u:=GL_STREAM_DRAW;
+  buStatic:    ib.usage:=GL_STATIC_DRAW;
+  buDynamic:   ib.usage:=GL_DYNAMIC_DRAW;
+  buTemporary: ib.usage:=GL_STREAM_DRAW;
  end;
- glBufferData(GL_ELEMENT_ARRAY_BUFFER,indCount*elementSize,nil,u);
+ glBufferData(GL_ELEMENT_ARRAY_BUFFER,indCount*elementSize,nil,ib.usage);
  result:=ib;
  CheckForGLError('AllocIB');
 end;
@@ -1702,16 +1704,36 @@ begin
  inherited;
 end;
 
+procedure TVertexBufferGL.Resize(newCount:integer);
+begin
+ count:=newCount;
+ sizeInBytes:=count*layout.stride;
+ glBindBuffer(GL_ARRAY_BUFFER,buffer);
+ glBufferData(GL_ARRAY_BUFFER,sizeInBytes,nil,usage);
+ glBindBuffer(GL_ARRAY_BUFFER,0);
+end;
+
 procedure TVertexBufferGL.Upload(fromVertex,numVertices:integer;vertexData:pointer);
 begin
  glBindBuffer(GL_ARRAY_BUFFER,buffer);
  glBufferSubData(GL_ARRAY_BUFFER,fromVertex*layout.stride,numVertices*layout.stride,vertexData);
+ glBindBuffer(GL_ARRAY_BUFFER,0);
+end;
+
+procedure TIndexBufferGL.Resize(newCount:integer);
+begin
+ count:=newCount;
+ sizeInBytes:=count*bytesPerIndex;
+ glBindBuffer(GL_ARRAY_BUFFER,buffer);
+ glBufferData(GL_ARRAY_BUFFER,sizeInBytes,nil,usage);
+ glBindBuffer(GL_ARRAY_BUFFER,0);
 end;
 
 procedure TIndexBufferGL.Upload(fromIndex,numIndices:integer;indexData:pointer);
 begin
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,buffer);
  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,fromIndex*bytesPerIndex,numIndices*bytesPerIndex,indexData);
+ glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
 end;
 {$ENDREGION}
 

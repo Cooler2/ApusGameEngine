@@ -107,6 +107,7 @@ interface
                buTemporary);  // one-time buffer: filled once, used once
 
  TEngineBuffer=class(TObjectEx)
+  sizeInBytes:integer;
  end;
 
  TVertexBuffer=class(TEngineBuffer)
@@ -114,6 +115,7 @@ interface
   layout:TVertexLayout;
   constructor Create(layout:TVertexLayout;count:integer);
   procedure Upload(fromVertex,numVertices:integer;vertexData:pointer); virtual; abstract;
+  procedure Resize(newCount:integer); virtual; abstract;
  end;
 
  TIndexBuffer=class(TEngineBuffer)
@@ -121,6 +123,7 @@ interface
   bytesPerIndex:integer; // 2 or 4
   constructor Create(count:integer;elementSize:integer);
   procedure Upload(fromIndex,numIndices:integer;indexData:pointer); virtual; abstract;
+  procedure Resize(newCount:integer); virtual; abstract;
  end;
 
 implementation
@@ -225,6 +228,7 @@ constructor TVertexBuffer.Create(layout:TVertexLayout;count:integer);
  begin
   self.layout:=layout;
   self.count:=count;
+  sizeInBytes:=count*layout.stride;
  end;
 
 { TIndexBuffer }
@@ -233,6 +237,7 @@ constructor TIndexBuffer.Create(count,elementSize:integer);
  begin
   self.count:=count;
   self.bytesPerIndex:=elementSize;
+  sizeInBytes:=count*elementSize;
  end;
 
 end.
