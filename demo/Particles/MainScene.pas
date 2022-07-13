@@ -149,6 +149,8 @@ procedure GalaxyTest;
   gfx.target.BlendMode(blAlpha);
   transform.DefaultView;
   cameraAngleX:=cameraAngleX+0.002;
+  if cameraAngleY>0.2 then
+   cameraAngleY:=cameraAngleY-0.0002;
  end;
 
 procedure StartGalaxy;
@@ -162,7 +164,7 @@ procedure StartGalaxy;
   for i:=0 to high(particles) do
    with particles[i] do begin
     r:=(random-random+random-random)*20;
-    if abs(r)<random*17 then begin
+    if abs(r)<3+random*15 then begin
      vec.Init(random-random+random-random+random-random+random-random,
         random-random+random-random+random-random+random-random,
         random-random+random-random+random-random+random-random);
@@ -177,7 +179,7 @@ procedure StartGalaxy;
      y:=r*sin(a)+random-random;
      z:=5+(random-random+random-random+random-random)*0.5;
     end;
-    color:=MyColor(120,random(random(200)),random(random(200)),random(random(200)));
+    color:=MyColor(150,random(random(120)),random(random(120)),random(random(120)));
     scale:=(3+random(random(10)))*0.04;
     angle:=i/10;
     index:=partPosV*1;
