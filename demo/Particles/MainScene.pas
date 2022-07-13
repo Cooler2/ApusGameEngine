@@ -18,7 +18,7 @@ interface
   application:TMainApp;
 
 implementation
- uses SysUtils,Apus.MyServis,Apus.EventMan,Apus.Colors,Apus.Geom3D,
+ uses SysUtils,Apus.MyServis,Apus.EventMan,Apus.Colors,Apus.Geom3D, Math,
    Apus.Engine.UI;
 
  type
@@ -51,8 +51,8 @@ constructor TMainApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   //usedPlatform:=spSDL;
-  directRenderOnly:=false;
-  useDepthTexture:=true;
+  //directRenderOnly:=false;
+  //useDepthTexture:=true;
   //windowedMode:=false;
   if DirectoryExists('..\Demo\Particles') then
    baseDir:='..\Demo\Particles\';
@@ -145,7 +145,7 @@ procedure GalaxyTest;
 
   gfx.target.UseDepthBuffer(dbDisabled);
   gfx.target.BlendMode(blAdd);
-  draw.Particles(@particles[0],sizeof(TParticle),length(particles),tex,16,true);
+  draw.Particles(@particles[0],sizeof(TParticle),length(particles),tex,16,false);
   gfx.target.BlendMode(blAlpha);
   transform.DefaultView;
   cameraAngleX:=cameraAngleX+0.002;
@@ -155,17 +155,29 @@ procedure StartGalaxy;
  var
   i:integer;
   a,r:single;
+  vec:TVector3s;
  begin
   // Particles
-  SetLength(particles,100000);
+  SetLength(particles,300000);
   for i:=0 to high(particles) do
    with particles[i] do begin
     r:=(random-random+random-random)*20;
-    a:=sqr(random-random+random-random)+random-random+abs(r)*0.22;
-    x:=r*cos(a)+random-random;
-    y:=r*sin(a)+random-random;
-    z:=(random-random+random-random+random-random)*0.5;
-    color:=MyColor(120,110-random(80),110-random(80),110-random(80));
+    if abs(r)<random*17 then begin
+     vec.Init(random-random+random-random+random-random+random-random,
+        random-random+random-random+random-random+random-random,
+        random-random+random-random+random-random+random-random);
+     r:=vec.Length;
+     vec.Multiply(r*1.2+0.2*r*r);
+     x:=vec.x;
+     y:=vec.y;
+     z:=5+vec.z*0.4;
+    end else begin
+     a:=sqr(random-random+random-random)+random-random+abs(r)*0.22;
+     x:=r*cos(a)+random-random;
+     y:=r*sin(a)+random-random;
+     z:=5+(random-random+random-random+random-random)*0.5;
+    end;
+    color:=MyColor(120,random(random(200)),random(random(200)),random(random(200)));
     scale:=(3+random(random(10)))*0.04;
     angle:=i/10;
     index:=partPosV*1;
