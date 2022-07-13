@@ -705,11 +705,13 @@ interface
 
  function HasValue(const v:variant):boolean;
 
- // Сортировки
+ // Sorting
  procedure SortObjects(obj:PSortableObjects;count:integer);
- // Sort array of arbitrary items with value field
+ // Sort the array of arbitrary items with value field
  procedure SortRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
  procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+ // Return sorted index for the array of arbitrary items
+ function IndexRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true):IntArray;
 // procedure SortObjects(var obj:array of TObject;comparator:TObjComparator); overload;
  procedure SortStrings(var sa:StringArr); overload;
  procedure SortStrings(var sa:AStringArr); overload;
@@ -3197,11 +3199,6 @@ const
   {$IFDEF RANGECHECK}{$R+}{$ENDIF}
 
  procedure QuickSortInternal(data:pointer;itemSize,offset,a,b,valueType:integer;asc:boolean);
-  var
-   lo,hi,mid:integer;
-   loVal,hiVal:PByte;
-   midVal:integer;
-
   function Compare(p1,p2:pointer;valueType:integer):boolean; inline;
    begin
     if valueType=1 then
@@ -3209,6 +3206,10 @@ const
     else
      result:=(PSingle(p1)^>PSingle(p2)^);
    end;
+  var
+   lo,hi,mid:integer;
+   loVal,hiVal:PByte;
+   midVal:integer;
   begin
    lo:=a; hi:=b;
    mid:=(a+b) div 2;
@@ -3251,6 +3252,64 @@ const
   begin
    if itemCount<2 then exit;
    QuickSortInternal(@items,itemSize,offset,0,itemCount-1,1,asc);
+  end;
+
+ procedure QuickIndexInternal(var index:IntArray;data:pointer;itemSize,offset,a,b,valueType:integer;asc:boolean);
+  function Compare(p1,p2:pointer;valueType:integer):boolean; inline;
+   begin
+    if valueType=1 then
+     result:=(PInteger(p1)^>PInteger(p2)^)
+    else
+     result:=(PSingle(p1)^>PSingle(p2)^);
+   end;
+  function ItemValue(idx:integer):pointer;
+   begin
+    idx:=index[idx];
+    result:=pointer(UIntPtr(data)+idx*itemSize+offset);
+   end;
+  var
+   lo,hi,mid:integer;
+   loVal,hiVal:PByte;
+   midVal:integer; // reference value (typeless)
+  begin
+   lo:=a; hi:=b;
+   mid:=(a+b) div 2;
+   loVal:=ItemValue(lo);
+   hiVal:=ItemValue(hi);
+   move(ItemValue(mid)^,midval,4);
+   repeat
+    if asc then begin
+     while Compare(@midVal,loVal,valueType) do begin
+      inc(lo); inc(loVal,itemSize)
+     end;
+     while Compare(hiVal,@midVal,valueType) do begin
+      dec(hi); dec(hiVal,itemSize)
+     end;
+    end else begin
+     while Compare(loVal,@midVal,valueType) do begin
+      inc(lo); inc(loVal,itemSize)
+     end;
+     while Compare(@midVal,hiVal,valueType) do begin
+      dec(hi); dec(hiVal,itemSize)
+     end;
+    end;
+    if lo<=hi then begin
+     Swap(index[lo],index[hi]);
+     inc(lo); inc(loVal,itemSize);
+     dec(hi); dec(hiVal,itemSize);
+    end;
+   until lo>hi;
+   if hi>a then QuickIndexInternal(index,data,itemSize,offset,a,hi,valueType,asc);
+   if lo<b then QuickIndexInternal(index,data,itemSize,offset,lo,b,valueType,asc);
+  end;
+
+ function IndexRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true):IntArray;
+  var
+   i:integer;
+  begin
+   SetLength(result,itemCount);
+   for i:=0 to itemCount-1 do result[i]:=i;
+   QuickIndexInternal(result,@items,itemSize,offset,0,itemCount-1,2,asc);
   end;
 
  procedure SortStrings(var sa:StringArr); overload;
