@@ -372,6 +372,11 @@ begin
    format:=GL_ALPHA;
    dataType:=GL_UNSIGNED_BYTE;
   end;
+  ipfDepth32f:begin
+   internalFormat:=GL_DEPTH_COMPONENT;
+   format:=GL_DEPTH_COMPONENT;
+   dataType:=GL_FLOAT;
+  end;
   {$ENDIF}
   {$IFDEF GLES}
   ipfARGB:begin
