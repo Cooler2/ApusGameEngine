@@ -1546,6 +1546,8 @@ begin
        ((dRT.width<>w) or (dRT.height<>h)) then begin
      LogMessage('Resizing framebuffer');
      gfx.resman.ResizeImage(dRT,w,h);
+     if dRTdepth<>nil then
+       gfx.resman.ResizeImage(dRTdepth,w,h);
     end;
    gfx.target.Viewport(0,0,dRT.width,drt.height,params.width,params.height);
   end;
