@@ -92,9 +92,11 @@ interface
   useGradient:boolean; // use gradient to color primitives
   gradient:TColorGradient;
   stretchGradient:boolean; // stretch gradient over primitive area (i.e. use -1..1 range)
-  partShader3D:TShader;
-  softParticlesRange:single;
-  depthTexture:TTexture;
+  // Particles
+  partShader3D:TShader;  // shader for 3D particles
+  partBuffer:TVertexBuffer; // buffer for particle data
+  depthTexture:TTexture; // depth texture used for soft particles
+  softParticlesRange:single; // depth range for fading the soft particles
   procedure CalcGradient(width,height:single;out gx,gy:single); inline;
  end;
 
@@ -1147,6 +1149,26 @@ begin
   0,count*4, 0,count*2);
 end;
 
+procedure QuickIndex(var index:IntArray;var rates:FloatArray;a,b:integer);
+ var
+   lo,hi,mid:integer;
+   midVal:single;
+ begin
+   lo:=a; hi:=b;
+   mid:=(a+b) div 2;
+   midVal:=rates[index[mid]];
+   repeat
+    while rates[index[lo]]<midVal do inc(lo);
+    while rates[index[hi]]>midVal do dec(hi);
+    if lo<=hi then begin
+     Swap(index[lo],index[hi]);
+     inc(lo); dec(hi);
+    end;
+   until lo>hi;
+   if hi>a then QuickIndex(index,rates,a,hi);
+   if lo<b then QuickIndex(index,rates,lo,b);
+ end;
+
 // 3D particles
 procedure TDrawer.Particles(data:PParticle;count:integer;tex:TTexture;gridSize:integer);
 begin
@@ -1163,16 +1185,20 @@ type
   scale,res,angle:single;
  end;
 var
+ i,idx,actualCount:integer;
  vrt:array[0..3] of TPoint2s; // just a 2D quad
  layout,extraLayout:TVertexLayout;
+ rate:FloatArray;
+ index:IntArray;
  pData:array of TParticleData;
- i:integer;
  pb:PByte;
+ pp:PParticle;
  uu,vv:single;
  u0,v0,sizeU,sizeV:integer;
  frontVec:TVector3s;
  d,realDepthRange:single;
 begin
+ // Shader
  shader.UseCustom(partShader3D);
  shader.SetUniform('vecRight',transform.RightVec);
  shader.SetUniform('vecDown',transform.DownVec);
@@ -1185,9 +1211,13 @@ begin
  end else
   realDepthRange:=-1;
  shader.SetUniform('softRange',realDepthRange);
- uu:=gridSize/tex.width;
- vv:=gridSize/tex.height;
- frontVec:=transform.ViewVec;
+
+ // Buffer
+ extraLayout.Init([vcPosition3d,vcColor,vcUV1,vcUV2,vcNormal]);
+ if partBuffer=nil then
+  partBuffer:=gfx.resMan.AllocVertexBuffer(extraLayout,count+1,TBufferUsage.buDynamic);
+ if partBuffer.sizeInBytes<(count+1)*sizeof(TParticleData) then
+  partBuffer.Resize(count+1);
 
  // Base quad
  layout.Init([vcPosition2d]);
@@ -1195,40 +1225,63 @@ begin
  vrt[1].Init(0.5,-0.5);
  vrt[2].Init(0.5,0.5);
  vrt[3].Init(-0.5,0.5);
+ partBuffer.Upload(0,1,@vrt); // element [0] used to store quad geometry
+
+ // Particles data
+ uu:=gridSize/tex.width;
+ vv:=gridSize/tex.height;
+ frontVec:=transform.ViewVec;
+
+ // Sort particles?
+ if sort then begin
+  SetLength(index,count);
+  for i:=0 to count-1 do index[i]:=i;
+  SetLength(rate,count);
+  pb:=pointer(data);
+  for i:=0 to count-1 do begin
+   rate[i]:=-DotProduct(PPoint3s(pb)^,frontVec);
+   inc(pb,stride);
+  end;
+  QuickIndex(index,rate,0,count-1);
+ end;
+
  // Per-particle data
  SetLength(pData,count);
- pb:=pointer(data);
+ actualCount:=0;
  for i:=0 to count-1 do begin
-  pData[i].position.x:=data.x;
-  pData[i].position.y:=data.y;
-  pData[i].position.z:=data.z;
-  pData[i].color:=data.color;
-  u0:=byte(data.index);
-  v0:=byte(data.index shr 8);
-  sizeU:=(data.index shr 16) and $F;
-  sizeV:=(data.index shr 20) and $F;
+  if sort then idx:=index[i]
+   else idx:=i;
+  pb:=pointer(data);
+  inc(pb,idx*stride);
+  pp:=pointer(pb);
+  if pp.color shr 24=0 then continue; // skip transparent particles
+  pData[actualCount].position.x:=pp.x;
+  pData[actualCount].position.y:=pp.y;
+  pData[actualCount].position.z:=pp.z;
+  pData[actualCount].color:=pp.color;
+  u0:=byte(pp.index);
+  v0:=byte(pp.index shr 8);
+  sizeU:=(pp.index shr 16) and $F;
+  sizeV:=(pp.index shr 20) and $F;
   if sizeU=0 then sizeU:=1;
   if sizeV=0 then sizeV:=1;
-  pData[i].uv1.x:=u0*uu;
-  pData[i].uv1.y:=v0*vv;
-  pData[i].uv2.x:=(u0+sizeU)*uu;
-  pData[i].uv2.y:=(v0+sizeV)*vv;
-  pData[i].scale:=data.scale;
-  pData[i].angle:=data.angle;
-  if sort then
-   pData[i].res:=-DotProduct(pData[i].position,frontVec);
-  inc(pb,stride);
-  data:=PParticle(pb);
+  pData[actualCount].uv1.x:=u0*uu;
+  pData[actualCount].uv1.y:=v0*vv;
+  pData[actualCount].uv2.x:=(u0+sizeU)*uu;
+  pData[actualCount].uv2.y:=(v0+sizeV)*vv;
+  pData[actualCount].scale:=pp.scale;
+  pData[actualCount].angle:=pp.angle;
+  inc(actualCount);
  end;
- // Sorting (it's quite slow - TODO: sort indices to avoid the data move)
- if sort then
-  SortRecordsByFloat(pData[0],sizeof(TParticleData),count,9*4);
+ if actualCount=0 then exit;
+ partBuffer.Upload(1,actualCount,@pData[0]);
 
- extraLayout.Init([vcPosition3d,vcColor,vcUV1,vcUV2,vcNormal]);
- renderDevice.UseExtraVertexData(@pData[0],extraLayout);
+ gfx.resman.UseVertexBuffer(partBuffer);
+ renderDevice.UseExtraVertexData(pointer(sizeof(TParticleData)),extraLayout);
  renderDevice.SetVertexDataDivisors(0,1);
- renderDevice.DrawInstanced(TRG_FAN,@vrt,layout,2,count);
+ renderDevice.DrawInstanced(TRG_FAN,nil,layout,2,actualCount);
  renderDevice.UseExtraVertexData(nil,extraLayout);
+ gfx.resman.UseVertexBuffer(nil);
  shader.Reset;
 end;
 
