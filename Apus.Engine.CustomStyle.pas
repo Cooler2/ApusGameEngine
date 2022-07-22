@@ -414,8 +414,8 @@ function NewButtonStyle(name:string):integer;
 
 { TVarTypeCustomStyle }
 
-class function TVarTypeCustomStyle.GetField(variable: pointer;
-  fieldName: string; out varClass: TVarClass): pointer;
+class function TVarTypeCustomStyle.GetField(variable:pointer;
+  fieldName:string;out varClass:TVarClass):pointer;
 var
  i,n:integer;
  grp,prop:string;
@@ -572,7 +572,7 @@ begin
  end;
 end;
 
-class function TVarTypeCustomStyle.ListFields: String;
+class function TVarTypeCustomStyle.ListFields:String;
  var
   i:integer;
  begin
@@ -585,7 +585,7 @@ class function TVarTypeCustomStyle.ListFields: String;
 
 { TVarTypeImageHandle }
 
-class function TVarTypeImageHandle.GetValue(variable: pointer): string;
+class function TVarTypeImageHandle.GetValue(variable:pointer):string;
  var
   h:integer;
  begin
@@ -594,12 +594,12 @@ class function TVarTypeImageHandle.GetValue(variable: pointer): string;
   result:=btnImages[h].fname;
  end;
 
-class procedure TVarTypeImageHandle.SetValue(variable: pointer; v: string);
+class procedure TVarTypeImageHandle.SetValue(variable:pointer;v:string);
  begin
   PInteger(variable)^:=ImageHandle(v);
  end;
 
-class function TVarTypeAlphaMode.GetValue(variable: pointer): string;
+class function TVarTypeAlphaMode.GetValue(variable:pointer):string;
  var
   a:^TAlphaMode;
  begin
@@ -611,7 +611,7 @@ class function TVarTypeAlphaMode.GetValue(variable: pointer): string;
   end;
  end;
 
-class procedure TVarTypeAlphaMode.SetValue(variable: pointer; v: string);
+class procedure TVarTypeAlphaMode.SetValue(variable:pointer;v:string);
  var
   a:^TAlphaMode;
  begin
@@ -621,12 +621,12 @@ class procedure TVarTypeAlphaMode.SetValue(variable: pointer; v: string);
 
 { TVarTypeBtnStyle }
 
-class function TVarTypeBtnStyle.GetValue(variable: pointer): string;
+class function TVarTypeBtnStyle.GetValue(variable:pointer):string;
  begin
 
  end;
 
-class procedure TVarTypeBtnStyle.SetValue(variable: pointer; v: string);
+class procedure TVarTypeBtnStyle.SetValue(variable:pointer;v:string);
  var
   i,n:integer;
   b:^TButtonStyle;
