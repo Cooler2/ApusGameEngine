@@ -8,17 +8,19 @@
 {$R-}
 unit Apus.Engine.CustomStyle;
 interface
+ uses Apus.Engine.UI;
  var
   loadScrollBarTextures:boolean=false;
 
  // Инициализация стиля (id - на какой номер регистрировать стиль)
  // Вызывать ПОСЛЕ инициализации движка
- procedure InitCustomStyle(imgpath:string='Images\cstyle\';id:integer=1);
+ procedure InitCustomStyle(imgpath:string='Images\cstyle\';styleID:integer=1);
+ procedure ApplyCustomStyle(item:TUIElement;styleName:string);
 
 implementation
  uses Classes,SysUtils, Types,
   Apus.MyServis, Apus.Colors, Apus.Images, Apus.Publics, Apus.Geom2D,
-  Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIWidgets,
+  Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets,
   Apus.Engine.UIRender, Apus.Engine.UIScript;
 
  type
@@ -77,6 +79,7 @@ implementation
   btnStyles:array[1..120] of TButtonStyle;
   btnStylesCnt:integer;
   scrolltex,scroll1,scroll2:TTexture;
+  customStyleID:integer;
 
   hash:array[0..255] of byte;
 
@@ -353,9 +356,16 @@ implementation
     scroll1:=LoadImageFromFile(path+'scroll_top',liffMH512,pfTrueColorAlpha);
     scroll2:=LoadImageFromFile(path+'scroll_bottom',liffMH512,pfTrueColorAlpha);
    end;
-   RegisterUIStyle(id,CustomStyleHandler);
+   customStyleID:=styleID;
+   RegisterUIStyle(customStyleID,CustomStyleHandler);
    // адрес произвольный ибо объект уникальный
    PublishVar(@CustomStyleHandler,'CustomStyle',TVarTypeCustomStyle);
+  end;
+
+ procedure ApplyCustomStyle(item:TUIElement;styleName:string);
+  begin
+   item.style:=customStyleID;
+   item.styleInfo:=styleName;
   end;
 
  // Возвращает хэндл изображения, если надо - загружает его
