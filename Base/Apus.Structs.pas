@@ -281,6 +281,7 @@ type
   procedure Init(estimatedCount:integer=256); // automatically called upon 1-st Put() call
   procedure Clear;
   procedure Put(key:String8;value:variant); // unassigned value is not allowed, use Remove() to clear key
+  function HasKey(key:String8):boolean;
   function Get(key:String8):variant;
   procedure Remove(key:String8);
   function ListKeys:StringArray8;
@@ -2232,6 +2233,25 @@ function TVarHash.Get(key:String8):variant;
     h:=(h+1) and mask;
    end;
    result:=unassigned;
+  finally
+   lock:=0;
+  end;
+ end;
+
+function TVarHash.HasKey(key:String8):boolean;
+ var
+  h:cardinal;
+ begin
+  h:=FastHash(key);
+  SpinLock(lock);
+  try
+   h:=h and mask;
+   while keys[h]<>'' do begin
+    if SameStr(key,keys[h]) and (values[h]<>unassigned) then exit(true);
+    inc(hashMiss);
+    h:=(h+1) and mask;
+   end;
+   result:=false;
   finally
    lock:=0;
   end;
