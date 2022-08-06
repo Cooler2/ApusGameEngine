@@ -30,7 +30,7 @@
         <Mode0 Name="default"/>
       </Modes>
     </RunParams>
-    <Units Count="42">
+    <Units Count="43">
       <Unit0>
         <Filename Value="TestMyServis.dpr"/>
         <IsPartOfProject Value="True"/>
@@ -199,6 +199,10 @@
         <Filename Value="..\Apus.ProdCons.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit41>
+      <Unit42>
+        <Filename Value="..\Apus.VertexLayout.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit42>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

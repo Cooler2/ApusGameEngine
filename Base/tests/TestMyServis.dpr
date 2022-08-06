@@ -1990,5 +1990,5 @@ begin
   ExitCode:=1;
  end else
   writeln('--------------------- DONE! ---------------------'#13#10' Everything is OK!');
- //readln;
+ if IsDebuggerPresent then readln;
 end.
