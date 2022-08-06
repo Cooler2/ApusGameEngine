@@ -55,6 +55,7 @@ type
   TObjectArray = array of TObject;
 
   TProcedure = procedure;
+  TObjProcedure=procedure of object;
 
   // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
   TSplineFunc=function(x,x0,x1,y0,y1:single):single;

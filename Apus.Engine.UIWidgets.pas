@@ -111,7 +111,7 @@ interface
    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
    procedure onTimer; override; // отжимает кнопку по таймеру
    procedure SetPressed(pr:boolean); virtual;
-   procedure MakeSwitches(sameGroup:boolean=true); // make all sibling buttons with the same size - switches
+   procedure MakeSwitches(sameGroup:boolean=true;clickHandler:TProcedure=nil); // make all sibling buttons with the same size - switches
    procedure Click; virtual; // simulate click
    class var active:TUIButton; // link to the active button (can be used in click handlers)
   protected
@@ -504,7 +504,7 @@ procedure TUIButton.DoClick;
    end;
   end;
 
- procedure TUIButton.MakeSwitches(sameGroup:boolean=true); // make all sibling buttons with the same size - switches
+ procedure TUIButton.MakeSwitches(sameGroup:boolean=true;clickHandler:Apus.Types.TProcedure=nil); // make all sibling buttons with the same size - switches
   var
    i:integer;
    b:TUIButton;
@@ -518,6 +518,7 @@ procedure TUIButton.DoClick;
     if not b.visible then continue;
     if abs(b.size.x-size.x)+abs(b.size.y-size.y)>=1 then continue;
     b.btnStyle:=bsSwitch;
+    if @clickHandler<>nil then b.onClick:=@clickHandler;
     if sameGroup then begin
      b.group:=1;
      if first then begin

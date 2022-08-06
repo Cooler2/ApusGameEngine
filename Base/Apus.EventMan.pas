@@ -15,6 +15,7 @@
 //  UI\ - события интерфейса пользователя
 unit Apus.EventMan;
 interface
+uses Apus.Types;
 type
  // Режим обработки (режим привязывается обработчиком событий)
  TEventMode=(emQueued,   // события помещаются в очередь потока
@@ -30,9 +31,6 @@ type
  // Функция обработки события. Для блокировки обработки на более общих уровнях, должна вернуть false
  // In fact, return value is ignored
  TEventHandler=procedure(event:TEventStr;tag:TTag);
-
- TProcedure=procedure;
- TObjProcedure=procedure of object;
 
  // Set event handling procedure
  // event may contain multiple values (comma-separated)
