@@ -1392,10 +1392,12 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
  procedure TUIListBox.SelectLine(line:integer);
   begin
    if (line>=0) and (line<=high(lines)) then begin
-    selectedLine:=line;
-    if sendSignals<>ssNone then begin
-     Signal('UI\'+name+'\SELECTED',selectedLine);
-     Signal('UI\ListBox\onSelect\'+name,TTag(self));
+    if selectedLine<>line then begin
+     selectedLine:=line;
+     if sendSignals<>ssNone then begin
+      Signal('UI\'+name+'\SELECTED',selectedLine);
+      Signal('UI\ListBox\onSelect\'+name,TTag(self));
+     end;
     end;
    end else
     selectedLine:=-1;
