@@ -1739,14 +1739,18 @@ function FormatHex(v:int64;digits:integer=0):String8;
  function ParseBool(st:string):boolean; overload;
   begin
    st:=UpperCase(st);
-   result:=(st='Y') or (st='TRUE') or (st='1') or (st='-1') or (st='+');
+   if (st='Y') or (st='YES') or (st='ON') or (st='TRUE') or (st='1') or (st='-1') or (st='+') then exit(true);
+   if (st='N') or (st='NO') or (st='OFF') or (st='FALSE') or (st='0') or (st='-') then exit(false);
+   raise EWarning.Create('Not a valid boolean expression: '+st);
   end;
 
  {$IFDEF ADDANSI}
  function ParseBool(st:String8):boolean; overload;
   begin
    st:=UpperCase8(st);
-   result:=(st='Y') or (st='TRUE') or (st='1') or (st='-1') or (st='+');
+   if (st='Y') or (st='YES') or (st='ON') or (st='TRUE') or (st='1') or (st='-1') or (st='+') then exit(true);
+   if (st='N') or (st='NO') or (st='OFF') or (st='FALSE') or (st='0') or (st='-') then exit(false);
+   raise EWarning.Create('Not a valid boolean expression: '+st);
   end;
  {$ENDIF}
 

@@ -95,6 +95,7 @@ type
    function GetInt:integer;
    function GetFloat:double;
    function GetDate:TDateTime;
+   function GetBool:boolean; // true if value is "y", "yes", "true", "on", "1"; false if "n", "no", "false", "off", "0"
    function Join(separator:string='='):string; // convert back to "name=value"
   end;
 
@@ -241,6 +242,11 @@ function TBuffer.Slice(length:integer;advance:boolean=false):TBuffer;
  end;
 
 { TNameValue }
+
+function TNameValue.GetBool:boolean;
+ begin
+  result:=ParseBool(value);
+ end;
 
 function TNameValue.GetDate:TDateTime;
  begin
