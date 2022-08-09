@@ -34,7 +34,8 @@ type
  function ColorAlpha(color:cardinal;alpha:single):cardinal;
  function ReplaceAlpha(color:cardinal;alpha:single):cardinal;
  // value=0 -> c2, value=256 -> c1
- function ColorMix(c1,c2:cardinal;value:integer):cardinal; register; // Линейная интерполяция
+ function ColorMix(c1,c2:cardinal;value:integer):cardinal; // Линейная интерполяция
+ function ColorMixF(c1,c2:cardinal;t:single):cardinal; // Линейная интерполяция
  function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // Качественный квази-линейный бленд (гораздо медленнее!)
  function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single; overload; inline;  // Билинейная интерполяция
  function BilinearMixF(values:PSingle;u,v:single):single; overload;  // Билинейная интерполяция
@@ -241,6 +242,17 @@ implementation
    result:=result+cardinal(((byte(c1)*value+byte(c2)*val2) shl 8) and $FF0000); // red part
    c1:=c1 shr 8; c2:=c2 shr 8;
    result:=result+cardinal(((byte(c1)*value+byte(c2)*val2) and $FF00) shl 16); // alpha part
+  end;
+
+ function ColorMixF(c1,c2:cardinal;t:single):cardinal;
+  var
+   a,r,g,b:single;
+  begin
+   a:=(c1 shr 24)*t+(c2 shr 24)*(1-t);
+   r:=byte(c1 shr 16)*t+byte(c2 shr 16)*(1-t);
+   g:=byte(c1 shr 8)*t+byte(c2 shr 8)*(1-t);
+   b:=byte(c1)*t+byte(c2)*(1-t);
+   result:=round(a) shl 24+round(r) shl 16+round(g) shl 8+round(b);
   end;
 
  function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // Качественный линейный бленд
