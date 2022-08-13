@@ -1921,26 +1921,7 @@ procedure Test1(p1,p2,p3:integer);
   readln;
  end;      *)
 
-type
- T=record
-  id:integer;
-  recName:String8;
-  recValue:single;
- end;
-
-var
- rec:T;
- s:TJSONSerializer;
- st:string;
-
 begin
- s:=TJsonSerializer.Create;
- rec.id:=1;
- rec.recName:='Hello';
- rec.recValue:=0.34;
- st:=s.Serialize<T>(rec);
- writeln(st);
-
  SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
  try
