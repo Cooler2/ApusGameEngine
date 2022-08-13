@@ -18,6 +18,7 @@ program TestMyServis;
   SysUtils,
   classes,
   DCPmd5a,
+  JSON.Serializers,
   Apus.CPU in '..\Apus.CPU.pas',
   Apus.ADPCM in '..\Apus.ADPCM.pas',
   Apus.Android in '..\Apus.Android.pas',
@@ -652,7 +653,7 @@ procedure TestQuotes;
        inc(errors);
    end;
    writeln('TEST_EX time: ',MyTickCount-t,'  errors: ',errors);
-   if errors>0 then testsFailed:=true;
+   ASSERT(errors=0,'');
   end;
 
  procedure TestSortStrings;
@@ -675,7 +676,7 @@ procedure TestQuotes;
       inc(errors); 
    end;
    writeln('SortStr time: ',MyTickCount-t,'  errors: ',errors);
-   if errors>0 then testsFailed:=true;
+   ASSERT(errors=0,'SortStrings');
   end;
 
  function GetVar(name:string):double;
@@ -882,10 +883,7 @@ end;
      if hMT.Get(i*2)<>i*20 then
       inc(e);
    end;
-   if e>0 then begin
-    writeln('Errors - ',e);
-    testsFailed:=true;
-   end;
+   ASSERT(e=0,'Threads errors: '+inttostr(e));
    InterlockedDecrement(gCount);
   end;
 
@@ -966,7 +964,7 @@ end;
    WaitForSingleObject(id2,3000);}
    writeln('Time: ',MyTickCount-t);
 
-   if e>0 then testsFailed:=true;
+   ASSERT(e=0,'SimpleHash');
   end;
 
  procedure TestTStrHash;
@@ -1234,10 +1232,7 @@ begin
   for j:=1 to size do src[j]:=random(255);
   st:=EncodeB64(@src,size);
   DecodeB64(st,@dst,newSize);
-  if newSize<>size then begin
-   writeln(i,' Size mismatch');
-   testsFailed:=true;
-  end;
+  ASSERT(newSize=size,'B64 size');
   if not CompareMem(@src,@dst,size) then begin
    writeln(i,' Failed! ');
    writeln(' src = ',HexDump(@src,size));
@@ -1325,11 +1320,10 @@ procedure TestMemoryStat;
     d2:=GetDateFromStr(st1);
     d3:=GetDateFromStr(st2);
     d4:=GetDateFromStr(st3);
-    f1:=abs(d2-d1)>2/86400;
-    f2:=abs(d2-d1)>2/1440;
-    f3:=abs(d3-d1)>2/1440;
+    ASSERT(abs(d2-d1)<2/86400);
+    ASSERT(abs(d2-d1)<2/1440);
+    ASSERT((d3-d1)<2/1440);
     writeln(st1:18,st2:18,abs(d2-d1):12:5,abs(d3-d1):9:5,abs(d4-d1):9:5);
-    if f1 or f2 or f3 then testsFailed:=true;
    end;
   end;
 
@@ -1371,7 +1365,7 @@ procedure TestMemoryStat;
     maxD:=max2D(maxD,abs(t-t0-cd));
    end;
    writeln('Max error: ',maxD:4:1);
-   if maxD>2 then testsFailed:=true;
+   ASSERT(maxD<2,'Time');
   end;
 
  // Вывод: сравнение через lowercase - в 4-5 раз быстрее, чем через AnsiSameText
@@ -1927,7 +1921,26 @@ procedure Test1(p1,p2,p3:integer);
   readln;
  end;      *)
 
+type
+ T=record
+  id:integer;
+  recName:String8;
+  recValue:single;
+ end;
+
+var
+ rec:T;
+ s:TJSONSerializer;
+ st:string;
+
 begin
+ s:=TJsonSerializer.Create;
+ rec.id:=1;
+ rec.recName:='Hello';
+ rec.recValue:=0.34;
+ st:=s.Serialize<T>(rec);
+ writeln(st);
+
  SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
  try
