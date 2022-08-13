@@ -592,6 +592,8 @@ interface
  function PackWords(w0,w1,w2,w3:word):UInt64; overload; inline;
  function ExtractByte(data:cardinal;index:integer):byte; overload; inline;
  function ExtractByte(data:UInt64;index:integer):byte; overload; inline;
+ function ExtractWord(data:cardinal;index:integer):word; overload; inline;
+ function ExtractWord(data:UInt64;index:integer):word; overload; inline;
 
  // Spline functions
  // ----------------------------------------
@@ -3787,6 +3789,14 @@ function BinToStr;
    result:=byte(data shr (index*8));
   end;
 
+ function ExtractWord(data:cardinal;index:integer):word; overload; inline;
+  begin
+   result:=word(data shr (index*16));
+  end;
+ function ExtractWord(data:UInt64;index:integer):word; overload; inline;
+  begin
+   result:=word(data shr (index*16));
+  end;
 
  function SatSpline(x:single;a,b,c:integer):byte;
   var
