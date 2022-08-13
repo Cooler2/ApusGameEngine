@@ -80,6 +80,9 @@ type
   procedure Draw(primType:TPrimitiveType;primCount:integer;vertices:pointer;
     vertexLayout:TVertexLayout);
 
+  // Draw primitives using pre-configured attributes
+  //procedure DrawBuffers(primType:TPrimitiveType;primCount:integer);
+
   // Draw indexed  primitives using in-memory buffers
   procedure DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout; primCount:integer); overload;
@@ -341,13 +344,22 @@ procedure TOpenGL.ChoosePixelFormats(out trueColor, trueColorAlpha, rtTrueColor,
   rtTrueColorAlpha:=ipfARGB;
  end;
 procedure TOpenGL.CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
+ var
+  fbo:gluint;
  begin
   ASSERT(image.pixelFormat in [ipfARGB,ipfXRGB]);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,@fbo);
   glBindBuffer(GL_PIXEL_PACK_BUFFER,0);
-  glReadBuffer(GL_BACK);
+  if fbo=0 then glReadBuffer(GL_BACK)
+   else glReadBuffer(GL_COLOR_ATTACHMENT0);
   image.Lock;
-  glReadPixels(srcX,srcY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,image.data);
+  if fbo<>0 then begin
+   glReadPixels(srcX,srcY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,image.data);
+   // Flip image vertically
+  end else
+   glReadPixels(srcX,srcY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,image.data);
   image.Unlock;
+  CheckForGLError(021);
  end;
 function TOpenGL.GetPixelValue(x,y:integer):cardinal;
  begin
@@ -776,7 +788,7 @@ procedure TGLRenderTargetAPI.Texture(tex:TTexture);
   scissor:=false;
  end;
 
-procedure TGLRenderTargetAPI.UseDepthBuffer(test:TDepthBufferTest; writeEnable:boolean);
+procedure TGLRenderTargetAPI.UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean);
  begin
   if test=dbDisabled then begin
    glDisable(GL_DEPTH_TEST)
@@ -793,8 +805,7 @@ procedure TGLRenderTargetAPI.UseDepthBuffer(test:TDepthBufferTest; writeEnable:b
   end;
  end;
 
-procedure TGLRenderTargetAPI.Viewport(oX, oY, VPwidth, VPheight, renderWidth,
-  renderHeight: integer);
+procedure TGLRenderTargetAPI.Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer);
  begin
   inherited; // adjust viewport here
   if curTarget<>nil then
@@ -802,6 +813,5 @@ procedure TGLRenderTargetAPI.Viewport(oX, oY, VPwidth, VPheight, renderWidth,
   else
    glViewport(vPort.Left,realHeight-vPort.Top-vPort.Height,vPort.Width,vPort.Height);
  end;
-
 
 end.
