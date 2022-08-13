@@ -1135,7 +1135,7 @@ begin
 end;
 
 // ENGINE\*
-procedure TGame.onEngineEvent(event:string; tag:NativeInt);
+procedure TGame.onEngineEvent(event:string;tag:NativeInt);
 var
   t,fr:int64;
   p:TPoint;
