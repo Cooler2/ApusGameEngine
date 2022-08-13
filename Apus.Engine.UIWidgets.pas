@@ -1380,7 +1380,7 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    cx:=curMouseX-(globalRect.Left+1);
    cy:=curMouseY-(globalRect.Top+1);
    if (cx>=0) and (cy>=0) and (cx<globalRect.width-1) and (cy<globalRect.height-1) then begin
-    n:=trunc((cy+scrollerV.GetValue)/lineHeight);
+    n:=trunc((cy+scrollerV.GetValue)/(lineHeight*globalScale));
     if (n>=0) and (n<length(lines)) then hoverLine:=n
      else hoverLine:=-1;
    end;
@@ -1433,7 +1433,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
   begin
    max:=length(lines)*lineHeight;
    scrollerV.SetRange(0,max);
-   scrollerV.SetStep(round(clientHeight/2) div round(lineHeight));
+   scrollerV.SetStep(lineHeight*(round(clientHeight/2) div round(lineHeight)));
    scrollerV.SetPageSize(globalRect.height);
    scrollerV.GetElement.size.y:=clientHeight;
    scrollerV.GetElement.visible:=max>clientHeight;

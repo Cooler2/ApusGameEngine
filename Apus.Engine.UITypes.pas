@@ -1168,7 +1168,7 @@ function TUIElement.GetClientHeight:single;
    globalRect:=GetPosOnScreen;
    if autoSnap and (parent<>nil) then begin // should snap?
     r:=GetRectInParentSpace;
-    if (round(r.x1)=0) and (round(r.y1)=0) then begin // top-left corner
+    if (round(r.x1)=0) or (round(r.y1)=0) then begin // top-left corner
      anchors.left:=0; anchors.top:=0;
      if round(r.Width-parent.clientWidth)=0 then begin // snap to the top
       anchors.right:=1;
@@ -1181,18 +1181,13 @@ function TUIElement.GetClientHeight:single;
       if r.width<parent.clientWidth*0.2 then anchors.right:=0;
      end;
     end;
-    if (round(r.x2-parent.clientWidth)=0) and (round(r.y2-parent.clientHeight)=0) then begin
-     anchors.right:=1; anchors.bottom:=1;
-     if round(r.Width-parent.clientWidth)=0 then begin // snap to the bottom
-      anchors.left:=0;
-      if r.height>parent.clientHeight*0.8 then anchors.top:=0;
-      if r.height<parent.clientHeight*0.2 then anchors.top:=1;
-     end;
-     if round(r.Height-parent.clientHeight)=0 then begin // snap to the right
-      anchors.top:=0;
-      if r.width>parent.clientWidth*0.8 then anchors.left:=0;
-      if r.width<parent.clientWidth*0.2 then anchors.left:=1;
-     end;
+    if round(r.x2-parent.clientWidth)=0 then begin
+     anchors.right:=1;
+     if r.width<parent.clientWidth*0.6 then anchors.left:=1;
+    end;
+    if round(r.y2-parent.clientHeight)=0 then begin
+     anchors.bottom:=1;
+     if r.height<parent.clientHeight*0.6 then anchors.top:=1;
     end;
    end;
    result:=self;

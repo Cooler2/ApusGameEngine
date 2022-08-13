@@ -191,9 +191,10 @@ begin
 
   WM_MOUSEWHEEL:Signal('MOUSE\SCROLL',smallint(wParam shr 16));
 
-  WM_SIZE:Signal('ENGINE\RESIZE',lParam);
+  WM_SIZE:if lParam<>0 then Signal('ENGINE\RESIZE',lParam);
 
   WM_ACTIVATE:begin
+   //LogMessage('WM_ACTIVATE: %x %x',[wparam,lparam]);
    if loword(wparam)<>wa_inactive then i:=1
     else i:=0;
    Signal('ENGINE\SETACTIVE',i);

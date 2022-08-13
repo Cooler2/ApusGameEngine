@@ -412,6 +412,7 @@ procedure TGameApplication.LoadOptions;
 procedure TGameApplication.onResize;
  begin
   Signal('GAMEAPP\onResize');
+  if game.running then SelectFonts;
  end;
 
 procedure TGameApplication.Prepare;

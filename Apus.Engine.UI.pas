@@ -29,6 +29,9 @@ interface
   anchorBottom:TAnchorMode= (left:0; top:1; right:1; bottom: 1);
   anchorRight:TAnchorMode=  (left:1; top:0; right:1; bottom: 1);
   anchorCenter:TAnchorMode= (left:0.5; top:0.5; right:0.5; bottom: 0.5);
+  anchorTopCenter:TAnchorMode=    (left:0.5; top:0; right:0.5; bottom: 0);
+  anchorBottomCenter:TAnchorMode= (left:0.5; top:1; right:0.5; bottom: 1);
+
 
  type
   // Standard widgets
