@@ -26,7 +26,7 @@ interface
    windowedMode:boolean=true;
    windowWidth:integer=1024;
    windowHeight:integer=768;
-   scaleWindowSize:boolean=false;
+   scaleWindowSize:boolean=true;
    gameMode:TGameAppMode=gamUseFullWindow;
 
    deviceDPI:integer=96; //
