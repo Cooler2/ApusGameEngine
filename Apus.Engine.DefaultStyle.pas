@@ -527,27 +527,28 @@ implementation
   var
    i,lY:integer;
    c,c1,c2:cardinal;
-   scr:single;
+   scr,lineH:single;
   begin
     with control as TUIListBox do begin
      if bgColor<>0 then draw.FillRect(x1,y1,x2,y2,bgColor);
      if scrollerV<>nil then scr:=scrollerV.GetValue
       else scr:=0;
      gfx.clip.Rect(Rect(x1,y1,x2+1,y2+1));
+     lineH:=lineHeight*globalScale;
      for i:=0 to length(lines)-1 do begin
-      lY:=y1+round(i*lineHeight-scr); /// TODO: check
-      if lY+lineHeight<y1 then continue;
+      lY:=y1+round(i*lineH-scr); /// TODO: check
+      if lY+lineH<y1 then continue;
       if lY>y2 then break;
       if i=selectedLine then begin
-       draw.FillRect(x1,lY,x2,round(lY+lineHeight),bgSelColor);
+       draw.FillRect(x1,lY,x2,round(lY+lineH),bgSelColor);
        c:=selTextColor;
       end else
       if i=hoverLine then begin
-       draw.FillRect(x1,lY,x2,round(lY+lineHeight),bgHoverColor);
+       draw.FillRect(x1,lY,x2,round(lY+lineH),bgHoverColor);
        c:=hoverTextColor;
       end else
        c:=textColor;
-      txt.WriteW(font,x1+4,lY+round(lineHeight*0.73),c,lines[i],taLeft,toComplexText);
+      txt.WriteW(font,x1+4,lY+round(lineH*0.73),c,lines[i],taLeft,toComplexText);
      end;
      gfx.clip.Restore;
     end;
