@@ -1205,12 +1205,12 @@ begin
    OldMouseY:=MouseY;
    mouseX:=4095; mouseY:=4095;
    mouseMovedTime:=MyTickCount;
-   Signal('Mouse\Move',mouseX+mouseY shl 16);
+   Signal('Mouse\Move',PackWords(mouseX,mouseY));
    NotifyScenesAboutMouseMove;
    Timing;
  end else
  if SameText(event,'RESIZE') then begin
-  SizeChanged(tag and $FFFF,tag shr 16);
+  SizeChanged(ExtractWord(tag,0),ExtractWord(tag,1));
  end else
  if SameText(event,'SETACTIVE') then begin
   Activate(tag<>0);
