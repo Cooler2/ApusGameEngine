@@ -18,7 +18,6 @@ program TestMyServis;
   SysUtils,
   classes,
   DCPmd5a,
-  JSON.Serializers,
   Apus.CPU in '..\Apus.CPU.pas',
   Apus.ADPCM in '..\Apus.ADPCM.pas',
   Apus.Android in '..\Apus.Android.pas',
