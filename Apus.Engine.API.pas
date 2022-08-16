@@ -104,6 +104,7 @@ const
  fsDontTranslate = 1; // Don't use UDict to translate strings
  fsNoHinting     = 2; // Disable hinting for vector fonts (good for large text)
  fsAutoHinting   = 4; // Force use of FT-autohinting (may produce better or more uniform results)
+ fsIgnoreScale   = 8; // Ignore global font scale (use real pixels instead of virtual pixels)
  fsStrictMatch = 128; // strict match for font name
  fsBold        =         $100;
  fsItalic      =     $2000000;
@@ -652,6 +653,8 @@ type
   // Load font data
   function LoadFont(fname:string;asName:string=''):string; overload; // Returns name of the loaded font
   function LoadFont(font:array of byte;asName:string=''):string; overload; // Returns name of the loaded font
+  // Global scale factor for GetFont
+  procedure SetScale(scale:single);
   // Get font handle (size=0 - default font size)
   function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle;
   // Return handle for the same font enlarged scale times

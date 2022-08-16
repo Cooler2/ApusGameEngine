@@ -38,6 +38,7 @@ interface
 
    function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
    function LoadFont(font:array of byte;asName:string=''):string; overload; // возвращает имя шрифта
+   procedure SetScale(scale:single);
    function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
    function ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
    procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
@@ -76,6 +77,7 @@ interface
    // Buffer for alternate text rendering
    textBufferBitmap:pointer;
    textBufferPitch:integer;
+   globalScale:single;
 
    procedure CreateTextCache;
    procedure FlushTextCache;
@@ -215,141 +217,148 @@ function TTextDrawer.LinkRect: TRect;
  end;
 
 function TTextDrawer.LoadFont(font:array of byte;asName:string=''):string;
-var
- i:integer;
-begin
- for i:=1 to high(fonts) do
-  if fonts[i]=nil then begin
-   fonts[i]:=TUnicodeFontEx.LoadFromMemory(font,true);
-   if asName<>'' then TUnicodeFontEx(fonts[i]).header.fontName:=asName;
-   result:=TUnicodeFontEx(fonts[i]).header.FontName;
-   if defaultFontHandle=0 then
-    defaultFontHandle:=100 shl 16+i;
-   exit;
-  end;
-end;
+ var
+  i:integer;
+ begin
+  for i:=1 to high(fonts) do
+   if fonts[i]=nil then begin
+    fonts[i]:=TUnicodeFontEx.LoadFromMemory(font,true);
+    if asName<>'' then TUnicodeFontEx(fonts[i]).header.fontName:=asName;
+    result:=TUnicodeFontEx(fonts[i]).header.FontName;
+    if defaultFontHandle=0 then
+     defaultFontHandle:=100 shl 16+i;
+    exit;
+   end;
+ end;
+
+procedure TTextDrawer.SetScale(scale:single);
+ begin
+  globalScale:=scale;
+ end;
 
 function TTextDrawer.GetFont(name:string;size:single;flags:integer=0;effects:byte=0):cardinal;
-var
- i,best,rate,bestRate,matchRate:integer;
- realsize,scale:single;
-begin
- ASSERT(size>0);
- best:=0; bestRate:=0;
- realsize:=size;
- matchRate:=800;
- name:=LowerCase(name);
- if flags and fsStrictMatch>0 then matchRate:=10000;
- // Browse
- for i:=1 to high(fonts) do
-  if fonts[i]<>nil then begin
-   rate:=0;
-   if fonts[i] is TUnicodeFont then
-    with fonts[i] as TUnicodeFont do begin
-     if lowercase(header.FontName)=name then rate:=matchRate;
-     rate:=rate+round(3000-1000*(0.1*header.width/realsize+realsize/(0.1*header.width)));
-     if rate>bestRate then begin
-      bestRate:=rate;
-      best:=i;
-     end;
-    end;
-   {$IFDEF FREETYPE}
-   if fonts[i] is TFreeTypeFont then
-    with fonts[i] as TFreeTypeFont do begin
-     if lowercase(faceName)=name then rate:=matchRate*2;
-     if rate>best then begin
+ var
+  i,best,rate,bestRate,matchRate:integer;
+  realsize,scale:single;
+ begin
+  ASSERT(size>0);
+  best:=0; bestRate:=0;
+  realsize:=size;
+  matchRate:=800;
+  name:=LowerCase(name);
+  if HasFlag(flags,fsStrictMatch) then matchRate:=10000;
+  if (globalScale<>1) and not HasFlag(flags,fsIgnoreScale) then size:=size*globalScale;
+  // Browse
+  for i:=1 to high(fonts) do
+   if fonts[i]<>nil then begin
+    rate:=0;
+    if fonts[i] is TUnicodeFont then
+     with fonts[i] as TUnicodeFont do begin
+      if lowercase(header.FontName)=name then rate:=matchRate;
+      rate:=rate+round(3000-1000*(0.1*header.width/realsize+realsize/(0.1*header.width)));
+      if rate>bestRate then begin
        bestRate:=rate;
        best:=i;
+      end;
      end;
-    end;
-   {$ENDIF}
-  end;
- // Fill the result
- if best>0 then begin
-  if fonts[best] is TUnicodeFont then begin
-   if realsize>0 then
-    scale:=Clamp(realsize/(0.1*TUnicodeFont(fonts[best]).header.width),0,6.5)
+    {$IFDEF FREETYPE}
+    if fonts[i] is TFreeTypeFont then
+     with fonts[i] as TFreeTypeFont do begin
+      if lowercase(faceName)=name then rate:=matchRate*2;
+      if rate>best then begin
+        bestRate:=rate;
+        best:=i;
+      end;
+     end;
+    {$ENDIF}
+   end;
+  // Fill the result
+  if best>0 then begin
+   if fonts[best] is TUnicodeFont then begin
+    if realsize>0 then
+     scale:=Clamp(realsize/(0.1*TUnicodeFont(fonts[best]).header.width),0,6.5)
+    else
+     scale:=1;
+    result:=best;
+    EncodeScale(scale,result);
+   end else
+   if fonts[best] is TFreeTypeFont then begin
+    result:=best;
+    EncodeScale(size/20,result); // Масштаб - в процентах относительно размера 20 (макс размер - 51)
+    if flags and fsNoHinting>0 then result:=result or fhNoHinting;
+    if flags and fsAutoHinting>0 then result:=result or fhAutoHinting;
+   end
    else
-    scale:=1;
-   result:=best;
-   EncodeScale(scale,result);
-  end else
-  if fonts[best] is TFreeTypeFont then begin
-   result:=best;
-   EncodeScale(size/20,result); // Масштаб - в процентах относительно размера 20 (макс размер - 51)
-   if flags and fsNoHinting>0 then result:=result or fhNoHinting;
-   if flags and fsAutoHinting>0 then result:=result or fhAutoHinting;
-  end
-  else
-   result:=0;
+    result:=0;
 
-  if flags and fsDontTranslate>0 then result:=result or fhDontTranslate;
-  if flags and fsItalic>0 then result:=result or fhItalic;
-  if flags and fsBold>0 then result:=result or fhBold;
- end
-  else result:=0;
-end;
+   if flags and fsDontTranslate>0 then result:=result or fhDontTranslate;
+   if flags and fsItalic>0 then result:=result or fhItalic;
+   if flags and fsBold>0 then result:=result or fhBold;
+  end
+   else result:=0;
+ end;
 
 procedure TTextDrawer.SetFontOption(handle:TFontHandle;option:cardinal;value:single);
-begin
- handle:=handle and $FF;
- ASSERT(handle>0,'Invalid font handle');
- if fonts[handle] is TUnicodeFontEx then
-  case option of
-   foDownscaleFactor:TUnicodeFontEx(fonts[handle]).downscaleFactor:=value;
-   foUpscaleFactor:TUnicodeFontEx(fonts[handle]).upscaleFactor:=value;
-   else raise EWarning.Create('SFO: invalid option');
-  end;
- {$IFDEF FREETYPE}
- if fonts[handle] is TFreeTypeFont then
-  case option of
-   foGlobalScale:TFreeTypeFont(fonts[handle]).globalScale:=value;
-  end;
- {$ENDIF}
-end;
+ begin
+  handle:=handle and $FF;
+  ASSERT(handle>0,'Invalid font handle');
+  if fonts[handle] is TUnicodeFontEx then
+   case option of
+    foDownscaleFactor:TUnicodeFontEx(fonts[handle]).downscaleFactor:=value;
+    foUpscaleFactor:TUnicodeFontEx(fonts[handle]).upscaleFactor:=value;
+    else raise EWarning.Create('SFO: invalid option');
+   end;
+  {$IFDEF FREETYPE}
+  if fonts[handle] is TFreeTypeFont then
+   case option of
+    foGlobalScale:TFreeTypeFont(fonts[handle]).globalScale:=value;
+   end;
+  {$ENDIF}
+ end;
 
 function TTextDrawer.ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
-var
- s,size:single;
- obj:TObject;
-begin
- s:=ScaleFromHandle(font);
- obj:=fonts[font and $FF];
- if obj is TFreeTypeFont then begin
-  result:=font;
-  EncodeScale(s*scale,result);
- end else
- if obj is TUnicodeFont then begin
-  size:=s*TUnicodeFont(obj).header.width/10;
-  result:=GetFont(TUnicodeFont(obj).header.FontName,size*scale);
- end else
-  raise EWarning.Create('Not implemented for '+obj.ClassName);
-end;
+ var
+  s,size:single;
+  obj:TObject;
+ begin
+  s:=ScaleFromHandle(font);
+  obj:=fonts[font and $FF];
+  if obj is TFreeTypeFont then begin
+   result:=font;
+   EncodeScale(s*scale,result);
+  end else
+  if obj is TUnicodeFont then begin
+   size:=s*TUnicodeFont(obj).header.width/10;
+   result:=GetFont(TUnicodeFont(obj).header.FontName,size*scale);
+  end else
+   raise EWarning.Create('Not implemented for '+obj.ClassName);
+ end;
 
 procedure TTextDrawer.SetTarget(buf:pointer;pitch:integer);
-begin
- TextBufferBitmap:=buf;
- TextBufferPitch:=pitch;
-end;
+ begin
+  TextBufferBitmap:=buf;
+  TextBufferPitch:=pitch;
+ end;
 
 procedure TTextDrawer.BeginBlock(addOptions:cardinal=0);
-begin
- if not textCaching then begin
-  textCaching:=true;
-  textBlockOptions:=addOptions;
+ begin
+  if not textCaching then begin
+   textCaching:=true;
+   textBlockOptions:=addOptions;
+  end;
  end;
-end;
 
 procedure TTextDrawer.ClearLink;
-begin
- curTextLink:=0;
-end;
+ begin
+  curTextLink:=0;
+ end;
 
 constructor TTextDrawer.Create;
  var
   i:integer;
   pw:^word;
  begin
+  globalScale:=1.0;
   textDrawer:=self;
   textCache:=nil;
   txt:=self;
@@ -406,83 +415,83 @@ procedure TTextDrawer.EndBlock;
  end;
 
 function TTextDrawer.MeasuredCnt:integer;
-begin
- result:=length(textMetrics);
-end;
+ begin
+  result:=length(textMetrics);
+ end;
 
 function TTextDrawer.MeasuredRect(idx:integer):TRect;
-begin
- result:=textMetrics[clamp(idx,0,high(textMetrics))];
-end;
+ begin
+  result:=textMetrics[clamp(idx,0,high(textMetrics))];
+ end;
 
 function TTextDrawer.Width(font:cardinal;st:string8):integer;
-begin
- result:=WidthW(font,DecodeUTF8(st));
-end;
+ begin
+  result:=WidthW(font,DecodeUTF8(st));
+ end;
 
 function TTextDrawer.WidthW(font:cardinal;st:string16):integer;
-var
- width:integer;
- obj:TObject;
- uniFont:TUnicodeFontEx;
- ftFont:TFreeTypeFont;
- scale:single;
-begin
- if length(st)=0 then begin
-  result:=0; exit;
+ var
+  width:integer;
+  obj:TObject;
+  uniFont:TUnicodeFontEx;
+  ftFont:TFreeTypeFont;
+  scale:single;
+ begin
+  if length(st)=0 then begin
+   result:=0; exit;
+  end;
+  if font=0 then font:=defaultFontHandle;
+  scale:=ScaleFromHandle(font);
+  obj:=fonts[font and $1F];
+  if obj is TUnicodeFont then begin
+   unifont:=obj as TUnicodeFontEx;
+   width:=uniFont.GetTextWidth(st);
+   if (scale>=unifont.downscaleFactor) and
+      (scale<=unifont.upscaleFactor) then scale:=1;
+   result:=round(width*scale);
+   exit;
+  end else
+  {$IFDEF FREETYPE}
+  if obj is TFreeTypeFont then begin
+   ftFont:=obj as TFreeTypeFont;
+   result:=ftFont.GetTextWidth(st,20*scale);
+   exit;
+  end else
+  {$ENDIF}
+   raise EWarning.Create('GTW 1');
  end;
- if font=0 then font:=defaultFontHandle;
- scale:=ScaleFromHandle(font);
- obj:=fonts[font and $1F];
- if obj is TUnicodeFont then begin
-  unifont:=obj as TUnicodeFontEx;
-  width:=uniFont.GetTextWidth(st);
-  if (scale>=unifont.downscaleFactor) and
-     (scale<=unifont.upscaleFactor) then scale:=1;
-  result:=round(width*scale);
-  exit;
- end else
- {$IFDEF FREETYPE}
- if obj is TFreeTypeFont then begin
-  ftFont:=obj as TFreeTypeFont;
-  result:=ftFont.GetTextWidth(st,20*scale);
-  exit;
- end else
- {$ENDIF}
-  raise EWarning.Create('GTW 1');
-end;
 
 function TTextDrawer.Height(font:cardinal):integer;
-var
- uniFont:TUnicodeFontEx;
- ftFont:TFreeTypeFont;
- scale:single;
- obj:TObject;
-begin
- if font=0 then font:=defaultFontHandle;
- obj:=fonts[font and $FF];
- scale:=ScaleFromHandle(font);
- if obj is TUnicodeFont then begin
-  unifont:=obj as TUnicodeFontEx;
-  if (scale>=unifont.downscaleFactor) and
-     (scale<=unifont.upscaleFactor) then scale:=1;
-  result:=round(uniFont.GetHeight*scale);
-  exit;
- end else
- {$IFDEF FREETYPE}
- if obj is TFreeTypeFont then begin
-  ftFont:=obj as TFreeTypeFont;
-  result:=ftFont.GetHeight(20*scale);
- end else
- {$ENDIF}
+ var
+  uniFont:TUnicodeFontEx;
+  ftFont:TFreeTypeFont;
+  scale:single;
+  obj:TObject;
+ begin
+  if font=0 then font:=defaultFontHandle;
+  obj:=fonts[font and $FF];
+  scale:=ScaleFromHandle(font);
+  if obj is TUnicodeFont then begin
+   unifont:=obj as TUnicodeFontEx;
+   if (scale>=unifont.downscaleFactor) and
+      (scale<=unifont.upscaleFactor) then scale:=1;
+    result:=round(uniFont.GetHeight*scale);
+   exit;
+  end else
+  {$IFDEF FREETYPE}
+  if obj is TFreeTypeFont then begin
+   ftFont:=obj as TFreeTypeFont;
+   result:=ftFont.GetHeight(20*scale);
+  end else
+  {$ENDIF}
   raise EWarning.Create('FH 1');
-end;
+ end;
 
 procedure TTextDrawer.Write(font:cardinal;x,y:single;color:cardinal;st:string8;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
-begin
- WriteW(font,x,y,color,Str16(st),align,options,targetWidth,query);
-end;
+ begin
+  WriteW(font,x,y,color,Str16(st),align,options,targetWidth,query);
+ end;
 
 
 procedure TTextDrawer.WriteW(font:cardinal;xx,yy:single;color:cardinal;st:string16;
