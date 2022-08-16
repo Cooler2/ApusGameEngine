@@ -76,6 +76,10 @@ interface
    procedure ShowMessage(mes:String8;OkEvent:String8='';x:integer=0;y:integer=0); virtual;
    procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0); virtual;
    procedure Ask(mes,YesEvent,NoEvent:String8;x:integer=0;y:integer=0); virtual;
+  protected
+   sysPlatform:ISystemPlatform;
+   screenWidth,screenHeight:integer;
+   realScreenWidth,realScreenHeight:integer;
   end;
 
  {$IFDEF ANDROID}
@@ -303,6 +307,25 @@ procedure AppKey(env:PJNIEnv;this:jobject; keyCode,UChar:jint; event: jobject);
 constructor TGameApplication.Create;
  begin
   app:=self;
+  {$IFDEF MSWINDOWS}
+  if usedPlatform in [spWindows,spDefault] then sysPlatform:=TWindowsPlatform.Create;
+  {$ELSE}
+  if usedPlatform=spWindows then raise EFatalError.Create('Ooops! Windows platform on a non-windows system!');
+  {$ENDIF}
+  {$IFDEF UNIX}
+  if usedPlatform=spDefault then usedPlatform:=spSDL;
+  {$ENDIF}
+
+  if usedPlatform=spSDL then begin
+   {$IFDEF SDL}
+   sysPlatform:=TSDLPlatform.Create;
+   {$ELSE}
+   raise EError.Create('Define SDL'); // Define SDL symbol to add SDL support
+   {$ENDIF}
+  end;
+  if sysPlatform=nil then raise EFatalError.Create('No platform interface');
+  sysPlatform.GetScreenSize(screenWidth,screenHeight);
+  sysPlatform.GetRealScreenSize(realScreenWidth,realScreenHeight);
  end;
 
 procedure TGameApplication.CreateScenes;
@@ -512,7 +535,6 @@ procedure TGameApplication.Run;
  var
   settings:TGameSettings;
   loadingScene:TGameScene;
-  plat:ISystemPlatform;
  begin
   // CREATE GAME OBJECT
   // ------------------------
@@ -527,24 +549,7 @@ procedure TGameApplication.Run;
    end;
    {$ENDIF}
 
-   {$IFDEF MSWINDOWS}
-   if usedPlatform in [spWindows,spDefault] then plat:=TWindowsPlatform.Create;
-   {$ELSE}
-   if usedPlatform=spWindows then raise EFatalError.Create('Ooops! Windows platform on a non-windows system!');
-   {$ENDIF}
-   {$IFDEF UNIX}
-   if usedPlatform=spDefault then usedPlatform:=spSDL;
-   {$ENDIF}
-
-   if usedPlatform=spSDL then begin
-    {$IFDEF SDL}
-    plat:=TSDLPlatform.Create;
-    {$ELSE}
-    raise EError.Create('Define SDL'); // Define SDL symbol to add SDL support
-    {$ENDIF}
-   end;
-
-  game:=TGame.Create(plat,TOpenGL.Create);
+  game:=TGame.Create(sysPlatform,TOpenGL.Create);
   if game=nil then raise EError.Create('Game object not created!');
 
   // CONFIGURE GAME OBJECT
