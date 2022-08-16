@@ -16,6 +16,7 @@ type
   function GetPlatformName:string;
   function CanChangeSettings:boolean;
   procedure GetScreenSize(out width,height:integer);
+  procedure GetRealScreenSize(out width,height:integer);
   function GetScreenDPI:integer;
 
   procedure CreateWindow(title:string);
@@ -277,20 +278,31 @@ function TWindowsPlatform.GetPlatformName: string;
   result:='WINDOWS';
  end;
 
-function TWindowsPlatform.GetScreenDPI: integer;
+function TWindowsPlatform.GetScreenDPI:integer;
  var
   dc:HDC;
  begin
   dc:=GetDC(0);
   ASSERT(dc<>0);
-  result:=GetDeviceCaps(dc,LOGPIXELSX);
+  result:=(GetDeviceCaps(dc,LOGPIXELSX)+GetDeviceCaps(dc,LOGPIXELSY)) div 2;
   ReleaseDC(0,dc);
  end;
 
-procedure TWindowsPlatform.GetScreenSize(out width, height: integer);
+procedure TWindowsPlatform.GetScreenSize(out width,height:integer);
  begin
   width:=GetSystemMetrics(SM_CXSCREEN);
   height:=GetSystemMetrics(SM_CYSCREEN);
+ end;
+
+procedure TWindowsPlatform.GetRealScreenSize(out width,height:integer);
+ const
+  ENUM_CURRENT_SETTINGS = DWORD(-1);
+ var
+  devMode:TDeviceModeA;
+ begin
+  EnumDisplaySettingsA(nil,ENUM_CURRENT_SETTINGS,devMode);
+  width:=devMode.dmPelsWidth;
+  height:=devMode.dmPelsHeight;
  end;
 
 function TWindowsPlatform.GetShiftKeysState: cardinal;

@@ -302,7 +302,8 @@ type
   // System information
   function GetPlatformName:string;
   function CanChangeSettings:boolean;
-  procedure GetScreenSize(out width,height:integer);
+  procedure GetScreenSize(out width,height:integer); // screen size in virtual pixels
+  procedure GetRealScreenSize(out width,height:integer); // screen size in real pixels
   function GetScreenDPI:integer;
   // Window management
   procedure CreateWindow(title:string); // Create main window
