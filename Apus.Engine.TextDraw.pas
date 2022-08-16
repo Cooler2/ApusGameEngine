@@ -39,7 +39,7 @@ interface
    function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
    function LoadFont(font:array of byte;asName:string=''):string; overload; // возвращает имя шрифта
    procedure SetScale(scale:single);
-   function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
+   function GetFont(name:string;size:single;flags:cardinal=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
    function ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
    procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
    // Text output
@@ -236,7 +236,7 @@ procedure TTextDrawer.SetScale(scale:single);
   globalScale:=scale;
  end;
 
-function TTextDrawer.GetFont(name:string;size:single;flags:integer=0;effects:byte=0):cardinal;
+function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:byte=0):cardinal;
  var
   i,best,rate,bestRate,matchRate:integer;
   realsize,scale:single;

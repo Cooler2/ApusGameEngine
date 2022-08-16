@@ -656,7 +656,7 @@ type
   // Global scale factor for GetFont
   procedure SetScale(scale:single);
   // Get font handle (size=0 - default font size)
-  function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle;
+  function GetFont(name:string;size:single;flags:cardinal=0;effects:byte=0):TFontHandle;
   // Return handle for the same font enlarged scale times
   function ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
   // Change option on a font handle
