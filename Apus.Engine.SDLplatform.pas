@@ -16,6 +16,7 @@ type
   function GetPlatformName:string;
   function CanChangeSettings:boolean;
   procedure GetScreenSize(out width,height:integer);
+  procedure GetRealScreenSize(out width,height:integer);
   function GetScreenDPI:integer;
 
   procedure CreateWindow(title:string);
@@ -112,12 +113,12 @@ procedure InitControllers;
 
 { TSDLPlatform }
 
-function TSDLPlatform.CanChangeSettings: boolean;
+function TSDLPlatform.CanChangeSettings:boolean;
  begin
   result:=true;
  end;
 
-procedure TSDLPlatform.ClientToScreen(var p: TPoint);
+procedure TSDLPlatform.ClientToScreen(var p:TPoint);
  var
   x,y:integer;
  begin
@@ -126,7 +127,7 @@ procedure TSDLPlatform.ClientToScreen(var p: TPoint);
   inc(p.y,y);
  end;
 
-procedure TSDLPlatform.ScreenToClient(var p: TPoint);
+procedure TSDLPlatform.ScreenToClient(var p:TPoint);
  begin
 
  end;
@@ -136,11 +137,11 @@ procedure TSDLPlatform.DestroyWindow;
   SDL_DestroyWindow(window);
  end;
 
-procedure TSDLPlatform.FlashWindow(count: integer);
+procedure TSDLPlatform.FlashWindow(count:integer);
  begin
  end;
 
-function TSDLPlatform.GetMousePos: TPoint;
+function TSDLPlatform.GetMousePos:TPoint;
  begin
   SDL_GetMouseState(@result.X, @result.Y)
  end;
@@ -150,12 +151,12 @@ procedure TSDLPlatform.SetMousePos(scrX,scrY:integer);
   SDL_WarpMouseGlobal(scrX,scrY);
  end;
 
-function TSDLPlatform.GetPlatformName: string;
+function TSDLPlatform.GetPlatformName:string;
  begin
   result:='SDL';
  end;
 
-function TSDLPlatform.GetScreenDPI: integer;
+function TSDLPlatform.GetScreenDPI:integer;
  var
   ddpi:single;
  begin
@@ -173,6 +174,13 @@ procedure TSDLPlatform.GetScreenSize(out width, height: integer);
   SDL_GetDesktopDisplayMode(0,@mode);
   width:=mode.w;
   height:=mode.h;
+ end;
+
+procedure TSDLPlatform.GetRealScreenSize(out width,height:integer);
+ begin
+  // not possible to query before window creation
+  width:=0;
+  height:=0;
  end;
 
 function TSDLPlatform.GetShiftKeysState: cardinal;
