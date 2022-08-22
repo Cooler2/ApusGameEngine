@@ -6,7 +6,7 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.CrossPlatform, Types, Apus.Engine.Types, Apus.Classes, Apus.AnimatedValues,
+ uses Apus.CrossPlatform, Types, Apus.Types, Apus.Engine.Types, Apus.Classes, Apus.AnimatedValues,
    Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors, Apus.Structs, Apus.EventMan,
    Apus.VertexLayout, Apus.Engine.Resources, Apus.Engine.Scene, Apus.Engine.UIScene;
 
@@ -650,7 +650,7 @@ type
  ITextDrawer=interface
   // Load font data
   function LoadFont(fname:string;asName:string=''):string; overload; // Returns name of the loaded font
-  function LoadFont(font:array of byte;asName:string=''):string; overload; // Returns name of the loaded font
+  function LoadFont(const font:TBuffer;asName:string=''):string; overload; // Returns name of the loaded font
   // Get font handle (size=0 - default font size)
   function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle;
   // Return handle for the same font enlarged scale times

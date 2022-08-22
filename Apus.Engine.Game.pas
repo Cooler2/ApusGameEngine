@@ -707,9 +707,9 @@ var
  size:single;
 begin
  // Built-in fonts
- txt.LoadFont(defaultFont8);
- txt.LoadFont(defaultFont10);
- txt.LoadFont(defaultFont12);
+ txt.LoadFont(TBuffer.CreateFrom(@defaultFont8,length(defaultFont8)));
+ txt.LoadFont(TBuffer.CreateFrom(@defaultFont10,length(defaultFont10)));
+ txt.LoadFont(TBuffer.CreateFrom(@defaultFont12,length(defaultFont12)));
  size:=2+0.056*screenDPI;
  defaultFont:=txt.GetFont('Default',size);
  smallFont:=txt.GetFont('Default',size*0.8);

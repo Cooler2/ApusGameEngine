@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.TextDraw;
 interface
- uses Types, Apus.Engine.API;
+ uses Types, Apus.Types, Apus.Engine.API;
 
  const
   MAGIC_TEXTCACHE = $01FF;
@@ -37,7 +37,7 @@ interface
    destructor Destroy; virtual;
 
    function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
-   function LoadFont(font:array of byte;asName:string=''):string; overload; // возвращает имя шрифта
+   function LoadFont(const font:TBuffer;asName:string=''):string; overload; // возвращает имя шрифта
    function GetFont(name:string;size:single;flags:integer=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
    function ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
    procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
@@ -187,7 +187,7 @@ function TTextDrawer.LoadFont(fName:string;asName:string=''):string;
  begin
   if pos('.fnt',fname)>0 then begin
    font:=LoadFileAsBytes(FileName(fname));
-   result:=LoadFont(font,asName);
+   result:=LoadFont(TBuffer.CreateFrom(font),asName);
    exit;
   end else begin
    {$IFDEF FREETYPE}
@@ -214,7 +214,7 @@ function TTextDrawer.LinkRect: TRect;
   result:=curTextLinkRect;
  end;
 
-function TTextDrawer.LoadFont(font:array of byte;asName:string=''):string;
+function TTextDrawer.LoadFont(const font:TBuffer;asName:string=''):string;
 var
  i:integer;
 begin

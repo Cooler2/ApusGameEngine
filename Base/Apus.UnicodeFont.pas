@@ -18,6 +18,7 @@
 //   - Block data size (2 bytes)
 unit Apus.UnicodeFont;
 interface
+uses Apus.Types;
 const
  UnicodeFontSignature=$F75001C1;
  // Font flags
@@ -78,7 +79,7 @@ type
   advancedKerning:boolean;
   maxY,minY:integer; // max and min lines occupied by any glyphs (+Y = top, -Y = bottom)
   constructor Create;
-  constructor LoadFromMemory(data:array of byte;UseAdvKerning:boolean=false);
+  constructor LoadFromMemory(const data:TBuffer;UseAdvKerning:boolean=false);
   constructor LoadFromFile(fname:string;UseAdvKerning:boolean=false);
   procedure InitDefaults; virtual;
   function IndexOfChar(ch:WideChar):integer;
@@ -97,7 +98,7 @@ type
  end;
 
  function LoadFontFromFile(fname:string;UseAdvKerning:boolean=false):TUnicodeFont;
- function LoadFontFromMemory(data:array of byte;UseAdvKerning:boolean=false):TUnicodeFont;
+ function LoadFontFromMemory(const data:TBuffer;UseAdvKerning:boolean=false):TUnicodeFont;
 
 implementation
  uses Apus.MyServis, Apus.FastGFX;
@@ -260,11 +261,14 @@ implementation
   end;
 
  function LoadFontFromFile(fname:string;UseAdvKerning:boolean=false):TUnicodeFont;
+  var
+   data:ByteArray;
   begin
-   result:=LoadFontFromMemory(LoadFileAsBytes(fname),useAdvKerning);
+   data:=LoadFileAsBytes(fname);
+   result:=LoadFontFromMemory(TBuffer.CreateFrom(data),useAdvKerning);
   end;
 
- function LoadFontFromMemory(data:array of byte;UseAdvKerning:boolean=false):TUnicodeFont;
+ function LoadFontFromMemory(const data:TBuffer;UseAdvKerning:boolean=false):TUnicodeFont;
   begin
    result:=TUnicodeFont.LoadFromMemory(data,UseAdvKerning);
   end;
@@ -282,38 +286,36 @@ procedure TUnicodeFont.InitDefaults;
   advancedKerning:=false;
  end;
 
-constructor TUnicodeFont.LoadFromFile(fname: string; UseAdvKerning: boolean);
+constructor TUnicodeFont.LoadFromFile(fname:string;useAdvKerning:boolean);
+ var
+  data:ByteArray;
  begin
-  LoadFromMemory(LoadFileAsBytes(fname),UseAdvKerning);
+  data:=LoadFileAsBytes(fname);
+  LoadFromMemory(TBuffer.CreateFrom(data),UseAdvKerning);
  end;
 
-constructor TUnicodeFont.LoadFromMemory(data: array of byte;
-  UseAdvKerning: boolean);
+constructor TUnicodeFont.LoadFromMemory(const data:TBuffer;useAdvKerning:boolean);
  var
   i,j,s,ofs,metadata,size:integer;
   ch:WideChar;
   w:word;
-  src:integer;
  begin
    InitDefaults;
-   src:=0;
-   move(data[src],header,sizeof(header));
-   inc(src,sizeof(header));
+   data.Read(header,sizeof(header));
    if header.id<>UnicodeFontSignature then
     raise EError.Create('Invalid font data!');
    // Skip metadata
    if header.flags and fMetadata>0 then begin
-    move(data[src],metadata,4);
-    src:=sizeof(header)+metadata;
+    metadata:=data.ReadInt;
    end else
     metadata:=0;
+   data.Skip(metadata-4);
    // Load descriptions
    setLength(chars,header.charCount);
    s:=0; minY:=0; maxY:=0;
    ofs:=sizeof(TFontHeader)+sizeof(TCharDesc)*header.charCount+metadata;
    size:=sizeof(TCharDesc)*header.charCount;
-   move(data[src],chars[0],size);
-   inc(src,size);
+   data.Read(chars[0],size);
    for i:=0 to header.charCount-1 do begin
     inc(s,((chars[i].imageWidth+1) div 2)*chars[i].imageHeight);
     dec(chars[i].offset,ofs);
@@ -325,21 +327,18 @@ constructor TUnicodeFont.LoadFromMemory(data: array of byte;
     end;
    end;
    // Load glyph data
-   s:=length(data)-sizeof(header)-metadata-
+   s:=data.size-sizeof(header)-metadata-
       header.charCount*sizeof(TCharDesc)-header.overridesCount*5;
    setLength(glyphs,s);
-   move(data[src],glyphs[0],s);
-   inc(src,s);
+   data.Read(glyphs[0],s);
    // Load overrides
    i:=header.overridesCount;
    SetLength(overPairs,i);
    SetLength(overValues,i);
-   if i>0 then move(data[src],overPairs[0],i*4);
-   inc(src,i*4);
+   if i>0 then data.Read(overPairs[0],i*4);
    for i:=0 to length(overpairs)-1 do
     overpairs[i]:=overpairs[i] and $FFFF shl 16+overpairs[i] shr 16;
-   if i>0 then move(data[src],overValues[0],i);
-   inc(src,i);
+   if i>0 then data.Read(overValues[0],i);
 
    defaultCharIdx:=IndexOfChar('#');
    if UseAdvKerning then begin
