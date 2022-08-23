@@ -130,14 +130,8 @@ procedure TProducerConsumer.SetThreadPriority(priority:TThreadPriority);
  end;
 
 procedure TerminateAll;
- var
-  obj:TObject;
  begin
-  repeat
-   obj:=objList.Get;
-   if obj=nil then exit;
-   obj.Free;
-  until false;
+  objList.Clear(true);
  end;
 
 { TConsumerThread }
