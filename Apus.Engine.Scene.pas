@@ -227,7 +227,7 @@ function TGameScene.Process:boolean;
   begin
    ForceLogMessage('Loading all scenes');
    repeat
-    scene:=scenesToLoad.GetFirst as TGameScene;
+    scene:=scenesToLoad.RemoveFirst as TGameScene;
     if scene=nil then break;
     if not scene.loaded then begin
      LogMessage('Loading scene: "%s"',[scene.name]);

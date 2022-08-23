@@ -383,12 +383,15 @@ type
  // Simple list of objects
  TObjectList=object
   count:integer;
-  procedure Clear;
-  function Add(obj:TObject;uniqueOnly:boolean=false):boolean;
-  function Remove(obj:TObject;keepOrder:boolean=false):boolean; // removes only the 1-st found reference, returns false if not found
-  function Get:TObject; // get the last object
-  function GetFirst:TObject; // get the first object
+  procedure Clear(freeObjects:boolean=false);
+  function Add(obj:TObject;uniqueOnly:boolean=false):boolean; overload;
+  function Add(list:TObjectList):boolean; overload;
+  function Remove(obj:TObject;keepOrder:boolean=false):boolean; overload; // removes only the 1-st found reference, returns false if not found
+  function Remove:TObject; overload; // get the last object
+  function RemoveFirst:TObject; overload; // get the first object
   procedure FreeAll; // Free all objects and clear the list
+  function Get(index:cardinal):TObject;
+  function GetAll:TObjectArray;
  private
   initialized:string;
   lock:integer;
@@ -2425,7 +2428,7 @@ function TObjectList.Add(obj:TObject;uniqueOnly:boolean=false):boolean;
   end;
  end;
 
-function TObjectList.Get:TObject;
+function TObjectList.Remove:TObject;
  begin
   if initialized='' then Init;
   SpinLock(lock);
@@ -2440,7 +2443,7 @@ function TObjectList.Get:TObject;
   end;
  end;
 
-function TObjectList.GetFirst:TObject;
+function TObjectList.RemoveFirst:TObject;
  begin
   if initialized='' then Init;
   SpinLock(lock);
@@ -2480,11 +2483,25 @@ function TObjectList.Remove(obj:TObject;keepOrder:boolean=false):boolean;
   end;
  end;
 
-procedure TObjectList.Clear;
+function TObjectList.Add(list:TObjectList):boolean;
+ var
+  items:TObjectArray;
+  obj:TObject;
+ begin
+  list.GetAll;
+  for obj in items do Add(obj);
+ end;
+
+procedure TObjectList.Clear(freeObjects:boolean=false);
+ var
+  i:integer;
  begin
   if initialized='' then Init;
   SpinLock(lock);
   try
+   if freeObjects then
+    for i:=0 to count-1 do
+     FreeAndNil(data[i]);
    count:=0;
    SetLength(data,32);
   finally
@@ -2508,6 +2525,28 @@ procedure TObjectList.FreeAll;
   end;
   for obj in list do
    obj.Free;
+ end;
+
+function TObjectList.Get(index:cardinal):TObject;
+ begin
+  SpinLock(lock);
+  try
+   if index<length(data) then result:=data[index]
+    else result:=nil;
+  finally
+   lock:=0;
+  end;
+ end;
+
+function TObjectList.GetAll:TObjectArray;
+ begin
+  SpinLock(lock);
+  try
+   result:=data;
+   SetLength(result,count);
+  finally
+   lock:=0;
+  end;
  end;
 
 procedure TObjectList.Init;
