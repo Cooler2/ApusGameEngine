@@ -11,12 +11,12 @@ interface
   DONT_CHANGE = -9987; // magic value which means "keep previous value"
   LIVE_OBJECT = $2468; // magic value for live object
  type
-  // ��� ����� ����� ���������
+  // Тип связи между объектами
   TObjectRelation=(
-   orNone,      // ������ ��������������� � �����������
-   orAttached,  // ������ ����������� � ������� �������, ��� ���������� ������������, ��� �������� ���������� ������� ��������� � ����
-   orMaster,    // ������-������, �� ������ �������� ���������� ������, ��� �������� ���������� ������ ���������� ���������
-   orSlave);    // ���������� ������ (�� ��������, �� �����������)
+   orNone,      // Объект самостоятельный и независимый
+   orAttached,  // Объект присоединен к другому объекту, его координаты относительны, при удалении связанного объекта удаляется и этот
+   orMaster,    // Объект-хозяин, он обязан рисовать подчинённый объект, при удалении подчинённый объект становится свободным
+   orSlave);    // Подчинённый объект (не рисуется, не проверяется)
 
   TSide=(sNone  = 0,
          sTop   = 1,
@@ -25,7 +25,7 @@ interface
          sLeft  = 8); // �������
 
   {$ALIGN 4}
-  // ������� ����� � ����� ������������
+  // Базовый класс с общим функционалом
   TVisualObjectClass=class of TVisualObject;
   TVisualObject=class(TSortableObject)
    private
@@ -36,23 +36,23 @@ interface
    public
     name:string;
     objID:cardinal;
-    tag:integer; // ������������ ����� (����� ������������ ��� ������ ��� ������� ��������)
-    x,y,z:TAnimatedValue; // ������� ��������� (z=0 - �����, z>0 - ����������)
+    tag:integer; // произвольное число (можно использовать как ссылку для внешних структур)
+    x,y,z:TAnimatedValue; // текущее положение (z=0 - норма, z>0 - приподнята)
     alpha,scale:TAnimatedValue;
-    width,height:single; // ������������ ��� ������ ������� � �������� ����� (�.�. ��� ������� "������������" ��� ���� ����� �������)
+    width,height:single; // используется для поиска объекта в заданной точке (т.е. это размеры "непрозрачной" для мыши части объекта)
     timeToDelete:int64;
-    realX,realY:single; // ��� ������������ ��������� ������� � �������� ����������� ��� ��������� ���������
-    aliveMagic:word; // $DEAD - ���� �����, $2468 - ���� ��� (�������� �� ������ � ��������� �������)
-    relation:TObjectRelation; // ��� ����� ����� ���������
-    related:TVisualObject; // ��������� ������
+    realX,realY:single; // тут запоминается положение объекта в экранных координатах при последней отрисовке
+    aliveMagic:word; // $DEAD - если удалён, $2468 - если жив (проверка на доступ к удалённому объекту)
+    relation:TObjectRelation; // Тип связи между объектами
+    related:TVisualObject; // Связанный объект
     constructor Create(x_,y_,z_,alpha_,scale_:single;layer_:string='';name_:string='');
     constructor Clone(obj:TVisualObject;toLayer:string='');
     destructor Destroy; override;
     function MoveTo(newX,newY,newZ:single;time:integer):TVisualObject; virtual;
     procedure Draw(fromX,fromY,fromZ:single); virtual;
-    procedure DeleteAfter(time:cardinal); // ������� ������ ����� time ms
+    procedure DeleteAfter(time:cardinal); // delete object after time ms
     function Compare(obj:TSortableObject):integer; override;
-    property layer:string read GetLayerName write SetLayer; // ��������� ��� ����
+    property layer:string read GetLayerName write SetLayer; // layer textual name
     function Describe:string; // object description
     procedure AttachTo(obj:TVisualObject); // attach this object to another
     function IsAlive:boolean;
@@ -60,7 +60,7 @@ interface
 
   TVisualObjects=array of TVisualObject;
 
-  // ������ - �����������
+  // Image object
   TImageObject=class(TVisualObject)
    protected
     image:TTexture;
@@ -75,7 +75,7 @@ interface
     function SetColor(color:cardinal;time:integer;delay:integer=0):TImageObject;
   end;
 
-  // ��������� ������� � �������� ��������/���� (����������� � ��������)
+  // Pre-rendered textual label
   TTextObject=class(TImageObject)
    protected
     text:WideString;
@@ -95,47 +95,47 @@ interface
 
   // Single particle item
   TMyParticle=record
-   id:cardinal; // ���������� ������������� �������� (>0) �� �������� �� ��������, �������� ������ � ������� (low word)
+   id:cardinal; // уникальный идентификатор партикла (>0) не меняется до удаления, содержит индекс в массиве (low word)
    x,y,z,angle,scale:single;
    speedX,speedY,speedA,speedS:single; // change for x, y, angle and scale (per second)
    param:single; // default: gravity acceleration (+dSpeedY)
    color:cardinal;
-   age:single; // ����� ����� � ������� �������� (� ���), ������������� - ������� ���������
-   life:single; // ����� ����� (��� ���������� �������� ������� ���������)
+   age:single; // время жизни с момента создания (в сек), отрицательное - партикл удаляется
+   life:single; // время жизни (при достижении которого партикл удаляется)
    kind:integer; // default: index in texture
   end;
 
-  // ������� ����� ��� ����������� ��������
+  // Base class for a patricle effect object
   TParticleEffect=class(TVisualObject)
    zDist:single; // default=1, override this value if needed
    constructor Create(x_,y_,z_:single;tex:TTexture;partSize:integer;layer_,name_:string);
    destructor Destroy; override;
-   // ��������� ��������� ������� �� ��������� ����� time (ms), totalTime - ������� ������� ������ � �������� �������
+   // Обновляет состояние эффекта за прошедшее время time (ms), totalTime - сколько времени прошло с создания эффекта
    procedure Update(time,totalTime:integer); virtual;
-   // ��������� ������ ���������� �������, ���������� �������� �������
-   // time - ����� � �������� � ���������� ��������� (������� ������ ��������� ��������, ����������, ����� �����)
+   // Обновляет каждый конкретный партикл, генерирует выходной партикл
+   // time - время в секундах с предыдущей обработки (базовая версия применяет движение, гравитацию, время жизни)
    procedure HandleParticle(time:single;var sour:TMyParticle;var dest:TParticle); virtual;
-   // ���������� ���������. ��������� ��������� ������ ������ ��������� ��������.
-   // ����� �������������� ��� ��� ����, ����� �������� ����� ������ ����, � �� ������������ Update
+   // Производит отрисовку. Дефолтная отрисовка просто рисует имеющиеся партиклы.
+   // Можно переопределить втч для того, чтобы генерить набор каждый кадр, а не использовать Update
    procedure Draw(fromX,fromY,fromZ:single); override;
-   // ��������� ����� �������, ���������� ��� ������ � �������
+   // Добавляет новый партикл, возвращает его индекс в массиве
    function AddParticle:integer;
   protected
-   created:int64; // ����� ������ ��� ������
-   lastDrawn:int64; // ����� ��������� ���������
-   texture:TTexture; // ������� ��������
-   size:integer; // ������� ������ ���������
-   parts:array of TMyParticle; // ������ �������� ��������� (����� ��������� "�����")
-//   count:integer; // ����� ���-�� ���������
+   created:int64; // когда эффект был создан
+   lastDrawn:int64; // время последней отрисовки
+   texture:TTexture; // базовая текстура
+   size:integer; // базовый размер партиклов
+   parts:array of TMyParticle; // массив исходных партиклов (может содержать "дырки")
+//   count:integer; // общее кол-во партиклов
    renderParts:array of TParticle;
    renderCount:integer;
    lastID:integer;
-   newIdx:integer; // ������, ������� � �������� ��� ����� ����� ��� ���������� �������� (������������ ��� ��������)
+   newIdx:integer; // индекс, начиная с которого идёт поиск места для добавления партикла (сбрасывается при удалении)
    zMin,zMax:single; // Z filter
    procedure InternalDraw(x,y:integer;zMin,zMax:single);
   end;
 
-  // ��������������� ������-������: "c���" ��� ���������� ����������� �������� �� Z
+  // Вспомогательный объект-фильтр: "cлой" для разделения партикловых эффектов по Z
   TParticleEffectLayer=class(TVisualObject)
    constructor Create(mainObj:TParticleEffect;z_,zMin_,zMax_:single);
    procedure Draw(fromX,fromY,fromZ:single); override;
@@ -144,7 +144,7 @@ interface
    zMin,zMax:single;
   end;
 
-  // ����� � �������� ����� (�������� �� ��������)
+  // Текст в фигурной рамке (возможно со стрелкой)
 {  THintObject=class(TVisualObject)
     constructor Create(x_,y_,z_:single;text:string;font,color,background,border:cardinal;
        sideArrow:TSide;rounded,borderWidth:single;layer_:string='';name_:string='');
@@ -155,53 +155,52 @@ interface
     textColor,borderColor,backgroundColor:cardinal;
   end;}
 
+ procedure LockObjects;
+ procedure UnlockObjects;
 
- // �-���, ������������ �������, � ���� ������������ ������� ������������ ������ ��� ����������!
+ // Ф-ции, возвращающие объекты, и сами возвращаемые объекты использовать только при блокировке!
  function FindObjByName(name:string):TVisualObject;
  function FindObjByID(ID:cardinal):TVisualObject;
  function FindObjectAt(x,y:integer;layers:string=''):TVisualObject;
  function GetLayerObjects(layers:string):TVisualObjects;
 
- // ����� �������� ��� ����������
+ // These functions doedn't need lock
  procedure DeleteObject(ID:cardinal);
  procedure DeleteObjects(objNames:string); // list of object names (separated by comma, semicolon or space)
  procedure DeleteAllObjects(layers:string='All');
 
- procedure LockObjects;
- procedure UnlockObjects;
-
- // ���� 3 ������ �����������:
- //  1 - time>0, smoothness - mode: �����-����� ����������� ����������� � ������� (�������� ����� ������� ��������)
- //  2 - time=0, smoothness=0..100: ����������� � �������� ������� �� ������������
- //  3 - time<0, ���������� ��������� ��������� ������
+ // Есть 3 режима перемещения:
+ //  1 - time>0, smoothness - mode: более-менее равномерное перемещение в будущем (конечная точка заранее известна)
+ //  2 - time=0, smoothness=0..100: перемещение в реальном времени со сглаживанием
+ //  3 - time<0, мгновенная установка положения камеры
  procedure SetViewpoint(x,y,z:single;time:integer;smoothness:integer=0);
  procedure GetViewpoint(out x,y,z:single);
- // ������ ������� ������������� ����� ����� ������������ � ����������
+ // Только объекты перечисленных слоев будут отображаться и находиться
  procedure EnableLayers(layers:string);
- // layers='All' - ������ ��� _����������_ ����, ����� ����� ����������� � �����������
+ // layers='All' - рисует все _включенные_ слои, онако можно перечислить и выключенные
  procedure DrawVisualObjects(zMin,zMax:single;layers:string='');
 
 
 implementation
  uses SysUtils, Types, Apus.Images, Apus.Engine.Tools;
  const
-  indexMask = $3FFF; // 16384 �������� � ������
+  indexMask = $3FFF; // 16384 объектов в списке
  var
   objList:array of TVisualObject;
   objCount:integer;
-  sorted:boolean; // ������� � ������ �������������?
-  objIndex:array[0..indexMask] of TVisualObject; // ������ ��� �������� ������ �������� �� ID
-  lastID:cardinal; // ��������� ������
+  sorted:boolean; //  объекты в списке отсортированы?
+  objIndex:array[0..indexMask] of TVisualObject; // индекс для быстрого поиска объектов по ID
+  lastID:cardinal;  // свободный индекс
   crSect:TMyCriticalSection;
   cameraX,cameraY,cameraZ:TAnimatedValue;
 
-  layerNames:array[0..31] of string; // 0 - ���������� ����, 1..31 - ������� ����
+  layerNames:array[0..31] of string; // 0 - unnamed layes, 1..31 - named layers
   lCount:integer;
-  layersEnabled:cardinal=$FFFFFFFF; // ����� ���������� �����
+  layersEnabled:cardinal=$FFFFFFFF; // mask of enabled layers
 
 { TVisualObject }
 
-procedure TVisualObject.DeleteAfter(time: cardinal);
+procedure TVisualObject.DeleteAfter(time:cardinal);
 begin
  LockObjects;
  try
@@ -220,11 +219,11 @@ begin
  EnterCriticalSection(crSect);
  try
   aliveMagic:=$DEAD;
-  // ������� �� �������
+  // Удалить из индекса
   ASSERT(objIndex[objID and indexMask]=self,'Wrong object in index: '+inttostr(objID));
   objIndex[objID and indexMask]:=nil;
 
-  // ������� ������ �� ������
+  // Удалить объект из списка
   for i:=0 to objCount-1 do
    if objList[i]=self then begin
     dec(objCount);
@@ -233,7 +232,7 @@ begin
     break;
    end;
 
-  // ������� ��� ����������� ������� (����������)
+  // Удалить все ссылающиеся объекты (рекурсивно)
   i:=0;
   while i<objCount do
    if objList[i].related=self then objList[i].Free
@@ -245,24 +244,24 @@ end;
 
 procedure TVisualObject.Draw(fromX,fromY,fromZ:single);
 begin
- // ���������� �������, � ������� ������ ���������
+ // Запоминаем позицию, в которой объект нарисован
  realX:=x.Value-fromX;
  realY:=y.Value-fromY;
 end;
 
-function TVisualObject.GetLayerName: string;
+function TVisualObject.GetLayerName:string;
 begin
  result:='';
  if (layerID>=0) and (layerID<=31) then
   result:=layerNames[layerID];
 end;
 
-function TVisualObject.IsAlive: boolean;
+function TVisualObject.IsAlive:boolean;
 begin
  result:=aliveMagic=LIVE_OBJECT;
 end;
 
-function TVisualObject.MoveTo(newX, newY, newZ:single; time: integer):TVisualObject;
+function TVisualObject.MoveTo(newX,newY,newZ:single;time:integer):TVisualObject;
 begin
  if newX<>DONT_CHANGE then x.Animate(newX,time,spline1);
  if newY<>DONT_CHANGE then y.Animate(newY,time,spline1);
@@ -270,7 +269,7 @@ begin
  result:=self;
 end;
 
-// ��������, ������-�� �� ������������� ����� ��� ��� - ����� �������!
+// Возможно, какого-то из перечисленных слоев еще нет - нужно создать!
 function GetLayersMask(layers:string):cardinal;
 var
  i,j,k:integer;
@@ -310,7 +309,7 @@ begin
  end;
 end;
 
-procedure TVisualObject.SetLayer(l: string);
+procedure TVisualObject.SetLayer(l:string);
 var
  i:integer;
 begin
@@ -327,12 +326,12 @@ begin
  layerNames[layerID]:=l;
 end;
 
-function TVisualObject.Compare(obj: TSortableObject): integer;
+function TVisualObject.Compare(obj:TSortableObject):integer;
 var
  z1,z2:double;
 begin
  result:=0;
- if obj=self then exit; // ��������� ������� � �����
+ if obj=self then exit; // Сравнение объекта с собой
  try
   z1:=z.Value;
   z2:=TVisualObject(obj).z.Value;
@@ -511,7 +510,7 @@ begin
  try
   n:=objCount-1;
   c:=0;
-  objCount:=0; // ������ ���, ��� ������ �������� ����, ����� �������� �������� �������� �� ���� � �����������
+  objCount:=0; // делаем вид, что список объектов пуст, чтобы избежать удаления объектов из него в деструкторе
   i:=0;
   while i<=n do begin
    if mask and (1 shl objList[i].layerID)>0 then begin
@@ -664,10 +663,10 @@ begin
  end;
 end;
 
-{ TFlyingText }
+{ TTextObject }
 
-constructor TTextObject.Create(x_, y_, z_, alpha_, scale_: single;
-  text_: string; font_,color_: cardinal;layer_:string='';name_:string='');
+constructor TTextObject.Create(x_,y_, z_,alpha_,scale_:single;
+  text_:string;font_,color_:cardinal;layer_:string='';name_:string='');
 begin
  LockObjects;
  try
@@ -693,7 +692,7 @@ begin
  inherited;
 end;
 
-procedure TTextObject.Draw(fromX, fromY, fromZ: single);
+procedure TTextObject.Draw(fromX,fromY,fromZ:single);
 var
  globalcolor:cardinal;
 begin
@@ -711,7 +710,7 @@ begin
  inherited;
 end;
 
-function TTextObject.SetColor(color: cardinal; time: integer;delay:integer=0):TTextObject;
+function TTextObject.SetColor(color:cardinal;time:integer;delay:integer=0):TTextObject;
 begin
  ASSERT(aliveMagic=LIVE_OBJECT,'Object '+inttohex(cardinal(self),8)+' deleted '+inttohex(aliveMagic,4));
  tR.Animate((color shr 16) and $FF,time,spline0,delay);
@@ -728,7 +727,7 @@ begin
  valid:=false;
 end;
 
-function TTextObject.SetGlow(dx_, dy_: integer; color_: cardinal; spread_,blur_: integer):TTextObject;
+function TTextObject.SetGlow(dx_,dy_:integer;color_:cardinal;spread_,blur_:integer):TTextObject;
 begin
  ASSERT(aliveMagic=LIVE_OBJECT,'Object '+inttohex(cardinal(self),8)+' deleted '+inttohex(aliveMagic,4));
  result:=self;
@@ -741,7 +740,7 @@ begin
  valid:=false;
 end;
 
-procedure TTextObject.SetText(st: WideString);
+procedure TTextObject.SetText(st:WideString);
 begin
  ASSERT(aliveMagic=LIVE_OBJECT,'Object '+inttohex(cardinal(self),8)+' deleted '+inttohex(aliveMagic,4));
  if text<>st then begin
@@ -752,8 +751,8 @@ end;
 
 { TImageObject }
 
-constructor TImageObject.Create(x_, y_, alpha_, scale_: single;
-  img: TTexture;color_:cardinal;layer_:string='';name_:string='');
+constructor TImageObject.Create(x_,y_,alpha_,scale_:single;
+  img:TTexture;color_:cardinal;layer_:string='';name_:string='');
 begin
  LockObjects;
  try
@@ -778,7 +777,7 @@ begin
  inherited;
 end;
 
-procedure TImageObject.Draw(fromX, fromY, fromZ: single);
+procedure TImageObject.Draw(fromX,fromY,fromZ:single);
 var
  globalColor:cardinal;
  r,g,b:integer;
@@ -809,7 +808,7 @@ begin
  end;
 end;
 
-function TImageObject.SetColor(color: cardinal; time: integer; delay:integer=0): TImageObject;
+function TImageObject.SetColor(color:cardinal;time:integer;delay:integer=0):TImageObject;
 begin
  ASSERT(aliveMagic=LIVE_OBJECT,'Object '+inttohex(cardinal(self),8)+' deleted '+inttohex(aliveMagic,4));
  tR.Animate(2*((color shr 16) and $FF),time,spline0,delay);
@@ -820,7 +819,7 @@ end;
 
 { TParticleEffect }
 
-function TParticleEffect.AddParticle: integer;
+function TParticleEffect.AddParticle:integer;
 var
  i:integer;
 begin
@@ -838,8 +837,8 @@ begin
  parts[result].id:=lastID shl 16+result;
 end;
 
-constructor TParticleEffect.Create(x_, y_, z_:single;tex:TTexture;partSize:integer; layer_,
-  name_: string);
+constructor TParticleEffect.Create(x_,y_,z_:single;tex:TTexture;partSize:integer;layer_,
+  name_:string);
 begin
  LockObjects;
  try
@@ -899,7 +898,7 @@ begin
  for i:=0 to high(parts) do
   if (parts[i].id>0) and (parts[i].age>=0) then begin
    HandleParticle(time,parts[i],renderParts[renderCount]);
-   if (parts[i].age>=0) and // ��������� �������� ����������, �.�. ������� ��� ���������� (���� �����)
+   if (parts[i].age>=0) and // повторная проверка необходима, т.к. партикл мог измениться (быть удалён)
       (renderParts[renderCount].color and $FF000000>0) then inc(renderCount);
   end;
  // Draw
@@ -912,11 +911,10 @@ begin
  except
   on e:exception do raise EWarning.Create('PE.Draw '+className+' error: '+ExceptionMsg(e));
  end;
- if (renderCount=0) and (t-created>1000) then timeToDelete:=1; // ������ ����� �� ���������� ��������, �� �� ����� 1 ���
+ if (renderCount=0) and (t-created>1000) then timeToDelete:=1; // объект живет до последнего партикла, но не менее 1 сек
 end;
 
-procedure TParticleEffect.HandleParticle(time:single;var sour: TMyParticle;
-  var dest: TParticle);
+procedure TParticleEffect.HandleParticle(time:single;var sour:TMyParticle;var dest:TParticle);
 begin
  dest.x:=sour.x;
  dest.y:=sour.y;
@@ -939,13 +937,13 @@ begin
  sour.age:=sour.age+time;
 end;
 
-procedure TParticleEffect.Update(time,totalTime: integer);
+procedure TParticleEffect.Update(time,totalTime:integer);
 begin
 end;
 
 { TParticleEffectLayer }
 
-constructor TParticleEffectLayer.Create(mainObj: TParticleEffect; z_,zMin_,zMax_: single);
+constructor TParticleEffectLayer.Create(mainObj:TParticleEffect;z_,zMin_,zMax_:single);
 begin
  inherited Create(mainObj.x.value,mainObj.y.Value,z_,1,1,mainObj.layer,mainObj.name+'_L');
  parentID:=mainObj.objID;
@@ -953,7 +951,7 @@ begin
  zMax:=zMax_;
 end;
 
-procedure TParticleEffectLayer.Draw(fromX, fromY, fromZ: single);
+procedure TParticleEffectLayer.Draw(fromX,fromY,fromZ:single);
 var
  parentObj:TParticleEffect;
 begin
