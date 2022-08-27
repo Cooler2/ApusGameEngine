@@ -354,7 +354,8 @@ type
   procedure Init(size:integer);
   procedure Clear;
   function Add(const item:T):boolean;
-  function Get(out item:T):boolean;
+  function Get(out item:T):boolean; overload;
+  function Get:T; overload; // This is not very thread-safe
   function Empty:boolean;
   function Count:integer;
  private
@@ -1954,6 +1955,12 @@ function TGenQueue<T>.Empty:boolean;
   SpinLock(lock);
   result:=used=free;
   lock:=0;
+ end;
+
+function TGenQueue<T>.Get:T;
+ begin
+  if not Get(result) then
+   raise EWarning.Create('Queue is empty');
  end;
 
 function TGenQueue<T>.Get(out item:T):boolean;
