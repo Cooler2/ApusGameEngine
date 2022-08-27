@@ -178,7 +178,8 @@ interface
  // Только объекты перечисленных слоев будут отображаться и находиться
  procedure EnableLayers(layers:string);
  // layers='All' - рисует все _включенные_ слои, онако можно перечислить и выключенные
- procedure DrawVisualObjects(zMin,zMax:single;layers:string='');
+ procedure DrawVisualObjects(layers:string=''); overload;
+ procedure DrawVisualObjects(zMin,zMax:single;layers:string=''); overload;
 
 
 implementation
@@ -588,6 +589,11 @@ end;
 procedure EnableLayers(layers:string);
 begin
  layersEnabled:=GetLayersMask(layers);
+end;
+
+procedure DrawVisualObjects(layers:string=''); overload;
+begin
+ DrawVisualObjects(-MAX_FLOAT,MAX_FLOAT,layers);
 end;
 
 procedure DrawVisualObjects(zMin,zMax:single;layers:string='');
