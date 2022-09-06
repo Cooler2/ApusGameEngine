@@ -393,7 +393,7 @@ procedure TWriteBuffer.Write(var item;numBytes:integer);
 
 procedure TWriteBuffer.Write(var buf:TBuffer);
  begin
-  Write(buf.data,buf.size);
+  Write(buf.data^,buf.size);
  end;
 
 procedure TWriteBuffer.WriteByte(b:byte);
