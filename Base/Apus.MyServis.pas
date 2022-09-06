@@ -261,6 +261,7 @@ interface
  function LoadFileAsBytes(fname:String;numBytes:int64=0;startFrom:int64=0):ByteArray; // Load file content into byte array
  procedure SaveFile(fname:string;buf:pointer;size:integer); overload; // rewrite file with given data
  procedure SaveFile(fname:string;buf:ByteArray); overload; // rewrite file with given data
+ procedure SaveFile(fname:string;buf:TBuffer); overload;
  procedure SaveFile(fname:string;data:String8); overload;
  procedure ReadFile(fname:string;buf:pointer;posit,size:integer); // Read data block from file
  procedure WriteFile(fname:string;buf:pointer;posit,size:integer); // Write data block to file
@@ -5486,6 +5487,11 @@ procedure DumpDir(path:string);
  procedure SaveFile(fname:string;buf:ByteArray); overload; // rewrite file with given data
   begin
    SaveFile(fname,@buf[0],length(buf));
+  end;
+
+ procedure SaveFile(fname:string;buf:TBuffer); overload;
+  begin
+   SaveFile(fname,buf.data,buf.size);
   end;
 
  procedure SaveFile(fname:string;data:String8); overload;
