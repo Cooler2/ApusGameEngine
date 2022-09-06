@@ -1881,6 +1881,26 @@ procedure TestFloor;
   Writeln('Floor time: ',EndMeasure(t):5:2);
  end;
 
+procedure TestHalf;
+ var
+  i:integer;
+  h:half;
+  f,v:single;
+ begin
+  for i:=-1000 to 1000 do begin
+   h:=i;
+   f:=h;
+   ASSERT(f=i,'half integer fail at '+inttostr(i));
+  end;
+  for i:=1 to 10000 do begin
+   v:=(random-random)*100;
+   h:=v;
+   f:=h;
+   ASSERT(abs(v-f)<abs(v)*0.001,'half float fail at '+FloatToStr(v));
+  end;
+  writeln('Haf test OK');
+ end;
+
 (* // Debug GetCaller
 
 var
@@ -1926,6 +1946,7 @@ begin
  UseLogFile('log.txt',true);
  try
   //Test1(1,2,3);
+  TestHalf;
   TestFloor;
   TestBitFunc;
   TestSSE;
