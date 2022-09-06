@@ -41,6 +41,8 @@ interface
   end;
   TVector2s=TPoint2s;
   PPoint2s=^TPoint2s;
+  TPoints2s=array of TPoint2s;
+  TVectors2s=TPoints2s;
 
   // Infinite line on plane
   TLine2=packed record
