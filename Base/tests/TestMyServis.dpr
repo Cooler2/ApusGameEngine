@@ -1366,7 +1366,7 @@ procedure TestMemoryStat;
    end;
    writeln('Max error: ',maxD:4:1);
    if maxD>1 then writeln('TIME TEST: error is too high!');
-   limit:=1;
+   limit:=3;
    {$IFDEF MSWINDOWS}{$IFDEF FPC}
    if not IsDebuggerPresent then limit:=20; // github workaround
    {$ENDIF}{$ENDIF}
