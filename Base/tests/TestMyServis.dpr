@@ -1890,6 +1890,10 @@ procedure TestHalf;
   h:half;
   f,v:single;
  begin
+  v:=0.00002968497574;
+  h:=v;
+  f:=h;
+  ASSERT(abs(v-f)<0.001+abs(v)*0.001);
   for i:=-1000 to 1000 do begin
    h:=i;
    f:=h;
@@ -1899,7 +1903,7 @@ procedure TestHalf;
    v:=(random-random)*sqr(1+random(random(100)));
    h:=v;
    f:=h;
-   ASSERT(abs(v-f)<abs(v)*0.001,'half float fail at '+FloatToStr(v));
+   ASSERT(abs(v-f)<0.001+abs(v)*0.001,'half float fail at '+FloatToStr(v));
   end;
   writeln('Half test OK');
  end;
