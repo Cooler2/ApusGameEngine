@@ -73,6 +73,13 @@ type
    6:(d:array[0..1] of double );
   end;
 
+  // 16 bit floating point value (half-precision)
+  half=record
+   value:word;
+   class operator Implicit(const f:single):half;
+   class operator Implicit(const h:half):single;
+  end;
+
   TIntRange=record
    min,max:integer;
    procedure Init(min,max:integer);
@@ -118,11 +125,42 @@ type
    function ReadUInt:cardinal;
    function ReadFloat:single;
    function ReadDouble:double;
+   function ReadFlex:cardinal; // read flexible (multibyte) unsigned integer
    procedure Skip(numBytes:integer); // advance read pos by
    procedure Seek(pos:integer);
    procedure Read(var dest;numBytes:integer);
    function BytesLeft:integer; inline;
    function CurrentPos:integer; inline;
+  end;
+
+{  // In-memory binary buffer used to read bit fields
+  TBitBuffer=record
+   data:PByte;
+   size:integer;
+   constructor Create(sour:pointer;sizeInBytes:integer);
+   constructor CreateFrom(buffer:TBuffer);
+   function Read(numBits:integer):cardinal;
+  private
+   buf:cardinal;
+  end;}
+
+  TWriteBuffer=record
+   size:integer;
+   constructor Init(expectedSize:integer);
+   procedure Reset(newSize:integer);
+   procedure Write(var item;numBytes:integer); overload;
+   procedure Write(var buf:TBuffer); overload;
+   procedure WriteByte(b:byte); inline;
+   procedure WriteWord(w:word); inline;
+   procedure WriteInt(i:integer); inline;
+   procedure WriteUInt(c:cardinal); inline;
+   procedure WriteFloat(f:single); inline;
+   procedure WriteDouble(d:double); inline;
+   procedure WriteFlex(c:cardinal);
+   procedure WriteStr(s:String8);
+   function AsBuffer:TBuffer;
+  private
+   data:ByteArray;
   end;
 
 implementation
@@ -186,6 +224,19 @@ function TBuffer.ReadDouble:double;
   ASSERT(BytesLeft>=8);
   result:=PDouble(readPos)^;
   inc(readPos,8);
+ end;
+
+function TBuffer.ReadFlex:cardinal;
+ var
+  b:byte;
+ begin
+  result:=0;
+  while BytesLeft>0 do begin
+   b:=readPos^;
+   inc(readPos);
+   result:=(result shl 7)+(b and $7F);
+   if b and $80=0 then break;
+  end;
  end;
 
 function TBuffer.ReadFloat:single;
@@ -322,6 +373,122 @@ function TFloatRange.Rand:single;
 function TFloatRange.Width:single;
  begin
   result:=max-min;
+ end;
+
+{ TWriteBuffer }
+
+procedure TWriteBuffer.Reset(newSize:integer);
+ begin
+  size:=0;
+  SetLength(data,newSize);
+ end;
+
+procedure TWriteBuffer.Write(var item;numBytes:integer);
+ begin
+  while length(data)<size+numBytes do
+   SetLength(data,(length(data)+1024)*2);
+  move(item,data[size],numBytes);
+  inc(size,numBytes);
+ end;
+
+procedure TWriteBuffer.Write(var buf:TBuffer);
+ begin
+  Write(buf.data,buf.size);
+ end;
+
+procedure TWriteBuffer.WriteByte(b:byte);
+ begin
+  Write(b,1);
+ end;
+
+procedure TWriteBuffer.WriteDouble(d:double);
+ begin
+  Write(d,8);
+ end;
+
+procedure TWriteBuffer.WriteFloat(f:single);
+ begin
+  Write(f,4);
+ end;
+
+procedure TWriteBuffer.WriteInt(i:integer);
+ begin
+  Write(i,4);
+ end;
+
+procedure TWriteBuffer.WriteUInt(c:cardinal);
+ begin
+  Write(c,4);
+ end;
+
+procedure TWriteBuffer.WriteWord(w:word);
+ begin
+  Write(w,2)
+ end;
+
+procedure TWriteBuffer.WriteFlex(c:cardinal);
+ var
+  b:byte;
+ begin
+  repeat
+   b:=c and $7F;
+   c:=c shr 7;
+   if c<>0 then b:=b or $80;
+   Write(b,1);
+  until c=0;
+ end;
+
+procedure TWriteBuffer.WriteStr(s:String8);
+ var
+  l:integer;
+ begin
+  l:=length(s);
+  WriteFlex(l);
+  Write(s[1],l);
+ end;
+
+function TWriteBuffer.AsBuffer:TBuffer;
+ begin
+  result.Create(@data[0],size);
+ end;
+
+constructor TWriteBuffer.Init(expectedSize:integer);
+ begin
+  size:=0;
+  if expectedSize<=0 then expectedSize:=16384;
+  SetLength(data,expectedSize);
+ end;
+
+{ half }
+
+// Convert float to half
+class operator half.Implicit(const f:single):half;
+ var
+  bits:cardinal absolute f;
+  mant:cardinal;
+  exp:integer;
+ begin
+  exp:=(bits shr 23) and $FF; // source exponent
+  exp:=Clamp(exp-127,-15,14); // clamped exponent
+  mant:=bits and $7FFFFF;
+  mant:=Min2((mant+1) shr 13,1023); // new rounded mantissa
+  result.value:=(exp+15) shl 10+mant;
+  if integer(bits)<0 then result.value:=result.value or $8000; // sign
+ end;
+
+// Convert half to float
+class operator half.Implicit(const h:half):single;
+ var
+  res:cardinal;
+  exp:integer;
+ begin
+  if h.value=0 then exit(0);
+  exp:=(h.value shr 10) and $1F;
+  exp:=(exp-15)+127; // new exponent
+  res:=(h.value and $3FF) shl 13; // new mantissa
+  res:=res+(exp shl 23);
+  if h.value and $8000>0 then res:=res or $80000000;
+  move(res,result,4);
  end;
 
 end.
