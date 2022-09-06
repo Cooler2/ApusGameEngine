@@ -1365,7 +1365,10 @@ procedure TestMemoryStat;
    end;
    writeln('Max error: ',maxD:4:1);
    if maxD>1 then writeln('TIME TEST: error is too high!');
-   ASSERT(maxD<10,'Time');
+   if IsDebuggerPresent then
+    ASSERT(maxD<1,'Time')
+   else
+    ASSERT(maxD<15,'Time');
   end;
 
  // Вывод: сравнение через lowercase - в 4-5 раз быстрее, чем через AnsiSameText
@@ -1892,13 +1895,13 @@ procedure TestHalf;
    f:=h;
    ASSERT(f=i,'half integer fail at '+inttostr(i));
   end;
-  for i:=1 to 10000 do begin
-   v:=(random-random)*100;
+  for i:=1 to 100000 do begin
+   v:=(random-random)*sqr(1+random(random(100)));
    h:=v;
    f:=h;
    ASSERT(abs(v-f)<abs(v)*0.001,'half float fail at '+FloatToStr(v));
   end;
-  writeln('Haf test OK');
+  writeln('Half test OK');
  end;
 
 (* // Debug GetCaller
