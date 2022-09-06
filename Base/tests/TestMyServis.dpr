@@ -1334,6 +1334,7 @@ procedure TestMemoryStat;
    v,v0:int64;
    maxD:double;
    cD:double;
+   limit:integer;
   begin
    QueryPerformanceFrequency(f);
    t0:=MyTickCount;
@@ -1365,10 +1366,11 @@ procedure TestMemoryStat;
    end;
    writeln('Max error: ',maxD:4:1);
    if maxD>1 then writeln('TIME TEST: error is too high!');
-   if IsDebuggerPresent then
-    ASSERT(maxD<1,'Time')
-   else
-    ASSERT(maxD<15,'Time');
+   limit:=1;
+   {$IFDEF MSWINDOWS}{$IFDEF FPC}
+   if not IsDebuggerPresent then limit:=20; // github workaround
+   {$ENDIF}{$ENDIF}
+   ASSERT(maxD<limit,'Time')
   end;
 
  // Вывод: сравнение через lowercase - в 4-5 раз быстрее, чем через AnsiSameText
