@@ -46,6 +46,8 @@ interface
    2:( xy:TPoint2s; t:single; );
   end;
   TVector3s=TPoint3s;
+  TPoints3s=array of TPoint3s;
+  TVectors3s=TPoints3s;
 
   TQuaternion=record
    constructor Init(x,y,z,w:double);
@@ -108,7 +110,10 @@ interface
   TBBox3s=packed record
    minX,minY,minZ,
    maxX,maxY,maxZ:single;
-   defined:boolean;
+   procedure Init; // clear
+   procedure Add(const p:TPoint3s); overload;
+   procedure Add(p:PPoint3s;count:integer;stride:integer=0); overload;
+   function IsEmpty:boolean;
   end;
 
   // Transformation matrices
@@ -356,9 +361,9 @@ interface
 
  // Bounding boxes
  procedure BBoxInclude(var b:TBBox3s;x,y,z:single);
- procedure BBoxIncludePnt(var b:TBBox3s;p:TPoint3);
- procedure BBoxIncludeBox(var b:TBBox3s;new:TBBox3s);
- procedure BBoxIntersect(var b:TBBox3s;new:TBBox3s);
+ procedure BBoxIncludePnt(var b:TBBox3s;const p:TPoint3s);
+ procedure BBoxIncludeBox(var b:TBBox3s;const new:TBBox3s);
+ procedure BBoxIntersect(var b:TBBox3s;const new:TBBox3s);
 
  // Planes
  procedure InitPlane(point,normal:TVector3;var p:TPlane);
@@ -940,11 +945,11 @@ implementation
  // Bounding box routines
  procedure BBoxInclude(var b:TBBox3s;x,y,z:single);
   begin
-   if not b.defined then begin
+   if b.IsEmpty then begin
     b.minx:=x; b.maxx:=x;
     b.miny:=y; b.maxy:=y;
     b.minz:=z; b.maxz:=z;
-    b.defined:=true; exit;
+    exit;
    end;
    if x<b.minx then b.minx:=x;
    if y<b.miny then b.miny:=y;
@@ -953,13 +958,13 @@ implementation
    if y>b.maxy then b.maxy:=y;
    if z>b.maxz then b.maxz:=z;
   end;
- procedure BBoxIncludePnt(var b:TBBox3s;p:TPoint3);
+ procedure BBoxIncludePnt(var b:TBBox3s;const p:TPoint3s);
   begin
-   if not b.defined then begin
+   if b.IsEmpty then begin
     b.minx:=p.x; b.maxx:=p.x;
     b.miny:=p.y; b.maxy:=p.y;
     b.minz:=p.z; b.maxz:=p.z;
-    b.defined:=true; exit;
+    exit;
    end;
    if p.x<b.minx then b.minx:=p.x;
    if p.y<b.miny then b.miny:=p.y;
@@ -968,10 +973,10 @@ implementation
    if p.y>b.maxy then b.maxy:=p.y;
    if p.z>b.maxz then b.maxz:=p.z;
   end;
- procedure BBoxIncludeBox(var b:TBBox3s;new:TBBox3s);
+ procedure BBoxIncludeBox(var b:TBBox3s;const new:TBBox3s);
   begin
-   if not new.defined then exit;
-   if not b.defined then b:=new;
+   if new.IsEmpty then exit;
+   if b.IsEmpty then b:=new;
    if new.minx<b.minx then b.minx:=new.minx;
    if new.miny<b.miny then b.miny:=new.miny;
    if new.minz<b.minz then b.minz:=new.minz;
@@ -979,10 +984,10 @@ implementation
    if new.maxy>b.maxy then b.maxy:=new.maxy;
    if new.maxz>b.maxz then b.maxz:=new.maxz;
   end;
- procedure BBoxIntersect(var b:TBBox3s;new:TBBox3s);
+ procedure BBoxIntersect(var b:TBBox3s;const new:TBBox3s);
   begin
-   if not new.defined then begin
-    b.defined:=false; exit;
+   if new.IsEmpty then begin
+    b.Init; exit;
    end;
    if new.minx>b.minx then b.minx:=new.minx;
    if new.miny>b.miny then b.miny:=new.miny;
@@ -991,7 +996,7 @@ implementation
    if new.maxy<b.maxy then b.maxy:=new.maxy;
    if new.maxz<b.maxz then b.maxz:=new.maxz;
    if (b.minx>b.maxx) or (b.miny>b.maxY) or (b.minz>b.maxz) then
-    b.defined:=false;
+    b.Init;
   end;
 
  // Matrix routines
@@ -2676,6 +2681,34 @@ procedure TQuaternionS.Mul(scalar:single);
   w:=w*scalar;
  end;
  {$ENDIF}
+
+{ TBBox3s }
+
+procedure TBBox3s.Add(const p:TPoint3s);
+ begin
+  BBoxIncludePnt(self,p);
+ end;
+
+procedure TBBox3s.Add(p:PPoint3s;count:integer;stride:integer=0);
+ begin
+  if stride<=0 then stride:=sizeof(TPoint3s);
+  while count>0 do begin
+   Add(p^);
+   dec(count);
+   inc(PByte(p),stride);
+  end;
+ end;
+
+procedure TBBox3s.Init;
+ begin
+  minX:=NaN; minY:=NaN; minZ:=NaN;
+  maxX:=NaN; maxY:=NaN; maxZ:=NaN;
+ end;
+
+function TBBox3s.IsEmpty:boolean;
+ begin
+  result:=IsNan(minX);
+ end;
 
 initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
