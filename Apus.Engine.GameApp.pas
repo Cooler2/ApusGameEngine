@@ -26,10 +26,10 @@ interface
    windowedMode:boolean=true;
    windowWidth:integer=1024;
    windowHeight:integer=768;
-   scaleWindowSize:boolean=true;
+   scaleWindowSize:boolean=true; // enlarge window accordingly if DPI is higher than platform default (96 for desktop monitor)
    gameMode:TGameAppMode=gamUseFullWindow;
 
-   deviceDPI:integer=96; //
+   deviceDPI:integer=96; // equals game.screenDPI
    noVSync:boolean=false;
    directRenderOnly:boolean=true; // true -> for OpenGL: always render directly to the backbuffer, false -> allow frame render into texture
    useDepthTexture:boolean=false; // use depth texture instead of the regular depth buffer (not available with direct render)

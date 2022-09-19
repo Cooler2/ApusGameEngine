@@ -247,7 +247,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
   matchRate:=800;
   name:=LowerCase(name);
   if HasFlag(flags,fsStrictMatch) then matchRate:=10000;
-  if (globalScale<>1) and not HasFlag(flags,fsIgnoreScale) then size:=size*globalScale;
+  if (globalScale<>1) and not HasFlag(flags,fsIgnoreScale) then realSize:=realSize*globalScale;
   // Browse
   for i:=1 to high(fonts) do
    if fonts[i]<>nil then begin
