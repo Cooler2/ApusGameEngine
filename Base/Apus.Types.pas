@@ -125,6 +125,7 @@ type
    function ReadUInt:cardinal;
    function ReadFloat:single;
    function ReadDouble:double;
+   function ReadString:String8;
    function ReadFlex:cardinal; // read flexible (multibyte) unsigned integer
    procedure Skip(numBytes:integer); // advance read pos by
    procedure Seek(pos:integer);
@@ -145,7 +146,7 @@ type
   end;}
 
   TWriteBuffer=record
-   size:integer;
+   position:integer;
    constructor Init(expectedSize:integer);
    procedure Reset(newSize:integer);
    procedure Write(var item;numBytes:integer); overload;
@@ -158,6 +159,8 @@ type
    procedure WriteDouble(d:double); inline;
    procedure WriteFlex(c:cardinal);
    procedure WriteStr(s:String8);
+   procedure Seek(pos:integer);
+   procedure Skip(bytes:integer);
    function AsBuffer:TBuffer;
   private
    data:ByteArray;
@@ -251,6 +254,15 @@ function TBuffer.ReadInt:integer;
   ASSERT(BytesLeft>=4);
   result:=PInteger(readPos)^;
   inc(readPos,4);
+ end;
+
+function TBuffer.ReadString:String8;
+ var
+  size:integer;
+ begin
+  size:=ReadFlex;
+  SetLength(result,size);
+  Read(result[1],size);
  end;
 
 function TBuffer.ReadUInt:cardinal;
@@ -379,16 +391,26 @@ function TFloatRange.Width:single;
 
 procedure TWriteBuffer.Reset(newSize:integer);
  begin
-  size:=0;
+  position:=0;
   SetLength(data,newSize);
+ end;
+
+procedure TWriteBuffer.Seek(pos:integer);
+ begin
+  position:=pos;
+ end;
+
+procedure TWriteBuffer.Skip(bytes:integer);
+ begin
+  inc(position,bytes);
  end;
 
 procedure TWriteBuffer.Write(var item;numBytes:integer);
  begin
-  while length(data)<size+numBytes do
+  while length(data)<position+numBytes do
    SetLength(data,(length(data)+1024)*2);
-  move(item,data[size],numBytes);
-  inc(size,numBytes);
+  move(item,data[position],numBytes);
+  inc(position,numBytes);
  end;
 
 procedure TWriteBuffer.Write(var buf:TBuffer);
@@ -449,12 +471,12 @@ procedure TWriteBuffer.WriteStr(s:String8);
 
 function TWriteBuffer.AsBuffer:TBuffer;
  begin
-  result.Create(@data[0],size);
+  result.Create(@data[0],position);
  end;
 
 constructor TWriteBuffer.Init(expectedSize:integer);
  begin
-  size:=0;
+  position:=0;
   if expectedSize<=0 then expectedSize:=16384;
   SetLength(data,expectedSize);
  end;
@@ -462,6 +484,7 @@ constructor TWriteBuffer.Init(expectedSize:integer);
 { half }
 
 // Convert float to half
+// This is a simplified algorithm which doesn't handle all the specific cases
 class operator half.Implicit(const f:single):half;
  var
   bits:cardinal absolute f;
@@ -477,6 +500,7 @@ class operator half.Implicit(const f:single):half;
  end;
 
 // Convert half to float
+// This is a simplified algorithm which doesn't handle all the specific cases
 class operator half.Implicit(const h:half):single;
  var
   res:cardinal;
