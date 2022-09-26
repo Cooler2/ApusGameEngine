@@ -54,6 +54,7 @@ const
  liffPow2    = aiPow2; // Image dimensions will be increased to the nearest pow2
  liffMipMaps = aiAutoMipmap; // Image will be loaded with mip-maps (auto-generated if no mips in the file)
  liffAllowChange = $100;    // Ensure that image won't be read-only
+ liffNoFail  = $40000000;   // Don't raise exception if file not loaded, return nil instead
  liffDefault = $FFFFFFFF;   // Use defaultLoadImageFlags for default flag values
 
  // width and height of atlas-texture

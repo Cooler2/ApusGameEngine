@@ -341,7 +341,7 @@ begin
     end;
 end;
 
-function FindProperFile(fname:string):string;
+function FindProperFile(fname:string;dontFail:boolean=false):string;
  var
   maxAge,age:integer;
   st,st2:string;
@@ -378,7 +378,9 @@ function FindProperFile(fname:string):string;
   if age>maxAge then begin
    st2:=st;
   end;
-  if st2='' then raise EWarning.Create(fname+' not found');
+  if st2='' then
+   if dontFail then exit('')
+    else raise EWarning.Create(fname+' not found');
   result:=st2;
   {$ENDIF}
  end;
@@ -442,7 +444,8 @@ begin
      else raise EError.Create(fname+' not found');
   {$ELSE}
   if ExtractFileExt(fname)='' then begin // find file
-   fName:=FindProperFile(fName);
+   fName:=FindProperFile(fName,HasFlag(flags,liffNoFail));
+   if fName='' then exit(nil);
   end;
   {$ENDIF}
 
@@ -546,7 +549,8 @@ begin
 
  except
   on e:Exception do begin
-   raise EWarning.Create(fname+' - Loading failed: '+ExceptionMsg(e));
+   if HasFlag(flags,liffNoFail) then exit(nil)
+    else raise EWarning.Create(fname+' - Loading failed: '+ExceptionMsg(e));
   end;
  end;
 
