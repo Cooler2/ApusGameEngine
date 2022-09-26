@@ -1910,6 +1910,56 @@ procedure TestHalf;
   writeln('Half test OK');
  end;
 
+procedure TestRandom;
+ var
+  r:TRandom;
+  a:array[0..255] of integer;
+  i,j,v:integer;
+  f:single;
+  avg,d,max:double;
+ begin
+  r.Init;
+  ZeroMem(a,sizeof(a));
+  // Check uniform
+  for i:=1 to 10000000 do begin
+   v:=r.Int(100);
+   inc(a[v]);
+  end;
+  for i:=0 to 99 do
+   ASSERT(abs(a[i]-100000)<1200,'Non-uniform distribution');
+  // Check seed
+  for i:=1 to 100 do begin
+   r.Init(i);
+   a[0]:=0; a[1]:=1; a[2]:=0;
+   for j:=1 to 300000 do inc(a[r.Int(3)]);
+   ASSERT(abs(a[0]-100000)<1000);
+  end;
+  // Check avg
+  r.Init;
+  avg:=0; d:=0;
+  for i:=1 to 10000 do begin
+   f:=r.Avg(100);
+   avg:=avg+f;
+   d:=d+f*f;
+  end;
+  avg:=avg/10000;
+  d:=sqrt(d/10000);
+  // Check Gaussian distribution
+  r.Init;
+  avg:=0; d:=0; max:=0;
+  for i:=1 to 100000 do begin
+   f:=r.Normal;
+   max:=max2d(max,abs(f));
+   avg:=avg+f;
+   d:=d+f*f;
+  end;
+  avg:=avg/100000;
+  d:=sqrt(d/100000);
+  ASSERT(abs(avg)<0.01,'Wrong average');
+  ASSERT(abs(d-1)<0.01,'Wrong dispertion');
+  writeln('Random test OK');
+ end;
+
 (* // Debug GetCaller
 
 var
@@ -1955,6 +2005,7 @@ begin
  UseLogFile('log.txt',true);
  try
   //Test1(1,2,3);
+  TestRandom;
   TestHalf;
   TestFloor;
   TestBitFunc;

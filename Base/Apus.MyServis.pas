@@ -173,6 +173,17 @@ interface
   TSortableObjects=array of TSortableObject;
   PSortableObjects=^TSortableObjects;
 
+  // Random generator
+  TRandom=record
+   state,add:uint64;
+   procedure Init(seed:cardinal=0);
+   function Int(max:cardinal):cardinal;
+   function Float:single;
+   function Avg(n:integer):single;
+   function Normal:single;
+   function Next:cardinal; //inline;
+  end;
+
   // Режимы работы с лог-файлом
   TLogModes=(lmSilent,   // никакие сообщения не выводятся в лог
              lmForced,   // выводятся только forced-собщения
@@ -6480,6 +6491,49 @@ function TThreadInfo.GetStateInfo: string;
   else
    st:=GetThreadStateInfo({$IFDEF UNIX}tid{$ELSE}id{$ENDIF});
   result:=Format('%20s ID=%d; %s ',[name,ID,st]);
+ end;
+
+{ TRandom }
+procedure TRandom.Init(seed:cardinal);
+ begin
+  if seed=0 then seed:=cardinal(round(Now*1000000));
+  state:=$853c49e6748fea9b+seed;
+  add:=$da3e39cb94b95bdb;
+ end;
+
+function TRandom.Next:cardinal;
+ begin
+  state:=state*uint64(6364136223846793005)+add;
+  result:=cardinal(state);
+  state:=(state shr 32)+(state shl 32);
+ end;
+
+function TRandom.Avg(n:integer):single;
+ var
+  i:integer;
+ begin
+  result:=0;
+  for i:=1 to n do
+   result:=result+Float-Float;
+ end;
+
+function TRandom.Float:single;
+ begin
+  result:=Next*(1/$100000000);
+ end;
+
+function TRandom.Int(max:cardinal):cardinal;
+ begin
+  result:=next mod max;
+ end;
+
+function TRandom.Normal:single;
+ var
+  a,b:single;
+ begin
+  // Box–Muller transform
+  a:=Float; b:=1-Float;
+  result:=cos(2*Pi*a)*sqrt(-2*ln(b));
  end;
 
 initialization
