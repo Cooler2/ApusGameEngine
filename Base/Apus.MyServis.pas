@@ -178,8 +178,9 @@ interface
    procedure Init(seed:cardinal=0);
    function Int(max:cardinal):cardinal; // uniform distribution in [0..max-1] range
    function Float:single;  // uniform distribution in [0..1) range
-   function Sum(n:integer):single; // (Int-Int) N times
+   function Sum(n:integer=1):single; // (Int-Int) N times. With n=6 it is similar to Normal distribution (with D=1)
    function Normal:single; // gaussian distribution with dispersion=1
+   function Exp(mean:single=1.0):single; // exponential distribution with λ=mean
    function Next:cardinal; inline;
   private
    state,add:uint64;
@@ -6518,9 +6519,14 @@ function TRandom.Sum(n:integer):single;
    result:=result+Float-Float;
  end;
 
+function TRandom.Exp(mean:single):single;
+ begin
+  result:=-mean*ln(Float);
+ end;
+
 function TRandom.Float:single;
  begin
-  result:=Next*(1/$100000000);
+  result:=Next*single(1/$100000000);
  end;
 
 function TRandom.Int(max:cardinal):cardinal;
