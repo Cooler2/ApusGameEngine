@@ -289,8 +289,8 @@ interface
  // StartMeasure(n) ... EndMeasure(n);
  // Это может исполняться как один раз, так и много раз
  // GetTaskPerformance - среднее время выполнения участка (в мс.)
- procedure StartTimer(n:integer); overload;
- function EndTimer(n:integer):double; overload;
+ procedure StartMeasure(n:integer); overload;
+ function EndMeasure(n:integer):double; overload;
  // простое высокоточное измерение интервала времени в мс.
  procedure StartMeasure(var t:int64); overload;
  function EndMeasure(var t:int64):double; overload;
@@ -5537,13 +5537,13 @@ procedure DumpDir(path:string);
    result:=(time-t)*perfkoef;
   end;
 
- procedure StartTimer(n:integer);
+ procedure StartMeasure(n:integer);
   begin
    ASSERT(n in [1..high(values)]);
    QueryPerformanceCounter(values[n]);
   end;
 
- function EndTimer(n:integer):double;
+ function EndMeasure(n:integer):double;
   var
    v:Int64;
   begin
