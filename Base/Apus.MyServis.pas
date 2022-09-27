@@ -175,13 +175,14 @@ interface
 
   // Random generator
   TRandom=record
-   state,add:uint64;
    procedure Init(seed:cardinal=0);
-   function Int(max:cardinal):cardinal;
-   function Float:single;
-   function Avg(n:integer):single;
-   function Normal:single;
+   function Int(max:cardinal):cardinal; // uniform distribution in [0..max-1] range
+   function Float:single;  // uniform distribution in [0..1) range
+   function Sum(n:integer):single; // (Int-Int) N times
+   function Normal:single; // gaussian distribution with dispersion=1
    function Next:cardinal; inline;
+  private
+   state,add:uint64;
   end;
 
   // Режимы работы с лог-файлом
@@ -6508,7 +6509,7 @@ function TRandom.Next:cardinal;
   state:=(state shr 32)+(state shl 32);
  end;
 
-function TRandom.Avg(n:integer):single;
+function TRandom.Sum(n:integer):single;
  var
   i:integer;
  begin

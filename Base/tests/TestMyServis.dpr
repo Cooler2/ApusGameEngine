@@ -1938,11 +1938,11 @@ procedure TestRandom;
    for j:=1 to 300000 do inc(a[r.Int(3)]);
    ASSERT(abs(a[0]-100000)<1000);
   end;
-  // Check avg
+  // Check sum
   r.Init;
   avg:=0; d:=0;
   for i:=1 to 10000 do begin
-   f:=r.Avg(100);
+   f:=r.Sum(100);
    avg:=avg+f;
    d:=d+f*f;
   end;
