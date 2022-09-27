@@ -181,7 +181,7 @@ interface
    function Float:single;
    function Avg(n:integer):single;
    function Normal:single;
-   function Next:cardinal; //inline;
+   function Next:cardinal; inline;
   end;
 
   // Режимы работы с лог-файлом
@@ -289,8 +289,8 @@ interface
  // StartMeasure(n) ... EndMeasure(n);
  // Это может исполняться как один раз, так и много раз
  // GetTaskPerformance - среднее время выполнения участка (в мс.)
- procedure StartMeasure(n:integer); overload;
- function EndMeasure(n:integer):double; overload;
+ procedure StartTimer(n:integer); overload;
+ function EndTimer(n:integer):double; overload;
  // простое высокоточное измерение интервала времени в мс.
  procedure StartMeasure(var t:int64); overload;
  function EndMeasure(var t:int64):double; overload;
@@ -5537,13 +5537,13 @@ procedure DumpDir(path:string);
    result:=(time-t)*perfkoef;
   end;
 
- procedure StartMeasure(n:integer);
+ procedure StartTimer(n:integer);
   begin
    ASSERT(n in [1..high(values)]);
    QueryPerformanceCounter(values[n]);
   end;
 
- function EndMeasure(n:integer):double;
+ function EndTimer(n:integer):double;
   var
    v:Int64;
   begin
@@ -6497,8 +6497,8 @@ function TThreadInfo.GetStateInfo: string;
 procedure TRandom.Init(seed:cardinal);
  begin
   if seed=0 then seed:=cardinal(round(Now*1000000));
-  state:=$853c49e6748fea9b+seed;
-  add:=$da3e39cb94b95bdb;
+  state:=uint64($853c49e6748fea9b+seed);
+  add:=uint64($da3e39cb94b95bdb);
  end;
 
 function TRandom.Next:cardinal;

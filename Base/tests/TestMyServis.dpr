@@ -1917,14 +1917,18 @@ procedure TestRandom;
   i,j,v:integer;
   f:single;
   avg,d,max:double;
+  t:int64;
+  time:double;
  begin
   r.Init;
   ZeroMem(a,sizeof(a));
   // Check uniform
+  StartMeasure(t);
   for i:=1 to 10000000 do begin
    v:=r.Int(100);
    inc(a[v]);
   end;
+  time:=EndMeasure(t);
   for i:=0 to 99 do
    ASSERT(abs(a[i]-100000)<1200,'Non-uniform distribution');
   // Check seed
@@ -1957,7 +1961,7 @@ procedure TestRandom;
   d:=sqrt(d/100000);
   ASSERT(abs(avg)<0.01,'Wrong average');
   ASSERT(abs(d-1)<0.01,'Wrong dispertion');
-  writeln('Random test OK');
+  writeln('Random test OK, time ',time:5:2);
  end;
 
 (* // Debug GetCaller
