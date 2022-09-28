@@ -38,6 +38,8 @@ type
  TVertexComponent = Apus.VertexLayout.TVertexComponent;
  TVertexLayout = Apus.VertexLayout.TVertexLayout;
 
+ TIndices=WordArray;
+
  // Packed ARGB color
  TARGBColor=Apus.Colors.TARGBColor;
  PARGBColor=Apus.Colors.PARGBColor;

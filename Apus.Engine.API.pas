@@ -7,8 +7,8 @@
 unit Apus.Engine.API;
 interface
  uses Apus.CrossPlatform, Types, Apus.Types, Apus.Engine.Types, Apus.Classes, Apus.AnimatedValues,
-   Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors, Apus.Structs, Apus.EventMan,
-   Apus.VertexLayout, Apus.Engine.Resources, Apus.Engine.Scene, Apus.Engine.UIScene;
+   Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors, Apus.Structs, Apus.EventMan, Apus.VertexLayout,
+   Apus.Engine.Mesh, Apus.Engine.Resources, Apus.Engine.Scene, Apus.Engine.UIScene;
 
 const
  // Image allocation flags (ai - AllocImage)
@@ -614,30 +614,10 @@ type
  // vertex and index arrays
  TVertices=array of TVertex;
  TVertices3D=array of TVertex3D;
- TIndices=array of word;
+ TIndices=Apus.Engine.Types.TIndices;
  TTexCoords=array of TPoint2s;
 
- // Simple mesh
- TMesh=class
-  layout:TVertexLayout;
-  vertices:pointer;
-  indices:TIndices; // Optional, can be empty
-  vCount:integer; // Number of vertices allocated
-  constructor Create(vertexLayout:TVertexLayout;vertCount,indCount:integer);
-  procedure SetVertices(data:pointer;sizeInBytes:integer);
-  procedure AddVertex(var vertexData);
-  procedure AddTrg(v0,v1,v2:integer);
-  procedure Draw(tex:TTexture=nil); // draw whole mesh
-  destructor Destroy; override;
-  function DumpVertex(n:cardinal):String8;
-  function vPos:integer; // Returns number of vertices stored via AddVertex (current write position)
-  procedure UseBuffers; // Create vertex index buffers and upload mesh data for faster rendering
- private
-  vData:PByte;
-  idx:integer;
-  vb:TVertexBuffer;
-  ib:TIndexBuffer;
- end;
+ TMesh=Apus.Engine.Mesh.TMesh;
 
  PMultiTexLayer=^TMultiTexLayer;
  TMultiTexLayer=record
@@ -1256,86 +1236,6 @@ procedure DrawToTexture(tex:TTexture;mipLevel:integer=0);
  begin
   if not tex.IsLocked then tex.Lock(mipLevel);
   SetRenderTarget(tex.data,tex.pitch,tex.width shr mipLevel,tex.height shr mipLevel);
- end;
-
-
-{ TMesh }
-
-procedure TMesh.AddTrg(v0,v1,v2: integer);
- begin
-  indices[idx]:=v0; inc(idx);
-  indices[idx]:=v1; inc(idx);
-  indices[idx]:=v2; inc(idx);
- end;
-
-procedure TMesh.AddVertex(var vertexData);
- begin
-  ASSERT(PointerInRange(vData,vertices,vCount*layout.stride));
-  move(vertexData,vData^,layout.stride);
-  inc(vData,layout.stride);
- end;
-
-function TMesh.DumpVertex(n:cardinal):String8;
- var
-  pb:PByte;
- begin
-  ASSERT(n<vCount);
-  pb:=vertices;
-  inc(pb,n*layout.stride);
-  result:=layout.DumpVertex(pb^);
- end;
-
-constructor TMesh.Create(vertexLayout:TVertexLayout; vertCount,indCount:integer);
- begin
-  layout:=vertexLayout;
-  vCount:=vertCount;
-  if vCount>0 then GetMem(vertices,vCount*layout.stride);
-  SetLength(indices,indCount);
-  vData:=vertices;
-  idx:=0;
- end;
-
-destructor TMesh.Destroy;
- begin
-  FreeMem(vertices);
-  inherited;
- end;
-
-procedure TMesh.Draw(tex:TTexture=nil); // draw whole mesh
- begin
-  if (vb<>nil) then begin // buffers are used
-   Apus.Engine.API.draw.IndexedMesh(vb,ib,tex);
-   exit;
-  end;
-  if length(indices)>0 then
-   Apus.Engine.API.draw.IndexedMesh(vertices,layout,@indices[0],
-     length(indices) div 3,vCount,tex)
-  else
-   Apus.Engine.API.draw.TrgList(vertices,layout,vCount div 3,tex)
- end;
-
-procedure TMesh.SetVertices(data:pointer;sizeInBytes:integer);
- begin
-  FreeMem(vertices);
-  vertices:=data;
-  vCount:=sizeInBytes div layout.stride;
-  vData:=vertices;
- end;
-
-procedure TMesh.UseBuffers;
- begin
-  ASSERT((vb=nil) and (ib=nil),'Already buffered');
-  vb:=gfx.resMan.AllocVertexBuffer(layout,vCount);
-  vb.Upload(0,vCount,vertices);
-  FreeMem(vertices);
-  ib:=gfx.resMan.AllocIndexBuffer(length(indices));
-  ib.Upload(0,length(indices),@indices[0]);
-  SetLength(indices,0);
- end;
-
-function TMesh.vPos:integer;
- begin
-  result:=(UIntPtr(vData)-UIntPtr(vertices)) div layout.stride;
  end;
 
 { TNinePatch }
