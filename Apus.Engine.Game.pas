@@ -556,7 +556,7 @@ begin
          (oldmouseX<r.x2) and (oldmouseY<r.y2);
 end;
 
-constructor TGame.Create(systemPlatform: ISystemPlatform;
+constructor TGame.Create(systemPlatform:ISystemPlatform;
   gfxSystem: IGraphicsSystem);
 begin
  inherited Create(systemPlatform,gfxSystem);

@@ -26,6 +26,7 @@ interface
    windowedMode:boolean=true;
    windowWidth:integer=1024;
    windowHeight:integer=768;
+   useRealDPI:boolean=true; // use real DPI on High DPI screens (Windows: set DPI awareness mode)
    scaleWindowSize:boolean=true; // enlarge window accordingly if DPI is higher than platform default (96 for desktop monitor)
    gameMode:TGameAppMode=gamUseFullWindow;
 
@@ -438,12 +439,25 @@ procedure TGameApplication.onResize;
   if game.running then SelectFonts;
  end;
 
+{$IFDEF MSWINDOWS}
+{$IF Declared(SetProcessDPIAware)} {$ELSE}
+function SetProcessDPIAware:BOOL; external user32 name 'SetProcessDPIAware';
+{$IFEND}
+procedure SetDPIAwareness;
+ begin
+  SetProcessDPIAware;
+ end;
+{$ENDIF}
+
 procedure TGameApplication.Prepare;
  var
   i:integer;
   st:string;
  begin
   try
+   {$IFDEF MSWINDOWS}
+   if useRealDPI then SetDPIAwareness;
+   {$ENDIF}
    PublishVar(@gameLangCode,'gameLangCode',TVarTypeString);
    RegisterThread('ControlThread');
    //SetCurrentDir(ExtractFileDir(ParamStr(0)));
