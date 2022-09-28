@@ -20,7 +20,7 @@ interface
 
 implementation
  uses Apus.MyServis,SysUtils,Apus.EventMan,Apus.Geom3D,Apus.AnimatedValues,
-   Apus.Engine.Tools,Apus.Engine.UI,Apus.Engine.UIScene,Apus.Publics;
+   Apus.Engine.Tools,Apus.Engine.UI,Apus.Engine.UIScene,Apus.Publics,Apus.VertexLayout;
 
  type
   // This will be our single scene
@@ -28,6 +28,7 @@ implementation
    cameraAngle:single;
    cameraZoom:TAnimatedValue;
    texCube,objCube,objGear:TMesh;
+   cCubeMesh:TMesh;
    texture:TTexture;
    constructor Create;
    procedure Initialize; override;
@@ -78,7 +79,13 @@ constructor TMainScene.Create;
  end;
 
 procedure TMainScene.Initialize;
+ var
+  st:string;
  begin
+  cCubeMesh:=TMesh.Create(TVertexLayout.Create([vcPosition3d,vcNormal,vcColor]),0,0);
+  cCubeMesh.AddCube(NullPointS,Vector3s(1,2,3),$FFFF0000);
+  cCubeMesh.Finish;
+  //st:=cCubeMesh.DumpVertex(0);
  end;
 
 procedure TMainScene.onMouseMove(x, y: integer);
@@ -86,7 +93,7 @@ procedure TMainScene.onMouseMove(x, y: integer);
   inherited;
   // Turn camera around
   if game.mouseButtons and mbLeft>0 then
-   cameraAngle:=cameraAngle-(x-game.oldMouseX)*0.01;
+   cameraAngle:=cameraAngle-0.5*(x-game.oldMouseX)/game.screenDPI;
  end;
 
 procedure TMainScene.onMouseWheel(delta: integer);
@@ -134,15 +141,22 @@ procedure TMainScene.Render;
 
   // Setup light and material
   shader.AmbientLight($303030);
-  shader.DirectLight(Vector3(1,0.5,1),0.5,$FFFFFF);
-  shader.Material($FF408090,0);
+  shader.DirectLight(Vector3(1,0.5,1),1.0,$FFFFFF);
+  shader.Material($FF408090,0); // has no effect
 
   // Draw objects
+  transform.SetObj(5,5,2); // Set object position and scale
+  cCubeMesh.Draw;
+
   transform.SetObj(0,0,1.5+1.3*sin(time), 2); // Set object position and scale
   //shader.TexMode(0,tblReplace,tblKeep);
   texCube.Draw(texture);
-  //objGear.Draw;
+  transform.SetObj(0,-5,1.5+1.3*sin(time), 2); // Set object position and scale
+  objGear.Draw;
   //objCube.Draw;
+
+  transform.SetObj(-5,5,2); // Set object position and scale
+  cCubeMesh.Draw;
 
 
   // Turn back to 2D view
