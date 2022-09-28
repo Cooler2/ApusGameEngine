@@ -181,9 +181,9 @@ interface
    function Sum(n:integer=1):single; // (Int-Int) N times. With n=6 it is similar to Normal distribution (with D=1)
    function Normal:single; // gaussian distribution with dispersion=1
    function Exp(mean:single=1.0):single; // exponential distribution with λ=mean
-   function Next:cardinal; inline;
   private
    state,add:uint64;
+   function Next:cardinal; inline;
   end;
 
   // Режимы работы с лог-файлом
@@ -6521,7 +6521,7 @@ function TRandom.Sum(n:integer):single;
 
 function TRandom.Exp(mean:single):single;
  begin
-  result:=-mean*ln(Float);
+  result:=-mean*ln(1-Float);
  end;
 
 function TRandom.Float:single;
