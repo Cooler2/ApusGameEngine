@@ -62,7 +62,8 @@ constructor TSimpleDemoApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   //usedPlatform:=spSDL;
-  //directRenderOnly:=true;
+  //directRenderOnly:=false;
+  //useDepthTexture:=true;
   //windowedMode:=false;
  end;
 
@@ -230,8 +231,7 @@ procedure TMainScene.Render;
   txt.WriteW(font,300,200,$FFFFFFFF,'Hello world!'); // Write text using the font
 
   txt.WriteW(0,10,20,$FFD0D0D0,'RMB - particles, [Win]+[~] - toggle console. ');
-  txt.WriteW(game.largerFont,10,50,$FFD0D0D0,'RMB - particles, [Win]+[~] - toggle console. ');
-  txt.WriteW(game.smallFont,10,70,$FFD0D0D0,'RMB - particles, [Win]+[~] - toggle console. ');
+
   inherited; // Here all the UI is displayed
 
   // I want particles to be drawn over the UI so handle them here
