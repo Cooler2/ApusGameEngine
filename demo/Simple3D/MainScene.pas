@@ -51,8 +51,9 @@ constructor TMainApp.Create;
   gameTitle:='Simple 3D Demo'; // app window title
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
+  scaleWindowSize:=true;
   //usedPlatform:=spSDL;
-  directRenderOnly:=true;
+  //directRenderOnly:=true;
   //windowedMode:=false;
   if DirectoryExists('..\Demo\Simple3D') then
    baseDir:='..\Demo\Simple3D\';
@@ -83,7 +84,8 @@ procedure TMainScene.Initialize;
   st:string;
  begin
   cCubeMesh:=TMesh.Create(TVertexLayout.Create([vcPosition3d,vcNormal,vcColor]),0,0);
-  cCubeMesh.AddCube(NullPointS,Vector3s(1,2,3),$FFFF0000);
+  cCubeMesh.AddCube(NullPointS,Vector3s(1,2,3),$FF20C040);
+  cCubeMesh.AddCylinder(Point3s(0,0,3),Point3s(0,1,6),0.5,0.2,16,$FF20C050);
   cCubeMesh.Finish;
   //st:=cCubeMesh.DumpVertex(0);
  end;
