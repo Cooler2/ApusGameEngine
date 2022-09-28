@@ -19,16 +19,18 @@ type
   function AddVertex(var vertexData):integer; overload;
   function AddVertex(pos:TPoint3s;norm:TVector3s;uv:TPoint2s;color:cardinal):integer; overload;
   procedure AddTrg(v0,v1,v2:integer);
-  procedure AddCube(center:TPoint3s;size:TVector3s;color:cardinal);
-  procedure AddCylinder(p0,p1:Tpoint3s;r0,r1:single;segments,color:cardinal;addCaps:boolean=false);
+  procedure AddTriangle(p1,p2,p3:TPoint3s;color:cardinal=$FF808080);
+  procedure AddMesh(mesh:TMesh);
+  procedure AddCube(center:TPoint3s;size:TVector3s;color:cardinal=$FF808080);
+  procedure AddCylinder(p0,p1:Tpoint3s;r0,r1:single;segments:integer;color:cardinal=$FF808080;addCaps:boolean=false);
   procedure Finish; // finalize write and fix current number of written vertices/indices
   procedure Draw(tex:TTexture=nil); // draw whole mesh
   destructor Destroy; override;
   function DumpVertex(n:cardinal):String8;
-  function vPos:integer; // Returns number of vertices stored via AddVertex (current write position)
+  function vPos:integer;
   procedure UseBuffers; // Create vertex index buffers and upload mesh data for faster rendering
  private
-  vData:PByte; // vertex data write pointer
+  vIdx:integer; // vertex to write
   idx:integer; // index write pointer
   // These buffer objects can be used instead of "vertices"/"indices"
   vb:TVertexBuffer;
@@ -47,7 +49,7 @@ constructor TMesh.Create(vertexLayout:TVertexLayout;vertCount,indCount:integer);
   vCount:=vertCount;
   if vCount>0 then GetMem(vertices,vCount*layout.stride);
   SetLength(indices,indCount);
-  vData:=vertices;
+  vIdx:=0;
   idx:=0;
  end;
 
@@ -66,35 +68,35 @@ procedure TMesh.AddTrg(v0,v1,v2:integer);
  end;
 
 function TMesh.AssertVertices(num:integer):integer;
- var
-  cnt:integer;
  begin
-  cnt:=(UIntPtr(vData)-UIntPtr(vertices)) div layout.stride;
-  if cnt+num>vCount then begin
-   vCount:=(cnt+num)+cnt div 4;
+  result:=vIdx;
+  if vIdx+num>vCount then begin
+   vCount:=(vIdx+num)+16+vIdx div 4;
    ReallocMem(vertices,vCount*layout.stride);
-   if vData=nil then vData:=vertices;
   end;
-  result:=cnt;
  end;
 
 function TMesh.AddVertex(pos:TPoint3s;norm:TVector3s;uv:TPoint2s;color:cardinal):integer;
+ var
+  vData:PByte;
  begin
+  vData:=vertices; inc(vData,vIdx*layout.stride);
   result:=AssertVertices;
   layout.SetPos(vData^,pos);
   layout.SetNormal(vData^,norm);
   layout.SetUV(vData^,uv);
   layout.SetColor(vData^,color);
-  inc(vData,layout.stride);
+  inc(vIdx);
  end;
 
 function TMesh.AddVertex(var vertexData):integer;
+ var
+  vData:PByte;
  begin
   result:=AssertVertices;
-  //ASSERT(PointerInRange(vData,vertices,vCount*layout.stride));
-
+  vData:=vertices; inc(vData,vIdx*layout.stride);
   move(vertexData,vData^,layout.stride);
-  inc(vData,layout.stride);
+  inc(vIdx);
  end;
 
 function TMesh.DumpVertex(n:cardinal):String8;
@@ -109,7 +111,7 @@ function TMesh.DumpVertex(n:cardinal):String8;
 
 procedure TMesh.Finish;
  begin
-  vCount:=(UIntPtr(vData)-UIntPtr(vertices)) div layout.stride;
+  vCount:=vIdx;
   ReallocMem(vertices,vCount*layout.stride);
   SetLength(indices,idx);
  end;
@@ -132,7 +134,7 @@ procedure TMesh.SetVertices(data:pointer;sizeInBytes:integer);
   FreeMem(vertices);
   vertices:=data;
   vCount:=sizeInBytes div layout.stride;
-  vData:=vertices;
+  vIdx:=0;
  end;
 
 procedure TMesh.UseBuffers;
@@ -148,7 +150,53 @@ procedure TMesh.UseBuffers;
 
 function TMesh.vPos:integer;
  begin
-  result:=(UIntPtr(vData)-UIntPtr(vertices)) div layout.stride;
+  result:=vIdx;
+ end;
+
+procedure TMesh.AddTriangle(p1,p2,p3:TPoint3s;color:cardinal);
+ var
+  norm:TVector3s;
+  uv:TPoint2s;
+  base:integer;
+ begin
+  base:=AssertVertices(3);
+  norm:=CrossProduct(Vector3s(p1,p2),Vector3s(p1,p3));
+  uv.Init(0,0);
+  AddVertex(p1,norm,uv,color);
+  AddVertex(p2,norm,uv,color);
+  AddVertex(p3,norm,uv,color);
+  AddTrg(base,base+1,base+2);
+ end;
+
+procedure TMesh.AddMesh(mesh:TMesh);
+ var
+  i,base,ii:integer;
+  src:PByte;
+  sameLayout:boolean;
+ begin
+  base:=AssertVertices(mesh.vCount);
+  // Add vertices
+  sameLayout:=layout.Equals(mesh.layout);
+  src:=mesh.vertices;
+  for i:=0 to mesh.vCount-1 do begin
+   if sameLayout then
+    AddVertex(src^)
+   else
+    AddVertex(mesh.layout.GetPos(src^),
+              mesh.layout.GetNormal(src^),
+              mesh.layout.GetUV(src^),
+              mesh.layout.GetColor(src^));
+   inc(src,mesh.layout.stride);
+  end;
+  // Add triangles
+  if idx+length(mesh.indices)>length(indices) then
+   SetLength(indices,idx+length(mesh.indices));
+  for i:=0 to length(mesh.indices) div 3 do begin
+   ii:=i*3;
+   AddTrg(base+mesh.indices[ii],
+          base+mesh.indices[ii+1],
+          base+mesh.indices[ii+2]);
+  end;
  end;
 
 procedure TMesh.AddCube(center:TPoint3s;size:TVector3s;color:cardinal);
@@ -157,9 +205,9 @@ procedure TMesh.AddCube(center:TPoint3s;size:TVector3s;color:cardinal);
  var
   n:TVector3s;
   uv:TPoint2s;
-  i:integer;
+  i,base:integer;
  begin
-  AssertVertices(24);
+  base:=AssertVertices(24);
   size.Multiply(0.5);
   uv.Init(0,0);
   for i:=0 to 3 do begin
@@ -171,27 +219,44 @@ procedure TMesh.AddCube(center:TPoint3s;size:TVector3s;color:cardinal);
    AddVertex(Point3s(center.x-size.x*mm[i,0],center.y-size.y*mm[i,1],center.z-size.z),Vector3s(0,0,-1),uv,color);
   end;
   for i:=0 to 5 do begin
-   AddTrg(i,i+6,i+18);
-   AddTrg(i,i+18,i+12);
+   AddTrg(base+i,base+i+6,base+i+18);
+   AddTrg(base+i,base+i+18,base+i+12);
   end;
  end;
 
-procedure TMesh.AddCylinder(p0,p1:Tpoint3s;r0,r1:single;segments,color:cardinal;addCaps:boolean);
+procedure TMesh.AddCylinder(p0,p1:Tpoint3s;r0,r1:single;segments:integer;color:cardinal;addCaps:boolean);
  var
-  i:integer;
-  rX,rY,rZ,r,n:TVector3s;
+  i,base,vNum:integer;
+  rX,rY,rZ,r,norm:TVector3s;
+  v0,v1:TPoint3s;
   a:single;
+  uv:TPoint2s;
  begin
+  base:=AssertVertices(segments*2);
   rZ:=Vector3s(p0,p1);
   rZ.Normalize;
   if abs(rZ.z)>abs(rZ.y) then rX:=CrossProduct(rZ,Vector3s(0,1,0))
    else rX:=CrossProduct(rZ,Vector3s(0,0,1));
   rX.Normalize;
   rY:=CrossProduct(rZ,rX);
+  uv.Init(0,0);
+  // Create vertices
   for i:=0 to segments-1 do begin
    a:=2*Pi*i/segments;
    r.Init(rx,cos(a),ry,sin(a));
-   //AddVertex();
+   v0:=PointAdd(p0,r,r0);
+   v1:=PointAdd(p1,r,r1);
+   norm:=CrossProduct(Vector3s(p0,p1),r);
+   norm:=CrossProduct(norm,Vector3s(v0,v1));
+   norm.Normalize;
+   AddVertex(v0,norm,uv,color);
+   AddVertex(v1,norm,uv,color);
+  end;
+  // Add surface
+  vNum:=segments*2;
+  for i:=0 to segments-1 do begin
+   AddTrg(base+i*2,base+i*2+1,base+(i*2+3) mod vNum);
+   AddTrg(base+i*2,base+(i*2+3) mod vNum,base+(i*2+2) mod vNum);
   end;
  end;
 
