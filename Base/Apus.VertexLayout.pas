@@ -24,6 +24,7 @@ type
  TVertexLayout=record
   layout:cardinal;
   stride:integer;
+  class function Create(items:array of TVertexComponent):TVertexLayout; static;
   procedure Init(position,normal,color,uv1,uv2:integer); overload;
   procedure Init(items:array of TVertexComponent); overload; // pass some TVertexComponent's
   function Equals(l:TVertexLayout):boolean; inline;
@@ -32,9 +33,15 @@ type
   function GetColor(var vertex):cardinal;
   function GetNormal(var vertex):TVector3s;
   function GetUV(var vertex;idx:cardinal=0):TPoint2s;
+  procedure SetPos(var vertex;pos:TPoint3s);
+  procedure SetColor(var vertex;color:cardinal);
+  procedure SetNormal(var vertex;normal:TPoint3s);
+  procedure SetUV(var vertex;uv:TPoint2s);
+  // Describe vertex data
   function DumpVertex(var vertex):string;
  private
   procedure GetField(var vertex;offset,size:integer;var target);
+  procedure SetField(var vertex;offset,size:integer;var data);
  end;
 
  // Basic vertex format for regular primitives
@@ -115,6 +122,11 @@ implementation
 
 { TVertexLayout }
 
+class function TVertexLayout.Create(items: array of TVertexComponent):TVertexLayout;
+ begin
+  result.Init(items);
+ end;
+
 function TVertexLayout.DumpVertex(var vertex):string;
  var
   p:TPoint3s;
@@ -148,6 +160,15 @@ procedure TVertexLayout.GetField(var vertex;offset,size:integer;var target);
   move(pb^,target,size);
  end;
 
+procedure TVertexLayout.SetField(var vertex;offset,size:integer;var data);
+ var
+  pb:PByte;
+ begin
+  pb:=@vertex;
+  inc(pb,offset);
+  move(data,pb^,size);
+ end;
+
 function TVertexLayout.GetColor(var vertex):cardinal;
  var
   p:integer;
@@ -157,7 +178,7 @@ function TVertexLayout.GetColor(var vertex):cardinal;
    else result:=InvalidColor;
  end;
 
-function TVertexLayout.GetNormal(var vertex): TVector3s;
+function TVertexLayout.GetNormal(var vertex):TVector3s;
  var
   p:integer;
  begin
@@ -166,7 +187,7 @@ function TVertexLayout.GetNormal(var vertex): TVector3s;
    else result:=InvalidPoint3s;
  end;
 
-function TVertexLayout.GetPos(var vertex): TPoint3s;
+function TVertexLayout.GetPos(var vertex):TPoint3s;
  var
   v:cardinal;
  begin
@@ -191,28 +212,39 @@ function TVertexLayout.GetUV(var vertex;idx:cardinal):TPoint2s;
    else result:=InvalidPoint2s;
  end;
 
-procedure TVertexLayout.Init(items:array of TVertexComponent);
+procedure TVertexLayout.SetColor(var vertex;color:cardinal);
  var
-  i,ofs:integer;
+  p:integer;
  begin
-  layout:=0;
-  ofs:=0;
-  for i:=0 to high(items) do begin
-   case items[i] of
-    vcPosition2d:begin
-     ASSERT(ofs=0,'Position2D must came first');
-     SetBits(layout,0,4,15); inc(ofs,2);
-    end;
-    vcPosition3d:begin SetBits(layout,0,4,ofs); inc(ofs,3); end;
-    vcNormal:    begin SetBits(layout,4,4,ofs); inc(ofs,3); end;
-    vcColor:     begin SetBits(layout,8,4,ofs); inc(ofs,1); end;
-    vcUV1:       begin SetBits(layout,12,4,ofs); inc(ofs,2); end;
-    vcUV2:       begin SetBits(layout,16,4,ofs); inc(ofs,2); end;
-    vcTangent:   begin SetBits(layout,20,4,ofs); inc(ofs,3); end;
-    vcExtra4:    begin SetBits(layout,24,4,ofs); inc(ofs,4); end;
-   end;
-  end;
-  stride:=ofs*4;
+  p:=(layout shr 8) and $F;
+  if p>0 then SetField(vertex,(layout and $F00) shr 6,4,color);
+ end;
+
+procedure TVertexLayout.SetNormal(var vertex;normal:TPoint3s);
+ var
+  p:integer;
+ begin
+  p:=(layout shr 4) and $F;
+  if p>0 then SetField(vertex,p*4,12,normal);
+ end;
+
+procedure TVertexLayout.SetPos(var vertex;pos:TPoint3s);
+ var
+  v:cardinal;
+ begin
+  v:=layout and $F;
+  if v=15 then
+   SetField(vertex,0,8,pos) // position2D
+  else
+   SetField(vertex,v*4,12,pos); // position3D
+ end;
+
+procedure TVertexLayout.SetUV(var vertex;uv:TPoint2s);
+ var
+  p:integer;
+ begin
+   p:=(layout shr 12) and $F;
+  if p>0 then SetField(vertex,p*4,8,uv);
  end;
 
 procedure TVertexLayout.Init(position,normal,color,uv1,uv2:integer);
@@ -239,6 +271,31 @@ procedure TVertex.Init(x,y,z:single;color:cardinal);
 procedure TVertex.Init(pos:TPoint3s;color:cardinal);
  begin
   Init(pos.x,pos.y,pos.z);
+ end;
+
+
+procedure TVertexLayout.Init(items:array of TVertexComponent);
+ var
+  i,ofs:integer;
+ begin
+  layout:=0;
+  ofs:=0;
+  for i:=0 to high(items) do begin
+   case items[i] of
+    vcPosition2d:begin
+     ASSERT(ofs=0,'Position2D must came first');
+     SetBits(layout,0,4,15); inc(ofs,2);
+    end;
+    vcPosition3d:begin SetBits(layout,0,4,ofs); inc(ofs,3); end;
+    vcNormal:    begin SetBits(layout,4,4,ofs); inc(ofs,3); end;
+    vcColor:     begin SetBits(layout,8,4,ofs); inc(ofs,1); end;
+    vcUV1:       begin SetBits(layout,12,4,ofs); inc(ofs,2); end;
+    vcUV2:       begin SetBits(layout,16,4,ofs); inc(ofs,2); end;
+    vcTangent:   begin SetBits(layout,20,4,ofs); inc(ofs,3); end;
+    vcExtra4:    begin SetBits(layout,24,4,ofs); inc(ofs,4); end;
+   end;
+  end;
+  stride:=ofs*4;
  end;
 
 { TVertexDT }
