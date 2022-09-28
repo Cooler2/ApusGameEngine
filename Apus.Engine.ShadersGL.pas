@@ -26,13 +26,14 @@ type
 
  TGLShader=class(TShader)
   handle:TGLShaderHandle;
-  texMode:cardinal;
+  texMode:cardinal; // low part of TTexMode
   uMVP:integer;   // MVP matrix (named "MVP")
   uModelMat:integer; // model matrix as-is (named "ModelMatrix")
   uNormalMat:integer; // normalized model matrix (named "NormalMatrix")
   uShadowMapMat:integer; // light space matrix for shadow mapping
   uTexShadowMap:integer; // shadow texture sampler
   uTex:array[0..15] of integer; // texture samplers (named "tex0".."texN")
+  uLightDir,uLightColor,uAmbientColor:integer;
   vSrc,fSrc:String8; // shader source code
   isCustom:boolean;
   matrixRevision:integer;
@@ -44,6 +45,7 @@ type
   procedure SetUniform(name:String8;const value:TVector3s); overload; override;
   procedure SetUniform(name:String8;const value:T3DMatrix); overload; override;
   procedure SetUniform(name:String8;const value:TQuaternionS); overload; override;
+  procedure SetUniform(uniLoc:integer;const value:TVector3s); overload;
   procedure UpdateMatrices(revision:integer;const shadowMapMatrix:T3DMatrixS); // Get transformation matrices and upload them to uniforms
  end;
 
@@ -122,7 +124,6 @@ type
   isCustom:boolean;
 
   matrixRevision:integer; // increments when transformation changed, so matrices can be uploaded to shaders
-  //mvpMatrix,modelMatrix,
   viewProjMatrix:T3DMatrixS; // lightspace matrix used for shadowmap
   shadowMapMatrix:T3DMatrixS; // frustrum->viewport transformation matrix for the main shadow rendering phase
   shadowMap:TTexture;
@@ -158,7 +159,7 @@ const
 
 { TGLShader }
 
-procedure SetUniformInternal(shader:TGLShader; name:string8;mode:integer;const value); // inline;
+procedure SetUniformInternal(shader:TGLShader;name:string8;mode:integer;const value); // inline;
  var
   loc:GLint;
  begin
@@ -197,14 +198,20 @@ procedure TGLShader.SetUniform(name:String8;const value:TVector2s);
   SetUniformInternal(self,name,22,value);
  end;
 
-procedure TGLShader.SetUniform(name: String8;const value:TVector3s);
+procedure TGLShader.SetUniform(name:String8;const value:TVector3s);
  begin
   SetUniformInternal(self,name,23,value);
  end;
 
-procedure TGLShader.SetUniform(name: String8;const value:TQuaternionS);
+procedure TGLShader.SetUniform(name:String8;const value:TQuaternionS);
  begin
   SetUniformInternal(self,name,24,value);
+ end;
+
+procedure TGLShader.SetUniform(uniLoc:integer;const value:TVector3s);
+ begin
+  if uniLoc>=0 then
+   glUniform3fv(uniLoc,1,@value);
  end;
 
 procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:T3DMatrixS);
@@ -251,6 +258,9 @@ constructor TGLShader.Create(h:TGLShaderHandle);
    uTex[i]:=glGetUniformLocation(h,PAnsiChar(st));
   end;
   uTexShadowMap:=glGetUniformLocation(h,'texShadowMap'); // used for shadowmap
+  uLightDir:=glGetUniformLocation(h,'lightDir');
+  uLightColor:=glGetUniformLocation(h,'lightColor');
+  uAmbientColor:=glGetUniformLocation(h,'ambientColor');
  end;
 
 destructor TGLShader.Destroy;
@@ -762,11 +772,14 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
   i:integer;
   tex:TTexture;
   mat:T3DMatrix;
+  shaderChanged:boolean;
  begin
+  shaderChanged:=false;
   if not isCustom then
    if (actualTexMode.mode<>curTexMode.mode) or (actualVertexLayout<>vertexLayout.layout) then begin
     actualVertexLayout:=vertexLayout.layout;
     shader:=GetShaderFor;
+    if shader<>activeShader then shaderChanged:=true;
     ActivateShader(shader);
     actualTexMode:=curtexMode;
     if HasFlag(curTexMode.lighting,LIGHT_DEPTHPASS) and
@@ -783,7 +796,7 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
   if activeShader.matrixRevision<>matrixRevision then begin
    activeShader.UpdateMatrices(matrixRevision,shadowMapMatrix);
   end;
-  // Textures
+  // Textures (тут тоже возможен косяк, если шейдер меняется, а текстура - нет)
   i:=0;
   while curTexChanged<>0 do begin
    if GetBit(curTexChanged,i) then begin
@@ -805,13 +818,13 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
    glUniform1i(activeShader.uTexShadowMap,9);
   end;
 
-  if directLightModified then begin
-   activeShader.SetUniform('lightDir',directLightDir);
-   activeShader.SetUniform('lightColor',TShader.VectorFromColor3(directLightColor));
+  if shaderChanged or directLightModified then begin
+   activeShader.SetUniform(activeShader.uLightDir,directLightDir);
+   activeShader.SetUniform(activeShader.uLightColor,TShader.VectorFromColor3(directLightColor));
    directLightModified:=false;
   end;
-  if ambientLightModified then begin
-   activeShader.SetUniform('ambientColor',TShader.VectorFromColor3(ambientLightColor));
+  if shaderChanged or ambientLightModified then begin
+   activeShader.SetUniform(activeShader.uAmbientColor,TShader.VectorFromColor3(ambientLightColor));
    ambientLightModified:=false;
   end;
  end;
