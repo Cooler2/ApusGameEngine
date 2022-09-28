@@ -34,11 +34,13 @@ interface
    constructor Init(X,Y,Z:single); overload;
    constructor Init(p:TPoint3); overload;
    constructor Init(p0,p1:TPoint3s;t:single); overload;
+   constructor Init(p0:TPoint3s;weight0:single;p1:TPoint3s;weight1:single); overload;
    constructor SetBetween(p0,p1:TPoint3s;t:single);
    procedure Normalize;
    function IsValid:boolean;
    function Length:single;  // Vector length
    function Length2:single; // Square length
+   procedure Add(p:TPoint3s);
    procedure Multiply(scalar:single);
    case integer of
    0:( x,y,z:single; );
@@ -147,6 +149,8 @@ interface
   IdentMatrix4:TMatrix4=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
   IdentMatrix4s:TMatrix4s=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
 
+  NullPoint:TPoint3=(x:0;y:0;z:0);
+  NullPointS:TPoint3s=(x:0;y:0;z:0);
   InvalidPoint3:TPoint3=(x:NaN;y:NaN;z:NaN);
   InvalidPoint3s:TPoint3s=(x:NaN;y:NaN;z:NaN);
 
@@ -2290,6 +2294,11 @@ constructor TPoint3s.Init(p:TPoint3);
   self.z:=p.z;
  end;
 
+procedure TPoint3s.Add(p:TPoint3s);
+ begin
+  x:=x+p.x; y:=y+p.y; z:=z+p.z;
+ end;
+
 constructor TPoint3s.Init(p0,p1:TPoint3s;t:single);
  begin
   SetBetween(p0,p1,t);
@@ -2308,6 +2317,13 @@ constructor TPoint3s.SetBetween(p0,p1:TPoint3s;t:single);
   x:=p0.x*t1+p1.x*t;
   y:=p0.y*t1+p1.y*t;
   z:=p0.z*t1+p1.z*t;
+ end;
+
+constructor TPoint3s.Init(p0:TPoint3s;weight0:single;p1:TPoint3s;weight1:single);
+ begin
+  x:=p0.x*weight0+p1.x*weight1;
+  y:=p0.y*weight0+p1.y*weight1;
+  z:=p0.z*weight0+p1.z*weight1;
  end;
 
 function TPoint3s.IsValid: boolean;
