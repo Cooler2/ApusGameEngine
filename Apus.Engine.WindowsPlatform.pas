@@ -82,10 +82,6 @@ type
 function FlashWindowEx(var pfwi: TFlashWInfo): LongBool; stdcall; external 'user32' Name 'FlashWindowEx';
 {$IFEND}
 
-{$IF Declared(SetProcessDPIAware)} {$ELSE}
-function SetProcessDPIAware:BOOL; external user32 name 'SetProcessDPIAware';
-{$IFEND}
-
 function AsciiCodeFromUnicode(unicode:integer):integer;
 var
  wst:WideString;
