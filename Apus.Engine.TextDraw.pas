@@ -265,7 +265,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
     if fonts[i] is TFreeTypeFont then
      with fonts[i] as TFreeTypeFont do begin
       if lowercase(faceName)=name then rate:=matchRate*2;
-      if rate>best then begin
+      if rate>bestRate then begin
         bestRate:=rate;
         best:=i;
       end;
@@ -284,7 +284,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
    end else
    if fonts[best] is TFreeTypeFont then begin
     result:=best;
-    EncodeScale(size/20,result); // Масштаб - в процентах относительно размера 20 (макс размер - 51)
+    EncodeScale(realSize/20,result); // Масштаб - в процентах относительно размера 20 (макс размер - 51)
     if flags and fsNoHinting>0 then result:=result or fhNoHinting;
     if flags and fsAutoHinting>0 then result:=result or fhAutoHinting;
    end
