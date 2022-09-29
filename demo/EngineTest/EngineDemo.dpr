@@ -52,7 +52,7 @@ uses
   {$ENDIF }
   Apus.Engine.GameApp in '..\..\Apus.Engine.GameApp.pas',
   Apus.Engine.Model3D in '..\..\Apus.Engine.Model3D.pas',
-  Apus.Engine.OBJLoader in '..\..\Apus.Engine.OBJLoader.pas',
+  Apus.Engine.AEMLoader in '..\..\Apus.Engine.AEMLoader.pas',
   Apus.Engine.SpritePacker in '..\..\Apus.Engine.SpritePacker.pas',
   Apus.Engine.IQMloader in '..\..\Apus.Engine.IQMloader.pas',
   Apus.Engine.ImgLoadQueue in '..\..\Apus.Engine.ImgLoadQueue.pas',
@@ -72,7 +72,9 @@ uses
   Apus.Engine.UI in '..\..\Apus.Engine.UI.pas',
   Apus.Engine.Scene in '..\..\Apus.Engine.Scene.pas',
   Apus.Engine.Types in '..\..\Apus.Engine.Types.pas',
-  Apus.Engine.UILayout in '..\..\Apus.Engine.UILayout.pas';
+  Apus.Engine.UILayout in '..\..\Apus.Engine.UILayout.pas',
+  Apus.Engine.OBJLoader in '..\..\Apus.Engine.OBJLoader.pas',
+  Apus.Engine.Mesh in '..\..\Apus.Engine.Mesh.pas';
 
 const
  wnd:boolean=true;
@@ -80,7 +82,7 @@ const
  virtualScreen:boolean=false;
 
  // Номер теста:
- testnum:integer = 2;
+ testnum:integer = 15;
  // 1 - initialization, basic primitives
  // 2 - non-textured primitives
  // 3 - textured primitives
@@ -1818,7 +1820,8 @@ begin
  //modelInstance.SetAnimationPos('',0);
 
  // Second model
- modelObj:=Load3DModelOBJ('res\test.obj');
+ //modelObj:=Load3DModelOBJ('res\test.obj');
+ modelObj:=Load3DModel('res\torus.aem');
  modelInstanceObj:=modelObj.CreateInstance;
  tex:=LoadImageFromFile('res\texTest.png',liffTexture+liffMipMaps);
 end;
