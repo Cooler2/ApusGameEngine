@@ -57,6 +57,8 @@ interface
   TButtonStyle = Apus.Engine.UIWidgets.TButtonStyle;
   TSnapMode = Apus.Engine.UITypes.TSnapMode;
 
+  procedure SetDefaultUIScale(fullScenesScale,windowedScenesScale:single);
+
   // Поиск элементов по имени. Если элемент не найден, то...
   // mustExists=true - исключение, false - будет создан (а в лог будет сообщение об этом)
   function UIElement(name:string;mustExist:boolean=false):TUIElement;
@@ -119,6 +121,12 @@ interface
 
 implementation
  uses Apus.MyServis, SysUtils, Apus.Engine.UIScene;
+
+ procedure SetDefaultUIScale(fullScenesScale,windowedScenesScale:single);
+  begin
+   defaultScale:=fullScenesScale;
+   windowScale:=windowedScenesScale;
+  end;
 
  procedure ShowSimpleHint(msg:string;parent:TUIElement;x,y,time:integer;font:cardinal=0);
   begin
