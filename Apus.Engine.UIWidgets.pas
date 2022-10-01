@@ -75,7 +75,7 @@ interface
 
   TUILabel=class(TUIElement)
    caption:string;
-   color:cardinal;
+   color:cardinal; // text color
    align:TTextAlignment;
    topOffset:integer; // сдвиг текста вверх
    constructor Create(width,height:single;labelname,text:string;color_:cardinal;bFont:TFontHandle;parent_:TUIElement); overload;

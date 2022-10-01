@@ -100,7 +100,7 @@ type
 
   enabled:boolean; // Должен ли элемент реагировать на пользовательский ввод
   visible:boolean; // должен ли элемент рисоваться
-  manualDraw:boolean; // Указывает на то, что элемент рисуется специальным кодом, а DrawUI его игнорирует
+  manualDraw:boolean; // when true - the element is ignored by a regular DrawUI call, should be drawn manually
   cursor:NativeInt; // Идентификатор курсора (0 - default)
   order:integer; // Определяет порядок отрисовки ($10000 - база для StayOnTop-эл-тов), отрицательные значения - специальные
   // Define how the element should be displayed
@@ -127,6 +127,8 @@ type
   // Relationship
   parent:TUIElement; // Ссылка на элемент-предок
   children:array of TUIElement; // Список вложенных элементов
+  isGroupBox:boolean; // true means that only one child element should be "active" (switches, radio buttons etc.)
+  activeChild:integer; // index of an active child element (when isGroupBox=true), -1 if none
 
   // UI layout
   layout:TLayouter; // how to layout child elements
@@ -185,8 +187,8 @@ type
   function GetClientRect:TRect2s; // Get element's client area in its own CS
 
   // получить экранные к-ты элемента
-  function GetPosOnScreen:TRect;
-  function GetClientPosOnScreen:TRect;
+  function GetPosOnScreen:TRect;       // get full element's area in screen space
+  function GetClientPosOnScreen:TRect; // client area in screen space
 
   // Primary event handlers
   // Сцена (или другой клиент) вызывает эти методы у корневого эл-та, а он
@@ -232,7 +234,7 @@ type
   // Place element at the parent's center (and optionally set anchors to follow the center point)
   procedure Center(setAnchors:boolean=true);
   // Snap element to parent's edge
-  // Optionally shrink parent's client area
+  // Optionally cut from parent's client area, so this element will be outside the client area
   procedure Snap(snapTo:TSnapMode;shrinkParent:boolean=true);
   // Скроллинг в указанную позицию (с обработкой подчиненных скроллбаров если они есть)
   procedure ScrollTo(newX,newY:integer); virtual;
@@ -560,10 +562,11 @@ implementation
    globalRect:=GetPosOnScreen;
    focusedChild:=nil;
    shapeRegion:=nil;
+   activeChild:=-1;
    Signal('UI\ItemCreated',TTag(self));
   end;
 
- destructor TUIElement.Destroy;
+destructor TUIElement.Destroy;
   var
    i,n:integer;
   begin
