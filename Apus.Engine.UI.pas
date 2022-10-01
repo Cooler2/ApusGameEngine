@@ -74,9 +74,18 @@ interface
   procedure SetupEditBox(edit:TUIEditBox;text:string;style:byte;cursor,maxlength:integer;
              enabled,password,noborder:boolean);
 
-  // Установка свойст элемента по имени
+  // Установка свойств элемента по имени
   procedure SetElementState(name:string;visible:boolean;enabled:boolean=true);
   procedure SetElementText(name:string;text:string);
+
+  // UI helpers
+  // ------------
+  // Create vertical container with automatic height
+  function CreateVerticalContainer(width:single;name:string;parent:TUIElement;padding,spacing:single):TUIElement; overload;
+  // Create vertical container with centered content
+  function CreateVerticalContainer(width,height:single;name:string;parent:TUIElement;padding,spacing:single):TUIElement; overload;
+  // Create vertical container for the whole parent's client area with centered content
+  function CreateVerticalContainer(name:string;parent:TUIElement;padding,spacing:single):TUIElement; overload;
 
   // Полезные функции общего применения
   // -------
@@ -104,6 +113,7 @@ interface
   // Dump all important UI data
   function DumpUI:String8;
 
+  // UI critical section (mostly for internal use)
   procedure LockUI(caller:pointer=nil);
   procedure UnlockUI;
 
@@ -113,6 +123,27 @@ implementation
  procedure ShowSimpleHint(msg:string;parent:TUIElement;x,y,time:integer;font:cardinal=0);
   begin
    Apus.Engine.UIScene.ShowSimpleHint(msg,parent,x,y,time,font);
+  end;
+
+ function CreateVerticalContainer(width:single;name:string;parent:TUIElement;padding,spacing:single):TUIElement;
+  begin
+   result:=TUIElement.Create(width,1,parent,name);
+   result.layout:=TRowLayout.CreateVertical(spacing,true);
+   result.SetPaddings(padding);
+  end;
+
+ function CreateVerticalContainer(width,height:single;name:string;parent:TUIElement;padding,spacing:single):TUIElement;
+  begin
+   result:=TUIElement.Create(width,height,parent,name);
+   result.layout:=TRowLayout.CreateVertical(spacing,false);
+   result.SetPaddings(padding);
+  end;
+
+ function CreateVerticalContainer(name:string;parent:TUIElement;padding,spacing:single):TUIElement; overload;
+  begin
+   result:=TUIElement.Create(parent.clientWidth,parent.clientHeight,parent,name);
+   result.layout:=TRowLayout.CreateVertical(spacing,false);
+   result.SetPaddings(padding);
   end;
 
  procedure SetElementText(name:string;text:string);
