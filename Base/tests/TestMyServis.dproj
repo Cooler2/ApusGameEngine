@@ -247,7 +247,7 @@
         <DCCReference Include="..\Apus.Logging.pas"/>
         <DCCReference Include="..\Apus.LongMath.pas"/>
         <DCCReference Include="..\Apus.MemoryLeakUtils.pas"/>
-        <DCCReference Include="..\Apus.MyServis.pas"/>
+        <DCCReference Include="..\Apus.Common.pas"/>
         <DCCReference Include="..\Apus.Network.pas"/>
         <DCCReference Include="..\Apus.Database.pas"/>
         <DCCReference Include="..\Apus.Profiling.pas"/>

@@ -1949,7 +1949,7 @@ procedure TestRandom;
   avg:=avg/100000;
   d:=sqrt(d/100000);
   ASSERT(abs(avg-2)<0.02);
-  ASSERT(abs(d-2*sqrt(2))<0.03);
+  ASSERT(abs(d-2*sqrt(2))<0.04);
   // Check sum
   r.Init;
   avg:=0; d:=0;
