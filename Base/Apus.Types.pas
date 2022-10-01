@@ -167,7 +167,7 @@ type
   end;
 
 implementation
- uses Apus.MyServis, SysUtils;
+ uses Apus.Common, SysUtils;
 
 { TBuffer }
 

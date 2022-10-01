@@ -80,7 +80,7 @@ interface
   function SteamAPI_ISteamFriends_GetPersonaName(self:pointer):PAnsiChar; cdecl external steamLibName;
 
 implementation
- uses SysUtils, Apus.MyServis, Apus.EventMan;
+ uses SysUtils, Apus.Common, Apus.EventMan;
  type
   PMicroTxnAuthorizationResponse_t=^MicroTxnAuthorizationResponse_t;
   MicroTxnAuthorizationResponse_t=record

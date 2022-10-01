@@ -11,7 +11,7 @@
 //
 unit Apus.Engine.Sound;
 interface
-uses Apus.MyServis, Apus.AnimatedValues;
+uses Apus.Common, Apus.AnimatedValues;
 var
  soundFolderPath:string8 = 'Audio\';
  soundConfigFile:string8 = 'sounds.ctl';

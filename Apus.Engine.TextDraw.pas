@@ -100,7 +100,7 @@ interface
   defaultFontHandle:cardinal; // first loaded font (unless overriden), used to substitute 0-handle
 
 implementation
- uses Apus.MyServis,
+ uses Apus.Common,
    SysUtils,
    Apus.Colors,
    Apus.Images,

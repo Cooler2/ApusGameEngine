@@ -8,7 +8,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.ComplexText;
 interface
- uses Apus.MyServis;
+ uses Apus.Common;
 
  // SML routines
  // ------------

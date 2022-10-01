@@ -2,7 +2,7 @@
 program OpenGL;
 
 uses
-  Apus.MyServis, Apus.CrossPlatform, SysUtils,
+  Apus.Common, Apus.CrossPlatform, SysUtils,
   dglOpenGL,
   {$IFDEF MSWINDOWS}
   Apus.Engine.WindowsPlatform,

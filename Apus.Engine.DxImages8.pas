@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.DxImages8;
 interface
- uses Apus.Engine.EngineAPI, Apus.Images, DirectXGraphics, d3d8, Windows, Apus.MyServis;
+ uses Apus.Engine.EngineAPI, Apus.Images, DirectXGraphics, d3d8, Windows, Apus.Common;
 
 type
  // Текстура DirectX

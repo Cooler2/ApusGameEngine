@@ -7,7 +7,7 @@ unit Apus.Engine.AndroidGame;
 interface
  uses JNI, Classes,
    Apus.Engine.EngineAPI,Apus.Images,Apus.Engine.EngineTools,
-   Apus.AnimatedValues,Apus.MyServis,Apus.Engine.BasicGame,Apus.Engine.UIClasses;
+   Apus.AnimatedValues,Apus.Common,Apus.Engine.BasicGame,Apus.Engine.UIClasses;
 
 type
 

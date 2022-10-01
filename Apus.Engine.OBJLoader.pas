@@ -7,7 +7,7 @@
 {$R+}
 unit Apus.Engine.OBJLoader;
 interface
-uses Apus.MyServis, Apus.Engine.Model3D;
+uses Apus.Common, Apus.Engine.Model3D;
 
  function Load3DModelOBJ(fname:string):TModel3D; overload;
  function Load3DModelOBJ(data:ByteArray):TModel3D; overload;

@@ -52,7 +52,7 @@ type
  end;
 
 implementation
- uses Apus.MyServis;
+ uses Apus.Common;
 
 type
  TBitmapHeader=packed record

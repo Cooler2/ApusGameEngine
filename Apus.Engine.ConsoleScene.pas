@@ -25,7 +25,7 @@ var
 
 implementation
  uses SysUtils, Classes, Types,
-  Apus.CrossPlatform, Apus.MyServis, Apus.EventMan,
+  Apus.CrossPlatform, Apus.Common, Apus.EventMan,
   Apus.Engine.UIWidgets, Apus.Engine.UITypes,
   Apus.Engine.CmdProc, Apus.Engine.Console;
 

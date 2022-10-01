@@ -8,7 +8,7 @@ unit Apus.Engine.UDict;
 {$ENDIF}
 
 interface
- uses Apus.MyServis;
+ uses Apus.Common;
 
 var
     languageID:integer;

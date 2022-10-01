@@ -175,7 +175,7 @@ var
  //function BuildVertexLayout(position,normal,color,uv1,uv2:integer):TVertexLayout;
 
 implementation
- uses Math, Apus.MyServis, Apus.Geom2D, Apus.Geom3D;
+ uses Math, Apus.Common, Apus.Geom2D, Apus.Geom3D;
 
 { TTransformationsAPI }
 

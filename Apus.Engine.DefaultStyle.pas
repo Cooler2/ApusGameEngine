@@ -13,7 +13,7 @@ uses Apus.Engine.UI;
  procedure DefaultDrawer(element:TUIElement);
 
 implementation
- uses Apus.Types, Apus.Images, SysUtils, Types, Apus.MyServis, Apus.AnimatedValues,
+ uses Apus.Types, Apus.Images, SysUtils, Types, Apus.Common, Apus.AnimatedValues,
     Apus.Colors, Apus.Structs, Apus.EventMan, Apus.Geom2D,
     Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender;
 

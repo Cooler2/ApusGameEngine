@@ -57,7 +57,7 @@ type
 
 implementation
  uses SysUtils, Types,
-   Apus.MyServis, Apus.EventMan, Apus.Publics, Apus.Geom2D,
+   Apus.Common, Apus.EventMan, Apus.Publics, Apus.Geom2D,
    Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
    Apus.Engine.CmdProc, Apus.Engine.Console, Apus.Engine.API;
 

@@ -13,7 +13,7 @@ interface
  procedure SaveProfilingResults(filename:string);
 
 implementation
- uses Windows,SysUtils,Apus.MyServis,Classes;
+ uses Windows,SysUtils,Apus.Common,Classes;
 
  type
   TSample=record

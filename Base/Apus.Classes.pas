@@ -32,7 +32,7 @@ type
  TNamedObjects=array of TNamedObject;
 
 implementation
-uses Apus.MyServis, Apus.Structs;
+uses Apus.Common, Apus.Structs;
 
 var
  classAttributes:TVarHash;

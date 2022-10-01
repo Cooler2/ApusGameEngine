@@ -19,7 +19,7 @@ interface
   baseDir:string;
 
 implementation
- uses Apus.MyServis,SysUtils,Apus.EventMan,Apus.Geom3D,Apus.AnimatedValues,
+ uses Apus.Common,SysUtils,Apus.EventMan,Apus.Geom3D,Apus.AnimatedValues,
    Apus.Engine.Tools,Apus.Engine.UI,Apus.Engine.UIScene,Apus.Publics,Apus.VertexLayout;
 
  type
@@ -85,7 +85,7 @@ procedure TMainScene.Initialize;
  begin
   cCubeMesh:=TMesh.Create(TVertexLayout.Create([vcPosition3d,vcNormal,vcColor]),0,0);
   cCubeMesh.AddCube(NullPointS,Vector3s(1,2,3),$FF20C040);
-  cCubeMesh.AddCylinder(Point3s(0,0,3),Point3s(0,1,6),0.5,0.2,16,$FF20C050);
+  cCubeMesh.AddCylinder(Point3s(0,0,3),Point3s(0,1,6),0.5,0.2,16,$FFC0A040);
   cCubeMesh.Finish;
   //st:=cCubeMesh.DumpVertex(0);
  end;
@@ -159,7 +159,6 @@ procedure TMainScene.Render;
 
   transform.SetObj(-5,5,2); // Set object position and scale
   cCubeMesh.Draw;
-
 
   // Turn back to 2D view
   transform.DefaultView;

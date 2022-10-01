@@ -1,7 +1,7 @@
 {$APPTYPE CONSOLE}
 program TestStructs;
  uses
-  Apus.MyServis in '..\Apus.MyServis.pas',
+  Apus.Common in '..\Apus.Common.pas',
   Apus.Structs in '..\Apus.Structs.pas',
   Apus.Types,
   Apus.Classes,

@@ -1,6 +1,6 @@
 unit Apus.Engine.MessageScene;
 interface
- uses Apus.MyServis;
+ uses Apus.Common;
 
  var
   msgMainFont:cardinal; // regular font for text and buttons (0 - use inherited or default)

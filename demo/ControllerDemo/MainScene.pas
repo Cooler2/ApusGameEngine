@@ -18,7 +18,7 @@ interface
   application:TMainApp;
 
 implementation
- uses Apus.MyServis,Apus.EventMan,Apus.Colors,SysUtils,
+ uses Apus.Common,Apus.EventMan,Apus.Colors,SysUtils,
    Apus.Engine.SceneEffects,Apus.Engine.UI,Apus.Engine.UIScene,Apus.Engine.Controller;
 
  type

@@ -43,7 +43,7 @@ interface
   defaultHintFont:cardinal=0; // Шрифт, которым показываются хинты
 
 implementation
- uses Apus.CrossPlatform, Apus.Images, SysUtils, Types, Apus.MyServis,
+ uses Apus.CrossPlatform, Apus.Images, SysUtils, Types, Apus.Common,
     Apus.EventMan, Apus.Geom2D, Apus.Engine.DefaultStyle;
 
  var

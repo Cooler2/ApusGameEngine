@@ -6,7 +6,7 @@
 
 unit Apus.Engine.Objects;
 interface
- uses Apus.MyServis, Apus.AnimatedValues, Apus.Engine.API;
+ uses Apus.Common, Apus.AnimatedValues, Apus.Engine.API;
  const
   DONT_CHANGE = -9987; // magic value which means "keep previous value"
   LIVE_OBJECT = $2468; // magic value for live object

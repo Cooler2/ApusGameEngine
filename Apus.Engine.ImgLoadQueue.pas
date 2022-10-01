@@ -8,7 +8,7 @@
 
 unit Apus.Engine.ImgLoadQueue;
 interface
- uses Apus.MyServis, Apus.Images;
+ uses Apus.Common, Apus.Images;
 
  type
   // What happens when requested image is queued, but not ready

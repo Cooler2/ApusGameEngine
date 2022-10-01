@@ -42,7 +42,7 @@ program TestMyServis;
   Apus.Logging in '..\Apus.Logging.pas',
   Apus.LongMath in '..\Apus.LongMath.pas',
   Apus.MemoryLeakUtils in '..\Apus.MemoryLeakUtils.pas',
-  Apus.MyServis in '..\Apus.MyServis.pas',
+  Apus.Common in '..\Apus.Common.pas',
   Apus.Network in '..\Apus.Network.pas',
   {$IFDEF MSWINDOWS}
   Apus.Database in '..\Apus.Database.pas',
@@ -685,7 +685,7 @@ procedure TestQuotes;
   begin
    result:=NaN;
    if name='width' then result:=51;
-   if Apus.MyServis.IsNaN(result) then begin
+   if Apus.Common.IsNaN(result) then begin
     v:=FindVar(name,vc);
     if v<>nil then result:=StrToFloat(vc.GetValue(v));
    end;
@@ -697,7 +697,7 @@ procedure TestQuotes;
    time:int64;
   procedure Compare(v1,v2:double);
    begin
-    if Apus.MyServis.IsNaN(v1) then begin
+    if Apus.Common.IsNaN(v1) then begin
      writeln('FAILED - NAN!'); exit;
     end;
     if v1=v2 then writeln('Passed')

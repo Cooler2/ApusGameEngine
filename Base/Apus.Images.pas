@@ -168,7 +168,7 @@ type
  function PixFmt2Str(ipf:TImagePixelFormat):string;
 
 implementation
- uses SysUtils, Apus.Types, Apus.MyServis;
+ uses SysUtils, Apus.Types, Apus.Common;
 
 function PixFmt2Str(ipf:TImagePixelFormat):string;
  begin

@@ -4,7 +4,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.Logging;
 interface
- uses Apus.MyServis;
+ uses Apus.Common;
 
  const
   // Степени аварийности сообщений

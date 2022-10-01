@@ -19,7 +19,7 @@ interface
 
 implementation
  uses Classes,SysUtils, Types,
-  Apus.MyServis, Apus.Colors, Apus.Images, Apus.Publics, Apus.Geom2D,
+  Apus.Common, Apus.Colors, Apus.Images, Apus.Publics, Apus.Geom2D,
   Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets,
   Apus.Engine.UIRender, Apus.Engine.UIScript;
 

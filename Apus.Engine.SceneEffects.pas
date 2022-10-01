@@ -7,7 +7,7 @@
 {$R-}
 unit Apus.Engine.SceneEffects;
 interface
- uses Types, Apus.Engine.API, Apus.EventMan, Apus.Engine.UIScene, Apus.MyServis, Apus.AnimatedValues;
+ uses Types, Apus.Engine.API, Apus.EventMan, Apus.Engine.UIScene, Apus.Common, Apus.AnimatedValues;
 
 type
  // Base scene switcher

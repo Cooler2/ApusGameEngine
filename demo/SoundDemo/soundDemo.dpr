@@ -3,7 +3,7 @@
 program soundDemo;
 
 uses
-  Apus.MyServis,
+  Apus.Common,
   SysUtils,
   Apus.EventMan,
   Apus.Engine.API,

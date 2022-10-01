@@ -11,7 +11,7 @@ interface
  function LoadOBJ(fname:string):TMesh;
 
 implementation
- uses SysUtils, Apus.MyServis, Apus.Geom2D, Apus.Geom3D, Apus.Structs;
+ uses SysUtils, Apus.Common, Apus.Geom2D, Apus.Geom3D, Apus.Structs;
 
  function LoadOBJ(fname:string):TMesh;
   var

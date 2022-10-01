@@ -87,7 +87,7 @@ type
  end;
 
 implementation
- uses Apus.MyServis, Apus.Colors, SysUtils;
+ uses Apus.Common, Apus.Colors, SysUtils;
 
  function BuildVertexLayout(position,normal,color,uv1,uv2:integer):TVertexLayout;
   var

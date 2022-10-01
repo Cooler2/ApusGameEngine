@@ -13,7 +13,7 @@ unit Apus.Structs;
 {$ENDIF}
 
 interface
- uses Apus.Types, Apus.MyServis, Classes;
+ uses Apus.Types, Apus.Common, Classes;
 type
  TErrorState=(
   esNoError       =  0,

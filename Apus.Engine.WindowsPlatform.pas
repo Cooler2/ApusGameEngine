@@ -57,7 +57,7 @@ type
  end;
 
 implementation
-uses Windows, Messages, Types, Apus.MyServis, SysUtils, Apus.EventMan;
+uses Windows, Messages, Types, Apus.Common, SysUtils, Apus.EventMan;
 {$IFOPT R+} {$DEFINE RANGECHECK_ON} {$ENDIF}
 var
  terminated:boolean;

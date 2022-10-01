@@ -121,7 +121,7 @@ type
 
 
 implementation
- uses Apus.MyServis, SysUtils;
+ uses Apus.Common, SysUtils;
 
  var
   scenesHash:TObjectHash; // used to search scenes by name

@@ -6,7 +6,7 @@
 
 unit Apus.Engine.ResManGL;
 interface
- uses Apus.Engine.API, Apus.Images, Apus.MyServis, Types, Apus.Engine.Resources, SyncObjs;
+ uses Apus.Engine.API, Apus.Images, Apus.Common, Types, Apus.Engine.Resources, SyncObjs;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE GLES11} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE GLES20} {$DEFINE OPENGL} {$ENDIF}
 type

@@ -17,7 +17,7 @@
 {$H+,R-}
 unit Apus.ControlFiles;
 interface
-uses Apus.MyServis;
+uses Apus.Common;
 type
  TFileMode=(fmBinary,   // Binary files
             fmText,     // Textual files

@@ -6,7 +6,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.GfxFormats;
 interface
- uses Apus.MyServis,
+ uses Apus.Common,
      {$IFDEF TXTIMAGES}Apus.UnicodeFont,{$ENDIF}
      Apus.Images;
  type

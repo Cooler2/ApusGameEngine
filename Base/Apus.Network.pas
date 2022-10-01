@@ -10,7 +10,7 @@
 unit Apus.Network;
 
 interface
- uses Classes,Apus.MyServis;
+ uses Classes,Apus.Common;
 
 const
 {$IFDEF USE_DP}

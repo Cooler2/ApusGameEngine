@@ -39,7 +39,7 @@ type
  end;
 
 implementation
-uses Apus.MyServis, Apus.Engine.API, Apus.Geom3D;
+uses Apus.Common, Apus.Engine.API, Apus.Geom3D;
 
 { TMesh }
 

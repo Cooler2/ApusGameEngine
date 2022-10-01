@@ -126,7 +126,7 @@ var
  glDebug:boolean = {$IFDEF MSWINDOWS} false {$ELSE} true {$ENDIF};
 
 implementation
- uses Apus.CrossPlatform, Apus.MyServis, Apus.Geom2D, Apus.Geom3D, SysUtils,
+ uses Apus.CrossPlatform, Apus.Common, Apus.Geom2D, Apus.Geom3D, SysUtils,
     {$IFDEF GLES11}gles11,glext,{$ENDIF}
     {$IFDEF GLES20}gles20,{$ENDIF}
     {$IFNDEF GLES}dglOpenGl,{$ENDIF}

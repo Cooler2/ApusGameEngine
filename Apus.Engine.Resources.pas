@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.Resources;
 interface
- uses Apus.MyServis, Types, Apus.Classes, Apus.Images, Apus.Engine.Types;
+ uses Apus.Common, Types, Apus.Classes, Apus.Images, Apus.Engine.Types;
 
  const
   // Texture features flags

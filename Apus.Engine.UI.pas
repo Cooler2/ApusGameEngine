@@ -120,7 +120,7 @@ interface
   procedure UnlockUI;
 
 implementation
- uses Apus.MyServis, SysUtils, Apus.Engine.UIScene;
+ uses Apus.Common, SysUtils, Apus.Engine.UIScene;
 
  procedure SetDefaultUIScale(fullScenesScale,windowedScenesScale:single);
   begin

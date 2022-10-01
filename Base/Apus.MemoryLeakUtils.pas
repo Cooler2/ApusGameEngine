@@ -14,7 +14,7 @@ interface
  {$ENDIF}{$ENDIF}
 
 implementation
- uses Apus.MyServis,SysUtils;
+ uses Apus.Common,SysUtils;
  type
   TMemLeak=record
    value:cardinal;

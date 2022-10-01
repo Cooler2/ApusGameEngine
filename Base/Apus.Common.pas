@@ -13,7 +13,7 @@ For Delphi - please define global symbol "DELPHI"!
 {$IFDEF UNICODE} {$DEFINE ADDANSI} {$ENDIF} // Make separate implementations for String and AnsiString types
 {$IFOPT R+} {$DEFINE RANGECHECKS_ON} {$ENDIF}
 
-unit Apus.MyServis;
+unit Apus.Common;
 interface
  uses
   {$IFDEF UNIX}

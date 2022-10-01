@@ -10,7 +10,7 @@ interface
  function GetStackTrace:string;
 
 implementation
- uses Apus.Types, Apus.MyServis {$IFDEF MSWINDOWS}, Windows{$ENDIF};
+ uses Apus.Types, Apus.Common {$IFDEF MSWINDOWS}, Windows{$ENDIF};
  var
   saveExceptionProc:pointer;
   stack:array[0..15] of pointer;

@@ -55,7 +55,7 @@ type
  function ColorDiff(c1,c2:cardinal):single;  // Relative visual color difference (0..1+)
 
 implementation
- uses Apus.MyServis;
+ uses Apus.Common;
  {$R-,Q-}
  {$EXCESSPRECISION OFF}
 

@@ -101,7 +101,7 @@ type
  function LoadFontFromMemory(const data:TBuffer;UseAdvKerning:boolean=false):TUnicodeFont;
 
 implementation
- uses Apus.MyServis, Apus.FastGFX;
+ uses Apus.Common, Apus.FastGFX;
 
  function TCharDesc.GetPixel(glyphs:PByte;x,y:integer;glyphCoord:boolean=false):byte;
   begin

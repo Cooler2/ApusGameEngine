@@ -16,7 +16,7 @@ interface
  function PackSprites(const source:TRectangles;width,height:integer;allowRotate:boolean=true):TRectangles;
 
 implementation
- uses Apus.MyServis;
+ uses Apus.Common;
 
  function TurnRect(r:TRect):TRect;
   begin

@@ -249,7 +249,7 @@ uses
 {$IFDEF LINUX}
  Linux,
 {$ENDIF}
-  Apus.MyServis;
+  Apus.Common;
 
 {$IFDEF DECLARE_MEMORY_BARRIER}
  procedure MemoryBarrier; inline; assembler;

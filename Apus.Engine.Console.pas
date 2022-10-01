@@ -15,7 +15,7 @@
 
 unit Apus.Engine.Console;
 interface
- uses Apus.MyServis;
+ uses Apus.Common;
  type
   TConsoleSettings=record
    saveMessages:boolean;          // Сохранять сообщения во внутренней структуре

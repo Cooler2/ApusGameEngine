@@ -66,7 +66,7 @@ type
 
 
 implementation
- uses Apus.CrossPlatform, SysUtils, Apus.MyServis;
+ uses Apus.CrossPlatform, SysUtils, Apus.Common;
 const
  queueMask = 1023;
 type

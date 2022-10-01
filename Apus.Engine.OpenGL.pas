@@ -58,7 +58,7 @@ var
  procedure CheckForGLError(lab:integer=0); inline;
 
 implementation
- uses Apus.MyServis,
+ uses Apus.Common,
   {$IFDEF MSWINDOWS}Windows,{$ENDIF}
   {$IFDEF DGL}dglOpenGL,{$ENDIF}
   SysUtils,

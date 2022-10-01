@@ -87,7 +87,7 @@ interface
 
 implementation
  uses {$IFDEF MSWINDOWS}windows,winsock,{$ELSE}Apus.CrossPlatform,Sockets,BaseUnix,{$ENDIF}
-      {$IFDEF IOS}CFBase,{$ENDIF}Apus.MyServis,SysUtils,Apus.Network,Classes,Apus.EventMan;
+      {$IFDEF IOS}CFBase,{$ENDIF}Apus.Common,SysUtils,Apus.Network,Classes,Apus.EventMan;
  const
   // Статусы соединений
   csIdle = 1; // не подключено, ничего делать не нужно

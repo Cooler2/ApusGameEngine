@@ -3,7 +3,7 @@
 program TestGFX;
 uses
   Apus.Colors,
-  Apus.MyServis,
+  Apus.Common,
   SysUtils,
   Apus.FastGFX;
 

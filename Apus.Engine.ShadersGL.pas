@@ -7,7 +7,7 @@
 {$IF Defined(MSWINDOWS) or Defined(LINUX)} {$DEFINE DGL} {$ENDIF}
 unit Apus.Engine.ShadersGL;
 interface
-uses Apus.MyServis, Apus.Geom3d,  Apus.Structs, Apus.Engine.API, Apus.Engine.Graphics;
+uses Apus.Common, Apus.Geom3d,  Apus.Structs, Apus.Engine.API, Apus.Engine.Graphics;
 
 type
  TGLShaderHandle=integer;

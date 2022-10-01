@@ -13,7 +13,7 @@ uses Apus.Engine.Model3D;
  function Load3DModelIQE(fname:string):TModel3D;
 
 implementation
- uses Apus.MyServis, SysUtils;
+ uses Apus.Common, SysUtils;
 
  type
   TMagicLine=array[0..15] of AnsiChar;

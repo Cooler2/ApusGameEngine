@@ -6,7 +6,7 @@
 
 unit Apus.Engine.Controller;
 interface
-uses Apus.MyServis;
+uses Apus.Common;
 
 type
  TGameControllerType=(gcUnplugged,

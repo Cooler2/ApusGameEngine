@@ -109,7 +109,7 @@ type
  end;
 
 implementation
- uses SysUtils,Apus.MyServis;
+ uses SysUtils,Apus.Common;
 
  const
   // стартовый номер блоков каждого типа

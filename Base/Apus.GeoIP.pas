@@ -15,7 +15,7 @@ interface
 implementation
  uses {$IFDEF MSWINDOWS}WinSock,
    {$ELSE}Sockets,{$ENDIF}
-   Apus.MyServis,SysUtils;
+   Apus.Common,SysUtils;
  type
   TRange=record
    ip,mask:cardinal;

@@ -21,7 +21,7 @@ type
  end;
 
 implementation
- uses Apus.MyServis,SysUtils,IMixEx,Windows;
+ uses Apus.Common,SysUtils,IMixEx,Windows;
 
 type
  TMediaType=(mtSample,mtStream,mtModule);

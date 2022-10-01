@@ -7,7 +7,7 @@
 // ------------------------------------------------------
 unit Apus.Engine.UIWidgets;
 interface
- uses Types, Apus.MyServis, Apus.AnimatedValues,
+ uses Types, Apus.Common, Apus.AnimatedValues,
    Apus.Engine.API, Apus.Engine.UITypes;
 
  {$WRITEABLECONST ON}

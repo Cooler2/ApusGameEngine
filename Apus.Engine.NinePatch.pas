@@ -59,7 +59,7 @@ type
  end;
 
 implementation
-uses SysUtils, Apus.MyServis, Apus.FastGFX, Apus.Colors, Apus.Engine.ImageTools;
+uses SysUtils, Apus.Common, Apus.FastGFX, Apus.Colors, Apus.Engine.ImageTools;
 
 type
  TPatchRange=TCustomNinePatch.TPatchRange;

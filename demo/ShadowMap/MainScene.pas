@@ -19,7 +19,7 @@ interface
   baseDir:string;
 
 implementation
- uses Apus.MyServis,SysUtils,Apus.EventMan,Apus.Geom3D,Apus.AnimatedValues,
+ uses Apus.Common,SysUtils,Apus.EventMan,Apus.Geom3D,Apus.AnimatedValues,
    Apus.Engine.Tools,Apus.Engine.UI,Apus.Engine.UIScene,Apus.Publics,
    dglOpenGL;
 

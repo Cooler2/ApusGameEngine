@@ -67,7 +67,7 @@ type
  end;
 
 implementation
- uses Apus.MyServis;
+ uses Apus.Common;
  {$EXCESSPRECISION OFF}
 
 { TGradient }

@@ -8,7 +8,7 @@
 {$IFDEF IOS}{$S-} {$modeswitch objectivec1}{$ENDIF}
 unit Apus.HttpRequests;
 interface
- uses Apus.MyServis;
+ uses Apus.Common;
 
  const
   httpStatusFree = 0; // element not used

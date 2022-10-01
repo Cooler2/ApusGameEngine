@@ -7,7 +7,7 @@
 {$R+}
 unit Apus.Engine.Networking3;
 interface
-uses Apus.MyServis;
+uses Apus.Common;
 type
  TNetMessage=record
   values:StringArr;

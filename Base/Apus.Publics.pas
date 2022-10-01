@@ -4,7 +4,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.Publics;
 interface
- uses Apus.MyServis;
+ uses Apus.Common;
  type
   // Такой класс обслуживает все переменные одного конкретного типа
   // (один тип переменной не обязательно соответствует одному типу языка)

@@ -84,7 +84,7 @@ interface
 
 
 implementation
-uses Apus.MyServis, SysUtils, Apus.Structs, Types, Apus.GfxFormats,
+uses Apus.Common, SysUtils, Apus.Structs, Types, Apus.GfxFormats,
    Apus.Engine.ImgLoadQueue, Apus.FastGFX, Apus.Geom3D, Apus.Colors,
    Apus.GfxFilters, Apus.Engine.Resources;
 

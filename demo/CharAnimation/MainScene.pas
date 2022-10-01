@@ -18,7 +18,7 @@ interface
   application:TMainApp;
 
 implementation
- uses SysUtils,Apus.CrossPlatform,Apus.MyServis,Apus.AnimatedValues,
+ uses SysUtils,Apus.CrossPlatform,Apus.Common,Apus.AnimatedValues,
    Apus.EventMan,Apus.Geom3D,Apus.Colors,
    Apus.Engine.SceneEffects,Apus.Engine.Tools,Apus.Engine.UIScene,
    Apus.Engine.Model3D,Apus.Engine.IQMloader;

@@ -5,7 +5,7 @@
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 unit Apus.Database;
 interface
- uses Apus.MyServis,Apus.Structs;
+ uses Apus.Common,Apus.Structs;
  var
   // Credentials and options
   DB_HOST:AnsiString='';

@@ -6,7 +6,7 @@
 {$R-}
 unit Apus.FreeTypeFont;
 interface
- uses Apus.MyServis,Apus.Structs,freetypeh;
+ uses Apus.Common,Apus.Structs,freetypeh;
 
 const
  FTF_NO_HINTING = FT_LOAD_NO_HINTING;

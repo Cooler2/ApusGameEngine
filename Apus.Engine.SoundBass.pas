@@ -21,7 +21,7 @@ function GetCurrentModHandle:cardinal;
 function GetStreamHandle(name:string):cardinal;
 
 implementation
-uses {$IFDEF MSWINDOWS}Windows, {$ENDIF}SysUtils, Apus.MyServis, Bass, Apus.ControlFiles, Apus.Structs,
+uses {$IFDEF MSWINDOWS}Windows, {$ENDIF}SysUtils, Apus.Common, Bass, Apus.ControlFiles, Apus.Structs,
  Apus.EventMan, Classes, Apus.Engine.Console;
 
 type

@@ -22,7 +22,7 @@ type
  end;
 
 implementation
-uses Apus.MyServis, SysUtils, SDL2, sdl2_mixer;
+uses Apus.Common, SysUtils, SDL2, sdl2_mixer;
 
 type
  TMediaFileSDL=class(TMediaFile)

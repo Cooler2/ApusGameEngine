@@ -10,7 +10,7 @@ uses Apus.Publics;
  function GetVarTypeFor(typeName:string):TVarClass;
 
 implementation
-uses Apus.MyServis, SysUtils, Apus.EventMan, Apus.Engine.CmdProc,
+uses Apus.Common, SysUtils, Apus.EventMan, Apus.Engine.CmdProc,
    Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UITypes, Apus.Geom2d;
 
 type

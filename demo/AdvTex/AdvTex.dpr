@@ -2,7 +2,7 @@
 // - Texture Array
 // - Manual Mip-Map levels
 program AdvTex;
- uses Apus.MyServis, SysUtils, Types, Apus.Colors, Apus.EventMan, Apus.Engine.API,
+ uses Apus.Common, SysUtils, Types, Apus.Colors, Apus.EventMan, Apus.Engine.API,
    Apus.Engine.GameApp, Apus.Engine.UIScene, Apus.Engine.UI,
    Apus.FastGFX, Apus.Engine.ResManGL;
 

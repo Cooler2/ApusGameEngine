@@ -32,7 +32,7 @@ interface
 
 implementation
  uses SysUtils,
-      Apus.MyServis, Apus.AnimatedValues, Apus.EventMan, Apus.Colors, Apus.Structs, Apus.Publics,
+      Apus.Common, Apus.AnimatedValues, Apus.EventMan, Apus.Colors, Apus.Structs, Apus.Publics,
       Apus.Engine.ImageTools, Apus.Engine.UIRender;
 
  type
