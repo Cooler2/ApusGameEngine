@@ -74,14 +74,16 @@ interface
   end;
 
   TUILabel=class(TUIElement)
-   caption:string;
+   caption:string; // text to draw inside the client area
    color:cardinal; // text color
    align:TTextAlignment;
-   topOffset:integer; // сдвиг текста вверх
+   autoSize:boolean; // render should adjust element size to match caption
+   verticalOffset:integer; // сдвиг текста вверх
    constructor Create(width,height:single;labelname,text:string;color_:cardinal;bFont:TFontHandle;parent_:TUIElement); overload;
    constructor Create(width,height:single;labelname,text:string;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault); overload;
    constructor CreateCentered(width,height:single;labelname,text:string;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
    constructor CreateRight(width,height:single;labelname,text:string;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
+   procedure CaptionWidthIs(width:single);
   end;
 
   // Тип кнопок
@@ -531,8 +533,21 @@ procedure TUIButton.DoClick;
   end;
 
  { TUILabel }
+ procedure TUILabel.CaptionWidthIs(width:single);
+  var
+   oldW,dW:single;
+  begin
+   width:=width/globalScale;
+   oldW:=size.x;
+   ResizeClient(width,clientHeight);
+   dW:=size.x-oldW;
+   case align of
+    taCenter: position.x:=position.x+dW/2;
+    taRight: position.x:=position.x+dW;
+   end;
+  end;
 
- constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFont:TFontHandle;
+constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFont:TFontHandle;
     parent_: TUIElement);
   begin
    inherited Create(width,height,parent_,labelName);
@@ -541,11 +556,11 @@ procedure TUIButton.DoClick;
    align:=taLeft;
    sendSignals:=ssMajor;
    font:=bFont;
-   topOffset:=0;
+   verticalOffset:=0;
    caption:=text;
   end;
 
- constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
+constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
    parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
   begin
    Create(width,height,labelName,text,color_,font,parent_);

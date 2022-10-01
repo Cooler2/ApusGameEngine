@@ -199,22 +199,27 @@ implementation
    mY:integer;
    wst:WideString;
    bg:cardinal;
+   r:TRect;
   begin
     with control do begin
+     if autoSize then begin
+
+     end;
      bg:=GetStyleColor(control);
      if bg<>0 then draw.FillRect(x1,y1,x2,y2,bg);
-     gfx.clip.Rect(globalRect);
+     r:=GetClientPosOnScreen;
+     gfx.clip.Rect(r);
      //mY:=round(y1*0.3+y2*0.7)-topOffset;
-     mY:=round((y1+y2)*0.5+txt.Height(font)*0.45)-topOffset;
+     mY:=round((r.top+r.bottom)*0.5+txt.Height(font)*0.45)-verticalOffset;
      wst:=DecodeUTF8(caption);
      if align=taLeft then
-      txt.WriteW(font,x1,mY,color,wst);
+      txt.WriteW(font,r.left,mY,color,wst);
      if align=taRight then
-      txt.WriteW(font,x2,mY,color,wst,taRight);
+      txt.WriteW(font,r.Right,mY,color,wst,taRight);
      if align=taCenter then
-      txt.WriteW(font,(x1+x2) div 2,mY,color,wst,taCenter);
+      txt.WriteW(font,(r.left+r.right)/2,mY,color,wst,taCenter);
      if align=taJustify then
-      txt.WriteW(font,x1,mY,color,wst,taJustify,0,x2-x1);
+      txt.WriteW(font,r.left,mY,color,wst,taJustify,0,r.Width);
      gfx.clip.Restore;
     end;
   end;

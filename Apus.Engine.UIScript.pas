@@ -413,7 +413,7 @@ begin
        varClass:=TVarTypeWideString; result:=@TUIEditBox(obj).realtext;
       end else
       if (fieldname='topofs') and (obj is TUILabel) then begin
-       varClass:=TVarTypeInteger; result:=@TUILabel(obj).topoffset;
+       varClass:=TVarTypeInteger; result:=@TUILabel(obj).verticalOffset;
       end;
   'v':if fieldname='visible' then begin
        result:=@obj.visible; varClass:=TVarTypeBool;
