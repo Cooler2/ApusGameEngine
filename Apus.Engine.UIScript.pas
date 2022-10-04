@@ -39,6 +39,11 @@ type
   class function GetValue(variable:pointer):string; override;
  end;
 
+ TVarTypeElementColor=class(TVarType)
+  class procedure SetValue(variable:pointer;v:string); override;
+  class function GetValue(variable:pointer):string; override;
+ end;
+
  TVarTypeElementFont=class(TVarType)
   class procedure SetValue(variable:pointer;v:string); override;
   class function GetValue(variable:pointer):string; override;
@@ -287,11 +292,8 @@ begin
        varClass:=TVarTypeBool;
       end else
       if fieldname='color' then begin
-       if obj is TUILabel then result:=@TUILabel(obj).color else
-       if obj is TUIEditBox then result:=@TUIEditBox(obj).color else
-       if obj is TUIImage then result:=@TUIImage(obj).color else
-        exit;
-       varClass:=TVarTypeARGB;
+       result:=obj;
+       varClass:=TVarTypeElementColor;
       end else
       if fieldname='caption' then begin
        if obj is TUILabel then result:=@TUILabel(obj).caption else
@@ -571,6 +573,18 @@ class function TVarTypeElementName.GetValue(variable:pointer):string;
 class procedure TVarTypeElementName.SetValue(variable:pointer;v:string);
  begin
   TUIElement(variable).name:=v;
+ end;
+
+{ TVarTypeObjColor }
+
+class function TVarTypeElementColor.GetValue(variable:pointer):string;
+ begin
+  result:='$'+IntToHex(TUIElement(variable).color,8);
+ end;
+
+class procedure TVarTypeElementColor.SetValue(variable:pointer;v:string);
+ begin
+  TUIElement(variable).color:=ParseInt('$'+v);
  end;
 
 initialization

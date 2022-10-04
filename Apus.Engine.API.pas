@@ -39,7 +39,7 @@ const
 
  // Color values
  clNeutral = $FF808080;
- clDefault = $FF0F0F0F; // special value assumed to be replaced by some generic/default color
+ clDefault = $010F0F0F; // special value assumed to be replaced by some generic/default color
  clWhite   = $FFFFFFFF;
  clBlack   = $FF000000;
  clTransparent = 0;

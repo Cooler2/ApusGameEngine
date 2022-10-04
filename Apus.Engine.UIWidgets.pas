@@ -35,9 +35,8 @@ interface
 
   // Элемент "изображение". Содержит простое статическое изображение
   TUIImage=class(TUIElement)
-   color:cardinal;  // drawing color (default is $FF808080)
    src:string; // здесь может быть имя файла или строка "event:xxx", "proc:XXXXXXXX" etc...
-   constructor Create(width,height:single;imgname:string;parent_:TUIElement);
+   constructor Create(width,height:single;imgname:string;parent_:TUIElement;source:string='');
    procedure SetRenderProc(proc:pointer); // sugar for use "proc:XXX" src for the default style
   end;
 
@@ -64,9 +63,9 @@ interface
    active:boolean; // если true - значит хинт активный, не кэшируется и содержит вложенные эл-ты
    created:int64; // момент создания (в мс.)
    adjusted:boolean; // отрисовщик может использовать это для корректировки параметров хинта
-   hiding:boolean;
+   hiding:boolean; // hint is currently hiding
 
-   constructor Create(x,y:single;text:string;act:boolean;parent_:TUIElement);
+   constructor Create(x,y:single;text:string;parent_:TUIElement);
    destructor Destroy; override;
    procedure Hide;
    procedure onMouseButtons(button:byte;state:boolean); override;
@@ -75,7 +74,6 @@ interface
 
   TUILabel=class(TUIElement)
    caption:string; // text to draw inside the client area
-   color:cardinal; // text color
    align:TTextAlignment;
    autoSize:boolean; // render should adjust element size to match caption
    verticalOffset:integer; // сдвиг текста вверх
@@ -173,7 +171,7 @@ interface
    realText:WideString; // реальный текст (лучше использовать это поле, а не text)
    completion:WideString; // grayed background text, if it is not empty and enter is pressed, then it is set to realText
    defaultText:WideString; // grayed background text, displayed if realText is empty
-   color,backgnd:cardinal;
+   backgnd:cardinal deprecated 'use styles instead';
    cursorpos:integer;      // Положение курсора (номер символа, после которого находится курсор)
    maxlength:integer;      // максимальная длина редактируемой строки
    password:boolean;    // поле для ввода пароля
@@ -315,11 +313,10 @@ implementation
 
  { TUIimage }
 
- constructor TUIimage.Create(width,height:single;imgname:string;parent_:TUIElement);
+ constructor TUIimage.Create(width,height:single;imgname:string;parent_:TUIElement;source:string='');
   begin
    inherited Create(width,height,parent_,imgName);
-   color:=$FF808080;
-   src:='';
+   src:=source;
    shape:=shapeEmpty;
   end;
 
@@ -357,7 +354,6 @@ implementation
    pending:=false;
    autoPendingTime:=0;
    CanHaveFocus:=false;
-   color:=$FFC0D0D0;
    sendSignals:=ssMajor;
    //CheckAndSetFocus;
    lastPressed:=0;
@@ -552,10 +548,10 @@ constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFo
   begin
    inherited Create(width,height,parent_,labelName);
    shape:=shapeFull;
-   color:=color_;
+   if color=clDefault then color:=color_;
+   if font=0 then font:=bFont;
    align:=taLeft;
    sendSignals:=ssMajor;
-   font:=bFont;
    verticalOffset:=0;
    caption:=text;
   end;
@@ -1251,15 +1247,14 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
 
  { TUIHint }
 
- constructor TUIHint.Create(x,y:single;text:string;
-    act:boolean;parent_:TUIElement);
+ constructor TUIHint.Create(x,y:single;text:string;parent_:TUIElement);
   begin
    inherited Create(1,1,'hint',parent_);
    SetPos(x,y,pivotTopLeft);
    shape:=shapeEmpty;
    font:=0;
    simpleText:=text;
-   active:=act;
+   active:=false;
    adjusted:=false;
    created:=MyTickCount;
    parentClip:=false;
@@ -1709,5 +1704,7 @@ function TScrollBarInterface.GetElement:TUIElement;
 
 initialization
  TUIButton.SetClassAttribute('handleMouseIfDisabled',true);
+ TUIButton.SetClassAttribute('defaultColor',$FFC0D0D0);
+ TUIImage.SetClassAttribute('defaultColor',$FF808080);
  TUIComboBox.SetClassAttribute('handleMouseIfDisabled',false);
 end.

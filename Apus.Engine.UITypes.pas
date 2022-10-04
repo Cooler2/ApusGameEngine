@@ -524,25 +524,39 @@ implementation
    position:=Point2s(0,0);
    size:=Point2s(width,height);
    fInitialSize:=size;
-   scale:=1.0;
+   scale:=GetClassAttribute('defaultScale',1.0);
    pivot:=Point2s(0,0);
    //paddingLeft:=0; paddingRight:=0; paddingTop:=0; paddingBottom:=0;
    shape:=shapeFull;
    timer:=0;
    parent:=parent_;
-   parentClip:=true;
-   clipChildren:=true;
+   parentClip:=GetClassAttribute('defaultParentClip',true);
+   clipChildren:=GetClassAttribute('defaultClipChildren',true);
    name:=name_;
    hint:=''; hintIfDisabled:='';
-   hintDelay:=1000;
-   hintDuration:=3000;
+   hintDelay:=GetClassAttribute('defaulthintDelay',1000);
+   hintDuration:=GetClassAttribute('defaultHintDuration',3000);
    // No anchors: element's size doesn't change when parent is resized
    //anchors:=anchorNone;
-   cursor:=crDefault;
-   enabled:=true;
-   visible:=true;
+   cursor:=GetClassAttribute('defaultCursor',crDefault);
+   enabled:=GetClassAttribute('defaultEnabled',true);
+   visible:=GetClassAttribute('defaultVisible',true);
    manualDraw:=false;
-   if parent<>nil then begin
+   font:=GetClassAttribute('defaultFont',0);
+   color:=GetClassAttribute('defaultColor',$FF000000);
+   style:=GetClassAttribute('defaultStyle',0);
+   styleInfo:=GetClassAttribute('defaultStyleInfo','');
+   canHaveFocus:=GetClassAttribute('defaultCanHaveFocus',false);
+   sendSignals:=ssNone;
+   scroll:=Point2s(0,0);
+   scrollerH:=nil; scrollerV:=nil;
+   focusedChild:=nil;
+   shapeRegion:=nil;
+   activeChild:=-1;
+
+   UICritSect.Enter;
+   try
+   if parent<>nil then begin // add to the parents children
     n:=length(parent.children);
     inc(n); order:=n;
     SetLength(parent.children,n);
@@ -554,15 +568,10 @@ implementation
     AddToRootElements;
     order:=1;
    end;
-   style:=0;
-   CanHaveFocus:=false;
-   sendSignals:=ssNone;
-   scroll:=Point2s(0,0);
-   scrollerH:=nil; scrollerV:=nil;
    globalRect:=GetPosOnScreen;
-   focusedChild:=nil;
-   shapeRegion:=nil;
-   activeChild:=-1;
+   finally
+    UICritSect.Leave;
+   end;
    Signal('UI\ItemCreated',TTag(self));
   end;
 
@@ -1145,7 +1154,7 @@ function TUIElement.GetClientHeight:single;
    result:=fColor;
    item:=parent;
    while (result=clDefault) and (item<>nil) do begin
-    result:=item.fFont;
+    result:=item.fColor;
     item:=item.parent;
    end;
   end;

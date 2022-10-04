@@ -12,7 +12,8 @@ type
  TObjectEx=class
   function Hash:cardinal; virtual;
   class procedure SetClassAttribute(attrName:String8;value:variant); // Assign arbitrary named attribute for the given class
-  class function GetClassAttribute(attrName:String8):variant; // Get named attribute for this class (can be inherited from base class)
+  class function GetClassAttribute(attrName:String8):variant; overload; // Get named attribute for this class (can be inherited from base class)
+  class function GetClassAttribute(attrName:String8;defaultValue:variant):variant; overload;
  end;
 
  TNamedObject=class(TObjectEx)
@@ -113,6 +114,12 @@ class function TObjectEx.GetClassAttribute(attrName:String8):variant;
    if HasValue(result) then exit;
    cls:=cls.ClassParent;
   until cls=nil;
+ end;
+
+class function TObjectEx.GetClassAttribute(attrName:String8;defaultValue:variant):variant;
+ begin
+  result:=GetClassAttribute(attrName);
+  if not HasValue(result) then result:=defaultValue;
  end;
 
 initialization
