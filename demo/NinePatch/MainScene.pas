@@ -88,7 +88,7 @@ procedure TMainScene.CreateUI;
    tiledPatch:=LoadNinePatch('tiledPatch.png');
 
   // Buttons bar
-  bar:=TUIElement.Create(130,300,UI).SetPos(0,0).SetPaddings(5);
+  bar:=TUIElement.Create(130,300,UI).SetPos(0,0).SetPadding(5);
   bar.layout:=TRowLayout.Create(false,10,true);
   // 1-nd speedbuttons group
   group1:=TUIElement.Create(120,90,bar,'Group1');
