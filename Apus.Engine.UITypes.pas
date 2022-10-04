@@ -223,7 +223,7 @@ type
   function SetAnchors(left,top,right,bottom:single):TUIElement; overload;
   function SetAnchors(anchorMode:TAnchorMode):TUIElement; overload;
   // Set all padding and resize client area
-  function SetPaddings(padding:single):TUIElement; overload;
+  function SetPadding(padding:single):TUIElement; overload;
   function SetPaddings(left,top,right,bottom:single):TUIElement; overload;
   // Set same value for X/Y scale and optionally resize to keep the original dimensions
   function SetScale(newScale:single):TUIElement;
@@ -526,7 +526,11 @@ implementation
    fInitialSize:=size;
    scale:=GetClassAttribute('defaultScale',1.0);
    pivot:=Point2s(0,0);
-   //paddingLeft:=0; paddingRight:=0; paddingTop:=0; paddingBottom:=0;
+   SetPadding(GetClassAttribute('defaultPadding',0));
+   padding.left:=GetClassAttribute('defaultPaddingLeft',padding.left);
+   padding.right:=GetClassAttribute('defaultPaddingRight',padding.right);
+   padding.top:=GetClassAttribute('defaultPaddingTop',padding.top);
+   padding.bottom:=GetClassAttribute('defaultPaddingBottom',padding.bottom);
    shape:=shapeFull;
    timer:=0;
    parent:=parent_;
@@ -538,7 +542,7 @@ implementation
    hintDuration:=GetClassAttribute('defaultHintDuration',3000);
    // No anchors: element's size doesn't change when parent is resized
    //anchors:=anchorNone;
-   cursor:=GetClassAttribute('defaultCursor',crDefault);
+   cursor:=int64(GetClassAttribute('defaultCursor',crDefault));
    enabled:=GetClassAttribute('defaultEnabled',true);
    visible:=GetClassAttribute('defaultVisible',true);
    manualDraw:=false;
@@ -1239,7 +1243,7 @@ function TUIElement.GetClientHeight:single;
    result:=self;
   end;
 
- function TUIElement.SetPaddings(padding:single):TUIElement;
+ function TUIElement.SetPadding(padding:single):TUIElement;
   begin
    result:=SetPaddings(padding,padding,padding,padding);
   end;

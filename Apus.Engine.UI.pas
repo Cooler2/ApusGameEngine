@@ -137,21 +137,21 @@ implementation
   begin
    result:=TUIElement.Create(width,1,parent,name);
    result.layout:=TRowLayout.CreateVertical(spacing,true);
-   result.SetPaddings(padding);
+   result.SetPadding(padding);
   end;
 
  function CreateVerticalContainer(width,height:single;name:string;parent:TUIElement;padding,spacing:single):TUIElement;
   begin
    result:=TUIElement.Create(width,height,parent,name);
    result.layout:=TRowLayout.CreateVertical(spacing,false);
-   result.SetPaddings(padding);
+   result.SetPadding(padding);
   end;
 
  function CreateVerticalContainer(name:string;parent:TUIElement;padding,spacing:single):TUIElement; overload;
   begin
    result:=TUIElement.Create(parent.clientWidth,parent.clientHeight,parent,name);
    result.layout:=TRowLayout.CreateVertical(spacing,false);
-   result.SetPaddings(padding);
+   result.SetPadding(padding);
   end;
 
  procedure SetElementText(name:string;text:string);

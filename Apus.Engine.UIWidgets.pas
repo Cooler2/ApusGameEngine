@@ -574,7 +574,7 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
    parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
   begin
    Create(width,height,labelName,text,color_,font,parent_);
-   align:=taCenter;
+   align:=taRight;
   end;
 
 { TUIWindow }
