@@ -47,8 +47,13 @@ constructor TMainApp.Create;
 
 // Most app initialization is here. Default spinner is running
 procedure TMainApp.CreateScenes;
+ var
+  scale:single;
  begin
   inherited;
+  scale:=game.screenDPI/96;
+  txt.SetScale(scale);
+  SetDefaultUIScale(scale,scale);
   // initialize our main scene
   sceneMain:=TMainScene.Create('Main');
   // switch to the main scene using fade transition effect
@@ -71,7 +76,7 @@ procedure InitTestLayer;
   root.DeleteChildren;
   root.visible:=true;
   TUIButton.Create(100,28,'Root\Close','Back',0,root).
-   SetPos(root.width/2,root.height-2,pivotBottomCenter).
+   SetPos(root.clientWidth/2,root.clientHeight-2,pivotBottomCenter).
    SetAnchors(0.5,1,0.5,1);
   UIButton('Root\Close').onClick:=@RootCloseClick;
  end;
@@ -82,9 +87,25 @@ procedure TestButtons;
  end;
 
 procedure TestWidgets;
+ var
+  cont:TUIElement;
+  lab:TUILabel;
+  style:string;
  begin
   InitTestLayer;
-//  TUILabel.Create()
+  // Container
+  cont:=CreateVerticalContainer(150,'Labels',root,0,10);
+  cont.SetPos(10,10);
+  // Default properties
+  TUILabel.SetClassAttribute('defaultStyleInfo','40FFFFFF');
+  TUILabel.SetClassAttribute('defaultColor',$FF603000);
+
+  TUILabel.Create(-1,20,'Label1','Simple label',cont);
+  TUILabel.CreateCentered(-1,20,'Label2','Centered',cont);
+  TUILabel.CreateRight(-1,20,'Label3','Right',cont);
+  TUILabel.Create(-1,20,'Label4','With padding',cont).SetPaddings(4,2,4,2);
+  TUILabel.CreateCentered(120,20,'Label5','Too Long Text Clipped',cont);
+
  end;
 
 procedure TestLayouts;
@@ -108,7 +129,7 @@ procedure TMainScene.Initialize;
   panel.Center;
   panel.SetAnchors(anchorCenter);
   panel.layout:=TRowLayout.CreateVertical(10,true);
-  panel.SetPaddings(15);
+  panel.SetPadding(15);
   //panel.styleInfo:='40E0E0E0 60E0E0E0';
   panel.styleInfo:='background-color=4EEE; border-color=6EEE; border-radius=7;';
 
@@ -120,7 +141,7 @@ procedure TMainScene.Initialize;
   Link('UI\Main\Close\Click','Engine\Cmd\Exit');
 
   // Create a placeholder UI element for demos
-  root:=TUIElement.Create(UI.width,UI.height,UI,'Root');
+  root:=TUIElement.Create(UI.clientWidth,UI.clientHeight,UI,'Root');
   root.SetAnchors(anchorAll);
   root.styleInfo:='FFB0C0C4 80000000';
   root.shape:=TElementShape.shapeFull;
