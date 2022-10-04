@@ -255,7 +255,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
     if fonts[i] is TUnicodeFont then
      with fonts[i] as TUnicodeFont do begin
       if lowercase(header.FontName)=name then rate:=matchRate;
-      rate:=rate+round(3000-1000*(0.1*header.width/realsize+realsize/(0.1*header.width)));
+      rate:=rate+round(3000-600*(0.1*header.width/realsize+realsize/(0.1*header.width)));
       if rate>bestRate then begin
        bestRate:=rate;
        best:=i;
@@ -329,7 +329,7 @@ function TTextDrawer.ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
   end else
   if obj is TUnicodeFont then begin
    size:=s*TUnicodeFont(obj).header.width/10;
-   result:=GetFont(TUnicodeFont(obj).header.FontName,size*scale);
+   result:=GetFont(TUnicodeFont(obj).header.FontName,size*scale,fsIgnoreScale);
   end else
    raise EWarning.Create('Not implemented for '+obj.ClassName);
  end;
