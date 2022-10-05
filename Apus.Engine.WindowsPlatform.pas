@@ -190,6 +190,10 @@ begin
 
   WM_SIZE:if lParam<>0 then Signal('ENGINE\RESIZE',lParam);
 
+  WM_PAINT:begin
+    Signal('ENGINE\REDRAW');
+  end;
+
   WM_ACTIVATE:begin
    //LogMessage('WM_ACTIVATE: %x %x',[wparam,lparam]);
    if loword(wparam)<>wa_inactive then i:=1

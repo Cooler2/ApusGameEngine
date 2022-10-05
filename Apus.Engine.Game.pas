@@ -167,6 +167,7 @@ type
   procedure InitMainLoop; virtual;
 
   procedure FrameLoop; virtual; // One iteration of the frame loop
+  procedure RenderAndPresentFrame; virtual; // May be called from the message handlers
   procedure PresentFrame; virtual;  // Displays back buffer
 
   procedure DoneGraph; virtual; // Финализация графической части
@@ -1217,6 +1218,10 @@ begin
    NotifyScenesAboutMouseMove;
    Timing;
  end else
+ if SameText(event,'REDRAW') then begin
+  if game.running then
+   RenderAndPresentFrame;
+ end else
  if SameText(event,'RESIZE') then begin
   SizeChanged(ExtractWord(tag,0),ExtractWord(tag,1));
  end else
@@ -2171,81 +2176,91 @@ end;
 procedure TGame.FrameLoop;
  var
   i:integer;
-  ticks:int64;
   t:int64;
   mb:byte;
  begin
-   t:=MyTickCount;
-    PingThread;
-    // Обновление ввода с клавиатуры (и кнопок мыши)
-    shiftState:=systemPlatform.GetShiftKeysState;
-    mb:=systemPlatform.GetMouseButtons;
-    if mb<>mouseButtons then begin
-     oldMouseButtons:=mouseButtons;
-     mouseButtons:=mb;
-    end;
+  t:=MyTickCount;
+  PingThread;
+  // Обновление ввода с клавиатуры (и кнопок мыши)
+  shiftState:=systemPlatform.GetShiftKeysState;
+  mb:=systemPlatform.GetMouseButtons;
+  if mb<>mouseButtons then begin
+    oldMouseButtons:=mouseButtons;
+    mouseButtons:=mb;
+  end;
 
-    for i:=0 to High(keyState) do
-     keyState[i]:=keyState[i] and 1+(keyState[i] and 1) shl 1;
+  for i:=0 to High(keyState) do
+   keyState[i]:=keyState[i] and 1+(keyState[i] and 1) shl 1;
 
-    StartMeasure(14);
-    systemPlatform.ProcessSystemMessages;
-    try
-     HandleSignals;
-    except
-     on e:exception do ForceLogMessage('Error in FrameLoop 1: '+ExceptionMsg(e));
-    end;
-    if not active then
-     Delay(5); // limit speed in inactive state
-    EndMeasure2(14);
+  StartMeasure(14);
+  systemPlatform.ProcessSystemMessages; // this stalls if window is moved/resized
+  try
+    HandleSignals;
+  except
+    on e:exception do ForceLogMessage('Error in FrameLoop 1: '+ExceptionMsg(e));
+  end;
+  if not active then
+    Delay(5); // limit speed in inactive state
+  EndMeasure2(14);
 
-    // Расчет fps
-    ticks:=MyTickCount;
-    if (ticks>LastTickCount+500) and (lastTickCount<>0) then begin
-     FPS:=(1000*(framenum-LastFrameNum)/(ticks-LastTickCount));
-     SmoothFPS:=SmoothFPS*0.9+FPS*0.1;
-     LastFrameNum:=FrameNum;
-     LastTickCount:=ticks;
-    end;
-    if mainThread.CheckTerminated then exit;
+  if mainThread.CheckTerminated then exit;
+  RenderAndPresentFrame;
 
-    i:=MyTickCount-FrameTime;
-    if i>500 then
-     LogMessage('Warning: main loop stall for '+inttostr(i)+' ms');
-    FrameTime:=MyTickCount;
+  t:=MyTickCount-t;
+  if t<500 then avgTime:=avgTime*0.9+t*0.1;
+ end;
 
-    // Обработка кадра
-    FrameStartTime:=MyTickCount;
-    StartMeasure(3);
-    if OnFrame then screenChanged:=true; // это чтобы можно было и в других местах выставлять флаг!
-    EndMeasure(3);
-    try
-     HandleSignals;
-    except
-     on e:exception do ForceLogMessage('Error in FrameLoop 2: '+ExceptionMsg(e));
-    end;
-    if SystemPlatform.IsTerminated then exit;
+procedure TGame.RenderAndPresentFrame;
+ var
+  ticks:int64;
+  i:integer;
+ begin
+   // Расчет fps
+   ticks:=MyTickCount;
+   if (ticks>LastTickCount+500) and (lastTickCount<>0) then begin
+    FPS:=(1000*(framenum-LastFrameNum)/(ticks-LastTickCount));
+    SmoothFPS:=SmoothFPS*0.9+FPS*0.1;
+    LastFrameNum:=FrameNum;
+    LastTickCount:=ticks;
+   end;
 
-    if active or (params.mode.displayMode<>dmSwitchResolution) then begin
-     // Если программа активна, то выполним отрисовку кадра
-     if screenChanged then begin
-      try
-       PrevFrameLog:=frameLog;
-       frameLog:='';
-       StartMeasure(2);
-       RenderFrame;
-       EndMeasure2(2);
-      except
-       on E:Exception do CritMsg('Error in renderframe: '+ExceptionMsg(e)+' framelog: '+framelog);
-      end;
+   i:=MyTickCount-FrameTime;
+   if i>500 then
+    LogMessage('Warning: main loop stall for '+inttostr(i)+' ms');
+   FrameTime:=MyTickCount;
+
+   // Обработка кадра
+   FrameStartTime:=MyTickCount;
+   StartMeasure(3);
+   if OnFrame then screenChanged:=true; // это чтобы можно было и в других местах выставлять флаг!
+   EndMeasure(3);
+   try
+    HandleSignals;
+   except
+    on e:exception do ForceLogMessage('Error in FrameLoop 2: '+ExceptionMsg(e));
+   end;
+   if SystemPlatform.IsTerminated then exit;
+
+   if active or (params.mode.displayMode<>dmSwitchResolution) then begin
+    // Если программа активна, то выполним отрисовку кадра
+    if screenChanged then begin
+     try
+      PrevFrameLog:=frameLog;
+      frameLog:='';
+      StartMeasure(2);
+      RenderFrame;
+      EndMeasure2(2);
+     except
+      on E:Exception do CritMsg('Error in renderframe: '+ExceptionMsg(e)+' framelog: '+framelog);
      end;
     end;
+   end;
 
-    // Здесь можно что-нибудь сделать
-    Sleep(onFrameDelay);
-    // Обработка thread'ов
-    EnterCriticalSection(RA_sect);
-    try
+   // Здесь можно что-нибудь сделать
+   Sleep(onFrameDelay);
+   // Обработка thread'ов
+   EnterCriticalSection(RA_sect);
+   try
     for i:=1 to 16 do
      if threads[i]<>nil then with threads[i] do
       if threads[i].running and (timetokill<MyTickCount) then begin
@@ -2259,21 +2274,19 @@ procedure TGame.FrameLoop;
        Signal('Error\Thread TimeOut',0);
        threads[i].running:=false;
      end;
-    finally
-     LeaveCriticalSection(RA_sect);
-    end;
+   finally
+    LeaveCriticalSection(RA_sect);
+   end;
 
-    // Теперь нужно вывести кадр на экран
-    if (active or (params.mode.displayMode<>dmSwitchResolution)) and
-       screenChanged then begin
-     PresentFrame;
-     if captureSingleFrame or videoCaptureMode then
-      CaptureFrame;
-    end else
-     sleep(5);
-    game.Flog('LEnd');
-  t:=MyTickCount-t;
-  if t<500 then avgTime:=avgTime*0.9+t*0.1;
+   // Теперь нужно вывести кадр на экран
+   if (active or (params.mode.displayMode<>dmSwitchResolution)) and
+      screenChanged then begin
+    PresentFrame;
+    if captureSingleFrame or videoCaptureMode then
+     CaptureFrame;
+   end else
+    sleep(5);
+   game.Flog('LEnd');
  end;
 
 { TCustomThread }
