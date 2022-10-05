@@ -648,6 +648,8 @@ procedure TGame.DrawMagnifier;
   text:string;
   color:cardinal;
   rawImage:TRawImage;
+  screenScale:single;
+  mSize:integer;
  begin
   if magnifierTex=nil then begin
    magnifierTex:=AllocImage(128,128,ipfARGB,aiTexture,'Magnifier');
@@ -663,26 +665,32 @@ procedure TGame.DrawMagnifier;
   magnifierTex.Unlock;
   magnifierTex.SetFilter(TTexFilter.fltNearest);
   gfx.shader.UseTexture(magnifierTex);
-  width:=min2(512,round(renderWidth*0.4));
-  height:=min2(512,renderHeight);
+  screenScale:=screenDPI/96;
+  mSize:=round(512*screenScale);
+  mSize:=mSize and $FFFFFFF0;
+  width:=min2(mSize,round(renderWidth*0.4));
+  height:=min2(mSize,renderHeight);
   if mouseX<renderWidth div 2 then left:=renderWidth-width
    else left:=0;
-  zoom:=4;
-  if (shiftstate and sscShift)>0 then zoom:=8;
+  zoom:=round(4*screenScale);
+  if (shiftstate and sscShift)>0 then zoom:=zoom*2;
   du:=width/(256*zoom); dv:=-height/(256*zoom);
   u:=0.5; v:=0.5;
   draw.TexturedRect(left,0,left+width,height,magnifierTex,u-du,v-dv,u+du,v-dv,u+du,v+dv,$FF808080);
+  draw.Rect(left,0,left+width,height,clWhite);
   // Color picker
-  if zoom>5 then begin
+  if zoom>6*screenScale then begin
    ox:=left+(width div 2);
    oy:=(height div 2);
    draw.Rect(ox,oy,ox+zoom,oy+zoom,$80FFFFFF);
    draw.Rect(ox-1,oy-1,ox+zoom+1,oy+zoom+1,$80000000);
-   draw.FillRect(ox-50,height-30,ox+50,height-2,$80000000);
+   // Pixel color value (hex)
+   draw.FillRect(ox-50*screenScale,height-30*screenScale,ox+50*screenScale,height-2*screenScale,$80000000);
    text:=Format('%2x %2x %2x',[(color shr 16) and $FF,(color shr 8) and $FF,color and $FF]);
-   txt.WriteW(defaultFont,ox,height-17,$FFFFFFFF,Str16(text),taCenter);
+   txt.WriteW(defaultFont,ox,height-17*screenScale,$FFFFFFFF,Str16(text),taCenter);
+   // Pixel coordinates
    text:=Format('x: %d y: %d',[mousex,mouseY]);
-   txt.WriteW(smallFont,ox,height-5,$FFFFFFFF,Str16(text),taCenter);
+   txt.WriteW(smallFont,ox,height-5*screenScale,$FFFFFFFF,Str16(text),taCenter);
   end;
  end;
 
