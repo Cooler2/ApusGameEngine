@@ -36,7 +36,10 @@ interface
  type
   // Standard widgets
   TUIElement   = Apus.Engine.UITypes.TUIElement;
+  TUISpacer    = Apus.Engine.UIWidgets.TUISpacer;
   TUIButton    = Apus.Engine.UIWidgets.TUIButton;
+  TUICheckbox  = Apus.Engine.UIWidgets.TUICheckbox;
+  TUIRadioButton = Apus.Engine.UIWidgets.TUIRadioButton;
   TUILabel     = Apus.Engine.UIWidgets.TUILabel;
   TUIImage     = Apus.Engine.UIWidgets.TUIImage;
   TUIEditBox   = Apus.Engine.UIWidgets.TUIEditBox;

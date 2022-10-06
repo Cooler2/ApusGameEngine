@@ -33,6 +33,13 @@ interface
    maxWidth,maxHeight:integer;
   end;
 
+  TUISpacer=class(TUIElement)
+   constructor CreateH(height:single;parent:TUIElement;color:cardinal=0); overload;
+   constructor CreateH(innerHeight,marginH,marginV:single;parent:TUIElement;color:cardinal=0); overload;
+   constructor CreateV(width:single;parent:TUIElement;color:cardinal=0); overload;
+   constructor CreateV(innerWidth,marginH,marginV:single;parent:TUIElement;color:cardinal=0); overload;
+  end;
+
   // Элемент "изображение". Содержит простое статическое изображение
   TUIImage=class(TUIElement)
    src:string; // здесь может быть имя файла или строка "event:xxx", "proc:XXXXXXXX" etc...
@@ -101,9 +108,9 @@ interface
    constructor Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement); overload;
    constructor Create(width,height:single;btnName,btnCaption:string;parent_:TUIElement); overload;
    constructor CreateSwitch(width,height:single;btnName,btnCaption:string;group:integer;
-     btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false);
-   constructor CreateCheckbox(width,height:single;btnName,btnCaption:string;group:integer;
-     btnFont:TFontHandle;parent_:TUIElement;checked:boolean=false);
+     btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false); overload;
+   constructor CreateSwitch(width,height:single;btnName,btnCaption:string;
+     parent_:TUIElement;pressed:boolean=false); overload;
 
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
@@ -119,6 +126,17 @@ interface
   private
    lastPressed,pendingUntil:int64;
    lastOver:boolean; // was under mouse when onMouseMove was called last time
+  end;
+
+  TUICheckBox=class(TUIButton)
+   checked:boolean;
+   constructor Create(width,height:single;btnName,caption:string;parent_:TUIElement;
+    checked:boolean=false;btnFont:TFontHandle=0); overload;
+  end;
+
+  TUIRadioButton=class(TUICheckbox)
+   constructor Create(width,height:single;btnName,caption:string;
+     parent_:TUIElement;checked:boolean=false;btnFont:TFontHandle=0); overload;
   end;
 
   // Рамка
@@ -171,7 +189,7 @@ interface
    realText:WideString; // реальный текст (лучше использовать это поле, а не text)
    completion:WideString; // grayed background text, if it is not empty and enter is pressed, then it is set to realText
    defaultText:WideString; // grayed background text, displayed if realText is empty
-   backgnd:cardinal deprecated 'use styles instead';
+   backgnd:cardinal;  // deprecated, use styles instead
    cursorpos:integer;      // Положение курсора (номер символа, после которого находится курсор)
    maxlength:integer;      // максимальная длина редактируемой строки
    password:boolean;    // поле для ввода пароля
@@ -311,6 +329,34 @@ implementation
  var
   comboPop:TUIComboBox;      // если существует выпавший комбобокс (а он может быть только один) - он тут
 
+{ TUISpacer }
+
+ constructor TUISpacer.CreateH(innerHeight,marginH,marginV:single;parent:TUIElement;color:cardinal);
+  begin
+   inherited Create(-1,innerHeight+marginV*2,parent);
+   SetPaddings(marginH,marginV,marginH,marginV);
+   if color<>0 then
+    styleInfo:='inner-fill:#'+IntToHex(color,8);
+  end;
+
+ constructor TUISpacer.CreateH(height:single;parent:TUIElement;color:cardinal);
+  begin
+   CreateH(height,0,0,parent,color);
+  end;
+
+ constructor TUISpacer.CreateV(innerWidth,marginH,marginV:single;parent:TUIElement;color:cardinal);
+  begin
+   inherited Create(innerWidth+marginH*2,-1,parent);
+   SetPaddings(marginH,marginV,marginH,marginV);
+   if color<>0 then
+    styleInfo:='inner-fill:#'+IntToHex(color,8);
+  end;
+
+ constructor TUISpacer.CreateV(width:single;parent:TUIElement;color:cardinal);
+  begin
+   CreateV(width,0,0,parent,color);
+  end;
+
  { TUIimage }
 
  constructor TUIimage.Create(width,height:single;imgname:string;parent_:TUIElement;source:string='');
@@ -365,21 +411,20 @@ implementation
    Create(width,height,btnName,btnCaption,0,parent_);
   end;
 
-constructor TUIButton.CreateCheckbox(width,height:single;btnName,
-    btnCaption:string;group:integer;btnFont:TFontHandle;parent_:TUIElement;checked:boolean=false);
-  begin
-   Create(width,height,btnName,btnCaption,btnFont,parent_);
-   btnStyle:=bsCheckbox;
-   self.group:=group;
-   self.pressed:=pressed;
-  end;
-
  constructor TUIButton.CreateSwitch(width,height:single;btnName,btnCaption:string;
     group:integer;btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false);
   begin
    Create(width,height,btnName,btnCaption,btnFont,parent_);
    btnStyle:=bsSwitch;
    self.group:=group;
+   self.pressed:=pressed;
+  end;
+
+ constructor TUIButton.CreateSwitch(width,height:single;btnName,btnCaption:string;
+    parent_:TUIElement;pressed:boolean=false);
+  begin
+   Create(width,height,btnName,btnCaption,0,parent_);
+   btnStyle:=bsSwitch;
    self.pressed:=pressed;
   end;
 
@@ -528,7 +573,38 @@ procedure TUIButton.DoClick;
    end;
   end;
 
+
+{ TUICheckBox }
+
+constructor TUICheckBox.Create(width,height:single;btnName,caption:string;
+   parent_:TUIElement;checked:boolean;btnFont:TFontHandle);
+ begin
+  inherited Create(width,height,btnName,caption,parent_);
+  btnStyle:=bsCheckbox;
+  self.checked:=checked;
+  if btnFont>0 then font:=btnFont;
+ end;
+
+{ TUIRadioBox }
+
+constructor TUIRadioButton.Create(width,height:single;btnName,caption:string;
+  parent_:TUIElement;checked:boolean;btnFont:TFontHandle);
+ var
+  i:integer;
+ begin
+  inherited Create(width,height,btnName,caption,parent_);
+  btnStyle:=bsCheckbox;
+  group:=1;
+  if btnFont>0 then font:=btnFont;
+  checked:=true;
+  for i:=0 to high(parent.children) do
+   if parent.children[i] is TUIRadioButton then
+    if TUIRadioButton(parent.children[i]).checked and
+       (TUIRadioButton(parent.children[i]).group=group) then checked:=false;
+ end;
+
  { TUILabel }
+
  procedure TUILabel.CaptionWidthIs(width:single);
   var
    oldW,dW:single;
