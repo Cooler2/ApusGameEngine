@@ -184,7 +184,7 @@ type
   function TransformToScreen(const r:TRect2s):TRect2s; overload;
   function GetRect:TRect2s; // Get element's area in its own CS (i.e. relative to pivot point)
   function GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
-  function GetClientRect:TRect2s; // Get element's client area in its own CS
+  function GetClientRect:TRect2s; // Get element's client area in its own CS (0,0,clientWidth,clientHeight)
 
   // получить экранные к-ты элемента
   function GetPosOnScreen:TRect;       // get full element's area in screen space
@@ -273,6 +273,9 @@ type
   function GetName:string8;
   function GetFont:TFontHandle; // returns own or inherited font handle
   function GetColor:cardinal;
+
+  class procedure SetDefault(name:string;value:variant); // SetClassAttribute('defalut'+name,value)
+  procedure AddStyle(style:string8;state:string8='');
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
@@ -471,10 +474,7 @@ implementation
 
  function TUIElement.GetClientRect:TRect2s; // Get element's client area in own CS
   begin
-   result.x1:=0;
-   result.y1:=0;
-   result.x2:=size.x/scale-padding.Left-padding.Right;
-   result.y2:=size.y/scale-padding.Top-padding.Bottom;
+   result.Init(0,0,clientWidth,clientHeight);
   end;
 
  function TUIElement.GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
@@ -1089,6 +1089,15 @@ function TUIElement.IsChild(c:TUIElement):boolean;
     end;
   end;
 
+ procedure TUIElement.AddStyle(style,state:string8);
+  begin
+   if state='' then styleInfo:=style+';'+styleInfo
+    else begin
+     if styleInfo<>'' then styleInfo:=styleInfo+';';
+     styleInfo:='['+state+'] '+style;
+    end;
+  end;
+
  procedure TUIElement.AddToRootElements;
   begin
    UICritSect.Enter;
@@ -1353,7 +1362,13 @@ function TUIElement.GetClientHeight:single;
    result:=self;
   end;
 
-procedure TUIElement.SetFocus;
+ class procedure TUIElement.SetDefault(name:string;value:variant);
+  begin
+   if name[1] in ['a'..'z'] then name[1]:=UpCase(name[1]);
+   SetClassAttribute('default'+name,value);
+  end;
+
+ procedure TUIElement.SetFocus;
   var
    c:TUIElement;
    i:integer;
