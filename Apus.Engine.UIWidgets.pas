@@ -337,7 +337,7 @@ implementation
    inherited Create(-1,innerHeight+marginV*2,parent);
    SetPaddings(marginH,marginV,marginH,marginV);
    if color<>0 then
-    styleInfo:='inner-fill:#'+IntToHex(color,8);
+    AddStyle('inner-fill:'+IntToHex(color,8));
   end;
 
  constructor TUISplitter.CreateH(height:single;parent:TUIElement;color:cardinal);
@@ -350,7 +350,7 @@ implementation
    inherited Create(innerWidth+marginH*2,-1,parent);
    SetPaddings(marginH,marginV,marginH,marginV);
    if color<>0 then
-    styleInfo:='inner-fill:#'+IntToHex(color,8);
+    AddStyle('inner-fill:'+IntToHex(color,8));
   end;
 
  constructor TUISplitter.CreateV(width:single;parent:TUIElement;color:cardinal);
