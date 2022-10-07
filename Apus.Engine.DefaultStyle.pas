@@ -650,26 +650,42 @@ implementation
    fillColor,strokeColor:cardinal;
    radius,bWidth:single;
    x1,y1,x2,y2:integer;
-  begin
-   with element.globalrect do begin
-    x1:=Left; x2:=right-1;
-    y1:=top; y2:=bottom-1;
+  procedure ImportRect(r:TRect);
+   begin
+    x1:=r.Left; x2:=r.right-1;
+    y1:=r.top; y2:=r.bottom-1;
    end;
+  procedure DrawBlock;
+   begin
+    if fillColor<>0 then begin
+     if radius=0 then
+      draw.FillRect(x1,y1,x2,y2,fillColor)
+     else
+      draw.FillRRect(x1,y1,x2,y2,fillColor,radius);
+    end;
+    if strokeColor<>0 then begin
+     if radius=0 then
+      draw.Rect(x1,y1,x2,y2,strokeColor)
+     else
+      draw.RRect(x1,y1,x2,y2,bWidth,radius,strokeColor)
+    end;
+   end;
+  begin
+   ImportRect(element.globalRect);
+   // Outer block
    fillColor:=style.GetColor('fill');
    strokeColor:=style.GetColor('border');
    radius:=style.GetScaled(element,'radius');
    bWidth:=style.GetScaled(element,'border-width',1);
-   if fillColor<>0 then begin
-    if radius=0 then
-     draw.FillRect(x1,y1,x2,y2,fillColor)
-    else
-     draw.FillRRect(x1,y1,x2,y2,fillColor,radius);
-   end;
-   if strokeColor<>0 then begin
-    if radius=0 then
-     draw.Rect(x1,y1,x2,y2,strokeColor)
-    else
-     draw.RRect(x1,y1,x2,y2,bWidth,radius,strokeColor)
+   DrawBlock;
+   // Inner (client) block
+   fillColor:=style.GetColor('inner-fill');
+   strokeColor:=style.GetColor('inner-border');
+   radius:=style.GetScaled(element,'inner-radius',radius);
+   bWidth:=style.GetScaled(element,'inner-border-width',bWidth);
+   if (fillColor<>0) or (strokeColor<>0) then begin
+    ImportRect(element.GetClientPosOnScreen);
+    DrawBlock;
    end;
   end;
 
@@ -851,4 +867,5 @@ procedure TElementStyle.Parse;
 
 initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
+ //TUISplitter.Set
 end.
