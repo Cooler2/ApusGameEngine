@@ -9,8 +9,7 @@ interface
 uses Apus.Engine.UI;
  var
   defaultBtnColor:cardinal=$FFB0A0C0;
-
- procedure DefaultDrawer(element:TUIElement);
+  supportOldStyles:boolean=true;
 
 implementation
  uses Apus.Types, Apus.Images, SysUtils, Types, Apus.Common, Apus.AnimatedValues,
@@ -18,30 +17,41 @@ implementation
     Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender;
 
  type
-  TStyleSheet=record
-   sheetName:string;
-   borderWidth,borderRadius:single;
-   borderColor,backgroundColor:cardinal;
-   fadeIn,fadeOut:integer;
-   weight:TAnimatedValue;
-   procedure InitFromString(st:string);
+  TAttributeType=(atColor,atNumber,atString);
+
+  TAttribute=record
+   name:string;
+   aType:TAttributeType;
   end;
 
-  TStyleSheets=array of TStyleSheet;
-
   TElementStyle=record
-   defaultStyle:TStyleSheet;
-   actualStyle:TStyleSheet;
-   styles:TStyleSheets;
-   procedure CalcActualStyle; // calculate weighted values
+   fastHash:cardinal;
+   fullStyleInfo:String8; // for reference only
+   lastUsed:int64;
+   attributes:TVarHash;
+   procedure Parse;
+   function GetColor(name:string8;default:cardinal=0):cardinal; inline;
+   function GetNumber(name:string8;default:single=0):single; inline;
+   function GetScaled(element:TUIElement;name:string8;default:single=0):single;  inline;
+   function GetString(name:string8;default:string8=''):string8; inline;
+  private
+   function GetAttr(name:string8;default:variant):variant;
   end;
   PElementStyle=^TElementStyle;
 
+ const
+  attribList:array[0..2] of TAttribute=(
+    (name:'fill'; aType:atColor),
+    (name:'border'; aType:atColor),
+    (name:'radius'; aType:atNumber)
+   );
  var
-  imgHash:TSimpleHashS;  // hash of loaded images: filename -> UIntPtr(TTexture)
-  styleHash:TSimpleHash; // element pointer -> style data
+  styles:array[0..127] of TElementStyle;
+  maxStyle:integer; // max index of used style entry
+  //styleHash:TSimpleHash; // element pointer -> style index (may contain outdated values)
 
   hintImage:TTexture;
+  imgHash:TSimpleHashS;  // hash of loaded images: filename -> UIntPtr(TTexture)
 
  {$R-}
  // styleinfo="00000000 11111111 22222222 33333333" - list of colors (hex)
@@ -64,7 +74,49 @@ implementation
    end;
   end;
 
- procedure DrawUIControl(control:TUIElement;x1,y1,x2,y2:integer);
+ // Creates a style entry for the element, returns its index
+ function CreateStyleEntry(element:TUIElement):integer;
+  var
+   i,best:integer;
+   min:int64;
+  begin
+   min:=MAX_INT64;
+   for i:=0 to high(styles) do
+    if styles[i].fullStyleInfo='' then begin
+      if i>maxStyle then maxStyle:=i;
+      best:=i; min:=0;
+      break;
+     end else begin
+      if styles[i].lastUsed<min then begin
+       min:=styles[i].lastUsed; best:=i;
+      end;
+     end;
+   ASSERT(min<MAX_INT64);
+   styles[best].fullStyleInfo:=element.styleInfo;
+   styles[best].fastHash:=FastHash(styles[best].fullStyleInfo);
+   styles[best].Parse;
+   result:=best;
+  end;
+
+ function GetElementStyle(element:TUIElement):PElementStyle;
+  var
+   i,idx:integer;
+   fHash:cardinal;
+  begin
+   idx:=-1;
+   if element.styleInfo='' then exit(nil);
+   fHash:=FastHash(element.styleInfo);
+   for i:=0 to maxStyle do
+    if styles[i].fastHash=fHash then
+     if SameText(styles[i].fullStyleInfo,element.styleInfo) then begin
+      idx:=i; break;
+     end;
+   if idx<0 then idx:=CreateStyleEntry(element);
+   styles[idx].lastUsed:=game.frameStartTime;
+   result:=@styles[idx];
+  end;
+
+ procedure DrawUIElement(control:TUIElement;x1,y1,x2,y2:integer);
   var
    i,c,c2:integer;
    st:string;
@@ -593,27 +645,53 @@ implementation
    end;
   end;
 
- procedure UpdateElementStyle(element:TUIElement);
-  begin
-
-  end;
-
- // Отрисовщик по умолчанию
- procedure DefaultDrawer(element:TUIElement);
+ procedure DrawCommonStyle(element:TUIElement;style:PElementStyle);
   var
+   fillColor,strokeColor:cardinal;
+   radius,bWidth:single;
    x1,y1,x2,y2:integer;
   begin
    with element.globalrect do begin
     x1:=Left; x2:=right-1;
     y1:=top; y2:=bottom-1;
    end;
+   fillColor:=style.GetColor('fill');
+   strokeColor:=style.GetColor('border');
+   radius:=style.GetScaled(element,'radius');
+   bWidth:=style.GetScaled(element,'border-width',1);
+   if fillColor<>0 then begin
+    if radius=0 then
+     draw.FillRect(x1,y1,x2,y2,fillColor)
+    else
+     draw.FillRRect(x1,y1,x2,y2,fillColor,radius);
+   end;
+   if strokeColor<>0 then begin
+    if radius=0 then
+     draw.Rect(x1,y1,x2,y2,strokeColor)
+    else
+     draw.RRect(x1,y1,x2,y2,bWidth,radius,strokeColor)
+   end;
+  end;
 
-   if element.styleInfoChanged then UpdateElementStyle(element);
+ // Отрисовщик по умолчанию
+ procedure DefaultDrawer(element:TUIElement);
+  var
+   x1,y1,x2,y2:integer;
+   eStyle:PElementStyle;
+  begin
+   eStyle:=GetElementStyle(element);
+   if eStyle<>nil then
+    DrawCommonStyle(element,eStyle);
+
+   with element.globalrect do begin
+    x1:=Left; x2:=right-1;
+    y1:=top; y2:=bottom-1;
+   end;
 
    // Просто контейнер - заливка плюс рамка
-   if element.ClassType=TUIElement then
-    DrawUIControl(element,x1,y1,x2,y2)
-   else
+{   if element.ClassType=TUIElement then
+    DrawUIElement(element,x1,y1,x2,y2)
+   else}
    // Надпись
    if element is TUILabel then
     DrawUILabel(element as TUILabel,x1,y1,x2,y2)
@@ -654,20 +732,122 @@ implementation
    if element is TUIComboBox then
     DrawUIComboBox(x1,y1,x2,y2,element as TUIComboBox)
    else
-    DrawUIControl(element,x1,y1,x2,y2);
+    DrawUIElement(element,x1,y1,x2,y2);
   end;
 
-{ TStyleSheet }
-procedure TStyleSheet.InitFromString(st:string);
- begin
-
- end;
-
 { TElementStyle }
-procedure TElementStyle.CalcActualStyle;
- begin
+ function TElementStyle.GetAttr(name:string8;default:variant):variant;
+  begin
+   result:=attributes.Get(name);
+   if not HasValue(result) then result:=default;
+  end;
 
- end;
+ function TElementStyle.GetColor(name:string8;default:cardinal):cardinal;
+  begin
+   result:=GetAttr(name,default);
+  end;
+
+ function TElementStyle.GetNumber(name:string8;default:single):single;
+  begin
+   result:=GetAttr(name,default);
+  end;
+
+ function TElementStyle.GetScaled(element:TUIElement;name:string8;default:single=0):single;
+  begin
+   result:=GetAttr(name,default);
+   result:=result*element.globalScale;
+  end;
+
+ function TElementStyle.GetString(name,default:string8):string8;
+  begin
+   result:=GetAttr(name,default);
+  end;
+
+procedure TElementStyle.Parse;
+  var
+   i,start:integer;
+   prefix:string8;
+
+  function ParseColor(s:string8):cardinal;
+   begin
+    result:=clDefault;
+    if length(s)<2 then exit;
+    if s[1] in ['#','$'] then delete(s,1,1);
+    if length(s)=8 then result:=ParseInt('$'+s)
+    else
+    if length(s)=6 then result:=ParseInt('$FF'+s)
+    else if length(s)=3 then begin
+     s:='$FF'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3];
+     result:=ParseInt(s);
+    end else
+    if length(s)=4 then begin
+     s:='$'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3]+s[4]+s[4];
+     result:=ParseInt(s);
+    end;
+   end;
+
+  function ParseValue(name,s:string8):variant;
+   var
+    i:integer;
+   begin
+    if length(s)<1 then exit(false);
+    for i:=0 to high(attribList) do
+     if name=attribList[i].name then begin
+      case attribList[i].aType of
+       atColor:result:=ParseColor(s);
+       atNumber:result:=ParseFloat(s);
+       atString:result:=s;
+      end;
+      exit;
+     end;
+    result:='';
+   end;
+
+  procedure ParsePart(from,last:integer);
+   var
+    p:integer;
+    attr,aVal:string8;
+    value:variant;
+   begin
+    if fullStyleInfo[from]='[' then begin
+     p:=PosFrom(']',fullStyleInfo,from+1);
+     if p>from then begin
+      prefix:=LowerCase(Copy(fullStyleInfo,from+1,p-from-1));
+      from:=p+1;
+     end else
+      raise EWarning.Create('Style syntax error at %d: "%s"',[from,fullStyleInfo]);
+    end;
+    p:=PosFrom(':',fullStyleInfo,from+1);
+    if p=0 then p:=PosFrom('=',fullStyleInfo,from+1);
+    if p>0 then begin
+     // name:value pair
+     attr:=LowerCase(Chop(Copy(fullStyleInfo,from,p-from)));
+     aVal:=Chop(Copy(fullStyleInfo,p+1,last-p));
+     value:=ParseValue(attr,aVal);
+    end else begin
+     // valueless attribute -> value=true
+     attr:=LowerCase(Chop(copy(fullStyleInfo,from,last-from+1)));
+     value:=true;
+    end;
+    if prefix<>'' then attr:=prefix+':'+LowerCase(attr);
+    attributes.Put(attr,value);
+   end;
+  begin
+   attributes.Init(32);
+   start:=1; i:=start;
+   while i<=length(fullStyleInfo) do begin
+    if (i=start) and (fullStyleInfo[i]<=' ') then begin
+     inc(start); inc(i); continue;
+    end;
+    if fullStyleInfo[i]=';' then begin
+     ParsePart(start,i-1);
+     start:=i+1;
+     i:=start;
+    end else
+     inc(i);
+   end;
+   ParsePart(start,length(fullStyleInfo));
+  end;
 
 initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
