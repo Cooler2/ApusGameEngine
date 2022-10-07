@@ -33,7 +33,8 @@ interface
    maxWidth,maxHeight:integer;
   end;
 
-  TUISpacer=class(TUIElement)
+  TUISplitter=class(TUIElement)
+   canResize:boolean; // true - allow resizing neighbour elements
    constructor CreateH(height:single;parent:TUIElement;color:cardinal=0); overload;
    constructor CreateH(innerHeight,marginH,marginV:single;parent:TUIElement;color:cardinal=0); overload;
    constructor CreateV(width:single;parent:TUIElement;color:cardinal=0); overload;
@@ -331,7 +332,7 @@ implementation
 
 { TUISpacer }
 
- constructor TUISpacer.CreateH(innerHeight,marginH,marginV:single;parent:TUIElement;color:cardinal);
+ constructor TUISplitter.CreateH(innerHeight,marginH,marginV:single;parent:TUIElement;color:cardinal);
   begin
    inherited Create(-1,innerHeight+marginV*2,parent);
    SetPaddings(marginH,marginV,marginH,marginV);
@@ -339,12 +340,12 @@ implementation
     styleInfo:='inner-fill:#'+IntToHex(color,8);
   end;
 
- constructor TUISpacer.CreateH(height:single;parent:TUIElement;color:cardinal);
+ constructor TUISplitter.CreateH(height:single;parent:TUIElement;color:cardinal);
   begin
    CreateH(height,0,0,parent,color);
   end;
 
- constructor TUISpacer.CreateV(innerWidth,marginH,marginV:single;parent:TUIElement;color:cardinal);
+ constructor TUISplitter.CreateV(innerWidth,marginH,marginV:single;parent:TUIElement;color:cardinal);
   begin
    inherited Create(innerWidth+marginH*2,-1,parent);
    SetPaddings(marginH,marginV,marginH,marginV);
@@ -352,7 +353,7 @@ implementation
     styleInfo:='inner-fill:#'+IntToHex(color,8);
   end;
 
- constructor TUISpacer.CreateV(width:single;parent:TUIElement;color:cardinal);
+ constructor TUISplitter.CreateV(width:single;parent:TUIElement;color:cardinal);
   begin
    CreateV(width,0,0,parent,color);
   end;
