@@ -34,6 +34,8 @@ interface
   {$ENDIF}
   MAX_FLOAT = 3.4E38;
   MIN_FLOAT = 1.18E-38;
+  MAX_INT64 = $7FFFFFFFFFFFFFFF;
+  MAX_UINT64 = $FFFFFFFFFFFFFFFF;
 
  type
   // Type aliases declared because this unit is assumed to be primarily used (instead of Apus.Types)
