@@ -19,7 +19,7 @@ interface
   application:TMainApp;
 
 implementation
- uses Apus.CrossPlatform,Apus.EventMan,Apus.Colors,
+ uses Apus.CrossPlatform,Apus.Common,Apus.EventMan,Apus.Colors,
    Apus.Engine.UI;
 
  type
@@ -40,6 +40,7 @@ constructor TMainApp.Create;
   gameTitle:='Apus Game Engine: UI Demo'; // app window title
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
+  useRealDPI:=true;
   //usedPlatform:=spSDL;
   //directRenderOnly:=true;
   //windowedMode:=false;
@@ -99,13 +100,30 @@ procedure TestWidgets;
   // Default properties
   TUILabel.SetClassAttribute('defaultStyleInfo','40FFFFFF');
   TUILabel.SetClassAttribute('defaultColor',$FF603000);
-
+  TUILabel.SetClassAttribute('defaultFont',game.largerFont);
+  // Labels
   TUILabel.Create(-1,20,'Label1','Simple label',cont);
   TUILabel.CreateCentered(-1,20,'Label2','Centered',cont);
   TUILabel.CreateRight(-1,20,'Label3','Right',cont);
   TUILabel.Create(-1,20,'Label4','With padding',cont).SetPaddings(4,2,4,2);
   TUILabel.CreateCentered(120,20,'Label5','Too Long Text Clipped',cont);
-
+  TUILabel.Create(-1,18,'Label6','Shift up',cont).verticalOffset:=2;
+  TUILabel.Create(-1,18,'Label7','Shift down',cont).verticalOffset:=-2;
+  // Buttons
+  cont:=CreateVerticalContainer(150,'Buttons',root,0,10);
+  cont.SetPos(200,10);
+  TUIButton.Create(140,30,'Button1','Button 1',cont);
+  TUIButton.Create(140,30,'Button2','Disabled',cont).enabled:=false;
+  TUIButton.CreateSwitch(140,30,'Switch1','Switch 1',cont);
+  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  // Check boxes
+  TUICheckBox.Create(160,25,'Check1','checkbox 1',cont,true);
+  TUICheckBox.Create(160,25,'Check1','checkbox 2',cont);
+  TUISplitter.CreateH(10,cont);
+  // Radio buttons
+  TUIRadioButton.Create(160,25,'Radio1','radio 1',cont);
+  TUIRadioButton.Create(160,25,'Radio2','radio 2',cont);
+  TUIRadioButton.Create(160,25,'Radio3','radio 3',cont);
  end;
 
 procedure TestLayouts;
@@ -122,16 +140,16 @@ procedure TMainScene.Initialize;
   btn:TUIButton;
   panel:TUIElement;
  begin
-  UI.font:=txt.GetFont('',7.0,fsBold);
+  UI.font:=txt.GetFont('',8.0,fsBold);
   // Create menu panel
   panel:=TUIElement.Create(250,400,UI,'MainMenu');
-  panel.scale:=1.5;
+  panel.scale:=1.2;
   panel.Center;
   panel.SetAnchors(anchorCenter);
   panel.layout:=TRowLayout.CreateVertical(10,true);
   panel.SetPadding(15);
   //panel.styleInfo:='40E0E0E0 60E0E0E0';
-  panel.styleInfo:='background-color=4EEE; border-color=6EEE; border-radius=7;';
+  panel.styleInfo:='Fill:#4EEE; border:9EEE; radius=6;';
 
   // Create menu buttons
   TUIButton.Create(120,30,'Main\Widgets','Widgets',panel).onClick:=@TestWidgets;
@@ -141,7 +159,7 @@ procedure TMainScene.Initialize;
   Link('UI\Main\Close\Click','Engine\Cmd\Exit');
 
   // Create a placeholder UI element for demos
-  root:=TUIElement.Create(UI.clientWidth,UI.clientHeight,UI,'Root');
+  root:=TUIElement.Create(-1,-1,UI,'Root');
   root.SetAnchors(anchorAll);
   root.styleInfo:='FFB0C0C4 80000000';
   root.shape:=TElementShape.shapeFull;
@@ -151,7 +169,7 @@ procedure TMainScene.Initialize;
 procedure TMainScene.Render;
  begin
   // 1. Draw scene background
-  gfx.target.Clear($406080); // clear with black
+  gfx.target.Clear($406080);
   // Draw some lines
   inherited;
  end;
