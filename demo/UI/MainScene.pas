@@ -98,9 +98,9 @@ procedure TestWidgets;
   cont:=CreateVerticalContainer(150,'Labels',root,0,10);
   cont.SetPos(10,10);
   // Default properties
-  TUILabel.SetClassAttribute('defaultStyleInfo','40FFFFFF');
-  TUILabel.SetClassAttribute('defaultColor',$FF603000);
-  TUILabel.SetClassAttribute('defaultFont',game.largerFont);
+  TUILabel.SetDefault('styleInfo','40FFFFFF');
+  TUILabel.SetDefault('color',$FF603000);
+  TUILabel.SetDefault('font',game.largerFont);
   // Labels
   TUILabel.Create(-1,20,'Label1','Simple label',cont);
   TUILabel.CreateCentered(-1,20,'Label2','Centered',cont);
