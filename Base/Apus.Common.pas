@@ -384,7 +384,8 @@ interface
  function LowerCase8(st:String8):String8;
  // Ignore case
  function SameChar(a,b:AnsiChar):boolean; inline;
- function SameText8(a,b:String8):boolean; inline;
+ function SameText8(const a,b:String8):boolean; inline;
+ function SameText16(const a,b:String16):boolean; overload;
 
  // Возвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
  function SafeStrItem(sa:AStringArr;idx:integer):string8; overload;
@@ -411,10 +412,6 @@ interface
  function Chop(st:string):string; overload; {$ENDIF}
  {$IFDEF ADDANSI}
  function Chop(st:String8):String8; overload; {$ENDIF}
-
- // Case-insensetive comparison - equivalent of SameText()
- function SameText(const s1,s2:String8):boolean; overload;
- function SameText(const s1,s2:String16):boolean; overload;
 
  // Возвращает последний символ строки (#0 if empty)
  function LastChar(st:string):char; overload;
@@ -4011,15 +4008,11 @@ function BinToStr;
    result:=-1;
    l:=length(st);
    if ignoreCase then begin
-    for i:=0 to high(sa) do begin
-     if length(sa[i])<>l then continue;
-     if Apus.Common.SameText(st,sa[i]) then exit(i);
-    end;
+    for i:=0 to high(sa) do
+     if (length(sa[i])=l) and SameText(st,sa[i]) then exit(i);
    end else
-    for i:=0 to high(sa) do begin
-     if length(sa[i])<>l then continue; // this makes it MUCH faster
-     if SysUtils.SameStr(sa[i],st) then exit(i);
-    end;
+    for i:=0 to high(sa) do
+     if (length(sa[i])=l) and SameStr(sa[i],st) then exit(i);
   end;
 
  function FindString(var sa:StringArray8;const st:string8;ignoreCase:boolean=false):integer; overload;
@@ -4029,15 +4022,11 @@ function BinToStr;
    result:=-1;
    l:=length(st);
    if ignoreCase then begin
-    for i:=0 to high(sa) do begin
-     if length(sa[i])<>l then continue;
-     if SameText8(st,sa[i]) then exit(i);
-    end;
+    for i:=0 to high(sa) do
+     if (length(sa[i])=l) and SameText8(st,sa[i]) then exit(i);
    end else
-    for i:=0 to high(sa) do begin
-     if length(sa[i])<>l then continue; // this makes it MUCH faster
-     if sa[i]=st then exit(i);
-    end;
+    for i:=0 to high(sa) do
+     if (length(sa[i])=l) and (sa[i]=st) then exit(i);
   end;
 
  function FindString(var sa:StringArray16;const st:string16;ignoreCase:boolean=false):integer; overload;
@@ -4046,15 +4035,11 @@ function BinToStr;
   begin
    result:=-1;
    if ignoreCase then begin
-    for i:=0 to high(sa) do begin
-     if length(sa[i])<>l then continue;
-     if Apus.Common.SameText(st,sa[i]) then exit(i);
-    end;
+    for i:=0 to high(sa) do
+     if (length(sa[i])=l) and SameText16(st,sa[i]) then exit(i);
    end else
-    for i:=0 to high(sa) do begin
-     if length(sa[i])<>l then continue; // this makes it MUCH faster
-     if SysUtils.SameStr(sa[i],st) then exit(i);
-    end;
+    for i:=0 to high(sa) do
+     if (length(sa[i])=l) and SameStr(sa[i],st) then exit(i);
   end;
 
  function FindInteger(var a:IntArray;v:integer):integer;
@@ -4260,7 +4245,15 @@ function BinToStr;
    result:=a=b;
   end;
 
- function SameText8(a,b:String8):boolean;
+ function SameChar16(a,b:WideChar):boolean;
+  begin
+   if (word(a)>=word('a')) and (word(a)<=word('z')) then dec(word(a),word('a')-word('A'));
+   if (word(b)>=word('a')) and (word(b)<=word('z')) then dec(word(b),word('a')-word('A'));
+   result:=a=b;
+  end;
+
+ {$R-}
+ function SameText8(const a,b:String8):boolean;
   var
    i,l:integer;
   begin
@@ -4270,6 +4263,18 @@ function BinToStr;
     if not SameChar(a[i],b[i]) then exit(false);
    result:=true;
   end;
+
+ function SameText16(const a,b:String16):boolean;
+  var
+   i,l:integer;
+  begin
+   l:=length(a);
+   if length(b)<>l then exit(false);
+   for i:=1 to l do
+    if not SameChar16(a[i],b[i]) then exit(false);
+   result:=true;
+  end;
+ {$IFDEF RANGECHECKS_ON} {$R+} {$ENDIF}
 
  function Split(divider,st:string;quotes:char):StringArr; overload;
   var
@@ -4771,46 +4776,6 @@ function BinToStr;
    while (length(result)>0) and (result[i]<=' ') do dec(i);
    setlength(result,i);
   end;
-
- {$R-}
- function SameText(const s1,s2:String8):boolean; overload;
-  var
-   i,l:integer;
-   b1,b2:byte;
-  begin
-   //if s1=s2 then exit(true);  // fast check
-   l:=length(s1);
-   if length(s2)<>l then exit(false);
-   for i:=1 to l do begin
-    b1:=byte(s1[i]);
-    b2:=byte(s2[i]);
-    if b1<>b2 then begin
-     if (b1>=ord('a')) and (b1<=ord('z')) then b1:=b1 xor $20;
-     if (b2>=ord('a')) and (b2<=ord('z')) then b2:=b2 xor $20;
-     if b1<>b2 then exit(false);
-    end;
-   end;
-   result:=true;
-  end;
-
- function SameText(const s1,s2:String16):boolean; overload;
-  var
-   i,l:integer;
-   b1,b2:word;
-  begin
-   if s1=s2 then exit(true);
-   l:=length(s1);
-   if length(s2)<>l then exit(false);
-   for i:=1 to l do begin
-    b1:=word(s1[i]);
-    if (b1>=ord('a')) and (b1<=ord('z')) then b1:=b1 xor $20;
-    b2:=word(s2[i]);
-    if (b2>=ord('a')) and (b2<=ord('z')) then b2:=b2 xor $20;
-    if b1<>b2 then exit(false);
-   end;
-   result:=true;
-  end;
- {$IFDEF RANGECHECKS_ON} {$R+} {$ENDIF}
 
  function LastChar(st:string):char;
   begin
