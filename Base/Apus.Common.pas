@@ -327,9 +327,9 @@ interface
  procedure RemoveString(var sa:AStringArr;index:integer); overload;
  procedure RemoveString(var sa:WStringArr;index:integer); overload;
  // Ищет строку в массиве, возвращает её индекс либо -1
- function FindString(var sa:StringArr;st:string;ignoreCase:boolean=false):integer; overload;
- function FindString(var sa:StringArray8;st:string8;ignoreCase:boolean=false):integer; overload;
- function FindString(var sa:StringArray16;st:string16;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArr;const st:string;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArray8;const st:string8;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArray16;const st:string16;ignoreCase:boolean=false):integer; overload;
  // Ищет число в массиве, возвращает его индекс либо -1
  function FindInteger(var a:IntArray;v:integer):integer;
  // Вставляет (добавляет) число в массив чисел
@@ -384,7 +384,7 @@ interface
  function LowerCase8(st:String8):String8;
  // Ignore case
  function SameChar(a,b:AnsiChar):boolean; inline;
- function SameText8(a,b:String8):boolean;
+ function SameText8(a,b:String8):boolean; inline;
 
  // Возвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
  function SafeStrItem(sa:AStringArr;idx:integer):string8; overload;
@@ -413,8 +413,8 @@ interface
  function Chop(st:String8):String8; overload; {$ENDIF}
 
  // Case-insensetive comparison - equivalent of SameText()
- function SameStr(const s1,s2:String8):boolean; overload;
- function SameStr(const s1,s2:String16):boolean; overload;
+ function SameText(const s1,s2:String8):boolean; overload;
+ function SameText(const s1,s2:String16):boolean; overload;
 
  // Возвращает последний символ строки (#0 if empty)
  function LastChar(st:string):char; overload;
@@ -3998,46 +3998,63 @@ function BinToStr;
    SetLength(sa,n);
   end;
 
- function FindString(var sa:StringArr;st:string;ignoreCase:boolean=false):integer;
-  var
-   i:integer;
+ function EqualStr(const s1,s2:string):boolean; inline;
   begin
-   result:=-1;
-   if ignoreCase then begin
-    st:=lowercase(st);
-    for i:=0 to high(sa) do
-     if lowercase(sa[i])=st then exit(i);
-   end else
-    for i:=0 to high(sa) do
-     if sa[i]=st then exit(i);
+   if length(s1)<>length(s2) then exit(false);
+   result:=s1=s2;
   end;
 
- function FindString(var sa:StringArray8;st:string8;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArr;const st:string;ignoreCase:boolean=false):integer;
   var
-   i:integer;
+   i,l:integer;
   begin
    result:=-1;
+   l:=length(st);
    if ignoreCase then begin
-    st:=lowercase8(st);
-    for i:=0 to high(sa) do
-     if lowercase8(sa[i])=st then exit(i);
+    for i:=0 to high(sa) do begin
+     if length(sa[i])<>l then continue;
+     if Apus.Common.SameText(st,sa[i]) then exit(i);
+    end;
    end else
-    for i:=0 to high(sa) do
-     if sa[i]=st then exit(i);
+    for i:=0 to high(sa) do begin
+     if length(sa[i])<>l then continue; // this makes it MUCH faster
+     if SysUtils.SameStr(sa[i],st) then exit(i);
+    end;
   end;
 
- function FindString(var sa:StringArray16;st:string16;ignoreCase:boolean=false):integer; overload;
+ function FindString(var sa:StringArray8;const st:string8;ignoreCase:boolean=false):integer; overload;
   var
-   i:integer;
+   i,l:integer;
+  begin
+   result:=-1;
+   l:=length(st);
+   if ignoreCase then begin
+    for i:=0 to high(sa) do begin
+     if length(sa[i])<>l then continue;
+     if SameText8(st,sa[i]) then exit(i);
+    end;
+   end else
+    for i:=0 to high(sa) do begin
+     if length(sa[i])<>l then continue; // this makes it MUCH faster
+     if sa[i]=st then exit(i);
+    end;
+  end;
+
+ function FindString(var sa:StringArray16;const st:string16;ignoreCase:boolean=false):integer; overload;
+  var
+   i,l:integer;
   begin
    result:=-1;
    if ignoreCase then begin
-    st:=lowercase(st);
-    for i:=0 to high(sa) do
-     if lowercase(sa[i])=st then exit(i);
+    for i:=0 to high(sa) do begin
+     if length(sa[i])<>l then continue;
+     if Apus.Common.SameText(st,sa[i]) then exit(i);
+    end;
    end else
-    for i:=0 to high(sa) do
-     if sa[i]=st then exit(i);
+    for i:=0 to high(sa) do begin
+     if length(sa[i])<>l then continue; // this makes it MUCH faster
+     if SysUtils.SameStr(sa[i],st) then exit(i);
+    end;
   end;
 
  function FindInteger(var a:IntArray;v:integer):integer;
@@ -4756,7 +4773,7 @@ function BinToStr;
   end;
 
  {$R-}
- function SameStr(const s1,s2:String8):boolean; overload;
+ function SameText(const s1,s2:String8):boolean; overload;
   var
    i,l:integer;
    b1,b2:byte;
@@ -4776,7 +4793,7 @@ function BinToStr;
    result:=true;
   end;
 
- function SameStr(const s1,s2:String16):boolean; overload;
+ function SameText(const s1,s2:String16):boolean; overload;
   var
    i,l:integer;
    b1,b2:word;
