@@ -199,6 +199,7 @@ type
   function Get(key:int64):int64;  // returns -1 if no value
   function HasValue(key:int64):boolean;
   procedure Remove(key:int64);
+  procedure RemoveValue(value:int64); // remove all keys with given value
  private
   lock:integer;
   links:array of integer; // hash->firstItem: начало списка для каждого возможного значения хэша
@@ -1348,7 +1349,20 @@ procedure THash.SortKeys;
    finally lock:=0; end;
   end;
 
- function TSimpleHash.HashValue(const k:int64):integer;
+ procedure TSimpleHash.RemoveValue(value:int64);
+  var
+   h,i,prev:integer;
+  begin
+   SpinLock(lock);
+   try
+   /// TODO: not yet implemented
+{   for h:=0 to high(links) do begin
+    i:=links[h];
+   end;}
+   finally lock:=0; end;
+  end;
+
+function TSimpleHash.HashValue(const k:int64):integer;
   begin
    result:=(k+(k shr 11)+(k shr 23)) and hMask;
   end;
@@ -2092,7 +2106,7 @@ function TObjectHash.Get(key:String8):TNamedObject;
   try
    h:=h and mask;
    while values[h]<>nil do begin
-    if IsValid(values[h]) and SameStr(key,values[h].name) then exit(values[h]);
+    if IsValid(values[h]) and SameText8(key,values[h].name) then exit(values[h]);
     inc(hashMiss);
     h:=(h+1) and mask;
    end;
@@ -2238,7 +2252,7 @@ function TVarHash.Get(key:String8):variant;
   try
    h:=h and mask;
    while keys[h]<>'' do begin
-    if SameStr(key,keys[h]) and (values[h]<>unassigned) then exit(values[h]);
+    if SameText8(key,keys[h]) and (values[h]<>unassigned) then exit(values[h]);
     inc(hashMiss);
     h:=(h+1) and mask;
    end;
@@ -2257,7 +2271,7 @@ function TVarHash.HasKey(key:String8):boolean;
   try
    h:=h and mask;
    while keys[h]<>'' do begin
-    if SameStr(key,keys[h]) and (values[h]<>unassigned) then exit(true);
+    if SameText8(key,keys[h]) and (values[h]<>unassigned) then exit(true);
     inc(hashMiss);
     h:=(h+1) and mask;
    end;
