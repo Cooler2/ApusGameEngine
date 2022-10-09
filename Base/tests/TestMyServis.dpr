@@ -2016,11 +2016,41 @@ procedure Test1(p1,p2,p3:integer);
   readln;
  end;      *)
 
+ procedure TestStringComp;
+  var
+   t:int64;
+   time:double;
+   i:integer;
+   sa:StringArray;
+   st:string;
+  begin
+   ASSERT(SameText8('Hello','hellO'));
+   ASSERT(not SameText8('Hallo','hellO'));
+   ASSERT(SameText16('Hello','hellO'));
+   ASSERT(not SameText16('Hallo','hellO'));
+   StartMeasure(t);
+   for i:=1 to 1000000 do
+    SameText16('Hello WORLD!','HELLO world!');
+   time:=EndMeasure(t);
+   writeln(time:5:2);
+
+   SetLength(sa,100);
+   for i:=0 to high(sa) do
+    sa[i]:=RandomStr(20+random(70));
+   st:=RandomStr(50);
+   StartMeasure(t);
+   for i:=1 to 1000000 do
+    FindString(sa,st,false);
+   time:=EndMeasure(t);
+   writeln('FindString: ',time:5:2);
+  end;
+
 begin
  SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
  try
   //Test1(1,2,3);
+  TestStringComp;
   TestRandom;
   TestHalf;
   TestFloor;
