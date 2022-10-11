@@ -34,6 +34,11 @@ interface
  // TXT is a dummy image format for prototyping (specify text drawing func!)
  procedure LoadTXT(data:ByteArray;var image:TRawImage;txtSmallFont,txtNormalFont:TUnicodeFont);
  {$ENDIF}
+
+ // String image format (UTF8)
+ procedure LoadSTR(data:string8;var image:TRawImage);
+ function SaveSTR(image:TRawImage):string8;
+
  // DirectDrawSurface
  procedure LoadDDS(data:ByteArray;var image:TRawImage;allocate:boolean=false);
 
@@ -63,7 +68,7 @@ implementation
        {$IF CompilerVersion >= 20.0}VCL.Graphics,VCL.Imaging.jpeg,{$ELSE}Graphics,Jpeg,{$IFEND}
       {$ENDIF}
       {$IFDEF FPC}FPImage,FPReadJPEG,FPWriteJPEG,FPReadPNG,FPWritePNG,{$ENDIF}
-      Classes,SysUtils,Math,Apus.Colors;
+      Classes,SysUtils,Math,Apus.Colors,Apus.Structs;
 
 type
  TGAheader=packed record
@@ -535,6 +540,195 @@ procedure LoadTGA;
    image:=img;
   end;
  {$ENDIF}
+
+const
+ STR_COLOR_SCALE = 0.339;
+{ STR_PREDEFINED_COLORS : array[0..3] of cardinal=
+   ($57000000, // black
+    $57575757, // white}
+
+ // Load image from string
+ procedure LoadSTR(data:string8;var image:TRawImage);
+  var
+   i,p,n,width,height:integer;
+   palette:array of cardinal;
+   pixels:array of cardinal;
+   items:StringArray8;
+   w:word;
+  function DecodeColor(p:PByte):cardinal;
+   var
+    i:integer;
+   begin
+    result:=0;
+    for i:=0 to 3 do begin
+     result:=(result shl 8)+round(1.004*(p^-40)*(1/STR_COLOR_SCALE));
+     inc(p);
+    end;
+   end;
+  begin
+   items:=SplitA(' ',data);
+   ASSERT(length(items)>=4);
+   width:=ParseInt('$'+items[0]);
+   height:=ParseInt('$'+items[1]);
+   ASSERT((width>0) and (width<=4096));
+   ASSERT((height>0) and (height<=4096));
+   if image=nil then
+    image:=Apus.Images.TBitmapImage.Create(width,height);
+   // Palette
+   data:=items[2];
+   n:=length(data) div 4;
+   ASSERT(n<2048); // make sure palette indices are encoded in 1 or 2 bytes
+   SetLength(palette,n);
+   for i:=0 to n-1 do
+    palette[i]:=DecodeColor(@data[1+i*4]);
+   // Pixels
+   data:=items[3];
+   SetLength(pixels,width*height);
+   i:=1; p:=0;
+   while i<=length(data) do begin
+    w:=byte(data[i]); inc(i);
+    if w<40 then begin
+     // special character
+     if w=ord('!') then begin
+      pixels[p]:=DecodeColor(@data[i]);
+      inc(p); inc(i,4);
+      continue;
+     end;
+     if w=ord('&') then begin
+      n:=byte(data[i])-36; inc(i);
+      ASSERT((n>0) and (n<=90));
+      w:=byte(data[i])-40; inc(i);
+      ASSERT(w<=high(palette));
+      while n>0 do begin
+       pixels[p]:=palette[w];
+       inc(p); dec(n);
+      end;
+      continue;
+     end;
+     dec(w,ord('#'));
+     ASSERT(w<3);
+     pixels[p]:=palette[w];
+     pixels[p+1]:=palette[w];
+     inc(p,2);
+    end else begin
+     // palette index
+     if w>=$80 then begin
+      w:=((w and $1F) shl 6)+(byte(data[i]) and $3F);
+      inc(i);
+     end;
+     dec(w,40);
+     ASSERT(w<=high(palette));
+     pixels[p]:=palette[w];
+     inc(p);
+    end;
+   end;
+   ASSERT(image.dataSize=width*height*4);
+   move(pixels[0],image.data^,length(pixels)*4);
+  end;
+
+ // Convert image into UTF8 string so it can be embeded into a source code file
+ // Not intended for big images
+ function SaveSTR(image:TRawImage):string8;
+  type
+   TPaletteEntry=record
+    count:integer;
+    color:cardinal;
+   end;
+  var
+   i,j,n,x,y,width,height:integer;
+   data:string8;
+   color:TARGBColor;
+   pixel:cardinal;
+   pixels:array of cardinal;
+   cHash:TSimpleHash;
+   palette:array of TPaletteEntry;
+   palSize:integer;
+   wch:WideChar;
+  function EncodeColor(c:cardinal):string8;
+   var
+    i:integer;
+   begin
+    SetLength(result,4);
+    for i:=4 downto 1 do begin
+     result[i]:=AnsiChar(40+c and $FF);
+     c:=c shr 8;
+    end;
+   end;
+  begin
+   ASSERT(@colorFrom[image.pixelFormat]<>nil);
+   width:=image.width; height:=image.height;
+   // Get all pixels with scaled ARGB
+   SetLength(pixels,width*height);
+   n:=0;
+   for y:=0 to height-1 do
+    for x:=0 to width-1 do begin
+     color.color:=image.GetPixel(x,y);
+     color.color:=colorFrom[image.pixelFormat](color.color);
+     for i:=0 to 3 do
+      color.m[i]:=round(color.m[i]*STR_COLOR_SCALE);
+     pixels[n]:=color.color;
+     inc(n);
+    end;
+   // Count all pixel values
+   cHash.Init(4096);
+   for i:=0 to n-1 do
+    cHash.Increment(pixels[i]);
+   // List all values
+   palSize:=cHash.count;
+   SetLength(palette,palSize);
+   for i:=0 to palSize-1 do begin
+    palette[i].color:=cHash.keys[i];
+    palette[i].count:=cHash.values[i];
+   end;
+   SortRecordsByInt(palette[0],sizeof(TPaletteEntry),palSize,0,false);
+   // Process palette
+   for i:=0 to palSize-1 do begin
+    if palette[i].count>1 then begin
+     data:=data+EncodeColor(palette[i].color);
+     j:=i;
+    end else
+     j:=-2;
+    cHash.Put(palette[i].color,j); // palette index to use
+   end;
+   data:=data+' ';
+   // Replace colors by indices
+   for i:=0 to n-1 do begin
+    pixel:=pixels[i];
+    j:=cHash.Get(pixel);
+    if j>=0 then pixels[i]:=$FF000000+j;
+   end;
+   // Encode (with RLE)
+   i:=0;
+   while i<n do begin
+    // look for sequence
+    pixel:=pixels[i]; inc(i);
+    if pixel and $FF000000=$FF000000 then begin
+     pixel:=pixel and $FFFF; // actual index
+     j:=i;
+     if pixel<=86 then // only single-byte palette indices can make sequence
+      while (j<n) and (pixels[j]=$FF000000+pixel) and (j<i+89) do inc(j);
+     j:=j-i+1; // sequence length
+     if j>3 then begin // generic repeat
+      data:=data+'&'+AnsiChar(36+j)+AnsiChar(40+pixel);
+      inc(i,j-1);
+      continue;
+     end;
+     if (pixel<3) and (j>1) then begin // special 2x repeat
+      data:=data+AnsiChar(35+pixel);
+      inc(i);
+     end else begin
+      wch:=WideChar(40+pixel);
+      if wch<=#127 then data:=data+wch
+       else data:=data+EncodeUTF8(wCh);
+     end;
+    end else begin
+     // rare color
+     data:=data+'!'+EncodeColor(pixel);
+    end;
+   end;
+   Sleep(0);
+   result:=FormatHex(width)+' '+FormatHex(height)+' '+data;
+  end;
 
  function CheckFileFormat(fname:string):TImageFileType;
   var
