@@ -22,6 +22,17 @@ begin
   if ParamCount>1 then dst:=ParamStr(2)
    else dst:=ChangeFileExt(src,'.str');
   writeln('Reading ',src);
+  if SameText(ExtractFileExt(src),'.str') then begin
+   // Reverce conversion
+   LoadStr(LoadFileAsString(src),image);
+   writeln('Converting to PNG...');
+   data:=SavePNG(image);
+   dst:=ChangeFileExt(src,'.png');
+   writeln('Saving to ',dst);
+   SaveFile(dst,data);
+   writeln('Done!');
+   exit;
+  end;
   data:=LoadFileAsBytes(src);
   writeln('Unpacking...');
   imgType:=CheckImageFormat(data);
