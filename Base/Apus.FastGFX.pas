@@ -794,7 +794,7 @@ const
   end;
  function ColorFrom24(color:cardinal):cardinal;
   begin
-   result:=color and $FFFFFF;
+   result:=$FF000000+color and $FFFFFF;
   end;
  function ColorFrom16(color:cardinal):cardinal;
   {$IFDEF CPU386}

@@ -128,7 +128,8 @@ type
   procedure Lock; virtual;  // заполняет поля действующими значениями
   procedure Unlock; virtual;
   procedure Clear(color:cardinal); virtual;
-  function GetPixel(x,y:integer):cardinal; virtual;
+  function GetPixel(x,y:integer):cardinal; virtual; // get raw value of pixel
+  function GetPixelARGB(x,y:integer):cardinal; virtual; // get ARGB value of pixel
   procedure SetPixel(x,y:integer;value:cardinal); virtual;
   function GetPixelAddress(x,y:integer):pointer;
   function ScanLine(y:integer):pointer;
@@ -462,6 +463,13 @@ begin
  result:=pb;
 end;
 
+function TRawImage.GetPixelARGB(x,y:integer):cardinal;
+begin
+ result:=GetPixel(x,y);
+ ASSERT(@colorFrom[pixelFormat]<>nil,'Unsupported pixel format');
+ result:=colorFrom[pixelFormat](result);
+end;
+
 procedure TRawImage.SetAsRenderTarget;
 begin
  SetRenderTarget(data,pitch,width,height);
@@ -507,6 +515,6 @@ initialization
  ColorTo[ipf555]:=ColorTo15;
 
  colorFrom[ipfARGB]:=ColorFrom32;
- colorFrom[ipfXRGB]:=ColorFrom32;
+ colorFrom[ipfXRGB]:=ColorFrom24;
  colorFrom[ipfRGB]:=ColorFrom24;
 end.
