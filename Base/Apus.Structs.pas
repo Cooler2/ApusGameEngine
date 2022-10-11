@@ -197,6 +197,7 @@ type
   procedure Clear;
   procedure Put(key,value:int64);
   function Get(key:int64):int64;  // returns -1 if no value
+  function Increment(key:int64;v:int64=1):int64; // add v to given value (put 0 if absent) and return result
   function HasValue(key:int64):boolean;
   procedure Remove(key:int64);
   procedure RemoveValue(value:int64); // remove all keys with given value
@@ -218,7 +219,7 @@ type
   procedure Clear;
   procedure Put(key:string;value:int64);
   function Get(key:string):int64;  // returns -1 if no value
-  function Increment(key:string;v:int64):int64; // add v to given value (put 0 if absent) and return result
+  function Increment(key:string;v:int64=1):int64; // add v to given value (put 0 if absent) and return result
   function HasValue(key:string):boolean;
   procedure Remove(key:string);
  private
@@ -238,7 +239,7 @@ type
   procedure Clear;
   procedure Put(key:String8;value:int64);
   function Get(key:String8):int64;  // returns -1 if no value
-  function Increment(key:String8;v:int64):int64; // add v to given value (put 0 if absent) and return result
+  function Increment(key:String8;v:int64=1):int64; // add v to given value (put 0 if absent) and return result
   function HasValue(key:String8):boolean;
   procedure Remove(key:String8);
  private
@@ -1232,7 +1233,6 @@ procedure THash.SortKeys;
  // -------------------------------------------
  // TSimpleHash
  // -------------------------------------------
-
  procedure TSimpleHash.Init(estimatedCount:integer);
   var
    i:integer;
@@ -1323,6 +1323,26 @@ procedure THash.SortKeys;
    while (i>=0) and (keys[i]<>key) do i:=next[i];
    if i>=0 then result:=true else result:=false;
    finally lock:=0; end;
+  end;
+
+ function TSimpleHash.Increment(key:int64;v:int64):int64;
+  var
+   h,i:integer;
+  begin
+   SpinLock(lock);
+   try
+   h:=HashValue(key);
+   i:=links[h];
+   while (i>=0) and (keys[i]<>key) do i:=next[i];
+   if i>=0 then begin
+    values[i]:=values[i]+v;
+    result:=values[i];
+    exit;
+   end;
+   finally lock:=0; end;
+   // New element
+   Put(key,v);
+   result:=v;
   end;
 
  procedure TSimpleHash.Remove(key:int64);
