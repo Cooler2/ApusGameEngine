@@ -490,7 +490,7 @@ implementation
    col1:TARGBColor absolute c1;
    col2:TARGBColor absolute c2;
   begin
-   result:=abs(col1.r-col2.r)+abs(col1.g-col2.g)+abs(col1.b-col2.b)+abs(col1.a-col2.a);
+   result:=max2(max2(abs(col1.r-col2.r),abs(col1.g-col2.g)), max2(abs(col1.b-col2.b),abs(col1.a-col2.a)));
   end;
 
  function ColorDiff(c1,c2:cardinal):single; // relative color difference (0..1+)
