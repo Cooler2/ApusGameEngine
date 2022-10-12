@@ -677,7 +677,7 @@ procedure TGame.DrawMagnifier;
   if (shiftstate and sscShift)>0 then zoom:=zoom*2;
   du:=width/(256*zoom); dv:=-height/(256*zoom);
   u:=0.5; v:=0.5;
-  draw.TexturedRect(left,0,left+width,height,magnifierTex,u-du,v-dv,u+du,v-dv,u+du,v+dv,$FF808080);
+  draw.TexturedRect(left,0,left+width-1,height-1,magnifierTex,u-du,v-dv,u+du,v-dv,u+du,v+dv,$FF808080);
   draw.Rect(left,0,left+width,height,clWhite);
   // Color picker
   if zoom>6*screenScale then begin
