@@ -23,6 +23,9 @@ interface
  // Сохраняет изображение в файл (mostly for debug purposes)
  procedure SaveImage(img:TTexture;fName:string);
 
+ // Create image from STR format
+ function CreateImageFromString(st:string8;flags:cardinal):TTexture;
+
  // Создать новую текстуру из куска данной (copy pixel data). Новая текстура размещается в доступной для
  // рендеринга памяти, тогда как источник может быть где угодно
  function CreateSubImage(source:TTexture;x,y,width,height:integer;flags:integer=0):TTexture;
@@ -602,6 +605,19 @@ begin
   source.Unlock;
  end;
 end;
+
+function CreateImageFromString(st:string8;flags:cardinal):TTexture;
+ var
+  image:TRawImage;
+ begin
+  image:=nil;
+  LoadSTR(st,image);
+  result:=AllocImage(image.width,image.height,ipfARGB,flags,'STR');
+  result.Lock;
+  move(image.data^,result.data^,image.dataSize);
+  result.Unlock;
+  image.Free;
+ end;
 
 procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
  begin
