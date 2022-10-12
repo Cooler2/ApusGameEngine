@@ -22,10 +22,10 @@ interface
   // Point on plane
   TPoint2=packed record
    x,y:double;
-   function IsValid:boolean; inline;
-   procedure Init(x,y:double); overload; inline;
-   procedure Init(pnt:TPoint); overload; inline;
+   constructor Init(x,y:double); overload;
+   constructor Init(pnt:TPoint); overload;
    function GetRound:TPoint;
+   function IsValid:boolean; inline;
    procedure Wrap(max:double); inline;
   end;
   TVector2=TPoint2; // Alias for point type
@@ -33,10 +33,10 @@ interface
 
   TPoint2s=packed record
    x,y:single;
-   function IsValid:boolean; inline;
-   procedure Init(x,y:single); overload; inline;
-   procedure Init(pnt:TPoint); overload; inline;
+   constructor Init(x,y:single); overload;
+   constructor Init(pnt:TPoint); overload;
    function GetRound:TPoint;
+   function IsValid:boolean; inline;
    procedure Wrap(max:single); inline;
   end;
   TVector2s=TPoint2s;
@@ -939,18 +939,18 @@ function TRect2s.Width:single;
 
 { TPoint2 }
 
-procedure TPoint2.Init(x, y: double);
+constructor TPoint2.Init(x,y:double);
  begin
   self.x:=x; self.y:=y;
  end;
 
-procedure TPoint2.Init(pnt: TPoint);
+constructor TPoint2.Init(pnt:TPoint);
  begin
   x:=pnt.x;
   y:=pnt.y;
  end;
 
-function TPoint2.IsValid: boolean;
+function TPoint2.IsValid:boolean;
  begin
   result:=x=x;
  end;
@@ -969,13 +969,18 @@ function TPoint2.GetRound:TPoint;
 
 { TPoint2s }
 
-procedure TPoint2s.Init(pnt:TPoint);
+constructor TPoint2s.Init(pnt:TPoint);
  begin
   x:=pnt.x;
   y:=pnt.y;
  end;
 
-function TPoint2s.IsValid: boolean;
+constructor TPoint2s.Init(x,y:single);
+ begin
+  self.x:=x; self.y:=y;
+ end;
+
+function TPoint2s.IsValid:boolean;
  begin
   result:=x=x;
  end;
@@ -984,11 +989,6 @@ function TPoint2s.GetRound:TPoint;
  begin
   result.x:=round(x);
   result.y:=round(y);
- end;
-
-procedure TPoint2s.Init(x, y: single);
- begin
-  self.x:=x; self.y:=y;
  end;
 
 procedure TPoint2s.Wrap(max:single);
