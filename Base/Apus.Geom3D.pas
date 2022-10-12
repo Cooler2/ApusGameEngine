@@ -2319,11 +2319,6 @@ constructor TPoint3s.SetBetween(p0,p1:TPoint3s;t:single);
   z:=p0.z*t1+p1.z*t;
  end;
 
-class function TPoint3s.Create(x,y,z:single):TPoint3s;
- begin
-  result.Init(x,y,z);
- end;
-
 constructor TPoint3s.Init(p0:TPoint3s;weight0:single;p1:TPoint3s;weight1:single);
  begin
   x:=p0.x*weight0+p1.x*weight1;
@@ -2412,11 +2407,6 @@ procedure TQuaternion.Normalize;
  end;
 
 { TQuaternionS }
-
-class function TQuaternionS.Create(x,y,z,w:single):TQuaternionS;
- begin
-  result.Init(x,y,z,w);
- end;
 
 constructor TQuaternionS.Init(x, y, z, w: single);
  begin
