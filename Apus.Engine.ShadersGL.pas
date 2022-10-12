@@ -36,7 +36,7 @@ type
   uLightDir,uLightColor,uAmbientColor:integer;
   vSrc,fSrc:String8; // shader source code
   isCustom:boolean;
-  matrixRevision:integer;
+  matrixRevision:integer; // used to determine if matrix uniforms should be updated
   constructor Create(h:TGLShaderHandle);
   destructor Destroy; override;
   procedure SetUniform(name:String8;value:integer); overload; override;
@@ -119,7 +119,7 @@ type
   pointLightColor:TVector3s; // light color multiplied by power
   pointLightModified:boolean;
 
-  shaderCache:TSimpleHash;
+  shaderCache:TSimpleHash; //
   activeShader:TGLShader; // current OpenGL shader
   isCustom:boolean;
 
@@ -128,11 +128,17 @@ type
   shadowMapMatrix:T3DMatrixS; // frustrum->viewport transformation matrix for the main shadow rendering phase
   shadowMap:TTexture;
 
+  // Pending uniforms (for customized shader)
+  custUniforms:StringArray8;
+
   // Switch to the specified shader and upload matrices (if applicable)
   procedure ActivateShader(shader:TShader);
   // Get/create shader for current render settings
   function GetShaderFor:TGLShader;
   function CreateShaderFor:TGLShader;
+  function IsCustomized:boolean;
+  procedure CustomizedUniform(name:string8;valueType:AnsiChar;const value);
+  procedure ApplyCustomizedUniforms;
  end;
 
 var
@@ -171,14 +177,15 @@ procedure SetUniformInternal(shader:TGLShader;name:string8;mode:integer;const va
   end;}
   case mode of
    1:glUniform1i(loc,integer(value));
-   2:if @glProgramUniform1f<>nil then
-      glProgramUniform1f(shader.handle,loc,single(value))
-     else
+   2:{if @glProgramUniform1f<>nil then
+      glProgramUniform1f(shader.handle,loc,single(value))   /// WHAT FOR?
+     else}
       glUniform1f(loc,single(value));
    22:glUniform2fv(loc,1,@value);
    23:glUniform3fv(loc,1,@value);
    24:glUniform4fv(loc,1,@value);
    30:glUniformMatrix4fv(loc,1,GL_FALSE,@value);
+   31:glUniformMatrix4dv(loc,1,GL_FALSE,@value);
   end;
   CheckForGLError(401);
  end;
@@ -232,7 +239,7 @@ procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:T3DMat
   end;
  end;
 
-procedure TGLShader.SetUniform(name: String8; const value: T3DMatrix);
+procedure TGLShader.SetUniform(name:String8;const value:T3DMatrix);
  var
   m:T3DMatrixS;
  begin
@@ -335,8 +342,17 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
   i:integer;
   m,colorMode,alphaMode:byte;
   shadowMap,lighting,customized:boolean;
+  custUniforms,custCode:string8;
  begin
   customized:=HasFlag(texMode.lighting,LIGHT_CUSTOMIZED);
+  if customized then begin
+   custCode:=shadersAPI.customized[texMode.lighting and $F];
+   i:=pos(#0,custCode);
+   if i>0 then begin
+    custUniforms:=copy(custCode,1,i-1);
+    custCode:=copy(custCode,i+1,length(custCode));
+   end;
+  end;
   lighting:=HasFlag(texMode.lighting,LIGHT_AMBIENT_ON+LIGHT_DIRECT_ON) and not customized;
   shadowMap:=HasFlag(texMode.lighting,LIGHT_SHADOWMAP) and not customized;
 
@@ -361,6 +377,8 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
    AddLine(result,'uniform vec3 lightDir;');
    AddLine(result,'uniform vec3 lightColor;');
   end;
+  if customized then
+   AddLine(result,custUniforms);
   AddLine(result,'in vec3 vNormal;',hasNormal);
   AddLine(result,'in vec4 vColor;',hasColor);
   AddLine(result,'in vec2 vTexCoord;',hasUV);
@@ -370,7 +388,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
   AddLine(result,'void main(void)');
   AddLine(result,'{');
   if customized then begin
-   AddLine(result,' '+shadersAPI.customized[texMode.lighting and $F]);
+   AddLine(result,' '+custCode);
    AddLine(result,'}');
    exit;
   end;
@@ -463,6 +481,11 @@ function TGLShadersAPI.GetShaderFor:TGLShader;
   shaderCache.Put(mode,UIntPtr(result));
  end;
 
+function TGLShadersAPI.IsCustomized:boolean;
+ begin
+  result:=not isCustom and (HasFlag(curTexMode.lighting,LIGHT_CUSTOMIZED));
+ end;
+
 constructor TGLShadersAPI.Create;
  var
   i:integer;
@@ -494,6 +517,51 @@ procedure TGLShadersAPI.AmbientLight(color:cardinal);
 procedure TGLShadersAPI.Material(color:cardinal;shininess:single);
  begin
 
+ end;
+
+procedure TGLShadersAPI.CustomizedUniform(name:string8;valueType:AnsiChar;const value);
+ var
+  l,size:integer;
+ begin
+  case valueType of
+   'f','i':size:=4;
+   '2':size:=8;
+   '3':size:=12;
+   '4':size:=16;
+   'm':size:=sizeof(T3DMatrixS);
+   'M':size:=sizeof(T3DMatrix);
+  end;
+  l:=length(name);
+  SetLength(name,l+2+size);
+  name[l+1]:=#0;
+  name[l+2]:=valueType;
+  move(value,name[l+3],size);
+  AddString(custUniforms,name);
+ end;
+
+procedure TGLShadersAPI.ApplyCustomizedUniforms;
+ var
+  i:integer;
+  s:string8;
+  p:integer;
+  valueType:AnsiChar;
+ begin
+  ASSERT(activeShader<>nil);
+  for i:=0 to high(custUniforms) do begin
+   s:=custUniforms[i];
+   p:=pos(#0,s);
+   ASSERT(p>0);
+   valueType:=s[p+1];
+   case valueType of
+    'i':SetUniformInternal(activeShader,s,1,s[p+2]);
+    'f':SetUniformInternal(activeShader,s,2,s[p+2]);
+    '2':SetUniformInternal(activeShader,s,22,s[p+2]);
+    '3':SetUniformInternal(activeShader,s,23,s[p+2]);
+    '4':SetUniformInternal(activeShader,s,24,s[p+2]);
+    'm':SetUniformInternal(activeShader,s,30,s[p+2]);
+    'M':SetUniformInternal(activeShader,s,31,s[p+2]);
+   end;
+  end;
  end;
 
 procedure TGLShadersAPI.PointLight(position:TPoint3;power:single;color:cardinal);
@@ -649,7 +717,7 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   result:=TGLShader.Create(prog);
  end;
 
-procedure TGLShadersAPI.UseCustom(shader: TShader);
+procedure TGLShadersAPI.UseCustom(shader:TShader);
  var
   stage:integer;
  begin
@@ -667,6 +735,10 @@ procedure TGLShadersAPI.UseCustomized(colorCalc:String8;numTextures:integer=1);
   curTexMode.lighting:=idx+LIGHT_CUSTOMIZED;
   curTexmode.stage[2]:=numTextures; // for customized shader this is a placeholder for texture samplers number
   isCustom:=false;
+  // At this stage it's not possible to activate shader because we don't know vertex format
+  // (actually, customized shader is not a single shader - for each vertex format there will be a separate shader)
+  // So it's not possible to set any uniforms until shader is constructed
+  SetLength(custUniforms,0);
  end;
 
 procedure TGLShadersAPI.UseTexture(tex:TTexture;uniformName:string8;stage:integer);
@@ -687,44 +759,65 @@ procedure TGLShadersAPI.Reset;
   //Apply;
  end;
 
-procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector2s);
- begin
-  ASSERT(activeShader<>nil);
-  activeShader.SetUniform(name,value);
- end;
-
 procedure TGLShadersAPI.SetUniform(name:String8;value:single);
  begin
+  if IsCustomized then begin
+   CustomizedUniform(name,'f',value); exit;
+  end;
   ASSERT(activeShader<>nil);
   activeShader.SetUniform(name,value);
  end;
 
 procedure TGLShadersAPI.SetUniform(name:String8;value:integer);
  begin
+  if IsCustomized then begin
+   CustomizedUniform(name,'i',value); exit;
+  end;
+  ASSERT(activeShader<>nil);
+  activeShader.SetUniform(name,value);
+ end;
+
+procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector2s);
+ begin
+  if IsCustomized then begin
+   CustomizedUniform(name,'2',value); exit;
+  end;
   ASSERT(activeShader<>nil);
   activeShader.SetUniform(name,value);
  end;
 
 procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector3s);
  begin
+  if IsCustomized then begin
+   CustomizedUniform(name,'3',value); exit;
+  end;
   ASSERT(activeShader<>nil);
   activeShader.SetUniform(name,value);
  end;
 
 procedure TGLShadersAPI.SetUniform(name:String8;const value:T3DMatrixS);
  begin
+  if IsCustomized then begin
+   CustomizedUniform(name,'m',value); exit;
+  end;
   ASSERT(activeShader<>nil);
   activeShader.SetUniform(name,value);
  end;
 
 procedure TGLShadersAPI.SetUniform(name:String8;const value:T3DMatrix);
  begin
+  if IsCustomized then begin
+   CustomizedUniform(name,'M',value); exit;
+  end;
   ASSERT(activeShader<>nil);
   activeShader.SetUniform(name,value);
  end;
 
 procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector4s);
  begin
+  if IsCustomized then begin
+   CustomizedUniform(name,'4',value); exit;
+  end;
   ASSERT(activeShader<>nil);
   activeShader.SetUniform(name,value);
  end;
@@ -796,6 +889,7 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
   if activeShader.matrixRevision<>matrixRevision then begin
    activeShader.UpdateMatrices(matrixRevision,shadowMapMatrix);
   end;
+  if IsCustomized then ApplyCustomizedUniforms;
   // Textures (тут тоже возможен косяк, если шейдер меняется, а текстура - нет)
   i:=0;
   while curTexChanged<>0 do begin
@@ -835,7 +929,7 @@ procedure TGLShadersAPI.ActivateShader(shader:TShader);
  begin
   activeShader:=shader as TGLShader;
   glUseProgram(activeShader.handle);
-  // mark textures as changed to force update
+  // Mark textures as changed to force update
   for stage:=0 to high(curTextures) do
    if curTextures[stage]<>nil then
     SetBit(curTexChanged,stage);
