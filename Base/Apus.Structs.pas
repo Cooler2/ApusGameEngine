@@ -1793,15 +1793,15 @@ function TStringQueue.Empty:boolean;
 
 function TStringQueue.Get:String8;
  begin
-  ASSERT(length(data)>0);
-  if length(data)=0 then exit;
+  if length(data)=0 then exit('');
   SpinLock(lock);
   try
    if used<>free then begin
     result:=data[used];
     inc(used);
     if used>high(data) then used:=0;
-   end;
+   end else
+    result:='';
   finally
    lock:=0;
   end;

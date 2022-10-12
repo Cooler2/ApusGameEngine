@@ -200,7 +200,7 @@ class function TShader.ClassHash: pointer;
   result:=@shadersHash;
  end;
 
-class function TShader.VectorFromColor(color: cardinal):TVector4s;
+class function TShader.VectorFromColor(color:cardinal):TVector4s;
  var
   c:PARGBColor;
  begin
@@ -211,7 +211,7 @@ class function TShader.VectorFromColor(color: cardinal):TVector4s;
   result.w:=c.a/255;
  end;
 
-class function TShader.VectorFromColor3(color: cardinal): TVector3s;
+class function TShader.VectorFromColor3(color:cardinal): TVector3s;
  var
   c:PARGBColor;
  begin
