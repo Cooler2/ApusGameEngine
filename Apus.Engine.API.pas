@@ -672,8 +672,10 @@ type
   procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
   procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
-  procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload;
-  procedure RRect(x1,y1,x2,y2:single;width,r:single;color:cardinal;steps:integer=0); overload;
+  procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload; // geometry-based version
+  procedure RRect(x1,y1,x2,y2:single;width,r:single;color:cardinal;steps:integer=0); overload; // geometry-based version
+  procedure RoundRect(center:TPoint2s;width,height:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload; // shader-based smooth version
+  procedure RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload; // shader-based smooth version
   procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single=2;steps:integer=0); overload;

@@ -22,6 +22,8 @@ interface
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload;
   procedure RRect(x1,y1,x2,y2:single;width,r:single;color:cardinal;steps:integer=0); overload;
+  procedure RoundRect(center:TPoint2s;width,height:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload;
+  procedure RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure FillRRect(x1,y1,x2,y2:NativeInt;color:cardinal;r:single=2;steps:integer=0); overload;
@@ -80,7 +82,7 @@ interface
 
   procedure SetZ(z:single);
   procedure DebugScreen1;
-  procedure Reset; // notification about shader change
+  procedure Reset;
  protected
   // buffers
   partBuf:array of TVertex; // particles (vertices)
@@ -716,6 +718,47 @@ begin
  vrt[2].Init(x0+wc2+hs2, y0-hc2+ws2, zPlane, u2, v2, color);
  vrt[3].Init(x0-wc1+hs2, y0-hc2-ws1, zPlane, u1, v2, color);
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
+end;
+
+procedure TDrawer.RoundRect(center:TPoint2s;width,height,radius,borderWidth:single;
+  borderColor,fillColor:cardinal);
+const
+ rShader=
+   ' uniform vec4 bColor;'#13#10+
+   ' uniform vec2 offset;'#13#10+
+   ' uniform vec4 tresh;'#0+
+   ' vec2 rr = max(abs(vTexCoord)-offset,0.0);'#13#10+
+   ' float r = dot(rr,rr);'#13#10+
+   ' float alpha=1.0-smoothstep(tresh.x, tresh.y, r);'#13#10+
+   ' vec4 color = mix(vColor.bgra,bColor,smoothstep(tresh.z,tresh.w,r)); '#13#10+
+   ' fragColor = vec4(color.rgb, color.a*alpha); '#13#10+
+   ' if (fragColor.a<0.01) discard;';
+ var
+  vrt:array[0..3] of TVertex;
+  sx1,sy1,sx2,sy2,w,h:single;
+ begin
+  w:=(width+1)/2; h:=(height+1)/2;
+  sx1:=center.x-w; sx2:=center.x+w;
+  sy1:=center.y-h; sy2:=center.y+h;
+  if not clippingAPI.Prepare(sx1,sy1,sx2,sy2) then exit;
+  if radius<0 then radius:=0;
+  borderWidth:=Clamp(borderWidth,0,radius-1);
+  if fillColor=0 then fillColor:=borderColor and $FFFFFF;
+  shader.UseCustomized(rShader,0);
+  shader.SetUniform('bColor',TShader.VectorFromColor(borderColor));
+  shader.SetUniform('offset',TVector2s.Init(w-radius,h-radius));
+  shader.SetUniform('tresh',TVector4s.Init(sqr(radius-1),sqr(radius),sqr(radius-borderWidth-1),sqr(radius-borderWidth)));
+  vrt[0].Init(sx1,sy1,0,-w,-h,fillColor);
+  vrt[1].Init(sx2,sy1,0,w,-h,fillColor);
+  vrt[2].Init(sx2,sy2,0,w,h,fillColor);
+  vrt[3].Init(sx1,sy2,0,-w,h,fillColor);
+  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
+  shader.Reset;
+end;
+
+procedure TDrawer.RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal);
+begin
+ RoundRect(TPoint2s.Init((x1+x2)*0.5,(y1+y2)*0.5),abs(x2-x1+1),abs(y2-y1+1),radius,borderWidth,borderColor,fillColor);
 end;
 
 procedure TDrawer.Scaled(x1, y1, x2, y2: single; image: TTexture;
