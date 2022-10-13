@@ -731,8 +731,7 @@ const
    ' float r = dot(rr,rr);'#13#10+
    ' float alpha=1.0-smoothstep(tresh.x, tresh.y, r);'#13#10+
    ' vec4 color = mix(vColor.bgra,bColor,smoothstep(tresh.z,tresh.w,r)); '#13#10+
-   ' fragColor = vec4(color.rgb, color.a*alpha); '#13#10+
-   ' if (fragColor.a<0.01) discard;';
+   ' fragColor = vec4(color.rgb, color.a*alpha); ';
  var
   vrt:array[0..3] of TVertex;
   sx1,sy1,sx2,sy2,w,h:single;

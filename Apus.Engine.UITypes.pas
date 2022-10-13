@@ -547,7 +547,7 @@ implementation
    visible:=GetClassAttribute('defaultVisible',true);
    manualDraw:=false;
    font:=GetClassAttribute('defaultFont',0);
-   color:=GetClassAttribute('defaultColor',$FF000000);
+   color:=GetClassAttribute('defaultColor',clDefault);
    style:=GetClassAttribute('defaultStyle',0);
    styleInfo:=GetClassAttribute('defaultStyleInfo','');
    canHaveFocus:=GetClassAttribute('defaultCanHaveFocus',false);

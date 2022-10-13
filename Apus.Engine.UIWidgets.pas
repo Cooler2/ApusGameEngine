@@ -1781,7 +1781,7 @@ function TScrollBarInterface.GetElement:TUIElement;
 
 initialization
  TUIButton.SetClassAttribute('handleMouseIfDisabled',true);
- TUIButton.SetClassAttribute('defaultColor',$FFC0D0D0);
- TUIImage.SetClassAttribute('defaultColor',$FF808080);
+ //TUIButton.SetClassAttribute('defaultColor',$FFC0D0D0);
+ //TUIImage.SetClassAttribute('defaultColor',$FF808080);
  TUIComboBox.SetClassAttribute('handleMouseIfDisabled',false);
 end.
