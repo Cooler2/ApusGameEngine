@@ -842,10 +842,10 @@ var
     v1:=pnt.Y*stepV;
     v2:=(pnt.Y+imageHeight)*stepV;
 
-    x1:=x+imageX*charScaleX-0.5;
-    x2:=x+(imageX+imageWidth)*charScaleX-0.5;
-    y1:=y-imageY*charScaleY-0.5;
-    y2:=y-(imageY-imageHeight)*charScaleY-0.5;
+    x1:=x+(imageX-0.5)*charScaleX;
+    x2:=x+(imageX+imageWidth-0.5)*charScaleX;
+    y1:=y-(imageY+0.5)*charScaleY;
+    y2:=y-(imageY-imageHeight+0.5)*charScaleY;
     if not italicStyle then begin
      AddVertex(data,x1,y1,u1,v1,color);
      AddVertex(data,x2,y1,u2,v1,color);
