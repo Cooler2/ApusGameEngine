@@ -24,7 +24,7 @@ interface
  procedure SaveImage(img:TTexture;fName:string);
 
  // Create image from STR format
- function CreateImageFromString(st:string8;flags:cardinal):TTexture;
+ function CreateImageFromString(st:string8;padding:integer=0;flags:cardinal=0):TTexture;
 
  // Создать новую текстуру из куска данной (copy pixel data). Новая текстура размещается в доступной для
  // рендеринга памяти, тогда как источник может быть где угодно
@@ -70,7 +70,7 @@ interface
  //  456  =>  4556
  //  789      4556
  //           7889
- function ExpandImage(image:TTexture;x1,x2,y1,y2:integer;overlap:integer):TTexture;
+ function ExpandImage(image:TTexture;x1,x2,y1,y2:integer;overlap:integer):TTexture; overload;
 
  // Создает растянутую/сжатую копию изображения (все в ARGB)
  function ResampleImage(image:TTexture;newWidth,newHeight:integer;sysMem:boolean=false):TTexture;
@@ -606,16 +606,15 @@ begin
  end;
 end;
 
-function CreateImageFromString(st:string8;flags:cardinal):TTexture;
+function CreateImageFromString(st:string8;padding:integer;flags:cardinal):TTexture;
  var
   image:TRawImage;
  begin
   image:=nil;
   LoadSTR(st,image);
+  image.Expand(padding,padding,padding,padding);
   result:=AllocImage(image.width,image.height,ipfARGB,flags,'STR');
-  result.Lock;
-  move(image.data^,result.data^,image.dataSize);
-  result.Unlock;
+  result.Upload(image.data,image.pitch,image.pixelFormat);
   image.Free;
  end;
 

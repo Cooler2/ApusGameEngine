@@ -1032,7 +1032,7 @@ var
  function CreateNinePatch(image:TTexture;scale2x:boolean=false):TNinePatch;
 
  // Create image from an in-memory source
- function CreateImageFrom(str:string8;flags:cardinal=0):TTexture;
+ function CreateImageFrom(str:string8;padding:integer=0;flags:cardinal=0):TTexture;
 
  // Shortcuts to the texture manager
  function AllocImage(width,height:integer;pixFmt:TImagePixelFormat=ipfARGB;
@@ -1145,9 +1145,9 @@ procedure LoadAtlas(fname:string;scale:single=1.0);
    Apus.Engine.ImageTools.LoadAtlas(fname,scale);
  end;
 
-function CreateImageFrom(str:string8;flags:cardinal):TTexture;
+function CreateImageFrom(str:string8;padding:integer;flags:cardinal):TTexture;
  begin
-  result:=Apus.Engine.ImageTools.CreateImageFromString(str,flags);
+  result:=Apus.Engine.ImageTools.CreateImageFromString(str,padding,flags);
  end;
 
 function LoadNinePatch(fName:string;scale2x:boolean=false):TNinePatch;
