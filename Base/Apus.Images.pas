@@ -128,6 +128,7 @@ type
   procedure Lock; virtual;  // заполняет поля действующими значениями
   procedure Unlock; virtual;
   procedure Clear(color:cardinal); virtual;
+  procedure Expand(paddingLeft,paddingTop,paddingRight,paddingBottom:integer;color:cardinal=0); virtual; abstract;
   function GetPixel(x,y:integer):cardinal; virtual; // get raw value of pixel
   function GetPixelARGB(x,y:integer):cardinal; virtual; // get ARGB value of pixel
   procedure SetPixel(x,y:integer;value:cardinal); virtual;
@@ -146,6 +147,7 @@ type
   destructor Destroy; override;
 
   class function NeedLock:boolean; override; // true - если нужно лочить для доступа к данным
+  procedure Expand(paddingLeft,paddingTop,paddingRight,paddingBottom:integer;color:cardinal); override;
  end;
 
  var
@@ -323,8 +325,7 @@ procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;coun
 
 { TBitmapImage }
 
-constructor TBitmapImage.Assign(w,h:integer;_data: pointer; _pitch: integer;
-  _pf: TImagePixelFormat);
+constructor TBitmapImage.Assign(w,h:integer;_data:pointer;_pitch:integer;_pf:TImagePixelFormat);
 begin
  width:=w; height:=h;
  data:=_data;
@@ -332,8 +333,7 @@ begin
  PixelFormat:=_pf;
 end;
 
-constructor TBitmapImage.Create(w, h: integer; pf: TImagePixelFormat;
-  pal: ImagePaletteFormat; pSize: integer);
+constructor TBitmapImage.Create(w,h:integer;pf:TImagePixelFormat;pal:ImagePaletteFormat;pSize:integer);
 var
  palElSize:integer;
 begin
@@ -377,13 +377,64 @@ begin
   inherited;
 end;
 
+procedure TBitmapImage.Expand(paddingLeft,paddingTop,paddingRight,paddingBottom:integer;color:cardinal);
+var
+ x,y,ps:integer;
+ newData:pointer;
+ newWidth,newHeight:integer;
+ pb:PByte;
+ c:cardinal;
+begin
+ newWidth:=width+paddingLeft+paddingRight;
+ newHeight:=height+paddingTop+paddingBottom;
+ ps:=pixelSize[pixelFormat] div 8;
+ GetMem(newData,newWidth*newHeight*ps);
+ pb:=newData;
+ // Top part
+ if ps=4 then
+  FillDword(pb^,paddingTop*newWidth,color)
+ else
+  FillChar(pb^,paddingTop*newWidth*ps,color);
+ inc(pb,paddingTop*newWidth*ps);
+ // Main part
+ for y:=0 to height-1 do begin
+  if ps=4 then FillDword(pb^,paddingLeft,color)
+   else FillChar(pb^,paddingLeft*ps,color);
+  inc(pb,paddingLeft*ps);
+  move(ScanLine(y)^,pb^,width*ps);
+  inc(pb,width*ps);
+  if ps=4 then FillDword(pb^,paddingRight,color)
+   else FillChar(pb^,paddingRight*ps,color);
+  inc(pb,paddingRight*ps);
+ end;
+ // Bottom part
+ if ps=4 then
+  FillDword(pb^,paddingBottom*newWidth,color)
+ else
+  FillChar(pb^,paddingBottom*newWidth*ps,color);
+
+ // Assign new bitmap
+ Freemem(data);
+ data:=newData;
+ width:=newWidth;
+ height:=newHeight;
+ pitch:=newWidth*ps;
+
+ // Defringe transparent border pixels
+ if (pixelFormat=ipfARGB) and (color shr 24=0) then begin
+  for x:=0 to width-1 do begin
+   c:=GetPixel(x,0);          /// TODO!
+   c:=GetPixel(x,height-1);
+  end;
+ end;
+end;
+
 class function TBitmapImage.NeedLock: boolean;
 begin
  result:=false;
 end;
 
 { TRawImage }
-
 procedure TRawImage.Clear(color: cardinal);
 var
  x,y:integer;
