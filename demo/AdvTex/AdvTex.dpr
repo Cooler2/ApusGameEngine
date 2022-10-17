@@ -3,7 +3,7 @@
 // - Manual Mip-Map levels
 program AdvTex;
  uses Apus.Common, SysUtils, Types, Apus.Colors, Apus.EventMan, Apus.Engine.API,
-   Apus.Engine.GameApp, Apus.Engine.UIScene, Apus.Engine.UI,
+   Apus.Engine.Types, Apus.Engine.GameApp, Apus.Engine.UIScene, Apus.Engine.UI,
    Apus.FastGFX, Apus.Engine.ResManGL;
 
  type
@@ -157,6 +157,7 @@ begin
  useDefaultLoaderScene:=false;
  //usedPlatform:=spSDL;
  //directRenderOnly:=false;
+ useRealDPI:=false;
 
  LinkProc('GameApp\CreateScenes',CreateScenes);
  application:=TGameApplication.Create;

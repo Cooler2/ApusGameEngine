@@ -82,7 +82,7 @@ procedure TMainScene.CreateUI;
   panel.SetPos(UI.width-10,UI.height-10,pivotBottomRight);
   panel.styleInfo:='E0808890'; // background color
   panel.layout:=TRowLayout.CreateVertical(5);
-  TUILabel.Create(200,30,'Panel\Label1','SETTINGS',clWhite,font,panel).align:=taCenter;
+  TUILabel.Create(200,30,'Panel\Label1','SETTINGS',clWhite,font,panel).align:=TTextAlignment.taCenter;
 
   TUIButton.CreateSwitch(200,32,'Panel\DrawMode1','No transformations',1,font,panel,true)
    .hint:='Use "draw.Billboard()" so they''re drawn as meshes in the world CS';
@@ -91,7 +91,7 @@ procedure TMainScene.CreateUI;
    .hint:='Don''t draw billboards';
 
   TUIElement.Create(100,10,panel,'Panel\Spacer1');
-  TUIButton.CreateCheckbox(200,32,'Panel\Scale','screen space',0,font,panel,true).
+  TUICheckbox.Create(200,32,'Panel\Scale','screen space',panel,true,font).
    hint:='';
 
   TUIElement.Create(100,10,panel,'Panel\Spacer2');
