@@ -6,7 +6,7 @@
 
 unit Apus.Engine.Model3D;
 interface
-uses Apus.MyServis, Apus.Geom2D, Apus.Geom3D, Apus.Structs, Apus.AnimatedValues, Apus.Engine.API;
+uses Apus.Common, Apus.Geom2D, Apus.Geom3D, Apus.Structs, Apus.AnimatedValues, Apus.Engine.API;
 const
  // Bone flags
  bfDefaultPos = 1; // default matrix updated (model->bone)
@@ -15,7 +15,7 @@ const
 type
  // Part of mesh surface
  TModelPart=record
-  partName,materialName:AnsiString;
+  partName,materialName:String8;
   firstTrg,trgCount:integer;  // triangles of the part
   firstVrt,vrtCount:integer;  // vertices used in the part (may also conatain other vertices)
  end;
@@ -99,11 +99,11 @@ type
  TModel3D=class(TNamedObject)
   src:string; // Model name and source file name (if available)
   // Vertex data (no more than 64K vertices!)
-  vp:array of TPoint3s;  // vertex positions
-  vn:array of TVector3s; // vertex normals (optional)
+  vp:TPoints3s;  // vertex positions
+  vn:TVectors3s; // vertex normals (optional)
   vt,vt2:array of TPoint2s; // texture coords (up to 2 sets, optional)
   vc:array of cardinal;     // vertex colors (optional)
-  vb:array of TVertexBinding;  // Weights and indices (max 2 bones supported per vertex)
+  vb:array of TVertexBinding;  // vertex weights and indices (max 2 bones supported per vertex)
   // Surface data
   trgList:array of word;    // List of triangles
   parts:array of TModelPart;  // Model may contain multiple parts
