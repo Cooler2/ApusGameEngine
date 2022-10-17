@@ -305,7 +305,7 @@ begin
   if (xx>=0) and (xx<width) then begin
    if i mod j=0 then begin
     txt.Write(tweakerScene.tinyFont,x1+round(xx*0.98+width*0.01),(yy+y2) div 2+4,$C0E0C8E0+c,
-      FloatToStrF(i*step,ffGeneral,5,0),taCenter);
+      FloatToStrF(i*step,ffGeneral,5,0),TTextAlignment.taCenter);
     draw.Line(x1+xx,yy-4,x1+xx,yy+4,$90C0C0C0+c);
    end else
     draw.Line(x1+xx,yy-2,x1+xx,yy+3,$90A0A0A0+c);

@@ -409,7 +409,7 @@ procedure TButtonStyle.InitWithDefaultValues(bsName:string);
   imageColorOver:=$FF808080;
   imageColorDown:=$FF808080;
   imageColorDisabled:=$FF808080;
-  alignment:=taJustify;
+  alignment:=TTextAlignment.taJustify;
   scaleX:=1; scaleY:=1;
  end;
 
