@@ -7,7 +7,7 @@
 
 unit Apus.Engine.UI;
 interface
- uses Apus.Types, Apus.Geom2D, Apus.Engine.UITypes, Apus.Engine.UILayout, Apus.Engine.UIWidgets;
+ uses Apus.Types, Apus.Engine.Types, Apus.Engine.UITypes, Apus.Engine.UILayout, Apus.Engine.UIWidgets;
 
  const
   // Predefined pivot point configuration
@@ -86,11 +86,13 @@ interface
   // UI helpers
   // ------------
   // Create vertical container with automatic height
-  function CreateVerticalContainer(width:single;name:string;parent:TUIElement;padding,spacing:single):TUIElement; overload;
+  function CreateVerticalContainer(width:single;parent:TUIElement;padding,spacing:single;name:string=''):TUIElement; overload;
   // Create vertical container with centered content
-  function CreateVerticalContainer(width,height:single;name:string;parent:TUIElement;padding,spacing:single):TUIElement; overload;
+  function CreateVerticalContainer(width,height:single;parent:TUIElement;padding,spacing:single;name:string=''):TUIElement; overload;
   // Create vertical container for the whole parent's client area with centered content
-  function CreateVerticalContainer(name:string;parent:TUIElement;padding,spacing:single):TUIElement; overload;
+  function CreateVerticalContainer(parent:TUIElement;padding,spacing:single;name:string=''):TUIElement; overload;
+
+  function CreateHorizontalContainer(height:single;parent:TUIElement;padding,spacing:single;align:TTextAlignment=TTextAlignment.taJustify;name:string=''):TUIElement; overload;
 
   // Полезные функции общего применения
   // -------
@@ -136,24 +138,41 @@ implementation
    Apus.Engine.UIScene.ShowSimpleHint(msg,parent,x,y,time,font);
   end;
 
- function CreateVerticalContainer(width:single;name:string;parent:TUIElement;padding,spacing:single):TUIElement;
+ function CreateVerticalContainer(width:single;parent:TUIElement;padding,spacing:single;name:string):TUIElement;
   begin
-   result:=TUIElement.Create(width,1,parent,name);
+   result:=TUIElement.Create(width,0,parent,name);
    result.layout:=TRowLayout.CreateVertical(spacing,true);
    result.SetPadding(padding);
   end;
 
- function CreateVerticalContainer(width,height:single;name:string;parent:TUIElement;padding,spacing:single):TUIElement;
+ function CreateVerticalContainer(width,height:single;parent:TUIElement;padding,spacing:single;name:string):TUIElement;
   begin
    result:=TUIElement.Create(width,height,parent,name);
    result.layout:=TRowLayout.CreateVertical(spacing,false);
    result.SetPadding(padding);
   end;
 
- function CreateVerticalContainer(name:string;parent:TUIElement;padding,spacing:single):TUIElement; overload;
+ function CreateVerticalContainer(parent:TUIElement;padding,spacing:single;name:string):TUIElement; overload;
   begin
-   result:=TUIElement.Create(parent.clientWidth,parent.clientHeight,parent,name);
+   result:=TUIElement.Create(-1,-1,parent,name);
    result.layout:=TRowLayout.CreateVertical(spacing,false);
+   result.SetPadding(padding);
+  end;
+
+ function CreateHorizontalContainer(height:single;parent:TUIElement;padding,spacing:single;align:TTextAlignment;name:string):TUIElement; overload;
+  begin
+   if align=taJustify then begin
+    result:=TUIElement.Create(-1,height,parent,name);
+    result.layout:=TRowLayout.CreateHorizontal(spacing,false);
+   end else begin
+    result:=TUIElement.Create(0,height,parent,name);
+    result.layout:=TRowLayout.CreateHorizontal(spacing,true);
+    case align of
+     taLeft:result.SetAnchors(anchorLeft);
+     taRight:result.SetPos(parent.clientWidth,0,pivotTopRight).SetAnchors(anchorRight);
+     taCenter:result.SetPos(parent.clientWidth/2,0,pivotTopCenter).SetAnchors(anchorCenter);
+    end;
+   end;
    result.SetPadding(padding);
   end;
 
