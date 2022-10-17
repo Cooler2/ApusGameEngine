@@ -348,7 +348,7 @@ end;
    GetMem(tmp,w*h*4);
    fillchar(tmp^,w*h*4,0);
    txt.SetTarget(tmp,w*4);
-   txt.WriteW(font,w div 2,round(h*0.77)-d,textColor,st,Apus.Engine.Types.taCenter,toDrawToBitmap);
+   txt.WriteW(font,w div 2,round(h*0.77)-d,textColor,st,TTextAlignment.taCenter,toDrawToBitmap);
    dec(x,round(w/2));
    dec(y,round(h/2));
    if glowColor>$FFFFFF then begin
