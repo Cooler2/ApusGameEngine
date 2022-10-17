@@ -237,11 +237,7 @@ type
  TBufferUsage = Apus.Engine.Resources.TBufferusage;
 
  // Text alignment
- TTextAlignment=(taLeft,      // обычный вывод
-                 taCenter,    // точка вывода указывает на центр надписи
-                 taRight,     // точка вывода указывает на правую границу
-                 taJustify);  // точка вывода указывает на левую границу, а spacing - ширина строки
-                              // (вывод превращается в левый если реальная ширина строки слишком мала или строка заканчивается на #10 или #13)
+ TTextAlignment = Apus.Engine.Types.TTextAlignment;
 
  // Display mode
  TDisplayMode=(dmNone,             //< not specified

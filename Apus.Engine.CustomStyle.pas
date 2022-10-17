@@ -193,14 +193,14 @@ implementation
          //draw.TextColorX2:=true;
          if btnStyle=bsCheckbox then begin
           ix:=cRect.left+24+ix; iy:=cRect.top+2+iy;
-          mode:=taLeft;
+          mode:=TTextAlignment.taLeft;
          end else begin
           iy:=cRect.top+((globalrect.height-2-txt.Height(font)*length(sa)) div 2)+byte(pressed)+iy;
           mode:=bStyle.alignment;
-          if mode=taJustify then mode:=taCenter;
-          if mode=taCenter then ix:=cRect.left+cRect.width div 2+byte(pressed)+ix else
-          if mode=taLeft then ix:=ix+cRect.left+byte(pressed)+cRect.width div 6 else
-          if mode=taRight then ix:=ix+cRect.left+byte(pressed)+cRect.width*7 div 8;
+          if mode=TTextAlignment.taJustify then mode:=TTextAlignment.taCenter;
+          if mode=TTextAlignment.taCenter then ix:=cRect.left+cRect.width div 2+byte(pressed)+ix else
+          if mode=TTextAlignment.taLeft then ix:=ix+cRect.left+byte(pressed)+cRect.width div 6 else
+          if mode=TTextAlignment.taRight then ix:=ix+cRect.left+byte(pressed)+cRect.width*7 div 8;
          end;
           // Вывод обычным текстом (тут всё устаревшее и требует переосмысления)
           for j:=0 to length(sa)-1 do begin
@@ -209,11 +209,11 @@ implementation
             col:=ColorMult2(col,$80FFFFFF);
             k:=round(txt.Height(font)*0.96);
             l:=txt.Width(font,sa[j]);
-            if mode=taLeft then
+            if mode=TTextAlignment.taLeft then
              draw.Line(ix,iy+k,ix+l,iy+k,col);
-            if mode=taCenter then
+            if mode=TTextAlignment.taCenter then
              draw.Line(ix-l div 2,iy+k,ix+l div 2,iy+k,col);
-            if mode=taRight then
+            if mode=TTextAlignment.taRight then
              draw.Line(ix-l,iy+k,ix,iy+k,col);
            end;
            inc(iy,txt.Height(font));

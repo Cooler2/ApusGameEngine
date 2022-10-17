@@ -1707,7 +1707,7 @@ begin
     draw.FillRect(x-200*screenScale,y-40*screenScale,x+200*screenScale,y+40*screenScale,$60000000);
     draw.Rect(x-200*screenScale,y-40*screenScale,x+200*screenScale,y+40*screenScale,$A0FFFFFF);
     txt.Write(largerFont,x,y-16*screenScale,$FFFFFFFF,'Screen captured to:',taCenter);
-    txt.Write(defaultFont,x,y+8*screenScale,$FFFFFFFF,capturedName,Apus.Engine.API.taCenter);
+    txt.Write(defaultFont,x,y+8*screenScale,$FFFFFFFF,capturedName,taCenter);
   end;
 
  finally

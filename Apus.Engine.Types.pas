@@ -1,4 +1,4 @@
-// This is the lowest level unit of the Apus Game Engine.
+﻿// This is the lowest level unit of the Apus Game Engine.
 // It should not use any other Engine's units.
 //
 unit Apus.Engine.Types;
@@ -39,6 +39,12 @@ type
  TVertexLayout = Apus.VertexLayout.TVertexLayout;
 
  TIndices=WordArray;
+
+ TTextAlignment=(taLeft,      // обычный вывод
+                 taCenter,    // точка вывода указывает на центр надписи
+                 taRight,     // точка вывода указывает на правую границу
+                 taJustify);  // точка вывода указывает на левую границу, а spacing - ширина строки
+                              // (вывод превращается в левый если реальная ширина строки слишком мала или строка заканчивается на #10 или #13)
 
  // Packed ARGB color
  TARGBColor=Apus.Colors.TARGBColor;

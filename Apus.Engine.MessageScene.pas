@@ -219,13 +219,13 @@ procedure TMessageScene.Render;
   x:=r.CenterPoint.X;
   y:=r.Top+round(40*windowScale);
   if title<>'' then begin
-   txt.WriteW(msgTitleFont,x,y,$FF402000,title,taCenter);
+   txt.WriteW(msgTitleFont,x,y,$FF402000,title,TTextAlignment.taCenter);
    inc(y,round(40*windowScale));
   end else
    inc(y,round(8*windowScale));
 
   for i:=0 to high(lines) do begin
-   txt.WriteW(msgMainFont,x,y,$FF202020,lines[i],taCenter);
+   txt.WriteW(msgMainFont,x,y,$FF202020,lines[i],TTextAlignment.taCenter);
    inc(y,round(30*windowScale));
   end;
   // Buttons and child elements
