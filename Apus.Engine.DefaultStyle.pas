@@ -14,7 +14,7 @@ uses Apus.Engine.UI;
 implementation
  uses Apus.Types, Apus.Images, SysUtils, Types, Apus.Common, Apus.AnimatedValues,
     Apus.Colors, Apus.Structs, Apus.EventMan, Apus.Geom2D,
-    Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender;
+    Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender;
 
  type
   TAttributeType=(atColor,atNumber,atString);
@@ -50,7 +50,7 @@ implementation
   maxStyle:integer; // max index of used style entry
   //styleHash:TSimpleHash; // element pointer -> style index (may contain outdated values)
 
-  hintImage:TTexture;
+  hintImage,tickImage:TTexture;
   imgHash:TSimpleHashS;  // hash of loaded images: filename -> UIntPtr(TTexture)
 
  {$R-}
@@ -276,6 +276,81 @@ implementation
     end;
   end;
 
+ procedure DrawUICheckbox(element:TUICheckbox;x1,y1,x2,y2:integer);
+  const
+   TICK_IMAGE = '20 1F ((((~SSS(SSS^SSSESSSDSSS_SSSBSSS &A(*-+&@(*+$&>(%$)*&=(*-$)*&=(*+$+*&=(*+$+*&=(*$)+*&<(%&()*'+
+    '&<(*-&()*&<(*,&()/*&;(*-&(),*&<(*&()-*&<(*&().*&<(*+&()*&<(*+&()*&1(&(*&+(*.&(),*&0(*/++,*&)(*,&()+*&0(*-&().*'+
+    '&((*&))*&1(.&*)/*#*+&(),*&1(*+&))+*(*-&().*&3(*+&)),%&))*&5(*&*)*&)),*&5(*,&))+&()+*&7(*&.)/*&7(*,&,).*&9(*&,)*'+
+    '&:(*,&*)!\SSS*&;(*&))+*&<(*.$)-*&>(*$-*&?(*.%&:(';
+  var
+   color:cardinal;
+   font:TFontHandle;
+   d,y,yy,fontH,size:integer;
+   v:single;
+  begin
+   color:=element.color;
+   font:=element.font;
+   fontH:=txt.Height(font);
+   y:=y2-round((y2-y1+1-fontH)/2);
+   size:=round(fontH*1.2);
+   inc(x1,round(size*0.3));
+   d:=round(size*0.15);
+   //
+   if element.classType=TUICheckBox then begin
+    draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,color,0);
+    if tickImage=nil then tickImage:=CreateImageFrom(TICK_IMAGE,1);
+    if element.checked then
+     draw.Centered(x1+size*0.65,y-size*0.4,1.1*size/tickImage.height,tickImage,color);
+   end;
+   if element.ClassType=TUIRadioButton then begin
+    yy:=y-size+d;
+    draw.RoundRect(x1,yy,x1+size,yy+size,size*0.5+1,element.globalScale,color,0);
+    if element.checked then begin
+     v:=size*0.24;
+     draw.RoundRect(x1+v,yy+v,x1+size-v,yy+size-v,size*0.5+1-v,1,color,color);
+    end;
+   end;
+   // Caption
+   inc(x1,round(size*1.5));
+   txt.WriteW(font,x1,y,color,element.caption);
+
+    // кнопка - чекбокс или радиобокс
+  {  if element.group=0 then begin
+     // чекбокс
+     v:=(y1+y2) div 2;
+     if element.pressed then begin
+      draw.Line(x1+3,v,x1+6,v+4,color);
+      draw.Line(x1+6,v+4,x1+14,v-6,color);
+      draw.Line(x1+3,v-1,x1+7,v+3,color);
+      draw.Line(x1+6,v+3,x1+13,v-6,color);
+     end;
+     c:=ColorMixF(color,$80FFFFFF,0.25);
+     d:=ColorMixF(color,$80000000,0.5);
+     if (underMouse=element) and element.enabled then begin
+      c:=ColorAdd(c,$40000000);
+      d:=ColorAdd(d,$40000000);
+     end;
+     if not element.enabled then begin
+      c:=colorMix(c,$80808080,200);
+      d:=colorMix(d,$80808080,200);
+     end;
+     draw.ShadedRect(x1,v-8,x1+15,v+7,2,d,c);
+    end else begin
+     // радиобокс
+    end;
+    gfx.clip.Rect(Rect(x1+19,y1,x2,y2));
+    v:=round(y1+(y2-y1)*0.65);
+    if FocusedElement=element then
+     draw.Rect(x1+19,y1,x1+txt.Width(element.font,element.caption),y2,$40+color and $FFFFFF);
+    if enabled then
+     txt.WriteW(element.font,x1+20,v,color,element.caption)
+    else begin
+     txt.WriteW(element.font,x1+21,v+1,$60FFFFFF,element.caption);
+     txt.WriteW(element.font,x1+20,v,ColorMix(element.color,$C0909090,200),element.caption);
+    end;
+    gfx.clip.Restore; }
+  end;
+
  procedure DrawUIButton(control:TUIButton;x1,y1,x2,y2:integer);
   var
    v,mY:integer;
@@ -283,8 +358,7 @@ implementation
    d:integer;
    wst:WideString;
   begin
-    with control as TUIButton do begin
-     if btnStyle<>bsCheckbox then begin
+    with control do begin
       // обычная кнопка
       c:=GetStyleColor(control,0); // main (background) color
       if c=0 then c:=defaultBtnColor;
@@ -322,43 +396,6 @@ implementation
        end;
        gfx.clip.Restore;
       end;
-     end else begin
-      // кнопка - чекбокс или радиобокс
-      if group=0 then begin
-       // чекбокс
-       v:=(y1+y2) div 2;
-       if pressed then begin
-        draw.Line(x1+3,v,x1+6,v+4,color);
-        draw.Line(x1+6,v+4,x1+14,v-6,color);
-        draw.Line(x1+3,v-1,x1+7,v+3,color);
-        draw.Line(x1+6,v+3,x1+13,v-6,color);
-       end;
-       c:=ColorMix(color,$80FFFFFF,64);
-       d:=ColorMix(color,$80000000,128);
-       if (underMouse=control) and enabled then begin
-        c:=ColorAdd(c,$40000000);
-        d:=ColorAdd(d,$40000000);
-       end;
-       if not enabled then begin
-        c:=colorMix(c,$80808080,200);
-        d:=colorMix(d,$80808080,200);
-       end;
-       draw.ShadedRect(x1,v-8,x1+15,v+7,2,d,c);
-      end else begin
-       // радиобокс
-      end;
-      gfx.clip.Rect(Rect(x1+19,y1,x2,y2));
-      v:=round(y1+(y2-y1)*0.65);
-      if FocusedElement=control then
-       draw.Rect(x1+19,y1,x1+txt.Width(font,caption),y2,$40+color and $FFFFFF);
-      if enabled then
-       txt.WriteW(font,x1+20,v,color,caption)
-      else begin
-       txt.WriteW(font,x1+21,v+1,$60FFFFFF,caption);
-       txt.WriteW(font,x1+20,v,ColorMix(color,$C0909090,200),caption);
-      end;
-      gfx.clip.Restore;
-     end;
     end;
   end;
 
@@ -715,6 +752,9 @@ implementation
    // Кнопка
    if element.ClassType=TUIButton then
     DrawUIButton(element as TUIButton,x1,y1,x2,y2)
+   else
+   if element is TUICheckbox then
+    DrawUICheckbox(element as TUICheckbox,x1,y1,x2,y2)
    else
    // Рамка
    if element.ClassType=TUIFrame then
