@@ -8,7 +8,7 @@
 unit Apus.Engine.UIWidgets;
 interface
  uses Types, Apus.Common, Apus.AnimatedValues,
-   Apus.Engine.API, Apus.Engine.UITypes;
+   Apus.Engine.API, Apus.Engine.Types, Apus.Engine.UITypes;
 
  {$WRITEABLECONST ON}
  {$IFDEF CPUARM} {$R-} {$ENDIF}
@@ -108,10 +108,11 @@ interface
    onClick:TProcedure;
    constructor Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement); overload;
    constructor Create(width,height:single;btnName,btnCaption:string;parent_:TUIElement); overload;
+   constructor Create(width,height:single;btnCaption:string;parent_:TUIElement); overload;
    constructor CreateSwitch(width,height:single;btnName,btnCaption:string;group:integer;
      btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false); overload;
-   constructor CreateSwitch(width,height:single;btnName,btnCaption:string;
-     parent_:TUIElement;pressed:boolean=false); overload;
+   constructor CreateSwitch(width,height:single;btnName,btnCaption:string;parent_:TUIElement;pressed:boolean=false); overload;
+   constructor CreateSwitch(width,height:single;btnCaption:string;parent_:TUIElement;pressed:boolean=false); overload;
 
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
@@ -412,6 +413,11 @@ implementation
    Create(width,height,btnName,btnCaption,0,parent_);
   end;
 
+ constructor TUIButton.Create(width,height:single;btnCaption:string;parent_:TUIElement);
+  begin
+   Create(width,height,'',btnCaption,0,parent_);
+  end;
+
  constructor TUIButton.CreateSwitch(width,height:single;btnName,btnCaption:string;
     group:integer;btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false);
   begin
@@ -429,7 +435,12 @@ implementation
    self.pressed:=pressed;
   end;
 
-procedure TUIButton.DoClick;
+ constructor TUIButton.CreateSwitch(width,height:single;btnCaption:string;parent_:TUIElement;pressed:boolean=false);
+  begin
+   CreateSwitch(width,height,'',btnCaption,parent_,pressed);
+  end;
+
+ procedure TUIButton.DoClick;
   var
    i:integer;
   begin
@@ -532,7 +543,7 @@ procedure TUIButton.DoClick;
    end;
   end;
 
- procedure TUIButton.SetPressed(pr: boolean);
+ procedure TUIButton.SetPressed(pr:boolean);
   begin
    pressed:=pr;
    if linkedValue<>nil then
@@ -597,11 +608,13 @@ constructor TUIRadioButton.Create(width,height:single;btnName,caption:string;
   btnStyle:=bsCheckbox;
   group:=1;
   if btnFont>0 then font:=btnFont;
-  checked:=true;
+  // Ensure there is at least one checked sibling
+  self.checked:=true;
   for i:=0 to high(parent.children) do
-   if parent.children[i] is TUIRadioButton then
+   if (parent.children[i]<>self) and (parent.children[i] is TUIRadioButton) then
     if TUIRadioButton(parent.children[i]).checked and
-       (TUIRadioButton(parent.children[i]).group=group) then checked:=false;
+       (TUIRadioButton(parent.children[i]).group=group) then self.checked:=false;
+  if checked then DoClick;
  end;
 
  { TUILabel }
