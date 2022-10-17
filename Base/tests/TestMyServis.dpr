@@ -1930,7 +1930,7 @@ procedure TestRandom;
   end;
   time:=EndMeasure(t);
   for i:=0 to 99 do
-   ASSERT(abs(a[i]-100000)<1200,'Non-uniform distribution');
+   ASSERT(abs(a[i]-100000)<2000,'Non-uniform distribution');
   // Check seed
   for i:=1 to 100 do begin
    r.Init(i);
