@@ -423,9 +423,33 @@ begin
  // Defringe transparent border pixels
  if (pixelFormat=ipfARGB) and (color shr 24=0) then begin
   for x:=0 to width-1 do begin
-   c:=GetPixel(x,0);          /// TODO!
-   c:=GetPixel(x,height-1);
+   if paddingTop>0 then begin
+    c:=GetPixel(x,paddingTop);
+    SetPixel(x,paddingTop-1,c and $FFFFFF);
+   end;
+   if paddingBottom>0 then begin
+    c:=GetPixel(x,height-paddingBottom-1);
+    SetPixel(x,height-paddingBottom,c and $FFFFFF);
+   end;
   end;
+  for y:=0 to height-1 do begin
+   if paddingLeft>0 then begin
+    c:=GetPixel(paddingLeft,y);
+    SetPixel(paddingLeft-1,y,c and $FFFFFF);
+   end;
+   if paddingRight>0 then begin
+    c:=GetPixel(width-paddingRight-1,y);
+    SetPixel(width-paddingRight,y,c and $FFFFFF);
+   end;
+  end;
+  if (paddingLeft>0) and (paddingTop>0) then
+   SetPixel(paddingLeft-1,paddingTop-1,GetPixel(paddingLeft,paddingTop) and $FFFFFF);
+  if (paddingTop>0) and (paddingRight>0) then
+   SetPixel(width-paddingRight,paddingTop-1,GetPixel(width-paddingRight-1,paddingTop) and $FFFFFF);
+  if (paddingLeft>0) and (paddingBottom>0) then
+   SetPixel(paddingLeft-1,height-paddingBottom,GetPixel(paddingLeft,height-paddingBottom-1) and $FFFFFF);
+  if (paddingRight>0) and (paddingBottom>0) then
+   SetPixel(width-paddingRight,height-paddingBottom,GetPixel(width-paddingRight-1,height-paddingBottom-1) and $FFFFFF);
  end;
 end;
 
