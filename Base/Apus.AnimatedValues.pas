@@ -42,7 +42,7 @@ interface
       // Возвращает значение величины в указанный момент (0 - текущий момент)
       function ValueAt(time:int64):single;
       function FinalValue:single; // What the value will be when animation finished?
-      function IsAnimating:boolean; // Is value animating now?
+      function IsAnimating(time:int64=0):boolean; // Is value animating now?
       // Производная (скорость изменения) в текущий (указанный) момент времени
       // Если анимации нет - то 0
       function Derivative:double;
@@ -242,12 +242,13 @@ implementation
       result:=ValueAt(0);
     end;
 
-  function TAnimatedValue.IsAnimating:boolean;
+  function TAnimatedValue.IsAnimating(time:int64):boolean;
     begin
       SpinLock(lock);
       try
         if length(animations)>0 then begin
-            result:=MyTickCount<animations[length(animations)-1].endTime;
+           if time<=0 then time:=MyTickCount;
+           result:=time<animations[length(animations)-1].endTime;
           end
         else
             result:=false;
