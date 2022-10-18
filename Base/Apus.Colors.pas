@@ -26,6 +26,7 @@ type
  function GrayAlpha(alpha:single):cardinal; // aa808080
  function SwapColor(color:cardinal):cardinal; // swap red<->blue bytes
  function GetAlpha(color:cardinal):single;
+ function IsSemiTransparent(color:cardinal):boolean;
 
  function ColorAdd(c1,c2:cardinal):cardinal;
  function ColorSub(c1,c2:cardinal):cardinal;
@@ -120,6 +121,12 @@ implementation
  function GetAlpha(color:cardinal):single;
   begin
    result:=(color shr 24)/255;
+  end;
+
+ function IsSemiTransparent(color:cardinal):boolean;
+  begin
+   color:=color shr 24;
+   result:=(color>0) and (color<255);
   end;
 
  function GrayColor(gray:integer):cardinal;
