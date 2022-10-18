@@ -53,9 +53,40 @@ implementation
   hintImage,tickImage:TTexture;
   imgHash:TSimpleHashS;  // hash of loaded images: filename -> UIntPtr(TTexture)
 
+  blendModeChanged:boolean;
+
+ type
+  TCheckboxContext=class
+   lastState:boolean;
+   transition:TAnimatedValue;
+   constructor Create(element:TUICheckbox);
+  end;
+
+ function GetStyleColor(style:PElementStyle;name:string8;default:cardinal):cardinal;
+  begin
+   result:=default;
+   if style<>nil then result:=style.GetColor(name,default);
+  end;
+
+ procedure SetProperBlendMode(element:TUIElement);
+  begin
+   if transpBgnd and (element.shape<>shapeEmpty) then begin
+    gfx.target.BlendMode(blMove);
+    blendModeChanged:=true;
+   end;
+  end;
+
+ procedure RestoreBlendMode;
+  begin
+   if blendModeChanged then begin
+    gfx.target.BlendMode(blAlpha);
+    blendModeChanged:=false;
+   end;
+  end;
+
  {$R-}
  // styleinfo="00000000 11111111 22222222 33333333" - list of colors (hex)
- function GetStyleColor(control:TUIElement;index:integer=0):cardinal;
+{ function GetStyleColor(control:TUIElement;index:integer=0):cardinal;
   var
    i,v:integer;
   begin
@@ -72,7 +103,7 @@ implementation
      result:=result shl 4+v;
     end;
    end;
-  end;
+  end;}
 
  // Creates a style entry for the element, returns its index
  function CreateStyleEntry(element:TUIElement):integer;
@@ -121,7 +152,7 @@ implementation
    i,c,c2:integer;
    st:string;
   begin
-   if control.styleinfo='' then exit;
+{   if control.styleinfo='' then exit;
    c:=GetStyleColor(control,0);
    c2:=GetStyleColor(control,1);
    if c<>0 then begin
@@ -129,7 +160,7 @@ implementation
     draw.FillRect(x1,y1,x2,y2,c);
     if transpBgnd then gfx.target.BlendMode(blAlpha);
    end;
-   if c2<>0 then draw.Rect(x1,y1,x2,y2,c2);
+   if c2<>0 then draw.Rect(x1,y1,x2,y2,c2);}
   end;
 
  procedure BuildSimpleHint(hnt:TUIHint);
@@ -257,8 +288,6 @@ implementation
      if autoSize then begin
 
      end;
-     bg:=GetStyleColor(control);
-     if bg<>0 then draw.FillRect(x1,y1,x2,y2,bg);
      r:=GetClientPosOnScreen;
      gfx.clip.Rect(r);
      //mY:=round(y1*0.3+y2*0.7)-topOffset;
@@ -276,18 +305,36 @@ implementation
     end;
   end;
 
- procedure DrawUICheckbox(element:TUICheckbox;x1,y1,x2,y2:integer);
+ procedure DrawUICheckbox(element:TUICheckbox;eStyle:PElementStyle;x1,y1,x2,y2:integer);
   const
    TICK_IMAGE = '20 1F ((((~SSS(SSS^SSSESSSDSSS_SSSBSSS &A(*-+&@(*+$&>(%$)*&=(*-$)*&=(*+$+*&=(*+$+*&=(*$)+*&<(%&()*'+
     '&<(*-&()*&<(*,&()/*&;(*-&(),*&<(*&()-*&<(*&().*&<(*+&()*&<(*+&()*&1(&(*&+(*.&(),*&0(*/++,*&)(*,&()+*&0(*-&().*'+
     '&((*&))*&1(.&*)/*#*+&(),*&1(*+&))+*(*-&().*&3(*+&)),%&))*&5(*&*)*&)),*&5(*,&))+&()+*&7(*&.)/*&7(*,&,).*&9(*&,)*'+
     '&:(*,&*)!\SSS*&;(*&))+*&<(*.$)-*&>(*$-*&?(*.%&:(';
   var
-   color:cardinal;
+   duration:integer;
+   color,vColor:cardinal;
    font:TFontHandle;
    d,y,yy,fontH,size:integer;
-   v:single;
+   v,ss,tt,alpha:single;
+   context:TCheckboxContext;
+   inTransition:boolean;
   begin
+   if not (element.styleContext is TCheckboxContext) then begin
+    element.styleContext.Free;
+    context:=TCheckboxContext.Create(element);
+    element.styleContext:=context;
+   end else
+    context:=element.styleContext as TCheckboxContext;
+   // State changed?
+   if element.checked<>context.lastState then begin
+    context.lastState:=element.checked;
+    context.transition.Assign(0);
+    if element is TUIRadioButton then duration:=200
+     else duration:=120;
+    context.transition.Animate(1,duration);
+   end;
+
    color:=element.color;
    font:=element.font;
    fontH:=txt.Height(font);
@@ -296,62 +343,59 @@ implementation
    inc(x1,round(size*0.3));
    d:=round(size*0.15);
    //
+   inTransition:=context.transition.IsAnimating(game.frameStartTime);
    if element.classType=TUICheckBox then begin
-    draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,color,0);
+    vColor:=GetStyleColor(eStyle,'tickColor',color);
+    draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,vColor,0);
     if tickImage=nil then tickImage:=CreateImageFrom(TICK_IMAGE,1);
-    if element.checked then
-     draw.Centered(x1+size*0.65,y-size*0.4,1.1*size/tickImage.height,tickImage,color);
+    if element.checked or inTransition then begin
+     alpha:=1; ss:=1.1;
+     if inTransition then begin // transition
+      tt:=context.transition.ValueAt(game.frameStartTime);
+      if context.lastState then begin
+       // appear
+       alpha:=splines.easeOut(tt,0,1,0.5,1);
+       ss:=Spline(tt, 0.5,3, 1.1,-1);
+      end else begin
+       // dissolve
+       alpha:=1-tt;
+      end;
+     end;
+     draw.Centered(x1+size*0.65,y-size*0.4,ss*size/tickImage.height,tickImage,ColorAlpha(vColor,alpha));
+    end;
    end;
    if element.ClassType=TUIRadioButton then begin
     yy:=y-size+d;
     draw.RoundRect(x1,yy,x1+size,yy+size,size*0.5+1,element.globalScale,color,0);
-    if element.checked then begin
+    if element.checked or inTransition then begin
+     alpha:=1;
      v:=size*0.24;
-     draw.RoundRect(x1+v,yy+v,x1+size-v,yy+size-v,size*0.5+1-v,1,color,color);
+     if inTransition then begin // transition
+      tt:=context.transition.ValueAt(game.frameStartTime);
+      if context.lastState then begin
+       // appear
+       alpha:=tt;
+       v:=size*Spline(tt, 0.4,-0.8, 0.24,0.8);
+      end else begin
+       // dissolve
+       alpha:=1-tt;
+       v:=size*(0.24+tt*0.2);
+      end;
+     end;
+     vColor:=ColorAlpha(color,alpha);
+     draw.RoundRect(x1+v,yy+v,x1+size-v,yy+size-v,size*0.5+1-v,1,vColor,vColor);
     end;
    end;
    // Caption
    inc(x1,round(size*1.5));
+   gfx.clip.Rect(Rect(x1,y1,x2,y2));
    txt.WriteW(font,x1,y,color,element.caption);
-
-    // кнопка - чекбокс или радиобокс
-  {  if element.group=0 then begin
-     // чекбокс
-     v:=(y1+y2) div 2;
-     if element.pressed then begin
-      draw.Line(x1+3,v,x1+6,v+4,color);
-      draw.Line(x1+6,v+4,x1+14,v-6,color);
-      draw.Line(x1+3,v-1,x1+7,v+3,color);
-      draw.Line(x1+6,v+3,x1+13,v-6,color);
-     end;
-     c:=ColorMixF(color,$80FFFFFF,0.25);
-     d:=ColorMixF(color,$80000000,0.5);
-     if (underMouse=element) and element.enabled then begin
-      c:=ColorAdd(c,$40000000);
-      d:=ColorAdd(d,$40000000);
-     end;
-     if not element.enabled then begin
-      c:=colorMix(c,$80808080,200);
-      d:=colorMix(d,$80808080,200);
-     end;
-     draw.ShadedRect(x1,v-8,x1+15,v+7,2,d,c);
-    end else begin
-     // радиобокс
-    end;
-    gfx.clip.Rect(Rect(x1+19,y1,x2,y2));
-    v:=round(y1+(y2-y1)*0.65);
-    if FocusedElement=element then
-     draw.Rect(x1+19,y1,x1+txt.Width(element.font,element.caption),y2,$40+color and $FFFFFF);
-    if enabled then
-     txt.WriteW(element.font,x1+20,v,color,element.caption)
-    else begin
-     txt.WriteW(element.font,x1+21,v+1,$60FFFFFF,element.caption);
-     txt.WriteW(element.font,x1+20,v,ColorMix(element.color,$C0909090,200),element.caption);
-    end;
-    gfx.clip.Restore; }
+   gfx.clip.Restore;
+   if FocusedElement=element then
+     draw.Rect(x1,y1,x2,y2,color xor $808080);
   end;
 
- procedure DrawUIButton(control:TUIButton;x1,y1,x2,y2:integer);
+ procedure DrawUIButton(control:TUIButton;eStyle:PElementStyle;x1,y1,x2,y2:integer);
   var
    v,mY:integer;
    c,c2:cardinal;
@@ -360,20 +404,19 @@ implementation
   begin
     with control do begin
       // обычная кнопка
-      c:=GetStyleColor(control,0); // main (background) color
-      if c=0 then c:=defaultBtnColor;
+      c:=GetStyleColor(eStyle,'color',defaultBtnColor); // main (background) color
       d:=byte(pressed);
       if not enabled then c:=ColorMix(c,$FFA0A0A0,128);
       if enabled and (underMouse=control) then inc(c,$101010);
       if pressed then c:=c-$282020;
       draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,ColorAdd(c,$303030),ColorSub(c,$303030),true);
-      c:=GetStyleColor(control,2); if c=0 then c:=$60000000;
-      c2:=GetStyleColor(control,3); if c2=0 then c2:=$80FFFFFF;
+      c:=GetStyleColor(eStyle,'borderLight',$60000000);
+      c2:=GetStyleColor(eStyle,'borderDark',$80FFFFFF);
       draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // Внешняя рамка
       if pressed then { draw.ShadedRect(x1+2,y1+2,x2-1,y2-1,1,$80FFFFFF,$50000000)}
        else if enabled then begin
-         c:=GetStyleColor(control,4); if c=0 then c:=$A0FFFFFF;
-         c2:=GetStyleColor(control,5); if c2=0 then c2:=$70000000;
+         c:=GetStyleColor(eStyle,'disabled.borderLight',$A0FFFFFF);
+         c2:=GetStyleColor(eStyle,'disabled.borderDark',$70000000);
          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
        end
          else draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,$80FFFFFF,$50000000);
@@ -384,7 +427,7 @@ implementation
       // Вывод надписи (если есть)
       if caption<>'' then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
-       c:=GetStyleColor(control,1); if c=0 then c:=$FF000000;
+       c:=GetStyleColor(eStyle,'textColor',color);
        mY:=round((y1+y2)*0.5+txt.Height(font)*0.45);
        wSt:=DecodeUTF8(caption);
        if underMouse=control then c:=$FF300000;
@@ -399,14 +442,13 @@ implementation
     end;
   end;
 
- procedure DrawUIFrame(control:TUIFrame;x1,y1,x2,y2:integer);
+ procedure DrawUIFrame(control:TUIFrame;eStyle:PElementStyle;x1,y1,x2,y2:integer);
   var
    c1,c2:cardinal;
    i:integer;
   begin
-   c1:=GetStyleColor(control,0);
-   if c1=0 then c1:=$FF000000;
-   c2:=GetStyleColor(control,1);
+   c1:=GetStyleColor(eStyle,'color',clBlack);
+   c2:=GetStyleColor(eStyle,'colorDark',0);
    for i:=0 to round(control.padding.Left)-1 do begin
     if c2=0 then draw.Rect(x1+i,y1+i,x2-i,y2-i,c1)
      else draw.ShadedRect(x1+i,y1+i,x2-i,y2-i,1,c1,c2);
@@ -710,7 +752,13 @@ implementation
    strokeColor:=style.GetColor('border');
    radius:=style.GetScaled(element,'radius');
    bWidth:=style.GetScaled(element,'border-width',1);
+
+   // This is important for drawing large semi-transparent areas on a transparent background (render to texture)
+   // to avoid duplicate alpha blending (resulting in alpha=sqr(alpha))
+   if IsSemiTransparent(fillColor) then SetProperBlendMode(element);
    DrawBlock;
+   RestoreBlendMode;
+
    // Inner (client) block
    fillColor:=style.GetColor('inner-fill');
    strokeColor:=style.GetColor('inner-border');
@@ -747,14 +795,14 @@ implementation
    else
    // Кнопка
    if element.ClassType=TUIButton then
-    DrawUIButton(element as TUIButton,x1,y1,x2,y2)
+    DrawUIButton(element as TUIButton,eStyle,x1,y1,x2,y2)
    else
    if element is TUICheckbox then
-    DrawUICheckbox(element as TUICheckbox,x1,y1,x2,y2)
+    DrawUICheckbox(element as TUICheckbox,eStyle,x1,y1,x2,y2)
    else
    // Рамка
    if element.ClassType=TUIFrame then
-    DrawUIFrame(element as TUIFrame,x1,y1,x2,y2)
+    DrawUIFrame(element as TUIFrame,eStyle,x1,y1,x2,y2)
    else
    // Произвольное изображение
    if element.ClassType=TUIImage then
@@ -881,7 +929,7 @@ procedure TElementStyle.Parse;
      attr:=LowerCase(Chop(copy(fullStyleInfo,from,last-from+1)));
      value:=true;
     end;
-    if prefix<>'' then attr:=prefix+':'+LowerCase(attr);
+    if prefix<>'' then attr:=prefix+'.'+LowerCase(attr);
     attributes.Put(attr,value);
    end;
   begin
@@ -900,6 +948,14 @@ procedure TElementStyle.Parse;
    end;
    ParsePart(start,length(fullStyleInfo));
   end;
+
+{ TCheckboxContext }
+
+constructor TCheckboxContext.Create(element:TUICheckbox);
+ begin
+  transition.Init;
+  lastState:=element.checked;
+ end;
 
 initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
