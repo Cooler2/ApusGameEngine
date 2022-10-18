@@ -10,14 +10,13 @@ interface
 uses Apus.Engine.UITypes;
 
 type
-
  // Layout elements in a row/column
  // spaceBetween - spacing between elements
  // resizeToContent - make item size match
  // center - align elements to item's central line
  TRowLayout=class(TLayouter)
-  constructor CreateVertical(spaceBetween:single=0;resizeToContent:boolean=false);
-  constructor CreateHorizontal(spaceBetween:single=0;resizeToContent:boolean=false);
+  constructor CreateVertical(spaceBetween:single=0;resizeToContent:boolean=false;center:boolean=false);
+  constructor CreateHorizontal(spaceBetween:single=0;resizeToContent:boolean=false;center:boolean=false);
   constructor Create(horizontal:boolean=true;spaceBetween:single=0;resizeToContent:boolean=false;center:boolean=false);
   procedure Layout(item:TUIElement); override;
  private
@@ -49,14 +48,14 @@ uses Apus.Geom2D;
    fCenter:=center;
   end;
 
- constructor TRowLayout.CreateHorizontal(spaceBetween:single;resizeToContent:boolean);
+ constructor TRowLayout.CreateHorizontal(spaceBetween:single;resizeToContent,center:boolean);
   begin
-   Create(true,spaceBetween,resizeToContent,false);
+   Create(true,spaceBetween,resizeToContent,center);
   end;
 
- constructor TRowLayout.CreateVertical(spaceBetween:single;resizeToContent:boolean);
+ constructor TRowLayout.CreateVertical(spaceBetween:single;resizeToContent,center:boolean);
   begin
-   Create(false,spaceBetween,resizeToContent,true);
+   Create(false,spaceBetween,resizeToContent,center);
   end;
 
 procedure TRowLayout.Layout(item:TUIElement);
