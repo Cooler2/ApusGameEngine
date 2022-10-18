@@ -106,6 +106,7 @@ type
   // Define how the element should be displayed
   style:byte;    // Стиль для отрисовки (0 - использует отрисовщик по умолчанию)
   styleInfoChanged:boolean; // set true whenever styleInfo changes
+  styleContext:TObject; // custom context object used by drawer
 
   canHaveFocus:boolean; // может ли элемент обладать фокусом ввода
   hint,hintIfDisabled:string; // текст всплывающей подсказки (отдельный вариант - для ситуации, когда элемент disabled, причем именно этот элемент, а не за счёт предков)
@@ -275,7 +276,7 @@ type
   function GetColor:cardinal;
 
   class procedure SetDefault(name:string;value:variant); // SetClassAttribute('defalut'+name,value)
-  procedure AddStyle(style:string8;state:string8='');
+  procedure AddStyle(style:string8); // use 'name:value' or 'state.name:value' syntax
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
@@ -595,6 +596,7 @@ destructor TUIElement.Destroy;
      Detach(false);
     DeleteChildren;
     FreeAndNil(shapeRegion);
+    FreeAndNil(styleContext);
     Signal('UI\ItemDestroyed',TTag(self));
    except
     on e:Exception do raise EError.Create(Format('Destroy error for %s: %s',[name,ExceptionMsg(e)]));
@@ -1089,13 +1091,9 @@ function TUIElement.IsChild(c:TUIElement):boolean;
     end;
   end;
 
- procedure TUIElement.AddStyle(style,state:string8);
+ procedure TUIElement.AddStyle(style:string8);
   begin
-   if state='' then styleInfo:=style+';'+styleInfo
-    else begin
-     if styleInfo<>'' then styleInfo:=styleInfo+';';
-     styleInfo:='['+state+'] '+style;
-    end;
+   styleInfo:=style+';'+styleInfo
   end;
 
  procedure TUIElement.AddToRootElements;
