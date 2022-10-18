@@ -134,6 +134,7 @@ interface
    checked:boolean;
    constructor Create(width,height:single;btnName,caption:string;parent_:TUIElement;
     checked:boolean=false;btnFont:TFontHandle=0); overload;
+   procedure SetPressed(pr:boolean); override;
   end;
 
   TUIRadioButton=class(TUICheckbox)
@@ -594,6 +595,7 @@ constructor TUICheckBox.Create(width,height:single;btnName,caption:string;
   inherited Create(width,height,btnName,caption,parent_);
   btnStyle:=bsCheckbox;
   self.checked:=checked;
+  self.pressed:=checked;
   if btnFont>0 then font:=btnFont;
  end;
 
@@ -617,7 +619,13 @@ constructor TUIRadioButton.Create(width,height:single;btnName,caption:string;
   if checked then DoClick;
  end;
 
- { TUILabel }
+ procedure TUICheckBox.SetPressed(pr:boolean);
+  begin
+   inherited;
+   checked:=pressed;
+  end;
+
+{ TUILabel }
 
  procedure TUILabel.CaptionWidthIs(width:single);
   var
