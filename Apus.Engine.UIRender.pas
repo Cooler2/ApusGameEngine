@@ -74,9 +74,9 @@ implementation
    clipping:boolean;
   begin
    if not item.visible then exit;
-   if (item.size.x<=0) or (item.size.y<=0) then exit;
-   // Draw self first
    if item.layout<>nil then item.layout.Layout(item);
+   // Draw self first
+   if (item.size.x<=0) or (item.size.y<=0) then exit;
    item.globalRect:=item.GetPosOnScreen;
 {   /// TODO: alpha should be masked ONLY if semi-transparent element is drawn on an opaque background, not vice-versa.
    ///  Need to find a generic approach.
@@ -109,13 +109,11 @@ implementation
    // Now prepare list of child elements to draw
    n:=length(item.children);
    cnt:=0;
-   for i:=0 to n-1 do
-    if item.children[i].visible then inc(cnt);
-   SetLength(list,cnt);
-   cnt:=0;
+   SetLength(list,n);
    for i:=0 to n-1 do
     if item.children[i].visible then begin
-     list[cnt]:=item.children[i]; inc(cnt);
+     list[cnt]:=item.children[i];
+     inc(cnt);
     end;
 
    // Process children elements
