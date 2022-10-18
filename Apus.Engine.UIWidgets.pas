@@ -779,11 +779,11 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
   begin
    if newwidth<>-1 then begin
     if newwidth<minW then newwidth:=minW;
-    if newwidth>maxW then newwidth:=maxW;
+    if (newwidth>maxW) and (maxW>0) then newwidth:=maxW;
    end;
    if newheight<>-1 then begin
     if newheight<minH then newheight:=minH;
-    if newheight>maxH then newheight:=maxH;
+    if (newheight>maxH) and (maxH>0) then newheight:=maxH;
    end;
    inherited;
   end;
