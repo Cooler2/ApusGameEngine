@@ -694,17 +694,13 @@ implementation
    end;
   procedure DrawBlock;
    begin
-    if fillColor<>0 then begin
-     if radius=0 then
-      draw.FillRect(x1,y1,x2,y2,fillColor)
-     else
-      draw.FillRRect(x1,y1,x2,y2,fillColor,radius);
-    end;
-    if strokeColor<>0 then begin
-     if radius=0 then
+    if radius>1 then begin
+     draw.RoundRect(x1,y1,x2,y2,radius,bWidth,strokeColor,fillCOlor);
+    end else begin
+     if fillColor<>0 then
+      draw.FillRect(x1,y1,x2,y2,fillColor);
+     if strokeColor<>0 then
       draw.Rect(x1,y1,x2,y2,strokeColor)
-     else
-      draw.RRect(x1,y1,x2,y2,bWidth,radius,strokeColor)
     end;
    end;
   begin
@@ -786,9 +782,9 @@ implementation
    else
    // Combo box
    if element is TUIComboBox then
-    DrawUIComboBox(x1,y1,x2,y2,element as TUIComboBox)
-   else
-    DrawUIElement(element,x1,y1,x2,y2);
+    DrawUIComboBox(x1,y1,x2,y2,element as TUIComboBox);
+   {else
+    DrawUIElement(element,x1,y1,x2,y2);}
   end;
 
 { TElementStyle }
