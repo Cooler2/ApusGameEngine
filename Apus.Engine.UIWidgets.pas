@@ -113,6 +113,7 @@ interface
      btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false); overload;
    constructor CreateSwitch(width,height:single;btnName,btnCaption:string;parent_:TUIElement;pressed:boolean=false); overload;
    constructor CreateSwitch(width,height:single;btnCaption:string;parent_:TUIElement;pressed:boolean=false); overload;
+   constructor CreateGroupSwitch(width,height:single;btnCaption:string;parent_:TUIElement;pressed:boolean=false); overload;
 
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
@@ -125,6 +126,7 @@ interface
    class var active:TUIButton; // link to the active button (can be used in click handlers)
   protected
    procedure DoClick;
+   procedure CheckGroup;
   private
    lastPressed,pendingUntil:int64;
    lastOver:boolean; // was under mouse when onMouseMove was called last time
@@ -425,7 +427,8 @@ implementation
    Create(width,height,btnName,btnCaption,btnFont,parent_);
    btnStyle:=bsSwitch;
    self.group:=group;
-   self.pressed:=pressed;
+   SetPressed(pressed);
+   CheckGroup;
   end;
 
  constructor TUIButton.CreateSwitch(width,height:single;btnName,btnCaption:string;
@@ -433,12 +436,33 @@ implementation
   begin
    Create(width,height,btnName,btnCaption,0,parent_);
    btnStyle:=bsSwitch;
-   self.pressed:=pressed;
+   SetPressed(pressed);
+   CheckGroup;
   end;
 
  constructor TUIButton.CreateSwitch(width,height:single;btnCaption:string;parent_:TUIElement;pressed:boolean=false);
   begin
    CreateSwitch(width,height,'',btnCaption,parent_,pressed);
+  end;
+
+ constructor TUIButton.CreateGroupSwitch(width,height:single;btnCaption:string;parent_:TUIElement;pressed:boolean=false);
+  begin
+   CreateSwitch(width,height,'',btnCaption,1,0,parent_,pressed);
+  end;
+
+ // Check if there are other pressed buttons in the same group and unpress them
+ procedure TUIButton.CheckGroup;
+  var
+   i:integer;
+  begin
+   if (parent=nil) or (group=0) then exit;
+   for i:=0 to length(parent.children)-1 do
+     if (parent.children[i]<>self) and
+        (parent.children[i] is TUIButton) and
+        (TUIButton(parent.children[i]).group=group) then begin
+      if pressed and TUIButton(parent.children[i]).pressed then
+       TUIButton(parent.children[i]).SetPressed(false);
+     end;
   end;
 
  procedure TUIButton.DoClick;

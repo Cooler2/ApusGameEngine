@@ -427,15 +427,15 @@ implementation
       // Вывод надписи (если есть)
       if caption<>'' then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
-       c:=GetStyleColor(eStyle,'textColor',color);
+       c:=GetStyleColor(eStyle,'textColor',clBlack);
        mY:=round((y1+y2)*0.5+txt.Height(font)*0.45);
        wSt:=DecodeUTF8(caption);
        if underMouse=control then c:=$FF300000;
        if enabled then
-        txt.WriteW(font,(x1+x2) div 2+d,mY+d,c,wst,taCenter)
+        txt.WriteW(font,(x1+x2)/2,mY+d,c,wst,taCenter)
        else begin
-        txt.WriteW(font,(x1+x2) div 2+1,mY+1,$E0FFFFFF,wSt,taCenter);
-        txt.WriteW(font,(x1+x2) div 2,mY,$80000000,wSt,taCenter);
+        txt.WriteW(font,(x1+x2)/2+1,mY+1,$E0FFFFFF,wSt,taCenter);
+        txt.WriteW(font,(x1+x2)/2,mY,$80000000,wSt,taCenter);
        end;
        gfx.clip.Restore;
       end;
@@ -959,5 +959,4 @@ constructor TCheckboxContext.Create(element:TUICheckbox);
 
 initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
- //TUISplitter.Set
 end.
