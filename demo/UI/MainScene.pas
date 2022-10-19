@@ -41,9 +41,11 @@ constructor TMainApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   useRealDPI:=true;
+  //useRealDPI:=false;
   //usedPlatform:=spSDL;
   //directRenderOnly:=true;
   //windowedMode:=false;
+  useConsoleScene:=true;
  end;
 
 // Most app initialization is here. Default spinner is running
@@ -89,13 +91,13 @@ procedure TestButtons;
 
 procedure TestWidgets;
  var
-  cont:TUIElement;
+  cont,hCont:TUIElement;
   lab:TUILabel;
   style:string;
  begin
   InitTestLayer;
   // Container
-  cont:=CreateVerticalContainer(150,'Labels',root,0,10);
+  cont:=CreateVerticalContainer(150,root,0,10,false);
   cont.SetPos(10,10);
   // Default properties
   TUILabel.SetDefault('styleInfo','40FFFFFF');
@@ -107,23 +109,35 @@ procedure TestWidgets;
   TUILabel.CreateRight(-1,20,'Label3','Right',cont);
   TUILabel.Create(-1,20,'Label4','With padding',cont).SetPaddings(4,2,4,2);
   TUILabel.CreateCentered(120,20,'Label5','Too Long Text Clipped',cont);
-  TUILabel.Create(-1,18,'Label6','Shift up',cont).verticalOffset:=2;
-  TUILabel.Create(-1,18,'Label7','Shift down',cont).verticalOffset:=-2;
+  TUILabel.Create(-1,18,'Label6','Shifted up',cont).verticalOffset:=2;
+  TUILabel.Create(-1,18,'Label7','Shifted down',cont).verticalOffset:=-2;
   // Buttons
-  cont:=CreateVerticalContainer(150,'Buttons',root,0,10);
+  cont:=CreateVerticalContainer(150,root,0,6,false);
   cont.SetPos(200,10);
+  cont.color:=$FF202020;
   TUIButton.Create(140,30,'Button1','Button 1',cont);
-  TUIButton.Create(140,30,'Button2','Disabled',cont).enabled:=false;
-  TUIButton.CreateSwitch(140,30,'Switch1','Switch 1',cont);
+  TUIButton.Create(140,30,'Disabled',cont).enabled:=false;
+  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  TUIButton.CreateSwitch(140,30,'Switch1','Toggle Button',cont);
+  hCont:=CreateHorizontalContainer(30,cont,0,4);
+  TUIButton.CreateGroupSwitch(30,30,'A',hCont);
+  TUIButton.CreateGroupSwitch(30,30,'B',hCont);
+  TUIButton.CreateGroupSwitch(30,30,'C',hCont);
+
+  //Create
   TUISplitter.CreateH(2,5,0,cont,$80000000);
   // Check boxes
-  TUICheckBox.Create(160,25,'Check1','checkbox 1',cont,true);
-  TUICheckBox.Create(160,25,'Check1','checkbox 2',cont);
+  TUICheckBox.Create(-1,22,'Check1','checkbox 1 VERYLONG',cont,true);
+  TUICheckBox.Create(-1,22,'Check2','checkbox 2 (red)',cont).AddStyle('tickColor:811');
   TUISplitter.CreateH(10,cont);
   // Radio buttons
-  TUIRadioButton.Create(160,25,'Radio1','radio 1',cont);
-  TUIRadioButton.Create(160,25,'Radio2','radio 2',cont);
-  TUIRadioButton.Create(160,25,'Radio3','radio 3',cont);
+  TUIRadioButton.Create(100,22,'Radio1','radio 1',cont);
+  TUIRadioButton.Create(100,22,'Radio2','radio 2',cont);
+  TUIRadioButton.Create(-1,22,'Radio3','radio 3 Looooooong',cont);
+
+  TUIWindow.Create(200,200,true,'wnd','Window',game.defaultFont,root).
+   SetPos(root.clientWidth/2,root.clientHeight*0.9,pivotBottomCenter);
+
  end;
 
 procedure TestLayouts;
@@ -146,10 +160,11 @@ procedure TMainScene.Initialize;
   panel.scale:=1.2;
   panel.Center;
   panel.SetAnchors(anchorCenter);
-  panel.layout:=TRowLayout.CreateVertical(10,true);
+  panel.layout:=TRowLayout.CreateVertical(10,true,true);
   panel.SetPadding(15);
   //panel.styleInfo:='40E0E0E0 60E0E0E0';
-  panel.styleInfo:='Fill:#4EEE; border:9EEE; radius=6;';
+  panel.styleInfo:='Fill:4EEE; border:9EEE; radius=6;';
+  panel.color:=$FF202040;
 
   // Create menu buttons
   TUIButton.Create(120,30,'Main\Widgets','Widgets',panel).onClick:=@TestWidgets;
@@ -161,16 +176,22 @@ procedure TMainScene.Initialize;
   // Create a placeholder UI element for demos
   root:=TUIElement.Create(-1,-1,UI,'Root');
   root.SetAnchors(anchorAll);
-  root.styleInfo:='FFB0C0C4 80000000';
+  //root.styleInfo:='FFB0C0C4 80000000';
+  root.styleInfo:='fill:FFB0C0C4; border:80000000';
   root.shape:=TElementShape.shapeFull;
   root.visible:=false;
  end;
 
 procedure TMainScene.Render;
+ var
+  i:integer;
  begin
   // 1. Draw scene background
   gfx.target.Clear($406080);
-  // Draw some lines
+{  for i:=1 to 100 do begin
+   draw.Line(1500+i*2,10,1500+i*2,200,$50FFFFFF);
+   draw.Line(500+i*2,10,500+i*2,100,$80FFFFFF);
+  end;}
   inherited;
  end;
 
