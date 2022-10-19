@@ -191,12 +191,14 @@ var
  h:integer;
 begin
  inherited Create('CONSOLE',false); // pure foreground scene
+ if game.screenDPI>120 then
+  ui.SetScale(game.screenDPI/96);
  //ignoreKeyboardEvents:=true;
  status:=TSceneStatus.ssFrozen;
  frequency:=12;
 
- font:=txt.GetFont('Default',7);
- h:=round(game.renderHeight*0.7);
+ font:=txt.GetFont('Default',7*ui.scale,fsIgnoreScale);
+ h:=round(ui.clientHeight*0.7);
  wnd:=TUIWindow.Create(480,h,true,'ConsoleWnd','Console',font,UI);
  wnd.SetPos(10,10,pivotTopLeft);
  wnd.moveable:=true;
