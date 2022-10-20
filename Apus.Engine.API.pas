@@ -954,6 +954,11 @@ type
 
   function RenderSize:TSize; // returns (renderWidth,renderHeight)
 
+  // Return interpolated color from color0 to color1 using AV sampled at the current frame time
+  function ColorMix(var av:TAnimatedValue;color0,color1:cardinal):cardinal;
+  // Multiply color's alpha by AV sampled at the current frame time
+  function ColorAlpha(var av:TAnimatedValue;color:cardinal):cardinal;
+
   // Wait until pb^ is not false (not zero), toggle crWait cursor during waiting
   procedure WaitFor(pb:PBoolean;msg:string=''); virtual; abstract;
 
@@ -1256,6 +1261,17 @@ function TGameBase.RenderSize:TSize;
   result.cx:=renderWidth;
   result.cy:=renderHeight;
  end;
+
+function TGameBase.ColorMix(var av:TAnimatedValue;color0,color1:cardinal):cardinal;
+ begin
+  Apus.Colors.ColorMixF(color0,color1,Clamp(av.ValueAt(game.frameStartTime),0,1));
+ end;
+
+function TGameBase.ColorAlpha(var av:TAnimatedValue;color:cardinal):cardinal;
+ begin
+  Apus.Colors.ColorAlpha(color,Clamp(av.ValueAt(game.frameStartTime),0,1));
+ end;
+
 
 initialization
  PublishFunction('GetFont',fGetFontHandle);
