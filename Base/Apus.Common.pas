@@ -536,6 +536,8 @@ interface
  function Sat(b,min,max:integer):integer; inline; deprecated 'use Clamp';
  function SatD(b,min,max:double):double; inline; deprecated 'use Clamp';
 
+ function LinearMix(v0,v1,t:single):single; inline;
+
  // Fast consistent rounding, equivalent to SimpleRoundTo(x,0) i.e. 0.5->1, 1.5->2 etc. (NOT PRECISE!)
  function FRound(v:double):integer; inline;
  // Precise version of rounding (still quite fast)
@@ -3484,6 +3486,11 @@ function BinToStr;
     end;
    end;
    move(data[0],buf,size);
+  end;
+
+ function LinearMix(v0,v1,t:single):single;
+  begin
+   result:=v0*(1-t)+v1*t;
   end;
 
  // Saturated value of b
