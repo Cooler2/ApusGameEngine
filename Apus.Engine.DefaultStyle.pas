@@ -31,6 +31,7 @@ implementation
    attributes:TVarHash;
    procedure Parse;
    function GetColor(name:string8;default:cardinal=0):cardinal; inline;
+   function GetInt(name:string8;default:integer=0):integer; inline;
    function GetNumber(name:string8;default:single=0):single; inline;
    function GetScaled(element:TUIElement;name:string8;default:single=0):single;  inline;
    function GetString(name:string8;default:string8=''):string8; inline;
@@ -57,10 +58,22 @@ implementation
   blendModeChanged:boolean;
 
  type
-  TCheckboxContext=class
-   lastState:boolean;
-   transition:TAnimatedValue;
-   constructor Create(element:TUICheckbox);
+  TContext=class
+   disabled:TAnimatedValue;
+   over:TAnimatedValue;
+   active:TAnimatedValue;
+   constructor Create(element:TUIelement);
+   procedure Update(element:TUIElement;style:PElementStyle);
+  end;
+
+ function PrepareContext(element:TUIElement):TContext;
+  begin
+   if element.styleContext<>nil then begin
+    if element.styleContext is TContext then exit(TContext(element.styleContext));
+    element.StyleContext.Free;
+   end;
+   result:=TContext.Create(element);
+   element.styleContext:=result;
   end;
 
  function GetStyleColor(style:PElementStyle;name:string8;default:cardinal):cardinal;
@@ -318,23 +331,10 @@ implementation
    font:TFontHandle;
    d,y,yy,fontH,size:integer;
    v,ss,tt,alpha:single;
-   context:TCheckboxContext;
+   context:TContext;
    inTransition:boolean;
   begin
-   if not (element.styleContext is TCheckboxContext) then begin
-    element.styleContext.Free;
-    context:=TCheckboxContext.Create(element);
-    element.styleContext:=context;
-   end else
-    context:=element.styleContext as TCheckboxContext;
-   // State changed?
-   if element.checked<>context.lastState then begin
-    context.lastState:=element.checked;
-    context.transition.Assign(0);
-    if element is TUIRadioButton then duration:=200
-     else duration:=120;
-    context.transition.Animate(1,duration);
-   end;
+   context:=element.styleContext as TContext;
 
    color:=element.color;
    font:=element.font;
@@ -344,7 +344,7 @@ implementation
    inc(x1,round(size*0.3));
    d:=round(size*0.15);
    //
-   inTransition:=context.transition.IsAnimating(game.frameStartTime);
+   inTransition:=context.active.IsAnimating(game.frameStartTime);
    if element.classType=TUICheckBox then begin
     vColor:=GetStyleColor(eStyle,'tickColor',color);
     draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,vColor,0);
@@ -352,14 +352,14 @@ implementation
     if element.checked or inTransition then begin
      alpha:=1; ss:=1.1;
      if inTransition then begin // transition
-      tt:=context.transition.ValueAt(game.frameStartTime);
-      if context.lastState then begin
+      tt:=CurValue(context.active);
+      if context.active.FinalValue=1 then begin
        // appear
        alpha:=splines.easeOut(tt,0,1,0.5,1);
        ss:=Spline(tt, 0.5,3, 1.1,-1);
       end else begin
        // dissolve
-       alpha:=1-tt;
+       alpha:=tt;
       end;
      end;
      draw.Centered(x1+size*0.65,y-size*0.4,ss*size/tickImage.height,tickImage,ColorAlpha(vColor,alpha));
@@ -372,14 +372,14 @@ implementation
      alpha:=1;
      v:=size*0.24;
      if inTransition then begin // transition
-      tt:=context.transition.ValueAt(game.frameStartTime);
-      if context.lastState then begin
+      tt:=CurValue(context.active);
+      if context.active.FinalValue=1 then begin
        // appear
        alpha:=tt;
        v:=size*Spline(tt, 0.4,-0.8, 0.24,0.8);
       end else begin
        // dissolve
-       alpha:=1-tt;
+       alpha:=tt;
        v:=size*(0.24+tt*0.2);
       end;
      end;
@@ -778,6 +778,7 @@ implementation
    eStyle:PElementStyle;
   begin
    eStyle:=GetElementStyle(element);
+   PrepareContext(element).Update(element,eStyle); // make sure element has proper context
    if eStyle<>nil then
     DrawCommonStyle(element,eStyle);
 
@@ -840,16 +841,22 @@ implementation
 
 function TElementStyle.GetAttr(name:string8;default:variant):variant;
   begin
+   if @self=nil then exit(default);
    result:=attributes.Get(name);
    if not HasValue(result) then result:=default;
   end;
 
  function TElementStyle.GetColor(name:string8;default:cardinal):cardinal;
   begin
+   result:=GetAttr(name,default)
+  end;
+
+ function TElementStyle.GetInt(name:string8;default:integer):integer;
+  begin
    result:=GetAttr(name,default);
   end;
 
- function TElementStyle.GetNumber(name:string8;default:single):single;
+function TElementStyle.GetNumber(name:string8;default:single):single;
   begin
    result:=GetAttr(name,default);
   end;
@@ -978,10 +985,57 @@ function TElementStyle.GetAttr(name:string8;default:variant):variant;
 
 { TCheckboxContext }
 
-constructor TCheckboxContext.Create(element:TUICheckbox);
+constructor TContext.Create(element:TUIElement);
+ var
+  v:integer;
  begin
-  transition.Init;
-  lastState:=element.checked;
+  if element.IsEnabled then v:=0 else v:=1;
+  disabled.Init(v);
+  if underMouse=element then v:=1 else v:=0;
+  over.Init(v);
+  v:=0;
+  if element is TUIButton then
+   if TUIButton(element).pressed then v:=1;
+  if element is TUICheckBox then
+   if TUICheckbox(element).checked then v:=1;
+  active.Init(v);
+ end;
+
+procedure TContext.Update(element:TUIElement;style:PElementStyle);
+ var
+  v,duration:integer;
+ begin
+  // Mouse hover state
+  if underMouse=element then v:=1 else v:=0;
+  if over.FinalValue<>v then begin
+   if v=1 then duration:=120 else duration:=80; // default
+   duration:=style.GetInt('hoverTime',duration);
+   if v=1 then duration:=style.GetInt('hoverTimeUp',duration)
+    else duration:=style.GetInt('hoverTimeDown',duration);
+   over.Animate(v,duration);
+  end;
+
+  // Click state
+  v:=0;
+  if element is TUIButton then
+   if TUIButton(element).pressed then v:=1;
+  if element is TUICheckBox then
+   if TUICheckbox(element).checked then v:=1;
+  if active.finalValue<>v then begin
+   if v=1 then duration:=120 else duration:=80; // default
+   duration:=style.GetInt('pressTime',duration);
+   if v=0 then duration:=style.GetInt('releaseTime',duration);
+   active.Animate(v,duration);
+  end;
+
+  // Disabled state
+  if element.IsEnabled then v:=0 else v:=1;
+  if disabled.FinalValue<>v then begin
+   duration:=100; // default
+   duration:=style.GetInt('disableTime',duration);
+   if v=0 then duration:=style.GetInt('enableTime',duration);
+   disabled.Animate(v,duration);
+  end;
  end;
 
 initialization
