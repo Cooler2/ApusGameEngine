@@ -26,7 +26,7 @@ implementation
 
   TElementStyle=record
    fastHash:cardinal;
-   fullStyleInfo:String8; // for reference only
+   fullStyleInfo:String8; // element's original style text
    lastUsed:int64;
    attributes:TVarHash;
    procedure Parse;
@@ -36,6 +36,7 @@ implementation
    function GetString(name:string8;default:string8=''):string8; inline;
   private
    function GetAttr(name:string8;default:variant):variant;
+   function ActualStyleInfo:string8;
   end;
   PElementStyle=^TElementStyle;
 
@@ -836,7 +837,8 @@ implementation
   end;
 
 { TElementStyle }
- function TElementStyle.GetAttr(name:string8;default:variant):variant;
+
+function TElementStyle.GetAttr(name:string8;default:variant):variant;
   begin
    result:=attributes.Get(name);
    if not HasValue(result) then result:=default;
@@ -863,10 +865,34 @@ implementation
    result:=GetAttr(name,default);
   end;
 
-procedure TElementStyle.Parse;
+ function TElementStyle.ActualStyleInfo:string8;
+  var
+   i:integer;
+   notOldStyle:boolean;
+   items:StringArray8;
+  begin
+   result:=fullStyleInfo;
+   if supportOldStyles and (fullStyleInfo<>'') then begin
+    // Check for old
+    notOldStyle:=false;
+    for i:=1 to length(fullStyleInfo) do
+     if not (fullStyleInfo[i] in ['0'..'9','A'..'F','a'..'f','$',' ']) then begin
+      notOldStyle:=true; break;
+     end;
+    if not notOldStyle then begin
+     items:=SplitA(' ',fullStyleInfo);
+     if length(items)>0 then result:='fill:'+items[0];
+     if length(items)>1 then result:='; border:'+items[1];
+     exit;
+    end;
+   end;
+  end;
+
+ procedure TElementStyle.Parse;
   var
    i,start:integer;
    prefix:string8;
+   actualStyle:string8;
 
   function ParseColor(s:string8):cardinal;
    begin
@@ -909,44 +935,45 @@ procedure TElementStyle.Parse;
     attr,aVal:string8;
     value:variant;
    begin
-    if fullStyleInfo[from]='[' then begin
-     p:=PosFrom(']',fullStyleInfo,from+1);
+    if actualStyle[from]='[' then begin
+     p:=PosFrom(']',actualStyle,from+1);
      if p>from then begin
-      prefix:=LowerCase(Copy(fullStyleInfo,from+1,p-from-1));
+      prefix:=LowerCase(Copy(actualStyle,from+1,p-from-1));
       from:=p+1;
      end else
-      raise EWarning.Create('Style syntax error at %d: "%s"',[from,fullStyleInfo]);
+      raise EWarning.Create('Style syntax error at %d: "%s"',[from,actualStyle]);
     end;
-    p:=PosFrom(':',fullStyleInfo,from+1);
-    if p=0 then p:=PosFrom('=',fullStyleInfo,from+1);
+    p:=PosFrom(':',actualStyle,from+1);
+    if p=0 then p:=PosFrom('=',actualStyle,from+1);
     if p>0 then begin
      // name:value pair
-     attr:=LowerCase(Chop(Copy(fullStyleInfo,from,p-from)));
-     aVal:=Chop(Copy(fullStyleInfo,p+1,last-p));
+     attr:=LowerCase(Chop(Copy(actualStyle,from,p-from)));
+     aVal:=Chop(Copy(actualStyle,p+1,last-p));
      value:=ParseValue(attr,aVal);
     end else begin
      // valueless attribute -> value=true
-     attr:=LowerCase(Chop(copy(fullStyleInfo,from,last-from+1)));
+     attr:=LowerCase(Chop(copy(actualStyle,from,last-from+1)));
      value:=true;
     end;
     if prefix<>'' then attr:=prefix+'.'+LowerCase(attr);
     attributes.Put(attr,value);
    end;
   begin
+   actualStyle:=ActualStyleInfo;
    attributes.Init(32);
    start:=1; i:=start;
-   while i<=length(fullStyleInfo) do begin
-    if (i=start) and (fullStyleInfo[i]<=' ') then begin
+   while i<=length(actualStyle) do begin
+    if (i=start) and (actualStyle[i]<=' ') then begin
      inc(start); inc(i); continue;
     end;
-    if fullStyleInfo[i]=';' then begin
+    if actualStyle[i]=';' then begin
      ParsePart(start,i-1);
      start:=i+1;
      i:=start;
     end else
      inc(i);
    end;
-   ParsePart(start,length(fullStyleInfo));
+   ParsePart(start,length(actualStyle));
   end;
 
 { TCheckboxContext }
