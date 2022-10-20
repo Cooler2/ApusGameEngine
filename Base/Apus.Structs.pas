@@ -2536,13 +2536,16 @@ function TObjectList.Add(list:TObjectList):boolean;
 procedure TObjectList.Clear(freeObjects:boolean=false);
  var
   i:integer;
+  list:TObjectArray;
+  obj:TObject;
  begin
   if initialized='' then Init;
+  if freeObjects then begin
+   list:=GetAll;
+   for obj in list do obj.Free;
+  end;
   SpinLock(lock);
   try
-   if freeObjects then
-    for i:=0 to count-1 do
-     FreeAndNil(data[i]);
    count:=0;
    SetLength(data,32);
   finally
