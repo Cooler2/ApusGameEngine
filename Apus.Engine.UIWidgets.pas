@@ -198,7 +198,7 @@ interface
    cursorpos:integer;      // Положение курсора (номер символа, после которого находится курсор)
    maxlength:integer;      // максимальная длина редактируемой строки
    password:boolean;    // поле для ввода пароля
-   noborder:boolean;    // рисовать ли рамку или только редактируемый текст (для встраивания в другие эл-ты)
+   noborder:boolean;    // deprecated, рисовать ли рамку или только редактируемый текст (для встраивания в другие эл-ты)
    selstart,selcount:integer; // выделенный фрагмент текста
    cursortimer:int64;    // Начальный таймер для отрисовки курсора
    needpos:integer;    // желаемое положение курсора в пикселях (для отрисовщика)
@@ -206,7 +206,8 @@ interface
    protection:byte;   // xor всех символов с этим числом
    offset:integer; // сдвиг вправо содержимого на столько пикселей
 
-   constructor Create(width,height:single;boxName:string;boxFont:TFontHandle;color_:cardinal;parent_:TUIElement);
+   constructor Create(width,height:single;boxName:string;boxFont:TFontHandle;color_:cardinal;parent_:TUIElement); overload;
+   constructor Create(width,height:single;text:string;parent:TUIElement;name:string=''); overload;
    procedure onChar(ch:char;scancode:byte); override;
    procedure onUniChar(ch:WideChar;scancode:byte); override;
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
@@ -246,7 +247,8 @@ interface
    minSliderSize:integer; // minimal slider size in pixels
    sliderUnder:boolean; // mouse is over slider
    sliderStart,sliderEnd:single; // relative position of slider (in 0..size.x/y range)
-   constructor Create(width,height:single;barName:string;parent_:TUIElement);
+   constructor Create(width,height:single;barName:string;parent_:TUIElement); overload;
+   constructor Create(width,height:single;min,max,pageSize,value:single;parent:TUIElement;barName:string=''); overload;
    function GetScroller:IScroller;
    function SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
    // Переместить ползунок в указанную позицию
@@ -849,7 +851,7 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
    maxlength:=240;
    password:=false;
    backgnd:=0;
-   color:=color_;
+   if (color_<>clDefault) then color:=color_;
    protection:=0;
    needPos:=-1;
    offset:=0;
@@ -861,7 +863,13 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
    lastClickTime:=0;
   end;
 
- function TUIEditBox.GetText:String8;
+ constructor TUIEditBox.Create(width,height:single;text:string;parent:TUIElement;name:string);
+  begin
+   Create(width,height,name,0,clDefault,parent);
+   self.text:=text;
+  end;
+
+function TUIEditBox.GetText:String8;
   begin
    result:=Str8(realtext);
   end;
@@ -1174,7 +1182,14 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
    rValue.Assign(v);
   end;
 
- function TUIScrollBar.GetAnimating;
+ constructor TUIScrollBar.Create(width,height,min,max,pageSize,value:single;parent:TUIElement;barName:string);
+  begin
+   Create(width,height,barName,parent);
+   SetRange(min,max,pageSize);
+   self.value:=value;
+  end;
+
+function TUIScrollBar.GetAnimating;
   begin
    result:=rValue.isAnimating;
   end;
@@ -1473,8 +1488,8 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    canHaveFocus:=true;
    sendSignals:=ssMajor;
 
-   scrollBar:=TUIScrollBar.Create(19,height-2,listName+'_scroll',self);
-   scrollBar.SetPos(width,1,pivotTopLeft).SetAnchors(1,0,1,1);
+   scrollBar:=TUIScrollBar.Create(19,clientHeight-2,listName+'_scroll',self);
+   scrollBar.SetPos(clientWidth,1,pivotTopLeft).SetAnchors(1,0,1,1);
    scrollBar.horizontal:=false;
    scrollerV:=scrollBar.GetScroller;
    bgColor:=0;
@@ -1646,6 +1661,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
    style:=0;
    canHaveFocus:=true;
    maxlines:=15;
+   if defaultText='' then defaultText:=GetClassAttribute('defaultText');
 
    // Default properties for child controls
    frame:=TUIFrame.Create(size.x,2,1,0,self);

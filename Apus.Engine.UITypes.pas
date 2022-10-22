@@ -965,8 +965,9 @@ function TUIElement.IsChild(c:TUIElement):boolean;
   var
    con:TUIElement;
   begin
-   con:=self;
    result:=false;
+   con:=self;
+   if c=nil then exit;
    while con<>nil do begin
     if con=c then begin
      result:=true; exit;
@@ -977,6 +978,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  function TUIElement.HasChild(c:TUIElement):boolean;
   begin
+   if c=nil then exit(false);
    result:=c.HasParent(self);
   end;
 
