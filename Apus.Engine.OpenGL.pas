@@ -362,10 +362,15 @@ procedure TOpenGL.CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
   CheckForGLError(021);
  end;
 function TOpenGL.GetPixelValue(x,y:integer):cardinal;
+ var
+  fbo:gluint;
  begin
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,@fbo);
+  if fbo<>0 then exit(0);
   glBindBuffer(GL_PIXEL_PACK_BUFFER,0);
   glReadBuffer(GL_BACK);
   glReadPixels(x,target.height-y-1,1,1,GL_BGRA,GL_UNSIGNED_BYTE,@result);
+  CheckForGLError(022);
  end;
 
 function TOpenGL.ShouldUseTextureAsDefaultRT:boolean;

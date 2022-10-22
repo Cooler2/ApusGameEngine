@@ -776,7 +776,7 @@ type
 
   // Get image from the Backbuffer (screenshot etc)
   procedure CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
-  // Get a single pixel value from the backbuffer (for debug/test purposes
+  // Get a single pixel value from the backbuffer (for debug/test purposes)
   function GetPixelValue(X,Y:integer):cardinal;
   // Present backbuffer to the screen
   procedure PresentFrame;
