@@ -62,7 +62,7 @@ implementation
  type
   TContext=class
    disabled:TAnimatedValue;
-   over:TAnimatedValue;
+   hover:TAnimatedValue;
    active:TAnimatedValue;
    constructor Create(element:TUIelement);
    procedure Update(element:TUIElement;style:PElementStyle);
@@ -777,12 +777,12 @@ implementation
    radius:=style.GetNumber('radius');
    bWidth:=style.GetNumber('border-width',1);
 
-   v:=CurValue(context.over);
+   v:=CurValue(context.hover);
    if v>0 then begin
-    fillColor:=MixColor(style,'over.fill',fillColor,v);
-    borderColor:=MixColor(style,'over.border',borderColor,v);
-    radius:=LinearMix(radius,style.GetNumber('over.radius',radius),v);
-    bWidth:=LinearMix(bWidth,style.GetNumber('over.border-width',bWidth),v);
+    fillColor:=MixColor(style,'hover.fill',fillColor,v);
+    borderColor:=MixColor(style,'hover.border',borderColor,v);
+    radius:=LinearMix(radius,style.GetNumber('hover.radius',radius),v);
+    bWidth:=LinearMix(bWidth,style.GetNumber('hover.border-width',bWidth),v);
    end;
 
    // This is important for drawing large semi-transparent areas on a transparent background (render to texture)
@@ -1034,7 +1034,7 @@ constructor TContext.Create(element:TUIElement);
   if element.IsEnabled then v:=0 else v:=1;
   disabled.Init(v);
   if underMouse=element then v:=1 else v:=0;
-  over.Init(v);
+  hover.Init(v);
   v:=0;
   if element is TUIButton then
    if TUIButton(element).pressed then v:=1;
@@ -1048,13 +1048,14 @@ procedure TContext.Update(element:TUIElement;style:PElementStyle);
   v,duration:integer;
  begin
   // Mouse hover state
-  if underMouse=element then v:=1 else v:=0;
-  if over.FinalValue<>v then begin
+  if (underMouse=element) or element.HasChild(underMouse) then v:=1
+   else v:=0;
+  if hover.FinalValue<>v then begin
    if v=1 then duration:=120 else duration:=80; // default
-   duration:=style.GetInt('over.time',duration);
-   if v=1 then duration:=style.GetInt('over.timeUp',duration)
-    else duration:=style.GetInt('over.timeDown',duration);
-   over.Animate(v,duration);
+   duration:=style.GetInt('hoverTime',duration);
+   if v=1 then duration:=style.GetInt('hoverTimeUp',duration)
+    else duration:=style.GetInt('hoverTimeDown',duration);
+   hover.Animate(v,duration);
   end;
 
   // Click state
