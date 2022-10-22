@@ -38,6 +38,7 @@ type
  function ColorMix(c1,c2:cardinal;value:integer):cardinal; // Линейная интерполяция
  function ColorMixF(c1,c2:cardinal;t:single):cardinal; // Линейная интерполяция
  function ColorBlend(c1,c2:cardinal;value:integer):cardinal; // Качественный квази-линейный бленд (гораздо медленнее!)
+ function ColorBlendF(c1,c2:cardinal;value:single):cardinal; // FP version (from 0 to 1)
  function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single; overload; inline;  // Билинейная интерполяция
  function BilinearMixF(values:PSingle;u,v:single):single; overload;  // Билинейная интерполяция
  function BilinearMix(c0,c1,c2,c3:cardinal;u,v:single):cardinal; overload; // Билинейная интерполяция
@@ -255,10 +256,10 @@ implementation
   var
    a,r,g,b:single;
   begin
-   a:=(c1 shr 24)*t+(c2 shr 24)*(1-t);
-   r:=byte(c1 shr 16)*t+byte(c2 shr 16)*(1-t);
-   g:=byte(c1 shr 8)*t+byte(c2 shr 8)*(1-t);
-   b:=byte(c1)*t+byte(c2)*(1-t);
+   a:=(c2 shr 24)*t+(c1 shr 24)*(1-t);
+   r:=byte(c2 shr 16)*t+byte(c1 shr 16)*(1-t);
+   g:=byte(c2 shr 8)*t+byte(c1 shr 8)*(1-t);
+   b:=byte(c2)*t+byte(c1)*(1-t);
    result:=round(a) shl 24+round(r) shl 16+round(g) shl 8+round(b);
   end;
 
@@ -266,8 +267,6 @@ implementation
   var
    val2,m:integer;
    a1,a2:byte;
-{   col1:TARGBColor absolute c1;
-   col2:TARGBColor absolute c2;}
   begin
    val2:=256-value;
    a1:=c1 shr 24;
@@ -285,6 +284,27 @@ implementation
    result:=result or cardinal(((byte(c1)*value+byte(c2)*val2) shl 8) and $FF0000); // red part
    //c1:=c1 shr 8; c2:=c2 shr 8;
   end;
+
+ function ColorBlendF(c1,c2:cardinal;value:single):cardinal; // Качественный линейный бленд
+  var
+   val2,m:single;
+   a1,a2:byte;
+  begin
+   val2:=1-value;
+   a1:=c1 shr 24;
+   a2:=c2 shr 24;
+   result:=round(a1*val2+a2*value) shl 24;
+   m:=255/(a1*value+a2*val2+1);
+   value:=m*(value*a1);
+   val2:=m*(val2*a2);
+
+   result:=result or cardinal(round(byte(c1)*val2+byte(c2)*value));
+   c1:=c1 shr 8; c2:=c2 shr 8;
+   result:=result or cardinal(round(byte(c1)*val2+byte(c2)*value) shl 8);
+   c1:=c1 shr 8; c2:=c2 shr 8;
+   result:=result or cardinal(round(byte(c1)*val2+byte(c2)*value) shl 16);
+  end;
+
 
  function BilinearMixF(v0,v1,v2,v3:single;u,v:single):single; // Билинейная интерполяция
   begin
