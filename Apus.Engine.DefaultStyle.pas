@@ -600,7 +600,7 @@ implementation
    c:cardinal;
   begin
    with control as TUIEditBox do begin
-    if backgnd<>0 then begin
+{    if backgnd<>0 then begin
      c:=backgnd;
      if UnderMouse=control then
       c:=ColorAdd(backgnd,$404040);
@@ -608,7 +608,7 @@ implementation
     end;
     if not noborder then begin
      draw.RRect(x1-1,y1-1,x2+1,y2+1,$A0000000+color and $FFFFFF,1);
-    end;
+    end;}
 
 {    savey:=y1;
     savey2:=y2;
@@ -759,6 +759,7 @@ implementation
    end;
   procedure DrawBlock;
    begin
+    if (bWidth>0) and (borderColor=clDefault) then borderColor:=element.color;
     if radius>1 then begin
      draw.RoundRect(x1,y1,x2,y2,radius*scale,bWidth*scale,borderColor,fillColor);
     end else begin
@@ -775,14 +776,14 @@ implementation
    fillColor:=style.GetColor('fill');
    borderColor:=style.GetColor('border');
    radius:=style.GetNumber('radius');
-   bWidth:=style.GetNumber('border-width',1);
+   bWidth:=style.GetNumber('borderWidth',0);
 
    v:=CurValue(context.hover);
    if v>0 then begin
     fillColor:=MixColor(style,'hover.fill',fillColor,v);
     borderColor:=MixColor(style,'hover.border',borderColor,v);
     radius:=LinearMix(radius,style.GetNumber('hover.radius',radius),v);
-    bWidth:=LinearMix(bWidth,style.GetNumber('hover.border-width',bWidth),v);
+    bWidth:=LinearMix(bWidth,style.GetNumber('hover.borderWidth',bWidth),v);
    end;
 
    // This is important for drawing large semi-transparent areas on a transparent background (render to texture)
@@ -792,10 +793,10 @@ implementation
    RestoreBlendMode;
 
    // Inner (client) block
-   fillColor:=style.GetColor('inner-fill');
-   borderColor:=style.GetColor('inner-border');
-   radius:=style.GetScaled(element,'inner-radius',radius);
-   bWidth:=style.GetScaled(element,'inner-border-width',bWidth);
+   fillColor:=style.GetColor('innerFill');
+   borderColor:=style.GetColor('innerBorder');
+   radius:=style.GetScaled(element,'innerRadius',radius);
+   bWidth:=style.GetScaled(element,'innerBorderWidth',bWidth);
    if (fillColor<>0) or (borderColor<>0) then begin
     ImportRect(element.GetClientPosOnScreen);
     DrawBlock;
@@ -1083,4 +1084,5 @@ procedure TContext.Update(element:TUIElement;style:PElementStyle);
 
 initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
+ TUIEditBox.SetDefault('styleInfo','borderWidth=1;border=default');
 end.
