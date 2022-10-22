@@ -297,6 +297,7 @@ implementation
               v:=InternalValueAt(t);
           // особый случай - анимация после начала других анимаций, т.е. не с текущего значения
 
+          n:=length(animations);
           SetLength(animations,n+1);
           animations[n].startTime:=t;
           animations[n].endTime:=t+duration;
