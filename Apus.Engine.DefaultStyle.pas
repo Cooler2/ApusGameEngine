@@ -30,6 +30,7 @@ implementation
    lastUsed:int64;
    attributes:TVarHash;
    procedure Parse;
+   function HasAttr(name:string8):boolean; inline;
    function GetColor(name:string8;default:cardinal=0):cardinal; inline;
    function GetInt(name:string8;default:integer=0):integer; inline;
    function GetNumber(name:string8;default:single=0):single; inline;
@@ -42,6 +43,7 @@ implementation
   PElementStyle=^TElementStyle;
 
  const
+  // All non-string attributes must be listed here
   attribList:array[0..2] of TAttribute=(
     (name:'fill'; aType:atColor),
     (name:'border'; aType:atColor),
@@ -76,12 +78,6 @@ implementation
    element.styleContext:=result;
   end;
 
- function GetStyleColor(style:PElementStyle;name:string8;default:cardinal):cardinal;
-  begin
-   result:=default;
-   if style<>nil then result:=style.GetColor(name,default);
-  end;
-
  procedure SetProperBlendMode(element:TUIElement);
   begin
    if transpBgnd and (element.shape<>shapeEmpty) then begin
@@ -98,7 +94,21 @@ implementation
    end;
   end;
 
- {$R-}
+{ function GetStyleNumber(name:string8;style:PElementStyle;context:TContext;default:single;defaultOver):single;
+  var
+   normValue,:single;
+  begin
+   normValue:=style.GetNumber(name,default);
+   if CurValue(context.active)>0 then begin
+
+   end;
+   if CurValue(context.disabled)>0 then begin
+
+   end else begin
+
+   end;
+  end;}
+
  // styleinfo="00000000 11111111 22222222 33333333" - list of colors (hex)
 { function GetStyleColor(control:TUIElement;index:integer=0):cardinal;
   var
@@ -346,7 +356,7 @@ implementation
    //
    inTransition:=context.active.IsAnimating(game.frameStartTime);
    if element.classType=TUICheckBox then begin
-    vColor:=GetStyleColor(eStyle,'tickColor',color);
+    vColor:=eStyle.GetColor('tick-color',color);
     draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,vColor,0);
     if tickImage=nil then tickImage:=CreateImageFrom(TICK_IMAGE,1);
     if element.checked or inTransition then begin
@@ -405,19 +415,19 @@ implementation
   begin
     with control do begin
       // обычная кнопка
-      c:=GetStyleColor(eStyle,'color',defaultBtnColor); // main (background) color
+      c:=eStyle.GetColor('color',defaultBtnColor); // main (background) color
       d:=byte(pressed);
       if not enabled then c:=ColorMix(c,$FFA0A0A0,128);
       if enabled and (underMouse=control) then inc(c,$101010);
       if pressed then c:=c-$282020;
       draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,ColorAdd(c,$303030),ColorSub(c,$303030),true);
-      c:=GetStyleColor(eStyle,'borderLight',$60000000);
-      c2:=GetStyleColor(eStyle,'borderDark',$80FFFFFF);
+      c:=eStyle.GetColor('border-light',$60000000);
+      c2:=eStyle.GetColor('border-dark',$80FFFFFF);
       draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // Внешняя рамка
       if pressed then { draw.ShadedRect(x1+2,y1+2,x2-1,y2-1,1,$80FFFFFF,$50000000)}
        else if enabled then begin
-         c:=GetStyleColor(eStyle,'disabled.borderLight',$A0FFFFFF);
-         c2:=GetStyleColor(eStyle,'disabled.borderDark',$70000000);
+         c:=eStyle.GetColor('disabled.border-light',$A0FFFFFF);
+         c2:=eStyle.GetColor('disabled.border-dark',$70000000);
          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
        end
          else draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,$80FFFFFF,$50000000);
@@ -428,7 +438,7 @@ implementation
       // Вывод надписи (если есть)
       if caption<>'' then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
-       c:=GetStyleColor(eStyle,'textColor',clBlack);
+       c:=eStyle.GetColor('text-color',clBlack);
        mY:=round((y1+y2)*0.5+txt.Height(font)*0.45);
        wSt:=DecodeUTF8(caption);
        if underMouse=control then c:=$FF300000;
@@ -448,8 +458,8 @@ implementation
    c1,c2:cardinal;
    i:integer;
   begin
-   c1:=GetStyleColor(eStyle,'color',clBlack);
-   c2:=GetStyleColor(eStyle,'colorDark',0);
+   c1:=eStyle.GetColor('color',clBlack);
+   c2:=eStyle.GetColor('color-dark',0);
    for i:=0 to round(control.padding.Left)-1 do begin
     if c2=0 then draw.Rect(x1+i,y1+i,x2-i,y2-i,c1)
      else draw.ShadedRect(x1+i,y1+i,x2-i,y2-i,1,c1,c2);
@@ -725,11 +735,23 @@ implementation
    end;
   end;
 
- procedure DrawCommonStyle(element:TUIElement;style:PElementStyle);
+ function MixColor(style:PElementStyle;name:string8;baseValue:cardinal;t:single):cardinal;
   var
-   fillColor,strokeColor:cardinal;
-   radius,bWidth:single;
+   c:cardinal;
+  begin
+   c:=style.GetColor(name,clDefault);
+   if c<>clDefault then
+    result:=ColorMixF(baseValue,c,t)
+   else
+    result:=baseValue;
+  end;
+
+ procedure DrawCommonStyle(element:TUIElement;style:PElementStyle;context:TContext);
+  var
+   fillColor,borderColor:cardinal;
+   radius,bWidth,scale:single;
    x1,y1,x2,y2:integer;
+   v:single;
   procedure ImportRect(r:TRect);
    begin
     x1:=r.Left; x2:=r.right-1;
@@ -738,21 +760,30 @@ implementation
   procedure DrawBlock;
    begin
     if radius>1 then begin
-     draw.RoundRect(x1,y1,x2,y2,radius,bWidth,strokeColor,fillCOlor);
+     draw.RoundRect(x1,y1,x2,y2,radius*scale,bWidth*scale,borderColor,fillColor);
     end else begin
      if fillColor<>0 then
       draw.FillRect(x1,y1,x2,y2,fillColor);
-     if strokeColor<>0 then
-      draw.Rect(x1,y1,x2,y2,strokeColor)
+     if borderColor<>0 then
+      draw.Rect(x1,y1,x2,y2,borderColor)
     end;
    end;
   begin
    ImportRect(element.globalRect);
+   scale:=element.globalScale;
    // Outer block
    fillColor:=style.GetColor('fill');
-   strokeColor:=style.GetColor('border');
-   radius:=style.GetScaled(element,'radius');
-   bWidth:=style.GetScaled(element,'border-width',1);
+   borderColor:=style.GetColor('border');
+   radius:=style.GetNumber('radius');
+   bWidth:=style.GetNumber('border-width',1);
+
+   v:=CurValue(context.over);
+   if v>0 then begin
+    fillColor:=MixColor(style,'over.fill',fillColor,v);
+    borderColor:=MixColor(style,'over.border',borderColor,v);
+    radius:=LinearMix(radius,style.GetNumber('over.radius',radius),v);
+    bWidth:=LinearMix(bWidth,style.GetNumber('over.border-width',bWidth),v);
+   end;
 
    // This is important for drawing large semi-transparent areas on a transparent background (render to texture)
    // to avoid duplicate alpha blending (resulting in alpha=sqr(alpha))
@@ -762,10 +793,10 @@ implementation
 
    // Inner (client) block
    fillColor:=style.GetColor('inner-fill');
-   strokeColor:=style.GetColor('inner-border');
+   borderColor:=style.GetColor('inner-border');
    radius:=style.GetScaled(element,'inner-radius',radius);
    bWidth:=style.GetScaled(element,'inner-border-width',bWidth);
-   if (fillColor<>0) or (strokeColor<>0) then begin
+   if (fillColor<>0) or (borderColor<>0) then begin
     ImportRect(element.GetClientPosOnScreen);
     DrawBlock;
    end;
@@ -776,11 +807,13 @@ implementation
   var
    x1,y1,x2,y2:integer;
    eStyle:PElementStyle;
+   context:TContext;
   begin
    eStyle:=GetElementStyle(element);
-   PrepareContext(element).Update(element,eStyle); // make sure element has proper context
+   context:=PrepareContext(element); // make sure element has proper context
+   context.Update(element,eStyle);
    if eStyle<>nil then
-    DrawCommonStyle(element,eStyle);
+    DrawCommonStyle(element,eStyle,context);
 
    with element.globalrect do begin
     x1:=Left; x2:=right-1;
@@ -872,7 +905,13 @@ function TElementStyle.GetNumber(name:string8;default:single):single;
    result:=GetAttr(name,default);
   end;
 
- function TElementStyle.ActualStyleInfo:string8;
+ function TElementStyle.HasAttr(name:string8):boolean;
+  begin
+   if @self=nil then exit(false);
+   result:=attributes.HasKey(name);
+  end;
+
+function TElementStyle.ActualStyleInfo:string8;
   var
    i:integer;
    notOldStyle:boolean;
@@ -921,9 +960,11 @@ function TElementStyle.GetNumber(name:string8;default:single):single;
 
   function ParseValue(name,s:string8):variant;
    var
-    i:integer;
+    i,p:integer;
    begin
     if length(s)<1 then exit(false);
+    p:=pos('.',name);
+    if p>0 then delete(name,1,p);
     for i:=0 to high(attribList) do
      if name=attribList[i].name then begin
       case attribList[i].aType of
@@ -933,7 +974,7 @@ function TElementStyle.GetNumber(name:string8;default:single):single;
       end;
       exit;
      end;
-    result:='';
+    result:=s;
    end;
 
   procedure ParsePart(from,last:integer);
@@ -980,7 +1021,8 @@ function TElementStyle.GetNumber(name:string8;default:single):single;
     end else
      inc(i);
    end;
-   ParsePart(start,length(actualStyle));
+   if start<length(actualStyle) then
+    ParsePart(start,length(actualStyle));
   end;
 
 { TCheckboxContext }
@@ -1009,9 +1051,9 @@ procedure TContext.Update(element:TUIElement;style:PElementStyle);
   if underMouse=element then v:=1 else v:=0;
   if over.FinalValue<>v then begin
    if v=1 then duration:=120 else duration:=80; // default
-   duration:=style.GetInt('hoverTime',duration);
-   if v=1 then duration:=style.GetInt('hoverTimeUp',duration)
-    else duration:=style.GetInt('hoverTimeDown',duration);
+   duration:=style.GetInt('over.time',duration);
+   if v=1 then duration:=style.GetInt('over.timeUp',duration)
+    else duration:=style.GetInt('over.timeDown',duration);
    over.Animate(v,duration);
   end;
 
@@ -1031,7 +1073,7 @@ procedure TContext.Update(element:TUIElement;style:PElementStyle);
   // Disabled state
   if element.IsEnabled then v:=0 else v:=1;
   if disabled.FinalValue<>v then begin
-   duration:=100; // default
+   duration:=0; // default
    duration:=style.GetInt('disableTime',duration);
    if v=0 then duration:=style.GetInt('enableTime',duration);
    disabled.Animate(v,duration);
