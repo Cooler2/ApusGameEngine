@@ -705,52 +705,63 @@ var
  // Don't forget about 1px padding BEFORE glyph (mode: true=4bpp, false - 8bpp)
  procedure UnpackGlyph(x,y,width,height:integer;glyphData:PByte;mode:boolean);
   var
+   row:array[0..127] of byte;
    tX,tY,bpp:integer;
-   pixelData,pLine:PByte;
+   pLine:PByte;
    v:byte;
+  procedure StoreRow;
+   var
+    i:integer;
+    pData:PByte;
+   begin
+    pData:=pLine;
+    if bpp=4 then begin
+     for i:=0 to width do begin
+      PCardinal(pData)^:=row[i] shl 24+$808080; // ARGB with neutral color
+      inc(pData,4);
+     end;
+    end else
+    if bpp=1 then
+     move(row,pLine^,width+1)
+    else
+    if bpp=2 then begin
+     for i:=0 to width do begin
+      PWord(pData)^:=(row[i] and $F0) shl 8+$888; // 4-4-4-4 texture
+      inc(pData,2);
+     end;
+    end;
+    inc(pLine,textCache.pitch);
+   end;
   begin
+   ASSERT(width<=126);
    pLine:=textCache.data;
    bpp:=PixelSize[textCache.pixelFormat] div 8; // 1,2 or 4 bytes per pixel in target texture
    inc(pLine,X*bpp+Y*textCache.pitch);
-   if bpp<4 then
-    Fillchar(pLine^,(width+1)*bpp,0)
-   else
-    FillDWord(pLine^,width+1,$808080);
-
+   // Top padding
+   FillChar(row,width+1,0);
+   StoreRow;
+   // Glyph image
    for tY:=0 to Height-1 do begin
-    inc(pLine,textCache.pitch);
-    pixelData:=pLine;
-    fillchar(pixelData^,bpp,0);
-    for tX:=0 to Width-1 do begin
-     inc(pixelData,bpp);
-     if mode then begin
-      if tX and 1=1 then begin
-       v:=glyphData^ shr 4;
-       inc(glyphData);
-      end else
-       v:=glyphData^ and $F;
-      v:=v*17;
-     end else begin
-      v:=glyphData^;
-      inc(glyphData);
+    // Unpack row
+    if mode then begin // 4 bits per pixel
+     for tX:=0 to Width-1 do begin
+       if tX and 1=1 then begin
+        v:=glyphData^ shr 4;
+        inc(glyphData);
+       end else
+        v:=glyphData^ and $F;
+       row[tX+1]:=v*17;
      end;
-
-     if bpp=1 then
-      PByte(pixelData)^:=v // 8-bit alpha only texture
-     else
-     if bpp=2 then
-      PWord(pixelData)^:=(v and $F0) shl 8+$888 // 4-4-4-4 texture
-     else
-      PCardinal(pixelData)^:=v shl 24+$808080; // ARGB with neutral color
+     if width and 1=1 then inc(glyphData); // alignment
+    end else begin // 8 bits per pixel - just move
+     move(glyphData^,row[1],width-1);
+     inc(glyphData,width-1);
     end;
-    inc(pixelData,bpp);
-    fillchar(pixelData^,bpp,0);
-
-    if mode and (width and 1=1) then inc(glyphData);
-    // transparent padding (1 px)
+    StoreRow;
    end;
-   inc(pLine,textCache.pitch);
-   fillchar(pLine^,(width+1)*bpp,0);
+   // bottom padding
+   fillchar(row,width+1,0);
+   StoreRow;
   end;
 
  // Applies bold effect to given area in textCache
@@ -1146,13 +1157,24 @@ var
    WriteW(font,x,y,color,copy(st,i,j-i+1),align,options or toDontTranslate,targetWidth,query);
   end;
 
+ procedure DrawTextCache;
+  const
+   backColors:array[0..3] of cardinal=($FF000000,$FFFFFFFF,$FF80C000,$FF008000);
+   frontColors:array[0..3] of cardinal=($FFFFFFFF,$FF000000,$FFC04080,$FFFFFFFF);
+  var
+   n:integer;
+  begin
+   n:=(game.frameStartTime div 2000) mod 4;
+   draw.FillRect(x,y,x+textCache.width,y+textCache.height,backColors[n]);
+   draw.Image(x,y,textCache,frontColors[n]);
+  end;
+
 begin // -----------------------------------------------------------
  if textCache=nil then CreateTextCache;
  x:=SRound(xx); y:=SRound(yy);
  // Special value to display font cache texture
  if font=MAGIC_TEXTCACHE then begin
-  draw.FillRect(x,y,x+textCache.width,y+textCache.height,$FF000000);
-  draw.Image(x,y,textCache,$FFFFFFFF);
+  DrawTextCache;
   exit;
  end;
 
