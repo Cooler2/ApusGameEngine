@@ -41,7 +41,7 @@ constructor TMainApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   useRealDPI:=true;
-  //useRealDPI:=false;
+  useRealDPI:=false;
   //usedPlatform:=spSDL;
   //directRenderOnly:=true;
   //windowedMode:=false;
@@ -104,7 +104,7 @@ procedure TestWidgets;
   TUILabel.SetDefault('color',$FF603000);
   TUILabel.SetDefault('font',game.largerFont);
   // Labels
-  TUILabel.Create(-1,20,'Label1','Simple label',cont);
+  TUILabel.Create(-1,20,'Label1','Simple label',cont).styleInfo:='hover.fill:F088EEEE; hover.radius=6; hoverTime=1000';
   TUILabel.CreateCentered(-1,20,'Label2','Centered',cont);
   TUILabel.CreateRight(-1,20,'Label3','Right',cont);
   TUILabel.Create(-1,20,'Label4','With padding',cont).SetPaddings(4,2,4,2);
@@ -193,6 +193,7 @@ procedure TMainScene.Render;
    draw.Line(500+i*2,10,500+i*2,100,$80FFFFFF);
   end;}
   inherited;
+  //LogMessage('Color: %8x',[gfx.GetPixelValue(130,20)]);
  end;
 
 end.
