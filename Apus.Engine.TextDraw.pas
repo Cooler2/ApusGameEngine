@@ -744,18 +744,18 @@ var
    for tY:=0 to Height-1 do begin
     // Unpack row
     if mode then begin // 4 bits per pixel
-     for tX:=0 to Width-1 do begin
-       if tX and 1=1 then begin
+     for tX:=1 to Width do begin
+       if tX and 1=0 then begin
         v:=glyphData^ shr 4;
         inc(glyphData);
        end else
         v:=glyphData^ and $F;
-       row[tX+1]:=v*17;
+       row[tX]:=v*17;
      end;
      if width and 1=1 then inc(glyphData); // alignment
     end else begin // 8 bits per pixel - just move
-     move(glyphData^,row[1],width-1);
-     inc(glyphData,width-1);
+     move(glyphData^,row[1],width);
+     inc(glyphData,width);
     end;
     StoreRow;
    end;
