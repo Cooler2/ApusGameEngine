@@ -364,6 +364,8 @@ type
  IRenderTarget=interface
   // Clear whole render target (not only the viewport): fill colorbuffer and optionally depth buffer and stencil buffer
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1);
+  // Clear depth buffer and (optionally) stencil buffer. Don't clear the color buffer
+  procedure ClearDepth(zbuf:single=0;stencil:integer=-1);
   // Setup viewport (output position) for the current render target
   // After viewport change don't forget to update projection and clipping
   procedure Viewport(oX,oY,VPwidth,VPheight:integer;renderWidth:integer=0;renderHeight:integer=0);

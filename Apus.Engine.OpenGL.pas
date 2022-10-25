@@ -124,6 +124,7 @@ type
   procedure Backbuffer; override;
   procedure Texture(tex:TTexture); override;
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1); override;
+  procedure ClearDepth(zbuf:single=0;stencil:integer=-1); override;
   procedure Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer); override;
   procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); override;
   procedure BlendMode(blend:TBlendingMode); override;
@@ -133,6 +134,7 @@ type
  protected
   scissor:boolean;
   backBufferWidth,backBufferHeight:integer;
+  procedure ClearBuffers(fColor,fDepth,fStencil:boolean;color:cardinal;zbuf:single;stencil:integer);
  end;
 
  //textureManager:TResource;
@@ -672,21 +674,21 @@ function ColorComponent(color:cardinal;idx:integer):single;
   result:=((color shr (idx*8)) and $FF)/255;
  end;
 
-procedure TGLRenderTargetAPI.Clear(color:cardinal;zbuf:single;stencil:integer);
+procedure TGLRenderTargetAPI.ClearBuffers(fColor,fDepth,fStencil:boolean; color:cardinal;zbuf:single;stencil:integer);
  var
   mask:cardinal;
   val:GLboolean;
  begin
-  mask:=GL_COLOR_BUFFER_BIT;
-  glGetBooleanv(GL_SCISSOR_TEST,@val);
-  CheckForGLError(101);
-  if val then glDisable(GL_SCISSOR_TEST);
-  glClearColor(
-    ColorComponent(color,2),
-    ColorComponent(color,1),
-    ColorComponent(color,0),
-    ColorComponent(color,3));
-  if zBuf>=0 then begin
+  mask:=0;
+  if fColor then begin
+   mask:=GL_COLOR_BUFFER_BIT;
+   glClearColor(
+     ColorComponent(color,2),
+     ColorComponent(color,1),
+     ColorComponent(color,0),
+     ColorComponent(color,3));
+  end;
+  if fDepth then begin
    mask:=mask+GL_DEPTH_BUFFER_BIT;
    {$IFDEF GLES}
    glClearDepthf(zbuf);
@@ -694,13 +696,26 @@ procedure TGLRenderTargetAPI.Clear(color:cardinal;zbuf:single;stencil:integer);
    glClearDepth(zbuf);
    {$ENDIF}
   end;
-  if stencil>=0 then begin
+  if fStencil then begin
    mask:=mask+GL_STENCIL_BUFFER_BIT;
    glClearStencil(stencil);
   end;
+  glGetBooleanv(GL_SCISSOR_TEST,@val);
+  CheckForGLError(101);
+  if val then glDisable(GL_SCISSOR_TEST);
   glClear(mask);
   CheckForGLError(101);
   if val then glEnable(GL_SCISSOR_TEST);
+ end;
+
+procedure TGLRenderTargetAPI.Clear(color:cardinal;zbuf:single;stencil:integer);
+ begin
+  ClearBuffers(true,zBuf>=0,stencil>=0,color,zBuf,stencil);
+ end;
+
+procedure TGLRenderTargetAPI.ClearDepth(zbuf:single;stencil:integer);
+ begin
+  ClearBuffers(false,zBuf>=0,stencil>=0,0,zBuf,stencil);
  end;
 
 procedure TGLRenderTargetAPI.Clip(x,y,w,h: integer);

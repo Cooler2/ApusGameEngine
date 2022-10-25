@@ -131,6 +131,7 @@ type
   procedure Push; virtual;
   procedure Pop; virtual;
   procedure Clear(color:cardinal;zbuf:single=0;stencil:integer=-1); virtual; abstract;
+  procedure ClearDepth(zbuf:single=0;stencil:integer=-1); virtual; abstract;
   procedure Viewport(oX,oY,VPwidth,VPheight:integer;renderWidth:integer=0;renderHeight:integer=0); virtual;
   procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); virtual;
   procedure BlendMode(blend:TBlendingMode); virtual; abstract;
