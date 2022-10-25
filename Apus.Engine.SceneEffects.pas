@@ -327,8 +327,8 @@ var
 begin
  st:='';
  for i:=1 to modalstacksize do
-  st:=st+modalstack[i].GetName+' > ';
- st:=st+'('+modalElement.GetName+')';
+  st:=st+modalstack[i].name+' > ';
+ st:=st+'('+modalElement.name+')';
  LogMessage('ModalStack: '+st+' #'+inttostr(modalStackSize));
 end;
 

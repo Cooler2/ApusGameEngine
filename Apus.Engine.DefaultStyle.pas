@@ -173,20 +173,15 @@ implementation
    result:=@styles[idx];
   end;
 
- procedure DrawUIElement(control:TUIElement;x1,y1,x2,y2:integer);
+ procedure DrawUIElement(element:TUIElement;x1,y1,x2,y2:integer);
   var
-   i,c,c2:integer;
-   st:string;
+   color:cardinal;
   begin
-{   if control.styleinfo='' then exit;
-   c:=GetStyleColor(control,0);
-   c2:=GetStyleColor(control,1);
-   if c<>0 then begin
-    if transpBgnd and (control.shape<>shapeEmpty) then gfx.target.BlendMode(blMove);
-    draw.FillRect(x1,y1,x2,y2,c);
-    if transpBgnd then gfx.target.BlendMode(blAlpha);
+   if element.caption<>'' then begin
+    color:=element.color;
+    if color=clDefault then color:=clBlack;
+    txt.WriteW(element.font,(x1+x2)/2,(y1+y2)/2,color,Str16(element.caption),taCenter);
    end;
-   if c2<>0 then draw.Rect(x1,y1,x2,y2,c2);}
   end;
 
  procedure BuildSimpleHint(hnt:TUIHint);
@@ -828,9 +823,9 @@ implementation
    end;
 
    // Просто контейнер - заливка плюс рамка
-{   if element.ClassType=TUIElement then
+   if element.ClassType=TUIElement then
     DrawUIElement(element,x1,y1,x2,y2)
-   else}
+   else
    // Надпись
    if element is TUILabel then
     DrawUILabel(element as TUILabel,x1,y1,x2,y2)

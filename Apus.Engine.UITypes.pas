@@ -124,6 +124,7 @@ type
   // Custom data
   tag:NativeInt; // custom data for manual use
   customPtr:pointer; // custom data for manual use
+  caption:string; // may be used for debug purpuses
 
   // Relationship
   parent:TUIElement; // Ссылка на элемент-предок
@@ -271,10 +272,6 @@ type
   class function IsWindow:boolean; virtual;
   function IsActiveWindow:boolean; virtual;
 
-  function GetName:string8;
-  function GetFont:TFontHandle; // returns own or inherited font handle
-  function GetColor:cardinal;
-
   class procedure SetDefault(name:string;value:variant); // SetClassAttribute('defalut'+name,value)
   procedure AddStyle(style:string8); // use 'name:value' or 'state.name:value' syntax
 
@@ -295,6 +292,9 @@ type
   procedure ClientSizeChanged(dX,dY:single); // client area was resized because of size or scale change
   procedure ParentSizeChanged(dX,dY:single); // parent's client area was resized - adopt element position/size
   procedure InsertRel(element:TUIElement;rel:integer);
+  function GetFont:TFontHandle; // returns own or inherited font handle
+  function GetColor:cardinal;
+
   class function ClassHash:pointer; override;
  public
   property width:single read size.x write size.x;
@@ -786,12 +786,6 @@ destructor TUIElement.Destroy;
    if not fl then c:=self;
 
    if c=nil then result:=false;
-  end;
-
- function TUIElement.GetName:string8;
-  begin
-   if self<>nil then result:=name
-    else result:='empty';
   end;
 
  procedure TUIElement.SetName(n:String8);

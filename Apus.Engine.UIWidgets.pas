@@ -81,7 +81,6 @@ interface
   end;
 
   TUILabel=class(TUIElement)
-   caption:string; // text to draw inside the client area
    align:TTextAlignment;
    autoSize:boolean; // render should adjust element size to match caption
    verticalOffset:integer; // сдвиг текста вверх
@@ -97,7 +96,6 @@ interface
                 bsSwitch,   // кнопка-переключатель (фиксирующаяся в нажатом положении)
                 bsCheckbox);    // кнопка-надпись (чекбокс)
   TUIButton=class(TUIImage)
-   caption:string; // button's label
    default:boolean; // кнопка по умолчанию (влияет только на отрисовку, но не на поведение!!!)
    pressed:boolean; // кнопка вдавлена
    pending:boolean; // состояние временной недоступности (не реагирует на нажатия)
@@ -154,7 +152,6 @@ interface
 
   // Basic window
   TUIWindow=class(TUIImage)
-   caption:string;
    header:integer; // Высота заголовка
    autoBringToFront:boolean; // автоматически переносить окно на передний план при клике по нему или любому вложенному эл-ту
    moveable:boolean;    // окно можно перемещать

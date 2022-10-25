@@ -296,10 +296,7 @@ begin
        varClass:=TVarTypeElementColor;
       end else
       if fieldname='caption' then begin
-       if obj is TUILabel then result:=@TUILabel(obj).caption else
-       if obj is TUIButton then result:=@TUIButton(obj).caption else
-       if obj is TUIWindow then result:=@TUIWindow(obj).caption else
-        exit;
+       result:=@obj.caption;
        varClass:=TVarTypeString;
       end else
       if fieldname='cursor' then begin
