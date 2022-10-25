@@ -91,10 +91,12 @@ implementation
       DrawUIElement(item);
 
     // Debug: Highlight with border when Ctrl+Alt+Win pressed
-    if (game.shiftState and $F=$E) then
+    if (game.shiftState and $F=sscCtrl+sscWin+sscAlt) then
      if (item=underMouse) or
         ((underMouse<>nil) and (item=underMouse.parent)) then
        with item.globalRect do begin
+         if (item=underMouse) and (game.frameStartTime and $100=0) then
+          draw.FillRect(left,top,right-1,bottom-1,$1800FF00);
          draw.Rect(left,top,right-1,bottom-1,$80FFFFFF xor ($FFFFFF*((MyTickCount shr 8) and 1)));
        end;
    except

@@ -282,7 +282,9 @@ procedure SetDisplaySize(width,height:integer);
          st:=c2.name+'->'+st;
         end;
         ShowSimpleHint(c.ClassName+'('+st+')',c.GetRoot,-1,-1,5000);
-        PutMsg(Format('%s: %.1f,%.1f %.1f,%.1f',[c.name,c.position.x,c.position.y,c.size.x,c.size.y]));
+        PutMsg(Format('%s: pos: %.1f,%.1f pivot: %.1f %.1f size: %.1f,%.1f gRect: (%d %d %d %d) ',
+         [c.name,c.position.x,c.position.y,c.pivot.x,c.pivot.y,c.size.x,c.size.y,
+          c.globalRect.Left,c.globalRect.top,c.globalRect.right,c.globalRect.bottom]));
         if (game.shiftstate and 2>0) and (c.name<>'') then // Shift pressed => select item
           ExecCmd('use '+c.name);
       end else begin
