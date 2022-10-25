@@ -44,9 +44,11 @@ implementation
 
  const
   // All non-string attributes must be listed here
-  attribList:array[0..2] of TAttribute=(
+  attribList:array[0..4] of TAttribute=(
     (name:'fill'; aType:atColor),
     (name:'border'; aType:atColor),
+    (name:'innerfill'; aType:atColor),
+    (name:'innerborder'; aType:atColor),
     (name:'radius'; aType:atNumber)
    );
  var
@@ -758,6 +760,8 @@ implementation
     y1:=r.top; y2:=r.bottom-1;
    end;
   procedure DrawBlock;
+   var
+    i:integer;
    begin
     if (bWidth>0) and (borderColor=clDefault) then borderColor:=element.color;
     if radius>1 then begin
@@ -765,8 +769,10 @@ implementation
     end else begin
      if fillColor<>0 then
       draw.FillRect(x1,y1,x2,y2,fillColor);
-     if borderColor<>0 then
-      draw.Rect(x1,y1,x2,y2,borderColor)
+     if borderColor<>0 then begin
+      for i:=0 to round(bWidth*scale)-1 do
+       draw.Rect(x1+i,y1+i,x2-i,y2-i,borderColor)
+     end;
     end;
    end;
   begin
@@ -795,8 +801,8 @@ implementation
    // Inner (client) block
    fillColor:=style.GetColor('innerFill');
    borderColor:=style.GetColor('innerBorder');
-   radius:=style.GetScaled(element,'innerRadius',radius);
-   bWidth:=style.GetScaled(element,'innerBorderWidth',bWidth);
+   radius:=style.GetNumber('innerRadius',radius);
+   bWidth:=style.GetNumber('innerBorderWidth',bWidth);
    if (fillColor<>0) or (borderColor<>0) then begin
     ImportRect(element.GetClientPosOnScreen);
     DrawBlock;
