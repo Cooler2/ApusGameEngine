@@ -139,21 +139,23 @@ end;
 procedure DrawContent(item:TUIImage);
 var
  r:TRect;
- i,n,cnt,ypos,msgClass:integer;
+ i,n,cnt,ypos,msgClass,lineHeight,ll:integer;
  st:string;
  col,font:cardinal;
 begin
  r:=item.globalRect;
  gfx.clip.Rect(r);
+ lineHeight:=round(16*item.globalScale);
  // Write all text
  cnt:=GetMsgCount;
- consoleScene.scroll.max:=cnt*16+10;
+ consoleScene.scroll.max:=cnt*lineHeight+lineHeight*0.6;
  consolescene.scroll.pagesize:=r.height;
+ ll:=round(lineHeight*0.75);
  with item do begin
-  if cnt*16-scroll.Y<r.height-12 then
-   scroll.Y:=cnt*16-(r.height-12);
-  if (cnt*16-scroll.Y>r.height-12) and (scroll.Y<0) then
-   scroll.Y:=scroll.Y+cnt*16-scroll.Y-r.height+12;
+  if cnt*lineHeight-scroll.Y<r.height-ll then
+   scroll.Y:=cnt*lineHeight-(r.height-ll);
+  if (cnt*lineHeight-scroll.Y>r.height-ll) and (scroll.Y<0) then
+   scroll.Y:=scroll.Y+cnt*lineHeight-scroll.Y-r.height+ll;
   consolescene.scroll.value:=scroll.Y;
  end;
 
@@ -162,12 +164,12 @@ begin
   consoleScene.ScrollToEnd;
   LastMsgNum:=n;
  end;
- ypos:=cnt*16-round(item.scroll.Y)+20;
+ ypos:=cnt*lineHeight-round(item.scroll.Y)+round(lineHeight*1.3);
  font:=txt.GetFont('Default',7);
  txt.BeginBlock;
  for i:=1 to cnt do begin
-  dec(n); dec(ypos,16);
-  if (ypos<-15) or (ypos>=r.height+8) then continue;
+  dec(n); dec(ypos,lineHeight);
+  if (ypos<-lineHeight) or (ypos>=r.height+8) then continue;
   st:=GetSavedMsg(n+1,msgClass);
   case msgClass of
    -1:col:=$FFFF6060;
