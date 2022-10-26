@@ -8,7 +8,7 @@
 // ------------------------------------------------------
 unit Apus.Engine.UITypes;
 interface
-uses Types, Apus.Classes, Apus.CrossPlatform, Apus.Engine.Types,
+uses Types, Apus.Classes, Apus.Engine.Types,
    Apus.Common, Apus.AnimatedValues, Apus.Regions, Apus.Geom2d;
 {$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
@@ -61,12 +61,15 @@ type
                    pmMoveProportional);  // Elements is moved proportionally, but size remains
 
  TUIElement=class;
+ TUIElements=array of TUIElement;
  TRegion = Apus.Regions.TRegion;
 
 
  // Base class for Layouters: objects that layout child elements or adjust elements considering its children
  TLayouter=class
   procedure Layout(item:TUIElement); virtual; abstract;
+ protected
+  function GetItems(parent:TUIElement):TUIElements; // get aaray of objects to layout
  end;
 
  // External scrollbar interface
@@ -337,7 +340,7 @@ var
  procedure DestroyQueuedElements;
 
 implementation
- uses Classes, SysUtils, Apus.EventMan, Apus.Clipboard, Apus.Structs, Apus.Engine.API;
+ uses Classes, SysUtils, Apus.CrossPlatform, Apus.EventMan, Apus.Clipboard, Apus.Structs, Apus.Engine.API;
 
  type
   // Горячая клавиша
@@ -524,7 +527,6 @@ implementation
   begin
    position:=Point2s(0,0);
    size:=Point2s(width,height);
-   fInitialSize:=size;
    scale:=GetClassAttribute('defaultScale',1.0);
    pivot:=Point2s(0,0);
    SetPadding(GetClassAttribute('defaultPadding',0));
@@ -573,6 +575,7 @@ implementation
     AddToRootElements;
     order:=1;
    end;
+   fInitialSize:=size;
    globalRect:=GetPosOnScreen;
    finally
     UICritSect.Leave;
@@ -985,7 +988,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  function TUIElement.IsOutOfOrder:boolean;
   begin
-   result:=(order<0) or (order>=$10000);
+   result:=(order<0) or (order>=$10000) or (not parentClip);
   end;
 
  procedure TUIElement.onChar(ch:char; scancode:byte);
@@ -1474,6 +1477,24 @@ function TUIElement.GetClientHeight:single;
     finally
      UICritSect.Leave;
     end;
+  end;
+
+{ TLayouter }
+
+ function TLayouter.GetItems(parent:TUIElement):TUIElements;
+  var
+   i,n:integer;
+   item:TUIElement;
+  begin
+   SetLength(result,length(parent.children));
+   n:=0;
+   for i:=0 to high(parent.children) do begin
+    item:=parent.children[i];
+    if not item.visible or item.IsOutOfOrder then continue;
+    result[n]:=item;
+    inc(n);
+   end;
+   SetLength(result,n);
   end;
 
 initialization

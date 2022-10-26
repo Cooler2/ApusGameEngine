@@ -33,9 +33,23 @@ type
   spaceBetween:single;
  end;
 
+ // Arrange elements in a grid
+ TGridLayout=class(TLayouter)
+  // Don't alter items size
+  constructor Create(spaceV,spaceH:single;center:boolean=false);
+  // Resize items proportionally to fill all width
+  constructor CreateResizeable(spaceV,spaceH:single;desiredItemWidth:single);
+  procedure Layout(item:TUIElement); override;
+ private
+  vertSpace,horSpace,desiredWidth:single;
+  center,allowResize:boolean;
+  procedure LayoutFixed(parent:TUIElement;list:TUIElements);
+  procedure LayoutFlex(parent:TUIElement;list:TUIElements);
+ end;
+
 
 implementation
-uses Apus.Geom2D;
+uses Apus.Common, Apus.Types, Apus.Geom2D;
 
  { TRowLayout }
 
@@ -65,12 +79,12 @@ procedure TRowLayout.Layout(item:TUIElement);
    r:TRect2s;
    delta:TVector2s;
    c:TUIElement;
+   list:TUIElements;
   begin
    pos:=0;
-   for i:=0 to high(item.children) do begin
-    c:=item.children[i];
-    if not c.visible then continue;
-    if c.IsOutOfOrder then continue;
+   list:=GetItems(item);
+   for i:=0 to high(list) do begin
+    c:=TUIElement(list[i]);
     r:=c.TransformTo(c.GetRect,item);
     if fHorizontal then begin
      delta.x:=pos-r.x1;
@@ -109,38 +123,111 @@ procedure TRowLayout.Layout(item:TUIElement);
   var
    childSize,ownSize,extraSpace,weightSum,delta,pos:single;
    i:integer;
+   list:TUIElements;
+   e:TUIElement;
   begin
+   list:=GetItems(item);
    childSize:=0;
    weightSum:=0;
-   with item do begin
-    for i:=0 to high(children) do begin
-     if not children[i].visible then continue;
-     if children[i].IsOutOfOrder then continue;
-     if vertical then childSize:=childSize+children[i].size.y
-       else childSize:=childSize+children[i].size.x;
-     weightSum:=weightSum+children[i].layoutData;
-    end;
-    if vertical then ownSize:=item.clientHeight
-     else ownSize:=item.clientWidth;
-    extraSpace:=ownSize-high(children)*spaceBetween-childSize;
-    // Distribute extra space among children and position them
-    pos:=0;
-    for i:=0 to high(children) do begin
-     if not children[i].visible then continue;
-     if children[i].IsOutOfOrder then continue;
-     delta:=extraSpace*children[i].layoutData/weightSum;
+   for i:=0 to high(list) do begin
+    e:=list[i];
+    if vertical then childSize:=childSize+list[i].size.y
+      else childSize:=childSize+list[i].size.x;
+    weightSum:=weightSum+list[i].layoutData;
+   end;
+   if vertical then ownSize:=item.clientHeight
+    else ownSize:=item.clientWidth;
+   extraSpace:=ownSize-high(list)*spaceBetween-childSize;
+   // Distribute extra space among children and position them
+   pos:=0;
+   for i:=0 to high(list) do begin
+     e:=list[i];
+     delta:=extraSpace*e.layoutData/weightSum;
      if vertical then begin
-      children[i].Resize(-1,children[i].size.y+delta);
-      children[i].position.y:=pos;
-      pos:=pos+children[i].size.y+spaceBetween;
+      e.Resize(-1,e.size.y+delta);
+      e.position.y:=pos;
+      pos:=pos+e.size.y+spaceBetween;
      end else begin
-      children[i].Resize(children[i].size.x+delta,-1);
-      children[i].position.x:=pos;
-      pos:=pos+children[i].size.x+spaceBetween;
+      e.Resize(e.size.x+delta,-1);
+      e.position.x:=pos;
+      pos:=pos+e.size.x+spaceBetween;
      end;
+   end;
+  end;
+
+
+{ TGridLayout }
+
+ constructor TGridLayout.Create(spaceV,spaceH:single;center:boolean);
+  begin
+   vertSpace:=spaceV;
+   horSpace:=spaceH;
+   self.center:=center;
+   allowResize:=false;
+  end;
+
+ constructor TGridLayout.CreateResizeable(spaceV,spaceH,desiredItemWidth:single);
+  begin
+   vertSpace:=spaceV;
+   horSpace:=spaceH;
+   allowResize:=true;
+   desiredWidth:=desiredItemWidth;
+  end;
+
+ procedure TGridLayout.Layout(item:TUIElement);
+  var
+   list:TUIElements;
+  begin
+   list:=GetItems(item);
+   if allowResize then LayoutFlex(item,list)
+    else LayoutFixed(item,list);
+  end;
+
+ procedure TGridLayout.LayoutFixed(parent:TUIElement;list:TUIElements);
+  var
+   i,j,last:integer;
+   x,y,h:single;
+  begin
+   last:=0;
+   x:=0; y:=0; // position for the next item
+   for i:=0 to high(list) do begin
+    if i>last then x:=x+horSpace;
+    list[i].SetPos(x,y);
+    x:=x+list[i].width;
+    if x>=parent.clientWidth then begin // next row
+     if center then
+      for j:=last to i do
+       list[j].position.x:=list[j].position.x+(parent.clientWidth-x)/2;
+     x:=0;
+     last:=i+1;
+     h:=0;
+     for j:=last to i do
+      h:=max2s(h,list[j].size.y);
+     y:=y+h+vertSpace;
     end;
    end;
   end;
 
+ procedure TGridLayout.LayoutFlex(parent:TUIElement;list:TUIElements);
+  var
+   i,cols,row,col:integer;
+   y,itemWidth,itemHeight,rowHeight:single;
+  begin
+   cols:=max2(1,round(parent.clientWidth/desiredWidth));
+   itemWidth:=parent.clientWidth-(cols-1)*horSpace;
+   y:=0; rowHeight:=0;
+   for i:=0 to high(list) do begin
+    col:=i mod cols;
+    if col=0 then begin
+     if i>0 then y:=y+vertSpace;
+     y:=y+rowHeight;
+     rowHeight:=0;
+    end;
+    itemHeight:=itemWidth*(list[i].initialSize.y/list[i].initialSize.x);
+    list[i].Resize(itemWidth,itemHeight);
+    rowHeight:=max2s(rowHeight,itemHeight);
+    list[i].SetPos(col*itemWidth+(col-1)*horSpace,y);
+   end;
+  end;
 
 end.
