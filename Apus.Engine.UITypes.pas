@@ -99,6 +99,7 @@ type
   padding:TUIRect; // defines element's client area (how much to deduct from the element's area)
   scroll:TVector2s; // смещение (используется для вложенных эл-тов!) SUBTRACT from children pos
   scrollerH,scrollerV:IScroller;  // если для прокрутки используются скроллбары - здесь можно их определить
+  autoScroll:boolean; // use mouse wheel to scroll
   placementMode:TUIPlacementMode;  // Реакция на изменение размеров предка
 
   enabled:boolean; // Должен ли элемент реагировать на пользовательский ввод
@@ -280,6 +281,8 @@ type
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
+  childrenBound:TRect2s; // bounding rect of scrollable children (including 0,0 point as well)
+
  private
   fStyleInfo:String8; // дополнительные сведения для стиля
   fFont:TFontHandle; // not used directly, can be inherited by children or used by custom draw routines
@@ -1075,6 +1078,11 @@ function TUIElement.IsChild(c:TUIElement):boolean;
     scrollerV.MoveRel(-scrollerV.GetStep*value/100,true);
     onMouseMove;
     exit;
+   end else
+   if autoScroll then begin // no scroller, but autoscroll is enabled
+    //scroll.y:=Clamp(scroll.y+value* // implement smooth scrolling
+    onMouseMove;
+    exit;
    end;
    if parent<>nil then
     parent.onMouseScroll(value);
@@ -1305,6 +1313,20 @@ function TUIElement.GetClientHeight:single;
     children[i].ParentSizeChanged(dX,dY);
    if scrollerH<>nil then scrollerH.SetPageSize(clientWidth);
    if scrollerV<>nil then scrollerV.SetPageSize(clientHeight);
+
+   // Scrolling
+   // Children bounding box
+   childrenBound.Init(0,0,0,0);
+   for i:=0 to length(children)-1 do
+    if children[i].visible and not children[i].IsOutOfOrder then
+     childrenBound.Include(children[i].GetRectInParentSpace);
+   if (childrenBound.height>clientHeight) then begin
+    if scrollerV<>nil then begin
+     scrollerV.SetRange(childrenBound.y1,childrenBound.y2);
+     scrollerV.SetPageSize(clientHeight);
+     scrollerV.SetStep(clientHeight/2);
+    end;
+   end;
   end;
 
  procedure TUIElement.ParentSizeChanged(dX,dY:single);

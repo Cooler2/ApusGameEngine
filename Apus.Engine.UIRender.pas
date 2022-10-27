@@ -74,7 +74,10 @@ implementation
    clipping:boolean;
   begin
    if not item.visible then exit;
-   if item.layout<>nil then item.layout.Layout(item);
+   if item.layout<>nil then begin
+    item.layout.Layout(item);
+    item.Resize(-1,-1);
+   end;
    // Draw self first
    if (item.size.x<=0) or (item.size.y<=0) then exit;
    item.globalRect:=item.GetPosOnScreen;

@@ -235,6 +235,7 @@ interface
    function GetAnimating:boolean;
    procedure SetPageSize(pageSize:single);
    function GetStep:single;
+   procedure CheckAutoHide;
   public
    horizontal:boolean; // orientation
    isInteger:boolean; // should value be always integer
@@ -244,6 +245,7 @@ interface
    minSliderSize:integer; // minimal slider size in pixels
    sliderUnder:boolean; // mouse is over slider
    sliderStart,sliderEnd:single; // relative position of slider (in 0..size.x/y range)
+   autoHide:boolean; // hide if pagesize>=range
    constructor Create(width,height:single;barName:string;parent_:TUIElement); overload;
    constructor Create(width,height:single;min,max,pageSize,value:single;parent:TUIElement;barName:string=''); overload;
    function GetScroller:IScroller;
@@ -1150,6 +1152,7 @@ function TUIEditBox.GetText:String8;
  procedure TUIScrollBar.SetPageSize(pageSize:single);
   begin
    self.pagesize:=pagesize;
+   CheckAutoHide;
   end;
 
 function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
@@ -1159,6 +1162,7 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
    min:=newMin; max:=newMax; pageSize:=newPageSize;
    pSize:=Clamp(pageSize,0,max-min);
    rValue.Assign(Clamp(rValue.FinalValue,min,max-pSize));
+   CheckAutoHide;
   end;
 
  function TUIScrollBar.GetValue:single;
@@ -1171,15 +1175,25 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
  procedure TUIScrollBar.Link(elem:TUIElement);
   begin
    linkedControl:=elem;
+   if horizontal then linkedControl.scrollerH:=GetScroller
+    else linkedControl.scrollerV:=GetScroller;
+   if HasParent(elem) then parentClip:=false;
+   CheckAutoHide;
   end;
 
  procedure TUIScrollBar.SetValue(v:single);
   begin
    v:=Clamp(v,min,max-pageSize);
    rValue.Assign(v);
+   CheckAutoHide;
   end;
 
- constructor TUIScrollBar.Create(width,height,min,max,pageSize,value:single;parent:TUIElement;barName:string);
+ procedure TUIScrollBar.CheckAutoHide;
+  begin
+   visible:=max-min>pageSize;
+  end;
+
+constructor TUIScrollBar.Create(width,height,min,max,pageSize,value:single;parent:TUIElement;barName:string);
   begin
    Create(width,height,barName,parent);
    SetRange(min,max,pageSize);
@@ -1251,10 +1265,12 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
 
    Signal('UI\'+name+'\Changed',round(val));
    if linkedControl<>nil then begin
-    if linkedcontrol.scrollerH.GetElement=self then
-     linkedControl.scroll.X:=value;
-    if linkedcontrol.scrollerV.GetElement=self then
-     linkedControl.scroll.Y:=value;
+    if linkedcontrol.scrollerH<>nil then
+     if linkedcontrol.scrollerH.GetElement=self then
+      linkedControl.scroll.X:=value;
+    if linkedcontrol.scrollerV<>nil then
+     if linkedcontrol.scrollerV.GetElement=self then
+      linkedControl.scroll.Y:=value;
    end;
   end;
 
