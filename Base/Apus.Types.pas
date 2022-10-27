@@ -120,6 +120,7 @@ type
    function Slice(length:integer;advance:boolean=false):TBuffer; overload;
    function Slice(from,length:integer):TBuffer; overload;
    function ReadByte:byte;
+   function ReadBool:boolean;
    function ReadWord:word;
    function ReadInt:integer;
    function ReadUInt:cardinal;
@@ -152,6 +153,7 @@ type
    procedure Write(var item;numBytes:integer); overload;
    procedure Write(var buf:TBuffer); overload;
    procedure WriteByte(b:byte); inline;
+   procedure WriteBool(b:boolean); inline;
    procedure WriteWord(w:word); inline;
    procedure WriteInt(i:integer); inline;
    procedure WriteUInt(c:cardinal); inline;
@@ -215,6 +217,11 @@ procedure TBuffer.Read(var dest;numBytes:integer);
   inc(readPos,numBytes);
  end;
 
+function TBuffer.ReadBool:boolean;
+ begin
+  result:=ReadByte<>0;
+ end;
+
 function TBuffer.ReadByte:byte;
  begin
   ASSERT(BytesLeft>0);
@@ -231,14 +238,15 @@ function TBuffer.ReadDouble:double;
 
 function TBuffer.ReadFlex:cardinal;
  var
-  b:byte;
+  b,shift:byte;
  begin
-  result:=0;
+  result:=0; shift:=0;
   while BytesLeft>0 do begin
    b:=readPos^;
    inc(readPos);
-   result:=(result shl 7)+(b and $7F);
+   inc(result,(b and $7F) shl shift);
    if b and $80=0 then break;
+   inc(shift,7);
   end;
  end;
 
@@ -416,6 +424,11 @@ procedure TWriteBuffer.Write(var item;numBytes:integer);
 procedure TWriteBuffer.Write(var buf:TBuffer);
  begin
   Write(buf.data^,buf.size);
+ end;
+
+procedure TWriteBuffer.WriteBool(b:boolean);
+ begin
+  write(b,1);
  end;
 
 procedure TWriteBuffer.WriteByte(b:byte);
