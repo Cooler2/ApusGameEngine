@@ -20,6 +20,7 @@ interface
    // Default global settings
    gameTitle:string='Apus Game Engine Template';
    configFileName:string8=''; // load this config file (can contain path, which is discarded after file is loaded)
+   logFileName:string='game.log'; // default log file name
 
    usedAPI:TGraphicsAPI=gaAuto;
    usedPlatform:TSystemPlatform {$IFNDEF MSWINDOWS} = spSDL{$ENDIF};
@@ -462,12 +463,12 @@ procedure TGameApplication.Prepare;
    RegisterThread('ControlThread');
    //SetCurrentDir(ExtractFileDir(ParamStr(0)));
    Randomize;
-
+   // Log rotation
    if DirectoryExists('Logs') then begin
     configDir:='Logs\';
-    st:='Logs\game.log';
+    st:='Logs\'+logFileName;
    end else
-    st:='game.log';
+    st:=logFileName;
    st:=FileName(st);
    if fileExists(st) then
      RenameFile(st,ChangeFileExt(st,'.old'));
