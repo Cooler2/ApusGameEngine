@@ -104,6 +104,7 @@ type
   procedure onMouseWheel(delta:integer); virtual;
   procedure onShow; virtual; // called when status changed to Active
   procedure onHide; virtual; // called when status changed from Active
+  procedure onEvent(eventPart:string;tag:NativeInt); virtual; // called when 'Scenes\[SceneName]\xxx' event is fired, "xxx" part is passed
 
   // For non-fullscreen scenes return occupied area
   function GetArea:TRect; virtual; abstract;
@@ -121,11 +122,26 @@ type
 
 
 implementation
- uses Apus.Common, SysUtils;
+ uses Apus.Common, SysUtils, Apus.EventMan;
 
  var
   scenesHash:TObjectHash; // used to search scenes by name
   scenesToLoad:TObjectList; // order of scenes to load
+  eventSet:boolean=false;
+
+ // SCENES\* handler
+ procedure EventHandler(event:TEventStr;tag:TTag);
+  var
+   scene:TGameScene;
+   p:integer;
+   name:string;
+  begin
+   p:=PosFrom('\',event,8);
+   name:=Copy(event,8,p-8);
+   scene:=TGameScene.FindByName(name) as TGameScene;
+   if scene<>nil then
+    scene.onEvent(Copy(event,p+1,1000),tag);
+  end;
 
  { TGameScene }
 
@@ -162,6 +178,11 @@ implementation
     scenesToLoad.Add(self);
    end else
     loaded:=true;
+
+   if not eventSet then begin
+    eventSet:=true;
+    SetEventHandler('SCENES\',eventHandler,emInstant);
+   end;
   end;
 
  destructor TGameScene.Destroy;
@@ -213,6 +234,10 @@ function TGameScene.Process:boolean;
   end;
 
  procedure TGameScene.onCreate;
+  begin
+  end;
+
+ procedure TGameScene.onEvent(eventPart:string;tag:NativeInt);
   begin
   end;
 
