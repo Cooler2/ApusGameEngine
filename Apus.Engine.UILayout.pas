@@ -36,12 +36,12 @@ type
  // Arrange elements in a grid
  TGridLayout=class(TLayouter)
   // Don't alter items size
-  constructor Create(spaceV,spaceH:single;center:boolean=false);
+  constructor Create(spaceV,spaceH,paddingH,paddingV:single;center:boolean=false);
   // Resize items proportionally to fill all width
-  constructor CreateResizeable(spaceV,spaceH:single;desiredItemWidth:single);
+  constructor CreateResizeable(spaceV,spaceH,paddingH,paddingV:single;desiredItemWidth:single);
   procedure Layout(item:TUIElement); override;
  private
-  vertSpace,horSpace,desiredWidth:single;
+  vertSpace,horSpace,desiredWidth,paddingV,paddingH:single;
   center,allowResize:boolean;
   procedure LayoutFixed(parent:TUIElement;list:TUIElements);
   procedure LayoutFlex(parent:TUIElement;list:TUIElements);
@@ -158,20 +158,24 @@ procedure TRowLayout.Layout(item:TUIElement);
 
 { TGridLayout }
 
- constructor TGridLayout.Create(spaceV,spaceH:single;center:boolean);
+ constructor TGridLayout.Create(spaceV,spaceH,paddingH,paddingV:single;center:boolean);
   begin
    vertSpace:=spaceV;
    horSpace:=spaceH;
    self.center:=center;
    allowResize:=false;
+   self.paddingH:=paddingH;
+   self.paddingV:=paddingV;
   end;
 
- constructor TGridLayout.CreateResizeable(spaceV,spaceH,desiredItemWidth:single);
+ constructor TGridLayout.CreateResizeable(spaceV,spaceH,paddingH,paddingV,desiredItemWidth:single);
   begin
    vertSpace:=spaceV;
    horSpace:=spaceH;
    allowResize:=true;
    desiredWidth:=desiredItemWidth;
+   self.paddingH:=paddingH;
+   self.paddingV:=paddingV;
   end;
 
  procedure TGridLayout.Layout(item:TUIElement);
@@ -189,21 +193,24 @@ procedure TRowLayout.Layout(item:TUIElement);
    x,y,h:single;
   begin
    last:=0;
-   x:=0; y:=0; // position for the next item
+   x:=paddingH; y:=paddingV; // position for the next item
    for i:=0 to high(list) do begin
     if i>last then x:=x+horSpace;
     list[i].SetPos(x,y);
     x:=x+list[i].width;
-    if x>=parent.clientWidth then begin // next row
-     if center then
-      for j:=last to i do
-       list[j].position.x:=list[j].position.x+(parent.clientWidth-x)/2;
-     x:=0;
-     last:=i+1;
+    if (x>=parent.clientWidth-paddingH) and (i>last) then begin // current item should be wrapped to the next row
+     if center then begin
+      x:=x-list[i].width-horSpace;
+      for j:=last to i-1 do
+       list[j].position.x:=list[j].position.x+(parent.clientWidth-paddingH*2-x)/2;
+     end;
      h:=0;
      for j:=last to i do
       h:=max2s(h,list[j].size.y);
      y:=y+h+vertSpace;
+     list[i].SetPos(paddingH,y);
+     x:=paddingH+list[i].width;
+     last:=i;
     end;
    end;
   end;
@@ -214,7 +221,7 @@ procedure TRowLayout.Layout(item:TUIElement);
    y,itemWidth,itemHeight,rowHeight:single;
   begin
    cols:=max2(1,round(parent.clientWidth/desiredWidth));
-   itemWidth:=parent.clientWidth-(cols-1)*horSpace;
+   itemWidth:=round((parent.clientWidth-paddingH*2-(cols-1)*horSpace)/cols);
    y:=0; rowHeight:=0;
    for i:=0 to high(list) do begin
     col:=i mod cols;
@@ -226,7 +233,7 @@ procedure TRowLayout.Layout(item:TUIElement);
     itemHeight:=itemWidth*(list[i].initialSize.y/list[i].initialSize.x);
     list[i].Resize(itemWidth,itemHeight);
     rowHeight:=max2s(rowHeight,itemHeight);
-    list[i].SetPos(col*itemWidth+(col-1)*horSpace,y);
+    list[i].SetPos(paddingH+col*itemWidth+col*horSpace,y+paddingV);
    end;
   end;
 

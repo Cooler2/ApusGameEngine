@@ -53,6 +53,7 @@ interface
   TLayouter  = Apus.Engine.UITypes.TLayouter;
   TRowLayout = Apus.Engine.UILayout.TRowLayout;
   TFlexboxLayout = Apus.Engine.UILayout.TFlexboxLayout;
+  TGridLayout = Apus.Engine.UILayout.TGridLayout;
 
   // Other types
   TElementShape = Apus.Engine.UITypes.TElementShape;
