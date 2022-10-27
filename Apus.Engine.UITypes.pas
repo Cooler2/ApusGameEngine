@@ -220,8 +220,8 @@ type
   procedure SetFocusToPrev;
 
   // Set element position using new pivot point
-  function SetPos(x,y:single;pivotPoint:TPoint2s;autoSnap:boolean=true):TUIElement; overload;
-  function SetPos(x,y:single;autoSnap:boolean=true):TUIElement; overload;
+  function SetPos(x,y:single;pivotPoint:TPoint2s;autoSnap:boolean=false):TUIElement; overload;
+  function SetPos(x,y:single;autoSnap:boolean=false):TUIElement; overload;
   // Move by given screen pixels
   procedure MoveBy(dx,dy:single);
   // Set element anchors
@@ -568,8 +568,14 @@ implementation
     inc(n); order:=n;
     SetLength(parent.children,n);
     parent.children[n-1]:=self;
-    if width=-1 then size.x:=parent.clientWidth;
-    if height=-1 then size.y:=parent.clientHeight;
+    if width=-1 then begin
+     size.x:=parent.clientWidth;
+     anchors.left:=0; anchors.right:=1;
+    end;
+    if height=-1 then begin
+     size.y:=parent.clientHeight;
+     anchors.top:=0; anchors.bottom:=1;
+    end;
    end else begin
     // Элемент без предка -> занести в список
     AddToRootElements;
@@ -1181,7 +1187,7 @@ function TUIElement.GetClientHeight:single;
    end;
   end;
 
- function TUIElement.SetPos(x,y:single;pivotPoint:TPoint2s;autoSnap:boolean=true):TUIElement;
+ function TUIElement.SetPos(x,y:single;pivotPoint:TPoint2s;autoSnap:boolean):TUIElement;
   var
    r:TRect2s;
   begin
