@@ -446,11 +446,11 @@ procedure SetDisplaySize(width,height:integer);
    c:TUIElement;
    time:cardinal;
    st:string;
-   procedure ProcessElement(c:TUIElement);
+   procedure ProcessElementTree(c:TUIElement);
     var
-     j:integer;
      cnt:integer;
-     list:array[0..255] of TUIElement;
+     list:TUIElements;
+     child:TUIElement;
     begin
      if c=nil then exit;
      if c.timer>0 then
@@ -459,11 +459,8 @@ procedure SetDisplaySize(width,height:integer);
        c.onTimer;
       end else dec(c.timer,delta);
 
-     cnt:=clamp(length(c.children),0,length(list)); // Can't process more than 255 nested elements
-     if cnt>0 then begin
-      for j:=0 to cnt-1 do list[j]:=c.children[j];
-      for j:=0 to cnt-1 do ProcessElement(list[j]);
-     end;
+     list:=c.children;
+     for child in list do ProcessElementTree(child);
     end;
   begin
    result:=true;
@@ -511,7 +508,7 @@ procedure SetDisplaySize(width,height:integer);
     end;
     time:=MyTickCount;
     delta:=time-LastHandleTime;
-    if UI<>nil then ProcessElement(UI);
+    ProcessElementTree(UI);
 
     // обработка хинтов
     if (itemShowHintTime>LastHandleTime) and (itemShowHintTime<=Time) then begin
