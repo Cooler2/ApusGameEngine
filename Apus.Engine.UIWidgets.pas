@@ -1152,7 +1152,7 @@ function TUIEditBox.GetText:String8;
 
  procedure TUIScrollBar.SetPageSize(pageSize:single);
   begin
-   self.pagesize:=pagesize;
+   SetRange(min,max,pageSize);
    CheckAutoHide;
   end;
 
@@ -1164,8 +1164,10 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
    min:=newMin; max:=newMax; pageSize:=newPageSize;
    realMax:=Clamp(max-pageSize,min,max);
    v:=rValue.Value;
-   if (v<min) or (v>realMax) then
+   if (v<min) or (v>realMax) then begin
     rValue.Assign(Clamp(rValue.FinalValue,min,realMax));
+    onTimer;
+   end;
    CheckAutoHide;
   end;
 
@@ -1263,11 +1265,15 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
   end;
 
  procedure TUIScrollBar.MoveTo(val:single;smooth:boolean=false);
+  var
+   time:integer;
   begin
    if val<min then val:=min;
    if val+pagesize>max then val:=max-pagesize;
    if smooth then begin
-    rValue.Animate(val,300,spline1);
+    time:=Round(500*abs(val-rValue.Value)/pagesize);
+    time:=Clamp(time,60,350);
+    rValue.Animate(val,time,spline1);
     timer:=1;
    end
     else SetValue(val);
@@ -1853,7 +1859,7 @@ function TScrollBarInterface.GetElement:TUIElement;
 
  procedure TScrollBarInterface.SetPageSize(pageSize:single);
   begin
-   owner.pagesize:=pageSize;
+   owner.SetPageSize(pageSize);
   end;
 
  procedure TScrollBarInterface.SetRange(min,max:single);
