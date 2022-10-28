@@ -132,7 +132,7 @@ type
 
   // Relationship
   parent:TUIElement; // Ссылка на элемент-предок
-  children:array of TUIElement; // Список вложенных элементов
+  children:TUIElements; // Список вложенных элементов
   isGroupBox:boolean; // true means that only one child element should be "active" (switches, radio buttons etc.)
   activeChild:integer; // index of an active child element (when isGroupBox=true), -1 if none
 
@@ -244,6 +244,8 @@ type
   procedure Snap(snapTo:TSnapMode;shrinkParent:boolean=true);
   // Скроллинг в указанную позицию (с обработкой подчиненных скроллбаров если они есть)
   procedure ScrollTo(newX,newY:integer); virtual;
+  // Setup scrollers to match client area
+  procedure SetupScrollers; virtual;
   // Если данный элемент может обладать фокусом, но ни один другой не имеет фокуса - взять фокус на себя
   procedure CheckAndSetFocus;
 
@@ -268,7 +270,7 @@ type
   // Helper methods
   procedure Show;
   procedure Hide;
-  procedure Toggle;
+  procedure Toggle; // toggle visibility
   procedure Enable;
   procedure Disable;
 
@@ -1076,7 +1078,6 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    // Если прикреплен вертикальный скроллбар - использовать его для прокрутки
    if scrollerV<>nil then begin
     scrollerV.MoveRel(-scrollerV.GetStep*value/100,true);
-    onMouseMove;
     exit;
    end else
    if autoScroll then begin // no scroller, but autoscroll is enabled
@@ -1367,7 +1368,21 @@ function TUIElement.GetClientHeight:single;
    end;
   end;
 
- procedure TUIElement.SafeDestroy;
+ procedure TUIElement.SetupScrollers;
+  begin
+   if scrollerV<>nil then begin
+    scrollerV.SetRange(childrenBound.y1,childrenBound.y2);
+    scrollerV.SetPageSize(clientHeight);
+    scrollerV.SetStep(clientHeight/3);
+   end;
+   if scrollerH<>nil then begin
+    scrollerH.SetRange(childrenBound.x1,childrenBound.x2);
+    scrollerH.SetPageSize(clientWidth);
+    scrollerH.SetStep(clientWidth/3);
+   end;
+  end;
+
+procedure TUIElement.SafeDestroy;
   begin
    toDelete.Add(self,true);
   end;

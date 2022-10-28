@@ -235,7 +235,7 @@ interface
    function GetAnimating:boolean;
    procedure SetPageSize(pageSize:single);
    function GetStep:single;
-   procedure CheckAutoHide;
+   procedure CheckAutoHide; 
   public
    horizontal:boolean; // orientation
    isInteger:boolean; // should value be always integer
@@ -258,6 +258,7 @@ interface
    // Сигналы от этих кнопок будут использоваться для перемещения ползунка
    procedure UseButtons(lessBtn,moreBtn:string);
    procedure CalcSliderPos;
+   procedure onTimer; override;
 
    procedure onMouseMove; override;
    procedure onMouseButtons(button:byte;state:boolean); override;
@@ -1157,11 +1158,14 @@ function TUIEditBox.GetText:String8;
 
 function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
   var
-   pSize:single;
+   realMax:single;
+   v:single;
   begin
    min:=newMin; max:=newMax; pageSize:=newPageSize;
-   pSize:=Clamp(pageSize,0,max-min);
-   rValue.Assign(Clamp(rValue.FinalValue,min,max-pSize));
+   realMax:=Clamp(max-pageSize,min,max);
+   v:=rValue.Value;
+   if (v<min) or (v>realMax) then
+    rValue.Assign(Clamp(rValue.FinalValue,min,realMax));
    CheckAutoHide;
   end;
 
@@ -1178,6 +1182,7 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
    if horizontal then linkedControl.scrollerH:=GetScroller
     else linkedControl.scrollerV:=GetScroller;
    if HasParent(elem) then parentClip:=false;
+   elem.SetupScrollers;
    CheckAutoHide;
   end;
 
@@ -1185,6 +1190,7 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
   begin
    v:=Clamp(v,min,max-pageSize);
    rValue.Assign(v);
+   onTimer;
    CheckAutoHide;
   end;
 
@@ -1260,18 +1266,13 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
   begin
    if val<min then val:=min;
    if val+pagesize>max then val:=max-pagesize;
-   if smooth then rValue.Animate(val,300,spline1)
-    else rValue.Assign(val);
+   if smooth then begin
+    rValue.Animate(val,300,spline1);
+    timer:=1;
+   end
+    else SetValue(val);
 
    Signal('UI\'+name+'\Changed',round(val));
-   if linkedControl<>nil then begin
-    if linkedcontrol.scrollerH<>nil then
-     if linkedcontrol.scrollerH.GetElement=self then
-      linkedControl.scroll.X:=value;
-    if linkedcontrol.scrollerV<>nil then
-     if linkedcontrol.scrollerV.GetElement=self then
-      linkedControl.scroll.Y:=value;
-   end;
   end;
 
  procedure TUIScrollBar.onLostFocus;
@@ -1360,7 +1361,24 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    end;
   end;
 
- procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
+ procedure TUIScrollBar.onTimer;
+  var
+   val:single;
+  begin
+   val:=GetValue;
+   if linkedControl<>nil then begin
+    if linkedcontrol.scrollerH<>nil then
+     if linkedcontrol.scrollerH.GetElement=self then
+      linkedControl.scroll.X:=val;
+    if linkedcontrol.scrollerV<>nil then
+     if linkedcontrol.scrollerV.GetElement=self then
+      linkedControl.scroll.Y:=val;
+   end;   
+   Signal('UI\'+name+'\Changing',round(val));
+   if isAnimating then timer:=1;
+  end;
+
+procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
   begin
 
   end;
