@@ -1144,7 +1144,7 @@ function TUIEditBox.GetText:String8;
    shape:=shapeFull;
    min:=0; max:=100; rValue.Init(0); pagesize:=0;
    linkedControl:=nil; step:=1;
-   color:=$FFB0B0B0;
+   //color:=$FFB0B0B0;
    horizontal:=size.x>size.y;
    // hooked:=false;
    scroller:=TScrollBarInterface.Create(self);
@@ -1259,6 +1259,10 @@ procedure TUIScrollBar.CalcSliderPos(minSize:single);
    sliderEnd:=sliderEnd+addSpace*(1-(v-min)/(max-min));
   end;
 
+  if hooked=self then begin
+   sliderUnder:=true;
+   exit;
+  end;
   sliderRect:=globalRect;
   if horizontal then begin
    sliderRect.left:=round(LinearMix(globalRect.left,globalRect.Right,sliderStart));

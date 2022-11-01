@@ -46,7 +46,7 @@ implementation
   // All non-string attributes must be listed here
   attribList:array[0..3] of TAttribute=(
     (name:'fill'; aType:atColor),
-    (name:'border'; aType:atColor),
+    (name:'bordercolor'; aType:atColor),
     (name:'innerfill'; aType:atColor),
     (name:'innerborder'; aType:atColor)
    );
@@ -839,7 +839,7 @@ implementation
    scale:=element.globalScale;
    // Outer block
    fillColor:=style.GetColor('fill');
-   borderColor:=style.GetColor('border');
+   borderColor:=style.GetColor('borderColor');
    radius:=style.GetNumber('radius');
    bWidth:=style.GetNumber('borderWidth',0);
 
