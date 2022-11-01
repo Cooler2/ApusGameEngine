@@ -2111,9 +2111,13 @@ procedure TObjectHash.InternalPut(value:TNamedObject);
  var
   h:cardinal;
  begin
-  h:=FastHash(value.name);
-  while UIntPtr(values[h and mask])>1 do inc(h); // find the closest unused cell
-  values[h and mask]:=value;
+  h:=FastHash(value.name) and mask;
+  // find the closest unused cell
+  while UIntPtr(values[h])>1 do begin
+   if values[h]=value then exit; // already exist
+   h:=(h+1) and mask;
+  end;
+  values[h]:=value;
   inc(count);
  end;
 
@@ -2256,10 +2260,14 @@ procedure TVarHash.InternalPut(key:string8;value:variant);
  var
   h:cardinal;
  begin
-  h:=FastHash(key);
-  while values[h and mask]<>unassigned do inc(h); // find the closest unused cell
-  keys[h and mask]:=key;
-  values[h and mask]:=value;
+  h:=FastHash(key) and mask;
+  // find the closest unused cell
+  while values[h]<>unassigned do begin
+   if SameText8(key,keys[h]) then break; // replace value
+   h:=(h+1) and mask;
+  end;
+  keys[h]:=key;
+  values[h]:=value;
   inc(count);
  end;
 
