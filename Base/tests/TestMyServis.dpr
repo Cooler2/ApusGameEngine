@@ -195,6 +195,24 @@ procedure TestFastHash;
   writeln;
  end;
 
+procedure TestObjHash;
+ var
+  obj:TNamedObject;
+  hash:TObjectHash;
+  i:integer;
+ begin
+  hash.Init(32);
+  obj:=TNamedObject.Create;
+  obj.name:='Object1';
+  for i:=1 to 10 do
+   hash.Put(obj);
+  ASSERT(hash.count=1);
+  ASSERT(hash.Get('object1')=obj);
+  hash.Remove(obj);
+  ASSERT(hash.count=0);
+  writeln('ObjHash: OK');
+ end;
+
 procedure TestQuotes;
  const
   str:array[1..8] of string=('','A','"A','A"','""','"""','"A "" A"','A "A"A"A');
@@ -2057,6 +2075,7 @@ begin
   TestBitFunc;
   TestSSE;
   TestFastHash;
+  TestObjHash;
   TestStringTypes;
   TestConversions;
   TestFileIO;
