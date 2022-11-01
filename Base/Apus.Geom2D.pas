@@ -54,11 +54,13 @@ interface
    function Width:single;
    function Height:single;
    procedure Init; overload; inline; // init empty
-   procedure Init(x,y,width,height:single); overload; inline;
+   procedure Init(x1,y1,x2,y2:single); overload; inline;
+   procedure InitWH(x,y,width,height:single); overload; inline;
    procedure MoveBy(dx,dy:single); overload; inline;
    procedure MoveBy(delta:TVector2s); overload; inline;
    procedure Include(x,y:single); overload; inline;
    procedure Include(r:TRect2s); overload; inline;
+   procedure Round;
    function IsEmpty:boolean; inline;
    function Center:TPoint2s; inline;
    function GetIntRect:TRect;
@@ -868,14 +870,20 @@ implementation
 
 { TRect2s }
 
- procedure TRect2s.Init(x,y,width,height:single);
+ procedure TRect2s.InitWH(x,y,width,height:single);
   begin
    x1:=x; y1:=y;
    x2:=x+width;
    y2:=y+height;
   end;
 
- function TRect2s.IsEmpty:boolean;
+ procedure TRect2s.Init(x1,y1,x2,y2:single);
+  begin
+   self.x1:=x1; self.y1:=y1;
+   self.x2:=x2; self.y2:=y2;
+  end;
+
+function TRect2s.IsEmpty:boolean;
   begin
    result:=(y2<y1);
   end;
@@ -891,7 +899,15 @@ implementation
    MoveBy(delta.x,delta.y);
   end;
 
- function TRect2s.Center: TPoint2s;
+ procedure TRect2s.Round;
+  begin
+   x1:=FRound(x1);
+   y1:=FRound(y1);
+   x2:=FRound(x2);
+   y2:=FRound(y2);
+  end;
+
+function TRect2s.Center: TPoint2s;
   begin
    result.x:=(x1+x2)/2;
    result.y:=(y1+y2)/2;
