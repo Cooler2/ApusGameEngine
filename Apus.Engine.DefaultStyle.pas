@@ -44,12 +44,11 @@ implementation
 
  const
   // All non-string attributes must be listed here
-  attribList:array[0..4] of TAttribute=(
+  attribList:array[0..3] of TAttribute=(
     (name:'fill'; aType:atColor),
     (name:'border'; aType:atColor),
     (name:'innerfill'; aType:atColor),
-    (name:'innerborder'; aType:atColor),
-    (name:'radius'; aType:atNumber)
+    (name:'innerborder'; aType:atColor)
    );
  var
   styles:array[0..127] of TElementStyle;
@@ -66,17 +65,18 @@ implementation
    disabled:TAnimatedValue;
    hover:TAnimatedValue;
    active:TAnimatedValue;
-   constructor Create(element:TUIelement);
+   constructor Create(element:TUIElement;style:PElementStyle);
    procedure Update(element:TUIElement;style:PElementStyle);
+   function HoverState(element:TUIElement;style:PElementStyle):byte;
   end;
 
- function PrepareContext(element:TUIElement):TContext;
+ function PrepareContext(element:TUIElement;style:PElementStyle):TContext;
   begin
    if element.styleContext<>nil then begin
     if element.styleContext is TContext then exit(TContext(element.styleContext));
     element.StyleContext.Free;
    end;
-   result:=TContext.Create(element);
+   result:=TContext.Create(element,style);
    element.styleContext:=result;
   end;
 
@@ -179,8 +179,8 @@ implementation
   begin
    if element.caption<>'' then begin
     color:=element.color;
-    if color=clDefault then color:=clBlack;
-    txt.WriteW(element.font,(x1+x2)/2,(y1+y2)/2,color,Str16(element.caption),taCenter);
+    if color=clDefault then color:=$FF808080;
+    txt.WriteW(element.font,(x1+x2)/2,(y1+y2)/2,color,Str16(element.caption),taCenter,toWithShadow);
    end;
   end;
 
@@ -531,33 +531,97 @@ implementation
    end;
   end;
 
- procedure DrawUIScrollbar(control:TUIScrollbar;x1,y1,x2,y2:integer);
+ procedure DrawUIScrollbar(element:TUIScrollbar;style:PElementStyle;x1,y1,x2,y2:integer);
   var
-   c,d,v:cardinal;
-   i,j,iWidth,iHeight,minWidth:integer;
+   c,d,v,color,trackColor:cardinal;
+   size,width,startPos,endPos,minSize:integer;
+   scale,trackWidth,sliderWidth,sliderRadius,f:single;
+   sStyle:string8;
+   context:TContext;
+   sliderVisible:boolean;
+   r:TRect2s;
   begin
-   with control do begin
-    c:=colorAdd(color,$202020);
+   size:=x2-x1; width:=y2-y1;
+   if not element.horizontal then Swap(size,width);
+   // Calculate parameters
+   element.CalcSliderPos(style.GetAttr('minSize',0.75));
+   sliderVisible:=(element.sliderEnd>element.sliderStart) and (element.sliderEnd-element.sliderStart<1);
+
+   // Draw
+   context:=TContext(element.styleContext);
+   sStyle:=style.GetAttr('style','flat');
+   color:=element.color;
+   scale:=element.globalScale;
+
+   if SameText(sStyle,'flat') then begin
+    // Flat style
+    trackWidth:=style.GetNumber('trackWidth',1);
+    sliderWidth:=style.GetNumber('sliderWidth',0.9);
+    sliderRadius:=style.getNumber('radius',0)*width*sliderWidth;
+    // Draw track
+    trackColor:=style.GetAttr('trackColor',ColorAlpha(color,0.5));
+    trackColor:=ColorMixF(trackColor,style.GetAttr('hover.trackColor',trackColor),CurValue(context.hover));
+    r.Init(x1,y1,x2,y2);
+    f:=(1-trackWidth)/2;
+    if element.horizontal then begin
+     r.y1:=LinearMix(y1,y2,f);
+     r.y2:=LinearMix(y1,y2,1-f);
+    end else begin
+     r.x1:=LinearMix(x1,x2,f);
+     r.x2:=LinearMix(x1,x2,1-f);
+    end;
+    draw.FillRect(r.x1,r.y1,r.x2,r.y2,trackColor);
+
+    // Draw slider
+    if sliderVisible then begin
+     // slider rect
+     f:=(1-sliderWidth)/2;
+     if element.horizontal then begin
+      r.x1:=LinearMix(x1,x2,element.sliderStart);
+      r.y1:=LinearMix(y1,y2,f);
+      r.x2:=LinearMix(x1,x2,element.sliderEnd);
+      r.y2:=LinearMix(y1,y2,1-f);
+     end else begin
+      r.x1:=LinearMix(x1,x2,f);
+      r.y1:=LinearMix(y1,y2,element.sliderStart);
+      r.x2:=LinearMix(x1,x2,1-f);
+      r.y2:=LinearMix(y1,y2,element.sliderEnd);
+     end;
+     // color
+     if element.sliderUnder then
+      color:=style.GetAttr('hover.color',ColorAdd(color,$202020)); // hover color
+     if sliderRadius=0 then
+      draw.FillRect(r.left,r.top,r.right,r.bottom,color)
+     else begin
+      r.Round;
+      draw.RoundRect(r.left,r.top,r.right,r.bottom,sliderRadius,0,color,color);
+     end;
+    end;
+   end else begin
+    // Default (3D) style
+
+    // Draw track
+{    c:=colorAdd(color,$202020);
     d:=ColorSub(color,$202020);
     iwidth:=x2-x1;
     iheight:=y2-y1;
-    CalcSliderPos;
-    if horizontal then begin
-     // Horizontal scrollbar
-     draw.FillGradrect(x1,y1,x2,y2,d,c,true);
+    draw.FillGradrect(x1,y1,x2,y2,d,c,element.horizontal);
+    // Draw slider (if needed)
+
+    if element.horizontal then begin
      minWidth:=max2(8,round((y2-y1)*0.75));
-     if enabled and (iwidth>=minWidth) and (pagesize<max-min) then begin
+     if element.enabled and (iwidth>=minWidth) and (pagesize<max-min) then begin
       v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
       d:=colorMix(v,$FF404040,128);
-      if sliderUnder and not (hooked=control) then v:=ColorAdd(v,$101010);
+      if sliderUnder and not (hooked=element) then v:=ColorAdd(v,$101010);
       i:=round((x2-x1)*(sliderStart/size.x));
       j:=round((x2-x1)*(sliderEnd/size.x));
       if i<0 then i:=0;
       if j>iwidth then j:=iwidth;
       if j>i+6 then begin
        draw.FillGradrect(x1+i,y1,x1+j,y2,colorMix(v,$FFC0E0F0,192),colorMix(v,$FF0000A0,192),true);
-       if (hooked=control) then draw.ShadedRect(x1+i,y1,x1+j,y2,1,d,d)
+       if (hooked=element) then draw.ShadedRect(x1+i,y1,x1+j,y2,1,d,d)
         else draw.ShadedRect(x1+i,y1,x1+j,y2,1,c,d);
        i:=x1+(i+j) div 2;
        draw.ShadedRect(i-2,y1+3,i-1,y2-3,1,d,c);
@@ -572,21 +636,21 @@ implementation
       v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
       d:=colorMix(v,$FF404040,128);
-      if sliderUnder and not (hooked=control) then v:=ColorAdd(v,$101010);
+      if sliderUnder and not (hooked=element) then v:=ColorAdd(v,$101010);
       i:=round((y2-y1)*(sliderStart/size.y));
       j:=round((y2-y1)*(sliderEnd/size.y));
       if i<0 then i:=0;
       if j>iheight then j:=iheight;
       if j>i+6 then begin
        draw.FillGradrect(x1,y1+i,x2,y1+j,colorMix(v,$FFC0E0F0,192),colorMix(v,$FF0000A0,192),false);
-       if (hooked=control) then draw.ShadedRect(x1,y1+i,x2,y1+j,1,d,d)
+       if (hooked=element) then draw.ShadedRect(x1,y1+i,x2,y1+j,1,d,d)
         else draw.ShadedRect(x1,y1+i,x2,y1+j,1,c,d);
        i:=y1+(i+j) div 2;
        draw.ShadedRect(x1+3,i-2,x2-3,i-1,1,d,c);
        draw.ShadedRect(x1+3,i+1,x2-3,i+2,1,d,c);
       end;
      end;
-    end;
+    end;}
    end;
   end;
 
@@ -596,7 +660,7 @@ implementation
    i,j,mY,d,curX,scrollPixels:integer;
    c:cardinal;
   begin
-   with control as TUIEditBox do begin
+   with control do begin
 {    if backgnd<>0 then begin
      c:=backgnd;
      if UnderMouse=control then
@@ -673,7 +737,7 @@ implementation
    c,c1,c2:cardinal;
    scr,lineH:single;
   begin
-    with control as TUIListBox do begin
+    with control do begin
      if bgColor<>0 then draw.FillRect(x1,y1,x2,y2,bgColor);
      if scrollerV<>nil then scr:=scrollerV.GetValue
       else scr:=0;
@@ -812,7 +876,7 @@ implementation
    context:TContext;
   begin
    eStyle:=GetElementStyle(element);
-   context:=PrepareContext(element); // make sure element has proper context
+   context:=PrepareContext(element,eStyle); // make sure element has proper context
    context.Update(element,eStyle);
    if eStyle<>nil then
     DrawCommonStyle(element,eStyle,context);
@@ -855,7 +919,7 @@ implementation
    else
    // Scrollbar
    if element.ClassType=TUIScrollBar then
-    DrawUIScrollbar(element as TUIScrollbar,x1,y1,x2,y2)
+    DrawUIScrollbar(element as TUIScrollBar,eStyle,x1,y1,x2,y2)
    else
    // EditBox
    if element.ClassType=TUIEditBox then
@@ -976,6 +1040,10 @@ function TElementStyle.ActualStyleInfo:string8;
       end;
       exit;
      end;
+    if LastChar(s)='%' then begin
+     result:=ParseFloat(s)*0.01;
+     exit;
+    end;
     result:=s;
    end;
 
@@ -1029,14 +1097,14 @@ function TElementStyle.ActualStyleInfo:string8;
 
 { TCheckboxContext }
 
-constructor TContext.Create(element:TUIElement);
+constructor TContext.Create(element:TUIElement;style:PElementStyle);
  var
   v:integer;
+  hoverEl:TUIElement;
  begin
   if element.IsEnabled then v:=0 else v:=1;
   disabled.Init(v);
-  if underMouse=element then v:=1 else v:=0;
-  hover.Init(v);
+  hover.Init(HoverState(element,style));
   v:=0;
   if element is TUIButton then
    if TUIButton(element).pressed then v:=1;
@@ -1050,8 +1118,7 @@ procedure TContext.Update(element:TUIElement;style:PElementStyle);
   v,duration:integer;
  begin
   // Mouse hover state
-  if (underMouse=element) or element.HasChild(underMouse) then v:=1
-   else v:=0;
+  v:=HoverState(element,style);
   if hover.FinalValue<>v then begin
    if v=1 then duration:=120 else duration:=80; // default
    duration:=style.GetInt('hoverTime',duration);
@@ -1081,6 +1148,17 @@ procedure TContext.Update(element:TUIElement;style:PElementStyle);
    if v=0 then duration:=style.GetInt('enableTime',duration);
    disabled.Animate(v,duration);
   end;
+ end;
+
+function TContext.HoverState(element:TUIElement;style:PElementStyle):byte;
+ var
+  hoverEl:TUIElement;
+ begin
+  hoverEl:=element;
+  if SameText(style.GetString('hover'),'parent') and (element.parent<>nil) then
+   hoverEl:=element.parent;
+  if (underMouse=hoverEl) or hoverEl.HasChild(underMouse) then result:=1
+   else result:=0;
  end;
 
 initialization

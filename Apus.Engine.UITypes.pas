@@ -483,7 +483,7 @@ implementation
 
  function TUIElement.GetClientRect:TRect2s; // Get element's client area in own CS
   begin
-   result.Init(0,0,clientWidth,clientHeight);
+   result.InitWH(0,0,clientWidth,clientHeight);
   end;
 
  function TUIElement.GetRectInParentSpace:TRect2s; // Get element's area in parent client space)

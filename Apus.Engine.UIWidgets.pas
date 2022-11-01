@@ -242,9 +242,8 @@ interface
    min,max:single; // range
    pagesize:single; // slider size (within range)
    step:single; // add/subtract this amount with mouse scroll or similar events
-   minSliderSize:integer; // minimal slider size in pixels
    sliderUnder:boolean; // mouse is over slider
-   sliderStart,sliderEnd:single; // relative position of slider (in 0..size.x/y range)
+   sliderStart,sliderEnd:single; // relative position of slider (in 0..1 range)
    autoHide:boolean; // hide if pagesize>=range
    constructor Create(width,height:single;barName:string;parent_:TUIElement); overload;
    constructor Create(width,height:single;min,max,pageSize,value:single;parent:TUIElement;barName:string=''); overload;
@@ -257,11 +256,12 @@ interface
    procedure Link(elem:TUIElement); virtual;
    // Сигналы от этих кнопок будут использоваться для перемещения ползунка
    procedure UseButtons(lessBtn,moreBtn:string);
-   procedure CalcSliderPos;
+   procedure CalcSliderPos(minSize:single=0.5); // minimal slider size (relative to width)
    procedure onTimer; override;
 
    procedure onMouseMove; override;
    procedure onMouseButtons(button:byte;state:boolean); override;
+   procedure onMouseScroll(value:integer); override;
    procedure onLostFocus; override;
    property value:single read GetValue write SetValue;
    property isAnimating:boolean read GetAnimating;
@@ -1223,38 +1223,49 @@ function TUIScrollBar.GetStep:single;
    result:=step;
   end;
 
-procedure TUIScrollBar.CalcSliderPos;
+// This calculate sliderStart, cliderEnd and sliderUnder fields
+procedure TUIScrollBar.CalcSliderPos(minSize:single);
  var
-  minSliderSize,fullSize,v,pSize:single;
+  minSliderSize,sliderSize,fullSize,v,addSpace:single;
  begin
+  if max<=min then begin
+   sliderStart:=0;
+   sliderEnd:=1;
+   sliderUnder:=false;
+   exit;
+  end;
+
   if horizontal then begin
-   minSliderSize:=size.y*0.75;
+   if minSize<2 then // relative to width?
+    minSliderSize:=size.y*minSize;
    fullSize:=size.x;
   end else begin
-   minSliderSize:=size.x*0.75;
+   if minSize<2 then
+    minSliderSize:=size.x*minSize;
    fullSize:=size.y;
   end;
-  pSize:=pageSize;
-  if pSize>max-min then pSize:=max-min;
   v:=rValue.Value;
-  v:=Clamp(v,min,max-pSize);
-  sliderStart:=fullSize*(v-min)/(max-min);
-  if sliderStart<0 then sliderStart:=0;
-  sliderEnd:=fullSize*(v+pSize-min)/(max-min);
-  if sliderEnd>fullSize then sliderEnd:=fullSize;
-  if sliderEnd-sliderStart<minSliderSize then begin
-   // slider is too small - treat it as a point
-   fullSize:=fullSize-minSliderSize;
-   sliderStart:=fullSize*(v-min)/(max-min);
-   sliderEnd:=sliderStart+minSliderSize;
+  v:=Clamp(v,min,max-pageSize);
+
+  sliderStart:=(v-min)/(max-min);
+  sliderStart:=Clamp(sliderStart,0,1);
+  sliderEnd:=(v+pageSize-min)/(max-min);
+  sliderEnd:=Clamp(sliderEnd,sliderStart,1);
+
+  sliderSize:=fullSize*(sliderEnd-sliderStart);
+  if sliderSize<minSliderSize then begin // expand slider to meet the minimal size requirement
+   addSpace:=(minSliderSize-sliderSize)/fullSize; // relative value to expand
+   sliderStart:=sliderStart-addSpace*(v-min)/(max-min);
+   sliderEnd:=sliderEnd+addSpace*(1-(v-min)/(max-min));
   end;
+
   sliderRect:=globalRect;
   if horizontal then begin
-   sliderRect.left:=globalRect.left+round(globalRect.Width*(sliderStart/size.x));
-   sliderRect.right:=globalRect.left+round(globalRect.Width*(sliderEnd/size.x));
+   sliderRect.left:=round(LinearMix(globalRect.left,globalRect.Right,sliderStart));
+   sliderRect.right:=round(LinearMix(globalRect.left,globalRect.Right,sliderEnd));
   end else begin
-   sliderRect.Top:=globalRect.top+round(globalRect.Height*(sliderStart/size.y));
-   sliderRect.Bottom:=globalRect.top+round(globalRect.Height*(sliderEnd/size.y));
+   sliderRect.Top:=round(LinearMix(globalRect.Top,globalRect.Bottom,sliderStart));
+   sliderRect.Bottom:=round(LinearMix(globalRect.Top,globalRect.Bottom,sliderEnd));
   end;
   sliderUnder:=PtInRect(sliderRect,Point(curMouseX,curMouseY));
  end;
@@ -1367,7 +1378,14 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
    end;
   end;
 
- procedure TUIScrollBar.onTimer;
+ procedure TUIScrollBar.onMouseScroll(value:integer);
+  begin
+   inherited;
+   if linkedControl<>nil then
+    linkedControl.onMouseScroll(value);
+  end;
+
+procedure TUIScrollBar.onTimer;
   var
    val:single;
   begin
