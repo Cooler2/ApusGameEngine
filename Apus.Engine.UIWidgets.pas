@@ -95,7 +95,7 @@ interface
   TButtonStyle=(bsNormal,   // обычная кнопка
                 bsSwitch,   // кнопка-переключатель (фиксирующаяся в нажатом положении)
                 bsCheckbox);    // кнопка-надпись (чекбокс)
-  TUIButton=class(TUIImage)
+  TUIButton=class(TUIElement)
    default:boolean; // кнопка по умолчанию (влияет только на отрисовку, но не на поведение!!!)
    pressed:boolean; // кнопка вдавлена
    pending:boolean; // состояние временной недоступности (не реагирует на нажатия)
@@ -391,7 +391,7 @@ implementation
   var
    i:integer;
   begin
-   inherited Create(width,height,btnName,parent_);
+   inherited Create(width,height,parent_,btnName);
    shape:=shapeFull;
    font:=BtnFont;
    btnStyle:=bsNormal;
