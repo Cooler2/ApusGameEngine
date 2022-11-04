@@ -104,6 +104,7 @@ interface
 
   // Shortcut to the element under mouse
   function UnderMouse:TUIElement;
+  function UnderMouseName:string;
   function FocusedElement:TUIElement;
   procedure SetFocusTo(e:TUIElement);
   function ModalElement:TUIElement;
@@ -341,6 +342,15 @@ implementation
  function UnderMouse:TUIElement;
   begin
    result:=Apus.Engine.UITypes.underMouse;
+  end;
+
+ function UnderMouseName:string;
+  var
+   el:TUIElement;
+  begin
+   el:=UnderMouse;
+   if el<>nil then result:=el.name
+    else result:='';
   end;
 
  function FocusedElement:TUIElement;
