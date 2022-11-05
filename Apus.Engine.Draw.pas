@@ -1465,7 +1465,7 @@ end;
 function TDrawer.Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
 begin
  result:=Min2d((x2-x1)/texture.width,(y2-y1)/texture.height);
- RotScaled(x1+x2/2,y1+y2/2,result,result,0,texture,color);
+ RotScaled((x1+x2)/2,(y1+y2)/2,result,result,0,texture,color);
 end;
 
 procedure TDrawer.DebugScreen1;
