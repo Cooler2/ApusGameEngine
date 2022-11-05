@@ -72,6 +72,8 @@ interface
   function UIScrollBar(name:string;mustExist:boolean=false):TUIScrollBar;
   function UIComboBox(name:string;mustExist:boolean=false):TUIComboBox;
   function UIListBox(name:string;mustExist:boolean=false):TUIListBox;
+  function UICheckBox(name:string;mustExist:boolean=false):TUICheckbox;
+  function UIRadioButton(name:string;mustExist:boolean=false):TUIRadioButton;
 
   // Controls setup
   procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;btnType:TButtonStyle;
@@ -251,6 +253,27 @@ implementation
    if c=nil then c:=TUIListBox.Create(0,0,0,name,0,nil);
    result:=c as TUIListBox;
   end;
+
+ function UICheckBox(name:string;mustExist:boolean=false):TUICheckbox;
+  var
+   c:TUIElement;
+  begin
+   c:=FindElement(name,mustExist);
+   if not (c is TUICheckbox) then c:=nil;
+   if c=nil then c:=TUICheckbox.Create(0,0,name,'',nil);
+   result:=c as TUICheckbox;
+  end;
+
+ function UIRadioButton(name:string;mustExist:boolean=false):TUIRadioButton;
+  var
+   c:TUIElement;
+  begin
+   c:=FindElement(name,mustExist);
+   if not (c is TUIRadioButton) then c:=nil;
+   if c=nil then c:=TUIRadioButton.Create(0,0,'','',nil);
+   result:=c as TUIRadioButton;
+  end;
+
 
   // Make sure root controls list is sorted
  procedure SortRootElements;
