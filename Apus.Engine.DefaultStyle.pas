@@ -476,26 +476,34 @@ implementation
     with control do begin
      if src<>'' then begin
       // SRC = procesure address?
-      if copy(src,1,5)='proc:' then begin
+      if HasPrefix(src,'proc:') then begin
        proc:=pointer(HexToInt(copy(src,6,20)));
        proc(control);
        exit;
       end;
       // SRC = event (must be immediate)
-      if copy(src,1,6)='event:' then begin
+      if HasPrefix(src,'event:') then begin
        Signal(copy(src,7,200),PtrUInt(control));
        exit;
       end;
-      // SRC = filename?
-      lname:=FileName(src);
-      p:=imgHash.Get(lname);
-      if p=-1 then begin
-       tex:=nil;
-       LoadImage(tex,lname);
-       imgHash.Put(lname,UIntPtr(tex));
-      end else
-       tex:=pointer(p);
-      draw.Scaled(x1,y1,x2-1,y2-1,tex,control.color);
+      // SRC = texture name?
+      tex:=nil;
+      if HasPrefix(src,'tex:') then begin
+       tex:=TTexture(TTexture.FindByName(copy(src,5,100)));
+      end else begin
+       // SRC = filename?
+       lname:=FileName(src);
+{       p:=imgHash.Get(lname);
+       if p=-1 then begin
+        tex:=nil;
+        LoadImage(tex,lname);
+        imgHash.Put(lname,UIntPtr(tex));
+       end else
+        tex:=pointer(p);   }
+      end;
+      if tex<>nil then begin
+       draw.Scaled(x1,y1,x2-1,y2-1,tex,control.color);
+      end;
      end;
     end;
   end;
@@ -551,6 +559,7 @@ implementation
    context:=TContext(element.styleContext);
    sStyle:=style.GetAttr('style','flat');
    color:=element.color;
+   if color=clDefault then color:=$FFA8B0BC;
    scale:=element.globalScale;
 
    if SameText(sStyle,'flat') then begin
@@ -813,10 +822,13 @@ implementation
    radius,bWidth,scale:single;
    x1,y1,x2,y2:integer;
    v:single;
-  procedure ImportRect(r:TRect);
+  procedure ImportRect(r:TRect;expand:single=0);
+   var
+    d:integer;
    begin
-    x1:=r.Left; x2:=r.right-1;
-    y1:=r.top; y2:=r.bottom-1;
+    d:=round(expand);
+    x1:=r.Left-d; x2:=r.right-1+d;
+    y1:=r.top-d; y2:=r.bottom-1+d;
    end;
   procedure DrawBlock;
    var
@@ -846,7 +858,7 @@ implementation
    v:=CurValue(context.hover);
    if v>0 then begin
     fillColor:=MixColor(style,'hover.fill',fillColor,v);
-    borderColor:=MixColor(style,'hover.border',borderColor,v);
+    borderColor:=MixColor(style,'hover.borderColor',borderColor,v);
     radius:=LinearMix(radius,style.GetNumber('hover.radius',radius),v);
     bWidth:=LinearMix(bWidth,style.GetNumber('hover.borderWidth',bWidth),v);
    end;
@@ -863,7 +875,7 @@ implementation
    radius:=style.GetNumber('innerRadius',radius);
    bWidth:=style.GetNumber('innerBorderWidth',bWidth);
    if (fillColor<>0) or (borderColor<>0) then begin
-    ImportRect(element.GetClientPosOnScreen);
+    ImportRect(element.GetClientPosOnScreen,bWidth*scale);
     DrawBlock;
    end;
   end;
@@ -1061,8 +1073,8 @@ function TElementStyle.ActualStyleInfo:string8;
      end else
       raise EWarning.Create('Style syntax error at %d: "%s"',[from,actualStyle]);
     end;
-    p:=PosFrom(':',actualStyle,from+1);
-    if p=0 then p:=PosFrom('=',actualStyle,from+1);
+    p:=PosFromTo(':',actualStyle,from+1,last);
+    if (p=0) or (p>last) then p:=PosFromTo('=',actualStyle,from+1,last);
     if p>0 then begin
      // name:value pair
      attr:=LowerCase(Chop(Copy(actualStyle,from,p-from)));
@@ -1163,5 +1175,5 @@ function TContext.HoverState(element:TUIElement;style:PElementStyle):byte;
 
 initialization
  RegisterUIStyle(0,DefaultDrawer,'Default');
- TUIEditBox.SetDefault('styleInfo','borderWidth=1;border=default');
+ TUIEditBox.SetDefault('styleInfo','borderWidth=1; radius=3; borderColor:8000; fill:8FFF');
 end.
