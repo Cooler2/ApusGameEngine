@@ -302,7 +302,8 @@ interface
    frame:TUIFrame;
    popup:TUIListBox;
    maxlines:integer; // max lines to show without scrolling
-   constructor Create(width,height:single;bFont:TFontHandle;list:WStringArr;parent_:TUIElement;name:string);
+   constructor Create(width,height:single;bFont:TFontHandle;list:WStringArr;parent_:TUIElement;name:string); overload;
+   constructor Create(width,height:single;parent_:TUIElement;name:string); overload;
    procedure AddItem(item:WideString;tag:cardinal=0;hint:WideString=''); virtual;
    procedure SetItem(index:integer;item:WideString;tag:cardinal=0;hint:string=''); virtual;
    procedure ClearItems;
@@ -672,8 +673,8 @@ constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFo
   begin
    inherited Create(width,height,parent_,labelName);
    shape:=shapeFull;
-   if color=clDefault then color:=color_;
-   if font=0 then font:=bFont;
+   if color<>clDefault then color:=color_;
+   if bFont<>0 then font:=bFont;
    align:=taLeft;
    sendSignals:=ssMajor;
    verticalOffset:=0;
@@ -1689,6 +1690,11 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
     if (comboPop<>nil) and (e<>nil) and
       not (e.HasParent(comboPop) or e.HasParent(comboPop.frame)) then comboPop.onDropDown;
    end;
+  end;
+
+ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:string);
+  begin
+   Create(width,height,0,nil,parent_,name);
   end;
 
  constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:WStringArr;
