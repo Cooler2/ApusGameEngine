@@ -8,7 +8,7 @@
 // ------------------------------------------------------
 unit Apus.Engine.UITypes;
 interface
-uses Types, Apus.Classes, Apus.Engine.Types,
+uses Types, Apus.Types, Apus.Classes, Apus.Engine.Types,
    Apus.Common, Apus.AnimatedValues, Apus.Regions, Apus.Geom2d;
 {$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
