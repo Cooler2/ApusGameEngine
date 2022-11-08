@@ -279,7 +279,7 @@ type
   function IsActiveWindow:boolean; virtual;
 
   class procedure SetDefault(name:string;value:variant); // SetClassAttribute('defalut'+name,value)
-  procedure AddStyle(style:string8); // use 'name:value' or 'state.name:value' syntax
+  procedure SetStyle(name,value:string8); // use 'name:value' or 'state.name:value' syntax
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
@@ -1105,9 +1105,18 @@ function TUIElement.IsChild(c:TUIElement):boolean;
     end;
   end;
 
- procedure TUIElement.AddStyle(style:string8);
+ procedure TUIElement.SetStyle(name,value:string8);
+  var
+   i,j:integer;
   begin
-   styleInfo:=style+';'+styleInfo
+   i:=PosFrom(name,fStyleInfo,1,true);
+   if i>0 then begin
+    j:=PosFrom(';',fStyleInfo,i+1);
+    if j=0 then j:=high(fStyleInfo);
+    Delete(fStyleInfo,i,j-i);
+   end;
+   if value<>'' then name:=name+':'+value+';';
+   fStyleInfo:=name+fStyleInfo
   end;
 
  procedure TUIElement.AddToRootElements;
