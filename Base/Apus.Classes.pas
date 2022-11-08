@@ -1,4 +1,4 @@
-// This unit containing some base classes
+﻿// This unit containing some base classes
 
 // Copyright (C) 2021 Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -6,7 +6,7 @@
 
 unit Apus.Classes;
 interface
-uses Apus.Types;
+uses SysUtils, Apus.Types;
 
 type
  TObjectEx=class
@@ -31,6 +31,37 @@ type
  end;
  TNamedObjectClass=class of TNamedObject;
  TNamedObjects=array of TNamedObject;
+
+  // Base exception with stack trace support
+  TBaseException=class(Exception)
+   private
+    FAddress:cardinal;
+   public
+    constructor Create(const msg:string); overload;
+    constructor Create(const msg:string; fields:array of const); overload;
+    property Address:cardinal read FAddress;
+  end;
+
+  // Предупреждения следует вызывать в ситуациях, когда нужно
+  // привлечь внимание к ненормальной ситуации, которая впрочем не
+  // мешает продолжать нормальную работу, никаких дополнительных действий от
+  // верхнего уровня не требуется
+  // (например: процедура не смогла отработать, но это не нарушает работу верхнего уровня)
+  EWarning=class(TBaseException);
+
+  // Обычная ошибка - ситуация, когда выполнение программы явно нарушено
+  // и продолжение работы возможно только если верхний уровень обработает ошибку и примет меры
+  // (например: функция не смогла выполнить требуемые действия и не вернула результат. Очевидно,
+  // что нормальное продолжение возможно только если верхний уровень откажется от использования результата)
+  EError=class(TBaseException);
+
+  // Фатальная ошибка - продолжение работы невозможно, верхний уровень обязан инициировать
+  // завершение выполнения программы. Это исключение следует использовать тогда, когда
+  // ошибка не может быть исправлена верхним уровнем
+  // (например: обнаружено что-то, чего быть никак не может, т.е. результат повреждения
+  // данных или ошибки в алгоритме, ведущей к принципиально неправильной работе. Чтобы
+  // избежать возможной порчи данных при последующих вызовах, следует немедленно прекратить работу)
+  EFatalError=class(TBaseException);
 
 implementation
 uses Apus.Common, Apus.Structs;
@@ -121,6 +152,61 @@ class function TObjectEx.GetClassAttribute(attrName:String8;defaultValue:variant
   result:=GetClassAttribute(attrName);
   if not HasValue(result) then result:=defaultValue;
  end;
+
+{ TBaseException }
+constructor TBaseException.Create(const msg: string);
+var
+ stack:string;
+ n,i:integer;
+ adrs:array[1..6] of cardinal;
+begin
+ {$IFDEF CPU386}
+ asm
+  pushad
+  mov edx,ebp
+  mov ecx,ebp
+  add ecx,$100000 // не трогать стек выше EBP+1Mb
+  mov n,0
+  lea edi,adrs
+@01:
+  mov eax,[edx+4]
+  stosd
+  mov edx,[edx]
+  cmp edx,ebp
+  jb @02
+  cmp edx,ecx
+  ja @02
+  inc n
+  cmp n,3
+  jne @01
+@02:
+  popad
+ end;
+ stack:='[';
+ for i:=n downto 1 do begin
+  stack:=stack+inttohex(adrs[i],8);
+  if i>1 then stack:=stack+'->';
+ end;
+ inherited Create(stack+'] '+msg);
+ asm
+  mov edx,[ebp+4]
+  mov eax,self
+  mov [eax].FAddress,edx
+ end;
+ {$ELSE}
+  {$IFDEF FPC}
+  inherited Create(msg+' caller: '+PtrToStr(get_caller_addr(get_frame)));
+  {$ELSE}
+  inherited Create(msg);
+  {$ENDIF}
+ {$ENDIF}
+end;
+
+constructor TBaseException.Create(const msg:String; fields:array of const);
+begin
+ Create(Format(msg,fields));
+end;
+
 
 initialization
  classAttributes.Init(100);
