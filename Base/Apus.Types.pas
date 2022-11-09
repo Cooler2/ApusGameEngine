@@ -310,7 +310,8 @@ function TBuffer.ReadString:String8;
  begin
   size:=ReadFlex;
   SetLength(result,size);
-  Read(result[1],size);
+  if size>0 then
+   Read(result[1],size);
  end;
 
 function TBuffer.ReadUInt:cardinal;
@@ -519,7 +520,8 @@ procedure TWriteBuffer.WriteStr(s:String8);
  begin
   l:=length(s);
   WriteFlex(l);
-  Write(s[1],l);
+  if l>0 then
+   Write(s[1],l);
  end;
 
 function TWriteBuffer.AsBuffer:TBuffer;
