@@ -5269,8 +5269,8 @@ procedure DumpDir(path:string);
    begin
     res:=FindFirst(path+PathSeparator+mask,faAnyFile,sr);
     while res=0 do begin
-     if sr.Attr and faDirectory>0 then continue;
-     AddString(list,path+PathSeparator+sr.name);
+     if sr.Attr and faDirectory=0 then
+       AddString(list,path+PathSeparator+sr.name);
      res:=FindNext(sr);
     end;
     FindClose(sr);
