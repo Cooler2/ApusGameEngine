@@ -1,11 +1,11 @@
-// Basic types definition
+﻿// Basic types definition
 
 // Copyright (C) 2021 Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.Types;
 interface
-uses Types;
+uses Types {$IFDEF MSWINDOWS},windows{$ENDIF};
 type
   // 8-bit string type (assuming UTF-8 encoding)
   Char8 = UTF8Char;
@@ -168,6 +168,46 @@ type
    data:ByteArray;
   end;
 
+  // Critical section wrapper: provides better debug info
+  PCriticalSection=^TMyCriticalSection;
+  TMyCriticalSection=packed record
+   crs:TRTLCriticalSection;
+   name:String8;      // имя секции
+   caller:UIntPtr;  // точка, из которой была попытка завладеть секцией
+   owner:UIntPtr;   // точка, из которой произошел удачный захват секции
+   {$IFNDEF MSWINDOWS}
+   owningThread:TThreadID;
+   {$ENDIF}
+   tryingThread:TThreadID;  // нить, пытающаяся захватить секцию
+   time:int64;       // время наступления таймаута захвата
+   lockCount:integer; // how many times locked (recursion)
+   level:integer;     // it's not allowed to enter section with lower level from section with higher level
+   prevSection:PCriticalSection;
+   procedure Enter; inline; // for compatibility
+   procedure Leave; inline; // for compatibility
+   function GetSysLockCount:integer; inline;
+   function GetSysOwner:TThreadID; inline;
+   function GetOwningThread:TThreadID; inline;
+  end;
+
+  {$IF Declared(SRWLOCK)}
+  TSRWLock=packed record
+   lock:SRWLock;
+   name:string;
+   // Debug facilities
+   lockedEx:boolean;
+   lastLockedEx:pointer;
+   lockRead:integer;
+   lastLockedRead:pointer;
+   procedure Init(name:string);
+   procedure StartRead(caller:pointer=nil);
+   procedure FinishRead;
+   procedure StartWrite(caller:pointer=nil);
+   procedure FinishWrite;
+  end;
+  {$ENDIF}
+
+
 implementation
  uses Apus.Common, SysUtils;
 
@@ -270,7 +310,8 @@ function TBuffer.ReadString:String8;
  begin
   size:=ReadFlex;
   SetLength(result,size);
-  Read(result[1],size);
+  if size>0 then
+   Read(result[1],size);
  end;
 
 function TBuffer.ReadUInt:cardinal;
@@ -479,7 +520,8 @@ procedure TWriteBuffer.WriteStr(s:String8);
  begin
   l:=length(s);
   WriteFlex(l);
-  Write(s[1],l);
+  if l>0 then
+   Write(s[1],l);
  end;
 
 function TWriteBuffer.AsBuffer:TBuffer;
@@ -527,5 +569,76 @@ class operator half.Implicit(const h:half):single;
   if h.value and $8000>0 then res:=res or $80000000;
   move(res,result,4);
  end;
+
+procedure TMyCriticalSection.Enter;  // for compatibility
+ begin
+  EnterCriticalSection(self);
+ end;
+
+procedure TMyCriticalSection.Leave; // for compatibility
+ begin
+  LeaveCriticalSection(self);
+ end;
+
+function TMyCriticalSection.GetSysLockCount:integer;
+ begin
+ end;
+
+function TMyCriticalSection.GetSysOwner:TThreadID;
+ begin
+ end;
+
+function TMyCriticalSection.GetOwningThread:TThreadID;
+ begin
+  {$IFDEF MSWINDOWS}
+  result:=crs.OwningThread;
+  {$ELSE}
+  result:=owningThread;
+  {$ENDIF}
+ end;
+
+{$IF Declared(SRWLOCK)}
+{ TSRWLock }
+procedure TSRWLock.Init(name: string);
+begin
+ self.name:=name;
+ lockedEx:=false;
+ lockRead:=0;
+ InitializeSrwLock(lock);
+end;
+
+procedure TSRWLock.StartRead(caller:pointer);
+begin
+ AcquireSRWLockShared(lock);
+ InterlockedIncrement(lockRead);
+ if caller=nil then
+  lastLockedRead:=GetCaller
+ else
+  lastLockedRead:=caller;
+end;
+
+procedure TSRWLock.FinishRead;
+begin
+ InterlockedDecrement(lockRead);
+ ReleaseSRWLockShared(lock);
+end;
+
+procedure TSRWLock.StartWrite(caller:pointer);
+begin
+ AcquireSRWLockExclusive(lock);
+ lockedEx:=true;
+ if caller=nil then
+  lastLockedEx:=GetCaller
+ else
+  lastLockedEx:=caller;
+end;
+
+procedure TSRWLock.FinishWrite;
+begin
+ lockedEx:=false;
+ ReleaseSRWLockExclusive(lock);
+end;
+{$ENDIF}
+
 
 end.

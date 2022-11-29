@@ -2034,6 +2034,60 @@ procedure Test1(p1,p2,p3:integer);
   readln;
  end;      *)
 
+ procedure TestPos;
+  var
+   st:string;
+   st8:string8;
+   wst:WideString;
+  begin
+   st:='Hello world!';
+   st8:=st; wst:=st;
+   // Normal
+   ASSERT(PosFrom('l',st)=3);
+   ASSERT(PosFrom('l',st,4)=4);
+   ASSERT(PosFrom('l',st,5)=10);
+   ASSERT(PosFrom('s',st)=0);
+   ASSERT(PosFrom('o',st,10)=0);
+   ASSERT(PosFrom('o',st,20)=0);
+   ASSERT(PosFrom('!',st)=12);
+   ASSERT(PosFrom('ll',st)=3);
+   ASSERT(PosFrom('ll',st,4)=0);
+   ASSERT(PosFrom('ll',st,40)=0);
+   ASSERT(PosFrom('world!',st,3)=7);
+   ASSERT(PosFromTo('o',st,1,5)=5);
+   ASSERT(PosFromTo('o',st,1,4)=0);
+
+   ASSERT(PosFrom('l',wst)=3);
+   ASSERT(PosFrom('l',wst,4)=4);
+   ASSERT(PosFrom('l',wst,5)=10);
+   ASSERT(PosFrom('s',wst)=0);
+   ASSERT(PosFrom('o',wst,10)=0);
+   ASSERT(PosFrom('o',wst,20)=0);
+   ASSERT(PosFrom('!',wst)=12);
+   ASSERT(PosFrom(WideString('ll'),wst)=3);
+   ASSERT(PosFrom(WideString('ll'),wst,4)=0);
+   ASSERT(PosFrom(WideString('ll'),wst,40)=0);
+   ASSERT(PosFrom(WideString('world!'),wst,3)=7);
+   ASSERT(PosFromTo('o',wst,1,5)=5);
+   ASSERT(PosFromTo('o',wst,1,4)=0);
+
+   ASSERT(PosFrom('l',st8)=3);
+   ASSERT(PosFrom('l',st8,4)=4);
+   ASSERT(PosFrom('l',st8,5)=10);
+   ASSERT(PosFrom('s',st8)=0);
+   ASSERT(PosFrom('o',st8,10)=0);
+   ASSERT(PosFrom('o',st8,20)=0);
+   ASSERT(PosFrom('!',st8)=12);
+   ASSERT(PosFrom(String8('ll'),st8)=3);
+   ASSERT(PosFrom(String8('ll'),st8,4)=0);
+   ASSERT(PosFrom(String8('ll'),st8,40)=0);
+   ASSERT(PosFrom(String8('world!'),wst,3)=7);
+   ASSERT(PosFromTo('o',st8,1,5)=5);
+   ASSERT(PosFromTo('o',st8,1,4)=0);
+
+   writeln('String Pos test: OK');
+  end;
+
  procedure TestStringComp;
   var
    t:int64;
@@ -2068,6 +2122,7 @@ begin
  UseLogFile('log.txt',true);
  try
   //Test1(1,2,3);
+  TestPos;
   TestStringComp;
   TestRandom;
   TestHalf;

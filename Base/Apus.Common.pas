@@ -85,75 +85,11 @@ interface
   // Useful to pass arbitrary data instead of pointer:size pair
   TBuffer = Apus.Types.TBuffer;
 
-  // Critical section wrapper: provides better debug info
-  PCriticalSection=^TMyCriticalSection;
-  TMyCriticalSection=packed record
-   crs:TRTLCriticalSection;
-   name:String8;      // имя секции
-   caller:UIntPtr;  // точка, из которой была попытка завладеть секцией
-   owner:UIntPtr;   // точка, из которой произошел удачный захват секции
-   {$IFNDEF MSWINDOWS}
-   owningThread:TThreadID;
-   {$ENDIF}
-   tryingThread:TThreadID;  // нить, пытающаяся захватить секцию
-   time:int64;       // время наступления таймаута захвата
-   lockCount:integer; // how many times locked (recursion)
-   level:integer;     // it's not allowed to enter section with lower level from section with higher level
-   prevSection:PCriticalSection;
-   procedure Enter; inline; // for compatibility
-   procedure Leave; inline; // for compatibility
-   function GetSysLockCount:integer; inline;
-   function GetSysOwner:TThreadID; inline;
-   function GetOwningThread:TThreadID; inline;
-  end;
+  TMyCriticalSection = Apus.Types.TMyCriticalSection;
 
-  {$IF Declared(SRWLOCK)}
-  TSRWLock=packed record
-   lock:SRWLock;
-   name:string;
-   // Debug facilities
-   lockedEx:boolean;
-   lastLockedEx:pointer;
-   lockRead:integer;
-   lastLockedRead:pointer;
-   procedure Init(name:string);
-   procedure StartRead(caller:pointer=nil);
-   procedure FinishRead;
-   procedure StartWrite(caller:pointer=nil);
-   procedure FinishWrite;
-  end;
-  {$ENDIF}
-
-  // Base exception with stack trace support
-  TBaseException=class(Exception)
-   private
-    FAddress:cardinal;
-   public
-    constructor Create(const msg:string); overload;
-    constructor Create(const msg:string; fields:array of const); overload;
-    property Address:cardinal read FAddress;
-  end;
-
-  // Предупреждения следует вызывать в ситуациях, когда нужно
-  // привлечь внимание к ненормальной ситуации, которая впрочем не
-  // мешает продолжать нормальную работу, никаких дополнительных действий от
-  // верхнего уровня не требуется
-  // (например: процедура не смогла отработать, но это не нарушает работу верхнего уровня)
-  EWarning=class(TBaseException);
-
-  // Обычная ошибка - ситуация, когда выполнение программы явно нарушено
-  // и продолжение работы возможно только если верхний уровень обработает ошибку и примет меры
-  // (например: функция не смогла выполнить требуемые действия и не вернула результат. Очевидно,
-  // что нормальное продолжение возможно только если верхний уровень откажется от использования результата)
-  EError=class(TBaseException);
-
-  // Фатальная ошибка - продолжение работы невозможно, верхний уровень обязан инициировать
-  // завершение выполнения программы. Это исключение следует использовать тогда, когда
-  // ошибка не может быть исправлена верхним уровнем
-  // (например: обнаружено что-то, чего быть никак не может, т.е. результат повреждения
-  // данных или ошибки в алгоритме, ведущей к принципиально неправильной работе. Чтобы
-  // избежать возможной порчи данных при последующих вызовах, следует немедленно прекратить работу)
-  EFatalError=class(TBaseException);
+  EWarning = Apus.Classes.EWarning;
+  EError = Apus.Classes.EError;
+  EFatalError = Apus.Classes.EFatalError;
 
   TSplines=record
    linear:TSplineFunc;
@@ -372,8 +308,11 @@ interface
  // Search for a substring from specified point
  function PosFrom(substr,str:string;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
  function PosFrom(substr,str:WideString;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
+ function PosFromTo(substr,str:string;minIndex:integer=1;maxIndex:integer=MaxInt;ignoreCase:boolean=false):integer; overload;
+ function PosFromTo(substr,str:WideString;minIndex:integer=1;maxIndex:integer=MaxInt;ignoreCase:boolean=false):integer; overload;
  {$IFDEF ADDANSI}
- function PosFrom(substr,str:String8;minIndex:integer=1;ignoreCase:boolean=false):integer; overload; {$ENDIF}
+ function PosFrom(substr,str:String8;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
+ function PosFromTo(substr,str:String8;minIndex:integer=1;maxIndex:integer=MaxInt;ignoreCase:boolean=false):integer; overload; {$ENDIF}
  function LastPos(substr,str:String8;ignoreCase:boolean=false):integer; overload;
  // Extract substring "prefix|xxx|suffix"
  function ExtractStr(str,prefix,suffix:string;out prefIndex:integer):string;
@@ -4099,17 +4038,41 @@ function BinToStr;
     result[i]:=a[i];
   end;
 
- function PosFrom(substr,str:WideString;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
+ function PosFrom(substr,str:string;minIndex:integer=1;ignoreCase:boolean=false):integer; overload; inline;
+  begin
+   result:=PosFromTo(substr,str,minIndex,MaxInt,ignoreCase);
+  end;
+
+ function PosFrom(substr,str:WideString;minIndex:integer=1;ignoreCase:boolean=false):integer; overload; inline;
+  begin
+   result:=PosFromTo(substr,str,minIndex,MaxInt,ignoreCase);
+  end;
+
+ function PosFrom(substr,str:String8;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
+  begin
+   result:=PosFromTo(substr,str,minIndex,MaxInt,ignoreCase);
+  end;
+
+ function PosFromTo(substr,str:WideString;minIndex:integer=1;maxIndex:integer=MaxInt;ignoreCase:boolean=false):integer; overload;
   var
    m,n,i:integer;
+   ch:WideChar;
   begin
    result:=0;
    if ignoreCase then begin
     substr:=WideLowercase(substr);
     str:=WideLowercase(str);
    end;
+   n:=length(str);
+   if n<maxIndex then maxIndex:=n;
    n:=length(substr);
-   m:=length(str)-n+1;
+   if n=1 then begin // trivial case
+    ch:=substr[1];
+    for i:=minIndex to maxIndex do
+     if str[i]=ch then exit(i);
+    exit(0);
+   end;
+   m:=maxIndex-n+1;
    while minIndex<=m do begin
     i:=0;
     while (i<n) and (str[minIndex+i]=substr[i+1]) do inc(i);
@@ -4118,17 +4081,26 @@ function BinToStr;
    end;
   end;
 
- function PosFrom(substr,str:string;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
+ function PosFromTo(substr,str:string;minIndex:integer=1;maxIndex:integer=MaxInt;ignoreCase:boolean=false):integer; overload;
   var
    m,n,i:integer;
+   ch:char;
   begin
    result:=0;
    if ignoreCase then begin
     substr:=lowercase(substr);
     str:=lowercase(str);
    end;
+   n:=length(str);
+   if n<maxIndex then maxIndex:=n;
    n:=length(substr);
-   m:=length(str)-n+1;
+   if n=1 then begin // trivial case
+    ch:=substr[1];
+    for i:=minIndex to maxIndex do
+     if str[i]=ch then exit(i);
+    exit(0);
+   end;
+   m:=maxIndex-n+1;
    while minIndex<=m do begin
     i:=0;
     while (i<n) and (str[minIndex+i]=substr[i+1]) do inc(i);
@@ -4138,15 +4110,25 @@ function BinToStr;
   end;
 
 {$IFDEF ADDANSI}
- function PosFrom(substr,str:String8;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
+ function PosFromTo(substr,str:String8;minIndex:integer=1;maxIndex:integer=MaxInt;ignoreCase:boolean=false):integer; overload;
   var
    m,n,i:integer;
+   ch:char8;
   begin
    result:=0;
    if ignoreCase then
     substr:=UpperCase(substr);
+
+   n:=length(str);
+   if n<maxIndex then maxIndex:=n;
    n:=length(substr);
-   m:=length(str)-n+1;
+   if n=1 then begin // trivial case
+    ch:=substr[1];
+    for i:=minIndex to maxIndex do
+     if str[i]=ch then exit(i);
+    exit(0);
+   end;
+   m:=maxIndex-n+1;
    while minIndex<=m do begin
     i:=0;
     if ignoreCase then
@@ -5776,60 +5758,6 @@ begin
 end;
 {$ENDIF}
 
-{ TBaseException }
-constructor TBaseException.Create(const msg: string);
-var
- stack:string;
- n,i:integer;
- adrs:array[1..6] of cardinal;
-begin
- {$IFDEF CPU386}
- asm
-  pushad
-  mov edx,ebp
-  mov ecx,ebp
-  add ecx,$100000 // не трогать стек выше EBP+1Mb
-  mov n,0
-  lea edi,adrs
-@01:
-  mov eax,[edx+4]
-  stosd
-  mov edx,[edx]
-  cmp edx,ebp
-  jb @02
-  cmp edx,ecx
-  ja @02
-  inc n
-  cmp n,3
-  jne @01
-@02:
-  popad
- end;
- stack:='[';
- for i:=n downto 1 do begin
-  stack:=stack+inttohex(adrs[i],8);
-  if i>1 then stack:=stack+'->';
- end;
- inherited Create(stack+'] '+msg);
- asm
-  mov edx,[ebp+4]
-  mov eax,self
-  mov [eax].FAddress,edx
- end;
- {$ELSE}
-  {$IFDEF FPC}
-  inherited Create(msg+' caller: '+PtrToStr(get_caller_addr(get_frame)));
-  {$ELSE}
-  inherited Create(msg);
-  {$ENDIF}
- {$ENDIF}
-end;
-
-constructor TBaseException.Create(const msg:String; fields:array of const);
-begin
- Create(Format(msg,fields));
-end;
-
 procedure SpinLock(var lock:integer); inline; // the simpliest lock
  begin
    // LOCK CMPXCHG is very slow (~20-50 cycles) so no need for additional spin rounds for quick operations
@@ -6292,33 +6220,6 @@ procedure DisableDEP;
  end;
 {$ENDIF}
 
-procedure TMyCriticalSection.Enter;  // for compatibility
- begin
-  EnterCriticalSection(self);
- end;
-
-procedure TMyCriticalSection.Leave; // for compatibility
- begin
-  LeaveCriticalSection(self);
- end;
-
-function TMyCriticalSection.GetSysLockCount:integer;
- begin
- end;
-
-function TMyCriticalSection.GetSysOwner:TThreadID;
- begin
- end;
-
-function TMyCriticalSection.GetOwningThread:TThreadID;
- begin
-  {$IFDEF MSWINDOWS}
-  result:=crs.OwningThread;
-  {$ELSE}
-  result:=owningThread;
-  {$ENDIF}
- end;
-
 function HasParam(name:string):boolean;
  var
   i:integer;
@@ -6342,49 +6243,6 @@ function GetParam(name:string):string;
    exit(copy(st,p+1,length(st)));
   end;
  end;
-
-{$IF Declared(SRWLOCK)}
-{ TSRWLock }
-procedure TSRWLock.Init(name: string);
-begin
- self.name:=name;
- lockedEx:=false;
- lockRead:=0;
- InitializeSrwLock(lock);
-end;
-
-procedure TSRWLock.StartRead(caller:pointer);
-begin
- AcquireSRWLockShared(lock);
- InterlockedIncrement(lockRead);
- if caller=nil then
-  lastLockedRead:=GetCaller
- else
-  lastLockedRead:=caller;
-end;
-
-procedure TSRWLock.FinishRead;
-begin
- InterlockedDecrement(lockRead);
- ReleaseSRWLockShared(lock);
-end;
-
-procedure TSRWLock.StartWrite(caller:pointer);
-begin
- AcquireSRWLockExclusive(lock);
- lockedEx:=true;
- if caller=nil then
-  lastLockedEx:=GetCaller
- else
-  lastLockedEx:=caller;
-end;
-
-procedure TSRWLock.FinishWrite;
-begin
- lockedEx:=false;
- ReleaseSRWLockExclusive(lock);
-end;
-{$ENDIF}
 
 var
  v:Int64;

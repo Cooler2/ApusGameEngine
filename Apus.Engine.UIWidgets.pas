@@ -95,7 +95,7 @@ interface
   TButtonStyle=(bsNormal,   // обычная кнопка
                 bsSwitch,   // кнопка-переключатель (фиксирующаяся в нажатом положении)
                 bsCheckbox);    // кнопка-надпись (чекбокс)
-  TUIButton=class(TUIImage)
+  TUIButton=class(TUIElement)
    default:boolean; // кнопка по умолчанию (влияет только на отрисовку, но не на поведение!!!)
    pressed:boolean; // кнопка вдавлена
    pending:boolean; // состояние временной недоступности (не реагирует на нажатия)
@@ -302,7 +302,8 @@ interface
    frame:TUIFrame;
    popup:TUIListBox;
    maxlines:integer; // max lines to show without scrolling
-   constructor Create(width,height:single;bFont:TFontHandle;list:WStringArr;parent_:TUIElement;name:string);
+   constructor Create(width,height:single;bFont:TFontHandle;list:WStringArr;parent_:TUIElement;name:string); overload;
+   constructor Create(width,height:single;parent_:TUIElement;name:string); overload;
    procedure AddItem(item:WideString;tag:cardinal=0;hint:WideString=''); virtual;
    procedure SetItem(index:integer;item:WideString;tag:cardinal=0;hint:string=''); virtual;
    procedure ClearItems;
@@ -343,7 +344,7 @@ implementation
    inherited Create(-1,innerHeight+marginV*2,parent);
    SetPaddings(marginH,marginV,marginH,marginV);
    if color<>0 then
-    AddStyle('inner-fill:'+IntToHex(color,8));
+    SetStyle('inner-fill',IntToHex(color,8));
   end;
 
  constructor TUISplitter.CreateH(height:single;parent:TUIElement;color:cardinal);
@@ -356,7 +357,7 @@ implementation
    inherited Create(innerWidth+marginH*2,-1,parent);
    SetPaddings(marginH,marginV,marginH,marginV);
    if color<>0 then
-    AddStyle('inner-fill:'+IntToHex(color,8));
+    SetStyle('inner-fill',IntToHex(color,8));
   end;
 
  constructor TUISplitter.CreateV(width:single;parent:TUIElement;color:cardinal);
@@ -391,7 +392,7 @@ implementation
   var
    i:integer;
   begin
-   inherited Create(width,height,btnName,parent_);
+   inherited Create(width,height,parent_,btnName);
    shape:=shapeFull;
    font:=BtnFont;
    btnStyle:=bsNormal;
@@ -672,8 +673,8 @@ constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFo
   begin
    inherited Create(width,height,parent_,labelName);
    shape:=shapeFull;
-   if color=clDefault then color:=color_;
-   if font=0 then font:=bFont;
+   if color<>clDefault then color:=color_;
+   if bFont<>0 then font:=bFont;
    align:=taLeft;
    sendSignals:=ssMajor;
    verticalOffset:=0;
@@ -1689,6 +1690,11 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
     if (comboPop<>nil) and (e<>nil) and
       not (e.HasParent(comboPop) or e.HasParent(comboPop.frame)) then comboPop.onDropDown;
    end;
+  end;
+
+ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:string);
+  begin
+   Create(width,height,0,nil,parent_,name);
   end;
 
  constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:WStringArr;

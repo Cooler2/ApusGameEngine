@@ -604,7 +604,7 @@ procedure TModelInstance.DrawSkeleton;
  begin
   n:=length(bones);
   SetLength(vertices,n*6);
-  SetLength(indices,8*3);
+  SetLength(indices,n*8*3);
   vCnt:=0; iCnt:=0;
   for i:=0 to high(bones) do
    if model.bones[i].parent>=0 then

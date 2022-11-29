@@ -41,7 +41,7 @@ interface
 
   // Базовый абстрактный класс - текстура или ее часть
   TTexture=class(TNamedObject)
-   src:String8; // file name if loaded from a file
+   src:String8; // file name (if loaded from a file)
    pixelFormat:TImagePixelFormat;
    width,height:integer; // dimension (in virtual pixels)
    left,top:integer; // position in the underlying resource
