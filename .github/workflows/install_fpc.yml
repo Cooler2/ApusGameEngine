@@ -25,7 +25,7 @@ jobs:
     - name: Setup Lazarus environment
       # You may pin to the exact commit or the version.
       # uses: gcarreno/setup-lazarus@815641b356c1e4e0e68795d237fb13e89484e25b
-      uses: gcarreno/setup-lazarus@v3.0.17
+      uses: gcarreno/setup-lazarus@v3.2
       with:
         lazarus-version: stable
     - run: pwd
@@ -77,7 +77,7 @@ jobs:
     - name: Setup Lazarus environment
       # You may pin to the exact commit or the version.
       # uses: gcarreno/setup-lazarus@815641b356c1e4e0e68795d237fb13e89484e25b
-      uses: gcarreno/setup-lazarus@v3.0.17
+      uses: gcarreno/setup-lazarus@v3.2
       with:
         lazarus-version: stable
     - run: pwd
