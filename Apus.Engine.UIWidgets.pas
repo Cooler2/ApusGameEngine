@@ -104,6 +104,7 @@ interface
    btnStyle:TButtonStyle; // тип кнопки (влияет как на отрисовку, так и на поведение)
    group:integer;   // Группа переключателей
    onClick:TProcedure;
+   onClickEvent:string;
    constructor Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement); overload;
    constructor Create(width,height:single;btnName,btnCaption:string;parent_:TUIElement); overload;
    constructor Create(width,height:single;btnCaption:string;parent_:TUIElement); overload;
@@ -112,6 +113,7 @@ interface
    constructor CreateSwitch(width,height:single;btnName,btnCaption:string;parent_:TUIElement;pressed:boolean=false); overload;
    constructor CreateSwitch(width,height:single;btnCaption:string;parent_:TUIElement;pressed:boolean=false); overload;
    constructor CreateGroupSwitch(width,height:single;btnCaption:string;parent_:TUIElement;pressed:boolean=false); overload;
+   destructor Destroy; override;
 
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
@@ -468,6 +470,11 @@ implementation
      end;
   end;
 
+ destructor TUIButton.Destroy;
+  begin
+   inherited;
+  end;
+
  procedure TUIButton.DoClick;
   var
    i:integer;
@@ -488,6 +495,7 @@ implementation
       Signal('UI\'+name+'\Click',byte(pressed));
       Signal('UI\onButtonDown\'+name,TTag(self));
       if Assigned(onClick) then onClick;
+      if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
     end;
    end else begin
     if pending then exit;
@@ -496,6 +504,7 @@ implementation
      Signal('UI\'+name+'\Click',byte(pressed));
      Signal('UI\onButtonClick\'+name,TTag(self));
      if Assigned(onClick) then game.RunAsync(@onClick);
+     if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
      lastPressed:=MyTickCount;
     end;
    end;

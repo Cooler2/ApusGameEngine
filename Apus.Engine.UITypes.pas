@@ -273,6 +273,7 @@ type
   procedure Toggle; // toggle visibility
   procedure Enable;
   procedure Disable;
+  procedure ToggleEnabled;
 
   // Whether element behave as window: track focused child
   class function IsWindow:boolean; virtual;
@@ -903,6 +904,11 @@ destructor TUIElement.Destroy;
  procedure TUIElement.Disable;
   begin
    enabled:=false;
+  end;
+
+ procedure TUIElement.ToggleEnabled;
+  begin
+   enabled:=not enabled;
   end;
 
  function TUIElement.IsVisible:boolean;
@@ -1553,7 +1559,6 @@ initialization
  InitCritSect(UICritSect,'UI',30);
  UIHash.Init;
  TUIElement.SetClassAttribute('handleMouseIfDisabled',false);
-
 finalization
  DeleteCritSect(UICritSect);
 end.

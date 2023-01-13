@@ -539,7 +539,7 @@ procedure SetDisplaySize(width,height:integer);
    needShadowValue:=tag and $FF;
   end;
 
-  // tag: low 8 bit - new shadow value, next 16 bit - duration in ms
+  //
   procedure onSetFocus(event:TEventStr;tag:TTag);
   begin
    delete(event,1,length('UI\SETFOCUS\'));

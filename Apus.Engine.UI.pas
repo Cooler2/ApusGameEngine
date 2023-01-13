@@ -28,6 +28,8 @@ interface
   anchorLeft:TAnchorMode=   (left:0; top:0; right:0; bottom: 1);
   anchorBottom:TAnchorMode= (left:0; top:1; right:1; bottom: 1);
   anchorRight:TAnchorMode=  (left:1; top:0; right:1; bottom: 1);
+  anchorBottomLeft:TAnchorMode=  (left:0; top:1; right:0; bottom: 1);
+  anchorBottomRight:TAnchorMode=  (left:1; top:1; right:1; bottom: 1);
   anchorCenter:TAnchorMode= (left:0.5; top:0.5; right:0.5; bottom: 0.5);
   anchorTopCenter:TAnchorMode=    (left:0.5; top:0; right:0.5; bottom: 0);
   anchorBottomCenter:TAnchorMode= (left:0.5; top:1; right:0.5; bottom: 1);
@@ -131,7 +133,7 @@ interface
   procedure UnlockUI;
 
 implementation
- uses Apus.Common, SysUtils, Apus.Engine.UIScene;
+ uses Apus.Common, SysUtils, Apus.Engine.UIScene, Apus.EventMan;
 
  procedure SetDefaultUIScale(fullScenesScale,windowedScenesScale:single);
   begin
@@ -468,4 +470,42 @@ implementation
    LeaveCriticalSection(UICritSect);
   end;
 
+ // UI-related commands: Command:elementName
+ // where command can be
+ // Enable, Disable, Show, Hide, Toggle, ToggleEnabled
+ procedure UICommand(event:TEventStr;tag:TTag);
+  var
+   p:integer;
+   value:string;
+   e:TUIElement;
+  begin
+   event:=Copy(event,8,length(event));
+   p:=pos(':',event);
+   if p>0 then begin
+     value:=copy(event,p+1,length(event));
+     SetLength(event,p-1);
+     e:=FindElement(value);
+     if SameText(event,'toggle') then
+       e.Toggle
+     else
+     if SameText(event,'ToggleEnabled') then
+      e.ToggleEnabled
+     else
+     if SameText(event,'enable') then
+      e.Enable
+     else
+     if SameText(event,'disable') then
+      e.Disable
+     else
+     if SameText(event,'hide') then
+      e.Hide
+     else
+     if SameText(event,'show') then
+      e.Show;
+   end;
+  end;
+
+
+initialization
+ SetEventHandler('UI\CMD',UICommand,emInstant);
 end.
