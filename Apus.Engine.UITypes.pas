@@ -518,14 +518,14 @@ implementation
    i,n:integer;
    keep:TUIElements;
    items:StringArray;
-   value:string;
+   value:string8;
    mode:integer;
    function ShouldDelete(e:TUIElement):boolean;
     begin
      case mode of
       0:result:=pos(value,e.name)>0;
-      1:result:=HasPrefix(e.name,value);
-      2:result:=not HasPrefix(e.name,value);
+      1:result:=HasPrefix(e.name,value,true);
+      2:result:=not HasPrefix(e.name,value,true);
      end;
     end;
   begin
