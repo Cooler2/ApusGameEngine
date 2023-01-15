@@ -167,8 +167,8 @@ type
   function HasParent(c:TUIElement):boolean;
   // Есть ли у данного элемента указанный потомок (direct or indirect) (HasChild(self)=true)
   function HasChild(c:TUIElement):boolean;
-  // Delete all children elements
-  procedure DeleteChildren;
+  // Delete all children elements (using optional filter string 'start:prefix', '!start:prefix', 'substr' etc.)
+  procedure DeleteChildren(filter:string='');
   // Return child index in children array (-1) if no parent
   function ChildIndex:integer;
 
@@ -255,7 +255,7 @@ type
   // Same as FindItemAt, but ignores elements transparency mode
   function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
   // Find a descendant element by its name
-  function FindElementByName(name:string8):TUIElement;
+  function FindElementByName(const name:string8):TUIElement;
 
   // Установить либо удалить "горячую клавишу" для данного эл-та
   procedure SetHotKey(vKeyCode:byte;shiftstate:byte=0);
@@ -513,15 +513,46 @@ implementation
    result:=@UIHash;
   end;
 
- procedure TUIElement.DeleteChildren;
+ procedure TUIElement.DeleteChildren(filter:string='');
   var
-   i:integer;
+   i,n:integer;
+   keep:TUIElements;
+   items:StringArray;
+   value:string;
+   mode:integer;
+   function ShouldDelete(e:TUIElement):boolean;
+    begin
+     case mode of
+      0:result:=pos(value,e.name)>0;
+      1:result:=HasPrefix(e.name,value);
+      2:result:=not HasPrefix(e.name,value);
+     end;
+    end;
   begin
    UICritSect.Enter;
    try
-    for i:=0 to high(children) do
-     FreeAndNil(children[i]);
+    if filter<>'' then begin
+     SetLength(keep,length(children));
+     items:=split(':',filter);
+     value:=items[1];
+     mode:=0;
+     if SameText(items[0],'start') then mode:=1;
+     if SameText(items[0],'!start') then mode:=2;
+    end;
+    n:=0;
+    for i:=0 to high(children) do begin
+     if (filter='') or ShouldDelete(children[i]) then
+      FreeAndNil(children[i])
+     else begin
+      keep[n]:=children[i];
+      inc(n);
+     end;
+    end;
     SetLength(children,0);
+    if filter<>'' then begin
+     SetLength(keep,n);
+     children:=keep;
+    end;
    finally
     UICritSect.Leave;
    end;
@@ -678,13 +709,12 @@ destructor TUIElement.Destroy;
    InsertRel(element,0);
   end;
 
- function TUIElement.FindElementByName(name:string8):TUIElement;
+ function TUIElement.FindElementByName(const name:string8):TUIElement;
   var
    i:integer;
    c:TUIElement;
   begin
-   name:=UpperCase(name);
-   if UpperCase(self.name)=name then begin
+   if SameText(self.name,name) then begin
     result:=self; exit;
    end;
    for i:=0 to length(children)-1 do begin

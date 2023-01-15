@@ -28,6 +28,7 @@ interface
   anchorLeft:TAnchorMode=   (left:0; top:0; right:0; bottom: 1);
   anchorBottom:TAnchorMode= (left:0; top:1; right:1; bottom: 1);
   anchorRight:TAnchorMode=  (left:1; top:0; right:1; bottom: 1);
+  anchorTopRight:TAnchorMode=  (left:1; top:0; right:1; bottom: 0);
   anchorBottomLeft:TAnchorMode=  (left:0; top:1; right:0; bottom: 1);
   anchorBottomRight:TAnchorMode=  (left:1; top:1; right:1; bottom: 1);
   anchorCenter:TAnchorMode= (left:0.5; top:0.5; right:0.5; bottom: 0.5);
