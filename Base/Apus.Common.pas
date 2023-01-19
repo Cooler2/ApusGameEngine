@@ -834,7 +834,6 @@ implementation
    result:=0;
   end;
 
-
  procedure MyEnterCriticalSection(var cr:TRTLCriticalSection); inline;
   begin
    {$IFDEF MSWINDOWS}
@@ -1079,11 +1078,6 @@ function min2s(a,b:single):single; inline;
    cvtss2si eax,xmm0
    {$ENDIF}
   end;
-
-{ function Floor(v:single):single; inline;
-  begin
-   result:=Math.Floor(v);
-  end;}
 
  function CalcCheckSum(adr:pointer;size:integer):cardinal;
   var
@@ -2934,6 +2928,7 @@ procedure SimpleEncrypt2;
    try
     st:=chop(st);
     sa:=splitA(':',st);
+	 sec:=0;
     msec:=0;
     if length(sa)>0 then hour:=ParseInt(sa[0]) else hour:=0;
     if length(sa)>1 then min:=ParseInt(sa[1]) else min:=0;
@@ -6226,7 +6221,7 @@ function HasParam(name:string):boolean;
  begin
   result:=false;
   for i:=1 to ParamCount do
-   if CompareText(name,paramStr(i))=0 then exit(true);
+   if SameText(name,paramStr(i)) then exit(true);
  end;
 
 function GetParam(name:string):string;
@@ -6239,7 +6234,7 @@ function GetParam(name:string):string;
    st:=ParamStr(i);
    p:=pos('=',st);
    if p=0 then continue;
-   if CompareText(name,copy(st,1,p-1))<>0 then continue;
+   if SameText(name,copy(st,1,p-1)) then continue;
    exit(copy(st,p+1,length(st)));
   end;
  end;
