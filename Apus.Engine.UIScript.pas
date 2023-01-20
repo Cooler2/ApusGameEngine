@@ -29,12 +29,28 @@ type
   class function GetValue(variable:pointer):string; override;
  end;
 
- TVarTypeUIControl=class(TVarTypeStruct)
+ TVarTypeUIElement=class(TVarTypeStruct)
+  class function GetValue(variable:pointer):string; override;
   class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
   class function ListFields:String; override;
  end;
 
- TVarTypeStyleinfo=class(TVarType)
+ TVarTypeStyleInfo=class(TVarType)
+  class procedure SetValue(variable:pointer;v:string); override;
+  class function GetValue(variable:pointer):string; override;
+ end;
+
+ TVarTypeClientWidth=class(TVarType)
+  class procedure SetValue(variable:pointer;v:string); override;
+  class function GetValue(variable:pointer):string; override;
+ end;
+
+ TVarTypeElements=class(TVarType) // array of TUIElement
+  class procedure SetValue(variable:pointer;v:string); override;
+  class function GetValue(variable:pointer):string; override;
+ end;
+
+ TVarTypeClientHeight=class(TVarType)
   class procedure SetValue(variable:pointer;v:string); override;
   class function GetValue(variable:pointer):string; override;
  end;
@@ -45,6 +61,11 @@ type
  end;
 
  TVarTypeElementFont=class(TVarType)
+  class procedure SetValue(variable:pointer;v:string); override;
+  class function GetValue(variable:pointer):string; override;
+ end;
+
+ TVarTypeElementScale=class(TVarType)
   class procedure SetValue(variable:pointer;v:string); override;
   class function GetValue(variable:pointer):string; override;
  end;
@@ -85,7 +106,7 @@ var
 begin
  c:=TUIElement(tag);
  if c.name<>'' then
-  PublishVar(c,c.name,TVarTypeUIControl);
+  PublishVar(c,c.name,TVarTypeUIElement);
 end;
 
 procedure onItemRenamed(event:TEventStr;tag:TTag);
@@ -95,7 +116,7 @@ begin
  c:=TUIElement(tag);
  UnpublishVar(c);
  if c.name<>'' then
-  PublishVar(c,c.name,TVarTypeUIControl);
+  PublishVar(c,c.name,TVarTypeUIElement);
 end;
 
 procedure UseParentCmd(cmd:string);
@@ -152,7 +173,7 @@ procedure CreateCmd(cmd:string);
    c:=FindControl(sa[1],false);
    if c<>nil then begin
     curObj:=c;
-    curObjClass:=TVarTypeUIControl;
+    curObjClass:=TVarTypeUIElement;
     curObjName:=UpperCase(c.name);
     exit;
    end;
@@ -180,7 +201,7 @@ procedure CreateCmd(cmd:string);
     if HintDuration<>0 then c.hintDuration:=hintDuration;
    end;
    curobj:=c;
-   curObjClass:=TVarTypeUIControl;
+   curObjClass:=TVarTypeUIElement;
    curobjname:=c.name;
   finally
    LeaveCriticalSection(UICritSect);
@@ -265,15 +286,25 @@ procedure SetHotKeyCmd(cmd:string);
 
 { TVarTypeUIControl }
 
-class function TVarTypeUIControl.GetField(variable: pointer; fieldName: string;
+class function TVarTypeUIElement.GetField(variable: pointer; fieldName: string;
   out varClass: TVarClass): pointer;
 var
  obj:TUIElement;
+ p,index:integer;
 begin
  obj:=variable;
  ASSERT(fieldName<>'');
  result:=nil;
  varClass:=nil;
+ index:=-1; // not indexed
+ if fieldname[high(fieldname)]=']' then begin // indexed element?
+  p:=pos('[',fieldname);
+  if p>0 then begin
+   index:=ParseInt(copy(fieldname,p+1,100));
+   SetLength(fieldname,p-1);
+  end;
+ end;
+
  case fieldname[1] of
   'a':if (fieldname='align') and (obj is TUILabel) then begin
        result:=@TUILabel(obj).align; varClass:=TVarTypeAlignment;
@@ -307,6 +338,25 @@ begin
       end else
       if fieldname='customdraw' then begin
        result:=@obj.manualDraw; varClass:=TVarTypeBool;
+      end else
+      if fieldname='clientwidth' then begin
+       result:=obj;
+       varClass:=TVarTypeClientWidth;
+      end else
+      if fieldname='clientheight' then begin
+       result:=obj;
+       varClass:=TVarTypeClientHeight;
+      end else
+      if fieldname='children' then begin
+       if index>=0 then begin
+        if index>high(obj.children) then
+         raise EWarning.Create(Format('Index %d out of range %d',[index,high(obj.children)]));
+        result:=obj.children[index];
+        varClass:=TVarTypeUIElement;
+       end else begin
+        result:=@obj.children;
+        varClass:=TVarTypeElements;
+       end;
       end;
   'd':if (fieldname='default') and (obj is TUIButton) then begin
        result:=@TUIButton(obj).default; varClass:=TVarTypeBool;
@@ -320,6 +370,12 @@ begin
       end;
   'g':if (fieldname='group') and (obj is TUIButton) then begin
        result:=@TUIButton(obj).group; varClass:=TVarTypeInteger;
+      end else
+      if fieldname='globalrect' then begin
+       result:=@obj.globalRect; varClass:=TVarTypeRect;
+      end else
+      if fieldname='globalscale' then begin
+       result:=obj; varClass:=TVarTypeElementScale;
       end;
   'h':if fieldname='height' then begin
        result:=@obj.size.y; varClass:=TVarTypeSingle;
@@ -349,7 +405,7 @@ begin
        varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).max;
       end;
   'n':if fieldname='name' then begin
-       result:=@obj; varClass:=TVarTypeElementName;
+       result:=obj; varClass:=TVarTypeElementName;
       end else
       if (fieldname='noborder') and (obj is TUIEditBox) then begin
        result:=@TUIEditBox(obj).noborder; varClass:=TVarTypeBool;
@@ -361,7 +417,7 @@ begin
        result:=@obj.parentClip; varClass:=TVarTypeBool;
       end else
       if fieldname='parent' then begin
-       result:=obj.parent; varClass:=TVarTypeUIControl;
+       result:=obj.parent; varClass:=TVarTypeUIElement;
       end else
       if fieldname='pivot' then begin
        result:=@obj.pivot; varClass:=TVarTypePivot;
@@ -432,9 +488,14 @@ begin
  end;
 end;
 
-class function TVarTypeUIControl.ListFields: String;
+class function TVarTypeUIElement.GetValue(variable: pointer): string;
 begin
- result:='name,x,y,width,height,scaleX,scaleY,visible,enabled';
+ result:=TUIElement(variable).ClassName+inherited;
+end;
+
+class function TVarTypeUIElement.ListFields: String;
+begin
+ result:='name,x,y,width,height,scale,visible,enabled';
 end;
 
 class procedure TVarTypeTranspMode.SetValue(variable:pointer;v:string);
@@ -564,7 +625,7 @@ function GetVarTypeFor(typeName:string):TVarClass;
 
 class function TVarTypeElementName.GetValue(variable:pointer):string;
  begin
-  result:=TUIElement(variable).name;
+  result:=''''+TUIElement(variable).name+'''';
  end;
 
 class procedure TVarTypeElementName.SetValue(variable:pointer;v:string);
@@ -582,6 +643,62 @@ class function TVarTypeElementColor.GetValue(variable:pointer):string;
 class procedure TVarTypeElementColor.SetValue(variable:pointer;v:string);
  begin
   TUIElement(variable).color:=ParseInt('$'+v);
+ end;
+
+{ TVarTypeElementScale }
+
+class function TVarTypeElementScale.GetValue(variable: pointer): string;
+ begin
+  result:=FloatToStr(TUIElement(variable).globalScale);
+ end;
+
+class procedure TVarTypeElementScale.SetValue(variable: pointer; v: string);
+ begin
+  raise EWarning.Create('GlobalScale is a read-only property');
+ end;
+
+{ TVarTypeClientWidth }
+
+class function TVarTypeClientWidth.GetValue(variable: pointer): string;
+ begin
+  result:=FloatToStr(TUIElement(variable).clientWidth);
+ end;
+
+class procedure TVarTypeClientWidth.SetValue(variable: pointer; v: string);
+ begin
+  raise EWarning.Create('ClientWidth is a read-only property');
+ end;
+
+{ TVarTypeClientHeight }
+
+class function TVarTypeClientHeight.GetValue(variable: pointer):string;
+ begin
+  result:=FloatToStr(TUIElement(variable).clientWidth);
+ end;
+
+class procedure TVarTypeClientHeight.SetValue(variable: pointer; v: string);
+ begin
+  raise EWarning.Create('ClientHeight is a read-only property');
+ end;
+
+{ TVarTypeElements }
+
+class function TVarTypeElements.GetValue(variable: pointer):string;
+ var
+  list:^TUIElements;
+  i:integer;
+ begin
+  list:=variable;
+  for i:=0 to high(list^) do begin
+   if result<>'' then result:=result+', ';
+   result:=result+Format('%d:%s(''%s'')',[i,list^[i].className,list^[i].name]);
+  end;
+  result:='['+result+']';
+ end;
+
+class procedure TVarTypeElements.SetValue(variable: pointer; v: string);
+ begin
+  raise EWarning.Create('TUIElements is a read-only type');
  end;
 
 initialization

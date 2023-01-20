@@ -732,7 +732,7 @@ end;
 
 class function TVarTypeString.GetValue(variable: pointer): string;
  begin
-  result:=PString(variable)^;
+  result:='"'+PString(variable)^+'"';
  end;
 
 class procedure TVarTypeString.SetValue(variable: pointer; v: string);

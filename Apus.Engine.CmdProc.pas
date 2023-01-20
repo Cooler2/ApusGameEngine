@@ -270,7 +270,7 @@ implementation
    cmd:=LowerCase(cmd);
    if (cmd='self') and (curObj<>nil) then begin
     st:=curObjClass.GetValue(curObj);
-    st:=StringReplace(st,', ',','#13#10,[rfReplaceAll]);
+    //st:=StringReplace(st,', ',','#13#10,[rfReplaceAll]);
     PutMsg(curObjClass.ClassName+': '+st,false,41000);
     exit;
    end;
