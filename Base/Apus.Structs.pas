@@ -265,11 +265,10 @@ type
   function ListKeys:StringArray8; // List all object names
   function ListObjects:TNamedObjects; // List all objects
  private
-  initialized:string;
   lock:integer;
   mask:cardinal;
   hashMiss:integer; // for performance test
-  values:array of TNamedObject;
+  values:array of TNamedObject; // zero length == not initialized
   procedure Resize; // Increase capasity *2. Resizing is quite slow so
   function InternalListKeys:StringArray8;
   function InternalListObjects:TNamedObjects; // List all objects
@@ -2032,7 +2031,6 @@ procedure TObjectHash.Init(estimatedCount:integer);
   mask:=GetPow2(estimatedCount*2);
   SetLength(values,mask);
   dec(mask);
-  initialized:=_INITIALIZED_;
   hashMiss:=0;
  end;
 
@@ -2096,7 +2094,7 @@ function TObjectHash.ListObjects:TNamedObjects;
 
 procedure TObjectHash.Put(value:TNamedObject);
  begin
-  if initialized='' then Init;
+  if values=nil then Init;
   if (value=nil) or (value.name='') then exit;
   SpinLock(lock);
   try
@@ -2128,6 +2126,7 @@ function TObjectHash.Get(key:String8):TNamedObject;
   h:=FastHash(key);
   SpinLock(lock);
   try
+   if values=nil then Init;
    h:=h and mask;
    while values[h]<>nil do begin
     if IsValid(values[h]) and SameText8(key,values[h].name) then exit(values[h]);
