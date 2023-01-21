@@ -22,6 +22,7 @@ type
   procedure SetName(name:String8); virtual;
   function GetName:String8;
   class function ClassHash:pointer; virtual; // override this to provide a separate hash for object instances
+  class function UniqueName(name:string8):boolean; inline;
  public
   destructor Destroy; override;
   function Hash:cardinal; override;
@@ -96,15 +97,24 @@ function TNamedObject.Hash: cardinal;
 procedure TNamedObject.SetName(name:String8);
  var
   hash:PObjectHash;
+  un:boolean;
  begin
   hash:=ClassHash;
   if hash<>nil then begin
-    if fName<>'' then hash.Remove(self);
+    if UniqueName(fName) then hash.Remove(self);
+    un:=UniqueName(name);
+    if un and (hash.Get(name)<>nil) then
+     raise EWarning.Create(Format('Duplicate object name %s(%s)',[ClassName,name]));
     fName:=name;
-    if name<>'' then hash.Put(self);
+    if un then hash.Put(self);
    end
   else
    fName:=name;
+ end;
+
+class function TNamedObject.UniqueName(name:string8):boolean;
+ begin
+   result:=(name<>'') and not (name[1]='_');
  end;
 
 class function TNamedObject.ClassHash:pointer;
