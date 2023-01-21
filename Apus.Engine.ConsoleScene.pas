@@ -38,7 +38,7 @@ procedure KbdHandler(event:TEventStr;tag:TTag);
 var
  c:TUIElement;
 begin
- // Win+[~] - показать/скрыть консоль
+ // Win+[~] - show/hide console window
  if (tag and 255=$C0) and (game.shiftState and sscWin>0) then begin
   if consoleScene.activated then begin
    if consoleScene.UI.hasFocus then
@@ -63,7 +63,7 @@ begin
   c.x:=screenWidth-c.x-c.width;
  end;}
 
- // Выбор из предыдущих команд
+ // Select from command history
  if (consoleScene.activated) and
     (game.shiftState=0) and
     (focusedElement=consoleScene.editbox) then

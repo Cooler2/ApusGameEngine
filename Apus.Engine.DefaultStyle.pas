@@ -508,6 +508,7 @@ implementation
     end;
   end;
 
+/// TODO: rework window rendering using common style
  procedure DrawUIWindow(element:TUIWindow;x1,y1,x2,y2:integer);
   var
    c:cardinal;
