@@ -625,17 +625,16 @@ begin
   Result := t;
 end;
 
-
  procedure Tmp;
   const
-   c1:uint256=($ffffffffffff1234, $3333333333333333, $2222222222222222, $9999999955555555);
-   c2:uint256=($ffffffffffffffff,1,0,0);
+   c1:uint256=(uint64($ffffffffffff1234), $3333333333333333, $2222222222222222, uint64($9999999955555555));
+   c2:uint256=(uint64($ffffffffffffffff),1,0,0);
    //c1l:uint512 = ($7970538E90EA3C3C, $6DFA874F0AEA6517, $6CA5BBC031FD0DCD, $14489278BD86C546, $1289A0D4918FB461, $C2, 0,0);
    //c2l:uint512 = ($16C786BF7D2A160F, $1E83EC2CD19CD5FC, $1325B6CEA8, 0,0,0,0,0);
 
-   c1l:uint512 = ($a9978a8bd8acaa40, $46ce14e608245ab3, $0a38e08ba8175a94, $3a9458e4ce328956,
-      $babc9729ab9b055c, $4204ac15a8c24e05, $4b75ec8c64650978, $39e58a8055b6fb26);
-   c2l:uint512 = ($bfd25e8cd0364141, $baaedce6af48a03b, $fffffffffffffffe, $ffffffffffffffff,0,0,0,0);
+   c1l:uint512 = (uint64($a9978a8bd8acaa40), $46ce14e608245ab3, $0a38e08ba8175a94, $3a9458e4ce328956,
+      uint64($babc9729ab9b055c), $4204ac15a8c24e05, $4b75ec8c64650978, $39e58a8055b6fb26);
+   c2l:uint512 = (uint64($bfd25e8cd0364141), uint64($baaedce6af48a03b), uint64($fffffffffffffffe), uint64($ffffffffffffffff),0,0,0,0);
   var
    a,b,c,n:uint256;
    d,rem:uint256;
