@@ -67,7 +67,7 @@ interface
 implementation
   uses
   {$IFDEF MSWINDOWS}Windows,{$ENDIF}
-    Apus.Common, Apus.CrossPlatform, SysUtils;
+    Apus.Common, SysUtils;
 
   procedure SpinLock(var lock:integer); inline;
     begin
