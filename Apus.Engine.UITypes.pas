@@ -14,6 +14,8 @@ uses Types, Apus.Types, Apus.Classes, Apus.Engine.Types,
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
 const
+ INHERIT = -999999; // constant to inherit integer property from parent
+
  // Predefined pivot point configuration
  pivotTopLeft:TPoint2s=(x:0; y:0);
  pivotTopRight:TPoint2s=(x:1; y:0);
@@ -96,7 +98,7 @@ type
   shapeRegion:TRegion;   // задает область непрозрачности в режиме tmCustom (поведение по умолчанию)
   // Inner parts - scaled
   scale:single; // scale factor for INNER parts of the element and all its children elements
-  padding:TUIRect; // defines element's client area (how much to deduct from the element's area)
+  padding:TUIRect; // defines element's client area (how much to deduct from the element's area) using own scale
   scroll:TVector2s; // смещение (используется для вложенных эл-тов!) SUBTRACT from children pos
   scrollerH,scrollerV:IScroller;  // если для прокрутки используются скроллбары - здесь можно их определить
   autoScroll:boolean; // use mouse wheel to scroll
@@ -281,6 +283,7 @@ type
 
   class procedure SetDefault(name:string;value:variant); // SetClassAttribute('defalut'+name,value)
   procedure SetStyle(name,value:string8); // use 'name:value' or 'state.name:value' syntax
+
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
@@ -694,7 +697,7 @@ destructor TUIElement.Destroy;
   begin
    p:=element.parent;
    ASSERT(p<>nil);
-   Detach(false);
+   //Detach(false);
    n:=element.ChildIndex;
    AttachTo(p,n+rel);
   end;
@@ -1335,6 +1338,8 @@ function TUIElement.GetClientHeight:single;
    oldH:=clientHeight;
    if newWidth>-1 then size.x:=newWidth;
    if newHeight>-1 then size.y:=newHeight;
+   if newWidth=INHERIT then size.x:=parent.clientWidth;
+   if newHeight=INHERIT then size.y:=parent.clientHeight;
    ClientSizeChanged(clientWidth-oldW,clientHeight-oldH); // update children
   end;
 

@@ -1659,7 +1659,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
 
  constructor TUIFrame.Create(width,height:single;depth,style_:integer;parent_:TUIElement);
   begin
-   inherited Create(width,height,parent_,'UIFrame');
+   inherited Create(width,height,parent_,'_UIFrame');
    shape:=shapeFull;
    borderWidth:=depth;
    style:=style_;
@@ -1742,7 +1742,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
    frame.visible:=false;
    frame.parentClip:=false;
    frame.order:=1000;
-   popup:=TUIListBox.Create(size.x-2,0,20,'ComboBoxPopUp',font,frame);
+   popup:=TUIListBox.Create(size.x-2,0,20,'_ComboBoxPopUp',font,frame);
    popUp.customPtr:=self;
   // popup.autoSelectMode:=true;
    popup.bgColor:=$FFFFFFFF;

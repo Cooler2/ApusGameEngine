@@ -35,6 +35,7 @@ interface
   anchorTopCenter:TAnchorMode=    (left:0.5; top:0; right:0.5; bottom: 0);
   anchorBottomCenter:TAnchorMode= (left:0.5; top:1; right:0.5; bottom: 1);
 
+  INHERIT = Apus.Engine.UITypes.INHERIT;
 
  type
   // Standard widgets
@@ -68,7 +69,7 @@ interface
 
   // Поиск элементов по имени. Если элемент не найден, то...
   // mustExists=true - исключение, false - будет создан (а в лог будет сообщение об этом)
-  function UIElement(name:string;mustExist:boolean=false):TUIElement;
+  function UIElement(name:string;autoCreate:boolean=false):TUIElement;
   function UIButton(name:string;mustExist:boolean=false):TUIButton;
   function UIEditBox(name:string;mustExist:boolean=false):TUIEditBox;
   function UILabel(name:string;mustExist:boolean=false):TUILabel;
@@ -191,10 +192,10 @@ implementation
     TUIEditBox(c).realText:=text;
   end;
 
- function UIElement(name:string;mustExist:boolean=false):TUIElement;
+ function UIElement(name:string;autoCreate:boolean=false):TUIElement;
   begin
-   result:=FindElement(name,mustExist);
-   if result=nil then result:=TUIElement.Create(0,0,nil,name);
+   result:=FindElement(name,false);
+   if (result=nil) and (autoCreate) then result:=TUIElement.Create(0,0,nil,name);
   end;
 
  function UIButton(name:string;mustExist:boolean=false):TUIButton;
