@@ -25,13 +25,18 @@ interface
    usedAPI:TGraphicsAPI=gaAuto;
    usedPlatform:TSystemPlatform {$IFNDEF MSWINDOWS} = spSDL{$ENDIF};
    windowedMode:boolean=true;
+   windowBorderless:boolean=false; // use borderless window for NON FULLSCREEN windows
+   windowSizeable:boolean=false; // allow user to resize window
    windowWidth:integer=1024;
    windowHeight:integer=768;
    useRealDPI:boolean=true; // use real DPI on High DPI screens (Windows: set DPI awareness mode)
    scaleWindowSize:boolean=true; // enlarge window accordingly if DPI is higher than platform default (96 for desktop monitor)
+   scaleScenes:boolean=true;  // set default scale for scenes according to DPI
+   scaleFonts:boolean=true;   // enable font scaling according to DPI
    gameMode:TGameAppMode=gamUseFullWindow;
 
    deviceDPI:integer=96; // equals game.screenDPI
+   deviceScale:single=1.0; // deviceDPI/96
    noVSync:boolean=false;
    directRenderOnly:boolean=true; // true -> for OpenGL: always render directly to the backbuffer, false -> allow frame render into texture
    useDepthTexture:boolean=false; // use depth texture instead of the regular depth buffer (not available with direct render)
@@ -75,9 +80,13 @@ interface
 
    procedure onResize; virtual;
 
+   // Useful tools
    procedure ShowMessage(mes:String8;OkEvent:String8='';x:integer=0;y:integer=0); virtual;
    procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0); virtual;
    procedure Ask(mes,YesEvent,NoEvent:String8;x:integer=0;y:integer=0); virtual;
+
+{   // Borderless window
+   function GetWindowAreaType(x,y:integer):}
   protected
    sysPlatform:ISystemPlatform;
    screenWidth,screenHeight:integer;
@@ -540,8 +549,21 @@ end;
 
 procedure EngineEventHandler(event:TEventStr;tag:TTag);
  begin
-  if app<>nil then begin
-   if event='ENGINE\BEFORERESIZE' then app.onResize;
+  if app=nil then exit;
+  if event='ENGINE\BEFORERESIZE' then app.onResize;
+ end;
+
+procedure MouseEventHandler(event:TEventStr;tag:TTag);
+ var
+  x,y:integer;
+ begin
+  if app=nil then exit;
+  if windowBorderless and windowSizeable then begin // manual window sizing implementation
+   if event='MOUSE\MOVE' then begin
+    x:=ExtractWord(tag,0);
+    y:=ExtractWord(tag,1);
+    LogMessage('',[x,y]);
+   end;
   end;
  end;
 
@@ -578,6 +600,7 @@ procedure TGameApplication.Run;
    ForceLogMessage('Running in exclusive mode');
 
   SetEventHandler('ENGINE',EngineEventHandler);
+  SetEventHandler('MOUSE',MouseEventHandler);
 
   // LAUNCH GAME OBJECT
   // ------------------------
@@ -662,40 +685,43 @@ procedure TGameApplication.SelectFonts;
 
 procedure TGameApplication.SetupGameSettings(var settings: TGameSettings);
 var
- scale:single;
+ winDispMode:TDisplayMode;
 begin
   with settings do begin
    title:=GameTitle;
    width:=windowWidth;
    height:=windowHeight;
    deviceDPI:=game.screenDPI;
+   deviceScale:=deviceDPI/96;
    if scaleWindowSize then begin
-    scale:=(deviceDPI/96);
-    width:=round(width*scale);
-    height:=round(height*scale);
+    width:=round(width*deviceScale);
+    height:=round(height*deviceScale);
    end;
    colorDepth:=32;
    refresh:=0;
+   if windowSizeable then winDispMode:=TDisplayMode.dmWindow
+    else winDispMode:=TDisplayMode.dmFixedWindow;
+   if windowBorderless then winDispMode:=TDisplayMode.dmBorderless;
    case gameMode of
     // Для отрисовки используется вся область окна в масштабе реальных пикселей (1:1)
     gamUseFullWindow:begin
-      if windowedMode then mode.displayMode:=dmFixedWindow
+      if windowedMode then mode.displayMode:=winDispMode
        else mode.displayMode:=dmFullScreen;
       mode.displayFitMode:=dfmFullSize;
       mode.displayScaleMode:=dsmDontScale;
       if windowedMode then altMode.displayMode:=dmFullScreen
-       else altMode.displayMode:=dmFixedWindow;
-      altMode.displayScaleMode:=dsmDontScale;
+       else altMode.displayMode:=winDispMode;
       altMode.displayFitMode:=dfmFullSize;
+      altMode.displayScaleMode:=dsmDontScale;
     end;
     // Для отрисовки используется часть окна в масштабе 1:1
     gamKeepAspectRatio:begin
-      if windowedMode then mode.displayMode:=dmFixedWindow
+      if windowedMode then mode.displayMode:=winDispMode
        else mode.displayMode:=dmFullScreen;
       mode.displayScaleMode:=dsmScale;
       mode.displayFitMode:=dfmKeepAspectRatio;
       if windowedMode then altMode.displayMode:=dmFullScreen
-       else altMode.displayMode:=dmFixedWindow;
+       else altMode.displayMode:=winDispMode;
       altMode.displayScaleMode:=dsmScale;
       altMode.displayFitMode:=dfmKeepAspectRatio;
      end;

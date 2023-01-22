@@ -621,8 +621,10 @@ procedure TSDLPlatform.SetupWindow(params:TGameSettings);
    GetScreenSize(screenWidth,screenHeight);
    w:=params.width;
    h:=params.height;
+   if params.mode.displayMode=dmBorderless then
+    SDL_SetWindowBordered(window,SDL_FALSE);
    case params.mode.displayMode of
-    dmWindow,dmFixedWindow:begin
+    dmWindow,dmFixedWindow,dmBorderless:begin
       SDL_SetWindowFullscreen(window,0);
       if params.mode.displayMode=dmWindow then
         SDL_SetWindowResizable(window,SDL_TRUE)

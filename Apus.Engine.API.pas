@@ -246,7 +246,8 @@ type
                dmSwitchResolution, //< Fullscreen: switch to desired display mode (change screen resolution)
                dmFullScreen,       //< Use current resolution with fullscreen window
                dmFixedWindow,      //< Use fixed-size window
-               dmWindow);          //< Use resizeable window
+               dmWindow,           //< Use resizeable window
+               dmBorderless);      //< Use borderless window (non-fullscreen), app should manually resize it if needed
 
  // How the rendered image should appear in the output window (display)
  TDisplayFitMode=(dfmCenter,           //< image is centered in the output window rect (1:1) (DisplayScaleMode is ignored)

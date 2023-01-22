@@ -503,9 +503,10 @@ procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
  begin
    LogMessage('Configure main window');
    style:=ws_popup;
+   //if params.mode.displayMode=dmBorderless then style:=
    if params.mode.displayMode=dmWindow then inc(style,WS_SIZEBOX+WS_MAXIMIZEBOX);
    if params.mode.displayMode in [dmWindow,dmFixedWindow] then
-    inc(style,ws_Caption+WS_MINIMIZEBOX+WS_SYSMENU);
+    inc(style,WS_CAPTION+WS_MINIMIZEBOX+WS_SYSMENU);
 
    // Get desktop area size
    SystemParametersInfo(SPI_GETWORKAREA,0,@r2,0);
@@ -513,7 +514,7 @@ procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
    w:=params.width;
    h:=params.height;
    case params.mode.displayMode of
-    dmWindow,dmFixedWindow:begin
+    dmWindow,dmFixedWindow,dmBorderless:begin
       r:=Rect(0,0,w,h);
       AdjustWindowRect(r,style,false);
       r.Offset(-r.left,-r.top);
