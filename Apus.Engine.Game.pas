@@ -47,9 +47,9 @@ type
   procedure HideWindowScene(name:string); override;
 
   // Cursors
-  procedure RegisterCursor(cursor,priority:integer;cursorHandle:THandle); override;
-  function GetCursorForID(cursor:integer):THandle; override;
-  procedure ToggleCursor(Cursor:integer;state:boolean=true); override;
+  procedure RegisterCursor(CursorID,priority:integer;cursorHandle:THandle); override;
+  function GetCursorForID(cursorID:integer):THandle; override;
+  procedure ToggleCursor(CursorID:integer;state:boolean=true); override;
   procedure HideAllCursors; override;
 
   // Translate coordinates in window's client area
@@ -2053,7 +2053,7 @@ begin
  cursor.ID:=CursorID;
  cursor.priority:=priority;
  cursor.handle:=cursorHandle;
- if cursorID<>CursorID.Default then
+ if cursorID<>Apus.Engine.API.CursorID.Default then
   cursor.visible:=false;
  finally
   LeaveCriticalSection(crSect);
