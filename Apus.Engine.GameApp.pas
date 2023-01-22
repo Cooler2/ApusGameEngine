@@ -649,7 +649,7 @@ procedure TGameApplication.Run;
    end;
   end;
 
-  game.ToggleCursor(crWait,false);
+  game.ToggleCursor(CursorID.Wait,false);
   Signal('GAMEAPP\Initialized');
   // MAIN LOOP
   // ------------------------
