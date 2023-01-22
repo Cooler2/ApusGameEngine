@@ -747,7 +747,7 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
    c:byte;
    r:TRect;
   begin
-   result:=0; cur:=crDefault;
+   result:=0; cur:=CursorID.Default;
    r:=GetPosOnScreen;
    if (x<r.left) or (y<r.top) or (x>=r.Right) or (y>=r.Bottom) then exit;
    dec(x,r.Left);
@@ -767,9 +767,9 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
    if result and (wcLeftFrame+wcRightFrame)>0 then inc(c);
    if result and (wcTopFrame+wcBottomFrame)>0 then inc(c,2);
    case c of
-    1:cur:=crResizeW;
-    2:cur:=crResizeH;
-    3:cur:=crResizeHW;
+    1:cur:=CursorID.ResizeW;
+    2:cur:=CursorID.ResizeH;
+    3:cur:=CursorID.ResizeHW;
    end;
   end;
 
@@ -852,7 +852,7 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
   begin
    inherited Create(width,height,parent_,boxName);
    shape:=shapeFull;
-   cursor:=crInput;
+   cursor:=CursorID.Input;
    realtext:='';
    selstart:=0;
    selcount:=0;
@@ -1442,7 +1442,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
 
  function TUISkinnedWindow.GetAreaType(x,y:integer;out cur:NativeInt):integer;
   begin
-   result:=0; cur:=crDefault;
+   result:=0; cur:=CursorID.Default;
    dec(x,globalrect.Left);
    dec(y,globalrect.Right);
    if (x<0) or (y<0) or (x>=globalrect.width) or (y>=globalrect.height) then exit;

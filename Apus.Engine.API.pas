@@ -128,19 +128,21 @@ const
  mbRight  = 2;
  mbMiddle = 4;
 
- // Predefined cursor IDs
- crDefault        =  0;  // Default arrow
- crLink           =  1;  // Link-over (hand/finger)
- crWait           =  2;  // Курсор в режиме ожидания (часы)
- crInput          =  3;  // Text input cursor (beam)
- crHelp           =  4;  // Arrow with question mark
- crResizeH        = 10;  // E-W arrows
- crResizeW        = 11;  // N-S arrows
- crResizeHW       = 12;  // N-S-E-W arrows
- crCross          = 13;  //
- crNone           = 99;  // No cursor (hidden)
-
 type
+ CursorID=record // Namespace for cursor identifiers
+  const
+   Default        =  0;  // Default arrow
+   Link           =  1;  // Link-over (hand/finger)
+   Wait           =  2;  // Курсор в режиме ожидания (часы)
+   Input          =  3;  // Text input cursor (beam)
+   Help           =  4;  // Arrow with question mark
+   ResizeH        = 10;  // E-W arrows
+   ResizeW        = 11;  // N-S arrows
+   ResizeHW       = 12;  // N-S-E-W arrows
+   Cross          = 13;  //
+   None           = 99;  // No cursor (hidden)
+ end;
+
  // Strings
  String8 = Apus.Engine.Types.String8;
  String16 = Apus.Engine.Types.String16;

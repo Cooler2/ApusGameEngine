@@ -585,7 +585,7 @@ implementation
    hintDuration:=GetClassAttribute('defaultHintDuration',3000);
    // No anchors: element's size doesn't change when parent is resized
    //anchors:=anchorNone;
-   cursor:=int64(GetClassAttribute('defaultCursor',crDefault));
+   cursor:=int64(GetClassAttribute('defaultCursor',CursorID.Default));
    enabled:=GetClassAttribute('defaultEnabled',true);
    visible:=GetClassAttribute('defaultVisible',true);
    manualDraw:=false;

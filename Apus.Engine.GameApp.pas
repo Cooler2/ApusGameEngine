@@ -387,8 +387,8 @@ procedure TGameApplication.HandleParam(param: string);
 
 procedure TGameApplication.InitCursors;
  begin
-  game.ToggleCursor(crDefault);
-  game.ToggleCursor(crWait);
+  game.ToggleCursor(CursorID.Default);
+  game.ToggleCursor(CursorID.Wait);
   Signal('GAMEAPP\InitCursors');
  end;
 

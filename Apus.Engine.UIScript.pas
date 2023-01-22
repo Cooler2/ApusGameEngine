@@ -712,7 +712,7 @@ initialization
  with defaults do begin
   x:=0; y:=0; width:=100; height:=20;
   color:=$FFFFFFFF; backgnd:=$80000000;
-  style:=0; cursor:=crDefault; font:=1;
+  style:=0; cursor:=CursorID.Default; font:=1;
   caption:='';
   hintDelay:=0; hintDuration:=0;
  end;

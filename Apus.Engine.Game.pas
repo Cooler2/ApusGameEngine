@@ -47,9 +47,9 @@ type
   procedure HideWindowScene(name:string); override;
 
   // Cursors
-  procedure RegisterCursor(CursorID,priority:integer;cursorHandle:THandle); override;
-  function GetCursorForID(cursorID:integer):THandle; override;
-  procedure ToggleCursor(CursorID:integer;state:boolean=true); override;
+  procedure RegisterCursor(cursor,priority:integer;cursorHandle:THandle); override;
+  function GetCursorForID(cursor:integer):THandle; override;
+  procedure ToggleCursor(Cursor:integer;state:boolean=true); override;
   procedure HideAllCursors; override;
 
   // Translate coordinates in window's client area
@@ -735,16 +735,16 @@ begin
 
  // Mouse cursors
  if params.showSystemCursor then begin
-  RegisterCursor(crDefault,1,systemPlatform.GetSystemCursor(crDefault));
-  RegisterCursor(crLink,2,systemPlatform.GetSystemCursor(crLink));
-  RegisterCursor(crWait,9,systemPlatform.GetSystemCursor(crWait));
-  RegisterCursor(crInput,3,systemPlatform.GetSystemCursor(crInput));
-  RegisterCursor(crHelp,3,systemPlatform.GetSystemCursor(crHelp));
-  RegisterCursor(crResizeH,5,systemPlatform.GetSystemCursor(crResizeH));
-  RegisterCursor(crResizeW,5,systemPlatform.GetSystemCursor(crResizeW));
-  RegisterCursor(crResizeHW,6,systemPlatform.GetSystemCursor(crResizeHW));
-  RegisterCursor(crCross,6,systemPlatform.GetSystemCursor(crCross));
-  RegisterCursor(crNone,99,0);
+  RegisterCursor(CursorID.Default,1,systemPlatform.GetSystemCursor(CursorID.Default));
+  RegisterCursor(CursorID.Link,2,systemPlatform.GetSystemCursor(CursorID.Link));
+  RegisterCursor(CursorID.Wait,9,systemPlatform.GetSystemCursor(CursorID.Wait));
+  RegisterCursor(CursorID.Input,3,systemPlatform.GetSystemCursor(CursorID.Input));
+  RegisterCursor(CursorID.Help,3,systemPlatform.GetSystemCursor(CursorID.Help));
+  RegisterCursor(CursorID.ResizeH,5,systemPlatform.GetSystemCursor(CursorID.ResizeH));
+  RegisterCursor(CursorID.ResizeW,5,systemPlatform.GetSystemCursor(CursorID.ResizeW));
+  RegisterCursor(CursorID.ResizeHW,6,systemPlatform.GetSystemCursor(CursorID.ResizeHW));
+  RegisterCursor(CursorID.Cross,6,systemPlatform.GetSystemCursor(CursorID.Cross));
+  RegisterCursor(CursorID.None,99,0);
  end;
 end;
 
@@ -1918,9 +1918,9 @@ begin
  if msg='' then msg:=PtrToStr(GetCaller);
  while not pb^ do begin
   if i mod 10=0 then LogMessage('WaitFor '+msg);
-  ToggleCursor(crWait,true);
+  ToggleCursor(CursorID.Wait,true);
   sleep(30);
-  ToggleCursor(crWait,false);
+  ToggleCursor(CursorID.Wait,false);
  end;
 end;
 
@@ -2053,7 +2053,7 @@ begin
  cursor.ID:=CursorID;
  cursor.priority:=priority;
  cursor.handle:=cursorHandle;
- if cursorID<>crDefault then
+ if cursorID<>CursorID.Default then
   cursor.visible:=false;
  finally
   LeaveCriticalSection(crSect);

@@ -214,7 +214,7 @@ procedure SetDisplaySize(width,height:integer);
 
      // Курсор
      if e2 and (c2.cursor<>curCursor) then begin
-      if curCursor<>crDefault then begin
+      if curCursor<>CursorID.Default then begin
        game.ToggleCursor(curCursor,false);
        Signal('UI\Cursor\OFF',curCursor);
       end;
@@ -222,10 +222,10 @@ procedure SetDisplaySize(width,height:integer);
       game.ToggleCursor(curCursor,true);
       Signal('UI\Cursor\ON',curCursor);
      end;
-     if not e2 and (curCursor<>crDefault) then begin
+     if not e2 and (curCursor<>CursorID.Default) then begin
       Signal('UI\Cursor\OFF',curCursor);
       game.ToggleCursor(curCursor,false);
-      curCursor:=crDefault;
+      curCursor:=CursorID.Default;
       game.ToggleCursor(curCursor);
      end;
 

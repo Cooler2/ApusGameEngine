@@ -328,15 +328,15 @@ function TWindowsPlatform.GetSystemCursor(cursorId: integer): THandle;
   name:PChar;
  begin
   case cursorID of
-   crDefault:name:=IDC_ARROW;
-   crLink:name:=IDC_HAND;
-   crWait:name:=IDC_WAIT;
-   crInput:name:=IDC_IBEAM;
-   crHelp:name:=IDC_HELP;
-   crResizeH:name:=IDC_SIZENS;
-   crResizeW:name:=IDC_SIZEWE;
-   crResizeHW:name:=IDC_SIZEALL;
-   crCross:name:=IDC_CROSS;
+   Apus.Engine.API.CursorID.Default:name:=IDC_ARROW;
+   Apus.Engine.API.CursorID.Link:name:=IDC_HAND;
+   Apus.Engine.API.CursorID.Wait:name:=IDC_WAIT;
+   Apus.Engine.API.CursorID.Input:name:=IDC_IBEAM;
+   Apus.Engine.API.CursorID.Help:name:=IDC_HELP;
+   Apus.Engine.API.CursorID.ResizeH:name:=IDC_SIZENS;
+   Apus.Engine.API.CursorID.ResizeW:name:=IDC_SIZEWE;
+   Apus.Engine.API.CursorID.ResizeHW:name:=IDC_SIZEALL;
+   Apus.Engine.API.CursorID.Cross:name:=IDC_CROSS;
   end;
   result:=Windows.LoadCursor(0,name);
  end;
