@@ -205,15 +205,15 @@ function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
   cur:integer;  // not WORD because of Delphi calling convention issue
  begin
   case cursorID of
-   crDefault:cur:=SDL_SYSTEM_CURSOR_ARROW;
-   crLink:cur:=SDL_SYSTEM_CURSOR_HAND;
-   crWait:cur:=SDL_SYSTEM_CURSOR_WAIT;
-   crInput:cur:=SDL_SYSTEM_CURSOR_IBEAM;
-   crHelp:cur:=SDL_SYSTEM_CURSOR_WAITARROW;
-   crResizeH:cur:=SDL_SYSTEM_CURSOR_SIZENS;
-   crResizeW:cur:=SDL_SYSTEM_CURSOR_SIZEWE;
-   crResizeHW:cur:=SDL_SYSTEM_CURSOR_SIZEALL;
-   crCross:cur:=SDL_SYSTEM_CURSOR_CROSSHAIR;
+   Apus.Engine.API.CursorID.Default:cur:=SDL_SYSTEM_CURSOR_ARROW;
+   Apus.Engine.API.CursorID.Link:cur:=SDL_SYSTEM_CURSOR_HAND;
+   Apus.Engine.API.CursorID.Wait:cur:=SDL_SYSTEM_CURSOR_WAIT;
+   Apus.Engine.API.CursorID.Input:cur:=SDL_SYSTEM_CURSOR_IBEAM;
+   Apus.Engine.API.CursorID.Help:cur:=SDL_SYSTEM_CURSOR_WAITARROW;
+   Apus.Engine.API.CursorID.ResizeH:cur:=SDL_SYSTEM_CURSOR_SIZENS;
+   Apus.Engine.API.CursorID.ResizeW:cur:=SDL_SYSTEM_CURSOR_SIZEWE;
+   Apus.Engine.API.CursorID.ResizeHW:cur:=SDL_SYSTEM_CURSOR_SIZEALL;
+   Apus.Engine.API.CursorID.Cross:cur:=SDL_SYSTEM_CURSOR_CROSSHAIR;
   end;
   result:=THandle(SDL_CreateSystemCursor(cur));
   if result=0 then
