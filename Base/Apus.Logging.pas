@@ -60,7 +60,7 @@ interface
  procedure SaveLogMessages;
 
 implementation
- uses SysUtils,Apus.CrossPlatform
+ uses SysUtils, Apus.CrossPlatform
    {$IFDEF MSWINDOWS},windows,MMSystem{$ENDIF};
 
  type
@@ -73,7 +73,7 @@ implementation
   TLogMessage=record
    date:TDateTime;
    level,kind:byte;
-   msg:AnsiString;
+   msg:String8;
   end;
   //
   TLogBuffer=class
@@ -86,7 +86,7 @@ implementation
    function GetDump(minLevel:integer):ByteArray;
   end;
  var
-  logCache:string;
+  logCache:string8;
   logSect:TMyCriticalSection;
   logDir:string;
   lastTime:TSystemTime; // time of the last message for log file
@@ -224,7 +224,20 @@ implementation
  // 12-character time: HH:MM:SS.zzz
  procedure FormatTimeStr(p:PByte;time:TSystemTime);
   begin
-   {$IFDEF DELPHI}
+   {$IFDEF FPC}
+   p^:=48+time.Hour div 10; inc(p);
+   p^:=48+time.Hour mod 10; inc(p);
+   p^:=ord(':'); inc(p);
+   p^:=48+time.Minute div 10; inc(p);
+   p^:=48+time.Minute mod 10; inc(p);
+   p^:=ord(':'); inc(p);
+   p^:=48+time.Second div 10; inc(p);
+   p^:=48+time.Second mod 10; inc(p);
+   p^:=ord('.'); inc(p);
+   p^:=48+time.Millisecond div 100; inc(p);
+   p^:=48+(time.Millisecond div 10) mod 10; inc(p);
+   p^:=48+time.Millisecond mod 10;
+   {$ELSE}
    p^:=48+time.wHour div 10; inc(p);
    p^:=48+time.wHour mod 10; inc(p);
    p^:=ord(':'); inc(p);
@@ -238,19 +251,6 @@ implementation
    p^:=48+(time.wMilliseconds div 10) mod 10; inc(p);
    p^:=48+time.wMilliseconds mod 10;
    {$ENDIF}
-   {$IFDEF FPC}
-   p^:=48+time.Hour div 10; inc(p);
-   p^:=48+time.Hour mod 10; inc(p);
-   p^:=ord(':'); inc(p);
-   p^:=48+time.Minute div 10; inc(p);
-   p^:=48+time.Minute mod 10; inc(p);
-   p^:=ord(':'); inc(p);
-   p^:=48+time.Second div 10; inc(p);
-   p^:=48+time.Second mod 10; inc(p);
-   p^:=ord('.'); inc(p);
-   p^:=48+time.Millisecond div 100; inc(p);
-   p^:=48+(time.Millisecond div 10) mod 10; inc(p);
-   p^:=48+time.Millisecond mod 10;   {$ENDIF}
   end;
 
  // Read "size" bytes from the cyclic log buffer starting from "posit"
@@ -336,7 +336,8 @@ implementation
     date[6]:=chr(48+lasttime.wDay mod 10);
 
     fname:=logDir+date+'.log';
-    assign(f,fname);
+    assign(f,fname,CP_UTF8);
+
     try
      if FileExists(fname) then append(f)
       else rewrite(f);
