@@ -663,6 +663,7 @@ interface
  // Sorting
  procedure SortObjects(obj:PSortableObjects;count:integer);
  // Sort the array of arbitrary items with value field
+ procedure SortRecordsByDouble(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
  procedure SortRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
  procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
  // Return sorted index for the array of arbitrary items
@@ -3155,10 +3156,11 @@ const
  procedure QuickSortInternal(data:pointer;itemSize,offset,a,b,valueType:integer;asc:boolean);
   function Compare(p1,p2:pointer;valueType:integer):boolean; inline;
    begin
-    if valueType=1 then
-     result:=(PInteger(p1)^>PInteger(p2)^)
-    else
-     result:=(PSingle(p1)^>PSingle(p2)^);
+    case valueType of
+     1:result:=(PInteger(p1)^>PInteger(p2)^);
+     2:result:=(PSingle(p1)^>PSingle(p2)^);
+     3:result:=(PDouble(p1)^>PDouble(p2)^);
+    end;
    end;
   var
    lo,hi,mid:integer;
@@ -3200,6 +3202,12 @@ const
   begin
    if itemCount<2 then exit;
    QuickSortInternal(@items,itemSize,offset,0,itemCount-1,2,asc);
+  end;
+
+ procedure SortRecordsByDouble(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+  begin
+   if itemCount<2 then exit;
+   QuickSortInternal(@items,itemSize,offset,0,itemCount-1,3,asc);
   end;
 
  procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
