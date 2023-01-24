@@ -61,6 +61,7 @@ interface
    function NextInt:integer;
    function NextDate:TDateTime;
    procedure NextRow;
+   procedure FreeData; // Free memory of the last dataset
 
   private
     crSect:TMyCriticalSection;
@@ -197,6 +198,11 @@ destructor TDatabase.Destroy;
   if connected then Disconnect;
   DeleteCritSect(crSect);
   inherited;
+ end;
+
+procedure TDatabase.FreeData;
+ begin
+  SetLength(data,0);
  end;
 
 procedure TDatabase.QueryValues(var h: THash; table, keyField,
