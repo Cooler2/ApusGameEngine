@@ -336,9 +336,9 @@ implementation
     date[6]:=chr(48+lasttime.wDay mod 10);
 
     fname:=logDir+date+'.log';
-    assign(f,fname,CP_UTF8);
-
+    assign(f,fname);
     try
+     SetTextCodePage(f,CP_UTF8);
      if FileExists(fname) then append(f)
       else rewrite(f);
      write(f,logCache);
