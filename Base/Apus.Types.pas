@@ -338,6 +338,7 @@ procedure TBuffer.Skip(numBytes:integer);
  begin
   ASSERT(BytesLeft>=numBytes);
   inc(readPos,numBytes);
+  ASSERT(UIntPtr(readPos)>=UIntPtr(data));
  end;
 
 function TBuffer.Slice(from,length:integer):TBuffer;
