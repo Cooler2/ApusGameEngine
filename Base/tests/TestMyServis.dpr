@@ -61,7 +61,8 @@ program TestMyServis;
   Apus.Classes in '..\Apus.Classes.pas',
   Apus.Types in '..\Apus.Types.pas',
   Apus.ProdCons in '..\Apus.ProdCons.pas',
-  Apus.VertexLayout in '..\Apus.VertexLayout.pas';
+  Apus.VertexLayout in '..\Apus.VertexLayout.pas',
+  Apus.TCP in '..\Apus.TCP.pas';
 
 var
  i:integer;

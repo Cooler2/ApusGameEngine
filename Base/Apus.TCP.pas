@@ -379,7 +379,7 @@ begin
   addr.sin_port:=htons(port);
   addr.sin_addr.S_addr:=ip; // Address already correct
 
-  res:=WinSock2.Connect(sock,SockAddr(addr),sizeof(addr));
+  res:=WinSock2.Connect(sock,TSockAddr(addr),sizeof(addr));
   if (res<>0) then begin
     res:=WSAGetLastError;
     if res<>WSAEWOULDBLOCK then begin
