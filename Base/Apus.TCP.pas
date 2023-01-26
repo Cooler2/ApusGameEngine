@@ -52,10 +52,13 @@ type
 
  // TCP Client instance
  TTCPClient=class
-  connected:boolean;
+  connected:boolean; // connection established?
+  connecting:boolean; // trying to connect?
   constructor Create;
   destructor Destroy; override;
-  procedure Connect(serverAddress:string);
+  // If waitMS>=0 - Connect() will wait for connection and reset to disconnected state if failed
+  // if waitMS<0 - Connect() may return immediately with connecting=true state
+  procedure Connect(serverAddress:string;waitMS:integer=-1);
   procedure Disconnect;
   procedure Poll;
   procedure SendData(const buf:TBuffer);
@@ -355,13 +358,14 @@ begin
   inherited;
 end;
 
-procedure TTCPClient.Connect(serverAddress: string);
+procedure TTCPClient.Connect(serverAddress:string;waitMS:integer=-1);
 var
   addr:SOCKADDR_IN;
   res:integer;
   arg:cardinal;
   ip:cardinal;
   port:word;
+  time:int64;
 begin
   LogMsg('Connecting to '+serverAddress);
   // create main socket
@@ -379,17 +383,32 @@ begin
   addr.sin_port:=htons(port);
   addr.sin_addr.S_addr:=ip; // Address already correct
 
+  connecting:=true;
   res:=WinSock2.Connect(sock,TSockAddr(addr),sizeof(addr));
   if (res<>0) then begin
-    res:=WSAGetLastError;
-    if res<>WSAEWOULDBLOCK then begin
-      CloseSocket(sock);
-      sock:=0;
-      EError.Create('Connect error '+inttostr(WSAGetLastError));
-    end;
+   res:=WSAGetLastError;
+   if res<>WSAEWOULDBLOCK then begin
+    CloseSocket(sock);
+    sock:=0;
+    EError.Create('Connect error '+inttostr(WSAGetLastError));
+   end;
   end else begin
-    connected:=true;
-    onConnect;
+   connected:=true;
+   onConnect;
+  end;
+  if waitMS<0 then exit;
+  time:=MyTickCount+waitMS;
+  repeat
+   Sleep(1);
+   Poll;
+   if connected or not connecting then exit;
+  until MyTickCount>=time;
+  // Failed to connect
+  LogMsg('Connection failed',logWarn);
+  connecting:=false;
+  if sock<>0 then begin
+   CloseSocket(sock);
+   sock:=0;
   end;
 end;
 
@@ -406,20 +425,29 @@ procedure TTCPClient.Poll;
 var
   res:integer;
   buf:TBuffer;
-  writeSet:TFdSet;
+  writeSet,errorSet:TFdSet;
   timeout:TTimeVal;
 begin
-  if not connected then begin
+  if connecting and not connected then begin
     // Check for connection
-    writeset.fd_count:=1;
-    writeset.fd_array[0]:=sock;
+    writeSet.fd_count:=1;
+    writeSet.fd_array[0]:=sock;
+    errorSet.fd_count:=1;
+    errorSet.fd_array[0]:=sock;
     fillchar(timeout,sizeof(timeout),0);
-    res:=select(0,nil,@writeSet,nil,@timeout);
+    res:=select(0,nil,@writeSet,@errorSet,@timeout);
     if res=SOCKET_ERROR then
       raise EWarning.Create('Select 1 error: '+inttostr(WSAGetLastError));
     if writeSet.fd_count>0 then begin
       connected:=true;
+      connecting:=false;
       onConnect;
+    end;
+    if errorSet.fd_count>0 then begin
+      LogMsg('Connection failed because of error!',logWarn);
+      connecting:=false;
+      CloseSocket(sock);
+      sock:=0;
     end;
   end;
   if not connected then exit;
