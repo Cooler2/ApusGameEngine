@@ -38,13 +38,13 @@ type
 
  // TCP Server instance
  TTCPServer=class
+  users:array of TTCPServerUser;
   constructor Create(listenPort:word;userClass:TTCPServerUserClass);
   destructor Destroy; override;
   procedure Poll; // Call this periodically to keep the server running
  protected
   listenPort:word;
   sock:TSocket;
-  users:array of TTCPServerUser;
   userClass:TTCPServerUserClass;
   function AcceptNewConnection:boolean;
   procedure ReadData;
@@ -54,6 +54,7 @@ type
  TTCPClient=class
   connected:boolean; // connection established?
   connecting:boolean; // trying to connect?
+  disconnected:boolean; // true after an established connection was broken
   constructor Create;
   destructor Destroy; override;
   // If waitMS>=0 - Connect() will wait for connection and reset to disconnected state if failed
@@ -182,7 +183,7 @@ begin
   while i<=high(users) do begin
    if users[i].sock=0 then begin
      // User disconnected
-     LogMsg('User %s disconnected',[users[i].GetUserName]);
+     LogMsg('Client %s disconnected',[users[i].GetUserName]);
      users[i].Free;
      users[i]:=users[high(users)];
      SetLength(users,length(users)-1);
@@ -216,7 +217,7 @@ begin
       n:=length(users);
       SetLength(users,n+1);
       users[n]:=user;
-      LogMessage('Client connected: %s:%d ',[IpToStr(user.remoteIP),user.remotePort]);
+      LogMsg('Client connected: %s:%d ',[IpToStr(user.remoteIP),user.remotePort]);
       result:=true;
       try
         user.onConnected;
@@ -233,17 +234,18 @@ var
   i,j,u,uStart,res:integer;
 begin
   readset.fd_count:=0;
-  // select sockets to read
+  // Select sockets to read
   readset.fd_count:=0;
   uStart:=0;
   for i:=0 to High(users) do begin
+    if users[i].sock=0 then continue;
     readset.fd_array[readset.fd_count]:=users[i].sock;
     inc(readset.fd_count);
     if (i=high(users)) or (readset.fd_count>=high(readset.fd_array)) then begin
       fillchar(timeout,sizeof(timeout),0);
       res:=select(0,@readset,nil,nil,@timeout);
       if res=SOCKET_ERROR then
-        raise EWarning.Create('Select error: '+inttostr(WSAGetLastError));
+        LogMsg('Select error: '+inttostr(WSAGetLastError),logWarn);
 
       if res>0 then // some sockets are ready
         for j:=0 to readset.fd_count-1 do
@@ -309,7 +311,7 @@ begin
     SetLength(data,length(data)+65536);
   res:=recv(sock,data[writePos],length(data)-writePos,0);
   if res>=0 then begin
-    LogMsg('User %s: received %d bytes',[GetUserName,res],logInfo);
+    LogMsg('User %s sent %d bytes',[GetUserName,res],logInfo);
     lastData:=Now;
     inc(writePos,res);
     buf.CreateFrom(data);
@@ -336,13 +338,13 @@ begin
   ASSERT(sock<>0);
   LogMsg('Sending %d bytes to user %s',[buf.size,GetUserName],logInfo);
   res:=Send(sock,buf.data^,buf.size,0);
-  if res<buf.size then LogMsg('WARN! Partial send %d of %d',[res,buf.size],logWarn);
   if res=SOCKET_ERROR then begin
     LogMsg('Send error: '+inttostr(WSAGetLastError),logWarn);
     CloseSocket(sock);
     sock:=0;
     LogMsg('User %s socket closed',[GetUserName],logInfo);
   end;
+  if res<buf.size then LogMsg('WARN! Partial send %d of %d',[res,buf.size],logWarn);
 end;
 
 { TTCPClient }
@@ -367,6 +369,7 @@ var
   port:word;
   time:int64;
 begin
+  ASSERT(connected=false,'Client already connected');
   LogMsg('Connecting to '+serverAddress);
   // create main socket
   sock:=socket(PF_INET,SOCK_STREAM,IPPROTO_IP);
@@ -384,6 +387,7 @@ begin
   addr.sin_addr.S_addr:=ip; // Address already correct
 
   connecting:=true;
+  disconnected:=false;
   res:=WinSock2.Connect(sock,TSockAddr(addr),sizeof(addr));
   if (res<>0) then begin
    res:=WSAGetLastError;
@@ -419,6 +423,7 @@ begin
   sock:=0;
   LogMsg('Disconnected',logImportant);
   onDisconnect;
+  disconnected:=true;
 end;
 
 procedure TTCPClient.Poll;
@@ -458,6 +463,12 @@ begin
     res:=WSAGetLastError;
     if res<>WSAEWOULDBLOCK then begin
       LogMsg('Socket read error: %d',[res],logWarn);
+      connected:=false;
+      CloseSocket(sock);
+      sock:=0;
+      LogMsg('Disconnected',logImportant);
+      onDisconnect;
+      disconnected:=true;
     end;
     exit;
   end;
