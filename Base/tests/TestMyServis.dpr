@@ -1393,7 +1393,7 @@ procedure TestMemoryStat;
   end;
 
  // Вывод: сравнение через lowercase - в 4-5 раз быстрее, чем через AnsiSameText
- procedure TestSort;
+ procedure TestStrCompare;
   var
    data:array[1..5000] of string;
    i,j,n,c:integer;
@@ -1724,16 +1724,19 @@ procedure TestMemoryStat;
    TItem=record
     a,b:integer;
     c:single;
+    d:double;
    end;
   var
    list:array of TItem;
    i:integer;
   begin
+   Writeln('Test SortRecords');
    SetLength(list,1000);
    for i:=0 to high(list) do begin
     list[i].a:=random(1000);
     list[i].b:=random(1000)-random(1000);
     list[i].c:=(random(10000)-random(10000))/100;
+    list[i].d:=(random(10000)-random(10000))/100;
    end;
 
    SortRecordsByInt(list[0],sizeof(TItem),length(list),0,true);
@@ -1747,6 +1750,10 @@ procedure TestMemoryStat;
 
    SortRecordsByFloat(list[0],sizeof(TItem),length(list),8,false);
    for i:=1 to high(list) do ASSERT(list[i].c<=list[i-1].c);
+
+   SortRecordsByDouble(list[0],sizeof(TItem),length(list),UIntPtr(@list[0].d)-UIntPtr(@list[0].a),true);
+   for i:=1 to high(list) do ASSERT(list[i].d>=list[i-1].d);
+   Writeln('SortRecords OK!');
   end;
 
 procedure TestFileIO;
@@ -2167,7 +2174,7 @@ begin
   TestTextUtils;
   TestStringTools;
   TestSortStrings;
-  TestSort;
+  TestStrCompare;
   TestSplitCombine;
   TestTime;
   TestPatch;
