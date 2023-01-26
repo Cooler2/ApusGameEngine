@@ -3165,13 +3165,15 @@ const
   var
    lo,hi,mid:integer;
    loVal,hiVal:PByte;
-   midVal:integer;
+   midVal:int64; // Placeholder for the value to compare with
+   valSize:integer; // value size in bytes
   begin
    lo:=a; hi:=b;
    mid:=(a+b) div 2;
    loVal:=PByte(UIntPtr(data)+lo*itemSize+offset);
    hiVal:=PByte(UIntPtr(data)+hi*itemSize+offset);
-   move(PByte(UIntPtr(data)+mid*itemSize+offset)^,midval,4);
+   if valueType=3 then valSize:=8 else valSize:=4;
+   move(PByte(UIntPtr(data)+mid*itemSize+offset)^,midval,valSize);
    repeat
     if asc then begin
      while Compare(@midVal,loVal,valueType) do begin
