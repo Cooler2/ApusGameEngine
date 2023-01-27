@@ -333,12 +333,9 @@ implementation
         draw.Image(ix,iy,btnImages[btnStyles[i].image].image,$FF808080);
       end;
       bool:=noborder;
-      int:=backgnd;
       noborder:=true;
-      backgnd:=0;
       DrawUIElement(item,0);
       noborder:=bool;
-      backgnd:=int;
     end;
 
    // Кнопка
