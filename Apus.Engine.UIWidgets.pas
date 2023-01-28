@@ -190,20 +190,19 @@ interface
   end;
 
   TUIEditBox=class(TUIElement)
-   realText:WideString; // реальный текст (лучше использовать это поле, а не text)
+   realText:WideString; // real text value of the edit box
    completion:WideString; // grayed background text, if it is not empty and enter is pressed, then it is set to realText
    defaultText:WideString; // grayed background text, displayed if realText is empty
-   backgnd:cardinal;  // deprecated, use styles instead
-   cursorpos:integer;      // Положение курсора (номер символа, после которого находится курсор)
-   maxlength:integer;      // максимальная длина редактируемой строки
-   password:boolean;    // поле для ввода пароля
-   noborder:boolean;    // deprecated, рисовать ли рамку или только редактируемый текст (для встраивания в другие эл-ты)
-   selstart,selcount:integer; // выделенный фрагмент текста
-   cursortimer:int64;    // Начальный таймер для отрисовки курсора
-   needpos:integer;    // желаемое положение курсора в пикселях (для отрисовщика)
-   msselect:boolean;  // Выделение мышью
-   protection:byte;   // xor всех символов с этим числом
-   offset:integer; // сдвиг вправо содержимого на столько пикселей
+   cursorPos:integer;     // cursor position (cursor is located after the character with given index, 1-based)
+   maxLength:integer;      // max allowed length
+   password:boolean;    // is it password field? if true, all characters are displayed as '*'
+   noBorder:boolean;    // deprecated
+   selStart,selCount:integer; //
+   cursorTimer:int64;  // time offset for cursor blinking
+   needPos:integer;    // pixel position feedback from the drawer
+   msSelect:boolean;   // mouse selection mode is ON
+   protection:byte;    // xor all characters with this value
+   offset:integer;     // shift text right by this number of pixels
 
    constructor Create(width,height:single;boxName:string;boxFont:TFontHandle;color_:cardinal;parent_:TUIElement); overload;
    constructor Create(width,height:single;text:string;parent:TUIElement;name:string=''); overload;
@@ -224,7 +223,7 @@ interface
    function GetText:String8;
    procedure SetText(s:String8);
   public
-   property text:String8 read GetText write SetText;         // Редактируемый текст (в заданной кодировке)
+   property text:String8 read GetText write SetText;  // Current value in UTF-8 encoding
   end;
 
   // Полоса прокрутки
@@ -860,12 +859,10 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
    font:=boxFont;
    maxlength:=240;
    password:=false;
-   backgnd:=0;
    if (color_<>clDefault) then color:=color_;
    protection:=0;
    needPos:=-1;
    offset:=0;
-   // Свойства предка
    canhavefocus:=true; //CheckAndSetFocus;
    sendSignals:=ssAll;
    completion:='';

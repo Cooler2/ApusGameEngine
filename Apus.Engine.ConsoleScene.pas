@@ -214,7 +214,6 @@ begin
 
  editbox:=TUIEditBox.Create(460,18,'Console\Input',font,$FFE0FFD0,wnd);
  editBox.SetPos(0,h,pivotBottomLeft);
- editbox.backgnd:=$40000000;
  editBox.SetAnchors(0,1,1,1);
  editbox.noborder:=true;
 

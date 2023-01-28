@@ -257,7 +257,7 @@ type
   // Same as FindItemAt, but ignores elements transparency mode
   function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
   // Find a descendant element by its name
-  function FindElementByName(const name:string8):TUIElement;
+  function FindChildByName(const name:string8):TUIElement;
 
   // Установить либо удалить "горячую клавишу" для данного эл-та
   procedure SetHotKey(vKeyCode:byte;shiftstate:byte=0);
@@ -712,7 +712,7 @@ destructor TUIElement.Destroy;
    InsertRel(element,0);
   end;
 
- function TUIElement.FindElementByName(const name:string8):TUIElement;
+ function TUIElement.FindChildByName(const name:string8):TUIElement;
   var
    i:integer;
    c:TUIElement;
@@ -721,7 +721,7 @@ destructor TUIElement.Destroy;
     result:=self; exit;
    end;
    for i:=0 to length(children)-1 do begin
-    c:=children[i].FindElementByName(name);
+    c:=children[i].FindChildByName(name);
     if c<>nil then begin
      result:=c; exit;
     end;
