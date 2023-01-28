@@ -96,14 +96,26 @@ type
 
   // "name = value" string pair
   TNameValue=record
-   name,value:string;
-   procedure Init(st:string;splitter:string='='); // split and trim
-   function Named(st:string):boolean;
+   name,value:string8;
+   procedure Init(st:string8;splitter:string8='='); // split and trim
+   function Named(st:string8):boolean;
    function GetInt:integer;
    function GetFloat:double;
    function GetDate:TDateTime;
    function GetBool:boolean; // true if value is "y", "yes", "true", "on", "1"; false if "n", "no", "false", "off", "0"
-   function Join(separator:string='='):string; // convert back to "name=value"
+   function Join(separator:string8='='):string8; // convert back to "name=value"
+  end;
+
+  // List of "name=value" pairs
+  TNameValueList=record
+   items:array of TNameValue;
+   constructor Init(st:string8;itemSeparator:string8=';';valueSeparator:string8='='); overload;
+   constructor Init(list:StringArray8;valueSeparator:string8='='); overload;
+  private
+   function GetItem(name:String8):string8;
+   procedure SetItem(name:string8;value:string8);
+  public
+   property Item[name:string8]:string8 read GetItem write SetItem;
   end;
 
   // Helper object represents in-memory binary buffer, doesn't own data
@@ -376,29 +388,29 @@ function TNameValue.GetInt:integer;
   result:=ParseInt(value);
  end;
 
-procedure TNameValue.Init(st,splitter:string);
+procedure TNameValue.Init(st,splitter:string8);
  var
   p:integer;
  begin
-  p:=pos(splitter,st);
+  p:=PosFrom(splitter,st);
   if p=0 then begin
    name:=st; value:='';
   end else begin
    name:=copy(st,1,p-1);
    value:=copy(st,p+length(splitter),length(st));
   end;
-  name:=name.Trim;
-  value:=value.Trim;
+  name:=Chop(name);
+  value:=Chop(value);
  end;
 
-function TNameValue.Join(separator:string):string;
+function TNameValue.Join(separator:string8):string8;
  begin
   result:=name+separator+value;
  end;
 
-function TNameValue.Named(st:string):boolean;
+function TNameValue.Named(st:string8):boolean;
  begin
-  result:=SameText(name,st);
+  result:=SameText8(name,st);
  end;
 
 { TIntRange }
@@ -641,5 +653,43 @@ begin
 end;
 {$ENDIF}
 
+
+{ TNameValueList }
+
+constructor TNameValueList.Init(list:StringArray8;valueSeparator:string8);
+var
+ i:integer;
+begin
+ SetLength(items,length(list));
+ for i:=0 to high(list) do
+  items[i].Init(list[i],valueSeparator);
+end;
+
+constructor TNameValueList.Init(st:string8;itemSeparator,valueSeparator:string8);
+begin
+ Init(SplitA(st,itemSeparator),valueSeparator);
+end;
+
+function TNameValueList.GetItem(name:String8):string8;
+var
+ i:integer;
+begin
+ result:='';
+ for i:=0 to high(items) do
+  if items[i].named(name) then exit(items[i].value);
+end;
+
+procedure TNameValueList.SetItem(name,value:string8);
+var
+ i:integer;
+begin
+ for i:=0 to high(items) do
+  if items[i].named(name) then begin
+   items[i].value:=value;
+  end;
+ i:=length(items);
+ SetLength(items,i+1);
+ items[i].Init(name,value);
+end;
 
 end.
