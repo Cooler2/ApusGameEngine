@@ -514,7 +514,7 @@ procedure PlaySound(event:string;tag:TTag);
    for i:=1 to high(sa) do begin
      par.Init(sa[i]);
      if par.Named('vol') or par.named('v') then begin
-      if par.value.EndsWith('%') then
+      if HasSuffix(par.value,'%') then
        settings.volume:=settings.volume*par.GetInt/100
       else
        settings.volume:=par.GetInt/100;

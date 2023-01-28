@@ -301,9 +301,13 @@ interface
  function Join(strings:AStringArr;divider:String8):String8; overload;
  function Join(items:array of const;divider:string):string; overload;
 
- // Проверяет, начинается ли строка st с подстроки
+ // true if string starts with text
  function HasPrefix(st,prefix:string):boolean; overload;
  function HasPrefix(st,prefix:String8;ignoreCase:boolean=false):boolean; overload;
+
+ // true if string ends with text
+ function HasSuffix(st,suffix:string):boolean; overload;
+ function HasSuffix(st,suffix:String8;ignoreCase:boolean=false):boolean; overload;
 
  // Search for a substring from specified point
  function PosFrom(substr,str:string;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
@@ -4714,6 +4718,33 @@ function BinToStr;
      if not SameChar(st[i],prefix[i]) then exit;
     end else
      if st[i]<>prefix[i] then exit;
+   result:=true;
+  end;
+
+ function HasSuffix(st,suffix:string):boolean; overload;
+  var
+   i,d:integer;
+  begin
+   result:=false;
+   d:=length(st)-length(suffix);
+   if d<0 then exit;
+   for i:=1 to length(suffix) do
+    if st[i+d]<>suffix[i] then exit;
+   result:=true;
+  end;
+
+ function HasSuffix(st,suffix:String8;ignoreCase:boolean=false):boolean; overload;
+  var
+   i,d:integer;
+  begin
+   result:=false;
+   d:=length(st)-length(suffix);
+   if d<0 then exit;
+   for i:=1 to length(suffix) do
+    if ignoreCase then begin
+     if not SameChar(st[i+d],suffix[i]) then exit;
+    end else
+     if st[i+d]<>suffix[i] then exit;
    result:=true;
   end;
 
