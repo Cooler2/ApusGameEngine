@@ -512,7 +512,7 @@ procedure PlaySound(event:string;tag:TTag);
    slide:=0;
    // 2. Override
    for i:=1 to high(sa) do begin
-     par.Init(sa[i]);
+     par.InitFrom(sa[i]);
      if par.Named('vol') or par.named('v') then begin
       if HasSuffix(par.value,'%') then
        settings.volume:=settings.volume*par.GetInt/100

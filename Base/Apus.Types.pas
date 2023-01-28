@@ -97,7 +97,8 @@ type
   // "name = value" string pair
   TNameValue=record
    name,value:string8;
-   procedure Init(st:string8;splitter:string8='='); // split and trim
+   procedure Init(name,value:string8);
+   procedure InitFrom(st:string8;splitter:string8='='); // split and trim
    function Named(st:string8):boolean;
    function GetInt:integer;
    function GetFloat:double;
@@ -111,6 +112,7 @@ type
    items:array of TNameValue;
    constructor Init(st:string8;itemSeparator:string8=';';valueSeparator:string8='='); overload;
    constructor Init(list:StringArray8;valueSeparator:string8='='); overload;
+   function Count:integer;
   private
    function GetItem(name:String8):string8;
    procedure SetItem(name:string8;value:string8);
@@ -388,7 +390,13 @@ function TNameValue.GetInt:integer;
   result:=ParseInt(value);
  end;
 
-procedure TNameValue.Init(st,splitter:string8);
+procedure TNameValue.Init(name,value:string8);
+ begin
+  self.name:=name;
+  self.value:=value;
+ end;
+
+procedure TNameValue.InitFrom(st,splitter:string8);
  var
   p:integer;
  begin
@@ -662,12 +670,17 @@ var
 begin
  SetLength(items,length(list));
  for i:=0 to high(list) do
-  items[i].Init(list[i],valueSeparator);
+  items[i].InitFrom(list[i],valueSeparator);
 end;
 
 constructor TNameValueList.Init(st:string8;itemSeparator,valueSeparator:string8);
 begin
- Init(SplitA(st,itemSeparator),valueSeparator);
+ Init(SplitA(itemSeparator,st),valueSeparator);
+end;
+
+function TNameValueList.Count: integer;
+begin
+ result:=length(items);
 end;
 
 function TNameValueList.GetItem(name:String8):string8;
