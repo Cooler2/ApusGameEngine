@@ -105,7 +105,7 @@ var
  c:TUIElement;
 begin
  c:=TUIElement(tag);
- if c.name<>'' then
+ if (c.name<>'') and (c.name[1]<>'_') then // elements named '_XXX' aren't published, their names don't have to be unique
   PublishVar(c,c.name,TVarTypeUIElement);
 end;
 
