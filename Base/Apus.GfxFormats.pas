@@ -1024,7 +1024,7 @@ const
    src.Free;
 
    if image=nil then
-    image:=Apus.Images.TBitmapImage.Create(jpeg.Width,jpeg.Height,ipfRGB);
+    image:=Apus.Images.TBitmapImage.Create(jpeg.Width,jpeg.Height,ipfXRGB);
 
    jpeg.DIBNeeded;
    bmp:=TBitmap.Create;
