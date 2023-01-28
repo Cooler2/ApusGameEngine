@@ -177,7 +177,7 @@ implementation
   var
    color:cardinal;
   begin
-   if element.caption<>'' then begin
+   if (element.caption<>'') and (element.ClassType=TUIElement) then begin
     color:=element.color;
     if color=clDefault then color:=$FF808080;
     txt.WriteW(element.font,(x1+x2)/2,(y1+y2)/2,color,Str16(element.caption),taCenter,toWithShadow);
@@ -671,20 +671,6 @@ implementation
    c:cardinal;
   begin
    with control do begin
-{    if backgnd<>0 then begin
-     c:=backgnd;
-     if UnderMouse=control then
-      c:=ColorAdd(backgnd,$404040);
-     draw.FillRect(x1,y1,x2,y2,c);
-    end;
-    if not noborder then begin
-     draw.RRect(x1-1,y1-1,x2+1,y2+1,$A0000000+color and $FFFFFF,1);
-    end;}
-
-{    savey:=y1;
-    savey2:=y2;
-    inc(y1,((y2-y1)-txt.GetFontHeight) div 2);
-    y2:=y1+txt.GetFontHeight;}
     wst:=realtext;
     if password then
       wst:=StringOfChar('*',length(wst));
