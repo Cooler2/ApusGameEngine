@@ -89,28 +89,29 @@ type
 
  // Base class of the UI element
  TUIElement=class(TNamedObject)
-  // This define element's OUTER rect - in PARENT coordinates (i.e. scale doesn't affect this)
+  // This defines element's OUTER rect - in PARENT coordinates (i.e. scale doesn't affect this)
   position:TPoint2s;  // root point position in parent's client rect
   size:TVector2s; // dimension of this element
   pivot:TPoint2s; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
   anchors:TUIRect; // how much left/top/right/bottom border should absorb from parent's size change delta
   shape:TElementShape;  // define which part of the element can react on mouse input (opaque part)
-  shapeRegion:TRegion;   // задает область непрозрачности в режиме tmCustom (поведение по умолчанию)
+  shapeRegion:TRegion;   // when shape=shapeCustom, this object define which area is considered opaque (for mouse input)
   // Inner parts - scaled
   scale:single; // scale factor for INNER parts of the element and all its children elements
   padding:TUIRect; // defines element's client area (how much to deduct from the element's area) using own scale
-  scroll:TVector2s; // смещение (используется для вложенных эл-тов!) SUBTRACT from children pos
-  scrollerH,scrollerV:IScroller;  // если для прокрутки используются скроллбары - здесь можно их определить
+  scroll:TVector2s; // Offset used to draw children elements - SUBTRACT from children pos
+  scrollerH,scrollerV:IScroller;  // scrollbars linked to this element scroll position
   autoScroll:boolean; // use mouse wheel to scroll
-  placementMode:TUIPlacementMode;  // Реакция на изменение размеров предка
+  placementMode:TUIPlacementMode;  // How element should react on parent's size change
 
-  enabled:boolean; // Должен ли элемент реагировать на пользовательский ввод
-  visible:boolean; // должен ли элемент рисоваться
+  enabled:boolean; // true if element can and should react on input events
+  visible:boolean; // true if element should be drawn
   manualDraw:boolean; // when true - the element is ignored by a regular DrawUI call, should be drawn manually
   cursor:NativeInt; // Идентификатор курсора (0 - default)
-  order:integer; // Определяет порядок отрисовки ($10000 - база для StayOnTop-эл-тов), отрицательные значения - специальные
+  order:integer; // Z-order used for arrangement ($10000 - StayOnTop), <0 - special (out-of-order)
+
   // Define how the element should be displayed
-  style:byte;    // Стиль для отрисовки (0 - использует отрисовщик по умолчанию)
+  style:byte;    // Which style handler should be used to draw this element (0 - default style)
   styleInfoChanged:boolean; // set true whenever styleInfo changes
   styleContext:TObject; // custom context object used by drawer
 
@@ -119,6 +120,8 @@ type
   hintDelay:integer; // время (в мс), через которое элемент должен показать hint (в режиме показа hint'ов это время значительно меньше)
   hintDuration:integer; // длительность (в мс) показа хинта
   sendSignals:TSendSignals; // режим сигнализирования (см. выше)
+  caption:string; // some text associated with element
+
   // Clipping: use clipChildren to allow hovering, not parentClip
   // An element is clipped when BOTH conditions are true: parent.clipChildren AND self.parentClip
   parentClip:boolean; // clip this element by parents client rect? (default - yes!)
@@ -130,7 +133,7 @@ type
   // Custom data
   tag:NativeInt; // custom data for manual use
   customPtr:pointer; // custom data for manual use
-  caption:string; // may be used for debug purpuses
+  attributes:TNameValueList; // custom attributes
 
   // Relationship
   parent:TUIElement; // Ссылка на элемент-предок
