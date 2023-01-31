@@ -314,11 +314,10 @@ begin
     LogMsg('User %s sent %d bytes',[GetUserName,res],logInfo);
     lastData:=Now;
     inc(writePos,res);
-    buf.CreateFrom(data);
-    buf.Seek(readPos);
+    buf.CreateFrom(data[readPos],writePos-readPos);
     try
       onDataReceived(buf);
-      readPos:=buf.CurrentPos;
+      inc(readPos,buf.CurrentPos);
     except
       on e:Exception do LogMsg('User %s onReceive error: '+ExceptionMsg(e),[getUserName],logWarn);
     end;
@@ -335,14 +334,19 @@ procedure TTCPServerUser.SendData(const buf:TBuffer);
 var
   res:integer;
 begin
-  ASSERT(sock<>0);
+  if sock=0 then begin
+    LogMsg('Trying to send to unconnected user %s',[GetUserName]);
+    exit;
+  end;
   LogMsg('Sending %d bytes to user %s',[buf.size,GetUserName],logInfo);
+  LogMsg(HexDump(buf.data,Min2(16,buf.size)),logDebug);
   res:=Send(sock,buf.data^,buf.size,0);
   if res=SOCKET_ERROR then begin
     LogMsg('Send error: '+inttostr(WSAGetLastError),logWarn);
     CloseSocket(sock);
     sock:=0;
-    LogMsg('User %s socket closed',[GetUserName],logInfo);
+    LogMsg('User %s socket closed',[GetUserName]);
+    exit;
   end;
   if res<buf.size then LogMsg('WARN! Partial send %d of %d',[res,buf.size],logWarn);
 end;
@@ -474,13 +478,12 @@ begin
   end;
   if res>=0 then begin
     // some data received
-    LogMsg('Received %d bytes',[res],logInfo);
+    LogMsg('Received %d bytes: '+HexDump(@data[readpos],min2(res,16)),[res],logInfo);
     inc(writePos,res);
-    buf.CreateFrom(data);
-    buf.Seek(readPos);
+    buf.CreateFrom(data[readPos],writePos-readPos);
     try
       onDataReceived(buf);
-      readPos:=buf.CurrentPos;
+      inc(readPos,buf.CurrentPos);
     except
       on e:Exception do LogMsg('onReceive error: '+ExceptionMsg(e),logWarn);
     end;
