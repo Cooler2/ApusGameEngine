@@ -41,7 +41,7 @@ constructor TMainApp.Create;
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
   usedPlatform:=spDefault;
   useRealDPI:=true;
-  useRealDPI:=false;
+  //useRealDPI:=false;
   //usedPlatform:=spSDL;
   //directRenderOnly:=true;
   //windowedMode:=false;
@@ -66,7 +66,7 @@ procedure TMainApp.CreateScenes;
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);
  begin
   inherited;
-  settings.mode.displayMode:=dmWindow;
+  settings.mode.displayMode:=dmWindow; // make window resizeable
  end;
 
 procedure RootCloseCLick;
@@ -135,6 +135,31 @@ procedure TestWidgets;
   TUIRadioButton.Create(100,22,'Radio2','radio 2',cont);
   TUIRadioButton.Create(-1,22,'Radio3','radio 3 Looooooong',cont);
 
+  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  // Group box
+
+  cont:=CreateVerticalContainer(150,root,0,6,false);
+  cont.SetPos(400,10);
+  //Edit boxes
+  TUIEditBox.SetDefault('styleInfo','borderColor=444;borderWidth=1; radius=3');
+  TUIEditBox.SetDefault('color',$FF002040);
+  TUIEditBox.Create(-1,24,'Edit1',0,clDefault,cont);
+  TUIEditBox.Create(-1,24,'Edit Box',cont);
+  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  // Scroll
+  TUIScrollBar.SetDefault('color',$FF405060);
+  TUIScrollBar.Create(-1,18,'Scroll1',cont);
+  TUIScrollBar.Create(-1,18,-10,10,0,0,cont,'Scroll2');
+  TUIScrollBar.Create(-1,18,100,300,50,0,cont,'Scroll3');
+  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  // ListBox
+  TUIListBox.SetDefault('styleInfo','borderColor=444; borderWidth=1');
+  TUIListBox.Create(-1,80,20,'List1',0,cont).SetLines(['Line 1','Line 2','Line 3','Line 4','Looong line WWWWW','Last line']);
+  // ComboBox
+  TUIComboBox.SetDefault('text','Please select...');
+  TUIComboBox.Create(-1,22,0,['Apple','Banana','Cucumber'],cont,'Combo1');
+
+  // Window
   TUIWindow.Create(200,200,true,'wnd','Window',game.defaultFont,root).
    SetPos(root.clientWidth/2,root.clientHeight*0.9,pivotBottomCenter);
 
