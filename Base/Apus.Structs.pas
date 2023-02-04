@@ -13,7 +13,8 @@ unit Apus.Structs;
 {$ENDIF}
 
 interface
- uses Apus.Types, Apus.Common, Classes;
+uses Apus.Types, Apus.Common, Classes;
+
 type
  TErrorState=(
   esNoError       =  0,
@@ -424,7 +425,7 @@ type
  end;}
 
 implementation
- uses SysUtils,variants, Apus.CrossPlatform
+ uses SysUtils, Variants{, Apus.CrossPlatform}
    {$IFDEF DELPHI},windows{$ENDIF}; // FPC has built-in support (RTL) for atomic operations
 
  const
