@@ -1,4 +1,5 @@
-﻿// Basic types definition
+﻿// This unit contains definition of basic types and helper types.
+// The structures defined here are not thread-safe
 
 // Copyright (C) 2021 Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -92,6 +93,19 @@ type
    procedure Init(min,max:single);
    function Width:single; // max-min
    function Rand:single;
+  end;
+
+  // Helper type for custom arrays
+  TArray<T>=record
+    items:array of T;
+    procedure Add(element:T);
+    procedure Insert(element:T;index:integer);
+    procedure Remove(element:T;keepOrder:boolean=true);
+    function Find(element:T):integer;
+    function Contains(element:T):boolean;
+    function Last:T;
+    function IsEmpty:boolean;
+    function Pop:T; // return the last element and remove it
   end;
 
   // "name = value" string pair
@@ -223,7 +237,7 @@ type
 
 
 implementation
- uses Apus.Common, SysUtils;
+ uses Apus.Common, SysUtils, Generics.Defaults;
 
 { TBuffer }
 
@@ -703,6 +717,82 @@ begin
  i:=length(items);
  SetLength(items,i+1);
  items[i].Init(name,value);
+end;
+
+{ TList<T> }
+
+procedure TArray<T>.Add(element:T);
+var
+ n:integer;
+begin
+ n:=length(items);
+ SetLength(items,n+1);
+ items[n]:=element;
+end;
+
+function TArray<T>.Contains(element:T):boolean;
+begin
+ result:=Find(element)>=0;
+end;
+
+function TArray<T>.Find(element:T):integer;
+var
+ i:integer;
+ comparer:IEqualityComparer<T>;
+begin
+ comparer:=TEqualityComparer<T>.Default;
+ for i:=0 to high(items) do
+  if comparer.Equals(items[i],element) then exit(i);
+ result:=-1;
+end;
+
+procedure TArray<T>.Insert(element:T;index:integer);
+var
+ i,n:integer;
+begin
+ n:=length(items);
+ if index>n then index:=n;
+ SetLength(items,n+1);
+ for i:=n-1 downto index do
+  items[i+1]:=items[i];
+ items[index]:=element;
+end;
+
+function TArray<T>.IsEmpty:boolean;
+begin
+ result:=Length(items)=0;
+end;
+
+function TArray<T>.Last:T;
+begin
+ if high(items)>=0 then exit(items[high(items)]);
+ result:=Default(T);
+end;
+
+function TArray<T>.Pop:T;
+var
+ n:integer;
+begin
+ result:=Last;
+ n:=length(items);
+ if n>0 then SetLength(items,n-1);
+end;
+
+procedure TArray<T>.Remove(element:T;keepOrder:boolean=true);
+var
+ i,n:integer;
+begin
+ i:=Find(element);
+ if i<0 then exit; // not found
+ n:=high(items);
+ if keepOrder then begin
+  while i<n do begin
+   items[i]:=items[i+1];
+   inc(i);
+  end
+ end else
+  items[i]:=items[n];
+ SetLength(items,n);
 end;
 
 end.
