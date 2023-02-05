@@ -105,6 +105,7 @@ type
     function Contains(element:T):boolean;
     function Last:T;
     function IsEmpty:boolean;
+    function Count:integer;
     function Pop:T; // return the last element and remove it
   end;
 
@@ -752,6 +753,11 @@ end;
 function TArray<T>.Contains(element:T):boolean;
 begin
  result:=Find(element)>=0;
+end;
+
+function TArray<T>.Count:integer;
+begin
+ result:=length(items);
 end;
 
 function TArray<T>.Find(element:T):integer;
