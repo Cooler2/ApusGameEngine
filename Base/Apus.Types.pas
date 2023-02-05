@@ -122,11 +122,16 @@ type
   end;
 
   // List of "name=value" pairs
+  // If you have many items, consider using hash instead
   TNameValueList=record
    items:array of TNameValue;
+   // Init from a string 'name1=value1;..;nameN=valueN'
    constructor Init(st:string8;itemSeparator:string8=';';valueSeparator:string8='='); overload;
+   // Init from array of strings 'name=value'
    constructor Init(list:StringArray8;valueSeparator:string8='='); overload;
    function Count:integer;
+   function HasName(name:string8):boolean; // check if there is an item with given name
+   function Find(name:string8):integer;
   private
    function GetItem(name:String8):string8;
    procedure SetItem(name:string8;value:string8);
@@ -695,6 +700,20 @@ end;
 function TNameValueList.Count: integer;
 begin
  result:=length(items);
+end;
+
+function TNameValueList.Find(name:string8):integer;
+var
+ i:integer;
+begin
+ for i:=0 to high(items) do
+  if items[i].Named(name) then exit(i);
+ result:=-1;
+end;
+
+function TNameValueList.HasName(name:string8):boolean;
+begin
+ result:=Find(name)>=0;
 end;
 
 function TNameValueList.GetItem(name:String8):string8;
