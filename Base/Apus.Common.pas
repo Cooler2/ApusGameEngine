@@ -326,7 +326,8 @@ interface
  function LowerCaseA(st:String8):String8; deprecated 'use LowerCase8';
  function LowerCase8(st:String8):String8;
  // Ignore case
- function SameChar(a,b:AnsiChar):boolean; inline;
+ function SameChar8(a,b:AnsiChar):boolean; inline;
+ function SameChar16(a,b:WideChar):boolean; inline;
  function SameText8(const a,b:String8):boolean; inline;
  function SameText16(const a,b:String16):boolean; overload;
 
@@ -1538,7 +1539,7 @@ function FormatHex(v:int64;digits:integer=0):String8;
      result:=result+GetDigit(st[i])*scale;
      scale:=scale*10;
     end else
-    if st[i]='-' then begin
+    if (st[i]='-') or (ord(st[i])=8722) then begin // long minus support
      result:=-result; break;
     end;
     dec(i);
@@ -4068,23 +4069,27 @@ function BinToStr;
    ch:WideChar;
   begin
    result:=0;
-   if ignoreCase then begin
-    substr:=WideLowercase(substr);
-    str:=WideLowercase(str);
-   end;
    n:=length(str);
    if n<maxIndex then maxIndex:=n;
    n:=length(substr);
    if n=1 then begin // trivial case
     ch:=substr[1];
-    for i:=minIndex to maxIndex do
-     if str[i]=ch then exit(i);
+    if ignoreCase then begin
+     for i:=minIndex to maxIndex do
+      if SameChar16(str[i],ch) then exit(i);
+    end else begin
+     for i:=minIndex to maxIndex do
+      if str[i]=ch then exit(i);
+    end;
     exit(0);
    end;
    m:=maxIndex-n+1;
    while minIndex<=m do begin
     i:=0;
-    while (i<n) and (str[minIndex+i]=substr[i+1]) do inc(i);
+    if ignoreCase then
+     while (i<n) and (str[minIndex+i]=substr[i+1]) do inc(i)
+    else
+     while (i<n) and (SameChar16(str[minIndex+i],substr[i+1])) do inc(i);
     if i=n then exit(minIndex);
     inc(minIndex);
    end;
@@ -4096,23 +4101,26 @@ function BinToStr;
    ch:char;
   begin
    result:=0;
-   if ignoreCase then begin
-    substr:=lowercase(substr);
-    str:=lowercase(str);
-   end;
    n:=length(str);
    if n<maxIndex then maxIndex:=n;
    n:=length(substr);
-   if n=1 then begin // trivial case
+   if n=1 then begin // trivial case: search for char
     ch:=substr[1];
-    for i:=minIndex to maxIndex do
-     if str[i]=ch then exit(i);
+    if ignoreCase then begin
+     for i:=minIndex to maxIndex do
+      if UpCase(str[i])=UpCase(ch) then exit(i);
+    end else
+     for i:=minIndex to maxIndex do
+      if str[i]=ch then exit(i);
     exit(0);
    end;
    m:=maxIndex-n+1;
    while minIndex<=m do begin
     i:=0;
-    while (i<n) and (str[minIndex+i]=substr[i+1]) do inc(i);
+    if ignoreCase then
+     while (i<n) and (UpCase(str[minIndex+i])=UpCase(substr[i+1])) do inc(i)
+    else
+     while (i<n) and (str[minIndex+i]=substr[i+1]) do inc(i);
     if i=n then exit(minIndex);
     inc(minIndex);
    end;
@@ -4125,23 +4133,25 @@ function BinToStr;
    ch:char8;
   begin
    result:=0;
-   if ignoreCase then
-    substr:=UpperCase(substr);
-
    n:=length(str);
    if n<maxIndex then maxIndex:=n;
    n:=length(substr);
    if n=1 then begin // trivial case
     ch:=substr[1];
-    for i:=minIndex to maxIndex do
-     if str[i]=ch then exit(i);
+    if ignoreCase then begin
+     for i:=minIndex to maxIndex do
+      if SameChar8(str[i],ch) then exit(i);
+    end else begin
+     for i:=minIndex to maxIndex do
+      if str[i]=ch then exit(i);
+    end;
     exit(0);
    end;
    m:=maxIndex-n+1;
    while minIndex<=m do begin
     i:=0;
     if ignoreCase then
-     while (i<n) and (UpCase(str[minIndex+i])=substr[i+1]) do inc(i)
+     while (i<n) and SameChar8(str[minIndex+i],substr[i+1]) do inc(i)
     else
      while (i<n) and (str[minIndex+i]=substr[i+1]) do inc(i);
     if i=n then exit(minIndex);
@@ -4155,15 +4165,14 @@ function BinToStr;
    i,p,l:integer;
   begin
    result:=0;
-   if ignoreCase then begin
-    substr:=lowercase(substr);
-    str:=lowercase(str);
-   end;
    p:=length(str)-length(substr)+1;
    l:=length(substr);
    while p>0 do begin
     i:=0;
-    while (i<l) and (str[p+i]=substr[i+1]) do inc(i);
+    if ignoreCase then
+     while (i<l) and (SameChar8(str[p+i],substr[i+1])) do inc(i)
+    else
+     while (i<l) and (str[p+i]=substr[i+1]) do inc(i);
     if i=l then exit(p);
     dec(p);
    end;
@@ -4236,7 +4245,7 @@ function BinToStr;
    end;
   end;
 
- function SameChar(a,b:AnsiChar):boolean;
+ function SameChar8(a,b:AnsiChar):boolean;
   begin
    if (byte(a)>=byte('a')) and (byte(a)<=byte('z')) then dec(byte(a),byte('a')-byte('A'));
    if (byte(b)>=byte('a')) and (byte(b)<=byte('z')) then dec(byte(b),byte('a')-byte('A'));
@@ -4258,7 +4267,7 @@ function BinToStr;
    l:=length(a);
    if length(b)<>l then exit(false);
    for i:=1 to l do
-    if not SameChar(a[i],b[i]) then exit(false);
+    if not SameChar8(a[i],b[i]) then exit(false);
    result:=true;
   end;
 
@@ -4715,7 +4724,7 @@ function BinToStr;
    if length(st)<length(prefix) then exit;
    for i:=1 to length(prefix) do
     if ignoreCase then begin
-     if not SameChar(st[i],prefix[i]) then exit;
+     if not SameChar8(st[i],prefix[i]) then exit;
     end else
      if st[i]<>prefix[i] then exit;
    result:=true;
@@ -4742,7 +4751,7 @@ function BinToStr;
    if d<0 then exit;
    for i:=1 to length(suffix) do
     if ignoreCase then begin
-     if not SameChar(st[i+d],suffix[i]) then exit;
+     if not SameChar8(st[i+d],suffix[i]) then exit;
     end else
      if st[i+d]<>suffix[i] then exit;
    result:=true;
