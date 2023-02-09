@@ -28,7 +28,7 @@ type
  THtmlText=class(THtmlNode)
  end;
 
- // Content of foreign elements differs from regular text nodes and not included into InnerText
+ // Content of foreign elements differs from regular text nodes and is not included in the InnerText
  THtmlForeignContent=class(THtmlNode)
  end;
 
@@ -36,7 +36,7 @@ type
  THtmlComment=class(THtmlNode)
  end;
 
- // Element node class
+ // Element node class. Only nodes of this type can have child nodes
  THtmlElement=class(THtmlNode)
    tag:string;
    attributes:TNameValueList;
@@ -47,10 +47,12 @@ type
    procedure RemoveChild(node:THtmlNode); // remove node from children, but don't delete it
    function InnerText:string;  // return concatenated text of all the children text nodes (recursively)
    procedure Visit(visitor:THtmlNodeVisitor;context:pointer); // call visitor for each child node (recursively)
-   procedure VisitElements(visitor:THtmlElementVisitor;context:pointer;tag:string); // call visitor for each child element matching criteria
+   procedure VisitElements(visitor:THtmlElementVisitor;context:pointer;tag:string=''); // call visitor for each child element matching criteria
    // Find an element with given tag name, having specified attribute containing spefified text
    function GetElement(tag:string;attribute:string='';contains:string=''):THtmlElement;
    function PrintTree:string; // for debug
+   function HasAttribute(aName:string):boolean;
+   function AttributeContains(aName,substr:string):boolean;
  protected
    function IsVoid:boolean;
    function IsRawtext:boolean;
@@ -107,6 +109,7 @@ begin
  stack.Add(root);
  i:=1; // current position
  repeat
+   // loop always starts in the "text" state
    p:=pos('<',st,i); // EOF or '<' symbol
    if p=0 then p:=length(st)+1;
    if p>i then begin
@@ -285,6 +288,21 @@ begin
    end;
 end;
 
+function THtmlElement.HasAttribute(aName:string):boolean;
+begin
+ result:=attributes.HasName(aName);
+end;
+
+function THtmlElement.AttributeContains(aName,substr:string):boolean;
+var
+ idx:integer;
+begin
+ result:=false;
+ idx:=attributes.Find(aName);
+ if idx<0 then exit;
+ result:=PosFrom(substr,attributes.items[idx].value,1,true)>0;
+end;
+
 function THtmlElement.InnerText:string;
 var
  i:integer;
@@ -337,8 +355,8 @@ procedure THtmlElement.VisitElements(visitor:THtmlElementVisitor;context:pointer
 var
  i:integer;
 begin
- if SameText(tag,self.tag) then
-  visitor(THtmlElement(children.items[i]),context);
+ if (tag='') or (SameText(tag,self.tag)) then
+  visitor(self,context);
  for i:=0 to children.count-1 do
   if children.items[i] is THtmlElement then
    THtmlElement(children.items[i]).VisitElements(visitor,context,tag);
