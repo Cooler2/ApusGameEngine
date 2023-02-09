@@ -142,16 +142,17 @@ begin
        inc(i);
      end;
      if (i<=length(src)) and (src[i]=';') then inc(i);
-     code:=0;
+     code:=-1;
      // Check if ent contains a valid entity name or number
      if ent.StartsWith('#') then begin
        delete(ent,1,1);
-       if ent.StartsWith('x') then code:=HexToInt(ent)
-         else code:=ParseInt(ent);
+       if ent.StartsWith('x') then code:=integer(HexToInt(ent)) // avoid range error
+         else code:=integer(ParseInt(ent));
      end else begin
-       code:=entities.Get(ent);
+       if entities.HasKey(ent) then
+         code:=entities.Get(ent);
      end;
-     if code>0 then begin // success
+     if code>=0 then begin // success
        {$IFDEF UNICODE}
        inc(n);
        result[n]:=Char(code);
@@ -533,6 +534,9 @@ initialization
  for i:=0 to high(ENTITIES_LIST) do
   entities.Put(String8(copy(ENTITIES_LIST[i],2,100)),Word(ENTITIES_LIST[i][1]));
 
+ //DecodeHtmlString('&#12345678912345678123443653656546456546');
+ //DecodeHtmlString('&#x0');
+ //DecodeHtmlString('&xxx');
  //DecodeHtmlString('A&quot;_&#66;&ksdhkh&#x44');
 { // Debug test
  st:=LoadFileAsString('test.htm');
