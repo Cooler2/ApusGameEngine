@@ -51,6 +51,7 @@ type
    // Find an element with given tag name, having specified attribute containing spefified text
    function GetElement(tag:string;attribute:string='';contains:string=''):THtmlElement;
    function PrintTree:string; // for debug
+   function GetAttribute(aName:string):string;
    function HasAttribute(aName:string):boolean;
    function AttributeContains(aName,substr:string):boolean;
  protected
@@ -291,6 +292,11 @@ end;
 function THtmlElement.HasAttribute(aName:string):boolean;
 begin
  result:=attributes.HasName(aName);
+end;
+
+function THtmlElement.GetAttribute(aName:string):string;
+begin
+ result:=attributes.Item[aName];
 end;
 
 function THtmlElement.AttributeContains(aName,substr:string):boolean;
