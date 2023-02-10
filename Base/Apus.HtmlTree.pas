@@ -54,6 +54,8 @@ type
    function GetAttribute(aName:string):string;
    function HasAttribute(aName:string):boolean;
    function AttributeContains(aName,substr:string):boolean;
+   function ChildElementCount:integer;
+   function GetChildElement(index:integer):THtmlElement;
  protected
    function IsVoid:boolean;
    function IsRawtext:boolean;
@@ -120,8 +122,9 @@ const
  );
 
 var
- whiteList:TVarHash; // contains list of allowed elements
- blackList:TVarHash; // contains list of forbidden elements
+ whiteList:TVarHash; // list of allowed elements
+ blackList:TVarHash; // list of forbidden elements
+ parentList:TVarHash; // whitelist of allowed parent elements
  entities:TVarHash; // entity name -> code point
 
 
@@ -132,7 +135,7 @@ var
 begin
  SetLength(result,length(src));
  i:=1; n:=0;
- while i<length(src) do begin
+ while i<=length(src) do begin
    if src[i]='&' then begin
      ent:='';
      p:=i; inc(i);
@@ -397,6 +400,27 @@ begin
  result:=attributes.Item[aName];
 end;
 
+function THtmlElement.ChildElementCount:integer;
+var
+ child:THtmlNode;
+begin
+  result:=0;
+  for child in children.items do
+   if child is THtmlElement then inc(result);
+end;
+
+function THtmlElement.GetChildElement(index:integer):THtmlElement;
+var
+ child:THtmlNode;
+begin
+  result:=nil;
+  for child in children.items do
+   if child is THtmlElement then begin
+     if index=0 then exit(THtmlElement(child));
+     dec(index);
+   end;
+end;
+
 function THtmlElement.AttributeContains(aName,substr:string):boolean;
 var
  idx:integer;
@@ -437,10 +461,12 @@ var
  st:string;
 begin
  result:=true;
+ st:=parentList.Get(childTag); // child's parent whitelist
+ if (st<>'') and (pos('|'+tag+'|',st)=0) then exit(false);
  childTag:='|'+childTag+'|';
- st:=whiteList.Get(tag);
+ st:=whiteList.Get(tag); // if has whitelist: child must be whitelisted
  if (st<>'') and (pos(childTag,st)=0) then exit(false);
- st:=blackList.Get(tag);
+ st:=blackList.Get(tag); // child must not be blacklisted
  if pos(childTag,st)>0 then exit(false);
 end;
 
@@ -513,7 +539,6 @@ var
 initialization
  with whiteList do begin
   Put('table','|caption|col|colgroup|thead|tfoot|tbody|tr|');
-  Put('tr','|td|th|');
   Put('colgroup','|col|');
   Put('thead','|tr|');
   Put('tfoot','|tr|');
@@ -527,6 +552,14 @@ initialization
  end;
  with blackList do begin
   Put('head','|body|');
+  Put('p','|div|body|td|th|li|ul|ol|header|footer|article|section|aside|');
+ end;
+ with parentList do begin
+  Put('li','|ul|ol|');
+  Put('tr','|table|thead|tbody|tfoot|');
+  Put('td','|tr|');
+  Put('th','|tr|');
+  Put('p','|div|body|td|th|li|header|footer|article|section|aside|');
  end;
 
  // Init hash of entities
@@ -534,6 +567,8 @@ initialization
  for i:=0 to high(ENTITIES_LIST) do
   entities.Put(String8(copy(ENTITIES_LIST[i],2,100)),Word(ENTITIES_LIST[i][1]));
 
+ //node:=ParseHTML('<div>123</div>');
+ //node:=ParseHTML('<div><p>1<p>2</p>3');
  //DecodeHtmlString('&#12345678912345678123443653656546456546');
  //DecodeHtmlString('&#x0');
  //DecodeHtmlString('&xxx');
