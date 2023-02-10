@@ -62,7 +62,9 @@ program TestMyServis;
   Apus.Types in '..\Apus.Types.pas',
   Apus.ProdCons in '..\Apus.ProdCons.pas',
   Apus.VertexLayout in '..\Apus.VertexLayout.pas',
-  Apus.TCP in '..\Apus.TCP.pas';
+  Apus.TCP in '..\Apus.TCP.pas',
+  Apus.Socket in '..\Apus.Socket.pas',
+  Apus.HtmlTree in '..\Apus.HtmlTree.pas';
 
 var
  i:integer;
@@ -2125,11 +2127,34 @@ procedure Test1(p1,p2,p3:integer);
    writeln('FindString: ',time:5:2);
   end;
 
+ procedure TestHTML;
+  var
+    root:THtmlElement;
+    st:string;
+  begin
+    write('HTML parsing and decoding ');
+    ASSERT(DecodeHTMLString('')='');
+    ASSERT(DecodeHTMLString('&')='&');
+    ASSERT(DecodeHTMLString('&lt')='<');
+    ASSERT(DecodeHTMLString('&#65')='A');
+    ASSERT(DecodeHTMLString('&#x39')='9');
+    ASSERT(DecodeHTMLString('&#0')=#0);
+    ASSERT(DecodeHTMLString('[&quot;]')='["]');
+    root:=ParseHtml('');
+    root:=ParseHtml('<table><tr><td>1<td>2<td id="CELL">3</table><div id=1>AAA</div>');
+    ASSERT(root.GetElement('','id','1').Depth=1);
+    ASSERT(root.GetElement('','id','cell').Depth=3);
+    root:=ParseHtml('<!--comment--><p><b>Hello<p>world<ul><li>1<li>2<li a=1>3</ul>end');
+    ASSERT(root.GetElement('','a','1').Depth=2);
+    writeln('OK');
+  end;
+
 begin
  SetCurrentDir(ExtractFilePath(ParamStr(0)));
  UseLogFile('log.txt',true);
  try
   //Test1(1,2,3);
+  TestHTML;
   TestPos;
   TestStringComp;
   TestRandom;

@@ -58,6 +58,7 @@ type
    function GetChildElement(index:integer):THtmlElement;
  protected
    function IsVoid:boolean;
+   function IsBlock:boolean;
    function IsRawtext:boolean;
    function IsForeign:boolean;
    function CanContain(childTag:string):boolean; // can this element contain a 'childTag' element as a child?
@@ -73,6 +74,7 @@ uses SysUtils, Apus.Common;
 
 const
  VOID_ELEMENTS = '|!doctype|area|base|br|col|embed|hr|img|input|keygen|link|menuitem|meta|param|source|track|wbr|';
+ BLOCK_ELEMENTS = '|address|article|aside|blockquote|canvas|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h1|h2|h3|h4|h5|h6|header|hr|li|main|nav|noscript|ol|p|pre|section|table|tfoot|ul|video|';
  RAWTEXT_ELEMENTS = '|script|style|textarea|title|';
  FOREIGN_ELEMENTS = '|svg|';
 
@@ -464,6 +466,8 @@ begin
  st:=parentList.Get(childTag); // child's parent whitelist
  if (st<>'') and (pos('|'+tag+'|',st)=0) then exit(false);
  childTag:='|'+childTag+'|';
+ if not IsBlock then  // non-block emlement can't contain a block element
+  if pos(childtag,BLOCK_ELEMENTS)>0 then exit(false);
  st:=whiteList.Get(tag); // if has whitelist: child must be whitelisted
  if (st<>'') and (pos(childTag,st)=0) then exit(false);
  st:=blackList.Get(tag); // child must not be blacklisted
@@ -515,6 +519,11 @@ begin
  result:=str;
 end;
 
+function THtmlElement.IsBlock: boolean;
+begin
+ result:=pos('|'+tag+'|',BLOCK_ELEMENTS)>0;
+end;
+
 function THtmlElement.IsForeign:boolean;
 begin
  result:=pos('|'+tag+'|',FOREIGN_ELEMENTS)>0;
@@ -550,16 +559,16 @@ initialization
   Put('select','|optgroup|option|');
   Put('optgroup','|option|');
  end;
- with blackList do begin
+ with blackList do begin // https://html.spec.whatwg.org/multipage/syntax.html#syntax-tag-omission
   Put('head','|body|');
-  Put('p','|div|body|td|th|li|ul|ol|header|footer|article|section|aside|');
+  Put('p','|p|address|article|aside|blockquote|details|div|dl|fieldset|figcaption|'+
+    'figure|footer|form|h1|h2|h3|h4|h5|h6|header|hgroup|hr|main|menu|nav|ol|pre|section|table|or|ul|');
  end;
  with parentList do begin
   Put('li','|ul|ol|');
   Put('tr','|table|thead|tbody|tfoot|');
   Put('td','|tr|');
   Put('th','|tr|');
-  Put('p','|div|body|td|th|li|header|footer|article|section|aside|');
  end;
 
  // Init hash of entities
