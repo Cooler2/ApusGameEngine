@@ -42,11 +42,9 @@ uses SysUtils, Apus.Common;
 
  {$IFDEF MSWINDOWS}
   // many routines have different declaration in different WinSock2 import units
-  {$IFDEF DELPHI}
   function _bind(s:TNativeSocket; name:PSockAddr; namelen:Integer): Integer; stdcall; external 'ws2_32.dll' name 'bind';
-  {$ENDIF}
   {$IFDEF FPC}
-  function WSAAccept(s:TNativeSocket; addr:PSockAddr; addrlen:PLongint; lpfnCondition:LPCONDITIONPROC; dwCallbackData:DWORD ):TSocket; stdcall; external 'ws2_32.dll' name 'WSAAccept';
+  function WSAAccept(s:TNativeSocket; addr:PSockAddr; addrlen:PLongint; lpfnCondition:LPCONDITIONPROC; dwCallbackData:DWORD ):TNativeSocket; stdcall; external 'ws2_32.dll' name 'WSAAccept';
   {$ENDIF}
  {$ENDIF}
 
