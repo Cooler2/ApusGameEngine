@@ -168,7 +168,7 @@ begin
        result[n]:=Char(code);
        {$ELSE}
        ent:=UTF8Encode(WideChar(code));
-       move(ent[1],result[n],length(ent));
+       move(ent[1],result[n+1],length(ent));
        inc(n,length(ent));
        {$ENDIF}
      end else begin // failed -> copy original
