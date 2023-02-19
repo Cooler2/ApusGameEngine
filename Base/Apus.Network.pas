@@ -5,6 +5,8 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 // --------------------------------------------------------------
 // Currently only UDP left here. For HTTP use httpRequests. DirectPlay removed as obsolete.
+//
+// As of 2023 this unit is deprecated. Use Apus.Socket instead
 {$H+,I-,R-}
 //{$IFDEF IOS}{$modeswitch objectivec1}{$ENDIF}
 unit Apus.Network;
