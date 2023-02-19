@@ -10,8 +10,10 @@ uses Apus.Types, Apus.Structs;
 
 type
  THtmlNode=class;
+ THtmlNodesArray=TArray<THtmlNode>;
  THtmlElement=class;
  THtmlElements=array of THtmlElement;
+ THtmlElementsArray=TArray<THtmlElement>;
 
  THtmlNodeVisitor=procedure(node:THtmlNode;context:pointer);
  THtmlElementVisitor=procedure(element:THtmlElement;context:pointer);
@@ -41,7 +43,7 @@ type
  THtmlElement=class(THtmlNode)
    tag:string;
    attributes:TNameValueList;
-   children:TArray<THtmlNode>;
+   children:THtmlNodesArray;
    constructor Create(parent:THtmlElement;text:string='');
    destructor Destroy; override;
    procedure AddChild(node:THtmlNode);
@@ -206,7 +208,7 @@ type
  TState=(stateText,stateComment,stateTag);
 var
  root:THtmlElement;
- stack:TArray<THtmlElement>;
+ stack:THtmlElementsArray;
  i,p:integer;
  node:THtmlNode;
  element:THtmlElement;
