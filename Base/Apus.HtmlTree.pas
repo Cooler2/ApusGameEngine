@@ -11,6 +11,7 @@ uses Apus.Types, Apus.Structs;
 type
  THtmlNode=class;
  THtmlElement=class;
+ THtmlElements=array of THtmlElement;
 
  THtmlNodeVisitor=procedure(node:THtmlNode;context:pointer);
  THtmlElementVisitor=procedure(element:THtmlElement;context:pointer);
@@ -55,7 +56,9 @@ type
    function HasAttribute(aName:string):boolean;
    function AttributeContains(aName,substr:string):boolean;
    function ChildElementCount:integer;
-   function GetChildElement(index:integer):THtmlElement;
+   function GetChildElement(index:integer):THtmlElement; // returns nil if index is out of range
+   function ChildElements:THtmlElements;
+   function ParentalIndex:integer; // returns X where parent.GetChildElement(X)=self
  protected
    function IsVoid:boolean;
    function IsBlock:boolean;
@@ -411,6 +414,20 @@ begin
    if child is THtmlElement then inc(result);
 end;
 
+function THtmlElement.ChildElements:THtmlElements;
+var
+ i,n:integer;
+begin
+ SetLength(result,children.Count);
+ n:=0;
+ for i:=0 to high(children.items) do
+  if children.items[i] is THtmlElement then begin
+    result[n]:=THtmlElement(children.items[i]);
+    inc(n);
+  end;
+  SetLength(result,n);
+end;
+
 function THtmlElement.GetChildElement(index:integer):THtmlElement;
 var
  child:THtmlNode;
@@ -508,6 +525,19 @@ begin
  txt:=txt+StringReplace(node.text,#13#10,'',[rfReplaceAll]);
  st:=context;
  st^:=st^+txt+#13#10;
+end;
+
+function THtmlElement.ParentalIndex:integer;
+var
+ i,n:integer;
+begin
+ result:=-1;
+ if parent=nil then exit;
+ n:=0;
+ for i:=0 to parent.children.Count-1 do begin
+   if parent.children.items[i]=self then exit(n);
+   if parent.children.items[i].ClassType=THtmlElement then inc(n);
+ end;
 end;
 
 function THtmlElement.PrintTree:string;
