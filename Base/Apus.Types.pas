@@ -130,6 +130,7 @@ type
    constructor Init(st:string8;itemSeparator:string8=';';valueSeparator:string8='='); overload;
    // Init from array of strings 'name=value'
    constructor Init(list:StringArray8;valueSeparator:string8='='); overload;
+   function Save(itemSeparator:string8=';';valueSeparator:string8='='):string8;
    function Count:integer;
    function HasName(name:string8):boolean; // check if there is an item with given name
    function Find(name:string8):integer;
@@ -724,6 +725,17 @@ begin
  result:='';
  for i:=0 to high(items) do
   if items[i].named(name) then exit(items[i].value);
+end;
+
+function TNameValueList.Save(itemSeparator,valueSeparator:string8):string8;
+var
+ i:integer;
+begin
+ result:='';
+ for i:=0 to high(items) do begin
+  if i>0 then result:=result+itemSeparator;
+  result:=result+items[i].name+valueSeparator+items[i].value;
+ end;
 end;
 
 procedure TNameValueList.SetItem(name,value:string8);
