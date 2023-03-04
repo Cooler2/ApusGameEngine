@@ -734,7 +734,8 @@ begin
  result:='';
  for i:=0 to high(items) do begin
   if i>0 then result:=result+itemSeparator;
-  result:=result+items[i].name+valueSeparator+items[i].value;
+  result:=result+items[i].name;
+  if items[i].value<>'' then result:=result+valueSeparator+items[i].value;
  end;
 end;
 
