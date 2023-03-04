@@ -1567,9 +1567,10 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
    canHaveFocus:=true;
    sendSignals:=ssMajor;
 
-   scrollBar:=TUIScrollBar.Create(19,clientHeight-2,listName+'_scroll',self);
-   scrollBar.SetPos(clientWidth,1,pivotTopLeft).SetAnchors(1,0,1,1);
+   scrollBar:=TUIScrollBar.Create(8,clientHeight-2,listName+'_scroll',self);
+   scrollBar.SetPos(clientWidth,1,pivotTopRight).SetAnchors(1,0,1,1);
    scrollBar.horizontal:=false;
+   scrollBar.parentClip:=false;
    scrollerV:=scrollBar.GetScroller;
    bgColor:=0;
    textColor:=$E0D0D0D0;
@@ -1660,7 +1661,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
    max:=length(lines)*lineHeight;
    scrollerV.SetRange(0,max);
    scrollerV.SetStep(lineHeight*(round(clientHeight/2) div round(lineHeight)));
-   scrollerV.SetPageSize(globalRect.height);
+   scrollerV.SetPageSize(clientHeight);
    scrollerV.GetElement.size.y:=clientHeight;
    scrollerV.GetElement.visible:=max>clientHeight;
   end;
