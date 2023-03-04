@@ -105,6 +105,7 @@ interface
    group:integer;   // Группа переключателей
    onClick:TProcedure;
    onClickEvent:string;
+   class var onCLickSender:TUIButton;
    constructor Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement); overload;
    constructor Create(width,height:single;btnName,btnCaption:string;parent_:TUIElement); overload;
    constructor Create(width,height:single;btnCaption:string;parent_:TUIElement); overload;
@@ -127,6 +128,7 @@ interface
   protected
    procedure DoClick;
    procedure CheckGroup;
+   procedure FireClickEvent;
   private
    lastPressed,pendingUntil:int64;
    lastOver:boolean; // was under mouse when onMouseMove was called last time
@@ -303,7 +305,7 @@ interface
    frame:TUIFrame;
    popup:TUIListBox;
    maxlines:integer; // max lines to show without scrolling
-   constructor Create(width,height:single;bFont:TFontHandle;list:WStringArr;parent_:TUIElement;name:string); overload;
+   constructor Create(width,height:single;bFont:TFontHandle;list:WStringArr;parent_:TUIElement;name:string=''); overload;
    constructor Create(width,height:single;parent_:TUIElement;name:string); overload;
    procedure AddItem(item:WideString;tag:cardinal=0;hint:WideString=''); virtual;
    procedure SetItem(index:integer;item:WideString;tag:cardinal=0;hint:string=''); virtual;
@@ -312,6 +314,7 @@ interface
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onTimer; override; // трюк: используется для слежения за всплывающим списком, чтобы не заморачиваться с сигналами
    procedure SetCurItem(item:integer); virtual;
+   procedure SetCurItemByText(value:string16); virtual;
    procedure SetCurItemByTag(tag:integer); virtual;
    property curItem:integer read fCurItem write SetCurItem;
    property curTag:integer read fCurTag write SetCurItemByTag;
@@ -493,7 +496,7 @@ implementation
        (pressed or (btnStyle=bsCheckbox)) then begin
       Signal('UI\'+name+'\Click',byte(pressed));
       Signal('UI\onButtonDown\'+name,TTag(self));
-      if Assigned(onClick) then onClick;
+      FireClickEvent;
       if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
     end;
    end else begin
@@ -502,11 +505,21 @@ implementation
     if (sendSignals<>ssNone) and (MyTickCount>lastPressed+50) then begin
      Signal('UI\'+name+'\Click',byte(pressed));
      Signal('UI\onButtonClick\'+name,TTag(self));
-     if Assigned(onClick) then game.RunAsync(@onClick);
+     if Assigned(onClick) then begin
+      onClickSender:=self; // take care!
+      game.RunAsync(@onClick);
+     end;
      if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
      lastPressed:=MyTickCount;
     end;
    end;
+  end;
+
+ procedure TUIButton.FireClickEvent;
+  begin
+   if not Assigned(onClick) then exit;
+   onClickSender:=self;
+   onClick;
   end;
 
  function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
@@ -1782,7 +1795,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
     popup.size.x:=frame.size.x-2*frame.borderWidth;
     frame.size.y:=popup.size.y+frame.borderWidth*2;
     if frame.GetPosOnScreen.bottom>=root.height then
-     frame.position.y:=r.y1-1;
+     frame.position.y:=r.y1-1-frame.height;
     // Content
     popUp.ClearLines;
     for i:=0 to high(items) do begin
@@ -1837,6 +1850,17 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
     else caption:=EncodeUTF8(defaultText);
    if (item>=0) and (item<=high(tags)) then fCurTag:=tags[item]
     else fCurTag:=-1;
+  end;
+
+ procedure TUIComboBox.SetCurItemByText(value:string16);
+  var
+   i:integer;
+  begin
+   for i:=0 to high(items) do
+    if items[i]=value then begin
+      SetCurItem(i);
+      exit;
+    end;
   end;
 
  procedure TUIComboBox.SetCurItemByTag(tag:integer);
