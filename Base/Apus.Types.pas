@@ -733,6 +733,7 @@ begin
  for i:=0 to high(items) do
   if items[i].named(name) then begin
    items[i].value:=value;
+   exit;
   end;
  i:=length(items);
  SetLength(items,i+1);
