@@ -741,6 +741,7 @@ destructor TUIElement.Destroy;
    c2:TUIElement;
    ca:array of TUIElement;
    cnt:byte;
+   outside:boolean;
   begin
    // Тут нужно быть предельно внимательным!!!
    result:=enabled and visible;
@@ -748,8 +749,9 @@ destructor TUIElement.Destroy;
    if not visible then exit; // если элемент невидим, то уж точно ничего не спасет!
    r:=GetPosOnScreen;
    p:=Point(x,y);
-   if not r.Contains(p) then begin result:=false; exit; end; // за пределами эл-та
-   if shape=shapeFull then c:=self;
+   outside:=false; // ignore clipped
+   if clipChildren and not r.Contains(p) then outside:=true; // за пределами эл-та
+   if (shape=shapeFull) and r.Contains(p) then c:=self;
 
    // На данный момент известно, что точка в пределах текущего эл-та
    // Но возможно здесь есть кто-то из вложенных эл-тов! Нужно их проверить:
@@ -772,6 +774,7 @@ destructor TUIElement.Destroy;
    // Теперь порядок правильный, нужно искать
    fl:=false;
    for i:=0 to cnt-1 do begin
+    if outside and ca[i].parentClip then continue;
     en:=ca[i].FindElementAt(x,y,c2);
     if c2<>nil then begin
      c:=c2; result:=result and en;
