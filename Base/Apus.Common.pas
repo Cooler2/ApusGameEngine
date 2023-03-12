@@ -5428,7 +5428,8 @@ procedure DumpDir(path:string);
   begin
    buf:=LoadFileAsBytes(fname,numBytes,startFrom);
    SetLength(result,length(buf));
-   move(buf[0],result[1],length(buf));
+   if length(buf)>0 then
+    move(buf[0],result[1],length(buf));
   end;
 
  function LoadFileAsBytes(fname:string;numBytes:int64=0;startFrom:int64=0):ByteArray;
@@ -5448,16 +5449,18 @@ procedure DumpDir(path:string);
     size:=FileSeek(f,0,2);
     if size<0 then
      raise EError.Create('Can''t seek file "%s": %s',[fName,GetSystemError]);
-    if startFrom>=size then
+    if (size>0) and (startFrom>=size) then
      raise EWarning.Create('Read beyond end of file: '+fName);
     if numBytes=0 then numBytes:=size; // read whole file
     if startFrom+numBytes>size then numBytes:=size-startFrom; // read until EOF
 
     SetLength(result,numBytes);
-    FileSeek(f,startFrom,0);
-    size:=FileRead(f,result[0],numBytes);
-    if size<>numBytes then
-     raise EError.Create('Error reading file: '+fName);
+    if numBytes>0 then begin
+     FileSeek(f,startFrom,0);
+     size:=FileRead(f,result[0],numBytes);
+     if size<>numBytes then
+      raise EError.Create('Error reading file: '+fName);
+    end;
    finally
     FileClose(f);
    end;
@@ -5509,8 +5512,8 @@ procedure DumpDir(path:string);
     raise EError.Create('Can''t create file "%s": %s',[fName,GetSystemError]);
    try
     if (buf<>nil) and (size>0) then
-    if FileWrite(f,buf^,size)<>size then
-     raise EError.Create('Can''t write %d bytes to file "%s": %s',[size,fName,GetSystemError]);
+     if FileWrite(f,buf^,size)<>size then
+      raise EError.Create('Can''t write %d bytes to file "%s": %s',[size,fName,GetSystemError]);
    finally
     FileClose(f);
    end;
