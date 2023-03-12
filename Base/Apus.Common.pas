@@ -5508,6 +5508,7 @@ procedure DumpDir(path:string);
    if f=INVALID_HANDLE_VALUE then
     raise EError.Create('Can''t create file "%s": %s',[fName,GetSystemError]);
    try
+    if (buf<>nil) and (size>0) then
     if FileWrite(f,buf^,size)<>size then
      raise EError.Create('Can''t write %d bytes to file "%s": %s',[size,fName,GetSystemError]);
    finally
@@ -5517,7 +5518,10 @@ procedure DumpDir(path:string);
 
  procedure SaveFile(fname:string;buf:ByteArray); overload; // rewrite file with given data
   begin
-   SaveFile(fname,@buf[0],length(buf));
+   if length(buf)>0 then
+    SaveFile(fname,@buf[0],length(buf))
+   else
+    SaveFile(fname,nil,0);
   end;
 
  procedure SaveFile(fname:string;buf:TBuffer); overload;
@@ -5527,7 +5531,10 @@ procedure DumpDir(path:string);
 
  procedure SaveFile(fname:string;data:String8); overload;
   begin
-   SaveFile(fName,@data[1],length(data));
+   if length(data)>0 then
+    SaveFile(fName,@data[1],length(data))
+   else
+    SaveFile(fname,nil,0);
   end;
 
  procedure ShiftArray(const arr;sizeInBytes,shiftValue:integer);
