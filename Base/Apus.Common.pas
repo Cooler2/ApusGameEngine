@@ -2829,8 +2829,8 @@ procedure SimpleEncrypt2;
        inc(l); c:=0;
        case st[i+1] of
         'n':begin
-             result[l]:=#13;
-             inc(l);
+             //result[l]:=#13;
+             //inc(l);
              result[l]:=#10;
             end;
         'r':result[l]:=#13;
