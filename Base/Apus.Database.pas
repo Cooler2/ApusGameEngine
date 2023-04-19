@@ -39,9 +39,9 @@ interface
    // В случае ошибки возвращает массив из одной строки: ERROR: <текст ошибки>, причём rowCount=0
    // Если запрос не подразумевает возврат данных и выполняется успешно - возвращает
    // пустой массив (0 строк)
-   function Query(DBquery:RawByteString):AStringArr; overload; virtual; abstract;
+   function Query(DBquery:string8):AStringArr; overload; virtual; abstract;
    // Sugar: Query(Format(DBQuery,params)) - all string items pass through SQLsafe()
-   function Query(DBquery:RawByteString;params:array of const):AStringArr; overload; virtual;
+   function Query(DBquery:string;params:array of const):AStringArr; overload; virtual;
    // Запрашивает строки (поля в fields) из таблицы, соответствующие заданному условию, и заносит их в хэш
    // Условие может также содержать сортировку и т.п.
    // Хэш переинициализируется, т.е. если в нём уже было содержимое - оно теряется
@@ -76,7 +76,7 @@ interface
    time1,time2,time3:integer; // время выполнения real_query и время получения результатов
    constructor Create;
    procedure Connect; override;
-   function Query(DBquery:RawByteString):AStringArr; override;
+   function Query(DBquery:string8):AStringArr; override;
    procedure Disconnect; override;
    destructor Destroy; override;
   private
@@ -86,7 +86,7 @@ interface
 
   TMySQLDatabaseWithLogging=class(TMySQLDatabase)
    constructor Create(customLogProc:TLogProc;minLogLevel_,selectLogLevel_,updatelogLevel_,logGroup_:integer);
-   function Query(DBquery:RawByteString):AStringArr; override;
+   function Query(DBquery:string8):AStringArr; override;
   protected
    logProc:TLogProc;
    minLogLevel,selectLogLevel,updatelogLevel,logGroup:integer;
@@ -96,7 +96,7 @@ interface
   procedure SQLString(var st:RawByteString);
   function SQLSafe(st:RawByteString):RawByteString;
   function SQLdate(date:TDateTime):RawByteString;
-  function FormatQuery(query:RawByteString;params:array of const):RawByteString;
+  function FormatQuery(query:string;params:array of const):string8;
 
 implementation
  uses SysUtils,
@@ -136,7 +136,7 @@ function SQLdate(date:TDateTime):RawByteString;
   result:=FormatDateTime('YYYY-MM-DD hh:nn:ss',date);
  end;
 
-function FormatQuery(query:RawByteString;params:array of const):RawByteString;
+function FormatQuery(query:string;params:array of const):string8;
  var
   i:integer;
   st:RawByteString;
@@ -180,7 +180,7 @@ function FormatQuery(query:RawByteString;params:array of const):RawByteString;
     else
      p[i]:=params[i];
    end;
-  result:=Format(query,p);
+  result:=Str8(Format(query,p));
   for i:=0 to high(params) do
    if params[i].VType in [vtAnsiString,vtWideString,vtUnicodeString] then FreeAnsiStr(p[i].VPChar);
  end;
@@ -247,7 +247,7 @@ begin
  end;
 end;
 
-function TDatabase.Query(DBquery:RawByteString;params:array of const):AStringArr;
+function TDatabase.Query(DBquery:string;params:array of const):AStringArr;
 begin
  DBQuery:=FormatQuery(DBQuery, params);
  result:=Query(DBQuery);
@@ -344,7 +344,7 @@ begin
  connected:=false;
 end;
 
-function TMySQLDatabase.Query(DBquery: RawByteString): AStringArr;
+function TMySQLDatabase.Query(DBquery: string8): AStringArr;
 var
  r,flds,rows,i,j:integer;
  st:RawByteString;
@@ -459,7 +459,7 @@ constructor TMySQLDatabaseWithLogging.Create;
   end;
  end;
 
-function TMySQLDatabaseWithLogging.Query(DBquery: RawByteString): AStringArr;
+function TMySQLDatabaseWithLogging.Query(DBquery: string8): AStringArr;
  var
   t:int64;
  begin
