@@ -49,6 +49,8 @@ type
    procedure AddChild(node:THtmlNode);
    procedure RemoveChild(node:THtmlNode); // remove node from children, but don't delete it
    function InnerText:string;  // return concatenated text of all the children text nodes (recursively)
+   function InnerHtml:string;
+   function OuterHtml:string;
    procedure Visit(visitor:THtmlNodeVisitor;context:pointer); // call visitor for each child node (recursively)
    procedure VisitElements(visitor:THtmlElementVisitor;context:pointer;tag:string=''); // call visitor for each child element matching criteria
    // Find an element with given tag name, having specified attribute containing spefified text
@@ -74,6 +76,8 @@ type
 
  function DecodeHTMLString(src:string):string; // replace HTML entities with corresponging characters
 
+ procedure AddCustomRule(outerTag,innerTag:string;canContain:boolean);
+ procedure ClearCustomRules;
 implementation
 uses SysUtils, Apus.Common;
 
@@ -133,6 +137,17 @@ var
  blackList:TVarHash; // list of forbidden elements
  parentList:TVarHash; // whitelist of allowed parent elements
  entities:TVarHash; // entity name -> code point
+ customRules:TVarHash; // override rules "tag1>tag2" -> boolean (tag1 can contain tag2)
+
+procedure AddCustomRule(outerTag,innerTag:string;canContain:boolean);
+begin
+  customRules.Put(outerTag+'>'+innerTag,canContain);
+end;
+
+procedure ClearCustomRules;
+begin
+  customRules.Clear;
+end;
 
 
 function DecodeHTMLString(src:string):string; // replace HTML entities with corresponging characters
@@ -465,6 +480,18 @@ begin
  end;
 end;
 
+function THtmlElement.InnerHTML:string;
+var
+ i:integer;
+begin
+ result:='';
+ for i:=0 to children.count-1 do begin
+  if children.items[i] is THtmlText then
+   result:=result+THtmlText(children.items[i]).text;
+  if children.items[i] is THtmlElement then
+   result:=result+THtmlElement(children.items[i]).OuterHtml;
+ end;
+end;
 procedure THtmlElement.AddChild(node:THtmlNode);
 begin
  children.Add(node);
@@ -480,8 +507,13 @@ end;
 function THtmlElement.CanContain(childTag:string):boolean;
 var
  st:string;
+ value:variant;
 begin
  result:=true;
+ if customRules.count>0 then begin
+  value:=customRules.Get(tag+'>'+childTag);
+  if HasValue(value) then exit(value);
+ end;
  st:=parentList.Get(childTag); // child's parent whitelist
  if (st<>'') and (pos('|'+tag+'|',st)=0) then exit(false);
  childTag:='|'+childTag+'|';
@@ -569,6 +601,13 @@ end;
 function THtmlElement.IsVoid:boolean;
 begin
  result:=pos('|'+tag+'|',VOID_ELEMENTS)>0;
+end;
+
+function THtmlElement.OuterHtml:string;
+begin
+ result:=text+InnerHtml;
+ if not IsVoid then
+   result:=result+'<\'+tag+'>';
 end;
 
 var
