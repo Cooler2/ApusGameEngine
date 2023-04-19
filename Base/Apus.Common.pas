@@ -2829,8 +2829,8 @@ procedure SimpleEncrypt2;
        inc(l); c:=0;
        case st[i+1] of
         'n':begin
-             result[l]:=#13;
-             inc(l);
+             //result[l]:=#13;
+             //inc(l);
              result[l]:=#10;
             end;
         'r':result[l]:=#13;
@@ -2890,7 +2890,7 @@ procedure SimpleEncrypt2;
  function ParseDate(st:String8;default:TDateTime=0):TDateTime;
   var
    s1,s2:AStringArr;
-   year,month,day,hour,min,sec:integer;
+   year,month,day,hour,min,sec,msec,p:integer;
    splitter:String8;
   begin
    result:=default;
@@ -2916,10 +2916,18 @@ procedure SimpleEncrypt2;
     result:=EncodeDate(year,month,day);
     if length(s1)>1 then begin
      s2:=splitA(':',s1[1]);
+     msec:=0;
      if length(s2)>0 then hour:=strtoint(s2[0]) else hour:=0;
      if length(s2)>1 then min:=strtoint(s2[1]) else min:=0;
-     if length(s2)>2 then sec:=strtoint(s2[2]) else sec:=0;
-     result:=result+EncodeTime(hour,min,sec,0);
+     if length(s2)>2 then begin
+      p:=pos('.',s2[2]);
+      if p>0 then begin
+        msec:=strtoint(copy(s2[2],p+1,3));
+        SetLength(s2[2],p-1);
+      end;
+      sec:=strtoint(s2[2]);
+     end else sec:=0;
+     result:=result+EncodeTime(hour,min,sec,msec);
     end;
    except
     result:=default;
