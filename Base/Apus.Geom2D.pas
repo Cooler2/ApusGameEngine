@@ -164,7 +164,8 @@ interface
  function RandomPointInCircle(r:single):TPoint2s;
 
  // Setup segment by points
- function Segment2(x1,y1,x2,y2:integer):TSegment2;
+ function Segment2(x1,y1,x2,y2:integer):TSegment2; overload;
+ function Segment2(x1,y1,x2,y2:double):TSegment2; overload;
  // Segment operations
  // Locate point at segment (parameter: 0..1, deviation is absolute)
  procedure PointOnSegment(segm:TSegment2;pnt:TPoint2;
@@ -534,7 +535,15 @@ implementation
    result.y:=sin(angle);
   end;
 
- function Segment2;
+ function Segment2(x1,y1,x2,y2:double):TSegment2;
+  begin
+   result.x1:=x1;
+   result.x2:=x2;
+   result.y1:=y1;
+   result.y2:=y2;
+  end;
+
+ function Segment2(x1,y1,x2,y2:integer):TSegment2;
   begin
    result.x1:=x1;
    result.x2:=x2;

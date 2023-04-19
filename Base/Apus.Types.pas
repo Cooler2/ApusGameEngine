@@ -115,7 +115,7 @@ type
    procedure Init(name,value:string8);
    procedure InitFrom(st:string8;splitter:string8='='); // split and trim
    function Named(st:string8):boolean;
-   function GetInt:integer;
+   function GetInt:int64;
    function GetFloat:double;
    function GetDate:TDateTime;
    function GetBool:boolean; // true if value is "y", "yes", "true", "on", "1"; false if "n", "no", "false", "off", "0"
@@ -134,6 +134,8 @@ type
    function Count:integer;
    function HasName(name:string8):boolean; // check if there is an item with given name
    function Find(name:string8):integer;
+   procedure Add(item:TNameValue); overload;
+   procedure Add(list:TNameValueList); overload;
   private
    function GetItem(name:String8):string8;
    procedure SetItem(name:string8;value:string8);
@@ -406,7 +408,7 @@ function TNameValue.GetFloat:double;
   result:=ParseFloat(value);
  end;
 
-function TNameValue.GetInt:integer;
+function TNameValue.GetInt:int64;
  begin
   result:=ParseInt(value);
  end;
@@ -697,6 +699,25 @@ end;
 constructor TNameValueList.Init(st:string8;itemSeparator,valueSeparator:string8);
 begin
  Init(SplitA(itemSeparator,st),valueSeparator);
+end;
+
+procedure TNameValueList.Add(list:TNameValueList);
+var
+ i,n:integer;
+begin
+ n:=length(items);
+ SetLength(items,n+length(list.items));
+ for i:=0 to high(list.items) do
+  items[n+i]:=list.items[i];
+end;
+
+procedure TNameValueList.Add(item:TNameValue);
+var
+ n:integer;
+begin
+ n:=length(items);
+ SetLength(items,n+1);
+ items[n+1]:=item;
 end;
 
 function TNameValueList.Count: integer;
