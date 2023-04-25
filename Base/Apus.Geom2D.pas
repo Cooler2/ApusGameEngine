@@ -38,6 +38,14 @@ interface
    function GetRound:TPoint;
    function IsValid:boolean; inline;
    procedure Wrap(max:single); inline;
+   class operator Implicit(a:TPointF):TPoint2s;
+   class operator Implicit(a:TPoint):TPoint2s;
+   class operator Equal(a,b:TPoint2s):boolean;
+   class operator Negative(a:TPoint2s):TPoint2s;
+   class operator Round(a:TPoint2s):TPoint;
+   class operator Add(a,b:TPoint2s):TPoint2s;
+   class operator Multiply(a:TPoint2s;v:single):TPoint2s;
+   class operator Multiply(a,b:TPoint2s):TPoint2s;
   end;
   TVector2s=TPoint2s;
   PPoint2s=^TPoint2s;
@@ -994,6 +1002,16 @@ function TPoint2.GetRound:TPoint;
 
 { TPoint2s }
 
+class operator TPoint2s.Implicit(a:TPoint):TPoint2s;
+ begin
+  result.x:=a.X; result.y:=a.Y;
+ end;
+
+class operator TPoint2s.Implicit(a:TPointF):TPoint2s;
+ begin
+  result.x:=a.X; result.y:=a.Y;
+ end;
+
 constructor TPoint2s.Init(pnt:TPoint);
  begin
   x:=pnt.x;
@@ -1008,6 +1026,38 @@ constructor TPoint2s.Init(x,y:single);
 function TPoint2s.IsValid:boolean;
  begin
   result:=x=x;
+ end;
+
+class operator TPoint2s.Multiply(a,b:TPoint2s):TPoint2s;
+ begin
+  result.x:=a.x*b.x; result.y:=a.y*b.y;
+ end;
+
+class operator TPoint2s.Multiply(a:TPoint2s; v:single):TPoint2s;
+ begin
+  result.x:=a.x*v; result.y:=a.y*v;
+ end;
+
+class operator TPoint2s.Add(a,b:TPoint2s):TPoint2s;
+ begin
+  result.x:=a.x+b.x;
+  result.y:=a.y+b.y;
+ end;
+
+class operator TPoint2s.Equal(a,b:TPoint2s):boolean;
+ begin
+  result:=(abs(a.x-b.x)<EpsilonS) and (abs(a.y-b.y)<EpsilonS);
+ end;
+
+class operator TPoint2s.Negative(a:TPoint2s):TPoint2s;
+ begin
+  result.x:=-a.x; result.y:=-a.y;
+ end;
+
+class operator TPoint2s.Round(a:TPoint2s):TPoint;
+ begin
+  result.X:=round(a.x);
+  result.y:=round(a.y);
  end;
 
 function TPoint2s.GetRound:TPoint;
