@@ -42,7 +42,6 @@ interface
    class operator Implicit(a:TPoint):TPoint2s;
    class operator Equal(a,b:TPoint2s):boolean;
    class operator Negative(a:TPoint2s):TPoint2s;
-   class operator Round(a:TPoint2s):TPoint;
    class operator Add(a,b:TPoint2s):TPoint2s;
    class operator Multiply(a:TPoint2s;v:single):TPoint2s;
    class operator Multiply(a,b:TPoint2s):TPoint2s;
@@ -1052,12 +1051,6 @@ class operator TPoint2s.Equal(a,b:TPoint2s):boolean;
 class operator TPoint2s.Negative(a:TPoint2s):TPoint2s;
  begin
   result.x:=-a.x; result.y:=-a.y;
- end;
-
-class operator TPoint2s.Round(a:TPoint2s):TPoint;
- begin
-  result.X:=round(a.x);
-  result.y:=round(a.y);
  end;
 
 function TPoint2s.GetRound:TPoint;
