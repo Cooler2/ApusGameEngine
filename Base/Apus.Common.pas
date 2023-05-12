@@ -12,6 +12,7 @@ For Delphi - please define global symbol "DELPHI"!
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 {$IFDEF UNICODE} {$DEFINE ADDANSI} {$ENDIF} // Make separate implementations for String and AnsiString types
 {$IFOPT R+} {$DEFINE RANGECHECKS_ON} {$ENDIF}
+{$EXCESSPRECISION OFF}
 
 unit Apus.Common;
 interface
@@ -485,9 +486,18 @@ interface
  // Fast consistent rounding, equivalent to SimpleRoundTo(x,0) i.e. 0.5->1, 1.5->2 etc. (NOT PRECISE!)
  function FRound(v:double):integer; inline;
  // Precise version of rounding (still quite fast)
- function PRound(v:double):integer; inline; overload;
- // Single version of precise rounding
- function SRound(v:single):integer; inline; overload;
+ function PRound(v:double):integer; inline;
+ // Round toward +INF (precise arithmetic round for positive values)
+ function SRound(v:single):integer;
+ // Fast floor (SSE version 5x faster than RTL version)
+ function FastFloor(v:single):integer;
+
+ // Get the nearest Power-of-two value not less than V
+ function GetPow2(v:integer):integer; inline;
+ // Get power of 2
+ function Pow2(e:integer):int64; inline;
+ // Get the smallest number E so 2^E is not less than V
+ function Log2i(v:integer):integer;
 
  // Calculate max(|a|,|b|)/min(|a|,|b|) (zero-safe)
  function Ratio(a,b:single):single;
@@ -580,15 +590,6 @@ interface
  function Spline4(x,x0,x1,y0,y1:single):single;
  // ease-in with 30% overflow
  function Spline4a(x,x0,x1,y0,y1:single):single;
-
- // Get the nearest Power-of-two value not less than V
- function GetPow2(v:integer):integer; inline;
- // Get power of 2
- function Pow2(e:integer):int64; inline;
- // Get the smallest number E so 2^E is not less than V
- function Log2i(v:integer):integer;
- // Fast floor (SSE version 5x faster than RTL version)
- function FastFloor(v:single):integer;
 
  // Minimum / Maximum
  function Min2(a,b:integer):integer; inline;
@@ -1047,44 +1048,6 @@ function min2s(a,b:single):single; inline;
    result:=RealDump(buf,size,false);
   end;
 
- function GetPow2(v:integer):integer;
-  begin
-   if v<256 then result:=1
-    else result:=256;
-   while result<v do result:=result*2;
-  end;
-
- function Pow2(e:integer):int64;
-  begin
-   result:=0;
-   if (e>=0) and (e<64) then
-    result:=1 shl e;
-  end;
-
- function Log2i(v:integer):integer;
-  begin
-   result:=0;
-   dec(v);
-   if v>1024 then begin
-    result:=10;
-    v:=v shr 10;
-   end;
-   while v>0 do begin
-    v:=v shr 1;
-    inc(result);
-   end;
-  end;
-
- function FastFloor(v:single):integer;
-  asm
-   roundss xmm0,xmm0,01
-   {$IFDEF CPUx64}
-   cvtss2si rax,xmm0
-   {$ELSE}
-   cvtss2si eax,xmm0
-   {$ENDIF}
-  end;
-
  function CalcCheckSum(adr:pointer;size:integer):cardinal;
   var
    pb:PByte;
@@ -1230,6 +1193,7 @@ function min2s(a,b:single):single; inline;
    {$ENDIF}
   end;        *)
 
+{$R-}
  function Spline0(x,x0,x1,y0,y1:single):single;
   begin
    x:=(x-x0)/(x1-x0);
@@ -1308,6 +1272,7 @@ function min2s(a,b:single):single; inline;
    if ch in ['A'..'F'] then result:=ord(ch)-ord('A')+10 else
    if ch in ['a'..'f'] then result:=ord(ch)-ord('a')+10;
   end;
+ {$IFDEF RANGECHECKS_ON} {$R+} {$ENDIF}
 
  function HexToInt(st:string):int64;
   var
@@ -3445,6 +3410,7 @@ function BinToStr;
    move(data[0],buf,size);
   end;
 
+{$R-}
  function LinearMix(v0,v1,t:single):single;
   begin
    result:=v0*(1-t)+v1*t;
@@ -3492,11 +3458,57 @@ function BinToStr;
     else result:=trunc(v-0.5);
   end;
 
- function SRound(v:single):integer; inline;
-  begin
-   if v>0 then result:=trunc(v+0.5)
-    else result:=trunc(v-0.5);
+ function SRound(v:single):integer;
+  const
+   const_0_5:single = 0.5;
+  asm
+   addss xmm0,const_0_5
+   roundss xmm0,xmm0,1
+   {$IFDEF CPUx64}
+   cvtss2si rax,xmm0
+   {$ELSE}
+   cvtss2si eax,xmm0
+   {$ENDIF}
   end;
+
+ function GetPow2(v:integer):integer;
+  begin
+   if v<256 then result:=1
+    else result:=256;
+   while result<v do result:=result*2;
+  end;
+
+ function Pow2(e:integer):int64;
+  begin
+   result:=0;
+   if (e>=0) and (e<64) then
+    result:=1 shl e;
+  end;
+
+ function Log2i(v:integer):integer;
+  begin
+   result:=0;
+   dec(v);
+   if v>1024 then begin
+    result:=10;
+    v:=v shr 10;
+   end;
+   while v>0 do begin
+    v:=v shr 1;
+    inc(result);
+   end;
+  end;
+
+ function FastFloor(v:single):integer;
+  asm
+   roundss xmm0,xmm0,01
+   {$IFDEF CPUx64}
+   cvtss2si rax,xmm0
+   {$ELSE}
+   cvtss2si eax,xmm0
+   {$ENDIF}
+  end;
+
 
  function Ratio(a,b:single):single;
   begin
@@ -3769,6 +3781,8 @@ function BinToStr;
   begin
    result:=word(data shr (index*16));
   end;
+
+{$IFDEF RANGECHECKS_ON} {$R+} {$ENDIF}
 
  function SatSpline(x:single;a,b,c:integer):byte;
   var
