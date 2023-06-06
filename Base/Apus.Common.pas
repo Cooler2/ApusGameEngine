@@ -3462,11 +3462,14 @@ function BinToStr;
   const
    const_0_5:single = 0.5;
   asm
-   addss xmm0,const_0_5
-   roundss xmm0,xmm0,1
    {$IFDEF CPUx64}
+   addss xmm0,[const_0_5+rip]
+   roundss xmm0,xmm0,1
    cvtss2si rax,xmm0
    {$ELSE}
+   movss xmm0,v
+   addss xmm0,const_0_5
+   roundss xmm0,xmm0,1
    cvtss2si eax,xmm0
    {$ENDIF}
   end;
@@ -3501,10 +3504,12 @@ function BinToStr;
 
  function FastFloor(v:single):integer;
   asm
-   roundss xmm0,xmm0,01
    {$IFDEF CPUx64}
+   roundss xmm0,xmm0,01
    cvtss2si rax,xmm0
    {$ELSE}
+   movss xmm0,v
+   roundss xmm0,xmm0,01
    cvtss2si eax,xmm0
    {$ENDIF}
   end;
