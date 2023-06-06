@@ -40,6 +40,8 @@ interface
    procedure Wrap(max:single); inline;
    class operator Implicit(a:TPointF):TPoint2s;
    class operator Implicit(a:TPoint):TPoint2s;
+   class operator Implicit(a:TPoint2):TPoint2s;
+   class operator Implicit(a:TPoint2s):TPoint2;
    class operator Equal(a,b:TPoint2s):boolean;
    class operator Negative(a:TPoint2s):TPoint2s;
    class operator Add(a,b:TPoint2s):TPoint2s;
@@ -878,10 +880,10 @@ implementation
 
  function RoundRect(const r:TRect2s):TRect;
   begin
-   result.Left:=FRound(r.x1);
-   result.Top:=FRound(r.y1);
-   result.Right:=FRound(r.x2);
-   result.Bottom:=FRound(r.y2);
+   result.Left:=SRound(r.x1);
+   result.Top:=SRound(r.y1);
+   result.Right:=SRound(r.x2);
+   result.Bottom:=SRound(r.y2);
   end;
 
 { TRect2s }
@@ -1006,10 +1008,20 @@ class operator TPoint2s.Implicit(a:TPoint):TPoint2s;
   result.x:=a.X; result.y:=a.Y;
  end;
 
+class operator TPoint2s.Implicit(a:TPoint2):TPoint2s;
+ begin
+  result.x:=a.X; result.y:=a.Y;
+ end;
+
 class operator TPoint2s.Implicit(a:TPointF):TPoint2s;
  begin
   result.x:=a.X; result.y:=a.Y;
  end;
+
+class operator TPoint2s.Implicit(a:TPoint2s):TPoint2;
+begin
+ result.x:=a.x; result.y:=a.y;
+end;
 
 constructor TPoint2s.Init(pnt:TPoint);
  begin
