@@ -233,14 +233,29 @@ implementation
   end;
 
  procedure AdjustHint(sx,sy:integer;hnt:TUIHint);
+  var
+   xx1,xx2,sc:single;
+   pnt:TPoint2s;
   begin
    with hnt do begin
     adjusted:=true;
-    if sx+size.x+2<game.renderWidth then position.x:=position.x+4
-     else position.x:=position.x-(sx+size.x-game.renderWidth);
+    pnt.x:=sx+size.x*globalscale; // right side in screen coordinates
+    if pnt.x>game.renderWidth then begin
+     pnt.x:=sx;
+     pnt:=GetRoot.TransformTo(pnt,parent); // transform from screen to parent space
+     position.x:=pnt.x;
+    end else
+     position.x:=position.x+4;
 
-    if sy+size.y*2+4>game.renderHeight then position.y:=position.y-(size.y+4)
-     else position.y:=position.y+10+game.renderHeight div 60;
+{    sc:=globalscale;
+    xx1:=sx;
+    xx2:=size.x*globalscale;
+    xx1:=xx1+xx2;
+    if sx+size.x*globalscale+2<game.renderWidth then position.x:=position.x+4
+     else position.x:=position.x-(sx+size.x*globalscale-game.renderWidth)/globalscale;}
+
+    {if sy+size.y*2+4>game.renderHeight then position.y:=position.y-(size.y+4)
+     else position.y:=position.y+10+game.renderHeight div 60;  dd }
    end;
   end;
 
