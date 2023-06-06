@@ -193,6 +193,8 @@ type
   // Transform to the root element (screen space)
   function TransformToScreen(const p:TPoint2s):TPoint2s; overload;
   function TransformToScreen(const r:TRect2s):TRect2s; overload;
+  function TransformFromScreen(const p:TPoint2s):TPoint2s; overload;
+  function TransformFromScreen(const r:TRect2s):TRect2s; overload;
   function GetRect:TRect2s; // Get element's area in its own CS (i.e. relative to pivot point)
   function GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
   function GetClientRect:TRect2s; // Get element's client area in its own CS (0,0,clientWidth,clientHeight)
@@ -467,6 +469,27 @@ implementation
  function TUIElement.TransformToScreen(const r:TRect2s):TRect2s;
   begin
    result:=TransformTo(r,nil);
+  end;
+
+ function TUIElement.TransformFromScreen(const p:TPoint2s):TPoint2s;
+  var
+   k,bx,by:single;
+   c:TUIElement;
+  begin
+   k:=1; bx:=0; by:=0;
+   c:=self;
+   while c<>nil do begin
+
+    c:=c.parent;
+   end;
+   result.x:=p.x*k+bx;
+   result.y:=p.y*k+by;
+  end;
+
+ function TUIElement.TransformFromScreen(const r:TRect2s):TRect2s;
+  begin
+   result.topLeft:=TransformFromScreen(r.topLeft);
+   result.bottomRight:=TransformFromScreen(r.bottomRight);
   end;
 
  function TUIElement.GetPosOnScreen:TRect;
