@@ -316,8 +316,12 @@ interface
    procedure SetCurItem(item:integer); virtual;
    procedure SetCurItemByText(value:string16); virtual;
    procedure SetCurItemByTag(tag:integer); virtual;
+  protected
+   function GetText:string16;
+  public
    property curItem:integer read fCurItem write SetCurItem;
    property curTag:integer read fCurTag write SetCurItemByTag;
+   property text:string16 read GetText;
   end;
 
 implementation
@@ -1717,7 +1721,13 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
    Create(width,height,0,nil,parent_,name);
   end;
 
- constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:WStringArr;
+ function TUIComboBox.GetText:string16;
+  begin
+   if fCurItem>=0 then result:=items[fCurItem]
+    else result:='';
+  end;
+
+constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:WStringArr;
     parent_:TUIElement;name:string);
   var
    btn:TUIButton;
