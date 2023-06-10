@@ -2031,13 +2031,40 @@ implementation
   end;
 
  function QInterpolate(q1,q2:TQuaternionS;factor:single):TQuaternionS;
+  var
+    cosOmega, sinOmega, scale0, scale1: Single;
   begin
-    // result = q1 + t*(q2-q1)
-    result.x:=q1.x+(q2.x-q1.x)*factor;
-    result.y:=q1.y+(q2.y-q1.y)*factor;
-    result.z:=q1.z+(q2.z-q1.z)*factor;
-    result.w:=q1.w+(q2.w-q1.w)*factor;
-    QNormalize(result);
+    // Compute the cosine of the angle between the two vectors.
+    cosOmega := Q1.x*Q2.x + Q1.y*Q2.y + Q1.z*Q2.z + Q1.w*Q2.w;
+
+    // if negative dot, use -q1. two quaternions q and -q represent the same rotation,
+    // but may produce different slerp. we chose q or -q to rotate using the shortest path.
+    if cosOmega < 0.0 then begin
+     cosOmega:=-cosOmega;
+     result.x:=-q1.x;
+     result.y:=-q1.y;
+     result.z:=-q1.z;
+     result.w:=-q1.w;
+    end else
+     result:=q1;
+
+    // Compute the scales for the linear interpolation
+    if (1.0 - cosOmega) > 1E-6 then begin
+     // Standard case (slerp)
+     sinOmega := Sqrt(1.0 - sqr(cosOmega));
+     scale0 := Sin((1.0 - factor) * ArcCos(cosOmega)) / sinOmega;
+     scale1 := Sin(factor * ArcCos(cosOmega)) / sinOmega;
+    end else begin
+     // Q1 and Q2 are very close, so do a linear interpolation
+     scale0 := 1.0 - factor;
+     scale1 := factor;
+    end;
+
+    // Final calculation of the interpolated quaternion
+    result.x:=scale0*result.x + scale1*q2.x;
+    result.y:=scale0*result.y + scale1*q2.y;
+    result.z:=scale0*result.z + scale1*q2.z;
+    result.w:=scale0*result.w + scale1*q2.w;
   end;
 
  procedure InitPlane(point,normal:TVector3;var p:TPlane);
