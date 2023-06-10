@@ -161,6 +161,40 @@ uses
    writeln('Quaternion conversions OK');
   end;
 
+ procedure TestSlerp;
+  var
+   i:integer;
+   f:single;
+   q1,q2,q:TQuaternionS;
+   m1,m2,m,mRef:TMatrix3s;
+  begin
+   // Rotation around X
+   m1:=IdentMatrix3s;
+   m2:=RotationXMat3s(Pi/2);
+   q1:=MatrixToQuaternion(m1);
+   q2:=MatrixToQuaternion(m2);
+   for i:=0 to 10 do begin
+    f:=i/10;
+    mRef:=RotationXMat3s(f*Pi/2);
+    q:=QInterpolate(q1,q2,f);
+    QuaternionToMatrix(q,m);
+    ASSERT(IsEqual(m,mRef));
+   end;
+   // Rotation around Y
+   m1:=IdentMatrix3s;
+   m2:=RotationYMat3s(-Pi/2);
+   q1:=MatrixToQuaternion(m1);
+   q2:=MatrixToQuaternion(m2);
+   for i:=0 to 10 do begin
+    f:=i/10;
+    mRef:=RotationYMat3s(-f*Pi/2);
+    q:=QInterpolate(q1,q2,f);
+    QuaternionToMatrix(q,m);
+    ASSERT(IsEqual(m,mRef));
+   end;
+   writeln('Slerp test OK');
+  end;
+
 // Some long math code (reference implementation + experimental implementation)
 
 type
@@ -685,6 +719,7 @@ begin
   TestRotationMat;
   TestQuaternions;
   TestQuaternionConversions;
+  TestSlerp;
   writeln('All OK');
  except
   on e:Exception do begin
