@@ -117,11 +117,6 @@ type
   capturedName:string;
   capturedTime:int64;
 
-  // Для расчета FPS
-  LastFrameNum:integer;
-  LastTickCount:cardinal;
-  frameTime:cardinal;
-
   // Screen capture
   captureSingleFrame:boolean; // request frame capture
   // что сделать с захваченным кадром
@@ -130,6 +125,10 @@ type
   frameCaptureData:TObject;
   videoCaptureMode:boolean; // режим видеозахвата
   videoCapturePath:string; // путь для сохранения файлов видеозахвата (по умолчанию - тек. каталог)
+
+  // FPS calc
+  fpsAccumTime:integer;
+  fpsAccumFrames:integer;
 
   curPrior:integer; // приоритет текущего отображаемого курсора
   wndCursor:THandle; // current system cursor
@@ -573,8 +572,8 @@ begin
  paused:=false;
  mainThread:=nil;
  FrameNum:=0;
- fps:=0;
- SmoothFPS:=60;
+ fps:=60;
+ smoothFPS:=60;
  params.VSync:=1;
  fillchar(keystate,sizeof(keystate),0);
  InitCritSect(crSect,'MainGameObj',20);
@@ -809,9 +808,6 @@ begin
   LogMessage('Init main loop');
   InitGraph;
 
-  LastFrameNum:=0;
-  LastTickCount:=MyTickCount;
-  FrameTime:=MyTickCount;
   LastOnFrameTime:=MyTickCount;
   LastRenderTime:=MyTickCount;
 
@@ -2215,22 +2211,25 @@ procedure TGame.RenderAndPresentFrame;
   ticks:int64;
   i:integer;
  begin
-   // Расчет fps
    ticks:=MyTickCount;
-   if (ticks>LastTickCount+500) and (lastTickCount<>0) then begin
-    FPS:=(1000*(framenum-LastFrameNum)/(ticks-LastTickCount));
-    SmoothFPS:=SmoothFPS*0.9+FPS*0.1;
-    LastFrameNum:=FrameNum;
-    LastTickCount:=ticks;
+   if frameStartTime>0 then frameTimeDelta:=ticks-frameStartTime
+    else frameTimeDelta:=20; // initial value
+   frameStartTime:=ticks;
+
+   // FPS
+   inc(fpsAccumTime,frameTimeDelta);
+   inc(fpsAccumFrames);
+   if (fpsAccumTime>250) then begin
+    FPS:=1000*fpsAccumFrames/fpsAccumTime;
+    SmoothFPS:=SmoothFPS*0.8+FPS*0.2;
+    fpsAccumFrames:=0;
+    fpsAccumTime:=0;
    end;
 
-   i:=MyTickCount-FrameTime;
-   if i>500 then
-    LogMessage('Warning: main loop stall for '+inttostr(i)+' ms');
-   FrameTime:=MyTickCount;
+   if frameTimeDelta>500 then
+    LogMessage('Warning: main loop stall for '+inttostr(frameTimeDelta)+' ms');
 
    // Обработка кадра
-   FrameStartTime:=MyTickCount;
    StartMeasure(3);
    if OnFrame then screenChanged:=true; // это чтобы можно было и в других местах выставлять флаг!
    EndMeasure(3);

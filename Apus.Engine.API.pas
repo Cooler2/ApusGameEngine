@@ -830,6 +830,7 @@ type
   screenChanged:boolean;  // set this to true to request frame rendering regardless of scenes processing
   frameNum:integer;     // increments every frame
   frameStartTime:int64; // MyTickCount when frame started
+  frameTimeDelta:int64; // number of milliseconds elapsed from previous frame
   FPS,smoothFPS:single; // current and smoothed FPS
 
   // Default (built-in) font handles (for debug overlays etc)
