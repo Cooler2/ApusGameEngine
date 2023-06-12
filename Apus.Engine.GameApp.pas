@@ -75,6 +75,7 @@ interface
    procedure CreateScenes; virtual; // Create and add game scenes
    procedure LoadScenes; virtual;
    procedure InitCursors; virtual;
+   procedure SetupHighDPI; virtual;
 
    procedure FatalError(msg:string); virtual;
 
@@ -614,6 +615,8 @@ procedure TGameApplication.Run;
   end;
   ForceLogMessage('RUN');
 
+  SetupHighDPI;
+
   // LOADER SCENE
   // ------------------------
   if useDefaultLoaderScene then begin
@@ -741,6 +744,12 @@ begin
     VSync:=1;
   end;
   Signal('GAMEAPP\SetGameSettings');
+end;
+
+procedure TGameApplication.SetupHighDPI;
+begin
+  txt.SetScale(deviceScale);
+  SetDefaultUIScale(deviceScale,deviceScale);
 end;
 
 { TLoadingScene }
