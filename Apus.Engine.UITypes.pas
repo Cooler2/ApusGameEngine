@@ -1258,6 +1258,7 @@ function TUIElement.GetClientHeight:single;
     result:=item.fColor;
     item:=item.parent;
    end;
+   if result=clDefault then result:=clWhite;
   end;
 
   function TUIElement.GetGlobalScale:single;
