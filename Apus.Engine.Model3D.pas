@@ -137,9 +137,14 @@ type
  // An animated instance of a 3D model
  TModelInstance=class
   model:TModel3D;
-  constructor Create(model:TModel3D);
-  // Control animation
+  constructor Create(model:TModel3D); // Create instance of the specified model
+
+  // Start animation playback. It doesn't stop any other animation.
+  // If easeTimeMS>0 then animation weight will smoothly increase to the animation priority value
+  // If animation is not looped, the weight will also smoothly decrease at the end
   procedure PlayAnimation(name:string='';easeTimeMS:integer=0);
+  // Stop animation playback. If easeTimeMS>0 then animation weight will smoothly
+  // decrease before it is actually stopped
   procedure StopAnimation(name:string='';easeTimeMS:integer=0);
   procedure PauseAnimation(name:string='');
   procedure ResumeAnimation(name:string='');
@@ -150,8 +155,11 @@ type
   function GetAnimationPos(name:string=''):single; // current frame
   function GetAnimationLength(name:string=''):integer; // number of frames
   function GetAnimationDuration(name:string=''):single; // in seconds
+  // Advanced options
+  function GetAnimationWeight(name:string):single;
+  procedure SetAnimationWeight(name:string;weight:single);
 
-  procedure Update; // update animations and calculate bones
+  procedure Update(customTime:int64=0); // update animations and calculate bones
   procedure Draw(tex:TTexture);
   procedure DrawSkeleton;
  protected
@@ -163,7 +171,7 @@ type
 
   // For each underlying model's animation there is a state object
   TInstanceAnimation=record
-   weight:TAnimatedValue;
+   weight,weightDelta:single;
    playing:boolean; // is it playing now?
    paused:boolean;
    stopping:boolean; // don't loop if stopping
@@ -534,7 +542,7 @@ constructor TModelInstance.Create(model:TModel3D);
   self.model:=model;
   SetLength(animations,length(model.animations));
   for i:=0 to high(animations) do begin
-   animations[i].weight.Init;
+   animations[i].weight:=0;
   end;
  end;
 
@@ -723,7 +731,11 @@ procedure TModelInstance.PlayAnimation(name:string;easeTimeMS:integer);
     startTime:=MyTickCount;
     priority:=model.animations[n].priority;
     if priority<=0 then priority:=1; // default value
-    weight.Animate(priority,easeTimeMS);
+    if easeTimeMS>0 then begin
+     weight:=0;
+     weightDelta:=priority/easeTimeMS;
+    end else
+     weight:=priority;
     LogMessage('PlayAni "%s" for "%s"',[name,model.name]);
    end;
  end;
@@ -731,9 +743,14 @@ procedure TModelInstance.PlayAnimation(name:string;easeTimeMS:integer);
 procedure TModelInstance.StopAnimation(name:string;easeTimeMS:integer);
  begin
   with animations[FindAnimation(name)] do begin
-   stopping:=true;
-   weight.Animate(0,easeTimeMS);
    LogMessage('StopAni "%s" for "%s"',[name,model.name]);
+   if easeTimeMS>0 then begin
+    stopping:=true;
+    weightDelta:=-weight/easeTimeMS;
+   end else begin
+    weight:=0;
+    playing:=false;
+   end;
   end;
  end;
 
@@ -753,9 +770,6 @@ procedure TModelInstance.SetAnimationPos(name:string;frame:single);
  begin
   i:=FindAnimation(name);
   with animations[i] do begin
-   playing:=true;
-   stopping:=false;
-   weight.Assign(1);
    paused:=true;
    max:=model.animations[i].numFrames-1;
    if round(frame)>max then frame:=frame-(max+1);
@@ -764,6 +778,16 @@ procedure TModelInstance.SetAnimationPos(name:string;frame:single);
    else
     curFrame:=Clamp(max-frame,0,max);
   end;
+ end;
+
+procedure TModelInstance.SetAnimationWeight(name:string;weight:single);
+ begin
+  animations[FindAnimation(name)].weight:=weight;
+ end;
+
+function TModelInstance.GetAnimationWeight(name:string):single;
+ begin
+  result:=animations[FindAnimation(name)].weight;
  end;
 
 procedure TModelInstance.SetAnimationPos(name:string;frame:integer);
@@ -805,16 +829,17 @@ function TModelInstance.IsAnimationPlaying(name:string):boolean;
    result:=playing and not paused;
  end;
 
-procedure TModelInstance.Update;
+procedure TModelInstance.Update(customTime:int64=0);
  var
   time:integer;
  begin
+  if customTime=0 then customTime:=game.frameStartTime;
   if lastUpdated>0 then
-   time:=game.frameStartTime-lastUpdated
+   time:=customTime-lastUpdated
   else
    time:=-1;
-  lastUpdated:=game.frameStartTime;
-  if time=0 then exit;
+  lastUpdated:=customTime;
+  if time=0 then exit; // no time elapsed since last update
 
   AdvanceAnimations(time);
   if UpdateBones then begin
@@ -845,10 +870,11 @@ procedure TModelInstance.AdvanceAnimations(time:integer);
        playing:=false;
        curFrame:=model.animations[i].numFrames-1;
       end;
-     if stopping and (weight.Value=0) then begin
+     if stopping and (weight<=0) then begin
       playing:=false;
       stopping:=false;
       curFrame:=0;
+      weight:=0;
      end;
     end;
  end;
@@ -863,6 +889,7 @@ function TModelInstance.UpdateBones:boolean;
   weights:array[0..5] of single; // max 6 active animations
   vec:TVector4s;
   bState:TBoneState;
+  q2:TQuaternionS;
  begin
   result:=false;
   // Find active animations and calculate weights
@@ -871,7 +898,7 @@ function TModelInstance.UpdateBones:boolean;
   for i:=0 to high(animations) do begin
    if animations[i].playing then begin
     aIdx[aCount]:=i;
-    weights[aCount]:=animations[i].weight.ValueAt(game.frameStartTime);
+    weights[aCount]:=animations[i].weight;
     fullWeight:=fullWeight+weights[aCount];
     inc(aCount);
     if aCount>=length(aIdx) then break;
@@ -902,13 +929,20 @@ function TModelInstance.UpdateBones:boolean;
     vec:=model.animations[anim].GetBonePosition(i,frame);
     bState.position.Add(vec,weights[j]);
     // rotation
-    vec:=model.animations[anim].GetBoneRotation(i,frame);
-    bState.rotation.Add(vec,weights[j]);
+    if j=0 then
+     bState.rotation:=model.animations[anim].GetBoneRotation(i,frame);
+
     // scale
     vec:=model.animations[anim].GetBoneScale(i,frame);
     bState.scale.Add(vec,weights[j]);
    end;
-   if aCount>1 then bState.rotation.Normalize; // sum of multiple rotations
+   if aCount=2 then begin // just slerp between
+    q2:=model.animations[anim].GetBoneRotation(i,frame);
+    bState.rotation:=QInterpolate(bState.rotation,q2,weights[0]);
+   end else
+   if aCount>2 then begin // 3+ animations is a complex case!
+
+   end;
    if not bState.IsEqual(bones[i]) then result:=true; // modified
    bones[i]:=bState;
   end;

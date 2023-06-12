@@ -137,7 +137,7 @@ procedure SetDisplaySize(width,height:integer);
    end;
    hint:=TUIHint.Create(X/parent.scale,(Y+10)/parent.scale,msg,parent);
    hint.font:=font;
-   hint.style:=defaultHintStyle;
+   hint.styleClass:=defaultHintStyle;
    hint.timer:=time;
    hint.order:=10000; // Top
    curhint:=hint;

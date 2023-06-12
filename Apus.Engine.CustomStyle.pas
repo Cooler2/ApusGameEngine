@@ -361,7 +361,7 @@ implementation
 
  procedure ApplyCustomStyle(item:TUIElement;styleName:string);
   begin
-   item.style:=customStyleID;
+   item.styleClass:=customStyleID;
    item.styleInfo:=styleName;
   end;
 

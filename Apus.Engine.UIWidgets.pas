@@ -384,7 +384,7 @@ implementation
 
  procedure TUIImage.SetRenderProc(proc:pointer);
   begin
-   style:=0;
+   styleClass:=0;
    src:='proc:'+FormatHex(UIntPtr(proc));
   end;
 
@@ -1677,7 +1677,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
    inherited Create(width,height,parent_,'_UIFrame');
    shape:=shapeFull;
    borderWidth:=depth;
-   style:=style_;
+   styleClass:=style_;
    padding.Left:=depth;  padding.Top:=depth;
    padding.Right:=depth; padding.Bottom:=depth;
   end;
@@ -1753,7 +1753,7 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:WStrin
     end;
    end;
    curItem:=-1;
-   style:=0;
+   styleClass:=0;
    canHaveFocus:=true;
    maxlines:=15;
    if defaultText='' then defaultText:=GetClassAttribute('defaultText');

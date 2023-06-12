@@ -256,7 +256,7 @@ begin
  SetPos(x,y);
  shape:=shapeFull;
  canHaveFocus:=true;
- style:=3;
+ styleClass:=3;
  value:=iValue;
  initialValue:=initValue;
  moving:=false;
@@ -422,7 +422,7 @@ begin
  inherited Create(parent.width-20,24+game.renderHeight div 40,parent,'Editor_'+vName);
  SetPos(10,parent.height-5);
  varName:=vName;
- style:=3;
+ styleClass:=3;
  varName[1]:='g';
  varName[2]:=UpCase(varName[2]);
  if varName[2]='F' then begin // Float value

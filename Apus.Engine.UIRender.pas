@@ -89,8 +89,8 @@ implementation
    try
     // Draw element
     if (item.manualDraw=manualDraw) and
-       (item.style>=0) and
-       (item.style<=high(styleDrawers)) then
+       (item.styleClass>=0) and
+       (item.styleClass<=high(styleDrawers)) then
       DrawUIElement(item);
 
     // Debug: Highlight with border when Ctrl+Alt+Win pressed
@@ -166,7 +166,7 @@ implementation
 
  procedure DrawUIElement(item:TUIElement;styleOverride:integer=-1);
   begin
-   if styleOverride=-1 then styleOverride:=item.style;
+   if styleOverride=-1 then styleOverride:=item.styleClass;
    ASSERT(@styleDrawers[styleOverride]<>nil,'Style not registered');
    styleDrawers[styleOverride](item);
   end;

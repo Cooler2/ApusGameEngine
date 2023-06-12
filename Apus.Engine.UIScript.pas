@@ -195,7 +195,7 @@ procedure CreateCmd(cmd:string);
 
     if c=nil then raise EError.Create('Unknown class - '+sa[0]);
     // ���. ��-��
-    if style<>0 then c.style:=style;
+    if style<>0 then c.styleClass:=style;
     if cursor<>0 then c.cursor:=cursor;
     if HintDelay<>0 then c.hintDelay:=hintDelay;
     if HintDuration<>0 then c.hintDuration:=hintDuration;
@@ -447,7 +447,7 @@ begin
        varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).pagesize;
       end;
   's':if fieldname='style' then begin
-       result:=@obj.style; varClass:=TVarTypeInteger;
+       result:=@obj.styleClass; varClass:=TVarTypeInteger;
       end else
       if fieldname='styleinfo' then begin
        result:=obj; varClass:=TVarTypeStyleinfo;

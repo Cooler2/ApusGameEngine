@@ -439,7 +439,7 @@ implementation
  procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;btnType:TBUttonStyle;
               group:integer;default,enabled,pressed:boolean;hotkey:integer);
   begin
-   btn.style:=style;
+   btn.styleClass:=style;
    btn.cursor:=cursor;
    btn.btnStyle:=btnType;
    btn.group:=group;
@@ -454,7 +454,7 @@ implementation
                  enabled,password,noborder:boolean);
   begin
    edit.text:=text;
-   edit.style:=style;
+   edit.styleClass:=style;
    edit.cursor:=cursor;
    edit.maxlength:=maxlength;
    edit.enabled:=enabled;

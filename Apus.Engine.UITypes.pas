@@ -111,7 +111,7 @@ type
   order:integer; // Z-order used for arrangement ($10000 - StayOnTop), <0 - special (out-of-order)
 
   // Define how the element should be displayed
-  style:byte;    // Which style handler should be used to draw this element (0 - default style)
+  styleClass:byte;    // Which style handler should be used to draw this element (0 - default style)
   styleInfoChanged:boolean; // set true whenever styleInfo changes
   styleContext:TObject; // custom context object used by drawer
 
@@ -127,7 +127,7 @@ type
   parentClip:boolean; // clip this element by parents client rect? (default - yes!)
   clipChildren:boolean; // clip children elements by self client rect? (default - yes)
 
-  timer:integer; // таймер - указывает время в мс через которое будет вызван onTimer() (но не раньше чем через кадр, 0 - не вызывать)
+  timer:integer; // relative time to call the onTimer() handler (only once and not earlier than next frame) 0 - don't call. For example, if timer=100 then onTimer will be called in 100 ms
   linkedValue:pointer; // pointer to an external variable used to store elements state (depends on element type)
 
   // Custom data
@@ -145,8 +145,7 @@ type
   layout:TLayouter; // how to layout child elements
   layoutData:single; // custom data for layouter
 
-  // Derived attributes. Эти параметры (вторичные св-ва) вычисляются первичными событиями,
-  // поэтому пользоваться ими нужно аккуратно
+  // Derived attributes. These attributes are calculated at runtime and used for faster access, can be outdated
   globalRect:TRect;  // положение элемента на экране (может быть устаревшим! для точного положения - GetPosOnScreen)
 
   // Создает элемент
@@ -617,7 +616,7 @@ implementation
    manualDraw:=false;
    font:=GetClassAttribute('defaultFont',0);
    color:=GetClassAttribute('defaultColor',clDefault);
-   style:=GetClassAttribute('defaultStyle',0);
+   styleClass:=GetClassAttribute('defaultStyle',0);
    styleInfo:=GetClassAttribute('defaultStyleInfo','');
    canHaveFocus:=GetClassAttribute('defaultCanHaveFocus',false);
    sendSignals:=ssNone;
