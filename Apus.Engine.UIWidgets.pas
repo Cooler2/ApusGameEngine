@@ -106,6 +106,7 @@ interface
    onClick:TProcedure;
    onClickEvent:string;
    class var onCLickSender:TUIButton;
+   class var active:TUIButton; // link to the active button (can be used in click handlers)
    constructor Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement); overload;
    constructor Create(width,height:single;btnName,btnCaption:string;parent_:TUIElement); overload;
    constructor Create(width,height:single;btnCaption:string;parent_:TUIElement); overload;
@@ -124,7 +125,7 @@ interface
    procedure SetPressed(pr:boolean); virtual;
    procedure MakeSwitches(sameGroup:boolean=true;clickHandler:TProcedure=nil); // make all sibling buttons with the same size - switches
    procedure Click; virtual; // simulate click
-   class var active:TUIButton; // link to the active button (can be used in click handlers)
+   class function GetSwitchIndex(parent:TUIElement):integer;
   protected
    procedure DoClick;
    procedure CheckGroup;
@@ -526,7 +527,22 @@ implementation
    onClick;
   end;
 
- function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
+ class function TUIButton.GetSwitchIndex(parent:TUIElement):integer;
+  var
+   e:TUIElement;
+  begin
+   result:=-1;
+   for e in parent.children do
+    if e is TUIButton then
+     with TUIButton(e) do
+      if group>0 then begin
+       inc(result);
+       if pressed then exit;
+      end;
+   result:=-1;
+  end;
+
+function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
   var
    i:integer;
   begin
