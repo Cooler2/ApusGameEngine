@@ -159,7 +159,7 @@ type
   function GetAnimationWeight(name:string):single;
   procedure SetAnimationWeight(name:string;weight:single);
 
-  procedure Update(customTime:int64=0); // update animations and calculate bones
+  procedure Update(customTime:int64=-1); // update animations and calculate bones
   procedure Draw(tex:TTexture);
   procedure DrawSkeleton;
  protected
@@ -829,17 +829,17 @@ function TModelInstance.IsAnimationPlaying(name:string):boolean;
    result:=playing and not paused;
  end;
 
-procedure TModelInstance.Update(customTime:int64=0);
+procedure TModelInstance.Update(customTime:int64=-1);
  var
   time:integer;
  begin
-  if customTime=0 then customTime:=game.frameStartTime;
-  if lastUpdated>0 then
-   time:=customTime-lastUpdated
-  else
-   time:=-1;
+  if customTime=-1 then customTime:=game.frameStartTime;
+  if lastUpdated>0 then begin
+   time:=customTime-lastUpdated;
+   if time=0 then exit; // no time elapsed since last update
+  end else
+   time:=0;
   lastUpdated:=customTime;
-  if time=0 then exit; // no time elapsed since last update
 
   AdvanceAnimations(time);
   if UpdateBones then begin
