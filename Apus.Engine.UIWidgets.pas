@@ -1222,7 +1222,8 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
 
  procedure TUIScrollBar.CheckAutoHide;
   begin
-   visible:=max-min>pageSize;
+   if autoHide then
+    visible:=max-min>pageSize;
   end;
 
 constructor TUIScrollBar.Create(width,height,min,max,pageSize,value:single;parent:TUIElement;barName:string);
