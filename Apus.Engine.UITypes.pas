@@ -15,6 +15,7 @@ uses Types, Apus.Types, Apus.Classes, Apus.Engine.Types,
 
 const
  INHERIT = -999999; // constant to inherit integer property from parent
+ KEEP    = -1;
 
  // Predefined pivot point configuration
  pivotTopLeft:TPoint2s=(x:0; y:0);
@@ -138,8 +139,8 @@ type
   // Relationship
   parent:TUIElement; // Ссылка на элемент-предок
   children:TUIElements; // Список вложенных элементов
-  isGroupBox:boolean; // true means that only one child element should be "active" (switches, radio buttons etc.)
-  activeChild:integer; // index of an active child element (when isGroupBox=true), -1 if none
+  isGroupBox:boolean; // true means that only one child element should be "selected" (switches, radio buttons etc.)
+  selectedChild:integer; // index of an active child element (when isGroupBox=true), -1 if none
 
   // UI layout
   layout:TLayouter; // how to layout child elements
@@ -148,6 +149,7 @@ type
   // Derived attributes. These attributes are calculated at runtime and used for faster access, can be outdated
   globalRect:TRect;  // положение элемента на экране (может быть устаревшим! для точного положения - GetPosOnScreen)
 
+  class var sender:TUIElement; // use this value in any callback handler to find out the event sender element
   // Создает элемент
   constructor Create(width,height:single;parent_:TUIElement;name_:string='');
   // Удаляет элемент (а также все вложенные в него)
@@ -624,7 +626,7 @@ implementation
    scrollerH:=nil; scrollerV:=nil;
    focusedChild:=nil;
    shapeRegion:=nil;
-   activeChild:=-1;
+   selectedChild:=-1;
 
    UICritSect.Enter;
    try
