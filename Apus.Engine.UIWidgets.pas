@@ -6,7 +6,6 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 // ------------------------------------------------------
 
-// Define OLDSIGNALS for old events schema (UI\name\XXX)
 unit Apus.Engine.UIWidgets;
 interface
  uses Types, Apus.Common, Apus.AnimatedValues,
@@ -502,8 +501,7 @@ implementation
      end;
     if (sendSignals<>ssNone) and
        (pressed or (btnStyle=bsCheckbox)) then begin
-      {$IFDEF OLDSIGNALS}
-      Signal('UI\'+name+'\Click',byte(pressed)); {$ENDIF}
+      Signal('UI\'+name+'\Click',byte(pressed));
       Signal('UI\Button\Down\'+name,TTag(self));
       FireClickEvent;
       if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
@@ -512,8 +510,7 @@ implementation
     if pending then exit;
     // Защита от двойных кликов
     if (sendSignals<>ssNone) and (MyTickCount>lastPressed+50) then begin
-     {$IFDEF OLDSIGNALS}
-     Signal('UI\'+name+'\Click',byte(pressed)); {$ENDIF}
+     Signal('UI\'+name+'\Click',byte(pressed));
      Signal('UI\Button\Click\'+name,TTag(self));
      if Assigned(onClick) then begin
       game.RunAsync(@onClick);
@@ -629,9 +626,7 @@ procedure TUIButton.SetPressed(pr:boolean);
    if (sendSignals<>ssNone) then begin
     if btnStyle<>bsNormal then begin
      Signal('UI\Button\Toggle\'+name,UIntPtr(self));
-     {$IFDEF OLDSIGNALS}
      Signal('UI\'+name+'\Toggle');
-     {$ENDIF}
     end else begin
      if pr then Signal('UI\Button\Down\'+name,UIntPtr(self))
        else     Signal('UI\Button\Up\'+name,UIntPtr(self));
@@ -950,12 +945,10 @@ function TUIEditBox.GetText:String8;
      completion:='';
      cursorpos:=length(realtext);
      selcount:=0;
-     {$IFDEF OLDSIGNALS}
-     Signal('UI\'+name+'\AutoCompletion',0); {$ENDIF}
+     Signal('UI\'+name+'\AutoCompletion',0);
      Signal('UI\Editbox\AutoCompletion\'+name,0);
     end else begin
-     {$IFDEF OLDSIGNALS}
-     Signal('UI\'+name+'\Enter',0); {$ENDIF}
+     Signal('UI\'+name+'\Enter',0);
      Signal('UI\Editbox\Enter\'+name,0);
     end;
    end;
@@ -1462,8 +1455,7 @@ procedure TUIScrollBar.onTimer;
      if linkedcontrol.scrollerV.GetElement=self then
       linkedControl.scroll.Y:=val;
    end;
-   {$IFDEF OLDSIGNALS}
-   Signal('UI\'+name+'\Changing',round(val)); {$ENDIF}
+   Signal('UI\'+name+'\Changing',round(val));
    Signal('UI\Scrollbar\Changing\'+name,round(val));
    if isAnimating then timer:=1;
   end;
