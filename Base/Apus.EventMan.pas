@@ -152,10 +152,16 @@ function EventOfClass(var event:TeventStr;eventClass:TEventStr):boolean; inline;
 
 function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean;
  var
-  i:integer;
+  i,l:integer;
  begin
   i:=length(eventClass);
-  if length(event)<=i then exit(false);
+  l:=length(event);
+  if l<=i then begin
+   if (l=i) and SameText(event,eventClass) then begin
+    subEvent:=''; exit(true);
+   end;
+   exit(false);
+  end;
   if event[i+1]<>'\' then exit(false);
   if not event.StartsWith(eventClass,true) then exit(false);
   subEvent:=Copy(event,i+2,length(event));
