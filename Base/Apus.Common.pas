@@ -4291,10 +4291,12 @@ function BinToStr;
   var
    i,l:integer;
   begin
+   result:=false;
    l:=length(a);
-   if length(b)<>l then exit(false);
-   for i:=1 to l do
-    if not SameChar8(a[i],b[i]) then exit(false);
+   if length(b)<>l then exit;
+   if not SameChar8(a[l],b[l]) then exit;
+   for i:=1 to l-1 do
+    if not SameChar8(a[i],b[i]) then exit;
    result:=true;
   end;
 
@@ -4302,10 +4304,12 @@ function BinToStr;
   var
    i,l:integer;
   begin
+   result:=false;
    l:=length(a);
-   if length(b)<>l then exit(false);
-   for i:=1 to l do
-    if not SameChar16(a[i],b[i]) then exit(false);
+   if length(b)<>l then exit;
+   if not SameChar16(a[l],b[l]) then exit;
+   for i:=1 to l-1 do
+    if not SameChar16(a[i],b[i]) then exit;
    result:=true;
   end;
  {$IFDEF RANGECHECKS_ON} {$R+} {$ENDIF}
