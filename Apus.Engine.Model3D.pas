@@ -159,7 +159,7 @@ type
   function GetAnimationWeight(name:string):single;
   procedure SetAnimationWeight(name:string;weight:single);
 
-  procedure Update(customTime:int64=-1); // update animations and calculate bones
+  procedure Update(customTime:int64=-1;forceUpdate:boolean=false); // update animations and calculate bones
   procedure Draw(tex:TTexture);
   procedure DrawSkeleton;
  protected
@@ -770,7 +770,7 @@ procedure TModelInstance.SetAnimationPos(name:string;frame:single);
  begin
   i:=FindAnimation(name);
   with animations[i] do begin
-   paused:=true;
+   //paused:=true;
    max:=model.animations[i].numFrames-1;
    if round(frame)>max then frame:=frame-(max+1);
    if frame>=0 then
@@ -829,19 +829,19 @@ function TModelInstance.IsAnimationPlaying(name:string):boolean;
    result:=playing and not paused;
  end;
 
-procedure TModelInstance.Update(customTime:int64=-1);
+procedure TModelInstance.Update(customTime:int64=-1;forceUpdate:boolean=false);
  var
   time:integer;
  begin
   if customTime=-1 then customTime:=game.frameStartTime;
   if lastUpdated>0 then begin
    time:=customTime-lastUpdated;
-   if time=0 then exit; // no time elapsed since last update
+   if (time=0) and not forceUpdate then exit; // no time elapsed since last update
   end else
    time:=0;
   lastUpdated:=customTime;
 
-  AdvanceAnimations(time);
+  if time>0 then AdvanceAnimations(time);
   if UpdateBones then begin
    UpdateBoneMatrices;
    dirty:=true;
@@ -943,8 +943,10 @@ function TModelInstance.UpdateBones:boolean;
    if aCount>2 then begin // 3+ animations is a complex case!
 
    end;
-   if not bState.IsEqual(bones[i]) then result:=true; // modified
-   bones[i]:=bState;
+   if not bState.IsEqual(bones[i]) then begin
+    result:=true; // modified
+    bones[i]:=bState;
+   end;
   end;
  end;
 
