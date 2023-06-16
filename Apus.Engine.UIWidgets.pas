@@ -5,6 +5,8 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 // ------------------------------------------------------
+
+// Define OLDSIGNALS for old events schema (UI\name\XXX)
 unit Apus.Engine.UIWidgets;
 interface
  uses Types, Apus.Common, Apus.AnimatedValues,
@@ -105,8 +107,8 @@ interface
    group:integer;   // Группа переключателей
    onClick:TProcedure;
    onClickEvent:string;
-   class var onCLickSender:TUIButton;
-   class var active:TUIButton; // link to the active button (can be used in click handlers)
+{   class var onClickSender:TUIButton;
+   class var active:TUIButton; // link to the active button (can be used in click handlers)}
    constructor Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement); overload;
    constructor Create(width,height:single;btnName,btnCaption:string;parent_:TUIElement); overload;
    constructor Create(width,height:single;btnCaption:string;parent_:TUIElement); overload;
@@ -126,6 +128,7 @@ interface
    procedure MakeSwitches(sameGroup:boolean=true;clickHandler:TProcedure=nil); // make all sibling buttons with the same size - switches
    procedure Click; virtual; // simulate click
    class function GetSwitchIndex(parent:TUIElement):integer;
+   class function Sender:TUIButton;
   protected
    procedure DoClick;
    procedure CheckGroup;
@@ -487,7 +490,7 @@ implementation
    i:integer;
   begin
    // Toggle switch button
-   active:=self;
+   TUIElement.sender:=self;
    if btnStyle<>bsNormal then begin
     if group=0 then SetPressed(not pressed)
      else begin
@@ -499,8 +502,9 @@ implementation
      end;
     if (sendSignals<>ssNone) and
        (pressed or (btnStyle=bsCheckbox)) then begin
-      Signal('UI\'+name+'\Click',byte(pressed));
-      Signal('UI\onButtonDown\'+name,TTag(self));
+      {$IFDEF OLDSIGNALS}
+      Signal('UI\'+name+'\Click',byte(pressed)); {$ENDIF}
+      Signal('UI\Button\Down\'+name,TTag(self));
       FireClickEvent;
       if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
     end;
@@ -508,10 +512,10 @@ implementation
     if pending then exit;
     // Защита от двойных кликов
     if (sendSignals<>ssNone) and (MyTickCount>lastPressed+50) then begin
-     Signal('UI\'+name+'\Click',byte(pressed));
-     Signal('UI\onButtonClick\'+name,TTag(self));
+     {$IFDEF OLDSIGNALS}
+     Signal('UI\'+name+'\Click',byte(pressed)); {$ENDIF}
+     Signal('UI\Button\Click\'+name,TTag(self));
      if Assigned(onClick) then begin
-      onClickSender:=self; // take care!
       game.RunAsync(@onClick);
      end;
      if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
@@ -523,7 +527,7 @@ implementation
  procedure TUIButton.FireClickEvent;
   begin
    if not Assigned(onClick) then exit;
-   onClickSender:=self;
+   TUIElement.sender:=self;
    onClick;
   end;
 
@@ -595,9 +599,9 @@ function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
   begin
    inherited;
    if not lastover and (undermouse=self) then
-    Signal('UI\onButtonOver\'+name);
+    Signal('UI\Button\Over\'+name);
    if lastover and (undermouse<>self) then
-    Signal('UI\onButtonOut\'+name);
+    Signal('UI\Button\Out\'+name);
    if btnStyle=bsNormal then begin
     if pressed and (underMouse<>self) then
      SetPressed(false);
@@ -612,18 +616,25 @@ function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
    end;
   end;
 
- procedure TUIButton.SetPressed(pr:boolean);
+ class function TUIButton.Sender:TUIButton;
+  begin
+   result:=TUIElement.sender as TUIButton;
+  end;
+
+procedure TUIButton.SetPressed(pr:boolean);
   begin
    pressed:=pr;
    if linkedValue<>nil then
     PBoolean(linkedValue)^:=pressed;
    if (sendSignals<>ssNone) then begin
     if btnStyle<>bsNormal then begin
-     Signal('UI\onButtonSwitch\'+name);
+     Signal('UI\Button\Toggle\'+name,UIntPtr(self));
+     {$IFDEF OLDSIGNALS}
      Signal('UI\'+name+'\Toggle');
+     {$ENDIF}
     end else begin
-     if pr then Signal('UI\onButtonDown\'+name)
-       else     Signal('UI\onButtonUp\'+name);
+     if pr then Signal('UI\Button\Down\'+name,UIntPtr(self))
+       else     Signal('UI\Button\Up\'+name,UIntPtr(self));
     end;
    end;
   end;
@@ -932,15 +943,21 @@ function TUIEditBox.GetText:String8;
    oldText:=realText;
    AdjustState;
    cursortimer:=mytickcount;
+   TUIElement.sender:=self;
    if (ch=#13) and (sendSignals<>ssNone) then begin
     if (completion<>'') and (realText<>completion) then begin
      realText:=completion;
      completion:='';
      cursorpos:=length(realtext);
      selcount:=0;
-     Signal('UI\'+name+'\AutoCompletion',0);
-    end else
-     Signal('UI\'+name+'\Enter',0);
+     {$IFDEF OLDSIGNALS}
+     Signal('UI\'+name+'\AutoCompletion',0); {$ENDIF}
+     Signal('UI\Editbox\AutoCompletion\'+name,0);
+    end else begin
+     {$IFDEF OLDSIGNALS}
+     Signal('UI\'+name+'\Enter',0); {$ENDIF}
+     Signal('UI\Editbox\Enter\'+name,0);
+    end;
    end;
    if (ch=#27) and (sendSignals<>ssNone) then Signal('UI\'+name+'\Escape',0);
    if (ch>=#32) and (selcount>0) then begin
@@ -1164,7 +1181,7 @@ function TUIEditBox.GetText:String8;
    inherited;
    SelectAll;
    {$IFDEF IOS}
-   Signal('UI\EditBox\onSetFocus',TTag(self));
+   Signal('UI\EditBox\SetFocus',TTag(self));
    {$ENDIF}
   end;
 
@@ -1172,7 +1189,7 @@ function TUIEditBox.GetText:String8;
   begin
    inherited;
    {$IFDEF IOS}
-   Signal('UI\EditBox\onLostFocus',TTag(self));
+   Signal('UI\EditBox\LostFocus',TTag(self));
    {$ENDIF}
   end;
 
@@ -1324,6 +1341,7 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
   var
    time:integer;
   begin
+   TUIElement.sender:=self;
    if val<min then val:=min;
    if val+pagesize>max then val:=max-pagesize;
    if smooth then begin
@@ -1335,6 +1353,7 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
     else SetValue(val);
 
    Signal('UI\'+name+'\Changed',round(val));
+   Signal('UI\ScrollBar\Changed\'+name,UIntPtr(self));
   end;
 
  procedure TUIScrollBar.onLostFocus;
@@ -1372,9 +1391,9 @@ procedure TUIScrollBar.MoveRel(delta:single;smooth:boolean=false);
      p:=(curMouseY-globalRect.Top)/(globalRect.Height);
 
     Clamp(p,0,1);
-    MoveTo(min+round((max-min-pagesize)*p));
+    MoveTo(min+ (max-min-pagesize)*p {round((max-min-pagesize)*p)});
     onMouseMove;
-    //onMouseButtons(button,true);
+    onMouseButtons(button,true);
    end;
   end;
 
@@ -1442,8 +1461,10 @@ procedure TUIScrollBar.onTimer;
     if linkedcontrol.scrollerV<>nil then
      if linkedcontrol.scrollerV.GetElement=self then
       linkedControl.scroll.Y:=val;
-   end;   
-   Signal('UI\'+name+'\Changing',round(val));
+   end;
+   {$IFDEF OLDSIGNALS}
+   Signal('UI\'+name+'\Changing',round(val)); {$ENDIF}
+   Signal('UI\Scrollbar\Changing\'+name,round(val));
    if isAnimating then timer:=1;
   end;
 
