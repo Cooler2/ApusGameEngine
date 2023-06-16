@@ -938,7 +938,7 @@ function TModelInstance.UpdateBones:boolean;
    end;
    if aCount=2 then begin // just slerp between
     q2:=model.animations[anim].GetBoneRotation(i,frame);
-    bState.rotation:=QInterpolate(bState.rotation,q2,weights[0]);
+    bState.rotation:=QInterpolate(bState.rotation,q2,weights[1]);
    end else
    if aCount>2 then begin // 3+ animations is a complex case!
 
