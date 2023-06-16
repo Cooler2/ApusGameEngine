@@ -2052,12 +2052,12 @@ implementation
     if (1.0 - cosOmega) > 1E-6 then begin
      // Standard case (slerp)
      sinOmega := Sqrt(1.0 - sqr(cosOmega));
-     scale0 := Sin(factor * ArcCos(cosOmega)) / sinOmega;
-     scale1 := Sin((1.0-factor) * ArcCos(cosOmega)) / sinOmega;
+     scale0 := Sin((1.0-factor) * ArcCos(cosOmega)) / sinOmega;
+     scale1 := Sin(factor * ArcCos(cosOmega)) / sinOmega;
     end else begin
      // Q1 and Q2 are very close, so do a linear interpolation
-     scale0 := factor;
-     scale1 := 1.0-factor;
+     scale0 := 1.0-factor;
+     scale1 := factor;
     end;
 
     // Final calculation of the interpolated quaternion
