@@ -147,7 +147,7 @@ procedure TMessageScene.Initialize;
   wnd.SetPos(game.renderWidth/2,game.renderHeight/2,pivotCenter);
   wnd.shape:=shapeFull;
   wnd.manualDraw:=true;
-  wnd.styleInfo:='FFD0D8E0 C0C0C8D0';
+  wnd.styleInfo:='border:FFD0D8E0; radius:8; fill:C0C0C8D0';
   wnd.font:=msgMainFont;
 
   btnOk:=TUIButton.Create(90,35,'Message\OK','Ok',0,wnd);
