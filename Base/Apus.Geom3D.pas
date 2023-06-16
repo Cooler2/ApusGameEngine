@@ -296,8 +296,8 @@ interface
  function QMult(q1,q2:TQuaternion):TQuaternion; overload;
  function QMult(q1,q2:TQuaternionS):TQuaternionS; overload;
 
- // SLERP (!??) linear interpolation from Q1 to Q2 with factor changing from 0 to 1
- function QInterpolate(q1,q2:TQuaternionS;factor:single):TQuaternionS;
+ // SLERP (!??) linear interpolation from Q1 to Q2 with factor changing from 0 to 1 (factor=0 -> Q1; factor=1 -> Q2)
+ function QInterpolate(Q1,Q2:TQuaternionS;factor:single):TQuaternionS;
 
 
  // Используется правосторонняя СК, ось Z - вверх.
@@ -2052,12 +2052,12 @@ implementation
     if (1.0 - cosOmega) > 1E-6 then begin
      // Standard case (slerp)
      sinOmega := Sqrt(1.0 - sqr(cosOmega));
-     scale0 := Sin((1.0 - factor) * ArcCos(cosOmega)) / sinOmega;
-     scale1 := Sin(factor * ArcCos(cosOmega)) / sinOmega;
+     scale0 := Sin(factor * ArcCos(cosOmega)) / sinOmega;
+     scale1 := Sin((1.0-factor) * ArcCos(cosOmega)) / sinOmega;
     end else begin
      // Q1 and Q2 are very close, so do a linear interpolation
-     scale0 := 1.0 - factor;
-     scale1 := factor;
+     scale0 := factor;
+     scale1 := 1.0-factor;
     end;
 
     // Final calculation of the interpolated quaternion
