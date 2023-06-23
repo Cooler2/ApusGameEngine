@@ -150,6 +150,7 @@ type
   globalRect:TRect;  // положение элемента на экране (может быть устаревшим! для точного положения - GetPosOnScreen)
 
   class var sender:TUIElement; // use this value in any callback handler to find out the event sender element
+
   // Создает элемент
   constructor Create(width,height:single;parent_:TUIElement;name_:string='');
   // Удаляет элемент (а также все вложенные в него)
@@ -266,8 +267,8 @@ type
   function FindChildByName(const name:string8):TUIElement;
 
   // Установить либо удалить "горячую клавишу" для данного эл-та
-  procedure SetHotKey(vKeyCode:byte;shiftstate:byte=0);
-  procedure ReleaseHotKey(vKeyCode:byte;shiftstate:byte=0);
+  procedure SetHotKey(vKeyCode:integer;shiftstate:byte=0);
+  procedure RemoveHotKey(vKeyCode:integer;shiftstate:byte=0);
 
   // Check if point is opaque in tmCustom mode (relative coordinates in [0..1] range)
   function IsOpaque(x,y:single):boolean; virtual;
@@ -294,6 +295,8 @@ type
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
   childrenBound:TRect2s; // bounding rect of scrollable children (including 0,0 point as well)
+
+  procedure DeleteHotkeys(vKeyCode:integer;shiftstate:byte=0);
 
  private
   fStyleInfo:String8; // дополнительные сведения для стиля
@@ -358,9 +361,10 @@ implementation
  uses Classes, SysUtils, Apus.CrossPlatform, Apus.EventMan, Apus.Clipboard, Apus.Structs, Apus.Engine.API;
 
  type
-  // Горячая клавиша
+  // Hotkey handler
   THotKey=record
-   vKey,shiftstate:byte;
+   vKey:integer;
+   shiftstate:byte;
    element:TUIElement;
   end;
 
@@ -368,8 +372,7 @@ implementation
   // TUIElement class hash
   UIHash:TObjectHash;
   // Hotkeys
-  hotKeys:array[0..1023] of THotKey;
-  hotKeysCnt:integer;
+  hotKeys:array of THotKey;
 
   fControl:TUIElement; // элемент, имеющий фокус ввода (с клавиатуры)
                       // устанавливается автоматически либо вручную
@@ -382,7 +385,7 @@ implementation
    i:integer;
    c:TUIElement;
   begin
-   for i:=0 to hotKeysCnt-1 do
+   for i:=0 to high(hotKeys) do
     if (hotKeys[i].vKey=keycode) then
       if (HotKeys[i].shiftstate=shiftstate) or
          ((HotKeys[i].shiftstate>0) and (HotKeys[i].shiftstate and ShiftState=HotKeys[i].shiftstate)) then
@@ -673,6 +676,7 @@ destructor TUIElement.Destroy;
     DeleteChildren;
     FreeAndNil(shapeRegion);
     FreeAndNil(styleContext);
+    DeleteHotkeys(0);
     Signal('UI\ItemDestroyed',TTag(self));
    except
     on e:Exception do raise EError.Create(Format('Destroy error for %s: %s',[name,ExceptionMsg(e)]));
@@ -1158,20 +1162,31 @@ function TUIElement.IsChild(c:TUIElement):boolean;
     parent.onMouseScroll(value);
   end;
 
- procedure TUIElement.ReleaseHotKey(vKeyCode, shiftstate: byte);
-  var
-   i:integer;
+ procedure TUIElement.RemoveHotKey(vKeyCode:integer;shiftstate:byte);
   begin
-   if hotkeyscnt<=0 then exit;
-   for i:=0 to hotKeysCnt-1 do
+   DeleteHotKeys(vKeyCode,shiftState);
+  end;
+
+ procedure TUIElement.DeleteHotKeys(vKeyCode:integer;shiftstate:byte);
+  var
+   i,max:integer;
+  begin
+   UICritSect.Enter;
+   try
+   i:=0; max:=high(hotkeys);
+   while i<=max do
     if (hotkeys[i].element=self) and
-     ((vKeyCode=0) or
-      ((hotkeys[i].vKey=vKeyCode) and
-      (hotkeys[i].shiftstate=shiftstate))) then begin
-     dec(hotKeysCnt);
-     hotkeys[i]:=hotkeys[hotKeysCnt];
-     exit;
-    end;
+      ((vKeyCode=0) or
+       ((hotkeys[i].vKey=vKeyCode) and
+       (hotkeys[i].shiftstate=shiftstate))) then begin
+     hotkeys[i]:=hotkeys[max];
+     dec(max);
+    end else
+     inc(i);
+    SetLength(hotkeys,max+1);
+   finally
+    UICritSect.Leave;
+   end;
   end;
 
  procedure TUIElement.SetStyle(name,value:string8);
@@ -1578,19 +1593,19 @@ procedure TUIElement.SafeDestroy;
    NotImplemented;
   end;
 
- procedure TUIElement.SetHotKey(vKeyCode,shiftstate:byte);
+ procedure TUIElement.SetHotKey(vKeyCode:integer;shiftstate:byte);
   var
    i:integer;
   begin
-   if hotKeysCnt>=high(hotKeys) then exit;
-   // Поиск, а не установлена ли уже эта клавиша
-   for i:=0 to HotKeysCnt-1 do
+   // Check for duplicate
+   for i:=0 to high(hotKeys) do
     if (hotkeys[i].element=self) and (hotkeys[i].vKey=vKeyCode) and
        (hotkeys[i].shiftstate=shiftstate) then exit;
-   hotkeys[hotKeysCnt].vKey:=vKeyCode;
-   hotkeys[hotKeysCnt].shiftstate:=shiftstate;
-   hotkeys[hotKeysCnt].element:=self;
-   inc(HotKeysCnt);
+   i:=length(hotKeys);
+   SetLength(hotkeys,i+1);
+   hotkeys[i].vKey:=vKeyCode;
+   hotkeys[i].shiftstate:=shiftstate;
+   hotkeys[i].element:=self;
   end;
 
  procedure DestroyQueuedElements;
