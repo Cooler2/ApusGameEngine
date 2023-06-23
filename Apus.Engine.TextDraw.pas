@@ -263,7 +263,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
     {$IFDEF FREETYPE}
     if fonts[i] is TFreeTypeFont then
      with fonts[i] as TFreeTypeFont do begin
-      if lowercase(faceName)=name then rate:=matchRate*2;
+      if lowercase(faceName)=name then rate:=matchRate*3;
       if rate>bestRate then begin
         bestRate:=rate;
         best:=i;
