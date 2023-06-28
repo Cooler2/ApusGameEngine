@@ -682,7 +682,7 @@ implementation
  procedure DrawUIEditBox(control:TUIEditBox;x1,y1,x2,y2:integer);
   var
    wst:WideString;
-   i,j,mY,d,curX,scrollPixels:integer;
+   i,j,mY,d,curX,scrollPixels,xStart:integer;
    c:cardinal;
   begin
    with control do begin
@@ -691,7 +691,6 @@ implementation
       wst:=StringOfChar('*',length(wst));
     if (scroll.X>0) and (txt.WidthW(font,wst)<(x2-x1)) then Scroll.X:=0;
     i:=txt.WidthW(font,copy(wst,1,cursorpos)); // позиция курсора
-//    if cursorpos>0 then dec(i);
     if i-scroll.X<0 then scroll.X:=i;
     if i-scroll.X>(x2-x1-5-offset) then scroll.X:=i-(x2-x1-5-offset);
     gfx.clip.Rect(Rect(x1+2,y1,x2-2,y2));
@@ -711,13 +710,14 @@ implementation
        inc(cursorpos);
      needpos:=-1;
     end;
+    xStart:=x1+round((y2-y1)*0.15)-scrollPixels;
     if completion<>'' then begin
-     j:=x1+2-scrollPixels+txt.WidthW(font,wst);
+     j:=xStart+txt.WidthW(font,wst);
      txt.WriteW(font,j+offset,mY,ColorMix(color,$00808080,160),
        copy(completion,length(wst)+1,length(completion)),taLeft,toDontTranslate);
     end;
     if (selcount>0) and (FocusedElement=control) then begin // часть текста выделена
-     j:=x1+2-scrollPixels+offset;
+     j:=xStart+offset;
      txt.WriteW(font,j,mY,color,copy(wst,1,selstart-1),taLeft,toDontTranslate); // до выделения
      j:=j+txt.WidthW(font,copy(wst,1,selstart))-
           txt.WidthW(font,copy(wst,selstart,1));
@@ -732,10 +732,10 @@ implementation
          copy(wst,selstart+selcount,length(wst)-selstart-selcount+1),taLeft,toDontTranslate); // остаток
      end;
     end else
-     txt.WriteW(font,x1+2-scrollPixels+offset,mY,color,wst,taLeft,toDontTranslate);
+     txt.WriteW(font,xStart+offset,mY,color,wst,taLeft,toDontTranslate);
     gfx.clip.Restore;
     if (FocusedElement=control) and ((mytickcount-cursortimer) mod 360<200) then begin // курсор
-     curX:=x1+2+i-scrollPixels+offset; // first pixel of the character
+     curX:=xStart+offset+i; // first pixel of the character
      draw.Line(curX,y1+2,curX,y2-2,colorAdd(color,$404040));
 //     draw.Line(x1+4+i-scrollX,y1+2,x1+4+i-scrollX,y2-2,colorAdd(color,$404040));
     end;
