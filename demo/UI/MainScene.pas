@@ -50,13 +50,11 @@ constructor TMainApp.Create;
 
 // Most app initialization is here. Default spinner is running
 procedure TMainApp.CreateScenes;
- var
-  scale:single;
  begin
   inherited;
-  scale:=game.screenDPI/96;
+{  scale:=game.screenDPI/96;
   txt.SetScale(scale);
-  SetDefaultUIScale(scale,scale);
+  SetDefaultUIScale(scale,scale);}
   // initialize our main scene
   sceneMain:=TMainScene.Create('Main');
   // switch to the main scene using fade transition effect
@@ -128,7 +126,7 @@ procedure TestWidgets;
   TUISplitter.CreateH(2,5,0,cont,$80000000);
   // Check boxes
   TUICheckBox.Create(-1,22,'Check1','checkbox 1 VERYLONG',cont,true);
-  TUICheckBox.Create(-1,22,'Check2','checkbox 2 (red)',cont).AddStyle('tickColor:811');
+  TUICheckBox.Create(-1,22,'Check2','checkbox 2 (red)',cont).SetStyle('tickColor','811');
   TUISplitter.CreateH(10,cont);
   // Radio buttons
   TUIRadioButton.Create(100,22,'Radio1','radio 1',cont);
@@ -179,7 +177,7 @@ procedure TMainScene.Initialize;
   btn:TUIButton;
   panel:TUIElement;
  begin
-  UI.font:=txt.GetFont('',8.0,fsBold);
+  UI.font:=txt.GetFont('',9.0,fsBold);
   // Create menu panel
   panel:=TUIElement.Create(250,400,UI,'MainMenu');
   panel.scale:=1.2;
