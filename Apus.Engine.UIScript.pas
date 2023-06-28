@@ -272,7 +272,7 @@ procedure SetHotKeyCmd(cmd:string);
      d:=StrToInt(sa[i]);
     v:=v+d;
    end;
-   if v=0 then obj.ReleaseHotKey(0,0)
+   if v=0 then obj.RemoveHotKey(0,0)
    else begin
     key:=v and 255;
     shift:=v shr 8;

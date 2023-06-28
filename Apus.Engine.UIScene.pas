@@ -344,7 +344,10 @@ procedure SetDisplaySize(width,height:integer);
 
     c:=FocusedElement;
     // No focused element - handle hotkey for all elements
-    if (event='KEYDOWN') and (c=nil) then ProcessHotKey(key,shift);
+    if (event='KEYDOWN') and (c=nil) then begin
+     ProcessHotKey(key,shift);
+     exit;
+    end;
 
     if c.IsEnabled then begin
      if event='KEYDOWN' then
