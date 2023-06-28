@@ -37,7 +37,8 @@ interface
    destructor Destroy; virtual;
 
    function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
-   function LoadFont(const font:TBuffer;asName:string=''):string; overload; // возвращает имя шрифта
+   function LoadRasterFont(const font:TBuffer;asName:string=''):string; overload; // возвращает имя шрифта
+   function LoadVectorFont(const font:TBuffer;asName:string=''):string; overload; // возвращает имя шрифта
    procedure SetScale(scale:single);
    function GetFont(name:string;size:single;flags:cardinal=0;effects:byte=0):TFontHandle; // возвращает хэндл шрифта
    function ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
@@ -178,44 +179,7 @@ procedure TTextDrawer.FlushTextCache;
   end;
  end;
 
-function TTextDrawer.LoadFont(fName:string;asName:string=''):string;
- var
-  font:ByteArray;
-  {$IFDEF FREETYPE}
-  ftf:TFreeTypeFont;
-  i:integer;
-  {$ENDIF}
- begin
-  if pos('.fnt',fname)>0 then begin
-   font:=LoadFileAsBytes(FileName(fname));
-   result:=LoadFont(TBuffer.CreateFrom(font),asName);
-   exit;
-  end else begin
-   {$IFDEF FREETYPE}
-   ftf:=TFreeTypeFont.LoadFromFile(FileName(fname));
-   for i:=1 to high(fonts) do
-    if fonts[i]=nil then begin
-     fonts[i]:=ftf;
-     if asName<>'' then ftf.faceName:=asName;
-     result:=ftf.faceName;
-     exit;
-    end;
-   {$ENDIF}
-  end;
-  raise EError.Create('Failed to load font: '+fname);
- end;
-
-function TTextDrawer.Link: integer;
- begin
-  result:=curTextLink;
- end;
-
-function TTextDrawer.LinkRect: TRect;
- begin
-  result:=curTextLinkRect;
- end;
-
-function TTextDrawer.LoadFont(const font:TBuffer;asName:string=''):string;
+function TTextDrawer.LoadRasterFont(const font:TBuffer;asName:string=''):string;
  var
   i:integer;
  begin
@@ -228,6 +192,52 @@ function TTextDrawer.LoadFont(const font:TBuffer;asName:string=''):string;
      defaultFontHandle:=100 shl 16+i;
     exit;
    end;
+ end;
+
+function TTextDrawer.LoadVectorFont(const font:TBuffer;asName:string=''):string;
+ var
+  i:integer;
+  {$IFDEF FREETYPE}
+  ftf:TFreeTypeFont;
+  {$ENDIF}
+ begin
+  {$IFDEF FREETYPE}
+   ftf:=TFreeTypeFont.LoadFromMemory(font,0);
+   for i:=1 to high(fonts) do
+    if fonts[i]=nil then begin
+     fonts[i]:=ftf;
+     if asName<>'' then ftf.faceName:=asName;
+     result:=ftf.faceName;
+     exit;
+    end;
+  {$ENDIF}
+  raise EError.Create('FREETYPE required to load vector font');
+ end;
+
+
+function TTextDrawer.LoadFont(fName:string;asName:string=''):string;
+ var
+  font:ByteArray;
+ begin
+  font:=LoadFileAsBytes(FileName(fname));
+  if pos('.fnt',fname)>0 then begin
+   result:=LoadRasterFont(TBuffer.CreateFrom(font),asName);
+  end else begin
+   {$IFNDEF FREETYPE}
+   raise EError.Create('FREETYPE required to load a vector font: '+fName);
+   {$ENDIF}
+   LoadVectorFont(TBuffer.CreateFrom(font),asName);
+  end;
+ end;
+
+function TTextDrawer.Link: integer;
+ begin
+  result:=curTextLink;
+ end;
+
+function TTextDrawer.LinkRect: TRect;
+ begin
+  result:=curTextLinkRect;
  end;
 
 procedure TTextDrawer.SetScale(scale:single);
@@ -957,9 +967,6 @@ var
    lpCount:=0;
    dx:=0; dy:=0;
    try
-   {$IFDEF FREETYPE}
-   if ftFont<>nil then ftFont.Lock;
-   {$ENDIF}
    glyphCache.Keep;
    stepU:=textCache.stepU*2;
    stepV:=textCache.stepV*2;
@@ -1095,9 +1102,6 @@ var
    finally
     glyphCache.Release;
     if textCache.IsLocked then textCache.Unlock;
-    {$IFDEF FREETYPE}
-    if ftFont<>nil then ftFont.Unlock;
-    {$ENDIF}
    end;
    inc(txtVertCount,4*cnt);
   end;
@@ -1112,9 +1116,7 @@ var
    {$IFDEF FREETYPE}
    else
    if ftFont<>nil then begin
-    ftFont.Lock;
     height:=ftFont.GetHeight(size);
-    ftFont.Unlock;
     r:=types.Rect(x, y-height-height div 2,x+width+1,y+height div 2);
    end
    {$ENDIF};

@@ -146,9 +146,9 @@ type
   // Helper object represents in-memory binary buffer, doesn't own data
   // Useful to pass arbitrary data instead of pointer:size pair
   TBuffer=record
-   data:PByte;
-   readPos:PByte;
-   size:integer;
+   data:PByte;   // pointer to the whole buffer data
+   readPos:PByte; // current reading position
+   size:integer; // total data size
    constructor Create(sour:pointer;sizeInBytes:integer);
    constructor CreateFrom(sour:pointer;sizeInBytes:integer); overload;
    constructor CreateFrom(var sour;sizeInBytes:integer); overload;

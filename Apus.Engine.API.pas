@@ -634,7 +634,8 @@ type
  ITextDrawer=interface
   // Load font data
   function LoadFont(fname:string;asName:string=''):string; overload; // Returns name of the loaded font
-  function LoadFont(const font:TBuffer;asName:string=''):string; overload; // Returns name of the loaded font
+  function LoadRasterFont(const font:TBuffer;asName:string=''):string; overload; // Returns name of the loaded font
+  function LoadVectorFont(const font:TBuffer;asName:string=''):string; overload; // Returns name of the loaded font
   // Global scale factor for GetFont
   procedure SetScale(scale:single);
   // Get font handle (size=0 - default font size)

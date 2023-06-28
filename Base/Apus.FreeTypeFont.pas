@@ -26,8 +26,8 @@ type
   face:PFT_Face;
   faceName:string;
   globalScale:single;
-  constructor LoadFromMemory(data:ByteArray;index:integer=0);
-  constructor LoadFromFile(fname:string;index:integer=0);
+  constructor LoadFromMemory(const data:TBuffer;faceIndex:integer=0);
+  constructor LoadFromFile(fname:string;faceIndex:integer=0);
   // Flags -
   procedure RenderText(buf:pointer;pitch:integer;x,y:integer;st:WideString;color:cardinal;size:single;flags:cardinal=0);
   // The following functions MUST be wrapped in Lock/Unlock in multithreaded environment
@@ -42,14 +42,12 @@ type
   // изображение валидно до очередного вызова любой ф-ции отрисовки/рендера глифа
   function RenderGlyph(ch:WideChar;size:single;flags:integer;
      out dx,dy:integer;out width,height:integer;out pitch:integer):pointer;
-  // Must be called in multithreaded environment to lock global font object!
-  procedure Lock;
-  procedure Unlock;
  private
+  fontData:ByteArray;
   curSize,fontSize:single;
   intervalHash:array[0..4095] of TIntervalRec;
   glyphWidthHash:array[0..1023] of TGlyphMetricRec;
-  procedure SetSize(size:single); inline;
+  procedure SetSize(size:single);
   procedure FillGlyphMetrics(wch:WideChar;hash,size:integer);
  end;
 
@@ -66,6 +64,31 @@ implementation
   initialized:boolean=false;
   FTLibrary:PFT_Library;
   cSect:TMyCriticalSection;
+
+// Must be called in multithreaded environment to lock global font object!
+procedure Lock;
+begin
+ EnterCriticalSection(cSect);
+end;
+
+procedure Unlock;
+begin
+ LeaveCriticalSection(cSect);
+end;
+
+procedure InitFT;
+ var
+  err,v1,v2,v3:integer;
+ begin
+  if initialized then exit;
+  err:=FT_Init_FreeType(FTLibrary);
+  if err<>0 then raise EWarning.Create('Failed to initialize FreeType Library, code='+IntToStr(err));
+  FT_Library_Version(FTLibrary,v1,v2,v3);
+  ftVersion:=IntToStr(v1)+'.'+IntToStr(v2)+'.'+IntToStr(v3);
+  LogMessage('Freetype initialized, version '+ftVersion);
+  initialized:=true;
+ end;
+
 
 { TFreeTypeFont }
 
@@ -208,55 +231,36 @@ begin
  result:=glyphWidthHash[h].padding;
 end;
 
-constructor TFreeTypeFont.LoadFromFile(fname: string;index:integer=0);
+constructor TFreeTypeFont.LoadFromFile(fname:string;faceIndex:integer=0);
  var
   data:ByteArray;
-  buf:pointer;
-  err,v1,v2,v3:integer;
+ begin
+  LogMessage('Loading Freetype font from '+fname);
+  data:=LoadFileAsBytes(fname);
+  LoadFromMemory(TBuffer.CreateFrom(data),faceIndex);
+ end;
+
+constructor TFreeTypeFont.LoadFromMemory(const data:TBuffer;faceIndex:integer);
+ var
+  err:integer;
  begin
   Lock;
   try
-  if not initialized then begin
-   err:=FT_Init_FreeType(FTLibrary);
-   if err<>0 then raise EWarning.Create('Failed to initialize FreeType Library, code='+IntToStr(err));
-   FT_Library_Version(FTLibrary,v1,v2,v3);
-   ftVersion:=IntToStr(v1)+'.'+IntToStr(v2)+'.'+IntToStr(v3);
-   initialized:=true;
-  end;
-  LogMessage('Loading Freetype font from '+fname);
-  data:=LoadFileAsBytes(fname);
-  GetMem(buf,length(data));
-  move(data[0],buf^,length(data));
-  err:=FT_New_Memory_Face(FTLibrary,buf,length(data),index,Face);
-//  err:=FT_New_Face(FTLibrary,PChar(fname),index,Face);
-  if err<>0 then raise EWarning.Create('Failed to load font face, code='+IntToStr(err));
-  faceName:=Face.family_name;
-  fillchar(intervalHash,sizeof(intervalHash),0);
-  fillchar(glyphWidthHash,sizeof(glyphWidthHash),0);
-  fontSize:=0;
-  globalScale:=1;
+   if not initialized then InitFT;
+   LogMessage('Loading Freetype font from memory');
+   SetLength(fontData,data.size);
+   data.Read(fontData[0],data.size); // Copy data to keep it permanent
+   err:=FT_New_Memory_Face(FTLibrary,@fontData[0],length(fontData),faceIndex,Face);
+   if err<>0 then raise EWarning.Create('Failed to load font face, code='+IntToStr(err));
+   faceName:=Face.family_name;
+   fillchar(intervalHash,sizeof(intervalHash),0);
+   fillchar(glyphWidthHash,sizeof(glyphWidthHash),0);
+   fontSize:=0;
+   globalScale:=1;
   finally
    Unlock;
   end;
-{  data:=LoadFile2(fname);
-  LoadFromMemory(data,index);}
  end;
-
-constructor TFreeTypeFont.LoadFromMemory(data:ByteArray;index:integer=0);
- begin
-  raise EWarning.Create('Can''t load font from memory due to libFT bugs...');
- end;
-
-procedure TFreeTypeFont.Lock;
-begin
- EnterCriticalSection(cSect);
-end;
-
-procedure TFreeTypeFont.Unlock;
-begin
- LeaveCriticalSection(cSect);
-end;
-
 
 function TFreeTypeFont.RenderGlyph(ch:WideChar;size:single;flags:integer;out dx,dy,
   width,height:integer;out pitch:integer): pointer;
@@ -335,19 +339,20 @@ procedure TFreeTypeFont.RenderText(buf: pointer; pitch, x, y: integer;
   end;
  end;
 
-procedure TFreeTypeFont.SetSize(size: single);
+procedure TFreeTypeFont.SetSize(size:single);
 var
  err:integer;
 begin
- if (curSize<>size) and (size>0) then begin
-  Lock;
-  try
-  err:=FT_Set_Char_Size(Face,round(size*64*globalScale),0,96,0);
-  finally
-   Unlock;
+ Lock;
+ try
+  if (curSize<>size) and (size>0) then begin
+   //Sleep(15000);
+   err:=FT_Set_Char_Size(Face,round(size*64*globalScale),0,96,0);
+   if err<>0 then raise EWarning.Create('Failed to set char size: '+IntToStr(err));
+   curSize:=size;
   end;
-  if err<>0 then raise EWarning.Create('Failed to set char size: '+IntToStr(err));
-  curSize:=size;
+ finally
+  Unlock;
  end;
 end;
 

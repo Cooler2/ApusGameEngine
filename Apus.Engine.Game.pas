@@ -259,10 +259,15 @@ var
  RA_sect:TMyCriticalSection;
  gameEx:TGame;
 
-// Default raster fonts (exact sizes are 6.0, 7.0 and 9.0)
-{$I defaultFont8.inc}
-{$I defaultFont10.inc}
-{$I defaultFont12.inc}
+{$IFDEF FREETYPE}
+ // Default vector font is Open Sans
+ {$I defaultFont.inc}
+{$ELSE}
+ // Default raster fonts (exact sizes are 6.0, 7.0 and 9.0)
+ {$I defaultFont8.inc}
+ {$I defaultFont10.inc}
+ {$I defaultFont12.inc}
+{$ENDIF}
 
 { TGame }
 
@@ -715,9 +720,13 @@ var
  size:single;
 begin
  // Built-in fonts
- txt.LoadFont(TBuffer.CreateFrom(@defaultFont8,length(defaultFont8)));
- txt.LoadFont(TBuffer.CreateFrom(@defaultFont10,length(defaultFont10)));
- txt.LoadFont(TBuffer.CreateFrom(@defaultFont12,length(defaultFont12)));
+ {$IFDEF FREETYPE}
+ txt.LoadVectorFont(TBuffer.CreateFrom(@OpenSans_Regular,OpenSans_Regular_Size),'Default');
+ {$ELSE}
+ txt.LoadRasterFont(TBuffer.CreateFrom(@defaultFont8,length(defaultFont8)));
+ txt.LoadRasterFont(TBuffer.CreateFrom(@defaultFont10,length(defaultFont10)));
+ txt.LoadRasterFont(TBuffer.CreateFrom(@defaultFont12,length(defaultFont12)));
+ {$ENDIF}
  size:=2+0.056*screenDPI;
  defaultFont:=txt.GetFont('Default',size);
  smallFont:=txt.GetFont('Default',size*0.8);
