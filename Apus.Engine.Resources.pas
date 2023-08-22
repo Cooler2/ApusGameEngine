@@ -41,7 +41,6 @@ interface
 
   // Базовый абстрактный класс - текстура или ее часть
   TTexture=class(TNamedObject)
-   src:String8; // file name (if loaded from a file)
    pixelFormat:TImagePixelFormat;
    width,height:integer; // dimension (in virtual pixels)
    left,top:integer; // position in the underlying resource
@@ -81,9 +80,16 @@ interface
    procedure SetFilter(filter:TTexFilter); virtual; abstract;
    function Size:TSize; // (width,height)
    procedure Dump(filename:string8=''); virtual; abstract; // for debug purposes
+
+   class function FindByFile(fileName:string):TTexture; virtual;
+
   protected
+   fSrc:string8; // storage for property src
    locked:integer; // lock counter
    class function ClassHash:pointer; override;
+   procedure SetSource(filename:string8);
+  public
+   property src:String8 read fSrc write SetSource; // file name (if loaded from a file)
   end;
 
  // Base class for shader object
@@ -131,6 +137,7 @@ implementation
 
  var
   texturesHash:TObjectHash; // Search hash: name->texture
+  texFileHash:TObjectHash; // Search hash: filename->texture
   shadersHash:TObjectHash; // Search hash: name->shader
 
  procedure TTexture.CloneFrom(from:TTexture);
@@ -164,6 +171,13 @@ function TTexture.IsLocked:boolean;
   result:=locked>0;
  end;
 
+procedure TTexture.SetSource(filename:string8);
+ begin
+  if fSrc<>'' then texFileHash.Remove(self);
+  fSrc:=filename;
+  if fSrc<>'' then texFileHash.Put(self);
+ end;
+
 function TTexture.Size:TSize;
  begin
   result.cx:=width;
@@ -193,6 +207,11 @@ function TTexture.ClonePart(part:TRect): TTexture;
   result.v1:=v1+part.top*stepV*2;
   result.v2:=v1+part.bottom*stepV*2;
  end;
+
+class function TTexture.FindByFile(fileName:string):TTexture;
+begin
+ result:=texFileHash.Get(fileName) as TTexture;
+end;
 
 { TShader }
 class function TShader.ClassHash: pointer;
