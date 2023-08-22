@@ -74,7 +74,8 @@ uses
   Apus.Engine.Types in '..\..\Apus.Engine.Types.pas',
   Apus.Engine.UILayout in '..\..\Apus.Engine.UILayout.pas',
   Apus.Engine.OBJLoader in '..\..\Apus.Engine.OBJLoader.pas',
-  Apus.Engine.Mesh in '..\..\Apus.Engine.Mesh.pas';
+  Apus.Engine.Mesh in '..\..\Apus.Engine.Mesh.pas',
+  Apus.Engine.MessageScene in '..\..\Apus.Engine.MessageScene.pas';
 
 const
  wnd:boolean=true;
