@@ -482,16 +482,12 @@ function TTextDrawer.WidthW(font:cardinal;st:string16):integer;
 
 function TTextDrawer.Height(font:cardinal):integer;
  var
-  fontIdx:integer;
   uniFont:TUnicodeFontEx;
   ftFont:TFreeTypeFont;
   scale:single;
   obj:TObject;
  begin
   obj:=GetFontObject(font);
-  ASSERT(fontIdx<=high(fonts),'Invalid font handle: '+inttostr(font));
-  obj:=fonts[fontIdx];
-  ASSERT(obj<>nil,'Invalid font object at idx '+inttostr(fontIdx));
   scale:=ScaleFromHandle(font);
   if obj is TUnicodeFont then begin
    unifont:=obj as TUnicodeFontEx;
