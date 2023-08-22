@@ -8,7 +8,7 @@
         <AppType>Application</AppType>
         <FrameworkType>None</FrameworkType>
         <ProjectVersion>19.2</ProjectVersion>
-        <Platform Condition="'$(Platform)'==''">Win32</Platform>
+        <Platform Condition="'$(Platform)'==''">Win64</Platform>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
         <Base>true</Base>
@@ -113,9 +113,8 @@
         <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=;CFBundleName=</VerInfo_Keys>
         <DCC_Namespace>System;Xml;Web;Winapi;VCL;VCL.Imaging;$(DCC_Namespace)</DCC_Namespace>
         <DCC_UnitSearchPath>..\..;..\..\extra;..\..\deprecated;..\..\base;..\..\base\extra;..\..\base\deprecated;..\..\extra\sdl2;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
-        <DCC_Define>DELPHI;OPENGL;LODEPNG;$(DCC_Define)</DCC_Define>
+        <DCC_Define>DELPHI;OPENGL;LODEPNG;FREETYPE;$(DCC_Define)</DCC_Define>
         <DCC_WriteableConstants>true</DCC_WriteableConstants>
-        <DCC_DebugInformation>1</DCC_DebugInformation>
         <DCC_ExeOutput>..\..\bin</DCC_ExeOutput>
         <DCC_RangeChecking>true</DCC_RangeChecking>
         <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
@@ -163,7 +162,6 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1)'!=''">
         <DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>
-        <DCC_DebugInformation>2</DCC_DebugInformation>
         <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_iOSDevice64)'!=''">

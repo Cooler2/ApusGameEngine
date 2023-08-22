@@ -119,7 +119,7 @@ procedure TMainScene.CreateUI;
   box.styleinfo:='E0C0C8D0'; // fill color for the default style
   box.SetAnchors(0.5, 0.5, 0.5, 0.5); // make it always centered
 
-  font:=txt.GetFont('Default',9);  // select a font for UI
+  font:=txt.GetFont('Default',8);  // select a font for UI
 
   // Create an edit box. I don't want to use a variable for it
   TUIEditBox.Create(250,26,'MainScene\Edit',font,$FF000030,box).SetPos(200,100,pivotCenter);

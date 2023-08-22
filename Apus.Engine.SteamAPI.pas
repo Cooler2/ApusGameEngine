@@ -1,4 +1,4 @@
-﻿// Translated from STEAM SDK headers
+// Translated from STEAM SDK headers
 
 // Copyright (C) 2011 Apus Software. Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -42,7 +42,7 @@ interface
   procedure DoneSteamAPI;
   //function VerifyOwnership:boolean;
 
-  // �������� ����� ��� �������� ��� ������� (HEX-������)
+  // Obtains ticket to pass to the server (HEX-string)
   function GetSteamAuthTicket:string;
 
   // Imported SteamAPI functions

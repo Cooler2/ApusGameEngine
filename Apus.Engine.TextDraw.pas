@@ -64,7 +64,7 @@ interface
    // Text render target
    procedure SetTarget(buf:pointer;pitch:integer); // set system memory target for text rendering (no clipping!)
   private
-   fonts:array[1..32] of TObject;
+   fonts:array of TObject;
 
    textCaching:boolean;  // cache draw operations
    textBlockOptions:cardinal; // block-level options to add
@@ -82,6 +82,7 @@ interface
 
    procedure CreateTextCache;
    procedure FlushTextCache;
+   function GetFontObject(font:TFontHandle):TObject;
   end;
 
  var
@@ -182,16 +183,15 @@ procedure TTextDrawer.FlushTextCache;
 function TTextDrawer.LoadRasterFont(const font:TBuffer;asName:string=''):string;
  var
   i:integer;
+  fontObj:TUnicodeFontEx;
  begin
-  for i:=1 to high(fonts) do
-   if fonts[i]=nil then begin
-    fonts[i]:=TUnicodeFontEx.LoadFromMemory(font,true);
-    if asName<>'' then TUnicodeFontEx(fonts[i]).header.fontName:=asName;
-    result:=TUnicodeFontEx(fonts[i]).header.FontName;
-    if defaultFontHandle=0 then
-     defaultFontHandle:=100 shl 16+i;
-    exit;
-   end;
+  ASSERT(length(fonts)<32);
+  fontObj:=TUnicodeFontEx.LoadFromMemory(font,true);
+  if asName<>'' then fontObj.header.fontName:=asName;
+  result:=fontObj.header.FontName;
+  fonts:=fonts+[fontObj];
+  if defaultFontHandle=0 then
+   defaultFontHandle:=100 shl 16+i;
  end;
 
 function TTextDrawer.LoadVectorFont(const font:TBuffer;asName:string=''):string;
@@ -201,17 +201,15 @@ function TTextDrawer.LoadVectorFont(const font:TBuffer;asName:string=''):string;
   ftf:TFreeTypeFont;
   {$ENDIF}
  begin
+  ASSERT(length(fonts)<32);
   {$IFDEF FREETYPE}
    ftf:=TFreeTypeFont.LoadFromMemory(font,0);
-   for i:=1 to high(fonts) do
-    if fonts[i]=nil then begin
-     fonts[i]:=ftf;
-     if asName<>'' then ftf.faceName:=asName;
-     result:=ftf.faceName;
-     if defaultFontHandle=0 then
-      defaultFontHandle:=GetFont(result,8*game.screenScale);
-     exit;
-    end;
+   if asName<>'' then ftf.faceName:=asName;
+   result:=ftf.faceName;
+   fonts:=fonts+[ftf];
+   if defaultFontHandle=0 then
+     defaultFontHandle:=GetFont(result,8*game.screenScale);
+   exit;
   {$ENDIF}
   raise EError.Create('FREETYPE required to load vector font');
  end;
@@ -252,14 +250,14 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
   realsize,scale:single;
  begin
   ASSERT(size>0);
-  best:=0; bestRate:=0;
+  best:=-1; bestRate:=0;
   realsize:=size;
   matchRate:=800;
   name:=LowerCase(name);
   if HasFlag(flags,fsStrictMatch) then matchRate:=10000;
   if (globalScale<>1) and not HasFlag(flags,fsIgnoreScale) then realSize:=realSize*globalScale;
   // Browse
-  for i:=1 to high(fonts) do
+  for i:=0 to high(fonts) do
    if fonts[i]<>nil then begin
     rate:=0;
     if fonts[i] is TUnicodeFont then
@@ -274,7 +272,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
     {$IFDEF FREETYPE}
     if fonts[i] is TFreeTypeFont then
      with fonts[i] as TFreeTypeFont do begin
-      if lowercase(faceName)=name then rate:=matchRate*3;
+      if lowercase(faceName)=name then rate:=matchRate*3 else rate:=1;
       if rate>bestRate then begin
         bestRate:=rate;
         best:=i;
@@ -283,7 +281,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
     {$ENDIF}
    end;
   // Fill the result
-  if best>0 then begin
+  if best>=0 then begin
    if fonts[best] is TUnicodeFont then begin
     if realsize>0 then
      scale:=Clamp(realsize/(0.1*TUnicodeFont(fonts[best]).header.width),0,6.5)
@@ -294,7 +292,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
    end else
    if fonts[best] is TFreeTypeFont then begin
     result:=best;
-    EncodeScale(realSize/20,result); // Масштаб - в процентах относительно размера 20 (макс размер - 51)
+    EncodeScale(realSize/15,result); // Масштаб - в процентах относительно размера 20 (макс размер - 51)
     if flags and fsNoHinting>0 then result:=result or fhNoHinting;
     if flags and fsAutoHinting>0 then result:=result or fhAutoHinting;
    end
@@ -308,20 +306,32 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
    else result:=0;
  end;
 
-procedure TTextDrawer.SetFontOption(handle:TFontHandle;option:cardinal;value:single);
+function TTextDrawer.GetFontObject(font:TFontHandle):TObject;
+ var
+  fontIdx:integer;
  begin
-  handle:=handle and $FF;
-  ASSERT(handle>0,'Invalid font handle');
-  if fonts[handle] is TUnicodeFontEx then
+  if font=0 then font:=defaultFontHandle;
+  fontIdx:=ExtractByte(font,0);
+  ASSERT(fontIdx<=high(fonts),'Invalid font handle: '+IntToStr(font));
+  result:=fonts[fontIdx];
+  ASSERT(result<>nil,'Invalid font object at '+IntToStr(fontIdx));
+ end;
+
+procedure TTextDrawer.SetFontOption(handle:TFontHandle;option:cardinal;value:single);
+ var
+  obj:TObject;
+ begin
+  obj:=GetFontObject(handle);
+  if obj is TUnicodeFontEx then
    case option of
-    foDownscaleFactor:TUnicodeFontEx(fonts[handle]).downscaleFactor:=value;
-    foUpscaleFactor:TUnicodeFontEx(fonts[handle]).upscaleFactor:=value;
+    foDownscaleFactor:TUnicodeFontEx(obj).downscaleFactor:=value;
+    foUpscaleFactor:TUnicodeFontEx(obj).upscaleFactor:=value;
     else raise EWarning.Create('SFO: invalid option');
    end;
   {$IFDEF FREETYPE}
-  if fonts[handle] is TFreeTypeFont then
+  if obj is TFreeTypeFont then
    case option of
-    foGlobalScale:TFreeTypeFont(fonts[handle]).globalScale:=value;
+    foGlobalScale:TFreeTypeFont(obj).globalScale:=value;
    end;
   {$ENDIF}
  end;
@@ -332,7 +342,7 @@ function TTextDrawer.ScaleFont(const font:TFontHandle;scale:single):TFontHandle;
   obj:TObject;
  begin
   s:=ScaleFromHandle(font);
-  obj:=fonts[font and $FF];
+  obj:=GetFontObject(font);
   if obj is TFreeTypeFont then begin
    result:=font;
    EncodeScale(s*scale,result);
@@ -450,9 +460,8 @@ function TTextDrawer.WidthW(font:cardinal;st:string16):integer;
   if length(st)=0 then begin
    result:=0; exit;
   end;
-  if font=0 then font:=defaultFontHandle;
+  obj:=GetFontObject(font);
   scale:=ScaleFromHandle(font);
-  obj:=fonts[font and $1F];
   if obj is TUnicodeFont then begin
    unifont:=obj as TUnicodeFontEx;
    width:=uniFont.GetTextWidth(st);
@@ -479,8 +488,7 @@ function TTextDrawer.Height(font:cardinal):integer;
   scale:single;
   obj:TObject;
  begin
-  if font=0 then font:=defaultFontHandle;
-  fontIdx:=ExtractByte(font,0);
+  obj:=GetFontObject(font);
   ASSERT(fontIdx<=high(fonts),'Invalid font handle: '+inttostr(font));
   obj:=fonts[fontIdx];
   ASSERT(obj<>nil,'Invalid font object at idx '+inttostr(fontIdx));
@@ -623,7 +631,7 @@ var
   begin
    // Object initialization
    uniFont:=nil; ftFont:=nil;
-   obj:=fonts[font and $3F];
+   obj:=GetFontObject(font);
    scale:=1; charScaleX:=1; charScaleY:=1;
 
    boldStyle:=(options and toBold>0) or (font and fsBold>0);

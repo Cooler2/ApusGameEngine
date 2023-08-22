@@ -720,7 +720,7 @@ constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFo
   begin
    inherited Create(width,height,parent_,labelName);
    shape:=shapeFull;
-   if color<>clDefault then color:=color_;
+   if color_<>clDefault then color:=color_;
    if bFont<>0 then font:=bFont;
    align:=taLeft;
    sendSignals:=ssMajor;
