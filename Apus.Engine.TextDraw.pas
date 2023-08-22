@@ -293,7 +293,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
    end else
    if fonts[best] is TFreeTypeFont then begin
     result:=best;
-    EncodeScale(realSize/20,result); // Масштаб - в процентах относительно размера 20 (макс размер - 51)
+    EncodeScale(realSize/15,result); // Масштаб - в процентах относительно размера 20 (макс размер - 51)
     if flags and fsNoHinting>0 then result:=result or fhNoHinting;
     if flags and fsAutoHinting>0 then result:=result or fhAutoHinting;
    end
