@@ -153,6 +153,8 @@ procedure TestWidgets;
   // ListBox
   TUIListBox.SetDefault('styleInfo','borderColor=444; borderWidth=1');
   TUIListBox.Create(-1,80,20,'List1',0,cont).SetLines(['Line 1','Line 2','Line 3','Line 4','Looong line WWWWW','Last line']);
+  UIListBox('List1').textColor:=$FF202020;
+  UIListBox('List1').hoverTextColor:=$FF502020;
   // ComboBox
   TUIComboBox.SetDefault('text','Please select...');
   TUIComboBox.Create(-1,22,0,['Apple','Banana','Cucumber'],cont,'Combo1');
