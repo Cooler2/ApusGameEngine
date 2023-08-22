@@ -504,18 +504,16 @@ implementation
       // SRC = texture name?
       tex:=nil;
       if HasPrefix(src,'tex:') then begin
-       tex:=TTexture(TTexture.FindByName(copy(src,5,100)));
-      end else begin
+       tex:=TTexture(TTexture.FindByName(copy(src,5,200)));
+      end else
+      if HasPrefix(src,'file:') then begin
        // SRC = filename?
-       lname:=FileName(src);
-{       p:=imgHash.Get(lname);
-       if p=-1 then begin
-        tex:=nil;
-        LoadImage(tex,lname);
-        imgHash.Put(lname,UIntPtr(tex));
-       end else
-        tex:=pointer(p);   }
-      end;
+       lname:=FileName(copy(src,6,200));
+       tex:=TTexture.FindByFile(lName);
+       if tex=nil then
+        LoadImage(tex,lname); //
+      end else
+       raise EWarning.Create('Unsupported image SRC type: '+src);
       if tex<>nil then begin
        draw.Scaled(x1,y1,x2-1,y2-1,tex,control.color);
       end;
