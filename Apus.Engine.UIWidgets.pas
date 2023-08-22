@@ -42,9 +42,9 @@ interface
    constructor CreateV(innerWidth,marginH,marginV:single;parent:TUIElement;color:cardinal=0); overload;
   end;
 
-  // Элемент "изображение". Содержит простое статическое изображение
+  // Just a static image
   TUIImage=class(TUIElement)
-   src:string; // здесь может быть имя файла или строка "event:xxx", "proc:XXXXXXXX" etc...
+   src:string; // can be "file:xxx" "event:xxx", "proc:XXXXXXXX" etc...
    constructor Create(width,height:single;imgname:string;parent_:TUIElement;source:string='');
    procedure SetRenderProc(proc:pointer); // sugar for use "proc:XXX" src for the default style
   end;
@@ -281,10 +281,11 @@ interface
   TUIListBox=class(TUIElement)
    lines:StringArr;
    tags:array of cardinal;
-   hints:StringArr; // у каждого элемента может быть свой хинт (показываемый при наведении на него)
+   hints:StringArr; // each element may have its own hint
    lineHeight:single; // in self CS
-   selectedLine,hoverLine:integer; // выделенная строка, строка под мышью (0..count-1), -1 == отсутствует
-   autoSelectMode:boolean; // режим, при котором всегда выделяется строка под мышью (для попапов)
+   selectedLine:integer; // index of selected line (or -1)
+   hoverLine:integer; // index of line under mouse (or -1)
+   autoSelectMode:boolean; // when true, hover line is automatically selected
    bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // цвета отрисовки
    constructor Create(width,height:single;lHeight:single;listName:string;font_:TFontHandle;parent:TUIElement);
    destructor Destroy; override;
@@ -1565,16 +1566,10 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
  { TUIListBox }
 
  procedure TUIListBox.AddLine(line:string;tag:cardinal=0;hint:string='');
-  var
-   n:integer;
   begin
-   n:=length(lines)+1;
-   SetLength(lines,n);
-   SetLength(tags,n);
-   SetLength(hints,n);
-   lines[n-1]:=line;
-   tags[n-1]:=tag;
-   hints[n-1]:=hint;
+   lines:=lines+[line];
+   tags:=tags+[tag];
+   hints:=hints+[hint];
    UpdateScroller;
   end;
 
@@ -1666,6 +1661,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
 
 procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:string='');
   begin
+   ASSERT((index>=0) and (index<length(lines)));
    lines[index]:=line;
    tags[index]:=tag;
    hints[index]:=hint;
@@ -1674,12 +1670,13 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
 
  procedure TUIListBox.SetLines(newLines:StringArr);
   var
-   i:integer;
+   i,count:integer;
   begin
-   SetLength(lines,length(newLines));
-   SetLength(tags,length(newLines));
-   SetLength(hints,length(newLines));
-   for i:=0 to length(lines)-1 do begin
+   count:=length(newLines);
+   SetLength(lines,count);
+   SetLength(tags,count);
+   SetLength(hints,count);
+   for i:=0 to count-1 do begin
     lines[i]:=newLines[i];
     tags[i]:=0;
     hints[i]:='';
