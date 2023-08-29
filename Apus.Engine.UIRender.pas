@@ -168,7 +168,11 @@ implementation
   begin
    if styleOverride=-1 then styleOverride:=item.styleClass;
    ASSERT(@styleDrawers[styleOverride]<>nil,'Style not registered');
-   styleDrawers[styleOverride](item);
+   try
+    styleDrawers[styleOverride](item);
+   except
+    on e:Exception do raise EError.Create('Error drawing UI element: '+item.ObjInfo+' - '+ExceptionMsg(e));
+   end;
   end;
 
  procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string='');
