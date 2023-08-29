@@ -29,6 +29,7 @@ type
   property name:String8 read GetName write SetName;
   // Find object of given class by its name (case insensitive)
   class function FindByName(name:String8):TNamedObject; virtual;
+  function ObjInfo:string; virtual;
  end;
  TNamedObjectClass=class of TNamedObject;
  TNamedObjects=array of TNamedObject;
@@ -93,6 +94,12 @@ function TNamedObject.Hash: cardinal;
  begin
   result:=FastHash(name);
  end;
+
+function TNamedObject.ObjInfo:string;
+begin
+  if self=nil then exit('[NIL]');
+  result:=ClassName+'('+fName+','+PtrToStr(self)+')';
+end;
 
 procedure TNamedObject.SetName(name:String8);
  var
