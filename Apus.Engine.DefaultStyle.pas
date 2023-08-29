@@ -744,16 +744,16 @@ implementation
   var
    i,lY:integer;
    c,c1,c2:cardinal;
-   scr,lineH:single;
+   scrollPos,lineH:single;
   begin
     with control do begin
      if bgColor<>0 then draw.FillRect(x1,y1,x2,y2,bgColor);
-     if scrollerV<>nil then scr:=scrollerV.GetValue
-      else scr:=0;
+     if scrollerV<>nil then scrollPos:=scrollerV.GetValue*globalScale
+      else scrollPos:=0;
      gfx.clip.Rect(Rect(x1,y1,x2+1,y2+1));
      lineH:=lineHeight*globalScale;
      for i:=0 to length(lines)-1 do begin
-      lY:=y1+round(i*lineH-scr); /// TODO: check
+      lY:=y1+round(i*lineH-scrollPos); /// TODO: check
       if lY+lineH<y1 then continue;
       if lY>y2 then break;
       if i=selectedLine then begin

@@ -1631,12 +1631,14 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
  procedure TUIListBox.onMouseMove;
   var
    cx,cy,n:integer;
+   gScale:single;
   begin
    inherited;
    cx:=curMouseX-(globalRect.Left+1);
    cy:=curMouseY-(globalRect.Top+1);
    if (cx>=0) and (cy>=0) and (cx<globalRect.width-1) and (cy<globalRect.height-1) then begin
-    n:=trunc((cy+scrollerV.GetValue)/(lineHeight*globalScale));
+    gScale:=globalScale;
+    n:=trunc((cy+scrollerV.GetValue*gScale)/(lineHeight*gScale));
     if (n>=0) and (n<length(lines)) then hoverLine:=n
      else hoverLine:=-1;
    end;
