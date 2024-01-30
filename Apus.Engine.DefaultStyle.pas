@@ -232,30 +232,29 @@ implementation
    end;
   end;
 
- procedure AdjustHint(sx,sy:integer;hnt:TUIHint);
+ procedure AdjustHint(scrX,scrY:integer;hnt:TUIHint);
   var
-   xx1,xx2,sc:single;
    pnt:TPoint2s;
+   remainer:single;
   begin
    with hnt do begin
     adjusted:=true;
-    pnt.x:=sx+size.x*globalscale; // right side in screen coordinates
-    if pnt.x>game.renderWidth then begin
-     pnt.x:=sx;
-     pnt:=GetRoot.TransformTo(pnt,parent); // transform from screen to parent space
+    pnt.x:=scrX+(5+size.x)*globalscale; // right side in screen coordinates
+    pnt.y:=scrY+(12+size.y)*globalScale; // bottom in screen coordinates
+    // Adjust Y
+    remainer:=game.renderHeight-pnt.y;
+    if remainer<0 then begin
+     position.y:=position.y-size.y;
+    end else
+     position.y:=position.y+12;
+    // Adjust X
+    remainer:=game.renderWidth-pnt.x;
+    if remainer<0 then begin
+     pnt.x:=scrX+remainer;
+     pnt:=parent.TransformFromScreen(pnt);
      position.x:=pnt.x;
     end else
-     position.x:=position.x+4;
-
-{    sc:=globalscale;
-    xx1:=sx;
-    xx2:=size.x*globalscale;
-    xx1:=xx1+xx2;
-    if sx+size.x*globalscale+2<game.renderWidth then position.x:=position.x+4
-     else position.x:=position.x-(sx+size.x*globalscale-game.renderWidth)/globalscale;}
-
-    {if sy+size.y*2+4>game.renderHeight then position.y:=position.y-(size.y+4)
-     else position.y:=position.y+10+game.renderHeight div 60;  dd }
+     position.x:=position.x+5;
    end;
   end;
 
