@@ -131,6 +131,9 @@ type
   timer:integer; // relative time to call the onTimer() handler (only once and not earlier than next frame) 0 - don't call. For example, if timer=100 then onTimer will be called in 100 ms
   linkedValue:pointer; // pointer to an external variable used to store elements state (depends on element type)
 
+  // Tweening and animation
+  //tweenings:array of TTweening;
+
   // Custom data
   tag:NativeInt; // custom data for manual use
   customPtr:pointer; // custom data for manual use
@@ -189,10 +192,10 @@ type
 
   // Transformations. Element's coordinate system is (0,0 - clientWidth,clinetHeight) where
   //   0,0 - is upper-left corner of the client area. This CS is for internal use.
-  // Transform to given element's CS (nil - screen space)
+  // Transform to given element's CS (nil - screen space). Target must be a parent element.
   function TransformTo(const p:TPoint2s;target:TUIElement):TPoint2s; overload;
   function TransformTo(const r:TRect2s;target:TUIElement):TRect2s; overload;
-  // Transform to the root element (screen space)
+  // Transform to/from screen space
   function TransformToScreen(const p:TPoint2s):TPoint2s; overload;
   function TransformToScreen(const r:TRect2s):TRect2s; overload;
   function TransformFromScreen(const p:TPoint2s):TPoint2s; overload;
@@ -435,6 +438,7 @@ implementation
   begin
    c:=self;
    result:=p;
+   if c=target then exit;
    repeat
     with c do begin
      if parent<>nil then begin
@@ -477,17 +481,24 @@ implementation
 
  function TUIElement.TransformFromScreen(const p:TPoint2s):TPoint2s;
   var
-   k,bx,by:single;
+   kx,ky,bx,by:single;
    c:TUIElement;
+   sx:single;
   begin
-   k:=1; bx:=0; by:=0;
-   c:=self;
-   while c<>nil do begin
-
-    c:=c.parent;
+   // Xscr = k*x+b, so test x=0 and x=1 to calculate K and B
+   // This is probably not very efficient, but easier and safier
+   with TransformToScreen(Point2s(0,0)) do begin
+    bx:=x;
+    by:=y;
    end;
-   result.x:=p.x*k+bx;
-   result.y:=p.y*k+by;
+   with TransformToScreen(Point2s(1,1)) do begin
+    kx:=x-bx;
+    ky:=y-by;
+   end;
+   ASSERT(abs(kx-ky)<0.001);
+   // X = (Xscr-B)/K
+   result.x:=(p.x-bx)/kx;
+   result.y:=(p.y-by)/ky;
   end;
 
  function TUIElement.TransformFromScreen(const r:TRect2s):TRect2s;
