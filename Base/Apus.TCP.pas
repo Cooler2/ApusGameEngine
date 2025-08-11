@@ -319,7 +319,12 @@ begin
       onDataReceived(buf);
       inc(readPos,buf.CurrentPos);
     except
-      on e:Exception do LogMsg('User %s onReceive error: '+ExceptionMsg(e),[getUserName],logWarn);
+      on e:Exception do begin 
+		  LogMsg('User %s onReceive error: '+ExceptionMsg(e),[getUserName],logWarn);
+        CloseSocket(sock);
+        sock:=0;
+        LogMsg('User %s disconnected',[getUserName],logWarn);		  
+		end;
     end;
     if readPos>PAGE_SIZE then
       CutBuffer(data,readPos,writePos);
