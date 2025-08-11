@@ -6325,8 +6325,7 @@ function GetParam(name:string):string;
    st:=ParamStr(i);
    p:=pos('=',st);
    if p=0 then continue;
-   if SameText(name,copy(st,1,p-1)) then continue;
-   exit(copy(st,p+1,length(st)));
+   if SameText(name,copy(st,1,p-1)) then exit(copy(st,p+1,length(st)));
   end;
  end;
 
