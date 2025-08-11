@@ -385,9 +385,22 @@ procedure TGameApplication.ShowMessage(mes, OkEvent: String8; x, y: integer);
 procedure TGameApplication.HandleParam(param: string);
  begin
   param:=UpperCase(param);
-  if param='-WND' then windowedMode:=true;
-  if param='-FULLSCREEN' then windowedMode:=false;
-  if param='-NOVSYNC' then noVSync:=true;
+  if param='-WND' then begin
+    ForceLogMessage('Windowed mode enabled by a command line parameter');
+    windowedMode:=true;
+  end;
+  if param='-FULLSCREEN' then begin
+    ForceLogMessage('Windowed mode disabled by a command line parameter');
+    windowedMode:=false;
+  end;
+  if param='-NOVSYNC' then begin
+    ForceLogMessage('VSYNC disabled by a command line parameter');
+    noVSync:=true;
+  end;
+  if param='-VSYNC' then begin
+    ForceLogMessage('VSYNC enabled by a command line parameter');
+    noVSync:=false;
+  end;
   if param='-DEBUG' then begin
    debugMode:=true;
    debugCriticalSections:=true;
