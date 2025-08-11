@@ -125,7 +125,7 @@ implementation
    result:='??';
    if initialized=0 then exit;
    // too old -> reload?
-   if now>initialized+1 then InitGeoIP(lastPath);
+   if now>initialized+1 then TryLoadDB(lastPath);
    ip:=ntohl(ip);
    crSect.Enter;
    try
