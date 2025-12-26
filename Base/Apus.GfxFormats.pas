@@ -1069,7 +1069,7 @@ const
   function lodepng_encode_memory(out image:pointer;out outsize:cardinal;source:pointer;
     width,height,colortype,bitdepth:cardinal):cardinal; cdecl; external LodePngLib;
 
-  procedure free_mem(buf:pointer); external LodePngLib;
+  procedure free_mem(buf:pointer); cdecl; external LodePngLib;
  {$ENDIF}
  {$IFDEF CPUX64}
   const
@@ -1086,7 +1086,7 @@ const
   function lodepng_encode_memory(out image:pointer;out outsize:int64;source:pointer;
     width,height,colortype,bitdepth:cardinal):cardinal; cdecl; external LodePngLib;
 
-  procedure free_mem(buf:pointer); external LodePngLib;
+  procedure free_mem(buf:pointer); cdecl; external LodePngLib;
  {$ENDIF}
 
  procedure LoadPNG32(data:ByteArray;var image:TRawImage);
