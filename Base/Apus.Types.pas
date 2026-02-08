@@ -1,4 +1,4 @@
-﻿// This unit contains definition of basic types and helper types.
+﻿// This unit contains some useful types (except simple types and classes) and helpers
 // The structures defined here are not thread-safe
 
 // Copyright (C) 2021 Ivan Polyacov, ivan@apus-software.com
@@ -6,80 +6,16 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.Types;
 interface
-uses Types {$IFDEF MSWINDOWS},windows{$ENDIF};
+uses Types,
+  Apus.Core
+  {$IFDEF MSWINDOWS},Windows{$ENDIF};
+
 type
-  // 8-bit string type (assuming UTF-8 encoding)
-  Char8 = UTF8Char;
-  String8 = UTF8String;
-  PString8 = ^String8;
-  // 16-bit string type (can be UTF-16 or UCS-2)
-  {$IFDEF UNICODE}
-  Char16 = Char;
-  String16 = UnicodeString;
-  {$ELSE}
-  char16 = WideChar;
-  String16 = WideString;
-  {$ENDIF}
-  PString16 = ^String16;
-
-  String32 = UCS4String;
-
-  DWORD = cardinal;
-  QWORD = uint64;
-
   TPoint = Types.TPoint;
   TRect = Types.TRect;
 
-  {$IF not Declared(UIntPtr)}
-  UIntPtr=NativeUInt;
-  {$ENDIF}
-  PtrUInt=UIntPtr;
-
-  // String arrays
-  StringArray8 = array of String8;
-  StringArray16 = array of String16;
-  StringArray = array of string; // depends on UNICODE mode
-
-  {$IF Declared(TBytes)}
-  ByteArray = TBytes;
-  {$ELSE}
-  ByteArray = array of byte;
-  {$ENDIF}
-  WordArray = array of word;
-  IntArray = array of integer;
-  UIntArray = array of cardinal;
-  SingleArray = array of single;
-  FloatArray = array of double;
-  ShortStr = string[31];
-  PointerArray = array of pointer;
-  VariantArray = array of variant;
-  TObjectArray = array of TObject;
-
-  TProcedure = procedure;
-  TObjProcedure=procedure of object;
-
   // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
   TSplineFunc=function(x,x0,x1,y0,y1:single):single;
-
-
-  // 128bit vector data
-  m128=record
-   case byte of
-   0:(x,y,z,t:single );
-   1:(b:array[0..15] of byte );
-   2:(w:array[0..7] of word );
-   3:(dw:array[0..3] of dword );
-   4:(qw:array[0..1] of qword );
-   5:(f:array[0..3] of single );
-   6:(d:array[0..1] of double );
-  end;
-
-  // 16 bit floating point value (half-precision)
-  half=record
-   value:word;
-   class operator Implicit(const f:single):half;
-   class operator Implicit(const h:half):single;
-  end;
 
   TIntRange=record
    min,max:integer;
@@ -129,7 +65,7 @@ type
    // Init from a string 'name1=value1;..;nameN=valueN'
    constructor Init(st:string8;itemSeparator:string8=';';valueSeparator:string8='='); overload;
    // Init from array of strings 'name=value'
-   constructor Init(list:StringArray8;valueSeparator:string8='='); overload;
+   constructor Init(list:Strings8;valueSeparator:string8='='); overload;
    function Save(itemSeparator:string8=';';valueSeparator:string8='='):string8;
    function Count:integer;
    function HasName(name:string8):boolean; // check if there is an item with given name
@@ -580,40 +516,6 @@ constructor TWriteBuffer.Init(expectedSize:integer);
   SetLength(data,expectedSize);
  end;
 
-{ half }
-
-// Convert float to half
-// This is a simplified algorithm which doesn't handle all the specific cases
-class operator half.Implicit(const f:single):half;
- var
-  bits:cardinal absolute f;
-  mant:cardinal;
-  exp:integer;
- begin
-  exp:=(bits shr 23) and $FF; // source exponent
-  exp:=Clamp(exp-127,-15,14); // clamped exponent
-  mant:=bits and $7FFFFF;
-  mant:=Min2((mant+1) shr 13,1023); // new rounded mantissa
-  result.value:=(exp+15) shl 10+mant;
-  if integer(bits)<0 then result.value:=result.value or $8000; // sign
- end;
-
-// Convert half to float
-// This is a simplified algorithm which doesn't handle all the specific cases
-class operator half.Implicit(const h:half):single;
- var
-  res:cardinal;
-  exp:integer;
- begin
-  if h.value=0 then exit(0);
-  exp:=(h.value shr 10) and $1F;
-  exp:=(exp-15)+127; // new exponent
-  res:=(h.value and $3FF) shl 13; // new mantissa
-  res:=res+(exp shl 23);
-  if h.value and $8000>0 then res:=res or $80000000;
-  move(res,result,4);
- end;
-
 procedure TMyCriticalSection.Enter;  // for compatibility
  begin
   EnterCriticalSection(self);
@@ -687,7 +589,7 @@ end;
 
 { TNameValueList }
 
-constructor TNameValueList.Init(list:StringArray8;valueSeparator:string8);
+constructor TNameValueList.Init(list:Strings8;valueSeparator:string8);
 var
  i:integer;
 begin

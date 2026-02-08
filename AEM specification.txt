@@ -1,0 +1,58 @@
+AEM (Apus Engine Mesh) file format specification
+
+
+Data types:
+
+1. Scalar
+2. 2d vector
+3. 3d vector
+4. Quaternion
+5. Unit 3d vector
+6. Color
+7. Bone (structure)
+8. Bone weight (structure)
+
+Encodings:
+
+1. Single FP (absolute value)
+2. Half FP (absolute value)
+3. 16-bit range
+4. 12-bit range
+5. 8-bit range
+6. 556 packed 3d range (ultra low quality)
+7. 16-bit packed unit 3d-vector 
+8. 12-bit packed unit 3d-vector (ultra low quality)
+9. 32bit ARGB color
+10. 24bit RGB color
+11. 4444 ARGB color
+12. 565 RGB color
+13. 556 packed bone weight (16-bit structure)
+14. 888 packed bone weight (24-bit structure)
+15. 8-bit unsigned integer
+16. 16-bit signed integer
+17. FlexInt
+18. Index (FlexInt)
+
+
+Chunk type: XXXX XYYY, where XXXXX - chunk type and YYY - encoding
+
+1. Vertex attributes:
+ 0 Position 2D (1,2,3,4,5,18)
+ 1 Position 3D (1,2,3,4,5,6,18)
+ 2 Normal (1,2,7,8,18)
+ 3 Tangent (1,2,7,8,18)
+ 4 Texture coordinates (1,2,3,4,5,18)
+ 5 Bone weights (13,14,18)
+ 6 Color (9,10,11,12,18)
+ 7 Custom attribute (scalar) (1,2,3,18)
+ 8 Custom attribute (2D) (1,2,3,4,5,18)
+ 9 Custom attribute (3D) (1,2,3,4,5,6,18)
+ 10 Custom attribute (color) (9,10,11,12,18)
+ 
+2. Indexed mesh data
+
+3. Special
+ 31.0 - Mesh info
+ 31.1 - Mesh name
+
+ 

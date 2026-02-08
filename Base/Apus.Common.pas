@@ -54,9 +54,9 @@ interface
   ShortStr = Apus.Types.ShortStr;
 
   // String arrays
-  StringArray8 = Apus.Types.StringArray8;
+  StringArray8 = Apus.Types.Strings8;
   AStringArr = StringArray8;
-  StringArray16 = Apus.Types.StringArray16;
+  StringArray16 = Apus.Types.Strings16;
   WStringArr = StringArray16;
   StringArray = Apus.Types.StringArray;
   StringArr = Apus.Types.StringArray;
@@ -5770,7 +5770,6 @@ function IsDebuggerPresent:boolean;
  begin
   result:=Apus.CrossPlatform.IsDebuggerPresent;
  end;
-
 
 function GetCallStack:string;
 var

@@ -1,0 +1,1 @@
+fpc -MDelphi -RIntel -Fu.. -FU"out" testCore.dpr
