@@ -75,8 +75,9 @@ type
   // String arrays
   Strings8 = array of String8;
   Strings16 = array of String16;
-  Strings32 = array of String16;
+  Strings32 = array of String32;
   Strings = array of string;
+  StringArray = Strings; // alias for compatibility
 
   // Short string
   ShortStr = string[31];

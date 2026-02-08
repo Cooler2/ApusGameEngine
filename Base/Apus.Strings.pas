@@ -1064,7 +1064,7 @@ end;
 // ============================================================================
 
 class function UTF8.IsValid(const s:String8):boolean;
-var i:integer; b:byte;
+var i:integer; b:byte; cp:cardinal;
 begin
   result:=true;
   i:=1;
@@ -1072,15 +1072,29 @@ begin
     b:=byte(s[i]);
     if b<$80 then inc(i)
     else if (b and $E0)=$C0 then begin
+      // 2-byte sequence
       if (i+1>System.Length(s)) or ((byte(s[i+1]) and $C0)<>$80) then exit(false);
+      cp:=(b and $1F) shl 6 or (byte(s[i+1]) and $3F);
+      // Check for overlong encoding (should be >= $80)
+      if cp<$80 then exit(false);
       inc(i,2);
     end
     else if (b and $F0)=$E0 then begin
+      // 3-byte sequence
       if (i+2>System.Length(s)) or ((byte(s[i+1]) and $C0)<>$80) or ((byte(s[i+2]) and $C0)<>$80) then exit(false);
+      cp:=(b and $0F) shl 12 or ((byte(s[i+1]) and $3F) shl 6) or (byte(s[i+2]) and $3F);
+      // Check for overlong encoding (should be >= $800)
+      if cp<$800 then exit(false);
       inc(i,3);
     end
     else if (b and $F8)=$F0 then begin
+      // 4-byte sequence
       if (i+3>System.Length(s)) or ((byte(s[i+1]) and $C0)<>$80) or ((byte(s[i+2]) and $C0)<>$80) or ((byte(s[i+3]) and $C0)<>$80) then exit(false);
+      cp:=(b and $07) shl 18 or ((byte(s[i+1]) and $3F) shl 12) or ((byte(s[i+2]) and $3F) shl 6) or (byte(s[i+3]) and $3F);
+      // Check for overlong encoding (should be >= $10000)
+      if cp<$10000 then exit(false);
+      // Check for codepoints beyond Unicode maximum (U+10FFFF)
+      if cp>$10FFFF then exit(false);
       inc(i,4);
     end
     else exit(false);
@@ -1088,17 +1102,18 @@ begin
 end;
 
 class function UTF8.CharCount(const s:String8):integer;
-var i:integer;
+var i:integer; b:byte;
 begin
   result:=0;
   i:=1;
   while i<=System.Length(s) do begin
     inc(result);
-    if byte(s[i])<$80 then inc(i)
-    else if (byte(s[i]) and $E0)=$C0 then inc(i,2)
-    else if (byte(s[i]) and $F0)=$E0 then inc(i,3)
-    else if (byte(s[i]) and $F8)=$F0 then inc(i,4)
-    else inc(i);
+    b:=byte(s[i]);
+    if b<$80 then inc(i)
+    else if (b and $E0)=$C0 then inc(i,2)
+    else if (b and $F0)=$E0 then inc(i,3)
+    else if (b and $F8)=$F0 then inc(i,4)
+    else inc(i); // invalid byte, skip it
   end;
 end;
 
@@ -1113,21 +1128,24 @@ begin
     if b<$80 then begin
       result[len]:=b; inc(len); inc(i);
     end else if (b and $E0)=$C0 then begin
-      cp:=(b and $1F) shl 6;
-      if i+1<=System.Length(s) then cp:=cp or (byte(s[i+1]) and $3F);
+      // 2-byte sequence
+      if i+1>System.Length(s) then break;
+      cp:=((b and $1F) shl 6) or (byte(s[i+1]) and $3F);
       result[len]:=cp; inc(len); inc(i,2);
     end else if (b and $F0)=$E0 then begin
-      cp:=(b and $0F) shl 12;
-      if i+1<=System.Length(s) then cp:=cp or ((byte(s[i+1]) and $3F) shl 6);
-      if i+2<=System.Length(s) then cp:=cp or (byte(s[i+2]) and $3F);
+      // 3-byte sequence
+      if i+2>System.Length(s) then break;
+      cp:=((b and $0F) shl 12) or ((byte(s[i+1]) and $3F) shl 6) or (byte(s[i+2]) and $3F);
       result[len]:=cp; inc(len); inc(i,3);
     end else if (b and $F8)=$F0 then begin
-      cp:=(b and $07) shl 18;
-      if i+1<=System.Length(s) then cp:=cp or ((byte(s[i+1]) and $3F) shl 12);
-      if i+2<=System.Length(s) then cp:=cp or ((byte(s[i+2]) and $3F) shl 6);
-      if i+3<=System.Length(s) then cp:=cp or (byte(s[i+3]) and $3F);
+      // 4-byte sequence
+      if i+3>System.Length(s) then break;
+      cp:=((b and $07) shl 18) or ((byte(s[i+1]) and $3F) shl 12) or ((byte(s[i+2]) and $3F) shl 6) or (byte(s[i+3]) and $3F);
       result[len]:=cp; inc(len); inc(i,4);
-    end else inc(i);
+    end else begin
+      // invalid byte, skip it
+      inc(i);
+    end;
   end;
   SetLength(result,len);
 end;

@@ -115,26 +115,88 @@ end.
 - `Test.inc` provides: `StartTest`, `EndTest`, `Check`, `IsDebuggerPresent`
 - Test.inc also defines `DELPHI` and `CPU64` when appropriate
 
-### Compilation:
+### Compiling and running tests:
+
+1. Open a terminal in `Base/tests/` directory
+2. Run: `test.bat <name>` — where `<name>` is the test name without "Test" prefix. Examples:
+   ```
+   test.bat Strings        — compiles and runs TestStrings.dpr
+   test.bat Conv           — compiles and runs TestConv.dpr
+   test.bat Core           — compiles and runs TestCore.dpr
+   ```
+3. The batch file compiles with FPC for both 64-bit and 32-bit, then runs the resulting executables.
+4. Results are written to files in the same `Base/tests/` directory:
+   - `test_results_64.txt` — 64-bit compilation log and test output
+   - `test_results_32.txt` — 32-bit compilation log and test output
+5. Old result files are deleted automatically before each run.
+6. After running, **read both result files** to check for:
+   - `COMPILE FAILED` — means the code didn't compile
+   - `FAIL` lines — individual test failures with descriptions
+   - `All N tests passed!` — success
+   - `X of Y tests FAILED` — summary of failures
+
+## Refactoring Context
+
+We are refactoring the Base library. The old monolithic module `Apus.Common.pas` is being split into smaller, focused modules:
+
+| New module | Purpose | Status |
+|---|---|---|
+| `Apus.Core` | Foundational types, Min/Max/Clamp/Swap, memory, bit ops | Done |
+| `Apus.Conv` | Type conversions (int/float/hex/base64/IP) | Done |
+| `Apus.Strings` | String8/String32 type helpers, UTF8 utilities | In progress |
+
+**Critical rule:** `Apus.Common.pas` is the **old donor module**. Code is being extracted FROM it into new modules. Do NOT fix, modify, or "improve" `Apus.Common.pas` — it is being phased out. If you see compilation errors related to `Apus.Common`, that's expected — the new modules (`Apus.Core`, `Apus.Conv`, `Apus.Strings`) replace its functionality.
+
+**Module dependency chain** (new modules):
 ```
-test.bat TestXxx          — compiles and runs TestXxx.dpr
-test.bat Xxx              — also works (auto-adds "Test" prefix)
+Apus.Core       — no Apus dependencies (Level 0)
+Apus.Conv       — uses Apus.Core
+Apus.Strings    — uses Apus.Types (which uses Apus.Core)
 ```
-Results go to `test_results_64.txt` and `test_results_32.txt`.
+
+Tests for new modules should only depend on the new modules, NOT on `Apus.Common`.
+
+## Task Scope Principles
+
+Tasks are designed to be **concrete and limited**. You should NOT need to make architectural decisions or chase dependency chains across multiple modules.
+
+**Good tasks** (you should be able to complete):
+- "Write function X with this signature and behavior" — one file, clear spec
+- "Move these 3 functions from file A to file B" — two files, mechanical work
+- "Write tests for module X following TestConv as example" — one new file
+- "Fix tests X, Y, Z — the expected values should be ... because ..." — specific fixes with reasoning provided
+
+**Research tasks** (investigate and report, do NOT modify code):
+- "Find out why test X fails" — read code, trace logic, write findings to report
+- "What modules depend on Apus.Common?" — search and list results
+- These tasks produce a report only, no code changes
+
+**Bad tasks** (should be escalated back):
+- "Fix compilation" — too open-ended, may require architectural decisions
+- "Make it work" — no clear scope
+- Any task where the fix path is unclear and might touch many files
+
+If a task feels open-ended or you find yourself modifying files not listed in the task, **STOP and write a report** explaining what you found. Do not try to fix things outside the task scope. The lead developer will adjust the task or handle it directly.
 
 ## Restrictions
 
+**FILE SCOPE IS STRICT.** Each task lists "Files you may modify". You MUST NOT modify any other files. If you believe a fix requires changing an unlisted file, STOP and report this in your result file — do not make the change.
+
+- **DO NOT** modify files not listed in the task's "Files you may modify" section
 - **DO NOT** change public API (type declarations, function signatures in interface sections) unless the task explicitly says to
+- **DO NOT** add type aliases, re-exports, or `uses` clauses to fix compilation errors in other modules — that's an architectural decision
+- **DO NOT** modify `Apus.Common.pas`, `Apus.Types.pas`, `Apus.Classes.pas`, or any module not listed in the task
+- **DO NOT** add unnecessary dependencies between modules (adding a unit to a `uses` clause changes the dependency graph)
 - **DO NOT** delete existing code unless the task explicitly says to
 - **DO NOT** add unit finalization sections
-- **DO NOT** add unnecessary dependencies between modules
 - **DO NOT** add features or "improvements" beyond what the task asks for
-- **DO NOT** modify files not mentioned in the task
 - **DO NOT** use `halt()` in tests — use `ExitCode:=1`
 
 ## Completing a Task
 
-When you finish a task, create a report file `Base/cline/resultNNN.md` (where NNN matches the task number) with this structure:
+**MANDATORY:** When you finish a task, you MUST create a report file `Base/cline/resultNNN.md` (where NNN matches the task number). The task is NOT complete until this file exists.
+
+Use this exact structure:
 
 ```markdown
 # Result: Task NNN — <brief title>
@@ -142,17 +204,20 @@ When you finish a task, create a report file `Base/cline/resultNNN.md` (where NN
 ## Status: DONE / PARTIAL / BLOCKED
 
 ## What was done
-- bullet list of changes made
+- bullet list of specific changes made (not vague summaries)
 
 ## Files modified
-- `path/to/file.pas` — what was changed
+- `path/to/file.pas` — what was changed and why
 
-## Files created
-- `path/to/new_file.pas` — what it contains
+## Files NOT modified (and why)
+- if you wanted to change an unlisted file but didn't, explain here
 
 ## Test results
-- Compilation: OK/FAIL
-- Tests passed: X of Y
+- Compilation 64-bit: OK/FAIL
+- Compilation 32-bit: OK/FAIL
+- Tests passed (64-bit): X of Y
+- Tests passed (32-bit): X of Y
+- List any remaining failures with test names
 
 ## Notes
 - any issues encountered, decisions made, or questions for review
@@ -160,8 +225,15 @@ When you finish a task, create a report file `Base/cline/resultNNN.md` (where NN
 
 If you cannot complete the task, set status to BLOCKED and explain why in Notes.
 
+**Before writing the report**, run `git diff` to verify you only modified files listed in the task.
+
 ## Reference
 
-- Main project docs: `CLAUDE.md` in repo root
-- Module dependency hierarchy is documented in `CLAUDE.md`
+- `CLAUDE.md` (repo root) — project overview, architecture, dependency hierarchy, code style
+- `PLAN.md` (repo root) — overall refactoring plan and progress checklist
+- `Base/COMMON_REFACTORING.md` — detailed map of every function in Apus.Common and its planned destination
 - Test examples: `Base/tests/TestConv.dpr`, `Base/tests/TestCore.dpr`
+
+## Using Git
+
+This is a git repository on branch `engine5`. After completing a task, you can use `git diff` to review your changes before writing the report. If something goes wrong, the lead developer can revert using git.
