@@ -76,3 +76,7 @@ backup/
 
 # Boss dependency manager vendor folder https://github.com/HashLoad/boss
 modules/
+
+/Base/tests/bench_*.txt
+/Base/tests/test_results*
+/Base/tests/*.res
