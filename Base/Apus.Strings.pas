@@ -4,9 +4,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 //
 // Modeled after Delphi's TStringHelper but uses 1-based indexing for Pascal compatibility
-
-{$IFDEF FPC}{$MODE DELPHI}{$ENDIF}
-
+{$I defines.inc}
 unit Apus.Strings;
 interface
 uses Apus.Core;
