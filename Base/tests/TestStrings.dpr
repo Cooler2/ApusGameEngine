@@ -454,29 +454,33 @@ begin
   Check(UTF8.Encode(s.Remove(6,5))='Hello ','Remove(6,5)');
 
   // Replace - debug output
-  writeln('--- String32.Replace debug ---');
   s:=UTF8.Decode('Hello World');
   sub:=UTF8.Decode('World');
   repl:=UTF8.Decode('Pascal');
-  writeln('Source: "',UTF8.Encode(s),'" (len=',length(s),')');
-  writeln('Search: "',UTF8.Encode(sub),'" (len=',length(sub),')');
-  writeln('Replace with: "',UTF8.Encode(repl),'" (len=',length(repl),')');
+  //writeln('Source: "',UTF8.Encode(s),'" (len=',length(s),')');
+  //writeln('Search: "',UTF8.Encode(sub),'" (len=',length(sub),')');
+  //writeln('Replace with: "',UTF8.Encode(repl),'" (len=',length(repl),')');
   result:=s.Replace(sub,repl);
-  writeln('Result: "',UTF8.Encode(result),'" (len=',length(result),')');
-  writeln('Expected: "Hello Pascal"');
+  //writeln('Result: "',UTF8.Encode(result),'" (len=',length(result),')');
+  //writeln('Expected: "Hello Pascal"');
   Check(UTF8.Encode(result)='Hello Pascal','Replace');
 
+  s:=UTF8.Decode('Hello World');
+  sub:=UTF8.Decode('Hello');
+  repl:=UTF8.Decode('Pascal');
+  result:=s.Replace(sub,repl);
+  Check(UTF8.Encode(result)='Pascal World','Replace');
+
   // ReplaceAll - debug output
-  writeln('--- String32.ReplaceAll debug ---');
   s:=UTF8.Decode('one two one');
   sub:=UTF8.Decode('one');
   repl:=UTF8.Decode('1');
-  writeln('Source: "',UTF8.Encode(s),'" (len=',length(s),')');
-  writeln('Search: "',UTF8.Encode(sub),'" (len=',length(sub),')');
-  writeln('Replace with: "',UTF8.Encode(repl),'" (len=',length(repl),')');
+  //writeln('Source: "',UTF8.Encode(s),'" (len=',length(s),')');
+  //writeln('Search: "',UTF8.Encode(sub),'" (len=',length(sub),')');
+  //writeln('Replace with: "',UTF8.Encode(repl),'" (len=',length(repl),')');
   result:=s.ReplaceAll(sub,repl);
-  writeln('Result: "',UTF8.Encode(result),'" (len=',length(result),')');
-  writeln('Expected: "1 two 1"');
+  //writeln('Result: "',UTF8.Encode(result),'" (len=',length(result),')');
+  //writeln('Expected: "1 two 1"');
   Check(UTF8.Encode(result)='1 two 1','ReplaceAll');
 
   EndTest;
@@ -595,7 +599,7 @@ begin
   Check(UTF8.IsValid(''),'empty');
   Check(UTF8.IsValid('Привет'),'Russian');
   Check(UTF8.IsValid('日本語'),'Japanese');
-  Check(UTF8.IsValid(#$C0#$80)=false,'overlong');
+  Check(UTF8.IsValid(RawByteString(#$C0#$80))=false,'overlong');
   Check(UTF8.IsValid(#$FF)=false,'invalid byte');
   EndTest;
 end;
@@ -608,7 +612,7 @@ begin
   Check(UTF8.CharCount('Привет')=6,'Russian 6 chars');
   Check(UTF8.CharCount('日本語')=3,'Japanese 3 chars');
   // emoji (4-byte)
-  Check(UTF8.CharCount(#$F0#$9F#$98#$80)=1,'emoji 1 char');
+  Check(UTF8.CharCount(RawByteString(#$F0#$9F#$98#$80))=1,'emoji 1 char');
   EndTest;
 end;
 
@@ -623,15 +627,15 @@ begin
   Check(s32[1]=ord('B'),'ASCII[1]');
   Check(s32[2]=ord('C'),'ASCII[2]');
   // 2-byte
-  s32:=UTF8.Decode(#$C3#$A9); // é = U+00E9
+  s32:=UTF8.Decode(RawByteString(#$C3#$A9)); // é = U+00E9
   Check(length(s32)=1,'2-byte length');
   Check(s32[0]=$E9,'2-byte value');
   // 3-byte
-  s32:=UTF8.Decode(#$E4#$B8#$AD); // 中 = U+4E2D
+  s32:=UTF8.Decode(RawByteString(#$E4#$B8#$AD)); // 中 = U+4E2D
   Check(length(s32)=1,'3-byte length');
   Check(s32[0]=$4E2D,'3-byte value');
   // 4-byte
-  s32:=UTF8.Decode(#$F0#$9F#$98#$80); // 😀 = U+1F600
+  s32:=UTF8.Decode(RawByteString(#$F0#$9F#$98#$80)); // 😀 = U+1F600
   Check(length(s32)=1,'4-byte length');
   Check(s32[0]=$1F600,'4-byte value');
   EndTest;
@@ -650,17 +654,17 @@ begin
   s32[0]:=$E9; // é
   s8:=UTF8.Encode(s32);
   Check(length(s8)=2,'2-byte length');
-  Check(s8=#$C3#$A9,'2-byte value');
+  Check(s8=RawByteString(#$C3#$A9),'2-byte value');
   // 3-byte
   s32[0]:=$4E2D; // 中
   s8:=UTF8.Encode(s32);
   Check(length(s8)=3,'3-byte length');
-  Check(s8=#$E4#$B8#$AD,'3-byte value');
+  Check(s8=RawByteString(#$E4#$B8#$AD),'3-byte value');
   // 4-byte
   s32[0]:=$1F600; // 😀
   s8:=UTF8.Encode(s32);
   Check(length(s8)=4,'4-byte length');
-  Check(s8=#$F0#$9F#$98#$80,'4-byte value');
+  Check(s8=RawByteString(#$F0#$9F#$98#$80),'4-byte value');
   EndTest;
 end;
 
