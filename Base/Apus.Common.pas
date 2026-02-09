@@ -23,6 +23,7 @@ interface
   {$IFDEF MSWINDOWS}
   windows,
   {$ENDIF}
+  Apus.Core,
   Apus.Types,
   Apus.Classes,
   SysUtils;
@@ -153,9 +154,6 @@ interface
  function GetCallStack:string;
  // Returns caller address
  function GetCaller:pointer;
- // True if running under debugger/IDE
- function IsDebuggerPresent:boolean;
-
  // OS errors
  function GetSystemErrorCode:cardinal;
  function GetSystemError:string;
@@ -252,9 +250,6 @@ interface
 
  // Array functions
  // ------------------------------
- // Shift array/data pointed by ptr by shiftValue bytes (positive - right, negative - left)
- procedure ShiftArray(const arr;sizeInBytes,shiftValue:integer);
-
  // Add (insert) string into array, returns its index
  function AddString(var sa:StringArr;const st:string;index:integer=-1):integer; overload;
  function AddString(var sa:AStringArr;const st:string8;index:integer=-1):integer; overload;
@@ -302,14 +297,6 @@ interface
  function Join(strings:AStringArr;divider:String8):String8; overload;
  function Join(items:array of const;divider:string):string; overload;
 
- // true if string starts with text
- function HasPrefix(st,prefix:string):boolean; overload;
- function HasPrefix(st,prefix:String8;ignoreCase:boolean=false):boolean; overload;
-
- // true if string ends with text
- function HasSuffix(st,suffix:string):boolean; overload;
- function HasSuffix(st,suffix:String8;ignoreCase:boolean=false):boolean; overload;
-
  // Search for a substring from specified point
  function PosFrom(substr,str:string;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
  function PosFrom(substr,str:WideString;minIndex:integer=1;ignoreCase:boolean=false):integer; overload;
@@ -321,15 +308,9 @@ interface
  function LastPos(substr,str:String8;ignoreCase:boolean=false):integer; overload;
  // Extract substring "prefix|xxx|suffix"
  function ExtractStr(str,prefix,suffix:string;out prefIndex:integer):string;
- // Basic uppercase
- function UpperCaseA(st:String8):String8; deprecated 'use UpperCase8';
- function UpperCase8(st:String8):String8;
- function LowerCaseA(st:String8):String8; deprecated 'use LowerCase8';
- function LowerCase8(st:String8):String8;
  // Ignore case
  function SameChar8(a,b:AnsiChar):boolean; inline;
  function SameChar16(a,b:WideChar):boolean; inline;
- function SameText8(const a,b:String8):boolean; inline;
  function SameText16(const a,b:String16):boolean; overload;
 
  // Возвращает строку из массива с проверкой корректности индекса (иначе - пустую строку)
@@ -346,53 +327,8 @@ interface
  {$IFDEF ADDANSI}
  function UnQuoteStr(const st:String8;quotes:AnsiChar='"'):String8; overload; {$ENDIF}
 
- // Заменяет \n \t и т.д. на соответствующие символы (а также \\ на \)
- function Unescape(st:String8):String8;
- // Escape all characters #0/#1/CR/LF/TAB/'\'
- function Escape(st:String8):String8;
-
- // Убрать пробельные символы в начале и в конце
- function Chop(st:string16):string16; overload;
- {$IFNDEF UNICODE}
- function Chop(st:string):string; overload; {$ENDIF}
- {$IFDEF ADDANSI}
- function Chop(st:String8):String8; overload; {$ENDIF}
-
- // Возвращает последний символ строки (#0 if empty)
- function LastChar(st:string):char; overload;
- {$IFDEF ADDANSI}
- function LastChar(st:String8):AnsiChar; overload; {$ENDIF}
-
- // Safe string indexing
- function CharAt(st:string;index:integer):char; overload;
- {$IFDEF ADDANSI}
- function CharAt(st:string8;index:integer):AnsiChar; overload; {$ENDIF}
- function WCharAt(st:WideString;index:integer):WideChar;
-
- // заменяет служебные символы в строке таким образом, чтобы её можно было вставить в HTML
- function HTMLString(st:string):string; overload;
- {$IFDEF ADDANSI}
- function HTMLString(st:String8):String8; overload; {$ENDIF}
-
- // Закодировать URL согласно требованиям HTTP
- function UrlEncode(st:String8):String8;
- // Раскодировать URL согласно требованиям HTTP
- function UrlDecode(st:String8):String8;
  // Кодирует url из UTF8 в нормальный ASCII вид !!! WARNING: not implemented
  function URLEncodeUTF8(st:String8):String8;
-
- // Закодировать двоичные данные в строку (this is NOT Base64!)
- function EncodeB64(data:pointer;size:integer):String8;
- // Раскодировать данные из строки
- procedure DecodeB64(st:String8;buf:pointer;var size:integer);
- // Переводит строку к печатаемому варианту (заменяет спецсимволы), операция необратима!
- function PrintableStr(st:String8):String8;
- // Закодировать строку в виде HEX
- function EncodeHex(st:String8):String8; overload;
- // Закодировать в HEX произвольные бинарные данные
- function EncodeHex(data:pointer;size:integer):String8; overload;
- function DecodeHex(hexStr:String8):String8; overload;
- procedure DecodeHex(st:String8;buf:pointer); overload;
 
  function DumpStr(s:string):string; overload;
  {$IFDEF ADDANSI}
@@ -400,19 +336,8 @@ interface
  {$IFNDEF UNICODE}
  function DumpStr(s:string16):string; overload; {$ENDIF}
 
- procedure ZeroMem(var data;size:integer); inline;
- function IsZeroMem(var data;size:integer):boolean;
- procedure FillDword(var data;count:integer;value:cardinal);
- procedure FillSingle(var data;count:integer;value:single);
  procedure FillSingleNaN(var data;count:integer);
  procedure FillDoubleNaN(var data;count:integer);
-
- // Check if the FP value is NaN
- function IsNaN(const v:single):boolean; overload;
- function IsNaN(const v:double):boolean; overload;
-
- // Check if pointer is between baseAddress and baseAddress+size-1
- function PointerInRange(const p:pointer;baseAddress:pointer;size:UIntPtr):boolean; inline;
 
  // Простейшее шифрование/дешифрование (simple XOR)
  procedure SimpleEncrypt(var data;size,code:integer);
@@ -465,8 +390,6 @@ interface
  function DecodeUTF8A(sa:StringArr):WStringArr; overload;
  function UTF8toWin1251(st:String8):RawByteString;
  function Win1251toUTF8(st:RawByteString):String8;
- function UpperCaseUtf8(st:String8):String8;
- function LowerCaseUtf8(st:String8):String8;
  // UTF-16 routines (Unicode)
  function UnicodeTo(st:WideString;encoding:TTextEncoding):String8;
  function UnicodeFrom(st:String8;encoding:TTextEncoding):WideString;
@@ -475,14 +398,6 @@ interface
 
  // Some useful mathematic functions
  // -----------------------------------------------------------------
- // Saturate value - clamp it to the range [min..max]
- function Clamp(b,min,max:integer):integer; inline; overload;
- function Clamp(b,min,max:double):double; inline; overload;
- function Sat(b,min,max:integer):integer; inline; deprecated 'use Clamp';
- function SatD(b,min,max:double):double; inline; deprecated 'use Clamp';
-
- function LinearMix(v0,v1,t:single):single; inline;
-
  // Fast consistent rounding, equivalent to SimpleRoundTo(x,0) i.e. 0.5->1, 1.5->2 etc. (NOT PRECISE!)
  function FRound(v:double):integer; inline;
  // Precise version of rounding (still quite fast)
@@ -491,13 +406,6 @@ interface
  function SRound(v:single):integer;
  // Fast floor (SSE version 5x faster than RTL version)
  function FastFloor(v:single):integer;
-
- // Get the nearest Power-of-two value not less than V
- function GetPow2(v:integer):integer; inline;
- // Get power of 2
- function Pow2(e:integer):int64; inline;
- // Get the smallest number E so 2^E is not less than V
- function Log2i(v:integer):integer;
 
  // Calculate max(|a|,|b|)/min(|a|,|b|) (zero-safe)
  function Ratio(a,b:single):single;
@@ -515,37 +423,6 @@ interface
  function PikeS(x,arg,a,b,c:single):single; // [0..1] range
  function PikeD(x,arg,a,b,c:double):double; // [0..1] range
 
- // Bit manipulation procedures
- function HasFlag(v:uint64;flag:uint64):boolean; overload; inline;
- function HasFlag(v:cardinal;flag:cardinal):boolean; overload; inline;
- function HasFlag(v:byte;flag:byte):boolean; overload; inline;
- function NoFlag(v:uint64;flag:uint64):boolean; overload; inline;
- function NoFlag(v:cardinal;flag:cardinal):boolean; overload; inline;
- function NoFlag(v:byte;flag:byte):boolean; overload; inline;
- procedure SetFlag(var v:uint64;flag:uint64;value:boolean=true); overload; inline;
- procedure SetFlag(var v:cardinal;flag:cardinal;value:boolean=true); overload; inline;
- procedure SetFlag(var v:byte;flag:byte;value:boolean=true); overload; inline;
- procedure ClearFlag(var v:uint64;flag:uint64); overload; inline;
- procedure ClearFlag(var v:cardinal;flag:cardinal); overload; inline;
- procedure ClearFlag(var v:byte;flag:byte); overload; inline;
- // Bit manipulation
- procedure Toggle(var b:boolean); inline;
- function GetBit(data:cardinal;index:integer):boolean; overload; inline;
- function GetBit(data:uint64;index:integer):boolean; overload; inline;
- // Set bit to the specified value
- procedure SetBit(var data:byte;index:integer;value:boolean); overload; inline;
- procedure SetBit(var data:word;index:integer;value:boolean); overload; inline;
- procedure SetBit(var data:cardinal;index:integer;value:boolean); overload; inline;
- procedure SetBit(var data:uint64;index:integer;value:boolean); overload; inline;
- // Set bit to 1
- procedure SetBit(var data:byte;index:integer); overload; inline;
- procedure SetBit(var data:word;index:integer); overload; inline;
- procedure SetBit(var data:cardinal;index:integer); overload; inline;
- procedure SetBit(var data:uint64;index:integer); overload; inline;
- procedure ClearBit(var data:byte;index:integer); overload; inline;
- procedure ClearBit(var data:word;index:integer); overload; inline;
- procedure ClearBit(var data:cardinal;index:integer); overload; inline;
- procedure ClearBit(var data:uint64;index:integer); overload; inline;
  // Bit field manipulation
  function GetBits(const data:cardinal;index,size:integer):cardinal;
  procedure SetBits(var data:byte;index,size,value:integer); overload;
@@ -591,29 +468,6 @@ interface
  // ease-in with 30% overflow
  function Spline4a(x,x0,x1,y0,y1:single):single;
 
- // Minimum / Maximum
- function Min2(a,b:integer):integer; inline;
- function Max2(a,b:integer):integer; inline;
- function Min2d(a,b:double):double; inline;
- function Max2d(a,b:double):double; inline;
- function Min2s(a,b:single):single; inline;
- function Max2s(a,b:single):single; inline;
- function Min3d(a,b,c:double):double; inline;
- function Max3d(a,b,c:double):double; inline;
-
- // Exchange 2 items
- procedure Swap(var a,b:integer); overload; inline;
- procedure Swap(var a,b:pointer); overload; inline;
- procedure Swap(var a,b:byte); overload; inline;
- procedure Swap(var a,b:single); overload; inline;
- procedure Swap(var a,b:string); overload; inline;
- {$IFDEF UNICODE}
- procedure Swap(var a,b:String8); overload; inline;
- {$ELSE}
- procedure Swap(var a,b:String16); overload; inline;
- {$ENDIF}
- procedure Swap(var a,b;size:integer); overload; inline;
-
  // Псевдослучайное число от arg в диапазоне 0..module-1
  function PseudoRand(arg,module:cardinal):cardinal;
  // возвращает случайное целое число из диапазона [v-1,v+1] так, что его матожидание равно v
@@ -637,29 +491,9 @@ interface
 
  // Преобразование типов данных
  // ---------------------------
- function HexToInt(st:string):int64; overload;  // Распознать шестнадцатиричное число
- {$IFDEF ADDANSI}
- function HexToInt(st:String8):int64; overload; {$ENDIF}
- function FormatHex(v:int64;digits:integer=0):String8;
- function SizeToStr(size:int64):string; // строка с короткой записью размера, типа 15.3M
- function FormatTime(time:int64):string; // строка с временным интервалом (time - в ms)
- function FormatInt(int:int64):string; // строка с числом (пробел разделяет группы цифр)
- function FormatMoney(v:double;digits:integer=2):string; // строка с суммой денег (digits знаков после запятой)
- function PtrToStr(p:pointer):string; // Pointer to string
- function IpToStr(ip:cardinal):string; // IP-адрес в строку (младший байт - первый)
- function StrToIp(ip:string):cardinal; // Строка в IP-адрес (младший байт - первый)
  function VarToStr(v:TVarRec):UnicodeString;  // Variant -> String
  function VarToAStr(v:TVarRec):String8;
- function ParseInt(st:string):int64; overload; // wrong characters ignored
- function ParseFloat(st:string):double; overload; // replacement for SysUtils version
  function ParseIntList(st:string):IntArray; // '123 4,-12;3/5' -> [1234,-12,3,5]
- function ParseBool(st:string):boolean; overload;
- {$IFDEF ADDANSI}
- function ParseInt(st:String8):int64; overload;
- function ParseFloat(st:string8):double; overload;
- function ParseBool(st:String8):boolean; overload;
- {$ENDIF}
- function BoolToAStr(b:boolean;short:boolean=true):String8;
 
  function ListIntegers(a:array of integer;separator:char=','):string; overload; // array of integer => 'a[1],a[2],...,a[n]'
  function ListIntegers(a:system.PInteger;count:integer;separator:char=','):string; overload;
@@ -679,13 +513,6 @@ interface
  procedure SortStrings(var sa:AStringArr); overload;
  procedure SortStrings(var sa:WStringArr); overload;
 // function SelectUnique(const sa:WStringArr):WStringArr;
-
- // Data Dump
- // ---------
- // строка с шестнадцатиричным дампом буфера
- function HexDump(buf:pointer;size:integer):String8;
- // строка с десятичным дампом буфера
- function DecDump(buf:pointer;size:integer):String8;
 
  procedure TestSystemPerformance;
 
@@ -711,7 +538,6 @@ interface
 
  // Синхронизация и многопоточность
  // --------------------------------
- procedure SpinLock(var lock:integer); inline; // the simpliest lock
  // level - используется только в отладочном режиме для проверки отсутствия циклов в графе захвата секций (чтобы гарантировать отсутствие блокировок)
  // Допускается входить в секцию с бОльшим уровнем будучи уже в секции с меньшим уровнем, но не наоборот.
  // Т.о. чем ниже уровень кода, тем ВЫШЕ должно быть значение level в секции, которой этот код оперирует
