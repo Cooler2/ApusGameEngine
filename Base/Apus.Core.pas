@@ -205,6 +205,12 @@ var
   procedure MemoryBarrier; inline;
   {$IFEND}
 
+  // High-resolution timer
+  procedure StartTimer(out timer:int64); overload; inline;
+  function TimerSec(const timer:int64):double; overload;
+  procedure StartTimer; overload;
+  function TimerSec:double; overload;
+
   // Error handling
   function GetLastErrorCode:cardinal;
   function GetLastErrorDesc:string;
@@ -352,6 +358,50 @@ begin
   {$ENDIF}
 end;
 {$ENDIF}
+
+var
+  timerMul:double; // 1/frequency, initialized in unit init
+  internalTimer:int64;
+
+procedure QPC(out value:int64); inline;
+{$IFDEF MSWINDOWS}
+begin
+  windows.QueryPerformanceCounter(value);
+end;
+{$ELSE}
+var
+  tp:TTimeSpec;
+begin
+  clock_gettime(CLOCK_MONOTONIC,@tp);
+  value:=int64(tp.tv_sec)*1000000+tp.tv_nsec div 1000;
+end;
+{$ENDIF}
+
+procedure StartTimer(out timer:int64); inline;
+begin
+  QPC(timer);
+end;
+
+function TimerSec(const timer:int64):double;
+var
+  now:int64;
+begin
+  QPC(now);
+  result:=(now-timer)*timerMul;
+end;
+
+procedure StartTimer;
+begin
+  QPC(internalTimer);
+end;
+
+function TimerSec:double;
+var
+  now:int64;
+begin
+  QPC(now);
+  result:=(now-internalTimer)*timerMul;
+end;
 
 function GetLastErrorCode:cardinal;
 begin
@@ -1058,7 +1108,7 @@ begin
   exp:=Clamp(exp-127,-15,14); // clamped exponent
   mant:=bits and $7FFFFF;
   mant:=Min((mant+1) shr 13, 1023); // rounded mantissa
-  result.value:=(exp+15) shl 10 + mant;
+  result.value:=(exp+15) shl 10 + word(mant);
   if integer(bits)<0 then result.value:=result.value or $8000; // sign
 end;
 
@@ -1071,7 +1121,7 @@ begin
   exp:=(h.value shr 10) and $1F;
   exp:=(exp-15)+127; // new exponent
   res:=(h.value and $3FF) shl 13; // new mantissa
-  res:=res+(exp shl 23);
+  res:=res+(cardinal(exp) shl 23);
   if h.value and $8000>0 then res:=res or $80000000;
   move(res,result,4);
 end;
@@ -1184,6 +1234,19 @@ begin
 end;
 {$IFEND}
 
+procedure InitTimer;
+var
+  freq:int64;
+begin
+{$IFDEF MSWINDOWS}
+  windows.QueryPerformanceFrequency(freq);
+{$ELSE}
+  freq:=1000000;
+{$ENDIF}
+  timerMul:=1.0/freq;
+end;
+
 initialization
   CheckCPU;
+  InitTimer;
 end.
