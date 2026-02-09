@@ -33,9 +33,10 @@ if "%1"=="" (
   )
 )
 
-REM Delete old results first
+REM Delete old results and stale .ppu/.o from Base/ (left by IDE)
 del /q %LOG64% 2>nul
 del /q %LOG32% 2>nul
+del /q ..\*.ppu ..\*.o 2>nul
 
 REM === 64-bit ===
 echo Testing %TEST% (64-bit) - %date% %time% > %LOG64%

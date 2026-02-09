@@ -2,7 +2,7 @@
 program TestStrings;
 uses
   SysUtils,
-  Apus.Types,
+  Apus.Core,
   Apus.Strings;
   
 {$INCLUDE Test.inc}

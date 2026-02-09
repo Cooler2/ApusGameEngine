@@ -196,19 +196,10 @@ var
 // Cross-platform primitives
 // =============================================================================
 
-  // Sleep
-  procedure Sleep(time:integer);
-
-  // GetTickCount
-  function GetTickCount:cardinal;
-
-  // Thread ID
+  procedure Sleep(time:integer); inline;
+  function GetTickCount:cardinal; inline;
   function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF}; inline;
-
-  // Debugger detection
   function IsDebuggerPresent:boolean; inline;
-
-  // Memory barrier
   {$IF not DECLARED(MemoryBarrier)}
   {$DEFINE NEED_MEMORY_BARRIER}
   procedure MemoryBarrier; inline;
@@ -291,7 +282,7 @@ end;
 // Cross-platform primitives implementation
 // =============================================================================
 
-procedure Sleep(time:integer);
+procedure Sleep(time:integer); inline;
 begin
 {$IFDEF MSWINDOWS}
   windows.Sleep(time);
@@ -300,7 +291,7 @@ begin
 {$ENDIF}
 end;
 
-function GetTickCount:cardinal;
+function GetTickCount:cardinal; inline;
 {$IFDEF MSWINDOWS}
 begin
   result:=windows.GetTickCount;

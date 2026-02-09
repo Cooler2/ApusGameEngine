@@ -9,7 +9,7 @@
 
 unit Apus.Strings;
 interface
-uses Apus.Core, Apus.Types;
+uses Apus.Core;
 
 type
   // Helper for String8 (UTF-8 strings)

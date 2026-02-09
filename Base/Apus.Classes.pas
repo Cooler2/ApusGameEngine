@@ -6,7 +6,7 @@
 
 unit Apus.Classes;
 interface
-uses SysUtils,Apus.Types;
+uses SysUtils, Apus.Core, Apus.Types;
 
 type
   TObjectEx=class
