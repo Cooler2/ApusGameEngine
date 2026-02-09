@@ -149,6 +149,8 @@ We are refactoring the Base library. The old monolithic module `Apus.Common.pas`
 
 **Critical rule:** `Apus.Common.pas` is the **old donor module**. Code is being extracted FROM it into new modules. Do NOT fix, modify, or "improve" `Apus.Common.pas` — it is being phased out. If you see compilation errors related to `Apus.Common`, that's expected — the new modules (`Apus.Core`, `Apus.Conv`, `Apus.Strings`) replace its functionality.
 
+**Existing code is well-tested and production-proven.** All old modules (`Apus.*.pas`) have been used in real shipped games for years. Bugs are possible but unlikely — and they are certainly NOT syntax errors. Do NOT attempt to "fix" existing code by guessing. If something looks wrong, it is far more likely that you misunderstand the code than that the code is broken. When in doubt, report your concern in the result file instead of making changes.
+
 **Module dependency chain** (new modules):
 ```
 Apus.Core       — no Apus dependencies (Level 0)

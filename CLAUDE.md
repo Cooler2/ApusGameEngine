@@ -137,7 +137,8 @@ Level 5:
 **Running tests:**
 - `Base/tests/test.bat <TestName>` — compile and run tests (default: TestCore)
 - Output: `test_results_64.txt` and `test_results_32.txt` (old files deleted on each run)
-- Batch files don't execute from Claude Code — user runs manually, Claude reads result files
+- Running .bat from Claude Code: use `cmd //c "full\path\to\test.bat Args"` (double slash required in Git Bash). Single-slash `cmd /c` opens interactive session and doesn't execute.
+- IMPORTANT: always verify result files are fresh after running tests — stale results from previous runs can be misleading
 
 **Test conventions:**
 - Output format: `Testing XXX... OK` or `Testing XXX... FAIL` on single line

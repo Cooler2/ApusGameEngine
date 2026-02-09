@@ -34,7 +34,7 @@ del /q *.identcache 2>nul
 del /q *.compiled 2>nul
 del /q *.~dsk 2>nul
 del /q *.dsk 2>nul
-del /q *.lpi 2>nul
+rem del /q *.lpi 2>nul
 del /q *.lps 2>nul
 del /q *.dproj.local 2>nul
 del /q *.stat 2>nul
