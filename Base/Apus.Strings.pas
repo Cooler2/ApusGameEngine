@@ -161,6 +161,11 @@ type
     function CountChar(ch:UCS4Char):integer;
     function Reverse:String32;
     function Duplicate(count:integer):String32;
+
+    {$IFDEF DELPHI}
+    class operator Implicit(const src:String32):string; inline;
+    class operator Implicit(const src:string):String32; inline;
+    {$ENDIF}
   end;
 
   // Helper for array of String8
@@ -656,6 +661,18 @@ begin
     if self[i]=ch then exit(i);
   result:=-1;
 end;
+
+{$IFDEF DELPHI}
+class operator String32Helper.Implicit(const src:string):String32;
+begin
+  result:=UTF8.Decode(src);
+end;
+
+class operator String32Helper.Implicit(const src:String32):string;
+begin
+  result:=UTF8.Encode(src);
+end;
+{$ENDIF}
 
 function String32Helper.IndexOf(ch:UCS4Char;startPos:integer):integer;
 var i:integer;
