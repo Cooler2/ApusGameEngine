@@ -1,0 +1,72 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{290B77B1-CAA4-47E9-933A-1D644C1C562B}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="TestCore.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="TestStrings.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="TestConv.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="TestHashMaps.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="TestCore">
+        <MSBuild Projects="TestCore.dproj"/>
+    </Target>
+    <Target Name="TestCore:Clean">
+        <MSBuild Projects="TestCore.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestCore:Make">
+        <MSBuild Projects="TestCore.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestStrings">
+        <MSBuild Projects="TestStrings.dproj"/>
+    </Target>
+    <Target Name="TestStrings:Clean">
+        <MSBuild Projects="TestStrings.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestStrings:Make">
+        <MSBuild Projects="TestStrings.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestConv">
+        <MSBuild Projects="TestConv.dproj"/>
+    </Target>
+    <Target Name="TestConv:Clean">
+        <MSBuild Projects="TestConv.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestConv:Make">
+        <MSBuild Projects="TestConv.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestHashMaps">
+        <MSBuild Projects="TestHashMaps.dproj"/>
+    </Target>
+    <Target Name="TestHashMaps:Clean">
+        <MSBuild Projects="TestHashMaps.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestHashMaps:Make">
+        <MSBuild Projects="TestHashMaps.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="TestCore;TestStrings;TestConv;TestHashMaps"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="TestCore:Clean;TestStrings:Clean;TestConv:Clean;TestHashMaps:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="TestCore:Make;TestStrings:Make;TestConv:Make;TestHashMaps:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

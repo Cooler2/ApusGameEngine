@@ -441,7 +441,7 @@ begin
 end;
 
 procedure TestString32Modify;
-var s,sub,repl:String32;
+var s,sub,repl,result:String32;
 begin
   StartTest('String32.Modify');
   s:=UTF8.Decode('Hello World');
@@ -452,15 +452,33 @@ begin
   Check(UTF8.Encode(s.Remove(5))='Hello','Remove(5)');
   // Remove 5 chars starting at index 6
   Check(UTF8.Encode(s.Remove(6,5))='Hello ','Remove(6,5)');
-  // Replace
+
+  // Replace - debug output
+  writeln('--- String32.Replace debug ---');
+  s:=UTF8.Decode('Hello World');
   sub:=UTF8.Decode('World');
   repl:=UTF8.Decode('Pascal');
-  Check(UTF8.Encode(s.Replace(sub,repl))='Hello Pascal','Replace');
-  // ReplaceAll
+  writeln('Source: "',UTF8.Encode(s),'" (len=',length(s),')');
+  writeln('Search: "',UTF8.Encode(sub),'" (len=',length(sub),')');
+  writeln('Replace with: "',UTF8.Encode(repl),'" (len=',length(repl),')');
+  result:=s.Replace(sub,repl);
+  writeln('Result: "',UTF8.Encode(result),'" (len=',length(result),')');
+  writeln('Expected: "Hello Pascal"');
+  Check(UTF8.Encode(result)='Hello Pascal','Replace');
+
+  // ReplaceAll - debug output
+  writeln('--- String32.ReplaceAll debug ---');
   s:=UTF8.Decode('one two one');
   sub:=UTF8.Decode('one');
   repl:=UTF8.Decode('1');
-  Check(UTF8.Encode(s.ReplaceAll(sub,repl))='1 two 1','ReplaceAll');
+  writeln('Source: "',UTF8.Encode(s),'" (len=',length(s),')');
+  writeln('Search: "',UTF8.Encode(sub),'" (len=',length(sub),')');
+  writeln('Replace with: "',UTF8.Encode(repl),'" (len=',length(repl),')');
+  result:=s.ReplaceAll(sub,repl);
+  writeln('Result: "',UTF8.Encode(result),'" (len=',length(result),')');
+  writeln('Expected: "1 two 1"');
+  Check(UTF8.Encode(result)='1 two 1','ReplaceAll');
+
   EndTest;
 end;
 
