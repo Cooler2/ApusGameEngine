@@ -1,4 +1,4 @@
-{$APPTYPE CONSOLE}
+﻿{$APPTYPE CONSOLE}
 program TestStrings;
 uses
   SysUtils,

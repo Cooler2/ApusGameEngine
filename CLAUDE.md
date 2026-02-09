@@ -19,6 +19,7 @@ Structure: `Base/` (platform-independent utilities) + root (engine modules).
 
 - 2 spaces indent, no tabs, use 2 spaces indent for functions declared in the interface section
 - No spaces around operators: `a:=b+c`
+- No space between colon and type name: `var x:integer`, `function Foo(a:string):integer`
 - `begin` on same line after `then/do/else`, new line for procedures
 - Classes: `TName`, Interfaces: `IName`, vars: `camelCase`
 - Comments in English, translate Russian when modifying

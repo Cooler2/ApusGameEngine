@@ -190,6 +190,34 @@ var
 
   function PtrInside(ptr,base:pointer;size:UIntPtr):boolean; inline; // check if ptr is inside memory block
 
+  procedure SpinLock(var lock:integer); inline;
+
+// =============================================================================
+// Cross-platform primitives
+// =============================================================================
+
+  // Sleep
+  procedure Sleep(time:integer);
+
+  // GetTickCount
+  function GetTickCount:cardinal;
+
+  // Thread ID
+  function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF}; inline;
+
+  // Debugger detection
+  function IsDebuggerPresent:boolean; inline;
+
+  // Memory barrier
+  {$IF not DECLARED(MemoryBarrier)}
+  {$DEFINE NEED_MEMORY_BARRIER}
+  procedure MemoryBarrier; inline;
+  {$IFEND}
+
+  // Error handling
+  function GetLastErrorCode:cardinal;
+  function GetLastErrorDesc:string;
+
 // =============================================================================
 // Mem scope - memory operations
 // =============================================================================
@@ -240,9 +268,125 @@ type
 
 implementation
 
+uses
+{$IFDEF MSWINDOWS}
+  Windows,
+{$ENDIF}
+{$IFDEF UNIX}
+  BaseUnix,
+  {$IFDEF LINUX}Linux,{$ENDIF}
+{$ENDIF}
+  SysUtils;
+
 // =============================================================================
 // Standalone functions implementation
 // =============================================================================
+
+procedure SpinLock(var lock:integer); inline;
+begin
+  while {$IFDEF FPC}InterLockedCompareExchange{$ELSE}AtomicCmpExchange{$ENDIF}(lock,1,0)<>0 do Sleep(0);
+end;
+
+// =============================================================================
+// Cross-platform primitives implementation
+// =============================================================================
+
+procedure Sleep(time:integer);
+begin
+{$IFDEF MSWINDOWS}
+  windows.Sleep(time);
+{$ELSE}
+  SysUtils.Sleep(time);
+{$ENDIF}
+end;
+
+function GetTickCount:cardinal;
+{$IFDEF MSWINDOWS}
+begin
+  result:=windows.GetTickCount;
+end;
+{$ELSE}
+var
+  tp:TTimeSpec;
+begin
+  clock_gettime(CLOCK_MONOTONIC,@tp);
+  result:=tp.tv_sec*1000+tp.tv_nsec div 1000000;
+end;
+{$ENDIF}
+
+function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF}; inline;
+begin
+{$IFDEF MSWINDOWS}
+  result:=windows.GetCurrentThreadId;
+{$ELSE}
+  result:=system.GetCurrentThreadID;
+{$ENDIF}
+end;
+
+{$IFDEF UNIX}
+{$IFNDEF IOS}
+const
+  PTRACE_TRACEME = 0;
+  PTRACE_DETACH = 17;
+function ptrace(__request:integer; PID:{$IFDEF FPC}pid_t{$ELSE}integer{$ENDIF};
+  Address:Pointer; Data:Longint):longint; cdecl; external 'c' name 'ptrace';
+{$ENDIF}
+{$ENDIF}
+
+function IsDebuggerPresent:boolean; inline;
+begin
+{$IFDEF MSWINDOWS}
+  result:=windows.IsDebuggerPresent;
+{$ELSE}
+  {$IFDEF IOS}
+  result:=false;
+  {$ELSE}
+  if ptrace(PTRACE_TRACEME,0,nil,0)<0 then
+    result:=true
+  else begin
+    ptrace(PTRACE_DETACH,0,nil,0);
+    result:=false;
+  end;
+  {$ENDIF}
+{$ENDIF}
+end;
+
+{$IFDEF NEED_MEMORY_BARRIER}
+procedure MemoryBarrier; inline;
+begin
+  {$IF DEFINED(CPUX86) OR DEFINED(CPUX64)}
+  asm mfence end;
+  {$ELSE}
+  // ARM and other architectures: compiler barrier
+  {$ENDIF}
+end;
+{$ENDIF}
+
+function GetLastErrorCode:cardinal;
+begin
+{$IF declared(GetLastError)}
+  result:=GetLastError;
+{$ELSE}
+  {$IF Declared(fpGetErrno)}
+  result:=fpGetErrno;
+  {$ELSE}
+  result:=0;
+  {$ENDIF}
+{$ENDIF}
+end;
+
+function GetLastErrorDesc:string;
+var
+  code:cardinal;
+begin
+  code:=GetLastErrorCode;
+{$IF Declared(SysErrorMessage)}
+  result:=SysErrorMessage(code)+Format(' (%d)',[code]);
+{$ELSE}
+  if code=0 then result:='NO ERROR'
+   else result:=Format('CODE %d (%8x)',[code,code]);
+{$ENDIF}
+end;
 
 function Min(a,b:integer):integer;
 begin

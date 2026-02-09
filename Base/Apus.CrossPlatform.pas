@@ -193,28 +193,22 @@ interface
   TThreadIdentifier=TThreadID;
   {$ENDIF}
 
- function GetTickCount:cardinal; inline;
  procedure QueryPerformanceCounter(out value:int64); inline;
  procedure QueryPerformanceFrequency(out value:int64);
 
- procedure Sleep(time:integer); inline;
  function BeginThread(ThreadFunction:TThreadFunc; p:pointer; var ThreadId:TThreadID; stackSize:integer=1024*1024):TThreadIdentifier; overload;
  function BeginThread(ThreadFunction:TThreadFunc):TThreadIdentifier; overload;
 
- function GetCurrentThreadID:TThreadId; inline;
  procedure TerminateThread(threadHandle:TThreadID;exitCode:cardinal);
  procedure ChangeThreadPriority(priority:integer); // -2..2 where 0 is Normal
 
  function GetSystemInfo:string;
- function GetLastErrorCode:cardinal;
- function GetLastErrorDesc:string;
 
  {$IFDEF IOS}
  function NSStrUTF8(st:string):NSString;
  {$ENDIF}
  procedure OpenURL(url:AnsiString);
  function LaunchProcess(fname:AnsiString;params:AnsiString=''):boolean;
- function IsDebuggerPresent:boolean; inline;
 
  {$IFDEF MSWINDOWS}
  function LoadCursorFromFile(fname:PChar):HCursor;
@@ -235,10 +229,6 @@ interface
  {$IFNDEF UNICODE}
  function AnsiStrAlloc(size:integer):PAnsiChar;
  {$ENDIF}
- {$IF not DECLARED(MemoryBarrier)}
- {$DEFINE DECLARE_MEMORY_BARRIER}
- procedure MemoryBarrier; inline;
- {$ENDIF}
 
 implementation
 
@@ -252,39 +242,8 @@ uses
 {$IFDEF LINUX}
  Linux,
 {$ENDIF}
-  Apus.Common;
-
-{$IFDEF DECLARE_MEMORY_BARRIER}
- procedure MemoryBarrier; inline; assembler;
- asm
-   mfence
- end;
-{$ENDIF}
-
- function GetLastErrorCode:cardinal;
-  begin
-   {$IF declared(GetLastError)}
-    result:=GetLastError;
-   {$ELSE}
-    {$IF Declared(fpGetErrno)}
-     result:=fpGetErrno;
-    {$ENDIF}
-   {$ENDIF}
-  end;
-
- function GetLastErrorDesc:string;
-  var
-   code:cardinal;
-  begin
-   code:=GetLastErrorCode;
-   {$IF Declared(SysErrorMessage)}
-    result:=SysErrorMessage(code)+Format(' (%d)',[code]);
-   {$ELSE}
-    if code=0 then result:='NO ERROR'
-     else result:=Format('CODE %d (%8x)',[code,code]);
-   {$ENDIF}
-  end;
-
+  Apus.Common,
+  Apus.Core;
 
  {$IFDEF IOS}
  // IOS threads
@@ -362,29 +321,6 @@ uses
     result:=NSString(CFSTR(''));
   end;
  {$ENDIF}
-
- {$IFDEF UNIX}
- const
-  PTRACE_TRACEME = 0;
-  PTRACE_DETACH = 17;
-
- function ptrace(__request:integer; PID: pid_t; Address: Pointer; Data: Longint): longint; cdecl; external libc name 'ptrace';
- {$ENDIF}
-
- function IsDebuggerPresent:boolean;
-  begin
-   {$IFDEF MSWINDOWS}
-   result:=windows.IsDebuggerPresent;
-   {$ENDIF}
-   {$IFDEF UNIX}
-   if (ptrace(PTRACE_TRACEME, 0, nil, 0) < 0) then
-    result:=true
-   else begin
-    ptrace(PTRACE_DETACH, 0, nil, 0);
-    result:=false;
-   end;
-   {$ENDIF}
-  end;
 
  function BeginThread(threadFunction:TThreadFunc; p:pointer; var threadId:TThreadID; stackSize:integer=1024*1024):TThreadIdentifier;
   begin
@@ -548,16 +484,6 @@ begin
   end;
 end;
 
- function GetCurrentThreadID:TThreadID;
-  begin
-   result:=windows.GetCurrentThreadId;
-  end;
-
- procedure Sleep;
-  begin
-   windows.Sleep(time);
-  end;
-
  procedure TerminateThread;
   begin
    windows.TerminateThread(threadHandle,exitCode);
@@ -583,10 +509,6 @@ end;
  procedure SetCursor(cursor:HCursor);
   begin
    windows.SetCursor(cursor);
-  end;
- function GetTickCount:cardinal;
-  begin
-   result:=windows.getTickCount;
   end;
  procedure QueryPerformanceCounter;
   begin
@@ -627,34 +549,9 @@ var
   lastInterval:NSTimeInterval=0;
   startTime2:double;
 
- procedure Sleep(time:integer);
-  begin
-   NSThread.sleepForTimeInterval(time/1000);
-   //Sleep(time);
-  end;
-
- function GetCurrentThreadID;
-  begin
-   result:=system.getCurrentThreadID;
-  end;
-
  procedure TerminateThread(threadHandle:system.TThreadID;exitCode:cardinal);
   begin
    CloseThread(threadHandle);
-  end;
-
- function GetTickCount:cardinal;
-  var
-   interval:NSTimeInterval;
-  begin
-   if startTime=nil then begin
-     startTime:=NSDate.date;
-     startTime.retain;
-   end;
-   interval:=-startTime.timeIntervalSinceNow;
-   if interval<lastInterval then interval:=lastInterval
-    else lastInterval:=interval;
-   result:=round(interval*1000)+100000; // bias
   end;
 
  procedure QueryPerformanceCounter;
@@ -674,16 +571,6 @@ var
 
 // LINUX/ANDROID SET ===========================================================
 {$IFDEF UNIX}
-procedure Sleep(time:integer);
- begin
-  SysUtils.Sleep(time);
- end;
-
-function GetCurrentThreadID;
- begin
-  result:=system.getCurrentThreadID;
- end;
-
 procedure TerminateThread(threadHandle:system.TThreadID;exitCode:cardinal);
  begin
   CloseThread(threadHandle);
@@ -692,15 +579,6 @@ procedure TerminateThread(threadHandle:system.TThreadID;exitCode:cardinal);
 procedure ChangeThreadPriority(priority:integer);
  begin
   // Not implemented
- end;
-
-
-function GetTickCount:cardinal;
- var
-  tp:TTimeSpec;
- begin
-  clock_gettime(CLOCK_MONOTONIC,@tp);
-  result:=tp.tv_sec*1000+tp.tv_nsec div 1000000;
  end;
 
 procedure QueryPerformanceCounter(out value:int64);

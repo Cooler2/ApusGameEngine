@@ -27,6 +27,7 @@ Base/
 
 - **Indent**: 2 spaces, no tabs
 - **Operators**: no spaces around `:=`, `+`, `-`, etc. → `a:=b+c`
+- **Type declarations**: no space between colon and type → `var x:integer`, `function Foo(a:string):integer`
 - **`begin`**: same line after `then/do/else`, new line for procedures/functions
 - **Naming**: classes `TName`, interfaces `IName`, variables `camelCase`
 - **Comments**: English only. Short end-of-line comments start lowercase: `a:=1; // initialize`
@@ -144,6 +145,7 @@ We are refactoring the Base library. The old monolithic module `Apus.Common.pas`
 | `Apus.Core` | Foundational types, Min/Max/Clamp/Swap, memory, bit ops | Done |
 | `Apus.Conv` | Type conversions (int/float/hex/base64/IP) | Done |
 | `Apus.Strings` | String8/String32 type helpers, UTF8 utilities | In progress |
+| `Apus.HashMaps` | Generic hash map `THashMap<T>` (String8 key, open-addressing) | Done |
 
 **Critical rule:** `Apus.Common.pas` is the **old donor module**. Code is being extracted FROM it into new modules. Do NOT fix, modify, or "improve" `Apus.Common.pas` — it is being phased out. If you see compilation errors related to `Apus.Common`, that's expected — the new modules (`Apus.Core`, `Apus.Conv`, `Apus.Strings`) replace its functionality.
 
@@ -152,6 +154,7 @@ We are refactoring the Base library. The old monolithic module `Apus.Common.pas`
 Apus.Core       — no Apus dependencies (Level 0)
 Apus.Conv       — uses Apus.Core
 Apus.Strings    — uses Apus.Types (which uses Apus.Core)
+Apus.HashMaps   — uses Apus.Core (Level 0)
 ```
 
 Tests for new modules should only depend on the new modules, NOT on `Apus.Common`.
