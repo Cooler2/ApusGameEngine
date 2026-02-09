@@ -855,22 +855,33 @@ end;
 
 function String32Helper.Replace(const oldStr,newStr:String32):String32;
 var p:integer;
+  s1,s2:String32;
 begin
   result:=self;
   p:=result.IndexOf(oldStr);
   if p>=0 then
-    result:=result.Left(p)+newStr+result.Substring(p+oldStr.Length);
+  begin
+    // FPC fails to produce valid code for this, so need to manually use intermediate variables (Delphi works fine)
+    //    result:=result.Left(p)+newStr+result.Substring(p+oldStr.Length);
+    s1:=result.Left(p);
+    s2:=result.Substring(p+oldStr.Length);
+    result:=s1+newStr+s2;
+  end;
 end;
 
 function String32Helper.ReplaceAll(const oldStr,newStr:String32):String32;
 var p:integer;
+  s1,s2:string32;
 begin
   result:=self;
   p:=0;
   repeat
     p:=result.IndexOf(oldStr,p);
     if p>=0 then begin
-      result:=result.Left(p)+newStr+result.Substring(p+oldStr.Length);
+      // FPC fails to produce valid code for simple expression, so need to manually use intermediate variables (Delphi works fine)
+      s1:=result.Left(p);
+      s2:=result.Substring(p+oldStr.Length);
+      result:=s1+newStr+s2;
       p:=p+newStr.Length;
     end;
   until p<0;
