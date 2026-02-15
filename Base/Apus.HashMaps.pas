@@ -1,5 +1,14 @@
-﻿// Generic hash map implementations (open-addressing with linear probing)
-// Thread-safe via SpinLock. Case-insensitive String8 keys.
+﻿// Fast hash maps - generic key-value dictionaries with case-insensitive string support
+//
+// SCOPE: High-performance hash tables for fast lookups (configs, caches, symbol tables).
+// Used by applications needing O(1) key-value storage. Thread-safe for concurrent access.
+//
+// ADD HERE: Hash map variants (different key types, collision strategies), hash functions.
+// DON'T ADD: Sorted maps (→ use trees), specialized caches with eviction policies,
+// persistent storage (→ Apus.Database).
+//
+// Contains: THashMap<TValue> (String8 keys, case-insensitive), THashMapInt (integer values),
+// THashMapStr (String8 values). Open-addressing with linear probing, thread-safe via SpinLock.
 //
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)

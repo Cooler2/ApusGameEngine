@@ -1,4 +1,15 @@
-// Conversion functions: parsing and formatting
+// Data conversion and formatting - parsing and serialization of basic types
+//
+// SCOPE: Converting between strings and basic data types (numbers, booleans, IPs, etc.)
+// and formatting values for display/logging. Used by applications that need to parse
+// user input, config files, or format data for output.
+//
+// ADD HERE: Parse/format functions for primitive types and common data formats (hex, base64, IP, etc.)
+// DON'T ADD: Complex parsing (JSON/XML), string manipulation (→ Apus.Strings), file I/O (→ Apus.Files)
+//
+// Contains: Conv scope with ToInt/ToFloat/ToBool/ToIp (parsing), ToStr/ToHex/FormatInt/FormatMoney
+// (formatting), EncodeHex/DecodeHex, ToBase64/FromBase64, HexDump.
+//
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)

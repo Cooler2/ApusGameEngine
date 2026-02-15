@@ -1,9 +1,19 @@
-// String helper types for String8 and String32
+// String manipulation helpers - modern API for working with String8 (UTF-8) and String32 (UCS-4)
+//
+// SCOPE: String operations beyond basic RTL - splitting, trimming, searching, replacing,
+// case conversion. Used by applications doing text processing, parsing, or manipulation.
+//
+// ADD HERE: Generic string operations that work with String8/String32.
+// DON'T ADD: Conversion to/from other types (→ Apus.Conv), unicode-specific text rendering,
+// regular expressions, template engines.
+//
+// Contains: TString8Helper and TString32Helper with methods like Split, Trim, Contains,
+// StartsWith, EndsWith, Replace, ToUpper, ToLower, IndexOf, etc.
+// Modeled after Delphi's TStringHelper but uses 1-based indexing for Pascal compatibility.
+//
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
-//
-// Modeled after Delphi's TStringHelper but uses 1-based indexing for Pascal compatibility
 {$I defines.inc}
 unit Apus.Strings;
 interface
