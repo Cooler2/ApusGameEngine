@@ -1,4 +1,16 @@
-﻿// Thread synchronization primitives and thread management utilities
+﻿// Thread synchronization and management - locks, events, and thread utilities for concurrent code
+//
+// SCOPE: Building blocks for multithreaded applications - critical sections, reader-writer locks,
+// events, thread registry with deadlock detection. Used by applications and libraries that need
+// thread-safe operations or manage worker threads.
+//
+// ADD HERE: Synchronization primitives (locks, semaphores, barriers), thread management,
+// deadlock detection, thread-local storage.
+// DON'T ADD: High-level concurrency (thread pools, async/await), parallel algorithms,
+// application-specific threading logic.
+//
+// Contains: TLock (critical section with debug), TSRWLock (reader-writer, Windows), TLightweightEvent,
+// Thread scope (Register/Unregister/Ping/GetName), WaitFor utility, deadlock detection via level checking.
 //
 // Copyright (C) 2004-2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -121,9 +133,8 @@ interface
 
  // Configuration
 implementation
- uses SysUtils, Apus.Conv{, Apus.Log}
+ uses SysUtils, Apus.Conv, Apus.Log
       {$IFDEF UNIX}, unixtype, BaseUnix, Syscall{$ENDIF}
-      {$IFDEF MSWINDOWS}, mmsystem{$ENDIF}
       {$IFDEF IOS}, iphoneAll{$ENDIF}
       {$IFDEF ANDROID}, Apus.Android{$ENDIF};
 
@@ -136,18 +147,6 @@ implementation
  {$ENDIF}
 
  // Local helper functions (to avoid dependency on Apus.Common)
-
- function MyTickCount:int64;
- var
-   t:int64;
- begin
-   {$IFDEF MSWINDOWS}
-   t:=timeGetTime;
-   {$ELSE}
-   t:=GetTickCount64;
-   {$ENDIF}
-   result:=t;
-end;
 
  function ExceptionMsg(const e:Exception):string;
   begin
@@ -356,8 +355,8 @@ function TLightweightEvent.WaitFor(timeoutMs:cardinal=INFINITE):boolean;
   result:=WaitOnAddress(@state,@expected,sizeof(integer),timeoutMs);
   {$ELSE}
   // Linux: futex wait - требует syscall, пока простая реализация
-  startTime:=MyTickCount;
-  while (state=0) and ((timeoutMs=INFINITE) or (MyTickCount-startTime<timeoutMs)) do
+  startTime:=GetTickCount64;
+  while (state=0) and ((timeoutMs=INFINITE) or (GetTickCount64-startTime<timeoutMs)) do
    Sleep(1);
   result:=state=1;
   {$ENDIF}
@@ -448,7 +447,7 @@ procedure EnterCriticalSection(var cr:TLock; caller:pointer=nil);
     cr.tryingThread:=threadID;
     cr.caller:=PtrUInt(caller);
    end;
-   if cr.time=0 then cr.time:=MyTickCount+5000;
+   if cr.time=0 then cr.time:=GetTickCount64+5000;
   end else // first attempt
   if debugCriticalSections then begin
    MyEnterCriticalSection(crSection);
@@ -565,7 +564,7 @@ procedure DumpCritSects;
     if crSections[i].caller<>0 then
      st:=st+' PENDING FROM '+GetNameOfThread(crSections[i].tryingThread)+
       ' AT:'+Conv.ToHex(crSections[i].caller,8)+' time '+
-      inttostr(MyTickCount-crSections[i].time);
+      inttostr(GetTickCount64-crSections[i].time);
    end;
   end;
   finally
@@ -585,7 +584,7 @@ procedure CheckCritSections;
   {$IFDEF MSWINDOWS}
   if IsDebuggerPresent then exit; // prevent termination because of timeout during debug
   {$ENDIF}
-  t:=MyTickCount;
+  t:=GetTickCount64;
   for i:=1 to crSectCount do begin
    if (crSections[i].time>0) and (crSections[i].time<t) and (crSections[i].time>t-1000000) then begin
     Log.Force('Timeout for: '+crSections[i].name+' thread: '+GetThreadName);
@@ -686,7 +685,7 @@ procedure PingThread;
   needDump:boolean;
   st:string;
  begin
-  t:=MyTickCount;
+  t:=GetTickCount64;
   id:=GetCurrentThreadID;
   needDump:=false;
   MyEnterCriticalSection(crSection);
@@ -736,8 +735,8 @@ procedure WaitFor(var p; maxTime:integer);
  var
   t:int64;
  begin
-  t:=MyTickCount+maxTime;
-  while (pointer(p)=nil) and (MyTickCount<t) do Sleep(1);
+  t:=GetTickCount64+maxTime;
+  while (pointer(p)=nil) and (GetTickCount64<t) do Sleep(1);
  end;
 
 // Platform-specific thread state info

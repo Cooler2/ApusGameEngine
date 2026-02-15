@@ -1,4 +1,16 @@
-// Core low-level utilities: types, CPU detection, math primitives, memory operations, bit manipulation
+// Core low-level utilities - fundamental building blocks needed by almost every program
+//
+// SCOPE: Basic functionality required by nearly all applications - types, CPU detection,
+// essential math/memory/bit operations, exceptions, stack traces, high-precision time.
+// This is the foundation module that provides primitives used everywhere.
+//
+// ADD HERE: Universal utilities with zero/minimal dependencies that solve common problems.
+// DON'T ADD: Domain-specific functionality (strings, files, networking, UI, etc.)
+//
+// Contains: Basic types (String8, UIntPtr, half), CPU detection, math (Min/Max/Clamp/Lerp),
+// memory operations (Mem scope), bit manipulation (Bits scope), exceptions with stack traces,
+// stack inspection (Stack scope), high-precision time (Time scope), spinlocks.
+//
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/)
@@ -299,10 +311,20 @@ type
     class procedure SetBit(var data:uint64; index:integer; value:boolean=true); overload; static; inline;
   end;
 
+// =============================================================================
+// Time scope - high-precision time functions
+// =============================================================================
+type
+  Time=record
+    class function Now:TDateTime; static;  // local time (high-precision)
+    class function UTC:TDateTime; static;  // UTC time (high-precision)
+    class function Stamp:string; static;   // HH:MM:SS.mmm for logs
+  end;
+
 implementation
 
 uses
-  Apus.Conv,
+  Apus.Conv, DateUtils,
 {$IFDEF MSWINDOWS}
   Windows
 {$ENDIF}
@@ -777,7 +799,7 @@ end;
 
 function AlignUp(val:UIntPtr;align:cardinal):UIntPtr;
 begin
-  result:=(val+align-1) and not (align-1);
+  result:=(val+UIntPtr(align)-1) and (not UIntPtr(align-1));
 end;
 
 function AlignUp(val:pointer;align:cardinal):pointer;
@@ -787,7 +809,7 @@ end;
 
 function AlignDown(val:UIntPtr;align:cardinal):UIntPtr;
 begin
-  result:=val and not (align-1);
+  result:=val and (not UIntPtr(align-1));
 end;
 
 function AlignDown(val:pointer;align:cardinal):pointer;
@@ -868,16 +890,18 @@ begin
 end;
 
 {$IF Defined(CPUX64) or Defined(CPUX86)}
-// SSE-optimized FillD implementation
+// SSE-optimized FillD implementation. data MUST be aligned by 4 byte
 procedure FillD_SSE(var data; count: UIntPtr; value: cardinal); forward;
 
 {$IFDEF CPUX64}
-procedure FillD_SSE(var data; count: UIntPtr; value: cardinal);
+procedure FillD_SSE(var data; count: UIntPtr; value: cardinal); assembler;  {$IFDEF FPC} nostackframe; {$ENDIF}
 // Windows x64 calling convention: RCX=data, RDX=count, R8=value
 // Unix x64 calling convention: RDI=data, RSI=count, RDX=value
 asm
   {$IFDEF MSWINDOWS}
   // Windows x64: RCX=data, RDX=count, R8=value
+  // RDI is non-volatile, must preserve
+  push rdi
   mov rdi, rcx        // destination
   mov rcx, rdx        // count
   mov eax, r8d        // value
@@ -894,16 +918,17 @@ asm
   // Prepare SSE register with replicated value
   movd xmm0, eax
   pshufd xmm0, xmm0, 0  // xmm0 = [value, value, value, value]
-  
-  // Handle unaligned start (up to 3 dwords)
+
+  // Align to 16-byte boundary (address already aligned on 4, max 3 dwords to write)
 @unaligned:
   test rdi, 15
   jz @aligned
   mov [rdi], eax
   add rdi, 4
   dec rcx
-  jnz @unaligned
-  
+  jz @done            // exit if count exhausted
+  jmp @unaligned
+
 @aligned:
   // Calculate number of 16-byte blocks (4 dwords per block)
   mov rdx, rcx
@@ -928,16 +953,19 @@ asm
   jnz @tail
   
 @done:
+  {$IFDEF MSWINDOWS}
+  pop rdi
+  {$ENDIF}
   ret
 end;
 {$ELSE}
 // x86 SSE implementation
-procedure FillD_SSE(var data; count: UIntPtr; value: cardinal);
+procedure FillD_SSE(var data; count: UIntPtr; value: cardinal); assembler;  {$IFDEF FPC} nostackframe; {$ENDIF}
 // Calling convention: EAX=data, EDX=count, ECX=value
 asm
   push edi
   push ebx
-  
+
   mov edi, eax        // destination
   mov ebx, ecx        // save value to EBX
   mov ecx, edx        // count
@@ -948,16 +976,17 @@ asm
   // Prepare SSE register with replicated value
   movd xmm0, ebx
   pshufd xmm0, xmm0, 0  // xmm0 = [value, value, value, value]
-  
-  // Handle unaligned start (up to 3 dwords)
+
+  // Align to 16-byte boundary (address already aligned on 4, max 3 dwords to write)
 @unaligned:
   test edi, 15
   jz @aligned
   mov [edi], ebx
   add edi, 4
   dec ecx
-  jnz @unaligned
-  
+  jz @done            // exit if count exhausted
+  jmp @unaligned
+
 @aligned:
   // Calculate number of 16-byte blocks (4 dwords per block)
   mov edx, ecx
@@ -993,9 +1022,11 @@ class procedure Mem.FillD(var data;count:UIntPtr;value:cardinal);
 var
   p: PCardinal;
 begin
-  // Use SSE optimization if available and count is reasonably large
-  if cpuFeatures.SSE and (count >= 16) then
-    FillD_SSE(data, count, value)
+  // Use SSE optimization only if:
+  // - SSE available and count is large enough (>= 16)
+  // - Address is aligned on dword boundary (unaligned SSE is complex and rare)
+  if cpuFeatures.SSE and (count>=16) and (UIntPtr(@data) and 3=0) then
+    FillD_SSE(data,count,value)
   else
   begin
     // Fallback to simple implementation
@@ -1382,6 +1413,105 @@ end;
 procedure NotSupported(msg:string='');
 begin
   raise EError.Create('Not supported: '+msg);
+end;
+
+// =============================================================================
+// Time scope implementation
+// =============================================================================
+{$IFDEF MSWINDOWS}
+var
+  preciseTimeSupport:integer=0; // 0=unknown, 1=supported, -1=not supported
+  GetSystemTimePreciseAsFileTime:procedure(out time:TFileTime); stdcall;
+
+function GetPreciseUTCFileTime(out ft:TFileTime):boolean;
+var
+  p:pointer;
+begin
+  if preciseTimeSupport=0 then begin
+    p:=GetProcAddress(GetModuleHandle('kernel32.dll'),'GetSystemTimePreciseAsFileTime');
+    if p<>nil then begin
+      preciseTimeSupport:=1; // supported
+      GetSystemTimePreciseAsFileTime:=p;
+    end else
+      preciseTimeSupport:=-1; // not supported
+  end;
+
+  if preciseTimeSupport>0 then begin
+    GetSystemTimePreciseAsFileTime(ft);
+    result:=true;
+  end else begin
+    GetSystemTimeAsFileTime(ft);
+    result:=false;
+  end;
+end;
+{$ENDIF}
+
+class function Time.UTC:TDateTime;
+{$IFDEF MSWINDOWS}
+var
+  ft:TFileTime;
+  st:TSystemTime;
+begin
+  GetPreciseUTCFileTime(ft);
+  FileTimeToSystemTime(ft,st);
+  result:=SystemTimeToDateTime(st);
+end;
+{$ELSE}
+{$IFDEF UNIX}
+begin
+  result:=LocalTimeToUniversal(SysUtils.Now);
+end;
+{$ELSE}
+{$IFDEF IOS}
+begin
+  result:=SysUtils.Now+(NSTimeZone.localTimeZone.secondsFromGMT)/86400;
+end;
+{$ELSE}
+var
+  st:TSystemTime;
+begin
+  GetSystemTime(st);
+  result:=SystemTimeToDateTime(st);
+end;
+{$ENDIF}
+{$ENDIF}
+{$ENDIF}
+
+class function Time.Now:TDateTime;
+{$IFDEF MSWINDOWS}
+var
+  ft,localFt:TFileTime;
+  st:TSystemTime;
+begin
+  GetPreciseUTCFileTime(ft);
+  FileTimeToLocalFileTime(ft,localFt);
+  FileTimeToSystemTime(localFt,st);
+  result:=SystemTimeToDateTime(st);
+end;
+{$ELSE}
+begin
+  result:=SysUtils.Now;
+end;
+{$ENDIF}
+
+class function Time.Stamp:string;
+var
+  st:TSystemTime;
+  {$IFDEF MSWINDOWS}
+  ft:TFileTime;
+  {$ENDIF}
+begin
+  {$IFDEF MSWINDOWS}
+  GetPreciseUTCFileTime(ft);
+  FileTimeToSystemTime(ft,st);
+  {$ELSE}
+  DateTimeToSystemTime(Time.UTC,st);
+  {$ENDIF}
+  // format: HH:MM:SS.mmm
+  result:=chr(48+st.wHour div 10)+chr(48+st.wHour mod 10)+':'+
+          chr(48+st.wMinute div 10)+chr(48+st.wMinute mod 10)+':'+
+          chr(48+st.wSecond div 10)+chr(48+st.wSecond mod 10)+'.'+
+          chr(48+st.wMilliseconds div 100)+chr(48+(st.wMilliseconds div 10) mod 10)+chr(48+st.wMilliseconds mod 10);
 end;
 
 initialization

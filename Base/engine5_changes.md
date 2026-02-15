@@ -61,6 +61,24 @@ Exception helper functions moved from `Apus.Common` to `Apus.Core`:
 | `NotImplemented(msg)` | `NotImplemented(msg)` | Raises `EError` with "Not implemented: msg". Inline. |
 | `NotSupported(msg)` | `NotSupported(msg)` | Raises `EError` with "Not supported: msg". Inline. |
 
+### Time scope (new in engine5)
+
+High-precision time functions:
+
+| Old name (Common) | New name (Core) | Notes |
+|---|---|---|
+| `NowGMT` | `Time.UTC` | UTC time in TDateTime format (high-precision on Windows 8+) |
+| — | `Time.Now` | Local time in TDateTime format (high-precision on Windows 8+) |
+| `GetUTCTime` + formatting | `Time.Stamp` | Returns `HH:MM:SS.mmm` string for logs |
+| `MyTickCount` | ~~removed~~ | Use standard `GetTickCount64` (available on all platforms) |
+
+**Usage:**
+```pascal
+dt := Time.UTC;           // high-precision UTC
+dt := Time.Now;           // high-precision local time
+Log.Msg(Time.Stamp + ' Started');
+```
+
 ## Apus.Conv (parsing and formatting)
 
 | Old name (Common) | New name (Conv) | Notes |
