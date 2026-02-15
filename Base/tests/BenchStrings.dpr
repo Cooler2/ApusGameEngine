@@ -443,8 +443,9 @@ end;
 // ============================================================================
 
 begin
-  OpenBenchLog('strings',N_DEF);
-  BenchWriteln;
+  try
+    OpenBenchLog('strings',N_DEF);
+    BenchWriteln;
 
   BenchWriteln('--- String8Helper ---');
   BenchString8_Length;
@@ -497,6 +498,13 @@ begin
 
   CloseBenchLog;
   writeln('=== BENCHMARK DONE ===');
+  except
+    on e:Exception do begin
+      writeln;
+      writeln('BENCHMARK FAILED: ',ExceptionMsg(e));
+      ExitCode:=255;
+    end;
+  end;
   if IsDebuggerPresent then begin
     writeln('Press ENTER to exit');
     readln;

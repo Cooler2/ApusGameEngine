@@ -190,8 +190,9 @@ end;
 // ============================================================================
 
 begin
-  PrepareKeys(10000);
-  OpenBenchLog('hashmaps',N_DEF);
+  try
+    PrepareKeys(10000);
+    OpenBenchLog('hashmaps',N_DEF);
   BenchWriteln;
 
   BenchWriteln('--- Put ---');
@@ -215,6 +216,13 @@ begin
 
   CloseBenchLog;
   writeln('=== BENCHMARK DONE ===');
+  except
+    on e:Exception do begin
+      writeln;
+      writeln('BENCHMARK FAILED: ',ExceptionMsg(e));
+      ExitCode:=255;
+    end;
+  end;
   if IsDebuggerPresent then begin
     writeln('Press ENTER to exit');
     readln;

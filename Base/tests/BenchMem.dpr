@@ -517,8 +517,9 @@ begin
 end;
 
 begin
-  OpenBenchLog('mem',1);
-  BenchWriteln('Fill methods:');
+  try
+    OpenBenchLog('mem',1);
+    BenchWriteln('Fill methods:');
   BenchWriteln('  FillDword      - RTL FillDword (FPC) / FillChar (Delphi)');
   BenchWriteln('  FillD Pascal   - naive Pascal loop: p[i]:=value');
   {$IFDEF CPUX64}
@@ -549,6 +550,13 @@ begin
 
   CloseBenchLog;
   writeln('=== BENCHMARK DONE ===');
+  except
+    on e:Exception do begin
+      writeln;
+      writeln('BENCHMARK FAILED: ',ExceptionMsg(e));
+      ExitCode:=255;
+    end;
+  end;
   if IsDebuggerPresent then begin
     writeln('Press ENTER to exit');
     readln;
