@@ -1,9 +1,12 @@
-{$APPTYPE CONSOLE}
+﻿{$APPTYPE CONSOLE}
+{$R+}  // Range checking
+{$Q+}  // Overflow checking
 program TestCore;
 uses
   SysUtils,
-  Apus.Core;
-  
+  Apus.Core,
+  Apus.Conv;
+
 {$INCLUDE Test.inc}
 
 procedure TestMinMax;
@@ -233,6 +236,183 @@ begin
   EndTest;
 end;
 
+procedure TestMemUnaligned;
+const
+  GUARD_BYTE = $CC;  // guard pattern
+  TEST_VALUE = $DEADBEEF;
+  DATA_SIZE = 512;  // 512 bytes = 128 dwords max
+  BUFFER_SIZE = 16 + DATA_SIZE + 16;  // guardPre + data + guardPost
+type
+  TGuardedBuffer = packed record
+    guardPre:array[0..15] of byte;   // guard before
+    data:array[0..DATA_SIZE-1] of byte;  // actual data
+    guardPost:array[0..15] of byte;  // guard after
+  end;
+var
+  bufStorage:array[0..BUFFER_SIZE+31] of byte; // extra space for alignment
+  buf:^TGuardedBuffer;
+  p:PByte;
+  pData:PCardinal;
+  offset,i,countIdx,count:integer;
+  failed:boolean;
+  src:array[0..31] of byte;
+  counts:array[0..6] of integer;
+
+  function CheckGuards(const msg:string):boolean;
+  var j:integer;
+  begin
+    result:=true;
+    // check pre-guard
+    for j:=0 to 15 do
+      if buf^.guardPre[j]<>GUARD_BYTE then begin
+        writeln('  GUARD VIOLATION (pre): offset ',j,' = $',IntToHex(buf^.guardPre[j],2),' at ',msg);
+        result:=false;
+      end;
+    // check post-guard
+    for j:=0 to 15 do
+      if buf^.guardPost[j]<>GUARD_BYTE then begin
+        writeln('  GUARD VIOLATION (post): offset ',j,' = $',IntToHex(buf^.guardPost[j],2),' at ',msg);
+        result:=false;
+      end;
+  end;
+
+begin
+  StartTest('Mem unaligned with guards');
+
+  // align buffer to 16-byte boundary
+  buf:=Pointer(AlignUp(UIntPtr(@bufStorage[0]),16));
+
+  // debug output
+  writeln('  bufStorage addr: ',Conv.ToStr(@bufStorage[0]));
+  writeln('  bufStorage size: ',Length(bufStorage));
+  writeln('  buf addr: ',Conv.ToStr(buf));
+  writeln('  BUFFER_SIZE: ',BUFFER_SIZE);
+
+  // verify alignment is valid (buf must fit inside bufStorage)
+  if (UIntPtr(buf)<UIntPtr(@bufStorage[0])) or
+     (UIntPtr(buf)+BUFFER_SIZE>UIntPtr(@bufStorage[0])+UIntPtr(Length(bufStorage))) then begin
+    writeln('  ERROR: Buffer outside storage bounds!');
+    Check(false,'Buffer alignment error');
+    exit;
+  end;
+
+  // Test FillD with different sizes and alignments
+  counts[0]:=16; counts[1]:=17; counts[2]:=20; counts[3]:=32;
+  counts[4]:=48; counts[5]:=63; counts[6]:=64;
+
+  for countIdx:=0 to High(counts) do begin
+    count:=counts[countIdx];
+
+    for offset:=0 to 15 do begin
+      // skip if data won't fit
+      if offset+count*4>DATA_SIZE then
+        continue;
+
+      // initialize guards
+      FillChar(buf^,BUFFER_SIZE,GUARD_BYTE);
+
+      // get pointer with specific offset into data area
+      p:=@buf^.data[offset];
+      pData:=PCardinal(p);
+
+      try
+        // fill count dwords at offset
+        Mem.FillD(pData^,count,TEST_VALUE);
+      except
+        on e:Exception do begin
+          writeln;
+          writeln('  EXCEPTION! count=',count,' offset=',offset);
+          writeln('  Exception: ',ExceptionMsg(e));
+          raise;
+        end;
+      end;
+  
+      // verify data was written correctly
+      failed:=false;
+      for i:=0 to count-1 do
+        if PCardinal(UIntPtr(pData)+UIntPtr(i*4))^<>TEST_VALUE then begin
+          writeln('  DATA ERROR at count=',count,' offset=',offset,' dword=',i);
+          failed:=true;
+        end;
+
+      // check guards weren't overwritten
+      if not CheckGuards('FillD count='+IntToStr(count)+' offset='+IntToStr(offset)) then
+        failed:=true;
+
+      if failed then begin
+        Check(false,'FillD failed at count='+IntToStr(count)+' offset='+IntToStr(offset));
+        break;
+      end;
+    end;
+
+    if failed then break;
+  end;
+
+  if not failed then
+    Check(true,'FillD passed all tests (counts: 16-64, offsets: 0-15)');
+
+  // test FillW with different alignments
+  failed:=false;
+  for offset:=0 to 15 do begin
+    FillChar(buf^,BUFFER_SIZE,GUARD_BYTE);
+    p:=@buf^.data[offset];
+
+    // fill 16 words (32 bytes) at offset
+    Mem.FillW(PWord(p)^,16,$BEEF);
+
+    // verify data
+    for i:=0 to 15 do
+      if PWord(UIntPtr(p)+UIntPtr(i*2))^<>$BEEF then begin
+        writeln('  DATA ERROR FillW at offset ',offset,', word ',i);
+        failed:=true;
+      end;
+
+    if not CheckGuards('FillW offset '+IntToStr(offset)) then
+      failed:=true;
+
+    if failed then begin
+      Check(false,'FillW failed at offset '+IntToStr(offset));
+      break;
+    end;
+  end;
+
+  if not failed then
+    Check(true,'FillW passed all alignment tests');
+
+  // test Copy with different alignments
+  failed:=false;
+  for offset:=0 to 7 do begin
+    FillChar(buf^,BUFFER_SIZE,GUARD_BYTE);
+
+    // prepare source with pattern
+    for i:=0 to 31 do
+      src[i]:=byte(i+$10);
+
+    p:=@buf^.data[offset];
+    Mem.Copy(src,p^,32);
+
+    // verify copied data
+    for i:=0 to 31 do
+      if PByte(UIntPtr(p)+UIntPtr(i))^<>byte(i+$10) then begin
+        writeln('  DATA ERROR Copy at offset ',offset,', byte ',i);
+        failed:=true;
+      end;
+
+    if not CheckGuards('Copy offset '+IntToStr(offset)) then
+      failed:=true;
+
+    if failed then begin
+      Check(false,'Copy failed at offset '+IntToStr(offset));
+      break;
+    end;
+  end;
+
+  if not failed then
+    Check(true,'Copy passed all alignment tests');
+
+  EndTest;
+end;
+
 procedure TestBits;
 var
   v:cardinal;
@@ -427,6 +607,7 @@ begin
 
   addrAPI:=StackCallerInner;
   addrIntrinsic:=IntrinsicCaller;
+  writeln;
 
   // test API version
   writeln('  Stack.Caller (API) returned: ',IntToHex(UIntPtr(addrAPI),12));
@@ -516,7 +697,7 @@ var
   hasStack,hasAddr:boolean;
 begin
   StartTest('ExceptionMsg function');
-
+  writeln;
   // test with EBaseException
   try
     raise EError.Create('Test error');
@@ -544,6 +725,39 @@ begin
   EndTest;
 end;
 
+procedure TestTime;
+var
+  dtNow,dtUTC:TDateTime;
+  stamp:string;
+  diff:double;
+begin
+  StartTest('Time');
+  writeln;
+  // Test Time.Now
+  dtNow:=Time.Now;
+  Check(dtNow>0,'Time.Now should return valid datetime');
+  writeln('  Time.Now: ',DateTimeToStr(dtNow));
+
+  // Test Time.UTC
+  dtUTC:=Time.UTC;
+  Check(dtUTC>0,'Time.UTC should return valid datetime');
+  writeln('  Time.UTC: ',DateTimeToStr(dtUTC));
+
+  // Check that Now and UTC are reasonably close (within 24 hours)
+  diff:=Abs(dtNow-dtUTC);
+  Check(diff<1.0,'Time.Now and Time.UTC should be within 24 hours');
+
+  // Test Time.Stamp
+  stamp:=Time.Stamp;
+  Check(Length(stamp)=12,'Time.Stamp should be 12 chars (HH:MM:SS.mmm)');
+  Check(stamp[3]=':','Time.Stamp char 3 should be ":"');
+  Check(stamp[6]=':','Time.Stamp char 6 should be ":"');
+  Check(stamp[9]='.','Time.Stamp char 9 should be "."');
+  writeln('  Time.Stamp: ',stamp);
+
+  EndTest;
+end;
+
 
 begin
   try
@@ -556,6 +770,7 @@ begin
     TestIsNaN;
     TestPtrInside;
     TestMem;
+    TestMemUnaligned;
     TestBits;
     TestAlignment;
     TestCPU;
@@ -564,6 +779,7 @@ begin
     TestStackTrace;
     TestException;
     TestExceptionMsg;
+    TestTime;
 
     writeln;
     if testsFailed=0 then
@@ -574,7 +790,7 @@ begin
     end;
   except
     on e:Exception do begin
-      writeln('Error: ',e.Message);
+      writeln('Error: ',ExceptionMsg(e));
       ExitCode:=255;
     end;
   end;

@@ -1,8 +1,12 @@
 ﻿{$APPTYPE CONSOLE}
 program BenchCore;
 uses
+ {$IFDEF MSWINDOWS}
+  Windows,
+ {$ENDIF}
   SysUtils,
-  Apus.Core;
+  Apus.Core,
+  Apus.Conv;
 
 {$I test.inc}
 
@@ -51,7 +55,7 @@ begin
 end;
 
 procedure BenchMem_FillD_1K;
-var i:integer; buf:array[0..255] of cardinal;
+var i:integer; buf:array[0..255+16] of cardinal;
 begin
   StartBench('Mem.FillD 256 dwords',N_DEF);
   for i:=1 to N_DEF do
@@ -288,14 +292,77 @@ begin
 end;
 
 // ============================================================================
+// Stack operations
+// ============================================================================
+
+procedure BenchStack_Caller;
+var i:integer; p:pointer;
+begin
+  StartBench('Stack.Caller',N_FAST);
+  for i:=1 to N_FAST do
+    p:=Stack.Caller;
+  EndBench;
+end;
+
+procedure BenchStack_Trace;
+var i:integer; frames:TCallStack; count:integer;
+begin
+  StartBench('Stack.Trace',N_DEF);
+  for i:=1 to N_DEF do
+    count:=Stack.Trace(frames,0);
+  EndBench;
+end;
+
+// ============================================================================
+// Time operations
+// ============================================================================
+
+procedure BenchTime_UTC;
+var i:integer; dt:TDateTime;
+begin
+  StartBench('Time.UTC',N_DEF);
+  for i:=1 to N_DEF do
+    dt:=Time.UTC;
+  EndBench;
+end;
+
+procedure BenchTime_Now;
+var i:integer; dt:TDateTime;
+begin
+  StartBench('Time.Now',N_DEF);
+  for i:=1 to N_DEF do
+    dt:=Time.Now;
+  EndBench;
+end;
+
+procedure BenchTime_Stamp;
+var i:integer; s:string;
+begin
+  StartBench('Time.Stamp',N_DEF);
+  for i:=1 to N_DEF do
+    s:=Time.Stamp;
+  EndBench;
+end;
+
+procedure BenchGetTickCount64;
+var i:integer; t:int64;
+begin
+  StartBench('GetTickCount64',N_FAST);
+  for i:=1 to N_FAST do
+    t:=GetTickCount64;
+  EndBench;
+end;
+
+// ============================================================================
 // Main
 // ============================================================================
 
 begin
-  OpenBenchLog('core',N_DEF);
-  BenchWriteln;
+  try
+    OpenBenchLog('core',N_DEF);
+    BenchWriteln;
 
-  BenchWriteln('--- Memory ---');
+    BenchWriteln('--- Memory ---');
   BenchMem_Clear_64;
   BenchMem_Clear_1K;
   BenchMem_Clear_64K;
@@ -334,8 +401,27 @@ begin
   BenchSpinLock;
   BenchWriteln;
 
+  BenchWriteln('--- Stack ---');
+  BenchStack_Caller;
+  BenchStack_Trace;
+  BenchWriteln;
+
+  BenchWriteln('--- Time ---');
+  BenchTime_UTC;
+  BenchTime_Now;
+  BenchTime_Stamp;
+  BenchGetTickCount64;
+  BenchWriteln;
+
   CloseBenchLog;
   writeln('=== BENCHMARK DONE ===');
+  except
+    on e:Exception do begin
+      writeln;
+      writeln('BENCHMARK FAILED: ',ExceptionMsg(e));
+      ExitCode:=255;
+    end;
+  end;
   if IsDebuggerPresent then begin
     writeln('Press ENTER to exit');
     readln;
