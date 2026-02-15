@@ -1,0 +1,102 @@
+unit Apus.Threads;
+
+interface
+
+uses 
+  Apus.Core, 
+  {$IFDEF MSWINDOWS}Windows{$ELSE}Posix.Pthread, Posix.Errno{$ENDIF};
+
+type
+  PLock = ^TLock;
+
+  // Рекурсивный мьютекс с защитой от дедлоков и отладкой
+  TLock = packed record
+  private
+    {$IFDEF MSWINDOWS}
+    fCrs: TRTLCriticalSection;
+    {$ELSE}
+    fCrs: pthread_mutex_t;
+    fOwningThread: TThreadID;
+    {$ENDIF}
+    fCaller: UIntPtr;      // Где пытаемся захватить
+    fOwner: UIntPtr;       // Где реально захватили
+    fTryingThread: TThreadID;
+    fTime: int64;          // Timestamp для таймаута
+    fLockCount: integer;   // Рекурсия
+    fLevel: integer;       // Уровень для иерархии локов
+    fPrevSection: PLock;   // Для цепочки захватов в потоке
+    
+    procedure SetTrying(Thread: TThreadID; CallerAddr: pointer);
+    procedure ClearTrying;
+  public
+    Name: String8;
+    
+    // Инициализация/Финализация теперь внутри записи
+    procedure Init(const AName: String8; ALevel: integer = 100);
+    procedure Cleanup;
+
+    procedure Enter(CallerAddr: pointer = nil);
+    procedure Leave;
+    
+    // Инспекция (только для чтения)
+    function IsLocked: boolean; inline;
+    function GetLockCount: integer; inline;
+    function GetOwner: TThreadID;
+  end;
+
+  // RAII обертка: автоматически отпускает лок при выходе из scope
+  TScopedLock = record
+  private
+    fLock: PLock;
+  public
+    class function Use(ALock: PLock; CallerAddr: pointer = nil): TScopedLock; static;
+    // Магия Delphi 10.4+ / FPC 3.2+
+    class operator Initialize(out Dest: TScopedLock);
+    class operator Finalize(var Dest: TScopedLock);
+    class operator Assign(var Dest: TScopedLock; const [ref] Src: TScopedLock);
+  end;
+
+  // Легковесный Reader/Writer Lock
+  TSRWLock = packed record
+  private
+    {$IFDEF MSWINDOWS}
+    fLock: SRWLOCK;
+    {$ELSE}
+    fLock: pthread_rwlock_t;
+    {$ENDIF}
+    fLockedEx: boolean;
+    fReadCount: integer;
+  public
+    Name: String8;
+    procedure Init(const AName: String8);
+    procedure Cleanup;
+    
+    procedure StartRead;
+    procedure FinishRead;
+    procedure StartWrite;
+    procedure FinishWrite;
+  end;
+
+  // Ивент на базе WaitOnAddress (Win10+) или Futex (Linux)
+  TLightweightEvent = record
+  private
+    fState: integer; // 0 - reset, 1 - set
+  public
+    procedure SetEvent;
+    procedure ResetEvent;
+    function WaitFor(Timeout: cardinal): boolean;
+  end;
+
+// Глобальные хелперы (для регистрации потоков и мониторинга)
+procedure RegisterThread(const Name: string);
+procedure UnregisterThread;
+procedure PingThread;
+function GetThreadName(ThreadID: TThreadID = 0): string;
+
+// Отладочные дампы
+procedure DumpCritSects;
+procedure DumpNamedThreads;
+
+implementation
+
+{ Здесь будет реализация с учетом кроссплатформенности и GetCaller x64 }

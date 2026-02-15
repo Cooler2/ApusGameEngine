@@ -142,47 +142,11 @@ type
   end;
 
   // Critical section wrapper: provides better debug info
-  PCriticalSection=^TMyCriticalSection;
-  TMyCriticalSection=packed record
-   crs:TRTLCriticalSection;
-   name:String8;      // имя секции
-   caller:UIntPtr;  // точка, из которой была попытка завладеть секцией
-   owner:UIntPtr;   // точка, из которой произошел удачный захват секции
-   {$IFNDEF MSWINDOWS}
-   owningThread:TThreadID;
-   {$ENDIF}
-   tryingThread:TThreadID;  // нить, пытающаяся захватить секцию
-   time:int64;       // время наступления таймаута захвата
-   lockCount:integer; // how many times locked (recursion)
-   level:integer;     // it's not allowed to enter section with lower level from section with higher level
-   prevSection:PCriticalSection;
-   procedure Enter; inline; // for compatibility
-   procedure Leave; inline; // for compatibility
-   function GetSysLockCount:integer; inline;
-   function GetSysOwner:TThreadID; inline;
-   function GetOwningThread:TThreadID; inline;
-  end;
-
-  {$IF Declared(SRWLOCK)}
-  TSRWLock=packed record
-   lock:SRWLock;
-   name:string;
-   // Debug facilities
-   lockedEx:boolean;
-   lastLockedEx:pointer;
-   lockRead:integer;
-   lastLockedRead:pointer;
-   procedure Init(name:string);
-   procedure StartRead(caller:pointer=nil);
-   procedure FinishRead;
-   procedure StartWrite(caller:pointer=nil);
-   procedure FinishWrite;
-  end;
-  {$ENDIF}
+  // TMyCriticalSection, PCriticalSection, TSRWLock moved to Apus.Threading in engine5
 
 
 implementation
- uses Apus.Common, SysUtils, Generics.Defaults;
+ uses SysUtils, Generics.Defaults, Apus.Conv, Apus.Strings;
 
 { TBuffer }
 
@@ -331,7 +295,7 @@ function TBuffer.Slice(length:integer;advance:boolean=false):TBuffer;
 
 function TNameValue.GetBool:boolean;
  begin
-  result:=ParseBool(value);
+  result:=Conv.ToBool(value);
  end;
 
 function TNameValue.GetDate:TDateTime;
@@ -341,12 +305,12 @@ function TNameValue.GetDate:TDateTime;
 
 function TNameValue.GetFloat:double;
  begin
-  result:=ParseFloat(value);
+  result:=Conv.ToFloat(value);
  end;
 
 function TNameValue.GetInt:int64;
  begin
-  result:=ParseInt(value);
+  result:=Conv.ToInt(value);
  end;
 
 procedure TNameValue.Init(name,value:string8);
@@ -359,15 +323,15 @@ procedure TNameValue.InitFrom(st,splitter:string8);
  var
   p:integer;
  begin
-  p:=PosFrom(splitter,st);
+  p:=st.IndexOf(splitter);
   if p=0 then begin
    name:=st; value:='';
   end else begin
    name:=copy(st,1,p-1);
    value:=copy(st,p+length(splitter),length(st));
   end;
-  name:=Chop(name);
-  value:=Chop(value);
+  name:=name.Trim;
+  value:=value.Trim;
  end;
 
 function TNameValue.Join(separator:string8):string8;
@@ -377,7 +341,7 @@ function TNameValue.Join(separator:string8):string8;
 
 function TNameValue.Named(st:string8):boolean;
  begin
-  result:=SameText8(name,st);
+  result:=name.EqualsText(st);
  end;
 
 { TIntRange }
@@ -516,75 +480,7 @@ constructor TWriteBuffer.Init(expectedSize:integer);
   SetLength(data,expectedSize);
  end;
 
-procedure TMyCriticalSection.Enter;  // for compatibility
- begin
-  EnterCriticalSection(self);
- end;
-
-procedure TMyCriticalSection.Leave; // for compatibility
- begin
-  LeaveCriticalSection(self);
- end;
-
-function TMyCriticalSection.GetSysLockCount:integer;
- begin
- end;
-
-function TMyCriticalSection.GetSysOwner:TThreadID;
- begin
- end;
-
-function TMyCriticalSection.GetOwningThread:TThreadID;
- begin
-  {$IFDEF MSWINDOWS}
-  result:=crs.OwningThread;
-  {$ELSE}
-  result:=owningThread;
-  {$ENDIF}
- end;
-
-{$IF Declared(SRWLOCK)}
-{ TSRWLock }
-procedure TSRWLock.Init(name: string);
-begin
- self.name:=name;
- lockedEx:=false;
- lockRead:=0;
- InitializeSrwLock(lock);
-end;
-
-procedure TSRWLock.StartRead(caller:pointer);
-begin
- AcquireSRWLockShared(lock);
- InterlockedIncrement(lockRead);
- if caller=nil then
-  lastLockedRead:=GetCaller
- else
-  lastLockedRead:=caller;
-end;
-
-procedure TSRWLock.FinishRead;
-begin
- InterlockedDecrement(lockRead);
- ReleaseSRWLockShared(lock);
-end;
-
-procedure TSRWLock.StartWrite(caller:pointer);
-begin
- AcquireSRWLockExclusive(lock);
- lockedEx:=true;
- if caller=nil then
-  lastLockedEx:=GetCaller
- else
-  lastLockedEx:=caller;
-end;
-
-procedure TSRWLock.FinishWrite;
-begin
- lockedEx:=false;
- ReleaseSRWLockExclusive(lock);
-end;
-{$ENDIF}
+// TMyCriticalSection and TSRWLock implementation moved to Apus.Threading in engine5
 
 
 { TNameValueList }
