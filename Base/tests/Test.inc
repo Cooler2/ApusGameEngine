@@ -81,7 +81,7 @@ begin
   StartTimer(benchTimer);
 end;
 
-procedure EndBench;
+procedure EndBench(const comment:string='');
 var
   nsPerOp:double;
   s:string;
@@ -91,6 +91,8 @@ begin
     s:=Format('%8.2f us/op',[nsPerOp/1000])
   else
     s:=Format('%8.2f ns/op',[nsPerOp]);
+  if comment<>'' then
+    s:=s+'  '+comment;
   writeln(s);
   if benchLogOpen then writeln(benchLog,s);
 end;

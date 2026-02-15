@@ -1,0 +1,72 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{7886534A-3AF7-493B-A19A-72269B57210C}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="BenchCore.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="BenchConv.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="BenchStrings.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="BenchHashMaps.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="BenchCore">
+        <MSBuild Projects="BenchCore.dproj"/>
+    </Target>
+    <Target Name="BenchCore:Clean">
+        <MSBuild Projects="BenchCore.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="BenchCore:Make">
+        <MSBuild Projects="BenchCore.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="BenchConv">
+        <MSBuild Projects="BenchConv.dproj"/>
+    </Target>
+    <Target Name="BenchConv:Clean">
+        <MSBuild Projects="BenchConv.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="BenchConv:Make">
+        <MSBuild Projects="BenchConv.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="BenchStrings">
+        <MSBuild Projects="BenchStrings.dproj"/>
+    </Target>
+    <Target Name="BenchStrings:Clean">
+        <MSBuild Projects="BenchStrings.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="BenchStrings:Make">
+        <MSBuild Projects="BenchStrings.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="BenchHashMaps">
+        <MSBuild Projects="BenchHashMaps.dproj"/>
+    </Target>
+    <Target Name="BenchHashMaps:Clean">
+        <MSBuild Projects="BenchHashMaps.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="BenchHashMaps:Make">
+        <MSBuild Projects="BenchHashMaps.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="BenchCore;BenchConv;BenchStrings;BenchHashMaps"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="BenchCore:Clean;BenchConv:Clean;BenchStrings:Clean;BenchHashMaps:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="BenchCore:Make;BenchConv:Make;BenchStrings:Make;BenchHashMaps:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

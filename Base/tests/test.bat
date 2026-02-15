@@ -18,8 +18,8 @@ REM
 REM ============================================================================
 setlocal
 cd /d "%~dp0"
-set FPC32=g:\lazarus\fpc\3.2.2\bin\i386-win32\fpc.exe
-set FPC64=g:\lazarus\fpc\3.2.2\bin\x86_64-win64\fpc.exe
+set FPC32=ppc386.exe
+set FPC64=fpc.exe
 set FLAGS=-MDelphi -Sd -RIntel -Fu..
 set LOG64=test_results_64.txt
 set LOG32=test_results_32.txt

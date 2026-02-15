@@ -15,6 +15,9 @@
         <Projects Include="TestHashMaps.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="TestFiles.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -59,14 +62,23 @@
     <Target Name="TestHashMaps:Make">
         <MSBuild Projects="TestHashMaps.dproj" Targets="Make"/>
     </Target>
+    <Target Name="TestFiles">
+        <MSBuild Projects="TestFiles.dproj"/>
+    </Target>
+    <Target Name="TestFiles:Clean">
+        <MSBuild Projects="TestFiles.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestFiles:Make">
+        <MSBuild Projects="TestFiles.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="TestCore;TestStrings;TestConv;TestHashMaps"/>
+        <CallTarget Targets="TestCore;TestStrings;TestConv;TestHashMaps;TestFiles"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="TestCore:Clean;TestStrings:Clean;TestConv:Clean;TestHashMaps:Clean"/>
+        <CallTarget Targets="TestCore:Clean;TestStrings:Clean;TestConv:Clean;TestHashMaps:Clean;TestFiles:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="TestCore:Make;TestStrings:Make;TestConv:Make;TestHashMaps:Make"/>
+        <CallTarget Targets="TestCore:Make;TestStrings:Make;TestConv:Make;TestHashMaps:Make;TestFiles:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

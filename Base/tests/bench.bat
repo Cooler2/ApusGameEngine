@@ -17,8 +17,10 @@ REM
 REM ============================================================================
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
-set FPC32=g:\lazarus\fpc\3.2.2\bin\i386-win32\fpc.exe
-set FPC64=g:\lazarus\fpc\3.2.2\bin\x86_64-win64\fpc.exe
+set FPC32=ppc386.exe
+set FPC64=fpc.exe
+rem set FPC32=g:\lazarus\fpc\3.2.2\bin\i386-win32\fpc.exe
+rem set FPC64=g:\lazarus\fpc\3.2.2\bin\x86_64-win64\fpc.exe
 set FLAGS=-MDelphi -Sd -O3 -RIntel -Fu..
 
 if "%1"=="" (
