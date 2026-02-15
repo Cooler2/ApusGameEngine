@@ -888,7 +888,7 @@ end;
   var
    i,j,e:integer;
   begin
-   InterlockedIncrement(gCount);
+   AtomicIncrement(gCount);
    e:=0;
    // заполнение
    for i:=1 to 1000000 do begin
@@ -904,7 +904,7 @@ end;
       inc(e);
    end;
    ASSERT(e=0,'Threads errors: '+inttostr(e));
-   InterlockedDecrement(gCount);
+   AtomicDecrement(gCount);
   end;
 
  procedure testSimpleHash;

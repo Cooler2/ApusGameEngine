@@ -122,7 +122,7 @@ interface
  procedure CheckCritSections; // check critical sections for timeout
 
  // Legacy functions for compatibility (use Thread.Register/Unregister/Ping instead)
- procedure RegisterThread(const name:string); deprecated 'Use Thread.Register';
+ procedure RegisterThread(const name:string8); deprecated 'Use Thread.Register';
  procedure UnregisterThread; deprecated 'Use Thread.Unregister';
  procedure PingThread; deprecated 'Use Thread.Ping';
  function GetThreadName(threadID:cardinal=0):string; deprecated 'Use Thread.GetName';
@@ -169,7 +169,7 @@ implementation
  type
   TThreadInfo=record
    ID:TThreadID;
-   name:string;
+   name:string8;
    pingCounter:integer; // how many times responded
    firstPing:integer;   // time of first response
    lastPing:integer;    // time of last response
@@ -291,7 +291,7 @@ procedure TSRWLock.Cleanup;
 procedure TSRWLock.EnterRead(caller:pointer);
  begin
   AcquireSRWLockShared(lock);
-  InterlockedIncrement(lockRead);
+  AtomicIncrement(lockRead);
   if caller=nil then
    lastLockedRead:=Stack.Caller
   else
@@ -300,7 +300,7 @@ procedure TSRWLock.EnterRead(caller:pointer);
 
 procedure TSRWLock.LeaveRead;
  begin
-  InterlockedDecrement(lockRead);
+  AtomicDecrement(lockRead);
   ReleaseSRWLockShared(lock);
  end;
 
@@ -331,17 +331,17 @@ procedure TLightweightEvent.Init;
 procedure TLightweightEvent.SetEvent;
  begin
   {$IFDEF MSWINDOWS}
-  InterlockedExchange(state,1);
+  AtomicExchange(state,1);
   WakeByAddressSingle(@state);
   {$ELSE}
-  InterlockedExchange(state,1);
+  AtomicExchange(state,1);
   // Linux: futex wake - требует syscall, пока упрощенная версия
   {$ENDIF}
  end;
 
 procedure TLightweightEvent.ResetEvent;
  begin
-  InterlockedExchange(state,0);
+  AtomicExchange(state,0);
  end;
 
 function TLightweightEvent.WaitFor(timeoutMs:cardinal=INFINITE):boolean;
@@ -597,7 +597,7 @@ procedure CheckCritSections;
 
 // Thread management
 
-procedure RegisterThread(name:string);
+procedure RegisterThread(name:string8);
  var
   i:integer;
   threadID:TThreadID;

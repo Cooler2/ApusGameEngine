@@ -1229,7 +1229,7 @@ procedure TWorker.Execute;
   LogMsg('Hello from worker '+inttostr(workerID));
   try
    priority:=tpHigher;
-   InterlockedIncrement(liveWorkers);
+   AtomicIncrement(liveWorkers);
    if DB_HOST<>'' then begin
     db:=TMySQLDatabaseWithLogging.Create(logmsg,logInfo,logInfo,logNormal,2);
     db.Connect;
@@ -1240,7 +1240,7 @@ procedure TWorker.Execute;
   except
    on e:exception do begin
     LogMsg('Failed to start worker '+inttostr(workerID)+' thread: '+ExceptionMsg(e),logError);
-    InterlockedDecrement(liveWorkers);
+    AtomicDecrement(liveWorkers);
     exit;
    end;
   end;
@@ -1339,7 +1339,7 @@ procedure TWorker.Execute;
    end;
   until terminated;
   FreeAndNil(db);
-  InterlockedDecrement(liveWorkers);
+  AtomicDecrement(liveWorkers);
  end;
 
  procedure AddTask(task:String8;data:String8='');

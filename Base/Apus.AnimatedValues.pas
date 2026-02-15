@@ -72,7 +72,7 @@ implementation
   procedure SpinLock(var lock:integer); inline;
     begin
       // LOCK CMPXCHG is very slow (~20-50 cycles) so no need for additional spin rounds for quick operations
-      while InterlockedCompareExchange(lock,1,0)<>0 do sleep(0);
+      while AtomicCmpExchange(lock,1,0)<>0 do sleep(0);
     end;
 
   // TAnimatedValue - numeric interpolation class
