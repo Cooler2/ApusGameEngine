@@ -109,7 +109,7 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 
 ## Key blockers
 
-1. ~~**Threading**~~: **DONE** — Apus.Threading created. 12+ Base modules can now migrate from Common to Threading.
+1. ~~**Threading**~~: **DONE** — Apus.Threads created. 12+ Base modules can now migrate from Common to Threads.
 2. ~~**Logging**~~: **DONE** — Apus.Log created with unified API. Old Common logging code can now be deprecated. Apus.Logging refactor into interceptor is next.
 3. **MyTickCount** is used by 8+ modules for timing. Needs a home (Conv? Core? CrossPlatform?).
 4. **EncodeUTF8/DecodeUTF8** used by 5+ modules. Natural fit for Strings but adds bulk.
@@ -130,3 +130,7 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 ## Would be nice to do (but not required)
 
 * Add EBaseException stack trace in x64 mode (currently works for x86 only)
+* Optimize Mem.FillW/FillQ/FillF with SSE (currently simple loops, only FillD is SSE-optimized)
+* Optimize Mem.Copy with SSE for large blocks (currently uses RTL move())
+* Optimize Mem.IsZero with SSE (currently manual loop with NativeUInt alignment)
+* Audit Mem.Shift for overlapping regions (currently uses move() which may not handle all cases)
