@@ -12,6 +12,9 @@
         <Projects Include="TestConv.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="TestThreads.dproj">
+            <Dependencies/>
+        </Projects>
         <Projects Include="TestHashMaps.dproj">
             <Dependencies/>
         </Projects>
@@ -53,6 +56,15 @@
     <Target Name="TestConv:Make">
         <MSBuild Projects="TestConv.dproj" Targets="Make"/>
     </Target>
+    <Target Name="TestThreads">
+        <MSBuild Projects="TestThreads.dproj"/>
+    </Target>
+    <Target Name="TestThreads:Clean">
+        <MSBuild Projects="TestThreads.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestThreads:Make">
+        <MSBuild Projects="TestThreads.dproj" Targets="Make"/>
+    </Target>
     <Target Name="TestHashMaps">
         <MSBuild Projects="TestHashMaps.dproj"/>
     </Target>
@@ -72,13 +84,13 @@
         <MSBuild Projects="TestFiles.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="TestCore;TestStrings;TestConv;TestHashMaps;TestFiles"/>
+        <CallTarget Targets="TestCore;TestStrings;TestConv;TestThreads;TestHashMaps;TestFiles"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="TestCore:Clean;TestStrings:Clean;TestConv:Clean;TestHashMaps:Clean;TestFiles:Clean"/>
+        <CallTarget Targets="TestCore:Clean;TestStrings:Clean;TestConv:Clean;TestThreads:Clean;TestHashMaps:Clean;TestFiles:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="TestCore:Make;TestStrings:Make;TestConv:Make;TestHashMaps:Make;TestFiles:Make"/>
+        <CallTarget Targets="TestCore:Make;TestStrings:Make;TestConv:Make;TestThreads:Make;TestHashMaps:Make;TestFiles:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>
