@@ -405,6 +405,146 @@ begin
   EndTest;
 end;
 
+function StackCallerInner:pointer;
+begin
+  result:=Stack.Caller;
+end;
+
+function IntrinsicCaller:pointer;
+begin
+  {$IFDEF FPC}
+  result:=get_caller_addr(get_frame);
+  {$ELSE}
+  result:=System.ReturnAddress;
+  {$ENDIF}
+end;
+
+procedure TestStackCaller;
+var
+  addrAPI,addrIntrinsic:pointer;
+begin
+  StartTest('Stack.Caller');
+
+  addrAPI:=StackCallerInner;
+  addrIntrinsic:=IntrinsicCaller;
+
+  // test API version
+  writeln('  Stack.Caller (API) returned: ',IntToHex(UIntPtr(addrAPI),12));
+  Check(addrAPI<>nil,'Stack.Caller should return non-nil');
+
+  // test intrinsic version
+  writeln('  Intrinsic caller returned: ',IntToHex(UIntPtr(addrIntrinsic),12));
+  Check(addrIntrinsic<>nil,'Intrinsic caller should return non-nil');
+
+  // compare addresses
+  writeln('  API vs Intrinsic diff: ',IntPtr(addrAPI)-IntPtr(addrIntrinsic),' bytes');
+  writeln('  Real caller: ',IntToHex(UIntPtr(@TestStackCaller),12));
+
+  EndTest;
+end;
+
+
+function CaptureStack(out stackTrace:TCallStack):integer;
+begin
+  result:=Stack.Trace(stackTrace,0);
+end;
+
+procedure TestStackTrace;
+var
+  stackTrace:TCallStack;
+  count,i:integer;
+begin
+  StartTest('Stack.Trace');
+
+  // capture stack
+  count:=CaptureStack(stackTrace);
+  writeln('  Stack.Trace captured ',count,' frames:');
+  for i:=0 to count-1 do
+    writeln('    [',i,'] ',IntToHex(UIntPtr(stackTrace[i]),12));
+
+  writeln('  Real proc: ',IntToHex(UIntPtr(@TestStackTrace),12),' -> ',IntToHex(UIntPtr(@CaptureStack),12));
+
+  Check(count>0,'Stack.Trace should capture at least 1 frame');
+  Check(stackTrace[0]<>nil,'First frame should be non-nil');
+
+  // capture with skip
+  count:=Stack.Trace(stackTrace,1);
+  writeln('  Stack.Trace(skip=1) captured ',count,' frames');
+  Check(count>=0,'Stack.Trace with skip should not fail');
+
+  EndTest;
+end;
+
+procedure RaiseTestError;
+begin
+  raise EError.Create('Test error message');
+end;
+
+procedure TestException;
+var
+  msg:string;
+  hasStack:boolean;
+begin
+  StartTest('EBaseException stack trace');
+  // Test checks that EBaseException captures stack trace using Stack.Trace
+
+  try
+    writeln;
+    Writeln('My address: ', IntToHex(UIntPtr(@TestException),12));
+    RaiseTestError;
+    Check(false,'Exception should be raised');
+  except
+    on e:EError do begin
+      msg:=e.Message;
+      writeln('  Exception message: ',msg);
+      
+      // check if message contains stack trace (format: [addr1->addr2->...] message)
+      hasStack:=(Pos('[',msg)=1) and (Pos(']',msg)>1);
+      Check(hasStack,'Exception message should contain stack trace');
+      
+      if hasStack then
+        writeln('  Stack trace found in exception message');
+    end;
+  end;
+
+  EndTest;
+end;
+
+procedure TestExceptionMsg;
+var
+  msg:string;
+  hasStack,hasAddr:boolean;
+begin
+  StartTest('ExceptionMsg function');
+
+  // test with EBaseException
+  try
+    raise EError.Create('Test error');
+  except
+    on e:EError do begin
+      msg:=ExceptionMsg(e);
+      writeln('  EError message: ',msg);
+      hasStack:=(Pos('[',msg)=1) and (Pos(']',msg)>1);
+      Check(hasStack,'ExceptionMsg should return message with stack trace for EBaseException');
+    end;
+  end;
+
+  // test with regular Exception
+  try
+    raise Exception.Create('Regular exception');
+  except
+    on e:Exception do begin
+      msg:=ExceptionMsg(e);
+      writeln('  Regular exception: ',msg);
+      hasAddr:=(Pos('[',msg)=1) and (Pos(']',msg)>1);
+      Check(hasAddr,'ExceptionMsg should add address to regular Exception');
+    end;
+  end;
+
+  EndTest;
+end;
+
+
 begin
   try
     TestMinMax;
@@ -420,6 +560,10 @@ begin
     TestAlignment;
     TestCPU;
     TestHalf;
+    TestStackCaller;
+    TestStackTrace;
+    TestException;
+    TestExceptionMsg;
 
     writeln;
     if testsFailed=0 then

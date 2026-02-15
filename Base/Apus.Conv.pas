@@ -14,51 +14,51 @@ type
   Conv = record
     // === Parse string to value ===
 
-    // Parse integer from string (decimal or hex with $ prefix)
+    // Parse integer from string (decimal or hex with $ prefix). Old name: ParseInt
     class function ToInt(const st:String8):int64; overload; static;
     {$IFDEF UNICODE}
     class function ToInt(const st:UnicodeString):int64; overload; static;
     {$ENDIF}
-    // Parse hex string to integer
+    // Parse hex string to integer. Old name: HexToInt
     class function HexToInt(const st:String8):int64; overload; static;
     {$IFDEF UNICODE}
     class function HexToInt(const st:UnicodeString):int64; overload; static;
     {$ENDIF}
-    // Parse float from string
+    // Parse float from string. Old name: ParseFloat
     class function ToFloat(const st:String8):double; overload; static;
     {$IFDEF UNICODE}
     class function ToFloat(const st:UnicodeString):double; overload; static;
     {$ENDIF}
-    // Parse boolean from string ('true','yes','1','+' -> true)
+    // Parse boolean from string ('true','yes','1','+' -> true). Old name: ParseBool
     class function ToBool(const st:String8):boolean; overload; static;
     {$IFDEF UNICODE}
     class function ToBool(const st:UnicodeString):boolean; overload; static;
     {$ENDIF}
-    // Parse IP address string to cardinal
+    // Parse IP address string to cardinal. Old name: StrToIp
     class function ToIp(const st:String8):cardinal; overload; static;
-    // IP cardinal to string
+    // IP cardinal to string. Old name: IpToStr
     class function ToIp(ip:cardinal):string8; overload; static;
 
     // === Format value to string ===
 
-    // Integer to hex string
+    // Integer to hex string. Old name: FormatHex
     class function ToHex(v:int64;digits:integer=0):String8; static;
-    // Pointer to hex string
+    // Pointer to hex string. Old name: PtrToStr
     class function ToStr(p:pointer):string8; overload; static;
 
     class function ToStr(v:integer):string8; overload; static;
     class function ToStr(v:cardinal):string8; overload; static;
     class function ToStr(v:int64):string8; overload; static;
     class function ToStr(v:uint64):string8; overload; static;
-    // Boolean to string
+    // Boolean to string. Old name: BoolToAStr
     class function ToStr(b:boolean;short:boolean=true):String8; overload; static;
-    // Integer with space separators (1 234 567)
+    // Integer with space separators (1 234 567). Old name: FormatInt
     class function FormatInt(v:int64):string; static;
-    // Money format with space separators
+    // Money format with space separators. Old name: FormatMoney
     class function FormatMoney(v:double;digits:integer=2):string; static;
-    // Size to short string (15.3M, 2.1G, etc)
+    // Size to short string (15.3M, 2.1G, etc). Old name: SizeToStr
     class function FormatSize(size:int64):string; static;
-    // Time interval in ms to string (1.234s, 0d 01:23:45)
+    // Time interval in ms to string (1.234s, 0d 01:23:45). Old name: FormatTime
     class function TimeToStr(timeMs:int64):string; static;
 
     // === Hex encoding (binary data) ===
@@ -79,8 +79,8 @@ type
 
     // === Base64 ===
     // Note: this is NOT standard Base64!
-    class function ToBase64(data:pointer;size:integer):String8; static;
-    class procedure FromBase64(const st:String8;buf:pointer;var size:integer); static;
+    class function ToBase64(data:pointer;size:integer):String8; static; // old name: EncodeB64
+    class procedure FromBase64(const st:String8;buf:pointer;var size:integer); static; // old name: DecodeB64
 
   private
     class function HexCharToInt(ch:AnsiChar):integer; static; inline;

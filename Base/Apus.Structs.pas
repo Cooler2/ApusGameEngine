@@ -13,7 +13,7 @@ unit Apus.Structs;
 {$ENDIF}
 
 interface
-uses Apus.Types, Apus.Common, Classes;
+uses Apus.Core, Apus.Types, Classes;
 
 type
  TErrorState=(

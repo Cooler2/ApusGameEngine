@@ -5,6 +5,7 @@
 {$I defines.inc}
 unit Apus.Core;
 interface
+uses SysUtils;
 
 {$SCOPEDENUMS ON}
 type
@@ -189,6 +190,17 @@ var
 
   procedure SpinLock(var lock:integer); inline;
 
+  // Stack trace support
+  type
+    TCallStack = array[0..3] of pointer; // 4 addresses max
+
+    Stack = record
+      // Get immediate caller address. For fast caller use: {$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF}
+      class function Caller:pointer; static;
+      // Capture call stack frames
+      class function Trace(var frames:TCallStack; skip:integer=0):integer; static;
+    end;
+
 // =============================================================================
 // Cross-platform primitives
 // =============================================================================
@@ -211,6 +223,33 @@ var
   // Error handling
   function GetLastErrorCode:cardinal;
   function GetLastErrorDesc:string;
+
+// =============================================================================
+// Exception classes
+// =============================================================================
+type
+  // Base exception with stack trace support
+  EBaseException=class(Exception)
+  private
+    FAddress:NativeUInt;
+  public
+    constructor Create(const msg:string); overload;
+    constructor Create(const msg:string; fields:array of const); overload;
+    property Address:NativeUInt read FAddress;
+  end;
+
+  // Warning: abnormal situation which doesn't prevent normal operation
+  EWarning=class(EBaseException);
+  // Error: program execution is violated, upper level must handle
+  EError=class(EBaseException);
+  // Fatal error: continuation is impossible, must terminate
+  EFatalError=class(EBaseException);
+
+  // Returns e.Message with exception address and call stack (if available)
+  function ExceptionMsg(const e:Exception):string; overload;
+  // Raise exception with "Not implemented" message
+  procedure NotImplemented(msg:string=''); inline;
+  procedure NotSupported(msg:string=''); inline;
 
 // =============================================================================
 // Mem scope - memory operations
@@ -263,18 +302,67 @@ type
 implementation
 
 uses
+  Apus.Conv,
 {$IFDEF MSWINDOWS}
-  Windows,
+  Windows
 {$ENDIF}
 {$IFDEF UNIX}
   BaseUnix,
-  {$IFDEF LINUX}Linux,{$ENDIF}
+  {$IFDEF LINUX}Linux{$ENDIF}
+{$ENDIF};
+
+{$IFDEF MSWINDOWS}
+function RtlCaptureStackBackTrace(
+  FramesToSkip: Cardinal;
+  FramesToCapture: Cardinal;
+  BackTrace: Pointer;
+  BackTraceHash: PCardinal
+): Word; stdcall; external 'kernel32.dll' name 'RtlCaptureStackBackTrace';
 {$ENDIF}
-  SysUtils;
+
 
 // =============================================================================
-// Standalone functions implementation
+// Stack scope - stack trace utilities
 // =============================================================================
+
+class function Stack.Caller:pointer;
+{$IFDEF MSWINDOWS}
+begin
+  // skip 2 frames: Caller itself + immediate caller
+  if RtlCaptureStackBackTrace(2,1,@result,nil)=0 then
+    result:=nil;
+end;
+{$ELSE}
+begin
+  // skip 2 frames: Caller itself + immediate caller
+  result:=get_caller_addr(get_parent_frame(get_frame));
+end;
+{$ENDIF}
+
+class function Stack.Trace(var frames:TCallStack; skip:integer):integer;
+{$IFDEF MSWINDOWS}
+begin
+  result:=RtlCaptureStackBackTrace(skip,Length(frames),@frames[0],nil);
+end;
+{$ELSE}
+var
+  frame:pointer;
+  i:integer;
+begin
+  result:=0;
+  frame:=get_frame;
+  // skip requested frames
+  for i:=0 to skip do
+    if frame<>nil then frame:=get_parent_frame(frame);
+  // capture stack
+  for i:=0 to High(frames) do begin
+    if frame=nil then break;
+    frames[i]:=get_caller_addr(frame);
+    inc(result);
+    frame:=get_parent_frame(frame);
+  end;
+end;
+{$ENDIF}
 
 procedure SpinLock(var lock:integer); inline;
 begin
@@ -425,6 +513,10 @@ begin
    else result:=Format('CODE %d (%8x)',[code,code]);
 {$ENDIF}
 end;
+
+// =============================================================================
+// Standalone functions implementation
+// =============================================================================
 
 function Min(a,b:integer):integer;
 begin
@@ -1241,6 +1333,55 @@ begin
   freq:=1000000;
 {$ENDIF}
   timerMul:=1.0/freq;
+end;
+
+// =============================================================================
+// EBaseException
+// =============================================================================
+constructor EBaseException.Create(const msg:string);
+var
+  frames:TCallStack;
+  count,i:integer;
+  stackStr:string;
+begin
+  // capture call stack (skip=1 to skip constructor itself)
+  count:=Stack.Trace(frames,1);
+  if count>0 then begin
+    FAddress:=NativeUInt(frames[0]);
+    stackStr:='[';
+    for i:=0 to count-1 do begin
+      stackStr:=stackStr+Conv.ToStr(frames[i]);
+      if i<count-1 then stackStr:=stackStr+'->';
+    end;
+    stackStr:=stackStr+'] ';
+  end else begin
+    FAddress:=0;
+    stackStr:='';
+  end;
+  inherited Create(stackStr+msg);
+end;
+
+constructor EBaseException.Create(const msg:string; fields:array of const);
+begin
+  Create(Format(msg,fields));
+end;
+
+function ExceptionMsg(const e:Exception):string;
+begin
+  if e is EBaseException then
+    result:=e.Message  // already contains stack trace
+  else
+    result:='['+Conv.ToStr(ExceptAddr)+'] '+e.Message;
+end;
+
+procedure NotImplemented(msg:string='');
+begin
+  raise EError.Create('Not implemented: '+msg);
+end;
+
+procedure NotSupported(msg:string='');
+begin
+  raise EError.Create('Not supported: '+msg);
 end;
 
 initialization

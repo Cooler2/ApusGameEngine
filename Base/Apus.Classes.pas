@@ -6,7 +6,7 @@
 
 unit Apus.Classes;
 interface
-uses SysUtils, Apus.Core, Apus.Types;
+uses Apus.Core, Apus.Types;
 
 type
   TObjectEx=class
@@ -34,35 +34,8 @@ type
   TNamedObjectClass=class of TNamedObject;
   TNamedObjects=array of TNamedObject;
 
-  // Base exception with stack trace support
-  TBaseException=class(Exception)
-  private
-    FAddress:NativeUInt;
-  public
-    constructor Create(const msg:string); overload;
-    constructor Create(const msg:string;fields:array of const); overload;
-    property Address:NativeUInt read FAddress;
-  end;
-
-  // Warning should be raised in situations when attention needs to be drawn
-  // to an abnormal situation which nevertheless doesn't prevent normal operation.
-  // No additional actions from upper level required.
-  // (e.g.: procedure couldn't complete but this doesn't break upper level operation)
-  EWarning=class(TBaseException);
-
-  // Regular error - situation when program execution is clearly violated
-  // and continuation is possible only if upper level handles the error and takes measures.
-  // (e.g.: function couldn't perform required actions and didn't return result. Obviously,
-  // normal continuation is possible only if upper level refuses to use the result)
-  EError=class(TBaseException);
-
-  // Fatal error - continuation is impossible, upper level must initiate
-  // program termination. This exception should be used when
-  // error cannot be fixed by upper level.
-  // (e.g.: something detected that shouldn't be possible, i.e. result of data corruption
-  // or algorithm error leading to fundamentally incorrect operation. To avoid
-  // possible data corruption on subsequent calls, should terminate immediately)
-  EFatalError=class(TBaseException);
+  // Exception classes are now in Apus.Core:
+  // TBaseException, EWarning, EError, EFatalError
 
 implementation
 uses Apus.Common,Apus.Structs;
@@ -179,63 +152,6 @@ begin
   if not HasValue(result) then result:=defaultValue;
 end;
 
-{ TBaseException }
-constructor TBaseException.Create(const msg:string);
-{$IFDEF CPU386}
-var
-  stack:string;
-  n,i:integer;
-  adrs:array[1..6] of cardinal;
-{$ENDIF}
-begin
-  {$IFDEF CPU386}
-  asm
-    pushad
-    mov edx,ebp
-    mov ecx,ebp
-    add ecx,$100000 // don't touch stack above EBP+1Mb
-    mov n,0
-    lea edi,adrs
-  @01:
-    mov eax,[edx+4]
-    stosd
-    mov edx,[edx]
-    cmp edx,ebp
-    jb @02
-    cmp edx,ecx
-    ja @02
-    inc n
-    cmp n,3
-    jne @01
-  @02:
-    popad
-  end;
-  stack:='[';
-  for i:=n downto 1 do begin
-    stack:=stack+inttohex(adrs[i],8);
-    if i>1 then stack:=stack+'->';
-  end;
-  inherited Create(stack+'] '+msg);
-  asm
-    mov edx,[ebp+4]
-    mov eax,self
-    mov [eax].FAddress,edx
-  end;
-  {$ELSE}
-    {$IFDEF FPC}
-    FAddress:=NativeUInt(get_caller_addr(get_frame));
-    inherited Create(msg+' caller: '+PtrToStr(pointer(FAddress)));
-    {$ELSE}
-    FAddress:=0;
-    inherited Create(msg);
-    {$ENDIF}
-  {$ENDIF}
-end;
-
-constructor TBaseException.Create(const msg:String;fields:array of const);
-begin
-  Create(Format(msg,fields));
-end;
 
 
 initialization
