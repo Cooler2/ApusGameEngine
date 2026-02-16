@@ -146,7 +146,7 @@ type
 
 
 implementation
- uses SysUtils, Generics.Defaults, Apus.Conv, Apus.Strings;
+ uses SysUtils, Generics.Defaults, Apus.Conv, Apus.Strings, Apus.Utils;
 
 { TBuffer }
 

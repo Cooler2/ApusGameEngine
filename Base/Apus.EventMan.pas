@@ -66,7 +66,7 @@ type
 
 
 implementation
- uses Apus.CrossPlatform, SysUtils, Apus.Common;
+ uses Apus.CrossPlatform, SysUtils, Apus.Log, Apus.Threads, Apus.Classes;
 const
  queueMask = 1023;
 type
@@ -123,7 +123,7 @@ var
 
  links:array[0..255] of PLink;
 
- critSect:TMyCriticalSection;
+ critSect:TLock;
 
 function PackTag(byte0,byte1:byte;byte2:byte=0;byte3:byte=0):TTag; overload;
  begin
@@ -183,15 +183,15 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
      st:=st+Format(#13#10'  %d) (thr:%d) %.8x -> %s:%d ',[i,callerThread,callerIP,event,tag]);
     i:=(i+1) and queueMask;
    end;
-   ForceLogMessage('Thread '+GetThreadName(thread)+' event queue: '+st);
-   st:=''; i:=0; curTime:=MyTickCount;
+   Log.Force('Thread '+GetThreadName(thread)+' event queue: '+st);
+   st:=''; i:=0; curTime:=GetTickCount64;
    while i<delCnt do begin
     with delayed[i] do
      st:=st+Format(#13#10'  %d) (thr:%d) %.8x -> %s:%d at %d',[i,callerThread,callerIP,event,tag,time-curtime]);
     inc(i);
    end;
    if st='' then st:='<empty>';
-   ForceLogMessage('Thread '+GetThreadName(thread)+' delayed event queue: '+st);
+   Log.Force('Thread '+GetThreadName(thread)+' delayed event queue: '+st);
   end;
 
  function Hash(st:TEventStr):byte;
@@ -215,7 +215,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    until false;
    // Если обработчик уже есть - повторно установлен не будет
    try
-    EnterCriticalSection(CritSect);
+    CritSect.Enter;
     if event[length(event)]='\' then SetLength(event,length(event)-1);
 
     if mode<>emInstant then begin
@@ -252,7 +252,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
     handlers[i]:=ph;
 
    finally
-    LeaveCriticalSection(CritSect);
+    CritSect.Leave;
    end;
   end;
 
@@ -261,9 +261,9 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    i:integer;
    ph,prev,next:PHandler;
   begin
-   EnterCriticalSection(CritSect);
+   CritSect.Enter;
    try
-    if stacksize>0 then LogMessage('EventMan: Warning - removing event handler during signal processing, not a good style...',4);
+    if stacksize>0 then Log.Warn('EventMan: Warning - removing event handler during signal processing, not a good style...');
     for i:=0 to 255 do
      if handlers[i]<>nil then begin
       ph:=handlers[i]; prev:=nil;
@@ -281,7 +281,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
       until ph=nil;
      end;
    finally
-    LeaveCriticalSection(CritSect);
+    CritSect.Leave;
    end;
   end;
 
@@ -322,7 +322,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
           with threads[hnd.threadNum] do begin
         if time>0 then begin
          if delcnt>=31 then begin
-          ForceLogMessage('EventMan: thread delayed queue overflow, event: '+ev+', handler: '+inttohex(cardinal(@hnd.handler),8));
+          Log.Force('EventMan: thread delayed queue overflow, event: '+ev+', handler: '+inttohex(cardinal(@hnd.handler),8));
           LogQueueDump;
           Sleep(1000);
           HandleEvent('Error\EventMan\QueueOverflow',cardinal(Thread),0,caller);
@@ -352,7 +352,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
            end;
            break;
           end;
-          if i=0 then ForceLogMessage('EventMan: queue overflow, waiting... Thread='+IntToStr(trID));
+          if i=0 then Log.Force('EventMan: queue overflow, waiting... Thread='+IntToStr(trID));
           inc(i);
           // Сперва подождать...
           if i<50 then begin
@@ -361,13 +361,13 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
            CritSect.Enter;
           end else begin
            first:=(first+1) and queueMask;
-           ForceLogMessage('EventMan: wait finished, event: '+ev+', handler: '+inttohex(cardinal(@hnd.handler),8));
+           Log.Force('EventMan: wait finished, event: '+ev+', handler: '+inttohex(cardinal(@hnd.handler),8));
            LogQueueDump;
            Sleep(500);
            //HandleEvent('Error\EventMan\QueueOverflow',cardinal(Thread),0,caller);
           end;
          end;
-         if i>0 then ForceLogMessage('EventMan: waited '+inttostr(i)+' times');
+         if i>0 then Log.Force('EventMan: waited '+inttostr(i)+' times');
          last:=(last+1) and queueMask;
         end;
       end else begin
@@ -376,17 +376,17 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
       end;
      hnd:=hnd.next;
     end;
-    LeaveCriticalSection(CritSect);
+    CritSect.Leave;
     try
      // Вызовы обработчиков вынесены в безопасный код для достижения реентабельности
      for i:=1 to cnt do
       try
        hndList[i](ev,tag);
       except
-        on e:exception do ForceLogMessage('Error in event handler: '+ev+' - '+ExceptionMsg(e));
+        on e:exception do Log.Force('Error in event handler: '+ev+' - '+Classes.ExceptionMsg(e));
       end;
     finally
-     EnterCriticalSection(CritSect);
+     CritSect.Enter;
     end;
 
     // Обработка связей
@@ -433,11 +433,11 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    {$ELSE}
    callerIP:=0;
    {$ENDIF}
-   EnterCriticalSection(CritSect);
+   CritSect.Enter;
    try
     HandleEvent(event,tag,0,callerIP);
    finally
-    LeaveCriticalSection(CritSect);
+    CritSect.Leave;
    end;
   end;
 
@@ -453,11 +453,11 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    {$ELSE}
    callerIP:=0;
    {$ENDIF}
-   EnterCriticalSection(CritSect);
+   CritSect.Enter;
    try
-    HandleEvent(event,tag,MyTickCount+delay,callerIP);
+    HandleEvent(event,tag,GetTickCount64+delay,callerIP);
    finally
-    LeaveCriticalSection(CritSect);
+    CritSect.Leave;
    end;
   end;
 
@@ -476,7 +476,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    calls:array[1..100] of TCall;
    count:integer;
   begin
-   EnterCriticalSection(CritSect);
+   CritSect.Enter;
    try
     ID:=GetCurrentThreadID;
     count:=0;
@@ -491,7 +491,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
        first:=(first+1) and queueMask;
       end;
       if delcnt>0 then begin
-       t:=MyTickCount; j:=0;
+       t:=GetTickCount64; j:=0;
        while j<delcnt do begin
         if delayed[j].time<t then begin
          if count=100 then break;
@@ -507,13 +507,13 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
       break;
      end;
    finally
-    LeaveCriticalSection(CritSect);
+    CritSect.Leave;
    end;
    for i:=1 to count do try
     calls[i].proc(calls[i].event,calls[i].tag);
     except
-      on e:exception do ForceLogMessage(Format('Error in handling event: %s:%d Thread: %s - %s ',
-        [calls[i].event,calls[i].tag,GetThreadName,ExceptionMsg(e)]));
+      on e:exception do Log.Force(Format('Error in handling event: %s:%d Thread: %s - %s ',
+        [calls[i].event,calls[i].tag,GetThreadName,Classes.ExceptionMsg(e)]));
     end;
   end;
 
@@ -522,7 +522,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    n:byte;
    link:PLink;
   begin
-   EnterCriticalSection(CritSect);
+   CritSect.Enter;
    try
     event:=UpperCase(event);
     n:=Hash(event);
@@ -536,7 +536,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
     link.redirect:=redirect;
     link.keepOriginalTag:=tag=-1;
    finally
-    LeaveCriticalSection(CritSect);
+    CritSect.Leave;
    end;
   end;
 
@@ -560,7 +560,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
   begin
    event:=UpperCase(event);
    n:=Hash(event);
-   EnterCriticalSection(CritSect);
+   CritSect.Enter;
    try
     prev:=nil; link:=links[n];
     if link=nil then exit;
@@ -575,7 +575,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
      end;
     until link=nil;
    finally
-    LeaveCriticalSection(CritSect);
+    CritSect.Leave;
    end;
   end;
 
@@ -585,7 +585,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    prev,link:PLink;
   begin
    event:=UpperCase(event);
-   EnterCriticalSection(CritSect);
+   CritSect.Enter;
    try
     for i:=0 to 255 do
      if links[i]<>nil then begin
@@ -599,7 +599,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
       until link=nil;
      end;
    finally
-    LeaveCriticalSection(CritSect);
+    CritSect.Leave;
    end;
   end;
 
@@ -625,10 +625,10 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
   end;
 
 initialization
- InitCritSect(critSect,'EventMan',300);
+ critSect.Init('EventMan',300);
  SetEventHandler('Event',EventHandler);
 
 finalization
- DeleteCritSect(critSect);
+ critSect.Cleanup;
 end.
 

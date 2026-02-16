@@ -14,13 +14,14 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 | **Apus.HashMaps** | 248 | TestHashMaps | Generic THashMap<T>, extracted from Structs |
 | **Apus.Log** | 373 | — | Unified logging: Log.Msg/Debug/Info/Warn/Error/Fatal, Logger.UseLogFile/Flush. Replaces Common logging + base for Apus.Logging refactor. |
 | **Apus.Threads** | 714 | — | Thread synchronization (TLock with Enter/Leave methods), thread management (RegisterThread/PingThread), utilities (WaitFor). Cross-platform (Windows/Linux). **Solves blocker #1**. |
+| **Apus.Utils** | 280 | — | Misc utilities: ParseDate/ParseTime (date parsing), SplitA (string splitting with quotes), Chop (trim). Default place for functions that don't fit other modules' scope. |
 | **Apus.Lib** | 58 | — | Re-export facade (type aliases for convenient `uses`) |
 
 ## CLEAN — old modules, no Common dependency, no changes needed
 
 | Module | Lines | Notes |
 |--------|-------|-------|
-| **Apus.Types** | 760 | Foundation types, TBuffer, TMyCriticalSection. Level 0. |
+| **Apus.Types** | 760 | Foundation types, TBuffer. Level 0. TEMP: uses Common for ParseDate/SplitA (need extraction). |
 | **Apus.CPU** | 157 | CPU detection, CPUID. Level 0. |
 | **Apus.Crypto** | 430 | MD5, SHA, CRC32. Level 0. |
 | **Apus.ADPCM** | 123 | Audio compression. Level 0. |
@@ -29,6 +30,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 | **Apus.Geom3D** | 2759 | Matrices, quaternions, 3D math. Uses Types only. |
 | **Apus.Structs** | 2612 | Collections, hash tables. Uses Core, Types, Classes. |
 | **Apus.AnimatedValues** | 328 | Animated floats. Uses Tweenings only (but Tweenings uses Common!). |
+| **Apus.EventMan** | 634 | Event system (Signal/Link). Migrated to Log/Threads/Classes. Core infrastructure. |
 
 ## MIGRATE — old modules that use Common, need API call replacement
 
@@ -81,7 +83,6 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 | Module | Lines | What it uses from Common |
 |--------|-------|--------------------------|
 | **Apus.Classes** | 163 | InitCritSect, DeleteCritSect, Enter/LeaveCriticalSection. Circular concern: Classes is Level 1 but needs threading from Common. |
-| **Apus.EventMan** | 634 | LogMessage, ForceLogMessage, InitCritSect, Enter/LeaveCS, MyTickCount. Core infrastructure module. |
 | **Apus.CrossPlatform** | 670 | LogMessage, ForceLogMessage, MyTickCount, InitCritSect, Enter/LeaveCS. Platform abstraction layer. |
 | **Apus.HttpRequests** | 1036 | LogMessage, ForceLogMessage, ExceptionMsg, UrlEncode, MyTickCount, InitCritSect, Enter/LeaveCS, Split |
 | **Apus.ControlFiles** | 1827 | Split, SplitA, Chop, QuoteStr, UnQuoteStr, InitCritSect, Enter/LeaveCS. Heavy string + threading. |
@@ -95,11 +96,11 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 |---------------|---------------------------|------------|
 | **Apus.Log.Memory** (TBD) | Refactor old Apus.Logging into memory log handler that uses new Apus.Log via SetCustomHandler. Extract daily rotation, FetchLog, flood protection, SaveMessages functionality. | ~300 |
 | **Apus.Core** (extend) | Math: FRound, PRound, SRound, FastFloor, Wrap, Ratio, Pike, FastInvSqrt. Bits: GetBits, SetBits. Pack: PackBytes, PackWords, ExtractByte, ExtractWord. Random: TRandom, PseudoRand, RandomInt, RandomStr. Checksum: CalcCheckSum, CheckSum64, FillRandom. | ~400 |
-| **Apus.Conv** (extend) | Date/Time: ParseDate, ParseTime, HowLong, NowGMT, GetUTCTime, MyTickCount, TimeStamp. Encoding: ConvertToWindows/FromWindows, Win1251↔UTF8, BinToStr/StrToBin. | ~300 |
-| **Apus.Strings** (extend) | UTF: EncodeUTF8, DecodeUTF8, Str8, Str16, UStr, WStr, IsUTF8, DecodeUTF8A. String ops still in Common: Split (with quotes), Combine, SplitA, SameChar8/16, SameText16, SafeStrItem, DumpStr. | ~350 |
+| **Apus.Conv** (extend) | Date/Time: HowLong, NowGMT→Time.UTC, GetUTCTime→Time.Stamp, MyTickCount→removed. Encoding: ConvertToWindows/FromWindows, Win1251↔UTF8, BinToStr/StrToBin. | ~200 |
+| **Apus.Strings** (extend) | UTF: EncodeUTF8, DecodeUTF8, Str8, Str16, UStr, WStr, IsUTF8, DecodeUTF8A. String ops: Split (with quotes), Combine, SameChar8/16, SameText16, SafeStrItem, DumpStr. | ~300 |
 | **Apus.Structs** (extend) | Sorting: SortObjects, SortRecordsByDouble/Float/Int, SortStrings, IndexRecordsByFloat. Array helpers: AddString, RemoveString, FindString, AddInteger, RemoveInteger, AddFloat, RemoveFloat, ArrayToStr, StrToArray. | ~350 |
-| ~~**Apus.Threading**~~ | **DONE** — extracted to new module. Threading: InitCritSect, DeleteCritSect, Enter/LeaveCriticalSection, DumpCritSects, RegisterThread, UnregisterThread, PingThread, CheckCritSections, WaitFor. **BLOCKER #1 SOLVED**. | 667 |
-| **??? (new or Common)** | Misc that doesn't fit elsewhere: SimpleEncrypt/2, SimpleCompress/Decompress, PackRLE/UnpackRLE, CreateBackupPatch/ApplyBackupPatch, FillSingleNaN/FillDoubleNaN, Spline functions, ShowMessage/AskYesNo/ErrorMessage, ExceptionMsg, GetCallStack, GetCaller, HasParam/GetParam, GetMemoryState, TestSystemPerformance, performance measurement (StartMeasure/EndMeasure/RunTimer), VarToStr, ParseIntList, etc. | ~500 |
+| ~~**Apus.Threads**~~ | **DONE** — Extracted to new module. **BLOCKER #1 SOLVED**. | 667 |
+| ~~**Apus.Utils**~~ | **DONE** — Created new module. ParseDate/ParseTime, SplitA, Chop extracted. More to add: EncodeUTF8/DecodeUTF8, AddString/etc, HasParam/GetParam, SimpleEncrypt/Compress, etc. | 280 |
 
 ## DEPRECATED — candidates for removal
 

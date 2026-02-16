@@ -305,9 +305,25 @@ Threading primitives and thread management utilities extracted from `Apus.Common
 | `PingThread` | `Thread.Ping` | old function deprecated |
 | `GetThreadName` | `Thread.GetName` | old function deprecated |
 
+## Apus.Utils (miscellaneous utilities)
+
+Functions that don't fit scope of core/conv/strings/files modules.
+
+| Old name (Common) | New name (Utils) | Notes |
+|---|---|---|
+| `ParseDate(st,default)` | `ParseDate(st,default)` | same name - parses DD.MM.YYYY HH:MM:SS and variants |
+| `ParseTime(st,default)` | `ParseTime(st,default)` | same name - parses HH:MM:SS |
+| `GetDateFromStr(st)` | `GetDateFromStr(st)` | alias for ParseDate |
+| `SplitA(divider,st)` | `SplitA(divider,st)` | same name - splits by string divider (whole string, not charset) |
+| `SplitA(divider,st,quotes)` | `SplitA(divider,st,quotes)` | same name - with quote handling |
+| `Chop(st)` | `Chop(st)` or `st.Trim` | both available - trim whitespace |
+
+**Note**: Utils is the default place for functions that don't fit other modules. More functions will be added here (EncodeUTF8/DecodeUTF8, AddString/RemoveString, HasParam/GetParam, etc).
+
 ## Not yet extracted (still only in Apus.Common)
 
 | Function | Notes |
 |---|---|
-| `ParseDate(st)` | date/time parsing |
-| `SplitA(divider,st)` | split by string (not char set) — Strings.Split has different semantics |
+| `EncodeUTF8/DecodeUTF8` | UTF-8 encoding/decoding |
+| `AddString/RemoveString/FindString` | array helpers |
+| `HasParam/GetParam` | command-line arguments |
