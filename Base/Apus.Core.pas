@@ -202,13 +202,14 @@ var
   function PtrInside(ptr,base:pointer;size:UIntPtr):boolean; inline; // check if ptr is inside memory block
 
   var
-    // Global spinlock for short critical sections (can be shared to reduce contention overhead)
-    globalSpinLock:integer=0;
+    // A global shared lock providing very-short-term protection against resource contention
+    // via SpinLock/SpinUnlock (without parameters). Do not modify directly!
+    globalLock:integer=0;
 
   procedure SpinLock(var lock:integer); overload;
-  procedure SpinLock; overload; inline; // uses globalSpinLock
+  procedure SpinLock; overload; inline; // uses globalLock
   procedure SpinUnlock(var lock:integer); overload;
-  procedure SpinUnlock; overload; inline; // uses globalSpinLock
+  procedure SpinUnlock; overload; inline; // uses globalLock
 
   // Stack trace support
   type
@@ -381,7 +382,7 @@ end;
 {$ELSE}
 begin
   // skip 2 frames: Caller itself + immediate caller
-  result:=get_caller_addr(get_parent_frame(get_frame));
+  result:=get_caller_addr(get_caller_frame(get_frame));
 end;
 {$ENDIF}
 
@@ -399,13 +400,13 @@ begin
   frame:=get_frame;
   // skip requested frames
   for i:=0 to skip do
-    if frame<>nil then frame:=get_parent_frame(frame);
+    if frame<>nil then frame:=get_caller_frame(frame);
   // capture stack
   for i:=0 to High(frames) do begin
     if frame=nil then break;
     frames[i]:=get_caller_addr(frame);
     inc(result);
-    frame:=get_parent_frame(frame);
+    frame:=get_caller_frame(frame);
   end;
 end;
 {$ENDIF}
@@ -417,7 +418,7 @@ end;
 
 procedure SpinLock; inline;
 begin
-  while Atomic.CmpExchange(globalSpinLock,1,0)<>0 do Sleep(0);
+  while Atomic.CmpExchange(globalLock,1,0)<>0 do Sleep(0);
 end;
 
 procedure SpinUnlock(var lock:integer); inline;
@@ -427,7 +428,7 @@ end;
 
 procedure SpinUnlock; inline;
 begin
-  Atomic.Exchange(globalSpinLock,0);
+  Atomic.Exchange(globalLock,0);
 end;
 
 // =============================================================================
@@ -1008,10 +1009,10 @@ asm
   mov rcx, rsi        // count
   mov eax, edx        // value
   {$ENDIF}
-  
+
   test rcx, rcx
   jz @done
-  
+
   // Prepare SSE register with replicated value
   movd xmm0, eax
   pshufd xmm0, xmm0, 0  // xmm0 = [value, value, value, value]
@@ -1031,24 +1032,24 @@ asm
   mov rdx, rcx
   shr rdx, 2           // rdx = blocks
   jz @tail
-  
+
   // Process aligned blocks
 @block_loop:
   movdqa [rdi], xmm0
   add rdi, 16
   dec rdx
   jnz @block_loop
-  
+
   // Handle remaining dwords (0-3)
   and rcx, 3
   jz @done
-  
+
 @tail:
   mov [rdi], eax
   add rdi, 4
   dec rcx
   jnz @tail
-  
+
 @done:
   {$IFDEF MSWINDOWS}
   pop rdi
@@ -1066,10 +1067,10 @@ asm
   mov edi, eax        // destination
   mov ebx, ecx        // save value to EBX
   mov ecx, edx        // count
-  
+
   test ecx, ecx
   jz @done
-  
+
   // Prepare SSE register with replicated value
   movd xmm0, ebx
   pshufd xmm0, xmm0, 0  // xmm0 = [value, value, value, value]
@@ -1089,24 +1090,24 @@ asm
   mov edx, ecx
   shr edx, 2           // edx = blocks
   jz @tail
-  
+
   // Process aligned blocks
 @block_loop:
   movdqa [edi], xmm0
   add edi, 16
   dec edx
   jnz @block_loop
-  
+
   // Handle remaining dwords (0-3)
   and ecx, 3
   jz @done
-  
+
 @tail:
   mov [edi], ebx
   add edi, 4
   dec ecx
   jnz @tail
-  
+
 @done:
   pop ebx
   pop edi
@@ -1592,24 +1593,31 @@ end;
 {$ENDIF}
 
 class function Time.Stamp:string8;
+{$IFDEF MSWINDOWS}
 var
   st:TSystemTime;
-  {$IFDEF MSWINDOWS}
   ft:TFileTime;
-  {$ENDIF}
 begin
-  {$IFDEF MSWINDOWS}
   GetPreciseUTCFileTime(ft);
   FileTimeToSystemTime(ft,st);
-  {$ELSE}
-  DateTimeToSystemTime(Time.UTC,st);
-  {$ENDIF}
   // format: HH:MM:SS.mmm
   result:=chr(48+st.wHour div 10)+chr(48+st.wHour mod 10)+':'+
           chr(48+st.wMinute div 10)+chr(48+st.wMinute mod 10)+':'+
           chr(48+st.wSecond div 10)+chr(48+st.wSecond mod 10)+'.'+
           chr(48+st.wMilliseconds div 100)+chr(48+(st.wMilliseconds div 10) mod 10)+chr(48+st.wMilliseconds mod 10);
 end;
+{$ELSE}
+var
+  hour,minute,second,msec:word;
+begin
+  DecodeTime(Time.UTC,hour,minute,second,msec);
+  // format: HH:MM:SS.mmm
+  result:=chr(48+hour div 10)+chr(48+hour mod 10)+':'+
+          chr(48+minute div 10)+chr(48+minute mod 10)+':'+
+          chr(48+second div 10)+chr(48+second mod 10)+'.'+
+          chr(48+msec div 100)+chr(48+(msec div 10) mod 10)+chr(48+msec mod 10);
+end;
+{$ENDIF}
 
 initialization
   CheckCPU;

@@ -115,7 +115,7 @@ end;
 const
   PTRACE_TRACEME = 0;
   PTRACE_DETACH = 17;
-function ptrace(__request:integer; PID: pid_t; Address: Pointer; Data: Longint): longint; cdecl; external libc name 'ptrace';
+function ptrace(__request:integer; PID:longint; Address:Pointer; Data:Longint):longint; cdecl; external 'c' name 'ptrace';
 {$ENDIF}
 {$IFDEF MSWINDOWS}
 function WinAPI_IsDebuggerPresent:LongBool; external 'kernel32.dll' name 'IsDebuggerPresent';
