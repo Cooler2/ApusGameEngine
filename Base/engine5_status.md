@@ -127,6 +127,10 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 9. Migrate all remaining modules (trivial + light group)
 10. Common becomes a thin re-export facade (like Lib) or is removed
 
+## TODO — important tasks
+
+* **TScopedLock in FPC**: Investigate if RAII (Initialize/Finalize operators) can work in FPC. If not possible, remove TScopedLock entirely — engine should only include features that work with both compilers (Delphi + FPC).
+
 ## Would be nice to do (but not required)
 
 * Add EBaseException stack trace in x64 mode (currently works for x86 only)
