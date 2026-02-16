@@ -83,7 +83,7 @@ var
   disableDefault:boolean;
 
   // Flush thread
-  flushThreadHandle:THandle;
+  flushThread:IThread;
   flushThreadActive:boolean;
   terminateFlushThread:boolean;
 
@@ -168,7 +168,7 @@ begin
       end;
     end;
   finally
-    System.LeaveCriticalSection(logCritSect);
+    logLock.Leave;
   end;
 end;
 
@@ -200,7 +200,7 @@ begin
 
   // Track errors
   if level>=TSeverity.Error then
-    AtomicIncrement(logErrorCount);
+    Atomic.Inc(logErrorCount);
 end;
 
 class procedure Log.Msg(msg:String8; params:array of const; category:byte; level:TSeverity);
@@ -277,7 +277,7 @@ var
   age:integer;
 begin
   Logger.Flush;
-  System.EnterCriticalSection(logCritSect);
+  logLock.Enter;
   try
     logFileName:=ExpandFileName(name);
     age:=FileAge(ParamStr(0));
@@ -300,15 +300,11 @@ begin
     // start flush thread if requested
     if useThread and not flushThreadActive then begin
       terminateFlushThread:=false;
-      {$IFDEF FPC}
-      flushThreadHandle := BeginThread(@FlushThreadProc, nil);
-      {$ELSE}
-      flushThreadHandle:=BeginThread(nil,0,@FlushThreadProc,nil,0,TThreadID(flushThreadHandle));
-      {$ENDIF}
+      flushThread:=Thread.Start('LogFlush',@FlushThreadProc,nil);
       flushThreadActive:=true;
     end;
   finally
-    System.LeaveCriticalSection(logCritSect);
+    logLock.Leave;
   end;
 end;
 
@@ -328,7 +324,7 @@ end;
 class procedure Logger.Flush;
 begin
   if logFileName = '' then exit;
-  System.EnterCriticalSection(logCritSect);
+  logLock.Enter;
   try
     if cacheBuf = '' then exit;
     try
@@ -339,7 +335,7 @@ begin
       end;
     end;
   finally
-    System.LeaveCriticalSection(logCritSect);
+    logLock.Leave;
   end;
 end;
 
@@ -352,16 +348,13 @@ end;
 class procedure Logger.StopLogThread;
 begin
   if not flushThreadActive then exit;
-  terminateFlushThread := true;
+  terminateFlushThread:=true;
   // wait for thread to finish (max 1 second)
-  {$IFDEF MSWINDOWS}
-  WaitForSingleObject(flushThreadHandle, 1000);
-  CloseHandle(flushThreadHandle);
-  {$ELSE}
-  // wait for thread termination
-  Sleep(100); // give thread time to finish
-  {$ENDIF}
-  flushThreadActive := false;
+  if flushThread<>nil then begin
+   flushThread.Wait(1000);
+   flushThread:=nil; // release interface
+  end;
+  flushThreadActive:=false;
 end;
 
 class function Logger.GetErrorCount:integer;
@@ -370,13 +363,12 @@ begin
 end;
 
 initialization
-  System.InitCriticalSection(logCritSect);
+  logLock.Init('Log');
 
 finalization
   Logger.StopLogThread;
   Logger.Flush;
   if logAlwaysOpened then
     Close(logFile);
-  System.DoneCriticalSection(logCritSect);
-
+  logLock.Cleanup;
 end.
