@@ -14,6 +14,7 @@
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/)
+
 {$I defines.inc}
 unit Apus.Core;
 interface
@@ -200,7 +201,14 @@ var
 
   function PtrInside(ptr,base:pointer;size:UIntPtr):boolean; inline; // check if ptr is inside memory block
 
-  procedure SpinLock(var lock:integer); inline;
+  var
+    // Global spinlock for short critical sections (can be shared to reduce contention overhead)
+    globalSpinLock:integer=0;
+
+  procedure SpinLock(var lock:integer); overload;
+  procedure SpinLock; overload; inline; // uses globalSpinLock
+  procedure SpinUnlock(var lock:integer); overload;
+  procedure SpinUnlock; overload; inline; // uses globalSpinLock
 
   // Stack trace support
   type
@@ -318,7 +326,23 @@ type
   Time=record
     class function Now:TDateTime; static;  // local time (high-precision)
     class function UTC:TDateTime; static;  // UTC time (high-precision)
-    class function Stamp:string; static;   // HH:MM:SS.mmm for logs
+    class function Stamp:string8; static;   // HH:MM:SS.mmm for logs
+  end;
+
+// =============================================================================
+// Atomic scope - atomic operations for lock-free synchronization
+// =============================================================================
+type
+  Atomic=record
+    // Increment/Decrement - map directly to RTL AtomicIncrement/Decrement
+    class function Inc(var target:longint):longint; overload; static; inline;
+    class function Dec(var target:longint):longint; overload; static; inline;
+    // Add/Sub with custom value - use CmpExchange loop for arbitrary values
+    class function Add(var target:longint; value:longint):longint; static; inline;
+    class function Sub(var target:longint; value:longint):longint; static; inline;
+    // Exchange and CompareExchange - map directly to RTL
+    class function Exchange(var target:longint; value:longint):longint; static; inline;
+    class function CmpExchange(var target:longint; newValue,comparand:longint):longint; static; inline;
   end;
 
 implementation
@@ -386,9 +410,24 @@ begin
 end;
 {$ENDIF}
 
-procedure SpinLock(var lock:integer); inline;
+procedure SpinLock(var lock:integer);
 begin
-  while {$IFDEF FPC}InterLockedCompareExchange{$ELSE}AtomicCmpExchange{$ENDIF}(lock,1,0)<>0 do Sleep(0);
+  while Atomic.CmpExchange(lock,1,0)<>0 do Sleep(0);
+end;
+
+procedure SpinLock; inline;
+begin
+  while Atomic.CmpExchange(globalSpinLock,1,0)<>0 do Sleep(0);
+end;
+
+procedure SpinUnlock(var lock:integer); inline;
+begin
+  Atomic.Exchange(lock,0);
+end;
+
+procedure SpinUnlock; inline;
+begin
+  Atomic.Exchange(globalSpinLock,0);
 end;
 
 // =============================================================================
@@ -425,6 +464,64 @@ begin
 {$ELSE}
   result:=system.GetCurrentThreadID;
 {$ENDIF}
+end;
+
+{ Atomic }
+
+class function Atomic.Inc(var target:longint):longint;
+begin
+ {$IF Declared(AtomicIncrement)}
+ result:=AtomicIncrement(target);
+ {$ELSE}
+ result:=InterlockedIncrement(target);
+ {$ENDIF}
+end;
+
+class function Atomic.Dec(var target:longint):longint;
+begin
+ {$IF Declared(AtomicDecrement)}
+ result:=AtomicDecrement(target);
+ {$ELSE}
+ result:=InterlockedDecrement(target);
+ {$ENDIF}
+end;
+
+class function Atomic.Add(var target:longint; value:longint):longint;
+var
+ old:longint;
+begin
+ repeat
+  old:=target;
+ until CmpExchange(target,old+value,old)=old;
+ result:=old+value;
+end;
+
+class function Atomic.Sub(var target:longint; value:longint):longint;
+var
+ old:longint;
+begin
+ repeat
+  old:=target;
+ until CmpExchange(target,old-value,old)=old;
+ result:=old-value;
+end;
+
+class function Atomic.Exchange(var target:longint; value:longint):longint;
+begin
+ {$IF Declared(AtomicExchange)}
+ result:=AtomicExchange(target,value);
+ {$ELSE}
+ result:=InterlockedExchange(target,value);
+ {$ENDIF}
+end;
+
+class function Atomic.CmpExchange(var target:longint; newValue,comparand:longint):longint;
+begin
+ {$IF Declared(AtomicCmpExchange)}
+ result:=AtomicCmpExchange(target,newValue,comparand);
+ {$ELSE}
+ result:=InterlockedCompareExchange(target,newValue,comparand);
+ {$ENDIF}
 end;
 
 {$IFDEF UNIX}
@@ -1494,7 +1591,7 @@ begin
 end;
 {$ENDIF}
 
-class function Time.Stamp:string;
+class function Time.Stamp:string8;
 var
   st:TSystemTime;
   {$IFDEF MSWINDOWS}
