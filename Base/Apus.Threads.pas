@@ -143,7 +143,7 @@ type
     class procedure Register(const name:string; handle:THandle=0); static;
     class procedure Unregister; static;
     class procedure Ping; static;
-    class function GetName(threadID:cardinal=0):string; static;
+    class function GetName(threadID:TThreadID=0):string; static;
     class procedure DumpRegistered; static; // dump all registered threads to log
     class procedure DumpLocks; static; // dump all locks state to log
     class procedure CheckTimeouts; static; // check for lock timeouts
@@ -302,7 +302,7 @@ const
 PTRACE_GETREGS = 12;
 PTRACE_ATTACH = 16;
 PTRACE_DETACH = 17;
-function ptrace(__request:integer; PID: pid_t; Address: Pointer; Data: Longint): longint; cdecl; external libc name 'ptrace';
+function ptrace(__request:integer; PID:longint; Address:Pointer; Data:Longint):longint; cdecl; external 'c' name 'ptrace';
 
 function GetThreadStateInfo(id:TThreadID):string;
 var
@@ -312,7 +312,7 @@ begin
   r1:=ptrace(PTRACE_ATTACH,id,nil,0);
   if r1=-1 then Log.Msg(IntToStr(fpGetErrno));
   r2:=ptrace(PTRACE_GETREGS,id,nil,UIntPtr(@regs));
-  if r2=-1 then Log.Msg(GetSystemError);
+  if r2=-1 then Log.Msg(IntToStr(fpGetErrno));
   r3:=ptrace(PTRACE_DETACH,id,nil,0);
   Log.Msg('REGS: %d %x %x %x',[id,r1,r2,r3]);
 end;
@@ -872,7 +872,7 @@ begin
   end;
 end;
 
-class function Thread.GetName(threadID:cardinal=0):string;
+class function Thread.GetName(threadID:TThreadID=0):string;
 var
   id:TThreadID;
   i:integer;
@@ -884,7 +884,7 @@ begin
   SpinLock;
   try
     for i:=0 to high(threads) do
-      if cardinal(threads[i]^.ID)=id then begin
+      if threads[i]^.ID=id then begin
         result:=threads[i]^.uniqueName;
         exit;
       end;

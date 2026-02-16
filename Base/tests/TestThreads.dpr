@@ -1,6 +1,7 @@
 {$APPTYPE CONSOLE}
 program TestThreads;
 uses
+  {$IFDEF UNIX}cthreads,{$ENDIF}
   SysUtils, Classes,
   {$IFDEF MSWINDOWS}Windows,{$ENDIF}
   Apus.Core,
