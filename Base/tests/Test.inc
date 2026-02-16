@@ -70,6 +70,17 @@ begin
   end;
 end;
 
+// simple timer stubs (replace with proper implementation if needed)
+procedure StartTimer(var timer:int64); inline;
+begin
+  timer:=GetTickCount64;
+end;
+
+function TimerSec(const timer:int64):double; inline;
+begin
+  result:=(GetTickCount64-timer)/1000.0;
+end;
+
 procedure StartBench(const name:string; iterations:integer=0);
 var
   s:string;

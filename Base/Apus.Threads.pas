@@ -26,7 +26,7 @@ type
   // Enhanced critical section with debug support and deadlock detection
   // Use lock.Init/Cleanup to initialize/finalize
   // Use lock.Enter/Leave for locking
-  TLock=packed record
+  TLock=record
   private
     crs:TRTLCriticalSection;
     caller:UIntPtr;     // address where lock was attempted
@@ -140,7 +140,7 @@ type
   // Thread management scope
   Thread=record
     class function Start(const name:String8; proc:TThreadProc; parameter:pointer=nil):IThread; static;
-    class procedure Register(const name:string); static;
+    class procedure Register(const name:string; handle:THandle=0); static;
     class procedure Unregister; static;
     class procedure Ping; static;
     class function GetName(threadID:cardinal=0):string; static;
@@ -188,6 +188,7 @@ TThreadStartData=record
   proc:TThreadProc;
   parameter:pointer;
   name:String8;
+  handle:THandle; // thread handle (Windows) or 0 (POSIX)
 end;
 
 {$IFDEF MSWINDOWS}
@@ -198,24 +199,9 @@ function WaitOnAddress(Address:pointer; CompareAddress:pointer; AddressSize:Nati
   stdcall; external 'API-MS-Win-Core-Synch-l1-2-0.dll' name 'WakeByAddressSingle';
 {$ENDIF}
 
-// Local helper functions (to avoid dependency on Apus.Common)
-
-function ExceptionMsg(const e:Exception):string;
-begin
-  result:=e.ClassName+': '+e.Message;
-  // note: full implementation with stack trace is in Apus.Common
-end;
-
-{$IFDEF MSWINDOWS}
-function IsDebuggerPresent:boolean;
-begin
-  result:=Windows.IsDebuggerPresent;
-end;
-{$ELSE}
-function IsDebuggerPresent:boolean;
-begin
-  result:=false;
-end;
+{$IFDEF UNIX}
+// pthread_join for POSIX thread wait (TThreadID is pthread_t on POSIX)
+function pthread_join(thread:TThreadID; value_ptr:Ppointer):longint; cdecl; external 'pthread';
 {$ENDIF}
 
 type
@@ -223,8 +209,10 @@ type
   TThreadImpl=class(TInterfacedObject,IThread)
   private
     FThreadID:TThreadID;
+    FHandle:THandle; // Windows handle or 0 for POSIX (uses threadID)
   public
-    constructor Create(threadID:TThreadID);
+    constructor Create(threadID:TThreadID; handle:THandle);
+    destructor Destroy; override;
     // IThread implementation
     procedure Wait(timeout:cardinal=$FFFFFFFF);
     procedure Terminate;
@@ -686,12 +674,14 @@ var
   data:PThreadStartData;
   userProc:TThreadProc;
   userParam:pointer;
+  threadHandle:THandle;
 begin
   data:=PThreadStartData(param);
   userProc:=data^.proc;
   userParam:=data^.parameter;
+  threadHandle:=data^.handle;
 
-  Thread.Register(data^.name);
+  Thread.Register(data^.name,threadHandle);
   Dispose(data);
 
   try
@@ -716,16 +706,22 @@ begin
   // start thread with wrapper
   {$IFDEF FPC}
   threadID:=BeginThread(@ThreadStartWrapper,data);
-  handle:=0; // FPC doesn't return handle, will be set in Register
+  {$IFDEF MSWINDOWS}
+  handle:=threadID; // FPC on Windows: threadID is handle
+  {$ELSE}
+  handle:=0; // FPC on POSIX: threadID is pthread_t, use pthread_join
+  {$ENDIF}
   {$ELSE}
   handle:=BeginThread(nil,0,@ThreadStartWrapper,data,0,threadID);
   {$ENDIF}
 
+  data^.handle:=handle;
+
   // create and return interface
-  result:=TThreadImpl.Create(threadID);
+  result:=TThreadImpl.Create(threadID,handle);
 end;
 
-class procedure Thread.Register(const name:string);
+class procedure Thread.Register(const name:string; handle:THandle=0);
 var
   i:integer;
   threadID:TThreadID;
@@ -746,7 +742,7 @@ begin
   data^.lastPing:=0;
   data^.terminating:=false;
   data^.paused:=false;
-  data^.handle:=0;
+  data^.handle:=handle;
   {$IFDEF UNIX}
   data^.tid:=Do_syscall(syscall_nr_gettid); // syscall outside lock
   extra:='tid: '+IntToStr(data^.tid);
@@ -1076,33 +1072,31 @@ end;
 
 { TThreadImpl }
 
-constructor TThreadImpl.Create(threadID:TThreadID);
+constructor TThreadImpl.Create(threadID:TThreadID; handle:THandle);
 begin
   inherited Create;
   FThreadID:=threadID;
+  FHandle:=handle;
+end;
+
+destructor TThreadImpl.Destroy;
+begin
+  {$IFDEF MSWINDOWS}
+  if FHandle<>0 then
+    CloseHandle(FHandle);
+  {$ENDIF}
+  inherited;
 end;
 
 procedure TThreadImpl.Wait(timeout:cardinal);
-var
-  data:PThreadData;
 begin
-  SpinLock;
-  try
-    data:=FindThreadData(FThreadID);
-    if data=nil then exit; // thread already finished
-  finally
-    SpinUnlock;
-  end;
-
   {$IFDEF MSWINDOWS}
-  if data^.handle<>0 then
-    WaitForSingleObject(data^.handle,timeout);
+  if FHandle<>0 then
+    WaitForSingleObject(FHandle,timeout);
   {$ELSE}
-  // POSIX: no direct way to wait by TThreadID, use polling
-  // TThread.WaitFor would work if we stored TThread reference
-  // For now, simple polling
-  while FindThreadData(FThreadID)<>nil do
-    Sleep(10);
+  // POSIX: use pthread_join (FThreadID is pthread_t)
+  // Note: pthread_join doesn't support timeout, waits indefinitely
+  pthread_join(FThreadID,nil);
   {$ENDIF}
 end;
 
@@ -1121,23 +1115,14 @@ begin
 end;
 
 procedure TThreadImpl.Kill;
-var
-  data:PThreadData;
 begin
-  SpinLock;
-  try
-    data:=FindThreadData(FThreadID);
-    if (data<>nil) and (data^.handle<>0) then begin
-      {$IFDEF MSWINDOWS}
-      TerminateThread(data^.handle,0);
-      {$ELSE}
-      // POSIX: no safe way to force kill
-      raise EError.Create('Kill not supported on this platform');
-      {$ENDIF}
-    end;
-  finally
-    SpinUnlock;
-  end;
+  {$IFDEF MSWINDOWS}
+  if FHandle<>0 then
+    TerminateThread(FHandle,0);
+  {$ELSE}
+  // POSIX: no safe way to force kill
+  raise EError.Create('Kill not supported on this platform');
+  {$ENDIF}
 end;
 
 procedure TThreadImpl.Pause;
