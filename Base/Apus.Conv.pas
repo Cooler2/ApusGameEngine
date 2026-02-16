@@ -1,4 +1,4 @@
-// Data conversion and formatting - parsing and serialization of basic types
+﻿// Data conversion and formatting - parsing and serialization of basic types
 //
 // SCOPE: Converting between strings and basic data types (numbers, booleans, IPs, etc.)
 // and formatting values for display/logging. Used by applications that need to parse
@@ -14,8 +14,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 
-{$IFDEF FPC}{$MODE DELPHI}{$ENDIF}
-{$IFDEF CPUX64}{$DEFINE CPU64}{$ENDIF}
+{$I defines.inc}
 
 unit Apus.Conv;
 interface
