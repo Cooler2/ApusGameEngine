@@ -18,7 +18,7 @@
 {$I defines.inc}
 unit Apus.Threads;
 interface
-uses Apus.Core{$IFDEF MSWINDOWS}, Windows{$ENDIF};
+uses Apus.Core, SysUtils{$IFDEF MSWINDOWS}, Windows{$ENDIF};
 
 type
   PLock=^TLock;
@@ -92,36 +92,27 @@ type
   // Thread function type
   TThreadProc=function(parameter:pointer):UIntPtr;
 
-  // Forward declarations
-  PThreadData=^TThreadData;
-
-  // Global thread data stored in threads[] array
-  TThreadData=record
-    ID:TThreadID;
-    handle:THandle; // thread handle for waiting
-    name:string8; // original name
-    uniqueName:string8; // name with auto-generated suffix if needed
-    pingCounter:integer; // how many times responded
-    firstPing:integer; // time of first response
-    lastPing:integer; // time of last response
-    lastCS:PLock; // last critical section acquired in this thread
-    terminating:LongBool; // atomic termination flag
-    paused:LongBool; // atomic pause flag
-    {$IFDEF UNIX}
-    tid:cardinal;
-    {$ENDIF}
-    function GetStateInfo:string; // get thread state (call stack etc)
-  end;
+  {$SCOPEDENUMS ON}
+  // Thread completion status (use as TThreadStatus.Running etc.)
+  TThreadStatus=(Running, Finished, Error);
 
   // Thread context accessible from within thread procedure (NOT interface - simple record)
+  // Use CurrentThread to access the context inside a thread procedure
+  // TThreadData is internal - not exposed in interface
   TThreadContext=record
   private
-    FData:PThreadData; // direct pointer to thread data
+    data:pointer; // PThreadData - internal type kept in implementation
   public
-    function Terminating:boolean; inline;
-    function Paused:boolean; inline;
-    function Name:String8; inline;
-    function ID:TThreadID; inline;
+    function Terminating:boolean;
+    function Paused:boolean;
+    function Name:String8;
+    function ID:TThreadID;
+    // Status setters - call from within thread procedure to update status
+    procedure SetProgress(p:single);             // progress 0..1
+    procedure SetStatusText(const txt:String8);  // spinlock-protected
+    procedure SetResult(const data:TBytes);      // single write only
+    procedure SetObject(obj:TObject);            // set custom result object
+    procedure SetError(const msg:String8);       // set error status + message
   end;
 
   // Thread control interface for thread creator
@@ -133,8 +124,18 @@ type
     function GetName:String8;
     function GetID:TThreadID;
     function IsRunning:boolean;
+    // Status polling
+    function GetStatus:TThreadStatus;
+    function GetStatusText:String8;    // spinlock-protected
+    function GetProgress:single;
+    function GetResultData:TBytes;     // valid after status=Finished
+    function TakeObject:TObject;       // take custom object (transfers ownership, clears internal ref)
     property Name:String8 read GetName;
     property ID:TThreadID read GetID;
+    property Status:TThreadStatus read GetStatus;
+    property StatusText:String8 read GetStatusText;
+    property Progress:single read GetProgress;
+    property ResultData:TBytes read GetResultData;
   end;
 
   // Thread management scope
@@ -154,7 +155,7 @@ type
   {$IFDEF DELPHI}
   // RAII lock (Delphi 10.4+ only)
   TScopedLock = record
-    FLock: PLock;
+    lock: PLock;
     class function Create(ALock: PLock): TScopedLock; static;
     class operator Initialize(out Dest: TScopedLock);
     class operator Finalize(var Dest: TScopedLock);
@@ -173,23 +174,13 @@ threadvar
 
 // Configuration
 implementation
-uses SysUtils, Classes, Apus.Conv, Apus.Log
+uses Classes, Apus.Strings, Apus.Conv, Apus.Log
     {$IFDEF UNIX}, unixtype, BaseUnix, Syscall{$ENDIF}
     {$IFDEF IOS}, iphoneAll{$ENDIF}
     {$IFDEF ANDROID}, Apus.Android{$ENDIF};
 
 const
   INFINITE = $FFFFFFFF; // timeout constant (same as Windows INFINITE)
-
-type
-// Thread start wrapper data
-PThreadStartData=^TThreadStartData;
-TThreadStartData=record
-  proc:TThreadProc;
-  parameter:pointer;
-  name:String8;
-  handle:THandle; // thread handle (Windows) or 0 (POSIX)
-end;
 
 {$IFDEF MSWINDOWS}
 // WaitOnAddress API (Windows 8+)
@@ -205,15 +196,54 @@ function pthread_join(thread:TThreadID; value_ptr:Ppointer):longint; cdecl; exte
 {$ENDIF}
 
 type
+  // Internal thread registry entry (not exposed in interface section)
+  PThreadData=^TThreadData;
+  TThreadData=record
+    ID:TThreadID;
+    handle:THandle;     // thread handle for waiting
+    name:String8;       // original name (may contain pattern)
+    uniqueName:String8; // resolved name with auto-generated suffix if needed
+    pingCounter:integer;  // how many times responded
+    firstPing:integer;    // time of first response
+    lastPing:integer;     // time of last response
+    lastCS:PLock;         // last critical section acquired in this thread
+    terminating:LongBool; // atomic termination flag
+    paused:LongBool;      // atomic pause flag
+    implPtr:pointer;      // TThreadImpl pointer for status updates (raw - avoids forward declaration)
+    {$IFDEF UNIX}
+    tid:cardinal;
+    {$ENDIF}
+    function GetStateInfo:String8; // get thread state (call stack etc)
+  end;
+
+  // Thread start wrapper data
+  PThreadStartData=^TThreadStartData;
+  TThreadStartData=record
+    proc:TThreadProc;
+    parameter:pointer;
+    threadData:PThreadData; // pre-allocated, added to threads[] by Thread.Start
+    impl:TObject;           // TThreadImpl (raw object ref - avoids premature free via interface)
+  end;
+
+
   // Lightweight thread handle implementation
   TThreadImpl=class(TInterfacedObject,IThread)
   private
-    FThreadID:TThreadID;
-    FHandle:THandle; // Windows handle or 0 for POSIX (uses threadID)
+    threadID:TThreadID;
+    handle:THandle;             // Windows handle or 0 for POSIX (uses threadID)
+    name:String8;               // cached at creation, valid after thread exits
+    status:TThreadStatus;       // written atomically (thread writes, creator reads)
+    statusText:String8;         // spinlock-protected (may be written/read many times)
+    statusTextLock:integer;     // 0=free, 1=locked
+    progress:single;            // 4-byte aligned, safe without explicit lock
+    resultData:TBytes;          // single write only (written before Finished)
+    resultWritten:boolean;      // guard for single-write enforcement
+    customObject:TObject;       // arbitrary result object (creator takes ownership via TakeObject)
+    keepAlive:IThread;          // holds self alive while thread is running
   public
-    constructor Create(threadID:TThreadID; handle:THandle);
+    constructor Create(const aName:String8);
     destructor Destroy; override;
-    // IThread implementation
+    // IThread: control
     procedure Wait(timeout:cardinal=$FFFFFFFF);
     procedure Terminate;
     procedure Kill;
@@ -221,6 +251,19 @@ type
     function GetName:String8;
     function GetID:TThreadID;
     function IsRunning:boolean;
+    // IThread: status polling
+    function GetStatus:TThreadStatus;
+    function GetStatusText:String8;
+    function GetProgress:single;
+    function GetResultData:TBytes;
+    function TakeObject:TObject;
+    // Internal setters (called from TThreadContext methods)
+    procedure IntSetProgress(p:single);
+    procedure IntSetStatusText(const txt:String8);
+    procedure IntSetResult(const data:TBytes);
+    procedure IntSetObject(obj:TObject);
+    procedure IntSetError(const msg:String8);
+    procedure IntFinish; // mark Finished, release keepAlive
   end;
 
 var
@@ -242,7 +285,7 @@ var
 function OpenThread(DesiredAccess: DWORD; InheritHandle: BOOL; ThreadID: DWORD): THandle;
 stdcall; external 'kernel32.dll' {$IFNDEF FPC}delayed{$ENDIF};
 
-function GetThreadStateInfo(id:TThreadID):string;
+function GetThreadStateInfo(id:TThreadID):string8;
 const
   THREAD_GET_CONTEXT       = 08;
   THREAD_SUSPEND_RESUME    = 02;
@@ -251,7 +294,7 @@ var
   context:^TContext; // use dynamic variable to make sure it's 16-byte aligned (important!)
   susp:integer;
   _ip,_bp,sbp:NativeUInt;
-  st:string;
+  st:string8;
   i:integer;
   p:pointer;
 begin
@@ -262,35 +305,35 @@ begin
   New(context);
   context.ContextFlags:=$00010007;
   if GetThreadContext(handle,context^) then begin
-  {$IFDEF CPUX64}
-  _ip:=context.Rip;
-  _bp:=context.Rbp;
-  sbp:=_bp;
-  p:=pointer(PUInt64(_bp-8)^);
-  st:=Conv.ToStr(p)+'<-';
-  for i:=1 to 2 do begin
-    inc(_bp,$20);
-    p:=pointer(_bp+8);
-    p:=pointer(PUInt64(p)^);
-    if p=nil then break;
-    st:=st+Conv.ToStr(p)+'<-';
-    _bp:=PUInt64(_bp)^;
-    if (_bp>sbp+$1000) or (_bp<sbp) then break;
-  end;
-  {$ENDIF}
-  {$IFDEF CPU386}
-  _ip:=context.Eip;
-  _bp:=context.Ebp;
-  for i:=1 to 3 do begin
-    p:=pointer(_bp+4);
-    if p=nil then break;
-    p:=pointer(PCardinal(p)^);
-    if p=nil then break;
-    st:=st+Conv.ToStr(p)+'<-';
-    _bp:=PCardinal(_bp)^;
-  end;
-  {$ENDIF}
-  result:=Format('stack: %s ip=%x bp=%x',[st,_ip,sbp]);
+    {$IFDEF CPUX64}
+    _ip:=context.Rip;
+    _bp:=context.Rbp;
+    sbp:=_bp;
+    p:=pointer(PUInt64(_bp-8)^);
+    st:=Conv.ToStr(p)+'<-';
+    for i:=1 to 2 do begin
+      inc(_bp,$20);
+      p:=pointer(_bp+8);
+      p:=pointer(PUInt64(p)^);
+      if p=nil then break;
+      st:=st+Conv.ToStr(p)+'<-';
+      _bp:=PUInt64(_bp)^;
+      if (_bp>sbp+$1000) or (_bp<sbp) then break;
+    end;
+    {$ENDIF}
+    {$IFDEF CPU386}
+    _ip:=context.Eip;
+    _bp:=context.Ebp;
+    for i:=1 to 3 do begin
+      p:=pointer(_bp+4);
+      if p=nil then break;
+      p:=pointer(PCardinal(p)^);
+      if p=nil then break;
+      st:=st+Conv.ToStr(p)+'<-';
+      _bp:=PCardinal(_bp)^;
+    end;
+    {$ENDIF}
+    result:=UTF8.Format('stack: %s ip=%x bp=%x',[st,_ip,sbp]);
   end else
     result:=GetLastErrorDesc;
   Dispose(context);
@@ -310,9 +353,9 @@ var
   regs:array[0..199] of UInt64;
 begin
   r1:=ptrace(PTRACE_ATTACH,id,nil,0);
-  if r1=-1 then Log.Msg(IntToStr(fpGetErrno));
+  if r1=-1 then Log.Msg(Conv.ToStr(fpGetErrno));
   r2:=ptrace(PTRACE_GETREGS,id,nil,UIntPtr(@regs));
-  if r2=-1 then Log.Msg(IntToStr(fpGetErrno));
+  if r2=-1 then Log.Msg(Conv.ToStr(fpGetErrno));
   r3:=ptrace(PTRACE_DETACH,id,nil,0);
   Log.Msg('REGS: %d %x %x %x',[id,r1,r2,r3]);
 end;
@@ -322,16 +365,16 @@ begin
 end;
 {$ENDIF}
 
-function TThreadData.GetStateInfo: string;
+function TThreadData.GetStateInfo: string8;
 var
-  st:string;
+  st:string8;
 begin
-  result:=Format('%s (%d)',[uniqueName,ID]);
+  result:=UTF8.Format('%s (%d)',[uniqueName,ID]);
   st:=GetThreadStateInfo(ID);
   if st<>'' then result:=result+' '+st;
-  if lastCS<>nil then result:=result+Format(' lastCS=%s (%d)',[lastCS.name,lastCS.lockCount]);
+  if lastCS<>nil then
+    result:=result+UTF8.Format(' lastCS=%s (%d)',[lastCS.name,lastCS.lockCount]);
 end;
-
 
 { TLock }
 
@@ -398,7 +441,7 @@ begin
       tryingThread:=threadID;
       caller:=PtrUInt(callerAddr);
     end;
-    if timeout=0 then timeout:=Apus.Core.Time.Ticks+5000;
+    if timeout=0 then timeout:=Apus.Core.CoreTime.Ticks+5000;
   end else // first attempt
   if debugCriticalSections then begin
     SpinLock;
@@ -414,8 +457,8 @@ begin
     SpinUnlock;
     if trIdx=0 then raise EError.Create('Trying to enter CS '+name+' from unregistered thread');
     if level<=lastLevel then
-      raise EError.Create(Format('Trying to enter CS %s with level %d within section %s with level %d',
-        [name,level,prevSection.name,lastLevel]));
+      raise EError.Create('Trying to enter CS %s with level %d within section %s with level %d',
+        [name,level,prevSection.name,lastLevel]);
   end;
 
   {$IFDEF MSWINDOWS}
@@ -598,9 +641,9 @@ begin
   result:=WaitOnAddress(@state,@expected,sizeof(integer),timeoutMs);
   {$ELSE}
   // Linux: futex wait - требует syscall, пока простая реализация
-  startTime:=Time.Ticks;
-  while (state=0) and ((timeoutMs=INFINITE) or (Time.Ticks-startTime<timeoutMs)) do
-    Sleep(1);
+  startTime:=CoreTime.Ticks;
+  while (state=0) and ((timeoutMs=INFINITE) or (CoreTime.Ticks-startTime<timeoutMs)) do
+    CoreTime.Sleep(1);
   result:=state=1;
   {$ENDIF}
 end;
@@ -637,7 +680,7 @@ begin
       threadNameCounters[counter].counter:=0;
     end;
     inc(threadNameCounters[counter].counter);
-    result:=pattern+IntToStr(threadNameCounters[counter].counter);
+    result:=pattern+Conv.ToStr(threadNameCounters[counter].counter);
     exit;
   end;
 
@@ -649,7 +692,7 @@ begin
     SetLength(used,100); // reasonable limit
     for i:=0 to high(threads) do
       if Copy(threads[i]^.uniqueName,1,Length(pattern))=pattern then begin
-        counter:=StrToIntDef(Copy(threads[i]^.uniqueName,Length(pattern)+1,10),-1);
+        counter:=Conv.ToInt(Copy(threads[i]^.uniqueName,Length(pattern)+1,10),-1);
         if (counter>=1) and (counter<Length(used)) then
           used[counter]:=true;
       end;
@@ -660,7 +703,7 @@ begin
         minFree:=i;
         break;
       end;
-    result:=pattern+IntToStr(minFree);
+    result:=pattern+Conv.ToStr(minFree);
     exit;
   end;
 
@@ -668,60 +711,8 @@ begin
   result:=name;
 end;
 
-// Thread wrapper for automatic registration/unregistration
-function ThreadStartWrapper(param:pointer):UIntPtr;
-var
-  data:PThreadStartData;
-  userProc:TThreadProc;
-  userParam:pointer;
-  threadHandle:THandle;
-begin
-  data:=PThreadStartData(param);
-  userProc:=data^.proc;
-  userParam:=data^.parameter;
-  threadHandle:=data^.handle;
-
-  Thread.Register(data^.name,threadHandle);
-  Dispose(data);
-
-  try
-    result:=userProc(userParam);
-  finally
-    Thread.Unregister;
-  end;
-end;
-
-class function Thread.Start(const name:String8; proc:TThreadProc; parameter:pointer):IThread;
-var
-  data:PThreadStartData;
-  threadID:TThreadID;
-  handle:THandle;
-begin
-  // create wrapper data
-  data:=New(PThreadStartData);
-  data^.proc:=proc;
-  data^.parameter:=parameter;
-  data^.name:=name;
-
-  // start thread with wrapper
-  {$IFDEF FPC}
-  threadID:=BeginThread(@ThreadStartWrapper,data);
-  {$IFDEF MSWINDOWS}
-  handle:=threadID; // FPC on Windows: threadID is handle
-  {$ELSE}
-  handle:=0; // FPC on POSIX: threadID is pthread_t, use pthread_join
-  {$ENDIF}
-  {$ELSE}
-  handle:=BeginThread(nil,0,@ThreadStartWrapper,data,0,threadID);
-  {$ENDIF}
-
-  data^.handle:=handle;
-
-  // create and return interface
-  result:=TThreadImpl.Create(threadID,handle);
-end;
-
-class procedure Thread.Register(const name:string; handle:THandle=0);
+// Internal: add current thread to registry; name may contain pattern (resolved inside lock)
+procedure RegisterThread(const name:String8; handle:THandle; implObj:pointer);
 var
   i:integer;
   threadID:TThreadID;
@@ -743,9 +734,10 @@ begin
   data^.terminating:=false;
   data^.paused:=false;
   data^.handle:=handle;
+  data^.implPtr:=implObj;
   {$IFDEF UNIX}
   data^.tid:=Do_syscall(syscall_nr_gettid); // syscall outside lock
-  extra:='tid: '+IntToStr(data^.tid);
+  extra:='tid: '+Conv.ToStr(data^.tid);
   {$ENDIF}
 
   SpinLock;
@@ -757,17 +749,15 @@ begin
         exit;
       end;
 
-    // generate unique name (needs access to threads[] and threadNameCounters[])
+    // resolve unique name
     uniqueName:=MakeUniqueName(name);
     data^.uniqueName:=uniqueName;
 
-    // add to array
-    i:=length(threads);
-    SetLength(threads,i+1);
-    threads[i]:=data;
+    // add to registry
+    threads:=threads+[data];
 
     // initialize CurrentThread context
-    CurrentThread.FData:=data;
+    CurrentThread.data:=data;
   finally
     SpinUnlock;
   end;
@@ -778,10 +768,10 @@ begin
   // set debugger name outside lock
   {$IFDEF DELPHI}
   {$IF Declared(TThread.NameThreadForDebugging)}
-  TThread.NameThreadForDebugging(data^.uniqueName);
+  TThread.NameThreadForDebugging(uniqueName);
   {$ENDIF}
   {$ELSE}
-  TThread.NameThreadForDebugging(data^.uniqueName);
+  TThread.NameThreadForDebugging(uniqueName);
   {$ENDIF}
 
   {$IFDEF ANDROID}
@@ -789,7 +779,8 @@ begin
   {$ENDIF}
 end;
 
-class procedure Thread.Unregister;
+// Internal: remove current thread from registry, notify impl
+procedure UnregisterThread;
 var
   i,n:integer;
   id:TThreadID;
@@ -817,15 +808,150 @@ begin
 
   // Cleanup outside lock (Dispose + Log can be slow)
   if data<>nil then begin
-    Log.Msg('Thread '+threadName+' unregistered');
+    Log.Msg('Thread %s unregistered',[threadName]);
     {$IFDEF ANDROID}
     AndroidDoneThread;
     {$ENDIF}
+    // notify impl: thread finished, release self-reference
+    if data^.implPtr<>nil then
+      TThreadImpl(data^.implPtr).IntFinish;
     Dispose(data);
   end;
 
   // clear current thread context
-  CurrentThread.FData:=nil;
+  CurrentThread.data:=nil;
+end;
+
+// Thread wrapper: called in context of new thread, fills in ID/tid, runs user proc
+function ThreadStartWrapper(param:pointer):UIntPtr;
+var
+  startData:PThreadStartData;
+  userProc:TThreadProc;
+  userParam:pointer;
+  data:PThreadData;
+begin
+  startData:=PThreadStartData(param);
+  userProc:=startData^.proc;
+  userParam:=startData^.parameter;
+  data:=startData^.threadData;
+  Dispose(startData);
+
+  // Fill in remaining fields from within thread context
+  SpinLock;
+  try
+    if data^.ID=0 then
+      data^.ID:=GetCurrentThreadID; // in case Thread.Start hasn't set it yet
+    {$IFDEF UNIX}
+    data^.tid:=Do_syscall(syscall_nr_gettid);
+    {$ENDIF}
+  finally
+    SpinUnlock;
+  end;
+
+  // Set thread context (data is heap-allocated → pointer stable regardless of threads[] realloc)
+  CurrentThread.data:=data;
+
+  // Log and set debug name
+  Log.Msg('Thread ID: %d named %s',[data^.ID,data^.uniqueName]);
+  {$IFDEF DELPHI}
+  {$IF Declared(TThread.NameThreadForDebugging)}
+  TThread.NameThreadForDebugging(data^.uniqueName);
+  {$ENDIF}
+  {$ELSE}
+  TThread.NameThreadForDebugging(data^.uniqueName);
+  {$ENDIF}
+  {$IFDEF ANDROID}
+  AndroidInitThread;
+  {$ENDIF}
+
+  result:=0;
+  try
+    result:=userProc(userParam);
+  finally
+    UnregisterThread;
+  end;
+end;
+
+class function Thread.Start(const name:String8; proc:TThreadProc; parameter:pointer):IThread;
+var
+  startData:PThreadStartData;
+  impl:TThreadImpl;
+  threadID:TThreadID;
+  handle:THandle;
+  uniqueName:String8;
+  data:PThreadData;
+begin
+  // Allocate thread registry entry
+  New(data);
+  data^.lastCS:=nil;
+  data^.pingCounter:=0;
+  data^.firstPing:=0;
+  data^.lastPing:=0;
+  data^.terminating:=false;
+  data^.paused:=false;
+  data^.ID:=0;     // filled after BeginThread
+  data^.handle:=0; // filled after BeginThread
+  data^.implPtr:=nil; // filled after BeginThread
+
+  // Resolve name and add to registry (both under same lock to fix # pattern race)
+  SpinLock;
+  try
+    uniqueName:=MakeUniqueName(name);
+    data^.name:=name;
+    data^.uniqueName:=uniqueName;
+    threads:=threads+[data]; // visible immediately → next Thread.Start sees this name
+  finally
+    SpinUnlock;
+  end;
+
+  // Create impl with final resolved name (cached for IThread lifetime)
+  impl:=TThreadImpl.Create(uniqueName);
+
+  // Prepare wrapper data
+  startData:=New(PThreadStartData);
+  startData^.proc:=proc;
+  startData^.parameter:=parameter;
+  startData^.threadData:=data;
+  startData^.impl:=impl;
+
+  // Start thread
+  {$IFDEF FPC}
+  threadID:=BeginThread(@ThreadStartWrapper,startData);
+  {$IFDEF MSWINDOWS}
+  handle:=threadID; // FPC on Windows: threadID is handle
+  {$ELSE}
+  handle:=0; // FPC on POSIX: threadID is pthread_t, use pthread_join
+  {$ENDIF}
+  {$ELSE}
+  handle:=BeginThread(nil,0,@ThreadStartWrapper,startData,0,threadID);
+  {$ENDIF}
+
+  // Update registry entry with actual ID (wrapper also sets this, but we set it here too)
+  SpinLock;
+  try
+    data^.ID:=threadID;
+    data^.handle:=handle;
+    data^.implPtr:=impl;
+  finally
+    SpinUnlock;
+  end;
+
+  impl.threadID:=threadID;
+  impl.handle:=handle;
+
+  result:=impl;
+end;
+
+// Public: register current (foreign) thread in the registry for monitoring
+class procedure Thread.Register(const name:string; handle:THandle=0);
+begin
+  RegisterThread(name,handle,nil);
+end;
+
+// Public: unregister current (foreign) thread from the registry
+class procedure Thread.Unregister;
+begin
+  UnregisterThread;
 end;
 
 class procedure Thread.Ping;
@@ -853,7 +979,7 @@ begin
           with threads[i]^ do
             if pingCounter>0 then
               if (t-lastPing>300) then begin
-                st:=st+#13#10+'  '+uniqueName+' for '+inttostr(t-lastPing);
+                st:=st+#13#10+'  '+uniqueName+' for '+Conv.tostr(t-lastPing);
                 if (t-lastPing>1500) then needDump:=true;
               end;
 
@@ -913,9 +1039,9 @@ begin
 
   // Dump outside lock (slow - calls GetThreadStateInfo with SuspendThread)
   for i:=0 to n-1 do begin
-    st:=IntToStr(i)+'. '+snapshot[i].uniqueName+' ID: '+IntToStr(snapshot[i].ID);
+    st:=UTF8.Format('%d. %s ID: %d',[i,snapshot[i].uniqueName,snapshot[i].ID]);
     {$IFDEF UNIX}
-    st:=st+' TID: '+inttostr(snapshot[i].tid);
+    st:=st+UTF8.Format(' TID: %d',[snapshot[i].tid]);
     {$ENDIF}
     stateInfo:=GetThreadStateInfo(snapshot[i].ID);
     if stateInfo<>'' then st:=st+'  State: '+stateInfo;
@@ -924,26 +1050,49 @@ begin
 end;
 
 class procedure Thread.DumpLocks;
+type
+  TLockSnap=record
+    name:String8;
+    lockCount:integer;
+    ownerThread:TThreadID;
+    ownerAddr:UIntPtr;
+    callerAddr:UIntPtr;
+    tryingThread:TThreadID;
+    timeout:int64;
+  end;
 var
-  i:integer;
-  st:string;
+  i,n:integer;
+  st:string8;
+  snap:array of TLockSnap;
 begin
+  // copy data under lock to avoid calling GetName (which also uses SpinLock) inside SpinLock
   SpinLock;
   try
-    for i:=1 to crSectCount do begin
-      st:=IntToStr(i)+'. '+crSections[i].name;
-      if crSections[i].caller<>0 then
-        st:=st+' LOCKED BY '+ GetName(crSections[i].GetOwningThread)+
-        ' FROM:'+Conv.ToHex(crSections[i].owner,8)+
-        ' AT:'+Conv.ToHex(crSections[i].caller,8)+
-        ' time '+IntToStr(CoreTime.Ticks-crSections[i].time);
-      if crSections[i].caller<>0 then
-        st:=st+' PENDING FROM '+GetName(crSections[i].tryingThread)+
-        ' AT:'+Conv.ToHex(crSections[i].caller,8)+' time '+
-        IntToStr(Time.Ticks-crSections[i].time);
+    n:=crSectCount;
+    SetLength(snap,n);
+    for i:=0 to n-1 do begin
+      snap[i].name:=crSections[i+1].name;
+      snap[i].lockCount:=crSections[i+1].lockCount;
+      snap[i].ownerThread:=crSections[i+1].GetOwningThread;
+      snap[i].ownerAddr:=crSections[i+1].owner;
+      snap[i].callerAddr:=crSections[i+1].caller;
+      snap[i].tryingThread:=crSections[i+1].tryingThread;
+      snap[i].timeout:=crSections[i+1].timeout;
     end;
   finally
     SpinUnlock;
+  end;
+
+  for i:=0 to n-1 do begin
+    st:=UTF8.Format('%d. %s',[i+1,snap[i].name]);
+    if snap[i].lockCount>0 then
+      st:=st+UTF8.Format(' LOCKED BY %s FROM:%s',
+        [GetName(snap[i].ownerThread),Conv.ToHex(snap[i].ownerAddr,8)]);
+    if snap[i].callerAddr<>0 then
+      st:=st+UTF8.Format(' PENDING FROM %s AT:%s time %d',
+        [GetName(snap[i].tryingThread),Conv.ToHex(snap[i].callerAddr,8),
+         CoreTime.Ticks-snap[i].timeout+5000]);
+    Log.Force(st);
   end;
 end;
 
@@ -955,10 +1104,10 @@ begin
   {$IFDEF MSWINDOWS}
   if IsDebuggerPresent then exit; // prevent termination because of timeout during debug
   {$ENDIF}
-  t:=Time.Ticks;
+  t:=CoreTime.Ticks;
   for i:=1 to crSectCount do begin
-    if (crSections[i].time>0) and (crSections[i].time<t) and (crSections[i].time>t-1000000) then begin
-      Log.Force('Timeout for: '+crSections[i].name+' thread: '+Thread.GetName);
+    if (crSections[i].timeout>0) and (crSections[i].timeout<t) and (crSections[i].timeout>t-1000000) then begin
+      Log.Force(UTF8.Format('Timeout for: %s thread: %s',[crSections[i].name,Thread.GetName]));
       Thread.DumpLocks;
       raise EWarning.Create('Critical section timeout!');
     end;
@@ -967,11 +1116,11 @@ end;
 
 class procedure Thread.WaitUntilNotNil(var p; maxTime:integer);
 var
-  time:int64;
+  timeWait:int64;
 begin
-  time:=Time.Ticks+maxTime;
-  while (pointer(p)=nil) and (Time.Ticks<time) do
-    sleep(1);
+  timeWait:=CoreTime.Ticks+maxTime;
+  while (pointer(p)=nil) and (CoreTime.Ticks<timeWait) do
+    CoreTime.Sleep(1);
   if pointer(p)=nil then
     raise EError.Create('WaitUntilNotNil timeout');
 end;
@@ -992,9 +1141,9 @@ begin
   end;
 
   // wait for all threads with timeout
-  startTime:=Time.Ticks;
+  startTime:=CoreTime.Ticks;
   repeat
-    Sleep(10);
+    CoreTime.Sleep(10);
     SpinLock;
     try
       allDone:=Length(threads)=0;
@@ -1002,7 +1151,7 @@ begin
       SpinUnlock;
     end;
     if allDone then exit;
-  until Time.Ticks-startTime>timeout;
+  until CoreTime.Ticks-startTime>timeout;
 
   // force kill if requested and timeout expired
   if forceKill then begin
@@ -1039,51 +1188,105 @@ end;
 { TThreadContext }
 
 function TThreadContext.Terminating:boolean;
+var d:PThreadData;
 begin
-  if FData<>nil then
-    result:=FData^.terminating
+  d:=PThreadData(data);
+  if d<>nil then
+    result:=d^.terminating
   else
     result:=true; // thread not registered = should terminate
 end;
 
 function TThreadContext.Paused:boolean;
+var d:PThreadData;
 begin
-  if FData<>nil then
-    result:=FData^.paused
+  d:=PThreadData(data);
+  if d<>nil then
+    result:=d^.paused
   else
     result:=false;
 end;
 
 function TThreadContext.Name:String8;
+var d:PThreadData;
 begin
-  if FData<>nil then
-    result:=FData^.uniqueName
+  d:=PThreadData(data);
+  if d<>nil then
+    result:=d^.uniqueName
   else
     result:='';
 end;
 
 function TThreadContext.ID:TThreadID;
+var d:PThreadData;
 begin
-  if FData<>nil then
-    result:=FData^.ID
+  d:=PThreadData(data);
+  if d<>nil then
+    result:=d^.ID
   else
     result:=0;
 end;
 
+procedure TThreadContext.SetProgress(p:single);
+var d:PThreadData;
+begin
+  d:=PThreadData(data);
+  if (d<>nil) and (d^.implPtr<>nil) then
+    TThreadImpl(d^.implPtr).IntSetProgress(p);
+end;
+
+procedure TThreadContext.SetStatusText(const txt:String8);
+var d:PThreadData;
+begin
+  d:=PThreadData(data);
+  if (d<>nil) and (d^.implPtr<>nil) then
+    TThreadImpl(d^.implPtr).IntSetStatusText(txt);
+end;
+
+procedure TThreadContext.SetResult(const data:TBytes);
+var d:PThreadData;
+begin
+  d:=PThreadData(self.data);
+  if (d<>nil) and (d^.implPtr<>nil) then
+    TThreadImpl(d^.implPtr).IntSetResult(data);
+end;
+
+procedure TThreadContext.SetObject(obj:TObject);
+var d:PThreadData;
+begin
+  d:=PThreadData(data);
+  if (d<>nil) and (d^.implPtr<>nil) then
+    TThreadImpl(d^.implPtr).IntSetObject(obj);
+end;
+
+procedure TThreadContext.SetError(const msg:String8);
+var d:PThreadData;
+begin
+  d:=PThreadData(data);
+  if (d<>nil) and (d^.implPtr<>nil) then
+    TThreadImpl(d^.implPtr).IntSetError(msg);
+end;
+
 { TThreadImpl }
 
-constructor TThreadImpl.Create(threadID:TThreadID; handle:THandle);
+constructor TThreadImpl.Create(const aName:String8);
 begin
   inherited Create;
-  FThreadID:=threadID;
-  FHandle:=handle;
+  name:=aName;
+  status:=TThreadStatus.Running;
+  statusTextLock:=0;
+  progress:=0;
+  resultWritten:=false;
+  customObject:=nil;
+  keepAlive:=self; // hold self alive while thread is running
 end;
 
 destructor TThreadImpl.Destroy;
 begin
+  customObject.Free; // free unclaimed object (if creator forgot to TakeObject)
   {$IFDEF MSWINDOWS}
-  if FHandle<>0 then
-    CloseHandle(FHandle);
+  if handle<>0 then
+    CloseHandle(handle);
   {$ENDIF}
   inherited;
 end;
@@ -1091,12 +1294,12 @@ end;
 procedure TThreadImpl.Wait(timeout:cardinal);
 begin
   {$IFDEF MSWINDOWS}
-  if FHandle<>0 then
-    WaitForSingleObject(FHandle,timeout);
+  if handle<>0 then
+    WaitForSingleObject(handle,timeout);
   {$ELSE}
-  // POSIX: use pthread_join (FThreadID is pthread_t)
+  // POSIX: use pthread_join (threadID is pthread_t)
   // Note: pthread_join doesn't support timeout, waits indefinitely
-  pthread_join(FThreadID,nil);
+  pthread_join(threadID,nil);
   {$ENDIF}
 end;
 
@@ -1106,7 +1309,7 @@ var
 begin
   SpinLock;
   try
-    data:=FindThreadData(FThreadID);
+    data:=FindThreadData(threadID);
     if data<>nil then
       data^.terminating:=true;
   finally
@@ -1117,8 +1320,8 @@ end;
 procedure TThreadImpl.Kill;
 begin
   {$IFDEF MSWINDOWS}
-  if FHandle<>0 then
-    TerminateThread(FHandle,0);
+  if handle<>0 then
+    TerminateThread(handle,0);
   {$ELSE}
   // POSIX: no safe way to force kill
   raise EError.Create('Kill not supported on this platform');
@@ -1131,7 +1334,7 @@ var
 begin
   SpinLock;
   try
-    data:=FindThreadData(FThreadID);
+    data:=FindThreadData(threadID);
     if data<>nil then
       data^.paused:=not data^.paused; // toggle
   finally
@@ -1140,34 +1343,89 @@ begin
 end;
 
 function TThreadImpl.GetName:String8;
-var
-  data:PThreadData;
 begin
-  SpinLock;
-  try
-    data:=FindThreadData(FThreadID);
-    if data<>nil then
-      result:=data^.uniqueName
-    else
-      result:='';
-  finally
-    SpinUnlock;
-  end;
+  result:=name; // cached at creation, valid for entire lifetime
 end;
 
 function TThreadImpl.GetID:TThreadID;
 begin
-  result:=FThreadID;
+  result:=threadID;
 end;
 
 function TThreadImpl.IsRunning:boolean;
 begin
-  SpinLock;
-  try
-    result:=FindThreadData(FThreadID)<>nil;
-  finally
-    SpinUnlock;
+  result:=status=TThreadStatus.Running;
+end;
+
+function TThreadImpl.GetStatus:TThreadStatus;
+begin
+  result:=status;
+end;
+
+function TThreadImpl.GetStatusText:String8;
+begin
+  while Atomic.CmpExchange(statusTextLock,1,0)<>0 do ; // spinlock acquire
+  result:=statusText;
+  Atomic.Exchange(statusTextLock,0); // spinlock release
+end;
+
+function TThreadImpl.GetProgress:single;
+begin
+  result:=progress; // 4-byte aligned read, safe without explicit lock
+end;
+
+function TThreadImpl.GetResultData:TBytes;
+begin
+  result:=resultData; // read after status=Finished per convention
+end;
+
+function TThreadImpl.TakeObject:TObject;
+begin
+  result:=customObject;
+  customObject:=nil; // clear ref - caller now owns the object
+end;
+
+procedure TThreadImpl.IntSetProgress(p:single);
+begin
+  progress:=p;
+end;
+
+procedure TThreadImpl.IntSetStatusText(const txt:String8);
+begin
+  while Atomic.CmpExchange(statusTextLock,1,0)<>0 do ; // spinlock acquire
+  statusText:=txt;
+  Atomic.Exchange(statusTextLock,0); // spinlock release
+end;
+
+procedure TThreadImpl.IntSetResult(const data:TBytes);
+begin
+  if resultWritten then begin
+    Log.Msg('WARNING: thread %s tried to write result twice',[name]);
+    exit;
   end;
+  resultData:=data;
+  resultWritten:=true;
+end;
+
+procedure TThreadImpl.IntSetObject(obj:TObject);
+begin
+  customObject.Free; // free previous if any (shouldn't happen, but be safe)
+  customObject:=obj;
+end;
+
+procedure TThreadImpl.IntSetError(const msg:String8);
+begin
+  IntSetStatusText(msg);
+  status:=TThreadStatus.Error; // byte write is atomic on x86/x64
+  keepAlive:=nil; // release self-reference
+end;
+
+procedure TThreadImpl.IntFinish;
+begin
+  // write status last: guarantees all prior writes (text, progress, result) are visible
+  if status=TThreadStatus.Running then
+    status:=TThreadStatus.Finished; // byte write is atomic on x86/x64
+  keepAlive:=nil; // release self-reference (may trigger Destroy if creator dropped th1)
 end;
 
 {$IFDEF DELPHI}
@@ -1175,18 +1433,18 @@ end;
 
 class function TScopedLock.Create(ALock:PLock):TScopedLock;
 begin
-  result.FLock:=ALock;
+  result.lock:=ALock;
   if ALock<>nil then ALock^.Enter;
 end;
 
 class operator TScopedLock.Initialize(out Dest:TScopedLock);
 begin
-  Dest.FLock:=nil;
+  Dest.lock:=nil;
 end;
 
 class operator TScopedLock.Finalize(var Dest:TScopedLock);
 begin
-  if Dest.FLock<>nil then Dest.FLock^.Leave;
+  if Dest.lock<>nil then Dest.lock^.Leave;
 end;
 
 class operator TScopedLock.Assign(var Dest:TScopedLock; const [ref] Src:TScopedLock);

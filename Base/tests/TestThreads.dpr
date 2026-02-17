@@ -349,7 +349,6 @@ begin
 
   // Pattern % - auto-increment
   th2:=Thread.Start('Worker%',@SimpleWorker,nil);
-  Sleep(10);
   th3:=Thread.Start('Worker%',@SimpleWorker,nil);
   Sleep(10);
   name2:=th2.Name;
@@ -373,7 +372,6 @@ begin
 
   // Pattern # - smallest free number
   th1:=Thread.Start('Task#',@SimpleWorker,nil);
-  Sleep(10);
   th2:=Thread.Start('Task#',@SimpleWorker,nil);
   Sleep(10);
   name1:=th1.Name;
