@@ -88,7 +88,6 @@ type
   Strings16 = array of String16;
   Strings32 = array of String32;
   Strings = array of string;
-  StringArray = Strings; // alias for compatibility
 
   // Short string
   ShortStr = string[31];
@@ -226,8 +225,6 @@ var
 // Cross-platform primitives
 // =============================================================================
 
-  procedure Sleep(time:integer); inline;
-  function GetTickCount:cardinal; inline;
   function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF}; inline;
   function IsDebuggerPresent:boolean; inline;
   {$IF not DECLARED(MemoryBarrier)}
@@ -328,7 +325,12 @@ type
     class function Now:TDateTime; static;  // local time (high-precision)
     class function UTC:TDateTime; static;  // UTC time (high-precision)
     class function Stamp:string8; static;   // HH:MM:SS.mmm for logs
+    // Get milliseconds since system start (monotonic, no overflow). Better replacement for GetTickCount/GetTickCount64
+    class function Ticks:int64; static; inline;
+    // Sleep for specified milliseconds
+    class procedure Sleep(ms:integer); static; inline;
   end;
+  CoreTime = Time; // Alias to avoid name clash with SysUtils.Time etc.
 
 // =============================================================================
 // Atomic scope - atomic operations for lock-free synchronization
@@ -413,12 +415,12 @@ end;
 
 procedure SpinLock(var lock:integer);
 begin
-  while Atomic.CmpExchange(lock,1,0)<>0 do Sleep(0);
+  while Atomic.CmpExchange(lock,1,0)<>0 do Time.Sleep(0);
 end;
 
 procedure SpinLock; inline;
 begin
-  while Atomic.CmpExchange(globalLock,1,0)<>0 do Sleep(0);
+  while Atomic.CmpExchange(globalLock,1,0)<>0 do Time.Sleep(0);
 end;
 
 procedure SpinUnlock(var lock:integer); inline;
@@ -434,29 +436,6 @@ end;
 // =============================================================================
 // Cross-platform primitives implementation
 // =============================================================================
-
-procedure Sleep(time:integer); inline;
-begin
-{$IFDEF MSWINDOWS}
-  windows.Sleep(time);
-{$ELSE}
-  SysUtils.Sleep(time);
-{$ENDIF}
-end;
-
-function GetTickCount:cardinal; inline;
-{$IFDEF MSWINDOWS}
-begin
-  result:=windows.GetTickCount;
-end;
-{$ELSE}
-var
-  tp:TTimeSpec;
-begin
-  clock_gettime(CLOCK_MONOTONIC,@tp);
-  result:=tp.tv_sec*1000+tp.tv_nsec div 1000000;
-end;
-{$ENDIF}
 
 function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF}; inline;
 begin
@@ -1618,6 +1597,24 @@ begin
           chr(48+msec div 100)+chr(48+(msec div 10) mod 10)+chr(48+msec mod 10);
 end;
 {$ENDIF}
+
+class function Time.Ticks:int64;
+begin
+  {$IFDEF MSWINDOWS}
+  result:=Windows.GetTickCount64;
+  {$ELSE}
+  result:=System.GetTickCount64;
+  {$ENDIF}
+end;
+
+class procedure Time.Sleep(ms:integer);
+begin
+  {$IFDEF MSWINDOWS}
+  Windows.Sleep(ms);
+  {$ELSE}
+  SysUtils.Sleep(ms);
+  {$ENDIF}
+end;
 
 initialization
   CheckCPU;

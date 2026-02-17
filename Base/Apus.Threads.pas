@@ -35,7 +35,7 @@ type
     owningThread:TThreadID;
     {$ENDIF}
     tryingThread:TThreadID;  // thread trying to acquire the lock
-    time:int64;         // timeout timestamp
+    timeout:int64;         // tick to terminate
     lockCount:integer;  // recursion counter
     level:integer;      // level for deadlock prevention (higher = lower-level code)
     prevSection:PLock;
@@ -346,7 +346,7 @@ begin
     {$ENDIF}
     name:=aName;
     caller:=0;
-    time:=0;
+    timeout:=0;
     lockCount:=0;
     level:=aLevel;
     if crSectCount<length(crSections) then begin
@@ -398,7 +398,7 @@ begin
       tryingThread:=threadID;
       caller:=PtrUInt(callerAddr);
     end;
-    if time=0 then time:=GetTickCount64+5000;
+    if timeout=0 then timeout:=Apus.Core.Time.Ticks+5000;
   end else // first attempt
   if debugCriticalSections then begin
     SpinLock;
@@ -428,7 +428,7 @@ begin
   {$ENDIF}
   caller:=0;
   tryingThread:=0;
-  time:=0;
+  timeout:=0;
   inc(lockCount);
   if callerAddr=nil then callerAddr:=Stack.Caller;
   owner:=UIntPtr(callerAddr);
@@ -598,8 +598,8 @@ begin
   result:=WaitOnAddress(@state,@expected,sizeof(integer),timeoutMs);
   {$ELSE}
   // Linux: futex wait - требует syscall, пока простая реализация
-  startTime:=GetTickCount64;
-  while (state=0) and ((timeoutMs=INFINITE) or (GetTickCount64-startTime<timeoutMs)) do
+  startTime:=Time.Ticks;
+  while (state=0) and ((timeoutMs=INFINITE) or (Time.Ticks-startTime<timeoutMs)) do
     Sleep(1);
   result:=state=1;
   {$ENDIF}
@@ -836,7 +836,7 @@ var
   needDump:boolean;
   st:string;
 begin
-  t:=GetTickCount64;
+  t:=CoreTime.Ticks;
   id:=GetCurrentThreadID;
   needDump:=false;
   SpinLock;
@@ -936,11 +936,11 @@ begin
         st:=st+' LOCKED BY '+ GetName(crSections[i].GetOwningThread)+
         ' FROM:'+Conv.ToHex(crSections[i].owner,8)+
         ' AT:'+Conv.ToHex(crSections[i].caller,8)+
-        ' time '+IntToStr(GetTickCount64-crSections[i].time);
+        ' time '+IntToStr(CoreTime.Ticks-crSections[i].time);
       if crSections[i].caller<>0 then
         st:=st+' PENDING FROM '+GetName(crSections[i].tryingThread)+
         ' AT:'+Conv.ToHex(crSections[i].caller,8)+' time '+
-        IntToStr(GetTickCount64-crSections[i].time);
+        IntToStr(Time.Ticks-crSections[i].time);
     end;
   finally
     SpinUnlock;
@@ -955,7 +955,7 @@ begin
   {$IFDEF MSWINDOWS}
   if IsDebuggerPresent then exit; // prevent termination because of timeout during debug
   {$ENDIF}
-  t:=GetTickCount64;
+  t:=Time.Ticks;
   for i:=1 to crSectCount do begin
     if (crSections[i].time>0) and (crSections[i].time<t) and (crSections[i].time>t-1000000) then begin
       Log.Force('Timeout for: '+crSections[i].name+' thread: '+Thread.GetName);
@@ -969,8 +969,8 @@ class procedure Thread.WaitUntilNotNil(var p; maxTime:integer);
 var
   time:int64;
 begin
-  time:=GetTickCount64+maxTime;
-  while (pointer(p)=nil) and (GetTickCount64<time) do
+  time:=Time.Ticks+maxTime;
+  while (pointer(p)=nil) and (Time.Ticks<time) do
     sleep(1);
   if pointer(p)=nil then
     raise EError.Create('WaitUntilNotNil timeout');
@@ -992,7 +992,7 @@ begin
   end;
 
   // wait for all threads with timeout
-  startTime:=GetTickCount64;
+  startTime:=Time.Ticks;
   repeat
     Sleep(10);
     SpinLock;
@@ -1002,7 +1002,7 @@ begin
       SpinUnlock;
     end;
     if allDone then exit;
-  until GetTickCount64-startTime>timeout;
+  until Time.Ticks-startTime>timeout;
 
   // force kill if requested and timeout expired
   if forceKill then begin
