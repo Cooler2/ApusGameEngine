@@ -226,7 +226,7 @@ interface
  procedure Triangulate(pnts:PPoint2;count:integer);
 
 implementation
- uses Apus.Types, Apus.Common, SysUtils, Math;
+ uses Apus.Types, Apus.Core, SysUtils, Math;
 
  function DotProduct(const a,b:TVector2):double;
   begin
@@ -991,8 +991,8 @@ function TPoint2.IsValid:boolean;
 
 procedure TPoint2.Wrap(max:double);
  begin
-  x:=Apus.Common.Wrap(x,max);
-  y:=Apus.Common.Wrap(y,max);
+  x:=Apus.Core.Wrap(x,max);
+  y:=Apus.Core.Wrap(y,max);
  end;
 
 function TPoint2.GetRound:TPoint;
@@ -1073,8 +1073,8 @@ function TPoint2s.GetRound:TPoint;
 
 procedure TPoint2s.Wrap(max:single);
  begin
-  x:=Apus.Common.Wrap(x,max);
-  y:=Apus.Common.Wrap(y,max);
+  x:=Apus.Core.Wrap(x,max);
+  y:=Apus.Core.Wrap(y,max);
  end;
 
 end.
