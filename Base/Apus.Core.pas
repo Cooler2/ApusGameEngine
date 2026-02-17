@@ -1599,11 +1599,15 @@ end;
 {$ENDIF}
 
 class function Time.Ticks:int64;
+{$IFDEF UNIX}
+var ts:TTimeSpec;
+{$ENDIF}
 begin
   {$IFDEF MSWINDOWS}
   result:=Windows.GetTickCount64;
   {$ELSE}
-  result:=System.GetTickCount64;
+  clock_gettime(CLOCK_MONOTONIC,@ts);
+  result:=int64(ts.tv_sec)*1000+ts.tv_nsec div 1000000;
   {$ENDIF}
 end;
 
