@@ -87,7 +87,7 @@ type
  end;
 
 implementation
- uses Apus.Common, Apus.Colors, SysUtils;
+ uses Apus.Core, Apus.Colors, SysUtils;
 
  function BuildVertexLayout(position,normal,color,uv1,uv2:integer):TVertexLayout;
   var
@@ -284,15 +284,15 @@ procedure TVertexLayout.Init(items:array of TVertexComponent);
    case items[i] of
     vcPosition2d:begin
      ASSERT(ofs=0,'Position2D must came first');
-     SetBits(layout,0,4,15); inc(ofs,2);
+     Bits.SetBits(layout,0,4,15); inc(ofs,2);
     end;
-    vcPosition3d:begin SetBits(layout,0,4,ofs); inc(ofs,3); end;
-    vcNormal:    begin SetBits(layout,4,4,ofs); inc(ofs,3); end;
-    vcColor:     begin SetBits(layout,8,4,ofs); inc(ofs,1); end;
-    vcUV1:       begin SetBits(layout,12,4,ofs); inc(ofs,2); end;
-    vcUV2:       begin SetBits(layout,16,4,ofs); inc(ofs,2); end;
-    vcTangent:   begin SetBits(layout,20,4,ofs); inc(ofs,3); end;
-    vcExtra4:    begin SetBits(layout,24,4,ofs); inc(ofs,4); end;
+    vcPosition3d:begin Bits.SetBits(layout,0,4,ofs); inc(ofs,3); end;
+    vcNormal:    begin Bits.SetBits(layout,4,4,ofs); inc(ofs,3); end;
+    vcColor:     begin Bits.SetBits(layout,8,4,ofs); inc(ofs,1); end;
+    vcUV1:       begin Bits.SetBits(layout,12,4,ofs); inc(ofs,2); end;
+    vcUV2:       begin Bits.SetBits(layout,16,4,ofs); inc(ofs,2); end;
+    vcTangent:   begin Bits.SetBits(layout,20,4,ofs); inc(ofs,3); end;
+    vcExtra4:    begin Bits.SetBits(layout,24,4,ofs); inc(ofs,4); end;
    end;
   end;
   stride:=ofs*4;
