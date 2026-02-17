@@ -21,6 +21,9 @@
         <Projects Include="TestFiles.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="TestEventMan.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -83,14 +86,23 @@
     <Target Name="TestFiles:Make">
         <MSBuild Projects="TestFiles.dproj" Targets="Make"/>
     </Target>
+    <Target Name="TestEventMan">
+        <MSBuild Projects="TestEventMan.dproj"/>
+    </Target>
+    <Target Name="TestEventMan:Clean">
+        <MSBuild Projects="TestEventMan.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestEventMan:Make">
+        <MSBuild Projects="TestEventMan.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="TestCore;TestStrings;TestConv;TestThreads;TestHashMaps;TestFiles"/>
+        <CallTarget Targets="TestCore;TestStrings;TestConv;TestThreads;TestHashMaps;TestFiles;TestEventMan"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="TestCore:Clean;TestStrings:Clean;TestConv:Clean;TestThreads:Clean;TestHashMaps:Clean;TestFiles:Clean"/>
+        <CallTarget Targets="TestCore:Clean;TestStrings:Clean;TestConv:Clean;TestThreads:Clean;TestHashMaps:Clean;TestFiles:Clean;TestEventMan:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="TestCore:Make;TestStrings:Make;TestConv:Make;TestThreads:Make;TestHashMaps:Make;TestFiles:Make"/>
+        <CallTarget Targets="TestCore:Make;TestStrings:Make;TestConv:Make;TestThreads:Make;TestHashMaps:Make;TestFiles:Make;TestEventMan:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

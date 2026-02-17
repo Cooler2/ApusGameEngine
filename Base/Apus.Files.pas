@@ -235,7 +235,7 @@ begin
     else
       h:=SysUtils.FileCreate(string(fname));
   end;
-  if h=INVALID_HANDLE_VALUE then
+  if h=-1 then
     raise EError.Create('Cannot open file: '+string(fname));
   result:=HandleToFile(h);
 end;
