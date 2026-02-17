@@ -3,13 +3,26 @@
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
+## Summary (last updated: 2026-02-17)
+
+**Progress:**
+- ✅ 9 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib)
+- ✅ Threading and Logging blockers solved
+- ✅ Classes + Structs migrated (Foundation Level 1 complete!)
+- ✅ `UTF8.Format` added to Apus.Strings (native, no Unicode roundtrip)
+- 🔧 EventMan partially migrated, needs completion
+- 🚧 35 of 52 Base modules still use Common
+- 🎯 **Next priorities:** Complete EventMan, Migrate ControlFiles, Deprecate CrossPlatform
+
+**Recent wins (2026-02-17):** Migrated Apus.Classes and Apus.Structs together (cyclic dependency resolved). Added FastHash/StrHash/SameText8 to Strings, HasValue to Conv. Added `UTF8.Format(fmt, args)` — native String8 formatter, no SysUtils dependency.
+
 ## NEW — created in engine5 refactoring
 
 | Module | Lines | Tests | Notes |
 |--------|-------|-------|-------|
 | **Apus.Core** | 1330 | TestCore | Min/Max, Clamp, Swap, Bits, Mem, GetPow2 |
 | **Apus.Conv** | 667 | TestConv | Conv.ToInt/ToFloat/ToBool, Hex, Base64, Format |
-| **Apus.Strings** | 1225 | TestStrings | String8Helper methods (IndexOf, Trim, Split, ToUpper...) |
+| **Apus.Strings** | ~1550 | TestStrings | String8Helper methods (IndexOf, Trim, Split, ToUpper...), UTF8.Format (native formatter) |
 | **Apus.Files** | 729 | TestFiles | Files.Exists/Load/Save, Folder.ListFiles/Find/Copy/Delete |
 | **Apus.HashMaps** | 248 | TestHashMaps | Generic THashMap<T>, extracted from Structs |
 | **Apus.Log** | 373 | — | Unified logging: Log.Msg/Debug/Info/Warn/Error/Fatal, Logger.UseLogFile/Flush. Replaces Common logging + base for Apus.Logging refactor. |
@@ -28,9 +41,9 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 | **Apus.LongMath** | 1160 | Big integer math. Level 0. |
 | **Apus.RegExpr** | 69 | Thin wrapper for RegExpr. Level 0. |
 | **Apus.Geom3D** | 2759 | Matrices, quaternions, 3D math. Uses Types only. |
-| **Apus.Structs** | 2612 | Collections, hash tables. Uses Core, Types, Classes. |
 | **Apus.AnimatedValues** | 328 | Animated floats. Uses Tweenings only (but Tweenings uses Common!). |
-| **Apus.EventMan** | 634 | Event system (Signal/Link). Migrated to Log/Threads/Classes. Core infrastructure. |
+| **Apus.Classes** | 163 | ✅ **Migrated 2026-02-17**: uses Strings (FastHash), Conv (ToHex, HasValue), Structs. Foundation module (Level 1). |
+| **Apus.Structs** | 2612 | ✅ **Migrated 2026-02-17**: uses Strings (FastHash), Classes (TNamedObject). Old types (StringArray8→Strings8, AStringArr→Strings8) replaced directly. |
 
 ## MIGRATE — old modules that use Common, need API call replacement
 
@@ -78,17 +91,16 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 | **Apus.Translation** | 416 | EncodeUTF8, DecodeUTF8 |
 | **Apus.HtmlTree** | 665 | String8, StringArr, PosFrom |
 
-### Heavy (deep Common dependency)
+### Heavy (deep Common dependency, infrastructure modules)
 
-| Module | Lines | What it uses from Common |
-|--------|-------|--------------------------|
-| **Apus.Classes** | 163 | InitCritSect, DeleteCritSect, Enter/LeaveCriticalSection. Circular concern: Classes is Level 1 but needs threading from Common. |
-| **Apus.CrossPlatform** | 670 | LogMessage, ForceLogMessage, MyTickCount, InitCritSect, Enter/LeaveCS. Platform abstraction layer. |
-| **Apus.HttpRequests** | 1036 | LogMessage, ForceLogMessage, ExceptionMsg, UrlEncode, MyTickCount, InitCritSect, Enter/LeaveCS, Split |
-| **Apus.ControlFiles** | 1827 | Split, SplitA, Chop, QuoteStr, UnQuoteStr, InitCritSect, Enter/LeaveCS. Heavy string + threading. |
-| **Apus.SCGI** | 1383 | Needs audit — large module |
-| **Apus.Android** | 465 | ForceLogMessage, EncodeUTF8, AddString, SaveFile. Platform-specific. |
-| **Apus.Publics** | 1184 | EncodeUTF8, DecodeUTF8, ParseInt, SplitA. Public variable system. |
+| Module | Lines | What it uses from Common | Priority |
+|--------|-------|--------------------------|----------|
+| **Apus.EventMan** | 634 | **WIP** — Partially migrated to Log/Threads/Classes. Event system (Signal/Link). Core infrastructure. Needs completion + tests. | **HIGH** |
+| **Apus.HttpRequests** | 1036 | LogMessage, ForceLogMessage, ExceptionMsg, UrlEncode, MyTickCount, InitCritSect, Enter/LeaveCS, Split | MEDIUM |
+| **Apus.ControlFiles** | 1827 | Split, SplitA, Chop, QuoteStr, UnQuoteStr, InitCritSect, Enter/LeaveCS. **Blocked by Apus.Structs**. Uses TGenericTree, TStrHash. | LOW |
+| **Apus.SCGI** | 1383 | Needs audit — large module | LOW |
+| **Apus.Android** | 465 | ForceLogMessage, EncodeUTF8, AddString, SaveFile. Platform-specific. | LOW |
+| **Apus.Publics** | 1184 | EncodeUTF8, DecodeUTF8, ParseInt, SplitA. Public variable system. | LOW |
 
 ## EXTRACT — code still trapped inside Common that belongs in these modules
 
@@ -100,33 +112,51 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 | **Apus.Strings** (extend) | UTF: EncodeUTF8, DecodeUTF8, Str8, Str16, UStr, WStr, IsUTF8, DecodeUTF8A. String ops: Split (with quotes), Combine, SameChar8/16, SameText16, SafeStrItem, DumpStr. | ~300 |
 | **Apus.Structs** (extend) | Sorting: SortObjects, SortRecordsByDouble/Float/Int, SortStrings, IndexRecordsByFloat. Array helpers: AddString, RemoveString, FindString, AddInteger, RemoveInteger, AddFloat, RemoveFloat, ArrayToStr, StrToArray. | ~350 |
 | ~~**Apus.Threads**~~ | **DONE** — Extracted to new module. **BLOCKER #1 SOLVED**. | 667 |
-| ~~**Apus.Utils**~~ | **DONE** — Created new module. ParseDate/ParseTime, SplitA, Chop extracted. More to add: EncodeUTF8/DecodeUTF8, AddString/etc, HasParam/GetParam, SimpleEncrypt/Compress, etc. | 280 |
+| ~~**Apus.Utils**~~ | **DONE** — Created new module. Default place for functions without clear home. Current: ParseDate/ParseTime, SplitA, Chop. Planned: EncodeUTF8/DecodeUTF8, AddString/RemoveString/FindString, HasParam/GetParam, SimpleEncrypt/Compress, ExecuteAndCapture (from CrossPlatform), MyTickCount(?). | 280+ |
 
-## DEPRECATED — candidates for removal
+## DEPRECATED — candidates for removal or refactoring
 
 | Module | Lines | Notes |
 |--------|-------|-------|
 | **Apus.Network** | 439 | Deprecated since 2023. Replaced by Apus.Socket. Used by Engine.Networking2 only. |
+| **Apus.CrossPlatform** | 670 | Platform abstraction layer, but most functions are RTL wrappers. Extract useful parts (ExecuteAndCapture?) to Apus.Utils, remove from uses everywhere. Still uses Common (LogMessage, MyTickCount, threading). |
 
 ## Key blockers
 
-1. ~~**Threading**~~: **DONE** — Apus.Threads created. 12+ Base modules can now migrate from Common to Threads.
-2. ~~**Logging**~~: **DONE** — Apus.Log created with unified API. Old Common logging code can now be deprecated. Apus.Logging refactor into interceptor is next.
-3. **MyTickCount** is used by 8+ modules for timing. Needs a home (Conv? Core? CrossPlatform?).
-4. **EncodeUTF8/DecodeUTF8** used by 5+ modules. Natural fit for Strings but adds bulk.
+1. ~~**Threading**~~: **DONE** — Apus.Threads created. Needs polishing (tests, Wait fixes) but core API is stable.
+2. ~~**Logging**~~: **DONE** — Apus.Log created with unified API. Old Common logging code can now be deprecated.
+3. **EventMan completion** — Partially migrated but needs testing and API finalization. Core infrastructure.
+4. **Structs type migration** — Needs StringArr/AStringArr/StringArray8/TNamedObject defined in Apus.Strings/Classes. Blocks ControlFiles.
+5. **Classes migration** — Foundation module (Level 1), needs TMyCriticalSection → TLock migration.
+6. **MyTickCount** is used by 8+ modules for timing. Needs a home (Apus.Utils or Core.Time scope?).
+7. **EncodeUTF8/DecodeUTF8** used by 5+ modules. Natural fit for Strings but adds bulk → consider Apus.Utils.
+8. **CrossPlatform removal** — Extract useful parts to Apus.Utils, remove from all uses.
 
-## Migration order (suggested)
+## Migration order (current priorities)
 
-1. **DONE** — Create Apus.Log with unified logging API (extracted from Common)
-2. **DONE** — Extract Threading from Common → Apus.Threading → unblocks Classes, EventMan, CrossPlatform, ControlFiles, HttpRequests, Socket
-3. Refactor Apus.Logging into interceptor (Apus.Log.Memory?) using new Log API
-4. Migrate modules to use new Log API (~20 modules call old LogMessage/ForceLogMessage)
-5. Extract remaining Math/Bits/Pack into Core → unblocks Colors, Geom2D, FastGFX, Images
-6. Extract UTF/string ops into Strings → unblocks Translation, Publics, HtmlTree
-7. Extract Date/Time + encoding into Conv → unblocks Database, ProdCons
-8. Extract Sorting/Array helpers into Structs → unblocks TextUtils, ControlFiles
-9. Migrate all remaining modules (trivial + light group)
-10. Common becomes a thin re-export facade (like Lib) or is removed
+### Completed ✅
+1. ✅ Create Apus.Log with unified logging API
+2. ✅ Extract Threading from Common → Apus.Threads
+3. ✅ Create Apus.Utils for homeless functions (ParseDate/ParseTime, SplitA, Chop)
+
+### Next steps (HIGH priority)
+4. **Polish Apus.Threads** — Fix IThread.Wait, add comprehensive tests, verify Linux support
+5. **Complete Apus.EventMan** — Finish migration, add tests, verify thread-safety
+6. **Migrate Apus.Classes** — TMyCriticalSection → TLock, foundation module
+7. **Migrate Apus.Structs** — Define missing types (StringArr → Apus.Strings, TNamedObject → Apus.Classes), unblocks ControlFiles
+8. **Extract CrossPlatform** — Move ExecuteAndCapture and other useful parts to Apus.Utils, deprecate module
+
+### Medium priority
+9. Extract remaining Math/Bits/Pack into Core → unblocks Colors, Geom2D, FastGFX, Images
+10. Extract UTF/string ops (EncodeUTF8/DecodeUTF8) into Apus.Utils → unblocks Translation, Publics, HtmlTree
+11. Extract Date/Time + encoding into Conv → unblocks Database, ProdCons
+12. Refactor Apus.Logging into interceptor (Apus.Log.Memory?) using new Log API
+
+### Low priority
+13. Migrate trivial modules (only type aliases or 1-2 calls)
+14. Migrate light modules (a few old calls to replace)
+15. Migrate medium modules (multiple old API groups)
+16. Common becomes a thin re-export facade (like Lib) or is removed
 
 ## TODO — important tasks
 
@@ -134,8 +164,17 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 
 ## Would be nice to do (but not required)
 
-* Add EBaseException stack trace in x64 mode (currently works for x86 only)
+* Optimize `UTF8.Format` performance in Delphi (currently significantly slower than `SysUtils.Format` in Delphi builds; FPC performance is comparable)
 * Optimize Mem.FillW/FillQ/FillF with SSE (currently simple loops, only FillD is SSE-optimized)
 * Optimize Mem.Copy with SSE for large blocks (currently uses RTL move())
 * Optimize Mem.IsZero with SSE (currently manual loop with NativeUInt alignment)
 * Audit Mem.Shift for overlapping regions (currently uses move() which may not handle all cases)
+* Add utility to expand stack traces with code lines using MAP file (if exists)
+
+## Consider during migration
+
+* Convert RTL/System calls to new library calls when applicable during code migration (for example, use Bits.xxx for flags checking, Conv.xxx instead of SysUtils, etc.)
+* Replace use of critical sections / TLock to lighter options when possible, for example use SpinLock to protect short access to global variables
+* Replace String16 / WideString to String32, use String8 for everything, where direct character indexing is not required. Avoid use of String.
+* Don't create any compatibility aliases. Old types should be changed to new types as well as function calls.
+* Don't try to use or keep MyTickCount - use GetTickCount64 instead. MyTickCount should not remain anywhere.

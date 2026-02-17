@@ -3,7 +3,7 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
-## Apus.Core (low-level math, memory, bits, exceptions)
+## Apus.Core (low-level math, memory, bits, time, exceptions)
 
 | Old name (Common) | New name (Core) | Notes |
 |---|---|---|
@@ -52,6 +52,23 @@ Exception classes moved from `Apus.Classes` to `Apus.Core`:
 | `EFatalError` | `EFatalError` | same name |
 
 **Note:** In engine5, `EBaseException` uses `Stack.Trace` to capture call stack on all platforms (previously only worked on x86 32-bit). Exception message format: `[addr1->addr2->addr3] Error message`
+
+### Time scope (new in engine5)
+
+Unified time API replacing fragmented functions:
+
+| Old name | New name (Time) | Notes |
+|---|---|---|
+| `GetTickCount` (32-bit) | `Time.GetTicks` | **REMOVED** — old 32-bit version (overflow every 49 days) |
+| `GetTickCount64` | `Time.GetTicks` | 64-bit monotonic time in ms, cross-platform |
+| `MyTickCount` | `Time.GetTicks` | better replacement with no overflow |
+| `Sleep(ms)` | `Time.Sleep(ms)` | moved to Time scope |
+| `Time.Now` | `Time.Now` | same — high-precision local datetime |
+| `Time.UTC` | `Time.UTC` | same — high-precision UTC datetime |
+| `Time.Stamp` | `Time.Stamp` | same — HH:MM:SS.mmm for logs |
+
+**High-resolution timer** (for profiling, separate from Time scope):
+- `StartTimer(out timer)` / `TimerSec(timer)` — QPC-based, for measuring short intervals
 
 Exception helper functions moved from `Apus.Common` to `Apus.Core`:
 
@@ -102,6 +119,7 @@ Log.Msg(Time.Stamp + ' Started');
 | `DecDump(buf,size)` | `Conv.DecDump(buf,size)` | same name |
 | `EncodeB64(data,size)` | `Conv.ToBase64(data,size)` | |
 | `DecodeB64(st,buf,size)` | `Conv.FromBase64(st,buf,size)` | |
+| `HasValue(v)` | `HasValue(v)` | same name, checks if variant is not unassigned |
 
 ## Apus.Strings (string helper methods)
 
@@ -126,6 +144,10 @@ Call style changes from `Func(st, args)` to `st.Method(args)`.
 | `ParseInt(st)` | `st.ToInt64` | also available via Conv.ToInt |
 | `ParseFloat(st)` | `st.ToDouble` | also available via Conv.ToFloat |
 | `ParseBool(st)` | `st.ToBoolean` | also available via Conv.ToBool |
+| `FastHash(st)` | `FastHash(st)` | same name, simple fast hash (case-insensitive) |
+| `StrHash(st)` | `StrHash(st)` | same name, string hash (case-sensitive) |
+| `SameText8(a,b)` | `SameText8(a,b)` or `a.EqualsText(b)` | case-insensitive comparison |
+| `Format(fmt,args)` | `UTF8.Format(fmt,args)` | native String8 format, no Unicode roundtrip. Specs: %d %u %x %X %f %g %s %p %%, flags: - 0 +, width, .precision |
 
 ## Apus.Files (file I/O and utilities)
 
@@ -317,6 +339,7 @@ Functions that don't fit scope of core/conv/strings/files modules.
 | `SplitA(divider,st)` | `SplitA(divider,st)` | same name - splits by string divider (whole string, not charset) |
 | `SplitA(divider,st,quotes)` | `SplitA(divider,st,quotes)` | same name - with quote handling |
 | `Chop(st)` | `Chop(st)` or `st.Trim` | both available - trim whitespace |
+| `MyTickCount` | `GetTickCount64` | use system function instead |
 
 **Note**: Utils is the default place for functions that don't fit other modules. More functions will be added here (EncodeUTF8/DecodeUTF8, AddString/RemoveString, HasParam/GetParam, etc).
 
