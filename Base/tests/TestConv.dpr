@@ -22,6 +22,16 @@ begin
   Check(Conv.ToInt('$DEADBEEF')=$DEADBEEF,'ToInt($DEADBEEF)');
   // large values
   Check(Conv.ToInt('9223372036854775807')=9223372036854775807,'ToInt max int64');
+  // default value when no digits present
+  Check(Conv.ToInt('',-1)=-1,'ToInt default: empty string');
+  Check(Conv.ToInt('abc',-1)=-1,'ToInt default: no digits');
+  Check(Conv.ToInt('$-',-1)=-1,'ToInt default: $ without digits');
+  Check(Conv.ToInt('-',-1)=-1,'ToInt default: minus without digits');
+  Check(Conv.ToInt('--',-1)=-1,'ToInt default: double minus');
+  Check(Conv.ToInt(' ',-1)=-1,'ToInt default: spaces only');
+  Check(Conv.ToInt('!@#',-1)=-1,'ToInt default: special chars');
+  // zero default (original behavior)
+  Check(Conv.ToInt('abc')=0,'ToInt default zero: no digits');
   EndTest;
 end;
 

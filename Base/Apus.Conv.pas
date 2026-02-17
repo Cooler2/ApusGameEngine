@@ -25,9 +25,9 @@ type
     // === Parse string to value ===
 
     // Parse integer from string (decimal or hex with $ prefix). Old name: ParseInt
-    class function ToInt(const st:String8):int64; overload; static;
+    class function ToInt(const st:String8;defaultValue:int64=0):int64; overload; static;
     {$IFDEF UNICODE}
-    class function ToInt(const st:UnicodeString):int64; overload; static;
+    class function ToInt(const st:UnicodeString;defaultValue:int64=0):int64; overload; static;
     {$ENDIF}
     // Parse hex string to integer. Old name: HexToInt
     class function HexToInt(const st:String8):int64; overload; static;
@@ -153,60 +153,76 @@ begin
 end;
 {$ENDIF}
 
-class function Conv.ToInt(const st:String8):int64;
+class function Conv.ToInt(const st:String8;defaultValue:int64):int64;
 var
   i,state:integer;
+  hasDigits:boolean;
 begin
   result:=0;
   state:=0;
   i:=1;
   while i<=length(st) do begin
     if (st[i]>='0') and (st[i]<='9') then begin state:=1; break; end else
-    if st[i]='-' then begin state:=2; break; end else
-    if st[i]='$' then begin state:=3; break; end;
+    if st[i]='-' then begin state:=2; inc(i); break; end else
+    if st[i]='$' then begin state:=3; inc(i); break; end;
     inc(i);
   end;
+  if state=0 then begin result:=defaultValue; exit; end;
+  hasDigits:=false;
   if state=3 then // hex
     while i<=length(st) do begin
-      if st[i] in ['0'..'9','A'..'F','a'..'f'] then
+      if st[i] in ['0'..'9','A'..'F','a'..'f'] then begin
         result:=result shl 4+HexCharToInt(st[i]);
+        hasDigits:=true;
+      end;
       inc(i);
     end
   else
     while i<=length(st) do begin
-      if st[i] in ['0'..'9'] then
+      if st[i] in ['0'..'9'] then begin
         result:=result*10+(ord(st[i])-ord('0'));
+        hasDigits:=true;
+      end;
       inc(i);
     end;
+  if not hasDigits then begin result:=defaultValue; exit; end;
   if state=2 then result:=-result;
 end;
 
 {$IFDEF UNICODE}
-class function Conv.ToInt(const st:UnicodeString):int64;
+class function Conv.ToInt(const st:UnicodeString;defaultValue:int64):int64;
 var
   i,state:integer;
+  hasDigits:boolean;
 begin
   result:=0;
   state:=0;
   i:=1;
   while i<=length(st) do begin
     if (st[i]>='0') and (st[i]<='9') then begin state:=1; break; end else
-    if st[i]='-' then begin state:=2; break; end else
-    if st[i]='$' then begin state:=3; break; end;
+    if st[i]='-' then begin state:=2; inc(i); break; end else
+    if st[i]='$' then begin state:=3; inc(i); break; end;
     inc(i);
   end;
+  if state=0 then begin result:=defaultValue; exit; end;
+  hasDigits:=false;
   if state=3 then // hex
     while i<=length(st) do begin
-      if CharInSet(st[i],['0'..'9','A'..'F','a'..'f']) then
+      if CharInSet(st[i],['0'..'9','A'..'F','a'..'f']) then begin
         result:=result shl 4+HexCharToInt(AnsiChar(st[i]));
+        hasDigits:=true;
+      end;
       inc(i);
     end
   else
     while i<=length(st) do begin
-      if CharInSet(st[i],['0'..'9']) then
+      if CharInSet(st[i],['0'..'9']) then begin
         result:=result*10+(ord(st[i])-ord('0'));
+        hasDigits:=true;
+      end;
       inc(i);
     end;
+  if not hasDigits then begin result:=defaultValue; exit; end;
   if state=2 then result:=-result;
 end;
 {$ENDIF}
