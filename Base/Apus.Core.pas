@@ -170,6 +170,15 @@ var
   function LerpC(a,b,t:single):single; overload; inline; // clamp t
   function Lerp(a,b,t:double):double; overload; inline;
 
+  // Wrap - wrap value into [0, max) range
+  function Wrap(value,max:single):single; overload; inline;
+  function Wrap(value,max:double):double; overload; inline;
+
+  // Rounding helpers
+  function FRound(v:double):integer; inline;  // fast round: 0.5->1, 1.5->2 (slightly biased)
+  function PRound(v:double):integer; inline;  // precise round
+  function SRound(v:single):integer;          // SSE-accelerated round
+
   // Swap
   procedure Swap(var a,b:integer); overload; inline;
   procedure Swap(var a,b:single); overload; inline;
@@ -315,6 +324,12 @@ type
     class procedure SetBit(var data:word; index:integer; value:boolean=true); overload; static; inline;
     class procedure SetBit(var data:cardinal; index:integer; value:boolean=true); overload; static; inline;
     class procedure SetBit(var data:uint64; index:integer; value:boolean=true); overload; static; inline;
+    // Bit fields (multi-bit)
+    class function GetBits(data:cardinal; index,size:integer):cardinal; static; inline;
+    class procedure SetBits(var data:byte; index,size,value:integer); overload; static; inline;
+    class procedure SetBits(var data:word; index,size,value:integer); overload; static; inline;
+    class procedure SetBits(var data:cardinal; index,size,value:integer); overload; static; inline;
+    class procedure SetBits(var data:uint64; index,size,value:integer); overload; static; inline;
   end;
 
 // =============================================================================
@@ -756,6 +771,55 @@ function Lerp(a,b,t:double):double;
 begin
   result:=a+(b-a)*t;
 end;
+
+function Wrap(value,max:single):single;
+begin
+  if (value>=0) and (value<max) then exit(value); // fast path: already in range
+  result:=frac(value/max)*max;
+  if result<0 then result:=result+max;
+end;
+
+function Wrap(value,max:double):double;
+begin
+  if (value>=0) and (value<max) then exit(value); // fast path: already in range
+  result:=frac(value/max)*max;
+  if result<0 then result:=result+max;
+end;
+
+function FRound(v:double):integer;
+const
+  EPSILON=0.00001;
+begin
+  result:=round(v+EPSILON);
+end;
+
+function PRound(v:double):integer;
+begin
+  if v>0 then result:=trunc(v+0.5)
+   else result:=trunc(v-0.5);
+end;
+
+function SRound(v:single):integer;
+{$IFDEF CPUX86ASM}
+const
+  const_0_5:single=0.5;
+asm
+  {$IFDEF CPUx64}
+  addss xmm0,[const_0_5+rip]
+  roundss xmm0,xmm0,1
+  cvtss2si rax,xmm0
+  {$ELSE}
+  movss xmm0,v
+  addss xmm0,const_0_5
+  roundss xmm0,xmm0,1
+  cvtss2si eax,xmm0
+  {$ENDIF}
+end;
+{$ELSE}
+begin
+  result:=trunc(v+0.5);
+end;
+{$ENDIF}
 
 procedure Swap(var a,b:integer);
 var
@@ -1289,6 +1353,37 @@ class procedure Bits.SetBit(var data:uint64;index:integer;value:boolean=true);
 begin
   if value then data:=data or (uint64(1) shl index)
   else data:=data and not (uint64(1) shl index);
+end;
+
+const
+  BITS_FIELD_MASK:array[0..31] of cardinal=(0,1,3,7,15,31,63,127,255,
+    $1FF,$3FF,$7FF,$FFF,$1FFF,$3FFF,$7FFF,$FFFF,
+    $1FFFF,$3FFFF,$7FFFF,$FFFFF,$1FFFFF,$3FFFFF,$7FFFFF,$FFFFFF,
+    $1FFFFFF,$3FFFFFF,$7FFFFFF,$FFFFFFF,$1FFFFFFF,$3FFFFFFF,$7FFFFFFF);
+
+class function Bits.GetBits(data:cardinal;index,size:integer):cardinal;
+begin
+  result:=(data shr index) and BITS_FIELD_MASK[size];
+end;
+
+class procedure Bits.SetBits(var data:byte;index,size,value:integer);
+begin
+  data:=data and not byte(BITS_FIELD_MASK[size] shl index)+cardinal(value) shl index;
+end;
+
+class procedure Bits.SetBits(var data:word;index,size,value:integer);
+begin
+  data:=data and not word(BITS_FIELD_MASK[size] shl index)+cardinal(value) shl index;
+end;
+
+class procedure Bits.SetBits(var data:cardinal;index,size,value:integer);
+begin
+  data:=data and not (BITS_FIELD_MASK[size] shl index)+cardinal(value) shl index;
+end;
+
+class procedure Bits.SetBits(var data:uint64;index,size,value:integer);
+begin
+  data:=data and not (uint64(BITS_FIELD_MASK[size]) shl index)+uint64(value) shl index;
 end;
 
 // =============================================================================

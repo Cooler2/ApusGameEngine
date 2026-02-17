@@ -2447,11 +2447,11 @@ function TPriorityQueue.WaitFor(out item:TDataItem;timeMS:integer):boolean;
   deadline:int64;
  begin
   if Get(item) then exit(true);
-  deadline:=Time.Ticks+timeMS;
+  deadline:=CoreTime.Ticks+timeMS;
   repeat
    sleep(1);
    if Get(item) then exit(true);
-  until Time.Ticks>=deadline;
+  until CoreTime.Ticks>=deadline;
   result:=false;
  end;
 
