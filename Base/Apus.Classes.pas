@@ -38,7 +38,10 @@ type
   // TBaseException, EWarning, EError, EFatalError
 
 implementation
-uses Apus.Common,Apus.Structs;
+uses SysUtils,    // Format
+     Apus.Strings, // FastHash
+     Apus.Conv,    // ToStr, HasValue
+     Apus.Structs;
 
 var
   classAttributes:TVarHash;
@@ -70,7 +73,7 @@ end;
 function TNamedObject.ObjInfo:string;
 begin
   if self=nil then exit('[NIL]');
-  result:=ClassName+'('+fName+','+PtrToStr(self)+')';
+  result:=ClassName+'('+fName+','+Conv.ToStr(pointer(self))+')';
 end;
 
 procedure TNamedObject.SetName(name:String8);

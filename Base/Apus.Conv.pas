@@ -96,8 +96,11 @@ type
     class function HexCharToInt(ch:AnsiChar):integer; static; inline;
   end;
 
+  // Check if variant has a value (not unassigned)
+  function HasValue(const v:variant):boolean;
+
 implementation
-uses SysUtils;
+uses SysUtils, Variants;
 
 const
   HexChars:String8 = '0123456789ABCDEF';
@@ -672,6 +675,11 @@ begin
     pb^:=v; inc(cnt);
   end;
   size:=cnt;
+end;
+
+function HasValue(const v:variant):boolean;
+begin
+  result:=v<>unassigned;
 end;
 
 end.

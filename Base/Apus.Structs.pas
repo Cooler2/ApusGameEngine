@@ -13,7 +13,7 @@ unit Apus.Structs;
 {$ENDIF}
 
 interface
-uses Apus.Core, Apus.Types, Classes;
+uses Apus.Core, Apus.Types, Apus.Classes, Classes;
 
 type
  TErrorState=(
@@ -141,7 +141,7 @@ type
   procedure Remove(key:string);
   function FirstKey:string;   // Start key enumeration (no hash operation allowed)
   function NextKey:string;    // Fetch next key (any operation will reset enumeration)
-  function GetKeys:StringArr; // return all keys
+  function GetKeys:Strings; // return all keys
   function GetValues:PointerArray; // return all pointer values
   destructor Destroy; override;
  private
@@ -168,7 +168,7 @@ type
   function Get(const key:String8;item:integer=0):variant; // get value associated with the key, or Unassigned if none
   function GetAll(const key:String8):VariantArray; // get array of values (not thread-safe!)
   function GetNext:variant; // get next value associated with the key, or Unassigned if none (not thread-safe!!!)
-  function AllKeys:AStringArr;
+  function AllKeys:Strings8;
   procedure SortKeys; // ключи без значений удаляются
   function HasKey(const key:String8):boolean;
   procedure Remove(const key:String8);
@@ -213,7 +213,7 @@ type
 
  // string -> int64
  TSimpleHashS=object
-  keys:StringArr;
+  keys:Strings;
   values:array of int64;
   count:integer; // how many items in keys/values/links are occupied - must be used instead of Length!!!
   procedure Init(estimatedCount:integer=256);
@@ -233,7 +233,7 @@ type
 
  // String8 -> int64
  TSimpleHashAS=object
-  keys:AStringArr;
+  keys:Strings8;
   values:array of int64;
   count:integer; // how many items in keys/values/links are occupied - must be used instead of Length!!!
   procedure Init(estimatedCount:integer=256);
@@ -263,7 +263,7 @@ type
   procedure Put(value:TNamedObject);
   function Get(key:String8):TNamedObject;
   procedure Remove(value:TNamedObject);
-  function ListKeys:StringArray8; // List all object names
+  function ListKeys:Strings8; // List all object names
   function ListObjects:TNamedObjects; // List all objects
  private
   lock:integer;
@@ -271,7 +271,7 @@ type
   hashMiss:integer; // for performance test
   values:array of TNamedObject; // zero length == not initialized
   procedure Resize; // Increase capasity *2. Resizing is quite slow so
-  function InternalListKeys:StringArray8;
+  function InternalListKeys:Strings8;
   function InternalListObjects:TNamedObjects; // List all objects
   procedure InternalPut(value:TNamedObject); //inline;
  end;
@@ -286,7 +286,7 @@ type
   function HasKey(key:String8):boolean;
   function Get(key:String8):variant;
   procedure Remove(key:String8);
-  function ListKeys:StringArray8;
+  function ListKeys:Strings8;
  private
   initialized:string;
   lock:integer;
@@ -295,7 +295,7 @@ type
   keys:array of string8;
   values:array of variant;
   procedure Resize; // Increase capasity *2. Resizing is quite slow so
-  function InternalListKeys:StringArray8;
+  function InternalListKeys:Strings8;
   function InternalListValues:VariantArray;
   procedure InternalPut(key:string8;value:variant);
  end;
@@ -425,7 +425,8 @@ type
  end;}
 
 implementation
- uses SysUtils, Variants{, Apus.CrossPlatform}
+ uses SysUtils, Variants,
+   Apus.Strings  // FastHash, SameText8, StrHash
    {$IFDEF DELPHI},windows{$ENDIF}; // FPC has built-in support (RTL) for atomic operations
 
  const
@@ -723,7 +724,7 @@ implementation
     LastError:=esNoMoreItems;
   end;
 
- function TStrHash.GetKeys:StringArr;
+ function TStrHash.GetKeys:Strings;
   var
    i,j,s,cnt:integer;
   begin
@@ -1173,7 +1174,7 @@ procedure THash.BuildHash;
   end;
  end;
 
-function THash.AllKeys:AStringArr;
+function THash.AllKeys:Strings8;
  var
   i:integer;
  begin
@@ -2040,14 +2041,14 @@ procedure TObjectHash.Clear;
   SpinLock(lock);
   try
    count:=0;
-   ZeroMem(values[0],length(values)*sizeof(pointer));
+   Mem.Clear(values[0],length(values)*sizeof(pointer));
    hashMiss:=0;
   finally
    lock:=0;
   end;
  end;
 
-function TObjectHash.ListKeys:StringArray8;
+function TObjectHash.ListKeys:Strings8;
  begin
   SpinLock(lock);
   try
@@ -2057,7 +2058,7 @@ function TObjectHash.ListKeys:StringArray8;
   end;
  end;
 
-function TObjectHash.InternalListKeys:StringArray8;
+function TObjectHash.InternalListKeys:Strings8;
  var
   i,n:integer;
  begin
@@ -2207,7 +2208,7 @@ procedure TVarHash.Clear;
   end;
  end;
 
-function TVarHash.ListKeys:StringArray8;
+function TVarHash.ListKeys:Strings8;
  begin
   SpinLock(lock);
   try
@@ -2217,7 +2218,7 @@ function TVarHash.ListKeys:StringArray8;
   end;
  end;
 
-function TVarHash.InternalListKeys:StringArray8;
+function TVarHash.InternalListKeys:Strings8;
  var
   i,n:integer;
  begin
@@ -2333,7 +2334,7 @@ procedure TVarHash.Remove(key:String8);
 
 procedure TVarHash.Resize;
  var
-  allKeys:StringArray8;
+  allKeys:Strings8;
   allValues:VariantArray;
   i:integer;
  begin
@@ -2443,14 +2444,14 @@ procedure TPriorityQueue.Init(size:integer);
 
 function TPriorityQueue.WaitFor(out item:TDataItem;timeMS:integer):boolean;
  var
-  time:int64;
+  deadline:int64;
  begin
   if Get(item) then exit(true);
-  time:=MyTickCount+timeMS;
+  deadline:=Time.Ticks+timeMS;
   repeat
    sleep(1);
    if Get(item) then exit(true);
-  until MyTickCount>=time;
+  until Time.Ticks>=deadline;
   result:=false;
  end;
 
