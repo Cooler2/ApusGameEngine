@@ -299,6 +299,41 @@ begin
   EndTest;
 end;
 
+procedure TestUTF8Format;
+begin
+  StartTest('UTF8.Format');
+  // basic specifiers
+  Check(UTF8.Format('Hello %s!',['World'])='Hello World!','%s');
+  Check(UTF8.Format('%d',[42])='42','%d positive');
+  Check(UTF8.Format('%d',[-7])='-7','%d negative');
+  Check(UTF8.Format('%u',[255])='255','%u');
+  Check(UTF8.Format('%x',[255])='ff','%x lowercase');
+  Check(UTF8.Format('%X',[255])='FF','%X uppercase');
+  Check(UTF8.Format('%x',[0])='0','%x zero');
+  // percent literal
+  Check(UTF8.Format('100%%',[])='100%','%%');
+  // float
+  Check(UTF8.Format('%.2f',[3.14159])='3.14','%.2f');
+  Check(UTF8.Format('%f',[0.0])='0.000000','%f default precision');
+  // width
+  Check(UTF8.Format('%5d',[42])='   42','%5d right-align');
+  Check(UTF8.Format('%-5d',[42])='42   ','%-5d left-align');
+  Check(UTF8.Format('%05d',[42])='00042','%05d zero-pad');
+  // sign
+  Check(UTF8.Format('%+d',[42])='+42','%+d positive sign');
+  Check(UTF8.Format('%+d',[-5])='-5','%+d negative sign');
+  // multiple args
+  Check(UTF8.Format('%d + %d = %d',[1,2,3])='1 + 2 = 3','multiple %d');
+  Check(UTF8.Format('%s=%d',['x',10])='x=10','%s + %d');
+  // hex with width
+  Check(UTF8.Format('%04x',[$AB])='00ab','%04x');
+  Check(UTF8.Format('%04X',[$AB])='00AB','%04X');
+  // %g format
+  Check(UTF8.Format('%g',[100.0])='100','%g integer');
+  Check(UTF8.Format('%g',[3.14])='3.14','%g decimal');
+  EndTest;
+end;
+
 // ============================================================================
 // String32Helper tests (0-based indexing!)
 // ============================================================================
@@ -704,6 +739,9 @@ begin
     TestString8Html;
     TestString8Utility;
     TestString8Convert;
+
+    // UTF8.Format
+    TestUTF8Format;
 
     // String32Helper
     TestString32Basic;

@@ -217,6 +217,42 @@ begin
   EndBench;
 end;
 
+procedure BenchUTF8_Format_Simple;
+var i:integer; s:String8;
+begin
+  StartBench('UTF8.Format(%d+%d=%d)',N_SLOW);
+  for i:=1 to N_SLOW do
+    s:=UTF8.Format('%d + %d = %d',[1,2,3]);
+  EndBench;
+end;
+
+procedure BenchUTF8_Format_Mixed;
+var i:integer; s:String8;
+begin
+  StartBench('UTF8.Format(mixed)',N_SLOW);
+  for i:=1 to N_SLOW do
+    s:=UTF8.Format('Hello %s, age %d, pi=%.2f',['World',42,3.14159]);
+  EndBench;
+end;
+
+procedure BenchSysUtils_Format_Simple;
+var i:integer; s:string;
+begin
+  StartBench('SysUtils.Format(%d+%d=%d)',N_SLOW);
+  for i:=1 to N_SLOW do
+    s:=SysUtils.Format('%d + %d = %d',[1,2,3]);
+  EndBench;
+end;
+
+procedure BenchSysUtils_Format_Mixed;
+var i:integer; s:string;
+begin
+  StartBench('SysUtils.Format(mixed)',N_SLOW);
+  for i:=1 to N_SLOW do
+    s:=SysUtils.Format('Hello %s, age %d, pi=%.2f',['World',42,3.14159]);
+  EndBench;
+end;
+
 // ============================================================================
 // String32 benchmarks
 // ============================================================================
@@ -468,6 +504,13 @@ begin
   BenchString8_Escape;
   BenchString8_UrlEncode;
   BenchString8_HtmlEscape;
+  BenchWriteln;
+
+  BenchWriteln('--- Format ---');
+  BenchUTF8_Format_Simple;
+  BenchUTF8_Format_Mixed;
+  BenchSysUtils_Format_Simple;
+  BenchSysUtils_Format_Mixed;
   BenchWriteln;
 
   BenchWriteln('--- String32Helper ---');

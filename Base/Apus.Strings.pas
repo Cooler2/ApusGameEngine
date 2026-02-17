@@ -1,4 +1,4 @@
-// String manipulation helpers - modern API for working with String8 (UTF-8) and String32 (UCS-4)
+﻿// String manipulation helpers - modern API for working with String8 (UTF-8) and String32 (UCS-4)
 //
 // SCOPE: String operations beyond basic RTL - splitting, trimming, searching, replacing,
 // case conversion. Used by applications doing text processing, parsing, or manipulation.
@@ -106,6 +106,7 @@ type
     function ToInt64:int64;
     function ToDouble:double;
     function ToBoolean:boolean;
+
   end;
 
   // Helper for String32 (UCS-4 strings)
@@ -222,10 +223,26 @@ type
     // Upper/Lower case for UTF-8 (Unicode-aware)
     class function ToUpper(const s:String8):String8; static;
     class function ToLower(const s:String8):String8; static;
+    // Format string: %d %u %x %X %f %g %s %p %% with flags - 0 + and width.precision
+    class function Format(const fmt:String8; const args:array of const):String8; static;
   end;
 
+// Simple fast hash function for strings (case-insensitive)
+function FastHash(const st:String8):cardinal; overload;
+function FastHash(const st:String16):cardinal; overload;
+
+// String hash function (case-sensitive)
+function StrHash(const st:String8):cardinal; overload;
+function StrHash(const st:String16):cardinal; overload;
+{$IFNDEF UNICODE}
+function StrHash(const st:string):cardinal; overload;
+{$ENDIF}
+
+// Case-insensitive string comparison
+function SameText8(const a,b:String8):boolean; inline;
+
 implementation
-uses SysUtils;
+uses SysUtils, Apus.Conv;
 
 // ============================================================================
 // String8Helper
@@ -1231,5 +1248,293 @@ begin result:=s; {TODO: proper Unicode uppercase} end;
 
 class function UTF8.ToLower(const s:String8):String8;
 begin result:=s; {TODO: proper Unicode lowercase} end;
+
+{$R-}
+function FastHash(const st:String8):cardinal; overload;
+var
+  l,i:integer;
+begin
+  l:=length(st);
+  if l<4 then begin
+    result:=0;
+    for i:=1 to l do
+      result:=result*$20844 xor (byte(st[i]) and $1F);
+  end else begin
+    result:=l*131+byte(st[1]) and $1F;
+    for i:=l-3 to l do begin
+      result:=result*$20844 xor (byte(st[i]) and $1F);
+    end;
+  end;
+end;
+
+function FastHash(const st:String16):cardinal; overload;
+var
+  l,i:integer;
+begin
+  l:=length(st);
+  if l<4 then begin
+    result:=0;
+    for i:=1 to l do
+      result:=result*$20844 xor (word(st[i]) and $1F);
+  end else begin
+    result:=l*131+word(st[1]) and $1F;
+    for i:=l-3 to l do begin
+      result:=result*$20844 xor (word(st[i]) and $1F);
+    end;
+  end;
+end;
+
+function StrHash(const st:String8):cardinal; overload;
+var
+  i:integer;
+begin
+  result:=0;
+  for i:=1 to length(st) do
+    result:=cardinal(result*$20844) xor byte(st[i]);
+end;
+
+function StrHash(const st:String16):cardinal; overload;
+var
+  i:integer;
+begin
+  result:=0;
+  for i:=1 to length(st) do
+    result:=cardinal(result*$20844) xor byte(st[i]);
+end;
+
+{$IFNDEF UNICODE}
+function StrHash(const st:string):cardinal; overload;
+var
+  i:integer;
+begin
+  result:=0;
+  for i:=1 to length(st) do
+    result:=cardinal(result*$20844) xor byte(st[i]);
+end;
+{$ENDIF}
+
+function SameText8(const a,b:String8):boolean;
+begin
+  result:=a.EqualsText(b);
+end;
+
+// ============================================================================
+// Format helpers (used by String8Helper.Format)
+// ============================================================================
+
+// Extract string representation from TVarRec argument
+function VarRecToStr(const v:TVarRec):String8;
+begin
+  case v.VType of
+    vtInteger:    result:=Conv.ToStr(int64(v.VInteger));
+    vtInt64:      result:=Conv.ToStr(v.VInt64^);
+    vtBoolean:    if v.VBoolean then result:='true' else result:='false';
+    vtChar:       result:=AnsiChar(v.VChar);
+    vtPChar:      result:=String8(v.VPChar);
+    vtString:     result:=String8(v.VString^);
+    vtAnsiString: result:=String8(AnsiString(v.VAnsiString));
+    vtPointer:    result:=Conv.ToStr(v.VPointer);
+    vtExtended:   Str(v.VExtended^,result);
+    {$IFDEF UNICODE}
+    vtWideChar:      result:=UTF8Encode(UnicodeString(v.VWideChar));
+    vtWideString:    result:=UTF8Encode(WideString(v.VWideString));
+    vtUnicodeString: result:=UTF8Encode(UnicodeString(v.VUnicodeString));
+    {$ENDIF}
+    {$IFDEF FPC}
+    vtQWord: result:=Conv.ToStr(int64(v.VQWord^));
+    {$ENDIF}
+    else result:='?';
+  end;
+end;
+
+// Extract int64 from TVarRec argument
+function VarRecToInt(const v:TVarRec):int64;
+begin
+  case v.VType of
+    vtInteger: result:=v.VInteger;
+    vtInt64:   result:=v.VInt64^;
+    vtBoolean: result:=ord(v.VBoolean);
+    vtChar:    result:=ord(v.VChar);
+    {$IFDEF FPC}
+    vtQWord: result:=int64(v.VQWord^);
+    {$ENDIF}
+    else result:=0;
+  end;
+end;
+
+// Extract double from TVarRec argument
+function VarRecToFloat(const v:TVarRec):double;
+begin
+  case v.VType of
+    vtExtended:  result:=v.VExtended^;
+    vtInteger:   result:=v.VInteger;
+    vtInt64:     result:=v.VInt64^;
+    vtCurrency:  result:=v.VCurrency^;
+    {$IFDEF FPC}
+    vtQWord: result:=double(v.VQWord^);
+    {$ENDIF}
+    else result:=0;
+  end;
+end;
+
+// Format int64: base=10 or 16, uppercase hex, minimum digit count
+function FormatInt8(v:int64;base:integer;upperCase:boolean;minDigits:integer;showSign:boolean):String8;
+const
+  HexU:String8='0123456789ABCDEF';
+  HexL:String8='0123456789abcdef';
+var
+  uv:uint64;
+  neg:boolean;
+  hexChars:PString8;
+begin
+  result:='';
+  if base=16 then begin
+    if upperCase then hexChars:=@HexU else hexChars:=@HexL;
+    uv:=uint64(v);
+    repeat
+      result:=hexChars^[(uv and 15)+1]+result;
+      uv:=uv shr 4;
+    until uv=0;
+  end else begin
+    neg:=v<0;
+    if neg then uv:=uint64(-v) else uv:=uint64(v);
+    if uv=0 then result:='0'
+    else
+      repeat
+        result:=AnsiChar(ord('0')+(uv mod 10))+result;
+        uv:=uv div 10;
+      until uv=0;
+    if neg then result:='-'+result
+    else if showSign then result:='+'+result;
+  end;
+  while System.Length(result)<minDigits do result:='0'+result;
+end;
+
+// Format double: 'f'=fixed, 'g'/'G'=general (removes trailing zeros)
+function FormatFloat8(v:double;spec:AnsiChar;prec:integer):String8;
+var
+  s:string;
+  i:integer;
+begin
+  Str(v:0:prec,s);
+  result:=String8(s);
+  if spec in ['g','G'] then begin
+    // trim trailing zeros after decimal point
+    if System.Pos('.',s)>0 then begin
+      i:=System.Length(result);
+      while (i>0) and (result[i]='0') do dec(i);
+      if (i>0) and (result[i]='.') then dec(i);
+      SetLength(result,i);
+    end;
+  end;
+end;
+
+// ============================================================================
+// UTF8.Format — native implementation (no Unicode roundtrip)
+// ============================================================================
+
+class function UTF8.Format(const fmt:String8; const args:array of const):String8;
+var
+  i,argIdx,w,prec,minD:integer;
+  leftAlign,zeroPad,showSign,hasPrec:boolean;
+  piece:String8;
+
+  // Append piece to result, applying width and alignment
+  procedure Emit(const s:String8);
+  var pad:integer;
+  begin
+    pad:=w-System.Length(s);
+    if leftAlign then begin
+      result:=result+s;
+      if pad>0 then result:=result+String8(StringOfChar(' ',pad));
+    end else begin
+      if pad>0 then
+        if zeroPad then result:=result+String8(StringOfChar('0',pad))
+        else result:=result+String8(StringOfChar(' ',pad));
+      result:=result+s;
+    end;
+  end;
+
+begin
+  result:='';
+  argIdx:=0;
+  i:=1;
+  while i<=System.Length(fmt) do begin
+    if fmt[i]<>'%' then begin
+      result:=result+fmt[i]; inc(i); continue;
+    end;
+    inc(i);
+    if i>System.Length(fmt) then break;
+    if fmt[i]='%' then begin result:=result+'%'; inc(i); continue; end;
+    // flags
+    leftAlign:=false; zeroPad:=false; showSign:=false;
+    repeat
+      if i>System.Length(fmt) then break;
+      case fmt[i] of
+        '-': begin leftAlign:=true; zeroPad:=false; end;
+        '0': if not leftAlign then zeroPad:=true;
+        '+': showSign:=true;
+        else break;
+      end;
+      inc(i);
+    until false;
+    // width
+    w:=0;
+    while (i<=System.Length(fmt)) and (fmt[i]>='0') and (fmt[i]<='9') do begin
+      w:=w*10+(ord(fmt[i])-ord('0')); inc(i);
+    end;
+    // precision
+    prec:=6; hasPrec:=false;
+    if (i<=System.Length(fmt)) and (fmt[i]='.') then begin
+      inc(i); hasPrec:=true; prec:=0;
+      while (i<=System.Length(fmt)) and (fmt[i]>='0') and (fmt[i]<='9') do begin
+        prec:=prec*10+(ord(fmt[i])-ord('0')); inc(i);
+      end;
+    end;
+    if (i>System.Length(fmt)) or (argIdx>High(args)) then break;
+    case fmt[i] of
+      'd','i': begin
+        Emit(FormatInt8(VarRecToInt(args[argIdx]),10,false,1,showSign));
+        inc(argIdx);
+      end;
+      'u': begin
+        // treat as unsigned 32-bit
+        Emit(FormatInt8(VarRecToInt(args[argIdx]) and $FFFFFFFF,10,false,1,false));
+        inc(argIdx);
+      end;
+      'x': begin
+        if hasPrec then minD:=prec else minD:=1;
+        Emit(FormatInt8(VarRecToInt(args[argIdx]),16,false,minD,false));
+        inc(argIdx);
+      end;
+      'X': begin
+        if hasPrec then minD:=prec else minD:=1;
+        Emit(FormatInt8(VarRecToInt(args[argIdx]),16,true,minD,false));
+        inc(argIdx);
+      end;
+      'f': begin
+        if not hasPrec then prec:=6;
+        Emit(FormatFloat8(VarRecToFloat(args[argIdx]),'f',prec));
+        inc(argIdx);
+      end;
+      'g','G': begin
+        if not hasPrec then prec:=6;
+        Emit(FormatFloat8(VarRecToFloat(args[argIdx]),fmt[i],prec));
+        inc(argIdx);
+      end;
+      's': begin
+        piece:=VarRecToStr(args[argIdx]);
+        if hasPrec and (System.Length(piece)>prec) then SetLength(piece,prec);
+        Emit(piece);
+        inc(argIdx);
+      end;
+      'p': begin
+        Emit(Conv.ToHex(VarRecToInt(args[argIdx]),2*sizeof(pointer)));
+        inc(argIdx);
+      end;
+    end;
+    inc(i);
+  end;
+end;
 
 end.
