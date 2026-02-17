@@ -23,10 +23,15 @@ Use it as the primary reference when updating old code.
 | `SetFlag(v,flag)` | `Bits.SetFlag(v,flag)` | |
 | `GetBit(data,idx)` | `Bits.Get(data,idx)` | |
 | `SetBit(data,idx,val)` | `Bits.SetBit(data,idx,val)` | |
-| `GetBits(data,idx,size)` | — | not yet moved |
-| `SetBits(data,idx,size,val)` | — | not yet moved |
+| `GetBits(data,idx,size)` | `Bits.GetBits(data,idx,size)` | overload for cardinal |
+| `SetBits(data,idx,size,val)` | `Bits.SetBits(data,idx,size,val)` | overloads for byte/word/cardinal/uint64 |
 | `ZeroMem(data,size)` | `Mem.Clear(data,size)` | |
 | `Toggle(b)` | `Toggle(b)` | same name |
+| `Wrap(v,max:single)` | `Wrap(v,max:single)` | same name; with fast path for in-range values |
+| `Wrap(v,max:double)` | `Wrap(v,max:double)` | same name |
+| `FRound(v:double)` | `FRound(v:double)` | same name; fast round (biased +epsilon) |
+| `PRound(v:double)` | `PRound(v:double)` | same name; precise round |
+| `SRound(v:single)` | `SRound(v:single)` | same name; SSE-accelerated, Pascal fallback for ARM |
 
 ### Stack trace support (new in engine5)
 

@@ -123,44 +123,58 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 
 ## Key blockers
 
-1. ~~**Threading**~~: **DONE** — Apus.Threads created. Needs polishing (tests, Wait fixes) but core API is stable.
-2. ~~**Logging**~~: **DONE** — Apus.Log created with unified API. Old Common logging code can now be deprecated.
-3. **EventMan completion** — Partially migrated but needs testing and API finalization. Core infrastructure.
-4. **Structs type migration** — Needs StringArr/AStringArr/StringArray8/TNamedObject defined in Apus.Strings/Classes. Blocks ControlFiles.
-5. **Classes migration** — Foundation module (Level 1), needs TMyCriticalSection → TLock migration.
-6. **MyTickCount** is used by 8+ modules for timing. Needs a home (Apus.Utils or Core.Time scope?).
-7. **EncodeUTF8/DecodeUTF8** used by 5+ modules. Natural fit for Strings but adds bulk → consider Apus.Utils.
-8. **CrossPlatform removal** — Extract useful parts to Apus.Utils, remove from all uses.
+1. ~~**Threading**~~: **DONE** — Apus.Threads created.
+2. ~~**Logging**~~: **DONE** — Apus.Log created.
+3. ~~**EventMan**~~: **DONE** — migrated to Core/Log/Threads/Strings, compiles clean.
+4. ~~**Classes+Structs**~~: **DONE** — migrated 2026-02-17.
+5. **Apus.Images / Apus.FastGFX** — gateway modules: ~15 other modules depend on them (Clipboard, Regions, GlyphCaches, UnicodeFont, FreeTypeFont, GfxFilters, GfxFormats, etc.). Migrating Images+FastGFX would unblock the most modules at once. **HIGH PRIORITY.**
+6. **EncodeUTF8/DecodeUTF8** — used by 5+ modules (Translation, Publics, HtmlTree, Android). Should move to Apus.Strings.
+7. **MyTickCount** — still used in some modules. Replace with `GetTickCount64` directly (no wrapper needed).
+8. **CrossPlatform** — deprecated, extract ExecuteAndCapture to Utils, then remove from uses everywhere.
+
+## Discovered dependency chains (buildtest 2026-02-17)
+
+These modules compile cleanly themselves but are blocked transitively:
+- **Clipboard, Regions** → Apus.Images → Apus.FastGFX → Common
+- **AnimatedValues** → Apus.Tweenings → Common
+- **GlyphCaches, UnicodeFont, FreeTypeFont** → Apus.Images → Common
+- **GfxFormats, GfxFilters** → Apus.Images + Apus.FastGFX → Common
+- **Socket** → Common (direct, needs LogMessage + InitCritSect)
+- **ProdCons** → Common (direct, needs Clamp + MyTickCount)
 
 ## Migration order (current priorities)
 
 ### Completed ✅
-1. ✅ Create Apus.Log with unified logging API
-2. ✅ Extract Threading from Common → Apus.Threads
-3. ✅ Create Apus.Utils for homeless functions (ParseDate/ParseTime, SplitA, Chop)
+1. ✅ Create Apus.Log, Apus.Threads, Apus.Utils, Apus.Files, Apus.HashMaps
+2. ✅ Migrate Apus.Classes, Apus.Structs (Foundation Level 1)
+3. ✅ Migrate Apus.EventMan
+4. ✅ Migrate Apus.Geom2D, Apus.Colors, Apus.VertexLayout (2026-02-17)
+5. ✅ Migrate Apus.Clipboard, Apus.Regions (own code clean; blocked by Images transitively)
+6. ✅ Extend Apus.Core: Wrap, FRound/PRound/SRound, Bits.GetBits/SetBits (2026-02-17)
 
-### Next steps (HIGH priority)
-4. **Polish Apus.Threads** — Fix IThread.Wait, add comprehensive tests, verify Linux support
-5. **Complete Apus.EventMan** — Finish migration, add tests, verify thread-safety
-6. **Migrate Apus.Classes** — TMyCriticalSection → TLock, foundation module
-7. **Migrate Apus.Structs** — Define missing types (StringArr → Apus.Strings, TNamedObject → Apus.Classes), unblocks ControlFiles
-8. **Extract CrossPlatform** — Move ExecuteAndCapture and other useful parts to Apus.Utils, deprecate module
+### Next (HIGH — unblocks most modules)
+7. **Migrate Apus.FastGFX** — light-to-medium, min2/max2/Clamp only. Unblocks Images and ~10 downstream modules.
+8. **Migrate Apus.Images** — medium, min2/max2/Clamp + LogMessage. Depends on FastGFX being clean first.
+9. **Migrate Apus.Tweenings** — trivial (Clamp only → Core). Unblocks AnimatedValues.
+10. **Migrate Apus.Socket** — light (LogMessage + InitCritSect/Enter/LeaveCS → Log + Threads).
 
 ### Medium priority
-9. Extract remaining Math/Bits/Pack into Core → unblocks Colors, Geom2D, FastGFX, Images
-10. Extract UTF/string ops (EncodeUTF8/DecodeUTF8) into Apus.Utils → unblocks Translation, Publics, HtmlTree
-11. Extract Date/Time + encoding into Conv → unblocks Database, ProdCons
-12. Refactor Apus.Logging into interceptor (Apus.Log.Memory?) using new Log API
+11. Migrate Apus.ProdCons (Clamp + MyTickCount → Core + GetTickCount64)
+12. Extract EncodeUTF8/DecodeUTF8 into Apus.Strings → unblocks Translation, HtmlTree, Publics
+13. Migrate Apus.TCP, Apus.HttpRequests (LogMessage, MyTickCount, threading)
+14. Migrate Apus.GfxFormats, Apus.GfxFilters (after Images is clean)
+15. Migrate Apus.GlyphCaches, Apus.UnicodeFont, Apus.FreeTypeFont (after Images)
+16. Extract CrossPlatform → Utils, then remove from all uses
 
 ### Low priority
-13. Migrate trivial modules (only type aliases or 1-2 calls)
-14. Migrate light modules (a few old calls to replace)
-15. Migrate medium modules (multiple old API groups)
-16. Common becomes a thin re-export facade (like Lib) or is removed
+17. Migrate trivial: Huffman, Profiling, GeoIP, StackTrace, MemoryLeakUtils
+18. Migrate medium: TextUtils, Database, Translation, HtmlTree
+19. Common becomes a thin re-export facade or is removed
 
 ## TODO — important tasks
 
 * **TScopedLock in FPC**: Investigate if RAII (Initialize/Finalize operators) can work in FPC. If not possible, remove TScopedLock entirely — engine should only include features that work with both compilers (Delphi + FPC).
+* **Vector math operations**: Add Clamp/Wrap/Lerp/Min/Max for vector types (TPoint2s, TPoint3s, TVector2, TVector3, TVector4). Currently scalar-only. Belongs in Apus.Geom2D/Geom3D helper methods or a dedicated Apus.VectorMath module.
 
 ## Would be nice to do (but not required)
 
