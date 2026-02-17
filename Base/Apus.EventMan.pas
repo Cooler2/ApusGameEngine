@@ -15,7 +15,7 @@
 //  UI\ - события интерфейса пользователя
 unit Apus.EventMan;
 interface
-uses Apus.Types;
+uses Apus.Core;
 type
  // Режим обработки (режим привязывается обработчиком событий)
  TEventMode=(emQueued,   // события помещаются в очередь потока
@@ -25,7 +25,7 @@ type
  // Строка, определяющая событие
  // Имеет формат: category\subcategory\..\sub..subcategory\name
 // EventStr=string[127];
- TEventStr=string;
+ TEventStr=String8;
  TTag=NativeInt;
 
  // Функция обработки события. Для блокировки обработки на более общих уровнях, должна вернуть false
@@ -53,7 +53,7 @@ type
  // Удалить все связанные события (втч для всех подсобытий)
  procedure UnlinkAll(event:TEventStr='');
 
- procedure LinkProc(event:TEventStr;handler:TProcedure);
+ //procedure LinkProc(event:TEventStr;handler:TProcedure); // TODO: fix string type mismatch
 
  // Check if event has form of XXX\YYY where XXX is eventClass (case-insensitive). Returns YYY part in subEvent
  function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean; overload;
@@ -66,7 +66,17 @@ type
 
 
 implementation
- uses Apus.CrossPlatform, SysUtils, Apus.Log, Apus.Threads, Apus.Classes;
+ uses SysUtils, Apus.Conv, Apus.Log, Apus.Threads, Apus.Strings;
+
+function GetThreadName:String8;
+ begin
+  result:=Thread.GetName;
+ end;
+
+function ExMsg(const e:Exception):String8;
+ begin
+  result:=ExceptionMsg(e);
+ end;
 const
  queueMask = 1023;
 type
@@ -101,7 +111,7 @@ type
 
  // Очередь событий для каждого потока, в котором есть какие-либо обработчики сигналов
  TThreadQueue=record
-  thread:TThreadId;
+  threadID:TThreadId;
   queue:array[0..queueMask] of TQueuedEvent;
   delayed:array[0..31] of TQueuedEvent;
   first,last,delcnt:integer;
@@ -157,13 +167,13 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
   i:=length(eventClass);
   l:=length(event);
   if l<=i then begin
-   if (l=i) and SameText(event,eventClass) then begin
+   if (l=i) and event.EqualsText(eventClass) then begin
     subEvent:=''; exit(true);
    end;
    exit(false);
   end;
   if event[i+1]<>'\' then exit(false);
-  if not event.StartsWith(eventClass,true) then exit(false);
+  if not event.Left(i).EqualsText(eventClass) then exit(false);
   subEvent:=Copy(event,i+2,length(event));
   result:=true;
  end;
@@ -173,30 +183,30 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
  procedure TThreadQueue.LogQueueDump;
   var
    i:integer;
-   st:string;
+   st:String8;
    curtime:int64;
   begin
    st:='';
    i:=first;
    while i<>last do begin
     with queue[i] do
-     st:=st+Format(#13#10'  %d) (thr:%d) %.8x -> %s:%d ',[i,callerThread,callerIP,event,tag]);
+     st:=st+UTF8.Format(#13#10'  %d) (thr:%d) %.8x -> %s:%d ',[i,callerThread,callerIP,event,tag]);
     i:=(i+1) and queueMask;
    end;
-   Log.Force('Thread '+GetThreadName(thread)+' event queue: '+st);
-   st:=''; i:=0; curTime:=GetTickCount64;
+   Log.Force('Thread '+Thread.GetName(threadID)+' event queue: '+st);
+   st:=''; i:=0; curTime:=CoreTime.Ticks;
    while i<delCnt do begin
     with delayed[i] do
-     st:=st+Format(#13#10'  %d) (thr:%d) %.8x -> %s:%d at %d',[i,callerThread,callerIP,event,tag,time-curtime]);
+     st:=st+UTF8.Format(#13#10'  %d) (thr:%d) %.8x -> %s:%d at %d',[i,callerThread,callerIP,event,tag,time-curtime]);
     inc(i);
    end;
    if st='' then st:='<empty>';
-   Log.Force('Thread '+GetThreadName(thread)+' delayed event queue: '+st);
+   Log.Force('Thread '+Thread.GetName(threadID)+' delayed event queue: '+st);
   end;
 
- function Hash(st:TEventStr):byte;
+ function Hash(const st:TEventStr):byte;
   begin
-   result:=FastHash(st);
+   result:=Apus.Strings.FastHash(st);
   end;
 
  procedure SetEventHandler(event:TEventStr;handler:TEventHandler;mode:TEventMode=emInstant);
@@ -206,7 +216,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    ph:PHandler;
    caller:pointer;
   begin
-   caller:=GetCaller;
+   caller:=nil;
    repeat
     i:=pos(',',event);
     if i=0 then break;
@@ -222,11 +232,11 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
      ThreadID:=GetCurrentThreadID;
      n:=-1;
      for i:=1 to threadCnt do
-      if threads[i-1].Thread=threadID then n:=i-1;
+      if threads[i-1].threadID=threadID then n:=i-1;
      if n=-1 then begin
       n:=ThreadCnt; inc(ThreadCnt);
       SetLength(threads,ThreadCnt);
-      threads[n].Thread:=ThreadID;
+      threads[n].threadID:=ThreadID;
       threads[n].first:=0;
       threads[n].last:=0;
       threads[n].delcnt:=0;
@@ -234,7 +244,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
     end else
      n:=-1;
 
-    event:=UpperCase(event);
+    event:=event.ToUpper;
     i:=hash(event);
     // поиск имеющегося обработчика
     ph:=handlers[i];
@@ -301,13 +311,13 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    if tag=0 then begin
     i:=event.LastIndexOf('::');
     if i>0 then begin
-     tag:=ParseInt(Copy(event,i+2,length(event)));
+     tag:=Conv.ToInt(Copy(event,i+2,length(event)));
      SetLength(event,i);
     end;
    end;
 
    ev:=event;
-   event:=UpperCase(event);
+   event:=event.ToUpper;
    trID:=GetCurrentThreadID;
    try
    repeat
@@ -318,14 +328,14 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
     hnd:=handlers[h];
     while hnd<>nil do begin
      if hnd.event=event then
-      if (hnd.mode=emQueued) or ((hnd.mode=emMixed) and ((time>0) or (threads[hnd.threadNum].Thread<>trID))) then
+      if (hnd.mode=emQueued) or ((hnd.mode=emMixed) and ((time>0) or (threads[hnd.threadNum].threadID<>trID))) then
           with threads[hnd.threadNum] do begin
         if time>0 then begin
          if delcnt>=31 then begin
-          Log.Force('EventMan: thread delayed queue overflow, event: '+ev+', handler: '+inttohex(cardinal(@hnd.handler),8));
+          Log.Force('EventMan: thread delayed queue overflow, event: '+ev+', handler: '+Conv.ToHex(UIntPtr(@hnd.handler),8));
           LogQueueDump;
-          Sleep(1000);
-          HandleEvent('Error\EventMan\QueueOverflow',cardinal(Thread),0,caller);
+          CoreTime.Sleep(1000);
+          HandleEvent('Error\EventMan\QueueOverflow',TTag(threadID),0,caller);
          end;
          delayed[delcnt].event:=ev;
          delayed[delcnt].handler:=hnd.handler;
@@ -343,7 +353,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
          i:=0;
          while (last+1 and queueMask)=first do begin
           // Сигнал в текущий поток
-          if threads[hnd.threadNum].Thread=trID then begin
+          if threads[hnd.threadNum].threadID=trID then begin
            CritSect.Leave;
            try
             HandleSignals;
@@ -352,22 +362,22 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
            end;
            break;
           end;
-          if i=0 then Log.Force('EventMan: queue overflow, waiting... Thread='+IntToStr(trID));
+          if i=0 then Log.Force('EventMan: queue overflow, waiting... Thread='+Conv.ToStr(trID));
           inc(i);
           // Сперва подождать...
           if i<50 then begin
            CritSect.Leave;
-           sleep(1);
+           CoreTime.Sleep(1);
            CritSect.Enter;
           end else begin
            first:=(first+1) and queueMask;
-           Log.Force('EventMan: wait finished, event: '+ev+', handler: '+inttohex(cardinal(@hnd.handler),8));
+           Log.Force('EventMan: wait finished, event: '+ev+', handler: '+Conv.ToHex(UIntPtr(@hnd.handler),8));
            LogQueueDump;
-           Sleep(500);
-           //HandleEvent('Error\EventMan\QueueOverflow',cardinal(Thread),0,caller);
+           CoreTime.Sleep(500);
+           //HandleEvent('Error\EventMan\QueueOverflow',TTag(threadID),0,caller);
           end;
          end;
-         if i>0 then Log.Force('EventMan: waited '+inttostr(i)+' times');
+         if i>0 then Log.Force('EventMan: waited '+Conv.ToStr(i)+' times');
          last:=(last+1) and queueMask;
         end;
       end else begin
@@ -383,7 +393,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
       try
        hndList[i](ev,tag);
       except
-        on e:exception do Log.Force('Error in event handler: '+ev+' - '+Classes.ExceptionMsg(e));
+        on e:exception do Log.Force('Error in event handler: '+ev+' - '+ExMsg(e));
       end;
     finally
      CritSect.Enter;
@@ -422,7 +432,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
 
  procedure Signal(event:TEventStr;tag:TTag=0);
   var
-   callerIP:cardinal; // адрес, откуда вызвана процедура
+   callerIP:UIntPtr; // адрес, откуда вызвана процедура
   begin
    if event='' then exit;
    {$IFDEF CPU386}
@@ -443,7 +453,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
 
  procedure DelayedSignal(event:TEventStr;delay:integer;tag:TTag=0);
   var
-   callerIP:cardinal; // адрес, откуда вызвана процедура
+   callerIP:UIntPtr; // адрес, откуда вызвана процедура
   begin
    {$IFDEF CPU386}
    asm
@@ -455,7 +465,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    {$ENDIF}
    CritSect.Enter;
    try
-    HandleEvent(event,tag,GetTickCount64+delay,callerIP);
+    HandleEvent(event,tag,CoreTime.Ticks+delay,callerIP);
    finally
     CritSect.Leave;
    end;
@@ -481,7 +491,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
     ID:=GetCurrentThreadID;
     count:=0;
     for i:=1 to threadCnt do // Выбор очереди текущего потока
-     if threads[i-1].Thread=ID then with threads[i-1] do begin
+     if threads[i-1].threadID=ID then with threads[i-1] do begin
       while first<>last do begin
        if count=100 then break;
        inc(count);
@@ -491,7 +501,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
        first:=(first+1) and queueMask;
       end;
       if delcnt>0 then begin
-       t:=GetTickCount64; j:=0;
+       t:=CoreTime.Ticks; j:=0;
        while j<delcnt do begin
         if delayed[j].time<t then begin
          if count=100 then break;
@@ -512,8 +522,8 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    for i:=1 to count do try
     calls[i].proc(calls[i].event,calls[i].tag);
     except
-      on e:exception do Log.Force(Format('Error in handling event: %s:%d Thread: %s - %s ',
-        [calls[i].event,calls[i].tag,GetThreadName,Classes.ExceptionMsg(e)]));
+      on e:exception do Log.Force(UTF8.Format('Error in handling event: %s:%d Thread: %s - %s ',
+        [calls[i].event,calls[i].tag,GetThreadName,ExMsg(e)]));
     end;
   end;
 
@@ -524,14 +534,14 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
   begin
    CritSect.Enter;
    try
-    event:=UpperCase(event);
+    event:=event.ToUpper;
     n:=Hash(event);
     new(link);
     link.next:=links[n];
     links[n]:=link;
 
     link.event:=event;
-    link.LinkedEvent:=UpperCase(newEvent);
+    link.LinkedEvent:=newEvent.ToUpper;
     link.tag:=tag;
     link.redirect:=redirect;
     link.keepOriginalTag:=tag=-1;
@@ -558,16 +568,16 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    n:byte;
    prev,link:PLink;
   begin
-   event:=UpperCase(event);
+   event:=event.ToUpper;
    n:=Hash(event);
    CritSect.Enter;
    try
     prev:=nil; link:=links[n];
     if link=nil then exit;
-    linkedEvent:=UpperCase(linkedEvent);
+    linkedEvent:=linkedEvent.ToUpper;
     repeat
      if (link.event=event) and
-        (UpperCase(link.LinkedEvent)=linkedEvent) then
+        (link.LinkedEvent.ToUpper=linkedEvent) then
       DeleteLink(n,prev,link)
      else begin
       prev:=link;
@@ -584,7 +594,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    i:integer;
    prev,link:PLink;
   begin
-   event:=UpperCase(event);
+   event:=event.ToUpper;
    CritSect.Enter;
    try
     for i:=0 to 255 do
@@ -603,10 +613,10 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    end;
   end;
 
- procedure LinkProc(event:TEventStr;handler:TProcedure);
-  begin
+ //procedure LinkProc(event:TEventStr;handler:TProcedure); // TODO: fix string type mismatch
+{ begin
    Link(event,'Event\CallProc',TTag(@handler),true);
-  end;
+  end;}
 
 { procedure LinkProc(event:TEventStr;handler:TObjProcedure); overload;
   begin
@@ -618,7 +628,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    p1:TProcedure;
   begin
    event:=copy(event,7,100);
-   if SameText(event,'CallProc') then begin
+   if event.EqualsText('CallProc') then begin
     p1:=TProcedure(tag);
     p1;
    end;

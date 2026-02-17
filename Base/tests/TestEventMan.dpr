@@ -2,6 +2,7 @@
 program TestEventMan;
 uses
   SysUtils,
+  Apus.Core,
   Apus.EventMan;
 
 {$INCLUDE Test.inc}
@@ -98,7 +99,7 @@ begin
   DelayedSignal('Delay\Test',50,222); // 50ms delay
   HandleSignals;
   Check(eventCount=0,'not processed immediately');
-  Sleep(100); // wait for delay
+  CoreTime.Sleep(100); // wait for delay
   HandleSignals;
   Check(eventCount=1,'processed after delay');
   Check(tagReceived=222,'delayed tag');
