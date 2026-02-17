@@ -23,16 +23,18 @@ else
   fi
 fi
 
-# Clean up old results and stale files 
+# Clean up old results and stale files
 rm -f "$LOG64"
 rm -f ../*.ppu ../*.o 2>/dev/null
+# Remove stale Windows-compiled .o/.ppu from Base/out64/ to avoid cross-platform link conflicts
+rm -f ../out64/*.o ../out64/*.ppu 2>/dev/null
 
 # === 64-bit Compilation and Execution ===
 echo "Testing $TEST (64-bit) - $(date)" > "$LOG64"
 echo "" >> "$LOG64"
 echo "=== Compiling ===" >> "$LOG64"
 
-# Clean and recreate output directories [cite: 3]
+# Clean and recreate output directories
 rm -rf out64 bin64
 mkdir -p out64 bin64
 

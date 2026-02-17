@@ -73,12 +73,12 @@ end;
 // Simple timer stubs (replace with proper implementation if needed)
 procedure StartTimer(var timer:int64); inline;
 begin
-  timer:=Time.Ticks;
+  timer:=CoreTime.Ticks;
 end;
 
 function TimerSec(const timer:int64):double; inline;
 begin
-  result:=(Time.Ticks-timer)/1000.0;
+  result:=(CoreTime.Ticks-timer)/1000.0;
 end;
 
 procedure StartBench(const name:string; iterations:integer=0);

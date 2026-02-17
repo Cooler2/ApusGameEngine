@@ -158,6 +158,16 @@ Level 5:
 
 **Workflow**: when creating new modules, wait for user to review the interface before writing tests.
 
+**Module migration algorithm:**
+1. Remove `Apus.Common`, `Apus.CrossPlatform`, and any old modules that depend on them from `uses`
+2. Compile with FPC directly to get the full list of errors: `fpc -MDelphi -Sd -Fu<base_path> <Module.pas>`
+3. Fix each error: replace old calls with new API (from Apus.Core/Conv/Strings/Log/Threads), or extract missing functions to the appropriate new module
+
+**Build tools:**
+- Do NOT create `.lpi` files — project uses FPC via `test.bat` or Delphi `.dproj` (created manually)
+- Compile individual module: `fpc -MDelphi -Sd -Fu.. <Module.pas>` (run from `Base/tests/`)
+- Run tests: `test.bat <TestName>` (e.g. `test.bat EventMan`)
+
 - use `UIntPtr` for pointer↔integer conversion
 - add comments after `{$ELSE}` when far from condition
 - short end-of-line comments start lowercase: `a:=1; // initialize`
