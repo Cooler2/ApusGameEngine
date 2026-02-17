@@ -201,12 +201,10 @@ type
   TThreadData=record
     ID:TThreadID;
     handle:THandle;     // thread handle for waiting
-    name:String8;       // original name (may contain pattern)
-    uniqueName:String8; // resolved name with auto-generated suffix if needed
-    pingCounter:integer;  // how many times responded
-    firstPing:integer;    // time of first response
-    lastPing:integer;     // time of last response
-    lastCS:PLock;         // last critical section acquired in this thread
+    uniqueName:String8; // resolved name (pattern stored in threadNameCounters)
+    startTime:int64;    // CoreTime.Ticks when thread began executing
+    lastPing:int64;     // CoreTime.Ticks of last Ping call (0 = never pinged)
+    lastCS:PLock;       // last critical section acquired in this thread
     terminating:LongBool; // atomic termination flag
     paused:LongBool;      // atomic pause flag
     implPtr:pointer;      // TThreadImpl pointer for status updates (raw - avoids forward declaration)
@@ -223,6 +221,9 @@ type
     parameter:pointer;
     threadData:PThreadData; // pre-allocated, added to threads[] by Thread.Start
     impl:TObject;           // TThreadImpl (raw object ref - avoids premature free via interface)
+    {$IFDEF DEBUG}
+    startupTimer:int64;     // QPC value from Thread.Start, for startup latency measurement
+    {$ENDIF}
   end;
 
 
@@ -273,6 +274,11 @@ var
   // Registry of all named threads (pointers for stability)
   threads:array of PThreadData;
   lastThreadReport:int64; // time of last thread delay report
+  {$IFDEF DEBUG}
+  // Startup latency stats: accumulated under SpinLock, for future diagnostics
+  threadStartupTotalUs:int64=0; // total startup latency in microseconds
+  threadStartupCount:integer=0; // number of Thread.Start threads measured
+  {$ENDIF}
   // Auto-increment counters for thread name uniquification (pattern%)
   threadNameCounters:array of record
     pattern:String8;
@@ -726,10 +732,8 @@ begin
   // Allocate data outside lock (fast allocation without contention)
   New(data);
   data^.ID:=threadID;
-  data^.name:=name;
   data^.lastCS:=nil;
-  data^.pingCounter:=0;
-  data^.firstPing:=0;
+  data^.startTime:=CoreTime.Ticks; // for Register: called from within thread
   data^.lastPing:=0;
   data^.terminating:=false;
   data^.paused:=false;
@@ -829,11 +833,18 @@ var
   userProc:TThreadProc;
   userParam:pointer;
   data:PThreadData;
+  {$IFDEF DEBUG}
+  startupTimer:int64;
+  startupUs:int64;
+  {$ENDIF}
 begin
   startData:=PThreadStartData(param);
   userProc:=startData^.proc;
   userParam:=startData^.parameter;
   data:=startData^.threadData;
+  {$IFDEF DEBUG}
+  startupTimer:=startData^.startupTimer; // save before Dispose
+  {$ENDIF}
   Dispose(startData);
 
   // Fill in remaining fields from within thread context
@@ -850,6 +861,14 @@ begin
 
   // Set thread context (data is heap-allocated → pointer stable regardless of threads[] realloc)
   CurrentThread.data:=data;
+  data^.startTime:=CoreTime.Ticks; // mark when thread actually began executing
+  {$IFDEF DEBUG}
+  startupUs:=round(TimerSec(startupTimer)*1e6);
+  SpinLock;
+  inc(threadStartupTotalUs,startupUs);
+  inc(threadStartupCount);
+  SpinUnlock;
+  {$ENDIF}
 
   // Log and set debug name
   Log.Msg('Thread ID: %d named %s',[data^.ID,data^.uniqueName]);
@@ -884,8 +903,7 @@ begin
   // Allocate thread registry entry
   New(data);
   data^.lastCS:=nil;
-  data^.pingCounter:=0;
-  data^.firstPing:=0;
+  data^.startTime:=0; // set in ThreadStartWrapper when thread actually runs
   data^.lastPing:=0;
   data^.terminating:=false;
   data^.paused:=false;
@@ -897,7 +915,6 @@ begin
   SpinLock;
   try
     uniqueName:=MakeUniqueName(name);
-    data^.name:=name;
     data^.uniqueName:=uniqueName;
     threads:=threads+[data]; // visible immediately → next Thread.Start sees this name
   finally
@@ -913,6 +930,9 @@ begin
   startData^.parameter:=parameter;
   startData^.threadData:=data;
   startData^.impl:=impl;
+  {$IFDEF DEBUG}
+  StartTimer(startData^.startupTimer); // record QPC moment just before BeginThread
+  {$ENDIF}
 
   // Start thread
   {$IFDEF FPC}
@@ -958,40 +978,38 @@ class procedure Thread.Ping;
 var
   i:integer;
   t:int64;
-  id:TThreadID;
+  d:PThreadData;
   needDump:boolean;
-  st:string;
+  st:String8;
 begin
   t:=CoreTime.Ticks;
-  id:=GetCurrentThreadID;
+  // lock-free self-update: only this thread writes its own fields
+  d:=PThreadData(CurrentThread.data);
+  if d<>nil then
+    d^.lastPing:=t;
+
+  // throttled watchdog: check other threads ~once per second
+  if t<lastThreadReport+1000 then exit;
+
   needDump:=false;
+  st:='';
   SpinLock;
   try
+    lastThreadReport:=t; // suppress concurrent watchdog invocations
     for i:=0 to high(threads) do
-      if threads[i]^.id=id then // current thread => update
-        with threads[i]^ do begin
-          inc(pingCounter);
-          if pingCounter=1 then firstPing:=t;
-          lastPing:=t;
-        end
-      else // other thread => report
-        if t>lastThreadReport+1000 then
-          with threads[i]^ do
-            if pingCounter>0 then
-              if (t-lastPing>300) then begin
-                st:=st+#13#10+'  '+uniqueName+' for '+Conv.tostr(t-lastPing);
-                if (t-lastPing>1500) then needDump:=true;
-              end;
-
-    if st<>'' then begin
-      Log.Force('Threads not responding: '+st);
-      lastThreadReport:=t;
-    end;
+      if threads[i]<>d then // skip current thread (already updated above)
+        with threads[i]^ do
+          if (lastPing>0) and (t-lastPing>300) then begin
+            st:=st+#13#10+'  '+uniqueName+' for '+Conv.tostr(t-lastPing);
+            if t-lastPing>1500 then needDump:=true;
+          end;
   finally
     SpinUnlock;
   end;
 
-  // Dump outside lock to avoid recursive SpinLock (deadlock!)
+  // logging and dumps outside lock (can be slow, may re-enter SpinLock)
+  if st<>'' then
+    Log.Force('Threads not responding: '+st);
   if needDump then begin
     Thread.DumpLocks;
     Thread.DumpRegistered;
@@ -1023,7 +1041,8 @@ end;
 class procedure Thread.DumpRegistered;
 var
   i,n:integer;
-  st,stateInfo:string;
+  t:int64;
+  st,stateInfo:String8;
   snapshot:array of TThreadData; // copy data to avoid long lock
 begin
   // Copy thread data inside lock (fast)
@@ -1038,11 +1057,20 @@ begin
   end;
 
   // Dump outside lock (slow - calls GetThreadStateInfo with SuspendThread)
+  t:=CoreTime.Ticks;
   for i:=0 to n-1 do begin
     st:=UTF8.Format('%d. %s ID: %d',[i,snapshot[i].uniqueName,snapshot[i].ID]);
     {$IFDEF UNIX}
     st:=st+UTF8.Format(' TID: %d',[snapshot[i].tid]);
     {$ENDIF}
+    if snapshot[i].startTime>0 then
+      st:=st+UTF8.Format(' running %dms',[t-snapshot[i].startTime])
+    else
+      st:=st+' (starting)';
+    if snapshot[i].lastPing>0 then
+      st:=st+UTF8.Format(' ping %dms ago',[t-snapshot[i].lastPing])
+    else
+      st:=st+' (no ping)';
     stateInfo:=GetThreadStateInfo(snapshot[i].ID);
     if stateInfo<>'' then st:=st+'  State: '+stateInfo;
     Log.Force(st);
