@@ -1,0 +1,57 @@
+name: Build Test
+
+on:
+  push:
+    branches: [ engine5 ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Lazarus/FPC
+      uses: gcarreno/setup-lazarus@v3.2
+      with:
+        lazarus-version: stable
+
+    - name: Build test (Base modules)
+      run: bash Base/tests/buildtest.sh
+
+    - name: Upload build log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: buildtest-linux-log
+        path: Base/tests/buildtest_results.txt
+
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Lazarus/FPC
+      uses: gcarreno/setup-lazarus@v3.2
+      with:
+        lazarus-version: stable
+        with-cache: false
+
+    - name: Build test (Base modules)
+      shell: cmd
+      run: Base\tests\buildtest.bat
+
+    - name: Upload build log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: buildtest-windows-log
+        path: Base/tests/buildtest_results.txt
