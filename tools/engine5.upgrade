@@ -1,0 +1,96 @@
+// Engine5 Upgrade Config
+// Run: upgrade5 [--dry-run] [--verbose] file.pas
+
+// === Remove old units from uses ===
+-uses Apus.Common
+-uses Apus.CrossPlatform
+
+// === Type renames ===
+TMyCriticalSection -> TLock [Apus.Threads]
+PCriticalSection -> PLock [Apus.Threads]
+StringArr -> Strings8 [Apus.Core]
+StringArray8 -> Strings8 [Apus.Core]
+AStringArr -> Strings8 [Apus.Core]
+WStringArr -> Strings16 [Apus.Core]
+
+// === Apus.Core: math ===
+// Order matters: specific variants before generic
+min2d -> Min [Apus.Core]
+max2d -> Max [Apus.Core]
+min2s -> Min [Apus.Core]
+max2s -> Max [Apus.Core]
+min2 -> Min [Apus.Core]
+max2 -> Max [Apus.Core]
+
+// === Apus.Core: bits ===
+HasFlag -> Bits.HasAll [Apus.Core]
+SetFlag -> Bits.SetFlag [Apus.Core]
+GetBit -> Bits.Get [Apus.Core]
+SetBit -> Bits.SetBit [Apus.Core]
+GetBits -> Bits.GetBits [Apus.Core]
+SetBits -> Bits.SetBits [Apus.Core]
+ZeroMem -> Mem.Clear [Apus.Core]
+
+// === Apus.Core: time ===
+MyTickCount -> CoreTime.Ticks [Apus.Core]
+
+// === Apus.Conv: parsing and formatting ===
+// Order matters: FormatHex before any shorter match
+FormatHex -> Conv.ToHex [Apus.Conv]
+PtrToStr -> Conv.ToStr [Apus.Conv]
+BoolToAStr -> Conv.ToStr [Apus.Conv]
+ParseInt -> Conv.ToInt [Apus.Conv]
+ParseFloat -> Conv.ToFloat [Apus.Conv]
+ParseBool -> Conv.ToBool [Apus.Conv]
+HexToInt -> Conv.HexToInt [Apus.Conv]
+SizeToStr -> Conv.FormatSize [Apus.Conv]
+StrToIp -> Conv.ToIp [Apus.Conv]
+IpToStr -> Conv.ToIp [Apus.Conv]
+EncodeHex -> Conv.EncodeHex [Apus.Conv]
+DecodeHex -> Conv.DecodeHex [Apus.Conv]
+EncodeB64 -> Conv.ToBase64 [Apus.Conv]
+DecodeB64 -> Conv.FromBase64 [Apus.Conv]
+HexDump -> Conv.HexDump [Apus.Conv]
+DecDump -> Conv.DecDump [Apus.Conv]
+
+// === Apus.Log: logging ===
+// Order matters: ForceLogMessage before LogMessage
+ForceLogMessage -> Log.Force [Apus.Log]
+LogMessage -> Log.Msg [Apus.Log]
+LogError -> Log.Error [Apus.Log]
+DebugMessage -> Log.Force [Apus.Log]
+UseLogFile -> Logger.UseLogFile [Apus.Log]
+FlushLog -> Logger.Flush [Apus.Log]
+StopLogThread -> Logger.StopLogThread [Apus.Log]
+
+// === Apus.Files: file I/O ===
+LoadFileAsBytes -> Files.LoadAsBytes [Apus.Files]
+LoadFileAsString -> Files.LoadAsString [Apus.Files]
+MyFileExists -> Files.Exists [Apus.Files]
+SafeFileName -> Files.SafeName [Apus.Files]
+FileName() -> Files.FixName [Apus.Files]
+
+// === Apus.Files: directories ===
+ListFiles -> Folder.ListFiles [Apus.Files]
+CopyDir -> Folder.Copy [Apus.Files]
+MoveDir -> Folder.Move [Apus.Files]
+DeleteDir -> Folder.Delete [Apus.Files]
+FindFile -> Folder.Find [Apus.Files]
+
+// === Apus.Threads ===
+RegisterThread -> Thread.Register [Apus.Threads]
+UnregisterThread -> Thread.Unregister [Apus.Threads]
+PingThread -> Thread.Ping [Apus.Threads]
+GetThreadName -> Thread.GetName [Apus.Threads]
+
+// === TODO markers: need manual rewrite (call style changes) ===
+InitCritSect -> ?use lock.Init(name,level) [Apus.Threads]
+DeleteCritSect -> ?use lock.Cleanup [Apus.Threads]
+PosFrom -> ?use st.IndexOf(substr) [Apus.Strings]
+LastPos -> ?use st.LastIndexOf(substr) [Apus.Strings]
+ExtractStr -> ?use st.Extract(prefix,suffix) [Apus.Strings]
+QuoteStr -> ?use st.Quote [Apus.Strings]
+UnquoteStr -> ?use st.Unquote [Apus.Strings]
+URLEncodeUTF8 -> ?use st.UrlEncode [Apus.Strings]
+SaveFile -> ?use Files.Save(fname,data) [Apus.Files]
+FindDir -> ?use Folder.Find(name,path,true) [Apus.Files]

@@ -1,0 +1,226 @@
+Engine Upgrade Tool v1.1
+========================
+
+Automated code migration tool for Apus Engine refactoring.
+Performs text replacements, uses clause modifications, and inserts TODO markers
+in Pascal source files.
+
+USAGE
+-----
+  upgrade5 [options] file1.pas [file2.pas ...]
+
+Options:
+  --config=name   Config file name without extension (default: engine5).
+                  Searches for <name>.upgrade in current dir, then in exe dir.
+  --dry-run       Show what would be changed without modifying any files.
+  --verbose       Print each individual replacement as it happens.
+
+Wildcards are supported: upgrade5 *.pas
+Without file arguments, prints usage and exits.
+
+Backup: before modifying a file, the original is renamed to .bak.
+If a .bak already exists, it is overwritten.
+
+
+HOW IT WORKS
+------------
+The tool processes each file in two passes:
+
+  Pass 1: Apply all -uses removals and text replacements.
+          For each replacement, track WHERE it occurred (interface or
+          implementation section) and WHICH unit it requires.
+
+  Pass 2: Add required units to uses clauses.
+          Units needed by interface replacements go to interface uses.
+          Units needed only in implementation go to implementation uses
+          (unless already present in interface uses).
+
+This means units are only added when actually needed, and they go to the
+correct section automatically.
+
+
+CONFIG FILE FORMAT
+------------------
+Config file is a plain text file with .upgrade extension.
+Each line is a comment, a uses directive, or a replacement rule.
+Empty lines are ignored.
+
+1. COMMENTS
+
+  Lines starting with // are comments:
+
+    // This is a comment
+
+2. REMOVE UNIT FROM USES
+
+  Remove a unit from any uses clause (interface or implementation):
+
+    -uses Apus.Common
+
+  How it works:
+  - Finds the unit name in uses clauses, removes it with proper comma cleanup:
+      uses A, B, Target;  -->  uses A, B;
+      uses Target, B;     -->  uses B;
+      uses Target;        -->  (entire uses clause removed)
+  - Handles both interface and implementation uses clauses.
+
+3. SIMPLE REPLACEMENT
+
+  Replace all whole-word occurrences (case-insensitive search):
+
+    OldIdentifier -> NewIdentifier
+
+  With required unit (auto-added to uses if replacement fires):
+
+    OldIdentifier -> NewIdentifier [Apus.Core]
+
+  The [UnitName] part is optional. If present, the specified unit will be
+  added to the appropriate uses clause when this replacement actually occurs.
+
+  Examples:
+    min2 -> Min [Apus.Core]
+    ParseInt -> Conv.ToInt [Apus.Conv]
+    TMyCriticalSection -> TLock [Apus.Threads]
+
+  Call-only matching (only replace when followed by parenthesis):
+
+    OldFunc() -> NewFunc [Apus.Module]
+
+  The () before -> means: only match when OldFunc is followed by '('
+  (with optional whitespace in between). This prevents matching variable
+  names, type names, or other non-call usages of the same identifier.
+
+  Example:
+    SaveFile() -> Files.Save [Apus.Files]
+
+  This matches:  SaveFile(name, data)    -->  Files.Save(name, data)
+  But not:       bakName := SaveFile;    -->  (unchanged)
+
+  Note: the () is part of the rule syntax, not part of the search —
+  the actual '(' in the source code is preserved, not consumed.
+
+  Delete (replace with nothing):
+
+    OldIdentifier ->
+
+  Word boundary rules:
+  - A match is accepted only if the characters immediately before and after
+    are NOT word characters (A-Z, a-z, 0-9, _).
+  - This prevents partial matches:
+      min2 will NOT match min2d, min2s, Amin2, etc.
+  - Dots are NOT word characters, so Apus.Common matches correctly.
+
+  Self-overlap protection:
+  - If the old string is a substring of the new string (e.g. ParseInt is
+    inside Conv.ParseInt), the tool detects already-replaced text and
+    won't re-replace it.
+
+4. TODO MARKERS
+
+  When a replacement can't be done automatically (call style changes),
+  insert a TODO comment instead:
+
+    OldName -> ?description of fix needed [Apus.Strings]
+
+  The ? after -> signals a TODO marker. The tool inserts a block comment
+  right after the found identifier:
+
+    Before:  x := PosFrom(substr, st);
+    After:   x := PosFrom {TODO: use st.IndexOf(substr)}(substr, st);
+
+  The [UnitName] is optional here too — if present, the required unit
+  will be added to uses, so the manual fix can use the new API.
+
+
+RULE ORDER
+----------
+Rules are applied in the order they appear in the config file. This matters!
+
+- All -uses rules are applied first (regardless of position in config).
+- Then all replacement/TODO rules in config order.
+- Finally, required units are added to uses.
+
+Place more specific rules before less specific ones:
+    ForceLogMessage -> Log.Force [Apus.Log]    // BEFORE LogMessage
+    LogMessage -> Log.Msg [Apus.Log]
+
+    min2d -> Min [Apus.Core]                   // BEFORE min2
+    min2s -> Min [Apus.Core]
+    min2 -> Min [Apus.Core]
+
+Though word boundary checking prevents most false matches,
+ordering by length (longest first) is still good practice.
+
+
+UNIT PLACEMENT LOGIC
+--------------------
+When a replacement with [UnitName] fires:
+- If the replacement is BEFORE the `implementation` keyword, the unit is
+  marked as needed in the interface section.
+- If the replacement is AFTER `implementation`, the unit is marked as
+  needed in the implementation section.
+
+After all replacements:
+- Units needed in the interface are added to the interface uses clause.
+- Units needed only in the implementation are added to the implementation
+  uses clause, BUT only if they're not already in the interface uses.
+
+This avoids unnecessary uses entries and puts them in the right section.
+
+
+TYPICAL WORKFLOW
+----------------
+1. Start with --dry-run to preview changes:
+
+     upgrade5 --dry-run --verbose Apus.ControlFiles.pas
+
+2. Review the output. Run for real:
+
+     upgrade5 Apus.ControlFiles.pas
+
+3. Compile. Fix remaining issues manually (especially {TODO:...} markers).
+
+4. If something went wrong, restore from backup:
+
+     copy Apus.ControlFiles.bak Apus.ControlFiles.pas
+
+5. Process multiple files when confident:
+
+     upgrade5 Apus.TCP.pas Apus.GeoIP.pas Apus.HtmlTree.pas
+     upgrade5 *.pas
+
+
+EXTENDING THE CONFIG
+--------------------
+To add a new replacement rule:
+
+1. Identify the old and new names.
+2. Determine which unit provides the new API.
+3. Add a line to the config:
+
+     OldFunction -> NewModule.NewFunction [Apus.NewModule]
+
+4. If the replacement requires manual intervention (call style change,
+   argument reordering, etc.), use a TODO marker:
+
+     OldFunction -> ?describe the manual fix [Apus.NewModule]
+
+5. Check rule ordering — longer/more specific patterns first.
+
+
+LIMITATIONS
+-----------
+- Conditional compilation inside uses clauses ({$IFDEF}) is not fully
+  supported. If a unit is inside an {$IFDEF} block, manual adjustment
+  may be needed after removal or addition.
+
+- Replacements are purely textual. The tool doesn't parse Pascal syntax.
+  Word boundary checking prevents most false positives, but matches in
+  string literals and comments are possible.
+
+- The interface/implementation boundary detection looks for the
+  `implementation` keyword. Files without it (e.g. .dpr programs) will
+  treat all code as interface section.
+
+- When adding units, the tool appends to the end of the uses clause.
+  If you prefer a specific ordering, adjust manually after running.
