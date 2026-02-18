@@ -17,7 +17,7 @@
 {$H+,R-}
 unit Apus.ControlFiles;
 interface
-uses Apus.Common;
+uses Apus.Core;
 type
  TFileMode=(fmBinary,   // Binary files
             fmText,     // Textual files
@@ -109,7 +109,7 @@ procedure ctlDeleteKey(key:String8);
 
 
 implementation
- uses Apus.CrossPlatform,Classes,SysUtils,StrUtils,Apus.Structs,Apus.Crypto;
+ uses  StrUtils, Apus.Structs, Apus.Crypto;
 
 type
  // комментарий

@@ -14,7 +14,7 @@ interface
  {$ENDIF}{$ENDIF}
 
 implementation
- uses Apus.Common,SysUtils;
+ uses Apus.Core, SysUtils;
  type
   TMemLeak=record
    value:cardinal;

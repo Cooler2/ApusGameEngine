@@ -24,7 +24,7 @@ interface
   procedure FillRand(var buf;size:integer);
 
 implementation
-  uses {$IFDEF SELF_TEST}Apus.Common,{$ENDIF}SysUtils;
+  uses {$IFDEF SELF_TEST}Apus.Core,{$ENDIF}SysUtils;
 
   var
     randPos:integer;

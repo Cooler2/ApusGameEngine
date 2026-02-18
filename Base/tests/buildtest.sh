@@ -12,7 +12,7 @@
 cd "$(dirname "$0")"
 
 FPC="${FPC:-fpc}"
-FLAGS="-MDelphi -Sd -Fu.. -Cn -Se1"
+FLAGS="-MDelphi -Sd -Fu.. -Fu../extra -Cn -Se1"
 OUTDIR="out_build"
 LOG="buildtest_results.txt"
 

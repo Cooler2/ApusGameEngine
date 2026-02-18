@@ -8,7 +8,7 @@
 {$IFDEF IOS}{$S-} {$modeswitch objectivec1}{$ENDIF}
 unit Apus.HttpRequests;
 interface
- uses Apus.Common;
+ uses Apus.Core;
 
  const
   httpStatusFree = 0; // element not used
@@ -55,7 +55,7 @@ interface
  procedure DoneHTTPrequests;
 
 implementation
- uses Apus.CrossPlatform,SysUtils,Classes,Apus.EventMan
+ uses ,SysUtils,Classes,Apus.EventMan
    {$IFDEF DELPHI},WinInet {$IFDEF CPU386},ZLibEx{$ENDIF}{$ENDIF}
    {$IFDEF IOS},iPhoneAll{$ENDIF}
    {$IFDEF FPC},fphttpclient{$ENDIF};

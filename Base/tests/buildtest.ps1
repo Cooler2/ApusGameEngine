@@ -8,7 +8,7 @@
 Set-Location $PSScriptRoot
 
 $fpc    = if ($env:FPC) { $env:FPC } else { 'fpc.exe' }
-$flags  = @('-MDelphi', '-Sd', '-RIntel', '-Fu..', '-Cn')
+$flags  = @('-MDelphi', '-Sd', '-RIntel', '-Fu..', '-Fu..\extra', '-Cn')
 $outdir = 'out_build'
 $log    = 'buildtest_results.txt'
 

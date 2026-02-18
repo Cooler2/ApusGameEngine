@@ -4,7 +4,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.Publics;
 interface
- uses Apus.Common;
+ uses Apus.Core;
  type
   // Такой класс обслуживает все переменные одного конкретного типа
   // (один тип переменной не обязательно соответствует одному типу языка)
@@ -158,7 +158,7 @@ interface
  function GetOverriddenValue(varName:string;forContext:string):string;
 
 implementation
- uses Apus.CrossPlatform, SysUtils, Math, Types, Apus.Geom2D;
+ uses , SysUtils, Math, Types, Apus.Geom2D;
  type
   TPublicFunction=record
    name:string;

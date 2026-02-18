@@ -4,7 +4,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.Logging;
 interface
- uses Apus.Common;
+ uses Apus.Core;
 
  const
   // Степени аварийности сообщений
@@ -60,7 +60,7 @@ interface
  procedure SaveLogMessages;
 
 implementation
- uses SysUtils, Apus.CrossPlatform
+ uses SysUtils, 
    {$IFDEF MSWINDOWS},windows,MMSystem{$ENDIF};
 
  type

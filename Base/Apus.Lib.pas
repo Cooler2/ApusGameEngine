@@ -18,6 +18,7 @@
 unit Apus.Lib;
 interface
 uses
+  Apus.Core,
   Apus.Types,
   Apus.Classes,
   Apus.Conv,
@@ -33,33 +34,22 @@ type
   TNameValueList = Apus.Types.TNameValueList;
   TBuffer = Apus.Types.TBuffer;
   TWriteBuffer = Apus.Types.TWriteBuffer;
-  PCriticalSection = Apus.Types.PCriticalSection;
-  TMyCriticalSection = Apus.Types.TMyCriticalSection;
-  {$IFDEF MSWINDOWS}
-  TSRWLock = Apus.Types.TSRWLock;
-  {$ENDIF}
 
   // --- Apus.Classes ---
   TObjectEx = Apus.Classes.TObjectEx;
   TNamedObject = Apus.Classes.TNamedObject;
   TNamedObjectClass = Apus.Classes.TNamedObjectClass;
   TNamedObjects = Apus.Classes.TNamedObjects;
-  TBaseException = Apus.Classes.TBaseException;
-  EWarning = Apus.Classes.EWarning;
-  EError = Apus.Classes.EError;
-  EFatalError = Apus.Classes.EFatalError;
+  TBaseException = Apus.Core.EBaseException;
+  EWarning = Apus.Core.EWarning;
+  EError = Apus.Core.EError;
+  EFatalError = Apus.Core.EFatalError;
 
   // --- Apus.Conv ---
   Conv = Apus.Conv.Conv;
 
   // --- Apus.Strings ---
   UTF8 = Apus.Strings.UTF8;
-
-  // --- Apus.Types (generics) ---
-  TArray<T> = Apus.Types.TArray<T>;
-
-  // --- Apus.HashMaps ---
-  THashMap<T> = Apus.HashMaps.THashMap<T>;
 
 implementation
 end.

@@ -319,17 +319,19 @@ type
     class procedure Modify(var v:cardinal; flagMask:cardinal; newValue:boolean); overload; static; inline;
     class procedure Modify(var v:uint64; flagMask:uint64; newValue:boolean); overload; static; inline;
     // Single bits
-    class function Get(data:cardinal; index:integer):boolean; static; inline;
+    class function Get(data:cardinal; index:integer):boolean; overload; static; inline;
+    class function Get(data:uint64; index:integer):boolean; overload; static; inline;
     class procedure SetBit(var data:byte; index:integer; value:boolean=true); overload; static; inline;
     class procedure SetBit(var data:word; index:integer; value:boolean=true); overload; static; inline;
     class procedure SetBit(var data:cardinal; index:integer; value:boolean=true); overload; static; inline;
     class procedure SetBit(var data:uint64; index:integer; value:boolean=true); overload; static; inline;
-    // Bit fields (multi-bit)
-    class function GetBits(data:cardinal; index,size:integer):cardinal; static; inline;
-    class procedure SetBits(var data:byte; index,size,value:integer); overload; static; inline;
-    class procedure SetBits(var data:word; index,size,value:integer); overload; static; inline;
-    class procedure SetBits(var data:cardinal; index,size,value:integer); overload; static; inline;
-    class procedure SetBits(var data:uint64; index,size,value:integer); overload; static; inline;
+    // Bit fields (multi-bit): index - 0-based field position, size - field size in bits (<32)
+    class function GetBits(data:cardinal; index,size:integer):cardinal; overload; static;
+    class function GetBits(data:uint64; index,size:integer):uint64; overload; static;
+    class procedure SetBits(var data:byte; index,size,value:integer); overload; static;
+    class procedure SetBits(var data:word; index,size,value:integer); overload; static;
+    class procedure SetBits(var data:cardinal; index,size,value:integer); overload; static;
+    class procedure SetBits(var data:uint64; index,size,value:integer); overload; static;
   end;
 
 // =============================================================================
@@ -1331,6 +1333,11 @@ begin
   result:=data and (cardinal(1) shl index)<>0;
 end;
 
+class function Bits.Get(data:uint64;index:integer):boolean;
+begin
+  result:=data and (uint64(1) shl index)<>0;
+end;
+
 class procedure Bits.SetBit(var data:byte;index:integer;value:boolean=true);
 begin
   if value then data:=data or (byte(1) shl index)
@@ -1356,12 +1363,17 @@ begin
 end;
 
 const
-  BITS_FIELD_MASK:array[0..31] of cardinal=(0,1,3,7,15,31,63,127,255,
+  BITS_FIELD_MASK:array[0..32] of cardinal=(0,1,3,7,15,31,63,127,255,
     $1FF,$3FF,$7FF,$FFF,$1FFF,$3FFF,$7FFF,$FFFF,
     $1FFFF,$3FFFF,$7FFFF,$FFFFF,$1FFFFF,$3FFFFF,$7FFFFF,$FFFFFF,
-    $1FFFFFF,$3FFFFFF,$7FFFFFF,$FFFFFFF,$1FFFFFFF,$3FFFFFFF,$7FFFFFFF);
+    $1FFFFFF,$3FFFFFF,$7FFFFFF,$FFFFFFF,$1FFFFFFF,$3FFFFFFF,$7FFFFFFF,$FFFFFFFF);
 
 class function Bits.GetBits(data:cardinal;index,size:integer):cardinal;
+begin
+  result:=(data shr index) and BITS_FIELD_MASK[size];
+end;
+
+class function Bits.GetBits(data:uint64; index,size:integer):uint64;
 begin
   result:=(data shr index) and BITS_FIELD_MASK[size];
 end;

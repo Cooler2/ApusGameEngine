@@ -109,7 +109,7 @@ type
  end;
 
 implementation
- uses SysUtils,Apus.Common;
+ uses SysUtils, Apus.Core;
 
  const
   // стартовый номер блоков каждого типа

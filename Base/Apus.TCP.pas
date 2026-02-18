@@ -6,7 +6,7 @@
 unit Apus.TCP;
 interface
 uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, {$ENDIF}
-  Apus.Common;
+  Apus.Core;
 
 type
  // This object is created on server side for each connected client.

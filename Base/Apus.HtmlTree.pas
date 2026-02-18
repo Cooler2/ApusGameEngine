@@ -79,7 +79,7 @@ type
  procedure AddCustomRule(outerTag,innerTag:string;canContain:boolean);
  procedure ClearCustomRules;
 implementation
-uses SysUtils, Apus.Common;
+uses SysUtils, Apus.Core;
 
 const
  VOID_ELEMENTS = '|!doctype|area|base|br|col|embed|hr|img|input|keygen|link|menuitem|meta|param|source|track|wbr|';

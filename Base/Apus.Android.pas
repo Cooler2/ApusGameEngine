@@ -9,7 +9,7 @@ unit Apus.Android;
 {$ENDIF}
 interface
  {$IFDEF ANDROID}
-  uses jni,Apus.Common;
+  uses jni, Apus.Core;
 
  type
   // keyboard types

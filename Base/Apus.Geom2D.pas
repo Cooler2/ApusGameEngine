@@ -226,7 +226,7 @@ interface
  procedure Triangulate(pnts:PPoint2;count:integer);
 
 implementation
- uses Apus.Types, Apus.Core, SysUtils, Math;
+ uses Math, Apus.Types, Apus.Core, SysUtils;
 
  function DotProduct(const a,b:TVector2):double;
   begin
@@ -621,10 +621,10 @@ implementation
 
  function IntersectRects;
   begin
-   r.left:=Max(r1.left,r2.left);
-   r.right:=Min(r1.right,r2.right);
-   r.top:=Max(r1.top,r2.top);
-   r.bottom:=Min(r1.bottom,r2.bottom);
+   r.left:=Apus.Core.Max(r1.left,r2.left);
+   r.right:=Apus.Core.Min(r1.right,r2.right);
+   r.top:=Apus.Core.Max(r1.top,r2.top);
+   r.bottom:=Apus.Core.Min(r1.bottom,r2.bottom);
    result:=byte((r1.Left>=r2.left) and (r1.right<=r2.right) and
                 (r1.top>=r2.top) and (r1.bottom<=r2.bottom))+
            byte((r2.Left>=r1.left) and (r2.right<=r1.right) and
@@ -643,10 +643,10 @@ implementation
   var
    r2:TRect;
   begin
-   r2.Left:=Min(r.left,r.Right);
-   r2.Right:=Max(r.left,r.Right);
-   r2.Top:=Min(r.top,r.Bottom);
-   r2.Bottom:=Max(r.top,r.Bottom);
+   r2.Left:=Apus.Core.Min(r.left,r.Right);
+   r2.Right:=Apus.Core.Max(r.left,r.Right);
+   r2.Top:=Apus.Core.Min(r.top,r.Bottom);
+   r2.Bottom:=Apus.Core.Max(r.top,r.Bottom);
    r:=r2;
   end;
 

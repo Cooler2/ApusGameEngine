@@ -34,7 +34,7 @@ type
 
 
 implementation
-uses SysUtils, Apus.Common;
+uses SysUtils, Apus.Core;
 
 type
  // Full options set for ongoing tweening
@@ -90,7 +90,7 @@ begin
   end else begin
    // There is ongoing tweening: calc current values and speed
    for i:=0 to n-1 do begin
-     values[i]:=Value(
+//     values[i]:=Value(
    end;
    eff:=TTweeningEffect(effect);
    FreeAndNil(eff.nextEffect); // Discard upcoming effect

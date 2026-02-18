@@ -6,7 +6,7 @@
 //
 unit Apus.Huffman;
 interface
-uses Apus.Common;
+uses Apus.Core;
 
 type
  THuffmanAlphabet = class(TObject);

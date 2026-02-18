@@ -54,7 +54,7 @@ type
  end;
 
 implementation
- uses Apus.CrossPlatform, Apus.Common, SysUtils;
+ uses Apus.Core, SysUtils;
 
 var
  objList:TObjectList; // List of all the ProducerConsumers to terminate

@@ -380,28 +380,13 @@ interface
  function IntersectTrgLine(A,B,C,O,T:PPoint3s;var pb,pc,d:double):boolean;
 
 implementation
- uses Apus.CPU, Apus.Types, SysUtils, Math;
+ uses Apus.Core, Apus.CPU, Apus.Types, SysUtils, Math;
 
  const
   vec0001s:TVector4s=(x:0; y:0; z:0; w:1);
 
   // Compensation for stack frame allocation in x64 mode
   RSP_BIAS = {$IFDEF FPC} 0 {$ELSE} 8 {$ENDIF};
-
-
- procedure Swap(a,b:single); overload; inline;
-  var
-   t:single;
-  begin
-   t:=a; a:=b; b:=t;
-  end;
-
- procedure Swap(a,b:double); overload; inline;
-  var
-   t:double;
-  begin
-   t:=a; a:=b; b:=t;
-  end;
 
  function Point3(x,y,z:double):TPoint3; overload; inline;
   begin
@@ -2750,7 +2735,7 @@ procedure TBBox3s.Init;
 
 function TBBox3s.IsEmpty:boolean;
  begin
-  result:=IsNan(minX);
+  result:=Apus.Core.IsNan(minX);
  end;
 
 initialization

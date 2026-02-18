@@ -38,7 +38,7 @@ type
  end;
 
 implementation
-uses SysUtils, Apus.Common;
+uses SysUtils, Apus.Core;
 
  {$IFDEF MSWINDOWS}
   // many routines have different declaration in different WinSock2 import units

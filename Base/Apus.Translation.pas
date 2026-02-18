@@ -27,7 +27,7 @@
 // обозначает номер набора для конкретно этого правила
 unit Apus.Translation;
 interface
- uses Apus.Common;
+ uses Apus.Core;
  type
   {$IFNDEF UNICODE}
   MyString=WideString;
