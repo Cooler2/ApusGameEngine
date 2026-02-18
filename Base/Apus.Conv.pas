@@ -60,6 +60,18 @@ type
     class function ToStr(v:cardinal):string8; overload; static;
     class function ToStr(v:int64):string8; overload; static;
     class function ToStr(v:uint64):string8; overload; static;
+    // Float to string with dot separator (pass decSep for locale-specific output).
+    // maxDec=-1 (default): auto (~7 sig.digits, trim trailing zeros)
+    //   3.14159->"3.14159",  100.0->"100",  0.001->"0.001"
+    // maxDec=0: integer, no decimal point
+    //   3.7->"4",  100.0->"100"
+    // maxDec>0, minDec=0 (default): at most maxDec decimals, trailing zeros trimmed
+    //   ToStr(3.14159,3)->"3.142",  ToStr(3.1,3)->"3.1",  ToStr(3.0,3)->"3"
+    // minDec>0: keep at least minDec decimal digits
+    //   ToStr(3.0,3,1)->"3.0",  ToStr(3.1,3,2)->"3.10",  ToStr(3.14159,3,3)->"3.142"
+    class function ToStr(v:double; maxDec:integer=-1; minDec:integer=0; decSep:AnsiChar='.'):string8; overload; static;
+    // Extended formatting with alignment and sign control (not yet implemented):
+    // class function FormatFloat(v:double; maxDec:integer=-1; minDec:integer=0; width:integer=0; forceSign:boolean=false; decSep:AnsiChar='.'):string8; static;
     // Boolean to string. Old name: BoolToAStr
     class function ToStr(b:boolean;short:boolean=true):String8; overload; static;
     // Integer with space separators (1 234 567). Old name: FormatInt
@@ -479,6 +491,47 @@ begin
   until v=0;
   SetLength(result,23-i);
   Move(buf[i+1],result[1],23-i);
+end;
+
+class function Conv.ToStr(v:double; maxDec:integer; minDec:integer; decSep:AnsiChar):string8;
+var
+  mag,tmp:double;
+  d,i,dotPos:integer;
+begin
+  if maxDec=-1 then begin
+    // auto: ~7 significant digits
+    mag:=abs(v);
+    if mag=0 then
+      d:=6
+    else begin
+      d:=6;
+      tmp:=mag;
+      if tmp>=10 then
+        repeat tmp:=tmp*0.1; dec(d) until (tmp<10) or (d<=0)
+      else if tmp<1 then
+        repeat tmp:=tmp*10; inc(d) until (tmp>=1) or (d>=15);
+      if d<0 then d:=0;
+    end;
+  end else
+    d:=maxDec;
+  if d<minDec then d:=minDec;
+  Str(v:0:d, result); // locale-independent, always dot, no unicode conversion needed
+  // replace dot with decSep if needed
+  if decSep<>'.' then
+    for i:=1 to length(result) do
+      if result[i]='.' then begin result[i]:=decSep; break; end;
+  // trim trailing zeros after decSep, keeping at least minDec
+  if d>minDec then begin
+    dotPos:=0;
+    for i:=1 to length(result) do
+      if result[i]=decSep then begin dotPos:=i; break; end;
+    if dotPos>0 then begin
+      i:=length(result);
+      while (i>dotPos) and (i-dotPos>minDec) and (result[i]='0') do dec(i);
+      if (i=dotPos) and (minDec=0) then dec(i); // remove decSep too
+      SetLength(result,i);
+    end;
+  end;
 end;
 
 class function Conv.FormatInt(v:int64):string;

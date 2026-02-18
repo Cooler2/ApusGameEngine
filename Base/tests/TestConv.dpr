@@ -273,6 +273,40 @@ begin
   EndTest;
 end;
 
+procedure TestToStrDouble;
+begin
+  StartTest('Conv.ToStr(double)');
+  // --- auto mode (maxDec=-1) ---
+  Check(Conv.ToStr(0.0)='0','auto: 0.0');
+  Check(Conv.ToStr(3.14159)='3.14159','auto: 3.14159');
+  Check(Conv.ToStr(100.0)='100','auto: 100.0 trims zeros');
+  Check(Conv.ToStr(-3.14)='-3.14','auto: -3.14');
+  Check(Conv.ToStr(0.001)='0.001','auto: 0.001');
+  // ~7 significant digits, trailing zeros trimmed
+  Check(Conv.ToStr(1.0/3.0)='0.3333333','auto: 1/3 -> 7 sig.digits');
+  Check(Conv.ToStr(1.23456789)='1.234568','auto: rounds to 7 sig.digits');
+
+  // --- maxDec only (minDec=0 default, trailing zeros trimmed) ---
+  Check(Conv.ToStr(3.14159,3)='3.142','maxDec=3: rounds');
+  Check(Conv.ToStr(3.1,3)='3.1','maxDec=3: trims trailing zeros');
+  Check(Conv.ToStr(3.0,3)='3','maxDec=3: trims all decimals');
+  Check(Conv.ToStr(3.0,0)='3','maxDec=0: integer');
+  Check(Conv.ToStr(3.7,0)='4','maxDec=0: rounds to integer');
+  Check(Conv.ToStr(-3.14,2)='-3.14','maxDec=2: negative');
+
+  // --- minDec: keep at least N decimal digits ---
+  Check(Conv.ToStr(3.0,3,1)='3.0','minDec=1: keeps .0 for float hint');
+  Check(Conv.ToStr(3.1,3,2)='3.10','minDec=2: pads to 2 decimals');
+  Check(Conv.ToStr(3.14159,3,3)='3.142','minDec=maxDec=3: fixed 3 decimals');
+  Check(Conv.ToStr(3.1,2,2)='3.10','min=max=2: fixed 2 decimals');
+  Check(Conv.ToStr(-3.0,3,1)='-3.0','minDec=1: negative float hint');
+
+  // --- decSep ---
+  Check(Conv.ToStr(3.14,2,2,',')='3,14','decSep comma');
+  Check(Conv.ToStr(3.0,3,1,',')='3,0','decSep comma with minDec');
+  EndTest;
+end;
+
 begin
   try
     TestToInt;
@@ -285,6 +319,7 @@ begin
     TestToIpFormat;
     TestToStrInt;
     TestToStrBool;
+    TestToStrDouble;
     TestFormatInt;
     TestFormatMoney;
     TestFormatSize;
