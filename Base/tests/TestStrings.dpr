@@ -712,8 +712,82 @@ begin
   EndTest;
 end;
 
-// TODO: Add tests for UTF8.ToWide, UTF8.FromWide, UTF8.ToUpper, UTF8.ToLower
-//       when these methods are fully implemented
+// ============================================================================
+// Str8/Str16/Str32 and encoding conversion tests
+// ============================================================================
+
+procedure TestStr8;
+var s8:String8; ws:WideString;
+begin
+  StartTest('Str8');
+  ws:='Hello';
+  s8:=Str8(ws);
+  Check(s8='Hello','from WideString');
+  s8:=Str8(UTF8String('Привет'));
+  Check(s8=String8('Привет'),'from UTF8String');
+  {$IFDEF UNICODE}
+  s8:=Str8(AnsiString('test'));
+  Check(s8=String8('test'),'from AnsiString');
+  {$ENDIF}
+  EndTest;
+end;
+
+procedure TestStr16;
+var s16:String16;
+begin
+  StartTest('Str16');
+  s16:=Str16(UTF8String('Hello'));
+  Check(s16='Hello','from UTF8String');
+  s16:=Str16(WideString('World'));
+  Check(s16='World','from WideString');
+  EndTest;
+end;
+
+procedure TestStr32Conv;
+var s32:String32; s8:String8;
+begin
+  StartTest('Str32');
+  s8:='ABC';
+  s32:=Str32(s8);
+  Check(length(s32)=3,'length from String8');
+  Check(s32[0]=ord('A'),'char 0');
+  Check(s32[2]=ord('C'),'char 2');
+  s32:=Str32(WideString('XY'));
+  Check(length(s32)=2,'length from WideString');
+  Check(s32[0]=ord('X'),'wide char 0');
+  Check(s32[1]=ord('Y'),'wide char 1');
+  EndTest;
+end;
+
+procedure TestUTF8WideConversion;
+var ws:WideString; s8:String8;
+begin
+  StartTest('UTF8.Encode/ToWide');
+  ws:='Hello';
+  s8:=UTF8.Encode(ws);
+  Check(s8='Hello','encode ascii');
+  Check(UTF8.ToWide(s8)='Hello','decode ascii');
+  // with BOM
+  s8:=UTF8.Encode(ws,true);
+  Check(s8[1]=#$EF,'BOM byte 1');
+  Check(s8[2]=#$BB,'BOM byte 2');
+  Check(s8[3]=#$BF,'BOM byte 3');
+  Check(UTF8.ToWide(s8)='Hello','decode with BOM');
+  // Cyrillic
+  ws:=WideChar($041F)+WideChar($0440)+WideChar($0438); // При
+  s8:=UTF8.Encode(ws);
+  Check(UTF8.ToWide(s8)=ws,'cyrillic roundtrip');
+  EndTest;
+end;
+
+procedure TestUTF8HasBOM;
+begin
+  StartTest('UTF8.HasBOM');
+  Check(UTF8.HasBOM(#$EF#$BB#$BF'test'),'with BOM');
+  Check(not UTF8.HasBOM('test'),'without BOM');
+  Check(not UTF8.HasBOM(''),'empty');
+  EndTest;
+end;
 
 // ============================================================================
 // Main
@@ -767,6 +841,13 @@ begin
     TestUTF8Decode;
     TestUTF8Encode;
     TestUTF8RoundTrip;
+
+    // Str8/Str16/Str32 and UTF8 wide conversion
+    TestStr8;
+    TestStr16;
+    TestStr32Conv;
+    TestUTF8WideConversion;
+    TestUTF8HasBOM;
 
     writeln;
     if testsFailed=0 then
