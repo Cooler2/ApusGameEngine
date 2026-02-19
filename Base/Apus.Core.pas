@@ -143,21 +143,21 @@ var
 
   // Min/Max
   function Min(a,b:integer):integer; overload; inline;
-  function Min(a,b:cardinal):integer; overload; inline;
-  function Min(a,b:int64):integer; overload; inline;
-  function Min(a,b:uint64):integer; overload; inline;
+  function Min(a,b:cardinal):cardinal; overload; inline;
+  function Min(a,b:int64):int64; overload; inline;
+  function Min(a,b:uint64):uint64; overload; inline;
   function Min(a,b:single):single; overload; inline;
   function Min(a,b:double):double; overload; inline;
   function Min(a,b,c:integer):integer; overload;
-  function Min(a,b,c:single):integer; overload;
+  function Min(a,b,c:single):single; overload;
   function Max(a,b:integer):integer; overload; inline;
-  function Max(a,b:cardinal):integer; overload; inline;
-  function Max(a,b:int64):integer; overload; inline;
-  function Max(a,b:uint64):integer; overload; inline;
+  function Max(a,b:cardinal):cardinal; overload; inline;
+  function Max(a,b:int64):int64; overload; inline;
+  function Max(a,b:uint64):uint64; overload; inline;
   function Max(a,b:single):single; overload; inline;
   function Max(a,b:double):double; overload; inline;
   function Max(a,b,c:integer):integer; overload;
-  function Max(a,b,c:single):integer; overload;
+  function Max(a,b,c:single):single; overload;
 
   // Clamp
   function Clamp(v,min,max:integer):integer; overload; inline;
@@ -647,17 +647,17 @@ begin
   if a<b then result:=a else result:=b;
 end;
 
-function Min(a,b:cardinal):integer;
+function Min(a,b:cardinal):cardinal;
 begin
   if a<b then result:=a else result:=b;
 end;
 
-function Min(a,b:int64):integer;
+function Min(a,b:int64):int64;
 begin
   if a<b then result:=a else result:=b;
 end;
 
-function Min(a,b:uint64):integer;
+function Min(a,b:uint64):uint64;
 begin
   if a<b then result:=a else result:=b;
 end;
@@ -679,11 +679,11 @@ begin
   if c<result then result:=c;
 end;
 
-function Min(a,b,c:single):integer;
+function Min(a,b,c:single):single;
 begin
-  result:=trunc(a);
-  if b<result then result:=trunc(b);
-  if c<result then result:=trunc(c);
+  result:=a;
+  if b<result then result:=b;
+  if c<result then result:=c;
 end;
 
 function Max(a,b:integer):integer;
@@ -691,17 +691,17 @@ begin
   if a>b then result:=a else result:=b;
 end;
 
-function Max(a,b:cardinal):integer;
+function Max(a,b:cardinal):cardinal;
 begin
   if a>b then result:=a else result:=b;
 end;
 
-function Max(a,b:int64):integer;
+function Max(a,b:int64):int64;
 begin
   if a>b then result:=a else result:=b;
 end;
 
-function Max(a,b:uint64):integer;
+function Max(a,b:uint64):uint64;
 begin
   if a>b then result:=a else result:=b;
 end;
@@ -723,11 +723,11 @@ begin
   if c>result then result:=c;
 end;
 
-function Max(a,b,c:single):integer;
+function Max(a,b,c:single):single;
 begin
-  result:=trunc(a);
-  if b>result then result:=trunc(b);
-  if c>result then result:=trunc(c);
+  result:=a;
+  if b>result then result:=b;
+  if c>result then result:=c;
 end;
 
 function Clamp(v,min,max:integer):integer;
@@ -1891,4 +1891,3 @@ type
   private
     data:ByteArray;
   end;
-

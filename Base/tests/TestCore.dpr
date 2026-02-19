@@ -33,6 +33,38 @@ begin
   EndTest;
 end;
 
+procedure TestMinMaxCornerCases;
+var
+  sMin,sMax:single;
+begin
+  StartTest('Min/Max corner cases');
+
+  // cardinal overloads: values above MaxInt must be preserved
+  Check(Min(cardinal(3000000000),cardinal(4000000000))=cardinal(3000000000),
+    'Min(cardinal,cardinal) should preserve >MaxInt values');
+  Check(Max(cardinal(3000000000),cardinal(4000000000))=cardinal(4000000000),
+    'Max(cardinal,cardinal) should preserve >MaxInt values');
+
+  // int64 overloads: values outside integer range must be preserved
+  Check(Min(int64(-5000000000),int64(7000000000))=int64(-5000000000),
+    'Min(int64,int64) should preserve 64-bit range');
+  Check(Max(int64(-5000000000),int64(7000000000))=int64(7000000000),
+    'Max(int64,int64) should preserve 64-bit range');
+
+  // uint64 overloads: values above cardinal range must be preserved
+  Check(Min(uint64(5000000000),uint64(6000000000))=uint64(5000000000),
+    'Min(uint64,uint64) should preserve >cardinal values');
+  Check(Max(uint64(5000000000),uint64(6000000000))=uint64(6000000000),
+    'Max(uint64,uint64) should preserve >cardinal values');
+
+  // single(3 args): fractional part must be preserved
+  sMin:=Min(single(2.75),single(3.5),single(1.25));
+  sMax:=Max(single(2.75),single(3.5),single(1.25));
+  Check(Abs(sMin-1.25)<0.0001,'Min(single,single,single) should preserve fraction');
+  Check(Abs(sMax-3.5)<0.0001,'Max(single,single,single) should preserve fraction');
+  EndTest;
+end;
+
 procedure TestClamp;
 begin
   StartTest('Clamp/Sat');
@@ -762,6 +794,7 @@ end;
 begin
   try
     TestMinMax;
+    TestMinMaxCornerCases;
     TestClamp;
     TestLerp;
     TestSwap;
