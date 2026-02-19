@@ -11,7 +11,11 @@ PCriticalSection -> PLock [Apus.Threads]
 StringArr -> Strings8 [Apus.Core]
 StringArray8 -> Strings8 [Apus.Core]
 AStringArr -> Strings8 [Apus.Core]
+AStrings8 -> Strings8 [Apus.Core]
 WStringArr -> Strings16 [Apus.Core]
+
+// === Apus.Types ===
+TBuffer -> TBuffer [Apus.Types]
 
 // === Apus.Core: math ===
 // Order matters: specific variants before generic
@@ -21,6 +25,10 @@ min2s -> Min [Apus.Core]
 max2s -> Max [Apus.Core]
 min2 -> Min [Apus.Core]
 max2 -> Max [Apus.Core]
+PointerInRange -> PtrInside [Apus.Core]
+
+FillDword -> Mem.FillD [Apus.Core]
+FillChar -> Mem.Fill [Apus.Core]
 
 // === Apus.Core: bits ===
 HasFlag -> Bits.HasAll [Apus.Core]
@@ -33,6 +41,8 @@ ZeroMem -> Mem.Clear [Apus.Core]
 
 // === Apus.Core: time ===
 MyTickCount -> CoreTime.Ticks [Apus.Core]
+NowGMT -> Time.UTC [Apus.Core]
+Sleep() -> Time.Sleep [Apus.Core]
 
 // === Apus.Conv: parsing and formatting ===
 // Order matters: FormatHex before any shorter match
@@ -52,16 +62,32 @@ EncodeB64 -> Conv.ToBase64 [Apus.Conv]
 DecodeB64 -> Conv.FromBase64 [Apus.Conv]
 HexDump -> Conv.HexDump [Apus.Conv]
 DecDump -> Conv.DecDump [Apus.Conv]
+FormatTime -> Conv.TimeToStr [Apus.Conv]
+FormatInt -> Conv.FormatInt [Apus.Conv]
+FormatMoney -> Conv.FormatMoney [Apus.Conv]
 
 // === Apus.Log: logging ===
-// Order matters: ForceLogMessage before LogMessage
+// Order matters: ForceLogMessage before ForceLog before LogMessage
 ForceLogMessage -> Log.Force [Apus.Log]
+ForceLog -> Log.Force [Apus.Log]
 LogMessage -> Log.Msg [Apus.Log]
 LogError -> Log.Error [Apus.Log]
 DebugMessage -> Log.Force [Apus.Log]
 UseLogFile -> Logger.UseLogFile [Apus.Log]
 FlushLog -> Logger.Flush [Apus.Log]
 StopLogThread -> Logger.StopLogThread [Apus.Log]
+
+// === Apus.Strings: string helpers ===
+// Order matters: longer names first
+Join -> String8.Join [Apus.Strings]
+
+// === Apus.Utils: string/date utilities ===
+// Same names, just need unit added to uses
+Chop -> Chop [Apus.Utils]
+SplitA -> SplitA [Apus.Utils]
+GetDateFromStr -> GetDateFromStr [Apus.Utils]
+ParseDate -> ParseDate [Apus.Utils]
+ParseTime -> ParseTime [Apus.Utils]
 
 // === Apus.Files: file I/O ===
 LoadFileAsBytes -> Files.LoadAsBytes [Apus.Files]
@@ -91,6 +117,18 @@ LastPos -> ?use st.LastIndexOf(substr) [Apus.Strings]
 ExtractStr -> ?use st.Extract(prefix,suffix) [Apus.Strings]
 QuoteStr -> ?use st.Quote [Apus.Strings]
 UnquoteStr -> ?use st.Unquote [Apus.Strings]
+// Order: URLEncodeUTF8 before UrlEncode
 URLEncodeUTF8 -> ?use st.UrlEncode [Apus.Strings]
+UrlEncode() -> ?use st.UrlEncode [Apus.Strings]
+Split() -> ?use st.Split(char) [Apus.Strings]
+UpperCase() -> ?use st.ToUpper [Apus.Strings]
+LowerCase() -> ?use st.ToLower [Apus.Strings]
+TrimLeft() -> ?use st.TrimLeft [Apus.Strings]
+TrimRight() -> ?use st.TrimRight [Apus.Strings]
+GetUTCTime() -> ?use Time.Stamp [Apus.Core]
+EncodeUTF8() -> ?use UTF8.Encode (check arg types) [Apus.Strings]
+DecodeUTF8() -> ?use UTF8.Decode (check arg types) [Apus.Strings]
 SaveFile -> ?use Files.Save(fname,data) [Apus.Files]
 FindDir -> ?use Folder.Find(name,path,true) [Apus.Files]
+EnterCriticalSection -> ?use TLock.Enter [Apus.Threads]
+LeaveCriticalSection -> ?use TLock.Leave [Apus.Threads]
