@@ -32,6 +32,7 @@ Use it as the primary reference when updating old code.
 | `FRound(v:double)` | `FRound(v:double)` | same name; fast round (biased +epsilon) |
 | `PRound(v:double)` | `PRound(v:double)` | same name; precise round |
 | `SRound(v:single)` | `SRound(v:single)` | same name; SSE-accelerated, Pascal fallback for ARM |
+| `HasValue(v)` | `HasValue(v)` | moved from Apus.Conv to Apus.Core; checks if variant is not unassigned |
 
 ### Stack trace support (new in engine5)
 
@@ -110,7 +111,7 @@ Log.Msg(Time.Stamp + ' Started');
 | `ParseBool(st)` | `Conv.ToBool(st)` | |
 | `HexToInt(st)` | `Conv.HexToInt(st)` | same name |
 | `StrToIp(st)` | `Conv.ToIp(st)` | |
-| `IpToStr(ip)` | `Conv.ToIp(ip)` | overload by argument type |
+| `IpToStr(ip)` | `Conv.FormatIp(ip)` | renamed from Conv.ToIp(cardinal) to Conv.FormatIp |
 | `FormatHex(v,digits)` | `Conv.ToHex(v,digits)` | |
 | `PtrToStr(p)` | `Conv.ToStr(p)` | |
 | `BoolToAStr(b)` | `Conv.ToStr(b)` | |
@@ -124,7 +125,6 @@ Log.Msg(Time.Stamp + ' Started');
 | `DecDump(buf,size)` | `Conv.DecDump(buf,size)` | same name |
 | `EncodeB64(data,size)` | `Conv.ToBase64(data,size)` | |
 | `DecodeB64(st,buf,size)` | `Conv.FromBase64(st,buf,size)` | |
-| `HasValue(v)` | `HasValue(v)` | same name, checks if variant is not unassigned |
 
 ## Apus.Strings (string helper methods)
 
@@ -153,6 +153,30 @@ Call style changes from `Func(st, args)` to `st.Method(args)`.
 | `StrHash(st)` | `StrHash(st)` | same name, string hash (case-sensitive) |
 | `SameText8(a,b)` | `SameText8(a,b)` or `a.EqualsText(b)` | case-insensitive comparison |
 | `Format(fmt,args)` | `UTF8.Format(fmt,args)` | native String8 format, no Unicode roundtrip. Specs: %d %u %x %X %f %g %s %p %%, flags: - 0 +, width, .precision |
+
+### String type conversion (new in engine5)
+
+| Old name (Common) | New name (Strings) | Notes |
+|---|---|---|
+| `Str8(st)` | `Str8(st)` | same name; overloads for UnicodeString, WideString, UTF8String (+AnsiString in UNICODE mode) |
+| `Str16(st)` | `Str16(st)` | same name; overloads for UnicodeString, WideString, UTF8String (+AnsiString in UNICODE mode) |
+| — | `Str32(st)` | **NEW**: convert String8/WideString/UnicodeString to String32 (UCS-4) |
+
+### UTF-8 encoding (moved from Apus.Conv to Apus.Strings)
+
+| Old name (Common/Conv) | New name (Strings) | Notes |
+|---|---|---|
+| `EncodeUTF8(ws)` | `UTF8.Encode(ws)` | WideString → String8; also accepts addBOM parameter |
+| `DecodeUTF8(s)` | `UTF8.ToWide(s)` | String8 → WideString; strips BOM if present |
+| `IsUTF8(s)` | `UTF8.HasBOM(s)` | check for UTF-8 BOM |
+| `UTF8.FromWide(ws)` | `UTF8.FromWide(ws)` | alias for UTF8.Encode (inline) |
+
+### Encoding conversion (moved from Apus.Conv to Apus.Utils)
+
+| Old name (Common/Conv) | New name (Utils) | Notes |
+|---|---|---|
+| `UnicodeTo(ws,enc)` | `UnicodeTo(ws,enc)` | WideString → String8 with arbitrary encoding (UTF-8/Win1251/ANSI) |
+| `UnicodeFrom(s,enc)` | `UnicodeFrom(s,enc)` | String8 → WideString with arbitrary encoding |
 
 ## Apus.Files (file I/O and utilities)
 
@@ -350,8 +374,21 @@ Functions that don't fit scope of core/conv/strings/files modules.
 
 ## Not yet extracted (still only in Apus.Common)
 
-| Function | Notes |
-|---|---|
-| `EncodeUTF8/DecodeUTF8` | UTF-8 encoding/decoding |
-| `AddString/RemoveString/FindString` | array helpers |
-| `HasParam/GetParam` | command-line arguments |
+| Function | Target module | Notes |
+|---|---|---|
+| `EncodeUTF8(st)` / `DecodeUTF8(st)` | **Apus.Conv** | Standalone `EncodeUTF8(WideString):String8` / `DecodeUTF8(RawByteString):WideString` |
+| `IsUTF8(st)` | **Apus.Conv** | Check if string starts with UTF-8 BOM |
+| `UnicodeFrom(st,enc)` / `UnicodeTo(st,enc)` | **Apus.Conv** | Convert between WideString and 8-bit encodings (uses TTextEncoding) |
+| `Str8(s)` / `Str16(s)` | **Apus.Strings** | Cast/convert to String8/String16 |
+| `SafeStrItem(arr,i)` | **Apus.Strings** or **Apus.Utils** | Safe array indexing with bounds check |
+| `SortRecordsByInt/Double/Float` | **Apus.Structs** | ✅ Implemented: `SortRecordsByInt/Float/Double(var items; itemSize,itemCount,offset:integer; asc:boolean)` |
+| `PackBytes(b1..b4)` / `PackWords(w1,w2)` | **Apus.Core** | Pack bytes/words into integer |
+| `AddString/RemoveString/FindString` | **Apus.Utils** or **Apus.Structs** | Array helpers for Strings8 |
+| `HasParam/GetParam` | **Apus.Utils** | Command-line argument access |
+| `TTextEncoding/teUnknown` | **Apus.Core** | ✅ Defined: `TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8)` |
+| `PointerInRange(p,min,max)` | **Apus.Core** | Pointer range check |
+| `ErrorMessage(msg)` | **Apus.Log** (alias?) | Show error message box |
+| `LastChar(st)` | **Apus.Strings** | Return last character of string |
+| `Unescape(st)` | **Apus.Strings** or **Apus.Utils** | C-style escape sequence decoding |
+| `ExtractFilePath/FileName/ExpandFileName` | **SysUtils** | RTL functions — add SysUtils to uses |
+| `TrimLeft/TrimRight` standalone | **SysUtils** or `st.TrimLeft/TrimRight` | Also available as String8 helper methods |

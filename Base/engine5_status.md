@@ -3,16 +3,19 @@
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-02-17)
+## Summary (last updated: 2026-02-18)
 
 **Progress:**
 - ✅ 9 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib)
 - ✅ Threading and Logging blockers solved
 - ✅ Classes + Structs migrated (Foundation Level 1 complete!)
 - ✅ `UTF8.Format` added to Apus.Strings (native, no Unicode roundtrip)
+- ✅ `Conv.ToStr(double)` implemented with auto/fixed/min-max decimal modes
 - 🔧 EventMan partially migrated, needs completion
 - 🚧 35 of 52 Base modules still use Common
 - 🎯 **Next priorities:** Complete EventMan, Migrate ControlFiles, Deprecate CrossPlatform
+
+**Recent wins (2026-02-18):** Added `Conv.ToStr(double)` — locale-independent float formatting via Pascal `Str()`, supports `maxDec`/`minDec`/`decSep` params, 20 tests added to TestConv.
 
 **Recent wins (2026-02-17):** Migrated Apus.Classes and Apus.Structs together (cyclic dependency resolved). Added FastHash/StrHash/SameText8 to Strings, HasValue to Conv. Added `UTF8.Format(fmt, args)` — native String8 formatter, no SysUtils dependency.
 
@@ -21,7 +24,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 | Module | Lines | Tests | Notes |
 |--------|-------|-------|-------|
 | **Apus.Core** | 1330 | TestCore | Min/Max, Clamp, Swap, Bits, Mem, GetPow2 |
-| **Apus.Conv** | 667 | TestConv | Conv.ToInt/ToFloat/ToBool, Hex, Base64, Format |
+| **Apus.Conv** | ~750 | TestConv | Conv.ToInt/ToFloat/ToBool, Hex, Base64, Format, ToStr(double) with maxDec/minDec/decSep |
 | **Apus.Strings** | ~1550 | TestStrings | String8Helper methods (IndexOf, Trim, Split, ToUpper...), UTF8.Format (native formatter) |
 | **Apus.Files** | 729 | TestFiles | Files.Exists/Load/Save, Folder.ListFiles/Find/Copy/Delete |
 | **Apus.HashMaps** | 248 | TestHashMaps | Generic THashMap<T>, extracted from Structs |
@@ -109,8 +112,11 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 | **Apus.Log.Memory** (TBD) | Refactor old Apus.Logging into memory log handler that uses new Apus.Log via SetCustomHandler. Extract daily rotation, FetchLog, flood protection, SaveMessages functionality. | ~300 |
 | **Apus.Core** (extend) | Math: FRound, PRound, SRound, FastFloor, Wrap, Ratio, Pike, FastInvSqrt. Bits: GetBits, SetBits. Pack: PackBytes, PackWords, ExtractByte, ExtractWord. Random: TRandom, PseudoRand, RandomInt, RandomStr. Checksum: CalcCheckSum, CheckSum64, FillRandom. | ~400 |
 | **Apus.Conv** (extend) | Date/Time: HowLong, NowGMT→Time.UTC, GetUTCTime→Time.Stamp, MyTickCount→removed. Encoding: ConvertToWindows/FromWindows, Win1251↔UTF8, BinToStr/StrToBin. | ~200 |
-| **Apus.Strings** (extend) | UTF: EncodeUTF8, DecodeUTF8, Str8, Str16, UStr, WStr, IsUTF8, DecodeUTF8A. String ops: Split (with quotes), Combine, SameChar8/16, SameText16, SafeStrItem, DumpStr. | ~300 |
+| **Apus.Strings** (extend) | ✅ EncodeUTF8/DecodeUTF8 already as `UTF8.Encode`/`UTF8.Decode`. Still needed: Str8, Str16, SafeStrItem, LastChar, Unescape, DumpStr. | ~150 |
 | **Apus.Structs** (extend) | Sorting: SortObjects, SortRecordsByDouble/Float/Int, SortStrings, IndexRecordsByFloat. Array helpers: AddString, RemoveString, FindString, AddInteger, RemoveInteger, AddFloat, RemoveFloat, ArrayToStr, StrToArray. | ~350 |
+| **Apus.Core** (extend) | PackBytes/PackWords, PointerInRange | ~30 |
+| **Apus.Utils** (extend) | Str8/Str16 conversions, HasParam/GetParam, SafeStrItem, AddString/RemoveString/FindString array helpers | ~150 |
+| **Apus.Types** | TTextEncoding enum (used by Apus.Translation) | ~20 |
 | ~~**Apus.Threads**~~ | **DONE** — Extracted to new module. **BLOCKER #1 SOLVED**. | 667 |
 | ~~**Apus.Utils**~~ | **DONE** — Created new module. Default place for functions without clear home. Current: ParseDate/ParseTime, SplitA, Chop. Planned: EncodeUTF8/DecodeUTF8, AddString/RemoveString/FindString, HasParam/GetParam, SimpleEncrypt/Compress, ExecuteAndCapture (from CrossPlatform), MyTickCount(?). | 280+ |
 
@@ -128,7 +134,7 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 3. ~~**EventMan**~~: **DONE** — migrated to Core/Log/Threads/Strings, compiles clean.
 4. ~~**Classes+Structs**~~: **DONE** — migrated 2026-02-17.
 5. **Apus.Images / Apus.FastGFX** — gateway modules: ~15 other modules depend on them (Clipboard, Regions, GlyphCaches, UnicodeFont, FreeTypeFont, GfxFilters, GfxFormats, etc.). Migrating Images+FastGFX would unblock the most modules at once. **HIGH PRIORITY.**
-6. **EncodeUTF8/DecodeUTF8** — used by 5+ modules (Translation, Publics, HtmlTree, Android). Should move to Apus.Strings.
+6. **EncodeUTF8/DecodeUTF8** — used by 5+ modules (Translation, Publics, HtmlTree, Android). Already in Apus.Strings as `UTF8.Encode`/`UTF8.Decode` — need to add upgrade rule + verify API matches.
 7. **MyTickCount** — still used in some modules. Replace with `GetTickCount64` directly (no wrapper needed).
 8. **CrossPlatform** — deprecated, extract ExecuteAndCapture to Utils, then remove from uses everywhere.
 
