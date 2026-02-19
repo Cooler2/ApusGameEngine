@@ -68,7 +68,7 @@ type
   {$ENDIF}
   PString16 = ^String16;
 
-  // 32-bit string (UCS-4)
+  // 32-bit string (UCS-4): ZERO-INDEXED (0-indexed)!
   String32 = UCS4String;
   PString32 = ^String32;
 

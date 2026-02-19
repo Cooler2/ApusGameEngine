@@ -412,6 +412,22 @@ begin
   EndTest;
 end;
 
+procedure TestString32IndexingContract;
+var
+  s,sub:String32;
+begin
+  StartTest('String32 indexing contract');
+  // String32 helper is intentionally 0-based and uses -1 as "not found"
+  s:=UTF8.Decode('Hello');
+  sub:=UTF8.Decode('H');
+  Check(s.CharAt(0)=ord('H'),'CharAt(0) should return first char');
+  Check(s.FirstChar=s.CharAt(0),'FirstChar should be alias of CharAt(0)');
+  Check(s.IndexOf(sub)=0,'IndexOf first element should be 0');
+  sub:=UTF8.Decode('Z');
+  Check(s.IndexOf(sub)=-1,'IndexOf not found should be -1');
+  EndTest;
+end;
+
 procedure TestString32StartEnd;
 var s,pre,suf:String32;
 begin
@@ -822,6 +838,7 @@ begin
     TestString32CharAccess;
     TestString32Substring;
     TestString32Search;
+    TestString32IndexingContract;
     TestString32StartEnd;
     TestString32Compare;
     TestString32Case;

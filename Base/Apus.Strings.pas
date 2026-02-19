@@ -9,7 +9,9 @@
 //
 // Contains: TString8Helper and TString32Helper with methods like Split, Trim, Contains,
 // StartsWith, EndsWith, Replace, ToUpper, ToLower, IndexOf, etc.
-// Modeled after Delphi's TStringHelper but uses 1-based indexing for Pascal compatibility.
+// Indexing contract:
+// - String8Helper: 1-based API (Pascal-style string indexing), not-found = 0
+// - String32Helper: 0-based API (UCS4 array semantics), not-found = -1
 //
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -110,29 +112,30 @@ type
   end;
 
   // Helper for String32 (UCS-4 strings)
+  // NOTE: String32 helper is intentionally 0-based because String32 is UCS4String (array-like).
   String32Helper = record helper for String32
     // === Properties ===
     function Length:integer; inline;
     function IsEmpty:boolean; inline;
 
     // === Character access ===
-    function CharAt(index:integer):UCS4Char; inline;
+    function CharAt(index:integer):UCS4Char; inline; // 0-based, returns 0 if out of bounds
     function LastChar:UCS4Char; inline;
-    function FirstChar:UCS4Char; inline; // alias for CharAt(1)
+    function FirstChar:UCS4Char; inline; // alias for CharAt(0)
 
     // === Substring ===
-    function Substring(startIndex:integer):String32; overload;
-    function Substring(startIndex,len:integer):String32; overload;
+    function Substring(startIndex:integer):String32; overload; // 0-based
+    function Substring(startIndex,len:integer):String32; overload; // 0-based
     function Left(count:integer):String32;
     function Right(count:integer):String32;
 
     // === Search ===
-    function IndexOf(const substr:String32):integer; overload;
-    function IndexOf(const substr:String32;startPos:integer):integer; overload;
-    function IndexOf(ch:UCS4Char):integer; overload;
-    function IndexOf(ch:UCS4Char;startPos:integer):integer; overload;
-    function LastIndexOf(const substr:String32):integer; overload;
-    function LastIndexOf(ch:UCS4Char):integer; overload;
+    function IndexOf(const substr:String32):integer; overload; // returns -1 if not found
+    function IndexOf(const substr:String32;startPos:integer):integer; overload; // 0-based, returns -1 if not found
+    function IndexOf(ch:UCS4Char):integer; overload; // returns -1 if not found
+    function IndexOf(ch:UCS4Char;startPos:integer):integer; overload; // 0-based, returns -1 if not found
+    function LastIndexOf(const substr:String32):integer; overload; // returns -1 if not found
+    function LastIndexOf(ch:UCS4Char):integer; overload; // returns -1 if not found
     function Contains(const substr:String32):boolean; overload;
     function Contains(ch:UCS4Char):boolean; overload;
     function StartsWith(const prefix:String32):boolean;
