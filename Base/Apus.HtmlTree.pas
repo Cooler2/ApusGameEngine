@@ -79,7 +79,10 @@ type
  procedure AddCustomRule(outerTag,innerTag:string;canContain:boolean);
  procedure ClearCustomRules;
 implementation
-uses SysUtils, Apus.Core;
+uses SysUtils, Apus.Core,
+  Apus.Conv,
+  Apus.Files,
+  Apus.Strings;
 
 const
  VOID_ELEMENTS = '|!doctype|area|base|br|col|embed|hr|img|input|keygen|link|menuitem|meta|param|source|track|wbr|';
@@ -171,8 +174,8 @@ begin
      // Check if ent contains a valid entity name or number
      if ent.StartsWith('#') then begin
        delete(ent,1,1);
-       if ent.StartsWith('x') then code:=integer(HexToInt(ent)) // avoid range error
-         else code:=integer(ParseInt(ent));
+       if ent.StartsWith('x') then code:=integer(Conv.HexToInt(ent)) // avoid range error
+         else code:=integer(Conv.ToInt(ent));
      end else begin
        if entities.HasKey(ent) then
          code:=entities.Get(ent);
@@ -255,7 +258,7 @@ begin
      // closing tag
      p:=pos('>',st,i+1);
      tag:=copy(st,i+2,p-i-2);
-     tag:=Lowercase(Chop(tag));
+     tag:=Lowercase(tag.Trim);
      i:=p+1;
      // Close tags
      for p:=stack.count-1 downto 1 do
@@ -279,7 +282,7 @@ begin
    // Process element
    if element.IsForeign or element.IsRawtext then begin
      // find end tag and create a text node for the whole content
-     p:=PosFrom('</'+element.tag+'>',st,i,true); // To be accurate, space chars are allowed before '>'
+     p:=PosFrom {TODO: use st.IndexOf(substr)}('</'+element.tag+'>',st,i,true); // To be accurate, space chars are allowed before '>'
      if p=0 then p:=length(st)+1;
      if element.IsForeign then
        THtmlForeignContent.Create(element,copy(st,i,p-i))
@@ -359,7 +362,7 @@ begin
     // quoted value
     p:=i;
     repeat
-     p:=PosFrom(text[i],text,p+1);
+     p:=PosFrom {TODO: use st.IndexOf(substr)}(text[i],text,p+1);
      if p=0 then begin
       // no end quote
       p:=length(text)-1;
@@ -399,7 +402,7 @@ begin
    aIdx:=attributes.Find(attribute);
    if aIdx<0 then result:=nil
    else begin
-    if (contains<>'') and (PosFrom(contains,attributes.items[aIdx].value,1,true)=0) then result:=nil;
+    if (contains<>'') and (PosFrom {TODO: use st.IndexOf(substr)}(contains,attributes.items[aIdx].value,1,true)=0) then result:=nil;
    end;
   end;
  end;
@@ -464,7 +467,7 @@ begin
  result:=false;
  idx:=attributes.Find(aName);
  if idx<0 then exit;
- result:=PosFrom(substr,attributes.items[idx].value,1,true)>0;
+ result:=PosFrom {TODO: use st.IndexOf(substr)}(substr,attributes.items[idx].value,1,true)>0;
 end;
 
 function THtmlElement.InnerText:string;
@@ -654,12 +657,12 @@ initialization
  //DecodeHtmlString('&xxx');
  //DecodeHtmlString('A&quot;_&#66;&ksdhkh&#x44');
 { // Debug test
- st:=LoadFileAsString('test.htm');
- st:=LoadFileAsString('content.htm');
- t:=MyTickCount;
+ st:=Files.LoadAsString('test.htm');
+ st:=Files.LoadAsString('content.htm');
+ t:=CoreTime.Ticks;
  node:=ParseHTML(st);
- t:=MyTickCount-t;
+ t:=CoreTime.Ticks-t;
  st:=node.PrintTree;
- SaveFile('tree.txt',Utf8String(st));
+ SaveFile {TODO: use Files.Save(fname,data)}('tree.txt',Utf8String(st));
  writeln(t,node.tag);  }
 end.

@@ -54,7 +54,8 @@ type
  end;
 
 implementation
- uses Apus.Core, SysUtils;
+ uses Apus.Core, Apus.Conv,
+  Apus.Threads;
 
 var
  objList:TObjectList; // List of all the ProducerConsumers to terminate
@@ -102,7 +103,7 @@ destructor TProducerConsumer.Destroy;
 
 function TProducerConsumer.Produce(const item:TDataItem;waitMS:integer=0):boolean;
  var
-  time:int64;
+  timeWait:int64;
   needEvent:boolean;
  begin
   needEvent:=ItemsToConsume=0;
@@ -113,11 +114,11 @@ function TProducerConsumer.Produce(const item:TDataItem;waitMS:integer=0):boolea
   end;
   if waitMS<=0 then exit(false);
   // queue is full - wait
-  time:=MyTickCount+waitMS;
+  timeWait:=CoreTime.Ticks+waitMS;
   repeat
-    Sleep(0);
+    Time.Sleep(0);
     if InternalProduce(item) then exit(true);
-  until MyTickCount>time;
+  until CoreTime.Ticks>timeWait;
   result:=false;
  end;
 
@@ -147,7 +148,7 @@ procedure TConsumerThread.Execute;
  var
   item:TDataItem;
  begin
-  RegisterThread(consumer.className+'_'+IntToStr(threadIDX));
+  Thread.Register(consumer.className+'_'+Conv.ToStr(threadIDX));
   repeat
    if consumer.Consume(item) then begin
     consumer.Process(item);
@@ -156,7 +157,7 @@ procedure TConsumerThread.Execute;
     consumer.syncEvent.WaitFor(10);
    end;
   until terminated;
-  UnregisterThread;
+  Thread.Unregister;
  end;
 
 { TProducerConsumerPriority }

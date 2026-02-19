@@ -52,7 +52,7 @@ type
  end;
 
 implementation
- uses Apus.Files;
+ uses Apus.Conv, Apus.Files;
 
 type
  TBitmapHeader=packed record
@@ -130,7 +130,7 @@ var
  hdr:TBitmapHeader;
  size:integer;
 begin
- assign(f,Files.FileName(fname));
+ assign(f,Files.FixName(fname));
  reset(f,1);
  blockread(f,hdr,sizeof(hdr));
  linesize:=4*((hdr.width*hdr.bpp+31) div 32);

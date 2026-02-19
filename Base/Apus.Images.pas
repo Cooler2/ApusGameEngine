@@ -171,7 +171,7 @@ type
  function PixFmt2Str(ipf:TImagePixelFormat):string;
 
 implementation
- uses SysUtils, Apus.Core, Apus.Types;
+ uses SysUtils, Apus.Core, Apus.Types, Apus.Conv;
 
 function PixFmt2Str(ipf:TImagePixelFormat):string;
  begin
@@ -204,7 +204,7 @@ function PixFmt2Str(ipf:TImagePixelFormat):string;
    ipfDuo32f:result:='Duo32f';
    ipfL4A4:result:='L4A4';
   else
-   result:='other('+IntToStr(ord(ipf))+')';
+   result:='other('+Conv.ToStr(ord(ipf))+')';
   end;
  end;
 
@@ -392,26 +392,26 @@ begin
  pb:=newData;
  // Top part
  if ps=4 then
-  FillDword(pb^,paddingTop*newWidth,color)
+  Mem.FillD(pb^,paddingTop*newWidth,color)
  else
   FillChar(pb^,paddingTop*newWidth*ps,color);
  inc(pb,paddingTop*newWidth*ps);
  // Main part
  for y:=0 to height-1 do begin
-  if ps=4 then FillDword(pb^,paddingLeft,color)
+  if ps=4 then Mem.FillD(pb^,paddingLeft,color)
    else FillChar(pb^,paddingLeft*ps,color);
   inc(pb,paddingLeft*ps);
   move(ScanLine(y)^,pb^,width*ps);
   inc(pb,width*ps);
-  if ps=4 then FillDword(pb^,paddingRight,color)
+  if ps=4 then Mem.FillD(pb^,paddingRight,color)
    else FillChar(pb^,paddingRight*ps,color);
   inc(pb,paddingRight*ps);
  end;
  // Bottom part
  if ps=4 then
-  FillDword(pb^,paddingBottom*newWidth,color)
+   Mem.FillD(pb^,paddingBottom*newWidth,color)
  else
-  FillChar(pb^,paddingBottom*newWidth*ps,color);
+   Mem.Fill(pb^,paddingBottom*newWidth*ps,color);
 
  // Assign new bitmap
  Freemem(data);

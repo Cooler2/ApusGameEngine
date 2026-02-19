@@ -109,7 +109,7 @@ procedure ctlDeleteKey(key:String8);
 
 
 implementation
- uses  StrUtils, Apus.Structs, Apus.Crypto;
+ uses StrUtils, Apus.Structs, Apus.Crypto, Apus.Threads;
 
 type
  // комментарий
@@ -227,7 +227,7 @@ var
  hash:TStrHash;
  lasthandle:integer=0;
 
- critSect:TMyCriticalSection; // синхронизация для многопоточного доступа
+ critSect:TLock; // синхронизация для многопоточного доступа
 
 //----------------- Copypasted from QStrings.pas since it can't be compiled by FPC
 type
@@ -655,7 +655,7 @@ function UseControlFile;
    procedure LoadSection(var f:TextFile;item:TGenericTree;path:String8);
     var
      st,arg,uArg,st2:String8;
-     sa:StringArr;
+     sa:Strings8;
      comment:TCommentLine;
      incl:TInclude;
      sect:TSection;
@@ -694,7 +694,7 @@ function UseControlFile;
         sect:=TSection.Create;
         sect.name:=arg;
         if arg='' then
-         raise EWarning.Create('CTL2: unnamed section in '+filename+' line: '+inttostr(ln));
+         raise EWarning.Create('CTL2: unnamed section in '+filename+' line: '+Conv.ToStr(ln));
         i:=item.AddChild(sect);
         sect.fullname:=UpperCase(path+'\'+arg);
         hash.Put(sect.fullname,item.GetChild(i));
@@ -728,7 +728,7 @@ function UseControlFile;
       if Q_IsInteger(arg) then begin
        // Integer
        value:=TIntValue.Create;
-       (value as TIntValue).value:=StrToInt(arg);
+       (value as TIntValue).value:=Conv.ToInt(arg);
       end else
       if Q_IsFloat(arg) then begin
        // Float
@@ -749,7 +749,7 @@ function UseControlFile;
         // Delete '(' and ')'
         delete(arg,1,1);
         SetLength(arg,length(arg)-1);
-        sa:=StringArr(Split(',',arg,'"'));
+        sa:=Strings8(Split(',',arg,'"'));
         // Create and fill object
         value:=TStringlistValue.Create;
         with value as TStringListValue do begin
@@ -892,7 +892,7 @@ function UseControlFile;
     move(h.data[p],c,4);
     c:=c+code; // Actual encryption code
     // Generate matrix for decryption
-    GenMatrix32(mat,inttostr(c));
+    GenMatrix32(mat,Conv.ToStr(c));
     mat:=InvertMatrix32(mat);
     // Read rest of the file and decrypt it
     size:=filesize(f)-sizeof(h);
@@ -1015,7 +1015,7 @@ var
      end;
      // Save integer value
      if o is TIntValue then begin
-      st:=st+inttostr((o as TIntValue).Value);
+      st:=st+Conv.ToStr((o as TIntValue).Value);
       writeln(f,st);
       continue;
      end;
@@ -1177,7 +1177,7 @@ var
    o:=item.data;
    inc(code,(o as TCtlFile).code); // Actual encryption code
    ms:=TMemoryStream.Create;
-   GenMatrix32(mat,inttostr(code));
+   GenMatrix32(mat,Conv.ToStr(code));
    SaveSection(item);
    Encrypt32A(ms.memory^,ms.size,mat);
    blockwrite(f,h,sizeof(h));
@@ -1328,7 +1328,7 @@ function ctlGetStr(key:String8):String8;
   o:=FindItem(key);
   if (o<>nil) and ((o is TStringValue) or (o is TIntValue)) then begin
    if (o is TStringValue) then result:=(o as TStringValue).value else
-   if (o is TIntValue) then result:=inttostr((o as TIntValue).value);
+   if (o is TIntValue) then result:=Conv.ToStr((o as TIntValue).value);
   end else
    raise EWarning.Create(MessageKeyIncorrect+key);
   finally critSect.Leave; end;

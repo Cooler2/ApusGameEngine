@@ -64,11 +64,16 @@ interface
 
 
 implementation
- uses {$IFDEF DELPHI}
+uses {$IFDEF DELPHI}
        {$IF CompilerVersion >= 20.0}VCL.Graphics,VCL.Imaging.jpeg,{$ELSE}Graphics,Jpeg,{$IFEND}
       {$ENDIF}
       {$IFDEF FPC}FPImage,FPReadJPEG,FPWriteJPEG,FPReadPNG,FPWritePNG,{$ENDIF}
-      Classes,SysUtils,Math,Apus.Colors,Apus.Structs;
+  Classes,SysUtils,
+  Apus.Colors,
+  Apus.Structs,
+  Apus.Conv,
+  Apus.Files,
+  Apus.Strings;
 
 type
  TGAheader=packed record
@@ -211,7 +216,7 @@ procedure LoadDDS(data:ByteArray;var image:TRawImage;allocate:boolean=false);
    for y:=0 to height-1 do begin
     sp:=pointer(pc); inc(sp,y*width*PixelSize[format] div 8);
     dp:=image.data; inc(dp,y*image.pitch);
-    ASSERT(PointerInRange(dp,image.data,image.dataSize));
+    ASSERT(PtrInside(dp,image.data,image.dataSize));
     if format<>image.PixelFormat then begin
      // Copy data with format conversion
      ConvertLine(sp^,dp^,format,image.PixelFormat,sp^,palNone,width);
@@ -240,11 +245,11 @@ procedure LoadTGA;
   head:=@data[0];
   // Check if data has proper type
   if not head.imgtype in [1,2,10] then
-   raise EError.Create('Unsupported TGA image type - '+inttostr(head.imgtype));
+   raise EError.Create('Unsupported TGA image type - '+Conv.ToStr(head.imgtype));
   if (head.paltype=1) and (not head.palentrysize in [24,32]) then
-   raise EError.Create('Unsupported TGA palette type - '+inttostr(head.paltype));
+   raise EError.Create('Unsupported TGA palette type - '+Conv.ToStr(head.paltype));
   if not head.bpp in [8,16,24,32] then
-   raise EError.Create('Unsupported TGA bpp - '+inttostr(head.bpp));
+   raise EError.Create('Unsupported TGA bpp - '+Conv.ToStr(head.bpp));
   if (head.imgwidth>8192) or (head.imgheight>8192) then
    raise EError.Create('TGA image is too large');
 
@@ -409,7 +414,7 @@ procedure LoadTGA;
    inc(size,sizeof(head));
    SetLength(result,size);
 
-   fillchar(head,sizeof(head),0);
+   Mem.Fill(head,sizeof(head),0);
    if image.paletteFormat<>palNone then begin
     head.paltype:=1;
     head.palstart:=0;
@@ -457,15 +462,15 @@ procedure LoadTGA;
    begin
     if st='' then exit;
     // обработка накопленного слова
-    if (line=1) and (word=1) then w:=StrToInt(st);
-    if (line=1) and (word=2) then h:=StrToInt(st);
+    if (line=1) and (word=1) then w:=Conv.ToInt(st);
+    if (line=1) and (word=2) then h:=Conv.ToInt(st);
     if line in [2..4] then begin
-     if word=1 then r:=StrToInt(st);
-     if word=2 then g:=StrToInt(st);
-     if word=3 then b:=StrToInt(st);
+     if word=1 then r:=Conv.ToInt(st);
+     if word=2 then g:=Conv.ToInt(st);
+     if word=3 then b:=Conv.ToInt(st);
     end;
     if (line>4) and (line mod 2=1) then
-     if word=1 then x:=StrToInt(st) else y:=StrToInt(st);
+     if word=1 then x:=Conv.ToInt(st) else y:=Conv.ToInt(st);
     st:='';
    end;
   begin
@@ -553,7 +558,7 @@ const
    i,p,n,width,height:integer;
    palette:array of cardinal;
    pixels:array of cardinal;
-   items:StringArray8;
+   items:Strings8;
    w:word;
   function DecodeColor(p:PByte):cardinal;
    var
@@ -566,10 +571,10 @@ const
     end;
    end;
   begin
-   items:=SplitA(' ',data);
+   items:=data.Split(' ');
    ASSERT(length(items)>=4);
-   width:=ParseInt('$'+items[0]);
-   height:=ParseInt('$'+items[1]);
+   width:=Conv.ToInt('$'+items[0]);
+   height:=Conv.ToInt('$'+items[1]);
    ASSERT((width>0) and (width<=4096));
    ASSERT((height>0) and (height<=4096));
    if image=nil then
@@ -719,15 +724,15 @@ const
      end else begin
       wch:=WideChar(40+pixel);
       if wch<=#127 then data:=data+wch
-       else data:=data+EncodeUTF8(wCh);
+        else data:=data+UTF8.Encode(wCh);
      end;
     end else begin
      // rare color
      data:=data+'!'+EncodeColor(pixel);
     end;
    end;
-   Sleep(0);
-   result:=FormatHex(width)+' '+FormatHex(height)+' '+data;
+   CoreTime.Sleep(0);
+   result:=Conv.ToHex(width)+' '+Conv.ToHex(height)+' '+data;
   end;
 
  function CheckFileFormat(fname:string):TImageFileType;
@@ -811,7 +816,7 @@ const
    if pc^=$20534444 then begin
     result:=ifDDS;
     inc(pc); dds:=pointer(pc);
-    fillchar(imginfo,sizeof(imginfo),0);
+    Mem.Fill(imginfo,sizeof(imginfo),0);
     imginfo.width:=dds.dwWidth;
     imginfo.height:=dds.dwheight;
     if dds.ddpfPixelFormat.dwFourCC=$31545844 then imginfo.format:=ipfDXT1 else
@@ -824,7 +829,7 @@ const
    // Check for jpeg
    if (data[0]=$ff) and (data[1]=$D8) then begin
     result:=ifJPEG;
-    fillchar(imginfo,sizeof(imginfo),0);
+    Mem.Fill(imginfo,sizeof(imginfo),0);
     imgInfo.format:=ipfRGB;
     imgInfo.palformat:=palNone;
     imgInfo.miplevels:=0;
@@ -833,8 +838,8 @@ const
      if data[i]=$FF then begin
       j:=data[i+2]*256+data[i+3];
       if data[i+1] in [$C0,$C2] then begin // SOF0 or SOF2
-       imgInfo.height:=max2(imgInfo.height,data[i+5] shl 8+data[i+6]);
-       imgInfo.width:=max2(imgInfo.width,data[i+7] shl 8+data[i+8]);
+       imgInfo.height:=Max(imgInfo.height,integer(data[i+5])*256+integer(data[i+6]));
+       imgInfo.width:=Max(imgInfo.width,integer(data[i+7])*256+integer(data[i+8]));
       end;
       inc(i,j+2);
      end else
@@ -866,7 +871,7 @@ const
 
    // check for txt
    fl:=true;
-   for i:=1 to min2(10,length(data)) do begin
+   for i:=1 to Min(10,length(data)) do begin
     if not (data[i] in [$30..$39,32,10,13,8]) then fl:=false;
    end;
    if fl then result:=ifTXT;
@@ -900,8 +905,8 @@ const
      image:=TBitmapImage.Create(img.Width,img.Height,ipfXRGB);
 
    // Copy/convert bitmap data
-   w:=min2(image.width,img.Width);
-   h:=min2(image.height,img.Height);
+   w:=Min(image.width,img.Width);
+   h:=Min(image.height,img.Height);
    for i:=0 to h-1 do begin
     sp:=img.GetScanline(i);
     inc(sp);
@@ -1002,7 +1007,7 @@ const
   writer:=TFPWriterJPEG.Create;
   writer.CompressionQuality:=Clamp(quality,1,100);
   data:=SaveImageUsingWriter(writer,image);
-  SaveFile(filename,data);
+  Files.Save(filename,data);
  end;
  {$ENDIF}
 
@@ -1029,8 +1034,8 @@ const
    jpeg.DIBNeeded;
    bmp:=TBitmap.Create;
    bmp.Assign(jpeg);
-   w:=min2(image.width,bmp.Width);
-   h:=min2(image.height,bmp.Height);
+   w:=Min(image.width,bmp.Width);
+   h:=Min(image.height,bmp.Height);
    dp:=image.data;
    for i:=0 to h-1 do begin
     ConvertLine(bmp.scanline[i]^,dp^,ipfRGB,image.PixelFormat,dp^,palNone,w);
@@ -1099,7 +1104,7 @@ const
    pc,oldC:PCardinal;
   begin
    err:=lodepng_decode32(buf,width,height,@data[0],length(data));
-   if err<>0 then raise EWarning.Create('LodePNG error code '+inttostr(err));
+   if err<>0 then raise EWarning.Create('LodePNG error code '+Conv.ToStr(err));
 
    // Allocate dest image if needed
    if image=nil then
@@ -1151,7 +1156,7 @@ const
    sour,dest:PByte;
   begin
    err:=lodepng_decode_memory(buf,width,height,@data[0],length(data),LCT_GREY,8);
-   if err<>0 then raise EWarning.Create('LodePNG error code '+inttostr(err));
+   if err<>0 then raise EWarning.Create('LodePNG error code '+Conv.ToStr(err));
 
    // Allocate dest image if needed
    if image=nil then
@@ -1187,7 +1192,7 @@ const
    // Pack and save
    png:=nil;
    err:=lodepng_encode32(png,size,data,image.width,image.height);
-   if err<>0 then raise EWarning.Create('LodePNG error code '+inttostr(err));
+   if err<>0 then raise EWarning.Create('LodePNG error code '+Conv.ToStr(err));
    SetLength(result,size);
    move(png^,result[0],size);
    free_mem(png);
@@ -1205,7 +1210,7 @@ const
    image.Lock;
    err:=lodepng_encode_memory(png,size,image.data,image.width,image.height,LCT_GREY,8);
    image.Unlock;
-   if err<>0 then raise EWarning.Create('LodePNG error code '+inttostr(err));
+   if err<>0 then raise EWarning.Create('LodePNG error code '+Conv.ToStr(err));
    SetLength(result,size);
    move(png^,result[0],size);
    free_mem(png);

@@ -15,7 +15,10 @@ interface
 implementation
  uses {$IFDEF MSWINDOWS}WinSock,
    {$ELSE}Sockets,{$ENDIF}
-   Apus.Core, SysUtils;
+   Apus.Core, SysUtils,
+  Apus.Conv,
+  Apus.Threads,
+  Apus.Strings;
  type
   TRange=record
    ip,mask:cardinal;
@@ -28,18 +31,19 @@ implementation
   end;
  var
   initialized:TDatetime;
-  crSect:TMyCriticalSection;
+  crSect:TLock;
   lastPath:string;
   ranges:array of TRange;
   countries:array of TCountry;
   lastError:string;
 
+ // TODO: rework this
  procedure LoadMaxMindDB(path:string);
   var
    st:string;
    fm:byte;
    f:text;
-   sa:StringArr;
+   sa:Strings8;
    cnt,i,j:integer;
   begin
    initialized:=0;
@@ -54,7 +58,7 @@ implementation
     SetLength(countries,1000);
     while not eof(f) do begin
      readln(f,st);
-     sa:=StringArr(split(',',st,'"'));
+     sa:=UTF8.Encode(st).Split(',','"');
      countries[cnt].id:=StrToIntDef(sa[0],0);
      countries[cnt].short:=sa[4];
      countries[cnt].full:=sa[5];
@@ -70,14 +74,14 @@ implementation
     SetLength(ranges,1000000);
     while not eof(f) do begin
      readln(f,st);
-     sa:=split(',',st);
+     sa:=UTF8.Encode(st).split(',');
      st:=sa[0];
      i:=pos('/',st);
      if i>0 then begin
-      j:=StrToInt(copy(st,i+1,2));
+      j:=Conv.ToInt(copy(st,i+1,2));
       SetLength(st,i-1);
      end;
-     ranges[cnt].ip:=ntohl(StrToIp(st));
+     ranges[cnt].ip:=ntohl(Conv.ToIp(st));
      ranges[cnt].mask:=$FFFFFFFF shl (32-j);
      if sa[1]<>'' then
       ranges[cnt].countryCode:=StrToIntDef(sa[1],0)
@@ -91,7 +95,7 @@ implementation
     initialized:=now;
     lastPath:=path;
    except
-    on e:exception do lastError:='Load error 1: '+intToStr(cnt)+' '+st+' msg: '+e.message;
+    on e:exception do lastError:='Load error 1: '+Conv.ToStr(cnt)+' '+st+' msg: '+e.message;
    end;
   end;
 
@@ -105,7 +109,7 @@ implementation
  procedure InitGeoIP(path:string);
   begin
    if initialized>0 then exit;
-   EnterCriticalSection(crSect);
+   crSect.Enter;
    try
     if path='' then path:=GetCurrentDir;
     TryLoadDB(path);
@@ -114,7 +118,7 @@ implementation
      if path<>'' then TryLoadDB(path);
     end;
    finally
-    LeaveCriticalSection(crSect);
+    crSect.Leave;
    end;
   end;
 
@@ -152,8 +156,8 @@ implementation
   end;
 
 initialization
- initialized:=0;
- InitCritSect(crSect,'GeoIP',300);
+  initialized:=0;
+  crSect.Init('GeoIP',300);
 finalization
- DeleteCritSect(crSect);
+  crSect.Cleanup;
 end.

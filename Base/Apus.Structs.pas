@@ -424,6 +424,11 @@ type
   procedure Add(v:variant);
  end;}
 
+ // Sort array of records by an integer/float/double field at given byte offset
+ procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+ procedure SortRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+ procedure SortRecordsByDouble(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+
 implementation
  uses SysUtils, Variants,
    Apus.Strings  // FastHash, SameText8, StrHash
@@ -2608,6 +2613,67 @@ procedure TObjectList.Init;
   count:=0;
   SetLength(data,32);
   initialized:=_INITIALIZED_;
+ end;
+
+// -------------------------------------------
+// Sort records by field
+// -------------------------------------------
+procedure QuickSortRecords(data:pointer;itemSize,offset,a,b,valueType:integer;asc:boolean);
+ function Compare(p1,p2:pointer):boolean; inline;
+  begin
+   case valueType of
+    1:result:=(PInteger(p1)^>PInteger(p2)^);
+    2:result:=(PSingle(p1)^>PSingle(p2)^);
+    3:result:=(PDouble(p1)^>PDouble(p2)^);
+    else result:=false;
+   end;
+  end;
+ var
+  lo,hi,mid:integer;
+  loVal,hiVal:PByte;
+  midVal:int64; // 8 bytes - fits int, float and double
+  valSize:integer;
+ begin
+  lo:=a; hi:=b;
+  mid:=(a+b) div 2;
+  loVal:=PByte(UIntPtr(data)+lo*itemSize+offset);
+  hiVal:=PByte(UIntPtr(data)+hi*itemSize+offset);
+  if valueType=3 then valSize:=8 else valSize:=4;
+  move(PByte(UIntPtr(data)+mid*itemSize+offset)^,midval,valSize);
+  repeat
+   if asc then begin
+    while Compare(@midVal,loVal) do begin inc(lo); inc(loVal,itemSize) end;
+    while Compare(hiVal,@midVal) do begin dec(hi); dec(hiVal,itemSize) end;
+   end else begin
+    while Compare(loVal,@midVal) do begin inc(lo); inc(loVal,itemSize) end;
+    while Compare(@midVal,hiVal) do begin dec(hi); dec(hiVal,itemSize) end;
+   end;
+   if lo<=hi then begin
+    Swap(pointer(UIntPtr(data)+lo*itemSize)^,pointer(UIntPtr(data)+hi*itemSize)^,itemSize);
+    inc(lo); inc(loVal,itemSize);
+    dec(hi); dec(hiVal,itemSize);
+   end;
+  until lo>hi;
+  if hi>a then QuickSortRecords(data,itemSize,offset,a,hi,valueType,asc);
+  if lo<b then QuickSortRecords(data,itemSize,offset,lo,b,valueType,asc);
+ end;
+
+procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean);
+ begin
+  if itemCount<2 then exit;
+  QuickSortRecords(@items,itemSize,offset,0,itemCount-1,1,asc);
+ end;
+
+procedure SortRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean);
+ begin
+  if itemCount<2 then exit;
+  QuickSortRecords(@items,itemSize,offset,0,itemCount-1,2,asc);
+ end;
+
+procedure SortRecordsByDouble(var items;itemSize,itemCount,offset:integer;asc:boolean);
+ begin
+  if itemCount<2 then exit;
+  QuickSortRecords(@items,itemSize,offset,0,itemCount-1,3,asc);
  end;
 
 end.

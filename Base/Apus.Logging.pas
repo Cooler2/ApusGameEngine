@@ -47,7 +47,7 @@ interface
  procedure FlushLogs;
 
  // Returns (partial) content of the in-memory log (CAUTION! May consume significant time and memory!)
- function FetchLog(fromDate,toDate:TDateTime;minLevel:byte;limit:integer=10000):StringArr;
+ function FetchLog(fromDate,toDate:TDateTime;minLevel:byte;limit:integer=10000):Strings8;
 
  // Аварийный сброс лога в файл (amount килобайт)
  procedure AlarmLog(filename:string;amount:integer=1024);
@@ -60,7 +60,7 @@ interface
  procedure SaveLogMessages;
 
 implementation
- uses SysUtils, 
+ uses SysUtils
    {$IFDEF MSWINDOWS},windows,MMSystem{$ENDIF};
 
  type
@@ -87,7 +87,7 @@ implementation
   end;
  var
   logCache:string8;
-  logSect:TMyCriticalSection;
+  logSect:TLock;
   logDir:string;
   lastTime:TSystemTime; // time of the last message for log file
   buffer:array of byte; // main buffer
@@ -271,7 +271,7 @@ implementation
    result:=posit;
   end;
 
- function FetchLog(fromDate,toDate:TDateTime;minLevel:byte;limit:integer):StringArr;
+ function FetchLog(fromDate,toDate:TDateTime;minLevel:byte;limit:integer):Strings8;
   var
    cnt,max:integer;
    i,pos,l:integer;
@@ -419,7 +419,7 @@ implementation
   var
    saveFirst,space:integer;
    size:word;
-   log:StringArr;
+   log:Strings8;
    f:text;
    i:integer;
   begin

@@ -6,7 +6,7 @@
 {$R-}
 unit Apus.FreeTypeFont;
 interface
- uses Apus.Core, Apus.Structs, freetypeh;
+ uses Apus.Core, Apus.Types, Apus.Structs, freetypeh;
 
 const
  FTF_NO_HINTING = FT_LOAD_NO_HINTING;
@@ -52,29 +52,18 @@ type
  end;
 
 var
- ftVersion:string;
+ freetypeVersion:string;
  intervalHashMiss:cardinal;
  glyphWidthHashMiss:cardinal;
 
 
 implementation
- uses SysUtils,Apus.FastGFX;
+ uses SysUtils, Apus.FastGFX, Apus.Threads;
 
  var
   initialized:boolean=false;
   FTLibrary:PFT_Library;
-  cSect:TMyCriticalSection;
-
-// Must be called in multithreaded environment to lock global font object!
-procedure Lock;
-begin
- EnterCriticalSection(cSect);
-end;
-
-procedure Unlock;
-begin
- LeaveCriticalSection(cSect);
-end;
+  cSect:TLock;
 
 procedure InitFT;
  var
@@ -82,10 +71,11 @@ procedure InitFT;
  begin
   if initialized then exit;
   err:=FT_Init_FreeType(FTLibrary);
-  if err<>0 then raise EWarning.Create('Failed to initialize FreeType Library, code='+IntToStr(err));
+  if err<>0 then
+    raise EWarning.Create('Failed to initialize FreeType Library, code=%d', [err]);
   FT_Library_Version(FTLibrary,v1,v2,v3);
-  ftVersion:=IntToStr(v1)+'.'+IntToStr(v2)+'.'+IntToStr(v3);
-  LogMessage('Freetype initialized, version '+ftVersion);
+  freetypeVersion:=Conv.ToStr(v1)+'.'+Conv.ToStr(v2)+'.'+Conv.ToStr(v3);
+  Log.Msg('Freetype initialized, version '+freetypeVersion);
   initialized:=true;
  end;
 
@@ -110,7 +100,7 @@ begin
   try
   SetSize(100);
   res:=FT_Load_Char(face,$30,FT_LOAD_DEFAULT);
-  if res<>0 then raise EWarning.Create('FTF: GTH: '+IntToSTr(res));
+  if res<>0 then raise EWarning.Create('FTF: GTH: '+Conv.ToStr(res));
   fontSize:=((face.glyph.metrics.height+31) shr 6)/100;
   result:=round(size*fontSize+0.5);
   finally
@@ -123,10 +113,10 @@ procedure TFreeTypeFont.FillGlyphMetrics(wch:WideChar;hash,size:integer);
   res,v:integer;
  begin
   inc(glyphWidthHashMiss);
-  Lock;
+  cSect.Enter;
   try
    res:=FT_Load_Char(face,word(wch),FT_LOAD_DEFAULT);
-   if res<>0 then raise EWarning.Create('FTF: GTW 1: '+IntToSTr(res));
+   if res<>0 then raise EWarning.Create('FTF: GTW 1: '+Conv.ToStr(res));
    with face.glyph^ do
     if wch=' ' then
      v:=(advance.x+31) shr 6
@@ -137,7 +127,7 @@ procedure TFreeTypeFont.FillGlyphMetrics(wch:WideChar;hash,size:integer);
    glyphWidthHash[hash].value:=v;
    glyphWidthHash[hash].padding:=face.glyph.metrics.horiBearingX shr 6;
   finally
-   Unlock;
+   cSect.Leave;
   end;
  end;
 
@@ -202,11 +192,11 @@ begin
  SetSize(size);
 
  gl1:=FT_Load_Char(Face,word(ch1),0);
-// if res<>0 then raise EWarning.Create('FTF: LoadChar error 2: '+IntToStr(res));
+// if res<>0 then raise EWarning.Create('FTF: LoadChar error 2: '+Conv.ToStr(res));
  result:=face.glyph.advance.x;
  gl2:=FT_Load_Char(face,word(ch2),0);
  res:=FT_Get_Kerning(face,gl1,gl2,0,v);
- if res<>0 then raise EWarning.Create('FTF: error 2: '+IntToStr(res));
+ if res<>0 then raise EWarning.Create('FTF: error 2: '+Conv.ToStr(res));
  result:=(result+v.x+31) shr 6;
 
  intervalHash[h].ch1:=ch1;
@@ -235,7 +225,7 @@ constructor TFreeTypeFont.LoadFromFile(fname:string;faceIndex:integer=0);
  var
   data:ByteArray;
  begin
-  LogMessage('Loading Freetype font from '+fname);
+  Log.Msg('Loading Freetype font from '+fname);
   data:=LoadFileAsBytes(fname);
   LoadFromMemory(TBuffer.CreateFrom(data),faceIndex);
  end;
@@ -247,11 +237,11 @@ constructor TFreeTypeFont.LoadFromMemory(const data:TBuffer;faceIndex:integer);
   Lock;
   try
    if not initialized then InitFT;
-   LogMessage('Loading Freetype font from memory');
+   Log.Msg('Loading Freetype font from memory');
    SetLength(fontData,data.size);
    data.Read(fontData[0],data.size); // Copy data to keep it permanent
    err:=FT_New_Memory_Face(FTLibrary,@fontData[0],length(fontData),faceIndex,Face);
-   if err<>0 then raise EWarning.Create('Failed to load font face, code='+IntToStr(err));
+   if err<>0 then raise EWarning.Create('Failed to load font face, code='+Conv.ToStr(err));
    faceName:=Face.family_name;
    fillchar(intervalHash,sizeof(intervalHash),0);
    fillchar(glyphWidthHash,sizeof(glyphWidthHash),0);
@@ -273,7 +263,7 @@ begin
   SetSize(size);
 
   err:=FT_Load_Char(face,word(ch),FT_LOAD_RENDER+flags);
-  if err<>0 then raise EWarning.Create('Failed to render char, '+IntToStr(err));
+  if err<>0 then raise EWarning.Create('Failed to render char, '+Conv.ToStr(err));
   bitmap:=@face.glyph.bitmap;
   pitch:=bitmap.pitch;
   width:=bitmap.width;
@@ -309,23 +299,23 @@ procedure TFreeTypeFont.RenderText(buf: pointer; pitch, x, y: integer;
    for i:=1 to length(st) do begin
     lastGlyph:=glInd;
 {    err:=FT_Load_Char(Face,Word(st[i]),FT_LOAD_RENDER);
-    if err<>0 then raise EWarning.Create('Failed to load glyph: '+IntToStr(err));}
+    if err<>0 then raise EWarning.Create('Failed to load glyph: '+Conv.ToStr(err));}
     glInd:=FT_Get_Char_Index(Face,Word(st[i]));
 
     // Next character?
     if lastGlyph>=0 then begin
      err:=FT_Get_Kerning(Face,lastGlyph,glInd,FT_KERNING_DEFAULT,kerning);
-     if err<>0 then raise EWarning.Create('FTGK error: '+IntToStr(err));
+     if err<>0 then raise EWarning.Create('FTGK error: '+Conv.ToStr(err));
 //     px:=px+(face.glyph.advance.x/64);
      px:=px+kerning.x/64;
     end;
 
     // Load glyph
     err:=FT_Load_Glyph(Face,glInd,flags and $FFFF);
-    if err<>0 then raise EWarning.Create('Failed to load glyph: '+IntToStr(err));
+    if err<>0 then raise EWarning.Create('Failed to load glyph: '+Conv.ToStr(err));
     // Render glyph to 8bpp grayscale bitmap
     err:=FT_Render_Glyph(face.glyph,FT_RENDER_MODE_NORMAL);
-    if err<>0 then raise EWarning.Create('Failed to render glyph: '+IntToStr(err));
+    if err<>0 then raise EWarning.Create('Failed to render glyph: '+Conv.ToStr(err));
     // Draw
     bitmap:=@face.glyph.bitmap;
     if (i=1) and (face.glyph.bitmap_left>0) then px:=px-face.glyph.bitmap_left;
@@ -343,21 +333,21 @@ procedure TFreeTypeFont.SetSize(size:single);
 var
  err:integer;
 begin
- Lock;
+ cSect.Enter;
  try
   if (curSize<>size) and (size>0) then begin
    //Sleep(15000);
    err:=FT_Set_Char_Size(Face,round(size*64*globalScale),0,96,0);
-   if err<>0 then raise EWarning.Create('Failed to set char size: '+IntToStr(err));
+   if err<>0 then raise EWarning.Create('Failed to set char size: '+Conv.ToStr(err));
    curSize:=size;
   end;
  finally
-  Unlock;
+   cSect.Leave;
  end;
 end;
 
 initialization
- InitCritSect(cSect,'FreeType',150);
+  cSect.Init('FreeType',150);
 finalization
- DeleteCritSect(cSect);
+  cSect.Cleanup;
 end.

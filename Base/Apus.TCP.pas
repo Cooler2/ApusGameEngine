@@ -6,7 +6,7 @@
 unit Apus.TCP;
 interface
 uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, {$ENDIF}
-  Apus.Core;
+  Apus.Core, Apus.Types;
 
 type
  // This object is created on server side for each connected client.
@@ -74,7 +74,8 @@ type
  end;
 
 implementation
-uses SysUtils, Apus.Logging;
+uses SysUtils, Apus.Log,
+  Apus.Conv;
 {$IFNDEF FPC}
 {$IFNDEF DELPHI}
   Define "DELPHI" symbol if you're using Delphi
@@ -109,7 +110,7 @@ begin
   port:=0;
   i:=pos(':',address);
   if (i>0) {or (pos('.',address)=0)} then  begin
-   port:=StrToInt(copy(address,i+1,length(address)-i));
+   port:=Conv.ToInt(copy(address,i+1,length(address)-i));
    SetLength(address,i-1);
   end;
   if address<>'' then begin
@@ -147,29 +148,29 @@ begin
   // create main socket
   sock:=socket(PF_INET,SOCK_STREAM,IPPROTO_IP);
   if sock=INVALID_SOCKET then
-    raise EError.Create('Invalid socket: '+inttostr(WSAGetLastError));
+    raise EError.Create('Invalid socket: '+Conv.ToStr(WSAGetLastError));
   // bind
   addr.sin_family:=PF_INET;
   addr.sin_port:=htons(listenPort);
   addr.sin_addr.S_addr:=htonl(local_IP);
 
   res:=bind(sock,PSockAddr(@addr),sizeof(addr));
-  if res<>0 then raise EError.Create('Bind failed: '+inttostr(WSAGetLastError));
+  if res<>0 then raise EError.Create('Bind failed: '+Conv.ToStr(WSAGetLastError));
 
   arg:=1;
   if ioctlsocket(sock,longint(FIONBIO),arg)<>0 then
     raise EError.Create('Cannot make non-blocking socket');
 
   res:=listen(sock,SOMAXCONN);
-  if res<>0 then raise EError.Create('Listen returned error '+inttostr(WSAGetLastError));
-  LogMsg('Server: Listening on port %d',[listenPort]);
+  if res<>0 then raise EError.Create('Listen returned error '+Conv.ToStr(WSAGetLastError));
+  Log.Msg('Server: Listening on port %d',[listenPort]);
 end;
 
 destructor TTCPServer.Destroy;
 begin
   if sock<>0 then
     CloseSocket(sock);
-  LogMsg('Server destroyed',logImportant);
+  Log.Force('Server destroyed');
   inherited;
 end;
 
@@ -183,7 +184,7 @@ begin
   while i<=high(users) do begin
    if users[i].sock=0 then begin
      // User disconnected
-     LogMsg('Client %s disconnected',[users[i].GetUserName]);
+     Log.Msg('Client %s disconnected',[users[i].GetUserName]);
      users[i].Free;
      users[i]:=users[high(users)];
      SetLength(users,length(users)-1);
@@ -207,7 +208,7 @@ begin
     if s=INVALID_SOCKET then begin
        res:=WSAGetLastError;
        if (res<>WSAEWOULDBLOCK) and (res<>WSAECONNREFUSED) then
-         LogMsg('ACCEPT failed with '+inttostr(res),logWarn);
+         Log.Warn('ACCEPT failed with '+Conv.ToStr(res));
     end else begin
       // Success! Create new user
       user:=userClass.Create;
@@ -217,12 +218,12 @@ begin
       n:=length(users);
       SetLength(users,n+1);
       users[n]:=user;
-      LogMsg('Client connected: %s:%d ',[IpToStr(user.remoteIP),user.remotePort]);
+      Log.Msg('Client connected: %s:%d ',[Conv.FormatIp(user.remoteIP),user.remotePort]);
       result:=true;
       try
         user.onConnected;
       except
-        on e:Exception do LogMsg('onConnected error: '+ExceptionMsg(e),logWarn);
+        on e:Exception do Log.Warn('onConnected error: '+ExceptionMsg(e));
       end;
     end;
 end;
@@ -245,7 +246,7 @@ begin
       fillchar(timeout,sizeof(timeout),0);
       res:=select(0,@readset,nil,nil,@timeout);
       if res=SOCKET_ERROR then
-        LogMsg('Select error: '+inttostr(WSAGetLastError),logWarn);
+        Log.Warn('Select error: '+Conv.ToStr(WSAGetLastError));
 
       if res>0 then // some sockets are ready
         for j:=0 to readset.fd_count-1 do
@@ -287,7 +288,7 @@ end;
 
 function TTCPServerUser.GetUserName:string;
 begin
-  result:=IpToStr(remoteIP)+':'+IntToStr(remotePort);
+  result:=Conv.FormatIp(remoteIP)+':'+Conv.ToStr(remotePort);
 end;
 
 procedure TTCPServerUser.onConnected;
@@ -311,7 +312,7 @@ begin
     SetLength(data,length(data)+65536);
   res:=recv(sock,data[writePos],length(data)-writePos,0);
   if res>=0 then begin
-    LogMsg('User %s sent %d bytes',[GetUserName,res],logInfo);
+    Log.Info('User %s sent %d bytes',[GetUserName,res]);
     lastData:=Now;
     inc(writePos,res);
     buf.CreateFrom(data[readPos],writePos-readPos);
@@ -320,16 +321,16 @@ begin
       inc(readPos,buf.CurrentPos);
     except
       on e:Exception do begin 
-		  LogMsg('User %s onReceive error: '+ExceptionMsg(e),[getUserName],logWarn);
+  		  Log.Warn('User %s onReceive error: '+ExceptionMsg(e),[getUserName]);
         CloseSocket(sock);
         sock:=0;
-        LogMsg('User %s disconnected',[getUserName],logWarn);		  
-		end;
+        Log.Warn('User %s disconnected',[getUserName]);
+      end;
     end;
     if readPos>PAGE_SIZE then
       CutBuffer(data,readPos,writePos);
   end else begin
-    LogMsg('RECV error: '+inttostr(WSAGetLastError),logImportant);
+    Log.Force('RECV error: '+Conv.ToStr(WSAGetLastError));
     CloseSocket(sock);
     sock:=0;
   end;
@@ -340,20 +341,20 @@ var
   res:integer;
 begin
   if sock=0 then begin
-    LogMsg('Trying to send to unconnected user %s',[GetUserName]);
+    Log.Msg('Trying to send to unconnected user %s',[GetUserName]);
     exit;
   end;
-  LogMsg('Sending %d bytes to user %s',[buf.size,GetUserName],logInfo);
-  LogMsg(HexDump(buf.data,Min2(16,buf.size)),logDebug);
+  Log.Info('Sending %d bytes to user %s',[buf.size,GetUserName]);
+  Log.Debug(Conv.HexDump(buf.data,Min(16,buf.size)));
   res:=Send(sock,buf.data^,buf.size,0);
   if res=SOCKET_ERROR then begin
-    LogMsg('Send error: '+inttostr(WSAGetLastError),logWarn);
+    Log.Warn('Send error: '+Conv.ToStr(WSAGetLastError));
     CloseSocket(sock);
     sock:=0;
-    LogMsg('User %s socket closed',[GetUserName]);
+    Log.Msg('User %s socket closed',[GetUserName]);
     exit;
   end;
-  if res<buf.size then LogMsg('WARN! Partial send %d of %d',[res,buf.size],logWarn);
+  if res<buf.size then Log.Warn('WARN! Partial send %d of %d',[res,buf.size]);
 end;
 
 { TTCPClient }
@@ -379,18 +380,18 @@ var
   time:int64;
 begin
   ASSERT(connected=false,'Client already connected');
-  LogMsg('Connecting to '+serverAddress);
+  Log.Msg('Connecting to '+serverAddress);
   // create main socket
   sock:=socket(PF_INET,SOCK_STREAM,IPPROTO_IP);
   if sock=INVALID_SOCKET then
-    raise EError.Create('Invalid socket: '+inttostr(WSAGetLastError));
+    raise EError.Create('Invalid socket: '+Conv.ToStr(WSAGetLastError));
 
   arg:=1;
   if ioctlsocket(sock,longint(FIONBIO),arg)<>0 then
     raise EError.Create('Cannot make non-blocking socket');
 
   ResolveAddress(serverAddress,ip,port);
-  LogMsg('Address resolved: %s:%d',[IpToStr(ip),port]);
+  Log.Msg('Address resolved: %s:%d',[Conv.FormatIp(ip),port]);
   addr.sin_family:=PF_INET;
   addr.sin_port:=htons(port);
   addr.sin_addr.S_addr:=ip; // Address already correct
@@ -403,21 +404,21 @@ begin
    if res<>WSAEWOULDBLOCK then begin
     CloseSocket(sock);
     sock:=0;
-    EError.Create('Connect error '+inttostr(WSAGetLastError));
+    EError.Create('Connect error '+Conv.ToStr(WSAGetLastError));
    end;
   end else begin
    connected:=true;
    onConnect;
   end;
   if waitMS<0 then exit;
-  time:=MyTickCount+waitMS;
+  time:=CoreTime.Ticks+waitMS;
   repeat
    Sleep(1);
    Poll;
    if connected or not connecting then exit;
-  until MyTickCount>=time;
+  until CoreTime.Ticks>=time;
   // Failed to connect
-  LogMsg('Connection failed',logWarn);
+  Log.Warn('Connection failed');
   connecting:=false;
   if sock<>0 then begin
    CloseSocket(sock);
@@ -430,7 +431,7 @@ begin
   if sock=0 then exit;
   CloseSocket(sock);
   sock:=0;
-  LogMsg('Disconnected',logImportant);
+  Log.Force('Disconnected');
   onDisconnect;
   disconnected:=true;
 end;
@@ -451,14 +452,14 @@ begin
     fillchar(timeout,sizeof(timeout),0);
     res:=select(0,nil,@writeSet,@errorSet,@timeout);
     if res=SOCKET_ERROR then
-      raise EWarning.Create('Select 1 error: '+inttostr(WSAGetLastError));
+      raise EWarning.Create('Select 1 error: '+Conv.ToStr(WSAGetLastError));
     if writeSet.fd_count>0 then begin
       connected:=true;
       connecting:=false;
       onConnect;
     end;
     if errorSet.fd_count>0 then begin
-      LogMsg('Connection failed because of error!',logWarn);
+      Log.Warn('Connection failed because of error!');
       connecting:=false;
       CloseSocket(sock);
       sock:=0;
@@ -471,26 +472,26 @@ begin
   if res=SOCKET_ERROR then begin
     res:=WSAGetLastError;
     if res<>WSAEWOULDBLOCK then begin
-      LogMsg('Socket read error: %d',[res],logWarn);
+      Log.Warn('Socket read error: %d',[res]);
       connected:=false;
       CloseSocket(sock);
       sock:=0;
-      LogMsg('Disconnected',logImportant);
+      Log.Force('Disconnected');
       onDisconnect;
       disconnected:=true;
     end;
     exit;
   end;
   if res>=0 then begin
-    // some data received
-    LogMsg('Received %d bytes: '+HexDump(@data[readpos],min2(res,16)),[res],logInfo);
+    // Some data received
+    Log.Info('Received %d bytes: '+Conv.HexDump(@data[readpos],Min(res,16)),[res]);
     inc(writePos,res);
     buf.CreateFrom(data[readPos],writePos-readPos);
     try
       onDataReceived(buf);
       inc(readPos,buf.CurrentPos);
     except
-      on e:Exception do LogMsg('onReceive error: '+ExceptionMsg(e),logWarn);
+      on e:Exception do Log.Warn('onReceive error: '+ExceptionMsg(e));
     end;
     if readPos>PAGE_SIZE then
       CutBuffer(data,readPos,writePos);
@@ -504,7 +505,7 @@ begin
   ASSERT(connected);
   res:=Send(sock,buf.data^,buf.size,0);
   if res=SOCKET_ERROR then begin
-    LogMsg('Send error: '+inttostr(WSAGetLastError),logWarn);
+    Log.Warn('Send error: '+Conv.ToStr(WSAGetLastError));
     Disconnect;
   end;
 end;
@@ -520,7 +521,6 @@ end;
 procedure TTCPClient.onDisconnect;
 begin
 end;
-
 
 {$IFDEF MSWINDOWS}
 var

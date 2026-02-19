@@ -40,7 +40,7 @@ constructor TJNIMediaPlayer.Create;
    cls:=appEnv^.FindClass(appEnv,'android/media/MediaPlayer');
    mpl:=appEnv^.NewObject(appEnv,cls,
      GetMethodID('android/media/MediaPlayer','<init>','()V'));
-   if mpl=nil then ForceLogMessage('MediaPlayer creation failed!');
+   if mpl=nil then ForceLog.Msg('MediaPlayer creation failed!');
    NewGlobalRef(mpl);
  end;
 

@@ -34,13 +34,13 @@ implementation
 
   procedure SetBuffer(Format:Word; var Buffer; Size:Integer);
     var
-      DataPtr:Pointer;
-      Data:THandle;
+      dataPtr:Pointer;
+      data:THandle;
     begin
       Open;
-      Data:=GlobalAlloc(GMEM_MOVEABLE,Size);
+      data:=GlobalAlloc(GMEM_MOVEABLE,Size);
       try
-        DataPtr:=GlobalLock(Data);
+        dataPtr:=GlobalLock(Data);
         try
           Move(Buffer,DataPtr^,Size);
           if SetClipboardData(Format,Data)=0 then

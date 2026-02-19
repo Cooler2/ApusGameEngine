@@ -4,7 +4,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.SCGI;
 interface
- uses Apus.Types, Apus.Database, Apus.Structs, SysUtils;
+ uses Apus.Core, Apus.Database, Apus.Structs, SysUtils;
  const
   MAX_REQUESTS = 1000;
   MAX_RQUEUE = 1023; // 2^n-1
@@ -119,7 +119,7 @@ interface
 
 implementation
  uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, {$ENDIF}
-    Apus.Core, Classes, Apus.ControlFiles, Apus.Logging, Apus.GeoIP;
+    Apus.Core, Classes, Apus.ControlFiles, Apus.Log, Apus.GeoIP;
  type
   // Worker thread
   TWorker=class(TThread)
@@ -141,13 +141,13 @@ implementation
 
   TRequest=record
    status:TRequestStatus;
-   timestamp:int64; // when status changed last time? (MyTickCount used)
+   timestamp:int64; // when status changed last time? (CoreTime.Ticks used)
    executionTime:integer;  // total time spent (including pending/waiting) to complete request
    socket:TSocket;
    request,response:String8;
    contentLength,totalLength,bytesSent:integer;
    headers,body:String8;
-   timeToProcess:int64; // don't handle before this time (MyTickCOunt)
+   timeToProcess:int64; // don't handle before this time (CoreTime.Ticks)
   end;
 
   THandler=record
@@ -158,7 +158,7 @@ implementation
 
  var
   ctl:TControlFile;
-  critSect:TMyCriticalSection;
+  critSect:TLock;
 
   mainSock:TSocket;
   requests:array[1..MAX_REQUESTS] of TRequest; // all requests
@@ -188,6 +188,7 @@ implementation
   startTime:TDateTime;
   requestsProcessed:int64;
 
+{
  procedure GlobalLock;
   begin
    critSect.Enter;
@@ -197,7 +198,7 @@ implementation
   begin
    critSect.Leave;
   end;
-
+}
 
 // -------------------------------------------------------
 // AUX CGI functions
@@ -267,7 +268,7 @@ implementation
  function Cookie(name:String8):String8;
   var
    p,e,i:integer;
-   cookies,items:StringArr;
+   cookies,items:Strings8;
    st:String8;
   begin
    result:='';
@@ -328,12 +329,12 @@ implementation
    year,month,day,hour,min,sec:integer;
   begin
    try
-    year:=StrToInt(copy(timestamp,1,4));
-    month:=StrToInt(copy(timestamp,5,2));
-    day:=StrToInt(copy(timestamp,7,2));
-    hour:=StrToInt(copy(timestamp,9,2));
-    min:=StrToInt(copy(timestamp,11,2));
-    sec:=StrToInt(copy(timestamp,13,2));
+    year:=Conv.ToInt(copy(timestamp,1,4));
+    month:=Conv.ToInt(copy(timestamp,5,2));
+    day:=Conv.ToInt(copy(timestamp,7,2));
+    hour:=Conv.ToInt(copy(timestamp,9,2));
+    min:=Conv.ToInt(copy(timestamp,11,2));
+    sec:=Conv.ToInt(copy(timestamp,13,2));
     result:=EncodeDate(year,month,day)+EncodeTime(hour,min,sec,0);
    except
     result:=0;
@@ -363,8 +364,8 @@ implementation
 
  function FormatError(code:integer;msgToLog:String8):String8;
   begin
-   LogMsg('ErrorCode '+IntToStr(code)+': '+msgToLog,logNormal);
-   result:=FormatHeaders('text/html',IntToStr(code));
+   LogMsg('ErrorCode '+Conv.ToStr(code)+': '+msgToLog,logNormal);
+   result:=FormatHeaders('text/html',Conv.ToStr(code));
    case code of
     403:result:=result+'<h3>403 Forbidden</h3>';
     404:result:=result+'<h3>404 Not Found</h3>';
@@ -380,7 +381,7 @@ implementation
    i,j,k,p,q,r,start,after,action:integer;
    key,subst,tmp,pName,pValue:String8;
    keep,bad:boolean;
-   sa:StringArr;
+   sa:Strings8;
   begin
    st:=st+' '; // Terminator
    // Pass 1 - translate using locals
@@ -632,21 +633,21 @@ implementation
    // create main socket
    mainSock:=socket(PF_INET,SOCK_STREAM,IPPROTO_IP);
    if MainSock=INVALID_SOCKET then
-    raise EError.Create('Invalid socket: '+inttostr(WSAGetLastError));
+    raise EError.Create('Invalid socket: '+Conv.ToStr(WSAGetLastError));
    // bind
    addr.sin_family:=PF_INET;
    addr.sin_port:=htons(PORT);
    addr.sin_addr.S_addr:=htonl(local_IP);
 
    res:=bind(MainSock,PSockAddr(@addr),sizeof(addr));
-   if res<>0 then raise EError.Create('Bind failed: '+inttostr(WSAGetLastError));
+   if res<>0 then raise EError.Create('Bind failed: '+Conv.ToStr(WSAGetLastError));
 
    arg:=1;
    if ioctlsocket(MainSock,longint(FIONBIO),arg)<>0 then
     raise EError.Create('Cannot make non-blocking socket');
 
    res:=listen(MainSock,SOMAXCONN);
-   if res<>0 then raise EError.Create('Listen returned error '+inttostr(WSAGetLastError));
+   if res<>0 then raise EError.Create('Listen returned error '+Conv.ToStr(WSAGetLastError));
   end;
 
  procedure TryToExtractContentLength(var r:TRequest);
@@ -689,7 +690,7 @@ implementation
    i,res,size,p,start:integer;
    t:int64;
   begin
-   t:=MyTickCount;
+   t:=CoreTime.Ticks;
    EnterCriticalSection(critSect);
    try
    res:=recv(s,buffer,sizeof(buffer),0);
@@ -713,7 +714,7 @@ implementation
              body:=copy(request,length(request)-contentLength+1,contentLength);
              request:=''; // already parsed, so not needed anymore
              status:=rsReceived;
-             timestamp:=MyTickCount;
+             timestamp:=CoreTime.Ticks;
              timeToProcess:=0;
              qPut(i);
            end;
@@ -724,7 +725,7 @@ implementation
        break; // don't look to other requests
       end;
    end else begin
-     LogMsg('RECV error: '+inttostr(WSAGetLastError),logWarn);
+     LogMsg('RECV error: '+Conv.ToStr(WSAGetLastError),logWarn);
      for i:=1 to high(requests) do
       with requests[i] do
        if socket=s then status:=rsFree;
@@ -733,7 +734,7 @@ implementation
    finally
     LeaveCriticalSection(critSect);
    end;
-   if MyTickCount>t+10 then LogMsg('WARN: long socket reading',logWarn);
+   if CoreTime.Ticks>t+10 then LogMsg('WARN: long socket reading',logWarn);
   end;
 
  // Записывает данные в сокет
@@ -742,7 +743,7 @@ implementation
    i,res,size:integer;
    t:int64;
   begin
-   t:=MyTickCount;
+   t:=CoreTime.Ticks;
    EnterCriticalSection(critSect);
    try
    for i:=1 to High(requests) do
@@ -754,7 +755,7 @@ implementation
       LogMsg('Sending %d bytes to #%d',[size,i],logInfo);
       res:=send(s,buffer,size,0);
       if res=SOCKET_ERROR then begin
-       LogMsg('Send error: '+inttostr(WSAGetLastError),logWarn);
+       LogMsg('Send error: '+Conv.ToStr(WSAGetLastError),logWarn);
        CloseSocket(s);
        status:=rsFree;
        LogMsg('Socket closed',logInfo);
@@ -772,7 +773,7 @@ implementation
    finally
     LeaveCriticalSection(critSect);
    end;
-   if MyTickCount>t+10 then LogMsg('WARN: long socket writing',logWarn);
+   if CoreTime.Ticks>t+10 then LogMsg('WARN: long socket writing',logWarn);
   end;
 
  var
@@ -786,17 +787,17 @@ implementation
    addrLen:integer;
    t:int64;
   begin
-    if (lastAcceptTime>0) and (MyTickCount>lastAcceptTime+40) then
-      LogMsg('WARN! Long delay for Accept! '+inttostr(MyTickCount-lastAcceptTime));
-    lastAcceptTime:=MyTickCount;
-    t:=MyTickCount;
+    if (lastAcceptTime>0) and (CoreTime.Ticks>lastAcceptTime+40) then
+      LogMsg('WARN! Long delay for Accept! '+Conv.ToStr(CoreTime.Ticks-lastAcceptTime));
+    lastAcceptTime:=CoreTime.Ticks;
+    t:=CoreTime.Ticks;
     result:=false;
     addrlen:=sizeof(addr);
     s:=WSAAccept(mainSock,@addr,@addrlen,nil,0);
     if s=INVALID_SOCKET then begin
        res:=WSAGetLastError;
        if (res<>WSAEWOULDBLOCK) and (res<>WSAECONNREFUSED) then
-         Logmsg('ACCEPT failed with '+inttostr(res),logWarn);
+         Logmsg('ACCEPT failed with '+Conv.ToStr(res),logWarn);
     end else begin
       // Connection established
       EnterCriticalSection(critSect);
@@ -804,14 +805,14 @@ implementation
       for i:=1 to High(requests) do
       with requests[i] do
        if status=rsFree then begin
-         LogMsg('New connection: '+IntToStr(i),logInfo);
-         if MyTickCount>t+20 then
+         LogMsg('New connection: '+Conv.ToStr(i),logInfo);
+         if CoreTime.Ticks>t+20 then
           LogMsg('Long waiting for accepted connection! ',logWarn);
          socket:=s;
          status:=rsReading;
          request:=''; response:='';
          body:=''; headers:='';
-         timestamp:=MyTickCount;
+         timestamp:=CoreTime.Ticks;
          executionTime:=0;
          contentLength:=-1; // not defined
          bytesSent:=0;
@@ -824,7 +825,7 @@ implementation
        LeaveCriticalSection(critSect);
       end;
     end;
-   if MyTickCount>t+20 then LogMsg('WARN: long AcceptNew '+inttostr(MyTickCount-t),logWarn);
+   if CoreTime.Ticks>t+20 then LogMsg('WARN: long AcceptNew '+Conv.ToStr(CoreTime.Ticks-t),logWarn);
   end;
 
  // Проверяет сокеты, ожидающие поступления запросов, на наличие поступивших данных
@@ -849,7 +850,7 @@ implementation
       // Select sockets which can be read
       res:=select(0,@readset,nil,nil,@timeout);
       if res=SOCKET_ERROR then
-        raise EWarning.Create('Select 1 error: '+inttostr(WSAGetLastError));
+        raise EWarning.Create('Select 1 error: '+Conv.ToStr(WSAGetLastError));
 
       if res>0 then
         for i:=0 to readset.fd_count-1 do
@@ -878,7 +879,7 @@ implementation
       // Select sockets which can be used to send data
       res:=select(0,nil,@writeset,nil,@timeout);
       if res=SOCKET_ERROR then
-        raise EWarning.Create('Select 2 error: '+inttostr(WSAGetLastError));
+        raise EWarning.Create('Select 2 error: '+Conv.ToStr(WSAGetLastError));
       if res>0 then
         for i:=0 to writeset.fd_count-1 do
           WriteData(writeset.fd_array[i]);
@@ -950,7 +951,7 @@ implementation
     for i:=1 to high(requests) do
      if requests[i].status=rsFree then begin
       requests[i].status:=rsReceived;
-      requests[i].timestamp:=MyTickCount;
+      requests[i].timestamp:=CoreTime.Ticks;
       requests[i].request:=rType;
       requests[i].socket:=0;
       requests[i].body:=data;
@@ -962,9 +963,9 @@ implementation
 
  procedure CheckForTimer;
   begin
-   if (@timerProc<>nil) and (MyTickCount>lastTimerTime+1000) then begin
+   if (@timerProc<>nil) and (CoreTime.Ticks>lastTimerTime+1000) then begin
     AddFakeRequest('TIMER','');
-    lastTimerTime:=MyTickCount;
+    lastTimerTime:=CoreTime.Ticks;
    end;
   end;
 
@@ -1031,7 +1032,7 @@ implementation
    arg:cardinal;
   begin
    startTime:=now;
-   lastTimerTime:=MyTickCount;
+   lastTimerTime:=CoreTime.Ticks;
 
    {$IF Declared(SetPriorityClass)}
    if not SetPriorityClass(GetCurrentProcess,NORMAL_PRIORITY_CLASS) then
@@ -1128,7 +1129,7 @@ function HandleRequest(pending:boolean;out resp:String8):boolean;
  begin
   try
   try
-   t:=MyTickCount;
+   t:=CoreTime.Ticks;
    result:=false;
    resp:='';
    if uri='' then begin // parse script and query
@@ -1192,7 +1193,7 @@ function HandleRequest(pending:boolean;out resp:String8):boolean;
    st:=copy(resp,1,180);
    st:=StringReplace(st,#13,'\r',[rfReplaceAll]);
    st:=StringReplace(st,#10,'\n',[rfReplaceAll]);
-   if result then LogMsg('[%d] Request %d handled (t=%d): %s',[workerID,requestIdx,integer(MyTickCount-t),st],logNormal);
+   if result then LogMsg('[%d] Request %d handled (t=%d): %s',[workerID,requestIdx,integer(CoreTime.Ticks-t),st],logNormal);
   end;
  end;
 
@@ -1226,7 +1227,7 @@ procedure TWorker.Execute;
  begin
   currentRequest:=0;
   Apus.SCGI.workerID:=self.workerID;
-  LogMsg('Hello from worker '+inttostr(workerID));
+  LogMsg('Hello from worker '+Conv.ToStr(workerID));
   try
    priority:=tpHigher;
    AtomicIncrement(liveWorkers);
@@ -1239,7 +1240,7 @@ procedure TWorker.Execute;
    LoadTemplates;
   except
    on e:exception do begin
-    LogMsg('Failed to start worker '+inttostr(workerID)+' thread: '+ExceptionMsg(e),logError);
+    LogMsg('Failed to start worker '+Conv.ToStr(workerID)+' thread: '+ExceptionMsg(e),logError);
     AtomicDecrement(liveWorkers);
     exit;
    end;
@@ -1271,12 +1272,12 @@ procedure TWorker.Execute;
      if r>0 then with requests[r] do begin
       if state then begin
         status:=rsCompleted;
-        t:=MyTickCount;
+        t:=CoreTime.Ticks;
         executionTime:=t-timestamp;
         timestamp:=t;
         if socket=0 then status:=rsFree;
       end else begin
-        duration:=MyTickCount-timestamp;
+        duration:=CoreTime.Ticks-timestamp;
         if duration>MAX_COMET_DURATION then begin
          // too long waiting - abort
          requests[r].response:=FormatHeaders('text/html','204 No Content');
@@ -1285,7 +1286,7 @@ procedure TWorker.Execute;
         end else begin
          if not isPending then LogMsg('[%d] Request %d postponed',[workerId,r]);
          status:=rsPending;
-         timeToProcess:=MyTickCount+COMET_INTERVAL; // wait some time to process again
+         timeToProcess:=CoreTime.Ticks+COMET_INTERVAL; // wait some time to process again
          qPut(r); // Put back to the queue to process later
         end;
       end;
@@ -1298,7 +1299,7 @@ procedure TWorker.Execute;
     repeat
      r:=qGet;
      if r<0 then break;
-     t:=MyTickCount;
+     t:=CoreTime.Ticks;
      if (r>0) and (requests[r].timeToProcess>t) then begin
       sleep(5);
       qPut(r); // postpone request
@@ -1312,7 +1313,7 @@ procedure TWorker.Execute;
       isPending:=requests[r].status=rsPending;
       requests[r].status:=rsProcessing;
       if not isPending then
-       requests[r].timestamp:=MyTickCount;
+       requests[r].timestamp:=CoreTime.Ticks;
 
       isSpecial:=(requests[r].socket=0) and
          ((requests[r].request='TIMER') or
@@ -1333,7 +1334,7 @@ procedure TWorker.Execute;
     end;
    except
     on e:exception do begin
-     LogMsg('ERROR IN WORKER '+inttostr(workerID)+': '+ExceptionMsg(e),logWarn);
+     LogMsg('ERROR IN WORKER '+Conv.ToStr(workerID)+': '+ExceptionMsg(e),logWarn);
      sleep(500);
     end;
    end;
@@ -1357,7 +1358,7 @@ procedure TWorker.Execute;
  function ListHeaders:String8; stdcall;
   var
    i:integer;
-   sa:stringArr;
+   sa:Strings8;
    st:String8;
   begin
    sa:=split(#0,headers);

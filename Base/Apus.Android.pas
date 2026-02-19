@@ -39,7 +39,7 @@ interface
  procedure AndroidDoneThread;
 
  // Assets management
- function AndroidListDir(dirName:string):StringArr;
+ function AndroidListDir(dirName:string):Strings8;
  function AndroidFileExists(fname:string):boolean;
  function AndroidLoadFile(fname:string):string;
  function AndroidLoadFile2(fname:string):ByteArray;
@@ -243,12 +243,12 @@ implementation
    fObj,sObj:jobject;
    args:array[0..3] of jvalue;
   begin
-   ForceLogMessage('InitAndroid');
+   ForceLog.Msg('InitAndroid');
    appEnv:=env;
    curActivity:=appEnv^.NewGlobalRef(appEnv,activity);
    mainView:=appEnv^.NewGlobalRef(appEnv,view);
 
-   if appEnv^.GetJavaVM(appEnv,curVM)<>0 then ForceLogMessage('Failed to get JavaVM');
+   if appEnv^.GetJavaVM(appEnv,curVM)<>0 then ForceLog.Msg('Failed to get JavaVM');
 
    // JNI call: Resources resources = activity.getResources()
    appResources:=appEnv^.CallObjectMethod(appEnv,curActivity,
@@ -273,7 +273,7 @@ implementation
      GetMethodID('java/io/File','getCanonicalPath','()Ljava/lang/String;'));
 
    appCacheDir:=StringFromJavaString(sObj);
-   LogMessage('AppCacheDir: '+appCacheDir);
+   Log.Msg('AppCacheDir: '+appCacheDir);
 
    // JNI call: File fObj=context.getDir('Data');
    args[0].l:=JavaString('Data');
@@ -286,18 +286,18 @@ implementation
      GetMethodID('java/io/File','getCanonicalPath','()Ljava/lang/String;'));
 
    appDataDir:=StringFromJavaString(sObj);
-   LogMessage('AppDataDir: '+appDataDir);
+   Log.Msg('AppDataDir: '+appDataDir);
 
    // JNI call: String sObj=context.getPackageName();
    sObj:=appEnv^.CallObjectMethod(appEnv,curActivity,
      GetMethodID('android/content/Context','getPackageName','()Ljava/lang/String;'));
    appPackageName:=StringFromJavaString(sObj);
-   LogMessage('AppPackage: '+appPackageName);
+   Log.Msg('AppPackage: '+appPackageName);
 
    DebugMessage('InitAndroid done!');
   end;
 
- function AndroidListDir(dirName:string):StringArr;
+ function AndroidListDir(dirName:string):Strings8;
   var
    dir:pointer;
    pc:PChar;
@@ -351,7 +351,7 @@ implementation
    if (i>1) and (i<length(fname)) then begin
     if fname[i] in ['A'..'Z'] then fname[i]:=sysutils.LowerCase(fname[i])[1]
      else fname[i]:=UpperCase(fname[i])[1];
-    LogMessage('Trying '+fname);
+    Log.Msg('Trying '+fname);
     asset:=AAssetManager_open(aMgr,PChar(fname),AASSET_MODE_BUFFER);
     if asset=nil then exit;
    end else
@@ -383,8 +383,8 @@ implementation
  procedure AndroidInitThread;
   begin
    if curVM^.AttachCurrentThread(curVM,@appEnv,nil)<>JNI_OK then
-    ForceLogMessage('ERROR! Failed to attach thread!');
-   LogMessage('New Android thread registered');
+    ForceLog.Msg('ERROR! Failed to attach thread!');
+   Log.Msg('New Android thread registered');
   end;
 
  procedure AndroidDoneThread;
@@ -404,13 +404,13 @@ implementation
    result:=newName;
    if FileExists(newName) then exit;
    try
-    LogMessage('Copying asset file '+fName+' to '+newName);
+    Log.Msg('Copying asset file '+fName+' to '+newName);
     data:=AndroidLoadFile2(fname);
     dir:=ExtractFileDir(newName);
     if not DirectoryExists(dir) then CreateDir(dir);
     SaveFile(newName,@data[0],length(data));
    except
-    on e:exception do ForceLogMessage('Failed to copy file: '+fname);
+    on e:exception do ForceLog.Msg('Failed to copy file: '+fname);
    end;
   end;
 
@@ -431,7 +431,7 @@ implementation
   var
    imm:jobject;
   begin
-   LogMessage('Show virtual keyboard');
+   Log.Msg('Show virtual keyboard');
    imm:=CallMethod(curActivity,'android/content/Context',
     'getSystemService','(Ljava/lang/String;)Ljava/lang/Object;',[JavaString('input_method')]).l;
    CallMethod(imm,'android/view/inputmethod/InputMethodManager','toggleSoftInput',
@@ -442,7 +442,7 @@ implementation
   var
    imm:jobject;
   begin
-   LogMessage('Hide virtual keyboard');
+   Log.Msg('Hide virtual keyboard');
    imm:=CallMethod(curActivity,'android/content/Context',
     'getSystemService','(Ljava/lang/String;)Ljava/lang/Object;',[JavaString('input_method')]).l;
    CallMethod(imm,'android/view/inputmethod/InputMethodManager','toggleSoftInput',

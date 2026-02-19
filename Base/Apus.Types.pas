@@ -492,7 +492,7 @@ end;
 
 constructor TNameValueList.Init(st:string8;itemSeparator,valueSeparator:string8);
 begin
-  Init(SplitA(itemSeparator,st),valueSeparator);
+  Init(st.Split(itemSeparator[1]),valueSeparator);
 end;
 
 procedure TNameValueList.Add(list:TNameValueList);

@@ -103,7 +103,7 @@ begin
    eff.endValue[i]:=newValues^;
    inc(newValues);
   end;
-  eff.startTime:=MyTickCount+delay;
+  eff.startTime:=CoreTime.Ticks+delay;
   eff.endTime:=eff.startTime+duration;
 
  finally lock:=0; end;

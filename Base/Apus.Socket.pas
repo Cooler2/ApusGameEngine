@@ -38,7 +38,7 @@ type
  end;
 
 implementation
-uses SysUtils, Apus.Core;
+uses Apus.Core, Apus.Conv;
 
  {$IFDEF MSWINDOWS}
   // many routines have different declaration in different WinSock2 import units
@@ -59,7 +59,7 @@ begin
  end;
  sock:=socket(PF_INET,proto,IPPROTO_IP);
  if sock=INVALID_SOCKET then
-   raise EError.Create('Invalid socket: '+inttostr(LastError));
+   raise EError.Create('Invalid socket: '+Conv.ToStr(LastError));
 
  arg:=1;
  if ioctlsocket(sock,longint(FIONBIO),arg)<>0 then

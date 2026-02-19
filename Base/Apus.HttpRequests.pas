@@ -48,18 +48,21 @@ interface
  function GetRequestError(ID:integer):integer;
 
  // Format POST body with specified parameters using specified content type
- function FormatPostBody(paramNames,paramValues:StringArr;contentType:TContentType=ctAuto):String8;
+ function FormatPostBody(paramNames,paramValues:Strings8;contentType:TContentType=ctAuto):String8;
 
  // Both procedures are not required to call!
  procedure InitHTTPrequests;
  procedure DoneHTTPrequests;
 
 implementation
- uses ,SysUtils,Classes,Apus.EventMan
-   {$IFDEF DELPHI},WinInet {$IFDEF CPU386},ZLibEx{$ENDIF}{$ENDIF}
-   {$IFDEF IOS},iPhoneAll{$ENDIF}
-   {$IFDEF FPC},fphttpclient{$ENDIF};
- type
+uses SysUtils, Classes, Apus.EventMan, Apus.Log
+  {$IFDEF DELPHI},WinInet {$IFDEF CPU386},ZLibEx{$ENDIF}{$ENDIF}
+  {$IFDEF IOS},iPhoneAll{$ENDIF}
+  {$IFDEF FPC},fphttpclient{$ENDIF},
+  Apus.Strings,
+  Apus.Conv,
+  Apus.Threads;
+type
   TRequest=record
    ID:integer;
    status,receivedBytes:integer;
@@ -95,15 +98,15 @@ implementation
  var
   requests:array[1..20] of TRequest;
   lastID:integer=0;
-  critSect:TMyCriticalSection;
+  critSect:TLock;
   lastLogTime:int64;
 //  initialized:boolean;
 
  procedure LogStats;
   begin
-   lastLogTime:=MyTickCount;
-   LogMessage(Format('HTTP stats: succeed: %d, failed: %d, avg time: %d, max time: %d',
-     [requestsSucceed,requestsFailed,avgResponseTime,maxResponseTime]));
+   lastLogTime:=CoreTime.Ticks;
+   Log.Msg('HTTP stats: succeed: %d, failed: %d, avg time: %d, max time: %d',
+     [requestsSucceed,requestsFailed,avgResponseTime,maxResponseTime]);
   end;
 
  {$IFDEF DELPHI}
@@ -172,7 +175,7 @@ implementation
      r:=FindRequest(connection);
      if requests[r].status<10 then begin
       requests[r].status:=httpStatusCompleted;
-      LogMessage('HTTP request '+inttostr(requests[r].id)+' completed: '+requests[r].url);
+      Log.Msg('HTTP request '+Conv.ToStr(requests[r].id)+' completed: '+requests[r].url);
       Signal(requests[r].event,requests[r].id);
      end;
     end;
@@ -184,7 +187,7 @@ implementation
     begin
      req:=FindRequest(connection);
      requests[req].status:=httpStatusFailed;
-     ForceLogMessage('HTTP request '+inttostr(requests[req].id)+' failed: '+requests[req].url+' ERROR: '+error.localizedDescription.UTF8String);
+     ForceLog.Msg('HTTP request '+Conv.ToStr(requests[req].id)+' failed: '+requests[req].url+' ERROR: '+error.localizedDescription.UTF8String);
      Signal(requests[req].event,requests[req].id);
     end;
 
@@ -213,12 +216,12 @@ implementation
      if r.postdata<>'' then begin
       request.setHTTPMethod(NSSTR('POST'));
       request.setHTTPBody(NSData.DataWithBytes_length(@r.postdata[1],length(r.postdata)));
-      LogMessage(inttostr(r.id)+' POST '+st+' size: '+inttostr(length(r.postdata)));
+      Log.Msg(Conv.ToStr(r.id)+' POST '+st+' size: '+Conv.ToStr(length(r.postdata)));
      end else
-      LogMessage(inttostr(r.id)+' GET '+st);
+      Log.Msg(Conv.ToStr(r.id)+' GET '+st);
      connection:=NSURLConnection.connectionWithRequest_delegate(request,delegate);
      r.status:=httpStatusSent;
-     r.timeSent:=MyTickCount;
+     r.timeSent:=CoreTime.Ticks;
      r.con:=connection;
      connection.retain;
     end;
@@ -240,11 +243,11 @@ implementation
   begin
    if client.ResponseStatusCode div 100=2 then begin
     req.status:=httpStatusCompleted;
-    LogMessage(Format('HTTP request %d done, %d bytes received: %s',
+    Log.Msg(Format('HTTP request %d done, %d bytes received: %s',
      [req.id,length(req.response),copy(req.response,1,80)]));
    end else begin
     req.status:=httpStatusFailed;
-    LogMessage(Format('HTTP request %d failed, code %d: %s',
+    Log.Msg(Format('HTTP request %d failed, code %d: %s',
      [req.id,client.ResponseStatusCode,copy(req.response,1,100)]));
    end;
   end;
@@ -254,12 +257,12 @@ implementation
    client:TFPHTTPClient;
    ss:TStringStream;
   begin
-   LogMessage('GET '+IntToStr(req.ID)+': '+req.url);
+   Log.Msg('GET '+Conv.ToStr(req.ID)+': '+req.url);
    critSect.Enter;
    try
     client:=nil;
     if getClient.client=nil then begin
-     LogMessage('Creating a GET HTTP client');
+     Log.Msg('Creating a GET HTTP client');
      client:=TFPHTTPClient.Create(nil);
      client.KeepConnection:=true;
      client.AllowRedirect:=true;
@@ -290,7 +293,7 @@ implementation
    SaveRequestResult(req^,client);
    except
     on e:exception do begin
-      LogMessage('HTTP request '+inttostr(req.id)+' failure: '+ExceptionMsg(e));
+      Log.Msg('HTTP request '+Conv.ToStr(req.id)+' failure: '+ExceptionMsg(e));
       req.response:=ExceptionMsg(e);
       req.status:=httpStatusFailed;
     end;
@@ -308,11 +311,11 @@ implementation
     request,serverName:string;
     client:TFPHTTPClient;
     multipart:boolean;
-    lines:StringArr;
+    lines:Strings8;
     boundary:string;
     ss:TStringStream;
   begin
-   LogMessage('POST '+IntToStr(req.ID)+': '+req.url+' :: '+StringReplace(copy(req.postdata,1,70),#13#10,'\n',[rfReplaceAll]));
+   Log.Msg('POST '+Conv.ToStr(req.ID)+': '+req.url+' :: '+StringReplace(copy(req.postdata,1,70),#13#10,'\n',[rfReplaceAll]));
    // Parse URL
    i:=pos('//',req.url);
    request:=Copy(req.url,i+2,length(req.url));
@@ -344,7 +347,7 @@ implementation
      n:=length(postClients);
      SetLength(postClients,n+1);
      with postClients[n] do begin
-      LogMessage('Creating a HTTP client');
+      Log.Msg('Creating a HTTP client');
       client:=TFPHTTPClient.Create(nil);
       client.KeepConnection:=true;
       client.AllowRedirect:=true;
@@ -356,7 +359,7 @@ implementation
    end;
 
    client.AddHeader('Accept','*.*');
-   client.AddHeader('Content-Length',inttostr(length(req.postdata)));
+   client.AddHeader('Content-Length',Conv.ToStr(length(req.postdata)));
    client.AddHeader('X-Dont-Compress','1');
    case req.contentType of
     ctUrlencoded:client.AddHeader('Content-Type','application/x-www-form-urlencoded');
@@ -397,7 +400,7 @@ implementation
    SaveRequestResult(req^,client);
    except
     on e:exception do begin
-      LogMessage('HTTP request '+inttostr(req.id)+' failure: '+ExceptionMsg(e));
+      Log.Msg('HTTP request '+Conv.ToStr(req.id)+' failure: '+ExceptionMsg(e));
       req.response:=ExceptionMsg(e);
       req.status:=httpStatusFailed;
     end;
@@ -418,7 +421,7 @@ implementation
    i:integer;
   begin
    result:=0;
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
     InitHTTPrequests;
     for i:=1 to high(requests) do
@@ -441,7 +444,7 @@ implementation
      end;
     raise EWarning.Create('HTTP: too many HTTP requests');
    finally
-    LeaveCriticalSection(critSect);
+     critSect.Leave;
    end;
   end;
 
@@ -449,13 +452,13 @@ implementation
   var
    i:integer;
   begin
-   LogMessage('Cancel request '+inttostr(reqID));
-   EnterCriticalSection(critSect);
+   Log.Msg('Cancel request '+Conv.ToStr(reqID));
+   critSect.Enter;
    try
     for i:=1 to high(requests) do
      with requests[i] do
       if (ID=reqID) and (status=httpStatusSent) then begin
-       LogMessage('Aborting request '+inttostr(reqID));
+       Log.Msg('Aborting request '+Conv.ToStr(reqID));
        status:=httpStatusFailed;
        {$IFDEF DELPHI}
        InternetCloseHandle(handle);
@@ -463,9 +466,9 @@ implementation
        exit;
       end;
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
-   LogMessage('Request not found'+inttostr(reqID));
+   Log.Msg('Request not found'+Conv.ToStr(reqID));
   end;
 
  function GetRequestResult(ID:integer;out response:String8;httpStatus:PInteger=nil):integer;
@@ -473,7 +476,7 @@ implementation
    i:integer;
   begin
    result:=0;
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
     for i:=1 to High(requests) do
      if (requests[i].status>0) and (requests[i].ID=ID) then begin
@@ -494,9 +497,9 @@ implementation
       end;
       exit;
      end;
-    raise EWarning.Create('HTTP: request not found, ID='+inttostr(id));
+    raise EWarning.Create('HTTP: request not found, ID='+Conv.ToStr(id));
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
   end;
 
@@ -505,7 +508,7 @@ implementation
    i:integer;
   begin
    result:=-1;
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
     for i:=1 to High(requests) do
      if (requests[i].status in [httpStatusSent,httpStatusCompleted]) and
@@ -514,7 +517,7 @@ implementation
       exit;
      end;
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
   end;
 
@@ -523,7 +526,7 @@ implementation
    i:integer;
   begin
    result:=0;
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
     for i:=1 to High(requests) do
      if (requests[i].ID=ID) then begin
@@ -531,7 +534,7 @@ implementation
       exit;
      end;
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
   end;
 
@@ -541,13 +544,13 @@ function HTTPSyncRequestGet(url:string;var response:String8;timeout:integer=0):b
   time:int64;
  begin
   result:=false;
-  time:=MyTickCount+timeout;
+  time:=CoreTime.Ticks+timeout;
   try
    req:=HTTPRequest(url,'','',timeout);
    repeat
      sleep(1);
      res:=GetRequestResult(req,response);
-     if MyTickCount>time then begin
+     if CoreTime.Ticks>time then begin
       CancelRequest(req);
       exit;
      end;
@@ -555,7 +558,7 @@ function HTTPSyncRequestGet(url:string;var response:String8;timeout:integer=0):b
    if res=httpStatusFailed then exit;
    if res<>httpStatusCompleted then exit;
   except
-   on e:Exception do ForceLogMessage('Failed to request URL '+url+': '+ExceptionMsg(e));
+   on e:Exception do Log.Force('Failed to request URL '+url+': '+ExceptionMsg(e));
   end;
   result:=true;
  end;
@@ -574,7 +577,7 @@ procedure THTTPThread.ExecuteGetRequest;
   deflate:boolean;
  begin
   // 1. Send request
-  LogMessage('GET '+IntToStr(req.ID)+': '+req.url);
+  Log.Msg('GET '+Conv.ToStr(req.ID)+': '+req.url);
   handle:=InternetOpenUrlA(HMain,PAnsiChar(req.url),nil,0,
     INTERNET_FLAG_RELOAD+
     INTERNET_FLAG_KEEP_CONNECTION+
@@ -583,18 +586,18 @@ procedure THTTPThread.ExecuteGetRequest;
     INTERNET_FLAG_EXISTING_CONNECT+
     INTERNET_FLAG_NO_COOKIES*byte(not httpUseCookies),0);
 
-  EnterCriticalSection(critSect);
+  critSect.Enter;
   try
   req.handle:=handle;
   req.status:=httpStatusSent;
-  req.timeSent:=MyTickCount;
+  req.timeSent:=CoreTime.Ticks;
   req.receivedBytes:=0;
-//  LogMessage('request open '+inttostr(req.ID));
+//  Log.Msg('request open '+Conv.ToStr(req.ID));
   if handle=nil then begin // failed
    req.status:=httpStatusFailed;
    error:=GetLastError; size:=254;
    if not InternetGetLastResponseInfoA(code,@buf[1],size) then buf:='(too long)'#0;
-   ForceLogMessage(Format('HTTP request %d failed: %s eCode: %d code: %d',[req.ID,req.url,error,code]));
+   Log.Force(Format('HTTP request %d failed: %s eCode: %d code: %d',[req.ID,req.url,error,code]));
    req.errorCode:=error;
    exit;
   end else // success
@@ -604,11 +607,11 @@ procedure THTTPThread.ExecuteGetRequest;
 //   req.status:=httpStatusSent;
    if (code<200) or (code>=400) then begin
     req.status:=httpStatusFailed;
-    ForceLogMessage(Format('HTTP request %d failed: %s Status: %d',[req.ID,req.url,code]));
+    Log.Force(Format('HTTP request %d failed: %s Status: %d',[req.ID,req.url,code]));
    end;
    req.httpStatus:=code;
   finally
-   LeaveCriticalSection(critSect);
+   critSect.Leave;
   end;
   // 2. Download response
   downloaded:=0;
@@ -624,7 +627,7 @@ procedure THTTPThread.ExecuteGetRequest;
    end else begin
     // download failed
     req.errorCode:=GetLastError;
-    ForceLogMessage('HTTP request error: '+IntToStr(req.errorCode));
+    Log.Force('HTTP request error: '+Conv.ToStr(req.errorCode));
     req.status:=httpStatusFailed;
     break;
    end;
@@ -639,10 +642,10 @@ procedure THTTPThread.ExecuteGetRequest;
    if pos('deflate',lowercase(encoding))>0 then deflate:=true;
   end;
 
-//  LogMessage('Received: '+inttostr(downloaded));
+//  Log.Msg('Received: '+Conv.ToStr(downloaded));
 
   // 3. Ready
-  EnterCriticalSection(critSect);
+  critSect.Enter;
   InternetCloseHandle(handle);
   req.handle:=nil;
   try
@@ -658,7 +661,7 @@ procedure THTTPThread.ExecuteGetRequest;
     req.status:=httpStatusCompleted;
    req.receivedBytes:=length(req.response);
   finally
-   LeaveCriticalSection(critSect);
+   critSect.Leave;
   end;
  end;
 
@@ -670,7 +673,7 @@ procedure DeleteConnection(handle:HInternet);
   try
    for i:=1 to high(connections) do
     if connections[i].HCon=handle then begin
-     LogMessage('Deleting connection ['+inttostr(i)+'] = '+PtrToStr(handle));
+     Log.Msg('Deleting connection ['+Conv.ToStr(i)+'] = '+Conv.ToStr(handle));
      connections[i].free:=true;
      connections[i].HCon:=0;
      connections[i].server:='';
@@ -689,12 +692,12 @@ procedure THTTPThread.ExecutePostRequest;
   buf:string[255];
   handle:HInternet;
   data:array of byte;
-  lines:AStringArr;
+  lines:Strings8;
   headers,boundary,serverName,request:String8;
   multipart:boolean;
   HConnect:HInternet;
  begin
-  LogMessage('POST '+IntToStr(req.ID)+': '+req.url+' :: '+StringReplace(copy(req.postdata,1,70),#13#10,'\n',[rfReplaceAll]));
+  Log.Msg('POST '+Conv.ToStr(req.ID)+': '+req.url+' :: '+StringReplace(copy(req.postdata,1,70),#13#10,'\n',[rfReplaceAll]));
   // Parse URL
   i:=pos('//',req.url);
   request:=Copy(req.url,i+2,length(req.url));
@@ -714,7 +717,7 @@ procedure THTTPThread.ExecutePostRequest;
    SetLength(serverName,i-1);
   end;
 
-  EnterCriticalSection(critSect);
+  critSect.Enter;
   try
    // Find/alloc proper HCon
    HConnect:=nil; conIdx:=0;
@@ -726,7 +729,7 @@ procedure THTTPThread.ExecutePostRequest;
       conIdx:=i;
       HConnect:=connections[i].HCon;
       connections[conIdx].free:=false;
-      LogMessage(Format('HTTP: using connection [%d]=%s ',[i,PtrToStr(HConnect)]));
+      Log.Msg(Format('HTTP: using connection [%d]=%s ',[i,Conv.ToStr(HConnect)]));
       break;
      end;
 
@@ -738,8 +741,8 @@ procedure THTTPThread.ExecutePostRequest;
      error:=GetLastError; size:=254;
      req.errorCode:=error;
      if not InternetGetLastResponseInfoA(code,@buf[1],size) then buf:='(too long)'#0;
-     ForceLogMessage('HTTP request connect failed: '+req.url+' eCode: '+IntToStr(error)+
-       ' code: '+IntToStr(code)+' error: '+PChar(@buf[1]));
+     Log.Force('HTTP request connect failed: '+req.url+' eCode: '+Conv.ToStr(error)+
+       ' code: '+Conv.ToStr(code)+' error: '+PChar(@buf[1]));
      exit;
     end;
     // Store
@@ -760,10 +763,10 @@ procedure THTTPThread.ExecutePostRequest;
      connections[conIdx].server:=serverName;
      connections[conIdx].port:=port;
      connections[conIdx].free:=false;
-     LogMessage(Format('HTTP: new connection created [%d]=%s ',[conIdx,PtrToStr(HConnect)]));
+     Log.Msg(Format('HTTP: new connection created [%d]=%s ',[conIdx,Conv.ToStr(HConnect)]));
     end else begin
      req.status:=httpStatusFailed;
-     ForceLogMessage('Error: out of connection handles!');
+     Log.Force('Error: out of connection handles!');
      exit;
     end;
    end;
@@ -778,7 +781,7 @@ procedure THTTPThread.ExecutePostRequest;
     req.status:=httpStatusFailed;
     error:=GetLastError;
     req.errorCode:=error;
-    ForceLogMessage('HTTP request open failed: '+req.url+' eCode: '+IntToStr(error));
+    Log.Force('HTTP request open failed: '+req.url+' eCode: '+Conv.ToStr(error));
     DeleteConnection(HConnect);
     exit;
    end;
@@ -787,17 +790,17 @@ procedure THTTPThread.ExecutePostRequest;
     InternetSetOptionA(handle,INTERNET_OPTION_SEND_TIMEOUT,@req.timeout,4);
    end;
   finally
-   LeaveCriticalSection(critSect);
+   critSect.Leave;
   end;
 
-  headers:='Accept: */*'#13#10+'Content-Length: '+inttostr(length(req.postdata));
+  headers:='Accept: */*'#13#10+'Content-Length: '+Conv.ToStr(length(req.postdata));
   case req.contentType of
    ctUrlencoded:headers:=headers+#13#10+'Content-Type: application/x-www-form-urlencoded';
    ctBinary:headers:=headers+#13#10+'Content-Type: application/octet-stream';
    ctText:headers:=headers+#13#10+'Content-Type: text/plain';
    ctMultipart:begin // complex case
      multipart:=false;
-     lines:=SplitA(#13#10,req.postData);
+     lines:=req.postData.Split(#13#10);
      for i:=1 to length(lines)-1 do begin
       if length(lines[i])<120 then begin
        if pos('CONTENT-DISPOSITION:',UpperCase(lines[i]))=1 then begin
@@ -823,7 +826,7 @@ procedure THTTPThread.ExecutePostRequest;
    req.status:=httpStatusFailed;
    error:=GetLastError;
    req.errorCode:=error;
-   ForceLogMessage('HTTP request '+IntToStr(req.ID)+' send failed: '+req.url+' eCode: '+IntToStr(error));
+   Log.Force('HTTP request '+Conv.ToStr(req.ID)+' send failed: '+req.url+' eCode: '+Conv.ToStr(error));
    DeleteConnection(connections[conIdx].HCon);
    exit;
   end else
@@ -846,7 +849,7 @@ procedure THTTPThread.ExecutePostRequest;
      break; // download complete
    end else begin
     req.errorCode:=GetLastError;
-    ForceLogMessage('HTTP request read error: '+IntToStr(req.errorCode));
+    Log.Force('HTTP request read error: '+Conv.ToStr(req.errorCode));
     req.status:=httpStatusFailed;
    end;
    sleep(1);
@@ -854,7 +857,7 @@ procedure THTTPThread.ExecutePostRequest;
   InternetCloseHandle(handle);
 
   // 3. Ready
-  EnterCriticalSection(critSect);
+  critSect.Enter;
   try
    SetLength(req.response,downloaded);
    move(data[0],req.response[1],downloaded);
@@ -862,7 +865,7 @@ procedure THTTPThread.ExecutePostRequest;
     req.status:=httpStatusCompleted;
    connections[conIdx].free:=true;
   finally
-   LeaveCriticalSection(critSect);
+   critSect.Leave;
   end;
  end;
 {$ENDIF}
@@ -871,16 +874,16 @@ procedure THTTPThread.Execute;
  var
   time:int64;
  begin
-  RegisterThread('HTTP-'+inttostr(req.ID));
+  Thread.Register('HTTP-'+Conv.ToStr(req.ID));
   req.thread:=self;
-  time:=MyTickCOunt;
+  time:=CoreTime.Ticks;
   if req.postdata='' then ExecuteGetRequest
    else ExecutePostRequest;
-  time:=MyTickCount-time;
+  time:=CoreTime.Ticks-time;
   if req.status=httpStatusCompleted then begin
    inc(requestsSucceed);
    if (req.timeout>0) and (time>maxResponseTime) then maxResponseTime:=time;
-   LogMessage(Format('Request %d status %d, %.3f s, %d bytes: %s',
+   Log.Msg(Format('Request %d status %d, %.3f s, %d bytes: %s',
      [req.ID,req.httpStatus,time/1000,req.receivedBytes,copy(req.response,1,60)]));
    if (req.timeout>0) then begin
     inc(requestsTime,time);
@@ -891,9 +894,9 @@ procedure THTTPThread.Execute;
    inc(requestsFailed);
 
   Signal(req.event,req.ID);
-  if MyTickCount>lastLogTime+60000 then LogStats; // Раз в минуту писать статистику по запросам в лог
+  if CoreTime.Ticks>lastLogTime+60000 then LogStats; // Раз в минуту писать статистику по запросам в лог
   req.thread:=nil;
-  UnregisterThread;
+  Thread.Unregister;
  end;
 
  // not required to call
@@ -907,7 +910,7 @@ procedure THTTPThread.Execute;
      if HMain=nil then begin
       HMain:=InternetOpen('ENGINE3_CLIENT',INTERNET_OPEN_TYPE_PRECONFIG,nil,nil,0);
 //      HMain:=InternetOpen('ENGINE3_CLIENT',INTERNET_OPEN_TYPE_DIRECT,nil,nil,0);
-      LogMessage('HTTP Init: '+IntToHex(cardinal(HMain),8));
+      Log.Msg('HTTP Init: '+IntToHex(cardinal(HMain),8));
       sleep(10);
       c:=4000; // 4 sec
       InternetSetOptionA(HMain,INTERNET_OPTION_CONNECT_TIMEOUT,@c,4);
@@ -915,13 +918,13 @@ procedure THTTPThread.Execute;
       InternetSetOptionA(HMain,INTERNET_OPTION_RECEIVE_TIMEOUT,@c,4);
       InternetSetOptionA(HMain,INTERNET_OPTION_SEND_TIMEOUT,@c,4);
       res:=InternetSetOptionA(HMain,77{INTERNET_OPTION_IGNORE_OFFLINE},nil,0);
-      LogMessage('INTERNET_OPTION_IGNORE_OFFLINE - '+BoolToStr(res,true));
+      Log.Msg('INTERNET_OPTION_IGNORE_OFFLINE - '+BoolToStr(res,true));
       b:=false;
       res:=InternetSetOptionA(HMain,65{INTERNET_OPTION_HTTP_DECODING},@b,4);
-      LogMessage('INTERNET_OPTION_HTTP_DECODING - '+BoolToStr(res,true));
+      Log.Msg('INTERNET_OPTION_HTTP_DECODING - '+BoolToStr(res,true));
      end;
      if HMain=nil then begin
-      ForceLogMessage('HTTP: Internal Error 1 - '+IntToStr(GetLastError));
+      Log.Force('HTTP: Internal Error 1 - '+Conv.ToStr(GetLastError));
       exit;
      end;
    {$ENDIF}
@@ -933,9 +936,9 @@ procedure THTTPThread.Execute;
   begin
    {$IFDEF DELPHI}
    if hMain=nil then exit;
-   ForceLogMessage('HTTP terminating');
+   Log.Force('HTTP terminating');
    LogStats;
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
     for i:=1 to High(connections) do
      if connections[i].HCon<>nil then begin
@@ -945,14 +948,14 @@ procedure THTTPThread.Execute;
      end;
     if HMain<>nil then InternetCloseHandle(HMain);
     HMain:=nil;
-    ForceLogMessage('HTTP Done');
+    Log.Force('HTTP Done');
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
    {$ENDIF}
   end;
 
- function FormatPostBody(paramNames,paramValues:StringArr;contentType:TContentType):String8;
+ function FormatPostBody(paramNames,paramValues:Strings8;contentType:TContentType):String8;
   var
    i,j,c,s:integer;
    boundary:string;
@@ -979,7 +982,7 @@ procedure THTTPThread.Execute;
    case contentType of
     ctMultipart:begin
       // multipart/formdata
-      boundary:='--'+IntToHex(getTickCount+random(10000000),8);
+      boundary:='--'+IntToHex(CoreTime.Ticks+random(10000000),8);
       result:=boundary;
       for i:=0 to length(paramNames)-1 do begin
        result:=result+#13#10'Content-Disposition: form-data; name="'+paramNames[i]+'"'+#13#10+
@@ -1016,7 +1019,7 @@ procedure THTTPThread.Execute;
         binHdr[1]:=#255;
         move(s,binHdr[2],3); // 3 bytes for length, i.e. 16 Mb max
         result:=result+binHdr;
-        LogMessage(Format('Long binary part %d/%d: %d bytes',[i,high(paramValues),s]));
+        Log.Msg(Format('Long binary part %d/%d: %d bytes',[i,high(paramValues),s]));
       end else
         result:=result+char(s);
       result:=result+paramValues[i];
@@ -1026,11 +1029,11 @@ procedure THTTPThread.Execute;
   end;
 
 initialization
- InitCritSect(critSect,'HTTPrequest',60);
- {$IFDEF DELPHI}
- fillchar(connections,sizeof(connections),0);
- {$ENDIF}
+  critSect.Init('HTTPrequest',60);
+  {$IFDEF DELPHI}
+  Mem.Clear(connections,sizeof(connections));
+  {$ENDIF}
 finalization
- DoneHTTPrequests;
- DeleteCritSect(critSect);
+  DoneHTTPrequests;
+  critSect.Cleanup;
 end.

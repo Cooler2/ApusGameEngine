@@ -65,7 +65,7 @@ implementation
    args[2].i:=0;
    soundPool:=appEnv^.NewObjectA(appEnv,cls,
      GetMethodID('android/media/SoundPool','<init>','(III)V'),@args);
-   if soundPool=nil then ForceLogMessage('SoundPool creation failed!');
+   if soundPool=nil then ForceLog.Msg('SoundPool creation failed!');
    NewGlobalRef(soundPool);
    DebugMessage('SoundPool created: '+PtrToStr(soundPool));
   end;
@@ -89,7 +89,7 @@ implementation
     [fName]).l;
 
    if afd=nil then begin
-    LogMessage('Asset not found: '+fName);
+    Log.Msg('Asset not found: '+fName);
     exit;
    end;
 

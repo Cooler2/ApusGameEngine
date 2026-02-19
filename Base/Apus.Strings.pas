@@ -1,10 +1,10 @@
 ﻿// String manipulation helpers - modern API for working with String8 (UTF-8) and String32 (UCS-4)
 //
 // SCOPE: String operations beyond basic RTL - splitting, trimming, searching, replacing,
-// case conversion. Used by applications doing text processing, parsing, or manipulation.
+// case conversion, encoding conversion (UTF-8, UTF-16, UCS-4).
 //
-// ADD HERE: Generic string operations that work with String8/String32.
-// DON'T ADD: Conversion to/from other types (→ Apus.Conv), unicode-specific text rendering,
+// ADD HERE: Generic string operations that work with String8/String32, encoding conversions.
+// DON'T ADD: Conversion to/from non-string types (→ Apus.Conv), unicode-specific text rendering,
 // regular expressions, template engines.
 //
 // Contains: TString8Helper and TString32Helper with methods like Split, Trim, Contains,
@@ -212,20 +212,46 @@ type
   UTF8 = record
     // Validate UTF-8 string
     class function IsValid(const s:String8):boolean; static;
+    // Check if string starts with UTF-8 BOM
+    class function HasBOM(const s:RawByteString):boolean; static; inline;
     // Get character count (not byte count)
     class function CharCount(const s:String8):integer; static;
     // Convert UTF-8 <-> String32 (UCS-4)
-    class function Decode(const s:String8):String32; static;
-    class function Encode(const s:String32):String8; static;
+    class function Decode(const s:String8):String32; overload; static;
+    class function Encode(const s:String32):String8; overload; static;
+    // Convert WideString (UTF-16) -> UTF-8
+    class function Encode(const s:WideString;addBOM:boolean=false):String8; overload; static;
     // Convert UTF-8 <-> WideString (UTF-16)
     class function ToWide(const s:String8):WideString; static;
-    class function FromWide(const s:WideString):String8; static;
+    class function FromWide(const s:WideString):String8; static; inline;
     // Upper/Lower case for UTF-8 (Unicode-aware)
     class function ToUpper(const s:String8):String8; static;
     class function ToLower(const s:String8):String8; static;
     // Format string: %d %u %x %X %f %g %s %p %% with flags - 0 + and width.precision
     class function Format(const fmt:String8; const args:array of const):String8; static;
   end;
+
+// === String type conversion ===
+// Convert any string type to String8 (UTF-8)
+function Str8(const st:UnicodeString):String8; overload; inline;
+function Str8(const st:WideString):String8; overload; inline;
+function Str8(const st:UTF8String):String8; overload; inline;
+{$IFDEF UNICODE}
+function Str8(const st:AnsiString):String8; overload; inline;
+{$ENDIF}
+// Convert any string type to String16 (WideString)
+function Str16(const st:UnicodeString):String16; overload; inline;
+function Str16(const st:WideString):String16; overload; inline;
+function Str16(const st:UTF8String):String16; overload;
+{$IFDEF UNICODE}
+function Str16(const st:AnsiString):String16; overload;
+{$ENDIF}
+// Convert any string type to String32 (UCS-4)
+function Str32(const st:String8):String32; overload;
+function Str32(const st:WideString):String32; overload;
+{$IFDEF UNICODE}
+function Str32(const st:UnicodeString):String32; overload;
+{$ENDIF}
 
 // Simple fast hash function for strings (case-insensitive)
 function FastHash(const st:String8):cardinal; overload;
@@ -606,16 +632,16 @@ begin
 end;
 
 function String8Helper.ToInteger:integer;
-begin result:=StrToIntDef(self,0); end;
+begin result:=Conv.ToInt(self,0); end;
 
 function String8Helper.ToInt64:int64;
-begin result:=StrToInt64Def(self,0); end;
+begin result:=Conv.ToInt(self,0); end;
 
 function String8Helper.ToDouble:double;
-begin result:=StrToFloatDef(self,0); end;
+begin result:=Conv.ToFloat(self); end;
 
 function String8Helper.ToBoolean:boolean;
-begin result:=(System.Length(self)>0) and (self[1] in ['T','t','Y','y','1','+']); end;
+begin result:=Conv.ToBool(self); end;
 
 // ============================================================================
 // String32Helper (0-based indexing - String32 is array of UCS4Char)
@@ -1113,8 +1139,82 @@ begin
 end;
 
 // ============================================================================
+// String type conversion (Str8, Str16, Str32)
+// ============================================================================
+
+function Str8(const st:UnicodeString):String8;
+begin
+  result:=UTF8.Encode(st);
+end;
+
+function Str8(const st:WideString):String8;
+begin
+  result:=UTF8.Encode(st);
+end;
+
+function Str8(const st:UTF8String):String8;
+begin
+  result:=st;
+end;
+
+{$IFDEF UNICODE}
+function Str8(const st:AnsiString):String8;
+begin
+  result:=String8(st);
+end;
+{$ENDIF}
+
+function Str16(const st:UnicodeString):String16;
+begin
+  result:=st;
+end;
+
+function Str16(const st:WideString):String16;
+begin
+  result:=st;
+end;
+
+function Str16(const st:UTF8String):String16;
+begin
+  result:=UTF8.ToWide(st);
+end;
+
+{$IFDEF UNICODE}
+function Str16(const st:AnsiString):String16;
+begin
+  result:=UTF8.ToWide(st);
+end;
+{$ENDIF}
+
+function Str32(const st:String8):String32;
+begin
+  result:=UTF8.Decode(st);
+end;
+
+function Str32(const st:WideString):String32;
+var
+  i:integer;
+begin
+  SetLength(result,length(st));
+  for i:=1 to length(st) do
+    result[i-1]:=UCS4Char(word(st[i]));
+end;
+
+{$IFDEF UNICODE}
+function Str32(const st:UnicodeString):String32;
+begin
+  result:=Str32(WideString(st));
+end;
+{$ENDIF}
+
+// ============================================================================
 // UTF8
 // ============================================================================
+
+class function UTF8.HasBOM(const s:RawByteString):boolean;
+begin
+  result:=(length(s)>=3) and (s[1]=#$EF) and (s[2]=#$BB) and (s[3]=#$BF);
+end;
 
 class function UTF8.IsValid(const s:String8):boolean;
 var i:integer; b:byte; cp:cardinal;
@@ -1203,6 +1303,34 @@ begin
   SetLength(result,len);
 end;
 
+class function UTF8.Encode(const s:WideString;addBOM:boolean):String8;
+var
+ i,l:integer;
+ w:word;
+begin
+ SetLength(result,3+length(s)*3);
+ l:=0;
+ if addBOM then begin
+  result[1]:=#$EF; result[2]:=#$BB; result[3]:=#$BF;
+  l:=3;
+ end;
+ for i:=1 to length(s) do begin
+  w:=word(s[i]);
+  if w<$80 then begin
+   inc(l); result[l]:=AnsiChar(w);
+  end else
+  if w<$800 then begin
+   inc(l); result[l]:=AnsiChar($C0 or (w shr 6));
+   inc(l); result[l]:=AnsiChar($80 or (w and $3F));
+  end else begin
+   inc(l); result[l]:=AnsiChar($E0 or (w shr 12));
+   inc(l); result[l]:=AnsiChar($80 or ((w shr 6) and $3F));
+   inc(l); result[l]:=AnsiChar($80 or (w and $3F));
+  end;
+ end;
+ SetLength(result,l);
+end;
+
 class function UTF8.Encode(const s:String32):String8;
 var i,len:integer; cp:cardinal;
 begin
@@ -1230,17 +1358,47 @@ begin
 end;
 
 class function UTF8.ToWide(const s:String8):WideString;
-var s32:String32;
+var
+ i,l:integer;
+ w:word;
+ src:RawByteString;
 begin
-  s32:=Decode(s);
-  // TODO: proper UTF-16 encoding for codepoints > $FFFF
-  SetLength(result,System.Length(s32));
-  // simplified conversion (only BMP)
+ src:=s;
+ if (length(src)>=3) and (src[1]=#$EF) and (src[2]=#$BB) and (src[3]=#$BF) then
+  delete(src,1,3); // remove BOM
+ SetLength(result,length(src));
+ l:=0;
+ i:=1;
+ while i<=length(src) do begin
+  w:=0;
+  if byte(src[i]) and $80=0 then begin
+   w:=byte(src[i]) and $7F;
+   inc(i);
+  end else
+  if byte(src[i]) and $E0=$C0 then begin
+   w:=byte(src[i]) and $1F;
+   inc(i);
+   if i<=length(src) then w:=w shl 6+byte(src[i]) and $3F;
+   inc(i);
+  end else
+  if byte(src[i]) and $F0=$E0 then begin
+   w:=byte(src[i]) and $0F;
+   inc(i);
+   if i<=length(src) then w:=w shl 6+byte(src[i]) and $3F;
+   inc(i);
+   if i<=length(src) then w:=w shl 6+byte(src[i]) and $3F;
+   inc(i);
+  end else
+   inc(i);
+  inc(l);
+  result[l]:=WideChar(w);
+ end;
+ SetLength(result,l);
 end;
 
 class function UTF8.FromWide(const s:WideString):String8;
 begin
-  result:=''; // TODO
+  result:=Encode(s);
 end;
 
 class function UTF8.ToUpper(const s:String8):String8;

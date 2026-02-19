@@ -98,7 +98,7 @@ procedure ResolveAddress(resolveAdr:AnsiString;var resolvedIP:cardinal;var resol
   port:=0;
   i:=pos(':',address);
   if (i>0) {or (pos('.',address)=0)} then  begin
-   port:=StrToInt(copy(address,i+1,length(address)-i));
+   port:=Conv.ToInt(copy(address,i+1,length(address)-i));
    SetLength(address,i-1);
   end;
   if address<>'' then begin
@@ -146,7 +146,7 @@ begin
   WSAETIMEDOUT:result:='timeout';
   WSAECONNREFUSED:result:='connection refused';
   WSAENOTSOCK:result:='not a socket';
-  else result:='unknown, code '+inttostr(c);
+  else result:='unknown, code '+Conv.ToStr(c);
  end;
 end;
 {$ENDIF}
@@ -221,7 +221,7 @@ begin
 
  if bind(Sock,adr,sizeof(adr))=SOCKET_ERROR then
   raise EError.Create('UDP: Bind failed');
- LogMessage('UDP2: Socket initialized, port: '+inttostr(sockport));
+ Log.Msg('UDP2: Socket initialized, port: '+Conv.ToStr(sockport));
 end;
 {$ENDIF}
 {$IFDEF UNIX}
@@ -231,7 +231,7 @@ end;
  begin
   sock:=fpsocket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
   if sock=-1 then
-   raise EError.Create('UDP2: Socket creation error: '+inttostr(SocketError));
+   raise EError.Create('UDP2: Socket creation error: '+Conv.ToStr(SocketError));
 
   FpFcntl(sock, F_GETFL, val);
   val:=val or O_NONBLOCK;
@@ -248,7 +248,7 @@ end;
 
   if fpbind(sock,@adr,sizeof(adr))<>0 then
    raise EError.Create('UDP: bind failed');
-  LogMessage('UDP2: Socket initialized, port: '+inttostr(sockport));
+  Log.Msg('UDP2: Socket initialized, port: '+Conv.ToStr(sockport));
  end;
 {$ENDIF}
 
@@ -274,11 +274,11 @@ begin
   size:=WSAGetLastError;
   err:=size;
   if size=WSAEMSGSIZE then begin
-   LogMessage('Packet too large, buffer size was '+inttostr(bufsize));
+   Log.Msg('Packet too large, buffer size was '+Conv.ToStr(bufsize));
    exit;
   end;
   if size=WSAECONNRESET then begin
-   LogMessage('UDP2: ECONNRESET');
+   Log.Msg('UDP2: ECONNRESET');
    closeSocket(sock);
    InitSocket;
    result:=false;
@@ -314,7 +314,7 @@ end;
   if size=-1 then begin
    err:=SocketError;
    if err=ESysENOTCONN then begin
-    LogMessage('UDP2: ESysENOTCONN');
+    Log.Msg('UDP2: ESysENOTCONN');
     result:=false;
     size:=0;
     closeSocket(sock);
@@ -322,7 +322,7 @@ end;
     exit;
    end;
    if err<>ESysEAGAIN then
-    raise EError.Create('UDP2: Error on receive: '+inttostr(SocketError));
+    raise EError.Create('UDP2: Error on receive: '+Conv.ToStr(SocketError));
   end;
   port:=ntohs(a.sin_port);
   adr:=a.sin_addr.S_addr;
@@ -342,7 +342,7 @@ begin
   raise EError.Create('UDP2: not initialized!');
 { s:=4; r:=0;
  getSockOpt(sock,SOL_SOCKET,SO_MAXDG,PChar(@r),s);
- LogMessage(inttostr(r));}
+ Log.Msg(Conv.ToStr(r));}
  fillchar(a,sizeof(a),0);
  a.sin_family:=PF_INET;
  a.sin_port:=htons(Port);
@@ -377,7 +377,7 @@ end;
   a.sin_addr.S_addr:=adr;
   r:=fpSendTo(sock,@buf,size,0,@a,sizeof(a));
   if r<0 then
-   raise EError.Create('UDP2: send error: '+inttostr(SocketError));
+   raise EError.Create('UDP2: send error: '+Conv.ToStr(SocketError));
   if r<>size then
    raise EWarning.Create('UDP2: data was not sent')
   else begin

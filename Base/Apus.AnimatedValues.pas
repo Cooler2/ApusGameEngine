@@ -66,14 +66,7 @@ interface
 
 implementation
   uses
-  {$IFDEF MSWINDOWS}Windows,{$ENDIF}
-    Apus.Core, SysUtils;
-
-  procedure SpinLock(var lock:integer); inline;
-    begin
-      // LOCK CMPXCHG is very slow (~20-50 cycles) so no need for additional spin rounds for quick operations
-      while AtomicCmpExchange(lock,1,0)<>0 do sleep(0);
-    end;
+    SysUtils, Apus.Core, Apus.Conv, Apus.Log;
 
   // TAnimatedValue - numeric interpolation class
   constructor TAnimatedValue.Init(initValue:single=0);
@@ -93,7 +86,7 @@ implementation
         SetLength(animations,0);
         initialValue:=initValue;
         if logName<>'' then
-            LogMessage(logName+' := '+floatToStrF(initialValue,ffGeneral,5,0));
+            Log.Msg(logName+' := '+Conv.ToStr(initialValue,5));
         lastTime:=0;
         lastValue:=0;
       finally
@@ -131,7 +124,7 @@ implementation
 
   function TAnimatedValue.Derivative:double;
     begin
-      result:=DerivativeAt(MyTickCount);
+      result:=DerivativeAt(CoreTime.Ticks);
     end;
 
   function TAnimatedValue.DerivativeAt(time:int64):double;
@@ -176,16 +169,16 @@ implementation
       result:=initialValue;
       i:=length(animations)-1;
       if i<0 then exit;
-      if time=0 then t:=MyTickCount
+      if time=0 then t:=CoreTime.Ticks
       else t:=time;
 
       if (t>=animations[i].endTime) then
         if time=0 then begin // все анимации уже в прошлом
             initialValue:=animations[i].value2;
             if logName<>'' then
-                LogMessage(IntToStr(MyTickCount mod 1000)+'>'+
-                IntToStr(animations[i].endTime mod 1000)+
-                ' '+logName+' finish at '+floatToStrF(initialValue,ffGeneral,5,0));
+              Log.Msg(Conv.ToStr(CoreTime.Ticks mod 1000)+'>'+
+                Conv.ToStr(animations[i].endTime mod 1000)+
+                ' '+logName+' finish at '+Conv.ToStr(initialValue,5));
             SetLength(animations,0);
             result:=initialValue;
             exit;
@@ -206,7 +199,7 @@ implementation
             if t<=startTime then v:=value1
             else begin
                 v:=spline(t-startTime,0,endTime-startTime,value1,value2);
-                // if LogName<>'' then LogMessage(' '+logName+' '+Format('%f %d %d %f',[t,startTime,endTime,v]));
+                // if LogName<>'' then Log.Msg(' '+logName+' '+Format('%f %d %d %f',[t,startTime,endTime,v]));
               end;
             // Overlap?
             if (i>0) and (animations[i-1].endTime>startTime) and (t<animations[i-1].endTime) then begin
@@ -229,7 +222,7 @@ implementation
       lastTime:=cardinal(t);
       lastValue:=result;
       if logName<>'' then
-          LogMessage(IntToStr(t mod 1000)+' '+logName+' '+Format('%f',[result]));
+          Log.Msg('%d %s %f', [t mod 1000,logName,result]);
     end;
 
   function TAnimatedValue.IntValue:integer;
@@ -247,7 +240,7 @@ implementation
       SpinLock(lock);
       try
         if length(animations)>0 then begin
-           if time<=0 then time:=MyTickCount;
+           if time<=0 then time:=CoreTime.Ticks;
            result:=time<animations[length(animations)-1].endTime;
           end
         else
@@ -278,7 +271,7 @@ implementation
         try
           if (duration=0)and(delay=0) then begin
               if logName<>'' then
-                  LogMessage(logName+' := '+floatToStrF(newValue,ffGeneral,5,0));
+                  Log.Msg(logName+' := '+floatToStrF(newValue,ffGeneral,5,0));
               initialValue:=newValue;
               SetLength(animations,0);
               exit;
@@ -289,7 +282,7 @@ implementation
           if (n=0)and(initialValue=newValue) then exit; // no change
           if (n>0)and(animations[n-1].value2=newValue) then exit;
           // animation to the same value
-          t:=MyTickCount+delay;
+          t:=CoreTime.Ticks+delay;
           if n=0 then v:=initialValue
           else
             if delay=0 then v:=InternalValueAt(0)
@@ -305,9 +298,9 @@ implementation
           animations[n].value2:=newValue;
           animations[n].spline:=spline;
           if logName<>'' then
-              LogMessage(logName+'['+IntToStr(n)+'] '+floatToStrF(v,ffGeneral,5,0)+
-              ' --> '+floatToStrF(newValue,ffGeneral,5,0)+' '+IntToStr(delay)+'+'+
-              IntToStr(duration)+
+              Log.Msg(logName+'['+Conv.ToStr(n)+'] '+floatToStrF(v,ffGeneral,5,0)+
+              ' --> '+floatToStrF(newValue,ffGeneral,5,0)+' '+Conv.ToStr(delay)+'+'+
+              Conv.ToStr(duration)+
               Format(' %d %d',[animations[n].startTime mod 1000,
               animations[n].endTime mod 1000]));
         except

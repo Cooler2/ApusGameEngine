@@ -8,7 +8,7 @@ interface
   TSQLiteDatabase=class(TDatabase)
    constructor Create;
    procedure Connect; override;
-   function Query(DBquery:string):StringArr; override;
+   function Query(DBquery:string):Strings8; override;
    procedure Disconnect; override;
    destructor Destroy; override;
   end;
@@ -41,7 +41,7 @@ begin
 
 end;
 
-function TSQLiteDatabase.Query(DBquery: string): StringArr;
+function TSQLiteDatabase.Query(DBquery: string): Strings8;
 begin
 
 end;

@@ -101,7 +101,8 @@ type
  function LoadFontFromMemory(const data:TBuffer;UseAdvKerning:boolean=false):TUnicodeFont;
 
 implementation
- uses Apus.Core, Apus.FastGFX;
+ uses Apus.Core, Apus.FastGFX,
+  Apus.Files;
 
  function TCharDesc.GetPixel(glyphs:PByte;x,y:integer;glyphCoord:boolean=false):byte;
   begin
@@ -264,7 +265,7 @@ implementation
   var
    data:ByteArray;
   begin
-   data:=LoadFileAsBytes(fname);
+   data:=Files.LoadAsBytes(fname);
    result:=LoadFontFromMemory(TBuffer.CreateFrom(data),useAdvKerning);
   end;
 
@@ -282,7 +283,7 @@ constructor TUnicodeFont.Create;
 
 procedure TUnicodeFont.InitDefaults;
  begin
-  fillchar(hash,sizeof(hash),0);
+  Mem.Fill(hash,sizeof(hash),0);
   advancedKerning:=false;
  end;
 
@@ -290,7 +291,7 @@ constructor TUnicodeFont.LoadFromFile(fname:string;useAdvKerning:boolean);
  var
   data:ByteArray;
  begin
-  data:=LoadFileAsBytes(fname);
+  data:=Files.LoadAsBytes(fname);
   LoadFromMemory(TBuffer.CreateFrom(data),UseAdvKerning);
  end;
 
@@ -344,7 +345,7 @@ constructor TUnicodeFont.LoadFromMemory(const data:TBuffer;useAdvKerning:boolean
    if UseAdvKerning then begin
     advancedKerning:=true;
     SetLength(advkerning,length(chars));
-    fillchar(advKerning[0],length(chars)*sizeof(TKernPair),$FF);
+    Mem.Fill(advKerning[0],length(chars)*sizeof(TKernPair),$FF);
    end;
  end;
 

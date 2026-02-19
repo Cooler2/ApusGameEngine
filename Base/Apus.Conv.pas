@@ -47,7 +47,7 @@ type
     // Parse IP address string to cardinal. Old name: StrToIp
     class function ToIp(const st:String8):cardinal; overload; static;
     // IP cardinal to string. Old name: IpToStr
-    class function ToIp(ip:cardinal):string8; overload; static;
+    class function FormatIp(ip:cardinal):string8; overload; static;
 
     // === Format value to string ===
 
@@ -107,9 +107,6 @@ type
   private
     class function HexCharToInt(ch:AnsiChar):integer; static; inline;
   end;
-
-  // Check if variant has a value (not unassigned)
-  function HasValue(const v:variant):boolean;
 
 implementation
 uses SysUtils, Variants;
@@ -404,7 +401,7 @@ begin
   {$ENDIF}
 end;
 
-class function Conv.ToIp(ip:cardinal):string8;
+class function Conv.FormatIp(ip:cardinal):string8;
 begin
   result:=ToStr(ip and $FF)+'.'+
           ToStr((ip shr 8) and $FF)+'.'+
@@ -744,11 +741,6 @@ begin
     pb^:=v; inc(cnt);
   end;
   size:=cnt;
-end;
-
-function HasValue(const v:variant):boolean;
-begin
-  result:=v<>unassigned;
 end;
 
 end.

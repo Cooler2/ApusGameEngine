@@ -10,7 +10,7 @@ interface
  function GetStackTrace:string;
 
 implementation
- uses Apus.Types, Apus.Core {$IFDEF MSWINDOWS}, Windows{$ENDIF};
+ uses Apus.Types, Apus.Core, Apus.Conv {$IFDEF MSWINDOWS}, Windows{$ENDIF};
  var
   saveExceptionProc:pointer;
   stack:array[0..15] of pointer;
@@ -107,8 +107,7 @@ implementation
    if saveExceptionProc=nil then exit;
    for i:=0 to high(stack) do begin
     v:=PtrUInt(stack[i]) shr 20;
-    //if v and $F00=$700 then break;
-    if (v>=4) and (v<8) then result:=result+':'+PtrToStr(stack[i]);
+    if (v>=4) and (v<8) then result:=result+':'+Conv.ToStr(stack[i]);
    end;
    fillchar(stack,sizeof(stack),0);
    {$ENDIF}

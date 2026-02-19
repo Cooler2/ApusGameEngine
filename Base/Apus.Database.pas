@@ -5,7 +5,8 @@
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 unit Apus.Database;
 interface
- uses Apus.Core, Apus.Structs;
+ uses Apus.Core, Apus.Structs, Apus.Threads,
+   Apus.Conv;
  var
   // Credentials and options
   DB_HOST:AnsiString='';
@@ -39,9 +40,9 @@ interface
    // В случае ошибки возвращает массив из одной строки: ERROR: <текст ошибки>, причём rowCount=0
    // Если запрос не подразумевает возврат данных и выполняется успешно - возвращает
    // пустой массив (0 строк)
-   function Query(DBquery:string8):AStringArr; overload; virtual; abstract;
+   function Query(DBquery:string8):Strings8; overload; virtual; abstract;
    // Sugar: Query(Format(DBQuery,params)) - all string items pass through SQLsafe()
-   function Query(DBquery:string;params:array of const):AStringArr; overload; virtual;
+   function Query(DBquery:string;params:array of const):Strings8; overload; virtual;
    // Запрашивает строки (поля в fields) из таблицы, соответствующие заданному условию, и заносит их в хэш
    // Условие может также содержать сортировку и т.п.
    // Хэш переинициализируется, т.е. если в нём уже было содержимое - оно теряется
@@ -64,9 +65,9 @@ interface
    procedure FreeData; // Free memory of the last dataset
 
   private
-    crSect:TMyCriticalSection;
+    crSect:TLock;
     name:UTF8String;
-    data:AStringArr;
+    data:Strings8;
     row,col,cur:integer; // Current row, column and data index
   end;
 
@@ -76,7 +77,7 @@ interface
    time1,time2,time3:integer; // время выполнения real_query и время получения результатов
    constructor Create;
    procedure Connect; override;
-   function Query(DBquery:string8):AStringArr; override;
+   function Query(DBquery:string8):Strings8; override;
    procedure Disconnect; override;
    destructor Destroy; override;
   private
@@ -86,7 +87,7 @@ interface
 
   TMySQLDatabaseWithLogging=class(TMySQLDatabase)
    constructor Create(customLogProc:TLogProc;minLogLevel_,selectLogLevel_,updatelogLevel_,logGroup_:integer);
-   function Query(DBquery:string8):AStringArr; override;
+   function Query(DBquery:string8):Strings8; override;
   protected
    logProc:TLogProc;
    minLogLevel,selectLogLevel,updatelogLevel,logGroup:integer;
@@ -99,7 +100,7 @@ interface
   function FormatQuery(query:string;params:array of const):string8;
 
 implementation
- uses SysUtils,
+ uses SysUtils, Apus.Strings, Apus.Log,
    {$IFDEF MSWINDOWS}MySQL,{$ELSE}
    mysql51,
    {$ENDIF}
@@ -107,7 +108,7 @@ implementation
    {$IFDEF DELPHI},AnsiStrings{$ENDIF};
  var
   counter:integer=0; // MySQL library usage counter
-  lock:TMyCriticalSection;
+  lock:TLock;
 
 procedure SQLString(var st:RawByteString);
  var
@@ -168,17 +169,17 @@ function FormatQuery(query:string;params:array of const):string8;
      p[i].VPChar:=AllocAnsiStr(st);
     end;
     vtWideString: begin
-     st:=SqlSafe(EncodeUTF8(WideString(params[i].VWideString)));
+     st:=SqlSafe(UTF8.Encode(WideString(params[i].VWideString)));
      p[i].VType:=vtPChar;
      p[i].VPChar:=AllocAnsiStr(st);
     end;
     vtUnicodeString: begin
-     st:=SqlSafe(EncodeUTF8(UnicodeString(params[i].VUnicodeString)));
+     st:=SqlSafe(UTF8.Encode(UnicodeString(params[i].VUnicodeString)));
      p[i].VType:=vtPChar;
      p[i].VPChar:=AllocAnsiStr(st);
     end;
     else
-     p[i]:=params[i];
+      p[i]:=params[i];
    end;
   result:=Str8(Format(query,p));
   for i:=0 to high(params) do
@@ -189,14 +190,14 @@ function FormatQuery(query:string;params:array of const):string8;
 
 constructor TDatabase.Create;
  begin
-  InitCritSect(crSect,name,100);
+  crSect.Init(name,100);
   rowCount:=0; colCount:=0;
  end;
 
 destructor TDatabase.Destroy;
  begin
   if connected then Disconnect;
-  DeleteCritSect(crSect);
+  crSect.Cleanup;
   inherited;
  end;
 
@@ -209,8 +210,8 @@ procedure TDatabase.QueryValues(var h: THash; table, keyField,
   valueField: RawByteString; quoteKeys: boolean=false;condition:RawByteString='');
 var
  i,j:integer;
- keys:AStringArr;
- sa:AStringArr;
+ keys:Strings8;
+ sa:Strings8;
  list:RawByteString;
 begin
  if h.count=0 then exit;
@@ -232,7 +233,7 @@ end;
 
 procedure TDatabase.QueryHash(var h:THash;table,keyField,fields,condition:RawByteString);
 var
- sa:AStringArr;
+ sa:Strings8;
  i,j:integer;
  key:RawByteString;
 begin
@@ -247,7 +248,7 @@ begin
  end;
 end;
 
-function TDatabase.Query(DBquery:string;params:array of const):AStringArr;
+function TDatabase.Query(DBquery:string;params:array of const):Strings8;
 begin
  DBQuery:=FormatQuery(DBQuery, params);
  result:=Query(DBQuery);
@@ -261,17 +262,17 @@ procedure TMySQLDatabase.Connect;
   i:integer;
  begin
   try
-   LogMessage(name+' DB.Connect');
+   Log.Msg(name+' DB.Connect');
    lock.Enter;
    try
     try
      ms:=mysql_init(nil);
     except
-     on e:Exception do ForceLogMessage(name+' SQL: error in mysql_init: '+e.message);
+     on e:Exception do Log.Force(name+' SQL: error in mysql_init: '+e.message);
     end;
     if ms=nil then begin
      sleep(100);
-     ForceLogMessage(name+' SQL: ms=nil');
+     Log.Force(name+' SQL: ms=nil');
      ms:=mysql_init(nil);
     end;
    finally
@@ -282,23 +283,23 @@ procedure TMySQLDatabase.Connect;
     mysql_options(ms,MYSQL_OPT_RECONNECT,@bool);
     mysql_options(ms,MYSQL_SET_CHARSET_NAME,PChar(DB_CHARSET));
    except
-    on e:exception do ForceLogMessage('SQL: error during option set: '+e.message);
+    on e:exception do Log.Force('SQL: error during option set: '+e.message);
    end;
    i:=1;
-   ForceLogMessage(name+' Connecting to MySQL server');
+   Log.Force(name+' Connecting to MySQL server');
    while (mysql_real_connect(ms,PAnsiChar(DB_HOST),PAnsiChar(DB_LOGIN),PAnsiChar(DB_PASSWORD),
             PAnsiChar(DB_DATABASE),0,'',CLIENT_COMPRESS)<>ms) and
          (i<4) do begin
-    ForceLogMessage(name+': Error connecting to MySQL server ('+mysql_error(ms)+'), retry in 3 sec');
+    Log.Force(name+': Error connecting to MySQL server ('+mysql_error(ms)+'), retry in 3 sec');
     sleep(3000); inc(i);
    end;
    if i=4 then raise EError.Create(name+': Failed to connect to MySQL server');
    bool:=true;
    mysql_options(ms,MYSQL_OPT_RECONNECT,@bool);
    connected:=true;
-   ForceLogMessage(name+': MySQL connection established');
+   Log.Force(name+': MySQL connection established');
   except
-   on e:exception do ForceLogMessage(name+': error during MySQL Connect: '+e.message);
+   on e:exception do Log.Force(name+': error during MySQL Connect: '+e.message);
   end;
  end;
 
@@ -317,7 +318,7 @@ begin
   end;
   {$ENDIF}
   inc(counter);
-  name:='DB-'+inttostr(counter);
+  name:='DB-'+Conv.ToStr(counter);
  finally
   lock.Leave;
  end;
@@ -338,13 +339,13 @@ end;
 procedure TMySQLDatabase.Disconnect;
 begin
  if ms<>nil then begin
-  ForceLogMessage(name+' Closing MySQL connection');
+  Log.Force(name+' Closing MySQL connection');
   mysql_close(ms);
  end;
  connected:=false;
 end;
 
-function TMySQLDatabase.Query(DBquery: string8): AStringArr;
+function TMySQLDatabase.Query(DBquery: string8): Strings8;
 var
  r,flds,rows,i,j:integer;
  st:RawByteString;
@@ -378,35 +379,35 @@ begin
      st:=mysql_error(ms);
      lastError:=st;
      lastErrorCode:=dbePingFailed;
-     LogMessage('ERROR! Failed to ping MySQL: '+st);
+     Log.Msg('ERROR! Failed to ping MySQL: '+st);
     end;
     exit;
    end;
    // непустой запрос
    time1:=0; time2:=0; time3:=0;
-   t:=MyTickCount;
+   t:=CoreTime.Ticks;
    r:=mysql_real_query(ms,@DBquery[1],length(DBquery));
-   time1:=MyTickCount-t;
+   time1:=CoreTime.Ticks-t;
    if r<>0 then begin // failure
     st:=mysql_error(ms);
     lastError:=st;
     lastErrorCode:=dbeServerError;
-    LogMessage('SQL_ERROR: '+st);
+    Log.Msg('SQL_ERROR: '+st);
     setLength(result,1);
     result[0]:='ERROR: '+st;
     exit;
    end;
    insertID:=mysql_insert_id(ms);
-   t:=MyTickCount;
+   t:=CoreTime.Ticks;
 //   res:=mysql_use_result(ms);
    res:=mysql_store_result(ms);
-   time2:=MyTickCount-t;
+   time2:=CoreTime.Ticks-t;
    if res=nil then begin
     st:=mysql_error(ms);
     if st<>'' then begin
      lastError:=st;
      lastErrorCode:=dbeQueryFailed;
-     LogMessage('SQL_ERROR: '+st);
+     Log.Msg('SQL_ERROR: '+st);
      setLength(result,1);
      result[0]:='ERROR: '+st;
     end else
@@ -417,8 +418,8 @@ begin
    rows:=mysql_num_rows(res);
    colCount:=flds;
    rowCount:=rows;
-   t:=MyTickCount;
-   if ((rowCount=0) and logChanges) or ((rowCount>0) and logSelects) then LogMessage('SQL: '+DBquery);
+   t:=CoreTime.Ticks;
+   if ((rowCount=0) and logChanges) or ((rowCount>0) and logSelects) then Log.Msg('SQL: '+DBquery);
    try
     j:=0;
     setLength(result,flds*rows);
@@ -438,7 +439,7 @@ begin
    finally
     mysql_free_result(res);
    end;
-   time3:=MyTickCount-t;
+   time3:=CoreTime.Ticks-t;
   finally
    LeaveCriticalSection(crSect);
   end;
@@ -459,7 +460,7 @@ constructor TMySQLDatabaseWithLogging.Create;
   end;
  end;
 
-function TMySQLDatabaseWithLogging.Query(DBquery: string8): AStringArr;
+function TMySQLDatabaseWithLogging.Query(DBquery: string8): Strings8;
  var
   t:int64;
  begin
@@ -468,12 +469,12 @@ function TMySQLDatabaseWithLogging.Query(DBquery: string8): AStringArr;
   end else
    LogProc(DBquery,updateLogLevel,logGroup);
   lastError:='';
-  t:=MyTickCount;
+  t:=CoreTime.Ticks;
   result:=inherited Query(DBquery);
-  t:=MyTickCount-t;
+  t:=CoreTime.Ticks-t;
   if lastError<>'' then LogProc('SQL Error: '+lastError,updateLogLevel+1,logGroup);
   if t>100 then LogProc(Format('SQL: query time=%d (real_query: %d, use: %d, fetch: %d)',[t,time1,time2,time3]),
-    max2(selectLogLevel,updateLogLevel)+1,logGroup);
+    Max(selectLogLevel,updateLogLevel)+1,logGroup);
  end;
 
 function TDatabase.Next:String8;
@@ -490,7 +491,7 @@ function TDatabase.NextInt:integer;
   s:UTF8String;
  begin
   s:=Next;
-  if s<>'' then result:=ParseInt(s) else result:=0;
+  if s<>'' then result:=Conv.ToInt(s) else result:=0;
  end;
 
 function TDatabase.NextDate:TDateTime;
@@ -511,5 +512,5 @@ procedure TDatabase.NextRow;
  end;
 
 initialization
- InitCritSect(lock,'DB_LOCK',150);
+ InitCritSect {TODO: use lock.Init(name,level)}(lock,'DB_LOCK',150);
 end.

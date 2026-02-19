@@ -17,7 +17,7 @@
 {$I defines.inc}
 unit Apus.Files;
 interface
-uses Apus.Core;
+uses Apus.Core, Apus.Types;
 
 type
   TFileInfo = record
@@ -25,8 +25,6 @@ type
     timestamp:TDateTime;
     isDirectory:boolean;
   end;
-
-  TBuffer = pointer; // TEMPORARY STUB!
 
   TFileHandle = pointer; // opaque type
   IFileProvider = interface;
@@ -41,7 +39,6 @@ type
     // numBytes=0 means read whole file; startFrom = byte offset from beginning
     class function LoadAsBytes(const fname:String8; numBytes:int64=0; startFrom:int64=0):ByteArray; static;
     class function LoadAsString(const fname:String8; numBytes:int64=0; startFrom:int64=0):String8; static;
-    class function LoadAsBuffer(const fname:String8):TBuffer; static;
     class procedure Save(const fname:String8; buf:pointer; size:integer); overload; static;
     class procedure Save(const fname:String8; const data:ByteArray); overload; static;
     class procedure Save(const fname:String8; const data:String8); overload; static;
@@ -73,9 +70,9 @@ type
     class procedure MakeBakFile(const fname:String8); static; // rename xxx.yyy -> xxx.bak
 
     // --- Path utilities (pure string operations, don't use provider chain) ---
-    class function SafeFileName(const fname:String8):String8; static;     // replace unsafe chars with '_'
-    class function FileName(const fname:String8):String8; static;         // fix separators + apply case rules
-    class procedure AddFileNameRule(const rule:String8); static;
+    class function SafeName(const fname:String8):String8; static;     // replace unsafe chars with '_'
+    class function FixName(const fname:String8):String8; static;         // fix separators + apply case rules
+    class procedure AddFixNameRule(const rule:String8); static;
     class function IsPathRelative(const fname:String8):boolean; static;
     // Poll until file appears (exists=true) or disappears (exists=false), return false on timeout
     class function WaitFor(const fname:String8; delayLimit:integer; exists:boolean=true):boolean; static;
@@ -214,12 +211,14 @@ end;
 
 function TOSFileProvider.Map(const fname:String8; readOnly:boolean):TBuffer;
 begin
+  NotImplemented;
   // TODO: memory-mapped files
-  result:=nil;
+  //result:=nil;
 end;
 
 procedure TOSFileProvider.UnMap(fileData:TBuffer);
 begin
+  NotImplemented;
   // TODO: memory-mapped files
 end;
 
@@ -393,12 +392,6 @@ begin
   SetLength(result,length(buf));
   if length(buf)>0 then
     Move(buf[0],result[1],length(buf));
-end;
-
-class function Files.LoadAsBuffer(const fname:String8):TBuffer;
-begin
-  // TODO: needs real TBuffer
-  result:=nil;
 end;
 
 class procedure Files.Save(const fname:String8; buf:pointer; size:integer);
@@ -670,7 +663,7 @@ end;
 
 { Files record — path utilities }
 
-class function Files.SafeFileName(const fname:String8):String8;
+class function Files.SafeName(const fname:String8):String8;
 var
   i:integer;
 begin
@@ -680,7 +673,7 @@ begin
       result[i]:='_';
 end;
 
-class function Files.FileName(const fname:String8):String8;
+class function Files.FixName(const fname:String8):String8;
 var
   i:integer;
   s:string;
@@ -696,7 +689,7 @@ begin
   result:=String8(s);
 end;
 
-class procedure Files.AddFileNameRule(const rule:String8);
+class procedure Files.AddFixNameRule(const rule:String8);
 begin
   fileNameRules:=fileNameRules+[rule];
 end;

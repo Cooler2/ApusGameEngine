@@ -1,11 +1,10 @@
 ﻿// Utility functions - miscellaneous helpers that don't fit other modules' scope
 //
 // SCOPE: Functions that don't belong in core/conv/strings/files - date/time parsing,
-// string splitting with quotes, array helpers, command-line args, simple encoding.
+// array helpers, command-line args, simple encoding.
 //
-// ADD HERE: Date parsing (ParseDate/ParseTime), string splitting (SplitA), array helpers
-// (AddString/RemoveString), cmdline (HasParam/GetParam), encoding (EncodeUTF8/DecodeUTF8),
-// simple crypto/compression.
+// ADD HERE: Date parsing (ParseDate/ParseTime), array helpers (AddString/RemoveString),
+// cmdline (HasParam/GetParam), encoding (EncodeUTF8/DecodeUTF8), simple crypto/compression.
 //
 // DON'T ADD: Core math/memory (→ Core), type conversion (→ Conv), string operations (→ Strings),
 // file I/O (→ Files), logging (→ Log), threading (→ Threads).
@@ -23,18 +22,44 @@ function ParseDate(st:String8;default:TDateTime=0):TDateTime;
 function GetDateFromStr(st:String8;default:TDateTime=0):TDateTime; // alias for compatibility
 function ParseTime(st:String8;default:TDateTime=0):TDateTime;
 
-// split string into array by divider
-// version with quotes support: handles quoted substrings with paired quotes escaping
-function SplitA(divider,st:String8;quotes:Char8):Strings8; overload;
-// simple version without quotes
-function SplitA(divider,st:String8):Strings8; overload;
+type
+  // Text encoding identifier for Unicode conversion
+  TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8);
 
-// remove leading and trailing whitespace (same as String8.Trim but as standalone function)
-function Chop(st:String8):String8; overload;
-{$IFNDEF UNICODE}
-function Chop(st:String):String; overload;
-{$ENDIF}
-function Chop(st:String16):String16; overload;
+// Convert WideString to 8-bit string with given encoding
+function UnicodeTo(const st:WideString;encoding:TTextEncoding):String8;
+// Convert 8-bit string to WideString with given encoding
+function UnicodeFrom(const st:String8;encoding:TTextEncoding):WideString;
+
+
+// =============================================================================
+// Spline interpolation functions
+// =============================================================================
+type
+  // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
+  TSplineFunc=function(x,x0,x1,y0,y1:single):single;
+
+// All splines: f(x0)=y0, f(x1)=y1, x clamped to [x0,x1]
+function Spline0(x,x0,x1,y0,y1:single):single; // linear
+function Spline1(x,x0,x1,y0,y1:single):single; // ease-in-out: 25%-50%-25%
+function Spline2(x,x0,x1,y0,y1:single):single; // ease-out (decelerate)
+function Spline2rev(x,x0,x1,y0,y1:single):single; // ease-in (accelerate)
+
+type
+  TSplines=record
+    linear:TSplineFunc;
+    easeIn:TSplineFunc;
+    easeOut:TSplineFunc;
+    easeInOut:TSplineFunc;
+    easierIn:TSplineFunc;
+    easierOut:TSplineFunc;
+    easierInOut:TSplineFunc;
+    bounce:TSplineFunc;
+  end;
+
+var
+  splines:TSplines; // common spline functions
+
 
 implementation
 uses SysUtils, Apus.Conv, Apus.Strings, Apus.Log;
@@ -49,16 +74,16 @@ begin
   try
     st:=st.Trim;
     if st='' then exit;
-    s1:=SplitA(' ',st);
+    s1:=st.Split(' ');
     splitter:='';
     if pos('.',s1[0])>0 then splitter:='.';
     if pos('-',s1[0])>0 then splitter:='-';
     if pos('/',s1[0])>0 then splitter:='/';
     if splitter='' then exit;
-    s2:=SplitA(splitter,s1[0]);
+    s2:=s1[0].Split(splitter[1]);
     if length(s2)<>3 then exit;
     if length(s2[0])=4 then Swap(s2[2],s2[0]);
-    year:=strtoint(s2[2]);
+    year:=Conv.ToInt(s2[2]);
     if year<100 then begin
       if year>70 then year:=1900+year
       else year:=2000+year;
@@ -67,17 +92,17 @@ begin
     day:=Clamp(Conv.ToInt(s2[0]),1,31);
     result:=EncodeDate(year,month,day);
     if length(s1)>1 then begin
-      s2:=SplitA(':',s1[1]);
+      s2:=s1[1].Split(':');
       msec:=0;
-      if length(s2)>0 then hour:=strtoint(s2[0]) else hour:=0;
-      if length(s2)>1 then min:=strtoint(s2[1]) else min:=0;
+      if length(s2)>0 then hour:=Conv.ToInt(s2[0]) else hour:=0;
+      if length(s2)>1 then min:=Conv.ToInt(s2[1]) else min:=0;
       if length(s2)>2 then begin
         p:=pos('.',s2[2]);
         if p>0 then begin
-          msec:=strtoint(copy(s2[2],p+1,3));
+          msec:=Conv.ToInt(copy(s2[2],p+1,3));
           SetLength(s2[2],p-1);
         end;
-        sec:=strtoint(s2[2]);
+        sec:=Conv.ToInt(s2[2]);
       end else sec:=0;
       result:=result+EncodeTime(hour,min,sec,msec);
     end;
@@ -93,14 +118,14 @@ var
 begin
   try
     st:=st.Trim;
-    sa:=SplitA(':',st);
+    sa:=st.Split(':');
     sec:=0;
     msec:=0;
     if length(sa)>0 then hour:=Conv.ToInt(sa[0]) else hour:=0;
     if length(sa)>1 then min:=Conv.ToInt(sa[1]) else min:=0;
     if length(sa)>2 then begin
       if pos('.',sa[2])>0 then begin
-        sa:=SplitA('.',sa[2]);
+        sa:=sa[2].Split('.');
         sec:=Conv.ToInt(sa[0]);
         msec:=Conv.ToInt(sa[1]);
       end else
@@ -117,147 +142,130 @@ begin
   result:=ParseDate(st,default);
 end;
 
-function SplitA(divider,st:String8;quotes:Char8):Strings8;
-var
-  i,j,n:integer;
-  // resize strings array
-  procedure Resize(var arr:Strings8;newsize:integer);
-  begin
-    if newsize>length(arr) then
-      SetLength(arr,length(arr)+256);
-  end;
-  // main function body
+// =============================================================================
+// Spline implementations
+// =============================================================================
+{$R-}
+function Spline0(x,x0,x1,y0,y1:single):single;
 begin
-  if st='' then begin
-    SetLength(result,0); exit;
-  end;
-  n:=0;
-  repeat
-    // delete spaces at the beginning
-    while (length(st)>0) and (st[1] in [#9,' ']) do delete(st,1,1);
-    i:=pos(divider,st);
-
-    if length(st)=0 then break; // empty string
-
-    if (length(st)>1) and (st[1]=quotes) then begin
-      // string is quoted
-      // so find enclosing quotes
-      j:=2;
-      repeat
-        if st[j]=quotes then begin
-          if (j<length(st)) and (st[j+1]=quotes) then begin
-            // paired quotes: replace and skip
-            delete(st,j,1);
-          end else break;
-        end;
-        inc(j);
-      until j>length(st);
-      if j>length(st) then begin
-        Log.Warn('Unterminated string: '+st);
-      end;
-      Resize(result,n+1);
-      result[n]:=copy(st,2,j-2);
-      delete(st,1,j+length(divider));
-      inc(n);
-    end else begin
-      // simply get first divider
-      Resize(result,n+2);
-      if i=0 then begin // no divider found - all string is last substr
-        result[n]:=st;
-        inc(n);
-        break;
-      end else begin // divider found
-        result[n]:=copy(st,1,i-1);
-        delete(st,1,i+length(divider)-1);
-        inc(n);
-      end;
-      i:=length(result[n]);
-      while (i>0) and (result[n][i]<=' ') do dec(i);
-      if i<length(result[n]) then SetLength(result[n],i);
-      if length(st)=0 then inc(n); // for last empty substring
-    end;
-  until false;
-  SetLength(result,n);
+ x:=(x-x0)/(x1-x0);
+ if x<0 then x:=0;
+ if x>1 then x:=1;
+ result:=y0+(y1-y0)*x;
 end;
 
-function SplitA(divider,st:String8):Strings8;
-var
-  i,j,n,divLen,maxIdx:integer;
-  fl:boolean;
-  idx:array of integer;
-  ch:Char8;
+function Spline1(x,x0,x1,y0,y1:single):single; // ease-in-out 25-50-25
 begin
-  if st='' then begin
-    SetLength(result,0); exit;
+ x:=(x-x0)/(x1-x0);
+ if x<0 then x:=0;
+ if x>1 then x:=1;
+ if x<0.25 then result:=2.666666*sqr(x) else
+  if x>0.75 then result:=1-2.666666*sqr(1-x) else
+   result:=1.333333*x-0.16666666;
+ result:=y0+(y1-y0)*result;
+end;
+
+function Spline2(x,x0,x1,y0,y1:single):single; // ease-out (decelerate)
+begin
+ x:=(x-x0)/(x1-x0);
+ if x<0 then x:=0;
+ if x>1 then x:=1;
+ result:=1-sqr(1-x);
+ result:=y0+(y1-y0)*result;
+end;
+
+function Spline2rev(x,x0,x1,y0,y1:single):single; // ease-in (accelerate)
+begin
+ x:=(x-x0)/(x1-x0);
+ if x<0 then x:=0;
+ if x>1 then x:=1;
+ result:=x*x;
+ result:=y0+(y1-y0)*result;
+end;
+{$IFDEF RANGECHECKS_ON}{$R+}{$ENDIF}
+
+// Win1251 -> Unicode mapping table (code points $80..$FF)
+const
+ win1251cp:array[$80..$FF] of word=(
+  $0402,$0403,$201A,$0453,$201E,$2026,$2020,$2021,$20AC,$2030,$0409,$2039,$040A,
+  $040C,$040B,$040F,$0452,$2018,$2019,$201C,$201D,$2022,$2013,$2014,$FFFF,$2122,$0459,
+  $203A,$045A,$045C,$045B,$045F,$00A0,$040E,$045E,$0408,$00A4,$0490,$00A6,$00A7,
+  $0401,$00A9,$0404,$00AB,$00AC,$00AD,$00AE,$0407,$00B0,$00B1,$0406,$0456,$0491,
+  $00B5,$00B6,$00B7,$0451,$2116,$0454,$00BB,$0458,$0405,$0455,$0457,$0410,$0411,
+  $0412,$0413,$0414,$0415,$0416,$0417,$0418,$0419,$041A,$041B,$041C,$041D,$041E,
+  $041F,$0420,$0421,$0422,$0423,$0424,$0425,$0426,$0427,$0428,$0429,$042A,$042B,
+  $042C,$042D,$042E,$042F,$0430,$0431,$0432,$0433,$0434,$0435,$0436,$0437,$0438,
+  $0439,$043A,$043B,$043C,$043D,$043E,$043F,$0440,$0441,$0442,$0443,$0444,$0445,
+  $0446,$0447,$0448,$0449,$044A,$044B,$044C,$044D,$044E,$044F);
+
+function Win1251FromUnicode(w:word):AnsiChar;
+var
+ j:integer;
+begin
+ if w<$80 then exit(AnsiChar(w));
+ if (w>=$410) and (w<=$44F) then exit(AnsiChar(192+w-$410));
+ result:=' ';
+ for j:=$80 to $BF do
+  if win1251cp[j]=w then begin result:=AnsiChar(j); exit; end;
+end;
+
+function UnicodeTo(const st:WideString;encoding:TTextEncoding):String8;
+var
+ i:integer;
+ w:word;
+begin
+ case encoding of
+  TTextEncoding.teUTF8:result:=EncodeUTF8(st);
+  TTextEncoding.teWin1251:begin
+   SetLength(result,length(st));
+   for i:=1 to length(st) do
+    result[i]:=Win1251FromUnicode(word(st[i]));
   end;
-  setLength(idx,15);
-  idx[0]:=1;
-  // count dividers
-  n:=0;
-  i:=1;
-  divLen:=length(divider);
-  maxIdx:=length(st)-divLen+1;
-  ch:=divider[1];
-  while i<=maxIdx do begin
-    if st[i]<>ch then
-      inc(i)
-    else begin
-      fl:=true;
-      for j:=2 to divLen do
-        if st[i+j-1]<>divider[j] then begin
-          fl:=false; break;
-        end;
-      if fl then begin
-        inc(n);
-        if n>=length(idx)-1 then SetLength(idx,length(idx)*4);
-        idx[n]:=i+divLen;
-        inc(i,divLen);
-      end else inc(i);
-    end;
+  TTextEncoding.teANSI:begin
+   SetLength(result,length(st));
+   for i:=1 to length(st) do begin
+    w:=word(st[i]);
+    if w<256 then result[i]:=AnsiChar(w) else result[i]:='?';
+   end;
   end;
-  inc(n);
-  idx[n]:=length(st)+length(divider)+1;
-  SetLength(result,n);
-  for i:=0 to n-1 do begin
-    j:=idx[i+1]-divLen-idx[i];
-    SetLength(result[i],j);
-    if j>0 then result[i]:=copy(st,idx[i],j);
+  else raise EError.Create('UnicodeTo: encoding not supported');
+ end;
+end;
+
+function UnicodeFrom(const st:String8;encoding:TTextEncoding):WideString;
+var
+ i:integer;
+ b:byte;
+begin
+ case encoding of
+  TTextEncoding.teUTF8:result:=DecodeUTF8(st);
+  TTextEncoding.teWin1251:begin
+   SetLength(result,length(st));
+   for i:=1 to length(st) do begin
+    b:=byte(st[i]);
+    if b<$80 then result[i]:=WideChar(b)
+    else result[i]:=WideChar(win1251cp[b]);
+   end;
   end;
+  TTextEncoding.teANSI:begin
+   SetLength(result,length(st));
+   for i:=1 to length(st) do result[i]:=WideChar(byte(st[i]));
+  end;
+  else raise EError.Create('UnicodeFrom: encoding not supported');
+ end;
 end;
 
-function Chop(st:String8):String8;
-var
-  i:integer;
-begin
-  result:=st;
-  while (length(result)>0) and (result[1]<=' ') do delete(result,1,1);
-  i:=length(result);
-  while (length(result)>0) and (result[i]<=' ') do dec(i);
-  setlength(result,i);
-end;
 
-{$IFNDEF UNICODE}
-function Chop(st:String):String;
-var
-  i:integer;
-begin
-  result:=st;
-  while (length(result)>0) and (result[1]<=' ') do delete(result,1,1);
-  i:=length(result);
-  while (length(result)>0) and (result[i]<=' ') do dec(i);
-  setlength(result,i);
-end;
-{$ENDIF}
 
-function Chop(st:String16):String16;
-var
-  i:integer;
-begin
-  result:=st;
-  while (length(result)>0) and (result[1]<=' ') do delete(result,1,1);
-  i:=length(result);
-  while (length(result)>0) and (result[i]<=' ') do dec(i);
-  setlength(result,i);
-end;
-
+initialization
+  with splines do begin
+    linear:=Spline0;
+    easeIn:=Spline2rev;
+    easeOut:=Spline2;
+    easeInOut:=Spline1;
+    easierIn:=Spline2rev;
+    easierOut:=Spline2;
+    easierInOut:=Spline1;
+    bounce:=nil; // not migrated from Common yet
+  end;
 end.

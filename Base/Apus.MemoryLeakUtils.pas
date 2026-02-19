@@ -14,7 +14,7 @@ interface
  {$ENDIF}{$ENDIF}
 
 implementation
- uses Apus.Core, SysUtils;
+ uses Apus.Core, SysUtils, Apus.Conv;
  type
   TMemLeak=record
    value:cardinal;
@@ -42,8 +42,8 @@ implementation
     raise EError.Create('Stack of memory leaks is empty!');
    if AllocMemSize<>MemLeaks[memleakcnt].value then
     raise EError.Create('Memory leak found - '+MemLeaks[memleakcnt].name+
-     ': was - '+inttostr(MemLeaks[memleakcnt].value)+' bytes, now - '+
-     inttostr(AllocMemSize)+' bytes allocated.');
+     ': was - '+Conv.ToStr(MemLeaks[memleakcnt].value)+' bytes, now - '+
+     Conv.ToStr(AllocMemSize)+' bytes allocated.');
    memleaks[memleakcnt].name:='';
    dec(memleakcnt);
   end;

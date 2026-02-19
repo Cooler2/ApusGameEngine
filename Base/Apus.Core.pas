@@ -96,6 +96,9 @@ type
   TProcedure = procedure;
   TObjProcedure = procedure of object;
 
+  // Text encoding types
+  TTextEncoding = (teUnknown, teANSI, teWin1251, teUTF8);
+
   // 128-bit vector data
   m128 = record
     case byte of
@@ -207,12 +210,15 @@ var
   function IsNaN(const v:single):boolean; overload; inline;
   function IsNaN(const v:double):boolean; overload; inline;
 
+  // Check if variant has a value (not unassigned)
+  function HasValue(const v:variant):boolean;
+
   function PtrInside(ptr,base:pointer;size:UIntPtr):boolean; inline; // check if ptr is inside memory block
 
   var
     // A global shared lock providing very-short-term protection against resource contention
     // via SpinLock/SpinUnlock (without parameters). Do not modify directly!
-    globalLock:integer=0;
+    globalSpinLock:integer=0;
 
   procedure SpinLock(var lock:integer); overload;
   procedure SpinLock; overload; inline; // uses globalLock
@@ -255,6 +261,8 @@ var
 // Exception classes
 // =============================================================================
 type
+  Exception = SysUtils.Exception; // reexport
+
   // Base exception with stack trace support
   EBaseException=class(Exception)
   private
@@ -368,7 +376,7 @@ type
 implementation
 
 uses
-  Apus.Conv, DateUtils,
+  Apus.Conv, DateUtils, Variants,
 {$IFDEF MSWINDOWS}
   Windows
 {$ENDIF}
@@ -437,7 +445,7 @@ end;
 
 procedure SpinLock; inline;
 begin
-  while Atomic.CmpExchange(globalLock,1,0)<>0 do Time.Sleep(0);
+  while Atomic.CmpExchange(globalSpinLock,1,0)<>0 do Time.Sleep(0);
 end;
 
 procedure SpinUnlock(var lock:integer); inline;
@@ -447,7 +455,7 @@ end;
 
 procedure SpinUnlock; inline;
 begin
-  Atomic.Exchange(globalLock,0);
+  Atomic.Exchange(globalSpinLock,0);
 end;
 
 // =============================================================================
@@ -929,6 +937,11 @@ var
 begin
   Move(v,bits,8);
   result:=(bits and $7FF0000000000000=$7FF0000000000000) and (bits and $000FFFFFFFFFFFFF<>0);
+end;
+
+function HasValue(const v:variant):boolean;
+begin
+  result:=not (VarIsEmpty(v) or VarIsNull(v));
 end;
 
 function PtrInside(ptr,base:pointer;size:UIntPtr):boolean;
@@ -1727,7 +1740,155 @@ begin
   {$ENDIF}
 end;
 
+
 initialization
   CheckCPU;
   InitTimer;
 end.
+
+
+-- Apus.Types:
+
+// This unit contains some useful types (except simple types and classes) and helpers
+// The structures defined here are not thread-safe
+
+// Copyright (C) 2021 Ivan Polyacov, ivan@apus-software.com
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+unit Apus.Types;
+interface
+uses Types,
+  Apus.Core
+  {$IFDEF MSWINDOWS},Windows{$ENDIF};
+
+type
+  TPoint = Types.TPoint;
+  TRect = Types.TRect;
+
+  // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
+  TSplineFunc=function(x,x0,x1,y0,y1:single):single;
+
+  TIntRange=record
+    min,max:integer;
+    procedure Init(min,max:integer);
+    function Width:integer; // max-min
+    function Rand:integer;
+  end;
+
+  TFloatRange=record
+    min,max:single;
+    procedure Init(min,max:single);
+    function Width:single; // max-min
+    function Rand:single;
+  end;
+
+  // Helper type for custom arrays
+  TArray<T>=record
+    items:array of T;
+    procedure Add(element:T);
+    procedure Insert(element:T;index:integer);
+    procedure Remove(element:T;keepOrder:boolean=true);
+    function Find(element:T):integer;
+    function Contains(element:T):boolean;
+    function Last:T;
+    function IsEmpty:boolean;
+    function Count:integer;
+    function Pop:T; // return the last element and remove it
+  end;
+
+  // "name = value" string pair
+  TNameValue=record
+    name,value:string8;
+    procedure Init(name,value:string8);
+    procedure InitFrom(st:string8;splitter:string8='='); // split and trim
+    function Named(st:string8):boolean;
+    function GetInt:int64;
+    function GetFloat:double;
+    function GetDate:TDateTime;
+    function GetBool:boolean; // true if value is "y", "yes", "true", "on", "1"; false if "n", "no", "false", "off", "0"
+    function Join(separator:string8='='):string8; // convert back to "name=value"
+  end;
+
+  // List of "name=value" pairs
+  // If you have many items, consider using hash instead
+  TNameValueList=record
+    items:array of TNameValue;
+    // Init from a string 'name1=value1;..;nameN=valueN'
+    constructor Init(st:string8;itemSeparator:string8=';';valueSeparator:string8='='); overload;
+    // Init from array of strings 'name=value'
+    constructor Init(list:Strings8;valueSeparator:string8='='); overload;
+    function Save(itemSeparator:string8=';';valueSeparator:string8='='):string8;
+    function Count:integer;
+    function HasName(name:string8):boolean; // check if there is an item with given name
+    function Find(name:string8):integer;
+    procedure Add(item:TNameValue); overload;
+    procedure Add(list:TNameValueList); overload;
+  private
+    function GetItem(name:String8):string8;
+    procedure SetItem(name:string8;value:string8);
+  public
+    property Item[name:string8]:string8 read GetItem write SetItem;
+  end;
+
+  // Helper object represents in-memory binary buffer, doesn't own data
+  // Useful to pass arbitrary data instead of pointer:size pair
+  TBuffer=record
+    data:PByte;   // pointer to the whole buffer data
+    readPos:PByte; // current reading position
+    size:integer; // total data size
+    constructor Create(sour:pointer;sizeInBytes:integer);
+    constructor CreateFrom(sour:pointer;sizeInBytes:integer); overload;
+    constructor CreateFrom(var sour;sizeInBytes:integer); overload;
+    constructor CreateFrom(bytes:ByteArray); overload;
+    constructor CreateFrom(st:String8); overload;
+    function Slice(length:integer;advance:boolean=false):TBuffer; overload;
+    function Slice(from,length:integer):TBuffer; overload;
+    function ReadByte:byte;
+    function ReadBool:boolean;
+    function ReadWord:word;
+    function ReadInt:integer;
+    function ReadUInt:cardinal;
+    function ReadFloat:single;
+    function ReadDouble:double;
+    function ReadString:String8;
+    function ReadFlex:cardinal; // read flexible (multibyte) unsigned integer
+    procedure Skip(numBytes:integer); // advance read pos by
+    procedure Seek(pos:integer);
+    procedure Read(var dest;numBytes:integer);
+    function BytesLeft:integer; inline;
+    function CurrentPos:integer; inline;
+  end;
+
+{  // In-memory binary buffer used to read bit fields
+  TBitBuffer=record
+    data:PByte;
+    size:integer;
+    constructor Create(sour:pointer;sizeInBytes:integer);
+    constructor CreateFrom(buffer:TBuffer);
+    function Read(numBits:integer):cardinal;
+  private
+    buf:cardinal;
+  end;}
+
+  TWriteBuffer=record
+    position:integer;
+    constructor Init(expectedSize:integer);
+    procedure Reset(newSize:integer);
+    procedure Write(var item;numBytes:integer); overload;
+    procedure Write(var buf:TBuffer); overload;
+    procedure WriteByte(b:byte); inline;
+    procedure WriteBool(b:boolean); inline;
+    procedure WriteWord(w:word); inline;
+    procedure WriteInt(i:integer); inline;
+    procedure WriteUInt(c:cardinal); inline;
+    procedure WriteFloat(f:single); inline;
+    procedure WriteDouble(d:double); inline;
+    procedure WriteFlex(c:cardinal);
+    procedure WriteStr(s:String8);
+    procedure Seek(pos:integer);
+    procedure Skip(bytes:integer);
+    function AsBuffer:TBuffer;
+  private
+    data:ByteArray;
+  end;
+

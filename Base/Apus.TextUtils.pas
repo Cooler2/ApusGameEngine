@@ -12,7 +12,7 @@ interface
  // Remove any HTML tags, return plain text
  function ExtractPlainText(const html:string):string;
  // Builds list of unique words
- function SplitToWords(const text:WideString):WStringArr;
+ function SplitToWords(const text:WideString):Strings16;
  // Является ли символ "алфавитно-цифровым" (соединительная пунктуация тоже считается) или же какие-то другим
  function IsWordChar(const wch:WideChar):boolean;
  // Returns edit distance between 2 words
@@ -21,24 +21,26 @@ interface
  function GetMaxSubsequence(const w1,w2:WideString):IntArray;
 
  // Convert string in JSON format into set of Key->Value pairs
- function ParseJSON(json:AnsiString):THash;
+ function ParseJSON(json:String8):THash;
 
 implementation
- uses SysUtils;
+ uses SysUtils,
+  Apus.Conv,
+  Apus.Strings;
  var
   wordCharMap:array[0..2047] of cardinal;
 
- function ParseJSON(json:AnsiString):THash;
+ function ParseJSON(json:String8):THash;
   var
    i,p:integer;
-   sa:AStringArr;
+   sa:Strings8;
    key,value:AnsiString;
   begin
    result.Init;
    json:=chop(json);
    if length(json)=0 then exit;
    if (json[1]='{') and (json[length(json)]='}') then json:=copy(json,2,length(json)-2);
-   sa:=SplitA(',',json);
+   sa:=json.Split(',');
    for i:=0 to high(sa) do begin
     sa[i]:=chop(sa[i]);
     p:=pos(':',sa[i]);
@@ -74,7 +76,7 @@ implementation
    for i:=1 to h do
     for j:=1 to w do
      if w1[j]=w2[i] then d[i,j]:=d[i-1,j-1]+1
-      else d[i,j]:=max2(d[i-1,j],d[i,j-1]);
+      else d[i,j]:=Max(d[i-1,j],d[i,j-1]);
    l:=d[h,w]; i:=h; j:=w;
    SetLength(result,l);
    while d[i,j]>0 do
@@ -102,12 +104,12 @@ implementation
    for i:=1 to h do d[i,0]:=i;
    for i:=1 to h do
     for j:=1 to w do begin
-     l:=1+min2(d[i-1,j],d[i,j-1]);
+     l:=1+Min(d[i-1,j],d[i,j-1]);
      if w1[j]=w2[i] then m:=d[i-1,j-1]
       else m:=d[i-1,j-1]+1;
-     d[i,j]:=min2(l,m);
+     d[i,j]:=Min(l,m);
      if (i>1) and (j>1) and (w1[j-1]=w2[i]) and (w1[j]=w2[i-1]) then
-       d[i,j]:=min2(d[i,j],d[i-2,j-2]+1);
+       d[i,j]:=Min(d[i,j],d[i-2,j-2]+1);
     end;
 
    result:=d[h,w];
@@ -119,7 +121,7 @@ implementation
   end;
 
  // Split string into words (tokenize), all non-word characters removed
- function SplitToWords(const text:WideString):WStringArr;
+ function SplitToWords(const text:WideString):Strings16;
   var
    i,j,cnt:integer;
    mode:boolean;
@@ -194,12 +196,12 @@ implementation
           delete(st,1,1);
           if (st[1]='x') then begin
            delete(st,1,1);
-           wch:=WideChar(HexToInt(st));
+           wch:=WideChar(Conv.HexToInt(st));
           end else
            wch:=WideChar(StrToIntDef(st,0));
          end;
          if wch<>#0 then begin
-          st:=EncodeUTF8(wch);
+          st:=EncodeUTF8 {TODO: use UTF8.Encode (check arg types)}(wch);
           for j:=1 to length(st) do begin
            inc(n); result[n]:=st[j];
           end;
@@ -235,17 +237,17 @@ implementation
 
 var
  i,w1,w2,p:integer;
- sa:StringArr;
+ sa:Strings8;
 initialization
  try
-  sa:=split(';',scriptRanges);
+  sa:=split {TODO: use st.Split(char)}(';',scriptRanges);
   for i:=0 to high(sa) do begin
    p:=pos('-',sa[i]);
    if p>0 then begin
-    w1:=HexToInt(copy(sa[i],1,p-1));
-    w2:=HexToInt(copy(sa[i],p+1,4));
+    w1:=Conv.HexToInt(copy(sa[i],1,p-1));
+    w2:=Conv.HexToInt(copy(sa[i],p+1,4));
    end else begin
-    w1:=HexToInt(sa[i]);
+    w1:=Conv.HexToInt(sa[i]);
     w2:=w1;
    end;
    while w1<=w2 do begin

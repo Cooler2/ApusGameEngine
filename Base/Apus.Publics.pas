@@ -149,7 +149,7 @@ interface
  procedure SetGlobals(cmd:string;contextName:string);
 
  // List of global contexts
- function GetGlobalContexts(out lastContextIndex:integer):StringArr;
+ function GetGlobalContexts(out lastContextIndex:integer):Strings8;
 
  // Override a variable for given context
  procedure OverrideGlobal(varName:string;const value;forContext:string);
@@ -158,7 +158,11 @@ interface
  function GetOverriddenValue(varName:string;forContext:string):string;
 
 implementation
- uses , SysUtils, Math, Types, Apus.Geom2D;
+ uses SysUtils, Math, Types, Apus.Geom2D,
+  Apus.Conv,
+  Apus.Log,
+  Apus.Threads,
+  Apus.Strings;
  type
   TPublicFunction=record
    name:string;
@@ -180,7 +184,7 @@ implementation
   end;
 
  var
-  crSection:TMyCriticalSection; // используется для доступа к глобальным переменным
+  crSection:TLock; // используется для доступа к глобальным переменным
 
   publicVarHash:array[0..63] of integer;
   lastFreeItem:integer; // индекс последней "дырки" (-1 - нет)
@@ -219,7 +223,7 @@ implementation
    if expression[length(expression)]<>')' then exit;
    p:=pos('(',expression);
    if p=0 then exit;
-   name:=lowercase(copy(expression,1,p-1));
+   name:=lowercase {TODO: use st.ToLower}(copy(expression,1,p-1));
    for i:=0 to high(functions) do
     if functions[i].name=name then begin
      result:=functions[i].f;
@@ -318,7 +322,7 @@ implementation
    // Константа, переменная либо функция
    if expression[1]='$' then begin
     // Hex-константа
-    result:=HexToInt(expression);
+    result:=Conv.HexToInt(expression);
     exit;
    end;
    fl:=true;
@@ -331,10 +335,10 @@ implementation
     d:=pos('.',expression);
     if d=0 then begin
      // integer
-     result:=StrToInt(expression);
+     result:=Conv.ToInt(expression);
     end else begin
      // ручной парсинг чтобы не иметь проблем с '.' в качестве разделителя
-     v1:=StrToInt(copy(expression,1,d-1));
+     v1:=Conv.ToInt(copy(expression,1,d-1));
      v2:=0;
      for i:=length(expression) downto d+1 do
       v2:=v2/10+(byte(expression[i])-$30);
@@ -351,7 +355,7 @@ implementation
     end;
     result:=NaN;
     st:=FindConstValue(expression);
-    if st<>'' then result:=ParseFloat(st)
+    if st<>'' then result:=Conv.ToFloat(st)
     else begin
      f:=IsFunction(expression,tag);
      if @f<>nil then begin
@@ -367,7 +371,7 @@ implementation
         else begin
          st:=vc.GetValue(v);
          if st.StartsWith('$') then result:=StrToInt64(st)
-          else result:=ParseFloat(st);
+          else result:=Conv.ToFloat(st);
         end;
        end;
       end;
@@ -428,8 +432,8 @@ implementation
   begin
    ASSERT(ValidIdentifier(name),name+'is not a valid function name!');
    ASSERT(@f<>nil);
-   name:=lowercase(name);
-   EnterCriticalSection(crSection);
+   name:=lowercase {TODO: use st.ToLower}(name);
+   crSection.Enter;
    try
     n:=length(functions);
     SetLength(functions,n+1);
@@ -441,7 +445,7 @@ implementation
     functions[n].f:=f;
     functions[n].tag:=tag;
    finally
-    LeaveCriticalSection(crSection);
+    crSection.Leave;
    end;
   end;
 
@@ -460,9 +464,9 @@ implementation
   begin
    ASSERT(variable<>nil);
    ASSERT(ValidIdentifier(name),name+' is not a valid identifier');
-   lowname:=lowercase(name);
+   lowname:=lowercase {TODO: use st.ToLower}(name);
    h:=NameHash(lowname);
-   EnterCriticalSection(crSection);
+   crSection.Enter;
    try
     if lastFreeItem>=0 then begin
      n:=lastFreeItem;
@@ -478,7 +482,7 @@ implementation
     publicVars[n].next:=publicVarHash[h];
     publicVarHash[h]:=n;
    finally
-    LeaveCriticalSection(crSection);
+    crSection.Leave;
    end;
   end;
 
@@ -486,7 +490,7 @@ implementation
   var
    i,n,h,m:integer;
   begin
-   EnterCriticalSection(crSection);
+   crSection.Enter;
    try
     n:=length(publicVars)-1;
     for i:=0 to n do
@@ -507,7 +511,7 @@ implementation
       break;
      end;
    finally
-    LeaveCriticalSection(crSection);
+    crSection.Leave;
    end;
   end;
 
@@ -517,7 +521,7 @@ implementation
   begin
    result:=-1;
    if length(publicConsts)=0 then exit;
-   name:=lowercase(name);
+   name:=lowercase {TODO: use st.ToLower}(name);
    a:=0; b:=length(publicConsts)-1;
    while a<b do begin
     c:=(a+b) div 2;
@@ -530,13 +534,13 @@ implementation
   var
    i:integer;
   begin
-   EnterCriticalSection(crSection);
+   crSection.Enter;
    try
     i:=FindConst(name);
     if i>=0 then result:=publicConsts[i].value
      else result:='';
    finally
-    LeaveCriticalSection(crSection);
+    crSection.Leave;
    end;
   end;
 
@@ -546,13 +550,13 @@ implementation
    lowname:string;
   begin
    ASSERT(ValidIdentifier(name),name+' is not a valid name');
-   EnterCriticalSection(crSection);
+   crSection.Enter;
    try
     j:=FindConst(name);
     if j>=0 then
      publicConsts[j].value:=value
     else begin
-     lowname:=lowercase(name);
+     lowname:=lowercase {TODO: use st.ToLower}(name);
      n:=length(publicConsts);
      SetLength(publicConsts,n+1);
      while (n>0) and (publicConsts[n-1].lowname>lowname) do begin
@@ -564,7 +568,7 @@ implementation
      publicConsts[n].value:=value;
     end;
    finally
-    LeaveCriticalSection(crSection);
+    crSection.Leave;
    end;
   end;
 
@@ -572,7 +576,7 @@ implementation
   var
    i,n:integer;
   begin
-   EnterCriticalSection(crSection);
+   crSection.Enter;
    try
     n:=length(publicConsts)-1;
     i:=FindConst(name);
@@ -582,7 +586,7 @@ implementation
     end;
     SetLength(publicConsts,n);
    finally
-    LeaveCriticalSection(crSection);
+    crSection.Leave;
    end;
   end;
 
@@ -593,7 +597,7 @@ implementation
   begin
    result:=nil;
    varClass:=nil;
-   EnterCriticalSection(crSection);
+   crSection.Enter;
    try
     for i:=0 to high(publicVars) do
      if publicVars[i].lowname=name then begin
@@ -602,7 +606,7 @@ implementation
       break;
      end;
    finally
-    LeaveCriticalSection(crSection);
+    crSection.Leave;
    end;
   end;
 
@@ -660,7 +664,7 @@ implementation
    obj:pointer;
   begin
    result:=nil;
-   name:=lowercase(name);
+   name:=lowercase {TODO: use st.ToLower}(name);
    if context<>nil then begin
     // попытка получить поле текущего объекта
     result:=FindField(name,varClass,context,contextClass);
@@ -691,12 +695,12 @@ implementation
 
 class function TVarTypeInteger.GetValue(variable: pointer): string;
  begin
-  result:=IntToStr(PInteger(variable)^);
+  result:=Conv.ToStr(PInteger(variable)^);
  end;
 
 class procedure TVarTypeInteger.SetValue(variable: pointer; v: string);
  begin
-  PInteger(variable)^:=StrToInt(v);
+  PInteger(variable)^:=Conv.ToInt(v);
  end;
 
 { TVarTypeCardinal }
@@ -721,7 +725,7 @@ end;
 
 class procedure TVarTypeBool.SetValue(variable: pointer; v: string);
 begin
- v:=lowercase(v);
+ v:=lowercase {TODO: use st.ToLower}(v);
  if (v='on') or (v='true') or (v='1') or (v='yes') then PBoolean(variable)^:=true else
  if (v='off') or (v='false') or (v='0') or (v='no') then PBoolean(variable)^:=false else
  raise EWarning.Create(v+' is not a bool value');
@@ -756,12 +760,12 @@ end;
 
 class function TVarTypeWideString.GetValue(variable: pointer): string;
  begin
-  result:=EncodeUTF8(PWideString(variable)^);
+  result:=UTF8.Encode(PWideString(variable)^);
  end;
 
 class procedure TVarTypeWideString.SetValue(variable: pointer; v: string);
  begin
-  PWideString(variable)^:=DecodeUTF8(v);
+  PWideString(variable)^:=DecodeUTF8 {TODO: use UTF8.Decode (check arg types)}(v);
  end;
 
 
@@ -776,12 +780,12 @@ class function TVarTypeStruct.GetField(variable: pointer; fieldName: string;
 
 class function TVarTypeStruct.GetValue(variable: pointer): string;
  var
-  sa:StringArr;
+  sa:Strings8;
   i:integer;
   f:pointer;
   vc:TVarClass;
  begin
-  sa:=split(',',ListFields);
+  sa:=split {TODO: use st.Split(char)}(',',ListFields);
   for i:=0 to length(sa)-1 do begin
    f:=GetField(variable,sa[i],vc);
    if f<>nil then
@@ -789,7 +793,7 @@ class function TVarTypeStruct.GetValue(variable: pointer): string;
    else
     sa[i]:='<unknown>';
   end;
-  result:='('+join(sa,', ')+')';
+  result:='('+String8.Join(sa,', ')+')';
  end;
 
 class function TVarType.GetValue(variable: pointer): string;
@@ -871,7 +875,7 @@ end;
 class procedure TVarTypeRect2s.SetValue(variable: pointer; v: string);
 var
  r:PRect2s;
- sa:StringArr;
+ sa:Strings8;
 begin
  r:=variable;
  if SameText(v,'TopLeft') then r^:=Rect2s(0,0,0,0) else
@@ -880,11 +884,11 @@ begin
  if SameText(v,'BottomRight') then r^:=Rect2s(1,1,1,1) else
  if SameText(v,'Center') then r^:=Rect2s(0.5,0.5,0.5,0.5) else
  with r^ do begin
-  sa:=Split(',',v);
-  x1:=ParseFloat(SafeStrItem(sa,0));
-  y1:=ParseFloat(SafeStrItem(sa,1));
-  x2:=ParseFloat(SafeStrItem(sa,2));
-  y2:=ParseFloat(SafeStrItem(sa,3));
+  sa:=Split {TODO: use st.Split(char)}(',',v);
+  x1:=Conv.ToFloat(SafeStrItem(sa,0));
+  y1:=Conv.ToFloat(SafeStrItem(sa,1));
+  x2:=Conv.ToFloat(SafeStrItem(sa,2));
+  y2:=Conv.ToFloat(SafeStrItem(sa,3));
  end;
 end;
 
@@ -904,13 +908,13 @@ end;
 
 class procedure TVarTypeSingle.SetValue(variable: pointer; v: string);
 begin
- PSingle(variable)^:=ParseFloat(v);
+ PSingle(variable)^:=Conv.ToFloat(v);
 end;
 
 // Tag=1 - max, tag=2 - min
 function fMinMax(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
 var
- sa:StringArr;
+ sa:Strings8;
  i:integer;
  v:double;
 begin
@@ -918,7 +922,7 @@ begin
   1:result:=-MaxDouble;
   2:result:=MaxDouble;
  end;
- sa:=split(',',params);   // проблема с min(3,max(2,1),3) - запятая в скобках!
+ sa:=split {TODO: use st.Split(char)}(',',params);   // проблема с min(3,max(2,1),3) - запятая в скобках!
  for i:=0 to length(sa)-1 do begin
   v:=EvalFloat(sa[i],nil,context,contextClass);
   case tag of
@@ -930,10 +934,10 @@ end;
 
 function fChoose(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
 var
- sa:StringArr;
+ sa:Strings8;
  v:double;
 begin
- sa:=split(',',params); // проблема с запятыми в подфункциях
+ sa:=split {TODO: use st.Split(char)}(',',params); // проблема с запятыми в подфункциях
  if length(sa)<3 then raise EWarning.Create('Invalid parameters: '+params);
  v:=EvalFloat(sa[0],nil,context,contextClass);
  if abs(v)>0.00000001 then result:=EvalFloat(sa[1],nil,context,contextClass)
@@ -986,14 +990,14 @@ end;
 procedure ApplyContext(context:TGlobalContext);
 var
  i,j,p:integer;
- sa:StringArr;
+ sa:Strings8;
  name,value:string;
  vF:single;
  vI:integer;
  vC:cardinal;
 begin
  try
- sa:=split(';',context.defaultCmd);
+ sa:=split {TODO: use st.Split(char)}(';',context.defaultCmd);
  for i:=0 to length(sa)-1 do begin
   p:=pos('=',sa[i]);
   if p=0 then continue;
@@ -1004,7 +1008,7 @@ begin
   // Float?
   if j in [0..7] then begin
    if context.ovrMask and (1 shl j)=0 then
-    vF:=ParseFloat(value)
+    vF:=Conv.ToFloat(value)
    else
     vF:=context.ovrValues[j].FloatValue;
    case j of
@@ -1021,7 +1025,7 @@ begin
   end;
   // Integer
   if j in [8..11] then begin
-   if context.ovrMask and (1 shl j)=0 then vI:=StrToInt(value)
+   if context.ovrMask and (1 shl j)=0 then vI:=Conv.ToInt(value)
     else vI:=context.ovrValues[j].IntValue;
    case j of
     8:gI0:=vI;
@@ -1046,7 +1050,7 @@ begin
  end; // for
  except
   on e:exception do begin
-   LogError('Error in PB.ApplyC: '+e.message+' DecSep='+GetDecimalSeparator);
+   Log.Error('Error in PB.ApplyC: '+e.message+' DecSep='+GetDecimalSeparator);
   end;
  end;
 end;
@@ -1063,7 +1067,7 @@ begin
  // Всё тот же контекст? Ничего не менять...
  if lastAssignCmd=cmd then exit;
 
- EnterCriticalSection(crSection);
+ crSection.Enter;
  try
   lastAssignCmd:=cmd;
   contextIdx:=FindContext(cmd);
@@ -1071,7 +1075,7 @@ begin
    for i:=high(globalContexts) downto 1 do
     globalContexts[i]:=globalContexts[i-1];
 {   ShiftArray(globalContexts,sizeof(globalContexts),sizeof(TGlobalContext));
-   fillchar(globalContexts[0],sizeof(globalContexts[0]),0); // important to clear string pointers}
+   Mem.Fill(globalContexts[0],sizeof(globalContexts[0]),0); // important to clear string pointers}
    if globalContextsCount<length(globalContexts) then inc(globalContextsCount);
    globalContexts[0].name:=contextName;
    globalContexts[0].defaultCmd:=cmd;
@@ -1081,7 +1085,7 @@ begin
   ApplyContext(globalContexts[contextIdx]);
   lastContextIdx:=contextIdx;
  finally
-  LeaveCriticalSection(crSection);
+  crSection.Leave;
  end;
 end;
 
@@ -1090,7 +1094,7 @@ var
  contextID,j:integer;
  p:pointer;
 begin
- EnterCriticalSection(crSection);
+ crSection.Enter;
  try
   j:=ValidVarName(varName);
   if j<0 then exit;
@@ -1113,16 +1117,16 @@ begin
    end;
   end;
  finally
-  LeaveCriticalSection(crSection);
+  crSection.Leave;
  end;
 end;
 
-function GetGlobalContexts(out lastContextIndex:integer):StringArr;
+function GetGlobalContexts(out lastContextIndex:integer):Strings8;
 var
  i:integer;
 begin
  lastContextIdx:=-1;
- EnterCriticalSection(crSection);
+ crSection.Enter;
  try
   SetLength(result,globalContextsCount);
   for i:=0 to globalContextsCount-1 do
@@ -1132,7 +1136,7 @@ begin
     result[i]:=globalContexts[i].defaultCmd;
   lastContextIndex:=lastContextIdx;
  finally
-  LeaveCriticalSection(crSection);
+  crSection.Leave;
  end;
 end;
 
@@ -1141,27 +1145,27 @@ var
  context,i:integer;
 begin
  result:='';
- EnterCriticalSection(crSection);
+ crSection.Enter;
  try
-  varName:=upperCase(varName);
+  varName:=upperCase {TODO: use st.ToUpper}(varName);
   context:=FindContext(forContext);
   if context<0 then exit;
   i:=ValidVarName(varName);
   if i<0 then exit;
   if globalContexts[context].ovrMask and (1 shl i)=0 then exit;
   if i in [0..7] then result:=FloatToStrF(globalContexts[context].ovrValues[i].FloatValue,ffGeneral,5,0);
-  if i in [8..11] then result:=IntToStr(globalContexts[context].ovrValues[i].IntValue);
+  if i in [8..11] then result:=Conv.ToStr(globalContexts[context].ovrValues[i].IntValue);
   if i in [12..15] then result:='$'+IntToHex(globalContexts[context].ovrValues[i].DWordValue,8);
  finally
-  LeaveCriticalSection(crSection);
+  crSection.Leave;
  end;
 end;
 
 initialization
  try
-  InitCritSect(crSection,'Publics',300);
+  crSection.Init('Publics',300);
   for i:=0 to high(publicVarHash) do
-   publicVarHash[i]:=-1;
+    publicVarHash[i]:=-1;
   lastFreeItem:=-1;
   PublishFunction('max',fMinMax,1);
   PublishFunction('min',fMinMax,2);
@@ -1180,5 +1184,5 @@ initialization
   on e:Exception do ErrorMessage('Publics: '+ExceptionMsg(e));
  end;
 finalization
- DeleteCritSect(crSection);
+  crSection.Cleanup;
 end.

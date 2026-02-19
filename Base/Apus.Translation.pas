@@ -53,7 +53,9 @@ interface
  function Translate(st:MyString;ruleset:integer=0):MyString;
 
 implementation
- uses SysUtils,StrUtils;
+ uses SysUtils,StrUtils,
+  Apus.Conv,
+  Apus.Log;
  type
   // single rule
   // Special characters: E1FA-E1FF - in sour (типы спецсимволов подстрок, %*, %w, %d ...)
@@ -128,12 +130,12 @@ implementation
       continue;
      end;
      if (st[1]='[') and (length(st)>2) and (st[2] in ['0'..'9']) then begin // set
-      curSet:=StrToInt(st[2]);
-      if st[3] in ['0'..'9'] then curSet:=curSet*10+StrToInt(st[3]);
+      curSet:=Conv.ToInt(st[2]);
+      if st[3] in ['0'..'9'] then curSet:=curSet*10+Conv.ToInt(st[3]);
       sour:=''; continue;
      end;
      if (length(st)>3) and (st[1] in ['0'..'9']) and (st[2]=':') and (st[3]=' ') then begin
-      localSet:=StrToInt(st[1]);
+      localSet:=Conv.ToInt(st[1]);
       delete(st,1,3);
      end;
      // Rule
@@ -261,9 +263,9 @@ procedure TRulesSet.AddRule(sour, dest: MyString);
   for i:=0 to rcount-1 do
    if rules[i].sour=sour then begin
     if rules[i].dest=dest then
-     LogMessage('Duplicated translation rule ignored for: '+sour)
+     Log.Msg('Duplicated translation rule ignored for: '+sour)
     else
-     LogMessage('WARNING! Translation rule conflict for: '+sour+' only 1-st rule will be used');
+     Log.Msg('WARNING! Translation rule conflict for: '+sour+' only 1-st rule will be used');
     dec(rCount);
     break;
    end;
