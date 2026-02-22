@@ -13,101 +13,101 @@ interface
   // Простой тип данных (обычная переменная какого-либо типа)
   TVarType=class
    // Запись значения (из строки) в переменную
-   class procedure SetValue(variable:pointer;v:string); virtual; abstract;
+   class procedure SetValue(variable:pointer;v:String8); virtual; abstract;
    // Чтение значения переменной в виде строки
-   class function GetValue(variable:pointer):string; virtual;
+   class function GetValue(variable:pointer):String8; virtual;
   end;
 
   // Перечисляемый тип - принимает одно из нескольких возможных значений
   TVarTypeEnum=class(TVarType)
    // возвращает список возможных значений (через запятую)
-   class function ListValues:string; virtual;
+   class function ListValues:String8; virtual;
   end;
 
   // Структурный тип данных - содержит поля
   TVarTypeStruct=class(TVarType)
    // Чтение значения переменной в виде строки
-   class function GetValue(variable:pointer):string; override;
+   class function GetValue(variable:pointer):String8; override;
    // Проверка наличия поля с заданным именем (возвращает класс типа и адрес собственно значения)
-   class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; virtual;
+   class function GetField(variable:pointer;fieldName:String8;out varClass:TVarClass):pointer; virtual;
    // Возвращает список всех полей (через запятую)
-   class function ListFields:string; virtual;
+   class function ListFields:String8; virtual;
   end;
 
   // List type, syntax: name[index] where index is string (may be integer)
   TVarTypeList=class(TVarType)
    // Чтение значения переменной в виде строки
-   class function GetValue(variable:pointer):string; override;
+   class function GetValue(variable:pointer):String8; override;
    // Проверка наличия поля с заданным именем (возвращает класс типа и адрес собственно значения)
-   class function GetField(variable:pointer;index:string;out varClass:TVarClass):pointer; virtual;
+   class function GetField(variable:pointer;index:String8;out varClass:TVarClass):pointer; virtual;
    // Returns list of indices (integer or strings, in any readable form)
-   class function ListIndices:string; virtual;
+   class function ListIndices:String8; virtual;
   end;
 
   TVarTypeInteger=class(TVarType)
-   class procedure SetValue(variable:pointer;v:string); override;
-   class function GetValue(variable:pointer):string; override;
+   class procedure SetValue(variable:pointer;v:String8); override;
+   class function GetValue(variable:pointer):String8; override;
   end;
 
   TVarTypeCardinal=class(TVarType)
-   class procedure SetValue(variable:pointer;v:string); override;
-   class function GetValue(variable:pointer):string; override;
+   class procedure SetValue(variable:pointer;v:String8); override;
+   class function GetValue(variable:pointer):String8; override;
   end;
 
   TVarTypeSingle=class(TVarType)
-   class procedure SetValue(variable:pointer;v:string); override;
-   class function GetValue(variable:pointer):string; override;
+   class procedure SetValue(variable:pointer;v:String8); override;
+   class function GetValue(variable:pointer):String8; override;
   end;
 
   TVarTypeBool=class(TVarType)
-   class procedure SetValue(variable:pointer;v:string); override;
-   class function GetValue(variable:pointer):string; override;
+   class procedure SetValue(variable:pointer;v:String8); override;
+   class function GetValue(variable:pointer):String8; override;
   end;
 
   TVarTypeString=class(TVarType)
-   class procedure SetValue(variable:pointer;v:string); override;
-   class function GetValue(variable:pointer):string; override;
+   class procedure SetValue(variable:pointer;v:String8); override;
+   class function GetValue(variable:pointer):String8; override;
   end;
 
   TVarTypeString8=class(TVarType)
-   class procedure SetValue(variable:pointer;v:string); override;
-   class function GetValue(variable:pointer):string; override;
+   class procedure SetValue(variable:pointer;v:String8); override;
+   class function GetValue(variable:pointer):String8; override;
   end;
 
   TVarTypeWideString=class(TVarType)
-   class procedure SetValue(variable:pointer;v:string); override;
-   class function GetValue(variable:pointer):string; override;
+   class procedure SetValue(variable:pointer;v:String8); override;
+   class function GetValue(variable:pointer):String8; override;
   end;
 
   TVarTypeARGB=class(TVarTypeCardinal)
   end;
 
   TVarTypeRect=class(TVarTypeStruct)
-   class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
-   class function ListFields:string; override;
+   class function GetField(variable:pointer;fieldName:String8;out varClass:TVarClass):pointer; override;
+   class function ListFields:String8; override;
   end;
 
   TVarTypeRect2s=class(TVarTypeStruct)
-   class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
-   class function ListFields:string; override;
-   class procedure SetValue(variable:pointer;v:string); override;
-   class function GetValue(variable:pointer):string; override;
+   class function GetField(variable:pointer;fieldName:String8;out varClass:TVarClass):pointer; override;
+   class function ListFields:String8; override;
+   class procedure SetValue(variable:pointer;v:String8); override;
+   class function GetValue(variable:pointer):String8; override;
   end;
 
-  TVarFunc=function(name:string):double; // ф-ция для получения значения переменной по имени (для Eval)
-  TFunction=function(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double; // произвольная ф-ция (context is passed for use in Eval)
+  TVarFunc=function(name:String8):double; // ф-ция для получения значения переменной по имени (для Eval)
+  TFunction=function(params:String8;tag:integer;context:pointer;contextClass:TVarClassStruct):double; // произвольная ф-ция (context is passed for use in Eval)
 
   // Опубликованная переменная
   TPublishedVariable=record
    addr:pointer;         // pointer to variable (nil - empty)
-   name,lowname:string;  // variable name (original and lowercase)
+   name,lowname:String8; // variable name (original and lowercase)
    varClass:TVarClass;   // type class reference
    next:integer;         // index of the next variable with the same hash value, or next free item
   end;
 
   // Опубликованная константа
   TPublishedConstant=record
-   name,lowname,value:string;
+   name,lowname,value:String8;
   end;
 
  var
@@ -116,24 +116,24 @@ interface
   publicConsts:array of TPublishedConstant; // Sorted by name!
 
  // Main routines
- procedure PublishVar(variable:pointer;name:string;vtype:TVarClass);
+ procedure PublishVar(variable:pointer;name:String8;vtype:TVarClass);
  procedure UnpublishVar(variable:pointer); // нужно при удалении объектов
- procedure PublishConst(name:string;value:string);
- procedure UnpublishConst(name:string);
- procedure PublishFunction(name:string;f:TFunction;tag:integer=0); // например f=sin(x): PublishFunction('sin',f);
- function FindVar(name:string;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
- function FindConstValue(name:string):string;
+ procedure PublishConst(name:String8;value:String8);
+ procedure UnpublishConst(name:String8);
+ procedure PublishFunction(name:String8;f:TFunction;tag:integer=0); // например f=sin(x): PublishFunction('sin',f);
+ function FindVar(name:String8;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
+ function FindConstValue(name:String8):String8;
  // Get index of a published constant (in publicConsts)
- function FindConst(name:string):integer;
+ function FindConst(name:String8):integer;
 
  // Вычисляет значение выражения (выражение состоит из арифметических операций, скобок, констант и переменных)
  // VarFunc используется для получения значений переменных, если nil - используется механизм опубликованных переменных
- function EvalFloat(expression:string;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):double;
+ function EvalFloat(expression:String8;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):double;
 
  // Get string value of a variable, constant or expression
- function EvalStr(expression:string;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):string;
+ function EvalStr(expression:String8;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):String8;
 
- function IsStringExpression(expression:string;context:pointer=nil;contextClass:TVarClassStruct=nil):boolean;
+ function IsStringExpression(expression:String8;context:pointer=nil;contextClass:TVarClassStruct=nil):boolean;
 
  // OVERRIDABLE GLOBAL VARIABLES
  // ----------------------------
@@ -146,26 +146,27 @@ interface
  // Присваивает значения глобальным переменным.
  // Команда имеет вид: "gF3=3.14; gI1=1;gC2=$FF807060; gi0(0..2)=2"
  // Такая команда называется контекстом
- procedure SetGlobals(cmd:string;contextName:string);
+ procedure SetGlobals(cmd:String8;contextName:String8);
 
  // List of global contexts
  function GetGlobalContexts(out lastContextIndex:integer):Strings8;
 
  // Override a variable for given context
- procedure OverrideGlobal(varName:string;const value;forContext:string);
+ procedure OverrideGlobal(varName:String8;const value;forContext:String8);
 
  // Get overridden value of a variable (in string representation, '' if not overridden)
- function GetOverriddenValue(varName:string;forContext:string):string;
+ function GetOverriddenValue(varName:String8;forContext:String8):String8;
 
 implementation
- uses SysUtils, Math, Types, Apus.Geom2D,
+ uses SysUtils, Math, Types,
+  Apus.Geom2D,
   Apus.Conv,
   Apus.Log,
   Apus.Threads,
   Apus.Strings;
  type
   TPublicFunction=record
-   name:string;
+   name:String8;
    f:TFunction;
    tag:integer; // allows to use one generalized implementation for multiple functions
   end;
@@ -178,7 +179,7 @@ implementation
   end;
 
   TGlobalContext=record
-   name,defaultCmd:string;
+   name,defaultCmd:String8;
    ovrMask:cardinal;
    ovrValues:array[0..15] of TGlobalOverride;
   end;
@@ -195,7 +196,7 @@ implementation
   globalContextsCount:integer;
   lastContextIdx:integer;
 
- function ValidIdentifier(name:string):boolean;
+ function ValidIdentifier(name:String8):boolean;
   var
    i:integer;
   begin
@@ -214,16 +215,16 @@ implementation
 
  // Проверяет, является ли выражение - вызовом ф-ции, и если да - возвращает ф-цию и изменяет аргумент на аргумент ф-ции
  // Если нет - возвращает nil, аргумент не меняет
- function IsFunction(var expression:string;out tag:integer):TFunction;
+ function IsFunction(var expression:String8;out tag:integer):TFunction;
   var
-   name:string;
-   i,j,k,p:integer;
+   name:String8;
+   i,p:integer;
   begin
    result:=nil;
    if expression[length(expression)]<>')' then exit;
    p:=pos('(',expression);
    if p=0 then exit;
-   name:=lowercase {TODO: use st.ToLower}(copy(expression,1,p-1));
+   name:=copy(expression,1,p-1).ToLower;
    for i:=0 to high(functions) do
     if functions[i].name=name then begin
      result:=functions[i].f;
@@ -232,7 +233,7 @@ implementation
     end;
   end;
 
- function EvalFloat(expression:string;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):double;
+ function EvalFloat(expression:String8;VarFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):double;
   var
    i,d,tag:integer;
    v1,v2:double;
@@ -240,10 +241,10 @@ implementation
    v:pointer;
    vc:TVarClass;
    f:TFunction;
-   st,right:string;
-   oper:char;
+   st,right:String8;
+   oper:AnsiChar;
   begin
-   expression:=chop(expression);
+   expression:=expression.Trim;
    if length(expression)=0 then begin
     result:=0; exit;
    end;
@@ -382,14 +383,14 @@ implementation
    if Math.IsNAN(result) then raise EWarning.Create('Invalid expression: '+expression);
   end;
 
- function IsStringConstant(expression:string):boolean;
+ function IsStringConstant(expression:String8):boolean;
   begin
    if (length(expression)>=2) and
       (expression.StartsWith('"')) and (expression.EndsWith('"')) then exit(true);
    result:=false;
   end;
 
- function EvalStr(expression:string;varFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):string;
+ function EvalStr(expression:String8;varFunc:TVarFunc=nil;context:pointer=nil;contextClass:TVarClassStruct=nil):String8;
   var
    n:integer;
    cls:TVarClass;
@@ -409,7 +410,7 @@ implementation
    end;
   end;
 
- function IsStringExpression(expression:string;context:pointer=nil;contextClass:TVarClassStruct=nil):boolean;
+ function IsStringExpression(expression:String8;context:pointer=nil;contextClass:TVarClassStruct=nil):boolean;
   var
    n:integer;
    cls:TVarClass;
@@ -426,13 +427,13 @@ implementation
     cls.ClassNameIs('TVarTypeWideString'))  then exit(true);
   end;
 
- procedure PublishFunction(name:string;f:TFunction;tag:integer=0);
+ procedure PublishFunction(name:String8;f:TFunction;tag:integer=0);
   var
    i,n:integer;
   begin
    ASSERT(ValidIdentifier(name),name+'is not a valid function name!');
    ASSERT(@f<>nil);
-   name:=lowercase {TODO: use st.ToLower}(name);
+   name:=name.ToLower;
    crSection.Enter;
    try
     n:=length(functions);
@@ -449,7 +450,7 @@ implementation
    end;
   end;
 
- function NameHash(st:string):integer; inline;
+ function NameHash(st:String8):integer; inline;
   var
    l:integer;
   begin
@@ -457,14 +458,14 @@ implementation
    result:=(byte(st[1])+l+byte(st[l])) and 63;
   end;
 
- procedure PublishVar(variable:pointer;name:string;vtype:TVarClass);
+ procedure PublishVar(variable:pointer;name:String8;vtype:TVarClass);
   var
    n,h,l:integer;
-   lowname:string;
+   lowname:String8;
   begin
    ASSERT(variable<>nil);
    ASSERT(ValidIdentifier(name),name+' is not a valid identifier');
-   lowname:=lowercase {TODO: use st.ToLower}(name);
+   lowname:=name.ToLower;
    h:=NameHash(lowname);
    crSection.Enter;
    try
@@ -515,13 +516,13 @@ implementation
    end;
   end;
 
- function FindConst(name:string):integer;
+ function FindConst(name:String8):integer;
   var
    a,b,c:integer;
   begin
    result:=-1;
    if length(publicConsts)=0 then exit;
-   name:=lowercase {TODO: use st.ToLower}(name);
+   name:=name.ToLower;
    a:=0; b:=length(publicConsts)-1;
    while a<b do begin
     c:=(a+b) div 2;
@@ -530,7 +531,7 @@ implementation
    if name=publicConsts[b].lowname then result:=b;
   end;
 
- function FindConstValue(name:string):string;
+ function FindConstValue(name:String8):String8;
   var
    i:integer;
   begin
@@ -544,10 +545,10 @@ implementation
    end;
   end;
 
- procedure PublishConst(name:string;value:string);
+ procedure PublishConst(name:String8;value:String8);
   var
    i,j,n:integer;
-   lowname:string;
+   lowname:String8;
   begin
    ASSERT(ValidIdentifier(name),name+' is not a valid name');
    crSection.Enter;
@@ -556,7 +557,7 @@ implementation
     if j>=0 then
      publicConsts[j].value:=value
     else begin
-     lowname:=lowercase {TODO: use st.ToLower}(name);
+     lowname:=name.ToLower;
      n:=length(publicConsts);
      SetLength(publicConsts,n+1);
      while (n>0) and (publicConsts[n-1].lowname>lowname) do begin
@@ -572,7 +573,7 @@ implementation
    end;
   end;
 
- procedure UnpublishConst(name:string);
+ procedure UnpublishConst(name:String8);
   var
    i,n:integer;
   begin
@@ -591,7 +592,7 @@ implementation
   end;
 
  // Поиск только среди глобальных переменных (имя должно быть в нижнем регистре!)
- function FindGlobal(name:string;out varClass:TVarClass):pointer;
+ function FindGlobal(name:String8;out varClass:TVarClass):pointer;
   var
    i:integer;
   begin
@@ -611,10 +612,10 @@ implementation
   end;
 
  // Рекурсивный поиск поля заданного объекта (имя должно быть в нижнем регистре!)
- function FindField(name:string;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
+ function FindField(name:String8;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
   var
    p:integer;
-   fieldname:string;
+   fieldname:String8;
    obj:pointer;
    objClass:TVarClass;
   begin
@@ -632,10 +633,10 @@ implementation
    end;
   end;
 
- function FindListElement(index:string;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
+ function FindListElement(index:String8;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
   var
    p:integer;
-   fieldname:string;
+   fieldname:String8;
    obj:pointer;
    objClass:TVarClass;
   begin
@@ -655,16 +656,16 @@ implementation
 
 
  // Универсальный поиск
- function FindVar(name:string;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
+ function FindVar(name:String8;out varClass:TVarClass;context:pointer=nil;contextClass:TVarClassStruct=nil):pointer;
   var
    i:integer;
    p,p2:integer;
-   field:string;
+   field:String8;
    objClass:TVarClass;
    obj:pointer;
   begin
    result:=nil;
-   name:=lowercase {TODO: use st.ToLower}(name);
+   name:=name.ToLower;
    if context<>nil then begin
     // попытка получить поле текущего объекта
     result:=FindField(name,varClass,context,contextClass);
@@ -693,39 +694,39 @@ implementation
 
 { TVarTypeInteger }
 
-class function TVarTypeInteger.GetValue(variable: pointer): string;
+class function TVarTypeInteger.GetValue(variable:pointer):String8;
  begin
   result:=Conv.ToStr(PInteger(variable)^);
  end;
 
-class procedure TVarTypeInteger.SetValue(variable: pointer; v: string);
+class procedure TVarTypeInteger.SetValue(variable:pointer;v:String8);
  begin
   PInteger(variable)^:=Conv.ToInt(v);
  end;
 
 { TVarTypeCardinal }
 
-class function TVarTypeCardinal.GetValue(variable: pointer): string;
+class function TVarTypeCardinal.GetValue(variable:pointer):String8;
  begin
   result:='$'+IntToHex(PCardinal(variable)^,8);
  end;
 
-class procedure TVarTypeCardinal.SetValue(variable: pointer; v: string);
+class procedure TVarTypeCardinal.SetValue(variable:pointer;v:String8);
  begin
-  PCardinal(variable)^:=StrToInt64(v);
+  PCardinal(variable)^:=StrToInt64(string(v));
  end;
 
 { TVarTypeBool }
 
-class function TVarTypeBool.GetValue(variable: pointer): string;
+class function TVarTypeBool.GetValue(variable:pointer):String8;
 begin
  if PBoolean(variable)^ then result:='true'
   else result:='false';
 end;
 
-class procedure TVarTypeBool.SetValue(variable: pointer; v: string);
+class procedure TVarTypeBool.SetValue(variable:pointer;v:String8);
 begin
- v:=lowercase {TODO: use st.ToLower}(v);
+ v:=v.ToLower;
  if (v='on') or (v='true') or (v='1') or (v='yes') then PBoolean(variable)^:=true else
  if (v='off') or (v='false') or (v='0') or (v='no') then PBoolean(variable)^:=false else
  raise EWarning.Create(v+' is not a bool value');
@@ -734,23 +735,23 @@ end;
 
 { TVarTypeString }
 
-class function TVarTypeString.GetValue(variable: pointer): string;
+class function TVarTypeString.GetValue(variable:pointer):String8;
  begin
-  result:='"'+PString(variable)^+'"';
+  result:='"'+String8(PString(variable)^)+'"';
  end;
 
-class procedure TVarTypeString.SetValue(variable: pointer; v: string);
+class procedure TVarTypeString.SetValue(variable:pointer;v:String8);
  begin
-  PString(variable)^:=v;
+  PString(variable)^:=string(v);
  end;
 
 { TVarTypeString8 }
-class function TVarTypeString8.GetValue(variable: pointer): string;
+class function TVarTypeString8.GetValue(variable:pointer):String8;
 begin
   result:=PString8(variable)^;
 end;
 
-class procedure TVarTypeString8.SetValue(variable: pointer; v: String);
+class procedure TVarTypeString8.SetValue(variable:pointer;v:String8);
 begin
   PString8(variable)^:=v;
 end;
@@ -758,34 +759,34 @@ end;
 
 { TVarTypeWideString }
 
-class function TVarTypeWideString.GetValue(variable: pointer): string;
+class function TVarTypeWideString.GetValue(variable:pointer):String8;
  begin
   result:=UTF8.Encode(PWideString(variable)^);
  end;
 
-class procedure TVarTypeWideString.SetValue(variable: pointer; v: string);
+class procedure TVarTypeWideString.SetValue(variable:pointer;v:String8);
  begin
-  PWideString(variable)^:=DecodeUTF8 {TODO: use UTF8.Decode (check arg types)}(v);
+  PWideString(variable)^:=UTF8.ToWide(v);
  end;
 
 
 { TVarType }
 
-class function TVarTypeStruct.GetField(variable: pointer; fieldName: string;
-  out varClass: TVarClass): pointer;
+class function TVarTypeStruct.GetField(variable:pointer;fieldName:String8;
+  out varClass:TVarClass):pointer;
  begin
   result:=nil;
   varClass:=nil;
  end;
 
-class function TVarTypeStruct.GetValue(variable: pointer): string;
+class function TVarTypeStruct.GetValue(variable:pointer):String8;
  var
   sa:Strings8;
   i:integer;
   f:pointer;
   vc:TVarClass;
  begin
-  sa:=split {TODO: use st.Split(char)}(',',ListFields);
+  sa:=ListFields.Split(',');
   for i:=0 to length(sa)-1 do begin
    f:=GetField(variable,sa[i],vc);
    if f<>nil then
@@ -796,31 +797,31 @@ class function TVarTypeStruct.GetValue(variable: pointer): string;
   result:='('+String8.Join(sa,', ')+')';
  end;
 
-class function TVarType.GetValue(variable: pointer): string;
+class function TVarType.GetValue(variable:pointer):String8;
  begin
   result:='<unknown>';
  end;
 
 
-class function TVarTypeStruct.ListFields: string;
+class function TVarTypeStruct.ListFields:String8;
  begin
   result:='';
  end;
 
 { TVarTypeArray }
-class function TVarTypeList.GetField(variable: pointer; index: string;
-  out varClass: TVarClass): pointer;
+class function TVarTypeList.GetField(variable:pointer;index:String8;
+  out varClass:TVarClass):pointer;
  begin
   result:=nil;
   varClass:=nil;
  end;
 
-class function TVarTypeList.GetValue(variable: pointer): string;
+class function TVarTypeList.GetValue(variable:pointer):String8;
  begin
   result:='['+listIndices+']';
  end;
 
-class function TVarTypeList.ListIndices: string;
+class function TVarTypeList.ListIndices:String8;
  begin
   result:='';
  end;
@@ -831,8 +832,8 @@ var
 
 { TVarTypeRect }
 
-class function TVarTypeRect.GetField(variable: pointer; fieldName: string;
-  out varClass: TVarClass): pointer;
+class function TVarTypeRect.GetField(variable:pointer;fieldName:String8;
+  out varClass:TVarClass):pointer;
 begin
  varClass:=TVarTypeInteger;
  if fieldname='left' then result:=@(PRect(variable)^.left) else
@@ -842,15 +843,15 @@ begin
  result:=nil;
 end;
 
-class function TVarTypeRect.ListFields: string;
+class function TVarTypeRect.ListFields:String8;
 begin
  result:='left,top,right,bottom';
 end;
 
 { TVarTypeRect2s }
 
-class function TVarTypeRect2s.GetField(variable: pointer; fieldName: string;
-  out varClass: TVarClass): pointer;
+class function TVarTypeRect2s.GetField(variable:pointer;fieldName:String8;
+  out varClass:TVarClass):pointer;
 begin
  varClass:=TVarTypeInteger;
  with PRect2s(variable)^ do
@@ -861,58 +862,58 @@ begin
   result:=nil;
 end;
 
-class function TVarTypeRect2s.GetValue(variable: pointer): string;
+class function TVarTypeRect2s.GetValue(variable:pointer):String8;
 begin
  with PRect2s(variable)^ do
   result:=Format('(%f,%f,%f,%f)',[x1,y1,x2,y2]);
 end;
 
-class function TVarTypeRect2s.ListFields: string;
+class function TVarTypeRect2s.ListFields:String8;
 begin
  result:='x1,y1,x2,y2';
 end;
 
-class procedure TVarTypeRect2s.SetValue(variable: pointer; v: string);
+class procedure TVarTypeRect2s.SetValue(variable:pointer;v:String8);
 var
  r:PRect2s;
  sa:Strings8;
 begin
  r:=variable;
- if SameText(v,'TopLeft') then r^:=Rect2s(0,0,0,0) else
- if SameText(v,'TopRight') then r^:=Rect2s(1,0,1,0) else
- if SameText(v,'BottomLeft') then r^:=Rect2s(0,1,0,1) else
- if SameText(v,'BottomRight') then r^:=Rect2s(1,1,1,1) else
- if SameText(v,'Center') then r^:=Rect2s(0.5,0.5,0.5,0.5) else
+ if v.EqualsText('TopLeft') then r^:=Rect2s(0,0,0,0) else
+ if v.EqualsText('TopRight') then r^:=Rect2s(1,0,1,0) else
+ if v.EqualsText('BottomLeft') then r^:=Rect2s(0,1,0,1) else
+ if v.EqualsText('BottomRight') then r^:=Rect2s(1,1,1,1) else
+ if v.EqualsText('Center') then r^:=Rect2s(0.5,0.5,0.5,0.5) else
  with r^ do begin
-  sa:=Split {TODO: use st.Split(char)}(',',v);
-  x1:=Conv.ToFloat(SafeStrItem(sa,0));
-  y1:=Conv.ToFloat(SafeStrItem(sa,1));
-  x2:=Conv.ToFloat(SafeStrItem(sa,2));
-  y2:=Conv.ToFloat(SafeStrItem(sa,3));
+  sa:=v.Split(',');
+  if length(sa)>0 then x1:=Conv.ToFloat(sa[0]);
+  if length(sa)>1 then y1:=Conv.ToFloat(sa[1]);
+  if length(sa)>2 then x2:=Conv.ToFloat(sa[2]);
+  if length(sa)>3 then y2:=Conv.ToFloat(sa[3]);
  end;
 end;
 
 { TVarTypeEnum }
 
-class function TVarTypeEnum.ListValues: string;
+class function TVarTypeEnum.ListValues:String8;
 begin
  result:='';
 end;
 
 { TVarTypeSingle }
 
-class function TVarTypeSingle.GetValue(variable: pointer): string;
+class function TVarTypeSingle.GetValue(variable:pointer):String8;
 begin
  result:=FloatToStr(PSingle(variable)^);
 end;
 
-class procedure TVarTypeSingle.SetValue(variable: pointer; v: string);
+class procedure TVarTypeSingle.SetValue(variable:pointer;v:String8);
 begin
  PSingle(variable)^:=Conv.ToFloat(v);
 end;
 
 // Tag=1 - max, tag=2 - min
-function fMinMax(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
+function fMinMax(params:String8;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
 var
  sa:Strings8;
  i:integer;
@@ -922,7 +923,7 @@ begin
   1:result:=-MaxDouble;
   2:result:=MaxDouble;
  end;
- sa:=split {TODO: use st.Split(char)}(',',params);   // проблема с min(3,max(2,1),3) - запятая в скобках!
+ sa:=params.Split(',');   // проблема с min(3,max(2,1),3) - запятая в скобках!
  for i:=0 to length(sa)-1 do begin
   v:=EvalFloat(sa[i],nil,context,contextClass);
   case tag of
@@ -932,19 +933,19 @@ begin
  end;
 end;
 
-function fChoose(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
+function fChoose(params:String8;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
 var
  sa:Strings8;
  v:double;
 begin
- sa:=split {TODO: use st.Split(char)}(',',params); // проблема с запятыми в подфункциях
+ sa:=params.Split(','); // проблема с запятыми в подфункциях
  if length(sa)<3 then raise EWarning.Create('Invalid parameters: '+params);
  v:=EvalFloat(sa[0],nil,context,contextClass);
  if abs(v)>0.00000001 then result:=EvalFloat(sa[1],nil,context,contextClass)
   else result:=EvalFloat(sa[2],nil,context,contextClass);
 end;
 
-function fFunc(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
+function fFunc(params:String8;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
  begin
   result:=EvalFloat(params,nil,context,contextClass);
   case tag of
@@ -960,7 +961,7 @@ function fFunc(params:string;tag:integer;context:pointer;contextClass:TVarClassS
   end;
  end;
 
-function FindContext(st:string):integer;
+function FindContext(st:String8):integer;
 var
  i:integer;
 begin
@@ -974,7 +975,7 @@ begin
  end;
 end;
 
-function ValidVarName(varName:string):integer;
+function ValidVarName(varName:String8):integer;
 begin
  result:=-1;
  if length(varName)<3 then exit;
@@ -991,18 +992,18 @@ procedure ApplyContext(context:TGlobalContext);
 var
  i,j,p:integer;
  sa:Strings8;
- name,value:string;
+ name,value:String8;
  vF:single;
  vI:integer;
  vC:cardinal;
 begin
  try
- sa:=split {TODO: use st.Split(char)}(';',context.defaultCmd);
+ sa:=context.defaultCmd.Split(';');
  for i:=0 to length(sa)-1 do begin
   p:=pos('=',sa[i]);
   if p=0 then continue;
-  name:=chop(copy(sa[i],1,p-1));
-  value:=chop(copy(sa[i],p+1,100));
+  name:=copy(sa[i],1,p-1).Trim;
+  value:=copy(sa[i],p+1,100).Trim;
   j:=ValidVarName(name);
   if j<0 then raise EWarning.Create('Invalid variable in '+sa[i]);
   // Float?
@@ -1050,15 +1051,15 @@ begin
  end; // for
  except
   on e:exception do begin
-   Log.Error('Error in PB.ApplyC: '+e.message+' DecSep='+GetDecimalSeparator);
+   Log.Error('Error in PB.ApplyC: '+e.message+' DecSep='+{$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator);
   end;
  end;
 end;
 
 var
- lastAssignCmd:string;
+ lastAssignCmd:String8;
 
-procedure SetGlobals(cmd:string;contextName:string);
+procedure SetGlobals(cmd:String8;contextName:String8);
 var
  i:integer;
  contextIdx:integer;
@@ -1089,7 +1090,7 @@ begin
  end;
 end;
 
-procedure OverrideGlobal(varName:string;const value;forContext:string);
+procedure OverrideGlobal(varName:String8;const value;forContext:String8);
 var
  contextID,j:integer;
  p:pointer;
@@ -1140,14 +1141,14 @@ begin
  end;
 end;
 
-function GetOverriddenValue(varName:string;forContext:string):string;
+function GetOverriddenValue(varName:String8;forContext:String8):String8;
 var
  context,i:integer;
 begin
  result:='';
  crSection.Enter;
  try
-  varName:=upperCase {TODO: use st.ToUpper}(varName);
+  varName:=varName.ToUpper;
   context:=FindContext(forContext);
   if context<0 then exit;
   i:=ValidVarName(varName);
@@ -1179,9 +1180,9 @@ initialization
   PublishFunction('sin',fFunc,11);
   PublishFunction('cos',fFunc,12);
   PublishFunction('tan',fFunc,13);
-  SetDecimalSeparator('.');
+  {$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator:='.';
  except
-  on e:Exception do ErrorMessage('Publics: '+ExceptionMsg(e));
+  on e:Exception do Log.Error('Publics: '+ExceptionMsg(e));
  end;
 finalization
   crSection.Cleanup;

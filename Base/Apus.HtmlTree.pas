@@ -6,7 +6,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.HtmlTree;
 interface
-uses Apus.Types, Apus.Structs;
+uses Apus.Core, Apus.Types, Apus.Structs;
 
 type
   THtmlNode=class;
@@ -21,8 +21,8 @@ type
   // Base node class
   THtmlNode=class
     parent:THtmlElement;
-    text:string;
-    constructor Create(parent:THtmlElement;text:string='');
+    text:String8;
+    constructor Create(parent:THtmlElement;text:String8='');
     destructor Destroy; override;
     function Depth:integer; // how many parents the node has
   end;
@@ -41,24 +41,24 @@ type
 
   // Element node class. Only nodes of this type can have child nodes
   THtmlElement=class(THtmlNode)
-    tag:string;
+    tag:String8;
     attributes:TNameValueList;
     children:THtmlNodesArray;
-    constructor Create(parent:THtmlElement;text:string='');
+    constructor Create(parent:THtmlElement;text:String8='');
     destructor Destroy; override;
     procedure AddChild(node:THtmlNode);
     procedure RemoveChild(node:THtmlNode); // remove node from children, but don't delete it
-    function InnerText:string;  // return concatenated text of all the children text nodes (recursively)
-    function InnerHtml:string;
-    function OuterHtml:string;
+    function InnerText:String8;  // return concatenated text of all the children text nodes (recursively)
+    function InnerHtml:String8;
+    function OuterHtml:String8;
     procedure Visit(visitor:THtmlNodeVisitor;context:pointer); // call visitor for each child node (recursively)
-    procedure VisitElements(visitor:THtmlElementVisitor;context:pointer;tag:string=''); // call visitor for each child element matching criteria
+    procedure VisitElements(visitor:THtmlElementVisitor;context:pointer;tag:String8=''); // call visitor for each child element matching criteria
     // Find an element with given tag name, having specified attribute containing spefified text
-    function GetElement(tag:string;attribute:string='';contains:string=''):THtmlElement;
-    function PrintTree:string; // for debug
-    function GetAttribute(aName:string):string;
-    function HasAttribute(aName:string):boolean;
-    function AttributeContains(aName,substr:string):boolean;
+    function GetElement(tag:String8;attribute:String8='';contains:String8=''):THtmlElement;
+    function PrintTree:String8; // for debug
+    function GetAttribute(aName:String8):String8;
+    function HasAttribute(aName:String8):boolean;
+    function AttributeContains(aName,substr:String8):boolean;
     function ChildElementCount:integer;
     function GetChildElement(index:integer):THtmlElement; // returns nil if index is out of range
     function ChildElements:THtmlElements;
@@ -68,27 +68,27 @@ type
     function IsBlock:boolean;
     function IsRawtext:boolean;
     function IsForeign:boolean;
-    function CanContain(childTag:string):boolean; // can this element contain a 'childTag' element as a child?
+    function CanContain(childTag:String8):boolean; // can this element contain a 'childTag' element as a child?
   end;
 
   // Returns a HTML tree with an empty root element
-  function ParseHTML(st:string):THtmlElement;
+  function ParseHTML(st:String8):THtmlElement;
 
-  function DecodeHTMLString(src:string):string; // replace HTML entities with corresponging characters
+  function DecodeHTMLString(src:String8):String8; // replace HTML entities with corresponging characters
 
-procedure AddCustomRule(outerTag,innerTag:string;canContain:boolean);
+procedure AddCustomRule(outerTag,innerTag:String8;canContain:boolean);
   procedure ClearCustomRules;
 implementation
-uses SysUtils, Apus.Core,
+uses SysUtils,
   Apus.Conv,
   Apus.Files,
   Apus.Strings;
 
 const
-  VOID_ELEMENTS = '|!doctype|area|base|br|col|embed|hr|img|input|keygen|link|menuitem|meta|param|source|track|wbr|';
-  BLOCK_ELEMENTS = '|address|article|aside|blockquote|canvas|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h1|h2|h3|h4|h5|h6|header|hr|li|main|nav|noscript|ol|p|pre|section|table|tfoot|ul|video|';
-  RAWTEXT_ELEMENTS = '|script|style|textarea|title|';
-  FOREIGN_ELEMENTS = '|svg|';
+  VOID_ELEMENTS:String8 = '|!doctype|area|base|br|col|embed|hr|img|input|keygen|link|menuitem|meta|param|source|track|wbr|';
+  BLOCK_ELEMENTS:String8 = '|address|article|aside|blockquote|canvas|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h1|h2|h3|h4|h5|h6|header|hr|li|main|nav|noscript|ol|p|pre|section|table|tfoot|ul|video|';
+  RAWTEXT_ELEMENTS:String8 = '|script|style|textarea|title|';
+  FOREIGN_ELEMENTS:String8 = '|svg|';
 
   // Source: https://html.spec.whatwg.org/entities.json
   ENTITIES_LIST : array[0..1898] of WideString=(
@@ -142,7 +142,7 @@ var
   entities:TVarHash; // entity name -> code point
   customRules:TVarHash; // override rules "tag1>tag2" -> boolean (tag1 can contain tag2)
 
-procedure AddCustomRule(outerTag,innerTag:string;canContain:boolean);
+procedure AddCustomRule(outerTag,innerTag:String8;canContain:boolean);
 begin
   customRules.Put(outerTag+'>'+innerTag,canContain);
 end;
@@ -153,10 +153,11 @@ begin
 end;
 
 
-function DecodeHTMLString(src:string):string; // replace HTML entities with corresponging characters
+function DecodeHTMLString(src:String8):String8; // replace HTML entities with corresponging characters
 var
   i,p,n,code:integer;
-  ent:string;
+  ent,utf8Char:String8;
+  cp:String32;
 begin
   SetLength(result,length(src));
   i:=1; n:=0;
@@ -181,16 +182,13 @@ begin
           code:=entities.Get(ent);
       end;
       if code>=0 then begin // success
-        {$IFDEF UNICODE}
-        inc(n);
-        result[n]:=Char(code);
-        {$ELSE}
-        ent:=UTF8Encode(WideChar(code));
-        move(ent[1],result[n+1],length(ent));
-        inc(n,length(ent));
-        {$ENDIF}
+        SetLength(cp,1);
+        cp[0]:=UCS4Char(code);
+        utf8Char:=UTF8.Encode(cp);
+        move(utf8Char[1],result[n+1],length(utf8Char));
+        inc(n,length(utf8Char));
       end else begin // failed -> copy original
-        move(src[p],result[n+1],(i-p)*sizeof(char));
+        move(src[p],result[n+1],i-p);
         inc(n,i-p);
       end;
     end else begin
@@ -203,10 +201,10 @@ begin
 end;
 
 // Find the next unquoted '>' character
-function FindTagEnd(const st:string;startPos:integer):integer;
+function FindTagEnd(const st:String8;startPos:integer):integer;
 var
   i:integer;
-  quote:char;
+  quote:AnsiChar;
 begin
   quote:=#0;
   i:=startPos;
@@ -221,7 +219,7 @@ begin
   end;
 end;
 
-function ParseHTML(st:string):THtmlElement;
+function ParseHTML(st:String8):THtmlElement;
 type
   TState=(stateText,stateComment,stateTag);
 var
@@ -230,7 +228,7 @@ var
   i,p:integer;
   node:THtmlNode;
   element:THtmlElement;
-  tag:string;
+  tag:String8;
 begin
   root:=THtmlElement.Create(nil);
   stack.Add(root);
@@ -282,7 +280,7 @@ begin
     // Process element
     if element.IsForeign or element.IsRawtext then begin
       // find end tag and create a text node for the whole content
-      p:=PosFrom {TODO: use st.IndexOf(substr)}('</'+element.tag+'>',st,i,true); // To be accurate, space chars are allowed before '>'
+      p:=st.IndexOf('</'+element.tag+'>',i,true); // To be accurate, space chars are allowed before '>'
       if p=0 then p:=length(st)+1;
       if element.IsForeign then
         THtmlForeignContent.Create(element,copy(st,i,p-i))
@@ -300,7 +298,7 @@ end;
 
 { THtmlNode }
 
-constructor THtmlNode.Create(parent:THtmlElement;text:string);
+constructor THtmlNode.Create(parent:THtmlElement;text:String8);
 begin
   self.parent:=parent;
   self.text:=text;
@@ -327,10 +325,10 @@ end;
 
 { THtmlElement }
 
-constructor THtmlElement.Create(parent:THtmlElement; text:string);
+constructor THtmlElement.Create(parent:THtmlElement; text:String8);
 var
   i,p:integer;
-  name,value:string;
+  name,value:String8;
 begin
   inherited;
   if text='' then exit;
@@ -362,7 +360,7 @@ begin
       // quoted value
       p:=i;
       repeat
-        p:=PosFrom {TODO: use st.IndexOf(substr)}(text[i],text,p+1);
+        p:=text.IndexOf(text[i],p+1);
         if p=0 then begin
           // no end quote
           p:=length(text)-1;
@@ -389,20 +387,20 @@ begin
   inherited;
 end;
 
-function THtmlElement.GetElement(tag,attribute,contains:string):THtmlElement;
+function THtmlElement.GetElement(tag,attribute,contains:String8):THtmlElement;
 var
   i:integer;
   aIdx:integer;
 begin
   result:=nil;
   // Check if this element meets the search criteria
-  if (tag='') or SameText(tag,self.tag) then begin
+  if (tag='') or tag.EqualsText(self.tag) then begin
     result:=self;
     if attribute<>'' then begin // element must have specified attribute
       aIdx:=attributes.Find(attribute);
       if aIdx<0 then result:=nil
       else begin
-        if (contains<>'') and (PosFrom {TODO: use st.IndexOf(substr)}(contains,attributes.items[aIdx].value,1,true)=0) then result:=nil;
+        if (contains<>'') and (attributes.items[aIdx].value.IndexOf(contains,1,true)=0) then result:=nil;
       end;
     end;
   end;
@@ -415,12 +413,12 @@ begin
       end;
 end;
 
-function THtmlElement.HasAttribute(aName:string):boolean;
+function THtmlElement.HasAttribute(aName:String8):boolean;
 begin
   result:=attributes.HasName(aName);
 end;
 
-function THtmlElement.GetAttribute(aName:string):string;
+function THtmlElement.GetAttribute(aName:String8):String8;
 begin
   result:=attributes.Item[aName];
 end;
@@ -460,17 +458,17 @@ begin
     end;
 end;
 
-function THtmlElement.AttributeContains(aName,substr:string):boolean;
+function THtmlElement.AttributeContains(aName,substr:String8):boolean;
 var
   idx:integer;
 begin
   result:=false;
   idx:=attributes.Find(aName);
   if idx<0 then exit;
-  result:=PosFrom {TODO: use st.IndexOf(substr)}(substr,attributes.items[idx].value,1,true)>0;
+  result:=attributes.items[idx].value.IndexOf(substr,1,true)>0;
 end;
 
-function THtmlElement.InnerText:string;
+function THtmlElement.InnerText:String8;
 var
   i:integer;
 begin
@@ -483,7 +481,7 @@ begin
   end;
 end;
 
-function THtmlElement.InnerHTML:string;
+function THtmlElement.InnerHTML:String8;
 var
   i:integer;
 begin
@@ -507,9 +505,9 @@ begin
   node.parent:=nil;
 end;
 
-function THtmlElement.CanContain(childTag:string):boolean;
+function THtmlElement.CanContain(childTag:String8):boolean;
 var
-  st:string;
+  st:String8;
   value:variant;
 begin
   result:=true;
@@ -539,11 +537,11 @@ begin
   end;
 end;
 
-procedure THtmlElement.VisitElements(visitor:THtmlElementVisitor;context:pointer;tag:string);
+procedure THtmlElement.VisitElements(visitor:THtmlElementVisitor;context:pointer;tag:String8);
 var
   i:integer;
 begin
-  if (tag='') or (SameText(tag,self.tag)) then
+  if (tag='') or tag.EqualsText(self.tag) then
     visitor(self,context);
   for i:=0 to children.count-1 do
     if children.items[i] is THtmlElement then
@@ -552,8 +550,8 @@ end;
 
 procedure PrintVisitor(node:THtmlNode;context:pointer);
 var
-  st:PString;
-  txt:string;
+  st:PString8;
+  txt:String8;
   depth:integer;
 begin
   depth:=node.Depth;
@@ -577,9 +575,9 @@ begin
   end;
 end;
 
-function THtmlElement.PrintTree:string;
+function THtmlElement.PrintTree:String8;
 var
-  str:string;
+  str:String8;
 begin
   str:='';
   Visit(PrintVisitor,@str);
@@ -606,7 +604,7 @@ begin
   result:=pos('|'+tag+'|',VOID_ELEMENTS)>0;
 end;
 
-function THtmlElement.OuterHtml:string;
+function THtmlElement.OuterHtml:String8;
 begin
   result:=text+InnerHtml;
   if not IsVoid then
@@ -615,7 +613,7 @@ end;
 
 var
   node:THtmlElement;
-  st:string;
+  st:String8;
   t:int64;
   i:integer;
 
@@ -649,20 +647,4 @@ initialization
   entities.Init(length(ENTITIES_LIST)*2);
   for i:=0 to high(ENTITIES_LIST) do
     entities.Put(String8(copy(ENTITIES_LIST[i],2,100)),Word(ENTITIES_LIST[i][1]));
-
-  //node:=ParseHTML('<div>123</div>');
-  //node:=ParseHTML('<div><p>1<p>2</p>3');
-  //DecodeHtmlString('&#12345678912345678123443653656546456546');
-  //DecodeHtmlString('&#x0');
-  //DecodeHtmlString('&xxx');
-  //DecodeHtmlString('A&quot;_&#66;&ksdhkh&#x44');
-  { // Debug test
-  st:=Files.LoadAsString('test.htm');
-  st:=Files.LoadAsString('content.htm');
-  t:=CoreTime.Ticks;
-  node:=ParseHTML(st);
-  t:=CoreTime.Ticks-t;
-  st:=node.PrintTree;
-  SaveFile {TODO: use Files.Save(fname,data)}('tree.txt',Utf8String(st));
-  writeln(t,node.tag);  }
 end.
