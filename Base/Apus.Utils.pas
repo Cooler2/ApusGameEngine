@@ -215,7 +215,7 @@ var
  w:word;
 begin
  case encoding of
-  TTextEncoding.teUTF8:result:=EncodeUTF8(st);
+  TTextEncoding.teUTF8:result:=UTF8.Encode(st);
   TTextEncoding.teWin1251:begin
    SetLength(result,length(st));
    for i:=1 to length(st) do
@@ -238,7 +238,7 @@ var
  b:byte;
 begin
  case encoding of
-  TTextEncoding.teUTF8:result:=DecodeUTF8(st);
+  TTextEncoding.teUTF8:result:=UTF8.ToWide(st);
   TTextEncoding.teWin1251:begin
    SetLength(result,length(st));
    for i:=1 to length(st) do begin

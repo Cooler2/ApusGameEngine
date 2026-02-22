@@ -602,7 +602,7 @@ implementation
   var
    i:integer;
   begin
-   Hsize:=GetPow2(newsize);
+   Hsize:=NextPow2(newsize);
    mask:=hSize-1;
    SetLength(cells,Hsize);
    Hcount:=0;
@@ -2035,7 +2035,7 @@ procedure TObjectHash.Init(estimatedCount:integer);
  begin
   count:=0;
   lock:=0;
-  mask:=GetPow2(estimatedCount*2);
+  mask:=NextPow2(estimatedCount*2);
   SetLength(values,mask);
   dec(mask);
   hashMiss:=0;
@@ -2188,7 +2188,7 @@ procedure TVarHash.Init(estimatedCount:integer);
  begin
   count:=0;
   lock:=0;
-  mask:=GetPow2(estimatedCount*2);
+  mask:=NextPow2(estimatedCount*2);
   SetLength(keys,mask);
   SetLength(values,mask);
   dec(mask);
@@ -2619,7 +2619,7 @@ procedure TObjectList.Init;
 // Sort records by field
 // -------------------------------------------
 procedure QuickSortRecords(data:pointer;itemSize,offset,a,b,valueType:integer;asc:boolean);
- function Compare(p1,p2:pointer):boolean; inline;
+ function Compare(p1,p2:pointer):boolean; {$IFDEF FPC} inline; {$ENDIF}
   begin
    case valueType of
     1:result:=(PInteger(p1)^>PInteger(p2)^);
