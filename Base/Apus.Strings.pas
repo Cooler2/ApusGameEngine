@@ -38,13 +38,11 @@ type
     function Right(count:integer):String8;
 
     // === Search ===
-    function IndexOf(const substr:String8):integer; overload;                    // returns 0 if not found
-    function IndexOf(const substr:String8;startPos:integer):integer; overload;   // 1-based startPos
-    function IndexOf(ch:AnsiChar):integer; overload;
-    function IndexOf(ch:AnsiChar;startPos:integer):integer; overload;
-    function LastIndexOf(const substr:String8):integer; overload;
+    function IndexOf(const substr:String8;startPos:integer=1;ignoreCase:boolean=false):integer; overload; // returns 0 if not found, 1-based startPos, ASCII case-folding
+    function IndexOf(ch:AnsiChar;startPos:integer=1):integer; overload;
+    function LastIndexOf(const substr:String8;ignoreCase:boolean=false):integer; overload; // ASCII case-folding
     function LastIndexOf(ch:AnsiChar):integer; overload;
-    function Contains(const substr:String8):boolean; overload;
+    function Contains(const substr:String8;ignoreCase:boolean=false):boolean; overload; // ASCII case-folding
     function Contains(ch:AnsiChar):boolean; overload;
     function StartsWith(const prefix:String8):boolean;
     function EndsWith(const suffix:String8):boolean;
@@ -130,13 +128,12 @@ type
     function Right(count:integer):String32;
 
     // === Search ===
-    function IndexOf(const substr:String32):integer; overload; // returns -1 if not found
-    function IndexOf(const substr:String32;startPos:integer):integer; overload; // 0-based, returns -1 if not found
+    function IndexOf(const substr:String32;startPos:integer=0;ignoreCase:boolean=false):integer; overload; // 0-based, returns -1 if not found, ASCII case-folding
     function IndexOf(ch:UCS4Char):integer; overload; // returns -1 if not found
     function IndexOf(ch:UCS4Char;startPos:integer):integer; overload; // 0-based, returns -1 if not found
-    function LastIndexOf(const substr:String32):integer; overload; // returns -1 if not found
+    function LastIndexOf(const substr:String32;ignoreCase:boolean=false):integer; overload; // returns -1 if not found, ASCII case-folding
     function LastIndexOf(ch:UCS4Char):integer; overload; // returns -1 if not found
-    function Contains(const substr:String32):boolean; overload;
+    function Contains(const substr:String32;ignoreCase:boolean=false):boolean; overload; // ASCII case-folding
     function Contains(ch:UCS4Char):boolean; overload;
     function StartsWith(const prefix:String32):boolean;
     function EndsWith(const suffix:String32):boolean;
@@ -304,17 +301,38 @@ begin result:=System.Copy(self,1,count); end;
 function String8Helper.Right(count:integer):String8;
 begin result:=System.Copy(self,System.Length(self)-count+1,count); end;
 
-function String8Helper.IndexOf(const substr:String8):integer;
-begin result:=System.Pos(substr,self); end;
-
-function String8Helper.IndexOf(const substr:String8;startPos:integer):integer;
-begin result:=System.Pos(substr,self,startPos); end;
-
-function String8Helper.IndexOf(ch:AnsiChar):integer;
-var i:integer;
+function String8Helper.IndexOf(const substr:String8;startPos:integer;ignoreCase:boolean):integer;
+var
+  i,j,subLen,selfLen,lastStart:integer;
+  found:boolean;
+  c1,c2:AnsiChar;
 begin
-  for i:=1 to System.Length(self) do
-    if self[i]=ch then exit(i);
+  if not ignoreCase then
+    exit(System.Pos(substr,self,startPos));
+  selfLen:=System.Length(self);
+  subLen:=System.Length(substr);
+  if startPos<1 then startPos:=1;
+  if subLen=0 then begin
+    if startPos<=selfLen+1 then result:=startPos
+    else result:=0;
+    exit;
+  end;
+  lastStart:=selfLen-subLen+1;
+  if startPos>lastStart then exit(0);
+  for i:=startPos to lastStart do begin
+    found:=true;
+    for j:=1 to subLen do begin
+      c1:=self[i+j-1];
+      c2:=substr[j];
+      if (c1>='a') and (c1<='z') then dec(c1,ord('a')-ord('A'));
+      if (c2>='a') and (c2<='z') then dec(c2,ord('a')-ord('A'));
+      if c1<>c2 then begin
+        found:=false;
+        break;
+      end;
+    end;
+    if found then exit(i);
+  end;
   result:=0;
 end;
 
@@ -326,12 +344,12 @@ begin
   result:=0;
 end;
 
-function String8Helper.LastIndexOf(const substr:String8):integer;
+function String8Helper.LastIndexOf(const substr:String8;ignoreCase:boolean):integer;
 var p:integer;
 begin
   result:=0; p:=1;
   repeat
-    p:=System.Pos(substr,self,p);
+    p:=IndexOf(substr,p,ignoreCase);
     if p>0 then begin result:=p; inc(p); end;
   until p=0;
 end;
@@ -344,8 +362,8 @@ begin
   result:=0;
 end;
 
-function String8Helper.Contains(const substr:String8):boolean;
-begin result:=System.Pos(substr,self)>0; end;
+function String8Helper.Contains(const substr:String8;ignoreCase:boolean):boolean;
+begin result:=IndexOf(substr,1,ignoreCase)>0; end;
 
 function String8Helper.Contains(ch:AnsiChar):boolean;
 begin result:=IndexOf(ch)>0; end;
@@ -686,25 +704,23 @@ begin result:=System.Copy(self,0,count); end;
 function String32Helper.Right(count:integer):String32;
 begin result:=System.Copy(self,System.Length(self)-count,count); end;
 
-function String32Helper.IndexOf(const substr:String32):integer;
-var i,j:integer; found:boolean;
+function String32Helper.IndexOf(const substr:String32;startPos:integer;ignoreCase:boolean):integer;
+var i,j,lastStart:integer; found:boolean;
+    c1,c2:UCS4Char;
 begin
-  for i:=0 to System.Length(self)-System.Length(substr) do begin
+  if startPos<0 then startPos:=0;
+  lastStart:=System.Length(self)-System.Length(substr);
+  for i:=startPos to lastStart do begin
     found:=true;
-    for j:=0 to high(substr) do
-      if self[i+j]<>substr[j] then begin found:=false; break; end;
-    if found then exit(i);
-  end;
-  result:=-1;
-end;
-
-function String32Helper.IndexOf(const substr:String32;startPos:integer):integer;
-var i,j:integer; found:boolean;
-begin
-  for i:=startPos to System.Length(self)-System.Length(substr) do begin
-    found:=true;
-    for j:=0 to high(substr) do
-      if self[i+j]<>substr[j] then begin found:=false; break; end;
+    for j:=0 to high(substr) do begin
+      c1:=self[i+j];
+      c2:=substr[j];
+      if ignoreCase then begin
+        if (c1>=ord('A')) and (c1<=ord('Z')) then c1:=c1+32;
+        if (c2>=ord('A')) and (c2<=ord('Z')) then c2:=c2+32;
+      end;
+      if c1<>c2 then begin found:=false; break; end;
+    end;
     if found then exit(i);
   end;
   result:=-1;
@@ -738,12 +754,12 @@ begin
   result:=-1;
 end;
 
-function String32Helper.LastIndexOf(const substr:String32):integer;
+function String32Helper.LastIndexOf(const substr:String32;ignoreCase:boolean):integer;
 var p:integer;
 begin
   result:=-1; p:=0;
   repeat
-    p:=IndexOf(substr,p);
+    p:=IndexOf(substr,p,ignoreCase);
     if p>=0 then begin result:=p; inc(p); end;
   until p<0;
 end;
@@ -756,8 +772,8 @@ begin
   result:=-1;
 end;
 
-function String32Helper.Contains(const substr:String32):boolean;
-begin result:=IndexOf(substr)>=0; end;
+function String32Helper.Contains(const substr:String32;ignoreCase:boolean):boolean;
+begin result:=IndexOf(substr,0,ignoreCase)>=0; end;
 
 function String32Helper.Contains(ch:UCS4Char):boolean;
 begin result:=IndexOf(ch)>=0; end;

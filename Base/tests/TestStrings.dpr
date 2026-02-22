@@ -64,15 +64,20 @@ begin
   Check(s.IndexOf('World')=7,'IndexOf(World)');
   Check(s.IndexOf('NotFound')=0,'IndexOf not found');
   Check(s.IndexOf('Hello',2)=13,'IndexOf(Hello,2)');
+  // Case-insensitive search should find mixed-case fragment without manual lowercasing.
+  Check(s.IndexOf('world',1,true)=7,'IndexOf(world,1,true)');
   // IndexOf char
   Check(s.IndexOf('o')=5,'IndexOf(o)');
   Check(s.IndexOf('o',6)=8,'IndexOf(o,6)');
   Check(s.IndexOf('z')=0,'IndexOf(z) not found');
   // LastIndexOf
   Check(s.LastIndexOf('Hello')=13,'LastIndexOf(Hello)');
+  // Case-insensitive LastIndexOf should return the latest match regardless of case.
+  Check(s.LastIndexOf('hello',true)=13,'LastIndexOf(hello,true)');
   Check(s.LastIndexOf('o')=17,'LastIndexOf(o)');
   // Contains
   Check(s.Contains('World'),'Contains(World)');
+  Check(s.Contains('world',true),'Contains(world,true)');
   Check(not s.Contains('Foo'),'not Contains(Foo)');
   Check(s.Contains('o'),'Contains(o)');
   EndTest;
@@ -394,6 +399,8 @@ begin
   Check(s.IndexOf(sub,1)=12,'IndexOf(Hello,1)=12');
   sub:=UTF8.Decode('World');
   Check(s.IndexOf(sub)=6,'IndexOf(World)=6');
+  // Case-insensitive mode keeps 0-based indexing and should still find "World".
+  Check(s.IndexOf(UTF8.Decode('world'),0,true)=6,'IndexOf(world,0,true)=6');
   sub:=UTF8.Decode('NotFound');
   Check(s.IndexOf(sub)=-1,'IndexOf not found=-1');
   // char search
@@ -403,10 +410,12 @@ begin
   // LastIndexOf
   sub:=UTF8.Decode('Hello');
   Check(s.LastIndexOf(sub)=12,'LastIndexOf(Hello)=12');
+  Check(s.LastIndexOf(UTF8.Decode('hello'),true)=12,'LastIndexOf(hello,true)=12');
   Check(s.LastIndexOf(ord('o'))=16,'LastIndexOf(o)=16');
   // Contains
   sub:=UTF8.Decode('World');
   Check(s.Contains(sub),'Contains(World)');
+  Check(s.Contains(UTF8.Decode('world'),true),'Contains(world,true)');
   sub:=UTF8.Decode('Foo');
   Check(not s.Contains(sub),'not Contains(Foo)');
   EndTest;

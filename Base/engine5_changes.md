@@ -152,8 +152,8 @@ Call style changes from `Func(st, args)` to `st.Method(args)`.
 
 | Old name (Common) | New name (Strings) | Notes |
 |---|---|---|
-| `PosFrom(substr,st)` | `st.IndexOf(substr)` | |
-| `PosFrom(substr,st,minIdx)` | `st.IndexOf(substr,minIdx)` | |
+| `PosFrom(substr,st)` | `st.IndexOf(substr)` | For `ignoreCase=true`, use manual rewrite to `st.IndexOf(substr,1,true)` |
+| `PosFrom(substr,st,minIdx)` | `st.IndexOf(substr,minIdx)` | For `ignoreCase=true`, use manual rewrite to `st.IndexOf(substr,minIdx,true)` |
 | `LastPos(substr,st)` | `st.LastIndexOf(substr)` | |
 | `Chop(st)` | `st.Trim` | |
 | `SameText8(a,b)` | `a.EqualsText(b)` | |

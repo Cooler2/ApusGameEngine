@@ -125,8 +125,8 @@ Empty lines are ignored.
   The ? after -> signals a TODO marker. The tool inserts a block comment
   right after the found identifier:
 
-    Before:  x := PosFrom(substr, st);
-    After:   x := PosFrom {TODO: use st.IndexOf(substr)}(substr, st);
+    Before:  x := PosFrom(substr, st, p, true);
+    After:   x := PosFrom {TODO: manual rewrite to st.IndexOf(substr,p,true)}(substr, st, p, true);
 
   The [UnitName] is optional here too — if present, the required unit
   will be added to uses, so the manual fix can use the new API.
