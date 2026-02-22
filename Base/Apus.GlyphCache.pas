@@ -496,10 +496,9 @@ begin
  result.y:=bands[best].y;
  result.x:=aWidth-bands[best].freeSpace;
  dec(bands[best].freeSpace,width);
- r:=PackBytes(width,height,dx+128,dy+128);
+ r:=Bits.Pack(width,height,dx+128,dy+128);
  hash1.Put(chardata,r);
- r:=result.Y shl 16+result.x;
- r:=PackWords(result.x,result.y);
+ r:=Bits.PackW(result.x,result.y);
  hash2.Put(chardata,r);
  except
   on e:Exception do
@@ -532,13 +531,13 @@ var
 begin
  r:=hash1.Get(charData);
  if r<>-1 then begin
-  result.width:=r and $FF;
-  result.height:=(r shr 8) and $FF;
-  result.dx:=(r shr 16) and $FF-128;
-  result.dy:=(r shr 24) and $FF-128;
+  result.width:=Bits.GetByte(cardinal(r),0);
+  result.height:=Bits.GetByte(cardinal(r),1);
+  result.dx:=Bits.GetByte(cardinal(r),2)-128;
+  result.dy:=Bits.GetByte(cardinal(r),3)-128;
   r:=hash2.Get(charData);
-  result.x:=relX+r and $3FF;
-  result.y:=relY+(r shr 16) and $3FF;
+  result.x:=relX+Bits.GetWord(cardinal(r),0) and $3FF;
+  result.y:=relY+Bits.GetWord(cardinal(r),1) and $3FF;
  end else begin
   result.x:=-1;
   result.y:=-1;

@@ -337,6 +337,18 @@ type
     class procedure SetBits(var data:word; index,size,value:integer); overload; static;
     class procedure SetBits(var data:cardinal; index,size,value:integer); overload; static;
     class procedure SetBits(var data:uint64; index,size,value:integer); overload; static;
+    // Pack bytes into larger integer types
+    class function Pack(b0,b1:byte):word; overload; static; inline;
+    class function Pack(b0,b1,b2,b3:byte):cardinal; overload; static; inline;
+    class function Pack(b0,b1,b2,b3,b4,b5,b6,b7:byte):UInt64; overload; static; inline;
+    // Pack words into larger integer types (PackW to avoid clash with 4-byte Pack)
+    class function PackW(w0,w1:word):cardinal; overload; static; inline;
+    class function PackW(w0,w1,w2,w3:word):UInt64; overload; static; inline;
+    // Extract byte/word by index from packed integer
+    class function GetByte(data:cardinal;index:integer):byte; overload; static; inline;
+    class function GetByte(data:UInt64;index:integer):byte; overload; static; inline;
+    class function GetWord(data:cardinal;index:integer):word; overload; static; inline;
+    class function GetWord(data:UInt64;index:integer):word; overload; static; inline;
   end;
 
 // =============================================================================
@@ -1447,6 +1459,52 @@ begin
   data:=(data and not fieldMask) or ((uint64(value) and uint64(BITS_FIELD_MASK[size])) shl index);
 end;
 
+class function Bits.Pack(b0,b1:byte):word;
+begin
+ result:=b0+word(b1) shl 8;
+end;
+
+class function Bits.Pack(b0,b1,b2,b3:byte):cardinal;
+begin
+ result:=b0+cardinal(b1) shl 8+cardinal(b2) shl 16+cardinal(b3) shl 24;
+end;
+
+class function Bits.Pack(b0,b1,b2,b3,b4,b5,b6,b7:byte):UInt64;
+begin
+ result:=b0+UInt64(b1) shl 8+UInt64(b2) shl 16+UInt64(b3) shl 24+
+         UInt64(b4) shl 32+UInt64(b5) shl 40+UInt64(b6) shl 48+UInt64(b7) shl 56;
+end;
+
+class function Bits.PackW(w0,w1:word):cardinal;
+begin
+ result:=w0+cardinal(w1) shl 16;
+end;
+
+class function Bits.PackW(w0,w1,w2,w3:word):UInt64;
+begin
+ result:=w0+UInt64(w1) shl 16+UInt64(w2) shl 32+UInt64(w3) shl 48;
+end;
+
+class function Bits.GetByte(data:cardinal;index:integer):byte;
+begin
+ result:=byte(data shr (index*8));
+end;
+
+class function Bits.GetByte(data:UInt64;index:integer):byte;
+begin
+ result:=byte(data shr (index*8));
+end;
+
+class function Bits.GetWord(data:cardinal;index:integer):word;
+begin
+ result:=word(data shr (index*16));
+end;
+
+class function Bits.GetWord(data:UInt64;index:integer):word;
+begin
+ result:=word(data shr (index*16));
+end;
+
 // =============================================================================
 // half (16-bit float) implementation
 // =============================================================================
@@ -1782,148 +1840,3 @@ initialization
   InitTimer;
 end.
 
-
--- Apus.Types:
-
-// This unit contains some useful types (except simple types and classes) and helpers
-// The structures defined here are not thread-safe
-
-// Copyright (C) 2021 Ivan Polyacov, ivan@apus-software.com
-// This file is licensed under the terms of BSD-3 license (see license.txt)
-// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
-unit Apus.Types;
-interface
-uses Types,
-  Apus.Core
-  {$IFDEF MSWINDOWS},Windows{$ENDIF};
-
-type
-  TPoint = Types.TPoint;
-  TRect = Types.TRect;
-
-  // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
-  TSplineFunc=function(x,x0,x1,y0,y1:single):single;
-
-  TIntRange=record
-    min,max:integer;
-    procedure Init(min,max:integer);
-    function Width:integer; // max-min
-    function Rand:integer;
-  end;
-
-  TFloatRange=record
-    min,max:single;
-    procedure Init(min,max:single);
-    function Width:single; // max-min
-    function Rand:single;
-  end;
-
-  // Helper type for custom arrays
-  TArray<T>=record
-    items:array of T;
-    procedure Add(element:T);
-    procedure Insert(element:T;index:integer);
-    procedure Remove(element:T;keepOrder:boolean=true);
-    function Find(element:T):integer;
-    function Contains(element:T):boolean;
-    function Last:T;
-    function IsEmpty:boolean;
-    function Count:integer;
-    function Pop:T; // return the last element and remove it
-  end;
-
-  // "name = value" string pair
-  TNameValue=record
-    name,value:string8;
-    procedure Init(name,value:string8);
-    procedure InitFrom(st:string8;splitter:string8='='); // split and trim
-    function Named(st:string8):boolean;
-    function GetInt:int64;
-    function GetFloat:double;
-    function GetDate:TDateTime;
-    function GetBool:boolean; // true if value is "y", "yes", "true", "on", "1"; false if "n", "no", "false", "off", "0"
-    function Join(separator:string8='='):string8; // convert back to "name=value"
-  end;
-
-  // List of "name=value" pairs
-  // If you have many items, consider using hash instead
-  TNameValueList=record
-    items:array of TNameValue;
-    // Init from a string 'name1=value1;..;nameN=valueN'
-    constructor Init(st:string8;itemSeparator:string8=';';valueSeparator:string8='='); overload;
-    // Init from array of strings 'name=value'
-    constructor Init(list:Strings8;valueSeparator:string8='='); overload;
-    function Save(itemSeparator:string8=';';valueSeparator:string8='='):string8;
-    function Count:integer;
-    function HasName(name:string8):boolean; // check if there is an item with given name
-    function Find(name:string8):integer;
-    procedure Add(item:TNameValue); overload;
-    procedure Add(list:TNameValueList); overload;
-  private
-    function GetItem(name:String8):string8;
-    procedure SetItem(name:string8;value:string8);
-  public
-    property Item[name:string8]:string8 read GetItem write SetItem;
-  end;
-
-  // Helper object represents in-memory binary buffer, doesn't own data
-  // Useful to pass arbitrary data instead of pointer:size pair
-  TBuffer=record
-    data:PByte;   // pointer to the whole buffer data
-    readPos:PByte; // current reading position
-    size:integer; // total data size
-    constructor Create(sour:pointer;sizeInBytes:integer);
-    constructor CreateFrom(sour:pointer;sizeInBytes:integer); overload;
-    constructor CreateFrom(var sour;sizeInBytes:integer); overload;
-    constructor CreateFrom(bytes:ByteArray); overload;
-    constructor CreateFrom(st:String8); overload;
-    function Slice(length:integer;advance:boolean=false):TBuffer; overload;
-    function Slice(from,length:integer):TBuffer; overload;
-    function ReadByte:byte;
-    function ReadBool:boolean;
-    function ReadWord:word;
-    function ReadInt:integer;
-    function ReadUInt:cardinal;
-    function ReadFloat:single;
-    function ReadDouble:double;
-    function ReadString:String8;
-    function ReadFlex:cardinal; // read flexible (multibyte) unsigned integer
-    procedure Skip(numBytes:integer); // advance read pos by
-    procedure Seek(pos:integer);
-    procedure Read(var dest;numBytes:integer);
-    function BytesLeft:integer; inline;
-    function CurrentPos:integer; inline;
-  end;
-
-{  // In-memory binary buffer used to read bit fields
-  TBitBuffer=record
-    data:PByte;
-    size:integer;
-    constructor Create(sour:pointer;sizeInBytes:integer);
-    constructor CreateFrom(buffer:TBuffer);
-    function Read(numBits:integer):cardinal;
-  private
-    buf:cardinal;
-  end;}
-
-  TWriteBuffer=record
-    position:integer;
-    constructor Init(expectedSize:integer);
-    procedure Reset(newSize:integer);
-    procedure Write(var item;numBytes:integer); overload;
-    procedure Write(var buf:TBuffer); overload;
-    procedure WriteByte(b:byte); inline;
-    procedure WriteBool(b:boolean); inline;
-    procedure WriteWord(w:word); inline;
-    procedure WriteInt(i:integer); inline;
-    procedure WriteUInt(c:cardinal); inline;
-    procedure WriteFloat(f:single); inline;
-    procedure WriteDouble(d:double); inline;
-    procedure WriteFlex(c:cardinal);
-    procedure WriteStr(s:String8);
-    procedure Seek(pos:integer);
-    procedure Skip(bytes:integer);
-    function AsBuffer:TBuffer;
-  private
-    data:ByteArray;
-  end;
