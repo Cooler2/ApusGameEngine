@@ -6,59 +6,59 @@
 {$R-}
 unit Apus.FreeTypeFont;
 interface
- uses Apus.Core, Apus.Types, Apus.Structs, freetypeh;
+uses Apus.Core, Apus.Types, Apus.Structs, freetypeh;
 
 const
- FTF_NO_HINTING = FT_LOAD_NO_HINTING;
- FTF_AUTO_HINTING = FT_LOAD_FORCE_AUTOHINT;
- FTF_ITALIC = $1000000;
+  FTF_NO_HINTING = FT_LOAD_NO_HINTING;
+  FTF_AUTO_HINTING = FT_LOAD_FORCE_AUTOHINT;
+  FTF_ITALIC = $1000000;
 type
- TIntervalRec=record
-  ch1,ch2:WideChar;
-  size,interval:smallint;
- end;
- TGlyphMetricRec=record
-  ch:WideChar;
-  size,value,padding:shortint;
- end;
+  TIntervalRec=record
+    ch1,ch2:WideChar;
+    size,interval:smallint;
+  end;
+  TGlyphMetricRec=record
+    ch:WideChar;
+    size,value,padding:shortint;
+  end;
 
- TFreeTypeFont=class
-  face:PFT_Face;
-  faceName:string;
-  globalScale:single;
-  constructor LoadFromMemory(const data:TBuffer;faceIndex:integer=0);
-  constructor LoadFromFile(fname:string;faceIndex:integer=0);
-  // Flags -
-  procedure RenderText(buf:pointer;pitch:integer;x,y:integer;st:WideString;color:cardinal;size:single;flags:cardinal=0);
-  // The following functions MUST be wrapped in Lock/Unlock in multithreaded environment
-  function Interval(ch1,ch2:WideChar;size:single):integer; // интервал между точкой начала символа ch1 и следующего за ним ch2
-  function GetTextWidth(st:WideString;size:single):integer;
-  function GetHeight(size:single):integer; // Height of characters like '0' or 'A'
-  function CharPadding(ch:WideChar;size:single):integer; // интервал в пикселях между точкой курсора и началом фактического изображения символа
-  // Text/Glyph rendering  (no any clipping!)
-//  procedure DrawGlyph(buf:pointer;pitch:integer;x,y:integer;
-//      glyphData:pointer;glWidth,glHeight:integer;color:cardinal);
-  // производит рендер глифа, возвращает указатель на 8-бит битмапку, заполняет её размеры и положение относительно курсора в пикселах
-  // изображение валидно до очередного вызова любой ф-ции отрисовки/рендера глифа
-  function RenderGlyph(ch:WideChar;size:single;flags:integer;
-     out dx,dy:integer;out width,height:integer;out pitch:integer):pointer;
- private
-  fontData:ByteArray;
-  curSize,fontSize:single;
-  intervalHash:array[0..4095] of TIntervalRec;
-  glyphWidthHash:array[0..1023] of TGlyphMetricRec;
-  procedure SetSize(size:single);
-  procedure FillGlyphMetrics(wch:WideChar;hash,size:integer);
- end;
+  TFreeTypeFont=class
+    face:PFT_Face;
+    faceName:string;
+    globalScale:single;
+    constructor LoadFromMemory(const data:TBuffer;faceIndex:integer=0);
+    constructor LoadFromFile(fname:string;faceIndex:integer=0);
+    // Flags -
+    procedure RenderText(buf:pointer;pitch:integer;x,y:integer;st:WideString;color:cardinal;size:single;flags:cardinal=0);
+    // The following functions MUST be wrapped in Lock/Unlock in multithreaded environment
+    function Interval(ch1,ch2:WideChar;size:single):integer; // интервал между точкой начала символа ch1 и следующего за ним ch2
+    function GetTextWidth(st:WideString;size:single):integer;
+    function GetHeight(size:single):integer; // Height of characters like '0' or 'A'
+    function CharPadding(ch:WideChar;size:single):integer; // интервал в пикселях между точкой курсора и началом фактического изображения символа
+    // Text/Glyph rendering  (no any clipping!)
+    //  procedure DrawGlyph(buf:pointer;pitch:integer;x,y:integer;
+    //      glyphData:pointer;glWidth,glHeight:integer;color:cardinal);
+    // производит рендер глифа, возвращает указатель на 8-бит битмапку, заполняет её размеры и положение относительно курсора в пикселах
+    // изображение валидно до очередного вызова любой ф-ции отрисовки/рендера глифа
+    function RenderGlyph(ch:WideChar;size:single;flags:integer;
+       out dx,dy:integer;out width,height:integer;out pitch:integer):pointer;
+   private
+    fontData:ByteArray;
+    curSize,fontSize:single;
+    intervalHash:array[0..4095] of TIntervalRec;
+    glyphWidthHash:array[0..1023] of TGlyphMetricRec;
+    procedure SetSize(size:single);
+    procedure FillGlyphMetrics(wch:WideChar;hash,size:integer);
+  end;
 
 var
- freetypeVersion:string;
- intervalHashMiss:cardinal;
- glyphWidthHashMiss:cardinal;
+  freetypeVersion:string;
+  intervalHashMiss:cardinal;
+  glyphWidthHashMiss:cardinal;
 
 
 implementation
- uses SysUtils, Apus.FastGFX, Apus.Threads;
+ uses SysUtils, Apus.Conv, Apus.Log, Apus.FastGFX, Apus.Threads, Apus.Files;
 
  var
   initialized:boolean=false;
@@ -66,9 +66,9 @@ implementation
   cSect:TLock;
 
 procedure InitFT;
- var
+var
   err,v1,v2,v3:integer;
- begin
+begin
   if initialized then exit;
   err:=FT_Init_FreeType(FTLibrary);
   if err<>0 then
@@ -77,7 +77,7 @@ procedure InitFT;
   freetypeVersion:=Conv.ToStr(v1)+'.'+Conv.ToStr(v2)+'.'+Conv.ToStr(v3);
   Log.Msg('Freetype initialized, version '+freetypeVersion);
   initialized:=true;
- end;
+end;
 
 
 { TFreeTypeFont }
@@ -96,40 +96,42 @@ begin
    result:=round(size*fontSize+0.5);
    exit;
   end;
-  Lock;
+  cSect.Enter;
   try
-  SetSize(100);
-  res:=FT_Load_Char(face,$30,FT_LOAD_DEFAULT);
-  if res<>0 then raise EWarning.Create('FTF: GTH: '+Conv.ToStr(res));
-  fontSize:=((face.glyph.metrics.height+31) shr 6)/100;
-  result:=round(size*fontSize+0.5);
+    SetSize(100);
+    res:=FT_Load_Char(face,$30,FT_LOAD_DEFAULT);
+    if res<>0 then
+      raise EWarning.Create('FTF: GTH: '+Conv.ToStr(res));
+    fontSize:=((face.glyph.metrics.height+31) shr 6)/100;
+    result:=round(size*fontSize+0.5);
   finally
-   Unlock;
+    cSect.Leave;
   end;
 end;
 
 procedure TFreeTypeFont.FillGlyphMetrics(wch:WideChar;hash,size:integer);
- var
+var
   res,v:integer;
- begin
+begin
   inc(glyphWidthHashMiss);
   cSect.Enter;
   try
-   res:=FT_Load_Char(face,word(wch),FT_LOAD_DEFAULT);
-   if res<>0 then raise EWarning.Create('FTF: GTW 1: '+Conv.ToStr(res));
-   with face.glyph^ do
-    if wch=' ' then
-     v:=(advance.x+31) shr 6
-    else
-     v:=(metrics.horiBearingX+metrics.width+31) shr 6;
-   glyphWidthHash[hash].ch:=wch;
-   glyphWidthHash[hash].size:=size;
-   glyphWidthHash[hash].value:=v;
-   glyphWidthHash[hash].padding:=face.glyph.metrics.horiBearingX shr 6;
+    res:=FT_Load_Char(face,word(wch),FT_LOAD_DEFAULT);
+    if res<>0 then
+      raise EWarning.Create('FTF: GTW 1: '+Conv.ToStr(res));
+    with face.glyph^ do
+      if wch=' ' then
+        v:=(advance.x+31) shr 6
+      else
+        v:=(metrics.horiBearingX+metrics.width+31) shr 6;
+    glyphWidthHash[hash].ch:=wch;
+    glyphWidthHash[hash].size:=size;
+    glyphWidthHash[hash].value:=v;
+    glyphWidthHash[hash].padding:=face.glyph.metrics.horiBearingX shr 6;
   finally
-   cSect.Leave;
+    cSect.Leave;
   end;
- end;
+end;
 
 function TFreeTypeFont.GetTextWidth(st: WideString;size:single): integer;
 var
@@ -160,12 +162,12 @@ begin
 
  for i:=1 to length(st)-1 do begin
   if (st[i] in [#13,#10]) then begin
-   maxLineWidth:=max2(maxLineWidth,result);
+   maxLineWidth:=max(maxLineWidth,result);
    result:=0; continue;
   end;
   result:=result+Interval(st[i],st[i+1],size);
  end;
- result:=max2(maxLineWidth,result+lastCharW)-1;
+ result:=max(maxLineWidth,result+lastCharW)-1;
 end;
 
 function TFreeTypeFont.Interval(ch1, ch2: WideChar;size:single): integer;
@@ -187,24 +189,25 @@ begin
 
  // Calculate
  Inc(intervalHashMiss);
- Lock;
+ cSect.Enter;
  try
- SetSize(size);
+   SetSize(size);
 
- gl1:=FT_Load_Char(Face,word(ch1),0);
+   gl1:=FT_Load_Char(Face,word(ch1),0);
 // if res<>0 then raise EWarning.Create('FTF: LoadChar error 2: '+Conv.ToStr(res));
- result:=face.glyph.advance.x;
- gl2:=FT_Load_Char(face,word(ch2),0);
- res:=FT_Get_Kerning(face,gl1,gl2,0,v);
- if res<>0 then raise EWarning.Create('FTF: error 2: '+Conv.ToStr(res));
- result:=(result+v.x+31) shr 6;
+   result:=face.glyph.advance.x;
+   gl2:=FT_Load_Char(face,word(ch2),0);
+   res:=FT_Get_Kerning(face,gl1,gl2,0,v);
+   if res<>0 then
+     raise EWarning.Create('FTF: error 2: '+Conv.ToStr(res));
+   result:=(result+v.x+31) shr 6;
 
- intervalHash[h].ch1:=ch1;
- intervalHash[h].ch2:=ch2;
- intervalHash[h].size:=s;
- intervalHash[h].interval:=result;
+   intervalHash[h].ch1:=ch1;
+   intervalHash[h].ch2:=ch2;
+   intervalHash[h].size:=s;
+   intervalHash[h].interval:=result;
  finally
-  Unlock;
+  cSect.Leave;
  end;
 end;
 
@@ -225,16 +228,16 @@ constructor TFreeTypeFont.LoadFromFile(fname:string;faceIndex:integer=0);
  var
   data:ByteArray;
  begin
-  Log.Msg('Loading Freetype font from '+fname);
-  data:=LoadFileAsBytes(fname);
-  LoadFromMemory(TBuffer.CreateFrom(data),faceIndex);
+   Log.Msg('Loading Freetype font from '+fname);
+   data:=Files.LoadAsBytes(fname);
+   LoadFromMemory(TBuffer.CreateFrom(data),faceIndex);
  end;
 
 constructor TFreeTypeFont.LoadFromMemory(const data:TBuffer;faceIndex:integer);
  var
   err:integer;
  begin
-  Lock;
+  cSect.Enter;
   try
    if not initialized then InitFT;
    Log.Msg('Loading Freetype font from memory');
@@ -248,7 +251,7 @@ constructor TFreeTypeFont.LoadFromMemory(const data:TBuffer;faceIndex:integer);
    fontSize:=0;
    globalScale:=1;
   finally
-   Unlock;
+   cSect.Leave;
   end;
  end;
 
@@ -258,7 +261,7 @@ var
  err:integer;
  bitmap:^FT_Bitmap;
 begin
- Lock;
+ cSect.Enter;
  try
   SetSize(size);
 
@@ -272,7 +275,7 @@ begin
   dy:=face.glyph.bitmap_top;
   result:=bitmap.buffer;
  finally
-  Unlock;
+  cSect.Leave;
  end;
 end;
 
@@ -286,7 +289,7 @@ procedure TFreeTypeFont.RenderText(buf: pointer; pitch, x, y: integer;
   kerning:FT_Vector;
   mat:FT_Matrix;
  begin
-  Lock;
+  cSect.Enter;
   try
    px:=x; py:=y;
    SetSize(size);
@@ -325,7 +328,7 @@ procedure TFreeTypeFont.RenderText(buf: pointer; pitch, x, y: integer;
    end;
    FT_Set_Transform(Face,nil,nil);
   finally
-   Unlock;
+   cSect.Leave;
   end;
  end;
 
@@ -335,12 +338,12 @@ var
 begin
  cSect.Enter;
  try
-  if (curSize<>size) and (size>0) then begin
-   //Sleep(15000);
-   err:=FT_Set_Char_Size(Face,round(size*64*globalScale),0,96,0);
-   if err<>0 then raise EWarning.Create('Failed to set char size: '+Conv.ToStr(err));
-   curSize:=size;
-  end;
+   if (curSize<>size) and (size>0) then begin
+     err:=FT_Set_Char_Size(Face,round(size*64*globalScale),0,96,0);
+     if err<>0 then
+       raise EWarning.Create('Failed to set char size: '+Conv.ToStr(err));
+     curSize:=size;
+   end;
  finally
    cSect.Leave;
  end;
