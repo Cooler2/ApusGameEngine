@@ -3,6 +3,25 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Recent API fixes (2026-02-19)
+
+### Apus.Core `Min/Max` return type corrections
+
+Fixed incorrect return types that could truncate values:
+
+| Old signature | New signature |
+|---|---|
+| `Min(a,b:cardinal):integer` | `Min(a,b:cardinal):cardinal` |
+| `Min(a,b:int64):integer` | `Min(a,b:int64):int64` |
+| `Min(a,b:uint64):integer` | `Min(a,b:uint64):uint64` |
+| `Max(a,b:cardinal):integer` | `Max(a,b:cardinal):cardinal` |
+| `Max(a,b:int64):integer` | `Max(a,b:int64):int64` |
+| `Max(a,b:uint64):integer` | `Max(a,b:uint64):uint64` |
+| `Min(a,b,c:single):integer` | `Min(a,b,c:single):single` |
+| `Max(a,b,c:single):integer` | `Max(a,b,c:single):single` |
+
+Implementation of `Min/Max(a,b,c:single)` was also fixed to compare `single` values directly (no `trunc()`).
+
 ## Apus.Core (low-level math, memory, bits, time, exceptions)
 
 | Old name (Common) | New name (Core) | Notes |
@@ -16,7 +35,7 @@ Use it as the primary reference when updating old code.
 | `Clamp(v,min,max)` | `Clamp(v,min,max)` | same name, added single/double overloads |
 | `Sat(v,0,255)` | `Sat(v)` | now clamps to 0..1 (single/double) |
 | `Swap(a,b)` | `Swap(a,b)` | same name |
-| `GetPow2(v)` | `GetPow2(v)` | same name |
+| `GetPow2(v)` | `NextPow2(v)` | renamed for clarity (next power of two) |
 | `Pow2(e)` | `Pow2(e)` | same name |
 | `Log2i(v)` | `Log2i(v)` | same name |
 | `HasFlag(v,flag)` | `Bits.HasAll(v,flag)` | |

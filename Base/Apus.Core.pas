@@ -193,9 +193,9 @@ var
   procedure Swap(var a,b;size:integer); overload; inline;
 
   // Pow2
-  function GetPow2(v:integer):integer; inline; // smallest power of 2 >= v
   function Pow2(e:integer):int64; inline;      // 2^e
-  function Log2i(v:integer):integer;           // ceil(log2(v))
+  function NextPow2(v:uint64):uint64; inline; // smallest power of 2 >= v
+  function Log2i(v:int64):integer;           // ceil(log2(v))
 
   // --- Alignment ---  (align must be a power of 2)
   function AlignUp(val:UIntPtr; align:cardinal):UIntPtr; overload; inline;
@@ -559,11 +559,15 @@ end;
 
 {$IFDEF NEED_MEMORY_BARRIER}
 procedure MemoryBarrier; inline;
+var
+  dummy:longint;
 begin
   {$IF DEFINED(CPUX86) OR DEFINED(CPUX64)}
   asm mfence end;
   {$ELSE}
-  // ARM and other architectures: compiler barrier
+  // Fallback full barrier via atomic read-modify-write operation.
+  dummy:=0;
+  Atomic.CmpExchange(dummy,0,0);
   {$ENDIF}
 end;
 {$ENDIF}
@@ -890,31 +894,42 @@ begin
   move(buf,b,size);
 end;
 
-function GetPow2(v:integer):integer;
+function NextPow2(v:uint64):uint64;
 begin
-  if v<256 then result:=1
-  else result:=256;
-  while result<v do result:=result*2;
+  if v<=1 then begin
+    result:=1;
+    exit;
+  end;
+  // Round up to next power of two (64-bit). Overflow returns 0.
+  dec(v);
+  v:=v or (v shr 1);
+  v:=v or (v shr 2);
+  v:=v or (v shr 4);
+  v:=v or (v shr 8);
+  v:=v or (v shr 16);
+  v:=v or (v shr 32);
+  result:=v+1;
 end;
 
 function Pow2(e:integer):int64;
 begin
   result:=0;
-  if (e>=0) and (e<64) then
+  // int64 signed range: 2^63 is not representable as positive value
+  if (e>=0) and (e<63) then
     result:=int64(1) shl e;
 end;
 
-function Log2i(v:integer):integer;
+function Log2i(v:int64):integer;
+var
+  u:uint64;
 begin
   if v<=1 then Exit(0);
-  dec(v);
+  u:=uint64(v-1);
   result:=0;
-  if v and $FFFF0000 <> 0 then begin v:=v shr 16; inc(Result,16); end;
-  if v and $FF00 <> 0     then begin v:=v shr 8;  inc(Result,8);  end;
-  if v and $F0 <> 0       then begin v:=v shr 4;  inc(Result,4);  end;
-  if v and $C <> 0        then begin v:=v shr 2;  inc(Result,2);  end;
-  if v and $2 <> 0        then begin inc(Result,1); end;
-  if v <> 0               then begin Result:=Result + 1; end;
+  while u>0 do begin
+    inc(result);
+    u:=u shr 1;
+  end;
 end;
 
 procedure Toggle(var b:boolean);
@@ -1383,32 +1398,56 @@ const
 
 class function Bits.GetBits(data:cardinal;index,size:integer):cardinal;
 begin
+  ASSERT((size>=0) and (size<=32));
+  ASSERT((index>=0) and (index+size<=32));
   result:=(data shr index) and BITS_FIELD_MASK[size];
 end;
 
 class function Bits.GetBits(data:uint64; index,size:integer):uint64;
 begin
+  ASSERT((size>=0) and (size<=32));
+  ASSERT((index>=0) and (index+size<=64));
   result:=(data shr index) and BITS_FIELD_MASK[size];
 end;
 
 class procedure Bits.SetBits(var data:byte;index,size,value:integer);
+var
+  fieldMask:byte;
 begin
-  data:=data and not byte(BITS_FIELD_MASK[size] shl index)+cardinal(value) shl index;
+  ASSERT((size>=0) and (size<=8));
+  ASSERT((index>=0) and (index+size<=8));
+  fieldMask:=byte(BITS_FIELD_MASK[size] shl index);
+  data:=(data and not fieldMask) or byte((cardinal(value) and BITS_FIELD_MASK[size]) shl index);
 end;
 
 class procedure Bits.SetBits(var data:word;index,size,value:integer);
+var
+  fieldMask:word;
 begin
-  data:=data and not word(BITS_FIELD_MASK[size] shl index)+cardinal(value) shl index;
+  ASSERT((size>=0) and (size<=16));
+  ASSERT((index>=0) and (index+size<=16));
+  fieldMask:=word(BITS_FIELD_MASK[size] shl index);
+  data:=(data and not fieldMask) or word((cardinal(value) and BITS_FIELD_MASK[size]) shl index);
 end;
 
 class procedure Bits.SetBits(var data:cardinal;index,size,value:integer);
+var
+  fieldMask:cardinal;
 begin
-  data:=data and not (BITS_FIELD_MASK[size] shl index)+cardinal(value) shl index;
+  ASSERT((size>=0) and (size<=32));
+  ASSERT((index>=0) and (index+size<=32));
+  fieldMask:=BITS_FIELD_MASK[size] shl index;
+  data:=(data and not fieldMask) or ((cardinal(value) and BITS_FIELD_MASK[size]) shl index);
 end;
 
 class procedure Bits.SetBits(var data:uint64;index,size,value:integer);
+var
+  fieldMask:uint64;
 begin
-  data:=data and not (uint64(BITS_FIELD_MASK[size]) shl index)+uint64(value) shl index;
+  ASSERT((size>=0) and (size<=32));
+  ASSERT((index>=0) and (index+size<=64));
+  fieldMask:=uint64(BITS_FIELD_MASK[size]) shl index;
+  data:=(data and not fieldMask) or ((uint64(value) and uint64(BITS_FIELD_MASK[size])) shl index);
 end;
 
 // =============================================================================

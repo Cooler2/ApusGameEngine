@@ -139,18 +139,24 @@ end;
 procedure TestPow2;
 begin
   StartTest('Pow2 functions');
-  Check(GetPow2(1)=1,'GetPow2(1)');
-  Check(GetPow2(2)=2,'GetPow2(2)');
-  Check(GetPow2(3)=4,'GetPow2(3)');
-  Check(GetPow2(5)=8,'GetPow2(5)');
-  Check(GetPow2(100)=128,'GetPow2(100)');
-  Check(GetPow2(256)=256,'GetPow2(256)');
-  Check(GetPow2(257)=512,'GetPow2(257)');
+  Check(NextPow2(1)=1,'NextPow2(1)');
+  Check(NextPow2(2)=2,'NextPow2(2)');
+  Check(NextPow2(3)=4,'NextPow2(3)');
+  Check(NextPow2(5)=8,'NextPow2(5)');
+  Check(NextPow2(100)=128,'NextPow2(100)');
+  Check(NextPow2(256)=256,'NextPow2(256)');
+  Check(NextPow2(257)=512,'NextPow2(257)');
+  Check(NextPow2(uint64($100000000))=uint64($100000000),'NextPow2(2^32)');
+  Check(NextPow2(uint64($100000001))=uint64($200000000),'NextPow2(2^32+1)');
+  Check(NextPow2(uint64($8000000000000000))=uint64($8000000000000000),'NextPow2(2^63)');
+  Check(NextPow2(uint64($8000000000000001))=0,'NextPow2 overflow -> 0');
 
   Check(Pow2(0)=1,'Pow2(0)');
   Check(Pow2(1)=2,'Pow2(1)');
   Check(Pow2(8)=256,'Pow2(8)');
   Check(Pow2(10)=1024,'Pow2(10)');
+  Check(Pow2(62)=int64($4000000000000000),'Pow2(62)');
+  Check(Pow2(63)=0,'Pow2(63) overflow');
   Check(Pow2(-1)=0,'Pow2(-1)');
   Check(Pow2(64)=0,'Pow2(64)');
 
@@ -161,6 +167,8 @@ begin
   Check(Log2i(5)=3,'Log2i(5)');
   Check(Log2i(1024)=10,'Log2i(1024)');
   Check(Log2i(1025)=11,'Log2i(1025)');
+  Check(Log2i(int64(1) shl 40)=40,'Log2i(2^40)');
+  Check(Log2i((int64(1) shl 40)+1)=41,'Log2i(2^40+1)');
   EndTest;
 end;
 
@@ -532,6 +540,24 @@ begin
   Bits.SetBit(q,0);
   Bits.SetBit(q,63);
   Check(q=uint64($8000000000000001),'SetBit uint64');
+
+  // SetBits should mask value to field size
+  v:=0;
+  Bits.SetBits(v,4,4,$FF);
+  Check(v=$F0,'Bits.SetBits cardinal masks value');
+  Check(Bits.GetBits(v,4,4)=$F,'Bits.GetBits cardinal after masked set');
+
+  b:=0;
+  Bits.SetBits(b,1,3,$FF);
+  Check(b=$0E,'Bits.SetBits byte masks value');
+
+  w:=0;
+  Bits.SetBits(w,8,4,$AB);
+  Check(w=$0B00,'Bits.SetBits word masks value');
+
+  q:=0;
+  Bits.SetBits(q,60,4,$FF);
+  Check(q=uint64($F000000000000000),'Bits.SetBits uint64 masks value');
 
   EndTest;
 end;
