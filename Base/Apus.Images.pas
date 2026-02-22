@@ -171,10 +171,10 @@ type
  function PixFmt2Str(ipf:TImagePixelFormat):string;
 
 implementation
- uses SysUtils, Apus.Core, Apus.Types, Apus.Conv;
+uses SysUtils, Apus.Core, Apus.Types, Apus.Conv;
 
 function PixFmt2Str(ipf:TImagePixelFormat):string;
- begin
+begin
   result:='unknown';
   case ipf of
    ipfARGB:result:='ARGB';
@@ -205,26 +205,26 @@ function PixFmt2Str(ipf:TImagePixelFormat):string;
    ipfL4A4:result:='L4A4';
   else
    result:='other('+Conv.ToStr(ord(ipf))+')';
-  end;
+end;
  end;
 
 procedure SwapRB(var data;count:integer);
  var
   pc:PCardinal;
- begin
+begin
   pc:=@data;
   while count>0 do begin
    pc^:=pc^ and $FF00FF00 or (pc^ and $FF shl 16) or (pc^ and $FF0000 shr 16);
    inc(pc);
    dec(count);
-  end;
+end;
  end;
 
 procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;
                 var palette;palformat:ImagePaletteFormat;count:integer); overload;
- begin
+begin
   ConvertLine(sour,dest,sourformat,destformat,count,@palette,palformat);
- end;
+end;
 
 procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;count:integer;
                 palette:pointer=nil;palformat:ImagePaletteFormat=palNone); overload;
@@ -232,7 +232,7 @@ procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;coun
   buf:array[0..2047] of cardinal;
   sp,dp:PByte;
   n:integer;
- begin
+begin
   // А нужна ли вообще конверсия?
   if (sourformat=destformat) or
      (pixelSize[sourFormat]=32) and (pixelSize[destFormat]=32) then begin
@@ -245,7 +245,7 @@ procedure ConvertLine(var sour,dest;sourformat,destformat:TImagePixelFormat;coun
      for n:=0 to count-1 do begin
       PCardinal(dp)^:=PCardinal(dp)^ or $FF000000;
       inc(dp,4);
-     end;
+end;
     end;
     // RGB<->BGR?
     if (sourFormat in [ipfARGB,ipfXRGB]) and (destFormat in [ipfABGR,ipfXBGR]) or
@@ -350,7 +350,7 @@ begin
   ipfDXT2,ipfDXT3: pitch:=w*16;
   else
    ASSERT(false,'Not implemented');
- end;
+end;
  PixelFormat:=pf;
  PaletteFormat:=pal;
  dataSize:=pitch*h;
@@ -406,7 +406,7 @@ begin
   if ps=4 then Mem.FillD(pb^,paddingRight,color)
    else FillChar(pb^,paddingRight*ps,color);
   inc(pb,paddingRight*ps);
- end;
+end;
  // Bottom part
  if ps=4 then
    Mem.FillD(pb^,paddingBottom*newWidth,color)
@@ -471,7 +471,7 @@ begin
    p2:=PCardinal(p1);
    for x:=0 to width-1 do begin
     p2^:=color; inc(p2);
-   end;
+end;
   end else begin
    // conversion required
    // ...
@@ -508,7 +508,7 @@ begin
    ConvertLine(sp^,dp^,src.PixelFormat,pixelFormat,width);
    inc(sp,src.pitch);
    inc(dp,pitch);
-  end;
+end;
  finally
   Unlock;
   src.Unlock;

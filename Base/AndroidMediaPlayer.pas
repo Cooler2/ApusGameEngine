@@ -12,8 +12,8 @@ uses
 
 type
 
- { TJNIMediaPlayer }
- TJNIMediaPlayer=class
+  { TJNIMediaPlayer }
+  TJNIMediaPlayer=class
   constructor Create;
   destructor Destroy; override;
   procedure SetDataSource(fName:string;loop:boolean=true);
@@ -22,19 +22,19 @@ type
   procedure SetVolume(rVolume,lVolume:single);
   procedure Pause;
   procedure Resume;
- private
+  private
   mpl:jobject;
- end;
+  end;
 
 implementation
- uses MyServis,SysUtils,Android;
+  uses MyServis,SysUtils,Android;
 
- { TJNIMediaPlayer }
+  { TJNIMediaPlayer }
 
 constructor TJNIMediaPlayer.Create;
- var
+  var
   cls:jclass;
- begin
+  begin
    if appEnv=nil then AndroidInitThread;
    // Create MediaPlayer object
    cls:=appEnv^.FindClass(appEnv,'android/media/MediaPlayer');
@@ -42,46 +42,46 @@ constructor TJNIMediaPlayer.Create;
      GetMethodID('android/media/MediaPlayer','<init>','()V'));
    if mpl=nil then ForceLog.Msg('MediaPlayer creation failed!');
    NewGlobalRef(mpl);
- end;
+  end;
 
 destructor TJNIMediaPlayer.Destroy;
- begin
+  begin
   FreeGlobalRef(mpl);
   inherited;
- end;
+  end;
 
 procedure TJNIMediaPlayer.SetDataSource(fName: string; loop: boolean);
- begin
+  begin
   CallMethod(mpl,'android/media/MediaPlayer','setDataSource','(Ljava/lang/String;)V',[fName]);
   if loop then
     CallMethod(mpl,'android/media/MediaPlayer','setLooping','(Z)V',[true]);
   CallMethod(mpl,'android/media/MediaPlayer','prepare','()V',[]);
- end;
+  end;
 
 procedure TJNIMediaPlayer.Start;
- begin
+  begin
   CallMethod(mpl,'android/media/MediaPlayer','start','()V',[]);
- end;
+  end;
 
 procedure TJNIMediaPlayer.Stop;
- begin
+  begin
   CallMethod(mpl,'android/media/MediaPlayer','stop','()V',[]);
- end;
+  end;
 
 procedure TJNIMediaPlayer.SetVolume(rVolume,lVolume:single);
- begin
+  begin
   CallMethod(mpl,'android/media/MediaPlayer','setVolume','(FF)V',[rVolume,lVolume]);
- end;
+  end;
 
 procedure TJNIMediaPlayer.Pause;
- begin
+  begin
   CallMethod(mpl,'android/media/MediaPlayer','pause','()V',[]);
- end;
+  end;
 
 procedure TJNIMediaPlayer.Resume;
- begin
+  begin
   Start;
- end;
+  end;
 
 end.
 

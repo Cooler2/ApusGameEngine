@@ -4,19 +4,19 @@
 unit Apus.ADPCM;
 interface
 
- function Compress_ADPCM4(var sour,dest;samples:integer;channels:byte):integer;
- procedure Decompress_ADPCM4(var sour,dest;samples:integer;channels:byte);
+  function Compress_ADPCM4(var sour,dest;samples:integer;channels:byte):integer;
+  procedure Decompress_ADPCM4(var sour,dest;samples:integer;channels:byte);
 
 implementation
- type
+  type
   PSample=^smallint;
- var
+  var
   curMode:integer=0;
   comp1,comp2:array[-1024..1024] of byte;
   decomp1,decomp2:array[0..47] of integer;
 
- // V1 = 0..10, V2 = 0..22
- procedure Init_ADPCM4;
+  // V1 = 0..10, V2 = 0..22
+  procedure Init_ADPCM4;
   var
    i,j,d,b,bestD:integer;
   begin
@@ -48,7 +48,7 @@ implementation
    curmode:=1;
   end;
 
- function Compress_ADPCM4;
+  function Compress_ADPCM4;
   var
    ch,block,cnt,i,curval,v1,v2:integer;
    s:PSample;
@@ -85,7 +85,7 @@ implementation
    result:=cardinal(d)-cardinal(@dest);
   end;
 
- procedure Decompress_ADPCM4;
+  procedure Decompress_ADPCM4;
   var
    ch,block,cnt,i,curval,v1,v2:integer;
    s:PByte;

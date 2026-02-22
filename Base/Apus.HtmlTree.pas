@@ -9,75 +9,75 @@ interface
 uses Apus.Types, Apus.Structs;
 
 type
- THtmlNode=class;
- THtmlNodesArray=TArray<THtmlNode>;
- THtmlElement=class;
- THtmlElements=array of THtmlElement;
- THtmlElementsArray=TArray<THtmlElement>;
+  THtmlNode=class;
+  THtmlNodesArray=TArray<THtmlNode>;
+  THtmlElement=class;
+  THtmlElements=array of THtmlElement;
+  THtmlElementsArray=TArray<THtmlElement>;
 
- THtmlNodeVisitor=procedure(node:THtmlNode;context:pointer);
- THtmlElementVisitor=procedure(element:THtmlElement;context:pointer);
+  THtmlNodeVisitor=procedure(node:THtmlNode;context:pointer);
+  THtmlElementVisitor=procedure(element:THtmlElement;context:pointer);
 
- // Base node class
- THtmlNode=class
-   parent:THtmlElement;
-   text:string;
-   constructor Create(parent:THtmlElement;text:string='');
-   destructor Destroy; override;
-   function Depth:integer; // how many parents the node has
- end;
+  // Base node class
+  THtmlNode=class
+    parent:THtmlElement;
+    text:string;
+    constructor Create(parent:THtmlElement;text:string='');
+    destructor Destroy; override;
+    function Depth:integer; // how many parents the node has
+  end;
 
- // Regular text node
- THtmlText=class(THtmlNode)
- end;
+  // Regular text node
+  THtmlText=class(THtmlNode)
+  end;
 
- // Content of foreign elements differs from regular text nodes and is not included in the InnerText
- THtmlForeignContent=class(THtmlNode)
- end;
+  // Content of foreign elements differs from regular text nodes and is not included in the InnerText
+  THtmlForeignContent=class(THtmlNode)
+  end;
 
- // Comment node class
- THtmlComment=class(THtmlNode)
- end;
+  // Comment node class
+  THtmlComment=class(THtmlNode)
+  end;
 
- // Element node class. Only nodes of this type can have child nodes
- THtmlElement=class(THtmlNode)
-   tag:string;
-   attributes:TNameValueList;
-   children:THtmlNodesArray;
-   constructor Create(parent:THtmlElement;text:string='');
-   destructor Destroy; override;
-   procedure AddChild(node:THtmlNode);
-   procedure RemoveChild(node:THtmlNode); // remove node from children, but don't delete it
-   function InnerText:string;  // return concatenated text of all the children text nodes (recursively)
-   function InnerHtml:string;
-   function OuterHtml:string;
-   procedure Visit(visitor:THtmlNodeVisitor;context:pointer); // call visitor for each child node (recursively)
-   procedure VisitElements(visitor:THtmlElementVisitor;context:pointer;tag:string=''); // call visitor for each child element matching criteria
-   // Find an element with given tag name, having specified attribute containing spefified text
-   function GetElement(tag:string;attribute:string='';contains:string=''):THtmlElement;
-   function PrintTree:string; // for debug
-   function GetAttribute(aName:string):string;
-   function HasAttribute(aName:string):boolean;
-   function AttributeContains(aName,substr:string):boolean;
-   function ChildElementCount:integer;
-   function GetChildElement(index:integer):THtmlElement; // returns nil if index is out of range
-   function ChildElements:THtmlElements;
-   function ParentalIndex:integer; // returns X where parent.GetChildElement(X)=self
- protected
-   function IsVoid:boolean;
-   function IsBlock:boolean;
-   function IsRawtext:boolean;
-   function IsForeign:boolean;
-   function CanContain(childTag:string):boolean; // can this element contain a 'childTag' element as a child?
- end;
+  // Element node class. Only nodes of this type can have child nodes
+  THtmlElement=class(THtmlNode)
+    tag:string;
+    attributes:TNameValueList;
+    children:THtmlNodesArray;
+    constructor Create(parent:THtmlElement;text:string='');
+    destructor Destroy; override;
+    procedure AddChild(node:THtmlNode);
+    procedure RemoveChild(node:THtmlNode); // remove node from children, but don't delete it
+    function InnerText:string;  // return concatenated text of all the children text nodes (recursively)
+    function InnerHtml:string;
+    function OuterHtml:string;
+    procedure Visit(visitor:THtmlNodeVisitor;context:pointer); // call visitor for each child node (recursively)
+    procedure VisitElements(visitor:THtmlElementVisitor;context:pointer;tag:string=''); // call visitor for each child element matching criteria
+    // Find an element with given tag name, having specified attribute containing spefified text
+    function GetElement(tag:string;attribute:string='';contains:string=''):THtmlElement;
+    function PrintTree:string; // for debug
+    function GetAttribute(aName:string):string;
+    function HasAttribute(aName:string):boolean;
+    function AttributeContains(aName,substr:string):boolean;
+    function ChildElementCount:integer;
+    function GetChildElement(index:integer):THtmlElement; // returns nil if index is out of range
+    function ChildElements:THtmlElements;
+    function ParentalIndex:integer; // returns X where parent.GetChildElement(X)=self
+  protected
+    function IsVoid:boolean;
+    function IsBlock:boolean;
+    function IsRawtext:boolean;
+    function IsForeign:boolean;
+    function CanContain(childTag:string):boolean; // can this element contain a 'childTag' element as a child?
+  end;
 
- // Returns a HTML tree with an empty root element
- function ParseHTML(st:string):THtmlElement;
+  // Returns a HTML tree with an empty root element
+  function ParseHTML(st:string):THtmlElement;
 
- function DecodeHTMLString(src:string):string; // replace HTML entities with corresponging characters
+  function DecodeHTMLString(src:string):string; // replace HTML entities with corresponging characters
 
- procedure AddCustomRule(outerTag,innerTag:string;canContain:boolean);
- procedure ClearCustomRules;
+procedure AddCustomRule(outerTag,innerTag:string;canContain:boolean);
+  procedure ClearCustomRules;
 implementation
 uses SysUtils, Apus.Core,
   Apus.Conv,
@@ -85,13 +85,13 @@ uses SysUtils, Apus.Core,
   Apus.Strings;
 
 const
- VOID_ELEMENTS = '|!doctype|area|base|br|col|embed|hr|img|input|keygen|link|menuitem|meta|param|source|track|wbr|';
- BLOCK_ELEMENTS = '|address|article|aside|blockquote|canvas|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h1|h2|h3|h4|h5|h6|header|hr|li|main|nav|noscript|ol|p|pre|section|table|tfoot|ul|video|';
- RAWTEXT_ELEMENTS = '|script|style|textarea|title|';
- FOREIGN_ELEMENTS = '|svg|';
+  VOID_ELEMENTS = '|!doctype|area|base|br|col|embed|hr|img|input|keygen|link|menuitem|meta|param|source|track|wbr|';
+  BLOCK_ELEMENTS = '|address|article|aside|blockquote|canvas|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h1|h2|h3|h4|h5|h6|header|hr|li|main|nav|noscript|ol|p|pre|section|table|tfoot|ul|video|';
+  RAWTEXT_ELEMENTS = '|script|style|textarea|title|';
+  FOREIGN_ELEMENTS = '|svg|';
 
- // Source: https://html.spec.whatwg.org/entities.json
- ENTITIES_LIST : array[0..1898] of WideString=(
+  // Source: https://html.spec.whatwg.org/entities.json
+  ENTITIES_LIST : array[0..1898] of WideString=(
    #198'aelig',#38'amp',#193'aacute',#258'abreve',#194'acirc',#1040'acy',#192'agrave',#913'alpha',#256'amacr',#10835'and',#260'aogon',#8289'applyfunction',#197'aring',#8788'assign',#195'atilde',#196'auml',#8726'backslash',#10983'barv',#8966'barwed',#1041'bcy',#8757'because',#8492'bernoullis',#914'beta',#728'breve',#8492'bscr',#8782'bumpeq',#1063'chcy',#169'copy',#262'cacute',#8914'cap',#8517'capitaldifferentiald',#8493'cayleys',#268'ccaron',#199'ccedil',#264'ccirc',#8752'cconint',#266'cdot',#184'cedilla',#183'centerdot',#8493'cfr',#935'chi',#8857'circledot',#8854'circleminus',#8853'circleplus',#8855'circletimes',
    #8754'clockwisecontourintegral',#8221'closecurlydoublequote',#8217'closecurlyquote',#8759'colon',#10868'colone',#8801'congruent',#8751'conint',#8750'contourintegral',#8450'copf',#8720'coproduct',#8755'counterclockwisecontourintegral',#10799'cross',#8915'cup',#8781'cupcap',#8517'dd',#10513'ddotrahd',#1026'djcy',#1029'dscy',#1039'dzcy',#8225'dagger',#8609'darr',#10980'dashv',#270'dcaron',#1044'dcy',#8711'del',#916'delta',#180'diacriticalacute',#729'diacriticaldot',#733'diacriticaldoubleacute',#96'diacriticalgrave',#732'diacriticaltilde',#8900'diamond',#8518'differentiald',#168'dot',#8412'dotdot',#8784'dotequal',#8751'doublecontourintegral',#168'doubledot',#8659'doubledownarrow',#8656'doubleleftarrow',#8660'doubleleftrightarrow',#10980'doublelefttee',#10232'doublelongleftarrow',#10234'doublelongleftrightarrow',#10233'doublelongrightarrow',#8658'doublerightarrow',#8872'doublerighttee',
    #8657'doubleuparrow',#8661'doubleupdownarrow',#8741'doubleverticalbar',#8595'downarrow',#10515'downarrowbar',#8693'downarrowuparrow',#785'downbreve',#10576'downleftrightvector',#10590'downleftteevector',#8637'downleftvector',#10582'downleftvectorbar',#10591'downrightteevector',#8641'downrightvector',#10583'downrightvectorbar',#8868'downtee',#8615'downteearrow',#8659'downarrow',#272'dstrok',#330'eng',#208'eth',#201'eacute',#282'ecaron',#202'ecirc',#1069'ecy',#278'edot',#200'egrave',#8712'element',#274'emacr',#9723'emptysmallsquare',#9643'emptyverysmallsquare',#280'eogon',#917'epsilon',#10869'equal',#8770'equaltilde',#8652'equilibrium',#8496'escr',#10867'esim',#919'eta',#203'euml',#8707'exists',#8519'exponentiale',#1060'fcy',#9724'filledsmallsquare',#9642'filledverysmallsquare',#8704'forall',
@@ -136,11 +136,11 @@ const
  );
 
 var
- whiteList:TVarHash; // list of allowed elements
- blackList:TVarHash; // list of forbidden elements
- parentList:TVarHash; // whitelist of allowed parent elements
- entities:TVarHash; // entity name -> code point
- customRules:TVarHash; // override rules "tag1>tag2" -> boolean (tag1 can contain tag2)
+  whiteList:TVarHash; // list of allowed elements
+  blackList:TVarHash; // list of forbidden elements
+  parentList:TVarHash; // whitelist of allowed parent elements
+  entities:TVarHash; // entity name -> code point
+  customRules:TVarHash; // override rules "tag1>tag2" -> boolean (tag1 can contain tag2)
 
 procedure AddCustomRule(outerTag,innerTag:string;canContain:boolean);
 begin
@@ -155,514 +155,514 @@ end;
 
 function DecodeHTMLString(src:string):string; // replace HTML entities with corresponging characters
 var
- i,p,n,code:integer;
- ent:string;
+  i,p,n,code:integer;
+  ent:string;
 begin
- SetLength(result,length(src));
- i:=1; n:=0;
- while i<=length(src) do begin
-   if src[i]='&' then begin
-     ent:='';
-     p:=i; inc(i);
-     while i<=length(src) do begin
-       if src[i] in ['#','A'..'Z','a'..'z','0'..'9'] then ent:=ent+src[i]
-         else break; // unallowed character
-       inc(i);
-     end;
-     if (i<=length(src)) and (src[i]=';') then inc(i);
-     code:=-1;
-     // Check if ent contains a valid entity name or number
-     if ent.StartsWith('#') then begin
-       delete(ent,1,1);
-       if ent.StartsWith('x') then code:=integer(Conv.HexToInt(ent)) // avoid range error
-         else code:=integer(Conv.ToInt(ent));
-     end else begin
-       if entities.HasKey(ent) then
-         code:=entities.Get(ent);
-     end;
-     if code>=0 then begin // success
-       {$IFDEF UNICODE}
-       inc(n);
-       result[n]:=Char(code);
-       {$ELSE}
-       ent:=UTF8Encode(WideChar(code));
-       move(ent[1],result[n+1],length(ent));
-       inc(n,length(ent));
-       {$ENDIF}
-     end else begin // failed -> copy original
-       move(src[p],result[n+1],(i-p)*sizeof(char));
-       inc(n,i-p);
-     end;
-   end else begin
-     inc(n);
-     result[n]:=src[i];
-     inc(i);
-   end;
- end;
- Setlength(result,n);
+  SetLength(result,length(src));
+  i:=1; n:=0;
+  while i<=length(src) do begin
+    if src[i]='&' then begin
+      ent:='';
+      p:=i; inc(i);
+      while i<=length(src) do begin
+        if src[i] in ['#','A'..'Z','a'..'z','0'..'9'] then ent:=ent+src[i]
+        else break; // unallowed character
+        inc(i);
+      end;
+      if (i<=length(src)) and (src[i]=';') then inc(i);
+      code:=-1;
+      // Check if ent contains a valid entity name or number
+      if ent.StartsWith('#') then begin
+        delete(ent,1,1);
+        if ent.StartsWith('x') then code:=integer(Conv.HexToInt(ent)) // avoid range error
+        else code:=integer(Conv.ToInt(ent));
+      end else begin
+        if entities.HasKey(ent) then
+          code:=entities.Get(ent);
+      end;
+      if code>=0 then begin // success
+        {$IFDEF UNICODE}
+        inc(n);
+        result[n]:=Char(code);
+        {$ELSE}
+        ent:=UTF8Encode(WideChar(code));
+        move(ent[1],result[n+1],length(ent));
+        inc(n,length(ent));
+        {$ENDIF}
+      end else begin // failed -> copy original
+        move(src[p],result[n+1],(i-p)*sizeof(char));
+        inc(n,i-p);
+      end;
+    end else begin
+      inc(n);
+      result[n]:=src[i];
+      inc(i);
+    end;
+  end;
+  Setlength(result,n);
 end;
 
 // Find the next unquoted '>' character
 function FindTagEnd(const st:string;startPos:integer):integer;
 var
- i:integer;
- quote:char;
+  i:integer;
+  quote:char;
 begin
- quote:=#0;
- i:=startPos;
- while i<=length(st) do begin
-   if quote=#0 then begin
-    if st[i]='>' then exit(i);
-    if st[i] in ['"',''''] then quote:=st[i];
-   end else begin
-    if (st[i]=quote) and (st[i-1]<>'\') then quote:=#0;
-   end;
-   inc(i);
- end;
+  quote:=#0;
+  i:=startPos;
+  while i<=length(st) do begin
+    if quote=#0 then begin
+      if st[i]='>' then exit(i);
+      if st[i] in ['"',''''] then quote:=st[i];
+    end else begin
+      if (st[i]=quote) and (st[i-1]<>'\') then quote:=#0;
+    end;
+    inc(i);
+  end;
 end;
 
 function ParseHTML(st:string):THtmlElement;
 type
- TState=(stateText,stateComment,stateTag);
+  TState=(stateText,stateComment,stateTag);
 var
- root:THtmlElement;
- stack:THtmlElementsArray;
- i,p:integer;
- node:THtmlNode;
- element:THtmlElement;
- tag:string;
+  root:THtmlElement;
+  stack:THtmlElementsArray;
+  i,p:integer;
+  node:THtmlNode;
+  element:THtmlElement;
+  tag:string;
 begin
- root:=THtmlElement.Create(nil);
- stack.Add(root);
- i:=1; // current position
- repeat
-   // loop always starts in the "text" state
-   p:=pos('<',st,i); // EOF or '<' symbol
-   if p=0 then p:=length(st)+1;
-   if p>i then begin
-     // create text node
-     node:=THtmlText.Create(stack.Last,DecodeHtmlString(copy(st,i,p-i)));
-     i:=p;
-   end;
-   if i>length(st) then break;
-   if (i+3<length(st)) and (st[i+1]='!') and (st[i+2]='-') and (st[i+3]='-') then begin
-     // comment node
-     p:=pos('-->',st,i+4);
-     if i=0 then p:=length(st)+1;
-     node:=THtmlComment.Create(stack.Last,copy(st,i,p-i));
-     i:=p+3;
-     continue;
-   end;
-   // html close tag?
-   if (i<length(st)) and (st[i+1]='/') then begin
-     // closing tag
-     p:=pos('>',st,i+1);
-     tag:=copy(st,i+2,p-i-2);
-     tag:=Lowercase(tag.Trim);
-     i:=p+1;
-     // Close tags
-     for p:=stack.count-1 downto 1 do
-      if tag=THtmlElement(stack.items[p]).tag then begin
-        SetLength(stack.items,p); // trim the stack to this element
-        break;
-      end;
-     continue;
-   end;
-   // Regular HTML tag
-   p:=FindTagEnd(st,i+1);
-   if p=0 then p:=length(st)+1;
-   element:=THtmlElement.Create(nil,copy(st,i,p-i+1));
-   i:=p+1;
-   // Autoclose some elements?
-   while stack.Count>1 do
-     if THtmlElement(stack.Last).CanContain(element.tag) then break
-       else stack.Pop;
-   // Append element to the tree
-   stack.Last.AddChild(element);
-   // Process element
-   if element.IsForeign or element.IsRawtext then begin
-     // find end tag and create a text node for the whole content
-     p:=PosFrom {TODO: use st.IndexOf(substr)}('</'+element.tag+'>',st,i,true); // To be accurate, space chars are allowed before '>'
-     if p=0 then p:=length(st)+1;
-     if element.IsForeign then
-       THtmlForeignContent.Create(element,copy(st,i,p-i))
-     else
-       THtmlText.Create(element,copy(st,i,p-i));
-     i:=pos('>',st,p)+1;
-     continue;
-   end else
-   if not element.IsVoid then
-     stack.Add(element); // push element to the stack
- until false;
+  root:=THtmlElement.Create(nil);
+  stack.Add(root);
+  i:=1; // current position
+  repeat
+    // loop always starts in the "text" state
+    p:=pos('<',st,i); // EOF or '<' symbol
+    if p=0 then p:=length(st)+1;
+    if p>i then begin
+      // create text node
+      node:=THtmlText.Create(stack.Last,DecodeHtmlString(copy(st,i,p-i)));
+      i:=p;
+    end;
+    if i>length(st) then break;
+    if (i+3<length(st)) and (st[i+1]='!') and (st[i+2]='-') and (st[i+3]='-') then begin
+      // comment node
+      p:=pos('-->',st,i+4);
+      if i=0 then p:=length(st)+1;
+      node:=THtmlComment.Create(stack.Last,copy(st,i,p-i));
+      i:=p+3;
+      continue;
+    end;
+    // html close tag?
+    if (i<length(st)) and (st[i+1]='/') then begin
+      // closing tag
+      p:=pos('>',st,i+1);
+      tag:=copy(st,i+2,p-i-2);
+      tag:=Lowercase(tag.Trim);
+      i:=p+1;
+      // Close tags
+      for p:=stack.count-1 downto 1 do
+        if tag=THtmlElement(stack.items[p]).tag then begin
+          SetLength(stack.items,p); // trim the stack to this element
+          break;
+        end;
+      continue;
+    end;
+    // Regular HTML tag
+    p:=FindTagEnd(st,i+1);
+    if p=0 then p:=length(st)+1;
+    element:=THtmlElement.Create(nil,copy(st,i,p-i+1));
+    i:=p+1;
+    // Autoclose some elements?
+    while stack.Count>1 do
+      if THtmlElement(stack.Last).CanContain(element.tag) then break
+    else stack.Pop;
+    // Append element to the tree
+    stack.Last.AddChild(element);
+    // Process element
+    if element.IsForeign or element.IsRawtext then begin
+      // find end tag and create a text node for the whole content
+      p:=PosFrom {TODO: use st.IndexOf(substr)}('</'+element.tag+'>',st,i,true); // To be accurate, space chars are allowed before '>'
+      if p=0 then p:=length(st)+1;
+      if element.IsForeign then
+        THtmlForeignContent.Create(element,copy(st,i,p-i))
+      else
+        THtmlText.Create(element,copy(st,i,p-i));
+      i:=pos('>',st,p)+1;
+      continue;
+    end else
+    if not element.IsVoid then
+      stack.Add(element); // push element to the stack
+  until false;
 
- result:=root;
+  result:=root;
 end;
 
 { THtmlNode }
 
 constructor THtmlNode.Create(parent:THtmlElement;text:string);
 begin
- self.parent:=parent;
- self.text:=text;
- if parent<>nil then parent.AddChild(self);
+  self.parent:=parent;
+  self.text:=text;
+  if parent<>nil then parent.AddChild(self);
 end;
 
 function THtmlNode.Depth:integer;
 var
- node:THtmlNode;
+  node:THtmlNode;
 begin
- result:=0;
- node:=self;
- while node.parent<>nil do begin
-  inc(result);
-  node:=node.parent;
- end;
+  result:=0;
+  node:=self;
+  while node.parent<>nil do begin
+    inc(result);
+    node:=node.parent;
+  end;
 end;
 
 destructor THtmlNode.Destroy;
 begin
- if parent<>nil then parent.RemoveChild(self);
- inherited;
+  if parent<>nil then parent.RemoveChild(self);
+  inherited;
 end;
 
 { THtmlElement }
 
 constructor THtmlElement.Create(parent:THtmlElement; text:string);
 var
- i,p:integer;
- name,value:string;
+  i,p:integer;
+  name,value:string;
 begin
- inherited;
- if text='' then exit;
- ASSERT(text.StartsWith('<') and text.EndsWith('>'),'Malformed tag: '+text);
- i:=2;
- // Extract tagname
- while (i<=length(text)) and not (text[i] in [' ',#9,#10,#13,'>']) do inc(i);
- tag:=Lowercase(copy(text,2,i-2));
- // Extract attributes
- while i<length(text) do begin
-  // skip whitespace
-  while (i<=length(text)) and (text[i] in [' ',#9,#10,#13]) do inc(i);
-  // get attribute name
-  p:=i;
-  while (p<=length(text)) and not (text[p] in [' ','=',#9,#10,#13,'>']) do inc(p);
-  name:=copy(text,i,p-i); // can be empty
-  i:=p;
-  // Skip whitespace before '='
-  while (i<=length(text)) and (text[i] in [' ',#9,#10,#13]) do inc(i);
-  if text[i]<>'=' then begin
-    // no value
-    if name<>'' then attributes.Item[name]:=''; // add attribute without value
-    continue;
-  end;
-  inc(i); // next char after '=' - skip whitespace
-  while (i<=length(text)) and (text[i] in [' ',#9,#10,#13]) do inc(i);
-  // Extract value
-  if (text[i]='''') or (text[i]='"') then begin
-    // quoted value
+  inherited;
+  if text='' then exit;
+  ASSERT(text.StartsWith('<') and text.EndsWith('>'),'Malformed tag: '+text);
+  i:=2;
+  // Extract tagname
+  while (i<=length(text)) and not (text[i] in [' ',#9,#10,#13,'>']) do inc(i);
+  tag:=Lowercase(copy(text,2,i-2));
+  // Extract attributes
+  while i<length(text) do begin
+    // skip whitespace
+    while (i<=length(text)) and (text[i] in [' ',#9,#10,#13]) do inc(i);
+    // get attribute name
     p:=i;
-    repeat
-     p:=PosFrom {TODO: use st.IndexOf(substr)}(text[i],text,p+1);
-     if p=0 then begin
-      // no end quote
-      p:=length(text)-1;
-      break;
-     end;
-     if text[p-1]<>'\' then break; // found first unescaped end quote
-    until false;
-    value:=copy(text,i+1,p-i-1);
-    i:=p+1;
-  end else begin
-    // unquoted value - grab all up to the nearest space/terminator char
-    p:=i;
-    while (p<=length(text)) and not (text[p] in [' ',#9,#10,#13,'>']) do inc(p);
-    value:=copy(text,i,p-i);
+    while (p<=length(text)) and not (text[p] in [' ','=',#9,#10,#13,'>']) do inc(p);
+    name:=copy(text,i,p-i); // can be empty
     i:=p;
+    // Skip whitespace before '='
+    while (i<=length(text)) and (text[i] in [' ',#9,#10,#13]) do inc(i);
+    if text[i]<>'=' then begin
+      // no value
+      if name<>'' then attributes.Item[name]:=''; // add attribute without value
+      continue;
+    end;
+    inc(i); // next char after '=' - skip whitespace
+    while (i<=length(text)) and (text[i] in [' ',#9,#10,#13]) do inc(i);
+    // Extract value
+    if (text[i]='''') or (text[i]='"') then begin
+      // quoted value
+      p:=i;
+      repeat
+        p:=PosFrom {TODO: use st.IndexOf(substr)}(text[i],text,p+1);
+        if p=0 then begin
+          // no end quote
+          p:=length(text)-1;
+          break;
+        end;
+        if text[p-1]<>'\' then break; // found first unescaped end quote
+      until false;
+      value:=copy(text,i+1,p-i-1);
+      i:=p+1;
+    end else begin
+      // unquoted value - grab all up to the nearest space/terminator char
+      p:=i;
+      while (p<=length(text)) and not (text[p] in [' ',#9,#10,#13,'>']) do inc(p);
+      value:=copy(text,i,p-i);
+      i:=p;
+    end;
+    if name<>'' then attributes.Item[name]:=value;
   end;
-  if name<>'' then attributes.Item[name]:=value;
- end;
 end;
 
 destructor THtmlElement.Destroy;
 begin
- while children.Count>0 do children.Pop.Free; // delete children
- inherited;
+  while children.Count>0 do children.Pop.Free; // delete children
+  inherited;
 end;
 
 function THtmlElement.GetElement(tag,attribute,contains:string):THtmlElement;
 var
- i:integer;
- aIdx:integer;
+  i:integer;
+  aIdx:integer;
 begin
- result:=nil;
- // Check if this element meets the search criteria
- if (tag='') or SameText(tag,self.tag) then begin
-  result:=self;
-  if attribute<>'' then begin // element must have specified attribute
-   aIdx:=attributes.Find(attribute);
-   if aIdx<0 then result:=nil
-   else begin
-    if (contains<>'') and (PosFrom {TODO: use st.IndexOf(substr)}(contains,attributes.items[aIdx].value,1,true)=0) then result:=nil;
-   end;
+  result:=nil;
+  // Check if this element meets the search criteria
+  if (tag='') or SameText(tag,self.tag) then begin
+    result:=self;
+    if attribute<>'' then begin // element must have specified attribute
+      aIdx:=attributes.Find(attribute);
+      if aIdx<0 then result:=nil
+      else begin
+        if (contains<>'') and (PosFrom {TODO: use st.IndexOf(substr)}(contains,attributes.items[aIdx].value,1,true)=0) then result:=nil;
+      end;
+    end;
   end;
- end;
- if result<>nil then exit;
- for i:=0 to children.Count-1 do
-  if children.items[i] is THtmlElement then
-   with children.items[i] as THtmlElement do begin
-    result:=GetElement(tag,attribute,contains);
-    if result<>nil then exit;
-   end;
+  if result<>nil then exit;
+  for i:=0 to children.Count-1 do
+    if children.items[i] is THtmlElement then
+      with children.items[i] as THtmlElement do begin
+        result:=GetElement(tag,attribute,contains);
+        if result<>nil then exit;
+      end;
 end;
 
 function THtmlElement.HasAttribute(aName:string):boolean;
 begin
- result:=attributes.HasName(aName);
+  result:=attributes.HasName(aName);
 end;
 
 function THtmlElement.GetAttribute(aName:string):string;
 begin
- result:=attributes.Item[aName];
+  result:=attributes.Item[aName];
 end;
 
 function THtmlElement.ChildElementCount:integer;
 var
- child:THtmlNode;
+  child:THtmlNode;
 begin
   result:=0;
   for child in children.items do
-   if child is THtmlElement then inc(result);
+    if child is THtmlElement then inc(result);
 end;
 
 function THtmlElement.ChildElements:THtmlElements;
 var
- i,n:integer;
+  i,n:integer;
 begin
- SetLength(result,children.Count);
- n:=0;
- for i:=0 to high(children.items) do
-  if children.items[i] is THtmlElement then begin
-    result[n]:=THtmlElement(children.items[i]);
-    inc(n);
-  end;
+  SetLength(result,children.Count);
+  n:=0;
+  for i:=0 to high(children.items) do
+    if children.items[i] is THtmlElement then begin
+      result[n]:=THtmlElement(children.items[i]);
+      inc(n);
+    end;
   SetLength(result,n);
 end;
 
 function THtmlElement.GetChildElement(index:integer):THtmlElement;
 var
- child:THtmlNode;
+  child:THtmlNode;
 begin
   result:=nil;
   for child in children.items do
-   if child is THtmlElement then begin
-     if index=0 then exit(THtmlElement(child));
-     dec(index);
-   end;
+    if child is THtmlElement then begin
+      if index=0 then exit(THtmlElement(child));
+      dec(index);
+    end;
 end;
 
 function THtmlElement.AttributeContains(aName,substr:string):boolean;
 var
- idx:integer;
+  idx:integer;
 begin
- result:=false;
- idx:=attributes.Find(aName);
- if idx<0 then exit;
- result:=PosFrom {TODO: use st.IndexOf(substr)}(substr,attributes.items[idx].value,1,true)>0;
+  result:=false;
+  idx:=attributes.Find(aName);
+  if idx<0 then exit;
+  result:=PosFrom {TODO: use st.IndexOf(substr)}(substr,attributes.items[idx].value,1,true)>0;
 end;
 
 function THtmlElement.InnerText:string;
 var
- i:integer;
+  i:integer;
 begin
- result:='';
- for i:=0 to children.count-1 do begin
-  if children.items[i] is THtmlText then
-   result:=result+THtmlText(children.items[i]).text;
-  if children.items[i] is THtmlElement then
-   result:=result+THtmlElement(children.items[i]).InnerText;
- end;
+  result:='';
+  for i:=0 to children.count-1 do begin
+    if children.items[i] is THtmlText then
+      result:=result+THtmlText(children.items[i]).text;
+    if children.items[i] is THtmlElement then
+      result:=result+THtmlElement(children.items[i]).InnerText;
+  end;
 end;
 
 function THtmlElement.InnerHTML:string;
 var
- i:integer;
+  i:integer;
 begin
- result:='';
- for i:=0 to children.count-1 do begin
-  if children.items[i] is THtmlText then
-   result:=result+THtmlText(children.items[i]).text;
-  if children.items[i] is THtmlElement then
-   result:=result+THtmlElement(children.items[i]).OuterHtml;
- end;
+  result:='';
+  for i:=0 to children.count-1 do begin
+    if children.items[i] is THtmlText then
+      result:=result+THtmlText(children.items[i]).text;
+    if children.items[i] is THtmlElement then
+      result:=result+THtmlElement(children.items[i]).OuterHtml;
+  end;
 end;
 procedure THtmlElement.AddChild(node:THtmlNode);
 begin
- children.Add(node);
- node.parent:=self;
+  children.Add(node);
+  node.parent:=self;
 end;
 
 procedure THtmlElement.RemoveChild(node:THtmlNode);
 begin
- children.Remove(node,true);
- node.parent:=nil;
+  children.Remove(node,true);
+  node.parent:=nil;
 end;
 
 function THtmlElement.CanContain(childTag:string):boolean;
 var
- st:string;
- value:variant;
+  st:string;
+  value:variant;
 begin
- result:=true;
- if customRules.count>0 then begin
-  value:=customRules.Get(tag+'>'+childTag);
-  if HasValue(value) then exit(value);
- end;
- st:=parentList.Get(childTag); // child's parent whitelist
- if (st<>'') and (pos('|'+tag+'|',st)=0) then exit(false);
- childTag:='|'+childTag+'|';
- if not IsBlock then  // non-block emlement can't contain a block element
-  if pos(childtag,BLOCK_ELEMENTS)>0 then exit(false);
- st:=whiteList.Get(tag); // if has whitelist: child must be whitelisted
- if (st<>'') and (pos(childTag,st)=0) then exit(false);
- st:=blackList.Get(tag); // child must not be blacklisted
- if pos(childTag,st)>0 then exit(false);
+  result:=true;
+  if customRules.count>0 then begin
+    value:=customRules.Get(tag+'>'+childTag);
+    if HasValue(value) then exit(value);
+  end;
+  st:=parentList.Get(childTag); // child's parent whitelist
+  if (st<>'') and (pos('|'+tag+'|',st)=0) then exit(false);
+  childTag:='|'+childTag+'|';
+  if not IsBlock then  // non-block emlement can't contain a block element
+    if pos(childtag,BLOCK_ELEMENTS)>0 then exit(false);
+  st:=whiteList.Get(tag); // if has whitelist: child must be whitelisted
+  if (st<>'') and (pos(childTag,st)=0) then exit(false);
+  st:=blackList.Get(tag); // child must not be blacklisted
+  if pos(childTag,st)>0 then exit(false);
 end;
 
 procedure THtmlElement.Visit(visitor:THtmlNodeVisitor;context:pointer);
 var
- i:integer;
+  i:integer;
 begin
- for i:=0 to children.count-1 do begin
-  visitor(children.items[i],context);
-  if children.items[i] is THtmlElement then
-   THtmlElement(children.items[i]).Visit(visitor,context);
- end;
+  for i:=0 to children.count-1 do begin
+    visitor(children.items[i],context);
+    if children.items[i] is THtmlElement then
+      THtmlElement(children.items[i]).Visit(visitor,context);
+  end;
 end;
 
 procedure THtmlElement.VisitElements(visitor:THtmlElementVisitor;context:pointer;tag:string);
 var
- i:integer;
+  i:integer;
 begin
- if (tag='') or (SameText(tag,self.tag)) then
-  visitor(self,context);
- for i:=0 to children.count-1 do
-  if children.items[i] is THtmlElement then
-   THtmlElement(children.items[i]).VisitElements(visitor,context,tag);
+  if (tag='') or (SameText(tag,self.tag)) then
+    visitor(self,context);
+  for i:=0 to children.count-1 do
+    if children.items[i] is THtmlElement then
+      THtmlElement(children.items[i]).VisitElements(visitor,context,tag);
 end;
 
 procedure PrintVisitor(node:THtmlNode;context:pointer);
 var
- st:PString;
- txt:string;
- depth:integer;
+  st:PString;
+  txt:string;
+  depth:integer;
 begin
- depth:=node.Depth;
- if depth=0 then exit;
- txt:=StringOfChar(#9,depth-1);
- txt:=txt+StringReplace(node.text,#13#10,'',[rfReplaceAll]);
- st:=context;
- st^:=st^+txt+#13#10;
+  depth:=node.Depth;
+  if depth=0 then exit;
+  txt:=StringOfChar(#9,depth-1);
+  txt:=txt+StringReplace(node.text,#13#10,'',[rfReplaceAll]);
+  st:=context;
+  st^:=st^+txt+#13#10;
 end;
 
 function THtmlElement.ParentalIndex:integer;
 var
- i,n:integer;
+  i,n:integer;
 begin
- result:=-1;
- if parent=nil then exit;
- n:=0;
- for i:=0 to parent.children.Count-1 do begin
-   if parent.children.items[i]=self then exit(n);
-   if parent.children.items[i].ClassType=THtmlElement then inc(n);
- end;
+  result:=-1;
+  if parent=nil then exit;
+  n:=0;
+  for i:=0 to parent.children.Count-1 do begin
+    if parent.children.items[i]=self then exit(n);
+    if parent.children.items[i].ClassType=THtmlElement then inc(n);
+  end;
 end;
 
 function THtmlElement.PrintTree:string;
 var
- str:string;
+  str:string;
 begin
- str:='';
- Visit(PrintVisitor,@str);
- result:=str;
+  str:='';
+  Visit(PrintVisitor,@str);
+  result:=str;
 end;
 
 function THtmlElement.IsBlock: boolean;
 begin
- result:=pos('|'+tag+'|',BLOCK_ELEMENTS)>0;
+  result:=pos('|'+tag+'|',BLOCK_ELEMENTS)>0;
 end;
 
 function THtmlElement.IsForeign:boolean;
 begin
- result:=pos('|'+tag+'|',FOREIGN_ELEMENTS)>0;
+  result:=pos('|'+tag+'|',FOREIGN_ELEMENTS)>0;
 end;
 
 function THtmlElement.IsRawtext:boolean;
 begin
- result:=pos('|'+tag+'|',RAWTEXT_ELEMENTS)>0;
+  result:=pos('|'+tag+'|',RAWTEXT_ELEMENTS)>0;
 end;
 
 function THtmlElement.IsVoid:boolean;
 begin
- result:=pos('|'+tag+'|',VOID_ELEMENTS)>0;
+  result:=pos('|'+tag+'|',VOID_ELEMENTS)>0;
 end;
 
 function THtmlElement.OuterHtml:string;
 begin
- result:=text+InnerHtml;
- if not IsVoid then
-   result:=result+'<\'+tag+'>';
+  result:=text+InnerHtml;
+  if not IsVoid then
+    result:=result+'<\'+tag+'>';
 end;
 
 var
- node:THtmlElement;
- st:string;
- t:int64;
- i:integer;
+  node:THtmlElement;
+  st:string;
+  t:int64;
+  i:integer;
 
 initialization
- with whiteList do begin
-  Put('table','|caption|col|colgroup|thead|tfoot|tbody|tr|');
-  Put('colgroup','|col|');
-  Put('thead','|tr|');
-  Put('tfoot','|tr|');
-  Put('tbody','|tr|');
-  Put('tr','|td|th|');
-  Put('dl','|dt|dd|');
-  Put('ol','|li|');
-  Put('ul','|li|');
-  Put('select','|optgroup|option|');
-  Put('optgroup','|option|');
- end;
- with blackList do begin // https://html.spec.whatwg.org/multipage/syntax.html#syntax-tag-omission
-  Put('head','|body|');
-  Put('p','|p|address|article|aside|blockquote|details|div|dl|fieldset|figcaption|'+
+  with whiteList do begin
+    Put('table','|caption|col|colgroup|thead|tfoot|tbody|tr|');
+    Put('colgroup','|col|');
+    Put('thead','|tr|');
+    Put('tfoot','|tr|');
+    Put('tbody','|tr|');
+    Put('tr','|td|th|');
+    Put('dl','|dt|dd|');
+    Put('ol','|li|');
+    Put('ul','|li|');
+    Put('select','|optgroup|option|');
+    Put('optgroup','|option|');
+  end;
+  with blackList do begin // https://html.spec.whatwg.org/multipage/syntax.html#syntax-tag-omission
+    Put('head','|body|');
+    Put('p','|p|address|article|aside|blockquote|details|div|dl|fieldset|figcaption|'+
     'figure|footer|form|h1|h2|h3|h4|h5|h6|header|hgroup|hr|main|menu|nav|ol|pre|section|table|or|ul|');
- end;
- with parentList do begin
-  Put('li','|ul|ol|');
-  Put('tr','|table|thead|tbody|tfoot|');
-  Put('td','|tr|');
-  Put('th','|tr|');
- end;
+  end;
+  with parentList do begin
+    Put('li','|ul|ol|');
+    Put('tr','|table|thead|tbody|tfoot|');
+    Put('td','|tr|');
+    Put('th','|tr|');
+  end;
 
- // Init hash of entities
- entities.Init(length(ENTITIES_LIST)*2);
- for i:=0 to high(ENTITIES_LIST) do
-  entities.Put(String8(copy(ENTITIES_LIST[i],2,100)),Word(ENTITIES_LIST[i][1]));
+  // Init hash of entities
+  entities.Init(length(ENTITIES_LIST)*2);
+  for i:=0 to high(ENTITIES_LIST) do
+    entities.Put(String8(copy(ENTITIES_LIST[i],2,100)),Word(ENTITIES_LIST[i][1]));
 
- //node:=ParseHTML('<div>123</div>');
- //node:=ParseHTML('<div><p>1<p>2</p>3');
- //DecodeHtmlString('&#12345678912345678123443653656546456546');
- //DecodeHtmlString('&#x0');
- //DecodeHtmlString('&xxx');
- //DecodeHtmlString('A&quot;_&#66;&ksdhkh&#x44');
-{ // Debug test
- st:=Files.LoadAsString('test.htm');
- st:=Files.LoadAsString('content.htm');
- t:=CoreTime.Ticks;
- node:=ParseHTML(st);
- t:=CoreTime.Ticks-t;
- st:=node.PrintTree;
- SaveFile {TODO: use Files.Save(fname,data)}('tree.txt',Utf8String(st));
- writeln(t,node.tag);  }
+  //node:=ParseHTML('<div>123</div>');
+  //node:=ParseHTML('<div><p>1<p>2</p>3');
+  //DecodeHtmlString('&#12345678912345678123443653656546456546');
+  //DecodeHtmlString('&#x0');
+  //DecodeHtmlString('&xxx');
+  //DecodeHtmlString('A&quot;_&#66;&ksdhkh&#x44');
+  { // Debug test
+  st:=Files.LoadAsString('test.htm');
+  st:=Files.LoadAsString('content.htm');
+  t:=CoreTime.Ticks;
+  node:=ParseHTML(st);
+  t:=CoreTime.Ticks-t;
+  st:=node.PrintTree;
+  SaveFile {TODO: use Files.Save(fname,data)}('tree.txt',Utf8String(st));
+  writeln(t,node.tag);  }
 end.

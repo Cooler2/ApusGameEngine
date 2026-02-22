@@ -4,11 +4,11 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit AndroidSoundPool;
-{$mode delphi}
+{$MODE DELPHI}
 interface
   uses jni;
 
- type
+  type
   TSoundID = jint;
   TStreamID = jint;
 
@@ -33,25 +33,25 @@ interface
 
 { var
 
- // Must be called BEFORE any functions below
- procedure InitSoundPool;
- // Load a file from bundle resources
- function LoadSoundFile(fName:string):TSoundID;
- // Play loaded sound
- function PlaySound(soundID:TSoundID;lVolume,rVolume,speed:single;loop:boolean):TStreamID;
- // Change stream volume
- procedure SetStreamVolume(streamID:TStreamID;lVolume,rVolume:single);
- // Change stream speed (rate)
- procedure SetStreamSpeed(streamID:TStreamID;speed:single);
- // Stop stream playback
- procedure StopSound(streamID:TStreamID);
- // Release sound
- procedure UnloadSound(soundID:TSoundID);}
+  // Must be called BEFORE any functions below
+  procedure InitSoundPool;
+  // Load a file from bundle resources
+  function LoadSoundFile(fName:string):TSoundID;
+  // Play loaded sound
+  function PlaySound(soundID:TSoundID;lVolume,rVolume,speed:single;loop:boolean):TStreamID;
+  // Change stream volume
+  procedure SetStreamVolume(streamID:TStreamID;lVolume,rVolume:single);
+  // Change stream speed (rate)
+  procedure SetStreamSpeed(streamID:TStreamID;speed:single);
+  // Stop stream playback
+  procedure StopSound(streamID:TStreamID);
+  // Release sound
+  procedure UnloadSound(soundID:TSoundID);}
 
 implementation
- uses MyServis,SysUtils,Android;
+uses MyServis,SysUtils,Android;
 
- constructor TSoundPool.Create;
+  constructor TSoundPool.Create;
   var
    cls:jclass;
    args:array[0..3] of jvalue;
@@ -70,12 +70,12 @@ implementation
    DebugMessage('SoundPool created: '+PtrToStr(soundPool));
   end;
 
- destructor TSoundPool.Destroy;
+  destructor TSoundPool.Destroy;
   begin
    FreeGlobalRef(soundPool);
   end;
 
- function TSoundPool.LoadSoundFile(fName:string):TSoundID;
+  function TSoundPool.LoadSoundFile(fName:string):TSoundID;
   var
    id:jint;
    afd:jobject;
@@ -101,7 +101,7 @@ implementation
    if id>0 then inc(count);
   end;
 
- function TSoundPool.PlaySound(soundID:TSoundID;lVolume,rVolume,speed:single;loop:boolean):TStreamID;
+  function TSoundPool.PlaySound(soundID:TSoundID;lVolume,rVolume,speed:single;loop:boolean):TStreamID;
   var
    args:array[0..5] of jvalue;
   begin
@@ -118,7 +118,7 @@ implementation
       '(IFFIIF)I'),@args);
   end;
 
- procedure TSoundPool.SetStreamVolume(streamID:TStreamID;lVolume,rVolume:single);
+  procedure TSoundPool.SetStreamVolume(streamID:TStreamID;lVolume,rVolume:single);
   var
    args:array[0..3] of jvalue;
   begin
@@ -132,7 +132,7 @@ implementation
       '(IFF)V'),@args);
   end;
 
- procedure TSoundPool.SetStreamSpeed(streamID:TStreamID;speed:single);
+  procedure TSoundPool.SetStreamSpeed(streamID:TStreamID;speed:single);
   var
    args:array[0..3] of jvalue;
   begin
@@ -145,7 +145,7 @@ implementation
       '(IF)V'),@args);
   end;
 
- procedure TSoundPool.StopSound(streamID:TStreamID);
+  procedure TSoundPool.StopSound(streamID:TStreamID);
   var
    args:array[0..0] of jvalue;
   begin
@@ -157,7 +157,7 @@ implementation
       '(I)V'),@args);
   end;
 
- procedure TSoundPool.UnloadSound(soundID:TSoundID);
+  procedure TSoundPool.UnloadSound(soundID:TSoundID);
   var
    args:array[0..0] of jvalue;
   begin
