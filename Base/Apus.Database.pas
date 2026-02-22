@@ -100,7 +100,7 @@ interface
   function FormatQuery(query:string;params:array of const):string8;
 
 implementation
- uses SysUtils, Apus.Strings, Apus.Log,
+ uses SysUtils, Apus.Strings, Apus.Log, Apus.Utils,
    {$IFDEF MSWINDOWS}MySQL,{$ELSE}
    mysql51,
    {$ENDIF}
@@ -223,7 +223,7 @@ begin
    list:=list+'"'+keys[i]+'"'
   end;
  end else
-  list:=Join(keys,',');
+  list:=keys.Join(',');
  if condition<>'' then condition:=' AND '+condition;
  sa:=Query(Format('SELECT %s,%s FROM %s WHERE %s IN (%s)%s',[keyField,valueField,table,keyField,list,condition]));
  for i:=0 to rowCount-1 do
@@ -369,7 +369,7 @@ begin
    data:=result;
    exit;
   end;
-  EnterCriticalSection(crSect);
+  crSect.Enter;
   try
    if DBquery='' then begin
     // Пустой запрос для поддержания связи с БД
@@ -441,7 +441,7 @@ begin
    end;
    time3:=CoreTime.Ticks-t;
   finally
-   LeaveCriticalSection(crSect);
+    crSect.Leave;
   end;
   data:=result;
 end;
@@ -512,5 +512,5 @@ procedure TDatabase.NextRow;
  end;
 
 initialization
- InitCritSect {TODO: use lock.Init(name,level)}(lock,'DB_LOCK',150);
+  lock.Init('DB_LOCK',150);
 end.
