@@ -3,16 +3,16 @@ program BuildTestDelphi;
 {$APPTYPE CONSOLE}
 
 uses
-  // Level 0: no Apus dependencies
-  Apus.Types,
+  // Level 0: standalone units - no Apus dependencies
   Apus.CPU,
   Apus.Crypto,
   Apus.ADPCM,
   Apus.LongMath,
   Apus.RegExpr,
 
-  // Level 1: Core API
+  // Level 1: Foundation API
   Apus.Core,
+  Apus.Types,
   Apus.Colors,
   Apus.Conv,
   Apus.Strings,
@@ -27,14 +27,14 @@ uses
   Apus.Geom3D,
 
   // Level 3: Higher-level data structures
+  Apus.Structs,
   Apus.Classes,
   Apus.EventMan,
   Apus.Lib,
-  Apus.Tweenings,
-  Apus.AnimatedValues,
+//  Apus.Tweenings,
+//  Apus.AnimatedValues,
 
-  // Level 4: Structs and graphics primitives
-  Apus.Structs,
+  // Level 4: Graphics primitives, network
   Apus.FastGFX,
   Apus.VertexLayout,
   Apus.Socket,
@@ -47,32 +47,32 @@ uses
   Apus.Huffman,
 
   // Level 6: Network and files
-  Apus.ControlFiles,
+//  Apus.ControlFiles,
   Apus.TCP,
 
   // Level 7: High-level network
-  Apus.HttpRequests,
-  Apus.GfxFormats,
+//  Apus.HttpRequests,
+//  Apus.GfxFormats,
 
   // Level 8: Text and data
-  Apus.TextUtils,
+//  Apus.TextUtils,
   Apus.UnicodeFont,
-  Apus.Translation,
-  Apus.Database,
+//  Apus.Translation,
+//  Apus.Database,
 
   // Level 9: Specialized
   Apus.HtmlTree,
-  Apus.FreeTypeFont,
-  Apus.GlyphCaches,
+//  Apus.FreeTypeFont,
+//  Apus.GlyphCache,
   Apus.GeoIP,
 
   // Level 10: Diagnostics and extras
-  Apus.Logging,
+//  Apus.Logging,
   Apus.Profiling,
   Apus.StackTrace,
   Apus.Clipboard,
   Apus.MemoryLeakUtils,
-  Apus.Publics,
+//  Apus.Publics,
   Apus.RSA,
   Apus.SCGI;
 
