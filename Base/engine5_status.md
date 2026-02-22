@@ -22,6 +22,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-02-19):** Fixed `Apus.Core` API defects in `Min/Max` overload return types (`cardinal/int64/uint64`, and 3-arg `single`). Removed lossy `trunc()` logic from `Min/Max(a,b,c:single)`.
 
 **Recent wins (2026-02-22):** Added case-insensitive search support in `Apus.Strings` (`IndexOf/LastIndexOf/Contains` for `String8` and `String32` with optional `ignoreCase`), plus coverage in `TestStrings`.
+**Recent wins (2026-02-22):** Migrated `Apus.HtmlTree` from `string` to `String8` API and switched local search helper to `String8.IndexOf(...,ignoreCase)`.
 
 ## NEW — created in engine5 refactoring
 
@@ -96,7 +97,7 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 | **Apus.GfxFilters** | 1385 | Needs audit — large module |
 | **Apus.Database** | 515 | String8, StringArr, MyTickCount, parsing |
 | **Apus.Translation** | 416 | EncodeUTF8, DecodeUTF8 |
-| **Apus.HtmlTree** | 665 | String8, StringArr, PosFrom |
+| **Apus.HtmlTree** | 665 | String8 API (Parse/Tree/Attributes), String8.IndexOf(ignoreCase) |
 
 ### Heavy (deep Common dependency, infrastructure modules)
 

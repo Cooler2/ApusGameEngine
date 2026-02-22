@@ -172,6 +172,192 @@ begin
   EndTest;
 end;
 
+procedure TestWrapRound;
+var
+  s:single;
+  d:double;
+begin
+  StartTest('Wrap/Round');
+
+  // Wrap
+  s:=Wrap(single(2.5),single(2.0));
+  Check(Abs(s-0.5)<0.001,'Wrap single above range');
+  s:=Wrap(single(-0.5),single(2.0));
+  Check(Abs(s-1.5)<0.001,'Wrap single below range');
+  d:=Wrap(5.25,2.0);
+  Check(Abs(d-1.25)<0.001,'Wrap double above range');
+  d:=Wrap(-0.25,2.0);
+  Check(Abs(d-1.75)<0.001,'Wrap double below range');
+
+  // FRound / PRound / SRound (non-ambiguous values)
+  Check(FRound(2.49)=2,'FRound(2.49)');
+  Check(FRound(2.51)=3,'FRound(2.51)');
+  Check(PRound(2.49)=2,'PRound(2.49)');
+  Check(PRound(2.51)=3,'PRound(2.51)');
+  Check(SRound(single(2.49))=2,'SRound(2.49)');
+  Check(SRound(single(2.51))=3,'SRound(2.51)');
+
+  EndTest;
+end;
+
+procedure TestAtomicSpin;
+var
+  v:longint;
+  lock:integer;
+begin
+  StartTest('Atomic/Spin/Barrier');
+
+  v:=0;
+  Check(Atomic.Inc(v)=1,'Atomic.Inc');
+  Check(v=1,'Atomic.Inc writes target');
+  Check(Atomic.Dec(v)=0,'Atomic.Dec');
+  Check(v=0,'Atomic.Dec writes target');
+  Check(Atomic.Add(v,10)=10,'Atomic.Add');
+  Check(Atomic.Sub(v,3)=7,'Atomic.Sub');
+  Check(Atomic.Exchange(v,42)=7,'Atomic.Exchange returns old');
+  Check(v=42,'Atomic.Exchange writes new');
+  Check(Atomic.CmpExchange(v,100,42)=42,'Atomic.CmpExchange success returns old');
+  Check(v=100,'Atomic.CmpExchange success writes new');
+  Check(Atomic.CmpExchange(v,7,42)=100,'Atomic.CmpExchange fail returns current');
+  Check(v=100,'Atomic.CmpExchange fail keeps value');
+
+  lock:=0;
+  SpinLock(lock);
+  Check(lock=1,'SpinLock(var) sets lock');
+  SpinUnlock(lock);
+  Check(lock=0,'SpinUnlock(var) clears lock');
+
+  SpinLock;
+  Check(globalSpinLock=1,'SpinLock global sets lock');
+  SpinUnlock;
+  Check(globalSpinLock=0,'SpinUnlock global clears lock');
+
+  // Coverage for barrier primitive
+  MemoryBarrier;
+  Check(true,'MemoryBarrier callable');
+
+  EndTest;
+end;
+
+procedure TestSystemPrimitives;
+var
+  tid:TThreadID;
+  code:cardinal;
+  desc:string;
+  t0,t1:int64;
+  timer:int64;
+  dt:double;
+begin
+  StartTest('System primitives');
+
+  tid:=GetCurrentThreadID;
+  Check(tid<>0,'GetCurrentThreadID non-zero');
+
+  // Ticks/Sleep monotonicity
+  t0:=CoreTime.Ticks;
+  CoreTime.Sleep(5);
+  t1:=CoreTime.Ticks;
+  Check(t1>=t0,'CoreTime.Ticks monotonic');
+
+  // StartTimer/TimerSec
+  StartTimer(timer);
+  CoreTime.Sleep(10);
+  dt:=TimerSec(timer);
+  Check(dt>=0.005,'TimerSec(out timer) after sleep');
+  StartTimer(timer);
+  CoreTime.Sleep(10);
+  dt:=TimerSec(timer);
+  Check(dt>=0.005,'TimerSec(global timer) after sleep');
+
+  code:=GetLastErrorCode;
+  desc:=GetLastErrorDesc;
+  Check(desc<>'','GetLastErrorDesc non-empty');
+  // code may be 0 or non-zero depending on previous API calls
+  Check((code=0) or (code<>0),'GetLastErrorCode callable');
+
+  EndTest;
+end;
+
+procedure TestMemGuardedFillClear;
+const
+  GUARD = $CC;
+type
+  TGuarded = packed record
+    pre:array[0..15] of byte;
+    data:array[0..63] of byte;
+    post:array[0..15] of byte;
+  end;
+var
+  g:TGuarded;
+  i:integer;
+
+  function GuardsIntact:boolean;
+  var
+    j:integer;
+  begin
+    result:=true;
+    for j:=0 to high(g.pre) do
+      if g.pre[j]<>GUARD then exit(false);
+    for j:=0 to high(g.post) do
+      if g.post[j]<>GUARD then exit(false);
+  end;
+begin
+  StartTest('Mem Fill/Clear guards');
+
+  FillChar(g,sizeof(g),GUARD);
+  Mem.Fill(g.data[0],length(g.data),$AA);
+  Check(GuardsIntact,'Mem.Fill must not touch guards');
+  Check((g.data[0]=$AA) and (g.data[high(g.data)]=$AA),'Mem.Fill writes inside buffer');
+
+  FillChar(g,sizeof(g),GUARD);
+  Mem.Clear(g.data[0],length(g.data));
+  Check(GuardsIntact,'Mem.Clear must not touch guards');
+  for i:=0 to high(g.data) do
+    if g.data[i]<>0 then begin
+      Check(false,'Mem.Clear zeroes data area');
+      EndTest;
+      exit;
+    end;
+  Check(true,'Mem.Clear zeroes data area');
+
+  FillChar(g,sizeof(g),GUARD);
+  Mem.FillQ(g.data[0],length(g.data) div 8,$1122334455667788);
+  Check(GuardsIntact,'Mem.FillQ must not touch guards');
+
+  FillChar(g,sizeof(g),GUARD);
+  Mem.FillF(g.data[0],length(g.data) div 4,3.5);
+  Check(GuardsIntact,'Mem.FillF must not touch guards');
+
+  EndTest;
+end;
+
+procedure TestBitsEdgeCases;
+var
+  q:uint64;
+begin
+  StartTest('Bits edge cases');
+
+  // size=0 means empty field: function must not modify destination
+  q:=0;
+  Bits.SetBits(q,0,0,-1);
+  Check(q=0,'SetBits uint64 size=0 leaves value unchanged');
+  Check(Bits.GetBits(q,10,0)=0,'GetBits uint64 size=0 is zero');
+
+  // value parameter is signed integer; pass high-bit pattern as signed literal.
+  // Expected: write exactly 32 bits into high dword [63..32].
+  q:=0;
+  Bits.SetBits(q,32,32,-1985229329); // $89ABCDEF as signed 32-bit
+  Check(Bits.GetBits(q,32,32)=$89ABCDEF,'GetBits uint64 high dword');
+
+  // Low 32-bit field write/read roundtrip
+  q:=0;
+  Bits.SetBits(q,0,32,$12345678);
+  Check(Bits.GetBits(q,0,32)=$12345678,'GetBits uint64 low dword');
+  Check(q=uint64($0000000012345678),'SetBits uint64 low field write');
+
+  EndTest;
+end;
+
 procedure TestToggle;
 var
   b:boolean;
@@ -825,12 +1011,16 @@ begin
     TestLerp;
     TestSwap;
     TestPow2;
+    TestWrapRound;
     TestToggle;
     TestIsNaN;
     TestPtrInside;
     TestMem;
+    TestMemGuardedFillClear;
     TestMemUnaligned;
     TestBits;
+    TestBitsEdgeCases;
+    TestAtomicSpin;
     TestAlignment;
     TestCPU;
     TestHalf;
@@ -839,6 +1029,7 @@ begin
     TestException;
     TestExceptionMsg;
     TestTime;
+    TestSystemPrimitives;
 
     writeln;
     if testsFailed=0 then
@@ -849,9 +1040,13 @@ begin
     end;
   except
     on e:Exception do begin
-      writeln('Error: ',ExceptionMsg(e));
+      writeln;
+      writeln('TEST FAILED! Error: ',ExceptionMsg(e));
       ExitCode:=255;
     end;
   end;
-  if IsDebuggerPresent then readln;
+  if IsDebuggerPresent then begin
+    writeln('Press [ENTER] to exit');
+    readln;
+  end;
 end.

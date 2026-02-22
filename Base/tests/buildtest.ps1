@@ -108,7 +108,7 @@ Build-Module 'Apus.Database'
 # === Level 9: Specialized ===
 Build-Module 'Apus.HtmlTree'
 Build-Module 'Apus.FreeTypeFont'
-Build-Module 'Apus.GlyphCaches'
+Build-Module 'Apus.GlyphCache'
 Build-Module 'Apus.GeoIP'
 
 # === Level 10: Diagnostics and extras ===

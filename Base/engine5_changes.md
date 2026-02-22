@@ -3,6 +3,18 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Recent API fixes (2026-02-22)
+
+### Apus.Strings search API (case-insensitive support)
+
+- `IndexOf/LastIndexOf/Contains` for `String8` and `String32` now support optional `ignoreCase`.
+- Migration note: `PosFrom(..., ignoreCase=true)` must be rewritten manually to `st.IndexOf(..., true)` (tool marks TODO).
+
+### Apus.HtmlTree UTF-8 API migration
+
+- `Apus.HtmlTree` public API is now `String8`-based (`ParseHTML`, `DecodeHTMLString`, node text/tag/attributes helpers).
+- Local `PosFrom` helper removed; module uses `String8.IndexOf(...,ignoreCase)` from `Apus.Strings`.
+
 ## Recent API fixes (2026-02-19)
 
 ### Apus.Core `Min/Max` return type corrections
