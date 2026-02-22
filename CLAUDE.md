@@ -168,6 +168,12 @@ Level 5:
 - Compile individual module: `fpc -MDelphi -Sd -Fu.. <Module.pas>` (run from `Base/tests/`)
 - Run tests: `test.bat <TestName>` (e.g. `test.bat EventMan`)
 
+### Assertions and Runtime Checks
+
+- **`ASSERT`** — programmer error checks (invalid arguments, broken invariants). Controlled by `{$C+}/{$C-}`, disabled in release builds. Use freely including in hot paths.
+- **`if` + raise/exit** — critical checks that must always run, even in release. Use for cases where silent corruption is unacceptable.
+- Do NOT use `{$IFOPT R+}` for custom checks — use `ASSERT` instead for centralized control.
+
 - use `UIntPtr` for pointer↔integer conversion
 - add comments after `{$ELSE}` when far from condition
 - short end-of-line comments start lowercase: `a:=1; // initialize`
