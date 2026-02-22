@@ -23,11 +23,11 @@ uses
   Apus.Classes,
   Apus.Conv,
   Apus.HashMaps,
-  Apus.Strings;
+  Apus.Strings,
+  Apus.Utils;
 
 type
   // --- Apus.Types ---
-  TSplineFunc = Apus.Types.TSplineFunc;
   TIntRange = Apus.Types.TIntRange;
   TFloatRange = Apus.Types.TFloatRange;
   TNameValue = Apus.Types.TNameValue;
@@ -50,6 +50,9 @@ type
 
   // --- Apus.Strings ---
   UTF8 = Apus.Strings.UTF8;
+
+  // --- Apus.Utils ---
+  TSplineFunc = Apus.Utils.TSplineFunc;
 
 implementation
 end.

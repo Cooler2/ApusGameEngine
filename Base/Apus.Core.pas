@@ -96,9 +96,6 @@ type
   TProcedure = procedure;
   TObjProcedure = procedure of object;
 
-  // Text encoding types
-  TTextEncoding = (teUnknown, teANSI, teWin1251, teUTF8);
-
   // 128-bit vector data
   m128 = record
     case byte of

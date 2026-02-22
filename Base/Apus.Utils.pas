@@ -23,8 +23,8 @@ function GetDateFromStr(st:String8;default:TDateTime=0):TDateTime; // alias for 
 function ParseTime(st:String8;default:TDateTime=0):TDateTime;
 
 type
-  // Text encoding identifier for Unicode conversion
-  TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8);
+  // Text encoding types
+  TTextEncoding = (teUnknown, teANSI, teWin1251, teUTF8);
 
 // Convert WideString to 8-bit string with given encoding
 function UnicodeTo(const st:WideString;encoding:TTextEncoding):String8;
@@ -32,20 +32,19 @@ function UnicodeTo(const st:WideString;encoding:TTextEncoding):String8;
 function UnicodeFrom(const st:String8;encoding:TTextEncoding):WideString;
 
 
-// =============================================================================
-// Spline interpolation functions
-// =============================================================================
+  // =============================================================================
+  // Spline interpolation functions
+  // =============================================================================
+  // All splines: f(x0)=y0, f(x1)=y1, x clamped to [x0,x1]
+  function Spline0(x,x0,x1,y0,y1:single):single; // linear
+  function Spline1(x,x0,x1,y0,y1:single):single; // ease-in-out: 25%-50%-25%
+  function Spline2(x,x0,x1,y0,y1:single):single; // ease-out (decelerate)
+  function Spline2rev(x,x0,x1,y0,y1:single):single; // ease-in (accelerate)
+
 type
   // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
   TSplineFunc=function(x,x0,x1,y0,y1:single):single;
 
-// All splines: f(x0)=y0, f(x1)=y1, x clamped to [x0,x1]
-function Spline0(x,x0,x1,y0,y1:single):single; // linear
-function Spline1(x,x0,x1,y0,y1:single):single; // ease-in-out: 25%-50%-25%
-function Spline2(x,x0,x1,y0,y1:single):single; // ease-out (decelerate)
-function Spline2rev(x,x0,x1,y0,y1:single):single; // ease-in (accelerate)
-
-type
   TSplines=record
     linear:TSplineFunc;
     easeIn:TSplineFunc;

@@ -7,7 +7,7 @@
 unit Apus.AnimatedValues;
 
 interface
-  uses Apus.Types;
+  uses Apus.Utils;
 
   type
     // Одиночная анимация значения
@@ -314,8 +314,8 @@ implementation
     end;
 
 initialization
-  sfLinear:=Spline0;
-  sfEaseOut:=Spline2;
-  sfEaseIn:=Spline2rev;
-  sfEaseInOut:=Spline1;
+  sfLinear:=splines.linear;
+  sfEaseOut:=splines.easeOut;
+  sfEaseIn:=splines.easeIn;
+  sfEaseInOut:=splines.easeInOut;
 end.
