@@ -22,8 +22,10 @@ type
    function FinalValue:single; // What the value will be when animation finished?
    function IsAnimating(time:int64=0):boolean; // Is value animating now?}
 
+   {$IFDEF DELPHI}
    class operator Initialize (out Dest:TTweening);
    class operator Finalize (var Dest:TTweening);
+   {$ENDIF}
  private
    lock:integer;
    values:array of single;
@@ -48,18 +50,18 @@ type
  end;
 
 { TTweening }
+{$IFDEF DELPHI}
 class operator TTweening.Initialize(out dest:TTweening);
 begin
  dest.lock:=0;
 end;
 
 class operator TTweening.Finalize(var dest:TTweening);
-var
- i:integer;
 begin
  ASSERT(dest.lock=0);
  FreeAndNil(dest.effect);
 end;
+{$ENDIF}
 
 procedure TTweening.Assign(value:single);
 begin

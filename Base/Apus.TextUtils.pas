@@ -34,29 +34,29 @@ implementation
   var
    i,p:integer;
    sa:Strings8;
-   key,value:AnsiString;
+   key,value:String8;
   begin
    result.Init;
-   json:=chop(json);
+   json:=json.Trim;
    if length(json)=0 then exit;
    if (json[1]='{') and (json[length(json)]='}') then json:=copy(json,2,length(json)-2);
    sa:=json.Split(',');
    for i:=0 to high(sa) do begin
-    sa[i]:=chop(sa[i]);
+    sa[i]:=sa[i].Trim;
     p:=pos(':',sa[i]);
     if p=0 then continue;
     key:=copy(sa[i],1,p-1);
     value:=copy(sa[i],p+1,length(sa[i]));
-    key:=chop(key);
+    key:=key.Trim;
     if length(key)=0 then continue;
     if (key[1]='"') and (key[length(key)]='"') or
        (key[1]='''') and (key[length(key)]='''') then key:=copy(key,2,length(key)-2);
     if length(key)=0 then continue;
-    key:=Unescape(key);
+    key:=key.Unescape;
     if length(value)>=2 then
      if (value[1]='"') and (value[length(value)]='"') or
         (value[1]='''') and (value[length(value)]='''') then value:=copy(value,2,length(value)-2);
-    value:=Unescape(value);
+    value:=value.Unescape;
     result.Put(key,value,true);
    end;
   end;
@@ -201,7 +201,7 @@ implementation
            wch:=WideChar(StrToIntDef(st,0));
          end;
          if wch<>#0 then begin
-          st:=EncodeUTF8 {TODO: use UTF8.Encode (check arg types)}(wch);
+          st:=UTF8.Encode(WideString(wch));
           for j:=1 to length(st) do begin
            inc(n); result[n]:=st[j];
           end;
@@ -240,7 +240,7 @@ var
  sa:Strings8;
 initialization
  try
-  sa:=split {TODO: use st.Split(char)}(';',scriptRanges);
+  sa:=String8(scriptRanges).Split(';');
   for i:=0 to high(sa) do begin
    p:=pos('-',sa[i]);
    if p>0 then begin

@@ -17,19 +17,19 @@ unit Apus.Utils;
 interface
 uses Apus.Core;
 
-// parse date from string in format DD.MM.YYYY HH:MM:SS (recognizes other formats too)
-function ParseDate(st:String8;default:TDateTime=0):TDateTime;
-function GetDateFromStr(st:String8;default:TDateTime=0):TDateTime; // alias for compatibility
-function ParseTime(st:String8;default:TDateTime=0):TDateTime;
+  // parse date from string in format DD.MM.YYYY HH:MM:SS (recognizes other formats too)
+  function ParseDate(st:String8;default:TDateTime=0):TDateTime;
+  function GetDateFromStr(st:String8;default:TDateTime=0):TDateTime; // alias for compatibility
+  function ParseTime(st:String8;default:TDateTime=0):TDateTime;
 
 type
   // Text encoding types
   TTextEncoding = (teUnknown, teANSI, teWin1251, teUTF8);
 
-// Convert WideString to 8-bit string with given encoding
-function UnicodeTo(const st:WideString;encoding:TTextEncoding):String8;
-// Convert 8-bit string to WideString with given encoding
-function UnicodeFrom(const st:String8;encoding:TTextEncoding):WideString;
+  // Convert WideString to 8-bit string with given encoding
+  function UnicodeTo(const st:WideString;encoding:TTextEncoding):String8;
+  // Convert 8-bit string to WideString with given encoding
+  function UnicodeFrom(const st:String8;encoding:TTextEncoding):WideString;
 
 
   // =============================================================================

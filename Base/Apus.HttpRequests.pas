@@ -367,7 +367,7 @@ type
     ctText:client.AddHeader('Content-Type','text/plain');
     ctMultipart:begin // complex case
       multipart:=false;
-      lines:=Split(#13#10,req.postData);
+      lines:=req.postData.ReplaceAll(#13#10,#10).Split(#10);
       for i:=1 to length(lines)-1 do begin
        if length(lines[i])<120 then begin
         if pos('CONTENT-DISPOSITION:',UpperCase(lines[i]))=1 then begin
@@ -800,7 +800,7 @@ procedure THTTPThread.ExecutePostRequest;
    ctText:headers:=headers+#13#10+'Content-Type: text/plain';
    ctMultipart:begin // complex case
      multipart:=false;
-     lines:=req.postData.Split(#13#10);
+     lines:=req.postData.ReplaceAll(#13#10,#10).Split(#10);
      for i:=1 to length(lines)-1 do begin
       if length(lines[i])<120 then begin
        if pos('CONTENT-DISPOSITION:',UpperCase(lines[i]))=1 then begin
@@ -996,9 +996,9 @@ procedure THTTPThread.Execute;
       for i:=0 to high(paramNames) do begin
        if i>0 then result:=result+'&';
        if (paramNames[i]='') or (paramValues[i]='') then
-        result:=result+UrlEncode(paramNames[i]+paramValues[i])
+        result:=result+(paramNames[i]+paramValues[i]).UrlEncode
        else
-        result:=result+UrlEncode(paramNames[i])+'='+UrlEncode(paramValues[i]);
+        result:=result+paramNames[i].UrlEncode+'='+paramValues[i].UrlEncode;
       end;
     end;
     ctText:begin

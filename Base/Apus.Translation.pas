@@ -27,7 +27,7 @@
 // обозначает номер набора для конкретно этого правила
 unit Apus.Translation;
 interface
- uses Apus.Core;
+ uses Apus.Core, Apus.Utils;
  type
   {$IFNDEF UNICODE}
   MyString=WideString;
@@ -36,7 +36,7 @@ interface
   {$ENDIF}
  var
   languageID:string;
-  defaultEncoding:TTextEncoding=teUTF8;
+  defaultEncoding:TTextEncoding=TTextEncoding.teUTF8;
 
   // for statistics
   trRuleFault:cardinal=0;
@@ -49,12 +49,13 @@ interface
  procedure AddTranslationRule(sour,dest:MyString;ruleset:integer);
 
  // Translate string using given set of rules (teUnknown = use default encoding)
- function Translate8(st:string;ruleset:integer=0;encoding:TTextEncoding=teUnknown):string;
+ function Translate8(st:string;ruleset:integer=0;encoding:TTextEncoding=TTextEncoding.teUnknown):string;
  function Translate(st:MyString;ruleset:integer=0):MyString;
 
 implementation
  uses SysUtils,StrUtils,
   Apus.Conv,
+  Apus.Strings,
   Apus.Log;
  type
   // single rule
@@ -98,7 +99,7 @@ implementation
    st8:string;
    st,sour:MyString;
    i,curSet,localSet:integer;
-   utf8:boolean;
+   hasBOM:boolean;
   begin
    assign(f,filename);
    try
@@ -107,17 +108,17 @@ implementation
     curSet:=0;
     localSet:=-1;
     sour:='';
-    utf8:=false;
+    hasBOM:=false;
     // Parse file
     while not eof(f) do begin
      readln(f,st8);
      // convert 8-bit string to unicode
-     if not utf8 and IsUTF8(st8) then begin
-      utf8:=true;
-      delete(st8,1,3);
+     if not hasBOM and (length(st8)>=3) and (st8[1]=#$EF) and (st8[2]=#$BB) and (st8[3]=#$BF) then begin
+      hasBOM:=true;
+      delete(st8,1,3); // remove BOM
      end;
-     if utf8 then st:=DecodeUTF8(st8)
-      else st:=UnicodeFrom(st8,teWin1251);
+     if hasBOM then st:=UTF8.ToWide(String8(st8))
+      else st:=UnicodeFrom(String8(st8),TTextEncoding.teWin1251);
 
      if length(st)=0 then begin // empty string
       sour:=''; continue;
@@ -154,15 +155,15 @@ implementation
    end;
   end;
 
- function Translate8(st:string;ruleset:integer=0;encoding:TTextEncoding=teUnknown):string;
+ function Translate8(st:string;ruleset:integer;encoding:TTextEncoding):string;
   var
    wst:MyString;
   begin
    if sets[ruleset]=nil then begin
     result:=st; exit;
    end;
-   if encoding=teUnknown then encoding:=defaultEncoding;
-   wst:=UnicodeFrom(st,encoding);
+   if encoding=TTextEncoding.teUnknown then encoding:=defaultEncoding;
+   wst:=UnicodeFrom(String8(st),encoding);
    wst:=Translate(wst,ruleset);
    result:=UnicodeTo(wst,encoding);
   end;

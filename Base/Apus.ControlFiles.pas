@@ -109,7 +109,8 @@ procedure ctlDeleteKey(key:String8);
 
 
 implementation
- uses StrUtils, Apus.Structs, Apus.Crypto, Apus.Threads;
+ uses SysUtils, StrUtils, Classes, Apus.Structs, Apus.Crypto, Apus.Threads,
+  Apus.Strings, Apus.Conv;
 
 type
  // комментарий
@@ -718,7 +719,7 @@ function UseControlFile;
       end;
 
       // Иначе - данные, нужно проверить тип
-      SetDecimalSeparator('.');
+      {$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator:='.';
       uArg:=UpperCase(arg);
       if (uArg='ON') or (uArg='OFF') or (uArg='YES') or (uArg='NO') then begin
        // boolean
@@ -733,7 +734,7 @@ function UseControlFile;
       if Q_IsFloat(arg) then begin
        // Float
        value:=TFloatValue.Create;
-       (value as TFloatValue).value:=ParseFloat(arg);
+       (value as TFloatValue).value:=Conv.ToFloat(arg);
       end else begin
        // String8 or String8 list
        if arg[1]='(' then begin
@@ -749,16 +750,16 @@ function UseControlFile;
         // Delete '(' and ')'
         delete(arg,1,1);
         SetLength(arg,length(arg)-1);
-        sa:=Strings8(Split(',',arg,'"'));
+        sa:=arg.Split(',','"');
         // Create and fill object
         value:=TStringlistValue.Create;
         with value as TStringListValue do begin
          Allocate(Length(sa));
          for i:=0 to length(sa)-1 do
-          value[i]:=UnQuoteStr(chop(sa[i]));
+          value[i]:=sa[i].Trim.Unquote;
         end;
        end else begin
-        arg:=UnQuoteStr(arg);
+        arg:=arg.Unquote;
         value:=TStringValue.Create;
         (value as TStringValue).value:=arg;
        end;
@@ -977,7 +978,7 @@ var
     o:TObject;
     pad,st:String8;
    begin
-    SetDecimalSeparator('.');
+    {$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator:='.';
     for i:=0 to item.GetChildrenCount-1 do begin
      o:=item.GetChild(i).data;
      SetLength(pad,indent);
@@ -1042,7 +1043,7 @@ var
       for j:=1 to length(pad) do pad[j]:=' ';
       for j:=1 to count do begin
        while length(st) mod 8<>1 do st:=st+' ';
-       st:=st+QuoteStr(value[j-1]);
+       st:=st+value[j-1].Quote;
        if j<count then st:=st+',' else st:=st+')';
        if length(st)>75 then begin
         writeln(f,st);
@@ -1818,10 +1819,10 @@ end;
 initialization
  items:=TGenericTree.Create(true,true);
  hash:=TStrHash.Create;
- InitCritSect(critSect,'CtlFiles2',300);
+ critSect.Init('CtlFiles2',300);
 
 finalization
 // Удалять свои объекты не стоит - толку никакого, программа все-равно завершает работу
 // а вот на баги нарываться не хочется...
- DeleteCritSect(critSect);
+ critSect.Cleanup;
 end.
