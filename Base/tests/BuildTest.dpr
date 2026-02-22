@@ -32,7 +32,7 @@ uses
   Apus.EventMan,
   Apus.Lib,
 //  Apus.Tweenings,
-//  Apus.AnimatedValues,
+  Apus.AnimatedValues,
 
   // Level 4: Graphics primitives, network
   Apus.FastGFX,
@@ -47,23 +47,23 @@ uses
   Apus.Huffman,
 
   // Level 6: Network and files
-//  Apus.ControlFiles,
+  Apus.ControlFiles,
   Apus.TCP,
 
   // Level 7: High-level network
 //  Apus.HttpRequests,
-//  Apus.GfxFormats,
+  Apus.GfxFormats,
 
   // Level 8: Text and data
-//  Apus.TextUtils,
+  Apus.TextUtils,
   Apus.UnicodeFont,
-//  Apus.Translation,
-//  Apus.Database,
+  Apus.Translation,
+  Apus.Database,
 
   // Level 9: Specialized
   Apus.HtmlTree,
-//  Apus.FreeTypeFont,
-//  Apus.GlyphCache,
+  Apus.FreeTypeFont,
+  Apus.GlyphCache,
   Apus.GeoIP,
 
   // Level 10: Diagnostics and extras
@@ -72,9 +72,10 @@ uses
   Apus.StackTrace,
   Apus.Clipboard,
   Apus.MemoryLeakUtils,
-//  Apus.Publics,
-  Apus.RSA,
-  Apus.SCGI;
+  Apus.Publics,
+  Apus.RSA
+//  Apus.SCGI
+ ;
 
 begin
 end.
