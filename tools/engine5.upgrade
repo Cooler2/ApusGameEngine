@@ -110,8 +110,9 @@ PingThread -> Thread.Ping [Apus.Threads]
 GetThreadName -> Thread.GetName [Apus.Threads]
 
 // === TODO markers: need manual rewrite (call style changes) ===
-InitCritSect -> ?use lock.Init(name,level) [Apus.Threads]
+InitCritSect -> ?use lock.Init(name[,level]) [Apus.Threads]
 DeleteCritSect -> ?use lock.Cleanup [Apus.Threads]
+SameText8 -> ?use a.Same(b) [Apus.Strings]
 PosFrom -> ?manual rewrite: use st.IndexOf(substr[,startPos]); if old call had ignoreCase=true, use st.IndexOf(substr,startPos,true) [Apus.Strings]
 LastPos -> ?use st.LastIndexOf(substr) [Apus.Strings]
 ExtractStr -> ?use st.Extract(prefix,suffix) [Apus.Strings]

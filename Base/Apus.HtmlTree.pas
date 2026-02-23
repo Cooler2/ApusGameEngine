@@ -394,7 +394,7 @@ var
 begin
   result:=nil;
   // Check if this element meets the search criteria
-  if (tag='') or tag.EqualsText(self.tag) then begin
+  if (tag='') or tag.Same(self.tag) then begin
     result:=self;
     if attribute<>'' then begin // element must have specified attribute
       aIdx:=attributes.Find(attribute);
@@ -541,7 +541,7 @@ procedure THtmlElement.VisitElements(visitor:THtmlElementVisitor;context:pointer
 var
   i:integer;
 begin
-  if (tag='') or tag.EqualsText(self.tag) then
+  if (tag='') or tag.Same(self.tag) then
     visitor(self,context);
   for i:=0 to children.count-1 do
     if children.items[i] is THtmlElement then

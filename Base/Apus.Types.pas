@@ -6,14 +6,9 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.Types;
 interface
-uses Types,
-  Apus.Core
-  {$IFDEF MSWINDOWS},Windows{$ENDIF};
+uses Apus.Core;
 
 type
-  TPoint = Types.TPoint;
-  TRect = Types.TRect;
-
   TIntRange=record
     min,max:integer;
     procedure Init(min,max:integer);
@@ -334,7 +329,7 @@ end;
 
 function TNameValue.Named(st:string8):boolean;
 begin
-  result:=name.EqualsText(st);
+  result:=name.Same(st);
 end;
 
 { TIntRange }

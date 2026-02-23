@@ -167,13 +167,13 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
   i:=length(eventClass);
   l:=length(event);
   if l<=i then begin
-   if (l=i) and event.EqualsText(eventClass) then begin
+   if (l=i) and event.Same(eventClass) then begin
     subEvent:=''; exit(true);
    end;
    exit(false);
   end;
   if event[i+1]<>'\' then exit(false);
-  if not event.Left(i).EqualsText(eventClass) then exit(false);
+  if not event.Left(i).Same(eventClass) then exit(false);
   subEvent:=Copy(event,i+2,length(event));
   result:=true;
  end;
@@ -628,7 +628,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    p1:TProcedure;
   begin
    event:=copy(event,7,100);
-   if event.EqualsText('CallProc') then begin
+   if event.Same('CallProc') then begin
     p1:=TProcedure(tag);
     p1;
    end;

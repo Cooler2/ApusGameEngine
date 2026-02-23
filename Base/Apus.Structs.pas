@@ -431,7 +431,7 @@ type
 
 implementation
  uses SysUtils, Variants,
-   Apus.Strings  // FastHash, SameText8, StrHash
+   Apus.Strings  // FastHash, StrHash
    {$IFDEF DELPHI},windows{$ENDIF}; // FPC has built-in support (RTL) for atomic operations
 
  const
@@ -2136,7 +2136,7 @@ function TObjectHash.Get(key:String8):TNamedObject;
    if values=nil then Init;
    h:=h and mask;
    while values[h]<>nil do begin
-    if IsValid(values[h]) and SameText8(key,values[h].name) then exit(values[h]);
+    if IsValid(values[h]) and key.Same(values[h].name) then exit(values[h]);
     inc(hashMiss);
     h:=(h+1) and mask;
    end;
@@ -2269,7 +2269,7 @@ procedure TVarHash.InternalPut(key:string8;value:variant);
   h:=FastHash(key) and mask;
   // find the closest unused cell
   while values[h]<>unassigned do begin
-   if SameText8(key,keys[h]) then break; // replace value
+   if key.Same(keys[h]) then break; // replace value
    h:=(h+1) and mask;
   end;
   keys[h]:=key;
@@ -2286,7 +2286,7 @@ function TVarHash.Get(key:String8):variant;
   try
    h:=h and mask;
    while keys[h]<>'' do begin
-    if SameText8(key,keys[h]) and (values[h]<>unassigned) then exit(values[h]);
+    if key.Same(keys[h]) and (values[h]<>unassigned) then exit(values[h]);
     inc(hashMiss);
     h:=(h+1) and mask;
    end;
@@ -2305,7 +2305,7 @@ function TVarHash.HasKey(key:String8):boolean;
   try
    h:=h and mask;
    while keys[h]<>'' do begin
-    if SameText8(key,keys[h]) and (values[h]<>unassigned) then exit(true);
+    if key.Same(keys[h]) and (values[h]<>unassigned) then exit(true);
     inc(hashMiss);
     h:=(h+1) and mask;
    end;

@@ -48,10 +48,8 @@ type
     function EndsWith(const suffix:String8):boolean;
 
     // === Comparison ===
-    function CompareTo(const other:String8):integer;       // case-sensitive
-    function CompareText(const other:String8):integer;     // case-insensitive
-    function Equals(const other:String8):boolean;          // case-sensitive
-    function EqualsText(const other:String8):boolean;      // case-insensitive
+    function Compare(const other:String8;ignoreCase:boolean=true):integer;
+    function Same(const other:String8):boolean; // case-insensitive equals
 
     // === Case conversion ===
     function ToUpper:String8;
@@ -139,10 +137,9 @@ type
     function EndsWith(const suffix:String32):boolean;
 
     // === Comparison ===
-    function CompareTo(const other:String32):integer;
-    function CompareText(const other:String32):integer;     // case-insensitive
-    function Equals(const other:String32):boolean;
-    function EqualsText(const other:String32):boolean;     // case-insensitive
+    function Compare(const other:String32;ignoreCase:boolean=true):integer;
+    function Equals(const other:String32):boolean; // case-sensitive (= not usable for dynamic arrays)
+    function Same(const other:String32):boolean; // case-insensitive
 
     // === Case conversion ===
     function ToUpper:String32;
@@ -264,9 +261,6 @@ function StrHash(const st:String16):cardinal; overload;
 function StrHash(const st:string):cardinal; overload;
 {$ENDIF}
 
-// Case-insensitive string comparison
-function SameText8(const a,b:String8):boolean; inline;
-
 implementation
 uses SysUtils, Apus.Conv;
 
@@ -378,16 +372,13 @@ begin
   result:=System.Copy(self,System.Length(self)-len+1,len)=suffix;
 end;
 
-function String8Helper.CompareTo(const other:String8):integer;
-begin result:=SysUtils.CompareStr(self,other); end;
+function String8Helper.Compare(const other:String8;ignoreCase:boolean):integer;
+begin
+ if ignoreCase then result:=SysUtils.CompareText(self,other)
+  else result:=SysUtils.CompareStr(self,other);
+end;
 
-function String8Helper.CompareText(const other:String8):integer;
-begin result:=SysUtils.CompareText(self,other); end;
-
-function String8Helper.Equals(const other:String8):boolean;
-begin result:=self=other; end;
-
-function String8Helper.EqualsText(const other:String8):boolean;
+function String8Helper.Same(const other:String8):boolean;
 begin result:=SysUtils.SameText(self,other); end;
 
 function String8Helper.ToUpper:String8;
@@ -797,27 +788,17 @@ begin
   result:=true;
 end;
 
-function String32Helper.CompareTo(const other:String32):integer;
-var i,minLen:integer;
-begin
-  minLen:=System.Length(self);
-  if System.Length(other)<minLen then minLen:=System.Length(other);
-  for i:=0 to minLen-1 do begin
-    result:=integer(self[i])-integer(other[i]);
-    if result<>0 then exit;
-  end;
-  result:=System.Length(self)-System.Length(other);
-end;
-
-function String32Helper.CompareText(const other:String32):integer;
+function String32Helper.Compare(const other:String32;ignoreCase:boolean):integer;
 var i,minLen:integer; c1,c2:UCS4Char;
 begin
   minLen:=System.Length(self);
   if System.Length(other)<minLen then minLen:=System.Length(other);
   for i:=0 to minLen-1 do begin
     c1:=self[i]; c2:=other[i];
-    if (c1>=ord('A')) and (c1<=ord('Z')) then c1:=c1+32;
-    if (c2>=ord('A')) and (c2<=ord('Z')) then c2:=c2+32;
+    if ignoreCase then begin
+     if (c1>=ord('A')) and (c1<=ord('Z')) then c1:=c1+32;
+     if (c2>=ord('A')) and (c2<=ord('Z')) then c2:=c2+32;
+    end;
     result:=integer(c1)-integer(c2);
     if result<>0 then exit;
   end;
@@ -825,10 +806,10 @@ begin
 end;
 
 function String32Helper.Equals(const other:String32):boolean;
-begin result:=CompareTo(other)=0; end;
+begin result:=Compare(other,false)=0; end;
 
-function String32Helper.EqualsText(const other:String32):boolean;
-begin result:=CompareText(other)=0; end;
+function String32Helper.Same(const other:String32):boolean;
+begin result:=Compare(other)=0; end;
 
 function String32Helper.ToUpper:String32;
 var i:integer;
@@ -1489,11 +1470,6 @@ begin
     result:=cardinal(result*$20844) xor byte(st[i]);
 end;
 {$ENDIF}
-
-function SameText8(const a,b:String8):boolean;
-begin
-  result:=a.EqualsText(b);
-end;
 
 // ============================================================================
 // Format helpers (used by String8Helper.Format)

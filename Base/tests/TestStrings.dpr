@@ -104,15 +104,16 @@ var s:String8;
 begin
   StartTest('String8.Compare');
   s:='Hello';
-  Check(s.CompareTo('Hello')=0,'CompareTo equal');
-  Check(s.CompareTo('Hallo')<>0,'CompareTo different');
-  Check(s.CompareTo('Apple')>0,'CompareTo greater');
-  Check(s.CompareTo('World')<0,'CompareTo less');
-  Check(s.Equals('Hello'),'Equals');
-  Check(not s.Equals('hello'),'not Equals case');
-  Check(s.EqualsText('hello'),'EqualsText');
-  Check(s.EqualsText('HELLO'),'EqualsText upper');
-  Check(s.CompareText('HELLO')=0,'CompareText');
+  Check(s.Compare('Hello',false)=0,'Compare case-sensitive equal');
+  Check(s.Compare('Hallo',false)<>0,'Compare case-sensitive different');
+  Check(s.Compare('Apple',false)>0,'Compare case-sensitive greater');
+  Check(s.Compare('World',false)<0,'Compare case-sensitive less');
+  Check(s.Compare('hello')=0,'Compare case-insensitive');
+  Check(s.Compare('HELLO')=0,'Compare case-insensitive upper');
+  Check(s='Hello','= equal');
+  Check(not (s='hello'),'= case-sensitive');
+  Check(s.Same('hello'),'Same');
+  Check(s.Same('HELLO'),'Same upper');
   EndTest;
 end;
 
@@ -457,14 +458,14 @@ begin
   StartTest('String32.Compare');
   s:=UTF8.Decode('Hello');
   other:=UTF8.Decode('Hello');
-  Check(s.CompareTo(other)=0,'CompareTo equal');
+  Check(s.Compare(other,false)=0,'Compare case-sensitive equal');
   Check(s.Equals(other),'Equals');
   other:=UTF8.Decode('hello');
-  Check(not s.Equals(other),'not Equals case');
-  Check(s.EqualsText(other),'EqualsText');
-  Check(s.CompareText(other)=0,'CompareText');
+  Check(not s.Equals(other),'Equals case-sensitive');
+  Check(s.Same(other),'Same');
+  Check(s.Compare(other)=0,'Compare case-insensitive');
   other:=UTF8.Decode('HELLO');
-  Check(s.EqualsText(other),'EqualsText upper');
+  Check(s.Same(other),'Same upper');
   EndTest;
 end;
 

@@ -168,7 +168,7 @@ Call style changes from `Func(st, args)` to `st.Method(args)`.
 | `PosFrom(substr,st,minIdx)` | `st.IndexOf(substr,minIdx)` | For `ignoreCase=true`, use manual rewrite to `st.IndexOf(substr,minIdx,true)` |
 | `LastPos(substr,st)` | `st.LastIndexOf(substr)` | |
 | `Chop(st)` | `st.Trim` | |
-| `SameText8(a,b)` | `a.EqualsText(b)` | |
+| `SameText8(a,b)` | `a.Same(b)` | case-insensitive |
 | `UpperCase(st)` | `st.ToUpper` | |
 | `LowerCase(st)` | `st.ToLower` | |
 | `SplitA(delim,st)` | `st.Split(delim)` | **CAUTION**: Split treats each char as delimiter; SplitA uses whole string |
@@ -182,7 +182,7 @@ Call style changes from `Func(st, args)` to `st.Method(args)`.
 | `ParseBool(st)` | `st.ToBoolean` | also available via Conv.ToBool |
 | `FastHash(st)` | `FastHash(st)` | same name, simple fast hash (case-insensitive) |
 | `StrHash(st)` | `StrHash(st)` | same name, string hash (case-sensitive) |
-| `SameText8(a,b)` | `SameText8(a,b)` or `a.EqualsText(b)` | case-insensitive comparison |
+| `SameText8(a,b)` | `a.Same(b)` | case-insensitive comparison |
 | `Format(fmt,args)` | `UTF8.Format(fmt,args)` | native String8 format, no Unicode roundtrip. Specs: %d %u %x %X %f %g %s %p %%, flags: - 0 +, width, .precision |
 
 ### String type conversion (new in engine5)

@@ -879,11 +879,11 @@ var
  sa:Strings8;
 begin
  r:=variable;
- if v.EqualsText('TopLeft') then r^:=Rect2s(0,0,0,0) else
- if v.EqualsText('TopRight') then r^:=Rect2s(1,0,1,0) else
- if v.EqualsText('BottomLeft') then r^:=Rect2s(0,1,0,1) else
- if v.EqualsText('BottomRight') then r^:=Rect2s(1,1,1,1) else
- if v.EqualsText('Center') then r^:=Rect2s(0.5,0.5,0.5,0.5) else
+ if v.Same('TopLeft') then r^:=Rect2s(0,0,0,0) else
+ if v.Same('TopRight') then r^:=Rect2s(1,0,1,0) else
+ if v.Same('BottomLeft') then r^:=Rect2s(0,1,0,1) else
+ if v.Same('BottomRight') then r^:=Rect2s(1,1,1,1) else
+ if v.Same('Center') then r^:=Rect2s(0.5,0.5,0.5,0.5) else
  with r^ do begin
   sa:=v.Split(',');
   if length(sa)>0 then x1:=Conv.ToFloat(sa[0]);
