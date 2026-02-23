@@ -8,7 +8,7 @@
 
 unit Apus.Engine.ImgLoadQueue;
 interface
- uses Apus.Common, Apus.Images;
+ uses Apus.Core, Apus.Images;
 
  type
   // What happens when requested image is queued, but not ready
@@ -22,15 +22,19 @@ interface
   imageSource:ByteArray;
 
  // Queue file for loading, name must be with extension
- procedure QueueFileLoad(fname:string);
+ procedure QueueFileLoad(fname:String8);
  // Starts one loading thread and 1..4 unpacking threads
  procedure StartLoadingThreads(unpackThreadsNum:integer=2);
  // Get raw image from queue if exists or nil elsewere
  // Waits if image is queued, but not yet processed
- function GetImageFromQueue(fname:string;mode:TQueueRequestMode=qrmWait):TRawImage;
+ function GetImageFromQueue(fname:String8;mode:TQueueRequestMode=qrmWait):TRawImage;
 
 implementation
- uses Apus.CrossPlatform, SysUtils, Classes, Apus.GfxFormats;
+ uses
+  Apus.Lib,
+  Apus.Strings,
+  Classes,
+  Apus.GfxFormats;
 
  // Queue
  type
@@ -45,7 +49,7 @@ implementation
   PQueueEntry=^TQueueEntry;
   TQueueEntry=record
    status:TLoadQueueStatus;
-   fname:string;
+   fname:String8;
    srcData:ByteArray;
    img:TRawImage;
    format:TImageFileType;
@@ -54,7 +58,7 @@ implementation
    next:PQueueEntry;
   end;
  var
-  cSect:TMyCriticalSection;
+  cSect:TLock;
   firstItem,lastItem:PQueueEntry;
 
  // Threads
@@ -73,7 +77,7 @@ implementation
 
   maxUnpackTime:integer;
 
- function GetImageFromQueue(fname:string;mode:TQueueRequestMode=qrmWait):TRawImage;
+ function GetImageFromQueue(fname:String8;mode:TQueueRequestMode=qrmWait):TRawImage;
   var
    item,prev:PQueueEntry;
    found:boolean;
@@ -86,7 +90,7 @@ implementation
     prev:=nil;
     found:=false;
     while item<>nil do begin
-     if (item.status<>lqsNone) and SameText(fname,item.fname) then begin
+     if (item.status<>lqsNone) and fname.Same(item.fname) then begin
       found:=true;
       break;
      end;
@@ -108,7 +112,7 @@ implementation
        exit;
       end;
      qrmWait:begin
-      LogMessage('Waiting for %s, status %d',[fname,ord(item.status)]);
+      Log.Msg('Waiting for %s, status %d',[fname,ord(item.status)]);
       // try to handle this earlier -> move on top
       if (prev<>nil) and (item.status in [lqsWaiting,lqsLoaded]) then begin
        prev.next:=item.next;
@@ -122,19 +126,19 @@ implementation
     cSect.Leave;
    end;
    // Wait for result
-   while not (item.status in [lqsNone,lqsReady,lqsError]) do sleep(0);
+   while not (item.status in [lqsNone,lqsReady,lqsError]) do Time.Sleep(0);
    if item.status=lqsReady then result:=item.img;
   end;
 
- procedure QueueFileLoad(fname:string);
+ procedure QueueFileLoad(fname:String8);
   var
    item:PQueueEntry;
   begin
-   fname:=FileName(fname);
+   fname:=Files.FixName(fname);
    cSect.Enter;
    try
     New(item);
-    ZeroMem(item^,sizeof(TQueueEntry));
+    Mem.Clear(item^,sizeof(TQueueEntry));
     item.status:=lqsWaiting;
     item.fname:=fname;
     if lastItem<>nil then lastItem.next:=item;
@@ -161,7 +165,7 @@ implementation
    i:integer;
   begin
    loadingThread:=TLoadingThread.Create(false);
-   for i:=1 to min2(unpackThreadsNum,high(unpackThreads)) do
+   for i:=1 to Min(unpackThreadsNum,high(unpackThreads)) do
     unpackThreads[i]:=TUnpackThread.Create(false);
   end;
 
@@ -174,34 +178,34 @@ procedure TLoadingThread.Execute;
  procedure Restart;
   begin
    // Wait until queue not empty
-   while firstItem=nil do sleep(10);
+   while firstItem=nil do Time.Sleep(10);
    start:=firstItem;
    item:=start;
   end;
  begin
-  RegisterThread('QLoading');
+  Thread.Register('QLoading');
   try
   Restart;
   repeat
 
    while (item<>nil) and (item.status<>lqsWaiting) do item:=item.next;
    if item=nil then begin
-    Sleep(10);
+    Time.Sleep(10);
     Restart;
     continue;
    end;
 
    if item.status=lqsWaiting then
     with item^ do begin
-     LogMessage('Preloading '+fname);
+     Log.Msg('Preloading '+fname);
      try
-      srcData:=LoadFileAsBytes(fname);
-      timeLoaded:=MyTickCount;
+      srcData:=Files.LoadAsBytes(fname);
+      timeLoaded:=CoreTime.Ticks;
      except
-      on e:Exception do ForceLogMessage('Loader error; '+ExceptionMsg(e));
+      on e:Exception do Log.Force('Loader error; '+ExceptionMsg(e));
      end;
      if length(srcData)<30 then begin
-      ForceLogMessage('Failed to load file: '+fname);
+      Log.Force('Failed to load file: '+fname);
       status:=lqsError;
      end;
      format:=CheckImageFormat(srcData);
@@ -218,7 +222,7 @@ procedure TLoadingThread.Execute;
   except
    on e:Exception do ErrorMessage('Error in LoadingThread: '+ExceptionMsg(e));
   end;
-  UnregisterThread;
+  Thread.Unregister;
  end;
 
 { TUnpackThread }
@@ -228,10 +232,10 @@ procedure TUnpackThread.Execute;
   item:PQueueEntry;
   t:int64;
  begin
-  RegisterThread('QUnpack');
+  Thread.Register('QUnpack');
   try
   repeat
-   sleep(1); // Never wait inside CS!
+   Time.Sleep(1); // Never wait inside CS!
    item:=firstItem;
    // Find the first waiting entry
    cSect.Enter;
@@ -245,7 +249,7 @@ procedure TUnpackThread.Execute;
 
    if item<>nil then begin
     // Unpack image
-    t:=MyTickCount;
+    t:=CoreTime.Ticks;
     with item^ do
      try
       img:=nil;
@@ -254,20 +258,20 @@ procedure TUnpackThread.Execute;
       if format=ifPNG then LoadPNG(srcData,img) else
       if format=ifPVR then LoadPVR(srcData,img,true) else
       if format=ifDDS then LoadDDS(srcData,img,true) else begin
-       ForceLogMessage('Image format not supported for async load: '+fname);
+       Log.Force('Image format not supported for async load: '+fname);
        Setlength(srcData,0);
        status:=lqsError;
        continue;
       end;
-      LogMessage('Preloaded: '+fname+', time='+IntToStr(MyTickCount-t));
+      Log.Msg('Preloaded: '+fname+', time='+IntToStr(CoreTime.Ticks-t));
       Setlength(srcData,0);
       status:=lqsReady;
-      timeUnpacked:=MyTickCount;
-      maxUnpackTime:=max2(maxUnpackTime,timeUnpacked-timeLoaded);
-      sleep(0);
+      timeUnpacked:=CoreTime.Ticks;
+      maxUnpackTime:=Max(maxUnpackTime,timeUnpacked-timeLoaded);
+      Time.Sleep(0);
      except
       on e:exception do begin
-       ForceLogMessage('Error unpacking '+fname+': '+ExceptionMsg(e));
+       Log.Force('Error unpacking '+fname+': '+ExceptionMsg(e));
        Setlength(srcData,0);
        status:=lqsError;
       end;
@@ -277,14 +281,14 @@ procedure TUnpackThread.Execute;
   except
    on e:Exception do ErrorMessage('Error in UnpackingThread: '+ExceptionMsg(e));
   end;
-  UnregisterThread;
+  Thread.Unregister;
  end;
 
 procedure TerminateThreads;
  var
   i:integer;
  begin
-  ForceLogMessage('Terminating ILQ threads');
+  Log.Force('Terminating ILQ threads');
   if (loadingThread<>nil) and not loadingThread.Terminated then begin
    loadingThread.Terminate;
    loadingThread.WaitFor;
@@ -294,12 +298,12 @@ procedure TerminateThreads;
     unpackThreads[i].Terminate;
     unpackThreads[i].WaitFor;
    end;
-  LogMessage('ILQ threads terminated. Max unpack time was '+inttostr(maxUnpackTime));
+  Log.Msg('ILQ threads terminated. Max unpack time was '+inttostr(maxUnpackTime));
  end;
 
 initialization
- InitCritSect(cSect,'ImgloadQueue');
+ cSect.Init('ImgloadQueue');
 finalization
  TerminateThreads;
- DeleteCritSect(cSect);
+ cSect.Cleanup;
 end.
