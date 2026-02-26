@@ -109,6 +109,9 @@ UnregisterThread -> Thread.Unregister [Apus.Threads]
 PingThread -> Thread.Ping [Apus.Threads]
 GetThreadName -> Thread.GetName [Apus.Threads]
 
+// === Apus.Core: system messages ===
+ErrorMessage -> SystemMessage [Apus.Core]
+
 // === TODO markers: need manual rewrite (call style changes) ===
 InitCritSect -> ?use lock.Init(name[,level]) [Apus.Threads]
 DeleteCritSect -> ?use lock.Cleanup [Apus.Threads]

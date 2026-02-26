@@ -247,6 +247,7 @@ var
   t0,t1:int64;
   timer:int64;
   dt:double;
+  saved:TSystemMessageFlags;
 begin
   StartTest('System primitives');
 
@@ -274,6 +275,13 @@ begin
   Check(desc<>'','GetLastErrorDesc non-empty');
   // code may be 0 or non-zero depending on previous API calls
   Check((code=0) or (code<>0),'GetLastErrorCode callable');
+
+  // SystemMessage: visual test (stderr + debug output)
+  Check(hasConsole,'hasConsole detected');
+  saved:=systemMessageFlags;
+  systemMessageFlags:=[TSystemMessageFlag.smStdErr,TSystemMessageFlag.smDebugOutput];
+  SystemMessage('SystemMessage test: this should appear on stderr');
+  systemMessageFlags:=saved;
 
   EndTest;
 end;

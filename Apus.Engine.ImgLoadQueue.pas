@@ -220,7 +220,7 @@ procedure TLoadingThread.Execute;
    item:=item.next;
   until terminated;
   except
-   on e:Exception do ErrorMessage('Error in LoadingThread: '+ExceptionMsg(e));
+   on e:Exception do SystemMessage('Error in LoadingThread: '+ExceptionMsg(e));
   end;
   Thread.Unregister;
  end;
@@ -279,7 +279,7 @@ procedure TUnpackThread.Execute;
    end;
   until terminated;
   except
-   on e:Exception do ErrorMessage('Error in UnpackingThread: '+ExceptionMsg(e));
+   on e:Exception do SystemMessage('Error in UnpackingThread: '+ExceptionMsg(e));
   end;
   Thread.Unregister;
  end;

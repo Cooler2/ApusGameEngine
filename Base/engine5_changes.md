@@ -418,7 +418,7 @@ Functions that don't fit scope of core/conv/strings/files modules.
 | `HasParam/GetParam` | **Apus.Utils** | Command-line argument access |
 | `TTextEncoding/teUnknown` | **Apus.Core** | ✅ Defined: `TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8)` |
 | `PointerInRange(p,min,max)` | **Apus.Core** | Pointer range check |
-| `ErrorMessage(msg)` | **Apus.Log** (alias?) | Show error message box |
+| `ErrorMessage(msg)` | **Apus.Core** `SystemMessage(msg)` | ✅ Configurable critical message output (log/stderr/msgbox/raise) |
 | `LastChar(st)` | **Apus.Strings** | Return last character of string |
 | `Unescape(st)` | **Apus.Strings** or **Apus.Utils** | C-style escape sequence decoding |
 | `ExtractFilePath/FileName/ExpandFileName` | **SysUtils** | RTL functions — add SysUtils to uses |

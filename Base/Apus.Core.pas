@@ -1,4 +1,4 @@
-// Core low-level utilities - fundamental building blocks needed by almost every program
+﻿// Core low-level utilities - fundamental building blocks needed by almost every program
 //
 // SCOPE: Basic functionality required by nearly all applications - types, CPU detection,
 // essential math/memory/bit operations, exceptions, stack traces, high-precision time.
@@ -18,7 +18,7 @@
 {$I defines.inc}
 unit Apus.Core;
 interface
-uses SysUtils;
+uses SysUtils, Types;
 
 {$SCOPEDENUMS ON}
 type
@@ -95,6 +95,12 @@ type
   // Procedure types
   TProcedure = procedure;
   TObjProcedure = procedure of object;
+
+  TPoint = Types.TPoint;
+  PPoint = Types.PPoint;
+  TRect = Types.TRect;
+  PRect = Types.PRect;
+  TSize = Types.TSize;
 
   // 128-bit vector data
   m128 = record
@@ -282,6 +288,27 @@ type
   // Raise exception with "Not implemented" message
   procedure NotImplemented(msg:string=''); inline;
   procedure NotSupported(msg:string=''); inline;
+
+  // Display a messgae using system platform facilities (stderr, MessageBox etc.). Configurable.
+  procedure SystemMessage(const msg:String8);
+
+// === SystemMessage — configurable critical message output ===
+type
+  TSystemMessageFlag=(
+    smLog,          // write to log via callback
+    smStdErr,       // write to stderr
+    smDebugOutput,  // OutputDebugString (Windows, if debugger active)
+    smMessageBox,   // platform GUI message box
+    smRaise);       // re-raise as EFatalError
+
+  TSystemMessageFlags=set of TSystemMessageFlag;
+
+var
+  hasConsole:boolean; // true if program has an active console (runtime detected)
+  systemMessageFlags:TSystemMessageFlags;
+  // Optional callback for logging (set by Apus.Log or application)
+  onSystemMessage:procedure(const msg:String8);
+
 
 // =============================================================================
 // Mem scope - memory operations
@@ -1835,8 +1862,58 @@ begin
 end;
 
 
+procedure SystemMessage(const msg:String8);
+const
+  smLog=TSystemMessageFlag.smLog;
+  smStdErr=TSystemMessageFlag.smStdErr;
+  smDebugOutput=TSystemMessageFlag.smDebugOutput;
+  smMessageBox=TSystemMessageFlag.smMessageBox;
+  smRaise=TSystemMessageFlag.smRaise;
+begin
+  if (smLog in SystemMessageFlags) and Assigned(OnSystemMessage) then
+    OnSystemMessage(msg);
+  {$IFDEF MSWINDOWS}
+  if smDebugOutput in SystemMessageFlags then
+    if IsDebuggerPresent then
+      OutputDebugStringA(PAnsiChar(msg));
+  if smMessageBox in SystemMessageFlags then
+    MessageBoxA(0,PAnsiChar(msg),'Error',MB_ICONERROR);
+  {$ENDIF}
+  if smStdErr in SystemMessageFlags then
+    WriteLn({$IFDEF FPC}StdErr{$ELSE}ErrOutput{$ENDIF},msg);
+  if smRaise in SystemMessageFlags then
+    raise EFatalError.Create(msg);
+end;
+
+procedure DetectConsole;
+{$IFDEF MSWINDOWS}
+const
+  STD_OUTPUT_HANDLE=cardinal(-11);
+  INVALID_HANDLE_VALUE=THandle(-1);
+var
+  h:THandle;
+begin
+  h:=GetStdHandle(STD_OUTPUT_HANDLE);
+  hasConsole:=(h<>0) and (h<>INVALID_HANDLE_VALUE);
+end;
+{$ELSE}
+begin
+  hasConsole:=true;
+end;
+{$ENDIF}
+
 initialization
   CheckCPU;
   InitTimer;
+  DetectConsole;
+  {$IFDEF MSWINDOWS}
+  systemMessageFlags:=[TSystemMessageFlag.smLog,TSystemMessageFlag.smDebugOutput];
+  if hasConsole then
+    systemMessageFlags:=systemMessageFlags+[TSystemMessageFlag.smStdErr]
+  else
+    systemMessageFlags:=systemMessageFlags+[TSystemMessageFlag.smMessageBox];
+  {$ELSE}
+  systemMessageFlags:=[TSystemMessageFlag.smLog,TSystemMessageFlag.smStdErr];
+  {$ENDIF}
 end.
 
