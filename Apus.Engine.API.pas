@@ -6,8 +6,8 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.CrossPlatform, Types, Apus.Types, Apus.Engine.Types, Apus.Classes, Apus.AnimatedValues,
-   Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors, Apus.Structs, Apus.EventMan, Apus.VertexLayout,
+ uses Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys,
+   Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors, Apus.EventMan, Apus.VertexLayout,
    Apus.Engine.Mesh, Apus.Engine.Resources, Apus.Engine.Scene, Apus.Engine.UIScene;
 
 const
@@ -180,6 +180,8 @@ type
  TARGBColor = Apus.Engine.Types.TARGBColor;
  PARGBColor = Apus.Engine.Types.PARGBColor;
 
+ TKey = Apus.Engine.Keys.TKey;
+ TKeyMod = Apus.Engine.Keys.TKeyMod;
 
 const
  // Vertex layout with 3 attributes: position[3] (location=0), color[3] (location=1) and uv[2] (location=2)

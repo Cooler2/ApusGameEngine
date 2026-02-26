@@ -47,6 +47,10 @@ type
     F7=118, F8=119, F9=120, F10=121, F11=122, F12=123,
     // locks
     NumLock=144, ScrollLock=145,
+    // browser/media keys
+    BrowserBack=166, BrowserForward=167,
+    VolumeMute=173, VolumeDown=174, VolumeUp=175,
+    MediaNext=176, MediaPrev=177, MediaStop=178, MediaPlayPause=179,
     // OEM keys (US layout VK_ codes)
     Semicolon=186, Equal=187, Comma=188, Minus=189,
     Period=190, Slash=191, Tilde=192,
@@ -136,6 +140,15 @@ begin
     end;
     TKey.NumLock:result:='NumLock';
     TKey.ScrollLock:result:='ScrollLock';
+    TKey.BrowserBack:result:='BrowserBack';
+    TKey.BrowserForward:result:='BrowserForward';
+    TKey.VolumeMute:result:='VolumeMute';
+    TKey.VolumeDown:result:='VolumeDown';
+    TKey.VolumeUp:result:='VolumeUp';
+    TKey.MediaNext:result:='MediaNext';
+    TKey.MediaPrev:result:='MediaPrev';
+    TKey.MediaStop:result:='MediaStop';
+    TKey.MediaPlayPause:result:='MediaPlayPause';
     TKey.Semicolon:result:=';';
     TKey.Equal:result:='=';
     TKey.Comma:result:=',';
