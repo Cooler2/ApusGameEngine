@@ -18,49 +18,24 @@
 unit Apus.Lib;
 interface
 uses
-  Apus.Core,
+  SysUtils,
   Apus.Types,
+  Apus.Log,
   Apus.Threads,
   Apus.Classes,
   Apus.Conv,
   Apus.HashMaps,
   Apus.Strings,
-  Apus.Utils;
+  Apus.Structs,
+  Apus.Files,
+  Apus.Utils,
+  Apus.AnimatedValues;
 
 type
-  // --- Apus.Core ---
-  Char8 = Apus.Core.Char8;
-  String8 = Apus.Core.String8;
-  PString8 = Apus.Core.PString8;
-  Char16 = Apus.Core.Char16;
-  String16 = Apus.Core.String16;
-  PString16 = Apus.Core.PString16;
-  String32 = Apus.Core.String32;
-  PString32 = Apus.Core.PString32;
-  Strings8 = Apus.Core.Strings8;
-  Strings16 = Apus.Core.Strings16;
-  Strings32 = Apus.Core.Strings32;
-  Strings = Apus.Core.Strings;
-  ByteArray = Apus.Core.ByteArray;
-  WordArray = Apus.Core.WordArray;
-  IntArray = Apus.Core.IntArray;
-  UIntArray = Apus.Core.UIntArray;
-  SingleArray = Apus.Core.SingleArray;
-  FloatArray = Apus.Core.FloatArray;
-  PointerArray = Apus.Core.PointerArray;
-  VariantArray = Apus.Core.VariantArray;
-  TProcedure = Apus.Core.TProcedure;
-  TObjProcedure = Apus.Core.TObjProcedure;
-  TBaseException = Apus.Core.EBaseException;
-  EBaseException = Apus.Core.EBaseException;
-  EWarning = Apus.Core.EWarning;
-  EError = Apus.Core.EError;
-  EFatalError = Apus.Core.EFatalError;
+  // --- SysUtils ---
+  Exception = SysUtils.Exception;
 
   // --- Apus.Types ---
-  TPoint = Apus.Types.TPoint;
-  TRect = Apus.Types.TRect;
-  TArray<T> = Apus.Types.TArray<T>;
   TIntRange = Apus.Types.TIntRange;
   TFloatRange = Apus.Types.TFloatRange;
   TNameValue = Apus.Types.TNameValue;
@@ -70,12 +45,17 @@ type
 
   // --- Apus.Threads ---
   TLock = Apus.Threads.TLock;
-  TMyCriticalSection = Apus.Threads.TMyCriticalSection;
-  TCriticalSection = Apus.Threads.TCriticalSection;
-  TSRWLock = Apus.Threads.TSRWLock;
   TLightweightEvent = Apus.Threads.TLightweightEvent;
+  {$IF Declared(SRWLOCK)}
+  TSRWLock = Apus.Threads.TSRWLock;
+  {$ENDIF}
+  {$IFDEF DELPHI}
   TScopedLock = Apus.Threads.TScopedLock;
+  {$ENDIF}
   Thread = Apus.Threads.Thread;
+
+  // --- Apus.Log ---
+  Log = Apus.Log.Log;
 
   // --- Apus.Classes ---
   TObjectEx = Apus.Classes.TObjectEx;
@@ -89,8 +69,19 @@ type
   // --- Apus.Strings ---
   UTF8 = Apus.Strings.UTF8;
 
+  // --- Apus.Files ---
+  Files = Apus.Files.Files;
+  Folder = Apus.Files.Folder;
+
+  // --- Apus.Structs ---
+  TObjectHash = Apus.Structs.TObjectHash;
+
   // --- Apus.Utils ---
   TSplineFunc = Apus.Utils.TSplineFunc;
+
+  // --- Apus.AnimatedValues ---
+  PAnimatedValue = Apus.AnimatedValues.PAnimatedValue;
+  TAnimatedValue = Apus.AnimatedValues.TAnimatedValue;
 
 implementation
 end.

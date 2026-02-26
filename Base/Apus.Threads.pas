@@ -52,12 +52,6 @@ type
     function GetOwner:TThreadID; inline;
   end;
 
-  // Type aliases for backward compatibility
-  TMyCriticalSection=TLock;
-  PCriticalSection=PLock;
-  TCriticalSection=TLock;
-  PCS=PLock;
-
   {$IF Declared(SRWLOCK)}
   // Slim Reader/Writer lock (Windows Vista+)
   TSRWLock=packed record
