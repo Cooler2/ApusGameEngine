@@ -324,6 +324,7 @@ type
     class procedure FillF(var data;count:UIntPtr;value:single); static;
     class procedure Shift(var data;sizeInBytes,shiftOffset:integer); static; // offset>0 - shift forward
     class procedure Copy(const src; var dst;size:UIntPtr); static;
+    class function Equal(const a,b;size:UIntPtr):boolean; static;
   end;
 
 // =============================================================================
@@ -1301,6 +1302,11 @@ end;
 class procedure Mem.Copy(const src;var dst;size:UIntPtr);
 begin
   move(src,dst,size);
+end;
+
+class function Mem.Equal(const a,b;size:UIntPtr):boolean;
+begin
+  result:=CompareMem(@a,@b,size);
 end;
 
 

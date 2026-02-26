@@ -467,6 +467,13 @@ begin
   Mem.Copy(src,dst,4);
   Check((dst[0]=$11) and (dst[3]=$44),'Mem.Copy');
 
+  // Equal
+  Check(Mem.Equal(src,dst,4),'Mem.Equal identical');
+  dst[2]:=$FF;
+  Check(not Mem.Equal(src,dst,4),'Mem.Equal different');
+  Check(Mem.Equal(src,dst,2),'Mem.Equal partial match');
+  Check(Mem.Equal(src,src,0),'Mem.Equal zero size');
+
   EndTest;
 end;
 
