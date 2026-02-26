@@ -117,6 +117,8 @@ type
 
     // === Character access ===
     function CharAt(index:integer):UCS4Char; inline; // 0-based, returns 0 if out of bounds
+    function TryAnsiChar(index:integer;out ch:System.AnsiChar):boolean; inline; // 0-based
+    function AnsiChar(index:integer;defaultChar:System.AnsiChar=#0):System.AnsiChar; inline; // 0-based
     function LastChar:UCS4Char; inline;
     function FirstChar:UCS4Char; inline; // alias for CharAt(0)
 
@@ -698,6 +700,26 @@ function String32Helper.CharAt(index:integer):UCS4Char;
 begin
   if (index>=0) and (index<System.Length(self)) then result:=self[index]
   else result:=0;
+end;
+
+function String32Helper.TryAnsiChar(index:integer;out ch:System.AnsiChar):boolean;
+var
+  c:UCS4Char;
+begin
+  ch:=#0;
+  if (index<0) or (index>=System.Length(self)) then exit(false);
+  c:=self[index];
+  if c>255 then exit(false);
+  ch:=System.AnsiChar(byte(c));
+  result:=true;
+end;
+
+function String32Helper.AnsiChar(index:integer;defaultChar:System.AnsiChar):System.AnsiChar;
+var
+  ch:System.AnsiChar;
+begin
+  if TryAnsiChar(index,ch) then result:=ch
+  else result:=defaultChar;
 end;
 
 function String32Helper.FirstChar:UCS4Char;
