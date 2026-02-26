@@ -1008,6 +1008,10 @@ var
  txt:ITextDrawer; //< shortcut for gfx.txt
  transform:ITransformation; //< Shortcut for gfx.transform
 
+ // Translate string using localization dictionary (UDict)
+ Translate:function(s:String8):String8;
+ Translate16:function(s:String16):String16;
+
  // Selected pixel formats for different tasks
  // Используемые форматы пикселя (в какие форматы грузить графику)
  pfTrueColorAlpha:TImagePixelFormat; // Формат для загрузки true-color изображений с прозрачностью
@@ -1052,10 +1056,6 @@ var
  // Lock the texture (if not yet locked) and set it as draw target for FastGFX unit (don't forget to unlock)
  procedure DrawToTexture(tex:TTexture;mipLevel:integer=0);
 
- // Translate string using localization dictionary (UDict)
- function Translate(st:string8):string8; overload; inline;
- function Translate(st:string16):string16; overload; inline;
-
  // Process events/system messages and wait at least time ms
  procedure Delay(time:integer); inline;
 
@@ -1085,6 +1085,11 @@ implementation
 
  var
   ninePatchHash:TObjectHash;
+
+ function TranslateNoop8(s:String8):String8;
+  begin result:=s; end;
+ function TranslateNoop16(s:String16):String16;
+  begin result:=s; end;
 
  function GetKeyEventScanCode(tag: TTag): cardinal;
   begin
@@ -1193,16 +1198,6 @@ procedure FreeImage(var img:TTexture);
    gfx.resman.FreeImage(img);
  end;
 
-function Translate(st:string8):string8; overload;
- begin
-  result:=Apus.Engine.UDict.Translate(st);
- end;
-
-function Translate(st:string16):string16; overload;
- begin
-  result:=Apus.Engine.UDict.Translate(st);
- end;
-
 procedure Delay(time:integer);
  begin
   Apus.Engine.Game.Delay(time);
@@ -1281,6 +1276,8 @@ function TGameBase.ColorAlpha(var av:TAnimatedValue;color:cardinal):cardinal;
 
 
 initialization
+ Translate:=TranslateNoop8;
+ Translate16:=TranslateNoop16;
  PublishFunction('GetFont',fGetFontHandle);
  TVertex.layoutTex.Init([vcPosition3d,vcColor,vcUV1]);
  TVertex.layoutTex.stride:=Sizeof(TVertex);

@@ -29,7 +29,7 @@ function Simplify(s:String8):string8; overload;
 function Simplify(s:String16):String16; overload;
 
 implementation
-uses SysUtils;
+uses SysUtils, Apus.Engine.API;
 
 type
 
@@ -307,6 +307,8 @@ begin
  numconv:=w;
  sorttime:=MyTickCount-sorttime;
  if langBaseDir='' then langBaseDir:=langCode;
+ Apus.Engine.API.Translate:=Apus.Engine.UDict.Translate;
+ Apus.Engine.API.Translate16:=Apus.Engine.UDict.Translate16;
 end;
 
 function SimpleTranslate(s:UTF8String):UTF8String;
