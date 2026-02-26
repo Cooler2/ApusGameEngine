@@ -99,6 +99,42 @@ begin
   EndTest;
 end;
 
+procedure TestString8StartsWith;
+var s:String8;
+begin
+  StartTest('String8.StartsWith');
+  s:='Hello World';
+  Check(s.StartsWith('Hello'),'basic match');
+  s:='Hello';
+  Check(not s.StartsWith('hello'),'case mismatch no ignoreCase');
+  Check(s.StartsWith('hello',true),'case mismatch with ignoreCase');
+  Check(s.StartsWith(''),'empty prefix');
+  s:='Hi';
+  Check(not s.StartsWith('Hello'),'prefix longer than string');
+  s:='Hello';
+  Check(s.StartsWith('Hello'),'exact match');
+  Check(not s.StartsWith('World'),'no match');
+  EndTest;
+end;
+
+procedure TestString8EndsWith;
+var s:String8;
+begin
+  StartTest('String8.EndsWith');
+  s:='Hello World';
+  Check(s.EndsWith('World'),'basic match');
+  s:='Hello';
+  Check(not s.EndsWith('HELLO'),'case mismatch no ignoreCase');
+  Check(s.EndsWith('HELLO',true),'case mismatch with ignoreCase');
+  Check(s.EndsWith(''),'empty suffix');
+  s:='Hi';
+  Check(not s.EndsWith('Hello'),'suffix longer than string');
+  s:='Hello';
+  Check(s.EndsWith('Hello'),'exact match');
+  Check(not s.EndsWith('World'),'no match');
+  EndTest;
+end;
+
 procedure TestString8Compare;
 var s:String8;
 begin
@@ -171,6 +207,59 @@ begin
   s:='one two one two';
   Check(s.Replace('one','1')='1 two one two','Replace first');
   Check(s.ReplaceAll('one','1')='1 two 1 two','ReplaceAll');
+  EndTest;
+end;
+
+// Returns true when arr has exactly the expected elements in order
+function SL(const arr:Strings8; const expected:array of String8):boolean;
+var i:integer;
+begin
+  if length(arr)<>length(expected) then exit(false);
+  for i:=0 to high(arr) do
+    if arr[i]<>expected[i] then exit(false);
+  result:=true;
+end;
+
+procedure TestString8SplitLines;
+var s:String8; arr:Strings8;
+begin
+  StartTest('String8.SplitLines');
+  // Unix LF
+  s:='line1'#10'line2'#10'line3';
+  arr:=s.SplitLines;
+  Check(SL(arr,['line1','line2','line3']),'LF: 3 lines');
+  // Windows CRLF
+  s:='line1'#13#10'line2'#13#10'line3';
+  arr:=s.SplitLines;
+  Check(SL(arr,['line1','line2','line3']),'CRLF: 3 lines');
+  // Old Mac CR
+  s:='line1'#13'line2'#13'line3';
+  arr:=s.SplitLines;
+  Check(SL(arr,['line1','line2','line3']),'CR: 3 lines');
+  // mixed: LF then CRLF then CR
+  s:='a'#10'b'#13#10'c'#13'd';
+  arr:=s.SplitLines;
+  Check(SL(arr,['a','b','c','d']),'mixed endings: 4 lines');
+  // empty string — one empty element
+  s:='';
+  arr:=s.SplitLines;
+  Check(SL(arr,['']),'empty string: 1 element');
+  // no line endings — single element
+  s:='hello';
+  arr:=s.SplitLines;
+  Check(SL(arr,['hello']),'no newline: 1 element');
+  // trailing LF — last element is empty string
+  s:='line1'#10'line2'#10;
+  arr:=s.SplitLines;
+  Check(SL(arr,['line1','line2','']),'trailing LF: last empty');
+  // trailing CRLF — last element is empty string
+  s:='line1'#13#10'line2'#13#10;
+  arr:=s.SplitLines;
+  Check(SL(arr,['line1','line2','']),'trailing CRLF: last empty');
+  // single newline — two empty elements
+  s:=#10;
+  arr:=s.SplitLines;
+  Check(SL(arr,['','']),'single LF: two empty');
   EndTest;
 end;
 
@@ -827,11 +916,14 @@ begin
     TestString8Substring;
     TestString8Search;
     TestString8StartEnd;
+    TestString8StartsWith;
+    TestString8EndsWith;
     TestString8Compare;
     TestString8Case;
     TestString8Trim;
     TestString8Pad;
     TestString8Modify;
+    TestString8SplitLines;
     TestString8Split;
     TestString8Quote;
     TestString8Escape;

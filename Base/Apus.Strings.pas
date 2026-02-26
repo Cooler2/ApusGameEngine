@@ -44,8 +44,8 @@ type
     function LastIndexOf(ch:AnsiChar):integer; overload;
     function Contains(const substr:String8;ignoreCase:boolean=false):boolean; overload; // ASCII case-folding
     function Contains(ch:AnsiChar):boolean; overload;
-    function StartsWith(const prefix:String8):boolean;
-    function EndsWith(const suffix:String8):boolean;
+    function StartsWith(const prefix:String8;ignoreCase:boolean=false):boolean;
+    function EndsWith(const suffix:String8;ignoreCase:boolean=false):boolean;
 
     // === Comparison ===
     function Compare(const other:String8;ignoreCase:boolean=true):integer;
@@ -74,6 +74,7 @@ type
     // === Split/Join ===
     function Split(delimiter:AnsiChar;quoteChar:AnsiChar=#0):Strings8; overload;
     function Split(const delimiters:String8;quoteChar:AnsiChar=#0):Strings8; overload;
+    function SplitLines:Strings8; // split by #13, #10, or #13#10
     class function Join(const arr:Strings8;const delimiter:String8):String8; static;
 
     // === Quoting ===
@@ -362,14 +363,21 @@ begin result:=IndexOf(substr,1,ignoreCase)>0; end;
 function String8Helper.Contains(ch:AnsiChar):boolean;
 begin result:=IndexOf(ch)>0; end;
 
-function String8Helper.StartsWith(const prefix:String8):boolean;
-begin result:=System.Copy(self,1,System.Length(prefix))=prefix; end;
+function String8Helper.StartsWith(const prefix:String8;ignoreCase:boolean):boolean;
+var s:String8;
+begin
+  s:=System.Copy(self,1,System.Length(prefix));
+  if ignoreCase then result:=s.Same(prefix)
+  else result:=s=prefix;
+end;
 
-function String8Helper.EndsWith(const suffix:String8):boolean;
-var len:integer;
+function String8Helper.EndsWith(const suffix:String8;ignoreCase:boolean):boolean;
+var len:integer; s:String8;
 begin
   len:=System.Length(suffix);
-  result:=System.Copy(self,System.Length(self)-len+1,len)=suffix;
+  s:=System.Copy(self,System.Length(self)-len+1,len);
+  if ignoreCase then result:=s.Same(suffix)
+  else result:=s=suffix;
 end;
 
 function String8Helper.Compare(const other:String8;ignoreCase:boolean):integer;
@@ -475,6 +483,27 @@ begin
   end;
   if cnt>=System.Length(result) then SetLength(result,cnt+1);
   result[cnt]:=System.Copy(self,start,System.Length(self)-start+1);
+  SetLength(result,cnt+1);
+end;
+
+function String8Helper.SplitLines:Strings8;
+var i,start,cnt,len:integer;
+begin
+  len:=System.Length(self);
+  SetLength(result,16); cnt:=0; start:=1;
+  i:=1;
+  while i<=len do begin
+    if (self[i]=#13) or (self[i]=#10) then begin
+      if cnt>=System.Length(result) then SetLength(result,cnt*2);
+      result[cnt]:=System.Copy(self,start,i-start);
+      inc(cnt);
+      if (self[i]=#13) and (i<len) and (self[i+1]=#10) then inc(i); // skip \r\n
+      start:=i+1;
+    end;
+    inc(i);
+  end;
+  if cnt>=System.Length(result) then SetLength(result,cnt+1);
+  result[cnt]:=System.Copy(self,start,len-start+1);
   SetLength(result,cnt+1);
 end;
 
