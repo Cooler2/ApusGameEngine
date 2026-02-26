@@ -18,7 +18,7 @@
 //   - Block data size (2 bytes)
 unit Apus.UnicodeFont;
 interface
-uses Apus.Types;
+uses Apus.Core, Apus.Types;
 const
  UnicodeFontSignature=$F75001C1;
  // Font flags
@@ -82,13 +82,13 @@ type
   constructor LoadFromMemory(const data:TBuffer;UseAdvKerning:boolean=false);
   constructor LoadFromFile(fname:string;UseAdvKerning:boolean=false);
   procedure InitDefaults; virtual;
-  function IndexOfChar(ch:WideChar):integer;
-  function Interval(ch1,ch2:WideChar):integer; // интервал между точкой начала символа ch1 и следующего за ним ch2
+  function IndexOfChar(ch:Char32):integer;
+  function Interval(ch1,ch2:Char32):integer; // интервал между точкой начала символа ch1 и следующего за ним ch2
   procedure CalculateAdvKerning(index:integer);
-  function GetTextWidth(st:WideString):integer;
+  function GetTextWidth(st:String32):integer;
   function GetHeight:integer; // Height of characters like '0' or 'A'
   // Text/Glyph rendering  (no any clipping!)
-  procedure RenderText(buf:pointer;pitch:integer;x,y:integer;st:WideString;color:cardinal;scale:single=1);
+  procedure RenderText(buf:pointer;pitch:integer;x,y:integer;st:String32;color:cardinal;scale:single=1);
   procedure DrawGlyph(buf:pointer;pitch:integer;x,y:integer;
       glyphData:pointer;glWidth,glHeight:integer;color:cardinal);
   procedure DrawGlyphScaled(buf:pointer;pitch:integer;x1,y1,x2,y2:single;
@@ -101,8 +101,7 @@ type
  function LoadFontFromMemory(const data:TBuffer;UseAdvKerning:boolean=false):TUnicodeFont;
 
 implementation
- uses Apus.Core, Apus.FastGFX,
-  Apus.Files;
+ uses Apus.FastGFX, Apus.Files;
 
  function TCharDesc.GetPixel(glyphs:PByte;x,y:integer;glyphCoord:boolean=false):byte;
   begin
@@ -188,28 +187,30 @@ implementation
       glyphData:pointer;glWidth,glHeight:integer;color:cardinal);
   var
    i:integer;
-   gBuf:array[0..1600] of cardinal;
+   gBuf:array of cardinal;
    gPitch:integer;
   begin
+   ASSERT((glWidth>=0) and (glHeight>=0));
    // Clear temporary buffer
    gPitch:=(glWidth+2)*4;
+   SetLength(gBuf,(glWidth+2)*(glHeight+2));
    for i:=0 to (glWidth+2)*(glHeight+2)-1 do
     gBuf[i]:=color and $FFFFFF;
    // Draw (extract) glyph image to the temporary ARGB buffer
-   DrawGlyph(@gBuf,gPitch,1,1,glyphData,glWidth,glHeight,color);
+   DrawGlyph(@gBuf[0],gPitch,1,1,glyphData,glWidth,glHeight,color);
    // Draw glyph from the temporary buffer to the target (with bilinear interpolation)
-   StretchDraw2(@gBuf,gPitch,buf,pitch,x1,y1,x2,y2,1,1,glWidth+1,glHeight+1,blBlend);
+   StretchDraw2(@gBuf[0],gPitch,buf,pitch,x1,y1,x2,y2,1,1,glWidth+1,glHeight+1,blBlend);
   end;
 
  // Отрисовка текста в заданный ARGB-буфер
- procedure TUnicodeFont.RenderText(buf:pointer;pitch:integer;x,y:integer;st:WideString;color:cardinal;scale:single=1);
+ procedure TUnicodeFont.RenderText(buf:pointer;pitch:integer;x,y:integer;st:String32;color:cardinal;scale:single=1);
   var
    i,idx:integer;
    px:single;
   begin
    if color and $FF000000=0 then exit;
    px:=x;
-   for i:=1 to length(st) do begin
+   for i:=0 to length(st)-1 do begin
      idx:=IndexOfChar(st[i]);
      with chars[idx] do
        if imageWidth>0 then begin // non-empty glyph
@@ -224,7 +225,7 @@ implementation
                            y-(imageY-imageHeight)*scale,
                            @glyphs[offset],imageWidth,imageHeight,color);
      end;
-     if i<length(st) then px:=px+Interval(st[i],st[i+1])*scale;
+     if i<length(st)-1 then px:=px+Interval(st[i],st[i+1])*scale;
    end;
   end;
 
@@ -285,6 +286,7 @@ procedure TUnicodeFont.InitDefaults;
  begin
   Mem.Fill(hash,sizeof(hash),0);
   advancedKerning:=false;
+  defaultCharIdx:=0;
  end;
 
 constructor TUnicodeFont.LoadFromFile(fname:string;useAdvKerning:boolean);
@@ -299,6 +301,7 @@ constructor TUnicodeFont.LoadFromMemory(const data:TBuffer;useAdvKerning:boolean
  var
   i,j,s,ofs,metadata,size:integer;
   ch:WideChar;
+  found:boolean;
   w:word;
  begin
    InitDefaults;
@@ -308,15 +311,20 @@ constructor TUnicodeFont.LoadFromMemory(const data:TBuffer;useAdvKerning:boolean
    // Skip metadata
    if header.flags and fMetadata>0 then begin
     metadata:=data.ReadInt;
+    if metadata<4 then
+     raise EError.Create('Invalid font metadata size');
+    data.Skip(metadata-4);
    end else
     metadata:=0;
-   data.Skip(metadata-4);
    // Load descriptions
+   if header.charCount=0 then
+    raise EError.Create('Invalid font data: no glyphs');
    setLength(chars,header.charCount);
    s:=0; minY:=0; maxY:=0;
    ofs:=sizeof(TFontHeader)+sizeof(TCharDesc)*header.charCount+metadata;
    size:=sizeof(TCharDesc)*header.charCount;
-   data.Read(chars[0],size);
+   if size>0 then
+    data.Read(chars[0],size);
    for i:=0 to header.charCount-1 do begin
     inc(s,((chars[i].imageWidth+1) div 2)*chars[i].imageHeight);
     dec(chars[i].offset,ofs);
@@ -330,8 +338,11 @@ constructor TUnicodeFont.LoadFromMemory(const data:TBuffer;useAdvKerning:boolean
    // Load glyph data
    s:=data.size-sizeof(header)-metadata-
       header.charCount*sizeof(TCharDesc)-header.overridesCount*5;
+   if s<0 then
+    raise EError.Create('Invalid font data: glyph block size');
    setLength(glyphs,s);
-   data.Read(glyphs[0],s);
+   if s>0 then
+    data.Read(glyphs[0],s);
    // Load overrides
    i:=header.overridesCount;
    SetLength(overPairs,i);
@@ -341,7 +352,19 @@ constructor TUnicodeFont.LoadFromMemory(const data:TBuffer;useAdvKerning:boolean
     overpairs[i]:=overpairs[i] and $FFFF shl 16+overpairs[i] shr 16;
    if i>0 then data.Read(overValues[0],i);
 
-   defaultCharIdx:=IndexOfChar('#');
+   found:=false;
+   for i:=0 to high(chars) do
+    if chars[i].charcode='#' then begin
+     defaultCharIdx:=i;
+     found:=true;
+     break;
+    end;
+   if not found then
+    for i:=0 to high(chars) do
+     if chars[i].charcode='?' then begin
+      defaultCharIdx:=i;
+      break;
+     end;
    if UseAdvKerning then begin
     advancedKerning:=true;
     SetLength(advkerning,length(chars));
@@ -354,35 +377,41 @@ function TUnicodeFont.GetHeight: integer;
  var
   i:integer;
  begin
-  i:=IndexOfChar('0');
+  i:=IndexOfChar(Char32('0'));
   result:=chars[i].imageHeight;
  end;
 
-function TUnicodeFont.GetTextWidth(st: WideString): integer;
+function TUnicodeFont.GetTextWidth(st:String32):integer;
  var
   i,index:integer;
  begin
   result:=0;
   if length(st)=0 then exit;
-  for i:=1 to length(st)-1 do begin
+  for i:=0 to length(st)-2 do begin
    inc(result,Interval(st[i],st[i+1]));
   end;
-  index:=IndexOfChar(st[length(st)]);
-  if st[length(st)]=' ' then
+  index:=IndexOfChar(st[length(st)-1]);
+  if st[length(st)-1]=ord(' ') then
    inc(result,chars[index].width)
   else
    inc(result,chars[index].imageWidth+chars[index].imageX);
  end;
 
-function TUnicodeFont.IndexOfChar(ch: WideChar): integer;
+function TUnicodeFont.IndexOfChar(ch:Char32):integer;
  var
   i,h:integer;
+  wch:WideChar;
  begin
+  if ch>$FFFF then begin
+   result:=defaultCharIdx;
+   exit;
+  end;
+  wch:=WideChar(ch);
   h:=ord(ch) and $FFF;
   result:=hash[h];
-  if chars[result].charcode<>ch then begin
+  if chars[result].charcode<>wch then begin
    for i:=0 to Length(chars)-1 do
-    if chars[i].charcode=ch then begin
+    if chars[i].charcode=wch then begin
      hash[h]:=i;
      result:=i;
      exit;
@@ -391,19 +420,19 @@ function TUnicodeFont.IndexOfChar(ch: WideChar): integer;
   end;
  end;
 
-function TUnicodeFont.Interval(ch1: WideChar; ch2: WideChar):integer;
+function TUnicodeFont.Interval(ch1,ch2:Char32):integer;
 var
  i1,i2,y,v,a,b:integer;
  c,k1,k2:cardinal;
 begin
- if ch1=#$FEFF then begin
+ if ch1=$FEFF then begin
   result:=0; exit;
  end;
  i1:=IndexOfChar(ch1);
  i2:=IndexOfChar(ch2);
- if chars[i1].flags and gfOverrides>0 then begin
+ if (ch1<=$FFFF) and (ch2<=$FFFF) and (chars[i1].flags and gfOverrides>0) then begin
   // find override
-  c:=ord(ch1) shl 16+ord(ch2);
+  c:=cardinal(ch1 and $FFFF) shl 16+cardinal(ch2 and $FFFF);
   a:=0; b:=length(overPairs)-1;
   if b>=0 then begin
    while a<>b do begin
@@ -427,7 +456,7 @@ begin
   k2:=advKerning[i2].kernLeft;
   if k2=$FFFFFFFF then begin
    CalculateAdvKerning(i2);
-   k2:=advKerning[i2].kernRight;
+   k2:=advKerning[i2].kernLeft;
   end;
   for y:=0 to 9 do begin
    v:=(k1 and 7)+(k2 and 7);
