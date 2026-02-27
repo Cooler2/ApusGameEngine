@@ -3,7 +3,7 @@
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-02-22)
+## Summary (last updated: 2026-02-26)
 
 **Progress:**
 - ✅ 9 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib)
@@ -23,6 +23,10 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 
 **Recent wins (2026-02-22):** Added case-insensitive search support in `Apus.Strings` (`IndexOf/LastIndexOf/Contains` for `String8` and `String32` with optional `ignoreCase`), plus coverage in `TestStrings`.
 **Recent wins (2026-02-22):** Migrated `Apus.HtmlTree` from `string` to `String8` API and switched local search helper to `String8.IndexOf(...,ignoreCase)`.
+**Recent wins (2026-02-26):** Added `IntArrayHelper` in `Apus.Core` (`IndexOf/Contains/Add/Remove`) and replaced legacy `FindInteger(... )` usage in UI code with `tags.IndexOf(tag)`.
+**Recent wins (2026-02-26):** Restored optional caller override in `Apus.Threads.TLock.Enter(callerAddr:pointer=nil)` for wrapper-safe lock diagnostics.
+**Recent wins (2026-02-27):** Migrated `Apus.FreeTypeFont` text API from `WideString/WideChar` to `String32/Char32`, and removed 16-bit codepoint truncation in FreeType calls.
+**Recent wins (2026-02-27):** Added `String32Helper.TryAnsiChar/AnsiChar` in `Apus.Strings` and migrated `ParseSML`/`WriteW` indexing in `Apus.Engine.TextDraw` to 0-based `String32` semantics.
 
 ## NEW — created in engine5 refactoring
 

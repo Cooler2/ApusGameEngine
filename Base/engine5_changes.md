@@ -3,6 +3,39 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Recent API fixes (2026-02-26)
+
+### Apus.FreeTypeFont String32 migration
+
+- `Apus.FreeTypeFont` public text API migrated from UTF-16 (`WideString`/`WideChar`) to UCS-4 (`String32`/`Char32`):
+  - `RenderText(...;st:String32;...)`
+  - `GetTextWidth(st:String32;...)`
+  - `Interval(ch1,ch2:Char32;...)`
+  - `CharPadding(ch:Char32;...)`
+  - `RenderGlyph(ch:Char32;...)`
+- Internal hash records now store `Char32` and `integer` metric fields to avoid truncation.
+- FreeType calls now pass full codepoints (`cardinal(ch)`) instead of 16-bit truncation.
+
+### Apus.Strings String32Helper ASCII accessors
+
+- Added `String32Helper.TryAnsiChar(index:integer;out ch:AnsiChar):boolean` (0-based).
+- Added `String32Helper.AnsiChar(index:integer;defaultChar:AnsiChar=#0):AnsiChar` (0-based).
+- Purpose: simplify migration of parser code that operates on ASCII tags while input is `String32`.
+
+### Apus.Core IntArray helper
+
+- Added `IntArrayHelper` in `Apus.Core` with methods:
+  - `IndexOf(value:integer):integer`
+  - `Contains(value:integer):boolean`
+  - `Add(value:integer)`
+  - `Remove(value:integer):boolean`
+- Migration note: replace legacy `FindInteger(arr,v)` with `arr.IndexOf(v)`.
+
+### Apus.Threads TLock.Enter caller override
+
+- `TLock.Enter` now accepts optional parameter: `procedure Enter(callerAddr:pointer=nil);`
+- Use this in wrapper helpers to pass caller from higher stack frame, so lock diagnostics store meaningful owner/trying addresses.
+
 ## Recent API fixes (2026-02-22)
 
 ### Apus.Strings search API (case-insensitive support)
@@ -402,6 +435,32 @@ Functions that don't fit scope of core/conv/strings/files modules.
 | `MyTickCount` | `GetTickCount64` | use system function instead |
 
 **Note**: Utils is the default place for functions that don't fit other modules. More functions will be added here (EncodeUTF8/DecodeUTF8, AddString/RemoveString, HasParam/GetParam, etc).
+
+## Apus.Compress (compression and patching)
+
+Compression/decompression and binary patching utilities extracted from `Apus.Common`.
+
+### RLE compression
+
+| Old name (Common) | New name (Compress) | Notes |
+|---|---|---|
+| `PackRLE(buf,size,addHeader)` | `RLE.Pack(buf,size,addHeader)` | |
+| `UnpackRLE(buf,size)` | `RLE.Unpack(buf,size)` | |
+| `CheckRLEHeader(buf,size)` | `RLE.CheckHeader(buf,size)` | returns unpacked size or -1 |
+
+### LZ compression
+
+| Old name (Common) | New name (Compress) | Notes |
+|---|---|---|
+| `SimpleCompress(data)` | `LZ.Compress(data)` | |
+| `SimpleDecompress(data)` | `LZ.Decompress(data)` | |
+
+### Binary patching
+
+| Old name (Common) | New name (Compress) | Notes |
+|---|---|---|
+| `CreateBackupPatch(orig,mod,size)` | `Patch.Create(orig,mod,size)` | |
+| `ApplyBackupPatch(data,size,patch,patchSize)` | `Patch.Apply(data,size,patchBuf,patchSize)` | |
 
 ## Not yet extracted (still only in Apus.Common)
 
