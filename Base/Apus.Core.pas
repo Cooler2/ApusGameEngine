@@ -38,6 +38,16 @@ const
   CPU_BIT  = 64;
   {$ENDIF}
 
+  {$IFDEF MSWINDOWS}
+  PathSeparator='\';
+  {$ELSE}
+  PathSeparator='/';
+  {$ENDIF}
+  MAX_FLOAT = 3.4E38;
+  MIN_FLOAT = 1.18E-38;
+  MAX_INT64 = $7FFFFFFFFFFFFFFF;
+  MAX_UINT64 = $FFFFFFFFFFFFFFFF;
+
 type
   // =============================================================================
   // Basic types
@@ -71,6 +81,7 @@ type
   // 32-bit string (UCS-4): ZERO-INDEXED (0-indexed)!
   String32 = UCS4String;
   PString32 = ^String32;
+  Char32 = UCS4Char;
 
   // Array types
   ByteArray = {$IF Declared(TBytes)}TBytes{$ELSE}array of byte{$IFEND};
@@ -82,6 +93,14 @@ type
   PointerArray = array of pointer;
   VariantArray = array of variant;
   TObjectArray = array of TObject;
+  
+  // Dynamic array helpers
+  IntArrayHelper = record helper for IntArray
+    function IndexOf(value:integer):integer;
+    function Contains(value:integer):boolean;
+    procedure Add(value:integer);
+    function Remove(value:integer):boolean;
+  end;
 
   // String arrays
   Strings8 = array of String8;
@@ -93,7 +112,11 @@ type
   ShortStr = string[31];
 
   // Procedure types
+  {$IF not Declared(TProcedure)}
   TProcedure = procedure;
+  {$ELSE}
+  TProcedure = SysUtils.TProcedure;
+  {$ENDIF}
   TObjProcedure = procedure of object;
 
   TPoint = Types.TPoint;
@@ -682,6 +705,44 @@ end;
 // =============================================================================
 // Standalone functions implementation
 // =============================================================================
+
+function IntArrayHelper.IndexOf(value:integer):integer;
+var
+  i:integer;
+begin
+  for i:=0 to high(Self) do
+    if Self[i]=value then begin
+      result:=i;
+      exit;
+    end;
+  result:=-1;
+end;
+
+function IntArrayHelper.Contains(value:integer):boolean;
+begin
+  result:=IndexOf(value)>=0;
+end;
+
+procedure IntArrayHelper.Add(value:integer);
+begin
+  Self:=Self+[value];
+end;
+
+function IntArrayHelper.Remove(value:integer):boolean;
+var
+  i,n:integer;
+begin
+  i:=IndexOf(value);
+  if i<0 then begin
+    result:=false;
+    exit;
+  end;
+  n:=length(Self);
+  if i<n-1 then
+    Move(Self[i+1],Self[i],(n-i-1)*sizeOf(Self[0]));
+  setLength(Self,n-1);
+  result:=true;
+end;
 
 function Min(a,b:integer):integer;
 begin
@@ -1922,4 +1983,3 @@ initialization
   systemMessageFlags:=[TSystemMessageFlag.smLog,TSystemMessageFlag.smStdErr];
   {$ENDIF}
 end.
-
