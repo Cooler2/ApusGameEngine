@@ -46,7 +46,7 @@ type
     name:String8;       // section name
     procedure Init(const aName:String8; aLevel:integer=100);
     procedure Cleanup;
-    procedure Enter;
+    procedure Enter(callerAddr:pointer=nil);
     procedure Leave;
     function IsLocked:boolean; inline;
     function GetOwner:TThreadID; inline;
@@ -422,18 +422,18 @@ begin
   end;
 end;
 
-procedure TLock.Enter;
+procedure TLock.Enter(callerAddr:pointer=nil);
 var
   threadID:TThreadID;
   i,lastLevel,trIdx:integer;
   prevSection:PLock;
-  callerAddr:pointer;
 begin
-  callerAddr:=nil;
-  {$IFDEF CPU386}
-  if caller=0 then
-    callerAddr:=Stack.Caller;
-  {$ENDIF}
+  if callerAddr=nil then
+    {$IFDEF FPC}
+    callerAddr:=get_caller_addr(get_frame);
+    {$ELSE}
+    callerAddr:=System.ReturnAddress;
+    {$ENDIF}
   threadID:=GetCurrentThreadID;
   if lockCount>0 then begin
     trIdx:=-1;
@@ -473,7 +473,6 @@ begin
   tryingThread:=0;
   timeout:=0;
   inc(lockCount);
-  if callerAddr=nil then callerAddr:=Stack.Caller;
   owner:=UIntPtr(callerAddr);
   if debugCriticalSections and (lockCount=1) then begin
     SpinLock;
@@ -578,9 +577,13 @@ procedure TSRWLock.EnterRead(caller:pointer);
 begin
   AcquireSRWLockShared(lock);
   Atomic.Add(lockRead,1);
-  if caller=nil then
-    lastLockedRead:=Stack.Caller
-  else
+  if caller=nil then begin
+    {$IFDEF FPC}
+    lastLockedRead:=get_caller_addr(get_frame);
+    {$ELSE}
+    lastLockedRead:=System.ReturnAddress;
+    {$ENDIF}
+  end else
     lastLockedRead:=caller;
 end;
 
@@ -594,9 +597,13 @@ procedure TSRWLock.EnterWrite(caller:pointer);
 begin
   AcquireSRWLockExclusive(lock);
   lockedEx:=true;
-  if caller=nil then
-    lastLockedEx:=Stack.Caller
-  else
+  if caller=nil then begin
+    {$IFDEF FPC}
+    lastLockedEx:=get_caller_addr(get_frame);
+    {$ELSE}
+    lastLockedEx:=System.ReturnAddress;
+    {$ENDIF}
+  end else
     lastLockedEx:=caller;
 end;
 
