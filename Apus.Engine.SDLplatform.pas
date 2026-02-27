@@ -341,40 +341,40 @@ function GetKeyCode(sdl_keycode:integer):integer;
   c:char;
  begin
   result:=sdl_keycode;
-  case sdl_keycode of
-   ord('a')..ord('z'):begin
-    c:=UpCase(char(sdl_keycode));
-    result:=ord(c);
-   end;
-   SDLK_F1:result:=VK_F1;
-   SDLK_F2:result:=VK_F2;
-   SDLK_F3:result:=VK_F3;
-   SDLK_F4:result:=VK_F4;
-   SDLK_F5:result:=VK_F5;
-   SDLK_F6:result:=VK_F6;
-   SDLK_F7:result:=VK_F7;
-   SDLK_F8:result:=VK_F8;
-   SDLK_F9:result:=VK_F9;
-   SDLK_F10:result:=VK_F10;
-   SDLK_F11:result:=VK_F11;
-   SDLK_F12:result:=VK_F12;
-   SDLK_PRINTSCREEN:result:=VK_SNAPSHOT;
+   case sdl_keycode of
+    ord('a')..ord('z'):begin
+     c:=UpCase(char(sdl_keycode));
+     result:=ord(c);
+    end;
+    SDLK_F1:result:=ord(TKey.F1);
+    SDLK_F2:result:=ord(TKey.F2);
+    SDLK_F3:result:=ord(TKey.F3);
+    SDLK_F4:result:=ord(TKey.F4);
+    SDLK_F5:result:=ord(TKey.F5);
+    SDLK_F6:result:=ord(TKey.F6);
+    SDLK_F7:result:=ord(TKey.F7);
+    SDLK_F8:result:=ord(TKey.F8);
+    SDLK_F9:result:=ord(TKey.F9);
+    SDLK_F10:result:=ord(TKey.F10);
+    SDLK_F11:result:=ord(TKey.F11);
+    SDLK_F12:result:=ord(TKey.F12);
+    SDLK_PRINTSCREEN:result:=ord(TKey.PrintScreen);
 
-   SDLK_TAB:result:=VK_TAB;
-   SDLK_LEFT:result:=VK_LEFT;
-   SDLK_RIGHT:result:=VK_RIGHT;
-   SDLK_UP:result:=VK_UP;
-   SDLK_DOWN:result:=VK_DOWN;
-   SDLK_HOME:result:=VK_HOME;
-   SDLK_END:result:=VK_END;
-   SDLK_PAGEUP:result:=VK_PAGEUP;
-   SDLK_PAGEDOWN:result:=VK_PAGEDOWN;
-   SDLK_INSERT:result:=VK_INSERT;
-   SDLK_DELETE:result:=VK_DELETE;
-   SDLK_BACKQUOTE:result:=$C0; //VK_OEM3
-   SDLK_BACKSPACE:result:=VK_BACK;
+    SDLK_TAB:result:=ord(TKey.Tab);
+    SDLK_LEFT:result:=ord(TKey.Left);
+    SDLK_RIGHT:result:=ord(TKey.Right);
+    SDLK_UP:result:=ord(TKey.Up);
+    SDLK_DOWN:result:=ord(TKey.Down);
+    SDLK_HOME:result:=ord(TKey.Home);
+    SDLK_END:result:=ord(TKey.EndKey);
+    SDLK_PAGEUP:result:=ord(TKey.PageUp);
+    SDLK_PAGEDOWN:result:=ord(TKey.PageDown);
+    SDLK_INSERT:result:=ord(TKey.Insert);
+    SDLK_DELETE:result:=ord(TKey.Delete);
+    SDLK_BACKQUOTE:result:=ord(TKey.Tilde);
+    SDLK_BACKSPACE:result:=ord(TKey.Backspace);
+   end;
   end;
- end;
 
 procedure ProcessControllerEvent(event:TSDL_Event);
  var

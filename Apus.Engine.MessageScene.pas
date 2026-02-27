@@ -112,14 +112,14 @@ implementation
    end;
 
    close:=false;
-   if (SameText(event,'Scene\MessageScene\KEYDOWN') and (tag and $FF=VK_RETURN)) or
+   if (SameText(event,'Scene\MessageScene\KEYDOWN') and (tag and $FF=ord(TKey.Enter))) or
       (SameText(event,'UI\Message\OK\Click') or
        SameText(event,'UI\Message\YES\Click')) then begin
     if curMsg.event1<>'' then Signal(curMsg.event1);
     close:=true;
    end;
 
-   if (SameText(event,'Scene\MessageScene\KEYDOWN') and (tag and $FF=VK_ESCAPE)) or
+   if (SameText(event,'Scene\MessageScene\KEYDOWN') and (tag and $FF=ord(TKey.Escape))) or
       SameText(event,'UI\Message\NO\Click') then begin
     if curMsg.event2<>'' then Signal(curMsg.event2);
     close:=true;
@@ -233,3 +233,5 @@ procedure TMessageScene.Render;
  end;
 
 end.
+
+

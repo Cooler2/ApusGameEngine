@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.WindowsPlatform;
 interface
-uses Apus.Types, Apus.CrossPlatform, Apus.Engine.API;
+uses Apus.Types, Apus.CrossPlatform, Apus.Engine.API, Apus.Engine.Keys;
 
 type
  
@@ -120,7 +120,7 @@ end;
 
 function WindowProc(Window:HWnd;Message:cardinal;WParam:UIntPtr;LParam:IntPtr):LongInt; stdcall;
 var
- i,charCode,scanCode:integer;
+ i,charCode,scanCode,keyCode:integer;
 begin
  try
  result:=0;
@@ -153,12 +153,14 @@ begin
   WM_KEYDOWN,WM_SYSKEYDOWN:begin
     // wParam = Virtual Code; lParam[23..16] = Scancode
     scancode:=(lParam shr 16) and $FF;
-    Signal('KBD\KEYDOWN',wParam and $FFFF+scancode shl 16);
+    keyCode:=ord(TKey.FromWindowsVK(cardinal(wParam)));
+    Signal('KBD\KEYDOWN',keyCode+scancode shl 16);
   end;
 
   WM_KEYUP,WM_SYSKEYUP:begin
     scancode:=(lParam shr 16) and $FF;
-    Signal('KBD\KEYUP',wParam and $FFFF+scancode shl 16);
+    keyCode:=ord(TKey.FromWindowsVK(cardinal(wParam)));
+    Signal('KBD\KEYUP',keyCode+scancode shl 16);
     if message=WM_SYSKEYUP then exit(0);
   end;
 

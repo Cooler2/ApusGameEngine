@@ -69,12 +69,12 @@ implementation
  procedure EventHandler(event:TEventStr;tag:TTag);
   begin
    event:=UpperCase(event);
-   if event='KBD\KEYDOWN' then begin
-    // Ctrl+[~] - toggle scene
-    if (GetKeyEventVirtualCode(tag)=$C0) and (game.shiftState and sscCtrl>0) then begin
-     if not tweakerScene.IsActive then
-      tweakerScene.SetStatus(TSceneStatus.ssActive)
-     else
+    if event='KBD\KEYDOWN' then begin
+     // Ctrl+[~] - toggle scene
+     if (GetKeyEventVirtualCode(tag)=ord(TKey.Tilde)) and (game.shiftState and sscCtrl>0) then begin
+      if not tweakerScene.IsActive then
+       tweakerScene.SetStatus(TSceneStatus.ssActive)
+      else
       tweakerScene.SetStatus(TSceneStatus.ssFrozen);
     end;
    end;
@@ -346,11 +346,11 @@ function TTracker.onKey(keycode: byte; pressed: boolean;
 begin
  if pressed then
   case keyCode of
-   VK_LEFT:ChangeValue(-1);
-   VK_RIGHT:ChangeValue(+1);
-   VK_UP:SetFocusToPrev;
-   VK_DOWN:SetFocusToNext;
-   byte('R'):value:=initialValue;   // [R] - reset to initial value
+   ord(TKey.Left):ChangeValue(-1);
+   ord(TKey.Right):ChangeValue(+1);
+   ord(TKey.Up):SetFocusToPrev;
+   ord(TKey.Down):SetFocusToNext;
+   ord(TKey.R):value:=initialValue;   // [R] - reset to initial value
   end;
 end;
 
