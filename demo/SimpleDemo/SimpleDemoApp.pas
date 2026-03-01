@@ -19,7 +19,7 @@ interface
   application:TSimpleDemoApp;
 
 implementation
- uses SysUtils, Apus.CrossPlatform,Apus.EventMan,Apus.Colors,
+ uses SysUtils, Apus.EventMan, Apus.Colors, Apus.Strings,
    Apus.Engine.SceneEffects,Apus.Engine.UI;
 
  type
@@ -123,7 +123,7 @@ procedure TMainScene.CreateUI;
 
   // Create an edit box. I don't want to use a variable for it
   TUIEditBox.Create(250,26,'MainScene\Edit',font,$FF000030,box).SetPos(200,100,pivotCenter);
-  UIEditBox('MainScene\Edit').defaultText:='Type something here...'; // referencing UI element by its name
+  UIEditBox('MainScene\Edit').defaultText:=Str32('Type something here...'); // referencing UI element by its name
 
   // Create a button (now using a variable - classic way)
   btn:=TUIButton.Create(100,35,'MainScene\Close','Exit',font,box);
@@ -228,9 +228,9 @@ procedure TMainScene.Render;
   draw.Rect(10,10,maxX-10,maxY-10, $FFC00000);
 
   font:=txt.GetFont('Default',7); // Select font (no need to do this every frame)
-  txt.WriteW(font,300,200,$FFFFFFFF,'Hello world!'); // Write text using the font
+  txt.Write(font,300,200,$FFFFFFFF,'Hello world!'); // Write text using the font
 
-  txt.WriteW(0,10,20,$FFD0D0D0,'RMB - particles, [Win]+[~] - toggle console. ');
+  txt.Write(0,10,20,$FFD0D0D0,'RMB - particles, [Win]+[~] - toggle console. ');
 
   inherited; // Here all the UI is displayed
 
