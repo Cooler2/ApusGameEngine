@@ -7,7 +7,11 @@
 {$IF Defined(MSWINDOWS) or Defined(LINUX)} {$DEFINE DGL} {$ENDIF}
 unit Apus.Engine.ShadersGL;
 interface
-uses Apus.Common, Apus.Geom3d,  Apus.Structs, Apus.Engine.API, Apus.Engine.Graphics;
+uses Apus.Core, Apus.Structs, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.Graphics,
+  Apus.Conv,
+  Apus.Files,
+  Apus.Log,
+  Apus.Strings;
 
 type
  TGLShaderHandle=integer;
@@ -103,7 +107,7 @@ type
   curTexMode:TTexMode; // encoded shader mode requested by the client code
   actualTexMode:TTexMode; // actual shader mode
   actualVertexLayout:cardinal; // vertex layout for the current shader
-  customized:StringArray8;
+  customized:Strings8;
 
   // Ambient light
   ambientLightColor:cardinal;
@@ -129,7 +133,7 @@ type
   shadowMap:TTexture;
 
   // Pending uniforms (for customized shader)
-  custUniforms:StringArray8;
+  custUniforms:Strings8;
 
   // Switch to the specified shader and upload matrices (if applicable)
   procedure ActivateShader(shader:TShader);
@@ -148,6 +152,7 @@ implementation
 uses
   SysUtils,
   StrUtils,
+  Apus.Geom3D,
   Apus.Engine.ResManGL,
   Apus.Engine.OpenGL
   {$IFDEF MSWINDOWS},Windows{$ENDIF}
@@ -296,11 +301,11 @@ function BuildVertexShader(notes:String8;hasColor,hasNormal,hasUV:boolean;lighti
   ch:AnsiChar;
   depthPass,shadowMap:boolean;
  begin
-  depthPass:=HasFlag(lighting,LIGHT_DEPTHPASS);
+  depthPass:=Bits.HasAll(lighting,LIGHT_DEPTHPASS);
   if depthPass then begin
    hasNormal:=false; hasColor:=false; hasUV:=false;
   end;
-  shadowMap:=HasFlag(lighting,LIGHT_SHADOWMAP);
+  shadowMap:=Bits.HasAll(lighting,LIGHT_SHADOWMAP);
   // Now build shader source
   AddLine(result,'#version 330');
   AddLine(result,'// '+notes);
@@ -344,7 +349,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
   shadowMap,lighting,customized:boolean;
   custUniforms,custCode:string8;
  begin
-  customized:=HasFlag(texMode.lighting,LIGHT_CUSTOMIZED);
+  customized:=Bits.HasAll(texMode.lighting,LIGHT_CUSTOMIZED);
   if customized then begin
    custCode:=shadersAPI.customized[texMode.lighting and $F];
    i:=pos(#0,custCode);
@@ -353,13 +358,13 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
     custCode:=copy(custCode,i+1,length(custCode));
    end;
   end;
-  lighting:=HasFlag(texMode.lighting,LIGHT_AMBIENT_ON+LIGHT_DIRECT_ON) and not customized;
-  shadowMap:=HasFlag(texMode.lighting,LIGHT_SHADOWMAP) and not customized;
+  lighting:=Bits.HasAll(texMode.lighting,LIGHT_AMBIENT_ON+LIGHT_DIRECT_ON) and not customized;
+  shadowMap:=Bits.HasAll(texMode.lighting,LIGHT_SHADOWMAP) and not customized;
 
   AddLine(result,'#version 330');
   if customized then notes:='[Customized] '+notes;
   AddLine(result,'// '+notes);
-  if HasFlag(texMode.lighting,LIGHT_DEPTHPASS) then begin
+  if Bits.HasAll(texMode.lighting,LIGHT_DEPTHPASS) then begin
    AddLine(result,'void main(void) {} ');
    exit;
   end;
@@ -372,8 +377,8 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
     AddLine(result,'uniform sampler2D tex'+inttostr(i)+';');
   AddLine(result,'uniform sampler2DShadow texShadowMap;',shadowMap);
   AddLine(result,'uniform float uFactor;');
-  AddLine(result,'uniform vec3 ambientColor;',HasFlag(texMode.lighting,LIGHT_AMBIENT_ON));
-  if HasFlag(texMode.lighting,LIGHT_DIRECT_ON) then begin
+  AddLine(result,'uniform vec3 ambientColor;',Bits.HasAll(texMode.lighting,LIGHT_AMBIENT_ON));
+  if Bits.HasAll(texMode.lighting,LIGHT_DIRECT_ON) then begin
    AddLine(result,'uniform vec3 lightDir;');
    AddLine(result,'uniform vec3 lightColor;');
   end;
@@ -403,7 +408,7 @@ function BuildFragmentShader(notes:String8;hasColor,hasNormal,hasUV:boolean;texM
    AddLine(result,'   vec3 normal = normalize(vNormal);',hasNormal); // use attribute normal if present
    AddLine(result,'   vec3 normal = vec3(0.0,0.0,-1.0);',not hasNormal); // default normal in 2D mode (if no attribute)
    AddLine(result,'   diff = '+IfThen(shadowMap,'shadow*','')+'max(dot(normal,lightDir),0.0);');
-   AddLine(result,'   vec3 ambientColor = vec3(0,0,0);',not HasFlag(texMode.lighting,LIGHT_AMBIENT_ON));
+   AddLine(result,'   vec3 ambientColor = vec3(0,0,0);',not Bits.HasAll(texMode.lighting,LIGHT_AMBIENT_ON));
    AddLine(result,'  }',shadowMap);
   end else begin
    AddLine(result,'  c = c*(0.7+0.3*shadow); ',shadowMap); // 30% shadow if no lighting enabled
@@ -452,10 +457,10 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   hasNormal:=actualVertexLayout and $F0>0;
   hasColor:=actualVertexLayout and $F00>0;
   hasUV:=actualVertexLayout and $F000>0;
-  if HasFlag(curTexMode.lighting,LIGHT_CUSTOMIZED) then notes:='Cust '
+  if Bits.HasAll(curTexMode.lighting,LIGHT_CUSTOMIZED) then notes:='Cust '
    else notes:='Std ';
-  notes:=notes+'shader for mode '+FormatHex(curTexMode.mode)+' layout='+FormatHex(actualVertexLayout);
-  LogMessage('Building: '+notes);
+  notes:=notes+'shader for mode '+Conv.ToHex(curTexMode.mode)+' layout='+Conv.ToHex(actualVertexLayout);
+  Log.Msg('Building: '+notes);
   vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting);
   fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,curTexMode);
   result:=Build(vSrc,fSrc) as TGLShader;
@@ -472,7 +477,7 @@ function TGLShadersAPI.GetShaderFor:TGLShader;
   mode:int64;
   v:int64;
  begin
-  if HasFlag(curTexMode.lighting,LIGHT_DEPTHPASS) then
+  if Bits.HasAll(curTexMode.lighting,LIGHT_DEPTHPASS) then
    actualVertexLayout:=actualVertexLayout and $F; // use only position when rendering to the shadowmap
   mode:=curTexMode.mode+UInt64(actualVertexLayout) shl 32;
   v:=shaderCache.Get(mode);
@@ -483,7 +488,7 @@ function TGLShadersAPI.GetShaderFor:TGLShader;
 
 function TGLShadersAPI.IsCustomized:boolean;
  begin
-  result:=not isCustom and (HasFlag(curTexMode.lighting,LIGHT_CUSTOMIZED));
+  result:=not isCustom and (Bits.HasAll(curTexMode.lighting,LIGHT_CUSTOMIZED));
  end;
 
 constructor TGLShadersAPI.Create;
@@ -494,7 +499,7 @@ constructor TGLShadersAPI.Create;
   shadersAPI:=self;
   shader:=self;
   shaderCache.Init(32);
-  SetBit(curTexChanged,0);
+  Bits.SetBit(curTexChanged,0);
  end;
 
 procedure TGLShadersAPI.DirectLight(direction:TVector3; power:single; color:cardinal);
@@ -503,14 +508,14 @@ procedure TGLShadersAPI.DirectLight(direction:TVector3; power:single; color:card
   directLightDir.Normalize;
   VectMult(directLightDir,power);
   directLightColor:=color;
-  SetFlag(curTexMode.lighting,LIGHT_DIRECT_ON,power>0);
+  Bits.Modify(curTexMode.lighting,LIGHT_DIRECT_ON,power>0);
   directLightModified:=true;
  end;
 
 procedure TGLShadersAPI.AmbientLight(color:cardinal);
  begin
   ambientLightColor:=color;
-  SetFlag(curTexMode.lighting,LIGHT_AMBIENT_ON,color<>0);
+  Bits.Modify(curTexMode.lighting,LIGHT_AMBIENT_ON,color<>0);
   ambientLightModified:=true;
  end;
 
@@ -536,7 +541,7 @@ procedure TGLShadersAPI.CustomizedUniform(name:string8;valueType:AnsiChar;const 
   name[l+1]:=#0;
   name[l+2]:=valueType;
   move(value,name[l+3],size);
-  AddString(custUniforms,name);
+  custUniforms.Add(name);
  end;
 
 procedure TGLShadersAPI.ApplyCustomizedUniforms;
@@ -566,12 +571,12 @@ procedure TGLShadersAPI.ApplyCustomizedUniforms;
 
 procedure TGLShadersAPI.PointLight(position:TPoint3;power:single;color:cardinal);
  begin
-  SetFlag(curTexMode.lighting,LIGHT_POINT_ON,power>0);
+  Bits.Modify(curTexMode.lighting,LIGHT_POINT_ON,power>0);
  end;
 
 procedure TGLShadersAPI.LightOff;
  begin
-  ClearFlag(curTexMode.lighting,LIGHT_DIRECT_ON+LIGHT_AMBIENT_ON+LIGHT_POINT_ON);
+  Bits.Clear(curTexMode.lighting,LIGHT_DIRECT_ON+LIGHT_AMBIENT_ON+LIGHT_POINT_ON);
  end;
 
 procedure TGLShadersAPI.DefaultTexMode;
@@ -598,7 +603,7 @@ procedure TGLShadersAPI.TexMode(stage:byte; colorMode,
 function TGLShadersAPI.Load(filename,extra:String8):TShader;
  var
   vSrc,fSrc:String8;
-  lines:StringArray8;
+  lines:Strings8;
   fname:string;
   i,mode:integer;
  begin
@@ -608,13 +613,13 @@ function TGLShadersAPI.Load(filename,extra:String8):TShader;
   if not FileExists(fName) then begin
    // load separate shader files
    fname:=ChangeFileExt(filename,'.vsh');
-   vSrc:=LoadFileAsString(fName);
+   vSrc:=Files.LoadAsString(fName);
    fname:=ChangeFileExt(filename,'.fsh');
-   fSrc:=LoadFileAsString(fName);
+   fSrc:=Files.LoadAsString(fName);
   end else begin
    // Load combined shader file
-   vSrc:=LoadFileAsString(fName);
-   lines:=SplitA(#13#10,vSrc);
+   vSrc:=Files.LoadAsString(fName);
+   lines:=vSrc.SplitLines;
    vSrc:=''; mode:=0;
    for i:=0 to high(lines) do begin
     if pos('[VERTEX]',lines[i])>0 then begin
@@ -640,13 +645,13 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   str:PAnsiChar;
   i,len,res:integer;
   prog:integer;
-  sa:AStringArr;
+  sa:Strings8;
  function GetShaderError(shader:GLuint;source:string):string;
   var
    i,j,nearLine:integer;
    maxlen:integer;
    errorLog:AnsiString;
-   lines:StringArray8;
+   lines:Strings8;
   begin
    glGetShaderiv(shader,GL_INFO_LOG_LENGTH,@maxlen);
    SetLength(errorLog,maxLen);
@@ -660,9 +665,9 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
    nearLine:=0;
    for i:=1 to length(result)-6 do
     if (result[i]='(') then begin
-     j:=PosFrom(')',result,i+1);
+     j:=result.IndexOf(')',i+1);
      if (j>i) and (j<i+4) then begin
-      nearLine:=ParseInt(copy(result,i+1,j-i-1));
+      nearLine:=Conv.ToInt(copy(result,i+1,j-i-1));
       break;
      end;
     end;
@@ -670,9 +675,9 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
    if source<>'' then
     result:=result+#13#10'Source code:';
 
-   lines:=SplitA(#13#10,source);
+   lines:=String8(source).SplitLines;
    if nearLine>=high(lines) then nearLine:=high(lines)-25;
-   nearLine:=max2(nearLine-15,0);
+   nearLine:=Max(nearLine-15,0);
    for i:=1 to 25 do begin
     if nearLine<=high(lines) then
      result:=result+Format(#13#10'%3d %s',[nearline+1,lines[nearLine]]);
@@ -729,8 +734,11 @@ procedure TGLShadersAPI.UseCustomized(colorCalc:String8;numTextures:integer=1);
  var
   idx:integer;
  begin
-  idx:=FindString(customized,colorCalc);
-  if idx<0 then idx:=AddString(customized,colorCalc);
+  idx:=customized.IndexOf(colorCalc);
+  if idx<0 then begin
+   customized.Add(colorCalc);
+   idx:=high(customized);
+  end;
   ASSERT((idx>=0) and (idx<16));
   curTexMode.lighting:=idx+LIGHT_CUSTOMIZED;
   curTexmode.stage[2]:=numTextures; // for customized shader this is a placeholder for texture samplers number
@@ -752,7 +760,7 @@ procedure TGLShadersAPI.Reset;
  begin
   isCustom:=false;
   actualTexMode.mode:=0;
-  if HasFlag(curTexMode.lighting,LIGHT_CUSTOMIZED) then
+  if Bits.HasAll(curTexMode.lighting,LIGHT_CUSTOMIZED) then
    curTexMode.lighting:=curTexMode.lighting and $70;
   TexMode(0);
   TexMode(1,tblDisable,tblDisable);
@@ -827,7 +835,7 @@ procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:
   var
    frustum:T3DMatrixS;
   begin
-    ZeroMem(frustum,sizeof(frustum));
+    Mem.Clear(frustum,sizeof(frustum));
     frustum[0,0]:=0.5; frustum[3,0]:=0.5;
     frustum[1,1]:=0.5; frustum[3,1]:=0.5;
     frustum[2,2]:=0.5; frustum[3,2]:=0.5-depthBias;
@@ -835,11 +843,11 @@ procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:
     MultMat(viewProjMatrix,frustum,shadowMapMatrix);
   end;
  begin
-  SetFlag(curTexMode.lighting,LIGHT_SHADOWMAP,mode=shadowMainPass);
-  SetFlag(curTexMode.lighting,LIGHT_DEPTHPASS,mode=shadowDepthPass);
+  Bits.Modify(curTexMode.lighting,LIGHT_SHADOWMAP,mode=shadowMainPass);
+  Bits.Modify(curTexMode.lighting,LIGHT_DEPTHPASS,mode=shadowDepthPass);
   case mode of
    shadowDisabled:self.shadowMap:=nil;
-   shadowDepthPass:ZeroMem(viewProjMatrix,sizeof(viewProjMatrix)); // Invalidate viewProjMatrix
+   shadowDepthPass:Mem.Clear(viewProjMatrix,sizeof(viewProjMatrix)); // Invalidate viewProjMatrix
    shadowMainPass:begin
     CalcShadowMapMatrix;
     self.shadowMap:=shadowMap;
@@ -856,7 +864,7 @@ procedure TGLShadersAPI.UseTexture(tex:TTexture;stage:integer);
    exit;
   end;
   curTextures[stage]:=tex;
-  SetBit(curTexChanged,stage);
+  Bits.SetBit(curTexChanged,stage);
  end;
 
 procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
@@ -875,8 +883,8 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
     if shader<>activeShader then shaderChanged:=true;
     ActivateShader(shader);
     actualTexMode:=curtexMode;
-    if HasFlag(curTexMode.lighting,LIGHT_DEPTHPASS) and
-     IsZeroMem(viewProjMatrix,sizeof(viewProjMatrix)) then begin
+    if Bits.HasAll(curTexMode.lighting,LIGHT_DEPTHPASS) and
+     Mem.IsZero(viewProjMatrix,sizeof(viewProjMatrix)) then begin
       // Save view-projection matrix used during depth rendering phase for later use
       MultMat(transformationAPI.GetViewMatrix,transformationAPI.GetProjMatrix,mat);
       viewProjMatrix:=Matrix4s(mat);
@@ -891,10 +899,10 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
   end;
   if IsCustomized then ApplyCustomizedUniforms;
   // Textures (тут тоже возможен косяк, если шейдер меняется, а текстура - нет)
-  i:=0;
-  while curTexChanged<>0 do begin
-   if GetBit(curTexChanged,i) then begin
-    ClearBit(curTexChanged,i);
+  curTexChanged:=curTexChanged and $FFFF;
+  for i:=0 to high(curTextures) do begin
+   if Bits.Get(curTexChanged,i) then begin
+    Bits.Clear(curTexChanged,i);
     tex:=curTextures[i];
     if tex<>nil then begin
      while tex.parent<>nil do tex:=tex.parent;
@@ -905,7 +913,6 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
      end;
     end;
    end;
-   inc(i);
   end;
   if activeShader.uTexShadowMap>0 then begin
    UseTexture(shadowMap,9);
@@ -932,7 +939,7 @@ procedure TGLShadersAPI.ActivateShader(shader:TShader);
   // Mark textures as changed to force update
   for stage:=0 to high(curTextures) do
    if curTextures[stage]<>nil then
-    SetBit(curTexChanged,stage);
+    Bits.SetBit(curTexChanged,stage);
  end;
 
 end.

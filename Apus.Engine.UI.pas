@@ -7,9 +7,9 @@
 
 unit Apus.Engine.UI;
 interface
- uses Apus.Types, Apus.Engine.Types, Apus.Engine.UITypes, Apus.Engine.UILayout, Apus.Engine.UIWidgets;
+uses Apus.Core, Apus.Engine.Types, Apus.Engine.UITypes, Apus.Engine.UILayout, Apus.Engine.UIWidgets;
 
- const
+const
   // Predefined pivot point configuration
   pivotTopLeft:TPoint2s=(x:0; y:0);
   pivotTopCenter:TPoint2s=(x:0.5; y:0);
@@ -37,7 +37,7 @@ interface
 
   INHERIT = Apus.Engine.UITypes.INHERIT;
 
- type
+type
   // Standard widgets
   TUIElement   = Apus.Engine.UITypes.TUIElement;
   TUISplitter  = Apus.Engine.UIWidgets.TUISplitter;
@@ -69,56 +69,56 @@ interface
 
   // Поиск элементов по имени. Если элемент не найден, то...
   // mustExists=true - исключение, false - будет создан (а в лог будет сообщение об этом)
-  function UIElement(name:string;autoCreate:boolean=false):TUIElement;
-  function UIButton(name:string;mustExist:boolean=false):TUIButton;
-  function UIEditBox(name:string;mustExist:boolean=false):TUIEditBox;
-  function UILabel(name:string;mustExist:boolean=false):TUILabel;
-  function UIScrollBar(name:string;mustExist:boolean=false):TUIScrollBar;
-  function UIComboBox(name:string;mustExist:boolean=false):TUIComboBox;
-  function UIListBox(name:string;mustExist:boolean=false):TUIListBox;
-  function UICheckBox(name:string;mustExist:boolean=false):TUICheckbox;
-  function UIRadioButton(name:string;mustExist:boolean=false):TUIRadioButton;
+  function UIElement(name:string8;autoCreate:boolean=false):TUIElement;
+  function UIButton(name:string8;mustExist:boolean=false):TUIButton;
+  function UIEditBox(name:string8;mustExist:boolean=false):TUIEditBox;
+  function UILabel(name:string8;mustExist:boolean=false):TUILabel;
+  function UIScrollBar(name:string8;mustExist:boolean=false):TUIScrollBar;
+  function UIComboBox(name:string8;mustExist:boolean=false):TUIComboBox;
+  function UIListBox(name:string8;mustExist:boolean=false):TUIListBox;
+  function UICheckBox(name:string8;mustExist:boolean=false):TUICheckbox;
+  function UIRadioButton(name:string8;mustExist:boolean=false):TUIRadioButton;
 
   // Controls setup
   procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;btnType:TButtonStyle;
              group:integer;default,enabled,pressed:boolean;hotkey:integer);
 
-  procedure SetupEditBox(edit:TUIEditBox;text:string;style:byte;cursor,maxlength:integer;
+  procedure SetupEditBox(edit:TUIEditBox;text:string8;style:byte;cursor,maxlength:integer;
              enabled,password,noborder:boolean);
 
   // Установка свойств элемента по имени
-  procedure SetElementState(name:string;visible:boolean;enabled:boolean=true);
-  procedure SetElementText(name:string;text:string);
+  procedure SetElementState(name:string8;visible:boolean;enabled:boolean=true);
+  procedure SetElementText(name:string8;text:string8);
 
   // UI helpers
   // ------------
   // Create vertical container with fixed height
   function CreateVerticalContainer(width,height:single;parent:TUIElement;padding,spacing:single;
-    centering:boolean;name:string=''):TUIElement; overload;
+    centering:boolean;name:string8=''):TUIElement; overload;
   // Create vertical container with automatic height
   function CreateVerticalContainer(width:single;parent:TUIElement;padding,spacing:single;
-    centering:boolean;name:string=''):TUIElement; overload;
+    centering:boolean;name:string8=''):TUIElement; overload;
   // Create vertical container for the whole parent's client area
-  function CreateVerticalContainer(parent:TUIElement;padding,spacing:single;centering:boolean;name:string=''):TUIElement; overload;
+  function CreateVerticalContainer(parent:TUIElement;padding,spacing:single;centering:boolean;name:string8=''):TUIElement; overload;
 
-  function CreateHorizontalContainer(height:single;parent:TUIElement;padding,spacing:single;name:string=''):TUIElement; overload;
+  function CreateHorizontalContainer(height:single;parent:TUIElement;padding,spacing:single;name:string8=''):TUIElement; overload;
 
   // Полезные функции общего применения
   // -------
   // Создать всплывающее окно, прицепить его к указанному предку
-  procedure ShowSimpleHint(msg:string;parent:TUIElement;x,y,time:integer;font:cardinal=0);
+  procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
 
   // Shortcut to the element under mouse
   function UnderMouse:TUIElement;
-  function UnderMouseName:string;
+  function UnderMouseName:string8;
   function FocusedElement:TUIElement;
   procedure SetFocusTo(e:TUIElement);
   function ModalElement:TUIElement;
   procedure SetModalElement(e:TUIElement);
 
   // Найти элемент по имени (через хэш - среди всех)
-  function FindElement(name:String8;mustExist:boolean=true):TUIElement;
-  function FindControl(name:String8;mustExist:boolean=true):TUIElement; deprecated 'Use FindElement';
+  function FindElement(name:string8;mustExist:boolean=true):TUIElement;
+  function FindControl(name:string8;mustExist:boolean=true):TUIElement; deprecated 'Use FindElement';
   // Найти элемент в заданной точке экрана (возвращает true если элемент найден и он
   // enabled - c учетом всех предков), игнорирует "прозрачные" в данной точке элементы
   function FindElementAt(x,y:integer;out c:TUIElement):boolean;
@@ -128,14 +128,17 @@ interface
   function FindAnyControlAt(x,y:integer;out c:TUIElement):boolean; deprecated 'Use FindAnyElementAt';
 
   // Dump all important UI data
-  function DumpUI:String8;
+  function DumpUI:string8;
 
   // UI critical section (mostly for internal use)
   procedure LockUI(caller:pointer=nil);
   procedure UnlockUI;
 
 implementation
- uses Apus.Common, SysUtils, Apus.Engine.UIScene, Apus.EventMan;
+ uses SysUtils, Apus.Engine.UIScene, Apus.EventMan,
+  Apus.Conv,
+  Apus.Strings,
+  Apus.Threads;
 
  procedure SetDefaultUIScale(fullScenesScale,windowedScenesScale:single);
   begin
@@ -143,40 +146,40 @@ implementation
    windowScale:=windowedScenesScale;
   end;
 
- procedure ShowSimpleHint(msg:string;parent:TUIElement;x,y,time:integer;font:cardinal=0);
+ procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
   begin
    Apus.Engine.UIScene.ShowSimpleHint(msg,parent,x,y,time,font);
   end;
 
- function CreateVerticalContainer(width:single;parent:TUIElement;padding,spacing:single;centering:boolean;name:string):TUIElement;
+ function CreateVerticalContainer(width:single;parent:TUIElement;padding,spacing:single;centering:boolean;name:string8):TUIElement;
   begin
    result:=TUIElement.Create(width,0,parent,name);
    result.layout:=TRowLayout.CreateVertical(spacing,true,centering);
    result.SetPadding(padding);
   end;
 
- function CreateVerticalContainer(width,height:single;parent:TUIElement;padding,spacing:single;centering:boolean;name:string):TUIElement;
+ function CreateVerticalContainer(width,height:single;parent:TUIElement;padding,spacing:single;centering:boolean;name:string8):TUIElement;
   begin
    result:=TUIElement.Create(width,height,parent,name);
    result.layout:=TRowLayout.CreateVertical(spacing,false,centering);
    result.SetPadding(padding);
   end;
 
- function CreateVerticalContainer(parent:TUIElement;padding,spacing:single;centering:boolean;name:string):TUIElement; overload;
+ function CreateVerticalContainer(parent:TUIElement;padding,spacing:single;centering:boolean;name:string8):TUIElement; overload;
   begin
    result:=TUIElement.Create(-1,-1,parent,name);
    result.layout:=TRowLayout.CreateVertical(spacing,false,centering);
    result.SetPadding(padding);
   end;
 
- function CreateHorizontalContainer(height:single;parent:TUIElement;padding,spacing:single;name:string):TUIElement; overload;
+ function CreateHorizontalContainer(height:single;parent:TUIElement;padding,spacing:single;name:string8):TUIElement; overload;
   begin
    result:=TUIElement.Create(0,height,parent,name);
    result.layout:=TRowLayout.CreateHorizontal(spacing,true);
    result.SetPadding(padding);
   end;
 
- procedure SetElementText(name:string;text:string);
+ procedure SetElementText(name:string8;text:string8);
   var
    c:TUIElement;
   begin
@@ -189,16 +192,16 @@ implementation
     TUIButton(c).caption:=text
    else
    if c is TUIEditBox then
-    TUIEditBox(c).realText:=text;
+    TUIEditBox(c).realText:=Str32(text);
   end;
 
- function UIElement(name:string;autoCreate:boolean=false):TUIElement;
+ function UIElement(name:string8;autoCreate:boolean=false):TUIElement;
   begin
    result:=FindElement(name,false);
    if (result=nil) and (autoCreate) then result:=TUIElement.Create(0,0,nil,name);
   end;
 
- function UIButton(name:string;mustExist:boolean=false):TUIButton;
+ function UIButton(name:string8;mustExist:boolean=false):TUIButton;
   var
    c:TUIElement;
   begin
@@ -208,7 +211,7 @@ implementation
    result:=c as TUIButton;
   end;
 
- function UIEditBox(name:string;mustExist:boolean=false):TUIEditBox;
+ function UIEditBox(name:string8;mustExist:boolean=false):TUIEditBox;
   var
    c:TUIElement;
   begin
@@ -218,7 +221,7 @@ implementation
    result:=c as TUIEditBox;
   end;
 
- function UILabel(name:string;mustExist:boolean=false):TUILabel;
+ function UILabel(name:string8;mustExist:boolean=false):TUILabel;
   var
    c:TUIElement;
   begin
@@ -228,7 +231,7 @@ implementation
    result:=c as TUILabel;
   end;
 
- function UIScrollBar(name:string;mustExist:boolean=false):TUIScrollBar;
+ function UIScrollBar(name:string8;mustExist:boolean=false):TUIScrollBar;
   var
    c:TUIElement;
   begin
@@ -238,7 +241,7 @@ implementation
    result:=c as TUIScrollBar;
   end;
 
- function UIComboBox(name:string;mustExist:boolean=false):TUIComboBox;
+ function UIComboBox(name:string8;mustExist:boolean=false):TUIComboBox;
   var
    c:TUIElement;
   begin
@@ -248,7 +251,7 @@ implementation
    result:=c as TUIComboBox;
   end;
 
- function UIListBox(name:string;mustExist:boolean=false):TUIListBox;
+ function UIListBox(name:string8;mustExist:boolean=false):TUIListBox;
   var
    c:TUIElement;
   begin
@@ -258,7 +261,7 @@ implementation
    result:=c as TUIListBox;
   end;
 
- function UICheckBox(name:string;mustExist:boolean=false):TUICheckbox;
+ function UICheckBox(name:string8;mustExist:boolean=false):TUICheckbox;
   var
    c:TUIElement;
   begin
@@ -268,7 +271,7 @@ implementation
    result:=c as TUICheckbox;
   end;
 
- function UIRadioButton(name:string;mustExist:boolean=false):TUIRadioButton;
+ function UIRadioButton(name:string8;mustExist:boolean=false):TUIRadioButton;
   var
    c:TUIElement;
   begin
@@ -371,7 +374,7 @@ implementation
    result:=Apus.Engine.UITypes.underMouse;
   end;
 
- function UnderMouseName:string;
+ function UnderMouseName:string8;
   var
    el:TUIElement;
   begin
@@ -395,7 +398,7 @@ implementation
    Apus.Engine.UITypes.ModalElement:=e;
   end;
 
- procedure SetElementState(name:string;visible:boolean;enabled:boolean=true);
+ procedure SetElementState(name:string8;visible:boolean;enabled:boolean=true);
   var
    c:TUIElement;
   begin
@@ -405,12 +408,12 @@ implementation
    c.enabled:=enabled;
   end;
 
- function DumpUITree(root:TUIElement):String8;
-   function DumpElement(c:TUIElement;indent:String8):String8;
+ function DumpUITree(root:TUIElement):string8;
+   function DumpElement(c:TUIElement;indent:string8):string8;
     var
      i:integer;
     begin
-     result:=Join([
+     result:=string8.Join([
       indent+c.ClassName+':'+c.name+' = '+IntToHex(cardinal(c),8),
       indent+Format('%d En=%d Vis=%d trM=%d',[c.order,byte(c.enabled),byte(c.visible),ord(c.shape)]),
       indent+Format('x=%.1f, y=%.1f, w=%.1f, h=%.1f, left=%d, top=%d',
@@ -423,14 +426,14 @@ implementation
     result:=DumpElement(root,'');
    end;
 
- function DumpUI:String8;
+ function DumpUI:string8;
   var
    i:integer;
   begin
-    result:=Join([
-     'Modal: '+PtrToStr(modalElement),
-     'Focused: '+PtrToStr(FocusedElement),
-     'Hooked: '+PtrToStr(hooked),
+    result:=string8.Join([
+     'Modal: '+Conv.ToStr(modalElement),
+     'Focused: '+Conv.ToStr(FocusedElement),
+     'Hooked: '+Conv.ToStr(hooked),
      ''],#13#10);
     for i:=0 to high(rootElements) do
       result:=result+DumpUITree(rootElements[i])+#13#10;
@@ -450,7 +453,7 @@ implementation
     btn.SetHotKey(hotkey and 255,hotkey shr 8);
   end;
 
- procedure SetupEditBox(edit:TUIEditBox;text:string;style:byte;cursor,maxlength:integer;
+ procedure SetupEditBox(edit:TUIEditBox;text:string8;style:byte;cursor,maxlength:integer;
                  enabled,password,noborder:boolean);
   begin
    edit.text:=text;
@@ -464,12 +467,14 @@ implementation
 
  procedure LockUI(caller:pointer=nil);
   begin
-   EnterCriticalSection(UICritSect,caller);
+   if caller=nil then
+     caller:={$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF};
+   UICritSect.Enter(caller);
   end;
 
  procedure UnlockUI;
   begin
-   LeaveCriticalSection(UICritSect);
+   UICritSect.Leave;
   end;
 
  // UI-related commands: Command:elementName
@@ -478,7 +483,7 @@ implementation
  procedure UICommand(event:TEventStr;tag:TTag);
   var
    p:integer;
-   value:string;
+   value:string8;
    e:TUIElement;
   begin
    event:=Copy(event,8,length(event));

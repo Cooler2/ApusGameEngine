@@ -11,14 +11,14 @@ interface
  procedure CreateTweakerScene(tinyFont,normalFont:cardinal);
 
 implementation
- uses Apus.CrossPlatform, SysUtils, Apus.Common, Apus.Engine.API, Apus.Colors,
+ uses SysUtils, Apus.Core, Apus.Strings, Apus.Engine.API, Apus.Colors,
    Apus.Publics, Math, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene, Apus.EventMan,
    Apus.Engine.UIRender;
 
  type
   TTweakerScene=class(TUIScene)
    tinyFont,normalFont:cardinal;
-   context:string;
+   context:string8;
    editbox:TUIEditBox;
    listbox:TUIListbox;
    editors:array[0..15] of TUIElement;
@@ -68,15 +68,16 @@ implementation
 
  procedure EventHandler(event:TEventStr;tag:TTag);
   begin
-   event:=UpperCase(event);
+   event:=event.ToUpper;
     if event='KBD\KEYDOWN' then begin
      // Ctrl+[~] - toggle scene
-     if (GetKeyEventVirtualCode(tag)=ord(TKey.Tilde)) and (game.shiftState and sscCtrl>0) then begin
+     if TKey(GetKeyEventVirtualCode(tag))=TKey.Tilde then
+      if game.shiftState and sscCtrl>0 then begin
       if not tweakerScene.IsActive then
        tweakerScene.SetStatus(TSceneStatus.ssActive)
       else
       tweakerScene.SetStatus(TSceneStatus.ssFrozen);
-    end;
+     end;
    end;
    if event='UI\TWEAKER\LIST\SELECTED' then
     tweakerScene.PlaceTrackers(true);
@@ -156,7 +157,7 @@ end;
 procedure TTweakerScene.PlaceTrackers;
 var
  i,j:integer;
- sa:StringArr;
+ sa:Strings8;
  name,value,iValue:string;
 begin
  // Delete old trackers
@@ -169,12 +170,12 @@ begin
   context:=listbox.lines[listbox.selectedLine];
   i:=pos(': ',context);
   if i>0 then delete(context,1,i+1);
-  sa:=split(';',context);
+  sa:=context.Split(';');
   for i:=0 to length(sa)-1 do begin
    j:=pos('=',sa[i]);
    if j=0 then continue;
-   name:=chop(copy(sa[i],1,j-1));
-   ivalue:=chop(copy(sa[i],j+1,100));
+   name:=String8(copy(sa[i],1,j-1)).Trim;
+   ivalue:=String8(copy(sa[i],j+1,100)).Trim;
    value:=GetOverriddenValue(name,context);
    if value='' then value:=iValue;
    editors[i]:=TValueEditor.Create(name,value,iValue,ui);
@@ -190,7 +191,7 @@ end;
 
 procedure TTweakerScene.SetStatus(st:TSceneStatus);
 var
- sa:StringArr;
+ sa:Strings8;
  lastIdx:integer;
 begin
  if st=TSceneStatus.ssActive then begin
@@ -345,12 +346,12 @@ function TTracker.onKey(keycode: byte; pressed: boolean;
   shiftstate: byte): boolean;
 begin
  if pressed then
-  case keyCode of
-   ord(TKey.Left):ChangeValue(-1);
-   ord(TKey.Right):ChangeValue(+1);
-   ord(TKey.Up):SetFocusToPrev;
-   ord(TKey.Down):SetFocusToNext;
-   ord(TKey.R):value:=initialValue;   // [R] - reset to initial value
+  case TKey(keyCode) of
+   TKey.Left:ChangeValue(-1);
+   TKey.Right:ChangeValue(+1);
+   TKey.Up:SetFocusToPrev;
+   TKey.Down:SetFocusToNext;
+   TKey.R:value:=initialValue;   // [R] - reset to initial value
   end;
 end;
 
@@ -426,7 +427,7 @@ begin
  varName[1]:='g';
  varName[2]:=UpCase(varName[2]);
  if varName[2]='F' then begin // Float value
-  trackers[0]:=TTracker.Create(5,round(height*0.2),self,vtFloat,ParseFloat(vValue),ParseFloat(iValue));
+  trackers[0]:=TTracker.Create(5,round(height*0.2),self,vtFloat,String8(vValue).ToDouble,String8(iValue).ToDouble);
  end;
  if varName[2]='I' then begin // Integer value
   trackers[0]:=TTracker.Create(5,round(height*0.2),self,vtInteger,StrToInt(vValue),StrToInt(iValue));

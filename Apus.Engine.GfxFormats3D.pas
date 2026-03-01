@@ -11,13 +11,15 @@ interface
  function LoadOBJ(fname:string):TMesh;
 
 implementation
- uses SysUtils, Apus.Common, Apus.Geom2D, Apus.Geom3D, Apus.Structs;
+ uses SysUtils, Apus.Core, Apus.Geom2D, Apus.Geom3D, Apus.Structs,
+  Apus.Conv,
+  Apus.Strings;
 
  function LoadOBJ(fname:string):TMesh;
   var
    f:text;
-   line:string;
-   sa:StringArr;
+   line:String8;
+   sa:Strings8;
    points:array of TPoint3s;
    normals:array of TVector3s;
    uv:TTexCoords;
@@ -34,9 +36,9 @@ implementation
     x,y,z:single;
    begin
     x:=0; y:=0; z:=0;
-    if high(sa)>=1 then x:=ParseFloat(sa[1]);
-    if high(sa)>=2 then y:=ParseFloat(sa[2]);
-    if high(sa)>=3 then z:=ParseFloat(sa[3]);
+    if high(sa)>=1 then x:=Conv.ToFloat(sa[1]);
+    if high(sa)>=2 then y:=Conv.ToFloat(sa[2]);
+    if high(sa)>=3 then z:=Conv.ToFloat(sa[3]);
     points[pCnt].x:=x;
     points[pCnt].y:=-z;
     points[pCnt].z:=y;
@@ -49,9 +51,9 @@ implementation
     x,y,z:single;
    begin
     x:=0; y:=0; z:=0;
-    if high(sa)>=1 then x:=ParseFloat(sa[1]);
-    if high(sa)>=2 then y:=ParseFloat(sa[2]);
-    if high(sa)>=3 then z:=ParseFloat(sa[3]);
+    if high(sa)>=1 then x:=Conv.ToFloat(sa[1]);
+    if high(sa)>=2 then y:=Conv.ToFloat(sa[2]);
+    if high(sa)>=3 then z:=Conv.ToFloat(sa[3]);
     normals[nCnt].x:=x;
     normals[nCnt].y:=-z;
     normals[nCnt].z:=y;
@@ -64,22 +66,22 @@ implementation
     u,v:single;
    begin
     u:=0; v:=0;
-    if high(sa)>=1 then u:=ParseFloat(sa[1]);
-    if high(sa)>=2 then v:=1-ParseFloat(sa[2]);
+    if high(sa)>=1 then u:=Conv.ToFloat(sa[1]);
+    if high(sa)>=2 then v:=1-Conv.ToFloat(sa[2]);
     uv[uvCnt].x:=u;
     uv[uvCnt].y:=v;
     inc(uvCnt);
     if uvCnt>=high(uv) then
      SetLength(uv,uvCnt*2);
    end;
-  function GetVertexIdx(st:string):integer;
+  function GetVertexIdx(st:string8):integer;
    var
-    sa:StringArr;
+    sa:Strings8;
     idx:integer;
    begin
     result:=vHash.Get(st);
     if result>=0 then exit;
-    sa:=Split('/',st); // vertex format is: pos_idx/tex_idx/normal_idx
+    sa:=st.Split('/'); // vertex format is: pos_idx/tex_idx/normal_idx
     idx:=StrToIntDef(sa[0],1)-1;
     result:=vCnt;
     vHash.Put(st,result);
@@ -137,9 +139,9 @@ implementation
    while not eof(f) do begin
     readln(f,line);
     if line='' then continue;
-    line:=chop(line);
+    line:=line.Trim;
     if length(line)<5 then continue;
-    sa:=split(' ',line);
+    sa:=line.split(' ');
     // Vertex
     if sa[0]='v' then AddPoint;
     // Vertex

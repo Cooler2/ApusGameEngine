@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.UIScene;
 interface
- uses Apus.Crossplatform, Apus.Types, Apus.Engine.Scene, Apus.Engine.UITypes;
+ uses Apus.Core, Apus.Engine.Scene, Apus.Engine.UITypes;
 
 var
  defaultScale:single=1.0;
@@ -53,13 +53,16 @@ type
  procedure SetDisplaySize(width,height:integer);
 
  // Создать всплывающее окно, прицепить его к указанному предку
- procedure ShowSimpleHint(msg:string;parent:TUIElement;x,y,time:integer;font:cardinal=0);
+ procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
 
 implementation
- uses SysUtils, Types,
-   Apus.Common, Apus.EventMan, Apus.Publics, Apus.Geom2D,
+ uses SysUtils, Apus.Lib, Types,
+   Apus.EventMan, Apus.Publics, Apus.Geom2D,
    Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
-   Apus.Engine.CmdProc, Apus.Engine.Console, Apus.Engine.API;
+   Apus.Engine.CmdProc, Apus.Engine.Console, Apus.Engine.API,
+  Apus.Log,
+  Apus.Strings,
+  Apus.Threads;
 
 const
  statuses:array[TSceneStatus] of string=('frozen','background','active');
@@ -100,20 +103,20 @@ function UIScene(name:String8):TUIScene;
 
 procedure SetDisplaySize(width,height:integer);
  begin
-  LogMessage('UIScene.SDS');
+  Log.Msg('UIScene.SDS');
   oldRootWidth:=rootWidth;
   oldAreaHeight:=rootHeight;
   rootWidth:=width;
   rootHeight:=height;
  end;
 
- procedure ShowSimpleHint(msg:string;parent:TUIElement;x,y,time:integer;font:cardinal=0);
+ procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
   var
    hint:TUIHint;
    i:integer;
   begin
-   LogMessage('ShowHint: '+msg);
-   msg:=Translate(Str16(msg));
+   Log.Msg('ShowHint: '+msg);
+   msg:=Translate(msg);
    if (x=-1) or (y=-1) then begin
     x:=curMouseX; y:=curMouseY;
     hintRect:=Rect(x-8,y-8,x+8,y+8);
@@ -131,7 +134,7 @@ procedure SetDisplaySize(width,height:integer);
      parent:=parent.GetRoot;
    end;
    if curhint<>nil then begin
-    LogMessage('Free previous hint');
+    Log.Msg('Free previous hint');
     curHint.Free;
     curHint:=nil;
    end;
@@ -141,17 +144,17 @@ procedure SetDisplaySize(width,height:integer);
    hint.timer:=time;
    hint.order:=10000; // Top
    curhint:=hint;
-   LogMessage('Hint created '+inttohex(cardinal(hint),8));
+   Log.Msg('Hint created '+inttohex(cardinal(hint),8));
   end;
 
  procedure ActivateEventHandler(event:TEventStr;tag:TTag);
   begin
-   EnterCriticalSection(UICritSect);
+   UICritSect.Enter;
    try
     if tag=0 then
      SetFocusTo(nil);
    finally
-    LeaveCriticalSection(UICritSect);
+    UICritSect.Leave;
    end;
  end;
 
@@ -168,9 +171,9 @@ procedure SetDisplaySize(width,height:integer);
    time:int64;
    st:string;
   begin
-   event:=UpperCase(copy(event,7,length(event)-6));
-   EnterCriticalSection(UICritSect);
-   time:=MyTickCount;
+   event:=UpperCase {TODO: use st.ToUpper}(copy(event,7,length(event)-6));
+   UICritSect.Enter;
+   time:=CoreTime.Ticks;
    try
     // обновить положение курсора если оно устарело
     if event='UPDATEPOS' then begin
@@ -271,9 +274,9 @@ procedure SetDisplaySize(width,height:integer);
      // DEBUG FACILITIES
      // Drag elements with Ctrl+RMB
      if (tag=2) and
-        (designmode or HasFlag(lastShiftState,sscCtrl)) then hookedItem:=c;
+        (designmode or Bits.HasAll(lastShiftState,sscCtrl)) then hookedItem:=c;
      // Показать название и св-ва элемента
-     if (tag=3) and HasFlag(lastShiftState,sscCtrl) then
+     if (tag=3) and Bits.HasAll(lastShiftState,sscCtrl) then
       if c<>nil then begin
         st:=c.name;
         c2:=c;
@@ -309,9 +312,8 @@ procedure SetDisplaySize(width,height:integer);
       c.onMouseScroll(tag);
 
    finally
-    LeaveCriticalSection(UICritSect);
+    UICritSect.Leave;
    end;
-
   end;
 
  procedure PrintUIlog;
@@ -323,7 +325,7 @@ procedure SetDisplaySize(width,height:integer);
      inttostr(clipMouserect.right)+','+inttostr(clipMouserect.bottom)+')'#13#10;
    st:=st+' Modal element: ';
    if modalElement<>nil then st:=st+modalElement.name else st:=st+'none';
-   ForceLogMessage('UI state'#13#10+st);
+   Log.Force('UI state'#13#10+st);
   end;
 
  procedure KbdEventHandler(event:TEventStr;tag:TTag);
@@ -332,13 +334,13 @@ procedure SetDisplaySize(width,height:integer);
    shift:byte;
    key,scancode:integer;
   begin
-   EnterCriticalSection(UICritSect);
+   UICritSect.Enter;
    try
     lastShiftState:=game.shiftState;
     shift:=game.shiftState;
     key:=GetKeyEventVirtualCode(tag); // virtual key code
     scancode:=GetKeyEventScancode(tag);
-    event:=UpperCase(copy(event,5,length(event)-4));
+    event:=UpperCase {TODO: use st.ToUpper}(copy(event,5,length(event)-4));
     if event='KEYDOWN' then // Win+Ctrl+S
      if (key=ord('S')) and (shift=8+2) then PrintUILog;
 
@@ -365,7 +367,7 @@ procedure SetDisplaySize(width,height:integer);
     end;
 
    finally
-    LeaveCriticalSection(UICritSect);
+    UICritSect.Leave;
    end;
   end;
 
@@ -468,7 +470,7 @@ procedure SetDisplaySize(width,height:integer);
   begin
    result:=true;
    Signal('Scenes\ProcessScene\'+name);
-   EnterCriticalSection(UICritSect);
+   UICritSect.Enter;
    // отложенное удаление элементов
 
    // Размер корневого эл-та - полный экран
@@ -489,7 +491,7 @@ procedure SetDisplaySize(width,height:integer);
       if not (c.visible and c.enabled) or
        ((modalElement<>nil) and (c.parent=nil) and (c<>modalElement)) then begin
        SetFocusTo(nil);
-       LogMessage(UI.name);
+       Log.Msg(UI.name);
        break;
       end;
       c:=c.parent;
@@ -506,10 +508,10 @@ procedure SetDisplaySize(width,height:integer);
     end;
 
     if LastHandleTime=0 then begin // первая обработка скипается
-     LastHandleTime:=MyTickCount;
+     LastHandleTime:=CoreTime.Ticks;
      exit;
     end;
-    time:=MyTickCount;
+    time:=CoreTime.Ticks;
     delta:=time-LastHandleTime;
     ProcessElementTree(UI);
 
@@ -529,14 +531,14 @@ procedure SetDisplaySize(width,height:integer);
     end;
     LastHandleTime:=time;
    finally
-    LeaveCriticalSection(UICritSect);
+    UICritSect.Leave;
    end;
   end;
 
   // tag: low 8 bit - new shadow value, next 16 bit - duration in ms
   procedure onSetGlobalShadow(event:TEventStr;tag:TTag);
   begin
-   startShadowChange:=MyTickCount;
+   startShadowChange:=CoreTime.Ticks;
    shadowChangeDuration:=tag shr 8;
    oldShadowValue:=curShadowValue;
    needShadowValue:=tag and $FF;
@@ -557,21 +559,21 @@ procedure SetDisplaySize(width,height:integer);
   var
    t:int64;
   begin
-   t:=MyTickCount;
+   t:=CoreTime.Ticks;
    if t>=lastRenderTime then
     frametime:=t-lastRenderTime
    else begin
      frameTime:=1;
-     ForceLogMessage('Kosyak! '+inttostr(t)+' '+inttostr(lastRenderTime));
+     Log.Force('Kosyak! '+inttostr(t)+' '+inttostr(lastRenderTime));
     end;
    lastRenderTime:=t;
 
    //Apus.Engine.UIRender.Frametime:=frametime;
    Signal('Scenes\'+name+'\BeforeRender');
-   StartMeasure(11);
+   // StartMeasure(11); {TODO Migrate this}
    if UI<>nil then begin
     Signal('Scenes\'+name+'\BeforeUIRender');
-    EnterCriticalSection(UICritSect);
+    UICritSect.Enter;
     try
      try
       DrawUI(UI);
@@ -579,11 +581,11 @@ procedure SetDisplaySize(width,height:integer);
       on e:exception do raise EError.Create('UI.DrawUI '+name+' Err '+e.message);
      end;
     finally
-     LeaveCriticalSection(UICritSect);
+     UICritSect.Leave;
     end;
     Signal('Scenes\'+name+'\AfterUIRender');
    end;
-   EndMeasure2(11);
+   //EndMeasure2(11);
   end;
 
  procedure InitUI;
@@ -606,8 +608,8 @@ procedure SetDisplaySize(width,height:integer);
  procedure TUIScene.SetStatus(st:TSceneStatus);
   begin
    inherited;
-   ForceLogMessage('Scene '+name+' status changed to '+statuses[st]);
-  // LogMessage('Scene '+name+' status changed to '+statuses[st],5);
+   Log.Force('Scene '+name+' status changed to '+statuses[st]);
+  // Log.Msg('Scene '+name+' status changed to '+statuses[st],5);
    if (status=ssActive) and (UI=nil) then begin
     UI:=TUIElement.Create(rootWidth,rootHeight,nil);
     UI.name:=name;
@@ -633,7 +635,7 @@ procedure SetDisplaySize(width,height:integer);
    if (FocusedElement<>nil) and (FocusedElement.HasParent(UI)) then begin
     charCode:=key shr 16;
     scanCode:=(key shr 8) and $FF;
-    FocusedElement.onUniChar(WideChar(charCode),scanCode);
+    FocusedElement.onUniChar(Char32(charCode),scanCode);
    end;
   end;
 

@@ -7,14 +7,14 @@
 {$IF Defined(MSWINDOWS) or Defined(LINUX)} {$DEFINE DGL} {$ENDIF}
 unit Apus.Engine.OpenGL;
 interface
-uses Apus.Crossplatform, Apus.Engine.API, Apus.Images;
+uses Apus.Core, Apus.Engine.API, Apus.Images;
 
 type
  TOpenGL=class(TInterfacedObject,IGraphicsSystem,IGraphicsSystemConfig)
   procedure Init(system:ISystemPlatform);
   procedure Done;
   function GetVersion:single;
-  function GetName:string;
+  function GetName:string8;
   // IGraphicsSystemConfig
   procedure ChoosePixelFormats(out trueColor,trueColorAlpha,rtTrueColor,rtTrueColorAlpha:TImagePixelFormat;
     economyMode:boolean=false);
@@ -46,7 +46,7 @@ type
 
   // For internal use
  protected
-  glVersion,glRenderer:string;
+  glVersion,glRenderer:string8;
   glVersionNum:single;
   sysPlatform:ISystemPlatform;
   canPaint:integer;
@@ -58,7 +58,7 @@ var
  procedure CheckForGLError(lab:integer=0); inline;
 
 implementation
- uses Apus.Common,
+ uses
   {$IFDEF MSWINDOWS}Windows,{$ENDIF}
   {$IFDEF DGL}dglOpenGL,{$ENDIF}
   SysUtils,
@@ -69,7 +69,8 @@ implementation
   Apus.Engine.Draw,
   Apus.Engine.TextDraw,
   Apus.Engine.ResManGL,
-  Apus.Engine.ShadersGL;
+  Apus.Engine.ShadersGL,
+  Apus.Log;
 
 type
  TRenderDevice=class(TInterfacedObject,IRenderDevice)
@@ -146,8 +147,7 @@ begin
  if debugGL then begin
   error:=glGetError;
   if error<>GL_NO_ERROR then begin
-    raise EError.Create(Format('GL Error %d: code %d (%x) :: %s',[lab,error,error,GetCallStack]));
-    //ForceLogMessage('GL Error %d: code %d (%x) :: %s',[lab,error,error,GetCallStack]);
+    raise EError.Create(Format('GL Error %d: code %d (%x)',[lab,error,error]));
   end;
  end;
 end;
@@ -176,7 +176,7 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   begin
    DC:=GetDC(system.GetWindowHandle);
    RC:=system.CreateOpenGLContext; // Create basic GL context
-   LogMessage('Activate GL context');
+   Log.Msg('Activate GL context');
    ActivateRenderingContext(DC,RC); // Load all OpenGL functions and extensions
    // Now create main context
 
@@ -184,7 +184,7 @@ procedure TOpenGL.Init(system:ISystemPlatform);
  {$ENDIF}
 
  begin
-  LogMessage('Init OpenGL');
+  Log.Msg('Init OpenGL');
   sysPlatform:=system;
   {$IFDEF DGL}
   InitOpenGL;
@@ -204,16 +204,16 @@ procedure TOpenGL.Init(system:ISystemPlatform);
 
   glVersion:=glGetString(GL_VERSION);
   glRenderer:=glGetString(GL_RENDERER);
-  ForceLogMessage('OpenGL version: '+glVersion);
-  ForceLogMessage('OpenGL vendor: '+PAnsiChar(glGetString(GL_VENDOR)));
-  ForceLogMessage('OpenGL renderer: '+glRenderer);
+  Log.Force('OpenGL version: '+glVersion);
+  Log.Force('OpenGL vendor: '+PAnsiChar(glGetString(GL_VENDOR)));
+  Log.Force('OpenGL renderer: '+glRenderer);
   if not GL_VERSION_3_0 then
    raise Exception.Create('OpenGL 3.0 or higher required!'#13#10'Please update your video drivers.');
 
   glGetIntegerv(GL_NUM_EXTENSIONS,@cnt);
   for i:=0 to cnt-1 do
    exList:=exList+#13#10+PAnsiChar(glGetStringi(GL_EXTENSIONS,i));
-  ForceLogMessage('OpenGL extensions: '+exList);
+  Log.Force('OpenGL extensions: '+exList);
   CheckForGLError(012);
 
   glVersionNum:=GetVersion;
@@ -286,7 +286,7 @@ function TOpenGL.SetVSyncDivider(n: integer):boolean;
   {$IFDEF MSWINDOWS}
   if WGL_EXT_swap_control then begin
    wglSwapIntervalEXT(n);
-   LogMessage('VSync: swap interval=%d',[n]);
+   Log.Msg('VSync: swap interval=%d',[n]);
    exit(true);
   end;
   {$ENDIF}
@@ -319,7 +319,7 @@ procedure TOpenGL.BeginPaint(target: TTexture);
 procedure TOpenGL.EndPaint;
  begin
   if canPaint=0 then exit;
-  // LogMessage('EP: '+inttohex(integer(curtarget),8));
+  // Log.Msg('EP: '+inttohex(integer(curtarget),8));
   /// TODO: flush any draw cashes
 
   ASSERT(canPaint>0);
@@ -418,7 +418,7 @@ procedure TOpenGL.DrawDebugOverlay(idx: integer);
 
  end;
 
-function TOpenGL.GetName: string;
+function TOpenGL.GetName: string8;
  begin
   result:=className;
  end;

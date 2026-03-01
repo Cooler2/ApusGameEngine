@@ -59,7 +59,7 @@ type
  end;
 
 implementation
-uses SysUtils, Apus.Common, Apus.FastGFX, Apus.Colors, Apus.Engine.ImageTools;
+uses SysUtils, Apus.Core, Apus.FastGFX, Apus.Colors, Apus.Engine.ImageTools;
 
 type
  TPatchRange=TCustomNinePatch.TPatchRange;
@@ -177,7 +177,7 @@ procedure TCustomNinePatch.CheckCells;
       x:=hRanges[j].pFrom+(y and 1);
       while x<=hRanges[j].pTo do begin
        if GetPixel(x,y) shr 24>4 then begin // pixels with alpha below 4 are considered transparent
-        SetBit(usedCells[i],j);
+        Bits.SetBit(usedCells[i],j);
         inc(numCells);
         inc(y,10000);
         break;
@@ -348,7 +348,7 @@ function TCustomNinePatch.CreateSimpleMesh(nH,nW:integer;du,dv:single):TMesh;
    // Fill indices
    for i:=0 to nH-1 do
     for j:=0 to nW-1 do
-     if GetBit(usedCells[i],j) then begin
+     if Bits.Get(usedCells[i],j) then begin
       base:=i*(nW+1)+j; // base index
       result.AddTrg(base,base+1,base+2+nW);
       result.AddTrg(base,base+2+nW,base+1+nW);
@@ -369,7 +369,7 @@ function TCustomNinePatch.CreateOverlappedMesh(nH,nW:integer;du,dv:single):TMesh
      v1:=vRanges[i].pFrom*dv;
      v2:=vRanges[i].pTo*dv+dv;
      for j:=0 to nW-1 do
-      if GetBit(usedCells[i],j) then begin
+      if Bits.Get(usedCells[i],j) then begin
        if pass<>PassForCell(i,j) then continue;
        u1:=hRanges[j].pFrom*du;
        u2:=hRanges[j].pTo*du+du;
@@ -470,7 +470,7 @@ function TCustomNinePatch.CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:T
   tileCount:=0;
   for i:=0 to nH-1 do
    for j:=0 to nW-1 do
-    if GetBit(usedCells[i],j) then begin
+    if Bits.Get(usedCells[i],j) then begin
      inc(tileCount,gridW[j]*gridH[i]);
     end;
   // Create mesh
@@ -482,7 +482,7 @@ function TCustomNinePatch.CreateTiledMesh(nH,nW:integer;du,dv:single;var xx,yy:T
      v2:=vRanges[i].pTo*dv+dv/2;
      tileHeight:=vRanges[i].pTo-vRanges[i].pFrom;
      for j:=0 to nW-1 do
-      if GetBit(usedCells[i],j) then begin
+      if Bits.Get(usedCells[i],j) then begin
        if pass<>PassForCell(i,j) then continue;
        u1:=hRanges[j].pFrom*du+du/2;
        u2:=hRanges[j].pTo*du+du/2;
@@ -526,7 +526,7 @@ procedure TCustomNinePatch.AdjustOverlappedMesh(nW,nH:Integer;var xx,yy:TGridArr
   for pass:=0 to 2 do
    for i:=0 to nH-1 do
     for j:=0 to nW-1 do
-     if GetBit(usedCells[i],j) then
+     if Bits.Get(usedCells[i],j) then
       if pass=PassForCell(i,j) then begin
        // Calculate cell position
        x1:=xx[j];

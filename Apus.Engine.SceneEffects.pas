@@ -7,14 +7,14 @@
 {$R-}
 unit Apus.Engine.SceneEffects;
 interface
- uses Types, Apus.Engine.API, Apus.EventMan, Apus.Engine.UIScene, Apus.Common, Apus.AnimatedValues;
+ uses Apus.Core, Types, Apus.Engine.API, Apus.EventMan, Apus.Engine.UIScene, Apus.AnimatedValues;
 
 type
  // Base scene switcher
  TBaseSceneSwitcher=class(TSceneSwitcher)
-  procedure SwitchToScene(name:string); override; // switch to a fullscreen scene
-  procedure ShowWindowScene(name:string;modal:boolean=true); override; // show a windowed scene
-  procedure HideWindowScene(name:string); override; // hide a windowed scene
+  procedure SwitchToScene(name:string8); override; // switch to a fullscreen scene
+  procedure ShowWindowScene(name:string8;modal:boolean=true); override; // show a windowed scene
+  procedure HideWindowScene(name:string8); override; // hide a windowed scene
  end;
 
  // Base class for effects used to switch fullscreen scenes from the current topmost visible scene to a chosen one
@@ -90,10 +90,11 @@ type
   disableEffects:boolean=false; // true - disable all effects
 
 implementation
- uses Math,SysUtils, Apus.Images, Apus.Geom2D,
+ uses Apus.Images, Apus.Geom2D, Apus.Geom3D,
       {$IFDEF OPENGL}dglOpenGL, {$ENDIF}
       {$IFDEF ANDROID}gles20, Apus.Engine.PainterGL, {$ENDIF}
-      Apus.Colors,Apus.Engine.UI,Apus.Engine.Console,Apus.Engine.UIRender;
+      Apus.Colors,Apus.Engine.UI,Apus.Engine.Console,Apus.Engine.UIRender,
+      Apus.Lib, Apus.Utils;
 
  var
   ModalStack:array[1..8] of TUIElement;
@@ -105,16 +106,16 @@ implementation
 
 constructor TSwitchScreenEffect.Create(scene: TGameScene; totalTime: integer);
 begin
- LockUI(GetCaller);
+ LockUI({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
  try
  if scene.effect<>nil then begin
-  ForceLogMessage('Scene '+scene.name+' already has an effect!');
+  Log.Force('Scene '+scene.name+' already has an effect!');
  end;
  initialized:=false;
  prevScene:=game.TopmostVisibleScene(true);
  ASSERT(scene<>prevScene);
- if scene is TUIScene then LogMessage('Effect %s on scene %s',[ClassName,TUIScene(scene).name]);
- if prevScene is TUIScene then LogMessage('Prev scene: '+TUIScene(prevScene).name);
+ if scene is TUIScene then Log.Msg('Effect %s on scene %s',[ClassName,TUIScene(scene).name]);
+ if prevScene is TUIScene then Log.Msg('Prev scene: '+TUIScene(prevScene).name);
  inherited Create(scene,totaltime);
  finally
   UnlockUI;
@@ -122,17 +123,17 @@ begin
 
  target.SetStatus(TSceneStatus.ssActive);
 
- LockUI(GetCaller);
+ LockUI({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
  try
  if target is TUIScene then (target as TUIScene).UI.enabled:=false;
 
  if scene.zOrder=prevScene.zOrder then begin
   inc(scene.zOrder);
-  LogMessage('zOrder incremented: %s=%d, %s=%d',[scene.name,scene.zOrder,prevScene.name,prevScene.zOrder]);
+  Log.Msg('zOrder incremented: %s=%d, %s=%d',[scene.name,scene.zOrder,prevScene.name,prevScene.zOrder]);
  end;
  if scene.zorder<prevScene.zorder then begin
   Swap(scene.zOrder,prevScene.zOrder);
-  LogMessage('zOrder swap: %s=%d, %s=%d',[scene.name,scene.zOrder,prevScene.name,prevScene.zOrder]);
+  Log.Msg('zOrder swap: %s=%d, %s=%d',[scene.name,scene.zOrder,prevScene.name,prevScene.zOrder]);
  end;
  prevTimer:=0;
  dontPlay:=disableEffects;
@@ -172,12 +173,12 @@ begin
  width:=game.GetSettings.width;
  height:=game.GetSettings.height;
  flags:=aiRenderTarget+aiTexture;
- if game.GetSettings.zbuffer>0 then SetFlag(flags,aiDepthBuffer);
+ if game.GetSettings.zbuffer>0 then Bits.SetFlag(flags,aiDepthBuffer);
  try
   buffer:=AllocImage(width,height,pfRenderTarget,flags,'SceneEffect');
  except
   on e:exception do begin
-   LogMessage('ERROR: eff allocation - '+ExceptionMsg(e));
+   Log.Msg('ERROR: eff allocation - '+ExceptionMsg(e));
    dontPlay:=true;
    duration:=1;
   end;
@@ -197,7 +198,7 @@ begin
   target.Render;
   gfx.EndPaint;
   color:=round(255*timer/duration);
-  DebugMessage('EffStage: '+inttostr(color));
+  Log.Force('EffStage: '+Conv.ToStr(color));
   if color>255 then begin
    color:=255;
    done:=true;
@@ -210,7 +211,7 @@ begin
   end;
  except
   on E:Exception do begin
-   ForceLogMessage('TransEff error: '+ExceptionMsg(e));
+   Log.Force('TransEff error: '+ExceptionMsg(e));
    DontPlay:=true;
   end;
  end;
@@ -259,7 +260,7 @@ begin
   gfx.EndPaint;
  except
   on e:exception do begin
-   LogMessage('ERROR: RSE initialization - '+ExceptionMsg(e));
+   Log.Msg('ERROR: RSE initialization - '+ExceptionMsg(e));
    dontPlay:=true;
    duration:=1;
   end;
@@ -314,7 +315,7 @@ begin
 
  except
   on E:Exception do begin
-   ForceLogMessage('RotScalEff error: '+ExceptionMsg(e));
+   Log.Force('RotScalEff error: '+ExceptionMsg(e));
    DontPlay:=true;
   end;
  end;
@@ -322,14 +323,14 @@ end;
 
 procedure LogModalStack;
 var
- st:string;
+ st:string8;
  i:integer;
 begin
  st:='';
  for i:=1 to modalstacksize do
   st:=st+modalstack[i].name+' > ';
  st:=st+'('+modalElement.name+')';
- LogMessage('ModalStack: '+st+' #'+inttostr(modalStackSize));
+ Log.Msg('ModalStack: %s #%d',[st,modalStackSize]);
 end;
 
 
@@ -342,11 +343,11 @@ var
 begin
  try
  if (effMode in [sweSHow,sweShowModal]) and scene.IsActive then begin
-  LogMessage('SWE for active scene IGNORED! '+scene.name+' : '+scene.UI.name);
+  Log.Msg('SWE for active scene IGNORED! '+scene.name+' : '+scene.UI.name);
   exit;
  end;
  if (effMode=sweHide) and (not scene.activated) then begin
-  LogMessage('sweHide for inactive scene IGNORED! '+scene.name+' : '+scene.UI.name);
+  Log.Msg('sweHide for inactive scene IGNORED! '+scene.name+' : '+scene.UI.name);
   exit;
  end;
  initialized:=false;
@@ -354,7 +355,7 @@ begin
  // Показ модального окна
  game.EnterCritSect;
  try
-  PutMsg(Format('WndEffStart(%s,%d,%d,%d)',[scene.UI.name,duration,ord(effMode),effect]));
+  Log.Msg('WndEffStart(%s,%d,%d,%d)',[scene.UI.name,duration,ord(effMode),effect]);
   inherited Create(scene,duration);
   dontPlay:=DisableEffects or (duration<=0);
   if pfRenderTargetAlpha=ipfNone then DontPlay:=true;
@@ -394,7 +395,7 @@ begin
   while (i>1) and (modalstack[i-1]<>nil) and (modalStack[i-1].order>c.order) do begin
    modalStack[i]:=modalStack[i-1];
    dec(i);
-   LogMessage('ModalStack: insert');
+   Log.Msg('ModalStack: insert');
   end;
   modalStack[i]:=modalElement;
   if i=modalStackSize then begin
@@ -418,7 +419,7 @@ begin
     dec(modalStackSize);
    end;
    if (i>1) and (i<=modalStackSize) then begin // Сцена где-то внутре
-    LogMessage('ModalStack: unshift '+inttostr(i));
+    Log.Msg('ModalStack: unshift '+Conv.ToStr(i));
     while i<modalStackSize do begin
      modalStack[i]:=modalStack[i+1];
      inc(i);
@@ -438,7 +439,7 @@ begin
   game.LeaveCritSect;
  end;
  except
-  on e:exception do ForceLogMessage('Failed to create SWE effect: '+ExceptionMsg(e));
+  on e:exception do Log.Force('Failed to create SWE effect: '+ExceptionMsg(e));
  end;
 end;
 
@@ -465,19 +466,17 @@ begin
  end;
  if w=0 then
   r:=TUIScene(target).GetArea;
-
  try
-  LogMessage(Format('WndEffect: allocating %d x %d buffer',[w,h]));
+  Log.Msg('WndEffect: allocating %d x %d buffer',[w,h]);
   buffer:=AllocImage(w,h,pfRenderTargetAlpha,aiRenderTarget+aiTexture,'WndEffect');
   if buffer=nil then raise EError.Create('WndEffect: buffer not allocated!');
  except
    on e:exception do begin
-    LogMessage('ERROR: eff allocation - '+ExceptionMsg(e));
+    Log.Error('ERROR: eff allocation - '+ExceptionMsg(e));
     dontPlay:=true;
     duration:=1;
    end;
  end;
-
  initialized:=true;
 end;
 
@@ -492,7 +491,7 @@ begin
   end;
   inherited;
  except
-  on e:exception do ForceLogMessage('Failed to delete SWE effect: '+ExceptionMsg(e));
+  on e:exception do Log.Force('Failed to delete SWE effect: '+ExceptionMsg(e));
  end;
 end;
 
@@ -530,7 +529,7 @@ begin
  except
   on e:exception do begin
    dontPlay:=true;
-   ForceLogMessage('Error: SWE:D '+ExceptionMsg(e));
+   Log.Force('Error: SWE:D '+ExceptionMsg(e));
   end;
  end;
 
@@ -629,7 +628,7 @@ begin
  end;
 
  except
-  on e:exception do ForcelogMessage('WndEff error: '+ExceptionMsg(e));
+  on e:exception do Log.Force('WndEff error: '+ExceptionMsg(e));
  end;
 end;
 
@@ -697,14 +696,14 @@ var
  rect:TRect;
 begin
  if scene.effect<>nil then begin
-  LogMessage('WARN! BlurEff skipped - scene already has effect: '+scene.name);
+  Log.Msg('WARN! BlurEff skipped - scene already has effect: '+scene.name);
   exit;
  end;
- LogMessage('BlurEff for '+scene.name);
+ Log.Msg('BlurEff for '+scene.name);
  initialized:=false;
  rect:=scene.GetArea;
- width:=min2(rect.width,game.GetSettings.width);
- height:=min2(rect.height,game.GetSettings.height);
+ width:=Min(rect.width,game.GetSettings.width);
+ height:=Min(rect.height,game.GetSettings.height);
 
  power.Init(0);
  power.Animate(1.0,time,spline0);
@@ -738,7 +737,7 @@ begin
  except
   on e:exception do begin
    dontPlay:=true;
-   LogMessage('Erorr in BlurEff init: '+ExceptionMsg(e));
+   Log.Msg('Erorr in BlurEff init: '+ExceptionMsg(e));
   end;
  end;
 end;
@@ -824,7 +823,7 @@ begin
 
  except
   on e:exception do begin
-   ForceLogMessage('Error in BlurEff: '+ExceptionMsg(e));
+   Log.Force('Error in BlurEff: '+ExceptionMsg(e));
    dontPlay:=true;
   end;
  end;
@@ -838,12 +837,12 @@ end;
 
 { TSceneSwitcher }
 
-procedure TBaseSceneSwitcher.HideWindowScene(name:string);
+procedure TBaseSceneSwitcher.HideWindowScene(name:string8);
  begin
   TShowWindowEffect.Create(game.GetScene(name) as TUIScene,250,sweHide,0);
  end;
 
-procedure TBaseSceneSwitcher.ShowWindowScene(name:string;modal:boolean=true);
+procedure TBaseSceneSwitcher.ShowWindowScene(name:string8;modal:boolean=true);
  var
   mode:TShowMode;
  begin
@@ -852,7 +851,7 @@ procedure TBaseSceneSwitcher.ShowWindowScene(name:string;modal:boolean=true);
   TShowWindowEffect.Create(game.GetScene(name) as TUIScene,250,mode,0);
  end;
 
-procedure TBaseSceneSwitcher.SwitchToScene(name:string);
+procedure TBaseSceneSwitcher.SwitchToScene(name:string8);
  var
   scene:TGameScene;
  begin

@@ -12,9 +12,10 @@ uses Apus.Engine.UI;
   supportOldStyles:boolean=true;
 
 implementation
- uses Apus.Types, Apus.Images, SysUtils, Types, Apus.Common, Apus.AnimatedValues,
+ uses Apus.Types, Apus.Images, SysUtils, Types, Apus.Core, Apus.AnimatedValues,
     Apus.Colors, Apus.Structs, Apus.EventMan, Apus.Geom2D,
-    Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender;
+    Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
+    Apus.Lib, Apus.Utils, Apus.Strings;
 
  type
   TAttributeType=(atColor,atNumber,atString);
@@ -180,32 +181,31 @@ implementation
    if (element.caption<>'') and (element.ClassType=TUIElement) then begin
     color:=element.color;
     if color=clDefault then color:=$FF808080;
-    txt.WriteW(element.font,(x1+x2)/2,(y1+y2)/2,color,Str16(element.caption),taCenter,toWithShadow);
+    txt.WriteW(element.font,(x1+x2)/2,(y1+y2)/2,color,Str32(element.caption),taCenter,toWithShadow);
    end;
   end;
 
  procedure BuildSimpleHint(hnt:TUIHint);
   var
-   sa:StringArr;
-   wsa:WStringArr;
+   wsa:Strings32;
    i,h,iWidth,iHeight,dw:integer;
   begin
    with hnt do begin
     hnt.simpleText:=StringReplace(hnt.simpleText,'~','\n',[rfReplaceAll]);
-    sa:=split('\n',hnt.simpleText,'"');
-    wsa:=DecodeUTF8A(sa);
+    wsa:=UTF8.Decode(hnt.simpleText).Split(Str32('\n'));
+    //wsa:=DecodeUTF8A(sa);
     if font=0 then font:=defaultHintFont;
     if font=0 then font:=txt.GetFont('Default',7);
     h:=round(txt.Height(font)*1.5);
-    iHeight:=h*length(sa)+9;
+    iHeight:=h*length(wsa)+9;
     iWidth:=0;
-    for i:=1 to length(sa) do
+    for i:=1 to length(wsa) do
      if iWidth<txt.WidthW(font,wsa[i-1]) then
       iWidth:=txt.WidthW(font,wsa[i-1]);
-    dw:=txt.WidthW(font,'M');
+    dw:=txt.WidthW(font,[Char32('M')]);
     inc(iWidth,4+dw);
     if (hintImage=nil) or (hintImage.width<>iWidth) or (hintImage.height<>iHeight) then begin
-     LogMessage('[Re]alloc hint image');
+     Log.Msg('[Re]alloc hint image');
      if HintImage<>nil then FreeImage(HintImage);
      hintImage:=AllocImage(iWidth,iHeight,pfRenderTargetAlpha,aiTexture+aiRenderTarget,'UI_HintImage');
      if hintImage=nil then
@@ -224,7 +224,7 @@ implementation
      draw.Line(2,iHeight-1,iwidth-1,iheight-1,$28000000);
      draw.Line(iwidth-1,iheight-2,iwidth-1,1.5,$28000000);
      gfx.target.UnMask;
-     for i:=0 to length(sa)-1 do
+     for i:=0 to length(wsa)-1 do
       txt.WriteW(font,1+dw div 2,round(2+h div 7+(i+0.75)*h),$D0000000,wsa[i]);
     finally
      gfx.EndPaint;
@@ -268,12 +268,12 @@ implementation
      if pfRenderTargetAlpha=ipfNone then exit;
      if not adjusted then begin
       // нужно провести инициализацию
-      ForceLogMessage('InitHint '+inttohex(cardinal(control),8));
+      Log.Force('InitHint '+inttohex(cardinal(control),8));
       if not active then try
        BuildSimpleHint(control as TUIHint);
       except
        on e:exception do begin
-        LogMessage('Failed to build simple hint - deleted');
+        Log.Msg('Failed to build simple hint - deleted');
         control.visible:=false;
         exit;
        end;
@@ -289,11 +289,11 @@ implementation
       y1:=control.globalRect.Top;
      end;
      if not hiding then
-      v:=(MyTickCount-created)*2
+      v:=(CoreTime.Ticks-created)*2
      else begin
-      v:=256-(MyTickCount-created) div 2;
+      v:=256-(CoreTime.Ticks-created) div 2;
       if v<=0 then begin
-        LogMessage('Hide expired hint '+inttohex(cardinal(control),8));
+        Log.Msg('Hide expired hint '+inttohex(cardinal(control),8));
         {FreeImage(HintImage);
         HintImage:=nil;}
         control.visible:=false;
@@ -301,7 +301,7 @@ implementation
       end;
      end;
      if hintImage=nil then begin
-      ForceLogMessage('Hint has no image! '+inttohex(cardinal(control),8));
+      Log.Force('Hint has no image! '+inttohex(cardinal(control),8));
       exit;
      end;
      if v>256 then v:=256;
@@ -315,7 +315,7 @@ implementation
  procedure DrawUILabel(control:TUILabel;x1,y1,x2,y2:integer);
   var
    mY:integer;
-   wst:WideString;
+   wst:String32;
    bg:cardinal;
    r:TRect;
   begin
@@ -327,7 +327,7 @@ implementation
      gfx.clip.Rect(r);
      //mY:=round(y1*0.3+y2*0.7)-topOffset;
      mY:=round((r.top+r.bottom)*0.5+txt.Height(font)*0.45)-verticalOffset;
-     wst:=DecodeUTF8(caption);
+     wst:=Str32(caption);
      if align=taLeft then
       txt.WriteW(font,r.left,mY,color,wst);
      if align=taRight then
@@ -411,7 +411,7 @@ implementation
    // Caption
    inc(x1,round(size*1.5));
    gfx.clip.Rect(Rect(x1,y1,x2,y2));
-   txt.WriteW(font,x1,y,color,element.caption);
+   txt.Write(font,x1,y,color,element.caption);
    gfx.clip.Restore;
    if FocusedElement=element then
      draw.Rect(x1,y1,x2,y2,color xor $808080);
@@ -422,7 +422,7 @@ implementation
    v,mY:integer;
    c,c2:cardinal;
    d:integer;
-   wst:WideString;
+   wst:String32;
   begin
     with control do begin
       // обычная кнопка
@@ -451,7 +451,7 @@ implementation
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
        c:=eStyle.GetColor('text-color',clBlack);
        mY:=round((y1+y2)*0.5+txt.Height(font)*0.45);
-       wSt:=DecodeUTF8(caption);
+       wSt:=Str32(caption);
        if underMouse=control then c:=$FF300000;
        if enabled then
         txt.WriteW(font,(x1+x2)/2,mY+d,c,wst,taCenter)
@@ -490,24 +490,24 @@ implementation
     with control do begin
      if src<>'' then begin
       // SRC = procesure address?
-      if HasPrefix(src,'proc:') then begin
-       proc:=pointer(HexToInt(copy(src,6,20)));
+      if src.StartsWith('proc:',true) then begin
+       proc:=pointer(Conv.HexToInt(copy(src,6,20)));
        proc(control);
        exit;
       end;
       // SRC = event (must be immediate)
-      if HasPrefix(src,'event:') then begin
+      if src.StartsWith('event:',true) then begin
        Signal(copy(src,7,200),PtrUInt(control));
        exit;
       end;
       // SRC = texture name?
       tex:=nil;
-      if HasPrefix(src,'tex:') then begin
+      if src.StartsWith('tex:',true) then begin
        tex:=TTexture(TTexture.FindByName(copy(src,5,200)));
       end else
-      if HasPrefix(src,'file:') then begin
+      if src.StartsWith('file:',true) then begin
        // SRC = filename?
-       lname:=FileName(copy(src,6,200));
+       lname:=Files.FixName(copy(src,6,200));
        tex:=TTexture.FindByFile(lName);
        if tex=nil then
         LoadImage(tex,lname); //
@@ -546,8 +546,8 @@ implementation
     gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y1+header-2));
     tx:=(x1+x2) div 2;
     ty:=y1+round(header*0.7);
-    txt.WriteW(font,tx+1,ty+1,$B0000000,caption,taCenter);
-    txt.WriteW(font,tx,ty,$FFFFFFD0,caption,taCenter);
+    txt.Write(font,tx+1,ty+1,$B0000000,caption,taCenter);
+    txt.Write(font,tx,ty,$FFFFFFD0,caption,taCenter);
     gfx.clip.Restore;
    end;
   end;
@@ -586,11 +586,11 @@ implementation
     r.Init(x1,y1,x2,y2);
     f:=(1-trackWidth)/2;
     if element.horizontal then begin
-     r.y1:=LinearMix(y1,y2,f);
-     r.y2:=LinearMix(y1,y2,1-f);
+     r.y1:=Lerp(y1,y2,f);
+     r.y2:=Lerp(y1,y2,1-f);
     end else begin
-     r.x1:=LinearMix(x1,x2,f);
-     r.x2:=LinearMix(x1,x2,1-f);
+     r.x1:=Lerp(x1,x2,f);
+     r.x2:=Lerp(x1,x2,1-f);
     end;
     draw.FillRect(r.x1,r.y1,r.x2,r.y2,trackColor);
 
@@ -599,15 +599,15 @@ implementation
      // slider rect
      f:=(1-sliderWidth)/2;
      if element.horizontal then begin
-      r.x1:=LinearMix(x1,x2,element.sliderStart);
-      r.y1:=LinearMix(y1,y2,f);
-      r.x2:=LinearMix(x1,x2,element.sliderEnd);
-      r.y2:=LinearMix(y1,y2,1-f);
+      r.x1:=Lerp(x1,x2,element.sliderStart);
+      r.y1:=Lerp(y1,y2,f);
+      r.x2:=Lerp(x1,x2,element.sliderEnd);
+      r.y2:=Lerp(y1,y2,1-f);
      end else begin
-      r.x1:=LinearMix(x1,x2,f);
-      r.y1:=LinearMix(y1,y2,element.sliderStart);
-      r.x2:=LinearMix(x1,x2,1-f);
-      r.y2:=LinearMix(y1,y2,element.sliderEnd);
+      r.x1:=Lerp(x1,x2,f);
+      r.y1:=Lerp(y1,y2,element.sliderStart);
+      r.x2:=Lerp(x1,x2,1-f);
+      r.y2:=Lerp(y1,y2,element.sliderEnd);
      end;
      // color
      if element.sliderUnder then
@@ -631,7 +631,7 @@ implementation
     // Draw slider (if needed)
 
     if element.horizontal then begin
-     minWidth:=max2(8,round((y2-y1)*0.75));
+     minWidth:=Max(8,round((y2-y1)*0.75));
      if element.enabled and (iwidth>=minWidth) and (pagesize<max-min) then begin
       v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
@@ -653,7 +653,7 @@ implementation
     end else begin
      // Vertical scrollbar
      draw.FillGradrect(x1,y1,x2,y2,d,c,false);
-     minWidth:=max2(8,round((x2-x1)*0.75));
+     minWidth:=Max(8,round((x2-x1)*0.75));
      if enabled and (iheight>=minWidth) and (pagesize<max-min) then begin
       v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
@@ -678,14 +678,17 @@ implementation
 
  procedure DrawUIEditBox(control:TUIEditBox;x1,y1,x2,y2:integer);
   var
-   wst:WideString;
+   wst:String32;
    i,j,mY,d,curX,scrollPixels,xStart:integer;
    c:cardinal;
   begin
    with control do begin
     wst:=realtext;
-    if password then
-      wst:=StringOfChar('*',length(wst));
+    if password then begin
+      SetLength(wst,length(wst));
+      for j:=0 to high(wst) do
+        wst[j]:=Char32('*');
+    end;
     if (scroll.X>0) and (txt.WidthW(font,wst)<(x2-x1)) then Scroll.X:=0;
     i:=txt.WidthW(font,copy(wst,1,cursorpos)); // позиция курсора
     if i-scroll.X<0 then scroll.X:=i;
@@ -693,7 +696,7 @@ implementation
     gfx.clip.Rect(Rect(x1+2,y1,x2-2,y2));
     my:=round(y1*0.47+y2*0.53+txt.Height(font)*0.4);
     // Default text?
-    if (realtext='') and (defaultText<>'') and (FocusedElement<>control) then begin
+    if realtext.IsEmpty and (not defaultText.IsEmpty) and (FocusedElement<>control) then begin
      txt.WriteW(font,x1+2+offset,mY,ColorMix(color,$00808080,160),defaultText,taLeft,toDontTranslate);
      gfx.clip.Restore;
      exit;
@@ -708,7 +711,7 @@ implementation
      needpos:=-1;
     end;
     xStart:=x1+round((y2-y1)*0.15)-scrollPixels;
-    if completion<>'' then begin
+    if not completion.IsEmpty then begin
      j:=xStart+txt.WidthW(font,wst);
      txt.WriteW(font,j+offset,mY,ColorMix(color,$00808080,160),
        copy(completion,length(wst)+1,length(completion)),taLeft,toDontTranslate);
@@ -731,7 +734,7 @@ implementation
     end else
      txt.WriteW(font,xStart+offset,mY,color,wst,taLeft,toDontTranslate);
     gfx.clip.Restore;
-    if (FocusedElement=control) and ((mytickcount-cursortimer) mod 360<200) then begin // курсор
+    if (FocusedElement=control) and ((CoreTime.Ticks-cursortimer) mod 360<200) then begin // курсор
      curX:=xStart+offset+i; // first pixel of the character
      draw.Line(curX,y1+2,curX,y2-2,colorAdd(color,$404040));
 //     draw.Line(x1+4+i-scrollX,y1+2,x1+4+i-scrollX,y2-2,colorAdd(color,$404040));
@@ -764,7 +767,7 @@ implementation
        c:=hoverTextColor;
       end else
        c:=textColor;
-      txt.WriteW(font,x1+4,lY+round(lineH*0.73),c,lines[i],taLeft,toComplexText);
+      txt.Write(font,x1+4,lY+round(lineH*0.73),c,lines[i],taLeft,toComplexText);
      end;
      gfx.clip.Restore;
     end;
@@ -772,7 +775,7 @@ implementation
 
  procedure DrawUIComboBox(x1,y1,x2,y2:integer;combo:TUIComboBox);
   var
-   st:string;
+   st:string8;
    i,cx,cy:integer;
    c:cardinal;
   begin
@@ -790,7 +793,7 @@ implementation
      gfx.clip.Rect(Rect(x1+1,y1+1,x2-21,y2-1));
      if curItem>=0 then st:=items[curItem]
       else st:=defaultText;
-     txt.WriteW(combo.font,x1+5,round(y2*0.7+y1*0.3),$FF000000,st);
+     txt.Write(combo.font,x1+5,round(y2*0.7+y1*0.3),$FF000000,st);
      gfx.clip.Restore;
     end;
     // Arrow
@@ -858,8 +861,8 @@ implementation
    if v>0 then begin
     fillColor:=MixColor(style,'hover.fill',fillColor,v);
     borderColor:=MixColor(style,'hover.borderColor',borderColor,v);
-    radius:=LinearMix(radius,style.GetNumber('hover.radius',radius),v);
-    bWidth:=LinearMix(bWidth,style.GetNumber('hover.borderWidth',bWidth),v);
+    radius:=Lerp(radius,style.GetNumber('hover.radius',radius),v);
+    bWidth:=Lerp(bWidth,style.GetNumber('hover.borderWidth',bWidth),v);
    end;
 
    // This is important for drawing large semi-transparent areas on a transparent background (render to texture)
@@ -992,7 +995,7 @@ function TElementStyle.ActualStyleInfo:string8;
   var
    i:integer;
    notOldStyle:boolean;
-   items:StringArray8;
+   items:Strings8;
   begin
    result:=fullStyleInfo;
    if supportOldStyles and (fullStyleInfo<>'') then begin
@@ -1003,7 +1006,7 @@ function TElementStyle.ActualStyleInfo:string8;
       notOldStyle:=true; break;
      end;
     if not notOldStyle then begin
-     items:=SplitA(' ',fullStyleInfo);
+     items:=fullStyleInfo.Split(' ');
      if length(items)>0 then result:='fill:'+items[0];
      if length(items)>1 then result:='; border:'+items[1];
      exit;
@@ -1022,16 +1025,16 @@ function TElementStyle.ActualStyleInfo:string8;
     result:=clDefault;
     if length(s)<2 then exit;
     if s[1] in ['#','$'] then delete(s,1,1);
-    if length(s)=8 then result:=ParseInt('$'+s)
+    if length(s)=8 then result:=Conv.ToInt('$'+s)
     else
-    if length(s)=6 then result:=ParseInt('$FF'+s)
+    if length(s)=6 then result:=Conv.ToInt('$FF'+s)
     else if length(s)=3 then begin
      s:='$FF'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3];
-     result:=ParseInt(s);
+     result:=Conv.ToInt(s);
     end else
     if length(s)=4 then begin
      s:='$'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3]+s[4]+s[4];
-     result:=ParseInt(s);
+     result:=Conv.ToInt(s);
     end;
    end;
 
@@ -1046,13 +1049,13 @@ function TElementStyle.ActualStyleInfo:string8;
      if name=attribList[i].name then begin
       case attribList[i].aType of
        atColor:result:=ParseColor(s);
-       atNumber:result:=ParseFloat(s);
+       atNumber:result:=Conv.ToFloat(s);
        atString:result:=s;
       end;
       exit;
      end;
-    if LastChar(s)='%' then begin
-     result:=ParseFloat(s)*0.01;
+    if (s<>'') and (s[length(s)]='%') then begin
+     result:=Conv.ToFloat(s)*0.01;
      exit;
     end;
     result:=s;
@@ -1065,26 +1068,27 @@ function TElementStyle.ActualStyleInfo:string8;
     value:variant;
    begin
     if actualStyle[from]='[' then begin
-     p:=PosFrom(']',actualStyle,from+1);
+     p:=actualStyle.IndexOf(']',from+1);
      if p>from then begin
-      prefix:=LowerCase(Copy(actualStyle,from+1,p-from-1));
+       prefix:=Copy(actualStyle,from+1,p-from-1).ToLower;
       from:=p+1;
      end else
       raise EWarning.Create('Style syntax error at %d: "%s"',[from,actualStyle]);
     end;
-    p:=PosFromTo(':',actualStyle,from+1,last);
-    if (p=0) or (p>last) then p:=PosFromTo('=',actualStyle,from+1,last);
+    p:=actualStyle.IndexOf(':',from+1);
+    if (p=0) or (p>last) then p:=actualStyle.IndexOf('=',from+1);
+    if p>last then p:=0;
     if p>0 then begin
      // name:value pair
-     attr:=LowerCase(Chop(Copy(actualStyle,from,p-from)));
-     aVal:=Chop(Copy(actualStyle,p+1,last-p));
+     attr:=Copy(actualStyle,from,p-from).Trim.ToLower;
+     aVal:=Copy(actualStyle,p+1,last-p).Trim;
      value:=ParseValue(attr,aVal);
     end else begin
      // valueless attribute -> value=true
-     attr:=LowerCase(Chop(copy(actualStyle,from,last-from+1)));
+     attr:=copy(actualStyle,from,last-from+1).Trim.ToLower;
      value:=true;
     end;
-    if prefix<>'' then attr:=prefix+'.'+LowerCase(attr);
+    if prefix<>'' then attr:=prefix+'.'+attr.ToLower;
     attributes.Put(attr,value);
    end;
   begin

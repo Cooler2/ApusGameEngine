@@ -1,4 +1,4 @@
-п»ї// Standard scene for console window and command interpreter
+// Standard scene for console window and command interpreter
 //
 // Copyright (C) 2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -24,8 +24,7 @@ var
  procedure AddConsoleScene;
 
 implementation
- uses SysUtils, Classes, Types,
-  Apus.CrossPlatform, Apus.Common, Apus.EventMan,
+ uses SysUtils, Classes, Types, Apus.EventMan, Apus.Lib,
   Apus.Engine.UIWidgets, Apus.Engine.UITypes,
   Apus.Engine.CmdProc, Apus.Engine.Console;
 
@@ -39,7 +38,7 @@ var
  c:TUIElement;
 begin
  // Win+[~] - show/hide console window
- if (tag and 255=$C0) and (game.shiftState and sscWin>0) then begin
+ if (TKey(tag and 255)=TKey.Tilde) and (game.shiftState and sscWin>0) then begin
   if consoleScene.activated then begin
    if consoleScene.UI.hasFocus then
     consoleScene.SetStatus(TSceneStatus.ssFrozen)
@@ -51,14 +50,14 @@ begin
    end;
  end;
 
- // Р•СЃР»Рё РєРѕРЅСЃРѕР»СЊ РѕС‚РєСЂС‹С‚Р°, Р° С„РѕРєСѓСЃР° РЅРёРіРґРµ РЅРµС‚, С‚Рѕ РїРѕ Р»СЋР±РѕРјСѓ РЅР°Р¶Р°С‚РёСЋ РїРµСЂРµРІРµСЃС‚Рё С„РѕРєСѓСЃ РЅР° РєРѕРЅСЃРѕР»СЊ
+ // Если консоль открыта, а фокуса нигде нет, то по любому нажатию перевести фокус на консоль
  if (consoleScene.Activated) and
     (focusedElement=nil) then
     SetFocusTo(consoleScene.editbox);
 
- // TAB - РїРµСЂРµРјРµСЃС‚РёС‚СЊ РєРѕРЅСЃРѕР»СЊ Р·РµСЂРєР°Р»СЊРЅРѕ
+ // TAB - переместить консоль зеркально
 { if (consoleScene.activated) and
-    (tag and $FF=VK_TAB) then begin
+    (TKey.From(byte(tag and $FF))=TKey.Tab) then begin
   c:=FindControl('ConsoleWnd');
   c.x:=screenWidth-c.x-c.width;
  end;}
@@ -69,11 +68,11 @@ begin
     (focusedElement=consoleScene.editbox) then
   with consoleScene do begin
    // [UP] / {DOWN] - select previous commands
-   if (tag and $FF=VK_UP) or (tag and $FF=VK_DOWN) then begin
-    if tag and $FF=VK_UP then
-     if cmdPos>0 then dec(cmdPos);
-    if tag and $FF=VK_DOWN then
-     if cmdPos<cmdList.Count-1 then inc(cmdPos);
+    if (TKey(tag and $FF)=TKey.Up) or (TKey(tag and $FF)=TKey.Down) then begin
+     if TKey(tag and $FF)=TKey.Up then
+      if cmdPos>0 then dec(cmdPos);
+     if TKey(tag and $FF)=TKey.Down then
+      if cmdPos<cmdList.Count-1 then inc(cmdPos);
     if cmdPos<cmdList.Count then begin
      editBox.text:=cmdList[cmdPos];
      editBox.SelectAll;
@@ -85,22 +84,22 @@ begin
  if consoleScene.activated and
     (curObj<>nil) and
     (curObjClass.ClassNameIs('TVarTypeUIControl')) and
-    (tag and $FF in [VK_LEFT,VK_RIGHT,VK_UP,VK_DOWN]) then begin
+    (TKey(tag and $FF) in [TKey.Left,TKey.Right,TKey.Up,TKey.Down]) then begin
   c:=curObj;
   // SHIFT+CTRL+arrows - move
-  if game.shiftState and sscCtrl>0 then begin
-   if tag and $FF=VK_LEFT then c.position.x:=c.position.x-1;
-   if tag and $FF=VK_UP then c.position.y:=c.position.y-1;
-   if tag and $FF=VK_RIGHT then c.position.x:=c.position.x+1;
-   if tag and $FF=VK_DOWN then c.position.y:=c.position.y+1;
-  end;
+   if game.shiftState and sscCtrl>0 then begin
+    if TKey(tag and $FF)=TKey.Left then c.position.x:=c.position.x-1;
+    if TKey(tag and $FF)=TKey.Up then c.position.y:=c.position.y-1;
+    if TKey(tag and $FF)=TKey.Right then c.position.x:=c.position.x+1;
+    if TKey(tag and $FF)=TKey.Down then c.position.y:=c.position.y+1;
+   end;
   // SHIFT+ALT+arrows - resize
-  if game.shiftState and sscAlt>0 then begin
-   if tag and $FF=VK_LEFT then c.size.x:=c.size.x-1;
-   if tag and $FF=VK_UP then c.size.y:=c.size.y-1;
-   if tag and $FF=VK_RIGHT then c.size.x:=c.size.x+1;
-   if tag and $FF=VK_DOWN then c.size.y:=c.size.y+1;
-  end;
+   if game.shiftState and sscAlt>0 then begin
+    if TKey(tag and $FF)=TKey.Left then c.size.x:=c.size.x-1;
+    if TKey(tag and $FF)=TKey.Up then c.size.y:=c.size.y-1;
+    if TKey(tag and $FF)=TKey.Right then c.size.x:=c.size.x+1;
+    if TKey(tag and $FF)=TKey.Down then c.size.y:=c.size.y+1;
+   end;
  end;
 end;
 
@@ -178,7 +177,7 @@ begin
    41000:col:=$FFA0FFF0;
    else col:=$FFD0D0D0;
   end;
-  txt.WriteW(font,r.left+2,r.top+yPos,col,Str16(st));
+  txt.Write(font,r.left+2,r.top+yPos,col,st);
  end;
  txt.EndBlock;
  gfx.clip.Restore;
@@ -210,7 +209,7 @@ begin
 
  img:=TUIImage.Create(462,h-18,'ConsoleMain',wnd);
  img.SetAnchors(0,0,1,1);
- img.src:='proc:'+PtrToStr(@DrawContent);
+ img.src:='proc:'+Conv.ToStr(@DrawContent);
 
  editbox:=TUIEditBox.Create(460,18,'Console\Input',font,$FFE0FFD0,wnd);
  editBox.SetPos(0,h,pivotBottomLeft);
@@ -250,3 +249,5 @@ begin
 end;
 
 end.
+
+

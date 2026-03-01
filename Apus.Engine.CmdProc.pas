@@ -8,12 +8,12 @@
 {$R+}
 unit Apus.Engine.CmdProc;
 interface
- uses Apus.Publics;
+ uses Apus.Core, Apus.Publics;
  type
   { Процедура, исполняющая команду(ы). В случае ошибки создает исключение с текстом ошибки.
     В Engine3 не допускается несколько исполнителей одного оператора, т.е. если исполнитель
     команду не выполнил - значит все, она обломалась! }
-  TCmdFunc=procedure(cmd:string);
+  TCmdFunc=procedure(cmd:string8);
 
   // Расположение оператора в команде
   TOperatorPos=(opFirst,   // оператор - первое слово (символ) в строке (например 'use ')
@@ -24,28 +24,28 @@ interface
   TReprType=(rtDecimal,rtHex,rtBin);
 
  var
-  LastCmdError:string; // текст ошибки (выводится если ни одна исполнительная ф-я не смогла выполнить команду)
+  LastCmdError:string8; // текст ошибки (выводится если ни одна исполнительная ф-я не смогла выполнить команду)
   curObj:pointer; // адрес текущего объекта
   curObjClass:TVarClassStruct; // класс текущего объекта
 
  // Выполнить команду
- procedure ExecCmd(cmd:string);
+ procedure ExecCmd(cmd:string8);
  // Выполнить команды из текстового файла (выполнять ли эхо команд в консоль?)
- procedure ExecFile(fname:string;echo:boolean=false);
+ procedure ExecFile(fname:string8;echo:boolean=false);
 
  // Установить функцию-исполнитель
- procedure SetCmdFunc(operatorName:string;posit:TOperatorPos;func:TCmdFunc);
+ procedure SetCmdFunc(operatorName:string8;posit:TOperatorPos;func:TCmdFunc);
 
  // представить число в заданном виде
- function RepresentInteger(n:integer;repr:TReprType):string;
+ function RepresentInteger(n:integer;repr:TReprType):string8;
 
 implementation
- uses SysUtils, Math,
-      Apus.Common, Apus.EventMan, Apus.Colors,
-      Apus.Engine.Console;
+ uses SysUtils, Math, Apus.Lib, Apus.Strings, Apus.EventMan, Apus.Colors, Apus.Engine.Console,
+  Apus.Files,
+  Apus.Log;
  type
   TExecuter=class
-   oper:string;
+   oper:string8;
    operpos:TOperatorPos;
    operfunc:TCmdFunc;
    next:TExecuter;
@@ -71,14 +71,14 @@ implementation
   condPos:integer;
 
  threadvar
-  curFile:string;
+  curFile:string8;
   curLine:integer;
 
- procedure SetCmdFunc(operatorName:string;posit:TOperatorPos;func:TCmdFunc);
+ procedure SetCmdFunc(operatorName:string8;posit:TOperatorPos;func:TCmdFunc);
   var
    e:TExecuter;
   begin
-   operatorName:=UpperCase(operatorName);
+   operatorName:=UpperCase {TODO: use st.ToUpper}(operatorName);
    e:=executers;
    while e<>nil do begin
     if e.oper=operatorName then raise EError.Create('Operator '+operatorName+' is already defined!');
@@ -95,15 +95,15 @@ implementation
   end;
 
  // Внутренняя процедура, исполняющая одну команду
- procedure ExecSingleCmd(cmd:string);
+ procedure ExecSingleCmd(cmd:string8);
   var
    fl:boolean;
    st,location:string;
    exe:TExecuter;
   begin
-   cmd:=chop(cmd);
+   cmd:=cmd.Trim;
    if cmd='' then exit;
-   st:=UpperCase(cmd);
+   st:=UpperCase {TODO: use st.ToUpper}(cmd);
    if (condPos>0) and not condStack[condPos] then
     if (st<>'ENDIF') and (st<>'ELSE') then exit;
    // Обработка команды HELP
@@ -148,7 +148,7 @@ implementation
    end;
   end;
 
- procedure ExecCmd(cmd:string);
+ procedure ExecCmd(cmd:string8);
   begin
    if length(cmd)=0 then exit; // empty string
    if cmd[1] in ['#',';'] then exit;   // comments
@@ -160,15 +160,15 @@ implementation
    ExecSingleCmd(cmd);
   end;
 
- procedure ExecFile(fname:string;echo:boolean=false);
+ procedure ExecFile(fname:string8;echo:boolean=false);
   var
-   st:string;
-   sa:StringArr;
+   st:string8;
+   sa:Strings8;
   begin
    try
-    DebugMessage('Run file script: '+FileName(fname));
-    st:=LoadFileAsString(FileName(fname));
-    sa:=split(#13#10,st);
+    Log.Force('Run file script: '+Files.FixName(fname));
+    st:=Files.LoadAsString(Files.FixName(fname));
+    sa:=st.SplitLines;
     curFile:=ExtractFileName(fname);
     curLine:=1;
     for st in sa do begin
@@ -182,30 +182,30 @@ implementation
    curFile:='';
   end;
 
- procedure SignalCmd(cmd:string);
+ procedure SignalCmd(cmd:string8);
   var
-   st:string;
-   sa:StringArr;
+   st:string8;
+   sa:Strings8;
   begin
     st:=copy(cmd,8,length(cmd)-7);
-    sa:=split(' ',st,'"');
+    sa:=st.Split(' ','"');
     if length(sa)>1 then
      Signal(sa[0],strtoint(sa[1]))
     else
      Signal(sa[0],0);
   end;
 
- procedure LinkCmd(cmd:string);
+ procedure LinkCmd(cmd:string8);
   var
-   st:string;
-   sa:StringArr;
+   st:string8;
+   sa:Strings8;
    redirect:boolean;
   begin
     redirect:=(cmd[1] in ['R','r']);
     st:=copy(cmd,pos(' ',cmd)+1,length(cmd));
-    sa:=split(' ',st,'"');
+    sa:=st.Split(' ','"');
     if (length(sa)=3) then begin
-     if lowercase(sa[2])='keep' then
+     if lowercase {TODO: use st.ToLower}(sa[2])='keep' then
       Link(sa[0],sa[1],-1,redirect)
      else
       Link(sa[0],sa[1],strtoint(sa[2]),redirect)
@@ -213,27 +213,27 @@ implementation
      Link(sa[0],sa[1],0,redirect);
   end;
 
- procedure UnlinkCmd(cmd:string);
+ procedure UnlinkCmd(cmd:string8);
   var
-   st:string;
-   sa:StringArr;
+   st:string8;
+   sa:Strings8;
   begin
     st:=copy(cmd,8,length(cmd)-7);
-    sa:=split(' ',st,'"');
+    sa:=st.Split(' ','"');
     UnLink(sa[0],sa[1]);
   end;
 
  // Operator '='
  // Вычисляет правую часть и пытается присвоить её опубликованной переменной в левой части (с конверсией типа, если надо)
- procedure AssignCmd(cmd:string);
+ procedure AssignCmd(cmd:string8);
   var
-   sa:StringArr;
+   sa:Strings8;
    leftVar:pointer;
    leftClass:TVarClass;
    v:double;
   begin
-   sa:=split('=',cmd,'"');
-   sa[0]:=Chop(sa[0]);
+   sa:=cmd.Split('=','"');
+   sa[0]:=sa[0].Trim;
    if (length(sa)<>2) or (length(sa[0])=0) then
     raise EWarning.Create('Syntax error: must be name=value or name=expression');
    // Определимся с левой частью
@@ -257,7 +257,7 @@ implementation
   end;
 
  // Operator '?'
- procedure AskCmd(cmd:string);
+ procedure AskCmd(cmd:string8);
   var
    repr:TReprType;
    v:pointer;
@@ -267,7 +267,7 @@ implementation
    SetLength(cmd,length(cmd)-1);
    if length(cmd)=0 then
     raise EWarning.Create('Syntax error');
-   cmd:=LowerCase(cmd);
+   cmd:=LowerCase {TODO: use st.ToLower}(cmd);
    if (cmd='self') and (curObj<>nil) then begin
     st:=curObjClass.GetValue(curObj);
     //st:=StringReplace(st,', ',','#13#10,[rfReplaceAll]);
@@ -290,7 +290,7 @@ implementation
   end;
 
  // operator IF
- procedure IfCmd(cmd:string);
+ procedure IfCmd(cmd:string8);
   var
    v:double;
   begin
@@ -312,18 +312,18 @@ implementation
    end;
   end;
 
- procedure ConstCmd(cmd:string);
+ procedure ConstCmd(cmd:string8);
   var
-   sa:StringArr;
+   sa:Strings8;
    p:integer;
-   t:string;
+   t:string8;
    v:double;
   begin
    p:=pos(' ',cmd);
-   t:=UpperCase(copy(cmd,1,p-1));
+   t:=UpperCase {TODO: use st.ToUpper}(copy(cmd,1,p-1));
    delete(cmd,1,p);
-   sa:=split('=',cmd);
-   sa[0]:=Chop(sa[0]);
+   sa:=cmd.Split('=');
+   sa[0]:=sa[0].Trim;
    try
     v:=EvalFloat(sa[1],nil,curObj,curObjClass);
     sa[1]:=FloatToStr(v);
@@ -333,9 +333,9 @@ implementation
   end;
 
  // operator INT, DWORD etc...
- procedure VarCmd(cmd:string);
+ procedure VarCmd(cmd:string8);
   var
-   sa:stringArr;
+   sa:Strings8;
    p:integer;
    t:string;
    ptr:pointer;
@@ -346,10 +346,10 @@ implementation
    bool:PBoolean;
   begin
    p:=pos(' ',cmd);
-   t:=UpperCase(copy(cmd,1,p-1));
+   t:=UpperCase {TODO: use st.ToUpper}(copy(cmd,1,p-1));
    delete(cmd,1,p);
-   sa:=split('=',cmd);
-   sa[0]:=Chop(sa[0]);
+   sa:=cmd.Split('=');
+   sa[0]:=sa[0].Trim;
    ptr:=FindVar(sa[0],vc);
    if ptr=nil then begin
     if t='INT' then begin
@@ -373,10 +373,10 @@ implementation
   end;
 
  // operator USE
- procedure UseCmd(cmd:string);
+ procedure UseCmd(cmd:string8);
   begin
    delete(cmd,1,4);
-   cmd:=LowerCase(cmd);
+   cmd:=LowerCase {TODO: use st.ToLower}(cmd);
    if cmd='none' then begin
     curObj:=nil; curObjClass:=nil; exit;
    end;
@@ -389,13 +389,13 @@ implementation
   end;
 
  // Operator 'RUN'
- procedure RunCmd(cmd:string);
+ procedure RunCmd(cmd:string8);
   begin
    delete(cmd,1,4);
    ExecFile(cmd);
   end;
 
-function RepresentInteger(n:integer;repr:TReprType):string;
+function RepresentInteger(n:integer;repr:TReprType):string8;
  var
   i:integer;
  begin
@@ -410,12 +410,12 @@ function RepresentInteger(n:integer;repr:TReprType):string;
   end;
  end;
 
-function fColorFunc(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
+function fColorFunc(params:string8;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
 var
- sa:StringArr;
+ sa:Strings8;
  color1,color2:cardinal;
 begin
- sa:=split(',',params);
+ sa:=params.Split(',');
  if length(sa)<>2 then raise EWarning.Create('Invalid parameters');
  color1:=round(EvalFloat(sa[0],nil,context,contextClass));
  color2:=round(EvalFloat(sa[0],nil,context,contextClass));
@@ -434,7 +434,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   end else
   if event.StartsWith('ExecFile\',true) then begin
    delete(event,1,9);
-   ExecFile(FileName(event));
+   ExecFile(Files.FixName(event));
   end;
  end;
 

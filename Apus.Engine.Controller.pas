@@ -6,7 +6,7 @@
 
 unit Apus.Engine.Controller;
 interface
-uses Apus.Common;
+uses Apus.Core;
 
 type
  TGameControllerType=(gcUnplugged,
@@ -80,7 +80,7 @@ implementation
 
 function TGameController.GetButton(btn:TConButtonType): boolean;
  begin
-  result:=GetBit(buttons,ord(btn));
+  result:=Bits.Get(buttons,ord(btn));
  end;
 
 function GetButtonName(btn: TConButtonType): String8;

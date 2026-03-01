@@ -5,23 +5,23 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.ImageTools;
 interface
- uses Apus.Images, Apus.Engine.API;
+ uses Apus.Core, Apus.Images, Apus.Engine.API;
 
  var
-  defaultImagesDir:string='Images\'; // default folder to load images from
+  defaultImagesDir:String8='Images\'; // default folder to load images from
 
  // Загрузить картинку из файла в текстуру (в оптимальный формат, если не указан явно)
  // Если sysmem=true, то загружается в поверхность в системной памяти
  // function LoadImageFromFile(fname:string;mtwidth:integer=0;mtheight:integer=0;sysmem:boolean=false;
  //           ForceFormat:TImagePixelFormat=ipfNone):TTexture;
- function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
+ function LoadImageFromFile(fname:String8;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
 
  // (Re)load texture from an image file. defaultImagesDir is used if path is relative
  // Default flags can be used from defaultLoadImageFlags
- procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
+ procedure LoadImage(var img:TTexture;fName:String8;flags:cardinal=liffDefault);
 
- // Сохраняет изображение в файл (mostly for debug purposes)
- procedure SaveImage(img:TTexture;fName:string);
+ // Save image to file (mostly for debug purposes)
+ procedure SaveImage(img:TTexture;fName:String8);
 
  // Create image from STR format
  function CreateImageFromString(st:string8;padding:integer=0;flags:cardinal=0):TTexture;
@@ -40,13 +40,13 @@ interface
  // размер текстуры должен быть степенями 2
  // если мип-мапы в файле отсутствуют - будут созданы
  // если формат загружаемой картинки не соответствует финальному - будет сохранен DDS в нужном формате
- function LoadTexture(fname:string;downscale:single;format:TImagePixelFormat=ipfNone;saveDDS:boolean=true):TTexture;
+ function LoadTexture(fname:string8;downscale:single;format:TImagePixelFormat=ipfNone;saveDDS:boolean=true):TTexture;
 
  // Загрузить текстурный атлас
  // Далее при загрузке изображений, которые уже есть в атласе, вместо загрузки из файла будут
  // создаваться текстурные объекты, ссылающиеся на атлас
  // Not thread-safe! Don't load atlases in one thread and create images in other thread
- procedure LoadAtlas(fname:string;scale:single=1.0);
+ procedure LoadAtlas(fname:string8;scale:single=1.0);
 
  // Set image as render target for FastGFX drawing operations (lock if not locked) Don't forget to unlock!
  procedure EditImage(tex:TTexture);
@@ -87,9 +87,9 @@ interface
 
 
 implementation
-uses Apus.Common, SysUtils, Apus.Structs, Types, Apus.GfxFormats,
-   Apus.Engine.ImgLoadQueue, Apus.FastGFX, Apus.Geom3D, Apus.Colors,
-   Apus.GfxFilters, Apus.Engine.Resources;
+uses SysUtils, Apus.Lib, Apus.Strings, Apus.Structs, Apus.Geom3D, Types,
+   Apus.GfxFormats, Apus.Engine.ImgLoadQueue, Apus.FastGFX, Apus.Colors,
+   Apus.GfxFilters, Apus.Engine.Resources, Apus.Compress;
 
 const
   max_subimages = 5000;
@@ -99,7 +99,7 @@ var
   aCount:integer;
   // Atlas subimages
   aImages:array[1..max_subimages] of TTexture;
-  aFiles:array[1..max_subimages] of string; // uppercase, no extention
+  aFiles:array[1..max_subimages] of String8; // uppercase, no extension
   aHash:array[1..max_subimages] of cardinal;
   aSubCount:integer;
 
@@ -117,14 +117,15 @@ var
 var
  defaultLoadImageFlags:cardinal=0;
 
-{procedure AddJPEGImage(filename:string;obj:TObject);
+(*
+procedure AddJPEGImage(filename:string;obj:TObject);
 begin
- EnterCriticalSection(cSect);
+ cSect.Enter;
  try
   jpegImageHash.Put(filename,cardinal(obj),true);
-  LogMessage('JPEG image added for '+filename);
+  Log.Msg('JPEG image added for '+filename);
  finally
-  LeaveCriticalSection(cSect);
+  cSect.Leave;
  end;
 end;
 
@@ -133,17 +134,17 @@ var
  c:cardinal;
 begin
  result:=nil;
- EnterCriticalSection(cSect);
+ EnterCriticalSection {TODO: use TLock.Enter}(cSect);
  try
   c:=jpegImageHash.Get(filename);
   if c>0 then begin
    result:=TObject(c);
-   LogMessage('Preloaded JPEG image found in hash');
+   Log.Msg('Preloaded JPEG image found in hash');
   end;
  finally
-  LeaveCriticalSection(cSect);
+  LeaveCriticalSection {TODO: use TLock.Leave}(cSect);
  end;
-end;}
+end; *)
 
 
 // подогнать формат пикселя под поддерживаемый системой
@@ -195,38 +196,38 @@ begin
 end;
 
 
-procedure NormalizeFName(var fname:string);
+procedure NormalizeFName(var fname:string8);
 var
- ext:string;
+  ext:string8;
 begin
- fname:=UpperCase(fname);
- ext:=ExtractFileExt(fname);
- if ext<>'' then fname:=StringReplace(fname,ext,'',[]);
- {$IFDEF IOS}
- fname:=StringReplace(fname,'\','/',[rfReplaceAll]);
- {$ENDIF}
+  fname:=fname.ToUpper;
+  ext:=ExtractFileExt(fname);
+  if ext<>'' then fname:=fname.Replace(ext,'');
+  {$IFDEF IOS}
+  fname:=fname.Replace('\','/');
+  {$ENDIF}
 end;
 
-procedure LoadAtlas(fname:string;scale:single=1.0);
+procedure LoadAtlas(fname:string8;scale:single=1.0);
 var
   f:text;
   x,y,w,h,aw,ah:integer;
   img,atlas:TTexture;
-  st,path:string;
+  st,path:String8;
 begin
  try
   path:=ExtractFilePath(fname);
-  assign(f,FileName(fname+'.atl'));
+  assign(f,Files.FixName(fname+'.atl'));
   SetTextCodePage(f,CP_UTF8);
   reset(f);
   readln(f,aw,ah,st);
-  st:=chop(st);
+  st:=st.Trim;
   inc(aCount);
   atlas:=LoadImageFromFile(fname);
   atlases[aCount]:=atlas;
   while not eof(f) do begin
    readln(f,x,y,w,h,st);
-   st:=chop(st);
+   st:=st.Trim;
    if (st='') or (w=0) or (h=0) then continue;
    inc(aSubCount);
    img:=atlas.ClonePart(Rect(x,y,x+w,y+h));
@@ -245,7 +246,7 @@ begin
  end;
 end;
 
-function LoadTexture(fname:string;downscale:single;format:TImagePixelFormat=ipfNone;saveDDS:boolean=true):TTexture;
+function LoadTexture(fname:string8;downscale:single;format:TImagePixelFormat=ipfNone;saveDDS:boolean=true):TTexture;
 var
  i,j:integer;
  tex:TTexture;
@@ -259,7 +260,7 @@ var
  sp,dp:PByte;
  ftype:integer;
 begin
- fname:=UpperCase(fname);
+ fname:=fname.ToUpper;
  ftype:=0;
  if pos('.DDS',fname)>0 then ftype:=1;
  if pos('.',fname)=0 then begin
@@ -271,7 +272,7 @@ begin
  // этап 1 - загрузка исходного файла и его параметров в буфер
  if ftype=1 then begin
   // загружаем DDS
-  buf:=LoadFileAsBytes(fname);
+  buf:=Files.LoadAsBytes(fname);
   CheckImageFormat(buf);
   srcformat:=ifDDS;
   if format=ipfNone then format:=imgInfo.format;
@@ -325,14 +326,13 @@ function MTFlags(mtWidth,mtHeight:integer):cardinal;
 begin
  if mtWidth<128 then mtWidth:=128;
  if mtHeight<128 then mtHeight:=128;
- result:=(GetPow2(mtWidth)-7) shl 16+(GetPow2(mtHeight)-7) shl 20;
+ result:=(NextPow2(mtWidth)-7) shl 16+(NextPow2(mtHeight)-7) shl 20;
 end;
 
-function FindFileInAtlas(fname:string):integer;
+function FindFileInAtlas(fname:String8):integer;
 var
   i:integer;
   h:cardinal;
-  ext:string[20];
 begin
   result:=0;
   NormalizeFName(fname);
@@ -344,16 +344,16 @@ begin
     end;
 end;
 
-function FindProperFile(fname:string;dontFail:boolean=false):string;
+function FindProperFile(fname:String8;dontFail:boolean=false):String8;
  var
   maxAge,age:integer;
-  st,st2:string;
+  st,st2:String8;
  begin
   {$IFDEF ANDROID}
-  if MyFileExists(fname+'.tga') then result:=fname+'.tga' else
-  if MyFileExists(fname+'.jpg') then result:=fname+'.jpg' else
-  if MyFileExists(fname+'.png') then result:=fname+'.png' else
-  if MyFileExists(fname+'.txt') then result:=fname+'.txt';
+  if Files.Exists(fname+'.tga') then result:=fname+'.tga' else
+  if Files.Exists(fname+'.jpg') then result:=fname+'.jpg' else
+  if Files.Exists(fname+'.png') then result:=fname+'.png' else
+  if Files.Exists(fname+'.txt') then result:=fname+'.txt';
   {$ELSE}
   maxAge:=-1; st2:='';
   st:=fname+'.dds';
@@ -393,28 +393,28 @@ function FindProperFile(fname:string;dontFail:boolean=false):string;
 // - relative to the executable path if possible
 // - absolute otherwise
 // Result is always in lower case
-function MakeImageFilename(filename:string):string;
+function MakeImageFilename(filename:String8):String8;
  var
-  st:string;
+  st:String8;
  begin
-  filename:=LowerCase(filename);
-  st:=Lowercase(defaultImagesDir);
+  filename:=filename.ToLower;
+  st:=defaultImagesDir.ToLower;
   if filename.StartsWith(st) then begin
    delete(filename,1,length(st));
    exit(filename);
   end;
-  st:=Lowercase(ExtractFilePath(ParamStr(0)));
+  st:=String8(ExtractFilePath(ParamStr(0))).ToLower;
   if filename.StartsWith(st) then begin
    delete(filename,1,length(st));
    exit(filename);
   end;
-  result:=LowerCase(ExpandFileName(filename));
+  result:=String8(ExpandFileName(filename)).ToLower;
  end;
 
-function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
+function LoadImageFromFile(fname:String8;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
 var
  i,j,k:integer;
- texName:string;
+ texName:String8;
  tex:TTexture;
  img,txtImage,preloaded:TRawImage;
  aFlags,mtWidth,mtHeight:integer;
@@ -426,11 +426,11 @@ var
  time,timeJ:int64;
  linebuf:pointer;
  doScale:boolean;
- st:string;
+ st:String8;
 begin
  try
   // 1. ADJUST FILE NAME AND CHECK ATLAS
-  fname:=FileName(fname);
+  fname:=Files.FixName(fname);
   // Search atlases first
   i:=FindFileInAtlas(fname);
   if i>0 then begin
@@ -447,13 +447,13 @@ begin
      else raise EError.Create(fname+' not found');
   {$ELSE}
   if ExtractFileExt(fname)='' then begin // find file
-   fName:=FindProperFile(fName,HasFlag(flags,liffNoFail));
+   fName:=FindProperFile(fName,Bits.HasAll(flags,liffNoFail));
    if fName='' then exit(nil);
   end;
   {$ENDIF}
 
-  time:=MyTickCount;
-  LogMessage('Loading '+fname);
+  time:=CoreTime.Ticks;
+  Log.Msg('Loading '+fname);
   preloaded:=GetImageFromQueue(fname);
   if preloaded<>nil then begin
    imgInfo.format:=preloaded.PixelFormat;
@@ -461,7 +461,7 @@ begin
    imgInfo.height:=preloaded.height;
   end else begin
    // 2. LOAD DATA FILE AND CHECK IT'S FORMAT
-   data:=LoadFileAsBytes(fname);
+   data:=Files.LoadAsBytes(fname);
    if length(data)<30 then raise EError.Create('Bad image file: '+fname);
 
    format:=CheckImageFormat(data);
@@ -481,14 +481,14 @@ begin
 
    // 2.5 FOR JPEG: LOAD SEPARATE ALPHA CHANNEL (IF EXISTS)
    if format=ifJPEG then begin
-    timeJ:=MyTickCount;
-    st:=StringReplace(fname,ExtractFileExt(fname),'.raw',[]);
-    DebugMessage('Checking '+st);
-    if MyFileExists(st) then begin
-     DebugMessage('Loading RAW alpha ');
-     rawData:=LoadFileAsBytes(st);
-     if CheckRLEHeader(@rawdata[0],length(rawData))>0 then
-       rawData:=UnpackRLE(@rawdata[0],length(rawData));
+    timeJ:=CoreTime.Ticks;
+    st:=fname.Replace(ExtractFileExt(fname),'.raw');
+    Log.Force('Checking '+st);
+    if Files.Exists(st) then begin
+     Log.Force('Loading RAW alpha ');
+     rawData:=Files.LoadAsBytes(st);
+     if RLE.CheckHeader(@rawdata[0],length(rawData))>0 then
+       rawData:=RLE.Unpack(@rawdata[0],length(rawData));
      forceFormat:=ipfARGB;
     end;
    end;
@@ -517,7 +517,7 @@ begin
 
   if preloaded<>nil then begin
    img.CopyPixelDataFrom(preloaded); // don't free preloaded as it is kept in the queue
-   LogMessage('Copied from preloaded: '+fname);
+   Log.Msg('Copied from preloaded: '+fname);
   end else begin
    // 5. LOAD SOURCE IMAGE FORMAT INTO TEXTURE MEMORY
    if format=ifTGA then LoadTGA(data,img) else
@@ -533,7 +533,7 @@ begin
 
    // 6. ADD ALPHA CHANNEL FROM A SEPARATE RLE/RAW IMAGE IF EXISTS (JPEG-ONLY)
    if (length(rawData)>0) and (tex.PixelFormat=ipfARGB) then begin
-    DebugMessage('Adding separate alpha');
+    Log.Force('Adding separate alpha');
     k:=0;
     for i:=0 to tex.height-1 do begin
      dp:=tex.data; inc(dp,i*tex.pitch+3);
@@ -552,15 +552,15 @@ begin
 
  except
   on e:Exception do begin
-   if HasFlag(flags,liffNoFail) then exit(nil)
+   if Bits.HasAll(flags,liffNoFail) then exit(nil)
     else raise EWarning.Create(fname+' - Loading failed: '+ExceptionMsg(e));
   end;
  end;
 
  // 8. TIME CALCULATIONS
- time:=MyTickCount-time+random(2);
+ time:=CoreTime.Ticks-time+random(2);
  if (time>0) and (time<50000) then inc(loadingTime,time);
- if time>30 then LogMessage('Slow image loading: '+inttostr(time)+' - '+fname);
+ if time>30 then Log.Msg('Slow image loading: '+inttostr(time)+' - '+fname);
  result:=tex;
 end;
 
@@ -618,25 +618,25 @@ function CreateImageFromString(st:string8;padding:integer;flags:cardinal):TTextu
   image.Free;
  end;
 
-procedure LoadImage(var img:TTexture;fName:string;flags:cardinal=liffDefault);
+procedure LoadImage(var img:TTexture;fName:String8;flags:cardinal=liffDefault);
  begin
    if flags=liffDefault then flags:=defaultLoadImageFlags;
    if img<>nil then FreeImage(TTexture(img));
 
-   if IsPathRelative(fName) and
+   if Files.IsPathRelative(fName) and
      not fName.StartsWith('..') then fName:=defaultImagesDir+fName;
    img:=LoadImageFromFile(fName,flags,ipf32bpp);
  end;
 
-procedure SaveImage(img:TTexture;fName:string);
+procedure SaveImage(img:TTexture;fName:String8);
  var
    buf:ByteArray;
  begin
-   fname:=FileName(fname);
+   fname:=Files.FixName(fname);
    img.Lock(0,lmReadOnly);
    try
     buf:=SaveTGA(img.GetRawImage);
-    WriteFile(fname,@buf[0],0,length(buf));
+    Files.WriteBlock(fname,@buf[0],length(buf));
    finally
     img.Unlock;
    end;
@@ -760,7 +760,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
     // поэтому создадим временную картинку расширив исходную на бордюр в 1px
     w:=image.width+2; h:=image.height+2;
     SetLength(tmp,w*h);
-//   fillchar(tmp[0],w*h*4,0);
+//   Mem.Fill(tmp[0],w*h*4,0);
     image.Lock(0,lmReadOnly);
     CopyRect(image.data,image.pitch,@tmp[0],w*4,0,0,w-2,h-2,1,1); // Основная часть
     image.Unlock;

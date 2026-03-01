@@ -3,14 +3,10 @@
 //
 unit Apus.Engine.Types;
 interface
- uses Apus.CrossPlatform, Apus.Types, Apus.Images, Apus.Geom2D, Apus.Geom3D,
+ uses Apus.Core, Apus.Images, Apus.Geom2D, Apus.Geom3D,
    Apus.Colors, Apus.EventMan, Apus.VertexLayout;
 
 type
- // Strings
- String8 = Apus.Types.String8;
- String16 = Apus.Types.String16;
-
  // 2D points
  TPoint2 = Apus.Geom2D.TPoint2;
  PPoint2 = Apus.Geom2D.PPoint2;
@@ -26,6 +22,7 @@ type
  TVector3s = Apus.Geom3D.TVector3s;
  TVector4 = TQuaternion;
  TVector4s = TQuaternionS;
+ TQuaternionS = Apus.Geom3D.TQuaternionS;
  // Matrices
  T3DMatrix = TMatrix4;
  T3DMatrixS = TMatrix4s;
@@ -73,7 +70,6 @@ type
  end;
 
 implementation
- uses Apus.Common;
  {$EXCESSPRECISION OFF}
 
 { TGradient }

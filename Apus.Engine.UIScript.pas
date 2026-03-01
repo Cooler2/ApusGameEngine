@@ -5,13 +5,16 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.UIScript;
 interface
-uses Apus.Publics;
+uses Apus.Core, Apus.Publics;
 
- function GetVarTypeFor(typeName:string):TVarClass;
+ function GetVarTypeFor(typeName:string8):TVarClass;
 
 implementation
-uses Apus.Common, SysUtils, Apus.EventMan, Apus.Engine.CmdProc, Apus.Engine.Types,
-   Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UITypes, Apus.Geom2d;
+uses SysUtils, Apus.EventMan, Apus.Engine.CmdProc, Apus.Engine.Types,
+   Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UITypes, Apus.Geom2d,
+  Apus.Conv,
+  Apus.Strings,
+  Apus.Threads;
 
 type
  TDefaults=record
@@ -19,86 +22,86 @@ type
   x,y,width,height,hintDelay,hintDuration:integer;
   color,backgnd:cardinal;
   font,style,cursor:integer;
-  caption:string;
+  caption:string8;
   align:TTextAlignment;
  end;
 // TVarType=(vtNone,vtInt,vtByte,vtStr,vtBool,vtSendSignals,vtAlignment,vtBtnStyle,vtTranspMode);
 
  TVarTypeAlignment=class(TVarType)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
  TVarTypeUIElement=class(TVarTypeStruct)
-  class function GetValue(variable:pointer):string; override;
-  class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
-  class function ListFields:String; override;
+  class function GetValue(variable:pointer):string8; override;
+  class function GetField(variable:pointer;fieldName:string8;out varClass:TVarClass):pointer; override;
+  class function ListFields:string8; override;
  end;
 
  TVarTypeStyleInfo=class(TVarType)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
  TVarTypeClientWidth=class(TVarType)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
  TVarTypeElements=class(TVarType) // array of TUIElement
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
  TVarTypeClientHeight=class(TVarType)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
  TVarTypeElementColor=class(TVarType)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
  TVarTypeElementFont=class(TVarType)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
  TVarTypeElementScale=class(TVarType)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
  TVarTypeElementName=class(TVarType)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
  TVarTypeTranspMode=class(TVarTypeEnum)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
  TVarTypeSendSignals=class(TVarTypeEnum)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
  TVarTypeBtnStyle=class(TVarTypeEnum)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
  TVarTypePivot=class(TVarTypeEnum)
-  class procedure SetValue(variable:pointer;v:string); override;
-  class function GetValue(variable:pointer):string; override;
+  class procedure SetValue(variable:pointer;v:string8); override;
+  class function GetValue(variable:pointer):string8; override;
  end;
 
 
 var
  defaults:TDefaults; // default values used when new element is created
- curobjname:string; // current element name in upper case
+ curobjname:string8; // current element name in upper case
 
 procedure onItemCreated(event:TEventStr;tag:TTag);
 var
@@ -119,29 +122,29 @@ begin
   PublishVar(c,c.name,TVarTypeUIElement);
 end;
 
-procedure UseParentCmd(cmd:string);
+procedure UseParentCmd(cmd:string8);
  var
   c:TUIElement;
  begin
-  EnterCriticalSection(UICritSect);
+  UICritSect.Enter;
   try
   delete(cmd,1,10);
-  cmd:=UpperCase(cmd);
-  if (defaults.parentObj<>nil) and (UpperCase(defaults.parentObj.name)=cmd) then exit;
+  cmd:=UpperCase {TODO: use st.ToUpper}(cmd);
+  if (defaults.parentObj<>nil) and (UpperCase {TODO: use st.ToUpper}(defaults.parentObj.name)=cmd) then exit;
   c:=FindControl(cmd,false);
   if c=nil then
    raise EWarning.Create('Object not found - '+cmd);
   defaults.parentObj:=c;
   finally
-   LeaveCriticalSection(UICritSect);
+   UICritSect.Leave;
   end;
  end;
 
-procedure SetFocusCmd(cmd:string);
+procedure SetFocusCmd(cmd:string8);
  var
   c:TUIElement;
  begin
-  EnterCriticalSection(UICritSect);
+  UICritSect.Enter;
   try
    if length(cmd)=8 then c:=curobj
    else begin
@@ -154,27 +157,27 @@ procedure SetFocusCmd(cmd:string);
    if not c.canHaveFocus then raise EError.Create('This object can''t have focus!');
    c.SetFocus;
   finally
-   LeaveCriticalSection(UICritSect);
+   UICritSect.Leave;
   end;
  end;
 
-procedure CreateCmd(cmd:string);
+procedure CreateCmd(cmd:string8);
  var
-  sa:StringArr;
+  sa:Strings8;
   c:TUIElement;
  begin
-  EnterCriticalSection(UICritSect);
+  UICritSect.Enter;
   try
    if defaults.parentObj=nil then raise EError.Create('No object selected, use "UseParent" to select parent object first!');
    delete(cmd,1,7);
-   sa:=Split(' ',cmd,'"');
+   sa:=cmd.Split(' ','"');
    if length(sa)<>2 then raise EError.Create('Must have 2 parameters');
-   sa[0]:=uppercase(chop(sa[0]));
+   sa[0]:=sa[0].Trim.ToUpper;
    c:=FindControl(sa[1],false);
    if c<>nil then begin
     curObj:=c;
     curObjClass:=TVarTypeUIElement;
-    curObjName:=UpperCase(c.name);
+    curObjName:=UpperCase {TODO: use st.ToUpper}(c.name);
     exit;
    end;
    with defaults do begin
@@ -204,32 +207,32 @@ procedure CreateCmd(cmd:string);
    curObjClass:=TVarTypeUIElement;
    curobjname:=c.name;
   finally
-   LeaveCriticalSection(UICritSect);
+   UICritSect.Leave;
   end;
  end;
 
-function StrToAlign(s:string):TTextAlignment;
+function StrToAlign(s:string8):TTextAlignment;
  begin
-  s:=uppercase(s);
+  s:=s.ToUpper;
   result:=taLeft;
   if s='RIGHT' then result:=taRight;
   if s='CENTER' then result:=taCenter;
   if s='JUSTIFY' then result:=taJustify;
  end;
 
-function EvalInt(st:string):int64;
+function EvalInt(st:string8):int64;
  begin
   result:=round(EvalFloat(st,nil,curObj,curObjClass));
  end;
 
 {$IFDEF FPC}{$PUSH}{$R-}{$ENDIF}
-procedure DefaultCmd(cmd:string);
+procedure DefaultCmd(cmd:string8);
  var
-  sa:StringArr;
+  sa:Strings8;
  begin
    delete(cmd,1,7);
-   sa:=Split(' ',cmd,'"');
-   sa[0]:=UpperCase(sa[0]);
+   sa:=cmd.Split(' ','"');
+   sa[0]:=UpperCase {TODO: use st.ToUpper}(sa[0]);
    if sa[0]='X' then defaults.X:=EvalInt(sa[1]) else
    if sa[0]='Y' then defaults.Y:=EvalInt(sa[1]) else
    if sa[0]='WIDTH' then defaults.Width:=EvalInt(sa[1]) else
@@ -247,20 +250,20 @@ procedure DefaultCmd(cmd:string);
  end;
 {$IFDEF FPC}{$POP}{$ENDIF}
 
-procedure SetHotKeyCmd(cmd:string);
+procedure SetHotKeyCmd(cmd:string8);
  var
   key,shift:byte;
   v,i,d:integer;
-  sa:stringArr;
+  sa:Strings8;
   obj:TUIElement;
  begin
-  EnterCriticalSection(UICritSect);
+  UICritSect.Enter;
   try
    delete(cmd,1,10);
-   cmd:=UpperCase(cmd);
+   cmd:=UpperCase {TODO: use st.ToUpper}(cmd);
    obj:=curobj;
    if (obj=nil) or not (obj is TUIElement) then raise EWarning.Create('No UI object selected');
-   sa:=Split('+',cmd,#0);
+   sa:=cmd.Split('+',#0);
    v:=0;
    for i:=0 to length(sa)-1 do begin
     if sa[i]='ENTER' then d:=13 else
@@ -279,14 +282,14 @@ procedure SetHotKeyCmd(cmd:string);
     obj.SetHotKey(key,shift);
    end;
   finally
-   LeaveCriticalSection(UICritSect);
+   UICritSect.Leave;
   end;
  end;
 
 
 { TVarTypeUIControl }
 
-class function TVarTypeUIElement.GetField(variable: pointer; fieldName: string;
+class function TVarTypeUIElement.GetField(variable: pointer; fieldName: string8;
   out varClass: TVarClass): pointer;
 var
  obj:TUIElement;
@@ -300,7 +303,7 @@ begin
  if fieldname[high(fieldname)]=']' then begin // indexed element?
   p:=pos('[',fieldname);
   if p>0 then begin
-   index:=ParseInt(copy(fieldname,p+1,100));
+   index:=Conv.ToInt(copy(fieldname,p+1,100));
    SetLength(fieldname,p-1);
   end;
  end;
@@ -488,25 +491,25 @@ begin
  end;
 end;
 
-class function TVarTypeUIElement.GetValue(variable: pointer): string;
+class function TVarTypeUIElement.GetValue(variable: pointer): string8;
 begin
  result:=TUIElement(variable).ClassName+inherited;
 end;
 
-class function TVarTypeUIElement.ListFields: String;
+class function TVarTypeUIElement.ListFields: string8;
 begin
  result:='name,x,y,width,height,scale,visible,enabled';
 end;
 
-class procedure TVarTypeTranspMode.SetValue(variable:pointer;v:string);
+class procedure TVarTypeTranspMode.SetValue(variable:pointer;v:string8);
  begin
-  v:=lowercase(v);
+  v:=lowercase {TODO: use st.ToLower}(v);
   if v='transparent' then TElementShape(variable^):=shapeEmpty else
   if v='custom' then TElementShape(variable^):=shapeCustom else
   if v='opaque' then TElementShape(variable^):=shapeFull else
   raise EWarning.Create('Unknown transparency mode: '+v);
  end;
-class function TVarTypeTranspMode.GetValue(variable:pointer):string;
+class function TVarTypeTranspMode.GetValue(variable:pointer):string8;
  begin
   case TElementShape(variable^) of
    shapeEmpty:result:='transparent';
@@ -515,15 +518,15 @@ class function TVarTypeTranspMode.GetValue(variable:pointer):string;
   end;
  end;
 
-class procedure TVarTypeSendSignals.SetValue(variable:pointer;v:string);
+class procedure TVarTypeSendSignals.SetValue(variable:pointer;v:string8);
  begin
-  v:=lowercase(v);
+  v:=lowercase {TODO: use st.ToLower}(v);
   if v='major' then TSendSignals(variable^):=ssMajor else
   if v='all' then TSendSignals(variable^):=ssAll else
   if v='none' then TSendSignals(variable^):=ssNone else
   raise EWarning.Create('Unknown SendSignals mode: '+v);
  end;
-class function TVarTypeSendSignals.GetValue(variable:pointer):string;
+class function TVarTypeSendSignals.GetValue(variable:pointer):string8;
  begin
   case TSendSignals(variable^) of
    ssMajor:result:='major';
@@ -532,15 +535,15 @@ class function TVarTypeSendSignals.GetValue(variable:pointer):string;
   end;
  end;
 
-class procedure TVarTypeBtnStyle.SetValue(variable:pointer;v:string);
+class procedure TVarTypeBtnStyle.SetValue(variable:pointer;v:string8);
  begin
-  v:=lowercase(v);
+  v:=lowercase {TODO: use st.ToLower}(v);
   if v='normal' then TButtonStyle(variable^):=bsNormal else
   if v='switch' then TButtonStyle(variable^):=bsSwitch else
   if (v='item') or (v='checkbox') then TButtonStyle(variable^):=bsCheckbox else
   raise EWarning.Create('Unknown BtnStyle: '+v);
  end;
-class function TVarTypeBtnStyle.GetValue(variable:pointer):string;
+class function TVarTypeBtnStyle.GetValue(variable:pointer):string8;
  begin
   case TButtonStyle(variable^) of
    bsNormal:result:='normal';
@@ -551,7 +554,7 @@ class function TVarTypeBtnStyle.GetValue(variable:pointer):string;
 
 { TVarTypePivot }
 
-class function TVarTypePivot.GetValue(variable: pointer): string;
+class function TVarTypePivot.GetValue(variable: pointer): string8;
  var
   p:TPoint2s;
  begin
@@ -559,7 +562,7 @@ class function TVarTypePivot.GetValue(variable: pointer): string;
   result:=Format('(%.2f,%.2f)',[p.x,p.y]);
  end;
 
-class procedure TVarTypePivot.SetValue(variable: pointer; v: string);
+class procedure TVarTypePivot.SetValue(variable: pointer; v: string8);
  begin
   if SameText(v,'Center') then TPoint2s(variable^):=pivotCenter else
   if SameText(v,'TopLeft') then TPoint2s(variable^):=pivotTopLeft else
@@ -571,31 +574,31 @@ class procedure TVarTypePivot.SetValue(variable: pointer; v: string);
 
 { TVarTypeStyleinfo }
 
-class function TVarTypeStyleinfo.GetValue(variable:pointer):string;
+class function TVarTypeStyleinfo.GetValue(variable:pointer):string8;
  begin
   result:=TUIElement(variable).styleInfo;
  end;
 
-class procedure TVarTypeStyleinfo.SetValue(variable:pointer; v:string);
+class procedure TVarTypeStyleinfo.SetValue(variable:pointer; v:string8);
  begin
   TUIElement(variable).styleInfo:=v;
  end;
 
 { TVarTypeElementFont }
 
-class function TVarTypeElementFont.GetValue(variable:pointer):string;
+class function TVarTypeElementFont.GetValue(variable:pointer):string8;
  begin
   result:='$'+IntToHex(TUIElement(variable).font,sizeof(TFontHandle) div 2);
  end;
 
-class procedure TVarTypeElementFont.SetValue(variable:pointer; v:string);
+class procedure TVarTypeElementFont.SetValue(variable:pointer; v:string8);
  begin
-  TUIElement(variable).font:=TFontHandle(ParseInt(v));
+  TUIElement(variable).font:=TFontHandle(Conv.ToInt(v));
  end;
 
 { TVarTypeAlignment }
 
-class function TVarTypeAlignment.GetValue(variable:pointer):string;
+class function TVarTypeAlignment.GetValue(variable:pointer):string8;
  var
   a:TTextAlignment;
  begin
@@ -608,7 +611,7 @@ class function TVarTypeAlignment.GetValue(variable:pointer):string;
   end;
  end;
 
-class procedure TVarTypeAlignment.SetValue(variable:pointer; v:string);
+class procedure TVarTypeAlignment.SetValue(variable:pointer; v:string8);
  var
   a:^TTextAlignment;
  begin
@@ -616,74 +619,74 @@ class procedure TVarTypeAlignment.SetValue(variable:pointer; v:string);
   a^:=StrToAlign(v);
  end;
 
-function GetVarTypeFor(typeName:string):TVarClass;
+function GetVarTypeFor(typeName:string8):TVarClass;
  begin
   if SameText(typeName,'TTextAlignment') then result:=TVarTypeAlignment;
  end;
 
 { TVarTypeElementName }
 
-class function TVarTypeElementName.GetValue(variable:pointer):string;
+class function TVarTypeElementName.GetValue(variable:pointer):string8;
  begin
   result:=''''+TUIElement(variable).name+'''';
  end;
 
-class procedure TVarTypeElementName.SetValue(variable:pointer;v:string);
+class procedure TVarTypeElementName.SetValue(variable:pointer;v:string8);
  begin
   TUIElement(variable).name:=v;
  end;
 
 { TVarTypeObjColor }
 
-class function TVarTypeElementColor.GetValue(variable:pointer):string;
+class function TVarTypeElementColor.GetValue(variable:pointer):string8;
  begin
   result:='$'+IntToHex(TUIElement(variable).color,8);
  end;
 
-class procedure TVarTypeElementColor.SetValue(variable:pointer;v:string);
+class procedure TVarTypeElementColor.SetValue(variable:pointer;v:string8);
  begin
-  TUIElement(variable).color:=ParseInt('$'+v);
+  TUIElement(variable).color:=Conv.ToInt('$'+v);
  end;
 
 { TVarTypeElementScale }
 
-class function TVarTypeElementScale.GetValue(variable: pointer): string;
+class function TVarTypeElementScale.GetValue(variable: pointer): string8;
  begin
   result:=FloatToStr(TUIElement(variable).globalScale);
  end;
 
-class procedure TVarTypeElementScale.SetValue(variable: pointer; v: string);
+class procedure TVarTypeElementScale.SetValue(variable: pointer; v: string8);
  begin
   raise EWarning.Create('GlobalScale is a read-only property');
  end;
 
 { TVarTypeClientWidth }
 
-class function TVarTypeClientWidth.GetValue(variable: pointer): string;
+class function TVarTypeClientWidth.GetValue(variable: pointer): string8;
  begin
   result:=FloatToStr(TUIElement(variable).clientWidth);
  end;
 
-class procedure TVarTypeClientWidth.SetValue(variable: pointer; v: string);
+class procedure TVarTypeClientWidth.SetValue(variable: pointer; v: string8);
  begin
   raise EWarning.Create('ClientWidth is a read-only property');
  end;
 
 { TVarTypeClientHeight }
 
-class function TVarTypeClientHeight.GetValue(variable: pointer):string;
+class function TVarTypeClientHeight.GetValue(variable: pointer):string8;
  begin
   result:=FloatToStr(TUIElement(variable).clientWidth);
  end;
 
-class procedure TVarTypeClientHeight.SetValue(variable: pointer; v: string);
+class procedure TVarTypeClientHeight.SetValue(variable: pointer; v: string8);
  begin
   raise EWarning.Create('ClientHeight is a read-only property');
  end;
 
 { TVarTypeElements }
 
-class function TVarTypeElements.GetValue(variable: pointer):string;
+class function TVarTypeElements.GetValue(variable: pointer):string8;
  var
   list:^TUIElements;
   i:integer;
@@ -696,7 +699,7 @@ class function TVarTypeElements.GetValue(variable: pointer):string;
   result:='['+result+']';
  end;
 
-class procedure TVarTypeElements.SetValue(variable: pointer; v: string);
+class procedure TVarTypeElements.SetValue(variable: pointer; v: string8);
  begin
   raise EWarning.Create('TUIElements is a read-only type');
  end;

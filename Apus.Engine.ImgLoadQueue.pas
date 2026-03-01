@@ -263,7 +263,7 @@ procedure TUnpackThread.Execute;
        status:=lqsError;
        continue;
       end;
-      Log.Msg('Preloaded: '+fname+', time='+IntToStr(CoreTime.Ticks-t));
+      Log.Msg('Preloaded: '+fname+', time='+Conv.ToStr(CoreTime.Ticks-t));
       Setlength(srcData,0);
       status:=lqsReady;
       timeUnpacked:=CoreTime.Ticks;
@@ -286,24 +286,24 @@ procedure TUnpackThread.Execute;
 
 procedure TerminateThreads;
  var
-  i:integer;
+   i:integer;
  begin
-  Log.Force('Terminating ILQ threads');
-  if (loadingThread<>nil) and not loadingThread.Terminated then begin
-   loadingThread.Terminate;
-   loadingThread.WaitFor;
-  end;
-  for i:=1 to high(unpackThreads) do
-   if (unpackThreads[i]<>nil) and not unpackThreads[i].Terminated then begin
-    unpackThreads[i].Terminate;
-    unpackThreads[i].WaitFor;
+   Log.Force('Terminating ILQ threads');
+   if (loadingThread<>nil) and not loadingThread.Terminated then begin
+     loadingThread.Terminate;
+     loadingThread.WaitFor;
    end;
-  Log.Msg('ILQ threads terminated. Max unpack time was '+inttostr(maxUnpackTime));
+   for i:=1 to high(unpackThreads) do
+     if (unpackThreads[i]<>nil) and not unpackThreads[i].Terminated then begin
+       unpackThreads[i].Terminate;
+       unpackThreads[i].WaitFor;
+     end;
+   Log.Msg('ILQ threads terminated. Max unpack time was '+Conv.ToStr(maxUnpackTime));
  end;
 
 initialization
- cSect.Init('ImgloadQueue');
+  cSect.Init('ImgloadQueue');
 finalization
- TerminateThreads;
- cSect.Cleanup;
+  TerminateThreads;
+  cSect.Cleanup;
 end.

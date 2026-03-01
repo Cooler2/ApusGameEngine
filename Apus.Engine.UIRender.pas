@@ -7,7 +7,7 @@
 // ------------------------------------------------------
 unit Apus.Engine.UIRender;
 interface
- uses Apus.Engine.API, Apus.Engine.UI;
+ uses Apus.Core, Apus.Engine.API, Apus.Engine.UI;
  type
   // процедура отрисовки элемента
   TUIDrawer=procedure(control:TUIElement);
@@ -28,7 +28,7 @@ interface
  // 0..9 - reserved for engine styles
  // 10..19 - for private game styles
  // 20..50 - 3-rd party libraries
- procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string='');
+ procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string8='');
 
  // Fill control rect with image (helper function)
  procedure DrawControlWithImage(c:TUIElement;img:TTexture;centered:boolean=false);
@@ -43,8 +43,9 @@ interface
   defaultHintFont:cardinal=0; // Шрифт, которым показываются хинты
 
 implementation
- uses Apus.CrossPlatform, Apus.Images, SysUtils, Types, Apus.Common,
-    Apus.EventMan, Apus.Geom2D, Apus.Engine.DefaultStyle;
+ uses Apus.Images, SysUtils, Types,
+    Apus.EventMan, Apus.Geom2D, Apus.Engine.DefaultStyle,
+  Apus.Log;
 
  var
   styleDrawers:array[0..50] of TUIDrawer;
@@ -100,12 +101,12 @@ implementation
        with item.globalRect do begin
          if (item=underMouse) and (game.frameStartTime and $100=0) then
           draw.FillRect(left,top,right-1,bottom-1,$1800FF00);
-         draw.Rect(left,top,right-1,bottom-1,$80FFFFFF xor ($FFFFFF*((MyTickCount shr 8) and 1)));
+         draw.Rect(left,top,right-1,bottom-1,$80FFFFFF xor ($FFFFFF*((CoreTime.Ticks shr 8) and 1)));
        end;
    except
     on E:Exception do begin
-     ForceLogMessage('Error drawing control '+item.name+' - '+ExceptionMsg(e));
-     sleep(0);
+     Log.Force('Error drawing control '+item.name+' - '+ExceptionMsg(e));
+     CoreTime.Sleep(0);
     end;
    end;
 
@@ -175,11 +176,11 @@ implementation
    end;
   end;
 
- procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string='');
+ procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string8='');
   begin
    ASSERT(style in [0..high(styleDrawers)]);
    styleDrawers[style]:=drawer;
-   if name<>'' then LogMessage(Format('UI style registered: %d - %s',[style,name]));
+   if name<>'' then Log.Msg(Format('UI style registered: %d - %s',[style,name]));
   end;
 
  procedure DrawControlWithImage(c:TUIElement;img:TTexture;centered:boolean=false);

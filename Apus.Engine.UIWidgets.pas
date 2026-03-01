@@ -8,8 +8,7 @@
 
 unit Apus.Engine.UIWidgets;
 interface
- uses Types, Apus.Common, Apus.AnimatedValues,
-   Apus.Engine.API, Apus.Engine.Types, Apus.Engine.UITypes;
+ uses Apus.Core, Apus.Lib, Apus.Engine.API, Apus.Engine.Types, Apus.Engine.UITypes;
 
  {$WRITEABLECONST ON}
  {$IFDEF CPUARM} {$R-} {$ENDIF}
@@ -44,8 +43,8 @@ interface
 
   // Just a static image
   TUIImage=class(TUIElement)
-   src:string; // can be "file:xxx" "event:xxx", "proc:XXXXXXXX" etc...
-   constructor Create(width,height:single;imgname:string;parent_:TUIElement;source:string='');
+   src:String8; // can be "file:xxx" "event:xxx", "proc:XXXXXXXX" etc...
+   constructor Create(width,height:single;imgname:String8;parent_:TUIElement;source:String8='');
    procedure SetRenderProc(proc:pointer); // sugar for use "proc:XXX" src for the default style
   end;
 
@@ -68,13 +67,13 @@ interface
   // обычно создается незаполненным или неполностью заполненным,
   // создающий код либо отрисовщик могут дополнить или использовать значения по умолчанию
   TUIHint=class(TUIImage)
-   simpleText:string; // текст надписи
+   simpleText:String8; // plain caption text
    active:boolean; // если true - значит хинт активный, не кэшируется и содержит вложенные эл-ты
    created:int64; // момент создания (в мс.)
    adjusted:boolean; // отрисовщик может использовать это для корректировки параметров хинта
    hiding:boolean; // hint is currently hiding
 
-   constructor Create(x,y:single;text:string;parent_:TUIElement);
+   constructor Create(x,y:single;text:String8;parent_:TUIElement);
    destructor Destroy; override;
    procedure Hide;
    procedure onMouseButtons(button:byte;state:boolean); override;
@@ -85,10 +84,10 @@ interface
    align:TTextAlignment;
    autoSize:boolean; // render should adjust element size to match caption
    verticalOffset:integer; // сдвиг текста вверх
-   constructor Create(width,height:single;labelname,text:string;color_:cardinal;bFont:TFontHandle;parent_:TUIElement); overload;
-   constructor Create(width,height:single;labelname,text:string;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault); overload;
-   constructor CreateCentered(width,height:single;labelname,text:string;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
-   constructor CreateRight(width,height:single;labelname,text:string;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
+   constructor Create(width,height:single;labelname,text:String8;color_:cardinal;bFont:TFontHandle;parent_:TUIElement); overload;
+   constructor Create(width,height:single;labelname,text:String8;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault); overload;
+   constructor CreateCentered(width,height:single;labelname,text:String8;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
+   constructor CreateRight(width,height:single;labelname,text:String8;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
    procedure CaptionWidthIs(width:single);
   end;
 
@@ -105,17 +104,17 @@ interface
    btnStyle:TButtonStyle; // тип кнопки (влияет как на отрисовку, так и на поведение)
    group:integer;   // Группа переключателей
    onClick:TProcedure;
-   onClickEvent:string;
+   onClickEvent:String8;
 {   class var onClickSender:TUIButton;
    class var active:TUIButton; // link to the active button (can be used in click handlers)}
-   constructor Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement); overload;
-   constructor Create(width,height:single;btnName,btnCaption:string;parent_:TUIElement); overload;
-   constructor Create(width,height:single;btnCaption:string;parent_:TUIElement); overload;
-   constructor CreateSwitch(width,height:single;btnName,btnCaption:string;group:integer;
+   constructor Create(width,height:single;btnName,btnCaption:String8;btnFont:TFontHandle;parent_:TUIElement); overload;
+   constructor Create(width,height:single;btnName,btnCaption:String8;parent_:TUIElement); overload;
+   constructor Create(width,height:single;btnCaption:String8;parent_:TUIElement); overload;
+   constructor CreateSwitch(width,height:single;btnName,btnCaption:String8;group:integer;
      btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false); overload;
-   constructor CreateSwitch(width,height:single;btnName,btnCaption:string;parent_:TUIElement;pressed:boolean=false); overload;
-   constructor CreateSwitch(width,height:single;btnCaption:string;parent_:TUIElement;pressed:boolean=false); overload;
-   constructor CreateGroupSwitch(width,height:single;btnCaption:string;parent_:TUIElement;pressed:boolean=false); overload;
+   constructor CreateSwitch(width,height:single;btnName,btnCaption:String8;parent_:TUIElement;pressed:boolean=false); overload;
+   constructor CreateSwitch(width,height:single;btnCaption:String8;parent_:TUIElement;pressed:boolean=false); overload;
+   constructor CreateGroupSwitch(width,height:single;btnCaption:String8;parent_:TUIElement;pressed:boolean=false); overload;
    destructor Destroy; override;
 
    procedure onMouseButtons(button:byte;state:boolean); override;
@@ -139,13 +138,13 @@ interface
 
   TUICheckBox=class(TUIButton)
    checked:boolean;
-   constructor Create(width,height:single;btnName,caption:string;parent_:TUIElement;
+   constructor Create(width,height:single;btnName,caption:String8;parent_:TUIElement;
     checked:boolean=false;btnFont:TFontHandle=0); overload;
    procedure SetPressed(pr:boolean); override;
   end;
 
   TUIRadioButton=class(TUICheckbox)
-   constructor Create(width,height:single;btnName,caption:string;
+   constructor Create(width,height:single;btnName,caption:String8;
      parent_:TUIElement;checked:boolean=false;btnFont:TFontHandle=0); overload;
   end;
 
@@ -165,7 +164,7 @@ interface
    resizeable:boolean;  // окно можно растягивать
    minW,minH,maxW,maxH:integer; // максимальные и минимальные размеры (для растягивающихся окон)
 
-   constructor Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,wndCaption:string;wndFont:TFontHandle;parent_:TUIElement);
+   constructor Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,wndCaption:String8;wndFont:TFontHandle;parent_:TUIElement);
 
    // Возвращает флаги типа области в указанной точке (к-ты экранные (в пикселях)
    // а также курсор, который нужно заюзать для этой области
@@ -189,15 +188,15 @@ interface
   TUISkinnedWindow=class(TUIWindow)
    dragRegion:TRegion; // область, за которую можно таскать окно (если не задана - то за любую точку)
    background:pointer; // некий указатель на фон окна (т.к. вопросы отрисовки в этом модуле не затрагиваются)
-   constructor Create(wndName,wndCaption:string;wndFont:TFontHandle;parent_:TUIElement;canmove:boolean=true);
+   constructor Create(wndName,wndCaption:String8;wndFont:TFontHandle;parent_:TUIElement;canmove:boolean=true);
    destructor Destroy; override;
    function GetAreaType(x,y:integer;out cur:NativeInt):integer; override; // x,y - screen space coordinates
   end;
 
   TUIEditBox=class(TUIElement)
-   realText:WideString; // real text value of the edit box
-   completion:WideString; // grayed background text, if it is not empty and enter is pressed, then it is set to realText
-   defaultText:WideString; // grayed background text, displayed if realText is empty
+   realText:String32; // real text value of the edit box
+   completion:String32; // grayed background text, if it is not empty and enter is pressed, then it is set to realText
+   defaultText:String32; // grayed background text, displayed if realText is empty
    cursorPos:integer;     // cursor position (cursor is located after the character with given index, 1-based)
    maxLength:integer;      // max allowed length
    password:boolean;    // is it password field? if true, all characters are displayed as '*'
@@ -209,10 +208,10 @@ interface
    protection:byte;    // xor all characters with this value
    offset:integer;     // shift text right by this number of pixels
 
-   constructor Create(width,height:single;boxName:string;boxFont:TFontHandle;color_:cardinal;parent_:TUIElement); overload;
-   constructor Create(width,height:single;text:string;parent:TUIElement;name:string=''); overload;
+   constructor Create(width,height:single;boxName:String8;boxFont:TFontHandle;color_:cardinal;parent_:TUIElement); overload;
+   constructor Create(width,height:single;text:String8;parent:TUIElement;name:String8=''); overload;
    procedure onChar(ch:char;scancode:byte); override;
-   procedure onUniChar(ch:WideChar;scancode:byte); override;
+   procedure onUniChar(ch:Char32;scancode:byte); override;
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
@@ -221,7 +220,7 @@ interface
    procedure onLostFocus; override;
    procedure SelectAll; virtual;
   private
-   savedText:WideString;
+   savedText:String32;
    lastClickTime:int64;
    msSelStart:integer; // после символа с этим номером находится точка начала выделения мышью
    procedure AdjustState;
@@ -251,8 +250,8 @@ interface
    sliderUnder:boolean; // mouse is over slider
    sliderStart,sliderEnd:single; // relative position of slider (in 0..1 range)
    autoHide:boolean; // hide if pagesize>=range
-   constructor Create(width,height:single;barName:string;parent_:TUIElement); overload;
-   constructor Create(width,height:single;min,max,pageSize,value:single;parent:TUIElement;barName:string=''); overload;
+   constructor Create(width,height:single;barName:String8;parent_:TUIElement); overload;
+   constructor Create(width,height:single;min,max,pageSize,value:single;parent:TUIElement;barName:String8=''); overload;
    function GetScroller:IScroller;
    function SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
    // Переместить ползунок в указанную позицию
@@ -261,7 +260,7 @@ interface
    // Связать значение с внешней переменной
    procedure Link(elem:TUIElement); virtual;
    // Сигналы от этих кнопок будут использоваться для перемещения ползунка
-   procedure UseButtons(lessBtn,moreBtn:string);
+   procedure UseButtons(lessBtn,moreBtn:String8);
    procedure CalcSliderPos(minSize:single=0.5); // minimal slider size (relative to width)
    procedure onTimer; override;
 
@@ -279,20 +278,20 @@ interface
   end;
 
   TUIListBox=class(TUIElement)
-   lines:StringArr;
+   lines:Strings8;
    tags:array of cardinal;
-   hints:StringArr; // each element may have its own hint
+   hints:Strings8; // each element may have its own hint
    lineHeight:single; // in self CS
    selectedLine:integer; // index of selected line (or -1)
    hoverLine:integer; // index of line under mouse (or -1)
    autoSelectMode:boolean; // when true, hover line is automatically selected
    bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // цвета отрисовки
-   constructor Create(width,height:single;lHeight:single;listName:string;font_:TFontHandle;parent:TUIElement);
+   constructor Create(width,height:single;lHeight:single;listName:String8;font_:TFontHandle;parent:TUIElement);
    destructor Destroy; override;
-   procedure AddLine(line:string;tag:cardinal=0;hint:string=''); virtual;
-   procedure SetLine(index:integer;line:string;tag:cardinal=0;hint:string=''); virtual;
+   procedure AddLine(line:String8;tag:cardinal=0;hint:String8=''); virtual;
+   procedure SetLine(index:integer;line:String8;tag:cardinal=0;hint:String8=''); virtual;
    procedure ClearLines;
-   procedure SetLines(newLines:StringArr); virtual;
+   procedure SetLines(newLines:Strings8); virtual;
    procedure SelectLine(line:integer); virtual;
    procedure onMouseMove; override;
    procedure onMouseButtons(button:byte;state:boolean); override;
@@ -301,35 +300,36 @@ interface
 
   // Выпадающий список
   TUIComboBox=class(TUIButton)
-   items,hints:WStringArr;
+   items,hints:Strings8;
    tags:IntArray;
-   defaultText:WideString;
+   defaultText:String8;
    fCurItem,fCurTag:integer;
    // pop up elements
    frame:TUIFrame;
    popup:TUIListBox;
    maxlines:integer; // max lines to show without scrolling
-   constructor Create(width,height:single;bFont:TFontHandle;list:WStringArr;parent_:TUIElement;name:string=''); overload;
-   constructor Create(width,height:single;parent_:TUIElement;name:string); overload;
-   procedure AddItem(item:WideString;tag:cardinal=0;hint:WideString=''); virtual;
-   procedure SetItem(index:integer;item:WideString;tag:cardinal=0;hint:string=''); virtual;
+   constructor Create(width,height:single;bFont:TFontHandle;list:Strings8;parent_:TUIElement;name:String8=''); overload;
+   constructor Create(width,height:single;parent_:TUIElement;name:String8); overload;
+   procedure AddItem(item:String8;tag:cardinal=0;hint:String8=''); virtual;
+   procedure SetItem(index:integer;item:String8;tag:cardinal=0;hint:String8=''); virtual;
    procedure ClearItems;
    procedure onDropDown; virtual;
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onTimer; override; // трюк: используется для слежения за всплывающим списком, чтобы не заморачиваться с сигналами
    procedure SetCurItem(item:integer); virtual;
-   procedure SetCurItemByText(value:string16); virtual;
+   procedure SetCurItemByText(value:String8); virtual;
    procedure SetCurItemByTag(tag:integer); virtual;
   protected
-   function GetText:string16;
+   function GetText:String8;
   public
    property curItem:integer read fCurItem write SetCurItem;
    property curTag:integer read fCurTag write SetCurItemByTag;
-   property text:string16 read GetText;
+   property text:String8 read GetText;
   end;
 
 implementation
- uses SysUtils, Apus.Types, Apus.CrossPlatform, Apus.EventMan, Apus.Geom2D, Apus.Clipboard;
+ uses SysUtils, Types, Apus.Types, Apus.Utils, Apus.EventMan, Apus.Geom2D, Apus.Clipboard,
+  Apus.Strings;
 
  type
   TScrollBarInterface=class(TInterfacedObject, IScroller)
@@ -379,7 +379,7 @@ implementation
 
  { TUIimage }
 
- constructor TUIimage.Create(width,height:single;imgname:string;parent_:TUIElement;source:string='');
+ constructor TUIimage.Create(width,height:single;imgname:String8;parent_:TUIElement;source:String8='');
   begin
    inherited Create(width,height,parent_,imgName);
    src:=source;
@@ -389,7 +389,7 @@ implementation
  procedure TUIImage.SetRenderProc(proc:pointer);
   begin
    styleClass:=0;
-   src:='proc:'+FormatHex(UIntPtr(proc));
+   src:='proc:'+Conv.ToHex(UIntPtr(proc));
   end;
 
  { TUIButton }
@@ -400,7 +400,7 @@ implementation
    onMouseButtons(1,false);
   end;
 
- constructor TUIButton.Create(width,height:single;btnName,btnCaption:string;btnFont:TFontHandle;parent_:TUIElement);
+ constructor TUIButton.Create(width,height:single;btnName,btnCaption:String8;btnFont:TFontHandle;parent_:TUIElement);
   var
    i:integer;
   begin
@@ -426,17 +426,17 @@ implementation
   end;
 
  // Without font
- constructor TUIButton.Create(width,height:single;btnName,btnCaption:string; parent_:TUIElement);
+ constructor TUIButton.Create(width,height:single;btnName,btnCaption:String8; parent_:TUIElement);
   begin
    Create(width,height,btnName,btnCaption,0,parent_);
   end;
 
- constructor TUIButton.Create(width,height:single;btnCaption:string;parent_:TUIElement);
+ constructor TUIButton.Create(width,height:single;btnCaption:String8;parent_:TUIElement);
   begin
    Create(width,height,'',btnCaption,0,parent_);
   end;
 
- constructor TUIButton.CreateSwitch(width,height:single;btnName,btnCaption:string;
+ constructor TUIButton.CreateSwitch(width,height:single;btnName,btnCaption:String8;
     group:integer;btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false);
   begin
    Create(width,height,btnName,btnCaption,btnFont,parent_);
@@ -446,7 +446,7 @@ implementation
    CheckGroup;
   end;
 
- constructor TUIButton.CreateSwitch(width,height:single;btnName,btnCaption:string;
+ constructor TUIButton.CreateSwitch(width,height:single;btnName,btnCaption:String8;
     parent_:TUIElement;pressed:boolean=false);
   begin
    Create(width,height,btnName,btnCaption,0,parent_);
@@ -455,12 +455,12 @@ implementation
    CheckGroup;
   end;
 
- constructor TUIButton.CreateSwitch(width,height:single;btnCaption:string;parent_:TUIElement;pressed:boolean=false);
+ constructor TUIButton.CreateSwitch(width,height:single;btnCaption:String8;parent_:TUIElement;pressed:boolean=false);
   begin
    CreateSwitch(width,height,'',btnCaption,parent_,pressed);
   end;
 
- constructor TUIButton.CreateGroupSwitch(width,height:single;btnCaption:string;parent_:TUIElement;pressed:boolean=false);
+ constructor TUIButton.CreateGroupSwitch(width,height:single;btnCaption:String8;parent_:TUIElement;pressed:boolean=false);
   begin
    CreateSwitch(width,height,'',btnCaption,1,0,parent_,pressed);
   end;
@@ -510,14 +510,14 @@ implementation
    end else begin
     if pending then exit;
     // Защита от двойных кликов
-    if (sendSignals<>ssNone) and (MyTickCount>lastPressed+50) then begin
+    if (sendSignals<>ssNone) and (CoreTime.Ticks>lastPressed+50) then begin
      Signal('UI\'+name+'\Click',byte(pressed));
      Signal('UI\Button\Click\'+name,TTag(self));
      if Assigned(onClick) then begin
       game.RunAsync(@onClick);
      end;
      if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
-     lastPressed:=MyTickCount;
+     lastPressed:=CoreTime.Ticks;
     end;
    end;
   end;
@@ -568,7 +568,7 @@ function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
  function TUIButton.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
   begin
    result:=inherited onKey(keycode,pressed,shiftstate);
-   if pressed and (keycode in [VK_RETURN,VK_SPACE]) then begin // Enter
+   if pressed and (TKey(keycode) in [TKey.Enter,TKey.Space]) then begin // Enter
     onHotKey(keycode,shiftstate);
     result:=false;
    end;
@@ -635,7 +635,7 @@ procedure TUIButton.SetPressed(pr:boolean);
    end;
   end;
 
- procedure TUIButton.MakeSwitches(sameGroup:boolean=true;clickHandler:Apus.Types.TProcedure=nil); // make all sibling buttons with the same size - switches
+ procedure TUIButton.MakeSwitches(sameGroup:boolean=true;clickHandler:TProcedure=nil); // make all sibling buttons with the same size - switches
   var
    i:integer;
    b:TUIButton;
@@ -664,7 +664,7 @@ procedure TUIButton.SetPressed(pr:boolean);
 
 { TUICheckBox }
 
-constructor TUICheckBox.Create(width,height:single;btnName,caption:string;
+constructor TUICheckBox.Create(width,height:single;btnName,caption:String8;
    parent_:TUIElement;checked:boolean;btnFont:TFontHandle);
  begin
   inherited Create(width,height,btnName,caption,parent_);
@@ -676,7 +676,7 @@ constructor TUICheckBox.Create(width,height:single;btnName,caption:string;
 
 { TUIRadioBox }
 
-constructor TUIRadioButton.Create(width,height:single;btnName,caption:string;
+constructor TUIRadioButton.Create(width,height:single;btnName,caption:String8;
   parent_:TUIElement;checked:boolean;btnFont:TFontHandle);
  var
   i:integer;
@@ -716,7 +716,7 @@ constructor TUIRadioButton.Create(width,height:single;btnName,caption:string;
    end;
   end;
 
-constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFont:TFontHandle;
+constructor TUILabel.Create(width,height:single;labelname,text:String8;color_,bFont:TFontHandle;
     parent_: TUIElement);
   begin
    inherited Create(width,height,parent_,labelName);
@@ -729,21 +729,21 @@ constructor TUILabel.Create(width,height:single;labelname,text:string;color_,bFo
    caption:=text;
   end;
 
-constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
+constructor TUILabel.CreateCentered(width,height:single;labelname,text:String8;
    parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
   begin
    Create(width,height,labelName,text,color_,font,parent_);
    align:=taCenter;
   end;
 
- constructor TUILabel.Create(width,height:single;labelname,text:string;
+ constructor TUILabel.Create(width,height:single;labelname,text:String8;
    parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
   begin
    Create(width,height,labelName,text,color_,font,parent_);
    align:=taLeft;
   end;
 
- constructor TUILabel.CreateRight(width,height:single;labelname,text:string;
+ constructor TUILabel.CreateRight(width,height:single;labelname,text:String8;
    parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
   begin
    Create(width,height,labelName,text,color_,font,parent_);
@@ -753,7 +753,7 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
 { TUIWindow }
 
  constructor TUIWindow.Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,
-    wndCaption:string;wndFont:TFontHandle;parent_:TUIElement);
+    wndCaption:String8;wndFont:TFontHandle;parent_:TUIElement);
   var
    deltaX,deltaY:integer;
   begin
@@ -886,13 +886,12 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
    if selstart+selcount>length(realtext)+1 then selcount:=length(realtext)-selstart+1;
   end;
 
- constructor TUIEditBox.Create(width,height:single;boxName:string;
+ constructor TUIEditBox.Create(width,height:single;boxName:String8;
     boxFont:TFontHandle;color_:cardinal;parent_:TUIElement);
   begin
    inherited Create(width,height,parent_,boxName);
    shape:=shapeFull;
    cursor:=CursorID.Input;
-   realtext:='';
    selstart:=0;
    selcount:=0;
    cursorpos:=0;
@@ -905,12 +904,10 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
    offset:=0;
    canhavefocus:=true; //CheckAndSetFocus;
    sendSignals:=ssAll;
-   completion:='';
-   defaultText:='';
    lastClickTime:=0;
   end;
 
- constructor TUIEditBox.Create(width,height:single;text:string;parent:TUIElement;name:string);
+ constructor TUIEditBox.Create(width,height:single;text:String8;parent:TUIElement;name:String8);
   begin
    Create(width,height,name,0,clDefault,parent);
    self.text:=text;
@@ -918,12 +915,12 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:string;
 
 function TUIEditBox.GetText:String8;
   begin
-   result:=Str8(realtext);
+   result:=UTF8.Encode(realText);
   end;
 
  procedure TUIEditBox.SetText(s:String8);
   begin
-   realtext:=DecodeUTF8(s);
+   realtext:=UTF8.Decode(s);
    if cursorpos>length(realtext) then cursorpos:=length(realtext);
   end;
 
@@ -932,18 +929,18 @@ function TUIEditBox.GetText:String8;
    inherited;
   end;
 
- procedure TUIEditBox.onUniChar(ch:WideChar;scancode:byte);
+ procedure TUIEditBox.onUniChar(ch:Char32;scancode:byte);
   var
-   oldText:WideString;
+   oldText:String32;
   begin
    oldText:=realText;
    AdjustState;
-   cursortimer:=mytickcount;
+   cursortimer:=CoreTime.Ticks;
    TUIElement.sender:=self;
-   if (ch=#13) and (sendSignals<>ssNone) then begin
-    if (completion<>'') and (realText<>completion) then begin
+   if (ch=13) and (sendSignals<>ssNone) then begin
+    if (not completion.IsEmpty) and (not realText.Same(completion)) then begin
      realText:=completion;
-     completion:='';
+     completion:=[];
      cursorpos:=length(realtext);
      selcount:=0;
      Signal('UI\'+name+'\AutoCompletion',0);
@@ -953,15 +950,15 @@ function TUIEditBox.GetText:String8;
      Signal('UI\Editbox\Enter\'+name,0);
     end;
    end;
-   if (ch=#27) and (sendSignals<>ssNone) then Signal('UI\'+name+'\Escape',0);
-   if (ch>=#32) and (selcount>0) then begin
+   if (ch=27) and (sendSignals<>ssNone) then Signal('UI\'+name+'\Escape',0);
+   if (ch>=32) and (selcount>0) then begin
     delete(realtext,selstart,selcount);
     insert(ch,realtext,selstart);
     selcount:=0;
     cursorpos:=selstart;
     exit;
    end;
-   if (length(realtext)<maxlength) and (ch>=#32) then begin
+   if (length(realtext)<maxlength) and (ch>=32) then begin
     inc(cursorpos);
     insert(ch,realtext,cursorpos);
    end;
@@ -974,29 +971,28 @@ function TUIEditBox.GetText:String8;
  function TUIEditBox.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
    procedure ClipCopy(cut:boolean=false);
     var
-     str:string;
+     str:String32;
     begin
      if password or (protection<>0) then exit;
      str:=copy(realtext,selstart,selcount);
-     CopyStrToClipboard(str);
+     CopyStrToClipboard(Str16(UTF8.Encode(str)));
      if cut then begin
       delete(realtext,selstart,selcount); selcount:=0; cursorpos:=selstart-1;
      end;
     end;
    procedure ClipPaste;
     var
-     str:string;
-     wst:WideString;
+     wst:String32;
     begin
-     wst:=PasteStrFromClipboardW;
-     if wst<>'' then begin
+     wst:=Str32(PasteStrFromClipboardW);
+     if not wst.IsEmpty then begin
       if selcount>0 then begin
        delete(realtext,selstart,selcount);
        cursorpos:=selstart-1;
       end else
        selstart:=cursorpos+1;
       insert(wst,realtext,cursorpos+1);
-      selcount:=length(str);
+      selcount:=length(wst);
       if length(realtext)>maxlength then setLength(realtext,maxlength);
       if selstart+selcount-1>length(realtext) then selcount:=length(realtext)-selstart+1;
       cursorpos:=selstart+selcount-1;
@@ -1004,18 +1000,18 @@ function TUIEditBox.GetText:String8;
     end;
   var
    step:integer;
-   oldText:string;
+   oldText:String32;
   begin
    oldText:=realText;
    AdjustState;
    result:=inherited onKey(keycode,pressed,shiftstate);
    if pressed then begin
-    cursortimer:=mytickcount;
+    cursortimer:=CoreTime.Ticks;
 
-    if (keycode=VK_LEFT) then begin // Left
+    if (TKey(keycode)=TKey.Left) then begin // Left
      step:=1;
      if shiftstate and sscCtrl>0 then begin // Сдвиг более чем на 1 символ
-      while (cursorpos-step>0) and (realtext[cursorpos-step]>='A') do inc(step);
+      while (cursorpos-step>0) and (realtext[cursorpos-step]>=Char32('A')) do inc(step);
      end;
 
      if shiftstate and sscShift>0 then begin
@@ -1031,11 +1027,11 @@ function TUIEditBox.GetText:String8;
      if cursorpos<0 then cursorpos:=0;
     end;
 
-    if (keycode=VK_RIGHT) and (cursorpos<length(realtext)) then begin // Right
+    if (TKey(keycode)=TKey.Right) and (cursorpos<length(realtext)) then begin // Right
      step:=1;
      if shiftstate and sscCtrl>0 then begin // Сдвиг более чем на 1 символ
-      while (cursorpos+step<length(realtext)) and not ((realtext[cursorpos+step+1]>='A')
-       and not (realtext[cursorpos+step]>='A')) do inc(step);
+      while (cursorpos+step<length(realtext)) and not ((realtext[cursorpos+step+1]>=Char32('A'))
+       and not (realtext[cursorpos+step]>=Char32('A'))) do inc(step);
      end;
 
      if shiftstate and sscShift>0 then begin
@@ -1051,13 +1047,13 @@ function TUIEditBox.GetText:String8;
      if cursorpos>length(realtext) then cursorpos:=length(realtext);
     end;
 
-    if keycode=VK_HOME then begin  // Home
+    if TKey(keycode)=TKey.HOME then begin  // Home
      if shiftstate and sscShift>0 then begin
       inc(selcount,cursorpos); selstart:=1;
      end else selcount:=0;
      cursorpos:=0;
     end;
-    if keycode=VK_END then begin // End
+    if TKey(keycode)=TKey.EndKey then begin // End
      if shiftstate and sscShift>0 then begin
       if selcount=0 then selstart:=cursorpos+1;
       inc(selcount,length(realtext)-cursorpos);
@@ -1065,7 +1061,7 @@ function TUIEditBox.GetText:String8;
      cursorpos:=length(realtext);
     end;
 
-    if (keycode=VK_BACK) and (shiftState and sscAlt=0) then begin // backspace
+    if (TKey(keycode)=TKey.Backspace) and (shiftState and sscAlt=0) then begin // backspace
      if selcount>0 then
       begin delete(realtext,selstart,selcount); selcount:=0; cursorpos:=selstart-1; end
      else begin
@@ -1086,15 +1082,15 @@ function TUIEditBox.GetText:String8;
 
     // Ctrl+Z or Alt+BkSp - undo
     if ((keycode=ord('Z')) and (shiftState=sscCtrl)) or
-       ((keycode=VK_BACK) and (shiftState=sscAlt)) then begin
+       ((TKey(keycode)=TKey.Backspace) and (shiftState=sscAlt)) then begin
      realText:=savedText;
     end;
 
-    if keycode=VK_INSERT then begin // ins
+    if TKey(keycode)=TKey.Insert then begin // ins
      if (selcount>0) and (shiftstate=sscCtrl) then clipCopy;
      if shiftstate and sscShift>0 then clipPaste;
     end;
-    if keycode=VK_DELETE then begin // del
+    if TKey(keycode)=TKey.Delete then begin // del
      if selcount>0 then begin
       if shiftstate and sscShift>0 then ClipCopy(true) // Cut
        else begin
@@ -1119,8 +1115,8 @@ function TUIEditBox.GetText:String8;
   begin
    doubleClick:=false;
    if (button=1) and (state) then begin
-    if MyTickCount<lastClickTime+300 then doubleClick:=true;
-    lastClickTime:=MyTickCount;
+    if CoreTime.Ticks<lastClickTime+300 then doubleClick:=true;
+    lastClickTime:=CoreTime.Ticks;
    end;
    AdjustState;
    inherited;
@@ -1189,7 +1185,7 @@ function TUIEditBox.GetText:String8;
 
  { TUIScrollBar }
 
- constructor TUIScrollBar.Create(width,height:single;barName:string;parent_:TUIElement);
+ constructor TUIScrollBar.Create(width,height:single;barName:String8;parent_:TUIElement);
   begin
    inherited Create(width,height,parent_,barName);
    shape:=shapeFull;
@@ -1253,7 +1249,7 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
     visible:=max-min>pageSize;
   end;
 
-constructor TUIScrollBar.Create(width,height,min,max,pageSize,value:single;parent:TUIElement;barName:string);
+constructor TUIScrollBar.Create(width,height,min,max,pageSize,value:single;parent:TUIElement;barName:String8);
   begin
    Create(width,height,barName,parent);
    SetRange(min,max,pageSize);
@@ -1317,11 +1313,11 @@ procedure TUIScrollBar.CalcSliderPos(minSize:single);
   end;
   sliderRect:=globalRect;
   if horizontal then begin
-   sliderRect.left:=round(LinearMix(globalRect.left,globalRect.Right,sliderStart));
-   sliderRect.right:=round(LinearMix(globalRect.left,globalRect.Right,sliderEnd));
+   sliderRect.left:=round(Lerp(globalRect.left,globalRect.Right,sliderStart));
+   sliderRect.right:=round(Lerp(globalRect.left,globalRect.Right,sliderEnd));
   end else begin
-   sliderRect.Top:=round(LinearMix(globalRect.Top,globalRect.Bottom,sliderStart));
-   sliderRect.Bottom:=round(LinearMix(globalRect.Top,globalRect.Bottom,sliderEnd));
+   sliderRect.Top:=round(Lerp(globalRect.Top,globalRect.Bottom,sliderStart));
+   sliderRect.Bottom:=round(Lerp(globalRect.Top,globalRect.Bottom,sliderEnd));
   end;
   sliderUnder:=PtInRect(sliderRect,Point(curMouseX,curMouseY));
  end;
@@ -1461,14 +1457,14 @@ procedure TUIScrollBar.onTimer;
    if isAnimating then timer:=1;
   end;
 
-procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
+procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
   begin
 
   end;
 
   { TUISkinnedWindow }
 
- constructor TUISkinnedWindow.Create(wndName,wndCaption:string;
+ constructor TUISkinnedWindow.Create(wndName,wndCaption:String8;
     wndFont:TFontHandle;parent_:TUIElement;canmove:boolean=true);
   begin
    inherited Create(100,100,false,wndName,wndCaption,wndFont,parent_);
@@ -1498,7 +1494,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
 
  { TUIHint }
 
- constructor TUIHint.Create(x,y:single;text:string;parent_:TUIElement);
+ constructor TUIHint.Create(x,y:single;text:String8;parent_:TUIElement);
   begin
    inherited Create(1,1,'hint',parent_);
    SetPos(x,y,pivotTopLeft);
@@ -1507,7 +1503,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
    simpleText:=text;
    active:=false;
    adjusted:=false;
-   created:=MyTickCount;
+   created:=CoreTime.Ticks;
    parentClip:=false;
   end;
 
@@ -1519,9 +1515,9 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
  procedure TUIHint.Hide;
   begin
    if not hiding then begin
-    LogMessage('UIHint Hide');
+    Log.Msg('UIHint Hide');
     hiding:=true;
-    created:=MyTickCount;
+    created:=CoreTime.Ticks;
    end;
   end;
 
@@ -1565,7 +1561,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
 
  { TUIListBox }
 
- procedure TUIListBox.AddLine(line:string;tag:cardinal=0;hint:string='');
+ procedure TUIListBox.AddLine(line:String8;tag:cardinal=0;hint:String8='');
   begin
    lines:=lines+[line];
    tags:=tags+[tag];
@@ -1582,7 +1578,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
    UpdateScroller;
   end;
 
- constructor TUIListBox.Create(width,height:single;lHeight:single;listName:string;
+ constructor TUIListBox.Create(width,height:single;lHeight:single;listName:String8;
    font_:TFontHandle;parent:TUIElement);
   var
    scrollbar:TUIScrollbar;
@@ -1661,7 +1657,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:string);
     selectedLine:=-1;
   end;
 
-procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:string='');
+procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:String8='');
   begin
    ASSERT((index>=0) and (index<length(lines)));
    lines[index]:=line;
@@ -1670,7 +1666,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
    UpdateScroller;
   end;
 
- procedure TUIListBox.SetLines(newLines:StringArr);
+ procedure TUIListBox.SetLines(newLines:Strings8);
   var
    i,count:integer;
   begin
@@ -1713,7 +1709,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
 
  { TUIComboBox }
 
- procedure TUIComboBox.AddItem(item:WideString;tag:cardinal;hint:WideString);
+ procedure TUIComboBox.AddItem(item:String8;tag:cardinal;hint:String8);
   var
    n:integer;
   begin
@@ -1737,7 +1733,7 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
   var
    e:TUIElement;
   begin
-   if HasPrefix(event,'MOUSE\BTNDOWN',true) then begin
+   if event.StartsWith('MOUSE\BTNDOWN',true) then begin
     // if clicked on an element which is not child of the active combobox - hide it
     e:=underMouse;
     if (comboPop<>nil) and (e<>nil) and
@@ -1745,19 +1741,19 @@ procedure TUIListBox.SetLine(index:integer;line:string;tag:cardinal=0;hint:strin
    end;
   end;
 
- constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:string);
+ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:String8);
   begin
    Create(width,height,0,nil,parent_,name);
   end;
 
- function TUIComboBox.GetText:string16;
+ function TUIComboBox.GetText:String8;
   begin
    if fCurItem>=0 then result:=items[fCurItem]
     else result:='';
   end;
 
-constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:WStringArr;
-    parent_:TUIElement;name:string);
+constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:Strings8;
+    parent_:TUIElement;name:String8);
   var
    btn:TUIButton;
    i,j:integer;
@@ -1809,7 +1805,7 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:WStrin
   var
    r:TRect2s;
    lCount,lHeight,i:integer;
-   hint:WideString;
+   hint:String8;
    tag:cardinal;
    root:TUIElement;
   begin
@@ -1843,7 +1839,7 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:WStrin
       else hint:='';
      if i<=high(tags) then tag:=tags[i]
       else tag:=i;
-     popUp.AddLine(EncodeUTF8(items[i]),tag,hint);
+     popUp.AddLine(items[i],tag,hint);
     end;
     frame.visible:=true;
     popup.hoverLine:=curItem;
@@ -1886,13 +1882,13 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:WStrin
  procedure TUIComboBox.SetCurItem(item:integer);
   begin
    fCurItem:=item;
-   if (item>=0) and (item<=high(items)) then caption:=EncodeUTF8(Items[fCurItem])
-    else caption:=EncodeUTF8(defaultText);
+   if (item>=0) and (item<=high(items)) then caption:=Items[fCurItem]
+    else caption:=defaultText;
    if (item>=0) and (item<=high(tags)) then fCurTag:=tags[item]
     else fCurTag:=-1;
   end;
 
- procedure TUIComboBox.SetCurItemByText(value:string16);
+ procedure TUIComboBox.SetCurItemByText(value:String8);
   var
    i:integer;
   begin
@@ -1905,11 +1901,11 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:WStrin
 
  procedure TUIComboBox.SetCurItemByTag(tag:integer);
   begin
-   SetCurItem(FindInteger(tags,tag));
+   SetCurItem(tags.IndexOf(tag));
   end;
 
- procedure TUIComboBox.SetItem(index:integer;item:WideString;tag:cardinal;
-    hint:string);
+ procedure TUIComboBox.SetItem(index:integer;item:String8;tag:cardinal;
+    hint:String8);
   begin
    items[index]:=item;
    tags[index]:=tag;

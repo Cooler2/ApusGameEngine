@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.Mesh;
 interface
-uses Apus.Types, Apus.VertexLayout, Apus.Engine.Types, Apus.Engine.Resources;
+uses Apus.Core, Apus.VertexLayout, Apus.Engine.Types, Apus.Engine.Resources;
 
 type
  // Simple mesh
@@ -39,7 +39,7 @@ type
  end;
 
 implementation
-uses Apus.Common, Apus.Engine.API, Apus.Geom3D;
+uses Apus.Engine.API, Apus.Geom3D;
 
 { TMesh }
 

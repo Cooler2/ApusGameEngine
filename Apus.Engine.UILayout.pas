@@ -49,7 +49,7 @@ type
 
 
 implementation
-uses Apus.Common, Apus.Types, Apus.Geom2D;
+uses Apus.Core, Apus.Geom2D;
 
  { TRowLayout }
 
@@ -206,7 +206,7 @@ procedure TRowLayout.Layout(item:TUIElement);
      end;
      h:=0;
      for j:=last to i do
-      h:=max2s(h,list[j].size.y);
+      h:=max(h,list[j].size.y);
      y:=y+h+vertSpace;
      list[i].SetPos(paddingH,y);
      x:=paddingH+list[i].width;
@@ -220,7 +220,7 @@ procedure TRowLayout.Layout(item:TUIElement);
    i,cols,row,col:integer;
    y,itemWidth,itemHeight,rowHeight:single;
   begin
-   cols:=max2(1,round(parent.clientWidth/desiredWidth));
+   cols:=max(1,round(parent.clientWidth/desiredWidth));
    itemWidth:=round((parent.clientWidth-paddingH*2-(cols-1)*horSpace)/cols);
    y:=0; rowHeight:=0;
    for i:=0 to high(list) do begin
@@ -232,7 +232,7 @@ procedure TRowLayout.Layout(item:TUIElement);
     end;
     itemHeight:=itemWidth*(list[i].initialSize.y/list[i].initialSize.x);
     list[i].Resize(itemWidth,itemHeight);
-    rowHeight:=max2s(rowHeight,itemHeight);
+    rowHeight:=max(rowHeight,itemHeight);
     list[i].SetPos(paddingH+col*itemWidth+col*horSpace,y+paddingV);
    end;
   end;

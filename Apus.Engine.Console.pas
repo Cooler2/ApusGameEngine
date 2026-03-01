@@ -15,7 +15,7 @@
 
 unit Apus.Engine.Console;
 interface
- uses Apus.Common;
+ uses Apus.Core;
  type
   TConsoleSettings=record
    saveMessages:boolean;          // Сохранять сообщения во внутренней структуре
@@ -35,31 +35,32 @@ interface
      handleErrorSignals:true);
 
  // logfile='' - не создавать лог-файл, иначе создавать
- procedure SetupConsole(saveMsg,writeMsg,showCritMsg,handleDebug,handleError:boolean;logFile:string);
+ procedure SetupConsole(saveMsg,writeMsg,showCritMsg,handleDebug,handleError:boolean;logFile:string8);
  // Писать в консоль сигналы указанного типа
- procedure SignalsToConsole(eventClass:string;critical:boolean=false);
+ procedure SignalsToConsole(eventClass:string8;critical:boolean=false);
 
  // Поместить сообщение
- procedure PutMsg(st:string;critical:boolean=false;cls:integer=0);
+ procedure PutMsg(st:string8;critical:boolean=false;cls:integer=0);
  // Поместить критическое сообщение (просто более яркое название)
- procedure CritMsg(st:string;cls:integer=-1);
+ procedure CritMsg(st:string8;cls:integer=-1);
 
  // Номер последнего сохраненного сообщения
  function GetLastMsgNum:integer;
  // Кол-во сохраненных сообщений
  function GetMsgCount:integer;
  // ПОлучить сохраненное сообщение по его номеру
- function GetSavedMsg(msgnum:integer;var cls:integer):string;
+ function GetSavedMsg(msgnum:integer;var cls:integer):string8;
 
 implementation
- uses SysUtils, Apus.EventMan;
+ uses SysUtils, Apus.Lib, Apus.EventMan;
+
  var
-  crSect:TMyCriticalSection; // используется для доступа к глобальным переменным
+  crSect:TLock; // используется для доступа к глобальным переменным
 
   lastMsgNum,msgCount:integer;
 
   // очередь сохраняемых сообщений
-  queue:array[0..511] of string;
+  queue:array[0..511] of string8;
   clsqueue:array[0..511] of integer;
   firstUsed,firstFree:integer;
 
@@ -71,7 +72,7 @@ implementation
   begin
    result:=msgCount;
   end;
- function GetSavedMsg(msgnum:integer;var cls:integer):string;
+ function GetSavedMsg(msgnum:integer;var cls:integer):string8;
   begin
    if (msgnum>lastMsgNum) or (msgnum<=lastMsgNum-MsgCount) then begin
     result:=''; exit;
@@ -80,7 +81,7 @@ implementation
    cls:=clsqueue[(FirstFree-(LastMsgNum-msgnum+1)) and 511];
   end;
 
- procedure SaveMsg(st:string;cls:integer);
+ procedure SaveMsg(st:string8;cls:integer);
   begin
    if length(st)>255 then exit;
    inc(LastMsgNum);
@@ -92,13 +93,13 @@ implementation
    FirstFree:=(firstFree+1) and 511;
   end;
 
- procedure SetupConsole(saveMsg,writeMsg,showCritMsg,handleDebug,handleError:boolean;logFile:string);
+ procedure SetupConsole(saveMsg,writeMsg,showCritMsg,handleDebug,handleError:boolean;logFile:string8);
   begin
    with consoleSettings do begin
     saveMessages:=saveMsg;
     if logfile<>'' then begin
      logMessages:=true;
- //    UseLogFile(logfile);
+ //    Logger.UseLogFile(logfile);
     end;
     WriteMessages:=writeMsg;
     popupCriticalMessages:=showCritMsg;
@@ -110,15 +111,16 @@ implementation
  procedure NormalEvent(event:TEventStr;tag:TTag);
   begin
    if consoleSettings.handleDebugSignals then
-    PutMsg(timestamp+' Evt: '+event+' - '+inttostr(tag));
+    PutMsg(CoreTime.Stamp+' Evt: '+event+' - '+inttostr(tag));
   end;
+
  procedure CriticalEvent(event:TEventStr;tag:TTag);
   begin
    if consoleSettings.handleErrorSignals then
-    PutMsg(timestamp+' Evt: '+event+' - '+inttostr(tag),true,-1);
+    PutMsg(CoreTime.Stamp+' Evt: '+event+' - '+inttostr(tag),true,-1);
   end;
 
- procedure SignalsToConsole(eventClass:string;critical:boolean=false);
+ procedure SignalsToConsole(eventClass:string8;critical:boolean=false);
   begin
    if critical then
     SetEventHandler(eventClass,@CriticalEvent)
@@ -126,11 +128,11 @@ implementation
     SetEventHandler(eventClass,@NormalEvent)
   end;
 
- procedure PutMsg(st:string;critical:boolean=false;cls:integer=0);
+ procedure PutMsg(st:string8;critical:boolean=false;cls:integer=0);
   var
    st2,st1:string;
   begin
-   EnterCriticalSection(crSect);
+   crSect.Enter;
    try
     st1:=st;
     if consoleSettings.saveMessages then begin
@@ -144,29 +146,29 @@ implementation
     end;
     if consoleSettings.LogMessages then
      if critical then
-      ForceLogMessage(st1)
+      Log.Force(st1)
      else
-      LogMessage(st1);
+      Log.Msg(st1);
     if consoleSettings.writeMessages then
      writeln(st1);
     if critical and consoleSettings.popupCriticalMessages then
-     ErrorMessage(st1);
+     SystemMessage(st1);
    finally
-    LeaveCriticalSection(crSect);
+    crSect.Leave;
    end;
   end;
 
- procedure CritMsg(st:string;cls:integer=-1);
+ procedure CritMsg(st:string8;cls:integer=-1);
   begin
    PutMsg(st,true,cls);
-   ErrorMessage(st);
+   SystemMessage(st);
   end;
 
 initialization
- InitCritSect(crSect,'Console');
+ crSect.Init('Console');
 // InitializeCriticalSection(crSect);
  SetEventHandler('DEBUG',@NormalEvent);
  SetEventHandler('ERROR',@CriticalEvent);
 finalization
- DeleteCritSect(crSect);
+ crSect.Cleanup;
 end.

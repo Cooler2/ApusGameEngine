@@ -143,33 +143,6 @@ type
    None           = 99;  // No cursor (hidden)
  end;
 
- // Strings
- String8 = Apus.Engine.Types.String8;
- String16 = Apus.Engine.Types.String16;
-
- // Animated value
- TAnimatedValue = Apus.AnimatedValues.TAnimatedValue;
-
- // 2D Vector
- TPoint2   = Apus.Engine.Types.TPoint2;
- PPoint2   = Apus.Engine.Types.PPoint2;
- TPoint2s  = Apus.Engine.Types.TPoint2s;
- TVector2s = Apus.Engine.Types.TVector2s;
- PPoint2s  = Apus.Engine.Types.PPoint2s;
- // 3D Vector
- TPoint3   = Apus.Engine.Types.TPoint3;
- TVector3  = Apus.Engine.Types.TVector3;
- PPoint3   = Apus.Engine.Types.PPoint3;
- TPoint3s  = Apus.Engine.Types.TPoint3s;
- PPoint3s  = Apus.Engine.Types.PPoint3s;
- TVector3s = Apus.Engine.Types.TVector3s;
- TVector4  = Apus.Engine.Types.TVector4;
- TVector4s = Apus.Engine.Types.TVector4s;
- // Matrices
- T3DMatrix  = Apus.Engine.Types.T3DMatrix;
- T3DMatrixS = Apus.Engine.Types.T3DMatrixS;
- T2DMatrix  = Apus.Engine.Types.T2DMatrix;
-
  // Other types
  TRect2s = Apus.Engine.Types.TRect2s;
  TVertexComponent = Apus.Engine.Types.TVertexComponent;
@@ -649,11 +622,11 @@ type
   // Text output (use handle 0 for default font)
   procedure Write(font:TFontHandle;x,y:single;color:cardinal;st:String8;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0);
-  procedure WriteW(font:TFontHandle;x,y:single;color:cardinal;st:String16;align:TTextAlignment=taLeft;
+  procedure WriteW(font:TFontHandle;x,y:single;color:cardinal;st:String32;align:TTextAlignment=taLeft;
      options:integer=0;targetWidth:integer=0;query:cardinal=0);
   // Measure text dimensions
   function Width(font:TFontHandle;st:String8):integer; // text width in pixels
-  function WidthW(font:TFontHandle;st:String16):integer; // text width in pixels
+  function WidthW(font:TFontHandle;st:String32):integer; // text width in pixels
   function Height(font:TFontHandle):integer; // Height of capital letters (like 'A'..'Z','0'..'9') in pixels
   function MeasuredCnt:integer; // length of the measured rects array
   function MeasuredRect(idx:integer):TRect; // rect[idx] of text measurement command
@@ -763,7 +736,7 @@ type
   procedure Init(system:ISystemPlatform);
   procedure Done;
   function GetVersion:single; // like 3.1 for OpenGL 3.1
-  function GetName:string; // get implementation class name
+  function GetName:string8; // get implementation class name
 
   // APIs
   function config:IGraphicsSystemConfig;
@@ -832,7 +805,7 @@ type
   terminated:boolean;   // true when main loop is finished
   screenChanged:boolean;  // set this to true to request frame rendering regardless of scenes processing
   frameNum:integer;     // increments every frame
-  frameStartTime:int64; // MyTickCount when frame started
+  frameStartTime:int64; // CoreTime.Ticks when frame started
   frameTimeDelta:int64; // number of milliseconds elapsed from previous frame
   FPS,smoothFPS:single; // current and smoothed FPS
 
@@ -1012,7 +985,7 @@ var
 
  // Translate string using localization dictionary (UDict)
  Translate:function(s:String8):String8;
- Translate16:function(s:String16):String16;
+ Translate32:function(s:String32):String32;
 
  // Selected pixel formats for different tasks
  // Используемые форматы пикселя (в какие форматы грузить графику)
@@ -1028,7 +1001,7 @@ var
  // ------------------------------------
 
  // Load image from a file. In case of failure throws an exception!
- // fname is handled by FileName()
+ // fname is handled by Files.FixName()
  function LoadImageFromFile(fname:string;flags:cardinal=0;ForceFormat:TImagePixelFormat=ipfNone):TTexture;
 
  // (Re)load texture from an image file. defaultImagesDir is used if path is relative
@@ -1082,7 +1055,7 @@ var
  function IsKeyReleased(scanCode:integer):boolean;
 
 implementation
- uses SysUtils, Apus.Publics, Apus.Common, Apus.Engine.ImageTools, Apus.Engine.UDict, Apus.Engine.Game,
+ uses SysUtils, Apus.Strings, Apus.Utils, Apus.Publics, Apus.Engine.ImageTools, Apus.Engine.Game,
    TypInfo, Apus.Engine.Tools, Apus.Engine.Graphics, Apus.FastGFX, Apus.Engine.NinePatch;
 
  var
@@ -1090,7 +1063,7 @@ implementation
 
  function TranslateNoop8(s:String8):String8;
   begin result:=s; end;
- function TranslateNoop16(s:String16):String16;
+ function TranslateNoop32(s:String32):String32;
   begin result:=s; end;
 
  function GetKeyEventScanCode(tag: TTag): cardinal;
@@ -1129,14 +1102,14 @@ implementation
   end;
 
 // Utils
-function fGetFontHandle(params:string;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
+function fGetFontHandle(params:string8;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
  var
-  sa:StringArr;
+  sa:Strings8;
   style,effects:byte;
   size:double;
  begin
   if txt=nil then raise EWarning.Create('TextDrawer is not ready');
-  sa:=split(',',params);
+  sa:=params.Split(',');
   if length(sa)<2 then raise EWarning.Create('Invalid parameters');
   size:=EvalFloat(sa[1],nil,context,contextClass);
   style:=0; effects:=0;
@@ -1226,13 +1199,13 @@ function TDisplayScaleModeHelper.ToString: string;
 function IsMouseBtn(btn:integer):boolean;
  begin
   ASSERT(game<>nil);
-  result:=HasFlag(game.mouseButtons,1 shl (btn-1));
+  result:=Bits.HasAll(game.mouseButtons,1 shl (btn-1));
  end;
 
 function IsKeyDown(scanCode:integer):boolean;
  begin
   ASSERT(game<>nil);
-  result:=HasFlag(game.keyState[scanCode],1);
+  result:=Bits.HasAll(game.keyState[scanCode],1);
  end;
 
 function IsKeyPressed(scanCode:integer):boolean;
@@ -1279,7 +1252,7 @@ function TGameBase.ColorAlpha(var av:TAnimatedValue;color:cardinal):cardinal;
 
 initialization
  Translate:=TranslateNoop8;
- Translate16:=TranslateNoop16;
+ Translate32:=TranslateNoop32;
  PublishFunction('GetFont',fGetFontHandle);
  TVertex.layoutTex.Init([vcPosition3d,vcColor,vcUV1]);
  TVertex.layoutTex.stride:=Sizeof(TVertex);

@@ -9,8 +9,8 @@ unit Apus.Engine.Tools;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 interface
- uses Apus.Engine.API, Apus.Images,
-    Apus.Engine.UIWidgets, Apus.Regions, Apus.Common,
+ uses Apus.Core, Apus.Engine.API, Apus.Images,
+    Apus.Engine.UIWidgets, Apus.Regions,
     Apus.UnicodeFont, Apus.Types, Apus.Engine.Game;
 
 var
@@ -64,11 +64,11 @@ type
 
  // Рисует текст с эффектом glow/shadow в заданную текстуру
  // x,y - точка, где будет центр надписи (насколько возможно)
- procedure DrawTextWithGlow(img:TTexture;font:cardinal;x,y:integer;st:WideString;
+ procedure DrawTextWithGlow(img:TTexture;font:cardinal;x,y:integer;st:String32;
      textColor,glowColor,glowDepth,glowBlur:cardinal;glowOfsX,glowOfsY:integer);
 
  // Создает текстуру с заданной надписью на прозрачном фоне, текст с эффектом glow/shadow
- function BuildTextWithGlow(font:cardinal;st:WideString;
+ function BuildTextWithGlow(font:cardinal;st:String32;
     textColor,glowColor,glowDepth,glowBlur:cardinal;
     glowOfsX,glowOfsY:integer):TTexture;
 
@@ -115,7 +115,12 @@ implementation
  uses SysUtils,{$IFDEF DIRECTX}DirectXGraphics,d3d8,Apus.Engine.DxImages8,{$ENDIF}
     {$IFDEF ANDROID}Apus.Android,{$ENDIF}
     Apus.GfxFormats,Classes,Apus.Structs,Apus.Geom3D,Apus.FastGFX,Apus.GfxFilters,
-    Apus.Engine.ImgLoadQueue,Apus.Engine.ImageTools,Apus.Engine.GfxFormats3D;
+    Apus.Engine.ImgLoadQueue,Apus.Engine.ImageTools,Apus.Engine.GfxFormats3D,
+  Apus.Files,
+  Apus.Log,
+  Apus.Strings,
+  Apus.Translation,
+  Apus.Threads;
 
 var
   serial:cardinal;
@@ -332,7 +337,7 @@ begin
 end;
 
 
- procedure DrawTextWithGlow(img:TTexture;font:cardinal;x,y:integer;st:WideString;
+ procedure DrawTextWithGlow(img:TTexture;font:cardinal;x,y:integer;st:String32;
      textColor,glowColor,glowDepth,glowBlur:cardinal;glowOfsX,glowOfsY:integer);
   var
    w,h,d,i:integer;
@@ -342,13 +347,13 @@ end;
   begin
    img.Lock;
    try
-   st:=Translate(st);
+   st:=UTF8.Decode(Translate8(UTF8.Encode(st)));
    d:=GlowDepth+glowBlur;
    w:=txt.WidthW(font,st)+4+2*d; h:=round(3*d+txt.Height(font)*1.5);
    GetMem(tmp,w*h*4);
-   fillchar(tmp^,w*h*4,0);
+   Mem.Fill(tmp^,w*h*4,0);
    txt.SetTarget(tmp,w*4);
-   txt.WriteW(font,w div 2,round(h*0.77)-d,textColor,st,TTextAlignment.taCenter,toDrawToBitmap);
+   txt.WriteW(font,w div 2,round(h*0.77)-d,textColor,st,TTextAlignment.taCenter,toDrawToBitmap or toDontTranslate);
    dec(x,round(w/2));
    dec(y,round(h/2));
    if glowColor>$FFFFFF then begin
@@ -372,7 +377,7 @@ end;
    end;
   end;
 
- function BuildTextWithGlow(font:cardinal;st:WideString;
+ function BuildTextWithGlow(font:cardinal;st:String32;
     textColor,glowColor,glowDepth,glowBlur:cardinal;
     glowOfsX,glowOfsY:integer):TTexture;
   var
@@ -380,7 +385,7 @@ end;
    w,h,d:integer;
   begin
    d:=GlowDepth+glowBlur;
-   st:=Translate(st);
+   st:=UTF8.Decode(Translate8(UTF8.Encode(st)));
    w:=txt.WidthW(font,st)+6+2*d; h:=round(3*d+txt.Height(font)*1.5);
 //   if w mod 2=0 then inc(w);
    img:=AllocImage(w,h,pfTrueColorAlpha,aiClampUV,'BTWG'+inttostr(serial)) as TTexture;
@@ -398,7 +403,7 @@ end;
   var
    mat:TMatrix4;
   begin
-   fillchar(mat,sizeof(mat),0);
+   Mem.Fill(mat,sizeof(mat),0);
    mat[0,0]:=scaleX;
    mat[1,1]:=scaleY;
    mat[2,2]:=1;
@@ -413,7 +418,7 @@ end;
    mat:TMatrix4;
    ca,sa:double;
   begin
-   fillchar(mat,sizeof(mat),0);
+   Mem.Fill(mat,sizeof(mat),0);
    ca:=cos(angle);
    sa:=sin(angle);
    mat[0,0]:=ca*scale;
@@ -431,7 +436,7 @@ end;
   var
    mat:TMatrix4;
   begin
-   fillchar(mat,sizeof(mat),0);
+   Mem.Fill(mat,sizeof(mat),0);
    mat[0,0]:=scaleX;
    mat[1,1]:=scaleY;
    mat[2,2]:=1;
@@ -450,8 +455,8 @@ end;
   var
    ext:string;
   begin
-   fname:=FileName(fName);
-   ext:=lowerCase(ExtractFileExt(fname));
+   fname:=Files.FixName(fName);
+   ext:=lowerCase {TODO: use st.ToLower}(ExtractFileExt(fname));
    if ext='.obj' then result:=LoadOBJ(fName);
   end;
 
@@ -617,16 +622,17 @@ procedure MainLoop;
 begin
  repeat
   try
-   PingThread;
-   CheckCritSections;
+   Thread.Ping;
+   Thread.CheckTimeouts;
    Delay(5); // Handling signals is inside
    systemPlatform.ProcessSystemMessages;
   except
-   on e:exception do ForceLogMessage('Error in MainLoop: '+ExceptionMsg(e));
+   on e:exception do Log.Force('Error in MainLoop: '+ExceptionMsg(e));
   end;
  until game.terminated;
 end;
 
 end.
+
 
 

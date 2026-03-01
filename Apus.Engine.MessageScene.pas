@@ -1,6 +1,6 @@
 unit Apus.Engine.MessageScene;
 interface
- uses Apus.Common;
+ uses Apus.Core;
 
  var
   msgMainFont:cardinal; // regular font for text and buttons (0 - use inherited or default)
@@ -14,9 +14,11 @@ interface
  procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0);
 
 implementation
- uses Types, Apus.CrossPlatform, SysUtils, Apus.EventMan, Apus.Structs,
+ uses Types, SysUtils, Apus.EventMan, Apus.Structs,
    Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UITypes, Apus.Engine.UI, Apus.Engine.UIScene,
-   Apus.Engine.SceneEffects;
+   Apus.Engine.SceneEffects,
+  Apus.Log,
+  Apus.Strings;
 
  const
   MODE_MSG = 1;
@@ -28,10 +30,10 @@ implementation
    wnd:TUIElement;
    btnOk,btnYes,btnNo:TUIButton;
    title:string;
-   lines:StringArr;
+   lines:Strings8;
    constructor Create;
    procedure Initialize;
-   procedure UpdateUI(msgText:string;mode,x,y:integer);
+   procedure UpdateUI(msgText:string8;mode,x,y:integer);
    procedure Render; override;
   end;
 
@@ -76,9 +78,9 @@ implementation
    if curMsg=nil then exit;
    // Подготовить UI
    with curMsg do
-    scene.UpdateUI(DecodeUTF8(msg),mType,x,y);
+    scene.UpdateUI(msg,mType,x,y);
    // Показать
-   LogMessage('ShowMessage: '+curMsg.msg);
+   Log.Msg('ShowMessage: '+curMsg.msg);
    TShowWindowEffect.Create(scene,200,sweShow,2);
   end;
 
@@ -112,15 +114,15 @@ implementation
    end;
 
    close:=false;
-   if (SameText(event,'Scene\MessageScene\KEYDOWN') and (tag and $FF=ord(TKey.Enter))) or
-      (SameText(event,'UI\Message\OK\Click') or
-       SameText(event,'UI\Message\YES\Click')) then begin
+   if (event.Same('Scene\MessageScene\KEYDOWN') and (TKey(tag and $FF)=TKey.Enter)) or
+      (event.Same('UI\Message\OK\Click') or
+       event.Same('UI\Message\YES\Click')) then begin
     if curMsg.event1<>'' then Signal(curMsg.event1);
     close:=true;
    end;
 
-   if (SameText(event,'Scene\MessageScene\KEYDOWN') and (tag and $FF=ord(TKey.Escape))) or
-      SameText(event,'UI\Message\NO\Click') then begin
+   if (event.Same('Scene\MessageScene\KEYDOWN') and (TKey(tag and $FF)=TKey.Escape)) or
+       event.Same('UI\Message\NO\Click') then begin
     if curMsg.event2<>'' then Signal(curMsg.event2);
     close:=true;
    end;
@@ -161,24 +163,24 @@ procedure TMessageScene.Initialize;
  end;
 
 // Update scene with new text and buttons
-procedure TMessageScene.UpdateUI(msgText:string;mode,x,y:integer);
+procedure TMessageScene.UpdateUI(msgText:string8;mode,x,y:integer);
  var
   i,width,height,w,btnY:integer;
  begin
   msgText:=StringReplace(msgtext,'~',#13,[rfReplaceAll]);
   msgText:=StringReplace(msgtext,#10,'',[rfReplaceAll]);
-  lines:=split(#13,msgText,#0);
+  lines:=msgText.Split(#13);
   if (length(lines)>0) and lines[0].StartsWith('[') and lines[0].EndsWith(']') then begin
    title:=lines[0];
    title:=copy(title,2,length(title)-2);
-   RemoveString(lines,0);
+   lines.Delete(0);
   end else
    title:='';
 
   width:=round(300*windowScale);
-  if title<>'' then width:=Max2(width,txt.WidthW(msgTitleFont,title));
+  if title<>'' then width:=Max(width,txt.Width(msgTitleFont,title));
   for i:=0 to high(lines) do
-   width:=max2(width,txt.WidthW(msgMainFont,lines[i]));
+   width:=Max(width,txt.Width(msgMainFont,lines[i]));
 
   inc(width,round(100*windowScale));
   height:=round((120+30*length(lines)+40*byte(title<>''))*windowScale);
@@ -219,13 +221,13 @@ procedure TMessageScene.Render;
   x:=r.CenterPoint.X;
   y:=r.Top+round(40*windowScale);
   if title<>'' then begin
-   txt.WriteW(msgTitleFont,x,y,$FF402000,title,TTextAlignment.taCenter);
+   txt.Write(msgTitleFont,x,y,$FF402000,title,TTextAlignment.taCenter);
    inc(y,round(40*windowScale));
   end else
    inc(y,round(8*windowScale));
 
   for i:=0 to high(lines) do begin
-   txt.WriteW(msgMainFont,x,y,$FF202020,lines[i],TTextAlignment.taCenter);
+   txt.Write(msgMainFont,x,y,$FF202020,lines[i],TTextAlignment.taCenter);
    inc(y,round(30*windowScale));
   end;
   // Buttons and child elements
@@ -233,5 +235,6 @@ procedure TMessageScene.Render;
  end;
 
 end.
+
 
 

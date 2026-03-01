@@ -11,7 +11,7 @@
 //
 unit Apus.Engine.Sound;
 interface
-uses Apus.Common, Apus.AnimatedValues;
+uses Apus.Core, Apus.Types, Apus.AnimatedValues;
 var
  soundFolderPath:string8 = 'Audio\';
  soundConfigFile:string8 = 'sounds.ctl';
@@ -92,11 +92,16 @@ procedure DoneSoundSystem;
 
 implementation
 
-uses SysUtils, Apus.ControlFiles, Apus.Structs, Apus.EventMan, Classes
+uses SysUtils, Apus.ControlFiles, Apus.Structs, Apus.Utils, Apus.EventMan, Classes
   {$IFDEF IMX},Apus.Engine.SoundImx{$ENDIF}
   {$IFDEF SDLMIX},Apus.Engine.SoundSDL{$ENDIF}
   {$IFDEF ANDROID},Apus.Android,Apus.AndroidSoundPool,Apus.AndroidMediaPlayer{$ENDIF}
-  ;
+  ,
+  Apus.Conv,
+  Apus.Files,
+  Apus.Log,
+  Apus.Strings,
+  Apus.Threads;
 
 type
  // Sound event: play sound sample
@@ -140,13 +145,13 @@ var
  soundLib:ISoundLib;
  initialized:boolean=false; // ready to process events
  failed:boolean;
- thread:TSoundThread;
+ soundThread:TSoundThread;
  wndHandle:THandle=0;
  ctl:integer;
 
  evtHash:TStrHash; // event -> TSoundEvent
  musHash:TStrHash; // event -> TMusicEntry
- mediaFilesHash:TSimpleHashS; // filename (uppercase) -> TMediaFile
+ mediaFilesHash:TSimpleHashS; // Files.FixName (uppercase) -> TMediaFile
 
  // Need to start this music entry with these parameters
  needMusic:TMusicEntry;
@@ -211,7 +216,7 @@ procedure TMediaFile.DetectParams(fName: string);
  var
   data:ByteArray;
  begin
-  data:=LoadFileAsBytes(fName,2000);
+  data:=Files.LoadAsBytes(fName,2000);
   DetectParams(TBuffer.CreateFrom(data));
  end;
 
@@ -220,11 +225,11 @@ function LoadMediaAsSample(fName:string):TMediaFile;
  var
   st:string;
  begin
-  st:=FileName(soundFolderPath+fName);
-  LogMessage('[SOUND] Load sample from '+st);
+  st:=Files.FixName(soundFolderPath+fName);
+  Log.Msg('[SOUND] Load sample from '+st);
   result:=soundLib.OpenMediaFile(st,mlmLoadUnpack);
   if result<>nil then
-   mediaFilesHash.Put(UpperCase(fName),UIntPtr(result));
+   mediaFilesHash.Put(UpperCase {TODO: use st.ToUpper}(fName),UIntPtr(result));
  end;
 
 constructor TSoundEvent.Create(name: string);
@@ -265,49 +270,49 @@ function LoadSample(s:TSample):boolean;
   {$IFDEF ANDROID}
   try
    s.handle:=0;
-//   st:=Lowercase(s.fname);
+//   st:=Lowercase {TODO: use st.ToLower}(s.fname);
    st:=s.fname;
    for i:=0 to high(pools) do begin
     if pools[i]=nil then pools[i]:=TSoundPool.Create;
     if pools[i].count<8 then begin
-     DebugMessage('[SOUND] Loading '+st+' to pool '+inttostr(i));
+     Log.Force('[SOUND] Loading '+st+' to pool '+inttostr(i));
      s.handle:=pools[i].LoadSoundFile('Audio/'+st);
      s.pool:=i;
      break;
     end;
    end;
   except
-   on e:exception do LogMessage('[Sound] '+ExceptionMsg(e));
+   on e:exception do Log.Msg('[Sound] '+ExceptionMsg(e));
   end;
   {$ENDIF}
 
   if s.handle=0 then
-   LogMessage('[Sound] Warning: cannot load sample '+s.fname)
+   Log.Msg('[Sound] Warning: cannot load sample '+s.fname)
   else begin
    result:=true;
-   LogMessage('[Sound] Sample loaded: '+s.fname+' = '+inttostr(s.handle))
+   Log.Msg('[Sound] Sample loaded: '+s.fname+' = '+inttostr(s.handle))
   end;
  end;  *)
 
 // Загрузка конфигурации
 procedure LoadConfig;
  var
-  ctlRoot:string;
-  path,st:string;
-  sa:stringArr;
+  ctlRoot:string8;
+  path,st:string8;
+  sa:Strings8;
   fl:boolean;
 
- procedure AddEvent(st,name:string);
+ procedure AddEvent(st,name:string8);
   var
-   params,param:stringArr;
+   params,param:Strings8;
    i,j:integer;
    evt:TSoundEvent;
   begin
    evt:=TSoundEvent.Create(name);
-   params:=Split(',',st,'"');
+   params:=st.Split(',','"');
    for i:=0 to length(params)-1 do begin
-    param:=Split('=',params[i],#0);
-    param[0]:=UpperCase(param[0]);
+    param:=params[i].Split('=');
+    param[0]:=UpperCase {TODO: use st.ToUpper}(param[0]);
     if param[0]='FILE' then begin
      evt.fileName:=param[1];
      // проверить, есть ли уже такой медиафайл
@@ -317,7 +322,7 @@ procedure LoadConfig;
     if param[0]='VOL' then evt.volume:=StrToInt(param[1])/100;
     if param[0]='PAN' then evt.pan:=StrToInt(param[1])/100;
     if param[0]='FREQ' then evt.speed:=StrToInt(param[1])/44100;
-    if param[0]='SPEED' then evt.speed:=ParseFloat(param[1]);
+    if param[0]='SPEED' then evt.speed:=Conv.ToFloat(param[1]);
    end;
    evtHash.Put(evt.name,evt);
   end;
@@ -331,18 +336,18 @@ procedure LoadConfig;
    i:integer;
   begin
    path:=ctlRoot+'Music\'+name;
-   name:=UpperCase(name);
+   name:=UpperCase {TODO: use st.ToUpper}(name);
    if ctlGetKeyType(path)<>cktSection then exit;
    item:=TMusicEntry.Create;
    item.name:=name;
    fname:=ctlGetStr(path+'\file');
    item.loop:=ctlGetBool(path+'\loop',false);
    item.looppos:=ctlGetInt(path+'\loopPos',0);
-   fExt:=UpperCase(ExtractFileExt(fname));
+   fExt:=UpperCase {TODO: use st.ToUpper}(ExtractFileExt(fname));
    if (fExt='.OGG') or (fExt='.MP3') or (fExt='.WAW') then begin
     {$IFDEF ANDROID}
     // Copy file to data folder
-    fname:=CopyAssetFile('Audio/'+lowercase(fname));
+    fname:=CopyAssetFile('Audio/'+lowercase {TODO: use st.ToLower}(fname));
     try
      item.player:=TJNIMediaPlayer.Create;
      item.player.SetDataSource(fname,loop);
@@ -352,25 +357,25 @@ procedure LoadConfig;
      if loop then item.loopCount:=-1
       else item.loopCount:=0;
      item.curVolume.Init;
-     LogMessage('[SOUND] Music loaded: %s = %d '[fname,item.handle]);
+     Log.Msg('[SOUND] Music loaded: %s = %d '[fname,item.handle]);
     except
      on e:Exception do begin
-       LogMessage('[SOUND] Music loading failed: '+ExceptionMsg(e));
+       Log.Msg('[SOUND] Music loading failed: '+ExceptionMsg(e));
      end;
     end;
     {$ENDIF}
 
     // Load as stream
-    item.media:=soundLib.OpenMediaFile(FileName(soundFolderPath+fname),mlmJustOpen);
+    item.media:=soundLib.OpenMediaFile(Files.FixName(soundFolderPath+fname),mlmJustOpen);
     item.isModule:=false;
    end else
    if (fExt='.MOD') or (fExt='.S3M') or (fExt='.XM') then begin
     // load as module
-    item.media:=soundLib.OpenMediaFile(FileName(soundFolderPath+fname),mlmLoad);
+    item.media:=soundLib.OpenMediaFile(Files.FixName(soundFolderPath+fname),mlmLoad);
     item.isModule:=true;
    end;
    if item.media=nil then begin
-     ForceLogMessage('[SOUND] Failed to load music file '+fName);
+     Log.Force('[SOUND] Failed to load music file '+fName);
     exit;
    end;
    item.volume:=ctlGetInt(path+'\volume',75)/100;
@@ -384,13 +389,13 @@ procedure LoadConfig;
   begin
    path:=ctlRoot+'SoundEvents';
    st:=ctlGetKeys(path);
-   sa:=split(' ',st);
+   sa:=st.Split(' ');
    path:=path+'\';
    for i:=0 to length(sa)-1 do begin
     kt:=ctlGetKeyType(path+sa[i]);
     if kt=cktString then try
      // событие определено в виде строки
-     AddEvent('file='+ctlGetStr(path+sa[i]),UpperCase(sa[i]));
+     AddEvent('file='+ctlGetStr(path+sa[i]),UpperCase {TODO: use st.ToUpper}(sa[i]));
     except
      on e:Exception do raise EError.Create('Error in sound event definition: '+ExceptionMsg(e));
     end;
@@ -405,9 +410,9 @@ procedure LoadConfig;
    list:PointerArray;
   begin
    path:=ctlRoot+'Settings\';
-   st:=UpperCase(ctlGetStr(path+'PreloadSamples'));
-   DebugMessage('[SOUND] Preloading mode: '+st);
-   if st<>'NONE' then LogMessage('[SOUND] Preloading');
+   st:=UpperCase {TODO: use st.ToUpper}(ctlGetStr(path+'PreloadSamples'));
+   Log.Force('[SOUND] Preloading mode: '+st);
+   if st<>'NONE' then Log.Msg('[SOUND] Preloading');
    if st='ALL' then begin
     // preload all
     list:=evtHash.GetValues;
@@ -417,10 +422,10 @@ procedure LoadConfig;
    if st='NONE' then
    else begin
     // preload listed
-    sa:=split(',',st,#0);
+    sa:=st.Split(',');
     for fName in sa do LoadMediaAsSample(fName);
    end;
-   if st<>'NONE' then LogMessage('[SOUND] samples preloading done');
+   if st<>'NONE' then Log.Msg('[SOUND] samples preloading done');
   end;
 
  procedure LoadMusicEntries;
@@ -430,13 +435,13 @@ procedure LoadConfig;
    // Load music entries
    path:=ctlRoot+'Music';
    st:=ctlGetKeys(path);
-   sa:=split(' ',st,#0);
+   sa:=st.Split(' ');
    for i:=0 to length(sa)-1 do
     AddMusicEntry(sa[i]);
   end;
 
  begin
-  LogMessage('[SOUND] Loading config');
+  Log.Msg('[SOUND] Loading config');
   try
    evtHash:=TStrHash.Create;
    mediaFilesHash.Init(100);
@@ -449,10 +454,10 @@ procedure LoadConfig;
    LoadSoundEvents;
    PreloadSamples;
    LoadMusicEntries;
-   LogMessage('[SOUND] Config loaded');
+   Log.Msg('[SOUND] Config loaded');
   except
    on e:Exception do begin
-    ForceLogMessage('[SOUND] config loading error: '+ExceptionMsg(e));
+    Log.Force('[SOUND] config loading error: '+ExceptionMsg(e));
     failed:=true;
    end;
   end;
@@ -474,9 +479,9 @@ procedure LoopMusicProc(sync,chan,data,user:cardinal); stdcall;
  end;
 *)
 
-procedure PlaySound(event:string;tag:TTag);
+procedure PlaySound(event:TEventStr;tag:TTag);
  var
-  sa:StringArr;
+  sa:Strings8;
   evt:TSoundEvent;
   settings:TPlaySettings;
   par:TNameValue;
@@ -486,15 +491,15 @@ procedure PlaySound(event:string;tag:TTag);
   volRelative:boolean;
   ptr:int64;
  begin
-   LogMessage('[SOUND] '+event+' '+IntToHex(tag,6));
+   Log.Msg('[SOUND] '+event+' '+IntToHex(tag,6));
    if soundvolume=0 then exit;
    delete(event,1,5);
-   sa:=split(',',event,'"');
+   sa:=event.Split(',','"');
    event:=sa[0];
    // Get sample object
    evt:=EvtHash.Get(event);
    if evt=nil then begin
-     LogMessage('[SOUND] Event not found: '+event);
+     Log.Msg('[SOUND] Event not found: '+event);
      exit;
    end;
    evt.Preload;
@@ -514,7 +519,7 @@ procedure PlaySound(event:string;tag:TTag);
    for i:=1 to high(sa) do begin
      par.InitFrom(sa[i]);
      if par.Named('vol') or par.named('v') then begin
-      if HasSuffix(par.value,'%') then
+      if par.value.EndsWith('%') then
        settings.volume:=settings.volume*par.GetInt/100
       else
        settings.volume:=par.GetInt/100;
@@ -585,61 +590,61 @@ procedure PlayMusic(event:TEventStr;tag:TTag);
     0:begin // обычный эффект: музыка гасится, затем запускается новая
        downtime:=1200;
        needslide:=0;
-       needMusicStartTime:=MyTickCount+1000;
+       needMusicStartTime:=CoreTime.Ticks+1000;
     end;
     1:begin // музыка гасится быстро, новая запускается почти сразу же
        downtime:=400;
        needslide:=0;
-       needMusicStartTime:=MyTickCount+300;
+       needMusicStartTime:=CoreTime.Ticks+300;
     end;
     2:begin // музыка гасится очень медленно
        downtime:=2500;
        needslide:=0;
-       needMusicStartTime:=MyTickCount+3000;
+       needMusicStartTime:=CoreTime.Ticks+3000;
     end;
     3:begin // музыка гасится медленно, новая нарастает плавно - кроссфейдинг
        downtime:=2000;
        needslide:=2000;
-       needMusicStartTime:=MyTickCount+800;
+       needMusicStartTime:=CoreTime.Ticks+800;
     end;
     4:begin // музыка гасится медленно, новая нарастает плавно - без фейдинга
        downtime:=2500;
        needslide:=2000;
-       needMusicStartTime:=MyTickCount+2000;
+       needMusicStartTime:=CoreTime.Ticks+2000;
     end;
     5:begin // музыка гасится быстро, новая нарастает медленно - кроссфейдинг
        downtime:=500;
        needslide:=2000;
-       needMusicStartTime:=MyTickCount+400;
+       needMusicStartTime:=CoreTime.Ticks+400;
     end;
     6:begin // музыка гасится быстро, новая нарастает средне - кроссфейдинг
        downtime:=500;
        needslide:=500;
-       needMusicStartTime:=MyTickCount+250;
+       needMusicStartTime:=CoreTime.Ticks+250;
     end;
    end;
    // Fade-Out all playing music streams
    if curMusic<>nil then begin
      if downTime>0 then begin
-      LogMessage('[SOUND] Fading out current music during '+inttostr(downtime));
+      Log.Msg('[SOUND] Fading out current music during '+inttostr(downtime));
       if (caVolume in soundLib.CanSlide) or (soundLib.CanFadeMusic) then
        soundLib.SlideChannel(curMusic.channel,caVolume,0,downTime/1000)
       else begin
        curMusic.curVolume.Init(curMusic.volume);
       end;
-      curMusic.stopTime:=MyTickCount+downTime;
+      curMusic.stopTime:=CoreTime.Ticks+downTime;
      end else begin
-      LogMessage('[SOUND] Stop current music immediately');
+      Log.Msg('[SOUND] Stop current music immediately');
       soundLib.StopChannel(curMusic.channel);
       curMusic:=nil;
      end;
    end else
-    needMusicStartTime:=MyTickCount;
+    needMusicStartTime:=CoreTime.Ticks;
 
    if event<>'NONE' then begin
     mus:=MusHash.Get(event);
     if mus<>nil then needMusic:=mus
-     else LogMessage('[SOUND] Music not found: '+event);
+     else Log.Msg('[SOUND] Music not found: '+event);
    end;
  end;
 
@@ -654,10 +659,10 @@ procedure PlayMusic(event:TEventStr;tag:TTag);
     if mus.channel<>nil then begin
      {$IFDEF ANDROID}
      if pause then begin
-      LogMessage('Pause music track '+mus.name);
+      Log.Msg('Pause music track '+mus.name);
       mus.player.Pause;
      end else begin
-      LogMessage('Resume music track '+mus.name);
+      Log.Msg('Resume music track '+mus.name);
       mus.player.Resume;
      end;
      {$ENDIF}
@@ -688,7 +693,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
  begin
   try
   delete(event,1,6);
-  event:=UpperCase(event);
+  event:=UpperCase {TODO: use st.ToUpper}(event);
 
   if event='ANIMATEMUSICVOL' then AnimateMusicVolume(TMusicEntry(tag));
 
@@ -724,7 +729,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   if pos('CHANGE\',event)=1 then begin
    delete(event,1,7);
 
-   sa:=split(',',event,'"');
+   sa:=split {TODO: use st.Split(char)}(',',event,'"');
    event:=sa[0];
    pan:=-101;
    v:=-1;
@@ -732,7 +737,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
    if length(sa)>1 then begin
     newfreq:=-1; newpan:=-101;
     for i:=1 to length(sa)-1 do begin
-     sa2:=split('=',sa[i],#0);
+     sa2:=split {TODO: use st.Split(char)}('=',sa[i],#0);
      if length(sa2)<2 then continue;
      if (sa2[0]='VOL') or (sa2[0]='V') then v:=StrToInt(sa2[1]);
      if (sa2[0]='PAN') or (sa2[0]='P') then pan:=StrToInt(sa2[1]);
@@ -743,7 +748,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
    end;
    evt:=EvtHash.Get(event);
    if evt=nil then begin
-    LogMessage('SOUND: sound event not found - '+event);
+    Log.Msg('SOUND: sound event not found - '+event);
     exit;
    end;
    if evt.channel=0 then exit;
@@ -781,19 +786,19 @@ procedure EventHandler(event:TEventStr;tag:TTag);
    PauseMusic(event.StartsWith('PAUSE'));
 
   if pos('PLAYMUSIC\',event)=1 then begin
-   LogMessage('[SOUND] '+event);
+   Log.Msg('[SOUND] '+event);
    delete(event,1,10);
    PlayMusic(event,tag);
   end;
   except
-   on e:exception do ForceLogMessage('Sound event ('+event+') error: '+ExceptionMsg(e));
+   on e:exception do Log.Force('Sound event ('+event+') error: '+ExceptionMsg(e));
   end;
  end;
 
 procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:cardinal=0; waitForPreload:boolean=true);
  begin
   if not FileExists(soundConfigFile) then begin
-   LogMessage('[SOUND] No config file found (%s). Sound system won''t initialize.',[soundConfigFile]);
+   Log.Msg('[SOUND] No config file found (%s). Sound system won''t initialize.',[soundConfigFile]);
    exit;
   end;
   wndHandle:=windowHandle;
@@ -808,23 +813,23 @@ procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:cardinal=0; waitFor
    slIMixer:{$IFDEF IMX}soundLib:=TSoundLibImx.Create; {$ELSE} raise EError.Create('Define IMX'); {$ENDIF}
    slSDL:{$IFDEF SDLMIX}soundLib:=TSoundLibSDL.Create; {$ELSE} raise EError.Create('Define SDLMIX'); {$ENDIF}
   end;
-  thread:=TSoundThread.Create(false);
-  thread.waitForPreload:=waitForPreload;
+  soundThread:=TSoundThread.Create(false);
+  soundThread.waitForPreload:=waitForPreload;
   repeat
-   sleep(10);
+   CoreTime.Sleep(10);
    HandleSignals;
   until initialized or failed;
   if failed then begin
-   thread.Free;
+   soundThread.Free;
    raise EError.Create('[SOUND] Initialization failed!');
   end;
-  thread.Priority:=tpHigher;
+  soundThread.Priority:=tpHigher;
  end;
 
 procedure DoneSoundSystem;
  begin
   if not initialized then exit;
-  thread.Free; // stop & wait
+  soundThread.Free; // stop & wait
  end;
 
 procedure PlayNeededMusic;
@@ -858,12 +863,12 @@ end;
 
 procedure StopMusicChannels;
 var
- keys:StringArr;
+ keys:Strings;
  st:string;
  mus:TMusicEntry;
  t:int64;
 begin
- t:=MyTickCount;
+ t:=CoreTime.Ticks;
  keys:=musHash.GetKeys;
  for st in keys do begin
   mus:=TMusicEntry(musHash.Get(st));
@@ -878,7 +883,7 @@ end;
 procedure TSoundThread.Execute;
 begin
  try
-  RegisterThread('Sound(E3)');
+  Thread.Register('Sound(E3)');
   // initialization
   soundLib.Init(wndHandle);
   soundLib.SetVolume(vtSounds,soundVolume);
@@ -897,20 +902,20 @@ begin
   // Main loop
   repeat
    try
-    PingThread;
+    Thread.Ping;
     try
      HandleSignals;
     except
      on e:Exception do
-      LogMessage('Error '+ExceptionMsg(e));
+      Log.Msg('Error '+ExceptionMsg(e));
     end;
 
-    if (needmusic<>nil) and (MyTickCount>needMusicStartTime) then PlayNeededMusic;
+    if (needmusic<>nil) and (CoreTime.Ticks>needMusicStartTime) then PlayNeededMusic;
     StopMusicChannels;
    except
-    on e:exception do ForceLogMessage('[SOUND] Error: '+ExceptionMsg(e));
+    on e:exception do Log.Force('[SOUND] Error: '+ExceptionMsg(e));
    end;
-   sleep(5);
+   CoreTime.Sleep(5);
   until Terminated;
   // Termination
 
@@ -922,10 +927,10 @@ begin
  except
   on e:Exception do begin
    failed:=true;
-   ForceLogMessage('[SOUND] '+ExceptionMsg(e))
+   Log.Force('[SOUND] '+ExceptionMsg(e))
   end;
  end;
- UnregisterThread;
+ Thread.Unregister;
 end;
 
 

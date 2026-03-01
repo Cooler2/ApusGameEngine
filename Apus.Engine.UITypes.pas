@@ -8,8 +8,8 @@
 // ------------------------------------------------------
 unit Apus.Engine.UITypes;
 interface
-uses Types, Apus.Types, Apus.Classes, Apus.Engine.Types,
-   Apus.Common, Apus.AnimatedValues, Apus.Regions, Apus.Geom2d;
+uses Types, Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Regions,
+  Apus.Threads;
 {$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
@@ -117,11 +117,11 @@ type
   styleContext:TObject; // custom context object used by drawer
 
   canHaveFocus:boolean; // может ли элемент обладать фокусом ввода
-  hint,hintIfDisabled:string; // текст всплывающей подсказки (отдельный вариант - для ситуации, когда элемент disabled, причем именно этот элемент, а не за счёт предков)
+  hint,hintIfDisabled:String8; // tooltip text (with separate variant when this exact element is disabled, not disabled via parents)
   hintDelay:integer; // время (в мс), через которое элемент должен показать hint (в режиме показа hint'ов это время значительно меньше)
   hintDuration:integer; // длительность (в мс) показа хинта
   sendSignals:TSendSignals; // режим сигнализирования (см. выше)
-  caption:string; // some text associated with element
+  caption:String8; // some text associated with element
 
   // Clipping: use clipChildren to allow hovering, not parentClip
   // An element is clipped when BOTH conditions are true: parent.clipChildren AND self.parentClip
@@ -155,7 +155,7 @@ type
   class var sender:TUIElement; // use this value in any callback handler to find out the event sender element
 
   // Создает элемент
-  constructor Create(width,height:single;parent_:TUIElement;name_:string='');
+  constructor Create(width,height:single;parent_:TUIElement;name_:String8='');
   // Удаляет элемент (а также все вложенные в него)
   destructor Destroy; override;
   // Queue element to destroy somewhere later (before the next frame)
@@ -178,7 +178,7 @@ type
   // Есть ли у данного элемента указанный потомок (direct or indirect) (HasChild(self)=true)
   function HasChild(c:TUIElement):boolean;
   // Delete all children elements (using optional filter string 'start:prefix', '!start:prefix', 'substr' etc.)
-  procedure DeleteChildren(filter:string='');
+  procedure DeleteChildren(filter:String8='');
   // Return child index in children array (-1) if no parent
   function ChildIndex:integer;
 
@@ -219,7 +219,7 @@ type
   procedure onMouseButtons(button:byte;state:boolean); virtual;
   function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual; // Нужно вернуть false для запрета дальнейшей обработки клавиши
   procedure onChar(ch:char;scancode:byte); virtual;
-  procedure onUniChar(ch:WideChar;scancode:byte); virtual;
+  procedure onUniChar(ch:Char32;scancode:byte); virtual;
   function onHotKey(keycode:byte;shiftstate:byte):boolean; virtual;
   procedure onTimer; virtual;
   procedure onLostFocus; virtual;
@@ -291,7 +291,7 @@ type
   class function IsWindow:boolean; virtual;
   function IsActiveWindow:boolean; virtual;
 
-  class procedure SetDefault(name:string;value:variant); // SetClassAttribute('defalut'+name,value)
+  class procedure SetDefault(name:String8;value:variant); // SetClassAttribute('defalut'+name,value)
   procedure SetStyle(name,value:string8); // use 'name:value' or 'state.name:value' syntax
 
 
@@ -337,8 +337,6 @@ var
  modalElement:TUIElement;   // Если есть модальный эл-т - он тут
  hooked:TUIElement;         // если установлен - теряет фокус даже если не обладал им
 
- defaultEncoding:TTextEncoding=teUnknown; // кодировка элементов ввода по умолчанию
-
  clipMouse:TClipMouse;   // Ограничивать ли движение мыши
  clipMouseRect:TRect;    // Область допустимого перемещения мыши
 
@@ -349,9 +347,9 @@ var
  // по порядку, начиная с 1-го
  rootElements:array of TUIElement;
 
- UICritSect:TMyCriticalSection; // для многопоточного доступа к глобальным переменным UI
+ UICritSect:TLock; // для многопоточного доступа к глобальным переменным UI
 
- function DescribeElement(c:TUIElement):string;
+ function DescribeElement(c:TUIElement):String8;
  function FocusedElement:TUIElement;
  procedure SetFocusTo(control:TUIElement);
 
@@ -361,7 +359,10 @@ var
  procedure DestroyQueuedElements;
 
 implementation
- uses Classes, SysUtils, Apus.CrossPlatform, Apus.EventMan, Apus.Clipboard, Apus.Structs, Apus.Engine.API;
+ uses Classes, SysUtils, Apus.EventMan, Apus.Clipboard, Apus.Structs, Apus.Engine.API,
+  Apus.Geom2D,
+  Apus.Conv,
+  Apus.Strings;
 
  type
   // Hotkey handler
@@ -402,12 +403,12 @@ implementation
        end;
   end;
 
- function DescribeElement(c:TUIElement):string;
+ function DescribeElement(c:TUIElement):String8;
   begin
    if c=nil then begin
     result:='nil'; exit;
    end;
-   result:=c.ClassName+'('+PtrToStr(c)+')='+c.name;
+   result:=c.ClassName+'('+Conv.ToStr(c)+')='+c.name;
   end;
 
  function FocusedElement;
@@ -557,19 +558,19 @@ implementation
    result:=@UIHash;
   end;
 
- procedure TUIElement.DeleteChildren(filter:string='');
+ procedure TUIElement.DeleteChildren(filter:String8='');
   var
    i,n:integer;
    keep:TUIElements;
-   items:StringArray;
+   items:Strings8;
    value:string8;
    mode:integer;
    function ShouldDelete(e:TUIElement):boolean;
     begin
      case mode of
       0:result:=pos(value,e.name)>0;
-      1:result:=HasPrefix(e.name,value,true);
-      2:result:=not HasPrefix(e.name,value,true);
+      1:result:=e.name.StartsWith(value,true);
+      2:result:=not e.name.StartsWith(value,true);
      end;
     end;
   begin
@@ -577,7 +578,7 @@ implementation
    try
     if filter<>'' then begin
      SetLength(keep,length(children));
-     items:=split(':',filter);
+     items:=filter.split(':');
      value:=items[1];
      mode:=0;
      if SameText(items[0],'start') then mode:=1;
@@ -602,7 +603,7 @@ implementation
    end;
   end;
 
- constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:string='');
+ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:String8='');
   var
    n:integer;
   begin
@@ -1093,7 +1094,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    end;
   end;
 
- procedure TUIElement.onUniChar(ch:WideChar; scancode:byte);
+ procedure TUIElement.onUniChar(ch:Char32; scancode:byte);
   begin
    if (sendSignals=ssAll) and (name<>'') then begin
     Signal('UI\'+name+'\UniChar',word(ch)+scancode shl 16);
@@ -1107,7 +1108,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  function TUIElement.onKey(keycode:byte; pressed:boolean;shiftstate:byte):boolean;
   begin
-   if pressed and (keycode=VK_TAB) then begin
+   if pressed and (TKey.From(keyCode)=TKey.Tab) then begin
     SetFocusToNext;
     result:=false;
     exit;
@@ -1204,9 +1205,9 @@ function TUIElement.IsChild(c:TUIElement):boolean;
   var
    i,j:integer;
   begin
-   i:=PosFrom(name,fStyleInfo,1,true);
+   i:=fStyleInfo.IndexOf(name,1,true);
    if i>0 then begin
-    j:=PosFrom(';',fStyleInfo,i+1);
+    j:=fStyleInfo.IndexOf(';',i+1);
     if j=0 then j:=high(fStyleInfo);
     Delete(fStyleInfo,i,j-i);
    end;
@@ -1509,7 +1510,7 @@ procedure TUIElement.SafeDestroy;
    result:=self;
   end;
 
- class procedure TUIElement.SetDefault(name:string;value:variant);
+ class procedure TUIElement.SetDefault(name:String8;value:variant);
   begin
    if name[1] in ['a'..'z'] then name[1]:=UpCase(name[1]);
    SetClassAttribute('default'+name,value);
@@ -1648,9 +1649,10 @@ procedure TUIElement.SafeDestroy;
   end;
 
 initialization
- InitCritSect(UICritSect,'UI',30);
+ UICritSect.Init('UI',30);
  UIHash.Init;
  TUIElement.SetClassAttribute('handleMouseIfDisabled',false);
 finalization
- DeleteCritSect(UICritSect);
+ UICritSect.Cleanup;
 end.
+

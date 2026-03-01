@@ -15,7 +15,7 @@
 {$R-}
 unit Apus.Engine.Game;
 interface
- uses Classes, Apus.CrossPlatform, Apus.Common, Apus.Engine.Types, Types, Apus.Engine.API;
+uses Classes, Apus.Core, Apus.Threads, Apus.Engine.Types, Apus.Engine.API;
 
 var
  onFrameDelay:integer=0; // Sleep this time every frame
@@ -109,7 +109,7 @@ type
   mainThread:TThread;
   controlThreadId:TThreadID;
   cursors:array of TObject;
-  crSect:TMyCriticalSection;
+  crSect:TLock;
   scenes:array of TGameScene;
 
   LastOnFrameTime:int64; // момент последнего вызова обработки кадра
@@ -219,10 +219,14 @@ type
 
 implementation
  uses SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools
-     {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},
-     Apus.EventMan, Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene,
-     Apus.Engine.Console, Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw,
-     Apus.Engine.Controller;
+      {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},
+      Apus.EventMan, Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene,
+      Apus.Engine.Console, Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw,
+      Apus.Engine.Controller,
+  Apus.Files,
+  Apus.Lib,
+  Apus.Strings
+  {$IFDEF MSWINDOWS},Windows{$ENDIF};
 
 type
  TMainThread=class(TThread)
@@ -249,15 +253,17 @@ type
  end;
 
  TVarTypeGameClass=class(TVarTypeStruct)
-  class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
-  class function ListFields:string; override;
+  class function GetField(variable:pointer;fieldName:string8;out varClass:TVarClass):pointer; override;
+  class function ListFields:string8; override;
  end;
 
 var
  lastThreadID:NativeInt;
  threads:array[1..16] of TCustomThread;
- RA_sect:TMyCriticalSection;
+ RA_sect:TLock;
  gameEx:TGame;
+ perfValues:array[1..16] of int64;
+ perfMeasures:array[1..16] of double;
 
 {$IFDEF FREETYPE}
  // Default vector font is Open Sans
@@ -268,6 +274,50 @@ var
  {$I defaultFont10.inc}
  {$I defaultFont12.inc}
 {$ENDIF}
+
+
+// TODO: move to Apus.Utils/CmdLine once modern replacement API is finalized.
+function HasParamLocal(const name:string):boolean;
+var
+ i:integer;
+ s,n:string;
+begin
+ n:=LowerCase(name);
+ for i:=1 to ParamCount do begin
+  s:=LowerCase(ParamStr(i));
+  if s=n then exit(true);
+ end;
+ result:=false;
+end;
+
+// TODO: move to Apus.Profiling when profiling API migration is complete.
+procedure StartMeasure(id:integer); inline;
+begin
+ if (id<low(perfValues)) or (id>high(perfValues)) then exit;
+ perfValues[id]:=CoreTime.Ticks;
+end;
+
+// TODO: move to Apus.Profiling when profiling API migration is complete.
+function EndMeasure(id:integer):double; inline;
+var
+ d:int64;
+begin
+ if (id<low(perfValues)) or (id>high(perfValues)) then exit(0);
+ d:=CoreTime.Ticks-perfValues[id];
+ result:=d;
+ perfMeasures[id]:=result;
+end;
+
+// TODO: move to Apus.Profiling when profiling API migration is complete.
+function EndMeasure2(id:integer):double; inline;
+var
+ d:double;
+begin
+ if (id<low(perfValues)) or (id>high(perfValues)) then exit(0);
+ d:=CoreTime.Ticks-perfValues[id];
+ result:=d;
+ perfMeasures[id]:=perfMeasures[id]*0.9+d*0.1;
+end;
 
 { TGame }
 
@@ -312,48 +362,48 @@ procedure TGame.HandleInternalHotkeys(keyCode:integer; pressed:boolean);
     else debugOverlay:=n;
   end;
 begin
- if pressed then begin
-  // Alt+Enter - switch display settings
-  if (keyCode=VK_RETURN) and (shiftstate and sscAlt>0) then
-     if (params.mode.displayMode<>params.altMode.displayMode) and
-        (params.altMode.displayMode<>dmNone) then
+  if pressed then begin
+   // Alt+Enter - switch display settings
+   if (TKey(keyCode and $FF)=TKey.Enter) and (shiftstate and sscAlt>0) then
+      if (params.mode.displayMode<>params.altMode.displayMode) and
+         (params.altMode.displayMode<>dmNone) then
        SwitchToAltSettings;
 
-  // Alt+F11
-  if (keyCode=VK_F11) and HasFlag(shiftState,sscAlt) then begin
-    SetVSync(params.VSync xor 1); // toggle vsync
-    if params.VSync=0 then Include(debugFeatures,dfShowFPS)
-     else Exclude(debugFeatures,dfShowFPS);
-  end;
-
-  // F12 or PrintScreen - screenshot (JPEG), Alt+F12 - (loseless)
-  if (keyCode=VK_SNAPSHOT) or (keyCode=VK_F12) then
-    RequestScreenshot(not HasFlag(shiftState,sscAlt));
-
-  if HasFlag(shiftState,sscAlt) then
-   if (debugHotKey=dhAltFx) or (debugHotkey=dhCtrlAltFx) and HasFlag(shiftState,sscCtrl) then begin
-    if keyCode=VK_F1 then begin
-      if debugOverlay=0 then begin
-       debugOverlay:=1;
-       DebugFeature(dfShowFPS,true);
-      end else begin
-       debugOverlay:=0;
-       debugFeatures:=[];
-      end;
-    end else
-    if keyCode=VK_F3 then
-      ToggleDebugFeature(dfShowMagnifier);
+   // Alt+F11
+   if (TKey(keyCode and $FF)=TKey.F11) and Bits.HasAll(shiftState,sscAlt) then begin
+     SetVSync(params.VSync xor 1); // toggle vsync
+     if params.VSync=0 then Include(debugFeatures,dfShowFPS)
+      else Exclude(debugFeatures,dfShowFPS);
    end;
 
-  // [Alt]+[1] .. [Alt]+[9] - switch debug overlay when enabled
-  if (debugOverlay>0) and (keyCode in [ord('1')..ord('9')]) and HasFlag(shiftState,sscAlt) then
-   debugOverlay:=1+keyCode-ord('1');
+   // F12 or PrintScreen - screenshot (JPEG), Alt+F12 - (loseless)
+   if (TKey(keyCode and $FF)=TKey.PrintScreen) or (TKey(keyCode and $FF)=TKey.F12) then
+     RequestScreenshot(not Bits.HasAll(shiftState,sscAlt));
 
-  // Shift+Alt+F1 - Create debug logs
-  if (keyCode=VK_F1) and
-     (shiftState and sscAlt>0) and
-     (shiftState and sscShift>0) then CreateDebugLogs;
- end;
+   if Bits.HasAll(shiftState,sscAlt) then
+    if (debugHotKey=dhAltFx) or (debugHotkey=dhCtrlAltFx) and Bits.HasAll(shiftState,sscCtrl) then begin
+     if TKey(keyCode and $FF)=TKey.F1 then begin
+       if debugOverlay=0 then begin
+        debugOverlay:=1;
+        DebugFeature(dfShowFPS,true);
+       end else begin
+        debugOverlay:=0;
+        debugFeatures:=[];
+       end;
+     end else
+     if TKey(keyCode and $FF)=TKey.F3 then
+       ToggleDebugFeature(dfShowMagnifier);
+    end;
+
+   // [Alt]+[1] .. [Alt]+[9] - switch debug overlay when enabled
+   if (debugOverlay>0) and (TKey(keyCode and $FF) in [TKey.D1..TKey.D9]) and Bits.HasAll(shiftState,sscAlt) then
+    debugOverlay:=1+keyCode-byte(TKey.D1);
+
+   // Shift+Alt+F1 - Create debug logs
+   if (TKey(keyCode and $FF)=TKey.F1) and
+      (shiftState and sscAlt>0) and
+      (shiftState and sscShift>0) then CreateDebugLogs;
+  end;
 end;
 
 procedure TGame.RequestScreenshot(saveAsJpeg:boolean=true);
@@ -396,7 +446,7 @@ begin
 
  if running then begin // смена параметров во время работы
   with params.mode do
-   LogMessage('Change mode to: %s,%s,%s %d x %d ',
+   Log.Msg('Change mode to: %s,%s,%s %d x %d ',
     [displayMode.ToString, displayFitMode.ToString, displayScaleMode.ToString,
      params.width, params.height]);
   systemPlatform.SetupWindow(params);
@@ -461,7 +511,7 @@ begin
   oldMouseY:=MouseY;
   mouseX:=newX;
   mouseY:=newY;
-  mouseMovedTime:=MyTickCount;
+  mouseMovedTime:=CoreTime.Ticks;
   Signal('MOUSE\MOVE',mouseX and $FFFF+(mouseY and $FFFF) shl 16);
   TGame(game).NotifyScenesAboutMouseMove;
   // Если курсор рисуется вручную, то нужно обновить экран
@@ -506,11 +556,11 @@ begin
 
   if pressed then begin
     keyState[scanCode]:=keyState[scanCode] or 1;
-    //LogMessage('KeyDown %d, KS[%d]=%2x ',[lParam,scanCode,keystate[scanCode]]);
+    //Log.Msg('KeyDown %d, KS[%d]=%2x ',[lParam,scanCode,keystate[scanCode]]);
     if scene<>nil then Signal('SCENE\'+scene.name+'\KeyDown',uCode);
   end else begin
     keyState[scanCode]:=keyState[scanCode] and $FE;
-    //LogMessage('KeyUp %d, KS[$d]=%2x ',[lParam,scanCode,keystate[scanCode]]);
+    //Log.Msg('KeyUp %d, KS[$d]=%2x ',[lParam,scanCode,keystate[scanCode]]);
     if scene<>nil then Signal('SCENE\'+scene.name+'\KeyUp',uCode);
   end;
 end;
@@ -534,7 +584,7 @@ begin
  if (windowWidth<>newWidth) or (windowHeight<>newHeight) then begin
   windowWidth:=newWidth;
   windowHeight:=newHeight;
-  LogMessage('RESIZED: %d,%d',[windowWidth,windowHeight]);
+  Log.Msg('RESIZED: %d,%d',[windowWidth,windowHeight]);
   SetupRenderArea;
   screenChanged:=true;
  end;
@@ -544,7 +594,7 @@ procedure TGame.Activate(activeState:boolean);
 begin
  active:=activeState;
  if not active and (params.mode.displayMode=dmFullScreen) then Minimize;
- LogMessage('ACTIVATE: %d',[byte(active)]);
+ Log.Msg('ACTIVATE: %d',[byte(active)]);
  Signal('Engine\ActivateWnd',byte(active));
  if params.showSystemCursor then wndCursor:=0;
 end;
@@ -565,7 +615,7 @@ constructor TGame.Create(systemPlatform:ISystemPlatform;
   gfxSystem: IGraphicsSystem);
 begin
  inherited Create(systemPlatform,gfxSystem);
- ForceLogMessage('Creating '+self.ClassName);
+ Log.Force('Creating '+self.ClassName);
  game:=self;
 
  running:=false;
@@ -580,12 +630,12 @@ begin
  fps:=60;
  smoothFPS:=60;
  params.VSync:=1;
- fillchar(keystate,sizeof(keystate),0);
- InitCritSect(crSect,'MainGameObj',20);
+ Mem.Fill(keystate,sizeof(keystate),0);
+ crSect.Init('MainGameObj',20);
  // Primary display
  systemPlatform.GetScreenSize(screenWidth,screenHeight);
  screenDPI:=systemPlatform.GetScreenDPI;
- LogMessage('Screen: %dx%d DPI=%d',[screenWidth,screenHeight,screenDPI]);
+ Log.Msg('Screen: %dx%d DPI=%d',[screenWidth,screenHeight,screenDPI]);
 
  SetLength(scenes,0);
  PublishVar(@renderWidth,'RenderWidth',TVarTypeInteger);
@@ -621,7 +671,7 @@ function TGame.GetStatus(n:integer):string;
 destructor TGame.Destroy;
  begin
   if running then Stop;
-  DeleteCritSect(crSect);
+  crSect.Cleanup;
   inherited;
  end;
 
@@ -629,7 +679,7 @@ procedure TGame.DoneGraph;
  begin
   Signal('Engine\BeforeDoneGraph');
   gfx.Done;
-  LogMessage('DoneGraph');
+  Log.Msg('DoneGraph');
 
   systemPlatform.ShowWindow(false);
   Signal('Engine\AfterDoneGraph');
@@ -638,11 +688,13 @@ procedure TGame.DoneGraph;
 procedure TGame.DPadCustomPoint(x, y: single);
  begin
   EnterCritSect;
-  try
-   customPoints:=customPoints+[Point(round(x),round(y))];
-  finally
-   LeaveCritSect;
-  end;
+   try
+    SetLength(customPoints,length(customPoints)+1);
+    customPoints[high(customPoints)].x:=round(x);
+    customPoints[high(customPoints)].y:=round(y);
+   finally
+    LeaveCritSect;
+   end;
  end;
 
 procedure TGame.DrawMagnifier;
@@ -662,19 +714,19 @@ procedure TGame.DrawMagnifier;
   cx:=mouseX-64;
   cy:=mouseY+64;
   EditImage(magnifierTex);
-  FillRect(0,0,127,127,$FF000000);
+  Apus.FastGFX.FillRect(0,0,127,127,$FF000000);
   rawImage:=magnifierTex.GetRawImage;
   gfx.CopyFromBackbuffer(cx,renderHeight-cy,rawImage);
   rawImage.Free;
-  color:=GetPixel(64,63);
+  color:=Apus.FastGFX.GetPixel(64,63);
   magnifierTex.Unlock;
   magnifierTex.SetFilter(TTexFilter.fltNearest);
   gfx.shader.UseTexture(magnifierTex);
   screenScale:=screenDPI/96;
   mSize:=round(512*screenScale);
   mSize:=mSize and $FFFFFFF0;
-  width:=min2(mSize,round(renderWidth*0.4));
-  height:=min2(mSize,renderHeight);
+  width:=Min(mSize,round(renderWidth*0.4));
+  height:=Min(mSize,renderHeight);
   if mouseX<renderWidth div 2 then left:=renderWidth-width
    else left:=0;
   zoom:=round(4*screenScale);
@@ -692,10 +744,10 @@ procedure TGame.DrawMagnifier;
    // Pixel color value (hex)
    draw.FillRect(ox-50*screenScale,height-30*screenScale,ox+50*screenScale,height-2*screenScale,$80000000);
    text:=Format('%2x %2x %2x',[(color shr 16) and $FF,(color shr 8) and $FF,color and $FF]);
-   txt.WriteW(defaultFont,ox,height-17*screenScale,$FFFFFFFF,Str16(text),taCenter);
+   txt.WriteW(defaultFont,ox,height-17*screenScale,$FFFFFFFF,Str32(text),taCenter);
    // Pixel coordinates
    text:=Format('x: %d y: %d',[mousex,mouseY]);
-   txt.WriteW(smallFont,ox,height-5*screenScale,$FFFFFFFF,Str16(text),taCenter);
+   txt.WriteW(smallFont,ox,height-5*screenScale,$FFFFFFFF,Str32(text),taCenter);
   end;
  end;
 
@@ -706,12 +758,12 @@ procedure TGame.FLog(st: string);
 
 procedure TGame.EnterCritSect;
  begin
-  EnterCriticalSection(crSect,GetCaller);
+  crSect.Enter({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
  end;
 
 procedure TGame.LeaveCritSect;
  begin
-  LeaveCriticalSection(crSect);
+  crSect.Leave;
  end;
 
 procedure TGame.InitDefaultResources;
@@ -760,7 +812,7 @@ procedure TGame.InitGraph;
 var
  baseDPI:integer;
 begin
- LogMessage('InitGraph');
+ Log.Msg('InitGraph');
  Signal('Engine\BeforeInitGraph');
  aspectRatio:=params.width/params.height;
 
@@ -768,12 +820,12 @@ begin
  gfx.Init(systemPlatform);
  // Choose pixel formats
  gfx.config.ChoosePixelFormats(pfTrueColor,pfTrueColorAlpha,pfRenderTarget,pfRenderTargetAlpha);
- LogMessage('Selected pixel formats:');
- LogMessage('      TrueColor: '+PixFmt2Str(pfTrueColor));
- LogMessage(' TrueColorAlpha: '+PixFmt2Str(pfTrueColorAlpha));
- LogMessage(' as render target:');
- LogMessage('    Opaque: '+PixFmt2Str(pfRenderTarget));
- LogMessage('     Alpha: '+PixFmt2Str(pfRenderTargetAlpha));
+ Log.Msg('Selected pixel formats:');
+ Log.Msg('      TrueColor: '+PixFmt2Str(pfTrueColor));
+ Log.Msg(' TrueColorAlpha: '+PixFmt2Str(pfTrueColorAlpha));
+ Log.Msg(' as render target:');
+ Log.Msg('    Opaque: '+PixFmt2Str(pfRenderTarget));
+ Log.Msg('     Alpha: '+PixFmt2Str(pfRenderTargetAlpha));
 
  SetVSync(params.VSync);
 
@@ -814,22 +866,22 @@ end;
 procedure TGame.InitMainLoop;
 begin
  try
-  LogMessage('Init main loop');
+  Log.Msg('Init main loop');
   InitGraph;
 
-  LastOnFrameTime:=MyTickCount;
-  LastRenderTime:=MyTickCount;
+  LastOnFrameTime:=CoreTime.Ticks;
+  LastRenderTime:=CoreTime.Ticks;
 
   Signal('Engine\BeforeMainLoop');
-  LogMessage('Game is running...');
+  Log.Msg('Game is running...');
   running:=true;
   {$IFDEF ANDROID}
   active:=true; // window is initially active
   {$ENDIF}
  except
   on e:Exception do begin
-   ForceLogMessage('Error in InitMainLoop: '+ExceptionMsg(e));
-   ErrorMessage(ExceptionMsg(e));
+   Log.Force('Error in InitMainLoop: '+ExceptionMsg(e));
+   SystemMessage(ExceptionMsg(e));
    running:=false;
    Halt(254);
   end;
@@ -842,17 +894,17 @@ var
  flags:cardinal;
 begin
  try
-  LogMessage('Default RT');
-  fl:=HasParam('-nodrt');
-  if fl then LogMessage('Modern rendering model disabled by -noDRT switsh');
+  Log.Msg('Default RT');
+  fl:=HasParamLocal('-nodrt');
+  if fl then Log.Msg('Modern rendering model disabled by -noDRT switsh');
   if disableDRT then begin
    fl:=true;
-   LogMessage('Default RT disabled');
+   Log.Msg('Default RT disabled');
   end;
   if not fl and
      gfx.config.ShouldUseTextureAsDefaultRT and
      (gfx.config.QueryMaxRTSize>=params.width) then begin
-   LogMessage('Switching to the modern rendering model');
+   Log.Msg('Switching to the modern rendering model');
    flags:=aiRenderTarget;
    if (params.zbuffer>0) and not useDepthTexture then
     flags:=flags+aiDepthBuffer;
@@ -865,8 +917,8 @@ begin
   end;
  except
   on e:exception do begin
-   ForceLogMessage('Error in GLG:IO '+ExceptionMsg(e));
-   ErrorMessage('Game engine failure (GLG:IO): '+ExceptionMsg(e));
+   Log.Force('Error in GLG:IO '+ExceptionMsg(e));
+   SystemMessage('Game engine failure (GLG:IO): '+ExceptionMsg(e));
    Halt;
   end;
  end;
@@ -885,9 +937,9 @@ var
   begin
    if s=nil then exit;
    result:=Format('  %-20s Z=%-10d  status=%-2d type=%-2d eff=%s',
-     [s.name,s.zorder,ord(s.status),byte(s.fullscreen),PtrToStr(s.effect)]);
+     [s.name,s.zorder,ord(s.status),byte(s.fullscreen),Conv.ToStr(s.effect)]);
    if s is TUIScene then
-    result:=result+Format(' UI=%s (%s)',[TUIScene(s).UI.name, PtrToStr(TUIScene(s).UI)]);
+    result:=result+Format(' UI=%s (%s)',[TUIScene(s).UI.name, Conv.ToStr(TUIScene(s).UI)]);
   end;
 begin
   with game do begin
@@ -981,12 +1033,12 @@ begin
  SetEventHandler('GAMEPAD\',GameGamepadEvent,emInstant);
 
  for i:=1 to 400 do
-  if not running then sleep(50) else break;
+  if not running then CoreTime.Sleep(50) else break;
 
  if not running then begin
-  ForceLogMessage('Main thread timeout');
+  Log.Force('Main thread timeout');
   {$IFDEF MSWINDOWS}
-   if TMainThread(mainThread).errormsg>'' then ErrorMessage(TMainThread(mainThread).errormsg);
+   if TMainThread(mainThread).errormsg>'' then SystemMessage(TMainThread(mainThread).errormsg);
   {$ENDIF}
    raise EFatalError.Create('Can''t run: see log for details.');
  end;
@@ -1016,7 +1068,7 @@ var
  h:TThreadID;
  fl:boolean;
 begin
- ForceLogMessage('GameStop');
+ Log.Force('GameStop');
  if not running then exit;
  active:=false;
 
@@ -1031,8 +1083,8 @@ begin
   for j:=1 to 16 do
    if (threads[j]<>nil) and (threads[j].running) then fl:=true;
   if not fl then break;
-  LogMessage('Waiting for threads...');
-  sleep(50);
+  Log.Msg('Waiting for threads...');
+  CoreTime.Sleep(50);
  end;
 
  // Кто не завершился - я не виноват!
@@ -1040,8 +1092,10 @@ begin
  if fl then
   for i:=1 to 16 do
    if (threads[i]<>nil) and (threads[i].running) then begin
-    ForceLogMessage('Killing thread: '+PtrToStr(@threads[i].func));
-    TerminateThread(threads[i].Handle,0);
+    Log.Force('Killing thread: '+Conv.ToStr(@threads[i].func));
+    {$IFDEF MSWINDOWS}
+    Windows.TerminateThread(threads[i].Handle,0);
+    {$ENDIF}
    end;
  {$ENDIF}
 
@@ -1056,18 +1110,20 @@ begin
   if h<>mainThread.ThreadID then begin
    // Ждем 2 секунды пока поток не завершится по-хорошему
    for i:=1 to 40 do
-    if running then sleep(50) else break;
+    if running then CoreTime.Sleep(50) else break;
    // Иначе прибиваем силой
    if running then begin
     Signal('Error\MainThreadHangs');
-    ForceLogMessage('Killing main thread');
-    TerminateThread(mainThread.Handle,0);
+    Log.Force('Killing main thread');
+    {$IFDEF MSWINDOWS}
+    Windows.TerminateThread(mainThread.Handle,0);
+    {$ENDIF}
    end;
   end;
  end;
 
  active:=false;
- ForceLogMessage('Can exit now');
+ Log.Force('Can exit now');
 end;
 
 procedure TGame.CaptureFrame;
@@ -1117,12 +1173,12 @@ begin
     SaveJPEG(img,st,95)
    else begin
     res:=SavePNG(img);
-    WriteFile(st,@res[0],0,length(res));
+    Files.WriteBlock(st,@res[0],length(res),0);
    end;
    capturedName:=st;
-   capturedTime:=MyTickCount;
+   capturedTime:=CoreTime.Ticks;
   except
-   on e:Exception do ForceLogMessage('Error saving screenshot: '+ExceptionMsg(e));
+   on e:Exception do Log.Force('Error saving screenshot: '+ExceptionMsg(e));
   end;
  end;
  (*
@@ -1157,7 +1213,7 @@ procedure Timing;
  var
   t2:int64;
  begin
-  t2:=MyTickCount;
+  t2:=CoreTime.Ticks;
   fr:=t2 div 1000;
   if timerFrame<>fr then begin
    avgTime2:=0;
@@ -1183,43 +1239,45 @@ begin
   DoneGraph;
  end else
  if event='SINGLETOUCHSTART' then begin
-   t:=MyTickCount;
+   t:=CoreTime.Ticks;
    OldMouseX:=mouseX;
    OldMouseY:=MouseY;
-   p:=Point(tag and $FFFF,tag shr 16);
+   p.x:=tag and $FFFF;
+   p.y:=tag shr 16;
    ClientToGame(p);
    MouseX:=p.x;
    MouseY:=p.y;
-   mouseMovedTime:=MyTickCount;
+   mouseMovedTime:=CoreTime.Ticks;
    Signal('Mouse\Move',mouseX+mouseY shl 16);
    NotifyScenesAboutMouseMove;
    Signal('Mouse\BtnDown\Left',1);
    NotifyScenesAboutMouseBtn(1,true);
-   sleep(0);
+   CoreTime.Sleep(0);
    Timing;
  end else
  if event='SINGLETOUCHMOVE' then with game do begin
-   t:=MyTickCount;
+   t:=CoreTime.Ticks;
    OldMouseX:=mouseX;
    OldMouseY:=MouseY;
-   p:=Point(tag and $FFFF,tag shr 16);
+   p.x:=tag and $FFFF;
+   p.y:=tag shr 16;
    ClientToGame(p);
    MouseX:=p.x;
    MouseY:=p.y;
-   mouseMovedTime:=MyTickCount;
+   mouseMovedTime:=CoreTime.Ticks;
    Signal('Mouse\Move',mouseX+mouseY shl 16);
    NotifyScenesAboutMouseMove;
    Timing;
  end else
  if event='SINGLETOUCHRELEASE' then with game do begin
-   t:=MyTickCount;
+   t:=CoreTime.Ticks;
    Signal('Mouse\BtnUp\Left',1);
    NotifyScenesAboutMouseBtn(1,false);
    OldMouseX:=mouseX;
    OldMouseY:=MouseY;
    mouseX:=4095; mouseY:=4095;
-   mouseMovedTime:=MyTickCount;
-   Signal('Mouse\Move',PackWords(mouseX,mouseY));
+   mouseMovedTime:=CoreTime.Ticks;
+   Signal('Mouse\Move',Bits.PackW(mouseX,mouseY));
    NotifyScenesAboutMouseMove;
    Timing;
  end else
@@ -1228,7 +1286,7 @@ begin
    RenderAndPresentFrame;
  end else
  if SameText(event,'RESIZE') then begin
-  SizeChanged(ExtractWord(tag,0),ExtractWord(tag,1));
+  SizeChanged(Bits.GetWord(cardinal(tag),0),Bits.GetWord(cardinal(tag),1));
  end else
  if SameText(event,'SETACTIVE') then begin
   Activate(tag<>0);
@@ -1247,13 +1305,13 @@ begin
   if mainThread<>nil then mainThread.Terminate;
  end
  else
- if HasPrefix(event,'SWITCHTOSCENE\') then begin
+ if event.StartsWith('SWITCHTOSCENE\',true) then begin
   SwitchToScene(Copy(event,15,100));
  end else
- if HasPrefix(event,'SHOWWINDOW\') then begin
+ if event.StartsWith('SHOWWINDOW\',true) then begin
   ShowWindowScene(Copy(event,15,100));
  end else
- if HasPrefix(event,'HIDEWINDOW\') then begin
+ if event.StartsWith('HIDEWINDOW\',true) then begin
   HideWindowScene(Copy(event,15,100));
  end else
  if SameText(event,'SETSWAPINTERVAL') then begin
@@ -1296,14 +1354,16 @@ begin
  /// TODO: if not params.showSystemCursor then SetCursor(0);
  // position changed in screen space
  if SameText(event,'CLIENTMOVE') then begin
-   pnt:=Point(SmallInt(tag),SmallInt(tag shr 16));
+   pnt.x:=SmallInt(tag);
+   pnt.y:=SmallInt(tag shr 16);
    ClientToGame(pnt);
    MouseMovedTo(pnt.x,pnt.y); // process motion in game space
    if params.showSystemCursor then
     systemPlatform.SetCursor(wndCursor);
  end else
  if SameText(event,'GLOBALMOVE') then begin
-   pnt:=Point(SmallInt(tag),SmallInt(tag shr 16));
+   pnt.x:=SmallInt(tag);
+   pnt.y:=SmallInt(tag shr 16);
    systemPlatform.ScreenToClient(pnt);
    ClientToGame(pnt);
    MouseMovedTo(pnt.x,pnt.y); // process motion in game space
@@ -1336,11 +1396,12 @@ var
    i,dx,dy,d,best:integer;
    bestPnt:TPoint;
   begin
-   if dragMode then begin
-     bestPnt:=Point(mouseX+nx*20,mouseY+ny*20);
-     systemPlatform.ClientToScreen(bestPnt);
-     systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
-     exit;
+    if dragMode then begin
+      bestPnt.x:=mouseX+nx*20;
+      bestPnt.y:=mouseY+ny*20;
+      systemPlatform.ClientToScreen(bestPnt);
+      systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
+      exit;
    end;
    EnterCritSect;
    try
@@ -1396,13 +1457,13 @@ procedure Delay(time:integer);
 var
  t,delta:int64;
 begin
- t:=MyTickCount+time;
+ t:=CoreTime.Ticks+time;
  repeat
   HandleSignals;
   if (game<>nil) and (GetCurrentThreadId=TGame(game).mainThread.ThreadID) then
    systemPlatform.ProcessSystemMessages;
-  Sleep(Clamp(t-myTickCount,0,20));
- until MyTickCount>=t;
+  CoreTime.Sleep(Clamp(t-CoreTime.Ticks,0,20));
+ until CoreTime.Ticks>=t;
 end;
 
 
@@ -1415,7 +1476,7 @@ begin
  result:=false;
  DestroyQueuedElements; // delete queued UI elements
 
- EnterCriticalSection(crSect);
+ crSect.Enter;
  try
  // Сортировка сцен
  if high(scenes)>1 then begin
@@ -1426,9 +1487,9 @@ begin
     end;
  end;
  finally
-  LeaveCriticalSection(crSect);
+  crSect.Leave;
  end;
- EnterCriticalSection(UICritSect);
+  UICritSect.Enter;
  try
   // Перечисление корневых эл-тов UI в соответствии со сценами
   // (связь сцен и UI)
@@ -1440,10 +1501,10 @@ begin
      end;
   end;
  finally
-  LeaveCriticalSection(UICritSect);
+   UICritSect.Leave;
  end;
- deltaTime:=MyTickCount-LastOnFrameTime;
- LastOnFrameTime:=MyTickCount;
+ deltaTime:=CoreTime.Ticks-LastOnFrameTime;
+ LastOnFrameTime:=CoreTime.Ticks;
  // Обработка всех активных сцен
  for i:=low(scenes) to high(scenes) do
   if scenes[i].status<>TSceneStatus.ssFrozen then begin
@@ -1475,7 +1536,8 @@ procedure TGame.PresentFrame;
     gfx.BeginPaint(nil);
     try
     // Если есть неиспользуемые полосы - очистить их (но не каждый кадр, чтобы не тормозило)
-    if not types.EqualRect(displayRect,types.Rect(0,0,windowWidth,windowHeight)) and
+    if not ((displayRect.Left=0) and (displayRect.Top=0) and
+            (displayRect.Right=windowWidth) and (displayRect.Bottom=windowHeight)) and
        ((frameNum mod 5=0) or (frameNum<3)) then gfx.target.Clear($FF000000);
 
     with displayRect do begin
@@ -1530,8 +1592,11 @@ begin
    end;
   end;
  end;
- displayRect:=rect(0,0,w,h);
- types.OffsetRect(displayRect,(windowWidth-w) div 2,(windowHeight-h) div 2);
+ displayRect.Left:=0;
+ displayRect.Top:=0;
+ displayRect.Right:=w;
+ displayRect.Bottom:=h;
+ OffsetRect(displayRect,(windowWidth-w) div 2,(windowHeight-h) div 2);
 
  renderWidth:=params.width;
  renderHeight:=params.height;
@@ -1540,7 +1605,7 @@ begin
  if (displayRect=oldDisplayRect) and
     (renderWidth=oldRW) and (renderHeight=oldRH) then exit;
 
- LogMessage(Format('Set render area: (%d x %d) (%d,%d) -> (%d,%d)',
+ Log.Msg(Format('Set render area: (%d x %d) (%d,%d) -> (%d,%d)',
    [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Right,displayRect.Bottom]));
  SetDisplaySize(renderWidth,renderHeight); // UI display size
  Signal('ENGINE\BEFORERESIZE');
@@ -1562,7 +1627,7 @@ begin
     if (displayFitMode in [dfmFullSize,dfmKeepAspectRatio]) and
        (displayScaleMode in [dsmDontScale,dsmScale]) and
        ((dRT.width<>w) or (dRT.height<>h)) then begin
-     LogMessage('Resizing framebuffer');
+     Log.Msg('Resizing framebuffer');
      gfx.resman.ResizeImage(dRT,w,h);
      if dRTdepth<>nil then
        gfx.resman.ResizeImage(dRTdepth,w,h);
@@ -1577,7 +1642,7 @@ var
  n,i,j:integer;
  c:cardinal;
 begin
- EnterCriticalSection(crSect);
+ crSect.Enter;
  try
   FLog('RCursor');
   n:=-1; j:=-10000;
@@ -1601,7 +1666,7 @@ begin
   end;
   curPrior:=j;
  finally
-  LeaveCriticalSection(crSect);
+  crSect.Leave;
  end;
 end;
 
@@ -1659,14 +1724,14 @@ var
     c:=$FFA0A0A0;
     if sList[i].IsActive then begin
      c:=$FFFFFFC0;
-     txt.WriteW(smallFont,50*screenScale,y,c,Str16(IntToStr(sList[i].zOrder)),taRight);
+     txt.WriteW(smallFont,50*screenScale,y,c,Str32(IntToStr(sList[i].zOrder)),taRight);
     end else
     if sList[i].status=TSceneStatus.ssBackground then
      c:=$FFC0D0E0;
-    txt.WriteW(smallFont,60*screenScale,y,c,Str16(sList[i].name));
-    txt.WriteW(smallFont,200*screenScale,y,c,Str16(sList[i].ClassName));
+    txt.WriteW(smallFont,60*screenScale,y,c,Str32(sList[i].name));
+    txt.WriteW(smallFont,200*screenScale,y,c,Str32(sList[i].ClassName));
     if sList[i].effect<>nil then
-     txt.WriteW(smallFont,360*screenScale,y,c,Str16(sList[i].effect.ClassName));
+     txt.WriteW(smallFont,360*screenScale,y,c,Str32(sList[i].effect.ClassName));
    end;
    txt.EndBlock;
   end;
@@ -1675,12 +1740,12 @@ var
 
   end;
 begin
- EnterCriticalSection(crSect);
+ crSect.Enter;
  try
   FLog('RDebug');
   case debugOverlay of
    1:DrawHelp;
-   2:txt.WriteW(MAGIC_TEXTCACHE,1,1,$FFFFFFFF,'');
+   2:txt.WriteW(MAGIC_TEXTCACHE,1,1,$FFFFFFFF,Str32(''));
    3:ListScenes;
    4:ListUI;
   end;
@@ -1692,8 +1757,8 @@ begin
      h:=SRound(36*screenScale);
      x:=renderWidth-w; y:=1;
      draw.FillRect(x,y,x+w-2,y+h,$80000000);
-     txt.WriteW(defaultFont,x+w-5,y+h*0.4,$FFFFFFFF,FloatToStrF(FPS,ffFixed,5,1),taRight);
-     txt.WriteW(defaultFont,x+w-5,y+h*0.9,$FFFFFFFF,FloatToStrF(SmoothFPS,ffFixed,5,1),taRight);
+     txt.WriteW(defaultFont,x+w-5,y+h*0.4,$FFFFFFFF,Str32(FloatToStrF(FPS,ffFixed,5,1)),taRight);
+     txt.WriteW(defaultFont,x+w-5,y+h*0.9,$FFFFFFFF,Str32(FloatToStrF(SmoothFPS,ffFixed,5,1)),taRight);
     end;
 
     dfShowMagnifier:DrawMagnifier;
@@ -1706,7 +1771,7 @@ begin
    end;
 
   // Capture screenshot?
-  if (capturedTime>0) and (MyTickCount<CapturedTime+3000) and (gfx<>nil) then begin
+  if (capturedTime>0) and (CoreTime.Ticks<CapturedTime+3000) and (gfx<>nil) then begin
     x:=params.width div 2;
     y:=params.height div 2;
     draw.FillRect(x-200*screenScale,y-40*screenScale,x+200*screenScale,y+40*screenScale,$60000000);
@@ -1716,7 +1781,7 @@ begin
   end;
 
  finally
-  LeaveCriticalSection(crSect);
+  crSect.Leave;
  end;
 end;
 
@@ -1737,12 +1802,12 @@ var
  {$ENDIF}
 begin
  if systemPlatform.IsTerminated then exit;
- DeltaTime:=MyTickCount-LastRenderTime;
- LastRenderTime:=MyTickCOunt;
+ DeltaTime:=CoreTime.Ticks-LastRenderTime;
+ LastRenderTime:=CoreTime.Ticks;
  FLog('RF1');
 
  // в полноэкранном режиме вывод по центру
- EnterCriticalSection(crSect);
+ crSect.Enter;
  try
   txt.ClearLink;
   try
@@ -1802,7 +1867,7 @@ begin
   end;
   if n>0 then topmostScene:=sc[n];
  finally
-  LeaveCriticalSection(crSect); // активные сцены вынесены в отдельный массив - их нельзя удалять в процессе отрисовки
+  crSect.Leave; // активные сцены вынесены в отдельный массив - их нельзя удалять в процессе отрисовки
  end;
 
  gfx.BeginPaint(dRT);
@@ -1848,7 +1913,7 @@ begin
   //textLinkRect:=curTextLinkRect;
 
  {$IFDEF ANDROID}
- //DebugMessage(framelog);
+ //Log.Force(framelog);
  {$ENDIF}
 
  gfx.EndPaint;
@@ -1859,20 +1924,20 @@ procedure TGame.AddScene(scene: TGameScene);
 var
  i:integer;
 begin
- EnterCriticalSection(crSect);
+ crSect.Enter;
  try
   // Already added?
   for i:=low(scenes) to high(scenes) do
    if scenes[i]=scene then
     raise EWarning.Create('Scene already added: '+scene.name);
   // Add
-  LogMessage('Adding scene: '+scene.name);
+  Log.Msg('Adding scene: '+scene.name);
   scene.accumTime:=0;
   i:=length(scenes);
   SetLength(scenes,i+1);
   scenes[i]:=scene;
  finally
-  LeaveCriticalSection(crSect);
+  crSect.Leave;
  end;
 end;
 
@@ -1880,18 +1945,18 @@ procedure TGame.RemoveScene(scene: TGameScene);
 var
  i,n:integer;
 begin
- EnterCriticalSection(crSect);
+ crSect.Enter;
  try
  for i:=low(scenes) to high(scenes) do
   if scenes[i]=scene then begin
    n:=length(scenes)-1;
    scenes[i]:=scenes[n];
    SetLength(scenes,n);
-   LogMessage('Scene removed: '+scene.name);
+   Log.Msg('Scene removed: '+scene.name);
    exit;
   end;
  finally
-  LeaveCriticalSection(crSect);
+  crSect.Leave;
  end;
 end;
 
@@ -1899,7 +1964,7 @@ function TGame.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
 var
  i:integer;
 begin
- EnterCriticalSection(crSect);
+ crSect.Enter;
  try
  result:=nil;
  for i:=low(scenes) to high(scenes) do
@@ -1911,7 +1976,7 @@ begin
     if scenes[i].zorder>result.zorder then result:=scenes[i];
   end;
  finally
-  LeaveCriticalSection(crSect);
+  crSect.Leave;
  end;
 end;
 
@@ -1920,11 +1985,11 @@ var
  i:integer;
 begin
  i:=0;
- if msg='' then msg:=PtrToStr(GetCaller);
+ if msg='' then msg:=Conv.ToStr(Stack.Caller);
  while not pb^ do begin
-  if i mod 10=0 then LogMessage('WaitFor '+msg);
+  if i mod 10=0 then Log.Msg('WaitFor '+msg);
   ToggleCursor(CursorID.Wait,true);
-  sleep(30);
+  CoreTime.Sleep(30);
   ToggleCursor(CursorID.Wait,false);
  end;
 end;
@@ -1946,7 +2011,7 @@ procedure TGame.FireMessage(st: string8);
 
 procedure TGame.SwitchToAltSettings; // Alt+Enter
  begin
-  LogMessage('Alt+Enter: switch to alt settings');
+  Log.Msg('Alt+Enter: switch to alt settings');
   Swap(params.width,altWidth);
   Swap(params.height,altHeight);
   Swap(params.mode,params.altMode,sizeof(params.mode));
@@ -1958,7 +2023,10 @@ function WaitAndSwitch(sPtr:UIntPtr):integer;
   scene:TGameScene;
  begin
   scene:=pointer(sPtr);
-  WaitFor(scene.loaded,10000); // 10 sec wait for scene to load
+  // TODO: add timeout-aware wait helper when shared WaitFor(var,maxTime) replacement is available.
+  if scene<>nil then
+   while not scene.loaded do
+    CoreTime.Sleep(10);
   TSceneSwitcher.defaultSwitcher.SwitchToScene(scene.name);
  end;
 
@@ -2017,7 +2085,7 @@ var
  i:integer;
 begin
  result:=0;
- EnterCriticalSection(crSect);
+ crSect.Enter;
  try
   for i:=0 to high(cursors) do
    with TGameCursor(cursors[i]) do
@@ -2025,7 +2093,7 @@ begin
     result:=handle; exit;
    end;
  finally
-  LeaveCriticalSection(crSect);
+  crSect.Leave;
  end;
 end;
 
@@ -2040,7 +2108,7 @@ var
  i,n:integer;
  cursor:TGameCursor;
 begin
- EnterCriticalSection(crSect);
+ crSect.Enter;
  try
  n:=-1;
  for i:=0 to high(cursors) do
@@ -2061,7 +2129,7 @@ begin
  if cursorID<>Apus.Engine.API.CursorID.Default then
   cursor.visible:=false;
  finally
-  LeaveCriticalSection(crSect);
+  crSect.Leave;
  end;
 end;
 
@@ -2069,13 +2137,13 @@ procedure TGame.HideAllCursors;
 var
  i:integer;
 begin
- EnterCriticalSection(crSect);
+ crSect.Enter;
  try
  for i:=0 to high(cursors) do
   with cursors[i] as TGameCursor do
    visible:=false;
  finally
-  LeaveCriticalSection(crSect);
+  crSect.Leave;
  end;
 end;
 
@@ -2083,14 +2151,14 @@ procedure TGame.ToggleCursor(CursorID: integer; state: boolean);
 var
  i:integer;
 begin
- EnterCriticalSection(crSect);
+ crSect.Enter;
  try
  for i:=0 to high(cursors) do
   with cursors[i] as TGameCursor do
    if ID=CursorID then visible:=state;
  if not params.showSystemCursor then screenChanged:=true;
  finally
-  LeaveCriticalSection(crSect);
+  crSect.Leave;
  end;
 end;
 
@@ -2100,7 +2168,7 @@ var
  maxZ:integer;
  sc:TUIScene;
 begin
- EnterCriticalSection(crSect);
+ crSect.Enter;
  try
   result:=nil;
   maxZ:=-10000000;
@@ -2120,7 +2188,7 @@ begin
     end;
    end;
  finally
-  LeaveCriticalSection(crSect);
+  crSect.Leave;
  end;
 end;
 
@@ -2129,7 +2197,7 @@ var
  i:integer;
 begin
  result:=-1; // not found
- EnterCriticalSection(RA_sect);
+ RA_sect.Enter;
  try
  for i:=1 to high(threads) do
   if (threads[i]<>nil) and (threads[i].id=h) then begin
@@ -2138,7 +2206,7 @@ begin
    exit;
   end;
  finally
-  LeaveCriticalSection(RA_sect);
+  RA_sect.Leave;
  end;
 end;
 
@@ -2148,8 +2216,8 @@ var
  t:int64;
 begin
  result:=0;
- best:=0; t:=mytickcount;
- EnterCriticalSection(RA_Sect);
+ best:=0; t:=CoreTime.Ticks;
+ RA_sect.Enter;
  try
  for i:=1 to high(threads) do
   if threads[i]=nil then begin best:=i; break; end
@@ -2160,22 +2228,22 @@ begin
  if best=0 then raise EError.Create('Can''t start new thread - no free handles!');
  if threads[best]<>nil then threads[best].Free;
  threads[best]:=TCustomThread.Create(true);
- if ttl>0 then threads[best].timetokill:=Mytickcount+round(ttl*1000)
+ if ttl>0 then threads[best].timetokill:=CoreTime.Ticks+round(ttl*1000)
   else threads[best].TimeToKill:=$FFFFFFFF;
  threads[best].running:=true;
  threads[best].func:=threadFunc;
  threads[best].param:=param;
- if name='' then name:=PtrToStr(@threadFunc);
+ if name='' then name:=Conv.ToStr(@threadFunc);
  threads[best].name:='RA_'+name;
  inc(LastThreadID);
  threads[best].id:=lastThreadID;
  threads[best].Resume;
  result:=lastThreadID;
  finally
-  LeaveCriticalSection(RA_Sect);
+  RA_sect.Leave;
  end;
- LogMessage('[RA] thread launched, pos='+inttostr(best)+', id='+inttostr(result)+
-   ', func='+PtrToStr(@threadFunc)+', time: '+inttostr(threads[best].TimeToKill),8);
+ Log.Msg('[RA] thread launched, pos='+inttostr(best)+', id='+inttostr(result)+
+   ', func='+Conv.ToStr(@threadFunc)+', time: '+inttostr(threads[best].TimeToKill),8);
 end;
 
 procedure TGame.FrameLoop;
@@ -2184,8 +2252,8 @@ procedure TGame.FrameLoop;
   t:int64;
   mb:byte;
  begin
-  t:=MyTickCount;
-  PingThread;
+  t:=CoreTime.Ticks;
+  Thread.Ping;
   // Обновление ввода с клавиатуры (и кнопок мыши)
   shiftState:=systemPlatform.GetShiftKeysState;
   mb:=systemPlatform.GetMouseButtons;
@@ -2202,7 +2270,7 @@ procedure TGame.FrameLoop;
   try
     HandleSignals;
   except
-    on e:exception do ForceLogMessage('Error in FrameLoop 1: '+ExceptionMsg(e));
+    on e:exception do Log.Force('Error in FrameLoop 1: '+ExceptionMsg(e));
   end;
   if not active then
     Delay(5); // limit speed in inactive state
@@ -2211,7 +2279,7 @@ procedure TGame.FrameLoop;
   if mainThread.CheckTerminated then exit;
   RenderAndPresentFrame;
 
-  t:=MyTickCount-t;
+  t:=CoreTime.Ticks-t;
   if t<500 then avgTime:=avgTime*0.9+t*0.1;
  end;
 
@@ -2220,7 +2288,7 @@ procedure TGame.RenderAndPresentFrame;
   ticks:int64;
   i:integer;
  begin
-   ticks:=MyTickCount;
+   ticks:=CoreTime.Ticks;
    if frameStartTime>0 then frameTimeDelta:=ticks-frameStartTime
     else frameTimeDelta:=20; // initial value
    frameStartTime:=ticks;
@@ -2236,7 +2304,7 @@ procedure TGame.RenderAndPresentFrame;
    end;
 
    if frameTimeDelta>500 then
-    LogMessage('Warning: main loop stall for '+inttostr(frameTimeDelta)+' ms');
+    Log.Msg('Warning: main loop stall for '+inttostr(frameTimeDelta)+' ms');
 
    // Обработка кадра
    StartMeasure(3);
@@ -2245,7 +2313,7 @@ procedure TGame.RenderAndPresentFrame;
    try
     HandleSignals;
    except
-    on e:exception do ForceLogMessage('Error in FrameLoop 2: '+ExceptionMsg(e));
+    on e:exception do Log.Force('Error in FrameLoop 2: '+ExceptionMsg(e));
    end;
    if SystemPlatform.IsTerminated then exit;
 
@@ -2265,25 +2333,27 @@ procedure TGame.RenderAndPresentFrame;
    end;
 
    // Здесь можно что-нибудь сделать
-   Sleep(onFrameDelay);
+   CoreTime.Sleep(onFrameDelay);
    // Обработка thread'ов
-   EnterCriticalSection(RA_sect);
+   RA_sect.Enter;
    try
     for i:=1 to 16 do
      if threads[i]<>nil then with threads[i] do
-      if threads[i].running and (timetokill<MyTickCount) then begin
-       ForceLogMessage(timestamp+' ALERT: thread terminated by timeout, '+PtrToStr(@func)+
-        ', curtime: '+inttostr(MyTickCount));
+      if threads[i].running and (timetokill<CoreTime.Ticks) then begin
+       Log.Force(CoreTime.Stamp+' ALERT: thread terminated by timeout, '+Conv.ToStr(@func)+
+        ', curtime: '+inttostr(CoreTime.Ticks));
        {$IFNDEF IOS}
-       TerminateThread(Handle,0);
+       {$IFDEF MSWINDOWS}
+       Windows.TerminateThread(Handle,0);
+       {$ENDIF}
        {$ENDIF}
        ReturnValue:=-1;
-       Signal('Engine\thread\done\'+PtrToStr(@func),-1);
+       Signal('Engine\thread\done\'+Conv.ToStr(@func),-1);
        Signal('Error\Thread TimeOut',0);
        threads[i].running:=false;
      end;
    finally
-    LeaveCriticalSection(RA_sect);
+    RA_sect.Leave;
    end;
 
    // Теперь нужно вывести кадр на экран
@@ -2293,26 +2363,26 @@ procedure TGame.RenderAndPresentFrame;
     if captureSingleFrame or videoCaptureMode then
      CaptureFrame;
    end else
-    sleep(5);
+    CoreTime.Sleep(5);
    game.Flog('LEnd');
  end;
 
 { TCustomThread }
 procedure TCustomThread.Execute;
  begin
-  LogMessage('CustomThread '+name+' started!');
-  RegisterThread(name);
+  Log.Msg('CustomThread '+name+' started!');
+  Thread.Register(name);
   running:=true;
   try
    ReturnValue:=func(param);
-   LogMessage('CustomThread done');
+   Log.Msg('CustomThread done');
   except
-   on e:exception do ForceLogMessage('RunAsync: failure - '+ExceptionMsg(e));
+   on e:exception do Log.Force('RunAsync: failure - '+ExceptionMsg(e));
   end;
-  FinishTime:=MyTickCount;
+  FinishTime:=CoreTime.Ticks;
   running:=false;
-  Signal('engine\thread\done\'+PtrToStr(@func),ReturnValue);
-  UnregisterThread;
+  Signal('engine\thread\done\'+Conv.ToStr(@func),ReturnValue);
+  Thread.Unregister;
  end;
 
 { TMainThread }
@@ -2321,9 +2391,10 @@ procedure TMainThread.Execute;
   // Инициализация
   errorMsg:='';
   try
-   LogMessage(TimeStamp+' Main thread started - '+inttostr(cardinal(GetCurrentThreadID)));
-   RegisterThread('MainThread');
-   LogMessage(GetSystemInfo);
+   Log.Msg(CoreTime.Stamp+' Main thread started - '+inttostr(cardinal(GetCurrentThreadID)));
+   Thread.Register('MainThread');
+   // TODO: restore detailed system info logging after GetSystemInfo replacement is finalized.
+   Log.Msg('System info: TODO');
    SetEventHandler('Engine\',EngineEvent,emInstant);
    SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
 
@@ -2331,7 +2402,7 @@ procedure TMainThread.Execute;
    gameEx.InitMainLoop; // вызывает InitGraph
 
    game.running:=true; // Это как-бы семафор для завершения функции Run
-   LogMessage('MainLoop started');
+   Log.Msg('MainLoop started');
    // Главный цикл
    repeat
     try
@@ -2340,13 +2411,13 @@ procedure TMainThread.Execute;
      on e:Exception do CritMsg('Error in main loop: '+ExceptionMsg(e));
     end;
    until terminated;
-   ForceLogMessage('Main loop exit');
+   Log.Force('Main loop exit');
    gameEx.terminated:=true;
    Signal('Engine\AfterMainLoop');
 
    // Состояние ожидания команды остановки потока из безопасного места
-   while not gameEx.canExitNow do sleep(20);
-   ForceLogMessage('Finalization');
+   while not gameEx.canExitNow do CoreTime.Sleep(20);
+   Log.Force('Finalization');
 
    // Финализация
    gameEx.DoneGraph;
@@ -2358,32 +2429,34 @@ procedure TMainThread.Execute;
    end;
   end;
 
-  UnregisterThread;
-  ForceLogMessage('Main thread done');
+  Thread.Unregister;
+  Log.Force('Main thread done');
   game.running:=false; // Эта строчка должна быть ПОСЛЕДНЕЙ!
  end;
 
 { TVarTypeGameClass }
 
-class function TVarTypeGameClass.GetField(variable:pointer;fieldName:string;
+class function TVarTypeGameClass.GetField(variable:pointer;fieldName:string8;
   out varClass:TVarClass):pointer;
  begin
 
  end;
 
-class function TVarTypeGameClass.ListFields:string;
+class function TVarTypeGameClass.ListFields:string8;
  var
   i:integer;
-  sa:StringArray8;
+  sa:Strings8;
  begin
   with TGame(game) do begin
-   for i:=0 to high(scenes) do
-    AddString(sa,String8('scene-'+scenes[i].name));
+    for i:=0 to high(scenes) do
+     sa.Add(String8('scene-'+scenes[i].name));
   end;
-  result:=join(sa,',');
+  result:=String8.Join(sa,',');
  end;
 
 initialization
- InitCritSect(RA_sect,'Game_RA',110);
- PublishVar(@onFrameDelay,'onFrameDelay',TVarTypeInteger);
+  RA_sect.Init('Game_RA',110);
+  PublishVar(@onFrameDelay,'onFrameDelay',TVarTypeInteger);
+finalization
+  RA_sect.Cleanup;
 end.

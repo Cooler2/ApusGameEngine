@@ -7,7 +7,7 @@ unit Apus.Engine.GameApp;
 interface
  uses
   {$IFDEF ANDROID}jni,{$ENDIF}
-  Apus.Engine.API;
+  Apus.Core, Apus.Engine.API;
 
  type
   // How window/screen area should be used
@@ -111,15 +111,21 @@ implementation
   {$IFDEF MSWINDOWS}Windows,Apus.Engine.WindowsPlatform,{$ENDIF}
   {$IFDEF SDL}Apus.Engine.SDLplatform,{$ENDIF}
   {$IFDEF ANDROID}Apus.Android,Apus.Engine.AndroidGame,{$ENDIF}
-   SysUtils,Apus.Common,Apus.AnimatedValues,Apus.ControlFiles,Apus.Engine.UDict,
+   SysUtils,Apus.AnimatedValues,Apus.ControlFiles,{Apus.Engine.UDict,}
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
    Apus.Engine.UI,Apus.Engine.Game,Apus.Engine.Tools,
    Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,Apus.Engine.MessageScene,
-   Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,
+   {Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,}
    Apus.Engine.Sound
   {$IFDEF DIRECTX},Apus.Engine.DXGame8{$ENDIF}
   {$IFDEF OPENGL},Apus.Engine.OpenGL{$ENDIF}
-  {$IFDEF STEAM},Apus.Engine.SteamAPI{$ENDIF};
+  {$IFDEF STEAM},Apus.Engine.SteamAPI{$ENDIF},
+  Apus.Conv,
+  Apus.Files,
+  Apus.Log,
+  Apus.Strings,
+  Apus.Threads,
+  Apus.Utils;
 
 type
  // Default loading scene displaying spinner
@@ -166,7 +172,7 @@ procedure AppInit(env:PJNIEnv;this:jobject; view:jobject; width,height,dpi:jint;
 procedure AppDrawFrame(env:PJNIEnv;this:jobject);
  begin
   try
-   //DebugMessage('DrawFrame!');
+   //Log.Force('DrawFrame!');
    Signal('Engine\onFrame');
   except
    on e:exception do LogI('Error in AppDrawFrame: '+ExceptionMsg(e));
@@ -205,9 +211,9 @@ function AppInput(env:PJNIEnv;this:jobject; action,i1,i2:jint; text:jstring):jst
   try
    result:=nil;
    if appEnv=nil then appEnv:=env;
-   wst:=DecodeUTF8(StringFromJavaString(text));
+   wst:=DecodeUTF8 {TODO: use UTF8.Decode (check arg types)}(StringFromJavaString(text));
    c:=FocusedControl;
-   LogMessage(Format('AppInput: %d %d %d %s',[action, i1, i2, wst]));
+   Log.Msg(Format('AppInput: %d %d %d %s',[action, i1, i2, wst]));
    if (c<>nil) and (c is TUIEditBox) then
     with c as TUIEditBox do begin
     case action of
@@ -229,27 +235,27 @@ function AppInput(env:PJNIEnv;this:jobject; action,i1,i2:jint; text:jstring):jst
          selstart:=cursorPos+1;
          selCount:=0;
        end;
-       LogMessage(Format('Input action=%d, sel=%d:%d, cursor=%d',[action,selstart,selcount,cursorpos]));
+       Log.Msg(Format('Input action=%d, sel=%d:%d, cursor=%d',[action,selstart,selcount,cursorpos]));
      end;
      // Get text before cursor
      3:begin
        if selCount>0 then wst:=copy(realText,1,selStart-1)
         else wst:=copy(realText,1,cursorPos);
        if length(wst)>i1 then delete(wst,1,length(wst)-i1);
-       result:=JavaString(EncodeUTF8(wst));
-       LogMessage(Format('res=%s (%s)',[PtrToStr(result),EncodeUTF8(wst)]));
+       result:=JavaString(EncodeUTF8 {TODO: use UTF8.Encode (check arg types)}(wst));
+       Log.Msg(Format('res=%s (%s)',[Conv.ToStr(result),EncodeUTF8 {TODO: use UTF8.Encode (check arg types)}(wst)]));
      end;
      // Get text after cursor
      4:begin
        if selCount>0 then wst:=copy(realtext,selStart+selCount,i1)
         else wst:=copy(realText,cursorPos+1,i1);
-       result:=JavaString(EncodeUTF8(wst));
-       LogMessage(Format('res=%s (%s)',[PtrToStr(result),EncodeUTF8(wst)]));
+       result:=JavaString(EncodeUTF8 {TODO: use UTF8.Encode (check arg types)}(wst));
+       Log.Msg(Format('res=%s (%s)',[Conv.ToStr(result),EncodeUTF8 {TODO: use UTF8.Encode (check arg types)}(wst)]));
      end;
      // Get selected text
      5:if selCount>0 then begin
        wst:=copy(realText,selStart,selCount);
-       result:=JavaString(EncodeUTF8(wst));
+       result:=JavaString(EncodeUTF8 {TODO: use UTF8.Encode (check arg types)}(wst));
      end;
      // Delete text
      6:begin
@@ -362,7 +368,7 @@ destructor TGameApplication.Destroy;
 
 procedure TGameApplication.FatalError(msg: string);
  begin
-  ErrorMessage(msg);
+  SystemMessage(msg);
   halt;
  end;
 
@@ -384,21 +390,21 @@ procedure TGameApplication.ShowMessage(mes, OkEvent: String8; x, y: integer);
 
 procedure TGameApplication.HandleParam(param: string);
  begin
-  param:=UpperCase(param);
+  param:=UpperCase {TODO: use st.ToUpper}(param);
   if param='-WND' then begin
-    ForceLogMessage('Windowed mode enabled by a command line parameter');
+    Log.Force('Windowed mode enabled by a command line parameter');
     windowedMode:=true;
   end;
   if param='-FULLSCREEN' then begin
-    ForceLogMessage('Windowed mode disabled by a command line parameter');
+    Log.Force('Windowed mode disabled by a command line parameter');
     windowedMode:=false;
   end;
   if param='-NOVSYNC' then begin
-    ForceLogMessage('VSYNC disabled by a command line parameter');
+    Log.Force('VSYNC disabled by a command line parameter');
     noVSync:=true;
   end;
   if param='-VSYNC' then begin
-    ForceLogMessage('VSYNC enabled by a command line parameter');
+    Log.Force('VSYNC enabled by a command line parameter');
     noVSync:=false;
   end;
   if param='-DEBUG' then begin
@@ -417,13 +423,13 @@ procedure TGameApplication.InitCursors;
 
 procedure TGameApplication.InitStyles;
  begin
-  if useCustomStyle then InitCustomStyle('Images\');
+  if useCustomStyle then NotImplemented; // InitCustomStyle('Images\'); { TODO }
   Signal('GAMEAPP\InitStyles');
  end;
 
 procedure TGameApplication.LoadFonts;
  begin
-  LogMessage('Loading fonts');
+  Log.Msg('Loading fonts');
   Signal('GAMEAPP\LoadFonts');
  end;
 
@@ -435,7 +441,7 @@ procedure TGameApplication.LoadOptions;
    // InstanceID = random constant
    instanceID:=CtlGetInt(configFileName+':\InstanceID',0);
    if instanceID=0 then begin
-    instanceID:=(1000*random(50000)+MyTickCount shl 8+round(now*1000)) mod 100000000;
+    instanceID:=(1000*random(50000)+CoreTime.Ticks shl 8+round(now*1000)) mod 100000000;
     CtlSetInt(configFileName+':\InstanceID',instanceID);
    end;
 
@@ -452,7 +458,7 @@ procedure TGameApplication.LoadOptions;
 
    Signal('GAMEAPP\OptionsLoaded');
   except
-   on e:exception do ForceLogMessage('Options error: '+ExceptionMsg(e));
+   on e:exception do Log.Force('Options error: '+ExceptionMsg(e));
   end;
  end;
 
@@ -483,7 +489,7 @@ procedure TGameApplication.Prepare;
    if useRealDPI then SetDPIAwareness;
    {$ENDIF}
    PublishVar(@gameLangCode,'gameLangCode',TVarTypeString);
-   RegisterThread('ControlThread');
+   Thread.Register('ControlThread');
    //SetCurrentDir(ExtractFileDir(ParamStr(0)));
    Randomize;
    // Log rotation
@@ -492,15 +498,15 @@ procedure TGameApplication.Prepare;
     st:='Logs\'+logFileName;
    end else
     st:=logFileName;
-   st:=FileName(st);
+   st:=Files.FixName(st);
    if fileExists(st) then
      RenameFile(st,ChangeFileExt(st,'.old'));
-   UseLogFile(st);
-   LogCacheMode(true,false,true);
-   SetLogMode(lmVerbose);
+   Logger.UseLogFile(st,true);
+   Logger.LogCacheMode(true);
+   Logger.SetVerbosity(TSeverity.Debug);
 
    if configFileName<>'' then begin
-    configFileName:=FileName(configFileName);
+    configFileName:=Files.FixName(configFileName);
     if not FileExists(configFileName) then
      FatalError('Config file not found: '+configFileName);
     UseControlFile(configFileName);
@@ -521,10 +527,10 @@ procedure TGameApplication.Prepare;
    if steamAvailable then
     // Выбор языка при установке из Стима
     if FileExists('SelectLang') and (steamID<>0) then begin
-     st:=lowercase(steamGameLang);
-     if st='russian' then langCode:='ru';
-     if st='english' then langCode:='en';
-     LogMessage('First time launch: Steam language is '+langCode);
+     st:=string(String8(AnsiString(steamGameLang)).ToLower);
+     if st='russian' then gameLangCode:='ru';
+     if st='english' then gameLangCode:='en';
+     Log.Msg('First time launch: Steam language is '+gameLangCode);
      SaveOptions;
      DeleteFile('SelectLang');
     end;
@@ -532,8 +538,8 @@ procedure TGameApplication.Prepare;
 
   except
    on e:exception do begin
-    ForceLogMessage('AppCreate error: '+ExceptionMsg(e));
-    ErrorMessage('Fatal error: '#13#10+ExceptionMsg(e));
+    Log.Force('AppCreate error: '+ExceptionMsg(e));
+    SystemMessage('Fatal error: '#13#10+ExceptionMsg(e));
     halt;
    end;
   end;
@@ -555,7 +561,7 @@ begin
   InitSoundSystem(lib,systemPlatform.GetWindowHandle);
  except
   on e:Exception do begin
-   ForceLogMessage('Sound initialization failed. Continue without sound. '+e.message);
+   Log.Force('Sound initialization failed. Continue without sound. '+e.message);
    ShowMessage('No sound available. See log for details.'#13#10'Press OK to continue without sound.','Sound system error');
   end;
  end;
@@ -574,9 +580,9 @@ procedure MouseEventHandler(event:TEventStr;tag:TTag);
   if app=nil then exit;
   if windowBorderless and windowSizeable then begin // manual window sizing implementation
    if event='MOUSE\MOVE' then begin
-    x:=ExtractWord(tag,0);
-    y:=ExtractWord(tag,1);
-    LogMessage('',[x,y]);
+    x:=word(Bits.GetBits(UInt64(tag),0,16));
+    y:=word(Bits.GetBits(UInt64(tag),16,16));
+    Log.Msg('',[x,y]);
    end;
   end;
  end;
@@ -609,9 +615,9 @@ procedure TGameApplication.Run;
   game.SetSettings(settings);
 
   if settings.mode.displayMode<>TDisplayMode.dmSwitchResolution then
-   ForceLogMessage('Running in cooperative mode')
+   Log.Force('Running in cooperative mode')
   else
-   ForceLogMessage('Running in exclusive mode');
+   Log.Force('Running in exclusive mode');
 
   SetEventHandler('ENGINE',EngineEventHandler);
   SetEventHandler('MOUSE',MouseEventHandler);
@@ -622,11 +628,11 @@ procedure TGameApplication.Run;
    game.Run;
   except
    on e:exception do begin
-     ErrorMessage('Failed to run the game: '+ExceptionMsg(e));
+     SystemMessage('Failed to run the game: '+ExceptionMsg(e));
      halt;
    end;
   end;
-  ForceLogMessage('RUN');
+  Log.Force('RUN');
 
   SetupHighDPI;
 
@@ -651,7 +657,7 @@ procedure TGameApplication.Run;
    CreateScenes;
   except
    on e:Exception do begin
-    ErrorMessage('Fatal error in scene creation: '+ExceptionMsg(e));
+    SystemMessage('Fatal error in scene creation: '+ExceptionMsg(e));
     exit;
    end;
   end;
@@ -660,7 +666,7 @@ procedure TGameApplication.Run;
    LoadScenes;
   except
    on e:Exception do begin
-    ErrorMessage('Fatal error in scene creation: '+ExceptionMsg(e));
+    SystemMessage('Fatal error in scene creation: '+ExceptionMsg(e));
     exit;
    end;
   end;
@@ -671,16 +677,16 @@ procedure TGameApplication.Run;
   // ------------------------
   repeat
    try
-    PingThread;
-    CheckCritSections;
+    Thread.Ping;
+    Thread.CheckTimeouts;
     Delay(5); // поддерживает сигналы тем самым давая возможность синхронно на них реагировать
     Signal('GAMEAPP\onIdle');
    except
-    on e:exception do ForceLogMessage('Error in Control Thread: '+e.message);
+    on e:exception do Log.Force('Error in Control Thread: '+e.message);
    end;
   until game.terminated;
   Signal('GAMEAPP\Terminated');
-  ForceLogMessage('Control thread exit');
+  Log.Force('Control thread exit');
  end;
 
 procedure TGameApplication.SaveOptions;
@@ -688,7 +694,7 @@ procedure TGameApplication.SaveOptions;
   try
    SaveAllControlFiles;
   except
-   on e:exception do ForceLogMessage('Error in options saving:'+ExceptionMsg(e));
+   on e:exception do Log.Force('Error in options saving:'+ExceptionMsg(e));
   end;
  end;
 
@@ -796,7 +802,7 @@ begin
   a:=i*3.1416/6.5;
   x:=game.renderWidth/2+32*cos(a);
   y:=game.renderHeight/2-32*sin(a);
-  L:=50+round(-256*i/13-MyTickCount*0.3) and 255;
+  L:=50+round(-256*i/13-CoreTime.Ticks*0.3) and 255;
   L:=round(v.Value*L);
   draw.RotScaled(x,y,1,1,-a,tex,cardinal(L shl 24)+$FFFFFF);
  end;

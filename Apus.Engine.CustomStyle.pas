@@ -8,20 +8,22 @@
 {$R-}
 unit Apus.Engine.CustomStyle;
 interface
- uses Apus.Engine.UI;
+ uses Apus.Core, Apus.Engine.UI;
  var
   loadScrollBarTextures:boolean=false;
 
  // Инициализация стиля (id - на какой номер регистрировать стиль)
  // Вызывать ПОСЛЕ инициализации движка
- procedure InitCustomStyle(imgpath:string='Images\cstyle\';styleID:integer=1);
+ procedure InitCustomStyle(imgpath:string8='Images\cstyle\';styleID:integer=1);
  procedure ApplyCustomStyle(item:TUIElement;styleName:string);
 
 implementation
  uses Classes,SysUtils, Types,
-  Apus.Common, Apus.Colors, Apus.Images, Apus.Publics, Apus.Geom2D,
+  Apus.Colors, Apus.Images, Apus.Publics, Apus.Geom2D,
   Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets,
-  Apus.Engine.UIRender, Apus.Engine.UIScript;
+  Apus.Engine.UIRender, Apus.Engine.UIScript,
+  Apus.Log,
+  Apus.Strings;
 
  type
   TAlphaMode=(amAuto,amSkip,amWrite);
@@ -50,23 +52,23 @@ implementation
   end;
 
   TVarTypeCustomStyle=class(TVarTypeStruct)
-   class function GetField(variable:pointer;fieldName:string;out varClass:TVarClass):pointer; override;
-   class function ListFields:String; override;
+   class function GetField(variable:pointer;fieldName:string8;out varClass:TVarClass):pointer; override;
+   class function ListFields:String8; override;
   end;
 
   TVarTypeBtnStyle=class(TVarType)
-   class procedure SetValue(variable:pointer;v:string); override;
-   class function GetValue(variable:pointer):string; override;
+   class procedure SetValue(variable:pointer;v:string8); override;
+   class function GetValue(variable:pointer):string8; override;
   end;
 
   TVarTypeAlphaMode=class(TVarTypeEnum)
-   class procedure SetValue(variable:pointer;v:string); override;
-   class function GetValue(variable:pointer):string; override;
+   class procedure SetValue(variable:pointer;v:string8); override;
+   class function GetValue(variable:pointer):string8; override;
   end;
 
   TVarTypeImageHandle=class(TVarType)
-   class procedure SetValue(variable:pointer;v:string); override;
-   class function GetValue(variable:pointer):string; override;
+   class procedure SetValue(variable:pointer;v:string8); override;
+   class function GetValue(variable:pointer):string8; override;
   end;
 
 {  TCustomStyleCls=class(TPublishedClass)
@@ -88,7 +90,7 @@ implementation
  function StrToAMode(s:string):TAlphaMode;
   begin
    result:=amAuto;
-   s:=uppercase(s);
+   s:=uppercase {TODO: use st.ToUpper}(s);
    if s='SKIP' then result:=amSkip;
    if s='WRITE' then result:=amWrite;
    if s='AUTO' then result:=amAuto;
@@ -110,7 +112,7 @@ implementation
    cRect:TRect;
    i,j,k,l,ix,iy,v:integer;
    col,col2,c:cardinal;
-   sa:StringArr;
+   sa:Strings8;
    mode:TTextAlignment;
    sx,sy:single;
    bStyle:PButtonStyle;
@@ -187,7 +189,7 @@ implementation
          if pressed and (bStyle.colorDown<>0) then col:=bStyle.colorDown;
 
          // перевод ДО разделения на подстроки!
-         sa:=Split('~',translate(caption),#0);
+         sa:=translate(caption).Split('~');
          cRect:=but.GetClientPosOnScreen;
          gfx.clip.Rect(cRect);
          //draw.TextColorX2:=true;
@@ -204,7 +206,7 @@ implementation
          end;
           // Вывод обычным текстом (тут всё устаревшее и требует переосмысления)
           for j:=0 to length(sa)-1 do begin
-           txt.WriteW(font,ix,iy,col,Str16(sa[j]),mode,toAddBaseline);
+           txt.Write(font,ix,iy,col,sa[j],mode,toAddBaseline);
            if bStyle.underline then begin
             col:=ColorMult2(col,$80FFFFFF);
             k:=round(txt.Height(font)*0.96);
@@ -296,8 +298,8 @@ implementation
    j:=(cardinal(item) div 3) and $FF;
    i:=hash[j];
    if (i>0) then
-    if ((item.styleinfo<>'') and (UpperCase(btnstyles[i].name)=UpperCase(item.styleinfo))) or
-       ((btnStyles[i].assigned<>'') and (pos(UpperCase(item.name)+',',btnStyles[i].assigned)>0)) or
+    if ((item.styleinfo<>'') and (UpperCase {TODO: use st.ToUpper}(btnstyles[i].name)=UpperCase {TODO: use st.ToUpper}(item.styleinfo))) or
+       ((btnStyles[i].assigned<>'') and (pos(UpperCase {TODO: use st.ToUpper}(item.name)+',',btnStyles[i].assigned)>0)) or
        ((btnStyles[i].assigned='') and
         (item.styleinfo='') and
         (btnStyles[i].width=item.globalrect.width) and
@@ -306,8 +308,8 @@ implementation
     end;
    if sNum=0 then
    for i:=1 to btnStylesCnt do
-    if ((item.styleinfo<>'') and (UpperCase(btnstyles[i].name)=UpperCase(item.styleinfo))) or
-       ((btnStyles[i].assigned<>'') and (pos(UpperCase(item.name)+',',btnStyles[i].assigned)>0)) or
+    if ((item.styleinfo<>'') and (UpperCase {TODO: use st.ToUpper}(btnstyles[i].name)=UpperCase {TODO: use st.ToUpper}(item.styleinfo))) or
+       ((btnStyles[i].assigned<>'') and (pos(UpperCase {TODO: use st.ToUpper}(item.name)+',',btnStyles[i].assigned)>0)) or
        ((btnStyles[i].assigned='') and
         (item.styleinfo='') and
         (btnStyles[i].width=item.globalrect.width) and
@@ -345,7 +347,7 @@ implementation
 
  procedure InitCustomStyle;
   begin
-   LogMessage('Custom style init');
+   Log.Msg('Custom style init');
    path:=imgpath;
    if not (path[length(path)] in ['\','/']) then path:=path+'\';
    if loadScrollBarTextures then begin
@@ -401,7 +403,7 @@ procedure TButtonStyle.InitWithDefaultValues(bsName:string);
   timeUp:=0;
   timeDown:=0;
   name:=bsName;
-  lowname:=lowercase(bsName);
+  lowname:=lowercase {TODO: use st.ToLower}(bsName);
   imageColor:=$FF808080;
   imageColorOver:=$FF808080;
   imageColorDown:=$FF808080;
@@ -410,19 +412,19 @@ procedure TButtonStyle.InitWithDefaultValues(bsName:string);
   scaleX:=1; scaleY:=1;
  end;
 
-function NewButtonStyle(name:string):integer;
+function NewButtonStyle(name:string8):integer;
  begin
   if btnStylesCnt>=120 then raise EError.Create('CustomStyle: out of style groups');
   inc(btnStylesCnt);
   result:=btnStylesCnt;
-  fillchar(btnStyles[result],sizeof(TButtonStyle),0);
+  Mem.Fill(btnStyles[result],sizeof(TButtonStyle),0);
   btnStyles[result].InitWithDefaultValues(name);
  end;
 
 { TVarTypeCustomStyle }
 
 class function TVarTypeCustomStyle.GetField(variable:pointer;
-  fieldName:string;out varClass:TVarClass):pointer;
+  fieldName:string8;out varClass:TVarClass):pointer;
 var
  i,n:integer;
  grp,prop:string;
@@ -433,7 +435,7 @@ begin
  result:=nil;
  i:=pos('\',fieldname);
  if i=0 then begin
-  fieldname:=lowercase(fieldname);
+  fieldname:=lowercase {TODO: use st.ToLower}(fieldname);
   for i:=1 to btnStylesCnt do
    if btnStyles[i].lowname=fieldname then begin
     result:=@btnStyles[i];
@@ -451,8 +453,8 @@ begin
   if length(grp)=0 then raise EWarning.Create('Invalid style group name');
   if length(prop)=0 then raise EWarning.Create('Invalid style property');
   n:=0;
-  st:=lowercase(grp);
-  prop:=uppercase(prop);
+  st:=lowercase {TODO: use st.ToLower}(grp);
+  prop:=uppercase {TODO: use st.ToUpper}(prop);
   for i:=1 to btnStylesCnt do
    if btnStyles[i].lowname=st then begin n:=i; break; end;
   if n=0 then
@@ -579,7 +581,7 @@ begin
  end;
 end;
 
-class function TVarTypeCustomStyle.ListFields:String;
+class function TVarTypeCustomStyle.ListFields:String8;
  var
   i:integer;
  begin
@@ -592,7 +594,7 @@ class function TVarTypeCustomStyle.ListFields:String;
 
 { TVarTypeImageHandle }
 
-class function TVarTypeImageHandle.GetValue(variable:pointer):string;
+class function TVarTypeImageHandle.GetValue(variable:pointer):string8;
  var
   h:integer;
  begin
@@ -601,12 +603,12 @@ class function TVarTypeImageHandle.GetValue(variable:pointer):string;
   result:=btnImages[h].fname;
  end;
 
-class procedure TVarTypeImageHandle.SetValue(variable:pointer;v:string);
+class procedure TVarTypeImageHandle.SetValue(variable:pointer;v:string8);
  begin
   PInteger(variable)^:=ImageHandle(v);
  end;
 
-class function TVarTypeAlphaMode.GetValue(variable:pointer):string;
+class function TVarTypeAlphaMode.GetValue(variable:pointer):string8;
  var
   a:^TAlphaMode;
  begin
@@ -618,7 +620,7 @@ class function TVarTypeAlphaMode.GetValue(variable:pointer):string;
   end;
  end;
 
-class procedure TVarTypeAlphaMode.SetValue(variable:pointer;v:string);
+class procedure TVarTypeAlphaMode.SetValue(variable:pointer;v:string8);
  var
   a:^TAlphaMode;
  begin
@@ -628,18 +630,18 @@ class procedure TVarTypeAlphaMode.SetValue(variable:pointer;v:string);
 
 { TVarTypeBtnStyle }
 
-class function TVarTypeBtnStyle.GetValue(variable:pointer):string;
+class function TVarTypeBtnStyle.GetValue(variable:pointer):string8;
  begin
 
  end;
 
-class procedure TVarTypeBtnStyle.SetValue(variable:pointer;v:string);
+class procedure TVarTypeBtnStyle.SetValue(variable:pointer;v:string8);
  var
   i,n:integer;
   b:^TButtonStyle;
-  name,lowname:string;
+  name,lowname:string8;
  begin
-  v:=lowercase(v);
+  v:=v.ToLower;
   b:=variable;
   for i:=1 to btnStylesCnt do
    if btnStyles[i].lowname=v then begin

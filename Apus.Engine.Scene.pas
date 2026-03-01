@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.Scene;
 interface
-uses Types, Apus.Classes, Apus.Structs;
+uses Apus.Core, Apus.Classes, Apus.Structs;
 
 type
  TGameScene=class;
@@ -25,9 +25,9 @@ type
  // Base scene switcher interface
  TSceneSwitcher=class
   class var defaultSwitcher:TSceneSwitcher; // global scene switcher is here
-  procedure SwitchToScene(name:string); virtual; abstract; // switch to a fullscreen scene
-  procedure ShowWindowScene(name:string;modal:boolean=true); virtual; abstract; // show a windowed scene
-  procedure HideWindowScene(name:string); virtual; abstract; // hide a windowed scene
+  procedure SwitchToScene(name:string8); virtual; abstract; // switch to a fullscreen scene
+  procedure ShowWindowScene(name:string8;modal:boolean=true); virtual; abstract; // show a windowed scene
+  procedure HideWindowScene(name:string8); virtual; abstract; // hide a windowed scene
  end;
 
 
@@ -122,7 +122,11 @@ type
 
 
 implementation
- uses Apus.Common, SysUtils, Apus.EventMan;
+uses SysUtils,
+  Apus.Strings,
+  Apus.EventMan,
+  Apus.Conv,
+  Apus.Log;
 
  var
   scenesHash:TObjectHash; // used to search scenes by name
@@ -136,7 +140,7 @@ implementation
    p:integer;
    name:string;
   begin
-   p:=PosFrom('\',event,8);
+   p:=event.IndexOf('\',8);
    name:=Copy(event,8,p-8);
    scene:=TGameScene.FindByName(name) as TGameScene;
    if scene<>nil then
@@ -187,7 +191,8 @@ implementation
 
  destructor TGameScene.Destroy;
   begin
-   if status<>ssFrozen then raise EError.Create('Scene must be frozen before deletion: '+name+' ('+ClassName+')');
+   if status<>ssFrozen then
+     raise EError.Create('Scene must be frozen before deletion: '+name+' ('+ClassName+')');
    scenesToLoad.Remove(self);
   end;
 
@@ -250,18 +255,18 @@ function TGameScene.Process:boolean;
   var
    scene:TGameScene;
   begin
-   ForceLogMessage('Loading all scenes');
+   Log.Force('Loading all scenes');
    repeat
     scene:=scenesToLoad.RemoveFirst as TGameScene;
     if scene=nil then break;
     if not scene.loaded then begin
-     LogMessage('Loading scene: "%s"',[scene.name]);
+     Log.Msg('Loading scene: "%s"',[scene.name]);
      scene.Load;
-     LogMessage('Scene "%s" loaded!',[scene.name]);
+     Log.Msg('Scene "%s" loaded!',[scene.name]);
      scene.loaded:=true;
     end;
    until false;
-   ForceLogMessage('All scenes loaded!');
+   Log.Force('All scenes loaded!');
   end;
 
  function TGameScene.KeyPressed:boolean;
@@ -304,7 +309,7 @@ function TGameScene.Process:boolean;
   begin
    if status=st then exit; // no change
    if (st=ssActive) and not loaded then
-    LogMessage('WARN! Activating scene "%s" which was not loaded',[name]);
+    Log.Msg('WARN! Activating scene "%s" which was not loaded',[name]);
    if st=ssActive then onShow; // make sure to call this BEFORE the scene become active
    status:=st;
    if status=ssActive then activated:=true
@@ -321,18 +326,18 @@ function TGameScene.Process:boolean;
    if duration=0 then duration:=10;
    timer:=0;
    if scene.effect<>nil then begin
-    ForceLogMessage('New scene effect replaces old one! '+scene.name+' previous='+scene.effect.name);
+    Log.Force('New scene effect replaces old one! '+scene.name+' previous='+scene.effect.name);
     scene.effect.Free;
    end;
    scene.effect:=self;
    target:=scene;
    name:=self.ClassName+' for '+scene.name+' created '+FormatDateTime('nn:ss.zzz',Now);
-   LogMessage('Effect %s: %s',[PtrToStr(self),name]);
+   Log.Msg('Effect %s: %s',[Conv.ToStr(self),name]);
   end;
 
  destructor TSceneEffect.Destroy;
   begin
-    LogMessage('Scene effect %s deleted: %s',[PtrToStr(self),name]);
+    Log.Msg('Scene effect %s deleted: %s',[Conv.ToStr(self),name]);
     inherited;
   end;
 

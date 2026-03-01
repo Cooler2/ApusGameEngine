@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.WindowsPlatform;
 interface
-uses Apus.Types, Apus.CrossPlatform, Apus.Engine.API, Apus.Engine.Keys;
+uses Windows, Apus.Types, Apus.Core, Apus.Engine.API, Apus.Engine.Keys;
 
 type
  
@@ -57,7 +57,8 @@ type
  end;
 
 implementation
-uses Windows, Messages, Types, Apus.Common, SysUtils, Apus.EventMan;
+uses Messages, Types, SysUtils, Apus.EventMan,
+  Apus.Log, Apus.Strings;
 {$IFOPT R+} {$DEFINE RANGECHECK_ON} {$ENDIF}
 var
  terminated:boolean;
@@ -107,9 +108,9 @@ begin
   GetPointerType(id,@pType);
   if pType=Word(tagPOINTER_INPUT_TYPE.PT_PEN) then begin
     GetPointerPenInfo(id,@penInfo);
-    if HasFlag(penInfo.penMask,PEN_MASK_PRESSURE) then
+    if Bits.HasAll(penInfo.penMask,PEN_MASK_PRESSURE) then
       Signal('PEN\PRESSURE',penInfo.pressure);
-    if HasFlag(penInfo.penMask,PEN_MASK_ROTATION) then
+    if Bits.HasAll(penInfo.penMask,PEN_MASK_ROTATION) then
       Signal('PEN\ROTATION',penInfo.rotation);
   end;
  except
@@ -127,7 +128,7 @@ begin
  //writeln('WinMSG: ',IntTOHex(message):10,'  W=',IntToHex(wParam),'  L=',IntToHex(lParam));
  case Message of
   wm_Destroy:begin
-   LogMessage('WM_Destroy');
+   Log.Msg('WM_Destroy');
    terminated:=true;
    Signal('Engine\Cmd\Exit',0);
   end;
@@ -140,7 +141,7 @@ begin
   WM_MOUSELEAVE:Signal('MOUSE\CLIENTMOVE',$3FFF3FFF);
 
   WM_UNICHAR:begin
-//   LogMessage(inttostr(wparam)+' '+inttostr(lparam));
+//   Log.Msg(inttostr(wparam)+' '+inttostr(lparam));
   end;
 
   WM_CHAR:begin
@@ -153,13 +154,13 @@ begin
   WM_KEYDOWN,WM_SYSKEYDOWN:begin
     // wParam = Virtual Code; lParam[23..16] = Scancode
     scancode:=(lParam shr 16) and $FF;
-    keyCode:=ord(TKey.FromWindowsVK(cardinal(wParam)));
+    keyCode:=TKey.FromWindowsVK(cardinal(wParam)).Code;
     Signal('KBD\KEYDOWN',keyCode+scancode shl 16);
   end;
 
   WM_KEYUP,WM_SYSKEYUP:begin
     scancode:=(lParam shr 16) and $FF;
-    keyCode:=ord(TKey.FromWindowsVK(cardinal(wParam)));
+    keyCode:=TKey.FromWindowsVK(cardinal(wParam)).Code;
     Signal('KBD\KEYUP',keyCode+scancode shl 16);
     if message=WM_SYSKEYUP then exit(0);
   end;
@@ -197,7 +198,7 @@ begin
   end;
 
   WM_ACTIVATE:begin
-   //LogMessage('WM_ACTIVATE: %x %x',[wparam,lparam]);
+   //Log.Msg('WM_ACTIVATE: %x %x',[wparam,lparam]);
    if loword(wparam)<>wa_inactive then i:=1
     else i:=0;
    Signal('ENGINE\SETACTIVE',i);
@@ -208,7 +209,7 @@ begin
  result:=Longint(DefWindowProcW(Window,Message,WParam,LParam));
  {$IFDEF RANGECHECK_ON} {$R+} {$ENDIF}
  except
-  on e:Exception do ForceLogMessage('WindowProc error: '+ExceptionMsg(e));
+  on e:Exception do Log.Force('WindowProc error: '+ExceptionMsg(e));
  end;
 end;
 
@@ -219,7 +220,7 @@ constructor TWindowsPlatform.Create;
   ver:DWord;
  begin
   ver:=GetVersion;
-  LogMessage('Windows platform: %d.%d',[ver and $FF,(ver shr 8) and $FF]);
+  Log.Msg('Windows platform: %d.%d',[ver and $FF,(ver shr 8) and $FF]);
  end;
 
 function TWindowsPlatform.CanChangeSettings: boolean;
@@ -243,7 +244,7 @@ procedure TWindowsPlatform.FlashWindow(count: integer);
  var
   fi:TFlashWInfo;
  begin
-  fillchar(fi,sizeof(fi),0);
+  Mem.Fill(fi,sizeof(fi),0);
   fi.cbSize:=sizeof(fi);
   fi.hwnd:=window;
   fi.dwTimeout:=400;
@@ -378,7 +379,7 @@ procedure TWindowsPlatform.CreateWindow(title: string);
   style:cardinal;
   i:integer;
  begin
-   LogMessage('CreateMainWindow');
+   Log.Msg('CreateMainWindow');
    with WindowClass do begin
     Style:=cs_HRedraw or cs_VRedraw;
     lpfnWndProc:=@WindowProc;
@@ -442,7 +443,7 @@ procedure TWindowsPlatform.MoveWindowTo(x, y: integer; width: integer;
    r.Bottom:=r.top+height;
   end;
   if not MoveWindow(window,r.left,r.top,r.right-r.left,r.Bottom-r.top,true) then
-   ForceLogMessage('MoveWindow error: '+inttostr(GetLastError));
+   Log.Force('MoveWindow error: '+inttostr(GetLastError));
  end;
 
 function TWindowsPlatform.CreateOpenGLContext:UIntPtr;
@@ -452,8 +453,8 @@ function TWindowsPlatform.CreateOpenGLContext:UIntPtr;
   PFD:TPixelFormatDescriptor;
   pf:integer;
  begin
-   LogMessage('Prepare GL context');
-   fillchar(pfd,sizeof(PFD),0);
+   Log.Msg('Prepare GL context');
+   Mem.Fill(pfd,sizeof(PFD),0);
    with PFD do begin
     nSize:=sizeof(PFD);
     nVersion:=1;
@@ -462,13 +463,13 @@ function TWindowsPlatform.CreateOpenGLContext:UIntPtr;
     cDepthBits:=16;
    end;
    DC:=GetDC(window);
-   LogMessage('ChoosePixelFormat');
+   Log.Msg('ChoosePixelFormat');
    pf:=ChoosePixelFormat(DC,@PFD);
-   LogMessage('Pixel format: '+IntToStr(pf));
+   Log.Msg('Pixel format: '+IntToStr(pf));
    if not SetPixelFormat(DC,pf,@PFD) then
-    LogMessage('Failed to set pixel format!');
+    Log.Msg('Failed to set pixel format!');
 
-   LogMessage('Create GL context');
+   Log.Msg('Create GL context');
    RC:=wglCreateContext(DC);
    if RC=0 then
     raise EError.Create('Can''t create RC!');
@@ -482,7 +483,7 @@ procedure TWindowsPlatform.OGLSwapBuffers;
  begin
    DC:=getDC(window);
    if not SwapBuffers(DC) then
-    LogMessage('Swap error: '+IntToStr(GetLastError));
+    Log.Msg('Swap error: '+IntToStr(GetLastError));
    ReleaseDC(window,DC);
  end;
 
@@ -503,7 +504,7 @@ procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
   style:cardinal;
   w,h:integer;
  begin
-   LogMessage('Configure main window');
+   Log.Msg('Configure main window');
    style:=ws_popup;
    //if params.mode.displayMode=dmBorderless then style:=
    if params.mode.displayMode=dmWindow then inc(style,WS_SIZEBOX+WS_MAXIMIZEBOX);
@@ -538,9 +539,9 @@ procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
    UpdateWindow(Window);
 
    GetWindowRect(window,r);
-   LogMessage('WindowRect: '+inttostr(r.Right-r.Left)+':'+inttostr(r.Bottom-r.top));
+   Log.Msg('WindowRect: '+inttostr(r.Right-r.Left)+':'+inttostr(r.Bottom-r.top));
    GetClientRect(window,r);
-   LogMessage('ClientRect: '+inttostr(r.Right-r.Left)+':'+inttostr(r.Bottom-r.top));
+   Log.Msg('ClientRect: '+inttostr(r.Right-r.Left)+':'+inttostr(r.Bottom-r.top));
    Signal('ENGINE\RESIZE',r.Width+r.height shl 16);
  end;
 

@@ -6,7 +6,8 @@
 {$R-}
 unit Apus.Engine.Draw;
 interface
- uses Types, Apus.Engine.Types, Apus.Geom3D, Apus.Engine.API;
+ uses Types, Apus.Engine.Types, Apus.Geom3D, Apus.Engine.API,
+  Apus.Log;
 
  type
  TDrawer=class(TInterfacedObject,IDrawer)
@@ -109,8 +110,8 @@ var
  drawer:TDrawer;
 
 implementation
-uses SysUtils,Math,
-  Apus.Common, Apus.Images, Apus.Geom2D, Apus.Colors,
+uses Apus.Core, Apus.Lib,
+  Apus.Images, Apus.Geom2D, Apus.Colors,
   Apus.Engine.Graphics, Apus.VertexLayout;
 
  const
@@ -179,7 +180,7 @@ var
  pw:^word;
  i:integer;
 begin
- ForceLogMessage('Creating '+self.ClassName);
+ Log.Force('Creating '+self.ClassName);
  zPlane:=0;
  drawer:=self;
  draw:=self;
@@ -410,7 +411,7 @@ procedure TDrawer.Line(x1, y1, x2, y2: single; color: cardinal);
 var
  vrt:array[0..1] of TVertex;
 begin
- if not clippingAPI.Prepare(min2s(x1,x2),min2s(y1,y2),max2s(x1,x2),max2s(y1,y2)) then exit;
+ if not clippingAPI.Prepare(Min(x1,x2),Min(y1,y2),Max(x1,x2),Max(y1,y2)) then exit;
  shader.UseTexture(neutral);
  vrt[0].Init(x1,y1,zPlane,color);
  vrt[1].Init(x2,y2,zPlane,color);
@@ -448,8 +449,8 @@ var
  au1,au2,bu1,bu2,av1,av2,bv1,bv2:single;
 begin
  ASSERT((image1<>nil) and (image2<>nil));
- w:=min2(image1.width,image2.width);
- h:=min2(image1.height,image2.height);
+ w:=Min(image1.width,image2.width);
+ h:=Min(image1.height,image2.height);
  if not clippingAPI.Prepare(x_,y_,x_+w,y_+h) then exit;
  shader.UseTexture(image1,0);
  shader.UseTexture(image2,1);
@@ -588,7 +589,7 @@ begin
   if layers=nil then break;
  end;
 
-// fillchar(vrt,sizeof(vrt),0);
+// Mem.Fill(vrt,sizeof(vrt),0);
  with vrt[0] do begin
   x:=x1-0.5; y:=y1-0.5; z:=0; rhw:=1; diffuse:=color;
   for i:=0 to lMax do begin
@@ -1060,7 +1061,7 @@ var
  i:integer;
  b1,b2:PByte;
 begin
- ASSERT((depth>=1) and (depth<=4),'depth='+IntToStr(depth));
+ ASSERT((depth>=1) and (depth<=4),'depth='+Conv.ToStr(depth));
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
  shader.UseTexture(neutral);
  inc(x1,depth-1); inc(y1,depth-1);
@@ -1459,12 +1460,12 @@ begin
   v:=0.5*(1-r1/r2);
  end;
  TexturedRect(x1,y1,x2-1,y2-1,texture,u,v,1-u,v,1-u,1-v,color);
- result:=Max2d((x2-x1)/texture.width,(y2-y1)/texture.height);
+ result:=Max((x2-x1)/texture.width,(y2-y1)/texture.height);
 end;
 
 function TDrawer.Inside(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;
 begin
- result:=Min2d((x2-x1)/texture.width,(y2-y1)/texture.height);
+ result:=Min((x2-x1)/texture.width,(y2-y1)/texture.height);
  RotScaled((x1+x2)/2,(y1+y2)/2,result,result,0,texture,color);
 end;
 
