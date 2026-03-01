@@ -119,7 +119,7 @@ interface
 
 implementation
  uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, {$ENDIF}
-    Apus.Core, Classes, Apus.ControlFiles, Apus.Log, Apus.GeoIP;
+    Classes, Apus.Threads, Apus.Strings, Apus.Conv, Apus.ControlFiles, Apus.Log, Apus.GeoIP;
  type
   // Worker thread
   TWorker=class(TThread)

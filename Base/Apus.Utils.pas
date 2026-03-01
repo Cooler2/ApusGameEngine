@@ -30,6 +30,8 @@ type
   function UnicodeTo(const st:WideString;encoding:TTextEncoding):String8;
   // Convert 8-bit string to WideString with given encoding
   function UnicodeFrom(const st:String8;encoding:TTextEncoding):WideString;
+  // Get enum name by typeinfo/value, fallback to "ENUM_<value>" when typeinfo is nil
+  function GetEnumNameSafe(typeInfo:pointer;value:integer):string;
 
 
   // =============================================================================
@@ -40,6 +42,10 @@ type
   function Spline1(x,x0,x1,y0,y1:single):single; // ease-in-out: 25%-50%-25%
   function Spline2(x,x0,x1,y0,y1:single):single; // ease-out (decelerate)
   function Spline2rev(x,x0,x1,y0,y1:single):single; // ease-in (accelerate)
+
+  // Arbitrary spline: 0->v0, 1.0->v1
+  //   k0,k1 - касательные на концах (0 - горизонталь), v - вес деления (0..1, 0.5 - среднее)
+  function Spline(x:double;v0,k0,v1,k1:double;v:double=0.5):double;
 
 type
   // Spline function: f(x0)=y0, f(x1)=y1, f(x)=?
@@ -61,7 +67,7 @@ var
 
 
 implementation
-uses SysUtils, Apus.Conv, Apus.Strings, Apus.Log;
+uses SysUtils, TypInfo, Apus.Conv, Apus.Strings, Apus.Log;
 
 function ParseDate(st:String8;default:TDateTime=0):TDateTime;
 var
@@ -141,6 +147,14 @@ begin
   result:=ParseDate(st,default);
 end;
 
+function GetEnumNameSafe(typeInfo:pointer;value:integer):string;
+begin
+  if typeInfo<>nil then
+    result:=GetEnumName(PTypeInfo(typeInfo),value)
+  else
+    result:='ENUM_'+IntToStr(value);
+end;
+
 // =============================================================================
 // Spline implementations
 // =============================================================================
@@ -181,6 +195,18 @@ begin
  result:=x*x;
  result:=y0+(y1-y0)*result;
 end;
+
+function Spline(x:double;v0,k0,v1,k1:double;v:double=0.5):double;
+var
+  a,b:double;
+begin
+  if x<0 then x:=0;
+  if x>1 then x:=1;
+  x:=(2-4*v)*x*x+(4*v-1)*x;
+  a:=k0-(v1-v0);
+  b:=-k1+(v1-v0);
+  result:=(1-x)*v0+x*v1+x*(1-x)*(a*(1-x)+b*x);
+ end;
 {$IFDEF RANGECHECKS_ON}{$R+}{$ENDIF}
 
 // Win1251 -> Unicode mapping table (code points $80..$FF)

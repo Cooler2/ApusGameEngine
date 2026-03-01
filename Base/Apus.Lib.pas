@@ -29,6 +29,8 @@ uses
   Apus.Structs,
   Apus.Files,
   Apus.Utils,
+  Apus.Geom2D,
+  Apus.Geom3D,
   Apus.AnimatedValues;
 
 type
@@ -82,6 +84,16 @@ type
   // --- Apus.AnimatedValues ---
   PAnimatedValue = Apus.AnimatedValues.PAnimatedValue;
   TAnimatedValue = Apus.AnimatedValues.TAnimatedValue;
+
+  // Geom2D
+  TPoint2s = Apus.Geom2D.TPoint2s;
+  TVector2s = Apus.Geom2D.TVector2s;
+
+  // Geom3D
+  TPoint3s = Apus.Geom3D.TPoint3s;
+  TVector3s = Apus.Geom3D.TVector3s;
+  TQuaternionS = Apus.Geom3D.TQuaternionS;
+
 
 implementation
 end.

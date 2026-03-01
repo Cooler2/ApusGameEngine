@@ -185,6 +185,9 @@ var
   function Max(a,b,c:integer):integer; overload;
   function Max(a,b,c:single):single; overload;
 
+  // Calculate max(|a|,|b|)/min(|a|,|b|) (zero-safe)
+  function Ratio(a,b:single):single;
+
   // Clamp
   function Clamp(v,min,max:integer):integer; overload; inline;
   function Clamp(v,min,max:single):single; overload; inline;
@@ -223,6 +226,11 @@ var
   function NextPow2(v:uint64):uint64; inline; // smallest power of 2 >= v
   function Log2i(v:int64):integer;           // ceil(log2(v))
 
+  // Conditional
+  function IfThen(condition:boolean; a,b:integer):integer; overload;
+  function IfThen(condition:boolean; a,b:single):single; overload;
+  function IfThen(condition:boolean; a,b:string8):string8; overload;
+
   // --- Alignment ---  (align must be a power of 2)
   function AlignUp(val:UIntPtr; align:cardinal):UIntPtr; overload; inline;
   function AlignUp(val:pointer; align:cardinal):pointer; overload; inline;
@@ -259,7 +267,8 @@ var
       // Get immediate caller address. For fast caller use: {$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF}
       class function Caller:pointer; static;
       // Capture call stack frames
-      class function Trace(var frames:TCallStack; skip:integer=0):integer; static;
+      class function Trace(var frames:TCallStack; skip:integer=0):integer; overload; static;
+      class function Trace(skip:integer=0):string8; overload; static;
     end;
 
 // =============================================================================
@@ -497,6 +506,22 @@ begin
   end;
 end;
 {$ENDIF}
+
+class function Stack.Trace(skip:integer=0):string8;
+var
+  frames:TCallStack;
+  count,i:integer;
+begin
+  // capture call stack (skip=1 to skip constructor itself)
+  count:=Stack.Trace(frames,1);
+  if count<=0 then exit;
+  result:='[';
+  for i:=0 to count-1 do begin
+    result:=result+Conv.ToStr(frames[i]);
+    if i<count-1 then result:=result+'->';
+  end;
+  result:=result+'] ';
+end;
 
 procedure SpinLock(var lock:integer);
 begin
@@ -832,6 +857,15 @@ begin
   if c>result then result:=c;
 end;
 
+function Ratio(a,b:single):single;
+begin
+  if a<0 then a:=-a;
+  if b<0 then b:=-b;
+  if a<b then Swap(a,b);
+  if b=0 then exit(MAX_FLOAT);
+  result:=a/b;
+end;
+
 function Clamp(v,min,max:integer):integer;
 begin
   result:=v;
@@ -1028,6 +1062,19 @@ begin
     inc(result);
     u:=u shr 1;
   end;
+end;
+
+function IfThen(condition:boolean; a,b:integer):integer;
+begin
+  if condition then result:=a else result:=b;
+end;
+function IfThen(condition:boolean; a,b:single):single;
+begin
+  if condition then result:=a else result:=b;
+end;
+function IfThen(condition:boolean; a,b:string8):string8;
+begin
+  if condition then result:=a else result:=b;
 end;
 
 procedure Toggle(var b:boolean);

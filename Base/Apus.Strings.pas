@@ -166,6 +166,7 @@ type
 
     // === Split/Join ===
     function Split(delimiter:UCS4Char):Strings32; overload;
+    function Split(const delimiters:String32;quoteChar:UCS4Char=0):Strings32; overload;
     class function Join(const arr:Strings32;const delimiter:String32):String32; static;
 
     // === Utility ===
@@ -992,15 +993,37 @@ begin
 end;
 
 function String32Helper.Split(delimiter:UCS4Char):Strings32;
-var i,start,cnt:integer;
+var
+  delim:String32;
 begin
-  SetLength(result,16); cnt:=0; start:=0;
-  for i:=0 to high(self) do
-    if self[i]=delimiter then begin
-      if cnt>=System.Length(result) then SetLength(result,cnt*2);
-      result[cnt]:=System.Copy(self,start,i-start);
-      inc(cnt); start:=i+1;
+  SetLength(delim,1);
+  delim[0]:=delimiter;
+  result:=Split(delim,0);
+end;
+
+function String32Helper.Split(const delimiters:String32;quoteChar:UCS4Char):Strings32;
+var
+  i,j,start,cnt:integer;
+  inQuote,isDelim:boolean;
+begin
+  SetLength(result,16); cnt:=0; start:=0; inQuote:=false;
+  for i:=0 to high(self) do begin
+    if (quoteChar<>0) and (self[i]=quoteChar) then
+      inQuote:=not inQuote
+    else if not inQuote then begin
+      isDelim:=false;
+      for j:=0 to high(delimiters) do
+        if self[i]=delimiters[j] then begin
+          isDelim:=true;
+          break;
+        end;
+      if isDelim then begin
+        if cnt>=System.Length(result) then SetLength(result,cnt*2);
+        result[cnt]:=System.Copy(self,start,i-start);
+        inc(cnt); start:=i+1;
+      end;
     end;
+  end;
   if cnt>=System.Length(result) then SetLength(result,cnt+1);
   result[cnt]:=System.Copy(self,start,System.Length(self)-start);
   SetLength(result,cnt+1);
