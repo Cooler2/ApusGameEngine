@@ -27,6 +27,8 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-02-26):** Restored optional caller override in `Apus.Threads.TLock.Enter(callerAddr:pointer=nil)` for wrapper-safe lock diagnostics.
 **Recent wins (2026-02-27):** Migrated `Apus.FreeTypeFont` text API from `WideString/WideChar` to `String32/Char32`, and removed 16-bit codepoint truncation in FreeType calls.
 **Recent wins (2026-02-27):** Added `String32Helper.TryAnsiChar/AnsiChar` in `Apus.Strings` and migrated `ParseSML`/`WriteW` indexing in `Apus.Engine.TextDraw` to 0-based `String32` semantics.
+**Recent wins (2026-02-27):** Extracted `GetEnumNameSafe(typeInfo,value)` from deprecated `Apus.Common` into `Apus.Utils`, and switched `Apus.Engine.API` to explicit `uses Apus.Utils`.
+**Recent wins (2026-02-27):** Added `String32Helper.Split(delimiters,quoteChar)` overload for delimiter-set splitting with quote-aware behavior (parity with `String8.Split`).
 
 ## NEW — created in engine5 refactoring
 

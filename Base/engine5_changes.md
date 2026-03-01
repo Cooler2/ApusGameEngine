@@ -5,6 +5,14 @@ Use it as the primary reference when updating old code.
 
 ## Recent API fixes (2026-02-26)
 
+### Apus.Utils enum helper extraction
+
+- Added `GetEnumNameSafe(typeInfo:pointer;value:integer):string` to `Apus.Utils`.
+- Behavior matches legacy `Apus.Common`:
+  - returns `GetEnumName(PTypeInfo(typeInfo),value)` when `typeInfo<>nil`
+  - returns fallback string `ENUM_<value>` when `typeInfo=nil`
+- Migration note: replace legacy implicit access via `Apus.Common` with explicit `uses Apus.Utils`.
+
 ### Apus.FreeTypeFont String32 migration
 
 - `Apus.FreeTypeFont` public text API migrated from UTF-16 (`WideString`/`WideChar`) to UCS-4 (`String32`/`Char32`):
@@ -21,6 +29,14 @@ Use it as the primary reference when updating old code.
 - Added `String32Helper.TryAnsiChar(index:integer;out ch:AnsiChar):boolean` (0-based).
 - Added `String32Helper.AnsiChar(index:integer;defaultChar:AnsiChar=#0):AnsiChar` (0-based).
 - Purpose: simplify migration of parser code that operates on ASCII tags while input is `String32`.
+
+### Apus.Strings String32 split overload parity
+
+- Added `String32Helper.Split(const delimiters:String32;quoteChar:UCS4Char=0):Strings32`.
+- Behavior mirrors `String8.Split(const delimiters:String8;quoteChar:AnsiChar=#0)`:
+  - split by any delimiter char from the set
+  - ignore delimiters while inside quoted fragments
+  - keep quote characters in resulting tokens
 
 ### Apus.Core IntArray helper
 
