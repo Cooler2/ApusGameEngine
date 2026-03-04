@@ -409,6 +409,8 @@ type
     class function GetByte(data:UInt64;index:integer):byte; overload; static; inline;
     class function GetWord(data:cardinal;index:integer):word; overload; static; inline;
     class function GetWord(data:UInt64;index:integer):word; overload; static; inline;
+    // Swap two 16-bit halves of a 32-bit value
+    class function SwapWords(v:cardinal):cardinal; static; inline;
   end;
 
 // =============================================================================
@@ -1644,6 +1646,11 @@ end;
 class function Bits.GetWord(data:UInt64;index:integer):word;
 begin
  result:=word(data shr (index*16));
+end;
+
+class function Bits.SwapWords(v:cardinal):cardinal;
+begin
+ result:=(v shl 16) or (v shr 16);
 end;
 
 // =============================================================================

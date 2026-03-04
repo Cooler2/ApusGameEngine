@@ -654,6 +654,18 @@ begin
   EndTest;
 end;
 
+procedure TestBitsSwapWords;
+begin
+  StartTest('Bits.SwapWords');
+  Check(Bits.SwapWords($00010002)=$00020001,'SwapWords($00010002)');
+  Check(Bits.SwapWords($FFFF0000)=$0000FFFF,'SwapWords($FFFF0000)');
+  Check(Bits.SwapWords($00000000)=$00000000,'SwapWords(0)');
+  Check(Bits.SwapWords($FFFFFFFF)=$FFFFFFFF,'SwapWords($FFFFFFFF)');
+  Check(Bits.SwapWords($12345678)=$56781234,'SwapWords($12345678)');
+  Check(Bits.SwapWords($00FF0000)=$000000FF,'SwapWords($00FF0000)');
+  EndTest;
+end;
+
 procedure TestBits;
 var
   v:cardinal;
@@ -1034,6 +1046,7 @@ begin
     TestMemGuardedFillClear;
     TestMemUnaligned;
     TestBits;
+    TestBitsSwapWords;
     TestBitsEdgeCases;
     TestAtomicSpin;
     TestAlignment;
