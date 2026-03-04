@@ -28,18 +28,21 @@ type
     globalScale:single;
     constructor LoadFromMemory(const data:TBuffer;faceIndex:integer=0);
     constructor LoadFromFile(fname:string;faceIndex:integer=0);
+    destructor Destroy; override;
     // Flags -
     procedure RenderText(buf:pointer;pitch:integer;x,y:integer;st:String32;color:cardinal;size:single;flags:cardinal=0);
-    // The following functions MUST be wrapped in Lock/Unlock in multithreaded environment
-    function Interval(ch1,ch2:Char32;size:single):integer; // интервал между точкой начала символа ch1 и следующего за ним ch2
+    // TODO: document or redesign the synchronization contract; the class currently
+    // relies on a global lock and RenderGlyph still returns borrowed bitmap data.
+    function Interval(ch1,ch2:Char32;size:single):integer; // spacing between start point of ch1 and the next ch2
     function GetTextWidth(st:String32;size:single):integer;
     function GetHeight(size:single):integer; // Height of characters like '0' or 'A'
-    function CharPadding(ch:Char32;size:single):integer; // интервал в пикселях между точкой курсора и началом фактического изображения символа
+    function CharPadding(ch:Char32;size:single):integer; // spacing in pixels between cursor point and actual glyph image start
     // Text/Glyph rendering  (no any clipping!)
     //  procedure DrawGlyph(buf:pointer;pitch:integer;x,y:integer;
     //      glyphData:pointer;glWidth,glHeight:integer;color:cardinal);
-    // производит рендер глифа, возвращает указатель на 8-бит битмапку, заполняет её размеры и положение относительно курсора в пикселах
-    // изображение валидно до очередного вызова любой ф-ции отрисовки/рендера глифа
+    // Render glyph and return pointer to 8-bit bitmap; fills its size and glyph
+    // position relative to cursor in pixels. The image remains valid only until
+    // the next glyph render/draw call on the same shared FreeType state.
     function RenderGlyph(ch:Char32;size:single;flags:integer;
        out dx,dy:integer;out width,height:integer;out pitch:integer):pointer;
    private
@@ -90,7 +93,7 @@ end;}
 
 function TFreeTypeFont.GetHeight(size:single): integer;
 var
- s,res:integer;
+ res:integer;
 begin
   if fontSize>0 then begin
    result:=round(size*fontSize+0.5);
@@ -249,20 +252,36 @@ constructor TFreeTypeFont.LoadFromMemory(const data:TBuffer;faceIndex:integer);
   try
    if not initialized then InitFT;
    Log.Msg('Loading Freetype font from memory');
+   if data.size<=0 then
+    raise EWarning.Create('Failed to load font face: empty font buffer');
     SetLength(fontData,data.size);
-    if data.size>0 then
-      data.Read(fontData[0],data.size); // Copy data to keep it permanent
+    data.Read(fontData[0],data.size); // Copy data to keep it permanent
    err:=FT_New_Memory_Face(FTLibrary,@fontData[0],length(fontData),faceIndex,Face);
    if err<>0 then raise EWarning.Create('Failed to load font face, code='+Conv.ToStr(err));
    faceName:=Face.family_name;
    fillchar(intervalHash,sizeof(intervalHash),0);
    fillchar(glyphWidthHash,sizeof(glyphWidthHash),0);
+   curSize:=0;
    fontSize:=0;
    globalScale:=1;
   finally
    cSect.Leave;
   end;
  end;
+
+destructor TFreeTypeFont.Destroy;
+begin
+ cSect.Enter;
+ try
+  if face<>nil then begin
+   FT_Done_Face(face);
+   face:=nil;
+  end;
+ finally
+  cSect.Leave;
+ end;
+ inherited;
+end;
 
 function TFreeTypeFont.RenderGlyph(ch:Char32;size:single;flags:integer;out dx,dy,
   width,height:integer;out pitch:integer): pointer;
@@ -307,35 +326,38 @@ procedure TFreeTypeFont.RenderText(buf: pointer; pitch, x, y: integer;
     mat.yx:=0; mat.yy:=65536;
     FT_Set_Transform(Face,@mat,nil);
    end;
-   glInd:=-1;
-   for i:=0 to length(st)-1 do begin
-     lastGlyph:=glInd;
+   try
+    glInd:=-1;
+    for i:=0 to length(st)-1 do begin
+      lastGlyph:=glInd;
 {    err:=FT_Load_Char(Face,cardinal(st[i]),FT_LOAD_RENDER);
      if err<>0 then raise EWarning.Create('Failed to load glyph: '+Conv.ToStr(err));}
-    glInd:=FT_Get_Char_Index(Face,cardinal(st[i]));
+     glInd:=FT_Get_Char_Index(Face,cardinal(st[i]));
 
-    // Next character?
-    if lastGlyph>=0 then begin
-     err:=FT_Get_Kerning(Face,lastGlyph,glInd,FT_KERNING_DEFAULT,kerning);
-     if err<>0 then raise EWarning.Create('FTGK error: '+Conv.ToStr(err));
+     // Next character?
+     if lastGlyph>=0 then begin
+      err:=FT_Get_Kerning(Face,lastGlyph,glInd,FT_KERNING_DEFAULT,kerning);
+      if err<>0 then raise EWarning.Create('FTGK error: '+Conv.ToStr(err));
 //     px:=px+(face.glyph.advance.x/64);
-     px:=px+kerning.x/64;
-    end;
+      px:=px+kerning.x/64;
+     end;
 
-    // Load glyph
-    err:=FT_Load_Glyph(Face,glInd,flags and $FFFF);
-    if err<>0 then raise EWarning.Create('Failed to load glyph: '+Conv.ToStr(err));
-    // Render glyph to 8bpp grayscale bitmap
-    err:=FT_Render_Glyph(face.glyph,FT_RENDER_MODE_NORMAL);
-    if err<>0 then raise EWarning.Create('Failed to render glyph: '+Conv.ToStr(err));
-    // Draw
-    bitmap:=@face.glyph.bitmap;
-    if (i=0) and (face.glyph.bitmap_left>0) then px:=px-face.glyph.bitmap_left;
-    a:=GetPixelAddr(buf,pitch,round(px)+face.glyph.bitmap_left,round(py)-face.glyph.bitmap_top);
-    BlendUsingAlpha(a,pitch,bitmap.buffer,bitmap.pitch,bitmap.width,bitmap.rows,color,blBlend);
-    px:=px+(face.glyph.advance.x/64);
+     // Load glyph
+     err:=FT_Load_Glyph(Face,glInd,flags and $FFFF);
+     if err<>0 then raise EWarning.Create('Failed to load glyph: '+Conv.ToStr(err));
+     // Render glyph to 8bpp grayscale bitmap
+     err:=FT_Render_Glyph(face.glyph,FT_RENDER_MODE_NORMAL);
+     if err<>0 then raise EWarning.Create('Failed to render glyph: '+Conv.ToStr(err));
+     // Draw
+     bitmap:=@face.glyph.bitmap;
+     if (i=0) and (face.glyph.bitmap_left>0) then px:=px-face.glyph.bitmap_left;
+     a:=GetPixelAddr(buf,pitch,round(px)+face.glyph.bitmap_left,round(py)-face.glyph.bitmap_top);
+     BlendUsingAlpha(a,pitch,bitmap.buffer,bitmap.pitch,bitmap.width,bitmap.rows,color,blBlend);
+     px:=px+(face.glyph.advance.x/64);
+    end;
+   finally
+    FT_Set_Transform(Face,nil,nil);
    end;
-   FT_Set_Transform(Face,nil,nil);
   finally
    cSect.Leave;
   end;
@@ -361,5 +383,7 @@ end;
 initialization
   cSect.Init('FreeType',150);
 finalization
+  if initialized then
+    FT_Done_FreeType(FTLibrary);
   cSect.Cleanup;
 end.

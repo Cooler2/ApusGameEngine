@@ -61,6 +61,7 @@ type
   // списки свободных блоков каждого типа
   freeList:array[0..3999] of smallint;
   freeCount:array[1..15] of integer;
+  itemCount:array[1..15] of integer;
   hash:array[0..4095] of smallint; // указатель на начало списка блоков с заданным хэшем
   function GetBestKind(w,h:integer):integer; // возвращает ближайший "совместимый" тип блока
   procedure FreeBlock(block,kind:integer);
@@ -116,12 +117,8 @@ implementation
   cacheItemTypes:array[1..15] of integer=
    (0,2560,512,1024,3328,1536,2048,3584,2304,2816,3712,3072,3456,3776,3840);
 
-  // начало полосы блоков каждого типа
-  cacheItemY:array[1..15] of integer=
-   (0,16,24,48,72,84,116,148,164,212,260,284,348,412,444);
-
   // кол-во элементов каждого типа: начальные значения из расчета, что ширина текстуры - 2048
-  cacheItemCount:array[1..15] of integer=
+  baseCacheItemCount:array[1..15] of integer=
    (512,168,512,340,128,340,256,85,256,168,64,168,128,42,64);
 
   cacheItemSizes:array[1..15,0..1] of byte=
@@ -209,16 +206,18 @@ end;
 
 constructor TFixedGlyphCache.Create(width:integer);
 var
- i,j,cnt:integer;
+ i,j,cnt,divisor:integer;
  p:TPoint;
 begin
  LastTimeStamp:=1;
  keepTimeStamp:=0;
  relX:=0; relY:=0;
+ if width=1024 then divisor:=2 else
+  if width=512 then divisor:=4
+  else divisor:=1;
  for i:=1 to 15 do begin
-  if Width=1024 then cacheItemCount[i]:=cacheItemCount[i] div 2;
-  if Width=512 then cacheItemCount[i]:=cacheItemCount[i] div 4;
-  cnt:=cacheItemCount[i];
+  itemCount[i]:=baseCacheItemCount[i] div divisor;
+  cnt:=itemCount[i];
   freeCount[i]:=cnt;
   // инициализация блоков типа i
   for j:=cacheItemTypes[i] to cacheItemTypes[i]+cnt-1 do begin
@@ -245,7 +244,7 @@ begin
  keepTimeStamp:=keepTimeStamp div 2;
  for i:=1 to 15 do begin
   start:=cacheItemTypes[i];
-  cnt:=cacheItemCount[i];
+  cnt:=itemCount[i];
   for j:=start to start+cnt-1 do
    blocks[j].timestamp:=blocks[j].timestamp div 2;
  end;
@@ -310,12 +309,12 @@ end;
 
 procedure TFixedGlyphCache.FreeSpace(kind: integer);
 var
- i,cnt,start,c:integer;
+ i,cnt,start:integer;
  min,max,threshold,step:cardinal;
 begin
  start:=cacheItemTypes[kind];
- cnt:=cacheItemCount[kind];
- min:=$FFFFFFFF; max:=0; c:=0;
+ cnt:=itemCount[kind];
+ min:=$FFFFFFFF; max:=0;
  for i:=start to start+cnt-1 do begin
   if blocks[i].timestamp<min then min:=blocks[i].timestamp;
   if blocks[i].timestamp>max then max:=blocks[i].timestamp;
@@ -461,6 +460,10 @@ var
  r:cardinal;
 begin
  try
+ if (width<0) or (width>255) or (height<0) or (height>255) then
+  raise EWarning.Create('GlyphCache metadata overflow: %dx%d is out of packed range',[width,height]);
+ if (dx<-128) or (dx>127) or (dy<-128) or (dy>127) then
+  raise EWarning.Create('GlyphCache offset overflow: dx=%d dy=%d is out of packed range',[dx,dy]);
  // 1. Find the most suitable band
  i:=firstBand; best:=-1; spareHeight:=100000; bandHeight:=0;
  while i>=0 do begin
@@ -588,7 +591,7 @@ var
  i:integer;
 begin
  result:=Format('[%d] %d-%d;',[hash1.count,freeMin,freeMax]);
- for i:=0 to bCount do
+ for i:=0 to bCount-1 do
   result:=result+Format('%d_%d %d;',[bands[i].y,bands[i].height,bands[i].freeSpace]);
 end;
 

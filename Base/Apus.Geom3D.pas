@@ -813,11 +813,11 @@ implementation
 
  function IsZero(v:TPoint3):boolean; overload;
   begin
-   result:=not ((abs(v.x)>Epsilon) and (abs(v.y)>Epsilon) and (abs(v.z)>Epsilon));
+   result:=(abs(v.x)<=Epsilon) and (abs(v.y)<=Epsilon) and (abs(v.z)<=Epsilon);
   end;
  function IsZero(v:TPoint3s):boolean; overload;
   begin
-   result:=not ((abs(v.x)>EpsilonS) and (abs(v.y)>EpsilonS) and (abs(v.z)>EpsilonS));
+   result:=(abs(v.x)<=EpsilonS) and (abs(v.y)<=EpsilonS) and (abs(v.z)<=EpsilonS);
   end;
 
  function IsIdentity(v:TVector3s):boolean; inline;
@@ -1182,9 +1182,9 @@ implementation
    Swap(m[1,0],m[0,1]);
    Swap(m[2,0],m[0,2]);
    Swap(m[2,1],m[1,2]);
+   Swap(m[3,0],m[0,3]);
    Swap(m[3,1],m[1,3]);
    Swap(m[3,2],m[2,3]);
-   Swap(m[3,3],m[3,3]);
   end;
 
  procedure Transpose(var m:TMatrix4s);
@@ -1192,9 +1192,9 @@ implementation
    Swap(m[1,0],m[0,1]);
    Swap(m[2,0],m[0,2]);
    Swap(m[2,1],m[1,2]);
+   Swap(m[3,0],m[0,3]);
    Swap(m[3,1],m[1,3]);
    Swap(m[3,2],m[2,3]);
-   Swap(m[3,3],m[3,3]);
   end;
 
  procedure Transpose(var m:TMatrix3);
@@ -1486,7 +1486,7 @@ implementation
     y:=v^.x*m[0,1]+v^.y*m[1,1]+v^.z*m[2,1];
     z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2];
     v^.x:=x; v^.y:=y; v^.z:=z;
-    v:=PPoint3s(cardinal(v)+step);
+    v:=PPoint3s(PtrUInt(v)+step);
    end;
   end;
 
@@ -1590,8 +1590,8 @@ implementation
   begin
    c:=cos(angle); s:=sin(angle);
    result:=IdentMatrix3s;
-   result[0,0]:=c; result[0,2]:=-s;
-   result[2,0]:=s; result[2,2]:=c;
+   result[0,0]:=c; result[0,2]:=s;
+   result[2,0]:=-s; result[2,2]:=c;
   end;
 
  function RotationZMat3s(angle:single):TMatrix3s;
@@ -2058,7 +2058,7 @@ implementation
    p.a:=normal.x;
    p.b:=normal.y;
    p.c:=normal.z;
-   p.d:=-(p.a*point.x+p.b*normal.y+p.c*normal.z);
+   p.d:=-(p.a*point.x+p.b*point.y+p.c*point.z);
   end;
 
  function GetPlaneOffset(p:TPlane;pnt:Tpoint3):double;
@@ -2262,15 +2262,15 @@ implementation
     MultMat(m,RotationZMat(-Yaw),m2);
     m:=m2;
    end;
-   // pitch
-   if mv[0].x<-0.999 then pitch:=pi else
-    Pitch:=arcsin(mv[0].z);
-   MultMat(m,RotationYMat(-pitch),m2);
+   // roll (Y-rotation): mv[0].z = -sin(roll)
+   if mv[0].x<-0.999 then roll:=pi else
+    Roll:=-arcsin(mv[0].z);
+   MultMat(m,RotationYMat(roll),m2);
    m:=m2;
-   // roll
-   if mv[1].y<-0.999 then roll:=pi else begin
-    Roll:=arccos(mv[1].y);
-    if mv[1].z<0 then roll:=-roll;
+   // pitch (X-rotation)
+   if mv[1].y<-0.999 then pitch:=pi else begin
+    Pitch:=arccos(mv[1].y);
+    if mv[1].z<0 then pitch:=-pitch;
    end;
   end;
 

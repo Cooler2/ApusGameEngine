@@ -413,6 +413,7 @@ implementation
    Normalize(v2);
    p:=DotProduct(v1,v2);
    if p>1 then p:=1;
+   if p<-1 then p:=-1;
    result:=ArcCos(p);
   end;
 
@@ -429,6 +430,7 @@ implementation
    Normalize(v2);
    p:=DotProduct(v1,v2);
    if p>1 then p:=1;
+   if p<-1 then p:=-1;
    result:=ArcCos(p);
   end;
 
@@ -602,13 +604,13 @@ implementation
     // maybe segment or nothing
     result:=intNone;
     PointOnSegment(s1,Point2(s2.x1,s2.y1),par,d);
-    if (par>=0) or (par<=1) then begin result:=intSegment; exit; end;
+    if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
     PointOnSegment(s1,Point2(s2.x2,s2.y2),par,d);
-    if (par>=0) or (par<=1) then begin result:=intSegment; exit; end;
+    if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
     PointOnSegment(s2,Point2(s1.x1,s1.y1),par,d);
-    if (par>=0) or (par<=1) then begin result:=intSegment; exit; end;
+    if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
     PointOnSegment(s2,Point2(s1.x2,s1.y2),par,d);
-    if (par>=0) or (par<=1) then begin result:=intSegment; exit; end;
+    if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
    end;
    if result=intPoint then begin
     // explicit point or nothing

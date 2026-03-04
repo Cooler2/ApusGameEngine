@@ -134,12 +134,17 @@ type
   procedure SetPixel(x,y:integer;value:cardinal); virtual;
   function GetPixelAddress(x,y:integer):pointer;
   function ScanLine(y:integer):pointer;
+  procedure FlipVertical; // flip by adjusting data pointer and negating pitch
   procedure CopyPixelDataFrom(src:TRawImage); // copy from another image with pixel format conversion (if needed)
   procedure SetAsRenderTarget;
  end;
 
- // TBitmapImage - это уже конкретный вид изображения: bitmap, хранящийся в памяти
+ // TBitmapImage - bitmap image stored in memory (owns data)
+ // TODO: image "views" (flipped, cropped windows into another image's data) need proper
+ // ownership tracking — either refcounted data blocks or an interface-based approach,
+ // so the owner stays alive while views exist. Currently dataOrigin is a minimal workaround.
  TBitmapImage=class(TRawImage)
+  dataOrigin:pointer; // original allocation pointer (data may be shifted by FlipVertical etc.)
 
   constructor Create(w,h:integer;pf:TImagePixelFormat=ipfARGB;
                      pal:ImagePaletteFormat=palNone;pSize:integer=256);
@@ -329,6 +334,7 @@ constructor TBitmapImage.Assign(w,h:integer;_data:pointer;_pitch:integer;_pf:TIm
 begin
  width:=w; height:=h;
  data:=_data;
+ dataOrigin:=_data;
  pitch:=_pitch;
  PixelFormat:=_pf;
 end;
@@ -349,13 +355,13 @@ begin
   ipfDXT1: pitch:=w*8;
   ipfDXT2,ipfDXT3: pitch:=w*16;
   else
-   ASSERT(false,'Not implemented');
+   raise EError.Create('TBitmapImage.Create: unsupported pixel format '+PixFmt2Str(pf));
 end;
  PixelFormat:=pf;
  PaletteFormat:=pal;
  dataSize:=pitch*h;
  data:=AllocMem(dataSize);
- //fillchar(data^,dataSize,0);
+ dataOrigin:=data;
 
  if pal<>palNone then begin
   case pal of
@@ -372,7 +378,7 @@ end;
 
 destructor TBitmapImage.Destroy;
 begin
-  FreeMem(data);
+  FreeMem(dataOrigin);
   if palette<>nil then FreeMem(palette);
   inherited;
 end;
@@ -388,6 +394,7 @@ begin
  newWidth:=width+paddingLeft+paddingRight;
  newHeight:=height+paddingTop+paddingBottom;
  ps:=pixelSize[pixelFormat] div 8;
+ ASSERT(ps>0,'Expand does not support sub-byte pixel formats');
  GetMem(newData,newWidth*newHeight*ps);
  pb:=newData;
  // Top part
@@ -414,8 +421,9 @@ end;
    Mem.Fill(pb^,paddingBottom*newWidth*ps,color);
 
  // Assign new bitmap
- Freemem(data);
+ Freemem(dataOrigin);
  data:=newData;
+ dataOrigin:=newData;
  width:=newWidth;
  height:=newHeight;
  pitch:=newWidth*ps;
@@ -505,7 +513,7 @@ begin
   sp:=src.data;
   dp:=data;
   for i:=0 to height-1 do begin
-   ConvertLine(sp^,dp^,src.PixelFormat,pixelFormat,width);
+   ConvertLine(sp^,dp^,src.PixelFormat,pixelFormat,width,src.palette,src.paletteFormat);
    inc(sp,src.pitch);
    inc(dp,pitch);
 end;
@@ -541,7 +549,8 @@ end;
 function TRawImage.GetPixelARGB(x,y:integer):cardinal;
 begin
  result:=GetPixel(x,y);
- ASSERT(@colorFrom[pixelFormat]<>nil,'Unsupported pixel format');
+ ASSERT(Assigned(colorFrom[pixelFormat]),'Unsupported pixel format for ARGB conversion');
+ if not Assigned(colorFrom[pixelFormat]) then exit(0);
  result:=colorFrom[pixelFormat](result);
 end;
 
@@ -574,6 +583,12 @@ end;
 function TRawImage.ScanLine(y: integer): pointer;
 begin
  result:=pointer(PtrUInt(data)+y*pitch);
+end;
+
+procedure TRawImage.FlipVertical;
+begin
+ data:=ScanLine(height-1);
+ pitch:=-pitch;
 end;
 
 procedure TRawImage.Unlock;

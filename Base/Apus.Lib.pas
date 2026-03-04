@@ -78,6 +78,9 @@ type
   // --- Apus.Structs ---
   TObjectHash = Apus.Structs.TObjectHash;
 
+  // --- Apus.HashMaps ---
+  TObjectMap = Apus.HashMaps.THashMap<TObject>;
+
   // --- Apus.Utils ---
   TSplineFunc = Apus.Utils.TSplineFunc;
 

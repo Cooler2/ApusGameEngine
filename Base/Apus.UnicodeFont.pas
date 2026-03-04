@@ -59,8 +59,8 @@ type
   width,flags:byte;        // width of a character (px)
   kernLeft,kernRight:word; // kerning mask (3 bits * 5 fields, from top to bottom)
   offset:integer;          // position of glyph data in file (or in glyphs array in memory)
-  // get pixel opacity (0..15) (координаты либо относительно верхнего-левого угла глифа (y-вниз), либо
-  // относительно точки вывода символа (y-вверх)
+  // get pixel opacity (0..15), coordinates are either relative to glyph top-left (y-down)
+  // or relative to the output point (y-up)
   function GetPixel(glyphs:PByte;x,y:integer;glyphCoord:boolean=false):byte;
  end;
 
@@ -70,12 +70,12 @@ type
 
  TUnicodeFont=class
   header:TFontHeader;
-  chars:array of TCharDesc; // описания символов
-  advKerning:array of TKernPair; // расширенный кернинг
-  glyphs:array of byte; // данные глифов
+  chars:array of TCharDesc; // character descriptions
+  advKerning:array of TKernPair; // advanced kerning pairs
+  glyphs:array of byte; // glyph pixel data
   overPairs:array of cardinal; // character pairs (sorted, C1C1C2C2)
   overValues:array of byte;    // override values
-  defaultCharIdx:integer;      // индекс символа, заменяющего отсутствующие в шрифте символы
+  defaultCharIdx:integer;      // fallback glyph index for missing characters
   advancedKerning:boolean;
   maxY,minY:integer; // max and min lines occupied by any glyphs (+Y = top, -Y = bottom)
   constructor Create;
@@ -83,7 +83,7 @@ type
   constructor LoadFromFile(fname:string;UseAdvKerning:boolean=false);
   procedure InitDefaults; virtual;
   function IndexOfChar(ch:Char32):integer;
-  function Interval(ch1,ch2:Char32):integer; // интервал между точкой начала символа ch1 и следующего за ним ch2
+  function Interval(ch1,ch2:Char32):integer; // distance between start of ch1 and start of ch2
   procedure CalculateAdvKerning(index:integer);
   function GetTextWidth(st:String32):integer;
   function GetHeight:integer; // Height of characters like '0' or 'A'
@@ -94,7 +94,7 @@ type
   procedure DrawGlyphScaled(buf:pointer;pitch:integer;x1,y1,x2,y2:single;
       glyphData:pointer;glWidth,glHeight:integer;color:cardinal);
  private
-  hash:array[0..4095] of word; // хэш для поиска индекса символа
+  hash:array[0..4095] of word; // hash table for character index lookup
  end;
 
  function LoadFontFromFile(fname:string;UseAdvKerning:boolean=false):TUnicodeFont;
@@ -123,10 +123,7 @@ implementation
    b,g,r,a:byte;
   end;
 
- var
-  gammaTab:array[0..8,0..15] of byte;
-
- // Специальный альфа-блендинг
+ // Alpha blending for glyph rendering
  function Blend(background,foreground:cardinal;alpha:byte):cardinal;
   var
    v1,v2:byte;
@@ -139,14 +136,14 @@ implementation
     result:=foreground; exit;
    end;
    if c1.a=255 then begin
-     // блендинг на непрозрачную основу
+     // blending onto opaque background
      v1:=255-c2.a;
      result:=((c1.b*v1+c2.b*c2.a)*258 and $FF0000) shr 16+
              ((c1.g*v1+c2.g*c2.a)*258 and $FF0000) shr 8+
              ((c1.r*v1+c2.r*c2.a)*258 and $FF0000)+
              $FF000000;
    end else begin
-     // блендинг на полупрозрачную основу несколько сложнее
+     // blending onto semi-transparent background is more complex
      v1:=258*c1.a*(255-c2.a) shr 16;
      v:=65792 div (v1+c2.a);
      result:=((c1.b*v1+c2.b*c2.a)*v and $FF0000) shr 16+
@@ -156,7 +153,7 @@ implementation
    end;
   end;
 
- // Отрисовка глифа в ARGB-буфер в оригинальном масштабе
+ // Draw glyph to ARGB buffer at original scale
  procedure TUnicodeFont.DrawGlyph(buf:pointer;pitch:integer;x,y:integer;
       glyphData:pointer;glWidth,glHeight:integer;color:cardinal);
   var
@@ -182,7 +179,7 @@ implementation
    end;
   end;
 
- // Отрисовка глифа с интерполяцией в заданный ARGB-буфер
+ // Draw glyph with bilinear interpolation to ARGB buffer
  procedure TUnicodeFont.DrawGlyphScaled(buf:pointer;pitch:integer;x1,y1,x2,y2:single;
       glyphData:pointer;glWidth,glHeight:integer;color:cardinal);
   var
@@ -202,7 +199,7 @@ implementation
    StretchDraw2(@gBuf[0],gPitch,buf,pitch,x1,y1,x2,y2,1,1,glWidth+1,glHeight+1,blBlend);
   end;
 
- // Отрисовка текста в заданный ARGB-буфер
+ // Render text string to ARGB buffer
  procedure TUnicodeFont.RenderText(buf:pointer;pitch:integer;x,y:integer;st:String32;color:cardinal;scale:single=1);
   var
    i,idx:integer;
@@ -229,6 +226,8 @@ implementation
    end;
   end;
 
+ // TODO: lazy writes to advKerning are unsynchronized — if font instances are shared
+ // across threads, this needs a lock or precomputation at load time
  procedure TUnicodeFont.CalculateAdvKerning(index:integer);
   var
    i,y,y1,y2,x:integer;
@@ -343,14 +342,23 @@ constructor TUnicodeFont.LoadFromMemory(const data:TBuffer;useAdvKerning:boolean
    setLength(glyphs,s);
    if s>0 then
     data.Read(glyphs[0],s);
+   // Validate glyph offsets
+   for i:=0 to header.charCount-1 do
+    with chars[i] do begin
+     j:=((imageWidth+1) div 2)*imageHeight; // glyph data size in bytes
+     if (offset<0) or (offset+j>s) then
+      raise EError.Create('Invalid font data: glyph offset out of bounds (%d)',[i]);
+    end;
    // Load overrides
    i:=header.overridesCount;
    SetLength(overPairs,i);
    SetLength(overValues,i);
-   if i>0 then data.Read(overPairs[0],i*4);
-   for i:=0 to length(overpairs)-1 do
-    overpairs[i]:=overpairs[i] and $FFFF shl 16+overpairs[i] shr 16;
-   if i>0 then data.Read(overValues[0],i);
+   if i>0 then begin
+    data.Read(overPairs[0],i*4);
+    for j:=0 to i-1 do // swap 16-bit halves: file stores C2C2C1C1, we need C1C1C2C2
+     overpairs[j]:=Bits.SwapWords(overpairs[j]);
+    data.Read(overValues[0],i);
+   end;
 
    found:=false;
    for i:=0 to high(chars) do
@@ -479,18 +487,4 @@ begin
  end;
 end;
 
-var
- i,j:integer;
- v,e:single;
-initialization
- // Gamma table calculation
- for i:=0 to 8 do begin
-  gammaTab[i,0]:=0;
-  for j:=1 to 15 do begin
-   e:=(i+6)/10;
-   v:=j/15;
-   v:=exp(ln(v)*e);
-   gammaTab[i,j]:=round(128*v);
-  end;
- end;
 end.

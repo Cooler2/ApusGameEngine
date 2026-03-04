@@ -139,8 +139,6 @@ type
  end;
 
  function TMyFPImage.GetScanline(y:integer):pointer;
-  var
-   l:integer;
   begin
    result:=@(FData^[y*Width*2]);
   end;
@@ -182,7 +180,6 @@ procedure LoadPVR(data:ByteArray;var image:TRawImage;allocate:boolean=false);
 procedure LoadDDS(data:ByteArray;var image:TRawImage;allocate:boolean=false);
  var
   pc:^cardinal;
-  head:^DDSheader;
   width,height:integer;
   format:TImagePixelFormat;
   info:TImageFileInfo;
@@ -191,7 +188,6 @@ procedure LoadDDS(data:ByteArray;var image:TRawImage;allocate:boolean=false);
  begin
   pc:=@data[0];
   inc(pc);
-  head:=pointer(pc);
   info:=ImgInfo;
   CheckImageFormat(data);
   width:=imgInfo.width;
@@ -230,7 +226,7 @@ procedure LoadTGA;
  var
   i,j,y:integer;
   col:cardinal;
-  pb,pb2,sp,dp,pp,sourPal:PByte;
+  pb,pb2,sp,dp,sourPal:PByte;
   rlebuf:pointer;
   head:^TGAheader;
   format:TImagePixelFormat;
@@ -250,6 +246,8 @@ procedure LoadTGA;
    raise EError.Create('Unsupported TGA palette type - '+Conv.ToStr(head.paltype));
   if not head.bpp in [8,16,24,32] then
    raise EError.Create('Unsupported TGA bpp - '+Conv.ToStr(head.bpp));
+  if (head.imgtype=10) and (head.bpp=16) then
+   raise EError.Create('Unsupported TGA format: RLE-compressed 16-bit image');
   if (head.imgwidth>8192) or (head.imgheight>8192) then
    raise EError.Create('TGA image is too large');
 
@@ -394,6 +392,7 @@ procedure LoadTGA;
    head:TGAHeader;
    i,paldepth,bpp,y,size:integer;
   begin
+   result:=nil;
    i:=image.width*image.height;
    case image.PixelFormat of
     ipfRGB:bpp:=3;
@@ -651,7 +650,7 @@ const
    wch:WideChar;
   function EncodeColor(c:cardinal):string8;
    var
-    i:integer;
+   i:integer;
    begin
     SetLength(result,4);
     for i:=4 downto 1 do begin
@@ -660,6 +659,7 @@ const
     end;
    end;
   begin
+   data:='';
    ASSERT(@colorFrom[image.pixelFormat]<>nil);
    width:=image.width; height:=image.height;
    // Get all pixels with scaled ARGB
@@ -723,7 +723,7 @@ const
       inc(i);
      end else begin
       wch:=WideChar(40+pixel);
-      if wch<=#127 then data:=data+wch
+      if wch<=#127 then data:=data+AnsiChar(40+pixel)
         else data:=data+UTF8.Encode(wCh);
      end;
     end else begin
@@ -735,27 +735,33 @@ const
    result:=Conv.ToHex(width)+' '+Conv.ToHex(height)+' '+data;
   end;
 
- function CheckFileFormat(fname:string):TImageFileType;
+function CheckFileFormat(fname:string):TImageFileType;
   var
    f:file;
    buf:ByteArray;
    size:integer;
   begin
    result:=ifUnknown;
-   Assign(f,fname);
-   Reset(f,1);
-   size:=filesize(f);
-   if size>30 then begin
-    SetLength(buf,size);
-    BlockRead(f,buf[0],size);
-    result:=CheckImageFormat(buf);
+   try
+    Assign(f,fname);
+    Reset(f,1);
+    try
+     size:=filesize(f);
+     if size>0 then begin
+      SetLength(buf,size);
+      BlockRead(f,buf[0],size);
+      result:=CheckImageFormat(buf);
+     end;
+    finally
+     Close(f);
+    end;
+   except
+    result:=ifUnknown;
    end;
-   Close(f);
   end;
 
  function CheckImageFormat(data:ByteArray):TImageFileType;
   var
-   pb:PByte;
    pc:^cardinal;
    dds:^DDSheader;
    tga:^TGAheader;
@@ -765,15 +771,20 @@ const
    bitdepth:byte;
   begin
    result:=ifUnknown;
+   if length(data)=0 then exit;
    imginfo.miplevels:=1;
+   imginfo.width:=0;
+   imginfo.height:=0;
+   imginfo.format:=ipfNone;
+   imginfo.palformat:=palNone;
    // Check for PNG
-   if (data[0]=$89) and (data[1]=$50) and (data[2]=$4E) and (data[3]=$47) then begin
+   if (length(data)>=4) and (data[0]=$89) and (data[1]=$50) and (data[2]=$4E) and (data[3]=$47) then begin
     result:=ifPNG;
     imginfo.palformat:=palNone;
     imginfo.miplevels:=0;
     for i:=4 to length(data)-20 do
      if data[i]=$49 then begin
-      if (data[i+1]=$48) and (data[i+2]=$44) and (data[i+3]=$52) then begin
+      if (i+13<length(data)) and (data[i+1]=$48) and (data[i+2]=$44) and (data[i+3]=$52) then begin
        imginfo.width:=data[i+7]+data[i+6]*256;
        imginfo.height:=data[i+11]+data[i+10]*256;
        bitDepth:=data[i+12];
@@ -795,39 +806,43 @@ const
     exit;
    end;
    // check for PVR
-   pvr:=@data[0];
-   if (pvr.headerLength=52) and (pvr.pvrTag=$21525650) then begin
-    result:=ifPVR;
-    imginfo.width:=pvr.width;
-    imginfo.height:=pvr.height;
-    imginfo.miplevels:=pvr.mipMaps;
-    case pvr.flags and $FF of
-     0,$10:imgInfo.format:=ipf4444r;
-     1,$11:imgInfo.format:=ipf1555;
-     2,$13:imgInfo.format:=ipf565;
-     3,$14 :imgInfo.format:=ipf555;
-     $19,$D:imgInfo.format:=ipfPVRTC;
-     else imgInfo.format:=ipfNone;
+   if length(data)>=sizeof(PVRheader) then begin
+    pvr:=@data[0];
+    if (pvr.headerLength=52) and (pvr.pvrTag=$21525650) then begin
+     result:=ifPVR;
+     imginfo.width:=pvr.width;
+     imginfo.height:=pvr.height;
+     imginfo.miplevels:=pvr.mipMaps;
+     case pvr.flags and $FF of
+      0,$10:imgInfo.format:=ipf4444r;
+      1,$11:imgInfo.format:=ipf1555;
+      2,$13:imgInfo.format:=ipf565;
+      3,$14 :imgInfo.format:=ipf555;
+      $19,$D:imgInfo.format:=ipfPVRTC;
+      else imgInfo.format:=ipfNone;
+     end;
+     exit;
     end;
-    exit;
    end;
    // Check for DDS
-   pc:=@data[0];
-   if pc^=$20534444 then begin
-    result:=ifDDS;
-    inc(pc); dds:=pointer(pc);
-    Mem.Fill(imginfo,sizeof(imginfo),0);
-    imginfo.width:=dds.dwWidth;
-    imginfo.height:=dds.dwheight;
-    if dds.ddpfPixelFormat.dwFourCC=$31545844 then imginfo.format:=ipfDXT1 else
-    if dds.ddpfPixelFormat.dwFourCC=$32545844 then imginfo.format:=ipfDXT2 else
-    if dds.ddpfPixelFormat.dwFourCC=$33545844 then imginfo.format:=ipfDXT3 else
-    if dds.ddpfPixelFormat.dwFourCC=$35545844 then imginfo.format:=ipfDXT5;
-    imginfo.miplevels:=dds.dwMipMapCount;
-    exit;
+   if length(data)>=4+sizeof(DDSHeader) then begin
+    pc:=@data[0];
+    if pc^=$20534444 then begin
+     result:=ifDDS;
+     inc(pc); dds:=pointer(pc);
+     Mem.Fill(imginfo,sizeof(imginfo),0);
+     imginfo.width:=dds.dwWidth;
+     imginfo.height:=dds.dwheight;
+     if dds.ddpfPixelFormat.dwFourCC=$31545844 then imginfo.format:=ipfDXT1 else
+     if dds.ddpfPixelFormat.dwFourCC=$32545844 then imginfo.format:=ipfDXT2 else
+     if dds.ddpfPixelFormat.dwFourCC=$33545844 then imginfo.format:=ipfDXT3 else
+     if dds.ddpfPixelFormat.dwFourCC=$35545844 then imginfo.format:=ipfDXT5;
+     imginfo.miplevels:=dds.dwMipMapCount;
+     exit;
+    end;
    end;
    // Check for jpeg
-   if (data[0]=$ff) and (data[1]=$D8) then begin
+   if (length(data)>=2) and (data[0]=$ff) and (data[1]=$D8) then begin
     result:=ifJPEG;
     Mem.Fill(imginfo,sizeof(imginfo),0);
     imgInfo.format:=ipfRGB;
@@ -836,8 +851,10 @@ const
     i:=2;
     while i<length(data) do begin
      if data[i]=$FF then begin
+      if i+3>=length(data) then break;
       j:=data[i+2]*256+data[i+3];
       if data[i+1] in [$C0,$C2] then begin // SOF0 or SOF2
+       if i+8>=length(data) then break;
        imgInfo.height:=Max(imgInfo.height,integer(data[i+5])*256+integer(data[i+6]));
        imgInfo.width:=Max(imgInfo.width,integer(data[i+7])*256+integer(data[i+8]));
       end;
@@ -848,30 +865,32 @@ const
     exit;
    end;
    // check for tga
-   tga:=@data[0];
-   if (tga.imgtype in [1,2,3,9,10,11]) and (tga.bpp in [8,16,24,32]) and
-      (tga.paltype<2) and (tga.palsize<=256) then begin
-    result:=ifTGA;
-    imginfo.width:=tga.imgwidth;
-    imginfo.height:=tga.imgheight;
-    case tga.bpp of
-     8:imginfo.format:=ipf8Bit;
-     16:imginfo.format:=ipf1555;
-     24:imginfo.format:=ipfRGB;
-     32:imginfo.format:=ipfARGB;
-    end;
-    if tga.paltype=0 then imginfo.palformat:=palNone else
-     case tga.palentrysize of
-      24:imginfo.palformat:=palRGB;
-      32:imginfo.palformat:=palARGB;
+   if length(data)>=sizeof(TGAheader) then begin
+    tga:=@data[0];
+    if (tga.imgtype in [1,2,3,9,10,11]) and (tga.bpp in [8,16,24,32]) and
+       (tga.paltype<2) and (tga.palsize<=256) then begin
+     result:=ifTGA;
+     imginfo.width:=tga.imgwidth;
+     imginfo.height:=tga.imgheight;
+     case tga.bpp of
+      8:imginfo.format:=ipf8Bit;
+      16:imginfo.format:=ipf1555;
+      24:imginfo.format:=ipfRGB;
+      32:imginfo.format:=ipfARGB;
      end;
-    exit;
+     if tga.paltype=0 then imginfo.palformat:=palNone else
+      case tga.palentrysize of
+       24:imginfo.palformat:=palRGB;
+       32:imginfo.palformat:=palARGB;
+      end;
+     exit;
+    end;
    end;
    // check for BMP
 
    // check for txt
    fl:=true;
-   for i:=1 to Min(10,length(data)) do begin
+   for i:=0 to Min(9,length(data)-1) do begin
     if not (data[i] in [$30..$39,32,10,13,8]) then fl:=false;
    end;
    if fl then result:=ifTXT;
@@ -944,6 +963,7 @@ const
    d:UInt64;
    dp:^UInt64;
   begin
+   result:=nil;
    img:=TMyFPImage.Create(image.width,image.height);
    image.Lock;
    for y:=0 to image.height-1 do begin
@@ -1229,11 +1249,13 @@ const
 
  function SavePNG32(image:TRawImage):ByteArray;
   begin
+   result:=nil;
    NotImplemented('Use LODEPNG');
   end;
 
  function SavePNG8(image:TRawImage):ByteArray;
   begin
+   result:=nil;
    NotImplemented('Use LODEPNG');
   end;
 
