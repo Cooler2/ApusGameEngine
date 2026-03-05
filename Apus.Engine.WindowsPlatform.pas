@@ -448,6 +448,8 @@ procedure TWindowsPlatform.MoveWindowTo(x, y: integer; width: integer;
  end;
 
 function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
+ type
+  TglGetStringFn=function(name:cardinal):PAnsiChar; stdcall;
  var
   DC:HDC;
   RC,legacyRC:HGLRC;
@@ -459,34 +461,36 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
   n,flags,profileMask:integer;
   glVer:string;
   glVerRaw:PAnsiChar;
+  openglLib:HMODULE;
+  glGetStringFn:TglGetStringFn;
   wglCreateContextAttribsARB:function(hDC:HDC;hShareContext:HGLRC;const attribList:PInteger):HGLRC; stdcall;
  function ParseGLVersion(const st:string;out major,minor:integer):boolean;
   var
    i,start:integer;
    s:string;
- begin
-  result:=false;
-  major:=0; minor:=0;
-  s:=st;
-  start:=0;
-  for i:=1 to length(s)-2 do
-   if (s[i] in ['0'..'9']) and (s[i+1] in ['0'..'9','.']) then begin
-    start:=i; break;
-   end;
-  if start=0 then exit;
-  i:=start;
-  while (i<=length(s)) and (s[i] in ['0'..'9']) do inc(i);
-  if (i>length(s)) or (s[i]<>'.') then exit;
-  major:=strtointdef(copy(s,start,i-start),0);
-  inc(i); start:=i;
-  while (i<=length(s)) and (s[i] in ['0'..'9']) do inc(i);
-  if start=i then exit;
-  minor:=strtointdef(copy(s,start,i-start),0);
-  result:=major>0;
- end;
+  begin
+   result:=false;
+   major:=0; minor:=0;
+   s:=st;
+   start:=0;
+   for i:=1 to length(s)-2 do
+    if (s[i] in ['0'..'9']) and (s[i+1] in ['0'..'9','.']) then begin
+     start:=i; break;
+    end;
+   if start=0 then exit;
+    i:=start;
+   while (i<=length(s)) and (s[i] in ['0'..'9']) do inc(i);
+   if (i>length(s)) or (s[i]<>'.') then exit;
+   major:=strtointdef(copy(s,start,i-start),0);
+   inc(i); start:=i;
+   while (i<=length(s)) and (s[i] in ['0'..'9']) do inc(i);
+    if start=i then exit;
+   minor:=strtointdef(copy(s,start,i-start),0);
+   result:=major>0;
+  end;
  begin
    Log.Msg('Prepare GL context');
-   Mem.Fill(pfd,sizeof(PFD),0);
+   Mem.Clear(pfd,sizeof(PFD));
    with PFD do begin
     nSize:=sizeof(PFD);
     nVersion:=1;
@@ -499,7 +503,7 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
    pf:=ChoosePixelFormat(DC,@PFD);
    Log.Msg('Pixel format: '+IntToStr(pf));
    if not SetPixelFormat(DC,pf,@PFD) then
-    Log.Msg('Failed to set pixel format!');
+    Log.Error('Failed to set pixel format!');
 
    Log.Msg('Create GL context');
    legacyRC:=wglCreateContext(DC);
@@ -507,7 +511,13 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
      raise EError.Create('Can''t create RC!');
    wglMakeCurrent(DC,legacyRC);
 
-   glVerRaw:=glGetString(GL_VERSION);
+   glVerRaw:=nil;
+   openglLib:=GetModuleHandle('opengl32.dll');
+   if openglLib<>0 then begin
+    glGetStringFn:=TglGetStringFn(GetProcAddress(openglLib,'glGetString'));
+    if assigned(glGetStringFn) then
+     glVerRaw:=glGetStringFn($1F02); // GL_VERSION
+   end;
    if glVerRaw<>nil then
     glVer:=glVerRaw
    else
@@ -558,12 +568,12 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
        wglDeleteContext(legacyRC);
       end else begin
        RC:=legacyRC;
-       Log.Msg('Failed to create requested modern GL context, keeping legacy context');
+       Log.Warn('Failed to create requested modern GL context, keeping legacy context');
       end;
      end else
-      Log.Msg('wglCreateContextAttribsARB not available, keeping legacy context');
+      Log.Warn('wglCreateContextAttribsARB not available, keeping legacy context');
     end else
-     Log.Msg('Requested minimal GL version is higher than available; modern context cannot be created');
+     Log.Error('Requested minimal GL version is higher than available; modern context cannot be created');
    end;
    if (request.profile=glcpCore) and (RC=legacyRC) then begin
     wglMakeCurrent(0,0);
