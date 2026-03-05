@@ -1,4 +1,4 @@
-{$APPTYPE CONSOLE}
+﻿{$APPTYPE CONSOLE}
 program TestThreads;
 uses
   {$IFDEF UNIX}cthreads,{$ENDIF}
@@ -10,21 +10,23 @@ uses
 {$INCLUDE Test.inc}
 
 // ============================================================================
-// Worker thread procedures
+// Worker thread procedures for TThreadFunc overload (function(ctx):UIntPtr)
 // ============================================================================
 
 var
   sharedLock:TLock;
   sharedCounter:integer;
 
-function SimpleWorker(param:pointer):UIntPtr;
+// Minimal worker: optionally sets a boolean flag via ctx.Parameter
+function SimpleWorker(ctx:TThreadContext):UIntPtr;
 begin
-  if param<>nil then
-    PBoolean(param)^:=true;
+  if ctx.Parameter<>nil then
+    PBoolean(ctx.Parameter)^:=true;
   result:=0;
 end;
 
-function ContextWorker(param:pointer):UIntPtr;
+// Validates that CurrentThread context is properly initialized inside the thread
+function ContextWorker(ctx:TThreadContext):UIntPtr;
 begin
   Check(CurrentThread.Name<>'','CurrentThread.Name should work');
   Check(CurrentThread.ID<>0,'CurrentThread.ID should work');
@@ -33,7 +35,18 @@ begin
   result:=0;
 end;
 
-function LongRunningWorker(param:pointer):UIntPtr;
+// Validates Parameter and Tag fields — both via ctx argument and CurrentThread
+function ParamTagWorker(ctx:TThreadContext):UIntPtr;
+begin
+  Check(ctx.Parameter=pointer(42),'ctx.Parameter should be 42');
+  Check(ctx.Tag='hello','ctx.Tag should be "hello"');
+  Check(CurrentThread.Parameter=pointer(42),'CurrentThread.Parameter should match');
+  Check(CurrentThread.Tag='hello','CurrentThread.Tag should match');
+  result:=0;
+end;
+
+// Loops until Terminating flag is set; has safety counter to prevent hang
+function LongRunningWorker(ctx:TThreadContext):UIntPtr;
 var
   counter:integer;
 begin
@@ -46,7 +59,15 @@ begin
   result:=0;
 end;
 
-function IncrementWorker(param:pointer):UIntPtr;
+// Sleeps longer than short Wait timeout to validate timeout behavior.
+function SlowWorker(ctx:TThreadContext):UIntPtr;
+begin
+  Sleep(300);
+  result:=0;
+end;
+
+// Increments shared counter under lock; used to verify TLock from multiple threads
+function IncrementWorker(ctx:TThreadContext):UIntPtr;
 var
   i:integer;
 begin
@@ -63,9 +84,55 @@ begin
 end;
 
 // ============================================================================
+// Worker for TThreadProc overload (simple procedure, no params)
+// ============================================================================
+var
+  simpleProcExecuted:boolean;
+
+procedure SimpleProcWorker;
+begin
+  simpleProcExecuted:=true;
+end;
+
+// ============================================================================
+// Worker for TThreadMethod overload (method of object)
+// ============================================================================
+type
+  TTestObj=class
+    executed:boolean;
+    procedure Run;
+  end;
+
+procedure TTestObj.Run;
+begin
+  executed:=true;
+end;
+
+// ============================================================================
+// Worker that reports an error — tests that SetError + finalization works.
+// Calls SetError directly (no raise) so the debugger doesn't interfere.
+// ============================================================================
+procedure ErrorWorker;
+begin
+  CurrentThread.SetError('deliberate test error');
+end;
+
+// Worker with unhandled exception — tests that finally block in ThreadStartWrapper
+// still runs (UnregisterThread + IntFinish) even when user code raises.
+// Note: with Delphi debugger "break on exception" enabled, execution pauses here.
+// If you continue slowly, th.Wait(2000) in TestThreadException may timeout while
+// thread is paused, so Status can still be Running and the check may fail.
+// If you continue quickly, wrapper catches exception and sets Status=Error as expected.
+procedure RaisingWorker;
+begin
+  raise Exception.Create('deliberate unhandled exception');
+end;
+
+// ============================================================================
 // Tests
 // ============================================================================
 
+// Basic Init/Enter/Leave/Cleanup cycle on a single thread.
 procedure TestLockBasic;
 var
   lock:TLock;
@@ -88,6 +155,7 @@ begin
   EndTest;
 end;
 
+// TLock supports recursive locking: must Leave the same number of times as Enter.
 procedure TestLockRecursive;
 var
   lock:TLock;
@@ -117,6 +185,7 @@ begin
   EndTest;
 end;
 
+// GetOwner returns the thread ID that holds the lock.
 procedure TestLockOwner;
 var
   lock:TLock;
@@ -136,6 +205,7 @@ begin
   EndTest;
 end;
 
+// Register/Unregister for external (non-Thread.Start) threads, e.g. main thread.
 procedure TestThreadRegistration;
 var
   name:string;
@@ -157,6 +227,7 @@ begin
   EndTest;
 end;
 
+// WaitUntilNotNil: returns immediately if pointer is set, raises on timeout.
 procedure TestWaitFor;
 var
   p:pointer;
@@ -237,6 +308,7 @@ begin
   EndTest;
 end;
 
+// Same as TestLockBasic but using a differently-named lock (redundant, kept for coverage).
 procedure TestCritSectFunctions;
 var
   cs:TLock;
@@ -258,13 +330,14 @@ begin
   EndTest;
 end;
 
+// TThreadFunc overload: pass pointer parameter, verify thread executes and Wait returns.
 procedure TestThreadStart;
 var
   th:IThread;
   executed:boolean;
   startTime:int64;
 begin
-  StartTest('Thread.Start and IThread.Wait');
+  StartTest('Thread.Start(TThreadFunc) and IThread.Wait');
 
   executed:=false;
   th:=Thread.Start('TestWorker',@SimpleWorker,@executed);
@@ -279,18 +352,73 @@ begin
   EndTest;
 end;
 
+// Verify CurrentThread threadvar is properly set inside the thread procedure.
+// Checks Name, ID, Terminating, Paused — all should have valid initial values.
 procedure TestCurrentThreadContext;
 var
   th:IThread;
 begin
   StartTest('CurrentThread context');
 
-  th:=Thread.Start('ContextTest',@ContextWorker,nil);
+  th:=Thread.Start('ContextTest',TThreadFunc(@ContextWorker));
   th.Wait(1000);
 
   EndTest;
 end;
 
+// Verify Parameter (pointer) and Tag (string) are delivered to TThreadContext.
+// Both ctx argument and CurrentThread threadvar must see the same values.
+procedure TestParamAndTag;
+var
+  th:IThread;
+begin
+  StartTest('Thread.Start parameter and tag');
+
+  th:=Thread.Start('ParamTag',@ParamTagWorker,pointer(42),'hello');
+  th.Wait(1000);
+
+  EndTest;
+end;
+
+// TThreadProc overload: simple procedure with no parameters.
+// Needs explicit TThreadProc(@...) cast because FPC can't disambiguate @proc alone.
+procedure TestStartProc;
+var
+  th:IThread;
+begin
+  StartTest('Thread.Start(TThreadProc)');
+
+  simpleProcExecuted:=false;
+  th:=Thread.Start('ProcWorker',TThreadProc(@SimpleProcWorker));
+  th.Wait(1000);
+  Check(simpleProcExecuted,'Simple procedure should execute');
+
+  EndTest;
+end;
+
+// TThreadMethod overload: pass an object method directly (no @ needed).
+// Object must outlive the thread — here we Wait before Free.
+procedure TestStartMethod;
+var
+  th:IThread;
+  obj:TTestObj;
+begin
+  StartTest('Thread.Start(TThreadMethod)');
+
+  obj:=TTestObj.Create;
+  try
+    th:=Thread.Start('MethodWorker',obj.Run);
+    th.Wait(1000);
+    Check(obj.executed,'Object method should execute');
+  finally
+    obj.Free;
+  end;
+
+  EndTest;
+end;
+
+// Terminate sets a flag that the thread polls via CurrentThread.Terminating.
+// Thread should exit promptly (within one Sleep cycle).
 procedure TestThreadTermination;
 var
   th:IThread;
@@ -298,7 +426,7 @@ var
 begin
   StartTest('IThread.Terminate');
 
-  th:=Thread.Start('TermTest',@LongRunningWorker,nil);
+  th:=Thread.Start('TermTest',TThreadFunc(@LongRunningWorker));
   Sleep(50); // let thread start
 
   startTime:=GetTickCount64;
@@ -309,6 +437,30 @@ begin
   EndTest;
 end;
 
+// Wait(timeout) should return on timeout without forcing completion.
+// A later full wait must observe normal Finished status.
+procedure TestThreadWaitTimeout;
+var
+  th:IThread;
+  startTime,elapsed:int64;
+begin
+  StartTest('IThread.Wait timeout');
+
+  th:=Thread.Start('WaitTimeout',TThreadFunc(@SlowWorker));
+  startTime:=GetTickCount64;
+  th.Wait(20); // intentionally short timeout
+  elapsed:=GetTickCount64-startTime;
+  Check(elapsed<200,'Wait(timeout) should return near timeout, not block until completion');
+  Check(th.Status=TThreadStatus.Running,'Thread should still be running after short timeout');
+
+  th.Wait(2000);
+  Check(th.Status=TThreadStatus.Finished,'Thread should finish after full wait');
+
+  EndTest;
+end;
+
+// 3 threads increment shared counter 100 times each under a TLock.
+// Final counter must be exactly 300 — any miss means lock is broken.
 procedure TestMultithreadedLock;
 var
   th1,th2,th3:IThread;
@@ -319,9 +471,9 @@ begin
   sharedCounter:=0;
 
   // Start 3 threads, each increments counter 100 times
-  th1:=Thread.Start('Worker1',@IncrementWorker,nil);
-  th2:=Thread.Start('Worker2',@IncrementWorker,nil);
-  th3:=Thread.Start('Worker3',@IncrementWorker,nil);
+  th1:=Thread.Start('Worker1',TThreadFunc(@IncrementWorker));
+  th2:=Thread.Start('Worker2',TThreadFunc(@IncrementWorker));
+  th3:=Thread.Start('Worker3',TThreadFunc(@IncrementWorker));
 
   th1.Wait;
   th2.Wait;
@@ -334,6 +486,7 @@ begin
   EndTest;
 end;
 
+// Name patterns: plain name preserved as-is, % pattern auto-increments (Worker1, Worker2...).
 procedure TestThreadNames;
 var
   th1,th2,th3:IThread;
@@ -342,14 +495,14 @@ begin
   StartTest('Thread name patterns');
 
   // Simple name
-  th1:=Thread.Start('SimpleName',@SimpleWorker,nil);
+  th1:=Thread.Start('SimpleName',TThreadFunc(@SimpleWorker));
   Sleep(10); // wait for thread registration
   name1:=th1.Name;
   Check(name1='SimpleName','Simple name should be preserved');
 
   // Pattern % - auto-increment
-  th2:=Thread.Start('Worker%',@SimpleWorker,nil);
-  th3:=Thread.Start('Worker%',@SimpleWorker,nil);
+  th2:=Thread.Start('Worker%',TThreadFunc(@SimpleWorker));
+  th3:=Thread.Start('Worker%',TThreadFunc(@SimpleWorker));
   Sleep(10);
   name2:=th2.Name;
   name3:=th3.Name;
@@ -363,33 +516,103 @@ begin
   EndTest;
 end;
 
+// Test # pattern: name numbers are reused after thread finishes and unregisters.
+// Both th1 and th2 must be fully finished (Wait) before starting th3,
+// otherwise their names are still in the registry and won't be reused.
 procedure TestThreadNamesReuse;
 var
   th1,th2,th3:IThread;
   name1,name2,name3:string;
+  i:integer;
 begin
   StartTest('Thread name # pattern (reuse)');
 
-  // Pattern # - smallest free number
-  th1:=Thread.Start('Task#',@SimpleWorker,nil);
-  th2:=Thread.Start('Task#',@SimpleWorker,nil);
+  // start two threads — get Task1 and Task2
+  th1:=Thread.Start('Task#',TThreadFunc(@SimpleWorker));
+  th2:=Thread.Start('Task#',TThreadFunc(@SimpleWorker));
   Sleep(10);
   name1:=th1.Name;
   name2:=th2.Name;
   Check(name1='Task1','First # pattern should be Task1');
   Check(name2='Task2','Second # pattern should be Task2');
 
-  // Wait for first thread to finish
-  th1.Wait;
+  // Wait for BOTH threads to fully finish and unregister
+  th1.Wait(2000);
+  th2.Wait(2000);
 
-  // Start new thread - should reuse Task1
-  th3:=Thread.Start('Task#',@SimpleWorker,nil);
+  // start new thread — should reuse Task1 (smallest free)
+  th3:=Thread.Start('Task#',TThreadFunc(@SimpleWorker));
   Sleep(10);
   name3:=th3.Name;
-  Check(name3='Task1','After Task1 finishes, name should be reused');
+  Check(name3='Task1','After both finish, Task1 should be reused');
 
-  th2.Wait;
   th3.Wait;
+
+  EndTest;
+end;
+
+// Verify that thread status transitions to Finished after Wait.
+// This is a fundamental invariant: if Wait returns, the thread must be done.
+// Tests all callable overloads to ensure none leaves status stuck at Running.
+procedure TestThreadFinalization;
+var
+  th:IThread;
+  executed:boolean;
+  obj:TTestObj;
+begin
+  StartTest('Thread finalization');
+
+  // TThreadFunc overload
+  executed:=false;
+  th:=Thread.Start('FinFunc',@SimpleWorker,@executed);
+  th.Wait(2000);
+  Check(executed,'TThreadFunc: should have executed');
+  Check(th.Status=TThreadStatus.Finished,'TThreadFunc: status should be Finished');
+
+  // TThreadProc overload
+  simpleProcExecuted:=false;
+  th:=Thread.Start('FinProc',TThreadProc(@SimpleProcWorker));
+  th.Wait(2000);
+  Check(simpleProcExecuted,'TThreadProc: should have executed');
+  Check(th.Status=TThreadStatus.Finished,'TThreadProc: status should be Finished');
+
+  // TThreadMethod overload
+  obj:=TTestObj.Create;
+  try
+    th:=Thread.Start('FinMethod',obj.Run);
+    th.Wait(2000);
+    Check(obj.executed,'TThreadMethod: should have executed');
+    Check(th.Status=TThreadStatus.Finished,'TThreadMethod: status should be Finished');
+  finally
+    obj.Free;
+  end;
+
+  EndTest;
+end;
+
+// Verify that SetError inside a thread sets Error status and thread still finalizes.
+// Pattern: catch exception in worker, call CurrentThread.SetError, let thread exit.
+// After Wait, creator sees Status=Error (not Running or Finished).
+procedure TestThreadException;
+var
+  th:IThread;
+  st:TThreadStatus;
+begin
+  StartTest('Thread exception handling');
+
+  th:=Thread.Start('ErrorTest',TThreadProc(@ErrorWorker));
+  th.Wait(2000);
+  st:=th.Status;
+  Check(st<>TThreadStatus.Running,'SetError: should not be running after Wait');
+  Check(st=TThreadStatus.Error,'SetError: status should be Error');
+
+  // Unhandled exception: wrapper catches it and calls SetError automatically
+  // Under Delphi IDE with break-on-exception, debugger pause time affects this:
+  // long pause can make Wait(5000) timeout before thread resumes and sets Error.
+  th:=Thread.Start('RaiseTest',TThreadProc(@RaisingWorker));
+  th.Wait(5000);
+  st:=th.Status;
+  Check(st=TThreadStatus.Error,'Unhandled raise: status should be Error');
 
   EndTest;
 end;
@@ -398,6 +621,10 @@ begin
   try
     writeln('=== Testing Apus.Threads ===');
     writeln;
+
+    // Thread finalization (run first to catch fundamental issues)
+    TestThreadFinalization;
+    TestThreadException;
 
     // Lock tests
     TestLockBasic;
@@ -409,7 +636,11 @@ begin
     TestThreadRegistration;
     TestThreadStart;
     TestCurrentThreadContext;
+    TestParamAndTag;
+    TestStartProc;
+    TestStartMethod;
     TestThreadTermination;
+    TestThreadWaitTimeout;
 
     // Thread naming tests
     TestThreadNames;
@@ -440,5 +671,8 @@ begin
       ExitCode:=255;
     end;
   end;
-  if IsDebuggerPresent then readln;
+  if IsDebuggerPresent then begin
+    writeln('Press [ENTER] to exit');
+    readln;
+  end;
 end.

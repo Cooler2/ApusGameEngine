@@ -83,9 +83,6 @@ type
     function WaitFor(timeoutMs:cardinal=$FFFFFFFF):boolean;
   end;
 
-  // Thread function type
-  TThreadProc=function(parameter:pointer):UIntPtr;
-
   {$SCOPEDENUMS ON}
   // Thread completion status (use as TThreadStatus.Running etc.)
   TThreadStatus=(Running, Finished, Error);
@@ -97,6 +94,10 @@ type
   private
     data:pointer; // PThreadData - internal type kept in implementation
   public
+    // User-provided launch parameters (set by Thread.Start, read-only in thread)
+    function Parameter:pointer;
+    function Tag:String8;
+    // Thread state
     function Terminating:boolean;
     function Paused:boolean;
     function Name:String8;
@@ -108,6 +109,25 @@ type
     procedure SetObject(obj:TObject);            // set custom result object
     procedure SetError(const msg:String8);       // set error status + message
   end;
+
+  // Thread callable types
+  //
+  // IMPORTANT: signature must match exactly. Passing a mismatched function
+  // (e.g. a parameterless procedure via @Foo to TThreadFunc overload) will compile
+  // with a typecast but corrupt the stack at runtime — the wrapper will push
+  // a TThreadContext argument that the callee doesn't expect.
+  // Use the appropriate overload instead:
+  //   Thread.Start(name, @MyFunc, param)    — TThreadFunc (function with ctx)
+  //   Thread.Start(name, @MyProc)           — TThreadProc (procedure, no params)
+  //   Thread.Start(name, obj.Method)        — TThreadMethod (method of object)
+  //
+  // When FPC can't disambiguate @Proc between overloads, use an explicit cast:
+  //   Thread.Start(name, TThreadProc(@MyProc))
+  //   Thread.Start(name, TThreadFunc(@MyFunc))
+  //
+  TThreadFunc=function(ctx:TThreadContext):UIntPtr; // full form: receives context, returns value
+  TThreadProc=procedure;                            // simple procedure, no params
+  TThreadMethod=procedure of object;                // method of object
 
   // Thread control interface for thread creator
   IThread=interface ['{B8E5C8A0-1234-4567-89AB-123456789ABC}']
@@ -133,8 +153,20 @@ type
   end;
 
   // Thread management scope
+  //
+  // Thread.Start overloads — choose the simplest form that fits:
+  //   @MyFunc, param, tag  — full form with context, pointer and string params
+  //   @MyProc              — fire-and-forget, use CurrentThread for context
+  //   obj.Method           — runs a method; object must outlive the thread
+  //   anonymous proc       — Delphi only; captured vars must remain valid
+  //
   Thread=record
-    class function Start(const name:String8; proc:TThreadProc; parameter:pointer=nil):IThread; static;
+    class function Start(const name:String8; func:TThreadFunc; parameter:pointer=nil; const tag:String8=''):IThread; overload; static;
+    class function Start(const name:String8; proc:TThreadProc):IThread; overload; static;
+    class function Start(const name:String8; method:TThreadMethod):IThread; overload; static;
+    {$IFDEF DELPHI}
+    class function Start(const name:String8; action:TProc):IThread; overload; static;
+    {$ENDIF}
     class procedure Register(const name:string; handle:THandle=0); static;
     class procedure Unregister; static;
     class procedure Ping; static;
@@ -184,10 +216,10 @@ function WaitOnAddress(Address:pointer; CompareAddress:pointer; AddressSize:Nati
   stdcall; external 'API-MS-Win-Core-Synch-l1-2-0.dll' name 'WakeByAddressSingle';
 {$ENDIF}
 
-{$IFDEF UNIX}
+  {$IFDEF UNIX}
 // pthread_join for POSIX thread wait (TThreadID is pthread_t on POSIX)
 function pthread_join(thread:TThreadID; value_ptr:Ppointer):longint; cdecl; external 'pthread';
-{$ENDIF}
+  {$ENDIF}
 
 type
   // Internal thread registry entry (not exposed in interface section)
@@ -196,6 +228,8 @@ type
     ID:TThreadID;
     handle:THandle;     // thread handle for waiting
     uniqueName:String8; // resolved name (pattern stored in threadNameCounters)
+    userParam:pointer;  // user-provided pointer parameter
+    userTag:String8;    // user-provided string tag
     startTime:int64;    // CoreTime.Ticks when thread began executing
     lastPing:int64;     // CoreTime.Ticks of last Ping call (0 = never pinged)
     lastCS:PLock;       // last critical section acquired in this thread
@@ -208,15 +242,23 @@ type
     function GetStateInfo:String8; // get thread state (call stack etc)
   end;
 
+  // Callable kind for thread start dispatch
+  TCallableKind=(ckFunc, ckProc, ckMethod {$IFDEF DELPHI}, ckAnon{$ENDIF});
+
   // Thread start wrapper data
   PThreadStartData=^TThreadStartData;
   TThreadStartData=record
-    proc:TThreadProc;
-    parameter:pointer;
-    threadData:PThreadData; // pre-allocated, added to threads[] by Thread.Start
-    impl:TObject;           // TThreadImpl (raw object ref - avoids premature free via interface)
+    kind:TCallableKind;
+    func:TThreadFunc;           // for ckFunc
+    simpleProc:TThreadProc;     // for ckProc
+    method:TThreadMethod;       // for ckMethod
+    {$IFDEF DELPHI}
+    action:TProc;               // for ckAnon
+    {$ENDIF}
+    threadData:PThreadData;     // pre-allocated, added to threads[] by Thread.Start
+    impl:TObject;               // TThreadImpl (raw object ref - avoids premature free via interface)
     {$IFDEF DEBUG}
-    startupTimer:int64;     // QPC value from Thread.Start, for startup latency measurement
+    startupTimer:int64;         // QPC value from Thread.Start, for startup latency measurement
     {$ENDIF}
   end;
 
@@ -226,6 +268,10 @@ type
   private
     threadID:TThreadID;
     handle:THandle;             // Windows handle or 0 for POSIX (uses threadID)
+    doneEvent:TLightweightEvent; // signaled from IntFinish after status is set
+    {$IFDEF UNIX}
+    joined:integer;             // 0=not joined, 1=joined (pthread resources reaped)
+    {$ENDIF}
     name:String8;               // cached at creation, valid after thread exits
     status:TThreadStatus;       // written atomically (thread writes, creator reads)
     statusText:String8;         // spinlock-protected (may be written/read many times)
@@ -831,8 +877,6 @@ end;
 function ThreadStartWrapper(param:pointer):UIntPtr;
 var
   startData:PThreadStartData;
-  userProc:TThreadProc;
-  userParam:pointer;
   data:PThreadData;
   {$IFDEF DEBUG}
   startupTimer:int64;
@@ -840,13 +884,10 @@ var
   {$ENDIF}
 begin
   startData:=PThreadStartData(param);
-  userProc:=startData^.proc;
-  userParam:=startData^.parameter;
   data:=startData^.threadData;
   {$IFDEF DEBUG}
-  startupTimer:=startData^.startupTimer; // save before Dispose
+  startupTimer:=startData^.startupTimer;
   {$ENDIF}
-  Dispose(startData);
 
   // Fill in remaining fields from within thread context
   SpinLock;
@@ -862,6 +903,10 @@ begin
 
   // Set thread context (data is heap-allocated → pointer stable regardless of threads[] realloc)
   CurrentThread.data:=data;
+  // Ensure implPtr is set before user code runs — DoStartThread may not have reached
+  // the post-BeginThread assignment yet if this thread was scheduled immediately
+  if data^.implPtr=nil then
+    data^.implPtr:=startData^.impl;
   data^.startTime:=CoreTime.Ticks; // mark when thread actually began executing
   {$IFDEF DEBUG}
   startupUs:=round(TimerSec(startupTimer)*1e6);
@@ -886,15 +931,31 @@ begin
 
   result:=0;
   try
-    result:=userProc(userParam);
+    try
+      case startData^.kind of
+        TCallableKind.ckFunc: result:=startData^.func(CurrentThread);
+        TCallableKind.ckProc: startData^.simpleProc;
+        TCallableKind.ckMethod: startData^.method;
+        {$IFDEF DELPHI}
+        TCallableKind.ckAnon: startData^.action();
+        {$ENDIF}
+      end;
+    except
+      on e:Exception do begin // catch unhandled exceptions to prevent process termination
+        if data^.implPtr<>nil then
+          TThreadImpl(data^.implPtr).IntSetError(e.Message);
+      end;
+    end;
   finally
+    Dispose(startData); // dispose after call (callable fields may hold managed refs)
     UnregisterThread;
   end;
 end;
 
-class function Thread.Start(const name:String8; proc:TThreadProc; parameter:pointer):IThread;
+// Internal: common thread launch logic
+function DoStartThread(const name:String8; startData:PThreadStartData;
+  userParam:pointer=nil; const userTag:String8=''):IThread;
 var
-  startData:PThreadStartData;
   impl:TThreadImpl;
   threadID:TThreadID;
   handle:THandle;
@@ -906,6 +967,8 @@ begin
   data^.lastCS:=nil;
   data^.startTime:=0; // set in ThreadStartWrapper when thread actually runs
   data^.lastPing:=0;
+  data^.userParam:=userParam;
+  data^.userTag:=userTag;
   data^.terminating:=false;
   data^.paused:=false;
   data^.ID:=0;     // filled after BeginThread
@@ -925,10 +988,7 @@ begin
   // Create impl with final resolved name (cached for IThread lifetime)
   impl:=TThreadImpl.Create(uniqueName);
 
-  // Prepare wrapper data
-  startData:=New(PThreadStartData);
-  startData^.proc:=proc;
-  startData^.parameter:=parameter;
+  // Finalize wrapper data
   startData^.threadData:=data;
   startData^.impl:=impl;
   {$IFDEF DEBUG}
@@ -937,11 +997,11 @@ begin
 
   // Start thread
   {$IFDEF FPC}
-  threadID:=BeginThread(@ThreadStartWrapper,startData);
-  {$IFDEF MSWINDOWS}
-  handle:=threadID; // FPC on Windows: threadID is handle
-  {$ELSE}
-  handle:=0; // FPC on POSIX: threadID is pthread_t, use pthread_join
+  // Use 3-arg overload to get real thread ID separate from handle.
+  // BeginThread return value is handle on Windows, pthread_t on POSIX.
+  handle:=BeginThread(@ThreadStartWrapper,startData,threadID);
+  {$IFNDEF MSWINDOWS}
+  handle:=0; // POSIX: use pthread_join with threadID instead
   {$ENDIF}
   {$ELSE}
   handle:=BeginThread(nil,0,@ThreadStartWrapper,startData,0,threadID);
@@ -962,6 +1022,48 @@ begin
 
   result:=impl;
 end;
+
+class function Thread.Start(const name:String8; func:TThreadFunc; parameter:pointer; const tag:String8):IThread;
+var
+  startData:PThreadStartData;
+begin
+  startData:=New(PThreadStartData);
+  startData^.kind:=TCallableKind.ckFunc;
+  startData^.func:=func;
+  result:=DoStartThread(name,startData,parameter,tag);
+end;
+
+class function Thread.Start(const name:String8; proc:TThreadProc):IThread;
+var
+  startData:PThreadStartData;
+begin
+  startData:=New(PThreadStartData);
+  startData^.kind:=TCallableKind.ckProc;
+  startData^.simpleProc:=proc;
+  result:=DoStartThread(name,startData);
+end;
+
+class function Thread.Start(const name:String8; method:TThreadMethod):IThread;
+var
+  startData:PThreadStartData;
+begin
+  startData:=New(PThreadStartData);
+  startData^.kind:=TCallableKind.ckMethod;
+  startData^.method:=method;
+  result:=DoStartThread(name,startData);
+end;
+
+{$IFDEF DELPHI}
+class function Thread.Start(const name:String8; action:TProc):IThread;
+var
+  startData:PThreadStartData;
+begin
+  startData:=New(PThreadStartData);
+  startData^.kind:=TCallableKind.ckAnon;
+  startData^.action:=action;
+  result:=DoStartThread(name,startData);
+end;
+{$ENDIF}
 
 // Public: register current (foreign) thread in the registry for monitoring
 class procedure Thread.Register(const name:string; handle:THandle=0);
@@ -1216,6 +1318,26 @@ end;
 
 { TThreadContext }
 
+function TThreadContext.Parameter:pointer;
+var d:PThreadData;
+begin
+  d:=PThreadData(data);
+  if d<>nil then
+    result:=d^.userParam
+  else
+    result:=nil;
+end;
+
+function TThreadContext.Tag:String8;
+var d:PThreadData;
+begin
+  d:=PThreadData(data);
+  if d<>nil then
+    result:=d^.userTag
+  else
+    result:='';
+end;
+
 function TThreadContext.Terminating:boolean;
 var d:PThreadData;
 begin
@@ -1303,6 +1425,10 @@ begin
   inherited Create;
   name:=aName;
   status:=TThreadStatus.Running;
+  doneEvent.Init;
+  {$IFDEF UNIX}
+  joined:=0;
+  {$ENDIF}
   statusTextLock:=0;
   progress:=0;
   resultWritten:=false;
@@ -1320,17 +1446,30 @@ begin
   inherited;
 end;
 
+{$IFDEF UNIX}
+procedure TThreadImpl.Wait(timeout:cardinal);
+var
+  completed:boolean;
+  joinRes:longint;
+begin
+  // Wait on doneEvent — signaled from IntFinish after status is set.
+  // If timeout expires, returns and thread may still be Running.
+  completed:=doneEvent.WaitFor(timeout);
+  // Reap POSIX thread resources once after completion.
+  if completed and (Atomic.CmpExchange(joined,1,0)=0) then begin
+    joinRes:=pthread_join(threadID,nil);
+    if joinRes<>0 then
+      Log.Msg('WARNING: pthread_join failed for %s (%d)',[name,joinRes]);
+  end;
+end;
+{$ELSE}
 procedure TThreadImpl.Wait(timeout:cardinal);
 begin
-  {$IFDEF MSWINDOWS}
-  if handle<>0 then
-    WaitForSingleObject(handle,timeout);
-  {$ELSE}
-  // POSIX: use pthread_join (threadID is pthread_t)
-  // Note: pthread_join doesn't support timeout, waits indefinitely
-  pthread_join(threadID,nil);
-  {$ENDIF}
+  // Wait on doneEvent — signaled from IntFinish after status is set.
+  // If timeout expires, returns and thread may still be Running.
+  doneEvent.WaitFor(timeout);
 end;
+{$ENDIF}
 
 procedure TThreadImpl.Terminate;
 var
@@ -1446,7 +1585,8 @@ procedure TThreadImpl.IntSetError(const msg:String8);
 begin
   IntSetStatusText(msg);
   status:=TThreadStatus.Error; // byte write is atomic on x86/x64
-  keepAlive:=nil; // release self-reference
+  // don't release keepAlive or signal doneEvent here — thread is still running,
+  // IntFinish will handle cleanup when thread actually exits
 end;
 
 procedure TThreadImpl.IntFinish;
@@ -1454,6 +1594,7 @@ begin
   // write status last: guarantees all prior writes (text, progress, result) are visible
   if status=TThreadStatus.Running then
     status:=TThreadStatus.Finished; // byte write is atomic on x86/x64
+  doneEvent.SetEvent; // unblock Wait callers — must be before keepAlive:=nil
   keepAlive:=nil; // release self-reference (may trigger Destroy if creator dropped th1)
 end;
 
