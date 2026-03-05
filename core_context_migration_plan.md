@@ -184,7 +184,51 @@ Exit criteria:
   - `Apus.Engine.Draw`: pointer-based `IndexedMesh(...)` overloads now use dynamic scratch VB/IB upload + bound-buffer indexed draw (used by `Mesh`/`Model3D` immediate paths).
   - `Apus.Engine.OpenGL.TRenderDevice`: stream VBO/IBO fallback now covers pointer-fed draws in compatibility mode as well (when `GL_ARRAY_BUFFER` is not pre-bound), while preserving explicit client-pointer fallback safety for mixed states.
   - Validation note: `SimpleDemo` build/runtime confirms text/particles/spinner paths; mesh-path runtime validation is pending a mesh-using demo target.
-- [~] Stage 6: shader syntax/core alignment started.
+- [x] Stage 6: shader syntax/core alignment completed for desktop/core render path.
   - `Apus.Engine.PainterGL2`: desktop shader strings switched to GLSL core-style (`#version 330`, `in/out`, `texture`, explicit fragment output), while preserving existing GLES shader path under `{$IFDEF GLES}`.
   - review follow-up: removed GL state queries from draw hot path (`TRenderDevice` now uses tracked array/element buffer bindings).
   - review follow-up: removed per-draw `MaxIndexInBuffer` scan from hot path; RAM-backed indexed stream upload is constrained to ranged overload with explicit `vrtCount`.
+  - `Apus.Engine.ShadersGL`: active desktop shader generation remains unified on `#version 330` with explicit `in/out`.
+  - no compatibility GLSL fallback is used in desktop runtime path; legacy GLSL tokens remain only in GLES-conditional shader branch.
+
+## Review Notes (post-Stage 4-6)
+
+Issues found during code review of Stages 4-6 implementation. Bugs must be fixed before enabling core profile; optimization items can be deferred.
+
+### Bugs (must fix)
+
+1. **`TIndexBufferGL.Resize` binds to wrong target** (`Apus.Engine.ResManGL`)
+   - Uses `GL_ARRAY_BUFFER` instead of `GL_ELEMENT_ARRAY_BUFFER` — resize silently corrupts current VBO binding and does not actually resize the index buffer.
+   - Tracking calls also wrong: calls `TrackArrayBufferBinding` instead of `TrackElementBufferBinding`.
+   - Pre-existing bug amplified by new tracking code.
+
+2. **`TrackArrayBufferBinding`/`TrackElementBufferBinding` in `IRenderDevice`** (`Apus.Engine.Graphics`)
+   - GL-internal bind tracking leaked into the public abstract interface `IRenderDevice`, which should be backend-agnostic.
+   - Fix: move to a GL-internal interface or use direct `TRenderDevice` cast in `ResManGL` (both are GL-only).
+
+### Optimization (defer OK)
+
+3. **Double bind/unbind churn in `ResManGL` upload paths**
+   - Every `Upload`/`Resize` does bind → work → unbind(0), then `TDrawer` immediately re-binds via `UseVertexBuffer`. Two redundant state changes per draw.
+   - Low priority: only matters at high draw-call counts.
+
+4. **Bind/draw/unbind boilerplate in `TDrawer`**
+   - Every draw site in `Apus.Engine.Draw` repeats 5-line pattern: `UseVB → UseIB → DrawIndexed → UseVB(nil) → UseIB(nil)`.
+   - Extract a helper method to reduce repetition and state-leak risk.
+
+5. **`bandInd` array over-allocated**
+   - Changed from `4*MaxParticleCount` to `6*MaxParticleCount` (60KB at default 5000). Real worst case for band rendering is `(segmentCount-1)*6` which is typically much less. Low priority.
+
+### Design considerations (for later stages)
+
+6. **Shader source selection is compile-time only** (`PainterGL2`)
+   - `{$IFDEF GLES}` splits shader strings at compile time. Desktop build always gets `#version 330` even in compatibility context.
+   - Works (compatibility contexts accept `#version 330`), but runtime selection based on `oglContextInfo` would be cleaner and more flexible.
+
+7. **Whitespace noise in diffs**
+   - Stages 4-6 commits contain ~30-40% whitespace-only line changes mixed with real changes. Complicates review and pollutes `git blame`.
+   - Enforce: separate formatting commits or avoid unnecessary whitespace changes entirely.
+
+8. **Stream VBO growth strategy**
+   - Current power-of-2 growth with `GL_STREAM_DRAW` + `glBufferSubData` is correct and sufficient for SimpleDemo.
+   - For higher draw-call workloads, consider orphaning (`glBufferData` with new size each frame) or persistent mapping (`GL_MAP_PERSISTENT_BIT`, requires GL 4.4) as future optimization.
