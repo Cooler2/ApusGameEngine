@@ -203,7 +203,7 @@ Exit criteria:
 - [x] Stage 9: validation and rollout updates completed for mandatory core-profile migration path.
   - `SimpleDemo` runs on core profile (runtime-confirmed).
   - migration status synchronized in roadmap/work-ahead docs.
-  - NSight runtime capture validation remains as final acceptance check.
+  - NSight runtime capture validation passed on `SimpleDemo` (usable event grouping/resource visibility).
 
 ## Review Notes (post-Stage 4-6)
 

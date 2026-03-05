@@ -64,7 +64,7 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - R-01 Stage 7 baseline done: OpenGL debug callback wiring + notification filtering + frame/RT debug groups + present marker.
   - R-01 Stage 7 baseline done: GL object labels added for VBO/IBO/FBO allocations (texture labels were already present).
   - R-01 Stage 8 done: `demo/SimpleDemo/SimpleDemo.dproj` now includes dedicated `NSight` config (debug symbols, no optimizations).
-  - R-01 final NSight acceptance step remains: capture a representative frame and confirm named resources/event groups in NSight UI.
+  - R-01 final NSight acceptance step completed: `SimpleDemo` capture verified in NSight.
 
 ## In Progress
 - First wave of engine migration is effectively complete:
@@ -78,6 +78,8 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
 - R-01 follow-up (high priority): decide/runtime-wire shader variant selection in `PainterGL2` based on actual context profile/version (`oglContextInfo`) instead of compile-time split only.
 - R-01 follow-up (high priority): enforce whitespace discipline for migration commits (separate formatting-only diffs or avoid them entirely).
 - R-01 follow-up (medium): add a small smoke-test for Windows GL version-string parsing used during temporary-context capability probe.
+- R-01 follow-up (low): provide semantic labels for engine-managed VBO/IBO (instead of generic `VB#id`/`IB#id`) for faster NSight navigation.
+- R-01 follow-up (low): evaluate shader program/object labeling path to improve visibility in NSight object lists.
 - Run a second pass on already touched engine modules:
   - replace migration-style fixes with cleaner engine5-native usage
   - remove unnecessary dependencies
