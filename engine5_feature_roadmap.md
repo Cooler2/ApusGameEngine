@@ -142,6 +142,7 @@ Use this section for anything remembered on the fly.
   - 2026-03-05: Mandatory rollout milestone reached: `SimpleDemo` runs on core profile in current Windows path.
   - 2026-03-05: Stage 7/8 baseline delivered: OpenGL debug callback/groups + GL object labels + dedicated `NSight` build config for `SimpleDemo`.
   - 2026-03-05: NSight runtime validation passed on `SimpleDemo` (capture works, textures are labeled, shader sources visible/editable).
+  - 2026-03-06: Additional runtime confidence milestone: `demo/VertexBuffer` works (render mode switching + VSync toggle validated).
 
 ### [R-02] Multi-Window, Multi-Monitor, and Hot DPI-Awareness
 - Status: idea

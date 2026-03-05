@@ -1,5 +1,5 @@
 ﻿# Engine Work Ahead Log
-Last updated: 2026-03-05
+Last updated: 2026-03-06
 
 This file is for active execution tracking only:
 - small and medium changes;
@@ -65,6 +65,7 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - R-01 Stage 7 baseline done: GL object labels added for VBO/IBO/FBO allocations (texture labels were already present).
   - R-01 Stage 8 done: `demo/SimpleDemo/SimpleDemo.dproj` now includes dedicated `NSight` config (debug symbols, no optimizations).
   - R-01 final NSight acceptance step completed: `SimpleDemo` capture verified in NSight.
+  - Additional runtime validation: `demo/VertexBuffer` confirmed working (mode switch + VSync toggle verified).
 
 ## In Progress
 - First wave of engine migration is effectively complete:
