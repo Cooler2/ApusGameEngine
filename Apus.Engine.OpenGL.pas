@@ -680,6 +680,44 @@ procedure PopDebugGroup;
 procedure HandleGLDebugMessage(source,typ,id,severity:GLenum;len:GLsizei;const message_:PGLchar;userParam:PGLvoid); {$IFDEF DGL_WIN}stdcall{$ELSE}cdecl{$ENDIF};
  var
   st:string8;
+  srcName,typeName,severityName:string8;
+ function DebugSourceName(v:GLenum):string8; inline;
+  begin
+   case v of
+    GL_DEBUG_SOURCE_API:result:='API';
+    GL_DEBUG_SOURCE_WINDOW_SYSTEM:result:='WIN';
+    GL_DEBUG_SOURCE_SHADER_COMPILER:result:='SHDR';
+    GL_DEBUG_SOURCE_THIRD_PARTY:result:='3RD';
+    GL_DEBUG_SOURCE_APPLICATION:result:='APP';
+    GL_DEBUG_SOURCE_OTHER:result:='OTHER';
+    else result:='SRC'+IntToHex(v,4);
+   end;
+  end;
+ function DebugTypeName(v:GLenum):string8; inline;
+  begin
+   case v of
+    GL_DEBUG_TYPE_ERROR:result:='ERROR';
+    GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:result:='DEPR';
+    GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:result:='UNDEF';
+    GL_DEBUG_TYPE_PORTABILITY:result:='PORT';
+    GL_DEBUG_TYPE_PERFORMANCE:result:='PERF';
+    GL_DEBUG_TYPE_OTHER:result:='OTHER';
+    {$IFDEF DGL}
+    GL_DEBUG_TYPE_MARKER:result:='MARK';
+    {$ENDIF}
+    else result:='TYPE'+IntToHex(v,4);
+   end;
+  end;
+ function DebugSeverityName(v:GLenum):string8; inline;
+  begin
+   case v of
+    GL_DEBUG_SEVERITY_HIGH:result:='HIGH';
+    GL_DEBUG_SEVERITY_MEDIUM:result:='MED';
+    GL_DEBUG_SEVERITY_LOW:result:='LOW';
+    GL_DEBUG_SEVERITY_NOTIFICATION:result:='NOTE';
+    else result:='SEV'+IntToHex(v,4);
+   end;
+  end;
  begin
   // Driver callback for runtime GL diagnostics.
   // We keep source/type/id/severity in raw form so logs are easy to compare
@@ -688,7 +726,12 @@ procedure HandleGLDebugMessage(source,typ,id,severity:GLenum;len:GLsizei;const m
   if severity=GL_DEBUG_SEVERITY_NOTIFICATION then exit;
   // Stage 7: leave message mapping simple and log raw enums for cross-driver diagnostics.
   st:=PAnsiChar(message_);
-  Log.Force(Format('[GLDBG] src=%d type=%d id=%d sev=%d: %s',[source,typ,id,severity,st]));
+  srcName:=DebugSourceName(source);
+  typeName:=DebugTypeName(typ);
+  severityName:=DebugSeverityName(severity);
+  // SystemMessage routes to log + debugger console, and can be configured
+  // by SystemMessageFlags to escalate into EFatalError (smRaise) for strict runs.
+  SystemMessage(Format('[GLDBG][%s][%s][%s] id=%d: %s',[srcName,typeName,severityName,id,st]));
  end;
 
 procedure TRenderDevice.TrackElementBufferBinding(buffer:cardinal);
