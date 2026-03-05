@@ -155,10 +155,10 @@ procedure TMainScene.Render;
   gfx.target.UseDepthBuffer(dbDisabled);
   inherited;
   // Text overlays
-  txt.WriteW(0,10,20,clWhite,'Mesh triangles: '+IntToStr(trgCount div 1000)+'K');
-  txt.WriteW(0,10,40,clWhite,'Total triangles: '+IntToStr(trgCount*21 div 1000)+'K');
-  txt.WriteW(0,10,game.renderHeight-30,clWhite,'[Alt]+[F11] - toggle VSync');
-  txt.WriteW(0,10,game.renderHeight-10,clWhite,'[Alt]+[Enter] - toggle Fullscreen');
+  txt.Write(0,10,20,clWhite,'Mesh triangles: '+IntToStr(trgCount div 1000)+'K');
+  txt.Write(0,10,40,clWhite,'Total triangles: '+IntToStr(trgCount*21 div 1000)+'K');
+  txt.Write(0,10,game.renderHeight-30,clWhite,'[Alt]+[F11] - toggle VSync');
+  txt.Write(0,10,game.renderHeight-10,clWhite,'[Alt]+[Enter] - toggle Fullscreen');
  end;
 
 end.

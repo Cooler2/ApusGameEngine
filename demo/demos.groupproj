@@ -1,0 +1,72 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{0A44A2B6-B2C3-43C4-83A4-4487D821B7C3}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="SimpleDemo\SimpleDemo.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="01-Scenes\scenes.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Simple3D\Simple3D.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="VertexBuffer\VertexBuffer.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="SimpleDemo">
+        <MSBuild Projects="SimpleDemo\SimpleDemo.dproj"/>
+    </Target>
+    <Target Name="SimpleDemo:Clean">
+        <MSBuild Projects="SimpleDemo\SimpleDemo.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="SimpleDemo:Make">
+        <MSBuild Projects="SimpleDemo\SimpleDemo.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="scenes">
+        <MSBuild Projects="01-Scenes\scenes.dproj"/>
+    </Target>
+    <Target Name="scenes:Clean">
+        <MSBuild Projects="01-Scenes\scenes.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="scenes:Make">
+        <MSBuild Projects="01-Scenes\scenes.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Simple3D">
+        <MSBuild Projects="Simple3D\Simple3D.dproj"/>
+    </Target>
+    <Target Name="Simple3D:Clean">
+        <MSBuild Projects="Simple3D\Simple3D.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Simple3D:Make">
+        <MSBuild Projects="Simple3D\Simple3D.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="VertexBuffer">
+        <MSBuild Projects="VertexBuffer\VertexBuffer.dproj"/>
+    </Target>
+    <Target Name="VertexBuffer:Clean">
+        <MSBuild Projects="VertexBuffer\VertexBuffer.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="VertexBuffer:Make">
+        <MSBuild Projects="VertexBuffer\VertexBuffer.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="SimpleDemo;scenes;Simple3D;VertexBuffer"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="SimpleDemo:Clean;scenes:Clean;Simple3D:Clean;VertexBuffer:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="SimpleDemo:Make;scenes:Make;Simple3D:Make;VertexBuffer:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
