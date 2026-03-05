@@ -276,7 +276,7 @@ var
 // =============================================================================
 
   function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF}; inline;
-  function IsDebuggerPresent:boolean; inline;
+  function IsDebuggerPresent:boolean; {$IFDEF FPC} inline; {$ENDIF}
   {$IF not DECLARED(MemoryBarrier)}
   {$DEFINE NEED_MEMORY_BARRIER}
   procedure MemoryBarrier; inline;
@@ -323,6 +323,10 @@ type
 
   // Display a messgae using system platform facilities (stderr, MessageBox etc.). Configurable.
   procedure SystemMessage(const msg:String8);
+  // Explicit debug output (to debugger console when available).
+  // Unlike Log.Msg, this is intended for low-level lifecycle tracing.
+  procedure DebugMsg(const msg:String8); overload;
+  procedure DebugMsg(const msg:String8; const params:array of const); overload;
 
 // === SystemMessage — configurable critical message output ===
 type
@@ -626,22 +630,46 @@ function ptrace(__request:integer; PID:{$IFDEF FPC}pid_t{$ELSE}integer{$ENDIF};
 {$ENDIF}
 {$ENDIF}
 
-function IsDebuggerPresent:boolean; inline;
+var
+  debuggerPresentCache:shortint=-1; // -1 unknown, 0 no debugger, 1 debugger detected
+
+function IsDebuggerPresent:boolean;
 begin
 {$IFDEF MSWINDOWS}
-  result:=windows.IsDebuggerPresent;
+  if debuggerPresentCache<0 then
+    debuggerPresentCache:=byte(windows.IsDebuggerPresent);
+  result:=debuggerPresentCache<>0;
 {$ELSE}
   {$IFDEF IOS}
   result:=false;
   {$ELSE}
-  if ptrace(PTRACE_TRACEME,0,nil,0)<0 then
-    result:=true
-  else begin
-    ptrace(PTRACE_DETACH,0,nil,0);
-    result:=false;
+  if debuggerPresentCache<0 then begin
+    if ptrace(PTRACE_TRACEME,0,nil,0)<0 then
+      debuggerPresentCache:=1
+    else begin
+      ptrace(PTRACE_DETACH,0,nil,0);
+      debuggerPresentCache:=0;
+    end;
   end;
+  result:=debuggerPresentCache<>0;
   {$ENDIF}
 {$ENDIF}
+end;
+
+procedure DebugMsg(const msg:String8);
+begin
+{$IFDEF MSWINDOWS}
+  if IsDebuggerPresent then
+    OutputDebugStringA(PAnsiChar(msg));
+{$ELSE}
+  if IsDebuggerPresent and hasConsole then
+    WriteLn({$IFDEF FPC}StdErr{$ELSE}ErrOutput{$ENDIF},msg);
+{$ENDIF}
+end;
+
+procedure DebugMsg(const msg:String8; const params:array of const);
+begin
+  DebugMsg(String8(Format(string(msg),params)));
 end;
 
 {$IFDEF NEED_MEMORY_BARRIER}

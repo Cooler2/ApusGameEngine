@@ -58,6 +58,7 @@ type
   Logger = record
     class procedure UseLogFile(name:string; useThread:boolean=false; keepOpened:boolean=false); static;
     class procedure SetVerbosity(minSeverity:TSeverity=TSeverity.Info); static;
+    class procedure SetDebugMirror(minSeverity:TSeverity=TSeverity.Error; enable:boolean=true); static;
     class procedure LogCacheMode(enableCache:boolean; bypassSeverity:TSeverity = TSeverity.Forced); static;
     class procedure Flush; static;
     class procedure SetCustomHandler(handler:TLogProc; disableDefaultHandler:boolean = false); static;
@@ -77,6 +78,8 @@ var
   cacheBuf:RawByteString;
   cacheEnabled:boolean;
   bypassCacheSeverity:TSeverity = TSeverity.Forced;
+  debugMirrorEnabled:boolean=true;
+  debugMirrorMinSeverity:TSeverity = TSeverity.Error;
   logLock:TLock;
   logErrorCount:integer;
   customHandler:TLogProc;
@@ -91,6 +94,14 @@ var
 function FormatLogText(const text:string):string;
 begin
   result:=Apus.Core.Time.Stamp+'  '+text;
+end;
+
+function BuildText(const msg:String8; category:byte):string;
+begin
+  if category > 0 then
+    result:='['+IntToStr(category)+'] '+string(msg)
+  else
+    result:=string(msg);
 end;
 
 procedure AppendLogFile(var data; size:integer);
@@ -130,10 +141,7 @@ begin
   if level<minLogLevel then exit;
 
   // Format message
-  if category > 0 then
-    text:='['+IntToStr(category)+'] '+string(msg)
-  else
-    text:=string(msg);
+  text:=BuildText(msg,category);
 
   st:=FormatLogText(text);
   logLock.Enter;
@@ -189,6 +197,8 @@ end;
 { Log }
 
 class procedure Log.Msg(msg:String8; category:byte; level:TSeverity);
+var
+  text:string;
 begin
   // Call custom handler if set
   if Assigned(customHandler) then
@@ -197,6 +207,12 @@ begin
   // Call default handler unless disabled
   if not disableDefault then
     InternalLogWrite(msg, category, level);
+
+  // Optional mirroring to debug console.
+  if debugMirrorEnabled and (level>=debugMirrorMinSeverity) then begin
+    text:=BuildText(msg,category);
+    DebugMsg(FormatLogText(text));
+  end;
 
   // Track errors
   if level>=TSeverity.Error then
@@ -311,6 +327,12 @@ end;
 class procedure Logger.SetVerbosity(minSeverity:TSeverity);
 begin
   minLogLevel:=minSeverity;
+end;
+
+class procedure Logger.SetDebugMirror(minSeverity:TSeverity; enable:boolean);
+begin
+  debugMirrorMinSeverity:=minSeverity;
+  debugMirrorEnabled:=enable;
 end;
 
 class procedure Logger.LogCacheMode(enableCache:boolean; bypassSeverity:TSeverity);
