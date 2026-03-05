@@ -120,6 +120,7 @@ Use this section for anything remembered on the fly.
 - [ ] [R-006] 3D material pipeline: normal mapping (optional parallax/occlusion extensions)
 - [ ] [R-007] Geometric utility library for object culling and intersections (Geom3D extension)
 - [ ] [R-008] UI input hit-test for out-of-bounds children without full-tree mouse-move traversal
+- [ ] [R-009] OpenGL performance modernization (bindless/persistent mapping + explicit batching)
 
 ## 5) Seed Feature Cards
 
@@ -247,6 +248,25 @@ Use this section for anything remembered on the fly.
   - [ ] Existing modal-window and z-order input behavior remains unchanged in representative UI demo flows.
   - [ ] Add at least one focused test or reproducible scenario covering this case.
 - Notes: target an optimization strategy such as selective traversal only through potentially relevant overflow branches (or cached overflow-aware hit regions), not brute-force global traversal.
+
+### [R-09] OpenGL Performance Modernization (Core-Profile Follow-Up)
+- Status: idea
+- Priority: P1
+- Area: Render
+- Value: improve CPU/GPU efficiency on core profile and reduce driver overhead in real scenes.
+- Scope (MVP): reduce redundant state changes (`glBind*` churn), introduce practical batching for line-heavy immediate paths, and evaluate modern GL features behind capability gates (persistent mapped streaming, bindless resources where available).
+- Out of scope: full renderer rewrite or hard requirement on latest GL-only GPUs.
+- Dependencies: `Apus.Engine.OpenGL`, `Apus.Engine.Draw`, `Apus.Engine.ResManGL`, `Apus.Engine.ShadersGL`, runtime capability detection.
+- Risks: synchronization bugs with persistent mapping; cross-driver behavior differences; complexity creep in draw API.
+- Acceptance Criteria:
+  - [ ] Redundant bind calls flagged as useless in NSight are reduced in representative captures.
+  - [ ] Introduced one explicit batch path for high-frequency simple primitives (e.g. lines) with deferred flush on state/shader/texture changes.
+  - [ ] Added capability-gated prototype for modern buffer update path (persistent mapping or equivalent) with fallback to current path.
+  - [ ] Performance telemetry/comparison added for at least one representative demo scene.
+- Notes: initial optimization candidates from NSight review:
+  - collapse repetitive `UseVertexBuffer/UseIndexBuffer/Draw/Unbind` pattern via scoped helper;
+  - avoid unconditional unbind-to-zero in upload paths when the same buffer remains active;
+  - add lightweight state cache to skip redundant binds at API boundary.
 
 ## 6) Next Planning Session
 Prepare for the next discussion:

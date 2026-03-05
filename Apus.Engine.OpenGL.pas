@@ -290,6 +290,12 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   oglContextInfo:=actual;
   Log.Force('OpenGL context actual: '+GLContextInfoToString(oglContextInfo));
   if actual.debugContext then begin
+   // Stage 7 debug tooling:
+   // 1) driver callback routes GL validation/runtime messages into engine log;
+   // 2) notification severity is filtered out to keep logs readable;
+   // 3) debug groups/markers are emitted from BeginPaint/EndPaint/PresentFrame.
+   // Callback is required because many important issues are reported by the driver
+   // asynchronously and are not visible via glGetError alone.
    // Stage 7: KHR/ARB debug callback is optional at runtime.
    // Keep startup resilient if driver exposes debug context flag but not callback entry points.
    if @glDebugMessageCallback<>nil then begin
@@ -675,6 +681,9 @@ procedure HandleGLDebugMessage(source,typ,id,severity:GLenum;len:GLsizei;const m
  var
   st:string8;
  begin
+  // Driver callback for runtime GL diagnostics.
+  // We keep source/type/id/severity in raw form so logs are easy to compare
+  // against vendor docs and NSight event metadata.
   if message_=nil then exit;
   if severity=GL_DEBUG_SEVERITY_NOTIFICATION then exit;
   // Stage 7: leave message mapping simple and log raw enums for cross-driver diagnostics.

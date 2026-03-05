@@ -207,9 +207,12 @@ begin
  // TODO(low): reassess required peak size for bandInd against real workloads (currently allocated for worst-case 6 indices per segment).
  setLength(bandInd,6*MaxParticleCount);
  partVB:=gfx.resMan.AllocVertexBuffer(TVertex.layoutTex,4*MaxParticleCount,TBufferUsage.buDynamic);
+ partVB.debugName:='partVB';
  partIB:=gfx.resMan.AllocIndexBuffer(6*MaxParticleCount,2,TBufferUsage.buStatic);
+ partIB.debugName:='partIB';
  partIB.Upload(0,6*MaxParticleCount,@partInd[0]);
  bandIB:=gfx.resMan.AllocIndexBuffer(6*MaxParticleCount,2,TBufferUsage.buDynamic);
+ bandIB.debugName:='bandIB';
  meshVB:=nil;
  meshIB:=nil;
 
@@ -218,6 +221,7 @@ begin
  neutral.Clear($FF808080);
  shader.UseTexture(neutral);
  partShader3D:=shader.Build(PART_SHADER_3D_VERT,PART_SHADER_3D_FRAG);
+ partShader3D.name:='partShader3D';
 end;
 
 destructor TDrawer.Destroy;
@@ -919,12 +923,14 @@ begin
  if (meshVB=nil) or (not meshVB.layout.Equals(layout)) then begin
   if meshVB<>nil then meshVB.Free;
   meshVB:=gfx.resMan.AllocVertexBuffer(layout,vrtCount,TBufferUsage.buDynamic);
+  meshVB.debugName:='meshVB';
  end else
  if meshVB.count<vrtCount then
   meshVB.Resize(vrtCount);
- if meshIB=nil then
-  meshIB:=gfx.resMan.AllocIndexBuffer(indCount,2,TBufferUsage.buDynamic)
- else
+ if meshIB=nil then begin
+  meshIB:=gfx.resMan.AllocIndexBuffer(indCount,2,TBufferUsage.buDynamic);
+  meshIB.debugName:='meshIB';
+ end else
  if meshIB.count<indCount then
   meshIB.Resize(indCount);
 end;
@@ -1343,8 +1349,10 @@ begin
 
  // Buffer
  extraLayout.Init([vcPosition3d,vcColor,vcUV1,vcUV2,vcNormal]);
- if partBuffer=nil then
+ if partBuffer=nil then begin
   partBuffer:=gfx.resMan.AllocVertexBuffer(extraLayout,count+1,TBufferUsage.buDynamic);
+  partBuffer.debugName:='partBuffer';
+ end;
  if partBuffer.sizeInBytes<(count+1)*sizeof(TParticleData) then
   partBuffer.Resize(count+1);
 

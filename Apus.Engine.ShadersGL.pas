@@ -172,6 +172,31 @@ const
  LIGHT_DEPTHPASS  = 64; // use empty shader for rendering into a depth texture
  LIGHT_CUSTOMIZED = 128; // customized color calculation (low 4 bits contain index of customized shader code)
 
+procedure SetGLProgramLabel(handle:GLuint;const labelText:String8); inline;
+ begin
+  if (handle<>0) and (@glObjectLabel<>nil) and (labelText<>'') then
+   glObjectLabel(GL_PROGRAM,handle,length(labelText),@labelText[1]);
+ end;
+
+function ShortProgramLabel(const labelText:String8;handle:GLuint):String8; inline;
+ begin
+  if labelText<>'' then
+   result:=labelText
+  else
+   result:='sh'+IntToHex(handle and $FFFF,4);
+  if length(result)>12 then
+   result:=copy(result,1,12);
+ end;
+
+procedure UpdateShaderProgramLabel(shader:TGLShader); inline;
+ var
+  st:String8;
+ begin
+  if shader=nil then exit;
+  st:=ShortProgramLabel(shader.name,shader.handle);
+  SetGLProgramLabel(shader.handle,st);
+ end;
+
 { TGLShader }
 
 procedure SetUniformInternal(shader:TGLShader;name:string8;mode:integer;const value); // inline;
@@ -471,6 +496,7 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,curTexMode);
   result:=Build(vSrc,fSrc) as TGLShader;
   result.name:=notes;
+  UpdateShaderProgramLabel(result);
   result.texMode:=curTexMode.mode;
   result.isCustom:=false;
   result.vSrc:=vSrc;
@@ -656,6 +682,7 @@ function TGLShadersAPI.Load(filename,extra:String8):TShader;
   end;
   result:=Build(vSrc,fSrc,extra);
   result.name:=filename;
+  UpdateShaderProgramLabel(result as TGLShader);
  end;
 
 function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
@@ -740,6 +767,7 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   glGetProgramiv(prog,GL_LINK_STATUS,@res);
   if res=0 then raise EError.Create('Shader program not linked!');
   result:=TGLShader.Create(prog);
+  UpdateShaderProgramLabel(result as TGLShader);
  end;
 
 procedure TGLShadersAPI.UseCustom(shader:TShader);

@@ -139,14 +139,16 @@ procedure TMesh.SetVertices(data:pointer;sizeInBytes:integer);
 
 procedure TMesh.UseBuffers;
  begin
-  ASSERT((vb=nil) and (ib=nil),'Already buffered');
-  vb:=gfx.resMan.AllocVertexBuffer(layout,vCount);
-  vb.Upload(0,vCount,vertices);
-  FreeMem(vertices);
-  ib:=gfx.resMan.AllocIndexBuffer(length(indices));
-  ib.Upload(0,length(indices),@indices[0]);
-  SetLength(indices,0);
- end;
+ ASSERT((vb=nil) and (ib=nil),'Already buffered');
+ vb:=gfx.resMan.AllocVertexBuffer(layout,vCount);
+ vb.debugName:='meshVB';
+ vb.Upload(0,vCount,vertices);
+ FreeMem(vertices);
+ ib:=gfx.resMan.AllocIndexBuffer(length(indices));
+ ib.debugName:='meshIB';
+ ib.Upload(0,length(indices),@indices[0]);
+ SetLength(indices,0);
+end;
 
 function TMesh.vPos:integer;
  begin

@@ -80,6 +80,14 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
 - R-01 follow-up (medium): add a small smoke-test for Windows GL version-string parsing used during temporary-context capability probe.
 - R-01 follow-up (low): provide semantic labels for engine-managed VBO/IBO (instead of generic `VB#id`/`IB#id`) for faster NSight navigation.
 - R-01 follow-up (low): evaluate shader program/object labeling path to improve visibility in NSight object lists.
+- R-01 follow-up (high priority): investigate NSight-reported useless `glBind*` calls and reduce bind churn.
+  - candidate #1: shared helper for bind/draw/unbind sequence in `Apus.Engine.Draw` to avoid duplicate binds and enforce balanced cleanup.
+  - candidate #2: avoid bind-to-zero in hot upload/draw paths unless required by correctness.
+  - candidate #3: add explicit state-cache checks before issuing `glBindBuffer/glBindTexture/glBindFramebuffer`.
+- R-09 preparation (high priority): design core-profile performance track for modern GL usage and batching.
+  - capability-gated streaming path: persistent mapped buffers (when available) with current `glBufferSubData` fallback.
+  - capability-gated resource path: bindless textures/resources where extension support allows.
+  - batching track: deferred line/primitive submission (flush on shader/texture/blend/state switch), similar in spirit to text batching.
 - Run a second pass on already touched engine modules:
   - replace migration-style fixes with cleaner engine5-native usage
   - remove unnecessary dependencies
@@ -109,6 +117,7 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
 - Standalone engine unit compile checks should avoid `-dSDL` unless SDL-specific code is under test; default command is `-dOPENGL -MDelphi -Sd -RIntel` plus search paths `-Fu<repo> -Fu<repo>\extra -Fu<repo>\extra\sdl2 -Fu<repo>\Base -Fu<repo>\Base\extra`.
 - If a task forces Base API/interface changes, then update Base tracking files as needed.
 - Reaching "builds and works" for `SimpleDemo` marks the end of the first engine compile-rescue wave.
+- GL debug-label naming convention: use code-aligned names first (prefer matching field/local identifiers like `meshVB`, `textIB`), while keeping labels short/scannable (typically <=12 chars).
 - After the first wave, work is expected to continue in four parallel directions:
   - engine-module refinement on top of the new foundation API
   - targeted Base refactoring with follow-up engine migrations

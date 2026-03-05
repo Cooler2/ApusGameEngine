@@ -433,7 +433,9 @@ constructor TTextDrawer.Create;
    pw^:=i*4+3; inc(pw);
   end;
   textVB:=gfx.resMan.AllocVertexBuffer(TVertex.layoutTex,4*MaxGlyphBufferCount,TBufferUsage.buDynamic);
+  textVB.debugName:='textVB';
   textIB:=gfx.resMan.AllocIndexBuffer(6*MaxGlyphBufferCount,2,TBufferUsage.buStatic);
+  textIB.debugName:='textIB';
   textIB.Upload(0,6*MaxGlyphBufferCount,@txtInd[0]);
 
   txtVertCount:=0;
