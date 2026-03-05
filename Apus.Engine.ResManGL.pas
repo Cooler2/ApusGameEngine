@@ -1235,11 +1235,11 @@ begin
   {$IFNDEF GLES}
   // Standard way: use FBO
   glGenFramebuffers(1,@tex.fbo);
+  CheckForGLError('1'); // validate FBO creation itself
   lab:='FBO:'+tex.name;
   // Keep useful label even for unnamed temporary render targets.
   if lab='FBO:' then lab:='FBO#'+IntToStr(tex.fbo);
   SetGLObjectLabel(GL_FRAMEBUFFER,tex.fbo,lab);
-  CheckForGLError('1');
   // Save current framebuffer
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,@prevFramebuffer);
   glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
@@ -1729,10 +1729,10 @@ begin
   buTemporary: vb.usage:=GL_STREAM_DRAW;
  end;
  glBufferData(GL_ARRAY_BUFFER,layout.stride*numVertices,nil,vb.usage);
+ CheckForGLError('AllocVB'); // validate real allocation call
  // Stage 7: semantic label is taken from vb.debugName when provided by caller.
  SetGLObjectLabel(GL_BUFFER,vb.buffer,BuildVBLabel(vb));
  result:=vb;
- CheckForGLError('AllocVB');
 end;
 
 function TGLResourceManager.AllocIndexBuffer(indCount:integer;elementSize:integer;usage:TBufferUsage):TIndexBuffer;
@@ -1751,10 +1751,10 @@ begin
   buTemporary: ib.usage:=GL_STREAM_DRAW;
  end;
  glBufferData(GL_ELEMENT_ARRAY_BUFFER,indCount*elementSize,nil,ib.usage);
+ CheckForGLError('AllocIB'); // validate real allocation call
  // Stage 7: semantic label is taken from ib.debugName when provided by caller.
  SetGLObjectLabel(GL_BUFFER,ib.buffer,BuildIBLabel(ib));
  result:=ib;
- CheckForGLError('AllocIB');
 end;
 
 procedure TGLResourceManager.UseVertexBuffer(vb:TVertexBuffer);
