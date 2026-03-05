@@ -1199,16 +1199,16 @@ begin
   width:=GetPow2(width);
   height:=GetPow2(height);
   glGenFramebuffersOES(1,@tex.fbo);
+  glBindFramebufferOES(GL_FRAMEBUFFER_OES,tex.fbo);
   lab:='FBO:'+tex.name;
   if lab='FBO:' then lab:='FBO#'+IntToStr(tex.fbo);
   SetGLObjectLabel(GL_FRAMEBUFFER,tex.fbo,lab);
-  glBindFramebufferOES(GL_FRAMEBUFFER_OES,tex.fbo);
   {$ELSE}
   glGenFramebuffers(1,@tex.fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
   lab:='FBO:'+tex.name;
   if lab='FBO:' then lab:='FBO#'+IntToStr(tex.fbo);
   SetGLObjectLabel(GL_FRAMEBUFFER,tex.fbo,lab);
-  glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
   {$ENDIF}
   glGenTextures(1,@tex.texname);
   ActiveTextureUnit(9);
@@ -1236,13 +1236,13 @@ begin
   // Standard way: use FBO
   glGenFramebuffers(1,@tex.fbo);
   CheckForGLError('1'); // validate FBO creation itself
+  // Save current framebuffer
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,@prevFramebuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
   lab:='FBO:'+tex.name;
   // Keep useful label even for unnamed temporary render targets.
   if lab='FBO:' then lab:='FBO#'+IntToStr(tex.fbo);
   SetGLObjectLabel(GL_FRAMEBUFFER,tex.fbo,lab);
-  // Save current framebuffer
-  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,@prevFramebuffer);
-  glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
   CheckForGLError('2');
   glGenTextures(1,@tex.texname);
   ActiveTextureUnit(9);
