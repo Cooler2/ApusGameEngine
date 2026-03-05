@@ -265,6 +265,7 @@ procedure TGLPainter2.DrawIndexedPrimitivesDirectly(primType: integer;
 
 
 const
+ {$IFDEF GLES}
  mainVertexShader=
   'uniform mat4 uMVP;          '#13#10+
   'attribute vec3 aPosition;   '#13#10+
@@ -292,6 +293,37 @@ const
   '  if (texmode==2) { gl_FragColor = vColor; } else      '#13#10+
   '  if (texmode==4) { vec4 value=vColor; value.a=value.a*texture2D(tex1,vTexcoord).a; gl_FragColor = value; };      '#13#10+
   '}';
+ {$ELSE}
+ mainVertexShader=
+  '#version 330'#13#10+
+  'uniform mat4 uMVP;          '#13#10+
+  'in vec3 aPosition;          '#13#10+
+  'in vec4 aColor;             '#13#10+
+  'in vec2 aTexcoord;          '#13#10+
+  'out vec2 vTexcoord;         '#13#10+
+  'out vec4 vColor;            '#13#10+
+  'void main()                 '#13#10+
+  '{                           '#13#10+
+  '    vTexcoord = aTexcoord;  '#13#10+
+  '    vColor = aColor;        '#13#10+
+  '    gl_Position = uMVP * vec4(aPosition, 1.0);'#13#10+
+  '}';
+
+ mainFragmentShader=
+  '#version 330'#13#10+
+  'uniform sampler2D tex1;     '#13#10+
+  'uniform int texmode;        '#13#10+
+  'in vec2 vTexcoord;          '#13#10+
+  'in vec4 vColor;             '#13#10+
+  'out vec4 outColor;          '#13#10+
+  'void main()                 '#13#10+
+  '{                           '#13#10+
+  '  if (texmode==1) { outColor = vec4(2.0,2.0,2.0,1.0)*vColor*texture(tex1,vTexcoord); } else'#13#10+
+  '  if (texmode==2) { outColor = vColor; } else'#13#10+
+  '  if (texmode==4) { vec4 value=vColor; value.a=value.a*texture(tex1,vTexcoord).a; outColor = value; } else'#13#10+
+  '  { outColor = vColor; }'#13#10+
+  '}';
+ {$ENDIF}
 
 constructor TGLPainter2.Create;
  begin

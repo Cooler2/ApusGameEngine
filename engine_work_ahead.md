@@ -52,6 +52,7 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - `Apus.Engine.Draw` switched pointer-based `IndexedMesh(...)` overloads to explicit dynamic scratch VB/IB submission, covering `Mesh`/`Model3D` immediate indexed paths.
   - `Apus.Engine.OpenGL.TRenderDevice` stream fallback now also applies to pointer-fed compatibility-context draws when no array buffer is pre-bound, reducing client-array usage in immediate 2D paths without API changes.
   - Stage 5 is considered implementation-complete; remaining validation task is runtime check of mesh rendering on a mesh-capable demo (not `SimpleDemo`).
+  - Stage 6 started: `Apus.Engine.PainterGL2` default desktop shader source moved to core GLSL syntax (`#version 330`, `in/out`, `texture`, explicit output), with GLES-specific shader syntax preserved behind `{$IFDEF GLES}`.
 
 ## In Progress
 - First wave of engine migration is effectively complete:

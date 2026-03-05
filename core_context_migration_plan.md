@@ -184,3 +184,5 @@ Exit criteria:
   - `Apus.Engine.Draw`: pointer-based `IndexedMesh(...)` overloads now use dynamic scratch VB/IB upload + bound-buffer indexed draw (used by `Mesh`/`Model3D` immediate paths).
   - `Apus.Engine.OpenGL.TRenderDevice`: stream VBO/IBO fallback now covers pointer-fed draws in compatibility mode as well (when `GL_ARRAY_BUFFER` is not pre-bound), while preserving explicit client-pointer fallback safety for mixed states.
   - Validation note: `SimpleDemo` build/runtime confirms text/particles/spinner paths; mesh-path runtime validation is pending a mesh-using demo target.
+- [~] Stage 6: shader syntax/core alignment started.
+  - `Apus.Engine.PainterGL2`: desktop shader strings switched to GLSL core-style (`#version 330`, `in/out`, `texture`, explicit fragment output), while preserving existing GLES shader path under `{$IFDEF GLES}`.
