@@ -461,6 +461,7 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
   availMajor,availMinor:integer;
   attribs:array[0..15] of integer;
   n,flags,profileMask:integer;
+  modernCreated:boolean;
   glVer:string;
   glVerRaw:PAnsiChar;
   openglLib:HMODULE;
@@ -590,15 +591,35 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
     wglDeleteContext(legacyRC);
     RC:=0;
    end;
+   modernCreated:=(RC<>0) and (RC<>legacyRC);
+   if RC<>0 then
+    wglMakeCurrent(DC,RC)
+   else
+    wglMakeCurrent(0,0);
    actual.major:=0;
    actual.minor:=0;
-   if request.profile=glcpCore then
-    actual.profile:=glcpCore
-   else
+   if modernCreated then begin
+    if request.profile=glcpCore then
+     actual.profile:=glcpCore
+    else
+    if request.profile=glcpCompatibility then
+     actual.profile:=glcpCompatibility
+    else
+     actual.profile:=glcpAny;
+    actual.debugContext:=request.debugContext;
+    actual.forwardCompatible:=request.forwardCompatible;
+   end else begin
     actual.profile:=glcpCompatibility;
-   actual.debugContext:=false;
-   actual.forwardCompatible:=false;
+    actual.debugContext:=false;
+    actual.forwardCompatible:=false;
+   end;
    actual.requestAccepted:=RC<>0;
+   if request.profile=glcpCore then
+    actual.requestAccepted:=actual.requestAccepted and (actual.profile=glcpCore);
+   if request.debugContext then
+    actual.requestAccepted:=actual.requestAccepted and actual.debugContext;
+   if request.forwardCompatible then
+    actual.requestAccepted:=actual.requestAccepted and actual.forwardCompatible;
    context:=RC;
    result:=context;
   end;

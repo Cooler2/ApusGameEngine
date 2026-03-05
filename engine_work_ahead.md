@@ -71,6 +71,7 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
 - R-01 follow-up (high priority): introduce a small helper for repeated `UseVertexBuffer/UseIndexBuffer/Draw/Unbind` pattern in `Apus.Engine.Draw` to remove boilerplate and reduce state-leak risk.
 - R-01 follow-up (high priority): decide/runtime-wire shader variant selection in `PainterGL2` based on actual context profile/version (`oglContextInfo`) instead of compile-time split only.
 - R-01 follow-up (high priority): enforce whitespace discipline for migration commits (separate formatting-only diffs or avoid them entirely).
+- R-01 follow-up (medium): add a small smoke-test for Windows GL version-string parsing used during temporary-context capability probe.
 - Run a second pass on already touched engine modules:
   - replace migration-style fixes with cleaner engine5-native usage
   - remove unnecessary dependencies
