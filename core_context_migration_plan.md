@@ -174,3 +174,8 @@ Exit criteria:
 ## Implementation Progress
 - [x] Stage 0: baseline request/actual logging + app-level request toggles added.
 - [x] Stage 1: `ISystemPlatform.CreateOpenGLContext` extended to request/actual contract; Windows + SDL backends migrated to new signature.
+- [~] Stage 4: core-profile safety baseline added in `TRenderDevice`:
+  - default VAO creation/bind in core profile;
+  - runtime assert for missing `GL_ARRAY_BUFFER` during attribute setup in core mode;
+  - automatic stream VBO/IBO fallback for RAM-fed draw calls.
+- [~] Stage 5: high-usage immediate paths now pass through the stream buffer fallback (without API-level migration yet), reducing direct client-array dependency for `SimpleDemo`-critical draw/text paths.

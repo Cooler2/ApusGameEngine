@@ -43,6 +43,10 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - `Apus.Engine.GameApp`: added app-level OpenGL context request settings (`glCoreContext`, debug/forward flags, min version, prefer-highest) and CLI toggles (`-GLCORE`, `-GLCOMPAT`, `-GLDEBUGCTX`, `-GLFORWARDCTX`).
   - `Apus.Engine.OpenGL`: wired request propagation + startup logging for requested vs actual context parameters.
   - `Apus.Engine.WindowsPlatform` and `Apus.Engine.SDLplatform`: switched to new context API contract with `actual` context reporting.
+- R-01 Stage 4-5 incremental implementation:
+  - `Apus.Engine.OpenGL.TRenderDevice` now allocates a default VAO in core profile and asserts on invalid core-mode attribute setup (`GL_ARRAY_BUFFER=0`).
+  - Added stream VBO/IBO fallback path for RAM-fed draw submission (`Draw/DrawIndexed/DrawInstanced`) so CPU pointer paths are uploaded to GPU buffers automatically.
+  - Attribute cache now tracks bound `GL_ARRAY_BUFFER`, preventing stale pointer state when switching VBOs with identical layouts.
 
 ## In Progress
 - First wave of engine migration is effectively complete:

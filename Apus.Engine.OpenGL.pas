@@ -66,6 +66,7 @@ type
 
 var
  debugGL:boolean = true;
+ glDefaultVAO:cardinal = 0;
 
  procedure CheckForGLError(lab:integer=0); inline;
 
@@ -126,10 +127,22 @@ type
   lastVertices:pointer;
   lastLayout:TVertexLayout;
   lastStride:integer;
-  baseDivisor,extraDivisor:integer;
-  extraVertices:pointer;
-  extraLayout:TVertexLayout;
-  divisors:array[0..9] of integer;
+  lastArrayBuffer:GLint;
+ baseDivisor,extraDivisor:integer;
+ extraVertices:pointer;
+ extraLayout:TVertexLayout;
+ divisors:array[0..9] of integer;
+  streamVB,streamIB:cardinal;
+  streamVBSize,streamIBSize:integer;
+  function PrimitiveVertexCount(primType:TPrimitiveType;primCount:integer):integer;
+  function PrimitiveIndexCount(primType:TPrimitiveType;primCount:integer):integer;
+  function IsCoreProfile:boolean;
+  function IsArrayBufferBound:boolean;
+  procedure EnsureStreamVB(requiredSize:integer);
+  procedure EnsureStreamIB(requiredSize:integer);
+  procedure UploadStreamVertices(vertices:pointer;vertexLayout:TVertexLayout;vertexCount:integer);
+  procedure UploadStreamIndices(indices:pointer;indexCount:integer);
+  function MaxIndexInBuffer(indices:pointer;indexCount:integer):integer;
   procedure SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout);
  end;
 
@@ -278,6 +291,12 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   CheckForGLError(012);
 
   glVersionNum:=GetVersion;
+  // Core profile requires a bound VAO for attribute setup.
+  if (oglContextInfo.profile=glcpCore) and GL_VERSION_3_0 then begin
+   glGenVertexArrays(1,@glDefaultVAO);
+   glBindVertexArray(glDefaultVAO);
+   Log.Force('OpenGL default VAO created: '+IntToStr(glDefaultVAO));
+  end;
 
   // Create API objects
   // TODO: add try/except with rollback — if a later constructor fails, earlier objects remain dangling
@@ -339,6 +358,10 @@ procedure TOpenGL.Done;
   clippingAPI:=nil;
   renderTargetAPI:=nil;
   renderDevice:=nil;
+  if glDefaultVAO<>0 then begin
+   glDeleteVertexArrays(1,@glDefaultVAO);
+   glDefaultVAO:=0;
+  end;
   Log.Msg('OGL Done finished');
  end;
 
@@ -544,18 +567,134 @@ function TOpenGL.GetVersion: single;
 
 { TRenderDevice }
 constructor TRenderDevice.Create;
+ var
+  i:integer;
  begin
+  streamVB:=0;
+  streamIB:=0;
+  streamVBSize:=0;
+  streamIBSize:=0;
+  lastArrayBuffer:=-1;
+  actualAttribArrays:=-1;
+  for i:=0 to high(divisors) do
+   divisors[i]:=-1;
  end;
 
 destructor TRenderDevice.Destroy;
  begin
+  if streamVB<>0 then glDeleteBuffers(1,@streamVB);
+  if streamIB<>0 then glDeleteBuffers(1,@streamIB);
   inherited;
+ end;
+
+function TRenderDevice.PrimitiveVertexCount(primType:TPrimitiveType;primCount:integer):integer;
+ begin
+  case primtype of
+   LINE_LIST:result:=primCount*2;
+   LINE_STRIP:result:=primCount+1;
+   TRG_LIST:result:=primCount*3;
+   TRG_FAN,TRG_STRIP:result:=primCount+2;
+   else result:=0;
+  end;
+ end;
+
+function TRenderDevice.PrimitiveIndexCount(primType:TPrimitiveType;primCount:integer):integer;
+ begin
+  result:=PrimitiveVertexCount(primType,primCount);
+ end;
+
+function TRenderDevice.IsCoreProfile:boolean;
+ begin
+  result:=oglContextInfo.profile=glcpCore;
+ end;
+
+function TRenderDevice.IsArrayBufferBound:boolean;
+ var
+  v:GLint;
+ begin
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING,@v);
+  result:=v<>0;
+ end;
+
+procedure TRenderDevice.EnsureStreamVB(requiredSize:integer);
+ begin
+  if streamVB=0 then begin
+   glGenBuffers(1,@streamVB);
+   ASSERT(streamVB<>0);
+  end;
+  if requiredSize<=streamVBSize then exit;
+  if streamVBSize=0 then
+   streamVBSize:=1024;
+  while streamVBSize<requiredSize do
+   streamVBSize:=streamVBSize*2;
+  glBindBuffer(GL_ARRAY_BUFFER,streamVB);
+  glBufferData(GL_ARRAY_BUFFER,streamVBSize,nil,GL_STREAM_DRAW);
+ end;
+
+procedure TRenderDevice.EnsureStreamIB(requiredSize:integer);
+ begin
+  if streamIB=0 then begin
+   glGenBuffers(1,@streamIB);
+   ASSERT(streamIB<>0);
+  end;
+  if requiredSize<=streamIBSize then exit;
+  if streamIBSize=0 then
+   streamIBSize:=1024;
+  while streamIBSize<requiredSize do
+   streamIBSize:=streamIBSize*2;
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,streamIB);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,streamIBSize,nil,GL_STREAM_DRAW);
+ end;
+
+procedure TRenderDevice.UploadStreamVertices(vertices:pointer;vertexLayout:TVertexLayout;vertexCount:integer);
+ var
+  bytes:integer;
+ begin
+  ASSERT(vertices<>nil);
+  bytes:=vertexCount*vertexLayout.stride;
+  EnsureStreamVB(bytes);
+  glBindBuffer(GL_ARRAY_BUFFER,streamVB);
+  glBufferSubData(GL_ARRAY_BUFFER,0,bytes,vertices);
+ end;
+
+procedure TRenderDevice.UploadStreamIndices(indices:pointer;indexCount:integer);
+ var
+  bytes:integer;
+ begin
+  ASSERT(indices<>nil);
+  bytes:=indexCount*2;
+  EnsureStreamIB(bytes);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,streamIB);
+  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,0,bytes,indices);
+ end;
+
+function TRenderDevice.MaxIndexInBuffer(indices:pointer;indexCount:integer):integer;
+ var
+  i:integer;
+  p:PWord;
+ begin
+  ASSERT(indices<>nil);
+  result:=0;
+  p:=indices;
+  for i:=0 to indexCount-1 do begin
+   if p^>result then result:=p^;
+   inc(p);
+  end;
  end;
 
 procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertices: pointer;
   vertexLayout:TVertexLayout);
+ var
+  vertexCount:integer;
+  useStream:boolean;
  begin
   shader.Apply(vertexLayout);
+  vertexCount:=PrimitiveVertexCount(primType,primCount);
+  useStream:=IsCoreProfile and (vertices<>nil) and (not IsArrayBufferBound);
+  if useStream then begin
+   UploadStreamVertices(vertices,vertexLayout,vertexCount);
+   vertices:=nil; // attributes are offsets in bound stream VBO
+  end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
@@ -569,8 +708,20 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
 
 procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;primCount:integer);
+ var
+  indexCount,vertexCount:integer;
+  useStream:boolean;
  begin
   shader.Apply(vertexLayout);
+  indexCount:=PrimitiveIndexCount(primType,primCount);
+  useStream:=IsCoreProfile and (vertices<>nil) and (not IsArrayBufferBound);
+  if useStream then begin
+   vertexCount:=MaxIndexInBuffer(indices,indexCount)+1;
+   UploadStreamVertices(vertices,vertexLayout,vertexCount);
+   UploadStreamIndices(indices,indexCount);
+   vertices:=nil;
+   indices:=nil;
+  end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawElements(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices);
@@ -584,8 +735,21 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
 
 procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout; vrtStart,vrtCount:integer; indStart,primCount:integer);
+ var
+  indexCount,vertexCount:integer;
+  useStream:boolean;
  begin
   shader.Apply(vertexLayout);
+  indexCount:=PrimitiveIndexCount(primType,primCount);
+  useStream:=IsCoreProfile and (vertices<>nil) and (not IsArrayBufferBound);
+  if useStream then begin
+   // Keep original index values by uploading vertices up to the range end.
+   vertexCount:=vrtStart+vrtCount;
+   UploadStreamVertices(vertices,vertexLayout,vertexCount);
+   UploadStreamIndices(indices,indexCount);
+   vertices:=nil;
+   indices:=nil;
+  end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawRangeElements(GL_LINES,vrtStart,vrtStart+vrtCount-1,primCount*2,GL_UNSIGNED_SHORT,indices);
@@ -599,8 +763,20 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
 
 procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;indices:pointer;
      vertexLayout:TVertexLayout;primCount,instances:integer);
+ var
+  indexCount,vertexCount:integer;
+  useStream:boolean;
  begin
   shader.Apply(vertexLayout);
+  indexCount:=PrimitiveIndexCount(primType,primCount);
+  useStream:=IsCoreProfile and (vertices<>nil) and (not IsArrayBufferBound);
+  if useStream then begin
+   vertexCount:=MaxIndexInBuffer(indices,indexCount)+1;
+   UploadStreamVertices(vertices,vertexLayout,vertexCount);
+   UploadStreamIndices(indices,indexCount);
+   vertices:=nil;
+   indices:=nil;
+  end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawElementsInstanced(GL_LINES,primCount*2,GL_UNSIGNED_SHORT,indices,instances);
@@ -614,8 +790,17 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;i
 
 procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;
      vertexLayout:TVertexLayout;primCount,instances:integer);
+ var
+  vertexCount:integer;
+  useStream:boolean;
  begin
   shader.Apply(vertexLayout);
+  vertexCount:=PrimitiveVertexCount(primType,primCount);
+  useStream:=IsCoreProfile and (vertices<>nil) and (not IsArrayBufferBound);
+  if useStream then begin
+   UploadStreamVertices(vertices,vertexLayout,vertexCount);
+   vertices:=nil;
+  end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawArraysInstanced(GL_LINES,0,primCount*2,instances);
@@ -633,6 +818,7 @@ procedure TRenderDevice.Reset;
  begin
   lastVertices:=nil;
   lastLayout.stride:=0;
+  lastArrayBuffer:=-1;
   for i:=0 to 9 do glDisableVertexAttribArray(i);
   actualAttribArrays:=0;
  end;
@@ -640,6 +826,7 @@ procedure TRenderDevice.Reset;
 procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout);
  var
   n,baseN:integer;
+  boundArrayBuffer:GLint;
  procedure ProcessLayout(vertices:pointer;vLayout:TVertexLayout);
   var
    i,v,dim:integer;
@@ -653,7 +840,7 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
      if (v=0) and (i>0) then continue;
      if (i=0) and (v=15*4) then begin // position is 2D
       dim:=2; p:=vertices;
-      end else
+     end else
       dim:=3;
      case i of
       0:glVertexAttribPointer(n,dim,GL_FLOAT,GL_FALSE,stride,p); // position
@@ -702,9 +889,16 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
    end;
   end;
  begin
-  if (lastVertices=vertices) and (vertexLayout.Equals(lastLayout)) then exit;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING,@boundArrayBuffer);
+  if IsCoreProfile then begin
+   ASSERT(boundArrayBuffer<>0,'Core profile requires GL_ARRAY_BUFFER during attribute setup');
+   if glDefaultVAO<>0 then
+    glBindVertexArray(glDefaultVAO);
+  end;
+  if (lastVertices=vertices) and (lastArrayBuffer=boundArrayBuffer) and (vertexLayout.Equals(lastLayout)) then exit;
   lastVertices:=vertices;
   lastLayout:=vertexLayout;
+  lastArrayBuffer:=boundArrayBuffer;
   n:=0;
   ProcessLayout(vertices,vertexLayout);
   baseN:=n;
