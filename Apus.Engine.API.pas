@@ -1287,7 +1287,7 @@ initialization
  Translate32:=TranslateNoop32;
  oglContextRequest.minMajor:=3;
  oglContextRequest.minMinor:=0;
- oglContextRequest.profile:=glcpCompatibility;
+ oglContextRequest.profile:=glcpCore;
  oglContextRequest.debugContext:=false;
  oglContextRequest.forwardCompatible:=false;
  oglContextRequest.preferHighest:=true;

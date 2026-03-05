@@ -174,9 +174,10 @@ Exit criteria:
 ## Implementation Progress
 - [x] Stage 0: baseline request/actual logging + app-level request toggles added.
 - [x] Stage 1: `ISystemPlatform.CreateOpenGLContext` extended to request/actual contract; Windows + SDL backends migrated to new signature.
-- [~] Stage 2-3: core-context startup path is now enforced (no silent compatibility fallback when core is requested):
+- [x] Stage 2-3: core-context startup path enabled and set as default policy:
   - `Apus.Engine.WindowsPlatform`: context creation now uses a temporary context to read available GL version, then performs a single modern-context creation attempt from that negotiated version/request settings (no version-by-version probing loop).
   - `Apus.Engine.OpenGL`: startup now fails explicitly if `core` was requested but actual context is not core or request was not accepted.
+  - default app-level request now targets core profile (`glCoreContext=true`), while `-GLCOMPAT` remains available as explicit override.
 - [~] Stage 4: core-profile safety baseline added in `TRenderDevice`:
   - default VAO creation/bind in core profile;
   - runtime assert for missing `GL_ARRAY_BUFFER` during attribute setup in core mode;

@@ -50,7 +50,7 @@ interface
    instanceID:integer=0;
    gameLangCode:string='en';
    debugMode:boolean=false;
-   glCoreContext:boolean=false; // request OpenGL core profile context
+   glCoreContext:boolean=true; // request OpenGL core profile context by default
    glDebugContext:boolean=false; // request OpenGL debug context flag
    glForwardCompatible:boolean=false; // request OpenGL forward-compatible context flag
    glPreferHighest:boolean=true; // request highest available version (with fallback to minimal)
