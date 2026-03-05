@@ -178,10 +178,11 @@ Exit criteria:
   - `Apus.Engine.WindowsPlatform`: context creation now uses a temporary context to read available GL version, then performs a single modern-context creation attempt from that negotiated version/request settings (no version-by-version probing loop).
   - `Apus.Engine.OpenGL`: startup now fails explicitly if `core` was requested but actual context is not core or request was not accepted.
   - default app-level request now targets core profile (`glCoreContext=true`), while `-GLCOMPAT` remains available as explicit override.
-- [~] Stage 4: core-profile safety baseline added in `TRenderDevice`:
+- [x] Stage 4: core-profile safety baseline completed in `TRenderDevice`:
   - default VAO creation/bind in core profile;
   - runtime assert for missing `GL_ARRAY_BUFFER` during attribute setup in core mode;
-  - automatic stream VBO/IBO fallback for RAM-fed draw calls.
+  - automatic stream VBO/IBO fallback for RAM-fed draw calls;
+  - render-device bind tracking uses internal GL extension interface (`IRenderDeviceBindTracking`), not backend-agnostic `IRenderDevice`.
 - [x] Stage 5: high-usage immediate paths now pass through stream/buffer-backed submission, reducing direct client-array dependency for `SimpleDemo`-critical draw/text paths.
   - `Apus.Engine.TextDraw`: `FlushTextCache` now uploads to explicit dynamic VB + static IB and renders via bound buffers.
   - `Apus.Engine.Draw`: 2D `Particles(...)` and `Band(...)` paths now upload to dynamic VB/IB and render via buffer-backed indexed draws.
@@ -194,6 +195,14 @@ Exit criteria:
   - review follow-up: removed per-draw `MaxIndexInBuffer` scan from hot path; RAM-backed indexed stream upload is constrained to ranged overload with explicit `vrtCount`.
   - `Apus.Engine.ShadersGL`: active desktop shader generation remains unified on `#version 330` with explicit `in/out`.
   - no compatibility GLSL fallback is used in desktop runtime path; legacy GLSL tokens remain only in GLES-conditional shader branch.
+- [ ] Stage 7: deferred (optional for current milestone).
+  - NSight instrumentation and resource labeling are postponed until after mandatory core-profile rollout.
+- [ ] Stage 8: deferred (optional for current milestone).
+  - NSight-specific demo profiling flow is postponed together with Stage 7.
+- [x] Stage 9: validation and rollout updates completed for mandatory core-profile migration path.
+  - `SimpleDemo` runs on core profile (runtime-confirmed).
+  - migration status synchronized in roadmap/work-ahead docs.
+  - optional NSight-specific instrumentation/profiling stages (7-8) intentionally deferred.
 
 ## Review Notes (post-Stage 4-6)
 

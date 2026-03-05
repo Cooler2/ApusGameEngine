@@ -60,6 +60,8 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - Review follow-up (high priority done): removed `MaxIndexInBuffer` linear scan from hot path; indexed RAM-backed stream upload remains only on ranged overload with explicit `vrtCount`.
   - Review follow-up (high priority done): fixed `TIndexBufferGL.Resize` to use `GL_ELEMENT_ARRAY_BUFFER` + element-buffer tracking.
   - Review follow-up (high priority done): moved GL bind tracking out of backend-agnostic `IRenderDevice` into optional `IRenderDeviceBindTracking` extension used by GL backend.
+  - Mandatory R-01 rollout milestone reached: `SimpleDemo` runtime confirmed on core profile.
+  - R-01 Stage 7/8 (NSight instrumentation/profiling) explicitly deferred by current project decision.
 
 ## In Progress
 - First wave of engine migration is effectively complete:

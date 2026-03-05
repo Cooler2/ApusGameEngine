@@ -124,7 +124,7 @@ Use this section for anything remembered on the fly.
 ## 5) Seed Feature Cards
 
 ### [R-01] Core OpenGL Pipeline Modernization
-- Status: in-progress
+- Status: in-progress (mandatory core-profile milestone completed; NSight stage deferred)
 - Priority: P0
 - Area: Render
 - Value: Move Engine5 to a modern, debuggable, and maintainable OpenGL pipeline.
@@ -133,11 +133,12 @@ Use this section for anything remembered on the fly.
 - Dependencies: `Apus.Engine.OpenGL`, `Apus.Engine.PainterGL2`, mesh/render data flow, demo coverage.
 - Risks: hidden reliance on legacy fixed-function assumptions; regressions in old scenes/shaders.
 - Acceptance Criteria:
-  - [ ] Main render path does not require compatibility profile APIs.
-  - [ ] Geometry submission uses GPU-side vertex/index buffers in targeted paths.
+  - [x] Main render path does not require compatibility profile APIs.
+  - [x] Geometry submission uses GPU-side vertex/index buffers in targeted paths.
   - [ ] At least one representative demo can be inspected in NSight with meaningful draw-call/resource visibility.
 - Notes: includes replacing RAM-side immediate/legacy feeding where still present.
   - 2026-03-05: Stage 0-1 implemented (context request/actual API, GameApp toggle surface, platform signature migration, requested-vs-actual startup logging).
+  - 2026-03-05: Mandatory rollout milestone reached: `SimpleDemo` runs on core profile in current Windows path; Stage 7/8 (NSight instrumentation/profiling) intentionally deferred.
 
 ### [R-02] Multi-Window, Multi-Monitor, and Hot DPI-Awareness
 - Status: idea
