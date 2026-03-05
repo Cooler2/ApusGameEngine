@@ -186,3 +186,5 @@ Exit criteria:
   - Validation note: `SimpleDemo` build/runtime confirms text/particles/spinner paths; mesh-path runtime validation is pending a mesh-using demo target.
 - [~] Stage 6: shader syntax/core alignment started.
   - `Apus.Engine.PainterGL2`: desktop shader strings switched to GLSL core-style (`#version 330`, `in/out`, `texture`, explicit fragment output), while preserving existing GLES shader path under `{$IFDEF GLES}`.
+  - review follow-up: removed GL state queries from draw hot path (`TRenderDevice` now uses tracked array/element buffer bindings).
+  - review follow-up: removed per-draw `MaxIndexInBuffer` scan from hot path; RAM-backed indexed stream upload is constrained to ranged overload with explicit `vrtCount`.

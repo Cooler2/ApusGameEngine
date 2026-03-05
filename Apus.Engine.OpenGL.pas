@@ -128,6 +128,8 @@ type
   lastLayout:TVertexLayout;
   lastStride:integer;
   lastArrayBuffer:GLint;
+  boundArrayBuffer:GLint;
+  boundElementArrayBuffer:GLint;
  baseDivisor,extraDivisor:integer;
  extraVertices:pointer;
  extraLayout:TVertexLayout;
@@ -137,13 +139,13 @@ type
   function PrimitiveVertexCount(primType:TPrimitiveType;primCount:integer):integer;
   function PrimitiveIndexCount(primType:TPrimitiveType;primCount:integer):integer;
   function IsCoreProfile:boolean;
-  function IsArrayBufferBound:boolean;
   procedure EnsureStreamVB(requiredSize:integer);
   procedure EnsureStreamIB(requiredSize:integer);
   procedure UploadStreamVertices(vertices:pointer;vertexLayout:TVertexLayout;vertexCount:integer);
   procedure UploadStreamIndices(indices:pointer;indexCount:integer);
-  function MaxIndexInBuffer(indices:pointer;indexCount:integer):integer;
   procedure SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout);
+  procedure TrackArrayBufferBinding(buffer:cardinal);
+  procedure TrackElementBufferBinding(buffer:cardinal);
  end;
 
  // OpenGL-specific render-target implementation.
@@ -575,6 +577,8 @@ constructor TRenderDevice.Create;
   streamVBSize:=0;
   streamIBSize:=0;
   lastArrayBuffer:=-1;
+  boundArrayBuffer:=0;
+  boundElementArrayBuffer:=0;
   actualAttribArrays:=-1;
   for i:=0 to high(divisors) do
    divisors[i]:=-1;
@@ -608,13 +612,15 @@ function TRenderDevice.IsCoreProfile:boolean;
   result:=oglContextInfo.profile=glcpCore;
  end;
 
-function TRenderDevice.IsArrayBufferBound:boolean;
- var
-  v:GLint;
- begin
-  glGetIntegerv(GL_ARRAY_BUFFER_BINDING,@v);
-  result:=v<>0;
- end;
+procedure TRenderDevice.TrackArrayBufferBinding(buffer:cardinal);
+begin
+ boundArrayBuffer:=buffer;
+end;
+
+procedure TRenderDevice.TrackElementBufferBinding(buffer:cardinal);
+begin
+ boundElementArrayBuffer:=buffer;
+end;
 
 procedure TRenderDevice.EnsureStreamVB(requiredSize:integer);
  begin
@@ -628,6 +634,8 @@ procedure TRenderDevice.EnsureStreamVB(requiredSize:integer);
   while streamVBSize<requiredSize do
    streamVBSize:=streamVBSize*2;
   glBindBuffer(GL_ARRAY_BUFFER,streamVB);
+  TrackArrayBufferBinding(streamVB);
+  // TODO(low): reduce bind churn around stream buffer growth/upload path (keep one bind when possible).
   glBufferData(GL_ARRAY_BUFFER,streamVBSize,nil,GL_STREAM_DRAW);
  end;
 
@@ -643,6 +651,8 @@ procedure TRenderDevice.EnsureStreamIB(requiredSize:integer);
   while streamIBSize<requiredSize do
    streamIBSize:=streamIBSize*2;
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,streamIB);
+  TrackElementBufferBinding(streamIB);
+  // TODO(low): reduce bind churn around stream buffer growth/upload path (keep one bind when possible).
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,streamIBSize,nil,GL_STREAM_DRAW);
  end;
 
@@ -654,6 +664,7 @@ procedure TRenderDevice.UploadStreamVertices(vertices:pointer;vertexLayout:TVert
   bytes:=vertexCount*vertexLayout.stride;
   EnsureStreamVB(bytes);
   glBindBuffer(GL_ARRAY_BUFFER,streamVB);
+  TrackArrayBufferBinding(streamVB);
   glBufferSubData(GL_ARRAY_BUFFER,0,bytes,vertices);
  end;
 
@@ -665,21 +676,8 @@ procedure TRenderDevice.UploadStreamIndices(indices:pointer;indexCount:integer);
   bytes:=indexCount*2;
   EnsureStreamIB(bytes);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,streamIB);
+  TrackElementBufferBinding(streamIB);
   glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,0,bytes,indices);
- end;
-
-function TRenderDevice.MaxIndexInBuffer(indices:pointer;indexCount:integer):integer;
- var
-  i:integer;
-  p:PWord;
- begin
-  ASSERT(indices<>nil);
-  result:=0;
-  p:=indices;
-  for i:=0 to indexCount-1 do begin
-   if p^>result then result:=p^;
-   inc(p);
-  end;
  end;
 
 procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertices: pointer;
@@ -690,13 +688,11 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
  begin
   shader.Apply(vertexLayout);
   vertexCount:=PrimitiveVertexCount(primType,primCount);
-  useStream:=(vertices<>nil) and (IsCoreProfile or (not IsArrayBufferBound));
+  useStream:=vertices<>nil;
   if useStream then begin
    UploadStreamVertices(vertices,vertexLayout,vertexCount);
    vertices:=nil; // attributes are offsets in bound stream VBO
-  end else
-  if (vertices<>nil) and (not IsCoreProfile) then
-   glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
+  end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
@@ -716,19 +712,27 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
  begin
   shader.Apply(vertexLayout);
   indexCount:=PrimitiveIndexCount(primType,primCount);
-  useStream:=(vertices<>nil) and (IsCoreProfile or (not IsArrayBufferBound));
+  // TODO(low): consider removing this overload or extending it with vrtCount; stream upload without vertex count is unsafe.
+  useStream:=false;
   if useStream then begin
-   vertexCount:=MaxIndexInBuffer(indices,indexCount)+1;
+   vertexCount:=indexCount;
    UploadStreamVertices(vertices,vertexLayout,vertexCount);
    UploadStreamIndices(indices,indexCount);
    vertices:=nil;
    indices:=nil;
-  end else
-  if not IsCoreProfile then begin
-   if vertices<>nil then
-    glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
-   if indices<>nil then
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
+  end else begin
+   if IsCoreProfile and ((vertices<>nil) or (indices<>nil)) then
+    ASSERT(false,'Use ranged DrawIndexed(...) with vrtCount for core-profile RAM-backed indexed draws');
+   if not IsCoreProfile then begin
+    if vertices<>nil then begin
+     glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
+     TrackArrayBufferBinding(0);
+    end;
+    if indices<>nil then begin
+     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
+     TrackElementBufferBinding(0);
+    end;
+   end;
   end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
@@ -749,7 +753,7 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
  begin
   shader.Apply(vertexLayout);
   indexCount:=PrimitiveIndexCount(primType,primCount);
-  useStream:=(vertices<>nil) and (IsCoreProfile or (not IsArrayBufferBound));
+  useStream:=vertices<>nil;
   if useStream then begin
    // Keep original index values by uploading vertices up to the range end.
    vertexCount:=vrtStart+vrtCount;
@@ -759,10 +763,14 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
    indices:=nil;
   end else
   if not IsCoreProfile then begin
-   if vertices<>nil then
+   if vertices<>nil then begin
     glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
-   if indices<>nil then
+    TrackArrayBufferBinding(0);
+   end;
+   if indices<>nil then begin
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
+    TrackElementBufferBinding(0);
+   end;
   end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
@@ -783,19 +791,27 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;i
  begin
   shader.Apply(vertexLayout);
   indexCount:=PrimitiveIndexCount(primType,primCount);
-  useStream:=(vertices<>nil) and (IsCoreProfile or (not IsArrayBufferBound));
+  // TODO(low): consider removing this overload or extending it with vrtCount; stream upload without vertex count is unsafe.
+  useStream:=false;
   if useStream then begin
-   vertexCount:=MaxIndexInBuffer(indices,indexCount)+1;
+   vertexCount:=indexCount;
    UploadStreamVertices(vertices,vertexLayout,vertexCount);
    UploadStreamIndices(indices,indexCount);
    vertices:=nil;
    indices:=nil;
-  end else
-  if not IsCoreProfile then begin
-   if vertices<>nil then
-    glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
-   if indices<>nil then
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
+  end else begin
+   if IsCoreProfile and ((vertices<>nil) or (indices<>nil)) then
+    ASSERT(false,'Use ranged DrawIndexed(...) with vrtCount for core-profile RAM-backed indexed draws');
+   if not IsCoreProfile then begin
+    if vertices<>nil then begin
+     glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
+     TrackArrayBufferBinding(0);
+    end;
+    if indices<>nil then begin
+     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
+     TrackElementBufferBinding(0);
+    end;
+   end;
   end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
@@ -816,13 +832,15 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;
  begin
   shader.Apply(vertexLayout);
   vertexCount:=PrimitiveVertexCount(primType,primCount);
-  useStream:=(vertices<>nil) and (IsCoreProfile or (not IsArrayBufferBound));
+  useStream:=vertices<>nil;
   if useStream then begin
    UploadStreamVertices(vertices,vertexLayout,vertexCount);
    vertices:=nil;
   end else
-  if (vertices<>nil) and (not IsCoreProfile) then
+  if (vertices<>nil) and (not IsCoreProfile) then begin
    glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
+   TrackArrayBufferBinding(0);
+  end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawArraysInstanced(GL_LINES,0,primCount*2,instances);
@@ -848,7 +866,6 @@ procedure TRenderDevice.Reset;
 procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout);
  var
   n,baseN:integer;
-  boundArrayBuffer:GLint;
  procedure ProcessLayout(vertices:pointer;vLayout:TVertexLayout);
   var
    i,v,dim:integer;
@@ -911,8 +928,9 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
    end;
   end;
  begin
-  glGetIntegerv(GL_ARRAY_BUFFER_BINDING,@boundArrayBuffer);
   if IsCoreProfile then begin
+   // In core profile attribute pointers are interpreted as offsets in a bound ARRAY_BUFFER.
+   // We track this binding locally via TrackArrayBufferBinding/stream uploads.
    ASSERT(boundArrayBuffer<>0,'Core profile requires GL_ARRAY_BUFFER during attribute setup');
    if glDefaultVAO<>0 then
     glBindVertexArray(glDefaultVAO);

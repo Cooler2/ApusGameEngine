@@ -204,6 +204,7 @@ begin
   pw^:=i*4+2; inc(pw);
   pw^:=i*4+3; inc(pw);
  end;
+ // TODO(low): reassess required peak size for bandInd against real workloads (currently allocated for worst-case 6 indices per segment).
  setLength(bandInd,6*MaxParticleCount);
  partVB:=gfx.resMan.AllocVertexBuffer(TVertex.layoutTex,4*MaxParticleCount,TBufferUsage.buDynamic);
  partIB:=gfx.resMan.AllocIndexBuffer(6*MaxParticleCount,2,TBufferUsage.buStatic);

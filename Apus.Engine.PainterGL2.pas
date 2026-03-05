@@ -294,6 +294,7 @@ const
   '  if (texmode==4) { vec4 value=vColor; value.a=value.a*texture2D(tex1,vTexcoord).a; gl_FragColor = value; };      '#13#10+
   '}';
  {$ELSE}
+ // TODO(low): optionally switch shader source at runtime using oglContextInfo.profile/version (instead of compile-time GLES/Desktop split).
  mainVertexShader=
   '#version 330'#13#10+
   'uniform mat4 uMVP;          '#13#10+

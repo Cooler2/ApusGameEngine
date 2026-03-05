@@ -33,6 +33,9 @@ type
 
   // Set vertex attribute array divisors (for instanced rendering)
   procedure SetVertexDataDivisors(baseDivisor,extraDivisor:integer);
+  // Backend-side bind-state tracking hooks (avoid GL state queries in draw hot path).
+  procedure TrackArrayBufferBinding(buffer:cardinal);
+  procedure TrackElementBufferBinding(buffer:cardinal);
 
   // Buffer handling should be organized differently.
   // A dedicated buffer class is needed, managed by the resource manager.

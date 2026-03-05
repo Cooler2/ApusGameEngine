@@ -53,6 +53,8 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - `Apus.Engine.OpenGL.TRenderDevice` stream fallback now also applies to pointer-fed compatibility-context draws when no array buffer is pre-bound, reducing client-array usage in immediate 2D paths without API changes.
   - Stage 5 is considered implementation-complete; remaining validation task is runtime check of mesh rendering on a mesh-capable demo (not `SimpleDemo`).
   - Stage 6 started: `Apus.Engine.PainterGL2` default desktop shader source moved to core GLSL syntax (`#version 330`, `in/out`, `texture`, explicit output), with GLES-specific shader syntax preserved behind `{$IFDEF GLES}`.
+  - Review follow-up (high priority done): removed GL state queries (`glGetIntegerv(GL_ARRAY_BUFFER_BINDING)`) from draw hot path by local bind tracking in `TRenderDevice` + `ResManGL` notifications.
+  - Review follow-up (high priority done): removed `MaxIndexInBuffer` linear scan from hot path; indexed RAM-backed stream upload remains only on ranged overload with explicit `vrtCount`.
 
 ## In Progress
 - First wave of engine migration is effectively complete:
@@ -62,6 +64,9 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
 
 ## Next
 - Pick the next demo after `SimpleDemo` and use it as the next validation target.
+- R-01 follow-up (high priority): introduce a small helper for repeated `UseVertexBuffer/UseIndexBuffer/Draw/Unbind` pattern in `Apus.Engine.Draw` to remove boilerplate and reduce state-leak risk.
+- R-01 follow-up (high priority): decide/runtime-wire shader variant selection in `PainterGL2` based on actual context profile/version (`oglContextInfo`) instead of compile-time split only.
+- R-01 follow-up (high priority): enforce whitespace discipline for migration commits (separate formatting-only diffs or avoid them entirely).
 - Run a second pass on already touched engine modules:
   - replace migration-style fixes with cleaner engine5-native usage
   - remove unnecessary dependencies
