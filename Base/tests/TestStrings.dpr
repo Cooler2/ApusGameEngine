@@ -646,7 +646,20 @@ begin
   Check(UTF8.Encode(arr[0])='a','Split[0]');
   Check(UTF8.Encode(arr[1])='b','Split[1]');
   Check(UTF8.Encode(arr[2])='c','Split[2]');
+  // with delimiters string
+  s:=UTF8.Decode('a;b,c');
+  arr:=s.Split(UTF8.Decode(',;'));
+  Check(length(arr)=3,'Split multi delim');
+  Check(UTF8.Encode(arr[0])='a','Split multi delim[0]');
+  Check(UTF8.Encode(arr[1])='b','Split multi delim[1]');
+  Check(UTF8.Encode(arr[2])='c','Split multi delim[2]');
+  // with quote char
+  s:=UTF8.Decode('a,"b,c",d');
+  arr:=s.Split(UTF8.Decode(','),UCS4Char('"'));
+  Check(length(arr)=3,'Split quoted length');
+  Check(UTF8.Encode(arr[1])='"b,c"','Split quoted[1]');
   // Join
+  arr:=UTF8.Decode('a,b,c').Split(UCS4Char(','));
   delim:=UTF8.Decode('-');
   Check(UTF8.Encode(String32.Join(arr,delim))='a-b-c','Join');
   EndTest;
