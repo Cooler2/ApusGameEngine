@@ -450,6 +450,7 @@ procedure TWindowsPlatform.MoveWindowTo(x, y: integer; width: integer;
 function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
  type
   TglGetStringFn=function(name:cardinal):PAnsiChar; stdcall;
+  TwglGetProcAddressFn=function(procName:PAnsiChar):Pointer; stdcall;
   TwglCreateContextAttribsFn=function(hDC:HDC;hShareContext:HGLRC;const attribList:PInteger):HGLRC; stdcall;
  var
   DC:HDC;
@@ -464,6 +465,7 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
   glVerRaw:PAnsiChar;
   openglLib:HMODULE;
   glGetStringFn:TglGetStringFn;
+  wglGetProcAddressFn:TwglGetProcAddressFn;
   wglCreateContextAttribsARB:TwglCreateContextAttribsFn;
  function ParseGLVersion(const st:string;out major,minor:integer):boolean;
   var
@@ -539,7 +541,14 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
 
    if (request.profile<>glcpCompatibility) or request.debugContext or request.forwardCompatible then begin
     if (availMajor>request.minMajor) or ((availMajor=request.minMajor) and (availMinor>=request.minMinor)) then begin
-     wglCreateContextAttribsARB:=TwglCreateContextAttribsFn(Windows.wglGetProcAddress('wglCreateContextAttribsARB'));
+     if openglLib<>0 then
+      wglGetProcAddressFn:=TwglGetProcAddressFn(GetProcAddress(openglLib,'wglGetProcAddress'))
+     else
+      wglGetProcAddressFn:=nil;
+     if assigned(wglGetProcAddressFn) then
+      wglCreateContextAttribsARB:=TwglCreateContextAttribsFn(wglGetProcAddressFn('wglCreateContextAttribsARB'))
+     else
+      wglCreateContextAttribsARB:=nil;
      if assigned(wglCreateContextAttribsARB) then begin
       n:=0;
       attribs[n]:=WGL_CONTEXT_MAJOR_VERSION_ARB; inc(n);
