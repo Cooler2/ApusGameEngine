@@ -78,8 +78,9 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
 - R-01 follow-up (high priority): decide/runtime-wire shader variant selection in `PainterGL2` based on actual context profile/version (`oglContextInfo`) instead of compile-time split only.
 - R-01 follow-up (high priority): enforce whitespace discipline for migration commits (separate formatting-only diffs or avoid them entirely).
 - R-01 follow-up (medium): add a small smoke-test for Windows GL version-string parsing used during temporary-context capability probe.
-- R-01 follow-up (low): provide semantic labels for engine-managed VBO/IBO (instead of generic `VB#id`/`IB#id`) for faster NSight navigation.
-- R-01 follow-up (low): evaluate shader program/object labeling path to improve visibility in NSight object lists.
+- R-01 follow-up (high priority): stabilize and validate SDL context path (`Apus.Engine.SDLplatform`) for core-profile startup parity with Windows path.
+- Demo follow-up (medium): `01-Scenes` starts and renders, but UI/menu layout is shifted to the right edge (likely DPI/layout scaling issue); investigate and fix centering.
+- Demo follow-up (low): `Win+\`` opens borderless PowerShell/terminal (likely external OS/terminal quake hotkey, not engine console); verify engine key routing and document expected behavior.
 - R-01 follow-up (high priority): investigate NSight-reported useless `glBind*` calls and reduce bind churn.
   - candidate #1: shared helper for bind/draw/unbind sequence in `Apus.Engine.Draw` to avoid duplicate binds and enforce balanced cleanup.
   - candidate #2: avoid bind-to-zero in hot upload/draw paths unless required by correctness.
