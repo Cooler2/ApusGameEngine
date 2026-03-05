@@ -181,3 +181,4 @@ Exit criteria:
 - [~] Stage 5: high-usage immediate paths now pass through the stream buffer fallback (without API-level migration yet), reducing direct client-array dependency for `SimpleDemo`-critical draw/text paths.
   - `Apus.Engine.TextDraw`: `FlushTextCache` now uploads to explicit dynamic VB + static IB and renders via bound buffers.
   - `Apus.Engine.Draw`: 2D `Particles(...)` and `Band(...)` paths now upload to dynamic VB/IB and render via buffer-backed indexed draws.
+  - `Apus.Engine.Draw`: pointer-based `IndexedMesh(...)` overloads now use dynamic scratch VB/IB upload + bound-buffer indexed draw (used by `Mesh`/`Model3D` immediate paths).

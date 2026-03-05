@@ -104,8 +104,11 @@ interface
   partVB:TVertexBuffer; // buffer for billboard particles vertices (2D path)
   partIB:TIndexBuffer; // static indices for billboard quads
   bandIB:TIndexBuffer; // dynamic indices for band rendering
+  meshVB:TVertexBuffer; // dynamic scratch VB for pointer-based indexed mesh draws
+  meshIB:TIndexBuffer; // dynamic scratch IB for pointer-based indexed mesh draws
   depthTexture:TTexture; // depth texture used for soft particles
   softParticlesRange:single; // depth range for fading the soft particles
+  procedure EnsureMeshBuffers(layout:TVertexLayout;vrtCount,indCount:integer);
   procedure CalcGradient(width,height:single;out gx,gy:single); inline;
  end;
 
@@ -206,6 +209,8 @@ begin
  partIB:=gfx.resMan.AllocIndexBuffer(6*MaxParticleCount,2,TBufferUsage.buStatic);
  partIB.Upload(0,6*MaxParticleCount,@partInd[0]);
  bandIB:=gfx.resMan.AllocIndexBuffer(6*MaxParticleCount,2,TBufferUsage.buDynamic);
+ meshVB:=nil;
+ meshIB:=nil;
 
  neutral:=AllocImage(4,4);
  neutral.name:='_neutral_';
@@ -240,6 +245,14 @@ destructor TDrawer.Destroy;
   if bandIB<>nil then begin
    bandIB.Free;
    bandIB:=nil;
+  end;
+  if meshVB<>nil then begin
+   meshVB.Free;
+   meshVB:=nil;
+  end;
+  if meshIB<>nil then begin
+   meshIB.Free;
+   meshIB:=nil;
   end;
   if partShader3D<>nil then begin
    partShader3D.Free;
@@ -898,22 +911,46 @@ begin
  useGradient:=false;
 end;
 
+procedure TDrawer.EnsureMeshBuffers(layout:TVertexLayout;vrtCount,indCount:integer);
+begin
+ if vrtCount<1 then vrtCount:=1;
+ if indCount<1 then indCount:=1;
+ if (meshVB=nil) or (not meshVB.layout.Equals(layout)) then begin
+  if meshVB<>nil then meshVB.Free;
+  meshVB:=gfx.resMan.AllocVertexBuffer(layout,vrtCount,TBufferUsage.buDynamic);
+ end else
+ if meshVB.count<vrtCount then
+  meshVB.Resize(vrtCount);
+ if meshIB=nil then
+  meshIB:=gfx.resMan.AllocIndexBuffer(indCount,2,TBufferUsage.buDynamic)
+ else
+ if meshIB.count<indCount then
+  meshIB.Resize(indCount);
+end;
+
 procedure TDrawer.IndexedMesh(vertices:PVertex3D;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
 begin
- clippingAPI.Prepare;
- if tex=nil then tex:=neutral;
- shader.UseTexture(tex);
- renderDevice.DrawIndexed(TRG_LIST,vertices,indices,TVertex3D.layout,
-    0,vrtCount,0,trgCount);
+ IndexedMesh(vertices,TVertex3D.layout,indices,trgCount,vrtCount,tex);
 end;
 
 procedure TDrawer.IndexedMesh(vertices:pointer;layout:TVertexLayout;indices:PWord;trgCount,vrtCount:integer;tex:TTexture);
-begin
- clippingAPI.Prepare;
- if tex=nil then tex:=neutral;
- shader.UseTexture(tex);
- renderDevice.DrawIndexed(TRG_LIST,vertices,indices,layout,0,vrtCount,0,trgCount);
-end;
+ var
+  indCount:integer;
+ begin
+  if (trgCount<=0) or (vrtCount<=0) then exit;
+  clippingAPI.Prepare;
+  if tex=nil then tex:=neutral;
+  shader.UseTexture(tex);
+  indCount:=trgCount*3;
+  EnsureMeshBuffers(layout,vrtCount,indCount);
+  meshVB.Upload(0,vrtCount,vertices);
+  meshIB.Upload(0,indCount,indices);
+  gfx.resman.UseVertexBuffer(meshVB);
+  gfx.resman.UseIndexBuffer(meshIB);
+  renderDevice.DrawIndexed(TRG_LIST,nil,nil,layout,0,vrtCount,0,trgCount);
+  gfx.resman.UseVertexBuffer(nil);
+  gfx.resman.UseIndexBuffer(nil);
+ end;
 
 procedure TDrawer.IndexedMesh(vb:TVertexBuffer;ib:TIndexBuffer;tex:TTexture);
 begin

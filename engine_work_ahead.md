@@ -49,6 +49,7 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - Attribute cache now tracks bound `GL_ARRAY_BUFFER`, preventing stale pointer state when switching VBOs with identical layouts.
   - `Apus.Engine.TextDraw` switched `FlushTextCache` to explicit buffer-backed submission (dynamic VB + static IB) instead of RAM pointer draw.
   - `Apus.Engine.Draw` switched 2D `Particles` and `Band` submission to explicit dynamic VB/IB paths.
+  - `Apus.Engine.Draw` switched pointer-based `IndexedMesh(...)` overloads to explicit dynamic scratch VB/IB submission, covering `Mesh`/`Model3D` immediate indexed paths.
 
 ## In Progress
 - First wave of engine migration is effectively complete:
