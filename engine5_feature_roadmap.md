@@ -124,7 +124,7 @@ Use this section for anything remembered on the fly.
 ## 5) Seed Feature Cards
 
 ### [R-01] Core OpenGL Pipeline Modernization
-- Status: in-progress (mandatory core-profile milestone completed; NSight stage deferred)
+- Status: in-progress (mandatory core-profile milestone completed; NSight instrumentation/profile added; runtime capture validation pending)
 - Priority: P0
 - Area: Render
 - Value: Move Engine5 to a modern, debuggable, and maintainable OpenGL pipeline.
@@ -138,7 +138,8 @@ Use this section for anything remembered on the fly.
   - [ ] At least one representative demo can be inspected in NSight with meaningful draw-call/resource visibility.
 - Notes: includes replacing RAM-side immediate/legacy feeding where still present.
   - 2026-03-05: Stage 0-1 implemented (context request/actual API, GameApp toggle surface, platform signature migration, requested-vs-actual startup logging).
-  - 2026-03-05: Mandatory rollout milestone reached: `SimpleDemo` runs on core profile in current Windows path; Stage 7/8 (NSight instrumentation/profiling) intentionally deferred.
+  - 2026-03-05: Mandatory rollout milestone reached: `SimpleDemo` runs on core profile in current Windows path.
+  - 2026-03-05: Stage 7/8 baseline delivered: OpenGL debug callback/groups + GL object labels + dedicated `NSight` build config for `SimpleDemo`; final runtime NSight capture validation remains pending.
 
 ### [R-02] Multi-Window, Multi-Monitor, and Hot DPI-Awareness
 - Status: idea

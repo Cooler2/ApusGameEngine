@@ -61,7 +61,10 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - Review follow-up (high priority done): fixed `TIndexBufferGL.Resize` to use `GL_ELEMENT_ARRAY_BUFFER` + element-buffer tracking.
   - Review follow-up (high priority done): moved GL bind tracking out of backend-agnostic `IRenderDevice` into optional `IRenderDeviceBindTracking` extension used by GL backend.
   - Mandatory R-01 rollout milestone reached: `SimpleDemo` runtime confirmed on core profile.
-  - R-01 Stage 7/8 (NSight instrumentation/profiling) explicitly deferred by current project decision.
+  - R-01 Stage 7 baseline done: OpenGL debug callback wiring + notification filtering + frame/RT debug groups + present marker.
+  - R-01 Stage 7 baseline done: GL object labels added for VBO/IBO/FBO allocations (texture labels were already present).
+  - R-01 Stage 8 done: `demo/SimpleDemo/SimpleDemo.dproj` now includes dedicated `NSight` config (debug symbols, no optimizations).
+  - R-01 final NSight acceptance step remains: capture a representative frame and confirm named resources/event groups in NSight UI.
 
 ## In Progress
 - First wave of engine migration is effectively complete:

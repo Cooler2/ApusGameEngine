@@ -195,14 +195,15 @@ Exit criteria:
   - review follow-up: removed per-draw `MaxIndexInBuffer` scan from hot path; RAM-backed indexed stream upload is constrained to ranged overload with explicit `vrtCount`.
   - `Apus.Engine.ShadersGL`: active desktop shader generation remains unified on `#version 330` with explicit `in/out`.
   - no compatibility GLSL fallback is used in desktop runtime path; legacy GLSL tokens remain only in GLES-conditional shader branch.
-- [ ] Stage 7: deferred (optional for current milestone).
-  - NSight instrumentation and resource labeling are postponed until after mandatory core-profile rollout.
-- [ ] Stage 8: deferred (optional for current milestone).
-  - NSight-specific demo profiling flow is postponed together with Stage 7.
+- [x] Stage 7: NSight instrumentation baseline implemented.
+  - `Apus.Engine.OpenGL`: debug callback wiring (`KHR/ARB`), notification filtering, frame/RT debug groups, present marker.
+  - `Apus.Engine.ResManGL`: object labels added for VBO/IBO/FBO allocations (textures were already labeled).
+- [x] Stage 8: SimpleDemo NSight profile implemented.
+  - `demo/SimpleDemo/SimpleDemo.dproj`: added dedicated `NSight` build configuration (debug info in image, optimizations disabled, stack frames enabled).
 - [x] Stage 9: validation and rollout updates completed for mandatory core-profile migration path.
   - `SimpleDemo` runs on core profile (runtime-confirmed).
   - migration status synchronized in roadmap/work-ahead docs.
-  - optional NSight-specific instrumentation/profiling stages (7-8) intentionally deferred.
+  - NSight runtime capture validation remains as final acceptance check.
 
 ## Review Notes (post-Stage 4-6)
 

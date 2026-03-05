@@ -232,6 +232,12 @@ procedure TrackElementBufferBinding(buffer:cardinal); inline;
    tracker.TrackElementBufferBinding(buffer);
  end;
 
+procedure SetGLObjectLabel(identifier,name:cardinal;const labelText:String8); inline;
+begin
+ if (name<>0) and (labelText<>'') and (@glObjectLabel<>nil) then
+  glObjectLabel(identifier,name,length(labelText),@labelText[1]);
+end;
+
 
 procedure ActiveTextureUnit(u:integer);
  begin
@@ -1162,6 +1168,7 @@ var
  status:cardinal;
  prevFramebuffer:GLint;
  renderBuffer:GLUint;
+ lab:String8;
 begin
  begin
   Log.Msg(sysUtils.Format('AllocImage RT %dx%d %d (%s)',[tex.width,tex.height,flags,tex.name]));
@@ -1171,9 +1178,15 @@ begin
   width:=GetPow2(width);
   height:=GetPow2(height);
   glGenFramebuffersOES(1,@tex.fbo);
+  lab:='FBO:'+tex.name;
+  if lab='FBO:' then lab:='FBO#'+IntToStr(tex.fbo);
+  SetGLObjectLabel(GL_FRAMEBUFFER,tex.fbo,lab);
   glBindFramebufferOES(GL_FRAMEBUFFER_OES,tex.fbo);
   {$ELSE}
   glGenFramebuffers(1,@tex.fbo);
+  lab:='FBO:'+tex.name;
+  if lab='FBO:' then lab:='FBO#'+IntToStr(tex.fbo);
+  SetGLObjectLabel(GL_FRAMEBUFFER,tex.fbo,lab);
   glBindFramebuffer(GL_FRAMEBUFFER,tex.fbo);
   {$ENDIF}
   glGenTextures(1,@tex.texname);
@@ -1201,6 +1214,9 @@ begin
   {$IFNDEF GLES}
   // Standard way: use FBO
   glGenFramebuffers(1,@tex.fbo);
+  lab:='FBO:'+tex.name;
+  if lab='FBO:' then lab:='FBO#'+IntToStr(tex.fbo);
+  SetGLObjectLabel(GL_FRAMEBUFFER,tex.fbo,lab);
   CheckForGLError('1');
   // Save current framebuffer
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,@prevFramebuffer);
@@ -1691,6 +1707,7 @@ begin
   buTemporary: vb.usage:=GL_STREAM_DRAW;
  end;
  glBufferData(GL_ARRAY_BUFFER,layout.stride*numVertices,nil,vb.usage);
+ SetGLObjectLabel(GL_BUFFER,vb.buffer,'VB#'+IntToStr(vb.buffer));
  result:=vb;
  CheckForGLError('AllocVB');
 end;
@@ -1711,6 +1728,7 @@ begin
   buTemporary: ib.usage:=GL_STREAM_DRAW;
  end;
  glBufferData(GL_ELEMENT_ARRAY_BUFFER,indCount*elementSize,nil,ib.usage);
+ SetGLObjectLabel(GL_BUFFER,ib.buffer,'IB#'+IntToStr(ib.buffer));
  result:=ib;
  CheckForGLError('AllocIB');
 end;

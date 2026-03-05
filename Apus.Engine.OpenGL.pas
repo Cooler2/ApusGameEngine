@@ -67,8 +67,11 @@ type
 var
  debugGL:boolean = true;
  glDefaultVAO:cardinal = 0;
+ debugGroupDepth:integer = 0;
 
  procedure CheckForGLError(lab:integer=0); inline;
+ procedure PushDebugGroup(const st:String8;id:integer=0); inline;
+ procedure PopDebugGroup; inline;
 
 implementation
  uses
@@ -209,6 +212,8 @@ function GLContextInfoToString(const info:TOpenGLContextInfo):string;
    ', accepted='+BoolToStr(info.requestAccepted,true);
  end;
 
+procedure HandleGLDebugMessage(source,typ,id,severity:GLenum;len:GLsizei;const message_:PGLchar;userParam:PGLvoid); {$IFDEF DGL_WIN}stdcall{$ELSE}cdecl{$ENDIF}; forward;
+
 { TOpenGL }
 procedure TOpenGL.Init(system:ISystemPlatform);
  var
@@ -284,6 +289,22 @@ procedure TOpenGL.Init(system:ISystemPlatform);
     'Actual: '+GLContextInfoToString(actual));
   oglContextInfo:=actual;
   Log.Force('OpenGL context actual: '+GLContextInfoToString(oglContextInfo));
+  if actual.debugContext then begin
+   if @glDebugMessageCallback<>nil then begin
+    glEnable(GL_DEBUG_OUTPUT);
+    if @glDebugMessageControl<>nil then
+     glDebugMessageControl(GL_DONT_CARE,GL_DONT_CARE,GL_DEBUG_SEVERITY_NOTIFICATION,0,nil,GL_FALSE);
+    glDebugMessageCallback(TGLDEBUGPROC(@HandleGLDebugMessage),nil);
+    Log.Force('OpenGL debug callback enabled (KHR)');
+   end else
+   if @glDebugMessageCallbackARB<>nil then begin
+    if @glDebugMessageControlARB<>nil then
+     glDebugMessageControlARB(GL_DONT_CARE,GL_DONT_CARE,GL_DEBUG_SEVERITY_NOTIFICATION,0,nil,GL_FALSE);
+    glDebugMessageCallbackARB(@HandleGLDebugMessage,nil);
+    Log.Force('OpenGL debug callback enabled (ARB)');
+   end else
+    Log.Warn('Debug context requested but debug callback API is not available');
+  end;
   Log.Force('OpenGL version: '+glVersion);
   Log.Force('OpenGL vendor: '+PAnsiChar(glGetString(GL_VENDOR)));
   Log.Force('OpenGL renderer: '+glRenderer);
@@ -380,6 +401,7 @@ procedure TOpenGL.PostDebugMsg(st:string8;id:integer=0);
 
 procedure TOpenGL.PresentFrame;
  begin
+  PostDebugMsg('PresentFrame');
   sysPlatform.OGLSwapBuffers;
  end;
 
@@ -426,11 +448,17 @@ function TOpenGL.SetVSyncDivider(n: integer):boolean;
 procedure TOpenGL.BeginPaint(target: TTexture);
  var
   rw,rh:integer;
+  grp:String8;
  begin
   if target=nil then
    PostDebugMsg('BeginPaint')
   else
    PostDebugMsg('BeginPaint: '+target.name);
+  if target=nil then
+   grp:='Frame'
+  else
+   grp:='RenderTarget:'+target.name;
+  PushDebugGroup(grp);
 
   {if (canPaint>0) and (target=curTarget) then
     raise EWarning.Create('BP: target already set');}
@@ -461,6 +489,7 @@ procedure TOpenGL.EndPaint;
    transformationAPI.DefaultView;
   end;
   clippingAPI.Restore;
+  PopDebugGroup;
  end;
 
 procedure TOpenGL.Breakpoint;
@@ -620,6 +649,30 @@ procedure TRenderDevice.TrackArrayBufferBinding(buffer:cardinal);
 begin
  boundArrayBuffer:=buffer;
 end;
+
+procedure PushDebugGroup(const st:String8;id:integer=0);
+ begin
+  if (length(st)=0) or (@glPushDebugGroup=nil) then exit;
+  glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION,id,length(st),@st[1]);
+  inc(debugGroupDepth);
+ end;
+
+procedure PopDebugGroup;
+ begin
+  if (debugGroupDepth<=0) or (@glPopDebugGroup=nil) then exit;
+  glPopDebugGroup;
+  dec(debugGroupDepth);
+ end;
+
+procedure HandleGLDebugMessage(source,typ,id,severity:GLenum;len:GLsizei;const message_:PGLchar;userParam:PGLvoid); {$IFDEF DGL_WIN}stdcall{$ELSE}cdecl{$ENDIF};
+ var
+  st:string8;
+ begin
+  if message_=nil then exit;
+  if severity=GL_DEBUG_SEVERITY_NOTIFICATION then exit;
+  st:=PAnsiChar(message_);
+  Log.Force(Format('[GLDBG] src=%d type=%d id=%d sev=%d: %s',[source,typ,id,severity,st]));
+ end;
 
 procedure TRenderDevice.TrackElementBufferBinding(buffer:cardinal);
 begin
