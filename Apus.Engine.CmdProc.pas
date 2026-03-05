@@ -10,12 +10,12 @@ unit Apus.Engine.CmdProc;
 interface
  uses Apus.Core, Apus.Publics;
  type
-  { Процедура, исполняющая команду(ы). В случае ошибки создает исключение с текстом ошибки.
-    В Engine3 не допускается несколько исполнителей одного оператора, т.е. если исполнитель
-    команду не выполнил - значит все, она обломалась! }
+  { Command handler. On error it raises an exception with a readable message.
+    Engine3 expects a single handler per operator, so a matched handler must
+    fully process the command or report a failure. }
   TCmdFunc=procedure(cmd:string8);
 
-  // Расположение оператора в команде
+  // Operator placement in a command
   TOperatorPos=(opFirst,   // оператор - первое слово (символ) в строке (например 'use ')
                 opLast,    // оператор - последнее слово (символ) в строке (например '?')
                 opMiddle); // оператор разделяет строку на две части (например '=')
@@ -24,19 +24,19 @@ interface
   TReprType=(rtDecimal,rtHex,rtBin);
 
  var
-  LastCmdError:string8; // текст ошибки (выводится если ни одна исполнительная ф-я не смогла выполнить команду)
-  curObj:pointer; // адрес текущего объекта
-  curObjClass:TVarClassStruct; // класс текущего объекта
+  LastCmdError:string8; // error text when no handler can process the command
+  curObj:pointer; // current object pointer
+  curObjClass:TVarClassStruct; // current object class
 
- // Выполнить команду
+ // Execute a single command line
  procedure ExecCmd(cmd:string8);
- // Выполнить команды из текстового файла (выполнять ли эхо команд в консоль?)
+ // Execute commands from a text file (optionally echo them to console)
  procedure ExecFile(fname:string8;echo:boolean=false);
 
- // Установить функцию-исполнитель
+ // Register command handler
  procedure SetCmdFunc(operatorName:string8;posit:TOperatorPos;func:TCmdFunc);
 
- // представить число в заданном виде
+ // Format integer in requested representation
  function RepresentInteger(n:integer;repr:TReprType):string8;
 
 implementation
@@ -59,14 +59,14 @@ implementation
    cls:TPublishedClassRef;
   end;}
  var
-  executers:TExecuter; // Список исполнителей (сперва самые удачливые)
+  executers:TExecuter; // registered handlers (most recently added first)
 
 {  intVars:array of integer;
   dwordVars:array of cardinal;
   floatVars:array of single;
   boolVars:array of boolean;}
 
-  // Режим условного исполнения (true - текущая ветвь исполняется, false - пропускается)
+  // Conditional execution state: true means current branch is active.
   condStack:array[0..10] of boolean;
   condPos:integer;
 
@@ -78,7 +78,7 @@ implementation
   var
    e:TExecuter;
   begin
-   operatorName:=UpperCase {TODO: use st.ToUpper}(operatorName);
+   operatorName:=operatorName.ToUpper;
    e:=executers;
    while e<>nil do begin
     if e.oper=operatorName then raise EError.Create('Operator '+operatorName+' is already defined!');
@@ -94,25 +94,24 @@ implementation
    executers:=e;
   end;
 
- // Внутренняя процедура, исполняющая одну команду
+ // Execute one already separated command.
  procedure ExecSingleCmd(cmd:string8);
   var
    fl:boolean;
-   st,location:string;
+   st,location:string8;
    exe:TExecuter;
   begin
    cmd:=cmd.Trim;
    if cmd='' then exit;
-   st:=UpperCase {TODO: use st.ToUpper}(cmd);
+   st:=cmd.ToUpper;
    if (condPos>0) and not condStack[condPos] then
     if (st<>'ENDIF') and (st<>'ELSE') then exit;
-   // Обработка команды HELP
-    { может, когда-нибудь будет... }
+   // HELP command can be added later if needed.
 
-   // Обработка прочих команд
+   // Handle all other commands.
    LastCmdError:='';
    exe:=Executers;
-   // нужно пройти всю цепочку!
+   // Need to scan the whole handler chain.
    while exe<>nil do with exe do begin
     fl:=false;
     case operpos of
@@ -120,7 +119,7 @@ implementation
      opLast:if copy(st,length(st)-length(oper)+1,length(oper))=oper then fl:=true;
      opMiddle:if pos(oper,st)>0 then fl:=true;
     end;
-    if fl then begin // исполнитель соответствует выражению
+    if fl then begin // handler matches the expression
      try
       exe.operfunc(cmd);
      except
@@ -137,7 +136,7 @@ implementation
     end;
     exe:=exe.next;
    end;
-   // Default action - evaluation
+   // Default action: evaluate the expression.
    try
 
     PutMsg(EvalStr(cmd,nil,curObj,curObjClass),false,41000);
@@ -205,7 +204,7 @@ implementation
     st:=copy(cmd,pos(' ',cmd)+1,length(cmd));
     sa:=st.Split(' ','"');
     if (length(sa)=3) then begin
-     if lowercase {TODO: use st.ToLower}(sa[2])='keep' then
+     if sa[2].ToLower='keep' then
       Link(sa[0],sa[1],-1,redirect)
      else
       Link(sa[0],sa[1],strtoint(sa[2]),redirect)
@@ -224,7 +223,8 @@ implementation
   end;
 
  // Operator '='
- // Вычисляет правую часть и пытается присвоить её опубликованной переменной в левой части (с конверсией типа, если надо)
+  // Evaluate the right side and assign it to the published variable on the
+  // left, converting the type when needed.
  procedure AssignCmd(cmd:string8);
   var
    sa:Strings8;
@@ -236,13 +236,10 @@ implementation
    sa[0]:=sa[0].Trim;
    if (length(sa)<>2) or (length(sa[0])=0) then
     raise EWarning.Create('Syntax error: must be name=value or name=expression');
-   // Определимся с левой частью
+   // Resolve the left side first.
    leftVar:=FindVar(sa[0],leftClass,curObj,curObjClass);
    if leftVar=nil then raise EWarning.Create(sa[0]+' is not defined');
-   // Если левая часть:
-   // - целое число - вычислить правую и округлить
-   // - действительное число - вычислить и присвоить
-   // - прочее - просто присвоить
+   // For numeric targets evaluate the expression first.
    if (leftClass.InheritsFrom(TVarTypeInteger)) or
       (leftClass.InheritsFrom(TVarTypeCardinal)) or
       (leftClass.InheritsFrom(TVarTypeSingle)) then begin
@@ -262,12 +259,12 @@ implementation
    repr:TReprType;
    v:pointer;
    vc:TVarClass;
-   st:string;
+   st:string8;
   begin
    SetLength(cmd,length(cmd)-1);
    if length(cmd)=0 then
     raise EWarning.Create('Syntax error');
-   cmd:=LowerCase {TODO: use st.ToLower}(cmd);
+   cmd:=cmd.ToLower;
    if (cmd='self') and (curObj<>nil) then begin
     st:=curObjClass.GetValue(curObj);
     //st:=StringReplace(st,', ',','#13#10,[rfReplaceAll]);
@@ -304,11 +301,13 @@ implementation
      condStack[condPos]:=not condStack[condPos];
     end;
    end else begin
-    // IF statement
-    delete(cmd,1,3);
-    v:=EvalFloat(cmd,nil,curObj,curObjClass);
-    inc(condPos);
-    condStack[condPos]:=(v<>0);
+     // IF statement
+     delete(cmd,1,3);
+     v:=EvalFloat(cmd,nil,curObj,curObjClass);
+     if condPos>=High(condStack) then
+      raise EWarning.Create('Conditional nesting is too deep (max '+IntToStr(High(condStack))+')');
+     inc(condPos);
+     condStack[condPos]:=(v<>0);
    end;
   end;
 
@@ -316,11 +315,9 @@ implementation
   var
    sa:Strings8;
    p:integer;
-   t:string8;
    v:double;
   begin
    p:=pos(' ',cmd);
-   t:=UpperCase {TODO: use st.ToUpper}(copy(cmd,1,p-1));
    delete(cmd,1,p);
    sa:=cmd.Split('=');
    sa[0]:=sa[0].Trim;
@@ -337,7 +334,7 @@ implementation
   var
    sa:Strings8;
    p:integer;
-   t:string;
+   t:string8;
    ptr:pointer;
    vc:TVarClass;
    int:PInteger;
@@ -346,7 +343,7 @@ implementation
    bool:PBoolean;
   begin
    p:=pos(' ',cmd);
-   t:=UpperCase {TODO: use st.ToUpper}(copy(cmd,1,p-1));
+   t:=copy(cmd,1,p-1).ToUpper;
    delete(cmd,1,p);
    sa:=cmd.Split('=');
    sa[0]:=sa[0].Trim;
@@ -376,7 +373,7 @@ implementation
  procedure UseCmd(cmd:string8);
   begin
    delete(cmd,1,4);
-   cmd:=LowerCase {TODO: use st.ToLower}(cmd);
+   cmd:=cmd.ToLower;
    if cmd='none' then begin
     curObj:=nil; curObjClass:=nil; exit;
    end;
@@ -417,8 +414,8 @@ var
 begin
  sa:=params.Split(',');
  if length(sa)<>2 then raise EWarning.Create('Invalid parameters');
- color1:=round(EvalFloat(sa[0],nil,context,contextClass));
- color2:=round(EvalFloat(sa[0],nil,context,contextClass));
+  color1:=round(EvalFloat(sa[0],nil,context,contextClass));
+  color2:=round(EvalFloat(sa[1],nil,context,contextClass));
  case tag of
   1:result:=ColorAdd(color1,color2);
   2:result:=ColorSub(color1,color2);

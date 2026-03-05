@@ -25,11 +25,19 @@ interface
  procedure QueueFileLoad(fname:String8);
  // Starts one loading thread and 1..4 unpacking threads
  procedure StartLoadingThreads(unpackThreadsNum:integer=2);
- // Get raw image from queue if exists or nil elsewere
+ // Get raw image from queue if exists or nil elsewhere
  // Waits if image is queued, but not yet processed
  function GetImageFromQueue(fname:String8;mode:TQueueRequestMode=qrmWait):TRawImage;
 
 implementation
+ // TODO: Major refactoring needed:
+ // - Loading thread reads/writes `status` without lock — needs proper sync
+ //   (claim item under lock: lqsWaiting→lqsLoading, then I/O outside lock,
+ //    then lqsLoading→lqsLoaded under lock)
+ // - Queue entries are never freed (memory leak) — need Dispose after GetImageFromQueue
+ // - Migrate TThread subclasses to Thread.Start() (removes Classes dependency)
+ // - qrmReturnSource returns srcData while unpack thread reads it (data race)
+ // - Replace spin-wait loops (Time.Sleep) with TLightweightEvent signaling
  uses
   Apus.Lib,
   Apus.Strings,
@@ -83,7 +91,6 @@ implementation
    found:boolean;
   begin
    result:=nil;
-   if firstItem=nil then exit;
    cSect.Enter;
    try
     item:=firstItem;
@@ -115,6 +122,7 @@ implementation
       Log.Msg('Waiting for %s, status %d',[fname,ord(item.status)]);
       // try to handle this earlier -> move on top
       if (prev<>nil) and (item.status in [lqsWaiting,lqsLoaded]) then begin
+       if item=lastItem then lastItem:=prev;
        prev.next:=item.next;
        item.next:=firstItem;
        MemoryBarrier;
@@ -148,16 +156,6 @@ implementation
    finally
     cSect.Leave;
    end;
-  end;
-
- procedure LockImgQueue;
-  begin
-   cSect.Enter;
-  end;
-
- procedure UnlockImgQueue;
-  begin
-   cSect.Leave;
   end;
 
  procedure StartLoadingThreads(unpackThreadsNum:integer=2);
@@ -207,10 +205,11 @@ procedure TLoadingThread.Execute;
      if length(srcData)<30 then begin
       Log.Force('Failed to load file: '+fname);
       status:=lqsError;
+     end else begin
+      format:=CheckImageFormat(srcData);
+      info:=imgInfo;
+      status:=lqsLoaded; // ready for processing
      end;
-     format:=CheckImageFormat(srcData);
-     info:=imgInfo;
-     status:=lqsLoaded; // ready for processing
     end;
 
    if firstItem<>start then begin
@@ -235,11 +234,10 @@ procedure TUnpackThread.Execute;
   Thread.Register('QUnpack');
   try
   repeat
-   Time.Sleep(1); // Never wait inside CS!
-   item:=firstItem;
-   // Find the first waiting entry
+   Time.Sleep(1); // never wait inside CS
    cSect.Enter;
    try
+    item:=firstItem;
     while (item<>nil) and (item.status<>lqsLoaded) do item:=item.next;
     if item<>nil then
      item.status:=lqsUnpacking;

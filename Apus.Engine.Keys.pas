@@ -200,6 +200,7 @@ const
   SDL_SCANCODE_KP_PLUS=87;
   SDL_SCANCODE_KP_ENTER=88;
   SDL_SCANCODE_KP_1=89;
+  SDL_SCANCODE_KP_0=98;
   SDL_SCANCODE_KP_PERIOD=99;
 var
   scan:integer;
@@ -247,8 +248,9 @@ begin
       SDL_SCANCODE_KP_MINUS:result:=TKey.NumSub;
       SDL_SCANCODE_KP_PLUS:result:=TKey.NumAdd;
       SDL_SCANCODE_KP_ENTER:result:=TKey.Enter;
-      SDL_SCANCODE_KP_1..SDL_SCANCODE_KP_1+9:
+      SDL_SCANCODE_KP_1..SDL_SCANCODE_KP_1+8:
         result:=TKey(ord(TKey.Num1)+scan-SDL_SCANCODE_KP_1);
+      SDL_SCANCODE_KP_0:result:=TKey.Num0;
       SDL_SCANCODE_KP_PERIOD:result:=TKey.NumDot;
     else
       result:=TKey.None;

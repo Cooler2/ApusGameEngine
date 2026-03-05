@@ -606,6 +606,7 @@ procedure TGameApplication.Run;
    end;
    {$ENDIF}
 
+  // TODO: use usedAPI to select graphics backend (currently only OpenGL exists)
   game:=TGame.Create(sysPlatform,TOpenGL.Create);
   if game=nil then raise EError.Create('Game object not created!');
 

@@ -255,7 +255,7 @@ procedure TCustomNinePatch.ClearBorder;
    PutPixel(0,0,c);
    c:=ColorMix(GetPixel(x,1),GetPixel(x-1,0),128);
    PutPixel(x,0,c);
-   c:=ColorMix(GetPixel(y,1),GetPixel(y-1,0),128);
+   c:=ColorMix(GetPixel(0,y-1),GetPixel(1,y),128);
    PutPixel(0,y,c);
    c:=ColorMix(GetPixel(x,y-1),GetPixel(x-1,y),128);
    PutPixel(x,y,c);
@@ -567,7 +567,7 @@ begin
     if hRanges[i].rType<>rtFixed then begin
       if i>0 then
        x1[i]:=x1[i]-hRanges[i-1].overlap2;
-      if i<nW then
+      if i<nW-1 then
        x2[i]:=x2[i]+hRanges[i+1].overlap1;
       gridW[i]:=CalcGridSize(x2[i]-x1[i],hRanges[i].pTo-hRanges[i].pFrom);
     end else
@@ -581,7 +581,7 @@ begin
     begin
       if i>0 then
        y1[i]:=y1[i]-vRanges[i-1].overlap2;
-      if i<nW then
+      if i<nH-1 then
        y2[i]:=y2[i]+vRanges[i+1].overlap1;
       gridH[i]:=CalcGridSize(y2[i]-y1[i],vRanges[i].pTo-vRanges[i].pFrom);
     end
@@ -664,7 +664,6 @@ procedure TCustomNinePatch.Draw(x,y,width,height:single;scale:single);
   if (meshWidth<>rWidth) or (meshHeight<>rHeight) then
    BuildMeshForSize(rWidth,rHeight);
   transform.SetObj(x-0.5,y-0.5,0,scale);
-  mesh.DumpVertex(0);
   mesh.Draw(tex);
   transform.ResetObj;
  end;

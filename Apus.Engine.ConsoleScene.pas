@@ -24,7 +24,7 @@ var
  procedure AddConsoleScene;
 
 implementation
- uses SysUtils, Classes, Types, Apus.EventMan, Apus.Lib,
+ uses Classes, Types, Apus.EventMan, Apus.Lib,
   Apus.Engine.UIWidgets, Apus.Engine.UITypes,
   Apus.Engine.CmdProc, Apus.Engine.Console;
 
@@ -123,7 +123,8 @@ var
 begin
  e:=FindControl('Console\Input',false) as TUIEditBox;
  if e=nil then exit;
- if cmdList.Find(e.text,i) then begin
+ i:=cmdList.IndexOf(e.text);
+ if i>=0 then begin
   cmdList.Delete(i);
   if cmdPos>=i then dec(cmdPos);
  end;
@@ -139,7 +140,7 @@ procedure DrawContent(item:TUIImage);
 var
  r:TRect;
  i,n,cnt,ypos,msgClass,lineHeight,ll:integer;
- st:string;
+ st:UTF8String;
  col,font:cardinal;
 begin
  r:=item.globalRect;
@@ -237,8 +238,11 @@ begin
 end;
 
 procedure TConsoleScene.ScrollToEnd;
+var
+ lineHeight:integer;
 begin
- img.scroll.Y:=GetMsgCount*16-round(consoleScene.img.size.y-12);
+ lineHeight:=round(16*img.globalScale);
+ img.scroll.Y:=GetMsgCount*lineHeight-round(img.size.y-12);
 end;
 
 procedure TConsoleScene.SetStatus(status: TSceneStatus);

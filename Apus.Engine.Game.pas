@@ -438,7 +438,7 @@ begin
  resChanged:=(newParams.width<>params.width) or (newParams.height<>params.height);
  pfChanged:=newParams.colorDepth<>params.colorDepth;
  params:=newParams;
- if (params.mode.displayMode=dmFullScreen) and (altWidth=0) or (altHeight=0) then begin
+ if (params.mode.displayMode=dmFullScreen) and ((altWidth=0) or (altHeight=0)) then begin
   // save size for windowed mode
   altWidth:=params.width;
   altHeight:=params.height;
@@ -534,8 +534,11 @@ begin
   // Send to active scene
   scene:=TopmostSceneForKbd;
   if scene<>nil then begin
+   // TODO: lossy Unicode→ANSI conversion — non-ASCII chars may produce empty ast,
+   // causing ast[1] access to read garbage. Rework to use charcode directly.
    wst:=WideChar(charcode);
-   ast:=AnsiString(wst); // convert to ANSI
+   ast:=AnsiString(wst);
+   if length(ast)=0 then exit;
    key:=byte(ast[1])+(scancode and $FF) shl 8+(charcode and $FFFF) shl 16;
    scene.WriteKey(key);
   end;
@@ -665,7 +668,7 @@ function TGame.GetSettings:TGameSettings;
 
 function TGame.GetStatus(n:integer):string;
  begin
-
+  result:='';
  end;
 
 destructor TGame.Destroy;
@@ -677,12 +680,13 @@ destructor TGame.Destroy;
 
 procedure TGame.DoneGraph;
  begin
+  Log.Msg('DoneGraph Start');
   Signal('Engine\BeforeDoneGraph');
   gfx.Done;
-  Log.Msg('DoneGraph');
 
   systemPlatform.ShowWindow(false);
   Signal('Engine\AfterDoneGraph');
+  Log.Msg('DoneGraph End');
  end;
 
 procedure TGame.DPadCustomPoint(x, y: single);
@@ -1248,7 +1252,7 @@ begin
    MouseX:=p.x;
    MouseY:=p.y;
    mouseMovedTime:=CoreTime.Ticks;
-   Signal('Mouse\Move',mouseX+mouseY shl 16);
+   Signal('Mouse\Move',(mouseX and $FFFF)+mouseY shl 16);
    NotifyScenesAboutMouseMove;
    Signal('Mouse\BtnDown\Left',1);
    NotifyScenesAboutMouseBtn(1,true);
@@ -1265,7 +1269,7 @@ begin
    MouseX:=p.x;
    MouseY:=p.y;
    mouseMovedTime:=CoreTime.Ticks;
-   Signal('Mouse\Move',mouseX+mouseY shl 16);
+   Signal('Mouse\Move',(mouseX and $FFFF)+mouseY shl 16);
    NotifyScenesAboutMouseMove;
    Timing;
  end else
@@ -1478,7 +1482,7 @@ begin
 
  crSect.Enter;
  try
- // Сортировка сцен
+ // TODO: scenes are sorted here AND again by insertion sort in RenderFrame — remove one
  if high(scenes)>1 then begin
   for n:=1 to high(scenes) do
    for i:=0 to n-1 do
@@ -1836,7 +1840,7 @@ begin
      FLog('Eff ret');
      inc(effect.timer,DeltaTime);
      if effect.done then begin // Эффект завершился
-      Signal('ENGINE\EffectDone',cardinal(scenes[i])); // Посылаем сообщение о завершении эффекта
+      Signal('ENGINE\EffectDone',UIntPtr(scenes[i])); // effect completed
       effect.Free;
       scenes[i].effect:=nil;
      end;
@@ -1852,6 +1856,7 @@ begin
    for i:=low(scenes) to high(scenes) do
     if scenes[i].IsActive then begin
      // Сортировка вставкой. Найдем положение для вставки и вставим туда
+     ASSERT(n<high(sc),'Too many active scenes');
      if n=0 then begin
       sc[1]:=scenes[i]; inc(n); continue;
      end;
@@ -2006,7 +2011,7 @@ procedure TGame.Minimize;
 
 procedure TGame.FireMessage(st: string8);
  begin
-
+  // TODO: implement or remove this stub
  end;
 
 procedure TGame.SwitchToAltSettings; // Alt+Enter
@@ -2121,7 +2126,7 @@ begin
   cursor:=TGameCursor.Create;
   cursors[n]:=cursor;
  end else
-  cursor:=TGameCursor(cursors[i]);
+  cursor:=TGameCursor(cursors[n]);
 
  cursor.ID:=CursorID;
  cursor.priority:=priority;
@@ -2178,8 +2183,8 @@ begin
     // UI Scene?
     if scenes[i] is TUIScene then begin
      sc:=TUIScene(scenes[i]);
-     if not sc.UI.enabled then exit;
-     if (modalElement<>nil) and not modalElement.HasParent(sc.UI) then exit;
+     if not sc.UI.enabled then continue;
+     if (modalElement<>nil) and not modalElement.HasParent(sc.UI) then continue;
     end;
     // Topmost?
     if scenes[i].zorder>maxZ then begin
@@ -2229,7 +2234,7 @@ begin
  if threads[best]<>nil then threads[best].Free;
  threads[best]:=TCustomThread.Create(true);
  if ttl>0 then threads[best].timetokill:=CoreTime.Ticks+round(ttl*1000)
-  else threads[best].TimeToKill:=$FFFFFFFF;
+  else threads[best].TimeToKill:=high(int64);
  threads[best].running:=true;
  threads[best].func:=threadFunc;
  threads[best].param:=param;
@@ -2237,7 +2242,7 @@ begin
  threads[best].name:='RA_'+name;
  inc(LastThreadID);
  threads[best].id:=lastThreadID;
- threads[best].Resume;
+ threads[best].Start;
  result:=lastThreadID;
  finally
   RA_sect.Leave;

@@ -94,6 +94,13 @@ uses SysUtils, Apus.Lib, Apus.Strings, Apus.Structs, Apus.Geom3D, Types,
 const
   max_subimages = 5000;
 
+type
+  TMipLevelData=record
+    width,height:integer;
+    pitch:integer;
+    data:PByte;
+  end;
+
 var
   atlases:array[1..50] of TTexture;
   aCount:integer;
@@ -222,6 +229,8 @@ begin
   reset(f);
   readln(f,aw,ah,st);
   st:=st.Trim;
+  if aCount>=high(atlases) then
+   raise EError.Create('Too many atlases loaded: '+fname);
   inc(aCount);
   atlas:=LoadImageFromFile(fname);
   atlases[aCount]:=atlas;
@@ -229,6 +238,8 @@ begin
    readln(f,x,y,w,h,st);
    st:=st.Trim;
    if (st='') or (w=0) or (h=0) then continue;
+   if aSubCount>=high(aImages) then
+    raise EError.Create('Too many atlas subimages in '+fname);
    inc(aSubCount);
    img:=atlas.ClonePart(Rect(x,y,x+w,y+h));
    aImages[aSubCount]:=img;
@@ -256,10 +267,12 @@ var
  conversion:boolean;
  srcformat:TImageFileType;
  width,height:integer;
- levels:array[0..12] of TRawImage; // уровни в формате приемника
+ levels:array[0..12] of TMipLevelData; // DDS mip levels staged for upload
  sp,dp:PByte;
  ftype:integer;
 begin
+ // TODO: either implement the advertised conversion/downscale/saveDDS pipeline
+ // or narrow this API to the DDS-only path that is actually supported.
  fname:=fname.ToUpper;
  ftype:=0;
  if pos('.DDS',fname)>0 then ftype:=1;
@@ -278,6 +291,10 @@ begin
   if format=ipfNone then format:=imgInfo.format;
   AdjustFormat(format);
   conversion:=(format<>imginfo.format) or (imgInfo.miplevels<3);
+  if conversion then
+   raise EError.Create('LoadTexture conversion path is not implemented safely for '+fname);
+  if imgInfo.miplevels>length(levels) then
+   raise EError.Create('Too many mip levels in '+fname+': '+IntToStr(imgInfo.miplevels));
   if not conversion then begin
    width:=imgInfo.width;
    height:=imgInfo.height;
@@ -289,7 +306,6 @@ begin
    for i:=0 to imginfo.miplevels-1 do begin
     if width=0 then width:=1;
     if height=0 then height:=1;
-    levels[i]:=Apus.Images.TRawImage.Create;
     levels[i].width:=width;
     levels[i].height:=height;
     levels[i].data:=sp;
@@ -429,6 +445,7 @@ var
  st:String8;
 begin
  try
+  txtImage:=nil;
   // 1. ADJUST FILE NAME AND CHECK ATLAS
   fname:=Files.FixName(fname);
   // Search atlases first
@@ -487,7 +504,7 @@ begin
     if Files.Exists(st) then begin
      Log.Force('Loading RAW alpha ');
      rawData:=Files.LoadAsBytes(st);
-     if RLE.CheckHeader(@rawdata[0],length(rawData))>0 then
+     if (length(rawData)>0) and (RLE.CheckHeader(@rawdata[0],length(rawData))>0) then
        rawData:=RLE.Unpack(@rawdata[0],length(rawData));
      forceFormat:=ipfARGB;
     end;
@@ -533,6 +550,8 @@ begin
 
    // 6. ADD ALPHA CHANNEL FROM A SEPARATE RLE/RAW IMAGE IF EXISTS (JPEG-ONLY)
    if (length(rawData)>0) and (tex.PixelFormat=ipfARGB) then begin
+    if length(rawData)<tex.width*tex.height then
+     raise EError.Create('RAW alpha size mismatch for '+fname);
     Log.Force('Adding separate alpha');
     k:=0;
     for i:=0 to tex.height-1 do begin

@@ -26,12 +26,12 @@ interface
   tfDirty          = 16384; // Texture is "dirty" - internal storage was modified
 
  type
-  // Режим интерполяции текстур
+  // Texture filtering mode
   TTexFilter=(fltUndefined,    // filter not defined
-              fltNearest,      // Без интерполяции
-              fltBilinear,     // Билинейная интерполяция
-              fltTrilinear,    // Трилинейная (только для mip-map)
-              fltAnisotropic); // Анизотропная (только для mip-map)
+              fltNearest,      // no interpolation
+              fltBilinear,     // bilinear interpolation
+              fltTrilinear,    // trilinear interpolation (mip-maps only)
+              fltAnisotropic); // anisotropic filtering (mip-maps only)
 
   // Access mode for locked resources
   TLockMode=(lmReadOnly,       //< read-only (do not invalidate data when unlocked)
@@ -39,7 +39,7 @@ interface
              lmWriteOnly,      //< write-only (don't download texture data into the internal storage)
              lmCustomUpdate);  //< read+write, do not invalidate anything (AddDirtyRect is required, partial lock is not allowed in this case)
 
-  // Базовый абстрактный класс - текстура или ее часть
+  // Base abstract class: texture or texture region
   TTexture=class(TNamedObject)
    pixelFormat:TImagePixelFormat;
    width,height:integer; // dimension (in virtual pixels)
@@ -74,14 +74,16 @@ interface
    procedure Unlock; virtual; abstract;
    procedure AddDirtyRect(rect:TRect;level:integer=0); virtual; abstract; // mark area to update (when locked with mode=lmCustomUpdate)
    // Utilities
-   procedure GenerateMipMaps(count:byte); virtual; abstract; // Сгенерировать изображения mip-map'ов
+   procedure GenerateMipMaps(count:byte); virtual; abstract; // generate mip-map images
    function HasFlag(flag:cardinal):boolean;
    // Limit texture filtering to the specified mode (i.e. bilinear mode disables mip-mapping)
    procedure SetFilter(filter:TTexFilter); virtual; abstract;
    function Size:TSize; // (width,height)
    procedure Dump(filename:string8=''); virtual; abstract; // for debug purposes
 
-   class function FindByFile(fileName:string):TTexture; virtual;
+   // File-name lookup is case-insensitive (hash map behavior). Keep resource
+   // names normalized and avoid files that differ only by letter case.
+   class function FindByFile(fileName:String8):TTexture; virtual;
 
   protected
    fSrc:string8; // storage for property src
@@ -89,6 +91,7 @@ interface
    class function ClassHash:pointer; override;
    procedure SetSource(filename:string8);
   public
+   destructor Destroy; override;
    property src:String8 read fSrc write SetSource; // file name (if loaded from a file)
   end;
 
@@ -133,17 +136,16 @@ interface
  end;
 
 implementation
- uses Apus.Structs;
+ uses Apus.Lib;
 
  var
-  texturesHash:TObjectHash; // Search hash: name->texture
-  texFileHash:TObjectHash; // Search hash: filename->texture
-  shadersHash:TObjectHash; // Search hash: name->shader
+  texturesHash:TObjectHash;  // Search hash: name->texture
+  texFileHash:TObjectMap;    // Search hash: filename->texture
+  shadersHash:TObjectHash;   // Search hash: name->shader
 
  procedure TTexture.CloneFrom(from:TTexture);
   begin
    PixelFormat:=from.PixelFormat;
-   src:=from.src;
    left:=from.left;
    top:=from.top;
    width:=from.width;
@@ -158,7 +160,8 @@ implementation
     parent:=from.parent
    else
     parent:=from;
-   inc(parent.refCounter);
+   inc(parent.refCounter); // decremented in ResManGL.FreeImage when clone is freed
+   fSrc:=from.src; // clones keep the source path, but must not override file lookup entries
   end;
 
 function TTexture.HasFlag(flag:cardinal): boolean;
@@ -171,11 +174,20 @@ function TTexture.IsLocked:boolean;
   result:=locked>0;
  end;
 
+destructor TTexture.Destroy;
+ begin
+  if (fSrc<>'') and (parent=nil) and not HasFlag(tfCloned) then
+   texFileHash.Remove(fSrc);
+  inherited;
+ end;
+
 procedure TTexture.SetSource(filename:string8);
  begin
-  if fSrc<>'' then texFileHash.Remove(self);
+  if (fSrc<>'') and (parent=nil) and not HasFlag(tfCloned) then
+   texFileHash.Remove(fSrc);
   fSrc:=filename;
-  if fSrc<>'' then texFileHash.Put(self);
+  if (fSrc<>'') and (parent=nil) and not HasFlag(tfCloned) then
+   texFileHash.Put(fSrc,self);
  end;
 
 function TTexture.Size:TSize;
@@ -208,9 +220,14 @@ function TTexture.ClonePart(part:TRect): TTexture;
   result.v2:=v1+part.bottom*stepV*2;
  end;
 
-class function TTexture.FindByFile(fileName:string):TTexture;
+class function TTexture.FindByFile(fileName:String8):TTexture;
+var
+ obj:TObject;
 begin
- result:=texFileHash.Get(fileName) as TTexture;
+ if texFileHash.Get(fileName,obj) then
+  result:=obj as TTexture
+ else
+  result:=nil;
 end;
 
 { TShader }

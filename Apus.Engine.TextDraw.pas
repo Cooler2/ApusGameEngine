@@ -30,11 +30,13 @@ interface
    ind:word; // INLINE\group\ind
   end;
 
+  // Text rendering subsystem singleton.
+  // Owns font registry and glyph cache texture, provides measurement and drawing via ITextDrawer.
   TTextDrawer=class(TInterfacedObject,ITextDrawer)
    textMetrics:array of TRect; // results of text measurement (if requested)
 
    constructor Create;
-   destructor Destroy; virtual;
+   destructor Destroy; override;
 
    function LoadFont(fname:string;asName:string=''):string; overload; // возвращает имя шрифта
    function LoadRasterFont(const font:TBuffer;asName:string=''):string; overload; // возвращает имя шрифта
@@ -131,6 +133,7 @@ type
  end;
  {$ENDIF}
 
+ // Extended raster-font descriptor used by text drawer for adaptive scaling and fallback.
  TUnicodeFontEx=class(TUnicodeFont)
   spareFont:integer; // use this font for missed characters
   spareScale:single; // scale difference: 2.0 means that spare font is 2 times smaller than this
@@ -140,9 +143,6 @@ type
  end;
 
  var
-  lastFontTex:TTexture; // 256x1024
-  FontTexUsage:integer; // y-coord of last used pixel in lastFontTex
-
   glyphCache,altGlyphCache:TGlyphCache;
 
 procedure DefaultTextLinkStyle(link:cardinal;var sUnderline:boolean;var color:cardinal);
@@ -152,6 +152,26 @@ procedure DefaultTextLinkStyle(link:cardinal;var sUnderline:boolean;var color:ca
    color:=ColorAdd(color,$604030);
   end;
  end;
+
+function ApplyTextColor(x,y:single;color:cardinal):cardinal;
+var
+ f:TColorFunc;
+begin
+ f:=textColorFunc;
+ if Assigned(f) then
+  result:=f(x,y,color)
+ else
+  result:=color;
+end;
+
+procedure ApplyLinkStyle(link:cardinal;var sUnderline:boolean;var color:cardinal);
+var
+ p:TTextLinkStyleProc;
+begin
+ p:=textLinkStyleProc;
+ if Assigned(p) then
+  p(link,sUnderline,color);
+end;
 
 function ScaleFromHandle(font:TFontHandle):single;
  var
@@ -186,7 +206,6 @@ procedure TTextDrawer.FlushTextCache;
 
 function TTextDrawer.LoadRasterFont(const font:TBuffer;asName:string=''):string;
  var
-  i:integer;
   fontObj:TUnicodeFontEx;
  begin
   ASSERT(length(fonts)<32);
@@ -195,16 +214,16 @@ function TTextDrawer.LoadRasterFont(const font:TBuffer;asName:string=''):string;
   result:=fontObj.header.FontName;
   fonts:=fonts+[fontObj];
   if defaultFontHandle=0 then
-   defaultFontHandle:=100 shl 16+i;
+   defaultFontHandle:=(100 shl 16)+high(fonts);
  end;
 
 function TTextDrawer.LoadVectorFont(const font:TBuffer;asName:string=''):string;
+ {$IFDEF FREETYPE}
  var
-  i:integer;
-  {$IFDEF FREETYPE}
   ftf:TFreeTypeFont;
-  {$ENDIF}
+ {$ENDIF}
  begin
+  result:='';
   ASSERT(length(fonts)<32);
   {$IFDEF FREETYPE}
    ftf:=TFreeTypeFont.LoadFromMemory(font,0);
@@ -229,7 +248,7 @@ function TTextDrawer.LoadFont(fName:string;asName:string=''):string;
    {$IFNDEF FREETYPE}
    raise EError.Create('FREETYPE required to load a vector font: '+fName);
    {$ENDIF}
-   LoadVectorFont(TBuffer.CreateFrom(font),asName);
+   result:=LoadVectorFont(TBuffer.CreateFrom(font),asName);
   end;
  end;
 
@@ -375,6 +394,7 @@ procedure TTextDrawer.BeginBlock(addOptions:cardinal=0);
 procedure TTextDrawer.ClearLink;
  begin
   curTextLink:=0;
+  curTextLinkRect:=types.Rect(-1,-1,-1,-1);
  end;
 
 constructor TTextDrawer.Create;
@@ -382,10 +402,9 @@ constructor TTextDrawer.Create;
   i:integer;
   pw:^word;
  begin
-  globalScale:=1.0;
+ globalScale:=1.0;
   textDrawer:=self;
   textCache:=nil;
-  txt:=self;
 
   SetLength(txtBuf,4*MaxGlyphBufferCount);
   SetLength(txtInd,6*MaxGlyphBufferCount);
@@ -404,8 +423,27 @@ constructor TTextDrawer.Create;
  end;
 
 destructor TTextDrawer.Destroy;
- begin
+ var
+  i:integer;
+begin
+  // Should execute before GL context is destroyed: textCache is a GL texture.
+  DebugMsg('[LIFECYCLE] Destroy %s',[ClassName]);
+  Log.Msg('[LIFECYCLE] Destroy '+ClassName);
+  if (textCache<>nil) and textCache.IsLocked then
+   textCache.Unlock;
+  txtVertCount:=0;
+  ClearLink;
+  for i:=0 to high(fonts) do
+   FreeAndNil(fonts[i]);
+  SetLength(fonts,0);
+  FreeAndNil(glyphCache);
+  FreeAndNil(altGlyphCache);
+  FreeImage(textCache);
 
+  defaultFontHandle:=0;
+  // TODO: coordinate txt/textDrawer global reset with graphics-system shutdown
+  // so engine teardown cannot leave stale singleton references behind.
+  inherited;
  end;
 
 procedure TTextDrawer.CreateTextCache;
@@ -418,8 +456,11 @@ procedure TTextDrawer.CreateTextCache;
   if i>2500000 then textCacheHeight:=Max(textCacheHeight,1024);
   if i>3500000 then textCacheWidth:=Max(textCacheWidth,1024);
   //if i>5500000 then textCacheHeight:=Max(textCacheHeight,2048);
-  if TXT_TEXTURE_8BIT then format:=ipfA8
-   else format:=ipfARGB;
+   {$IF TXT_TEXTURE_8BIT}
+   format:=ipfA8;
+   {$ELSE}
+   format:=ipfARGB;
+   {$ENDIF}
   textCache:=AllocImage(textCacheWidth,textCacheHeight,format,aiTexture,'textCache');
   if format=ipfARGB then textCache.Clear($808080);
   Log.Msg('TextCache: %d x %d, %s',[textCacheWidth,textCacheHeight,PixFmt2Str(format)]);
@@ -458,7 +499,9 @@ function TTextDrawer.WidthW(font:cardinal;st:String32):integer;
   width:integer;
   obj:TObject;
   uniFont:TUnicodeFontEx;
+  {$IFDEF FREETYPE}
   ftFont:TFreeTypeFont;
+  {$ENDIF}
   scale:single;
  begin
   if length(st)=0 then begin
@@ -487,7 +530,9 @@ function TTextDrawer.WidthW(font:cardinal;st:String32):integer;
 function TTextDrawer.Height(font:cardinal):integer;
  var
   uniFont:TUnicodeFontEx;
+  {$IFDEF FREETYPE}
   ftFont:TFreeTypeFont;
+  {$ENDIF}
   scale:single;
   obj:TObject;
  begin
@@ -522,17 +567,19 @@ var
  x,y,ofs:integer;
  width:integer; //text width in pixels
  uniFont:TUnicodeFontEx;
+ {$IFDEF FREETYPE}
  ftFont:TFreeTypeFont;
  ftHintMode:integer;
- scale,size,spacing,charScaleX,charScaleY,charSpacing,spaceSpacing:single;
+ size:single;
+ {$ENDIF}
+ scale,charScaleX,charScaleY,charSpacing,spaceSpacing:single;
  stepU,stepV:single;
- chardata:cardinal;
  updList:array[1..20] of TRect;
  updCount:integer;
  drawToBitmap:boolean;
  italicStyle,underlineStyle,boldStyle:boolean;
  link:cardinal;
- linkStart,linkEnd:integer; // x position for link rect
+ linkStart:integer; // x position for link rect
  queryX,queryY:integer;
 
  // For complex text
@@ -566,7 +613,7 @@ var
    len:=length(st);
    SetLength(res,len);
    Setlength(cmdIndex,len+1);
-   i:=0; cnt:=0; tagMode:=false;
+   i:=0; cnt:=0; tagMode:=false; prefix:=1;
    cmdPos:=0;
    while i<len do begin
     ch:=st.AnsiChar(i,#0);
@@ -641,7 +688,10 @@ var
    obj:TObject;
   begin
    // Object initialization
-   uniFont:=nil; ftFont:=nil;
+   uniFont:=nil;
+   {$IFDEF FREETYPE}
+   ftFont:=nil;
+   {$ENDIF}
    obj:=GetFontObject(font);
    scale:=1; charScaleX:=1; charScaleY:=1;
 
@@ -709,7 +759,6 @@ var
      if ftFont<>nil then inc(y,round(1.25+ftFont.GetHeight(size)));
      {$ENDIF}
    end;
-   spacing:=0;
    numSpaces:=0;
    for i:=0 to length(st)-1 do
      if st[i]=ord(' ') then inc(numSpaces);
@@ -873,10 +922,7 @@ var
     data.x:=vx;
     data.y:=vy;
     data.z:=0; {$IFDEF DIRECTX} data.rhw:=1; {$ENDIF}
-    if @textColorFunc<>nil then
-     data.color:=TextColorFunc(data.x,data.y,color)
-    else
-     data.color:=color;
+    data.color:=ApplyTextColor(data.x,data.y,color);
     data.u:=u; data.v:=v;
     inc(data);
    end;
@@ -940,9 +986,7 @@ var
         inc(stackpos[2]);
         stack[4,stackpos[4]]:=color;
         inc(stackpos[4]);
-        if @textLinkStyleProc<>nil then begin
-         textLinkStyleProc(link,underlineStyle,color);
-        end;
+        ApplyLinkStyle(link,underlineStyle,color);
        end;
     end;
    end else begin
@@ -968,14 +1012,20 @@ var
  procedure BuildVertexData;
   var
    i,cnt,idx:integer;
-   dx,dy,imgW,imgH,pitch,line:integer;
+   {$IFDEF FREETYPE}
+   dx,dy,imgW,imgH,pitch:integer;
+   {$ENDIF}
    px,advance:single;
    chardata:cardinal;
    outVertex:PVertex;
    gl:TGlyphInfoRec;
    pnt:TPoint;
+   {$IFDEF FREETYPE}
    pb:PByte;
    fl,oldUL:boolean;
+   {$ELSE}
+   oldUL:boolean;
+   {$ENDIF}
    oldColor,oldLink:cardinal;
    cmdPos:integer;
    fHeight:integer;
@@ -989,7 +1039,9 @@ var
    updCount:=0;
    cmdPos:=0;
    lpCount:=0;
+   {$IFDEF FREETYPE}
    dx:=0; dy:=0;
+   {$ENDIF}
    try
    glyphCache.Keep;
    stepU:=textCache.stepU*2;
@@ -1098,24 +1150,24 @@ var
 
    // Metrics
    if (options and toMeasure>0) and (length(st)>0) then begin
-     i:=round(px)+dx+imgW;
+     i:=round(x)+width;
      textMetrics[length(st)]:=types.rect(i,y-fHeight,i,y);
      if (link>0) and
-       (queryX>=textMetrics[length(st)-1].left) and (queryX<px+dx+imgW) and
+        (queryX>=textMetrics[length(st)-1].left) and (queryX<i) and
        (queryY<y+fHeight shr 1) and (queryY>=y-fHeight) then begin
       curTextLink:=link;
       curTextLinkRect.Left:=linkStart;
-      curTextLinkRect.Right:=round(px+dx+imgW-1);
+       curTextLinkRect.Right:=i-1;
       curTextLinkRect.Top:=y-fHeight;
       curTextLinkRect.Bottom:=y+fHeight shr 1;
     end;
    end;
 
-   if (curTextLinkRect.Left>=0) and (curTextLinkRect.Right<0) then curTextLinkRect.Right:=round(px+dx+imgW);
+    if (curTextLinkRect.Left>=0) and (curTextLinkRect.Right<0) then curTextLinkRect.Right:=round(x)+width;
 
    // last underline
    if lpCount and 1=1 then begin
-    linePoints[lpCount].x:=round(px+dx+imgW);
+     linePoints[lpCount].x:=round(x)+width;
     linePoints[lpCount].y:=y+2;
     inc(lpCount);
    end;
@@ -1133,7 +1185,9 @@ var
  function DefineRectAndSetState:boolean;
   var
    r:TRect;
+   {$IFDEF FREETYPE}
    height:integer;
+   {$ENDIF}
   begin
    if unifont<>nil then
     r:=types.Rect(x, y-unifont.header.baseline,x+width+1,y+unifont.header.baseline div 2)
@@ -1146,10 +1200,11 @@ var
    {$ENDIF};
    if not clippingAPI.Prepare(r) then exit(false);
 
-   if TXT_TEXTURE_8BIT then
-    shader.TexMode(0,tblKeep,tblReplace)
-   else
+    {$IF TXT_TEXTURE_8BIT}
+    shader.TexMode(0,tblKeep,tblReplace);
+    {$ELSE}
     shader.TexMode(0,tblModulate2x,tblModulate);
+    {$ENDIF}
    result:=true;
   end;
 

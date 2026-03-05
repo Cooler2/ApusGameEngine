@@ -52,15 +52,28 @@ implementation
 
  var
   styleCls:TBitmapStyle;
-  buttons:array[1..200] of TButtonData;
+  buttons:array of TButtonData;
   bCount:integer;
   btnHash:THash; // button name -> index of TButtonData
 
   lHash:THash;  // labelHash
 
-  imgHash:THash; // images hash: filename -> TTexture object (cardinal)
+  imgHash:THash; // images hash: filename -> TTexture object (UIntPtr stored as int64)
 
   crSect:TMyCriticalSection;
+
+procedure EnsureButtonCapacity(requiredIndex:integer);
+ var
+  newSize:integer;
+ begin
+  if requiredIndex<length(buttons) then exit;
+  newSize:=length(buttons);
+  if newSize=0 then
+   newSize:=64;
+  while requiredIndex>=newSize do
+   newSize:=newSize*2;
+  SetLength(buttons,newSize);
+ end;
 
  procedure BitmapStyleHandler(control:TUIElement);
   begin
@@ -74,7 +87,7 @@ implementation
   begin
    event:=UpperCase(event);
    if pos('BITMAPSTYLE\INVALIDATE\',event)=1 then begin
-    LogMessage(event+' '+inttohex(cardinal(tag),8));
+    LogMessage(event+' '+inttohex(UIntPtr(tag),SizeOf(UIntPtr)*2));
     name:=event;
     delete(name,1,23);
     if (name='*') or (name='ALL') then begin
@@ -94,9 +107,11 @@ implementation
    styleCls:=style;
    RegisterUIStyle(styleID,BitmapStyleHandler);
    btnHash.Init;
+   lHash.Init;
    imgHash.Init;
    bCount:=0;
-   fillchar(buttons,sizeof(buttons),0);
+   SetLength(buttons,64);
+   FillChar(buttons[0],Length(buttons)*SizeOf(TButtonData),0);
   end;
 
 // x,y - button center
@@ -200,7 +215,8 @@ procedure TBitmapStyle.DrawItem(con: TUIElement);
   xc,yc:single;
   bData:integer;
   st:string;
-  c,btnColor:cardinal;
+  btnColor:cardinal;
+  c:int64;
   img:TTexture;
   btn:TUIButton;
  begin
@@ -212,6 +228,8 @@ procedure TBitmapStyle.DrawItem(con: TUIElement);
    xc:=(x1+x2)/2;
    yc:=(y1+y2)/2;
   end;
+  // TODO: migrate cache synchronization away from Apus.Common and narrow this lock scope:
+  // BuildButtonImage/LoadImageFromFile should not run under the global cache lock.
   EnterCriticalSection(crSect);
   try
 
@@ -222,6 +240,7 @@ procedure TBitmapStyle.DrawItem(con: TUIElement);
     if bData=0 then begin
      inc(bCount);
      bData:=bCount;
+     EnsureButtonCapacity(bData+1);
      btnHash.Put(con.name,bData);
      buttons[bData].overState.Init(byte(underMouse=con));
      buttons[bData].lastCaption:=TUIButton(con).caption;
@@ -287,9 +306,9 @@ procedure TBitmapStyle.DrawItem(con: TUIElement);
     c:=imgHash.Get(con.name);
     if c=0 then begin
      img:=LoadImageFromFile(TUIImage(con).src);
-     imgHash.Put(con.name,cardinal(img),true);
+     imgHash.Put(con.name,int64(UIntPtr(img)),true);
     end else
-     img:=pointer(c);
+     img:=pointer(UIntPtr(c));
 //    draw.RotScaled(xc,yc,img,TUIImage(con).color);
    end;
 

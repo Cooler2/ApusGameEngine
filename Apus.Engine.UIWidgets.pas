@@ -197,7 +197,7 @@ interface
    realText:String32; // real text value of the edit box
    completion:String32; // grayed background text, if it is not empty and enter is pressed, then it is set to realText
    defaultText:String32; // grayed background text, displayed if realText is empty
-   cursorPos:integer;     // cursor position (cursor is located after the character with given index, 1-based)
+   cursorPos:integer;     // caret position in String32 (0..length, 0-based)
    maxLength:integer;      // max allowed length
    password:boolean;    // is it password field? if true, all characters are displayed as '*'
    noBorder:boolean;    // deprecated
@@ -222,7 +222,7 @@ interface
   private
    savedText:String32;
    lastClickTime:int64;
-   msSelStart:integer; // после символа с этим номером находится точка начала выделения мышью
+   msSelStart:integer; // mouse selection anchor (0-based), -1 if not set
    procedure AdjustState;
    function GetText:String8;
    procedure SetText(s:String8);
@@ -881,9 +881,12 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:String8;
 
  procedure TUIEditBox.AdjustState;
   begin
+   if cursorpos<0 then cursorpos:=0;
    if cursorpos>length(realtext) then cursorpos:=length(realtext);
+   if selstart<0 then selstart:=0;
    if selstart>length(realtext) then selstart:=length(realtext);
-   if selstart+selcount>length(realtext)+1 then selcount:=length(realtext)-selstart+1;
+   if selcount<0 then selcount:=0;
+   if selstart+selcount>length(realtext) then selcount:=length(realtext)-selstart;
   end;
 
  constructor TUIEditBox.Create(width,height:single;boxName:String8;
@@ -905,6 +908,7 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:String8;
    canhavefocus:=true; //CheckAndSetFocus;
    sendSignals:=ssAll;
    lastClickTime:=0;
+   msSelStart:=-1;
   end;
 
  constructor TUIEditBox.Create(width,height:single;text:String8;parent:TUIElement;name:String8);
@@ -955,12 +959,12 @@ function TUIEditBox.GetText:String8;
     delete(realtext,selstart,selcount);
     insert(ch,realtext,selstart);
     selcount:=0;
-    cursorpos:=selstart;
+    cursorpos:=selstart+1;
     exit;
    end;
    if (length(realtext)<maxlength) and (ch>=32) then begin
-    inc(cursorpos);
     insert(ch,realtext,cursorpos);
+    inc(cursorpos);
    end;
    if (sendSignals=ssAll) and (oldText<>realText) then begin
     savedText:=oldText;
@@ -977,7 +981,7 @@ function TUIEditBox.GetText:String8;
      str:=copy(realtext,selstart,selcount);
      CopyStrToClipboard(Str16(UTF8.Encode(str)));
      if cut then begin
-      delete(realtext,selstart,selcount); selcount:=0; cursorpos:=selstart-1;
+      delete(realtext,selstart,selcount); selcount:=0; cursorpos:=selstart;
      end;
     end;
    procedure ClipPaste;
@@ -986,20 +990,78 @@ function TUIEditBox.GetText:String8;
     begin
      wst:=Str32(PasteStrFromClipboardW);
      if not wst.IsEmpty then begin
-      if selcount>0 then begin
-       delete(realtext,selstart,selcount);
-       cursorpos:=selstart-1;
+     if selcount>0 then begin
+      delete(realtext,selstart,selcount);
+      cursorpos:=selstart;
       end else
-       selstart:=cursorpos+1;
-      insert(wst,realtext,cursorpos+1);
+       selstart:=cursorpos;
+      insert(wst,realtext,cursorpos);
       selcount:=length(wst);
       if length(realtext)>maxlength then setLength(realtext,maxlength);
-      if selstart+selcount-1>length(realtext) then selcount:=length(realtext)-selstart+1;
-      cursorpos:=selstart+selcount-1;
+      if selstart+selcount>length(realtext) then selcount:=length(realtext)-selstart;
+     cursorpos:=selstart+selcount;
      end;
     end;
+   function IsWordSeparator(ch:Char32):boolean;
+    begin
+     result:=(ch<=32) or (ch=Char32('.')) or (ch=Char32(',')) or (ch=Char32(';')) or
+      (ch=Char32(':')) or (ch=Char32('!')) or (ch=Char32('?')) or (ch=Char32('"')) or
+      (ch=Char32('''')) or (ch=Char32('(')) or (ch=Char32(')')) or (ch=Char32('[')) or
+      (ch=Char32(']')) or (ch=Char32('{')) or (ch=Char32('}')) or (ch=Char32('/')) or
+      (ch=Char32('\')) or (ch=Char32('|')) or (ch=Char32('+')) or (ch=Char32('-')) or
+      (ch=Char32('*')) or (ch=Char32('=')) or (ch=Char32('<')) or (ch=Char32('>'));
+    end;
+   function PrevWordPos(pos:integer):integer;
+    begin
+     result:=pos;
+     while (result>0) and IsWordSeparator(realText[result-1]) do dec(result); // skip separators
+     while (result>0) and not IsWordSeparator(realText[result-1]) do dec(result); // go to word start
+    end;
+   function NextWordPos(pos:integer):integer;
+    var
+     txtLen:integer;
+    begin
+     txtLen:=length(realText);
+     result:=pos;
+     while (result<txtLen) and IsWordSeparator(realText[result]) do inc(result); // skip separators
+     while (result<txtLen) and not IsWordSeparator(realText[result]) do inc(result); // go to word end
+    end;
+   procedure MoveCaret(newPos:integer;extendSelection:boolean);
+    var
+     anchor,oldCursor:integer;
+    begin
+     oldCursor:=cursorPos;
+     if newPos<0 then newPos:=0;
+     if newPos>length(realText) then newPos:=length(realText);
+     if not extendSelection then begin
+      cursorPos:=newPos;
+      selStart:=0;
+      selCount:=0;
+      exit;
+     end;
+
+     // Keep the fixed edge of selection as anchor and move the caret edge.
+     if selCount=0 then anchor:=oldCursor
+      else
+       if oldCursor=selStart then anchor:=selStart+selCount
+        else anchor:=selStart;
+
+     cursorPos:=newPos;
+     if cursorPos=anchor then begin
+      selStart:=cursorPos;
+      selCount:=0;
+     end else
+      if cursorPos<anchor then begin
+       selStart:=cursorPos;
+       selCount:=anchor-cursorPos;
+      end else begin
+       selStart:=anchor;
+       selCount:=cursorPos-anchor;
+      end;
+    end;
   var
-   step:integer;
+   newPos,txtLen:integer;
+   useCtrl,useShift:boolean;
    oldText:String32;
   begin
    oldText:=realText;
@@ -1007,65 +1069,43 @@ function TUIEditBox.GetText:String8;
    result:=inherited onKey(keycode,pressed,shiftstate);
    if pressed then begin
     cursortimer:=CoreTime.Ticks;
+    txtLen:=length(realText);
+    useCtrl:=(shiftstate and sscCtrl)>0;
+    useShift:=(shiftstate and sscShift)>0;
 
-    if (TKey(keycode)=TKey.Left) then begin // Left
-     step:=1;
-     if shiftstate and sscCtrl>0 then begin // Сдвиг более чем на 1 символ
-      while (cursorpos-step>0) and (realtext[cursorpos-step]>=Char32('A')) do inc(step);
-     end;
-
-     if shiftstate and sscShift>0 then begin
-      if (selcount>0) and (cursorpos>=selstart) then dec(selcount,step)
+    // Arrow navigation:
+    // - no Shift: move caret and clear selection
+    // - with Shift: extend/shrink selection from fixed anchor point
+    // - with Ctrl: jump by words
+    if (TKey(keycode)=TKey.Left) then begin
+     if not useShift and (selCount>0) then newPos:=selStart
       else
-      if (selcount>0) and (cursorpos>0) and (cursorpos<selstart) then
-       begin dec(selstart,step); inc(selcount,step); end
-      else
-      if (selcount=0) and (cursorpos>0) then
-       begin selstart:=cursorpos; selcount:=1; end;
-     end else selcount:=0;
-     if (cursorpos>0) then dec(cursorpos,step);
-     if cursorpos<0 then cursorpos:=0;
+       if useCtrl then newPos:=PrevWordPos(cursorPos)
+        else newPos:=cursorPos-1;
+     MoveCaret(newPos,useShift);
     end;
 
-    if (TKey(keycode)=TKey.Right) and (cursorpos<length(realtext)) then begin // Right
-     step:=1;
-     if shiftstate and sscCtrl>0 then begin // Сдвиг более чем на 1 символ
-      while (cursorpos+step<length(realtext)) and not ((realtext[cursorpos+step+1]>=Char32('A'))
-       and not (realtext[cursorpos+step]>=Char32('A'))) do inc(step);
-     end;
-
-     if shiftstate and sscShift>0 then begin
-      if (selcount>0) and (cursorpos<length(realtext)) and (cursorpos>=selstart) then inc(selcount,step)
+    if (TKey(keycode)=TKey.Right) then begin
+     if not useShift and (selCount>0) then newPos:=selStart+selCount
       else
-      if (selcount>0) and (cursorpos<selstart) then
-       begin inc(selstart,step); dec(selcount,step); end
-      else
-      if (selcount=0) and (cursorpos<length(realtext)) then
-       begin selstart:=cursorpos+1; selcount:=1; end;
-     end else selcount:=0;
-     if (cursorpos<length(realtext)) then inc(cursorpos,step);
-     if cursorpos>length(realtext) then cursorpos:=length(realtext);
+       if useCtrl then newPos:=NextWordPos(cursorPos)
+        else newPos:=cursorPos+1;
+     MoveCaret(newPos,useShift);
     end;
 
-    if TKey(keycode)=TKey.HOME then begin  // Home
-     if shiftstate and sscShift>0 then begin
-      inc(selcount,cursorpos); selstart:=1;
-     end else selcount:=0;
-     cursorpos:=0;
+    // [Home], [End] navigation with optional selection extension.
+    if TKey(keycode)=TKey.HOME then begin
+     MoveCaret(0,useShift);
     end;
-    if TKey(keycode)=TKey.EndKey then begin // End
-     if shiftstate and sscShift>0 then begin
-      if selcount=0 then selstart:=cursorpos+1;
-      inc(selcount,length(realtext)-cursorpos);
-     end else selcount:=0;
-     cursorpos:=length(realtext);
+    if TKey(keycode)=TKey.EndKey then begin
+     MoveCaret(txtLen,useShift);
     end;
 
     if (TKey(keycode)=TKey.Backspace) and (shiftState and sscAlt=0) then begin // backspace
      if selcount>0 then
-      begin delete(realtext,selstart,selcount); selcount:=0; cursorpos:=selstart-1; end
+      begin delete(realtext,selstart,selcount); selcount:=0; cursorpos:=selstart; end
      else begin
-      if cursorpos>0 then begin delete(realtext,cursorpos,1); dec(cursorpos); end;
+      if cursorpos>0 then begin delete(realtext,cursorpos-1,1); dec(cursorpos); end;
      end;
     end;
 
@@ -1094,14 +1134,15 @@ function TUIEditBox.GetText:String8;
      if selcount>0 then begin
       if shiftstate and sscShift>0 then ClipCopy(true) // Cut
        else begin
-        delete(realtext,selstart,selcount); selcount:=0; cursorpos:=selstart-1;
+        delete(realtext,selstart,selcount); selcount:=0; cursorpos:=selstart;
        end;
      end else begin
       if (cursorpos<length(realtext)) then begin
-       delete(realtext,cursorpos+1,1);
+       delete(realtext,cursorpos,1);
       end;
      end;
     end;
+    AdjustState;
    end;
    if (sendSignals=ssAll) and (oldText<>realText) then begin
     savedText:=oldText;
@@ -1124,14 +1165,14 @@ function TUIEditBox.GetText:String8;
    if (selcount>0) and (button=1) and state then begin
     selcount:=0; selStart:=0;
    end;
-   if (button=1) and state then
+  if (button=1) and state then
     msselect:=true
    else begin
     msselect:=false;
-    msSelStart:=0;
+    msSelStart:=-1;
    end;
-   if doubleclick then begin
-    selStart:=1; selCount:=length(realText);
+  if doubleclick then begin
+    selStart:=0; selCount:=length(realText);
    end;
   end;
 
@@ -1143,14 +1184,14 @@ function TUIEditBox.GetText:String8;
     msselect:=false;
     exit;
    end;
-   if msselect and (needpos=-1) then begin
-    if (msSelStart=0) then msSelStart:=cursorpos;
-    if (msSelStart>0) and (cursorpos<>msSelStart) then begin
+  if msselect and (needpos=-1) then begin
+    if (msSelStart<0) then msSelStart:=cursorpos;
+    if (msSelStart>=0) and (cursorpos<>msSelStart) then begin
       if cursorpos<msSelStart then begin
-       selstart:=cursorPos+1;
+       selstart:=cursorPos;
        selcount:=msSelStart-cursorpos;
       end else begin
-       selStart:=msSelStart+1;
+       selStart:=msSelStart;
        selcount:=cursorPos-msSelStart;
       end;
     end;
@@ -1160,7 +1201,7 @@ function TUIEditBox.GetText:String8;
 
  procedure TUIEditBox.SelectAll;
   begin
-   selStart:=1;
+   selStart:=0;
    selCount:=length(realText);
    cursorpos:=length(realtext);
   end;
@@ -1211,12 +1252,13 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
    min:=newMin; max:=newMax; pageSize:=newPageSize;
    realMax:=Clamp(max-pageSize,min,max);
    v:=rValue.Value;
-   if (v<min) or (v>realMax) then begin
-    rValue.Assign(Clamp(rValue.FinalValue,min,realMax));
-    onTimer;
-   end;
-   CheckAutoHide;
+  if (v<min) or (v>realMax) then begin
+   rValue.Assign(Clamp(rValue.FinalValue,min,realMax));
+   onTimer;
   end;
+  CheckAutoHide;
+  result:=self;
+ end;
 
  function TUIScrollBar.GetValue:single;
   begin

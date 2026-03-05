@@ -268,7 +268,7 @@ implementation
      if pfRenderTargetAlpha=ipfNone then exit;
      if not adjusted then begin
       // нужно провести инициализацию
-      Log.Force('InitHint '+inttohex(cardinal(control),8));
+      Log.Force('InitHint '+inttohex(UIntPtr(control),SizeOf(UIntPtr)*2));
       if not active then try
        BuildSimpleHint(control as TUIHint);
       except
@@ -293,7 +293,7 @@ implementation
      else begin
       v:=256-(CoreTime.Ticks-created) div 2;
       if v<=0 then begin
-        Log.Msg('Hide expired hint '+inttohex(cardinal(control),8));
+        Log.Msg('Hide expired hint '+inttohex(UIntPtr(control),SizeOf(UIntPtr)*2));
         {FreeImage(HintImage);
         HintImage:=nil;}
         control.visible:=false;
@@ -301,7 +301,7 @@ implementation
       end;
      end;
      if hintImage=nil then begin
-      Log.Force('Hint has no image! '+inttohex(cardinal(control),8));
+      Log.Force('Hint has no image! '+inttohex(UIntPtr(control),SizeOf(UIntPtr)*2));
       exit;
      end;
      if v>256 then v:=256;
@@ -437,11 +437,15 @@ implementation
       draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // Внешняя рамка
       if pressed then { draw.ShadedRect(x1+2,y1+2,x2-1,y2-1,1,$80FFFFFF,$50000000)}
        else if enabled then begin
+         c:=eStyle.GetColor('border-light',$A0FFFFFF);
+         c2:=eStyle.GetColor('border-dark',$70000000);
+         draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
+       end
+         else begin
          c:=eStyle.GetColor('disabled.border-light',$A0FFFFFF);
          c2:=eStyle.GetColor('disabled.border-dark',$70000000);
          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
-       end
-         else draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,$80FFFFFF,$50000000);
+       end;
       // Нарисовать фокус (также если кнопка дефолтная и никакая другая не имеет фокуса)
       if (FocusedElement=control) or
          (default and ((FocusedElement=nil) or not (FocusedElement is TUIButton))) then
@@ -679,7 +683,7 @@ implementation
  procedure DrawUIEditBox(control:TUIEditBox;x1,y1,x2,y2:integer);
   var
    wst:String32;
-   i,j,mY,d,curX,scrollPixels,xStart:integer;
+   i,j,mY,d,curX,scrollPixels,xStart,prefixWidth,selEndWidth,selX1,selX2,targetX,midX,txtLen:integer;
    c:cardinal;
   begin
    with control do begin
@@ -690,9 +694,6 @@ implementation
         wst[j]:=Char32('*');
     end;
     if (scroll.X>0) and (txt.WidthW(font,wst)<(x2-x1)) then Scroll.X:=0;
-    i:=txt.WidthW(font,copy(wst,1,cursorpos)); // позиция курсора
-    if i-scroll.X<0 then scroll.X:=i;
-    if i-scroll.X>(x2-x1-5-offset) then scroll.X:=i-(x2-x1-5-offset);
     gfx.clip.Rect(Rect(x1+2,y1,x2-2,y2));
     my:=round(y1*0.47+y2*0.53+txt.Height(font)*0.4);
     // Default text?
@@ -701,41 +702,61 @@ implementation
      gfx.clip.Restore;
      exit;
     end;
-    scrollPixels:=round(scroll.X*globalScale);
+    txtLen:=length(wst);
+    // Measure full string once and use the same metrics for:
+    // caret position, mouse hit-test, and selection bounds.
+    if txtLen>0 then
+     txt.WriteW(font,0,mY,color,wst,taLeft,toDontTranslate or toDontDraw or toMeasure);
 
     if needpos>=0 then begin
+     targetX:=needPos-3+round(scroll.X);
      cursorpos:=0;
-     while (cursorpos<length(wst)) and
-           (-scroll.X+txt.WidthW(font,copy(wst,1,cursorpos))<needPos-3) do
-       inc(cursorpos);
+     while cursorpos<txtLen do begin
+      midX:=(txt.MeasuredRect(cursorpos).Left+txt.MeasuredRect(cursorpos+1).Left) div 2;
+      if targetX<midX then break;
+      inc(cursorpos);
+     end;
      needpos:=-1;
     end;
+    if txtLen=0 then
+     i:=0
+    else
+     i:=txt.MeasuredRect(cursorpos).Left; // caret x in text-local coordinates
+    if i-scroll.X<0 then scroll.X:=i;
+    if i-scroll.X>(x2-x1-5-offset) then scroll.X:=i-(x2-x1-5-offset);
+    scrollPixels:=round(scroll.X*globalScale);
     xStart:=x1+round((y2-y1)*0.15)-scrollPixels;
     if not completion.IsEmpty then begin
      j:=xStart+txt.WidthW(font,wst);
      txt.WriteW(font,j+offset,mY,ColorMix(color,$00808080,160),
-       copy(completion,length(wst)+1,length(completion)),taLeft,toDontTranslate);
+       copy(completion,length(wst),length(completion)-length(wst)),taLeft,toDontTranslate);
     end;
     if (selcount>0) and (FocusedElement=control) then begin // часть текста выделена
      j:=xStart+offset;
-     txt.WriteW(font,j,mY,color,copy(wst,1,selstart-1),taLeft,toDontTranslate); // до выделения
-     j:=j+txt.WidthW(font,copy(wst,1,selstart))-
-          txt.WidthW(font,copy(wst,selstart,1));
-     d:=txt.WidthW(font,copy(wst,selstart,selcount));
-     draw.FillRect(j,y1+1,j+d-1,y2-1,ColorSub(color,$60202020));
-     txt.WriteW(font,j,mY,color and $FF000000,
-        copy(wst,selstart,selcount),taLeft,toDontTranslate); // выделенная часть
-     if selstart+selcount-1<=length(text) then begin
-      j:=j+txt.WidthW(font,copy(wst,selstart,selcount+1))-
-           txt.WidthW(font,copy(wst,selstart+selcount,1));
-      txt.WriteW(font,j,mY,color,
-         copy(wst,selstart+selcount,length(wst)-selstart-selcount+1),taLeft,toDontTranslate); // остаток
+     if txtLen=0 then begin
+      prefixWidth:=0;
+      selEndWidth:=0;
+     end else begin
+      prefixWidth:=txt.MeasuredRect(selstart).Left;
+      selEndWidth:=txt.MeasuredRect(selstart+selcount).Left;
      end;
+     selX1:=j+prefixWidth;
+     selX2:=j+selEndWidth;
+
+     // Draw in three parts, but with x-positions taken from full-string metrics.
+     txt.WriteW(font,j,mY,color,copy(wst,0,selstart),taLeft,toDontTranslate);
+     d:=selX2-selX1;
+     if d>0 then begin
+      draw.FillRect(selX1,y1+1,selX2-1,y2-1,ColorSub(color,$60202020));
+      txt.WriteW(font,selX1,mY,color and $FF000000,copy(wst,selstart,selcount),taLeft,toDontTranslate);
+     end;
+     txt.WriteW(font,selX2,mY,color,
+       copy(wst,selstart+selcount,length(wst)-selstart-selcount),taLeft,toDontTranslate);
     end else
      txt.WriteW(font,xStart+offset,mY,color,wst,taLeft,toDontTranslate);
     gfx.clip.Restore;
     if (FocusedElement=control) and ((CoreTime.Ticks-cursortimer) mod 360<200) then begin // курсор
-     curX:=xStart+offset+i; // first pixel of the character
+     curX:=xStart+offset+i-1; // slight visual alignment tweak: 1px to the left
      draw.Line(curX,y1+2,curX,y2-2,colorAdd(color,$404040));
 //     draw.Line(x1+4+i-scrollX,y1+2,x1+4+i-scrollX,y2-2,colorAdd(color,$404040));
     end;
@@ -1007,8 +1028,13 @@ function TElementStyle.ActualStyleInfo:string8;
      end;
     if not notOldStyle then begin
      items:=fullStyleInfo.Split(' ');
-     if length(items)>0 then result:='fill:'+items[0];
-     if length(items)>1 then result:='; border:'+items[1];
+     result:='';
+     if (length(items)>0) and (items[0]<>'') then
+      result:='fill:'+items[0];
+     if (length(items)>1) and (items[1]<>'') then begin
+      if result<>'' then result:=result+'; ';
+      result:=result+'borderColor:'+items[1];
+     end;
      exit;
     end;
    end;

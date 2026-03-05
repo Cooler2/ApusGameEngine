@@ -44,41 +44,57 @@ interface
  // Поместить критическое сообщение (просто более яркое название)
  procedure CritMsg(st:string8;cls:integer=-1);
 
- // Номер последнего сохраненного сообщения
+ // Index of the last saved message
  function GetLastMsgNum:integer;
- // Кол-во сохраненных сообщений
+ // Number of saved messages
  function GetMsgCount:integer;
- // ПОлучить сохраненное сообщение по его номеру
+ // Get a saved message by its index
  function GetSavedMsg(msgnum:integer;var cls:integer):string8;
 
 implementation
  uses SysUtils, Apus.Lib, Apus.EventMan;
 
  var
-  crSect:TLock; // используется для доступа к глобальным переменным
+  crSect:TLock; // protects shared console state
 
   lastMsgNum,msgCount:integer;
 
-  // очередь сохраняемых сообщений
+  // Saved message ring buffer
   queue:array[0..511] of string8;
   clsqueue:array[0..511] of integer;
   firstUsed,firstFree:integer;
 
  function GetLastMsgNum:integer;
   begin
-   result:=LastMsgNum;
+   crSect.Enter;
+   try
+    result:=LastMsgNum;
+   finally
+    crSect.Leave;
+   end;
   end;
  function GetMsgCount:integer;
   begin
-   result:=msgCount;
+   crSect.Enter;
+   try
+    result:=msgCount;
+   finally
+    crSect.Leave;
+   end;
   end;
  function GetSavedMsg(msgnum:integer;var cls:integer):string8;
   begin
-   if (msgnum>lastMsgNum) or (msgnum<=lastMsgNum-MsgCount) then begin
-    result:=''; exit;
+   crSect.Enter;
+   try
+    if (msgnum>lastMsgNum) or (msgnum<=lastMsgNum-MsgCount) then begin
+     result:='';
+     exit;
+    end;
+    result:=queue[(FirstFree-(LastMsgNum-msgnum+1)) and 511];
+    cls:=clsqueue[(FirstFree-(LastMsgNum-msgnum+1)) and 511];
+   finally
+    crSect.Leave;
    end;
-   result:=queue[(FirstFree-(LastMsgNum-msgnum+1)) and 511];
-   cls:=clsqueue[(FirstFree-(LastMsgNum-msgnum+1)) and 511];
   end;
 
  procedure SaveMsg(st:string8;cls:integer);
@@ -128,9 +144,9 @@ implementation
     SetEventHandler(eventClass,@NormalEvent)
   end;
 
- procedure PutMsg(st:string8;critical:boolean=false;cls:integer=0);
+  procedure PutMsg(st:string8;critical:boolean=false;cls:integer=0);
   var
-   st2,st1:string;
+   st1,st2:string8;
   begin
    crSect.Enter;
    try
@@ -138,7 +154,8 @@ implementation
     if consoleSettings.saveMessages then begin
      while pos(#10,st)>0 do begin
       st2:=copy(st,1,pos(#10,st)-1);
-      if st2[length(st2)]<' ' then setLength(st2,length(st2)-1);
+      if (length(st2)>0) and (st2[length(st2)]<' ') then
+       setLength(st2,length(st2)-1);
       delete(st,1,pos(#10,st));
       SaveMsg(st2,cls);
      end;
@@ -161,7 +178,6 @@ implementation
  procedure CritMsg(st:string8;cls:integer=-1);
   begin
    PutMsg(st,true,cls);
-   SystemMessage(st);
   end;
 
 initialization

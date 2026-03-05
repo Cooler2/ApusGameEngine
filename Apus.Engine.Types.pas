@@ -3,8 +3,8 @@
 //
 unit Apus.Engine.Types;
 interface
- uses Apus.Core, Apus.Images, Apus.Geom2D, Apus.Geom3D,
-   Apus.Colors, Apus.EventMan, Apus.VertexLayout;
+ uses Apus.Core, Apus.Geom2D, Apus.Geom3D,
+   Apus.Colors, Apus.VertexLayout;
 
 type
  // 2D points
@@ -37,11 +37,11 @@ type
 
  TIndices=WordArray;
 
- TTextAlignment=(taLeft,      // обычный вывод
-                 taCenter,    // точка вывода указывает на центр надписи
-                 taRight,     // точка вывода указывает на правую границу
-                 taJustify);  // точка вывода указывает на левую границу, а spacing - ширина строки
-                              // (вывод превращается в левый если реальная ширина строки слишком мала или строка заканчивается на #10 или #13)
+ TTextAlignment=(taLeft,      // normal output
+                 taCenter,    // output point indicates the text center
+                 taRight,     // output point indicates the right edge
+                 taJustify);  // output point indicates the left edge, while spacing is the line width
+                              // (falls back to left-aligned output when actual width is too small or the line ends with #10/#13)
 
  // Packed ARGB color
  TARGBColor=Apus.Colors.TARGBColor;
@@ -71,10 +71,13 @@ type
 
 implementation
  {$EXCESSPRECISION OFF}
+ // TODO: trim this unit to engine-specific types only and move Base-type re-exports
+ // to explicit imports or a dedicated facade, as documented in engine_work_ahead.md.
 
 { TGradient }
  const
   k255 = 1/255;
+  minGradientScale = 1E-6;
 
  function TColorGradient.ColorAt(x,y:single):cardinal;
   begin
@@ -93,8 +96,13 @@ implementation
  procedure TMonoGradient.Init(v1,v2,angle,scale:single);
   begin
    base:=(v1+v2)/2;
-   dx:=(v2-v1)*cos(angle)/scale;
-   dy:=(v2-v1)*sin(angle)/scale;
+   if abs(scale)<=minGradientScale then begin
+     dx:=0;
+     dy:=0;
+   end else begin
+     dx:=(v2-v1)*cos(angle)/scale;
+     dy:=(v2-v1)*sin(angle)/scale;
+   end;
   end;
 
  function TMonoGradient.ValueAt(x,y:single):single;

@@ -28,6 +28,8 @@ type
     );
  end;
 
+ // Compiled OpenGL shader program instance.
+ // Stores uniform locations and per-program state caches.
  TGLShader=class(TShader)
   handle:TGLShaderHandle;
   texMode:cardinal; // low part of TTexMode
@@ -53,8 +55,11 @@ type
   procedure UpdateMatrices(revision:integer;const shadowMapMatrix:T3DMatrixS); // Get transformation matrices and upload them to uniforms
  end;
 
+ // Shader subsystem singleton for the engine.
+ // Selects/builds programs, tracks active textures/lights, and applies uniforms.
  TGLShadersAPI=class(TInterfacedObject,IShader)
   constructor Create;
+  destructor Destroy; override;
   function Build(vSrc,fSrc:String8;extra:string8=''):TShader; overload;
   function Load(filename:String8;extra:String8=''):TShader;
 
@@ -100,9 +105,8 @@ type
 
   procedure Apply(vertexLayout:TVertexLayout);
  private
-  // поддержка до 16 текстурных юнитов
-  curTextures:array[0..15] of TTexture;
-  curTexChanged:cardinal; // битовая маска изменённых текстур
+  curTextures:array[0..15] of TTexture; // up to 16 texture units
+  curTexChanged:cardinal; // bitmask of changed textures
 
   curTexMode:TTexMode; // encoded shader mode requested by the client code
   actualTexMode:TTexMode; // actual shader mode
@@ -123,7 +127,7 @@ type
   pointLightColor:TVector3s; // light color multiplied by power
   pointLightModified:boolean;
 
-  shaderCache:TSimpleHash; //
+  shaderCache:TSimpleHash; // TODO: cached TGLShader objects are never freed — add cleanup in destructor
   activeShader:TGLShader; // current OpenGL shader
   isCustom:boolean;
 
@@ -280,6 +284,8 @@ destructor TGLShader.Destroy;
   count:GLint;
   shaders:array[0..3] of GLint;
  begin
+  // Requires a valid current GL context.
+  // Called from TGLShadersAPI.Destroy during graphics shutdown.
   glGetAttachedShaders(handle,length(shaders),count,@shaders[0]);
   while count>0 do begin
    dec(count);
@@ -492,14 +498,25 @@ function TGLShadersAPI.IsCustomized:boolean;
  end;
 
 constructor TGLShadersAPI.Create;
+ begin
+ shadersAPI:=self;
+ shaderCache.Init(32);
+  Bits.SetBit(curTexChanged,0); // invalidate primary texture binding
+ end;
+
+destructor TGLShadersAPI.Destroy;
  var
   i:integer;
  begin
-  _AddRef;
-  shadersAPI:=self;
-  shader:=self;
-  shaderCache.Init(32);
-  Bits.SetBit(curTexChanged,0);
+  // Requires a valid GL context: frees all cached shader programs.
+  // Must run before GL context destruction.
+  DebugMsg('[LIFECYCLE] Destroy %s',[ClassName]);
+  Log.Msg('[LIFECYCLE] Destroy '+ClassName);
+  for i:=0 to shaderCache.count-1 do
+   if shaderCache.values[i]<>-1 then
+    TGLShader(UIntPtr(shaderCache.values[i])).Free;
+  shaderCache.Clear;
+  inherited;
  end;
 
 procedure TGLShadersAPI.DirectLight(direction:TVector3; power:single; color:cardinal);
@@ -521,7 +538,7 @@ procedure TGLShadersAPI.AmbientLight(color:cardinal);
 
 procedure TGLShadersAPI.Material(color:cardinal;shininess:single);
  begin
-
+  // TODO: implement material properties upload to shader
  end;
 
 procedure TGLShadersAPI.CustomizedUniform(name:string8;valueType:AnsiChar;const value);
@@ -535,6 +552,7 @@ procedure TGLShadersAPI.CustomizedUniform(name:string8;valueType:AnsiChar;const 
    '4':size:=16;
    'm':size:=sizeof(T3DMatrixS);
    'M':size:=sizeof(T3DMatrix);
+   else raise EError.Create('CustomizedUniform: unknown valueType: '+valueType);
   end;
   l:=length(name);
   SetLength(name,l+2+size);
@@ -571,6 +589,7 @@ procedure TGLShadersAPI.ApplyCustomizedUniforms;
 
 procedure TGLShadersAPI.PointLight(position:TPoint3;power:single;color:cardinal);
  begin
+  // TODO: store position, power, color and upload to shader — currently only toggles the flag bit
   Bits.Modify(curTexMode.lighting,LIGHT_POINT_ON,power>0);
  end;
 
@@ -604,7 +623,7 @@ function TGLShadersAPI.Load(filename,extra:String8):TShader;
  var
   vSrc,fSrc:String8;
   lines:Strings8;
-  fname:string;
+  fname:String8;
   i,mode:integer;
  begin
   fName:=fileName+'.glsl';
@@ -710,7 +729,8 @@ function TGLShadersAPI.Build(vSrc,fSrc,extra:string8): TShader;
   prog:=glCreateProgram;
   glAttachShader(prog,vsh);
   glAttachShader(prog,fsh);
-  /// Extra parameters not supported
+  // TODO: support custom attribute bindings from `extra`, or remove the parameter
+  // from the public API if this path stays unsupported.
  { if extra>'' then begin
    sa:=splitA(',',extra);
    for i:=0 to high(sa) do
@@ -894,11 +914,12 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
   // Transformations
   if transformationAPI.Update then
    inc(matrixRevision);
+  ASSERT(activeShader<>nil,'Apply called before any shader was activated');
   if activeShader.matrixRevision<>matrixRevision then begin
    activeShader.UpdateMatrices(matrixRevision,shadowMapMatrix);
   end;
   if IsCustomized then ApplyCustomizedUniforms;
-  // Textures (тут тоже возможен косяк, если шейдер меняется, а текстура - нет)
+  // Textures (may have issues if shader changes but texture does not)
   curTexChanged:=curTexChanged and $FFFF;
   for i:=0 to high(curTextures) do begin
    if Bits.Get(curTexChanged,i) then begin
@@ -907,14 +928,14 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
     if tex<>nil then begin
      while tex.parent<>nil do tex:=tex.parent;
      resourceManagerGL.MakeOnline(tex,i);
-     if activeShader.uTex[i]>0 then begin
+     if activeShader.uTex[i]>=0 then begin
       glUniform1i(activeShader.uTex[i],i);
       CheckForGLError(421);
      end;
     end;
    end;
   end;
-  if activeShader.uTexShadowMap>0 then begin
+  if (activeShader.uTexShadowMap>=0) and (shadowMap<>nil) then begin
    UseTexture(shadowMap,9);
    glUniform1i(activeShader.uTexShadowMap,9);
   end;

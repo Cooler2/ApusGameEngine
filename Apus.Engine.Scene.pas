@@ -16,7 +16,7 @@ type
   duration:integer;  // время, за которое эффект должен выполнится
   done:boolean;  // Флаг, сигнализирующий о том, что эффект завершен
   target:TGameScene;
-  name:string; // description for debug reasons
+  name:String8; // description for debug reasons
   constructor Create(scene:TGameScene;TotalTime:integer); // создать эффект на заданное время (в мс.)
   procedure DrawScene; virtual; abstract; // Процедура должна полностью выполнить отрисовку сцены с эффектом (в текущий RT)
   destructor Destroy; override;
@@ -104,7 +104,7 @@ type
   procedure onMouseWheel(delta:integer); virtual;
   procedure onShow; virtual; // called when status changed to Active
   procedure onHide; virtual; // called when status changed from Active
-  procedure onEvent(eventPart:string;tag:NativeInt); virtual; // called when 'Scenes\[SceneName]\xxx' event is fired, "xxx" part is passed
+  procedure onEvent(eventPart:String8;tag:NativeInt); virtual; // called when 'Scenes\[SceneName]\xxx' event is fired, "xxx" part is passed
 
   // For non-fullscreen scenes return occupied area
   function GetArea:TRect; virtual; abstract;
@@ -138,7 +138,7 @@ uses SysUtils,
   var
    scene:TGameScene;
    p:integer;
-   name:string;
+   name:String8;
   begin
    p:=event.IndexOf('\',8);
    name:=Copy(event,8,p-8);
@@ -242,7 +242,7 @@ function TGameScene.Process:boolean;
   begin
   end;
 
- procedure TGameScene.onEvent(eventPart:string;tag:NativeInt);
+ procedure TGameScene.onEvent(eventPart:String8;tag:NativeInt);
   begin
   end;
 
@@ -284,8 +284,8 @@ function TGameScene.Process:boolean;
      // It's possible that one keystroke event is logged twice: once for KEY event and then for CHAR event
      // So check this out: if this event is for KEY and there is another for CHAR - drop this one and return the second one.
      keyBuffer.Get(next);
-     if (next.data) and $FF00=(item.data) and $FF00 then  // same scancode
-      result:=cardinal(item.data)
+     if (next.data) and $FF00=(item.data) and $FF00 then // same scancode — return CHAR event
+      result:=cardinal(next.data)
      else
       keyBuffer.Add(next); // put back (although order may change)
     end;
@@ -306,15 +306,17 @@ function TGameScene.Process:boolean;
   end;
 
  procedure TGameScene.SetStatus(st:TSceneStatus);
+  var
+   wasActive:boolean;
   begin
    if status=st then exit; // no change
+   wasActive:=status=ssActive;
    if (st=ssActive) and not loaded then
     Log.Msg('WARN! Activating scene "%s" which was not loaded',[name]);
    if st=ssActive then onShow; // make sure to call this BEFORE the scene become active
    status:=st;
-   if status=ssActive then activated:=true
-    else activated:=false;
-   if status<>ssActive then onHide;
+   activated:=st=ssActive;
+   if wasActive and (status<>ssActive) then onHide;
   end;
 
  { TSceneEffect }

@@ -93,14 +93,12 @@ implementation
  uses Apus.Images, Apus.Geom2D, Apus.Geom3D,
       {$IFDEF OPENGL}dglOpenGL, {$ENDIF}
       {$IFDEF ANDROID}gles20, Apus.Engine.PainterGL, {$ENDIF}
-      Apus.Colors,Apus.Engine.UI,Apus.Engine.Console,Apus.Engine.UIRender,
+      Apus.Colors,Apus.Engine.UI,Apus.Engine.UIRender,
       Apus.Lib, Apus.Utils;
 
  var
-  ModalStack:array[1..8] of TUIElement;
+ ModalStack:array[1..8] of TUIElement;
   modalStackSize:integer;
-
-  blurLog:string;
 
 { TFullScreenEffect }
 
@@ -166,7 +164,7 @@ var
  flags:cardinal;
 begin
  if prevscene is TUIScene then begin
-  if FocusedElement.GetRoot=(prevscene as TUIscene).UI then
+  if (FocusedElement<>nil) and (FocusedElement.GetRoot=(prevscene as TUIscene).UI) then
    SetFocusTo(nil);
   (prevscene as TUIscene).UI.enabled:=false;
  end;
@@ -270,8 +268,7 @@ end;
 
 procedure TRotScaleEffect.DrawScene;
 var
- w,h,t:integer;
- l1:TMultiTexLayer;
+ t:integer;
  tex:TTexture;
 begin
  if DontPlay then begin
@@ -287,19 +284,13 @@ begin
   if t>=255 then begin
    done:=true;
    target.SetStatus(TSceneStatus.ssFrozen);
-   if newscene is TUIScene then (target as TUIScene).UI.enabled:=true;
+   if newscene is TUIScene then (newscene as TUIScene).UI.enabled:=true;
   end;
   gfx.BeginPaint(buffer);
   try
 
-  /// TODO: replace with proper value (probably renderRect)
-  w:=game.GetSettings.width-1;
-  h:=game.GetSettings.height-1;
-  l1.texture:=prevbuf;
-  l1.matrix[0,0]:=1; l1.matrix[0,1]:=0;
-  l1.matrix[1,0]:=0; l1.matrix[1,1]:=1;
-  l1.matrix[2,0]:=0; l1.matrix[2,1]:=0;
-  l1.next:=nil;
+  // TODO: restore the original transition draw pass with an explicit render
+  // rect once this effect is covered by a visual regression check.
   gfx.target.BlendMode(blMove);
   //draw.MultiTex(0,0,w,h,@l1,$FF808080);
   finally
@@ -329,7 +320,10 @@ begin
  st:='';
  for i:=1 to modalstacksize do
   st:=st+modalstack[i].name+' > ';
- st:=st+'('+modalElement.name+')';
+ if modalElement<>nil then
+  st:=st+'('+modalElement.name+')'
+ else
+  st:=st+'(nil)';
  Log.Msg('ModalStack: %s #%d',[st,modalStackSize]);
 end;
 
@@ -355,6 +349,8 @@ begin
  // Показ модального окна
  game.EnterCritSect;
  try
+  // TODO: align this path with the LockUI-based fullscreen switch flow so
+  // all global UI state changes follow one synchronization rule.
   Log.Msg('WndEffStart(%s,%d,%d,%d)',[scene.UI.name,duration,ord(effMode),effect]);
   inherited Create(scene,duration);
   dontPlay:=DisableEffects or (duration<=0);
@@ -391,8 +387,14 @@ begin
    else scene.UI.order:=scene.zorder;
 
   inc(modalStackSize);
+  if modalStackSize>High(modalStack) then begin
+   Log.Error('Modal stack overflow in TShowWindowEffect.Create for scene %s',[scene.name]);
+   modalStackSize:=High(modalStack);
+   dontPlay:=true;
+   duration:=1;
+  end;
   i:=ModalStackSize;
-  while (i>1) and (modalstack[i-1]<>nil) and (modalStack[i-1].order>c.order) do begin
+  while (i>1) and (c<>nil) and (modalstack[i-1]<>nil) and (modalStack[i-1].order>c.order) do begin
    modalStack[i]:=modalStack[i-1];
    dec(i);
    Log.Msg('ModalStack: insert');
@@ -406,7 +408,7 @@ begin
  end;
  // сцена закрывается
  if (mode=sweHide) then begin
-  if focusedElement.GetRoot=scene.UI then
+  if (focusedElement<>nil) and (focusedElement.GetRoot=scene.UI) then
     SetFocusTo(nil);
   scene.activated:=false;
   // проверим, есть ли данная сцена в стеке модальности
@@ -464,8 +466,13 @@ begin
   x:=r.Left;
   y:=r.Top;
  end;
- if w=0 then
+ if w=0 then begin
   r:=TUIScene(target).GetArea;
+  w:=r.right-r.left;
+  h:=r.Bottom-r.top;
+  x:=r.Left;
+  y:=r.Top;
+ end;
  try
   Log.Msg('WndEffect: allocating %d x %d buffer',[w,h]);
   buffer:=AllocImage(w,h,pfRenderTargetAlpha,aiRenderTarget+aiTexture,'WndEffect');
@@ -486,7 +493,6 @@ begin
   if not done then onDone;
   if initialized and (buffer<>nil) then FreeImage(buffer);
   if target<>nil then begin
-   PutMsg('WndEffDone('+(target as TUISCene).UI.name+')');
    target.shadowColor:=shadow;
   end;
   inherited;
@@ -685,7 +691,6 @@ var
 destructor TBlurEffect.Destroy;
 begin
  inherited;
- blurLog:=blurLog+'F';
  FreeImage(buffer);
  FreeImage(buffer2);
 // texman.FreeImage(buffer3);
@@ -712,7 +717,6 @@ begin
  mainColorAdd:=colorAdd;
  mainColorMult:=colorMult;
  inherited Create(scene,1000000);
- blurLog:=blurLog+'C';
 end;
 
 procedure TBlurEffect.Initialize;
@@ -733,7 +737,6 @@ begin
  buffer:=AllocImage(width,height,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf1');
  buffer2:=AllocImage(width div 2,height div 2,pfRenderTarget,aiRenderTarget+aiClampUV,'BlurBuf2');
  initialized:=true;
- blurLog:=blurLog+'I';
  except
   on e:exception do begin
    dontPlay:=true;
@@ -742,12 +745,9 @@ begin
  end;
 end;
 
-var
- debug:integer=0;
-
 procedure TBlurEffect.DrawScene;
 var
- u,v,f,phase:single;
+ u,v,phase:single;
  i:integer;
  cb:array[0..3] of byte;
  cf:TVector4s;
@@ -759,12 +759,10 @@ begin
    target.Render;
    exit;
   end;
-  blurLog:=blurLog+'D';
   // Render source scene
   gfx.BeginPaint(buffer);
   try
    target.Render;
-   inc(debug);
   finally
    gfx.EndPaint;
   end;
@@ -799,7 +797,7 @@ begin
   blurShader.SetUniform('v1',2/6);
   blurShader.SetUniform('v2',1/6);
   blurShader.SetUniform('tex1',0);
-  blurShader.SetUniform('tex2',0);
+  blurShader.SetUniform('tex2',1);
   // Since we don't use engine's transformation, we should manually flip Y-coordinate when needed
   blurShader.SetUniform('yFactor',IfThen(gfx.transform.ProjMatrix[1,1]>0,1.0,-1.0));
 
@@ -852,8 +850,6 @@ procedure TBaseSceneSwitcher.ShowWindowScene(name:string8;modal:boolean=true);
  end;
 
 procedure TBaseSceneSwitcher.SwitchToScene(name:string8);
- var
-  scene:TGameScene;
  begin
   TTransitionEffect.Create(game.GetScene(name),250);
  end;

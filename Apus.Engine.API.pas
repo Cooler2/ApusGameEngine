@@ -974,6 +974,9 @@ type
 var
  // Global shortcuts to the key interfaces
  // ---------------------------------------
+ // Ownership:
+ // - systemPlatform/gfx are assigned by TGameBase during game creation
+ // - shader/draw/txt/transform are assigned and cleared by graphics backend (TOpenGL.Init/Done)
  systemPlatform:ISystemPlatform;
  gfx:IGraphicsSystem;
  game:TGameBase;
@@ -1241,12 +1244,12 @@ function TGameBase.RenderSize:TSize;
 
 function TGameBase.ColorMix(var av:TAnimatedValue;color0,color1:cardinal):cardinal;
  begin
-  Apus.Colors.ColorMixF(color0,color1,Clamp(av.ValueAt(game.frameStartTime),0,1));
+  result:=Apus.Colors.ColorMixF(color0,color1,Clamp(av.ValueAt(game.frameStartTime),0,1));
  end;
 
 function TGameBase.ColorAlpha(var av:TAnimatedValue;color:cardinal):cardinal;
  begin
-  Apus.Colors.ColorAlpha(color,Clamp(av.ValueAt(game.frameStartTime),0,1));
+  result:=Apus.Colors.ColorAlpha(color,Clamp(av.ValueAt(game.frameStartTime),0,1));
  end;
 
 

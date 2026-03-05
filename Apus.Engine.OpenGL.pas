@@ -10,6 +10,11 @@ interface
 uses Apus.Core, Apus.Engine.API, Apus.Images;
 
 type
+ // Main graphics-system implementation for OpenGL.
+ // Owns and wires all rendering subsystems (target, shaders, resman, text, draw).
+ // Lifecycle is controlled via IGraphicsSystem (Init/Done).
+ // Important: all GL-owning services must be released in Done BEFORE the platform
+ // destroys the GL context, otherwise GPU resources cannot be deleted safely.
  TOpenGL=class(TInterfacedObject,IGraphicsSystem,IGraphicsSystemConfig)
   procedure Init(system:ISystemPlatform);
   procedure Done;
@@ -25,8 +30,8 @@ type
   function config:IGraphicsSystemConfig;
   function resman:IResourceManager;
   function target:IRenderTarget;
-  function shader:IShader;
-  function clip:IClipping;
+  function shader:IShader; inline;
+  function clip:IClipping; inline;
   function transform:ITransformation;
   function draw:IDrawer; inline;
   function txt:ITextDrawer;
@@ -50,10 +55,17 @@ type
   glVersionNum:single;
   sysPlatform:ISystemPlatform;
   canPaint:integer;
+  // Explicit owners for interfaced singletons created in Init.
+  // They are released in Done via :=nil to trigger deterministic destruction.
+  ownRenderTarget:IRenderTarget;
+  ownTransformation:ITransformation;
+  ownClipping:IClipping;
+  ownShader:IShader;
+  ownResMan:IResourceManager;
  end;
 
 var
- debugGL:boolean = {$IFDEF MSWINDOWS} true {$ELSE} true {$ENDIF};
+ debugGL:boolean = true;
 
  procedure CheckForGLError(lab:integer=0); inline;
 
@@ -63,7 +75,6 @@ implementation
   {$IFDEF DGL}dglOpenGL,{$ENDIF}
   SysUtils,
   Types,
-  Apus.Geom3D,
   Apus.Engine.Types,
   Apus.Engine.Graphics,
   Apus.Engine.Draw,
@@ -73,6 +84,8 @@ implementation
   Apus.Log;
 
 type
+ // Low-level bridge from engine vertex data to OpenGL draw calls.
+ // Used by higher-level APIs (draw/text/shaders), does not own scene resources.
  TRenderDevice=class(TInterfacedObject,IRenderDevice)
   constructor Create;
   destructor Destroy; override;
@@ -109,7 +122,7 @@ type
      stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); overload;}
 
  protected
-  actualAttribArrays:shortint; // кол-во включенных аттрибутов (-1 - неизвестно, 2+кол-во текстур)
+  actualAttribArrays:shortint; // number of enabled attrib arrays (-1 = unknown)
   lastVertices:pointer;
   lastLayout:TVertexLayout;
   lastStride:integer;
@@ -120,6 +133,8 @@ type
   procedure SetupAttributes(vertices:pointer;vertexLayout:TVertexLayout);
  end;
 
+ // OpenGL-specific render-target implementation.
+ // Applies viewport/scissor/blend/depth states for backbuffer and texture RTs.
  TGLRenderTargetAPI=class(TRendertargetAPI)
   constructor Create;
   procedure Backbuffer; override;
@@ -147,7 +162,7 @@ begin
  if debugGL then begin
   error:=glGetError;
   if error<>GL_NO_ERROR then begin
-    raise EError.Create(Format('GL Error %d: code %d (%x)',[lab,error,error]));
+    raise EError.Create('GL Error %d: code %d (%x)',[lab,error,error]);
   end;
  end;
 end;
@@ -185,6 +200,7 @@ procedure TOpenGL.Init(system:ISystemPlatform);
 
  begin
   Log.Msg('Init OpenGL');
+  exList:='';
   sysPlatform:=system;
   {$IFDEF DGL}
   InitOpenGL;
@@ -208,7 +224,7 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   Log.Force('OpenGL vendor: '+PAnsiChar(glGetString(GL_VENDOR)));
   Log.Force('OpenGL renderer: '+glRenderer);
   if not GL_VERSION_3_0 then
-   raise Exception.Create('OpenGL 3.0 or higher required!'#13#10'Please update your video drivers.');
+   raise EFatalError.Create('OpenGL 3.0 or higher required!'#13#10'Please update your video drivers.');
 
   glGetIntegerv(GL_NUM_EXTENSIONS,@cnt);
   for i:=0 to cnt-1 do
@@ -219,32 +235,73 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   glVersionNum:=GetVersion;
 
   // Create API objects
+  // TODO: add try/except with rollback — if a later constructor fails, earlier objects remain dangling
   renderDevice:=TRenderDevice.Create;
   renderTargetAPI:=TGLRenderTargetAPI.Create;
   transformationAPI:=TTransformationAPI.Create;
   clippingAPI:=TClippingAPI.Create;
   shadersAPI:=TGLShadersAPI.Create;
+  ownRenderTarget:=renderTargetAPI;
+  ownTransformation:=transformationAPI;
+  ownClipping:=clippingAPI;
+  ownShader:=shadersAPI;
+  // API shortcut ownership rule:
+  // these global interface refs are assigned and cleared only by TOpenGL (Init/Done).
+  Apus.Engine.API.transform:=transformationAPI;
+  Apus.Engine.API.shader:=shadersAPI;
   CheckForGLError(013);
 
   TGLResourceManager.Create;
+  ownResMan:=resourceManagerGL;
   TDrawer.Create;
   TTextDrawer.Create;
+  Apus.Engine.API.draw:=drawer;
+  Apus.Engine.API.txt:=textDrawer;
   CheckForGLError(014);
  end;
 
 procedure TOpenGL.Done;
  begin
-  //FreeAndNil(textDrawer);
-  //FreeAndNil(drawer);
-  // Тут нужно сперва уменьшить счётчик ссылок
-  //FreeAndNil(resourceManagerGL);
+  Log.Msg('OGL Done start');
+  // Release objects in explicit order while GL context is still alive.
+  // Required pre-context-loss cleanup:
+  // 1) Text and drawing helpers: cached text texture, neutral texture, temp shader.
+  // 2) Shader API: compiled GL programs/shaders.
+  // 3) Resource manager: textures, FBO/RBO, vertex/index buffers.
+  // 4) Core state APIs and render device.
+  // This order ensures resource users die before resource owners.
+  // 1) Text and drawing helpers own textures/shaders.
+  Apus.Engine.API.txt:=nil;
+  textDrawer:=nil;
+  Apus.Engine.API.draw:=nil;
+  drawer:=nil;
+
+  // 2) Shader system can own GL programs.
+  Apus.Engine.API.shader:=nil;
+  ownShader:=nil;
+  shadersAPI:=nil;
+
+  // 3) Resource manager should go after all texture users.
+  ownResMan:=nil;
+  resourceManagerGL:=nil;
+
+  // 4) Core render APIs.
+  Apus.Engine.API.transform:=nil;
+  ownTransformation:=nil;
+  ownClipping:=nil;
+  ownRenderTarget:=nil;
+  transformationAPI:=nil;
+  clippingAPI:=nil;
+  renderTargetAPI:=nil;
+  renderDevice:=nil;
+  Log.Msg('OGL Done finished');
  end;
 
 procedure TOpenGL.PostDebugMsg(st:string8;id:integer=0);
  begin
-  if @glDebugMessageInsert<>nil then
-   glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION,GL_DEBUG_TYPE_MARKER, id, GL_DEBUG_SEVERITY_LOW,
-    length(st),@st[1]);
+  if (length(st)=0) or (@glDebugMessageInsert=nil) then exit;
+  glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION,GL_DEBUG_TYPE_MARKER, id, GL_DEBUG_SEVERITY_LOW,
+   length(st),@st[1]);
  end;
 
 procedure TOpenGL.PresentFrame;
@@ -306,23 +363,23 @@ procedure TOpenGL.BeginPaint(target: TTexture);
   if canPaint>0 then
    renderTargetAPI.Push;
   inc(canPaint);
-  shadersAPI.Reset;
+  shader.Reset;
   drawer.Reset;
   renderTargetAPI.Texture(target);
   renderTargetAPI.Viewport(0,0,-1,-1);
   renderTargetAPI.BlendMode(blAlpha);
   transformationAPI.DefaultView;
-  clippingAPI.Nothing;
+  clip.Nothing;
   CheckForGLError;
  end;
 
 procedure TOpenGL.EndPaint;
  begin
-  if canPaint=0 then exit;
-  // Log.Msg('EP: '+inttohex(integer(curtarget),8));
-  /// TODO: flush any draw cashes
-
-  ASSERT(canPaint>0);
+  if canPaint<=0 then begin
+   Log.Warn('EndPaint called without matching BeginPaint');
+   exit;
+  end;
+  /// TODO: flush any draw caches
   dec(canPaint);
   if canPaint>0 then begin
    renderTargetAPI.Pop;
@@ -355,11 +412,9 @@ procedure TOpenGL.CopyFromBackbuffer(srcX,srcY:integer;image:TRawImage);
   if fbo=0 then glReadBuffer(GL_BACK)
    else glReadBuffer(GL_COLOR_ATTACHMENT0);
   image.Lock;
-  if fbo<>0 then begin
-   glReadPixels(srcX,srcY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,image.data);
-   // Flip image vertically
-  end else
-   glReadPixels(srcX,srcY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,image.data);
+  glReadPixels(srcX,srcY,image.Width,image.Height,GL_BGRA,GL_UNSIGNED_BYTE,image.data);
+  if fbo<>0 then // flip vertically: FBO origin is bottom-left
+   image.FlipVertical;
   image.Unlock;
   CheckForGLError(021);
  end;
@@ -455,7 +510,7 @@ destructor TRenderDevice.Destroy;
 procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertices: pointer;
   vertexLayout:TVertexLayout);
  begin
-  shadersAPI.Apply(vertexLayout);
+  shader.Apply(vertexLayout);
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
@@ -571,7 +626,7 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
   begin
    // adjust number of vertex attrib arrays
    if actualAttribArrays<0 then begin // unknown
-    for i:=0 to 7 do
+    for i:=0 to High(divisors) do
      if i<n then glEnableVertexAttribArray(i)
       else glDisableVertexAttribArray(i);
     actualAttribArrays:=n;

@@ -4,7 +4,6 @@
 // Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
-// ------------------------------------------------------unit Apus.Engine.UILayout;
 unit Apus.Engine.UILayout;
 interface
 uses Apus.Engine.UITypes;
@@ -136,13 +135,16 @@ procedure TRowLayout.Layout(item:TUIElement);
     weightSum:=weightSum+list[i].layoutData;
    end;
    if vertical then ownSize:=item.clientHeight
-    else ownSize:=item.clientWidth;
+   else ownSize:=item.clientWidth;
    extraSpace:=ownSize-high(list)*spaceBetween-childSize;
    // Distribute extra space among children and position them
    pos:=0;
    for i:=0 to high(list) do begin
      e:=list[i];
-     delta:=extraSpace*e.layoutData/weightSum;
+     if weightSum>0 then
+      delta:=extraSpace*e.layoutData/weightSum
+     else
+      delta:=0;
      if vertical then begin
       e.Resize(-1,e.size.y+delta);
       e.position.y:=pos;
@@ -188,6 +190,17 @@ procedure TRowLayout.Layout(item:TUIElement);
   end;
 
  procedure TGridLayout.LayoutFixed(parent:TUIElement;list:TUIElements);
+  procedure CenterRow(firstIdx,lastIdx:integer;rowWidth:single);
+   var
+    j:integer;
+    delta:single;
+   begin
+    if not center then exit;
+    delta:=(parent.clientWidth-paddingH*2-rowWidth)/2;
+    if delta<=0 then exit;
+    for j:=firstIdx to lastIdx do
+     list[j].position.x:=list[j].position.x+delta;
+   end;
   var
    i,j,last:integer;
    x,y,h:single;
@@ -199,11 +212,7 @@ procedure TRowLayout.Layout(item:TUIElement);
     list[i].SetPos(x,y);
     x:=x+list[i].width;
     if (x>=parent.clientWidth-paddingH) and (i>last) then begin // current item should be wrapped to the next row
-     if center then begin
-      x:=x-list[i].width-horSpace;
-      for j:=last to i-1 do
-       list[j].position.x:=list[j].position.x+(parent.clientWidth-paddingH*2-x)/2;
-     end;
+     CenterRow(last,i-1,x-list[i].width-horSpace);
      h:=0;
      for j:=last to i do
       h:=max(h,list[j].size.y);
@@ -213,11 +222,13 @@ procedure TRowLayout.Layout(item:TUIElement);
      last:=i;
     end;
    end;
+   if (last<=high(list)) and (length(list)>0) then
+    CenterRow(last,high(list),x-paddingH);
   end;
 
  procedure TGridLayout.LayoutFlex(parent:TUIElement;list:TUIElements);
   var
-   i,cols,row,col:integer;
+   i,cols,col:integer;
    y,itemWidth,itemHeight,rowHeight:single;
   begin
    cols:=max(1,round(parent.clientWidth/desiredWidth));
@@ -230,7 +241,10 @@ procedure TRowLayout.Layout(item:TUIElement);
      y:=y+rowHeight;
      rowHeight:=0;
     end;
-    itemHeight:=itemWidth*(list[i].initialSize.y/list[i].initialSize.x);
+    if list[i].initialSize.x>0 then
+     itemHeight:=itemWidth*(list[i].initialSize.y/list[i].initialSize.x)
+    else
+     itemHeight:=list[i].height;
     list[i].Resize(itemWidth,itemHeight);
     rowHeight:=max(rowHeight,itemHeight);
     list[i].SetPos(paddingH+col*itemWidth+col*horSpace,y+paddingV);

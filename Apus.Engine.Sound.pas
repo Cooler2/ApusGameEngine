@@ -84,9 +84,9 @@ type
   procedure Done;
  end;
 
-// Инициализация звуковой системы
-procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:cardinal=0; waitForPreload:boolean=true);
-// Завершение работы
+// Initialize sound system
+procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:THandle=0; waitForPreload:boolean=true);
+// Shutdown sound system
 procedure DoneSoundSystem;
 
 
@@ -143,6 +143,8 @@ type
 
 var
  soundLib:ISoundLib;
+ // TODO: initialized/failed are written by sound thread and read by main thread without
+ // memory barriers — technically a data race (works on x86 in practice)
  initialized:boolean=false; // ready to process events
  failed:boolean;
  soundThread:TSoundThread;
@@ -159,9 +161,6 @@ var
  needMusicStartTime:int64;       // Time to start playback
  needSlide:integer;    // Fade-in duration (ms)
  curMusic:TMusicEntry;
-
- sampleLib:array[1..5] of TMusicEntry;
- sampleLibCnt:integer;
 
  // Global volume levels (multiply by particular volume)
  soundVolume:single=1.0;
@@ -196,8 +195,9 @@ procedure TMediaFile.DetectParams(data:TBuffer);
 
  procedure ParseMP3;
   begin
+   // TODO: MP3 header parsing not implemented — numChannels/sampleRate/bitDepth remain 0,
+   // which can cause division by zero downstream (e.g. settings.speed:=freq/sampleRate)
    data.Seek(2);
-
   end;
 
  var
@@ -246,7 +246,7 @@ procedure TSoundEvent.Preload;
   p:int64;
  begin
   if sample=nil then begin
-   p:=mediaFilesHash.Get(fileName);
+   p:=mediaFilesHash.Get(UpperCase(fileName));
    if p=-1 then begin
     sample:=LoadMediaAsSample(fileName);
    end else
@@ -294,7 +294,7 @@ function LoadSample(s:TSample):boolean;
   end;
  end;  *)
 
-// Загрузка конфигурации
+// Load sound configuration
 procedure LoadConfig;
  var
   ctlRoot:string8;
@@ -315,9 +315,9 @@ procedure LoadConfig;
     param[0]:=UpperCase {TODO: use st.ToUpper}(param[0]);
     if param[0]='FILE' then begin
      evt.fileName:=param[1];
-     // проверить, есть ли уже такой медиафайл
-     if mediaFilesHash.HasValue(evt.fileName) then
-      evt.sample:=pointer(mediaFilesHash.Get(evt.fileName));
+     // check if this media file is already loaded
+     if mediaFilesHash.HasValue(UpperCase(evt.fileName)) then
+      evt.sample:=pointer(mediaFilesHash.Get(UpperCase(evt.fileName)));
     end;
     if param[0]='VOL' then evt.volume:=StrToInt(param[1])/100;
     if param[0]='PAN' then evt.pan:=StrToInt(param[1])/100;
@@ -344,7 +344,7 @@ procedure LoadConfig;
    item.loop:=ctlGetBool(path+'\loop',false);
    item.looppos:=ctlGetInt(path+'\loopPos',0);
    fExt:=UpperCase {TODO: use st.ToUpper}(ExtractFileExt(fname));
-   if (fExt='.OGG') or (fExt='.MP3') or (fExt='.WAW') then begin
+   if (fExt='.OGG') or (fExt='.MP3') or (fExt='.WAV') then begin
     {$IFDEF ANDROID}
     // Copy file to data folder
     fname:=CopyAssetFile('Audio/'+lowercase {TODO: use st.ToLower}(fname));
@@ -394,7 +394,7 @@ procedure LoadConfig;
    for i:=0 to length(sa)-1 do begin
     kt:=ctlGetKeyType(path+sa[i]);
     if kt=cktString then try
-     // событие определено в виде строки
+     // event defined as a string value
      AddEvent('file='+ctlGetStr(path+sa[i]),UpperCase {TODO: use st.ToUpper}(sa[i]));
     except
      on e:Exception do raise EError.Create('Error in sound event definition: '+ExceptionMsg(e));
@@ -488,8 +488,6 @@ procedure PlaySound(event:TEventStr;tag:TTag);
   slide:integer;
   newVolume,newSpeed,newPan:single;
   i,p:integer;
-  volRelative:boolean;
-  ptr:int64;
  begin
    Log.Msg('[SOUND] '+event+' '+IntToHex(tag,6));
    if soundvolume=0 then exit;
@@ -515,6 +513,9 @@ procedure PlaySound(event:TEventStr;tag:TTag);
     loop:=evt.loop;
    end;
    slide:=0;
+   newVolume:=settings.volume;
+   newSpeed:=settings.speed;
+   newPan:=settings.pan;
    // 2. Override
    for i:=1 to high(sa) do begin
      par.InitFrom(sa[i]);
@@ -542,7 +543,7 @@ procedure PlaySound(event:TEventStr;tag:TTag);
 
    // Low byte of tag overrides volume (in %)
    p:=tag and 255;
-   if p<>0 then settings.volume:=settings.volume*p;
+   if p<>0 then settings.volume:=settings.volume*p/100;
 
    // 8..23 bits of tag = override sample frequency (if >250) or speed (1..250 in %)
    p:=(tag shr 8) and $FFFF;
@@ -550,8 +551,9 @@ procedure PlaySound(event:TEventStr;tag:TTag);
     if p>250 then settings.speed:=p/evt.sample.sampleRate
      else settings.speed:=p/100;
    end;
+   // High byte of tag overrides pan (-128..127 -> -1.0..1.0)
    p:=shortint(tag shr 24);
-   if p<>0 then settings.pan:=Clamp(p*100,-100,100);
+   if p<>0 then settings.pan:=Clamp(p/100.0,-1.0,1.0);
 
    evt.lastChannel:=soundLib.PlayMedia(evt.sample, settings);
    if slide>0 then begin
@@ -576,51 +578,55 @@ procedure PlayMusic(event:TEventStr;tag:TTag);
    mus:=nil;
    if event<>'NONE' then
     mus:=MusHash.Get(event);
-   // Позиция проигрывания
+   // Playback position
    needMusicPlayFrom:=(tag shr 8)/100000;
    tag:=tag and $FF;
    if (tag and 128)>0 then
     tag:=tag and $7F
    else begin
-    // Может нужный трэк уже играет?
+    // Already playing the requested track?
     if (mus<>nil) and (curMusic=mus) then exit;
    end;
 
    case tag of
-    0:begin // обычный эффект: музыка гасится, затем запускается новая
+    0:begin // normal: fade-out old music, then start new
        downtime:=1200;
        needslide:=0;
        needMusicStartTime:=CoreTime.Ticks+1000;
     end;
-    1:begin // музыка гасится быстро, новая запускается почти сразу же
+    1:begin // fast fade-out, start new almost immediately
        downtime:=400;
        needslide:=0;
        needMusicStartTime:=CoreTime.Ticks+300;
     end;
-    2:begin // музыка гасится очень медленно
+    2:begin // very slow fade-out
        downtime:=2500;
        needslide:=0;
        needMusicStartTime:=CoreTime.Ticks+3000;
     end;
-    3:begin // музыка гасится медленно, новая нарастает плавно - кроссфейдинг
+    3:begin // slow fade-out, smooth fade-in crossfade
        downtime:=2000;
        needslide:=2000;
        needMusicStartTime:=CoreTime.Ticks+800;
     end;
-    4:begin // музыка гасится медленно, новая нарастает плавно - без фейдинга
+    4:begin // slow fade-out, smooth fade-in without crossfade
        downtime:=2500;
        needslide:=2000;
        needMusicStartTime:=CoreTime.Ticks+2000;
     end;
-    5:begin // музыка гасится быстро, новая нарастает медленно - кроссфейдинг
+    5:begin // fast fade-out, slow fade-in crossfade
        downtime:=500;
        needslide:=2000;
        needMusicStartTime:=CoreTime.Ticks+400;
     end;
-    6:begin // музыка гасится быстро, новая нарастает средне - кроссфейдинг
+    6:begin // fast fade-out, medium fade-in crossfade
        downtime:=500;
        needslide:=500;
        needMusicStartTime:=CoreTime.Ticks+250;
+    end;
+    else begin
+     Log.Msg('[SOUND] PlayMusic: unknown tag %d',[tag]);
+     exit;
     end;
    end;
    // Fade-Out all playing music streams
@@ -795,7 +801,7 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   end;
  end;
 
-procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:cardinal=0; waitForPreload:boolean=true);
+procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:THandle=0; waitForPreload:boolean=true);
  begin
   if not FileExists(soundConfigFile) then begin
    Log.Msg('[SOUND] No config file found (%s). Sound system won''t initialize.',[soundConfigFile]);
@@ -812,6 +818,8 @@ procedure InitSoundSystem(useLibrary:TSoundLib; windowHandle:cardinal=0; waitFor
   case useLibrary of
    slIMixer:{$IFDEF IMX}soundLib:=TSoundLibImx.Create; {$ELSE} raise EError.Create('Define IMX'); {$ENDIF}
    slSDL:{$IFDEF SDLMIX}soundLib:=TSoundLibSDL.Create; {$ELSE} raise EError.Create('Define SDLMIX'); {$ENDIF}
+   // TODO: slBass declared but no backend exists — selecting it silently fails
+   else raise EError.Create('Sound library not supported: '+IntToStr(ord(useLibrary)));
   end;
   soundThread:=TSoundThread.Create(false);
   soundThread.waitForPreload:=waitForPreload;

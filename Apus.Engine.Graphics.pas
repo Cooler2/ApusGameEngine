@@ -34,8 +34,8 @@ type
   // Set vertex attribute array divisors (for instanced rendering)
   procedure SetVertexDataDivisors(baseDivisor,extraDivisor:integer);
 
-  // Работу с буферами нужно организовать как-то иначе.
-  // Нужен отдельный класс для буфера. Управлять ими должен resman.
+  // Buffer handling should be organized differently.
+  // A dedicated buffer class is needed, managed by the resource manager.
 (*  // Draw primitives using built-in buffers
   procedure DrawBuffer(primType,primCount,vrtStart:integer;
      vertexBuf:TPainterBuffer;stride:integer); overload;
@@ -47,6 +47,8 @@ type
   procedure Reset; // Invalidate rendering settings
  end;
 
+ // Shared transformation state (model/view/projection) for current render context.
+ // Backend-specific renderer reads matrices from here, game code writes camera/object transforms.
  TTransformationAPI=class(TInterfacedObject,ITransformation)
   viewMatrix:T3DMatrix; // current view (camera) matrix
   invViewMatrix:T3DMatrix; // inverted view matrix
@@ -68,7 +70,7 @@ type
   procedure SetObj(mat:T3DMatrixS); overload; virtual;
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual;
   procedure ResetObj; virtual;
-  function Update:boolean; // Сalculate combined matrix (if needed), returns true if matrix was changed
+  function Update:boolean; // Calculate combined matrix (if needed), returns true if matrix was changed
   function GetMVPMatrix:T3DMatrix;
   function GetProjMatrix:T3DMatrix;
   function GetViewMatrix:T3DMatrix;
@@ -81,7 +83,7 @@ type
   function Transform(source:TPoint3s):TPoint3s; overload;
   function ProjectPoint(source:TPoint3s):TPoint3s;
 
-  // Единичный вектор из камеры в направлении экранного пикселя
+  // Unit vector from the camera towards the screen pixel
   function ViewDir(scrX,scrY:integer):TVector3s; overload; // unit vector to pixel (scrX,scrY)
   function ViewDir(viewPos:TPoint2s):TVector3s; overload; // viewPos in range of -1..1 (y axis is up)
   function ViewVec:TVector3s; inline; // camera front unit vector
@@ -102,6 +104,8 @@ type
   procedure CalcInvVP;
  end;
 
+ // Logical clip-rect stack in virtual coordinates.
+ // Converts UI/scene clipping requests into backend clip operations.
  TClippingAPI=class(TInterfacedObject,IClipping)
   constructor Create;
   procedure Rect(r:TRect;combine:boolean=true);  //< Set clipping rect (combine with previous or override), save previous
@@ -123,6 +127,8 @@ type
   rejectMode:boolean;
  end;
 
+ // Backend-agnostic render-target state and stack.
+ // Concrete backends implement actual API calls (viewport, clear, blend, depth, mask).
  TRenderTargetAPI=class(TInterfacedObject,IRenderTarget)
   constructor Create;
 
@@ -199,8 +205,6 @@ procedure TTransformationAPI.CalcInvVP;
 
 constructor TTransformationAPI.Create;
  begin
-  _AddRef;
-  Apus.Engine.API.transform:=self;
   viewMatrix:=IdentMatrix4;
   objMatrix:=IdentMatrix4;
   projMatrix:=IdentMatrix4;
@@ -239,7 +243,10 @@ function TTransformationAPI.Depth(pnt:TPoint3s):single;
 
 function TTransformationAPI.GetMVPMatrix:T3DMatrix;
  begin
-  if modified then CalcMVP;  
+  if modified then begin
+   CalcMVP;
+   modified:=false;
+  end;
   result:=MVP;
  end;
 
@@ -304,7 +311,7 @@ procedure TTransformationAPI.Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,
   projMatrix[0,2]:=0;      projMatrix[1,2]:=0;                      projMatrix[2,2]:=C;     projMatrix[3,2]:=D;
   projMatrix[0,3]:=0;      projMatrix[1,3]:=0;                      projMatrix[2,3]:=1;     projMatrix[3,3]:=0;
 
-  if renderTargetAPI.curTarget=nil then // нужно переворачивать ось Y если только не рисуем в текстуру
+  if renderTargetAPI.curTarget=nil then // flip Y axis when rendering to backbuffer (not to texture)
    for i:=0 to 3 do
     projMatrix[i,1]:=-projMatrix[i,1];
 
@@ -351,6 +358,9 @@ procedure TTransformationAPI.SetCamera(origin,target,up:TPoint3;
  var
   mat:TMatrix4;
   v1,v2,v3:TVector3;
+  c,s:double;
+  downX,downY,downZ:double;
+  rightX,rightY,rightZ:double;
  begin
   v1:=Vector3(origin,target); // front
   Normalize(v1);
@@ -358,6 +368,19 @@ procedure TTransformationAPI.SetCamera(origin,target,up:TPoint3;
   v3:=CrossProduct(v1,v2); // right
   Normalize(v3); // Right vector
   v2:=CrossProduct(v1,v3); // Down vector
+  Normalize(v2);
+  if turnCW<>0 then begin
+   c:=cos(turnCW);
+   s:=sin(turnCW);
+   downX:=v2.x; downY:=v2.y; downZ:=v2.z;
+   rightX:=v3.x; rightY:=v3.y; rightZ:=v3.z;
+   v2.x:=downX*c-rightX*s;
+   v2.y:=downY*c-rightY*s;
+   v2.z:=downZ*c-rightZ*s;
+   v3.x:=rightX*c+downX*s;
+   v3.y:=rightY*c+downY*s;
+   v3.z:=rightZ*c+downZ*s;
+  end;
   mat[0,0]:=v3.x; mat[0,1]:=v3.y; mat[0,2]:=v3.z; mat[0,3]:=0;
   mat[1,0]:=v2.x; mat[1,1]:=v2.y; mat[1,2]:=v2.z; mat[1,3]:=0;
   mat[2,0]:=v1.x; mat[2,1]:=v1.y; mat[2,2]:=v1.z; mat[2,3]:=0;
@@ -441,6 +464,11 @@ function TTransformationAPI.Transform(source:TPoint3):TPoint3;
   t:=source.x*mvp[0,3]+source.y*mvp[1,3]+source.z*mvp[2,3]+mvp[3,3];
   if (t<>1) and (t<>0) then begin
    x:=x/t; y:=y/t; z:=z/t;
+  end else
+  if t=0 then begin
+   // TODO: Decide how callers should handle points at infinity here.
+   // Returning the raw coordinates avoids division by zero but silently
+   // propagates values that are not valid clip-space positions.
   end;
   result.x:=x;
   result.y:=y;
@@ -475,8 +503,8 @@ function TTransformationAPI.ViewDir(viewPos:TPoint2s):TVector3s;
  begin
   if modifiedVP then CalcInvVP;
   v.Init(viewPos.x,viewPos.y,1);
-  v:=TransformPoint(invVPMatrix,@v); // точка относительно позиции камеры
-  v:=Vector3(MatRow(invViewMatrix,3).xyz,v); // вектор из позиции камеры
+  v:=TransformPoint(invVPMatrix,@v); // point relative to camera position
+  v:=Vector3(MatRow(invViewMatrix,3).xyz,v); // vector from camera position
   v.Normalize;
   result.Init(v);
  end;
@@ -526,7 +554,6 @@ procedure TRenderTargetAPI.ClipVirtual(const r: TRect);
 
 constructor TRenderTargetAPI.Create;
  begin
-  _AddRef;
   curBlend:=blNone;
   curTarget:=nil;
   curMask:=15;
@@ -545,7 +572,10 @@ procedure TRenderTargetAPI.Push;
 procedure TRenderTargetAPI.Pop;
  begin
   ASSERT(stackCnt>0);
-  Texture(stack[stackcnt]);
+  if stack[stackCnt]<>nil then
+   Texture(stack[stackCnt])
+  else
+   Backbuffer;
   with stackVP[stackCnt] do
    Viewport(left,top,width,height,stackRW[stackCnt],stackRH[stackCnt]);
   dec(stackCnt);
@@ -578,7 +608,7 @@ procedure TRenderTargetAPI.Mask(rgb, alpha: boolean);
  var
   mask:integer;
  begin
-  ASSERT(maskStackPos<15);
+  ASSERT(maskStackPos<=High(maskStack));
   mask:=0;
   maskStack[maskStackPos]:=curmask;
   inc(maskStackPos);
@@ -619,7 +649,7 @@ procedure TRenderTargetAPI.Texture(tex: TTexture);
   curTarget:=tex;
  end;
 
-{ TClipping }
+{ TClippingAPI }
 
 procedure TClippingAPI.Prepare;
  begin
@@ -663,7 +693,6 @@ procedure TClippingAPI.AssignActual(r:TRect);
 
 constructor TClippingAPI.Create;
  begin
-  _AddRef;
   rejectMode:=true;
   stackPos:=0;
   clipRect:=types.Rect(-100000,-100000,100000,100000);

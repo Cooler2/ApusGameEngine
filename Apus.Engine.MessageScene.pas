@@ -14,7 +14,7 @@ interface
  procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0);
 
 implementation
- uses Types, SysUtils, Apus.EventMan, Apus.Structs,
+ uses Types, Apus.EventMan, Apus.Structs,
    Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UITypes, Apus.Engine.UI, Apus.Engine.UIScene,
    Apus.Engine.SceneEffects,
   Apus.Log,
@@ -29,7 +29,7 @@ implementation
   TMessageScene=class(TUIScene)
    wnd:TUIElement;
    btnOk,btnYes,btnNo:TUIButton;
-   title:string;
+   title:String8;
    lines:Strings8;
    constructor Create;
    procedure Initialize;
@@ -50,7 +50,7 @@ implementation
 
  procedure InitMessageScene;
   begin
-   queue.Init(16);
+   queue.Init(64);
    scene:=TMessageScene.Create;
    scene.Initialize;
   end;
@@ -108,7 +108,7 @@ implementation
   var
    close:boolean;
   begin
-   if SameText('UI\Message\Next',event) then begin
+   if event.Same('UI\Message\Next') then begin
     CheckQueue;
     exit;
    end;
@@ -165,10 +165,10 @@ procedure TMessageScene.Initialize;
 // Update scene with new text and buttons
 procedure TMessageScene.UpdateUI(msgText:string8;mode,x,y:integer);
  var
-  i,width,height,w,btnY:integer;
+  i,width,height:integer;
  begin
-  msgText:=StringReplace(msgtext,'~',#13,[rfReplaceAll]);
-  msgText:=StringReplace(msgtext,#10,'',[rfReplaceAll]);
+  msgText:=msgText.ReplaceAll('~',#13);
+  msgText:=msgText.ReplaceAll(#10,'');
   lines:=msgText.Split(#13);
   if (length(lines)>0) and lines[0].StartsWith('[') and lines[0].EndsWith(']') then begin
    title:=lines[0];

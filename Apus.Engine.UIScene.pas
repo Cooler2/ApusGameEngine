@@ -57,7 +57,7 @@ type
 
 implementation
  uses SysUtils, Apus.Lib, Types,
-   Apus.EventMan, Apus.Publics, Apus.Geom2D,
+   Apus.EventMan, Apus.Publics,
    Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
    Apus.Engine.CmdProc, Apus.Engine.Console, Apus.Engine.API,
   Apus.Log,
@@ -81,7 +81,7 @@ var
  hintMode:cardinal; // время (в тиках), до которого длится режим показа хинтов
                    // в этом режиме хинты выпадают гораздо быстрее
  itemShowHintTime:cardinal; // момент времени, когда элемент должен показать хинт
- lastHint:string; // текст хинта, соответствующего элементу, над которым была мышь в предыдущем кадре
+ lastHint:String8; // text of the hint for the element under cursor in the previous frame
 
  designMode:boolean; // режим "дизайна", в котором можно таскать элементы по экрану правой кнопкой мыши
  hookedItem:TUIElement; // element to drag with mouse
@@ -144,7 +144,7 @@ procedure SetDisplaySize(width,height:integer);
    hint.timer:=time;
    hint.order:=10000; // Top
    curhint:=hint;
-   Log.Msg('Hint created '+inttohex(cardinal(hint),8));
+   Log.Msg('Hint created '+inttohex(UIntPtr(hint),16));
   end;
 
  procedure ActivateEventHandler(event:TEventStr;tag:TTag);
@@ -169,7 +169,7 @@ procedure SetDisplaySize(width,height:integer);
    e1,e2,e:boolean;
    x,y:integer;
    time:int64;
-   st:string;
+   st:String8;
   begin
    event:=UpperCase {TODO: use st.ToUpper}(copy(event,7,length(event)-6));
    UICritSect.Enter;
@@ -318,7 +318,7 @@ procedure SetDisplaySize(width,height:integer);
 
  procedure PrintUIlog;
   var
-   st:string;
+   st:String8;
   begin
    st:=' mouse clipping: '+inttostr(ord(clipMouse))+' ('+
      inttostr(clipMouserect.left)+','+inttostr(clipMouserect.top)+':'+
@@ -332,14 +332,13 @@ procedure SetDisplaySize(width,height:integer);
   var
    c:TUIElement;
    shift:byte;
-   key,scancode:integer;
+   key:integer;
   begin
    UICritSect.Enter;
    try
     lastShiftState:=game.shiftState;
     shift:=game.shiftState;
     key:=GetKeyEventVirtualCode(tag); // virtual key code
-    scancode:=GetKeyEventScancode(tag);
     event:=UpperCase {TODO: use st.ToUpper}(copy(event,5,length(event)-4));
     if event='KEYDOWN' then // Win+Ctrl+S
      if (key=ord('S')) and (shift=8+2) then PrintUILog;
@@ -350,20 +349,14 @@ procedure SetDisplaySize(width,height:integer);
      ProcessHotKey(key,shift);
      exit;
     end;
+    if c=nil then exit;
 
     if c.IsEnabled then begin
      if event='KEYDOWN' then
       if c.onKey(key,true,shift) then
-       ProcessHotKey(key,shift); // Hotkey processing is allowed by onKey handler
-
-      if event='KEYUP' then
-       if not FocusedElement.onKey(key,false,shift) then exit;
-
-  {   if event='CHAR' then
-      focusedControl.onChar(chr(tag and $FF),tag shr 8);
-
-     if event='UNICHAR' then
-      focusedControl.onUniChar(WideChar(tag and $FFFF),tag shr 16);}
+       ProcessHotKey(key,shift); // hotkey processing is allowed by onKey handler
+     if event='KEYUP' then
+      if not FocusedElement.onKey(key,false,shift) then exit;
     end;
 
    finally
@@ -449,8 +442,8 @@ procedure SetDisplaySize(width,height:integer);
   var
    delta:integer;
    c:TUIElement;
-   time:cardinal;
-   st:string;
+   time:int64;
+   st:String8;
    procedure ProcessElementTree(c:TUIElement);
     var
      cnt:integer;

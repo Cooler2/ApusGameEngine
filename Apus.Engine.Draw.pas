@@ -10,10 +10,13 @@ interface
   Apus.Log;
 
  type
+ // High-level immediate drawing helper (lines, rects, images, meshes, particles).
+ // Uses shader/renderDevice APIs and owns small internal helper resources (neutral tex, particle shader).
  TDrawer=class(TInterfacedObject,IDrawer)
   zPlane:double; // default Z value for all primitives
 
   constructor Create;
+  destructor Destroy; override;
 
   // Drawing methods
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
@@ -183,7 +186,6 @@ begin
  Log.Force('Creating '+self.ClassName);
  zPlane:=0;
  drawer:=self;
- draw:=self;
  // Init buffers
  setLength(partBuf,4*MaxParticleCount);
  setLength(partInd,6*MaxParticleCount);
@@ -204,6 +206,29 @@ begin
  shader.UseTexture(neutral);
  partShader3D:=shader.Build(PART_SHADER_3D_VERT,PART_SHADER_3D_FRAG);
 end;
+
+destructor TDrawer.Destroy;
+ begin
+  // Should execute before GL context is destroyed: frees neutral texture and 3D particle shader.
+  DebugMsg('[LIFECYCLE] Destroy %s',[ClassName]);
+  Log.Msg('[LIFECYCLE] Destroy '+ClassName);
+  if neutral<>nil then begin
+   if (gfx<>nil) and (gfx.resman<>nil) then
+    FreeImage(neutral)
+   else
+    neutral:=nil;
+  end;
+  if partBuffer<>nil then begin
+   partBuffer.Free;
+   partBuffer:=nil;
+  end;
+  if partShader3D<>nil then begin
+   partShader3D.Free;
+   partShader3D:=nil;
+  end;
+  if drawer=self then drawer:=nil;
+  inherited;
+ end;
 
 {
 function TDrawer.GetClipping: TRect;

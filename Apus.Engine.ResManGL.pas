@@ -10,6 +10,8 @@ interface
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE GLES11} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE GLES20} {$DEFINE OPENGL} {$ENDIF}
 type
+ // OpenGL texture object with CPU-side storage and upload/sync helpers.
+ // Managed by TGLResourceManager, can also represent RT/depth/array layers.
  // Текстура OpenGL
  TGLTexture=class(TTexture)
  const
@@ -74,6 +76,8 @@ type
   procedure ProcessUploadRequest; virtual;
  end;
 
+ // OpenGL-backed vertex buffer wrapper.
+ // Created/freed by TGLResourceManager and used by renderDevice.
  TVertexBufferGL=class(TVertexBuffer)
   procedure Upload(fromVertex,numVertices:integer;vertexData:pointer); override;
   destructor Destroy; override;
@@ -83,6 +87,8 @@ type
   usage:cardinal;
  end;
 
+ // OpenGL-backed index buffer wrapper.
+ // Created/freed by TGLResourceManager and used by renderDevice.
  TIndexBufferGL=class(TIndexBuffer)
   procedure Upload(fromIndex,numIndices:integer;indexData:pointer); override;
   destructor Destroy; override;
@@ -92,6 +98,8 @@ type
   usage:cardinal;
  end;
 
+ // Texture array/3D-texture adapter over TGLTexture.
+ // Exposes per-layer lock/upload while sharing one GL object.
  // Used for both 2D texture arrays and 3D textures
  TGLTextureArray=class(TGLTexture)
   constructor Create(numLayers:integer);
@@ -109,6 +117,9 @@ type
   function GetTextureTarget:integer; override;
  end;
 
+ // Central OpenGL resource owner: textures, buffers, RT attachments.
+ // Implements IResourceManager and owns most GL objects (textures, FBO/RBO, VBO/IBO).
+ // Must be shut down while GL context is still current.
  TGLResourceManager=class(TInterfacedObject,IResourceManager)
   maxTextureSize,maxRTsize,maxRBsize:integer;
 
@@ -1422,7 +1433,6 @@ constructor TGLResourceManager.Create;
 begin
  try
   resourceManagerGL:=self;
-  _AddRef;
 
   glPixelStorei(GL_UNPACK_ALIGNMENT,1);
   mainThreadID:=GetCurrentThreadId;
@@ -1450,12 +1460,20 @@ destructor TGLResourceManager.Destroy;
 var
  hash:PObjectHash;
  list:TNamedObjects;
- i:integer;
+ i,leftoverCnt:integer;
 begin
+ // Requires a valid GL context because FreeImage deletes GL objects.
+ // If some textures are still alive here, we log and force cleanup.
+ DebugMsg('[LIFECYCLE] Destroy %s',[ClassName]);
+ Log.Msg('[LIFECYCLE] Destroy '+ClassName);
  // Free all remaining textures
  hash:=TGLTexture.ClassHash;
  if hash<>nil then begin
   list:=hash.ListObjects;
+  leftoverCnt:=length(list);
+  if leftoverCnt>0 then begin
+   Log.Warn('GLResourceManager.Destroy: %d textures are still alive, forcing cleanup',[leftoverCnt]);
+  end;
   for i:=0 to high(list) do
    FreeImage(TTexture(list[i]));
  end;
@@ -1473,6 +1491,8 @@ var
  tex:TGLTexture;
  level:integer;
 begin
+ // Must run on render thread with active GL context for actual GPU deletion.
+ // Non-main thread requests are marshalled via GLImages\DeleteTexture signal.
  if image=nil then exit;
  // Wrong thread?
  if not InMainThread then begin
