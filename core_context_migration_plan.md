@@ -1,4 +1,4 @@
-# Core OpenGL Context Migration Plan (SimpleDemo -> NSight-ready)
+﻿# Core OpenGL Context Migration Plan (SimpleDemo -> NSight-ready)
 Last updated: 2026-03-05
 
 Goal: migrate Engine5 rendering from compatibility-style OpenGL usage to a true core-profile pipeline, so `demo/SimpleDemo` can be debugged in NVIDIA NSight with meaningful draw/resource visibility.
@@ -201,22 +201,22 @@ Issues found during code review of Stages 4-6 implementation. Bugs must be fixed
 ### Bugs (must fix)
 
 1. **`TIndexBufferGL.Resize` binds to wrong target** (`Apus.Engine.ResManGL`)
-   - Uses `GL_ARRAY_BUFFER` instead of `GL_ELEMENT_ARRAY_BUFFER` — resize silently corrupts current VBO binding and does not actually resize the index buffer.
-   - Tracking calls also wrong: calls `TrackArrayBufferBinding` instead of `TrackElementBufferBinding`.
-   - Pre-existing bug amplified by new tracking code.
+   - Status: fixed.
+   - `Resize` now uses `GL_ELEMENT_ARRAY_BUFFER` and matching element-buffer tracking calls.
 
 2. **`TrackArrayBufferBinding`/`TrackElementBufferBinding` in `IRenderDevice`** (`Apus.Engine.Graphics`)
-   - GL-internal bind tracking leaked into the public abstract interface `IRenderDevice`, which should be backend-agnostic.
-   - Fix: move to a GL-internal interface or use direct `TRenderDevice` cast in `ResManGL` (both are GL-only).
+   - Status: fixed.
+   - Tracking methods moved out of backend-agnostic `IRenderDevice` into `IRenderDeviceBindTracking` internal extension interface.
+   - `ResManGL` now uses optional interface query (`Supports`) for GL-only tracking.
 
 ### Optimization (defer OK)
 
 3. **Double bind/unbind churn in `ResManGL` upload paths**
-   - Every `Upload`/`Resize` does bind → work → unbind(0), then `TDrawer` immediately re-binds via `UseVertexBuffer`. Two redundant state changes per draw.
+   - Every `Upload`/`Resize` does bind в†’ work в†’ unbind(0), then `TDrawer` immediately re-binds via `UseVertexBuffer`. Two redundant state changes per draw.
    - Low priority: only matters at high draw-call counts.
 
 4. **Bind/draw/unbind boilerplate in `TDrawer`**
-   - Every draw site in `Apus.Engine.Draw` repeats 5-line pattern: `UseVB → UseIB → DrawIndexed → UseVB(nil) → UseIB(nil)`.
+   - Every draw site in `Apus.Engine.Draw` repeats 5-line pattern: `UseVB в†’ UseIB в†’ DrawIndexed в†’ UseVB(nil) в†’ UseIB(nil)`.
    - Extract a helper method to reduce repetition and state-leak risk.
 
 5. **`bandInd` array over-allocated**

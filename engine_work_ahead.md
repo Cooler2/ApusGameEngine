@@ -57,6 +57,8 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - Stage 2-3 progress: Windows GL context creation now follows negotiated-version flow (temporary context reads available version; one modern-context creation attempt, no version probing loops), and `TOpenGL.Init` now fails fast when `core` is requested but not actually created.
   - Review follow-up (high priority done): removed GL state queries (`glGetIntegerv(GL_ARRAY_BUFFER_BINDING)`) from draw hot path by local bind tracking in `TRenderDevice` + `ResManGL` notifications.
   - Review follow-up (high priority done): removed `MaxIndexInBuffer` linear scan from hot path; indexed RAM-backed stream upload remains only on ranged overload with explicit `vrtCount`.
+  - Review follow-up (high priority done): fixed `TIndexBufferGL.Resize` to use `GL_ELEMENT_ARRAY_BUFFER` + element-buffer tracking.
+  - Review follow-up (high priority done): moved GL bind tracking out of backend-agnostic `IRenderDevice` into optional `IRenderDeviceBindTracking` extension used by GL backend.
 
 ## In Progress
 - First wave of engine migration is effectively complete:
@@ -66,8 +68,6 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
 
 ## Next
 - Pick the next demo after `SimpleDemo` and use it as the next validation target.
-- **BUG** `Apus.Engine.ResManGL`: `TIndexBufferGL.Resize` uses `GL_ARRAY_BUFFER` instead of `GL_ELEMENT_ARRAY_BUFFER` — resize corrupts current VBO binding and does not actually resize the IBO. Must fix target + tracking calls.
-- **BUG** `Apus.Engine.Graphics`: `TrackArrayBufferBinding`/`TrackElementBufferBinding` leaked into `IRenderDevice` public interface — these are GL-internal details. Move to internal interface or direct `TRenderDevice` cast in `ResManGL`.
 - R-01 follow-up (high priority): introduce a small helper for repeated `UseVertexBuffer/UseIndexBuffer/Draw/Unbind` pattern in `Apus.Engine.Draw` to remove boilerplate and reduce state-leak risk.
 - R-01 follow-up (high priority): decide/runtime-wire shader variant selection in `PainterGL2` based on actual context profile/version (`oglContextInfo`) instead of compile-time split only.
 - R-01 follow-up (high priority): enforce whitespace discipline for migration commits (separate formatting-only diffs or avoid them entirely).

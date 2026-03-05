@@ -216,6 +216,22 @@ begin
  result:=GetCurrentThreadID=mainThreadID;
 end;
 
+procedure TrackArrayBufferBinding(buffer:cardinal); inline;
+ var
+  tracker:IRenderDeviceBindTracking;
+ begin
+  if (renderDevice<>nil) and Supports(renderDevice,IRenderDeviceBindTracking,tracker) then
+   tracker.TrackArrayBufferBinding(buffer);
+ end;
+
+procedure TrackElementBufferBinding(buffer:cardinal); inline;
+ var
+  tracker:IRenderDeviceBindTracking;
+ begin
+  if (renderDevice<>nil) and Supports(renderDevice,IRenderDeviceBindTracking,tracker) then
+   tracker.TrackElementBufferBinding(buffer);
+ end;
+
 
 procedure ActiveTextureUnit(u:integer);
  begin
@@ -1668,7 +1684,7 @@ begin
  glGenBuffers(1,@vb.buffer);
  ASSERT(vb.buffer<>0);
  glBindBuffer(GL_ARRAY_BUFFER,vb.buffer);
- if renderDevice<>nil then renderDevice.TrackArrayBufferBinding(vb.buffer);
+ TrackArrayBufferBinding(vb.buffer);
  case usage of
   buStatic:    vb.usage:=GL_STATIC_DRAW;
   buDynamic:   vb.usage:=GL_DYNAMIC_DRAW;
@@ -1688,7 +1704,7 @@ begin
  glGenBuffers(1,@ib.buffer);
  ASSERT(ib.buffer<>0);
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ib.buffer);
- if renderDevice<>nil then renderDevice.TrackElementBufferBinding(ib.buffer);
+ TrackElementBufferBinding(ib.buffer);
  case usage of
   buStatic:    ib.usage:=GL_STATIC_DRAW;
   buDynamic:   ib.usage:=GL_DYNAMIC_DRAW;
@@ -1705,11 +1721,10 @@ begin
   glBindBuffer(GL_ARRAY_BUFFER,TVertexBufferGL(vb).buffer)
  else
   glBindBuffer(GL_ARRAY_BUFFER,0);
- if renderDevice<>nil then
-  if vb<>nil then
-   renderDevice.TrackArrayBufferBinding(TVertexBufferGL(vb).buffer)
-  else
-   renderDevice.TrackArrayBufferBinding(0);
+ if vb<>nil then
+  TrackArrayBufferBinding(TVertexBufferGL(vb).buffer)
+ else
+  TrackArrayBufferBinding(0);
 end;
 
 procedure TGLResourceManager.UseIndexBuffer(ib:TIndexBuffer);
@@ -1718,11 +1733,10 @@ begin
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,TIndexBufferGL(ib).buffer)
  else
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
- if renderDevice<>nil then
-  if ib<>nil then
-   renderDevice.TrackElementBufferBinding(TIndexBufferGL(ib).buffer)
-  else
-   renderDevice.TrackElementBufferBinding(0);
+ if ib<>nil then
+  TrackElementBufferBinding(TIndexBufferGL(ib).buffer)
+ else
+  TrackElementBufferBinding(0);
 end;
 
 procedure TGLResourceManager.FreeBuffer(buf:TEngineBuffer);
@@ -1749,39 +1763,39 @@ begin
  count:=newCount;
  sizeInBytes:=count*layout.stride;
  glBindBuffer(GL_ARRAY_BUFFER,buffer);
- if renderDevice<>nil then renderDevice.TrackArrayBufferBinding(buffer);
+ TrackArrayBufferBinding(buffer);
  glBufferData(GL_ARRAY_BUFFER,sizeInBytes,nil,usage);
  glBindBuffer(GL_ARRAY_BUFFER,0);
- if renderDevice<>nil then renderDevice.TrackArrayBufferBinding(0);
+ TrackArrayBufferBinding(0);
 end;
 
 procedure TVertexBufferGL.Upload(fromVertex,numVertices:integer;vertexData:pointer);
 begin
  glBindBuffer(GL_ARRAY_BUFFER,buffer);
- if renderDevice<>nil then renderDevice.TrackArrayBufferBinding(buffer);
+ TrackArrayBufferBinding(buffer);
  glBufferSubData(GL_ARRAY_BUFFER,fromVertex*layout.stride,numVertices*layout.stride,vertexData);
  glBindBuffer(GL_ARRAY_BUFFER,0);
- if renderDevice<>nil then renderDevice.TrackArrayBufferBinding(0);
+ TrackArrayBufferBinding(0);
 end;
 
 procedure TIndexBufferGL.Resize(newCount:integer);
 begin
  count:=newCount;
  sizeInBytes:=count*bytesPerIndex;
- glBindBuffer(GL_ARRAY_BUFFER,buffer);
- if renderDevice<>nil then renderDevice.TrackArrayBufferBinding(buffer);
- glBufferData(GL_ARRAY_BUFFER,sizeInBytes,nil,usage);
- glBindBuffer(GL_ARRAY_BUFFER,0);
- if renderDevice<>nil then renderDevice.TrackArrayBufferBinding(0);
+ glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,buffer);
+ TrackElementBufferBinding(buffer);
+ glBufferData(GL_ELEMENT_ARRAY_BUFFER,sizeInBytes,nil,usage);
+ glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
+ TrackElementBufferBinding(0);
 end;
 
 procedure TIndexBufferGL.Upload(fromIndex,numIndices:integer;indexData:pointer);
 begin
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,buffer);
- if renderDevice<>nil then renderDevice.TrackElementBufferBinding(buffer);
+ TrackElementBufferBinding(buffer);
  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,fromIndex*bytesPerIndex,numIndices*bytesPerIndex,indexData);
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
- if renderDevice<>nil then renderDevice.TrackElementBufferBinding(0);
+ TrackElementBufferBinding(0);
 end;
 {$ENDREGION}
 

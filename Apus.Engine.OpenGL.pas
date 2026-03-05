@@ -87,7 +87,7 @@ implementation
 type
  // Low-level bridge from engine vertex data to OpenGL draw calls.
  // Used by higher-level APIs (draw/text/shaders), does not own scene resources.
- TRenderDevice=class(TInterfacedObject,IRenderDevice)
+ TRenderDevice=class(TInterfacedObject,IRenderDevice,IRenderDeviceBindTracking)
   constructor Create;
   destructor Destroy; override;
   procedure Reset;

@@ -33,10 +33,6 @@ type
 
   // Set vertex attribute array divisors (for instanced rendering)
   procedure SetVertexDataDivisors(baseDivisor,extraDivisor:integer);
-  // Backend-side bind-state tracking hooks (avoid GL state queries in draw hot path).
-  procedure TrackArrayBufferBinding(buffer:cardinal);
-  procedure TrackElementBufferBinding(buffer:cardinal);
-
   // Buffer handling should be organized differently.
   // A dedicated buffer class is needed, managed by the resource manager.
 (*  // Draw primitives using built-in buffers
@@ -48,6 +44,15 @@ type
      stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); overload; *)
 
   procedure Reset; // Invalidate rendering settings
+ end;
+
+ // Internal backend extension for GL bind-state tracking.
+ // Kept separate from IRenderDevice to avoid leaking GL-specific details
+ // into the backend-agnostic rendering interface.
+ IRenderDeviceBindTracking=interface
+  ['{8D97D98F-7B14-4E98-9F39-96A880C379F6}']
+  procedure TrackArrayBufferBinding(buffer:cardinal);
+  procedure TrackElementBufferBinding(buffer:cardinal);
  end;
 
  // Shared transformation state (model/view/projection) for current render context.
