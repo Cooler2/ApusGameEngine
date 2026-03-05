@@ -290,9 +290,12 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   oglContextInfo:=actual;
   Log.Force('OpenGL context actual: '+GLContextInfoToString(oglContextInfo));
   if actual.debugContext then begin
+   // Stage 7: KHR/ARB debug callback is optional at runtime.
+   // Keep startup resilient if driver exposes debug context flag but not callback entry points.
    if @glDebugMessageCallback<>nil then begin
     glEnable(GL_DEBUG_OUTPUT);
     if @glDebugMessageControl<>nil then
+     // Reduce callback noise: keep warnings/errors, drop notifications.
      glDebugMessageControl(GL_DONT_CARE,GL_DONT_CARE,GL_DEBUG_SEVERITY_NOTIFICATION,0,nil,GL_FALSE);
     glDebugMessageCallback(TGLDEBUGPROC(@HandleGLDebugMessage),nil);
     Log.Force('OpenGL debug callback enabled (KHR)');
@@ -458,6 +461,8 @@ procedure TOpenGL.BeginPaint(target: TTexture);
    grp:='Frame'
   else
    grp:='RenderTarget:'+target.name;
+  // Stage 7: balanced debug groups are required for stable NSight event tree.
+  // Group depth is guarded in PopDebugGroup to survive unmatched EndPaint calls.
   PushDebugGroup(grp);
 
   {if (canPaint>0) and (target=curTarget) then
@@ -652,6 +657,7 @@ end;
 
 procedure PushDebugGroup(const st:String8;id:integer=0);
  begin
+  // Functions may be absent on old drivers even with debug context requested.
   if (length(st)=0) or (@glPushDebugGroup=nil) then exit;
   glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION,id,length(st),@st[1]);
   inc(debugGroupDepth);
@@ -659,6 +665,7 @@ procedure PushDebugGroup(const st:String8;id:integer=0);
 
 procedure PopDebugGroup;
  begin
+  // Keep this safe for error paths: never pop below zero.
   if (debugGroupDepth<=0) or (@glPopDebugGroup=nil) then exit;
   glPopDebugGroup;
   dec(debugGroupDepth);
@@ -670,6 +677,7 @@ procedure HandleGLDebugMessage(source,typ,id,severity:GLenum;len:GLsizei;const m
  begin
   if message_=nil then exit;
   if severity=GL_DEBUG_SEVERITY_NOTIFICATION then exit;
+  // Stage 7: leave message mapping simple and log raw enums for cross-driver diagnostics.
   st:=PAnsiChar(message_);
   Log.Force(Format('[GLDBG] src=%d type=%d id=%d sev=%d: %s',[source,typ,id,severity,st]));
  end;

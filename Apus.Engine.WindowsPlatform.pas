@@ -518,6 +518,7 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
    glVerRaw:=nil;
    openglLib:=GetModuleHandle('opengl32.dll');
    if openglLib<>0 then begin
+    // dglOpenGL may not expose glGetString yet at this point; resolve it directly from opengl32.
     glGetStringFn:=TglGetStringFn(GetProcAddress(openglLib,'glGetString'));
     if assigned(glGetStringFn) then
      glVerRaw:=glGetStringFn($1F02); // GL_VERSION
@@ -536,6 +537,8 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
    requestedMajor:=request.minMajor;
    requestedMinor:=request.minMinor;
    if request.preferHighest then begin
+    // Agreed policy: request one modern context using negotiated highest version,
+    // do not brute-force all version pairs.
     requestedMajor:=availMajor;
     requestedMinor:=availMinor;
    end;
@@ -587,6 +590,7 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
      Log.Error('Requested minimal GL version is higher than available; modern context cannot be created');
    end;
    if (request.profile=glcpCore) and (RC=legacyRC) then begin
+    // Hard requirement for core request: never silently continue on legacy context.
     wglMakeCurrent(0,0);
     wglDeleteContext(legacyRC);
     RC:=0;
@@ -609,11 +613,13 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
     actual.debugContext:=request.debugContext;
     actual.forwardCompatible:=request.forwardCompatible;
    end else begin
+    // Legacy context path cannot guarantee debug/forward flags.
     actual.profile:=glcpCompatibility;
     actual.debugContext:=false;
     actual.forwardCompatible:=false;
    end;
    actual.requestAccepted:=RC<>0;
+   // requestAccepted means "all explicitly requested capabilities are present".
    if request.profile=glcpCore then
     actual.requestAccepted:=actual.requestAccepted and (actual.profile=glcpCore);
    if request.debugContext then
