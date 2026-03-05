@@ -54,6 +54,7 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - Stage 5 is considered implementation-complete; remaining validation task is runtime check of mesh rendering on a mesh-capable demo (not `SimpleDemo`).
   - Stage 6 started: `Apus.Engine.PainterGL2` default desktop shader source moved to core GLSL syntax (`#version 330`, `in/out`, `texture`, explicit output), with GLES-specific shader syntax preserved behind `{$IFDEF GLES}`.
   - Stage 6 status: desktop/core shader alignment is complete (`PainterGL2` desktop + `ShadersGL` path on GLSL 330); compatibility-era GLSL syntax now remains only in GLES-conditional branch.
+  - Stage 2-3 progress: Windows GL context creation now follows negotiated-version flow (temporary context reads available version; one modern-context creation attempt, no version probing loops), and `TOpenGL.Init` now fails fast when `core` is requested but not actually created.
   - Review follow-up (high priority done): removed GL state queries (`glGetIntegerv(GL_ARRAY_BUFFER_BINDING)`) from draw hot path by local bind tracking in `TRenderDevice` + `ResManGL` notifications.
   - Review follow-up (high priority done): removed `MaxIndexInBuffer` linear scan from hot path; indexed RAM-backed stream upload remains only on ranged overload with explicit `vrtCount`.
 

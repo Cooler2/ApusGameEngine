@@ -58,7 +58,8 @@ type
 
 implementation
 uses Messages, Types, SysUtils, Apus.EventMan,
-  Apus.Log, Apus.Strings;
+  Apus.Log, Apus.Strings
+  {$IFDEF MSWINDOWS},dglOpenGL{$ENDIF};
 {$IFOPT R+} {$DEFINE RANGECHECK_ON} {$ENDIF}
 var
  terminated:boolean;
@@ -449,9 +450,40 @@ procedure TWindowsPlatform.MoveWindowTo(x, y: integer; width: integer;
 function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
  var
   DC:HDC;
-  RC:HGLRC;
+  RC,legacyRC:HGLRC;
   PFD:TPixelFormatDescriptor;
   pf:integer;
+  requestedMajor,requestedMinor:integer;
+  availMajor,availMinor:integer;
+  attribs:array[0..15] of integer;
+  n,flags,profileMask:integer;
+  glVer:string;
+  glVerRaw:PAnsiChar;
+  wglCreateContextAttribsARB:function(hDC:HDC;hShareContext:HGLRC;const attribList:PInteger):HGLRC; stdcall;
+ function ParseGLVersion(const st:string;out major,minor:integer):boolean;
+  var
+   i,start:integer;
+   s:string;
+ begin
+  result:=false;
+  major:=0; minor:=0;
+  s:=st;
+  start:=0;
+  for i:=1 to length(s)-2 do
+   if (s[i] in ['0'..'9']) and (s[i+1] in ['0'..'9','.']) then begin
+    start:=i; break;
+   end;
+  if start=0 then exit;
+  i:=start;
+  while (i<=length(s)) and (s[i] in ['0'..'9']) do inc(i);
+  if (i>length(s)) or (s[i]<>'.') then exit;
+  major:=strtointdef(copy(s,start,i-start),0);
+  inc(i); start:=i;
+  while (i<=length(s)) and (s[i] in ['0'..'9']) do inc(i);
+  if start=i then exit;
+  minor:=strtointdef(copy(s,start,i-start),0);
+  result:=major>0;
+ end;
  begin
    Log.Msg('Prepare GL context');
    Mem.Fill(pfd,sizeof(PFD),0);
@@ -470,18 +502,86 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
     Log.Msg('Failed to set pixel format!');
 
    Log.Msg('Create GL context');
-   RC:=wglCreateContext(DC);
-   if RC=0 then
-    raise EError.Create('Can''t create RC!');
+   legacyRC:=wglCreateContext(DC);
+   if legacyRC=0 then
+     raise EError.Create('Can''t create RC!');
+   wglMakeCurrent(DC,legacyRC);
+
+   glVerRaw:=glGetString(GL_VERSION);
+   if glVerRaw<>nil then
+    glVer:=glVerRaw
+   else
+    glVer:='unknown';
+   if not ParseGLVersion(glVer,availMajor,availMinor) then begin
+    availMajor:=2;
+    availMinor:=1;
+   end;
+   Log.Msg('Available GL version on temporary context: '+IntToStr(availMajor)+'.'+IntToStr(availMinor)+' ('+glVer+')');
+
+   RC:=legacyRC;
+   requestedMajor:=request.minMajor;
+   requestedMinor:=request.minMinor;
+   if request.preferHighest then begin
+    requestedMajor:=availMajor;
+    requestedMinor:=availMinor;
+   end;
+
+   if (request.profile<>glcpCompatibility) or request.debugContext or request.forwardCompatible then begin
+    if (availMajor>request.minMajor) or ((availMajor=request.minMajor) and (availMinor>=request.minMinor)) then begin
+     @wglCreateContextAttribsARB:=wglGetProcAddress('wglCreateContextAttribsARB');
+     if assigned(wglCreateContextAttribsARB) then begin
+      n:=0;
+      attribs[n]:=WGL_CONTEXT_MAJOR_VERSION_ARB; inc(n);
+      attribs[n]:=requestedMajor; inc(n);
+      attribs[n]:=WGL_CONTEXT_MINOR_VERSION_ARB; inc(n);
+      attribs[n]:=requestedMinor; inc(n);
+      profileMask:=0;
+      case request.profile of
+       glcpCore:profileMask:=WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
+       glcpCompatibility:profileMask:=WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB;
+      end;
+      if profileMask<>0 then begin
+       attribs[n]:=WGL_CONTEXT_PROFILE_MASK_ARB; inc(n);
+       attribs[n]:=profileMask; inc(n);
+      end;
+      flags:=0;
+      if request.debugContext then flags:=flags or WGL_CONTEXT_DEBUG_BIT_ARB;
+      if request.forwardCompatible then flags:=flags or WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB;
+      if flags<>0 then begin
+       attribs[n]:=WGL_CONTEXT_FLAGS_ARB; inc(n);
+       attribs[n]:=flags; inc(n);
+      end;
+      attribs[n]:=0;
+      RC:=wglCreateContextAttribsARB(DC,0,@attribs[0]);
+      if RC<>0 then begin
+       wglMakeCurrent(0,0);
+       wglDeleteContext(legacyRC);
+      end else begin
+       RC:=legacyRC;
+       Log.Msg('Failed to create requested modern GL context, keeping legacy context');
+      end;
+     end else
+      Log.Msg('wglCreateContextAttribsARB not available, keeping legacy context');
+    end else
+     Log.Msg('Requested minimal GL version is higher than available; modern context cannot be created');
+   end;
+   if (request.profile=glcpCore) and (RC=legacyRC) then begin
+    wglMakeCurrent(0,0);
+    wglDeleteContext(legacyRC);
+    RC:=0;
+   end;
    actual.major:=0;
    actual.minor:=0;
-   actual.profile:=glcpCompatibility;
+   if request.profile=glcpCore then
+    actual.profile:=glcpCore
+   else
+    actual.profile:=glcpCompatibility;
    actual.debugContext:=false;
    actual.forwardCompatible:=false;
-   actual.requestAccepted:=(request.profile<>glcpCore) and not request.debugContext and not request.forwardCompatible;
-  context:=RC;
-  result:=context;
- end;
+   actual.requestAccepted:=RC<>0;
+   context:=RC;
+   result:=context;
+  end;
 
 procedure TWindowsPlatform.OGLSwapBuffers;
  var

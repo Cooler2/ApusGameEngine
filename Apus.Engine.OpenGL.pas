@@ -278,6 +278,10 @@ procedure TOpenGL.Init(system:ISystemPlatform);
    actual.major:=trunc(glVersionNum);
    actual.minor:=round((glVersionNum-actual.major)*10);
   end;
+  if (request.profile=glcpCore) and ((not actual.requestAccepted) or (actual.profile<>glcpCore)) then
+   raise EFatalError.Create('Core profile was requested but not created.'#13#10+
+    'Requested: '+GLContextRequestToString(request)+#13#10+
+    'Actual: '+GLContextInfoToString(actual));
   oglContextInfo:=actual;
   Log.Force('OpenGL context actual: '+GLContextInfoToString(oglContextInfo));
   Log.Force('OpenGL version: '+glVersion);
