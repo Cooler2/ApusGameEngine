@@ -101,6 +101,9 @@ interface
   // Particles
   partShader3D:TShader;  // shader for 3D particles
   partBuffer:TVertexBuffer; // buffer for particle data
+  partVB:TVertexBuffer; // buffer for billboard particles vertices (2D path)
+  partIB:TIndexBuffer; // static indices for billboard quads
+  bandIB:TIndexBuffer; // dynamic indices for band rendering
   depthTexture:TTexture; // depth texture used for soft particles
   softParticlesRange:single; // depth range for fading the soft particles
   procedure CalcGradient(width,height:single;out gx,gy:single); inline;
@@ -198,7 +201,11 @@ begin
   pw^:=i*4+2; inc(pw);
   pw^:=i*4+3; inc(pw);
  end;
- setLength(bandInd,4*MaxParticleCount);
+ setLength(bandInd,6*MaxParticleCount);
+ partVB:=gfx.resMan.AllocVertexBuffer(TVertex.layoutTex,4*MaxParticleCount,TBufferUsage.buDynamic);
+ partIB:=gfx.resMan.AllocIndexBuffer(6*MaxParticleCount,2,TBufferUsage.buStatic);
+ partIB.Upload(0,6*MaxParticleCount,@partInd[0]);
+ bandIB:=gfx.resMan.AllocIndexBuffer(6*MaxParticleCount,2,TBufferUsage.buDynamic);
 
  neutral:=AllocImage(4,4);
  neutral.name:='_neutral_';
@@ -221,6 +228,18 @@ destructor TDrawer.Destroy;
   if partBuffer<>nil then begin
    partBuffer.Free;
    partBuffer:=nil;
+  end;
+  if partVB<>nil then begin
+   partVB.Free;
+   partVB:=nil;
+  end;
+  if partIB<>nil then begin
+   partIB.Free;
+   partIB:=nil;
+  end;
+  if bandIB<>nil then begin
+   bandIB.Free;
+   bandIB:=nil;
   end;
   if partShader3D<>nil then begin
    partShader3D.Free;
@@ -1213,8 +1232,12 @@ begin
 
  clippingAPI.Prepare;
  shader.UseTexture(tex);
- renderDevice.DrawIndexed(TRG_LIST,@partBuf[0],@partInd[0],TVertex.layoutTex,
-  0,count*4, 0,count*2);
+ partVB.Upload(0,count*4,@partBuf[0]);
+ gfx.resman.UseVertexBuffer(partVB);
+ gfx.resman.UseIndexBuffer(partIB);
+ renderDevice.DrawIndexed(TRG_LIST,nil,nil,TVertex.layoutTex,0,count*4,0,count*2);
+ gfx.resman.UseVertexBuffer(nil);
+ gfx.resman.UseIndexBuffer(nil);
 end;
 
 procedure QuickIndex(var index:IntArray;var rates:FloatArray;a,b:integer);
@@ -1466,8 +1489,15 @@ begin
    bandInd[idx]:=next*2+1; inc(idx);
    inc(primcount,2);
  end;
- renderDevice.DrawIndexed(TRG_LIST,@partBuf[0],@bandInd[0],TVertex.layoutTex,
-   0,count*2, 0,primCount);
+ if primCount>0 then begin
+  partVB.Upload(0,count*2,@partBuf[0]);
+  bandIB.Upload(0,primCount*3,@bandInd[0]);
+  gfx.resman.UseVertexBuffer(partVB);
+  gfx.resman.UseIndexBuffer(bandIB);
+  renderDevice.DrawIndexed(TRG_LIST,nil,nil,TVertex.layoutTex,0,count*2,0,primCount);
+  gfx.resman.UseVertexBuffer(nil);
+  gfx.resman.UseIndexBuffer(nil);
+ end;
 end;
 
 function TDrawer.Cover(x1,y1,x2,y2:integer;texture:TTexture;color:cardinal=$FF808080):single;

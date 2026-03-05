@@ -179,3 +179,5 @@ Exit criteria:
   - runtime assert for missing `GL_ARRAY_BUFFER` during attribute setup in core mode;
   - automatic stream VBO/IBO fallback for RAM-fed draw calls.
 - [~] Stage 5: high-usage immediate paths now pass through the stream buffer fallback (without API-level migration yet), reducing direct client-array dependency for `SimpleDemo`-critical draw/text paths.
+  - `Apus.Engine.TextDraw`: `FlushTextCache` now uploads to explicit dynamic VB + static IB and renders via bound buffers.
+  - `Apus.Engine.Draw`: 2D `Particles(...)` and `Band(...)` paths now upload to dynamic VB/IB and render via buffer-backed indexed draws.

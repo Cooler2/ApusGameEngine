@@ -694,7 +694,9 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
   if useStream then begin
    UploadStreamVertices(vertices,vertexLayout,vertexCount);
    vertices:=nil; // attributes are offsets in bound stream VBO
-  end;
+  end else
+  if (vertices<>nil) and (not IsCoreProfile) then
+   glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawArrays(GL_LINES,0,primCount*2);
@@ -721,6 +723,12 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
    UploadStreamIndices(indices,indexCount);
    vertices:=nil;
    indices:=nil;
+  end else
+  if not IsCoreProfile then begin
+   if vertices<>nil then
+    glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
+   if indices<>nil then
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
   end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
@@ -749,6 +757,12 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
    UploadStreamIndices(indices,indexCount);
    vertices:=nil;
    indices:=nil;
+  end else
+  if not IsCoreProfile then begin
+   if vertices<>nil then
+    glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
+   if indices<>nil then
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
   end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
@@ -776,6 +790,12 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;i
    UploadStreamIndices(indices,indexCount);
    vertices:=nil;
    indices:=nil;
+  end else
+  if not IsCoreProfile then begin
+   if vertices<>nil then
+    glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
+   if indices<>nil then
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0); // client index pointers require unbound EBO
   end;
   SetupAttributes(vertices,vertexLayout);
   case primtype of
@@ -800,7 +820,9 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;
   if useStream then begin
    UploadStreamVertices(vertices,vertexLayout,vertexCount);
    vertices:=nil;
-  end;
+  end else
+  if (vertices<>nil) and (not IsCoreProfile) then
+   glBindBuffer(GL_ARRAY_BUFFER,0); // client memory pointers require unbound VBO in compatibility mode
   SetupAttributes(vertices,vertexLayout);
   case primtype of
    LINE_LIST:glDrawArraysInstanced(GL_LINES,0,primCount*2,instances);

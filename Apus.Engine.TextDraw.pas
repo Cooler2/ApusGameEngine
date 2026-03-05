@@ -74,6 +74,8 @@ interface
    txtBuf:array of TVertex;
    txtInd:array of word;
    txtVertCount:integer; // number of vertices stored in textBuf
+   textVB:TVertexBuffer;
+   textIB:TIndexBuffer;
 
    textCache:TTexture; // texture with cached glyphs (textCacheWidth x 512, or another for new glyph cache structure)
 
@@ -194,12 +196,23 @@ procedure EncodeScale(scale:single;var font:TFontHandle);
 { TTextDrawer }
 
 procedure TTextDrawer.FlushTextCache;
+ var
+  idxCount,triCount:integer;
  begin
   if txtVertCount=0 then exit;
   shader.UseTexture(textCache);
   if txtVertCount>0 then begin
-    renderDevice.DrawIndexed(TRG_LIST,txtBuf,txtInd,TVertex.layoutTex,
-      0,txtVertCount, 0,txtVertCount div 2);
+    idxCount:=txtVertCount*3 div 2; // 6 indices per 4 vertices
+    triCount:=idxCount div 3;
+    if (textVB<>nil) and (textIB<>nil) then begin
+      textVB.Upload(0,txtVertCount,@txtBuf[0]);
+      gfx.resman.UseVertexBuffer(textVB);
+      gfx.resman.UseIndexBuffer(textIB);
+      renderDevice.DrawIndexed(TRG_LIST,nil,nil,TVertex.layoutTex,0,txtVertCount,0,triCount);
+      gfx.resman.UseVertexBuffer(nil);
+      gfx.resman.UseIndexBuffer(nil);
+    end else
+      renderDevice.DrawIndexed(TRG_LIST,txtBuf,txtInd,TVertex.layoutTex,0,txtVertCount,0,triCount);
     txtVertCount:=0;
   end;
  end;
@@ -405,6 +418,8 @@ constructor TTextDrawer.Create;
  globalScale:=1.0;
   textDrawer:=self;
   textCache:=nil;
+  textVB:=nil;
+  textIB:=nil;
 
   SetLength(txtBuf,4*MaxGlyphBufferCount);
   SetLength(txtInd,6*MaxGlyphBufferCount);
@@ -417,6 +432,9 @@ constructor TTextDrawer.Create;
    pw^:=i*4+2; inc(pw);
    pw^:=i*4+3; inc(pw);
   end;
+  textVB:=gfx.resMan.AllocVertexBuffer(TVertex.layoutTex,4*MaxGlyphBufferCount,TBufferUsage.buDynamic);
+  textIB:=gfx.resMan.AllocIndexBuffer(6*MaxGlyphBufferCount,2,TBufferUsage.buStatic);
+  textIB.Upload(0,6*MaxGlyphBufferCount,@txtInd[0]);
 
   txtVertCount:=0;
   textCaching:=false;
@@ -439,6 +457,14 @@ begin
   FreeAndNil(glyphCache);
   FreeAndNil(altGlyphCache);
   FreeImage(textCache);
+  if textVB<>nil then begin
+   textVB.Free;
+   textVB:=nil;
+  end;
+  if textIB<>nil then begin
+   textIB.Free;
+   textIB:=nil;
+  end;
 
   defaultFontHandle:=0;
   // TODO: coordinate txt/textDrawer global reset with graphics-system shutdown

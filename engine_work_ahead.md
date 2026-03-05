@@ -47,6 +47,8 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - `Apus.Engine.OpenGL.TRenderDevice` now allocates a default VAO in core profile and asserts on invalid core-mode attribute setup (`GL_ARRAY_BUFFER=0`).
   - Added stream VBO/IBO fallback path for RAM-fed draw submission (`Draw/DrawIndexed/DrawInstanced`) so CPU pointer paths are uploaded to GPU buffers automatically.
   - Attribute cache now tracks bound `GL_ARRAY_BUFFER`, preventing stale pointer state when switching VBOs with identical layouts.
+  - `Apus.Engine.TextDraw` switched `FlushTextCache` to explicit buffer-backed submission (dynamic VB + static IB) instead of RAM pointer draw.
+  - `Apus.Engine.Draw` switched 2D `Particles` and `Band` submission to explicit dynamic VB/IB paths.
 
 ## In Progress
 - First wave of engine migration is effectively complete:
