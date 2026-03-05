@@ -167,17 +167,49 @@ begin
  end;
 end;
 
+function GLProfileToString(profile:TOpenGLContextProfile):string;
+ begin
+  case profile of
+   glcpCompatibility:result:='compatibility';
+   glcpCore:result:='core';
+   else result:='any';
+  end;
+ end;
+
+function GLContextRequestToString(const request:TOpenGLContextRequest):string;
+ begin
+  result:='min='+IntToStr(request.minMajor)+'.'+IntToStr(request.minMinor)+
+   ', preferHighest='+BoolToStr(request.preferHighest,true)+
+   ', profile='+GLProfileToString(request.profile)+
+   ', debug='+BoolToStr(request.debugContext,true)+
+   ', forward='+BoolToStr(request.forwardCompatible,true);
+ end;
+
+function GLContextInfoToString(const info:TOpenGLContextInfo):string;
+ begin
+  result:='version='+IntToStr(info.major)+'.'+IntToStr(info.minor)+
+   ', profile='+GLProfileToString(info.profile)+
+   ', debug='+BoolToStr(info.debugContext,true)+
+   ', forward='+BoolToStr(info.forwardCompatible,true)+
+   ', accepted='+BoolToStr(info.requestAccepted,true);
+ end;
+
 { TOpenGL }
 procedure TOpenGL.Init(system:ISystemPlatform);
  var
   i:integer;
   cnt:GLINT;
+  rc:UIntPtr;
+  request:TOpenGLContextRequest;
+  actual:TOpenGLContextInfo;
   pName,exList:string;
 
  {$IFDEF SDL}
  procedure InitOnSDL(system:ISystemPlatform);
   begin
-   system.CreateOpenGLContext;
+   rc:=system.CreateOpenGLContext(request,actual);
+   if rc=0 then
+    raise EError.Create('Can''t create OpenGL context');
    ReadImplementationProperties;
    ReadExtensions;
   end;
@@ -187,12 +219,14 @@ procedure TOpenGL.Init(system:ISystemPlatform);
  procedure InitOnWindows(system:ISystemPlatform);
   var
    DC:HDC;
-   RC:HGLRC;
+   winRC:HGLRC;
   begin
    DC:=GetDC(system.GetWindowHandle);
-   RC:=system.CreateOpenGLContext; // Create basic GL context
+   winRC:=system.CreateOpenGLContext(request,actual); // Create basic GL context
+   if winRC=0 then
+    raise EError.Create('Can''t create OpenGL context');
    Log.Msg('Activate GL context');
-   ActivateRenderingContext(DC,RC); // Load all OpenGL functions and extensions
+   ActivateRenderingContext(DC,winRC); // Load all OpenGL functions and extensions
    // Now create main context
 
   end;
@@ -202,6 +236,10 @@ procedure TOpenGL.Init(system:ISystemPlatform);
   Log.Msg('Init OpenGL');
   exList:='';
   sysPlatform:=system;
+  request:=oglContextRequest;
+  Mem.Clear(actual,sizeof(actual));
+  actual.profile:=glcpAny;
+  Log.Force('OpenGL context request: '+GLContextRequestToString(request));
   {$IFDEF DGL}
   InitOpenGL;
   {$ENDIF}
@@ -220,6 +258,13 @@ procedure TOpenGL.Init(system:ISystemPlatform);
 
   glVersion:=glGetString(GL_VERSION);
   glRenderer:=glGetString(GL_RENDERER);
+  if actual.major=0 then begin
+   glVersionNum:=GetVersion;
+   actual.major:=trunc(glVersionNum);
+   actual.minor:=round((glVersionNum-actual.major)*10);
+  end;
+  oglContextInfo:=actual;
+  Log.Force('OpenGL context actual: '+GLContextInfoToString(oglContextInfo));
   Log.Force('OpenGL version: '+glVersion);
   Log.Force('OpenGL vendor: '+PAnsiChar(glGetString(GL_VENDOR)));
   Log.Force('OpenGL renderer: '+glRenderer);

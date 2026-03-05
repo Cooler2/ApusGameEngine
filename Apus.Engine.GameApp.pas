@@ -50,6 +50,12 @@ interface
    instanceID:integer=0;
    gameLangCode:string='en';
    debugMode:boolean=false;
+   glCoreContext:boolean=false; // request OpenGL core profile context
+   glDebugContext:boolean=false; // request OpenGL debug context flag
+   glForwardCompatible:boolean=false; // request OpenGL forward-compatible context flag
+   glPreferHighest:boolean=true; // request highest available version (with fallback to minimal)
+   glMinVersionMajor:byte=3;
+   glMinVersionMinor:byte=0;
 
  type
   TGameApplication=class
@@ -411,6 +417,10 @@ procedure TGameApplication.HandleParam(param: string);
    debugMode:=true;
    debugCriticalSections:=true;
   end;
+  if param='-GLCORE' then glCoreContext:=true;
+  if param='-GLCOMPAT' then glCoreContext:=false;
+  if param='-GLDEBUGCTX' then glDebugContext:=true;
+  if param='-GLFORWARDCTX' then glForwardCompatible:=true;
   if param='-NOSTEAM' then checkForSteam:=false;
  end;
 
@@ -593,6 +603,17 @@ procedure TGameApplication.Run;
   settings:TGameSettings;
   loadingScene:TGameScene;
  begin
+  // OpenGL context request is configured on app level and used by platform backend.
+  oglContextRequest.minMajor:=glMinVersionMajor;
+  oglContextRequest.minMinor:=glMinVersionMinor;
+  oglContextRequest.preferHighest:=glPreferHighest;
+  oglContextRequest.debugContext:=glDebugContext or debugMode;
+  oglContextRequest.forwardCompatible:=glForwardCompatible;
+  if glCoreContext then
+   oglContextRequest.profile:=glcpCore
+  else
+   oglContextRequest.profile:=glcpCompatibility;
+
   // CREATE GAME OBJECT
   // ------------------------
   {$IFDEF MSWINDOWS}

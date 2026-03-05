@@ -47,7 +47,7 @@ type
   procedure ScreenToClient(var p:TPoint);
   procedure ClientToScreen(var p:TPoint);
 
-  function CreateOpenGLContext:UIntPtr;
+  function CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
   procedure OGLSwapBuffers;
   function SetSwapInterval(divider:integer):boolean;
   procedure DeleteOpenGLContext;
@@ -446,7 +446,7 @@ procedure TWindowsPlatform.MoveWindowTo(x, y: integer; width: integer;
    Log.Force('MoveWindow error: '+inttostr(GetLastError));
  end;
 
-function TWindowsPlatform.CreateOpenGLContext:UIntPtr;
+function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
  var
   DC:HDC;
   RC:HGLRC;
@@ -473,6 +473,12 @@ function TWindowsPlatform.CreateOpenGLContext:UIntPtr;
    RC:=wglCreateContext(DC);
    if RC=0 then
     raise EError.Create('Can''t create RC!');
+   actual.major:=0;
+   actual.minor:=0;
+   actual.profile:=glcpCompatibility;
+   actual.debugContext:=false;
+   actual.forwardCompatible:=false;
+   actual.requestAccepted:=(request.profile<>glcpCore) and not request.debugContext and not request.forwardCompatible;
   context:=RC;
   result:=context;
  end;

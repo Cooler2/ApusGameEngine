@@ -173,6 +173,31 @@ type
                   spWindows, // Native Windows
                   spSDL);    // SDL-2 library (cross-platform)
 
+ // OpenGL context profile request/actual mode
+ TOpenGLContextProfile=(glcpAny,
+                        glcpCompatibility,
+                        glcpCore);
+
+ // Request for OpenGL context creation
+ TOpenGLContextRequest=record
+  minMajor:byte; // minimal required major version
+  minMinor:byte; // minimal required minor version
+  profile:TOpenGLContextProfile;
+  debugContext:boolean;
+  forwardCompatible:boolean;
+  preferHighest:boolean; // true -> platform may negotiate down from highest supported version
+ end;
+
+ // Actual OpenGL context parameters reported by platform layer
+ TOpenGLContextInfo=record
+  major:byte; // 0 if platform cannot report here
+  minor:byte; // 0 if platform cannot report here
+  profile:TOpenGLContextProfile;
+  debugContext:boolean;
+  forwardCompatible:boolean;
+  requestAccepted:boolean; // false when platform had to ignore part of the request
+ end;
+
  // Режим блендинга (действие, применяемое к фону)
  TBlendingMode=(blNone,   // background not modified
                 blAlpha,  // regular alpha blending
@@ -312,7 +337,7 @@ type
   procedure ClientToScreen(var p:TPoint);
 
   // OpenGL support
-  function CreateOpenGLContext:UIntPtr;
+  function CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
   procedure OGLSwapBuffers;
   function SetSwapInterval(divider:integer):boolean;
   procedure DeleteOpenGLContext;
@@ -986,6 +1011,10 @@ var
  txt:ITextDrawer; //< shortcut for gfx.txt
  transform:ITransformation; //< Shortcut for gfx.transform
 
+ // Requested and actual OpenGL context parameters
+ oglContextRequest:TOpenGLContextRequest;
+ oglContextInfo:TOpenGLContextInfo;
+
  // Translate string using localization dictionary (UDict)
  Translate:function(s:String8):String8;
  Translate32:function(s:String32):String32;
@@ -1256,6 +1285,14 @@ function TGameBase.ColorAlpha(var av:TAnimatedValue;color:cardinal):cardinal;
 initialization
  Translate:=TranslateNoop8;
  Translate32:=TranslateNoop32;
+ oglContextRequest.minMajor:=3;
+ oglContextRequest.minMinor:=0;
+ oglContextRequest.profile:=glcpCompatibility;
+ oglContextRequest.debugContext:=false;
+ oglContextRequest.forwardCompatible:=false;
+ oglContextRequest.preferHighest:=true;
+ Mem.Clear(oglContextInfo,sizeof(oglContextInfo));
+ oglContextInfo.profile:=glcpAny;
  PublishFunction('GetFont',fGetFontHandle);
  TVertex.layoutTex.Init([vcPosition3d,vcColor,vcUV1]);
  TVertex.layoutTex.stride:=Sizeof(TVertex);

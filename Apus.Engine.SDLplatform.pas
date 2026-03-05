@@ -48,7 +48,7 @@ type
   procedure ScreenToClient(var p:TPoint);
   procedure ClientToScreen(var p:TPoint);
 
-  function CreateOpenGLContext:UIntPtr;
+  function CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
   procedure OGLSwapBuffers;
   function SetSwapInterval(divider:integer):boolean;
   procedure DeleteOpenGLContext;
@@ -588,13 +588,56 @@ procedure TSDLPlatform.MoveWindowTo(x, y: integer; width: integer;
   SDL_SetWindowPosition(window,x,y);
  end;
 
-function TSDLPlatform.CreateOpenGLContext:UIntPtr;
+function TSDLPlatform.CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
+ var
+  major,minor,profile,flags,profileMask:integer;
  begin
   LogMessage('Create GL Context');
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,3);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,2);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+  major:=request.minMajor;
+  minor:=request.minMinor;
+  if (major<3) or ((major=3) and (minor<2)) then begin
+   major:=3;
+   minor:=2;
+  end;
+  profileMask:=SDL_GL_CONTEXT_PROFILE_COMPATIBILITY;
+  if request.profile=glcpCore then
+   profileMask:=SDL_GL_CONTEXT_PROFILE_CORE;
+
+  flags:=0;
+  if request.debugContext then flags:=flags or SDL_GL_CONTEXT_DEBUG_FLAG;
+  if request.forwardCompatible then flags:=flags or SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,major);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,minor);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,profileMask);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,flags);
   context:=SDL_GL_CreateContext(window);
+  result:=UIntPtr(context);
+
+  actual.major:=0;
+  actual.minor:=0;
+  actual.profile:=glcpAny;
+  actual.debugContext:=false;
+  actual.forwardCompatible:=false;
+  actual.requestAccepted:=context<>nil;
+  if context<>nil then begin
+   SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,@major);
+   SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,@minor);
+   SDL_GL_GetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,@profile);
+   SDL_GL_GetAttribute(SDL_GL_CONTEXT_FLAGS,@flags);
+   actual.major:=major;
+   actual.minor:=minor;
+   case profile of
+    SDL_GL_CONTEXT_PROFILE_CORE:actual.profile:=glcpCore;
+    SDL_GL_CONTEXT_PROFILE_COMPATIBILITY:actual.profile:=glcpCompatibility;
+    else actual.profile:=glcpAny;
+   end;
+   actual.debugContext:=(flags and SDL_GL_CONTEXT_DEBUG_FLAG)<>0;
+   actual.forwardCompatible:=(flags and SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG)<>0;
+   actual.requestAccepted:=actual.requestAccepted and
+    ((request.profile=glcpAny) or (actual.profile=request.profile)) and
+    ((not request.debugContext) or actual.debugContext) and
+    ((not request.forwardCompatible) or actual.forwardCompatible);
+  end;
  end;
 
 procedure TSDLPlatform.OGLSwapBuffers;

@@ -1,5 +1,5 @@
 ﻿# Engine Work Ahead Log
-Last updated: 2026-02-28
+Last updated: 2026-03-05
 
 This file is for active execution tracking only:
 - small and medium changes;
@@ -11,6 +11,7 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
 ## Done
 - First wave of Base refactoring completed and committed.
 - Foundation API stabilized (`Apus.Core`, `Apus.Strings`, `Apus.Conv`, `Apus.Types`, `Apus.Threads`).
+- Prepared phased migration plan for R-01 (OpenGL compatibility -> core context, NSight target): [core_context_migration_plan.md](/G:/apus/enginerev/core_context_migration_plan.md).
 - Added case-insensitive search support in `Apus.Strings` and updated migration notes/TODO flow.
 - Migrated `Apus.HtmlTree` to `String8` API.
 - `Apus.Strings`: added `SplitLines` (auto-detects CR/LF/CRLF), restored `ignoreCase` param for `StartsWith`/`EndsWith`.
@@ -32,6 +33,16 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - default check uses `-dOPENGL -MDelphi -Sd -RIntel`
   - add `-dSDL` only when SDL-specific code path is under test
   - required search paths: repo root, `extra`, `extra\sdl2`, `Base`, `Base\extra`
+- `Apus.Threads` / `Base/tests/TestThreads` hardening completed (commit `4510526`):
+  - fixed `IThread.Wait(timeout)` semantics and clarified timeout behavior comments;
+  - added POSIX one-time thread resource reap (`pthread_join`) after completion wait;
+  - expanded thread tests (callable overloads, finalization, error path, wait-timeout);
+  - documented Delphi debugger timing caveat for unhandled-exception test case.
+- R-01 core-context migration started (Stage 0-1, first implementation increment):
+  - `Apus.Engine.API`: added `TOpenGLContextRequest` / `TOpenGLContextInfo` and extended `ISystemPlatform.CreateOpenGLContext(...)` signature.
+  - `Apus.Engine.GameApp`: added app-level OpenGL context request settings (`glCoreContext`, debug/forward flags, min version, prefer-highest) and CLI toggles (`-GLCORE`, `-GLCOMPAT`, `-GLDEBUGCTX`, `-GLFORWARDCTX`).
+  - `Apus.Engine.OpenGL`: wired request propagation + startup logging for requested vs actual context parameters.
+  - `Apus.Engine.WindowsPlatform` and `Apus.Engine.SDLplatform`: switched to new context API contract with `actual` context reporting.
 
 ## In Progress
 - First wave of engine migration is effectively complete:
@@ -51,6 +62,7 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
 - Establish demo build automation via `.bat` scripts (single script or one per demo).
 - Run manual Delphi build checks at milestones.
 - Backlog: investigate Linux build failures in Base (currently 12 modules do not compile).
+- R-01 design discussion item: remove global `oglContextRequest/oglContextInfo` after Stage 0-1 bootstrap and move context-request flow to explicit runtime-owned configuration.
 
 ## Future TODO (low priority)
 - `Apus.Engine.Keys`: add `TKey.FromName(s:string):TKey` — parse key name string back to TKey (for config files, key binding UI).
