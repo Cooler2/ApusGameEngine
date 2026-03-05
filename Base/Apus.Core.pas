@@ -275,7 +275,7 @@ var
 // Cross-platform primitives
 // =============================================================================
 
-  function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF}; inline;
+  function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF};
   function IsDebuggerPresent:boolean; {$IFDEF FPC} inline; {$ENDIF}
   {$IF not DECLARED(MemoryBarrier)}
   {$DEFINE NEED_MEMORY_BARRIER}
@@ -426,9 +426,9 @@ type
     class function UTC:TDateTime; static;  // UTC time (high-precision)
     class function Stamp:string8; static;   // HH:MM:SS.mmm for logs
     // Get milliseconds since system start (monotonic, no overflow). Better replacement for GetTickCount/GetTickCount64
-    class function Ticks:int64; static; inline;
+    class function Ticks:int64; static;
     // Sleep for specified milliseconds
-    class procedure Sleep(ms:integer); static; inline;
+    class procedure Sleep(ms:integer); static;
   end;
   CoreTime = Time; // Alias to avoid name clash with SysUtils.Time etc.
 
@@ -553,7 +553,7 @@ end;
 // Cross-platform primitives implementation
 // =============================================================================
 
-function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF}; inline;
+function GetCurrentThreadID:{$IFDEF MSWINDOWS}cardinal{$ELSE}TThreadID{$ENDIF};
 begin
 {$IFDEF MSWINDOWS}
   result:=windows.GetCurrentThreadId;
@@ -1848,7 +1848,7 @@ begin
     FAddress:=NativeUInt(frames[0]);
     stackStr:='[';
     for i:=0 to count-1 do begin
-      stackStr:=stackStr+Conv.ToStr(frames[i]);
+      stackStr:=stackStr+string(Conv.ToStr(frames[i]));
       if i<count-1 then stackStr:=stackStr+'->';
     end;
     stackStr:=stackStr+'] ';
@@ -1869,7 +1869,7 @@ begin
   if e is EBaseException then
     result:=e.Message  // already contains stack trace
   else
-    result:='['+Conv.ToStr(ExceptAddr)+'] '+e.Message;
+    result:='['+string(Conv.ToStr(ExceptAddr))+'] '+e.Message;
 end;
 
 procedure NotImplemented(msg:string='');

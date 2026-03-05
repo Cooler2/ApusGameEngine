@@ -492,10 +492,11 @@ implementation
    end;
   end;
 
- function Brightness(c:cardinal;value:integer):cardinal;
-  begin
-
-  end;
+function Brightness(c:cardinal;value:integer):cardinal;
+    begin
+      result:=c; // TODO: implement brightness adjustment
+      Assert(false,'Brightness not implemented');
+    end;
 
 {  asm
    movd mm0,c

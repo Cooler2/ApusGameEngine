@@ -385,27 +385,27 @@ end;
 
 function String8Helper.Compare(const other:String8;ignoreCase:boolean):integer;
 begin
- if ignoreCase then result:=SysUtils.CompareText(self,other)
-  else result:=SysUtils.CompareStr(self,other);
+ if ignoreCase then result:=SysUtils.CompareText(string(self),string(other))
+  else result:=SysUtils.CompareStr(string(self),string(other));
 end;
 
 function String8Helper.Same(const other:String8):boolean;
-begin result:=SysUtils.SameText(self,other); end;
+begin result:=SysUtils.SameText(string(self),string(other)); end;
 
 function String8Helper.ToUpper:String8;
-begin result:=SysUtils.UpperCase(self); end;
+begin result:=SysUtils.UpperCase(string(self)); end;
 
 function String8Helper.ToLower:String8;
-begin result:=SysUtils.LowerCase(self); end;
+begin result:=SysUtils.LowerCase(string(self)); end;
 
 function String8Helper.Trim:String8;
-begin result:=SysUtils.Trim(self); end;
+begin result:=SysUtils.Trim(string(self)); end;
 
 function String8Helper.TrimLeft:String8;
-begin result:=SysUtils.TrimLeft(self); end;
+begin result:=SysUtils.TrimLeft(string(self)); end;
 
 function String8Helper.TrimRight:String8;
-begin result:=SysUtils.TrimRight(self); end;
+begin result:=SysUtils.TrimRight(string(self)); end;
 
 function String8Helper.PadLeft(totalWidth:integer;paddingChar:AnsiChar):String8;
 var pad:integer;
@@ -448,10 +448,10 @@ begin
 end;
 
 function String8Helper.Replace(const oldStr,newStr:String8):String8;
-begin result:=SysUtils.StringReplace(self,oldStr,newStr,[]); end;
+begin result:=SysUtils.StringReplace(string(self),string(oldStr),string(newStr),[]); end;
 
 function String8Helper.ReplaceAll(const oldStr,newStr:String8):String8;
-begin result:=SysUtils.StringReplace(self,oldStr,newStr,[rfReplaceAll]); end;
+begin result:=SysUtils.StringReplace(string(self),string(oldStr),string(newStr),[rfReplaceAll]); end;
 
 function String8Helper.Split(delimiter:AnsiChar;quoteChar:AnsiChar):Strings8;
 var i,start,cnt:integer; inQuote:boolean;

@@ -1860,6 +1860,7 @@ function TObjectQueue.Empty: boolean;
 
 function TObjectQueue.Get:TObject;
  begin
+  result:=nil;
   ASSERT(length(data)>0);
   if length(data)=0 then exit;
   SpinLock(lock);
@@ -1868,8 +1869,7 @@ function TObjectQueue.Get:TObject;
     result:=data[used];
     inc(used);
     if used>high(data) then used:=0;
-   end else
-    result:=nil;
+   end;
   finally
    lock:=0;
   end;
@@ -1889,15 +1889,17 @@ function TQueue.Add(const item:TDataItem):boolean;
  var
   f:integer;
  begin
+  result:=false;
   ASSERT(length(data)>0);
   SpinLock(lock);
   try
    f:=free;
    inc(f);
    if f>high(data) then f:=0;
-   if f=used then exit(false);
+   if f=used then exit;
    data[free]:=item;
    free:=f;
+   result:=true;
   finally
    lock:=0;
   end;
@@ -1959,15 +1961,17 @@ function TGenQueue<T>.Add(const item:T):boolean;
  var
   f:integer;
  begin
+  result:=false;
   ASSERT(length(data)>0);
   SpinLock(lock);
   try
    f:=free;
    inc(f);
    if f>high(data) then f:=0;
-   if f=used then exit(false);
+   if f=used then exit;
    data[free]:=item;
    free:=f;
+   result:=true;
   finally
    lock:=0;
   end;
@@ -2005,6 +2009,7 @@ function TGenQueue<T>.Get:T;
 
 function TGenQueue<T>.Get(out item:T):boolean;
  begin
+  result:=false;
   ASSERT(length(data)>0);
   if length(data)=0 then exit;
   SpinLock(lock);
@@ -2466,13 +2471,14 @@ function TObjectList.Add(obj:TObject;uniqueOnly:boolean=false):boolean;
  var
   i:integer;
  begin
+  result:=false;
   ASSERT(obj<>nil);
   if initialized='' then Init;
   SpinLock(lock);
   try
    if uniqueOnly then
     for i:=0 to count-1 do
-     if data[i]=obj then exit(false);
+     if data[i]=obj then exit;
    result:=true;
    if count>high(data) then
     SetLength(data,count+count div 2);

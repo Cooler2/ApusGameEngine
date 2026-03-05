@@ -37,17 +37,17 @@ type
   Log = record
     class procedure Msg(msg:String8; category:byte=0; level:TSeverity=TSeverity.Normal); overload; static;
     class procedure Msg(msg:String8; params:array of const; category:byte=0; level:TSeverity=TSeverity.Normal); overload; static;
-    class procedure Debug(msg:String8; category:byte=0); overload; static; inline;
+    class procedure Debug(msg:String8; category:byte=0); overload; static;
     class procedure Debug(msg:String8; params:array of const; category:byte=0); overload; static;
-    class procedure Info(msg:String8; category:byte=0); overload; static; inline;
+    class procedure Info(msg:String8; category:byte=0); overload; static;
     class procedure Info(msg:String8; params:array of const; category:byte=0); overload; static;
-    class procedure Force(msg:String8; category:byte=0); overload; static; inline;
+    class procedure Force(msg:String8; category:byte=0); overload; static;
     class procedure Force(msg:String8; params:array of const; category:byte=0); overload; static;
-    class procedure Warn(msg:String8; category:byte=0); overload; static; inline;
+    class procedure Warn(msg:String8; category:byte=0); overload; static;
     class procedure Warn(msg:String8; params:array of const; category:byte=0); overload; static;
-    class procedure Error(msg:String8; category:byte=0); overload; static; inline;
+    class procedure Error(msg:String8; category:byte=0); overload; static;
     class procedure Error(msg:String8; params:array of const; category:byte=0); overload; static;
-    class procedure Fatal(msg:String8; category:byte=0); overload; static; inline;
+    class procedure Fatal(msg:String8; category:byte=0); overload; static;
     class procedure Fatal(msg:String8; params:array of const; category:byte=0); overload; static;
   end;
 
@@ -93,7 +93,7 @@ var
 // 12-character time: HH:MM:SS.mmm
 function FormatLogText(const text:string):string;
 begin
-  result:=Apus.Core.Time.Stamp+'  '+text;
+  result:=string(Apus.Core.Time.Stamp)+'  '+text;
 end;
 
 function BuildText(const msg:String8; category:byte):string;
@@ -143,14 +143,14 @@ begin
   // Format message
   text:=BuildText(msg,category);
 
-  st:=FormatLogText(text);
+  st:=String8(FormatLogText(text));
   logLock.Enter;
   try
     if level>=bypassCacheSeverity then begin
       // Bypass cache - write directly
       if cacheBuf<>'' then IntFlushLog;
       try
-        st:=st+#13#10;
+        st:=st+String8(#13#10);
         AppendLogFile(st[1], length(st));
       except
         on e:Exception do begin
@@ -166,7 +166,7 @@ begin
         // Cache disabled or full
         if cacheBuf<>'' then IntFlushLog;
         try
-          st:=st+#13#10;
+          st:=st+String8(#13#10);
           AppendLogFile(st[1],length(st));
         except
           on e:Exception do begin
@@ -180,18 +180,17 @@ begin
   end;
 end;
 
-function FlushThreadProc(parameter:pointer):UIntPtr;
+procedure FlushThreadProc;
 var
   tick:cardinal;
 begin
-  tick := 0;
+  tick:=0;
   repeat
     inc(tick);
     sleep(10);
-    if (length(cacheBuf) > 20000) or (tick mod 50 = 0) then
+    if (length(cacheBuf)>20000) or (tick mod 50=0) then
       Logger.Flush;
   until terminateFlushThread;
-  result := 0;
 end;
 
 { Log }
@@ -296,7 +295,9 @@ begin
   logLock.Enter;
   try
     logFileName:=ExpandFileName(name);
+    {$WARN SYMBOL_DEPRECATED OFF}
     age:=FileAge(ParamStr(0));
+    {$WARN SYMBOL_DEPRECATED ON}
     dt:=FileDateToDateTime(age);
     try
       assign(f,name);

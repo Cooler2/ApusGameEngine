@@ -81,9 +81,9 @@ begin
     if st='' then exit;
     s1:=st.Split(' ');
     splitter:='';
-    if pos('.',s1[0])>0 then splitter:='.';
-    if pos('-',s1[0])>0 then splitter:='-';
-    if pos('/',s1[0])>0 then splitter:='/';
+    if pos('.',string(s1[0]))>0 then splitter:='.';
+    if pos('-',string(s1[0]))>0 then splitter:='-';
+    if pos('/',string(s1[0]))>0 then splitter:='/';
     if splitter='' then exit;
     s2:=s1[0].Split(splitter[1]);
     if length(s2)<>3 then exit;
@@ -102,7 +102,7 @@ begin
       if length(s2)>0 then hour:=Conv.ToInt(s2[0]) else hour:=0;
       if length(s2)>1 then min:=Conv.ToInt(s2[1]) else min:=0;
       if length(s2)>2 then begin
-        p:=pos('.',s2[2]);
+        p:=pos('.',string(s2[2]));
         if p>0 then begin
           msec:=Conv.ToInt(copy(s2[2],p+1,3));
           SetLength(s2[2],p-1);
@@ -129,7 +129,7 @@ begin
     if length(sa)>0 then hour:=Conv.ToInt(sa[0]) else hour:=0;
     if length(sa)>1 then min:=Conv.ToInt(sa[1]) else min:=0;
     if length(sa)>2 then begin
-      if pos('.',sa[2])>0 then begin
+      if pos('.',string(sa[2]))>0 then begin
         sa:=sa[2].Split('.');
         sec:=Conv.ToInt(sa[0]);
         msec:=Conv.ToInt(sa[1]);

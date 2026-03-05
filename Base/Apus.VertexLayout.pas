@@ -204,6 +204,7 @@ function TVertexLayout.GetUV(var vertex;idx:cardinal):TPoint2s;
   p:integer;
  begin
   ASSERT(idx<2);
+  p:=0;
   case idx of
    0:p:=(layout shr 12) and $F;
    1:p:=(layout shr 16) and $F;
