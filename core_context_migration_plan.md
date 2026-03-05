@@ -178,7 +178,9 @@ Exit criteria:
   - default VAO creation/bind in core profile;
   - runtime assert for missing `GL_ARRAY_BUFFER` during attribute setup in core mode;
   - automatic stream VBO/IBO fallback for RAM-fed draw calls.
-- [~] Stage 5: high-usage immediate paths now pass through the stream buffer fallback (without API-level migration yet), reducing direct client-array dependency for `SimpleDemo`-critical draw/text paths.
+- [x] Stage 5: high-usage immediate paths now pass through stream/buffer-backed submission, reducing direct client-array dependency for `SimpleDemo`-critical draw/text paths.
   - `Apus.Engine.TextDraw`: `FlushTextCache` now uploads to explicit dynamic VB + static IB and renders via bound buffers.
   - `Apus.Engine.Draw`: 2D `Particles(...)` and `Band(...)` paths now upload to dynamic VB/IB and render via buffer-backed indexed draws.
   - `Apus.Engine.Draw`: pointer-based `IndexedMesh(...)` overloads now use dynamic scratch VB/IB upload + bound-buffer indexed draw (used by `Mesh`/`Model3D` immediate paths).
+  - `Apus.Engine.OpenGL.TRenderDevice`: stream VBO/IBO fallback now covers pointer-fed draws in compatibility mode as well (when `GL_ARRAY_BUFFER` is not pre-bound), while preserving explicit client-pointer fallback safety for mixed states.
+  - Validation note: `SimpleDemo` build/runtime confirms text/particles/spinner paths; mesh-path runtime validation is pending a mesh-using demo target.

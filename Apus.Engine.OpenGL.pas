@@ -690,7 +690,7 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
  begin
   shader.Apply(vertexLayout);
   vertexCount:=PrimitiveVertexCount(primType,primCount);
-  useStream:=IsCoreProfile and (vertices<>nil) and (not IsArrayBufferBound);
+  useStream:=(vertices<>nil) and (IsCoreProfile or (not IsArrayBufferBound));
   if useStream then begin
    UploadStreamVertices(vertices,vertexLayout,vertexCount);
    vertices:=nil; // attributes are offsets in bound stream VBO
@@ -716,7 +716,7 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
  begin
   shader.Apply(vertexLayout);
   indexCount:=PrimitiveIndexCount(primType,primCount);
-  useStream:=IsCoreProfile and (vertices<>nil) and (not IsArrayBufferBound);
+  useStream:=(vertices<>nil) and (IsCoreProfile or (not IsArrayBufferBound));
   if useStream then begin
    vertexCount:=MaxIndexInBuffer(indices,indexCount)+1;
    UploadStreamVertices(vertices,vertexLayout,vertexCount);
@@ -749,7 +749,7 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
  begin
   shader.Apply(vertexLayout);
   indexCount:=PrimitiveIndexCount(primType,primCount);
-  useStream:=IsCoreProfile and (vertices<>nil) and (not IsArrayBufferBound);
+  useStream:=(vertices<>nil) and (IsCoreProfile or (not IsArrayBufferBound));
   if useStream then begin
    // Keep original index values by uploading vertices up to the range end.
    vertexCount:=vrtStart+vrtCount;
@@ -783,7 +783,7 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;i
  begin
   shader.Apply(vertexLayout);
   indexCount:=PrimitiveIndexCount(primType,primCount);
-  useStream:=IsCoreProfile and (vertices<>nil) and (not IsArrayBufferBound);
+  useStream:=(vertices<>nil) and (IsCoreProfile or (not IsArrayBufferBound));
   if useStream then begin
    vertexCount:=MaxIndexInBuffer(indices,indexCount)+1;
    UploadStreamVertices(vertices,vertexLayout,vertexCount);
@@ -816,7 +816,7 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;
  begin
   shader.Apply(vertexLayout);
   vertexCount:=PrimitiveVertexCount(primType,primCount);
-  useStream:=IsCoreProfile and (vertices<>nil) and (not IsArrayBufferBound);
+  useStream:=(vertices<>nil) and (IsCoreProfile or (not IsArrayBufferBound));
   if useStream then begin
    UploadStreamVertices(vertices,vertexLayout,vertexCount);
    vertices:=nil;

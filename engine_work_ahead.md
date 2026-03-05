@@ -50,6 +50,8 @@ Large feature planning is tracked separately in `engine5_feature_roadmap.md`.
   - `Apus.Engine.TextDraw` switched `FlushTextCache` to explicit buffer-backed submission (dynamic VB + static IB) instead of RAM pointer draw.
   - `Apus.Engine.Draw` switched 2D `Particles` and `Band` submission to explicit dynamic VB/IB paths.
   - `Apus.Engine.Draw` switched pointer-based `IndexedMesh(...)` overloads to explicit dynamic scratch VB/IB submission, covering `Mesh`/`Model3D` immediate indexed paths.
+  - `Apus.Engine.OpenGL.TRenderDevice` stream fallback now also applies to pointer-fed compatibility-context draws when no array buffer is pre-bound, reducing client-array usage in immediate 2D paths without API changes.
+  - Stage 5 is considered implementation-complete; remaining validation task is runtime check of mesh rendering on a mesh-capable demo (not `SimpleDemo`).
 
 ## In Progress
 - First wave of engine migration is effectively complete:
