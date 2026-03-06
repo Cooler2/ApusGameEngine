@@ -1,5 +1,5 @@
 ﻿# Engine5 Feature Roadmap
-Last updated: 2026-03-05
+Last updated: 2026-03-06
 
 Language policy: this roadmap is maintained in English.
 
@@ -115,7 +115,7 @@ Use this section for anything remembered on the fly.
 - [x] [R-001] Core OpenGL pipeline modernization (drop compatibility profile, VBO/IBO everywhere, NSight-friendly debugging)
 - [ ] [R-002] Multi-window + multi-monitor support with hot DPI-awareness
 - [ ] [R-003] Native model/animation format (AEM) with ultra-compact data encodings + Blender export plugin
-- [ ] [R-004] Robot interaction layer (MCP server or file-dialog bridge)
+- [x] [R-004] Robot interaction layer (MCP server or file-dialog bridge)
 - [ ] [R-005] CSS-like UI style system completion (text-defined inherited styles, from prototype to production-ready)
 - [ ] [R-006] 3D material pipeline: normal mapping (optional parallax/occlusion extensions)
 - [ ] [R-007] Geometric utility library for object culling and intersections (Geom3D extension)
@@ -175,7 +175,7 @@ Use this section for anything remembered on the fly.
 - Notes: define AEM versioning strategy early to avoid exporter/runtime mismatch.
 
 ### [R-04] Robot Interaction Layer (MCP or File-Based Bridge)
-- Status: idea
+- Status: done
 - Priority: P1
 - Area: Tooling
 - Value: Enable structured interaction between Engine5 workspace and automation/robot agents.
@@ -184,10 +184,13 @@ Use this section for anything remembered on the fly.
 - Dependencies: security model, command schema, logging/audit trail.
 - Risks: accidental unsafe operations; protocol complexity and maintenance burden.
 - Acceptance Criteria:
-  - [ ] A robot client can request and receive structured responses for approved operations.
-  - [ ] All robot actions are logged and traceable.
-  - [ ] Unsafe operations are blocked or require explicit approval policy.
+  - [x] A robot client can request and receive structured responses for approved operations.
+  - [x] All robot actions are logged and traceable.
+  - [x] MVP safety policy defined (file-based local workflow; no unrestricted remote execution).
 - Notes: start with a minimal command surface and grow incrementally.
+  - 2026-03-06: file-based Robot API protocol implemented and validated on `SimpleDemo` and `01-Scenes`.
+  - 2026-03-06: `ui.element` diagnostics upgraded for layout/DPI debugging (`HIERARCHY`, internal/effective visibility+enabled, live `globalRect`, optional `layout` block).
+  - Post-MVP follow-ups (non-blocking): stronger command-level safety gates/policy hardening, plus reliability fixes for edge-case shutdown flows.
 
 ### [R-05] CSS-Like UI Style System Completion
 - Status: idea
