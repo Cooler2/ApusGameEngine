@@ -17,17 +17,17 @@ var
   robotAPIEnabled:boolean = {$IFDEF DEBUG}true{$ELSE}false{$ENDIF};
 
 implementation
-uses Apus.Conv, Apus.Strings, Apus.Log, Apus.Files,
-  Apus.Engine.API, Apus.Engine.Game, Apus.Engine.Scene;
+uses Apus.Types, Apus.Conv, Apus.Strings, Apus.Log, Apus.Files,
+  Apus.Engine.API, Apus.Engine.Game, Apus.Engine.Scene,
+  Apus.Engine.UITypes, Apus.Engine.UI, Apus.Engine.UIScene;
 
 type
   TRequest=record
     id:String8;
     cmd:String8;
-    params:array of record
-      key,value:String8;
-    end;
+    params:TNameValueList;
   end;
+  TRequestArray = array of TRequest;
 
 const
   INPUT_FILE  = 'robot_in.txt';
@@ -35,12 +35,52 @@ const
   SLOW_INTERVAL = 500; // ms between checks in slow mode
   FAST_INTERVAL = 100; // ms between checks in fast mode
   FAST_TIMEOUT  = 5000; // ms of inactivity before returning to slow mode
+  CRLF = #13#10;
+  statusNames:array[TSceneStatus] of String8 = ('frozen','background','active');
 
 var
   lastCheckTime:int64;
   lastActivityTime:int64;
   fastMode:boolean;
   initialized:boolean;
+
+type
+  TGameHelper = class(TGame)
+    function FormatScenes:String8;
+    function FindUISceneRoot(const sceneName:String8):TUIElement;
+  end;
+
+function TGameHelper.FormatScenes:String8;
+var
+  i:integer;
+  s:TGameScene;
+begin
+  result:='';
+  EnterCritSect;
+  try
+    for i:=0 to high(scenes) do begin
+      s:=scenes[i];
+      result:=result+'SCENE: '+s.name+CRLF+
+        '  status: '+statusNames[s.status]+CRLF+
+        '  zOrder: '+Conv.ToStr(s.zOrder)+CRLF+
+        '  frequency: '+Conv.ToStr(s.frequency)+CRLF+
+        '  fullscreen: '+Conv.ToStr(s.fullscreen)+CRLF+
+        '  class: '+String8(s.ClassName)+CRLF;
+    end;
+  finally
+    LeaveCritSect;
+  end;
+end;
+
+function TGameHelper.FindUISceneRoot(const sceneName:String8):TUIElement;
+var
+  s:TObject;
+begin
+  result:=nil;
+  s:=TGameScene.FindByName(sceneName);
+  if (s<>nil) and (s is TUIScene) then
+    result:=TUIScene(s).UI;
+end;
 
 function GetCheckInterval:integer;
 begin
@@ -49,35 +89,29 @@ begin
 end;
 
 function GetParam(const req:TRequest; const key:String8):String8;
-var
-  i:integer;
 begin
-  result:='';
-  for i:=0 to high(req.params) do
-    if req.params[i].key.Same(key) then
-      exit(req.params[i].value);
+  result:=req.params.Item[key];
 end;
 
 // Parse input file into array of requests
-function ParseRequests(const content:String8):TArray<TRequest>;
+function ParseRequests(const content:String8):TRequestArray;
 var
   lines:Strings8;
   i,reqCount:integer;
-  line,key,value:String8;
-  p:integer;
+  line:String8;
+  nv:TNameValue;
   cur:TRequest;
 begin
-  result:=nil;
+  SetLength(result,0);
   reqCount:=0;
   lines:=content.SplitLines;
   cur.id:='';
   cur.cmd:='';
-  SetLength(cur.params,0);
+  SetLength(cur.params.items,0);
 
   for i:=0 to high(lines) do begin
     line:=lines[i].Trim;
     if (line='---') or (line='===') then begin
-      // finalize current request
       if cur.cmd<>'' then begin
         if reqCount>=length(result) then
           SetLength(result,reqCount+8);
@@ -86,22 +120,17 @@ begin
       end;
       cur.id:='';
       cur.cmd:='';
-      SetLength(cur.params,0);
+      SetLength(cur.params.items,0);
       continue;
     end;
-    p:=line.IndexOf(':');
-    if p<1 then continue;
-    key:=String8(Copy(line,1,p-1)).Trim;
-    value:=String8(Copy(line,p+1,length(line))).Trim;
-    if key.Same('ID') then
-      cur.id:=value
-    else if key.Same('CMD') then
-      cur.cmd:=value.ToLower
-    else begin
-      SetLength(cur.params,length(cur.params)+1);
-      cur.params[high(cur.params)].key:=key;
-      cur.params[high(cur.params)].value:=value;
-    end;
+    if line.IndexOf(':')<1 then continue;
+    nv.InitFrom(line,':');
+    if nv.Named('ID') then
+      cur.id:=nv.value
+    else if nv.Named('CMD') then
+      cur.cmd:=nv.value.ToLower
+    else
+      cur.params.Add(nv);
   end;
   SetLength(result,reqCount);
 end;
@@ -116,10 +145,6 @@ begin
     result:=result+body;
   result:=result+'==='+#13#10;
 end;
-
-const
-  CRLF = #13#10;
-  statusNames:array[TSceneStatus] of String8 = ('frozen','background','active');
 
 function CmdWindows(const req:TRequest):String8;
 var
@@ -154,26 +179,150 @@ end;
 function CmdScenes(const req:TRequest):String8;
 var
   body:String8;
-  scenes:TArray<TGameScene>;
-  i:integer;
-  s:TGameScene;
 begin
-  scenes:=GetAllScenes; // locked internally via game.EnterCritSect
-  if scenes=nil then exit(FormatResponse(req.id,'ERROR','','no scenes available'));
+  body:=TGameHelper(game).FormatScenes;
+  if body='' then exit(FormatResponse(req.id,'ERROR','','no scenes available'));
+  result:=FormatResponse(req.id,'OK',body);
+end;
+
+function ElementFlags(e:TUIElement):String8;
+begin
+  if e.visible then result:='visible' else result:='hidden';
+  if e.enabled then result:=result+' enabled' else result:=result+' disabled';
+end;
+
+function ElementSummary(e:TUIElement; indent:integer):String8;
+var
+  pad:String8;
+  r:TRect;
+begin
+  pad:='';
+  while length(pad)<indent do pad:=pad+'  ';
+  r:=e.GetPosOnScreen;
+  result:=pad+'UI: '+e.name+' ['+String8(e.ClassName)+'] '+
+    Conv.ToStr(r.Left)+','+Conv.ToStr(r.Top)+' '+
+    Conv.ToStr(r.Width)+'x'+Conv.ToStr(r.Height)+' '+
+    ElementFlags(e);
+  if e.caption<>'' then
+    result:=result+' caption="'+e.caption+'"';
+  result:=result+CRLF;
+end;
+
+procedure DumpTree(e:TUIElement; depth,maxDepth:integer; var body:String8);
+var
+  i:integer;
+begin
+  body:=body+ElementSummary(e,depth);
+  if (maxDepth>0) and (depth>=maxDepth) then exit;
+  for i:=0 to high(e.children) do
+    DumpTree(e.children[i],depth+1,maxDepth,body);
+end;
+
+function CmdUITree(const req:TRequest):String8;
+var
+  body:String8;
+  sceneName:String8;
+  maxDepth,i:integer;
+  root:TUIElement;
+begin
+  sceneName:=GetParam(req,'SCENE');
+  maxDepth:=Conv.ToInt(GetParam(req,'DEPTH'));
   body:='';
-  for i:=0 to high(scenes) do begin
-    s:=scenes[i];
-    body:=body+'SCENE: '+s.name+CRLF+
-      '  status: '+statusNames[s.status]+CRLF+
-      '  zOrder: '+Conv.ToStr(s.zOrder)+CRLF+
-      '  frequency: '+Conv.ToStr(s.frequency)+CRLF+
-      '  fullscreen: '+Conv.ToStr(s.fullscreen)+CRLF+
-      '  class: '+String8(s.ClassName)+CRLF;
+  UICritSect.Enter;
+  try
+    if sceneName<>'' then begin
+      root:=TGameHelper(game).FindUISceneRoot(sceneName);
+      if root=nil then
+        exit(FormatResponse(req.id,'ERROR','','scene not found: '+sceneName));
+      DumpTree(root,0,maxDepth,body);
+    end else begin
+      for i:=0 to high(rootElements) do
+        DumpTree(rootElements[i],0,maxDepth,body);
+    end;
+  finally
+    UICritSect.Leave;
   end;
   result:=FormatResponse(req.id,'OK',body);
 end;
 
-// NOTE: UI commands (Stage 3+) must use UICritSect for rootElements/children access
+function CmdUIElement(const req:TRequest):String8;
+var
+  body:String8;
+  eName:String8;
+  e:TUIElement;
+  r:TRect;
+begin
+  eName:=GetParam(req,'NAME');
+  if eName='' then exit(FormatResponse(req.id,'ERROR','','NAME parameter required'));
+  UICritSect.Enter;
+  try
+    e:=FindElement(eName,false);
+    if e=nil then exit(FormatResponse(req.id,'ERROR','','element not found: '+eName));
+    r:=e.GetPosOnScreen;
+    body:='name: '+e.name+CRLF+
+      'class: '+String8(e.ClassName)+CRLF+
+      'position: '+Conv.ToStr(e.position.x,1)+','+Conv.ToStr(e.position.y,1)+CRLF+
+      'size: '+Conv.ToStr(e.size.x,1)+','+Conv.ToStr(e.size.y,1)+CRLF+
+      'pivot: '+Conv.ToStr(e.pivot.x,1)+','+Conv.ToStr(e.pivot.y,1)+CRLF+
+      'scale: '+Conv.ToStr(e.scale,2)+CRLF+
+      'globalRect: '+Conv.ToStr(r.Left)+','+Conv.ToStr(r.Top)+','+Conv.ToStr(r.Right)+','+Conv.ToStr(r.Bottom)+CRLF+
+      'visible: '+Conv.ToStr(e.visible)+CRLF+
+      'enabled: '+Conv.ToStr(e.enabled)+CRLF+
+      'parentClip: '+Conv.ToStr(e.parentClip)+CRLF+
+      'clipChildren: '+Conv.ToStr(e.clipChildren)+CRLF+
+      'order: '+Conv.ToStr(e.order)+CRLF+
+      'caption: '+e.caption+CRLF+
+      'hint: '+e.hint+CRLF+
+      'styleInfo: '+e.styleInfo+CRLF+
+      'color: '+Conv.ToHex(e.color)+CRLF+
+      'font: '+Conv.ToStr(integer(e.font))+CRLF;
+    if e.parent<>nil then
+      body:=body+'parent: '+e.parent.name+CRLF
+    else
+      body:=body+'parent: (none)'+CRLF;
+    body:=body+'childCount: '+Conv.ToStr(length(e.children))+CRLF+
+      'focused: '+Conv.ToStr(FocusedElement=e)+CRLF+
+      'underMouse: '+Conv.ToStr(underMouse=e)+CRLF;
+  finally
+    UICritSect.Leave;
+  end;
+  result:=FormatResponse(req.id,'OK',body);
+end;
+
+function CmdUIHitTest(const req:TRequest):String8;
+var
+  body:String8;
+  x,y:integer;
+  c,p:TUIElement;
+  chain:String8;
+  enabled:boolean;
+begin
+  x:=Conv.ToInt(GetParam(req,'X'));
+  y:=Conv.ToInt(GetParam(req,'Y'));
+  // FindAnyElementAt locks UICritSect internally
+  enabled:=FindAnyElementAt(x,y,c);
+  if c=nil then begin
+    body:='hit: (none)'+CRLF;
+  end else begin
+    // build chain from root to hit element
+    chain:=c.name;
+    p:=c.parent;
+    while p<>nil do begin
+      chain:=p.name+' > '+chain;
+      p:=p.parent;
+    end;
+    body:='hit: '+c.name+CRLF+
+      'hitClass: '+String8(c.ClassName)+CRLF+
+      'chain: '+chain+CRLF+
+      'enabled: '+Conv.ToStr(enabled)+CRLF;
+  end;
+  if modalElement<>nil then
+    body:=body+'modal: '+modalElement.name+CRLF
+  else
+    body:=body+'modal: (none)'+CRLF;
+  result:=FormatResponse(req.id,'OK',body);
+end;
+
 function HandleRequest(const req:TRequest):String8;
 begin
   if req.cmd='windows' then
@@ -182,6 +331,12 @@ begin
     result:=CmdFps(req)
   else if req.cmd='scenes' then
     result:=CmdScenes(req)
+  else if req.cmd='ui.tree' then
+    result:=CmdUITree(req)
+  else if req.cmd='ui.element' then
+    result:=CmdUIElement(req)
+  else if req.cmd='ui.hittest' then
+    result:=CmdUIHitTest(req)
   else
     result:=FormatResponse(req.id,'ERROR','','unknown command: '+req.cmd);
 end;
@@ -189,7 +344,7 @@ end;
 procedure ProcessInputFile;
 var
   content:String8;
-  requests:TArray<TRequest>;
+  requests:TRequestArray;
   response:String8;
   i:integer;
 begin

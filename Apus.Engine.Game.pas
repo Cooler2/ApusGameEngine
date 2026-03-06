@@ -22,8 +22,6 @@ var
  disableDRT:boolean=false; // always render directly to the backbuffer - no
  useDepthTexture:boolean=false; // when default RT is used, allocate a depth buffer texture instead of regular depth buffer
 
- function GetAllScenes:TArray<TGameScene>;
-
 type
  { TGame }
  TGame=class(TGameBase)
@@ -663,24 +661,6 @@ function TGame.GetScene(name:string):TGameScene;
   end;
   ASSERT(result<>nil,'Scene '+name+' not found!');
  end;
-
-function GetAllScenes:TArray<TGameScene>;
-var
-  i:integer;
-  g:TGame;
-begin
-  result:=nil;
-  if (game=nil) or not (game is TGame) then exit;
-  g:=TGame(game);
-  g.EnterCritSect;
-  try
-    SetLength(result,length(g.scenes));
-    for i:=0 to high(g.scenes) do
-      result[i]:=g.scenes[i];
-  finally
-    g.LeaveCritSect;
-  end;
-end;
 
 function TGame.GetSettings:TGameSettings;
  begin

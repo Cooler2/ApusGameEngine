@@ -31,7 +31,7 @@ Implement:
 
 **Acceptance:** `ui.tree` matches visual layout; `ui.element` returns full property set; `ui.hittest` correctly identifies elements.
 
-**Status: NOT STARTED**
+**Status: DONE**
 
 ## Stage 4: Commands and Signals
 Implement:
@@ -66,6 +66,45 @@ Implement:
 - Document usage examples for Claude Code automation
 
 **Status: NOT STARTED**
+
+## Implementation Notes
+
+### Parsing
+- Use `TNameValue` / `TNameValueList` from `Apus.Types` for key-value parsing.
+  - `nv.InitFrom(line, ':')` splits by first `:`, trims both parts.
+  - `nv.Named('KEY')` for case-insensitive name comparison.
+  - `TNameValueList.Item[key]` for lookup by name.
+  - Handles colons in values correctly (splits on first `:` only).
+
+### Object Lookup
+- Almost all engine objects inherit from `TNamedObject` (in `Apus.Classes`).
+  - Use `TMyClass.FindByName(name)` for global lookup — no manual iteration needed.
+  - Works for scenes (`TGameScene`), UI elements (`TUIElement`), textures, etc.
+  - Returns `TObject`, cast to expected type; returns `nil` if not found.
+- `FindElement(name, mustExist)` in `Apus.Engine.UI` wraps `TUIElement.FindByName`.
+- `FindAnyElementAt(x,y,c)` / `FindElementAt(x,y,c)` for hit testing — locks `UICritSect` internally.
+
+### Accessing Protected Fields
+- Use `TGameHelper = class(TGame)` pattern to access protected `scenes[]` array.
+  - Cast `game` via `TGameHelper(game)` — safe because `game` is always `TGame`.
+  - Keep all scene iteration and locking inside helper methods.
+  - Don't expose raw scene arrays outside the helper.
+
+### Locking
+- `game.EnterCritSect` / `game.LeaveCritSect` for scene list access.
+- `UICritSect` (from `Apus.Engine.UITypes`) for `rootElements[]` and `children[]` traversal.
+- `FindAnyElementAt` / `FindElementAt` lock `UICritSect` internally — don't double-lock.
+- TLock is recursive (Windows CriticalSection), so double-lock is safe but wasteful.
+
+### FPC Quirks Encountered
+- `TArray<T>` from different units are incompatible in FPC 3.2 — use named array types (`TRequestArray = array of TRequest`).
+- `result:=nil` doesn't compile for dynamic arrays of managed records — use `SetLength(result,0)`.
+- `SysUtils` is not needed if `Apus.Core` is in uses — it re-exports `Exception`.
+
+### Conv API for Responses
+- `Conv.ToStr(integer)` / `Conv.ToStr(single, decimals)` / `Conv.ToStr(boolean)` for formatting.
+- `Conv.ToHex(cardinal)` for ARGB color output.
+- `Conv.ToInt(string)` for parsing integer params (returns 0 for empty/invalid).
 
 ## Dependencies
 - No external dependencies beyond existing engine modules

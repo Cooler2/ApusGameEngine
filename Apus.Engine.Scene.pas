@@ -120,7 +120,6 @@ type
   keyBuffer:TQueue;
  end;
 
-
 implementation
 uses SysUtils,
   Apus.Strings,
