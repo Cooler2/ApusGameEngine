@@ -61,6 +61,7 @@ implementation
    Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
    Apus.Engine.CmdProc, Apus.Engine.Console, Apus.Engine.API,
   Apus.Engine.RobotAPI,
+  Apus.Engine.UILayout,
   Apus.Log,
   Apus.Conv,
   Apus.Strings,
@@ -721,40 +722,99 @@ end;
 function RobotCmdUIElement(const req:TRobotRequest; out body:String8):boolean;
 var
   eName:String8;
+  includeHierarchy:boolean;
   e:TUIElement;
-  r:TRect;
+  chain:array of TUIElement;
+  c:TUIElement;
+  i,n:integer;
+
+  function IsTrueValue(const st:String8):boolean;
+  var
+    v:String8;
+  begin
+    v:=st.Trim.ToLower;
+    result:=(v='1') or (v='true') or (v='yes') or (v='on') or (v='y');
+  end;
+
+  function RectToStr(const r:TRect):String8;
+  begin
+    result:=Conv.ToStr(r.Left)+','+Conv.ToStr(r.Top)+','+Conv.ToStr(r.Right)+','+Conv.ToStr(r.Bottom);
+  end;
+
+  function PrefixLines(const text,prefix:String8):String8;
+  var
+    lines:Strings8;
+    j:integer;
+  begin
+    result:='';
+    lines:=text.SplitLines;
+    for j:=0 to high(lines) do
+      if lines[j]<>'' then
+        result:=result+prefix+lines[j]+#13#10;
+  end;
+
+  procedure AppendElementInfo(el:TUIElement;prefix:String8);
+  var
+    r:TRect;
+  begin
+    r:=el.GetPosOnScreen; // always compute current rect
+    body:=body+
+      prefix+'name: '+el.name+#13#10+
+      prefix+'class: '+String8(el.ClassName)+#13#10+
+      prefix+'position: '+Conv.ToStr(el.position.x,1)+','+Conv.ToStr(el.position.y,1)+#13#10+
+      prefix+'size: '+Conv.ToStr(el.size.x,1)+','+Conv.ToStr(el.size.y,1)+#13#10+
+      prefix+'pivot: '+Conv.ToStr(el.pivot.x,1)+','+Conv.ToStr(el.pivot.y,1)+#13#10+
+      prefix+'scale: '+Conv.ToStr(el.scale,2)+#13#10+
+      prefix+'globalRect: '+RectToStr(r)+#13#10+
+      prefix+'visible: '+Conv.ToStr(el.visible)+#13#10+
+      prefix+'visibleInternal: '+Conv.ToStr(el.visible)+#13#10+
+      prefix+'visibleEffective: '+Conv.ToStr(el.IsVisible)+#13#10+
+      prefix+'enabled: '+Conv.ToStr(el.enabled)+#13#10+
+      prefix+'enabledInternal: '+Conv.ToStr(el.enabled)+#13#10+
+      prefix+'enabledEffective: '+Conv.ToStr(el.IsEnabled)+#13#10+
+      prefix+'parentClip: '+Conv.ToStr(el.parentClip)+#13#10+
+      prefix+'clipChildren: '+Conv.ToStr(el.clipChildren)+#13#10+
+      prefix+'order: '+Conv.ToStr(el.order)+#13#10+
+      prefix+'caption: '+el.caption+#13#10+
+      prefix+'hint: '+el.hint+#13#10+
+      prefix+'styleInfo: '+el.styleInfo+#13#10+
+      prefix+'color: '+Conv.ToHex(el.color)+#13#10+
+      prefix+'font: '+Conv.ToStr(integer(el.font))+#13#10;
+    if el.layout<>nil then
+      body:=body+PrefixLines(DescribeLayouter(el.layout),prefix);
+    if el.parent<>nil then
+      body:=body+prefix+'parent: '+el.parent.name+#13#10
+    else
+      body:=body+prefix+'parent: (none)'+#13#10;
+    body:=body+prefix+'childCount: '+Conv.ToStr(length(el.children))+#13#10+
+      prefix+'focused: '+Conv.ToStr(FocusedElement=el)+#13#10+
+      prefix+'underMouse: '+Conv.ToStr(underMouse=el)+#13#10;
+  end;
 begin
   eName:=req.Param('NAME');
+  includeHierarchy:=IsTrueValue(req.Param('HIERARCHY'));
   if eName='' then begin body:='NAME parameter required'; exit(false) end;
   UICritSect.Enter;
   try
     e:=FindElement(eName,false);
     if e=nil then begin body:='element not found: '+eName; exit(false) end;
-    r:=e.GetPosOnScreen;
-    body:='name: '+e.name+#13#10+
-      'class: '+String8(e.ClassName)+#13#10+
-      'position: '+Conv.ToStr(e.position.x,1)+','+Conv.ToStr(e.position.y,1)+#13#10+
-      'size: '+Conv.ToStr(e.size.x,1)+','+Conv.ToStr(e.size.y,1)+#13#10+
-      'pivot: '+Conv.ToStr(e.pivot.x,1)+','+Conv.ToStr(e.pivot.y,1)+#13#10+
-      'scale: '+Conv.ToStr(e.scale,2)+#13#10+
-      'globalRect: '+Conv.ToStr(r.Left)+','+Conv.ToStr(r.Top)+','+Conv.ToStr(r.Right)+','+Conv.ToStr(r.Bottom)+#13#10+
-      'visible: '+Conv.ToStr(e.visible)+#13#10+
-      'enabled: '+Conv.ToStr(e.enabled)+#13#10+
-      'parentClip: '+Conv.ToStr(e.parentClip)+#13#10+
-      'clipChildren: '+Conv.ToStr(e.clipChildren)+#13#10+
-      'order: '+Conv.ToStr(e.order)+#13#10+
-      'caption: '+e.caption+#13#10+
-      'hint: '+e.hint+#13#10+
-      'styleInfo: '+e.styleInfo+#13#10+
-      'color: '+Conv.ToHex(e.color)+#13#10+
-      'font: '+Conv.ToStr(integer(e.font))+#13#10;
-    if e.parent<>nil then
-      body:=body+'parent: '+e.parent.name+#13#10
-    else
-      body:=body+'parent: (none)'+#13#10;
-    body:=body+'childCount: '+Conv.ToStr(length(e.children))+#13#10+
-      'focused: '+Conv.ToStr(FocusedElement=e)+#13#10+
-      'underMouse: '+Conv.ToStr(underMouse=e)+#13#10;
+    body:='';
+    AppendElementInfo(e,'');
+    if includeHierarchy then begin
+      c:=e.parent; // requested element is already in the root block
+      SetLength(chain,0);
+      while c<>nil do begin
+        n:=length(chain);
+        SetLength(chain,n+1);
+        chain[n]:=c;
+        c:=c.parent;
+      end;
+      body:=body+'hierarchyCount: '+Conv.ToStr(length(chain))+#13#10;
+      for i:=0 to high(chain) do begin
+        body:=body+'HIERARCHY: '+Conv.ToStr(i+1)+#13#10;
+        AppendElementInfo(chain[i],'  ');
+      end;
+    end;
   finally
     UICritSect.Leave;
   end;

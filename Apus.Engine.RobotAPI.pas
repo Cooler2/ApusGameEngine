@@ -124,11 +124,14 @@ var
 begin
   for i:=0 to commandCount-1 do
     if commands[i].name=req.cmd then begin
+      Log.Info('RoboReq: '+commands[i].name);
       ok:=commands[i].handler(req,body);
       if ok then
         result:='ID: '+req.id+CRLF+'STATUS: OK'+CRLF+body+'==='+CRLF
-      else
+      else begin
         result:='ID: '+req.id+CRLF+'STATUS: ERROR'+CRLF+'MSG: '+body+CRLF+'==='+CRLF;
+        Log.Warn('RoboReq FAIL: '+body);
+      end;
       exit;
     end;
   result:='ID: '+req.id+CRLF+'STATUS: ERROR'+CRLF+'MSG: unknown command: '+req.cmd+CRLF+'==='+CRLF;

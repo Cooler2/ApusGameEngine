@@ -6,7 +6,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.UILayout;
 interface
-uses Apus.Engine.UITypes;
+uses Apus.Core, Apus.Engine.UITypes;
 
 type
  // Layout elements in a row/column
@@ -46,9 +46,12 @@ type
   procedure LayoutFlex(parent:TUIElement;list:TUIElements);
  end;
 
+ // Build a readable dump of layouter type and key configuration.
+ function DescribeLayouter(layout:TLayouter;indent:String8='  '):String8;
+
 
 implementation
-uses Apus.Core, Apus.Geom2D;
+uses Apus.Geom2D, Apus.Conv;
 
  { TRowLayout }
 
@@ -251,4 +254,35 @@ procedure TRowLayout.Layout(item:TUIElement);
    end;
   end;
 
+function DescribeLayouter(layout:TLayouter;indent:String8='  '):String8;
+var
+  s:String8;
+begin
+  if layout=nil then exit('');
+  s:='layout:'+#13#10+
+    indent+'class: '+String8(layout.ClassName)+#13#10;
+  if layout is TRowLayout then begin
+    s:=s+
+      indent+'horizontal: '+Conv.ToStr(TRowLayout(layout).fHorizontal)+#13#10+
+      indent+'resizeToContent: '+Conv.ToStr(TRowLayout(layout).fResize)+#13#10+
+      indent+'center: '+Conv.ToStr(TRowLayout(layout).fCenter)+#13#10+
+      indent+'spaceBetween: '+Conv.ToStr(TRowLayout(layout).fSpaceBetween,3)+#13#10;
+  end else if layout is TFlexboxLayout then begin
+    s:=s+
+      indent+'vertical: '+Conv.ToStr(TFlexboxLayout(layout).vertical)+#13#10+
+      indent+'spaceBetween: '+Conv.ToStr(TFlexboxLayout(layout).spaceBetween,3)+#13#10;
+  end else if layout is TGridLayout then begin
+    s:=s+
+      indent+'vertSpace: '+Conv.ToStr(TGridLayout(layout).vertSpace,3)+#13#10+
+      indent+'horSpace: '+Conv.ToStr(TGridLayout(layout).horSpace,3)+#13#10+
+      indent+'paddingV: '+Conv.ToStr(TGridLayout(layout).paddingV,3)+#13#10+
+      indent+'paddingH: '+Conv.ToStr(TGridLayout(layout).paddingH,3)+#13#10+
+      indent+'desiredWidth: '+Conv.ToStr(TGridLayout(layout).desiredWidth,3)+#13#10+
+      indent+'center: '+Conv.ToStr(TGridLayout(layout).center)+#13#10+
+      indent+'allowResize: '+Conv.ToStr(TGridLayout(layout).allowResize)+#13#10;
+  end;
+  result:=s;
+end;
+
 end.
+

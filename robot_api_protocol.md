@@ -56,7 +56,18 @@ Each response block ends with `===`. Multi-item output uses repeated key prefixe
 
 ### `ui.element` — detailed element info by name.
 - `NAME`: element name (required).
-- Returns: name, class, position, size, pivot, scale, globalRect, visible, enabled, parentClip, clipChildren, order, caption, hint, styleInfo, color, font, parent, childCount, focused, underMouse.
+- `HIERARCHY`: optional boolean (`1/true/yes/on/y`) to include element ancestors in output.
+- Returns:
+  - base fields: name, class, position, size, pivot, scale, globalRect
+  - visibility/enabled states: `visible`, `visibleInternal`, `visibleEffective`, `enabled`, `enabledInternal`, `enabledEffective`
+  - misc: parentClip, clipChildren, order, caption, hint, styleInfo, color, font, parent, childCount, focused, underMouse
+  - layout block (if present):
+    - `layout:`
+      - `class: <layouterClass>`
+      - plus type-specific fields (for known layouters)
+  - when `HIERARCHY` is enabled:
+    - `hierarchyCount: N`
+    - repeated `HIERARCHY: <index>` blocks with full element details for ancestors only (`1=parent`, then up to root)
 
 ### `ui.hittest` — find element at screen coordinates.
 - `X`, `Y`: screen coordinates.
