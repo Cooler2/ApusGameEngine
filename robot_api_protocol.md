@@ -107,7 +107,10 @@ Request:
 ```
 ID: 3
 CMD: scenes
+ACTIVE_ONLY: true
 ```
+Parameters:
+- `ACTIVE_ONLY`: if present, only return scenes with status=active
 Response:
 ```
 ID: 3

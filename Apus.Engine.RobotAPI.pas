@@ -46,11 +46,11 @@ var
 
 type
   TGameHelper = class(TGame)
-    function FormatScenes:String8;
+    function FormatScenes(activeOnly:boolean):String8;
     function FindUISceneRoot(const sceneName:String8):TUIElement;
   end;
 
-function TGameHelper.FormatScenes:String8;
+function TGameHelper.FormatScenes(activeOnly:boolean):String8;
 var
   i:integer;
   s:TGameScene;
@@ -60,6 +60,7 @@ begin
   try
     for i:=0 to high(scenes) do begin
       s:=scenes[i];
+      if activeOnly and (s.status<>ssActive) then continue;
       result:=result+'SCENE: '+s.name+CRLF+
         '  status: '+statusNames[s.status]+CRLF+
         '  zOrder: '+Conv.ToStr(s.zOrder)+CRLF+
@@ -179,8 +180,10 @@ end;
 function CmdScenes(const req:TRequest):String8;
 var
   body:String8;
+  activeOnly:boolean;
 begin
-  body:=TGameHelper(game).FormatScenes;
+  activeOnly:=GetParam(req,'ACTIVE_ONLY')<>'';
+  body:=TGameHelper(game).FormatScenes(activeOnly);
   if body='' then exit(FormatResponse(req.id,'ERROR','','no scenes available'));
   result:=FormatResponse(req.id,'OK',body);
 end;
@@ -343,9 +346,8 @@ end;
 
 procedure ProcessInputFile;
 var
-  content:String8;
+  content,response:String8;
   requests:TRequestArray;
-  response:String8;
   i:integer;
 begin
   if not Files.Exists(INPUT_FILE) then exit;
@@ -364,7 +366,7 @@ begin
 
   Files.Save(OUTPUT_FILE,response);
   Files.Delete(INPUT_FILE);
-  Log.Msg('RobotAPI: processed '+Conv.ToStr(length(requests))+' request(s)');
+  Log.Msg('RobotAPI: processed %d request(s)',[length(requests)]);
 end;
 
 procedure InitRobotAPI;
