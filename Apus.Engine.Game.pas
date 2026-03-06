@@ -22,6 +22,9 @@ var
  disableDRT:boolean=false; // always render directly to the backbuffer - no
  useDepthTexture:boolean=false; // when default RT is used, allocate a depth buffer texture instead of regular depth buffer
 
+const
+  FRAME_TIME_RING_SIZE = 512;
+
 type
  { TGame }
  TGame=class(TGameBase)
@@ -129,6 +132,15 @@ type
   // FPS calc
   fpsAccumTime:integer;
   fpsAccumFrames:integer;
+  // Recent frame time history for Robot API diagnostics (microseconds)
+  frameTimeRing:array[0..FRAME_TIME_RING_SIZE-1] of integer;
+  frameTimeRingPos:integer;
+  frameTimeRingCount:integer;
+  lastFrameTimeUs:integer;
+  frameTimer:int64;
+  frameTimerReady:boolean;
+  lastFpsUpdate:int64;
+  lastSmoothFpsUpdate:int64;
 
   curPrior:integer; // приоритет текущего отображаемого курсора
   wndCursor:THandle; // current system cursor
@@ -168,6 +180,9 @@ type
   procedure FrameLoop; virtual; // One iteration of the frame loop
   procedure RenderAndPresentFrame; virtual; // May be called from the message handlers
   procedure PresentFrame; virtual;  // Displays back buffer
+  procedure PushFrameTimeSample(deltaUs:integer); virtual;
+  function CalcTrimmedFrameMs(windowUs,minFrames,trimPermille:integer; out avgMs:double):boolean; virtual;
+  procedure UpdateFpsMetrics; virtual;
 
   procedure DoneGraph; virtual; // Финализация графической части
   // Производит захват кадра и производит с ним необходимые действия
@@ -888,12 +903,29 @@ begin
 end;
 
 function RobotCmdFps(const req:TRobotRequest; out body:String8):boolean;
+var
+  g:TGame;
+  n,i,idx:integer;
 begin
-  if game=nil then begin body:='game not initialized'; exit(false) end;
-  body:='fps: '+Conv.ToStr(game.FPS,2)+#13#10+
-    'smoothFPS: '+Conv.ToStr(game.smoothFPS,2)+#13#10+
-    'frameNum: '+Conv.ToStr(game.frameNum)+#13#10+
-    'frameTime: '+Conv.ToStr(integer(game.frameTimeDelta))+#13#10;
+  g:=game as TGame;
+  if g=nil then begin body:='game not initialized'; exit(false) end;
+  body:='fps: '+Conv.ToStr(g.FPS,2)+#13#10+
+    'smoothFPS: '+Conv.ToStr(g.smoothFPS,2)+#13#10+
+    'frameNum: '+Conv.ToStr(g.frameNum)+#13#10+
+    'frameTimeMs: '+Conv.ToStr(g.lastFrameTimeUs*0.001,2)+#13#10;
+  n:=Conv.ToInt(req.Param('N'));
+  if n>0 then begin
+    if n>g.frameTimeRingCount then n:=g.frameTimeRingCount;
+    if n>FRAME_TIME_RING_SIZE then n:=FRAME_TIME_RING_SIZE;
+    body:=body+'historyCount: '+Conv.ToStr(n)+#13#10;
+    if n>0 then begin
+      idx:=g.frameTimeRingPos-n;
+      if idx<0 then inc(idx,FRAME_TIME_RING_SIZE);
+      for i:=0 to n-1 do begin
+        body:=body+'FRAME_MS: '+Conv.ToStr(g.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
+      end;
+    end;
+  end;
   result:=true;
 end;
 
@@ -994,6 +1026,13 @@ begin
 
   LastOnFrameTime:=CoreTime.Ticks;
   LastRenderTime:=CoreTime.Ticks;
+  frameTimeRingPos:=0;
+  frameTimeRingCount:=0;
+  lastFrameTimeUs:=0;
+  StartTimer(frameTimer);
+  frameTimerReady:=false;
+  lastFpsUpdate:=0;
+  lastSmoothFpsUpdate:=0;
 
   RegisterGameRobotCommands;
   InitRobotAPI;
@@ -1010,6 +1049,99 @@ begin
    running:=false;
    Halt(254);
   end;
+ end;
+end;
+
+procedure TGame.PushFrameTimeSample(deltaUs:integer);
+begin
+  if deltaUs<0 then deltaUs:=0;
+  lastFrameTimeUs:=deltaUs;
+  frameTimeRing[frameTimeRingPos]:=deltaUs;
+  inc(frameTimeRingPos);
+  if frameTimeRingPos>=FRAME_TIME_RING_SIZE then frameTimeRingPos:=0;
+  if frameTimeRingCount<FRAME_TIME_RING_SIZE then inc(frameTimeRingCount);
+end;
+
+function TGame.CalcTrimmedFrameMs(windowUs,minFrames,trimPermille:integer; out avgMs:double):boolean;
+var
+ i,j,idx,count,trim,n:integer;
+ totalUs:int64;
+ sample,tmp:integer;
+ values:array[0..FRAME_TIME_RING_SIZE-1] of integer;
+begin
+ result:=false;
+ avgMs:=0;
+ if frameTimeRingCount<=0 then exit;
+ if minFrames<1 then minFrames:=1;
+ if trimPermille<0 then trimPermille:=0;
+ if trimPermille>450 then trimPermille:=450;
+
+ idx:=frameTimeRingPos-1;
+ if idx<0 then idx:=FRAME_TIME_RING_SIZE-1;
+ count:=0;
+ totalUs:=0;
+ while count<frameTimeRingCount do begin
+  sample:=frameTimeRing[idx];
+  values[count]:=sample;
+  inc(totalUs,sample);
+  inc(count);
+  if (totalUs>=windowUs) and (count>=minFrames) then break;
+  dec(idx);
+  if idx<0 then idx:=FRAME_TIME_RING_SIZE-1;
+ end;
+ if count<=0 then exit;
+
+ // Insertion sort is enough here because sample count is small.
+ for i:=1 to count-1 do begin
+  tmp:=values[i];
+  j:=i-1;
+  while (j>=0) and (values[j]>tmp) do begin
+   values[j+1]:=values[j];
+   dec(j);
+  end;
+  values[j+1]:=tmp;
+ end;
+
+ trim:=(count*trimPermille) div 1000;
+ if trim*2>=count then trim:=0;
+ totalUs:=0;
+ n:=0;
+ for i:=trim to count-trim-1 do begin
+  inc(totalUs,values[i]);
+  inc(n);
+ end;
+ if n<=0 then exit;
+ avgMs:=totalUs/n/1000.0;
+ result:=true;
+end;
+
+procedure TGame.UpdateFpsMetrics;
+const
+ FPS_WINDOW_US=200000;
+ FPS_MIN_FRAMES=20;
+ FPS_TRIM_PERMILLE=100;
+ SMOOTH_WINDOW_US=3000000;
+ SMOOTH_MIN_FRAMES=60;
+ SMOOTH_TRIM_PERMILLE=100;
+ FPS_UPDATE_INTERVAL_MS=100; // <=10 updates/sec
+ SMOOTH_UPDATE_INTERVAL_MS=500; // <=2 updates/sec
+var
+ avgMs:double;
+ nowTicks:int64;
+begin
+ nowTicks:=CoreTime.Ticks;
+ if nowTicks>=lastFpsUpdate+FPS_UPDATE_INTERVAL_MS then begin
+  if CalcTrimmedFrameMs(FPS_WINDOW_US,FPS_MIN_FRAMES,FPS_TRIM_PERMILLE,avgMs) then begin
+   if avgMs>0.001 then FPS:=1000.0/avgMs else FPS:=0;
+  end;
+  lastFpsUpdate:=nowTicks;
+ end;
+ if nowTicks>=lastSmoothFpsUpdate+SMOOTH_UPDATE_INTERVAL_MS then begin
+  if CalcTrimmedFrameMs(SMOOTH_WINDOW_US,SMOOTH_MIN_FRAMES,SMOOTH_TRIM_PERMILLE,avgMs) then begin
+   if avgMs>0.001 then SmoothFPS:=1000.0/avgMs else SmoothFPS:=0;
+  end else
+   SmoothFPS:=FPS;
+  lastSmoothFpsUpdate:=nowTicks;
  end;
 end;
 
@@ -2413,21 +2545,21 @@ procedure TGame.RenderAndPresentFrame;
  var
   ticks:int64;
   i:integer;
+  deltaUs:int64;
  begin
    ticks:=CoreTime.Ticks;
    if frameStartTime>0 then frameTimeDelta:=ticks-frameStartTime
     else frameTimeDelta:=20; // initial value
    frameStartTime:=ticks;
+   deltaUs:=frameTimeDelta*1000;
+   if frameTimerReady then
+    deltaUs:=round(TimerSec(frameTimer)*1000000);
+   StartTimer(frameTimer);
+   frameTimerReady:=true;
+   PushFrameTimeSample(integer(Clamp(deltaUs,0,high(integer))));
 
-   // FPS
-   inc(fpsAccumTime,frameTimeDelta);
-   inc(fpsAccumFrames);
-   if (fpsAccumTime>250) then begin
-    FPS:=1000*fpsAccumFrames/fpsAccumTime;
-    SmoothFPS:=SmoothFPS*0.8+FPS*0.2;
-    fpsAccumFrames:=0;
-    fpsAccumTime:=0;
-   end;
+   // FPS / SmoothFPS based on trimmed mean of recent frame times.
+   UpdateFpsMetrics;
 
    if frameTimeDelta>500 then
     Log.Msg('Warning: main loop stall for '+inttostr(frameTimeDelta)+' ms');
