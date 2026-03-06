@@ -73,7 +73,7 @@
         <DCC_Define>DELPHI;OPENGL;LODEPNG;$(DCC_Define)</DCC_Define>
         <DCC_WriteableConstants>true</DCC_WriteableConstants>
         <DCC_DebugInformation>1</DCC_DebugInformation>
-        <DCC_ExeOutput>..\..\bin</DCC_ExeOutput>
+        <DCC_ExeOutput>..\..\bin</DCC_ExeOutput>`r`n        <DCC_DcuOutput>..\..\units</DCC_DcuOutput>
         <DCC_SymbolReferenceInfo>0</DCC_SymbolReferenceInfo>
         <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
         <ImageDebugInfo>true</ImageDebugInfo>
@@ -102,7 +102,7 @@
         <UWP_DelphiLogo150>$(BDS)\bin\Artwork\Windows\UWP\delphi_UwpDefault_150.png</UWP_DelphiLogo150>
         <UWP_CppLogo44>$(BDS)\bin\Artwork\Windows\UWP\cppreg_UwpDefault_44.png</UWP_CppLogo44>
         <UWP_CppLogo150>$(BDS)\bin\Artwork\Windows\UWP\cppreg_UwpDefault_150.png</UWP_CppLogo150>
-        <DCC_ExeOutput>..\..\bin64</DCC_ExeOutput>
+        <DCC_ExeOutput>..\..\bin64</DCC_ExeOutput>`r`n        <DCC_DcuOutput>..\..\units</DCC_DcuOutput>
         <DCC_DebugInformation>2</DCC_DebugInformation>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1)'!=''">
@@ -116,7 +116,7 @@
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName)</VerInfo_Keys>
-        <DCC_ExeOutput>..\..\bin</DCC_ExeOutput>
+        <DCC_ExeOutput>..\..\bin</DCC_ExeOutput>`r`n        <DCC_DcuOutput>..\..\units</DCC_DcuOutput>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
@@ -1160,3 +1160,4 @@
     <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
     <Import Project="$(MSBuildProjectName).deployproj" Condition="Exists('$(MSBuildProjectName).deployproj')"/>
 </Project>
+

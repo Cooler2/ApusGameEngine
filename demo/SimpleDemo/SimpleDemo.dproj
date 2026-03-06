@@ -83,7 +83,7 @@
         <DCC_UnitSearchPath>..\..;..\..\extra;..\..\base;..\..\base\extra;..\..\extra\sdl2;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_Define>DELPHI;OPENGL;LODEPNG;FREETYPE;$(DCC_Define)</DCC_Define>
         <DCC_WriteableConstants>true</DCC_WriteableConstants>
-        <DCC_ExeOutput>..\..\bin</DCC_ExeOutput>
+        <DCC_ExeOutput>..\..\bin</DCC_ExeOutput>`r`n        <DCC_DcuOutput>..\..\units</DCC_DcuOutput>
         <DCC_RangeChecking>true</DCC_RangeChecking>
         <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
         <ImageDebugInfo>true</ImageDebugInfo>
@@ -107,7 +107,7 @@
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1)'!=''">
-        <DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>
+        <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
         <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
@@ -116,12 +116,12 @@
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName)</VerInfo_Keys>
-        <DCC_ExeOutput>..\..\bin</DCC_ExeOutput>
+        <DCC_ExeOutput>..\..\bin</DCC_ExeOutput>`r`n        <DCC_DcuOutput>..\..\units</DCC_DcuOutput>
         <DCC_Optimize>false</DCC_Optimize>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppDPIAwarenessMode>PerMonitor</AppDPIAwarenessMode>
-        <DCC_ExeOutput>..\..\bin64</DCC_ExeOutput>
+        <DCC_ExeOutput>..\..\bin64</DCC_ExeOutput>`r`n        <DCC_DcuOutput>..\..\units</DCC_DcuOutput>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
@@ -129,7 +129,7 @@
         <Debugger_RunParams>-GLDEBUGCTX</Debugger_RunParams>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
-        <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
+        <DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>
         <DCC_Optimize>false</DCC_Optimize>
         <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
     </PropertyGroup>
@@ -157,7 +157,7 @@
     <PropertyGroup Condition="'$(Cfg_3_Win64)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
         <AppDPIAwarenessMode>PerMonitor</AppDPIAwarenessMode>
-        <DCC_ExeOutput>..\..\bin64</DCC_ExeOutput>
+        <DCC_ExeOutput>..\..\bin64</DCC_ExeOutput>`r`n        <DCC_DcuOutput>..\..\units</DCC_DcuOutput>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
@@ -206,3 +206,4 @@
     <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')"/>
     <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
 </Project>
+
