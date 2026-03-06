@@ -141,6 +141,18 @@ type
   frameTimerReady:boolean;
   lastFpsUpdate:int64;
   lastSmoothFpsUpdate:int64;
+  fpsPhaseMetrics:boolean; // collect per-phase timings for robot diagnostics
+  phaseMsgRing:array[0..FRAME_TIME_RING_SIZE-1] of integer;
+  phaseOnFrameRing:array[0..FRAME_TIME_RING_SIZE-1] of integer;
+  phaseRenderRing:array[0..FRAME_TIME_RING_SIZE-1] of integer;
+  phasePresentRing:array[0..FRAME_TIME_RING_SIZE-1] of integer;
+  phaseSleepRing:array[0..FRAME_TIME_RING_SIZE-1] of integer;
+  lastMsgUs:integer;
+  lastOnFrameUs:integer;
+  lastRenderUs:integer;
+  lastPresentUs:integer;
+  lastSleepUs:integer;
+  pendingMsgUs:integer;
 
   curPrior:integer; // приоритет текущего отображаемого курсора
   wndCursor:THandle; // current system cursor
@@ -180,7 +192,7 @@ type
   procedure FrameLoop; virtual; // One iteration of the frame loop
   procedure RenderAndPresentFrame; virtual; // May be called from the message handlers
   procedure PresentFrame; virtual;  // Displays back buffer
-  procedure PushFrameTimeSample(deltaUs:integer); virtual;
+  procedure PushFrameTimeSample(deltaUs,msgUs,onFrameUs,renderUs,presentUs,sleepUs:integer); virtual;
   function CalcTrimmedFrameMs(windowUs,minFrames,trimPermille:integer; out avgMs:double):boolean; virtual;
   procedure UpdateFpsMetrics; virtual;
 
@@ -887,6 +899,13 @@ end;
 // --- Robot API command handlers ---
 const
  statusNames:array[TSceneStatus] of String8 = ('frozen','background','active');
+  ROBOT_PENDING_TOKEN='@PENDING@';
+
+var
+  fpsMetricsPending:boolean=false;
+  fpsMetricsReqId:String8='';
+  fpsMetricsStartFrame:int64=0;
+  fpsMetricsTargetFrames:integer=0;
 
 function RobotCmdWindows(const req:TRobotRequest; out body:String8):boolean;
 begin
@@ -905,15 +924,50 @@ end;
 function RobotCmdFps(const req:TRobotRequest; out body:String8):boolean;
 var
   g:TGame;
-  n,i,idx:integer;
+  n,i,idx,startFrameNum:integer;
+  collectMetrics:boolean;
 begin
   g:=game as TGame;
   if g=nil then begin body:='game not initialized'; exit(false) end;
+  collectMetrics:=Conv.ToBool(req.Param('METRICS'));
+  n:=Conv.ToInt(req.Param('N'));
+  if collectMetrics and (n<=0) then n:=50;
+
+  if collectMetrics then begin
+    if (not fpsMetricsPending) or (fpsMetricsReqId<>req.id) then begin
+      fpsMetricsPending:=true;
+      fpsMetricsReqId:=req.id;
+      fpsMetricsStartFrame:=g.frameNum;
+      fpsMetricsTargetFrames:=n;
+      g.fpsPhaseMetrics:=true;
+      body:=ROBOT_PENDING_TOKEN;
+      exit(true);
+    end;
+    if g.frameNum-fpsMetricsStartFrame<fpsMetricsTargetFrames then begin
+      body:=ROBOT_PENDING_TOKEN;
+      exit(true);
+    end;
+    fpsMetricsPending:=false;
+    fpsMetricsReqId:='';
+    g.fpsPhaseMetrics:=false;
+    n:=fpsMetricsTargetFrames;
+    if n<=0 then n:=50;
+  end else
+  if req.Param('METRICS')<>'' then
+    g.fpsPhaseMetrics:=false;
+
   body:='fps: '+Conv.ToStr(g.FPS,2)+#13#10+
     'smoothFPS: '+Conv.ToStr(g.smoothFPS,2)+#13#10+
     'frameNum: '+Conv.ToStr(g.frameNum)+#13#10+
     'frameTimeMs: '+Conv.ToStr(g.lastFrameTimeUs*0.001,2)+#13#10;
-  n:=Conv.ToInt(req.Param('N'));
+  if collectMetrics then begin
+    body:=body+
+      'msgMs: '+Conv.ToStr(g.lastMsgUs*0.001,2)+#13#10+
+      'onFrameMs: '+Conv.ToStr(g.lastOnFrameUs*0.001,2)+#13#10+
+      'renderMs: '+Conv.ToStr(g.lastRenderUs*0.001,2)+#13#10+
+      'presentMs: '+Conv.ToStr(g.lastPresentUs*0.001,2)+#13#10+
+      'sleepMs: '+Conv.ToStr(g.lastSleepUs*0.001,2)+#13#10;
+  end;
   if n>0 then begin
     if n>g.frameTimeRingCount then n:=g.frameTimeRingCount;
     if n>FRAME_TIME_RING_SIZE then n:=FRAME_TIME_RING_SIZE;
@@ -921,8 +975,23 @@ begin
     if n>0 then begin
       idx:=g.frameTimeRingPos-n;
       if idx<0 then inc(idx,FRAME_TIME_RING_SIZE);
+      startFrameNum:=integer(g.frameNum)-n+1;
+      if startFrameNum<0 then startFrameNum:=0;
       for i:=0 to n-1 do begin
-        body:=body+'FRAME_MS: '+Conv.ToStr(g.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
+        if collectMetrics then begin
+          body:=body+
+            'Frame: '+Conv.ToStr(startFrameNum+i)+#13#10+
+            '  MSG: '+Conv.ToStr(g.phaseMsgRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  ONFRAME: '+Conv.ToStr(g.phaseOnFrameRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  RENDER: '+Conv.ToStr(g.phaseRenderRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  PRESENT: '+Conv.ToStr(g.phasePresentRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  SLEEP: '+Conv.ToStr(g.phaseSleepRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  Total: '+Conv.ToStr(g.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
+        end else
+          body:=body+'FRAME_MS: '+Conv.ToStr(g.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
+        if collectMetrics then begin
+          body:=body+#13#10;
+        end;
       end;
     end;
   end;
@@ -1033,6 +1102,13 @@ begin
   frameTimerReady:=false;
   lastFpsUpdate:=0;
   lastSmoothFpsUpdate:=0;
+  fpsPhaseMetrics:=false;
+  pendingMsgUs:=0;
+  lastMsgUs:=0;
+  lastOnFrameUs:=0;
+  lastRenderUs:=0;
+  lastPresentUs:=0;
+  lastSleepUs:=0;
 
   RegisterGameRobotCommands;
   InitRobotAPI;
@@ -1052,11 +1128,26 @@ begin
  end;
 end;
 
-procedure TGame.PushFrameTimeSample(deltaUs:integer);
+procedure TGame.PushFrameTimeSample(deltaUs,msgUs,onFrameUs,renderUs,presentUs,sleepUs:integer);
 begin
   if deltaUs<0 then deltaUs:=0;
+  if msgUs<0 then msgUs:=0;
+  if onFrameUs<0 then onFrameUs:=0;
+  if renderUs<0 then renderUs:=0;
+  if presentUs<0 then presentUs:=0;
+  if sleepUs<0 then sleepUs:=0;
   lastFrameTimeUs:=deltaUs;
+  lastMsgUs:=msgUs;
+  lastOnFrameUs:=onFrameUs;
+  lastRenderUs:=renderUs;
+  lastPresentUs:=presentUs;
+  lastSleepUs:=sleepUs;
   frameTimeRing[frameTimeRingPos]:=deltaUs;
+  phaseMsgRing[frameTimeRingPos]:=msgUs;
+  phaseOnFrameRing[frameTimeRingPos]:=onFrameUs;
+  phaseRenderRing[frameTimeRingPos]:=renderUs;
+  phasePresentRing[frameTimeRingPos]:=presentUs;
+  phaseSleepRing[frameTimeRingPos]:=sleepUs;
   inc(frameTimeRingPos);
   if frameTimeRingPos>=FRAME_TIME_RING_SIZE then frameTimeRingPos:=0;
   if frameTimeRingCount<FRAME_TIME_RING_SIZE then inc(frameTimeRingCount);
@@ -2508,6 +2599,7 @@ procedure TGame.FrameLoop;
  var
   i:integer;
   t:int64;
+  phaseTimer:int64;
   mb:byte;
  begin
   t:=CoreTime.Ticks;
@@ -2524,12 +2616,17 @@ procedure TGame.FrameLoop;
    keyState[i]:=keyState[i] and 1+(keyState[i] and 1) shl 1;
 
   StartMeasure(14);
+  if fpsPhaseMetrics then StartTimer(phaseTimer);
   systemPlatform.ProcessSystemMessages; // this stalls if window is moved/resized
   try
     HandleSignals;
   except
     on e:exception do Log.Force('Error in FrameLoop 1: '+ExceptionMsg(e));
   end;
+  if fpsPhaseMetrics then
+    pendingMsgUs:=round(TimerSec(phaseTimer)*1000000)
+  else
+    pendingMsgUs:=0;
   if not active then
     Delay(5); // limit speed in inactive state
   EndMeasure2(14);
@@ -2546,7 +2643,13 @@ procedure TGame.RenderAndPresentFrame;
   ticks:int64;
   i:integer;
   deltaUs:int64;
+  phaseTimer:int64;
+  onFrameUs,renderUs,presentUs,sleepUs:integer;
  begin
+   onFrameUs:=0;
+   renderUs:=0;
+   presentUs:=0;
+   sleepUs:=0;
    ticks:=CoreTime.Ticks;
    if frameStartTime>0 then frameTimeDelta:=ticks-frameStartTime
     else frameTimeDelta:=20; // initial value
@@ -2556,18 +2659,16 @@ procedure TGame.RenderAndPresentFrame;
     deltaUs:=round(TimerSec(frameTimer)*1000000);
    StartTimer(frameTimer);
    frameTimerReady:=true;
-   PushFrameTimeSample(integer(Clamp(deltaUs,0,high(integer))));
-
-   // FPS / SmoothFPS based on trimmed mean of recent frame times.
-   UpdateFpsMetrics;
 
    if frameTimeDelta>500 then
     Log.Msg('Warning: main loop stall for '+inttostr(frameTimeDelta)+' ms');
 
    // Обработка кадра
+   if fpsPhaseMetrics then StartTimer(phaseTimer);
    StartMeasure(3);
    if OnFrame then screenChanged:=true; // это чтобы можно было и в других местах выставлять флаг!
    EndMeasure(3);
+   if fpsPhaseMetrics then onFrameUs:=round(TimerSec(phaseTimer)*1000000);
    try
     HandleSignals;
    except
@@ -2578,6 +2679,7 @@ procedure TGame.RenderAndPresentFrame;
    if active or (params.mode.displayMode<>dmSwitchResolution) then begin
     // Если программа активна, то выполним отрисовку кадра
     if screenChanged then begin
+     if fpsPhaseMetrics then StartTimer(phaseTimer);
      try
       PrevFrameLog:=frameLog;
       frameLog:='';
@@ -2587,11 +2689,14 @@ procedure TGame.RenderAndPresentFrame;
      except
       on E:Exception do CritMsg('Error in renderframe: '+ExceptionMsg(e)+' framelog: '+framelog);
      end;
+     if fpsPhaseMetrics then renderUs:=round(TimerSec(phaseTimer)*1000000);
     end;
    end;
 
    // Здесь можно что-нибудь сделать
+   if fpsPhaseMetrics then StartTimer(phaseTimer);
    CoreTime.Sleep(onFrameDelay);
+   if fpsPhaseMetrics then sleepUs:=round(TimerSec(phaseTimer)*1000000);
    // Обработка thread'ов
    RA_sect.Enter;
    try
@@ -2617,12 +2722,20 @@ procedure TGame.RenderAndPresentFrame;
    // Теперь нужно вывести кадр на экран
    if (active or (params.mode.displayMode<>dmSwitchResolution)) and
       screenChanged then begin
+    if fpsPhaseMetrics then StartTimer(phaseTimer);
     PresentFrame;
+    if fpsPhaseMetrics then presentUs:=round(TimerSec(phaseTimer)*1000000);
     if captureSingleFrame or videoCaptureMode then
      CaptureFrame;
     PollRobotAPI; // after present: pixel/screenshot read valid backbuffer
    end else
     CoreTime.Sleep(5);
+
+   PushFrameTimeSample(integer(Clamp(deltaUs,0,high(integer))),
+     pendingMsgUs,onFrameUs,renderUs,presentUs,sleepUs);
+   // FPS / SmoothFPS based on trimmed mean of recent frame times.
+   UpdateFpsMetrics;
+
    game.Flog('LEnd');
  end;
 

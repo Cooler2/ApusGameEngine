@@ -34,6 +34,8 @@ uses Apus.Conv, Apus.Strings, Apus.Log, Apus.Files, Apus.EventMan;
 const
   INPUT_FILE  = 'robot_in.txt';
   OUTPUT_FILE = 'robot_out.txt';
+  PENDING_TOKEN='@PENDING@';
+  UTF8_BOM=#$EF#$BB#$BF;
   SLOW_INTERVAL = 500; // ms between checks in slow mode
   FAST_INTERVAL = 100; // ms between checks in fast mode
   FAST_TIMEOUT  = 5000; // ms of inactivity before returning to slow mode
@@ -49,6 +51,7 @@ type
 var
   commands:array of TCommandEntry;
   commandCount:integer;
+  pendingRequests:TRequestArray;
   lastCheckTime:int64;
   lastActivityTime:int64;
   fastMode:boolean;
@@ -74,6 +77,17 @@ begin
   else result:=SLOW_INTERVAL;
 end;
 
+function NormalizeHeaderKey(st:String8):String8;
+begin
+  result:=st.Trim;
+  if UTF8.HasBOM(result) then
+    Delete(result,1,3);
+  // Be tolerant to editors/encodings that inject leading control/BOM-like bytes.
+  while (length(result)>0) and not (result[1] in ['A'..'Z','a'..'z']) do
+    Delete(result,1,1);
+  result:=result.ToLower;
+end;
+
 // Parse input file into array of requests
 function ParseRequests(const content:String8):TRequestArray;
 var
@@ -81,6 +95,7 @@ var
   i,reqCount:integer;
   line:String8;
   nv:TNameValue;
+  key:String8;
   cur:TRobotRequest;
 begin
   SetLength(result,0);
@@ -92,6 +107,8 @@ begin
 
   for i:=0 to high(lines) do begin
     line:=lines[i].Trim;
+    if (i=0) and line.StartsWith(UTF8_BOM) then
+      line:=line.Substr(4,length(line)-3).Trim;
     if (line='---') or (line='===') then begin
       if cur.cmd<>'' then begin
         if reqCount>=length(result) then
@@ -106,9 +123,10 @@ begin
     end;
     if line.IndexOf(':')<1 then continue;
     nv.InitFrom(line,':');
-    if nv.Named('ID') then
+    key:=NormalizeHeaderKey(nv.name);
+    if key='id' then
       cur.id:=nv.value
-    else if nv.Named('CMD') then
+    else if key='cmd' then
       cur.cmd:=nv.value.ToLower
     else
       cur.params.Add(nv);
@@ -116,19 +134,29 @@ begin
   SetLength(result,reqCount);
 end;
 
-function HandleRequest(const req:TRobotRequest):String8;
+function HandleRequest(const req:TRobotRequest; out pending:boolean):String8;
 var
   i:integer;
   body:String8;
   ok:boolean;
 begin
+  pending:=false;
+  if req.id='' then begin
+    result:='ID: '+req.id+CRLF+'STATUS: ERROR'+CRLF+'MSG: ID parameter required'+CRLF+'==='+CRLF;
+    exit;
+  end;
   for i:=0 to commandCount-1 do
     if commands[i].name=req.cmd then begin
       Log.Info('RoboReq: '+commands[i].name);
       ok:=commands[i].handler(req,body);
-      if ok then
+      if ok then begin
+        if body.Trim.StartsWith(PENDING_TOKEN) then begin
+          pending:=true;
+          result:='';
+          exit;
+        end;
         result:='ID: '+req.id+CRLF+'STATUS: OK'+CRLF+body+'==='+CRLF
-      else begin
+      end else begin
         result:='ID: '+req.id+CRLF+'STATUS: ERROR'+CRLF+'MSG: '+body+CRLF+'==='+CRLF;
         Log.Warn('RoboReq FAIL: '+body);
       end;
@@ -140,25 +168,51 @@ end;
 procedure ProcessInputFile;
 var
   content,response:String8;
-  requests:TRequestArray;
-  i:integer;
+  requests,newPending,allRequests:TRequestArray;
+  i,requestCount,newCount,pendingCount:integer;
+  isPending:boolean;
 begin
-  if not Files.Exists(INPUT_FILE) then exit;
-  content:=Files.LoadAsString(INPUT_FILE);
-  if content.IndexOf('===')<1 then exit; // wait for end marker
+  SetLength(requests,0);
+  if Files.Exists(INPUT_FILE) then begin
+    content:=Files.LoadAsString(INPUT_FILE);
+    if content.IndexOf('===')>0 then begin
+      Log.Msg('RobotAPI: processing input file');
+      lastActivityTime:=CoreTime.Ticks;
+      fastMode:=true;
+      requests:=ParseRequests(content);
+      Files.Delete(INPUT_FILE);
+    end;
+  end;
 
-  Log.Msg('RobotAPI: processing input file');
-  lastActivityTime:=CoreTime.Ticks;
-  fastMode:=true;
+  newCount:=length(requests);
+  pendingCount:=length(pendingRequests);
+  requestCount:=newCount+pendingCount;
+  if requestCount=0 then exit;
 
-  requests:=ParseRequests(content);
+  SetLength(allRequests,requestCount);
+  for i:=0 to pendingCount-1 do
+    allRequests[i]:=pendingRequests[i];
+  for i:=0 to newCount-1 do
+    allRequests[pendingCount+i]:=requests[i];
+
+  SetLength(newPending,0);
   response:='';
-  for i:=0 to high(requests) do
-    response:=response+HandleRequest(requests[i]);
+  for i:=0 to high(allRequests) do begin
+    response:=response+HandleRequest(allRequests[i],isPending);
+    if isPending then begin
+      SetLength(newPending,length(newPending)+1);
+      newPending[high(newPending)]:=allRequests[i];
+    end;
+  end;
+  pendingRequests:=newPending;
 
-  Files.Save(OUTPUT_FILE,response);
-  Files.Delete(INPUT_FILE);
-  Log.Msg('RobotAPI: processed %d request(s)',[length(requests)]);
+  if response<>'' then
+    Files.Save(OUTPUT_FILE,response);
+  if length(pendingRequests)>0 then begin
+    fastMode:=true;
+    lastActivityTime:=CoreTime.Ticks;
+  end;
+  Log.Msg('RobotAPI: processed %d request(s), pending=%d',[requestCount,length(pendingRequests)]);
 end;
 
 // --- Built-in commands ---
@@ -186,6 +240,7 @@ begin
   fastMode:=false;
   lastCheckTime:=0;
   lastActivityTime:=0;
+  SetLength(pendingRequests,0);
   initialized:=true;
   Log.Msg('RobotAPI: initialized (%d commands registered)',[commandCount]);
 end;
@@ -214,6 +269,7 @@ procedure DoneRobotAPI;
 begin
   if not initialized then exit;
   initialized:=false;
+  SetLength(pendingRequests,0);
   Log.Msg('RobotAPI: shutdown');
 end;
 

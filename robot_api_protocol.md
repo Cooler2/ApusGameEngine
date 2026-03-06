@@ -42,7 +42,28 @@ Each response block ends with `===`. Multi-item output uses repeated key prefixe
 
 ### `windows` — window/render dimensions, DPI, displayRect.
 
-### `fps` — fps, smoothFPS, frameNum, frameTime.
+### `fps` — fps, smoothFPS, frameNum, frame-time history in milliseconds.
+- Optional param: `N` (integer, `1..512`) — return last `N` frame times from ring buffer.
+- Optional param: `METRICS` (`yes/no`, default `no`).
+  - `METRICS:no` (or absent): immediate response.
+  - `METRICS:yes` + `N`: delayed response mode for phase diagnostics:
+    - command starts collecting metrics for next `N` frames;
+    - final response is written only when `N` frames are collected.
+- Returns:
+  - `fps`, `smoothFPS`, `frameNum`
+  - `frameTimeMs` — last frame time in milliseconds (`xx.xx`, high precision timer based)
+  - when `METRICS:yes`: `msgMs`, `onFrameMs`, `renderMs`, `presentMs`, `sleepMs` for the last frame
+  - if `N>0`:
+    - `historyCount`
+    - for `METRICS:no`: repeated `FRAME_MS: <milliseconds>` lines (oldest -> newest, `xx.xx`)
+    - for `METRICS:yes`: repeated frame blocks:
+      - `Frame: <number>`
+      - `  MSG: <ms>`
+      - `  ONFRAME: <ms>`
+      - `  RENDER: <ms>`
+      - `  PRESENT: <ms>`
+      - `  SLEEP: <ms>`
+      - `  Total: <ms>`
 
 ### `scenes` — list all scenes (name, status, zOrder, frequency, fullscreen, class).
 - `ACTIVE_ONLY`: if present, only active scenes.
