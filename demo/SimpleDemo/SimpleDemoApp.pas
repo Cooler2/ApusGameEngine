@@ -49,6 +49,12 @@ constructor TSimpleDemoApp.Create;
  var
   st:string;
  begin
+  // Platform must be selected before TGameApplication.Create chooses backend.
+  {$IFDEF SDL}
+  usedPlatform:=spSDL;
+  {$ELSE}
+  usedPlatform:=spDefault;
+  {$ENDIF}
   inherited;
   // Change dir from \bin or \bin64 to the demo folder
   st:=ExtractFileDir(ParamStr(0));
@@ -60,8 +66,6 @@ constructor TSimpleDemoApp.Create;
   gameTitle:='Simple Engine Demo'; // app window title
   configFileName:='game.ctl';
   usedAPI:=gaOpenGL2; // use OpenGL 2.0+ with shaders
-  usedPlatform:=spDefault;
-  //usedPlatform:=spSDL;
   //directRenderOnly:=false;
   //useDepthTexture:=true;
   //windowedMode:=false;
