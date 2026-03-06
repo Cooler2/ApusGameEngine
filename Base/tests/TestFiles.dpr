@@ -39,6 +39,8 @@ begin
   Files.Save(TestDir+'/test.txt','Hello, Files!');
   s:=Files.LoadAsString(TestDir+'/test.txt');
   Check(s='Hello, Files!','string content');
+  bytes:=Files.LoadAsBytes(TestDir+'/test.txt');
+  Check((length(bytes)>=3) and (bytes[0]=$EF) and (bytes[1]=$BB) and (bytes[2]=$BF),'string save adds UTF-8 BOM by default');
 
   // Save pointer+size
   s:='raw data';
@@ -54,7 +56,7 @@ var
   s:String8;
 begin
   StartTest('Partial read');
-  Files.Save(TestDir+'/partial.txt','ABCDEFGHIJ');
+  Files.Save(TestDir+'/partial.txt','ABCDEFGHIJ',false);
 
   // read from offset
   s:=Files.LoadAsString(TestDir+'/partial.txt',0,3);
@@ -80,7 +82,7 @@ var
   buf:array[0..7] of byte;
 begin
   StartTest('Block I/O');
-  Files.Save(TestDir+'/block.bin','ABCDEFGH');
+  Files.Save(TestDir+'/block.bin','ABCDEFGH',false);
 
   // ReadBlock at offset
   Files.ReadBlock(TestDir+'/block.bin',@buf,4,4);
@@ -161,7 +163,7 @@ var
   info:TFileInfo;
 begin
   StartTest('GetFileInfo');
-  Files.Save(TestDir+'/info.txt','12345');
+  Files.Save(TestDir+'/info.txt','12345',false);
   Check(Files.GetFileInfo(TestDir+'/info.txt',info),'GetFileInfo ok');
   Check(info.size=5,'size=5');
   Check(not info.isDirectory,'not directory');
@@ -250,24 +252,24 @@ procedure TestPathUtils;
 begin
   StartTest('Path utilities');
 
-  // SafeFileName
-  Check(Files.SafeFileName('hello world!')='hello_world_','SafeFileName spaces+punct');
-  Check(Files.SafeFileName('file..name')='file.name','SafeFileName double dots');
-  Check(Files.SafeFileName('valid-file_01.txt')='valid-file_01.txt','SafeFileName clean');
+  // SafeName
+  Check(Files.SafeName('hello world!')='hello_world_','SafeName spaces+punct');
+  Check(Files.SafeName('file..name')='file.name','SafeName double dots');
+  Check(Files.SafeName('valid-file_01.txt')='valid-file_01.txt','SafeName clean');
 
   // IsPathRelative
   Check(Files.IsPathRelative('some/path'),'relative');
   Check(not Files.IsPathRelative('/absolute/path'),'absolute /');
   Check(not Files.IsPathRelative('C:\windows'),'absolute C:');
 
-  // FileName + AddFileNameRule
+  // FixName + AddFixNameRule
   {$IFDEF MSWINDOWS}
-  Check(Files.FileName('path/to/file')='path\to\file','FileName fix separators');
+  Check(Files.FixName('path/to/file')='path\to\file','FixName fix separators');
   {$ELSE}
-  Check(Files.FileName('path\to\file')='path/to/file','FileName fix separators');
+  Check(Files.FixName('path\to\file')='path/to/file','FixName fix separators');
   {$ENDIF}
-  Files.AddFileNameRule('MyFile');
-  Check(Files.FileName('myfile')='MyFile','FileName case rule');
+  Files.AddFixNameRule('MyFile');
+  Check(Files.FixName('myfile')='MyFile','FixName case rule');
 
   EndTest;
 end;

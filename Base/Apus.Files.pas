@@ -41,6 +41,10 @@ type
     class function LoadAsString(const fname:String8; numBytes:int64=0; startFrom:int64=0):String8; static;
     class procedure Save(const fname:String8; buf:pointer; size:integer); overload; static;
     class procedure Save(const fname:String8; const data:ByteArray); overload; static;
+    // Text save/load policy:
+    // - LoadAsString removes UTF-8 BOM when reading from file start.
+    // - Save(String8) writes UTF-8 BOM by default; pass addBOM=false for raw text.
+    class procedure Save(const fname:String8; const data:String8; addBOM:boolean); overload; static;
     class procedure Save(const fname:String8; const data:String8); overload; static;
     class procedure Save(const fname:String8; const data:TBuffer); overload; static;
 
@@ -392,6 +396,8 @@ begin
   SetLength(result,length(buf));
   if length(buf)>0 then
     Move(buf[0],result[1],length(buf));
+  if (startFrom=0) and UTF8.HasBOM(result) then
+    System.Delete(result,1,3);
 end;
 
 class procedure Files.Save(const fname:String8; buf:pointer; size:integer);
@@ -416,12 +422,22 @@ begin
     Save(fname,nil,0);
 end;
 
-class procedure Files.Save(const fname:String8; const data:String8);
+class procedure Files.Save(const fname:String8; const data:String8; addBOM:boolean);
+var
+  st:String8;
 begin
-  if length(data)>0 then
-    Save(fname,@data[1],length(data))
+  st:=data;
+  if addBOM and not UTF8.HasBOM(st) then
+    st:=#$EF#$BB#$BF+st;
+  if length(st)>0 then
+    Save(fname,@st[1],length(st))
   else
     Save(fname,nil,0);
+end;
+
+class procedure Files.Save(const fname:String8; const data:String8);
+begin
+  Save(fname,data,true);
 end;
 
 class procedure Files.Save(const fname:String8; const data:TBuffer);
