@@ -869,6 +869,71 @@ begin
  Signal('Engine\AfterInitGraph');
 end;
 
+// --- Robot API command handlers ---
+const
+ statusNames:array[TSceneStatus] of String8 = ('frozen','background','active');
+
+function RobotCmdWindows(const req:TRobotRequest; out body:String8):boolean;
+begin
+  if game=nil then begin body:='game not initialized'; exit(false) end;
+  body:='WINDOW: 0'#13#10+
+    '  windowWidth: '+Conv.ToStr(game.windowWidth)+#13#10+
+    '  windowHeight: '+Conv.ToStr(game.windowHeight)+#13#10+
+    '  renderWidth: '+Conv.ToStr(game.renderWidth)+#13#10+
+    '  renderHeight: '+Conv.ToStr(game.renderHeight)+#13#10+
+    '  screenDPI: '+Conv.ToStr(game.screenDPI)+#13#10+
+    '  displayRect: '+Conv.ToStr(game.displayRect.Left)+','+Conv.ToStr(game.displayRect.Top)+','+
+      Conv.ToStr(game.displayRect.Right)+','+Conv.ToStr(game.displayRect.Bottom)+#13#10;
+  result:=true;
+end;
+
+function RobotCmdFps(const req:TRobotRequest; out body:String8):boolean;
+begin
+  if game=nil then begin body:='game not initialized'; exit(false) end;
+  body:='fps: '+Conv.ToStr(game.FPS,2)+#13#10+
+    'smoothFPS: '+Conv.ToStr(game.smoothFPS,2)+#13#10+
+    'frameNum: '+Conv.ToStr(game.frameNum)+#13#10+
+    'frameTime: '+Conv.ToStr(integer(game.frameTimeDelta))+#13#10;
+  result:=true;
+end;
+
+function RobotCmdScenes(const req:TRobotRequest; out body:String8):boolean;
+var
+  g:TGame;
+  i:integer;
+  s:TGameScene;
+  activeOnly:boolean;
+begin
+  g:=game as TGame;
+  if g=nil then begin body:='game not initialized'; exit(false) end;
+  activeOnly:=req.Param('ACTIVE_ONLY')<>'';
+  body:='';
+  g.EnterCritSect;
+  try
+    for i:=0 to high(g.scenes) do begin
+      s:=g.scenes[i];
+      if activeOnly and (s.status<>ssActive) then continue;
+      body:=body+'SCENE: '+s.name+#13#10+
+        '  status: '+statusNames[s.status]+#13#10+
+        '  zOrder: '+Conv.ToStr(s.zOrder)+#13#10+
+        '  frequency: '+Conv.ToStr(s.frequency)+#13#10+
+        '  fullscreen: '+Conv.ToStr(s.fullscreen)+#13#10+
+        '  class: '+String8(s.ClassName)+#13#10;
+    end;
+  finally
+    g.LeaveCritSect;
+  end;
+  if body='' then begin body:='no scenes available'; exit(false) end;
+  result:=true;
+end;
+
+procedure RegisterGameRobotCommands;
+begin
+  RegisterRobotCommand('windows',@RobotCmdWindows);
+  RegisterRobotCommand('fps',@RobotCmdFps);
+  RegisterRobotCommand('scenes',@RobotCmdScenes);
+end;
+
 procedure TGame.InitMainLoop;
 begin
  try
@@ -878,6 +943,7 @@ begin
   LastOnFrameTime:=CoreTime.Ticks;
   LastRenderTime:=CoreTime.Ticks;
 
+  RegisterGameRobotCommands;
   InitRobotAPI;
   Signal('Engine\BeforeMainLoop');
   Log.Msg('Game is running...');

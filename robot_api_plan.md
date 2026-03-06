@@ -106,6 +106,21 @@ Implement:
 - `Conv.ToHex(cardinal)` for ARGB color output.
 - `Conv.ToInt(string)` for parsing integer params (returns 0 for empty/invalid).
 
+## Future Improvements
+
+### FPS command enhancement
+- Add ring buffer of precise frame timestamps in the engine (not in RobotAPI)
+- Output last N frame times (default=20) for jitter/stutter analysis
+- Include VSync state in fps response
+
+### Scenes command enhancement
+- [x] Add optional `ACTIVE_ONLY` parameter to filter only active scenes
+
+### Custom commands
+- Allow registering custom robot commands from game code (callback-based)
+- Pattern: `RegisterRobotCommand('mycommand', @MyHandler)` where handler takes TRequest and returns String8
+- Useful for game-specific queries (inventory state, player position, etc.)
+
 ## Dependencies
 - No external dependencies beyond existing engine modules
 - Uses: `Apus.Engine.API`, `Apus.Engine.UITypes`, `Apus.Engine.UI`, `Apus.Engine.Scene`, `Apus.Engine.Game`, `Apus.Engine.CmdProc`, `Apus.EventMan`, `Apus.Engine.ResManGL`

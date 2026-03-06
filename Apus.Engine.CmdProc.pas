@@ -41,6 +41,7 @@ interface
 
 implementation
  uses SysUtils, Math, Apus.Lib, Apus.Strings, Apus.EventMan, Apus.Colors, Apus.Engine.Console,
+  Apus.Engine.RobotAPI,
   Apus.Files,
   Apus.Log;
  type
@@ -435,7 +436,28 @@ procedure EventHandler(event:TEventStr;tag:TTag);
   end;
  end;
 
+// --- Robot API command handler ---
+
+function RobotCmdExec(const req:TRobotRequest; out body:String8):boolean;
+var
+  text:String8;
+begin
+  text:=req.Param('TEXT');
+  if text='' then begin body:='TEXT parameter required'; exit(false) end;
+  try
+    ExecCmd(text);
+    body:='';
+    result:=true;
+  except
+    on e:Exception do begin
+      body:=String8(e.Message);
+      result:=false;
+    end;
+  end;
+end;
+
 initialization
+ RegisterRobotCommand('cmd',@RobotCmdExec);
  SetEventHandler('CMDPROC',EventHandler,emInstant);
  PublishFunction('ColorAdd',fColorFunc,1);
  PublishFunction('ColorSub',fColorFunc,2);

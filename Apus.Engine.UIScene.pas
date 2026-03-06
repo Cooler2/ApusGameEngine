@@ -60,7 +60,9 @@ implementation
    Apus.EventMan, Apus.Publics,
    Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
    Apus.Engine.CmdProc, Apus.Engine.Console, Apus.Engine.API,
+  Apus.Engine.RobotAPI,
   Apus.Log,
+  Apus.Conv,
   Apus.Strings,
   Apus.Threads;
 
@@ -643,4 +645,155 @@ procedure SetDisplaySize(width,height:integer);
    Apus.Engine.UIRender.BackgroundRenderEnd;
   end;
 
+// --- Robot API command handlers ---
+
+function ElementFlags(e:TUIElement):String8;
+begin
+  if e.visible then result:='visible' else result:='hidden';
+  if e.enabled then result:=result+' enabled' else result:=result+' disabled';
+end;
+
+function ElementSummary(e:TUIElement; indent:integer):String8;
+var
+  pad:String8;
+  r:TRect;
+begin
+  pad:='';
+  while length(pad)<indent do pad:=pad+'  ';
+  r:=e.GetPosOnScreen;
+  result:=pad+'UI: '+e.name+' ['+String8(e.ClassName)+'] '+
+    Conv.ToStr(r.Left)+','+Conv.ToStr(r.Top)+' '+
+    Conv.ToStr(r.Width)+'x'+Conv.ToStr(r.Height)+' '+
+    ElementFlags(e);
+  if e.caption<>'' then
+    result:=result+' caption="'+e.caption+'"';
+  result:=result+#13#10;
+end;
+
+procedure DumpTree(e:TUIElement; depth,maxDepth:integer; var body:String8);
+var
+  i:integer;
+begin
+  body:=body+ElementSummary(e,depth);
+  if (maxDepth>0) and (depth>=maxDepth) then exit;
+  for i:=0 to high(e.children) do
+    DumpTree(e.children[i],depth+1,maxDepth,body);
+end;
+
+function FindUISceneRoot(const sceneName:String8):TUIElement;
+var
+  s:TObject;
+begin
+  result:=nil;
+  s:=TGameScene.FindByName(sceneName);
+  if (s<>nil) and (s is TUIScene) then
+    result:=TUIScene(s).UI;
+end;
+
+function RobotCmdUITree(const req:TRobotRequest; out body:String8):boolean;
+var
+  sceneName:String8;
+  maxDepth,i:integer;
+  root:TUIElement;
+begin
+  sceneName:=req.Param('SCENE');
+  maxDepth:=Conv.ToInt(req.Param('DEPTH'));
+  body:='';
+  UICritSect.Enter;
+  try
+    if sceneName<>'' then begin
+      root:=FindUISceneRoot(sceneName);
+      if root=nil then begin
+        body:='scene not found: '+sceneName;
+        exit(false);
+      end;
+      DumpTree(root,0,maxDepth,body);
+    end else begin
+      for i:=0 to high(rootElements) do
+        DumpTree(rootElements[i],0,maxDepth,body);
+    end;
+  finally
+    UICritSect.Leave;
+  end;
+  result:=true;
+end;
+
+function RobotCmdUIElement(const req:TRobotRequest; out body:String8):boolean;
+var
+  eName:String8;
+  e:TUIElement;
+  r:TRect;
+begin
+  eName:=req.Param('NAME');
+  if eName='' then begin body:='NAME parameter required'; exit(false) end;
+  UICritSect.Enter;
+  try
+    e:=FindElement(eName,false);
+    if e=nil then begin body:='element not found: '+eName; exit(false) end;
+    r:=e.GetPosOnScreen;
+    body:='name: '+e.name+#13#10+
+      'class: '+String8(e.ClassName)+#13#10+
+      'position: '+Conv.ToStr(e.position.x,1)+','+Conv.ToStr(e.position.y,1)+#13#10+
+      'size: '+Conv.ToStr(e.size.x,1)+','+Conv.ToStr(e.size.y,1)+#13#10+
+      'pivot: '+Conv.ToStr(e.pivot.x,1)+','+Conv.ToStr(e.pivot.y,1)+#13#10+
+      'scale: '+Conv.ToStr(e.scale,2)+#13#10+
+      'globalRect: '+Conv.ToStr(r.Left)+','+Conv.ToStr(r.Top)+','+Conv.ToStr(r.Right)+','+Conv.ToStr(r.Bottom)+#13#10+
+      'visible: '+Conv.ToStr(e.visible)+#13#10+
+      'enabled: '+Conv.ToStr(e.enabled)+#13#10+
+      'parentClip: '+Conv.ToStr(e.parentClip)+#13#10+
+      'clipChildren: '+Conv.ToStr(e.clipChildren)+#13#10+
+      'order: '+Conv.ToStr(e.order)+#13#10+
+      'caption: '+e.caption+#13#10+
+      'hint: '+e.hint+#13#10+
+      'styleInfo: '+e.styleInfo+#13#10+
+      'color: '+Conv.ToHex(e.color)+#13#10+
+      'font: '+Conv.ToStr(integer(e.font))+#13#10;
+    if e.parent<>nil then
+      body:=body+'parent: '+e.parent.name+#13#10
+    else
+      body:=body+'parent: (none)'+#13#10;
+    body:=body+'childCount: '+Conv.ToStr(length(e.children))+#13#10+
+      'focused: '+Conv.ToStr(FocusedElement=e)+#13#10+
+      'underMouse: '+Conv.ToStr(underMouse=e)+#13#10;
+  finally
+    UICritSect.Leave;
+  end;
+  result:=true;
+end;
+
+function RobotCmdUIHitTest(const req:TRobotRequest; out body:String8):boolean;
+var
+  x,y:integer;
+  c,p:TUIElement;
+  chain:String8;
+  enabled:boolean;
+begin
+  x:=Conv.ToInt(req.Param('X'));
+  y:=Conv.ToInt(req.Param('Y'));
+  enabled:=FindAnyElementAt(x,y,c); // locks UICritSect internally
+  if c=nil then begin
+    body:='hit: (none)'+#13#10;
+  end else begin
+    chain:=c.name;
+    p:=c.parent;
+    while p<>nil do begin
+      chain:=p.name+' > '+chain;
+      p:=p.parent;
+    end;
+    body:='hit: '+c.name+#13#10+
+      'hitClass: '+String8(c.ClassName)+#13#10+
+      'chain: '+chain+#13#10+
+      'enabled: '+Conv.ToStr(enabled)+#13#10;
+  end;
+  if modalElement<>nil then
+    body:=body+'modal: '+modalElement.name+#13#10
+  else
+    body:=body+'modal: (none)'+#13#10;
+  result:=true;
+end;
+
+initialization
+ RegisterRobotCommand('ui.tree',@RobotCmdUITree);
+ RegisterRobotCommand('ui.element',@RobotCmdUIElement);
+ RegisterRobotCommand('ui.hittest',@RobotCmdUIHitTest);
 end.
