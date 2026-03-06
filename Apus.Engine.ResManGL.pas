@@ -175,12 +175,15 @@ type
 // function LoadFromFile(filename:string;format:TImagePixelFormat=ipfNone):TDxManagedTexture;
 
 implementation
- uses Apus.EventMan, Apus.Lib, SysUtils, Apus.Structs, Apus.GfxFormats,
+ uses Apus.EventMan, Apus.Lib, SysUtils, TypInfo, Apus.Structs, Apus.GfxFormats,
    {$IFDEF MSWINDOWS}dglOpenGl{$ENDIF}
    {$IFDEF LINUX}dglOpenGL{$ENDIF}
    {$IFDEF IOS}gles11,glext{$ENDIF}
    {$IFDEF ANDROID}gles20{$ENDIF}
    ,
+  Apus.Classes,
+  Apus.Conv,
+  Apus.Engine.RobotAPI,
   Apus.Files,
   Apus.Engine.Graphics,
   Apus.Log,
@@ -1841,7 +1844,47 @@ begin
 end;
 {$ENDREGION}
 
+// --- Robot API command handler ---
+
+type
+  TTextureAccess=class(TTexture)
+    class function ListAll:TNamedObjects;
+  end;
+
+class function TTextureAccess.ListAll:TNamedObjects;
+var
+  hash:PObjectHash;
+begin
+  hash:=ClassHash;
+  if hash<>nil then result:=hash^.ListObjects
+  else SetLength(result,0);
+end;
+
+function RobotCmdResources(const req:TRobotRequest; out body:String8):boolean;
+var
+  objects:TNamedObjects;
+  i:integer;
+  t:TGLTexture;
+begin
+  body:='';
+  objects:=TTextureAccess.ListAll;
+  for i:=0 to high(objects) do begin
+    if not (objects[i] is TGLTexture) then continue;
+    t:=TGLTexture(objects[i]);
+    body:=body+'TEX: '+t.name+#13#10+
+      '  glName: '+Conv.ToStr(integer(t.texname))+#13#10+
+      '  width: '+Conv.ToStr(t.width)+#13#10+
+      '  height: '+Conv.ToStr(t.height)+#13#10+
+      '  realWidth: '+Conv.ToStr(t.realWidth)+#13#10+
+      '  realHeight: '+Conv.ToStr(t.realHeight)+#13#10+
+      '  format: '+GetEnumName(TypeInfo(TImagePixelFormat),ord(t.pixelFormat))+#13#10+
+      '  hasFBO: '+Conv.ToStr(t.fbo<>0)+#13#10;
+  end;
+  result:=true;
+end;
+
 initialization
+  RegisterRobotCommand('resources',@RobotCmdResources);
   cSect.Init('GLTexMan',160);
 finalization
   cSect.Cleanup;

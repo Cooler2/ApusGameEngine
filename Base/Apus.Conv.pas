@@ -72,8 +72,10 @@ type
     class function ToStr(v:double; maxDec:integer=-1; minDec:integer=0; decSep:AnsiChar='.'):string8; overload; static;
     // Extended formatting with alignment and sign control (not yet implemented):
     // class function FormatFloat(v:double; maxDec:integer=-1; minDec:integer=0; width:integer=0; forceSign:boolean=false; decSep:AnsiChar='.'):string8; static;
-    // Boolean to string. Old name: BoolToAStr
-    class function ToStr(b:boolean;short:boolean=true):String8; overload; static;
+    // Boolean to string. Default: 'true'/'false'. short=true: '1'/'0'
+    class function ToStr(b:boolean;short:boolean=false):String8; overload; static;
+    // Boolean with custom labels, e.g. 'yes/no', 'on/off'
+    class function BoolToStr(b:boolean;format:String8):String8; static;
     // Integer with space separators (1 234 567). Old name: FormatInt
     class function FormatInt(v:int64):string; static;
     // Money format with space separators. Old name: FormatMoney
@@ -409,13 +411,25 @@ begin
           ToStr((ip shr 24) and $FF);
 end;
 
-class function Conv.ToStr(b:boolean;short:boolean=true):String8;
+class function Conv.ToStr(b:boolean;short:boolean=false):String8;
 begin
   if short then begin
     if b then result:='1' else result:='0';
   end else begin
     if b then result:='true' else result:='false';
   end;
+end;
+
+class function Conv.BoolToStr(b:boolean;format:String8):String8;
+var
+  p:integer;
+begin
+  p:=Pos('/',format);
+  if p>0 then begin
+    if b then result:=Copy(format,1,p-1)
+    else result:=Copy(format,p+1,length(format));
+  end else
+    if b then result:=format else result:='';
 end;
 
 class function Conv.ToStr(v:integer):string8;

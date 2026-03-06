@@ -57,7 +57,7 @@ Implement:
 
 **Acceptance:** resource list matches NSight/debugger view of allocated objects.
 
-**Status: NOT STARTED**
+**Status: DONE** (textures only; buffers not tracked in a list — TEngineBuffer extends TObjectEx, not TNamedObject)
 
 ## Stage 7: Integration Testing
 - Test with SimpleDemo: exercise all commands via robot_in.txt
