@@ -20,7 +20,6 @@ program Scenes;
    procedure Render; override;
   end;
 
-
  var
   application:TGameApplication;
   mainFont:cardinal;
@@ -85,21 +84,21 @@ constructor TSceneA.Create;
   inherited Create('SceneA');
   // Create a button
   TUIButton.Create(250,50,'SceneA\Btn1','Switch to the SceneB',mainFont,ui).
-   SetPos(ui.width/2, ui.height*0.3, pivotCenter);
+   SetPos(ui.clientWidth/2, ui.clientHeight*0.3, pivotCenter);
   // This signal is emited when button is clicked (pressed and released)
   Link('UI\SceneA\Btn1\Click','Logic\SwitchToSceneB');
 
   // Few more buttons
   TUIButton.Create(250,50,'SceneA\BtnShow1','Show Window (shadow)',mainFont,ui).
-   SetPos(ui.width/2, ui.height*0.4, pivotCenter);
+   SetPos(ui.clientWidth/2, ui.clientHeight*0.4, pivotCenter);
   Link('UI\SceneA\BtnShow1\Click','Logic\ShowWindowWithShadow');
 
   TUIButton.Create(250,50,'SceneA\BtnShow2','Show Window (blur)',mainFont,ui).
-   SetPos(ui.width/2, ui.height*0.5, pivotCenter);
+   SetPos(ui.clientWidth/2, ui.clientHeight*0.5, pivotCenter);
   Link('UI\SceneA\BtnShow2\Click','Logic\ShowWindowWithBlur');
 
   TUIButton.Create(250,50,'SceneA\BtnAsk','Exit?',mainFont,ui).
-   SetPos(ui.width/2, ui.height*0.6, pivotCenter);
+   SetPos(ui.clientWidth/2, ui.clientHeight*0.6, pivotCenter);
   Link('UI\SceneA\BtnAsk\Click','Logic\AskExit');
  end;
 
@@ -120,7 +119,7 @@ constructor TSceneB.Create;
  begin
   inherited Create('SceneB');
   TUIButton.Create(250,50,'SceneB\Btn1','Switch to the SceneA',mainFont,ui).
-   SetPos(ui.width/2, ui.height*0.45, pivotCenter);
+   SetPos(ui.clientWidth/2, ui.clientHeight*0.45, pivotCenter);
   // Alternate signal emited when a button is pressed
   Link('UI\onButtonClick\SceneB\Btn1','Logic\SwitchToSceneA');
  end;
@@ -139,10 +138,10 @@ constructor TSceneW.Create;
   inherited Create('SceneW',false);
   zOrder:=100; // Important: it should be above other scenes
   c:=TUIElement.Create(300,140,ui,'SceneW\Frame');
-  c.SetPos(ui.width/2,ui.height*0.6, pivotCenter);
+  c.SetPos(ui.clientWidth/2,ui.clientHeight*0.6, pivotCenter);
   c.shape:=TElementShape.shapeFull; // Important! Opaque elements define the scene area used for effects, it should not be void
   TUIButton.Create(100,40,'SceneW\Btn1','Close',mainFont,c).
-   SetPos(c.width/2, c.height*0.5, pivotCenter);
+   SetPos(c.clientWidth/2, c.clientHeight*0.5, pivotCenter);
   Link('UI\onButtonClick\SceneW\Btn1','Logic\CloseWindow');
  end;
 
