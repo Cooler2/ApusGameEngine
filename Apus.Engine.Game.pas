@@ -223,6 +223,7 @@ implementation
       Apus.EventMan, Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene,
       Apus.Engine.Console, Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw,
       Apus.Engine.Controller,
+  Apus.Engine.RobotAPI,
   Apus.Files,
   Apus.Lib,
   Apus.Strings
@@ -681,6 +682,7 @@ destructor TGame.Destroy;
 procedure TGame.DoneGraph;
  begin
   Log.Msg('DoneGraph Start');
+  DoneRobotAPI;
   Signal('Engine\BeforeDoneGraph');
   gfx.Done;
 
@@ -876,6 +878,7 @@ begin
   LastOnFrameTime:=CoreTime.Ticks;
   LastRenderTime:=CoreTime.Ticks;
 
+  InitRobotAPI;
   Signal('Engine\BeforeMainLoop');
   Log.Msg('Game is running...');
   running:=true;
@@ -2277,6 +2280,7 @@ procedure TGame.FrameLoop;
   except
     on e:exception do Log.Force('Error in FrameLoop 1: '+ExceptionMsg(e));
   end;
+  PollRobotAPI;
   if not active then
     Delay(5); // limit speed in inactive state
   EndMeasure2(14);

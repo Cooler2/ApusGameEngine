@@ -120,7 +120,7 @@ implementation
    SysUtils,Apus.AnimatedValues,Apus.ControlFiles,{Apus.Engine.UDict,}
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
    Apus.Engine.UI,Apus.Engine.Game,Apus.Engine.Tools,
-   Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,Apus.Engine.MessageScene,
+   Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,Apus.Engine.MessageScene,Apus.Engine.RobotAPI,
    {Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,}
    Apus.Engine.Sound
   {$IFDEF DIRECTX},Apus.Engine.DXGame8{$ENDIF}
@@ -422,6 +422,10 @@ procedure TGameApplication.HandleParam(param: string);
   if param='-GLDEBUGCTX' then glDebugContext:=true;
   if param='-GLFORWARDCTX' then glForwardCompatible:=true;
   if param='-NOSTEAM' then checkForSteam:=false;
+  if param='-ROBOT' then begin
+    Apus.Engine.RobotAPI.robotAPIEnabled:=true;
+    Log.Force('Robot API enabled by command line parameter');
+  end;
  end;
 
 procedure TGameApplication.InitCursors;
