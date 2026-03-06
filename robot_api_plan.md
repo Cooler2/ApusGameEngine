@@ -65,7 +65,7 @@ Implement:
 - Test polling modes: verify slow→fast transition on first request
 - Document usage examples for Claude Code automation
 
-**Status: NOT STARTED**
+**Status: DONE**
 
 ## Implementation Notes
 
@@ -84,11 +84,16 @@ Implement:
 - `FindElement(name, mustExist)` in `Apus.Engine.UI` wraps `TUIElement.FindByName`.
 - `FindAnyElementAt(x,y,c)` / `FindElementAt(x,y,c)` for hit testing — locks `UICritSect` internally.
 
-### Accessing Protected Fields
-- Use `TGameHelper = class(TGame)` pattern to access protected `scenes[]` array.
-  - Cast `game` via `TGameHelper(game)` — safe because `game` is always `TGame`.
-  - Keep all scene iteration and locking inside helper methods.
-  - Don't expose raw scene arrays outside the helper.
+### Command Registration Architecture
+- RobotAPI is a lightweight dispatcher — subsystems register their own commands.
+- `RegisterRobotCommand(name, handler)` — handler is `function(req; out body): boolean`.
+- Game.pas: windows, fps, scenes, screenshot, pixel (registered in `InitMainLoop`).
+- UIScene.pas: ui.tree, ui.element, ui.hittest (registered in `initialization`).
+- CmdProc.pas: cmd (registered in `initialization`).
+- ResManGL.pas: resources (registered in `initialization`).
+- RobotAPI.pas: signal (registered in `InitRobotAPI`).
+- Game commands access protected `scenes[]` directly (same unit).
+- ResManGL uses `TTextureAccess = class(TTexture)` to access protected `ClassHash`.
 
 ### Locking
 - `game.EnterCritSect` / `game.LeaveCritSect` for scene list access.
@@ -117,13 +122,8 @@ Implement:
 - [x] Add optional `ACTIVE_ONLY` parameter to filter only active scenes
 
 ### Custom commands
-- Allow registering custom robot commands from game code (callback-based)
-- Pattern: `RegisterRobotCommand('mycommand', @MyHandler)` where handler takes TRequest and returns String8
+- Registration API is already public: game code can call `RegisterRobotCommand('mycommand', @MyHandler)`.
 - Useful for game-specific queries (inventory state, player position, etc.)
 
-## Dependencies
-- No external dependencies beyond existing engine modules
-- Uses: `Apus.Engine.API`, `Apus.Engine.UITypes`, `Apus.Engine.UI`, `Apus.Engine.Scene`, `Apus.Engine.Game`, `Apus.Engine.CmdProc`, `Apus.EventMan`, `Apus.Engine.ResManGL`
-
 ## Integration Point
-`TGame.FrameLoop` — call `PollRobotAPI` after `HandleSignals` (line ~2277 in Game.pas)
+`TGame.RenderAndPresentFrame` — `PollRobotAPI` called after `PresentFrame` (ensures valid backbuffer for screenshot/pixel).
