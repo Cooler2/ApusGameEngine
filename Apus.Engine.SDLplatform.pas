@@ -56,7 +56,7 @@ type
 
 implementation
 uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
-  Apus.CrossPlatform, Apus.Common, SysUtils, Apus.EventMan, Apus.Engine.Game, Apus.Images,
+  SysUtils, Apus.Core, Apus.Log, Apus.Files, Apus.Strings, Apus.EventMan, Apus.Engine.Game, Apus.Images,
   Apus.GfxFormats, sdl2, Apus.Engine.Controller;
 
 type
@@ -76,11 +76,11 @@ procedure InitJoystick(idx:integer);
  begin
    ASSERT(idx in [0..high(controllers)]);
    if idx>high(controllers) then begin
-    LogMessage('SDL joystick %d not supported',[idx]);
+    Log.Msg('SDL joystick %d not supported',[idx]);
     exit;
    end;
-   LogMessage('Init SDL joystick %d',[idx]);
-   ZeroMem(controllers[idx],sizeof(controllers[idx]));
+   Log.Msg('Init SDL joystick %d',[idx]);
+   Mem.Clear(controllers[idx],sizeof(controllers[idx]));
    with SDLcontrollers[idx] do begin
     joystick:=SDL_JoystickOpen(idx);
     if joystick<>nil then with controllers[idx] do begin
@@ -88,10 +88,10 @@ procedure InitJoystick(idx:integer);
       numAxes:=SDL_JoystickNumAxes(joystick);
       numButtons:=SDL_JoystickNumButtons(joystick);
       name:=SDL_JoystickName(joystick);
-      LogMessage('SDL joystick: "%s" axes:%d, buttons:%d',[name,numAxes,numButtons]);
+      Log.Msg('SDL joystick: "%s" axes:%d, buttons:%d',[name,numAxes,numButtons]);
     end;
     if SDL_IsGameController(idx)=SDL_TRUE then begin
-      LogMessage('SDL: joystick %d is controller',[idx]);
+      Log.Msg('SDL: joystick %d is controller',[idx]);
       controller:=SDL_GameControllerOpen(idx);
       if controller<>nil then begin
         controllers[idx].controllerType:=gcGamepad;
@@ -161,7 +161,7 @@ function TSDLPlatform.GetScreenDPI:integer;
   ddpi:single;
  begin
   if SDL_GetDisplayDPI(0,@ddpi,nil,nil)<>0 then begin
-   ForceLogMessage('SDL: DPI query failed: '+SDL_GetError+' Assume 96 DPI');
+   Log.Force('SDL: DPI query failed: '+SDL_GetError+' Assume 96 DPI');
    exit(96);
   end;
   result:=round(ddpi);
@@ -217,7 +217,7 @@ function TSDLPlatform.GetSystemCursor(cursorId: integer): THandle;
   end;
   result:=THandle(SDL_CreateSystemCursor(cur));
   if result=0 then
-   LogMessage('Error - SDL_CSC failed: '+SDL_GetError);
+   Log.Msg('Error - SDL_CSC failed: '+SDL_GetError);
  end;
 
 function TSDLPlatform.LoadCursor(fname:string):THandle;
@@ -229,7 +229,7 @@ function TSDLPlatform.LoadCursor(fname:string):THandle;
   cursor:PSDL_Cursor;
  begin
   try
-   data:=LoadFileAsBytes(filename(fname));
+   data:=Files.LoadAsBytes(Files.FixName(fname));
    image:=nil;
    LoadCUR(data,image,hotX,hotY);
    image.Lock;
@@ -271,9 +271,9 @@ procedure TSDLPlatform.GetWindowSize(out width, height: integer);
 procedure MyLogHandler(userdata: Pointer; category: Integer; priority: TSDL_LogPriority; const msg: PAnsiChar);
  begin
   if priority>=SDL_LOG_PRIORITY_ERROR then
-   ForceLogMessage('SDL: '+msg)
+   Log.Force('SDL: '+msg)
   else
-   LogMessage('SDL: '+msg);
+   Log.Msg('SDL: '+msg);
   if @savedLogHandler<>nil then savedLogHandler(userData,category,priority,msg);
  end;
 
@@ -291,7 +291,7 @@ constructor TSDLPlatform.Create;
   SDL_GetVersion(@ver);
   SDL_LogGetOutputFunction(@savedLogHandler,nil);
   SDL_LogSetOutputFunction(MyLogHandler,nil);
-  LogMessage('SDL Initialized. Platform: %s, version %d.%d',[plName,ver.major,ver.minor]);
+  Log.Msg('SDL Initialized. Platform: %s, version %d.%d',[plName,ver.major,ver.minor]);
   InitControllers;
  end;
 
@@ -299,7 +299,7 @@ procedure TSDLPlatform.CreateWindow(title: string);
  var
   ust:UTF8String;
  begin
-   LogMessage('CreateMainWindow');
+   Log.Msg('CreateMainWindow');
    ust:=title;
    window:=SDL_CreateWindow(PAnsiChar(ust),SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,100,100,
     SDL_WINDOW_OPENGL+SDL_WINDOW_HIDDEN+SDL_WINDOW_ALLOW_HIGHDPI{+SDL_WINDOW_RESIZABLE});
@@ -346,33 +346,33 @@ function GetKeyCode(sdl_keycode:integer):integer;
      c:=UpCase(char(sdl_keycode));
      result:=ord(c);
     end;
-    SDLK_F1:result:=TKey.F1.Code;
-    SDLK_F2:result:=TKey.F2.Code;
-    SDLK_F3:result:=TKey.F3.Code;
-    SDLK_F4:result:=TKey.F4.Code;
-    SDLK_F5:result:=TKey.F5.Code;
-    SDLK_F6:result:=TKey.F6.Code;
-    SDLK_F7:result:=TKey.F7.Code;
-    SDLK_F8:result:=TKey.F8.Code;
-    SDLK_F9:result:=TKey.F9.Code;
-    SDLK_F10:result:=TKey.F10.Code;
-    SDLK_F11:result:=TKey.F11.Code;
-    SDLK_F12:result:=TKey.F12.Code;
-    SDLK_PRINTSCREEN:result:=TKey.PrintScreen.Code;
+    SDLK_F1:result:=integer(TKey.F1);
+    SDLK_F2:result:=integer(TKey.F2);
+    SDLK_F3:result:=integer(TKey.F3);
+    SDLK_F4:result:=integer(TKey.F4);
+    SDLK_F5:result:=integer(TKey.F5);
+    SDLK_F6:result:=integer(TKey.F6);
+    SDLK_F7:result:=integer(TKey.F7);
+    SDLK_F8:result:=integer(TKey.F8);
+    SDLK_F9:result:=integer(TKey.F9);
+    SDLK_F10:result:=integer(TKey.F10);
+    SDLK_F11:result:=integer(TKey.F11);
+    SDLK_F12:result:=integer(TKey.F12);
+    SDLK_PRINTSCREEN:result:=integer(TKey.PrintScreen);
 
-    SDLK_TAB:result:=TKey.Tab.Code;
-    SDLK_LEFT:result:=TKey.Left.Code;
-    SDLK_RIGHT:result:=TKey.Right.Code;
-    SDLK_UP:result:=TKey.Up.Code;
-    SDLK_DOWN:result:=TKey.Down.Code;
-    SDLK_HOME:result:=TKey.Home.Code;
-    SDLK_END:result:=TKey.EndKey.Code;
-    SDLK_PAGEUP:result:=TKey.PageUp.Code;
-    SDLK_PAGEDOWN:result:=TKey.PageDown.Code;
-    SDLK_INSERT:result:=TKey.Insert.Code;
-    SDLK_DELETE:result:=TKey.Delete.Code;
-    SDLK_BACKQUOTE:result:=TKey.Tilde.Code;
-    SDLK_BACKSPACE:result:=TKey.Backspace.Code;
+    SDLK_TAB:result:=integer(TKey.Tab);
+    SDLK_LEFT:result:=integer(TKey.Left);
+    SDLK_RIGHT:result:=integer(TKey.Right);
+    SDLK_UP:result:=integer(TKey.Up);
+    SDLK_DOWN:result:=integer(TKey.Down);
+    SDLK_HOME:result:=integer(TKey.Home);
+    SDLK_END:result:=integer(TKey.EndKey);
+    SDLK_PAGEUP:result:=integer(TKey.PageUp);
+    SDLK_PAGEDOWN:result:=integer(TKey.PageDown);
+    SDLK_INSERT:result:=integer(TKey.Insert);
+    SDLK_DELETE:result:=integer(TKey.Delete);
+    SDLK_BACKQUOTE:result:=integer(TKey.Tilde);
+    SDLK_BACKSPACE:result:=integer(TKey.Backspace);
    end;
   end;
 
@@ -392,7 +392,7 @@ procedure ProcessControllerEvent(event:TSDL_Event);
    SDL_JOYDEVICEREMOVED:begin
     n:=event.jdevice.which;
     if not ValidN then exit;
-    LogMessage('SDL: delete controller %d',[n]);
+    Log.Msg('SDL: delete controller %d',[n]);
     controllers[n].controllerType:=gcUnplugged;
     with SDLcontrollers[n] do begin
      if controller<>nil then begin
@@ -421,10 +421,10 @@ procedure ProcessControllerEvent(event:TSDL_Event);
     if button in [0..15] then begin
      tag:=PackTag(button,n,0,0);
      if event.type_=SDL_JOYBUTTONDOWN then begin
-      SetBit(controllers[n].buttons,button);
+      Bits.SetBit(controllers[n].buttons,button,true);
       Signal('JOY\BTNDOWN',tag);
      end else begin
-      ClearBit(controllers[n].buttons,button);
+      Bits.SetBit(controllers[n].buttons,button,false);
       Signal('JOY\BTNUP',tag);
      end;
     end;
@@ -455,10 +455,10 @@ procedure ProcessControllerEvent(event:TSDL_Event);
     // Tag: byte0 = button, byte1 = controller
     tag:=PackTag(ord(cButton),n,0,0);
     if event.type_=SDL_CONTROLLERBUTTONDOWN then begin
-     SetBit(controllers[n].buttons,ord(cButton));
+     Bits.SetBit(controllers[n].buttons,ord(cButton),true);
      Signal('GAMEPAD\BTNDOWN\'+Apus.Engine.Controller.GetButtonName(cButton),tag);
     end else begin
-     ClearBit(controllers[n].buttons,ord(cButton));
+     Bits.SetBit(controllers[n].buttons,ord(cButton),false);
      Signal('GAMEPAD\BTNUP\'+Apus.Engine.Controller.GetButtonName(cButton),tag);
     end;
    end;
@@ -481,31 +481,31 @@ procedure TSDLPlatform.ProcessSystemMessages;
       SDL_WINDOWEVENT_FOCUS_GAINED:;
       SDL_WINDOWEVENT_FOCUS_LOST:;
       SDL_WINDOWEVENT_HIDDEN:begin
-       LogMessage('Window hidden');
+       Log.Msg('Window hidden');
        Signal('ENGINE\SETACTIVE',0);
        Signal('ENGINE\WINDOW\HIDDEN');
       end;
       SDL_WINDOWEVENT_SHOWN:begin
-       LogMessage('Window shown');
+       Log.Msg('Window shown');
        Signal('ENGINE\SETACTIVE',1);
        Signal('ENGINE\WINDOW\SHOWN');
       end;
       SDL_WINDOWEVENT_MINIMIZED:begin
-       LogMessage('Window minimized');
+       Log.Msg('Window minimized');
        Signal('ENGINE\SETACTIVE',0);
        Signal('ENGINE\WINDOW\MINIMIZED');
       end;
       SDL_WINDOWEVENT_RESTORED:begin
-       LogMessage('Window restored');
+       Log.Msg('Window restored');
        Signal('ENGINE\SETACTIVE',1);
        Signal('ENGINE\WINDOW\RESTORED');
       end;
       SDL_WINDOWEVENT_MAXIMIZED:begin
-       LogMessage('Window maximized');
+       Log.Msg('Window maximized');
        Signal('ENGINE\WINDOW\MAXIMIZED');
       end;
       SDL_WINDOWEVENT_CLOSE:begin
-       LogMessage('Window close');
+       Log.Msg('Window close');
        Signal('ENGINE\WINDOW\CLOSE');
       end;
       SDL_WINDOWEVENT_RESIZED:Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
@@ -553,7 +553,7 @@ procedure TSDLPlatform.ProcessSystemMessages;
      len:=StrLen(event.text.text);
      SetLength(ust,len);
      move(event.text.text,ust[1],len);
-     wst:=DecodeUTF8(ust);
+     wst:=UTF8.ToWide(ust);
      for i:=1 to length(wst) do
       Signal('KBD\UNICHAR',word(wst[i]));
     end;
@@ -592,7 +592,7 @@ function TSDLPlatform.CreateOpenGLContext(const request:TOpenGLContextRequest;ou
  var
   major,minor,profile,flags,profileMask:integer;
  begin
-  LogMessage('Create GL Context');
+  Log.Msg('Create GL Context');
   major:=request.minMajor;
   minor:=request.minMinor;
   if (major<3) or ((major=3) and (minor<2)) then begin
@@ -659,7 +659,7 @@ procedure TSDLPlatform.SetupWindow(params:TGameSettings);
  var
   w,h,screenWidth,screenHeight,clientWidth,clientHeight:integer;
  begin
-   LogMessage('Configure main window');
+   Log.Msg('Configure main window');
 
    GetScreenSize(screenWidth,screenHeight);
    w:=params.width;
@@ -690,7 +690,7 @@ procedure TSDLPlatform.SetupWindow(params:TGameSettings);
 //   SDL_SetWindowSize();
 
    SDL_GL_GetDrawableSize(window,@clientWidth,@clientHeight);
-   LogMessage('Client size: %d %d',[clientWidth,clientHeight]);
+   Log.Msg('Client size: %d %d',[clientWidth,clientHeight]);
    Signal('ENGINE\RESIZE',clientWidth+clientHeight shl 16);
  end;
 
