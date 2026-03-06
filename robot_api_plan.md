@@ -21,7 +21,7 @@ Implement:
 
 **Acceptance:** all three commands return correct data from a running demo.
 
-**Status: NOT STARTED**
+**Status: DONE**
 
 ## Stage 3: UI Tree + Element Detail
 Implement:

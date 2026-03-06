@@ -17,7 +17,8 @@ var
   robotAPIEnabled:boolean = {$IFDEF DEBUG}true{$ELSE}false{$ENDIF};
 
 implementation
-uses Apus.Conv, Apus.Strings, Apus.Log, Apus.Files;
+uses Apus.Conv, Apus.Strings, Apus.Log, Apus.Files,
+  Apus.Engine.API, Apus.Engine.Game, Apus.Engine.Scene;
 
 type
   TRequest=record
@@ -116,10 +117,73 @@ begin
   result:=result+'==='+#13#10;
 end;
 
+const
+  CRLF = #13#10;
+  statusNames:array[TSceneStatus] of String8 = ('frozen','background','active');
+
+function CmdWindows(const req:TRequest):String8;
+var
+  body:String8;
+begin
+  if game=nil then exit(FormatResponse(req.id,'ERROR','','game not initialized'));
+  // TODO: lock if window properties become mutable from other threads
+  body:='WINDOW: 0'+CRLF+
+    '  windowWidth: '+Conv.ToStr(game.windowWidth)+CRLF+
+    '  windowHeight: '+Conv.ToStr(game.windowHeight)+CRLF+
+    '  renderWidth: '+Conv.ToStr(game.renderWidth)+CRLF+
+    '  renderHeight: '+Conv.ToStr(game.renderHeight)+CRLF+
+    '  screenDPI: '+Conv.ToStr(game.screenDPI)+CRLF+
+    '  displayRect: '+Conv.ToStr(game.displayRect.Left)+','+Conv.ToStr(game.displayRect.Top)+','+
+      Conv.ToStr(game.displayRect.Right)+','+Conv.ToStr(game.displayRect.Bottom)+CRLF;
+  result:=FormatResponse(req.id,'OK',body);
+end;
+
+function CmdFps(const req:TRequest):String8;
+var
+  body:String8;
+begin
+  if game=nil then exit(FormatResponse(req.id,'ERROR','','game not initialized'));
+  // no lock needed: FPS fields are written/read on main thread only
+  body:='fps: '+Conv.ToStr(game.FPS,2)+CRLF+
+    'smoothFPS: '+Conv.ToStr(game.smoothFPS,2)+CRLF+
+    'frameNum: '+Conv.ToStr(game.frameNum)+CRLF+
+    'frameTime: '+Conv.ToStr(integer(game.frameTimeDelta))+CRLF;
+  result:=FormatResponse(req.id,'OK',body);
+end;
+
+function CmdScenes(const req:TRequest):String8;
+var
+  body:String8;
+  scenes:TArray<TGameScene>;
+  i:integer;
+  s:TGameScene;
+begin
+  scenes:=GetAllScenes; // locked internally via game.EnterCritSect
+  if scenes=nil then exit(FormatResponse(req.id,'ERROR','','no scenes available'));
+  body:='';
+  for i:=0 to high(scenes) do begin
+    s:=scenes[i];
+    body:=body+'SCENE: '+s.name+CRLF+
+      '  status: '+statusNames[s.status]+CRLF+
+      '  zOrder: '+Conv.ToStr(s.zOrder)+CRLF+
+      '  frequency: '+Conv.ToStr(s.frequency)+CRLF+
+      '  fullscreen: '+Conv.ToStr(s.fullscreen)+CRLF+
+      '  class: '+String8(s.ClassName)+CRLF;
+  end;
+  result:=FormatResponse(req.id,'OK',body);
+end;
+
+// NOTE: UI commands (Stage 3+) must use UICritSect for rootElements/children access
 function HandleRequest(const req:TRequest):String8;
 begin
-  // Stage 1: echo back the command as acknowledgement
-  result:=FormatResponse(req.id,'OK','CMD: '+req.cmd+#13#10);
+  if req.cmd='windows' then
+    result:=CmdWindows(req)
+  else if req.cmd='fps' then
+    result:=CmdFps(req)
+  else if req.cmd='scenes' then
+    result:=CmdScenes(req)
+  else
+    result:=FormatResponse(req.id,'ERROR','','unknown command: '+req.cmd);
 end;
 
 procedure ProcessInputFile;
