@@ -498,12 +498,8 @@ begin
 end;
 
 procedure TNameValueList.Add(item:TNameValue);
-var
-  n:integer;
 begin
-  n:=length(items);
-  SetLength(items,n+1);
-  items[n+1]:=item;
+  items:=items+[item];
 end;
 
 function TNameValueList.Count: integer;
