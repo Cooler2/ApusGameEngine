@@ -724,6 +724,7 @@ procedure HandleGLDebugMessage(source,typ,id,severity:GLenum;len:GLsizei;const m
   // against vendor docs and NSight event metadata.
   if message_=nil then exit;
   if severity=GL_DEBUG_SEVERITY_NOTIFICATION then exit;
+  if id=131154 then exit; // pixel transfer sync warning (expected during robot API readback)
   // Stage 7: leave message mapping simple and log raw enums for cross-driver diagnostics.
   st:=PAnsiChar(message_);
   srcName:=DebugSourceName(source);

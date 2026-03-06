@@ -927,11 +927,63 @@ begin
   result:=true;
 end;
 
+function RobotCmdScreenshot(const req:TRobotRequest; out body:String8):boolean;
+var
+  fname:String8;
+  x,y,w,h:integer;
+  img:TBitmapImage;
+  res:ByteArray;
+begin
+  if game=nil then begin body:='game not initialized'; exit(false) end;
+  fname:=req.Param('FILE');
+  if fname='' then fname:='screenshot.png';
+  x:=Conv.ToInt(req.Param('X'));
+  y:=Conv.ToInt(req.Param('Y'));
+  w:=Conv.ToInt(req.Param('W'));
+  h:=Conv.ToInt(req.Param('H'));
+  if w<=0 then w:=game.renderWidth;
+  if h<=0 then h:=game.renderHeight;
+  img:=TBitmapImage.Create(w,h,ipfXRGB);
+  try
+    gfx.CopyFromBackbuffer(x,game.renderHeight-y-h,img);
+    img.FlipVertical; // backbuffer is bottom-up in OpenGL
+    res:=SavePNG(img);
+    Files.WriteBlock(fname,@res[0],length(res),0);
+    body:='file: '+fname+#13#10+
+      'width: '+Conv.ToStr(w)+#13#10+
+      'height: '+Conv.ToStr(h)+#13#10;
+    result:=true;
+  except
+    on e:Exception do begin
+      body:=String8(e.Message);
+      result:=false;
+    end;
+  end;
+  img.Free;
+end;
+
+function RobotCmdPixel(const req:TRobotRequest; out body:String8):boolean;
+var
+  x,y:integer;
+  color:cardinal;
+begin
+  if game=nil then begin body:='game not initialized'; exit(false) end;
+  x:=Conv.ToInt(req.Param('X'));
+  y:=Conv.ToInt(req.Param('Y'));
+  color:=gfx.GetPixelValue(x,y);
+  body:='x: '+Conv.ToStr(x)+#13#10+
+    'y: '+Conv.ToStr(y)+#13#10+
+    'color: '+Conv.ToHex(color)+#13#10;
+  result:=true;
+end;
+
 procedure RegisterGameRobotCommands;
 begin
   RegisterRobotCommand('windows',@RobotCmdWindows);
   RegisterRobotCommand('fps',@RobotCmdFps);
   RegisterRobotCommand('scenes',@RobotCmdScenes);
+  RegisterRobotCommand('screenshot',@RobotCmdScreenshot);
+  RegisterRobotCommand('pixel',@RobotCmdPixel);
 end;
 
 procedure TGame.InitMainLoop;
@@ -2346,7 +2398,6 @@ procedure TGame.FrameLoop;
   except
     on e:exception do Log.Force('Error in FrameLoop 1: '+ExceptionMsg(e));
   end;
-  PollRobotAPI;
   if not active then
     Delay(5); // limit speed in inactive state
   EndMeasure2(14);
@@ -2437,6 +2488,7 @@ procedure TGame.RenderAndPresentFrame;
     PresentFrame;
     if captureSingleFrame or videoCaptureMode then
      CaptureFrame;
+    PollRobotAPI; // after present: pixel/screenshot read valid backbuffer
    end else
     CoreTime.Sleep(5);
    game.Flog('LEnd');

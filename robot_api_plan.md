@@ -40,7 +40,7 @@ Implement:
 
 **Acceptance:** can execute CmdProc commands and trigger events via robot file.
 
-**Status: NOT STARTED**
+**Status: DONE**
 
 ## Stage 5: Screenshot + Pixel
 Implement:
@@ -49,7 +49,7 @@ Implement:
 
 **Acceptance:** screenshot file is created and matches visible output; pixel color is correct.
 
-**Status: NOT STARTED**
+**Status: DONE**
 
 ## Stage 6: Resources List
 Implement:
