@@ -5,10 +5,38 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.SDLplatform;
 interface
-uses Types, Apus.Engine.API;
+uses Types, sdl2, Apus.Engine.API, Apus.Engine.OpenGL;
 
 type
  
+ { TSDLGLWindow }
+
+ TSDLGLWindow=class(TWindow)
+  constructor Create(aWnd:PSDL_Window);
+  procedure Close; override;
+  procedure Configure(params:TGameSettings); override;
+  procedure Show(show:boolean); override;
+  function GetHandle:THandle; override;
+  procedure GetSize(out width,height:integer); override;
+  procedure MoveTo(x,y:integer;width:integer=0;height:integer=0); override;
+  procedure SetCaption(text:string); override;
+  procedure Minimize; override;
+  procedure FlashWindow(count:integer); override;
+  procedure ProcessMessages; override;
+  function IsTerminated:boolean; override;
+  procedure ScreenToClient(var p:TPoint); override;
+  procedure ClientToScreen(var p:TPoint); override;
+  procedure InitGraph; override;
+  procedure DoneGraph; override;
+  procedure PresentFrame; override;
+  function SetVSync(divider:integer):boolean; override;
+ private
+  wnd:PSDL_Window;
+  ctx:TSDL_GLContext;
+  graphInfo:TOpenGLContextDesc;
+  function CreateOpenGLContext(var graph:TOpenGLContextDesc):UIntPtr;
+ end;
+
  { TSDLPlatform }
 
  TSDLPlatform=class(TInterfacedObject,ISystemPlatform)
@@ -18,21 +46,6 @@ type
   procedure GetScreenSize(out width,height:integer);
   procedure GetRealScreenSize(out width,height:integer);
   function GetScreenDPI:integer;
-
-  procedure CreateWindow(title:string);
-  procedure SetupWindow(params:TGameSettings);
-  function GetWindowHandle:THandle;
-  procedure GetWindowSize(out width,height:integer);
-  procedure DestroyWindow;
-
-  procedure ShowWindow(show:boolean);
-  procedure MoveWindowTo(x,y:integer;width:integer=0;height:integer=0);
-  procedure SetWindowCaption(text:string);
-  procedure Minimize;
-  procedure FlashWindow(count:integer);
-
-  procedure ProcessSystemMessages;
-  function IsTerminated:boolean;
 
   function GetMousePos:TPoint; // Get mouse position on screen
   procedure SetMousePos(scrX,scrY:integer); // Move mouse cursor (screen coordinates)
@@ -44,20 +57,13 @@ type
   function MapScanCodeToVirtualKey(key:integer):integer;
   function GetShiftKeysState:cardinal;
   function GetMouseButtons:cardinal;
-
-  procedure ScreenToClient(var p:TPoint);
-  procedure ClientToScreen(var p:TPoint);
-
-  function CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
-  procedure OGLSwapBuffers;
-  function SetSwapInterval(divider:integer):boolean;
-  procedure DeleteOpenGLContext;
+  function CreateWindow(title:string):TWindow;
  end;
 
 implementation
 uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
   SysUtils, Apus.Core, Apus.Log, Apus.Files, Apus.Strings, Apus.EventMan, Apus.Engine.Game, Apus.Images,
-  Apus.GfxFormats, sdl2, Apus.Engine.Controller;
+  Apus.GfxFormats, Apus.Engine.Controller;
 
 type
  TSDLController=record
@@ -65,8 +71,6 @@ type
   controller:TSDL_GameController;
  end;
 var
- window:PSDL_Window;
- context:TSDL_GLContext;
  terminated:boolean;
  mouseState:byte;
  savedLogHandler:TSDL_LogOutputFunction;
@@ -111,6 +115,14 @@ procedure InitControllers;
   end;
  end;
 
+{ TSDLGLWindow }
+
+constructor TSDLGLWindow.Create(aWnd:PSDL_Window);
+ begin
+  wnd:=aWnd;
+  ctx:=nil;
+ end;
+
 { TSDLPlatform }
 
 function TSDLPlatform.CanChangeSettings:boolean;
@@ -118,26 +130,27 @@ function TSDLPlatform.CanChangeSettings:boolean;
   result:=true;
  end;
 
-procedure TSDLPlatform.ClientToScreen(var p:TPoint);
+procedure TSDLGLWindow.ClientToScreen(var p:TPoint);
  var
   x,y:integer;
  begin
-  SDL_GetWindowPosition(window,@x,@y);
+  SDL_GetWindowPosition(wnd,@x,@y);
   inc(p.x,x);
   inc(p.y,y);
  end;
 
-procedure TSDLPlatform.ScreenToClient(var p:TPoint);
+procedure TSDLGLWindow.ScreenToClient(var p:TPoint);
  begin
 
  end;
 
-procedure TSDLPlatform.DestroyWindow;
+procedure TSDLGLWindow.Close;
  begin
-  SDL_DestroyWindow(window);
+  SDL_DestroyWindow(wnd);
+  wnd:=nil;
  end;
 
-procedure TSDLPlatform.FlashWindow(count:integer);
+procedure TSDLGLWindow.FlashWindow(count:integer);
  begin
  end;
 
@@ -257,15 +270,18 @@ procedure TSDLPlatform.FreeCursor(cur:THandle);
  end;
 
 
-function TSDLPlatform.GetWindowHandle: THandle;
+function TSDLGLWindow.GetHandle:THandle;
  begin
-  result:=window.id;
+  if wnd=nil then exit(0);
+  result:=wnd.id;
  end;
 
-procedure TSDLPlatform.GetWindowSize(out width, height: integer);
+procedure TSDLGLWindow.GetSize(out width,height:integer);
  begin
-  width:=window.w;
-  height:=window.h;
+  if wnd=nil then begin
+   width:=0; height:=0;
+  end else
+   SDL_GetWindowSize(wnd,@width,@height);
  end;
 
 procedure MyLogHandler(userdata: Pointer; category: Integer; priority: TSDL_LogPriority; const msg: PAnsiChar);
@@ -295,16 +311,18 @@ constructor TSDLPlatform.Create;
   InitControllers;
  end;
 
-procedure TSDLPlatform.CreateWindow(title: string);
+function TSDLPlatform.CreateWindow(title:string):TWindow;
  var
   ust:UTF8String;
+  localWindow:PSDL_Window;
  begin
    Log.Msg('CreateMainWindow');
    ust:=title;
-   window:=SDL_CreateWindow(PAnsiChar(ust),SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,100,100,
+   localWindow:=SDL_CreateWindow(PAnsiChar(ust),SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,100,100,
     SDL_WINDOW_OPENGL+SDL_WINDOW_HIDDEN+SDL_WINDOW_ALLOW_HIGHDPI{+SDL_WINDOW_RESIZABLE});
-   if window=nil then
+   if localWindow=nil then
     raise EError.Create('SDL window creation failed');
+   result:=TSDLGLWindow.Create(localWindow);
   end;
 
 function PackWords(p1,p2:integer):TTag;
@@ -465,7 +483,7 @@ procedure ProcessControllerEvent(event:TSDL_Event);
   end;
  end;
 
-procedure TSDLPlatform.ProcessSystemMessages;
+procedure TSDLGLWindow.ProcessMessages;
  var
   event:TSDL_Event;
   ust:String8;
@@ -570,144 +588,165 @@ procedure TSDLPlatform.ProcessSystemMessages;
   end;
  end;
 
-function TSDLPlatform.IsTerminated:boolean;
+function TSDLGLWindow.IsTerminated:boolean;
  begin
   result:=terminated;
  end;
 
-procedure TSDLPlatform.Minimize;
+procedure TSDLGLWindow.Minimize;
  begin
-  SDL_MinimizeWindow(window);
+  SDL_MinimizeWindow(wnd);
  end;
 
-procedure TSDLPlatform.MoveWindowTo(x, y: integer; width: integer;
+procedure TSDLGLWindow.MoveTo(x,y:integer;width:integer;
   height: integer);
  begin
   if (width>0) and (height>0) then
-   SDL_SetWindowSize(window,width,height);
-  SDL_SetWindowPosition(window,x,y);
+   SDL_SetWindowSize(wnd,width,height);
+  SDL_SetWindowPosition(wnd,x,y);
  end;
 
-function TSDLPlatform.CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
+function TSDLGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc):UIntPtr;
  var
   major,minor,profile,flags,profileMask:integer;
+  requestedProfile:TOpenGLContextProfile;
+  requestedDebug,requestedForward:boolean;
  begin
   Log.Msg('Create GL Context');
-  major:=request.minMajor;
-  minor:=request.minMinor;
+  requestedProfile:=graph.profile;
+  requestedDebug:=graph.debugContext;
+  requestedForward:=graph.forwardCompatible;
+  major:=graph.minMajor;
+  minor:=graph.minMinor;
   if (major<3) or ((major=3) and (minor<2)) then begin
    major:=3;
    minor:=2;
   end;
   profileMask:=SDL_GL_CONTEXT_PROFILE_COMPATIBILITY;
-  if request.profile=glcpCore then
+  if requestedProfile=oglpCore then
    profileMask:=SDL_GL_CONTEXT_PROFILE_CORE;
 
   flags:=0;
-  if request.debugContext then flags:=flags or SDL_GL_CONTEXT_DEBUG_FLAG;
-  if request.forwardCompatible then flags:=flags or SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
+  if requestedDebug then flags:=flags or SDL_GL_CONTEXT_DEBUG_FLAG;
+  if requestedForward then flags:=flags or SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,major);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,minor);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,profileMask);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,flags);
-  context:=SDL_GL_CreateContext(window);
-  result:=UIntPtr(context);
+  ctx:=SDL_GL_CreateContext(wnd);
+  result:=UIntPtr(ctx);
 
-  actual.major:=0;
-  actual.minor:=0;
-  actual.profile:=glcpAny;
-  actual.debugContext:=false;
-  actual.forwardCompatible:=false;
-  actual.requestAccepted:=context<>nil;
-  if context<>nil then begin
+  graph.actualMajor:=0;
+  graph.actualMinor:=0;
+  graph.profile:=oglpAny;
+  graph.debugContext:=false;
+  graph.forwardCompatible:=false;
+  graph.requestAccepted:=ctx<>nil;
+  if ctx<>nil then begin
    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,@major);
    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,@minor);
    SDL_GL_GetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,@profile);
    SDL_GL_GetAttribute(SDL_GL_CONTEXT_FLAGS,@flags);
-   actual.major:=major;
-   actual.minor:=minor;
+   graph.actualMajor:=major;
+   graph.actualMinor:=minor;
    case profile of
-    SDL_GL_CONTEXT_PROFILE_CORE:actual.profile:=glcpCore;
-    SDL_GL_CONTEXT_PROFILE_COMPATIBILITY:actual.profile:=glcpCompatibility;
-    else actual.profile:=glcpAny;
+    SDL_GL_CONTEXT_PROFILE_CORE:graph.profile:=oglpCore;
+    SDL_GL_CONTEXT_PROFILE_COMPATIBILITY:graph.profile:=oglpCompatibility;
+    else graph.profile:=oglpAny;
    end;
-   actual.debugContext:=(flags and SDL_GL_CONTEXT_DEBUG_FLAG)<>0;
-   actual.forwardCompatible:=(flags and SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG)<>0;
-   actual.requestAccepted:=actual.requestAccepted and
-    ((request.profile=glcpAny) or (actual.profile=request.profile)) and
-    ((not request.debugContext) or actual.debugContext) and
-    ((not request.forwardCompatible) or actual.forwardCompatible);
+   graph.debugContext:=(flags and SDL_GL_CONTEXT_DEBUG_FLAG)<>0;
+   graph.forwardCompatible:=(flags and SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG)<>0;
+    graph.requestAccepted:=graph.requestAccepted and
+     ((requestedProfile=oglpAny) or (graph.profile=requestedProfile)) and
+     ((not requestedDebug) or graph.debugContext) and
+     ((not requestedForward) or graph.forwardCompatible);
+   end;
   end;
- end;
 
-procedure TSDLPlatform.OGLSwapBuffers;
+procedure TSDLGLWindow.InitGraph;
  begin
-  SDL_GL_SwapWindow(window);
+  graphInfo:=oglContextTemplate;
+  graphInfo.actualMajor:=0;
+  graphInfo.actualMinor:=0;
+  graphInfo.requestAccepted:=false;
+  if CreateOpenGLContext(graphInfo)=0 then
+   raise EError.Create('Can''t create OpenGL context');
+  oglContextInfo:=graphInfo;
  end;
 
-function TSDLPlatform.SetSwapInterval(divider: integer):boolean;
+procedure TSDLGLWindow.PresentFrame;
+ begin
+  SDL_GL_SwapWindow(wnd);
+ end;
+
+function TSDLGLWindow.SetVSync(divider:integer):boolean;
 begin
   result:=SDL_GL_SetSwapInterval(divider)=0;
 end;
 
-procedure TSDLPlatform.DeleteOpenGLContext;
+procedure TSDLGLWindow.DoneGraph;
  begin
-  SDL_GL_DeleteContext(context);
+  if ctx<>nil then
+   SDL_GL_DeleteContext(ctx);
+  ctx:=nil;
  end;
 
-procedure TSDLPlatform.SetupWindow(params:TGameSettings);
+procedure TSDLGLWindow.Configure(params:TGameSettings);
  var
+  mode:TSDL_DisplayMode;
   w,h,screenWidth,screenHeight,clientWidth,clientHeight:integer;
  begin
    Log.Msg('Configure main window');
 
-   GetScreenSize(screenWidth,screenHeight);
+   SDL_GetDesktopDisplayMode(0,@mode);
+   screenWidth:=mode.w;
+   screenHeight:=mode.h;
    w:=params.width;
    h:=params.height;
    if params.mode.displayMode=dmBorderless then
-    SDL_SetWindowBordered(window,SDL_FALSE);
+    SDL_SetWindowBordered(wnd,SDL_FALSE);
    case params.mode.displayMode of
     dmWindow,dmFixedWindow,dmBorderless:begin
-      SDL_SetWindowFullscreen(window,0);
+      SDL_SetWindowFullscreen(wnd,0);
       if params.mode.displayMode=dmWindow then
-        SDL_SetWindowResizable(window,SDL_TRUE)
+        SDL_SetWindowResizable(wnd,SDL_TRUE)
       else
-        SDL_SetWindowResizable(window,SDL_FALSE);
+        SDL_SetWindowResizable(wnd,SDL_FALSE);
 
-      SDL_SetWindowSize(window,w,h);
-      SDL_GetWindowSize(window,@w,@h);
-      MoveWindowTo((screenWidth-w) div 2,(screenHeight-h) div 2, -1,-1);
+      SDL_SetWindowSize(wnd,w,h);
+      SDL_GetWindowSize(wnd,@w,@h);
+      MoveTo((screenWidth-w) div 2,(screenHeight-h) div 2,-1,-1);
     end;
     dmFullScreen:begin
-      SDL_SetWindowFullscreen(window,SDL_WINDOW_FULLSCREEN_DESKTOP);
+      SDL_SetWindowFullscreen(wnd,SDL_WINDOW_FULLSCREEN_DESKTOP);
     end;
     dmSwitchResolution:begin
-      SDL_SetWindowFullscreen(window,SDL_WINDOW_FULLSCREEN);
+      SDL_SetWindowFullscreen(wnd,SDL_WINDOW_FULLSCREEN);
     end;
    end;
 
-   SDL_ShowWindow(window);
+   SDL_ShowWindow(wnd);
 //   SDL_SetWindowSize();
 
-   SDL_GL_GetDrawableSize(window,@clientWidth,@clientHeight);
+   SDL_GL_GetDrawableSize(wnd,@clientWidth,@clientHeight);
    Log.Msg('Client size: %d %d',[clientWidth,clientHeight]);
    Signal('ENGINE\RESIZE',clientWidth+clientHeight shl 16);
  end;
 
-procedure TSDLPlatform.SetWindowCaption(text: string);
+procedure TSDLGLWindow.SetCaption(text:string);
  var
   ust:UTF8String;
  begin
   ust:=text;
-  SDL_SetWindowTitle(window,PAnsiChar(ust));
+  SDL_SetWindowTitle(wnd,PAnsiChar(ust));
  end;
 
-procedure TSDLPlatform.ShowWindow(show: boolean);
+procedure TSDLGLWindow.Show(show:boolean);
  begin
   if show then
-   SDL_ShowWindow(window)
+   SDL_ShowWindow(wnd)
   else
-   SDL_HideWindow(window);
+   SDL_HideWindow(wnd);
  end;
 
 function TSDLPlatform.MapScanCodeToVirtualKey(key:integer):integer;
