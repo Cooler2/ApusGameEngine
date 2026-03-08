@@ -5,6 +5,13 @@ Use it as the primary reference when updating old code.
 
 ## Recent API fixes (2026-02-26)
 
+### Apus.Files BOM-aware text I/O
+
+- `Files.LoadAsString(fname,...)` now strips UTF-8 BOM when reading from file start (`startFrom=0`).
+- `Files.Save(fname,data:String8)` now writes UTF-8 BOM by default.
+- Added overload: `Files.Save(fname,data:String8;addBOM:boolean)` for explicit control.
+  - Use `addBOM=false` for raw text/binary-like writes where byte-exact layout matters.
+
 ### Apus.Utils enum helper extraction
 
 - Added `GetEnumNameSafe(typeInfo:pointer;value:integer):string` to `Apus.Utils`.

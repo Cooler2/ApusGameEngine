@@ -24,24 +24,34 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - protocol stabilized (`robot_in.txt` / `robot_out.txt`);
   - `SimpleDemo` and `01-Scenes` validated;
   - `ui.element` upgraded (`HIERARCHY`, effective/internal states, live `globalRect`, optional layout dump).
+  - `fps` command upgraded with high-precision frame-time diagnostics:
+    - `frameTimeMs` / `FRAME_MS` (high-precision source, ms format);
+    - delayed metrics collection mode (`METRICS:YES`, collect for `N` frames before response);
+    - per-frame phase telemetry for diagnostics (`MSG`, `ONFRAME`, `RENDER`, `PRESENT`, `SLEEP`, `Total`).
 - `01-Scenes` DPI/layout centering regression fixed:
   - root cause: positioning against `width/height` instead of `clientWidth/clientHeight` under UI scale;
   - demo source updated accordingly.
+- SDL startup path unblocked for `SimpleDemo`:
+  - `Apus.Engine.SDLplatform` migrated away from deprecated `Apus.CrossPlatform/Apus.Common` usage;
+  - SDL input/platform code aligned with current core API (`Bits.SetBit`, UTF8 conversion, key mapping compatibility);
+  - `SimpleDemo` SDL build path validated (`-dSDL`), runtime launch confirmed when DLL set is available.
 
 ## In Progress (active now)
 - SDL core-profile parity (high priority):
-  - stabilize `Apus.Engine.SDLplatform` context creation/startup path to match Windows reliability.
+  - stabilize SDL runtime quality to match Windows path (current status: startup works; performance is currently poor on `SimpleDemo`).
 - Render follow-up after core migration (high priority):
   - reduce NSight-reported useless `glBind*` churn in hot paths.
 
 ## Next (ordered)
 1. Finish SDL-path stabilization and runtime validation on at least one SDL demo path.
-2. Remove redundant bind churn:
+2. Use the new Robot API `fps` diagnostics (`N` history + `frameTimeMs`) to profile SDL slowdown and localize the main bottleneck.
+3. Split `MSG` stall budget into finer input/message sub-phases (mouse move/buttons/wheel/other events) for exact SDL freeze localization.
+4. Remove redundant bind churn:
    - avoid unnecessary bind-to-zero in hot paths;
    - strengthen lightweight state-cache checks before `glBind*`;
    - unify repetitive bind/draw/unbind patterns in `Apus.Engine.Draw`.
-3. Runtime-wire shader variant selection based on actual context/profile info (`oglContextInfo`) where still compile-time split.
-4. Define first concrete R-09 implementation slice:
+5. Runtime-wire shader variant selection based on actual context/profile info (`oglContextInfo`) where still compile-time split.
+6. Define first concrete R-09 implementation slice:
    - capability-gated persistent mapped streaming path with safe fallback;
    - explicit batching entry point for high-frequency simple primitives (line-heavy cases).
 

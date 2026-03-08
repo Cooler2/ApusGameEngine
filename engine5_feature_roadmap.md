@@ -145,7 +145,7 @@ Use this section for anything remembered on the fly.
   - 2026-03-06: Additional runtime confidence milestone: `demo/VertexBuffer` works (render mode switching + VSync toggle validated).
 
 ### [R-02] Multi-Window, Multi-Monitor, and Hot DPI-Awareness
-- Status: idea
+- Status: planned
 - Priority: P0
 - Area: Platform
 - Value: Enable modern desktop app behavior across displays and DPI changes without restart.
@@ -158,6 +158,7 @@ Use this section for anything remembered on the fly.
   - [ ] Window placement and fullscreen behavior work on multiple monitors.
   - [ ] Runtime DPI change triggers correct viewport/UI scaling without restart.
 - Notes: hot DPI-awareness must be validated with monitor move and OS scale-change scenarios.
+  - 2026-03-08: architecture draft and decisions v1 are documented in `reports/R-02_multiwindow_plan.md`.
 
 ### [R-03] Native AEM Pipeline + Blender Export
 - Status: idea
@@ -190,6 +191,10 @@ Use this section for anything remembered on the fly.
 - Notes: start with a minimal command surface and grow incrementally.
   - 2026-03-06: file-based Robot API protocol implemented and validated on `SimpleDemo` and `01-Scenes`.
   - 2026-03-06: `ui.element` diagnostics upgraded for layout/DPI debugging (`HIERARCHY`, internal/effective visibility+enabled, live `globalRect`, optional `layout` block).
+  - 2026-03-06: post-MVP `fps` diagnostics delivered:
+    - high-precision per-frame timing (`frameTimeUs`);
+    - optional ring-buffer history request (`N`) with repeated `FRAME_US` output.
+  - 2026-03-06: next follow-up is practical profiling of SDL slowdown using the new `fps` telemetry.
   - Post-MVP follow-ups (non-blocking): stronger command-level safety gates/policy hardening, plus reliability fixes for edge-case shutdown flows.
 
 ### [R-05] CSS-Like UI Style System Completion
