@@ -625,7 +625,7 @@ begin
    Thread.Ping;
    Thread.CheckTimeouts;
    Delay(5); // Handling signals is inside
-   systemPlatform.ProcessSystemMessages;
+   game.window.ProcessMessages;
   except
    on e:exception do Log.Force('Error in MainLoop: '+ExceptionMsg(e));
   end;

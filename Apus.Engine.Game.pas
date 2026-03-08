@@ -477,7 +477,7 @@ begin
    Log.Msg('Change mode to: %s,%s,%s %d x %d ',
     [displayMode.ToString, displayFitMode.ToString, displayScaleMode.ToString,
      params.width, params.height]);
-  systemPlatform.SetupWindow(params);
+  window.Configure(params);
   if gfx.target<>nil then gfx.target.Backbuffer;
   SetupRenderArea;
   for i:=low(scenes) to high(scenes) do
@@ -493,7 +493,7 @@ begin
  end;
  params.VSync:=divider;
  if gfx.config.SetVSyncDivider(divider) then exit;
- if systemPlatform.SetSwapInterval(divider) then exit;
+ if window.SetVSync(divider) then exit;
  PutMsg('Failed to set VSync: no method available');
 end;
 
@@ -712,8 +712,9 @@ procedure TGame.DoneGraph;
   DoneRobotAPI;
   Signal('Engine\BeforeDoneGraph');
   gfx.Done;
+  window.DoneGraph;
 
-  systemPlatform.ShowWindow(false);
+  window.Show(false);
   Signal('Engine\AfterDoneGraph');
   Log.Msg('DoneGraph End');
  end;
@@ -849,8 +850,8 @@ begin
  Signal('Engine\BeforeInitGraph');
  aspectRatio:=params.width/params.height;
 
- systemPlatform.SetupWindow(params);
- gfx.Init(systemPlatform);
+ window.Configure(params);
+ gfx.Init(window);
  // Choose pixel formats
  gfx.config.ChoosePixelFormats(pfTrueColor,pfTrueColorAlpha,pfRenderTarget,pfRenderTargetAlpha);
  Log.Msg('Selected pixel formats:');
@@ -884,7 +885,7 @@ begin
  InitDefaultResources;
 
  globalTintColor:=$FF808080;
- systemPlatform.ProcessSystemMessages;
+ window.ProcessMessages;
  consoleSettings.popupCriticalMessages:=params.mode.displayMode<>dmSwitchResolution;
 
  AfterInitGraph;
@@ -1675,7 +1676,7 @@ begin
  else
  // Make window flash to draw attention
  if SameText(event,'FLASH') then
-  systemPlatform.FlashWindow(tag);
+  window.FlashWindow(tag);
 end;
 
 // Handle KBD\* event
@@ -1712,7 +1713,7 @@ begin
  if SameText(event,'GLOBALMOVE') then begin
    pnt.x:=SmallInt(tag);
    pnt.y:=SmallInt(tag shr 16);
-   systemPlatform.ScreenToClient(pnt);
+   window.ScreenToClient(pnt);
    ClientToGame(pnt);
    MouseMovedTo(pnt.x,pnt.y); // process motion in game space
  end else
@@ -1747,7 +1748,7 @@ var
     if dragMode then begin
       bestPnt.x:=mouseX+nx*20;
       bestPnt.y:=mouseY+ny*20;
-      systemPlatform.ClientToScreen(bestPnt);
+      window.ClientToScreen(bestPnt);
       systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
       exit;
    end;
@@ -1773,7 +1774,7 @@ var
    end;
    if best<100000 then begin
     GameToClient(bestPnt);
-    systemPlatform.ClientToScreen(bestPnt);
+    window.ClientToScreen(bestPnt);
     systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
    end;
   end;
@@ -1809,7 +1810,7 @@ begin
  repeat
   HandleSignals;
   if (game<>nil) and (GetCurrentThreadId=TGame(game).mainThread.ThreadID) then
-   systemPlatform.ProcessSystemMessages;
+   game.window.ProcessMessages;
   CoreTime.Sleep(Clamp(t-CoreTime.Ticks,0,20));
  until CoreTime.Ticks>=t;
 end;
@@ -2149,7 +2150,7 @@ var
  memState:TMemoryManagerState; // real-time memory manager state
  {$ENDIF}
 begin
- if systemPlatform.IsTerminated then exit;
+ if window.IsTerminated then exit;
  DeltaTime:=CoreTime.Ticks-LastRenderTime;
  LastRenderTime:=CoreTime.Ticks;
  FLog('RF1');
@@ -2235,7 +2236,7 @@ begin
    on e:Exception do CritMsg('Scene '+sc[i].name+' initialization error: '+ExceptionMsg(e));
   end;
 
-  if systemPlatform.IsTerminated then exit;
+  if window.IsTerminated then exit;
   if sc[i].effect<>nil then begin
    FLog('Drawing eff on '+sc[i].name);
    sc[i].effect.DrawScene;
@@ -2345,12 +2346,12 @@ end;
 
 procedure TGame.MoveWindowTo(x,y,width,height:integer);
  begin
-  systemPlatform.MoveWindowTo(x,y,width,height);
+  window.MoveTo(x,y,width,height);
  end;
 
 procedure TGame.Minimize;
  begin
-  systemPlatform.Minimize;
+  window.Minimize;
  end;
 
 procedure TGame.FireMessage(st: string8);
@@ -2402,7 +2403,7 @@ procedure TGame.HideWindowScene(name:string);
 
 procedure TGame.SetWindowCaption(text: string);
 begin
- systemPlatform.SetWindowCaption(text);
+ window.SetCaption(text);
 end;
 
 procedure TGame.DebugFeature(feature: TDebugFeature; enable: boolean);
@@ -2617,7 +2618,7 @@ procedure TGame.FrameLoop;
 
   StartMeasure(14);
   if fpsPhaseMetrics then StartTimer(phaseTimer);
-  systemPlatform.ProcessSystemMessages; // this stalls if window is moved/resized
+  window.ProcessMessages; // this stalls if window is moved/resized
   try
     HandleSignals;
   except
@@ -2674,7 +2675,7 @@ procedure TGame.RenderAndPresentFrame;
    except
     on e:exception do Log.Force('Error in FrameLoop 2: '+ExceptionMsg(e));
    end;
-   if SystemPlatform.IsTerminated then exit;
+   if window.IsTerminated then exit;
 
    if active or (params.mode.displayMode<>dmSwitchResolution) then begin
     // Если программа активна, то выполним отрисовку кадра
@@ -2770,7 +2771,7 @@ procedure TMainThread.Execute;
    SetEventHandler('Engine\',EngineEvent,emInstant);
    SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
 
-   systemPlatform.CreateWindow(gameEx.params.title);
+   game.window:=systemPlatform.CreateWindow(gameEx.params.title);
    gameEx.InitMainLoop; // вызывает InitGraph
 
    game.running:=true; // Это как-бы семафор для завершения функции Run
@@ -2793,7 +2794,8 @@ procedure TMainThread.Execute;
 
    // Финализация
    gameEx.DoneGraph;
-   systemPlatform.DestroyWindow;
+   game.window.Close;
+   FreeAndNil(game.window);
   except
    on e:Exception do begin
     errorMsg:=ExceptionMsg(e);

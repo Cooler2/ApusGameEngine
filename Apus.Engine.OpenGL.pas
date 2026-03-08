@@ -10,13 +10,31 @@ interface
 uses Apus.Core, Apus.Engine.API, Apus.Images;
 
 type
+ TOpenGLContextProfile=(oglpAny,
+                       oglpCompatibility,
+                       oglpCore);
+
+ TOpenGLContextDesc=record
+  // request
+  minMajor:byte;
+  minMinor:byte;
+  profile:TOpenGLContextProfile;
+  debugContext:boolean;
+  forwardCompatible:boolean;
+  preferHighest:boolean;
+  // actual
+  actualMajor:byte;
+  actualMinor:byte;
+  requestAccepted:boolean;
+ end;
+
  // Main graphics-system implementation for OpenGL.
  // Owns and wires all rendering subsystems (target, shaders, resman, text, draw).
  // Lifecycle is controlled via IGraphicsSystem (Init/Done).
  // Important: all GL-owning services must be released in Done BEFORE the platform
  // destroys the GL context, otherwise GPU resources cannot be deleted safely.
  TOpenGL=class(TInterfacedObject,IGraphicsSystem,IGraphicsSystemConfig)
-  procedure Init(system:ISystemPlatform);
+  procedure Init(window:TWindow);
   procedure Done;
   function GetVersion:single;
   function GetName:string8;
@@ -53,7 +71,7 @@ type
  protected
   glVersion,glRenderer:string8;
   glVersionNum:single;
-  sysPlatform:ISystemPlatform;
+  wnd:TWindow;
   canPaint:integer;
   // Explicit owners for interfaced singletons created in Init.
   // They are released in Done via :=nil to trigger deterministic destruction.
@@ -68,6 +86,10 @@ var
  debugGL:boolean = true;
  glDefaultVAO:cardinal = 0;
  debugGroupDepth:integer = 0;
+ // OpenGL context request template and actual context info.
+ // Template is configured by app-level code before game startup.
+ oglContextTemplate:TOpenGLContextDesc;
+ oglContextInfo:TOpenGLContextDesc;
 
  procedure CheckForGLError(lab:integer=0); inline;
  procedure PushDebugGroup(const st:String8;id:integer=0); inline;
@@ -75,7 +97,6 @@ var
 
 implementation
  uses
-  {$IFDEF MSWINDOWS}Windows,{$ENDIF}
   {$IFDEF DGL}dglOpenGL,{$ENDIF}
   SysUtils,
   Types,
@@ -188,13 +209,13 @@ end;
 function GLProfileToString(profile:TOpenGLContextProfile):string;
  begin
   case profile of
-   glcpCompatibility:result:='compatibility';
-   glcpCore:result:='core';
+   oglpCompatibility:result:='compatibility';
+   oglpCore:result:='core';
    else result:='any';
   end;
  end;
 
-function GLContextRequestToString(const request:TOpenGLContextRequest):string;
+function GLContextRequestToString(const request:TOpenGLContextDesc):string;
  begin
   result:='min='+IntToStr(request.minMajor)+'.'+IntToStr(request.minMinor)+
    ', preferHighest='+BoolToStr(request.preferHighest,true)+
@@ -203,9 +224,9 @@ function GLContextRequestToString(const request:TOpenGLContextRequest):string;
    ', forward='+BoolToStr(request.forwardCompatible,true);
  end;
 
-function GLContextInfoToString(const info:TOpenGLContextInfo):string;
+function GLContextInfoToString(const info:TOpenGLContextDesc):string;
  begin
-  result:='version='+IntToStr(info.major)+'.'+IntToStr(info.minor)+
+  result:='version='+IntToStr(info.actualMajor)+'.'+IntToStr(info.actualMinor)+
    ', profile='+GLProfileToString(info.profile)+
    ', debug='+BoolToStr(info.debugContext,true)+
    ', forward='+BoolToStr(info.forwardCompatible,true)+
@@ -215,75 +236,39 @@ function GLContextInfoToString(const info:TOpenGLContextInfo):string;
 procedure HandleGLDebugMessage(source,typ,id,severity:GLenum;len:GLsizei;const message_:PGLchar;userParam:PGLvoid); {$IFDEF DGL_WIN}stdcall{$ELSE}cdecl{$ENDIF}; forward;
 
 { TOpenGL }
-procedure TOpenGL.Init(system:ISystemPlatform);
+procedure TOpenGL.Init(window:TWindow);
  var
   i:integer;
   cnt:GLINT;
-  rc:UIntPtr;
-  request:TOpenGLContextRequest;
-  actual:TOpenGLContextInfo;
-  pName,exList:string;
-
- {$IFDEF SDL}
- procedure InitOnSDL(system:ISystemPlatform);
-  begin
-   rc:=system.CreateOpenGLContext(request,actual);
-   if rc=0 then
-    raise EError.Create('Can''t create OpenGL context');
-   ReadImplementationProperties;
-   ReadExtensions;
-  end;
- {$ENDIF}
-
- {$IFDEF MSWINDOWS}
- procedure InitOnWindows(system:ISystemPlatform);
-  var
-   DC:HDC;
-   winRC:HGLRC;
-  begin
-   DC:=GetDC(system.GetWindowHandle);
-   winRC:=system.CreateOpenGLContext(request,actual); // Create basic GL context
-   if winRC=0 then
-    raise EError.Create('Can''t create OpenGL context');
-   Log.Msg('Activate GL context');
-   ActivateRenderingContext(DC,winRC); // Load all OpenGL functions and extensions
-   // Now create main context
-
-  end;
- {$ENDIF}
-
+  request:TOpenGLContextDesc;
+  actual:TOpenGLContextDesc;
+  exList:string;
  begin
   Log.Msg('Init OpenGL');
   exList:='';
-  sysPlatform:=system;
-  request:=oglContextRequest;
-  Mem.Clear(actual,sizeof(actual));
-  actual.profile:=glcpAny;
+  wnd:=window;
+  request:=oglContextTemplate;
+  actual:=request;
   Log.Force('OpenGL context request: '+GLContextRequestToString(request));
   {$IFDEF DGL}
   InitOpenGL;
   {$ENDIF}
-  pName:=system.GetPlatformName;
-  if pName='SDL' then begin
-   {$IFDEF SDL}
-   InitOnSDL(system);
-   {$ENDIF}
-  end else
-  if pName='WINDOWS' then begin
-   {$IFDEF MSWINDOWS}
-   InitOnWindows(system);
-   {$ENDIF}
-  end;
+  wnd.InitGraph;
+  actual:=oglContextInfo;
+  {$IFDEF DGL}
+  ReadImplementationProperties;
+  ReadExtensions;
+  {$ENDIF}
   CheckForGLError(011);
 
   glVersion:=glGetString(GL_VERSION);
   glRenderer:=glGetString(GL_RENDERER);
-  if actual.major=0 then begin
+  if actual.actualMajor=0 then begin
    glVersionNum:=GetVersion;
-   actual.major:=trunc(glVersionNum);
-   actual.minor:=round((glVersionNum-actual.major)*10);
+   actual.actualMajor:=trunc(glVersionNum);
+   actual.actualMinor:=round((glVersionNum-actual.actualMajor)*10);
   end;
-  if (request.profile=glcpCore) and ((not actual.requestAccepted) or (actual.profile<>glcpCore)) then
+  if (request.profile=oglpCore) and ((not actual.requestAccepted) or (actual.profile<>oglpCore)) then
    raise EFatalError.Create('Core profile was requested but not created.'#13#10+
     'Requested: '+GLContextRequestToString(request)+#13#10+
     'Actual: '+GLContextInfoToString(actual));
@@ -328,7 +313,7 @@ procedure TOpenGL.Init(system:ISystemPlatform);
 
   glVersionNum:=GetVersion;
   // Core profile requires a bound VAO for attribute setup.
-  if (oglContextInfo.profile=glcpCore) and GL_VERSION_3_0 then begin
+  if (oglContextInfo.profile=oglpCore) and GL_VERSION_3_0 then begin
    glGenVertexArrays(1,@glDefaultVAO);
    glBindVertexArray(glDefaultVAO);
    Log.Force('OpenGL default VAO created: '+IntToStr(glDefaultVAO));
@@ -411,7 +396,7 @@ procedure TOpenGL.PostDebugMsg(st:string8;id:integer=0);
 procedure TOpenGL.PresentFrame;
  begin
   PostDebugMsg('PresentFrame');
-  sysPlatform.OGLSwapBuffers;
+  wnd.PresentFrame;
  end;
 
 function TOpenGL.QueryMaxRTSize:integer;
@@ -653,7 +638,7 @@ function TRenderDevice.PrimitiveIndexCount(primType:TPrimitiveType;primCount:int
 
 function TRenderDevice.IsCoreProfile:boolean;
  begin
-  result:=oglContextInfo.profile=glcpCore;
+  result:=oglContextInfo.profile=oglpCore;
  end;
 
 procedure TRenderDevice.TrackArrayBufferBinding(buffer:cardinal);
@@ -1286,4 +1271,18 @@ procedure TGLRenderTargetAPI.Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderH
    glViewport(vPort.Left,realHeight-vPort.Top-vPort.Height,vPort.Width,vPort.Height);
  end;
 
+initialization
+ oglContextTemplate.minMajor:=3;
+ oglContextTemplate.minMinor:=0;
+ oglContextTemplate.profile:=oglpCore;
+ oglContextTemplate.debugContext:=false;
+ oglContextTemplate.forwardCompatible:=false;
+ oglContextTemplate.preferHighest:=true;
+ oglContextTemplate.actualMajor:=0;
+ oglContextTemplate.actualMinor:=0;
+ oglContextTemplate.requestAccepted:=false;
+ Mem.Clear(oglContextInfo,SizeOf(oglContextInfo));
+ oglContextInfo.profile:=oglpAny;
+
 end.
+

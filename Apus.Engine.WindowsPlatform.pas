@@ -5,37 +5,53 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.WindowsPlatform;
 interface
-uses Windows, Apus.Types, Apus.Core, Apus.Engine.API, Apus.Engine.Keys;
+uses Windows, Apus.Types, Apus.Core, Apus.Engine.API, Apus.Engine.Keys, Apus.Engine.OpenGL;
 
 type
- 
- { TWindowsPlatform }
+ { TWinGLWindow - Windows + WGL window implementation }
+
+ TWinGLWindow=class(TWindow)
+   constructor Create(hwnd:HWND);
+   destructor Destroy; override;
+   // TWindow overrides
+   procedure Close; override;
+   procedure Configure(params:TGameSettings); override;
+   procedure Show(show:boolean); override;
+   function GetHandle:THandle; override;
+   procedure GetSize(out width,height:integer); override;
+   procedure MoveTo(x,y:integer;width:integer=0;height:integer=0); override;
+   procedure SetCaption(text:string); override;
+   procedure Minimize; override;
+   procedure FlashWindow(count:integer); override;
+   procedure ProcessMessages; override;
+   function IsTerminated:boolean; override;
+   procedure ScreenToClient(var p:TPoint); override;
+   procedure ClientToScreen(var p:TPoint); override;
+    // Graphics lifecycle (implemented via WGL)
+   procedure InitGraph; override;
+   procedure DoneGraph; override;
+   procedure PresentFrame; override;
+   function SetVSync(divider:integer):boolean; override;
+ private
+  window:HWND;
+  context:UIntPtr;
+  graphInfo:TOpenGLContextDesc;
+  function CreateOpenGLContext(var graph:TOpenGLContextDesc):UIntPtr;
+ end;
+
+ { TWindowsPlatform - system services + window factory }
 
  TWindowsPlatform=class(TInterfacedObject,ISystemPlatform)
   constructor Create;
+  // System information
   function GetPlatformName:string;
   function CanChangeSettings:boolean;
   procedure GetScreenSize(out width,height:integer);
   procedure GetRealScreenSize(out width,height:integer);
   function GetScreenDPI:integer;
-
-  procedure CreateWindow(title:string);
-  procedure SetupWindow(params:TGameSettings);
-  function GetWindowHandle:THandle;
-  procedure GetWindowSize(out width,height:integer);
-  procedure DestroyWindow;
-
-  procedure ShowWindow(show:boolean);
-  procedure MoveWindowTo(x,y:integer;width:integer=0;height:integer=0);
-  procedure SetWindowCaption(text:string);
-  procedure Minimize;
-  procedure FlashWindow(count:integer);
-
-  procedure ProcessSystemMessages;
-  function IsTerminated:boolean;
-
-  function GetMousePos:TPoint; // Get mouse position on screen
-  procedure SetMousePos(scrX,scrY:integer); // Move mouse cursor (screen coordinates)
+  // System functions
+  function GetMousePos:TPoint;
+  procedure SetMousePos(scrX,scrY:integer);
   function GetSystemCursor(cursorId:integer):THandle;
   function LoadCursor(filename:string):THandle;
   procedure SetCursor(cur:THandle);
@@ -43,17 +59,8 @@ type
   function MapScanCodeToVirtualKey(key:integer):integer;
   function GetShiftKeysState:cardinal;
   function GetMouseButtons:cardinal;
-
-  procedure ScreenToClient(var p:TPoint);
-  procedure ClientToScreen(var p:TPoint);
-
-  function CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
-  procedure OGLSwapBuffers;
-  function SetSwapInterval(divider:integer):boolean;
-  procedure DeleteOpenGLContext;
- private
-  window:HWND;
-  context:UIntPtr;
+  // Window factory
+ function CreateWindow(title:string):TWindow;
  end;
 
 implementation
@@ -214,6 +221,18 @@ begin
  end;
 end;
 
+{ TWinGLWindow }
+
+constructor TWinGLWindow.Create(hwnd:HWND);
+begin
+  window:=hwnd;
+end;
+
+destructor TWinGLWindow.Destroy;
+begin
+  inherited;
+end;
+
 { TWindowsPlatform }
 
 constructor TWindowsPlatform.Create;
@@ -229,19 +248,19 @@ function TWindowsPlatform.CanChangeSettings: boolean;
   result:=true;
  end;
 
-procedure TWindowsPlatform.ClientToScreen(var p: TPoint);
+procedure TWinGLWindow.ClientToScreen(var p: TPoint);
  begin
   windows.ClientToScreen(window,p);
  end;
 
-procedure TWindowsPlatform.DestroyWindow;
+procedure TWinGLWindow.Close;
  begin
   windows.ShowWindow(window,SW_HIDE);
   windows.DestroyWindow(window);
   UnregisterClassA('GameWindowClass',0);
  end;
 
-procedure TWindowsPlatform.FlashWindow(count: integer);
+procedure TWinGLWindow.FlashWindow(count: integer);
  var
   fi:TFlashWInfo;
  begin
@@ -262,7 +281,7 @@ procedure TWindowsPlatform.FlashWindow(count: integer);
   {$ENDIF}
  end;
 
-procedure TWindowsPlatform.ScreenToClient(var p: TPoint);
+procedure TWinGLWindow.ScreenToClient(var p: TPoint);
  begin
   windows.ScreenToClient(window,p);
  end;
@@ -361,12 +380,12 @@ procedure TWindowsPlatform.FreeCursor(cur:THandle);
   FreeCursor(cur);
  end;
 
-function TWindowsPlatform.GetWindowHandle: THandle;
+function TWinGLWindow.GetHandle:THandle;
  begin
   result:=window;
  end;
 
-procedure TWindowsPlatform.GetWindowSize(out width, height: integer);
+procedure TWinGLWindow.GetSize(out width,height:integer);
  var
   r:TRect;
  begin
@@ -374,11 +393,11 @@ procedure TWindowsPlatform.GetWindowSize(out width, height: integer);
   width:=r.Width; height:=r.Height;
  end;
 
-procedure TWindowsPlatform.CreateWindow(title: string);
+function TWindowsPlatform.CreateWindow(title:string):TWindow;
  var
   WindowClass:TWndClassW;
   style:cardinal;
-  i:integer;
+  wndHandle:HWND;
  begin
    Log.Msg('CreateMainWindow');
    with WindowClass do begin
@@ -397,13 +416,12 @@ procedure TWindowsPlatform.CreateWindow(title: string);
     raise EFatalError.Create('Cannot register window class');
 
    style:=0;
-   Window:=windows.CreateWindowW('GameWindowClass', PWideChar(WideString(title)),
+   wndHandle:=windows.CreateWindowW('GameWindowClass', PWideChar(WideString(title)),
     style, 0, 0, 100, 100, 0, 0, HInstance, nil);
-   //SetWindowLong(window,GWL_WNDPROC,longint(@WindowProc));
-   //SetWindowCaption(title);
+   result:=TWinGLWindow.Create(wndHandle);
   end;
 
-procedure TWindowsPlatform.ProcessSystemMessages;
+procedure TWinGLWindow.ProcessMessages;
  var
   mes:TagMSG;
  begin
@@ -419,17 +437,17 @@ procedure TWindowsPlatform.ProcessSystemMessages;
    end;
  end;
 
-function TWindowsPlatform.IsTerminated:boolean;
+function TWinGLWindow.IsTerminated:boolean;
  begin
   result:=terminated;
  end;
 
-procedure TWindowsPlatform.Minimize;
+procedure TWinGLWindow.Minimize;
  begin
   windows.ShowWindow(window,SW_MINIMIZE);
  end;
 
-procedure TWindowsPlatform.MoveWindowTo(x, y: integer; width: integer;
+procedure TWinGLWindow.MoveTo(x,y:integer;width:integer;
   height: integer);
  var
   r:TRect;
@@ -447,7 +465,7 @@ procedure TWindowsPlatform.MoveWindowTo(x, y: integer; width: integer;
    Log.Force('MoveWindow error: '+inttostr(GetLastError));
  end;
 
-function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
+function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc):UIntPtr;
  type
   TglGetStringFn=function(name:cardinal):PAnsiChar; stdcall;
   TwglGetProcAddressFn=function(procName:PAnsiChar):Pointer; stdcall;
@@ -460,8 +478,10 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
   requestedMajor,requestedMinor:integer;
   availMajor,availMinor:integer;
   attribs:array[0..15] of integer;
-  n,flags,profileMask:integer;
+ n,flags,profileMask:integer;
   modernCreated:boolean;
+  requestedProfile,actualProfile:TOpenGLContextProfile;
+  requestedDebug,requestedForward:boolean;
   glVer:string;
   glVerRaw:PAnsiChar;
   openglLib:HMODULE;
@@ -493,6 +513,9 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
    result:=major>0;
   end;
  begin
+   requestedProfile:=graph.profile;
+   requestedDebug:=graph.debugContext;
+   requestedForward:=graph.forwardCompatible;
    Log.Msg('Prepare GL context');
    Mem.Clear(pfd,sizeof(PFD));
    with PFD do begin
@@ -534,17 +557,17 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
    Log.Msg('Available GL version on temporary context: '+IntToStr(availMajor)+'.'+IntToStr(availMinor)+' ('+glVer+')');
 
    RC:=legacyRC;
-   requestedMajor:=request.minMajor;
-   requestedMinor:=request.minMinor;
-   if request.preferHighest then begin
+   requestedMajor:=graph.minMajor;
+   requestedMinor:=graph.minMinor;
+   if graph.preferHighest then begin
     // Agreed policy: request one modern context using negotiated highest version,
     // do not brute-force all version pairs.
     requestedMajor:=availMajor;
     requestedMinor:=availMinor;
    end;
 
-   if (request.profile<>glcpCompatibility) or request.debugContext or request.forwardCompatible then begin
-    if (availMajor>request.minMajor) or ((availMajor=request.minMajor) and (availMinor>=request.minMinor)) then begin
+   if (requestedProfile<>oglpCompatibility) or requestedDebug or requestedForward then begin
+    if (availMajor>graph.minMajor) or ((availMajor=graph.minMajor) and (availMinor>=graph.minMinor)) then begin
      if openglLib<>0 then
       wglGetProcAddressFn:=TwglGetProcAddressFn(GetProcAddress(openglLib,'wglGetProcAddress'))
      else
@@ -560,17 +583,17 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
       attribs[n]:=WGL_CONTEXT_MINOR_VERSION_ARB; inc(n);
       attribs[n]:=requestedMinor; inc(n);
       profileMask:=0;
-      case request.profile of
-       glcpCore:profileMask:=WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
-       glcpCompatibility:profileMask:=WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB;
+      case requestedProfile of
+       oglpCore:profileMask:=WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
+       oglpCompatibility:profileMask:=WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB;
       end;
       if profileMask<>0 then begin
        attribs[n]:=WGL_CONTEXT_PROFILE_MASK_ARB; inc(n);
        attribs[n]:=profileMask; inc(n);
       end;
       flags:=0;
-      if request.debugContext then flags:=flags or WGL_CONTEXT_DEBUG_BIT_ARB;
-      if request.forwardCompatible then flags:=flags or WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB;
+      if requestedDebug then flags:=flags or WGL_CONTEXT_DEBUG_BIT_ARB;
+      if requestedForward then flags:=flags or WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB;
       if flags<>0 then begin
        attribs[n]:=WGL_CONTEXT_FLAGS_ARB; inc(n);
        attribs[n]:=flags; inc(n);
@@ -589,7 +612,7 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
     end else
      Log.Error('Requested minimal GL version is higher than available; modern context cannot be created');
    end;
-   if (request.profile=glcpCore) and (RC=legacyRC) then begin
+   if (requestedProfile=oglpCore) and (RC=legacyRC) then begin
     // Hard requirement for core request: never silently continue on legacy context.
     wglMakeCurrent(0,0);
     wglDeleteContext(legacyRC);
@@ -600,37 +623,54 @@ function TWindowsPlatform.CreateOpenGLContext(const request:TOpenGLContextReques
     wglMakeCurrent(DC,RC)
    else
     wglMakeCurrent(0,0);
-   actual.major:=0;
-   actual.minor:=0;
+   graph.actualMajor:=0;
+   graph.actualMinor:=0;
    if modernCreated then begin
-    if request.profile=glcpCore then
-     actual.profile:=glcpCore
+    if requestedProfile=oglpCore then
+     actualProfile:=oglpCore
     else
-    if request.profile=glcpCompatibility then
-     actual.profile:=glcpCompatibility
+    if requestedProfile=oglpCompatibility then
+     actualProfile:=oglpCompatibility
     else
-     actual.profile:=glcpAny;
-    actual.debugContext:=request.debugContext;
-    actual.forwardCompatible:=request.forwardCompatible;
+     actualProfile:=oglpAny;
+    graph.debugContext:=requestedDebug;
+    graph.forwardCompatible:=requestedForward;
    end else begin
     // Legacy context path cannot guarantee debug/forward flags.
-    actual.profile:=glcpCompatibility;
-    actual.debugContext:=false;
-    actual.forwardCompatible:=false;
+    actualProfile:=oglpCompatibility;
+    graph.debugContext:=false;
+    graph.forwardCompatible:=false;
    end;
-   actual.requestAccepted:=RC<>0;
+   graph.profile:=actualProfile;
+   graph.requestAccepted:=RC<>0;
    // requestAccepted means "all explicitly requested capabilities are present".
-   if request.profile=glcpCore then
-    actual.requestAccepted:=actual.requestAccepted and (actual.profile=glcpCore);
-   if request.debugContext then
-    actual.requestAccepted:=actual.requestAccepted and actual.debugContext;
-   if request.forwardCompatible then
-    actual.requestAccepted:=actual.requestAccepted and actual.forwardCompatible;
+   if requestedProfile=oglpCore then
+    graph.requestAccepted:=graph.requestAccepted and (graph.profile=oglpCore);
+   if requestedDebug then
+    graph.requestAccepted:=graph.requestAccepted and graph.debugContext;
+   if requestedForward then
+    graph.requestAccepted:=graph.requestAccepted and graph.forwardCompatible;
    context:=RC;
    result:=context;
   end;
 
-procedure TWindowsPlatform.OGLSwapBuffers;
+procedure TWinGLWindow.InitGraph;
+ begin
+  graphInfo.minMajor:=oglContextTemplate.minMajor;
+  graphInfo.minMinor:=oglContextTemplate.minMinor;
+  graphInfo.profile:=oglContextTemplate.profile;
+  graphInfo.debugContext:=oglContextTemplate.debugContext;
+  graphInfo.forwardCompatible:=oglContextTemplate.forwardCompatible;
+  graphInfo.preferHighest:=oglContextTemplate.preferHighest;
+  graphInfo.actualMajor:=0;
+  graphInfo.actualMinor:=0;
+  graphInfo.requestAccepted:=false;
+  if CreateOpenGLContext(graphInfo)=0 then
+   raise EError.Create('Can''t create OpenGL context');
+  oglContextInfo:=graphInfo;
+ end;
+
+procedure TWinGLWindow.PresentFrame;
  var
   DC:HDC;
  begin
@@ -640,18 +680,21 @@ procedure TWindowsPlatform.OGLSwapBuffers;
    ReleaseDC(window,DC);
  end;
 
-function TWindowsPlatform.SetSwapInterval(divider: integer): boolean;
+function TWinGLWindow.SetVSync(divider: integer): boolean;
  begin
   result:=false;
  end;
 
-procedure TWindowsPlatform.DeleteOpenGLContext;
+procedure TWinGLWindow.DoneGraph;
  begin
-  if context<>0 then
+  if context<>0 then begin
+   wglMakeCurrent(0,0);
    wglDeleteContext(context);
+  end;
+  context:=0;
  end;
 
-procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
+procedure TWinGLWindow.Configure(params:TGameSettings);
  var
   r,r2:TRect;
   style:cardinal;
@@ -680,11 +723,11 @@ procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
       // Center window
       r.Offset((r2.Width-r.Width) div 2,(r2.Height-r.Height) div 2);
       SetWindowLong(window,GWL_STYLE,longint(style));
-      MoveWindowTo(r.left,r.top, r.width,r.height);
+      MoveTo(r.left,r.top,r.width,r.height);
     end;
     dmSwitchResolution,dmFullScreen:begin
       SetWindowLong(window,GWL_STYLE,longint(ws_popup));
-      MoveWindowTo(0,0,game.screenWidth,game.screenHeight);
+      MoveTo(0,0,game.screenWidth,game.screenHeight);
     end;
    end;
 
@@ -698,7 +741,7 @@ procedure TWindowsPlatform.SetupWindow(params:TGameSettings);
    Signal('ENGINE\RESIZE',r.Width+r.height shl 16);
  end;
 
-procedure TWindowsPlatform.SetWindowCaption(text: string);
+procedure TWinGLWindow.SetCaption(text:string);
  var
   wst:String16;
   t:PWideChar;
@@ -708,7 +751,7 @@ procedure TWindowsPlatform.SetWindowCaption(text: string);
   SetWindowTextW(window,t);
  end;
 
-procedure TWindowsPlatform.ShowWindow(show: boolean);
+procedure TWinGLWindow.Show(show:boolean);
  begin
   //LoadCursor(0,IDC_ARROW);
   if show then

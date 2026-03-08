@@ -173,31 +173,6 @@ type
                   spWindows, // Native Windows
                   spSDL);    // SDL-2 library (cross-platform)
 
- // OpenGL context profile request/actual mode
- TOpenGLContextProfile=(glcpAny,
-                        glcpCompatibility,
-                        glcpCore);
-
- // Request for OpenGL context creation
- TOpenGLContextRequest=record
-  minMajor:byte; // minimal required major version
-  minMinor:byte; // minimal required minor version
-  profile:TOpenGLContextProfile;
-  debugContext:boolean;
-  forwardCompatible:boolean;
-  preferHighest:boolean; // true -> platform may negotiate down from highest supported version
- end;
-
- // Actual OpenGL context parameters reported by platform layer
- TOpenGLContextInfo=record
-  major:byte; // 0 if platform cannot report here
-  minor:byte; // 0 if platform cannot report here
-  profile:TOpenGLContextProfile;
-  debugContext:boolean;
-  forwardCompatible:boolean;
-  requestAccepted:boolean; // false when platform had to ignore part of the request
- end;
-
  // Режим блендинга (действие, применяемое к фону)
  TBlendingMode=(blNone,   // background not modified
                 blAlpha,  // regular alpha blending
@@ -298,7 +273,38 @@ type
   class function ClassHash:pointer; override; // override this to provide a separate hash for object instances
  end;
 
- // Interface to the native OS function or underlying library
+ // Base class for engine windows.
+ // Platform-specific subclasses implement abstract methods.
+ // Created via ISystemPlatform.CreateWindow.
+ TWindow=class
+  procedure Close; virtual; abstract;
+  // Apply display/window settings (mode, size, style, position) to an existing native window.
+  // Called on startup and on runtime display-mode changes (Alt+Enter etc). Should also trigger resize flow so engine can recompute render/display areas.
+  procedure Configure(params:TGameSettings); virtual; abstract;
+  procedure Show(show:boolean); virtual; abstract;
+  function GetHandle:THandle; virtual; abstract;
+  procedure GetSize(out width,height:integer); virtual; abstract;
+  procedure MoveTo(x,y:integer;width:integer=0;height:integer=0); virtual; abstract;
+  procedure SetCaption(text:string); virtual; abstract;
+  procedure Minimize; virtual; abstract;
+  procedure FlashWindow(count:integer); virtual; abstract;
+  procedure ProcessMessages; virtual; abstract;
+  // True when native close/quit was requested for this window (used to stop main loop gracefully).
+  function IsTerminated:boolean; virtual; abstract;
+  procedure ScreenToClient(var p:TPoint); virtual; abstract;
+  procedure ClientToScreen(var p:TPoint); virtual; abstract;
+  // Graphics backend lifecycle for this window
+  // Create/activate graphics context and initialize backend-facing window surface state.
+  procedure InitGraph; virtual; abstract;
+  // Release graphics context and backend-facing window surface resources.
+  procedure DoneGraph; virtual; abstract;
+  procedure PresentFrame; virtual; abstract;
+  function SetVSync(divider:integer):boolean; virtual; abstract;
+ end;
+
+ // Interface to the native OS functions or underlying library.
+ // Provides system-level services and a window factory.
+ // Window-specific operations are methods on TWindow.
  ISystemPlatform=interface
   // System information
   function GetPlatformName:string;
@@ -306,20 +312,6 @@ type
   procedure GetScreenSize(out width,height:integer); // screen size in virtual pixels
   procedure GetRealScreenSize(out width,height:integer); // screen size in real pixels
   function GetScreenDPI:integer;
-  // Window management
-  procedure CreateWindow(title:string); // Create main window
-  procedure DestroyWindow;
-  procedure SetupWindow(params:TGameSettings); // Configure/update window properties
-  procedure ShowWindow(show:boolean);
-  function GetWindowHandle:THandle;
-  procedure GetWindowSize(out width,height:integer);
-  procedure MoveWindowTo(x,y:integer;width:integer=0;height:integer=0);
-  procedure SetWindowCaption(text:string);
-  procedure Minimize;
-  procedure FlashWindow(count:integer);
-  // Event management
-  procedure ProcessSystemMessages;
-  function IsTerminated:boolean;
 
   // System functions
   function GetSystemCursor(cursorId:integer):THandle;
@@ -327,20 +319,13 @@ type
   procedure SetCursor(cur:THandle);
   procedure FreeCursor(cur:THandle);
   function MapScanCodeToVirtualKey(key:integer):integer;
-  function GetMousePos:TPoint; // Get mouse position on screen (screen may mean client when platform doesn't support real screen space)
-  procedure SetMousePos(scrX,scrY:integer); // Move mouse cursor (screen coordinates)
+  function GetMousePos:TPoint; // mouse position on screen
+  procedure SetMousePos(scrX,scrY:integer); // move mouse cursor (screen coordinates)
   function GetMouseButtons:cardinal;
   function GetShiftKeysState:cardinal;
 
-  // Translate coordinates between screen and window client area
-  procedure ScreenToClient(var p:TPoint);
-  procedure ClientToScreen(var p:TPoint);
-
-  // OpenGL support
-  function CreateOpenGLContext(const request:TOpenGLContextRequest;out actual:TOpenGLContextInfo):UIntPtr;
-  procedure OGLSwapBuffers;
-  function SetSwapInterval(divider:integer):boolean;
-  procedure DeleteOpenGLContext;
+  // Window factory
+  function CreateWindow(title:string):TWindow;
  end;
 
  // Depth buffer mode
@@ -758,7 +743,7 @@ type
  // Interface to the graphics subsystem: OpenGL, Vulkan or Direct3D
  IGraphicsSystem=interface
   // Init subsystem and create all interface objects
-  procedure Init(system:ISystemPlatform);
+  procedure Init(window:TWindow);
   procedure Done;
   function GetVersion:single; // like 3.1 for OpenGL 3.1
   function GetName:string8; // get implementation class name
@@ -867,6 +852,8 @@ type
 
   topmostScene:TGameScene; // last topmost scene
   globalTintColor:cardinal; // multiplier (2X) for whole backbuffer (clNeutral - neutral value)
+
+  window:TWindow; // main window (owned, created by ISystemPlatform.CreateWindow)
 
   constructor Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
 
@@ -1011,10 +998,6 @@ var
  txt:ITextDrawer; //< shortcut for gfx.txt
  transform:ITransformation; //< Shortcut for gfx.transform
 
- // Requested and actual OpenGL context parameters
- oglContextRequest:TOpenGLContextRequest;
- oglContextInfo:TOpenGLContextInfo;
-
  // Translate string using localization dictionary (UDict)
  Translate:function(s:String8):String8;
  Translate32:function(s:String32):String32;
@@ -1125,7 +1108,7 @@ implementation
    result:=(keyCode shr 8) and $FF;
   end;
 
- constructor TGameBase.Create;
+ constructor TGameBase.Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
   begin
    game:=self;
    systemPlatform:=sysPlatform;
@@ -1285,14 +1268,6 @@ function TGameBase.ColorAlpha(var av:TAnimatedValue;color:cardinal):cardinal;
 initialization
  Translate:=TranslateNoop8;
  Translate32:=TranslateNoop32;
- oglContextRequest.minMajor:=3;
- oglContextRequest.minMinor:=0;
- oglContextRequest.profile:=glcpCore;
- oglContextRequest.debugContext:=false;
- oglContextRequest.forwardCompatible:=false;
- oglContextRequest.preferHighest:=true;
- Mem.Clear(oglContextInfo,sizeof(oglContextInfo));
- oglContextInfo.profile:=glcpAny;
  PublishFunction('GetFont',fGetFontHandle);
  TVertex.layoutTex.Init([vcPosition3d,vcColor,vcUV1]);
  TVertex.layoutTex.stride:=Sizeof(TVertex);

@@ -572,7 +572,7 @@ begin
  lib:=slSDL;
  {$ENDIF}
  try
-  InitSoundSystem(lib,systemPlatform.GetWindowHandle);
+  InitSoundSystem(lib,game.window.GetHandle);
  except
   on e:Exception do begin
    Log.Force('Sound initialization failed. Continue without sound. '+e.message);
@@ -608,15 +608,15 @@ procedure TGameApplication.Run;
   loadingScene:TGameScene;
  begin
   // OpenGL context request is configured on app level and used by platform backend.
-  oglContextRequest.minMajor:=glMinVersionMajor;
-  oglContextRequest.minMinor:=glMinVersionMinor;
-  oglContextRequest.preferHighest:=glPreferHighest;
-  oglContextRequest.debugContext:=glDebugContext or debugMode;
-  oglContextRequest.forwardCompatible:=glForwardCompatible;
+  oglContextTemplate.minMajor:=glMinVersionMajor;
+  oglContextTemplate.minMinor:=glMinVersionMinor;
+  oglContextTemplate.preferHighest:=glPreferHighest;
+  oglContextTemplate.debugContext:=glDebugContext or debugMode;
+  oglContextTemplate.forwardCompatible:=glForwardCompatible;
   if glCoreContext then
-   oglContextRequest.profile:=glcpCore
+   oglContextTemplate.profile:=oglpCore
   else
-   oglContextRequest.profile:=glcpCompatibility;
+   oglContextTemplate.profile:=oglpCompatibility;
 
   // CREATE GAME OBJECT
   // ------------------------
