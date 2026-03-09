@@ -108,21 +108,8 @@ type
   controlThreadId:TThreadID;
   cursors:array of TObject;
   crSect:TLock;
-  scenes:array of TGameScene;
-
   LastOnFrameTime:int64; // момент последнего вызова обработки кадра
   LastRenderTime:int64; // Момент последней отрисовки кадра
-  capturedName:string;
-  capturedTime:int64;
-
-  // Screen capture
-  captureSingleFrame:boolean; // request frame capture
-  // что сделать с захваченным кадром
-  // 0 - keep in frameCaptureData, 1 - save as BMP, 2 - save as JPEG, 3 - save as TGA
-  frameCaptureTarget:integer;
-  frameCaptureData:TObject;
-  videoCaptureMode:boolean; // режим видеозахвата
-  videoCapturePath:string; // путь для сохранения файлов видеозахвата (по умолчанию - тек. каталог)
 
   curPrior:integer; // приоритет текущего отображаемого курсора
   wndCursor:THandle; // current system cursor
@@ -326,7 +313,7 @@ begin
   SetLength(customPoints,0);
   if gamepadNavigationMode=gnmAuto then begin
    // Add clickable UI objects
-   if topmostScene is TUIScene then scene:=TUIScene(topmostScene)
+   if window.topmostScene is TUIScene then scene:=TUIScene(window.topmostScene)
     else exit;
    Traverse(scene.UI);
   end;
@@ -390,9 +377,9 @@ procedure TGame.RequestScreenshot(saveAsJpeg:boolean=true);
 begin
  EnterCritSect;
  try
-  if saveAsJPEG then frameCaptureTarget:=2
-   else frameCaptureTarget:=3;
-  captureSingleFrame:=true;
+  if saveAsJPEG then window.capture.target:=2
+   else window.capture.target:=3;
+  window.capture.singleFrame:=true;
  finally
   LeaveCritSect;
  end;
@@ -402,9 +389,9 @@ procedure TGame.RequestFrameCapture(obj:TObject=nil);
 begin
  EnterCritSect;
  try
-  captureSingleFrame:=true;
-  frameCaptureTarget:=0;
-  frameCaptureData:=obj;
+  window.capture.singleFrame:=true;
+  window.capture.target:=0;
+  window.capture.data:=obj;
  finally
   LeaveCritSect;
  end;
@@ -432,8 +419,8 @@ begin
   window.Configure(params);
   if gfx.target<>nil then gfx.target.Backbuffer;
   SetupRenderArea;
-  for i:=low(scenes) to high(scenes) do
-   scenes[i].ModeChanged;
+  for i:=low(window.scenes) to high(window.scenes) do
+   window.scenes[i].ModeChanged;
  end;
 end;
 
@@ -557,9 +544,9 @@ procedure TGame.MouseWheelMoved(value:integer);
 var
  i:integer;
 begin
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i].IsActive then
-    scenes[i].onMouseWheel(value);
+  for i:=low(window.scenes) to high(window.scenes) do
+   if window.scenes[i].IsActive then
+    window.scenes[i].onMouseWheel(value);
 end;
 
 procedure TGame.SizeChanged(newWidth,newHeight:integer);
@@ -620,7 +607,6 @@ begin
  screenDPI:=systemPlatform.GetScreenDPI;
  Log.Msg('Screen: %dx%d DPI=%d',[screenWidth,screenHeight,screenDPI]);
 
- SetLength(scenes,0);
  PublishVar(@renderWidth,'RenderWidth',TVarTypeInteger);
  PublishVar(@renderHeight,'RenderHeight',TVarTypeInteger);
  PublishVar(@windowWidth,'WindowWidth',TVarTypeInteger);
@@ -964,8 +950,8 @@ begin
   body:='';
   g.EnterCritSect;
   try
-    for i:=0 to high(g.scenes) do begin
-      s:=g.scenes[i];
+    for i:=0 to high(g.window.scenes) do begin
+      s:=g.window.scenes[i];
       if activeOnly and (s.status<>ssActive) then continue;
       body:=body+'SCENE: '+s.name+#13#10+
         '  status: '+statusNames[s.status]+#13#10+
@@ -1049,6 +1035,7 @@ begin
   LastOnFrameTime:=CoreTime.Ticks;
   LastRenderTime:=CoreTime.Ticks;
   window.timings.Reset;
+  window.capture.Reset;
 
   RegisterGameRobotCommands;
   InitRobotAPI;
@@ -1149,7 +1136,7 @@ begin
      SetTextCodePage(f,CP_UTF8);
      rewrite(f);
      writeln(f,'Scenes:');
-     for i:=0 to high(scenes) do writeln(f,i:3,SceneInfo(scenes[i]));
+     for i:=0 to high(window.scenes) do writeln(f,i:3,SceneInfo(window.scenes[i]));
      writeln(f,'Topmost scene = ',game.TopmostVisibleScene(false).name);
      writeln(f,'Topmost fullscreen scene = ',game.TopmostVisibleScene(true).name);
      writeln(f);
@@ -1237,9 +1224,9 @@ end;
 procedure TGame.StartVideoCap(filename: string);
 begin
  {$IFDEF VIDEOCAPTURE}
- if videoCaptureMode then exit;
- videoCaptureMode:=true;
- if pos('\',filename)=0 then filename:=videoCapturePath+filename;
+ if window.capture.videoMode then exit;
+ window.capture.videoMode:=true;
+ if pos('\',filename)=0 then filename:=window.capture.videoPath+filename;
  StartVideoCapture(game,filename);
  {$ENDIF}
 end;
@@ -1247,8 +1234,8 @@ end;
 procedure TGame.FinishVideoCap;
 begin
  {$IFDEF VIDEOCAPTURE}
- if videoCaptureMode then FinishVideoCapture;
- videoCaptureMode:=false;
+ if window.capture.videoMode then FinishVideoCapture;
+ window.capture.videoMode:=false;
  {$ENDIF}
 end;
 
@@ -1297,7 +1284,7 @@ var
  buf:PByte;
  saveAsJPG:boolean;
 begin
- captureSingleFrame:=false;
+ window.capture.singleFrame:=false;
 
  r:=displayRect;
  img:=TBitmapImage.Create(r.Width,r.Height,ipfXRGB);
@@ -1307,13 +1294,13 @@ begin
  img.pitch:=-img.width*4; // invert pitch
  (*
  {$IFDEF VIDEOCAPTURE}
- if videoCaptureMode then begin
+ if window.capture.videoMode then begin
   // Передача данных потоку видеосжатия
   StoreFrame(img);
  end;
  {$ENDIF} *)
- case frameCaptureTarget of
-  0:if frameCaptureData<>nil then begin
+ case window.capture.target of
+  0:if window.capture.data<>nil then begin
    Signal('Engine\FrameCaptured',UIntPtr(img));
   end;
   2,3:try
@@ -1326,7 +1313,7 @@ begin
    n:=1;
    if not DirectoryExists('Screenshots') then
     CreateDir('Screenshots');
-   saveAsJPG:=frameCaptureTarget=2;
+   saveAsJPG:=window.capture.target=2;
    if saveAsJpg then ext:='.jpg' else ext:='.png';
    st:='Screenshots'+PathSeparator+FormatDateTime('yymmdd_hhnnss',Now)+ext;
    if saveAsJpg then
@@ -1335,14 +1322,14 @@ begin
     res:=SavePNG(img);
     Files.WriteBlock(st,@res[0],length(res),0);
    end;
-   capturedName:=st;
-   capturedTime:=CoreTime.Ticks;
+   window.capture.capturedName:=st;
+   window.capture.capturedTime:=CoreTime.Ticks;
   except
    on e:Exception do Log.Force('Error saving screenshot: '+ExceptionMsg(e));
   end;
  end;
  (*
- if not videoCaptureMode then
+ if not window.capture.videoMode then
   ReleaseFrameData(screenshotDataRaw); *)
 end;
 
@@ -1350,18 +1337,18 @@ procedure TGame.NotifyScenesAboutMouseMove;
 var
   i:integer;
 begin
- for i:=low(scenes) to High(scenes) do
-  if scenes[i].IsActive then
-   scenes[i].onMouseMove(mouseX,mouseY);
+ for i:=low(window.scenes) to high(window.scenes) do
+  if window.scenes[i].IsActive then
+   window.scenes[i].onMouseMove(mouseX,mouseY);
 end;
 
 procedure TGame.NotifyScenesAboutMouseBtn(c:byte;pressed:boolean);
 var
   i:integer;
 begin
- for i:=low(scenes) to high(scenes) do
-  if scenes[i].IsActive then
-   scenes[i].onMouseBtn(c,pressed);
+ for i:=low(window.scenes) to high(window.scenes) do
+  if window.scenes[i].IsActive then
+   window.scenes[i].onMouseBtn(c,pressed);
 end;
 
 // ENGINE\*
@@ -1639,11 +1626,11 @@ begin
  crSect.Enter;
  try
  // TODO: scenes are sorted here AND again by insertion sort in RenderFrame — remove one
- if high(scenes)>1 then begin
-  for n:=1 to high(scenes) do
+ if high(window.scenes)>1 then begin
+  for n:=1 to high(window.scenes) do
    for i:=0 to n-1 do
-    if scenes[i+1].zorder>scenes[i].zorder then begin
-     Swap(scenes[i],scenes[i+1],sizeof(scenes[i]));
+    if window.scenes[i+1].zorder>window.scenes[i].zorder then begin
+     Swap(window.scenes[i],window.scenes[i+1],sizeof(window.scenes[i]));
     end;
  end;
  finally
@@ -1653,11 +1640,11 @@ begin
  try
   // Перечисление корневых эл-тов UI в соответствии со сценами
   // (связь сцен и UI)
-  for i:=0 to high(scenes) do begin
-   if (scenes[i] is TUIScene) then
-    with scenes[i] as TUIScene do
+  for i:=0 to high(window.scenes) do begin
+   if (window.scenes[i] is TUIScene) then
+    with window.scenes[i] as TUIScene do
      if (UI<>nil) then begin
-      ui.order:=scenes[i].zorder;
+      ui.order:=window.scenes[i].zorder;
      end;
   end;
  finally
@@ -1666,24 +1653,24 @@ begin
  deltaTime:=CoreTime.Ticks-LastOnFrameTime;
  LastOnFrameTime:=CoreTime.Ticks;
  // Обработка всех активных сцен
- for i:=low(scenes) to high(scenes) do
-  if scenes[i].status<>TSceneStatus.ssFrozen then begin
+ for i:=low(window.scenes) to high(window.scenes) do
+  if window.scenes[i].status<>TSceneStatus.ssFrozen then begin
    // Обработка сцены
-   if scenes[i].frequency>0 then begin // Сцена обрабатывается с заданной частотой
-    time:=1000 div scenes[i].frequency;
-    inc(scenes[i].accumTime,DeltaTime);
+   if window.scenes[i].frequency>0 then begin // Сцена обрабатывается с заданной частотой
+    time:=1000 div window.scenes[i].frequency;
+    inc(window.scenes[i].accumTime,DeltaTime);
     n:=0;
-    while scenes[i].accumTime>0 do begin
-     result:=scenes[i].Process or result;
-     dec(scenes[i].accumTime,time);
+    while window.scenes[i].accumTime>0 do begin
+     result:=window.scenes[i].Process or result;
+     dec(window.scenes[i].accumTime,time);
      inc(n);
      if n>5 then begin
-      scenes[i].accumTime:=0;
+      window.scenes[i].accumTime:=0;
       break; // запрет слишком высокой частоты обработки
      end;
     end;
    end else begin
-    result:=scenes[i].Process or result;  // обрабатывать каждый раз
+    result:=window.scenes[i].Process or result;  // обрабатывать каждый раз
    end;
   end;
 end;
@@ -1769,8 +1756,8 @@ begin
    [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Right,displayRect.Bottom]));
  SetDisplaySize(renderWidth,renderHeight); // UI display size
  Signal('ENGINE\BEFORERESIZE');
- for i:=low(scenes) to High(scenes) do
-  scenes[i].onResize;
+ for i:=low(window.scenes) to high(window.scenes) do
+  window.scenes[i].onResize;
  Signal('ENGINE\RESIZED');
 
  if (gfx<>nil) and (gfx.target<>nil) then begin
@@ -1870,9 +1857,9 @@ var
   begin
    EnterCritSect;
    try
-    n:=length(scenes);
+    n:=length(window.scenes);
     SetLength(sList,n);
-    for i:=0 to high(scenes) do sList[i]:=scenes[i];
+    for i:=0 to high(window.scenes) do sList[i]:=window.scenes[i];
    finally
     LeaveCritSect;
    end;
@@ -1931,13 +1918,13 @@ begin
    end;
 
   // Capture screenshot?
-  if (capturedTime>0) and (CoreTime.Ticks<CapturedTime+3000) and (gfx<>nil) then begin
+  if (window.capture.capturedTime>0) and (CoreTime.Ticks<window.capture.capturedTime+3000) and (gfx<>nil) then begin
     x:=params.width div 2;
     y:=params.height div 2;
     draw.FillRect(x-200*screenScale,y-40*screenScale,x+200*screenScale,y+40*screenScale,$60000000);
     draw.Rect(x-200*screenScale,y-40*screenScale,x+200*screenScale,y+40*screenScale,$A0FFFFFF);
     txt.Write(largerFont,x,y-16*screenScale,$FFFFFFFF,'Screen captured to:',taCenter);
-    txt.Write(defaultFont,x,y+8*screenScale,$FFFFFFFF,capturedName,taCenter);
+    txt.Write(defaultFont,x,y+8*screenScale,$FFFFFFFF,window.capture.capturedName,taCenter);
   end;
 
  finally
@@ -1973,8 +1960,8 @@ begin
   try
    // Очистим экран если нет ни одной background-сцены или они не покрывают всю область вывода
    fl:=true;
-   for i:=low(scenes) to high(scenes) do
-    if scenes[i].fullscreen and (scenes[i].IsActive)
+   for i:=low(window.scenes) to high(window.scenes) do
+    if window.scenes[i].fullscreen and (window.scenes[i].IsActive)
      then fl:=false;
    FLog('Clear '+booltostr(fl));
    if fl then begin
@@ -1988,17 +1975,17 @@ begin
   FLog('Eff');
   try
    // Обработка эффектов на ВСЕХ сценах
-   for i:=low(scenes) to high(scenes) do
-    if scenes[i].effect<>nil then begin
-     FLog('Eff on '+scenes[i].ClassName+' is '+scenes[i].effect.ClassName+' : '+
-      inttostr(scenes[i].effect.timer)+','+booltostr(scenes[i].effect.done));
-     effect:=scenes[i].effect;
+   for i:=low(window.scenes) to high(window.scenes) do
+    if window.scenes[i].effect<>nil then begin
+     FLog('Eff on '+window.scenes[i].ClassName+' is '+window.scenes[i].effect.ClassName+' : '+
+      inttostr(window.scenes[i].effect.timer)+','+booltostr(window.scenes[i].effect.done));
+     effect:=window.scenes[i].effect;
      FLog('Eff ret');
      inc(effect.timer,DeltaTime);
      if effect.done then begin // Эффект завершился
-      Signal('ENGINE\EffectDone',UIntPtr(scenes[i])); // effect completed
+      Signal('ENGINE\EffectDone',UIntPtr(window.scenes[i])); // effect completed
       effect.Free;
-      scenes[i].effect:=nil;
+      window.scenes[i].effect:=nil;
      end;
     end;
   except
@@ -2009,24 +1996,25 @@ begin
   FLog('Sorting');
   n:=0;
   try
-   for i:=low(scenes) to high(scenes) do
-    if scenes[i].IsActive then begin
+   for i:=low(window.scenes) to high(window.scenes) do
+    if window.scenes[i].IsActive then begin
      // Сортировка вставкой. Найдем положение для вставки и вставим туда
      ASSERT(n<high(sc),'Too many active scenes');
      if n=0 then begin
-      sc[1]:=scenes[i]; inc(n); continue;
+      sc[1]:=window.scenes[i]; inc(n); continue;
      end;
      fl:=true;
      for j:=n downto 1 do
-      if sc[j].zorder>scenes[i].zorder then sc[j+1]:=sc[j]
-       else begin sc[j+1]:=scenes[i]; fl:=false; break; end;
-     if fl then sc[1]:=scenes[i];
+      if sc[j].zorder>window.scenes[i].zorder then sc[j+1]:=sc[j]
+       else begin sc[j+1]:=window.scenes[i]; fl:=false; break; end;
+     if fl then sc[1]:=window.scenes[i];
      inc(n);
     end;
   except
    on e:exception do CritMsg('RFrame3 '+ExceptionMsg(e));
   end;
-  if n>0 then topmostScene:=sc[n];
+  if n>0 then window.topmostScene:=sc[n]
+   else window.topmostScene:=nil;
  finally
   crSect.Leave; // активные сцены вынесены в отдельный массив - их нельзя удалять в процессе отрисовки
  end;
@@ -2088,15 +2076,15 @@ begin
  crSect.Enter;
  try
   // Already added?
-  for i:=low(scenes) to high(scenes) do
-   if scenes[i]=scene then
+  for i:=low(window.scenes) to high(window.scenes) do
+   if window.scenes[i]=scene then
     raise EWarning.Create('Scene already added: '+scene.name);
   // Add
   Log.Msg('Adding scene: '+scene.name);
   scene.accumTime:=0;
-  i:=length(scenes);
-  SetLength(scenes,i+1);
-  scenes[i]:=scene;
+  i:=length(window.scenes);
+  SetLength(window.scenes,i+1);
+  window.scenes[i]:=scene;
  finally
   crSect.Leave;
  end;
@@ -2108,11 +2096,11 @@ var
 begin
  crSect.Enter;
  try
- for i:=low(scenes) to high(scenes) do
-  if scenes[i]=scene then begin
-   n:=length(scenes)-1;
-   scenes[i]:=scenes[n];
-   SetLength(scenes,n);
+ for i:=low(window.scenes) to high(window.scenes) do
+  if window.scenes[i]=scene then begin
+   n:=length(window.scenes)-1;
+   window.scenes[i]:=window.scenes[n];
+   SetLength(window.scenes,n);
    Log.Msg('Scene removed: '+scene.name);
    exit;
   end;
@@ -2128,13 +2116,13 @@ begin
  crSect.Enter;
  try
  result:=nil;
- for i:=low(scenes) to high(scenes) do
-  if scenes[i].IsActive then begin
-   if fullscreenOnly and not scenes[i].fullscreen then continue;
+ for i:=low(window.scenes) to high(window.scenes) do
+  if window.scenes[i].IsActive then begin
+   if fullscreenOnly and not window.scenes[i].fullscreen then continue;
    if result=nil then
-    result:=scenes[i]
+    result:=window.scenes[i]
    else
-    if scenes[i].zorder>result.zorder then result:=scenes[i];
+    if window.scenes[i].zorder>result.zorder then result:=window.scenes[i];
   end;
  finally
   crSect.Leave;
@@ -2335,19 +2323,19 @@ begin
  try
   result:=nil;
   maxZ:=-10000000;
-  for i:=low(scenes) to high(scenes) do
-   if (scenes[i].IsActive) and
-      not scenes[i].ignoreKeyboardEvents then begin
+  for i:=low(window.scenes) to high(window.scenes) do
+   if (window.scenes[i].IsActive) and
+      not window.scenes[i].ignoreKeyboardEvents then begin
     // UI Scene?
-    if scenes[i] is TUIScene then begin
-     sc:=TUIScene(scenes[i]);
+    if window.scenes[i] is TUIScene then begin
+     sc:=TUIScene(window.scenes[i]);
      if not sc.UI.enabled then continue;
      if (modalElement<>nil) and not modalElement.HasParent(sc.UI) then continue;
     end;
     // Topmost?
-    if scenes[i].zorder>maxZ then begin
-     result:=scenes[i];
-     maxZ:=scenes[i].zorder;
+    if window.scenes[i].zorder>maxZ then begin
+     result:=window.scenes[i];
+     maxZ:=window.scenes[i].zorder;
     end;
    end;
  finally
@@ -2463,7 +2451,7 @@ procedure TGame.RenderAndPresentFrame;
     if window.timings.phaseMetrics then StartTimer(phaseTimer);
     PresentFrame;
     if window.timings.phaseMetrics then presentUs:=round(TimerSec(phaseTimer)*1000000);
-    if captureSingleFrame or videoCaptureMode then
+    if window.capture.singleFrame or window.capture.videoMode then
      CaptureFrame;
     PollRobotAPI; // after present: pixel/screenshot read valid backbuffer
    end else
@@ -2489,6 +2477,8 @@ procedure TGame.MainThreadLoop;
    SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
 
    game.window:=systemPlatform.CreateWindow(gameEx.params.title);
+   SetLength(game.window.scenes,0);
+   game.window.topmostScene:=nil;
    gameEx.InitMainLoop; // вызывает InitGraph
 
    game.running:=true; // Это как-бы семафор для завершения функции Run
@@ -2540,8 +2530,8 @@ class function TVarTypeGameClass.ListFields:string8;
   sa:Strings8;
  begin
   with TGame(game) do begin
-    for i:=0 to high(scenes) do
-     sa.Add(String8('scene-'+scenes[i].name));
+    for i:=0 to high(window.scenes) do
+     sa.Add(String8('scene-'+window.scenes[i].name));
   end;
   result:=String8.Join(sa,',');
  end;
@@ -2549,3 +2539,5 @@ class function TVarTypeGameClass.ListFields:string8;
 initialization
   PublishVar(@onFrameDelay,'onFrameDelay',TVarTypeInteger);
 end.
+
+

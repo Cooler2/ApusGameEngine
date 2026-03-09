@@ -276,8 +276,11 @@ type
  // Base class for engine windows.
  // Platform-specific subclasses implement abstract methods.
  // Created via ISystemPlatform.CreateWindow.
- TWindow=class
+TWindow=class
   timings:TFrameTiming;
+  capture:TFrameCapture;
+  scenes:array of TGameScene;
+  topmostScene:TGameScene; // last topmost active scene for this window
   procedure Close; virtual; abstract;
   // Apply display/window settings (mode, size, style, position) to an existing native window.
   // Called on startup and on runtime display-mode changes (Alt+Enter etc). Should also trigger resize flow so engine can recompute render/display areas.
@@ -851,7 +854,6 @@ type
                      // TODO: плохо, что этот параметр глобальный, надо сделать его свойством сцен либо элементов UI, чтобы можно было проверять объект под мышью с учётом наложений
   textLinkRect:TRect; // область ссылки, по номеру textLink
 
-  topmostScene:TGameScene; // last topmost scene
   globalTintColor:cardinal; // multiplier (2X) for whole backbuffer (clNeutral - neutral value)
 
   window:TWindow; // main window (owned, created by ISystemPlatform.CreateWindow)

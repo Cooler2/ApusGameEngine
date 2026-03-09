@@ -6,6 +6,18 @@ const
   FRAME_TIME_RING_SIZE = 512;
 
 type
+  TFrameCapture=record
+    singleFrame:boolean; // request frame capture
+    // 0 - keep in data, 2 - save as JPEG, 3 - save as PNG
+    target:integer;
+    data:TObject;
+    videoMode:boolean;
+    videoPath:string;
+    capturedName:string;
+    capturedTime:int64;
+    procedure Reset;
+  end;
+
   TFrameTiming=record
     // Robot diagnostics toggle.
     phaseMetrics:boolean;
@@ -40,6 +52,17 @@ type
   end;
 
 implementation
+
+procedure TFrameCapture.Reset;
+begin
+  singleFrame:=false;
+  target:=0;
+  data:=nil;
+  videoMode:=false;
+  videoPath:='';
+  capturedName:='';
+  capturedTime:=0;
+end;
 
 procedure TFrameTiming.Reset;
 begin
