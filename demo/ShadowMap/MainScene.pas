@@ -94,9 +94,9 @@ procedure TMainScene.onMouseMove(x, y: integer);
   // If element under mouse doesn't belong to this scene - ignore movement!
   if underMouse.GetRoot<>UI then exit;
   // Turn camera around
-  if game.mouseButtons and mbLeft>0 then begin
-   cameraAngleX:=cameraAngleX-(x-game.oldMouseX)*0.01;
-   cameraAngleY:=Clamp(cameraAngleY+(y-game.oldMouseY)*0.005,0.1,1.2);
+  if window.mouseButtons and mbLeft>0 then begin
+   cameraAngleX:=cameraAngleX-(x-window.oldMouseX)*0.01;
+   cameraAngleY:=Clamp(cameraAngleY+(y-window.oldMouseY)*0.005,0.1,1.2);
   end;
  end;
 

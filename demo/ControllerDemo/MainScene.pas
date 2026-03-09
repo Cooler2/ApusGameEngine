@@ -69,7 +69,7 @@ procedure TMainApp.CreateScenes;
   // initialize our main scene
   sceneMain:=TMainScene.Create;
   TUIButton.Create(200,32,'ToggleInput','Toggle UI Test',txt.GetFont('Default',9),
-   sceneMain.UI).SetPos(game.renderWidth/2,game.renderHeight-25,pivotCenter);
+   sceneMain.UI).SetPos(window.renderWidth/2,window.renderHeight-25,pivotCenter);
   UIButton('ToggleInput').onClick:=OnToggleBtn;
   sceneMain.SetStatus(TSceneStatus.ssActive);
  end;
@@ -142,8 +142,8 @@ procedure DefineManualUI;
  begin
   randSeed:=2;
   for i:=1 to 10 do begin
-   x:=20+random(game.renderWidth-40);
-   y:=20+random(game.renderHeight-100);
+   x:=20+random(window.renderWidth-40);
+   y:=20+random(window.renderHeight-100);
    game.DPadCustomPoint(x,y); // Tell the engine that this point should be available for gamepad navigation
   end;
  end;
@@ -153,8 +153,8 @@ procedure TMainScene.Render;
   w2,h2:integer;
  begin
   gfx.target.Clear($FFE0E0E0);
-  w2:=game.renderWidth div 2;
-  h2:=game.renderHeight div 2;
+  w2:=window.renderWidth div 2;
+  h2:=window.renderHeight div 2;
   draw.Line(w2,0,w2,h2*2,$FF200000);
   draw.Line(0,h2,w2*2,h2,$FF200000);
 

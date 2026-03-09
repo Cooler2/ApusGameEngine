@@ -68,7 +68,7 @@ constructor TMainApp.Create;
 procedure TMainApp.CreateScenes;
  begin
   inherited;
-  txt.SetScale(game.screenDPI/96);
+  txt.SetScale(window.screenDPI/96);
   // initialize our main scene
   sceneMain:=TMainScene.Create('Main');
   // switch to the main scene using fade transition effect
@@ -86,7 +86,7 @@ procedure TMainApp.LoadFonts;
 procedure TMainApp.SelectFonts;
  begin
   inherited;
-  txt.SetScale(game.screenDPI/96);
+  txt.SetScale(window.screenDPI/96);
   mainFont:=txt.GetFont('Main',10);
   titleFont:=txt.GetFont('Main',12);
  end;
@@ -115,9 +115,9 @@ procedure TMainScene.onMouseMove(x,y:integer);
  begin
   inherited;
   // Turn camera around
-  if (underMouse=ui) and (game.mouseButtons and mbLeft>0) then begin
-   cameraAngle:=cameraAngle-0.5*(x-game.oldMouseX)/game.screenDPI;
-   cameraHeight:=Clamp(cameraHeight+0.3*(y-game.oldMouseY)/game.screenDPI,0.35,1.22);
+  if (underMouse=ui) and (window.mouseButtons and mbLeft>0) then begin
+   cameraAngle:=cameraAngle-0.5*(x-window.oldMouseX)/window.screenDPI;
+   cameraHeight:=Clamp(cameraHeight+0.3*(y-window.oldMouseY)/window.screenDPI,0.35,1.22);
   end;
  end;
 
@@ -139,7 +139,7 @@ procedure TMainScene.InitUI;
   lab:TUILabel;
  begin
   font:=txt.GetFont('Default',9);
-  UI.SetScale(game.screenDPI/96);
+  UI.SetScale(window.screenDPI/96);
 
   // UI container
   panel:=TUIElement.Create(220,200,UI,'panel');

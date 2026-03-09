@@ -94,8 +94,8 @@ procedure TMainScene.onMouseMove(x, y: integer);
  begin
   inherited;
   // Turn camera around
-  if game.mouseButtons and mbLeft>0 then
-   cameraAngle:=cameraAngle-0.5*(x-game.oldMouseX)/game.screenDPI;
+  if window.mouseButtons and mbLeft>0 then
+   cameraAngle:=cameraAngle-0.5*(x-window.oldMouseX)/window.screenDPI;
  end;
 
 procedure TMainScene.onMouseWheel(delta: integer);

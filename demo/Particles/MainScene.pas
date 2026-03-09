@@ -246,7 +246,7 @@ procedure SoftTest;
 
 procedure StartSoft;
  begin
-  AllocImage(game.renderWidth,game.renderHeight,TImagePixelFormat.ipfDepth32f,aiDepthBuffer,'DepthTex');
+  AllocImage(window.renderWidth,window.renderHeight,TImagePixelFormat.ipfDepth32f,aiDepthBuffer,'DepthTex');
   SetLength(particles,300);
   testProc:=SoftTest;
   UIElement('Menu').Hide;
@@ -267,9 +267,9 @@ procedure TMainScene.onMouseMove(x,y:integer);
  begin
   inherited;
   // Turn camera around
-  if game.mouseButtons and mbLeft>0 then begin
-   cameraAngleX:=cameraAngleX-(x-game.oldMouseX)*0.01;
-   cameraAngleY:=Clamp(cameraAngleY+(y-game.oldMouseY)*0.005, 0.1,1.2);
+  if window.mouseButtons and mbLeft>0 then begin
+   cameraAngleX:=cameraAngleX-(x-window.oldMouseX)*0.01;
+   cameraAngleY:=Clamp(cameraAngleY+(y-window.oldMouseY)*0.005, 0.1,1.2);
   end;
  end;
 

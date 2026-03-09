@@ -239,12 +239,12 @@ var
 begin
  if vType=vtFloat then begin
   step:=(max-min)/50*Clamp(delta,-1,1);
-  if game.shiftstate and sscCtrl>0 then step:=step/5;
-  if game.shiftstate and sscAlt>0 then step:=step*5;
+  if window.shiftState and sscCtrl>0 then step:=step/5;
+  if window.shiftState and sscAlt>0 then step:=step*5;
  end else begin
   step:=round((max-min)/50)*Clamp(delta,-1,1);
-  if game.shiftstate and sscCtrl>0 then step:=Clamp(step,-1,1);
-  if game.shiftstate and sscAlt>0 then step:=step*4;
+  if window.shiftState and sscCtrl>0 then step:=Clamp(step,-1,1);
+  if window.shiftState and sscAlt>0 then step:=step*4;
  end;
  value:=value+step;
  if vType in [vtAlpha..vtBlue] then value:=Clamp(value,0,255);
@@ -335,7 +335,7 @@ begin
    vtBlue: c:=$FFA0A0F0;
   end;
   inc(xx,x1);
-  if focused then c:=ColorAlpha(c,0.9+0.2*sin(game.frameStartTime/50));
+  if focused then c:=ColorAlpha(c,0.9+0.2*sin(window.frameStartTime/50));
   for i:=-4 to 4 do
    draw.Line(xx+i,yy-j,xx+i,yy-abs(i),c-$101010*abs(i));
  end;
@@ -485,3 +485,4 @@ procedure TValueEditor.Draw(x1, y1, x2, y2: integer);
  end;
 
 end.
+

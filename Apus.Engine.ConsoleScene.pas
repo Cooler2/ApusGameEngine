@@ -1,4 +1,4 @@
-// Standard scene for console window and command interpreter
+﻿// Standard scene for console window and command interpreter
 //
 // Copyright (C) 2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -50,12 +50,12 @@ begin
    end;
  end;
 
- // ���� ������� �������, � ������ ����� ���, �� �� ������ ������� ��������� ����� �� �������
+ // When console is active and nothing is focused, focus the edit box.
  if (consoleScene.Activated) and
     (focusedElement=nil) then
     SetFocusTo(consoleScene.editbox);
 
- // TAB - ����������� ������� ���������
+ // TAB - mirror console window (debug helper, currently disabled)
 { if (consoleScene.activated) and
     (TKey.From(byte(tag and $FF))=TKey.Tab) then begin
   c:=FindControl('ConsoleWnd');
@@ -193,8 +193,8 @@ var
  h:integer;
 begin
  inherited Create('CONSOLE',false); // pure foreground scene
- if game.screenDPI>120 then
-  ui.SetScale(game.screenDPI/96);
+ if window.screenDPI>120 then
+  ui.SetScale(window.screenDPI/96);
  //ignoreKeyboardEvents:=true;
  status:=TSceneStatus.ssFrozen;
  frequency:=12;
@@ -253,5 +253,6 @@ begin
 end;
 
 end.
+
 
 

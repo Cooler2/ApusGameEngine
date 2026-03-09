@@ -584,8 +584,7 @@ begin
  crSect.Init('MainGameObj',20);
  // Primary display
  systemPlatform.GetScreenSize(screenWidth,screenHeight);
- screenDPI:=systemPlatform.GetScreenDPI;
- Log.Msg('Screen: %dx%d DPI=%d',[screenWidth,screenHeight,screenDPI]);
+ Log.Msg('Screen: %dx%d DPI=%d',[screenWidth,screenHeight,systemPlatform.GetScreenDPI]);
 
  // TODO: PublishVar for renderWidth/renderHeight/windowWidth/windowHeight
  // needs window to exist - move to post-CreateWindow init

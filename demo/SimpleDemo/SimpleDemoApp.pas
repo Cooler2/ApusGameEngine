@@ -150,14 +150,14 @@ procedure TMainScene.HandleParticles;
   angle:single;
  begin
   // Emit new particles with right mouse button
-  if game.mouseButtons and 2>0 then begin
+  if window.mouseButtons and 2>0 then begin
    count:=10;
    n:=length(particles);
    SetLength(particles,n+count);
    SetLength(particlesData,n+count);
    for i:=n to n+count-1 do begin
-    particles[i].x:=game.mouseX;
-    particles[i].y:=game.mouseY;
+    particles[i].x:=window.mouseX;
+    particles[i].y:=window.mouseY;
     particles[i].z:=0;
     particles[i].color:=MyColor(255,40+random(100),40+random(100),40+random(100));
     particles[i].scale:=0.5+random*3;
@@ -214,8 +214,8 @@ procedure TMainScene.Render;
   // 1. Draw scene background
   gfx.target.Clear(0); // clear with black
   // Draw some lines
-  maxX:=game.renderWidth-1;
-  maxY:=game.renderHeight-1;
+  maxX:=window.renderWidth-1;
+  maxY:=window.renderHeight-1;
   n:=24;
   for i:=0 to n-1 do begin
     x1:=maxX*i/n; y1:=0;

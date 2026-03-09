@@ -159,8 +159,8 @@ procedure TMainScene.onMouseMove(x, y: integer);
   inherited;
   if underMouse<>UI then exit; // don't turn camera if mouse is over any UI
   // Turn camera around
-  if game.mouseButtons and mbLeft>0 then
-   cameraAngle:=cameraAngle-(x-game.oldMouseX)/(cameraDist.Value+30);
+  if window.mouseButtons and mbLeft>0 then
+   cameraAngle:=cameraAngle-(x-window.oldMouseX)/(cameraDist.Value+30);
  end;
 
 procedure TMainScene.onMouseWheel(delta: integer);

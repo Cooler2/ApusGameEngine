@@ -61,7 +61,7 @@ procedure TMainScene.Initialize;
 var
  pnt:TPoint2s;
 begin
- pnt.Init(game.renderWidth/2,game.renderHeight/2);
+ pnt.Init(window.renderWidth/2,window.renderHeight/2);
  pos.Assign(pnt,2);
 end;
 
@@ -70,7 +70,7 @@ var
  pnt:TPoint2s;
 begin
  if pressed then begin
-   pnt.Init(game.mouseX,game.mouseY);
+   pnt.Init(window.mouseX,window.mouseY);
    pos.Assign(pnt,2);
  end;
 end;

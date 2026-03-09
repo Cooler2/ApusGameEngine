@@ -739,7 +739,7 @@ begin
    title:=GameTitle;
    width:=windowWidth;
    height:=windowHeight;
-   deviceDPI:=game.screenDPI;
+   deviceDPI:=systemPlatform.GetScreenDPI;
    deviceScale:=deviceDPI/96;
    if scaleWindowSize then begin
     width:=round(width*deviceScale);
