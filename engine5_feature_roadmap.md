@@ -121,6 +121,8 @@ Use this section for anything remembered on the fly.
 - [ ] [R-007] Geometric utility library for object culling and intersections (Geom3D extension)
 - [ ] [R-008] UI input hit-test for out-of-bounds children without full-tree mouse-move traversal
 - [ ] [R-009] OpenGL performance modernization (bindless/persistent mapping + explicit batching)
+- [ ] [R-010] UI widget system refactor roadmap (TUIElement decomposition + widget-class review)
+- [ ] [R-011] Headless/NOGFX backend for CI-driven UI automation without window/OpenGL context
 
 ## 5) Seed Feature Cards
 
@@ -262,6 +264,26 @@ Use this section for anything remembered on the fly.
   - [ ] Mouse move processing does not degrade to full-tree scan for common frames.
   - [ ] Existing modal-window and z-order input behavior remains unchanged in representative UI demo flows.
   - [ ] Add at least one focused test or reproducible scenario covering this case.
+
+### [R-11] Headless/NOGFX Backend for CI UI Automation
+- Status: idea
+- Priority: P2
+- Area: Platform
+- Value: Enable automated UI/scene tests on CI runners without creating a native window, OpenGL context, or real GPU render path.
+- Scope (MVP): add a headless platform + NoGfx backend that can run app/frame lifecycle, process synthetic input events, and verify UI behavior/state transitions in tests.
+- Out of scope: full software rasterizer in MVP; pixel-perfect visual parity with hardware rendering.
+- Dependencies: `Apus.Engine.GameApp`, platform abstraction (`ISystemPlatform`), graphics abstraction (`IGraphicsSystem`, `IDrawer`), UI input/event path (`Apus.Engine.UI*`, `Apus.Engine.UIScene`), CI scripts.
+- Risks: hidden coupling between logic and GL calls; initialization paths that currently assume real render context; flaky async/timing behavior in test mode.
+- Acceptance Criteria:
+  - [ ] Engine can start and execute frames in headless mode without native window/OpenGL context.
+  - [ ] Tests can inject synthetic mouse/keyboard input and observe deterministic UI state/event outcomes.
+  - [ ] At least one representative GUI flow is validated in CI using headless mode.
+  - [ ] Runtime mode is explicit and isolated (no accidental behavior change in normal graphics backends).
+- Notes:
+  - Recommended staged delivery:
+  - Stage 1: NoGfx no-op backend + headless platform + controllable frame pump/time.
+  - Stage 2: test helpers (`click`, `move`, `type`, `advanceFrames`) + baseline UI automation scenarios.
+  - Stage 3 (optional): simplified CPU offscreen rendering/capture for layout/snapshot-oriented checks.
 - Notes: target an optimization strategy such as selective traversal only through potentially relevant overflow branches (or cached overflow-aware hit regions), not brute-force global traversal.
 
 ### [R-09] OpenGL Performance Modernization (Core-Profile Follow-Up)
@@ -282,6 +304,31 @@ Use this section for anything remembered on the fly.
   - collapse repetitive `UseVertexBuffer/UseIndexBuffer/Draw/Unbind` pattern via scoped helper;
   - avoid unconditional unbind-to-zero in upload paths when the same buffer remains active;
   - add lightweight state cache to skip redundant binds at API boundary.
+
+### [R-10] UI Widget System Refactor (TUIElement Decomposition First)
+- Status: planned
+- Priority: P0
+- Area: UI
+- Value: reduce UI core complexity and improve maintainability/testability by restructuring `TUIElement` and clarifying responsibilities across widget classes.
+- Scope (MVP): analyze decomposition options for `TUIElement`; pick and implement the best option; review existing widget classes and define/execute targeted reorganization where needed.
+- Out of scope: broad new widget/layout expansion before core decomposition and class reorganization are complete.
+- Dependencies: `Apus.Engine.UI`, `Apus.Engine.UIWidgets`, `Apus.Engine.UITypes`, scene/UI integration points.
+- Risks: behavioral regressions in event flow/focus/layout; migration churn across many widget descendants; temporary API instability during split.
+- Acceptance Criteria:
+  - [ ] At least 2-3 decomposition variants for `TUIElement` are documented with trade-offs.
+  - [ ] One selected decomposition approach is implemented in engine code with preserved baseline UI behavior on representative screens.
+  - [ ] Widget class review is completed, with concrete reorganization actions implemented (or explicitly deferred with rationale).
+  - [ ] Follow-up backlog for widget/layout expansion and test coverage is created and prioritized.
+- Notes:
+  - 2026-03-08: implementation stages and execution plan documented in `reports/R-10_ui_widget_refactor_plan.md`.
+  - 2026-03-08: decomposition research report documented in `reports/R-10_tuielement_decomposition_report_2026-03-08.md`.
+  - Main scope (this task):
+    - decomposition options study for `TUIElement`;
+    - select best option and implement it;
+    - review widget classes and plan/implement reorganization.
+  - Follow-ups (after main scope):
+    - expand widget/layout set where gaps remain;
+    - add focused tests for widgets and layouts.
 
 ## 6) Next Planning Session
 Prepare for the next discussion:
