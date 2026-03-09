@@ -2640,7 +2640,9 @@ procedure TGame.MainThreadLoop;
     except
      on e:Exception do CritMsg('Error in main loop: '+ExceptionMsg(e));
     end;
-   until terminated;
+    if (game.window<>nil) and game.window.IsTerminated then
+     break;
+   until CurrentThread.Terminating;
    Log.Force('Main loop exit');
    gameEx.terminated:=true;
    Signal('Engine\AfterMainLoop');
