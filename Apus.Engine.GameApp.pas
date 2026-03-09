@@ -331,25 +331,6 @@ procedure AppKey(env:PJNIEnv;this:jobject; keyCode,UChar:jint; event: jobject);
 constructor TGameApplication.Create;
  begin
   app:=self;
-  {$IFDEF MSWINDOWS}
-  if usedPlatform in [spWindows,spDefault] then sysPlatform:=TWindowsPlatform.Create;
-  {$ELSE}
-  if usedPlatform=spWindows then raise EFatalError.Create('Ooops! Windows platform on a non-windows system!');
-  {$ENDIF}
-  {$IFDEF UNIX}
-  if usedPlatform=spDefault then usedPlatform:=spSDL;
-  {$ENDIF}
-
-  if usedPlatform=spSDL then begin
-   {$IFDEF SDL}
-   sysPlatform:=TSDLPlatform.Create;
-   {$ELSE}
-   raise EError.Create('Define SDL'); // Define SDL symbol to add SDL support
-   {$ENDIF}
-  end;
-  if sysPlatform=nil then raise EFatalError.Create('No platform interface');
-  sysPlatform.GetScreenSize(screenWidth,screenHeight);
-  sysPlatform.GetRealScreenSize(realScreenWidth,realScreenHeight);
  end;
 
 procedure TGameApplication.CreateScenes;
@@ -528,8 +509,26 @@ procedure TGameApplication.Prepare;
     LoadOptions;
     SaveOptions; // Save modified settings (if default values were added)
    end;
-
    for i:=1 to paramCount do HandleParam(paramstr(i));
+
+   {$IFDEF MSWINDOWS}
+   if usedPlatform in [spWindows,spDefault] then sysPlatform:=TWindowsPlatform.Create;
+   {$ELSE}
+   if usedPlatform=spWindows then raise EFatalError.Create('Ooops! Windows platform on a non-windows system!');
+   {$ENDIF}
+   {$IFDEF UNIX}
+   if usedPlatform=spDefault then usedPlatform:=spSDL;
+   {$ENDIF}
+   if usedPlatform=spSDL then begin
+     {$IFDEF SDL}
+     sysPlatform:=TSDLPlatform.Create;
+     {$ELSE}
+     raise EError.Create('Define SDL'); // Define SDL symbol to add SDL support
+     {$ENDIF}
+   end;
+   if sysPlatform=nil then raise EFatalError.Create('No platform interface');
+   sysPlatform.GetScreenSize(screenWidth,screenHeight);
+   sysPlatform.GetRealScreenSize(realScreenWidth,realScreenHeight);
 
    {$IFDEF OPENGL}
    if directRenderOnly then disableDRT:=true;
