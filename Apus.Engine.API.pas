@@ -6,7 +6,7 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys,
+ uses Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.WindowRuntime, Apus.Engine.Keys,
    Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors, Apus.EventMan, Apus.VertexLayout,
    Apus.Engine.Mesh, Apus.Engine.Resources, Apus.Engine.Scene, Apus.Engine.UIScene;
 
@@ -277,6 +277,7 @@ type
  // Platform-specific subclasses implement abstract methods.
  // Created via ISystemPlatform.CreateWindow.
  TWindow=class
+  timings:TFrameTiming;
   procedure Close; virtual; abstract;
   // Apply display/window settings (mode, size, style, position) to an existing native window.
   // Called on startup and on runtime display-mode changes (Alt+Enter etc). Should also trigger resize flow so engine can recompute render/display areas.

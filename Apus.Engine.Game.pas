@@ -15,15 +15,12 @@
 {$R-}
 unit Apus.Engine.Game;
 interface
-uses Classes, Apus.Core, Apus.Threads, Apus.Engine.Types, Apus.Engine.API;
+uses Classes, Apus.Core, Apus.Threads, Apus.Engine.Types, Apus.Engine.WindowRuntime, Apus.Engine.API;
 
 var
  onFrameDelay:integer=0; // Sleep this time every frame
  disableDRT:boolean=false; // always render directly to the backbuffer - no
  useDepthTexture:boolean=false; // when default RT is used, allocate a depth buffer texture instead of regular depth buffer
-
-const
-  FRAME_TIME_RING_SIZE = 512;
 
 type
  { TGame }
@@ -127,31 +124,6 @@ type
   videoCaptureMode:boolean; // режим видеозахвата
   videoCapturePath:string; // путь для сохранения файлов видеозахвата (по умолчанию - тек. каталог)
 
-  // FPS calc
-  fpsAccumTime:integer;
-  fpsAccumFrames:integer;
-  // Recent frame time history for Robot API diagnostics (microseconds)
-  frameTimeRing:array[0..FRAME_TIME_RING_SIZE-1] of integer;
-  frameTimeRingPos:integer;
-  frameTimeRingCount:integer;
-  lastFrameTimeUs:integer;
-  frameTimer:int64;
-  frameTimerReady:boolean;
-  lastFpsUpdate:int64;
-  lastSmoothFpsUpdate:int64;
-  fpsPhaseMetrics:boolean; // collect per-phase timings for robot diagnostics
-  phaseMsgRing:array[0..FRAME_TIME_RING_SIZE-1] of integer;
-  phaseOnFrameRing:array[0..FRAME_TIME_RING_SIZE-1] of integer;
-  phaseRenderRing:array[0..FRAME_TIME_RING_SIZE-1] of integer;
-  phasePresentRing:array[0..FRAME_TIME_RING_SIZE-1] of integer;
-  phaseSleepRing:array[0..FRAME_TIME_RING_SIZE-1] of integer;
-  lastMsgUs:integer;
-  lastOnFrameUs:integer;
-  lastRenderUs:integer;
-  lastPresentUs:integer;
-  lastSleepUs:integer;
-  pendingMsgUs:integer;
-
   curPrior:integer; // приоритет текущего отображаемого курсора
   wndCursor:THandle; // current system cursor
   suppressCharEvent:boolean; // suppress next keyboard event (to avoid duplicated handle of both CHAR and KEY events)
@@ -190,7 +162,6 @@ type
   procedure FrameLoop; virtual; // One iteration of the frame loop
   procedure RenderAndPresentFrame; virtual; // May be called from the message handlers
   procedure PresentFrame; virtual;  // Displays back buffer
-  procedure PushFrameTimeSample(deltaUs,msgUs,onFrameUs,renderUs,presentUs,sleepUs:integer); virtual;
   function CalcTrimmedFrameMs(windowUs,minFrames,trimPermille:integer; out avgMs:double):boolean; virtual;
   procedure UpdateFpsMetrics; virtual;
 
@@ -921,7 +892,7 @@ begin
       fpsMetricsReqId:=req.id;
       fpsMetricsStartFrame:=g.frameNum;
       fpsMetricsTargetFrames:=n;
-      g.fpsPhaseMetrics:=true;
+      g.window.timings.phaseMetrics:=true;
       body:=ROBOT_PENDING_TOKEN;
       exit(true);
     end;
@@ -931,31 +902,31 @@ begin
     end;
     fpsMetricsPending:=false;
     fpsMetricsReqId:='';
-    g.fpsPhaseMetrics:=false;
+    g.window.timings.phaseMetrics:=false;
     n:=fpsMetricsTargetFrames;
     if n<=0 then n:=50;
   end else
   if req.Param('METRICS')<>'' then
-    g.fpsPhaseMetrics:=false;
+    g.window.timings.phaseMetrics:=false;
 
   body:='fps: '+Conv.ToStr(g.FPS,2)+#13#10+
     'smoothFPS: '+Conv.ToStr(g.smoothFPS,2)+#13#10+
     'frameNum: '+Conv.ToStr(g.frameNum)+#13#10+
-    'frameTimeMs: '+Conv.ToStr(g.lastFrameTimeUs*0.001,2)+#13#10;
+    'frameTimeMs: '+Conv.ToStr(g.window.timings.lastFrameTimeUs*0.001,2)+#13#10;
   if collectMetrics then begin
     body:=body+
-      'msgMs: '+Conv.ToStr(g.lastMsgUs*0.001,2)+#13#10+
-      'onFrameMs: '+Conv.ToStr(g.lastOnFrameUs*0.001,2)+#13#10+
-      'renderMs: '+Conv.ToStr(g.lastRenderUs*0.001,2)+#13#10+
-      'presentMs: '+Conv.ToStr(g.lastPresentUs*0.001,2)+#13#10+
-      'sleepMs: '+Conv.ToStr(g.lastSleepUs*0.001,2)+#13#10;
+      'msgMs: '+Conv.ToStr(g.window.timings.lastMsgUs*0.001,2)+#13#10+
+      'onFrameMs: '+Conv.ToStr(g.window.timings.lastOnFrameUs*0.001,2)+#13#10+
+      'renderMs: '+Conv.ToStr(g.window.timings.lastRenderUs*0.001,2)+#13#10+
+      'presentMs: '+Conv.ToStr(g.window.timings.lastPresentUs*0.001,2)+#13#10+
+      'sleepMs: '+Conv.ToStr(g.window.timings.lastSleepUs*0.001,2)+#13#10;
   end;
   if n>0 then begin
-    if n>g.frameTimeRingCount then n:=g.frameTimeRingCount;
+    if n>g.window.timings.frameTimeRingCount then n:=g.window.timings.frameTimeRingCount;
     if n>FRAME_TIME_RING_SIZE then n:=FRAME_TIME_RING_SIZE;
     body:=body+'historyCount: '+Conv.ToStr(n)+#13#10;
     if n>0 then begin
-      idx:=g.frameTimeRingPos-n;
+      idx:=g.window.timings.frameTimeRingPos-n;
       if idx<0 then inc(idx,FRAME_TIME_RING_SIZE);
       startFrameNum:=integer(g.frameNum)-n+1;
       if startFrameNum<0 then startFrameNum:=0;
@@ -963,14 +934,14 @@ begin
         if collectMetrics then begin
           body:=body+
             'Frame: '+Conv.ToStr(startFrameNum+i)+#13#10+
-            '  MSG: '+Conv.ToStr(g.phaseMsgRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  ONFRAME: '+Conv.ToStr(g.phaseOnFrameRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  RENDER: '+Conv.ToStr(g.phaseRenderRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  PRESENT: '+Conv.ToStr(g.phasePresentRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  SLEEP: '+Conv.ToStr(g.phaseSleepRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  Total: '+Conv.ToStr(g.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
+            '  MSG: '+Conv.ToStr(g.window.timings.phaseMsgRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  ONFRAME: '+Conv.ToStr(g.window.timings.phaseOnFrameRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  RENDER: '+Conv.ToStr(g.window.timings.phaseRenderRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  PRESENT: '+Conv.ToStr(g.window.timings.phasePresentRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  SLEEP: '+Conv.ToStr(g.window.timings.phaseSleepRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  Total: '+Conv.ToStr(g.window.timings.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
         end else
-          body:=body+'FRAME_MS: '+Conv.ToStr(g.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
+          body:=body+'FRAME_MS: '+Conv.ToStr(g.window.timings.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
         if collectMetrics then begin
           body:=body+#13#10;
         end;
@@ -1077,20 +1048,7 @@ begin
 
   LastOnFrameTime:=CoreTime.Ticks;
   LastRenderTime:=CoreTime.Ticks;
-  frameTimeRingPos:=0;
-  frameTimeRingCount:=0;
-  lastFrameTimeUs:=0;
-  StartTimer(frameTimer);
-  frameTimerReady:=false;
-  lastFpsUpdate:=0;
-  lastSmoothFpsUpdate:=0;
-  fpsPhaseMetrics:=false;
-  pendingMsgUs:=0;
-  lastMsgUs:=0;
-  lastOnFrameUs:=0;
-  lastRenderUs:=0;
-  lastPresentUs:=0;
-  lastSleepUs:=0;
+  window.timings.Reset;
 
   RegisterGameRobotCommands;
   InitRobotAPI;
@@ -1110,112 +1068,14 @@ begin
  end;
 end;
 
-procedure TGame.PushFrameTimeSample(deltaUs,msgUs,onFrameUs,renderUs,presentUs,sleepUs:integer);
-begin
-  if deltaUs<0 then deltaUs:=0;
-  if msgUs<0 then msgUs:=0;
-  if onFrameUs<0 then onFrameUs:=0;
-  if renderUs<0 then renderUs:=0;
-  if presentUs<0 then presentUs:=0;
-  if sleepUs<0 then sleepUs:=0;
-  lastFrameTimeUs:=deltaUs;
-  lastMsgUs:=msgUs;
-  lastOnFrameUs:=onFrameUs;
-  lastRenderUs:=renderUs;
-  lastPresentUs:=presentUs;
-  lastSleepUs:=sleepUs;
-  frameTimeRing[frameTimeRingPos]:=deltaUs;
-  phaseMsgRing[frameTimeRingPos]:=msgUs;
-  phaseOnFrameRing[frameTimeRingPos]:=onFrameUs;
-  phaseRenderRing[frameTimeRingPos]:=renderUs;
-  phasePresentRing[frameTimeRingPos]:=presentUs;
-  phaseSleepRing[frameTimeRingPos]:=sleepUs;
-  inc(frameTimeRingPos);
-  if frameTimeRingPos>=FRAME_TIME_RING_SIZE then frameTimeRingPos:=0;
-  if frameTimeRingCount<FRAME_TIME_RING_SIZE then inc(frameTimeRingCount);
-end;
-
 function TGame.CalcTrimmedFrameMs(windowUs,minFrames,trimPermille:integer; out avgMs:double):boolean;
-var
- i,j,idx,count,trim,n:integer;
- totalUs:int64;
- sample,tmp:integer;
- values:array[0..FRAME_TIME_RING_SIZE-1] of integer;
 begin
- result:=false;
- avgMs:=0;
- if frameTimeRingCount<=0 then exit;
- if minFrames<1 then minFrames:=1;
- if trimPermille<0 then trimPermille:=0;
- if trimPermille>450 then trimPermille:=450;
-
- idx:=frameTimeRingPos-1;
- if idx<0 then idx:=FRAME_TIME_RING_SIZE-1;
- count:=0;
- totalUs:=0;
- while count<frameTimeRingCount do begin
-  sample:=frameTimeRing[idx];
-  values[count]:=sample;
-  inc(totalUs,sample);
-  inc(count);
-  if (totalUs>=windowUs) and (count>=minFrames) then break;
-  dec(idx);
-  if idx<0 then idx:=FRAME_TIME_RING_SIZE-1;
- end;
- if count<=0 then exit;
-
- // Insertion sort is enough here because sample count is small.
- for i:=1 to count-1 do begin
-  tmp:=values[i];
-  j:=i-1;
-  while (j>=0) and (values[j]>tmp) do begin
-   values[j+1]:=values[j];
-   dec(j);
-  end;
-  values[j+1]:=tmp;
- end;
-
- trim:=(count*trimPermille) div 1000;
- if trim*2>=count then trim:=0;
- totalUs:=0;
- n:=0;
- for i:=trim to count-trim-1 do begin
-  inc(totalUs,values[i]);
-  inc(n);
- end;
- if n<=0 then exit;
- avgMs:=totalUs/n/1000.0;
- result:=true;
+  result:=window.timings.CalcTrimmedFrameMs(windowUs,minFrames,trimPermille,avgMs);
 end;
 
 procedure TGame.UpdateFpsMetrics;
-const
- FPS_WINDOW_US=200000;
- FPS_MIN_FRAMES=20;
- FPS_TRIM_PERMILLE=100;
- SMOOTH_WINDOW_US=3000000;
- SMOOTH_MIN_FRAMES=60;
- SMOOTH_TRIM_PERMILLE=100;
- FPS_UPDATE_INTERVAL_MS=100; // <=10 updates/sec
- SMOOTH_UPDATE_INTERVAL_MS=500; // <=2 updates/sec
-var
- avgMs:double;
- nowTicks:int64;
 begin
- nowTicks:=CoreTime.Ticks;
- if nowTicks>=lastFpsUpdate+FPS_UPDATE_INTERVAL_MS then begin
-  if CalcTrimmedFrameMs(FPS_WINDOW_US,FPS_MIN_FRAMES,FPS_TRIM_PERMILLE,avgMs) then begin
-   if avgMs>0.001 then FPS:=1000.0/avgMs else FPS:=0;
-  end;
-  lastFpsUpdate:=nowTicks;
- end;
- if nowTicks>=lastSmoothFpsUpdate+SMOOTH_UPDATE_INTERVAL_MS then begin
-  if CalcTrimmedFrameMs(SMOOTH_WINDOW_US,SMOOTH_MIN_FRAMES,SMOOTH_TRIM_PERMILLE,avgMs) then begin
-   if avgMs>0.001 then SmoothFPS:=1000.0/avgMs else SmoothFPS:=0;
-  end else
-   SmoothFPS:=FPS;
-  lastSmoothFpsUpdate:=nowTicks;
- end;
+  window.timings.UpdateFps(FPS,smoothFPS);
 end;
 
 procedure TGame.InitDefaultRenderTarget;
@@ -2516,17 +2376,17 @@ procedure TGame.FrameLoop;
    keyState[i]:=keyState[i] and 1+(keyState[i] and 1) shl 1;
 
   StartMeasure(14);
-  if fpsPhaseMetrics then StartTimer(phaseTimer);
+  if window.timings.phaseMetrics then StartTimer(phaseTimer);
   window.ProcessMessages; // this stalls if window is moved/resized
   try
     HandleSignals;
   except
     on e:exception do Log.Force('Error in FrameLoop 1: '+ExceptionMsg(e));
   end;
-  if fpsPhaseMetrics then
-    pendingMsgUs:=round(TimerSec(phaseTimer)*1000000)
+  if window.timings.phaseMetrics then
+    window.timings.pendingMsgUs:=round(TimerSec(phaseTimer)*1000000)
   else
-    pendingMsgUs:=0;
+    window.timings.pendingMsgUs:=0;
   if not active then
     Delay(5); // limit speed in inactive state
   EndMeasure2(14);
@@ -2555,20 +2415,20 @@ procedure TGame.RenderAndPresentFrame;
     else frameTimeDelta:=20; // initial value
    frameStartTime:=ticks;
    deltaUs:=frameTimeDelta*1000;
-   if frameTimerReady then
-    deltaUs:=round(TimerSec(frameTimer)*1000000);
-   StartTimer(frameTimer);
-   frameTimerReady:=true;
+   if window.timings.frameTimerReady then
+    deltaUs:=round(TimerSec(window.timings.frameTimer)*1000000);
+   StartTimer(window.timings.frameTimer);
+   window.timings.frameTimerReady:=true;
 
    if frameTimeDelta>500 then
     Log.Msg('Warning: main loop stall for '+inttostr(frameTimeDelta)+' ms');
 
    // Обработка кадра
-   if fpsPhaseMetrics then StartTimer(phaseTimer);
+   if window.timings.phaseMetrics then StartTimer(phaseTimer);
    StartMeasure(3);
    if OnFrame then screenChanged:=true; // это чтобы можно было и в других местах выставлять флаг!
    EndMeasure(3);
-   if fpsPhaseMetrics then onFrameUs:=round(TimerSec(phaseTimer)*1000000);
+   if window.timings.phaseMetrics then onFrameUs:=round(TimerSec(phaseTimer)*1000000);
    try
     HandleSignals;
    except
@@ -2579,7 +2439,7 @@ procedure TGame.RenderAndPresentFrame;
    if active or (params.mode.displayMode<>dmSwitchResolution) then begin
     // Если программа активна, то выполним отрисовку кадра
     if screenChanged then begin
-     if fpsPhaseMetrics then StartTimer(phaseTimer);
+     if window.timings.phaseMetrics then StartTimer(phaseTimer);
      try
       PrevFrameLog:=frameLog;
       frameLog:='';
@@ -2589,28 +2449,28 @@ procedure TGame.RenderAndPresentFrame;
      except
       on E:Exception do CritMsg('Error in renderframe: '+ExceptionMsg(e)+' framelog: '+framelog);
      end;
-     if fpsPhaseMetrics then renderUs:=round(TimerSec(phaseTimer)*1000000);
+     if window.timings.phaseMetrics then renderUs:=round(TimerSec(phaseTimer)*1000000);
     end;
    end;
 
    // Здесь можно что-нибудь сделать
-   if fpsPhaseMetrics then StartTimer(phaseTimer);
+   if window.timings.phaseMetrics then StartTimer(phaseTimer);
    CoreTime.Sleep(onFrameDelay);
-   if fpsPhaseMetrics then sleepUs:=round(TimerSec(phaseTimer)*1000000);
+   if window.timings.phaseMetrics then sleepUs:=round(TimerSec(phaseTimer)*1000000);
    // Теперь нужно вывести кадр на экран
    if (active or (params.mode.displayMode<>dmSwitchResolution)) and
       screenChanged then begin
-    if fpsPhaseMetrics then StartTimer(phaseTimer);
+    if window.timings.phaseMetrics then StartTimer(phaseTimer);
     PresentFrame;
-    if fpsPhaseMetrics then presentUs:=round(TimerSec(phaseTimer)*1000000);
+    if window.timings.phaseMetrics then presentUs:=round(TimerSec(phaseTimer)*1000000);
     if captureSingleFrame or videoCaptureMode then
      CaptureFrame;
     PollRobotAPI; // after present: pixel/screenshot read valid backbuffer
    end else
     CoreTime.Sleep(5);
 
-   PushFrameTimeSample(integer(Clamp(deltaUs,0,high(integer))),
-     pendingMsgUs,onFrameUs,renderUs,presentUs,sleepUs);
+   window.timings.PushSample(integer(Clamp(deltaUs,0,high(integer))),
+     window.timings.pendingMsgUs,onFrameUs,renderUs,presentUs,sleepUs);
    // FPS / SmoothFPS based on trimmed mean of recent frame times.
    UpdateFpsMetrics;
 
