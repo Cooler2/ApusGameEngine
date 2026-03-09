@@ -6,7 +6,7 @@
 
 unit Apus.Engine.API;
 interface
- uses Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.WindowRuntime, Apus.Engine.Keys,
+ uses Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Window, Apus.Engine.Keys,
    Apus.Images, Apus.Geom2D, Apus.Geom3D, Apus.Colors, Apus.EventMan, Apus.VertexLayout,
    Apus.Engine.Mesh, Apus.Engine.Resources, Apus.Engine.Scene, Apus.Engine.UIScene;
 
@@ -156,6 +156,12 @@ type
  TKey = Apus.Engine.Keys.TKey;
  TKeyMod = Apus.Engine.Keys.TKeyMod;
 
+ TDisplayMode = Apus.Engine.Types.TDisplayMode;
+ TDisplayFitMode = Apus.Engine.Types.TDisplayFitMode;
+ TDisplayScaleMode = Apus.Engine.Types.TDisplayFitMode;
+ TGameSettings = Apus.Engine.Types.TGameSettings;
+ TWindow = Apus.Engine.Window.TWindow;
+
 const
  // Vertex layout with 3 attributes: position[3] (location=0), color[3] (location=1) and uv[2] (location=2)
  DEFAULT_VERTEX_LAYOUT : TVertexLayout = (layout:$4300; stride:6*4;);
@@ -216,53 +222,6 @@ type
  // Text alignment
  TTextAlignment = Apus.Engine.Types.TTextAlignment;
 
- // Display mode
- TDisplayMode=(dmNone,             //< not specified
-               dmSwitchResolution, //< Fullscreen: switch to desired display mode (change screen resolution)
-               dmFullScreen,       //< Use current resolution with fullscreen window
-               dmFixedWindow,      //< Use fixed-size window
-               dmWindow,           //< Use resizeable window
-               dmBorderless);      //< Use borderless window (non-fullscreen), app should manually resize it if needed
-
- // How the rendered image should appear in the output window (display)
- TDisplayFitMode=(dfmCenter,           //< image is centered in the output window rect (1:1) (DisplayScaleMode is ignored)
-                  dfmFullSize,         //< image is stretched to fill the whole output window
-                  dfmKeepAspectRatio); //< image is stretched to fill the output window while keeping it's original aspect ratio (black padding)
-
- // How rendering is processed if the backbuffer size doesn't match the output area
- TDisplayScaleMode=(dsmDontScale,   //< Backbuffer size is updated to match the output area
-                    dsmStretch,     //< Stretch rendered image to the output rect
-                    dsmScale);      //< Use scale transformation matrix to map render area to the output rect (scaled rendering)
-                                    // Note that scaled rendering produces error in clipping due to rounding
- // Display settings
- TDisplaySettings=record
-  displayMode:TDisplayMode;
-  displayFitMode:TDisplayFitMode;
-  displayScaleMode:TDisplayScaleMode;
- end;
-
- // Это важная структура, задающая параметры работы движка
- // На ее основе движок будет конфигурировать другие объекты, например device
- // Важно понимать смысл каждого ее поля, хотя не обязательно каждое из них будет учтено
- TGameSettings=record
-  title:string;  // Заголовок окна/программы
-  width,height:integer; // Размер BackBuffer'а и (вероятно) области вывода (окна/экрана), фактический размер окна может отличаться от запрошенного
-                        // если mode=dmFullScreen, то эти параметры игнорируются и устанавливаются в текущее разрешение
-                        // В процессе работы область вывода может меняться (например при изменении размеров окна или переключении режима)
-                        // В данной версии размер backBuffer всегда равен размеру области вывода (нет масштабирования), но в принципе
-                        // они могут и отличаться
-  colorDepth:integer; // Желаемый формат бэкбуфера (16/24/32)
-  refresh:integer;   // Частота регенерации экрана (0 - default)
-  vSync:integer;     // Синхронизация с обновлением монитора (0 - максимальный FPS, N - FPS = refresh/N
-  mode,altMode:TDisplaySettings; // Основной режим запуска и альтернативный режим (для переключения по Alt+Enter)
-  showSystemCursor:boolean; // Показывать ли системный курсор? если false - курсор рисуется движком программно
-  zbuffer:byte; // desired precision for a depth buffer (0 - don't use depth buffer)
-  stencil:boolean; // request a stencil-buffer (at least 8-bit)
-  multisampling:byte; // включить мультисэмплинг (fs-антиалиасинг) - кол-во сэмплов (<2 - отключен)
-  slowmotion:boolean; // true - если преобладают медленные сцены или если есть большой разброс
-                      // в скорости - тогда возможна (но не гарантируется) оптимизация перерисовки
- end;
-
  // Nine Patch: resizable image
  TNinePatch=class(TNamedObject)
   minWidth,minHeight:integer; // minimal possible dimension (in pixels, when scale=1.0)
@@ -271,39 +230,6 @@ type
   procedure Draw(x,y,width,height:single;scale:single=1.0); virtual; abstract;
  protected
   class function ClassHash:pointer; override; // override this to provide a separate hash for object instances
- end;
-
- // Base class for engine windows.
- // Platform-specific subclasses implement abstract methods.
- // Created via ISystemPlatform.CreateWindow.
-TWindow=class
-  timings:TFrameTiming;
-  capture:TFrameCapture;
-  scenes:array of TGameScene;
-  topmostScene:TGameScene; // last topmost active scene for this window
-  procedure Close; virtual; abstract;
-  // Apply display/window settings (mode, size, style, position) to an existing native window.
-  // Called on startup and on runtime display-mode changes (Alt+Enter etc). Should also trigger resize flow so engine can recompute render/display areas.
-  procedure Configure(params:TGameSettings); virtual; abstract;
-  procedure Show(show:boolean); virtual; abstract;
-  function GetHandle:THandle; virtual; abstract;
-  procedure GetSize(out width,height:integer); virtual; abstract;
-  procedure MoveTo(x,y:integer;width:integer=0;height:integer=0); virtual; abstract;
-  procedure SetCaption(text:string); virtual; abstract;
-  procedure Minimize; virtual; abstract;
-  procedure FlashWindow(count:integer); virtual; abstract;
-  procedure ProcessMessages; virtual; abstract;
-  // True when native close/quit was requested for this window (used to stop main loop gracefully).
-  function IsTerminated:boolean; virtual; abstract;
-  procedure ScreenToClient(var p:TPoint); virtual; abstract;
-  procedure ClientToScreen(var p:TPoint); virtual; abstract;
-  // Graphics backend lifecycle for this window
-  // Create/activate graphics context and initialize backend-facing window surface state.
-  procedure InitGraph; virtual; abstract;
-  // Release graphics context and backend-facing window surface resources.
-  procedure DoneGraph; virtual; abstract;
-  procedure PresentFrame; virtual; abstract;
-  function SetVSync(divider:integer):boolean; virtual; abstract;
  end;
 
  // Interface to the native OS functions or underlying library.
@@ -857,8 +783,10 @@ TWindow=class
   globalTintColor:cardinal; // multiplier (2X) for whole backbuffer (clNeutral - neutral value)
 
   window:TWindow; // main window (owned, created by ISystemPlatform.CreateWindow)
+  preWindowScenes:TSceneArray; // scenes added before native window creation
 
   constructor Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
+  procedure InitWindowScenes; virtual;
 
   // Settings
   procedure SetSettings(s:TGameSettings); virtual; abstract;
@@ -880,10 +808,10 @@ TWindow=class
 
   // Scenes
   // ------
-  procedure AddScene(scene:TGameScene); virtual; abstract;
-  procedure RemoveScene(scene:TGameScene); virtual; abstract;
-  function TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene; virtual; abstract;
-  function GetScene(name:string):TGameScene; virtual; abstract;
+  procedure AddScene(scene:TGameScene); virtual;
+  procedure RemoveScene(scene:TGameScene); virtual;
+  function TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene; virtual;
+  function GetScene(name:string):TGameScene; virtual;
 
   procedure SwitchToScene(name:string); virtual; abstract; // switch to a fullscreen scene
   procedure ShowWindowScene(name:string;modal:boolean=true); virtual; abstract; // show a windowed scene
@@ -965,16 +893,6 @@ TWindow=class
   // This should be called every frame for each point that should be available for navigation
   // during the next frame
   procedure DPadCustomPoint(x,y:single); virtual; abstract;
- end;
-
- TDisplayModeHelper = record helper for TDisplayMode
-  function ToString:string;
- end;
- TDisplayFitModeHelper = record helper for TDisplayFitMode
-  function ToString:string;
- end;
- TDisplayScaleModeHelper = record helper for TDisplayScaleMode
-  function ToString:string;
  end;
 
 var
@@ -1102,13 +1020,101 @@ implementation
    result:=(keyCode shr 8) and $FF;
   end;
 
- constructor TGameBase.Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
+constructor TGameBase.Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
   begin
    game:=self;
    systemPlatform:=sysPlatform;
    gfx:=gfxSystem;
    debugHotkey:=dhAltFx;
   end;
+
+procedure TGameBase.InitWindowScenes;
+ var
+  i:integer;
+ begin
+  if window=nil then exit;
+  window.ResetSceneData;
+  for i:=low(preWindowScenes) to high(preWindowScenes) do
+   window.AddScene(preWindowScenes[i]);
+  SetLength(preWindowScenes,0);
+ end;
+
+procedure TGameBase.AddScene(scene:TGameScene);
+ var
+  i:integer;
+ begin
+  EnterCritSect;
+  try
+   if scene=nil then raise EWarning.Create('Can''t add nil scene');
+   scene.accumTime:=0;
+   if window=nil then begin
+    for i:=low(preWindowScenes) to high(preWindowScenes) do
+     if preWindowScenes[i]=scene then
+      raise EWarning.Create('Scene already added: '+scene.name);
+    i:=length(preWindowScenes);
+    SetLength(preWindowScenes,i+1);
+    preWindowScenes[i]:=scene;
+   end else
+    window.AddScene(scene);
+  finally
+   LeaveCritSect;
+  end;
+ end;
+
+procedure TGameBase.RemoveScene(scene:TGameScene);
+ var
+  i,n:integer;
+ begin
+  EnterCritSect;
+  try
+   if window=nil then begin
+    for i:=low(preWindowScenes) to high(preWindowScenes) do
+     if preWindowScenes[i]=scene then begin
+      n:=length(preWindowScenes)-1;
+      preWindowScenes[i]:=preWindowScenes[n];
+      SetLength(preWindowScenes,n);
+      exit;
+     end;
+   end else
+    window.RemoveScene(scene);
+  finally
+   LeaveCritSect;
+  end;
+ end;
+
+function TGameBase.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
+ var
+  i:integer;
+  scenesRef:TSceneArray;
+ begin
+  EnterCritSect;
+  try
+   if window=nil then scenesRef:=preWindowScenes
+    else scenesRef:=window.scenes;
+   result:=nil;
+   for i:=low(scenesRef) to high(scenesRef) do
+    if scenesRef[i].IsActive then begin
+     if fullScreenOnly and not scenesRef[i].fullscreen then continue;
+     if result=nil then
+      result:=scenesRef[i]
+     else
+      if scenesRef[i].zorder>result.zorder then result:=scenesRef[i];
+    end;
+  finally
+   LeaveCritSect;
+  end;
+ end;
+
+function TGameBase.GetScene(name:string):TGameScene;
+ begin
+  EnterCritSect;
+  try
+   result:=TGameScene.FindByName(name) as TGameScene;
+  finally
+   LeaveCritSect;
+  end;
+  ASSERT(result<>nil,'Scene '+name+' not found!');
+ end;
 
 // Utils
 function fGetFontHandle(params:string8;tag:integer;context:pointer;contextClass:TVarClassStruct):double;
@@ -1190,19 +1196,6 @@ procedure Delay(time:integer);
 function CurValue(var av:TAnimatedValue):single;
  begin
   result:=av.ValueAt(game.frameStartTime);
- end;
-
-function TDisplayModeHelper.ToString:string;
- begin
-  result:=GetEnumNameSafe(TypeInfo(TDisplayMode),ord(self));
- end;
-function TDisplayFitModeHelper.ToString: string;
- begin
-  result:=GetEnumNameSafe(TypeInfo(TDisplayFitMode),ord(self));
- end;
-function TDisplayScaleModeHelper.ToString: string;
- begin
-  result:=GetEnumNameSafe(TypeInfo(TDisplayScaleMode),ord(self));
  end;
 
 function IsMouseBtn(btn:integer):boolean;

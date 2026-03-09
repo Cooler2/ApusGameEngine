@@ -43,6 +43,47 @@ type
                  taJustify);  // output point indicates the left edge, while spacing is the line width
                               // (falls back to left-aligned output when actual width is too small or the line ends with #10/#13)
 
+ // Display mode
+ TDisplayMode=(dmNone,             //< not specified
+               dmSwitchResolution, //< Fullscreen: switch to desired display mode (change screen resolution)
+               dmFullScreen,       //< Use current resolution with fullscreen window
+               dmFixedWindow,      //< Use fixed-size window
+               dmWindow,           //< Use resizeable window
+               dmBorderless);      //< Use borderless window (non-fullscreen), app should manually resize it if needed
+
+ // How the rendered image should appear in the output window (display)
+ TDisplayFitMode=(dfmCenter,           //< image is centered in the output window rect (1:1) (DisplayScaleMode is ignored)
+                  dfmFullSize,         //< image is stretched to fill the whole output window
+                  dfmKeepAspectRatio); //< image is stretched to fill the output window while keeping it's original aspect ratio (black padding)
+
+ // How rendering is processed if the backbuffer size doesn't match the output area
+ TDisplayScaleMode=(dsmDontScale,   //< Backbuffer size is updated to match the output area
+                    dsmStretch,     //< Stretch rendered image to the output rect
+                    dsmScale);      //< Use scale transformation matrix to map render area to the output rect (scaled rendering)
+                                    // Note that scaled rendering produces error in clipping due to rounding
+
+ // Display settings
+ TDisplaySettings=record
+  displayMode:TDisplayMode;
+  displayFitMode:TDisplayFitMode;
+  displayScaleMode:TDisplayScaleMode;
+ end;
+
+ // Runtime display/window configuration.
+ TGameSettings=record
+  title:string;  // window/program title
+  width,height:integer; // backbuffer size and desired output area
+  colorDepth:integer; // requested backbuffer format (16/24/32)
+  refresh:integer;   // display refresh rate (0 - default)
+  vSync:integer;     // 0 - max FPS, N - FPS = refresh/N
+  mode,altMode:TDisplaySettings; // primary and alternate display mode (Alt+Enter)
+  showSystemCursor:boolean; // draw system cursor instead of engine cursor
+  zbuffer:byte; // desired precision for a depth buffer (0 - don't use depth buffer)
+  stencil:boolean; // request a stencil-buffer (at least 8-bit)
+  multisampling:byte; // full-screen anti-aliasing samples (<2 - disabled)
+  slowmotion:boolean; // hint: prefer redraw optimizations for low/unstable frame rates
+ end;
+
  // Packed ARGB color
  TARGBColor=Apus.Colors.TARGBColor;
  PARGBColor=Apus.Colors.PARGBColor;
@@ -69,7 +110,19 @@ type
   function ColorAt(x,y:single):cardinal;
  end;
 
+ TDisplayModeHelper = record helper for TDisplayMode
+  function ToString:string;
+ end;
+ TDisplayFitModeHelper = record helper for TDisplayFitMode
+  function ToString:string;
+ end;
+ TDisplayScaleModeHelper = record helper for TDisplayScaleMode
+  function ToString:string;
+ end;
+
 implementation
+uses Apus.Utils;
+
  {$EXCESSPRECISION OFF}
  // TODO: trim this unit to engine-specific types only and move Base-type re-exports
  // to explicit imports or a dedicated facade, as documented in engine_work_ahead.md.
@@ -78,6 +131,20 @@ implementation
  const
   k255 = 1/255;
   minGradientScale = 1E-6;
+
+function TDisplayModeHelper.ToString:string;
+ begin
+  result:=GetEnumNameSafe(TypeInfo(TDisplayMode),ord(self));
+ end;
+function TDisplayFitModeHelper.ToString: string;
+ begin
+  result:=GetEnumNameSafe(TypeInfo(TDisplayFitMode),ord(self));
+ end;
+function TDisplayScaleModeHelper.ToString: string;
+ begin
+  result:=GetEnumNameSafe(TypeInfo(TDisplayScaleMode),ord(self));
+ end;
+
 
  function TColorGradient.ColorAt(x,y:single):cardinal;
   begin

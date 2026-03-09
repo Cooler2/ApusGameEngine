@@ -121,6 +121,7 @@ implementation
    Apus.FastGFX,Apus.EventMan,Apus.Publics,
    Apus.Engine.UI,Apus.Engine.Game,Apus.Engine.Tools,
    Apus.Engine.ConsoleScene,Apus.Engine.TweakScene,Apus.Engine.MessageScene,Apus.Engine.RobotAPI,
+   Apus.Engine.Types,
    {Apus.Engine.CustomStyle,Apus.Engine.BitmapStyle,}
    Apus.Engine.Sound
   {$IFDEF DIRECTX},Apus.Engine.DXGame8{$ENDIF}

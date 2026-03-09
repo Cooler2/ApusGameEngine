@@ -15,7 +15,7 @@
 {$R-}
 unit Apus.Engine.Game;
 interface
-uses Classes, Apus.Core, Apus.Threads, Apus.Engine.Types, Apus.Engine.WindowRuntime, Apus.Engine.API;
+uses Classes, Apus.Core, Apus.Threads, Apus.Engine.Types, Apus.Engine.Window, Apus.Engine.API;
 
 var
  onFrameDelay:integer=0; // Sleep this time every frame
@@ -38,10 +38,6 @@ type
   procedure RenderFrame; override; // этот метод должен отрисовать кадр в backbuffer
 
   // Scenes
-  procedure AddScene(scene:TGameScene); override;    // Добавить сцену в список сцен
-  procedure RemoveScene(scene:TGameScene); override;  // Убрать сцену из списка сцен
-  function TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene; override; // Find the topmost active scene
-  function GetScene(name:string):TGameScene; override;
   procedure SwitchToScene(name:string); override;
   procedure ShowWindowScene(name:string;modal:boolean=true); override;
   procedure HideWindowScene(name:string); override;
@@ -400,7 +396,6 @@ end;
 procedure TGame.ApplyNewSettings;
 var
  resChanged,pfChanged:boolean;
- i:integer;
 begin
  resChanged:=(newParams.width<>params.width) or (newParams.height<>params.height);
  pfChanged:=newParams.colorDepth<>params.colorDepth;
@@ -419,8 +414,7 @@ begin
   window.Configure(params);
   if gfx.target<>nil then gfx.target.Backbuffer;
   SetupRenderArea;
-  for i:=low(window.scenes) to high(window.scenes) do
-   window.scenes[i].ModeChanged;
+  window.NotifyScenesModeChanged;
  end;
 end;
 
@@ -541,12 +535,8 @@ begin
 end;
 
 procedure TGame.MouseWheelMoved(value:integer);
-var
- i:integer;
 begin
-  for i:=low(window.scenes) to high(window.scenes) do
-   if window.scenes[i].IsActive then
-    window.scenes[i].onMouseWheel(value);
+  window.NotifyScenesMouseWheel(value);
 end;
 
 procedure TGame.SizeChanged(newWidth,newHeight:integer);
@@ -615,17 +605,6 @@ begin
 
  PublishVar(@game,'game',TVarTypeGameClass);
 end;
-
-function TGame.GetScene(name:string):TGameScene;
- begin
-  EnterCritSect;
-  try
-   result:=TGameScene.FindByName(name) as TGameScene;
-  finally
-   LeaveCritSect;
-  end;
-  ASSERT(result<>nil,'Scene '+name+' not found!');
- end;
 
 function TGame.GetSettings:TGameSettings;
  begin
@@ -1334,21 +1313,13 @@ begin
 end;
 
 procedure TGame.NotifyScenesAboutMouseMove;
-var
-  i:integer;
 begin
- for i:=low(window.scenes) to high(window.scenes) do
-  if window.scenes[i].IsActive then
-   window.scenes[i].onMouseMove(mouseX,mouseY);
+ window.NotifyScenesMouseMove(mouseX,mouseY);
 end;
 
 procedure TGame.NotifyScenesAboutMouseBtn(c:byte;pressed:boolean);
-var
-  i:integer;
 begin
- for i:=low(window.scenes) to high(window.scenes) do
-  if window.scenes[i].IsActive then
-   window.scenes[i].onMouseBtn(c,pressed);
+ window.NotifyScenesMouseBtn(c,pressed);
 end;
 
 // ENGINE\*
@@ -1617,7 +1588,7 @@ end;
 function TGame.OnFrame:boolean;
 var
  i,j,v,n:integer;
- deltaTime,time:int64;
+ deltaTime:int64;
  p:pointer;
 begin
  result:=false;
@@ -1652,27 +1623,7 @@ begin
  end;
  deltaTime:=CoreTime.Ticks-LastOnFrameTime;
  LastOnFrameTime:=CoreTime.Ticks;
- // Обработка всех активных сцен
- for i:=low(window.scenes) to high(window.scenes) do
-  if window.scenes[i].status<>TSceneStatus.ssFrozen then begin
-   // Обработка сцены
-   if window.scenes[i].frequency>0 then begin // Сцена обрабатывается с заданной частотой
-    time:=1000 div window.scenes[i].frequency;
-    inc(window.scenes[i].accumTime,DeltaTime);
-    n:=0;
-    while window.scenes[i].accumTime>0 do begin
-     result:=window.scenes[i].Process or result;
-     dec(window.scenes[i].accumTime,time);
-     inc(n);
-     if n>5 then begin
-      window.scenes[i].accumTime:=0;
-      break; // запрет слишком высокой частоты обработки
-     end;
-    end;
-   end else begin
-    result:=window.scenes[i].Process or result;  // обрабатывать каждый раз
-   end;
-  end;
+ result:=window.ProcessScenes(deltaTime);
 end;
 
 procedure TGame.PresentFrame;
@@ -1756,8 +1707,7 @@ begin
    [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Right,displayRect.Bottom]));
  SetDisplaySize(renderWidth,renderHeight); // UI display size
  Signal('ENGINE\BEFORERESIZE');
- for i:=low(window.scenes) to high(window.scenes) do
-  window.scenes[i].onResize;
+ window.NotifyScenesResize;
  Signal('ENGINE\RESIZED');
 
  if (gfx<>nil) and (gfx.target<>nil) then begin
@@ -2067,66 +2017,6 @@ begin
 
  gfx.EndPaint;
  FLog('RDone');
-end;
-
-procedure TGame.AddScene(scene: TGameScene);
-var
- i:integer;
-begin
- crSect.Enter;
- try
-  // Already added?
-  for i:=low(window.scenes) to high(window.scenes) do
-   if window.scenes[i]=scene then
-    raise EWarning.Create('Scene already added: '+scene.name);
-  // Add
-  Log.Msg('Adding scene: '+scene.name);
-  scene.accumTime:=0;
-  i:=length(window.scenes);
-  SetLength(window.scenes,i+1);
-  window.scenes[i]:=scene;
- finally
-  crSect.Leave;
- end;
-end;
-
-procedure TGame.RemoveScene(scene: TGameScene);
-var
- i,n:integer;
-begin
- crSect.Enter;
- try
- for i:=low(window.scenes) to high(window.scenes) do
-  if window.scenes[i]=scene then begin
-   n:=length(window.scenes)-1;
-   window.scenes[i]:=window.scenes[n];
-   SetLength(window.scenes,n);
-   Log.Msg('Scene removed: '+scene.name);
-   exit;
-  end;
- finally
-  crSect.Leave;
- end;
-end;
-
-function TGame.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
-var
- i:integer;
-begin
- crSect.Enter;
- try
- result:=nil;
- for i:=low(window.scenes) to high(window.scenes) do
-  if window.scenes[i].IsActive then begin
-   if fullscreenOnly and not window.scenes[i].fullscreen then continue;
-   if result=nil then
-    result:=window.scenes[i]
-   else
-    if window.scenes[i].zorder>result.zorder then result:=window.scenes[i];
-  end;
- finally
-  crSect.Leave;
- end;
 end;
 
 procedure TGame.WaitFor(pb:PBoolean; msg:string);
@@ -2477,8 +2367,7 @@ procedure TGame.MainThreadLoop;
    SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
 
    game.window:=systemPlatform.CreateWindow(gameEx.params.title);
-   SetLength(game.window.scenes,0);
-   game.window.topmostScene:=nil;
+   game.InitWindowScenes;
    gameEx.InitMainLoop; // вызывает InitGraph
 
    game.running:=true; // Это как-бы семафор для завершения функции Run

@@ -65,7 +65,7 @@ type
 
 implementation
 uses Messages, Types, SysUtils, Apus.EventMan,
-  Apus.Log, Apus.Strings
+  Apus.Log, Apus.Strings, Apus.Engine.Types
   {$IFDEF MSWINDOWS},dglOpenGL{$ENDIF};
 {$IFOPT R+} {$DEFINE RANGECHECK_ON} {$ENDIF}
 var
