@@ -38,7 +38,7 @@ var
  c:TUIElement;
 begin
  // Win+[~] - show/hide console window
- if (TKey(tag and 255)=TKey.Tilde) and (game.shiftState and sscWin>0) then begin
+ if (TKey(tag and 255)=TKey.Tilde) and (window.shiftState and sscWin>0) then begin
   if consoleScene.activated then begin
    if consoleScene.UI.hasFocus then
     consoleScene.SetStatus(TSceneStatus.ssFrozen)
@@ -50,12 +50,12 @@ begin
    end;
  end;
 
- // Если консоль открыта, а фокуса нигде нет, то по любому нажатию перевести фокус на консоль
+ // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
  if (consoleScene.Activated) and
     (focusedElement=nil) then
     SetFocusTo(consoleScene.editbox);
 
- // TAB - переместить консоль зеркально
+ // TAB - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 { if (consoleScene.activated) and
     (TKey.From(byte(tag and $FF))=TKey.Tab) then begin
   c:=FindControl('ConsoleWnd');
@@ -64,7 +64,7 @@ begin
 
  // Select from command history
  if (consoleScene.activated) and
-    (game.shiftState=0) and
+    (window.shiftState=0) and
     (focusedElement=consoleScene.editbox) then
   with consoleScene do begin
    // [UP] / {DOWN] - select previous commands
@@ -87,14 +87,14 @@ begin
     (TKey(tag and $FF) in [TKey.Left,TKey.Right,TKey.Up,TKey.Down]) then begin
   c:=curObj;
   // SHIFT+CTRL+arrows - move
-   if game.shiftState and sscCtrl>0 then begin
+   if window.shiftState and sscCtrl>0 then begin
     if TKey(tag and $FF)=TKey.Left then c.position.x:=c.position.x-1;
     if TKey(tag and $FF)=TKey.Up then c.position.y:=c.position.y-1;
     if TKey(tag and $FF)=TKey.Right then c.position.x:=c.position.x+1;
     if TKey(tag and $FF)=TKey.Down then c.position.y:=c.position.y+1;
    end;
   // SHIFT+ALT+arrows - resize
-   if game.shiftState and sscAlt>0 then begin
+   if window.shiftState and sscAlt>0 then begin
     if TKey(tag and $FF)=TKey.Left then c.size.x:=c.size.x-1;
     if TKey(tag and $FF)=TKey.Up then c.size.y:=c.size.y-1;
     if TKey(tag and $FF)=TKey.Right then c.size.x:=c.size.x+1;

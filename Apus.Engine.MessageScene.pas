@@ -69,17 +69,17 @@ implementation
    queue.Add(obj);
   end;
 
- // Проверить наличие в очереди сообщения и если оно есть - показать окошко
+ // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
  procedure CheckQueue;
   begin
    if scene.IsActive then exit;
    if curMsg<>nil then curMsg.Free;
    curMsg:=TQueuedMessage(queue.Get);
    if curMsg=nil then exit;
-   // Подготовить UI
+   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ UI
    with curMsg do
     scene.UpdateUI(msg,mType,x,y);
-   // Показать
+   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
    Log.Msg('ShowMessage: '+curMsg.msg);
    TShowWindowEffect.Create(scene,200,sweShow,2);
   end;
@@ -146,7 +146,7 @@ constructor TMessageScene.Create;
 procedure TMessageScene.Initialize;
  begin
   wnd:=TUIElement.Create(400,200,ui,'Message\Wnd');
-  wnd.SetPos(game.renderWidth/2,game.renderHeight/2,pivotCenter);
+  wnd.SetPos(window.renderWidth/2,window.renderHeight/2,pivotCenter);
   wnd.shape:=shapeFull;
   wnd.manualDraw:=true;
   wnd.styleInfo:='border:FFD0D8E0; radius:8; fill:C0C0C8D0';

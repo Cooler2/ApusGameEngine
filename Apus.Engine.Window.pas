@@ -1,6 +1,6 @@
 unit Apus.Engine.Window;
 interface
-uses Apus.Core, Apus.Engine.Types, Apus.Engine.Scene;
+uses Apus.Core, Apus.Geom2D, Apus.Engine.Types, Apus.Engine.Scene;
 
 const
  FRAME_TIME_RING_SIZE=512;
@@ -57,6 +57,35 @@ type
  // Platform-specific subclasses implement abstract methods.
  // Created via ISystemPlatform.CreateWindow.
  TWindow=class
+  // Render area
+  renderWidth,renderHeight:integer; // size of render area in virtual pixels
+  displayRect:TRect; // render area inside window's client area, in screen pixels
+  windowWidth,windowHeight:integer; // window client size in pixels
+  screenChanged:boolean; // set to true to request frame rendering
+
+  // Input state
+  mouseX,mouseY:integer; // mouse position in game coordinates
+  oldMouseX,oldMouseY:integer; // previous mouse position
+  mouseMovedTime:int64; // when mouse position last changed
+  mouseButtons:byte; // button flags (bit 0=left, 1=right, 2=middle)
+  oldMouseButtons:byte; // previous button state
+  shiftState:byte; // shift keys (1=shift, 2=ctrl, 4=alt, 8=win)
+  // bit 0 - pressed, bit 1 - was pressed last frame (01=just pressed, 10=just released)
+  keyState:array[0..255] of byte; // indexed by scancode
+
+  // Window state
+  active:boolean; // true when window is visible and updated
+  paused:boolean; // pause rendering regardless of active state
+  screenDPI:integer; // DPI according to system settings
+  frameNum:integer; // increments every frame
+  frameStartTime:int64; // CoreTime.Ticks when frame started
+  frameTimeDelta:int64; // milliseconds elapsed from previous frame
+  FPS,smoothFPS:single; // current and smoothed FPS
+  // Text link (TODO: move out)
+  textLink:cardinal;
+  textLinkRect:TRect;
+
+  // Per-window data
   timings:TFrameTiming;
   capture:TFrameCapture;
   scenes:TSceneArray;

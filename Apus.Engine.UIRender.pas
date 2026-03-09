@@ -52,7 +52,7 @@ implementation
 
  procedure DrawGlobalShadow(color:cardinal);
   begin
-   draw.FillRect(0,0,game.renderWidth,game.renderHeight,color);
+   draw.FillRect(0,0,window.renderWidth,window.renderHeight,color);
   end;
 
  procedure BackgroundRenderBegin;
@@ -95,7 +95,7 @@ implementation
       DrawUIElement(item);
 
     // Debug: Highlight with border when Ctrl+Alt+Win pressed
-    if (game.shiftState and $F=sscCtrl+sscWin+sscAlt) then
+    if (window.shiftState and $F=sscCtrl+sscWin+sscAlt) then
      if (item=underMouse) or
         ((underMouse<>nil) and (item=underMouse.parent)) then
        with item.globalRect do begin

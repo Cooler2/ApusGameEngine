@@ -572,7 +572,7 @@ begin
  lib:=slSDL;
  {$ENDIF}
  try
-  InitSoundSystem(lib,game.window.GetHandle);
+  InitSoundSystem(lib,window.GetHandle);
  except
   on e:Exception do begin
    Log.Force('Sound initialization failed. Continue without sound. '+e.message);
@@ -826,8 +826,8 @@ begin
  gfx.target.Clear($FF000000);
  for i:=0 to 12 do begin
   a:=i*3.1416/6.5;
-  x:=game.renderWidth/2+32*cos(a);
-  y:=game.renderHeight/2-32*sin(a);
+  x:=window.renderWidth/2+32*cos(a);
+  y:=window.renderHeight/2-32*sin(a);
   L:=50+round(-256*i/13-CoreTime.Ticks*0.3) and 255;
   L:=round(v.Value*L);
   draw.RotScaled(x,y,1,1,-a,tex,cardinal(L shl 24)+$FFFFFF);

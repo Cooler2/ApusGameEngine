@@ -733,21 +733,10 @@ type
 
   // Main game interface (abstract class)
  TGameBase=class
-  // Global variables
+  // Global state
   running:boolean;     // true when main loop is running
-  renderWidth,renderHeight:integer; // Size of render area in virtual pixels (primitive of this size fills the whole renderRect)
-  displayRect:TRect;     // render area (inside window's client area) in screen pixels (default - full client area)
-  screenWidth,screenHeight:integer; // real full screen size in pixels
-  windowWidth,windowHeight:integer; // window client size in pixels
-  screenDPI:integer;    // DPI according to system settings
-  active:boolean;       // true when window is visible and updated; when active is false frame is not rendered
-  paused:boolean;       // pause rendering regardless if window is active
   terminated:boolean;   // true when main loop is finished
-  screenChanged:boolean;  // set this to true to request frame rendering regardless of scenes processing
-  frameNum:integer;     // increments every frame
-  frameStartTime:int64; // CoreTime.Ticks when frame started
-  frameTimeDelta:int64; // number of milliseconds elapsed from previous frame
-  FPS,smoothFPS:single; // current and smoothed FPS
+  screenWidth,screenHeight:integer; // real full screen size in pixels
 
   // Default (built-in) font handles (for debug overlays etc)
   smallFont,defaultFont,largerFont:TFontHandle; // font sizes are selected according to the screen DPI
@@ -757,36 +746,58 @@ type
   // Default checkers texture 32x32 with 8x8 blocks (for debug purposes)
   defaultTexture:TTexture;
 
-  // Input state:
-  // Mouse
-  mouseX,mouseY:integer; // положение мыши внутри окна/экрана
-  oldMouseX,oldMouseY:integer; // предыдущее положение мыши (не на предыдущем кадре, а вообще!)
-  mouseMovedTime:int64; // Момент времени, когда положение мыши изменилось
-  mouseButtons:byte;     // Флаги "нажатости" кнопок мыши (0-левая, 1-правая, 2-средняя)
-  oldMouseButtons:byte;  // предыдущее (отличающееся) значение mouseButtons
-
-  // Keyboard
-  shiftState:byte; // состояние клавиш сдвига (1-shift, 2-ctrl, 4-alt, 8-win)
-  // bit 0 - pressed, bit 1 - was pressed last frame. So 01 means key was just pressed, 10 - just released
-  // indexed by scancode (NOT virtual key code!)
-  keyState:array[0..255] of byte;
-
   debugHotkey:TDebugHotkey; // Hotkey used to toggle debug overlays (default - Alt+F1)
 
   gamepadNavigationMode:TGamepadNavigationMode; // used to enable gamepad (DPad) navigation over UI elements and user-defined objects
 
-  // Text link (TODO: move out)
-  textLink:cardinal; // Вычисленный на предыдущем кадре номер ссылки под мышью записывается здесь (сам по себе он не вычисляется, для этого надо запускать отрисовку текста особым образом)
-                     // TODO: плохо, что этот параметр глобальный, надо сделать его свойством сцен либо элементов UI, чтобы можно было проверять объект под мышью с учётом наложений
-  textLinkRect:TRect; // область ссылки, по номеру textLink
-
   globalTintColor:cardinal; // multiplier (2X) for whole backbuffer (clNeutral - neutral value)
-
-  window:TWindow; // main window (owned, created by ISystemPlatform.CreateWindow)
-  preWindowScenes:TSceneArray; // scenes added before native window creation
+ protected
+  bootstrapScreenDPI:integer;
+  bootstrapFrameNum:integer;
+  bootstrapFrameStartTime:int64;
+  bootstrapFrameTimeDelta:int64;
+  bootstrapTextLink:cardinal;
+  bootstrapTextLinkRect:TRect;
+  function GetScreenDPIValue:integer;
+  procedure SetScreenDPIValue(value:integer);
+  function GetFrameNumValue:integer;
+  procedure SetFrameNumValue(value:integer);
+  function GetFrameStartTimeValue:int64;
+  procedure SetFrameStartTimeValue(value:int64);
+  function GetFrameTimeDeltaValue:int64;
+  procedure SetFrameTimeDeltaValue(value:int64);
+  function GetTextLinkValue:cardinal;
+  procedure SetTextLinkValue(value:cardinal);
+  function GetTextLinkRectValue:TRect;
+  procedure SetTextLinkRectValue(const value:TRect);
+  function GetRenderWidthValue:integer;
+  procedure SetRenderWidthValue(value:integer);
+  function GetRenderHeightValue:integer;
+  procedure SetRenderHeightValue(value:integer);
+  function GetMouseXValue:integer;
+  procedure SetMouseXValue(value:integer);
+  function GetMouseYValue:integer;
+  procedure SetMouseYValue(value:integer);
+  function GetShiftStateValue:byte;
+  procedure SetShiftStateValue(value:byte);
+  function GetKeyStateValue(index:integer):byte;
+  procedure SetKeyStateValue(index:integer;value:byte);
+ public
+  // Compatibility proxies for window-owned runtime fields.
+  property renderWidth:integer read GetRenderWidthValue write SetRenderWidthValue;
+  property renderHeight:integer read GetRenderHeightValue write SetRenderHeightValue;
+  property mouseX:integer read GetMouseXValue write SetMouseXValue;
+  property mouseY:integer read GetMouseYValue write SetMouseYValue;
+  property shiftState:byte read GetShiftStateValue write SetShiftStateValue;
+  property keyState[index:integer]:byte read GetKeyStateValue write SetKeyStateValue;
+  property screenDPI:integer read GetScreenDPIValue write SetScreenDPIValue;
+  property frameNum:integer read GetFrameNumValue write SetFrameNumValue;
+  property frameStartTime:int64 read GetFrameStartTimeValue write SetFrameStartTimeValue;
+  property frameTimeDelta:int64 read GetFrameTimeDeltaValue write SetFrameTimeDeltaValue;
+  property textLink:cardinal read GetTextLinkValue write SetTextLinkValue;
+  property textLinkRect:TRect read GetTextLinkRectValue write SetTextLinkRectValue;
 
   constructor Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
-  procedure InitWindowScenes; virtual;
 
   // Settings
   procedure SetSettings(s:TGameSettings); virtual; abstract;
@@ -886,8 +897,6 @@ type
   // Window control functions
   // -----------------
   procedure Minimize; virtual; abstract;
-  procedure MoveWindowTo(x, y, width, height: integer); virtual; abstract;
-  procedure SetWindowCaption(text: string); virtual; abstract;
 
   // Gamepad navigation
   // This should be called every frame for each point that should be available for navigation
@@ -904,6 +913,7 @@ var
  systemPlatform:ISystemPlatform;
  gfx:IGraphicsSystem;
  game:TGameBase;
+ window:TWindow; // main window (shortcut for game.window, set during startup)
 
  shader:IShader; //< shortcut for gfx.shader
  draw:IDrawer;    //< shortcut for gfx.draw
@@ -1015,10 +1025,144 @@ implementation
     result:=keyCode and $FF
   end;
 
- function GetKeyScanCode(keyCode:cardinal):cardinal;
+function GetKeyScanCode(keyCode:cardinal):cardinal;
   begin
    result:=(keyCode shr 8) and $FF;
   end;
+
+function TGameBase.GetScreenDPIValue:integer;
+ begin
+  if window=nil then result:=bootstrapScreenDPI
+   else result:=window.screenDPI;
+ end;
+
+procedure TGameBase.SetScreenDPIValue(value:integer);
+ begin
+  bootstrapScreenDPI:=value;
+  if window<>nil then window.screenDPI:=value;
+ end;
+
+function TGameBase.GetFrameNumValue:integer;
+ begin
+  if window=nil then result:=bootstrapFrameNum
+   else result:=window.frameNum;
+ end;
+
+procedure TGameBase.SetFrameNumValue(value:integer);
+ begin
+  bootstrapFrameNum:=value;
+  if window<>nil then window.frameNum:=value;
+ end;
+
+function TGameBase.GetFrameStartTimeValue:int64;
+ begin
+  if window=nil then result:=bootstrapFrameStartTime
+   else result:=window.frameStartTime;
+ end;
+
+procedure TGameBase.SetFrameStartTimeValue(value:int64);
+ begin
+  bootstrapFrameStartTime:=value;
+  if window<>nil then window.frameStartTime:=value;
+ end;
+
+function TGameBase.GetFrameTimeDeltaValue:int64;
+ begin
+  if window=nil then result:=bootstrapFrameTimeDelta
+   else result:=window.frameTimeDelta;
+ end;
+
+procedure TGameBase.SetFrameTimeDeltaValue(value:int64);
+ begin
+  bootstrapFrameTimeDelta:=value;
+  if window<>nil then window.frameTimeDelta:=value;
+ end;
+
+function TGameBase.GetTextLinkValue:cardinal;
+ begin
+  if window=nil then result:=bootstrapTextLink
+   else result:=window.textLink;
+ end;
+
+procedure TGameBase.SetTextLinkValue(value:cardinal);
+ begin
+  bootstrapTextLink:=value;
+  if window<>nil then window.textLink:=value;
+ end;
+
+function TGameBase.GetTextLinkRectValue:TRect;
+ begin
+  if window=nil then result:=bootstrapTextLinkRect
+   else result:=window.textLinkRect;
+ end;
+
+procedure TGameBase.SetTextLinkRectValue(const value:TRect);
+ begin
+  bootstrapTextLinkRect:=value;
+  if window<>nil then window.textLinkRect:=value;
+ end;
+
+function TGameBase.GetRenderWidthValue:integer;
+ begin
+  if window=nil then result:=0 else result:=window.renderWidth;
+ end;
+
+procedure TGameBase.SetRenderWidthValue(value:integer);
+ begin
+  if window<>nil then window.renderWidth:=value;
+ end;
+
+function TGameBase.GetRenderHeightValue:integer;
+ begin
+  if window=nil then result:=0 else result:=window.renderHeight;
+ end;
+
+procedure TGameBase.SetRenderHeightValue(value:integer);
+ begin
+  if window<>nil then window.renderHeight:=value;
+ end;
+
+function TGameBase.GetMouseXValue:integer;
+ begin
+  if window=nil then result:=0 else result:=window.mouseX;
+ end;
+
+procedure TGameBase.SetMouseXValue(value:integer);
+ begin
+  if window<>nil then window.mouseX:=value;
+ end;
+
+function TGameBase.GetMouseYValue:integer;
+ begin
+  if window=nil then result:=0 else result:=window.mouseY;
+ end;
+
+procedure TGameBase.SetMouseYValue(value:integer);
+ begin
+  if window<>nil then window.mouseY:=value;
+ end;
+
+function TGameBase.GetShiftStateValue:byte;
+ begin
+  if window=nil then result:=0 else result:=window.shiftState;
+ end;
+
+procedure TGameBase.SetShiftStateValue(value:byte);
+ begin
+  if window<>nil then window.shiftState:=value;
+ end;
+
+function TGameBase.GetKeyStateValue(index:integer):byte;
+ begin
+  if (window=nil) or (index<0) or (index>255) then result:=0
+   else result:=window.keyState[index];
+ end;
+
+procedure TGameBase.SetKeyStateValue(index:integer;value:byte);
+ begin
+  if (window<>nil) and (index>=0) and (index<=255) then
+   window.keyState[index]:=value;
+ end;
 
 constructor TGameBase.Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSystem);
   begin
@@ -1028,78 +1172,33 @@ constructor TGameBase.Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSyst
    debugHotkey:=dhAltFx;
   end;
 
-procedure TGameBase.InitWindowScenes;
- var
-  i:integer;
- begin
-  if window=nil then exit;
-  window.ResetSceneData;
-  for i:=low(preWindowScenes) to high(preWindowScenes) do
-   window.AddScene(preWindowScenes[i]);
-  SetLength(preWindowScenes,0);
- end;
-
 procedure TGameBase.AddScene(scene:TGameScene);
- var
-  i:integer;
  begin
   EnterCritSect;
   try
    if scene=nil then raise EWarning.Create('Can''t add nil scene');
    scene.accumTime:=0;
-   if window=nil then begin
-    for i:=low(preWindowScenes) to high(preWindowScenes) do
-     if preWindowScenes[i]=scene then
-      raise EWarning.Create('Scene already added: '+scene.name);
-    i:=length(preWindowScenes);
-    SetLength(preWindowScenes,i+1);
-    preWindowScenes[i]:=scene;
-   end else
-    window.AddScene(scene);
+   window.AddScene(scene);
   finally
    LeaveCritSect;
   end;
  end;
 
 procedure TGameBase.RemoveScene(scene:TGameScene);
- var
-  i,n:integer;
  begin
   EnterCritSect;
   try
-   if window=nil then begin
-    for i:=low(preWindowScenes) to high(preWindowScenes) do
-     if preWindowScenes[i]=scene then begin
-      n:=length(preWindowScenes)-1;
-      preWindowScenes[i]:=preWindowScenes[n];
-      SetLength(preWindowScenes,n);
-      exit;
-     end;
-   end else
-    window.RemoveScene(scene);
+   window.RemoveScene(scene);
   finally
    LeaveCritSect;
   end;
  end;
 
 function TGameBase.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
- var
-  i:integer;
-  scenesRef:TSceneArray;
  begin
   EnterCritSect;
   try
-   if window=nil then scenesRef:=preWindowScenes
-    else scenesRef:=window.scenes;
-   result:=nil;
-   for i:=low(scenesRef) to high(scenesRef) do
-    if scenesRef[i].IsActive then begin
-     if fullScreenOnly and not scenesRef[i].fullscreen then continue;
-     if result=nil then
-      result:=scenesRef[i]
-     else
-      if scenesRef[i].zorder>result.zorder then result:=scenesRef[i];
-    end;
+   result:=window.TopmostVisibleScene(fullScreenOnly);
   finally
    LeaveCritSect;
   end;
@@ -1195,31 +1294,31 @@ procedure Delay(time:integer);
 
 function CurValue(var av:TAnimatedValue):single;
  begin
-  result:=av.ValueAt(game.frameStartTime);
+  result:=av.ValueAt(window.frameStartTime);
  end;
 
 function IsMouseBtn(btn:integer):boolean;
  begin
-  ASSERT(game<>nil);
-  result:=Bits.HasAll(game.mouseButtons,1 shl (btn-1));
+  ASSERT(window<>nil);
+  result:=Bits.HasAll(window.mouseButtons,1 shl (btn-1));
  end;
 
 function IsKeyDown(scanCode:integer):boolean;
  begin
-  ASSERT(game<>nil);
-  result:=Bits.HasAll(game.keyState[scanCode],1);
+  ASSERT(window<>nil);
+  result:=Bits.HasAll(window.keyState[scanCode],1);
  end;
 
 function IsKeyPressed(scanCode:integer):boolean;
  begin
-  ASSERT(game<>nil);
-  result:=game.keyState[scanCode] and $3=1;
+  ASSERT(window<>nil);
+  result:=window.keyState[scanCode] and $3=1;
  end;
 
 function IsKeyReleased(scanCode:integer):boolean;
  begin
-  ASSERT(game<>nil);
-  result:=game.keyState[scanCode] and $3=2;
+  ASSERT(window<>nil);
+  result:=window.keyState[scanCode] and $3=2;
  end;
 
 procedure DrawToTexture(tex:TTexture;mipLevel:integer=0);
@@ -1237,18 +1336,18 @@ class function TNinePatch.ClassHash:pointer;
 
 function TGameBase.RenderSize:TSize;
  begin
-  result.cx:=renderWidth;
-  result.cy:=renderHeight;
+  result.cx:=window.renderWidth;
+  result.cy:=window.renderHeight;
  end;
 
 function TGameBase.ColorMix(var av:TAnimatedValue;color0,color1:cardinal):cardinal;
  begin
-  result:=Apus.Colors.ColorMixF(color0,color1,Clamp(av.ValueAt(game.frameStartTime),0,1));
+  result:=Apus.Colors.ColorMixF(color0,color1,Clamp(av.ValueAt(window.frameStartTime),0,1));
  end;
 
 function TGameBase.ColorAlpha(var av:TAnimatedValue;color:cardinal):cardinal;
  begin
-  result:=Apus.Colors.ColorAlpha(color,Clamp(av.ValueAt(game.frameStartTime),0,1));
+  result:=Apus.Colors.ColorAlpha(color,Clamp(av.ValueAt(window.frameStartTime),0,1));
  end;
 
 

@@ -339,8 +339,8 @@ procedure SetDisplaySize(width,height:integer);
   begin
    UICritSect.Enter;
    try
-    lastShiftState:=game.shiftState;
-    shift:=game.shiftState;
+    lastShiftState:=window.shiftState;
+    shift:=window.shiftState;
     key:=GetKeyEventVirtualCode(tag); // virtual key code
     event:=UpperCase {TODO: use st.ToUpper}(copy(event,5,length(event)-4));
     if event='KEYDOWN' then // Win+Ctrl+S
@@ -436,8 +436,8 @@ procedure SetDisplaySize(width,height:integer);
  procedure TUIScene.onResize;
   begin
     inherited;
-    rootWidth:=game.renderWidth;
-    rootHeight:=game.renderHeight;
+    rootWidth:=window.renderWidth;
+    rootHeight:=window.renderHeight;
     if UI<>nil then UI.Resize(rootWidth,rootHeight);
   end;
 
@@ -513,7 +513,7 @@ procedure SetDisplaySize(width,height:integer);
 
     // обработка хинтов
     if (itemShowHintTime>LastHandleTime) and (itemShowHintTime<=Time) then begin
-     FindElementAt(game.mouseX,game.mouseY,c);
+     FindElementAt(window.mouseX,window.mouseY,c);
      if (c<>nil) then begin
       if c.enabled then st:=c.hint
        else st:=c.hintIfDisabled;

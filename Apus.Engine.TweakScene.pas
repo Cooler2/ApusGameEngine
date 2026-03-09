@@ -72,7 +72,7 @@ implementation
     if event='KBD\KEYDOWN' then begin
      // Ctrl+[~] - toggle scene
      if TKey(GetKeyEventVirtualCode(tag))=TKey.Tilde then
-      if game.shiftState and sscCtrl>0 then begin
+      if window.shiftState and sscCtrl>0 then begin
       if not tweakerScene.IsActive then
        tweakerScene.SetStatus(TSceneStatus.ssActive)
       else
@@ -139,7 +139,7 @@ begin
  UI.styleinfo:='60404040';
  edCount:=0;
 
- h:=round(11+game.renderHeight*0.01);
+ h:=round(11+window.renderHeight*0.01);
  listbox:=TUIListbox.Create(300,h*3+2,h,'Tweaker\List',normalFont,ui);
  listBox.SetPos(10,10);
  listbox.bgColor:=$60303030;
@@ -184,8 +184,8 @@ begin
  end;
 
  // Adjust vertical position
- if not keepPos then ui.position.y:=game.mouseY-ui.height/2;
- if ui.position.y+ui.height>game.renderHeight then ui.position.y:=game.renderHeight-ui.height;
+ if not keepPos then ui.position.y:=window.mouseY-ui.height/2;
+ if ui.position.y+ui.height>window.renderHeight then ui.position.y:=window.renderHeight-ui.height;
  if ui.position.y<5 then ui.position.y:=5;
 end;
 
@@ -196,10 +196,10 @@ var
 begin
  if st=TSceneStatus.ssActive then begin
   // Update UI Layout
-  ui.Resize(round(200+game.renderWidth*0.1),-1);
-  ui.position.x:=game.mouseX-ui.width/2;
+  ui.Resize(round(200+window.renderWidth*0.1),-1);
+  ui.position.x:=window.mouseX-ui.width/2;
   if ui.position.x<5 then ui.position.x:=5;
-  if ui.position.x+ui.width>game.renderWidth-5 then ui.position.x:=game.renderWidth-5-ui.width;
+  if ui.position.x+ui.width>window.renderWidth-5 then ui.position.x:=window.renderWidth-5-ui.width;
   ui.height:=listBox.height+20;
 
   sa:=GetGlobalContexts(lastIdx);
@@ -253,7 +253,7 @@ end;
 
 constructor TTracker.Create(x,y:integer;parent:TUIElement;mode:TValueType;iValue,initValue:single);
 begin
- inherited Create(parent.width-x-5-5*byte(mode in [vtAlpha..vtBlue]),18+game.renderHeight div 50,parent);
+ inherited Create(parent.width-x-5-5*byte(mode in [vtAlpha..vtBlue]),18+window.renderHeight div 50,parent);
  SetPos(x,y);
  shape:=shapeFull;
  canHaveFocus:=true;
@@ -327,7 +327,7 @@ begin
  if vType>vtFloat then xx:=ValueToX(round(value))
   else xx:=ValueToX(value);
  if (xx>=0) and (xx<width) then begin
-  j:=4+game.renderHeight div 80;
+  j:=4+window.renderHeight div 80;
   c:=$FFD8D0C0;
   case vType of
    vtRed:  c:=$FFE0A0A0;
@@ -420,7 +420,7 @@ var
  i:integer;
  btn:TUIButton;
 begin
- inherited Create(parent.width-20,24+game.renderHeight div 40,parent,'Editor_'+vName);
+ inherited Create(parent.width-20,24+window.renderHeight div 40,parent,'Editor_'+vName);
  SetPos(10,parent.height-5);
  varName:=vName;
  styleClass:=3;

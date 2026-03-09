@@ -127,7 +127,7 @@ var
 
 function EncodeMousePos:cardinal;
 begin
-  result:=word(game.mouseX) and $FFFF+word(game.mouseY) shl 16;
+  result:=word(window.mouseX) and $FFFF+word(window.mouseY) shl 16;
 end;
 
 function StrHash(st:string):cardinal; inline;
@@ -625,7 +625,7 @@ begin
    Thread.Ping;
    Thread.CheckTimeouts;
    Delay(5); // Handling signals is inside
-   game.window.ProcessMessages;
+   window.ProcessMessages;
   except
    on e:exception do Log.Force('Error in MainLoop: '+ExceptionMsg(e));
   end;

@@ -84,8 +84,6 @@ type
   function GetDepthBufferTex:TTexture; override;
 
   procedure Minimize; override;
-  procedure MoveWindowTo(x, y, width, height: integer); override;
-  procedure SetWindowCaption(text: string); override;
 
   procedure SetSettings(s:TGameSettings); override; // этот метод служит для изменения режима или его параметров
   function GetSettings:TGameSettings; override; // этот метод служит для изменения режима или его параметров
@@ -145,9 +143,6 @@ type
   procedure FrameLoop; virtual; // One iteration of the frame loop
   procedure RenderAndPresentFrame; virtual; // May be called from the message handlers
   procedure PresentFrame; virtual;  // Displays back buffer
-  function CalcTrimmedFrameMs(windowUs,minFrames,trimPermille:integer; out avgMs:double):boolean; virtual;
-  procedure UpdateFpsMetrics; virtual;
-
   procedure DoneGraph; virtual; // Финализация графической части
   // Производит захват кадра и производит с ним необходимые действия
   procedure CaptureFrame; virtual;
@@ -327,13 +322,13 @@ procedure TGame.HandleInternalHotkeys(keyCode:integer; pressed:boolean);
 begin
   if pressed then begin
    // Alt+Enter - switch display settings
-   if (TKey(keyCode and $FF)=TKey.Enter) and (shiftstate and sscAlt>0) then
+   if (TKey(keyCode and $FF)=TKey.Enter) and (window.shiftstate and sscAlt>0) then
       if (params.mode.displayMode<>params.altMode.displayMode) and
          (params.altMode.displayMode<>dmNone) then
        SwitchToAltSettings;
 
    // Alt+F11
-   if (TKey(keyCode and $FF)=TKey.F11) and Bits.HasAll(shiftState,sscAlt) then begin
+   if (TKey(keyCode and $FF)=TKey.F11) and Bits.HasAll(window.shiftState,sscAlt) then begin
      SetVSync(params.VSync xor 1); // toggle vsync
      if params.VSync=0 then Include(debugFeatures,dfShowFPS)
       else Exclude(debugFeatures,dfShowFPS);
@@ -341,10 +336,10 @@ begin
 
    // F12 or PrintScreen - screenshot (JPEG), Alt+F12 - (loseless)
    if (TKey(keyCode and $FF)=TKey.PrintScreen) or (TKey(keyCode and $FF)=TKey.F12) then
-     RequestScreenshot(not Bits.HasAll(shiftState,sscAlt));
+     RequestScreenshot(not Bits.HasAll(window.shiftState,sscAlt));
 
-   if Bits.HasAll(shiftState,sscAlt) then
-    if (debugHotKey=dhAltFx) or (debugHotkey=dhCtrlAltFx) and Bits.HasAll(shiftState,sscCtrl) then begin
+   if Bits.HasAll(window.shiftState,sscAlt) then
+    if (debugHotKey=dhAltFx) or (debugHotkey=dhCtrlAltFx) and Bits.HasAll(window.shiftState,sscCtrl) then begin
      if TKey(keyCode and $FF)=TKey.F1 then begin
        if debugOverlay=0 then begin
         debugOverlay:=1;
@@ -359,13 +354,13 @@ begin
     end;
 
    // [Alt]+[1] .. [Alt]+[9] - switch debug overlay when enabled
-   if (debugOverlay>0) and (TKey(keyCode and $FF) in [TKey.D1..TKey.D9]) and Bits.HasAll(shiftState,sscAlt) then
+   if (debugOverlay>0) and (TKey(keyCode and $FF) in [TKey.D1..TKey.D9]) and Bits.HasAll(window.shiftState,sscAlt) then
     debugOverlay:=1+keyCode-byte(TKey.D1);
 
    // Shift+Alt+F1 - Create debug logs
    if (TKey(keyCode and $FF)=TKey.F1) and
-      (shiftState and sscAlt>0) and
-      (shiftState and sscShift>0) then CreateDebugLogs;
+      (window.shiftState and sscAlt>0) and
+      (window.shiftState and sscShift>0) then CreateDebugLogs;
   end;
 end;
 
@@ -445,38 +440,38 @@ end;
 
 function TGame.MouseInRect(r:TRect):boolean;
 begin
- result:=(mouseX>=r.Left) and (mouseY>=r.Top) and
-         (mouseX<r.Right) and (mouseY<r.Bottom);
+ result:=(window.mouseX>=r.Left) and (window.mouseY>=r.Top) and
+         (window.mouseX<r.Right) and (window.mouseY<r.Bottom);
 end;
 
 function TGame.MouseInRect(r:TRect2s):boolean;
 begin
- result:=(mouseX>=r.x1) and (mouseY>=r.y1) and
-         (mouseX<r.x2) and (mouseY<r.y2);
+ result:=(window.mouseX>=r.x1) and (window.mouseY>=r.y1) and
+         (window.mouseX<r.x2) and (window.mouseY<r.y2);
 end;
 
 function TGame.MouseInRect(x,y,width,height:single):boolean;
 begin
- result:=(mouseX>=x) and (mouseY>=y) and
-         (mouseX<x+width) and (mouseY<y+height);
+ result:=(window.mouseX>=x) and (window.mouseY>=y) and
+         (window.mouseX<x+width) and (window.mouseY<y+height);
 end;
 
 function TGame.MouseIsNear(x,y,radius:single):boolean;
 begin
- result:=Sqr(mouseX-x)+Sqr(mouseY-y)<=sqr(radius);
+ result:=Sqr(window.mouseX-x)+Sqr(window.mouseY-y)<=sqr(radius);
 end;
 
 procedure TGame.MouseMovedTo(newX,newY:integer);
 begin
-  oldMouseX:=mouseX;
-  oldMouseY:=MouseY;
-  mouseX:=newX;
-  mouseY:=newY;
-  mouseMovedTime:=CoreTime.Ticks;
-  Signal('MOUSE\MOVE',mouseX and $FFFF+(mouseY and $FFFF) shl 16);
+  window.oldMouseX:=window.mouseX;
+  window.oldMouseY:=window.mouseY;
+  window.mouseX:=newX;
+  window.mouseY:=newY;
+  window.mouseMovedTime:=CoreTime.Ticks;
+  Signal('MOUSE\MOVE',window.mouseX and $FFFF+(window.mouseY and $FFFF) shl 16);
   TGame(game).NotifyScenesAboutMouseMove;
   // Если курсор рисуется вручную, то нужно обновить экран
-  if not params.showSystemCursor then screenChanged:=true;
+  if not params.showSystemCursor then window.screenChanged:=true;
 end;
 
 procedure TGame.CharEntered(charCode,scanCode:integer);
@@ -490,7 +485,7 @@ begin
   if suppressCharEvent then begin
    suppressCharEvent:=false; exit;
   end;
-  if shiftstate=sscCtrl then exit; // Ignore Ctrl+*
+  if window.shiftstate=sscCtrl then exit; // Ignore Ctrl+*
 
   // Send to active scene
   scene:=TopmostSceneForKbd;
@@ -511,7 +506,7 @@ var
  code,uCode:cardinal;
 begin
   ASSERT(scancode in [0..255]);
-  code:=keyCode and $FFFF+shiftstate shl 16+scancode shl 24;
+  code:=keyCode and $FFFF+window.shiftstate shl 16+scancode shl 24;
   uCode:=keyCode and $FFFF+scanCode shl 24;
   scene:=TopmostSceneForKbd;
   if pressed and (scene<>nil) then
@@ -519,12 +514,12 @@ begin
   HandleInternalHotkeys(keyCode,pressed);
 
   if pressed then begin
-    keyState[scanCode]:=keyState[scanCode] or 1;
-    //Log.Msg('KeyDown %d, KS[%d]=%2x ',[lParam,scanCode,keystate[scanCode]]);
+    window.keyState[scanCode]:=window.keyState[scanCode] or 1;
+    //Log.Msg('KeyDown %d, KS[%d]=%2x ',[lParam,scanCode,window.keystate[scanCode]]);
     if scene<>nil then Signal('SCENE\'+scene.name+'\KeyDown',uCode);
   end else begin
-    keyState[scanCode]:=keyState[scanCode] and $FE;
-    //Log.Msg('KeyUp %d, KS[$d]=%2x ',[lParam,scanCode,keystate[scanCode]]);
+    window.keyState[scanCode]:=window.keyState[scanCode] and $FE;
+    //Log.Msg('KeyUp %d, KS[$d]=%2x ',[lParam,scanCode,window.keystate[scanCode]]);
     if scene<>nil then Signal('SCENE\'+scene.name+'\KeyUp',uCode);
   end;
 end;
@@ -541,34 +536,34 @@ end;
 
 procedure TGame.SizeChanged(newWidth,newHeight:integer);
 begin
- if (windowWidth<>newWidth) or (windowHeight<>newHeight) then begin
-  windowWidth:=newWidth;
-  windowHeight:=newHeight;
-  Log.Msg('RESIZED: %d,%d',[windowWidth,windowHeight]);
+ if (window.windowWidth<>newWidth) or (window.windowHeight<>newHeight) then begin
+  window.windowWidth:=newWidth;
+  window.windowHeight:=newHeight;
+  Log.Msg('RESIZED: %d,%d',[window.windowWidth,window.windowHeight]);
   SetupRenderArea;
-  screenChanged:=true;
+  window.screenChanged:=true;
  end;
 end;
 
 procedure TGame.Activate(activeState:boolean);
 begin
- active:=activeState;
- if not active and (params.mode.displayMode=dmFullScreen) then Minimize;
- Log.Msg('ACTIVATE: %d',[byte(active)]);
- Signal('Engine\ActivateWnd',byte(active));
+ window.active:=activeState;
+ if not window.active and (params.mode.displayMode=dmFullScreen) then Minimize;
+ Log.Msg('ACTIVATE: %d',[byte(window.active)]);
+ Signal('Engine\ActivateWnd',byte(window.active));
  if params.showSystemCursor then wndCursor:=0;
 end;
 
 function TGame.MouseWasInRect(r:TRect):boolean;
 begin
- result:=(oldMouseX>=r.Left) and (oldmouseY>=r.Top) and
-         (oldmouseX<r.Right) and (oldmouseY<r.Bottom);
+ result:=(window.oldMouseX>=r.Left) and (window.oldmouseY>=r.Top) and
+         (window.oldmouseX<r.Right) and (window.oldmouseY<r.Bottom);
 end;
 
 function TGame.MouseWasInRect(r:TRect2s):boolean;
 begin
- result:=(oldmouseX>=r.x1) and (oldmouseY>=r.y1) and
-         (oldmouseX<r.x2) and (oldmouseY<r.y2);
+ result:=(window.oldmouseX>=r.x1) and (window.oldmouseY>=r.y1) and
+         (window.oldmouseX<r.x2) and (window.oldmouseY<r.y2);
 end;
 
 constructor TGame.Create(systemPlatform:ISystemPlatform;
@@ -583,26 +578,17 @@ begin
  canExitNow:=false;
  useMainThread:=true;
  controlThreadId:=GetCurrentThreadId;
- active:=false;
- paused:=false;
+ // TODO: window fields initialized here before window is created - move to post-CreateWindow init
  mainThread:=nil;
- FrameNum:=0;
- fps:=60;
- smoothFPS:=60;
  params.VSync:=1;
- Mem.Fill(keystate,sizeof(keystate),0);
  crSect.Init('MainGameObj',20);
  // Primary display
  systemPlatform.GetScreenSize(screenWidth,screenHeight);
  screenDPI:=systemPlatform.GetScreenDPI;
  Log.Msg('Screen: %dx%d DPI=%d',[screenWidth,screenHeight,screenDPI]);
 
- PublishVar(@renderWidth,'RenderWidth',TVarTypeInteger);
- PublishVar(@renderHeight,'RenderHeight',TVarTypeInteger);
- PublishVar(@windowWidth,'WindowWidth',TVarTypeInteger);
- PublishVar(@windowHeight,'WindowHeight',TVarTypeInteger);
- PublishVar(@screenDPI,'ScreenDPI',TVarTypeInteger);
-
+ // TODO: PublishVar for renderWidth/renderHeight/windowWidth/windowHeight
+ // needs window to exist - move to post-CreateWindow init
  PublishVar(@game,'game',TVarTypeGameClass);
 end;
 
@@ -662,26 +648,26 @@ procedure TGame.DrawMagnifier;
   if magnifierTex=nil then begin
    magnifierTex:=AllocImage(128,128,ipfARGB,aiTexture,'Magnifier');
   end;
-  cx:=mouseX-64;
-  cy:=mouseY+64;
+  cx:=window.mouseX-64;
+  cy:=window.mouseY+64;
   EditImage(magnifierTex);
   Apus.FastGFX.FillRect(0,0,127,127,$FF000000);
   rawImage:=magnifierTex.GetRawImage;
-  gfx.CopyFromBackbuffer(cx,renderHeight-cy,rawImage);
+  gfx.CopyFromBackbuffer(cx,window.renderHeight-cy,rawImage);
   rawImage.Free;
   color:=Apus.FastGFX.GetPixel(64,63);
   magnifierTex.Unlock;
   magnifierTex.SetFilter(TTexFilter.fltNearest);
   gfx.shader.UseTexture(magnifierTex);
-  screenScale:=screenDPI/96;
+  screenScale:=window.screenDPI/96;
   mSize:=round(512*screenScale);
   mSize:=mSize and $FFFFFFF0;
-  width:=Min(mSize,round(renderWidth*0.4));
-  height:=Min(mSize,renderHeight);
-  if mouseX<renderWidth div 2 then left:=renderWidth-width
+  width:=Min(mSize,round(window.renderWidth*0.4));
+  height:=Min(mSize,window.renderHeight);
+  if window.mouseX<window.renderWidth div 2 then left:=window.renderWidth-width
    else left:=0;
   zoom:=round(4*screenScale);
-  if (shiftstate and sscShift)>0 then zoom:=zoom*2;
+  if (window.shiftstate and sscShift)>0 then zoom:=zoom*2;
   du:=width/(256*zoom); dv:=-height/(256*zoom);
   u:=0.5; v:=0.5;
   draw.TexturedRect(left,0,left+width{-1},height{-1},magnifierTex,u-du,v-dv,u+du,v-dv,u+du,v+dv,$FF808080);
@@ -697,7 +683,7 @@ procedure TGame.DrawMagnifier;
    text:=Format('%2x %2x %2x',[(color shr 16) and $FF,(color shr 8) and $FF,color and $FF]);
    txt.WriteW(defaultFont,ox,height-17*screenScale,$FFFFFFFF,Str32(text),taCenter);
    // Pixel coordinates
-   text:=Format('x: %d y: %d',[mousex,mouseY]);
+   text:=Format('x: %d y: %d',[window.mousex,window.mouseY]);
    txt.WriteW(smallFont,ox,height-5*screenScale,$FFFFFFFF,Str32(text),taCenter);
   end;
  end;
@@ -730,7 +716,7 @@ begin
  txt.LoadRasterFont(TBuffer.CreateFrom(@defaultFont10,length(defaultFont10)));
  txt.LoadRasterFont(TBuffer.CreateFrom(@defaultFont12,length(defaultFont12)));
  {$ENDIF}
- size:=2+0.056*screenDPI;
+ size:=2+0.056*window.screenDPI;
  defaultFont:=txt.GetFont('Default',size);
  smallFont:=txt.GetFont('Default',size*0.8);
  largerFont:=txt.GetFont('Default',size*1.25);
@@ -768,6 +754,11 @@ begin
  aspectRatio:=params.width/params.height;
 
  window.Configure(params);
+ // Some platforms report client size only after first message pump.
+ window.ProcessMessages;
+ window.GetSize(window.windowWidth,window.windowHeight);
+ if window.windowWidth<=0 then window.windowWidth:=params.width;
+ if window.windowHeight<=0 then window.windowHeight:=params.height;
  gfx.Init(window);
  // Choose pixel formats
  gfx.config.ChoosePixelFormats(pfTrueColor,pfTrueColorAlpha,pfRenderTarget,pfRenderTargetAlpha);
@@ -793,10 +784,10 @@ begin
    {$IFDEF IOS}
     baseDPI:=192;
    {$ENDIF}
-   if screenDPI>0.95*baseDPI*1.2 then screenScale:=1.2;
-   if screenDPI>0.94*baseDPI*1.5 then screenScale:=1.5;
-   if screenDPI>0.93*baseDPI*2.0 then screenScale:=2.0;
-   if screenDPI>0.92*baseDPI*2.5 then screenScale:=2.5;
+   if window.screenDPI>0.95*baseDPI*1.2 then screenScale:=1.2;
+   if window.screenDPI>0.94*baseDPI*1.5 then screenScale:=1.5;
+   if window.screenDPI>0.93*baseDPI*2.0 then screenScale:=2.0;
+   if window.screenDPI>0.92*baseDPI*2.5 then screenScale:=2.5;
  end;
 
  InitDefaultResources;
@@ -829,13 +820,13 @@ function RobotCmdWindows(const req:TRobotRequest; out body:String8):boolean;
 begin
   if game=nil then begin body:='game not initialized'; exit(false) end;
   body:='WINDOW: 0'#13#10+
-    '  windowWidth: '+Conv.ToStr(game.windowWidth)+#13#10+
-    '  windowHeight: '+Conv.ToStr(game.windowHeight)+#13#10+
-    '  renderWidth: '+Conv.ToStr(game.renderWidth)+#13#10+
-    '  renderHeight: '+Conv.ToStr(game.renderHeight)+#13#10+
-    '  screenDPI: '+Conv.ToStr(game.screenDPI)+#13#10+
-    '  displayRect: '+Conv.ToStr(game.displayRect.Left)+','+Conv.ToStr(game.displayRect.Top)+','+
-      Conv.ToStr(game.displayRect.Right)+','+Conv.ToStr(game.displayRect.Bottom)+#13#10;
+    '  windowWidth: '+Conv.ToStr(window.windowWidth)+#13#10+
+    '  windowHeight: '+Conv.ToStr(window.windowHeight)+#13#10+
+    '  renderWidth: '+Conv.ToStr(window.renderWidth)+#13#10+
+    '  renderHeight: '+Conv.ToStr(window.renderHeight)+#13#10+
+    '  screenDPI: '+Conv.ToStr(window.screenDPI)+#13#10+
+    '  displayRect: '+Conv.ToStr(window.displayRect.Left)+','+Conv.ToStr(window.displayRect.Top)+','+
+      Conv.ToStr(window.displayRect.Right)+','+Conv.ToStr(window.displayRect.Bottom)+#13#10;
   result:=true;
 end;
 
@@ -855,58 +846,58 @@ begin
     if (not fpsMetricsPending) or (fpsMetricsReqId<>req.id) then begin
       fpsMetricsPending:=true;
       fpsMetricsReqId:=req.id;
-      fpsMetricsStartFrame:=g.frameNum;
+      fpsMetricsStartFrame:=window.frameNum;
       fpsMetricsTargetFrames:=n;
-      g.window.timings.phaseMetrics:=true;
+      window.timings.phaseMetrics:=true;
       body:=ROBOT_PENDING_TOKEN;
       exit(true);
     end;
-    if g.frameNum-fpsMetricsStartFrame<fpsMetricsTargetFrames then begin
+    if window.frameNum-fpsMetricsStartFrame<fpsMetricsTargetFrames then begin
       body:=ROBOT_PENDING_TOKEN;
       exit(true);
     end;
     fpsMetricsPending:=false;
     fpsMetricsReqId:='';
-    g.window.timings.phaseMetrics:=false;
+    window.timings.phaseMetrics:=false;
     n:=fpsMetricsTargetFrames;
     if n<=0 then n:=50;
   end else
   if req.Param('METRICS')<>'' then
-    g.window.timings.phaseMetrics:=false;
+    window.timings.phaseMetrics:=false;
 
-  body:='fps: '+Conv.ToStr(g.FPS,2)+#13#10+
-    'smoothFPS: '+Conv.ToStr(g.smoothFPS,2)+#13#10+
-    'frameNum: '+Conv.ToStr(g.frameNum)+#13#10+
-    'frameTimeMs: '+Conv.ToStr(g.window.timings.lastFrameTimeUs*0.001,2)+#13#10;
+  body:='fps: '+Conv.ToStr(window.FPS,2)+#13#10+
+    'smoothFPS: '+Conv.ToStr(window.smoothFPS,2)+#13#10+
+    'frameNum: '+Conv.ToStr(window.frameNum)+#13#10+
+    'frameTimeMs: '+Conv.ToStr(window.timings.lastFrameTimeUs*0.001,2)+#13#10;
   if collectMetrics then begin
     body:=body+
-      'msgMs: '+Conv.ToStr(g.window.timings.lastMsgUs*0.001,2)+#13#10+
-      'onFrameMs: '+Conv.ToStr(g.window.timings.lastOnFrameUs*0.001,2)+#13#10+
-      'renderMs: '+Conv.ToStr(g.window.timings.lastRenderUs*0.001,2)+#13#10+
-      'presentMs: '+Conv.ToStr(g.window.timings.lastPresentUs*0.001,2)+#13#10+
-      'sleepMs: '+Conv.ToStr(g.window.timings.lastSleepUs*0.001,2)+#13#10;
+      'msgMs: '+Conv.ToStr(window.timings.lastMsgUs*0.001,2)+#13#10+
+      'onFrameMs: '+Conv.ToStr(window.timings.lastOnFrameUs*0.001,2)+#13#10+
+      'renderMs: '+Conv.ToStr(window.timings.lastRenderUs*0.001,2)+#13#10+
+      'presentMs: '+Conv.ToStr(window.timings.lastPresentUs*0.001,2)+#13#10+
+      'sleepMs: '+Conv.ToStr(window.timings.lastSleepUs*0.001,2)+#13#10;
   end;
   if n>0 then begin
-    if n>g.window.timings.frameTimeRingCount then n:=g.window.timings.frameTimeRingCount;
+    if n>window.timings.frameTimeRingCount then n:=window.timings.frameTimeRingCount;
     if n>FRAME_TIME_RING_SIZE then n:=FRAME_TIME_RING_SIZE;
     body:=body+'historyCount: '+Conv.ToStr(n)+#13#10;
     if n>0 then begin
-      idx:=g.window.timings.frameTimeRingPos-n;
+      idx:=window.timings.frameTimeRingPos-n;
       if idx<0 then inc(idx,FRAME_TIME_RING_SIZE);
-      startFrameNum:=integer(g.frameNum)-n+1;
+      startFrameNum:=integer(window.frameNum)-n+1;
       if startFrameNum<0 then startFrameNum:=0;
       for i:=0 to n-1 do begin
         if collectMetrics then begin
           body:=body+
             'Frame: '+Conv.ToStr(startFrameNum+i)+#13#10+
-            '  MSG: '+Conv.ToStr(g.window.timings.phaseMsgRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  ONFRAME: '+Conv.ToStr(g.window.timings.phaseOnFrameRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  RENDER: '+Conv.ToStr(g.window.timings.phaseRenderRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  PRESENT: '+Conv.ToStr(g.window.timings.phasePresentRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  SLEEP: '+Conv.ToStr(g.window.timings.phaseSleepRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
-            '  Total: '+Conv.ToStr(g.window.timings.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
+            '  MSG: '+Conv.ToStr(window.timings.phaseMsgRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  ONFRAME: '+Conv.ToStr(window.timings.phaseOnFrameRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  RENDER: '+Conv.ToStr(window.timings.phaseRenderRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  PRESENT: '+Conv.ToStr(window.timings.phasePresentRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  SLEEP: '+Conv.ToStr(window.timings.phaseSleepRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10+
+            '  Total: '+Conv.ToStr(window.timings.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
         end else
-          body:=body+'FRAME_MS: '+Conv.ToStr(g.window.timings.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
+          body:=body+'FRAME_MS: '+Conv.ToStr(window.timings.frameTimeRing[(idx+i) mod FRAME_TIME_RING_SIZE]*0.001,2)+#13#10;
         if collectMetrics then begin
           body:=body+#13#10;
         end;
@@ -929,8 +920,8 @@ begin
   body:='';
   g.EnterCritSect;
   try
-    for i:=0 to high(g.window.scenes) do begin
-      s:=g.window.scenes[i];
+    for i:=0 to high(window.scenes) do begin
+      s:=window.scenes[i];
       if activeOnly and (s.status<>ssActive) then continue;
       body:=body+'SCENE: '+s.name+#13#10+
         '  status: '+statusNames[s.status]+#13#10+
@@ -960,11 +951,11 @@ begin
   y:=Conv.ToInt(req.Param('Y'));
   w:=Conv.ToInt(req.Param('W'));
   h:=Conv.ToInt(req.Param('H'));
-  if w<=0 then w:=game.renderWidth;
-  if h<=0 then h:=game.renderHeight;
+  if w<=0 then w:=window.renderWidth;
+  if h<=0 then h:=window.renderHeight;
   img:=TBitmapImage.Create(w,h,ipfXRGB);
   try
-    gfx.CopyFromBackbuffer(x,game.renderHeight-y-h,img);
+    gfx.CopyFromBackbuffer(x,window.renderHeight-y-h,img);
     img.FlipVertical; // backbuffer is bottom-up in OpenGL
     res:=SavePNG(img);
     Files.WriteBlock(fname,@res[0],length(res),0);
@@ -1022,7 +1013,7 @@ begin
   Log.Msg('Game is running...');
   running:=true;
   {$IFDEF ANDROID}
-  active:=true; // window is initially active
+  window.active:=true; // window is initially active
   {$ENDIF}
  except
   on e:Exception do begin
@@ -1032,16 +1023,6 @@ begin
    Halt(254);
   end;
  end;
-end;
-
-function TGame.CalcTrimmedFrameMs(windowUs,minFrames,trimPermille:integer; out avgMs:double):boolean;
-begin
-  result:=window.timings.CalcTrimmedFrameMs(windowUs,minFrames,trimPermille,avgMs);
-end;
-
-procedure TGame.UpdateFpsMetrics;
-begin
-  window.timings.UpdateFps(FPS,smoothFPS);
 end;
 
 procedure TGame.InitDefaultRenderTarget;
@@ -1225,7 +1206,7 @@ var
 begin
  Log.Force('GameStop');
  if not running then exit;
- active:=false;
+ if window<>nil then window.active:=false;
 
  if mainThread=nil then
   Signal('Engine\MainLoopDone')
@@ -1248,7 +1229,7 @@ begin
   end;
  end;
 
- active:=false;
+ if window<>nil then window.active:=false;
  Log.Force('Can exit now');
 end;
 
@@ -1265,7 +1246,7 @@ var
 begin
  window.capture.singleFrame:=false;
 
- r:=displayRect;
+ r:=window.displayRect;
  img:=TBitmapImage.Create(r.Width,r.Height,ipfXRGB);
  gfx.CopyFromBackbuffer(0,0,img);
  img.tag:=UIntPtr(buf); // save pointer
@@ -1314,7 +1295,7 @@ end;
 
 procedure TGame.NotifyScenesAboutMouseMove;
 begin
- window.NotifyScenesMouseMove(mouseX,mouseY);
+ window.NotifyScenesMouseMove(window.mouseX,window.mouseY);
 end;
 
 procedure TGame.NotifyScenesAboutMouseBtn(c:byte;pressed:boolean);
@@ -1358,44 +1339,44 @@ begin
  end else
  if event='SINGLETOUCHSTART' then begin
    t:=CoreTime.Ticks;
-   OldMouseX:=mouseX;
-   OldMouseY:=MouseY;
+   window.OldMouseX:=window.mouseX;
+   window.OldMouseY:=window.mouseY;
    p.x:=tag and $FFFF;
    p.y:=tag shr 16;
    ClientToGame(p);
-   MouseX:=p.x;
-   MouseY:=p.y;
-   mouseMovedTime:=CoreTime.Ticks;
-   Signal('Mouse\Move',(mouseX and $FFFF)+mouseY shl 16);
+   window.mouseX:=p.x;
+   window.mouseY:=p.y;
+   window.mouseMovedTime:=CoreTime.Ticks;
+   Signal('Mouse\Move',(window.mouseX and $FFFF)+window.mouseY shl 16);
    NotifyScenesAboutMouseMove;
    Signal('Mouse\BtnDown\Left',1);
    NotifyScenesAboutMouseBtn(1,true);
    CoreTime.Sleep(0);
    Timing;
  end else
- if event='SINGLETOUCHMOVE' then with game do begin
+ if event='SINGLETOUCHMOVE' then begin
    t:=CoreTime.Ticks;
-   OldMouseX:=mouseX;
-   OldMouseY:=MouseY;
+   window.OldMouseX:=window.mouseX;
+   window.OldMouseY:=window.mouseY;
    p.x:=tag and $FFFF;
    p.y:=tag shr 16;
    ClientToGame(p);
-   MouseX:=p.x;
-   MouseY:=p.y;
-   mouseMovedTime:=CoreTime.Ticks;
-   Signal('Mouse\Move',(mouseX and $FFFF)+mouseY shl 16);
+   window.mouseX:=p.x;
+   window.mouseY:=p.y;
+   window.mouseMovedTime:=CoreTime.Ticks;
+   Signal('Mouse\Move',(window.mouseX and $FFFF)+window.mouseY shl 16);
    NotifyScenesAboutMouseMove;
    Timing;
  end else
- if event='SINGLETOUCHRELEASE' then with game do begin
+ if event='SINGLETOUCHRELEASE' then begin
    t:=CoreTime.Ticks;
    Signal('Mouse\BtnUp\Left',1);
    NotifyScenesAboutMouseBtn(1,false);
-   OldMouseX:=mouseX;
-   OldMouseY:=MouseY;
-   mouseX:=4095; mouseY:=4095;
-   mouseMovedTime:=CoreTime.Ticks;
-   Signal('Mouse\Move',Bits.PackW(mouseX,mouseY));
+   window.OldMouseX:=window.mouseX;
+   window.OldMouseY:=window.mouseY;
+   window.mouseX:=4095; window.mouseY:=4095;
+   window.mouseMovedTime:=CoreTime.Ticks;
+   Signal('Mouse\Move',Bits.PackW(window.mouseX,window.mouseY));
    NotifyScenesAboutMouseMove;
    Timing;
  end else
@@ -1515,8 +1496,8 @@ var
    bestPnt:TPoint;
   begin
     if dragMode then begin
-      bestPnt.x:=mouseX+nx*20;
-      bestPnt.y:=mouseY+ny*20;
+      bestPnt.x:=window.mouseX+nx*20;
+      bestPnt.y:=window.mouseY+ny*20;
       window.ClientToScreen(bestPnt);
       systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
       exit;
@@ -1526,7 +1507,7 @@ var
     best:=100000;
     for i:=0 to high(activeCustomPoints) do
      with activeCustomPoints[i] do begin
-      dx:=x-mouseX; dy:=y-mouseY;
+      dx:=x-window.mouseX; dy:=y-window.mouseY;
       d:=dx*nx+dy*ny; // расстояние в направлении вектора (скалярное произведение)
       if d<=1 then continue;
       // расстояние в перпендикулярном направлении больше?
@@ -1579,7 +1560,7 @@ begin
  repeat
   HandleSignals;
   if (game<>nil) and (TGame(game).mainThread<>nil) and (GetCurrentThreadId=TGame(game).mainThread.ID) then
-   game.window.ProcessMessages;
+   window.ProcessMessages;
   CoreTime.Sleep(Clamp(t-CoreTime.Ticks,0,20));
  until CoreTime.Ticks>=t;
 end;
@@ -1630,15 +1611,15 @@ procedure TGame.PresentFrame;
  begin
    if dRT<>nil then begin
     // Была отрисовка в текстуру - теперь нужно отрисовать её в RenderRect
-    gfx.target.Viewport(0,0,windowWidth,windowHeight,windowWidth,windowHeight);
+    gfx.target.Viewport(0,0,window.windowWidth,window.windowHeight,window.windowWidth,window.windowHeight);
     gfx.BeginPaint(nil);
     try
     // Если есть неиспользуемые полосы - очистить их (но не каждый кадр, чтобы не тормозило)
-    if not ((displayRect.Left=0) and (displayRect.Top=0) and
-            (displayRect.Right=windowWidth) and (displayRect.Bottom=windowHeight)) and
-       ((frameNum mod 5=0) or (frameNum<3)) then gfx.target.Clear($FF000000);
+    if not ((window.displayRect.Left=0) and (window.displayRect.Top=0) and
+            (window.displayRect.Right=window.windowWidth) and (window.displayRect.Bottom=window.windowHeight)) and
+       ((window.frameNum mod 5=0) or (window.frameNum<3)) then gfx.target.Clear($FF000000);
 
-    with displayRect do begin
+    with window.displayRect do begin
      draw.TexturedRect(Left,Top,right-1,bottom-1,DRT,0,0,1,0,1,1,globalTintColor);
     end;
     finally
@@ -1650,7 +1631,7 @@ procedure TGame.PresentFrame;
   StartMeasure(1);
   gfx.PresentFrame;
   EndMeasure(1);
-  inc(FrameNum);
+  inc(window.frameNum);
   HandleGamepadNavigation;
  end;
 
@@ -1662,9 +1643,15 @@ var
  oldDisplayRect:TRect;
  oldRW,oldRH:integer;
 begin
- oldRW:=renderWidth;
- oldRH:=renderHeight;
- oldDisplayRect:=displayRect;
+ if (window.windowWidth<=0) or (window.windowHeight<=0) then begin
+  window.GetSize(window.windowWidth,window.windowHeight);
+  if window.windowWidth<=0 then window.windowWidth:=params.width;
+  if window.windowHeight<=0 then window.windowHeight:=params.height;
+ end;
+
+ oldRW:=window.renderWidth;
+ oldRH:=window.renderHeight;
+ oldDisplayRect:=window.displayRect;
  w:=0; h:=0;
  case params.mode.displayFitMode of
   dfmCenter:begin
@@ -1672,16 +1659,16 @@ begin
    h:=params.height;
   end;
   dfmFullSize:begin
-   w:=windowWidth;
-   h:=windowHeight;
+   w:=window.windowWidth;
+   h:=window.windowHeight;
    if params.mode.displayScaleMode=dsmDontScale then begin
     params.width:=w;
     params.height:=h;
    end;
   end;
   dfmKeepAspectRatio:begin
-   w:=windowWidth;
-   h:=windowHeight;
+   w:=window.windowWidth;
+   h:=window.windowHeight;
    if w>round(h*aspectRatio*1.01) then w:=round(h*aspectRatio);
    if h>round(w/aspectRatio*1.01) then h:=round(w/aspectRatio);
    if params.mode.displayScaleMode in [dsmDontScale] then begin
@@ -1690,33 +1677,33 @@ begin
    end;
   end;
  end;
- displayRect.Left:=0;
- displayRect.Top:=0;
- displayRect.Right:=w;
- displayRect.Bottom:=h;
- OffsetRect(displayRect,(windowWidth-w) div 2,(windowHeight-h) div 2);
+ window.displayRect.Left:=0;
+ window.displayRect.Top:=0;
+ window.displayRect.Right:=w;
+ window.displayRect.Bottom:=h;
+ OffsetRect(window.displayRect,(window.windowWidth-w) div 2,(window.windowHeight-h) div 2);
 
- renderWidth:=params.width;
- renderHeight:=params.height;
+ window.renderWidth:=params.width;
+ window.renderHeight:=params.height;
 
  // Nothing changed?
- if (displayRect=oldDisplayRect) and
-    (renderWidth=oldRW) and (renderHeight=oldRH) then exit;
+ if (window.displayRect=oldDisplayRect) and
+    (window.renderWidth=oldRW) and (window.renderHeight=oldRH) then exit;
 
  Log.Msg(Format('Set render area: (%d x %d) (%d,%d) -> (%d,%d)',
-   [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Right,displayRect.Bottom]));
- SetDisplaySize(renderWidth,renderHeight); // UI display size
+   [window.renderWidth,window.renderHeight,window.displayRect.Left,window.displayRect.Top,window.displayRect.Right,window.displayRect.Bottom]));
+ SetDisplaySize(window.renderWidth,window.renderHeight); // UI display size
  Signal('ENGINE\BEFORERESIZE');
  window.NotifyScenesResize;
  Signal('ENGINE\RESIZED');
 
  if (gfx<>nil) and (gfx.target<>nil) then begin
-  gfx.target.Resized(windowWidth,windowHeight);
-  w:=displayRect.Width;
-  h:=displayRect.Height;
+  gfx.target.Resized(window.windowWidth,window.windowHeight);
+  w:=window.displayRect.Width;
+  h:=window.displayRect.Height;
   if dRT=nil then begin
    // Rendering directly to the framebuffer
-   gfx.target.Viewport(displayRect.Left,windowHeight-displayRect.Bottom,
+   gfx.target.Viewport(window.displayRect.Left,window.windowHeight-window.displayRect.Bottom,
      w,h,params.width,params.height);
   end else begin
    // Rendering to a framebuffer texture
@@ -1852,10 +1839,10 @@ begin
     dfShowFPS:begin
      w:=SRound(48*screenScale);
      h:=SRound(36*screenScale);
-     x:=renderWidth-w; y:=1;
+     x:=window.renderWidth-w; y:=1;
      draw.FillRect(x,y,x+w-2,y+h,$80000000);
-     txt.WriteW(defaultFont,x+w-5,y+h*0.4,$FFFFFFFF,Str32(FloatToStrF(FPS,ffFixed,5,1)),taRight);
-     txt.WriteW(defaultFont,x+w-5,y+h*0.9,$FFFFFFFF,Str32(FloatToStrF(SmoothFPS,ffFixed,5,1)),taRight);
+     txt.WriteW(defaultFont,x+w-5,y+h*0.4,$FFFFFFFF,Str32(FloatToStrF(window.FPS,ffFixed,5,1)),taRight);
+     txt.WriteW(defaultFont,x+w-5,y+h*0.9,$FFFFFFFF,Str32(FloatToStrF(window.smoothFPS,ffFixed,5,1)),taRight);
     end;
 
     dfShowMagnifier:DrawMagnifier;
@@ -1976,7 +1963,7 @@ begin
   StartMeasure(integer(i+4));
   // Draw shadow
   if sc[i].shadowColor<>0 then
-   draw.FillRect(0,0,renderWidth,renderHeight,sc[i].shadowColor);
+   draw.FillRect(0,0,window.renderWidth,window.renderHeight,sc[i].shadowColor);
 
   if not sc[i].initialized then try
    sc[i].Initialize;
@@ -2008,8 +1995,8 @@ begin
  // Additional output
  DrawOverlays;
 
-  //textLink:=curTextLink;
-  //textLinkRect:=curTextLinkRect;
+  //window.textLink:=curTextLink;
+  //window.textLinkRect:=curTextLinkRect;
 
  {$IFDEF ANDROID}
  //Log.Force(framelog);
@@ -2032,11 +2019,6 @@ begin
   ToggleCursor(CursorID.Wait,false);
  end;
 end;
-
-procedure TGame.MoveWindowTo(x,y,width,height:integer);
- begin
-  window.MoveTo(x,y,width,height);
- end;
 
 procedure TGame.Minimize;
  begin
@@ -2092,10 +2074,6 @@ procedure TGame.HideWindowScene(name:string);
   TSceneSwitcher.defaultSwitcher.HideWindowScene(name);
  end;
 
-procedure TGame.SetWindowCaption(text: string);
-begin
- window.SetCaption(text);
-end;
 
 procedure TGame.DebugFeature(feature: TDebugFeature; enable: boolean);
  begin
@@ -2111,14 +2089,14 @@ procedure TGame.ToggleDebugFeature(feature:TDebugFeature);
 
 procedure TGame.ClientToGame(var p:TPoint);
  begin
-  p.X:=round((p.X-displayRect.Left)*renderWidth/(displayRect.Right-displayRect.Left));
-  p.Y:=round((p.Y-displayRect.top)*renderHeight/(displayRect.Bottom-displayRect.Top));
+  p.X:=round((p.X-window.displayRect.Left)*window.renderWidth/(window.displayRect.Right-window.displayRect.Left));
+  p.Y:=round((p.Y-window.displayRect.top)*window.renderHeight/(window.displayRect.Bottom-window.displayRect.Top));
  end;
 
 procedure TGame.GameToClient(var p:TPoint);
  begin
-  p.X:=round(displayRect.Left+p.X*(displayRect.Right-displayRect.Left)/renderWidth);
-  p.Y:=round(displayRect.top+p.Y*(displayRect.Bottom-displayRect.Top)/renderHeight);
+  p.X:=round(window.displayRect.Left+p.X*(window.displayRect.Right-window.displayRect.Left)/window.renderWidth);
+  p.Y:=round(window.displayRect.top+p.Y*(window.displayRect.Bottom-window.displayRect.Top)/window.renderHeight);
  end;
 
 function TGame.GetCursorForID(cursorID:integer):THandle;
@@ -2197,7 +2175,7 @@ begin
  for i:=0 to high(cursors) do
   with cursors[i] as TGameCursor do
    if ID=CursorID then visible:=state;
- if not params.showSystemCursor then screenChanged:=true;
+ if not params.showSystemCursor then window.screenChanged:=true;
  finally
   crSect.Leave;
  end;
@@ -2243,15 +2221,15 @@ procedure TGame.FrameLoop;
   t:=CoreTime.Ticks;
   Thread.Ping;
   // Обновление ввода с клавиатуры (и кнопок мыши)
-  shiftState:=systemPlatform.GetShiftKeysState;
+  window.shiftState:=systemPlatform.GetShiftKeysState;
   mb:=systemPlatform.GetMouseButtons;
-  if mb<>mouseButtons then begin
-    oldMouseButtons:=mouseButtons;
-    mouseButtons:=mb;
+  if mb<>window.mouseButtons then begin
+    window.oldMouseButtons:=window.mouseButtons;
+    window.mouseButtons:=mb;
   end;
 
-  for i:=0 to High(keyState) do
-   keyState[i]:=keyState[i] and 1+(keyState[i] and 1) shl 1;
+  for i:=0 to High(window.keyState) do
+   window.keyState[i]:=window.keyState[i] and 1+(window.keyState[i] and 1) shl 1;
 
   StartMeasure(14);
   if window.timings.phaseMetrics then StartTimer(phaseTimer);
@@ -2265,7 +2243,7 @@ procedure TGame.FrameLoop;
     window.timings.pendingMsgUs:=round(TimerSec(phaseTimer)*1000000)
   else
     window.timings.pendingMsgUs:=0;
-  if not active then
+  if not window.active then
     Delay(5); // limit speed in inactive state
   EndMeasure2(14);
 
@@ -2289,22 +2267,22 @@ procedure TGame.RenderAndPresentFrame;
    presentUs:=0;
    sleepUs:=0;
    ticks:=CoreTime.Ticks;
-   if frameStartTime>0 then frameTimeDelta:=ticks-frameStartTime
-    else frameTimeDelta:=20; // initial value
-   frameStartTime:=ticks;
-   deltaUs:=frameTimeDelta*1000;
+   if window.frameStartTime>0 then window.frameTimeDelta:=ticks-window.frameStartTime
+    else window.frameTimeDelta:=20; // initial value
+   window.frameStartTime:=ticks;
+   deltaUs:=window.frameTimeDelta*1000;
    if window.timings.frameTimerReady then
     deltaUs:=round(TimerSec(window.timings.frameTimer)*1000000);
    StartTimer(window.timings.frameTimer);
    window.timings.frameTimerReady:=true;
 
-   if frameTimeDelta>500 then
-    Log.Msg('Warning: main loop stall for '+inttostr(frameTimeDelta)+' ms');
+   if window.frameTimeDelta>500 then
+    Log.Msg('Warning: main loop stall for '+inttostr(window.frameTimeDelta)+' ms');
 
    // Обработка кадра
    if window.timings.phaseMetrics then StartTimer(phaseTimer);
    StartMeasure(3);
-   if OnFrame then screenChanged:=true; // это чтобы можно было и в других местах выставлять флаг!
+   if OnFrame then window.screenChanged:=true; // это чтобы можно было и в других местах выставлять флаг!
    EndMeasure(3);
    if window.timings.phaseMetrics then onFrameUs:=round(TimerSec(phaseTimer)*1000000);
    try
@@ -2314,9 +2292,9 @@ procedure TGame.RenderAndPresentFrame;
    end;
    if window.IsTerminated then exit;
 
-   if active or (params.mode.displayMode<>dmSwitchResolution) then begin
+   if window.active or (params.mode.displayMode<>dmSwitchResolution) then begin
     // Если программа активна, то выполним отрисовку кадра
-    if screenChanged then begin
+    if window.screenChanged then begin
      if window.timings.phaseMetrics then StartTimer(phaseTimer);
      try
       PrevFrameLog:=frameLog;
@@ -2336,8 +2314,8 @@ procedure TGame.RenderAndPresentFrame;
    CoreTime.Sleep(onFrameDelay);
    if window.timings.phaseMetrics then sleepUs:=round(TimerSec(phaseTimer)*1000000);
    // Теперь нужно вывести кадр на экран
-   if (active or (params.mode.displayMode<>dmSwitchResolution)) and
-      screenChanged then begin
+   if (window.active or (params.mode.displayMode<>dmSwitchResolution)) and
+      window.screenChanged then begin
     if window.timings.phaseMetrics then StartTimer(phaseTimer);
     PresentFrame;
     if window.timings.phaseMetrics then presentUs:=round(TimerSec(phaseTimer)*1000000);
@@ -2350,7 +2328,7 @@ procedure TGame.RenderAndPresentFrame;
    window.timings.PushSample(integer(Clamp(deltaUs,0,high(integer))),
      window.timings.pendingMsgUs,onFrameUs,renderUs,presentUs,sleepUs);
    // FPS / SmoothFPS based on trimmed mean of recent frame times.
-   UpdateFpsMetrics;
+   window.timings.UpdateFps(window.FPS,window.smoothFPS);
 
    game.Flog('LEnd');
  end;
@@ -2366,8 +2344,12 @@ procedure TGame.MainThreadLoop;
    SetEventHandler('Engine\',EngineEvent,emInstant);
    SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
 
-   game.window:=systemPlatform.CreateWindow(gameEx.params.title);
-   game.InitWindowScenes;
+   window:=systemPlatform.CreateWindow(gameEx.params.title);
+   window.screenDPI:=systemPlatform.GetScreenDPI;
+   window.frameNum:=0;
+   window.frameStartTime:=0;
+   window.frameTimeDelta:=0;
+   PublishVar(@window.screenDPI,'ScreenDPI',TVarTypeInteger);
    gameEx.InitMainLoop; // вызывает InitGraph
 
    game.running:=true; // Это как-бы семафор для завершения функции Run
@@ -2379,7 +2361,7 @@ procedure TGame.MainThreadLoop;
     except
      on e:Exception do CritMsg('Error in main loop: '+ExceptionMsg(e));
     end;
-    if (game.window<>nil) and game.window.IsTerminated then
+    if (window<>nil) and window.IsTerminated then
      break;
    until CurrentThread.Terminating;
    Log.Force('Main loop exit');
@@ -2392,8 +2374,8 @@ procedure TGame.MainThreadLoop;
 
    // Финализация
    gameEx.DoneGraph;
-   game.window.Close;
-   FreeAndNil(game.window);
+   window.Close;
+   FreeAndNil(window);
   except
    on e:Exception do begin
     mainThreadErrorMsg:=ExceptionMsg(e);
@@ -2428,5 +2410,6 @@ class function TVarTypeGameClass.ListFields:string8;
 initialization
   PublishVar(@onFrameDelay,'onFrameDelay',TVarTypeInteger);
 end.
+
 
 
