@@ -307,7 +307,8 @@ constructor TSDLPlatform.Create;
   SDL_GetVersion(@ver);
   SDL_LogGetOutputFunction(@savedLogHandler,nil);
   SDL_LogSetOutputFunction(MyLogHandler,nil);
-  Log.Msg('SDL Initialized. Platform: %s, version %d.%d',[plName,ver.major,ver.minor]);
+  Log.Msg('SDL Platform Initialized. System: %s, runtime %d.%d.%d, headers %d.%d.%d',
+    [plName,ver.major,ver.minor,ver.patch,SDL_MAJOR_VERSION,SDL_MINOR_VERSION,SDL_PATCHLEVEL]);
   InitControllers;
  end;
 

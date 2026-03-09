@@ -1,5 +1,5 @@
 # Engine Work Ahead Log
-Last updated: 2026-03-06
+Last updated: 2026-03-09
 
 This file tracks active execution only:
 - immediate priorities;
@@ -35,17 +35,27 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - `Apus.Engine.SDLplatform` migrated away from deprecated `Apus.CrossPlatform/Apus.Common` usage;
   - SDL input/platform code aligned with current core API (`Bits.SetBit`, UTF8 conversion, key mapping compatibility);
   - `SimpleDemo` SDL build path validated (`-dSDL`), runtime launch confirmed when DLL set is available.
+- SDL freeze investigation closed (`SimpleDemo`, Windows+SDL):
+  - root cause localized in SDL event pump path (`SDL_PollEvent`), not in engine message handlers/render;
+  - diagnostics added (`POLL total/max/calls`) showed long cumulative poll time with high-frequency mouse events;
+  - runtime SDL binaries updated from `2.0.12/2.0.14` to `2.32.10` (`bin`/`bin64`);
+  - result: stalls/freeze bursts disappeared in user validation run.
+- R-02 phase-1 API cleanup implemented (Windows path):
+  - `TWindow` extracted as main window abstraction and normalized method names (`Configure`, `Show`, `GetHandle`, `MoveTo`, `SetCaption`, `Close`);
+  - OpenGL-specific context types removed from `Apus.Engine.API`;
+  - OpenGL request/actual context flow moved to `Apus.Engine.OpenGL` (`oglContextTemplate` / `oglContextInfo`);
+  - `TWinGLWindow.InitGraph` now fills actual context info directly for `TOpenGL.Init`.
 
 ## In Progress (active now)
 - SDL core-profile parity (high priority):
-  - stabilize SDL runtime quality to match Windows path (current status: startup works; performance is currently poor on `SimpleDemo`).
+  - stabilize SDL runtime quality to match Windows path (current status: startup works; major `SDL_PollEvent` freeze issue fixed by SDL runtime upgrade).
 - Render follow-up after core migration (high priority):
   - reduce NSight-reported useless `glBind*` churn in hot paths.
 
 ## Next (ordered)
 1. Finish SDL-path stabilization and runtime validation on at least one SDL demo path.
-2. Use the new Robot API `fps` diagnostics (`N` history + `frameTimeMs`) to profile SDL slowdown and localize the main bottleneck.
-3. Split `MSG` stall budget into finer input/message sub-phases (mouse move/buttons/wheel/other events) for exact SDL freeze localization.
+2. Update Pascal SDL headers/bindings baseline (currently `2.0.4`) to reduce runtime/header drift with deployed SDL `2.32.10`.
+3. Keep the new Robot API `fps` + message diagnostics for future regressions, but treat the current SDL freeze investigation as resolved.
 4. Remove redundant bind churn:
    - avoid unnecessary bind-to-zero in hot paths;
    - strengthen lightweight state-cache checks before `glBind*`;
@@ -54,12 +64,14 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
 6. Define first concrete R-09 implementation slice:
    - capability-gated persistent mapped streaming path with safe fallback;
    - explicit batching entry point for high-frequency simple primitives (line-heavy cases).
+7. Start R-10 (UI widget system refactor, P0):
+   - document `TUIElement` decomposition variants and select implementation direction;
+   - implement selected split and run focused widget-class reorganization review;
+   - keep widget/layout expansion and widget/layout tests as explicit follow-ups after core refactor.
 
 ## Follow-ups (completed features, non-blocking)
 - Robot API reliability:
   - investigate edge-case shutdown flow (`signal Engine\Cmd\Exit`) in stalled/hung runtime states.
-- OpenGL context API cleanup:
-  - revisit global `oglContextRequest/oglContextInfo` and migrate to explicit runtime-owned flow when low risk.
 - Demo behavior notes:
   - `Win+\`` opening borderless PowerShell likely external hotkey interaction; keep as low-priority verification item.
 
@@ -67,6 +79,10 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
 - Demo build automation via `.bat` wrappers.
 - Manual Delphi milestone checks.
 - Linux Base compile backlog (remaining failing modules).
+- R-11 (P2) headless/NOGFX backend for CI UI automation:
+  - headless run without window/OpenGL context;
+  - synthetic input-driven UI behavior tests;
+  - optional later stage: CPU offscreen capture path.
 
 ## Rules / Decisions
 - Documentation language policy: keep `engine_work_ahead.md` and `engine5_feature_roadmap.md` in English.

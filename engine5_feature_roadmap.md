@@ -1,5 +1,5 @@
 ﻿# Engine5 Feature Roadmap
-Last updated: 2026-03-06
+Last updated: 2026-03-09
 
 Language policy: this roadmap is maintained in English.
 
@@ -145,7 +145,7 @@ Use this section for anything remembered on the fly.
   - 2026-03-06: Additional runtime confidence milestone: `demo/VertexBuffer` works (render mode switching + VSync toggle validated).
 
 ### [R-02] Multi-Window, Multi-Monitor, and Hot DPI-Awareness
-- Status: planned
+- Status: in-progress
 - Priority: P0
 - Area: Platform
 - Value: Enable modern desktop app behavior across displays and DPI changes without restart.
@@ -159,6 +159,12 @@ Use this section for anything remembered on the fly.
   - [ ] Runtime DPI change triggers correct viewport/UI scaling without restart.
 - Notes: hot DPI-awareness must be validated with monitor move and OS scale-change scenarios.
   - 2026-03-08: architecture draft and decisions v1 are documented in `reports/R-02_multiwindow_plan.md`.
+  - 2026-03-08: phase-1 implementation started (Windows path): `TWindow` abstraction extracted, API naming normalized, OpenGL context flow moved out of `Engine.API` into `Engine.OpenGL`.
+  - 2026-03-09: SDL `SimpleDemo` freeze investigation completed:
+    - diagnostics confirmed stalls inside `SDL_PollEvent` cumulative time (not in engine event handlers/render path);
+    - runtime SDL DLLs updated to `2.32.10` (`bin` and `bin64`);
+    - user validation: freezes are gone, runtime is smooth;
+    - follow-up: update Pascal SDL headers (currently `2.0.4`) to reduce version drift.
 
 ### [R-03] Native AEM Pipeline + Blender Export
 - Status: idea
