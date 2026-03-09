@@ -59,9 +59,6 @@ type
   procedure ClientToGame(var p:TPoint); override;
   procedure GameToClient(var p:TPoint); override;
 
-  function RunAsync(threadFunc:TAsyncProc;param:UIntPtr=0;ttl:single=0;name:string=''):THandle; override;
-  function GetThreadResult(h:THandle):integer; override;
-
   procedure FLog(st:string); override;
   function GetStatus(n:integer):string; override;
   procedure FireMessage(st:string8); override;
@@ -109,7 +106,8 @@ type
   params,newParams:TGameSettings;
   aspectRatio:single;  // Initial aspect ratio (width/height)
   altWidth,altHeight:integer; // saved window size for Alt+Enter
-  mainThread:TThread;
+  mainThread:IThread;
+  mainThreadErrorMsg:string;
   controlThreadId:TThreadID;
   cursors:array of TObject;
   crSect:TLock;
@@ -239,6 +237,7 @@ type
   procedure HandleInternalHotkeys(keyCode:integer;pressed:boolean); virtual;
 
   procedure HandleGamepadNavigation;
+  procedure MainThreadLoop;
  end;
 
  // Для использования из главного потока
@@ -257,21 +256,6 @@ implementation
   {$IFDEF MSWINDOWS},Windows{$ENDIF};
 
 type
- TMainThread=class(TThread)
-  errorMsg:string;
-  procedure Execute; override;
- end;
-
- TCustomThread=class(TThread)
-  id:cardinal;
-  TimeToKill:int64;
-  running:boolean;
-  func:TAsyncProc;
-  FinishTime:int64;
-  param:UIntPtr;
-  name:string;
-  procedure Execute; override;
- end;
 
  TGameCursor=class
   ID:integer;
@@ -286,9 +270,6 @@ type
  end;
 
 var
- lastThreadID:NativeInt;
- threads:array[1..16] of TCustomThread;
- RA_sect:TLock;
  gameEx:TGame;
  perfValues:array[1..16] of int64;
  perfMeasures:array[1..16] of double;
@@ -487,7 +468,7 @@ end;
 
 procedure TGame.SetVSync(divider: integer);
 begin
- if (mainThread<>nil) and (mainThread.ThreadID<>GetCurrentThreadID) then begin
+ if (mainThread<>nil) and (mainThread.ID<>GetCurrentThreadID) then begin
   Signal('ENGINE\Cmd\SetSwapInterval',divider);
   exit;
  end;
@@ -504,7 +485,7 @@ begin
  if useMainThread and (mainThread=nil) then begin
   ApplyNewSettings; exit;
  end;
- if (mainThread=nil) or (GetCurrentThreadID<>mainThread.ThreadID) then
+ if (mainThread=nil) or (GetCurrentThreadID<>mainThread.ID) then
   Signal('Engine\CMD\ChangeSettings')
  else
   ApplyNewSettings;
@@ -1362,14 +1343,14 @@ end;
 procedure TGame.Run;
 var
  i:integer;
- res:boolean;
 begin
  if running then exit;
  game:=self;
  gameEx:=self;
+ mainThreadErrorMsg:='';
 
  if useMainThread then begin
-  mainThread:=TMainThread.Create(false);
+  mainThread:=Thread.Start('MainThread',MainThreadLoop);
  end else begin
   mainThread:=nil;
   SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
@@ -1387,7 +1368,7 @@ begin
  if not running then begin
   Log.Force('Main thread timeout');
   {$IFDEF MSWINDOWS}
-   if TMainThread(mainThread).errormsg>'' then SystemMessage(TMainThread(mainThread).errormsg);
+   if mainThreadErrorMsg<>'' then SystemMessage(mainThreadErrorMsg);
   {$ENDIF}
    raise EFatalError.Create('Can''t run: see log for details.');
  end;
@@ -1413,40 +1394,12 @@ end;
 
 procedure TGame.Stop;
 var
- i,j:integer;
+ i:integer;
  h:TThreadID;
- fl:boolean;
 begin
  Log.Force('GameStop');
  if not running then exit;
  active:=false;
-
- // Остановить все потоки
- for i:=1 to 16 do
-  if (threads[i]<>nil) and (threads[i].running) then
-   threads[i].Terminate;
-
- // подождем...
- for i:=1 to 10 do begin
-  fl:=false;
-  for j:=1 to 16 do
-   if (threads[j]<>nil) and (threads[j].running) then fl:=true;
-  if not fl then break;
-  Log.Msg('Waiting for threads...');
-  CoreTime.Sleep(50);
- end;
-
- // Кто не завершился - я не виноват!
- {$IFDEF MSWINDOWS}
- if fl then
-  for i:=1 to 16 do
-   if (threads[i]<>nil) and (threads[i].running) then begin
-    Log.Force('Killing thread: '+Conv.ToStr(@threads[i].func));
-    {$IFDEF MSWINDOWS}
-    Windows.TerminateThread(threads[i].Handle,0);
-    {$ENDIF}
-   end;
- {$ENDIF}
 
  if mainThread=nil then
   Signal('Engine\MainLoopDone')
@@ -1456,7 +1409,7 @@ begin
 
   // Прибить главный поток (только в случае вызова из другого потока)
   h:=GetCurrentThreadId;
-  if h<>mainThread.ThreadID then begin
+  if h<>mainThread.ID then begin
    // Ждем 2 секунды пока поток не завершится по-хорошему
    for i:=1 to 40 do
     if running then CoreTime.Sleep(50) else break;
@@ -1464,9 +1417,7 @@ begin
    if running then begin
     Signal('Error\MainThreadHangs');
     Log.Force('Killing main thread');
-    {$IFDEF MSWINDOWS}
-    Windows.TerminateThread(mainThread.Handle,0);
-    {$ENDIF}
+    mainThread.Kill;
    end;
   end;
  end;
@@ -1809,7 +1760,7 @@ begin
  t:=CoreTime.Ticks+time;
  repeat
   HandleSignals;
-  if (game<>nil) and (GetCurrentThreadId=TGame(game).mainThread.ThreadID) then
+  if (game<>nil) and (TGame(game).mainThread<>nil) and (GetCurrentThreadId=TGame(game).mainThread.ID) then
    game.window.ProcessMessages;
   CoreTime.Sleep(Clamp(t-CoreTime.Ticks,0,20));
  until CoreTime.Ticks>=t;
@@ -2368,16 +2319,18 @@ procedure TGame.SwitchToAltSettings; // Alt+Enter
   SetSettings(params);
  end;
 
-function WaitAndSwitch(sPtr:UIntPtr):integer;
+function WaitAndSwitch(ctx:TThreadContext):UIntPtr;
  var
   scene:TGameScene;
  begin
-  scene:=pointer(sPtr);
+  scene:=TGameScene(ctx.Parameter);
   // TODO: add timeout-aware wait helper when shared WaitFor(var,maxTime) replacement is available.
   if scene<>nil then
    while not scene.loaded do
     CoreTime.Sleep(10);
-  TSceneSwitcher.defaultSwitcher.SwitchToScene(scene.name);
+  if scene<>nil then
+   TSceneSwitcher.defaultSwitcher.SwitchToScene(scene.name);
+  result:=0;
  end;
 
 procedure TGame.SwitchToScene(name:string);
@@ -2388,7 +2341,7 @@ procedure TGame.SwitchToScene(name:string);
   if scene.loaded then
    TSceneSwitcher.defaultSwitcher.SwitchToScene(name)
   else
-   game.RunAsync(WaitAndSwitch,UIntPtr(scene),0,'SwitchToScene:'+scene.name);
+   Thread.Start('SwitchToScene:'+scene.name,@WaitAndSwitch,pointer(scene));
  end;
 
 procedure TGame.ShowWindowScene(name:string;modal:boolean);
@@ -2542,60 +2495,6 @@ begin
  end;
 end;
 
-function TGame.GetThreadResult(h: THandle): integer;
-var
- i:integer;
-begin
- result:=-1; // not found
- RA_sect.Enter;
- try
- for i:=1 to high(threads) do
-  if (threads[i]<>nil) and (threads[i].id=h) then begin
-   if threads[i].running then result:=0  // еще выполняется
-    else result:=threads[i].ReturnValue;
-   exit;
-  end;
- finally
-  RA_sect.Leave;
- end;
-end;
-
-function TGame.RunAsync(threadFunc:TAsyncProc;param:UIntPtr;ttl:single;name:string):THandle;
-var
- i,best:integer;
- t:int64;
-begin
- result:=0;
- best:=0; t:=CoreTime.Ticks;
- RA_sect.Enter;
- try
- for i:=1 to high(threads) do
-  if threads[i]=nil then begin best:=i; break; end
-   else
-    if (not threads[i].running) and (threads[i].FinishTime<t) then
-     begin t:=threads[i].FinishTime; best:=i; end;
-
- if best=0 then raise EError.Create('Can''t start new thread - no free handles!');
- if threads[best]<>nil then threads[best].Free;
- threads[best]:=TCustomThread.Create(true);
- if ttl>0 then threads[best].timetokill:=CoreTime.Ticks+round(ttl*1000)
-  else threads[best].TimeToKill:=high(int64);
- threads[best].running:=true;
- threads[best].func:=threadFunc;
- threads[best].param:=param;
- if name='' then name:=Conv.ToStr(@threadFunc);
- threads[best].name:='RA_'+name;
- inc(LastThreadID);
- threads[best].id:=lastThreadID;
- threads[best].Start;
- result:=lastThreadID;
- finally
-  RA_sect.Leave;
- end;
- Log.Msg('[RA] thread launched, pos='+inttostr(best)+', id='+inttostr(result)+
-   ', func='+Conv.ToStr(@threadFunc)+', time: '+inttostr(threads[best].TimeToKill),8);
-end;
-
 procedure TGame.FrameLoop;
  var
   i:integer;
@@ -2632,7 +2531,7 @@ procedure TGame.FrameLoop;
     Delay(5); // limit speed in inactive state
   EndMeasure2(14);
 
-  if mainThread.CheckTerminated then exit;
+  if useMainThread and CurrentThread.Terminating then exit;
   RenderAndPresentFrame;
 
   t:=CoreTime.Ticks-t;
@@ -2698,28 +2597,6 @@ procedure TGame.RenderAndPresentFrame;
    if fpsPhaseMetrics then StartTimer(phaseTimer);
    CoreTime.Sleep(onFrameDelay);
    if fpsPhaseMetrics then sleepUs:=round(TimerSec(phaseTimer)*1000000);
-   // Обработка thread'ов
-   RA_sect.Enter;
-   try
-    for i:=1 to 16 do
-     if threads[i]<>nil then with threads[i] do
-      if threads[i].running and (timetokill<CoreTime.Ticks) then begin
-       Log.Force(CoreTime.Stamp+' ALERT: thread terminated by timeout, '+Conv.ToStr(@func)+
-        ', curtime: '+inttostr(CoreTime.Ticks));
-       {$IFNDEF IOS}
-       {$IFDEF MSWINDOWS}
-       Windows.TerminateThread(Handle,0);
-       {$ENDIF}
-       {$ENDIF}
-       ReturnValue:=-1;
-       Signal('Engine\thread\done\'+Conv.ToStr(@func),-1);
-       Signal('Error\Thread TimeOut',0);
-       threads[i].running:=false;
-     end;
-   finally
-    RA_sect.Leave;
-   end;
-
    // Теперь нужно вывести кадр на экран
    if (active or (params.mode.displayMode<>dmSwitchResolution)) and
       screenChanged then begin
@@ -2740,32 +2617,12 @@ procedure TGame.RenderAndPresentFrame;
    game.Flog('LEnd');
  end;
 
-{ TCustomThread }
-procedure TCustomThread.Execute;
- begin
-  Log.Msg('CustomThread '+name+' started!');
-  Thread.Register(name);
-  running:=true;
-  try
-   ReturnValue:=func(param);
-   Log.Msg('CustomThread done');
-  except
-   on e:exception do Log.Force('RunAsync: failure - '+ExceptionMsg(e));
-  end;
-  FinishTime:=CoreTime.Ticks;
-  running:=false;
-  Signal('engine\thread\done\'+Conv.ToStr(@func),ReturnValue);
-  Thread.Unregister;
- end;
-
-{ TMainThread }
-procedure TMainThread.Execute;
+procedure TGame.MainThreadLoop;
  begin
   // Инициализация
-  errorMsg:='';
+  mainThreadErrorMsg:='';
   try
    Log.Msg(CoreTime.Stamp+' Main thread started - '+inttostr(cardinal(GetCurrentThreadID)));
-   Thread.Register('MainThread');
    // TODO: restore detailed system info logging after GetSystemInfo replacement is finalized.
    Log.Msg('System info: TODO');
    SetEventHandler('Engine\',EngineEvent,emInstant);
@@ -2798,12 +2655,11 @@ procedure TMainThread.Execute;
    FreeAndNil(game.window);
   except
    on e:Exception do begin
-    errorMsg:=ExceptionMsg(e);
+    mainThreadErrorMsg:=ExceptionMsg(e);
     CritMsg('Global error: '+ExceptionMsg(e));
    end;
   end;
 
-  Thread.Unregister;
   Log.Force('Main thread done');
   game.running:=false; // Эта строчка должна быть ПОСЛЕДНЕЙ!
  end;
@@ -2829,8 +2685,5 @@ class function TVarTypeGameClass.ListFields:string8;
  end;
 
 initialization
-  RA_sect.Init('Game_RA',110);
   PublishVar(@onFrameDelay,'onFrameDelay',TVarTypeInteger);
-finalization
-  RA_sect.Cleanup;
 end.

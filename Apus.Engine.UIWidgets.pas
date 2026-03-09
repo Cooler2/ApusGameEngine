@@ -329,7 +329,7 @@ interface
 
 implementation
  uses SysUtils, Types, Apus.Types, Apus.Utils, Apus.EventMan, Apus.Geom2D, Apus.Clipboard,
-  Apus.Strings;
+  Apus.Strings, Apus.Threads;
 
  type
   TScrollBarInterface=class(TInterfacedObject, IScroller)
@@ -514,7 +514,7 @@ implementation
      Signal('UI\'+name+'\Click',byte(pressed));
      Signal('UI\Button\Click\'+name,TTag(self));
      if Assigned(onClick) then begin
-      game.RunAsync(@onClick);
+      Thread.Start('UIClick:'+String8(name),TThreadProc(onClick));
      end;
      if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
      lastPressed:=CoreTime.Ticks;

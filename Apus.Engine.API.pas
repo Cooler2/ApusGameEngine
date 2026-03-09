@@ -902,15 +902,6 @@ type
   procedure ClientToGame(var p:TPoint); virtual; abstract;
   procedure GameToClient(var p:TPoint); virtual; abstract;
 
-  // Threads and async jobs
-  // ----------------------
-  // Запустить функцию на параллельное выполнение (ttl - лимит времени в секундах, если есть)
-  // По завершению будет выдано событие engine\thread\done с кодом, возвращенным ф-цией, либо -1 если завершится по таймауту
-  function RunAsync(threadFunc:TAsyncProc;param:UIntPtr=0;ttl:single=0;name:string=''):THandle; virtual; abstract;
-  // Функция все еще выполняется? если да - вернет 0,
-  // если прервана по таймауту - -1, если неверный хэндл - -2, иначе - результат функции
-  function GetThreadResult(h:THandle):integer; virtual; abstract;
-
   // Debug tools
   // -----------
   // Добавляет строку в "кадровый лог" - невидимый лог, который обнуляется каждый кадр, но может быть сохранен в случае какой-либо аварийной ситуации
