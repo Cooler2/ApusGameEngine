@@ -1964,11 +1964,11 @@ begin
   if sc[i].shadowColor<>0 then
    draw.FillRect(0,0,window.renderWidth,window.renderHeight,sc[i].shadowColor);
 
-  if not sc[i].initialized then try
-   sc[i].Initialize;
-   sc[i].initialized:=true;
+  if not sc[i].gfxInitialized then try
+   sc[i].InitGfx;
+   sc[i].gfxInitialized:=true;
   except
-   on e:Exception do CritMsg('Scene '+sc[i].name+' initialization error: '+ExceptionMsg(e));
+   on e:Exception do CritMsg('Scene '+sc[i].name+' InitGfx error: '+ExceptionMsg(e));
   end;
 
   if window.IsTerminated then exit;

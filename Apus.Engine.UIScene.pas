@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.UIScene;
 interface
- uses Apus.Core, Apus.Engine.Scene, Apus.Engine.UITypes;
+ uses Apus.Core, Apus.Engine.Scene, Apus.Engine.UITypes, Apus.Engine.Window;
 
 var
  defaultScale:single=1.0;
@@ -22,7 +22,7 @@ type
  TUIScene=class(TGameScene)
   UI:TUIElement; // root UI element: size = render area size
   frameTime:int64; // time elapsed from the last frame
-  constructor Create(scenename:string='';fullScreen:boolean=true);
+  constructor Create(scenename:string='';fullScreen:boolean=true;wnd:TWindow=nil);
   procedure SetStatus(st:TSceneStatus); override;
   function Process:boolean; override;
   procedure Render; override;
@@ -374,7 +374,8 @@ procedure SetDisplaySize(width,height:integer);
    inherited Create(fullscreen);
    if sceneName='' then sceneName:=ClassName;
    name:=scenename;
-   UI:=TUIElement.Create(rootWidth,rootHeight,nil,sceneName);
+   if wnd=nil then wnd:=mainWindow;
+   UI:=TUIElement.Create(wnd.renderWidth,wnd.renderHeight,nil,sceneName);
    UI.enabled:=false;
    UI.visible:=false;
    if fullscreen then begin
@@ -387,7 +388,7 @@ procedure SetDisplaySize(width,height:integer);
    end;
 
    if classType=TUIScene then onCreate;
-   if game<>nil then game.AddScene(self);
+   wnd.AddScene(self);
   end;
 
  function TUIScene.GetArea:TRect;

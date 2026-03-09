@@ -32,7 +32,6 @@ implementation
    title:String8;
    lines:Strings8;
    constructor Create;
-   procedure Initialize;
    procedure UpdateUI(msgText:string8;mode,x,y:integer);
    procedure Render; override;
   end;
@@ -52,7 +51,6 @@ implementation
   begin
    queue.Init(64);
    scene:=TMessageScene.Create;
-   scene.Initialize;
   end;
 
  procedure QueueMsg(msg,e1,e2:String8;mType,x,y:integer);
@@ -69,13 +67,9 @@ implementation
    queue.Add(obj);
   end;
 
- // Process next queued message if the message scene is ready and not currently active.
+ // Process next queued message if the scene is not currently active.
  procedure CheckQueue;
   begin
-   if not scene.initialized then begin
-    DelayedSignal('UI\Message\Next',1);
-    exit;
-   end;
    if scene.IsActive then exit;
    if curMsg<>nil then curMsg.Free;
    curMsg:=TQueuedMessage(queue.Get);
@@ -145,10 +139,7 @@ constructor TMessageScene.Create;
   zOrder:=100;
   SetEventHandler('UI\Message',EventHandler,emQueued);
   SetEventHandler('Scene\MessageScene',EventHandler,emMixed);
- end;
 
-procedure TMessageScene.Initialize;
- begin
   wnd:=TUIElement.Create(400,200,ui,'Message\Wnd');
   wnd.SetPos(window.renderWidth/2,window.renderHeight/2,pivotCenter);
   wnd.shape:=shapeFull;

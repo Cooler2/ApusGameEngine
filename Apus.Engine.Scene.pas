@@ -31,15 +31,23 @@ type
  end;
 
 
- // -------------------------------------------------------------------
- // TGameScene - произвольная сцена
- // -------------------------------------------------------------------
- TSceneStatus=(ssFrozen,     // сцена полностью "заморожена"
-               ssBackground, // сцена обрабатывается, но не рисуется
-                             // (живет где-то в фоновом режиме и не влияет на экран)
-               ssActive);    // сцена активна, т.е. обрабатывается и рисуется
+  TSceneStatus=(ssFrozen,     // scene is completely frozen (not processed, not rendered)
+               ssBackground, // scene is processed but not rendered
+               ssActive);    // scene is active: processed and rendered
 
- TGameScene=class(TNamedObject)
+ // -------------------------------------------------------------------
+ // TGameScene — a visual layer bound to a window.
+ //
+ // Lifecycle:
+ //   Create(window)  — any thread. Set up all state not requiring a render context.
+ //   Load            — called automatically, not from the render thread.
+ //                      Load heavy resources here (textures, data).
+ //   InitGfx         — render thread, once, automatic. Allocate render targets, shaders, etc.
+ //                      Most scenes leave this empty. Never call manually.
+ //   Process         — called at specified frequency while not frozen.
+ //   Render          — render thread, each frame while active.
+ // -------------------------------------------------------------------
+TGameScene=class(TNamedObject)
   status:TSceneStatus;
   fullscreen:boolean; // true - opaque scene, no any underlying scenes can be seen, false - scene layer is drawn above underlying image
   frequency:integer; // Сколько раз в секунду нужно вызывать обработчик сцены (0 - каждый кадр)
@@ -48,8 +56,8 @@ type
   activated:boolean; // true если сцена уже начала показываться или показалась, но еще не имеет эффекта закрытия
   shadowColor:cardinal; // если не 0, то рисуется перед отрисовкой сцены
   ignoreKeyboardEvents:boolean; // если true - такая сцена не будет получать сигналы о клавиатурном вводе, даже будучи верхней
-  initialized:boolean; // true if Initialize is called
-  loaded:boolean;
+  gfxInitialized:boolean; // true after InitGfx was called by the render loop
+  loaded:boolean; // true after Load has completed
 
   // Внутренние величины
   accumTime:integer; // накопленное время (в мс)
@@ -67,11 +75,12 @@ type
   // status=ssActive
   function IsActive:boolean;
 
-  // Called once during game initialization outside of the main thread (load required resources here)
+  // Called automatically outside the render thread to load heavy resources
   procedure Load; virtual;
 
-  // Called only once from the MAIN (render) thread before the first Render() call (so must be fast)
-  procedure Initialize; virtual;
+  // Called once by the render loop before the first Render(). Never call manually.
+  // Override only to allocate GPU resources (render targets, shaders, etc.)
+  procedure InitGfx; virtual;
 
   // Called with the specified frequency (regardless of the FPS) unless scene is Frozen
   // Can return false if scene doesn't change and doesn't need to be rendered
@@ -159,9 +168,6 @@ uses SysUtils,
   end;
 
  constructor TGameScene.Create(fullScreen:boolean=true);
-  var
-   m:procedure of object;
-   base:pointer;
   begin
    status:=ssFrozen;
    self.fullscreen:=fullscreen;
@@ -173,14 +179,7 @@ uses SysUtils,
    name:=ClassName;
    ignoreKeyboardEvents:=false;
    if classType=TGameScene then onCreate; // each generic child class must call this in the constructors last string
-   // Check if Load method is overriden
-   m:=self.Load;
-   base:=@TGameScene.Load;
-   if @m<>base then begin
-    loaded:=false;
-    scenesToLoad.Add(self);
-   end else
-    loaded:=true;
+   scenesToLoad.Add(self);
 
    if not eventSet then begin
     eventSet:=true;
@@ -195,7 +194,7 @@ uses SysUtils,
    scenesToLoad.Remove(self);
   end;
 
- procedure TGameScene.Initialize;
+ procedure TGameScene.InitGfx;
   begin
   end;
 
