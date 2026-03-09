@@ -129,13 +129,12 @@ procedure SetDisplaySize(width,height:integer);
    if parent=nil then begin
     FindElementAt(x,y,parent);
     if parent=nil then begin
-     for i:=0 to high(rootElements) do
-      if rootElements[i].visible then begin
-       parent:=rootElements[i]; break;
-      end;
+     if (window<>nil) and (window.topmostScene is TUIScene) then
+      parent:=TUIScene(window.topmostScene).UI;
     end else
      parent:=parent.GetRoot;
    end;
+   if parent=nil then exit;
    if curhint<>nil then begin
     Log.Msg('Free previous hint');
     curHint.Free;
@@ -270,8 +269,8 @@ procedure SetDisplaySize(width,height:integer);
      e:=FindElementAt(curMouseX,curMouseY,c);
      if e and (c<>nil) then
       c.onMouseButtons(tag,true)
-     else
-      if (c<>nil) and (not c.enabled) and (c.GetClassAttribute('handleMouseIfDisabled')) then
+     else if c<>nil then
+      if (not c.enabled) and c.GetClassAttribute('handleMouseIfDisabled') then
        c.onMouseButtons(tag,true);
 
      // DEBUG FACILITIES
@@ -710,8 +709,10 @@ begin
       end;
       DumpTree(root,0,maxDepth,body);
     end else begin
-      for i:=0 to high(rootElements) do
-        DumpTree(rootElements[i],0,maxDepth,body);
+      if window<>nil then
+       for i:=0 to high(window.scenes) do
+        if (window.scenes[i] is TUIScene) and (TUIScene(window.scenes[i]).UI<>nil) then
+          DumpTree(TUIScene(window.scenes[i]).UI,0,maxDepth,body);
     end;
   finally
     UICritSect.Leave;

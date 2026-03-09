@@ -135,10 +135,18 @@ type
   procedure UnlockUI;
 
 implementation
- uses SysUtils, Apus.Engine.UIScene, Apus.EventMan,
+ uses SysUtils, Apus.Engine.API, Apus.Engine.UIScene, Apus.EventMan,
   Apus.Conv,
   Apus.Strings,
   Apus.Threads;
+
+ type
+ TUIRootList=array of TUIElement;
+ TIntArray=array of integer;
+
+ procedure CollectUIRoots(out roots:TUIRootList;out zOrders:TIntArray;onlyVisible:boolean); forward;
+ function GetDefaultUIRoot:TUIElement; forward;
+ function RequireAutoCreateRoot(const kind,name:string8):TUIElement; forward;
 
  procedure SetDefaultUIScale(fullScenesScale,windowedScenesScale:single);
   begin
@@ -196,108 +204,166 @@ implementation
   end;
 
  function UIElement(name:string8;autoCreate:boolean=false):TUIElement;
+  var
+   root:TUIElement;
   begin
    result:=FindElement(name,false);
-   if (result=nil) and (autoCreate) then result:=TUIElement.Create(0,0,nil,name);
+   if (result=nil) and autoCreate then begin
+    root:=RequireAutoCreateRoot('UI element',name);
+    result:=TUIElement.Create(0,0,root,name);
+   end;
   end;
 
  function UIButton(name:string8;mustExist:boolean=false):TUIButton;
   var
-   c:TUIElement;
+   c,root:TUIElement;
   begin
    c:=FindElement(name,mustExist);
    if not (c is TUIButton) then c:=nil;
-   if c=nil then c:=TUIButton.Create(0,0,name,'',0,nil);
+   if c=nil then begin
+    root:=RequireAutoCreateRoot('UIButton',name);
+    c:=TUIButton.Create(0,0,name,'',0,root);
+   end;
    result:=c as TUIButton;
   end;
 
  function UIEditBox(name:string8;mustExist:boolean=false):TUIEditBox;
   var
-   c:TUIElement;
+   c,root:TUIElement;
   begin
    c:=FindElement(name,mustExist);
    if not (c is TUIEditBox) then c:=nil;
-   if c=nil then c:=TUIEditBox.Create(0,0,name,0,0,nil);
+   if c=nil then begin
+    root:=RequireAutoCreateRoot('UIEditBox',name);
+    c:=TUIEditBox.Create(0,0,name,0,0,root);
+   end;
    result:=c as TUIEditBox;
   end;
 
  function UILabel(name:string8;mustExist:boolean=false):TUILabel;
   var
-   c:TUIElement;
+   c,root:TUIElement;
   begin
    c:=FindElement(name,mustExist);
    if not (c is TUILabel) then c:=nil;
-   if c=nil then c:=TUILabel.Create(0,0,name,'',0,0,nil);
+   if c=nil then begin
+    root:=RequireAutoCreateRoot('UILabel',name);
+    c:=TUILabel.Create(0,0,name,'',0,0,root);
+   end;
    result:=c as TUILabel;
   end;
 
  function UIScrollBar(name:string8;mustExist:boolean=false):TUIScrollBar;
   var
-   c:TUIElement;
+   c,root:TUIElement;
   begin
    c:=FindElement(name,mustExist);
    if not (c is TUIScrollBar) then c:=nil;
-   if c=nil then c:=TUIScrollBar.Create(0,0,name,nil);
+   if c=nil then begin
+    root:=RequireAutoCreateRoot('UIScrollBar',name);
+    c:=TUIScrollBar.Create(0,0,name,root);
+   end;
    result:=c as TUIScrollBar;
   end;
 
  function UIComboBox(name:string8;mustExist:boolean=false):TUIComboBox;
   var
-   c:TUIElement;
+   c,root:TUIElement;
   begin
    c:=FindElement(name,mustExist);
    if not (c is TUIComboBox) then c:=nil;
-   if c=nil then c:=TUIComboBox.Create(0,0,0,nil,nil,name);
+   if c=nil then begin
+    root:=RequireAutoCreateRoot('UIComboBox',name);
+    c:=TUIComboBox.Create(0,0,0,nil,root,name);
+   end;
    result:=c as TUIComboBox;
   end;
 
  function UIListBox(name:string8;mustExist:boolean=false):TUIListBox;
   var
-   c:TUIElement;
+   c,root:TUIElement;
   begin
    c:=FindElement(name,mustExist);
    if not (c is TUIListBox) then c:=nil;
-   if c=nil then c:=TUIListBox.Create(0,0,0,name,0,nil);
+   if c=nil then begin
+    root:=RequireAutoCreateRoot('UIListBox',name);
+    c:=TUIListBox.Create(0,0,0,name,0,root);
+   end;
    result:=c as TUIListBox;
   end;
 
  function UICheckBox(name:string8;mustExist:boolean=false):TUICheckbox;
   var
-   c:TUIElement;
+   c,root:TUIElement;
   begin
    c:=FindElement(name,mustExist);
    if not (c is TUICheckbox) then c:=nil;
-   if c=nil then c:=TUICheckbox.Create(0,0,name,'',nil);
+   if c=nil then begin
+    root:=RequireAutoCreateRoot('UICheckBox',name);
+    c:=TUICheckbox.Create(0,0,name,'',root);
+   end;
    result:=c as TUICheckbox;
   end;
 
  function UIRadioButton(name:string8;mustExist:boolean=false):TUIRadioButton;
   var
-   c:TUIElement;
+   c,root:TUIElement;
   begin
    c:=FindElement(name,mustExist);
    if not (c is TUIRadioButton) then c:=nil;
-   if c=nil then c:=TUIRadioButton.Create(0,0,'','',nil);
+   if c=nil then begin
+    root:=RequireAutoCreateRoot('UIRadioButton',name);
+    c:=TUIRadioButton.Create(0,0,'','',root);
+   end;
    result:=c as TUIRadioButton;
   end;
-
-
-  // Make sure root controls list is sorted
- procedure SortRootElements;
+ procedure CollectUIRoots(out roots:TUIRootList;out zOrders:TIntArray;onlyVisible:boolean);
   var
-   i,j:integer;
-   c:TUIElement;
+   i,n:integer;
+   sc:TGameScene;
+   s:TUIScene;
   begin
-   for i:=1 to high(rootElements) do
-    if rootElements[i].order>rootElements[i-1].order then begin
-     j:=i;
-     while (j>0) and (rootElements[j].order>rootElements[j-1].order) do begin
-      c:=rootElements[j-1];
-      rootElements[j-1]:=rootElements[j];
-      rootElements[j]:=c;
-      dec(j);
-     end;
+   SetLength(roots,0);
+   SetLength(zOrders,0);
+   if (window=nil) or (window.scenes=nil) then exit;
+   n:=0;
+   for i:=0 to high(window.scenes) do begin
+    sc:=window.scenes[i];
+    if not (sc is TUIScene) then continue;
+    s:=TUIScene(sc);
+    if s.UI=nil then continue;
+    if onlyVisible and (not s.UI.visible) then continue;
+    SetLength(roots,n+1);
+    SetLength(zOrders,n+1);
+    roots[n]:=s.UI;
+    zOrders[n]:=sc.zOrder;
+    inc(n);
+   end;
+  end;
+
+ function GetDefaultUIRoot:TUIElement;
+  var
+   roots:TUIRootList;
+   zOrders:TIntArray;
+   i,bestIdx,bestZ:integer;
+  begin
+   CollectUIRoots(roots,zOrders,true);
+   bestIdx:=-1;
+   bestZ:=Low(integer);
+   for i:=0 to high(roots) do
+    if zOrders[i]>=bestZ then begin
+     bestZ:=zOrders[i];
+     bestIdx:=i;
     end;
+   if bestIdx>=0 then result:=roots[bestIdx]
+    else result:=nil;
+  end;
+
+ function RequireAutoCreateRoot(const kind,name:string8):TUIElement;
+  begin
+   result:=GetDefaultUIRoot;
+   if result=nil then
+    raise EError.Create('Can''t auto-create '+kind+' "'+name+'": no active UI root');
   end;
 
  function FindElement(name:string8;mustExist:boolean=true):TUIElement;
@@ -317,17 +383,19 @@ implementation
  function FindControlAtInternal(x,y:integer;any:boolean;out c:TUIElement):boolean;
   var
    i,maxZ:integer;
+   roots:TUIRootList;
+   zOrders:TIntArray;
    ct,c2:TUIElement;
-   found,enabl:boolean;
+   enabl:boolean;
   begin
    c:=nil; maxZ:=-1;
    UICritSect.Enter;
    try
-   SortRootElements;
+   CollectUIRoots(roots,zOrders,true);
    // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
-   for i:=0 to high(rootElements) do begin
-    if any then enabl:=rootElements[i].FindAnyElementAt(x,y,ct)
-     else enabl:=rootElements[i].FindElementAt(x,y,ct);
+   for i:=0 to high(roots) do begin
+    if any then enabl:=roots[i].FindAnyElementAt(x,y,ct)
+     else enabl:=roots[i].FindElementAt(x,y,ct);
     if ct<>nil then begin
      c2:=ct; // найдем корневого предка ct (вдруг это не rootControls[i]?)
      while c2.parent<>nil do c2:=c2.parent;
@@ -335,7 +403,7 @@ implementation
       continue;
      end;
      // выбор элемента с максимальным уровнем Z
-     if c2.order>maxZ then begin c:=ct; maxZ:=c2.order; end;
+     if zOrders[i]>maxZ then begin c:=ct; maxZ:=zOrders[i]; end;
     end;
    end;
    result:=(c<>nil) and c.enabled;
@@ -429,14 +497,17 @@ implementation
  function DumpUI:string8;
   var
    i:integer;
+   roots:TUIRootList;
+   zOrders:TIntArray;
   begin
     result:=string8.Join([
      'Modal: '+Conv.ToStr(modalElement),
      'Focused: '+Conv.ToStr(FocusedElement),
      'Hooked: '+Conv.ToStr(hooked),
      ''],#13#10);
-    for i:=0 to high(rootElements) do
-      result:=result+DumpUITree(rootElements[i])+#13#10;
+    CollectUIRoots(roots,zOrders,false);
+    for i:=0 to high(roots) do
+      result:=result+DumpUITree(roots[i])+#13#10;
   end;
 
  procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;btnType:TBUttonStyle;

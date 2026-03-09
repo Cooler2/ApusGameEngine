@@ -188,13 +188,19 @@ end;
 { TConsoleScene }
 constructor TConsoleScene.Create;
 var
+ wndRef:TWindow;
  wnd:TUIWindow;
  font:cardinal;
  h:integer;
+ dpi:integer;
 begin
  inherited Create('CONSOLE',false); // pure foreground scene
- if window.screenDPI>120 then
-  ui.SetScale(window.screenDPI/96);
+ wndRef:=window;
+ if wndRef=nil then wndRef:=mainWindow;
+ if wndRef<>nil then dpi:=wndRef.screenDPI
+  else dpi:=96;
+ if dpi>120 then
+  ui.SetScale(dpi/96);
  //ignoreKeyboardEvents:=true;
  status:=TSceneStatus.ssFrozen;
  frequency:=12;

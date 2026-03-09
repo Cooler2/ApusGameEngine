@@ -63,7 +63,8 @@ type
   windowWidth,windowHeight:integer; // window client size in pixels
   screenChanged:boolean; // set to true to request frame rendering
 
-  // Input state
+  // Input state snapshot for this window: values are stored per-window (not global)
+  // so they stay stable during frame processing even with multiple window threads.
   mouseX,mouseY:integer; // mouse position in game coordinates
   oldMouseX,oldMouseY:integer; // previous mouse position
   mouseMovedTime:int64; // when mouse position last changed

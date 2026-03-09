@@ -2333,6 +2333,8 @@ procedure TGame.RenderAndPresentFrame;
  end;
 
 procedure TGame.MainThreadLoop;
+ var
+  wnd:TWindow;
  begin
   // Инициализация
   mainThreadErrorMsg:='';
@@ -2344,6 +2346,7 @@ procedure TGame.MainThreadLoop;
    SetEventHandler('Engine\Cmd',EngineCmdEvent,emQueued);
 
    window:=systemPlatform.CreateWindow(gameEx.params.title);
+   mainWindow:=window;
    window.screenDPI:=systemPlatform.GetScreenDPI;
    window.frameNum:=0;
    window.frameStartTime:=0;
@@ -2373,8 +2376,12 @@ procedure TGame.MainThreadLoop;
 
    // Финализация
    gameEx.DoneGraph;
-   window.Close;
-   FreeAndNil(window);
+   wnd:=window;
+   if wnd<>nil then begin
+    wnd.Close;
+    FreeAndNil(window);
+    if mainWindow=wnd then mainWindow:=nil;
+   end;
   except
    on e:Exception do begin
     mainThreadErrorMsg:=ExceptionMsg(e);

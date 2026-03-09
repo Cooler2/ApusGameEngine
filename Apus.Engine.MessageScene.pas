@@ -1,4 +1,4 @@
-unit Apus.Engine.MessageScene;
+﻿unit Apus.Engine.MessageScene;
 interface
  uses Apus.Core;
 
@@ -10,7 +10,7 @@ interface
  // mes format: [Title]<CRLF>line1<CRLF>line2...lineN
  // String separator: CRLF or '~'
  procedure ShowMessage(mes:String8;OkEvent:String8='';x:integer=0;y:integer=0);
- procedure Ask(mes,YesEvent,NoEvent:String8;x:integer=0;y:integer=0);
+ procedure Ask(mes,YesEvent:String8;NoEvent:String8='';x:integer=0;y:integer=0);
  procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0);
 
 implementation
@@ -69,17 +69,21 @@ implementation
    queue.Add(obj);
   end;
 
- // ��������� ������� � ������� ��������� � ���� ��� ���� - �������� ������
+ // Process next queued message if the message scene is ready and not currently active.
  procedure CheckQueue;
   begin
+   if not scene.initialized then begin
+    DelayedSignal('UI\Message\Next',1);
+    exit;
+   end;
    if scene.IsActive then exit;
    if curMsg<>nil then curMsg.Free;
    curMsg:=TQueuedMessage(queue.Get);
    if curMsg=nil then exit;
-   // ����������� UI
+   // Build UI for current message.
    with curMsg do
     scene.UpdateUI(msg,mType,x,y);
-   // ��������
+   // Show with transition effect.
    Log.Msg('ShowMessage: '+curMsg.msg);
    TShowWindowEffect.Create(scene,200,sweShow,2);
   end;
@@ -90,7 +94,7 @@ implementation
    CheckQueue;
   end;
 
- procedure Ask(mes,YesEvent,NoEvent:String8;x:integer=0;y:integer=0);
+ procedure Ask(mes,YesEvent,NoEvent:String8;x:integer;y:integer);
   begin
    QueueMsg(mes,YesEvent,NoEvent,MODE_ASK,x,y);
    CheckQueue;

@@ -306,8 +306,6 @@ type
   fFont:TFontHandle; // not used directly, can be inherited by children or used by custom draw routines
   fColor:cardinal; // color value to be inherited by children
   fInitialSize:TVector2s; // element's initial size (used for proportional resize)
-  procedure AddToRootElements;
-  procedure RemoveFromRootElements;
   function GetClientWidth:single;
   function GetClientHeight:single;
   function GetGlobalScale:single;
@@ -332,7 +330,7 @@ type
   property color:cardinal read GetColor write fColor;
  end;
 
-var
+threadvar
  underMouse:TUIElement;     // элемент под мышью
  modalElement:TUIElement;   // Если есть модальный эл-т - он тут
  hooked:TUIElement;         // если установлен - теряет фокус даже если не обладал им
@@ -342,11 +340,7 @@ var
 
  curMouseX,curMouseY,oldMouseX,oldMouseY:integer; // координаты курсора мыши (для onMouseMove!)
 
- // Корневые элементы (не имеющие предка)
- // Список используется для передачи (обработки) первичных событий строго
- // по порядку, начиная с 1-го
- rootElements:array of TUIElement;
-
+var
  UICritSect:TLock; // для многопоточного доступа к глобальным переменным UI
 
  function DescribeElement(c:TUIElement):String8;
@@ -375,6 +369,7 @@ implementation
  var
   // TUIElement class hash
   UIHash:TObjectHash;
+threadvar
   // Hotkeys
   hotKeys:array of THotKey;
 
@@ -659,8 +654,6 @@ implementation
      anchors.top:=0; anchors.bottom:=1;
     end;
    end else begin
-    // Элемент без предка -> занести в список
-    AddToRootElements;
     order:=1;
    end;
    fInitialSize:=size;
@@ -681,9 +674,7 @@ destructor TUIElement.Destroy;
      fControl:=nil;
     end;
     if underMouse=self then underMouse:=parent;
-    if parent=nil then
-     RemoveFromRootElements
-    else
+    if parent<>nil then
      Detach(false);
     DeleteChildren;
     FreeAndNil(shapeRegion);
@@ -712,7 +703,8 @@ destructor TUIElement.Destroy;
     SetLength(parent.children,n);
    end;
    parent:=nil;
-   if shouldAddToRootControls then AddToRootElements;
+   if shouldAddToRootControls then
+    raise EWarning.Create('Detached root UI elements are not supported; attach element to a scene root');
   end;
 
  procedure TUIElement.AttachTo(newParent:TUIElement;pos:integer=-1);
@@ -721,8 +713,7 @@ destructor TUIElement.Destroy;
   begin
    ASSERT(newParent<>nil);
    if parent=newParent then exit;
-   if parent<>nil then Detach(false)
-    else RemoveFromRootElements;
+   if parent<>nil then Detach(false);
    parent:=newParent;
    n:=length(parent.children);
    SetLength(parent.children,n+1);
@@ -1213,38 +1204,6 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    end;
    if value<>'' then name:=name+':'+value+';';
    fStyleInfo:=name+fStyleInfo
-  end;
-
- procedure TUIElement.AddToRootElements;
-  begin
-   UICritSect.Enter;
-   try
-    SetLength(rootElements,length(rootElements)+1);
-    rootElements[high(rootElements)]:=self;
-   finally
-    UICritSect.Leave;
-   end;
-  end;
-
- procedure TUIElement.RemoveFromRootElements;
-  var
-   i,pos:integer;
-  begin
-   UICritSect.Enter;
-   try
-   i:=0; pos:=-1;
-   // Order should be kept!
-   for i:=0 to high(rootElements) do
-    if self=rootElements[i] then begin
-     pos:=i; break;
-    end;
-   if pos<0 then exit;
-   for i:=pos+1 to high(rootElements) do
-    rootElements[i-1]:=rootElements[i];
-   SetLength(rootElements,length(rootElements)-1);
-   finally
-    UICritSect.Leave;
-   end;
   end;
 
  function TUIElement.GetClientWidth:single;

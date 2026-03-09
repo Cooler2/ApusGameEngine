@@ -867,14 +867,17 @@ var
  // - shader/draw/txt/transform are assigned and cleared by graphics backend (TOpenGL.Init/Done)
  systemPlatform:ISystemPlatform;
  gfx:IGraphicsSystem;
- game:TGameBase;
- window:TWindow; // main window (shortcut for game.window, set during startup)
-
  shader:IShader; //< shortcut for gfx.shader
  draw:IDrawer;    //< shortcut for gfx.draw
  txt:ITextDrawer; //< shortcut for gfx.txt
  transform:ITransformation; //< Shortcut for gfx.transform
+ game:TGameBase;     // main program interface
+ mainWindow:TWindow; // primary window instance (owned by the game runtime)
 
+threadvar
+ window:TWindow; // current window in the current runtime thread
+
+var
  // Translate string using localization dictionary (UDict)
  Translate:function(s:String8):String8;
  Translate32:function(s:String32):String32;
@@ -999,7 +1002,7 @@ procedure TGameBase.AddScene(scene:TGameScene);
   try
    if scene=nil then raise EWarning.Create('Can''t add nil scene');
    scene.accumTime:=0;
-   window.AddScene(scene);
+   mainWindow.AddScene(scene);
   finally
    LeaveCritSect;
   end;
@@ -1009,7 +1012,7 @@ procedure TGameBase.RemoveScene(scene:TGameScene);
  begin
   EnterCritSect;
   try
-   window.RemoveScene(scene);
+   mainWindow.RemoveScene(scene);
   finally
    LeaveCritSect;
   end;
@@ -1019,7 +1022,7 @@ function TGameBase.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
  begin
   EnterCritSect;
   try
-   result:=window.TopmostVisibleScene(fullScreenOnly);
+   result:=mainWindow.TopmostVisibleScene(fullScreenOnly);
   finally
    LeaveCritSect;
   end;

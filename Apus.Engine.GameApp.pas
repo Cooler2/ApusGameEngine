@@ -572,7 +572,7 @@ begin
  lib:=slSDL;
  {$ENDIF}
  try
-  InitSoundSystem(lib,window.GetHandle);
+  InitSoundSystem(lib,mainWindow.GetHandle);
  except
   on e:Exception do begin
    Log.Force('Sound initialization failed. Continue without sound. '+e.message);
@@ -659,6 +659,9 @@ procedure TGameApplication.Run;
    end;
   end;
   Log.Force('RUN');
+  // Transitional compatibility: control thread also needs current window context
+  // for scene/UI setup that still happens here.
+  if window=nil then window:=mainWindow;
 
   SetupHighDPI;
 
