@@ -109,8 +109,8 @@ procedure TSceneA.Render;
 //  painter.Clear($FF306030);
   gfx.target.Clear($FF000000);
   for i:=1 to 3 do
-   draw.Rect(i*3,i*3,game.renderWidth-i*3-1,game.renderHeight-i*3-1,$FFF0F000);
-  txt.Write(mainFont,20,game.renderHeight-20,$FFC0C0C0,'Press [Win]+[~] to toggle the console window');
+   draw.Rect(i*3,i*3,window.renderWidth-i*3-1,window.renderHeight-i*3-1,$FFF0F000);
+  txt.Write(mainFont,20,window.renderHeight-20,$FFC0C0C0,'Press [Win]+[~] to toggle the console window');
   inherited;
  end;
 

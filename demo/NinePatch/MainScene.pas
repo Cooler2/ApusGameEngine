@@ -120,7 +120,7 @@ procedure TMainScene.Render;
   FindControl('group2').visible:=not UIButton('DrawTest').pressed;
 
   if UIButton('DrawTest').pressed then begin
-   time:=game.frameStartTime/1000;
+   time:=window.frameStartTime/1000;
    dW:=round(20*sin(time));
    dH:=round(20*sin(time+2));
    if redPatch<>nil then begin

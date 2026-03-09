@@ -124,7 +124,7 @@ procedure TMainScene.Render;
   txt.WriteW(game.defaultFont,860,420,$FFFFFFFF,'Array',taCenter);
 
   // Direct texture update
-  FillDword(data,16*32,MyColor(255,0,0,game.frameNum*3));
+  FillDword(data,16*32,MyColor(255,0,0,window.frameNum*3));
   dirTex.UploadPart(0,16,16,32,16,@data,32*4,TImagePixelFormat.ipfARGB);
   draw.Image(840,480,dirTex);
   txt.WriteW(0,860,560,$FFFFFFFF,'Direct texture upload',taCenter);

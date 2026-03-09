@@ -52,7 +52,7 @@ procedure TMainApp.CreateScenes;
   scale:single;
  begin
   inherited;
-  scale:=game.screenDPI/96;
+  scale:=window.screenDPI/96;
   // initialize our main scene
   sceneMain:=TMainScene.Create('Main');
   sceneMain.UI.SetScale(scale);

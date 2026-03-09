@@ -139,14 +139,14 @@ procedure TMainScene.Render;
 
   shader.AmbientLight($404030);
   shader.DirectLight(Vector3(1,1,1),2,$907060);
-  transform.SetObj(0,3,3,3, 1, game.frameStartTime/1000,-0.6);
+  transform.SetObj(0,3,3,3, 1, window.frameStartTime/1000,-0.6);
   mesh.Draw;
 
   shader.AmbientLight($202020);
   shader.DirectLight(Vector3(1,1,1),1,$808090);
   for j:=0 to 3 do
    for i:=-2 to 2 do begin
-    transform.SetObj(i*12,-20-j*10,j*6-12, 3, j, game.frameStartTime/1000,i);
+    transform.SetObj(i*12,-20-j*10,j*6-12, 3, j, window.frameStartTime/1000,i);
     mesh.Draw;
    end;
 
