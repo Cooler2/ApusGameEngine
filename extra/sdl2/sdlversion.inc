@@ -1,4 +1,10 @@
-//from "sdl_version.h"
+// based on "sdl_version.h" (2.0.14)
+
+{**
+ *  \file SDL_version.h
+ *
+ *  This header defines the current SDL version.
+ *}
 
   {**
    *  Information the version of SDL in use.
@@ -13,19 +19,23 @@
    *  SDL_GetVersion
    *}
 type
+  PPSDL_Version = ^PSDL_Version;
   PSDL_Version = ^TSDL_Version;
   TSDL_Version = record
-    major,         {**< major version *}
-    minor,         {**< minor version *}
-    patch: UInt8;  {**< update version *}
+    major,           {**< major version *}
+    minor,           {**< minor version *}
+    patch: cuint8;   {**< update version *}
   end;
 
-{* Printable format: "%d.%d.%d", MAJOR, MINOR, PATCHLEVEL
+{*
+  Printable format: "%d.%d.%d", MAJOR, MINOR, PATCHLEVEL
+
+  Last updated when TSDL_FPoint and TSDL_FRect were added.
 *}
 const
   SDL_MAJOR_VERSION = 2;
   SDL_MINOR_VERSION = 0;
-  SDL_PATCHLEVEL    = 4;
+  SDL_PATCHLEVEL    = 10;
 
 {**
  *  Macro to determine SDL version program was compiled against.
@@ -42,7 +52,7 @@ const
  *  SDL_version
  *  SDL_GetVersion
  *}
-procedure SDL_VERSION(Out x: TSDL_Version);
+procedure SDL_VERSION(out x: TSDL_Version);
 
 {**
  *  This macro turns the version numbers into a numeric value:
@@ -52,62 +62,65 @@ procedure SDL_VERSION(Out x: TSDL_Version);
  *
  *  This assumes that there will never be more than 100 patchlevels.
  *}
-function SDL_VERSIONNUM(X,Y,Z: UInt32): Cardinal;
+function SDL_VERSIONNUM(X,Y,Z: cuint8): Cardinal;
 
-  {**
-   *  This is the version number macro for the current SDL version.
-   *}
+{**
+ *  This is the version number macro for the current SDL version.
+ *}
 function SDL_COMPILEDVERSION: Cardinal;
 
-  {**
-   *  This macro will evaluate to true if compiled with SDL at least X.Y.Z.
-   *}
-function SDL_VERSION_ATLEAST(X,Y,Z: Cardinal): Boolean;
+{**
+ *  This macro will evaluate to true if compiled with SDL at least X.Y.Z.
+ *}
+function SDL_VERSION_ATLEAST(X,Y,Z: cuint8): Boolean;
 
-  {**
-   *  Get the version of SDL that is linked against your program.
-   *
-   *  If you are linking to SDL dynamically, then it is possible that the
-   *  current version will be different than the version you compiled against.
-   *  This function returns the current version, while SDL_VERSION() is a
-   *  macro that tells you what version you compiled with.
-   *
-   *
-   *  compiled: TSDL_Version;
-   *  linked: TSDL_Version;
-   *
-   *  SDL_VERSION(@compiled);
-   *  SDL_GetVersion(@linked);
-   *  WriteLn('We compiled against SDL version: ' +
-   *           IntToStr(compiled.major) +
-   *           IntToStr(compiled.minor) +
-   *           IntToStr(compiled.patch));
-   *  WriteLn('But we linked against SDL version:' +
-   *           IntToStr(compiled.major) +
-   *           IntToStr(compiled.minor) +
-   *           IntToStr(compiled.patch));
-   *
-   *
-   *  This function may be called safely at any time, even before SDL_Init().
-   *
-   *  SDL_VERSION
-   *}
-procedure SDL_GetVersion(ver: PSDL_Version) cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_GetVersion' {$ENDIF} {$ENDIF};
+{**
+ *  Get the version of SDL that is linked against your program.
+ *
+ *  If you are linking to SDL dynamically, then it is possible that the
+ *  current version will be different than the version you compiled against.
+ *  This function returns the current version, while SDL_VERSION() is a
+ *  macro that tells you what version you compiled with.
+ *
+ *
+ *  compiled: TSDL_Version;
+ *  linked: TSDL_Version;
+ *
+ *  SDL_VERSION(@compiled);
+ *  SDL_GetVersion(@linked);
+ *  WriteLn('We compiled against SDL version: ' +
+ *           IntToStr(compiled.major) +
+ *           IntToStr(compiled.minor) +
+ *           IntToStr(compiled.patch));
+ *  WriteLn('But we linked against SDL version:' +
+ *           IntToStr(compiled.major) +
+ *           IntToStr(compiled.minor) +
+ *           IntToStr(compiled.patch));
+ *
+ *
+ *  This function may be called safely at any time, even before SDL_Init().
+ *
+ *  SDL_VERSION
+ *}
+procedure SDL_GetVersion(ver: PSDL_Version); cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_GetVersion' {$ENDIF} {$ENDIF};
 
-  {**
-   *  Get the code revision of SDL that is linked against your program.
-   *
-   *  Returns an arbitrary string (a hash value) uniquely identifying the
-   *  exact revision of the SDL library in use, and is only useful in comparing
-   *  against other revisions. It is NOT an incrementing number.
-   *}
-function SDL_GetRevision: PAnsiChar cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_GetRevision' {$ENDIF} {$ENDIF};
+{**
+ *  Get the code revision of SDL that is linked against your program.
+ *
+ *  Returns an arbitrary string (a hash value) uniquely identifying the
+ *  exact revision of the SDL library in use, and is only useful in comparing
+ *  against other revisions. It is NOT an incrementing number.
+ *}
+function SDL_GetRevision: PAnsiChar; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_GetRevision' {$ENDIF} {$ENDIF};
 
-  {**
-   *  Get the revision number of SDL that is linked against your program.
-   *
-   *  Returns a number uniquely identifying the exact revision of the SDL
-   *  library in use. It is an incrementing number based on commits to
-   *  hg.libsdl.org.
-   *}
-function SDL_GetRevisionNumber: SInt32 cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_GetRevisionNumber' {$ENDIF} {$ENDIF};
+{**
+ *  Get the revision number of SDL that is linked against your program.
+ *
+ *  Returns a number uniquely identifying the exact revision of the SDL
+ *  library in use. It is an incrementing number based on commits to
+ *  hg.libsdl.org.
+ *}
+function SDL_GetRevisionNumber: cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_GetRevisionNumber' {$ENDIF} {$ENDIF};

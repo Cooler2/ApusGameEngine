@@ -23,15 +23,6 @@ unit sdl2_image;
   2. Altered source versions must be plainly marked as such, and must not be
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
-
-  ChangeLog (Header-Translation):
-  -------------------------------
-
-  v.1.72-stable; 29.09.2013: fixed bug with procedure without parameters 
-                             (they must have brackets)
-  v.1.70-stable; 11.09.2013: MacOS compatibility (with Delphi)
-  v.1.33-Alpha; 31.07.2013: Initial Commit
-
 *}
 
 {$DEFINE SDL_IMAGE}
@@ -41,7 +32,12 @@ unit sdl2_image;
 interface
 
 uses
+  {$IFDEF FPC}
+  ctypes,
+  {$ENDIF}
   SDL2;
+
+{$I ctypes.inc}
 
 const
   {$IFDEF WINDOWS}
@@ -70,7 +66,7 @@ const
   {* Printable format: "%d.%d.%d", MAJOR, MINOR, PATCHLEVEL *}
   SDL_IMAGE_MAJOR_VERSION = 2;
   SDL_IMAGE_MINOR_VERSION = 0;
-  SDL_IMAGE_PATCHLEVEL    = 0;
+  SDL_IMAGE_PATCHLEVEL    = 5;
 
   {* This macro can be used to fill a version structure with the compile-time
    * version of the SDL_image library.
@@ -94,13 +90,15 @@ const
   IMG_INIT_WEBP = $00000008;
 
 type
+  PPIMG_InitFlags = ^PIMG_InitFlags;
+  PIMG_InitFlags = ^TIMG_InitFlags;
   TIMG_InitFlags = DWord;
 
   {* Loads dynamic libraries and prepares them for use.  Flags should be
      one or more flags from IMG_InitFlags OR'd together.
      It returns the flags successfully initialized, or 0 on failure.
    *}
-function IMG_Init(flags: SInt32): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_Init' {$ENDIF} {$ENDIF};
+function IMG_Init(flags: cint32): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_Init' {$ENDIF} {$ENDIF};
 
   {* Unloads libraries loaded with IMG_Init *}
 procedure IMG_Quit() cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_Quit' {$ENDIF} {$ENDIF};
@@ -113,31 +111,32 @@ procedure IMG_Quit() cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} 
      surface afterwards by calling:
       SDL_SetColorKey(image, SDL_RLEACCEL, image->format->colorkey);
    *}
-function IMG_LoadTyped_RW(src: PSDL_RWops; freesrc: SInt32; _type: PAnsiChar): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadTyped_RW' {$ENDIF} {$ENDIF};
+function IMG_LoadTyped_RW(src: PSDL_RWops; freesrc: cint32; _type: PAnsiChar): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadTyped_RW' {$ENDIF} {$ENDIF};
   {* Convenience functions *}
 function IMG_Load(_file: PAnsiChar): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_Load' {$ENDIF} {$ENDIF};
-function IMG_Load_RW(src: PSDL_RWops; freesrc: SInt32): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_Load_RW' {$ENDIF} {$ENDIF};
+function IMG_Load_RW(src: PSDL_RWops; freesrc: cint32): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_Load_RW' {$ENDIF} {$ENDIF};
 
   {* Load an image directly into a render texture. *}
 function IMG_LoadTexture(renderer: PSDL_Renderer; _file: PAnsiChar): PSDL_Texture cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadTexture' {$ENDIF} {$ENDIF};
-function IMG_LoadTexture_RW(renderer: PSDL_Renderer; src: PSDL_RWops; freesrc: SInt32): PSDL_Texture cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadTexture_RW' {$ENDIF} {$ENDIF};
-function IMG_LoadTextureTyped_RW(renderer: PSDL_Renderer; src: PSDL_RWops; freesrc: SInt32; _type: PAnsiChar): PSDL_Texture cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadTextureTyped_RW' {$ENDIF} {$ENDIF};
+function IMG_LoadTexture_RW(renderer: PSDL_Renderer; src: PSDL_RWops; freesrc: cint32): PSDL_Texture cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadTexture_RW' {$ENDIF} {$ENDIF};
+function IMG_LoadTextureTyped_RW(renderer: PSDL_Renderer; src: PSDL_RWops; freesrc: cint32; _type: PAnsiChar): PSDL_Texture cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadTextureTyped_RW' {$ENDIF} {$ENDIF};
 
   {* Functions to detect a file type, given a seekable source *}
-function IMG_isICO(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isICO' {$ENDIF} {$ENDIF};
-function IMG_isCUR(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isCUR' {$ENDIF} {$ENDIF};
-function IMG_isBMP(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isBMP' {$ENDIF} {$ENDIF};
-function IMG_isGIF(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isGIF' {$ENDIF} {$ENDIF};
-function IMG_isJPG(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isJPG' {$ENDIF} {$ENDIF};
-function IMG_isLBM(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isLBM' {$ENDIF} {$ENDIF};
-function IMG_isPCX(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isPCX' {$ENDIF} {$ENDIF};
-function IMG_isPNG(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isPNG' {$ENDIF} {$ENDIF};
-function IMG_isPNM(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isPNM' {$ENDIF} {$ENDIF};
-function IMG_isTIF(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isTIF' {$ENDIF} {$ENDIF};
-function IMG_isXCF(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '-IMG_isXCF' {$ENDIF} {$ENDIF};
-function IMG_isXPM(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isXPM' {$ENDIF} {$ENDIF};
-function IMG_isXV(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isXV' {$ENDIF} {$ENDIF};
-function IMG_isWEBP(src: PSDL_RWops): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isWEBP' {$ENDIF} {$ENDIF};
+function IMG_isICO(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isICO' {$ENDIF} {$ENDIF};
+function IMG_isCUR(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isCUR' {$ENDIF} {$ENDIF};
+function IMG_isBMP(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isBMP' {$ENDIF} {$ENDIF};
+function IMG_isGIF(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isGIF' {$ENDIF} {$ENDIF};
+function IMG_isJPG(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isJPG' {$ENDIF} {$ENDIF};
+function IMG_isLBM(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isLBM' {$ENDIF} {$ENDIF};
+function IMG_isPCX(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isPCX' {$ENDIF} {$ENDIF};
+function IMG_isPNG(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isPNG' {$ENDIF} {$ENDIF};
+function IMG_isPNM(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isPNM' {$ENDIF} {$ENDIF};
+function IMG_isSVG(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isSVG' {$ENDIF} {$ENDIF};
+function IMG_isTIF(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isTIF' {$ENDIF} {$ENDIF};
+function IMG_isXCF(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '-IMG_isXCF' {$ENDIF} {$ENDIF};
+function IMG_isXPM(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isXPM' {$ENDIF} {$ENDIF};
+function IMG_isXV(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isXV' {$ENDIF} {$ENDIF};
+function IMG_isWEBP(src: PSDL_RWops): cint32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_isWEBP' {$ENDIF} {$ENDIF};
 
   {* Individual loading functions *}
 function IMG_LoadICO_RW(src: PSDL_RWops): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadICO_RW' {$ENDIF} {$ENDIF};
@@ -149,6 +148,7 @@ function IMG_LoadLBM_RW(src: PSDL_RWops): PSDL_Surface cdecl; external IMG_LibNa
 function IMG_LoadPCX_RW(src: PSDL_RWops): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadPCX_RW' {$ENDIF} {$ENDIF};
 function IMG_LoadPNG_RW(src: PSDL_RWops): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadPNG_RW' {$ENDIF} {$ENDIF};
 function IMG_LoadPNM_RW(src: PSDL_RWops): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadPNM_RW' {$ENDIF} {$ENDIF};
+function IMG_LoadSVG_RW(src: PSDL_RWops): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadSVG_RW' {$ENDIF} {$ENDIF};
 function IMG_LoadTGA_RW(src: PSDL_RWops): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadTGA_RW' {$ENDIF} {$ENDIF};
 function IMG_LoadTIF_RW(src: PSDL_RWops): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadTIF_RW' {$ENDIF} {$ENDIF};
 function IMG_LoadXCF_RW(src: PSDL_RWops): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_LoadXCF_RW' {$ENDIF} {$ENDIF};
@@ -159,12 +159,22 @@ function IMG_LoadWEBP_RW(src: PSDL_RWops): PSDL_Surface cdecl; external IMG_LibN
 function IMG_ReadXPMFromArray(xpm: PPChar): PSDL_Surface cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_ReadXPMFromArray' {$ENDIF} {$ENDIF};
 
   {* Individual saving functions *}
-function IMG_SavePNG(surface: PSDL_Surface; const _file: PAnsiChar): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_SavePNG' {$ENDIF} {$ENDIF};
-function IMG_SavePNG_RW(surface: PSDL_Surface; dst: PSDL_RWops; freedst: SInt32): SInt32 cdecl; external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_SavePNG_RW' {$ENDIF} {$ENDIF};
+function IMG_SavePNG(surface: PSDL_Surface; const _file: PAnsiChar): cint32 cdecl;
+  external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_SavePNG' {$ENDIF} {$ENDIF};
+function IMG_SavePNG_RW(surface: PSDL_Surface; dst: PSDL_RWops; freedst: cint32): cint32 cdecl;
+  external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_SavePNG_RW' {$ENDIF} {$ENDIF};
+function IMG_SaveJPG(surface: PSDL_Surface; const _file: PAnsiChar; quality: cint32): cint32 cdecl;
+  external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_SaveJPG' {$ENDIF} {$ENDIF};
+function IMG_SaveJPG_RW(surface: PSDL_Surface; dst: PSDL_RWops; freedst: cint32; quality: cint32): cint32 cdecl;
+  external IMG_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_IMG_SaveJPG_RW' {$ENDIF} {$ENDIF};
 
 {* We'll use SDL for reporting errors *}
-function IMG_SetError(fmt: PAnsiChar): SInt32; cdecl;
+function IMG_SetError(fmt: PAnsiChar; args: array of const): cint; cdecl;
+  external SDL_LibName
+  name {$IF DEFINED(DELPHI) AND DEFINED(MACOS)} '_SDL_SetError' {$ELSE} 'SDL_SetError' {$ENDIF};
 function IMG_GetError: PAnsiChar; cdecl;
+  external SDL_LibName
+  name {$IF DEFINED(DELPHI) AND DEFINED(MACOS)} '_SDL_GetError' {$ELSE} 'SDL_GetError' {$ENDIF};
 
 implementation
 
@@ -173,16 +183,6 @@ begin
   X.major := SDL_IMAGE_MAJOR_VERSION;
   X.minor := SDL_IMAGE_MINOR_VERSION;
   X.patch := SDL_IMAGE_PATCHLEVEL;
-end;
-
-function IMG_SetError(fmt: PAnsiChar): SInt32; cdecl;
-begin
-  Result := SDL_SetError(fmt);
-end;
-
-function IMG_GetError: PAnsiChar; cdecl;
-begin
-  Result := SDL_GetError();
 end;
 
 end.

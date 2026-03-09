@@ -68,7 +68,7 @@ uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
 type
  TSDLController=record
   joystick:PSDL_Joystick;
-  controller:TSDL_GameController;
+  controller:PSDL_GameController;
  end;
 var
  terminated:boolean;
@@ -273,7 +273,7 @@ procedure TSDLPlatform.FreeCursor(cur:THandle);
 function TSDLGLWindow.GetHandle:THandle;
  begin
   if wnd=nil then exit(0);
-  result:=wnd.id;
+  result:=THandle(SDL_GetWindowID(wnd));
  end;
 
 procedure TSDLGLWindow.GetSize(out width,height:integer);
@@ -284,13 +284,14 @@ procedure TSDLGLWindow.GetSize(out width,height:integer);
    SDL_GetWindowSize(wnd,@width,@height);
  end;
 
-procedure MyLogHandler(userdata: Pointer; category: Integer; priority: TSDL_LogPriority; const msg: PAnsiChar);
+procedure MyLogHandler(userdata: Pointer; category: TSDL_LogCategory; priority: TSDL_LogPriority; const msg: PAnsiChar); cdecl;
  begin
   if priority>=SDL_LOG_PRIORITY_ERROR then
    Log.Force('SDL: '+msg)
   else
    Log.Msg('SDL: '+msg);
-  if @savedLogHandler<>nil then savedLogHandler(userData,category,priority,msg);
+  if Assigned(savedLogHandler) then
+   savedLogHandler(userData,category,priority,msg);
  end;
 
 constructor TSDLPlatform.Create;

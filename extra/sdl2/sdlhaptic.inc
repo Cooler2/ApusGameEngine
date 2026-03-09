@@ -80,13 +80,6 @@
  *    SDL_HapticClose(haptic);
  *
  *    return 0; // Success
- *
- *
- *
- * You can also find out more information on my blog:
- * http://bobbens.dyndns.org/journal/2010/sdl_haptic/
- *
- *  Edgar Simo Serra
  *}
 
   {**
@@ -99,8 +92,8 @@
    *   SDL_HapticClose
    *}
 type
-  PSDL_Haptic = ^TSDL_Haptic;
-  TSDL_Haptic = record end;
+  PPSDL_Haptic = ^PSDL_Haptic;
+  PSDL_Haptic = type Pointer;
 
   {**
    *   Haptic features
@@ -140,7 +133,13 @@ const
    *   SDL_HapticPeriodic
    *}
 const
-  SDL_HAPTIC_SQUARE   = (1 shl 2);
+  SDL_HAPTIC_LEFTRIGHT   = (1 shl 2);
+
+  { !!! FIXME: put this back when we have more bits in 2.1 }
+  { #define SDL_HAPTIC_SQUARE     (1<<2) }
+  SDL_HAPTIC_SQUARE   = (1 shl 2); // SDL2-For-Pascal: Out-commented in C code.
+                                   //                  Why not keeping it for
+                                   //                  compatibility here?
 
   {**
    *   Triangle wave effect supported.
@@ -305,9 +304,14 @@ const
 const
   SDL_HAPTIC_SPHERICAL = 2;
 
-  {*Direction encodings*}
-
-  {*Haptic features*}
+  {**
+   *  \brief Use this value to play an effect on the steering wheel axis. This
+   *  provides better compatibility across platforms and devices as SDL will guess
+   *  the correct axis.
+   *  \sa SDL_HapticDirection
+   *}
+const
+  SDL_HAPTIC_STEERING_AXIS = 3;
 
   {*
    * Misc defines.
@@ -319,8 +323,7 @@ const
    *  SDL_HapticRunEffect
    *}
 const
-  //SDL_HAPTIC_INFINITY = 4294967295U;
-  SDL_HAPTIC_INFINITY = 4294967295; //right?!
+  SDL_HAPTIC_INFINITY = 4294967295; //  C: 4294967295U
 
   {**
    *   Structure that represents a haptic direction.
@@ -415,9 +418,11 @@ const
    *   SDL_HapticNumAxes
    *}
 type
+  PPSDL_HapticDirection = ^PSDL_HapticDirection;
+  PSDL_HapticDirection = ^TSDL_HapticDirection;
   TSDL_HapticDirection = record
-    _type: UInt8;               {**< The type of encoding. *}
-    dir: array[0..2] of SInt32; {**< The encoded direction. *}
+    type_: cuint8;               {**< The type of encoding. *}
+    dir: array[0..2] of cint32;  {**< The encoded direction. *}
   end;
 
   {**
@@ -432,27 +437,29 @@ type
    *   SDL_HapticEffect
    *}
 type
+  PPSDL_HapticConstant = ^PSDL_HapticConstant;
+  PSDL_HapticConstant = ^TSDL_HapticConstant;
   TSDL_HapticConstant = record
     {* Header *}
-    _type: UInt16;                   {**< SDL_HAPTIC_CONSTANT *}
-    direction: TSDL_HapticDirection; {**< Direction of the effect. *}
+    type_: cuint16;                   {**< SDL_HAPTIC_CONSTANT *}
+    direction: TSDL_HapticDirection;  {**< Direction of the effect. *}
 
     {* Replay *}
-    length: UInt32;          {**< Duration of the effect. *}
-    delay: UInt16;           {**< Delay before starting the effect. *}
+    length: cuint32;          {**< Duration of the effect. *}
+    delay: cuint16;           {**< Delay before starting the effect. *}
 
     {* Trigger *}
-    button: UInt16;          {**< Button that triggers the effect. *}
-    interval: UInt16;        {**< How soon it can be triggered again after button. *}
+    button: cuint16;          {**< Button that triggers the effect. *}
+    interval: cuint16;        {**< How soon it can be triggered again after button. *}
 
     {* Constant *}
-    level: SInt16;           {**< Strength of the constant effect. *}
+    level: cint16;            {**< Strength of the constant effect. *}
 
     {* Envelope *}
-    attack_length: UInt16;   {**< Duration of the attack. *}
-    attack_level: UInt16;    {**< Level at the start of the attack. *}
-    fade_length: UInt16;     {**< Duration of the fade. *}
-    fade_level: UInt16;      {**< Level at the end of the fade. *}
+    attack_length: cuint16;   {**< Duration of the attack. *}
+    attack_level: cuint16;    {**< Level at the start of the attack. *}
+    fade_length: cuint16;     {**< Duration of the fade. *}
+    fade_level: cuint16;      {**< Level at the end of the fade. *}
   end;
 
   {**
@@ -513,32 +520,34 @@ type
    *   SDL_HapticEffect
    *}
 type
+  PPSDL_HapticPeriodic = ^PSDL_HapticPeriodic;
+  PSDL_HapticPeriodic = ^TSDL_HapticPeriodic;
   TSDL_HapticPeriodic = record
     { Header *}
-    _type: UInt16;        {**< SDL_HAPTIC_SINE, SDL_HAPTIC_SQUARE,
+    type_: cuint16;            {**< SDL_HAPTIC_SINE, SDL_HAPTIC_SQUARE,
                                SDL_HAPTIC_TRIANGLE, SDL_HAPTIC_SAWTOOTHUP or
                                SDL_HAPTIC_SAWTOOTHDOWN *}
     direction: TSDL_HapticDirection;  {**< Direction of the effect. *}
 
     {* Replay *}
-    length: UInt32;          {**< Duration of the effect. *}
-    delay: UInt16;           {**< Delay before starting the effect. *}
+    length: cuint32;          {**< Duration of the effect. *}
+    delay: cuint16;           {**< Delay before starting the effect. *}
 
     {* Trigger *}
-    button: UInt16;          {**< Button that triggers the effect. *}
-    interval: UInt16;        {**< How soon it can be triggered again after button. *}
+    button: cuint16;          {**< Button that triggers the effect. *}
+    interval: cuint16;        {**< How soon it can be triggered again after button. *}
 
     {* Periodic *}
-    period: UInt16;          {**< Period of the wave. *}
-    magnitude: SInt16;       {**< Peak value. *}
-    offset: SInt16;          {**< Mean value of the wave. *}
-    phase: UInt16;           {**< Horizontal shift given by hundredth of a cycle. *}
+    period: cuint16;          {**< Period of the wave. *}
+    magnitude: cint16;        {**< Peak value. *}
+    offset: cint16;           {**< Mean value of the wave. *}
+    phase: cuint16;           {**< Horizontal shift given by hundredth of a cycle. *}
 
     {* Envelope *}
-    attack_length: UInt16;   {**< Duration of the attack. *}
-    attack_level: UInt16;    {**< Level at the start of the attack. *}
-    fade_length: UInt16;     {**< Duration of the fade. *}
-    fade_level: UInt16;      {**< Level at the end of the fade. *}
+    attack_length: cuint16;   {**< Duration of the attack. *}
+    attack_level: cuint16;    {**< Level at the start of the attack. *}
+    fade_length: cuint16;     {**< Duration of the fade. *}
+    fade_level: cuint16;      {**< Level at the end of the fade. *}
   end;
 
   {**
@@ -566,27 +575,29 @@ type
    *   SDL_HapticEffect
    *}
 type
+  PPSDL_HapticCondition = ^PSDL_HapticCondition;
+  PSDL_HapticCondition = ^TSDL_HapticCondition;
   TSDL_HapticCondition = record
     {* Header *}
-    _type: UInt16;                    {**< SDL_HAPTIC_SPRING, SDL_HAPTIC_DAMPER,
+    type_: cuint16;                    {**< SDL_HAPTIC_SPRING, SDL_HAPTIC_DAMPER,
                                            SDL_HAPTIC_INERTIA or SDL_HAPTIC_FRICTION *}
-    direction: TSDL_HapticDirection;  {**< Direction of the effect - Not used ATM. *}
+    direction: TSDL_HapticDirection;   {**< Direction of the effect - Not used ATM. *}
 
     {* Replay *}
-    length: UInt32;                   {**< Duration of the effect. *}
-    delay: UInt16;                    {**< Delay before starting the effect. *}
+    length: cuint32;                   {**< Duration of the effect. *}
+    delay: cuint16;                    {**< Delay before starting the effect. *}
 
     {* Trigger *}
-    button: UInt16;                   {**< Button that triggers the effect. *}
-    interval: UInt16;                 {**< How soon it can be triggered again after button. *}
+    button: cuint16;                   {**< Button that triggers the effect. *}
+    interval: cuint16;                 {**< How soon it can be triggered again after button. *}
 
     {* Condition *}
-    right_sat: array[0..2] of UInt16; {**< Level when joystick is to the positive side. *}
-    left_sat: array[0..2] of UInt16;  {**< Level when joystick is to the negative side. *}
-    right_coeff: array[0..2] of SInt16;  {**< How fast to increase the force towards the positive side. *}
-    left_coeff: array[0..2] of SInt16;   {**< How fast to increase the force towards the negative side. *}
-    deadband: array[0..2] of UInt16;     {**< Size of the dead zone. *}
-    center: array[0..2] of SInt16;       {**< Position of the dead zone. *}
+    right_sat: array[0..2] of cuint16; {**< Level when joystick is to the positive side. *}
+    left_sat: array[0..2] of cuint16;  {**< Level when joystick is to the negative side. *}
+    right_coeff: array[0..2] of cint16;{**< How fast to increase the force towards the positive side. *}
+    left_coeff: array[0..2] of cint16; {**< How fast to increase the force towards the negative side. *}
+    deadband: array[0..2] of cuint16;  {**< Size of the dead zone. *}
+    center: array[0..2] of cint16;     {**< Position of the dead zone. *}
   end;
 
   {**
@@ -603,28 +614,55 @@ type
    *   SDL_HapticEffect
    *}
 type
+  PPSDL_HapticRamp = ^PSDL_HapticRamp;
+  PSDL_HapticRamp = ^TSDL_HapticRamp;
   TSDL_HapticRamp = record
     {* Header *}
-    _type: UInt16;                    {**< SDL_HAPTIC_RAMP *}
-    direction: TSDL_HapticDirection;  {**< Direction of the effect. *}
+    type_: cuint16;                    {**< SDL_HAPTIC_RAMP *}
+    direction: TSDL_HapticDirection;   {**< Direction of the effect. *}
 
     {* Replay *}
-    length: UInt32;                   {**< Duration of the effect. *}
-    delay: UInt16;                    {**< Delay before starting the effect. *}
+    length: cuint32;                   {**< Duration of the effect. *}
+    delay: cuint16;                    {**< Delay before starting the effect. *}
 
     {* Trigger *}
-    button: UInt16;                   {**< Button that triggers the effect. *}
-    interval: UInt16;                 {**< How soon it can be triggered again after button. *}
+    button: cuint16;                   {**< Button that triggers the effect. *}
+    interval: cuint16;                 {**< How soon it can be triggered again after button. *}
 
     {* Ramp *}
-    start: SInt16;                    {**< Beginning strength level. *}
-    _end: SInt16;                     {**< Ending strength level. *}
+    start: cint16;                     {**< Beginning strength level. *}
+    end_: cint16;                      {**< Ending strength level. *}
 
     {* Envelope *}
-    attack_length: UInt16;            {**< Duration of the attack. *}
-    attack_level: UInt16;             {**< Level at the start of the attack. *}
-    fade_length: UInt16;              {**< Duration of the fade. *}
-    fade_level: UInt16;               {**< Level at the end of the fade. *}
+    attack_length: cuint16;            {**< Duration of the attack. *}
+    attack_level: cuint16;             {**< Level at the start of the attack. *}
+    fade_length: cuint16;              {**< Duration of the fade. *}
+    fade_level: cuint16;               {**< Level at the end of the fade. *}
+  end;
+
+  {**
+   * \brief A structure containing a template for a Left/Right effect.
+   *
+   * This struct is exclusively for the ::SDL_HAPTIC_LEFTRIGHT effect.
+   *
+   * The Left/Right effect is used to explicitly control the large and small
+   * motors, commonly found in modern game controllers. The small (right) motor
+   * is high frequency, and the large (left) motor is low frequency.
+   *
+   * \sa SDL_HAPTIC_LEFTRIGHT
+   * \sa SDL_HapticEffect
+   *}
+type
+  TSDL_HapticLeftRight = record
+    {* Header *}
+    type_: cuint16;              {**< ::SDL_HAPTIC_LEFTRIGHT *}
+
+    {* Replay *}
+    length: cuint32;             {**< Duration of the effect in milliseconds. *}
+
+    {* Rumble *}
+    large_magnitude: cuint16;    {**< Control of the large controller motor. *}
+    small_magnitude: cuint16;    {**< Control of the small controller motor. *}
   end;
 
   {**
@@ -641,30 +679,32 @@ type
    *   SDL_HapticEffect
    *}
 type
+  PPSDL_HapticCustom = ^PSDL_HapticCustom;
+  PSDL_HapticCustom = ^TSDL_HapticCustom;
   TSDL_HapticCustom = record
     {* Header *}
-    _type: UInt16;                    {**< SDL_HAPTIC_CUSTOM *}
-    direction: TSDL_HapticDirection;  {**< Direction of the effect. *}
+    type_: cuint16;                    {**< SDL_HAPTIC_CUSTOM *}
+    direction: TSDL_HapticDirection;   {**< Direction of the effect. *}
 
     {* Replay *}
-    length: UInt32;                   {**< Duration of the effect. *}
-    delay: UInt16;                    {**< Delay before starting the effect. *}
+    length: cuint32;                   {**< Duration of the effect. *}
+    delay: cuint16;                    {**< Delay before starting the effect. *}
 
     {* Trigger *}
-    button: UInt16;                   {**< Button that triggers the effect. *}
-    interval: UInt16;                 {**< How soon it can be triggered again after button. *}
+    button: cuint16;                   {**< Button that triggers the effect. *}
+    interval: cuint16;                 {**< How soon it can be triggered again after button. *}
 
     {* Custom *}
-    channels: UInt8;                  {**< Axes to use, minimum of one. *}
-    period: UInt16;                   {**< Sample periods. *}
-    samples: UInt16;                  {**< Amount of samples. *}
-    data: PUInt16;                    {**< Should contain channels*samples items. *}
+    channels: cuint8;                  {**< Axes to use, minimum of one. *}
+    period: cuint16;                   {**< Sample periods. *}
+    samples: cuint16;                  {**< Amount of samples. *}
+    data: pcuint16;                    {**< Should contain channels*samples items. *}
 
     {* Envelope *}
-    attack_length: UInt16;            {**< Duration of the attack. *}
-    attack_level: UInt16;             {**< Level at the start of the attack. *}
-    fade_length: UInt16;              {**< Duration of the fade. *}
-    fade_level: UInt16;               {**< Level at the end of the fade. *}
+    attack_length: cuint16;            {**< Duration of the attack. *}
+    attack_level: cuint16;             {**< Level at the start of the attack. *}
+    fade_length: cuint16;              {**< Duration of the fade. *}
+    fade_level: cuint16;               {**< Level at the end of the fade. *}
   end;
 
   {**
@@ -736,420 +776,545 @@ type
    *   SDL_HapticCustom
    *}
 type
+  PPSDL_HapticEffect = ^PSDL_HapticEffect;
   PSDL_HapticEffect = ^TSDL_HapticEffect;
   TSDL_HapticEffect = record
-    {* Common for all force feedback effects *}
-    _type: UInt16;                  {**< Effect type. *}
-    case UInt16 of
-      0: (constant: TSDL_HapticConstant;);    {**< Constant effect. *}
-      1: (periodic: TSDL_HapticPeriodic;);    {**< Periodic effect. *}
-      2: (condition: TSDL_HapticCondition;);  {**< Condition effect. *}
-      3: (ramp: TSDL_HapticRamp;);            {**< Ramp effect. *}
-      4: (custom: TSDL_HapticCustom;);        {**< Custom effect. *}
+    case cint of
+      {* Common for all force feedback effects *}
+      0: (type_: cuint16);                    {**< Effect type. *}
+      1: (constant: TSDL_HapticConstant;);    {**< Constant effect. *}
+      2: (periodic: TSDL_HapticPeriodic;);    {**< Periodic effect. *}
+      3: (condition: TSDL_HapticCondition;);  {**< Condition effect. *}
+      4: (ramp: TSDL_HapticRamp;);            {**< Ramp effect. *}
+      5: (leftright: TSDL_HapticLeftRight;);  {**< Custom effect. *}
+      6: (custom: TSDL_HapticCustom;);        {**< Custom effect. *}
   end;
 
   {* Function prototypes *}
 
   {**
-   *   Count the number of haptic devices attached to the system.
-   *
-   *   Number of haptic devices detected on the system.
-   *}
-function SDL_NumHaptics: Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_NumHaptics' {$ENDIF} {$ENDIF};
+ * Count the number of haptic devices attached to the system.
+ *
+ * \returns the number of haptic devices detected on the system or a negative
+ *          error code on failure; call SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticName
+ *}
+function SDL_NumHaptics: cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_NumHaptics' {$ENDIF} {$ENDIF};
 
   {**
-   *   Get the implementation dependent name of a Haptic device.
-   *
-   *  This can be called before any joysticks are opened.
-   *  If no name can be found, this function returns NULL.
-   *
-   *   device_index Index of the device to get its name.
-   *   Name of the device or NULL on error.
-   *
-   *   SDL_NumHaptics
-   *}
-function SDL_HapticName(device_index: Integer): PAnsiChar cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticName' {$ENDIF} {$ENDIF};
+ * Get the implementation dependent name of a haptic device.
+ *
+ * This can be called before any joysticks are opened. If no name can be
+ * found, this function returns NULL.
+ *
+ * \param device_index index of the device to query.
+ * \returns the name of the device or NULL on failure; call SDL_GetError() for
+ *          more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_NumHaptics
+ *}
+function SDL_HapticName(device_index: cint): PAnsiChar; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticName' {$ENDIF} {$ENDIF};
 
   {**
-   *   Opens a Haptic device for usage.
-   *
-   *  The index passed as an argument refers to the N'th Haptic device on this
-   *  system.
-   *
-   *  When opening a haptic device, its gain will be set to maximum and
-   *  autocenter will be disabled.  To modify these values use
-   *  SDL_HapticSetGain() and SDL_HapticSetAutocenter().
-   *
-   *   device_index Index of the device to open.
-   *   Device identifier or NULL on error.
-   *
-   *   SDL_HapticIndex
-   *   SDL_HapticOpenFromMouse
-   *   SDL_HapticOpenFromJoystick
-   *   SDL_HapticClose
-   *   SDL_HapticSetGain
-   *   SDL_HapticSetAutocenter
-   *   SDL_HapticPause
-   *   SDL_HapticStopAll
-   *}
-function SDL_HapticOpen(device_index: Integer): PSDL_Haptic cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticOpen' {$ENDIF} {$ENDIF};
+ * Open a haptic device for use.
+ *
+ * The index passed as an argument refers to the N'th haptic device on this
+ * system.
+ *
+ * When opening a haptic device, its gain will be set to maximum and
+ * autocenter will be disabled. To modify these values use SDL_HapticSetGain()
+ * and SDL_HapticSetAutocenter().
+ *
+ * \param device_index index of the device to open
+ * \returns the device identifier or NULL on failure; call SDL_GetError() for
+ *          more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticClose
+ * \sa SDL_HapticIndex
+ * \sa SDL_HapticOpenFromJoystick
+ * \sa SDL_HapticOpenFromMouse
+ * \sa SDL_HapticPause
+ * \sa SDL_HapticSetAutocenter
+ * \sa SDL_HapticSetGain
+ * \sa SDL_HapticStopAll
+ *}
+function SDL_HapticOpen(device_index: cint): PSDL_Haptic; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticOpen' {$ENDIF} {$ENDIF};
 
   {**
-   *   Checks if the haptic device at index has been opened.
-   *
-   *   device_index Index to check to see if it has been opened.
-   *   1 if it has been opened or 0 if it hasn't.
-   *
-   *   SDL_HapticOpen
-   *   SDL_HapticIndex
-   *}
-function SDL_HapticOpened(device_index: Integer): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticOpened' {$ENDIF} {$ENDIF};
+ * Check if the haptic device at the designated index has been opened.
+ *
+ * \param device_index the index of the device to query
+ * \returns 1 if it has been opened, 0 if it hasn't or on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticIndex
+ * \sa SDL_HapticOpen
+ *}
+function SDL_HapticOpened(device_index: cint): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticOpened' {$ENDIF} {$ENDIF};
 
   {**
-   *   Gets the index of a haptic device.
-   *
-   *   haptic Haptic device to get the index of.
-   *   The index of the haptic device or -1 on error.
-   *
-   *   SDL_HapticOpen
-   *   SDL_HapticOpened
-   *}
-function SDL_HapticIndex(haptic: PSDL_Haptic): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticIndex' {$ENDIF} {$ENDIF};
+ * Get the index of a haptic device.
+ *
+ * \param haptic the SDL_Haptic device to query
+ * \returns the index of the specified haptic device or a negative error code
+ *          on failure; call SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticOpen
+ * \sa SDL_HapticOpened
+ *}
+function SDL_HapticIndex(haptic: PSDL_Haptic): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticIndex' {$ENDIF} {$ENDIF};
 
   {**
-   *   Gets whether or not the current mouse has haptic capabilities.
-   *
-   *   SDL_TRUE if the mouse is haptic, SDL_FALSE if it isn't.
-   *
-   *   SDL_HapticOpenFromMouse
-   *}
-function SDL_MouseIsHaptic: Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_MouseInHaptic' {$ENDIF} {$ENDIF};
+ * Query whether or not the current mouse has haptic capabilities.
+ *
+ * \returns SDL_TRUE if the mouse is haptic or SDL_FALSE if it isn't.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticOpenFromMouse
+ *}
+function SDL_MouseIsHaptic: cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_MouseInHaptic' {$ENDIF} {$ENDIF};
 
   {**
-   *   Tries to open a haptic device from the current mouse.
-   *
-   *   The haptic device identifier or NULL on error.
-   *
-   *   SDL_MouseIsHaptic
-   *   SDL_HapticOpen
-   *}
-function SDL_HapticOpenFromMouse: PSDL_Haptic cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticOpenFromMouse' {$ENDIF} {$ENDIF};
+ * Try to open a haptic device from the current mouse.
+ *
+ * \returns the haptic device identifier or NULL on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticOpen
+ * \sa SDL_MouseIsHaptic
+ *}
+function SDL_HapticOpenFromMouse: PSDL_Haptic; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticOpenFromMouse' {$ENDIF} {$ENDIF};
 
   {**
-   *   Checks to see if a joystick has haptic features.
-   *
-   *   joystick Joystick to test for haptic capabilities.
-   *   1 if the joystick is haptic, 0 if it isn't
-   *   or -1 if an error ocurred.
-   *
-   *   SDL_HapticOpenFromJoystick
-   *}
-function SDL_JoystickIsHaptic(joystick: PSDL_Joystick): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_JoystickIsHaptic' {$ENDIF} {$ENDIF};
+ * Query if a joystick has haptic features.
+ *
+ * \param joystick the SDL_Joystick to test for haptic capabilities
+ * \returns SDL_TRUE if the joystick is haptic, SDL_FALSE if it isn't, or a
+ *          negative error code on failure; call SDL_GetError() for more
+ *          information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticOpenFromJoystick
+ *}
+function SDL_JoystickIsHaptic(joystick: PSDL_Joystick): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_JoystickIsHaptic' {$ENDIF} {$ENDIF};
 
   {**
-   *   Opens a Haptic device for usage from a Joystick device.
-   *
-   *  You must still close the haptic device seperately.  It will not be closed
-   *  with the joystick.
-   *
-   *  When opening from a joystick you should first close the haptic device before
-   *  closing the joystick device.  If not, on some implementations the haptic
-   *  device will also get unallocated and you'll be unable to use force feedback
-   *  on that device.
-   *
-   *   joystick Joystick to create a haptic device from.
-   *   A valid haptic device identifier on success or NULL on error.
-   *
-   *   SDL_HapticOpen
-   *   SDL_HapticClose
-   *}
-function SDL_HapticOpenFromJoystick(joystick: PSDL_Joystick): PSDL_Haptic cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticOpenFromJoystick' {$ENDIF} {$ENDIF};
+ * Open a haptic device for use from a joystick device.
+ *
+ * You must still close the haptic device separately. It will not be closed
+ * with the joystick.
+ *
+ * When opened from a joystick you should first close the haptic device before
+ * closing the joystick device. If not, on some implementations the haptic
+ * device will also get unallocated and you'll be unable to use force feedback
+ * on that device.
+ *
+ * \param joystick the SDL_Joystick to create a haptic device from
+ * \returns a valid haptic device identifier on success or NULL on failure;
+ *          call SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticClose
+ * \sa SDL_HapticOpen
+ * \sa SDL_JoystickIsHaptic
+ *}
+function SDL_HapticOpenFromJoystick(joystick: PSDL_Joystick): PSDL_Haptic; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticOpenFromJoystick' {$ENDIF} {$ENDIF};
 
   {**
-   *   Closes a Haptic device previously opened with SDL_HapticOpen().
-   *
-   *   haptic Haptic device to close.
-   *}
-procedure SDL_HapticClose(haptic: PSDL_Haptic) cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticClose' {$ENDIF} {$ENDIF};
+ * Close a haptic device previously opened with SDL_HapticOpen().
+ *
+ * \param haptic the SDL_Haptic device to close
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticOpen
+ *}
+procedure SDL_HapticClose(haptic: PSDL_Haptic); cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticClose' {$ENDIF} {$ENDIF};
 
   {**
-   *   Returns the number of effects a haptic device can store.
-   *
-   *  On some platforms this isn't fully supported, and therefore is an
-   *  approximation.  Always check to see if your created effect was actually
-   *  created and do not rely solely on SDL_HapticNumEffects().
-   *
-   *   haptic The haptic device to query effect max.
-   *   The number of effects the haptic device can store or
-   *   -1 on error.
-   *
-   *   SDL_HapticNumEffectsPlaying
-   *   SDL_HapticQuery
-   *}
-function SDL_HapticNumEffects(haptic: PSDL_Haptic): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticNumEffects' {$ENDIF} {$ENDIF};
+ * Get the number of effects a haptic device can store.
+ *
+ * On some platforms this isn't fully supported, and therefore is an
+ * approximation. Always check to see if your created effect was actually
+ * created and do not rely solely on SDL_HapticNumEffects().
+ *
+ * \param haptic the SDL_Haptic device to query
+ * \returns the number of effects the haptic device can store or a negative
+ *          error code on failure; call SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticNumEffectsPlaying
+ * \sa SDL_HapticQuery
+ *}
+function SDL_HapticNumEffects(haptic: PSDL_Haptic): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticNumEffects' {$ENDIF} {$ENDIF};
 
   {**
-   *   Returns the number of effects a haptic device can play at the same
-   *   time.
-   *
-   *  This is not supported on all platforms, but will always return a value.
-   *  Added here for the sake of completeness.
-   *
-   *   haptic The haptic device to query maximum playing effects.
-   *   The number of effects the haptic device can play at the same time
-   *   or -1 on error.
-   *
-   *   SDL_HapticNumEffects
-   *   SDL_HapticQuery
-   *}
-function SDL_HapticNumEffectsPlaying(haptic: PSDL_Haptic): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticNumEffectsPlaying' {$ENDIF} {$ENDIF};
+ * Get the number of effects a haptic device can play at the same time.
+ *
+ * This is not supported on all platforms, but will always return a value.
+ *
+ * \param haptic the SDL_Haptic device to query maximum playing effects
+ * \returns the number of effects the haptic device can play at the same time
+ *          or a negative error code on failure; call SDL_GetError() for more
+ *          information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticNumEffects
+ * \sa SDL_HapticQuery
+ *}
+function SDL_HapticNumEffectsPlaying(haptic: PSDL_Haptic): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticNumEffectsPlaying' {$ENDIF} {$ENDIF};
 
   {**
-   *   Gets the haptic devices supported features in bitwise matter.
-   *
-   *  Example:
-   *
-   *  if (SDL_HapticQueryEffects(haptic) & SDL_HAPTIC_CONSTANT)
-   *      printf("We have constant haptic effect!");
-   *
-   *
-   *
-   *   haptic The haptic device to query.
-   *   Haptic features in bitwise manner (OR'd).
-   *
-   *   SDL_HapticNumEffects
-   *   SDL_HapticEffectSupported
-   *}
-function SDL_HapticQuery(haptic: PSDL_Haptic): UInt32 cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticQuery' {$ENDIF} {$ENDIF};
+ * Get the haptic device's supported features in bitwise manner.
+ *
+ * \param haptic the SDL_Haptic device to query
+ * \returns a list of supported haptic features in bitwise manner (OR'd), or 0
+ *          on failure; call SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticEffectSupported
+ * \sa SDL_HapticNumEffects
+ *}
+function SDL_HapticQuery(haptic: PSDL_Haptic): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticQuery' {$ENDIF} {$ENDIF};
 
   {**
-   *   Gets the number of haptic axes the device has.
-   *
-   *   SDL_HapticDirection
-   *}
-function SDL_HapticNumAxes(haptic: PSDL_Haptic): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticNumAxes' {$ENDIF} {$ENDIF};
+ * Get the number of haptic axes the device has.
+ *
+ * The number of haptic axes might be useful if working with the
+ * SDL_HapticDirection effect.
+ *
+ * \param haptic the SDL_Haptic device to query
+ * \returns the number of axes on success or a negative error code on failure;
+ *          call SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *}
+function SDL_HapticNumAxes(haptic: PSDL_Haptic): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticNumAxes' {$ENDIF} {$ENDIF};
 
   {**
-   *   Checks to see if effect is supported by haptic.
-   *
-   *   haptic Haptic device to check on.
-   *   effect Effect to check to see if it is supported.
-   *   SDL_TRUE if effect is supported, SDL_FALSE if it isn't or -1 on error.
-   *
-   *   SDL_HapticQuery
-   *   SDL_HapticNewEffect
-   *}
-function SDL_HapticEffectSupported(haptic: PSDL_Haptic; effect: PSDL_HapticEffect): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticEffectSupported' {$ENDIF} {$ENDIF};
+ * Check to see if an effect is supported by a haptic device.
+ *
+ * \param haptic the SDL_Haptic device to query
+ * \param effect the desired effect to query
+ * \returns SDL_TRUE if effect is supported, SDL_FALSE if it isn't, or a
+ *          negative error code on failure; call SDL_GetError() for more
+ *          information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticNewEffect
+ * \sa SDL_HapticQuery
+ *}
+function SDL_HapticEffectSupported(haptic: PSDL_Haptic; effect: PSDL_HapticEffect): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticEffectSupported' {$ENDIF} {$ENDIF};
 
   {**
-   *   Creates a new haptic effect on the device.
-   *
-   *   haptic Haptic device to create the effect on.
-   *   effect Properties of the effect to create.
-   *   The id of the effect on success or -1 on error.
-   *
-   *   SDL_HapticUpdateEffect
-   *   SDL_HapticRunEffect
-   *   SDL_HapticDestroyEffect
-   *}
-function SDL_HapticNewEffect(haptic: PSDL_Haptic; effect: PSDL_HapticEffect): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticNewEffect' {$ENDIF} {$ENDIF};
+ * Create a new haptic effect on a specified device.
+ *
+ * \param haptic an SDL_Haptic device to create the effect on
+ * \param effect an SDL_HapticEffect structure containing the properties of
+ *               the effect to create
+ * \returns the ID of the effect on success or a negative error code on
+ *          failure; call SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticDestroyEffect
+ * \sa SDL_HapticRunEffect
+ * \sa SDL_HapticUpdateEffect
+ *}
+function SDL_HapticNewEffect(haptic: PSDL_Haptic; effect: PSDL_HapticEffect): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticNewEffect' {$ENDIF} {$ENDIF};
 
   {**
-   *   Updates the properties of an effect.
-   *
-   *  Can be used dynamically, although behaviour when dynamically changing
-   *  direction may be strange.  Specifically the effect may reupload itself
-   *  and start playing from the start.  You cannot change the type either when
-   *  running SDL_HapticUpdateEffect().
-   *
-   *   haptic Haptic device that has the effect.
-   *   effect Effect to update.
-   *   data New effect properties to use.
-   *   The id of the effect on success or -1 on error.
-   *
-   *   SDL_HapticNewEffect
-   *   SDL_HapticRunEffect
-   *   SDL_HapticDestroyEffect
-   *}
-function SDL_HapticUpdateEffect(haptic: PSDL_Haptic; effect: Integer; data: PSDL_HapticEffect): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticUpdateEffect' {$ENDIF} {$ENDIF};
+ * Update the properties of an effect.
+ *
+ * Can be used dynamically, although behavior when dynamically changing
+ * direction may be strange. Specifically the effect may re-upload itself and
+ * start playing from the start. You also cannot change the type either when
+ * running SDL_HapticUpdateEffect().
+ *
+ * \param haptic the SDL_Haptic device that has the effect
+ * \param effect the identifier of the effect to update
+ * \param data an SDL_HapticEffect structure containing the new effect
+ *             properties to use
+ * \returns 0 on success or a negative error code on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticDestroyEffect
+ * \sa SDL_HapticNewEffect
+ * \sa SDL_HapticRunEffect
+ *}
+function SDL_HapticUpdateEffect(haptic: PSDL_Haptic; effect: cint; data: PSDL_HapticEffect): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticUpdateEffect' {$ENDIF} {$ENDIF};
 
   {**
-   *   Runs the haptic effect on its associated haptic device.
-   *
-   *  If iterations are ::SDL_HAPTIC_INFINITY, it'll run the effect over and over
-   *  repeating the envelope (attack and fade) every time.  If you only want the
-   *  effect to last forever, set ::SDL_HAPTIC_INFINITY in the effect's length
-   *  parameter.
-   *
-   *   haptic Haptic device to run the effect on.
-   *   effect Identifier of the haptic effect to run.
-   *   iterations Number of iterations to run the effect. Use
-   *   SDL_HAPTIC_INFINITY for infinity.
-   *   0 on success or -1 on error.
-   *
-   *   SDL_HapticStopEffect
-   *   SDL_HapticDestroyEffect
-   *   SDL_HapticGetEffectStatus
-   *}
-function SDL_HapticRunEffect(haptic: PSDL_Haptic; effect: Integer; iterations: UInt32): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticRunEffect' {$ENDIF} {$ENDIF};
+ * Run the haptic effect on its associated haptic device.
+ *
+ * To repeat the effect over and over indefinitely, set `iterations` to
+ * `SDL_HAPTIC_INFINITY`. (Repeats the envelope - attack and fade.) To make
+ * one instance of the effect last indefinitely (so the effect does not fade),
+ * set the effect's `length` in its structure/union to `SDL_HAPTIC_INFINITY`
+ * instead.
+ *
+ * \param haptic the SDL_Haptic device to run the effect on
+ * \param effect the ID of the haptic effect to run
+ * \param iterations the number of iterations to run the effect; use
+ *                   `SDL_HAPTIC_INFINITY` to repeat forever
+ * \returns 0 on success or a negative error code on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticDestroyEffect
+ * \sa SDL_HapticGetEffectStatus
+ * \sa SDL_HapticStopEffect
+ *}
+function SDL_HapticRunEffect(haptic: PSDL_Haptic; effect: cint; iterations: cuint32): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticRunEffect' {$ENDIF} {$ENDIF};
 
   {**
-   *   Stops the haptic effect on its associated haptic device.
-   *
-   *   haptic Haptic device to stop the effect on.
-   *   effect Identifier of the effect to stop.
-   *   0 on success or -1 on error.
-   *
-   *   SDL_HapticRunEffect
-   *   SDL_HapticDestroyEffect
-   *}
-function SDL_HapticStopEffect(haptic: PSDL_Haptic; effect: Integer): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticStopEffect' {$ENDIF} {$ENDIF};
+ * Stop the haptic effect on its associated haptic device.
+ *
+ * *
+ *
+ * \param haptic the SDL_Haptic device to stop the effect on
+ * \param effect the ID of the haptic effect to stop
+ * \returns 0 on success or a negative error code on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticDestroyEffect
+ * \sa SDL_HapticRunEffect
+ *}
+function SDL_HapticStopEffect(haptic: PSDL_Haptic; effect: cint): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticStopEffect' {$ENDIF} {$ENDIF};
 
   {**
-   *   Destroys a haptic effect on the device.
-   *
-   *  This will stop the effect if it's running.  Effects are automatically
-   *  destroyed when the device is closed.
-   *
-   *   haptic Device to destroy the effect on.
-   *   effect Identifier of the effect to destroy.
-   *
-   *   SDL_HapticNewEffect
-   *}
-procedure SDL_HapticDestroyEffect(haptic: PSDL_Haptic; effect: Integer) cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticDestroyEffect' {$ENDIF} {$ENDIF};
+ * Destroy a haptic effect on the device.
+ *
+ * This will stop the effect if it's running. Effects are automatically
+ * destroyed when the device is closed.
+ *
+ * \param haptic the SDL_Haptic device to destroy the effect on
+ * \param effect the ID of the haptic effect to destroy
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticNewEffect
+ *}
+procedure SDL_HapticDestroyEffect(haptic: PSDL_Haptic; effect: cint); cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticDestroyEffect' {$ENDIF} {$ENDIF};
 
   {**
-   *   Gets the status of the current effect on the haptic device.
-   *
-   *  Device must support the ::SDL_HAPTIC_STATUS feature.
-   *
-   *   haptic Haptic device to query the effect status on.
-   *   effect Identifier of the effect to query its status.
-   *   0 if it isn't playing, 1 if it is playing or -1 on error.
-   *
-   *   SDL_HapticRunEffect
-   *   SDL_HapticStopEffect
-   *}
-function SDL_HapticGetEffectStatus(haptic: PSDL_Haptic; effect: Integer): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticGetEffectStatus' {$ENDIF} {$ENDIF};
+ * Get the status of the current effect on the specified haptic device.
+ *
+ * Device must support the SDL_HAPTIC_STATUS feature.
+ *
+ * \param haptic the SDL_Haptic device to query for the effect status on
+ * \param effect the ID of the haptic effect to query its status
+ * \returns 0 if it isn't playing, 1 if it is playing, or a negative error
+ *          code on failure; call SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticRunEffect
+ * \sa SDL_HapticStopEffect
+ *}
+function SDL_HapticGetEffectStatus(haptic: PSDL_Haptic; effect: cint): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticGetEffectStatus' {$ENDIF} {$ENDIF};
 
   {**
-   *   Sets the global gain of the device.
-   *
-   *  Device must support the SDL_HAPTIC_GAIN feature.
-   *
-   *  The user may specify the maximum gain by setting the environment variable
-   *  SDL_HAPTIC_GAIN_MAX which should be between 0 and 100.  All calls to
-   *  SDL_HapticSetGain() will scale linearly using SDL_HAPTIC_GAIN_MAX as the
-   *  maximum.
-   *
-   *   haptic Haptic device to set the gain on.
-   *   gain Value to set the gain to, should be between 0 and 100.
-   *   0 on success or -1 on error.
-   *
-   *   SDL_HapticQuery
-   *}
-function SDL_HapticSetGain(haptic: PSDL_Haptic; gain: Integer): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticSetGain' {$ENDIF} {$ENDIF};
+ * Set the global gain of the specified haptic device.
+ *
+ * Device must support the SDL_HAPTIC_GAIN feature.
+ *
+ * The user may specify the maximum gain by setting the environment variable
+ * `SDL_HAPTIC_GAIN_MAX` which should be between 0 and 100. All calls to
+ * SDL_HapticSetGain() will scale linearly using `SDL_HAPTIC_GAIN_MAX` as the
+ * maximum.
+ *
+ * \param haptic the SDL_Haptic device to set the gain on
+ * \param gain value to set the gain to, should be between 0 and 100 (0 - 100)
+ * \returns 0 on success or a negative error code on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticQuery
+ *}
+function SDL_HapticSetGain(haptic: PSDL_Haptic; gain: cint): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticSetGain' {$ENDIF} {$ENDIF};
 
   {**
-   *   Sets the global autocenter of the device.
-   *
-   *  Autocenter should be between 0 and 100.  Setting it to 0 will disable
-   *  autocentering.
-   *
-   *  Device must support the ::SDL_HAPTIC_AUTOCENTER feature.
-   *
-   *   haptic Haptic device to set autocentering on.
-   *   autocenter Value to set autocenter to, 0 disables autocentering.
-   *   0 on success or -1 on error.
-   *
-   *   SDL_HapticQuery
-   *}
-function SDL_HapticSetAutocenter(haptic: PSDL_Haptic; autocenter: Integer): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticSetAutocenter' {$ENDIF} {$ENDIF};
+ * Set the global autocenter of the device.
+ *
+ * Autocenter should be between 0 and 100. Setting it to 0 will disable
+ * autocentering.
+ *
+ * Device must support the SDL_HAPTIC_AUTOCENTER feature.
+ *
+ * \param haptic the SDL_Haptic device to set autocentering on
+ * \param autocenter value to set autocenter to (0-100)
+ * \returns 0 on success or a negative error code on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticQuery
+ *}
+function SDL_HapticSetAutocenter(haptic: PSDL_Haptic; autocenter: cint): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticSetAutocenter' {$ENDIF} {$ENDIF};
 
   {**
-   *   Pauses a haptic device.
-   *
-   *  Device must support the SDL_HAPTIC_PAUSE feature.  Call
-   *  SDL_HapticUnpause() to resume playback.
-   *
-   *  Do not modify the effects nor add new ones while the device is paused.
-   *  That can cause all sorts of weird errors.
-   *
-   *   haptic Haptic device to pause.
-   *   0 on success or -1 on error.
-   *
-   *   SDL_HapticUnpause
-   *}
-function SDL_HapticPause(haptic: PSDL_Haptic): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticPause' {$ENDIF} {$ENDIF};
+ * Pause a haptic device.
+ *
+ * Device must support the `SDL_HAPTIC_PAUSE` feature. Call
+ * SDL_HapticUnpause() to resume playback.
+ *
+ * Do not modify the effects nor add new ones while the device is paused. That
+ * can cause all sorts of weird errors.
+ *
+ * \param haptic the SDL_Haptic device to pause
+ * \returns 0 on success or a negative error code on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticUnpause
+ *}
+function SDL_HapticPause(haptic: PSDL_Haptic): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticPause' {$ENDIF} {$ENDIF};
 
   {**
-   *   Unpauses a haptic device.
-   *
-   *  Call to unpause after SDL_HapticPause().
-   *
-   *   haptic Haptic device to pause.
-   *   0 on success or -1 on error.
-   *
-   *   SDL_HapticPause
-   *}
-function SDL_HapticUnpause(haptic: PSDL_Haptic): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticUnPause' {$ENDIF} {$ENDIF};
+ * Unpause a haptic device.
+ *
+ * Call to unpause after SDL_HapticPause().
+ *
+ * \param haptic the SDL_Haptic device to unpause
+ * \returns 0 on success or a negative error code on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticPause
+ *}
+function SDL_HapticUnpause(haptic: PSDL_Haptic): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticUnPause' {$ENDIF} {$ENDIF};
 
   {**
-   *   Stops all the currently playing effects on a haptic device.
-   *
-   *   haptic Haptic device to stop.
-   *   0 on success or -1 on error.
-   *}
-function SDL_HapticStopAll(haptic: PSDL_Haptic): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticStopAll' {$ENDIF} {$ENDIF};
+ * Stop all the currently playing effects on a haptic device.
+ *
+ * \param haptic the SDL_Haptic device to stop
+ * \returns 0 on success or a negative error code on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *}
+function SDL_HapticStopAll(haptic: PSDL_Haptic): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticStopAll' {$ENDIF} {$ENDIF};
 
   {**
-   *   Checks to see if rumble is supported on a haptic device..
-   *
-   *   haptic Haptic device to check to see if it supports rumble.
-   *   SDL_TRUE if effect is supported, SDL_FALSE if it isn't or -1 on error.
-   *
-   *   SDL_HapticRumbleInit
-   *   SDL_HapticRumblePlay
-   *   SDL_HapticRumbleStop
-   *}
-function SDL_HapticRumbleSupported(haptic: PSDL_Haptic): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticRumbleSupported' {$ENDIF} {$ENDIF};
+ * Check whether rumble is supported on a haptic device.
+ *
+ * \param haptic haptic device to check for rumble support
+ * \returns SDL_TRUE if effect is supported, SDL_FALSE if it isn't, or a
+ *          negative error code on failure; call SDL_GetError() for more
+ *          information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticRumbleInit
+ * \sa SDL_HapticRumblePlay
+ * \sa SDL_HapticRumbleStop
+ *}
+function SDL_HapticRumbleSupported(haptic: PSDL_Haptic): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticRumbleSupported' {$ENDIF} {$ENDIF};
 
   {**
-   *   Initializes the haptic device for simple rumble playback.
-   *
-   *   haptic Haptic device to initialize for simple rumble playback.
-   *   0 on success or -1 on error.
-   *
-   *   SDL_HapticOpen
-   *   SDL_HapticRumbleSupported
-   *   SDL_HapticRumblePlay
-   *   SDL_HapticRumbleStop
-   *}
-function SDL_HapticRumbleInit(haptic: PSDL_Haptic): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticRumbleInit' {$ENDIF} {$ENDIF};
+ * Initialize a haptic device for simple rumble playback.
+ *
+ * \param haptic the haptic device to initialize for simple rumble playback
+ * \returns 0 on success or a negative error code on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticOpen
+ * \sa SDL_HapticRumblePlay
+ * \sa SDL_HapticRumbleStop
+ * \sa SDL_HapticRumbleSupported
+ *}
+function SDL_HapticRumbleInit(haptic: PSDL_Haptic): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticRumbleInit' {$ENDIF} {$ENDIF};
 
   {**
-   *   Runs simple rumble on a haptic device
-   *
-   *   haptic Haptic device to play rumble effect on.
-   *   strength Strength of the rumble to play as a 0-1 float value.
-   *   length Length of the rumble to play in milliseconds.
-   *   0 on success or -1 on error.
-   *
-   *   SDL_HapticRumbleSupported
-   *   SDL_HapticRumbleInit
-   *   SDL_HapticRumbleStop
-   *}
-function SDL_HapticRumblePlay(haptic: PSDL_Haptic; strength: Float; length: UInt32): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticRumblePlay' {$ENDIF} {$ENDIF};
+ * Run a simple rumble effect on a haptic device.
+ *
+ * \param haptic the haptic device to play the rumble effect on
+ * \param strength strength of the rumble to play as a 0-1 float value
+ * \param length length of the rumble to play in milliseconds
+ * \returns 0 on success or a negative error code on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticRumbleInit
+ * \sa SDL_HapticRumbleStop
+ * \sa SDL_HapticRumbleSupported
+ *}
+function SDL_HapticRumblePlay(haptic: PSDL_Haptic; strength: cfloat; length: cuint32): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticRumblePlay' {$ENDIF} {$ENDIF};
 
   {**
-   *   Stops the simple rumble on a haptic device.
-   *
-   *   haptic Haptic to stop the rumble on.
-   *   0 on success or -1 on error.
-   *
-   *   SDL_HapticRumbleSupported
-   *   SDL_HapticRumbleInit
-   *   SDL_HapticRumblePlay
-   *}
-function SDL_HapticRumbleStop(haptic: PSDL_Haptic): Integer cdecl; external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticRumbleStop' {$ENDIF} {$ENDIF};
+ * Stop the simple rumble on a haptic device.
+ *
+ * \param haptic the haptic device to stop the rumble effect on
+ * \returns 0 on success or a negative error code on failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \since This function is available since SDL 2.0.0.
+ *
+ * \sa SDL_HapticRumbleInit
+ * \sa SDL_HapticRumblePlay
+ * \sa SDL_HapticRumbleSupported
+ *}
+function SDL_HapticRumbleStop(haptic: PSDL_Haptic): cint; cdecl;
+  external SDL_LibName {$IFDEF DELPHI} {$IFDEF MACOS} name '_SDL_HapticRumbleStop' {$ENDIF} {$ENDIF};
 
