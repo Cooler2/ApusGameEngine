@@ -172,13 +172,13 @@ procedure TMessageScene.UpdateUI(msgText:string8;mode,x,y:integer);
   end else
    title:='';
 
-  width:=round(300*windowScale);
+  width:=300;
   if title<>'' then width:=Max(width,txt.Width(msgTitleFont,title));
   for i:=0 to high(lines) do
    width:=Max(width,txt.Width(msgMainFont,lines[i]));
 
-  inc(width,round(100*windowScale));
-  height:=round((120+30*length(lines)+40*byte(title<>''))*windowScale);
+  inc(width,100);
+  height:=120+30*length(lines)+40*byte(title<>'');
 
   wnd.Resize(width,height);
   wnd.font:=msgMainFont;
@@ -214,16 +214,16 @@ procedure TMessageScene.Render;
 
   // Draw content
   x:=r.CenterPoint.X;
-  y:=r.Top+round(40*windowScale);
+  y:=r.Top+40;
   if title<>'' then begin
    txt.Write(msgTitleFont,x,y,$FF402000,title,TTextAlignment.taCenter);
-   inc(y,round(40*windowScale));
+   inc(y,40);
   end else
-   inc(y,round(8*windowScale));
+   inc(y,8);
 
   for i:=0 to high(lines) do begin
    txt.Write(msgMainFont,x,y,$FF202020,lines[i],TTextAlignment.taCenter);
-   inc(y,round(30*windowScale));
+   inc(y,30);
   end;
   // Buttons and child elements
   inherited;
