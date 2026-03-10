@@ -116,11 +116,11 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - per-context VAO bootstrap exists in `InitGraphShared`;
   - `transform/shader/draw/txt/renderTarget/clipping/renderDevice` mutable runtime state migration is in place;
   - **blocker**: end-to-end runtime check in `demo/MultiWindow` (both windows render concurrently without state bleed/races).
-  - **current hard blocker (Windows/NVIDIA, 2026-03-10):**
-    - shared context creation in secondary thread fails on `wglCreateContextAttribsARB` with `GetLastError=3221688541 (0xC00710DD)`;
-    - failure reproduces both with debug flag and retry without debug flag;
-    - startup currently reports `Can't create OpenGL context (shared=1, min=3.0, profile=2, debug=1, forward=0)`;
-    - side effect: `MainThread` can appear as non-responding while `AddWindow` waits for startup completion.
+  - **RESOLVED (2026-03-10): shared context creation failure (0xC00710DD):**
+    - root cause: `AddWindow` was called from a non-main thread (`DelayedClick`), and `ReleaseGraphContext` (`wglMakeCurrent(0,0)`) only affects the calling thread — primary GL context remained current in main thread, blocking WGL sharing;
+    - fix: atomic context release protocol (`glContextState`: 0→1→2→0) — `AddWindow` from any thread requests main thread to release GL context via `FrameLoop` check, waits for confirmation, proceeds with shared context creation, then signals main thread to reacquire;
+    - shared context now creates successfully through regular `CreateOpenGLContext(...,shareWith)` flow;
+    - **remaining**: Access Violation in extra window render loop — likely dglOpenGL global function pointers or uninitialized per-thread render state; needs `ReadExtensions` on secondary thread or equivalent bootstrap.
 - Render follow-up after core migration (lower priority now):
   - reduce NSight-reported useless `glBind*` churn in hot paths.
 

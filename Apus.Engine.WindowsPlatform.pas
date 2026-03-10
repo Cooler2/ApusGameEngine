@@ -72,9 +72,12 @@ uses Messages, Types, SysUtils, Apus.EventMan,
   Apus.Log, Apus.Strings, Apus.Engine.Types
   {$IFDEF MSWINDOWS},dglOpenGL{$ENDIF};
 {$IFOPT R+} {$DEFINE RANGECHECK_ON} {$ENDIF}
+type
+ TwglCreateContextAttribsFn=function(hDC:HDC;hShareContext:HGLRC;const attribList:PInteger):HGLRC; stdcall;
 var
  noPenAPI:boolean=false;
  classRegistered:boolean=false;
+ cachedWglCreateContextAttribs:TwglCreateContextAttribsFn=nil; // cached from primary context
 
 {$IF Declared(FlashWindowEx)} {$ELSE}
 const
@@ -490,7 +493,6 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
  type
   TglGetStringFn=function(name:cardinal):PAnsiChar; stdcall;
   TwglGetProcAddressFn=function(procName:PAnsiChar):Pointer; stdcall;
-  TwglCreateContextAttribsFn=function(hDC:HDC;hShareContext:HGLRC;const attribList:PInteger):HGLRC; stdcall;
  var
   DC:HDC;
   RC,legacyRC:HGLRC;
@@ -535,13 +537,33 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
    minor:=strtointdef(copy(s,start,i-start),0);
    result:=major>0;
   end;
+ procedure BuildAttribs(major,minor,profile:integer;debug,fwd:boolean);
+  begin
+   n:=0;
+   attribs[n]:=WGL_CONTEXT_MAJOR_VERSION_ARB; inc(n);
+   attribs[n]:=major; inc(n);
+   attribs[n]:=WGL_CONTEXT_MINOR_VERSION_ARB; inc(n);
+   attribs[n]:=minor; inc(n);
+   if profile<>0 then begin
+    attribs[n]:=WGL_CONTEXT_PROFILE_MASK_ARB; inc(n);
+    attribs[n]:=profile; inc(n);
+   end;
+   flags:=0;
+   if debug then flags:=flags or WGL_CONTEXT_DEBUG_BIT_ARB;
+   if fwd then flags:=flags or WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB;
+   if flags<>0 then begin
+    attribs[n]:=WGL_CONTEXT_FLAGS_ARB; inc(n);
+    attribs[n]:=flags; inc(n);
+   end;
+   attribs[n]:=0;
+  end;
  begin
    result:=0;
    requestedProfile:=graph.profile;
    requestedDebug:=graph.debugContext;
    effectiveDebug:=requestedDebug;
    requestedForward:=graph.forwardCompatible;
-   Log.Msg('Prepare GL context');
+   Log.Msg('Prepare GL context (shareWith='+IntToStr(shareWith)+')');
    Mem.Clear(pfd,sizeof(PFD));
    with PFD do begin
     nSize:=sizeof(PFD);
@@ -551,142 +573,121 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
     cDepthBits:=16;
    end;
    DC:=GetDC(window);
-   Log.Msg('ChoosePixelFormat');
    pf:=ChoosePixelFormat(DC,@PFD);
    Log.Msg('Pixel format: '+IntToStr(pf));
    if not SetPixelFormat(DC,pf,@PFD) then
     Log.Error('Failed to set pixel format!');
 
-   Log.Msg('Create GL context');
-   legacyRC:=wglCreateContext(DC);
-   if legacyRC=0 then
-     raise EError.Create('Can''t create RC!');
-   wglMakeCurrent(DC,legacyRC);
+   // For shared contexts, skip legacy context — use cached wglCreateContextAttribsARB
+   if (shareWith<>0) and assigned(cachedWglCreateContextAttribs) then begin
+    legacyRC:=0;
+    wglCreateContextAttribsARB:=cachedWglCreateContextAttribs;
+    availMajor:=graph.minMajor;
+    availMinor:=graph.minMinor;
+    requestedMajor:=graph.minMajor;
+    requestedMinor:=graph.minMinor;
+    if graph.preferHighest then begin
+     // use values from graphInfo inherited from primary
+     requestedMajor:=graph.minMajor;
+     requestedMinor:=graph.minMinor;
+    end;
+    Log.Msg('Creating shared context via cached wglCreateContextAttribsARB');
+   end else begin
+    // Primary path: create legacy context to probe GL version and resolve function pointers
+    Log.Msg('Create GL context');
+    legacyRC:=wglCreateContext(DC);
+    if legacyRC=0 then
+      raise EError.Create('Can''t create RC!');
+    wglMakeCurrent(DC,legacyRC);
 
-   glVerRaw:=nil;
-   openglLib:=GetModuleHandle('opengl32.dll');
-   if openglLib<>0 then begin
-    // dglOpenGL may not expose glGetString yet at this point; resolve it directly from opengl32.
-    glGetStringFn:=TglGetStringFn(GetProcAddress(openglLib,'glGetString'));
-    if assigned(glGetStringFn) then
-     glVerRaw:=glGetStringFn($1F02); // GL_VERSION
-   end;
-   if glVerRaw<>nil then
-    glVer:=glVerRaw
-   else
-    glVer:='unknown';
-   if not ParseGLVersion(glVer,availMajor,availMinor) then begin
-    availMajor:=2;
-    availMinor:=1;
-   end;
-   Log.Msg('Available GL version on temporary context: '+IntToStr(availMajor)+'.'+IntToStr(availMinor)+' ('+glVer+')');
+    glVerRaw:=nil;
+    openglLib:=GetModuleHandle('opengl32.dll');
+    if openglLib<>0 then begin
+     glGetStringFn:=TglGetStringFn(GetProcAddress(openglLib,'glGetString'));
+     if assigned(glGetStringFn) then
+      glVerRaw:=glGetStringFn($1F02); // GL_VERSION
+    end;
+    if glVerRaw<>nil then
+     glVer:=glVerRaw
+    else
+     glVer:='unknown';
+    if not ParseGLVersion(glVer,availMajor,availMinor) then begin
+     availMajor:=2;
+     availMinor:=1;
+    end;
+    Log.Msg('Available GL version on temporary context: '+IntToStr(availMajor)+'.'+IntToStr(availMinor)+' ('+glVer+')');
 
-   RC:=legacyRC;
-   requestedMajor:=graph.minMajor;
-   requestedMinor:=graph.minMinor;
-   if graph.preferHighest then begin
-    // Agreed policy: request one modern context using negotiated highest version,
-    // do not brute-force all version pairs.
-    requestedMajor:=availMajor;
-    requestedMinor:=availMinor;
+    // Resolve wglCreateContextAttribsARB
+    wglCreateContextAttribsARB:=nil;
+    openglLib:=GetModuleHandle('opengl32.dll');
+    if openglLib<>0 then begin
+     wglGetProcAddressFn:=TwglGetProcAddressFn(GetProcAddress(openglLib,'wglGetProcAddress'));
+     if assigned(wglGetProcAddressFn) then
+      wglCreateContextAttribsARB:=TwglCreateContextAttribsFn(wglGetProcAddressFn('wglCreateContextAttribsARB'));
+    end;
+    // Cache for secondary contexts
+    if assigned(wglCreateContextAttribsARB) and (shareWith=0) then
+     cachedWglCreateContextAttribs:=wglCreateContextAttribsARB;
+    // Release legacy before creating modern context
+    wglMakeCurrent(0,0);
+
+    requestedMajor:=graph.minMajor;
+    requestedMinor:=graph.minMinor;
+    if graph.preferHighest then begin
+     requestedMajor:=availMajor;
+     requestedMinor:=availMinor;
+    end;
+   end;
+
+   RC:=0;
+   profileMask:=0;
+   case requestedProfile of
+    oglpCore:profileMask:=WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
+    oglpCompatibility:profileMask:=WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB;
    end;
 
    if (requestedProfile<>oglpCompatibility) or requestedDebug or requestedForward then begin
-    if (availMajor>graph.minMajor) or ((availMajor=graph.minMajor) and (availMinor>=graph.minMinor)) then begin
-     if openglLib<>0 then
-      wglGetProcAddressFn:=TwglGetProcAddressFn(GetProcAddress(openglLib,'wglGetProcAddress'))
-     else
-      wglGetProcAddressFn:=nil;
-     if assigned(wglGetProcAddressFn) then
-      wglCreateContextAttribsARB:=TwglCreateContextAttribsFn(wglGetProcAddressFn('wglCreateContextAttribsARB'))
-     else
-      wglCreateContextAttribsARB:=nil;
-     if assigned(wglCreateContextAttribsARB) then begin
-      n:=0;
-      attribs[n]:=WGL_CONTEXT_MAJOR_VERSION_ARB; inc(n);
-      attribs[n]:=requestedMajor; inc(n);
-      attribs[n]:=WGL_CONTEXT_MINOR_VERSION_ARB; inc(n);
-      attribs[n]:=requestedMinor; inc(n);
-      profileMask:=0;
-      case requestedProfile of
-       oglpCore:profileMask:=WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
-       oglpCompatibility:profileMask:=WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB;
-      end;
-      if profileMask<>0 then begin
-       attribs[n]:=WGL_CONTEXT_PROFILE_MASK_ARB; inc(n);
-       attribs[n]:=profileMask; inc(n);
-      end;
-      flags:=0;
-      if effectiveDebug then flags:=flags or WGL_CONTEXT_DEBUG_BIT_ARB;
-      if requestedForward then flags:=flags or WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB;
-      if flags<>0 then begin
-       attribs[n]:=WGL_CONTEXT_FLAGS_ARB; inc(n);
-       attribs[n]:=flags; inc(n);
-      end;
-      attribs[n]:=0;
-      RC:=wglCreateContextAttribsARB(DC,shareWith,@attribs[0]);
-      if RC<>0 then begin
-       wglMakeCurrent(0,0);
-       wglDeleteContext(legacyRC);
-      end else begin
-       errCode:=GetLastError;
-       Log.Warn('Failed to create requested modern GL context (err='+IntToStr(errCode)+')');
-       if effectiveDebug and (shareWith<>0) then begin
-        // Some drivers reject shared debug contexts while accepting shared non-debug core contexts.
-        Log.Warn('Retry shared modern context without debug flag');
-        effectiveDebug:=false;
-        n:=0;
-        attribs[n]:=WGL_CONTEXT_MAJOR_VERSION_ARB; inc(n);
-        attribs[n]:=requestedMajor; inc(n);
-        attribs[n]:=WGL_CONTEXT_MINOR_VERSION_ARB; inc(n);
-        attribs[n]:=requestedMinor; inc(n);
-        profileMask:=0;
-        case requestedProfile of
-         oglpCore:profileMask:=WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
-         oglpCompatibility:profileMask:=WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB;
-        end;
-        if profileMask<>0 then begin
-         attribs[n]:=WGL_CONTEXT_PROFILE_MASK_ARB; inc(n);
-         attribs[n]:=profileMask; inc(n);
-        end;
-        flags:=0;
-        if requestedForward then flags:=flags or WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB;
-        if flags<>0 then begin
-         attribs[n]:=WGL_CONTEXT_FLAGS_ARB; inc(n);
-         attribs[n]:=flags; inc(n);
-        end;
-        attribs[n]:=0;
-        RC:=wglCreateContextAttribsARB(DC,shareWith,@attribs[0]);
-        if RC<>0 then begin
-         wglMakeCurrent(0,0);
-         wglDeleteContext(legacyRC);
-         Log.Warn('Shared modern context created without debug flag');
-        end else begin
-         errCode:=GetLastError;
-         Log.Warn('Retry failed (err='+IntToStr(errCode)+'), keeping legacy context');
-         RC:=legacyRC;
-        end;
-       end else begin
-        RC:=legacyRC;
-        Log.Warn('Keeping legacy context');
+    if assigned(wglCreateContextAttribsARB) then begin
+     BuildAttribs(requestedMajor,requestedMinor,profileMask,effectiveDebug,requestedForward);
+     Log.Msg('wglCreateContextAttribsARB: DC='+IntToStr(DC)+' share='+IntToStr(shareWith)+
+       ' ver='+IntToStr(requestedMajor)+'.'+IntToStr(requestedMinor)+
+       ' profile='+IntToStr(profileMask)+' flags='+IntToStr(flags));
+     RC:=wglCreateContextAttribsARB(DC,shareWith,@attribs[0]);
+     if RC=0 then begin
+      errCode:=GetLastError;
+      Log.Warn('Failed to create modern GL context (err='+IntToStr(errCode)+' / 0x'+IntToHex(errCode,8)+')');
+      // retry without debug flag for shared contexts
+      if effectiveDebug and (shareWith<>0) then begin
+       Log.Warn('Retry shared modern context without debug flag');
+       effectiveDebug:=false;
+       BuildAttribs(requestedMajor,requestedMinor,profileMask,false,requestedForward);
+       RC:=wglCreateContextAttribsARB(DC,shareWith,@attribs[0]);
+       if RC<>0 then
+        Log.Warn('Shared modern context created without debug flag')
+       else begin
+        errCode:=GetLastError;
+        Log.Warn('Retry failed (err='+IntToStr(errCode)+')');
        end;
       end;
-     end else
-      Log.Warn('wglCreateContextAttribsARB not available, keeping legacy context');
+     end;
     end else
-     Log.Error('Requested minimal GL version is higher than available; modern context cannot be created');
+     Log.Warn('wglCreateContextAttribsARB not available');
    end;
-   if (requestedProfile=oglpCore) and (RC=legacyRC) then begin
-    // Hard requirement for core request: never silently continue on legacy context.
-    wglMakeCurrent(0,0);
-    wglDeleteContext(legacyRC);
-    RC:=0;
+
+   // Clean up legacy context
+   if legacyRC<>0 then begin
+    if RC<>0 then
+     wglDeleteContext(legacyRC)
+    else if requestedProfile<>oglpCore then
+     RC:=legacyRC; // fall back to legacy for non-core requests
    end;
+
    modernCreated:=(RC<>0) and (RC<>legacyRC);
    if RC<>0 then
     wglMakeCurrent(DC,RC)
    else
     wglMakeCurrent(0,0);
+
    graph.actualMajor:=0;
    graph.actualMinor:=0;
    if modernCreated then begin
@@ -700,14 +701,12 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
     graph.debugContext:=effectiveDebug;
     graph.forwardCompatible:=requestedForward;
    end else begin
-    // Legacy context path cannot guarantee debug/forward flags.
     actualProfile:=oglpCompatibility;
     graph.debugContext:=false;
     graph.forwardCompatible:=false;
    end;
    graph.profile:=actualProfile;
    graph.requestAccepted:=RC<>0;
-   // requestAccepted means "all explicitly requested capabilities are present".
    if requestedProfile=oglpCore then
     graph.requestAccepted:=graph.requestAccepted and (graph.profile=oglpCore);
    if requestedDebug then
