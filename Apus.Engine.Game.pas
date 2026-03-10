@@ -207,7 +207,7 @@ implementation
   Apus.Files,
   Apus.Lib,
   Apus.Strings
-  {$IFDEF MSWINDOWS},Windows{$ENDIF};
+  {$IFDEF MSWINDOWS},Windows,Apus.Engine.WindowsPlatform{$ENDIF};
 
 type
 
@@ -238,9 +238,6 @@ var
  gameEx:TGame;
  perfValues:array[1..16] of int64;
  perfMeasures:array[1..16] of double;
- // GL context release synchronization for AddWindow from any thread.
- // 0=normal, 1=release requested, 2=released (AddWindow can proceed)
- glContextState:integer=0;
 
 {$IFDEF FREETYPE}
  // Default vector font is Open Sans
@@ -2268,16 +2265,6 @@ procedure TGame.FrameLoop;
   if useMainThread and CurrentThread.Terminating then exit;
   RenderAndPresentFrame;
 
-  // Yield GL context to AddWindow if requested from another thread
-  if Atomic.CmpExchange(glContextState,2,1)=1 then begin
-   mainWindow.ReleaseGraphContext;
-   Log.Msg('Main thread released GL context for AddWindow');
-   while glContextState<>0 do
-    CoreTime.Sleep(1);
-   mainWindow.ActivateGraphContext;
-   Log.Msg('Main thread reacquired GL context');
-  end;
-
   t:=CoreTime.Ticks-t;
   if t<500 then avgTime:=avgTime*0.9+t*0.1;
  end;
@@ -2592,18 +2579,13 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
   ewCtx.errorMsg:='';
   isMainThread:=(mainThread=nil) or (GetCurrentThreadId=mainThread.ID);
   // Release primary GL context so it can be shared.
-  // WGL requires shareWith context to not be current in any thread.
-  if isMainThread then begin
+  // On Windows this is handled via platform-level handoff protocol.
+  {$IFDEF MSWINDOWS}
+  BeginSharedContextCreate(mainWindow,isMainThread);
+  {$ELSE}
+  if isMainThread then
    mainWindow.ReleaseGraphContext;
-   Log.Msg('AddWindow: released GL context (main thread)');
-  end else begin
-   // Request main thread to release context via atomic protocol
-   Atomic.Exchange(glContextState,1);
-   Log.Msg('AddWindow: requesting GL context release from main thread');
-   while glContextState<>2 do
-    CoreTime.Sleep(1);
-   Log.Msg('AddWindow: main thread released GL context');
-  end;
+  {$ENDIF}
   try
    th:=Thread.Start('WndThread_'+settings.title,ExtraWindowLoop,@ewCtx);
    // wait until startup result is reported (or thread dies unexpectedly)
@@ -2620,10 +2602,12 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
     raise EError.Create('Failed to create extra window: startup thread terminated before ready');
    result.renderThread:=th;
   finally
+   {$IFDEF MSWINDOWS}
+   EndSharedContextCreate(mainWindow,isMainThread);
+   {$ELSE}
    if isMainThread then
-    mainWindow.ActivateGraphContext
-   else
-    Atomic.Exchange(glContextState,0); // signal main thread to reacquire
+    mainWindow.ActivateGraphContext;
+   {$ENDIF}
   end;
  end;
 

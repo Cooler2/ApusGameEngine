@@ -7,6 +7,9 @@ unit Apus.Engine.WindowsPlatform;
 interface
 uses Windows, Apus.Types, Apus.Core, Apus.Engine.API, Apus.Engine.Keys, Apus.Engine.OpenGL;
 
+procedure BeginSharedContextCreate(mainWnd:TWindow;isMainThread:boolean);
+procedure EndSharedContextCreate(mainWnd:TWindow;isMainThread:boolean);
+
 type
  { TWinGLWindow - Windows + WGL window implementation }
 
@@ -74,10 +77,19 @@ uses Messages, Types, SysUtils, Apus.EventMan,
 {$IFOPT R+} {$DEFINE RANGECHECK_ON} {$ENDIF}
 type
  TwglCreateContextAttribsFn=function(hDC:HDC;hShareContext:HGLRC;const attribList:PInteger):HGLRC; stdcall;
+const
+ glcsReady=0;
+ glcsReleaseRequested=1;
+ glcsReleased=2;
 var
  noPenAPI:boolean=false;
  classRegistered:boolean=false;
- cachedWglCreateContextAttribs:TwglCreateContextAttribsFn=nil; // cached from primary context
+ // WGL entry-point cache obtained on primary context and reused by secondary
+ // windows when creating shared modern contexts in other threads.
+ cachedWglCreateContextAttribs:TwglCreateContextAttribsFn=nil;
+ // GL context handoff state for AddWindow startup.
+ // Win32/WGL requires shareWith context to be non-current in all threads.
+ glShareState:integer=glcsReady;
 
 {$IF Declared(FlashWindowEx)} {$ELSE}
 const
@@ -106,6 +118,30 @@ begin
  wst:=WideChar(unicode);
  ast:=wst; // conversion
  result:=byte(ast[1]);
+end;
+
+procedure BeginSharedContextCreate(mainWnd:TWindow;isMainThread:boolean);
+begin
+ ASSERT(mainWnd<>nil);
+ if isMainThread then begin
+  mainWnd.ReleaseGraphContext;
+  Log.Msg('AddWindow: released GL context (main thread)');
+ end else begin
+  Atomic.Exchange(glShareState,glcsReleaseRequested);
+  Log.Msg('AddWindow: requesting GL context release from main thread');
+  while glShareState<>glcsReleased do
+   CoreTime.Sleep(1);
+  Log.Msg('AddWindow: main thread released GL context');
+ end;
+end;
+
+procedure EndSharedContextCreate(mainWnd:TWindow;isMainThread:boolean);
+begin
+ ASSERT(mainWnd<>nil);
+ if isMainThread then
+  mainWnd.ActivateGraphContext
+ else
+  Atomic.Exchange(glShareState,glcsReady); // signal main thread to reacquire
 end;
 
 procedure ProcessPointerMessage(Message:cardinal;WParam:UIntPtr;LParam:IntPtr);
@@ -140,10 +176,10 @@ var
 begin
  try
  result:=0;
- //writeln('WinMSG: ',IntTOHex(message):10,'  W=',IntToHex(wParam),'  L=',IntToHex(lParam));
+ //writeln('WinMSG: ',message:10,'  W=',wParam,'  L=',lParam);
  case Message of
   wm_Destroy:begin
-   Log.Msg('WM_Destroy hwnd='+IntToStr(Window));
+   Log.Msg('WM_Destroy hwnd=%d',[Window]);
    if (mainWindow<>nil) and (mainWindow.GetHandle=THandle(Window)) then begin
     (mainWindow as TWinGLWindow).terminated:=true;
     Signal('Engine\Cmd\Exit',0);
@@ -162,7 +198,7 @@ begin
   WM_MOUSELEAVE:Signal('MOUSE\CLIENTMOVE',$3FFF3FFF);
 
   WM_UNICHAR:begin
-//   Log.Msg(inttostr(wparam)+' '+inttostr(lparam));
+//   Log.Msg('WM_UNICHAR wParam=%d lParam=%d',[wParam,lParam]);
   end;
 
   WM_CHAR:begin
@@ -486,7 +522,7 @@ procedure TWinGLWindow.MoveTo(x,y:integer;width:integer;
    r.Bottom:=r.top+height;
   end;
   if not MoveWindow(window,r.left,r.top,r.right-r.left,r.Bottom-r.top,true) then
-   Log.Force('MoveWindow error: '+inttostr(GetLastError));
+   Log.Force('MoveWindow error: %d',[GetLastError]);
  end;
 
 function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith:UIntPtr=0):UIntPtr;
@@ -501,10 +537,10 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
   requestedMajor,requestedMinor:integer;
   availMajor,availMinor:integer;
   attribs:array[0..15] of integer;
- n,flags,profileMask:integer;
- modernCreated:boolean;
- effectiveDebug:boolean;
- errCode:cardinal;
+  n,flags,profileMask:integer;
+  modernCreated:boolean;
+  effectiveDebug:boolean;
+  errCode:cardinal;
   requestedProfile,actualProfile:TOpenGLContextProfile;
   requestedDebug,requestedForward:boolean;
   glVer:string;
@@ -539,6 +575,7 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
   end;
  procedure BuildAttribs(major,minor,profile:integer;debug,fwd:boolean);
   begin
+   // WGL attributes are passed as key/value pairs terminated by 0.
    n:=0;
    attribs[n]:=WGL_CONTEXT_MAJOR_VERSION_ARB; inc(n);
    attribs[n]:=major; inc(n);
@@ -557,13 +594,10 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
    end;
    attribs[n]:=0;
   end;
- begin
-   result:=0;
-   requestedProfile:=graph.profile;
-   requestedDebug:=graph.debugContext;
-   effectiveDebug:=requestedDebug;
-   requestedForward:=graph.forwardCompatible;
-   Log.Msg('Prepare GL context (shareWith='+IntToStr(shareWith)+')');
+ procedure SetupPixelFormat;
+  begin
+   Log.Msg('Prepare GL context (shareWith=%d)',[shareWith]);
+   // Pixel format is immutable per-window DC, so we set it once before any RC creation.
    Mem.Clear(pfd,sizeof(PFD));
    with PFD do begin
     nSize:=sizeof(PFD);
@@ -574,11 +608,63 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
    end;
    DC:=GetDC(window);
    pf:=ChoosePixelFormat(DC,@PFD);
-   Log.Msg('Pixel format: '+IntToStr(pf));
+   Log.Msg('Pixel format: %d',[pf]);
    if not SetPixelFormat(DC,pf,@PFD) then
     Log.Error('Failed to set pixel format!');
+  end;
+ procedure ProbePrimaryContext;
+  begin
+   // Primary window path:
+   // create temporary legacy context to probe available version and load WGL entry points.
+   Log.Msg('Create GL context');
+   legacyRC:=wglCreateContext(DC);
+   if legacyRC=0 then
+    raise EError.Create('Can''t create RC!');
+   wglMakeCurrent(DC,legacyRC);
 
-   // For shared contexts, skip legacy context — use cached wglCreateContextAttribsARB
+   glVerRaw:=nil;
+   openglLib:=GetModuleHandle('opengl32.dll');
+   if openglLib<>0 then begin
+    glGetStringFn:=TglGetStringFn(GetProcAddress(openglLib,'glGetString'));
+    if assigned(glGetStringFn) then
+     glVerRaw:=glGetStringFn($1F02); // GL_VERSION
+   end;
+   if glVerRaw<>nil then
+    glVer:=glVerRaw
+   else
+    glVer:='unknown';
+   if not ParseGLVersion(glVer,availMajor,availMinor) then begin
+    availMajor:=2;
+    availMinor:=1;
+   end;
+   Log.Msg('Available GL version on temporary context: %d.%d (%s)',[availMajor,availMinor,glVer]);
+
+   // Resolve wglCreateContextAttribsARB via opengl32->wglGetProcAddress.
+   wglCreateContextAttribsARB:=nil;
+   openglLib:=GetModuleHandle('opengl32.dll');
+   if openglLib<>0 then begin
+    wglGetProcAddressFn:=TwglGetProcAddressFn(GetProcAddress(openglLib,'wglGetProcAddress'));
+    if assigned(wglGetProcAddressFn) then
+     wglCreateContextAttribsARB:=TwglCreateContextAttribsFn(wglGetProcAddressFn('wglCreateContextAttribsARB'));
+   end;
+   // Cache proc address for future shared-context creation in secondary threads.
+   if assigned(wglCreateContextAttribsARB) and (shareWith=0) then
+    cachedWglCreateContextAttribs:=wglCreateContextAttribsARB;
+   // Legacy context is no longer needed for probing.
+   // Release current binding before attempting modern context creation.
+   wglMakeCurrent(0,0);
+
+   requestedMajor:=graph.minMajor;
+   requestedMinor:=graph.minMinor;
+   if graph.preferHighest then begin
+    requestedMajor:=availMajor;
+    requestedMinor:=availMinor;
+   end;
+  end;
+ procedure PrepareContextCreationPath;
+  begin
+   // Shared secondary window:
+   // use function pointer cached on primary context and request same baseline version.
    if (shareWith<>0) and assigned(cachedWglCreateContextAttribs) then begin
     legacyRC:=0;
     wglCreateContextAttribsARB:=cachedWglCreateContextAttribs;
@@ -592,71 +678,28 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
      requestedMinor:=graph.minMinor;
     end;
     Log.Msg('Creating shared context via cached wglCreateContextAttribsARB');
-   end else begin
-    // Primary path: create legacy context to probe GL version and resolve function pointers
-    Log.Msg('Create GL context');
-    legacyRC:=wglCreateContext(DC);
-    if legacyRC=0 then
-      raise EError.Create('Can''t create RC!');
-    wglMakeCurrent(DC,legacyRC);
-
-    glVerRaw:=nil;
-    openglLib:=GetModuleHandle('opengl32.dll');
-    if openglLib<>0 then begin
-     glGetStringFn:=TglGetStringFn(GetProcAddress(openglLib,'glGetString'));
-     if assigned(glGetStringFn) then
-      glVerRaw:=glGetStringFn($1F02); // GL_VERSION
-    end;
-    if glVerRaw<>nil then
-     glVer:=glVerRaw
-    else
-     glVer:='unknown';
-    if not ParseGLVersion(glVer,availMajor,availMinor) then begin
-     availMajor:=2;
-     availMinor:=1;
-    end;
-    Log.Msg('Available GL version on temporary context: '+IntToStr(availMajor)+'.'+IntToStr(availMinor)+' ('+glVer+')');
-
-    // Resolve wglCreateContextAttribsARB
-    wglCreateContextAttribsARB:=nil;
-    openglLib:=GetModuleHandle('opengl32.dll');
-    if openglLib<>0 then begin
-     wglGetProcAddressFn:=TwglGetProcAddressFn(GetProcAddress(openglLib,'wglGetProcAddress'));
-     if assigned(wglGetProcAddressFn) then
-      wglCreateContextAttribsARB:=TwglCreateContextAttribsFn(wglGetProcAddressFn('wglCreateContextAttribsARB'));
-    end;
-    // Cache for secondary contexts
-    if assigned(wglCreateContextAttribsARB) and (shareWith=0) then
-     cachedWglCreateContextAttribs:=wglCreateContextAttribsARB;
-    // Release legacy before creating modern context
-    wglMakeCurrent(0,0);
-
-    requestedMajor:=graph.minMajor;
-    requestedMinor:=graph.minMinor;
-    if graph.preferHighest then begin
-     requestedMajor:=availMajor;
-     requestedMinor:=availMinor;
-    end;
-   end;
-
+   end else
+    ProbePrimaryContext;
+  end;
+ procedure TryCreateModernContext;
+  begin
    RC:=0;
    profileMask:=0;
    case requestedProfile of
     oglpCore:profileMask:=WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
     oglpCompatibility:profileMask:=WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB;
    end;
-
+   // If special features are requested, try modern context path first.
    if (requestedProfile<>oglpCompatibility) or requestedDebug or requestedForward then begin
     if assigned(wglCreateContextAttribsARB) then begin
      BuildAttribs(requestedMajor,requestedMinor,profileMask,effectiveDebug,requestedForward);
-     Log.Msg('wglCreateContextAttribsARB: DC='+IntToStr(DC)+' share='+IntToStr(shareWith)+
-       ' ver='+IntToStr(requestedMajor)+'.'+IntToStr(requestedMinor)+
-       ' profile='+IntToStr(profileMask)+' flags='+IntToStr(flags));
+     Log.Msg('wglCreateContextAttribsARB: DC=%d share=%d ver=%d.%d profile=%d flags=%d',
+       [DC,shareWith,requestedMajor,requestedMinor,profileMask,flags]);
      RC:=wglCreateContextAttribsARB(DC,shareWith,@attribs[0]);
      if RC=0 then begin
       errCode:=GetLastError;
-      Log.Warn('Failed to create modern GL context (err='+IntToStr(errCode)+' / 0x'+IntToHex(errCode,8)+')');
-      // retry without debug flag for shared contexts
+      Log.Warn('Failed to create modern GL context (err=%d / 0x%.8x)',[errCode,errCode]);
+      // Some drivers reject debug+shared combination; retry without debug flag.
       if effectiveDebug and (shareWith<>0) then begin
        Log.Warn('Retry shared modern context without debug flag');
        effectiveDebug:=false;
@@ -666,15 +709,19 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
         Log.Warn('Shared modern context created without debug flag')
        else begin
         errCode:=GetLastError;
-        Log.Warn('Retry failed (err='+IntToStr(errCode)+')');
+        Log.Warn('Retry failed (err=%d)',[errCode]);
        end;
       end;
      end;
     end else
      Log.Warn('wglCreateContextAttribsARB not available');
    end;
-
-   // Clean up legacy context
+  end;
+ procedure FinalizeContextSelection;
+  begin
+   // Finalize legacy/modern selection:
+   // - modern created: drop legacy
+   // - modern failed and non-core requested: fallback to legacy
    if legacyRC<>0 then begin
     if RC<>0 then
      wglDeleteContext(legacyRC)
@@ -683,11 +730,14 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
    end;
 
    modernCreated:=(RC<>0) and (RC<>legacyRC);
+   // Make resulting context current so caller can immediately initialize GL state.
    if RC<>0 then
     wglMakeCurrent(DC,RC)
    else
     wglMakeCurrent(0,0);
-
+  end;
+ procedure ApplyActualGraphInfo;
+  begin
    graph.actualMajor:=0;
    graph.actualMinor:=0;
    if modernCreated then begin
@@ -713,27 +763,42 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
     graph.requestAccepted:=graph.requestAccepted and graph.debugContext;
    if requestedForward then
     graph.requestAccepted:=graph.requestAccepted and graph.forwardCompatible;
+  end;
+ begin
+   result:=0;
+   requestedProfile:=graph.profile;
+   requestedDebug:=graph.debugContext;
+   effectiveDebug:=requestedDebug;
+   requestedForward:=graph.forwardCompatible;
+   SetupPixelFormat;
+   PrepareContextCreationPath;
+   TryCreateModernContext;
+   FinalizeContextSelection;
+   ApplyActualGraphInfo;
+   // Keep graph flags consistent with actual created context.
    if RC=0 then
-    raise EError.CreateFmt('Can''t create OpenGL context (shared=%d, min=%d.%d, profile=%d, debug=%d, forward=%d)',
+    raise EError.Create('Can''t create OpenGL context (shared=%d, min=%d.%d, profile=%d, debug=%d, forward=%d)',
       [integer(shareWith<>0),graph.minMajor,graph.minMinor,integer(requestedProfile),ord(requestedDebug),ord(requestedForward)]);
    context:=RC;
    result:=context;
   end;
 
 procedure TWinGLWindow.InitGraph;
- begin
-  graphInfo.minMajor:=oglContextTemplate.minMajor;
-  graphInfo.minMinor:=oglContextTemplate.minMinor;
-  graphInfo.profile:=oglContextTemplate.profile;
-  graphInfo.debugContext:=oglContextTemplate.debugContext;
-  graphInfo.forwardCompatible:=oglContextTemplate.forwardCompatible;
-  graphInfo.preferHighest:=oglContextTemplate.preferHighest;
-  graphInfo.actualMajor:=0;
-  graphInfo.actualMinor:=0;
-  graphInfo.requestAccepted:=false;
+begin
+  with graphInfo do begin
+    minMajor:=oglContextTemplate.minMajor;
+    minMinor:=oglContextTemplate.minMinor;
+    profile:=oglContextTemplate.profile;
+    debugContext:=oglContextTemplate.debugContext;
+    forwardCompatible:=oglContextTemplate.forwardCompatible;
+    preferHighest:=oglContextTemplate.preferHighest;
+    actualMajor:=0;
+    actualMinor:=0;
+    requestAccepted:=false;
+  end;
   CreateOpenGLContext(graphInfo);
   oglContextInfo:=graphInfo;
- end;
+end;
 
 procedure TWinGLWindow.InitGraphShared(primary:TWindow);
  var
@@ -756,7 +821,7 @@ procedure TWinGLWindow.InitGraphShared(primary:TWindow);
    vao:=0;
    glGenVertexArrays(1,@vao);
    glBindVertexArray(vao);
-   Log.Msg('Extra window VAO created: '+IntToStr(vao));
+   Log.Msg('Extra window VAO created: %d',[vao]);
   end;
  end;
 
@@ -764,9 +829,19 @@ procedure TWinGLWindow.PresentFrame;
  var
   DC:HDC;
  begin
+   // Service deferred handoff request on the main window thread.
+   if self=mainWindow then
+    if Atomic.CmpExchange(glShareState,glcsReleased,glcsReleaseRequested)=glcsReleaseRequested then begin
+     ReleaseGraphContext;
+     Log.Msg('Main thread released GL context for AddWindow');
+     while glShareState<>glcsReady do
+      CoreTime.Sleep(1);
+     ActivateGraphContext;
+     Log.Msg('Main thread reacquired GL context');
+    end;
    DC:=getDC(window);
    if not SwapBuffers(DC) then
-    Log.Msg('Swap error: '+IntToStr(GetLastError));
+    Log.Msg('Swap error: %d',[GetLastError]);
    ReleaseDC(window,DC);
  end;
 
@@ -796,7 +871,7 @@ procedure TWinGLWindow.ActivateGraphContext;
   if context=0 then exit;
   dc:=GetDC(window);
   if not wglMakeCurrent(dc,context) then
-   Log.Warn('Failed to activate GL context: '+IntToStr(GetLastError));
+   Log.Warn('Failed to activate GL context: %d',[GetLastError]);
   ReleaseDC(window,dc);
  end;
 
@@ -841,9 +916,9 @@ procedure TWinGLWindow.Configure(params:TGameSettings);
    UpdateWindow(Window);
 
    GetWindowRect(window,r);
-   Log.Msg('WindowRect: '+inttostr(r.Right-r.Left)+':'+inttostr(r.Bottom-r.top));
+   Log.Msg('WindowRect: %d:%d',[r.Right-r.Left,r.Bottom-r.top]);
    GetClientRect(window,r);
-   Log.Msg('ClientRect: '+inttostr(r.Right-r.Left)+':'+inttostr(r.Bottom-r.top));
+   Log.Msg('ClientRect: %d:%d',[r.Right-r.Left,r.Bottom-r.top]);
    Signal('ENGINE\RESIZE',r.Width+r.height shl 16);
  end;
 
