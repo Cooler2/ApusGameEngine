@@ -11,7 +11,7 @@ type
  { TWinGLWindow - Windows + WGL window implementation }
 
  TWinGLWindow=class(TWindow)
-   constructor Create(hwnd:HWND);
+   constructor Create(hwnd:HWND;windowName:String8='MainWnd');
    destructor Destroy; override;
    // TWindow overrides
    procedure Close; override;
@@ -223,8 +223,9 @@ end;
 
 { TWinGLWindow }
 
-constructor TWinGLWindow.Create(hwnd:HWND);
+constructor TWinGLWindow.Create(hwnd:HWND;windowName:String8='MainWnd');
 begin
+  inherited Create(windowName);
   window:=hwnd;
 end;
 
@@ -418,7 +419,7 @@ function TWindowsPlatform.CreateWindow(title:string):TWindow;
    style:=0;
    wndHandle:=windows.CreateWindowW('GameWindowClass', PWideChar(WideString(title)),
     style, 0, 0, 100, 100, 0, 0, HInstance, nil);
-   result:=TWinGLWindow.Create(wndHandle);
+   result:=TWinGLWindow.Create(wndHandle,title);
   end;
 
 procedure TWinGLWindow.ProcessMessages;

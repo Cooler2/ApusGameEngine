@@ -693,8 +693,11 @@ procedure TGame.FLog(st: string);
  end;
 
 procedure TGame.EnterCritSect;
+ var
+  caller:pointer;
  begin
-  crSect.Enter({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
+  caller:={$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF};
+  crSect.Enter(caller);
  end;
 
 procedure TGame.LeaveCritSect;
@@ -908,16 +911,14 @@ end;
 
 function RobotCmdScenes(const req:TRobotRequest; out body:String8):boolean;
 var
-  g:TGame;
   i:integer;
   s:TGameScene;
   activeOnly:boolean;
 begin
-  g:=game as TGame;
-  if g=nil then begin body:='game not initialized'; exit(false) end;
+  if game=nil then begin body:='game not initialized'; exit(false) end;
   activeOnly:=req.Param('ACTIVE_ONLY')<>'';
   body:='';
-  g.EnterCritSect;
+  window.Lock;
   try
     for i:=0 to high(window.scenes) do begin
       s:=window.scenes[i];
@@ -930,7 +931,7 @@ begin
         '  class: '+String8(s.ClassName)+#13#10;
     end;
   finally
-    g.LeaveCritSect;
+    window.Unlock;
   end;
   if body='' then begin body:='no scenes available'; exit(false) end;
   result:=true;
@@ -1079,7 +1080,7 @@ var
   end;
 begin
   with game do begin
-   crSect.Enter;
+   EnterCritSect;
    try
      // Frame log
      assign(f,'framelog.log');
@@ -1104,7 +1105,7 @@ begin
 
      gfx.resman.Dump('User request');
    finally
-    crSect.Leave;
+    LeaveCritSect;
    end;
  end;
 end;
@@ -1574,7 +1575,7 @@ begin
  result:=false;
  DestroyQueuedElements; // delete queued UI elements
 
- crSect.Enter;
+ window.Lock;
  try
  // TODO: scenes are sorted here AND again by insertion sort in RenderFrame — remove one
  if high(window.scenes)>1 then begin
@@ -1585,9 +1586,9 @@ begin
     end;
  end;
  finally
-  crSect.Leave;
+  window.Unlock;
  end;
-  UICritSect.Enter;
+  window.Lock;
  try
   // Перечисление корневых эл-тов UI в соответствии со сценами
   // (связь сцен и UI)
@@ -1599,7 +1600,7 @@ begin
      end;
   end;
  finally
-   UICritSect.Leave;
+   window.Unlock;
  end;
  deltaTime:=CoreTime.Ticks-LastOnFrameTime;
  LastOnFrameTime:=CoreTime.Ticks;
@@ -1725,7 +1726,7 @@ var
  n,i,j:integer;
  c:cardinal;
 begin
- crSect.Enter;
+ EnterCritSect;
  try
   FLog('RCursor');
   n:=-1; j:=-10000;
@@ -1747,9 +1748,9 @@ begin
    if wndCursor<>c then
     systemPlatform.SetCursor(wndCursor);
   end;
-  curPrior:=j;
+ curPrior:=j;
  finally
-  crSect.Leave;
+  LeaveCritSect;
  end;
 end;
 
@@ -1790,14 +1791,14 @@ var
    i,n,y:integer;
    c:cardinal;
    sList:array of TGameScene;
-  begin
-   EnterCritSect;
+ begin
+  EnterCritSect;
    try
     n:=length(window.scenes);
     SetLength(sList,n);
     for i:=0 to high(window.scenes) do sList[i]:=window.scenes[i];
    finally
-    LeaveCritSect;
+    window.Unlock;
    end;
    y:=0;
    draw.FillRect(0,0,screenScale*360,(n+0.4)*screenScale*16,$80000000);
@@ -1822,9 +1823,9 @@ var
   begin
 
   end;
-begin
- crSect.Enter;
- try
+ begin
+  EnterCritSect;
+  try
   FLog('RDebug');
   case debugOverlay of
    1:DrawHelp;
@@ -1864,7 +1865,7 @@ begin
   end;
 
  finally
-  crSect.Leave;
+  LeaveCritSect;
  end;
 end;
 
@@ -1890,7 +1891,7 @@ begin
  FLog('RF1');
 
  // в полноэкранном режиме вывод по центру
- crSect.Enter;
+ window.Lock;
  try
   txt.ClearLink;
   try
@@ -1952,7 +1953,7 @@ begin
   if n>0 then window.topmostScene:=sc[n]
    else window.topmostScene:=nil;
  finally
-  crSect.Leave; // активные сцены вынесены в отдельный массив - их нельзя удалять в процессе отрисовки
+  window.Unlock; // активные сцены вынесены в отдельный массив - их нельзя удалять в процессе отрисовки
  end;
 
  gfx.BeginPaint(dRT);
@@ -2103,7 +2104,7 @@ var
  i:integer;
 begin
  result:=0;
- crSect.Enter;
+ EnterCritSect;
  try
   for i:=0 to high(cursors) do
    with TGameCursor(cursors[i]) do
@@ -2111,7 +2112,7 @@ begin
     result:=handle; exit;
    end;
  finally
-  crSect.Leave;
+  LeaveCritSect;
  end;
 end;
 
@@ -2186,7 +2187,7 @@ var
  maxZ:integer;
  sc:TUIScene;
 begin
- crSect.Enter;
+ window.Lock;
  try
   result:=nil;
   maxZ:=-10000000;
@@ -2206,7 +2207,7 @@ begin
     end;
    end;
  finally
-  crSect.Leave;
+  window.Unlock;
  end;
 end;
 

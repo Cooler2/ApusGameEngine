@@ -12,7 +12,7 @@ type
  { TSDLGLWindow }
 
  TSDLGLWindow=class(TWindow)
-  constructor Create(aWnd:PSDL_Window);
+  constructor Create(aWnd:PSDL_Window;windowName:string='MainWnd');
   procedure Close; override;
   procedure Configure(params:TGameSettings); override;
   procedure Show(show:boolean); override;
@@ -117,8 +117,9 @@ procedure InitControllers;
 
 { TSDLGLWindow }
 
-constructor TSDLGLWindow.Create(aWnd:PSDL_Window);
+constructor TSDLGLWindow.Create(aWnd:PSDL_Window;windowName:string='MainWnd');
  begin
+  inherited Create(windowName);
   wnd:=aWnd;
   ctx:=nil;
  end;
@@ -324,7 +325,7 @@ function TSDLPlatform.CreateWindow(title:string):TWindow;
     SDL_WINDOW_OPENGL+SDL_WINDOW_HIDDEN+SDL_WINDOW_ALLOW_HIGHDPI{+SDL_WINDOW_RESIZABLE});
    if localWindow=nil then
     raise EError.Create('SDL window creation failed');
-   result:=TSDLGLWindow.Create(localWindow);
+   result:=TSDLGLWindow.Create(localWindow,title);
   end;
 
 function PackWords(p1,p2:integer):TTag;

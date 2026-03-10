@@ -389,7 +389,7 @@ implementation
    enabl:boolean;
   begin
    c:=nil; maxZ:=-1;
-   UICritSect.Enter;
+   window.Lock;
    try
    CollectUIRoots(roots,zOrders,true);
    // Принцип простой: искать элемент на верхнем слое, если не нашлось - на следующем и т.д.
@@ -408,7 +408,7 @@ implementation
    end;
    result:=(c<>nil) and c.enabled;
    finally
-    UICritSect.Leave;
+    window.Unlock;
    end;
   end;
 
@@ -538,14 +538,12 @@ implementation
 
  procedure LockUI(caller:pointer=nil);
   begin
-   if caller=nil then
-     caller:={$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF};
-   UICritSect.Enter(caller);
+   window.Lock(caller);
   end;
 
  procedure UnlockUI;
   begin
-   UICritSect.Leave;
+   window.Unlock;
   end;
 
  // UI-related commands: Command:elementName

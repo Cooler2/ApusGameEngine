@@ -8,8 +8,7 @@
 // ------------------------------------------------------
 unit Apus.Engine.UITypes;
 interface
-uses Types, Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Regions,
-  Apus.Threads;
+uses Types, Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Regions;
 {$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
@@ -340,12 +339,9 @@ threadvar
 
  curMouseX,curMouseY,oldMouseX,oldMouseY:integer; // координаты курсора мыши (для onMouseMove!)
 
-var
- UICritSect:TLock; // для многопоточного доступа к глобальным переменным UI
-
- function DescribeElement(c:TUIElement):String8;
- function FocusedElement:TUIElement;
- procedure SetFocusTo(control:TUIElement);
+function DescribeElement(c:TUIElement):String8;
+function FocusedElement:TUIElement;
+procedure SetFocusTo(control:TUIElement);
 
  // Keycode - virtual key
  procedure ProcessHotKey(keycode:integer;shiftstate:byte);
@@ -398,13 +394,13 @@ threadvar
        end;
   end;
 
- function DescribeElement(c:TUIElement):String8;
-  begin
-   if c=nil then begin
-    result:='nil'; exit;
-   end;
-   result:=c.ClassName+'('+Conv.ToStr(c)+')='+c.name;
+function DescribeElement(c:TUIElement):String8;
+ begin
+  if c=nil then begin
+   result:='nil'; exit;
   end;
+  result:=c.ClassName+'('+Conv.ToStr(c)+')='+c.name;
+ end;
 
  function FocusedElement;
   begin
@@ -569,7 +565,7 @@ threadvar
      end;
     end;
   begin
-   UICritSect.Enter;
+   window.Lock;
    try
     if filter<>'' then begin
      SetLength(keep,length(children));
@@ -594,7 +590,7 @@ threadvar
      children:=keep;
     end;
    finally
-    UICritSect.Leave;
+    window.Unlock;
    end;
   end;
 
@@ -638,7 +634,7 @@ threadvar
    shapeRegion:=nil;
    selectedChild:=-1;
 
-   UICritSect.Enter;
+   window.Lock;
    try
    if parent<>nil then begin // add to the parents children
     n:=length(parent.children);
@@ -659,7 +655,7 @@ threadvar
    fInitialSize:=size;
    globalRect:=GetPosOnScreen;
    finally
-    UICritSect.Leave;
+   window.Unlock;
    end;
    Signal('UI\ItemCreated',TTag(self));
   end;
@@ -1174,7 +1170,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
   var
    i,max:integer;
   begin
-   UICritSect.Enter;
+   window.Lock;
    try
    i:=0; max:=high(hotkeys);
    while i<=max do
@@ -1188,7 +1184,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
      inc(i);
     SetLength(hotkeys,max+1);
    finally
-    UICritSect.Leave;
+    window.Unlock;
    end;
   end;
 
@@ -1581,11 +1577,11 @@ procedure TUIElement.SafeDestroy;
 
  procedure DestroyQueuedElements;
   begin
-    UICritSect.Enter;
+    window.Lock;
     try
      toDelete.FreeAll;
     finally
-     UICritSect.Leave;
+     window.Unlock;
     end;
   end;
 
@@ -1608,10 +1604,8 @@ procedure TUIElement.SafeDestroy;
   end;
 
 initialization
- UICritSect.Init('UI',30);
  UIHash.Init;
  TUIElement.SetClassAttribute('handleMouseIfDisabled',false);
 finalization
- UICritSect.Cleanup;
 end.
 

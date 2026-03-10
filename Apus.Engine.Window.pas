@@ -1,6 +1,7 @@
 unit Apus.Engine.Window;
 interface
-uses Apus.Core, Apus.Geom2D, Apus.Engine.Types, Apus.Engine.Scene;
+uses Apus.Core, Apus.Geom2D, Apus.Engine.Types, Apus.Engine.Scene, Apus.Threads,
+  Apus.Classes;
 
 const
  FRAME_TIME_RING_SIZE=512;
@@ -56,7 +57,10 @@ type
  // Base class for engine windows.
  // Platform-specific subclasses implement abstract methods.
  // Created via ISystemPlatform.CreateWindow.
- TWindow=class
+ TWindow=class(TNamedObject)
+ protected
+  class function ClassHash:pointer; override;
+ public
   // Render area
   renderWidth,renderHeight:integer; // size of render area in virtual pixels
   displayRect:TRect; // render area inside window's client area, in screen pixels
@@ -86,11 +90,18 @@ type
   textLink:cardinal;
   textLinkRect:TRect;
 
-  // Per-window data
+ // Per-window data
+  runtimeLock:TLock; // protects scene list + UI access for this window
   timings:TFrameTiming;
   capture:TFrameCapture;
   scenes:TSceneArray;
   topmostScene:TGameScene; // last topmost active scene for this window
+
+  constructor Create(windowName:String8='MainWnd');
+  destructor Destroy; override;
+
+  procedure Lock(caller:pointer=nil);
+  procedure Unlock;
   procedure ResetSceneData;
   procedure AddScene(scene:TGameScene);
   function RemoveScene(scene:TGameScene):boolean;
@@ -128,6 +139,40 @@ type
  end;
 
 implementation
+ uses Apus.Structs;
+
+var
+ windowHash:TObjectHash;
+
+constructor TWindow.Create(windowName:String8='MainWnd');
+ begin
+  inherited Create;
+  name:=windowName;
+  runtimeLock.Init('Window',20);
+ end;
+
+destructor TWindow.Destroy;
+ begin
+  runtimeLock.Cleanup;
+  inherited;
+ end;
+
+class function TWindow.ClassHash:pointer;
+ begin
+  result:=@windowHash;
+ end;
+
+procedure TWindow.Lock(caller:pointer=nil);
+ begin
+  if caller=nil then
+   caller:={$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF};
+  runtimeLock.Enter(caller);
+ end;
+
+procedure TWindow.Unlock;
+ begin
+  runtimeLock.Leave;
+ end;
 
 procedure TFrameCapture.Reset;
 begin
@@ -380,5 +425,11 @@ function TWindow.ProcessScenes(deltaTime:integer):boolean;
      result:=scenes[i].Process or result;
    end;
  end;
+
+initialization
+ windowHash.Init;
+
+finalization
+ windowHash.Clear;
 
 end.

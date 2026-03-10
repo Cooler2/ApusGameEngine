@@ -73,7 +73,7 @@ const
 var
  curCursor:integer;
  initialized:boolean=false;
- rootWidth,rootHeight,oldRootWidth,oldAreaHeight:integer; // размер области отрисовки
+ rootWidth,rootHeight:integer; // размер области отрисовки
 
  LastHandleTime:int64;
 
@@ -107,8 +107,6 @@ function UIScene(name:String8):TUIScene;
 procedure SetDisplaySize(width,height:integer);
  begin
   Log.Msg('UIScene.SDS');
-  oldRootWidth:=rootWidth;
-  oldAreaHeight:=rootHeight;
   rootWidth:=width;
   rootHeight:=height;
  end;
@@ -151,12 +149,12 @@ procedure SetDisplaySize(width,height:integer);
 
  procedure ActivateEventHandler(event:TEventStr;tag:TTag);
   begin
-   UICritSect.Enter;
+   window.Lock;
    try
     if tag=0 then
      SetFocusTo(nil);
    finally
-    UICritSect.Leave;
+    window.Unlock;
    end;
  end;
 
@@ -174,7 +172,7 @@ procedure SetDisplaySize(width,height:integer);
    st:String8;
   begin
    event:=UpperCase {TODO: use st.ToUpper}(copy(event,7,length(event)-6));
-   UICritSect.Enter;
+   window.Lock;
    time:=CoreTime.Ticks;
    try
     // обновить положение курсора если оно устарело
@@ -314,7 +312,7 @@ procedure SetDisplaySize(width,height:integer);
       c.onMouseScroll(tag);
 
    finally
-    UICritSect.Leave;
+    window.Unlock;
    end;
   end;
 
@@ -336,7 +334,7 @@ procedure SetDisplaySize(width,height:integer);
    shift:byte;
    key:integer;
   begin
-   UICritSect.Enter;
+   window.Lock;
    try
     lastShiftState:=window.shiftState;
     shift:=window.shiftState;
@@ -362,7 +360,7 @@ procedure SetDisplaySize(width,height:integer);
     end;
 
    finally
-    UICritSect.Leave;
+    window.Unlock;
    end;
   end;
 
@@ -466,7 +464,7 @@ procedure SetDisplaySize(width,height:integer);
   begin
    result:=true;
    Signal('Scenes\ProcessScene\'+name);
-   UICritSect.Enter;
+   window.Lock;
    // отложенное удаление элементов
 
    // Размер корневого эл-та - полный экран
@@ -527,7 +525,7 @@ procedure SetDisplaySize(width,height:integer);
     end;
     LastHandleTime:=time;
    finally
-    UICritSect.Leave;
+    window.Unlock;
    end;
   end;
 
@@ -569,7 +567,7 @@ procedure SetDisplaySize(width,height:integer);
    // StartMeasure(11); {TODO Migrate this}
    if UI<>nil then begin
     Signal('Scenes\'+name+'\BeforeUIRender');
-    UICritSect.Enter;
+    window.Lock;
     try
      try
       DrawUI(UI);
@@ -577,7 +575,7 @@ procedure SetDisplaySize(width,height:integer);
       on e:exception do raise EError.Create('UI.DrawUI '+name+' Err '+e.message);
      end;
     finally
-     UICritSect.Leave;
+     window.Unlock;
     end;
     Signal('Scenes\'+name+'\AfterUIRender');
    end;
@@ -602,12 +600,21 @@ procedure SetDisplaySize(width,height:integer);
   end;
 
  procedure TUIScene.SetStatus(st:TSceneStatus);
+  var
+   w,h:integer;
   begin
    inherited;
    Log.Force('Scene '+name+' status changed to '+statuses[st]);
   // Log.Msg('Scene '+name+' status changed to '+statuses[st],5);
    if (status=ssActive) and (UI=nil) then begin
-    UI:=TUIElement.Create(rootWidth,rootHeight,nil);
+    if window<>nil then begin
+     w:=window.renderWidth;
+     h:=window.renderHeight;
+    end else begin
+     w:=rootWidth;
+     h:=rootHeight;
+    end;
+    UI:=TUIElement.Create(w,h,nil);
     UI.name:=name;
     UI.enabled:=false;
     UI.visible:=false;
@@ -700,7 +707,7 @@ begin
   sceneName:=req.Param('SCENE');
   maxDepth:=Conv.ToInt(req.Param('DEPTH'));
   body:='';
-  UICritSect.Enter;
+   window.Lock;
   try
     if sceneName<>'' then begin
       root:=FindUISceneRoot(sceneName);
@@ -715,8 +722,8 @@ begin
         if (window.scenes[i] is TUIScene) and (TUIScene(window.scenes[i]).UI<>nil) then
           DumpTree(TUIScene(window.scenes[i]).UI,0,maxDepth,body);
     end;
-  finally
-    UICritSect.Leave;
+   finally
+    window.Unlock;
   end;
   result:=true;
 end;
@@ -796,7 +803,7 @@ begin
   eName:=req.Param('NAME');
   includeHierarchy:=IsTrueValue(req.Param('HIERARCHY'));
   if eName='' then begin body:='NAME parameter required'; exit(false) end;
-  UICritSect.Enter;
+ window.Lock;
   try
     e:=FindElement(eName,false);
     if e=nil then begin body:='element not found: '+eName; exit(false) end;
@@ -817,8 +824,8 @@ begin
         AppendElementInfo(chain[i],'  ');
       end;
     end;
-  finally
-    UICritSect.Leave;
+ finally
+  window.Unlock;
   end;
   result:=true;
 end;
@@ -832,7 +839,7 @@ var
 begin
   x:=Conv.ToInt(req.Param('X'));
   y:=Conv.ToInt(req.Param('Y'));
-  enabled:=FindAnyElementAt(x,y,c); // locks UICritSect internally
+  enabled:=FindAnyElementAt(x,y,c); // uses window lock internally
   if c=nil then begin
     body:='hit: (none)'+#13#10;
   end else begin
