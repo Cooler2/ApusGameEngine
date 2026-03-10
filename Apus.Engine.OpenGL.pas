@@ -1031,13 +1031,12 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
    end;
   end;
  begin
-  if IsCoreProfile then begin
-   // In core profile attribute pointers are interpreted as offsets in a bound ARRAY_BUFFER.
-   // We track this binding locally via TrackArrayBufferBinding/stream uploads.
-   ASSERT(boundArrayBuffer<>0,'Core profile requires GL_ARRAY_BUFFER during attribute setup');
-   if glDefaultVAO<>0 then
-    glBindVertexArray(glDefaultVAO);
-  end;
+ if IsCoreProfile then begin
+  // In core profile attribute pointers are interpreted as offsets in a bound ARRAY_BUFFER.
+  // We track this binding locally via TrackArrayBufferBinding/stream uploads.
+  // VAO must already be created and bound for the current context during context init.
+  ASSERT(boundArrayBuffer<>0,'Core profile requires GL_ARRAY_BUFFER during attribute setup');
+ end;
   if (lastVertices=vertices) and (lastArrayBuffer=boundArrayBuffer) and (vertexLayout.Equals(lastLayout)) then exit;
   lastVertices:=vertices;
   lastLayout:=vertexLayout;

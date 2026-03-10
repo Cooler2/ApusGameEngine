@@ -406,6 +406,7 @@ function TWindowsPlatform.CreateWindow(title:string):TWindow;
   WindowClass:TWndClassW;
   style:cardinal;
   wndHandle:HWND;
+  e:cardinal;
  begin
    Log.Msg('CreateWindow: '+title);
    if not classRegistered then begin
@@ -421,8 +422,11 @@ function TWindowsPlatform.CreateWindow(title:string):TWindow;
      lpszMenuName:='';
      lpszClassName:='GameWindowClass';
     end;
-    if windows.RegisterClassW(WindowClass)=0 then
-     raise EFatalError.Create('Cannot register window class');
+    if windows.RegisterClassW(WindowClass)=0 then begin
+     e:=GetLastError;
+     if e<>ERROR_CLASS_ALREADY_EXISTS then
+      raise EFatalError.Create('Cannot register window class');
+    end;
     classRegistered:=true;
    end;
 
@@ -441,7 +445,10 @@ procedure TWinGLWindow.ProcessMessages;
      raise EWarning.Create('Failed to get message');
 
     if mes.message=wm_quit then // ���� ������� ������� �� �����
-     Signal('Engine\Cmd\Exit',0);
+     if self=mainWindow then
+      Signal('Engine\Cmd\Exit',0)
+     else
+      terminated:=true;
 
     TranslateMessage(Mes);
     DispatchMessageW(Mes);
