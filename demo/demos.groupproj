@@ -15,6 +15,9 @@
         <Projects Include="VertexBuffer\VertexBuffer.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="MultiWindow\MultiWindow.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -59,14 +62,23 @@
     <Target Name="VertexBuffer:Make">
         <MSBuild Projects="VertexBuffer\VertexBuffer.dproj" Targets="Make"/>
     </Target>
+    <Target Name="MultiWindow">
+        <MSBuild Projects="MultiWindow\MultiWindow.dproj"/>
+    </Target>
+    <Target Name="MultiWindow:Clean">
+        <MSBuild Projects="MultiWindow\MultiWindow.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="MultiWindow:Make">
+        <MSBuild Projects="MultiWindow\MultiWindow.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="SimpleDemo;scenes;Simple3D;VertexBuffer"/>
+        <CallTarget Targets="SimpleDemo;scenes;Simple3D;VertexBuffer;MultiWindow"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="SimpleDemo:Clean;scenes:Clean;Simple3D:Clean;VertexBuffer:Clean"/>
+        <CallTarget Targets="SimpleDemo:Clean;scenes:Clean;Simple3D:Clean;VertexBuffer:Clean;MultiWindow:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="SimpleDemo:Make;scenes:Make;Simple3D:Make;VertexBuffer:Make"/>
+        <CallTarget Targets="SimpleDemo:Make;scenes:Make;Simple3D:Make;VertexBuffer:Make;MultiWindow:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>
