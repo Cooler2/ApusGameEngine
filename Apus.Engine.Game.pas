@@ -207,7 +207,7 @@ implementation
   Apus.Files,
   Apus.Lib,
   Apus.Strings
-  {$IFDEF MSWINDOWS},Windows,Apus.Engine.WindowsPlatform{$ENDIF};
+  {$IFDEF MSWINDOWS},Windows{$ENDIF};
 
 type
 
@@ -2430,8 +2430,14 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     wnd:=systemPlatform.CreateWindow(settings.title);
     window:=wnd; // set threadvar
     wnd.screenDPI:=systemPlatform.GetScreenDPI;
-    // Shared GL context must exist before any message processing that can trigger redraw.
-    wnd.InitGraphShared(mainWindow);
+    // Shared context creation is coordinated at window/backend layer.
+    mainWindow.BeginSharedContextCreate(false);
+    try
+     // Shared GL context must exist before any message processing that can trigger redraw.
+     wnd.InitGraphShared(mainWindow);
+    finally
+     mainWindow.EndSharedContextCreate(false);
+    end;
     wnd.Configure(settings);
     wnd.GetSize(wnd.windowWidth,wnd.windowHeight);
     if wnd.windowWidth<=0 then wnd.windowWidth:=settings.width;
@@ -2568,7 +2574,6 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
  var
   ewCtx:TExtraWindowContext;
   th:IThread;
-  isMainThread:boolean;
  begin
   // Blocking call: returns only after extra-window thread reports startup success or failure.
   ASSERT(mainWindow<>nil,'Main window must exist before AddWindow');
@@ -2577,38 +2582,20 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
   ewCtx.startDone:=false;
   ewCtx.startFailed:=false;
   ewCtx.errorMsg:='';
-  isMainThread:=(mainThread=nil) or (GetCurrentThreadId=mainThread.ID);
-  // Release primary GL context so it can be shared.
-  // On Windows this is handled via platform-level handoff protocol.
-  {$IFDEF MSWINDOWS}
-  BeginSharedContextCreate(mainWindow,isMainThread);
-  {$ELSE}
-  if isMainThread then
-   mainWindow.ReleaseGraphContext;
-  {$ENDIF}
-  try
-   th:=Thread.Start('WndThread_'+settings.title,ExtraWindowLoop,@ewCtx);
-   // wait until startup result is reported (or thread dies unexpectedly)
-   while (not ewCtx.startDone) and th.IsRunning do
-    CoreTime.Sleep(1);
-   if ewCtx.startFailed then begin
-    if ewCtx.errorMsg<>'' then
-     raise EError.Create('Failed to create extra window: '+ewCtx.errorMsg)
-    else
-     raise EError.Create('Failed to create extra window');
-   end;
-   result:=ewCtx.resultWnd;
-   if result=nil then
-    raise EError.Create('Failed to create extra window: startup thread terminated before ready');
-   result.renderThread:=th;
-  finally
-   {$IFDEF MSWINDOWS}
-   EndSharedContextCreate(mainWindow,isMainThread);
-   {$ELSE}
-   if isMainThread then
-    mainWindow.ActivateGraphContext;
-   {$ENDIF}
+  th:=Thread.Start('WndThread_'+settings.title,ExtraWindowLoop,@ewCtx);
+  // wait until startup result is reported (or thread dies unexpectedly)
+  while (not ewCtx.startDone) and th.IsRunning do
+   CoreTime.Sleep(1);
+  if ewCtx.startFailed then begin
+   if ewCtx.errorMsg<>'' then
+    raise EError.Create('Failed to create extra window: '+ewCtx.errorMsg)
+   else
+    raise EError.Create('Failed to create extra window');
   end;
+  result:=ewCtx.resultWnd;
+  if result=nil then
+   raise EError.Create('Failed to create extra window: startup thread terminated before ready');
+  result.renderThread:=th;
  end;
 
 procedure TGame.RemoveWindow(wnd:TWindow);

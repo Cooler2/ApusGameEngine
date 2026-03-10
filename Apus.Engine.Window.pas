@@ -141,6 +141,9 @@ type
   // Temporarily detach/attach current graphics context (used for shared-context startup sequencing).
   procedure ReleaseGraphContext; virtual;
   procedure ActivateGraphContext; virtual;
+  // Prepare/finalize main context handoff for shared-context creation in another thread.
+  procedure BeginSharedContextCreate(isMainThread:boolean); virtual;
+  procedure EndSharedContextCreate(isMainThread:boolean); virtual;
   procedure PresentFrame; virtual; abstract;
   function SetVSync(divider:integer):boolean; virtual; abstract;
  end;
@@ -190,6 +193,18 @@ procedure TWindow.ReleaseGraphContext;
 
 procedure TWindow.ActivateGraphContext;
  begin
+ end;
+
+procedure TWindow.BeginSharedContextCreate(isMainThread:boolean);
+ begin
+  if isMainThread then
+   ReleaseGraphContext;
+ end;
+
+procedure TWindow.EndSharedContextCreate(isMainThread:boolean);
+ begin
+  if isMainThread then
+   ActivateGraphContext;
  end;
 
 procedure TFrameCapture.Reset;
