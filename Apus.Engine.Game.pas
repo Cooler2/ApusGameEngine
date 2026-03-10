@@ -85,6 +85,11 @@ type
 
   procedure Minimize; override;
 
+  // Multi-window
+  function AddWindow(settings:TGameSettings):TWindow; override;
+  procedure RemoveWindow(wnd:TWindow); override;
+  procedure RenderScenesForWindow(wnd:TWindow);
+
   procedure SetSettings(s:TGameSettings); override; // этот метод служит для изменения режима или его параметров
   function GetSettings:TGameSettings; override; // этот метод служит для изменения режима или его параметров
 
@@ -216,6 +221,17 @@ type
  TVarTypeGameClass=class(TVarTypeStruct)
   class function GetField(variable:pointer;fieldName:string8;out varClass:TVarClass):pointer; override;
   class function ListFields:string8; override;
+ end;
+
+ // Startup context for extra window render thread.
+ // Ownership: lives in AddWindow stack frame while AddWindow synchronously waits for startup result.
+ PExtraWindowContext=^TExtraWindowContext;
+ TExtraWindowContext=record
+  settings:TGameSettings;
+  resultWnd:TWindow; // set by thread when window is created
+  startDone:boolean; // set by thread when startup is finished (success or failure)
+  startFailed:boolean;
+  errorMsg:string;
  end;
 
 var
@@ -1692,7 +1708,6 @@ begin
 
  Log.Msg(Format('Set render area: (%d x %d) (%d,%d) -> (%d,%d)',
    [window.renderWidth,window.renderHeight,window.displayRect.Left,window.displayRect.Top,window.displayRect.Right,window.displayRect.Bottom]));
- SetDisplaySize(window.renderWidth,window.renderHeight); // UI display size
  Signal('ENGINE\BEFORERESIZE');
  window.NotifyScenesResize;
  Signal('ENGINE\RESIZED');
@@ -2392,6 +2407,201 @@ procedure TGame.MainThreadLoop;
 
   Log.Force('Main thread done');
   game.running:=false; // Эта строчка должна быть ПОСЛЕДНЕЙ!
+ end;
+
+// --- Extra window render thread ---
+
+function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
+ var
+  ewCtx:PExtraWindowContext;
+  settings:TGameSettings;
+  wnd:TWindow;
+  t:int64;
+  deltaUs:int64;
+ begin
+  result:=0;
+  ewCtx:=PExtraWindowContext(ctx.Parameter);
+  settings:=ewCtx^.settings;
+  wnd:=nil;
+  Log.Msg('Extra window thread started: '+settings.title);
+  try
+   // startup phase: must report success/failure back to AddWindow
+   try
+    wnd:=systemPlatform.CreateWindow(settings.title);
+    window:=wnd; // set threadvar
+    wnd.screenDPI:=systemPlatform.GetScreenDPI;
+    wnd.Configure(settings);
+    wnd.ProcessMessages;
+    wnd.GetSize(wnd.windowWidth,wnd.windowHeight);
+    if wnd.windowWidth<=0 then wnd.windowWidth:=settings.width;
+    if wnd.windowHeight<=0 then wnd.windowHeight:=settings.height;
+    wnd.renderWidth:=wnd.windowWidth;
+    wnd.renderHeight:=wnd.windowHeight;
+    // create shared GL context
+    wnd.InitGraphShared(mainWindow);
+    wnd.Show(true);
+    wnd.active:=true;
+    wnd.timings.Reset;
+    wnd.capture.Reset;
+    // signal caller that window is ready
+    ewCtx^.resultWnd:=wnd;
+    ewCtx^.startDone:=true;
+    Log.Msg('Extra window ready: '+wnd.name);
+   except
+    on e:Exception do begin
+     ewCtx^.startFailed:=true;
+     ewCtx^.errorMsg:=ExceptionMsg(e);
+     ewCtx^.startDone:=true;
+     ewCtx:=nil; // startup context is no longer valid after reporting result
+     CritMsg('Extra window startup error: '+ExceptionMsg(e));
+     if wnd<>nil then begin
+      try
+       wnd.DoneGraph;
+      except end;
+      try
+       wnd.Close;
+      except end;
+     end;
+     exit;
+    end;
+   end;
+   ewCtx:=nil; // startup context belongs to AddWindow stack and must not be used below
+
+   // frame loop
+   repeat
+    Thread.Ping;
+    t:=CoreTime.Ticks;
+    if wnd.frameStartTime>0 then wnd.frameTimeDelta:=t-wnd.frameStartTime
+     else wnd.frameTimeDelta:=20;
+    wnd.frameStartTime:=t;
+    deltaUs:=wnd.frameTimeDelta*1000;
+    if wnd.timings.frameTimerReady then
+     deltaUs:=round(TimerSec(wnd.timings.frameTimer)*1000000);
+    StartTimer(wnd.timings.frameTimer);
+    wnd.timings.frameTimerReady:=true;
+
+    wnd.ProcessMessages;
+    if wnd.IsTerminated then break;
+
+    // process scenes
+    wnd.Lock;
+    try
+     wnd.ProcessScenes(integer(wnd.frameTimeDelta));
+    finally
+     wnd.Unlock;
+    end;
+
+    // render
+    if wnd.active then begin
+     gfx.BeginPaint(nil);
+     try
+      wnd.Lock;
+      try
+       gameEx.RenderScenesForWindow(wnd);
+      finally
+       wnd.Unlock;
+      end;
+     finally
+      gfx.EndPaint;
+     end;
+     wnd.PresentFrame;
+     inc(wnd.frameNum);
+    end else
+     CoreTime.Sleep(5);
+
+    wnd.timings.PushSample(integer(Clamp(deltaUs,0,high(integer))),0,0,0,0,0);
+    wnd.timings.UpdateFps(wnd.FPS,wnd.smoothFPS);
+   until CurrentThread.Terminating;
+
+   // cleanup
+   Log.Msg('Extra window closing: '+wnd.name);
+   wnd.DoneGraph;
+   wnd.Close;
+  except
+   on e:Exception do
+    CritMsg('Extra window error: '+ExceptionMsg(e));
+  end;
+  Log.Force('Extra window thread done');
+ end;
+
+procedure TGame.RenderScenesForWindow(wnd:TWindow);
+ var
+  i,j,n:integer;
+  sc:array[1..50] of TGameScene;
+  fl:boolean;
+ begin
+  // sort active scenes by Z order (under lock)
+  n:=0;
+  for i:=low(wnd.scenes) to high(wnd.scenes) do
+   if wnd.scenes[i].IsActive then begin
+    ASSERT(n<high(sc),'Too many active scenes');
+    if n=0 then begin
+     sc[1]:=wnd.scenes[i]; inc(n); continue;
+    end;
+    fl:=true;
+    for j:=n downto 1 do
+     if sc[j].zorder>wnd.scenes[i].zorder then sc[j+1]:=sc[j]
+      else begin sc[j+1]:=wnd.scenes[i]; fl:=false; break; end;
+    if fl then sc[1]:=wnd.scenes[i];
+    inc(n);
+   end;
+  if n>0 then wnd.topmostScene:=sc[n]
+   else wnd.topmostScene:=nil;
+
+  // render scenes
+  for i:=1 to n do try
+   if not sc[i].gfxInitialized then begin
+    sc[i].InitGfx;
+    sc[i].gfxInitialized:=true;
+   end;
+   if sc[i].effect<>nil then
+    sc[i].effect.DrawScene
+   else
+    sc[i].Render;
+  except
+   on e:Exception do
+    CritMsg('Extra window scene render error: '+ExceptionMsg(e));
+  end;
+ end;
+
+function TGame.AddWindow(settings:TGameSettings):TWindow;
+ var
+  ewCtx:TExtraWindowContext;
+  th:IThread;
+ begin
+  // Blocking call: returns only after extra-window thread reports startup success or failure.
+  ASSERT(mainWindow<>nil,'Main window must exist before AddWindow');
+  ewCtx.settings:=settings;
+  ewCtx.resultWnd:=nil;
+  ewCtx.startDone:=false;
+  ewCtx.startFailed:=false;
+  ewCtx.errorMsg:='';
+  th:=Thread.Start('WndThread_'+settings.title,ExtraWindowLoop,@ewCtx);
+  // wait until startup result is reported (or thread dies unexpectedly)
+  while (not ewCtx.startDone) and th.IsRunning do
+   CoreTime.Sleep(1);
+  if ewCtx.startFailed then begin
+   if ewCtx.errorMsg<>'' then
+    raise EError.Create('Failed to create extra window: '+ewCtx.errorMsg)
+   else
+    raise EError.Create('Failed to create extra window');
+  end;
+  result:=ewCtx.resultWnd;
+  if result=nil then
+   raise EError.Create('Failed to create extra window: startup thread terminated before ready');
+  result.renderThread:=th;
+ end;
+
+procedure TGame.RemoveWindow(wnd:TWindow);
+ begin
+  if wnd=nil then exit;
+  if wnd.renderThread<>nil then begin
+   wnd.renderThread.Terminate;
+   while wnd.renderThread.IsRunning do
+    CoreTime.Sleep(1);
+   wnd.renderThread:=nil;
+  end;
+  FreeAndNil(wnd);
  end;
 
 { TVarTypeGameClass }

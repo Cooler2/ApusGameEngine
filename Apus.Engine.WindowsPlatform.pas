@@ -29,14 +29,16 @@ type
    procedure ClientToScreen(var p:TPoint); override;
     // Graphics lifecycle (implemented via WGL)
    procedure InitGraph; override;
+   procedure InitGraphShared(primary:TWindow); override;
    procedure DoneGraph; override;
    procedure PresentFrame; override;
    function SetVSync(divider:integer):boolean; override;
  private
   window:HWND;
   context:UIntPtr;
+  terminated:boolean;
   graphInfo:TOpenGLContextDesc;
-  function CreateOpenGLContext(var graph:TOpenGLContextDesc):UIntPtr;
+  function CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith:UIntPtr=0):UIntPtr;
  end;
 
  { TWindowsPlatform - system services + window factory }
@@ -69,8 +71,8 @@ uses Messages, Types, SysUtils, Apus.EventMan,
   {$IFDEF MSWINDOWS},dglOpenGL{$ENDIF};
 {$IFOPT R+} {$DEFINE RANGECHECK_ON} {$ENDIF}
 var
- terminated:boolean;
  noPenAPI:boolean=false;
+ classRegistered:boolean=false;
 
 {$IF Declared(FlashWindowEx)} {$ELSE}
 const
@@ -136,9 +138,15 @@ begin
  //writeln('WinMSG: ',IntTOHex(message):10,'  W=',IntToHex(wParam),'  L=',IntToHex(lParam));
  case Message of
   wm_Destroy:begin
-   Log.Msg('WM_Destroy');
-   terminated:=true;
-   Signal('Engine\Cmd\Exit',0);
+   Log.Msg('WM_Destroy hwnd='+IntToStr(Window));
+   if (mainWindow<>nil) and (mainWindow.GetHandle=THandle(Window)) then begin
+    (mainWindow as TWinGLWindow).terminated:=true;
+    Signal('Engine\Cmd\Exit',0);
+   end else begin
+    // extra window closed — mark as terminated, don't exit app
+    if (Apus.Engine.API.window<>nil) and (Apus.Engine.API.window.GetHandle=THandle(Window)) then
+     (Apus.Engine.API.window as TWinGLWindow).terminated:=true;
+   end;
   end;
   {$IFDEF DELPHI} // FPC currently has no declaration of MS Pointer Input API
   WM_POINTERUPDATE,WM_POINTERENTER,WM_POINTERLEAVE:ProcessPointerMessage(Message,WParam,LParam);
@@ -258,7 +266,6 @@ procedure TWinGLWindow.Close;
  begin
   windows.ShowWindow(window,SW_HIDE);
   windows.DestroyWindow(window);
-  UnregisterClassA('GameWindowClass',0);
  end;
 
 procedure TWinGLWindow.FlashWindow(count: integer);
@@ -400,21 +407,24 @@ function TWindowsPlatform.CreateWindow(title:string):TWindow;
   style:cardinal;
   wndHandle:HWND;
  begin
-   Log.Msg('CreateMainWindow');
-   with WindowClass do begin
-    Style:=cs_HRedraw or cs_VRedraw;
-    lpfnWndProc:=@WindowProc;
-    cbClsExtra:=0;
-    cbWndExtra:=0;
-    hInstance:=0;
-    hIcon:=LoadIcon(MainInstance,'MAINICON');
-    hCursor:=0;
-    hbrBackground:=GetStockObject(Black_Brush);
-    lpszMenuName:='';
-    lpszClassName:='GameWindowClass';
+   Log.Msg('CreateWindow: '+title);
+   if not classRegistered then begin
+    with WindowClass do begin
+     Style:=cs_HRedraw or cs_VRedraw;
+     lpfnWndProc:=@WindowProc;
+     cbClsExtra:=0;
+     cbWndExtra:=0;
+     hInstance:=0;
+     hIcon:=LoadIcon(MainInstance,'MAINICON');
+     hCursor:=0;
+     hbrBackground:=GetStockObject(Black_Brush);
+     lpszMenuName:='';
+     lpszClassName:='GameWindowClass';
+    end;
+    if windows.RegisterClassW(WindowClass)=0 then
+     raise EFatalError.Create('Cannot register window class');
+    classRegistered:=true;
    end;
-   If windows.RegisterClassW(WindowClass)=0 then
-    raise EFatalError.Create('Cannot register window class');
 
    style:=0;
    wndHandle:=windows.CreateWindowW('GameWindowClass', PWideChar(WideString(title)),
@@ -466,7 +476,7 @@ procedure TWinGLWindow.MoveTo(x,y:integer;width:integer;
    Log.Force('MoveWindow error: '+inttostr(GetLastError));
  end;
 
-function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc):UIntPtr;
+function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith:UIntPtr=0):UIntPtr;
  type
   TglGetStringFn=function(name:cardinal):PAnsiChar; stdcall;
   TwglGetProcAddressFn=function(procName:PAnsiChar):Pointer; stdcall;
@@ -600,7 +610,7 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc):UIntPtr;
        attribs[n]:=flags; inc(n);
       end;
       attribs[n]:=0;
-      RC:=wglCreateContextAttribsARB(DC,0,@attribs[0]);
+      RC:=wglCreateContextAttribsARB(DC,shareWith,@attribs[0]);
       if RC<>0 then begin
        wglMakeCurrent(0,0);
        wglDeleteContext(legacyRC);
@@ -669,6 +679,31 @@ procedure TWinGLWindow.InitGraph;
   if CreateOpenGLContext(graphInfo)=0 then
    raise EError.Create('Can''t create OpenGL context');
   oglContextInfo:=graphInfo;
+ end;
+
+procedure TWinGLWindow.InitGraphShared(primary:TWindow);
+ var
+  src:TWinGLWindow;
+  vao:cardinal;
+ begin
+  ASSERT(primary<>nil);
+  ASSERT(primary is TWinGLWindow,'Primary must be TWinGLWindow');
+  src:=TWinGLWindow(primary);
+  ASSERT(src.context<>0,'Primary window has no GL context');
+  graphInfo:=src.graphInfo; // inherit context description
+  graphInfo.actualMajor:=0;
+  graphInfo.actualMinor:=0;
+  graphInfo.requestAccepted:=false;
+  if CreateOpenGLContext(graphInfo,src.context)=0 then
+   raise EError.Create('Can''t create shared OpenGL context');
+  oglContextInfo:=graphInfo;
+  // core profile requires a bound VAO before any draw call
+  if graphInfo.profile=oglpCore then begin
+   vao:=0;
+   glGenVertexArrays(1,@vao);
+   glBindVertexArray(vao);
+   Log.Msg('Extra window VAO created: '+IntToStr(vao));
+  end;
  end;
 
 procedure TWinGLWindow.PresentFrame;

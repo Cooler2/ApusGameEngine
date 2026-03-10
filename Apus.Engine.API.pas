@@ -853,6 +853,15 @@ type
   // -----------------
   procedure Minimize; virtual; abstract;
 
+  // Multi-window support
+  // --------------------
+  // Create an extra window with its own render thread, GL context (shared with main), and frame loop.
+  function AddWindow(settings:TGameSettings):TWindow; overload; virtual; abstract;
+  // Simplified overload: windowed mode, full-size, no scaling, system cursor, vSync=1.
+  function AddWindow(title:string;w,h:integer):TWindow; overload; virtual;
+  // Stop the window's render thread, destroy GL context and native window.
+  procedure RemoveWindow(wnd:TWindow); virtual; abstract;
+
   // Gamepad navigation
   // This should be called every frame for each point that should be available for navigation
   // during the next frame
@@ -1172,6 +1181,22 @@ function TGameBase.ColorMix(var av:TAnimatedValue;color0,color1:cardinal):cardin
 function TGameBase.ColorAlpha(var av:TAnimatedValue;color:cardinal):cardinal;
  begin
   result:=Apus.Colors.ColorAlpha(color,Clamp(av.ValueAt(window.frameStartTime),0,1));
+ end;
+
+function TGameBase.AddWindow(title:string;w,h:integer):TWindow;
+ var
+  s:TGameSettings;
+ begin
+  Mem.Clear(s,sizeof(s));
+  s.title:=title;
+  s.width:=w;
+  s.height:=h;
+  s.mode.displayMode:=dmWindow;
+  s.mode.displayFitMode:=dfmFullSize;
+  s.mode.displayScaleMode:=dsmDontScale;
+  s.showSystemCursor:=true;
+  s.vSync:=1;
+  result:=AddWindow(s);
  end;
 
 

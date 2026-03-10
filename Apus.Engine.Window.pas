@@ -92,6 +92,7 @@ type
   textLinkRect:TRect;
 
  // Per-window data
+  renderThread:IThread; // nil for main window, set by AddWindow for extra windows
   runtimeLock:TLock; // protects scene list + UI access for this window
   timings:TFrameTiming;
   capture:TFrameCapture;
@@ -133,6 +134,8 @@ type
   // Graphics backend lifecycle for this window
   // Create/activate graphics context and initialize backend-facing window surface state.
   procedure InitGraph; virtual; abstract;
+  // Create graphics context that shares resources (textures, buffers, shaders) with primary window.
+  procedure InitGraphShared(primary:TWindow); virtual; abstract;
   // Release graphics context and backend-facing window surface resources.
   procedure DoneGraph; virtual; abstract;
   procedure PresentFrame; virtual; abstract;
