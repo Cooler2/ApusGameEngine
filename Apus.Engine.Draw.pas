@@ -12,8 +12,27 @@ interface
  type
  // High-level immediate drawing helper (lines, rects, images, meshes, particles).
  // Uses shader/renderDevice APIs and owns small internal helper resources (neutral tex, particle shader).
- TDrawer=class(TInterfacedObject,IDrawer)
+TDrawer=class(TInterfacedObject,IDrawer)
+ class threadvar
   zPlane:double; // default Z value for all primitives
+  // buffers
+  partBuf:array of TVertex; // particles (vertices)
+  partInd:array of word; // quad indices (0,1,2, 0,2,3) ... persistent buffer (can only grow)
+  bandInd:array of word; // indices for bands drawing
+
+  useGradient:boolean; // use gradient to color primitives
+  gradient:TColorGradient;
+  stretchGradient:boolean; // stretch gradient over primitive area (i.e. use -1..1 range)
+  // Particles
+  partBuffer:TVertexBuffer; // buffer for particle data
+  partVB:TVertexBuffer; // buffer for billboard particles vertices (2D path)
+  partIB:TIndexBuffer; // static indices for billboard quads
+  bandIB:TIndexBuffer; // dynamic indices for band rendering
+  meshVB:TVertexBuffer; // dynamic scratch VB for pointer-based indexed mesh draws
+  meshIB:TIndexBuffer; // dynamic scratch IB for pointer-based indexed mesh draws
+  depthTexture:TTexture; // depth texture used for soft particles
+  softParticlesRange:single; // depth range for fading the soft particles
+  threadStateReady:boolean;
 
   constructor Create;
   destructor Destroy; override;
@@ -84,33 +103,16 @@ interface
   procedure EnableSoftParticles(depthRange:single;depthTex:TTexture=nil);
   procedure DisableSoftParticles;
 
-  procedure SetZ(z:single);
-  procedure DebugScreen1;
-  procedure Reset;
+ procedure SetZ(z:single);
+ procedure DebugScreen1;
+ procedure Reset;
  protected
-  // buffers
-  partBuf:array of TVertex; // particles (vertices)
-  partInd:array of word; // quad indices (0,1,2, 0,2,3) ... persistent buffer (can only grow)
-  bandInd:array of word; // indices for bands drawing
-
-  neutral:TTexture; // neutral (gray) texture to keep color for non-textured primitives
-
-  useGradient:boolean; // use gradient to color primitives
-  gradient:TColorGradient;
-  stretchGradient:boolean; // stretch gradient over primitive area (i.e. use -1..1 range)
-  // Particles
-  partShader3D:TShader;  // shader for 3D particles
-  partBuffer:TVertexBuffer; // buffer for particle data
-  partVB:TVertexBuffer; // buffer for billboard particles vertices (2D path)
-  partIB:TIndexBuffer; // static indices for billboard quads
-  bandIB:TIndexBuffer; // dynamic indices for band rendering
-  meshVB:TVertexBuffer; // dynamic scratch VB for pointer-based indexed mesh draws
-  meshIB:TIndexBuffer; // dynamic scratch IB for pointer-based indexed mesh draws
-  depthTexture:TTexture; // depth texture used for soft particles
-  softParticlesRange:single; // depth range for fading the soft particles
-  procedure EnsureMeshBuffers(layout:TVertexLayout;vrtCount,indCount:integer);
-  procedure CalcGradient(width,height:single;out gx,gy:single); inline;
- end;
+ neutral:TTexture; // neutral (gray) texture to keep color for non-textured primitives
+ partShader3D:TShader;  // shader for 3D particles
+ procedure EnsureThreadState;
+ procedure EnsureMeshBuffers(layout:TVertexLayout;vrtCount,indCount:integer);
+ procedure CalcGradient(width,height:single;out gx,gy:single); inline;
+end;
 
 var
  MaxParticleCount:integer=5000;
@@ -184,15 +186,14 @@ uses Apus.Core, Apus.Lib,
 
 { TBasicPainter }
 
-constructor TDrawer.Create;
+procedure TDrawer.EnsureThreadState;
 var
  pw:^word;
  i:integer;
 begin
- Log.Force('Creating '+self.ClassName);
+ if threadStateReady then exit;
  zPlane:=0;
- drawer:=self;
- // Init buffers
+ // Init per-thread buffers
  setLength(partBuf,4*MaxParticleCount);
  setLength(partInd,6*MaxParticleCount);
  pw:=@partInd[0];
@@ -215,6 +216,15 @@ begin
  bandIB.debugName:='bandIB';
  meshVB:=nil;
  meshIB:=nil;
+ softParticlesRange:=-1;
+ threadStateReady:=true;
+end;
+
+constructor TDrawer.Create;
+begin
+ Log.Force('Creating '+self.ClassName);
+ drawer:=self;
+ EnsureThreadState;
 
  neutral:=AllocImage(4,4);
  neutral.name:='_neutral_';
@@ -859,6 +869,7 @@ end;
 
 procedure TDrawer.SetZ(z:single);
 begin
+ EnsureThreadState;
  zPlane:=z;
 end;
 
@@ -890,6 +901,7 @@ end;
 
 procedure TDrawer.WithGradient(const gradient:TColorGradient;stretch:boolean=false);
 begin
+ EnsureThreadState;
  useGradient:=true;
  self.gradient:=gradient;
  stretchGradient:=stretch;
@@ -913,11 +925,13 @@ end;
 
 procedure TDrawer.NoGradient;
 begin
+ EnsureThreadState;
  useGradient:=false;
 end;
 
 procedure TDrawer.EnsureMeshBuffers(layout:TVertexLayout;vrtCount,indCount:integer);
 begin
+ if not threadStateReady then EnsureThreadState;
  if vrtCount<1 then vrtCount:=1;
  if indCount<1 then indCount:=1;
  if (meshVB=nil) or (not meshVB.layout.Equals(layout)) then begin
@@ -992,7 +1006,7 @@ end;
 
 procedure TDrawer.Reset;
 begin
-
+ EnsureThreadState;
 end;
 
 procedure TDrawer.RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0);
@@ -1225,6 +1239,7 @@ var
  startU,startV,sizeU,sizeV:integer;
  color:cardinal;
 begin
+ EnsureThreadState;
  part:=pointer(data);
  if count>MaxParticleCount then count:=MaxParticleCount;
  SetLength(idx,count);
@@ -1333,6 +1348,7 @@ var
  frontVec:TVector3s;
  d,realDepthRange:single;
 begin
+ EnsureThreadState;
  // Shader
  shader.UseCustom(partShader3D);
  shader.SetUniform('vecRight',transform.RightVec);
@@ -1424,6 +1440,7 @@ end;
 
 procedure TDrawer.EnableSoftParticles(depthRange:single;depthTex:TTexture);
 begin
+ EnsureThreadState;
  softParticlesRange:=depthRange;
  if depthTex=nil then depthTex:=game.GetDepthBufferTex;
  depthTexture:=depthTex;
@@ -1431,6 +1448,7 @@ end;
 
 procedure TDrawer.DisableSoftParticles;
 begin
+ EnsureThreadState;
  softParticlesRange:=-1;
 end;
 
@@ -1448,6 +1466,7 @@ var
  idx:integer;
  color:cardinal;
 begin
+ EnsureThreadState;
  if tex=nil then tex:=neutral;
  shader.UseTexture(tex);
  part:=pointer(data);

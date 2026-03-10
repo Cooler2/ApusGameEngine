@@ -2430,16 +2430,16 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     wnd:=systemPlatform.CreateWindow(settings.title);
     window:=wnd; // set threadvar
     wnd.screenDPI:=systemPlatform.GetScreenDPI;
+    // Shared GL context must exist before any message processing that can trigger redraw.
+    wnd.InitGraphShared(mainWindow);
     wnd.Configure(settings);
-    wnd.ProcessMessages;
     wnd.GetSize(wnd.windowWidth,wnd.windowHeight);
     if wnd.windowWidth<=0 then wnd.windowWidth:=settings.width;
     if wnd.windowHeight<=0 then wnd.windowHeight:=settings.height;
     wnd.renderWidth:=wnd.windowWidth;
     wnd.renderHeight:=wnd.windowHeight;
-    // create shared GL context
-    wnd.InitGraphShared(mainWindow);
     wnd.Show(true);
+    wnd.ProcessMessages;
     wnd.active:=true;
     wnd.timings.Reset;
     wnd.capture.Reset;
@@ -2568,6 +2568,7 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
  var
   ewCtx:TExtraWindowContext;
   th:IThread;
+  mainCtxReleased:boolean;
  begin
   // Blocking call: returns only after extra-window thread reports startup success or failure.
   ASSERT(mainWindow<>nil,'Main window must exist before AddWindow');
@@ -2576,20 +2577,30 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
   ewCtx.startDone:=false;
   ewCtx.startFailed:=false;
   ewCtx.errorMsg:='';
-  th:=Thread.Start('WndThread_'+settings.title,ExtraWindowLoop,@ewCtx);
-  // wait until startup result is reported (or thread dies unexpectedly)
-  while (not ewCtx.startDone) and th.IsRunning do
-   CoreTime.Sleep(1);
-  if ewCtx.startFailed then begin
-   if ewCtx.errorMsg<>'' then
-    raise EError.Create('Failed to create extra window: '+ewCtx.errorMsg)
-   else
-    raise EError.Create('Failed to create extra window');
+  mainCtxReleased:=false;
+  if mainWindow<>nil then begin
+   mainWindow.ReleaseGraphContext;
+   mainCtxReleased:=true;
   end;
-  result:=ewCtx.resultWnd;
-  if result=nil then
-   raise EError.Create('Failed to create extra window: startup thread terminated before ready');
-  result.renderThread:=th;
+  try
+   th:=Thread.Start('WndThread_'+settings.title,ExtraWindowLoop,@ewCtx);
+   // wait until startup result is reported (or thread dies unexpectedly)
+   while (not ewCtx.startDone) and th.IsRunning do
+    CoreTime.Sleep(1);
+   if ewCtx.startFailed then begin
+    if ewCtx.errorMsg<>'' then
+     raise EError.Create('Failed to create extra window: '+ewCtx.errorMsg)
+    else
+     raise EError.Create('Failed to create extra window');
+   end;
+   result:=ewCtx.resultWnd;
+   if result=nil then
+    raise EError.Create('Failed to create extra window: startup thread terminated before ready');
+   result.renderThread:=th;
+  finally
+   if mainCtxReleased then
+    mainWindow.ActivateGraphContext;
+  end;
  end;
 
 procedure TGame.RemoveWindow(wnd:TWindow);

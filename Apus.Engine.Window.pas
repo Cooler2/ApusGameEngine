@@ -138,6 +138,9 @@ type
   procedure InitGraphShared(primary:TWindow); virtual; abstract;
   // Release graphics context and backend-facing window surface resources.
   procedure DoneGraph; virtual; abstract;
+  // Temporarily detach/attach current graphics context (used for shared-context startup sequencing).
+  procedure ReleaseGraphContext; virtual;
+  procedure ActivateGraphContext; virtual;
   procedure PresentFrame; virtual; abstract;
   function SetVSync(divider:integer):boolean; virtual; abstract;
  end;
@@ -179,6 +182,14 @@ procedure TWindow.Lock(caller:pointer=nil);
 procedure TWindow.Unlock;
  begin
   runtimeLock.Leave;
+ end;
+
+procedure TWindow.ReleaseGraphContext;
+ begin
+ end;
+
+procedure TWindow.ActivateGraphContext;
+ begin
  end;
 
 procedure TFrameCapture.Reset;

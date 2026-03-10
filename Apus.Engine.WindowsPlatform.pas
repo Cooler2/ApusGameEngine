@@ -28,11 +28,13 @@ type
    procedure ScreenToClient(var p:TPoint); override;
    procedure ClientToScreen(var p:TPoint); override;
     // Graphics lifecycle (implemented via WGL)
-   procedure InitGraph; override;
-   procedure InitGraphShared(primary:TWindow); override;
-   procedure DoneGraph; override;
-   procedure PresentFrame; override;
-   function SetVSync(divider:integer):boolean; override;
+  procedure InitGraph; override;
+  procedure InitGraphShared(primary:TWindow); override;
+  procedure DoneGraph; override;
+  procedure ReleaseGraphContext; override;
+  procedure ActivateGraphContext; override;
+  procedure PresentFrame; override;
+  function SetVSync(divider:integer):boolean; override;
  private
   window:HWND;
   context:UIntPtr;
@@ -411,7 +413,8 @@ function TWindowsPlatform.CreateWindow(title:string):TWindow;
    Log.Msg('CreateWindow: '+title);
    if not classRegistered then begin
     with WindowClass do begin
-     Style:=cs_HRedraw or cs_VRedraw;
+     // OpenGL windows should use own DC to keep stable WGL behavior across threads/windows.
+     Style:=cs_HRedraw or cs_VRedraw or CS_OWNDC;
      lpfnWndProc:=@WindowProc;
      cbClsExtra:=0;
      cbWndExtra:=0;
@@ -497,7 +500,9 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
   availMajor,availMinor:integer;
   attribs:array[0..15] of integer;
  n,flags,profileMask:integer;
-  modernCreated:boolean;
+ modernCreated:boolean;
+ effectiveDebug:boolean;
+ errCode:cardinal;
   requestedProfile,actualProfile:TOpenGLContextProfile;
   requestedDebug,requestedForward:boolean;
   glVer:string;
@@ -531,8 +536,10 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
    result:=major>0;
   end;
  begin
+   result:=0;
    requestedProfile:=graph.profile;
    requestedDebug:=graph.debugContext;
+   effectiveDebug:=requestedDebug;
    requestedForward:=graph.forwardCompatible;
    Log.Msg('Prepare GL context');
    Mem.Clear(pfd,sizeof(PFD));
@@ -610,7 +617,7 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
        attribs[n]:=profileMask; inc(n);
       end;
       flags:=0;
-      if requestedDebug then flags:=flags or WGL_CONTEXT_DEBUG_BIT_ARB;
+      if effectiveDebug then flags:=flags or WGL_CONTEXT_DEBUG_BIT_ARB;
       if requestedForward then flags:=flags or WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB;
       if flags<>0 then begin
        attribs[n]:=WGL_CONTEXT_FLAGS_ARB; inc(n);
@@ -622,8 +629,47 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
        wglMakeCurrent(0,0);
        wglDeleteContext(legacyRC);
       end else begin
-       RC:=legacyRC;
-       Log.Warn('Failed to create requested modern GL context, keeping legacy context');
+       errCode:=GetLastError;
+       Log.Warn('Failed to create requested modern GL context (err='+IntToStr(errCode)+')');
+       if effectiveDebug and (shareWith<>0) then begin
+        // Some drivers reject shared debug contexts while accepting shared non-debug core contexts.
+        Log.Warn('Retry shared modern context without debug flag');
+        effectiveDebug:=false;
+        n:=0;
+        attribs[n]:=WGL_CONTEXT_MAJOR_VERSION_ARB; inc(n);
+        attribs[n]:=requestedMajor; inc(n);
+        attribs[n]:=WGL_CONTEXT_MINOR_VERSION_ARB; inc(n);
+        attribs[n]:=requestedMinor; inc(n);
+        profileMask:=0;
+        case requestedProfile of
+         oglpCore:profileMask:=WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
+         oglpCompatibility:profileMask:=WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB;
+        end;
+        if profileMask<>0 then begin
+         attribs[n]:=WGL_CONTEXT_PROFILE_MASK_ARB; inc(n);
+         attribs[n]:=profileMask; inc(n);
+        end;
+        flags:=0;
+        if requestedForward then flags:=flags or WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB;
+        if flags<>0 then begin
+         attribs[n]:=WGL_CONTEXT_FLAGS_ARB; inc(n);
+         attribs[n]:=flags; inc(n);
+        end;
+        attribs[n]:=0;
+        RC:=wglCreateContextAttribsARB(DC,shareWith,@attribs[0]);
+        if RC<>0 then begin
+         wglMakeCurrent(0,0);
+         wglDeleteContext(legacyRC);
+         Log.Warn('Shared modern context created without debug flag');
+        end else begin
+         errCode:=GetLastError;
+         Log.Warn('Retry failed (err='+IntToStr(errCode)+'), keeping legacy context');
+         RC:=legacyRC;
+        end;
+       end else begin
+        RC:=legacyRC;
+        Log.Warn('Keeping legacy context');
+       end;
       end;
      end else
       Log.Warn('wglCreateContextAttribsARB not available, keeping legacy context');
@@ -651,7 +697,7 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
      actualProfile:=oglpCompatibility
     else
      actualProfile:=oglpAny;
-    graph.debugContext:=requestedDebug;
+    graph.debugContext:=effectiveDebug;
     graph.forwardCompatible:=requestedForward;
    end else begin
     // Legacy context path cannot guarantee debug/forward flags.
@@ -668,6 +714,9 @@ function TWinGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith
     graph.requestAccepted:=graph.requestAccepted and graph.debugContext;
    if requestedForward then
     graph.requestAccepted:=graph.requestAccepted and graph.forwardCompatible;
+   if RC=0 then
+    raise EError.CreateFmt('Can''t create OpenGL context (shared=%d, min=%d.%d, profile=%d, debug=%d, forward=%d)',
+      [integer(shareWith<>0),graph.minMajor,graph.minMinor,integer(requestedProfile),ord(requestedDebug),ord(requestedForward)]);
    context:=RC;
    result:=context;
   end;
@@ -683,8 +732,7 @@ procedure TWinGLWindow.InitGraph;
   graphInfo.actualMajor:=0;
   graphInfo.actualMinor:=0;
   graphInfo.requestAccepted:=false;
-  if CreateOpenGLContext(graphInfo)=0 then
-   raise EError.Create('Can''t create OpenGL context');
+  CreateOpenGLContext(graphInfo);
   oglContextInfo:=graphInfo;
  end;
 
@@ -701,9 +749,9 @@ procedure TWinGLWindow.InitGraphShared(primary:TWindow);
   graphInfo.actualMajor:=0;
   graphInfo.actualMinor:=0;
   graphInfo.requestAccepted:=false;
-  if CreateOpenGLContext(graphInfo,src.context)=0 then
-   raise EError.Create('Can''t create shared OpenGL context');
+  CreateOpenGLContext(graphInfo,src.context);
   oglContextInfo:=graphInfo;
+  SetupGLDebugOutputForCurrentContext(graphInfo,'secondary:'+name);
   // core profile requires a bound VAO before any draw call
   if graphInfo.profile=oglpCore then begin
    vao:=0;
@@ -735,6 +783,22 @@ procedure TWinGLWindow.DoneGraph;
    wglDeleteContext(context);
   end;
   context:=0;
+ end;
+
+procedure TWinGLWindow.ReleaseGraphContext;
+ begin
+  wglMakeCurrent(0,0);
+ end;
+
+procedure TWinGLWindow.ActivateGraphContext;
+ var
+  dc:HDC;
+ begin
+  if context=0 then exit;
+  dc:=GetDC(window);
+  if not wglMakeCurrent(dc,context) then
+   Log.Warn('Failed to activate GL context: '+IntToStr(GetLastError));
+  ReleaseDC(window,dc);
  end;
 
 procedure TWinGLWindow.Configure(params:TGameSettings);

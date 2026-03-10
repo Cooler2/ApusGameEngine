@@ -103,41 +103,45 @@ type
 
   procedure Shadow(mode:TShadowMapMode;shadowMap:TTexture=nil;depthBias:single=0.002);
 
-  procedure Apply(vertexLayout:TVertexLayout);
+ procedure Apply(vertexLayout:TVertexLayout);
  private
-  curTextures:array[0..15] of TTexture; // up to 16 texture units
-  curTexChanged:cardinal; // bitmask of changed textures
+  class threadvar
+   curTextures:array[0..15] of TTexture; // up to 16 texture units
+   curTexChanged:cardinal; // bitmask of changed textures
 
-  curTexMode:TTexMode; // encoded shader mode requested by the client code
-  actualTexMode:TTexMode; // actual shader mode
-  actualVertexLayout:cardinal; // vertex layout for the current shader
+   curTexMode:TTexMode; // encoded shader mode requested by the client code
+   actualTexMode:TTexMode; // actual shader mode
+   actualVertexLayout:cardinal; // vertex layout for the current shader
+
+   // Ambient light
+   ambientLightColor:cardinal;
+   ambientLightModified:boolean;
+
+   // Current direct light
+   directLightDir:TVector3s; //< direction * power
+   directLightColor:cardinal;
+   directLightModified:boolean;
+
+   // Current point light
+   pointLightPos:TPoint3s;
+   pointLightColor:TVector3s; // light color multiplied by power
+   pointLightModified:boolean;
+
+   activeShader:TGLShader; // current OpenGL shader
+   isCustom:boolean;
+
+   matrixRevision:integer; // increments when transformation changed, so matrices can be uploaded to shaders
+   viewProjMatrix:T3DMatrixS; // lightspace matrix used for shadowmap
+   shadowMapMatrix:T3DMatrixS; // frustrum->viewport transformation matrix for the main shadow rendering phase
+   shadowMap:TTexture;
+
+   // Pending uniforms (for customized shader)
+   custUniforms:Strings8;
+   threadStateReady:boolean;
+
   customized:Strings8;
 
-  // Ambient light
-  ambientLightColor:cardinal;
-  ambientLightModified:boolean;
-
-  // Current direct light
-  directLightDir:TVector3s; //< direction * power
-  directLightColor:cardinal;
-  directLightModified:boolean;
-
-  // Current point light
-  pointLightPos:TPoint3s;
-  pointLightColor:TVector3s; // light color multiplied by power
-  pointLightModified:boolean;
-
   shaderCache:TSimpleHash; // TODO: cached TGLShader objects are never freed — add cleanup in destructor
-  activeShader:TGLShader; // current OpenGL shader
-  isCustom:boolean;
-
-  matrixRevision:integer; // increments when transformation changed, so matrices can be uploaded to shaders
-  viewProjMatrix:T3DMatrixS; // lightspace matrix used for shadowmap
-  shadowMapMatrix:T3DMatrixS; // frustrum->viewport transformation matrix for the main shadow rendering phase
-  shadowMap:TTexture;
-
-  // Pending uniforms (for customized shader)
-  custUniforms:Strings8;
 
   // Switch to the specified shader and upload matrices (if applicable)
   procedure ActivateShader(shader:TShader);
@@ -145,6 +149,7 @@ type
   function GetShaderFor:TGLShader;
   function CreateShaderFor:TGLShader;
   function IsCustomized:boolean;
+  procedure EnsureThreadState;
   procedure CustomizedUniform(name:string8;valueType:AnsiChar;const value);
   procedure ApplyCustomizedUniforms;
  end;
@@ -523,11 +528,18 @@ function TGLShadersAPI.IsCustomized:boolean;
   result:=not isCustom and (Bits.HasAll(curTexMode.lighting,LIGHT_CUSTOMIZED));
  end;
 
+procedure TGLShadersAPI.EnsureThreadState;
+ begin
+  if threadStateReady then exit;
+  curTexChanged:=0;
+  Bits.SetBit(curTexChanged,0); // invalidate primary texture binding
+  threadStateReady:=true;
+ end;
+
 constructor TGLShadersAPI.Create;
  begin
  shadersAPI:=self;
  shaderCache.Init(32);
-  Bits.SetBit(curTexChanged,0); // invalidate primary texture binding
  end;
 
 destructor TGLShadersAPI.Destroy;
@@ -547,6 +559,7 @@ destructor TGLShadersAPI.Destroy;
 
 procedure TGLShadersAPI.DirectLight(direction:TVector3; power:single; color:cardinal);
  begin
+  EnsureThreadState;
   directLightDir:=Vector3s(direction);
   directLightDir.Normalize;
   VectMult(directLightDir,power);
@@ -557,6 +570,7 @@ procedure TGLShadersAPI.DirectLight(direction:TVector3; power:single; color:card
 
 procedure TGLShadersAPI.AmbientLight(color:cardinal);
  begin
+  EnsureThreadState;
   ambientLightColor:=color;
   Bits.Modify(curTexMode.lighting,LIGHT_AMBIENT_ON,color<>0);
   ambientLightModified:=true;
@@ -615,17 +629,20 @@ procedure TGLShadersAPI.ApplyCustomizedUniforms;
 
 procedure TGLShadersAPI.PointLight(position:TPoint3;power:single;color:cardinal);
  begin
+  EnsureThreadState;
   // TODO: store position, power, color and upload to shader — currently only toggles the flag bit
   Bits.Modify(curTexMode.lighting,LIGHT_POINT_ON,power>0);
  end;
 
 procedure TGLShadersAPI.LightOff;
  begin
+  EnsureThreadState;
   Bits.Clear(curTexMode.lighting,LIGHT_DIRECT_ON+LIGHT_AMBIENT_ON+LIGHT_POINT_ON);
  end;
 
 procedure TGLShadersAPI.DefaultTexMode;
  begin
+  EnsureThreadState;
   TexMode(0,tblModulate2X,tblModulate);
   TexMode(1,tblDisable,tblDisable);
  end;
@@ -633,6 +650,7 @@ procedure TGLShadersAPI.DefaultTexMode;
 procedure TGLShadersAPI.TexMode(stage:byte; colorMode,
   alphaMode:TTexBlendingMode; filter:TTexFilter; intFactor:single);
  begin
+  EnsureThreadState;
   ASSERT(stage in [0..2]);
   ASSERT(filter=TTexFilter.fltUndefined,'Texture filter per stage not supported, use per texture filter instead');
   if colorMode=tblNone then colorMode:=TTexBlendingMode(curTexMode.stage[stage] and $0F);
@@ -774,6 +792,7 @@ procedure TGLShadersAPI.UseCustom(shader:TShader);
  var
   stage:integer;
  begin
+  EnsureThreadState;
   isCustom:=true;
   ActivateShader(shader);
  end;
@@ -782,6 +801,7 @@ procedure TGLShadersAPI.UseCustomized(colorCalc:String8;numTextures:integer=1);
  var
   idx:integer;
  begin
+  EnsureThreadState;
   idx:=customized.IndexOf(colorCalc);
   if idx<0 then begin
    customized.Add(colorCalc);
@@ -799,6 +819,7 @@ procedure TGLShadersAPI.UseCustomized(colorCalc:String8;numTextures:integer=1);
 
 procedure TGLShadersAPI.UseTexture(tex:TTexture;uniformName:string8;stage:integer);
  begin
+  EnsureThreadState;
   UseTexture(tex,stage);
   SetUniform(uniformName,stage);
   //curTexChanged[stage]:=false; // prevent further processing
@@ -806,6 +827,7 @@ procedure TGLShadersAPI.UseTexture(tex:TTexture;uniformName:string8;stage:intege
 
 procedure TGLShadersAPI.Reset;
  begin
+  EnsureThreadState;
   isCustom:=false;
   actualTexMode.mode:=0;
   if Bits.HasAll(curTexMode.lighting,LIGHT_CUSTOMIZED) then
@@ -891,6 +913,7 @@ procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:
     MultMat(viewProjMatrix,frustum,shadowMapMatrix);
   end;
  begin
+  EnsureThreadState;
   Bits.Modify(curTexMode.lighting,LIGHT_SHADOWMAP,mode=shadowMainPass);
   Bits.Modify(curTexMode.lighting,LIGHT_DEPTHPASS,mode=shadowDepthPass);
   case mode of
@@ -905,6 +928,7 @@ procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:
 
 procedure TGLShadersAPI.UseTexture(tex:TTexture;stage:integer);
  begin
+  EnsureThreadState;
   if curTextures[stage]=tex then begin
    // This texture already used, but maybe it needs update?
    if (tex<>nil) and tex.HasFlag(tfDirty) then
@@ -923,6 +947,7 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
   mat:T3DMatrix;
   shaderChanged:boolean;
  begin
+  EnsureThreadState;
   shaderChanged:=false;
   if not isCustom then
    if (actualTexMode.mode<>curTexMode.mode) or (actualVertexLayout<>vertexLayout.layout) then begin

@@ -58,12 +58,15 @@ type
  // Shared transformation state (model/view/projection) for current render context.
  // Backend-specific renderer reads matrices from here, game code writes camera/object transforms.
  TTransformationAPI=class(TInterfacedObject,ITransformation)
-  viewMatrix:T3DMatrix; // current view (camera) matrix
-  invViewMatrix:T3DMatrix; // inverted view matrix
-  invVPMatrix:T3DMatrix; // inverted view-Projection matrix
-  objMatrix:T3DMatrix; // current object (model) matrix
-  projMatrix:T3DMatrix; // current projection matrix
-  MVP:T3DMatrix; // combined matrix
+  class threadvar
+   viewMatrix:T3DMatrix; // current view (camera) matrix
+   invViewMatrix:T3DMatrix; // inverted view matrix
+   invVPMatrix:T3DMatrix; // inverted view-Projection matrix
+   objMatrix:T3DMatrix; // current object (model) matrix
+   projMatrix:T3DMatrix; // current projection matrix
+   MVP:T3DMatrix; // combined matrix
+   modified,modifiedVP:boolean;
+   zMin,zMax,xMax,xMin,yMax,yMin:single;
 
   constructor Create;
   procedure DefaultView; virtual;
@@ -106,8 +109,6 @@ type
  type
   TMatrixType=(mtModelView,mtProjection);
  protected
-  modified,modifiedVP:boolean;
-  zMin,zMax,xMax,xMin,yMax,yMin:single;
   procedure CalcMVP;
   procedure CalcInvVP;
  end;
@@ -128,11 +129,14 @@ type
 
   procedure AssignActual(r:TRect); // set actual clipping area (from gfx API)
  protected
-  clipRect:TRect; //< current requested clipping area (in virtual pixels), might be different from actual clipping area}
-  actualClip:TRect; //< real clipping area
-  stack:array[0..49] of TRect;
-  stackPos:integer;
-  rejectMode:boolean;
+  class threadvar
+   clipRect:TRect; //< current requested clipping area (in virtual pixels), might be different from actual clipping area}
+   actualClip:TRect; //< real clipping area
+   stack:array[0..49] of TRect;
+   stackPos:integer;
+   rejectMode:boolean;
+   threadReady:boolean;
+  procedure EnsureThreadState;
  end;
 
  // Backend-agnostic render-target state and stack.
@@ -160,20 +164,23 @@ type
   procedure Clip(x,y,w,h:integer); virtual; abstract; //< Set actual clip rect defined in real pixels
   procedure Resized(newWidth,newHeight:integer); virtual; abstract; // backbuffer size changed
  protected
-  vPort:TRect;  //< part of the backbuffer used for output (backbuffer only, RT-textures always use full surface)
-  renderWidth,renderHeight:integer; //< size in virtual pixels
-  realWidth,realHeight:integer; //< size of the whole target surface in real pixels
-  curBlend:TBlendingMode;
-  curTarget:TTexture;
-  // saved stack of render targets
-  stack:array[1..10] of TTexture;
-  stackVP:array[1..10] of TRect;
-  stackRW,stackRH:array[1..10] of integer;
-  stackCnt:integer;
-  // stack of saved masks
-  maskStack:array[0..9] of integer;
-  maskStackPos:integer;
-  curMask:integer;
+  class threadvar
+   vPort:TRect;  //< part of the backbuffer used for output (backbuffer only, RT-textures always use full surface)
+   renderWidth,renderHeight:integer; //< size in virtual pixels
+   realWidth,realHeight:integer; //< size of the whole target surface in real pixels
+   curBlend:TBlendingMode;
+   curTarget:TTexture;
+   // saved stack of render targets
+   stack:array[1..10] of TTexture;
+   stackVP:array[1..10] of TRect;
+   stackRW,stackRH:array[1..10] of integer;
+   stackCnt:integer;
+   // stack of saved masks
+   maskStack:array[0..9] of integer;
+   maskStackPos:integer;
+   curMask:integer;
+   threadReady:boolean;
+  procedure EnsureThreadState;
   procedure ApplyMask; virtual; abstract; //< Apply curMask
  end;
 
@@ -541,6 +548,7 @@ function TTransformationAPI.CameraPos:TPoint3s;
 
 function TRenderTargetAPI.aspect:single;
  begin
+  EnsureThreadState;
   if renderHeight>0 then result:=renderWidth/renderHeight
    else result:=0;
  end;
@@ -550,6 +558,7 @@ procedure TRenderTargetAPI.ClipVirtual(const r: TRect);
   x,y,w,h:integer;
   scaleX,scaleY:single;
  begin
+  EnsureThreadState;
   x:=vPort.Left;
   y:=vPort.Top;
   w:=vPort.Width;
@@ -562,13 +571,28 @@ procedure TRenderTargetAPI.ClipVirtual(const r: TRect);
 
 constructor TRenderTargetAPI.Create;
  begin
+  EnsureThreadState;
+ end;
+
+procedure TRenderTargetAPI.EnsureThreadState;
+ begin
+  if threadReady then exit;
+  vPort:=Types.Rect(0,0,0,0);
+  renderWidth:=0;
+  renderHeight:=0;
+  realWidth:=0;
+  realHeight:=0;
   curBlend:=blNone;
   curTarget:=nil;
+  stackCnt:=0;
+  maskStackPos:=0;
   curMask:=15;
+  threadReady:=true;
  end;
 
 procedure TRenderTargetAPI.Push;
  begin
+  EnsureThreadState;
   ASSERT(stackCnt<10);
   inc(stackCnt);
   stack[stackcnt]:=curTarget;
@@ -579,6 +603,7 @@ procedure TRenderTargetAPI.Push;
 
 procedure TRenderTargetAPI.Pop;
  begin
+  EnsureThreadState;
   ASSERT(stackCnt>0);
   if stack[stackCnt]<>nil then
    Texture(stack[stackCnt])
@@ -591,17 +616,20 @@ procedure TRenderTargetAPI.Pop;
 
 function TRenderTargetAPI.height: integer;
  begin
+  EnsureThreadState;
   result:=renderHeight;
  end;
 
 function TRenderTargetAPI.width: integer;
  begin
+  EnsureThreadState;
   result:=renderWidth;
  end;
 
 procedure TRenderTargetAPI.Viewport(oX, oY, VPwidth, VPheight,
   renderWidth, renderHeight: integer);
  begin
+  EnsureThreadState;
   if vpWidth<=0 then vpWidth:=realWidth;
   if vpHeight<=0 then vpHeight:=realHeight;
   vPort:=Rect(oX,oY,ox+vpWidth,oY+vpHeight);
@@ -616,6 +644,7 @@ procedure TRenderTargetAPI.Mask(rgb, alpha: boolean);
  var
   mask:integer;
  begin
+  EnsureThreadState;
   ASSERT(maskStackPos<=High(maskStack));
   mask:=0;
   maskStack[maskStackPos]:=curmask;
@@ -632,6 +661,7 @@ procedure TRenderTargetAPI.UnMask;
  var
   mask:integer;
  begin
+  EnsureThreadState;
   ASSERT(maskStackPos>0);
   dec(maskStackPos);
   mask:=maskStack[maskStackPos];
@@ -643,6 +673,7 @@ procedure TRenderTargetAPI.UnMask;
 
 procedure TRenderTargetAPI.Backbuffer;
  begin
+  EnsureThreadState;
   curTarget:=nil;
  end;
 
@@ -653,6 +684,7 @@ procedure TRenderTargetAPI.UseDepthBuffer(test: TDepthBufferTest;
 
 procedure TRenderTargetAPI.Texture(tex: TTexture);
  begin
+  EnsureThreadState;
   ASSERT(tex.HasFlag(tfRenderTarget));
   curTarget:=tex;
  end;
@@ -661,6 +693,7 @@ procedure TRenderTargetAPI.Texture(tex: TTexture);
 
 procedure TClippingAPI.Prepare;
  begin
+  EnsureThreadState;
   renderTargetAPI.ClipVirtual(clipRect);
   actualClip:=clipRect;
  end;
@@ -670,6 +703,7 @@ function TClippingAPI.Prepare(r:TRect):boolean;
   outRect:TRect;
   f1,f2:integer;
  begin
+  EnsureThreadState;
   if not rejectMode then exit(true);
   f1:=IntersectRects(r,clipRect,outRect);
   if f1=0 then exit(false);
@@ -696,29 +730,40 @@ function TClippingAPI.Prepare(x1,y1,x2,y2:single):boolean;
 
 procedure TClippingAPI.AssignActual(r:TRect);
  begin
+  EnsureThreadState;
   actualClip:=r;
  end;
 
 constructor TClippingAPI.Create;
  begin
+  EnsureThreadState;
+ end;
+
+procedure TClippingAPI.EnsureThreadState;
+ begin
+  if threadReady then exit;
   rejectMode:=true;
   stackPos:=0;
-  clipRect:=types.Rect(-100000,-100000,100000,100000);
+  clipRect:=Types.Rect(-100000,-100000,100000,100000);
   actualClip:=clipRect;
+  threadReady:=true;
  end;
 
 function TClippingAPI.Get: TRect;
  begin
+  EnsureThreadState;
   result:=clipRect;
  end;
 
 procedure TClippingAPI.Nothing;
  begin
+  EnsureThreadState;
   Rect(types.Rect(-100000,-100000,100000,100000),false);
  end;
 
 procedure TClippingAPI.Rect(r:TRect;combine:boolean);
  begin
+  EnsureThreadState;
   ASSERT(stackPos<high(stack));
   inc(stackPos);
   stack[stackPos]:=clipRect;
@@ -731,11 +776,13 @@ procedure TClippingAPI.Rect(r:TRect;combine:boolean);
 
 procedure TClippingAPI.Reject(rejectPrimitives:boolean);
  begin
+  EnsureThreadState;
   rejectMode:=rejectPrimitives;
  end;
 
 procedure TClippingAPI.Restore;
  begin
+  EnsureThreadState;
   ASSERT(stackPos>0);
   clipRect:=stack[stackPos];
   dec(stackPos);

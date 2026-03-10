@@ -33,7 +33,25 @@ interface
   // Text rendering subsystem singleton.
   // Owns font registry and glyph cache texture, provides measurement and drawing via ITextDrawer.
   TTextDrawer=class(TInterfacedObject,ITextDrawer)
-   textMetrics:array of TRect; // results of text measurement (if requested)
+   class threadvar
+    textMetrics:array of TRect; // results of text measurement (if requested)
+
+    textCaching:boolean;  // cache draw operations
+    textBlockOptions:cardinal; // block-level options to add
+
+    txtBuf:array of TVertex;
+    txtInd:array of word;
+    txtVertCount:integer; // number of vertices stored in textBuf
+    textVB:TVertexBuffer;
+    textIB:TIndexBuffer;
+
+    textCache:TTexture; // texture with cached glyphs (textCacheWidth x 512, or another for new glyph cache structure)
+
+    // Buffer for alternate text rendering
+    textBufferBitmap:pointer;
+    textBufferPitch:integer;
+    globalScale:single;
+    threadStateReady:boolean;
 
    constructor Create;
    destructor Destroy; override;
@@ -67,23 +85,7 @@ interface
    procedure SetTarget(buf:pointer;pitch:integer); // set system memory target for text rendering (no clipping!)
   private
    fonts:array of TObject;
-
-   textCaching:boolean;  // cache draw operations
-   textBlockOptions:cardinal; // block-level options to add
-
-   txtBuf:array of TVertex;
-   txtInd:array of word;
-   txtVertCount:integer; // number of vertices stored in textBuf
-   textVB:TVertexBuffer;
-   textIB:TIndexBuffer;
-
-   textCache:TTexture; // texture with cached glyphs (textCacheWidth x 512, or another for new glyph cache structure)
-
-   // Buffer for alternate text rendering
-   textBufferBitmap:pointer;
-   textBufferPitch:integer;
-   globalScale:single;
-
+   procedure EnsureThreadState;
    procedure CreateTextCache;
    procedure FlushTextCache;
    function GetFontObject(font:TFontHandle):TObject;
@@ -97,13 +99,15 @@ interface
 
   textColorFunc:TColorFunc=nil; // not thread-safe!
   textLinkStyleProc:TTextLinkStyleProc=nil; // not thread-safe!
-  // Если при отрисовке текста передан запрос с координатами точки, и эта точка приходится на рисуемую ссылку -
-  // то сюда записывается номер этой ссылки. Обнуляется перед отрисовкой кадра
-  curTextLink:cardinal;
-  curTextLinkRect:TRect;
 
   textDrawer:TTextDrawer;
   defaultFontHandle:cardinal; // first loaded font (unless overriden), used to substitute 0-handle
+
+threadvar
+ // Если при отрисовке текста передан запрос с координатами точки, и эта точка приходится на рисуемую ссылку -
+ // то сюда записывается номер этой ссылки. Обнуляется перед отрисовкой кадра
+ curTextLink:cardinal;
+ curTextLinkRect:TRect;
 
 implementation
  uses
@@ -144,7 +148,7 @@ type
   procedure InitDefaults; override;
  end;
 
- var
+ threadvar
   glyphCache,altGlyphCache:TGlyphCache;
 
 procedure DefaultTextLinkStyle(link:cardinal;var sUnderline:boolean;var color:cardinal);
@@ -195,10 +199,44 @@ procedure EncodeScale(scale:single;var font:TFontHandle);
 
 { TTextDrawer }
 
+procedure TTextDrawer.EnsureThreadState;
+ var
+  i:integer;
+  pw:^word;
+ begin
+  if threadStateReady then exit;
+  globalScale:=1.0;
+  textCache:=nil;
+  textVB:=nil;
+  textIB:=nil;
+  SetLength(txtBuf,4*MaxGlyphBufferCount);
+  SetLength(txtInd,6*MaxGlyphBufferCount);
+  pw:=@txtInd[0];
+  for i:=0 to MaxGlyphBufferCount-1 do begin
+   pw^:=i*4; inc(pw);
+   pw^:=i*4+1; inc(pw);
+   pw^:=i*4+2; inc(pw);
+   pw^:=i*4; inc(pw);
+   pw^:=i*4+2; inc(pw);
+   pw^:=i*4+3; inc(pw);
+  end;
+  textVB:=gfx.resMan.AllocVertexBuffer(TVertex.layoutTex,4*MaxGlyphBufferCount,TBufferUsage.buDynamic);
+  textVB.debugName:='textVB';
+  textIB:=gfx.resMan.AllocIndexBuffer(6*MaxGlyphBufferCount,2,TBufferUsage.buStatic);
+  textIB.debugName:='textIB';
+  textIB.Upload(0,6*MaxGlyphBufferCount,@txtInd[0]);
+  txtVertCount:=0;
+  textCaching:=false;
+  curTextLink:=0;
+  curTextLinkRect:=types.Rect(-1,-1,-1,-1);
+  threadStateReady:=true;
+ end;
+
 procedure TTextDrawer.FlushTextCache;
  var
   idxCount,triCount:integer;
  begin
+  EnsureThreadState;
   if txtVertCount=0 then exit;
   shader.UseTexture(textCache);
   if txtVertCount>0 then begin
@@ -277,6 +315,7 @@ function TTextDrawer.LinkRect: TRect;
 
 procedure TTextDrawer.SetScale(scale:single);
  begin
+  if globalScale=0 then globalScale:=1.0;
   globalScale:=scale;
  end;
 
@@ -285,6 +324,7 @@ function TTextDrawer.GetFont(name:string;size:single;flags:cardinal=0;effects:by
   i,best,rate,bestRate,matchRate:integer;
   realsize,scale:single;
  begin
+  if globalScale=0 then globalScale:=1.0;
   ASSERT(size>0);
   best:=-1; bestRate:=0;
   realsize:=size;
@@ -411,35 +451,9 @@ procedure TTextDrawer.ClearLink;
  end;
 
 constructor TTextDrawer.Create;
- var
-  i:integer;
-  pw:^word;
  begin
- globalScale:=1.0;
+  EnsureThreadState;
   textDrawer:=self;
-  textCache:=nil;
-  textVB:=nil;
-  textIB:=nil;
-
-  SetLength(txtBuf,4*MaxGlyphBufferCount);
-  SetLength(txtInd,6*MaxGlyphBufferCount);
-  pw:=@txtInd[0];
-  for i:=0 to MaxGlyphBufferCount-1 do begin
-   pw^:=i*4; inc(pw);
-   pw^:=i*4+1; inc(pw);
-   pw^:=i*4+2; inc(pw);
-   pw^:=i*4; inc(pw);
-   pw^:=i*4+2; inc(pw);
-   pw^:=i*4+3; inc(pw);
-  end;
-  textVB:=gfx.resMan.AllocVertexBuffer(TVertex.layoutTex,4*MaxGlyphBufferCount,TBufferUsage.buDynamic);
-  textVB.debugName:='textVB';
-  textIB:=gfx.resMan.AllocIndexBuffer(6*MaxGlyphBufferCount,2,TBufferUsage.buStatic);
-  textIB.debugName:='textIB';
-  textIB.Upload(0,6*MaxGlyphBufferCount,@txtInd[0]);
-
-  txtVertCount:=0;
-  textCaching:=false;
  end;
 
 destructor TTextDrawer.Destroy;
@@ -478,7 +492,8 @@ procedure TTextDrawer.CreateTextCache;
  var
   i,w:integer;
   format:TImagePixelFormat;
- begin
+begin
+  EnsureThreadState;
   // Adjust text cache texture size
   i:=gfx.target.width*gfx.target.height; // screen pixels
   if i>2500000 then textCacheHeight:=Max(textCacheHeight,1024);
@@ -503,6 +518,7 @@ procedure TTextDrawer.CreateTextCache;
 
 procedure TTextDrawer.EndBlock;
  begin
+  EnsureThreadState;
   FlushTextCache;
   textCaching:=false;
  end;
@@ -1279,6 +1295,7 @@ var
   end;
 
 begin // -----------------------------------------------------------
+ EnsureThreadState;
  if textCache=nil then CreateTextCache;
  x:=SRound(xx); y:=SRound(yy);
  // Special value to display font cache texture

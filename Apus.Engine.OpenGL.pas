@@ -72,7 +72,8 @@ type
   glVersion,glRenderer:string8;
   glVersionNum:single;
   wnd:TWindow;
-  canPaint:integer;
+  class threadvar
+   canPaint:integer;
   // Explicit owners for interfaced singletons created in Init.
   // They are released in Done via :=nil to trigger deterministic destruction.
   ownRenderTarget:IRenderTarget;
@@ -85,12 +86,15 @@ type
 var
  debugGL:boolean = true;
  glDefaultVAO:cardinal = 0;
- debugGroupDepth:integer = 0;
+threadvar
+ debugGroupDepth:integer;
+var
  // OpenGL context request template and actual context info.
  // Template is configured by app-level code before game startup.
  oglContextTemplate:TOpenGLContextDesc;
  oglContextInfo:TOpenGLContextDesc;
 
+ procedure SetupGLDebugOutputForCurrentContext(const actual:TOpenGLContextDesc; const tag:string8='');
  procedure CheckForGLError(lab:integer=0); inline;
  procedure PushDebugGroup(const st:String8;id:integer=0); inline;
  procedure PopDebugGroup; inline;
@@ -147,22 +151,25 @@ type
      stride:integer;vrtStart,vrtCount:integer; indStart,primCount:integer); overload;}
 
  protected
-  actualAttribArrays:shortint; // number of enabled attrib arrays (-1 = unknown)
-  lastVertices:pointer;
-  lastLayout:TVertexLayout;
-  lastStride:integer;
-  lastArrayBuffer:GLint;
-  boundArrayBuffer:GLint;
-  boundElementArrayBuffer:GLint;
- baseDivisor,extraDivisor:integer;
- extraVertices:pointer;
- extraLayout:TVertexLayout;
- divisors:array[0..9] of integer;
-  streamVB,streamIB:cardinal;
-  streamVBSize,streamIBSize:integer;
+  class threadvar
+   actualAttribArrays:shortint; // number of enabled attrib arrays (-1 = unknown)
+   lastVertices:pointer;
+   lastLayout:TVertexLayout;
+   lastStride:integer;
+   lastArrayBuffer:GLint;
+   boundArrayBuffer:GLint;
+   boundElementArrayBuffer:GLint;
+   baseDivisor,extraDivisor:integer;
+   extraVertices:pointer;
+   extraLayout:TVertexLayout;
+   divisors:array[0..9] of integer;
+   streamVB,streamIB:cardinal;
+   streamVBSize,streamIBSize:integer;
+   threadReady:boolean;
   function PrimitiveVertexCount(primType:TPrimitiveType;primCount:integer):integer;
   function PrimitiveIndexCount(primType:TPrimitiveType;primCount:integer):integer;
   function IsCoreProfile:boolean;
+  procedure EnsureThreadState;
   procedure EnsureStreamVB(requiredSize:integer);
   procedure EnsureStreamIB(requiredSize:integer);
   procedure UploadStreamVertices(vertices:pointer;vertexLayout:TVertexLayout;vertexCount:integer);
@@ -187,8 +194,11 @@ type
   procedure ApplyMask; override;
   procedure Resized(newWidth,newHeight:integer); override;
  protected
-  scissor:boolean;
-  backBufferWidth,backBufferHeight:integer;
+  class threadvar
+   scissor:boolean;
+   backBufferWidth,backBufferHeight:integer;
+   threadReady:boolean;
+  procedure EnsureThreadState;
   procedure ClearBuffers(fColor,fDepth,fStencil:boolean;color:cardinal;zbuf:single;stencil:integer);
  end;
 
@@ -235,6 +245,32 @@ function GLContextInfoToString(const info:TOpenGLContextDesc):string;
 
 procedure HandleGLDebugMessage(source,typ,id,severity:GLenum;len:GLsizei;const message_:PGLchar;userParam:PGLvoid); {$IFDEF DGL_WIN}stdcall{$ELSE}cdecl{$ENDIF}; forward;
 
+procedure SetupGLDebugOutputForCurrentContext(const actual:TOpenGLContextDesc; const tag:string8='');
+ var
+  where:string8;
+ begin
+  if not actual.debugContext then exit;
+  if tag<>'' then
+   where:=' ('+tag+')'
+  else
+   where:='';
+  // Callback registration is per-context. Each shared context must set it explicitly.
+  if @glDebugMessageCallback<>nil then begin
+   glEnable(GL_DEBUG_OUTPUT);
+   if @glDebugMessageControl<>nil then
+    glDebugMessageControl(GL_DONT_CARE,GL_DONT_CARE,GL_DEBUG_SEVERITY_NOTIFICATION,0,nil,GL_FALSE);
+   glDebugMessageCallback(TGLDEBUGPROC(@HandleGLDebugMessage),nil);
+   Log.Force('OpenGL debug callback enabled (KHR)'+where);
+  end else
+  if @glDebugMessageCallbackARB<>nil then begin
+   if @glDebugMessageControlARB<>nil then
+    glDebugMessageControlARB(GL_DONT_CARE,GL_DONT_CARE,GL_DEBUG_SEVERITY_NOTIFICATION,0,nil,GL_FALSE);
+   glDebugMessageCallbackARB(@HandleGLDebugMessage,nil);
+   Log.Force('OpenGL debug callback enabled (ARB)'+where);
+  end else
+   Log.Warn('Debug context requested but debug callback API is not available'+where);
+ end;
+
 { TOpenGL }
 procedure TOpenGL.Init(window:TWindow);
  var
@@ -274,31 +310,9 @@ procedure TOpenGL.Init(window:TWindow);
     'Actual: '+GLContextInfoToString(actual));
   oglContextInfo:=actual;
   Log.Force('OpenGL context actual: '+GLContextInfoToString(oglContextInfo));
-  if actual.debugContext then begin
-   // Stage 7 debug tooling:
-   // 1) driver callback routes GL validation/runtime messages into engine log;
-   // 2) notification severity is filtered out to keep logs readable;
-   // 3) debug groups/markers are emitted from BeginPaint/EndPaint/PresentFrame.
-   // Callback is required because many important issues are reported by the driver
-   // asynchronously and are not visible via glGetError alone.
-   // Stage 7: KHR/ARB debug callback is optional at runtime.
-   // Keep startup resilient if driver exposes debug context flag but not callback entry points.
-   if @glDebugMessageCallback<>nil then begin
-    glEnable(GL_DEBUG_OUTPUT);
-    if @glDebugMessageControl<>nil then
-     // Reduce callback noise: keep warnings/errors, drop notifications.
-     glDebugMessageControl(GL_DONT_CARE,GL_DONT_CARE,GL_DEBUG_SEVERITY_NOTIFICATION,0,nil,GL_FALSE);
-    glDebugMessageCallback(TGLDEBUGPROC(@HandleGLDebugMessage),nil);
-    Log.Force('OpenGL debug callback enabled (KHR)');
-   end else
-   if @glDebugMessageCallbackARB<>nil then begin
-    if @glDebugMessageControlARB<>nil then
-     glDebugMessageControlARB(GL_DONT_CARE,GL_DONT_CARE,GL_DEBUG_SEVERITY_NOTIFICATION,0,nil,GL_FALSE);
-    glDebugMessageCallbackARB(@HandleGLDebugMessage,nil);
-    Log.Force('OpenGL debug callback enabled (ARB)');
-   end else
-    Log.Warn('Debug context requested but debug callback API is not available');
-  end;
+  // Stage 7 debug tooling:
+  // callback is context-local, so it must be configured for every context.
+  SetupGLDebugOutputForCurrentContext(actual,'main');
   Log.Force('OpenGL version: '+glVersion);
   Log.Force('OpenGL vendor: '+PAnsiChar(glGetString(GL_VENDOR)));
   Log.Force('OpenGL renderer: '+glRenderer);
@@ -598,19 +612,8 @@ function TOpenGL.GetVersion: single;
 
 { TRenderDevice }
 constructor TRenderDevice.Create;
- var
-  i:integer;
  begin
-  streamVB:=0;
-  streamIB:=0;
-  streamVBSize:=0;
-  streamIBSize:=0;
-  lastArrayBuffer:=-1;
-  boundArrayBuffer:=0;
-  boundElementArrayBuffer:=0;
-  actualAttribArrays:=-1;
-  for i:=0 to high(divisors) do
-   divisors[i]:=-1;
+  EnsureThreadState;
  end;
 
 destructor TRenderDevice.Destroy;
@@ -638,11 +641,38 @@ function TRenderDevice.PrimitiveIndexCount(primType:TPrimitiveType;primCount:int
 
 function TRenderDevice.IsCoreProfile:boolean;
  begin
+  EnsureThreadState;
   result:=oglContextInfo.profile=oglpCore;
+ end;
+
+procedure TRenderDevice.EnsureThreadState;
+ var
+  i:integer;
+ begin
+  if threadReady then exit;
+  streamVB:=0;
+  streamIB:=0;
+  streamVBSize:=0;
+  streamIBSize:=0;
+  lastVertices:=nil;
+  lastLayout.stride:=0;
+  lastStride:=0;
+  lastArrayBuffer:=-1;
+  boundArrayBuffer:=0;
+  boundElementArrayBuffer:=0;
+  baseDivisor:=0;
+  extraDivisor:=0;
+  extraVertices:=nil;
+  extraLayout.stride:=0;
+  actualAttribArrays:=-1;
+  for i:=0 to high(divisors) do
+   divisors[i]:=-1;
+  threadReady:=true;
  end;
 
 procedure TRenderDevice.TrackArrayBufferBinding(buffer:cardinal);
 begin
+ EnsureThreadState;
  boundArrayBuffer:=buffer;
 end;
 
@@ -722,11 +752,13 @@ procedure HandleGLDebugMessage(source,typ,id,severity:GLenum;len:GLsizei;const m
 
 procedure TRenderDevice.TrackElementBufferBinding(buffer:cardinal);
 begin
+ EnsureThreadState;
  boundElementArrayBuffer:=buffer;
 end;
 
 procedure TRenderDevice.EnsureStreamVB(requiredSize:integer);
  begin
+  EnsureThreadState;
   if streamVB=0 then begin
    glGenBuffers(1,@streamVB);
    ASSERT(streamVB<>0);
@@ -744,6 +776,7 @@ procedure TRenderDevice.EnsureStreamVB(requiredSize:integer);
 
 procedure TRenderDevice.EnsureStreamIB(requiredSize:integer);
  begin
+  EnsureThreadState;
   if streamIB=0 then begin
    glGenBuffers(1,@streamIB);
    ASSERT(streamIB<>0);
@@ -763,6 +796,7 @@ procedure TRenderDevice.UploadStreamVertices(vertices:pointer;vertexLayout:TVert
  var
   bytes:integer;
  begin
+  EnsureThreadState;
   ASSERT(vertices<>nil);
   bytes:=vertexCount*vertexLayout.stride;
   EnsureStreamVB(bytes);
@@ -775,6 +809,7 @@ procedure TRenderDevice.UploadStreamIndices(indices:pointer;indexCount:integer);
  var
   bytes:integer;
  begin
+  EnsureThreadState;
   ASSERT(indices<>nil);
   bytes:=indexCount*2;
   EnsureStreamIB(bytes);
@@ -789,6 +824,7 @@ procedure TRenderDevice.Draw(primType:TPrimitiveType; primCount: integer; vertic
   vertexCount:integer;
   useStream:boolean;
  begin
+  EnsureThreadState;
   shader.Apply(vertexLayout);
   vertexCount:=PrimitiveVertexCount(primType,primCount);
   useStream:=vertices<>nil;
@@ -813,6 +849,7 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
   indexCount,vertexCount:integer;
   useStream:boolean;
  begin
+  EnsureThreadState;
   shader.Apply(vertexLayout);
   indexCount:=PrimitiveIndexCount(primType,primCount);
   // TODO(low): consider removing this overload or extending it with vrtCount; stream upload without vertex count is unsafe.
@@ -854,6 +891,7 @@ procedure TRenderDevice.DrawIndexed(primType:TPrimitiveType;vertices:pointer;ind
   indexCount,vertexCount:integer;
   useStream:boolean;
  begin
+  EnsureThreadState;
   shader.Apply(vertexLayout);
   indexCount:=PrimitiveIndexCount(primType,primCount);
   useStream:=vertices<>nil;
@@ -892,6 +930,7 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;i
   indexCount,vertexCount:integer;
   useStream:boolean;
  begin
+  EnsureThreadState;
   shader.Apply(vertexLayout);
   indexCount:=PrimitiveIndexCount(primType,primCount);
   // TODO(low): consider removing this overload or extending it with vrtCount; stream upload without vertex count is unsafe.
@@ -933,6 +972,7 @@ procedure TRenderDevice.DrawInstanced(primType:TPrimitiveType;vertices:pointer;
   vertexCount:integer;
   useStream:boolean;
  begin
+  EnsureThreadState;
   shader.Apply(vertexLayout);
   vertexCount:=PrimitiveVertexCount(primType,primCount);
   useStream:=vertices<>nil;
@@ -959,6 +999,7 @@ procedure TRenderDevice.Reset;
  var
   i: Integer;
  begin
+  EnsureThreadState;
   lastVertices:=nil;
   lastLayout.stride:=0;
   lastArrayBuffer:=-1;
@@ -1031,6 +1072,7 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
    end;
   end;
  begin
+ EnsureThreadState;
  if IsCoreProfile then begin
   // In core profile attribute pointers are interpreted as offsets in a bound ARRAY_BUFFER.
   // We track this binding locally via TrackArrayBufferBinding/stream uploads.
@@ -1053,12 +1095,14 @@ procedure TRenderDevice.SetupAttributes(vertices:pointer;vertexLayout:TVertexLay
 
 procedure TRenderDevice.SetVertexDataDivisors(baseDivisor,extraDivisor:integer);
  begin
+  EnsureThreadState;
   self.baseDivisor:=baseDivisor;
   self.extraDivisor:=extraDivisor;
  end;
 
 procedure TRenderDevice.UseExtraVertexData(vertices:pointer;vertexLayout:TVertexLayout);
  begin
+  EnsureThreadState;
   extraVertices:=vertices;
   extraLayout:=vertexLayout;
  end;
@@ -1146,16 +1190,19 @@ procedure TGLRenderTargetAPI.ClearBuffers(fColor,fDepth,fStencil:boolean; color:
 
 procedure TGLRenderTargetAPI.Clear(color:cardinal;zbuf:single;stencil:integer);
  begin
+  EnsureThreadState;
   ClearBuffers(true,zBuf>=0,stencil>=0,color,zBuf,stencil);
  end;
 
 procedure TGLRenderTargetAPI.ClearDepth(zbuf:single;stencil:integer);
  begin
+  EnsureThreadState;
   ClearBuffers(false,zBuf>=0,stencil>=0,0,zBuf,stencil);
  end;
 
 procedure TGLRenderTargetAPI.Clip(x,y,w,h: integer);
  begin
+  EnsureThreadState;
   if (x<=0) and (y<=0) and (x+w>=realWidth) and (y+h>=realHeight) then begin
    if scissor then begin
     glDisable(GL_SCISSOR_TEST);
@@ -1174,23 +1221,33 @@ procedure TGLRenderTargetAPI.Clip(x,y,w,h: integer);
  end;
 
 constructor TGLRenderTargetAPI.Create;
+ begin
+  inherited;
+  EnsureThreadState;
+ end;
+
+procedure TGLRenderTargetAPI.EnsureThreadState;
  var
   data:array[0..3] of GLInt;
  begin
-  inherited;
+  if threadReady then exit;
   glGetIntegerv(GL_VIEWPORT,@data[0]);
   backBufferWidth:=data[2];
   backBufferHeight:=data[3];
+  scissor:=false;
+  threadReady:=true;
  end;
 
 procedure TGLRenderTargetAPI.Resized(newWidth, newHeight: integer);
  begin
+  EnsureThreadState;
   backbufferWidth:=newWidth;
   backbufferHeight:=newHeight;
  end;
 
 procedure TGLRenderTargetAPI.ApplyMask;
  begin
+   EnsureThreadState;
    {$IFDEF GLES}
    glColorMask((curmask and 4),
                (curmask and 2),
@@ -1206,6 +1263,7 @@ procedure TGLRenderTargetAPI.ApplyMask;
 
 procedure TGLRenderTargetAPI.Backbuffer;
  begin
+  EnsureThreadState;
   inherited;
   {$IFDEF GLES11}
   glBindFramebufferOES(GL_FRAMEBUFFER_OES,0);
@@ -1228,6 +1286,7 @@ procedure TGLRenderTargetAPI.Backbuffer;
 
 procedure TGLRenderTargetAPI.Texture(tex:TTexture);
  begin
+  EnsureThreadState;
   if tex=nil then begin
    Backbuffer;
    exit;
@@ -1246,6 +1305,7 @@ procedure TGLRenderTargetAPI.Texture(tex:TTexture);
 
 procedure TGLRenderTargetAPI.UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean);
  begin
+  EnsureThreadState;
   if test=dbDisabled then begin
    glDisable(GL_DEPTH_TEST)
   end else begin
@@ -1263,6 +1323,7 @@ procedure TGLRenderTargetAPI.UseDepthBuffer(test:TDepthBufferTest;writeEnable:bo
 
 procedure TGLRenderTargetAPI.Viewport(oX,oY,VPwidth,VPheight,renderWidth,renderHeight:integer);
  begin
+  EnsureThreadState;
   inherited; // adjust viewport here
   if curTarget<>nil then
    glViewport(vPort.Left,vPort.Top,vPort.Width,vPort.Height)
@@ -1274,7 +1335,11 @@ initialization
  oglContextTemplate.minMajor:=3;
  oglContextTemplate.minMinor:=0;
  oglContextTemplate.profile:=oglpCore;
+ {$IFDEF DEBUG}
+ oglContextTemplate.debugContext:=true;
+ {$ELSE}
  oglContextTemplate.debugContext:=false;
+ {$ENDIF}
  oglContextTemplate.forwardCompatible:=false;
  oglContextTemplate.preferHighest:=true;
  oglContextTemplate.actualMajor:=0;
