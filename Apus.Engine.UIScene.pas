@@ -50,9 +50,6 @@ type
  // No need to call manually as it is called when any UIScene object is created
  procedure InitUI;
 
- // Установка размера (виртуального) экрана для UI (зачем!?)
- procedure SetDisplaySize(width,height:integer);
-
  // Создать всплывающее окно, прицепить его к указанному предку
  procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
 
@@ -74,7 +71,6 @@ const
 var
  curCursor:integer;
  initialized:boolean=false;
- rootWidth,rootHeight:integer; // размер области отрисовки
 
  LastHandleTime:int64;
 
@@ -103,13 +99,6 @@ function UIScene(name:String8):TUIScene;
   ASSERT(scene<>nil,'Scene '+name+' not found!');
   ASSERT(scene is TUIScene,'Scene '+name+' is not a TUIScene');
   result:=scene as TUIScene;
- end;
-
-procedure SetDisplaySize(width,height:integer);
- begin
-  Log.Msg('UIScene.SDS');
-  rootWidth:=width;
-  rootHeight:=height;
  end;
 
  procedure ShowSimpleHint(msg:string8;parent:TUIElement;x,y,time:integer;font:cardinal=0);
@@ -436,9 +425,7 @@ procedure SetDisplaySize(width,height:integer);
  procedure TUIScene.onResize;
   begin
     inherited;
-    rootWidth:=window.renderWidth;
-    rootHeight:=window.renderHeight;
-    if UI<>nil then UI.Resize(rootWidth,rootHeight);
+    if UI<>nil then UI.Resize(window.renderWidth,window.renderHeight);
   end;
 
  function TUIScene.Process: boolean;
@@ -595,9 +582,6 @@ procedure SetDisplaySize(width,height:integer);
    SetEventHandler('UI\SetGlobalShadow',onSetGlobalShadow,emInstant);
    SetEventHandler('UI\SetFocus',onSetFocus,emInstant);
 
-   PublishVar(@rootWidth,'rootWidth',TVarTypeInteger);
-   PublishVar(@rootHeight,'rootHeight',TVarTypeInteger);
-
    initialized:=true;
   end;
 
@@ -609,13 +593,9 @@ procedure SetDisplaySize(width,height:integer);
    Log.Force('Scene '+name+' status changed to '+statuses[st]);
   // Log.Msg('Scene '+name+' status changed to '+statuses[st],5);
    if (status=ssActive) and (UI=nil) then begin
-    if window<>nil then begin
-     w:=window.renderWidth;
-     h:=window.renderHeight;
-    end else begin
-     w:=rootWidth;
-     h:=rootHeight;
-    end;
+    ASSERT(window<>nil,'TUIScene must be attached to a window before activation: '+name);
+    w:=window.renderWidth;
+    h:=window.renderHeight;
     UI:=TUIElement.Create(w,h,nil);
     UI.name:=name;
     UI.ownerScene:=self;
