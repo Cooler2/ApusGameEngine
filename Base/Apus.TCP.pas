@@ -31,6 +31,9 @@ type
   sock:TSocket;
   readPos,writePos:integer;
   data:ByteArray;
+  sendBuf:ByteArray;
+  sendReadPos,sendWritePos:integer;
+  procedure FlushSendData;
   procedure ReadData; virtual; // Read data from socket
  end;
 
@@ -71,6 +74,9 @@ type
   sock:TSocket;
   data:ByteArray;
   readPos,writePos:integer;
+  sendBuf:ByteArray;
+  sendReadPos,sendWritePos:integer;
+  procedure FlushSendData;
  end;
 
 implementation
@@ -182,6 +188,7 @@ begin
   ReadData;
   i:=0;
   while i<=high(users) do begin
+   users[i].FlushSendData;
    if users[i].sock=0 then begin
      // User disconnected
      Log.Msg('Client %s disconnected',[users[i].GetUserName]);
@@ -267,6 +274,23 @@ begin
   dec(writePos,PAGE_SIZE);
 end;
 
+procedure QueueData(var queue:ByteArray;var writePos:integer;src:pointer;size:integer);
+var
+  newSize:integer;
+begin
+  if size<=0 then exit;
+  if length(queue)<writePos+size then begin
+    newSize:=length(queue)*2;
+    if newSize<65536 then
+      newSize:=65536;
+    if newSize<writePos+size then
+      newSize:=writePos+size;
+    SetLength(queue,newSize);
+  end;
+  move(src^,queue[writePos],size);
+  inc(writePos,size);
+end;
+
 { TTCPServerUser }
 
 constructor TTCPServerUser.Create;
@@ -284,6 +308,8 @@ procedure TTCPServerUser.Disconnect;
 begin
   CloseSocket(sock);
   sock:=0;
+  sendReadPos:=0;
+  sendWritePos:=0;
 end;
 
 function TTCPServerUser.GetUserName:string;
@@ -305,13 +331,13 @@ end;
 
 procedure TTCPServerUser.ReadData;
 var
-  res,pos:integer;
+  res:integer;
   buf:TBuffer;
 begin
   if length(data)<writePos+65536 then
     SetLength(data,length(data)+65536);
   res:=recv(sock,data[writePos],length(data)-writePos,0);
-  if res>=0 then begin
+  if res>0 then begin
     Log.Info('User %s sent %d bytes',[GetUserName,res]);
     lastData:=Now;
     inc(writePos,res);
@@ -320,19 +346,55 @@ begin
       onDataReceived(buf);
       inc(readPos,buf.CurrentPos);
     except
-      on e:Exception do begin 
-  		  Log.Warn('User %s onReceive error: '+ExceptionMsg(e),[getUserName]);
+      on e:Exception do begin
+        Log.Warn('User %s onReceive error: '+ExceptionMsg(e),[GetUserName]);
         CloseSocket(sock);
         sock:=0;
-        Log.Warn('User %s disconnected',[getUserName]);
+        Log.Warn('User %s disconnected',[GetUserName]);
       end;
     end;
     if readPos>PAGE_SIZE then
       CutBuffer(data,readPos,writePos);
+  end else
+  if res=0 then begin
+    Log.Msg('Client %s closed connection',[GetUserName]);
+    CloseSocket(sock);
+    sock:=0;
   end else begin
     Log.Force('RECV error: '+Conv.ToStr(WSAGetLastError));
     CloseSocket(sock);
     sock:=0;
+  end;
+end;
+
+procedure TTCPServerUser.FlushSendData;
+var
+  res:integer;
+begin
+  while (sock<>0) and (sendReadPos<sendWritePos) do begin
+    res:=Send(sock,sendBuf[sendReadPos],sendWritePos-sendReadPos,0);
+    if res=SOCKET_ERROR then begin
+      res:=WSAGetLastError;
+      if res=WSAEWOULDBLOCK then exit;
+      Log.Warn('Send error: '+Conv.ToStr(res));
+      CloseSocket(sock);
+      sock:=0;
+      Log.Msg('User %s socket closed',[GetUserName]);
+      exit;
+    end;
+    if res<=0 then begin
+      Log.Warn('Socket closed while sending to user %s',[GetUserName]);
+      CloseSocket(sock);
+      sock:=0;
+      exit;
+    end;
+    inc(sendReadPos,res);
+    if sendReadPos>PAGE_SIZE then
+      CutBuffer(sendBuf,sendReadPos,sendWritePos);
+  end;
+  if sendReadPos=sendWritePos then begin
+    sendReadPos:=0;
+    sendWritePos:=0;
   end;
 end;
 
@@ -346,15 +408,27 @@ begin
   end;
   Log.Info('Sending %d bytes to user %s',[buf.size,GetUserName]);
   Log.Debug(Conv.HexDump(buf.data,Min(16,buf.size)));
-  res:=Send(sock,buf.data^,buf.size,0);
-  if res=SOCKET_ERROR then begin
-    Log.Warn('Send error: '+Conv.ToStr(WSAGetLastError));
-    CloseSocket(sock);
-    sock:=0;
-    Log.Msg('User %s socket closed',[GetUserName]);
+  if (sendReadPos=sendWritePos) and (buf.size>0) then begin
+    res:=Send(sock,buf.data^,buf.size,0);
+    if res=buf.size then exit;
+    if res=SOCKET_ERROR then begin
+      res:=WSAGetLastError;
+      if res<>WSAEWOULDBLOCK then begin
+        Log.Warn('Send error: '+Conv.ToStr(res));
+        CloseSocket(sock);
+        sock:=0;
+        Log.Msg('User %s socket closed',[GetUserName]);
+      end;
+      res:=0;
+    end;
+    if res<0 then res:=0;
+    if res>buf.size then res:=buf.size;
+    QueueData(sendBuf,sendWritePos,@buf.data[res],buf.size-res);
+    FlushSendData;
     exit;
   end;
-  if res<buf.size then Log.Warn('WARN! Partial send %d of %d',[res,buf.size]);
+  QueueData(sendBuf,sendWritePos,buf.data,buf.size);
+  FlushSendData;
 end;
 
 { TTCPClient }
@@ -366,7 +440,7 @@ end;
 
 destructor TTCPClient.Destroy;
 begin
-  if connected then Disconnect;
+  if sock<>0 then Disconnect;
   inherited;
 end;
 
@@ -402,12 +476,14 @@ begin
   if (res<>0) then begin
    res:=WSAGetLastError;
    if res<>WSAEWOULDBLOCK then begin
+    connecting:=false;
     CloseSocket(sock);
     sock:=0;
-    EError.Create('Connect error '+Conv.ToStr(WSAGetLastError));
+    raise EError.Create('Connect error '+Conv.ToStr(res));
    end;
   end else begin
    connected:=true;
+   connecting:=false;
    onConnect;
   end;
   if waitMS<0 then exit;
@@ -453,19 +529,22 @@ begin
     res:=select(0,nil,@writeSet,@errorSet,@timeout);
     if res=SOCKET_ERROR then
       raise EWarning.Create('Select 1 error: '+Conv.ToStr(WSAGetLastError));
-    if writeSet.fd_count>0 then begin
-      connected:=true;
-      connecting:=false;
-      onConnect;
-    end;
     if errorSet.fd_count>0 then begin
       Log.Warn('Connection failed because of error!');
       connecting:=false;
       CloseSocket(sock);
       sock:=0;
+      exit;
+    end;
+    if writeSet.fd_count>0 then begin
+      connected:=true;
+      connecting:=false;
+      onConnect;
     end;
   end;
   if not connected then exit;
+  if sendReadPos<sendWritePos then
+    FlushSendData;
   if length(data)<writePos+65536 then
     SetLength(data,length(data)+65536);
   res:=recv(sock,data[writePos],length(data)-writePos,0);
@@ -482,7 +561,7 @@ begin
     end;
     exit;
   end;
-  if res>=0 then begin
+  if res>0 then begin
     // Some data received
     Log.Info('Received %d bytes: '+Conv.HexDump(@data[readpos],Min(res,16)),[res]);
     inc(writePos,res);
@@ -495,6 +574,42 @@ begin
     end;
     if readPos>PAGE_SIZE then
       CutBuffer(data,readPos,writePos);
+  end else
+  if res=0 then begin
+    Log.Msg('Server closed connection');
+    connected:=false;
+    CloseSocket(sock);
+    sock:=0;
+    Log.Force('Disconnected');
+    onDisconnect;
+    disconnected:=true;
+  end;
+end;
+
+procedure TTCPClient.FlushSendData;
+var
+  res:integer;
+begin
+  while (sock<>0) and (sendReadPos<sendWritePos) do begin
+    res:=Send(sock,sendBuf[sendReadPos],sendWritePos-sendReadPos,0);
+    if res=SOCKET_ERROR then begin
+      res:=WSAGetLastError;
+      if res=WSAEWOULDBLOCK then exit;
+      Log.Warn('Send error: '+Conv.ToStr(res));
+      Disconnect;
+      exit;
+    end;
+    if res<=0 then begin
+      Disconnect;
+      exit;
+    end;
+    inc(sendReadPos,res);
+    if sendReadPos>PAGE_SIZE then
+      CutBuffer(sendBuf,sendReadPos,sendWritePos);
+  end;
+  if sendReadPos=sendWritePos then begin
+    sendReadPos:=0;
+    sendWritePos:=0;
   end;
 end;
 
@@ -503,11 +618,26 @@ var
   res:integer;
 begin
   ASSERT(connected);
-  res:=Send(sock,buf.data^,buf.size,0);
-  if res=SOCKET_ERROR then begin
-    Log.Warn('Send error: '+Conv.ToStr(WSAGetLastError));
-    Disconnect;
+  if (sendReadPos=sendWritePos) and (buf.size>0) then begin
+    res:=Send(sock,buf.data^,buf.size,0);
+    if res=buf.size then exit;
+    if res=SOCKET_ERROR then begin
+      res:=WSAGetLastError;
+      if res<>WSAEWOULDBLOCK then begin
+        Log.Warn('Send error: '+Conv.ToStr(res));
+        Disconnect;
+        exit;
+      end;
+      res:=0;
+    end;
+    if res<0 then res:=0;
+    if res>buf.size then res:=buf.size;
+    QueueData(sendBuf,sendWritePos,@buf.data[res],buf.size-res);
+    FlushSendData;
+    exit;
   end;
+  QueueData(sendBuf,sendWritePos,buf.data,buf.size);
+  FlushSendData;
 end;
 
 procedure TTCPClient.onDataReceived(var buf: TBuffer);
