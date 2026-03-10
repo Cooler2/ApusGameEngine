@@ -1174,8 +1174,10 @@ begin
       st:=st+UTF8.Format(' ping %dms ago',[t-snapshot[i].lastPing])
     else
       st:=st+' (no ping)';
-    stateInfo:=GetThreadStateInfo(snapshot[i].ID);
-    if stateInfo<>'' then st:=st+'  State: '+stateInfo;
+    if not IsDebuggerPresent then begin
+      stateInfo:=GetThreadStateInfo(snapshot[i].ID);
+      if stateInfo<>'' then st:=st+'  State: '+stateInfo;
+    end;
     Log.Force(st);
   end;
 end;
