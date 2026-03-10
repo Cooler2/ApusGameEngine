@@ -6,7 +6,7 @@
 
 unit SimpleDemoApp;
 interface
- uses Apus.Engine.GameApp,Apus.Engine.API;
+ uses Apus.Engine.GameApp,Apus.Engine.API, Apus.Engine.MessageScene;
  type
   // Let's override to have a custom app class
   TSimpleDemoApp=class(TGameApplication)
@@ -95,6 +95,11 @@ procedure TSimpleDemoApp.SetupGameSettings(var settings: TGameSettings);
   }
  end;
 
+ procedure ExitBtnClick;
+ begin
+   Ask('Are you sure?','Engine\Cmd\Exit');
+ end;
+
 // Most app initialization is here. Default spinner is running
 procedure TSimpleDemoApp.CreateScenes;
  begin
@@ -133,9 +138,10 @@ procedure TMainScene.CreateUI;
   btn:=TUIButton.Create(100,35,'MainScene\Close','Exit',font,box);
   btn.SetPos(200,200,pivotCenter);
   btn.hint:='Press this button to exit';
+  btn.onClick:=@ExitBtnClick;
 
   // Link the button click signal to the engine termination signal
-  Link('UI\MainScene\Close\Click','Engine\Cmd\Exit');
+  //Link('UI\MainScene\Close\Click','Engine\Cmd\Exit');
  end;
 
 procedure TMainScene.InitParticles;
