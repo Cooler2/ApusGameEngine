@@ -121,16 +121,17 @@ begin
 end;
 
 procedure NewWindowClick;
+var
+ wnd:TWindow;
+ scene:TToolScene;
 begin
  inc(toolCount);
- // TODO: when engine supports additional windows, create one here:
- // var wnd:=systemPlatform.CreateWindow('Tool '+IntToStr(toolCount));
- // wnd.Configure(...);
- // var scene:=TToolScene.Create(toolCount,wnd);
- // scene.CreateUI;
- // scene.SetStatus(TSceneStatus.ssActive);
- Log.Force('NewWindowClick: would create Tool '+IntToStr(toolCount)+' (not yet supported)');
- UILabel('Main\Status').caption:='Would create Tool '+IntToStr(toolCount)+' (not yet supported)';
+ wnd:=game.AddWindow('Tool '+IntToStr(toolCount),400,300);
+ scene:=TToolScene.Create(toolCount,wnd);
+ scene.CreateUI;
+ scene.SetStatus(TSceneStatus.ssActive);
+ Log.Force('NewWindowClick: created Tool '+IntToStr(toolCount));
+ UILabel('Main\Status').caption:='Created Tool '+IntToStr(toolCount);
 end;
 
 procedure TMainScene.Render;
