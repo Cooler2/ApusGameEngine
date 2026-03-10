@@ -48,6 +48,7 @@ type
  //   Render          — render thread, each frame while active.
  // -------------------------------------------------------------------
 TGameScene=class(TNamedObject)
+  ownerWindow:pointer; // window that owns this scene (Apus.Engine.Window.TWindow)
   status:TSceneStatus;
   fullscreen:boolean; // true - opaque scene, no any underlying scenes can be seen, false - scene layer is drawn above underlying image
   frequency:integer; // Сколько раз в секунду нужно вызывать обработчик сцены (0 - каждый кадр)
@@ -117,6 +118,8 @@ TGameScene=class(TNamedObject)
 
   // For non-fullscreen scenes return occupied area
   function GetArea:TRect; virtual; abstract;
+  // Return scene UI root object when available (nil for non-UI scenes)
+  function GetUIRoot:TObject; virtual;
 
   // Call "Load" for all scenes (if applicable)
   class procedure LoadAllScenes;
@@ -126,7 +129,7 @@ TGameScene=class(TNamedObject)
 
  private
   // Keyboard input
-  keyBuffer:TQueue;
+ keyBuffer:TQueue;
  end;
 
 implementation
@@ -167,8 +170,9 @@ uses SysUtils,
    keyBuffer.Clear;
   end;
 
- constructor TGameScene.Create(fullScreen:boolean=true);
+constructor TGameScene.Create(fullScreen:boolean=true);
   begin
+   ownerWindow:=nil;
    status:=ssFrozen;
    self.fullscreen:=fullscreen;
    frequency:=60;
@@ -236,6 +240,11 @@ function TGameScene.Process:boolean;
    result:=true;
   end;
 
+function TGameScene.GetUIRoot:TObject;
+ begin
+  result:=nil;
+ end;
+
  procedure TGameScene.onCreate;
   begin
   end;
@@ -249,7 +258,7 @@ function TGameScene.Process:boolean;
    loaded:=true;
   end;
 
- class procedure TGameScene.LoadAllScenes;
+class procedure TGameScene.LoadAllScenes;
   var
    scene:TGameScene;
   begin
@@ -264,8 +273,8 @@ function TGameScene.Process:boolean;
      scene.loaded:=true;
     end;
    until false;
-   Log.Force('All scenes loaded!');
-  end;
+  Log.Force('All scenes loaded!');
+ end;
 
  function TGameScene.KeyPressed:boolean;
   begin

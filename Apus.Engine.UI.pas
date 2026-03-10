@@ -130,12 +130,8 @@ type
   // Dump all important UI data
   function DumpUI:string8;
 
-  // UI critical section (mostly for internal use)
-  procedure LockUI(caller:pointer=nil);
-  procedure UnlockUI;
-
 implementation
- uses SysUtils, Apus.Engine.API, Apus.Engine.UIScene, Apus.EventMan,
+ uses SysUtils, Apus.Engine.API, Apus.Engine.UIScene, Apus.Engine.Window, Apus.EventMan,
   Apus.Conv,
   Apus.Strings,
   Apus.Threads;
@@ -536,16 +532,6 @@ implementation
    edit.noborder:=noborder;
   end;
 
- procedure LockUI(caller:pointer=nil);
-  begin
-   window.Lock(caller);
-  end;
-
- procedure UnlockUI;
-  begin
-   window.Unlock;
-  end;
-
  // UI-related commands: Command:elementName
  // where command can be
  // Enable, Disable, Show, Hide, Toggle, ToggleEnabled
@@ -554,30 +540,39 @@ implementation
    p:integer;
    value:string8;
    e:TUIElement;
+   wnd:TWindow;
   begin
    event:=Copy(event,8,length(event));
    p:=pos(':',event);
-   if p>0 then begin
-     value:=copy(event,p+1,length(event));
-     SetLength(event,p-1);
-     e:=FindElement(value);
-     if SameText(event,'toggle') then
-       e.Toggle
-     else
-     if SameText(event,'ToggleEnabled') then
-      e.ToggleEnabled
-     else
-     if SameText(event,'enable') then
-      e.Enable
-     else
-     if SameText(event,'disable') then
-      e.Disable
-     else
-     if SameText(event,'hide') then
-      e.Hide
-     else
-     if SameText(event,'show') then
-      e.Show;
+   if p<=0 then exit;
+   value:=copy(event,p+1,length(event));
+   SetLength(event,p-1);
+   e:=FindElement(value,false);
+   if e=nil then exit;
+   wnd:=e.GetWindow;
+   if wnd=nil then
+    raise EError.Create('Can''t resolve window for UI command target '+value);
+   wnd.Lock;
+   try
+    if SameText(event,'toggle') then
+      e.Toggle
+    else
+    if SameText(event,'ToggleEnabled') then
+     e.ToggleEnabled
+    else
+    if SameText(event,'enable') then
+     e.Enable
+    else
+    if SameText(event,'disable') then
+     e.Disable
+    else
+    if SameText(event,'hide') then
+     e.Hide
+    else
+    if SameText(event,'show') then
+     e.Show;
+   finally
+    wnd.Unlock;
    end;
   end;
 

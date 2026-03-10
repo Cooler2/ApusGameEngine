@@ -94,6 +94,7 @@ implementation
       {$IFDEF OPENGL}dglOpenGL, {$ENDIF}
       {$IFDEF ANDROID}gles20, Apus.Engine.PainterGL, {$ENDIF}
       Apus.Colors,Apus.Engine.UI,Apus.Engine.UIRender,
+      Apus.Engine.Window,
       Apus.Lib, Apus.Utils;
 
  var
@@ -103,8 +104,14 @@ implementation
 { TFullScreenEffect }
 
 constructor TSwitchScreenEffect.Create(scene: TGameScene; totalTime: integer);
+var
+ wnd:TWindow;
 begin
- LockUI({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
+ wnd:=TWindow(scene.ownerWindow);
+ if wnd=nil then
+  wnd:=FindWindowForScene(scene);
+ ASSERT(wnd<>nil,'Can''t resolve owner window for scene '+scene.name);
+ wnd.Lock({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
  try
  if scene.effect<>nil then begin
   Log.Force('Scene '+scene.name+' already has an effect!');
@@ -116,12 +123,12 @@ begin
  if prevScene is TUIScene then Log.Msg('Prev scene: '+TUIScene(prevScene).name);
  inherited Create(scene,totaltime);
  finally
-  UnlockUI;
+  wnd.Unlock;
  end;
 
  target.SetStatus(TSceneStatus.ssActive);
 
- LockUI({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
+ wnd.Lock({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
  try
  if target is TUIScene then (target as TUIScene).UI.enabled:=false;
 
@@ -137,7 +144,7 @@ begin
  dontPlay:=disableEffects;
  if pfRenderTarget=ipfNone then dontPlay:=true;
  finally
-  UnlockUI;
+  wnd.Unlock;
  end;
 end;
 

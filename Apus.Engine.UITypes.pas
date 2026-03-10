@@ -8,7 +8,8 @@
 // ------------------------------------------------------
 unit Apus.Engine.UITypes;
 interface
-uses Types, Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Regions;
+uses Types, Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Regions,
+  Apus.Engine.Scene, Apus.Engine.Window;
 {$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
@@ -62,6 +63,8 @@ type
                    pmProportional,  // Elements area (position/size) is changed proportionally
                    pmMoveProportional);  // Elements is moved proportionally, but size remains
 
+ TGameScene=Apus.Engine.Scene.TGameScene;
+ TWindow=Apus.Engine.Window.TWindow;
  TUIElement=class;
  TUIElements=array of TUIElement;
  TRegion = Apus.Regions.TRegion;
@@ -139,6 +142,7 @@ type
   attributes:TNameValueList; // custom attributes
 
   // Relationship
+  ownerScene:TGameScene; // used for root element only
   parent:TUIElement; // Ссылка на элемент-предок
   children:TUIElements; // Список вложенных элементов
   isGroupBox:boolean; // true means that only one child element should be "selected" (switches, radio buttons etc.)
@@ -166,6 +170,9 @@ type
   function GetPrev:TUIElement; virtual;
   // Найти самого дальнего предка (корневой элемент)
   function GetRoot:TUIElement;
+  // Resolve scene/window owner for the element tree
+  function GetScene:TGameScene;
+  function GetWindow:TWindow;
   // Виден ли элемент (проверяет видимость всех предков)
   function IsVisible:boolean;
   // Доступен ли элемент (проверяет доступность всех предков)
@@ -549,9 +556,10 @@ function DescribeElement(c:TUIElement):String8;
    result:=@UIHash;
   end;
 
- procedure TUIElement.DeleteChildren(filter:String8='');
+procedure TUIElement.DeleteChildren(filter:String8='');
   var
    i,n:integer;
+   wnd:TWindow;
    keep:TUIElements;
    items:Strings8;
    value:string8;
@@ -565,7 +573,8 @@ function DescribeElement(c:TUIElement):String8;
      end;
     end;
   begin
-   window.Lock;
+   wnd:=GetWindow;
+   if wnd<>nil then wnd.Lock;
    try
     if filter<>'' then begin
      SetLength(keep,length(children));
@@ -590,13 +599,14 @@ function DescribeElement(c:TUIElement):String8;
      children:=keep;
     end;
    finally
-    window.Unlock;
+    if wnd<>nil then wnd.Unlock;
    end;
   end;
 
- constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:String8='');
+constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:String8='');
   var
    n:integer;
+   wnd:TWindow;
   begin
    position:=Point2s(0,0);
    size:=Point2s(width,height);
@@ -633,8 +643,10 @@ function DescribeElement(c:TUIElement):String8;
    focusedChild:=nil;
    shapeRegion:=nil;
    selectedChild:=-1;
+   ownerScene:=nil;
 
-   window.Lock;
+   wnd:=GetWindow;
+   if wnd<>nil then wnd.Lock;
    try
    if parent<>nil then begin // add to the parents children
     n:=length(parent.children);
@@ -655,7 +667,7 @@ function DescribeElement(c:TUIElement):String8;
    fInitialSize:=size;
    globalRect:=GetPosOnScreen;
    finally
-   window.Unlock;
+   if wnd<>nil then wnd.Unlock;
    end;
    Signal('UI\ItemCreated',TTag(self));
   end;
@@ -940,14 +952,34 @@ destructor TUIElement.Destroy;
    result:=parent.children[i];
   end;
 
- function TUIElement.GetRoot:TUIElement;
+function TUIElement.GetRoot:TUIElement;
   begin
    result:=self;
    if self=nil then exit;
    while result.parent<>nil do result:=result.parent;
   end;
 
- procedure TUIElement.Show;
+function TUIElement.GetScene:TGameScene;
+ var
+  root:TUIElement;
+ begin
+  root:=GetRoot;
+  if root=nil then exit(nil);
+  result:=root.ownerScene;
+ end;
+
+function TUIElement.GetWindow:TWindow;
+ var
+  scene:TGameScene;
+ begin
+ scene:=GetScene;
+  if (scene<>nil) and (scene.ownerWindow<>nil) then
+   result:=TWindow(scene.ownerWindow)
+  else
+   result:=FindWindowForUIRoot(GetRoot);
+ end;
+
+procedure TUIElement.Show;
   begin
    visible:=true;
   end;
@@ -1166,11 +1198,13 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    DeleteHotKeys(vKeyCode,shiftState);
   end;
 
- procedure TUIElement.DeleteHotKeys(vKeyCode:integer;shiftstate:byte);
+procedure TUIElement.DeleteHotKeys(vKeyCode:integer;shiftstate:byte);
   var
    i,max:integer;
+   wnd:TWindow;
   begin
-   window.Lock;
+   wnd:=GetWindow;
+   if wnd<>nil then wnd.Lock;
    try
    i:=0; max:=high(hotkeys);
    while i<=max do
@@ -1180,11 +1214,11 @@ function TUIElement.IsChild(c:TUIElement):boolean;
        (hotkeys[i].shiftstate=shiftstate))) then begin
      hotkeys[i]:=hotkeys[max];
      dec(max);
-    end else
+   end else
      inc(i);
     SetLength(hotkeys,max+1);
    finally
-    window.Unlock;
+    if wnd<>nil then wnd.Unlock;
    end;
   end;
 
@@ -1575,13 +1609,16 @@ procedure TUIElement.SafeDestroy;
    hotkeys[i].element:=self;
   end;
 
- procedure DestroyQueuedElements;
+procedure DestroyQueuedElements;
+ var
+  wnd:TWindow;
   begin
-    window.Lock;
+    wnd:=window;
+    if wnd<>nil then wnd.Lock;
     try
      toDelete.FreeAll;
     finally
-     window.Unlock;
+     if wnd<>nil then wnd.Unlock;
     end;
   end;
 

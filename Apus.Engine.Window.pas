@@ -1,4 +1,4 @@
-unit Apus.Engine.Window;
+﻿unit Apus.Engine.Window;
 interface
 uses Apus.Core, Apus.Geom2D, Apus.Engine.Types, Apus.Engine.Scene, Apus.Threads,
   Apus.Classes;
@@ -7,6 +7,7 @@ const
  FRAME_TIME_RING_SIZE=512;
 
 type
+ TWindow=class;
  TSceneArray=array of TGameScene;
 
  TFrameCapture=record
@@ -138,8 +139,11 @@ type
   function SetVSync(divider:integer):boolean; virtual; abstract;
  end;
 
+ function FindWindowForScene(scene:TGameScene):TWindow;
+ function FindWindowForUIRoot(root:TObject):TWindow;
+
 implementation
- uses Apus.Structs;
+ uses Apus.Structs, Apus.Engine.API;
 
 var
  windowHash:TObjectHash;
@@ -321,12 +325,15 @@ procedure TWindow.AddScene(scene:TGameScene);
  var
   i:integer;
  begin
+  if scene=nil then
+   raise EError.Create('Cannot add nil scene');
   for i:=low(scenes) to high(scenes) do
    if scenes[i]=scene then
     raise EWarning.Create('Scene already added: '+scene.name);
   i:=length(scenes);
   SetLength(scenes,i+1);
   scenes[i]:=scene;
+  scene.ownerWindow:=pointer(self);
  end;
 
 function TWindow.RemoveScene(scene:TGameScene):boolean;
@@ -338,6 +345,7 @@ function TWindow.RemoveScene(scene:TGameScene):boolean;
     n:=length(scenes)-1;
     scenes[i]:=scenes[n];
     SetLength(scenes,n);
+    if scene.ownerWindow=pointer(self) then scene.ownerWindow:=nil;
     exit(true);
    end;
   result:=false;
@@ -424,6 +432,81 @@ function TWindow.ProcessScenes(deltaTime:integer):boolean;
     end else
      result:=scenes[i].Process or result;
    end;
+ end;
+
+function FindWindowForScene(scene:TGameScene):TWindow;
+ var
+  i,j:integer;
+  list:TNamedObjects;
+  wnd:TWindow;
+ begin
+  if scene=nil then exit(nil);
+  if scene.ownerWindow<>nil then
+   exit(TWindow(scene.ownerWindow));
+  if mainWindow<>nil then begin
+   mainWindow.Lock;
+   try
+    for j:=0 to high(mainWindow.scenes) do
+     if mainWindow.scenes[j]=scene then
+      exit(mainWindow);
+   finally
+    mainWindow.Unlock;
+   end;
+  end;
+  list:=windowHash.ListObjects;
+  for i:=0 to high(list) do begin
+   if not (list[i] is TWindow) then continue;
+   wnd:=list[i] as TWindow;
+   if wnd=mainWindow then continue;
+   wnd.Lock;
+   try
+    for j:=0 to high(wnd.scenes) do
+     if wnd.scenes[j]=scene then
+      exit(wnd);
+   finally
+    wnd.Unlock;
+   end;
+  end;
+  result:=nil;
+ end;
+
+function FindWindowForUIRoot(root:TObject):TWindow;
+ var
+  i,j:integer;
+  list:TNamedObjects;
+  wnd:TWindow;
+  scene:TGameScene;
+ begin
+  if root=nil then exit(nil);
+  if mainWindow<>nil then begin
+   mainWindow.Lock;
+   try
+    for j:=0 to high(mainWindow.scenes) do begin
+     scene:=mainWindow.scenes[j];
+     if scene.GetUIRoot=root then
+      exit(mainWindow);
+    end;
+   finally
+    mainWindow.Unlock;
+   end;
+  end;
+  list:=windowHash.ListObjects;
+  for i:=0 to high(list) do begin
+   if not (list[i] is TWindow) then continue;
+   wnd:=list[i] as TWindow;
+   if wnd=mainWindow then continue;
+   wnd.Lock;
+   try
+    for j:=0 to high(wnd.scenes) do begin
+     scene:=wnd.scenes[j];
+     if scene.GetUIRoot=root then
+      exit(wnd);
+    end;
+   finally
+    wnd.Unlock;
+   end;
+  end;
+  result:=nil;
  end;
 
 initialization

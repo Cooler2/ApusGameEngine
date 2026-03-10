@@ -32,6 +32,7 @@ type
   procedure onMouseMove(x,y:integer); override;
   procedure onMouseBtn(btn:byte;pressed:boolean); override;
   procedure onMouseWheel(delta:integer); override;
+  function GetUIRoot:TObject; override;
 
   // These are markers for drawing scenes background to properly handle alpha channel of the render target to avoid wrong alpha blending
   // This is important ONLY if you are drawing semi-transparent pixels over the undefined (previous) content
@@ -374,6 +375,7 @@ procedure SetDisplaySize(width,height:integer);
    name:=scenename;
    if wnd=nil then wnd:=mainWindow;
    UI:=TUIElement.Create(wnd.renderWidth,wnd.renderHeight,nil,sceneName);
+   UI.ownerScene:=self;
    UI.enabled:=false;
    UI.visible:=false;
    if fullscreen then begin
@@ -616,6 +618,7 @@ procedure SetDisplaySize(width,height:integer);
     end;
     UI:=TUIElement.Create(w,h,nil);
     UI.name:=name;
+    UI.ownerScene:=self;
     UI.enabled:=false;
     UI.visible:=false;
    end;
@@ -648,10 +651,15 @@ procedure SetDisplaySize(width,height:integer);
    Apus.Engine.UIRender.BackgroundRenderBegin;
   end;
 
- procedure TUIScene.BackgroundRenderEnd;
+procedure TUIScene.BackgroundRenderEnd;
   begin
    Apus.Engine.UIRender.BackgroundRenderEnd;
   end;
+
+function TUIScene.GetUIRoot:TObject;
+ begin
+  result:=UI;
+ end;
 
 // --- Robot API command handlers ---
 
