@@ -1,4 +1,4 @@
-﻿// Thread synchronization and management - locks, events, and thread utilities for concurrent code
+// Thread synchronization and management - locks, events, and thread utilities for concurrent code
 //
 // SCOPE: Building blocks for multithreaded applications - critical sections, reader-writer locks,
 // events, thread registry with deadlock detection. Used by applications and libraries that need
@@ -20,6 +20,10 @@
 unit Apus.Threads;
 interface
 uses Apus.Core, SysUtils{$IFDEF MSWINDOWS}, Windows{$ENDIF}{$IFDEF UNIX}, pthreads{$ENDIF};
+
+{$IF Declared(SRWLOCK)}
+{$DEFINE USE_SRW}  // Disable this to debug fallback RW lock
+{$ENDIF}
 
 type
   PLock=^TLock;
@@ -61,7 +65,7 @@ type
   // Always call Init before use and Cleanup when done.
   TRWLock=record
   private
-   {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+   {$IF Defined(USE_SRW)}
    lock:SRWLock;          // OS SRW lock (Vista+) — zero overhead, no allocation
    {$ELSEIF Defined(UNIX)}
    rwl:pthread_rwlock_t;  // POSIX RW lock
@@ -90,7 +94,7 @@ type
   // no active readers, Cleanup with locks still held.
   TRWLockD=record
   private
-   {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+   {$IF Defined(USE_SRW)}
    lock:SRWLock;
    {$ELSEIF Defined(UNIX)}
    rwl:pthread_rwlock_t;
@@ -655,7 +659,7 @@ end;
 procedure TRWLock.Init(const aName:String8='');
 begin
  // name ignored — lean mode stores nothing
- {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ {$IF Defined(USE_SRW)}
  InitializeSRWLock(lock);
  {$ELSEIF Defined(UNIX)}
  if pthread_rwlock_init(rwl,nil)<>0 then
@@ -668,7 +672,7 @@ end;
 
 procedure TRWLock.Cleanup;
 begin
- {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ {$IF Defined(USE_SRW)}
  // SRW locks don't need explicit cleanup
  {$ELSEIF Defined(UNIX)}
  if pthread_rwlock_destroy(rwl)<>0 then
@@ -679,11 +683,13 @@ begin
 end;
 
 procedure TRWLock.EnterRead;
-{$IF not (Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)) and not Defined(UNIX)}
+{$IFNDEF USE_SRW}
+ {$IFNDEF UNIX}
 var curr:integer;
+ {$ENDIF}
 {$ENDIF}
 begin
- {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ {$IF Defined(USE_SRW)}
  AcquireSRWLockShared(lock);
  {$ELSEIF Defined(UNIX)}
  if pthread_rwlock_rdlock(rwl)<>0 then
@@ -701,7 +707,7 @@ end;
 
 procedure TRWLock.LeaveRead;
 begin
- {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ {$IF Defined(USE_SRW)}
  ReleaseSRWLockShared(lock);
  {$ELSEIF Defined(UNIX)}
  if pthread_rwlock_unlock(rwl)<>0 then
@@ -713,7 +719,7 @@ end;
 
 procedure TRWLock.EnterWrite;
 begin
- {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ {$IF Defined(USE_SRW)}
  AcquireSRWLockExclusive(lock);
  {$ELSEIF Defined(UNIX)}
  if pthread_rwlock_wrlock(rwl)<>0 then
@@ -735,7 +741,7 @@ end;
 
 procedure TRWLock.LeaveWrite;
 begin
- {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ {$IF Defined(USE_SRW)}
  ReleaseSRWLockExclusive(lock);
  {$ELSEIF Defined(UNIX)}
  if pthread_rwlock_unlock(rwl)<>0 then
@@ -754,7 +760,7 @@ begin
  readerCount:=0;
  lastWriteCaller:=nil;
  lastReadCaller:=nil;
- {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ {$IF Defined(USE_SRW)}
  InitializeSRWLock(lock);
  {$ELSEIF Defined(UNIX)}
  if pthread_rwlock_init(rwl,nil)<>0 then
@@ -771,7 +777,7 @@ begin
    'TRWLockD.Cleanup: write lock still held in "'+name+'"');
  ASSERT(readerCount=0,
    'TRWLockD.Cleanup: '+Conv.ToStr(readerCount)+' read lock(s) still held in "'+name+'"');
- {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ {$IF Defined(USE_SRW)}
  // SRW locks don't need explicit cleanup
  {$ELSEIF Defined(UNIX)}
  if pthread_rwlock_destroy(rwl)<>0 then
@@ -782,8 +788,10 @@ begin
 end;
 
 procedure TRWLockD.EnterRead;
-{$IF not (Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)) and not Defined(UNIX)}
+{$IFNDEF USE_SRW}
+ {$IFNDEF UNIX}
 var curr:integer;
+ {$ENDIF}
 {$ENDIF}
 begin
  ASSERT(rwReadLockCount<Length(rwReadLocks),
@@ -793,7 +801,7 @@ begin
  {$ELSE}
  lastReadCaller:=System.ReturnAddress;
  {$ENDIF}
- {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ {$IF Defined(USE_SRW)}
  AcquireSRWLockShared(lock);
  {$ELSEIF Defined(UNIX)}
  if pthread_rwlock_rdlock(rwl)<>0 then
@@ -829,7 +837,7 @@ begin
   end;
  ASSERT(found,'TRWLockD.LeaveRead: no matching EnterRead in this thread for "'+name+'"');
  Atomic.Sub(readerCount,1);
- {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ {$IF Defined(USE_SRW)}
  ReleaseSRWLockShared(lock);
  {$ELSEIF Defined(UNIX)}
  if pthread_rwlock_unlock(rwl)<>0 then
@@ -855,7 +863,7 @@ begin
  {$ELSE}
  lastWriteCaller:=System.ReturnAddress;
  {$ENDIF}
- {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ {$IF Defined(USE_SRW)}
  AcquireSRWLockExclusive(lock);
  {$ELSEIF Defined(UNIX)}
  if pthread_rwlock_wrlock(rwl)<>0 then
@@ -880,7 +888,7 @@ begin
  ASSERT(writerThread=GetCurrentThreadID,
    'TRWLockD.LeaveWrite: called from wrong thread in "'+name+'"');
  writerThread:=0; // clear before releasing — prevents false positives in assertions
- {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ {$IF Defined(USE_SRW)}
  ReleaseSRWLockExclusive(lock);
  {$ELSEIF Defined(UNIX)}
  if pthread_rwlock_unlock(rwl)<>0 then
