@@ -9,7 +9,8 @@
 // DON'T ADD: High-level concurrency (thread pools, async/await), parallel algorithms,
 // application-specific threading logic.
 //
-// Contains: TLock (critical section with debug), TSRWLock (reader-writer, Windows), TLightweightEvent,
+// Contains: TLock (critical section with debug), TRWLock (cross-platform RW-lock, lean),
+// TRWLockD (RW-lock with debug: name, caller tracking, assertions), TLightweightEvent,
 // Thread scope (Register/Unregister/Ping/GetName), WaitFor utility, deadlock detection via level checking.
 //
 // Copyright (C) 2004-2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
@@ -18,7 +19,7 @@
 {$I defines.inc}
 unit Apus.Threads;
 interface
-uses Apus.Core, SysUtils{$IFDEF MSWINDOWS}, Windows{$ENDIF};
+uses Apus.Core, SysUtils{$IFDEF MSWINDOWS}, Windows{$ENDIF}{$IFDEF UNIX}, pthreads{$ENDIF};
 
 type
   PLock=^TLock;
@@ -52,25 +53,65 @@ type
     function GetOwner:TThreadID; inline;
   end;
 
-  {$IF Declared(SRWLOCK)}
-  // Slim Reader/Writer lock (Windows Vista+)
-  TSRWLock=packed record
+  // Cross-platform reader-writer lock — lean version for production use.
+  // Multiple concurrent readers; exclusive writer blocks all readers and writers.
+  // Not reentrant: calling EnterWrite while already holding any lock on this instance
+  // will deadlock (SRWLock and pthread_rwlock_t are not reentrant by design).
+  // For lock name, caller tracking and consistency assertions in development: use TRWLockD.
+  // Always call Init before use and Cleanup when done.
+  TRWLock=record
   private
-    lock:SRWLock;
-    lockedEx:boolean;
-    lastLockedEx:pointer;
-    lockRead:integer;
-    lastLockedRead:pointer;
+   {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+   lock:SRWLock;          // OS SRW lock (Vista+) — zero overhead, no allocation
+   {$ELSEIF Defined(UNIX)}
+   rwl:pthread_rwlock_t;  // POSIX RW lock
+   {$ELSE}
+   // Software RW-lock using atomic CAS: state>0 = reader count, -1 = writer, 0 = free.
+   // Writer-preference: when writers are pending, new readers are blocked.
+   state:integer;
+   pendingWriters:integer;
+   {$ENDIF}
   public
-    name:String8;
-    procedure Init(const aName:String8);
-    procedure Cleanup;
-    procedure EnterRead(caller:pointer=nil);
-    procedure LeaveRead;
-    procedure EnterWrite(caller:pointer=nil);
-    procedure LeaveWrite;
+   // name is accepted for API compatibility with TRWLockD but not stored
+   procedure Init(const aName:String8='');
+   procedure Cleanup;
+   procedure EnterRead;
+   procedure LeaveRead;
+   procedure EnterWrite;
+   procedure LeaveWrite;
   end;
-  {$ENDIF}
+
+  // Debug reader-writer lock — drop-in replacement for TRWLock with diagnostics.
+  // Stores lock name, tracks caller return addresses, reader count, writer thread ID.
+  // Use when debugging concurrency: replace 'var x: TRWLock' with 'var x: TRWLockD'.
+  // Both types have identical method signatures — no other call-site changes needed.
+  // Assertions fire on: reentrant EnterWrite (would deadlock), read->write upgrade
+  // from same thread (would deadlock), LeaveWrite from wrong thread, LeaveRead with
+  // no active readers, Cleanup with locks still held.
+  TRWLockD=record
+  private
+   {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+   lock:SRWLock;
+   {$ELSEIF Defined(UNIX)}
+   rwl:pthread_rwlock_t;
+   {$ELSE}
+   state:integer; // same software RW-lock as TRWLock fallback
+   pendingWriters:integer;
+   {$ENDIF}
+  public
+   // debug state — public so you can inspect it in the debugger or from tests
+   name:String8;
+   writerThread:TThreadID;  // thread currently holding write lock (0 = unlocked)
+   readerCount:integer;     // number of active concurrent readers
+   lastWriteCaller:pointer; // return address of most recent EnterWrite call
+   lastReadCaller:pointer;  // return address of most recent EnterRead call
+   procedure Init(const aName:String8='');
+   procedure Cleanup;
+   procedure EnterRead;
+   procedure LeaveRead;
+   procedure EnterWrite;
+   procedure LeaveWrite;
+  end;
 
   // Lightweight event using WaitOnAddress (Win10+) or futex (Linux)
   TLightweightEvent=record
@@ -324,6 +365,12 @@ var
     pattern:String8;
     counter:integer;
   end;
+
+threadvar
+  // Debug-only TLS tracker for TRWLockD: locks currently held in read mode by this thread.
+  // Used to detect read->write upgrade attempts on the same lock (would deadlock).
+  rwReadLockCount:integer;
+  rwReadLocks:array[0..63] of pointer;
 
 // Platform-specific thread state info
 
@@ -603,62 +650,245 @@ begin
   {$ENDIF}
 end;
 
-{$IF Declared(SRWLOCK)}
-{ TSRWLock }
+{ TRWLock }
 
-procedure TSRWLock.Init(const aName:String8);
+procedure TRWLock.Init(const aName:String8='');
 begin
-  self.name:=aName;
-  lockedEx:=false;
-  lockRead:=0;
-  InitializeSrwLock(lock);
+ // name ignored — lean mode stores nothing
+ {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ InitializeSRWLock(lock);
+ {$ELSEIF Defined(UNIX)}
+ if pthread_rwlock_init(rwl,nil)<>0 then
+  raise EError.Create('TRWLock.Init: pthread_rwlock_init failed');
+ {$ELSE}
+ state:=0; // 0=free, >0=reader count, -1=writer
+ pendingWriters:=0;
+ {$ENDIF}
 end;
 
-procedure TSRWLock.Cleanup;
+procedure TRWLock.Cleanup;
 begin
-  // SRW locks don't need explicit cleanup
+ {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ // SRW locks don't need explicit cleanup
+ {$ELSEIF Defined(UNIX)}
+ if pthread_rwlock_destroy(rwl)<>0 then
+  raise EError.Create('TRWLock.Cleanup: pthread_rwlock_destroy failed');
+ {$ELSE}
+ // nothing to clean up for software lock
+ {$ENDIF}
 end;
 
-procedure TSRWLock.EnterRead(caller:pointer);
-begin
-  AcquireSRWLockShared(lock);
-  Atomic.Add(lockRead,1);
-  if caller=nil then begin
-    {$IFDEF FPC}
-    lastLockedRead:=get_caller_addr(get_frame);
-    {$ELSE}
-    lastLockedRead:=System.ReturnAddress;
-    {$ENDIF}
-  end else
-    lastLockedRead:=caller;
-end;
-
-procedure TSRWLock.LeaveRead;
-begin
-  Atomic.Sub(lockRead,1);
-  ReleaseSRWLockShared(lock);
-end;
-
-procedure TSRWLock.EnterWrite(caller:pointer);
-begin
-  AcquireSRWLockExclusive(lock);
-  lockedEx:=true;
-  if caller=nil then begin
-    {$IFDEF FPC}
-    lastLockedEx:=get_caller_addr(get_frame);
-    {$ELSE}
-    lastLockedEx:=System.ReturnAddress;
-    {$ENDIF}
-  end else
-    lastLockedEx:=caller;
-end;
-
-procedure TSRWLock.LeaveWrite;
-begin
-  lockedEx:=false;
-  ReleaseSRWLockExclusive(lock);
-end;
+procedure TRWLock.EnterRead;
+{$IF not (Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)) and not Defined(UNIX)}
+var curr:integer;
 {$ENDIF}
+begin
+ {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ AcquireSRWLockShared(lock);
+ {$ELSEIF Defined(UNIX)}
+ if pthread_rwlock_rdlock(rwl)<>0 then
+  raise EError.Create('TRWLock.EnterRead: pthread_rwlock_rdlock failed');
+ {$ELSE}
+ // writer-preference fallback: do not admit new readers when writers are pending
+ repeat
+  curr:=state;
+  if (curr>=0) and (pendingWriters=0) then
+   if Atomic.CmpExchange(state,curr+1,curr)=curr then break;
+  Sleep(0); // yield to other threads while spinning
+ until false;
+ {$ENDIF}
+end;
+
+procedure TRWLock.LeaveRead;
+begin
+ {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ ReleaseSRWLockShared(lock);
+ {$ELSEIF Defined(UNIX)}
+ if pthread_rwlock_unlock(rwl)<>0 then
+  raise EError.Create('TRWLock.LeaveRead: pthread_rwlock_unlock failed');
+ {$ELSE}
+ Atomic.Sub(state,1); // decrement reader count
+ {$ENDIF}
+end;
+
+procedure TRWLock.EnterWrite;
+begin
+ {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ AcquireSRWLockExclusive(lock);
+ {$ELSEIF Defined(UNIX)}
+ if pthread_rwlock_wrlock(rwl)<>0 then
+  raise EError.Create('TRWLock.EnterWrite: pthread_rwlock_wrlock failed');
+ {$ELSE}
+ // writer-preference: announce waiting writer to block new readers
+ Atomic.Add(pendingWriters,1);
+ try
+  // acquire write lock: succeed only when state=0 (no readers or writers)
+  repeat
+   if Atomic.CmpExchange(state,-1,0)=0 then break;
+   Sleep(0); // yield to other threads while spinning
+  until false;
+ finally
+  Atomic.Sub(pendingWriters,1);
+ end;
+ {$ENDIF}
+end;
+
+procedure TRWLock.LeaveWrite;
+begin
+ {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ ReleaseSRWLockExclusive(lock);
+ {$ELSEIF Defined(UNIX)}
+ if pthread_rwlock_unlock(rwl)<>0 then
+  raise EError.Create('TRWLock.LeaveWrite: pthread_rwlock_unlock failed');
+ {$ELSE}
+ Atomic.Exchange(state,0); // release write lock: -1 → 0
+ {$ENDIF}
+end;
+
+{ TRWLockD }
+
+procedure TRWLockD.Init(const aName:String8='');
+begin
+ name:=aName;
+ writerThread:=0;
+ readerCount:=0;
+ lastWriteCaller:=nil;
+ lastReadCaller:=nil;
+ {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ InitializeSRWLock(lock);
+ {$ELSEIF Defined(UNIX)}
+ if pthread_rwlock_init(rwl,nil)<>0 then
+  raise EError.Create('TRWLockD.Init: pthread_rwlock_init failed');
+ {$ELSE}
+ state:=0;
+ pendingWriters:=0;
+ {$ENDIF}
+end;
+
+procedure TRWLockD.Cleanup;
+begin
+ ASSERT(writerThread=0,
+   'TRWLockD.Cleanup: write lock still held in "'+name+'"');
+ ASSERT(readerCount=0,
+   'TRWLockD.Cleanup: '+Conv.ToStr(readerCount)+' read lock(s) still held in "'+name+'"');
+ {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ // SRW locks don't need explicit cleanup
+ {$ELSEIF Defined(UNIX)}
+ if pthread_rwlock_destroy(rwl)<>0 then
+  raise EError.Create('TRWLockD.Cleanup: pthread_rwlock_destroy failed');
+ {$ELSE}
+ // nothing to clean up for software lock
+ {$ENDIF}
+end;
+
+procedure TRWLockD.EnterRead;
+{$IF not (Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)) and not Defined(UNIX)}
+var curr:integer;
+{$ENDIF}
+begin
+ ASSERT(rwReadLockCount<Length(rwReadLocks),
+   'TRWLockD.EnterRead: rwReadLocks overflow for "'+name+'"');
+ {$IFDEF FPC}
+ lastReadCaller:=get_caller_addr(get_frame);
+ {$ELSE}
+ lastReadCaller:=System.ReturnAddress;
+ {$ENDIF}
+ {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ AcquireSRWLockShared(lock);
+ {$ELSEIF Defined(UNIX)}
+ if pthread_rwlock_rdlock(rwl)<>0 then
+  raise EError.Create('TRWLockD.EnterRead: pthread_rwlock_rdlock failed');
+ {$ELSE}
+ // writer-preference fallback: do not admit new readers when writers are pending
+ repeat
+  curr:=state;
+  if (curr>=0) and (pendingWriters=0) then
+   if Atomic.CmpExchange(state,curr+1,curr)=curr then break;
+  Sleep(0);
+ until false;
+ {$ENDIF}
+ rwReadLocks[rwReadLockCount]:=@self;
+ inc(rwReadLockCount);
+ Atomic.Add(readerCount,1);
+end;
+
+procedure TRWLockD.LeaveRead;
+var
+ i:integer;
+ found:boolean;
+begin
+ ASSERT(readerCount>0,'TRWLockD.LeaveRead: no active readers in "'+name+'"');
+ found:=false;
+ for i:=rwReadLockCount-1 downto 0 do
+  if rwReadLocks[i]=@self then begin
+   rwReadLocks[i]:=rwReadLocks[rwReadLockCount-1];
+   rwReadLocks[rwReadLockCount-1]:=nil;
+   dec(rwReadLockCount);
+   found:=true;
+   break;
+  end;
+ ASSERT(found,'TRWLockD.LeaveRead: no matching EnterRead in this thread for "'+name+'"');
+ Atomic.Sub(readerCount,1);
+ {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ ReleaseSRWLockShared(lock);
+ {$ELSEIF Defined(UNIX)}
+ if pthread_rwlock_unlock(rwl)<>0 then
+  raise EError.Create('TRWLockD.LeaveRead: pthread_rwlock_unlock failed');
+ {$ELSE}
+ Atomic.Sub(state,1);
+ {$ENDIF}
+end;
+
+procedure TRWLockD.EnterWrite;
+var
+ i:integer;
+begin
+ // detect same-thread reentrant write: would deadlock on SRWLock/pthread
+ ASSERT(writerThread<>GetCurrentThreadID,
+   'TRWLockD.EnterWrite: reentrant write lock in "'+name+'"');
+ // detect read->write upgrade in the same thread: also deadlocks on SRWLock/pthread
+ for i:=0 to rwReadLockCount-1 do
+  ASSERT(rwReadLocks[i]<>@self,
+    'TRWLockD.EnterWrite: read->write upgrade deadlock in "'+name+'"');
+ {$IFDEF FPC}
+ lastWriteCaller:=get_caller_addr(get_frame);
+ {$ELSE}
+ lastWriteCaller:=System.ReturnAddress;
+ {$ENDIF}
+ {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ AcquireSRWLockExclusive(lock);
+ {$ELSEIF Defined(UNIX)}
+ if pthread_rwlock_wrlock(rwl)<>0 then
+  raise EError.Create('TRWLockD.EnterWrite: pthread_rwlock_wrlock failed');
+ {$ELSE}
+ // writer-preference: announce waiting writer to block new readers
+ Atomic.Add(pendingWriters,1);
+ try
+  repeat
+   if Atomic.CmpExchange(state,-1,0)=0 then break;
+   Sleep(0);
+  until false;
+ finally
+  Atomic.Sub(pendingWriters,1);
+ end;
+ {$ENDIF}
+ writerThread:=GetCurrentThreadID; // set after acquiring — visible to other threads
+end;
+
+procedure TRWLockD.LeaveWrite;
+begin
+ ASSERT(writerThread=GetCurrentThreadID,
+   'TRWLockD.LeaveWrite: called from wrong thread in "'+name+'"');
+ writerThread:=0; // clear before releasing — prevents false positives in assertions
+ {$IF Defined(APUS_RWLOCK_USE_SRWLOCK) and Declared(SRWLOCK)}
+ ReleaseSRWLockExclusive(lock);
+ {$ELSEIF Defined(UNIX)}
+ if pthread_rwlock_unlock(rwl)<>0 then
+  raise EError.Create('TRWLockD.LeaveWrite: pthread_rwlock_unlock failed');
+ {$ELSE}
+ Atomic.Exchange(state,0);
+ {$ENDIF}
+end;
 
 { TLightweightEvent }
 
