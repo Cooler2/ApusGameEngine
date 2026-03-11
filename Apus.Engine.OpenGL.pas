@@ -35,6 +35,7 @@ type
  // destroys the GL context, otherwise GPU resources cannot be deleted safely.
  TOpenGL=class(TInterfacedObject,IGraphicsSystem,IGraphicsSystemConfig)
   procedure Init(window:TWindow);
+  procedure InitThreadContext(window:TWindow);
   procedure Done;
   function GetVersion:single;
   function GetName:string8;
@@ -356,8 +357,22 @@ procedure TOpenGL.Init(window:TWindow);
   TTextDrawer.Create;
   Apus.Engine.API.draw:=drawer;
   Apus.Engine.API.txt:=textDrawer;
+  InitThreadContext(window);
   CheckForGLError(014);
  end;
+
+procedure TOpenGL.InitThreadContext(window:TWindow);
+begin
+ wnd:=window;
+ // Prime per-thread backend state for deterministic startup.
+ // Keep lazy EnsureThreadState as fallback in all subsystems.
+ target.Resized(window.windowWidth,window.windowHeight);
+ target.Viewport(0,0,window.windowWidth,window.windowHeight,window.renderWidth,window.renderHeight);
+ shader.Reset;
+ clip.Nothing;
+ clip.Restore;
+ transform.DefaultView;
+end;
 
 procedure TOpenGL.Done;
  begin

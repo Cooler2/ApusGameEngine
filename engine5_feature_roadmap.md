@@ -1,5 +1,5 @@
 ﻿# Engine5 Feature Roadmap
-Last updated: 2026-03-09
+Last updated: 2026-03-11
 
 Language policy: this roadmap is maintained in English.
 
@@ -51,7 +51,7 @@ Goal: simple, reproducible builds on Delphi + FPC, Windows + Linux.
 
 ### F. Core Runtime & Scenes
 Goal: predictable scene lifecycle and transitions.
-- [ ] F1. Formalize lifecycle: Load -> Initialize -> Process -> Render
+- [x] F1. Formalize lifecycle: Create(window) → Load → InitGfx → Process → Render
 - [ ] F2. Safe scene transitions (including async loading)
 - [ ] F3. Lifecycle diagnostics and error logging
 
@@ -123,6 +123,7 @@ Use this section for anything remembered on the fly.
 - [ ] [R-009] OpenGL performance modernization (bindless/persistent mapping + explicit batching)
 - [ ] [R-010] UI widget system refactor roadmap (TUIElement decomposition + widget-class review)
 - [ ] [R-011] Headless/NOGFX backend for CI-driven UI automation without window/OpenGL context
+- [ ] [R-012] Graphics subsystem optimizations (text path + streaming buffers)
 
 ## 5) Seed Feature Cards
 
@@ -162,11 +163,38 @@ Use this section for anything remembered on the fly.
 - Notes: hot DPI-awareness must be validated with monitor move and OS scale-change scenarios.
   - 2026-03-08: architecture draft and decisions v1 are documented in `reports/R-02_multiwindow_plan.md`.
   - 2026-03-08: phase-1 implementation started (Windows path): `TWindow` abstraction extracted, API naming normalized, OpenGL context flow moved out of `Engine.API` into `Engine.OpenGL`.
+  - 2026-03-09: implementation sequence updated to target-first (no temporary single-thread multi-window stage): next architectural step is `TWindowRuntime` as `window+thread` pair while keeping `TGame -> windows[]:TWindow` / `mainWindow` as the primary public model.
+  - 2026-03-09: phase-1 foundation closed:
+    - window-owned runtime state finalized in `TWindow`;
+    - legacy runtime `game.*` proxies removed from `TGameBase`;
+    - engine/demo active paths migrated to `window.*`;
+    - `SimpleDemo` compile/run validation passed.
   - 2026-03-09: SDL `SimpleDemo` freeze investigation completed:
     - diagnostics confirmed stalls inside `SDL_PollEvent` cumulative time (not in engine event handlers/render path);
     - runtime SDL DLLs updated to `2.32.10` (`bin` and `bin64`);
     - user validation: freezes are gone, runtime is smooth;
     - follow-up: update Pascal SDL headers (currently `2.0.4`) to reduce version drift.
+  - 2026-03-10: scene lifecycle refactored:
+    - `TUIScene.Create` takes optional `wnd:TWindow` parameter (defaults to `mainWindow`);
+    - scene uses `wnd.renderWidth/Height` and `wnd.AddScene` directly (no more `game.AddScene`);
+    - `Initialize` renamed to `InitGfx` (GPU-only, automatic, never call manually);
+    - scene lifecycle contracts documented in `Apus.Engine.Scene.pas`;
+    - `MessageScene` fixed: UI creation moved to constructor, chicken-and-egg init bug resolved;
+    - scene Load registration simplified (removed method pointer comparison hack).
+  - 2026-03-11: AddWindow API scaffold implemented:
+    - `TGameBase.AddWindow(settings) / AddWindow(title,w,h) / RemoveWindow(wnd)` — public API;
+    - per-window render thread (`ExtraWindowLoop`) with own frame loop;
+    - shared GL context via `wglCreateContextAttribsARB(DC, mainContext, attribs)`;
+    - `RegisterClassW` idempotent; `TWindow.InitGraphShared` virtual abstract;
+    - `demo/MultiWindow` updated to use the new API;
+    - FPC compilation validated for all changed modules;
+    - initial next blocker at that stage was per-thread render state (§3.7) and per-window VAO.
+  - 2026-03-11: secondary-window rendering confirmed working in real run.
+  - 2026-03-11: follow-up implementation landed for buffer API and explicit per-thread bootstrap (`InitThreadContext`) to reduce startup race surface.
+  - 2026-03-11: multi-GPU decisions fixed for R-02:
+    - if multiple GPUs are present, one GPU is considered primary and all rendering is executed on it;
+    - multi-window path assumes shared context support, therefore resource duplication between windows is not required;
+    - symmetrical multi-GPU collaborative rendering is out of native Engine5 scope.
 
 ### [R-03] Native AEM Pipeline + Blender Export
 - Status: idea
@@ -322,6 +350,14 @@ Use this section for anything remembered on the fly.
 - Notes:
   - 2026-03-08: implementation stages and execution plan documented in `reports/R-10_ui_widget_refactor_plan.md`.
   - 2026-03-08: decomposition research report documented in `reports/R-10_tuielement_decomposition_report_2026-03-08.md`.
+  - 2026-03-10: styling/drawer direction agreed (kept out of R-02 scope, tracked under R-10):
+    - replace per-element draw procedure idea with drawer object contract (`draw + style apply/parse`);
+    - drawer resolution is inherited: current element -> parents -> root -> fallback to `DefaultDrawer`;
+    - no resolver cache for now (keep path simple; reassess only if profiling shows real cost);
+    - replace `styleInfo` with `style:String8` property;
+    - `style` write path should call external style service (or drawer) to parse/update internal drawable state.
+  - Open design question to close in R-10:
+    - style syntax policy: fully shared grammar for all drawers vs shared base grammar + drawer-specific extensions.
   - Main scope (this task):
     - decomposition options study for `TUIElement`;
     - select best option and implement it;
@@ -329,6 +365,80 @@ Use this section for anything remembered on the fly.
   - Follow-ups (after main scope):
     - expand widget/layout set where gaps remain;
     - add focused tests for widgets and layouts.
+
+### [R-12] Graphics Subsystem Optimizations (Text + Streaming Buffers)
+- Status: planned
+- Priority: P1
+- Area: Render
+- Value: reduce CPU overhead in graphics hot paths, especially text-heavy UI and transient dynamic geometry updates.
+- Scope (MVP):
+  - explicit text-draw policy where persistent strings can reuse cached vertex buffers and transient strings keep cheap one-shot behavior;
+  - deterministic invalidation when glyph cache/font atlas changes;
+  - ring-buffer based transient streaming path for high-frequency text/UI vertex updates;
+  - public unified `IRingBuffer` interface with concrete methods for reuse by all engine subsystems that need transient geometry uploads.
+- Out of scope: full text layout/shaping rewrite; replacing existing glyph cache implementation; renderer rewrite.
+- Dependencies: text draw path (`txt.write` call chain), font/glyph cache internals, render buffer lifecycle in OpenGL backend, draw/transient buffer integration points.
+- Risks: stale cached geometry after atlas rebuild; VRAM growth from many persistent labels; API ambiguity if policy is not obvious to caller; incorrect overflow behavior in transient streaming path.
+- Acceptance Criteria:
+  - [ ] Repeated persistent labels reuse previously built geometry (no per-frame full rebuild in steady state).
+  - [ ] Transient labels remain supported without forcing long-lived cache allocations.
+  - [ ] Glyph cache invalidation reliably invalidates dependent text vertex buffers.
+  - [ ] Ring-buffer ownership/lifecycle is explicitly defined and implemented.
+  - [ ] Public `IRingBuffer` interface is implemented and used as the common transient streaming contract (not ad-hoc per-module wrappers).
+  - [ ] Ring-buffer overflow behavior is deterministic and documented.
+  - [ ] Profiling on one representative UI/demo scene shows measurable CPU reduction in text rendering hot path.
+- Notes:
+  - Existing hint flag can remain as a compatibility bridge, but API clarity should improve by splitting intent at call site.
+  - Candidate API direction:
+    - keep `txt.write(...)` as transient/default path;
+    - add explicit persistent path (for example `txt.writePersistent(...)`) that returns/uses a handle;
+    - optional helper for one-frame batching (`txt.writeTransient(...)`) if we want fully explicit semantics.
+  - Suggested cache-key dimensions for persistent geometry:
+    - text content/hash;
+    - font face/size/style + shader-relevant render params;
+    - layout inputs (wrap width, alignment, spacing, scale, DPI domain).
+  - Invalidation strategy:
+    - maintain `glyphCacheRevision` (or equivalent generation counter);
+    - each persistent text buffer stores the generation it was built against;
+    - on mismatch, rebuild lazily on next draw and refresh generation.
+  - Resource policy:
+    - keep a bounded LRU pool for persistent text buffers;
+    - allow explicit release for known-dead labels;
+    - record lightweight telemetry (hits/misses/rebuilds/evictions) to tune thresholds.
+  - Transient/ring buffer ownership and lifecycle (MVP):
+    - allocator object is per render thread/context;
+    - internal streaming buffers are allocated in `InitThreadContext` (fallback: deterministic first-use init if thread bootstrap was skipped);
+    - allocator resets per frame and is destroyed on thread/context shutdown.
+  - Ring-buffer capacity strategy (MVP):
+    - define initial capacity per thread;
+    - allow bounded growth up to configured max;
+    - track high-water mark in telemetry.
+  - Overflow strategy (MVP):
+    - orphan-on-overflow for OpenGL path (`glBufferData(..., nil, usage)` + upload new chunk);
+    - follow-up option: multi-segment ring allocator for extreme burst workloads.
+  - Required public API contract (MVP):
+```pascal
+type
+  IRingBuffer=interface
+    // Frame lifecycle
+    procedure BeginFrame(frameId:uint64);
+    procedure EndFrame;
+    procedure ResetFrame;
+
+    // Allocation for transient geometry
+    function AllocVertices(layout:TVertexLayout;vertexCount:integer;out baseVertex:integer):pointer;
+    function AllocIndices(indexCount:integer;indexSize:integer;out baseIndex:integer):pointer;
+
+    // Upload/sync boundary for current frame chunk(s)
+    procedure Commit;
+
+    // Diagnostics/capacity
+    function CapacityBytes:integer;
+    function UsedBytes:integer;
+    function HighWatermarkBytes:integer;
+  end;
+```
+
 
 ## 6) Next Planning Session
 Prepare for the next discussion:

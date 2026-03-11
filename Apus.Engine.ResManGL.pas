@@ -94,9 +94,13 @@ type
   procedure Upload(fromVertex,numVertices:integer;vertexData:pointer); override;
   destructor Destroy; override;
   procedure Resize(newCount:integer); override;
+  procedure PublishUpdate; override;
+  procedure WaitForPublish; override;
+  procedure ResetPublishState; override;
  protected
   buffer:cardinal;
   usage:cardinal;
+  publishedSync:pointer;
  end;
 
  // OpenGL-backed index buffer wrapper.
@@ -105,9 +109,13 @@ type
   procedure Upload(fromIndex,numIndices:integer;indexData:pointer); override;
   destructor Destroy; override;
   procedure Resize(newCount:integer); override;
+  procedure PublishUpdate; override;
+  procedure WaitForPublish; override;
+  procedure ResetPublishState; override;
  protected
   buffer:cardinal;
   usage:cardinal;
+  publishedSync:pointer;
  end;
 
  // Texture array/3D-texture adapter over TGLTexture.
@@ -166,9 +174,11 @@ type
   procedure Dump(st:string='');
 
   // Data buffers
-  function AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;usage:TBufferUsage=buStatic):TVertexBuffer;
+  function AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;
+    usage:TBufferUsage=buStatic;flags:cardinal=0):TVertexBuffer;
   procedure UseVertexBuffer(vb:TVertexBuffer);
-  function AllocIndexBuffer(indCount:integer;elementSize:integer=2;usage:TBufferUsage=buStatic):TIndexBuffer;
+  function AllocIndexBuffer(indCount:integer;elementSize:integer=2;
+    usage:TBufferUsage=buStatic;flags:cardinal=0):TIndexBuffer;
   procedure UseIndexBuffer(ib:TIndexBuffer);
   procedure FreeBuffer(buf:TEngineBuffer);
 
@@ -1813,11 +1823,13 @@ end;
 
 // ---- Data buffers ----
 {$REGION BUFFERS}
-function TGLResourceManager.AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;usage:TBufferUsage):TVertexBuffer;
+function TGLResourceManager.AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;
+  usage:TBufferUsage;flags:cardinal):TVertexBuffer;
 var
  vb:TVertexBufferGL;
 begin
- vb:=TVertexBufferGL.Create(layout,numVertices);
+ vb:=TVertexBufferGL.Create(layout,numVertices,flags);
+ vb.publishedSync:=nil;
  glGenBuffers(1,@vb.buffer);
  ASSERT(vb.buffer<>0);
  glBindBuffer(GL_ARRAY_BUFFER,vb.buffer);
@@ -1834,12 +1846,14 @@ begin
  result:=vb;
 end;
 
-function TGLResourceManager.AllocIndexBuffer(indCount:integer;elementSize:integer;usage:TBufferUsage):TIndexBuffer;
+function TGLResourceManager.AllocIndexBuffer(indCount:integer;elementSize:integer;
+  usage:TBufferUsage;flags:cardinal):TIndexBuffer;
 var
  ib:TIndexBufferGL;
 begin
  ASSERT(elementSize in [2,4]);
- ib:=TIndexBufferGL.Create(indCount,elementSize);
+ ib:=TIndexBufferGL.Create(indCount,elementSize,flags);
+ ib.publishedSync:=nil;
  glGenBuffers(1,@ib.buffer);
  ASSERT(ib.buffer<>0);
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ib.buffer);
@@ -1893,18 +1907,21 @@ end;
 
 destructor TVertexBufferGL.Destroy;
 begin
+ ResetPublishState;
  if buffer<>0 then glDeleteBuffers(1,@buffer);
  inherited;
 end;
 
 destructor TIndexBufferGL.Destroy;
 begin
+ ResetPublishState;
  if buffer<>0 then glDeleteBuffers(1,@buffer);
  inherited;
 end;
 
 procedure TVertexBufferGL.Resize(newCount:integer);
 begin
+ EnsureWritable('Resize');
  BeginWrite;
  count:=newCount;
  sizeInBytes:=count*layout.stride;
@@ -1918,6 +1935,7 @@ end;
 
 procedure TVertexBufferGL.Upload(fromVertex,numVertices:integer;vertexData:pointer);
 begin
+ EnsureWritable('Upload');
  BeginWrite;
  glBindBuffer(GL_ARRAY_BUFFER,buffer);
  TrackArrayBufferBinding(buffer);
@@ -1929,6 +1947,7 @@ end;
 
 procedure TIndexBufferGL.Resize(newCount:integer);
 begin
+ EnsureWritable('Resize');
  BeginWrite;
  count:=newCount;
  sizeInBytes:=count*bytesPerIndex;
@@ -1942,6 +1961,7 @@ end;
 
 procedure TIndexBufferGL.Upload(fromIndex,numIndices:integer;indexData:pointer);
 begin
+ EnsureWritable('Upload');
  BeginWrite;
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,buffer);
  TrackElementBufferBinding(buffer);
@@ -1949,6 +1969,62 @@ begin
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
  TrackElementBufferBinding(0);
  EndWrite;
+end;
+
+procedure TVertexBufferGL.PublishUpdate;
+begin
+ if IsThreadLocal then exit;
+ if @glFenceSync=nil then exit;
+ ResetPublishState;
+ publishedSync:=pointer(glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,0));
+ if @glFlush<>nil then glFlush;
+end;
+
+procedure TVertexBufferGL.WaitForPublish;
+begin
+ if publishedSync=nil then exit;
+ if @glWaitSync<>nil then
+  glWaitSync(GLsync(publishedSync),0,GL_TIMEOUT_IGNORED)
+ else
+ if @glClientWaitSync<>nil then
+  glClientWaitSync(GLsync(publishedSync),GL_SYNC_FLUSH_COMMANDS_BIT,high(uint64));
+ ResetPublishState;
+end;
+
+procedure TVertexBufferGL.ResetPublishState;
+begin
+ if publishedSync=nil then exit;
+ if @glDeleteSync<>nil then
+  glDeleteSync(GLsync(publishedSync));
+ publishedSync:=nil;
+end;
+
+procedure TIndexBufferGL.PublishUpdate;
+begin
+ if IsThreadLocal then exit;
+ if @glFenceSync=nil then exit;
+ ResetPublishState;
+ publishedSync:=pointer(glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,0));
+ if @glFlush<>nil then glFlush;
+end;
+
+procedure TIndexBufferGL.WaitForPublish;
+begin
+ if publishedSync=nil then exit;
+ if @glWaitSync<>nil then
+  glWaitSync(GLsync(publishedSync),0,GL_TIMEOUT_IGNORED)
+ else
+ if @glClientWaitSync<>nil then
+  glClientWaitSync(GLsync(publishedSync),GL_SYNC_FLUSH_COMMANDS_BIT,high(uint64));
+ ResetPublishState;
+end;
+
+procedure TIndexBufferGL.ResetPublishState;
+begin
+ if publishedSync=nil then exit;
+ if @glDeleteSync<>nil then
+  glDeleteSync(GLsync(publishedSync));
+ publishedSync:=nil;
 end;
 {$ENDREGION}
 

@@ -1,5 +1,5 @@
 ﻿# Engine Work Ahead Log
-Last updated: 2026-03-10
+Last updated: 2026-03-11
 
 This file tracks active execution only:
 - immediate priorities;
@@ -9,6 +9,20 @@ This file tracks active execution only:
 Large feature planning lives in `engine5_feature_roadmap.md`.
 
 ## Done (recent, high impact)
+- R-02 secondary-window render milestone (2026-03-11):
+  - rendering in secondary window is confirmed working in real runtime;
+  - moved from "startup-only scaffold" to active two-window render baseline.
+- R-02 GPU buffer API implementation slice (2026-03-11):
+  - added buffer policy flags (`abThreadLocal`, `abReadOnly`, `abShared`);
+  - added `TEngineBuffer` policy methods and ownership checks;
+  - replaced coarse buffer sync gate with policy-aware `NeedSyncForBufferRead/Write` (compat wrapper preserved);
+  - added backend-agnostic public publish/wait API with backend-internal GL fence storage;
+  - added explicit `IGraphicsSystem.InitThreadContext(wnd)` and integrated it into secondary-thread startup;
+  - hot-path draw/text per-thread buffers now allocate as thread-local, static per-thread index buffers are made immutable.
+- R-02 GPU buffer API planning checkpoint (2026-03-11):
+  - practical implementation plan prepared: `reports/R-02_gpu_buffer_api_plan.md`;
+  - documented motivations, API gaps, and proposed policy-based buffer design (`thread-local/read-only/shared mutable`);
+  - added incremental rollout phases with explicit acceptance criteria and recommended execution order.
 - R-02 UI size-source cleanup finalized:
   - removed `rootWidth/rootHeight` and `SetDisplaySize` flow from `Apus.Engine.UIScene`;
   - UI root is now the source of truth for scene UI dimensions (`UI.width/height` and `clientWidth/clientHeight` semantics);
@@ -108,27 +122,31 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - `TClippingAPI` clip stack/actual-clip/reject mode moved to thread-local storage; per-thread lazy init added;
   - `TRenderDevice` draw-state/stream-buffer tracking moved to thread-local storage; per-thread lazy init added;
   - `TGLRenderTargetAPI` backbuffer/scissor runtime state is thread-local with per-thread GL viewport bootstrap.
+- R-02 multi-GPU policy fixed (2026-03-11):
+  - in multi-GPU systems, one GPU is treated as primary and all rendering is executed on it;
+  - multi-window path assumes shared context support, so resource duplication between windows is not required;
+  - symmetrical multi-GPU collaborative rendering is explicitly out of native Engine5 scope.
 
 ## In Progress (active now)
-- R-02 multi-window rendering safety (main blocker: runtime validation in real multi-window run):
+- R-02 multi-window rendering safety (stress-validation and cleanup stage):
   - `TGameBase.AddWindow(settings) / AddWindow(title,w,h) / RemoveWindow(wnd)` declared in API.pas;
   - `ExtraWindowLoop` + startup handshake + close/termination behavior are stabilized for extra windows;
   - per-context VAO bootstrap exists in `InitGraphShared`;
   - `transform/shader/draw/txt/renderTarget/clipping/renderDevice` mutable runtime state migration is in place;
-  - **blocker**: end-to-end runtime check in `demo/MultiWindow` (both windows render concurrently without state bleed/races).
+  - runtime baseline reached: secondary window renders successfully;
+  - next focus: stress cycles (open/render/close/add/remove), cleanup, and race/regression checks.
   - **RESOLVED (2026-03-10): shared context creation failure (0xC00710DD):**
     - root cause: `AddWindow` was called from a non-main thread (`DelayedClick`), and `ReleaseGraphContext` (`wglMakeCurrent(0,0)`) only affects the calling thread — primary GL context remained current in main thread, blocking WGL sharing;
     - fix: atomic context release protocol (`glContextState`: 0→1→2→0) — `AddWindow` from any thread requests main thread to release GL context via `FrameLoop` check, waits for confirmation, proceeds with shared context creation, then signals main thread to reacquire;
-    - shared context now creates successfully through regular `CreateOpenGLContext(...,shareWith)` flow;
-    - **remaining**: Access Violation in extra window render loop — likely dglOpenGL global function pointers or uninitialized per-thread render state; needs `ReadExtensions` on secondary thread or equivalent bootstrap.
+    - shared context now creates successfully through regular `CreateOpenGLContext(...,shareWith)` flow.
 - Render follow-up after core migration (lower priority now):
   - reduce NSight-reported useless `glBind*` churn in hot paths.
 
 ## Next (ordered)
-1. R-02: runtime validation pass for multi-window rendering (`demo/MultiWindow`) — **main blocker now**:
-   - verify both windows render simultaneously with independent per-thread render state;
-   - verify window close/remove path after rendering starts;
-   - fix newly revealed runtime issues (if any) from real dual-window execution.
+1. R-02: multi-window stress validation pass (`demo/MultiWindow`):
+   - repeated add/remove/open/close cycles under active rendering;
+   - verify text path and shared-resource stability under stress;
+   - verify cleanup/lifetime correctness after window teardown.
 2. R-02: move DPI/scale fully to per-window flow (including runtime resize/re-layout triggers).
 3. Migrate demo scenes from `Initialize` to new lifecycle (constructor + `InitGfx`) — 6 demos, low urgency.
 4. Update Pascal SDL headers/bindings baseline (currently `2.0.4`) to reduce runtime/header drift with deployed SDL `2.32.10`.

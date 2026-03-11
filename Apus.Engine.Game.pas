@@ -2446,16 +2446,9 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     if wnd.windowHeight<=0 then wnd.windowHeight:=settings.height;
     wnd.renderWidth:=wnd.windowWidth;
     wnd.renderHeight:=wnd.windowHeight;
-    // Bootstrap per-thread render API state for the secondary render context.
-    // Must run after context activation (InitGraphShared) and window sizing,
-    // before signaling readiness — ensures first frame does not lazy-init mid-render.
-    // Step 1: set backbuffer dimensions so Backbuffer() gets correct realWidth/Height.
-    gfx.target.Resized(wnd.windowWidth,wnd.windowHeight);
-    // Step 2: prime viewport threadvar state (avoids zero-size projection matrix).
-    gfx.target.Viewport(0,0,wnd.windowWidth,wnd.windowHeight,
-      wnd.renderWidth,wnd.renderHeight);
-    // Step 3: prime shader threadvar state (initializes per-thread shader cache).
-    shader.Reset;
+    // Explicit per-thread graphics bootstrap for this shared context.
+    // Must run before startup "ready" signal, so first frame is deterministic.
+    gfx.InitThreadContext(wnd);
     wnd.Show(true);
     wnd.ProcessMessages;
     wnd.active:=true;

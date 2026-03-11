@@ -8,6 +8,16 @@ interface
  uses Apus.Core, Apus.Classes, Apus.Images, Apus.Engine.Types, Apus.Threads;
 
  const
+  // Buffer allocation policy flags
+  abThreadLocal    = $0001; // buffer is owned by a single render thread/window
+  abReadOnly       = $0002; // immutable after initial upload/finalize
+  abShared         = $0004; // explicit shared-intent marker (diagnostic/policy hint)
+
+  // Internal buffer capability flags
+  bfThreadLocal    = $0001;
+  bfReadOnly       = $0002;
+  bfSharedHint     = $0004;
+
   // Texture features flags
   tfCanBeLost      = 1;    // Texture data can be lost at any moment
   tfDirectAccess   = 2;    // CPU access allowed, texture can be locked
@@ -120,25 +130,35 @@ interface
 
  TEngineBuffer=class(TObjectEx)
   sizeInBytes:integer;
+  caps:cardinal;
+  ownerThread:TThreadID;
   // Optional debug label for GPU object naming (NSight/RenderDoc/etc).
   // Filled by higher-level systems that know semantic ownership.
   debugName:String8;
+  procedure MakeImmutable; virtual;
+  function IsImmutable:boolean; inline;
+  function IsThreadLocal:boolean; inline;
+  procedure AssertThreadOwner(const opName:string8); inline;
+  procedure PublishUpdate; virtual; // producer-side sync point for shared mutable buffers
+  procedure WaitForPublish; virtual; // consumer-side wait for latest published update
+  procedure ResetPublishState; virtual;
   // RW-lock protocol: acquire before accessing buffer data, release after.
   // Used in multi-window mode to prevent concurrent upload and render.
   procedure BeginRead; inline;  // shared read lock (concurrent renders allowed)
   procedure EndRead; inline;
   procedure BeginWrite; inline; // exclusive write lock (blocks until all readers done)
   procedure EndWrite; inline;
-  constructor Create;
+  constructor Create(flags:cardinal=0);
   destructor Destroy; override;
  protected
   rwLock:TRWLock;
+  procedure EnsureWritable(const opName:string8); inline;
  end;
 
  TVertexBuffer=class(TEngineBuffer)
   count:integer;
   layout:TVertexLayout;
-  constructor Create(layout:TVertexLayout;count:integer);
+  constructor Create(layout:TVertexLayout;count:integer;flags:cardinal=0);
   procedure Upload(fromVertex,numVertices:integer;vertexData:pointer); virtual; abstract;
   procedure Resize(newCount:integer); virtual; abstract;
  end;
@@ -146,7 +166,7 @@ interface
  TIndexBuffer=class(TEngineBuffer)
   count:integer;
   bytesPerIndex:integer; // 2 or 4
-  constructor Create(count:integer;elementSize:integer);
+  constructor Create(count:integer;elementSize:integer;flags:cardinal=0);
   procedure Upload(fromIndex,numIndices:integer;indexData:pointer); virtual; abstract;
   procedure Resize(newCount:integer); virtual; abstract;
  end;
@@ -168,6 +188,8 @@ function NeedSyncForRead(tex:TTexture):boolean; inline;
 // Returns true when buffer upload/resize/use must hold RW-lock.
 // Only meaningful in multi-window mode; single-window mode: always false.
 function NeedSyncForBuffer(buf:TEngineBuffer):boolean; inline;
+function NeedSyncForBufferRead(buf:TEngineBuffer):boolean; inline;
+function NeedSyncForBufferWrite(buf:TEngineBuffer):boolean; inline;
 
 implementation
  uses Apus.Lib;
@@ -191,14 +213,38 @@ end;
 
 function NeedSyncForBuffer(buf:TEngineBuffer):boolean;
 begin
- result:=multiWindowMode;
+ result:=NeedSyncForBufferRead(buf) or NeedSyncForBufferWrite(buf);
+end;
+
+function NeedSyncForBufferRead(buf:TEngineBuffer):boolean;
+begin
+ result:=multiWindowMode and (buf<>nil) and
+   not buf.IsThreadLocal and
+   not buf.IsImmutable;
+end;
+
+function NeedSyncForBufferWrite(buf:TEngineBuffer):boolean;
+begin
+ result:=multiWindowMode and (buf<>nil) and
+   not buf.IsThreadLocal and
+   not buf.IsImmutable;
 end;
 
 { TEngineBuffer }
 
-constructor TEngineBuffer.Create;
+constructor TEngineBuffer.Create(flags:cardinal=0);
 begin
- inherited;
+ inherited Create;
+ caps:=0;
+ if Bits.HasAny(flags,abThreadLocal) then begin
+  Bits.SetFlag(caps,bfThreadLocal);
+  ownerThread:=GetCurrentThreadID;
+ end else
+  ownerThread:=0;
+ if Bits.HasAny(flags,abReadOnly) then
+  Bits.SetFlag(caps,bfReadOnly);
+ if Bits.HasAny(flags,abShared) then
+  Bits.SetFlag(caps,bfSharedHint);
  rwLock.Init;
 end;
 
@@ -210,22 +256,67 @@ end;
 
 procedure TEngineBuffer.BeginRead;
 begin
- if NeedSyncForBuffer(self) then rwLock.EnterRead;
+ AssertThreadOwner('BeginRead');
+ if NeedSyncForBufferRead(self) then rwLock.EnterRead;
 end;
 
 procedure TEngineBuffer.EndRead;
 begin
- if NeedSyncForBuffer(self) then rwLock.LeaveRead;
+ if NeedSyncForBufferRead(self) then rwLock.LeaveRead;
 end;
 
 procedure TEngineBuffer.BeginWrite;
 begin
- if NeedSyncForBuffer(self) then rwLock.EnterWrite;
+ AssertThreadOwner('BeginWrite');
+ EnsureWritable('BeginWrite');
+ if NeedSyncForBufferWrite(self) then rwLock.EnterWrite;
 end;
 
 procedure TEngineBuffer.EndWrite;
 begin
- if NeedSyncForBuffer(self) then rwLock.LeaveWrite;
+ if NeedSyncForBufferWrite(self) then rwLock.LeaveWrite;
+end;
+
+procedure TEngineBuffer.EnsureWritable(const opName:string8);
+begin
+ if IsImmutable then
+  raise EWarning.Create('Attempt to modify immutable buffer: '+debugName+' ('+opName+')');
+end;
+
+procedure TEngineBuffer.MakeImmutable;
+begin
+ Bits.SetFlag(caps,bfReadOnly);
+end;
+
+function TEngineBuffer.IsImmutable:boolean;
+begin
+ result:=Bits.HasAny(caps,bfReadOnly);
+end;
+
+function TEngineBuffer.IsThreadLocal:boolean;
+begin
+ result:=Bits.HasAny(caps,bfThreadLocal);
+end;
+
+procedure TEngineBuffer.AssertThreadOwner(const opName:string8);
+begin
+ if not IsThreadLocal then exit;
+ ASSERT(ownerThread=GetCurrentThreadID,'Thread-local buffer ownership violation in '+opName);
+end;
+
+procedure TEngineBuffer.PublishUpdate;
+begin
+ // Backend-specific implementation is optional.
+end;
+
+procedure TEngineBuffer.WaitForPublish;
+begin
+ // Backend-specific implementation is optional.
+end;
+
+procedure TEngineBuffer.ResetPublishState;
+begin
+ // Backend-specific implementation is optional.
 end;
 
  procedure TTexture.CloneFrom(from:TTexture);
@@ -352,9 +443,9 @@ class function TShader.VectorFromColor3(color:cardinal): TVector3s;
 
 { TVertexBuffer }
 
-constructor TVertexBuffer.Create(layout:TVertexLayout;count:integer);
+constructor TVertexBuffer.Create(layout:TVertexLayout;count:integer;flags:cardinal=0);
  begin
-  inherited Create;
+  inherited Create(flags);
   self.layout:=layout;
   self.count:=count;
   sizeInBytes:=count*layout.stride;
@@ -362,9 +453,9 @@ constructor TVertexBuffer.Create(layout:TVertexLayout;count:integer);
 
 { TIndexBuffer }
 
-constructor TIndexBuffer.Create(count,elementSize:integer);
+constructor TIndexBuffer.Create(count,elementSize:integer;flags:cardinal=0);
  begin
-  inherited Create;
+  inherited Create(flags);
   self.count:=count;
   self.bytesPerIndex:=elementSize;
   sizeInBytes:=count*elementSize;

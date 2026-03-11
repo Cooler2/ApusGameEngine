@@ -26,6 +26,11 @@ const
  aiThreadLocal    = $0400; // texture is owned by a single thread/window, never shared across threads
  aiPixelated      = $2000; // disable tri/bilinear filtering for this image
 
+ // Buffer allocation policy flags
+ abThreadLocal = Apus.Engine.Resources.abThreadLocal;
+ abReadOnly    = Apus.Engine.Resources.abReadOnly;
+ abShared      = Apus.Engine.Resources.abShared;
+
  // DynamicAtlas dimension flags
  aiMW256   = $010000;
  aiMW512   = $020000;
@@ -477,8 +482,10 @@ type
   procedure MakeOnline(img:TTexture;stage:integer=0);
 
   // Vertex/Index buffers
-  function AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;usage:TBufferUsage=buStatic):TVertexBuffer;
-  function AllocIndexBuffer(indCount:integer;indSize:integer=2;usage:TBufferUsage=buStatic):TIndexBuffer;
+  function AllocVertexBuffer(layout:TVertexLayout;numVertices:integer;
+    usage:TBufferUsage=buStatic;flags:cardinal=0):TVertexBuffer;
+  function AllocIndexBuffer(indCount:integer;indSize:integer=2;
+    usage:TBufferUsage=buStatic;flags:cardinal=0):TIndexBuffer;
   procedure FreeBuffer(buf:TEngineBuffer);
   // Set vb=nil to disable vertex buffer
   procedure UseVertexBuffer(vb:TVertexBuffer);
@@ -675,6 +682,9 @@ type
  IGraphicsSystem=interface
   // Init subsystem and create all interface objects
   procedure Init(window:TWindow);
+  // Explicit per-thread graphics bootstrap for current context-bound thread.
+  // Must be called after shared-context activation in extra render threads.
+  procedure InitThreadContext(window:TWindow);
   procedure Done;
   function GetVersion:single; // like 3.1 for OpenGL 3.1
   function GetName:string8; // get implementation class name
