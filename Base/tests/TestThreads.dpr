@@ -255,24 +255,24 @@ begin
   EndTest;
 end;
 
-{$IF Declared(SRWLOCK)}
-procedure TestSRWLock;
+// TRWLock basic operations: Init, read lock, write lock, multiple concurrent readers, Cleanup.
+procedure TestRWLock;
 var
-  lock:TSRWLock;
+  lock:TRWLock;
 begin
-  StartTest('TSRWLock (Windows)');
+  StartTest('TRWLock basic operations');
 
-  lock.Init('TestSRW');
+  lock.Init; // lean lock: name is optional
 
-  // Read lock
+  // Read lock: acquire and release
   lock.EnterRead;
   lock.LeaveRead;
 
-  // Write lock
+  // Write lock: exclusive acquire and release
   lock.EnterWrite;
   lock.LeaveWrite;
 
-  // Multiple readers
+  // Multiple readers: SRWLock allows concurrent shared access
   lock.EnterRead;
   lock.EnterRead;
   lock.LeaveRead;
@@ -282,7 +282,43 @@ begin
 
   EndTest;
 end;
-{$ENDIF}
+
+// TRWLockD: same operations plus verify that debug fields are correctly updated.
+procedure TestRWLockD;
+var
+  lock:TRWLockD;
+begin
+  StartTest('TRWLockD debug tracking');
+
+  lock.Init('TestDebugRW');
+  Check(lock.name='TestDebugRW','Name should be stored');
+
+  // Read lock: readerCount must go up and back down
+  Check(lock.readerCount=0,'readerCount should start at 0');
+  lock.EnterRead;
+  Check(lock.readerCount=1,'readerCount should be 1 after EnterRead');
+  lock.EnterRead;
+  Check(lock.readerCount=2,'readerCount should be 2 with two readers');
+  lock.LeaveRead;
+  Check(lock.readerCount=1,'readerCount should drop to 1 after first LeaveRead');
+  lock.LeaveRead;
+  Check(lock.readerCount=0,'readerCount should be 0 after all readers leave');
+
+  // Write lock: writerThread must track owning thread
+  Check(lock.writerThread=0,'writerThread should be 0 before write lock');
+  lock.EnterWrite;
+  Check(lock.writerThread=GetCurrentThreadID,'writerThread should be current thread');
+  lock.LeaveWrite;
+  Check(lock.writerThread=0,'writerThread should be 0 after write unlock');
+
+  // lastReadCaller/lastWriteCaller must be non-nil after use
+  Check(lock.lastReadCaller<>nil,'lastReadCaller should be set after EnterRead');
+  Check(lock.lastWriteCaller<>nil,'lastWriteCaller should be set after EnterWrite');
+
+  lock.Cleanup;
+
+  EndTest;
+end;
 
 procedure TestLightweightEvent;
 var
@@ -649,10 +685,9 @@ begin
     // Multithreading tests
     TestMultithreadedLock;
 
-    // Platform-specific tests
-    {$IF Declared(SRWLOCK)}
-    TestSRWLock;
-    {$ENDIF}
+    // RW-lock tests
+    TestRWLock;
+    TestRWLockD;
     TestLightweightEvent;
 
     // Utility tests

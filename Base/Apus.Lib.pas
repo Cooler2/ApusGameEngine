@@ -47,10 +47,9 @@ type
 
   // --- Apus.Threads ---
   TLock = Apus.Threads.TLock;
+  TRWLock = Apus.Threads.TRWLock;   // cross-platform lean RW-lock
+  TRWLockD = Apus.Threads.TRWLockD; // debug RW-lock with name and assertions
   TLightweightEvent = Apus.Threads.TLightweightEvent;
-  {$IF Declared(SRWLOCK)}
-  TSRWLock = Apus.Threads.TSRWLock;
-  {$ENDIF}
   {$IFDEF DELPHI}
   TScopedLock = Apus.Threads.TScopedLock;
   {$ENDIF}
