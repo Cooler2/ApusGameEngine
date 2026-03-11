@@ -19,11 +19,12 @@ const
  aiPow2           = 16; // Enlarge dimensions to be PoT
 // aiWriteOnly      = 32; // Can be locked, but for write only operation
  aiDontScale      = 64;  // Use exact width/height for render target allocation (otherwise they're scaled using current scale factor)
- aiClampUV        = 128; // clamp texture coordinates instead of wrapping them (for aiTexture only)
- aiDepthBuffer    = 256; // allocate a Depth Buffer for this image (requires aiRenderTarget flag)
-                         // use ipfNone or ipfDepth to allocate only depth buffer without image
- aiTexture3D      = 512;  // allocate a 3D texture instead of 2D texture array
- aiPixelated      = 8192; // disable tri/bilinear filtering for this image
+ aiClampUV        = $80; // clamp texture coordinates instead of wrapping them (for aiTexture only)
+ aiDepthBuffer    = $0100; // allocate a Depth Buffer for this image (requires aiRenderTarget flag)
+                           // use ipfNone or ipfDepth to allocate only depth buffer without image
+ aiTexture3D      = $0200; // allocate a 3D texture instead of 2D texture array
+ aiThreadLocal    = $0400; // texture is owned by a single thread/window, never shared across threads
+ aiPixelated      = $2000; // disable tri/bilinear filtering for this image
 
  // DynamicAtlas dimension flags
  aiMW256   = $010000;

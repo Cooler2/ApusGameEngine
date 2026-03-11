@@ -6,7 +6,7 @@
 
 unit Apus.Engine.ResManGL;
 interface
- uses Apus.Engine.API, Apus.Images, Apus.Core, Types, Apus.Engine.Resources, SyncObjs;
+ uses Apus.Engine.API, Apus.Images, Apus.Core, Types, Apus.Engine.Resources, Apus.Threads, SyncObjs;
 {$IFDEF IOS} {$DEFINE GLES} {$DEFINE GLES11} {$DEFINE OPENGL} {$ENDIF}
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE GLES20} {$DEFINE OPENGL} {$ENDIF}
 type
@@ -25,6 +25,7 @@ type
   destructor Destroy; override;
   procedure ClearPart(mipLevel:byte;x,y,width,height:integer;color:cardinal); override;
   procedure CloneFrom(src:TTexture); override;
+  procedure MakeImmutable; override;
   procedure SetAsRenderTarget; virtual;
   procedure Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil); override; // 0-й уровень - самый верхний
   procedure AddDirtyRect(rect:TRect;level:integer); override;
@@ -51,6 +52,11 @@ type
   end;
  var
   cs:TCriticalSection;
+  // RW-lock for multi-window access to shared mutable textures.
+  // OS-assisted (SRWLock on Windows, pthread_rwlock_t on Linux) — no busy-wait.
+  // Only used when NeedSyncForRead/Write returns true (multiWindowMode=true).
+  rwLock:TRWLock;
+  ownerThread:TThreadID; // for tfThreadLocal: thread that owns this texture (debug checks)
   online:boolean; // true when image data is uploaded and ready to use (uv's are valid), false when local image data was modified and should be uploaded
   realData:array[0..MAX_LEVEL] of ByteArray; // internal storage of texture data
   fbo:cardinal; // framebuffer object (for a render target texture)
@@ -62,6 +68,11 @@ type
   realDataObsolete:array[0..MAX_LEVEL] of boolean;
   // upload request
   uploadRequest:TUploadRequest;
+  // RW-lock protocol: acquire before modifying texture data, release after
+  procedure BeginRead; // shared read lock (many concurrent readers allowed)
+  procedure EndRead;
+  procedure BeginWrite; // exclusive write lock (blocks until all readers done)
+  procedure EndWrite;
   procedure SetLabel; // submit name as label for OpenGL
   procedure UpdateFilter;
   procedure InitStorage; virtual; // allocate GL texture object (if needed)
@@ -74,6 +85,7 @@ type
   // Download texture data into the internal storage
   procedure DownloadLevel(mipLevel:integer); virtual;
   procedure ProcessUploadRequest; virtual;
+  procedure EnsureWritable(opName:string8); inline;
  end;
 
  // OpenGL-backed vertex buffer wrapper.
@@ -103,6 +115,7 @@ type
  // Used for both 2D texture arrays and 3D textures
  TGLTextureArray=class(TGLTexture)
   constructor Create(numLayers:integer);
+  procedure MakeImmutable; override;
   function GetLayer(layer:integer):TTexture; override;
   procedure LockLayer(index:integer;miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); override;
   procedure Lock(miplevel:byte=0;mode:TLockMode=lmReadWrite;r:PRect=nil); overload; override; // treat mip level as array index for convenience
@@ -186,8 +199,7 @@ implementation
   Apus.Engine.RobotAPI,
   Apus.Files,
   Apus.Engine.Graphics,
-  Apus.Log,
-  Apus.Threads;
+  Apus.Log;
 
 { Принцип работы: по возможности текстуры создаются как обычные
   буферы данных в памяти. По вызову MakeOnline данные перебрасываются
@@ -504,9 +516,20 @@ constructor TGLTextureArray.Create(numLayers: integer);
 var
  i:integer;
 begin
+ inherited Create;
  SetLength(layers,numLayers);
  for i:=0 to numLayers-1 do
   layers[i]:=TGLTexture.Create;
+end;
+
+procedure TGLTextureArray.MakeImmutable;
+var
+ i:integer;
+begin
+ for i:=0 to high(layers) do
+  if layers[i]<>nil then
+   layers[i].MakeImmutable;
+ inherited;
 end;
 
 
@@ -677,6 +700,7 @@ procedure TGLTexture.Clear(color:cardinal);
  var
   level:integer;
  begin
+  EnsureWritable('Clear');
   if InMainThread and (@glClearTexImage<>nil) then begin
    cs.Enter;
    try
@@ -703,7 +727,8 @@ var
  pb:PByte;
  r:TRect;
 begin
- if (texName<>0) and InMainThread and (@glClearTexSubImage<>nil) then begin
+  EnsureWritable('ClearPart');
+  if (texName<>0) and InMainThread and (@glClearTexSubImage<>nil) then begin
   // Upload remaining data if needed
   UploadInternalData;
   cs.Enter;
@@ -738,6 +763,7 @@ constructor TGLTexture.Create;
 begin
  inherited;
  cs:=TCriticalSection.Create;
+ rwLock.Init;
 end;
 
 destructor TGLTexture.Destroy;
@@ -752,6 +778,7 @@ begin
    uploadrequest.data:=nil;
    CoreTime.Sleep(10);
   end;
+  rwLock.Cleanup;
   FreeAndNil(cs);
   inherited;
  end;
@@ -824,41 +851,97 @@ begin
  result:=GL_TEXTURE_2D;
 end;
 
+procedure TGLTexture.BeginRead;
+begin
+ if NeedSyncForRead(self) then rwLock.EnterRead;
+end;
+
+procedure TGLTexture.EndRead;
+begin
+ if NeedSyncForRead(self) then rwLock.LeaveRead;
+end;
+
+procedure TGLTexture.BeginWrite;
+begin
+ if NeedSyncForWrite(self) then rwLock.EnterWrite;
+end;
+
+procedure TGLTexture.EndWrite;
+begin
+ if NeedSyncForWrite(self) then rwLock.LeaveWrite;
+end;
+
+procedure TGLTexture.EnsureWritable(opName:string8);
+begin
+ if HasFlag(tfReadOnly) then
+  raise EWarning.Create(opName+' not allowed for immutable texture: '+name);
+end;
+
+procedure TGLTexture.MakeImmutable;
+begin
+ if IsLocked then
+  raise EWarning.Create('Can''t make immutable while texture is locked: '+name);
+ cs.Enter;
+ try
+  if uploadRequest.data<>nil then
+   raise EWarning.Create('Can''t make immutable while upload request is pending: '+name);
+  inherited MakeImmutable;
+ finally
+  cs.Leave;
+ end;
+end;
+
 procedure TGLTexture.Lock(miplevel:byte=0;mode:TlockMode=lmReadWrite;r:PRect=nil);
 var
  size:integer;
  lockRect:TRect;
+ writeMode:boolean;
 begin
- ASSERT(mipLevel<=MAX_LEVEL);
- if HasFlag(tfNoRead) then
-   raise EWarning.Create('Can''t lock texture '+name+' for reading');
- if HasFlag(tfNoWrite) and (mode<>lmReadOnly) then
-   raise EWarning.Create('Can''t lock texture '+name+' for writing');
- cs.Enter;
- if r=nil then lockRect:=Rect(0,0,(width-1) shr mipLevel,(height-1) shr mipLevel) // full rect
-  else lockRect:=r^;
- if (mode=lmCustomUpdate) and (r<>nil) then
-  raise EWarning.Create('GLTex: for custom update must lock full surface');
+  ASSERT(mipLevel<=MAX_LEVEL);
+  if HasFlag(tfNoRead) then
+    raise EWarning.Create('Can''t lock texture '+name+' for reading');
+  writeMode:=mode<>lmReadOnly;
+  if HasFlag(tfNoWrite) and writeMode then
+    raise EWarning.Create('Can''t lock texture '+name+' for writing');
+  if writeMode then
+   EnsureWritable('Lock');
+  {$IFDEF DEBUG}
+  if HasFlag(tfThreadLocal) and (ownerThread<>0) then
+   ASSERT(ownerThread=GetCurrentThreadID,
+    'Thread-local texture locked from wrong thread: '+name);
+  {$ENDIF}
+  if locked=0 then BeginWrite; // outer lock: acquire exclusive sync (no-op in single-window mode)
+  cs.Enter;
+  try
+   if r=nil then lockRect:=Rect(0,0,(width-1) shr mipLevel,(height-1) shr mipLevel) // full rect
+    else lockRect:=r^;
+   if (mode=lmCustomUpdate) and (r<>nil) then
+    raise EWarning.Create('GLTex: for custom update must lock full surface');
 
- mipmaps:=Max(mipmaps,mipLevel);
- if length(realdata[mipLevel])=0 then begin // alloc internal storage
-  size:=Max(width shr mipLevel,1)*Max(height shr mipLevel,1); // number of texels
-  size:=size*pixelSize[pixelFormat] div 8;
-  SetLength(realdata[mipLevel],size);
-  if realDataObsolete[mipLevel] and (mode<>lmWriteOnly) then begin
-   ASSERT(InMainThread,'Trying to read modified texture data outside the main thread');
-   DownloadLevel(mipLevel);
+   mipmaps:=Max(mipmaps,mipLevel);
+   if length(realdata[mipLevel])=0 then begin // alloc internal storage
+    size:=Max(width shr mipLevel,1)*Max(height shr mipLevel,1); // number of texels
+    size:=size*pixelSize[pixelFormat] div 8;
+    SetLength(realdata[mipLevel],size);
+    if realDataObsolete[mipLevel] and (mode<>lmWriteOnly) then begin
+     ASSERT(InMainThread,'Trying to read modified texture data outside the main thread');
+     DownloadLevel(mipLevel);
+    end;
+   end;
+   pitch:=Max(width shr mipLevel,1)*pixelSize[pixelFormat] shr 3;
+   if r=nil then data:=@realData[mipLevel,0]
+    else data:=@realData[mipLevel,lockRect.left*PixelSize[pixelFormat] shr 3+lockRect.Top*pitch];
+   inc(locked);
+   if mode=lmReadWrite then begin
+    online:=false;
+    Bits.SetFlag(caps,tfDirty);
+    AddDirtyRect(lockRect,mipLevel);
+   end;
+  except
+   cs.Leave;
+   if locked=0 then EndWrite;
+   raise;
   end;
- end;
- pitch:=Max(width shr mipLevel,1)*pixelSize[pixelFormat] shr 3;
- if r=nil then data:=@realData[mipLevel,0]
-  else data:=@realData[mipLevel,lockRect.left*PixelSize[pixelFormat] shr 3+lockRect.Top*pitch];
- inc(locked);
- if mode=lmReadWrite then begin
-  online:=false;
-  Bits.SetFlag(caps,tfDirty);
-  AddDirtyRect(lockRect,mipLevel);
- end;
 end;
 
 procedure TGLTexture.Unlock;
@@ -866,6 +949,7 @@ begin
  ASSERT(locked>0,'Texture not locked: '+name);
  dec(locked);
  cs.Leave;
+ if locked=0 then EndWrite; // outer unlock: release exclusive sync
 end;
 
 procedure TGLTexture.LockLayer(index:integer;miplevel:byte;mode:TLockMode;r:PRect);
@@ -889,6 +973,8 @@ procedure TGLTexture.AddDirtyRect(rect:TRect;level:integer);
 var
  n:integer;
 begin
+ if HasFlag(tfReadOnly) then
+  raise EWarning.Create('AddDirtyRect not allowed for immutable texture: '+name);
  online:=false; Bits.SetFlag(caps,tfDirty);
  n:=dCount[level];
  if n<0 then exit;
@@ -1005,6 +1091,7 @@ procedure TGLTexture.Upload(mipLevel:byte;pixelData:pointer;pitch:integer;pixelF
   bpp,y,lineSize:integer;
   sp,dp:PByte;
  begin
+  EnsureWritable('Upload');
   if not InMainThread then begin // upload request from non-main thread: sync
    ASSERT(self.pixelFormat=pixelFormat);
    repeat
@@ -1052,6 +1139,7 @@ procedure TGLTexture.UploadPart(mipLevel:byte;x,y,width,height:integer;pixelData
   format,subformat,internalFormat,error:cardinal;
   bpp:integer;
  begin
+  EnsureWritable('UploadPart');
   ASSERT(InMainThread,'Direct upload is available in the main thread only');
   cs.Enter;
   try
@@ -1339,7 +1427,15 @@ begin
  end;
  tex.realwidth:=width;
  tex.realHeight:=height;
- tex.name:=name;
+ if Bits.HasAll(flags,aiThreadLocal) then begin
+  Bits.SetFlag(tex.caps,tfThreadLocal);
+  tex.ownerThread:=GetCurrentThreadID; // caller's thread owns this texture
+  if (name<>'') and (name[1]<>'_') then
+   tex.name:='_'+name // non-unique prefix: skips global name registry
+  else
+   tex.name:=name;
+ end else
+  tex.name:=name;
  tex.PixelFormat:=PixFmt;
  tex.online:=false;
  Bits.SetFlag(tex.caps,tfDirty);
@@ -1762,6 +1858,7 @@ end;
 
 procedure TGLResourceManager.UseVertexBuffer(vb:TVertexBuffer);
 begin
+ if vb<>nil then vb.BeginRead;
  if vb<>nil then
   glBindBuffer(GL_ARRAY_BUFFER,TVertexBufferGL(vb).buffer)
  else
@@ -1770,10 +1867,12 @@ begin
   TrackArrayBufferBinding(TVertexBufferGL(vb).buffer)
  else
   TrackArrayBufferBinding(0);
+ if vb<>nil then vb.EndRead;
 end;
 
 procedure TGLResourceManager.UseIndexBuffer(ib:TIndexBuffer);
 begin
+ if ib<>nil then ib.BeginRead;
  if ib<>nil then
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,TIndexBufferGL(ib).buffer)
  else
@@ -1782,6 +1881,7 @@ begin
   TrackElementBufferBinding(TIndexBufferGL(ib).buffer)
  else
   TrackElementBufferBinding(0);
+ if ib<>nil then ib.EndRead;
 end;
 
 procedure TGLResourceManager.FreeBuffer(buf:TEngineBuffer);
@@ -1805,6 +1905,7 @@ end;
 
 procedure TVertexBufferGL.Resize(newCount:integer);
 begin
+ BeginWrite;
  count:=newCount;
  sizeInBytes:=count*layout.stride;
  glBindBuffer(GL_ARRAY_BUFFER,buffer);
@@ -1812,19 +1913,23 @@ begin
  glBufferData(GL_ARRAY_BUFFER,sizeInBytes,nil,usage);
  glBindBuffer(GL_ARRAY_BUFFER,0);
  TrackArrayBufferBinding(0);
+ EndWrite;
 end;
 
 procedure TVertexBufferGL.Upload(fromVertex,numVertices:integer;vertexData:pointer);
 begin
+ BeginWrite;
  glBindBuffer(GL_ARRAY_BUFFER,buffer);
  TrackArrayBufferBinding(buffer);
  glBufferSubData(GL_ARRAY_BUFFER,fromVertex*layout.stride,numVertices*layout.stride,vertexData);
  glBindBuffer(GL_ARRAY_BUFFER,0);
  TrackArrayBufferBinding(0);
+ EndWrite;
 end;
 
 procedure TIndexBufferGL.Resize(newCount:integer);
 begin
+ BeginWrite;
  count:=newCount;
  sizeInBytes:=count*bytesPerIndex;
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,buffer);
@@ -1832,15 +1937,18 @@ begin
  glBufferData(GL_ELEMENT_ARRAY_BUFFER,sizeInBytes,nil,usage);
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
  TrackElementBufferBinding(0);
+ EndWrite;
 end;
 
 procedure TIndexBufferGL.Upload(fromIndex,numIndices:integer;indexData:pointer);
 begin
+ BeginWrite;
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,buffer);
  TrackElementBufferBinding(buffer);
  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,fromIndex*bytesPerIndex,numIndices*bytesPerIndex,indexData);
  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
  TrackElementBufferBinding(0);
+ EndWrite;
 end;
 {$ENDREGION}
 

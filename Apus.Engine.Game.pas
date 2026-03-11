@@ -198,8 +198,9 @@ type
  procedure Delay(time:integer);
 
 implementation
- uses SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools
-      {$IFDEF VIDEOCAPTURE},Apus.Engine.VideoCapture{$ENDIF},
+ uses SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools,
+      Apus.Engine.Resources,
+      {$IFDEF VIDEOCAPTURE}Apus.Engine.VideoCapture,{$ENDIF}
       Apus.EventMan, Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene,
       Apus.Engine.Console, Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw,
       Apus.Engine.Controller,
@@ -238,6 +239,7 @@ var
  gameEx:TGame;
  perfValues:array[1..16] of int64;
  perfMeasures:array[1..16] of double;
+ extraWindowCount:integer=0; // number of active extra windows (secondary render threads)
 
 {$IFDEF FREETYPE}
  // Default vector font is Open Sans
@@ -2596,6 +2598,8 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
   if result=nil then
    raise EError.Create('Failed to create extra window: startup thread terminated before ready');
   result.renderThread:=th;
+  Atomic.Inc(extraWindowCount);
+  multiWindowMode:=(extraWindowCount>0); // enable texture RW-sync for shared mutable resources
  end;
 
 procedure TGame.RemoveWindow(wnd:TWindow);
@@ -2607,6 +2611,8 @@ procedure TGame.RemoveWindow(wnd:TWindow);
     CoreTime.Sleep(1);
    wnd.renderThread:=nil;
   end;
+  Atomic.Dec(extraWindowCount);
+  multiWindowMode:=(extraWindowCount>0);
   FreeAndNil(wnd);
  end;
 

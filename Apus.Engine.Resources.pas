@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.Resources;
 interface
- uses Apus.Core, Apus.Classes, Apus.Images, Apus.Engine.Types;
+ uses Apus.Core, Apus.Classes, Apus.Images, Apus.Engine.Types, Apus.Threads;
 
  const
   // Texture features flags
@@ -16,14 +16,16 @@ interface
   tfRenderTarget   = 16;   // Can be used as a target for GPU rendering
   tfAutoMipMap     = 32;   // MIPMAPs are generated automatically, don't need to fill manually
   tfNoLock         = 64;   // No need to lock the texture to access its data
-  tfClamped        = 128;  // By default texture coordinates are clamped (otherwise - not clamped)
-  tfVidmemOnly     = 256;  // Texture uses only VRAM (download operation is required to access pixel data)
-  tfSysmemOnly     = 512;  // Texture uses only System RAM (can't be used by GPU)
-  tfTexture        = 1024; // Texture corresponds to a texture object of the underlying API
-  tfScaled         = 2048; // scale factors are used
-  tfCloned         = 4096; // Texture object is cloned from another, so don't free any underlying resources
-  tfPixelated      = 8192; // No interpolation allowed for sampling this texture
-  tfDirty          = 16384; // Texture is "dirty" - internal storage was modified
+  tfClamped        = $80;  // By default texture coordinates are clamped (otherwise - not clamped)
+  tfVidmemOnly     = $0100; // Texture uses only VRAM (download operation is required to access pixel data)
+  tfSysmemOnly     = $0200; // Texture uses only System RAM (can't be used by GPU)
+  tfTexture        = $0400; // Texture corresponds to a texture object of the underlying API
+  tfScaled         = $0800; // scale factors are used
+  tfCloned         = $1000; // Texture object is cloned from another, so don't free any underlying resources
+  tfPixelated      = $2000; // No interpolation allowed for sampling this texture
+  tfDirty          = $4000; // Texture is "dirty" - internal storage was modified
+  tfThreadLocal    = $8000; // Texture is owned by a single thread/window, must not be shared
+  tfReadOnly       = $10000; // Texture content is immutable after initial upload
 
  type
   // Texture filtering mode
@@ -71,6 +73,7 @@ interface
    function GetLayer(layer:integer):TTexture; virtual; abstract; // return 2D texture object of a texture array element or 3D texture layer
    function GetRawImage:TRawImage; virtual; abstract; // Create RAW image for the topmost MIP level (when locked)
    function IsLocked:boolean;
+   procedure MakeImmutable; virtual; // mark texture immutable after initial upload
    procedure Unlock; virtual; abstract;
    procedure AddDirtyRect(rect:TRect;level:integer=0); virtual; abstract; // mark area to update (when locked with mode=lmCustomUpdate)
    // Utilities
@@ -120,6 +123,16 @@ interface
   // Optional debug label for GPU object naming (NSight/RenderDoc/etc).
   // Filled by higher-level systems that know semantic ownership.
   debugName:String8;
+  // RW-lock protocol: acquire before accessing buffer data, release after.
+  // Used in multi-window mode to prevent concurrent upload and render.
+  procedure BeginRead; inline;  // shared read lock (concurrent renders allowed)
+  procedure EndRead; inline;
+  procedure BeginWrite; inline; // exclusive write lock (blocks until all readers done)
+  procedure EndWrite; inline;
+  constructor Create;
+  destructor Destroy; override;
+ protected
+  rwLock:TRWLock;
  end;
 
  TVertexBuffer=class(TEngineBuffer)
@@ -138,6 +151,24 @@ interface
   procedure Resize(newCount:integer); virtual; abstract;
  end;
 
+var
+ // Set to true when multiple render windows/threads are active.
+ // Enables RW-lock synchronization on shared mutable textures.
+ // Single-window mode: false (default) — all sync is bypassed for zero overhead.
+ multiWindowMode:boolean=false;
+
+// Returns true when a write operation on tex must acquire RW-lock.
+// False for: single-window mode, thread-local textures, immutable textures.
+function NeedSyncForWrite(tex:TTexture):boolean; inline;
+
+// Returns true when a metadata read on tex must acquire read-lock.
+// Same conditions as NeedSyncForWrite: only shared mutable textures in multi-window mode.
+function NeedSyncForRead(tex:TTexture):boolean; inline;
+
+// Returns true when buffer upload/resize/use must hold RW-lock.
+// Only meaningful in multi-window mode; single-window mode: always false.
+function NeedSyncForBuffer(buf:TEngineBuffer):boolean; inline;
+
 implementation
  uses Apus.Lib;
 
@@ -145,6 +176,57 @@ implementation
   texturesHash:TObjectHash;  // Search hash: name->texture
   texFileHash:TObjectMap;    // Search hash: filename->texture
   shadersHash:TObjectHash;   // Search hash: name->shader
+
+function NeedSyncForWrite(tex:TTexture):boolean;
+begin
+ result:=multiWindowMode and
+         not Bits.HasAny(tex.caps,tfThreadLocal or tfReadOnly);
+end;
+
+function NeedSyncForRead(tex:TTexture):boolean;
+begin
+ result:=multiWindowMode and
+         not Bits.HasAny(tex.caps,tfThreadLocal or tfReadOnly);
+end;
+
+function NeedSyncForBuffer(buf:TEngineBuffer):boolean;
+begin
+ result:=multiWindowMode;
+end;
+
+{ TEngineBuffer }
+
+constructor TEngineBuffer.Create;
+begin
+ inherited;
+ rwLock.Init;
+end;
+
+destructor TEngineBuffer.Destroy;
+begin
+ rwLock.Cleanup;
+ inherited;
+end;
+
+procedure TEngineBuffer.BeginRead;
+begin
+ if NeedSyncForBuffer(self) then rwLock.EnterRead;
+end;
+
+procedure TEngineBuffer.EndRead;
+begin
+ if NeedSyncForBuffer(self) then rwLock.LeaveRead;
+end;
+
+procedure TEngineBuffer.BeginWrite;
+begin
+ if NeedSyncForBuffer(self) then rwLock.EnterWrite;
+end;
+
+procedure TEngineBuffer.EndWrite;
+begin
+ if NeedSyncForBuffer(self) then rwLock.LeaveWrite;
+end;
 
  procedure TTexture.CloneFrom(from:TTexture);
   begin
@@ -176,6 +258,13 @@ function TTexture.IsLocked:boolean;
  begin
   result:=locked>0;
  end;
+
+procedure TTexture.MakeImmutable;
+begin
+ if IsLocked then
+  raise EWarning.Create('Can''t make immutable while texture is locked: '+name);
+ Bits.SetFlag(caps,tfReadOnly);
+end;
 
 destructor TTexture.Destroy;
  begin
@@ -265,6 +354,7 @@ class function TShader.VectorFromColor3(color:cardinal): TVector3s;
 
 constructor TVertexBuffer.Create(layout:TVertexLayout;count:integer);
  begin
+  inherited Create;
   self.layout:=layout;
   self.count:=count;
   sizeInBytes:=count*layout.stride;
@@ -274,6 +364,7 @@ constructor TVertexBuffer.Create(layout:TVertexLayout;count:integer);
 
 constructor TIndexBuffer.Create(count,elementSize:integer);
  begin
+  inherited Create;
   self.count:=count;
   self.bytesPerIndex:=elementSize;
   sizeInBytes:=count*elementSize;

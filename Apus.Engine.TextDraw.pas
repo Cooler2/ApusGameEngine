@@ -504,7 +504,7 @@ begin
    {$ELSE}
    format:=ipfARGB;
    {$ENDIF}
-  textCache:=AllocImage(textCacheWidth,textCacheHeight,format,aiTexture,'textCache');
+  textCache:=AllocImage(textCacheWidth,textCacheHeight,format,aiTexture or aiThreadLocal,'textCache');
   if format=ipfARGB then textCache.Clear($808080);
   Log.Msg('TextCache: %d x %d, %s',[textCacheWidth,textCacheHeight,PixFmt2Str(format)]);
 

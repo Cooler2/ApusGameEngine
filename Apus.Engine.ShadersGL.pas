@@ -138,10 +138,10 @@ type
    // Pending uniforms (for customized shader)
    custUniforms:Strings8;
    threadStateReady:boolean;
+   shaderCache:TSimpleHash;
+   shaderCacheReady:boolean;
 
   customized:Strings8;
-
-  shaderCache:TSimpleHash; // TODO: cached TGLShader objects are never freed — add cleanup in destructor
 
   // Switch to the specified shader and upload matrices (if applicable)
   procedure ActivateShader(shader:TShader);
@@ -500,7 +500,8 @@ function TGLShadersAPI.CreateShaderFor:TGLShader;
   vSrc:=BuildVertexShader(notes,hasColor,hasNormal,hasUV,curTexMode.lighting);
   fSrc:=BuildFragmentShader(notes,hasColor,hasNormal,hasUV,curTexMode);
   result:=Build(vSrc,fSrc) as TGLShader;
-  result.name:=notes;
+  // TNamedObject names are global; include GL handle to avoid cross-thread duplicates.
+  result.name:=notes+' h'+Conv.ToHex(result.handle);
   UpdateShaderProgramLabel(result);
   result.texMode:=curTexMode.mode;
   result.isCustom:=false;
@@ -514,6 +515,7 @@ function TGLShadersAPI.GetShaderFor:TGLShader;
   mode:int64;
   v:int64;
  begin
+  EnsureThreadState;
   if Bits.HasAll(curTexMode.lighting,LIGHT_DEPTHPASS) then
    actualVertexLayout:=actualVertexLayout and $F; // use only position when rendering to the shadowmap
   mode:=curTexMode.mode+UInt64(actualVertexLayout) shl 32;
@@ -531,6 +533,10 @@ function TGLShadersAPI.IsCustomized:boolean;
 procedure TGLShadersAPI.EnsureThreadState;
  begin
   if threadStateReady then exit;
+  if not shaderCacheReady then begin
+   shaderCache.Init(32);
+   shaderCacheReady:=true;
+  end;
   curTexChanged:=0;
   Bits.SetBit(curTexChanged,0); // invalidate primary texture binding
   threadStateReady:=true;
@@ -539,21 +545,23 @@ procedure TGLShadersAPI.EnsureThreadState;
 constructor TGLShadersAPI.Create;
  begin
  shadersAPI:=self;
- shaderCache.Init(32);
  end;
 
 destructor TGLShadersAPI.Destroy;
  var
   i:integer;
  begin
-  // Requires a valid GL context: frees all cached shader programs.
+  // Requires a valid GL context: frees cached shader programs for this thread.
   // Must run before GL context destruction.
   DebugMsg('[LIFECYCLE] Destroy %s',[ClassName]);
   Log.Msg('[LIFECYCLE] Destroy '+ClassName);
-  for i:=0 to shaderCache.count-1 do
-   if shaderCache.values[i]<>-1 then
-    TGLShader(UIntPtr(shaderCache.values[i])).Free;
-  shaderCache.Clear;
+  if shaderCacheReady then begin
+   for i:=0 to shaderCache.count-1 do
+    if shaderCache.values[i]<>-1 then
+     TGLShader(UIntPtr(shaderCache.values[i])).Free;
+   shaderCache.Clear;
+   shaderCacheReady:=false;
+  end;
   inherited;
  end;
 
