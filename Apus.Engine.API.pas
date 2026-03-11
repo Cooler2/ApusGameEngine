@@ -1,4 +1,4 @@
-﻿// Definition of engine's abstract classes structure
+// Definition of engine's abstract classes structure
 //
 // Copyright (C) 2003 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -822,8 +822,8 @@ type
 
   // Synchronization (access to the internal critical section)
   // ---------------
-  procedure EnterCritSect; virtual; abstract;
-  procedure LeaveCritSect; virtual; abstract;
+  procedure Lock; virtual; abstract;
+  procedure Unlock; virtual; abstract;
 
   // Screen capturing
   // ----------------
@@ -1018,43 +1018,43 @@ constructor TGameBase.Create(sysPlatform:ISystemPlatform;gfxSystem:IGraphicsSyst
 
 procedure TGameBase.AddScene(scene:TGameScene);
  begin
-  EnterCritSect;
+  Lock;
   try
    if scene=nil then raise EWarning.Create('Can''t add nil scene');
    scene.accumTime:=0;
    mainWindow.AddScene(scene);
   finally
-   LeaveCritSect;
+   Unlock;
   end;
  end;
 
 procedure TGameBase.RemoveScene(scene:TGameScene);
  begin
-  EnterCritSect;
+  Lock;
   try
    mainWindow.RemoveScene(scene);
   finally
-   LeaveCritSect;
+   Unlock;
   end;
  end;
 
 function TGameBase.TopmostVisibleScene(fullScreenOnly:boolean=false):TGameScene;
  begin
-  EnterCritSect;
+  Lock;
   try
    result:=mainWindow.TopmostVisibleScene(fullScreenOnly);
   finally
-   LeaveCritSect;
+   Unlock;
   end;
  end;
 
 function TGameBase.GetScene(name:string):TGameScene;
  begin
-  EnterCritSect;
+  Lock;
   try
    result:=TGameScene.FindByName(name) as TGameScene;
   finally
-   LeaveCritSect;
+   Unlock;
   end;
   ASSERT(result<>nil,'Scene '+name+' not found!');
  end;

@@ -33,8 +33,6 @@ type
   procedure DoneGraph; override;
   procedure ReleaseGraphContext; override;
   procedure ActivateGraphContext; override;
-  procedure BeginSharedContextCreate(isMainThread:boolean); override;
-  procedure EndSharedContextCreate(isMainThread:boolean); override;
   procedure PresentFrame; override;
   function SetVSync(divider:integer):boolean; override;
  private
@@ -790,16 +788,25 @@ procedure TWinGLWindow.InitGraphShared(primary:TWindow);
   graphInfo.actualMajor:=0;
   graphInfo.actualMinor:=0;
   graphInfo.requestAccepted:=false;
-  CreateOpenGLContext(graphInfo,src.context);
-  oglContextInfo:=graphInfo;
-  SetupGLDebugOutputForCurrentContext(graphInfo,'secondary:'+name);
-  // core profile requires a bound VAO before any draw call
-  if graphInfo.profile=oglpCore then begin
-   vao:=0;
-   glGenVertexArrays(1,@vao);
-   glBindVertexArray(vao);
-   contextVAO:=vao;
-   Log.Msg('Extra window VAO created: %d',[vao]);
+  Atomic.Exchange(glShareState,glcsReleaseRequested);
+  Log.Msg('AddWindow: requesting GL context release from main thread');
+  while glShareState<>glcsReleased do
+   CoreTime.Sleep(1);
+  Log.Msg('AddWindow: main thread released GL context');
+  try
+   CreateOpenGLContext(graphInfo,src.context);
+   oglContextInfo:=graphInfo;
+   SetupGLDebugOutputForCurrentContext(graphInfo,'secondary:'+name);
+   // core profile requires a bound VAO before any draw call
+   if graphInfo.profile=oglpCore then begin
+    vao:=0;
+    glGenVertexArrays(1,@vao);
+    glBindVertexArray(vao);
+    contextVAO:=vao;
+    Log.Msg('Extra window VAO created: %d',[vao]);
+   end;
+  finally
+   Atomic.Exchange(glShareState,glcsReady); // signal main thread to reacquire
   end;
  end;
 
@@ -856,28 +863,6 @@ procedure TWinGLWindow.ActivateGraphContext;
   if not wglMakeCurrent(dc,context) then
    Log.Warn('Failed to activate GL context: %d',[GetLastError]);
   ReleaseDC(window,dc);
- end;
-
-procedure TWinGLWindow.BeginSharedContextCreate(isMainThread:boolean);
- begin
-  if isMainThread then begin
-   ReleaseGraphContext;
-   Log.Msg('AddWindow: released GL context (main thread)');
-  end else begin
-   Atomic.Exchange(glShareState,glcsReleaseRequested);
-   Log.Msg('AddWindow: requesting GL context release from main thread');
-   while glShareState<>glcsReleased do
-    CoreTime.Sleep(1);
-   Log.Msg('AddWindow: main thread released GL context');
-  end;
- end;
-
-procedure TWinGLWindow.EndSharedContextCreate(isMainThread:boolean);
- begin
-  if isMainThread then
-   ActivateGraphContext
-  else
-   Atomic.Exchange(glShareState,glcsReady); // signal main thread to reacquire
  end;
 
 procedure TWinGLWindow.Configure(params:TGameSettings);

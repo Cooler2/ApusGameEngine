@@ -1,4 +1,4 @@
-﻿// Main runtime unit of the engine
+// Main runtime unit of the engine
 //
 // IMPORTANT: Nevertheless BasicGame is implemented as class, it is
 //            NOT thread-safe itself i.e. does not allow multiple instances!
@@ -58,8 +58,8 @@ type
   procedure DebugFeature(feature:TDebugFeature;enable:boolean); override;
   procedure ToggleDebugFeature(feature:TDebugFeature);
 
-  procedure EnterCritSect; override;
-  procedure LeaveCritSect; override;
+  procedure Lock; override;
+  procedure Unlock; override;
 
   // Устанавливает флаги о необходимости сделать скриншот (JPEG or PNG)
   procedure RequestScreenshot(saveAsJpeg:boolean=true); override;
@@ -227,7 +227,7 @@ type
  // Startup context for extra window render thread.
  // Ownership: lives in AddWindow stack frame while AddWindow synchronously waits for startup result.
  PExtraWindowContext=^TExtraWindowContext;
- TExtraWindowContext=record
+TExtraWindowContext=record
   settings:TGameSettings;
   resultWnd:TWindow; // set by thread when window is created
   startDone:boolean; // set by thread when startup is finished (success or failure)
@@ -240,6 +240,7 @@ var
  perfValues:array[1..16] of int64;
  perfMeasures:array[1..16] of double;
  extraWindowCount:integer=0; // number of active extra windows (secondary render threads)
+ addWindowBusy:integer=0; // serialize AddWindow startup to avoid concurrent shared-context handshakes
 
 {$IFDEF FREETYPE}
  // Default vector font is Open Sans
@@ -316,7 +317,7 @@ var
   end;
 begin
  if gamepadNavigationMode=gnmDisabled then exit;
- EnterCritSect;
+ Lock;
  try
   activeCustomPoints:=customPoints;
   SetLength(customPoints,0);
@@ -327,7 +328,7 @@ begin
    Traverse(scene.UI);
   end;
  finally
-  LeaveCritSect;
+  Unlock;
  end;
 end;
 
@@ -384,25 +385,25 @@ end;
 
 procedure TGame.RequestScreenshot(saveAsJpeg:boolean=true);
 begin
- EnterCritSect;
+ Lock;
  try
   if saveAsJPEG then window.capture.target:=2
    else window.capture.target:=3;
   window.capture.singleFrame:=true;
  finally
-  LeaveCritSect;
+  Unlock;
  end;
 end;
 
 procedure TGame.RequestFrameCapture(obj:TObject=nil);
 begin
- EnterCritSect;
+ Lock;
  try
   window.capture.singleFrame:=true;
   window.capture.target:=0;
   window.capture.data:=obj;
  finally
-  LeaveCritSect;
+  Unlock;
  end;
 end;
 
@@ -641,13 +642,13 @@ procedure TGame.DoneGraph;
 
 procedure TGame.DPadCustomPoint(x, y: single);
  begin
-  EnterCritSect;
+  Lock;
    try
     SetLength(customPoints,length(customPoints)+1);
     customPoints[high(customPoints)].x:=round(x);
     customPoints[high(customPoints)].y:=round(y);
    finally
-    LeaveCritSect;
+    Unlock;
    end;
  end;
 
@@ -710,7 +711,7 @@ procedure TGame.FLog(st: string);
   FrameLog:=FrameLog+st+#13#10;
  end;
 
-procedure TGame.EnterCritSect;
+procedure TGame.Lock;
  var
   caller:pointer;
  begin
@@ -718,7 +719,7 @@ procedure TGame.EnterCritSect;
   crSect.Enter(caller);
  end;
 
-procedure TGame.LeaveCritSect;
+procedure TGame.Unlock;
  begin
   crSect.Leave;
  end;
@@ -1098,7 +1099,7 @@ var
   end;
 begin
   with game do begin
-   EnterCritSect;
+   Lock;
    try
      // Frame log
      assign(f,'framelog.log');
@@ -1123,7 +1124,7 @@ begin
 
      gfx.resman.Dump('User request');
    finally
-    LeaveCritSect;
+    Unlock;
    end;
  end;
 end;
@@ -1520,7 +1521,7 @@ var
       systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
       exit;
    end;
-   EnterCritSect;
+   Lock;
    try
     best:=100000;
     for i:=0 to high(activeCustomPoints) do
@@ -1538,7 +1539,7 @@ var
       end;
      end;
    finally
-    LeaveCritSect;
+    Unlock;
    end;
    if best<100000 then begin
     GameToClient(bestPnt);
@@ -1743,7 +1744,7 @@ var
  n,i,j:integer;
  c:cardinal;
 begin
- EnterCritSect;
+ Lock;
  try
   FLog('RCursor');
   n:=-1; j:=-10000;
@@ -1767,7 +1768,7 @@ begin
   end;
  curPrior:=j;
  finally
-  LeaveCritSect;
+  Unlock;
  end;
 end;
 
@@ -1809,7 +1810,7 @@ var
    c:cardinal;
    sList:array of TGameScene;
  begin
-  EnterCritSect;
+  Lock;
    try
     n:=length(window.scenes);
     SetLength(sList,n);
@@ -1841,7 +1842,7 @@ var
 
   end;
  begin
-  EnterCritSect;
+  Lock;
   try
   FLog('RDebug');
   case debugOverlay of
@@ -1882,7 +1883,7 @@ var
   end;
 
  finally
-  LeaveCritSect;
+  Unlock;
  end;
 end;
 
@@ -2121,7 +2122,7 @@ var
  i:integer;
 begin
  result:=0;
- EnterCritSect;
+ Lock;
  try
   for i:=0 to high(cursors) do
    with TGameCursor(cursors[i]) do
@@ -2129,7 +2130,7 @@ begin
     result:=handle; exit;
    end;
  finally
-  LeaveCritSect;
+  Unlock;
  end;
 end;
 
@@ -2432,14 +2433,8 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     wnd:=systemPlatform.CreateWindow(settings.title);
     window:=wnd; // set threadvar
     wnd.screenDPI:=systemPlatform.GetScreenDPI;
-    // Shared context creation is coordinated at window/backend layer.
-    mainWindow.BeginSharedContextCreate(false);
-    try
-     // Shared GL context must exist before any message processing that can trigger redraw.
-     wnd.InitGraphShared(mainWindow);
-    finally
-     mainWindow.EndSharedContextCreate(false);
-    end;
+    // Shared context creation + handoff is coordinated inside platform backend.
+    wnd.InitGraphShared(mainWindow);
     wnd.Configure(settings);
     wnd.GetSize(wnd.windowWidth,wnd.windowHeight);
     if wnd.windowWidth<=0 then wnd.windowWidth:=settings.width;
@@ -2580,29 +2575,37 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
   ewCtx:TExtraWindowContext;
   th:IThread;
  begin
-  // Blocking call: returns only after extra-window thread reports startup success or failure.
-  ASSERT(mainWindow<>nil,'Main window must exist before AddWindow');
-  ewCtx.settings:=settings;
-  ewCtx.resultWnd:=nil;
-  ewCtx.startDone:=false;
-  ewCtx.startFailed:=false;
-  ewCtx.errorMsg:='';
-  th:=Thread.Start('WndThread_'+settings.title,ExtraWindowLoop,@ewCtx);
-  // wait until startup result is reported (or thread dies unexpectedly)
-  while (not ewCtx.startDone) and th.IsRunning do
+  // Serialize only AddWindow startup path; do not block the whole game state lock.
+  // Serialize extra-window startup across all callers/threads.
+  while Atomic.CmpExchange(addWindowBusy,1,0)<>0 do
    CoreTime.Sleep(1);
-  if ewCtx.startFailed then begin
-   if ewCtx.errorMsg<>'' then
-    raise EError.Create('Failed to create extra window: '+ewCtx.errorMsg)
-   else
-    raise EError.Create('Failed to create extra window');
+  try
+   // Blocking call: returns only after extra-window thread reports startup success or failure.
+   ASSERT(mainWindow<>nil,'Main window must exist before AddWindow');
+   ewCtx.settings:=settings;
+   ewCtx.resultWnd:=nil;
+   ewCtx.startDone:=false;
+   ewCtx.startFailed:=false;
+   ewCtx.errorMsg:='';
+   th:=Thread.Start('WndThread_'+settings.title,ExtraWindowLoop,@ewCtx);
+   // wait until startup result is reported (or thread dies unexpectedly)
+   while (not ewCtx.startDone) and th.IsRunning do
+    CoreTime.Sleep(1);
+   if ewCtx.startFailed then begin
+    if ewCtx.errorMsg<>'' then
+     raise EError.Create('Failed to create extra window: '+ewCtx.errorMsg)
+    else
+     raise EError.Create('Failed to create extra window');
+   end;
+   result:=ewCtx.resultWnd;
+   if result=nil then
+    raise EError.Create('Failed to create extra window: startup thread terminated before ready');
+   result.renderThread:=th;
+   Atomic.Inc(extraWindowCount);
+   multiWindowMode:=(extraWindowCount>0); // enable texture RW-sync for shared mutable resources
+  finally
+   Atomic.Exchange(addWindowBusy,0);
   end;
-  result:=ewCtx.resultWnd;
-  if result=nil then
-   raise EError.Create('Failed to create extra window: startup thread terminated before ready');
-  result.renderThread:=th;
-  Atomic.Inc(extraWindowCount);
-  multiWindowMode:=(extraWindowCount>0); // enable texture RW-sync for shared mutable resources
  end;
 
 procedure TGame.RemoveWindow(wnd:TWindow);

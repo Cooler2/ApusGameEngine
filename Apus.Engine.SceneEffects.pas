@@ -1,4 +1,4 @@
-﻿// Common scene effects
+// Common scene effects
 //
 // Copyright (C) 2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -354,7 +354,7 @@ begin
  initialized:=false;
  buffer:=nil;
  // Показ модального окна
- game.EnterCritSect;
+ game.Lock;
  try
   // TODO: align this path with the LockUI-based fullscreen switch flow so
   // all global UI state changes follow one synchronization rule.
@@ -445,7 +445,7 @@ begin
  if duration=0 then onDone; // Immediate action
 
  finally
-  game.LeaveCritSect;
+  game.Unlock;
  end;
  except
   on e:exception do Log.Force('Failed to create SWE effect: '+ExceptionMsg(e));

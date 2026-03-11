@@ -1,4 +1,4 @@
-// Multi-window demo for Apus Game Engine (engine5)
+﻿// Multi-window demo for Apus Game Engine (engine5)
 //
 // Purpose: testbed for multi-window support (R-02).
 // Main window has buttons to spawn tool windows and exit.
@@ -44,8 +44,10 @@ implementation
  var
   mainScene:TMainScene;
   toolCount:integer=0;
+  newWindowSignalPath:String8='Demo\Cmd\NewWindow';
 
  procedure NewWindowClick; forward;
+ procedure OnNewWindowCmd(event:TEventStr;tag:TTag); forward;
 
 { TMultiWindowApp }
 
@@ -81,6 +83,7 @@ end;
 procedure TMultiWindowApp.CreateScenes;
 begin
  inherited;
+ SetEventHandler(newWindowSignalPath,OnNewWindowCmd,emQueued);
  mainScene:=TMainScene.Create;
  mainScene.CreateUI;
  TTransitionEffect.Create(mainScene,250);
@@ -108,7 +111,7 @@ begin
 
  btn:=TUIButton.Create(220,40,'Main\NewWindow','New Tool Window',font,panel);
  btn.SetPos(150,80,pivotCenter);
- btn.onClick:=@NewWindowClick;
+ Link('UI\Main\NewWindow\Click',newWindowSignalPath);
 
  btn:=TUIButton.Create(220,40,'Main\Exit','Exit',font,panel);
  btn.SetPos(150,140,pivotCenter);
@@ -132,6 +135,11 @@ begin
  scene.SetStatus(TSceneStatus.ssActive);
  Log.Force('NewWindowClick: created Tool '+IntToStr(toolCount));
  UILabel('Main\Status').caption:='Created Tool '+IntToStr(toolCount);
+end;
+
+procedure OnNewWindowCmd(event:TEventStr;tag:TTag);
+begin
+ NewWindowClick;
 end;
 
 procedure TMainScene.Render;
