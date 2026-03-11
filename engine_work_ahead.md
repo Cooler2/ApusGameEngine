@@ -18,7 +18,9 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - replaced coarse buffer sync gate with policy-aware `NeedSyncForBufferRead/Write` (compat wrapper preserved);
   - added backend-agnostic public publish/wait API with backend-internal GL fence storage;
   - added explicit `IGraphicsSystem.InitThreadContext(wnd)` and integrated it into secondary-thread startup;
-  - hot-path draw/text per-thread buffers now allocate as thread-local, static per-thread index buffers are made immutable.
+  - hot-path draw/text per-thread buffers now allocate as thread-local, static per-thread index buffers are made immutable;
+  - per-context secondary-window VAO is now destroyed in `DoneGraph` (lifecycle leak fixed);
+  - text callbacks (`textColorFunc`, `textLinkStyleProc`) moved to thread-local ownership.
 - R-02 GPU buffer API planning checkpoint (2026-03-11):
   - practical implementation plan prepared: `reports/R-02_gpu_buffer_api_plan.md`;
   - documented motivations, API gaps, and proposed policy-based buffer design (`thread-local/read-only/shared mutable`);

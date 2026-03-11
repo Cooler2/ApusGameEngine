@@ -29,6 +29,7 @@ Current baseline:
 
 - Secondary context is created shared with primary.
 - Per-context VAO is created for secondary context during `InitGraphShared`.
+- Per-context VAO is explicitly deleted in window `DoneGraph` (no secondary-context VAO leak).
 - Debug output callback is configured per context.
 - Runtime milestone: rendering in secondary window is confirmed working in real run.
 
@@ -62,6 +63,7 @@ Implemented thread-local mutable state:
 - Texture sync in GL backend uses per-resource RW-lock and policy gating.
 - Vertex/index buffers use policy-aware RW-lock gating and immutable write guards.
 - Explicit publish/consume methods exist on buffers (`PublishUpdate/WaitForPublish`) with backend-internal fence storage.
+- Text styling callbacks are thread-local (`textColorFunc`, `textLinkStyleProc`) with per-thread default link style bootstrap.
 
 ## 3. Shareable Resource Policy
 
@@ -202,15 +204,11 @@ Goal:
 
 ## 7. Remaining Work (Implementation-Relevant Only)
 
-1. Audit and fix per-context object lifetime leaks  
-- Secondary VAO created in `InitGraphShared` is not tracked for explicit deletion.
-- Add per-window/per-context ownership tracking for VAO and similar context-local allocations.
+1. Continue per-context object lifetime audit  
+- Secondary VAO leak is fixed.
+- Keep auditing other per-window/per-context allocations and teardown order.
 
-2. Remove remaining global non-thread-safe callbacks/state in text subsystem  
-- `textColorFunc` and `textLinkStyleProc` are currently global mutable and marked not thread-safe.
-- Define ownership and synchronization contract.
-
-3. Runtime validation in `demo/MultiWindow`  
+2. Runtime validation in `demo/MultiWindow`  
 - Extend validation from "secondary window renders" to stress checks:
   open/render/close cycle, text rendering, resource cleanup, repeated add/remove windows.
 

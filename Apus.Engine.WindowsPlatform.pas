@@ -40,6 +40,7 @@ type
  private
   window:HWND;
   context:UIntPtr;
+  contextVAO:cardinal; // per-context VAO for shared secondary window
   terminated:boolean;
   graphInfo:TOpenGLContextDesc;
   function CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWith:UIntPtr=0):UIntPtr;
@@ -251,6 +252,7 @@ constructor TWinGLWindow.Create(hwnd:HWND;windowName:String8='MainWnd');
 begin
   inherited Create(windowName);
   window:=hwnd;
+  contextVAO:=0;
 end;
 
 destructor TWinGLWindow.Destroy;
@@ -796,6 +798,7 @@ procedure TWinGLWindow.InitGraphShared(primary:TWindow);
    vao:=0;
    glGenVertexArrays(1,@vao);
    glBindVertexArray(vao);
+   contextVAO:=vao;
    Log.Msg('Extra window VAO created: %d',[vao]);
   end;
  end;
@@ -827,6 +830,11 @@ function TWinGLWindow.SetVSync(divider: integer): boolean;
 
 procedure TWinGLWindow.DoneGraph;
  begin
+  if contextVAO<>0 then begin
+   glDeleteVertexArrays(1,@contextVAO);
+   Log.Msg('Extra window VAO deleted: %d',[contextVAO]);
+   contextVAO:=0;
+  end;
   if context<>0 then begin
    wglMakeCurrent(0,0);
    wglDeleteContext(context);

@@ -97,13 +97,13 @@ interface
   textCacheWidth:integer=512;
   textCacheHeight:integer=512;
 
-  textColorFunc:TColorFunc=nil; // not thread-safe!
-  textLinkStyleProc:TTextLinkStyleProc=nil; // not thread-safe!
-
   textDrawer:TTextDrawer;
   defaultFontHandle:cardinal; // first loaded font (unless overriden), used to substitute 0-handle
 
 threadvar
+ // Thread-local callbacks for text styling/coloring in multi-window render mode.
+ textColorFunc:TColorFunc;
+ textLinkStyleProc:TTextLinkStyleProc;
  // Если при отрисовке текста передан запрос с координатами точки, и эта точка приходится на рисуемую ссылку -
  // то сюда записывается номер этой ссылки. Обнуляется перед отрисовкой кадра
  curTextLink:cardinal;
@@ -206,6 +206,8 @@ procedure TTextDrawer.EnsureThreadState;
  begin
   if threadStateReady then exit;
   globalScale:=1.0;
+  if not Assigned(textLinkStyleProc) then
+   textLinkStyleProc:=DefaultTextLinkStyle;
   textCache:=nil;
   textVB:=nil;
   textIB:=nil;
