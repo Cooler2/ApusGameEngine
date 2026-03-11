@@ -29,7 +29,7 @@ type
    procedure ClientToScreen(var p:TPoint); override;
     // Graphics lifecycle (implemented via WGL)
   procedure InitGraph; override;
-  procedure InitGraphShared(primary:TWindow); override;
+  procedure InitGraphShared(primary:TWindow;mainContextReleased:boolean=false); override;
   procedure DoneGraph; override;
   procedure ReleaseGraphContext; override;
   procedure ActivateGraphContext; override;
@@ -775,7 +775,7 @@ begin
   oglContextInfo:=graphInfo;
 end;
 
-procedure TWinGLWindow.InitGraphShared(primary:TWindow);
+procedure TWinGLWindow.InitGraphShared(primary:TWindow;mainContextReleased:boolean=false);
  var
   src:TWinGLWindow;
   vao:cardinal;
@@ -788,11 +788,14 @@ procedure TWinGLWindow.InitGraphShared(primary:TWindow);
   graphInfo.actualMajor:=0;
   graphInfo.actualMinor:=0;
   graphInfo.requestAccepted:=false;
-  Atomic.Exchange(glShareState,glcsReleaseRequested);
-  Log.Msg('AddWindow: requesting GL context release from main thread');
-  while glShareState<>glcsReleased do
-   CoreTime.Sleep(1);
-  Log.Msg('AddWindow: main thread released GL context');
+  if not mainContextReleased then begin
+   Atomic.Exchange(glShareState,glcsReleaseRequested);
+   Log.Msg('AddWindow: requesting GL context release from main thread');
+   while glShareState<>glcsReleased do
+    CoreTime.Sleep(1);
+   Log.Msg('AddWindow: main thread released GL context');
+  end else
+   Log.Msg('AddWindow: main thread context already released by caller');
   try
    CreateOpenGLContext(graphInfo,src.context);
    oglContextInfo:=graphInfo;
@@ -806,7 +809,8 @@ procedure TWinGLWindow.InitGraphShared(primary:TWindow);
     Log.Msg('Extra window VAO created: %d',[vao]);
    end;
   finally
-   Atomic.Exchange(glShareState,glcsReady); // signal main thread to reacquire
+   if not mainContextReleased then
+    Atomic.Exchange(glShareState,glcsReady); // signal main thread to reacquire
   end;
  end;
 

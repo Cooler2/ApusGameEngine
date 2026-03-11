@@ -135,7 +135,7 @@ type
   // Create/activate graphics context and initialize backend-facing window surface state.
   procedure InitGraph; virtual; abstract;
   // Create graphics context that shares resources (textures, buffers, shaders) with primary window.
-  procedure InitGraphShared(primary:TWindow); virtual; abstract;
+  procedure InitGraphShared(primary:TWindow;mainContextReleased:boolean=false); virtual; abstract;
   // Release graphics context and backend-facing window surface resources.
   procedure DoneGraph; virtual; abstract;
   // Temporarily detach/attach current graphics context (used for shared-context startup sequencing).

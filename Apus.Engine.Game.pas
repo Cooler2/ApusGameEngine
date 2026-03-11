@@ -229,6 +229,7 @@ type
  PExtraWindowContext=^TExtraWindowContext;
 TExtraWindowContext=record
   settings:TGameSettings;
+  callerReleasedMainContext:boolean; // true when AddWindow was called from main render thread
   resultWnd:TWindow; // set by thread when window is created
   startDone:boolean; // set by thread when startup is finished (success or failure)
   startFailed:boolean;
@@ -2418,6 +2419,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
  var
   ewCtx:PExtraWindowContext;
   settings:TGameSettings;
+  callerReleasedMainContext:boolean;
   wnd:TWindow;
   t:int64;
   deltaUs:int64;
@@ -2425,6 +2427,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
   result:=0;
   ewCtx:=PExtraWindowContext(ctx.Parameter);
   settings:=ewCtx^.settings;
+  callerReleasedMainContext:=ewCtx^.callerReleasedMainContext;
   wnd:=nil;
   Log.Msg('Extra window thread started: '+settings.title);
   try
@@ -2434,7 +2437,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     window:=wnd; // set threadvar
     wnd.screenDPI:=systemPlatform.GetScreenDPI;
     // Shared context creation + handoff is coordinated inside platform backend.
-    wnd.InitGraphShared(mainWindow);
+    wnd.InitGraphShared(mainWindow,callerReleasedMainContext);
     wnd.Configure(settings);
     wnd.GetSize(wnd.windowWidth,wnd.windowHeight);
     if wnd.windowWidth<=0 then wnd.windowWidth:=settings.width;
@@ -2574,15 +2577,25 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
  var
   ewCtx:TExtraWindowContext;
   th:IThread;
+  callerIsMainThread:boolean;
+  mainContextReleased:boolean;
  begin
   // Serialize only AddWindow startup path; do not block the whole game state lock.
   // Serialize extra-window startup across all callers/threads.
+  callerIsMainThread:=false;
+  mainContextReleased:=false;
   while Atomic.CmpExchange(addWindowBusy,1,0)<>0 do
    CoreTime.Sleep(1);
   try
    // Blocking call: returns only after extra-window thread reports startup success or failure.
    ASSERT(mainWindow<>nil,'Main window must exist before AddWindow');
+   callerIsMainThread:=(mainThread<>nil) and (GetCurrentThreadID=mainThread.ID);
+   if callerIsMainThread then begin
+    mainWindow.ReleaseGraphContext;
+    mainContextReleased:=true;
+   end;
    ewCtx.settings:=settings;
+   ewCtx.callerReleasedMainContext:=callerIsMainThread;
    ewCtx.resultWnd:=nil;
    ewCtx.startDone:=false;
    ewCtx.startFailed:=false;
@@ -2604,7 +2617,12 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
    Atomic.Inc(extraWindowCount);
    multiWindowMode:=(extraWindowCount>0); // enable texture RW-sync for shared mutable resources
   finally
-   Atomic.Exchange(addWindowBusy,0);
+   try
+    if mainContextReleased then
+     mainWindow.ActivateGraphContext;
+   finally
+    Atomic.Exchange(addWindowBusy,0);
+   end;
   end;
  end;
 
