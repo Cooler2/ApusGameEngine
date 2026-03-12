@@ -63,7 +63,7 @@ interface
    procedure Add(const q:TQuatd;scale:double); overload;
    procedure Mul(scalar:double); overload;
    procedure Mul(const q:TQuatd); overload;
-   function DotProd(const q:TQuatd):double;
+   function Dot(const q:TQuatd):double;
    function Length:double;
    function Length2:double;
    procedure Normalize;
@@ -87,7 +87,7 @@ interface
    procedure Sub(const q:TQuat); overload;
    procedure Mul(scalar:single); overload;
    procedure Mul(const q:TQuat); overload;
-   function DotProd(const q:TQuat):single;
+   function Dot(const q:TQuat):single;
    function Length:single;
    function Length2:single; // Square length
    procedure Normalize;
@@ -1748,17 +1748,17 @@ implementation
    qY.Mul(1/scale.y);
    qZ.Mul(1/scale.z);
    // Make sure the rotation part is orthogonal
-   v:=qY.DotProd(qX);
+   v:=qY.Dot(qX);
    if abs(v)>EpsilonS then begin
     qY.Add(qX,-v);
     qY.Normalize;
    end;
-   v:=qZ.DotProd(qX);
+   v:=qZ.Dot(qX);
    if abs(v)>EpsilonS then begin
     qZ.Add(qX,-v);
     qZ.Normalize;
    end;
-   v:=qZ.DotProd(qY);
+   v:=qZ.Dot(qY);
    if abs(v)>EpsilonS then begin
     qZ.Add(qY,-v);
     qZ.Normalize;
@@ -1789,17 +1789,17 @@ implementation
    qY.Mul(1/scale.y);
    qZ.Mul(1/scale.z);
    // Make sure the rotation part is orthogonal
-   v:=qY.DotProd(qX);
+   v:=qY.Dot(qX);
    if abs(v)>EpsilonS then begin
     qY.Add(qX,-v);
     qY.Normalize;
    end;
-   v:=qZ.DotProd(qX);
+   v:=qZ.Dot(qX);
    if abs(v)>EpsilonS then begin
     qZ.Add(qX,-v);
     qZ.Normalize;
    end;
-   v:=qZ.DotProd(qY);
+   v:=qZ.Dot(qY);
    if abs(v)>EpsilonS then begin
     qZ.Add(qY,-v);
     qZ.Normalize;
@@ -2356,7 +2356,7 @@ procedure TQuatd.Add(const q:TQuatd);
   x:=x+q.x; y:=y+q.y; z:=z+q.z; w:=w+q.w;
  end;
 
-function TQuatd.DotProd(const q:TQuatd):double;
+function TQuatd.Dot(const q:TQuatd):double;
  begin
   result:=x*q.x+y*q.y+z*q.z+w*q.w;
  end;
@@ -2605,7 +2605,7 @@ procedure TQuat.Middle(const q:TQuat;weight:single);
  end;
  {$ENDIF}
 
-function TQuat.DotProd(const q:TQuat):single;
+function TQuat.Dot(const q:TQuat):single;
  {$IFDEF CPUx64}
  asm
   {$IFDEF MSWINDOWS}
