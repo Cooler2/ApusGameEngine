@@ -183,11 +183,6 @@ interface
 
  // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой
  // Векторное произведение: модуль равен площади ромба
- procedure VectMult(var a:TVec3d;k:double); overload;
- procedure VectMult(var a:TVec3;k:double); overload;
- function VectMult(a:TVec3d;k:double):TVec3d; overload;
- function VectMult(a:TVec3;k:double):TVec3; overload;
-
  procedure PointBetween(const p1,p2:TVec3d;t:double;out p:TVec3d); overload;
  procedure PointBetween(const p1,p2:TVec3;t:single;out p:TVec3); overload;
 
@@ -549,31 +544,6 @@ implementation
    result.z:=mat[2,n];
   end;
 
-
- procedure VectMult(var a:TVec3d;k:double);
-  begin
-   a.Multiply(k);
-  end;
-
- procedure VectMult(var a:TVec3;k:double);
-  begin
-   a.x:=a.x*k;
-   a.y:=a.y*k;
-   a.z:=a.z*k;
-  end;
-
- function VectMult(a:TVec3d;k:double):TVec3d;
-  begin
-   result:=a;
-   result.Multiply(k);
-  end;
-
- function VectMult(a:TVec3;k:double):TVec3;
-  begin
-   result.x:=a.x*k;
-   result.y:=a.y*k;
-   result.z:=a.z*k;
-  end;
 
  procedure PointBetween(const p1,p2:TVec3d;t:double;out p:TVec3d); overload;
   var
