@@ -187,6 +187,8 @@ begin
   Check((Abs(q.x-p0.x)<0.0001) and (Abs(q.y-p0.y)<0.0001) and (Abs(q.z-p0.z)<0.0001) and (Abs(q.w-1)<0.0001),'Vec4 default w');
   q:=Vec4(p0,2);
   Check(Abs(q.w-2)<0.0001,'Vec4 explicit w');
+  q:=Vec4(3,4,5,6);
+  Check((Abs(q.x-3)<0.0001) and (Abs(q.y-4)<0.0001) and (Abs(q.z-5)<0.0001) and (Abs(q.w-6)<0.0001),'Vec4 component factory');
   Check(IsEqual(Vec3(q),TVec3.Init(q.x,q.y,q.z)),'Vec4->Vec3 factory');
   Check(IsEqual(q.ToVec3,TVec3.Init(q.x,q.y,q.z)),'TQuat.ToVec3');
 
@@ -208,6 +210,8 @@ begin
   Check(IsEqual(qdv,Quatd(1,2,3,1),2),'Vec4 double overload');
   qdv:=Vec4d(pd,2);
   Check(Abs(qdv.w-2)<0.0001,'Vec4d explicit w');
+  qdv:=Vec4d(7,8,9,10);
+  Check((Abs(qdv.x-7)<0.0001) and (Abs(qdv.y-8)<0.0001) and (Abs(qdv.z-9)<0.0001) and (Abs(qdv.w-10)<0.0001),'Vec4d component factory');
   Check(IsEqual(Vec3d(1,2,3),TVec3d.Init(1,2,3),2),'Vec3d factory');
   Check(IsEqual(Vec3d(qdv),TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'Vec4d->Vec3d factory');
   Check(IsEqual(qdv.ToVec3d,TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'TQuatd.ToVec3d');
