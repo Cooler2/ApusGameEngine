@@ -40,7 +40,7 @@ uses
 
    InvertFull(m4,mInv);
    MultMat(m4,mInv,m4a);
-   ASSERT(IsEqual(m4a,IdentMatrix4s));
+   ASSERT(IsEqual(m4a,IdentMat4));
 
    StartTimer;
    for i:=1 to 2000000 do
@@ -80,19 +80,19 @@ uses
     // Z
     MatrixFromYawRollPitch(m1,angle,0,0);
     m2:=RotationAroundVector(Vector3s(0,0,1),angle);
-    m3:=RotationZMat3s(angle);
+    m3:=RotationMat3Z(angle);
     ASSERT(IsEqual(m1,m2));
     ASSERT(IsEqual(m1,m3));
     // Y
     MatrixFromYawRollPitch(m1,0,angle,0);
     m2:=RotationAroundVector(Vector3s(0,1,0),angle);
-    m3:=RotationYMat3s(angle);
+    m3:=RotationMat3Y(angle);
     ASSERT(IsEqual(m1,m2));
     ASSERT(IsEqual(m1,m3));
     // X
     MatrixFromYawRollPitch(m1,0,0,angle);
     m2:=RotationAroundVector(Vector3s(1,0,0),angle);
-    m3:=RotationXMat3s(angle);
+    m3:=RotationMat3X(angle);
     ASSERT(IsEqual(m1,m2));
     ASSERT(IsEqual(m1,m3));
    end;
@@ -100,14 +100,14 @@ uses
    m1:=RotationAroundVector(Vector3s(1,1,1),1);
    m2:=RotationAroundVector(Vector3s(1,1,1),-1);
    MultMat(m1,m2,m3);
-   ASSERT(IsEqual(m3,IdentMatrix3s));
+   ASSERT(IsEqual(m3,IdentMat3));
 
    for i:=1 to 100 do begin
     vec:=Vector3s(random-random,random-random,random-random);
     m1:=RotationAroundVector(vec,2*Pi);
-    ASSERT(IsEqual(m1,IdentMatrix3s));
+    ASSERT(IsEqual(m1,IdentMat3));
     m1:=RotationAroundVector(vec,-2*Pi);
-    ASSERT(IsEqual(m1,IdentMatrix3s));
+    ASSERT(IsEqual(m1,IdentMat3));
    end;
 
    writeln('RotationMat OK');
@@ -126,7 +126,7 @@ uses
    vec:TVector3s;
    a:single;
   begin
-   m3:=RotationZMat3s(0.1);
+   m3:=RotationMat3Z(0.1);
    q:=MatrixToQuaternion(m3);
    ASSERT(IsEqual(q.Length,1));
 
@@ -152,9 +152,9 @@ uses
     ASSERT(IsEqual(m3,mm3,150),Format('Fail: vec=(%.7f,%.7f,%.7f) angle=%.7f',[vec.x,vec.y,vec.z,a]));
    end;
 
-   mat:=ScaleMat4s(1.5, 1.7, 1.9);
-   mat:=MultMat(mat,RotationZMat4s(0.1));
-   mat:=MultMat(mat,TranslationMat4s(2,2.5,3));
+   mat:=ScaleMat4(1.5, 1.7, 1.9);
+   mat:=MultMat(mat,RotationMat4Z(0.1));
+   mat:=MultMat(mat,TranslationMat4(2,2.5,3));
    DecomposeMartix(mat,q1,q2,q3);
    ASSERT(IsEqual(q1.xyz,Vector3s(2,2.5,3)));
    ASSERT(IsEqual(q3.xyz,Vector3s(1.5, 1.7, 1.9)));
@@ -178,25 +178,25 @@ uses
    m1,m2,m,mRef:TMat3;
   begin
    // Rotation around X
-   m1:=IdentMatrix3s;
-   m2:=RotationXMat3s(Pi/2);
+   m1:=IdentMat3;
+   m2:=RotationMat3X(Pi/2);
    q1:=MatrixToQuaternion(m1);
    q2:=MatrixToQuaternion(m2);
    for i:=0 to 10 do begin
     f:=i/10;
-    mRef:=RotationXMat3s(f*Pi/2);
+    mRef:=RotationMat3X(f*Pi/2);
     q:=QInterpolate(q1,q2,f);
     QuaternionToMatrix(q,m);
     ASSERT(IsEqual(m,mRef));
    end;
    // Rotation around Y
-   m1:=IdentMatrix3s;
-   m2:=RotationYMat3s(-Pi/2);
+   m1:=IdentMat3;
+   m2:=RotationMat3Y(-Pi/2);
    q1:=MatrixToQuaternion(m1);
    q2:=MatrixToQuaternion(m2);
    for i:=0 to 10 do begin
     f:=i/10;
-    mRef:=RotationYMat3s(-f*Pi/2);
+    mRef:=RotationMat3Y(-f*Pi/2);
     q:=QInterpolate(q1,q2,f);
     QuaternionToMatrix(q,m);
     ASSERT(IsEqual(m,mRef));
@@ -738,5 +738,7 @@ begin
  end;
  if HasParam('wait') then readln;
 end.
+
+
 
 

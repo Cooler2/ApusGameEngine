@@ -160,7 +160,7 @@ var
   degMVP:TMat4;
 begin
   StartTest('Frustum');
-  fr.InitFromMVP(IdentMatrix4s, true);
+  fr.InitFromMVP(IdentMat4, true);
   Check(fr.planeCount = 6, '6-plane mode');
 
   sphere:=TSphere.Init(TVec3.Init(0, 0, 0), 0.1);
@@ -186,7 +186,7 @@ begin
   box.maxX:=1.2; box.maxY:=0.1; box.maxZ:=0.1;
   Check(not fr.IntersectsBox(box), 'box beyond tangent');
 
-  fr.InitFromMVP(IdentMatrix4s, false);
+  fr.InitFromMVP(IdentMat4, false);
   Check(fr.planeCount = 4, '4-plane mode');
 
   FillChar(degMVP, SizeOf(degMVP), 0);
@@ -213,6 +213,8 @@ begin
   end;
   writeln('All OK');
 end.
+
+
 
 
 

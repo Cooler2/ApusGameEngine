@@ -133,12 +133,12 @@ interface
 
  const
   NaN=0.0/0.0;
-  IdentMatrix3:TMat3d=((1,0,0),(0,1,0),(0,0,1));
-  IdentMatrix3s:TMat3=((1,0,0),(0,1,0),(0,0,1));
-  IdentMatrix43:TMat34d=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
-  IdentMatrix43s:TMat34=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
-  IdentMatrix4:TMat4d=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
-  IdentMatrix4s:TMat4=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+  IdentMat3d:TMat3d=((1,0,0),(0,1,0),(0,0,1));
+  IdentMat3:TMat3=((1,0,0),(0,1,0),(0,0,1));
+  IdentMat34d:TMat34d=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
+  IdentMat34:TMat34=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
+  IdentMat4d:TMat4d=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+  IdentMat4:TMat4=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
 
   NullPoint:TVec3d=(x:0;y:0;z:0);
   NullPointS:TVec3=(x:0;y:0;z:0);
@@ -156,12 +156,12 @@ interface
  // Matrix conversion
  function Matrix4(from:TMat34d):TMat4d; overload;
  function Matrix4(from:TMat4):TMat4d; overload;
- function Matrix4s(from:TMat34):TMat4; overload;
- function Matrix4s(from:TMat4d):TMat4; overload;
+ function ToMat4(from:TMat34):TMat4; overload;
+ function ToMat4(from:TMat4d):TMat4; overload;
  function Matrix3(from:TMat4d):TMat3d; overload;
- function Matrix3s(from:TMat3d):TMat3; overload;
- function Matrix3s(from:TMat4d):TMat3; overload;
- function Matrix3s(from:TMat4):TMat3; overload;
+ function ToMat3(from:TMat3d):TMat3; overload;
+ function ToMat3(from:TMat4d):TMat3; overload;
+ function ToMat3(from:TMat4):TMat3; overload;
 
  // Extract matrix row/column
  function MatRow(const mat:TMat4; n:integer):TQuaternionS; overload; inline;
@@ -233,19 +233,19 @@ interface
  procedure ToSingle43(sour:TMat34d;out dest:TMat34);
 
  function TranslationMat(x,y,z:double):TMat34d;
- function TranslationMat4(x,y,z:double):TMat4d;
- function TranslationMat4s(x,y,z:single):TMat4;
+ function TranslationMat4d(x,y,z:double):TMat4d;
+ function TranslationMat4(x,y,z:single):TMat4;
  function RotationXMat(angle:double):TMat34d;
  function RotationYMat(angle:double):TMat34d;
  function RotationZMat(angle:double):TMat34d;
- function RotationXMat3s(angle:single):TMat3;
- function RotationYMat3s(angle:single):TMat3;
- function RotationZMat3s(angle:single):TMat3;
- function RotationXMat4s(angle:single):TMat4;
- function RotationYMat4s(angle:single):TMat4;
- function RotationZMat4s(angle:single):TMat4;
+ function RotationMat3X(angle:single):TMat3;
+ function RotationMat3Y(angle:single):TMat3;
+ function RotationMat3Z(angle:single):TMat3;
+ function RotationMat4X(angle:single):TMat4;
+ function RotationMat4Y(angle:single):TMat4;
+ function RotationMat4Z(angle:single):TMat4;
  function ScaleMat(scaleX,scaleY,scaleZ:double):TMat34d;
- function ScaleMat4s(scaleX,scaleY,scaleZ:single):TMat4;
+ function ScaleMat4(scaleX,scaleY,scaleZ:single):TMat4;
 
  // РњР°С‚СЂРёС†Р° РїРѕРІРѕСЂРѕС‚Р° РІРѕРєСЂСѓРі РІРµРєС‚РѕСЂР° РµРґРёРЅРёС‡РЅРѕР№ РґР»РёРЅС‹!
  function RotationAroundVector(v:TVec3d;angle:double):TMat3d; overload;
@@ -437,7 +437,7 @@ implementation
    result[3,3]:=1;
   end;
 
- function Matrix4s(from:TMat34):TMat4;
+ function ToMat4(from:TMat34):TMat4;
   var
    i:integer;
   begin
@@ -450,7 +450,7 @@ implementation
    result[3,3]:=1;
   end;
 
- function Matrix4s(from:TMat4d):TMat4;
+ function ToMat4(from:TMat4d):TMat4;
   var
    i:integer;
   begin
@@ -481,14 +481,14 @@ implementation
    move(from[2],result[2],sizeof(result[2]));
   end;
 
- function Matrix3s(from:TMat4):TMat3; overload;
+ function ToMat3(from:TMat4):TMat3; overload;
   begin
    move(from[0],result[0],sizeof(result[0]));
    move(from[1],result[1],sizeof(result[1]));
    move(from[2],result[2],sizeof(result[2]));
   end;
 
- function Matrix3s(from:TMat3d):TMat3; overload;
+ function ToMat3(from:TMat3d):TMat3; overload;
   var
    i:integer;
   begin
@@ -499,7 +499,7 @@ implementation
    end;
   end;
 
- function Matrix3s(from:TMat4d):TMat3; overload;
+ function ToMat3(from:TMat4d):TMat3; overload;
   var
    i:integer;
   begin
@@ -1169,7 +1169,7 @@ implementation
    end;
   begin
    mat:=m;
-   dest:=IdentMatrix4;
+   dest:=IdentMat4d;
    for i:=0 to 3 do begin
      v:=mat[i,i];
      if abs(v)<EpsilonS then begin
@@ -1197,7 +1197,7 @@ implementation
    v:single;
   begin
    mat:=m;
-   dest:=IdentMatrix4s;
+   dest:=IdentMat4;
    for i:=0 to 3 do begin
      v:=mat[i,i];
      if abs(v)<EpsilonS then begin // fix zero diagonal element
@@ -1410,13 +1410,13 @@ implementation
 
  function TranslationMat(x,y,z:double):TMat34d;
   begin
-   result:=IdentMatrix43;
+   result:=IdentMat34d;
    result[3,0]:=x; result[3,1]:=y; result[3,2]:=z;
   end;
 
- function TranslationMat4(x,y,z:double):TMat4d;
+ function TranslationMat4d(x,y,z:double):TMat4d;
   begin
-   result:=IdentMatrix4;
+   result:=IdentMat4d;
    result[3,0]:=x; result[3,1]:=y; result[3,2]:=z;
   end;
 
@@ -1425,7 +1425,7 @@ implementation
    c,s:double;
   begin
    c:=cos(angle); s:=sin(angle);
-   result:=IdentMatrix43;
+   result:=IdentMat34d;
    result[1,1]:=c; result[1,2]:=s;
    result[2,1]:=-s; result[2,2]:=c;
   end;
@@ -1435,7 +1435,7 @@ implementation
    c,s:double;
   begin
    c:=cos(angle); s:=sin(angle);
-   result:=IdentMatrix43;
+   result:=IdentMat34d;
    result[0,0]:=c; result[0,2]:=s;
    result[2,0]:=-s; result[2,2]:=c;
   end;
@@ -1445,89 +1445,89 @@ implementation
    c,s:double;
   begin
    c:=cos(angle); s:=sin(angle);
-   result:=IdentMatrix43;
+   result:=IdentMat34d;
    result[0,0]:=c; result[0,1]:=s;
    result[1,0]:=-s; result[1,1]:=c;
   end;
 
  function ScaleMat(scaleX,scaleY,scaleZ:double):TMat34d;
   begin
-   result:=IdentMatrix43;
+   result:=IdentMat34d;
    result[0,0]:=scaleX;
    result[1,1]:=scaleY;
    result[2,2]:=scaleZ;
   end;
 
- function RotationXMat3s(angle:single):TMat3;
+ function RotationMat3X(angle:single):TMat3;
   var
    c,s:single;
   begin
    c:=cos(angle); s:=sin(angle);
-   result:=IdentMatrix3s;
+   result:=IdentMat3;
    result[1,1]:=c; result[1,2]:=s;
    result[2,1]:=-s; result[2,2]:=c;
   end;
 
- function RotationYMat3s(angle:single):TMat3;
+ function RotationMat3Y(angle:single):TMat3;
   var
    c,s:single;
   begin
    c:=cos(angle); s:=sin(angle);
-   result:=IdentMatrix3s;
+   result:=IdentMat3;
    result[0,0]:=c; result[0,2]:=s;
    result[2,0]:=-s; result[2,2]:=c;
   end;
 
- function RotationZMat3s(angle:single):TMat3;
+ function RotationMat3Z(angle:single):TMat3;
   var
    c,s:single;
   begin
    c:=cos(angle); s:=sin(angle);
-   result:=IdentMatrix3s;
+   result:=IdentMat3;
    result[0,0]:=c; result[0,1]:=s;
    result[1,0]:=-s; result[1,1]:=c;
   end;
 
 
- function TranslationMat4s(x,y,z:single):TMat4;
+ function TranslationMat4(x,y,z:single):TMat4;
   begin
-   result:=IdentMatrix4s;
+   result:=IdentMat4;
    result[3,0]:=x; result[3,1]:=y; result[3,2]:=z;
   end;
 
- function RotationXMat4s(angle:single):TMat4;
+ function RotationMat4X(angle:single):TMat4;
   var
    c,s:double;
   begin
    c:=cos(angle); s:=sin(angle);
-   result:=IdentMatrix4s;
+   result:=IdentMat4;
    result[1,1]:=c; result[1,2]:=s;
    result[2,1]:=-s; result[2,2]:=c;
   end;
 
- function RotationYMat4s(angle:single):TMat4;
+ function RotationMat4Y(angle:single):TMat4;
   var
    c,s:double;
   begin
    c:=cos(angle); s:=sin(angle);
-   result:=IdentMatrix4s;
+   result:=IdentMat4;
    result[0,0]:=c; result[0,2]:=s;
    result[2,0]:=-s; result[2,2]:=c;
   end;
 
- function RotationZMat4s(angle:single):TMat4;
+ function RotationMat4Z(angle:single):TMat4;
   var
    c,s:double;
   begin
    c:=cos(angle); s:=sin(angle);
-   result:=IdentMatrix4s;
+   result:=IdentMat4;
    result[0,0]:=c; result[0,1]:=s;
    result[1,0]:=-s; result[1,1]:=c;
   end;
 
- function ScaleMat4s(scaleX,scaleY,scaleZ:single):TMat4;
+ function ScaleMat4(scaleX,scaleY,scaleZ:single):TMat4;
   begin
-   result:=IdentMatrix4s;
+   result:=IdentMat4;
    result[0,0]:=scaleX;
    result[1,1]:=scaleY;
    result[2,2]:=scaleZ;
@@ -2638,6 +2638,8 @@ initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
 
 end.
+
+
 
 
 
