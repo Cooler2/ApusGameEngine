@@ -179,6 +179,8 @@ begin
   q:=QuatMultiply(q,Quat(0,0,0,1));
   q:=QuatSlerp(q,Quat(0,0,0,1),0.5);
   Check(q.IsValid,'Quaternion ops');
+  Check(IsEqual(Vec3(q),TVec3.Init(q.x,q.y,q.z)),'Vec4->Vec3 factory');
+  Check(IsEqual(q.ToVec3,TVec3.Init(q.x,q.y,q.z)),'TQuat.ToVec3');
 
   m4:=TranslationMat4(5,6,7);
   DecomposeMatrix(m4,tr,rot,sca);
@@ -196,6 +198,8 @@ begin
   qdv:=TQuatd.Init(pd);
   Check(IsEqual(qdv,Quatd(1,2,3,1),2),'Vec4 double overload');
   Check(IsEqual(Vec3d(1,2,3),TVec3d.Init(1,2,3),2),'Vec3d factory');
+  Check(IsEqual(Vec3d(qdv),TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'Vec4d->Vec3d factory');
+  Check(IsEqual(qdv.ToVec3d,TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'TQuatd.ToVec3d');
   QuaternionToMatrix(qd,m3d);
   qd:=MatrixToQuaternion(m3d);
   Check(qd.IsValid,'QuaternionToMatrix double alias');

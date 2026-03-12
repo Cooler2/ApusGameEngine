@@ -62,6 +62,7 @@ interface
   TQuatd=record
    constructor Init(x,y,z,w:double); overload;
    constructor Init(vec3:TVec3d); overload;
+   function ToVec3d:TVec3d; inline;
    procedure Add(const q:TQuatd); overload;
    procedure Add(const q:TQuatd;scale:double); overload;
    procedure Mul(scalar:double); overload;
@@ -83,6 +84,7 @@ interface
    constructor Init(x,y,z,w:single); overload;
    constructor Init(vec3:TVec3); overload;
    constructor Init(q:TQuatd); overload;
+   function ToVec3:TVec3; inline;
    procedure Assign(const q:TQuat);
    procedure Add(const q:TQuat); overload;
    procedure Add(const q:TQuat;scale:single); overload;
@@ -157,7 +159,9 @@ interface
  function Point3(p:TVec3):TVec3d; overload; inline;
  function Direction3(from,target:TVec3d):TVec3d; overload; inline;
  function Vec3(x,y,z:single):TVec3; overload; inline;
+ function Vec3(v:TVec4):TVec3; overload; inline;
  function Vec3d(x,y,z:double):TVec3d; overload; inline;
+ function Vec3d(v:TQuatd):TVec3d; overload; inline;
  function Quat(x,y,z,w:single):TQuat; overload; inline;
  function Quatd(x,y,z,w:double):TQuatd; overload; inline;
  // Matrix conversion
@@ -362,11 +366,25 @@ implementation
    result.z:=z;
   end;
 
+ function Vec3(v:TVec4):TVec3; overload; inline;
+  begin
+   result.x:=v.x;
+   result.y:=v.y;
+   result.z:=v.z;
+  end;
+
  function Vec3d(x,y,z:double):TVec3d; overload; inline;
   begin
    result.x:=x;
    result.y:=y;
    result.z:=z;
+  end;
+
+ function Vec3d(v:TQuatd):TVec3d; overload; inline;
+  begin
+   result.x:=v.x;
+   result.y:=v.y;
+   result.z:=v.z;
   end;
 
  function Quat(x,y,z,w:single):TQuat; overload; inline;
@@ -2157,6 +2175,13 @@ constructor TQuatd.Init(vec3:TVec3d);
   self.w:=1;
  end;
 
+function TQuatd.ToVec3d:TVec3d;
+ begin
+  result.x:=x;
+  result.y:=y;
+  result.z:=z;
+ end;
+
 function TQuatd.IsValid:boolean;
  begin
   result:=x=x;
@@ -2223,6 +2248,13 @@ constructor TQuat.Init(vec3:TVec3);
 constructor TQuat.Init(q:TQuatd);
  begin
   x:=q.x; y:=q.y; z:=q.z; w:=q.w;
+ end;
+
+function TQuat.ToVec3:TVec3;
+ begin
+  result.x:=x;
+  result.y:=y;
+  result.z:=z;
  end;
 
 function TQuat.IsValid:boolean;
