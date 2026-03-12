@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------
+// -----------------------------------------------------
 // 2D geometry common high-precision functions
 // Author: Ivan Polyacov (C) 2002, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -37,6 +37,11 @@ interface
    constructor Init(pnt:TPoint); overload;
    function GetRound:TPoint;
    function IsValid:boolean; inline;
+   function Dot(const p:TPoint2s):single; inline;
+   function Cross(const p:TPoint2s):single; inline;
+   function Length:single; inline;
+   function Length2:single; inline;
+   function Sub(const p:TPoint2s):TPoint2s; inline;
    procedure Wrap(max:single); inline;
    class operator Implicit(a:TPointF):TPoint2s;
    class operator Implicit(a:TPoint):TPoint2s;
@@ -49,6 +54,8 @@ interface
    class operator Multiply(a,b:TPoint2s):TPoint2s;
   end;
   TVector2s=TPoint2s;
+  // engine5 single-precision API aliases
+  TVec2=TPoint2s;
   PPoint2s=^TPoint2s;
   TPoints2s=array of TPoint2s;
   TVectors2s=TPoints2s;
@@ -88,6 +95,7 @@ interface
   // Single precision version
   TMatrix2s=array[0..1,0..1] of single;
   TMatrix32s=array[0..2,0..1] of single;
+  TMat2=TMatrix2s;
   // Vector versions
   TMatrix2v=array[0..1] of TVector2;
   TMatrix32v=array[0..2] of TVector2;
@@ -1039,6 +1047,32 @@ constructor TPoint2s.Init(x,y:single);
 function TPoint2s.IsValid:boolean;
  begin
   result:=x=x;
+ end;
+
+function TPoint2s.Dot(const p:TPoint2s):single;
+ begin
+  result:=x*p.x+y*p.y;
+ end;
+
+function TPoint2s.Cross(const p:TPoint2s):single;
+ begin
+  result:=x*p.y-y*p.x;
+ end;
+
+function TPoint2s.Length:single;
+ begin
+  result:=sqrt(x*x+y*y);
+ end;
+
+function TPoint2s.Length2:single;
+ begin
+  result:=x*x+y*y;
+ end;
+
+function TPoint2s.Sub(const p:TPoint2s):TPoint2s;
+ begin
+  result.x:=x-p.x;
+  result.y:=y-p.y;
  end;
 
 class operator TPoint2s.Multiply(a,b:TPoint2s):TPoint2s;

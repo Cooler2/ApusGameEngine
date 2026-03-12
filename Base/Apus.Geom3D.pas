@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------
+// -----------------------------------------------------
 // 3D geometry common high-precision functions
 // Author: Ivan Polyacov (C) 2003, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -40,6 +40,10 @@ interface
    function IsValid:boolean;
    function Length:single;  // Vector length
    function Length2:single; // Square length
+   function Dot(const p:TPoint3s):single; inline;
+   function Cross(const p:TPoint3s):TPoint3s; inline;
+   function Sub(const p:TPoint3s):TPoint3s; inline;
+   function Distance2(const p:TPoint3s):single; inline;
    procedure Add(p:TPoint3s);
    procedure Multiply(scalar:single);
    case integer of
@@ -48,6 +52,8 @@ interface
    2:( xy:TPoint2s; t:single; );
   end;
   TVector3s=TPoint3s;
+  // engine5 single-precision API aliases
+  TVec3=TPoint3s;
   TPoints3s=array of TPoint3s;
   TVectors3s=TPoints3s;
 
@@ -95,6 +101,7 @@ interface
   TVector4=TQuaternion;
   PVector4=^TVector4;
   TVector4s=TQuaternionS;
+  TVec4=TQuaternionS;
   PVector4s=^TVector4s;
 
   // Infinite plane in space
@@ -115,7 +122,14 @@ interface
    procedure Init; // clear
    procedure Add(const p:TPoint3s); overload;
    procedure Add(p:PPoint3s;count:integer;stride:integer=0); overload;
+   procedure IncludePoint(const p:TPoint3s); inline;
+   procedure IncludeBox(const newBox:TBBox3s); inline;
+   function Center:TPoint3s; inline;
+   function Extents:TPoint3s; inline;
    function IsEmpty:boolean;
+   function ContainsPoint(const p:TPoint3s):boolean; inline;
+   function IntersectsBox(const other:TBBox3s):boolean; inline;
+   function IntersectsSphere(const sphereCenter:TPoint3s;sphereRadius:single):boolean;
   end;
 
   // Transformation matrices
@@ -127,6 +141,7 @@ interface
   TMatrix4=array[0..3,0..3] of double; // rotation/scale/translation
   PMatrix4s=^TMatrix4s;
   TMatrix4s=array[0..3,0..3] of single; // rotation/scale/translation
+  TMat4=TMatrix4s;
   // Synonims
   TMatrix3v=array[0..2] of TVector3;
   TMatrix43v=array[0..3] of TVector3;
@@ -134,8 +149,10 @@ interface
   // Low precision matrices
   PMatrix3s=^TMatrix3s;
   TMatrix3s=array[0..2,0..2] of single;
+  TMat3=TMatrix3s;
   PMatrix43s=^TMatrix43s;
   TMatrix43s=array[0..3,0..2] of single;
+  TMat34=TMatrix43s;
   // Synonims
   TMatrix3vs=array[0..2] of TVector3s;
   TMatrix43vs=array[0..3] of TVector3s;
@@ -2020,7 +2037,7 @@ implementation
     cosOmega, sinOmega, scale0, scale1: Single;
   begin
     // Compute the cosine of the angle between the two vectors.
-    cosOmega := Q1.x*Q2.x + Q1.y*Q2.y + Q1.z*Q2.z + Q1.w*Q2.w;
+    cosOmega:=Q1.x*Q2.x + Q1.y*Q2.y + Q1.z*Q2.z + Q1.w*Q2.w;
 
     // if negative dot, use -q1. two quaternions q and -q represent the same rotation,
     // but may produce different slerp. we chose q or -q to rotate using the shortest path.
@@ -2036,13 +2053,13 @@ implementation
     // Compute the scales for the linear interpolation
     if (1.0 - cosOmega) > 1E-6 then begin
      // Standard case (slerp)
-     sinOmega := Sqrt(1.0 - sqr(cosOmega));
-     scale0 := Sin((1.0-factor) * ArcCos(cosOmega)) / sinOmega;
-     scale1 := Sin(factor * ArcCos(cosOmega)) / sinOmega;
+     sinOmega:=Sqrt(1.0 - sqr(cosOmega));
+     scale0:=Sin((1.0-factor) * ArcCos(cosOmega)) / sinOmega;
+     scale1:=Sin(factor * ArcCos(cosOmega)) / sinOmega;
     end else begin
      // Q1 and Q2 are very close, so do a linear interpolation
-     scale0 := 1.0-factor;
-     scale1 := factor;
+     scale0:=1.0-factor;
+     scale1:=factor;
     end;
 
     // Final calculation of the interpolated quaternion
@@ -2351,6 +2368,35 @@ function TPoint3s.Length:single;
 function TPoint3s.Length2:single;
  begin
   result:=x*x+y*y+z*z;
+ end;
+
+function TPoint3s.Dot(const p:TPoint3s):single;
+ begin
+  result:=x*p.x+y*p.y+z*p.z;
+ end;
+
+function TPoint3s.Cross(const p:TPoint3s):TPoint3s;
+ begin
+  result.x:=y*p.z-z*p.y;
+  result.y:=z*p.x-x*p.z;
+  result.z:=x*p.y-y*p.x;
+ end;
+
+function TPoint3s.Sub(const p:TPoint3s):TPoint3s;
+ begin
+  result.x:=x-p.x;
+  result.y:=y-p.y;
+  result.z:=z-p.z;
+ end;
+
+function TPoint3s.Distance2(const p:TPoint3s):single;
+ var
+  dx,dy,dz:single;
+ begin
+  dx:=x-p.x;
+  dy:=y-p.y;
+  dz:=z-p.z;
+  result:=dx*dx+dy*dy+dz*dz;
  end;
 
 procedure TPoint3s.Multiply(scalar:single);
@@ -2727,6 +2773,28 @@ procedure TBBox3s.Add(p:PPoint3s;count:integer;stride:integer=0);
   end;
  end;
 
+procedure TBBox3s.IncludePoint(const p:TPoint3s);
+ begin
+  Add(p);
+ end;
+
+procedure TBBox3s.IncludeBox(const newBox:TBBox3s);
+ begin
+  BBoxIncludeBox(self,newBox);
+ end;
+
+function TBBox3s.Center:TPoint3s;
+ begin
+  if IsEmpty then exit(NullPointS);
+  result:=Point3s((minX+maxX)*0.5,(minY+maxY)*0.5,(minZ+maxZ)*0.5);
+ end;
+
+function TBBox3s.Extents:TPoint3s;
+ begin
+  if IsEmpty then exit(NullPointS);
+  result:=Point3s((maxX-minX)*0.5,(maxY-minY)*0.5,(maxZ-minZ)*0.5);
+ end;
+
 procedure TBBox3s.Init;
  begin
   minX:=NaN; minY:=NaN; minZ:=NaN;
@@ -2736,6 +2804,42 @@ procedure TBBox3s.Init;
 function TBBox3s.IsEmpty:boolean;
  begin
   result:=Apus.Core.IsNan(minX);
+ end;
+
+function TBBox3s.ContainsPoint(const p:TPoint3s):boolean;
+ begin
+  if IsEmpty then exit(false);
+  result:=(p.x>=minX) and (p.x<=maxX) and
+          (p.y>=minY) and (p.y<=maxY) and
+          (p.z>=minZ) and (p.z<=maxZ);
+ end;
+
+function TBBox3s.IntersectsBox(const other:TBBox3s):boolean;
+ begin
+  if IsEmpty or other.IsEmpty then exit(false);
+  result:=(minX<=other.maxX) and (maxX>=other.minX) and
+          (minY<=other.maxY) and (maxY>=other.minY) and
+          (minZ<=other.maxZ) and (maxZ>=other.minZ);
+ end;
+
+function TBBox3s.IntersectsSphere(const sphereCenter:TPoint3s;sphereRadius:single):boolean;
+ var
+  x,y,z,dx,dy,dz:single;
+ begin
+  if IsEmpty then exit(false);
+  x:=sphereCenter.x;
+  y:=sphereCenter.y;
+  z:=sphereCenter.z;
+  if x<minX then x:=minX else
+    if x>maxX then x:=maxX;
+  if y<minY then y:=minY else
+    if y>maxY then y:=maxY;
+  if z<minZ then z:=minZ else
+    if z>maxZ then z:=maxZ;
+  dx:=sphereCenter.x-x;
+  dy:=sphereCenter.y-y;
+  dz:=sphereCenter.z-z;
+  result:=dx*dx+dy*dy+dz*dz<=sphereRadius*sphereRadius;
  end;
 
 initialization
