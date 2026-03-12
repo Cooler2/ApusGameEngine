@@ -24,6 +24,14 @@ interface
    constructor Init(X,Y,Z:double);
    procedure Normalize;
    function IsValid:boolean;
+   function Length:double; inline;
+   function Length2:double; inline;
+   function Dot(const p:TVec3d):double; inline;
+   function Cross(const p:TVec3d):TVec3d; inline;
+   function Sub(const p:TVec3d):TVec3d; inline;
+   function Distance2(const p:TVec3d):double; inline;
+   procedure Add(p:TVec3d);
+   procedure Multiply(scalar:double);
   end;
   PVec3d=^TVec3d;
   TVec3=packed record
@@ -562,7 +570,7 @@ implementation
 
  function DotProduct(a,b:TVec3d):double;
   begin
-   result:=a.x*b.x+a.y*b.y+a.z*b.z;
+   result:=a.Dot(b);
   end;
 
  function DotProduct(a,b:TVec3):double;
@@ -572,9 +580,7 @@ implementation
 
  function CrossProduct(a,b:TVec3d):TVec3d;
   begin
-   result.x:=a.y*b.z-a.z*b.y;
-   result.y:=-(a.x*b.z-a.z*b.x);
-   result.z:=a.x*b.y-a.y*b.x;
+   result:=a.Cross(b);
   end;
 
  function CrossProduct(a,b:TVec3):TVec3;
@@ -586,7 +592,7 @@ implementation
 
  function GetLength(v:TVec3d):double;
   begin
-   result:=sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
+   result:=v.Length;
   end;
 
  function GetLength(v:TVec3):double;
@@ -596,7 +602,7 @@ implementation
 
  function GetSqrLength(v:TVec3d):double;
   begin
-   result:=v.x*v.x+v.y*v.y+v.z*v.z;
+   result:=v.Length2;
   end;
 
  function GetSqrLength(v:TVec3):single;
@@ -630,9 +636,7 @@ implementation
 
  procedure VectAdd(var a:TVec3d;b:TVec3d);
   begin
-   a.x:=b.x+a.x;
-   a.y:=b.y+a.y;
-   a.z:=b.z+a.z;
+   a.Add(b);
   end;
 
  procedure VectAdd(var a:TVec3;b:TVec3);
@@ -644,16 +648,12 @@ implementation
 
  procedure VectSub(var a:TVec3d;b:TVec3d);
   begin
-   a.x:=a.x-b.x;
-   a.y:=a.y-b.y;
-   a.z:=a.z-b.z;
+   a:=a.Sub(b);
   end;
 
  procedure VectMult(var a:TVec3d;k:double);
   begin
-   a.x:=a.x*k;
-   a.y:=a.y*k;
-   a.z:=a.z*k;
+   a.Multiply(k);
   end;
 
  procedure VectMult(var a:TVec3;k:double);
@@ -665,9 +665,8 @@ implementation
 
   function VecMult(a:TVec3d;k:double):TVec3d;
   begin
-   result.x:=a.x*k;
-   result.y:=a.y*k;
-   result.z:=a.z*k;
+   result:=a;
+   result.Multiply(k);
   end;
 
   function VecMult(a:TVec3;k:double):TVec3;
@@ -702,7 +701,7 @@ implementation
 
  function Distance2(p1,p2:TVec3d):double; overload;
   begin
-   result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y)+sqr(p2.z-p1.z);
+   result:=p1.Distance2(p2);
   end;
 
  function Distance2(p1,p2:TVec3):single; overload;
@@ -2188,6 +2187,54 @@ procedure TVec3d.Normalize;
   Apus.Geom3D.Normalize(self);
  end;
 
+function TVec3d.Length:double;
+ begin
+  result:=sqrt(x*x+y*y+z*z);
+ end;
+
+function TVec3d.Length2:double;
+ begin
+  result:=x*x+y*y+z*z;
+ end;
+
+function TVec3d.Dot(const p:TVec3d):double;
+ begin
+  result:=x*p.x+y*p.y+z*p.z;
+ end;
+
+function TVec3d.Cross(const p:TVec3d):TVec3d;
+ begin
+  result.x:=y*p.z-z*p.y;
+  result.y:=-(x*p.z-z*p.x);
+  result.z:=x*p.y-y*p.x;
+ end;
+
+function TVec3d.Sub(const p:TVec3d):TVec3d;
+ begin
+  result.x:=x-p.x;
+  result.y:=y-p.y;
+  result.z:=z-p.z;
+ end;
+
+function TVec3d.Distance2(const p:TVec3d):double;
+ begin
+  result:=sqr(x-p.x)+sqr(y-p.y)+sqr(z-p.z);
+ end;
+
+procedure TVec3d.Add(p:TVec3d);
+ begin
+  x:=x+p.x;
+  y:=y+p.y;
+  z:=z+p.z;
+ end;
+
+procedure TVec3d.Multiply(scalar:double);
+ begin
+  x:=x*scalar;
+  y:=y*scalar;
+  z:=z*scalar;
+ end;
+
 { TVec3 }
 constructor TVec3.Init(X,Y,Z:single);
  begin
@@ -2638,6 +2685,7 @@ initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
 
 end.
+
 
 
 

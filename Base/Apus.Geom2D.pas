@@ -1,4 +1,4 @@
-// -----------------------------------------------------
+﻿// -----------------------------------------------------
 // 2D geometry common high-precision functions
 // Author: Ivan Polyacov (C) 2002, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -27,6 +27,14 @@ interface
    function GetRound:TPoint;
    function IsValid:boolean; inline;
    procedure Wrap(max:double); inline;
+   function Dot(const p:TVec2d):double; inline;
+   function Cross(const p:TVec2d):double; inline;
+   function Length:double; inline;
+   function Length2:double; inline;
+   function Sub(const p:TVec2d):TVec2d; inline;
+   function Distance2(const p:TVec2d):double; inline;
+   procedure Add(const p:TVec2d); inline;
+   procedure Multiply(value:double); inline;
   end;
   PVec2d=^TVec2d;
 
@@ -189,10 +197,10 @@ interface
  function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
 
  // Integer operations
- // взаимное расположение пр-ков: 0 - не пересекаются, 1 - r1 внутри r2, 2 - r2 внутри r1, 4 - пересекаются
- // только для упорядоченных пр-ков!
+ // РІР·Р°РёРјРЅРѕРµ СЂР°СЃРїРѕР»РѕР¶РµРЅРёРµ РїСЂ-РєРѕРІ: 0 - РЅРµ РїРµСЂРµСЃРµРєР°СЋС‚СЃСЏ, 1 - r1 РІРЅСѓС‚СЂРё r2, 2 - r2 РІРЅСѓС‚СЂРё r1, 4 - РїРµСЂРµСЃРµРєР°СЋС‚СЃСЏ
+ // С‚РѕР»СЊРєРѕ РґР»СЏ СѓРїРѕСЂСЏРґРѕС‡РµРЅРЅС‹С… РїСЂ-РєРѕРІ!
  function IntersectRects(r1,r2:TRect;out r:TRect):integer;
- procedure OrderRect(var r:TRect); // упорядочить к-ты по возрастанию
+ procedure OrderRect(var r:TRect); // СѓРїРѕСЂСЏРґРѕС‡РёС‚СЊ Рє-С‚С‹ РїРѕ РІРѕР·СЂР°СЃС‚Р°РЅРёСЋ
 
  procedure ToSingle32(sour:TMat32d;out dest:TMat32);
 
@@ -207,10 +215,10 @@ interface
 
  procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
 
- // Транспонирование (для ортонормированной матрицы - это будт обратная)
+ // РўСЂР°РЅСЃРїРѕРЅРёСЂРѕРІР°РЅРёРµ (РґР»СЏ РѕСЂС‚РѕРЅРѕСЂРјРёСЂРѕРІР°РЅРЅРѕР№ РјР°С‚СЂРёС†С‹ - СЌС‚Рѕ Р±СѓРґС‚ РѕР±СЂР°С‚РЅР°СЏ)
  procedure Transp2(m:TMat2d;out dest:TMat2d);
  procedure Transp(m:TMat32d;out dest:TMat32d);
- // Вычисление обратной матрицы
+ // Р’С‹С‡РёСЃР»РµРЅРёРµ РѕР±СЂР°С‚РЅРѕР№ РјР°С‚СЂРёС†С‹
  procedure Invert2(m:TMat2d;out dest:TMat2d);
  procedure Invert(m:TMat32d;out dest:TMat32d);
 
@@ -220,8 +228,8 @@ interface
  function RoundRect(const r:TRect2):TRect;
 
  var
-  trgIndices:array of integer; // результат триангуляции
- // триангуляция замкнутого многоугольника (строит n-2 трг). !!! CLOCKWISE!
+  trgIndices:array of integer; // СЂРµР·СѓР»СЊС‚Р°С‚ С‚СЂРёР°РЅРіСѓР»СЏС†РёРё
+ // С‚СЂРёР°РЅРіСѓР»СЏС†РёСЏ Р·Р°РјРєРЅСѓС‚РѕРіРѕ РјРЅРѕРіРѕСѓРіРѕР»СЊРЅРёРєР° (СЃС‚СЂРѕРёС‚ n-2 С‚СЂРі). !!! CLOCKWISE!
  procedure Triangulate(pnts:PVec2d;count:integer);
 
 implementation
@@ -229,12 +237,12 @@ implementation
 
  function DotProduct(const a,b:TVec2d):double;
   begin
-   result:=a.x*b.x+a.y*b.y;
+   result:=a.Dot(b);
   end;
 
  function CrossProduct(const a,b:TVec2d):double;
   begin
-   result:=a.x*b.y-a.y*b.x;
+   result:=a.Cross(b);
   end;
 
  function DotProduct(const a,b:TVec2):single;
@@ -249,7 +257,7 @@ implementation
 
  function GetLength(v:TVec2d):double;
   begin
-   result:=sqrt(v.x*v.x+v.y*v.y);
+   result:=v.Length;
   end;
 
  function GetLength(v:TVec2):double;
@@ -269,7 +277,7 @@ implementation
 
  function Distance2(p1,p2:TVec2d):double; overload;
   begin
-   result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y);
+   result:=p1.Distance2(p2);
   end;
  function Distance2(p1,p2:TVec2):single; overload;
   begin
@@ -279,7 +287,7 @@ implementation
 
  function GetSqrLength(v:TVec2d):double;
   begin
-   result:=v.x*v.x+v.y*v.y;
+   result:=v.Length2;
   end;
 
  procedure Normalize(var v:TVec2d);
@@ -305,14 +313,12 @@ implementation
 
  procedure VectAdd(var a:TVec2d;const b:TVec2d); inline;
   begin
-   a.x:=b.x+a.x;
-   a.y:=b.y+a.y;
+   a.Add(b);
   end;
 
  procedure VectSub(var a:TVec2d;const b:TVec2d);
   begin
-   a.x:=a.x-b.x;
-   a.y:=a.y-b.y;
+   a:=a.Sub(b);
   end;
 
  procedure VectAdd(var a:TVec2;const b:TVec2); inline;
@@ -329,8 +335,8 @@ implementation
 
  function VectMult(v:TVec2d;value:double):TVec2d;
   begin
-   result.x:=v.x*value;
-   result.y:=v.y*value;
+   result:=v;
+   result.Multiply(value);
   end;
 
  function VectMult(a,b:TVec2):TVec2; inline; overload;
@@ -686,7 +692,7 @@ implementation
    target[0,1]:=m1[0,0]*m2[0,1]+m1[0,1]*m2[1,1];
    target[1,0]:=m1[1,0]*m2[0,0]+m1[1,1]*m2[1,0];
    target[1,1]:=m1[1,0]*m2[0,1]+m1[1,1]*m2[1,1];
-   // Сдвиговая часть
+   // РЎРґРІРёРіРѕРІР°СЏ С‡Р°СЃС‚СЊ
    target[2,0]:=m2[2,0]+m1[2,0]*m2[0,0]+m1[2,1]*m2[1,0];
    target[2,1]:=m2[2,1]+m1[2,0]*m2[0,1]+m1[2,1]*m2[1,1];
   end;
@@ -704,7 +710,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    end;
   end;
 
- // Транспонирование (для ортонормированной матрицы - это будт обратная)
+ // РўСЂР°РЅСЃРїРѕРЅРёСЂРѕРІР°РЅРёРµ (РґР»СЏ РѕСЂС‚РѕРЅРѕСЂРјРёСЂРѕРІР°РЅРЅРѕР№ РјР°С‚СЂРёС†С‹ - СЌС‚Рѕ Р±СѓРґС‚ РѕР±СЂР°С‚РЅР°СЏ)
  procedure Transp2(m:TMat2d;out dest:TMat2d);
   begin
    dest[0,0]:=m[0,0]; dest[1,0]:=m[0,1];
@@ -717,7 +723,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    dest[0,0]:=m[0,0]; dest[1,0]:=m[0,1]; dest[2,0]:=-DotProduct(mv[0],mv[2]);
    dest[0,1]:=m[1,0]; dest[1,1]:=m[1,1]; dest[2,1]:=-DotProduct(mv[1],mv[2]);
   end;
- // Вычисление обратной матрицы
+ // Р’С‹С‡РёСЃР»РµРЅРёРµ РѕР±СЂР°С‚РЅРѕР№ РјР°С‚СЂРёС†С‹
  procedure Invert2(m:TMat2d;out dest:TMat2d);
   var
    la,lb:double;
@@ -749,7 +755,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
   var
    b0,b1,b2,b3:double;
   begin
-   // вроде как оптимизация
+   // РІСЂРѕРґРµ РєР°Рє РѕРїС‚РёРјРёР·Р°С†РёСЏ
    b0:=(1-t);
    b2:=t*t;
    b3:=b2*t;    // t^3
@@ -793,7 +799,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
   type
    pa=array[0..5] of TVec2d;
   var
-   next,prev:array of integer; // для каждой вершины - указатель на следующую
+   next,prev:array of integer; // РґР»СЏ РєР°Р¶РґРѕР№ РІРµСЂС€РёРЅС‹ - СѓРєР°Р·Р°С‚РµР»СЊ РЅР° СЃР»РµРґСѓСЋС‰СѓСЋ
    i,n,p,c,d:integer;
    v1,v2:TVec2d;
    vrts:^PA;
@@ -802,7 +808,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    ASSERT(count>=3);
    setLength(trgIndices,(count-2)*3);
    if count=3 then begin
-    // треугольник - ничего делать не нужно
+    // С‚СЂРµСѓРіРѕР»СЊРЅРёРє - РЅРёС‡РµРіРѕ РґРµР»Р°С‚СЊ РЅРµ РЅСѓР¶РЅРѕ
     trgIndices[0]:=0;
     trgIndices[1]:=1;
     trgIndices[2]:=2;
@@ -818,10 +824,10 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    n:=count;
    p:=0; c:=0;
    while n>=3 do begin
-    // пока есть что отсекать...
+    // РїРѕРєР° РµСЃС‚СЊ С‡С‚Рѕ РѕС‚СЃРµРєР°С‚СЊ...
     v1:=vrts^[prev[p]]; VectSub(v1,vrts^[p]);
     v2:=vrts^[p]; VectSub(v2,vrts^[next[p]]);
-    // Нужно два условия: 1) угол между векторами в нужную сторону и 2) ни одна вершина не лежит внутри отсекаемого тр-ка.
+    // РќСѓР¶РЅРѕ РґРІР° СѓСЃР»РѕРІРёСЏ: 1) СѓРіРѕР» РјРµР¶РґСѓ РІРµРєС‚РѕСЂР°РјРё РІ РЅСѓР¶РЅСѓСЋ СЃС‚РѕСЂРѕРЅСѓ Рё 2) РЅРё РѕРґРЅР° РІРµСЂС€РёРЅР° РЅРµ Р»РµР¶РёС‚ РІРЅСѓС‚СЂРё РѕС‚СЃРµРєР°РµРјРѕРіРѕ С‚СЂ-РєР°.
     fl:=crossProduct(v1,v2)>=0;
     if fl and (n>3) then begin
      d:=next[next[p]];
@@ -985,6 +991,49 @@ function TVec2d.GetRound:TPoint;
   result.y:=round(y);
  end;
 
+function TVec2d.Dot(const p:TVec2d):double;
+ begin
+  result:=x*p.x+y*p.y;
+ end;
+
+function TVec2d.Cross(const p:TVec2d):double;
+ begin
+  result:=x*p.y-y*p.x;
+ end;
+
+function TVec2d.Length:double;
+ begin
+  result:=sqrt(x*x+y*y);
+ end;
+
+function TVec2d.Length2:double;
+ begin
+  result:=x*x+y*y;
+ end;
+
+function TVec2d.Sub(const p:TVec2d):TVec2d;
+ begin
+  result.x:=x-p.x;
+  result.y:=y-p.y;
+ end;
+
+function TVec2d.Distance2(const p:TVec2d):double;
+ begin
+  result:=sqr(x-p.x)+sqr(y-p.y);
+ end;
+
+procedure TVec2d.Add(const p:TVec2d);
+ begin
+  x:=x+p.x;
+  y:=y+p.y;
+ end;
+
+procedure TVec2d.Multiply(value:double);
+ begin
+  x:=x*value;
+  y:=y*value;
+ end;
+
 { TVec2 }
 
 class operator TVec2.Implicit(a:TPoint):TVec2;
@@ -1088,6 +1137,7 @@ procedure TVec2.Wrap(max:single);
  end;
 
 end.
+
 
 
 
