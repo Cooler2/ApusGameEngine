@@ -24,7 +24,11 @@ interface
    x,y:double;
    constructor Init(x,y:double); overload;
    constructor Init(pnt:TPoint); overload;
+   class function AngleDiff(a1,a2:double):double; static;
+   class function IsEqual(const a,b:TVec2d):boolean; static;
+   class function LexCompare(const a,b:TVec2d):integer; static;
    class function Lerp(const p1,p2:TVec2d;factor:double):TVec2d; static;
+   class function Bezier(const p0,p1,p2,p3:TVec2d;t:double):TVec2d; static;
    class function Between(const source,target:TVec2d):TVec2d; static;
    class function FromAngle(angle:double):TVec2d; static;
    function GetRound:TPoint;
@@ -53,6 +57,7 @@ interface
    constructor Init(x,y:single); overload;
    constructor Init(pnt:TPoint); overload;
    class function Lerp(const p1,p2:TVec2;factor:single):TVec2; static;
+   class function RandomInCircle(r:single):TVec2; static;
    function GetRound:TPoint;
    function IsValid:boolean; inline;
    procedure Normalize; inline;
@@ -84,6 +89,7 @@ interface
   TLine2=packed record
    a,b,c:double;
    class function Init(const p1,p2:TVec2d):TLine2; static;
+   class function Intersect(const l1,l2:TLine2;out p:TVec2d):TStatus; static;
    function Deviation(const point:TVec2d):double; inline;
   end;
 
@@ -110,6 +116,11 @@ interface
 
   TSegment2=packed record
    x1,y1,x2,y2:double;
+   class function Init(x1,y1,x2,y2:integer):TSegment2; overload; static;
+   class function Init(x1,y1,x2,y2:double):TSegment2; overload; static;
+   procedure PointInfo(const pnt:TVec2d;out parameter,deviation:double);
+   class function Intersect(const s1,s2:TSegment2;out p:TVec2d;out param1,param2:double):TStatus; static;
+   function PointInTriangle(const a,b,c:TVec2d):integer;
    function IsDegenerate:boolean; inline;
   end;
 
@@ -167,39 +178,11 @@ interface
   InvalidPoint2:TVec2d=(x:NaN;y:NaN);
   InvalidVec2:TVec2=(x:NaN;y:NaN);
 
- // Vector functions
- // Difference between 2 directions (angle) (result is signed: from -Pi to +Pi)!
- function AngleDiff(a1,a2:double):double; inline;
-
- // Comparison
- function IsEqual(a,b:TVec2d):boolean; inline;
- // Lexicographical compare (-1 if a<b, 0 if a=b, 1 if a>b)
- function LexCompare(a,b:TVec2d):integer; inline;
-
  // Setup point
  function Vec2(x,y:single):TVec2; overload; inline;
  function Vec2(v:TVec2d):TVec2; overload; inline;
  function Vec2d(x,y:double):TVec2d; overload; inline;
  function Vec2d(v:TVec2):TVec2d; overload; inline;
- function IntersectLines(l1,l2:TLine2;out p:TVec2d):TStatus;
-
- // Is point inside trg? (1 - inside, 0 - on border, -1 - outside)
- function PointInTrg(a,b,c,pnt:TVec2d):integer;
-
- // Returns random point in a circle (0,0,R)
- function RandomPointInCircle(r:single):TVec2;
-
- // Setup segment by points
- function Segment2(x1,y1,x2,y2:integer):TSegment2; overload;
- function Segment2(x1,y1,x2,y2:double):TSegment2; overload;
- // Segment operations
- // Locate point at segment (parameter: 0..1, deviation is absolute)
- procedure PointOnSegment(segm:TSegment2;pnt:TVec2d;
-             out parameter,deviation:double);
- function IntersectSegm(s1,s2:Tsegment2;
-            out p:TVec2d;out param1,param2:double):TStatus;
- // Calculate Bezier curve from p0 to p3 with control points p1 and p2 (t = 0..1)
- function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
 
  // Integer operations
  // Rect relation: 0 no intersection, 1 r1 inside r2, 2 r2 inside r1, 4 intersect
