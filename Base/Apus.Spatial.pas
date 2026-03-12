@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------
+// -----------------------------------------------------
 // Spatial primitives and intersection helpers
 // Author: Apus Engine contributors
 // ------------------------------------------------------
@@ -54,9 +54,7 @@ type
     function IntersectsBox(const box: TBBox3): boolean;
   end;
 
-  TSpatial = record
-    class function DistanceToPlane(const plane: TVec4; const p: TVec3): single; static;
-  end;
+function PlaneDistance(const plane:TVec4;const p:TVec3):single; inline;
 
 implementation
 
@@ -457,7 +455,7 @@ var
 begin
   for i:=0 to planeCount - 1 do
   begin
-    d:=TSpatial.DistanceToPlane(planes[i], sphere.center);
+    d:=PlaneDistance(planes[i], sphere.center);
     if d < -sphere.radius then begin
       exit(false);
     end;
@@ -477,16 +475,14 @@ begin
   for i:=0 to planeCount - 1 do
   begin
     p:=SelectPositiveVertex(box, planes[i].x, planes[i].y, planes[i].z);
-    if TSpatial.DistanceToPlane(planes[i], p) < 0 then begin
+    if PlaneDistance(planes[i], p) < 0 then begin
       exit(false);
     end;
   end;
   result:=true;
 end;
 
-{ TSpatial }
-
-class function TSpatial.DistanceToPlane(const plane: TVec4; const p: TVec3): single;
+function PlaneDistance(const plane:TVec4;const p:TVec3):single;
 begin
   result:=plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w;
 end;
