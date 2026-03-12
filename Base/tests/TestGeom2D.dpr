@@ -40,7 +40,7 @@ begin
 
   pd0:=Point2(1,2);
   pd1:=Point2(1+1E-13,2-1E-13);
-  Check(AboutEqual(pd0,pd1),'AboutEqual');
+  Check(IsEqual(pd0,pd1),'IsEqual vec2d');
   Check(LexCompare(Point2(1,2),Point2(1,3))<0,'LexCompare y');
   Check(LexCompare(Point2(2,10),Point2(1,9))>0,'LexCompare x');
   EndTest;

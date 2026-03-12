@@ -159,7 +159,7 @@ interface
  function AngleDiff(a1,a2:double):double; inline;
 
  // Comparison
- function AboutEqual(a,b:TVec2d):boolean; inline;
+ function IsEqual(a,b:TVec2d):boolean; inline;
  // Lexicographical compare (-1 if a<b, 0 if a=b, 1 if a>b)
  function LexCompare(a,b:TVec2d):integer; inline;
 
@@ -459,7 +459,7 @@ implementation
      result:=result-2*pi*int(result/(2*pi));}
   end;
 
- function AboutEqual;
+ function IsEqual;
   begin
    result:=(abs(a.x-b.x)<=Epsilon) and
            (abs(a.y-b.y)<=Epsilon);
