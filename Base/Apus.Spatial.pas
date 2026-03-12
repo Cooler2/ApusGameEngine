@@ -47,6 +47,10 @@ type
   end;
 
   TFrustum = record
+  private
+    class function PlaneDistance(const plane:TVec4;const p:TVec3):single; static; inline;
+    class function SelectPositiveVertex(const box:TBBox3;nx,ny,nz:single):TVec3; static; inline;
+  public
     planes: array[0..5] of TVec4; // near, far, left, right, top, bottom
     planeCount: byte; // 4 or 6
     procedure InitFromMVP(const mvp: TMat4; includeNearFar: boolean = true);
@@ -59,8 +63,6 @@ implementation
 const
   SpatialEpsilon = 1E-5;
 
-function PlaneDistance(const plane:TVec4;const p:TVec3):single; forward;
-
 procedure NormalizePlane(var p: TVec4); inline;
 var
   invLen: single;
@@ -72,25 +74,6 @@ begin
     p.y:=p.y * invLen;
     p.z:=p.z * invLen;
     p.w:=p.w * invLen;
-  end;
-end;
-
-function SelectPositiveVertex(const box:TBBox3;nx,ny,nz:single):TVec3; inline;
-begin
-  if nx>=0 then begin
-    result.x:=box.maxX
-  end else begin
-    result.x:=box.minX;
-  end;
-  if ny>=0 then begin
-    result.y:=box.maxY
-  end else begin
-    result.y:=box.minY;
-  end;
-  if nz>=0 then begin
-    result.z:=box.maxZ
-  end else begin
-    result.z:=box.minZ;
   end;
 end;
 
@@ -482,9 +465,28 @@ begin
   result:=true;
 end;
 
-function PlaneDistance(const plane:TVec4;const p:TVec3):single;
+class function TFrustum.PlaneDistance(const plane:TVec4;const p:TVec3):single;
 begin
   result:=plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w;
+end;
+
+class function TFrustum.SelectPositiveVertex(const box:TBBox3;nx,ny,nz:single):TVec3;
+begin
+  if nx>=0 then begin
+    result.x:=box.maxX
+  end else begin
+    result.x:=box.minX;
+  end;
+  if ny>=0 then begin
+    result.y:=box.maxY
+  end else begin
+    result.y:=box.minY;
+  end;
+  if nz>=0 then begin
+    result.z:=box.maxZ
+  end else begin
+    result.z:=box.minZ;
+  end;
 end;
 
 end.
