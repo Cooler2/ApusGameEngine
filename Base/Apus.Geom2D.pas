@@ -93,6 +93,7 @@ interface
 
   TSegment2=packed record
    x1,y1,x2,y2:double;
+   function IsDegenerate:boolean; inline;
   end;
 
   TMat2d=array[0..1,0..1] of double;
@@ -188,8 +189,6 @@ interface
              out parameter,deviation:double);
  function IntersectSegm(s1,s2:Tsegment2;
             out p:TVec2d;out param1,param2:double):TStatus;
- function SegmAboutZero(segm:TSegment2):boolean;
-
  // Calculate Bezier curve from p0 to p3 with control points p1 and p2 (t = 0..1)
  function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
 
@@ -617,12 +616,6 @@ function TLine2.Deviation(const point:TVec2d):double;
                 (r2.top>=r1.top) and (r2.bottom<=r1.bottom))*2+
             byte((r2.Left<=r1.Right) and (r2.right>=r1.left) and
                 (r2.top<=r1.bottom) and (r2.bottom>=r1.top))*4;
-  end;
-
- function SegmAboutZero;
-  begin
-   result:=(abs(segm.x2-segm.x1)<Epsilon) and
-           (abs(segm.y2-segm.y1)<Epsilon);
   end;
 
  procedure OrderRect;
@@ -1130,6 +1123,13 @@ procedure TVec2.Wrap(max:single);
  begin
   x:=Apus.Core.Wrap(x,max);
   y:=Apus.Core.Wrap(y,max);
+ end;
+
+{ TSegment2 }
+
+function TSegment2.IsDegenerate:boolean;
+ begin
+  result:=(abs(x2-x1)<Epsilon) and (abs(y2-y1)<Epsilon);
  end;
 
 end.
