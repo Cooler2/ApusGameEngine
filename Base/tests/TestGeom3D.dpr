@@ -170,7 +170,7 @@ begin
   q:=TQuat.Init(1,2,3,4);
   v:=MatRow(IdentMat4,0);
   v:=MatCol(IdentMat4,0);
-  q:=Vec4(p0);
+  q:=TQuat.Init(p0);
   q:=TQuat.Init(0,0,0,1);
   Check(Abs(QuatLength(q)-1)<0.0001,'QuatLength');
   QuatNormalize(q);
@@ -192,7 +192,7 @@ begin
   qd:=QuatInvert(qd);
   qd:=QuatMultiply(qd,TQuatd.Init(0,0,0,1));
   Check(qd.IsValid,'Quaternion double ops');
-  qdv:=Vec4(pd);
+  qdv:=TQuatd.Init(pd);
   Check(IsEqual(qdv,TQuatd.Init(1,2,3,1),2),'Vec4 double overload');
   QuaternionToMatrix(qd,m3d);
   qd:=MatrixToQuaternion(m3d);

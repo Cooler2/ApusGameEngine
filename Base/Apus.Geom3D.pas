@@ -60,7 +60,8 @@ interface
   TVec3Array=array of TVec3;
 
   TQuatd=record
-   constructor Init(x,y,z,w:double);
+   constructor Init(x,y,z,w:double); overload;
+   constructor Init(vec3:TVec3d); overload;
    procedure Add(const q:TQuatd); overload;
    procedure Add(const q:TQuatd;scale:double); overload;
    procedure Mul(scalar:double); overload;
@@ -155,8 +156,6 @@ interface
 
  function Point3(p:TVec3):TVec3d; overload; inline;
  function Direction3(from,target:TVec3d):TVec3d; overload; inline;
- function Vec4(vector:TVec3d):TQuatd; overload; inline;
- function Vec4(vector:TVec3):TVec4; overload; inline;
  // Matrix conversion
  function Matrix4(from:TMat34d):TMat4d; overload;
  function Matrix4(from:TMat4):TMat4d; overload;
@@ -350,22 +349,6 @@ implementation
    result.x:=target.x-from.x;
    result.y:=target.y-from.y;
    result.z:=target.z-from.z;
-  end;
-
- function Vec4(vector:TVec3d):TQuatd; overload; inline;
-  begin
-   result.x:=vector.x;
-   result.y:=vector.y;
-   result.z:=vector.z;
-   result.w:=1;
-  end;
-
- function Vec4(vector:TVec3):TVec4; overload; inline;
-  begin
-   result.x:=vector.x;
-   result.y:=vector.y;
-   result.z:=vector.z;
-   result.w:=1;
   end;
 
  function Matrix4(from:TMat34d):TMat4d;
@@ -2130,6 +2113,14 @@ procedure TVec3.Multiply(scalar:single);
 constructor TQuatd.Init(x,y,z,w:double);
  begin
   self.x:=x; self.y:=y; self.z:=z; self.w:=w;
+ end;
+
+constructor TQuatd.Init(vec3:TVec3d);
+ begin
+  self.x:=vec3.x;
+  self.y:=vec3.y;
+  self.z:=vec3.z;
+  self.w:=1;
  end;
 
 function TQuatd.IsValid:boolean;
