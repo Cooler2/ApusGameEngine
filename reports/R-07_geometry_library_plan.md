@@ -408,3 +408,14 @@ Status:
 
 Proposed next step:
 - Gate C / Step 1: start full public function naming review and create a concrete rename list for ambiguous/redundant API names (with backward-compatibility mapping).
+
+### 2026-03-12 - Gate C / Step 1 completed
+
+Status:
+- Completed public naming review for `Geom2D/Geom3D/Spatial`.
+- Added report with rename/deprecation map:
+  - `reports/R-07_gateC_naming_review.md`
+- Identified high-value canonical rename candidates (typo/abbreviation cleanup), while keeping compatibility wrappers for migration.
+
+Proposed next step:
+- Gate C / Step 2: implement first low-risk canonical alias batch (starting with `DecomposeMatrix` alias for `DecomposeMartix`), migrate tests/new code to canonical names, and mark old names deprecated.
