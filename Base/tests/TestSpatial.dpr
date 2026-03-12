@@ -157,6 +157,7 @@ var
   fr: TFrustum;
   sphere: TSphere;
   box: TBBox3;
+  degMVP:TMat4;
 begin
   StartTest('Frustum');
   fr.InitFromMVP(IdentMatrix4s, true);
@@ -187,6 +188,14 @@ begin
 
   fr.InitFromMVP(IdentMatrix4s, false);
   Check(fr.planeCount = 4, '4-plane mode');
+
+  FillChar(degMVP, SizeOf(degMVP), 0);
+  fr.InitFromMVP(degMVP, true);
+  sphere:=TSphere.Init(Point3s(100, 0, 0), 1);
+  Check(fr.IntersectsSphere(sphere), 'degenerate mvp sphere fallback');
+  box.minX:=100; box.minY:=100; box.minZ:=100;
+  box.maxX:=101; box.maxY:=101; box.maxZ:=101;
+  Check(fr.IntersectsBox(box), 'degenerate mvp box fallback');
   EndTest;
 end;
 
