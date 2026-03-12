@@ -72,12 +72,12 @@ interface
    procedure Init(x1,y1,x2,y2:single); overload; inline;
    procedure InitWH(x,y,width,height:single); overload; inline;
    procedure MoveBy(dx,dy:single); overload; inline;
-   procedure MoveBy(delta:TVector2s); overload; inline;
+   procedure MoveBy(delta:TVec2); overload; inline;
    procedure Include(x,y:single); overload; inline;
    procedure Include(r:TRect2s); overload; inline;
    procedure Round;
    function IsEmpty:boolean; inline;
-   function Center:TPoint2s; inline;
+   function Center:TVec2; inline;
    function GetIntRect:TRect;
    case integer of
     0:( x1,y1,x2,y2:single; );
@@ -114,27 +114,27 @@ interface
  // Vector functions
  function DotProduct(const a,b:TVector2):double; overload; inline;
  function CrossProduct(const a,b:TVector2):double; overload; inline;
- function DotProduct(const a,b:TVector2s):single; overload; inline;
- function CrossProduct(const a,b:TVector2s):single; overload; inline;
+ function DotProduct(const a,b:TVec2):single; overload; inline;
+ function CrossProduct(const a,b:TVec2):single; overload; inline;
  function GetLength(v:TVector2):double; overload; inline;
- function GetLength(v:TVector2s):double; overload; inline;
+ function GetLength(v:TVec2):double; overload; inline;
  function Distance(p1,p2:TPoint2):double; overload;
- function Distance(p1,p2:TPoint2s):single; overload;
+ function Distance(p1,p2:TVec2):single; overload;
  function Distance2(p1,p2:TPoint2):double; overload;
- function Distance2(p1,p2:TPoint2s):single; overload;
+ function Distance2(p1,p2:TVec2):single; overload;
  function GetSqrLength(v:TVector2):double; overload; inline;
  procedure Normalize(var v:TVector2); overload; inline;
- procedure Normalize(var v:TVector2s); overload; inline;
+ procedure Normalize(var v:TVec2); overload; inline;
  function PointAdd(p:TPoint2;v:TVector2;factor:double=1.0):TPoint2; inline; overload;
- function PointAdd(p:TPoint2s;v:TVector2s;factor:double=1.0):TPoint2s; inline; overload;
+ function PointAdd(p:TVec2;v:TVec2;factor:double=1.0):TVec2; inline; overload;
  procedure VectAdd(var a:TVector2;const b:TVector2); overload; inline;
  procedure VectSub(var a:Tvector2;const b:TVector2); overload; inline;
- procedure VectAdd(var a:TVector2s;const b:TVector2s); inline; overload;
- procedure VectSub(var a:Tvector2s;const b:TVector2s); inline; overload;
+ procedure VectAdd(var a:TVec2;const b:TVec2); inline; overload;
+ procedure VectSub(var a:TVec2;const b:TVec2); inline; overload;
  function VectMult(v:TVector2;value:double):TVector2; inline; overload;
- function VectMult(a,b:TVector2s):TVector2s; inline; overload;
- function VectDiv(a,b:TVector2s):TVector2s; inline;
- procedure VectInv(var v:TVector2s); inline;
+ function VectMult(a,b:TVec2):TVec2; inline; overload;
+ function VectDiv(a,b:TVec2):TVec2; inline;
+ procedure VectInv(var v:TVec2); inline;
  // Turn counterclockwise (angle in radians)
  procedure VectTurn(var v:TVector2;angle:double); inline;
  procedure Turn90Right(var v:TVector2);  inline;
@@ -143,10 +143,10 @@ interface
  function Turn90L(v:TVector2):TVector2; inline;
  // Angle between vectors (radians)
  function VectAngle(v1,v2:TVector2):double; overload;
- function VectAngle(v1,v2:TVector2s):single; overload;
+ function VectAngle(v1,v2:TVec2):single; overload;
  // Angle between vector and X axis (CCW direction if Y is up), -Pi..Pi
  function VectAngle(v:TVector2):double; overload; inline;
- function VectAngle(v:TVector2s):single; overload; inline;
+ function VectAngle(v:TVec2):single; overload; inline;
  // how much vector v1 must be rotated in clockwise direction to obtain v2 direction
  function VectAngleClockwise(v1,v2:TVector2):double; inline;
  // Difference between 2 directions (angle) (result is signed: from -Pi to +Pi)!
@@ -159,14 +159,14 @@ interface
 
  // Setup point
  function Point2(x,y:double):TPoint2; overload; inline;
- function Point2(pnt:TPoint2s):TPoint2; overload; inline;
- function Point2s(x,y:double):TPoint2s; overload; inline;
- function Point2s(pnt:TPoint2):TPoint2s; overload; inline;
+ function Point2(pnt:TVec2):TPoint2; overload; inline;
+ function Point2s(x,y:double):TVec2; overload; inline;
+ function Point2s(pnt:TPoint2):TVec2; overload; inline;
  function PointBlend(p1,p2:TPoint2;factor:double):TPoint2; overload;
- function PointBlend(p1,p2:TPoint2s;factor:single):TPoint2s; overload;
+ function PointBlend(p1,p2:TVec2;factor:single):TVec2; overload;
  // Setup vector (from source to target)
  function Vector2(source,target:TPoint2):TVector2; inline;
- function Vector2s(source,target:TPoint2s):TVector2s; inline;
+ function Vector2s(source,target:TVec2):TVec2; inline;
  // Unit vector with given direction (CCW from X-axis)
  function Direction(angle:double):TVector2; inline;
  // Setup line by points
@@ -177,7 +177,7 @@ interface
  function PointInTrg(a,b,c,pnt:TPoint2):integer;
 
  // Returns random point in a circle (0,0,R)
- function RandomPointInCircle(r:single):TPoint2s;
+ function RandomPointInCircle(r:single):TVec2;
 
  // Setup segment by points
  function Segment2(x1,y1,x2,y2:integer):TSegment2; overload;
@@ -245,12 +245,12 @@ implementation
    result:=a.x*b.y-a.y*b.x;
   end;
 
- function DotProduct(const a,b:TVector2s):single;
+ function DotProduct(const a,b:TVec2):single;
   begin
    result:=a.x*b.x+a.y*b.y;
   end;
 
- function CrossProduct(const a,b:TVector2s):single;
+ function CrossProduct(const a,b:TVec2):single;
   begin
    result:=a.x*b.y-a.y*b.x;
   end;
@@ -260,7 +260,7 @@ implementation
    result:=sqrt(v.x*v.x+v.y*v.y);
   end;
 
- function GetLength(v:TVector2s):double;
+ function GetLength(v:TVec2):double;
   begin
    result:=sqrt(v.x*v.x+v.y*v.y);
   end;
@@ -270,7 +270,7 @@ implementation
   begin
    result:=sqrt(sqr(p2.x-p1.x)+sqr(p2.y-p1.y));
   end;
- function Distance(p1,p2:TPoint2s):single; overload;
+ function Distance(p1,p2:TVec2):single; overload;
   begin
    result:=sqrt(sqr(p2.x-p1.x)+sqr(p2.y-p1.y));
   end;
@@ -279,7 +279,7 @@ implementation
   begin
    result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y);
   end;
- function Distance2(p1,p2:TPoint2s):single; overload;
+ function Distance2(p1,p2:TVec2):single; overload;
   begin
    result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y);
   end;
@@ -300,7 +300,7 @@ implementation
    v.y:=v.y/l;
   end;
 
- procedure Normalize(var v:TVector2s);
+ procedure Normalize(var v:TVec2);
   var
    l:double;
   begin
@@ -323,13 +323,13 @@ implementation
    a.y:=a.y-b.y;
   end;
 
- procedure VectAdd(var a:TVector2s;const b:TVector2s); inline;
+ procedure VectAdd(var a:TVec2;const b:TVec2); inline;
   begin
    a.x:=b.x+a.x;
    a.y:=b.y+a.y;
   end;
 
- procedure VectSub(var a:TVector2s;const b:TVector2s);
+ procedure VectSub(var a:TVec2;const b:TVec2);
   begin
    a.x:=a.x-b.x;
    a.y:=a.y-b.y;
@@ -341,19 +341,19 @@ implementation
    result.y:=v.y*value;
   end;
 
- function VectMult(a,b:TVector2s):TVector2s; inline; overload;
+ function VectMult(a,b:TVec2):TVec2; inline; overload;
   begin
    result.x:=a.x*b.x;
    result.y:=a.y*b.y;
   end;
 
- function VectDiv(a,b:TVector2s):TVector2s; inline;
+ function VectDiv(a,b:TVec2):TVec2; inline;
   begin
    result.x:=a.x/b.x;
    result.y:=a.y/b.y;
   end;
 
- procedure VectInv(var v:TVector2s);
+ procedure VectInv(var v:TVec2);
   begin
    v.x:=1/v.x;
    v.y:=1/v.y;
@@ -365,7 +365,7 @@ implementation
    result.y:=p.y+v.y*factor;
   end;
 
- function PointAdd(p:TPoint2s;v:TVector2s;factor:double=1.0):TPoint2s; inline;
+ function PointAdd(p:TVec2;v:TVec2;factor:double=1.0):TVec2; inline;
   begin
    result.x:=p.x+v.x*factor;
    result.y:=p.y+v.y*factor;
@@ -429,7 +429,7 @@ implementation
    result:=ArcTan2(v.y,v.x);
   end;
 
- function VectAngle(v1,v2:TVector2s):single;
+ function VectAngle(v1,v2:TVec2):single;
   var
    p:single;
   begin
@@ -441,7 +441,7 @@ implementation
    result:=ArcCos(p);
   end;
 
- function VectAngle(v:TVector2s):single;
+ function VectAngle(v:TVec2):single;
   begin
    result:=ArcTan2(v.y,v.x);
   end;
@@ -505,19 +505,19 @@ implementation
    result.y:=y;
   end;
 
- function Point2(pnt:TPoint2s):TPoint2; overload; inline;
+ function Point2(pnt:TVec2):TPoint2; overload; inline;
   begin
    result.x:=pnt.x;
    result.y:=pnt.y;
   end;
 
- function Point2s(x,y:double):TPoint2s;
+ function Point2s(x,y:double):TVec2;
   begin
    result.x:=x;
    result.y:=y;
   end;
 
- function Point2s(pnt:TPoint2):TPoint2s;
+ function Point2s(pnt:TPoint2):TVec2;
   begin
    result.x:=pnt.x;
    result.y:=pnt.y;
@@ -529,7 +529,7 @@ implementation
    result.y:=p1.y*(1-factor)+p2.y*factor;
   end;
 
- function PointBlend(p1,p2:TPoint2s;factor:single):TPoint2s;
+ function PointBlend(p1,p2:TVec2;factor:single):TVec2;
   begin
    result.x:=p1.x*(1-factor)+p2.x*factor;
    result.y:=p1.y*(1-factor)+p2.y*factor;
@@ -541,7 +541,7 @@ implementation
    result.y:=target.y-source.y;
   end;
 
- function Vector2s(source,target:TPoint2s):TVector2s;
+ function Vector2s(source,target:TVec2):TVec2;
   begin
    result.x:=target.x-source.x;
    result.y:=target.y-source.y;
@@ -786,7 +786,7 @@ implementation
    result.y:=p0.y*b0+p1.y*b1+p2.y*b2+p3.y*b3;
   end;
 
- function RandomPointInCircle(r:single):TPoint2s;
+ function RandomPointInCircle(r:single):TVec2;
   var
    r2:single;
   begin
@@ -921,7 +921,7 @@ function TRect2s.IsEmpty:boolean;
    y1:=y1+dy; y2:=y2+dy;
   end;
 
- procedure TRect2s.MoveBy(delta:TVector2s);
+ procedure TRect2s.MoveBy(delta:TVec2);
   begin
    MoveBy(delta.x,delta.y);
   end;
@@ -934,7 +934,7 @@ function TRect2s.IsEmpty:boolean;
    y2:=FRound(y2);
   end;
 
-function TRect2s.Center: TPoint2s;
+function TRect2s.Center: TVec2;
   begin
    result.x:=(x1+x2)/2;
    result.y:=(y1+y2)/2;

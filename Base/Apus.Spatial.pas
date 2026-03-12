@@ -15,7 +15,8 @@ type
   TBBox3 = packed record
     minX,minY,minZ:single;
     maxX,maxY,maxZ:single;
-    class function Init(const pMin,pMax:TVec3):TBBox3; static;
+    class function Init(const pMin,pMax:TVec3):TBBox3; overload; static;
+    class function Init(const box:TBBox3s):TBBox3; overload; static;
     class function FromBBox(const box:TBBox3s):TBBox3; static;
     function ToBBox:TBBox3s;
     procedure Clear;
@@ -109,10 +110,15 @@ begin
   result.maxX:=pMax.x; result.maxY:=pMax.y; result.maxZ:=pMax.z;
 end;
 
-class function TBBox3.FromBBox(const box:TBBox3s):TBBox3;
+class function TBBox3.Init(const box:TBBox3s):TBBox3;
 begin
   result.minX:=box.minX; result.minY:=box.minY; result.minZ:=box.minZ;
   result.maxX:=box.maxX; result.maxY:=box.maxY; result.maxZ:=box.maxZ;
+end;
+
+class function TBBox3.FromBBox(const box:TBBox3s):TBBox3;
+begin
+  result:=Init(box);
 end;
 
 function TBBox3.ToBBox:TBBox3s;
@@ -328,7 +334,7 @@ end;
 
 function TRay.IntersectsBox(const box: TBBox3s; out tMin, tMax: single): boolean;
 begin
-  result:=IntersectsBox(TBBox3.FromBBox(box),tMin,tMax);
+  result:=IntersectsBox(TBBox3.Init(box),tMin,tMax);
 end;
 
 function TRay.IntersectsBox(const box:TBBox3;out tMin,tMax:single):boolean;
@@ -477,7 +483,7 @@ end;
 
 function TFrustum.IntersectsBox(const box: TBBox3s): boolean;
 begin
-  result:=IntersectsBox(TBBox3.FromBBox(box));
+  result:=IntersectsBox(TBBox3.Init(box));
 end;
 
 function TFrustum.IntersectsBox(const box:TBBox3):boolean;
