@@ -19,20 +19,22 @@ unit Apus.Geom3D;
 interface
  uses Apus.Geom2D;
  type
-  PPoint3=^TPoint3;
-  PVector3=^TVector3;
-  TPoint3=packed record
+  PPoint3=^TVec3d;
+  PVector3=^TVec3d;
+  TVec3d=packed record
    x,y,z:double;
    constructor Init(X,Y,Z:double);
    procedure Normalize;
    function IsValid:boolean;
   end;
-  TVector3=TPoint3;
+  TPoint3=TVec3d deprecated 'Use TVec3d';
+  TVector3=TVec3d deprecated 'Use TVec3d';
+  PVec3d=^TVec3d;
 
   PPoint3s=^TVec3;
   TVec3=packed record
    constructor Init(X,Y,Z:single); overload;
-   constructor Init(p:TPoint3); overload;
+   constructor Init(p:TVec3d); overload;
    constructor Init(p0,p1:TVec3;t:single); overload;
    constructor Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single); overload;
    constructor SetBetween(p0,p1:TVec3;t:single);
@@ -70,7 +72,7 @@ interface
    case integer of
     1:( x,y,z,w:double; );
     2:( v:array[0..3] of double; );
-    3:( xyz:TPoint3; t:double; );
+    3:( xyz:TVec3d; t:double; );
   end;
 
   { TQuaternionS }
@@ -106,14 +108,14 @@ interface
   // Infinite plane in space
   TPlane=packed record
    a,b,c,d:double;
-   class function Init(const point,normal:TVector3):TPlane; static;
-   function Offset(const pnt:TPoint3):double; inline;
+   class function Init(const point,normal:TVec3d):TPlane; static;
+   function Offset(const pnt:TVec3d):double; inline;
   end;
 
   // Infinite oriented line in space
   TLine3=packed record
-   origin:TPoint3;
-   dir:TVector3;
+   origin:TVec3d;
+   dir:TVec3d;
   end;
 
   // Bounding box with low precision
@@ -144,8 +146,8 @@ interface
   TMatrix4s=array[0..3,0..3] of single; // rotation/scale/translation
   TMat4=TMatrix4s;
   // Synonims
-  TMatrix3v=array[0..2] of TVector3;
-  TMatrix43v=array[0..3] of TVector3;
+  TMatrix3v=array[0..2] of TVec3d;
+  TMatrix43v=array[0..3] of TVec3d;
 
   // Low precision matrices
   PMatrix3s=^TMatrix3s;
@@ -167,21 +169,21 @@ interface
   IdentMatrix4:TMatrix4=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
   IdentMatrix4s:TMatrix4s=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
 
-  NullPoint:TPoint3=(x:0;y:0;z:0);
+  NullPoint:TVec3d=(x:0;y:0;z:0);
   NullPointS:TPoint3s=(x:0;y:0;z:0);
-  InvalidPoint3:TPoint3=(x:NaN;y:NaN;z:NaN);
+  InvalidPoint3:TVec3d=(x:NaN;y:NaN;z:NaN);
   InvalidPoint3s:TPoint3s=(x:NaN;y:NaN;z:NaN);
 
- function Point3(x,y,z:double):TPoint3; overload; inline;
+ function Point3(x,y,z:double):TVec3d; overload; inline;
  function Point3s(x,y,z:single):TVec3; overload; inline;
- function Point3(p:TVec3):TPoint3; overload; inline;
- function Point3s(p:TPoint3):TVec3; overload; inline;
- function Vector3(x,y,z:double):TVector3; overload; inline;
+ function Point3(p:TVec3):TVec3d; overload; inline;
+ function Point3s(p:TVec3d):TVec3; overload; inline;
+ function Vector3(x,y,z:double):TVec3d; overload; inline;
  function Vector3s(x,y,z:single):TVec3; overload; inline;
- function Vector3(from,target:TPoint3):TVector3; overload; inline;
+ function Vector3(from,target:TVec3d):TVec3d; overload; inline;
  function Vector3s(from,target:TVec3):TVec3; overload; inline;
- function Vector3s(vector:TVector3):TVec3; overload; inline;
- function Vector4(vector:TVector3):TVector4; overload; inline;
+ function Vector3s(vector:TVec3d):TVec3; overload; inline;
+ function Vector4(vector:TVec3d):TVector4; overload; inline;
  function Vector4s(vector:TVec3):TVec4; overload; inline;
  function Quaternion(x,y,z,w:double):TQuaternion; overload; inline;
  function QuaternionS(x,y,z,w:single):TQuaternionS; overload; inline;
@@ -206,39 +208,39 @@ interface
  function MatCol(const mat:TMat3; n:integer):TVec3; overload;
 
  // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой
- function DotProduct(a,b:TVector3):double; overload;
+ function DotProduct(a,b:TVec3d):double; overload;
  function DotProduct(a,b:TVec3):double; overload;
  // Векторное произведение: модуль равен площади ромба
- function CrossProduct(a,b:TVector3):TVector3; overload;
+ function CrossProduct(a,b:TVec3d):TVec3d; overload;
  function CrossProduct(a,b:TVec3):TVec3; overload;
- function GetLength(v:TVector3):double; overload;
+ function GetLength(v:TVec3d):double; overload;
  function GetLength(v:TVec3):double; overload;
- function GetSqrLength(v:TVector3):double; overload;
+ function GetSqrLength(v:TVec3d):double; overload;
  function GetSqrLength(v:TVec3):single; overload;
- procedure Normalize(var v:TVector3); overload;
+ procedure Normalize(var v:TVec3d); overload;
  procedure Normalize(var v:TVec3); overload;
- procedure VectAdd(var a:TVector3;b:TVector3); overload;
+ procedure VectAdd(var a:TVec3d;b:TVec3d); overload;
  procedure VectAdd(var a:TVec3;b:TVec3); overload;
- procedure VectSub(var a:TVector3;b:TVector3);
- procedure VectMult(var a:TVector3;k:double); overload;
+ procedure VectSub(var a:TVec3d;b:TVec3d);
+ procedure VectMult(var a:TVec3d;k:double); overload;
  procedure VectMult(var a:TVec3;k:double); overload;
- function VecMult(a:TVector3;k:double):TVector3; overload;
+ function VecMult(a:TVec3d;k:double):TVec3d; overload;
  function VecMult(a:TVec3;k:double):TVec3; overload;
- function PointAdd(p:TPoint3;v:TVector3;factor:double=1.0):TPoint3; overload; inline;
+ function PointAdd(p:TVec3d;v:TVec3d;factor:double=1.0):TVec3d; overload; inline;
  function PointAdd(p:TVec3;v:TVec3;factor:single=1.0):TVec3; overload; inline;
- function Distance(p1,p2:TPoint3):double; overload;
+ function Distance(p1,p2:TVec3d):double; overload;
  function Distance(p1,p2:TVec3):single; overload;
- function Distance2(p1,p2:TPoint3):double; overload;
+ function Distance2(p1,p2:TVec3d):double; overload;
  function Distance2(p1,p2:TVec3):single; overload;
 
- procedure PointBetween(const p1,p2:TPoint3;t:double;out p:TPoint3); overload;
+ procedure PointBetween(const p1,p2:TVec3d;t:double;out p:TVec3d); overload;
  procedure PointBetween(const p1,p2:TVec3;t:single;out p:TVec3); overload;
 
  function IsNearS(a,b:TVec3):single;
- function IsNear(a,b:TPoint3):double;
+ function IsNear(a,b:TVec3d):double;
 
  // Compare with tolerance
- function IsZero(v:TPoint3):boolean; overload; inline;
+ function IsZero(v:TVec3d):boolean; overload; inline;
  function IsZero(v:TVec3):boolean; overload; inline;
  function IsIdentity(v:TVec3):boolean; overload; inline;
  function IsIdentity(m:TMatrix43):boolean; overload;
@@ -249,7 +251,7 @@ interface
 
  function IsEqual(v1,v2:TVec3;precision:single=2.0):boolean; overload; inline;
  function IsEqual(v1,v2:TVec4;precision:single=2.0):boolean; overload; inline;
- function IsEqual(v1,v2:TVector3;precision:single=2.0):boolean; overload; inline;
+ function IsEqual(v1,v2:TVec3d;precision:single=2.0):boolean; overload; inline;
  function IsEqual(v1,v2:TVector4;precision:single=2.0):boolean; overload; inline;
 
  function IsEqual(m1,m2:TMatrix4;precision:single=4.0):boolean; overload; inline;
@@ -280,7 +282,7 @@ interface
  function ScaleMat4s(scaleX,scaleY,scaleZ:single):TMat4;
 
  // Матрица поворота вокруг вектора единичной длины!
- function RotationAroundVector(v:TVector3;angle:double):TMatrix3; overload;
+ function RotationAroundVector(v:TVec3d;angle:double):TMatrix3; overload;
  function RotationAroundVector(v:TVec3;angle:single):TMat3; overload;
 
  // Build rotation matrix from a NORMALIZED quaternion
@@ -355,7 +357,7 @@ interface
 
  // Complete 3D transformation (with normalization)
  function TransformPoint(const m:TMat4;v:PPoint3s):TVec3; overload;
- function TransformPoint(const m:TMatrix4;v:PPoint3):TPoint3; overload;
+ function TransformPoint(const m:TMatrix4;v:PPoint3):TVec3d; overload;
 
  // Transpose (для ортонормированной матрицы - это будт обратная)
  procedure Transpose(const m:TMatrix3;out dest:TMatrix3); overload;
@@ -388,8 +390,8 @@ interface
  procedure BBoxIntersect(var b:TBBox3s;const new:TBBox3s);
 
  // Planes
- procedure InitPlane(point,normal:TVector3;var p:TPlane);
- function GetPlaneOffset(p:TPlane;pnt:Tpoint3):double;
+ procedure InitPlane(point,normal:TVec3d;var p:TPlane);
+ function GetPlaneOffset(p:TPlane;pnt:TVec3d):double;
 
  // Special
  // пересечение треугольника ABC с лучом OT
@@ -406,7 +408,7 @@ implementation
   // Compensation for stack frame allocation in x64 mode
   RSP_BIAS = {$IFDEF FPC} 0 {$ELSE} 8 {$ENDIF};
 
- function Point3(x,y,z:double):TPoint3; overload; inline;
+ function Point3(x,y,z:double):TVec3d; overload; inline;
   begin
    result.x:=x;
    result.y:=y;
@@ -420,21 +422,21 @@ implementation
    result.z:=z;
   end;
 
- function Point3(p:TVec3):TPoint3; overload; inline;
+ function Point3(p:TVec3):TVec3d; overload; inline;
   begin
    result.x:=p.x;
    result.y:=p.y;
    result.z:=p.z;
   end;
 
- function Point3s(p:TPoint3):TVec3; overload; inline;
+ function Point3s(p:TVec3d):TVec3; overload; inline;
   begin
    result.x:=p.x;
    result.y:=p.y;
    result.z:=p.z;
   end;
 
- function Vector3(x,y,z:double):TVector3;
+ function Vector3(x,y,z:double):TVec3d;
   begin
    result.x:=x;
    result.y:=y;
@@ -448,7 +450,7 @@ implementation
    result.z:=z;
   end;
 
- function Vector3(from,target:TPoint3):TVector3; overload; inline;
+ function Vector3(from,target:TVec3d):TVec3d; overload; inline;
   begin
    result.x:=target.x-from.x;
    result.y:=target.y-from.y;
@@ -462,14 +464,14 @@ implementation
    result.z:=target.z-from.z;
   end;
 
- function Vector3s(vector:TVector3):TVec3; overload; inline;
+ function Vector3s(vector:TVec3d):TVec3; overload; inline;
   begin
    result.x:=vector.x;
    result.y:=vector.y;
    result.z:=vector.z;
   end;
 
- function Vector4(vector:TVector3):TVector4; overload; inline;
+ function Vector4(vector:TVec3d):TVector4; overload; inline;
   begin
    result.x:=vector.x;
    result.y:=vector.y;
@@ -637,7 +639,7 @@ implementation
    result.z:=mat[2,n];
   end;
 
- function DotProduct(a,b:TVector3):double;
+ function DotProduct(a,b:TVec3d):double;
   begin
    result:=a.x*b.x+a.y*b.y+a.z*b.z;
   end;
@@ -647,7 +649,7 @@ implementation
    result:=a.x*b.x+a.y*b.y+a.z*b.z;
   end;
 
- function CrossProduct(a,b:TVector3):TVector3;
+ function CrossProduct(a,b:TVec3d):TVec3d;
   begin
    result.x:=a.y*b.z-a.z*b.y;
    result.y:=-(a.x*b.z-a.z*b.x);
@@ -661,7 +663,7 @@ implementation
    result.z:=a.x*b.y-a.y*b.x;
   end;
 
- function GetLength(v:TVector3):double;
+ function GetLength(v:TVec3d):double;
   begin
    result:=sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
   end;
@@ -671,7 +673,7 @@ implementation
    result:=sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
   end;
 
- function GetSqrLength(v:TVector3):double;
+ function GetSqrLength(v:TVec3d):double;
   begin
    result:=v.x*v.x+v.y*v.y+v.z*v.z;
   end;
@@ -681,7 +683,7 @@ implementation
    result:=v.x*v.x+v.y*v.y+v.z*v.z;
   end;
 
- procedure Normalize(var v:TVector3);
+ procedure Normalize(var v:TVec3d);
   var
    l:double;
   begin
@@ -705,7 +707,7 @@ implementation
    v.z:=v.z*l;
   end;
 
- procedure VectAdd(var a:TVector3;b:TVector3);
+ procedure VectAdd(var a:TVec3d;b:TVec3d);
   begin
    a.x:=b.x+a.x;
    a.y:=b.y+a.y;
@@ -719,14 +721,14 @@ implementation
    a.z:=b.z+a.z;
   end;
 
- procedure VectSub(var a:TVector3;b:TVector3);
+ procedure VectSub(var a:TVec3d;b:TVec3d);
   begin
    a.x:=a.x-b.x;
    a.y:=a.y-b.y;
    a.z:=a.z-b.z;
   end;
 
- procedure VectMult(var a:TVector3;k:double);
+ procedure VectMult(var a:TVec3d;k:double);
   begin
    a.x:=a.x*k;
    a.y:=a.y*k;
@@ -740,7 +742,7 @@ implementation
    a.z:=a.z*k;
   end;
 
-  function VecMult(a:TVector3;k:double):TVector3;
+  function VecMult(a:TVec3d;k:double):TVec3d;
   begin
    result.x:=a.x*k;
    result.y:=a.y*k;
@@ -754,7 +756,7 @@ implementation
    result.z:=a.z*k;
   end;
 
- function PointAdd(p:TPoint3;v:TVector3;factor:double=1.0):TPoint3; inline;
+ function PointAdd(p:TVec3d;v:TVec3d;factor:double=1.0):TVec3d; inline;
   begin
    result.x:=p.x+v.x*factor;
    result.y:=p.y+v.y*factor;
@@ -767,7 +769,7 @@ implementation
    result.z:=p.z+v.z*factor;
   end;
 
- function Distance(p1,p2:TPoint3):double; overload;
+ function Distance(p1,p2:TVec3d):double; overload;
   begin
    result:=sqrt(sqr(p2.x-p1.x)+sqr(p2.y-p1.y)+sqr(p2.z-p1.z));
   end;
@@ -777,7 +779,7 @@ implementation
    result:=sqrt(sqr(p2.x-p1.x)+sqr(p2.y-p1.y)+sqr(p2.z-p1.z));
   end;
 
- function Distance2(p1,p2:TPoint3):double; overload;
+ function Distance2(p1,p2:TVec3d):double; overload;
   begin
    result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y)+sqr(p2.z-p1.z);
   end;
@@ -787,7 +789,7 @@ implementation
    result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y)+sqr(p2.z-p1.z);
   end;
 
- procedure PointBetween(const p1,p2:TPoint3;t:double;out p:TPoint3); overload;
+ procedure PointBetween(const p1,p2:TVec3d;t:double;out p:TVec3d); overload;
   var
    nt:double;
   begin
@@ -818,7 +820,7 @@ implementation
    if d>result then result:=d;
   end;
 
- function IsNear(a,b:TPoint3):double;
+ function IsNear(a,b:TVec3d):double;
   var
    d:double;
   begin
@@ -829,7 +831,7 @@ implementation
    if d>result then result:=d;
   end;
 
- function IsZero(v:TPoint3):boolean; overload;
+ function IsZero(v:TVec3d):boolean; overload;
   begin
    result:=(abs(v.x)<=Epsilon) and (abs(v.y)<=Epsilon) and (abs(v.z)<=Epsilon);
   end;
@@ -886,7 +888,7 @@ implementation
     result:=CompareSingle(@v1,@v2,4,precision);
   end;
 
- function IsEqual(v1,v2:TVector3;precision:single=2.0):boolean; overload; inline;
+ function IsEqual(v1,v2:TVec3d;precision:single=2.0):boolean; overload; inline;
   begin
     result:=CompareDouble(@v1,@v2,3,precision);
   end;
@@ -1525,7 +1527,7 @@ implementation
     result:=InvalidPoint3s;
   end;
 
- function TransformPoint(const m:TMatrix4;v:PPoint3):TPoint3; overload;
+ function TransformPoint(const m:TMatrix4;v:PPoint3):TVec3d; overload;
   var
    t:double;
   begin
@@ -1667,7 +1669,7 @@ implementation
    result[2,2]:=scaleZ;
   end;
 
- function RotationAroundVector(v:TVector3;angle:double):TMatrix3;
+ function RotationAroundVector(v:TVec3d;angle:double):TMatrix3;
   var
    l2,m2,n2,lm,ln,mn,co,si,nco:double;
   begin
@@ -2070,7 +2072,7 @@ implementation
     result.w:=scale0*result.w + scale1*q2.w;
   end;
 
-class function TPlane.Init(const point,normal:TVector3):TPlane;
+class function TPlane.Init(const point,normal:TVec3d):TPlane;
   var
    len,invLen:double;
   begin
@@ -2086,17 +2088,17 @@ class function TPlane.Init(const point,normal:TVector3):TPlane;
    result.d:=-(result.a*point.x+result.b*point.y+result.c*point.z);
   end;
 
- function TPlane.Offset(const pnt:TPoint3):double;
+ function TPlane.Offset(const pnt:TVec3d):double;
   begin
    result:=pnt.x*a+pnt.y*b+pnt.z*c+d;
   end;
 
- procedure InitPlane(point,normal:TVector3;var p:TPlane);
+ procedure InitPlane(point,normal:TVec3d;var p:TPlane);
   begin
    p:=TPlane.Init(point,normal);
   end;
 
- function GetPlaneOffset(p:TPlane;pnt:Tpoint3):double;
+ function GetPlaneOffset(p:TPlane;pnt:TVec3d):double;
   begin
    result:=p.Offset(pnt);
   end;
@@ -2161,7 +2163,7 @@ class function TPlane.Init(const point,normal:TVector3):TPlane;
   var
    m:TMatrix3;
    mv:TMatrix3v absolute m;
-   l:TVector3;
+   l:TVec3d;
    dt:double;
   begin
    m[0,0]:=B.x-A.x; m[0,1]:=B.y-A.y; m[0,2]:=B.z-A.z;
@@ -2269,7 +2271,7 @@ class function TPlane.Init(const point,normal:TVector3):TPlane;
 
  procedure YawRollPitchFromMatrix(const mat:TMatrix43; var yaw,roll,pitch:double);
   var
-   v:TVector3;
+   v:TVec3d;
    skewA,skewB,skewC:double;
    m,m2:TMatrix43;
    mv:TMatrix43v absolute m;
@@ -2311,19 +2313,19 @@ class function TPlane.Init(const point,normal:TVector3):TPlane;
 
 var
  fSet1,fset2:cardinal;
-{ TPoint3 }
+{ TVec3d }
 
-constructor TPoint3.Init(X,Y,Z:double);
+constructor TVec3d.Init(X,Y,Z:double);
  begin
   self.x:=X; self.y:=Y; self.z:=Z;
  end;
 
-function TPoint3.IsValid: boolean;
+function TVec3d.IsValid: boolean;
  begin
   result:=x=x;
  end;
 
-procedure TPoint3.Normalize;
+procedure TVec3d.Normalize;
  begin
   Apus.Geom3D.Normalize(self);
  end;
@@ -2334,7 +2336,7 @@ constructor TVec3.Init(X,Y,Z:single);
   self.x:=x; self.y:=y; self.z:=z;
  end;
 
-constructor TVec3.Init(p:TPoint3);
+constructor TVec3.Init(p:TVec3d);
  begin
   self.x:=p.x;
   self.y:=p.y;
@@ -2864,4 +2866,5 @@ initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
 
 end.
+
 
