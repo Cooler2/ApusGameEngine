@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------
+// -----------------------------------------------------
 // 2D geometry common high-precision functions
 // Author: Ivan Polyacov (C) 2002, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -169,7 +169,7 @@ interface
  function PointBlend(p1,p2:TVec2d;factor:double):TVec2d; overload;
  function PointBlend(p1,p2:TVec2;factor:single):TVec2; overload;
  // Setup vector (from source to target)
- function Vector2(source,target:TVec2d):TVec2d; inline;
+ function Direction2(source,target:TVec2d):TVec2d; inline;
  // Unit vector with given direction (CCW from X-axis)
  function Direction(angle:double):TVec2d; inline;
  function IntersectLines(l1,l2:TLine2;out p:TVec2d):TStatus;
@@ -193,10 +193,10 @@ interface
  function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
 
  // Integer operations
- // РІР·Р°РёРјРЅРѕРµ СЂР°СЃРїРѕР»РѕР¶РµРЅРёРµ РїСЂ-РєРѕРІ: 0 - РЅРµ РїРµСЂРµСЃРµРєР°СЋС‚СЃСЏ, 1 - r1 РІРЅСѓС‚СЂРё r2, 2 - r2 РІРЅСѓС‚СЂРё r1, 4 - РїРµСЂРµСЃРµРєР°СЋС‚СЃСЏ
- // С‚РѕР»СЊРєРѕ РґР»СЏ СѓРїРѕСЂСЏРґРѕС‡РµРЅРЅС‹С… РїСЂ-РєРѕРІ!
+ // взаимное расположение пр-ков: 0 - не пересекаются, 1 - r1 внутри r2, 2 - r2 внутри r1, 4 - пересекаются
+ // только для упорядоченных пр-ков!
  function IntersectRects(r1,r2:TRect;out r:TRect):integer;
- procedure OrderRect(var r:TRect); // СѓРїРѕСЂСЏРґРѕС‡РёС‚СЊ Рє-С‚С‹ РїРѕ РІРѕР·СЂР°СЃС‚Р°РЅРёСЋ
+ procedure OrderRect(var r:TRect); // упорядочить к-ты по возрастанию
 
  procedure ToSingle32(sour:TMat32d;out dest:TMat32);
 
@@ -211,10 +211,10 @@ interface
 
  procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
 
- // РўСЂР°РЅСЃРїРѕРЅРёСЂРѕРІР°РЅРёРµ (РґР»СЏ РѕСЂС‚РѕРЅРѕСЂРјРёСЂРѕРІР°РЅРЅРѕР№ РјР°С‚СЂРёС†С‹ - СЌС‚Рѕ Р±СѓРґС‚ РѕР±СЂР°С‚РЅР°СЏ)
+ // Транспонирование (для ортонормированной матрицы - это будт обратная)
  procedure Transp2(m:TMat2d;out dest:TMat2d);
  procedure Transp(m:TMat32d;out dest:TMat32d);
- // Р’С‹С‡РёСЃР»РµРЅРёРµ РѕР±СЂР°С‚РЅРѕР№ РјР°С‚СЂРёС†С‹
+ // Вычисление обратной матрицы
  procedure Invert2(m:TMat2d;out dest:TMat2d);
  procedure Invert(m:TMat32d;out dest:TMat32d);
 
@@ -224,8 +224,8 @@ interface
  function RoundRect(const r:TRect2):TRect;
 
  var
-  trgIndices:array of integer; // СЂРµР·СѓР»СЊС‚Р°С‚ С‚СЂРёР°РЅРіСѓР»СЏС†РёРё
- // С‚СЂРёР°РЅРіСѓР»СЏС†РёСЏ Р·Р°РјРєРЅСѓС‚РѕРіРѕ РјРЅРѕРіРѕСѓРіРѕР»СЊРЅРёРєР° (СЃС‚СЂРѕРёС‚ n-2 С‚СЂРі). !!! CLOCKWISE!
+  trgIndices:array of integer; // результат триангуляции
+ // триангуляция замкнутого многоугольника (строит n-2 трг). !!! CLOCKWISE!
  procedure Triangulate(pnts:PVec2d;count:integer);
 
 implementation
@@ -517,7 +517,7 @@ function TLine2.Deviation(const point:TVec2d):double;
    result.y:=p1.y*(1-factor)+p2.y*factor;
   end;
 
- function Vector2(source,target:TVec2d):TVec2d;
+ function Direction2(source,target:TVec2d):TVec2d;
   begin
    result.x:=target.x-source.x;
    result.y:=target.y-source.y;
@@ -681,7 +681,7 @@ function TLine2.Deviation(const point:TVec2d):double;
    target[0,1]:=m1[0,0]*m2[0,1]+m1[0,1]*m2[1,1];
    target[1,0]:=m1[1,0]*m2[0,0]+m1[1,1]*m2[1,0];
    target[1,1]:=m1[1,0]*m2[0,1]+m1[1,1]*m2[1,1];
-   // РЎРґРІРёРіРѕРІР°СЏ С‡Р°СЃС‚СЊ
+   // Сдвиговая часть
    target[2,0]:=m2[2,0]+m1[2,0]*m2[0,0]+m1[2,1]*m2[1,0];
    target[2,1]:=m2[2,1]+m1[2,0]*m2[0,1]+m1[2,1]*m2[1,1];
   end;
@@ -699,7 +699,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    end;
   end;
 
- // РўСЂР°РЅСЃРїРѕРЅРёСЂРѕРІР°РЅРёРµ (РґР»СЏ РѕСЂС‚РѕРЅРѕСЂРјРёСЂРѕРІР°РЅРЅРѕР№ РјР°С‚СЂРёС†С‹ - СЌС‚Рѕ Р±СѓРґС‚ РѕР±СЂР°С‚РЅР°СЏ)
+ // Транспонирование (для ортонормированной матрицы - это будт обратная)
  procedure Transp2(m:TMat2d;out dest:TMat2d);
   begin
    dest[0,0]:=m[0,0]; dest[1,0]:=m[0,1];
@@ -712,7 +712,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    dest[0,0]:=m[0,0]; dest[1,0]:=m[0,1]; dest[2,0]:=-DotProduct(mv[0],mv[2]);
    dest[0,1]:=m[1,0]; dest[1,1]:=m[1,1]; dest[2,1]:=-DotProduct(mv[1],mv[2]);
   end;
- // Р’С‹С‡РёСЃР»РµРЅРёРµ РѕР±СЂР°С‚РЅРѕР№ РјР°С‚СЂРёС†С‹
+ // Вычисление обратной матрицы
  procedure Invert2(m:TMat2d;out dest:TMat2d);
   var
    la,lb:double;
@@ -744,7 +744,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
   var
    b0,b1,b2,b3:double;
   begin
-   // РІСЂРѕРґРµ РєР°Рє РѕРїС‚РёРјРёР·Р°С†РёСЏ
+   // вроде как оптимизация
    b0:=(1-t);
    b2:=t*t;
    b3:=b2*t;    // t^3
@@ -788,7 +788,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
   type
    pa=array[0..5] of TVec2d;
   var
-   next,prev:array of integer; // РґР»СЏ РєР°Р¶РґРѕР№ РІРµСЂС€РёРЅС‹ - СѓРєР°Р·Р°С‚РµР»СЊ РЅР° СЃР»РµРґСѓСЋС‰СѓСЋ
+   next,prev:array of integer; // для каждой вершины - указатель на следующую
    i,n,p,c,d:integer;
    v1,v2:TVec2d;
    vrts:^PA;
@@ -797,7 +797,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    ASSERT(count>=3);
    setLength(trgIndices,(count-2)*3);
    if count=3 then begin
-    // С‚СЂРµСѓРіРѕР»СЊРЅРёРє - РЅРёС‡РµРіРѕ РґРµР»Р°С‚СЊ РЅРµ РЅСѓР¶РЅРѕ
+    // треугольник - ничего делать не нужно
     trgIndices[0]:=0;
     trgIndices[1]:=1;
     trgIndices[2]:=2;
@@ -813,10 +813,10 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    n:=count;
    p:=0; c:=0;
    while n>=3 do begin
-    // РїРѕРєР° РµСЃС‚СЊ С‡С‚Рѕ РѕС‚СЃРµРєР°С‚СЊ...
+    // пока есть что отсекать...
     v1:=vrts^[prev[p]]; VectSub(v1,vrts^[p]);
     v2:=vrts^[p]; VectSub(v2,vrts^[next[p]]);
-    // РќСѓР¶РЅРѕ РґРІР° СѓСЃР»РѕРІРёСЏ: 1) СѓРіРѕР» РјРµР¶РґСѓ РІРµРєС‚РѕСЂР°РјРё РІ РЅСѓР¶РЅСѓСЋ СЃС‚РѕСЂРѕРЅСѓ Рё 2) РЅРё РѕРґРЅР° РІРµСЂС€РёРЅР° РЅРµ Р»РµР¶РёС‚ РІРЅСѓС‚СЂРё РѕС‚СЃРµРєР°РµРјРѕРіРѕ С‚СЂ-РєР°.
+    // Нужно два условия: 1) угол между векторами в нужную сторону и 2) ни одна вершина не лежит внутри отсекаемого тр-ка.
     fl:=crossProduct(v1,v2)>=0;
     if fl and (n>3) then begin
      d:=next[next[p]];

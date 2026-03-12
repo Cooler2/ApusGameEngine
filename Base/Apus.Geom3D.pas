@@ -156,7 +156,7 @@ interface
  function Point3(x,y,z:double):TVec3d; overload; inline;
  function Point3(p:TVec3):TVec3d; overload; inline;
  function Vector3(x,y,z:double):TVec3d; overload; inline;
- function Vector3(from,target:TVec3d):TVec3d; overload; inline;
+ function Direction3(from,target:TVec3d):TVec3d; overload; inline;
  function Vector4(vector:TVec3d):TVector4; overload; inline;
  function Vec4(vector:TVec3):TVec4; overload; inline;
  function Quaternion(x,y,z,w:double):TQuatd; overload; inline;
@@ -393,7 +393,7 @@ implementation
    result.z:=z;
   end;
 
- function Vector3(from,target:TVec3d):TVec3d; overload; inline;
+ function Direction3(from,target:TVec3d):TVec3d; overload; inline;
   begin
    result.x:=target.x-from.x;
    result.y:=target.y-from.y;
