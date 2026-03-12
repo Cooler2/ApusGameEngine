@@ -29,8 +29,8 @@ uses
    m3:TMat3;
    v:single;
   begin
-   YRPToMatrix(m3,1,-1,0.5);
-   v:=Det(m3);
+   m3:=TMat3.From(TMat4d.From(TMat34d.FromYRP(1,-1,0.5)));
+   v:=m3.Determinant;
    ASSERT(IsEqual(v,1));
 
    TVec4(m4[0]):=Quat(0,1,2,3);
@@ -78,35 +78,35 @@ uses
    for i:=-20 to 30 do begin
     angle:=i/3;
     // Z
-    YRPToMatrix(m1,angle,0,0);
-    m2:=RotationAroundVector(TVec3.Init(0,0,1),angle);
-    m3:=RotationMat3Z(angle);
+    m1:=TMat3.From(TMat4d.From(TMat34d.FromYRP(angle,0,0)));
+    m2:=TMat3.RotationAroundAxis(TVec3.Init(0,0,1),angle);
+    m3:=TMat3.RotationZ(angle);
     ASSERT(IsEqual(m1,m2));
     ASSERT(IsEqual(m1,m3));
     // Y
-    YRPToMatrix(m1,0,angle,0);
-    m2:=RotationAroundVector(TVec3.Init(0,1,0),angle);
-    m3:=RotationMat3Y(angle);
+    m1:=TMat3.From(TMat4d.From(TMat34d.FromYRP(0,angle,0)));
+    m2:=TMat3.RotationAroundAxis(TVec3.Init(0,1,0),angle);
+    m3:=TMat3.RotationY(angle);
     ASSERT(IsEqual(m1,m2));
     ASSERT(IsEqual(m1,m3));
     // X
-    YRPToMatrix(m1,0,0,angle);
-    m2:=RotationAroundVector(TVec3.Init(1,0,0),angle);
-    m3:=RotationMat3X(angle);
+    m1:=TMat3.From(TMat4d.From(TMat34d.FromYRP(0,0,angle)));
+    m2:=TMat3.RotationAroundAxis(TVec3.Init(1,0,0),angle);
+    m3:=TMat3.RotationX(angle);
     ASSERT(IsEqual(m1,m2));
     ASSERT(IsEqual(m1,m3));
    end;
 
-   m1:=RotationAroundVector(TVec3.Init(1,1,1),1);
-   m2:=RotationAroundVector(TVec3.Init(1,1,1),-1);
-   MultMat(m1,m2,m3);
+   m1:=TMat3.RotationAroundAxis(TVec3.Init(1,1,1),1);
+   m2:=TMat3.RotationAroundAxis(TVec3.Init(1,1,1),-1);
+   m3:=m1*m2;
    ASSERT(IsEqual(m3,IdentMat3));
 
    for i:=1 to 100 do begin
     vec:=TVec3.Init(random-random,random-random,random-random);
-    m1:=RotationAroundVector(vec,2*Pi);
+    m1:=TMat3.RotationAroundAxis(vec,2*Pi);
     ASSERT(IsEqual(m1,IdentMat3));
-    m1:=RotationAroundVector(vec,-2*Pi);
+    m1:=TMat3.RotationAroundAxis(vec,-2*Pi);
     ASSERT(IsEqual(m1,IdentMat3));
    end;
 
@@ -126,36 +126,36 @@ uses
    vec:TVec3;
    a:single;
   begin
-   m3:=RotationMat3Z(0.1);
-   q:=MatrixToQuaternion(m3);
+   m3:=TMat3.RotationZ(0.1);
+   q:=m3.ToQuaternion;
    ASSERT(IsEqual(q.Length,1));
 
    // Single test
    vec:=TVec3.Init(0.26242, -0.36225, 0.62695);
    a:=2.8916;
-   m3:=RotationAroundVector(vec,a);
-   q:=MatrixToQuaternion(m3);
+   m3:=TMat3.RotationAroundAxis(vec,a);
+   q:=m3.ToQuaternion;
    ASSERT(IsEqual(q.Length,1));
-   QuaternionToMatrix(q,mm3);
+   mm3:=TMat3.FromQuaternion(q);
    ASSERT(IsEqual(m3,mm3,150),Format('Fail: vec=(%.6f,%.6f,%.6f) angle=%.6f',[vec.x,vec.y,vec.z,a]));
 
    // Repeat
    for i:=1 to 1000 do begin
     vec:=TVec3.Init(random-random,random-random,random-random);
     a:=5*(random-random);
-    m3:=RotationAroundVector(vec,a);
-    q:=MatrixToQuaternion(m3);
+    m3:=TMat3.RotationAroundAxis(vec,a);
+    q:=m3.ToQuaternion;
     ASSERT(IsEqual(q.Length,1));
-    QuaternionToMatrix(q,mm3);
+    mm3:=TMat3.FromQuaternion(q);
     if not IsEqual(m3,mm3,150) then
      IsEqual(m3,mm3,150);
     ASSERT(IsEqual(m3,mm3,150),Format('Fail: vec=(%.7f,%.7f,%.7f) angle=%.7f',[vec.x,vec.y,vec.z,a]));
    end;
 
-   mat:=ScaleMat4(1.5, 1.7, 1.9);
-   mat:=MultMat(mat,RotationMat4Z(0.1));
-   mat:=MultMat(mat,TranslationMat4(2,2.5,3));
-   DecomposeMartix(mat,q1,q2,q3);
+   mat:=TMat4.Scale(1.5,1.7,1.9);
+   mat:=mat*TMat4.RotationZ(0.1);
+   mat:=mat*TMat4.Translation(2,2.5,3);
+   mat.Decompose(q1,q2,q3);
    ASSERT(IsEqual(q1.xyz,TVec3.Init(2,2.5,3)));
    ASSERT(IsEqual(q3.xyz,TVec3.Init(1.5, 1.7, 1.9)));
    ASSERT(IsEqual(q2,Quat(0,0,0.04998,0.99875)));
@@ -164,7 +164,7 @@ uses
    // Perf
    time:=MyTickCount;
    for i:=0 to 10000000 do
-    MatrixFromQuaternion(q2,mat);
+    mat:=TMat4.FromQuaternion(q2);
    writeln('Conv time: ',MyTickCount-time);
 
    writeln('Quaternion conversions OK');
@@ -179,26 +179,26 @@ uses
   begin
    // Rotation around X
    m1:=IdentMat3;
-   m2:=RotationMat3X(Pi/2);
-   q1:=MatrixToQuaternion(m1);
-   q2:=MatrixToQuaternion(m2);
+   m2:=TMat3.RotationX(Pi/2);
+   q1:=m1.ToQuaternion;
+   q2:=m2.ToQuaternion;
    for i:=0 to 10 do begin
     f:=i/10;
-    mRef:=RotationMat3X(f*Pi/2);
-    q:=QuatSlerp(q1,q2,f);
-    QuaternionToMatrix(q,m);
+    mRef:=TMat3.RotationX(f*Pi/2);
+    q:=TQuat.Slerp(q1,q2,f);
+    m:=TMat3.FromQuaternion(q);
     ASSERT(IsEqual(m,mRef));
    end;
    // Rotation around Y
    m1:=IdentMat3;
-   m2:=RotationMat3Y(-Pi/2);
-   q1:=MatrixToQuaternion(m1);
-   q2:=MatrixToQuaternion(m2);
+   m2:=TMat3.RotationY(-Pi/2);
+   q1:=m1.ToQuaternion;
+   q2:=m2.ToQuaternion;
    for i:=0 to 10 do begin
     f:=i/10;
-    mRef:=RotationMat3Y(-f*Pi/2);
-    q:=QuatSlerp(q1,q2,f);
-    QuaternionToMatrix(q,m);
+    mRef:=TMat3.RotationY(-f*Pi/2);
+    q:=TQuat.Slerp(q1,q2,f);
+    m:=TMat3.FromQuaternion(q);
     ASSERT(IsEqual(m,mRef));
    end;
    writeln('Slerp test OK');
