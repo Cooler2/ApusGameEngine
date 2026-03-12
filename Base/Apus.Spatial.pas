@@ -16,9 +16,6 @@ type
     minX,minY,minZ:single;
     maxX,maxY,maxZ:single;
     class function Init(const pMin,pMax:TVec3):TBBox3; overload; static;
-    class function Init(const box:TBBox3s):TBBox3; overload; static;
-    class function FromBBox(const box:TBBox3s):TBBox3; static;
-    function ToBBox:TBBox3s;
     procedure Clear;
     function IsEmpty:boolean;
     procedure IncludePoint(const p:TVec3);
@@ -37,8 +34,7 @@ type
     constructor Init(const aCenter: TVec3; aRadius: single);
     function ContainsPoint(const p: TVec3): boolean;
     function IntersectsSphere(const other: TSphere): boolean;
-    function IntersectsBox(const box: TBBox3): boolean; overload;
-    function IntersectsBox(const box: TBBox3s): boolean;
+    function IntersectsBox(const box: TBBox3): boolean;
   end;
 
   TRay = record
@@ -46,8 +42,7 @@ type
     dir: TVec3; // expected normalized
     constructor Init(const aOrigin, aDir: TVec3);
     function IntersectsSphere(const sphere: TSphere; out t: single): boolean;
-    function IntersectsBox(const box: TBBox3; out tMin, tMax: single): boolean; overload;
-    function IntersectsBox(const box: TBBox3s; out tMin, tMax: single): boolean;
+    function IntersectsBox(const box: TBBox3; out tMin, tMax: single): boolean;
     function IntersectsTriangle(const a, b, c: TVec3; out t, u, v: single): boolean;
     function IntersectsPlane(const plane: TPlane; out t: single): boolean;
   end;
@@ -57,8 +52,7 @@ type
     planeCount: byte; // 4 or 6
     procedure InitFromMVP(const mvp: TMat4; includeNearFar: boolean = true);
     function IntersectsSphere(const sphere: TSphere): boolean;
-    function IntersectsBox(const box: TBBox3): boolean; overload;
-    function IntersectsBox(const box: TBBox3s): boolean;
+    function IntersectsBox(const box: TBBox3): boolean;
   end;
 
   TSpatial = record
@@ -109,23 +103,6 @@ class function TBBox3.Init(const pMin,pMax:TVec3):TBBox3;
 begin
   result.minX:=pMin.x; result.minY:=pMin.y; result.minZ:=pMin.z;
   result.maxX:=pMax.x; result.maxY:=pMax.y; result.maxZ:=pMax.z;
-end;
-
-class function TBBox3.Init(const box:TBBox3s):TBBox3;
-begin
-  result.minX:=box.minX; result.minY:=box.minY; result.minZ:=box.minZ;
-  result.maxX:=box.maxX; result.maxY:=box.maxY; result.maxZ:=box.maxZ;
-end;
-
-class function TBBox3.FromBBox(const box:TBBox3s):TBBox3;
-begin
-  result:=Init(box);
-end;
-
-function TBBox3.ToBBox:TBBox3s;
-begin
-  result.minX:=minX; result.minY:=minY; result.minZ:=minZ;
-  result.maxX:=maxX; result.maxY:=maxY; result.maxZ:=maxZ;
 end;
 
 procedure TBBox3.Clear;
@@ -289,11 +266,6 @@ begin
   result:=center.Distance2(other.center) <= rr * rr;
 end;
 
-function TSphere.IntersectsBox(const box: TBBox3s): boolean;
-begin
-  result:=box.IntersectsSphere(center,radius);
-end;
-
 function TSphere.IntersectsBox(const box:TBBox3):boolean;
 begin
   result:=box.IntersectsSphere(center,radius);
@@ -331,11 +303,6 @@ begin
     t:=0;
   end;
   result:=true;
-end;
-
-function TRay.IntersectsBox(const box: TBBox3s; out tMin, tMax: single): boolean;
-begin
-  result:=IntersectsBox(TBBox3.Init(box),tMin,tMax);
 end;
 
 function TRay.IntersectsBox(const box:TBBox3;out tMin,tMax:single):boolean;
@@ -497,11 +464,6 @@ begin
     end;
   end;
   result:=true;
-end;
-
-function TFrustum.IntersectsBox(const box: TBBox3s): boolean;
-begin
-  result:=IntersectsBox(TBBox3.Init(box));
 end;
 
 function TFrustum.IntersectsBox(const box:TBBox3):boolean;

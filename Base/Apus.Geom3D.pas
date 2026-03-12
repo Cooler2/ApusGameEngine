@@ -119,22 +119,21 @@ interface
   end;
 
   // Bounding box with low precision
-  TBBox3s=packed record
+  TBBox3=packed record
    minX,minY,minZ,
    maxX,maxY,maxZ:single;
    procedure Init; // clear
    procedure Add(const p:TVec3); overload;
    procedure Add(p:PPoint3s;count:integer;stride:integer=0); overload;
    procedure IncludePoint(const p:TVec3); inline;
-   procedure IncludeBox(const newBox:TBBox3s); inline;
+   procedure IncludeBox(const newBox:TBBox3); inline;
    function Center:TVec3; inline;
    function Extents:TVec3; inline;
    function IsEmpty:boolean;
-   function ContainsPoint(const p:TVec3):boolean; inline;
-   function IntersectsBox(const other:TBBox3s):boolean; inline;
-   function IntersectsSphere(const sphereCenter:TVec3;sphereRadius:single):boolean;
+  function ContainsPoint(const p:TVec3):boolean; inline;
+  function IntersectsBox(const other:TBBox3):boolean; inline;
+  function IntersectsSphere(const sphereCenter:TVec3;sphereRadius:single):boolean;
   end;
-
   // Transformation matrices
   PMatrix3=^TMatrix3;
   TMatrix3=array[0..2,0..2] of double; // Rotation/scale
@@ -384,10 +383,10 @@ interface
  function Det(const m:TMat4):single; overload;
 
  // Bounding boxes
- procedure BBoxInclude(var b:TBBox3s;x,y,z:single);
- procedure BBoxIncludePnt(var b:TBBox3s;const p:TVec3);
- procedure BBoxIncludeBox(var b:TBBox3s;const new:TBBox3s);
- procedure BBoxIntersect(var b:TBBox3s;const new:TBBox3s);
+ procedure BBoxInclude(var b:TBBox3;x,y,z:single);
+ procedure BBoxIncludePnt(var b:TBBox3;const p:TVec3);
+ procedure BBoxIncludeBox(var b:TBBox3;const new:TBBox3);
+ procedure BBoxIntersect(var b:TBBox3;const new:TBBox3);
 
  // Planes
  procedure InitPlane(point,normal:TVec3d;var p:TPlane);
@@ -952,7 +951,7 @@ implementation
   end;
 
  // Bounding box routines
- procedure BBoxInclude(var b:TBBox3s;x,y,z:single);
+ procedure BBoxInclude(var b:TBBox3;x,y,z:single);
   begin
    if b.IsEmpty then begin
     b.minx:=x; b.maxx:=x;
@@ -967,7 +966,7 @@ implementation
    if y>b.maxy then b.maxy:=y;
    if z>b.maxz then b.maxz:=z;
   end;
- procedure BBoxIncludePnt(var b:TBBox3s;const p:TVec3);
+ procedure BBoxIncludePnt(var b:TBBox3;const p:TVec3);
   begin
    if b.IsEmpty then begin
     b.minx:=p.x; b.maxx:=p.x;
@@ -982,7 +981,7 @@ implementation
    if p.y>b.maxy then b.maxy:=p.y;
    if p.z>b.maxz then b.maxz:=p.z;
   end;
- procedure BBoxIncludeBox(var b:TBBox3s;const new:TBBox3s);
+ procedure BBoxIncludeBox(var b:TBBox3;const new:TBBox3);
   begin
    if new.IsEmpty then exit;
    if b.IsEmpty then b:=new;
@@ -993,7 +992,7 @@ implementation
    if new.maxy>b.maxy then b.maxy:=new.maxy;
    if new.maxz>b.maxz then b.maxz:=new.maxz;
   end;
- procedure BBoxIntersect(var b:TBBox3s;const new:TBBox3s);
+ procedure BBoxIntersect(var b:TBBox3;const new:TBBox3);
   begin
    if new.IsEmpty then begin
     b.Init; exit;
@@ -2776,14 +2775,14 @@ procedure TQuaternionS.Mul(scalar:single);
  end;
  {$ENDIF}
 
-{ TBBox3s }
+{ TBBox3 }
 
-procedure TBBox3s.Add(const p:TVec3);
+procedure TBBox3.Add(const p:TVec3);
  begin
   BBoxIncludePnt(self,p);
  end;
 
-procedure TBBox3s.Add(p:PPoint3s;count:integer;stride:integer=0);
+procedure TBBox3.Add(p:PPoint3s;count:integer;stride:integer=0);
  begin
   if stride<=0 then stride:=sizeof(TPoint3s);
   while count>0 do begin
@@ -2793,40 +2792,40 @@ procedure TBBox3s.Add(p:PPoint3s;count:integer;stride:integer=0);
   end;
  end;
 
-procedure TBBox3s.IncludePoint(const p:TVec3);
+procedure TBBox3.IncludePoint(const p:TVec3);
  begin
   Add(p);
  end;
 
-procedure TBBox3s.IncludeBox(const newBox:TBBox3s);
+procedure TBBox3.IncludeBox(const newBox:TBBox3);
  begin
   BBoxIncludeBox(self,newBox);
  end;
 
-function TBBox3s.Center:TVec3;
+function TBBox3.Center:TVec3;
  begin
   if IsEmpty then exit(NullPointS);
   result:=Point3s((minX+maxX)*0.5,(minY+maxY)*0.5,(minZ+maxZ)*0.5);
  end;
 
-function TBBox3s.Extents:TVec3;
+function TBBox3.Extents:TVec3;
  begin
   if IsEmpty then exit(NullPointS);
   result:=Point3s((maxX-minX)*0.5,(maxY-minY)*0.5,(maxZ-minZ)*0.5);
  end;
 
-procedure TBBox3s.Init;
+procedure TBBox3.Init;
  begin
   minX:=NaN; minY:=NaN; minZ:=NaN;
   maxX:=NaN; maxY:=NaN; maxZ:=NaN;
  end;
 
-function TBBox3s.IsEmpty:boolean;
+function TBBox3.IsEmpty:boolean;
  begin
   result:=Apus.Core.IsNan(minX);
  end;
 
-function TBBox3s.ContainsPoint(const p:TVec3):boolean;
+function TBBox3.ContainsPoint(const p:TVec3):boolean;
  begin
   if IsEmpty then exit(false);
   result:=(p.x>=minX) and (p.x<=maxX) and
@@ -2834,7 +2833,7 @@ function TBBox3s.ContainsPoint(const p:TVec3):boolean;
           (p.z>=minZ) and (p.z<=maxZ);
  end;
 
-function TBBox3s.IntersectsBox(const other:TBBox3s):boolean;
+function TBBox3.IntersectsBox(const other:TBBox3):boolean;
  begin
   if IsEmpty or other.IsEmpty then exit(false);
   result:=(minX<=other.maxX) and (maxX>=other.minX) and
@@ -2842,7 +2841,7 @@ function TBBox3s.IntersectsBox(const other:TBBox3s):boolean;
           (minZ<=other.maxZ) and (maxZ>=other.minZ);
  end;
 
-function TBBox3s.IntersectsSphere(const sphereCenter:TVec3;sphereRadius:single):boolean;
+function TBBox3.IntersectsSphere(const sphereCenter:TVec3;sphereRadius:single):boolean;
  var
   x,y,z,dx,dy,dz:single;
  begin
@@ -2866,5 +2865,6 @@ initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
 
 end.
+
 
 

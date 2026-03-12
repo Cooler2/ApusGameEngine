@@ -90,7 +90,7 @@ end;
 
 procedure TestBBox;
 var
-  b1,b2:TBBox3s;
+  b1,b2:TBBox3;
   c,e:TVec3;
 begin
   StartTest('BBox');
@@ -172,7 +172,7 @@ var
   d:double;
   a1,a2:array[0..2] of single;
   b1,b2:array[0..2] of double;
-  bbA,bbB:TBBox3s;
+  bbA,bbB:TBBox3;
   pl:TPlane;
 begin
   StartTest('Geom3D utility2');
