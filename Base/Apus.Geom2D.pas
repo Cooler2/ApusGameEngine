@@ -53,8 +53,7 @@ interface
    class operator Multiply(a,b:TVec2):TVec2;
   end;
   PVec2=^TVec2;
-  TPoints2s=array of TVec2;
-  TVectors2s=TPoints2s;
+  TVec2Array=array of TVec2;
 
   // Infinite line on plane
   TLine2=packed record

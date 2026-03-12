@@ -47,8 +47,7 @@ interface
    1:( v:array[0..2] of single; );
    2:( xy:TVec2; t:single; );
   end;
-  TPoints3s=array of TVec3;
-  TVectors3s=TPoints3s;
+  TVec3Array=array of TVec3;
 
   TQuatd=record
    constructor Init(x,y,z,w:double);
