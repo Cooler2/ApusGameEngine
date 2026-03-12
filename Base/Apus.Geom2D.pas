@@ -97,8 +97,8 @@ interface
   TRect2=packed record
    function Width:single;
    function Height:single;
-   class function IntersectI(const r1,r2:TRect;out r:TRect):integer; static;
-   class procedure OrderI(var r:TRect); static;
+   class function IntersectRect(const r1,r2:TRect;out r:TRect):integer; static;
+   class procedure OrderRect(var r:TRect); static;
    procedure Init; overload; inline; // init empty
    procedure Init(x1,y1,x2,y2:single); overload; inline;
    procedure InitWH(x,y,width,height:single); overload; inline;
@@ -122,7 +122,7 @@ interface
    x1,y1,x2,y2:double;
    class function Init(x1,y1,x2,y2:integer):TSegment2; overload; static;
    class function Init(x1,y1,x2,y2:double):TSegment2; overload; static;
-   procedure PointInfo(const pnt:TVec2d;out parameter,deviation:double);
+   procedure ProjectPoint(const pnt:TVec2d;out parameter,deviation:double);
    class function Intersect(const s1,s2:TSegment2;out p:TVec2d;out param1,param2:double):TStatus; static;
    function PointInTriangle(const a,b,c:TVec2d):integer;
    function IsDegenerate:boolean; inline;
@@ -352,7 +352,7 @@ class function TSegment2.Init(x1,y1,x2,y2:double):TSegment2;
   result.y2:=y2;
  end;
 
-procedure TSegment2.PointInfo(const pnt:TVec2d;out parameter,deviation:double);
+procedure TSegment2.ProjectPoint(const pnt:TVec2d;out parameter,deviation:double);
   var
    v,n,d:TVec2d;
   begin
@@ -393,25 +393,25 @@ class function TSegment2.Intersect(const s1,s2:TSegment2;out p:TVec2d;out param1
    if result=intLine then begin
     // maybe segment or nothing
     result:=intNone;
-    s1.PointInfo(Vec2d(s2.x1,s2.y1),par,d);
+    s1.ProjectPoint(Vec2d(s2.x1,s2.y1),par,d);
     if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
-    s1.PointInfo(Vec2d(s2.x2,s2.y2),par,d);
+    s1.ProjectPoint(Vec2d(s2.x2,s2.y2),par,d);
     if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
-    s2.PointInfo(Vec2d(s1.x1,s1.y1),par,d);
+    s2.ProjectPoint(Vec2d(s1.x1,s1.y1),par,d);
     if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
-    s2.PointInfo(Vec2d(s1.x2,s1.y2),par,d);
+    s2.ProjectPoint(Vec2d(s1.x2,s1.y2),par,d);
     if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
    end;
    if result=intPoint then begin
     // explicit point or nothing
-    s1.PointInfo(p,param1,d);
-    s2.PointInfo(p,param2,d);
+    s1.ProjectPoint(p,param1,d);
+    s2.ProjectPoint(p,param2,d);
     if (param1<0) or (param1>1) or (param2<0) or (param2>1) then
      result:=intNone;
    end;
   end;
 
-class function TRect2.IntersectI(const r1,r2:TRect;out r:TRect):integer;
+class function TRect2.IntersectRect(const r1,r2:TRect;out r:TRect):integer;
   begin
    r.left:=Apus.Core.Max(r1.left,r2.left);
    r.right:=Apus.Core.Min(r1.right,r2.right);
@@ -425,7 +425,7 @@ class function TRect2.IntersectI(const r1,r2:TRect;out r:TRect):integer;
                 (r2.top<=r1.bottom) and (r2.bottom>=r1.top))*4;
   end;
 
-class procedure TRect2.OrderI(var r:TRect);
+class procedure TRect2.OrderRect(var r:TRect);
   var
    r2:TRect;
   begin
@@ -1094,6 +1094,7 @@ function TSegment2.IsDegenerate:boolean;
  end;
 
 end.
+
 
 
 

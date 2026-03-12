@@ -1,4 +1,4 @@
-{$APPTYPE CONSOLE}
+﻿{$APPTYPE CONSOLE}
 {$EXCESSPRECISION OFF}
 program TestGeom2D;
 
@@ -206,7 +206,7 @@ begin
   p:=TVec2d.Bezier(b0,b1,b2,b3,0.5);
   Check((p.x>0) and (p.y>0),'Bezier2D');
   seg:=Segment2(0,0,10,0);
-  seg.PointInfo(Vec2d(3,2),t,dev);
+  seg.ProjectPoint(Vec2d(3,2),t,dev);
   Check((Abs(t-0.3)<0.0001) and (Abs(Abs(dev)-2)<0.0001),'PointOnSegment');
   seg:=TSegment2.Init(1,2,3,4);
   Check((Abs(seg.x1-1)<0.0001) and (Abs(seg.y1-2)<0.0001) and (Abs(seg.x2-3)<0.0001) and (Abs(seg.y2-4)<0.0001),'TSegment2.Init int');
@@ -240,12 +240,12 @@ begin
   Check((Abs(pt.x-pt0.x)<0.01) and (Abs(pt.y-pt0.y)<0.01),'Mat32 inverse chain');
 
   r:=Rect(5,1,1,5);
-  TRect2.OrderI(r);
+  TRect2.OrderRect(r);
   Check((r.Left=1) and (r.Top=1) and (r.Right=5) and (r.Bottom=5),'OrderRect');
-  TRect2.IntersectI(Rect(0,0,10,10),Rect(5,5,20,20),r);
+  TRect2.IntersectRect(Rect(0,0,10,10),Rect(5,5,20,20),r);
   Check((r.Left=5) and (r.Top=5),'IntersectRects');
-  Check(TRect2.IntersectI(Rect(0,0,10,10),Rect(2,2,8,8),r)=6,'IntersectRects contain');
-  Check(TRect2.IntersectI(Rect(0,0,2,2),Rect(3,3,4,4),r)=0,'IntersectRects disjoint');
+  Check(TRect2.IntersectRect(Rect(0,0,10,10),Rect(2,2,8,8),r)=6,'IntersectRects contain');
+  Check(TRect2.IntersectRect(Rect(0,0,2,2),Rect(3,3,4,4),r)=0,'IntersectRects disjoint');
   rs:=Rect2(0,0,5,5);
   rs:=rs.Transform(1,2,2,3);
   r:=rs.Rounded;
@@ -289,4 +289,5 @@ begin
   end;
   writeln('All OK');
 end.
+
 
