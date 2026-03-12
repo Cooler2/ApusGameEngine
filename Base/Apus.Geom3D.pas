@@ -198,8 +198,8 @@ interface
  procedure VectSub(var a:TVec3d;b:TVec3d);
  procedure VectMult(var a:TVec3d;k:double); overload;
  procedure VectMult(var a:TVec3;k:double); overload;
- function VecMult(a:TVec3d;k:double):TVec3d; overload;
- function VecMult(a:TVec3;k:double):TVec3; overload;
+ function VectMult(a:TVec3d;k:double):TVec3d; overload;
+ function VectMult(a:TVec3;k:double):TVec3; overload;
  function PointAdd(p:TVec3d;v:TVec3d;factor:double=1.0):TVec3d; overload; inline;
  function PointAdd(p:TVec3;v:TVec3;factor:single=1.0):TVec3; overload; inline;
  function Distance(p1,p2:TVec3d):double; overload;
@@ -663,13 +663,13 @@ implementation
    a.z:=a.z*k;
   end;
 
-  function VecMult(a:TVec3d;k:double):TVec3d;
+ function VectMult(a:TVec3d;k:double):TVec3d;
   begin
    result:=a;
    result.Multiply(k);
   end;
 
-  function VecMult(a:TVec3;k:double):TVec3;
+ function VectMult(a:TVec3;k:double):TVec3;
   begin
    result.x:=a.x*k;
    result.y:=a.y*k;
