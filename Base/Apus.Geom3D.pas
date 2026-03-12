@@ -196,8 +196,6 @@ interface
  procedure VectMult(var a:TVec3;k:double); overload;
  function VectMult(a:TVec3d;k:double):TVec3d; overload;
  function VectMult(a:TVec3;k:double):TVec3; overload;
- function PointAdd(p:TVec3d;v:TVec3d;factor:double=1.0):TVec3d; overload; inline;
- function PointAdd(p:TVec3;v:TVec3;factor:single=1.0):TVec3; overload; inline;
  function Distance(p1,p2:TVec3d):double; overload;
  function Distance(p1,p2:TVec3):single; overload;
  function Distance2(p1,p2:TVec3d):double; overload;
@@ -650,19 +648,6 @@ implementation
    result.x:=a.x*k;
    result.y:=a.y*k;
    result.z:=a.z*k;
-  end;
-
- function PointAdd(p:TVec3d;v:TVec3d;factor:double=1.0):TVec3d; inline;
-  begin
-   result.x:=p.x+v.x*factor;
-   result.y:=p.y+v.y*factor;
-   result.z:=p.z+v.z*factor;
-  end;
- function PointAdd(p:TVec3;v:TVec3;factor:single=1.0):TVec3; overload; inline;
-  begin
-   result.x:=p.x+v.x*factor;
-   result.y:=p.y+v.y*factor;
-   result.z:=p.z+v.z*factor;
   end;
 
  function Distance(p1,p2:TVec3d):double; overload;

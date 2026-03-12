@@ -128,8 +128,6 @@ interface
  function Distance2(p1,p2:TVec2):single; overload;
  procedure Normalize(var v:TVec2d); overload; inline;
  procedure Normalize(var v:TVec2); overload; inline;
- function PointAdd(p:TVec2d;v:TVec2d;factor:double=1.0):TVec2d; inline; overload;
- function PointAdd(p:TVec2;v:TVec2;factor:double=1.0):TVec2; inline; overload;
  procedure VectAdd(var a:TVec2d;const b:TVec2d); overload; inline;
  procedure VectSub(var a:TVec2d;const b:TVec2d); overload; inline;
  procedure VectAdd(var a:TVec2;const b:TVec2); inline; overload;
@@ -331,18 +329,6 @@ implementation
   begin
    v.x:=1/v.x;
    v.y:=1/v.y;
-  end;
-
- function PointAdd(p:TVec2d;v:TVec2d;factor:double=1.0):TVec2d;
-  begin
-   result.x:=p.x+v.x*factor;
-   result.y:=p.y+v.y*factor;
-  end;
-
- function PointAdd(p:TVec2;v:TVec2;factor:double=1.0):TVec2; inline;
-  begin
-   result.x:=p.x+v.x*factor;
-   result.y:=p.y+v.y*factor;
   end;
 
  procedure VectTurn(var v:TVec2d;angle:double);
