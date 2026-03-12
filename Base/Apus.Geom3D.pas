@@ -900,8 +900,43 @@ begin
 end;
 
 procedure TMat4d.Decompose(out translation,rotation,scale:TQuatd);
+var
+  qX,qY,qZ:TVec4d;
+  tr:TVec4d;
+  mat3:TMat3d;
+  v:double;
 begin
-  DecomposeMatrix(self,translation,rotation,scale);
+  tr:=self.Row(3);
+  translation:=TQuatd.Init(tr.x,tr.y,tr.z,tr.w);
+  qX:=self.Row(0);
+  qY:=self.Row(1);
+  qZ:=self.Row(2);
+  scale.x:=qX.Length;
+  scale.y:=qY.Length;
+  scale.z:=qZ.Length;
+  scale.w:=0;
+  qX.Mul(1/scale.x);
+  qY.Mul(1/scale.y);
+  qZ.Mul(1/scale.z);
+  v:=qY.Dot(qX);
+  if abs(v)>EpsilonS then begin
+    qY.Add(qX,-v);
+    qY.Normalize;
+  end;
+  v:=qZ.Dot(qX);
+  if abs(v)>EpsilonS then begin
+    qZ.Add(qX,-v);
+    qZ.Normalize;
+  end;
+  v:=qZ.Dot(qY);
+  if abs(v)>EpsilonS then begin
+    qZ.Add(qY,-v);
+    qZ.Normalize;
+  end;
+  move(qX,mat3.rows[0],sizeof(qX));
+  move(qY,mat3.rows[1],sizeof(qY));
+  move(qZ,mat3.rows[2],sizeof(qZ));
+  rotation:=mat3.ToQuaternion;
 end;
 
 class function TMat4.Translation(x,y,z:single):TMat4;
@@ -991,8 +1026,43 @@ begin
 end;
 
 procedure TMat4.Decompose(out translation,rotation,scale:TQuat);
+var
+  qX,qY,qZ:TVec4;
+  tr:TVec4;
+  mat3:TMat3;
+  v:single;
 begin
-  DecomposeMatrix(self,translation,rotation,scale);
+  tr:=self.Row(3);
+  translation:=TQuat.Init(tr.x,tr.y,tr.z,tr.w);
+  qX:=self.Row(0);
+  qY:=self.Row(1);
+  qZ:=self.Row(2);
+  scale.x:=qX.Length;
+  scale.y:=qY.Length;
+  scale.z:=qZ.Length;
+  scale.w:=0;
+  qX.Mul(1/scale.x);
+  qY.Mul(1/scale.y);
+  qZ.Mul(1/scale.z);
+  v:=qY.Dot(qX);
+  if abs(v)>EpsilonS then begin
+    qY.Add(qX,-v);
+    qY.Normalize;
+  end;
+  v:=qZ.Dot(qX);
+  if abs(v)>EpsilonS then begin
+    qZ.Add(qX,-v);
+    qZ.Normalize;
+  end;
+  v:=qZ.Dot(qY);
+  if abs(v)>EpsilonS then begin
+    qZ.Add(qY,-v);
+    qZ.Normalize;
+  end;
+  move(qX,mat3.rows[0],sizeof(qX));
+  move(qY,mat3.rows[1],sizeof(qY));
+  move(qZ,mat3.rows[2],sizeof(qZ));
+  rotation:=mat3.ToQuaternion;
 end;
 
 class function TMat3.RotationX(angle:single):TMat3;
@@ -1070,21 +1140,53 @@ begin
 end;
 
 procedure TMat3d.TransformPoints(v:PVec3d;num,step:integer);
+var
+  i:integer;
+  x,y,z:double;
 begin
-  MultPnt(self,v,num,step);
+  for i:=1 to num do begin
+    x:=v^.x*self[0,0]+v^.y*self[1,0]+v^.z*self[2,0];
+    y:=v^.x*self[0,1]+v^.y*self[1,1]+v^.z*self[2,1];
+    z:=v^.x*self[0,2]+v^.y*self[1,2]+v^.z*self[2,2];
+    v^.x:=x;
+    v^.y:=y;
+    v^.z:=z;
+    v:=PVec3d(PtrUInt(v)+step);
+  end;
 end;
 
 procedure TMat34d.TransformPoints(v:PVec3d;num,step:integer);
+var
+  i:integer;
+  x,y,z:double;
 begin
-  MultPnt(self,v,num,step);
+  for i:=1 to num do begin
+    x:=v^.x*self[0,0]+v^.y*self[1,0]+v^.z*self[2,0]+self[3,0];
+    y:=v^.x*self[0,1]+v^.y*self[1,1]+v^.z*self[2,1]+self[3,1];
+    z:=v^.x*self[0,2]+v^.y*self[1,2]+v^.z*self[2,2]+self[3,2];
+    v^.x:=x;
+    v^.y:=y;
+    v^.z:=z;
+    v:=PVec3d(PtrUInt(v)+step);
+  end;
 end;
 
 function TMat4d.TransformPoint(const v:TVec3d):TVec3d;
 var
-  vv:TVec3d;
+  t:double;
 begin
-  vv:=v;
-  result:=Apus.Geom3D.TransformPoint(self,@vv);
+  result.x:=v.x*self[0,0]+v.y*self[1,0]+v.z*self[2,0]+self[3,0];
+  result.y:=v.x*self[0,1]+v.y*self[1,1]+v.z*self[2,1]+self[3,1];
+  result.z:=v.x*self[0,2]+v.y*self[1,2]+v.z*self[2,2]+self[3,2];
+  t:=v.x*self[0,3]+v.y*self[1,3]+v.z*self[2,3]+self[3,3];
+  if (t<>1) and (t>0) then begin
+    result.x:=result.x/t;
+    result.y:=result.y/t;
+    result.z:=result.z/t;
+  end else
+  if t<=0 then begin
+    result:=InvalidPoint3;
+  end;
 end;
 
 procedure TMat4.Transform(var v:TVec4);
@@ -1104,20 +1206,52 @@ end;
 
 function TMat4.TransformPoint(const v:TVec3):TVec3;
 var
-  vv:TVec3;
+  t:single;
 begin
-  vv:=v;
-  result:=Apus.Geom3D.TransformPoint(self,@vv);
+  result.x:=v.x*self[0,0]+v.y*self[1,0]+v.z*self[2,0]+self[3,0];
+  result.y:=v.x*self[0,1]+v.y*self[1,1]+v.z*self[2,1]+self[3,1];
+  result.z:=v.x*self[0,2]+v.y*self[1,2]+v.z*self[2,2]+self[3,2];
+  t:=v.x*self[0,3]+v.y*self[1,3]+v.z*self[2,3]+self[3,3];
+  if (t<>1) and (t>0) then begin
+    result.x:=result.x/t;
+    result.y:=result.y/t;
+    result.z:=result.z/t;
+  end else
+  if t<=0 then begin
+    result:=InvalidVec3;
+  end;
 end;
 
 procedure TMat3.TransformPoints(v:PVec3;num,step:integer);
+var
+  i:integer;
+  x,y,z:single;
 begin
-  MultPnt(self,v,num,step);
+  for i:=1 to num do begin
+    x:=v^.x*self[0,0]+v^.y*self[1,0]+v^.z*self[2,0];
+    y:=v^.x*self[0,1]+v^.y*self[1,1]+v^.z*self[2,1];
+    z:=v^.x*self[0,2]+v^.y*self[1,2]+v^.z*self[2,2];
+    v^.x:=x;
+    v^.y:=y;
+    v^.z:=z;
+    v:=PVec3(PtrUInt(v)+step);
+  end;
 end;
 
 procedure TMat34.TransformPoints(v:PVec3;num,step:integer);
+var
+  i:integer;
+  x,y,z:single;
 begin
-  MultPnt(self,v,num,step);
+  for i:=1 to num do begin
+    x:=v^.x*self[0,0]+v^.y*self[1,0]+v^.z*self[2,0]+self[3,0];
+    y:=v^.x*self[0,1]+v^.y*self[1,1]+v^.z*self[2,1]+self[3,1];
+    z:=v^.x*self[0,2]+v^.y*self[1,2]+v^.z*self[2,2]+self[3,2];
+    v^.x:=x;
+    v^.y:=y;
+    v^.z:=z;
+    v:=PVec3(PtrUInt(v)+step);
+  end;
 end;
 
 function TMat3d.GetItem(i,j:integer):double;
