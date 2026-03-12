@@ -380,3 +380,18 @@ Status:
 
 Proposed next step:
 - Gate B / Step 1: produce full standalone-function inventory for `Geom2D/Geom3D/Spatial`, classify each function (move-to-record / keep-standalone with rationale), then execute the first safe migration batch.
+
+### 2026-03-12 - Gate B / Step 1 completed
+
+Status:
+- Produced standalone-function inventory and classification report:
+  - `reports/R-07_gateB_standalone_inventory.md`
+- Confirmed `Apus.Spatial` public API is records-first; helper routines there are implementation-local.
+- Grouped remaining standalone functions in `Geom2D/Geom3D` by rationale:
+  - compatibility wrappers
+  - factory/conversion helpers
+  - matrix algebra procedures (deferred refactor)
+  - multi-entity algorithmic helpers
+
+Proposed next step:
+- Gate B / Step 2: perform first safe migration batch by replacing compatibility-wrapper usage in tests/new code with record methods wherever equivalent behavior exists, keeping wrappers for backward compatibility.
