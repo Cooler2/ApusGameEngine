@@ -159,8 +159,10 @@ interface
  function Point3(p:TVec3):TVec3d; overload; inline;
  function Direction3(from,target:TVec3d):TVec3d; overload; inline;
  function Vec3(x,y,z:single):TVec3; overload; inline;
+ function Vec3(v:TVec3d):TVec3; overload; inline;
  function Vec3(v:TVec4):TVec3; overload; inline;
  function Vec3d(x,y,z:double):TVec3d; overload; inline;
+ function Vec3d(v:TVec3):TVec3d; overload; inline;
  function Vec3d(v:TQuatd):TVec3d; overload; inline;
  function Vec4(v:TVec3;w:single=1):TVec4; overload; inline;
  function Vec4d(v:TVec3d;w:double=1):TQuatd; overload; inline;
@@ -368,6 +370,13 @@ implementation
    result.z:=z;
   end;
 
+ function Vec3(v:TVec3d):TVec3; overload; inline;
+  begin
+   result.x:=v.x;
+   result.y:=v.y;
+   result.z:=v.z;
+  end;
+
  function Vec3(v:TVec4):TVec3; overload; inline;
   begin
    result.x:=v.x;
@@ -380,6 +389,13 @@ implementation
    result.x:=x;
    result.y:=y;
    result.z:=z;
+  end;
+
+ function Vec3d(v:TVec3):TVec3d; overload; inline;
+  begin
+   result.x:=v.x;
+   result.y:=v.y;
+   result.z:=v.z;
   end;
 
  function Vec3d(v:TQuatd):TVec3d; overload; inline;

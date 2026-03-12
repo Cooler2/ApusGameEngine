@@ -151,6 +151,10 @@ begin
   pd:=TVec3d.Init(1,2,3);
   p2:=TVec3.Init(pd);
   Check((Abs(p2.x-1)<0.0001) and (Abs(p2.y-2)<0.0001) and (Abs(p2.z-3)<0.0001),'Vec3 from vec3d');
+  p2:=Vec3(pd);
+  Check((Abs(p2.x-1)<0.0001) and (Abs(p2.y-2)<0.0001) and (Abs(p2.z-3)<0.0001),'Vec3 factory from vec3d');
+  pd:=Vec3d(p2);
+  Check((Abs(pd.x-1)<0.0001) and (Abs(pd.y-2)<0.0001) and (Abs(pd.z-3)<0.0001),'Vec3d factory from vec3');
   p2:=TVec3.Init(TVec3d.Init(2,3,4));
   Check((Abs(p2.x-2)<0.0001) and (Abs(p2.y-3)<0.0001) and (Abs(p2.z-4)<0.0001),'Point from vec3d');
   p2:=TVec3.Init(p0,p1,0.5);
