@@ -60,8 +60,8 @@ interface
    a,b,c:double;
   end;
 
-  PRect2s=^TRect2s;
-  TRect2s=packed record
+  PRect2=^TRect2;
+  TRect2=packed record
    function Width:single;
    function Height:single;
    procedure Init; overload; inline; // init empty
@@ -70,7 +70,7 @@ interface
    procedure MoveBy(dx,dy:single); overload; inline;
    procedure MoveBy(delta:TVec2); overload; inline;
    procedure Include(x,y:single); overload; inline;
-   procedure Include(r:TRect2s); overload; inline;
+   procedure Include(r:TRect2); overload; inline;
    procedure Round;
    function IsEmpty:boolean; inline;
    function Center:TVec2; inline;
@@ -88,9 +88,8 @@ interface
   TMat2d=array[0..1,0..1] of double;
   TMat32d=array[0..2,0..1] of double;
   // Single precision version
-  TMatrix2s=array[0..1,0..1] of single;
-  TMatrix32s=array[0..2,0..1] of single;
-  TMat2=TMatrix2s;
+  TMat2=array[0..1,0..1] of single;
+  TMat32=array[0..2,0..1] of single;
   // Vector versions
   TMatrix2v=array[0..1] of TVec2d;
   TMatrix32v=array[0..2] of TVec2d;
@@ -101,8 +100,8 @@ interface
   NaN = 0.0/0.0;
   IdentMatrix2:TMat2d=((1,0),(0,1));
   IdentMatrix32:TMat32d=((1,0),(0,1),(0,0));
-  IdentMatrix2s:TMatrix2s=((1,0),(0,1));
-  IdentMatrix32s:TMatrix32s=((1,0),(0,1),(0,0));
+  IdentMat2:TMat2=((1,0),(0,1));
+  IdentMat32:TMat32=((1,0),(0,1),(0,0));
 
   InvalidPoint2:TVec2d=(x:NaN;y:NaN);
   InvalidPoint2s:TVec2=(x:NaN;y:NaN);
@@ -195,7 +194,7 @@ interface
  function IntersectRects(r1,r2:TRect;out r:TRect):integer;
  procedure OrderRect(var r:TRect); // упорядочить к-ты по возрастанию
 
- procedure ToSingle32(sour:TMat32d;out dest:TMatrix32s);
+ procedure ToSingle32(sour:TMat32d;out dest:TMat32);
 
  function TranslationMat(x,y:double):TMat32d;
  function RotationMat(angle:double):TMat32d;
@@ -206,7 +205,7 @@ interface
  procedure MultMat(m1,m2:TMat2d;out target:TMat2d); overload;
  procedure MultMat(m1,m2:TMat32d;out target:TMat32d); overload;
 
- procedure MultPnts(m:TMatrix32s;v:PVec2;num,step:integer);
+ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
 
  // Транспонирование (для ортонормированной матрицы - это будт обратная)
  procedure Transp2(m:TMat2d;out dest:TMat2d);
@@ -216,9 +215,9 @@ interface
  procedure Invert(m:TMat32d;out dest:TMat32d);
 
  // Rectangle
- function Rect2s(x1,y1,x2,y2:single):TRect2s; overload; inline;
- function TransformRect(const r:TRect2s;dx,dy,sx,sy:single):TRect2s;
- function RoundRect(const r:TRect2s):TRect;
+ function Rect2(x1,y1,x2,y2:single):TRect2; overload; inline;
+ function TransformRect(const r:TRect2;dx,dy,sx,sy:single):TRect2;
+ function RoundRect(const r:TRect2):TRect;
 
  var
   trgIndices:array of integer; // результат триангуляции
@@ -666,7 +665,7 @@ implementation
    result[2,0]:=0;        result[2,1]:=0;
   end;
 
- procedure ToSingle32(sour:TMat32d;out dest:TMatrix32s);
+ procedure ToSingle32(sour:TMat32d;out dest:TMat32);
   begin
    dest[0,0]:=sour[0,0];   dest[1,0]:=sour[1,0];   dest[2,0]:=sour[2,0];
    dest[0,1]:=sour[0,1];   dest[1,1]:=sour[1,1];   dest[2,1]:=sour[2,1];
@@ -692,7 +691,7 @@ implementation
    target[2,1]:=m2[2,1]+m1[2,0]*m2[0,1]+m1[2,1]*m2[1,1];
   end;
 
-procedure MultPnts(m:TMatrix32s;v:PVec2;num,step:integer);
+procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
   var
    x,y:single;
    i:integer;
@@ -847,7 +846,7 @@ procedure MultPnts(m:TMatrix32s;v:PVec2;num,step:integer);
    end;
   end;
 
- function Rect2s(x1,y1,x2,y2:single):TRect2s; overload;
+ function Rect2(x1,y1,x2,y2:single):TRect2; overload;
   begin
    result.x1:=x1;
    result.y1:=y1;
@@ -855,7 +854,7 @@ procedure MultPnts(m:TMatrix32s;v:PVec2;num,step:integer);
    result.y2:=y2;
   end;
 
- function TransformRect(const r:TRect2s;dx,dy,sx,sy:single):TRect2s;
+ function TransformRect(const r:TRect2;dx,dy,sx,sy:single):TRect2;
   begin
    result.x1:=r.x1*Sx+dx;
    result.y1:=r.y1*Sy+dy;
@@ -863,7 +862,7 @@ procedure MultPnts(m:TMatrix32s;v:PVec2;num,step:integer);
    result.y2:=r.y2*Sy+dy;
   end;
 
- function RoundRect(const r:TRect2s):TRect;
+ function RoundRect(const r:TRect2):TRect;
   begin
    result.Left:=SRound(r.x1);
    result.Top:=SRound(r.y1);
@@ -871,38 +870,38 @@ procedure MultPnts(m:TMatrix32s;v:PVec2;num,step:integer);
    result.Bottom:=SRound(r.y2);
   end;
 
-{ TRect2s }
+{ TRect2 }
 
- procedure TRect2s.InitWH(x,y,width,height:single);
+ procedure TRect2.InitWH(x,y,width,height:single);
   begin
    x1:=x; y1:=y;
    x2:=x+width;
    y2:=y+height;
   end;
 
- procedure TRect2s.Init(x1,y1,x2,y2:single);
+ procedure TRect2.Init(x1,y1,x2,y2:single);
   begin
    self.x1:=x1; self.y1:=y1;
    self.x2:=x2; self.y2:=y2;
   end;
 
-function TRect2s.IsEmpty:boolean;
+function TRect2.IsEmpty:boolean;
   begin
    result:=(y2<y1);
   end;
 
- procedure TRect2s.MoveBy(dx,dy:single);
+ procedure TRect2.MoveBy(dx,dy:single);
   begin
    x1:=x1+dx; x2:=x2+dx;
    y1:=y1+dy; y2:=y2+dy;
   end;
 
- procedure TRect2s.MoveBy(delta:TVec2);
+ procedure TRect2.MoveBy(delta:TVec2);
   begin
    MoveBy(delta.x,delta.y);
   end;
 
- procedure TRect2s.Round;
+ procedure TRect2.Round;
   begin
    x1:=FRound(x1);
    y1:=FRound(y1);
@@ -910,34 +909,34 @@ function TRect2s.IsEmpty:boolean;
    y2:=FRound(y2);
   end;
 
-function TRect2s.Center: TVec2;
+function TRect2.Center: TVec2;
   begin
    result.x:=(x1+x2)/2;
    result.y:=(y1+y2)/2;
   end;
 
-function TRect2s.GetIntRect:TRect;
+function TRect2.GetIntRect:TRect;
  begin
   result:=Rect(Floor(x1),Floor(y1),Floor(x2)+1,Floor(y2)+1);
  end;
 
-function TRect2s.Height:single;
+function TRect2.Height:single;
   begin
    result:=y2-y1;
   end;
 
-function TRect2s.Width:single;
+function TRect2.Width:single;
   begin
    result:=x2-x1;
   end;
 
- procedure TRect2s.Init;
+ procedure TRect2.Init;
   begin
    x1:=0; y1:=0;
    x2:=-1; y2:=-1;
   end;
 
- procedure TRect2s.Include(x,y:single);
+ procedure TRect2.Include(x,y:single);
   begin
    if IsEmpty then begin
     x1:=x; x2:=x;
@@ -950,7 +949,7 @@ function TRect2s.Width:single;
    end;
   end;
 
- procedure TRect2s.Include(r:TRect2s);
+ procedure TRect2.Include(r:TRect2);
   begin
    Include(r.x1,r.y1);
    Include(r.x2,r.y2);

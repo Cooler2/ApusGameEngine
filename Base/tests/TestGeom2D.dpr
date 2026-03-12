@@ -83,10 +83,10 @@ end;
 
 procedure TestRect2s;
 var
-  r:TRect2s;
+  r:TRect2;
   c:TVec2;
 begin
-  StartTest('Rect2s');
+  StartTest('Rect2');
   r.Init;
   Check(r.IsEmpty,'Init empty');
   r.Include(1,2);
@@ -141,12 +141,12 @@ var
   v1,v2,v3:TVec2;
   m2,m2b,m2i:TMat2d;
   m32,m32b,m32i:TMat32d;
-  m32s,m32si:TMatrix32s;
+  m32s,m32si:TMat32;
   p:TVec2d;
   seg:TSegment2;
   t,dev:double;
   r:TRect;
-  rs:TRect2s;
+  rs:TRect2;
   pt:TVec2;
   pt0:TVec2;
   poly:array[0..2] of TVec2d;
@@ -222,11 +222,11 @@ begin
   Check((r.Left=1) and (r.Top=1) and (r.Right=5) and (r.Bottom=5),'OrderRect');
   IntersectRects(Rect(0,0,10,10),Rect(5,5,20,20),r);
   Check((r.Left=5) and (r.Top=5),'IntersectRects');
-  rs:=Rect2s(0,0,5,5);
+  rs:=Rect2(0,0,5,5);
   rs:=TransformRect(rs,1,2,2,3);
   r:=RoundRect(rs);
   Check(r.Left<=r.Right,'RoundRect');
-  rs:=Rect2s(1,1,3,5);
+  rs:=Rect2(1,1,3,5);
   rs:=TransformRect(rs,-1,2,-2,0.5);
   r:=RoundRect(rs);
   Check(r.Left>r.Right,'RoundRect negative scale');
