@@ -92,8 +92,8 @@ var
 begin
   StartTest('Quaternion conversions');
   m:=RotationAroundVector(TVec3.Init(1,2,3),1.25);
-  q:=MatrixToQuaternion(m);
-  QuaternionToMatrix(q,m2);
+  q:=m.ToQuaternion;
+  m2:=TMat3.FromQuaternion(q);
   Check(IsEqual(m,m2,200),'Matrix<->Quaternion');
   Check(Abs(q.Length-1)<0.001,'Quaternion normalized');
   EndTest;
@@ -259,9 +259,9 @@ begin
   Check(IsEqual(Vec3d(1,2,3),TVec3d.Init(1,2,3),2),'Vec3d factory');
   Check(IsEqual(Vec3d(qdv),TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'Vec4d->Vec3d factory');
   Check(IsEqual(qdv.ToVec3d,TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'TVec4d.ToVec3d');
-  QuaternionToMatrix(qd,m3d);
-  qd:=MatrixToQuaternion(m3d);
-  Check(qd.IsValid,'QuaternionToMatrix double alias');
+  m3d:=TMat3d.FromQuaternion(qd);
+  qd:=m3d.ToQuaternion;
+  Check(qd.IsValid,'TMat3d quaternion conversion');
   m4dd:=TranslationMat4d(1,2,3);
   DecomposeMatrix(m4dd,trd,rotd,scad);
   Check((Abs(trd.x-1)<0.0001) and (Abs(trd.y-2)<0.0001) and (Abs(trd.z-3)<0.0001),'DecomposeMatrix double');

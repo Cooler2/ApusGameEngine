@@ -176,6 +176,8 @@ interface
     function Row(n:integer):TVec3d; inline;
     function Col(n:integer):TVec3d; inline;
     class operator Multiply(const a,b:TMat3d):TMat3d;
+    class function FromQuaternion(const q:TQuatd):TMat3d; static;
+    function ToQuaternion:TQuatd;
     procedure Transpose;
     function Transposed:TMat3d;
     procedure Invert;
@@ -228,6 +230,7 @@ interface
     function Row(n:integer):TVec4; inline;
     function Col(n:integer):TVec4; inline;
     class operator Multiply(const a,b:TMat4):TMat4;
+    class function FromQuaternion(const q:TQuat):TMat4; static;
     procedure Transpose; overload;
     function Transposed:TMat4; overload;
     procedure Invert; overload;
@@ -251,6 +254,8 @@ interface
     function Row(n:integer):TVec3; inline;
     function Col(n:integer):TVec3; inline;
     class operator Multiply(const a,b:TMat3):TMat3;
+    class function FromQuaternion(const q:TQuat):TMat3; static;
+    function ToQuaternion:TQuat;
     procedure Transpose;
     function Transposed:TMat3;
     procedure Invert;
@@ -371,17 +376,6 @@ interface
  // Матрица поворота вокруг вектора единичной длины!
  function RotationAroundVector(v:TVec3d;angle:double):TMat3d; overload;
  function RotationAroundVector(v:TVec3;angle:single):TMat3; overload;
-
- // Build rotation matrix from a NORMALIZED quaternion
- procedure MatrixFromQuaternion(const q:TQuatd;out mat:TMat3d); overload;
- procedure MatrixFromQuaternion(const q:TQuat;out mat:TMat3); overload;
- procedure MatrixFromQuaternion(const q:TQuat;out mat:TMat4); overload;
- procedure QuaternionToMatrix(const q:TQuatd;out mat:TMat3d); overload; inline; // alias
- procedure QuaternionToMatrix(const q:TQuat;out mat:TMat3); overload; inline; // alias
-
- // Convert an ORTHOGONAL matrix to quaternion
- function MatrixToQuaternion(const mat:TMat3):TQuat; overload;
- function MatrixToQuaternion(const mat:TMat3d):TQuatd; overload;
 
  // Extract translation rotation and scale from transformation matrix
  procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat); overload;
@@ -1677,142 +1671,132 @@ end;
    result[0,2]:=ln*nco-v.y*si;  result[1,2]:=mn*nco+v.x*si;  result[2,2]:=n2+(l2+m2)*co;
   end; }
 
- procedure MatrixFromQuaternion(const q:TQuatd;out mat:TMat3d); overload;
-  var
-   wx,wy,wz,xx,yy,yz,xy,xz,zz,x2,y2,z2:double;
-  begin
-   x2:=q.x*2;
-   y2:=q.y*2;
-   z2:=q.z*2;
-   xx:=q.x*x2;   xy:=q.x*y2;   xz:=q.x*z2;
-   yy:=q.y*y2;   yz:=q.y*z2;   zz:=q.z*z2;
-   wx:=q.w*x2;   wy:=q.w*y2;   wz:=q.w*z2;
+class function TMat3d.FromQuaternion(const q:TQuatd):TMat3d;
+ var
+  wx,wy,wz,xx,yy,yz,xy,xz,zz,x2,y2,z2:double;
+ begin
+  x2:=q.x*2;
+  y2:=q.y*2;
+  z2:=q.z*2;
+  xx:=q.x*x2;   xy:=q.x*y2;   xz:=q.x*z2;
+  yy:=q.y*y2;   yz:=q.y*z2;   zz:=q.z*z2;
+  wx:=q.w*x2;   wy:=q.w*y2;   wz:=q.w*z2;
 
-   mat[0,0]:=1.0-(yy+zz);  mat[0,1]:=xy-wz;        mat[0,2]:=xz+wy;
-   mat[1,0]:=xy+wz;        mat[1,1]:=1.0-(xx+zz);  mat[1,2]:=yz-wx;
-   mat[2,0]:=xz-wy;        mat[2,1]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
+  result[0,0]:=1.0-(yy+zz);  result[0,1]:=xy-wz;        result[0,2]:=xz+wy;
+  result[1,0]:=xy+wz;        result[1,1]:=1.0-(xx+zz);  result[1,2]:=yz-wx;
+  result[2,0]:=xz-wy;        result[2,1]:=yz+wx;        result[2,2]:=1.0-(xx+yy);
+ end;
+
+class function TMat3.FromQuaternion(const q:TQuat):TMat3;
+ var
+  wx,wy,wz,xx,yy,yz,xy,xz,zz,x2,y2,z2:single;
+ begin
+  x2:=q.x*2;
+  y2:=q.y*2;
+  z2:=q.z*2;
+  xx:=q.x*x2;   xy:=q.x*y2;   xz:=q.x*z2;
+  yy:=q.y*y2;   yz:=q.y*z2;   zz:=q.z*z2;
+  wx:=q.w*x2;   wy:=q.w*y2;   wz:=q.w*z2;
+
+  result[0,0]:=1.0-(yy+zz);  result[1,0]:=xy-wz;        result[2,0]:=xz+wy;
+  result[0,1]:=xy+wz;        result[1,1]:=1.0-(xx+zz);  result[2,1]:=yz-wx;
+  result[0,2]:=xz-wy;        result[1,2]:=yz+wx;        result[2,2]:=1.0-(xx+yy);
+ end;
+
+class function TMat4.FromQuaternion(const q:TQuat):TMat4;
+ var
+  wx,wy,wz,xx,yy,yz,xy,xz,zz,x2,y2,z2:single;
+ begin
+  x2:=q.x*2;
+  y2:=q.y*2;
+  z2:=q.z*2;
+  xx:=q.x*x2;   xy:=q.x*y2;   xz:=q.x*z2;
+  yy:=q.y*y2;   yz:=q.y*z2;   zz:=q.z*z2;
+  wx:=q.w*x2;   wy:=q.w*y2;   wz:=q.w*z2;
+
+  result[0,0]:=1.0-(yy+zz);  result[1,0]:=xy-wz;        result[2,0]:=xz+wy;
+  result[0,1]:=xy+wz;        result[1,1]:=1.0-(xx+zz);  result[2,1]:=yz-wx;
+  result[0,2]:=xz-wy;        result[1,2]:=yz+wx;        result[2,2]:=1.0-(xx+yy);
+  result[0,3]:=0;            result[1,3]:=0;            result[2,3]:=0;
+  result.rows[3]:=vec0001s;
+ end;
+
+// https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
+function TMat3.ToQuaternion:TQuat;
+ var
+  t,k:single;
+ begin
+  t:=self[0,0]+self[1,1]+self[2,2];
+  if t>0 then begin
+   k:=sqrt(1+t);
+   result.w:=k*0.5;
+   k:=0.5/k;
+   result.x:=-(self[2,1]-self[1,2])*k;
+   result.y:=-(self[0,2]-self[2,0])*k;
+   result.z:=-(self[1,0]-self[0,1])*k;
+  end else
+  if (self[0,0]>self[1,1]) and (self[0,0]>self[2,2]) then begin
+   k:=sqrt(1+self[0,0]-self[1,1]-self[2,2]);
+   result.x:=k*0.5;
+   k:=0.5/k;
+   result.w:=(self[1,2]-self[2,1])*k;
+   result.y:=(self[0,1]+self[1,0])*k;
+   result.z:=(self[0,2]+self[2,0])*k;
+  end else
+  if self[1,1]>self[2,2] then begin
+   k:=sqrt(1+self[1,1]-self[0,0]-self[2,2]);
+   result.y:=k*0.5;
+   k:=0.5/k;
+   result.w:=(self[2,0]-self[0,2])*k;
+   result.x:=(self[0,1]+self[1,0])*k;
+   result.z:=(self[1,2]+self[2,1])*k;
+  end else begin
+   k:=sqrt(1+self[2,2]-self[0,0]-self[1,1]);
+   result.z:=k*0.5;
+   k:=0.5/k;
+   result.w:=(self[0,1]-self[1,0])*k;
+   result.x:=(self[0,2]+self[2,0])*k;
+   result.y:=(self[1,2]+self[2,1])*k;
   end;
+ end;
 
- procedure MatrixFromQuaternion(const q:TQuat;out mat:TMat3); overload;
-  var
-   wx,wy,wz,xx,yy,yz,xy,xz,zz,x2,y2,z2:single;
-  begin
-   x2:=q.x*2;
-   y2:=q.y*2;
-   z2:=q.z*2;
-   xx:=q.x*x2;   xy:=q.x*y2;   xz:=q.x*z2;
-   yy:=q.y*y2;   yz:=q.y*z2;   zz:=q.z*z2;
-   wx:=q.w*x2;   wy:=q.w*y2;   wz:=q.w*z2;
-
-   mat[0,0]:=1.0-(yy+zz);  mat[1,0]:=xy-wz;        mat[2,0]:=xz+wy;
-   mat[0,1]:=xy+wz;        mat[1,1]:=1.0-(xx+zz);  mat[2,1]:=yz-wx;
-   mat[0,2]:=xz-wy;        mat[1,2]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
+function TMat3d.ToQuaternion:TQuatd;
+ var
+  t,k:double;
+ begin
+  t:=self[0,0]+self[1,1]+self[2,2];
+  if t>0 then begin
+   k:=sqrt(1+t);
+   result.w:=k*0.5;
+   k:=0.5/k;
+   result.x:=-(self[2,1]-self[1,2])*k;
+   result.y:=-(self[0,2]-self[2,0])*k;
+   result.z:=-(self[1,0]-self[0,1])*k;
+  end else
+  if (self[0,0]>self[1,1]) and (self[0,0]>self[2,2]) then begin
+   k:=sqrt(1+self[0,0]-self[1,1]-self[2,2]);
+   result.x:=k*0.5;
+   k:=0.5/k;
+   result.w:=(self[1,2]-self[2,1])*k;
+   result.y:=(self[0,1]+self[1,0])*k;
+   result.z:=(self[0,2]+self[2,0])*k;
+  end else
+  if self[1,1]>self[2,2] then begin
+   k:=sqrt(1+self[1,1]-self[0,0]-self[2,2]);
+   result.y:=k*0.5;
+   k:=0.5/k;
+   result.w:=(self[2,0]-self[0,2])*k;
+   result.x:=(self[0,1]+self[1,0])*k;
+   result.z:=(self[1,2]+self[2,1])*k;
+  end else begin
+   k:=sqrt(1+self[2,2]-self[0,0]-self[1,1]);
+   result.z:=k*0.5;
+   k:=0.5/k;
+   result.w:=(self[0,1]-self[1,0])*k;
+   result.x:=(self[0,2]+self[2,0])*k;
+   result.y:=(self[1,2]+self[2,1])*k;
   end;
-
- procedure MatrixFromQuaternion(const q:TQuat;out mat:TMat4); overload;
-  var
-   wx,wy,wz,xx,yy,yz,xy,xz,zz,x2,y2,z2:single;
-  begin
-   x2:=q.x*2;
-   y2:=q.y*2;
-   z2:=q.z*2;
-   xx:=q.x*x2;   xy:=q.x*y2;   xz:=q.x*z2;
-   yy:=q.y*y2;   yz:=q.y*z2;   zz:=q.z*z2;
-   wx:=q.w*x2;   wy:=q.w*y2;   wz:=q.w*z2;
-
-
-   mat[0,0]:=1.0-(yy+zz);  mat[1,0]:=xy-wz;        mat[2,0]:=xz+wy;
-   mat[0,1]:=xy+wz;        mat[1,1]:=1.0-(xx+zz);  mat[2,1]:=yz-wx;
-   mat[0,2]:=xz-wy;        mat[1,2]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
-   mat[0,3]:=0;            mat[1,3]:=0;            mat[2,3]:=0;
-   mat.rows[3]:=vec0001s;
-  end;
-
- procedure QuaternionToMatrix(const q:TQuatd;out mat:TMat3d); overload;
-  begin
-   MatrixFromQuaternion(q,mat);
-  end;
- procedure QuaternionToMatrix(const q:TQuat;out mat:TMat3); overload;
-  begin
-   MatrixFromQuaternion(q,mat);
-  end;
-
- // https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
- function MatrixToQuaternion(const mat:TMat3):TQuat; overload;
-  var
-   t,k:single;
-  begin
-   t:=mat[0,0]+mat[1,1]+mat[2,2];
-   if t>0 then begin
-    k:=sqrt(1+t);
-    result.w:=k*0.5;
-    k:=0.5/k;
-    result.x:=-(mat[2,1]-mat[1,2])*k;
-    result.y:=-(mat[0,2]-mat[2,0])*k;
-    result.z:=-(mat[1,0]-mat[0,1])*k;
-   end else
-   if (mat[0,0]>mat[1,1]) and (mat[0,0]>mat[2,2]) then begin
-    k:=sqrt(1+mat[0,0]-mat[1,1]-mat[2,2]);
-    result.x:=k*0.5;
-    k:=0.5/k;
-    result.w:=(mat[1,2]-mat[2,1])*k;
-    result.y:=(mat[0,1]+mat[1,0])*k;
-    result.z:=(mat[0,2]+mat[2,0])*k;
-   end else
-   if mat[1,1]>mat[2,2] then begin
-    k:=sqrt(1+mat[1,1]-mat[0,0]-mat[2,2]);
-    result.y:=k*0.5;
-    k:=0.5/k;
-    result.w:=(mat[2,0]-mat[0,2])*k;
-    result.x:=(mat[0,1]+mat[1,0])*k;
-    result.z:=(mat[1,2]+mat[2,1])*k;
-   end else begin
-    k:=sqrt(1+mat[2,2]-mat[0,0]-mat[1,1]);
-    result.z:=k*0.5;
-    k:=0.5/k;
-    result.w:=(mat[0,1]-mat[1,0])*k;
-    result.x:=(mat[0,2]+mat[2,0])*k;
-    result.y:=(mat[1,2]+mat[2,1])*k;
-   end;
-  end;
-
- function MatrixToQuaternion(const mat:TMat3d):TQuatd; overload;
-  var
-   t,k:double;
-  begin
-   t:=mat[0,0]+mat[1,1]+mat[2,2];
-   if t>0 then begin
-    k:=sqrt(1+t);
-    result.w:=k*0.5;
-    k:=0.5/k;
-    result.x:=-(mat[2,1]-mat[1,2])*k;
-    result.y:=-(mat[0,2]-mat[2,0])*k;
-    result.z:=-(mat[1,0]-mat[0,1])*k;
-   end else
-   if (mat[0,0]>mat[1,1]) and (mat[0,0]>mat[2,2]) then begin
-    k:=sqrt(1+mat[0,0]-mat[1,1]-mat[2,2]);
-    result.x:=k*0.5;
-    k:=0.5/k;
-    result.w:=(mat[1,2]-mat[2,1])*k;
-    result.y:=(mat[0,1]+mat[1,0])*k;
-    result.z:=(mat[0,2]+mat[2,0])*k;
-   end else
-   if mat[1,1]>mat[2,2] then begin
-    k:=sqrt(1+mat[1,1]-mat[0,0]-mat[2,2]);
-    result.y:=k*0.5;
-    k:=0.5/k;
-    result.w:=(mat[2,0]-mat[0,2])*k;
-    result.x:=(mat[0,1]+mat[1,0])*k;
-    result.z:=(mat[1,2]+mat[2,1])*k;
-   end else begin
-    k:=sqrt(1+mat[2,2]-mat[0,0]-mat[1,1]);
-    result.z:=k*0.5;
-    k:=0.5/k;
-    result.w:=(mat[0,1]-mat[1,0])*k;
-    result.x:=(mat[0,2]+mat[2,0])*k;
-    result.y:=(mat[1,2]+mat[2,1])*k;
-   end;
-  end;
+ end;
 
  // If matrix is not orthogonal, the shear will be lost
 procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat);
@@ -1855,7 +1839,7 @@ procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat);
    move(qX,mat3.rows[0],sizeof(qX));
    move(qY,mat3.rows[1],sizeof(qy));
    move(qZ,mat3.rows[2],sizeof(qZ));
-   rotation:=MatrixToQuaternion(mat3);
+   rotation:=mat3.ToQuaternion;
   end;
 
 procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd);
@@ -1898,7 +1882,7 @@ procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd);
    move(qX,mat3.rows[0],sizeof(qx));
    move(qY,mat3.rows[1],sizeof(qy));
    move(qZ,mat3.rows[2],sizeof(qz));
-  rotation:=MatrixToQuaternion(mat3);
+  rotation:=mat3.ToQuaternion;
  end;
 
 class function TPlane.Init(const point,normal:TVec3d):TPlane;
