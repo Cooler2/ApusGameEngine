@@ -118,7 +118,7 @@ interface
   IdentMat32:TMat32=((1,0),(0,1),(0,0));
 
   InvalidPoint2:TVec2d=(x:NaN;y:NaN);
-  InvalidPoint2s:TVec2=(x:NaN;y:NaN);
+  InvalidVec2:TVec2=(x:NaN;y:NaN);
 
  // Vector functions
  function VectMult(v:TVec2d;value:double):TVec2d; inline; overload;

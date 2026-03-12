@@ -210,7 +210,7 @@ function TVertexLayout.GetUV(var vertex;idx:cardinal):TVec2;
    1:p:=(layout shr 16) and $F;
   end;
   if p>0 then GetField(vertex,p*4,sizeof(result),result)
-   else result:=InvalidPoint2s;
+   else result:=InvalidVec2;
  end;
 
 procedure TVertexLayout.SetColor(var vertex;color:cardinal);
