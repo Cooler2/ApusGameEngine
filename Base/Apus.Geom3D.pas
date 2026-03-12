@@ -160,17 +160,6 @@ interface
    function DistanceTo(const pnt:TVec3):single; overload; inline;
   end;
   PVec3=^TVec3;
-  // Infinite oriented line in space
-  TLine3=packed record
-   origin:TVec3d;
-   dir:TVec3d;
-   class function Init(const aOrigin,aDir:TVec3d):TLine3; static;
-   class function FromPoints(const source,target:TVec3d):TLine3; static;
-   function PointAt(distance:double):TVec3d; inline;
-   function IntersectTriangle(const a,b,c:TVec3d;out pb,pc,d:double):boolean;
-   function IntersectPlane(const plane:TPlane;out distance:double):boolean;
-  end;
-
   // Transformation matrices
   PMatrix3=^TMat3d;
   TMat3d=packed record // Rotation/scale
@@ -1970,111 +1959,28 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
                     m[1,2]*(m[2,0]*m[3,1]-m[2,1]*m[3,0]))*m[0,3];
   end;
 
-class function TLine3.Init(const aOrigin,aDir:TVec3d):TLine3;
- begin
-  result.origin:=aOrigin;
-  result.dir:=aDir;
- end;
-
-class function TLine3.FromPoints(const source,target:TVec3d):TLine3;
- begin
-  result.origin:=source;
-  result.dir:=target.Sub(source);
- end;
-
-function TLine3.PointAt(distance:double):TVec3d;
- begin
-  result.x:=origin.x+dir.x*distance;
-  result.y:=origin.y+dir.y*distance;
-  result.z:=origin.z+dir.z*distance;
- end;
-
-function TLine3.IntersectTriangle(const a,b,c:TVec3d;out pb,pc,d:double):boolean;
+procedure _YRPToMatrix(yaw,roll,pitch:double;m:PDouble;width:integer); inline;
  var
-  m:TMat3d;
-  l,normDir:TVec3d;
-  dt:double;
+  ca,sa,cb,sb,cc,sc:double;
  begin
-  m[0,0]:=b.x-a.x; m[0,1]:=b.y-a.y; m[0,2]:=b.z-a.z;
-  m[1,0]:=c.x-a.x; m[1,1]:=c.y-a.y; m[1,2]:=c.z-a.z;
-  normDir:=dir;
-  if normDir.Length2<Epsilon then begin
-   result:=false;
-   exit;
-  end;
-  normDir.Normalize;
-  m[2,0]:=normDir.x; m[2,1]:=normDir.y; m[2,2]:=normDir.z;
-  dt:=Det(m);
-  result:=false;
-  if abs(dt)<0.0001 then begin
-   exit;
-  end;
-
-  l.x:=origin.x-a.x;
-  l.y:=origin.y-a.y;
-  l.z:=origin.z-a.z;
-  pb:=(l.x*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
-       l.y*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
-       l.z*(m[1,0]*m[2,1]-m[1,1]*m[2,0]))/dt;
-  if (pb<0) or (pb>1) then begin
-   exit;
-  end;
-  pc:=-(l.x*(m[0,1]*m[2,2]-m[0,2]*m[2,1])-
-        l.y*(m[0,0]*m[2,2]-m[0,2]*m[2,0])+
-        l.z*(m[0,0]*m[2,1]-m[0,1]*m[2,0]))/dt;
-  if (pc<0) or (pb+pc>1) then begin
-   exit;
-  end;
-  d:=-(l.x*(m[0,1]*m[1,2]-m[0,2]*m[1,1])-
-       l.y*(m[0,0]*m[1,2]-m[0,2]*m[1,0])+
-       l.z*(m[0,0]*m[1,1]-m[0,1]*m[1,0]))/dt;
-  if d<0 then begin
-   exit;
-  end;
-  result:=true;
+  ca:=cos(yaw); sa:=sin(yaw);
+  cb:=cos(roll); sb:=sin(roll);
+  cc:=cos(pitch); sc:=sin(pitch);
+  // row 0
+  m^:=ca*cb; inc(m);
+  m^:=sa*cb; inc(m);
+  m^:=-sb; inc(m,width-2);
+  // row 1
+  m^:=ca*sb*sc-sa*cc; inc(m);
+  m^:=sa*sb*sc+ca*cc; inc(m);
+  m^:=cb*sc; inc(m,width-2);
+  // row 2
+  m^:=ca*sb*cc+sa*sc; inc(m);
+  m^:=sa*sb*cc-ca*sc; inc(m);
+  m^:=cb*cc; inc(m,width-2);
  end;
 
-function TLine3.IntersectPlane(const plane:TPlane;out distance:double):boolean;
- var
-  normDir:TVec3d;
-  denom:double;
- begin
-  normDir:=dir;
-  if normDir.Length2<Epsilon then begin
-   result:=false;
-   exit;
-  end;
-  normDir.Normalize;
-  denom:=plane.a*normDir.x+plane.b*normDir.y+plane.c*normDir.z;
-  if abs(denom)<Epsilon then begin
-   result:=false;
-   exit;
-  end;
-  distance:=-plane.DistanceTo(origin)/denom;
-  result:=distance>=0;
- end;
- procedure _YRPToMatrix(yaw,roll,pitch:double;m:PDouble;width:integer); inline;
-  var
-   ca,sa,cb,sb,cc,sc:double;
-  begin
-   ca:=cos(yaw); sa:=sin(yaw);
-   cb:=cos(roll); sb:=sin(roll);
-   cc:=cos(pitch); sc:=sin(pitch);
-   // row 0
-   m^:=ca*cb; inc(m);
-   m^:=sa*cb; inc(m);
-   m^:=-sb; inc(m,width-2);
-   // row 1
-   m^:=ca*sb*sc-sa*cc; inc(m);
-   m^:=sa*sb*sc+ca*cc; inc(m);
-   m^:=cb*sc; inc(m,width-2);
-   // row 2
-   m^:=ca*sb*cc+sa*sc; inc(m);
-   m^:=sa*sb*cc-ca*sc; inc(m);
-   m^:=cb*cc; inc(m,width-2);
-  end;
-
- procedure _YRPToMatrixS(yaw,roll,pitch:single;m:PSingle;width:integer); inline;
+procedure _YRPToMatrixS(yaw,roll,pitch:single;m:PSingle;width:integer); inline;
   var
    ca,sa,cb,sb,cc,sc:double;
   begin

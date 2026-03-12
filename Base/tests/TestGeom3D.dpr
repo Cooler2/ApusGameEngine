@@ -319,11 +319,12 @@ var
   y0,r0,p0:double;
   y1,r1,p1:double;
   m3s,m3sRef:TMat3;
-  a,b,c,o,tp:TVec3d;
-  ray:TLine3;
+  a,b,c,o,tp:TVec3;
+  ray:TRay;
   plane:TPlane;
-  planeDist:double;
-  pb,pc,d:double;
+  planeDist:single;
+  pb,pc,d:single;
+  dir:TVec3;
   hit:boolean;
 begin
   StartTest('Geom3D edge cases');
@@ -345,36 +346,44 @@ begin
   m3sRef:=ToMat3(Matrix4(RotationZMat(0.4)));
   Check(IsEqual(m3s,m3sRef,20),'RotationMat3Z consistency');
 
-  a:=TVec3d.Init(0,0,0);
-  b:=TVec3d.Init(1,0,0);
-  c:=TVec3d.Init(0,1,0);
-  o:=TVec3d.Init(0.25,0.25,1);
-  tp:=TVec3d.Init(0.25,0.25,0);
-  ray:=TLine3.FromPoints(o,tp);
-  hit:=ray.IntersectTriangle(a,b,c,pb,pc,d);
-  Check(hit and (d>0) and (pb>=0) and (pc>=0) and (pb+pc<=1),'TLine3.IntersectTriangle hit');
+  a:=TVec3.Init(0,0,0);
+  b:=TVec3.Init(1,0,0);
+  c:=TVec3.Init(0,1,0);
+  o:=TVec3.Init(0.25,0.25,1);
+  tp:=TVec3.Init(0.25,0.25,0);
+  dir:=Vec3(Direction3(Point3(o),Point3(tp)));
+  dir.Normalize;
+  ray:=TRay.Init(o,dir);
+  hit:=ray.IntersectsTriangle(a,b,c,d,pb,pc);
+  Check(hit and (d>0) and (pb>=0) and (pc>=0) and (pb+pc<=1),'TRay.IntersectsTriangle hit');
 
-  o:=TVec3d.Init(2,2,1);
-  tp:=TVec3d.Init(2,2,0);
-  ray:=TLine3.FromPoints(o,tp);
-  hit:=ray.IntersectTriangle(a,b,c,pb,pc,d);
-  Check(not hit,'TLine3.IntersectTriangle miss');
+  o:=TVec3.Init(2,2,1);
+  tp:=TVec3.Init(2,2,0);
+  dir:=Vec3(Direction3(Point3(o),Point3(tp)));
+  dir.Normalize;
+  ray:=TRay.Init(o,dir);
+  hit:=ray.IntersectsTriangle(a,b,c,d,pb,pc);
+  Check(not hit,'TRay.IntersectsTriangle miss');
 
-  o:=TVec3d.Init(0.25,0.25,1);
-  tp:=TVec3d.Init(1.25,0.25,1);
-  ray:=TLine3.FromPoints(o,tp);
-  hit:=ray.IntersectTriangle(a,b,c,pb,pc,d);
-  Check(not hit,'TLine3.IntersectTriangle parallel');
+  o:=TVec3.Init(0.25,0.25,1);
+  tp:=TVec3.Init(1.25,0.25,1);
+  dir:=Vec3(Direction3(Point3(o),Point3(tp)));
+  dir.Normalize;
+  ray:=TRay.Init(o,dir);
+  hit:=ray.IntersectsTriangle(a,b,c,d,pb,pc);
+  Check(not hit,'TRay.IntersectsTriangle parallel');
 
   plane:=TPlane.Init(TVec3d.Init(0,0,0),TVec3d.Init(0,0,1));
-  o:=TVec3d.Init(0,0,2);
-  ray:=TLine3.FromPoints(o,TVec3d.Init(0,0,0));
-  hit:=ray.IntersectPlane(plane,planeDist);
-  Check(hit and (Abs(planeDist-2)<0.0001),'TLine3.IntersectPlane hit');
+  o:=TVec3.Init(0,0,2);
+  dir:=Vec3(Direction3(Point3(o),TVec3d.Init(0,0,0)));
+  dir.Normalize;
+  ray:=TRay.Init(o,dir);
+  hit:=ray.IntersectsPlane(plane,planeDist);
+  Check(hit and (Abs(planeDist-2)<0.0001),'TRay.IntersectsPlane hit');
 
-  ray:=TLine3.FromPoints(TVec3d.Init(0,0,2),TVec3d.Init(1,0,2));
-  hit:=ray.IntersectPlane(plane,planeDist);
-  Check(not hit,'TLine3.IntersectPlane parallel');
+  ray:=TRay.Init(TVec3.Init(0,0,2),TVec3.Init(1,0,0));
+  hit:=ray.IntersectsPlane(plane,planeDist);
+  Check(not hit,'TRay.IntersectsPlane parallel');
   EndTest;
 end;
 
