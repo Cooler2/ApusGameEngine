@@ -69,7 +69,7 @@ begin
   m3:=MultMat(m3,mInv);
   Check(IsEqual(m3,IdentMat4),'InvertFull');
 
-  v:=Quat(1,2,3,1);
+  v:=TQuat.Init(1,2,3,1);
   MultPnt(IdentMat4,@v,1,SizeOf(v));
   Check((Abs(v.x-1)<0.0001) and (Abs(v.y-2)<0.0001) and (Abs(v.z-3)<0.0001),'MultPnt identity');
   EndTest;
@@ -167,16 +167,16 @@ begin
   m4d:=Matrix4(m43); // keep conversion path in test
   Check(Abs(Det(IdentMat4)-1)<0.0001,'Det');
 
-  q:=Quat(1,2,3,4);
+  q:=TQuat.Init(1,2,3,4);
   v:=MatRow(IdentMat4,0);
   v:=MatCol(IdentMat4,0);
   q:=Vec4(p0);
-  q:=Quat(0,0,0,1);
+  q:=TQuat.Init(0,0,0,1);
   Check(Abs(QuatLength(q)-1)<0.0001,'QuatLength');
   QuatNormalize(q);
   q:=QuatInvert(q);
-  q:=QuatMultiply(q,Quat(0,0,0,1));
-  q:=QuatSlerp(q,Quat(0,0,0,1),0.5);
+  q:=QuatMultiply(q,TQuat.Init(0,0,0,1));
+  q:=QuatSlerp(q,TQuat.Init(0,0,0,1),0.5);
   Check(q.IsValid,'Quaternion ops');
 
   m4:=TranslationMat4(5,6,7);
@@ -184,16 +184,16 @@ begin
   Check((Abs(tr.x-5)<0.0001) and (Abs(tr.y-6)<0.0001) and (Abs(tr.z-7)<0.0001),'DecomposeMatrix translation');
   Check((Abs(sca.x-1)<0.0001) and (Abs(sca.y-1)<0.0001) and (Abs(sca.z-1)<0.0001),'DecomposeMatrix scale');
 
-  qd:=Quaternion(0,0,0,1);
+  qd:=TQuatd.Init(0,0,0,1);
   Check(Abs(QuatLength(qd)-1)<0.0001,'QuatLength double');
   QuatScale(qd,2);
   Check(Abs(QuatLength(qd)-2)<0.0001,'QuatScale double');
   QuatNormalize(qd);
   qd:=QuatInvert(qd);
-  qd:=QuatMultiply(qd,Quaternion(0,0,0,1));
+  qd:=QuatMultiply(qd,TQuatd.Init(0,0,0,1));
   Check(qd.IsValid,'Quaternion double ops');
   qdv:=Vec4(pd);
-  Check(IsEqual(qdv,Quaternion(1,2,3,1),2),'Vec4 double overload');
+  Check(IsEqual(qdv,TQuatd.Init(1,2,3,1),2),'Vec4 double overload');
   QuaternionToMatrix(qd,m3d);
   qd:=MatrixToQuaternion(m3d);
   Check(qd.IsValid,'QuaternionToMatrix double alias');

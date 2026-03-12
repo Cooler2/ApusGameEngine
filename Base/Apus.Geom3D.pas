@@ -157,8 +157,6 @@ interface
  function Direction3(from,target:TVec3d):TVec3d; overload; inline;
  function Vec4(vector:TVec3d):TQuatd; overload; inline;
  function Vec4(vector:TVec3):TVec4; overload; inline;
- function Quaternion(x,y,z,w:double):TQuatd; overload; inline;
- function Quat(x,y,z,w:single):TQuat; overload; inline;
  // Matrix conversion
  function Matrix4(from:TMat34d):TMat4d; overload;
  function Matrix4(from:TMat4):TMat4d; overload;
@@ -368,22 +366,6 @@ implementation
    result.y:=vector.y;
    result.z:=vector.z;
    result.w:=1;
-  end;
-
- function Quaternion(x,y,z,w:double):TQuatd; overload; inline;
-  begin
-   result.x:=x;
-   result.y:=y;
-   result.z:=z;
-   result.w:=w;
-  end;
-
- function Quat(x,y,z,w:single):TQuat; overload; inline;
-  begin
-   result.x:=x;
-   result.y:=y;
-   result.z:=z;
-   result.w:=w;
   end;
 
  function Matrix4(from:TMat34d):TMat4d;
