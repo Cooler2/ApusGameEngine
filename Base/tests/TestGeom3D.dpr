@@ -177,10 +177,14 @@ var
 begin
   StartTest('Geom3D utility2');
   pl.a:=0; pl.b:=1; pl.c:=0; pl.d:=-2;
+  d:=pl.Offset(Point3(0,2,0));
+  Check(Abs(d)<0.0001,'TPlane.Offset');
   d:=GetPlaneOffset(pl,Point3(0,2,0));
-  Check(Abs(d)<0.0001,'GetPlaneOffset');
+  Check(Abs(d)<0.0001,'GetPlaneOffset wrapper');
+  pl:=TPlane.Init(Vector3(0,2,0),Vector3(0,1,0));
+  Check(Abs(pl.Offset(Point3(0,2,0)))<0.001,'TPlane.Init');
   InitPlane(Vector3(0,2,0),Vector3(0,1,0),pl);
-  Check(Abs(GetPlaneOffset(pl,Point3(0,2,0)))<0.001,'InitPlane');
+  Check(Abs(GetPlaneOffset(pl,Point3(0,2,0)))<0.001,'InitPlane wrapper');
 
   a1[0]:=1; a1[1]:=2; a1[2]:=3;
   a2:=a1;

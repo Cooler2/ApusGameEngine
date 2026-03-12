@@ -106,6 +106,8 @@ interface
   // Infinite plane in space
   TPlane=packed record
    a,b,c,d:double;
+   class function Init(const point,normal:TVector3):TPlane; static;
+   function Offset(const pnt:TPoint3):double; inline;
   end;
 
   // Infinite oriented line in space
@@ -2068,7 +2070,7 @@ implementation
     result.w:=scale0*result.w + scale1*q2.w;
   end;
 
- procedure InitPlane(point,normal:TVector3;var p:TPlane);
+class function TPlane.Init(const point,normal:TVector3):TPlane;
   var
    len,invLen:double;
   begin
@@ -2078,15 +2080,25 @@ implementation
    end else begin
     invLen:=0;
    end;
-   p.a:=normal.x*invLen;
-   p.b:=normal.y*invLen;
-   p.c:=normal.z*invLen;
-   p.d:=-(p.a*point.x+p.b*point.y+p.c*point.z);
+   result.a:=normal.x*invLen;
+   result.b:=normal.y*invLen;
+   result.c:=normal.z*invLen;
+   result.d:=-(result.a*point.x+result.b*point.y+result.c*point.z);
+  end;
+
+ function TPlane.Offset(const pnt:TPoint3):double;
+  begin
+   result:=pnt.x*a+pnt.y*b+pnt.z*c+d;
+  end;
+
+ procedure InitPlane(point,normal:TVector3;var p:TPlane);
+  begin
+   p:=TPlane.Init(point,normal);
   end;
 
  function GetPlaneOffset(p:TPlane;pnt:Tpoint3):double;
   begin
-   result:=pnt.x*p.a+pnt.y*p.b+pnt.z*p.c+p.d;
+   result:=p.Offset(pnt);
   end;
 
  function Det(const m:TMatrix3):double;

@@ -102,7 +102,7 @@ var
   t: single;
 begin
   StartTest('Ray-Plane');
-  InitPlane(Vector3(0, 0, 0), Vector3(0, 0, 1), plane); // z=0 plane
+  plane:=TPlane.Init(Vector3(0, 0, 0), Vector3(0, 0, 1)); // z=0 plane
 
   ray:=TRay.Init(Point3s(0, 0, 2), Vector3s(0, 0, -1));
   Check(ray.IntersectsPlane(plane, t), 'hit case');
