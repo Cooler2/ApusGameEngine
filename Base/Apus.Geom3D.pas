@@ -252,9 +252,7 @@ interface
  function ToMat3(from:TMat4d):TMat3; overload;
  function ToMat3(from:TMat4):TMat3; overload;
 
- // Extract matrix row/column
- function MatRow(const mat:TMat34;n:integer):TVec3; overload; inline;
- function MatRow(const mat:TMat3; n:integer):TVec3; overload; inline;
+ // Extract matrix column
  function MatCol(const mat:TMat34;n:integer):TVec3; overload;
  function MatCol(const mat:TMat3; n:integer):TVec3; overload;
 
@@ -736,16 +734,6 @@ begin
   InvertFull(self,inv);
   self:=inv;
 end;
-
- function MatRow(const mat:TMat34;n:integer):TVec3;
-  begin
-   move(mat[n],result,sizeof(result));
-  end;
-
- function MatRow(const mat:TMat3; n:integer):TVec3;
-  begin
-   move(mat[n],result,sizeof(result));
-  end;
 
  function MatCol(const mat:TMat34;n:integer):TVec3;
   begin
