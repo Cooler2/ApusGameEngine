@@ -28,8 +28,6 @@ interface
    function IsValid:boolean; inline;
    procedure Wrap(max:double); inline;
   end;
-  TPoint2=TVec2d deprecated 'Use TVec2d';
-  TVector2=TVec2d deprecated 'Use TVec2d';
   PVec2d=^TVec2d;
   PPoint2=^TVec2d;
 
@@ -91,8 +89,6 @@ interface
 
   TMat2d=array[0..1,0..1] of double;
   TMat32d=array[0..2,0..1] of double;
-  TMatrix2=TMat2d deprecated 'Use TMat2d';
-  TMatrix32=TMat32d deprecated 'Use TMat32d';
   // Single precision version
   TMatrix2s=array[0..1,0..1] of single;
   TMatrix32s=array[0..2,0..1] of single;

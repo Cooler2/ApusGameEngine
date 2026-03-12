@@ -27,8 +27,6 @@ interface
    procedure Normalize;
    function IsValid:boolean;
   end;
-  TPoint3=TVec3d deprecated 'Use TVec3d';
-  TVector3=TVec3d deprecated 'Use TVec3d';
   PVec3d=^TVec3d;
 
   PPoint3s=^TVec3;
@@ -110,8 +108,6 @@ interface
    function DistanceTo(const pnt:TVec3d):double; overload; inline;
    function DistanceTo(const pnt:TVec3):single; overload; inline;
   end;
-  TQuaternion=TQuatd deprecated 'Use TQuatd';
-
   // Infinite oriented line in space
   TLine3=packed record
    origin:TVec3d;
@@ -125,9 +121,6 @@ interface
   TMat34d=array[0..3,0..2] of double; // rotation/scale/translation
   PMatrix4=^TMat4d;
   TMat4d=array[0..3,0..3] of double; // rotation/scale/translation
-  TMatrix3=TMat3d deprecated 'Use TMat3d';
-  TMatrix43=TMat34d deprecated 'Use TMat34d';
-  TMatrix4=TMat4d deprecated 'Use TMat4d';
   PMatrix4s=^TMatrix4s;
   TMatrix4s=array[0..3,0..3] of single; // rotation/scale/translation
   TMat4=TMatrix4s;
