@@ -161,9 +161,31 @@ interface
 
   // Transformation matrices
   PMatrix3=^TMat3d;
-  TMat3d=array[0..2,0..2] of double; // Rotation/scale
+  TMat3d=packed record // Rotation/scale
+   private
+    function GetItem(i,j:integer):double; inline;
+    procedure SetItem(i,j:integer;value:double); inline;
+   public
+    function Row(n:integer):TVec3d; inline;
+    function Col(n:integer):TVec3d; inline;
+    property Items[i,j:integer]:double read GetItem write SetItem; default;
+    case integer of
+    0:(v:array[0..2,0..2] of double);
+    1:(rows:array[0..2] of TVec3d);
+  end;
   PMatrix43=^TMat34d;
-  TMat34d=array[0..3,0..2] of double; // rotation/scale/translation
+  TMat34d=packed record // rotation/scale/translation
+   private
+    function GetItem(i,j:integer):double; inline;
+    procedure SetItem(i,j:integer;value:double); inline;
+   public
+    function Row(n:integer):TVec3d; inline;
+    function Col(n:integer):TVec3d; inline;
+    property Items[i,j:integer]:double read GetItem write SetItem; default;
+    case integer of
+    0:(v:array[0..3,0..2] of double);
+    1:(rows:array[0..3] of TVec3d);
+  end;
   PMatrix4=^TMat4d;
   TMat4d=packed record // rotation/scale/translation
    private
@@ -204,19 +226,41 @@ interface
 
   // Low precision matrices
   PMat3=^TMat3;
-  TMat3=array[0..2,0..2] of single;
+  TMat3=packed record
+   private
+    function GetItem(i,j:integer):single; inline;
+    procedure SetItem(i,j:integer;value:single); inline;
+   public
+    function Row(n:integer):TVec3; inline;
+    function Col(n:integer):TVec3; inline;
+    property Items[i,j:integer]:single read GetItem write SetItem; default;
+    case integer of
+    0:(v:array[0..2,0..2] of single);
+    1:(rows:array[0..2] of TVec3);
+  end;
   PMat34=^TMat34;
-  TMat34=array[0..3,0..2] of single;
+  TMat34=packed record
+   private
+    function GetItem(i,j:integer):single; inline;
+    procedure SetItem(i,j:integer;value:single); inline;
+   public
+    function Row(n:integer):TVec3; inline;
+    function Col(n:integer):TVec3; inline;
+    property Items[i,j:integer]:single read GetItem write SetItem; default;
+    case integer of
+    0:(v:array[0..3,0..2] of single);
+    1:(rows:array[0..3] of TVec3);
+  end;
   // Synonims
   TMatrix3v=array[0..2] of TVec3;
   TMatrix43v=array[0..3] of TVec3;
 
  const
   NaN=0.0/0.0;
-  IdentMat3d:TMat3d=((1,0,0),(0,1,0),(0,0,1));
-  IdentMat3:TMat3=((1,0,0),(0,1,0),(0,0,1));
-  IdentMat34d:TMat34d=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
-  IdentMat34:TMat34=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
+  IdentMat3d:TMat3d=(v:((1,0,0),(0,1,0),(0,0,1)));
+  IdentMat3:TMat3=(v:((1,0,0),(0,1,0),(0,0,1)));
+  IdentMat34d:TMat34d=(v:((1,0,0),(0,1,0),(0,0,1),(0,0,0)));
+  IdentMat34:TMat34=(v:((1,0,0),(0,1,0),(0,0,1),(0,0,0)));
   IdentMat4d:TMat4d=(v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
   IdentMat4:TMat4=(v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
 
@@ -253,8 +297,6 @@ interface
  function ToMat3(from:TMat4):TMat3; overload;
 
  // Extract matrix column
- function MatCol(const mat:TMat34;n:integer):TVec3; overload;
- function MatCol(const mat:TMat3; n:integer):TVec3; overload;
 
  // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой
  // Векторное произведение: модуль равен площади ромба
@@ -597,16 +639,16 @@ function Vec3d(v:TQuatd):TVec3d; overload; inline;
 
 function Matrix3(from:TMat4d):TMat3d; overload;
   begin
-   move(from.v[0],result[0],sizeof(result[0]));
-   move(from.v[1],result[1],sizeof(result[1]));
-   move(from.v[2],result[2],sizeof(result[2]));
+   move(from.v[0],result.v[0],sizeof(result.v[0]));
+   move(from.v[1],result.v[1],sizeof(result.v[1]));
+   move(from.v[2],result.v[2],sizeof(result.v[2]));
   end;
 
 function ToMat3(from:TMat4):TMat3; overload;
   begin
-   move(from.v[0],result[0],sizeof(result[0]));
-   move(from.v[1],result[1],sizeof(result[1]));
-   move(from.v[2],result[2],sizeof(result[2]));
+   move(from.v[0],result.v[0],sizeof(result.v[0]));
+   move(from.v[1],result.v[1],sizeof(result.v[1]));
+   move(from.v[2],result.v[2],sizeof(result.v[2]));
   end;
 
  function ToMat3(from:TMat3d):TMat3; overload;
@@ -630,6 +672,94 @@ function ToMat3(from:TMat4):TMat3; overload;
     result[i,2]:=from[i,2];
    end;
   end;
+
+function TMat3d.GetItem(i,j:integer):double;
+begin
+  result:=v[i,j];
+end;
+
+procedure TMat3d.SetItem(i,j:integer;value:double);
+begin
+  v[i,j]:=value;
+end;
+
+function TMat3d.Row(n:integer):TVec3d;
+begin
+  result:=rows[n];
+end;
+
+function TMat3d.Col(n:integer):TVec3d;
+begin
+  result.x:=v[0,n];
+  result.y:=v[1,n];
+  result.z:=v[2,n];
+end;
+
+function TMat34d.GetItem(i,j:integer):double;
+begin
+  result:=v[i,j];
+end;
+
+procedure TMat34d.SetItem(i,j:integer;value:double);
+begin
+  v[i,j]:=value;
+end;
+
+function TMat34d.Row(n:integer):TVec3d;
+begin
+  result:=rows[n];
+end;
+
+function TMat34d.Col(n:integer):TVec3d;
+begin
+  result.x:=v[0,n];
+  result.y:=v[1,n];
+  result.z:=v[2,n];
+end;
+
+function TMat3.GetItem(i,j:integer):single;
+begin
+  result:=v[i,j];
+end;
+
+procedure TMat3.SetItem(i,j:integer;value:single);
+begin
+  v[i,j]:=value;
+end;
+
+function TMat3.Row(n:integer):TVec3;
+begin
+  result:=rows[n];
+end;
+
+function TMat3.Col(n:integer):TVec3;
+begin
+  result.x:=v[0,n];
+  result.y:=v[1,n];
+  result.z:=v[2,n];
+end;
+
+function TMat34.GetItem(i,j:integer):single;
+begin
+  result:=v[i,j];
+end;
+
+procedure TMat34.SetItem(i,j:integer;value:single);
+begin
+  v[i,j]:=value;
+end;
+
+function TMat34.Row(n:integer):TVec3;
+begin
+  result:=rows[n];
+end;
+
+function TMat34.Col(n:integer):TVec3;
+begin
+  result.x:=v[0,n];
+  result.y:=v[1,n];
+  result.z:=v[2,n];
+end;
 
 function TMat4d.GetItem(i,j:integer):double;
 begin
@@ -734,20 +864,6 @@ begin
   InvertFull(self,inv);
   self:=inv;
 end;
-
- function MatCol(const mat:TMat34;n:integer):TVec3;
-  begin
-   result.x:=mat[0,n];
-   result.y:=mat[1,n];
-   result.z:=mat[2,n];
-  end;
-
- function MatCol(const mat:TMat3; n:integer):TVec3;
-  begin
-   result.x:=mat[0,n];
-   result.y:=mat[1,n];
-   result.z:=mat[2,n];
-  end;
 
  function IsZero(v:TVec3d):boolean; overload;
   begin
@@ -1075,16 +1191,16 @@ end;
 
  procedure Transpose(var m:TMat3d);
   begin
-   Swap(m[1,0],m[0,1]);
-   Swap(m[2,0],m[0,2]);
-   Swap(m[2,1],m[1,2]);
+   Swap(m.v[1,0],m.v[0,1]);
+   Swap(m.v[2,0],m.v[0,2]);
+   Swap(m.v[2,1],m.v[1,2]);
   end;
 
  procedure Transpose(var m:TMat3);
   begin
-   Swap(m[1,0],m[0,1]);
-   Swap(m[2,0],m[0,2]);
-   Swap(m[2,1],m[1,2]);
+   Swap(m.v[1,0],m.v[0,1]);
+   Swap(m.v[2,0],m.v[0,2]);
+   Swap(m.v[2,1],m.v[1,2]);
   end;
 
  procedure Invert(const m:TMat3d;out dest:TMat3d);
@@ -1759,9 +1875,9 @@ procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat);
     qZ.Normalize;
    end;
    // Convert to quaternion
-   move(qX,mat3[0],sizeof(qX));
-   move(qY,mat3[1],sizeof(qy));
-   move(qZ,mat3[2],sizeof(qZ));
+   move(qX,mat3.rows[0],sizeof(qX));
+   move(qY,mat3.rows[1],sizeof(qy));
+   move(qZ,mat3.rows[2],sizeof(qZ));
    rotation:=MatrixToQuaternion(mat3);
   end;
 
@@ -1802,9 +1918,9 @@ procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd);
     qZ.Normalize;
    end;
    // Convert to quaternion
-   move(qX,mat3[0],sizeof(qx));
-   move(qY,mat3[1],sizeof(qy));
-   move(qZ,mat3[2],sizeof(qz));
+   move(qX,mat3.rows[0],sizeof(qx));
+   move(qY,mat3.rows[1],sizeof(qy));
+   move(qZ,mat3.rows[2],sizeof(qz));
   rotation:=MatrixToQuaternion(mat3);
  end;
 

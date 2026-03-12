@@ -138,6 +138,7 @@ var
   m3b:TMat3;
   m3d:TMat3d;
   m43:TMat34d;
+  m43s:TMat34;
   m4d:TMat4d;
   m4:TMat4;
   m4dd,m4dt:TMat4d;
@@ -177,9 +178,21 @@ begin
   Check(IsEqual(1.0,1.0),'IsEqual scalar');
 
   m43:=TranslationMat(1,2,3);
+  m43s:=IdentMat34;
+  m43s[3,0]:=1;
+  m43s[3,1]:=2;
+  m43s[3,2]:=3;
   Check(IsIdentity(IdentMat34),'IsIdentity mat43s');
   m3b:=ToMat3(Matrix4(IdentMat4));
   Check(IsEqual(m3b,IdentMat3),'Matrix conversion');
+  Check(IsEqual(IdentMat3.Row(0),Vec3(1,0,0)),'TMat3.Row');
+  Check(IsEqual(IdentMat3.Col(1),Vec3(0,1,0)),'TMat3.Col');
+  Check(IsEqual(IdentMat3d.Row(2),Vec3d(0,0,1),2),'TMat3d.Row');
+  Check(IsEqual(IdentMat3d.Col(0),Vec3d(1,0,0),2),'TMat3d.Col');
+  Check(IsEqual(m43.Row(3),Vec3d(1,2,3),2),'TMat34d.Row');
+  Check(IsEqual(m43.Col(2),Vec3d(0,0,1),2),'TMat34d.Col');
+  Check(IsEqual(m43s.Row(3),Vec3(1,2,3)),'TMat34.Row');
+  Check(IsEqual(m43s.Col(0),Vec3(1,0,0)),'TMat34.Col');
   m4d:=Matrix4(m43); // keep conversion path in test
   Check(Abs(Det(IdentMat4)-1)<0.0001,'Det');
   m4d:=Matrix4(ScaleMat(2,3,4));
