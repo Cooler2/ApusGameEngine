@@ -214,6 +214,8 @@ interface
     function GetItem(i,j:integer):double; inline;
     procedure SetItem(i,j:integer;value:double); inline;
    public
+    class function From(const m:TMat34d):TMat4d; static;
+    function ToMat3:TMat3d;
     function Row(n:integer):TVec4d; inline;
     function Col(n:integer):TVec4d; inline;
     class function Translation(x,y,z:double):TMat4d; static;
@@ -236,6 +238,8 @@ interface
     function GetItem(i,j:integer):single; inline;
     procedure SetItem(i,j:integer;value:single); inline;
    public
+    class function From(const m:TMat4d):TMat4; overload; static;
+    function ToMat4d:TMat4d;
     function Row(n:integer):TVec4; inline;
     function Col(n:integer):TVec4; inline;
     class function Translation(x,y,z:single):TMat4; static;
@@ -272,6 +276,9 @@ interface
     function GetItem(i,j:integer):single; inline;
     procedure SetItem(i,j:integer;value:single); inline;
    public
+    class function From(const m:TMat3d):TMat3; overload; static;
+    class function From(const m:TMat4d):TMat3; overload; static;
+    class function From(const m:TMat4):TMat3; overload; static;
     function Row(n:integer):TVec3; inline;
     function Col(n:integer):TVec3; inline;
     class function RotationX(angle:single):TMat3; static;
@@ -305,6 +312,7 @@ interface
     procedure Transpose;
     function Transposed:TMat34;
     procedure Invert;
+    function ToMat4:TMat4;
     property Items[i,j:integer]:single read GetItem write SetItem; default;
     case integer of
     0:(v:array[0..3,0..2] of single);
@@ -346,14 +354,14 @@ interface
  function Quat(x,y,z,w:single):TQuat; overload; inline;
  function Quatd(x,y,z,w:double):TQuatd; overload; inline;
  // Matrix conversion
- function Matrix4(from:TMat34d):TMat4d; overload;
- function Matrix4(from:TMat4):TMat4d; overload;
- function ToMat4(from:TMat34):TMat4; overload;
- function ToMat4(from:TMat4d):TMat4; overload;
- function Matrix3(from:TMat4d):TMat3d; overload;
- function ToMat3(from:TMat3d):TMat3; overload;
- function ToMat3(from:TMat4d):TMat3; overload;
- function ToMat3(from:TMat4):TMat3; overload;
+ function Matrix4(from:TMat34d):TMat4d; overload; deprecated 'Use TMat4d.From(from)';
+ function Matrix4(from:TMat4):TMat4d; overload; deprecated 'Use from.ToMat4d';
+ function ToMat4(from:TMat34):TMat4; overload; deprecated 'Use from.ToMat4';
+ function ToMat4(from:TMat4d):TMat4; overload; deprecated 'Use TMat4.From(from)';
+ function Matrix3(from:TMat4d):TMat3d; overload; deprecated 'Use from.ToMat3';
+ function ToMat3(from:TMat3d):TMat3; overload; deprecated 'Use TMat3.From(from)';
+ function ToMat3(from:TMat4d):TMat3; overload; deprecated 'Use TMat3.From(from)';
+ function ToMat3(from:TMat4):TMat3; overload; deprecated 'Use TMat3.From(from)';
 
  // Extract matrix column
 
@@ -589,91 +597,131 @@ function Vec3d(v:TQuatd):TVec3d; overload; inline;
    result.w:=w;
   end;
 
- function Matrix4(from:TMat34d):TMat4d;
-  var
-   i:integer;
-  begin
-   for i:=0 to 3 do begin
-    result[i,0]:=from[i,0];
-    result[i,1]:=from[i,1];
-    result[i,2]:=from[i,2];
+function TMat4d.ToMat3:TMat3d;
+begin
+  move(v[0],result.v[0],sizeof(result.v[0]));
+  move(v[1],result.v[1],sizeof(result.v[1]));
+  move(v[2],result.v[2],sizeof(result.v[2]));
+end;
+
+class function TMat4d.From(const m:TMat34d):TMat4d;
+var
+  i:integer;
+begin
+  for i:=0 to 3 do begin
+    result[i,0]:=m[i,0];
+    result[i,1]:=m[i,1];
+    result[i,2]:=m[i,2];
     result[i,3]:=0;
-   end;
-   result[3,3]:=1;
   end;
+  result[3,3]:=1;
+end;
+
+function TMat34.ToMat4:TMat4;
+var
+  i:integer;
+begin
+  for i:=0 to 3 do begin
+    result[i,0]:=v[i,0];
+    result[i,1]:=v[i,1];
+    result[i,2]:=v[i,2];
+    result[i,3]:=0;
+  end;
+  result[3,3]:=1;
+end;
+
+class function TMat4.From(const m:TMat4d):TMat4;
+var
+  i:integer;
+begin
+  for i:=0 to 3 do begin
+    result[i,0]:=m[i,0];
+    result[i,1]:=m[i,1];
+    result[i,2]:=m[i,2];
+    result[i,3]:=m[i,3];
+  end;
+end;
+
+function TMat4.ToMat4d:TMat4d;
+var
+  i:integer;
+begin
+  for i:=0 to 3 do begin
+    result[i,0]:=v[i,0];
+    result[i,1]:=v[i,1];
+    result[i,2]:=v[i,2];
+    result[i,3]:=v[i,3];
+  end;
+end;
+
+class function TMat3.From(const m:TMat3d):TMat3;
+var
+  i:integer;
+begin
+  for i:=0 to 2 do begin
+    result[i,0]:=m[i,0];
+    result[i,1]:=m[i,1];
+    result[i,2]:=m[i,2];
+  end;
+end;
+
+class function TMat3.From(const m:TMat4d):TMat3;
+var
+  i:integer;
+begin
+  for i:=0 to 2 do begin
+    result[i,0]:=m[i,0];
+    result[i,1]:=m[i,1];
+    result[i,2]:=m[i,2];
+  end;
+end;
+
+class function TMat3.From(const m:TMat4):TMat3;
+begin
+  move(m.v[0],result.v[0],sizeof(result.v[0]));
+  move(m.v[1],result.v[1],sizeof(result.v[1]));
+  move(m.v[2],result.v[2],sizeof(result.v[2]));
+end;
+
+ function Matrix4(from:TMat34d):TMat4d;
+begin
+  result:=TMat4d.From(from);
+end;
 
  function ToMat4(from:TMat34):TMat4;
-  var
-   i:integer;
-  begin
-   for i:=0 to 3 do begin
-    result[i,0]:=from[i,0];
-    result[i,1]:=from[i,1];
-    result[i,2]:=from[i,2];
-    result[i,3]:=0;
-   end;
-   result[3,3]:=1;
-  end;
+begin
+  result:=from.ToMat4;
+end;
 
  function ToMat4(from:TMat4d):TMat4;
-  var
-   i:integer;
-  begin
-   for i:=0 to 3 do begin
-    result[i,0]:=from[i,0];
-    result[i,1]:=from[i,1];
-    result[i,2]:=from[i,2];
-    result[i,3]:=from[i,3];
-   end;
-  end;
+begin
+  result:=TMat4.From(from);
+end;
 
  function Matrix4(from:TMat4):TMat4d;
-  var
-   i:integer;
-  begin
-   for i:=0 to 3 do begin
-    result[i,0]:=from[i,0];
-    result[i,1]:=from[i,1];
-    result[i,2]:=from[i,2];
-    result[i,3]:=from[i,3];
-   end;
-  end;
+begin
+  result:=from.ToMat4d;
+end;
 
 function Matrix3(from:TMat4d):TMat3d; overload;
-  begin
-   move(from.v[0],result.v[0],sizeof(result.v[0]));
-   move(from.v[1],result.v[1],sizeof(result.v[1]));
-   move(from.v[2],result.v[2],sizeof(result.v[2]));
-  end;
+begin
+  result:=from.ToMat3;
+end;
 
 function ToMat3(from:TMat4):TMat3; overload;
-  begin
-   move(from.v[0],result.v[0],sizeof(result.v[0]));
-   move(from.v[1],result.v[1],sizeof(result.v[1]));
-   move(from.v[2],result.v[2],sizeof(result.v[2]));
-  end;
+begin
+  result:=TMat3.From(from);
+end;
 
  function ToMat3(from:TMat3d):TMat3; overload;
-  var
-   i:integer;
-  begin
-   for i:=0 to 2 do begin
-    result[i,0]:=from[i,0];
-    result[i,1]:=from[i,1];
-    result[i,2]:=from[i,2];
-   end;
-  end;
+begin
+  result:=TMat3.From(from);
+end;
 
  function ToMat3(from:TMat4d):TMat3; overload;
-  var
-   i:integer;
-  begin
-   for i:=0 to 2 do begin
-    result[i,0]:=from[i,0];
-    result[i,1]:=from[i,1];
-    result[i,2]:=from[i,2];
-   end;
-  end;
+begin
+  result:=TMat3.From(from);
+end;
 
 class function TMat3d.RotationAroundAxis(const v:TVec3d;angle:double):TMat3d;
 begin
