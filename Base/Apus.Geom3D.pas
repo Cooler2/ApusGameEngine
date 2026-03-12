@@ -119,22 +119,6 @@ interface
    dir:TVec3d;
   end;
 
-  // Bounding box with low precision
-  TBBox3=packed record
-   minX,minY,minZ,
-   maxX,maxY,maxZ:single;
-   procedure Init; // clear
-   procedure Add(const p:TVec3); overload;
-   procedure Add(p:PPoint3s;count:integer;stride:integer=0); overload;
-   procedure IncludePoint(const p:TVec3); inline;
-   procedure IncludeBox(const newBox:TBBox3); inline;
-   function Center:TVec3; inline;
-   function Extents:TVec3; inline;
-   function IsEmpty:boolean;
-  function ContainsPoint(const p:TVec3):boolean; inline;
-  function IntersectsBox(const other:TBBox3):boolean; inline;
-  function IntersectsSphere(const sphereCenter:TVec3;sphereRadius:single):boolean;
-  end;
   // Transformation matrices
   PMatrix3=^TMat3d;
   TMat3d=array[0..2,0..2] of double; // Rotation/scale
@@ -387,12 +371,6 @@ interface
  function Det(const m:TMat3):single; overload;
  function Det(const m:TMat4d):double; overload;
  function Det(const m:TMat4):single; overload;
-
- // Bounding boxes
- procedure BBoxInclude(var b:TBBox3;x,y,z:single);
- procedure BBoxIncludePnt(var b:TBBox3;const p:TVec3);
- procedure BBoxIncludeBox(var b:TBBox3;const new:TBBox3);
- procedure BBoxIntersect(var b:TBBox3;const new:TBBox3);
 
  // Planes
  procedure InitPlane(point,normal:TVec3d;var p:TPlane);
@@ -954,63 +932,6 @@ implementation
     dec(count);
     inc(s1); inc(s2);
    until false
-  end;
-
- // Bounding box routines
- procedure BBoxInclude(var b:TBBox3;x,y,z:single);
-  begin
-   if b.IsEmpty then begin
-    b.minx:=x; b.maxx:=x;
-    b.miny:=y; b.maxy:=y;
-    b.minz:=z; b.maxz:=z;
-    exit;
-   end;
-   if x<b.minx then b.minx:=x;
-   if y<b.miny then b.miny:=y;
-   if z<b.minz then b.minz:=z;
-   if x>b.maxx then b.maxx:=x;
-   if y>b.maxy then b.maxy:=y;
-   if z>b.maxz then b.maxz:=z;
-  end;
- procedure BBoxIncludePnt(var b:TBBox3;const p:TVec3);
-  begin
-   if b.IsEmpty then begin
-    b.minx:=p.x; b.maxx:=p.x;
-    b.miny:=p.y; b.maxy:=p.y;
-    b.minz:=p.z; b.maxz:=p.z;
-    exit;
-   end;
-   if p.x<b.minx then b.minx:=p.x;
-   if p.y<b.miny then b.miny:=p.y;
-   if p.z<b.minz then b.minz:=p.z;
-   if p.x>b.maxx then b.maxx:=p.x;
-   if p.y>b.maxy then b.maxy:=p.y;
-   if p.z>b.maxz then b.maxz:=p.z;
-  end;
- procedure BBoxIncludeBox(var b:TBBox3;const new:TBBox3);
-  begin
-   if new.IsEmpty then exit;
-   if b.IsEmpty then b:=new;
-   if new.minx<b.minx then b.minx:=new.minx;
-   if new.miny<b.miny then b.miny:=new.miny;
-   if new.minz<b.minz then b.minz:=new.minz;
-   if new.maxx>b.maxx then b.maxx:=new.maxx;
-   if new.maxy>b.maxy then b.maxy:=new.maxy;
-   if new.maxz>b.maxz then b.maxz:=new.maxz;
-  end;
- procedure BBoxIntersect(var b:TBBox3;const new:TBBox3);
-  begin
-   if new.IsEmpty then begin
-    b.Init; exit;
-   end;
-   if new.minx>b.minx then b.minx:=new.minx;
-   if new.miny>b.miny then b.miny:=new.miny;
-   if new.minz>b.minz then b.minz:=new.minz;
-   if new.maxx<b.maxx then b.maxx:=new.maxx;
-   if new.maxy<b.maxy then b.maxy:=new.maxy;
-   if new.maxz<b.maxz then b.maxz:=new.maxz;
-   if (b.minx>b.maxx) or (b.miny>b.maxY) or (b.minz>b.maxz) then
-    b.Init;
   end;
 
  // Matrix routines
@@ -2790,92 +2711,6 @@ procedure TQuaternionS.Mul(scalar:single);
   w:=w*scalar;
  end;
  {$ENDIF}
-
-{ TBBox3 }
-
-procedure TBBox3.Add(const p:TVec3);
- begin
-  BBoxIncludePnt(self,p);
- end;
-
-procedure TBBox3.Add(p:PPoint3s;count:integer;stride:integer=0);
- begin
-  if stride<=0 then stride:=sizeof(TVec3);
-  while count>0 do begin
-   Add(p^);
-   dec(count);
-   inc(PByte(p),stride);
-  end;
- end;
-
-procedure TBBox3.IncludePoint(const p:TVec3);
- begin
-  Add(p);
- end;
-
-procedure TBBox3.IncludeBox(const newBox:TBBox3);
- begin
-  BBoxIncludeBox(self,newBox);
- end;
-
-function TBBox3.Center:TVec3;
- begin
-  if IsEmpty then exit(NullPointS);
-  result:=TVec3.Init((minX+maxX)*0.5,(minY+maxY)*0.5,(minZ+maxZ)*0.5);
- end;
-
-function TBBox3.Extents:TVec3;
- begin
-  if IsEmpty then exit(NullPointS);
-  result:=TVec3.Init((maxX-minX)*0.5,(maxY-minY)*0.5,(maxZ-minZ)*0.5);
- end;
-
-procedure TBBox3.Init;
- begin
-  minX:=NaN; minY:=NaN; minZ:=NaN;
-  maxX:=NaN; maxY:=NaN; maxZ:=NaN;
- end;
-
-function TBBox3.IsEmpty:boolean;
- begin
-  result:=Apus.Core.IsNan(minX);
- end;
-
-function TBBox3.ContainsPoint(const p:TVec3):boolean;
- begin
-  if IsEmpty then exit(false);
-  result:=(p.x>=minX) and (p.x<=maxX) and
-          (p.y>=minY) and (p.y<=maxY) and
-          (p.z>=minZ) and (p.z<=maxZ);
- end;
-
-function TBBox3.IntersectsBox(const other:TBBox3):boolean;
- begin
-  if IsEmpty or other.IsEmpty then exit(false);
-  result:=(minX<=other.maxX) and (maxX>=other.minX) and
-          (minY<=other.maxY) and (maxY>=other.minY) and
-          (minZ<=other.maxZ) and (maxZ>=other.minZ);
- end;
-
-function TBBox3.IntersectsSphere(const sphereCenter:TVec3;sphereRadius:single):boolean;
- var
-  x,y,z,dx,dy,dz:single;
- begin
-  if IsEmpty then exit(false);
-  x:=sphereCenter.x;
-  y:=sphereCenter.y;
-  z:=sphereCenter.z;
-  if x<minX then x:=minX else
-    if x>maxX then x:=maxX;
-  if y<minY then y:=minY else
-    if y>maxY then y:=maxY;
-  if z<minZ then z:=minZ else
-    if z>maxZ then z:=maxZ;
-  dx:=sphereCenter.x-x;
-  dy:=sphereCenter.y-y;
-  dz:=sphereCenter.z-z;
-  result:=dx*dx+dy*dy+dz*dz<=sphereRadius*sphereRadius;
- end;
 
 initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);

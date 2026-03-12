@@ -6,7 +6,8 @@ uses
   SysUtils,
   Math,
   Apus.Core,
-  Apus.Geom3D;
+  Apus.Geom3D,
+  Apus.Spatial;
 
 {$INCLUDE Test.inc}
 
@@ -94,7 +95,7 @@ var
   c,e:TVec3;
 begin
   StartTest('BBox');
-  b1.Init;
+  b1.Clear;
   Check(b1.IsEmpty,'Init empty');
   b1.IncludePoint(TVec3.Init(1,2,3));
   b1.IncludePoint(TVec3.Init(5,6,7));
@@ -108,11 +109,11 @@ begin
   Check(b1.IntersectsSphere(TVec3.Init(7,4,5),2),'IntersectsSphere tangent');
   Check(not b1.IntersectsSphere(TVec3.Init(20,20,20),1),'IntersectsSphere miss');
 
-  b2.Init;
+  b2.Clear;
   b2.IncludePoint(TVec3.Init(4,5,6));
   b2.IncludePoint(TVec3.Init(9,9,9));
   Check(b1.IntersectsBox(b2),'IntersectsBox hit');
-  b2.Init;
+  b2.Clear;
   b2.IncludePoint(TVec3.Init(20,20,20));
   b2.IncludePoint(TVec3.Init(21,21,21));
   Check(not b1.IntersectsBox(b2),'IntersectsBox miss');
@@ -214,10 +215,10 @@ begin
   Check(Abs(d)<0.0001,'TPlane.Offset');
   Check(Abs(pl.Offset(Point3(0,1,0))+1)<0.0001,'TPlane.Offset signed');
 
-  bbA.Init;
+  bbA.Clear;
   bbA.IncludePoint(TVec3.Init(1,2,3));
   bbA.IncludePoint(TVec3.Init(4,5,6));
-  bbB.Init;
+  bbB.Clear;
   bbB.IncludePoint(TVec3.Init(3,4,5));
   bbB.IncludePoint(TVec3.Init(8,9,10));
   bbA.IncludeBox(bbB);
@@ -241,14 +242,13 @@ begin
   b2[0]:=b2[0]+1E-6;
   Check(not CompareDouble(@b1[0],@b2[0],3),'CompareDouble mismatch');
 
-  bbA.Init;
-  BBoxInclude(bbA,1,2,3);
-  BBoxIncludePnt(bbA,TVec3.Init(4,5,6));
-  bbB.Init;
-  BBoxInclude(bbB,3,4,5);
-  BBoxIncludeBox(bbA,bbB);
-  BBoxIntersect(bbA,bbB);
-  Check(not bbA.IsEmpty,'BBox wrapper routines');
+  bbA.Clear;
+  bbA.IncludePoint(TVec3.Init(1,2,3));
+  bbA.IncludePoint(TVec3.Init(4,5,6));
+  bbB.Clear;
+  bbB.IncludePoint(TVec3.Init(3,4,5));
+  bbB.IncludePoint(TVec3.Init(10,11,12));
+  Check(bbA.IntersectsBox(bbB),'TBBox3 intersects check');
   EndTest;
 end;
 
