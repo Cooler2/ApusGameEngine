@@ -328,3 +328,20 @@ These gates are mandatory before migration to engine modules.
 - After gates A-F are done and stable, start migration of engine modules to new API.
 - Replace old types/functions in module callsites.
 - Run compile validation on a representative target (preferred: `SimpleDemo`).
+
+### 2026-03-12 - Gate A / Step 1 completed
+
+Status:
+- Completed Gate A inventory of public type names in:
+  - `Base/Apus.Geom2D.pas`
+  - `Base/Apus.Geom3D.pas`
+  - `Base/Apus.Spatial.pas`
+- Added detailed report:
+  - `reports/R-07_gateA_type_naming_inventory.md`
+- Identified non-conforming public double-precision names remaining in signatures:
+  - `TPoint2/TVector2`, `TMatrix2/TMatrix32`
+  - `TPoint3/TVector3`, `TMatrix3/TMatrix4/TMatrix43`, `TQuaternion`
+- Prepared target rename map to `*d` convention and staged migration order.
+
+Proposed next step:
+- Gate A / Step 2: introduce canonical `*d` type names (`TVec2d/TVec3d`, `TMat*d`, `TQuatd`) and switch public signatures to them, keeping old names as deprecated compatibility aliases.
