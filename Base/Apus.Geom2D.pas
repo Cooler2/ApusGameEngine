@@ -55,8 +55,6 @@ interface
    class operator Multiply(a:TVec2;v:single):TVec2;
    class operator Multiply(a,b:TVec2):TVec2;
   end;
-  TPoint2s=TVec2 deprecated 'Use TVec2';
-  TVector2s=TVec2 deprecated 'Use TVec2';
   PPoint2s=^TVec2;
   TPoints2s=array of TVec2;
   TVectors2s=TPoints2s;
@@ -164,13 +162,10 @@ interface
  // Setup point
  function Point2(x,y:double):TVec2d; overload; inline;
  function Point2(pnt:TVec2):TVec2d; overload; inline;
- function Point2s(x,y:double):TVec2; overload; inline;
- function Point2s(pnt:TVec2d):TVec2; overload; inline;
  function PointBlend(p1,p2:TVec2d;factor:double):TVec2d; overload;
  function PointBlend(p1,p2:TVec2;factor:single):TVec2; overload;
  // Setup vector (from source to target)
  function Vector2(source,target:TVec2d):TVec2d; inline;
- function Vector2s(source,target:TVec2):TVec2; inline;
  // Unit vector with given direction (CCW from X-axis)
  function Direction(angle:double):TVec2d; inline;
  // Setup line by points
@@ -515,17 +510,6 @@ implementation
    result.y:=pnt.y;
   end;
 
- function Point2s(x,y:double):TVec2;
-  begin
-   result.x:=x;
-   result.y:=y;
-  end;
-
- function Point2s(pnt:TVec2d):TVec2;
-  begin
-   result.x:=pnt.x;
-   result.y:=pnt.y;
-  end;
 
  function PointBlend(p1,p2:TVec2d;factor:double):TVec2d;
   begin
@@ -540,12 +524,6 @@ implementation
   end;
 
  function Vector2(source,target:TVec2d):TVec2d;
-  begin
-   result.x:=target.x-source.x;
-   result.y:=target.y-source.y;
-  end;
-
- function Vector2s(source,target:TVec2):TVec2;
   begin
    result.x:=target.x-source.x;
    result.y:=target.y-source.y;
