@@ -125,17 +125,21 @@ procedure TestGeom2DUtility;
 var
   v1,v2,v3:TVec2;
   m2,m2b,m2i:TMat2d;
-  m32,m32i:TMat32d;
+  m32,m32b,m32i:TMat32d;
+  m32s,m32si:TMatrix32s;
   p:TVec2d;
   seg:TSegment2;
   t,dev:double;
   r:TRect;
   rs:TRect2s;
   pt:TVec2;
+  pt0:TVec2;
   poly:array[0..2] of TVec2d;
+  poly4:array[0..3] of TVec2d;
   ln:TLine2;
   dv:TVec2d;
   b0,b1,b2,b3:TVec2d;
+  i:integer;
 begin
   StartTest('Geom2D utility');
   v1:=TVec2.Init(2,3);
@@ -186,6 +190,17 @@ begin
   m32:=RotationMat(Pi/6);
   Invert(m32,m32i);
   Transp(m32,m32i);
+  m32:=TranslationMat(3,-2);
+  m32b:=ScaleMat(2,4);
+  MultMat(m32,m32b,m32);
+  Invert(m32,m32i);
+  ToSingle32(m32,m32s);
+  ToSingle32(m32i,m32si);
+  pt:=TVec2.Init(1,2);
+  pt0:=pt;
+  MultPnts(m32s,@pt,1,SizeOf(pt));
+  MultPnts(m32si,@pt,1,SizeOf(pt));
+  Check((Abs(pt.x-pt0.x)<0.01) and (Abs(pt.y-pt0.y)<0.01),'Mat32 inverse chain');
 
   r:=Rect(5,1,1,5);
   OrderRect(r);
@@ -196,6 +211,10 @@ begin
   rs:=TransformRect(rs,1,2,2,3);
   r:=RoundRect(rs);
   Check(r.Left<=r.Right,'RoundRect');
+  rs:=Rect2s(1,1,3,5);
+  rs:=TransformRect(rs,-1,2,-2,0.5);
+  r:=RoundRect(rs);
+  Check(r.Left>r.Right,'RoundRect negative scale');
 
   pt:=RandomPointInCircle(2);
   Check(pt.Length<=2.001,'RandomPointInCircle');
@@ -204,7 +223,16 @@ begin
   poly[1]:=Point2(10,0);
   poly[2]:=Point2(0,10);
   Triangulate(@poly[0],3);
-  Check(Length(trgIndices)>=3,'Triangulate');
+  Check(Length(trgIndices)=3,'Triangulate triangle');
+  poly4[0]:=Point2(0,0);
+  poly4[1]:=Point2(10,0);
+  poly4[2]:=Point2(10,10);
+  poly4[3]:=Point2(0,10);
+  Triangulate(@poly4[0],4);
+  Check(Length(trgIndices)=6,'Triangulate quad size');
+  for i:=0 to High(trgIndices) do begin
+    Check((trgIndices[i]>=0) and (trgIndices[i]<=3),'Triangulate quad index range');
+  end;
   EndTest;
 end;
 

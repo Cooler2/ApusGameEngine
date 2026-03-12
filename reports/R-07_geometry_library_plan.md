@@ -448,3 +448,21 @@ Status:
 
 Proposed next step:
 - Gate D / Step 2: implement targeted missing tests, starting with Geom2D (`Triangulate`, `TMat32d` transform chain, `TransformRect`/`RoundRect` edge cases).
+
+### 2026-03-12 - Gate D / Step 2 completed
+
+Status:
+- Extended `Base/tests/TestGeom2D.dpr` with targeted coverage additions:
+  - `Triangulate`:
+    - explicit triangle output length check (`=3`)
+    - quad triangulation check (`=6`) with index-range validation
+  - `TMat32d` transform chain:
+    - `TranslationMat` + `ScaleMat` + `MultMat` + `Invert` + `ToSingle32` + `MultPnts`
+    - roundtrip point transform validation through matrix and inverse
+  - `TransformRect`/`RoundRect` edge case:
+    - negative-scale transform path with orientation flip assertion
+- Validation:
+  - `Base/tests/test.bat Geom2D` passed (32/64, `TOTAL: 50 checks, FAILED: 0`)
+
+Proposed next step:
+- Gate D / Step 3: add targeted Geom3D missing tests (`RotationX/Y/Z*`, `MatrixFromYawRollPitch` + `YawRollPitchFromMatrix` roundtrip, and direct `IntersectTrgLine` edge cases).
