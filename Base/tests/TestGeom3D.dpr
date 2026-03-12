@@ -319,7 +319,10 @@ var
   y0,r0,p0:double;
   y1,r1,p1:double;
   m3s,m3sRef:TMat3;
-  a,b,c,o,tp:TVec3;
+  a,b,c,o,tp:TVec3d;
+  ray:TLine3;
+  plane:TPlane;
+  planeDist:double;
   pb,pc,d:double;
   hit:boolean;
 begin
@@ -342,23 +345,36 @@ begin
   m3sRef:=ToMat3(Matrix4(RotationZMat(0.4)));
   Check(IsEqual(m3s,m3sRef,20),'RotationMat3Z consistency');
 
-  a:=TVec3.Init(0,0,0);
-  b:=TVec3.Init(1,0,0);
-  c:=TVec3.Init(0,1,0);
-  o:=TVec3.Init(0.25,0.25,1);
-  tp:=TVec3.Init(0.25,0.25,0);
-  hit:=IntersectTrgLine(@a,@b,@c,@o,@tp,pb,pc,d);
-  Check(hit and (d>0) and (pb>=0) and (pc>=0) and (pb+pc<=1),'IntersectTrgLine hit');
+  a:=TVec3d.Init(0,0,0);
+  b:=TVec3d.Init(1,0,0);
+  c:=TVec3d.Init(0,1,0);
+  o:=TVec3d.Init(0.25,0.25,1);
+  tp:=TVec3d.Init(0.25,0.25,0);
+  ray:=TLine3.FromPoints(o,tp);
+  hit:=ray.IntersectTriangle(a,b,c,pb,pc,d);
+  Check(hit and (d>0) and (pb>=0) and (pc>=0) and (pb+pc<=1),'TLine3.IntersectTriangle hit');
 
-  o:=TVec3.Init(2,2,1);
-  tp:=TVec3.Init(2,2,0);
-  hit:=IntersectTrgLine(@a,@b,@c,@o,@tp,pb,pc,d);
-  Check(not hit,'IntersectTrgLine miss');
+  o:=TVec3d.Init(2,2,1);
+  tp:=TVec3d.Init(2,2,0);
+  ray:=TLine3.FromPoints(o,tp);
+  hit:=ray.IntersectTriangle(a,b,c,pb,pc,d);
+  Check(not hit,'TLine3.IntersectTriangle miss');
 
-  o:=TVec3.Init(0.25,0.25,1);
-  tp:=TVec3.Init(1.25,0.25,1);
-  hit:=IntersectTrgLine(@a,@b,@c,@o,@tp,pb,pc,d);
-  Check(not hit,'IntersectTrgLine parallel');
+  o:=TVec3d.Init(0.25,0.25,1);
+  tp:=TVec3d.Init(1.25,0.25,1);
+  ray:=TLine3.FromPoints(o,tp);
+  hit:=ray.IntersectTriangle(a,b,c,pb,pc,d);
+  Check(not hit,'TLine3.IntersectTriangle parallel');
+
+  plane:=TPlane.Init(TVec3d.Init(0,0,0),TVec3d.Init(0,0,1));
+  o:=TVec3d.Init(0,0,2);
+  ray:=TLine3.FromPoints(o,TVec3d.Init(0,0,0));
+  hit:=ray.IntersectPlane(plane,planeDist);
+  Check(hit and (Abs(planeDist-2)<0.0001),'TLine3.IntersectPlane hit');
+
+  ray:=TLine3.FromPoints(TVec3d.Init(0,0,2),TVec3d.Init(1,0,2));
+  hit:=ray.IntersectPlane(plane,planeDist);
+  Check(not hit,'TLine3.IntersectPlane parallel');
   EndTest;
 end;
 

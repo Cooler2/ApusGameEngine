@@ -164,6 +164,11 @@ interface
   TLine3=packed record
    origin:TVec3d;
    dir:TVec3d;
+   class function Init(const aOrigin,aDir:TVec3d):TLine3; static;
+   class function FromPoints(const source,target:TVec3d):TLine3; static;
+   function PointAt(distance:double):TVec3d; inline;
+   function IntersectTriangle(const a,b,c:TVec3d;out pb,pc,d:double):boolean;
+   function IntersectPlane(const plane:TPlane;out distance:double):boolean;
   end;
 
   // Transformation matrices
@@ -423,7 +428,6 @@ interface
  // пересечение треугольника ABC с лучом OT
  // возвращает: pb,pc - выражение точки пересечения через вектора AB и AC (pb,pc>=0, pb+pc<=1)
  //             d - расстояние от точки пересечения до начала луча
- function IntersectTrgLine(A,B,C,O,T:PVec3;var pb,pc,d:double):boolean;
 
 implementation
  uses Apus.Core, Apus.CPU, Apus.Types, SysUtils, Math;
@@ -1966,39 +1970,89 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
                     m[1,2]*(m[2,0]*m[3,1]-m[2,1]*m[3,0]))*m[0,3];
   end;
 
+class function TLine3.Init(const aOrigin,aDir:TVec3d):TLine3;
+ begin
+  result.origin:=aOrigin;
+  result.dir:=aDir;
+ end;
 
- function IntersectTrgLine(A,B,C,O,T:PVec3;var pb,pc,d:double):boolean;
-  var
-   m:TMat3d;
-   mv:TMatrix3vd absolute m;
-   l:TVec3d;
-   dt:double;
-  begin
-   m[0,0]:=B.x-A.x; m[0,1]:=B.y-A.y; m[0,2]:=B.z-A.z;
-   m[1,0]:=C.x-A.x; m[1,1]:=C.y-A.y; m[1,2]:=C.z-A.z;
-   m[2,0]:=T.x-O.x; m[2,1]:=T.y-O.y; m[2,2]:=T.z-O.z;
-   mv[2].Normalize;
-   dt:=det(m);
+class function TLine3.FromPoints(const source,target:TVec3d):TLine3;
+ begin
+  result.origin:=source;
+  result.dir:=target.Sub(source);
+ end;
+
+function TLine3.PointAt(distance:double):TVec3d;
+ begin
+  result.x:=origin.x+dir.x*distance;
+  result.y:=origin.y+dir.y*distance;
+  result.z:=origin.z+dir.z*distance;
+ end;
+
+function TLine3.IntersectTriangle(const a,b,c:TVec3d;out pb,pc,d:double):boolean;
+ var
+  m:TMat3d;
+  l,normDir:TVec3d;
+  dt:double;
+ begin
+  m[0,0]:=b.x-a.x; m[0,1]:=b.y-a.y; m[0,2]:=b.z-a.z;
+  m[1,0]:=c.x-a.x; m[1,1]:=c.y-a.y; m[1,2]:=c.z-a.z;
+  normDir:=dir;
+  if normDir.Length2<Epsilon then begin
    result:=false;
-   if abs(dt)<0.0001 then exit;
-
-   l.x:=O.x-A.x; l.y:=O.y-A.y; l.z:=O.z-A.z;
-   // Метод Крамера
-   pb:=(l.x*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
-        l.y*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
-        l.z*(m[1,0]*m[2,1]-m[1,1]*m[2,0]))/dt;
-   if (pb<0) or (pb>1) then exit;
-   pc:=-(l.x*(m[0,1]*m[2,2]-m[0,2]*m[2,1])-
-         l.y*(m[0,0]*m[2,2]-m[0,2]*m[2,0])+
-         l.z*(m[0,0]*m[2,1]-m[0,1]*m[2,0]))/dt;
-   if (pc<0) or (pb+pc>1) then exit;
-   d:=-(l.x*(m[0,1]*m[1,2]-m[0,2]*m[1,1])-
-        l.y*(m[0,0]*m[1,2]-m[0,2]*m[1,0])+
-        l.z*(m[0,0]*m[1,1]-m[0,1]*m[1,0]))/dt;
-   if d<0 then exit;
-   result:=true;
+   exit;
+  end;
+  normDir.Normalize;
+  m[2,0]:=normDir.x; m[2,1]:=normDir.y; m[2,2]:=normDir.z;
+  dt:=Det(m);
+  result:=false;
+  if abs(dt)<0.0001 then begin
+   exit;
   end;
 
+  l.x:=origin.x-a.x;
+  l.y:=origin.y-a.y;
+  l.z:=origin.z-a.z;
+  pb:=(l.x*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
+       l.y*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
+       l.z*(m[1,0]*m[2,1]-m[1,1]*m[2,0]))/dt;
+  if (pb<0) or (pb>1) then begin
+   exit;
+  end;
+  pc:=-(l.x*(m[0,1]*m[2,2]-m[0,2]*m[2,1])-
+        l.y*(m[0,0]*m[2,2]-m[0,2]*m[2,0])+
+        l.z*(m[0,0]*m[2,1]-m[0,1]*m[2,0]))/dt;
+  if (pc<0) or (pb+pc>1) then begin
+   exit;
+  end;
+  d:=-(l.x*(m[0,1]*m[1,2]-m[0,2]*m[1,1])-
+       l.y*(m[0,0]*m[1,2]-m[0,2]*m[1,0])+
+       l.z*(m[0,0]*m[1,1]-m[0,1]*m[1,0]))/dt;
+  if d<0 then begin
+   exit;
+  end;
+  result:=true;
+ end;
+
+function TLine3.IntersectPlane(const plane:TPlane;out distance:double):boolean;
+ var
+  normDir:TVec3d;
+  denom:double;
+ begin
+  normDir:=dir;
+  if normDir.Length2<Epsilon then begin
+   result:=false;
+   exit;
+  end;
+  normDir.Normalize;
+  denom:=plane.a*normDir.x+plane.b*normDir.y+plane.c*normDir.z;
+  if abs(denom)<Epsilon then begin
+   result:=false;
+   exit;
+  end;
+  distance:=-plane.DistanceTo(origin)/denom;
+  result:=distance>=0;
+ end;
  procedure _YRPToMatrix(yaw,roll,pitch:double;m:PDouble;width:integer); inline;
   var
    ca,sa,cb,sb,cc,sc:double;
