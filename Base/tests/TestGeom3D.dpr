@@ -61,8 +61,8 @@ var
   v:TVec4;
 begin
   StartTest('Matrices');
-  m1:=ScaleMat4(2,3,4);
-  m2:=TranslationMat4(5,6,7);
+  m1:=TMat4.Scale(2,3,4);
+  m2:=TMat4.Translation(5,6,7);
   mRef:=m1*m2;
   m3:=m1*m2;
   Check(IsEqual(m3,mRef),'TMat4 operator *');
@@ -80,7 +80,7 @@ begin
   Check(IsEqual(mRef,mInv),'TMat4.Transpose');
 
   v:=TVec4.Init(1,2,3,1);
-  MultPnt(IdentMat4,@v,1,SizeOf(v));
+  IdentMat4.TransformPoints(@v,1,SizeOf(v));
   Check((Abs(v.x-1)<0.0001) and (Abs(v.y-2)<0.0001) and (Abs(v.z-3)<0.0001),'MultPnt identity');
   EndTest;
 end;
@@ -91,7 +91,7 @@ var
   q:TQuat;
 begin
   StartTest('Quaternion conversions');
-  m:=RotationAroundVector(TVec3.Init(1,2,3),1.25);
+  m:=TMat3.RotationAroundAxis(TVec3.Init(1,2,3),1.25);
   q:=m.ToQuaternion;
   m2:=TMat3.FromQuaternion(q);
   Check(IsEqual(m,m2,200),'Matrix<->Quaternion');
@@ -177,13 +177,13 @@ begin
   Check(IsIdentity(TVec3.Init(1,1,1)),'IsIdentity vec');
   Check(IsEqual(1.0,1.0),'IsEqual scalar');
 
-  m43:=TranslationMat(1,2,3);
+  m43:=TMat34d.Translation(1,2,3);
   m43s:=IdentMat34;
   m43s[3,0]:=1;
   m43s[3,1]:=2;
   m43s[3,2]:=3;
   Check(IsIdentity(IdentMat34),'IsIdentity mat43s');
-  m3b:=ToMat3(Matrix4(IdentMat4));
+  m3b:=TMat3.From(IdentMat4);
   Check(IsEqual(m3b,IdentMat3),'Matrix conversion');
   Check(IsEqual(IdentMat3.Row(0),Vec3(1,0,0)),'TMat3.Row');
   Check(IsEqual(IdentMat3.Col(1),Vec3(0,1,0)),'TMat3.Col');
@@ -193,10 +193,10 @@ begin
   Check(IsEqual(m43.Col(2),Vec3d(0,0,1),2),'TMat34d.Col');
   Check(IsEqual(m43s.Row(3),Vec3(1,2,3)),'TMat34.Row');
   Check(IsEqual(m43s.Col(0),Vec3(1,0,0)),'TMat34.Col');
-  m4d:=Matrix4(m43); // keep conversion path in test
-  Check(Abs(Det(IdentMat4)-1)<0.0001,'Det');
-  m4d:=Matrix4(ScaleMat(2,3,4));
-  m4dd:=TranslationMat4d(1,2,3);
+  m4d:=TMat4d.From(m43);
+  Check(Abs(IdentMat4.Determinant-1)<0.0001,'Det');
+  m4d:=TMat4d.From(TMat34d.Scale(2,3,4));
+  m4dd:=TMat4d.Translation(1,2,3);
   m4dt:=m4d*m4dd;
   Check(IsEqual(m4dt,m4d*m4dd,20),'TMat4d operator *');
   m4dd:=m4dt.Transposed;
@@ -229,8 +229,8 @@ begin
   Check(IsEqual(Vec3(v),TVec3.Init(v.x,v.y,v.z)),'Vec4->Vec3 factory');
   Check(IsEqual(v.ToVec3,TVec3.Init(v.x,v.y,v.z)),'TVec4.ToVec3');
 
-  m4:=TranslationMat4(5,6,7);
-  DecomposeMatrix(m4,tr,rot,sca);
+  m4:=TMat4.Translation(5,6,7);
+  m4.Decompose(tr,rot,sca);
   Check((Abs(tr.x-5)<0.0001) and (Abs(tr.y-6)<0.0001) and (Abs(tr.z-7)<0.0001),'DecomposeMatrix translation');
   Check((Abs(sca.x-1)<0.0001) and (Abs(sca.y-1)<0.0001) and (Abs(sca.z-1)<0.0001),'DecomposeMatrix scale');
 
@@ -262,8 +262,8 @@ begin
   m3d:=TMat3d.FromQuaternion(qd);
   qd:=m3d.ToQuaternion;
   Check(qd.IsValid,'TMat3d quaternion conversion');
-  m4dd:=TranslationMat4d(1,2,3);
-  DecomposeMatrix(m4dd,trd,rotd,scad);
+  m4dd:=TMat4d.Translation(1,2,3);
+  m4dd.Decompose(trd,rotd,scad);
   Check((Abs(trd.x-1)<0.0001) and (Abs(trd.y-2)<0.0001) and (Abs(trd.z-3)<0.0001),'DecomposeMatrix double');
   EndTest;
 end;
@@ -331,19 +331,19 @@ begin
   y0:=0.35;
   r0:=-0.2;
   p0:=0.5;
-  YRPToMatrix(m34,y0,r0,p0);
-  MatrixToYRP(m34,y1,r1,p1);
-  YRPToMatrix(m34b,y1,r1,p1);
+  m34:=TMat34d.FromYRP(y0,r0,p0);
+  m34.ToYRP(y1,r1,p1);
+  m34b:=TMat34d.FromYRP(y1,r1,p1);
   Check(IsEqual(m34,m34b,40),'Yaw/Roll/Pitch matrix roundtrip');
 
-  m3s:=RotationMat3X(0.4);
-  m3sRef:=ToMat3(Matrix4(RotationXMat(0.4)));
+  m3s:=TMat3.RotationX(0.4);
+  m3sRef:=TMat3.From(TMat4d.From(TMat34d.RotationX(0.4)));
   Check(IsEqual(m3s,m3sRef,20),'RotationMat3X consistency');
-  m3s:=RotationMat3Y(0.4);
-  m3sRef:=ToMat3(Matrix4(RotationYMat(0.4)));
+  m3s:=TMat3.RotationY(0.4);
+  m3sRef:=TMat3.From(TMat4d.From(TMat34d.RotationY(0.4)));
   Check(IsEqual(m3s,m3sRef,20),'RotationMat3Y consistency');
-  m3s:=RotationMat3Z(0.4);
-  m3sRef:=ToMat3(Matrix4(RotationZMat(0.4)));
+  m3s:=TMat3.RotationZ(0.4);
+  m3sRef:=TMat3.From(TMat4d.From(TMat34d.RotationZ(0.4)));
   Check(IsEqual(m3s,m3sRef,20),'RotationMat3Z consistency');
 
   a:=TVec3.Init(0,0,0);
