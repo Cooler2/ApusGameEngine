@@ -2821,13 +2821,13 @@ procedure TBBox3.IncludeBox(const newBox:TBBox3);
 function TBBox3.Center:TVec3;
  begin
   if IsEmpty then exit(NullPointS);
-  result:=Point3s((minX+maxX)*0.5,(minY+maxY)*0.5,(minZ+maxZ)*0.5);
+  result:=TVec3.Init((minX+maxX)*0.5,(minY+maxY)*0.5,(minZ+maxZ)*0.5);
  end;
 
 function TBBox3.Extents:TVec3;
  begin
   if IsEmpty then exit(NullPointS);
-  result:=Point3s((maxX-minX)*0.5,(maxY-minY)*0.5,(maxZ-minZ)*0.5);
+  result:=TVec3.Init((maxX-minX)*0.5,(maxY-minY)*0.5,(maxZ-minZ)*0.5);
  end;
 
 procedure TBBox3.Init;

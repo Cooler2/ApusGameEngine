@@ -26,7 +26,6 @@ type
     function IntersectsBox(const other:TBBox3):boolean;
     function IntersectsSphere(const sphereCenter:TVec3;sphereRadius:single):boolean;
   end;
-  TBox3s = TBBox3 deprecated 'Use TBBox3';
 
   TSphere = record
     center: TVec3;
@@ -177,7 +176,7 @@ begin
   if IsEmpty then begin
     exit(NullPointS);
   end;
-  result:=Point3s((minX+maxX)*0.5,(minY+maxY)*0.5,(minZ+maxZ)*0.5);
+  result:=TVec3.Init((minX+maxX)*0.5,(minY+maxY)*0.5,(minZ+maxZ)*0.5);
 end;
 
 function TBBox3.Extents:TVec3;
@@ -185,7 +184,7 @@ begin
   if IsEmpty then begin
     exit(NullPointS);
   end;
-  result:=Point3s((maxX-minX)*0.5,(maxY-minY)*0.5,(maxZ-minZ)*0.5);
+  result:=TVec3.Init((maxX-minX)*0.5,(maxY-minY)*0.5,(maxZ-minZ)*0.5);
 end;
 
 function TBBox3.ContainsPoint(const p:TVec3):boolean;
