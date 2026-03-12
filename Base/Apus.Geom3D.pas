@@ -109,7 +109,8 @@ interface
   TPlane=packed record
    a,b,c,d:double;
    class function Init(const point,normal:TVec3d):TPlane; static;
-   function Offset(const pnt:TVec3d):double; inline;
+   function DistanceTo(const pnt:TVec3d):double; overload; inline;
+   function DistanceTo(const pnt:TVec3):single; overload; inline;
   end;
   TQuaternion=TQuatd deprecated 'Use TQuatd';
 
@@ -371,10 +372,6 @@ interface
  function Det(const m:TMat3):single; overload;
  function Det(const m:TMat4d):double; overload;
  function Det(const m:TMat4):single; overload;
-
- // Planes
- procedure InitPlane(point,normal:TVec3d;var p:TPlane);
- function GetPlaneOffset(p:TPlane;pnt:TVec3d):double;
 
  // Special
  // пересечение треугольника ABC с лучом OT
@@ -2024,19 +2021,14 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
    result.d:=-(result.a*point.x+result.b*point.y+result.c*point.z);
   end;
 
- function TPlane.Offset(const pnt:TVec3d):double;
+ function TPlane.DistanceTo(const pnt:TVec3d):double;
   begin
    result:=pnt.x*a+pnt.y*b+pnt.z*c+d;
   end;
 
- procedure InitPlane(point,normal:TVec3d;var p:TPlane);
+ function TPlane.DistanceTo(const pnt:TVec3):single;
   begin
-   p:=TPlane.Init(point,normal);
-  end;
-
- function GetPlaneOffset(p:TPlane;pnt:TVec3d):double;
-  begin
-   result:=p.Offset(pnt);
+   result:=pnt.x*a+pnt.y*b+pnt.z*c+d;
   end;
 
  function Det(const m:TMat3d):double;

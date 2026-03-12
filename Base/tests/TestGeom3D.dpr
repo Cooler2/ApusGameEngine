@@ -211,9 +211,9 @@ var
 begin
   StartTest('Geom3D utility2');
   pl:=TPlane.Init(Vector3(0,2,0),Vector3(0,1,0));
-  d:=pl.Offset(Point3(0,2,0));
-  Check(Abs(d)<0.0001,'TPlane.Offset');
-  Check(Abs(pl.Offset(Point3(0,1,0))+1)<0.0001,'TPlane.Offset signed');
+  d:=pl.DistanceTo(Point3(0,2,0));
+  Check(Abs(d)<0.0001,'TPlane.DistanceTo');
+  Check(Abs(pl.DistanceTo(Point3(0,1,0))+1)<0.0001,'TPlane.DistanceTo signed');
 
   bbA.Clear;
   bbA.IncludePoint(TVec3.Init(1,2,3));
@@ -224,12 +224,6 @@ begin
   bbA.IncludeBox(bbB);
   Check(bbA.ContainsPoint(TVec3.Init(8,9,10)),'TBBox3.IncludeBox');
   Check(bbA.IntersectsBox(bbB),'TBBox3.IntersectsBox');
-
-  // Compatibility wrappers kept while engine migration is in progress.
-  d:=GetPlaneOffset(pl,Point3(0,2,0));
-  Check(Abs(d)<0.0001,'GetPlaneOffset wrapper');
-  InitPlane(Vector3(0,2,0),Vector3(0,1,0),pl);
-  Check(Abs(GetPlaneOffset(pl,Point3(0,2,0)))<0.001,'InitPlane wrapper');
 
   a1[0]:=1; a1[1]:=2; a1[2]:=3;
   a2:=a1;
