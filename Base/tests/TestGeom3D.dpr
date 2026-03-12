@@ -212,6 +212,10 @@ begin
   Check(Abs(qdv.w-2)<0.0001,'Vec4d explicit w');
   qdv:=Vec4d(7,8,9,10);
   Check((Abs(qdv.x-7)<0.0001) and (Abs(qdv.y-8)<0.0001) and (Abs(qdv.z-9)<0.0001) and (Abs(qdv.w-10)<0.0001),'Vec4d component factory');
+  q:=Vec4(qdv);
+  Check((Abs(q.x-qdv.x)<0.0001) and (Abs(q.y-qdv.y)<0.0001) and (Abs(q.z-qdv.z)<0.0001) and (Abs(q.w-qdv.w)<0.0001),'Vec4 from vec4d');
+  qdv:=Vec4d(q);
+  Check((Abs(qdv.x-q.x)<0.0001) and (Abs(qdv.y-q.y)<0.0001) and (Abs(qdv.z-q.z)<0.0001) and (Abs(qdv.w-q.w)<0.0001),'Vec4d from vec4');
   Check(IsEqual(Vec3d(1,2,3),TVec3d.Init(1,2,3),2),'Vec3d factory');
   Check(IsEqual(Vec3d(qdv),TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'Vec4d->Vec3d factory');
   Check(IsEqual(qdv.ToVec3d,TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'TQuatd.ToVec3d');
