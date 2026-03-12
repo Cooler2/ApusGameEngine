@@ -54,12 +54,12 @@ type
     function IntersectsBox(const box: TBBox3): boolean;
   end;
 
-function PlaneDistance(const plane:TVec4;const p:TVec3):single; inline;
-
 implementation
 
 const
   SpatialEpsilon = 1E-5;
+
+function PlaneDistance(const plane:TVec4;const p:TVec3):single; forward;
 
 procedure NormalizePlane(var p: TVec4); inline;
 var
