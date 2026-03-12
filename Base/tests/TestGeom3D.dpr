@@ -1,4 +1,4 @@
-﻿{$APPTYPE CONSOLE}
+{$APPTYPE CONSOLE}
 {$EXCESSPRECISION OFF}
 program TestGeom3D;
 
@@ -260,9 +260,9 @@ begin
   y0:=0.35;
   r0:=-0.2;
   p0:=0.5;
-  MatrixFromYawRollPitch(m34,y0,r0,p0);
-  YawRollPitchFromMatrix(m34,y1,r1,p1);
-  MatrixFromYawRollPitch(m34b,y1,r1,p1);
+  YRPToMatrix(m34,y0,r0,p0);
+  MatrixToYRP(m34,y1,r1,p1);
+  YRPToMatrix(m34b,y1,r1,p1);
   Check(IsEqual(m34,m34b,40),'Yaw/Roll/Pitch matrix roundtrip');
 
   m3s:=RotationMat3X(0.4);

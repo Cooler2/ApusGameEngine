@@ -298,14 +298,14 @@ interface
  // roll - поворот вокруг X
  // pitch - затем поворот вокруг Y
  // yaw - наконец, поворот вокруг Z
- procedure MatrixFromYawRollPitch(out mat:TMat3d;yaw,roll,pitch:double); overload;
- procedure MatrixFromYawRollPitch(out mat:TMat3;yaw,roll,pitch:double); overload;
- procedure MatrixFromYawRollPitch(out mat:TMat4d;yaw,roll,pitch:double); overload;
- procedure MatrixFromYawRollPitch(out mat:TMat4;yaw,roll,pitch:double); overload;
- procedure MatrixFromYawRollPitch(out mat:TMat34d;yaw,roll,pitch:double); overload;
- procedure MatrixFromYawRollPitch(out mat:TMat34;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat3d;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat3;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat4d;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat4;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat34d;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat34;yaw,roll,pitch:double); overload;
 
- procedure YawRollPitchFromMatrix(const mat:TMat34d; var yaw,roll,pitch:double);
+ procedure MatrixToYRP(const mat:TMat34d; var yaw,roll,pitch:double);
 
  // Combined transformation M = M3*M2*M1 means do M1 then M2 and finally M3
  // target = M1*M2 (Смысл: перевести репер M1 из системы M2 в ту, где задана M2)
@@ -2048,7 +2048,7 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
    result:=true;
   end;
 
- procedure _MatrixFromYawRollPitch(yaw,roll,pitch:double;m:PDouble;width:integer); inline;
+ procedure _YRPToMatrix(yaw,roll,pitch:double;m:PDouble;width:integer); inline;
   var
    ca,sa,cb,sb,cc,sc:double;
   begin
@@ -2069,7 +2069,7 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
    m^:=cb*cc; inc(m,width-2);
   end;
 
- procedure _MatrixFromYawRollPitchS(yaw,roll,pitch:single;m:PSingle;width:integer); inline;
+ procedure _YRPToMatrixS(yaw,roll,pitch:single;m:PSingle;width:integer); inline;
   var
    ca,sa,cb,sb,cc,sc:double;
   begin
@@ -2090,43 +2090,43 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
    m^:=cb*cc; inc(m,width-2);
   end;
 
- procedure MatrixFromYawRollPitch(out mat:TMat3d;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat3d;yaw,roll,pitch:double); overload;
   begin
-   _MatrixFromYawRollPitch(yaw,roll,pitch,@mat,3);
+   _YRPToMatrix(yaw,roll,pitch,@mat,3);
   end;
 
- procedure MatrixFromYawRollPitch(out mat:TMat3;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat3;yaw,roll,pitch:double); overload;
   begin
-   _MatrixFromYawRollPitchS(yaw,roll,pitch,@mat,3);
+   _YRPToMatrixS(yaw,roll,pitch,@mat,3);
   end;
 
- procedure MatrixFromYawRollPitch(out mat:TMat4d;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat4d;yaw,roll,pitch:double); overload;
   begin
-   _MatrixFromYawRollPitch(yaw,roll,pitch,@mat,4);
+   _YRPToMatrix(yaw,roll,pitch,@mat,4);
    mat[0,3]:=0; mat[1,3]:=0; mat[2,3]:=0;
    mat[3,0]:=0; mat[3,1]:=0; mat[3,2]:=0; mat[3,3]:=1;
   end;
 
- procedure MatrixFromYawRollPitch(out mat:TMat4;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat4;yaw,roll,pitch:double); overload;
   begin
-   _MatrixFromYawRollPitchS(yaw,roll,pitch,@mat,4);
+   _YRPToMatrixS(yaw,roll,pitch,@mat,4);
    mat[0,3]:=0; mat[1,3]:=0; mat[2,3]:=0;
    mat[3,0]:=0; mat[3,1]:=0; mat[3,2]:=0; mat[3,3]:=1;
   end;
 
- procedure MatrixFromYawRollPitch(out mat:TMat34d;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat34d;yaw,roll,pitch:double); overload;
   begin
-   _MatrixFromYawRollPitch(yaw,roll,pitch,@mat,3);
+   _YRPToMatrix(yaw,roll,pitch,@mat,3);
    mat[3,0]:=0; mat[3,1]:=0; mat[3,2]:=0;
   end;
 
- procedure MatrixFromYawRollPitch(out mat:TMat34;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat34;yaw,roll,pitch:double); overload;
   begin
-   _MatrixFromYawRollPitchS(yaw,roll,pitch,@mat,3);
+   _YRPToMatrixS(yaw,roll,pitch,@mat,3);
    mat[3,0]:=0; mat[3,1]:=0; mat[3,2]:=0;
   end;
 
- procedure YawRollPitchFromMatrix(const mat:TMat34d; var yaw,roll,pitch:double);
+ procedure MatrixToYRP(const mat:TMat34d; var yaw,roll,pitch:double);
   var
    v:TVec3d;
    skewA,skewB,skewC:double;
