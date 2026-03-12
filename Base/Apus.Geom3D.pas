@@ -1136,7 +1136,10 @@ end;
 
 class function TMat34.FromYRP(yaw,roll,pitch:double):TMat34;
 begin
-  YRPToMatrix(result,yaw,roll,pitch);
+  _YRPToMatrixS(yaw,roll,pitch,@result,3);
+  result[3,0]:=0;
+  result[3,1]:=0;
+  result[3,2]:=0;
 end;
 
 procedure TMat3d.TransformPoints(v:PVec3d;num,step:integer);
@@ -2678,12 +2681,12 @@ procedure _YRPToMatrixS(yaw,roll,pitch:single;m:PSingle;width:integer); inline;
      Yaw:=arccos(v.x);
      if v.y<0 then Yaw:=-Yaw;
     end;
-    m:=m*RotationZMat(-Yaw);
+    m:=m*TMat34d.RotationZ(-Yaw);
    end;
    // roll (Y-rotation): mv[0].z = -sin(roll)
    if mv[0].x<-0.999 then roll:=pi else
     Roll:=-arcsin(mv[0].z);
-   m:=m*RotationYMat(roll);
+   m:=m*TMat34d.RotationY(roll);
    // pitch (X-rotation)
    if mv[1].y<-0.999 then pitch:=pi else begin
     Pitch:=arccos(mv[1].y);
