@@ -128,8 +128,8 @@ interface
   PMat4=^TMat4;
   TMat4=array[0..3,0..3] of single; // rotation/scale/translation
   // Synonims
-  TMatrix3v=array[0..2] of TVec3d;
-  TMatrix43v=array[0..3] of TVec3d;
+  TMatrix3vd=array[0..2] of TVec3d;
+  TMatrix43vd=array[0..3] of TVec3d;
 
   // Low precision matrices
   PMat3=^TMat3;
@@ -137,8 +137,8 @@ interface
   PMat34=^TMat34;
   TMat34=array[0..3,0..2] of single;
   // Synonims
-  TMatrix3vs=array[0..2] of TVec3;
-  TMatrix43vs=array[0..3] of TVec3;
+  TMatrix3v=array[0..2] of TVec3;
+  TMatrix43v=array[0..3] of TVec3;
 
  const
   NaN=0.0/0.0;
@@ -844,7 +844,7 @@ implementation
   var
    m1:TMat3d absolute m;
    m2:TMat3d absolute dest;
-   mv:TMatrix43v absolute m;
+   mv:TMatrix43vd absolute m;
   begin
    Transpose(m1,m2);
    dest[3,0]:=-mv[0].Dot(mv[3]);
@@ -855,7 +855,7 @@ implementation
   var
    m1:TMat3 absolute m;
    m2:TMat3 absolute dest;
-   mv:TMatrix43vs absolute m;
+   mv:TMatrix43v absolute m;
   begin
    Transpose(m1,m2);
    dest[3,0]:=-mv[0].Dot(mv[3]);
@@ -911,7 +911,7 @@ implementation
  procedure Invert(const m:TMat3d;out dest:TMat3d);
   var
    la,lb,lc:double;
-   mv:TMatrix3v absolute m;
+   mv:TMatrix3vd absolute m;
   begin
    la:=mv[0].Length2;
    lb:=mv[1].Length2;
@@ -927,7 +927,7 @@ implementation
  procedure Invert(const m:TMat34d;out dest:TMat34d); overload;
   var
    la,lb,lc:double;
-   mv:TMatrix43v absolute m;
+   mv:TMatrix43vd absolute m;
   begin
    la:=mv[0].Length2;
    lb:=mv[1].Length2;
@@ -943,7 +943,7 @@ implementation
  procedure Invert(const m:TMat34;out dest:TMat34); overload;
   var
    la,lb,lc:single;
-   mv:TMatrix43vs absolute m;
+   mv:TMatrix43v absolute m;
   begin
    la:=mv[0].Length2;
    lb:=mv[1].Length2;
@@ -1833,7 +1833,7 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
  function IntersectTrgLine(A,B,C,O,T:PVec3;var pb,pc,d:double):boolean;
   var
    m:TMat3d;
-   mv:TMatrix3v absolute m;
+   mv:TMatrix3vd absolute m;
    l:TVec3d;
    dt:double;
   begin
@@ -1945,7 +1945,7 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
    v:TVec3d;
    skewA,skewB,skewC:double;
    m,m2:TMat34d;
-   mv:TMatrix43v absolute m;
+   mv:TMatrix43vd absolute m;
   begin
    m:=mat;
    mv[0].Normalize;
