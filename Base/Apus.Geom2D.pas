@@ -97,6 +97,8 @@ interface
   TRect2=packed record
    function Width:single;
    function Height:single;
+   class function IntersectI(const r1,r2:TRect;out r:TRect):integer; static;
+   class procedure OrderI(var r:TRect); static;
    procedure Init; overload; inline; // init empty
    procedure Init(x1,y1,x2,y2:single); overload; inline;
    procedure InitWH(x,y,width,height:single); overload; inline;
@@ -105,6 +107,8 @@ interface
    procedure Include(x,y:single); overload; inline;
    procedure Include(r:TRect2); overload; inline;
    procedure Round;
+   function Transform(dx,dy,sx,sy:single):TRect2;
+   function Rounded:TRect;
    function IsEmpty:boolean; inline;
    function Center:TVec2; inline;
    function GetIntRect:TRect;
@@ -186,21 +190,12 @@ interface
  function Segment2(x1,y1,x2,y2:integer):TSegment2; overload; inline;
  function Segment2(x1,y1,x2,y2:double):TSegment2; overload; inline;
 
- // Integer operations
- // Rect relation: 0 no intersection, 1 r1 inside r2, 2 r2 inside r1, 4 intersect
- // Works only for ordered rectangles.
- function IntersectRects(r1,r2:TRect;out r:TRect):integer;
- procedure OrderRect(var r:TRect); // Order coordinates in ascending direction
-
  procedure ToSingle32(sour:TMat32d;out dest:TMat32);
 
  procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
 
  // Rectangle
  function Rect2(x1,y1,x2,y2:single):TRect2; overload; inline;
- function TransformRect(const r:TRect2;dx,dy,sx,sy:single):TRect2;
- function RoundRect(const r:TRect2):TRect;
-
  var
   trgIndices:array of integer; // triangulation output indices
  // Triangulation of a closed polygon (builds n-2 triangles). Must be CLOCKWISE.
