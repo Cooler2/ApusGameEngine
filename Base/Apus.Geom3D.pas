@@ -162,6 +162,8 @@ interface
  function Vec3(v:TVec4):TVec3; overload; inline;
  function Vec3d(x,y,z:double):TVec3d; overload; inline;
  function Vec3d(v:TQuatd):TVec3d; overload; inline;
+ function Vec4(v:TVec3;w:single=1):TVec4; overload; inline;
+ function Vec4d(v:TVec3d;w:double=1):TQuatd; overload; inline;
  function Quat(x,y,z,w:single):TQuat; overload; inline;
  function Quatd(x,y,z,w:double):TQuatd; overload; inline;
  // Matrix conversion
@@ -385,6 +387,22 @@ implementation
    result.x:=v.x;
    result.y:=v.y;
    result.z:=v.z;
+  end;
+
+ function Vec4(v:TVec3;w:single):TVec4; overload; inline;
+  begin
+   result.x:=v.x;
+   result.y:=v.y;
+   result.z:=v.z;
+   result.w:=w;
+  end;
+
+ function Vec4d(v:TVec3d;w:double):TQuatd; overload; inline;
+  begin
+   result.x:=v.x;
+   result.y:=v.y;
+   result.z:=v.z;
+   result.w:=w;
   end;
 
  function Quat(x,y,z,w:single):TQuat; overload; inline;

@@ -179,6 +179,10 @@ begin
   q:=QuatMultiply(q,Quat(0,0,0,1));
   q:=QuatSlerp(q,Quat(0,0,0,1),0.5);
   Check(q.IsValid,'Quaternion ops');
+  q:=Vec4(p0);
+  Check((Abs(q.x-p0.x)<0.0001) and (Abs(q.y-p0.y)<0.0001) and (Abs(q.z-p0.z)<0.0001) and (Abs(q.w-1)<0.0001),'Vec4 default w');
+  q:=Vec4(p0,2);
+  Check(Abs(q.w-2)<0.0001,'Vec4 explicit w');
   Check(IsEqual(Vec3(q),TVec3.Init(q.x,q.y,q.z)),'Vec4->Vec3 factory');
   Check(IsEqual(q.ToVec3,TVec3.Init(q.x,q.y,q.z)),'TQuat.ToVec3');
 
@@ -195,8 +199,11 @@ begin
   qd:=QuatInvert(qd);
   qd:=QuatMultiply(qd,Quatd(0,0,0,1));
   Check(qd.IsValid,'Quaternion double ops');
-  qdv:=TQuatd.Init(pd);
+  qdv:=Vec4d(pd);
+  Check(IsEqual(qdv,TQuatd.Init(pd),2),'Vec4d default w');
   Check(IsEqual(qdv,Quatd(1,2,3,1),2),'Vec4 double overload');
+  qdv:=Vec4d(pd,2);
+  Check(Abs(qdv.w-2)<0.0001,'Vec4d explicit w');
   Check(IsEqual(Vec3d(1,2,3),TVec3d.Init(1,2,3),2),'Vec3d factory');
   Check(IsEqual(Vec3d(qdv),TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'Vec4d->Vec3d factory');
   Check(IsEqual(qdv.ToVec3d,TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'TQuatd.ToVec3d');
