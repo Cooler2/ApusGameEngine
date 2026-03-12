@@ -30,7 +30,7 @@ interface
    function Cross(const p:TVec3d):TVec3d; inline;
    function Sub(const p:TVec3d):TVec3d; inline;
    function Distance2(const p:TVec3d):double; inline;
-   procedure Add(p:TVec3d);
+   procedure Add(const p:TVec3d);
    procedure Multiply(scalar:double);
   end;
   PVec3d=^TVec3d;
@@ -48,7 +48,7 @@ interface
    function Cross(const p:TVec3):TVec3; inline;
    function Sub(const p:TVec3):TVec3; inline;
    function Distance2(const p:TVec3):single; inline;
-   procedure Add(p:TVec3);
+   procedure Add(const p:TVec3);
    procedure Multiply(scalar:single);
    case integer of
    0:( x,y,z:single; );
@@ -2221,7 +2221,7 @@ function TVec3d.Distance2(const p:TVec3d):double;
   result:=sqr(x-p.x)+sqr(y-p.y)+sqr(z-p.z);
  end;
 
-procedure TVec3d.Add(p:TVec3d);
+procedure TVec3d.Add(const p:TVec3d);
  begin
   x:=x+p.x;
   y:=y+p.y;
@@ -2248,7 +2248,7 @@ constructor TVec3.Init(p:TVec3d);
   self.z:=p.z;
  end;
 
-procedure TVec3.Add(p:TVec3);
+procedure TVec3.Add(const p:TVec3);
  begin
   x:=x+p.x; y:=y+p.y; z:=z+p.z;
  end;
