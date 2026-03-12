@@ -53,8 +53,6 @@ interface
    1:( v:array[0..2] of single; );
    2:( xy:TVec2; t:single; );
   end;
-  TPoint3s=TVec3 deprecated 'Use TVec3';
-  TVector3s=TVec3 deprecated 'Use TVec3';
   TPoints3s=array of TVec3;
   TVectors3s=TPoints3s;
 
@@ -163,14 +161,9 @@ interface
   InvalidPoint3s:TVec3=(x:NaN;y:NaN;z:NaN);
 
  function Point3(x,y,z:double):TVec3d; overload; inline;
- function Point3s(x,y,z:single):TVec3; overload; inline;
  function Point3(p:TVec3):TVec3d; overload; inline;
- function Point3s(p:TVec3d):TVec3; overload; inline;
  function Vector3(x,y,z:double):TVec3d; overload; inline;
- function Vector3s(x,y,z:single):TVec3; overload; inline;
  function Vector3(from,target:TVec3d):TVec3d; overload; inline;
- function Vector3s(from,target:TVec3):TVec3; overload; inline;
- function Vector3s(vector:TVec3d):TVec3; overload; inline;
  function Vector4(vector:TVec3d):TVector4; overload; inline;
  function Vector4s(vector:TVec3):TVec4; overload; inline;
  function Quaternion(x,y,z,w:double):TQuatd; overload; inline;
@@ -287,8 +280,6 @@ interface
  // Extract translation rotation and scale from transformation matrix
  procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuaternionS); overload;
  procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd); overload;
- procedure DecomposeMartix(mat:TMat4;out translation,rotation,scale:TQuaternionS); overload; deprecated 'Use DecomposeMatrix';
- procedure DecomposeMartix(mat:TMat4d;out translation,rotation,scale:TQuatd); overload; deprecated 'Use DecomposeMatrix';
 
  // Quaternion operations
  function QLength(q:TQuatd):double; overload;
@@ -395,21 +386,7 @@ implementation
    result.z:=z;
   end;
 
- function Point3s(x,y,z:single):TVec3; overload; inline;
-  begin
-   result.x:=x;
-   result.y:=y;
-   result.z:=z;
-  end;
-
  function Point3(p:TVec3):TVec3d; overload; inline;
-  begin
-   result.x:=p.x;
-   result.y:=p.y;
-   result.z:=p.z;
-  end;
-
- function Point3s(p:TVec3d):TVec3; overload; inline;
   begin
    result.x:=p.x;
    result.y:=p.y;
@@ -423,32 +400,11 @@ implementation
    result.z:=z;
   end;
 
- function Vector3s(x,y,z:single):TVec3;
-  begin
-   result.x:=x;
-   result.y:=y;
-   result.z:=z;
-  end;
-
  function Vector3(from,target:TVec3d):TVec3d; overload; inline;
   begin
    result.x:=target.x-from.x;
    result.y:=target.y-from.y;
    result.z:=target.z-from.z;
-  end;
-
- function Vector3s(from,target:TVec3):TVec3; overload; inline;
-  begin
-   result.x:=target.x-from.x;
-   result.y:=target.y-from.y;
-   result.z:=target.z-from.z;
-  end;
-
- function Vector3s(vector:TVec3d):TVec3; overload; inline;
-  begin
-   result.x:=vector.x;
-   result.y:=vector.y;
-   result.z:=vector.z;
   end;
 
  function Vector4(vector:TVec3d):TVector4; overload; inline;
@@ -1870,17 +1826,6 @@ implementation
    move(qZ,mat3[2],sizeof(qz));
   rotation:=MatrixToQuaternion(mat3);
  end;
-
- procedure DecomposeMartix(mat:TMat4;out translation,rotation,scale:TQuaternionS);
- begin
-  DecomposeMatrix(mat,translation,rotation,scale);
- end;
-
- procedure DecomposeMartix(mat:TMat4d;out translation,rotation,scale:TQuatd);
- begin
-  DecomposeMatrix(mat,translation,rotation,scale);
- end;
-
 
  function QLength(q:TQuatd):double; overload;
   begin

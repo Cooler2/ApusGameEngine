@@ -140,7 +140,7 @@ begin
   p0:=TVec3.Init(1,2,3);
   p1:=TVec3.Init(4,6,8);
   p2:=p1.Sub(p0);
-  Check((Abs(p2.x-3)<0.0001) and (Abs(p2.y-4)<0.0001) and (Abs(p2.z-5)<0.0001),'Vector3s from/to');
+  Check((Abs(p2.x-3)<0.0001) and (Abs(p2.y-4)<0.0001) and (Abs(p2.z-5)<0.0001),'Vector from/to');
   Check(Abs(DotProduct(p0,p1)-40)<0.0001,'DotProduct');
   p2:=CrossProduct(p0,p1);
   Check(Abs(GetLength(p0)-Sqrt(14))<0.0001,'GetLength');
@@ -149,9 +149,9 @@ begin
   Check(Abs(Distance2(p0,p1)-50)<0.0001,'Distance2');
   pd:=Vector3(1,2,3);
   p2:=TVec3.Init(pd);
-  Check((Abs(p2.x-1)<0.0001) and (Abs(p2.y-2)<0.0001) and (Abs(p2.z-3)<0.0001),'Vector3s from vec3d');
+  Check((Abs(p2.x-1)<0.0001) and (Abs(p2.y-2)<0.0001) and (Abs(p2.z-3)<0.0001),'Vec3 from vec3d');
   p2:=TVec3.Init(Vector3(2,3,4));
-  Check((Abs(p2.x-2)<0.0001) and (Abs(p2.y-3)<0.0001) and (Abs(p2.z-4)<0.0001),'Point3s from vec3d');
+  Check((Abs(p2.x-2)<0.0001) and (Abs(p2.y-3)<0.0001) and (Abs(p2.z-4)<0.0001),'Point from vec3d');
   PointBetween(p0,p1,0.5,p2);
   Check((Abs(p2.x-2.5)<0.0001) and (Abs(p2.y-4)<0.0001),'PointBetween');
   Check(IsNearS(p0,p0)=0,'IsNearS');
@@ -197,7 +197,7 @@ begin
   Check(qd.IsValid,'QuaternionToMatrix double alias');
   m4dd:=TranslationMat4(1,2,3);
   DecomposeMatrix(m4dd,trd,rotd,scad);
-  Check((Abs(trd.x-1)<0.0001) and (Abs(trd.y-2)<0.0001) and (Abs(trd.z-3)<0.0001),'DecomposeMartix double wrapper');
+  Check((Abs(trd.x-1)<0.0001) and (Abs(trd.y-2)<0.0001) and (Abs(trd.z-3)<0.0001),'DecomposeMatrix double');
   EndTest;
 end;
 
