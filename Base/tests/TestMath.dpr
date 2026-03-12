@@ -185,7 +185,7 @@ uses
    for i:=0 to 10 do begin
     f:=i/10;
     mRef:=RotationMat3X(f*Pi/2);
-    q:=QInterpolate(q1,q2,f);
+    q:=QuatSlerp(q1,q2,f);
     QuaternionToMatrix(q,m);
     ASSERT(IsEqual(m,mRef));
    end;
@@ -197,7 +197,7 @@ uses
    for i:=0 to 10 do begin
     f:=i/10;
     mRef:=RotationMat3Y(-f*Pi/2);
-    q:=QInterpolate(q1,q2,f);
+    q:=QuatSlerp(q1,q2,f);
     QuaternionToMatrix(q,m);
     ASSERT(IsEqual(m,mRef));
    end;
@@ -738,6 +738,8 @@ begin
  end;
  if HasParam('wait') then readln;
 end.
+
+
 
 
 

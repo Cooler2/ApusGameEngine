@@ -275,23 +275,23 @@ interface
  procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd); overload;
 
  // Quaternion operations
- function QLength(q:TQuatd):double; overload;
- function QLength(q:TQuat):single; overload;
+ function QuatLength(q:TQuatd):double; overload;
+ function QuatLength(q:TQuat):single; overload;
 
- procedure QScale(var q:TQuatd;val:double); overload;
- procedure QScale(var q:TQuat;val:single); overload;
+ procedure QuatScale(var q:TQuatd;val:double); overload;
+ procedure QuatScale(var q:TQuat;val:single); overload;
 
- procedure QNormalize(var q:TQuatd); overload;
- procedure QNormalize(var q:TQuat); overload;
+ procedure QuatNormalize(var q:TQuatd); overload;
+ procedure QuatNormalize(var q:TQuat); overload;
 
- function QInvert(q:TQuatd):TQuatd; overload;
- function QInvert(q:TQuat):TQuat; overload;
+ function QuatInvert(q:TQuatd):TQuatd; overload;
+ function QuatInvert(q:TQuat):TQuat; overload;
 
- function QMult(q1,q2:TQuatd):TQuatd; overload;
- function QMult(q1,q2:TQuat):TQuat; overload;
+ function QuatMultiply(q1,q2:TQuatd):TQuatd; overload;
+ function QuatMultiply(q1,q2:TQuat):TQuat; overload;
 
  // SLERP (!??) linear interpolation from Q1 to Q2 with factor changing from 0 to 1 (factor=0 -> Q1; factor=1 -> Q2)
- function QInterpolate(Q1,Q2:TQuat;factor:single):TQuat;
+ function QuatSlerp(Q1,Q2:TQuat;factor:single):TQuat;
 
 
  // РСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РїСЂР°РІРѕСЃС‚РѕСЂРѕРЅРЅСЏСЏ РЎРљ, РѕСЃСЊ Z - РІРІРµСЂС….
@@ -1740,9 +1740,9 @@ implementation
    qY:=MatRow(mat,1);
    qZ:=MatRow(mat,2);
    // Scale part
-   scale.x:=QLength(qX);
-   scale.y:=QLength(qY);
-   scale.z:=QLength(qZ);
+   scale.x:=QuatLength(qX);
+   scale.y:=QuatLength(qY);
+   scale.z:=QuatLength(qZ);
    scale.w:=0;
    qX.Mul(1/scale.x);
    qY.Mul(1/scale.y);
@@ -1781,9 +1781,9 @@ implementation
    qY:=MatRow(mat,1);
    qZ:=MatRow(mat,2);
    // Scale part
-   scale.x:=QLength(qX);
-   scale.y:=QLength(qY);
-   scale.z:=QLength(qZ);
+   scale.x:=QuatLength(qX);
+   scale.y:=QuatLength(qY);
+   scale.z:=QuatLength(qZ);
    scale.w:=0;
    qX.Mul(1/scale.x);
    qY.Mul(1/scale.y);
@@ -1811,24 +1811,24 @@ implementation
   rotation:=MatrixToQuaternion(mat3);
  end;
 
- function QLength(q:TQuatd):double; overload;
+ function QuatLength(q:TQuatd):double; overload;
   begin
    result:=Sqrt(q.w*q.w+q.x*q.x+q.y*q.y+q.z*q.z);
   end;
 
- function QLength(q:TQuat):single; overload;
+ function QuatLength(q:TQuat):single; overload;
   begin
    result:=Sqrt(q.w*q.w+q.x*q.x+q.y*q.y+q.z*q.z);
   end;
 
- procedure QScale(var q:TQuatd;val:double); overload;
+ procedure QuatScale(var q:TQuatd;val:double); overload;
   begin
    q.w:=q.w*val;
    q.x:=q.x*val;
    q.y:=q.y*val;
    q.z:=q.z*val;
   end;
- procedure QScale(var q:TQuat;val:single); overload;
+ procedure QuatScale(var q:TQuat;val:single); overload;
   begin
    q.w:=q.w*val;
    q.x:=q.x*val;
@@ -1836,33 +1836,33 @@ implementation
    q.z:=q.z*val;
   end;
 
- procedure QNormalize(var q:TQuatd); overload;
+ procedure QuatNormalize(var q:TQuatd); overload;
   begin
-   QScale(q,1/QLength(q));
+   QuatScale(q,1/QuatLength(q));
   end;
- procedure QNormalize(var q:TQuat); overload;
+ procedure QuatNormalize(var q:TQuat); overload;
   begin
-   QScale(q,1/QLength(q));
+   QuatScale(q,1/QuatLength(q));
   end;
 
- function QInvert(q:TQuatd):TQuatd; overload;
+ function QuatInvert(q:TQuatd):TQuatd; overload;
   begin
    result.w:=q.w;
    result.x:=-q.x;
    result.y:=-q.y;
    result.z:=-q.z;
-   QNormalize(result);
+   QuatNormalize(result);
   end;
- function QInvert(q:TQuat):TQuat; overload;
+ function QuatInvert(q:TQuat):TQuat; overload;
   begin
    result.w:=q.w;
    result.x:=-q.x;
    result.y:=-q.y;
    result.z:=-q.z;
-   QNormalize(result);
+   QuatNormalize(result);
   end;
 
- function QMult(q1,q2:TQuatd):TQuatd; overload;
+ function QuatMultiply(q1,q2:TQuatd):TQuatd; overload;
   var
    a,b,c,d,e,f,g,h:double;
   begin
@@ -1879,7 +1879,7 @@ implementation
    result.y:=-C+( E-F+G-H)*0.5;
    result.z:=-D+( E-F-G+H)*0.5;
   end;
- function QMult(q1,q2:TQuat):TQuat; overload;
+ function QuatMultiply(q1,q2:TQuat):TQuat; overload;
   var
    a,b,c,d,e,f,g,h:single;
   begin
@@ -1897,7 +1897,7 @@ implementation
    result.z:=-D+( E-F-G+H)*0.5;
   end;
 
- function QInterpolate(q1,q2:TQuat;factor:single):TQuat;
+ function QuatSlerp(q1,q2:TQuat;factor:single):TQuat;
   var
     cosOmega, sinOmega, scale0, scale1: Single;
   begin
@@ -2363,7 +2363,7 @@ function TQuatd.DotProd(var q:TQuatd):double;
 
 function TQuatd.Length:double;
  begin
-  result:=QLength(self);
+  result:=QuatLength(self);
  end;
 
 function TQuatd.Length2:double;
@@ -2373,7 +2373,7 @@ function TQuatd.Length2:double;
 
 procedure TQuatd.Mul(scalar:double);
  begin
-  QScale(self,scalar);
+  QuatScale(self,scalar);
  end;
 
 procedure TQuatd.Mul(var q:TQuatd);
@@ -2386,7 +2386,7 @@ procedure TQuatd.Mul(var q:TQuatd);
 
 procedure TQuatd.Normalize;
  begin
-  QNormalize(self);
+  QuatNormalize(self);
  end;
 
 { TQuat }
@@ -2433,7 +2433,7 @@ function TQuat.Length:single;
  {$ENDIF}
  {$IFDEF CPU386}
  begin
-  result:=QLength(self);
+  result:=QuatLength(self);
  end;
  {$ENDIF}
 
@@ -2485,7 +2485,7 @@ procedure TQuat.Normalize;
  {$ENDIF}
  {$IFDEF CPU386}
  begin
-  QNormalize(self);
+  QuatNormalize(self);
  end;
  {$ENDIF}
 
@@ -2685,6 +2685,8 @@ initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
 
 end.
+
+
 
 
 

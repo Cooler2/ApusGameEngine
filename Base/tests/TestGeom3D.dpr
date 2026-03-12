@@ -172,11 +172,11 @@ begin
   v:=MatCol(IdentMat4,0);
   q:=Vec4(p0);
   q:=Quat(0,0,0,1);
-  Check(Abs(QLength(q)-1)<0.0001,'QLength');
-  QNormalize(q);
-  q:=QInvert(q);
-  q:=QMult(q,Quat(0,0,0,1));
-  q:=QInterpolate(q,Quat(0,0,0,1),0.5);
+  Check(Abs(QuatLength(q)-1)<0.0001,'QuatLength');
+  QuatNormalize(q);
+  q:=QuatInvert(q);
+  q:=QuatMultiply(q,Quat(0,0,0,1));
+  q:=QuatSlerp(q,Quat(0,0,0,1),0.5);
   Check(q.IsValid,'Quaternion ops');
 
   m4:=TranslationMat4(5,6,7);
@@ -185,12 +185,12 @@ begin
   Check((Abs(sca.x-1)<0.0001) and (Abs(sca.y-1)<0.0001) and (Abs(sca.z-1)<0.0001),'DecomposeMatrix scale');
 
   qd:=Quaternion(0,0,0,1);
-  Check(Abs(QLength(qd)-1)<0.0001,'QLength double');
-  QScale(qd,2);
-  Check(Abs(QLength(qd)-2)<0.0001,'QScale double');
-  QNormalize(qd);
-  qd:=QInvert(qd);
-  qd:=QMult(qd,Quaternion(0,0,0,1));
+  Check(Abs(QuatLength(qd)-1)<0.0001,'QuatLength double');
+  QuatScale(qd,2);
+  Check(Abs(QuatLength(qd)-2)<0.0001,'QuatScale double');
+  QuatNormalize(qd);
+  qd:=QuatInvert(qd);
+  qd:=QuatMultiply(qd,Quaternion(0,0,0,1));
   Check(qd.IsValid,'Quaternion double ops');
   QuaternionToMatrix(qd,m3d);
   qd:=MatrixToQuaternion(m3d);
@@ -311,6 +311,8 @@ begin
   end;
   writeln('All OK');
 end.
+
+
 
 
 
