@@ -183,6 +183,8 @@ interface
  function Vec2(v:TVec2d):TVec2; overload; inline;
  function Vec2d(x,y:double):TVec2d; overload; inline;
  function Vec2d(v:TVec2):TVec2d; overload; inline;
+ function Segment2(x1,y1,x2,y2:integer):TSegment2; overload; inline;
+ function Segment2(x1,y1,x2,y2:double):TSegment2; overload; inline;
 
  // Integer operations
  // Rect relation: 0 no intersection, 1 r1 inside r2, 2 r2 inside r1, 4 intersect
