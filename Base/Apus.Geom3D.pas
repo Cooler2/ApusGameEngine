@@ -168,6 +168,10 @@ interface
    public
     function Row(n:integer):TVec3d; inline;
     function Col(n:integer):TVec3d; inline;
+    class operator Multiply(const a,b:TMat3d):TMat3d;
+    procedure Transpose;
+    function Transposed:TMat3d;
+    procedure Invert;
     property Items[i,j:integer]:double read GetItem write SetItem; default;
     case integer of
     0:(v:array[0..2,0..2] of double);
@@ -181,6 +185,10 @@ interface
    public
     function Row(n:integer):TVec3d; inline;
     function Col(n:integer):TVec3d; inline;
+    class operator Multiply(const a,b:TMat34d):TMat34d;
+    procedure Transpose;
+    function Transposed:TMat34d;
+    procedure Invert;
     property Items[i,j:integer]:double read GetItem write SetItem; default;
     case integer of
     0:(v:array[0..3,0..2] of double);
@@ -198,6 +206,7 @@ interface
     procedure Transpose; overload;
     function Transposed:TMat4d; overload;
     procedure Invert; overload;
+    function Inverted:TMat4d; overload;
     property Items[i,j:integer]:double read GetItem write SetItem; default; deprecated 'Use .v[i,j]';
     case integer of
     0:(v:array[0..3,0..3] of double);
@@ -215,6 +224,7 @@ interface
     procedure Transpose; overload;
     function Transposed:TMat4; overload;
     procedure Invert; overload;
+    function Inverted:TMat4; overload;
     property Items[i,j:integer]:single read GetItem write SetItem; default; deprecated 'Use .v[i,j]';
     case integer of
     0:(v:array[0..3,0..3] of single);
@@ -233,6 +243,10 @@ interface
    public
     function Row(n:integer):TVec3; inline;
     function Col(n:integer):TVec3; inline;
+    class operator Multiply(const a,b:TMat3):TMat3;
+    procedure Transpose;
+    function Transposed:TMat3;
+    procedure Invert;
     property Items[i,j:integer]:single read GetItem write SetItem; default;
     case integer of
     0:(v:array[0..2,0..2] of single);
@@ -246,6 +260,10 @@ interface
    public
     function Row(n:integer):TVec3; inline;
     function Col(n:integer):TVec3; inline;
+    class operator Multiply(const a,b:TMat34):TMat34;
+    procedure Transpose;
+    function Transposed:TMat34;
+    procedure Invert;
     property Items[i,j:integer]:single read GetItem write SetItem; default;
     case integer of
     0:(v:array[0..3,0..2] of single);
@@ -398,17 +416,6 @@ interface
  // Combined transformation M = M3*M2*M1 means do M1 then M2 and finally M3
  // target = M1*M2 (Смысл: перевести репер M1 из системы M2 в ту, где задана M2)
  // Другой смысл: суммарная трансформация: сперва M2, затем M1 (именно так!)
- // IMPORTANT! target MUST DIFFER from m1 and m2!
- procedure MultMat(const m1,m2:TMat3d;out target:TMat3d); overload;
- procedure MultMat(const m1,m2:TMat3;out target:TMat3); overload;
- procedure MultMat(const m1,m2:TMat34d;out target:TMat34d); overload;
- procedure MultMat(const m1,m2:TMat34;out target:TMat34); overload;
- procedure MultMat(const m1,m2:TMat4d;out target:TMat4d); overload;
- procedure MultMat(const m1,m2:TMat4;out target:TMat4); overload;
- function  MultMat(const m1,m2:TMat34d):TMat34d; overload;
- function  MultMat(const m1,m2:TMat4d):TMat4d; overload;
- function  MultMat(const m1,m2:TMat4):TMat4; overload;
-
  procedure MultPnt(const m:TMat4;v:PVec4;num,step:integer); overload;
  procedure MultPnt(const m:TMat34d;v:PVec3d;num,step:integer); overload;
  procedure MultPnt(const m:TMat34;v:PVec3;num,step:integer); overload;
@@ -422,23 +429,8 @@ interface
  function TransformPoint(const m:TMat4d;v:PVec3d):TVec3d; overload;
 
  // Transpose (для ортонормированной матрицы - это будт обратная)
- procedure Transpose(const m:TMat3d;out dest:TMat3d); overload;
- procedure Transpose(const m:TMat3;out dest:TMat3); overload;
- procedure Transpose(const m:TMat34d;out dest:TMat34d); overload;
- procedure Transpose(const m:TMat34;out dest:TMat34); overload;
- procedure Transpose(const m:TMat4d;out dest:TMat4d); overload;
- procedure Transpose(var m:TMat4d); overload; deprecated 'Use TMat4d.Transpose';
- procedure Transpose(var m:TMat4); overload; deprecated 'Use TMat4.Transpose';
- procedure Transpose(var m:TMat3d); overload;
- procedure Transpose(var m:TMat3); overload;
 
  // Calculate inverted matrix (for Orthogonal atrix only!)
- procedure Invert(const m:TMat3d;out dest:TMat3d); overload;
- procedure Invert(const m:TMat34d;out dest:TMat34d); overload;
- procedure Invert(const m:TMat34;out dest:TMat34); overload;
- // Complete inversion using Gauss method
- procedure InvertFull(const m:TMat4d;out dest:TMat4d); overload;
- procedure InvertFull(const m:TMat4;out dest:TMat4); overload;
 
  function Det(const m:TMat3d):double; overload;
  function Det(const m:TMat3):single; overload;
@@ -761,6 +753,190 @@ begin
   result.z:=v[2,n];
 end;
 
+class operator TMat3d.Multiply(const a,b:TMat3d):TMat3d;
+begin
+  result[0,0]:=a[0,0]*b[0,0] + a[0,1]*b[1,0] + a[0,2]*b[2,0];
+  result[0,1]:=a[0,0]*b[0,1] + a[0,1]*b[1,1] + a[0,2]*b[2,1];
+  result[0,2]:=a[0,0]*b[0,2] + a[0,1]*b[1,2] + a[0,2]*b[2,2];
+  result[1,0]:=a[1,0]*b[0,0] + a[1,1]*b[1,0] + a[1,2]*b[2,0];
+  result[1,1]:=a[1,0]*b[0,1] + a[1,1]*b[1,1] + a[1,2]*b[2,1];
+  result[1,2]:=a[1,0]*b[0,2] + a[1,1]*b[1,2] + a[1,2]*b[2,2];
+  result[2,0]:=a[2,0]*b[0,0] + a[2,1]*b[1,0] + a[2,2]*b[2,0];
+  result[2,1]:=a[2,0]*b[0,1] + a[2,1]*b[1,1] + a[2,2]*b[2,1];
+  result[2,2]:=a[2,0]*b[0,2] + a[2,1]*b[1,2] + a[2,2]*b[2,2];
+end;
+
+procedure TMat3d.Transpose;
+begin
+  Swap(v[1,0],v[0,1]);
+  Swap(v[2,0],v[0,2]);
+  Swap(v[2,1],v[1,2]);
+end;
+
+function TMat3d.Transposed:TMat3d;
+begin
+  result:=self;
+  result.Transpose;
+end;
+
+procedure TMat3d.Invert;
+var
+  la,lb,lc:double;
+begin
+  la:=rows[0].Length2;
+  lb:=rows[1].Length2;
+  lc:=rows[2].Length2;
+  if (la=0) or (lb=0) or (lc=0) then
+   raise Exception.Create('Cannot invert matrix!');
+  Transpose;
+  v[0,0]:=v[0,0]/la; v[1,0]:=v[1,0]/la; v[2,0]:=v[2,0]/la;
+  v[0,1]:=v[0,1]/lb; v[1,1]:=v[1,1]/lb; v[2,1]:=v[2,1]/lb;
+  v[0,2]:=v[0,2]/lc; v[1,2]:=v[1,2]/lc; v[2,2]:=v[2,2]/lc;
+end;
+
+class operator TMat3.Multiply(const a,b:TMat3):TMat3;
+begin
+  result[0,0]:=a[0,0]*b[0,0] + a[0,1]*b[1,0] + a[0,2]*b[2,0];
+  result[0,1]:=a[0,0]*b[0,1] + a[0,1]*b[1,1] + a[0,2]*b[2,1];
+  result[0,2]:=a[0,0]*b[0,2] + a[0,1]*b[1,2] + a[0,2]*b[2,2];
+  result[1,0]:=a[1,0]*b[0,0] + a[1,1]*b[1,0] + a[1,2]*b[2,0];
+  result[1,1]:=a[1,0]*b[0,1] + a[1,1]*b[1,1] + a[1,2]*b[2,1];
+  result[1,2]:=a[1,0]*b[0,2] + a[1,1]*b[1,2] + a[1,2]*b[2,2];
+  result[2,0]:=a[2,0]*b[0,0] + a[2,1]*b[1,0] + a[2,2]*b[2,0];
+  result[2,1]:=a[2,0]*b[0,1] + a[2,1]*b[1,1] + a[2,2]*b[2,1];
+  result[2,2]:=a[2,0]*b[0,2] + a[2,1]*b[1,2] + a[2,2]*b[2,2];
+end;
+
+procedure TMat3.Transpose;
+begin
+  Swap(v[1,0],v[0,1]);
+  Swap(v[2,0],v[0,2]);
+  Swap(v[2,1],v[1,2]);
+end;
+
+function TMat3.Transposed:TMat3;
+begin
+  result:=self;
+  result.Transpose;
+end;
+
+procedure TMat3.Invert;
+var
+  la,lb,lc:single;
+begin
+  la:=rows[0].Length2;
+  lb:=rows[1].Length2;
+  lc:=rows[2].Length2;
+  if (la=0) or (lb=0) or (lc=0) then
+   raise Exception.Create('Cannot invert matrix!');
+  Transpose;
+  v[0,0]:=v[0,0]/la; v[1,0]:=v[1,0]/la; v[2,0]:=v[2,0]/la;
+  v[0,1]:=v[0,1]/lb; v[1,1]:=v[1,1]/lb; v[2,1]:=v[2,1]/lb;
+  v[0,2]:=v[0,2]/lc; v[1,2]:=v[1,2]/lc; v[2,2]:=v[2,2]/lc;
+end;
+
+class operator TMat34d.Multiply(const a,b:TMat34d):TMat34d;
+begin
+  result[0,0]:=a[0,0]*b[0,0] + a[0,1]*b[1,0] + a[0,2]*b[2,0];
+  result[0,1]:=a[0,0]*b[0,1] + a[0,1]*b[1,1] + a[0,2]*b[2,1];
+  result[0,2]:=a[0,0]*b[0,2] + a[0,1]*b[1,2] + a[0,2]*b[2,2];
+  result[1,0]:=a[1,0]*b[0,0] + a[1,1]*b[1,0] + a[1,2]*b[2,0];
+  result[1,1]:=a[1,0]*b[0,1] + a[1,1]*b[1,1] + a[1,2]*b[2,1];
+  result[1,2]:=a[1,0]*b[0,2] + a[1,1]*b[1,2] + a[1,2]*b[2,2];
+  result[2,0]:=a[2,0]*b[0,0] + a[2,1]*b[1,0] + a[2,2]*b[2,0];
+  result[2,1]:=a[2,0]*b[0,1] + a[2,1]*b[1,1] + a[2,2]*b[2,1];
+  result[2,2]:=a[2,0]*b[0,2] + a[2,1]*b[1,2] + a[2,2]*b[2,2];
+  result[3,0]:=a[3,0]*b[0,0] + a[3,1]*b[1,0] + a[3,2]*b[2,0] + b[3,0];
+  result[3,1]:=a[3,0]*b[0,1] + a[3,1]*b[1,1] + a[3,2]*b[2,1] + b[3,1];
+  result[3,2]:=a[3,0]*b[0,2] + a[3,1]*b[1,2] + a[3,2]*b[2,2] + b[3,2];
+end;
+
+procedure TMat34d.Transpose;
+var
+  rot:TMat3d;
+  tr:TVec3d;
+begin
+  move(v[0],rot.v[0],sizeof(rot.v));
+  rot.Transpose;
+  move(rot.v[0],v[0],sizeof(rot.v));
+  tr:=rows[3];
+  v[3,0]:=-rows[0].Dot(tr);
+  v[3,1]:=-rows[1].Dot(tr);
+  v[3,2]:=-rows[2].Dot(tr);
+end;
+
+function TMat34d.Transposed:TMat34d;
+begin
+  result:=self;
+  result.Transpose;
+end;
+
+procedure TMat34d.Invert;
+var
+  la,lb,lc:double;
+begin
+  la:=rows[0].Length2;
+  lb:=rows[1].Length2;
+  lc:=rows[2].Length2;
+  if (la=0) or (lb=0) or (lc=0) then
+   raise Exception.Create('Cannot invert matrix!');
+  Transpose;
+  v[0,0]:=v[0,0]/la; v[1,0]:=v[1,0]/la; v[2,0]:=v[2,0]/la; v[3,0]:=v[3,0]/la;
+  v[0,1]:=v[0,1]/lb; v[1,1]:=v[1,1]/lb; v[2,1]:=v[2,1]/lb; v[3,1]:=v[3,1]/lb;
+  v[0,2]:=v[0,2]/lc; v[1,2]:=v[1,2]/lc; v[2,2]:=v[2,2]/lc; v[3,2]:=v[3,2]/lc;
+end;
+
+class operator TMat34.Multiply(const a,b:TMat34):TMat34;
+begin
+  result[0,0]:=a[0,0]*b[0,0] + a[0,1]*b[1,0] + a[0,2]*b[2,0];
+  result[0,1]:=a[0,0]*b[0,1] + a[0,1]*b[1,1] + a[0,2]*b[2,1];
+  result[0,2]:=a[0,0]*b[0,2] + a[0,1]*b[1,2] + a[0,2]*b[2,2];
+  result[1,0]:=a[1,0]*b[0,0] + a[1,1]*b[1,0] + a[1,2]*b[2,0];
+  result[1,1]:=a[1,0]*b[0,1] + a[1,1]*b[1,1] + a[1,2]*b[2,1];
+  result[1,2]:=a[1,0]*b[0,2] + a[1,1]*b[1,2] + a[1,2]*b[2,2];
+  result[2,0]:=a[2,0]*b[0,0] + a[2,1]*b[1,0] + a[2,2]*b[2,0];
+  result[2,1]:=a[2,0]*b[0,1] + a[2,1]*b[1,1] + a[2,2]*b[2,1];
+  result[2,2]:=a[2,0]*b[0,2] + a[2,1]*b[1,2] + a[2,2]*b[2,2];
+  result[3,0]:=a[3,0]*b[0,0] + a[3,1]*b[1,0] + a[3,2]*b[2,0] + b[3,0];
+  result[3,1]:=a[3,0]*b[0,1] + a[3,1]*b[1,1] + a[3,2]*b[2,1] + b[3,1];
+  result[3,2]:=a[3,0]*b[0,2] + a[3,1]*b[1,2] + a[3,2]*b[2,2] + b[3,2];
+end;
+
+procedure TMat34.Transpose;
+var
+  rot:TMat3;
+  tr:TVec3;
+begin
+  move(v[0],rot.v[0],sizeof(rot.v));
+  rot.Transpose;
+  move(rot.v[0],v[0],sizeof(rot.v));
+  tr:=rows[3];
+  v[3,0]:=-rows[0].Dot(tr);
+  v[3,1]:=-rows[1].Dot(tr);
+  v[3,2]:=-rows[2].Dot(tr);
+end;
+
+function TMat34.Transposed:TMat34;
+begin
+  result:=self;
+  result.Transpose;
+end;
+
+procedure TMat34.Invert;
+var
+  la,lb,lc:single;
+begin
+  la:=rows[0].Length2;
+  lb:=rows[1].Length2;
+  lc:=rows[2].Length2;
+  if (la=0) or (lb=0) or (lc=0) then
+   raise Exception.Create('Cannot invert matrix!');
+  Transpose;
+  v[0,0]:=v[0,0]/la; v[1,0]:=v[1,0]/la; v[2,0]:=v[2,0]/la; v[3,0]:=v[3,0]/la;
+  v[0,1]:=v[0,1]/lb; v[1,1]:=v[1,1]/lb; v[2,1]:=v[2,1]/lb; v[3,1]:=v[3,1]/lb;
+  v[0,2]:=v[0,2]/lc; v[1,2]:=v[1,2]/lc; v[2,2]:=v[2,2]/lc; v[3,2]:=v[3,2]/lc;
+end;
+
 function TMat4d.GetItem(i,j:integer):double;
 begin
   result:=v[i,j];
@@ -785,8 +961,12 @@ begin
 end;
 
 class operator TMat4d.Multiply(const a,b:TMat4d):TMat4d;
+var
+  i,j:integer;
 begin
-  MultMat(a,b,result);
+  for i:=0 to 3 do
+   for j:=0 to 3 do
+    result[i,j]:=a[i,0]*b[0,j]+a[i,1]*b[1,j]+a[i,2]*b[2,j]+a[i,3]*b[3,j];
 end;
 
 procedure TMat4d.Transpose;
@@ -806,11 +986,54 @@ begin
 end;
 
 procedure TMat4d.Invert;
-var
-  inv:TMat4d;
 begin
-  InvertFull(self,inv);
-  self:=inv;
+  self:=Inverted;
+end;
+
+function TMat4d.Inverted:TMat4d;
+var
+  mat:TMat4d;
+  i,k:integer;
+  v:double;
+ procedure AddRow(src,target:integer;factor:double);
+  var
+   i:integer;
+ begin
+  for i:=0 to 3 do begin
+   mat[target,i]:=mat[target,i]+factor*mat[src,i];
+   result[target,i]:=result[target,i]+factor*result[src,i];
+  end;
+ end;
+ procedure MultRow(row:integer;factor:double);
+  var
+   i:integer;
+ begin
+  for i:=0 to 3 do begin
+   mat[row,i]:=mat[row,i]*factor;
+   result[row,i]:=result[row,i]*factor;
+  end;
+ end;
+begin
+  mat:=self;
+  result:=IdentMat4d;
+  for i:=0 to 3 do begin
+   v:=mat[i,i];
+   if abs(v)<EpsilonS then begin
+    for k:=i+1 to 3 do
+     if abs(mat[k,i])>EpsilonS then begin
+      AddRow(k,i,1);
+      break;
+     end;
+    v:=mat[i,i];
+    if v=0 then raise Exception.Create('Cannot invert matrix!');
+   end;
+   MultRow(i,1/v);
+   for k:=i+1 to 3 do
+    AddRow(i,k,-mat[k,i]);
+  end;
+  for i:=3 downto 1 do
+   for k:=i-1 downto 0 do
+    AddRow(i,k,-mat[k,i]);
 end;
 
 function TMat4.GetItem(i,j:integer):single;
@@ -837,8 +1060,12 @@ begin
 end;
 
 class operator TMat4.Multiply(const a,b:TMat4):TMat4;
+var
+  i,j:integer;
 begin
-  MultMat(a,b,result);
+ for i:=0 to 3 do
+  for j:=0 to 3 do
+   result[i,j]:=a[i,0]*b[0,j]+a[i,1]*b[1,j]+a[i,2]*b[2,j]+a[i,3]*b[3,j];
 end;
 
 procedure TMat4.Transpose;
@@ -858,11 +1085,42 @@ begin
 end;
 
 procedure TMat4.Invert;
-var
-  inv:TMat4;
 begin
-  InvertFull(self,inv);
-  self:=inv;
+  self:=Inverted;
+end;
+
+function TMat4.Inverted:TMat4;
+var
+  mat:TMat4;
+  i,k:integer;
+  v:single;
+begin
+  mat:=self;
+  result:=IdentMat4;
+  for i:=0 to 3 do begin
+   v:=mat[i,i];
+   if abs(v)<EpsilonS then begin
+    for k:=i+1 to 3 do
+     if abs(mat[k,i])>EpsilonS then begin
+      result.rows[i].Add(result.rows[k],1);
+      mat.rows[i].Add(mat.rows[k],1);
+      break;
+     end;
+    v:=mat[i,i];
+    if v=0 then raise Exception.Create('Cannot invert matrix!');
+   end;
+   v:=1/v;
+   mat.rows[i].Mul(v);
+   result.rows[i].Mul(v);
+   for k:=i+1 to 3 do begin
+    v:=-mat[k,i];
+    result.rows[k].Add(result.rows[i],v);
+    mat.rows[k].Add(mat.rows[i],v);
+   end;
+  end;
+  for i:=3 downto 1 do
+   for k:=i-1 downto 0 do
+    result.rows[k].Add(result.rows[i],-mat[k,i]);
 end;
 
  function IsZero(v:TVec3d):boolean; overload;
@@ -1000,338 +1258,6 @@ end;
      dest[i,j]:=sour[i,j];
   end;
 
- procedure MultMat(const m1,m2:TMat3d;out target:TMat3d);
-  begin
-   target[0,0]:=m1[0,0]*m2[0,0] + m1[0,1]*m2[1,0] + m1[0,2]*m2[2,0];
-   target[0,1]:=m1[0,0]*m2[0,1] + m1[0,1]*m2[1,1] + m1[0,2]*m2[2,1];
-   target[0,2]:=m1[0,0]*m2[0,2] + m1[0,1]*m2[1,2] + m1[0,2]*m2[2,2];
-
-   target[1,0]:=m1[1,0]*m2[0,0] + m1[1,1]*m2[1,0] + m1[1,2]*m2[2,0];
-   target[1,1]:=m1[1,0]*m2[0,1] + m1[1,1]*m2[1,1] + m1[1,2]*m2[2,1];
-   target[1,2]:=m1[1,0]*m2[0,2] + m1[1,1]*m2[1,2] + m1[1,2]*m2[2,2];
-
-   target[2,0]:=m1[2,0]*m2[0,0] + m1[2,1]*m2[1,0] + m1[2,2]*m2[2,0];
-   target[2,1]:=m1[2,0]*m2[0,1] + m1[2,1]*m2[1,1] + m1[2,2]*m2[2,1];
-   target[2,2]:=m1[2,0]*m2[0,2] + m1[2,1]*m2[1,2] + m1[2,2]*m2[2,2];
-  end;
-
- procedure MultMat(const m1,m2:TMat3;out target:TMat3);
-  begin
-   target[0,0]:=m1[0,0]*m2[0,0] + m1[0,1]*m2[1,0] + m1[0,2]*m2[2,0];
-   target[0,1]:=m1[0,0]*m2[0,1] + m1[0,1]*m2[1,1] + m1[0,2]*m2[2,1];
-   target[0,2]:=m1[0,0]*m2[0,2] + m1[0,1]*m2[1,2] + m1[0,2]*m2[2,2];
-
-   target[1,0]:=m1[1,0]*m2[0,0] + m1[1,1]*m2[1,0] + m1[1,2]*m2[2,0];
-   target[1,1]:=m1[1,0]*m2[0,1] + m1[1,1]*m2[1,1] + m1[1,2]*m2[2,1];
-   target[1,2]:=m1[1,0]*m2[0,2] + m1[1,1]*m2[1,2] + m1[1,2]*m2[2,2];
-
-   target[2,0]:=m1[2,0]*m2[0,0] + m1[2,1]*m2[1,0] + m1[2,2]*m2[2,0];
-   target[2,1]:=m1[2,0]*m2[0,1] + m1[2,1]*m2[1,1] + m1[2,2]*m2[2,1];
-   target[2,2]:=m1[2,0]*m2[0,2] + m1[2,1]*m2[1,2] + m1[2,2]*m2[2,2];
-  end;
-
- procedure MultMat(const m1,m2:TMat34d;out target:TMat34d);
-  var
-   am1:TMat3d absolute m1;
-   am2:TMat3d absolute m2;
-   am3:TMat3d absolute target;
-  begin
-   MultMat(am1,am2,am3);
-   target[3,0]:=m1[3,0]*m2[0,0] + m1[3,1]*m2[1,0] + m1[3,2]*m2[2,0] + m2[3,0];
-   target[3,1]:=m1[3,0]*m2[0,1] + m1[3,1]*m2[1,1] + m1[3,2]*m2[2,1] + m2[3,1];
-   target[3,2]:=m1[3,0]*m2[0,2] + m1[3,1]*m2[1,2] + m1[3,2]*m2[2,2] + m2[3,2];
-  end;
-
- procedure MultMat(const m1,m2:TMat4d;out target:TMat4d);
-  var
-   i,j:integer;
-  begin
-   for i:=0 to 3 do
-    for j:=0 to 3 do
-     target[i,j]:=m1[i,0]*m2[0,j]+m1[i,1]*m2[1,j]+m1[i,2]*m2[2,j]+m1[i,3]*m2[3,j];
-  end;
-
- procedure MultMat(const m1,m2:TMat4;out target:TMat4);
-  {$IFDEF CPUx64}
-  asm
-   // save xmm6-7
-   movdqa [rsp-$10-RSP_BIAS],xmm6
-   movdqa [rsp-$20-RSP_BIAS],xmm7
-
-   // Load matrix M2
-   movaps xmm4,dqword [m2+$00]
-   movaps xmm5,dqword [m2+$10]
-   movaps xmm6,dqword [m2+$20]
-   movaps xmm7,dqword [m2+$30]
-
-   mov eax,4
-@loop:
-   movaps xmm0,dqword [m1]
-   movaps xmm1,xmm0
-   movaps xmm2,xmm0
-   movaps xmm3,xmm0
-   shufps xmm0,xmm0, $00  // a0
-   shufps xmm1,xmm1, $55  // a1
-   shufps xmm2,xmm2, $AA  // a2
-   shufps xmm3,xmm3, $FF  // a3
-
-   mulps xmm0,xmm4 // a0*X
-   mulps xmm1,xmm5 // a1*Y
-   mulps xmm2,xmm6 // a2*Z
-   mulps xmm3,xmm7 // a3*T
-   addps xmm0,xmm1
-   addps xmm2,xmm3
-   addps xmm0,xmm2
-   movups dqword [target],xmm0
-
-   add m1,$10
-   add target,$10
-   dec eax
-   jnz @loop
-
-   // restore xmm6-7
-   movdqa xmm6,[rsp-$10-RSP_BIAS]
-   movdqa xmm7,[rsp-$20-RSP_BIAS]
-  end;
-  {$ELSE}
-  var
-   i,j:integer;
-  begin
-   for i:=0 to 3 do
-    for j:=0 to 3 do
-     target[i,j]:=m1[i,0]*m2[0,j]+m1[i,1]*m2[1,j]+m1[i,2]*m2[2,j]+m1[i,3]*m2[3,j];
-  end;
-  {$ENDIF}
-
- function MultMat(const m1,m2:TMat34d):TMat34d; overload;
-  begin
-   MultMat(m1,m2,result);
-  end;
-
- function MultMat(const m1,m2:TMat4d):TMat4d; overload;
-  begin
-   MultMat(m1,m2,result);
-  end;
-
- function MultMat(const m1,m2:TMat4):TMat4; overload;
-  begin
-   MultMat(m1,m2,result);
-  end;
-
-
- procedure MultMat(const m1,m2:TMat34;out target:TMat34);
-  var
-   am1:TMat3 absolute m1;
-   am2:TMat3 absolute m2;
-   am3:TMat3 absolute target;
-  begin
-   MultMat(am1,am2,am3);
-   target[3,0]:=m1[3,0]*m2[0,0] + m1[3,1]*m2[1,0] + m1[3,2]*m2[2,0] + m2[3,0];
-   target[3,1]:=m1[3,0]*m2[0,1] + m1[3,1]*m2[1,1] + m1[3,2]*m2[2,1] + m2[3,1];
-   target[3,2]:=m1[3,0]*m2[0,2] + m1[3,1]*m2[1,2] + m1[3,2]*m2[2,2] + m2[3,2];
-  end;
-
- procedure Transpose(const m:TMat3d;out dest:TMat3d);
-  begin
-   dest[0,0]:=m[0,0];   dest[0,1]:=m[1,0];   dest[0,2]:=m[2,0];
-   dest[1,0]:=m[0,1];   dest[1,1]:=m[1,1];   dest[1,2]:=m[2,1];
-   dest[2,0]:=m[0,2];   dest[2,1]:=m[1,2];   dest[2,2]:=m[2,2];
-  end;
-
- procedure Transpose(const m:TMat3;out dest:TMat3);
-  begin
-   dest[0,0]:=m[0,0];   dest[0,1]:=m[1,0];   dest[0,2]:=m[2,0];
-   dest[1,0]:=m[0,1];   dest[1,1]:=m[1,1];   dest[1,2]:=m[2,1];
-   dest[2,0]:=m[0,2];   dest[2,1]:=m[1,2];   dest[2,2]:=m[2,2];
-  end;
-
- procedure Transpose(const m:TMat34d;out dest:TMat34d);
-  var
-   m1:TMat3d absolute m;
-   m2:TMat3d absolute dest;
-   mv:TMatrix43vd absolute m;
-  begin
-   Transpose(m1,m2);
-   dest[3,0]:=-mv[0].Dot(mv[3]);
-   dest[3,1]:=-mv[1].Dot(mv[3]);
-   dest[3,2]:=-mv[2].Dot(mv[3]);
-  end;
- procedure Transpose(const m:TMat34;out dest:TMat34);
-  var
-   m1:TMat3 absolute m;
-   m2:TMat3 absolute dest;
-   mv:TMatrix43v absolute m;
-  begin
-   Transpose(m1,m2);
-   dest[3,0]:=-mv[0].Dot(mv[3]);
-   dest[3,1]:=-mv[1].Dot(mv[3]);
-   dest[3,2]:=-mv[2].Dot(mv[3]);
-  end;
- procedure Transpose(const m:TMat4d;out dest:TMat4d);
-  var
-   i:integer;
-  begin
-   for i:=0 to 3 do begin
-    dest[i,0]:=m[0,i];
-    dest[i,1]:=m[1,i];
-    dest[i,2]:=m[2,i];
-    dest[i,3]:=m[3,i];
-   end;
-  end;
-
- procedure Transpose(var m:TMat4d);
-  begin
-   m.Transpose;
-  end;
-
- procedure Transpose(var m:TMat4);
-  begin
-   m.Transpose;
-  end;
-
- procedure Transpose(var m:TMat3d);
-  begin
-   Swap(m.v[1,0],m.v[0,1]);
-   Swap(m.v[2,0],m.v[0,2]);
-   Swap(m.v[2,1],m.v[1,2]);
-  end;
-
- procedure Transpose(var m:TMat3);
-  begin
-   Swap(m.v[1,0],m.v[0,1]);
-   Swap(m.v[2,0],m.v[0,2]);
-   Swap(m.v[2,1],m.v[1,2]);
-  end;
-
- procedure Invert(const m:TMat3d;out dest:TMat3d);
-  var
-   la,lb,lc:double;
-   mv:TMatrix3vd absolute m;
-  begin
-   la:=mv[0].Length2;
-   lb:=mv[1].Length2;
-   lc:=mv[2].Length2;
-   if (la=0) or (lb=0) or (lc=0) then
-    raise Exception.Create('Cannot invert matrix!');
-   Transpose(m,dest);
-   dest[0,0]:=dest[0,0]/la;   dest[1,0]:=dest[1,0]/la;   dest[2,0]:=dest[2,0]/la;
-   dest[0,1]:=dest[0,1]/lb;   dest[1,1]:=dest[1,1]/lb;   dest[2,1]:=dest[2,1]/lb;
-   dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;
-  end;
-
- procedure Invert(const m:TMat34d;out dest:TMat34d); overload;
-  var
-   la,lb,lc:double;
-   mv:TMatrix43vd absolute m;
-  begin
-   la:=mv[0].Length2;
-   lb:=mv[1].Length2;
-   lc:=mv[2].Length2;
-   if (la=0) or (lb=0) or (lc=0) then
-    raise Exception.Create('Cannot invert matrix!');
-   Transpose(m,dest);
-   dest[0,0]:=dest[0,0]/la;   dest[1,0]:=dest[1,0]/la;   dest[2,0]:=dest[2,0]/la;   dest[3,0]:=dest[3,0]/la;
-   dest[0,1]:=dest[0,1]/lb;   dest[1,1]:=dest[1,1]/lb;   dest[2,1]:=dest[2,1]/lb;   dest[3,1]:=dest[3,1]/lb;
-   dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;   dest[3,2]:=dest[3,2]/lc;
-  end;
-
- procedure Invert(const m:TMat34;out dest:TMat34); overload;
-  var
-   la,lb,lc:single;
-   mv:TMatrix43v absolute m;
-  begin
-   la:=mv[0].Length2;
-   lb:=mv[1].Length2;
-   lc:=mv[2].Length2;
-   if (la=0) or (lb=0) or (lc=0) then
-    raise Exception.Create('Cannot invert matrix!');
-   Transpose(m,dest);
-   dest[0,0]:=dest[0,0]/la;   dest[1,0]:=dest[1,0]/la;   dest[2,0]:=dest[2,0]/la;   dest[3,0]:=dest[3,0]/la;
-   dest[0,1]:=dest[0,1]/lb;   dest[1,1]:=dest[1,1]/lb;   dest[2,1]:=dest[2,1]/lb;   dest[3,1]:=dest[3,1]/lb;
-   dest[0,2]:=dest[0,2]/lc;   dest[1,2]:=dest[1,2]/lc;   dest[2,2]:=dest[2,2]/lc;   dest[3,2]:=dest[3,2]/lc;
-  end;
-
-
- procedure InvertFull(const m:TMat4d;out dest:TMat4d);
-  var
-   mat:TMat4d;
-   i,k:integer;
-   v:double;
-  procedure AddRow(src,target:integer;factor:double);
-   var
-    i:integer;
-   begin
-    for i:=0 to 3 do begin
-     mat[target,i]:=mat[target,i]+factor*mat[src,i];
-     dest[target,i]:=dest[target,i]+factor*dest[src,i];
-    end;
-   end;
-  procedure MultRow(row:integer;factor:double);
-   var
-    i:integer;
-   begin
-    for i:=0 to 3 do begin
-     mat[row,i]:=mat[row,i]*factor;
-     dest[row,i]:=dest[row,i]*factor;
-    end;
-   end;
-  begin
-   mat:=m;
-   dest:=IdentMat4d;
-   for i:=0 to 3 do begin
-     v:=mat[i,i];
-     if abs(v)<EpsilonS then begin
-      for k:=i+1 to 3 do
-       if abs(mat[k,i])>EpsilonS then begin
-        AddRow(k,i,1);
-        break;
-       end;
-      v:=mat[i,i];
-      if v=0 then raise Exception.Create('Cannot invert matrix!');
-     end;
-     MultRow(i,1/v);
-     for k:=i+1 to 3 do
-      AddRow(i,k,-mat[k,i]);
-    end;
-   for i:=3 downto 1 do
-    for k:=i-1 downto 0 do
-     AddRow(i,k,-mat[k,i]);
-  end;
-
- procedure InvertFull(const m:TMat4;out dest:TMat4);
-  var
-   mat:TMat4;
-   i,k:integer;
-   v:single;
-  begin
-   mat:=m;
-   dest:=IdentMat4;
-   for i:=0 to 3 do begin
-     v:=mat[i,i];
-     if abs(v)<EpsilonS then begin // fix zero diagonal element
-      for k:=i+1 to 3 do
-       if abs(mat[k,i])>EpsilonS then begin
-        dest.rows[i].Add(dest.rows[k],1);
-        mat.rows[i].Add(mat.rows[k],1);
-        break;
-       end;
-      v:=mat[i,i];
-      if v=0 then raise Exception.Create('Cannot invert matrix!');
-     end;
-     v:=1/v;
-     mat.rows[i].Mul(v);
-     dest.rows[i].Mul(v);
-
-     for k:=i+1 to 3 do begin
-      v:=-mat[k,i];
-      dest.rows[k].Add(dest.rows[i],v);
-      mat.rows[k].Add(mat.rows[i],v);
-     end;
-    end;
-   for i:=3 downto 1 do
-    for k:=i-1 downto 0 do
-     dest.rows[k].Add(dest.rows[i],-mat[k,i]);
-  end;
 
  procedure MultPnt(const m:TMat4;v:PVec4;num,step:integer); overload;
   {$IFDEF CPUx64}
@@ -2243,7 +2169,7 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
   var
    v:TVec3d;
    skewA,skewB,skewC:double;
-   m,m2:TMat34d;
+   m:TMat34d;
    mv:TMatrix43vd absolute m;
   begin
    m:=mat;
@@ -2266,14 +2192,12 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
      Yaw:=arccos(v.x);
      if v.y<0 then Yaw:=-Yaw;
     end;
-    MultMat(m,RotationZMat(-Yaw),m2);
-    m:=m2;
+    m:=m*RotationZMat(-Yaw);
    end;
    // roll (Y-rotation): mv[0].z = -sin(roll)
    if mv[0].x<-0.999 then roll:=pi else
     Roll:=-arcsin(mv[0].z);
-   MultMat(m,RotationYMat(roll),m2);
-   m:=m2;
+   m:=m*RotationYMat(roll);
    // pitch (X-rotation)
    if mv[1].y<-0.999 then pitch:=pi else begin
     Pitch:=arccos(mv[1].y);

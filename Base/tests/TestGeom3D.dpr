@@ -63,7 +63,7 @@ begin
   StartTest('Matrices');
   m1:=ScaleMat4(2,3,4);
   m2:=TranslationMat4(5,6,7);
-  mRef:=MultMat(m1,m2);
+  mRef:=m1*m2;
   m3:=m1*m2;
   Check(IsEqual(m3,mRef),'TMat4 operator *');
   Check(not IsEqual(m3,IdentMat4),'MultMat');
@@ -198,8 +198,8 @@ begin
   m4d:=Matrix4(ScaleMat(2,3,4));
   m4dd:=TranslationMat4d(1,2,3);
   m4dt:=m4d*m4dd;
-  Check(IsEqual(m4dt,MultMat(m4d,m4dd),20),'TMat4d operator *');
-  Transpose(m4dt,m4dd);
+  Check(IsEqual(m4dt,m4d*m4dd,20),'TMat4d operator *');
+  m4dd:=m4dt.Transposed;
   Check(IsEqual(m4dt.Transposed,m4dd,20),'TMat4d.Transposed');
   m4dd:=m4dt;
   m4dd.Invert;
