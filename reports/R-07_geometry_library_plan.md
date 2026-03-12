@@ -395,3 +395,16 @@ Status:
 
 Proposed next step:
 - Gate B / Step 2: perform first safe migration batch by replacing compatibility-wrapper usage in tests/new code with record methods wherever equivalent behavior exists, keeping wrappers for backward compatibility.
+
+### 2026-03-12 - Gate B / Step 2 completed
+
+Status:
+- Migrated `Base/tests/TestGeom3D.dpr` utility checks to methods-first flow:
+  - `TPlane.Init` + `TPlane.Offset` as primary assertions
+  - `TBBox3.IncludePoint/IncludeBox/ContainsPoint/IntersectsBox` as primary assertions
+- Kept legacy wrappers (`GetPlaneOffset`, `InitPlane`, `BBoxInclude*`, `BBoxIntersect`) as explicit compatibility checks.
+- Validation:
+  - `Base/tests/test.bat Geom3D` passed (32/64, `TOTAL: 49 checks, FAILED: 0`)
+
+Proposed next step:
+- Gate C / Step 1: start full public function naming review and create a concrete rename list for ambiguous/redundant API names (with backward-compatibility mapping).
