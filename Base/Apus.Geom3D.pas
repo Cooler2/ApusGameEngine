@@ -29,32 +29,31 @@ interface
   end;
   TVector3=TPoint3;
 
-  PPoint3s=^TPoint3s;
-  TPoint3s=packed record
+  PPoint3s=^TVec3;
+  TVec3=packed record
    constructor Init(X,Y,Z:single); overload;
    constructor Init(p:TPoint3); overload;
-   constructor Init(p0,p1:TPoint3s;t:single); overload;
-   constructor Init(p0:TPoint3s;weight0:single;p1:TPoint3s;weight1:single); overload;
-   constructor SetBetween(p0,p1:TPoint3s;t:single);
+   constructor Init(p0,p1:TVec3;t:single); overload;
+   constructor Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single); overload;
+   constructor SetBetween(p0,p1:TVec3;t:single);
    procedure Normalize;
    function IsValid:boolean;
    function Length:single;  // Vector length
    function Length2:single; // Square length
-   function Dot(const p:TPoint3s):single; inline;
-   function Cross(const p:TPoint3s):TPoint3s; inline;
-   function Sub(const p:TPoint3s):TPoint3s; inline;
-   function Distance2(const p:TPoint3s):single; inline;
-   procedure Add(p:TPoint3s);
+   function Dot(const p:TVec3):single; inline;
+   function Cross(const p:TVec3):TVec3; inline;
+   function Sub(const p:TVec3):TVec3; inline;
+   function Distance2(const p:TVec3):single; inline;
+   procedure Add(p:TVec3);
    procedure Multiply(scalar:single);
    case integer of
    0:( x,y,z:single; );
    1:( v:array[0..2] of single; );
-   2:( xy:TPoint2s; t:single; );
+   2:( xy:TVec2; t:single; );
   end;
-  TVector3s=TPoint3s;
-  // engine5 single-precision API aliases
-  TVec3=TPoint3s;
-  TPoints3s=array of TPoint3s;
+  TPoint3s=TVec3 deprecated 'Use TVec3';
+  TVector3s=TVec3 deprecated 'Use TVec3';
+  TPoints3s=array of TVec3;
   TVectors3s=TPoints3s;
 
   TQuaternion=record
@@ -95,7 +94,7 @@ interface
    case integer of
     1:( x,y,z,w:single; );
     2:( v:array[0..3] of single; );
-    3:( xyz:TPoint3s; t:single; );
+    3:( xyz:TVec3; t:single; );
   end;
 
   TVector4=TQuaternion;
@@ -2310,35 +2309,35 @@ procedure TPoint3.Normalize;
   Apus.Geom3D.Normalize(self);
  end;
 
-{ TPoint3s }
-constructor TPoint3s.Init(X,Y,Z:single);
+{ TVec3 }
+constructor TVec3.Init(X,Y,Z:single);
  begin
   self.x:=x; self.y:=y; self.z:=z;
  end;
 
-constructor TPoint3s.Init(p:TPoint3);
+constructor TVec3.Init(p:TPoint3);
  begin
   self.x:=p.x;
   self.y:=p.y;
   self.z:=p.z;
  end;
 
-procedure TPoint3s.Add(p:TPoint3s);
+procedure TVec3.Add(p:TVec3);
  begin
   x:=x+p.x; y:=y+p.y; z:=z+p.z;
  end;
 
-constructor TPoint3s.Init(p0,p1:TPoint3s;t:single);
+constructor TVec3.Init(p0,p1:TVec3;t:single);
  begin
   SetBetween(p0,p1,t);
  end;
 
-procedure TPoint3s.Normalize;
+procedure TVec3.Normalize;
  begin
   Apus.Geom3D.Normalize(self);
  end;
 
-constructor TPoint3s.SetBetween(p0,p1:TPoint3s;t:single);
+constructor TVec3.SetBetween(p0,p1:TVec3;t:single);
  var
   t1:single;
  begin
@@ -2348,48 +2347,48 @@ constructor TPoint3s.SetBetween(p0,p1:TPoint3s;t:single);
   z:=p0.z*t1+p1.z*t;
  end;
 
-constructor TPoint3s.Init(p0:TPoint3s;weight0:single;p1:TPoint3s;weight1:single);
+constructor TVec3.Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single);
  begin
   x:=p0.x*weight0+p1.x*weight1;
   y:=p0.y*weight0+p1.y*weight1;
   z:=p0.z*weight0+p1.z*weight1;
  end;
 
-function TPoint3s.IsValid: boolean;
+function TVec3.IsValid: boolean;
  begin
   result:=x=x;
  end;
 
-function TPoint3s.Length:single;
+function TVec3.Length:single;
  begin
   result:=sqrt(x*x+y*y+z*z);
  end;
 
-function TPoint3s.Length2:single;
+function TVec3.Length2:single;
  begin
   result:=x*x+y*y+z*z;
  end;
 
-function TPoint3s.Dot(const p:TPoint3s):single;
+function TVec3.Dot(const p:TVec3):single;
  begin
   result:=x*p.x+y*p.y+z*p.z;
  end;
 
-function TPoint3s.Cross(const p:TPoint3s):TPoint3s;
+function TVec3.Cross(const p:TVec3):TVec3;
  begin
   result.x:=y*p.z-z*p.y;
   result.y:=z*p.x-x*p.z;
   result.z:=x*p.y-y*p.x;
  end;
 
-function TPoint3s.Sub(const p:TPoint3s):TPoint3s;
+function TVec3.Sub(const p:TVec3):TVec3;
  begin
   result.x:=x-p.x;
   result.y:=y-p.y;
   result.z:=z-p.z;
  end;
 
-function TPoint3s.Distance2(const p:TPoint3s):single;
+function TVec3.Distance2(const p:TVec3):single;
  var
   dx,dy,dz:single;
  begin
@@ -2399,7 +2398,7 @@ function TPoint3s.Distance2(const p:TPoint3s):single;
   result:=dx*dx+dy*dy+dz*dz;
  end;
 
-procedure TPoint3s.Multiply(scalar:single);
+procedure TVec3.Multiply(scalar:single);
  begin
   x:=x*scalar;
   y:=y*scalar;
@@ -2846,3 +2845,4 @@ initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
 
 end.
+

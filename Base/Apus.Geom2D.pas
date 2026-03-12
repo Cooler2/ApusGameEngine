@@ -31,33 +31,32 @@ interface
   TVector2=TPoint2; // Alias for point type
   PPoint2=^TPoint2;
 
-  TPoint2s=packed record
+  TVec2=packed record
    x,y:single;
    constructor Init(x,y:single); overload;
    constructor Init(pnt:TPoint); overload;
    function GetRound:TPoint;
    function IsValid:boolean; inline;
-   function Dot(const p:TPoint2s):single; inline;
-   function Cross(const p:TPoint2s):single; inline;
+   function Dot(const p:TVec2):single; inline;
+   function Cross(const p:TVec2):single; inline;
    function Length:single; inline;
    function Length2:single; inline;
-   function Sub(const p:TPoint2s):TPoint2s; inline;
+   function Sub(const p:TVec2):TVec2; inline;
    procedure Wrap(max:single); inline;
-   class operator Implicit(a:TPointF):TPoint2s;
-   class operator Implicit(a:TPoint):TPoint2s;
-   class operator Implicit(a:TPoint2):TPoint2s;
-   class operator Implicit(a:TPoint2s):TPoint2;
-   class operator Equal(a,b:TPoint2s):boolean;
-   class operator Negative(a:TPoint2s):TPoint2s;
-   class operator Add(a,b:TPoint2s):TPoint2s;
-   class operator Multiply(a:TPoint2s;v:single):TPoint2s;
-   class operator Multiply(a,b:TPoint2s):TPoint2s;
+   class operator Implicit(a:TPointF):TVec2;
+   class operator Implicit(a:TPoint):TVec2;
+   class operator Implicit(a:TPoint2):TVec2;
+   class operator Implicit(a:TVec2):TPoint2;
+   class operator Equal(a,b:TVec2):boolean;
+   class operator Negative(a:TVec2):TVec2;
+   class operator Add(a,b:TVec2):TVec2;
+   class operator Multiply(a:TVec2;v:single):TVec2;
+   class operator Multiply(a,b:TVec2):TVec2;
   end;
-  TVector2s=TPoint2s;
-  // engine5 single-precision API aliases
-  TVec2=TPoint2s;
-  PPoint2s=^TPoint2s;
-  TPoints2s=array of TPoint2s;
+  TPoint2s=TVec2 deprecated 'Use TVec2';
+  TVector2s=TVec2 deprecated 'Use TVec2';
+  PPoint2s=^TVec2;
+  TPoints2s=array of TVec2;
   TVectors2s=TPoints2s;
 
   // Infinite line on plane
@@ -1011,106 +1010,107 @@ function TPoint2.GetRound:TPoint;
   result.y:=round(y);
  end;
 
-{ TPoint2s }
+{ TVec2 }
 
-class operator TPoint2s.Implicit(a:TPoint):TPoint2s;
+class operator TVec2.Implicit(a:TPoint):TVec2;
  begin
   result.x:=a.X; result.y:=a.Y;
  end;
 
-class operator TPoint2s.Implicit(a:TPoint2):TPoint2s;
+class operator TVec2.Implicit(a:TPoint2):TVec2;
  begin
   result.x:=a.X; result.y:=a.Y;
  end;
 
-class operator TPoint2s.Implicit(a:TPointF):TPoint2s;
+class operator TVec2.Implicit(a:TPointF):TVec2;
  begin
   result.x:=a.X; result.y:=a.Y;
  end;
 
-class operator TPoint2s.Implicit(a:TPoint2s):TPoint2;
+class operator TVec2.Implicit(a:TVec2):TPoint2;
 begin
  result.x:=a.x; result.y:=a.y;
 end;
 
-constructor TPoint2s.Init(pnt:TPoint);
+constructor TVec2.Init(pnt:TPoint);
  begin
   x:=pnt.x;
   y:=pnt.y;
  end;
 
-constructor TPoint2s.Init(x,y:single);
+constructor TVec2.Init(x,y:single);
  begin
   self.x:=x; self.y:=y;
  end;
 
-function TPoint2s.IsValid:boolean;
+function TVec2.IsValid:boolean;
  begin
   result:=x=x;
  end;
 
-function TPoint2s.Dot(const p:TPoint2s):single;
+function TVec2.Dot(const p:TVec2):single;
  begin
   result:=x*p.x+y*p.y;
  end;
 
-function TPoint2s.Cross(const p:TPoint2s):single;
+function TVec2.Cross(const p:TVec2):single;
  begin
   result:=x*p.y-y*p.x;
  end;
 
-function TPoint2s.Length:single;
+function TVec2.Length:single;
  begin
   result:=sqrt(x*x+y*y);
  end;
 
-function TPoint2s.Length2:single;
+function TVec2.Length2:single;
  begin
   result:=x*x+y*y;
  end;
 
-function TPoint2s.Sub(const p:TPoint2s):TPoint2s;
+function TVec2.Sub(const p:TVec2):TVec2;
  begin
   result.x:=x-p.x;
   result.y:=y-p.y;
  end;
 
-class operator TPoint2s.Multiply(a,b:TPoint2s):TPoint2s;
+class operator TVec2.Multiply(a,b:TVec2):TVec2;
  begin
   result.x:=a.x*b.x; result.y:=a.y*b.y;
  end;
 
-class operator TPoint2s.Multiply(a:TPoint2s; v:single):TPoint2s;
+class operator TVec2.Multiply(a:TVec2; v:single):TVec2;
  begin
   result.x:=a.x*v; result.y:=a.y*v;
  end;
 
-class operator TPoint2s.Add(a,b:TPoint2s):TPoint2s;
+class operator TVec2.Add(a,b:TVec2):TVec2;
  begin
   result.x:=a.x+b.x;
   result.y:=a.y+b.y;
  end;
 
-class operator TPoint2s.Equal(a,b:TPoint2s):boolean;
+class operator TVec2.Equal(a,b:TVec2):boolean;
  begin
   result:=(abs(a.x-b.x)<EpsilonS) and (abs(a.y-b.y)<EpsilonS);
  end;
 
-class operator TPoint2s.Negative(a:TPoint2s):TPoint2s;
+class operator TVec2.Negative(a:TVec2):TVec2;
  begin
   result.x:=-a.x; result.y:=-a.y;
  end;
 
-function TPoint2s.GetRound:TPoint;
+function TVec2.GetRound:TPoint;
  begin
   result.x:=round(x);
   result.y:=round(y);
  end;
 
-procedure TPoint2s.Wrap(max:single);
+procedure TVec2.Wrap(max:single);
  begin
   x:=Apus.Core.Wrap(x,max);
   y:=Apus.Core.Wrap(y,max);
  end;
 
 end.
+
