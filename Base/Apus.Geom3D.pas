@@ -1059,13 +1059,73 @@ begin
   result.w:=v[3,n];
 end;
 
+procedure TMat4MultiplySSE(const m1,m2:TMat4;out target:TMat4);
+ {$IFDEF CPUx64}
+ asm
+  // save xmm6-7
+  movdqa [rsp-$10-RSP_BIAS],xmm6
+  movdqa [rsp-$20-RSP_BIAS],xmm7
+
+  // Load matrix M2
+  movaps xmm4,dqword [m2+$00]
+  movaps xmm5,dqword [m2+$10]
+  movaps xmm6,dqword [m2+$20]
+  movaps xmm7,dqword [m2+$30]
+
+  mov eax,4
+@loop:
+  movaps xmm0,dqword [m1]
+  movaps xmm1,xmm0
+  movaps xmm2,xmm0
+  movaps xmm3,xmm0
+  shufps xmm0,xmm0, $00  // a0
+  shufps xmm1,xmm1, $55  // a1
+  shufps xmm2,xmm2, $AA  // a2
+  shufps xmm3,xmm3, $FF  // a3
+
+  mulps xmm0,xmm4 // a0*X
+  mulps xmm1,xmm5 // a1*Y
+  mulps xmm2,xmm6 // a2*Z
+  mulps xmm3,xmm7 // a3*T
+  addps xmm0,xmm1
+  addps xmm2,xmm3
+  addps xmm0,xmm2
+  movups dqword [target],xmm0
+
+  add m1,$10
+  add target,$10
+  dec eax
+  jnz @loop
+
+  // restore xmm6-7
+  movdqa xmm6,[rsp-$10-RSP_BIAS]
+  movdqa xmm7,[rsp-$20-RSP_BIAS]
+ end;
+ {$ELSE}
+var
+  i,j:integer;
+begin
+  for i:=0 to 3 do begin
+   for j:=0 to 3 do begin
+    target[i,j]:=m1[i,0]*m2[0,j]+m1[i,1]*m2[1,j]+m1[i,2]*m2[2,j]+m1[i,3]*m2[3,j];
+   end;
+  end;
+end;
+ {$ENDIF}
+
 class operator TMat4.Multiply(const a,b:TMat4):TMat4;
 var
   i,j:integer;
 begin
- for i:=0 to 3 do
-  for j:=0 to 3 do
-   result[i,j]:=a[i,0]*b[0,j]+a[i,1]*b[1,j]+a[i,2]*b[2,j]+a[i,3]*b[3,j];
+ {$IFDEF CPUx64}
+  TMat4MultiplySSE(a,b,result);
+ {$ELSE}
+  for i:=0 to 3 do begin
+   for j:=0 to 3 do begin
+    result[i,j]:=a[i,0]*b[0,j]+a[i,1]*b[1,j]+a[i,2]*b[2,j]+a[i,3]*b[3,j];
+   end;
+  end;
+ {$ENDIF}
 end;
 
 procedure TMat4.Transpose;
