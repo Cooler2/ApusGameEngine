@@ -2069,11 +2069,18 @@ implementation
   end;
 
  procedure InitPlane(point,normal:TVector3;var p:TPlane);
+  var
+   len,invLen:double;
   begin
-   Normalize(normal);
-   p.a:=normal.x;
-   p.b:=normal.y;
-   p.c:=normal.z;
+   len:=Sqrt(normal.x*normal.x+normal.y*normal.y+normal.z*normal.z);
+   if len>Epsilon then begin
+    invLen:=1/len;
+   end else begin
+    invLen:=0;
+   end;
+   p.a:=normal.x*invLen;
+   p.b:=normal.y*invLen;
+   p.c:=normal.z*invLen;
    p.d:=-(p.a*point.x+p.b*point.y+p.c*point.z);
   end;
 

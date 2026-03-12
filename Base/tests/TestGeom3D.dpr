@@ -119,12 +119,95 @@ begin
   EndTest;
 end;
 
+procedure TestGeom3DUtility;
+var
+  p0,p1,p2:TVec3;
+  v:TVec4;
+  m3b:TMat3;
+  m43:TMatrix43;
+  m4d:TMatrix4;
+  q:TVec4;
+begin
+  StartTest('Geom3D utility');
+  p0:=Point3s(1,2,3);
+  p1:=Point3s(4,6,8);
+  p2:=Vector3s(p0,p1);
+  Check((Abs(p2.x-3)<0.0001) and (Abs(p2.y-4)<0.0001) and (Abs(p2.z-5)<0.0001),'Vector3s from/to');
+  Check(Abs(DotProduct(p0,p1)-40)<0.0001,'DotProduct');
+  p2:=CrossProduct(p0,p1);
+  Check(Abs(GetLength(p0)-Sqrt(14))<0.0001,'GetLength');
+  Check(Abs(GetSqrLength(p0)-14)<0.0001,'GetSqrLength');
+  Check(Abs(Distance(p0,p1)-Sqrt(50))<0.0001,'Distance');
+  Check(Abs(Distance2(p0,p1)-50)<0.0001,'Distance2');
+  PointBetween(p0,p1,0.5,p2);
+  Check((Abs(p2.x-2.5)<0.0001) and (Abs(p2.y-4)<0.0001),'PointBetween');
+  Check(IsNearS(p0,p0)=0,'IsNearS');
+  Check(IsNear(Point3(1,2,3),Point3(1,2,3))=0,'IsNear');
+  Check(not IsZero(p0),'IsZero');
+  Check(IsIdentity(Vector3s(1,1,1)),'IsIdentity vec');
+  Check(IsEqual(1.0,1.0),'IsEqual scalar');
+
+  m43:=TranslationMat(1,2,3);
+  Check(IsIdentity(IdentMatrix43s),'IsIdentity mat43s');
+  m3b:=Matrix3s(Matrix4(IdentMatrix4s));
+  Check(IsEqual(m3b,IdentMatrix3s),'Matrix conversion');
+  m4d:=Matrix4(m43); // keep conversion path in test
+  Check(Abs(Det(IdentMatrix4s)-1)<0.0001,'Det');
+
+  q:=QuaternionS(1,2,3,4);
+  v:=MatRow(IdentMatrix4s,0);
+  v:=MatCol(IdentMatrix4s,0);
+  q:=Vector4s(p0);
+  q:=QuaternionS(0,0,0,1);
+  Check(Abs(QLength(q)-1)<0.0001,'QLength');
+  QNormalize(q);
+  q:=QInvert(q);
+  q:=QMult(q,QuaternionS(0,0,0,1));
+  Check(q.IsValid,'Quaternion ops');
+  EndTest;
+end;
+
+procedure TestGeom3DUtility2;
+var
+  d:double;
+  a1,a2:array[0..2] of single;
+  b1,b2:array[0..2] of double;
+  bbA,bbB:TBBox3s;
+  pl:TPlane;
+begin
+  StartTest('Geom3D utility2');
+  pl.a:=0; pl.b:=1; pl.c:=0; pl.d:=-2;
+  d:=GetPlaneOffset(pl,Point3(0,2,0));
+  Check(Abs(d)<0.0001,'GetPlaneOffset');
+  InitPlane(Vector3(0,2,0),Vector3(0,1,0),pl);
+  Check(Abs(GetPlaneOffset(pl,Point3(0,2,0)))<0.001,'InitPlane');
+
+  a1[0]:=1; a1[1]:=2; a1[2]:=3;
+  a2:=a1;
+  Check(CompareSingle(@a1[0],@a2[0],3),'CompareSingle');
+  b1[0]:=1; b1[1]:=2; b1[2]:=3;
+  b2:=b1;
+  Check(CompareDouble(@b1[0],@b2[0],3),'CompareDouble');
+
+  bbA.Init;
+  BBoxInclude(bbA,1,2,3);
+  BBoxIncludePnt(bbA,Point3s(4,5,6));
+  bbB.Init;
+  BBoxInclude(bbB,3,4,5);
+  BBoxIncludeBox(bbA,bbB);
+  BBoxIntersect(bbA,bbB);
+  Check(not bbA.IsEmpty,'BBox routines');
+  EndTest;
+end;
+
 begin
   TestVec3Core;
   TestVec3Normalize;
   TestMatrices;
   TestQuaternionConversions;
   TestBBox;
+  TestGeom3DUtility;
+  TestGeom3DUtility2;
   writeln;
   writeln('TOTAL: ',testsTotal,' checks, FAILED: ',testsFailed);
   if testsFailed>0 then begin

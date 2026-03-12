@@ -121,12 +121,100 @@ begin
   EndTest;
 end;
 
+procedure TestGeom2DUtility;
+var
+  v1,v2,v3:TVec2;
+  m2,m2b,m2i:TMatrix2;
+  m32,m32i:TMatrix32;
+  p:TPoint2;
+  seg:TSegment2;
+  t,dev:double;
+  r:TRect;
+  rs:TRect2s;
+  pt:TVec2;
+  poly:array[0..2] of TPoint2;
+  ln:TLine2;
+  dv:TPoint2;
+  b0,b1,b2,b3:TPoint2;
+begin
+  StartTest('Geom2D utility');
+  v1:=TVec2.Init(2,3);
+  v2:=TVec2.Init(4,5);
+  Check(Abs(DotProduct(v1,v2)-23)<0.0001,'DotProduct fn');
+  Check(Abs(CrossProduct(v1,v2)+2)<0.0001,'CrossProduct fn');
+  Check(Abs(GetLength(v1)-Sqrt(13))<0.0001,'GetLength');
+  Check(Abs(GetSqrLength(v1)-13)<0.0001,'GetSqrLength');
+  VectAdd(v1,v2);
+  Check((Abs(v1.x-6)<0.0001) and (Abs(v1.y-8)<0.0001),'VectAdd');
+  VectSub(v1,v2);
+  Check((Abs(v1.x-2)<0.0001) and (Abs(v1.y-3)<0.0001),'VectSub');
+  v3:=VectMult(v1,v2);
+  Check((Abs(v3.x-8)<0.0001) and (Abs(v3.y-15)<0.0001),'VectMult vec');
+  v3:=VectDiv(v2,v1);
+  Check((Abs(v3.x-2)<0.0001) and (Abs(v3.y-1.666666)<0.01),'VectDiv');
+  VectInv(v3);
+  Check((Abs(v3.x-0.5)<0.0001) and (Abs(v3.y-0.6)<0.01),'VectInv');
+  Check(Abs(VectAngleClockwise(Point2(1,0),Point2(0,1))-3*Pi/2)<0.0001,'VectAngleClockwise');
+  dv:=Point2(2,3);
+  Turn90Right(dv);
+  Turn90Left(dv);
+  dv:=Turn90R(dv);
+  dv:=Turn90L(dv);
+  VectTurn(dv,Pi/2);
+
+  b0:=Point2(0,0);
+  b1:=Point2(0,1);
+  b2:=Point2(1,1);
+  b3:=Point2(1,0);
+  p:=Bezier2D(b0,b1,b2,b3,0.5);
+  Check((p.x>0) and (p.y>0),'Bezier2D');
+  seg:=Segment2(0,0,10,0);
+  PointOnSegment(seg,Point2(3,2),t,dev);
+  Check((Abs(t-0.3)<0.0001) and (Abs(Abs(dev)-2)<0.0001),'PointOnSegment');
+  Check(SegmAboutZero(Segment2(0,0,0,0)),'SegmAboutZero');
+  ln.a:=0; ln.b:=1; ln.c:=-2;
+  Check(Abs(PointDev2(ln,Point2(0,2)))<0.0001,'PointDev2');
+
+  m2:=RotationMat2(Pi/4);
+  m2b:=m2;
+  Transp2(m2,m2b);
+  Invert2(m2,m2i);
+  MultMat(m2,m2i,m2b);
+  Check(Abs(m2b[0,0]-1)<0.01,'Mult/Invert2');
+  m32:=TranslationMat(1,2);
+  m32:=ScaleMat(2,3);
+  m32:=RotationMat(Pi/6);
+  Invert(m32,m32i);
+  Transp(m32,m32i);
+
+  r:=Rect(5,1,1,5);
+  OrderRect(r);
+  Check((r.Left=1) and (r.Top=1) and (r.Right=5) and (r.Bottom=5),'OrderRect');
+  IntersectRects(Rect(0,0,10,10),Rect(5,5,20,20),r);
+  Check((r.Left=5) and (r.Top=5),'IntersectRects');
+  rs:=Rect2s(0,0,5,5);
+  rs:=TransformRect(rs,1,2,2,3);
+  r:=RoundRect(rs);
+  Check(r.Left<=r.Right,'RoundRect');
+
+  pt:=RandomPointInCircle(2);
+  Check(pt.Length<=2.001,'RandomPointInCircle');
+
+  poly[0]:=Point2(0,0);
+  poly[1]:=Point2(10,0);
+  poly[2]:=Point2(0,10);
+  Triangulate(@poly[0],3);
+  Check(Length(trgIndices)>=3,'Triangulate');
+  EndTest;
+end;
+
 begin
   TestVec2Core;
   TestVec2Ops;
   TestRect2s;
   TestLinesAndSegments;
   TestPolygonOps;
+  TestGeom2DUtility;
   writeln;
   writeln('TOTAL: ',testsTotal,' checks, FAILED: ',testsFailed);
   if testsFailed>0 then begin
