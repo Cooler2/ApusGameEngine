@@ -168,7 +168,7 @@ interface
    public
     function Row(n:integer):TVec4d; inline;
     function Col(n:integer):TVec4d; inline;
-    property Items[i,j:integer]:double read GetItem write SetItem; default;
+    property Items[i,j:integer]:double read GetItem write SetItem; default; deprecated 'Use .v[i,j]';
     case integer of
     0:(v:array[0..3,0..3] of double);
     1:(rows:array[0..3] of TVec4d);
@@ -181,7 +181,7 @@ interface
    public
     function Row(n:integer):TVec4; inline;
     function Col(n:integer):TVec4; inline;
-    property Items[i,j:integer]:single read GetItem write SetItem; default;
+    property Items[i,j:integer]:single read GetItem write SetItem; default; deprecated 'Use .v[i,j]';
     case integer of
     0:(v:array[0..3,0..3] of single);
     1:(rows:array[0..3] of TVec4);
