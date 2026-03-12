@@ -1059,6 +1059,9 @@ begin
   result.w:=v[3,n];
 end;
 
+// TODO(R-07): temporary ABI-safe workaround.
+// Current operator* routes through this helper because legacy ASM was written for
+// (const m1,m2; out target) calling convention. Rework operator* to native ASM.
 procedure TMat4MultiplySSE(const m1,m2:TMat4;out target:TMat4);
  {$IFDEF CPUx64}
  asm
