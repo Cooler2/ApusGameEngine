@@ -24,6 +24,9 @@ interface
    x,y:double;
    constructor Init(x,y:double); overload;
    constructor Init(pnt:TPoint); overload;
+   class function Lerp(const p1,p2:TVec2d;factor:double):TVec2d; static;
+   class function Between(const source,target:TVec2d):TVec2d; static;
+   class function FromAngle(angle:double):TVec2d; static;
    function GetRound:TPoint;
    function IsValid:boolean; inline;
    procedure Wrap(max:double); inline;
@@ -49,6 +52,7 @@ interface
    x,y:single;
    constructor Init(x,y:single); overload;
    constructor Init(pnt:TPoint); overload;
+   class function Lerp(const p1,p2:TVec2;factor:single):TVec2; static;
    function GetRound:TPoint;
    function IsValid:boolean; inline;
    procedure Normalize; inline;
@@ -173,18 +177,10 @@ interface
  function LexCompare(a,b:TVec2d):integer; inline;
 
  // Setup point
- function Point2(x,y:double):TVec2d; overload; inline;
- function Point2(pnt:TVec2):TVec2d; overload; inline;
  function Vec2(x,y:single):TVec2; overload; inline;
  function Vec2(v:TVec2d):TVec2; overload; inline;
  function Vec2d(x,y:double):TVec2d; overload; inline;
  function Vec2d(v:TVec2):TVec2d; overload; inline;
- function Lerp(p1,p2:TVec2d;factor:double):TVec2d; overload;
- function Lerp(p1,p2:TVec2;factor:single):TVec2; overload;
- // Setup vector (from source to target)
- function Direction(source,target:TVec2d):TVec2d; overload; inline;
- // Unit vector with given direction (CCW from X-axis)
- function Direction(angle:double):TVec2d; overload; inline;
  function IntersectLines(l1,l2:TLine2;out p:TVec2d):TStatus;
 
  // Is point inside trg? (1 - inside, 0 - on border, -1 - outside)
@@ -206,30 +202,14 @@ interface
  function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
 
  // Integer operations
- // РІР·Р°РёРјРЅРѕРµ СЂР°СЃРїРѕР»РѕР¶РµРЅРёРµ РїСЂ-РєРѕРІ: 0 - РЅРµ РїРµСЂРµСЃРµРєР°СЋС‚СЃСЏ, 1 - r1 РІРЅСѓС‚СЂРё r2, 2 - r2 РІРЅСѓС‚СЂРё r1, 4 - РїРµСЂРµСЃРµРєР°СЋС‚СЃСЏ
- // С‚РѕР»СЊРєРѕ РґР»СЏ СѓРїРѕСЂСЏРґРѕС‡РµРЅРЅС‹С… РїСЂ-РєРѕРІ!
+ // Rect relation: 0 no intersection, 1 r1 inside r2, 2 r2 inside r1, 4 intersect
+ // Works only for ordered rectangles.
  function IntersectRects(r1,r2:TRect;out r:TRect):integer;
- procedure OrderRect(var r:TRect); // СѓРїРѕСЂСЏРґРѕС‡РёС‚СЊ Рє-С‚С‹ РїРѕ РІРѕР·СЂР°СЃС‚Р°РЅРёСЋ
+ procedure OrderRect(var r:TRect); // Order coordinates in ascending direction
 
  procedure ToSingle32(sour:TMat32d;out dest:TMat32);
 
- function TranslationMat(x,y:double):TMat32d; deprecated 'Use TMat32d.Translation';
- function RotationMat(angle:double):TMat32d; deprecated 'Use TMat32d.Rotation';
- function RotationMat2(angle:double):TMat2d; deprecated 'Use TMat2d.Rotation';
- function ScaleMat(scaleX,scaleY:double):TMat32d; deprecated 'Use TMat32d.Scale';
-
- // target = M1*M2
- procedure MultMat(m1,m2:TMat2d;out target:TMat2d); overload; deprecated 'Use operator *';
- procedure MultMat(m1,m2:TMat32d;out target:TMat32d); overload; deprecated 'Use operator *';
-
  procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
-
- // РўСЂР°РЅСЃРїРѕРЅРёСЂРѕРІР°РЅРёРµ (РґР»СЏ РѕСЂС‚РѕРЅРѕСЂРјРёСЂРѕРІР°РЅРЅРѕР№ РјР°С‚СЂРёС†С‹ - СЌС‚Рѕ Р±СѓРґС‚ РѕР±СЂР°С‚РЅР°СЏ)
- procedure Transp2(m:TMat2d;out dest:TMat2d); deprecated 'Use TMat2d.Transposed';
- procedure Transp(m:TMat32d;out dest:TMat32d); deprecated 'Use TMat32d.Transposed';
- // Р’С‹С‡РёСЃР»РµРЅРёРµ РѕР±СЂР°С‚РЅРѕР№ РјР°С‚СЂРёС†С‹
- procedure Invert2(m:TMat2d;out dest:TMat2d); deprecated 'Use TMat2d.Inverted';
- procedure Invert(m:TMat32d;out dest:TMat32d); deprecated 'Use TMat32d.Inverted';
 
  // Rectangle
  function Rect2(x1,y1,x2,y2:single):TRect2; overload; inline;
@@ -237,8 +217,8 @@ interface
  function RoundRect(const r:TRect2):TRect;
 
  var
-  trgIndices:array of integer; // СЂРµР·СѓР»СЊС‚Р°С‚ С‚СЂРёР°РЅРіСѓР»СЏС†РёРё
- // С‚СЂРёР°РЅРіСѓР»СЏС†РёСЏ Р·Р°РјРєРЅСѓС‚РѕРіРѕ РјРЅРѕРіРѕСѓРіРѕР»СЊРЅРёРєР° (СЃС‚СЂРѕРёС‚ n-2 С‚СЂРі). !!! CLOCKWISE!
+  trgIndices:array of integer; // triangulation output indices
+ // Triangulation of a closed polygon (builds n-2 triangles). Must be CLOCKWISE.
  procedure Triangulate(pnts:PVec2d;count:integer);
 
 implementation
@@ -342,18 +322,6 @@ function TLine2.Deviation(const point:TVec2d):double;
   result:=a*point.x+b*point.y+c;
  end;
 
- function Point2(x,y:double):TVec2d;
-  begin
-   result.x:=x;
-   result.y:=y;
-  end;
-
- function Point2(pnt:TVec2):TVec2d; overload; inline;
-  begin
-   result.x:=pnt.x;
-   result.y:=pnt.y;
-  end;
-
  function Vec2(x,y:single):TVec2; overload; inline;
   begin
    result.x:=x;
@@ -376,31 +344,6 @@ function TLine2.Deviation(const point:TVec2d):double;
   begin
    result.x:=v.x;
    result.y:=v.y;
-  end;
-
-
- function Lerp(p1,p2:TVec2d;factor:double):TVec2d;
-  begin
-   result.x:=p1.x*(1-factor)+p2.x*factor;
-   result.y:=p1.y*(1-factor)+p2.y*factor;
-  end;
-
- function Lerp(p1,p2:TVec2;factor:single):TVec2;
-  begin
-   result.x:=p1.x*(1-factor)+p2.x*factor;
-   result.y:=p1.y*(1-factor)+p2.y*factor;
-  end;
-
- function Direction(source,target:TVec2d):TVec2d;
-  begin
-   result.x:=target.x-source.x;
-   result.y:=target.y-source.y;
-  end;
-
- function Direction(angle:double):TVec2d;
-  begin
-   result.x:=cos(angle);
-   result.y:=sin(angle);
   end;
 
  function Segment2(x1,y1,x2,y2:double):TSegment2;
@@ -454,19 +397,19 @@ function TLine2.Deviation(const point:TVec2d):double;
    l1,l2:Tline2;
    d,par:double;
   begin
-   l1:=TLine2.Init(Point2(s1.x1,s1.y1),Point2(s1.x2,s1.y2));
-   l2:=TLine2.Init(Point2(s2.x1,s2.y1),Point2(s2.x2,s2.y2));
+   l1:=TLine2.Init(Vec2d(s1.x1,s1.y1),Vec2d(s1.x2,s1.y2));
+   l2:=TLine2.Init(Vec2d(s2.x1,s2.y1),Vec2d(s2.x2,s2.y2));
    result:=IntersectLines(l1,l2,p);
    if result=intLine then begin
     // maybe segment or nothing
     result:=intNone;
-    PointOnSegment(s1,Point2(s2.x1,s2.y1),par,d);
+    PointOnSegment(s1,Vec2d(s2.x1,s2.y1),par,d);
     if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
-    PointOnSegment(s1,Point2(s2.x2,s2.y2),par,d);
+    PointOnSegment(s1,Vec2d(s2.x2,s2.y2),par,d);
     if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
-    PointOnSegment(s2,Point2(s1.x1,s1.y1),par,d);
+    PointOnSegment(s2,Vec2d(s1.x1,s1.y1),par,d);
     if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
-    PointOnSegment(s2,Point2(s1.x2,s1.y2),par,d);
+    PointOnSegment(s2,Vec2d(s1.x2,s1.y2),par,d);
     if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
    end;
    if result=intPoint then begin
@@ -659,42 +602,11 @@ begin
   self:=Inverted;
 end;
 
-function TranslationMat(x,y:double):TMat32d;
- begin
-   result:=TMat32d.Translation(x,y);
-  end;
-
-function RotationMat(angle:double):TMat32d;
-  begin
-   result:=TMat32d.Rotation(angle);
-  end;
-
-function RotationMat2(angle:double):TMat2d;
-  begin
-   result:=TMat2d.Rotation(angle);
-  end;
-
-function ScaleMat(scaleX,scaleY:double):TMat32d;
- begin
-   result:=TMat32d.Scale(scaleX,scaleY);
-  end;
-
  procedure ToSingle32(sour:TMat32d;out dest:TMat32);
   begin
    dest[0,0]:=sour[0,0];   dest[1,0]:=sour[1,0];   dest[2,0]:=sour[2,0];
    dest[0,1]:=sour[0,1];   dest[1,1]:=sour[1,1];   dest[2,1]:=sour[2,1];
   end;
-
- // target = M1*M2
-procedure MultMat(m1,m2:TMat2d;out target:TMat2d);
- begin
-   target:=m1*m2;
-  end;
-
- procedure MultMat(m1,m2:TMat32d;out target:TMat32d);
- begin
-  target:=m1*m2;
- end;
 
 procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
   var
@@ -709,30 +621,11 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    end;
   end;
 
- // РўСЂР°РЅСЃРїРѕРЅРёСЂРѕРІР°РЅРёРµ (РґР»СЏ РѕСЂС‚РѕРЅРѕСЂРјРёСЂРѕРІР°РЅРЅРѕР№ РјР°С‚СЂРёС†С‹ - СЌС‚Рѕ Р±СѓРґС‚ РѕР±СЂР°С‚РЅР°СЏ)
- procedure Transp2(m:TMat2d;out dest:TMat2d);
- begin
-  dest:=m.Transposed;
- end;
- procedure Transp(m:TMat32d;out dest:TMat32d);
- begin
-  dest:=m.Transposed;
- end;
- // Р’С‹С‡РёСЃР»РµРЅРёРµ РѕР±СЂР°С‚РЅРѕР№ РјР°С‚СЂРёС†С‹
- procedure Invert2(m:TMat2d;out dest:TMat2d);
- begin
-  dest:=m.Inverted;
- end;
- procedure Invert(m:TMat32d;out dest:TMat32d);
- begin
-  dest:=m.Inverted;
- end;
-
- function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
+function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
   var
    b0,b1,b2,b3:double;
   begin
-   // РІСЂРѕРґРµ РєР°Рє РѕРїС‚РёРјРёР·Р°С†РёСЏ
+   // Minor micro-optimization
    b0:=(1-t);
    b2:=t*t;
    b3:=b2*t;    // t^3
@@ -776,7 +669,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
   type
    pa=array[0..5] of TVec2d;
   var
-   next,prev:array of integer; // РґР»СЏ РєР°Р¶РґРѕР№ РІРµСЂС€РёРЅС‹ - СѓРєР°Р·Р°С‚РµР»СЊ РЅР° СЃР»РµРґСѓСЋС‰СѓСЋ
+   next,prev:array of integer; // for each vertex: links to next/previous vertex
    i,n,p,c,d:integer;
    v1,v2:TVec2d;
    vrts:^PA;
@@ -785,7 +678,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    ASSERT(count>=3);
    setLength(trgIndices,(count-2)*3);
    if count=3 then begin
-    // С‚СЂРµСѓРіРѕР»СЊРЅРёРє - РЅРёС‡РµРіРѕ РґРµР»Р°С‚СЊ РЅРµ РЅСѓР¶РЅРѕ
+    // Already a triangle, nothing to clip
     trgIndices[0]:=0;
     trgIndices[1]:=1;
     trgIndices[2]:=2;
@@ -801,10 +694,10 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    n:=count;
    p:=0; c:=0;
    while n>=3 do begin
-    // РїРѕРєР° РµСЃС‚СЊ С‡С‚Рѕ РѕС‚СЃРµРєР°С‚СЊ...
+    // Continue clipping while ears remain
     v1:=vrts^[prev[p]].Sub(vrts^[p]);
     v2:=vrts^[p].Sub(vrts^[next[p]]);
-    // РќСѓР¶РЅРѕ РґРІР° СѓСЃР»РѕРІРёСЏ: 1) СѓРіРѕР» РјРµР¶РґСѓ РІРµРєС‚РѕСЂР°РјРё РІ РЅСѓР¶РЅСѓСЋ СЃС‚РѕСЂРѕРЅСѓ Рё 2) РЅРё РѕРґРЅР° РІРµСЂС€РёРЅР° РЅРµ Р»РµР¶РёС‚ РІРЅСѓС‚СЂРё РѕС‚СЃРµРєР°РµРјРѕРіРѕ С‚СЂ-РєР°.
+    // Ear test: convex corner and no other vertex inside candidate triangle.
     fl:=v1.Cross(v2)>=0;
     if fl and (n>3) then begin
      d:=next[next[p]];
@@ -951,6 +844,24 @@ constructor TVec2d.Init(pnt:TPoint);
   y:=pnt.y;
  end;
 
+class function TVec2d.Lerp(const p1,p2:TVec2d;factor:double):TVec2d;
+ begin
+  result.x:=p1.x*(1-factor)+p2.x*factor;
+  result.y:=p1.y*(1-factor)+p2.y*factor;
+ end;
+
+class function TVec2d.Between(const source,target:TVec2d):TVec2d;
+ begin
+  result.x:=target.x-source.x;
+  result.y:=target.y-source.y;
+ end;
+
+class function TVec2d.FromAngle(angle:double):TVec2d;
+ begin
+  result.x:=cos(angle);
+  result.y:=sin(angle);
+ end;
+
 function TVec2d.IsValid:boolean;
  begin
   result:=x=x;
@@ -1074,6 +985,12 @@ constructor TVec2.Init(pnt:TPoint);
 constructor TVec2.Init(x,y:single);
  begin
   self.x:=x; self.y:=y;
+ end;
+
+class function TVec2.Lerp(const p1,p2:TVec2;factor:single):TVec2;
+ begin
+  result.x:=p1.x*(1-factor)+p2.x*factor;
+  result.y:=p1.y*(1-factor)+p2.y*factor;
  end;
 
 function TVec2.IsValid:boolean;
