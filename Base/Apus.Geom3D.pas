@@ -169,6 +169,8 @@ interface
    public
     function Row(n:integer):TVec3d; inline;
     function Col(n:integer):TVec3d; inline;
+    class function RotationAroundAxis(const v:TVec3d;angle:double):TMat3d; static;
+    function Determinant:double;
     class operator Multiply(const a,b:TMat3d):TMat3d;
     class function FromQuaternion(const q:TQuatd):TMat3d; static;
     function ToQuaternion:TQuatd;
@@ -188,6 +190,13 @@ interface
    public
     function Row(n:integer):TVec3d; inline;
     function Col(n:integer):TVec3d; inline;
+    class function Translation(x,y,z:double):TMat34d; static;
+    class function RotationX(angle:double):TMat34d; static;
+    class function RotationY(angle:double):TMat34d; static;
+    class function RotationZ(angle:double):TMat34d; static;
+    class function Scale(scaleX,scaleY,scaleZ:double):TMat34d; static;
+    class function FromYRP(yaw,roll,pitch:double):TMat34d; static;
+    procedure ToYRP(out yaw,roll,pitch:double);
     class operator Multiply(const a,b:TMat34d):TMat34d;
     procedure Transpose;
     function Transposed:TMat34d;
@@ -205,6 +214,9 @@ interface
    public
     function Row(n:integer):TVec4d; inline;
     function Col(n:integer):TVec4d; inline;
+    class function Translation(x,y,z:double):TMat4d; static;
+    function Determinant:double;
+    procedure Decompose(out translation,rotation,scale:TQuatd);
     class operator Multiply(const a,b:TMat4d):TMat4d;
     procedure Transpose; overload;
     function Transposed:TMat4d; overload;
@@ -223,6 +235,14 @@ interface
    public
     function Row(n:integer):TVec4; inline;
     function Col(n:integer):TVec4; inline;
+    class function Translation(x,y,z:single):TMat4; static;
+    class function RotationX(angle:single):TMat4; static;
+    class function RotationY(angle:single):TMat4; static;
+    class function RotationZ(angle:single):TMat4; static;
+    class function Scale(scaleX,scaleY,scaleZ:single):TMat4; static;
+    class function FromYRP(yaw,roll,pitch:double):TMat4; static;
+    function Determinant:single;
+    procedure Decompose(out translation,rotation,scale:TQuat);
     class operator Multiply(const a,b:TMat4):TMat4;
     class function FromQuaternion(const q:TQuat):TMat4; static;
     procedure Transpose; overload;
@@ -247,6 +267,11 @@ interface
    public
     function Row(n:integer):TVec3; inline;
     function Col(n:integer):TVec3; inline;
+    class function RotationX(angle:single):TMat3; static;
+    class function RotationY(angle:single):TMat3; static;
+    class function RotationZ(angle:single):TMat3; static;
+    class function RotationAroundAxis(const v:TVec3;angle:single):TMat3; static;
+    function Determinant:single;
     class operator Multiply(const a,b:TMat3):TMat3;
     class function FromQuaternion(const q:TQuat):TMat3; static;
     function ToQuaternion:TQuat;
@@ -266,6 +291,7 @@ interface
    public
     function Row(n:integer):TVec3; inline;
     function Col(n:integer):TVec3; inline;
+    class function FromYRP(yaw,roll,pitch:double):TMat34; static;
     class operator Multiply(const a,b:TMat34):TMat34;
     procedure Transpose;
     function Transposed:TMat34;
@@ -352,42 +378,42 @@ interface
  // Convert matrix to single precision
  procedure ToSingle43(sour:TMat34d;out dest:TMat34);
 
- function TranslationMat(x,y,z:double):TMat34d;
- function TranslationMat4d(x,y,z:double):TMat4d;
- function TranslationMat4(x,y,z:single):TMat4;
- function RotationXMat(angle:double):TMat34d;
- function RotationYMat(angle:double):TMat34d;
- function RotationZMat(angle:double):TMat34d;
- function RotationMat3X(angle:single):TMat3;
- function RotationMat3Y(angle:single):TMat3;
- function RotationMat3Z(angle:single):TMat3;
- function RotationMat4X(angle:single):TMat4;
- function RotationMat4Y(angle:single):TMat4;
- function RotationMat4Z(angle:single):TMat4;
- function ScaleMat(scaleX,scaleY,scaleZ:double):TMat34d;
- function ScaleMat4(scaleX,scaleY,scaleZ:single):TMat4;
+ function TranslationMat(x,y,z:double):TMat34d; deprecated 'Use TMat34d.Translation';
+ function TranslationMat4d(x,y,z:double):TMat4d; deprecated 'Use TMat4d.Translation';
+ function TranslationMat4(x,y,z:single):TMat4; deprecated 'Use TMat4.Translation';
+ function RotationXMat(angle:double):TMat34d; deprecated 'Use TMat34d.RotationX';
+ function RotationYMat(angle:double):TMat34d; deprecated 'Use TMat34d.RotationY';
+ function RotationZMat(angle:double):TMat34d; deprecated 'Use TMat34d.RotationZ';
+ function RotationMat3X(angle:single):TMat3; deprecated 'Use TMat3.RotationX';
+ function RotationMat3Y(angle:single):TMat3; deprecated 'Use TMat3.RotationY';
+ function RotationMat3Z(angle:single):TMat3; deprecated 'Use TMat3.RotationZ';
+ function RotationMat4X(angle:single):TMat4; deprecated 'Use TMat4.RotationX';
+ function RotationMat4Y(angle:single):TMat4; deprecated 'Use TMat4.RotationY';
+ function RotationMat4Z(angle:single):TMat4; deprecated 'Use TMat4.RotationZ';
+ function ScaleMat(scaleX,scaleY,scaleZ:double):TMat34d; deprecated 'Use TMat34d.Scale';
+ function ScaleMat4(scaleX,scaleY,scaleZ:single):TMat4; deprecated 'Use TMat4.Scale';
 
  // Матрица поворота вокруг вектора единичной длины!
- function RotationAroundVector(v:TVec3d;angle:double):TMat3d; overload;
- function RotationAroundVector(v:TVec3;angle:single):TMat3; overload;
+ function RotationAroundVector(v:TVec3d;angle:double):TMat3d; overload; deprecated 'Use TMat3d.RotationAroundAxis';
+ function RotationAroundVector(v:TVec3;angle:single):TMat3; overload; deprecated 'Use TMat3.RotationAroundAxis';
 
  // Extract translation rotation and scale from transformation matrix
- procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat); overload;
- procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd); overload;
+ procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat); overload; deprecated 'Use TMat4.Decompose';
+ procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd); overload; deprecated 'Use TMat4d.Decompose';
 
 
  // Используется правосторонняя СК, ось Z - вверх.
  // roll - поворот вокруг X
  // pitch - затем поворот вокруг Y
  // yaw - наконец, поворот вокруг Z
- procedure YRPToMatrix(out mat:TMat3d;yaw,roll,pitch:double); overload;
- procedure YRPToMatrix(out mat:TMat3;yaw,roll,pitch:double); overload;
- procedure YRPToMatrix(out mat:TMat4d;yaw,roll,pitch:double); overload;
- procedure YRPToMatrix(out mat:TMat4;yaw,roll,pitch:double); overload;
- procedure YRPToMatrix(out mat:TMat34d;yaw,roll,pitch:double); overload;
- procedure YRPToMatrix(out mat:TMat34;yaw,roll,pitch:double); overload;
+ procedure YRPToMatrix(out mat:TMat3d;yaw,roll,pitch:double); overload; deprecated 'Use TMat3d.RotationAroundAxis or TMat34d.FromYRP';
+ procedure YRPToMatrix(out mat:TMat3;yaw,roll,pitch:double); overload; deprecated 'Use TMat3.RotationAroundAxis or TMat34.FromYRP';
+ procedure YRPToMatrix(out mat:TMat4d;yaw,roll,pitch:double); overload; deprecated 'Use TMat4d.Translation/rotation composition';
+ procedure YRPToMatrix(out mat:TMat4;yaw,roll,pitch:double); overload; deprecated 'Use TMat4.FromYRP';
+ procedure YRPToMatrix(out mat:TMat34d;yaw,roll,pitch:double); overload; deprecated 'Use TMat34d.FromYRP';
+ procedure YRPToMatrix(out mat:TMat34;yaw,roll,pitch:double); overload; deprecated 'Use TMat34.FromYRP';
 
- procedure MatrixToYRP(const mat:TMat34d; var yaw,roll,pitch:double);
+ procedure MatrixToYRP(const mat:TMat34d; var yaw,roll,pitch:double); deprecated 'Use TMat34d.ToYRP';
 
  // Combined transformation M = M3*M2*M1 means do M1 then M2 and finally M3
  // target = M1*M2 (Смысл: перевести репер M1 из системы M2 в ту, где задана M2)
@@ -408,10 +434,10 @@ interface
 
  // Calculate inverted matrix (for Orthogonal atrix only!)
 
- function Det(const m:TMat3d):double; overload;
- function Det(const m:TMat3):single; overload;
- function Det(const m:TMat4d):double; overload;
- function Det(const m:TMat4):single; overload;
+ function Det(const m:TMat3d):double; overload; deprecated 'Use TMat3d.Determinant';
+ function Det(const m:TMat3):single; overload; deprecated 'Use TMat3.Determinant';
+ function Det(const m:TMat4d):double; overload; deprecated 'Use TMat4d.Determinant';
+ function Det(const m:TMat4):single; overload; deprecated 'Use TMat4.Determinant';
 
  // Special
  // пересечение треугольника ABC с лучом OT
@@ -639,6 +665,136 @@ function ToMat3(from:TMat4):TMat3; overload;
     result[i,2]:=from[i,2];
    end;
   end;
+
+class function TMat3d.RotationAroundAxis(const v:TVec3d;angle:double):TMat3d;
+begin
+  result:=RotationAroundVector(v,angle);
+end;
+
+function TMat3d.Determinant:double;
+begin
+  result:=Det(self);
+end;
+
+class function TMat34d.Translation(x,y,z:double):TMat34d;
+begin
+  result:=TranslationMat(x,y,z);
+end;
+
+class function TMat34d.RotationX(angle:double):TMat34d;
+begin
+  result:=RotationXMat(angle);
+end;
+
+class function TMat34d.RotationY(angle:double):TMat34d;
+begin
+  result:=RotationYMat(angle);
+end;
+
+class function TMat34d.RotationZ(angle:double):TMat34d;
+begin
+  result:=RotationZMat(angle);
+end;
+
+class function TMat34d.Scale(scaleX,scaleY,scaleZ:double):TMat34d;
+begin
+  result:=ScaleMat(scaleX,scaleY,scaleZ);
+end;
+
+class function TMat34d.FromYRP(yaw,roll,pitch:double):TMat34d;
+begin
+  YRPToMatrix(result,yaw,roll,pitch);
+end;
+
+procedure TMat34d.ToYRP(out yaw,roll,pitch:double);
+begin
+  MatrixToYRP(self,yaw,roll,pitch);
+end;
+
+class function TMat4d.Translation(x,y,z:double):TMat4d;
+begin
+  result:=TranslationMat4d(x,y,z);
+end;
+
+function TMat4d.Determinant:double;
+begin
+  result:=Det(self);
+end;
+
+procedure TMat4d.Decompose(out translation,rotation,scale:TQuatd);
+begin
+  DecomposeMatrix(self,translation,rotation,scale);
+end;
+
+class function TMat4.Translation(x,y,z:single):TMat4;
+begin
+  result:=TranslationMat4(x,y,z);
+end;
+
+class function TMat4.RotationX(angle:single):TMat4;
+begin
+  result:=RotationMat4X(angle);
+end;
+
+class function TMat4.RotationY(angle:single):TMat4;
+begin
+  result:=RotationMat4Y(angle);
+end;
+
+class function TMat4.RotationZ(angle:single):TMat4;
+begin
+  result:=RotationMat4Z(angle);
+end;
+
+class function TMat4.Scale(scaleX,scaleY,scaleZ:single):TMat4;
+begin
+  result:=ScaleMat4(scaleX,scaleY,scaleZ);
+end;
+
+class function TMat4.FromYRP(yaw,roll,pitch:double):TMat4;
+begin
+  YRPToMatrix(result,yaw,roll,pitch);
+end;
+
+function TMat4.Determinant:single;
+begin
+  result:=Det(self);
+end;
+
+procedure TMat4.Decompose(out translation,rotation,scale:TQuat);
+begin
+  DecomposeMatrix(self,translation,rotation,scale);
+end;
+
+class function TMat3.RotationX(angle:single):TMat3;
+begin
+  result:=RotationMat3X(angle);
+end;
+
+class function TMat3.RotationY(angle:single):TMat3;
+begin
+  result:=RotationMat3Y(angle);
+end;
+
+class function TMat3.RotationZ(angle:single):TMat3;
+begin
+  result:=RotationMat3Z(angle);
+end;
+
+class function TMat3.RotationAroundAxis(const v:TVec3;angle:single):TMat3;
+begin
+  result:=RotationAroundVector(v,angle);
+end;
+
+function TMat3.Determinant:single;
+begin
+  result:=Det(self);
+end;
+
+class function TMat34.FromYRP(yaw,roll,pitch:double):TMat34;
+begin
+  YRPToMatrix(result,yaw,roll,pitch);
+end;
 
 function TMat3d.GetItem(i,j:integer):double;
 begin
