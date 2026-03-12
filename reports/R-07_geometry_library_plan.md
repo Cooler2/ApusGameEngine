@@ -493,3 +493,19 @@ Status:
 
 Proposed next step:
 - Gate D / Step 5: refresh coverage matrix and close remaining Geom2D/Geom3D long-tail gaps (if any), then explicitly declare Gate D complete.
+
+### 2026-03-12 - Gate D / Step 5 completed
+
+Status:
+- Added additional long-tail tests:
+  - `TestGeom2D`: `AboutEqual`, `LexCompare`, `TVec2/TVec2d.Wrap`
+  - `TestGeom3D`: negative cases for `CompareSingle`/`CompareDouble`
+- Refreshed Gate D matrix:
+  - `reports/R-07_gateD_coverage_matrix.md`
+- Validation:
+  - `Base/tests/test.bat Geom2D` passed (32/64, `TOTAL: 55 checks, FAILED: 0`)
+  - `Base/tests/test.bat Geom3D` passed (32/64, `TOTAL: 60 checks, FAILED: 0`)
+  - `Base/tests/test.bat Spatial` previously green after Step 4 (`TOTAL: 43 checks, FAILED: 0`)
+
+Proposed next step:
+- Gate D / Step 6: add one focused degenerate-frustum matrix test block in `TestSpatial`, then re-run all three suites and decide Gate D completion status.

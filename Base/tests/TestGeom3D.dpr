@@ -207,9 +207,13 @@ begin
   a1[0]:=1; a1[1]:=2; a1[2]:=3;
   a2:=a1;
   Check(CompareSingle(@a1[0],@a2[0],3),'CompareSingle');
+  a2[2]:=a2[2]+0.01;
+  Check(not CompareSingle(@a1[0],@a2[0],3),'CompareSingle mismatch');
   b1[0]:=1; b1[1]:=2; b1[2]:=3;
   b2:=b1;
   Check(CompareDouble(@b1[0],@b2[0],3),'CompareDouble');
+  b2[0]:=b2[0]+1E-6;
+  Check(not CompareDouble(@b1[0],@b2[0],3),'CompareDouble mismatch');
 
   bbA.Init;
   BBoxInclude(bbA,1,2,3);

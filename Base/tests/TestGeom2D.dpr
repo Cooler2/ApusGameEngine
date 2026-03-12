@@ -15,6 +15,7 @@ procedure TestVec2Core;
 var
   a,b,c:TVec2;
   d:single;
+  pd0,pd1:TVec2d;
 begin
   StartTest('Vec2 core');
   a:=TVec2.Init(3,4);
@@ -36,12 +37,19 @@ begin
   Check(Abs(d-Sqrt(26))<0.0001,'Distance');
   d:=Distance2(a,b);
   Check(Abs(d-26)<0.0001,'Distance2');
+
+  pd0:=Point2(1,2);
+  pd1:=Point2(1+1E-13,2-1E-13);
+  Check(AboutEqual(pd0,pd1),'AboutEqual');
+  Check(LexCompare(Point2(1,2),Point2(1,3))<0,'LexCompare y');
+  Check(LexCompare(Point2(2,10),Point2(1,9))>0,'LexCompare x');
   EndTest;
 end;
 
 procedure TestVec2Ops;
 var
   v,u:TVec2;
+  vd:TVec2d;
   a:single;
   raised:boolean;
 begin
@@ -63,6 +71,13 @@ begin
   a:=VectAngle(v,u);
   Check(Abs(a-Pi/2)<0.0001,'VectAngle');
   Check(Abs(AngleDiff(Pi,-Pi))<0.0001,'AngleDiff wrap');
+
+  vd:=Point2(1.2,-0.3);
+  vd.Wrap(1.0);
+  Check((vd.x>=0) and (vd.x<1) and (vd.y>=0) and (vd.y<1),'TVec2d.Wrap');
+  v:=TVec2.Init(1.2,-0.3);
+  v.Wrap(1.0);
+  Check((v.x>=0) and (v.x<1) and (v.y>=0) and (v.y<1),'TVec2.Wrap');
   EndTest;
 end;
 
