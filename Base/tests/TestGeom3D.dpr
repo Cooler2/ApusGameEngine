@@ -122,13 +122,18 @@ end;
 procedure TestGeom3DUtility;
 var
   p0,p1,p2:TVec3;
+  pd:TVec3d;
   v:TVec4;
   m3b:TMat3;
+  m3d:TMat3d;
   m43:TMat34d;
   m4d:TMat4d;
-  q:TVec4;
   m4:TMat4;
+  m4dd:TMat4d;
+  q:TVec4;
   tr,rot,sca:TQuaternionS;
+  trd,rotd,scad:TQuatd;
+  qd:TQuatd;
 begin
   StartTest('Geom3D utility');
   p0:=Point3s(1,2,3);
@@ -141,6 +146,11 @@ begin
   Check(Abs(GetSqrLength(p0)-14)<0.0001,'GetSqrLength');
   Check(Abs(Distance(p0,p1)-Sqrt(50))<0.0001,'Distance');
   Check(Abs(Distance2(p0,p1)-50)<0.0001,'Distance2');
+  pd:=Vector3(1,2,3);
+  p2:=Vector3s(pd);
+  Check((Abs(p2.x-1)<0.0001) and (Abs(p2.y-2)<0.0001) and (Abs(p2.z-3)<0.0001),'Vector3s from vec3d');
+  p2:=Point3s(Vector3(2,3,4));
+  Check((Abs(p2.x-2)<0.0001) and (Abs(p2.y-3)<0.0001) and (Abs(p2.z-4)<0.0001),'Point3s from vec3d');
   PointBetween(p0,p1,0.5,p2);
   Check((Abs(p2.x-2.5)<0.0001) and (Abs(p2.y-4)<0.0001),'PointBetween');
   Check(IsNearS(p0,p0)=0,'IsNearS');
@@ -165,12 +175,29 @@ begin
   QNormalize(q);
   q:=QInvert(q);
   q:=QMult(q,QuaternionS(0,0,0,1));
+  q:=QInterpolate(q,QuaternionS(0,0,0,1),0.5);
   Check(q.IsValid,'Quaternion ops');
 
   m4:=TranslationMat4s(5,6,7);
   DecomposeMatrix(m4,tr,rot,sca);
+  DecomposeMartix(m4,tr,rot,sca);
   Check((Abs(tr.x-5)<0.0001) and (Abs(tr.y-6)<0.0001) and (Abs(tr.z-7)<0.0001),'DecomposeMatrix translation');
   Check((Abs(sca.x-1)<0.0001) and (Abs(sca.y-1)<0.0001) and (Abs(sca.z-1)<0.0001),'DecomposeMatrix scale');
+
+  qd:=Quaternion(0,0,0,1);
+  Check(Abs(QLength(qd)-1)<0.0001,'QLength double');
+  QScale(qd,2);
+  Check(Abs(QLength(qd)-2)<0.0001,'QScale double');
+  QNormalize(qd);
+  qd:=QInvert(qd);
+  qd:=QMult(qd,Quaternion(0,0,0,1));
+  Check(qd.IsValid,'Quaternion double ops');
+  QuaternionToMatrix(qd,m3d);
+  qd:=MatrixToQuaternion(m3d);
+  Check(qd.IsValid,'QuaternionToMatrix double alias');
+  m4dd:=TranslationMat4(1,2,3);
+  DecomposeMartix(m4dd,trd,rotd,scad);
+  Check((Abs(trd.x-1)<0.0001) and (Abs(trd.y-2)<0.0001) and (Abs(trd.z-3)<0.0001),'DecomposeMartix double wrapper');
   EndTest;
 end;
 
