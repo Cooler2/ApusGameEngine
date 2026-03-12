@@ -1,4 +1,4 @@
-unit Apus.VertexLayout;
+﻿unit Apus.VertexLayout;
 interface
 uses Apus.Geom2D,Apus.Geom3D;
 
@@ -77,7 +77,7 @@ type
   u,v:single;
   procedure Init(x,y,z:single;color:cardinal=$FF808080); overload; inline;
   procedure Init(pos:TPoint3s;color:cardinal=$FF808080); overload;
-  procedure SetPos(pos:TVector4s); overload; inline;
+  procedure SetPos(pos:TVec4); overload; inline;
   procedure SetPos(pos:TVector3s); overload; inline;
   procedure SetNormal(nx,ny,nz:single); overload; inline;
   procedure SetNormal(n:TVector3s); overload;
@@ -345,7 +345,7 @@ procedure TVertex3D.SetNormal(n:TVector3s);
   SetNormal(n.x,n.y,n.z);
  end;
 
-procedure TVertex3D.SetPos(pos:TVector4s);
+procedure TVertex3D.SetPos(pos:TVec4);
  begin
   x:=pos.x;
   y:=pos.y;
@@ -386,3 +386,5 @@ class function TVertex3D.Layout(hasUV:boolean=true):TVertexLayout;
 
 
 end.
+
+

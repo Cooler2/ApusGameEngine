@@ -54,16 +54,16 @@ function Sharpen8(buf:pointer;pitch,width,height,strength:integer;inplace:boolea
 
 // ---------------------
 // Color transformation
-procedure MixRGB(buf:pointer;pitch,width,height:integer;mat:TMatrix43s);
+procedure MixRGB(buf:pointer;pitch,width,height:integer;mat:TMat34);
 
 // Saturation (0..100)
 procedure Saturate(buf:pointer;pitch,width,height,saturationValue:integer);
 // Standard color effects
-function Saturation(value:single):TMatrix43s;
+function Saturation(value:single):TMat34;
 // brightness: -1..1 (0 - no change), contrast: 0..1
-function BrightnessContrast(brightness,contrast:single):TMatrix43s;
+function BrightnessContrast(brightness,contrast:single):TMat34;
 // Value: -3..3 (or more)
-function Hue(value:single):TMatrix43s;
+function Hue(value:single):TMat34;
 
 // ---------------------------------
 // EXTENDED FILTERS FOR 8-BIT IMAGES
@@ -1300,7 +1300,7 @@ procedure Emboss32;
   end;
  end;
 
-procedure MixRGB(buf:pointer;pitch,width,height:integer;mat:TMatrix43s);
+procedure MixRGB(buf:pointer;pitch,width,height:integer;mat:TMat34);
  var
   pc,p:PCardinal;
   x,y,r,g,b,nr,ng,nb:integer;
@@ -1337,7 +1337,7 @@ procedure Saturate(buf:pointer;pitch,width,height,saturationValue:integer);
   MixRGB(buf,pitch,width,height,Saturation(saturationValue/100));
  end;
 
-function Saturation(value:single):TMatrix43s;
+function Saturation(value:single):TMat34;
  var
   i:integer;
   v1,v2:single;
@@ -1352,7 +1352,7 @@ function Saturation(value:single):TMatrix43s;
   end;
  end;
 
-function BrightnessContrast(brightness,contrast:single):TMatrix43s;
+function BrightnessContrast(brightness,contrast:single):TMat34;
  var
   i:integer;
  begin
@@ -1363,7 +1363,7 @@ function BrightnessContrast(brightness,contrast:single):TMatrix43s;
   end;
  end;
 
-function Hue(value:single):TMatrix43s;
+function Hue(value:single):TMat34;
  var
   i,j:integer;
  function F(value:single):single;
@@ -1383,3 +1383,5 @@ function Hue(value:single):TMatrix43s;
  end;
 
 end.
+
+

@@ -1,4 +1,4 @@
-// -----------------------------------------------------
+﻿// -----------------------------------------------------
 // 3D geometry common high-precision functions
 // Author: Ivan Polyacov (C) 2003, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -92,9 +92,8 @@ interface
 
   TVector4=TQuatd;
   PVector4=^TVector4;
-  TVector4s=TQuaternionS;
   TVec4=TQuaternionS;
-  PVector4s=^TVector4s;
+  PVec4=^TVec4;
 
   // Infinite plane in space
   TPlane=packed record
@@ -117,20 +116,17 @@ interface
   TMat34d=array[0..3,0..2] of double; // rotation/scale/translation
   PMatrix4=^TMat4d;
   TMat4d=array[0..3,0..3] of double; // rotation/scale/translation
-  PMatrix4s=^TMatrix4s;
-  TMatrix4s=array[0..3,0..3] of single; // rotation/scale/translation
-  TMat4=TMatrix4s;
+  PMat4=^TMat4;
+  TMat4=array[0..3,0..3] of single; // rotation/scale/translation
   // Synonims
   TMatrix3v=array[0..2] of TVec3d;
   TMatrix43v=array[0..3] of TVec3d;
 
   // Low precision matrices
-  PMatrix3s=^TMatrix3s;
-  TMatrix3s=array[0..2,0..2] of single;
-  TMat3=TMatrix3s;
-  PMatrix43s=^TMatrix43s;
-  TMatrix43s=array[0..3,0..2] of single;
-  TMat34=TMatrix43s;
+  PMat3=^TMat3;
+  TMat3=array[0..2,0..2] of single;
+  PMat34=^TMat34;
+  TMat34=array[0..3,0..2] of single;
   // Synonims
   TMatrix3vs=array[0..2] of TVec3;
   TMatrix43vs=array[0..3] of TVec3;
@@ -138,11 +134,11 @@ interface
  const
   NaN=0.0/0.0;
   IdentMatrix3:TMat3d=((1,0,0),(0,1,0),(0,0,1));
-  IdentMatrix3s:TMatrix3s=((1,0,0),(0,1,0),(0,0,1));
+  IdentMatrix3s:TMat3=((1,0,0),(0,1,0),(0,0,1));
   IdentMatrix43:TMat34d=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
-  IdentMatrix43s:TMatrix43s=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
+  IdentMatrix43s:TMat34=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
   IdentMatrix4:TMat4d=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
-  IdentMatrix4s:TMatrix4s=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+  IdentMatrix4s:TMat4=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
 
   NullPoint:TVec3d=(x:0;y:0;z:0);
   NullPointS:TVec3=(x:0;y:0;z:0);
@@ -177,10 +173,10 @@ interface
  function MatCol(const mat:TMat34;n:integer):TVec3; overload;
  function MatCol(const mat:TMat3; n:integer):TVec3; overload;
 
- // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой
+ // РЎРєР°Р»СЏСЂРЅРѕРµ РїСЂРѕРёР·РІРµРґРµРЅРёРµ РІРµРєС‚РѕСЂРѕРІ = РїСЂРѕРёР·РІРµРґРµРЅРёРµ РґР»РёРЅ РЅР° РєРѕСЃРёРЅСѓСЃ СѓРіР»Р° = РїСЂРѕРµРєС†РёСЏ РѕРґРЅРѕРіРѕ РІРµРєС‚РѕСЂР° РЅР° РґСЂСѓРіРѕР№
  function DotProduct(a,b:TVec3d):double; overload;
  function DotProduct(a,b:TVec3):double; overload;
- // Векторное произведение: модуль равен площади ромба
+ // Р’РµРєС‚РѕСЂРЅРѕРµ РїСЂРѕРёР·РІРµРґРµРЅРёРµ: РјРѕРґСѓР»СЊ СЂР°РІРµРЅ РїР»РѕС‰Р°РґРё СЂРѕРјР±Р°
  function CrossProduct(a,b:TVec3d):TVec3d; overload;
  function CrossProduct(a,b:TVec3):TVec3; overload;
  function GetLength(v:TVec3d):double; overload;
@@ -251,7 +247,7 @@ interface
  function ScaleMat(scaleX,scaleY,scaleZ:double):TMat34d;
  function ScaleMat4s(scaleX,scaleY,scaleZ:single):TMat4;
 
- // Матрица поворота вокруг вектора единичной длины!
+ // РњР°С‚СЂРёС†Р° РїРѕРІРѕСЂРѕС‚Р° РІРѕРєСЂСѓРі РІРµРєС‚РѕСЂР° РµРґРёРЅРёС‡РЅРѕР№ РґР»РёРЅС‹!
  function RotationAroundVector(v:TVec3d;angle:double):TMat3d; overload;
  function RotationAroundVector(v:TVec3;angle:single):TMat3; overload;
 
@@ -290,10 +286,10 @@ interface
  function QInterpolate(Q1,Q2:TQuaternionS;factor:single):TQuaternionS;
 
 
- // Используется правосторонняя СК, ось Z - вверх.
- // roll - поворот вокруг X
- // pitch - затем поворот вокруг Y
- // yaw - наконец, поворот вокруг Z
+ // РСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РїСЂР°РІРѕСЃС‚РѕСЂРѕРЅРЅСЏСЏ РЎРљ, РѕСЃСЊ Z - РІРІРµСЂС….
+ // roll - РїРѕРІРѕСЂРѕС‚ РІРѕРєСЂСѓРі X
+ // pitch - Р·Р°С‚РµРј РїРѕРІРѕСЂРѕС‚ РІРѕРєСЂСѓРі Y
+ // yaw - РЅР°РєРѕРЅРµС†, РїРѕРІРѕСЂРѕС‚ РІРѕРєСЂСѓРі Z
  procedure MatrixFromYawRollPitch(out mat:TMat3d;yaw,roll,pitch:double); overload;
  procedure MatrixFromYawRollPitch(out mat:TMat3;yaw,roll,pitch:double); overload;
  procedure MatrixFromYawRollPitch(out mat:TMat4d;yaw,roll,pitch:double); overload;
@@ -304,8 +300,8 @@ interface
  procedure YawRollPitchFromMatrix(const mat:TMat34d; var yaw,roll,pitch:double);
 
  // Combined transformation M = M3*M2*M1 means do M1 then M2 and finally M3
- // target = M1*M2 (Смысл: перевести репер M1 из системы M2 в ту, где задана M2)
- // Другой смысл: суммарная трансформация: сперва M2, затем M1 (именно так!)
+ // target = M1*M2 (РЎРјС‹СЃР»: РїРµСЂРµРІРµСЃС‚Рё СЂРµРїРµСЂ M1 РёР· СЃРёСЃС‚РµРјС‹ M2 РІ С‚Сѓ, РіРґРµ Р·Р°РґР°РЅР° M2)
+ // Р”СЂСѓРіРѕР№ СЃРјС‹СЃР»: СЃСѓРјРјР°СЂРЅР°СЏ С‚СЂР°РЅСЃС„РѕСЂРјР°С†РёСЏ: СЃРїРµСЂРІР° M2, Р·Р°С‚РµРј M1 (РёРјРµРЅРЅРѕ С‚Р°Рє!)
  // IMPORTANT! target MUST DIFFER from m1 and m2!
  procedure MultMat(const m1,m2:TMat3d;out target:TMat3d); overload;
  procedure MultMat(const m1,m2:TMat3;out target:TMat3); overload;
@@ -317,19 +313,19 @@ interface
  function  MultMat(const m1,m2:TMat4d):TMat4d; overload;
  function  MultMat(const m1,m2:TMat4):TMat4; overload;
 
- procedure MultPnt(const m:TMat4;v:PVector4s;num,step:integer); overload;
+ procedure MultPnt(const m:TMat4;v:PVec4;num,step:integer); overload;
  procedure MultPnt(const m:TMat34d;v:PVec3d;num,step:integer); overload;
  procedure MultPnt(const m:TMat34;v:PVec3;num,step:integer); overload;
  procedure MultPnt(const m:TMat3d;v:PVec3d;num,step:integer); overload;
  procedure MultPnt(const m:TMat3;v:PVec3;num,step:integer); overload;
  // Same as MultPnt, but ignores the translation part
- procedure MultNormal(const m:TMat4;v:PVector4s;num,step:integer);
+ procedure MultNormal(const m:TMat4;v:PVec4;num,step:integer);
 
  // Complete 3D transformation (with normalization)
  function TransformPoint(const m:TMat4;v:PVec3):TVec3; overload;
  function TransformPoint(const m:TMat4d;v:PVec3d):TVec3d; overload;
 
- // Transpose (для ортонормированной матрицы - это будт обратная)
+ // Transpose (РґР»СЏ РѕСЂС‚РѕРЅРѕСЂРјРёСЂРѕРІР°РЅРЅРѕР№ РјР°С‚СЂРёС†С‹ - СЌС‚Рѕ Р±СѓРґС‚ РѕР±СЂР°С‚РЅР°СЏ)
  procedure Transpose(const m:TMat3d;out dest:TMat3d); overload;
  procedure Transpose(const m:TMat3;out dest:TMat3); overload;
  procedure Transpose(const m:TMat34d;out dest:TMat34d); overload;
@@ -354,16 +350,16 @@ interface
  function Det(const m:TMat4):single; overload;
 
  // Special
- // пересечение треугольника ABC с лучом OT
- // возвращает: pb,pc - выражение точки пересечения через вектора AB и AC (pb,pc>=0, pb+pc<=1)
- //             d - расстояние от точки пересечения до начала луча
+ // РїРµСЂРµСЃРµС‡РµРЅРёРµ С‚СЂРµСѓРіРѕР»СЊРЅРёРєР° ABC СЃ Р»СѓС‡РѕРј OT
+ // РІРѕР·РІСЂР°С‰Р°РµС‚: pb,pc - РІС‹СЂР°Р¶РµРЅРёРµ С‚РѕС‡РєРё РїРµСЂРµСЃРµС‡РµРЅРёСЏ С‡РµСЂРµР· РІРµРєС‚РѕСЂР° AB Рё AC (pb,pc>=0, pb+pc<=1)
+ //             d - СЂР°СЃСЃС‚РѕСЏРЅРёРµ РѕС‚ С‚РѕС‡РєРё РїРµСЂРµСЃРµС‡РµРЅРёСЏ РґРѕ РЅР°С‡Р°Р»Р° Р»СѓС‡Р°
  function IntersectTrgLine(A,B,C,O,T:PVec3;var pb,pc,d:double):boolean;
 
 implementation
  uses Apus.Core, Apus.CPU, Apus.Types, SysUtils, Math;
 
  const
-  vec0001s:TVector4s=(x:0; y:0; z:0; w:1);
+  vec0001s:TVec4=(x:0; y:0; z:0; w:1);
 
   // Compensation for stack frame allocation in x64 mode
   RSP_BIAS = {$IFDEF FPC} 0 {$ELSE} 8 {$ENDIF};
@@ -1007,9 +1003,9 @@ implementation
 
  procedure MultMat(const m1,m2:TMat34;out target:TMat34);
   var
-   am1:TMatrix3s absolute m1;
-   am2:TMatrix3s absolute m2;
-   am3:TMatrix3s absolute target;
+   am1:TMat3 absolute m1;
+   am2:TMat3 absolute m2;
+   am3:TMat3 absolute target;
   begin
    MultMat(am1,am2,am3);
    target[3,0]:=m1[3,0]*m2[0,0] + m1[3,1]*m2[1,0] + m1[3,2]*m2[2,0] + m2[3,0];
@@ -1044,8 +1040,8 @@ implementation
   end;
  procedure Transpose(const m:TMat34;out dest:TMat34);
   var
-   m1:TMatrix3s absolute m;
-   m2:TMatrix3s absolute dest;
+   m1:TMat3 absolute m;
+   m2:TMat3 absolute dest;
    mv:TMatrix43vs absolute m;
   begin
    Transpose(m1,m2);
@@ -1196,7 +1192,7 @@ implementation
 
  procedure InvertFull(const m:TMat4;out dest:TMat4);
   var
-   mat:TMatrix4s;
+   mat:TMat4;
    i,k:integer;
    v:single;
   begin
@@ -1207,29 +1203,29 @@ implementation
      if abs(v)<EpsilonS then begin // fix zero diagonal element
       for k:=i+1 to 3 do
        if abs(mat[k,i])>EpsilonS then begin
-        TVector4s(dest[i]).Add(TVector4s(dest[k]),1);
-        TVector4s(mat[i]).Add(TVector4s(mat[k]),1);
+        TVec4(dest[i]).Add(TVec4(dest[k]),1);
+        TVec4(mat[i]).Add(TVec4(mat[k]),1);
         break;
        end;
       v:=mat[i,i];
       if v=0 then raise Exception.Create('Cannot invert matrix!');
      end;
      v:=1/v;
-     TVector4s(mat[i]).Mul(v);
-     TVector4s(dest[i]).Mul(v);
+     TVec4(mat[i]).Mul(v);
+     TVec4(dest[i]).Mul(v);
 
      for k:=i+1 to 3 do begin
       v:=-mat[k,i];
-      TVector4s(dest[k]).Add(TVector4s(dest[i]),v);
-      TVector4s(mat[k]).Add(TVector4s(mat[i]),v);
+      TVec4(dest[k]).Add(TVec4(dest[i]),v);
+      TVec4(mat[k]).Add(TVec4(mat[i]),v);
      end;
     end;
    for i:=3 downto 1 do
     for k:=i-1 downto 0 do
-     TVector4s(dest[k]).Add(TVector4s(dest[i]),-mat[k,i]);
+     TVec4(dest[k]).Add(TVec4(dest[i]),-mat[k,i]);
   end;
 
- procedure MultPnt(const m:TMat4;v:PVector4s;num,step:integer); overload;
+ procedure MultPnt(const m:TMat4;v:PVec4;num,step:integer); overload;
   {$IFDEF CPUx64}
   asm
    // rcx=@matrix, rdx=@vector, r8=num, @r9=step
@@ -1263,7 +1259,7 @@ implementation
   {$ELSE}
   var
    i:integer;
-   vec:TVector4s;
+   vec:TVec4;
   begin
    for i:=1 to num do begin
     vec.x:=v^.x*m[0,0]+v^.y*m[1,0]+v^.z*m[2,0]+v.w*m[3,0];
@@ -1272,13 +1268,13 @@ implementation
     vec.w:=v^.x*m[0,3]+v^.y*m[1,3]+v^.z*m[2,3]+v.w*m[3,3];
 
     v^:=vec;
-    v:=PVector4s(PtrUInt(v)+step);
+    v:=PVec4(PtrUInt(v)+step);
    end;
   end;
   {$ENDIF}
 
  // Ignore translation part
- procedure MultNormal(const m:TMat4;v:PVector4s;num,step:integer);
+ procedure MultNormal(const m:TMat4;v:PVec4;num,step:integer);
  {$IFDEF CPUx64}
   asm
    // rcx=@matrix, rdx=@vector, r8=num, @r9=step
@@ -1308,7 +1304,7 @@ implementation
   {$ELSE}
   var
    i:integer;
-   vec:TVector4s;
+   vec:TVec4;
   begin
    for i:=1 to num do begin
     vec.x:=v^.x*m[0,0]+v^.y*m[1,0]+v^.z*m[2,0];
@@ -1317,7 +1313,7 @@ implementation
     vec.w:=1.0;
 
     v^:=vec;
-    v:=PVector4s(PtrUInt(v)+step);
+    v:=PVec4(PtrUInt(v)+step);
    end;
   end;
   {$ENDIF}
@@ -1577,7 +1573,7 @@ implementation
    result[2,0]:=xz*nco+v.y*si;  result[2,1]:=yz*nco-v.x*si;  result[2,2]:=co+nco*z2;
   end;
 
-{ function RotationAroundVector(v:TVec3;angle:single):TMatrix3s;
+{ function RotationAroundVector(v:TVec3;angle:single):TMat3;
   var
    l2,m2,n2,lm,ln,mn,co,si,nco:single;
   begin
@@ -1644,7 +1640,7 @@ implementation
    mat[0,1]:=xy+wz;        mat[1,1]:=1.0-(xx+zz);  mat[2,1]:=yz-wx;
    mat[0,2]:=xz-wy;        mat[1,2]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
    mat[0,3]:=0;            mat[1,3]:=0;            mat[2,3]:=0;
-   TVector4s(mat[3]):=vec0001s;
+   TVec4(mat[3]):=vec0001s;
   end;
 
  procedure QuaternionToMatrix(const q:TQuatd;out mat:TMat3d); overload;
@@ -1737,7 +1733,7 @@ implementation
  procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuaternionS);
   var
    qX,qY,qZ:TQuaternionS;
-   mat3:TMatrix3s;
+   mat3:TMat3;
    v:single;
   begin
    translation:=MatRow(mat,3);
@@ -2037,7 +2033,7 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
    if abs(dt)<0.0001 then exit;
 
    l.x:=O.x-A.x; l.y:=O.y-A.y; l.z:=O.z-A.z;
-   // Метод Крамера
+   // РњРµС‚РѕРґ РљСЂР°РјРµСЂР°
    pb:=(l.x*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
         l.y*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
         l.z*(m[1,0]*m[2,1]-m[1,1]*m[2,0]))/dt;
@@ -2642,6 +2638,8 @@ initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
 
 end.
+
+
 
 
 

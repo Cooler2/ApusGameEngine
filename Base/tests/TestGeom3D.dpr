@@ -1,4 +1,4 @@
-{$APPTYPE CONSOLE}
+﻿{$APPTYPE CONSOLE}
 {$EXCESSPRECISION OFF}
 program TestGeom3D;
 
@@ -77,7 +77,7 @@ end;
 
 procedure TestQuaternionConversions;
 var
-  m,m2:TMatrix3s;
+  m,m2:TMat3;
   q:TQuaternionS;
 begin
   StartTest('Quaternion conversions');
@@ -311,3 +311,5 @@ begin
   end;
   writeln('All OK');
 end.
+
+

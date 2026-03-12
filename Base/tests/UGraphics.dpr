@@ -1,4 +1,4 @@
-{$APPTYPE CONSOLE}
+п»ї{$APPTYPE CONSOLE}
 program UGraphics;
 
 {%TogetherDiagram 'ModelSupport_UGraphics\default.txaPackage'}
@@ -177,7 +177,7 @@ procedure TestDraw2;
    img.Clear($FFC0C0C0);
    for i:=0 to 5 do begin
     v:=0.9+i*0.1;
-    font.RenderText(img.data,img.pitch,3,40+i*20+(i*i),'Привет, Медвед! 123',$FF400010,v);
+    font.RenderText(img.data,img.pitch,3,40+i*20+(i*i),'РџСЂРёРІРµС‚, РњРµРґРІРµРґ! 123',$FF400010,v);
    end;
   end;
   writeln('Time = ',(MyTickCount-t)/100:4:2, ' ms');
@@ -458,7 +458,7 @@ procedure TestPie;
  procedure TestColors;
   var
    i,j,k:integer;
-   mat:TMatrix43s;
+   mat:TMat34;
   begin
    for i:=0 to 8 do begin
      mat:=Hue(i/3);
@@ -488,3 +488,4 @@ begin
  end;
  readln;
 end.
+

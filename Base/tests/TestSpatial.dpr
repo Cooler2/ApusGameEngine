@@ -1,4 +1,4 @@
-{$APPTYPE CONSOLE}
+﻿{$APPTYPE CONSOLE}
 {$EXCESSPRECISION OFF}
 program TestSpatial;
 
@@ -213,4 +213,6 @@ begin
   end;
   writeln('All OK');
 end.
+
+
 
