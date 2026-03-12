@@ -171,6 +171,7 @@ interface
     function Col(n:integer):TVec3d; inline;
     class function RotationAroundAxis(const v:TVec3d;angle:double):TMat3d; static;
     function Determinant:double;
+    procedure TransformPoints(v:PVec3d;num,step:integer);
     class operator Multiply(const a,b:TMat3d):TMat3d;
     class function FromQuaternion(const q:TQuatd):TMat3d; static;
     function ToQuaternion:TQuatd;
@@ -197,6 +198,7 @@ interface
     class function Scale(scaleX,scaleY,scaleZ:double):TMat34d; static;
     class function FromYRP(yaw,roll,pitch:double):TMat34d; static;
     procedure ToYRP(out yaw,roll,pitch:double);
+    procedure TransformPoints(v:PVec3d;num,step:integer);
     class operator Multiply(const a,b:TMat34d):TMat34d;
     procedure Transpose;
     function Transposed:TMat34d;
@@ -217,6 +219,7 @@ interface
     class function Translation(x,y,z:double):TMat4d; static;
     function Determinant:double;
     procedure Decompose(out translation,rotation,scale:TQuatd);
+    function TransformPoint(const v:TVec3d):TVec3d;
     class operator Multiply(const a,b:TMat4d):TMat4d;
     procedure Transpose; overload;
     function Transposed:TMat4d; overload;
@@ -243,6 +246,10 @@ interface
     class function FromYRP(yaw,roll,pitch:double):TMat4; static;
     function Determinant:single;
     procedure Decompose(out translation,rotation,scale:TQuat);
+    procedure Transform(var v:TVec4);
+    procedure TransformPoints(v:PVec4;num,step:integer);
+    procedure TransformNormals(v:PVec4;num,step:integer);
+    function TransformPoint(const v:TVec3):TVec3;
     class operator Multiply(const a,b:TMat4):TMat4;
     class function FromQuaternion(const q:TQuat):TMat4; static;
     procedure Transpose; overload;
@@ -272,6 +279,7 @@ interface
     class function RotationZ(angle:single):TMat3; static;
     class function RotationAroundAxis(const v:TVec3;angle:single):TMat3; static;
     function Determinant:single;
+    procedure TransformPoints(v:PVec3;num,step:integer);
     class operator Multiply(const a,b:TMat3):TMat3;
     class function FromQuaternion(const q:TQuat):TMat3; static;
     function ToQuaternion:TQuat;
@@ -292,6 +300,7 @@ interface
     function Row(n:integer):TVec3; inline;
     function Col(n:integer):TVec3; inline;
     class function FromYRP(yaw,roll,pitch:double):TMat34; static;
+    procedure TransformPoints(v:PVec3;num,step:integer);
     class operator Multiply(const a,b:TMat34):TMat34;
     procedure Transpose;
     function Transposed:TMat34;
@@ -418,17 +427,17 @@ interface
  // Combined transformation M = M3*M2*M1 means do M1 then M2 and finally M3
  // target = M1*M2 (Смысл: перевести репер M1 из системы M2 в ту, где задана M2)
  // Другой смысл: суммарная трансформация: сперва M2, затем M1 (именно так!)
- procedure MultPnt(const m:TMat4;v:PVec4;num,step:integer); overload;
- procedure MultPnt(const m:TMat34d;v:PVec3d;num,step:integer); overload;
- procedure MultPnt(const m:TMat34;v:PVec3;num,step:integer); overload;
- procedure MultPnt(const m:TMat3d;v:PVec3d;num,step:integer); overload;
- procedure MultPnt(const m:TMat3;v:PVec3;num,step:integer); overload;
+ procedure MultPnt(const m:TMat4;v:PVec4;num,step:integer); overload; deprecated 'Use TMat4.TransformPoints';
+ procedure MultPnt(const m:TMat34d;v:PVec3d;num,step:integer); overload; deprecated 'Use TMat34d.TransformPoints';
+ procedure MultPnt(const m:TMat34;v:PVec3;num,step:integer); overload; deprecated 'Use TMat34.TransformPoints';
+ procedure MultPnt(const m:TMat3d;v:PVec3d;num,step:integer); overload; deprecated 'Use TMat3d.TransformPoints';
+ procedure MultPnt(const m:TMat3;v:PVec3;num,step:integer); overload; deprecated 'Use TMat3.TransformPoints';
  // Same as MultPnt, but ignores the translation part
- procedure MultNormal(const m:TMat4;v:PVec4;num,step:integer);
+ procedure MultNormal(const m:TMat4;v:PVec4;num,step:integer); deprecated 'Use TMat4.TransformNormals';
 
  // Complete 3D transformation (with normalization)
- function TransformPoint(const m:TMat4;v:PVec3):TVec3; overload;
- function TransformPoint(const m:TMat4d;v:PVec3d):TVec3d; overload;
+ function TransformPoint(const m:TMat4;v:PVec3):TVec3; overload; deprecated 'Use TMat4.TransformPoint';
+ function TransformPoint(const m:TMat4d;v:PVec3d):TVec3d; overload; deprecated 'Use TMat4d.TransformPoint';
 
  // Transpose (для ортонормированной матрицы - это будт обратная)
 
@@ -794,6 +803,57 @@ end;
 class function TMat34.FromYRP(yaw,roll,pitch:double):TMat34;
 begin
   YRPToMatrix(result,yaw,roll,pitch);
+end;
+
+procedure TMat3d.TransformPoints(v:PVec3d;num,step:integer);
+begin
+  MultPnt(self,v,num,step);
+end;
+
+procedure TMat34d.TransformPoints(v:PVec3d;num,step:integer);
+begin
+  MultPnt(self,v,num,step);
+end;
+
+function TMat4d.TransformPoint(const v:TVec3d):TVec3d;
+var
+  vv:TVec3d;
+begin
+  vv:=v;
+  result:=Apus.Geom3D.TransformPoint(self,@vv);
+end;
+
+procedure TMat4.Transform(var v:TVec4);
+begin
+  MultPnt(self,@v,1,SizeOf(v));
+end;
+
+procedure TMat4.TransformPoints(v:PVec4;num,step:integer);
+begin
+  MultPnt(self,v,num,step);
+end;
+
+procedure TMat4.TransformNormals(v:PVec4;num,step:integer);
+begin
+  MultNormal(self,v,num,step);
+end;
+
+function TMat4.TransformPoint(const v:TVec3):TVec3;
+var
+  vv:TVec3;
+begin
+  vv:=v;
+  result:=Apus.Geom3D.TransformPoint(self,@vv);
+end;
+
+procedure TMat3.TransformPoints(v:PVec3;num,step:integer);
+begin
+  MultPnt(self,v,num,step);
+end;
+
+procedure TMat34.TransformPoints(v:PVec3;num,step:integer);
+begin
+  MultPnt(self,v,num,step);
 end;
 
 function TMat3d.GetItem(i,j:integer):double;
