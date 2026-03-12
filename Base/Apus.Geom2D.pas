@@ -34,6 +34,9 @@ interface
    function Length2:double; inline;
    function Sub(const p:TVec2d):TVec2d; inline;
    function Distance2(const p:TVec2d):double; inline;
+   procedure Turn(angle:double); inline;
+   function Turn90R:TVec2d; inline;
+   function Turn90L:TVec2d; inline;
    procedure Add(const p:TVec2d); inline;
    procedure Multiply(value:double); inline;
   end;
@@ -52,6 +55,8 @@ interface
    function Length2:single; inline;
    function Sub(const p:TVec2):TVec2; inline;
    function Distance2(const p:TVec2):single; inline;
+   function DivBy(const p:TVec2):TVec2; inline;
+   procedure Invert; inline;
    procedure Wrap(max:single); inline;
    class operator Implicit(a:TPointF):TVec2;
    class operator Implicit(a:TPoint):TVec2;
@@ -121,14 +126,6 @@ interface
   InvalidVec2:TVec2=(x:NaN;y:NaN);
 
  // Vector functions
- function VectMult(v:TVec2d;value:double):TVec2d; inline; overload;
- function VectMult(a,b:TVec2):TVec2; inline; overload;
- function VectDiv(a,b:TVec2):TVec2; inline;
- procedure VectInv(var v:TVec2); inline;
- // Turn counterclockwise (angle in radians)
- procedure VectTurn(var v:TVec2d;angle:double); inline;
- function Turn90R(v:TVec2d):TVec2d; inline;
- function Turn90L(v:TVec2d):TVec2d; inline;
  // Angle between vectors (radians)
  function AngleBetween(v1,v2:TVec2d):double; overload;
  function AngleBetween(v1,v2:TVec2):single; overload;
@@ -213,51 +210,6 @@ interface
 implementation
  uses Math, Apus.Types, Apus.Core, SysUtils;
 
- function VectMult(v:TVec2d;value:double):TVec2d;
-  begin
-   result:=v;
-   result.Multiply(value);
-  end;
-
- function VectMult(a,b:TVec2):TVec2; inline; overload;
-  begin
-   result.x:=a.x*b.x;
-   result.y:=a.y*b.y;
-  end;
-
- function VectDiv(a,b:TVec2):TVec2; inline;
-  begin
-   result.x:=a.x/b.x;
-   result.y:=a.y/b.y;
-  end;
-
- procedure VectInv(var v:TVec2);
-  begin
-   v.x:=1/v.x;
-   v.y:=1/v.y;
-  end;
-
- procedure VectTurn(var v:TVec2d;angle:double);
-  var
-   nx,ny:double;
-  begin
-   nx:=v.x*cos(angle)-v.y*sin(angle);
-   ny:=v.x*sin(angle)+v.y*cos(angle);
-   v.x:=nx; v.y:=ny;
-  end;
-
- function Turn90R(v:TVec2d):TVec2d;
-  begin
-   result.x:=v.y;
-   result.y:=-v.x;
-  end;
-
- function Turn90L(v:TVec2d):TVec2d;
-  begin
-   result.x:=-v.y;
-   result.y:=v.x;
-  end;
-
  function AngleBetween(v1,v2:TVec2d):double;
   var
    p:double;
@@ -333,7 +285,7 @@ class function TLine2.Init(const p1,p2:TVec2d):TLine2;
  begin
   v:=p2.Sub(p1);
   v.Normalize;
-  v:=Turn90R(v);
+  v:=v.Turn90R;
   result.a:=v.x;
   result.b:=v.y;
   result.c:=-(result.a*p1.x+result.b*p1.y);
@@ -405,7 +357,7 @@ function TLine2.Deviation(const point:TVec2d):double;
    v.y:=segm.y2-segm.y1;
    n:=v;
    n.Normalize;
-   n:=Turn90R(n);
+   n:=n.Turn90R;
    d.x:=pnt.x-segm.x1;
    d.y:=pnt.y-segm.y1;
    deviation:=n.x*d.x+n.y*d.y;
@@ -873,6 +825,28 @@ function TVec2d.Distance2(const p:TVec2d):double;
   result:=sqr(x-p.x)+sqr(y-p.y);
  end;
 
+procedure TVec2d.Turn(angle:double);
+ var
+  nx,ny:double;
+ begin
+  nx:=x*cos(angle)-y*sin(angle);
+  ny:=x*sin(angle)+y*cos(angle);
+  x:=nx;
+  y:=ny;
+ end;
+
+function TVec2d.Turn90R:TVec2d;
+ begin
+  result.x:=y;
+  result.y:=-x;
+ end;
+
+function TVec2d.Turn90L:TVec2d;
+ begin
+  result.x:=-y;
+  result.y:=x;
+ end;
+
 procedure TVec2d.Add(const p:TVec2d);
  begin
   x:=x+p.x;
@@ -966,6 +940,18 @@ function TVec2.Distance2(const p:TVec2):single;
   dx:=x-p.x;
   dy:=y-p.y;
   result:=dx*dx+dy*dy;
+ end;
+
+function TVec2.DivBy(const p:TVec2):TVec2;
+ begin
+  result.x:=x/p.x;
+  result.y:=y/p.y;
+ end;
+
+procedure TVec2.Invert;
+ begin
+  x:=1/x;
+  y:=1/y;
  end;
 
 class operator TVec2.Multiply(a,b:TVec2):TVec2;

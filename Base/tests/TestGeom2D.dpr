@@ -167,18 +167,18 @@ begin
   Check((Abs(v1.x-6)<0.0001) and (Abs(v1.y-8)<0.0001),'VectAdd');
   v1:=v1.Sub(v2);
   Check((Abs(v1.x-2)<0.0001) and (Abs(v1.y-3)<0.0001),'VectSub');
-  v3:=VectMult(v1,v2);
-  Check((Abs(v3.x-8)<0.0001) and (Abs(v3.y-15)<0.0001),'VectMult vec');
-  v3:=VectDiv(v2,v1);
-  Check((Abs(v3.x-2)<0.0001) and (Abs(v3.y-1.666666)<0.01),'VectDiv');
-  VectInv(v3);
-  Check((Abs(v3.x-0.5)<0.0001) and (Abs(v3.y-0.6)<0.01),'VectInv');
+  v3:=v1*v2;
+  Check((Abs(v3.x-8)<0.0001) and (Abs(v3.y-15)<0.0001),'CompMul');
+  v3:=v2.DivBy(v1);
+  Check((Abs(v3.x-2)<0.0001) and (Abs(v3.y-1.666666)<0.01),'DivBy');
+  v3.Invert;
+  Check((Abs(v3.x-0.5)<0.0001) and (Abs(v3.y-0.6)<0.01),'Invert');
   Check(Abs(AngleBetweenCW(Point2(1,0),Point2(0,1))-3*Pi/2)<0.0001,'AngleBetweenCW');
   dv:=Point2(2,3);
-  dv:=Turn90R(dv);
-  dv:=Turn90L(dv);
+  dv:=dv.Turn90R;
+  dv:=dv.Turn90L;
   Check((Abs(dv.x-2)<0.0001) and (Abs(dv.y-3)<0.0001),'Turn90R/L');
-  VectTurn(dv,Pi/2);
+  dv.Turn(Pi/2);
 
   b0:=Point2(0,0);
   b1:=Point2(0,1);
