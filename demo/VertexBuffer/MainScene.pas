@@ -77,8 +77,8 @@ procedure BuildMesh;
   begin
    v1:=Vector3s(CalcSurface(u-0.001,v),CalcSurface(u+0.001,v));
    v2:=Vector3s(CalcSurface(u,v-0.001),CalcSurface(u,v+0.001));
-   result:=CrossProduct(v1,v2);
-   Normalize(result);
+   result:=v1.Cross(v2);
+   result.Normalize;
   end;
  function GetVertex(u,v:integer):integer;
   begin

@@ -38,7 +38,7 @@ begin
   v:=TVec3.Init(0,0,0);
   raised:=false;
   try
-    Normalize(v);
+    v.Normalize;
   except
     on EZeroDivide do begin
       raised:=true;
@@ -50,7 +50,7 @@ begin
   // Current implementation raises on zero vector; track this behavior explicitly.
   Check(raised or ((v.x=0) and (v.y=0) and (v.z=0)),'Normalize zero edge');
   v:=TVec3.Init(0,3,4);
-  Normalize(v);
+  v.Normalize;
   Check(Abs(v.Length-1)<0.0002,'Normalize non-zero');
   EndTest;
 end;
@@ -141,12 +141,12 @@ begin
   p1:=TVec3.Init(4,6,8);
   p2:=p1.Sub(p0);
   Check((Abs(p2.x-3)<0.0001) and (Abs(p2.y-4)<0.0001) and (Abs(p2.z-5)<0.0001),'Vector from/to');
-  Check(Abs(DotProduct(p0,p1)-40)<0.0001,'DotProduct');
-  p2:=CrossProduct(p0,p1);
+  Check(Abs(p0.Dot(p1)-40)<0.0001,'Dot');
+  p2:=p0.Cross(p1);
   Check(Abs(p0.Length-Sqrt(14))<0.0001,'Length');
   Check(Abs(p0.Length2-14)<0.0001,'Length2');
-  Check(Abs(Distance(p0,p1)-Sqrt(50))<0.0001,'Distance');
-  Check(Abs(Distance2(p0,p1)-50)<0.0001,'Distance2');
+  Check(Abs(Sqrt(p0.Distance2(p1))-Sqrt(50))<0.0001,'Distance');
+  Check(Abs(p0.Distance2(p1)-50)<0.0001,'Distance2');
   pd:=Vector3(1,2,3);
   p2:=TVec3.Init(pd);
   Check((Abs(p2.x-1)<0.0001) and (Abs(p2.y-2)<0.0001) and (Abs(p2.z-3)<0.0001),'Vec3 from vec3d');

@@ -182,21 +182,11 @@ interface
  function MatCol(const mat:TMat3; n:integer):TVec3; overload;
 
  // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой
- function DotProduct(a,b:TVec3d):double; overload;
- function DotProduct(a,b:TVec3):double; overload;
  // Векторное произведение: модуль равен площади ромба
- function CrossProduct(a,b:TVec3d):TVec3d; overload;
- function CrossProduct(a,b:TVec3):TVec3; overload;
- procedure Normalize(var v:TVec3d); overload;
- procedure Normalize(var v:TVec3); overload;
  procedure VectMult(var a:TVec3d;k:double); overload;
  procedure VectMult(var a:TVec3;k:double); overload;
  function VectMult(a:TVec3d;k:double):TVec3d; overload;
  function VectMult(a:TVec3;k:double):TVec3; overload;
- function Distance(p1,p2:TVec3d):double; overload;
- function Distance(p1,p2:TVec3):single; overload;
- function Distance2(p1,p2:TVec3d):double; overload;
- function Distance2(p1,p2:TVec3):single; overload;
 
  procedure PointBetween(const p1,p2:TVec3d;t:double;out p:TVec3d); overload;
  procedure PointBetween(const p1,p2:TVec3;t:single;out p:TVec3); overload;
@@ -559,51 +549,6 @@ implementation
    result.z:=mat[2,n];
   end;
 
- function DotProduct(a,b:TVec3d):double;
-  begin
-   result:=a.Dot(b);
-  end;
-
- function DotProduct(a,b:TVec3):double;
-  begin
-   result:=a.x*b.x+a.y*b.y+a.z*b.z;
-  end;
-
- function CrossProduct(a,b:TVec3d):TVec3d;
-  begin
-   result:=a.Cross(b);
-  end;
-
- function CrossProduct(a,b:TVec3):TVec3;
-  begin
-   result.x:=a.y*b.z-a.z*b.y;
-   result.y:=-(a.x*b.z-a.z*b.x);
-   result.z:=a.x*b.y-a.y*b.x;
-  end;
-
- procedure Normalize(var v:TVec3d);
-  var
-   l:double;
-  begin
-   l:=v.Length;
-   ASSERT(l>Epsilon,'Normalize zero-length vector');
-   l:=1/l;
-   v.x:=v.x*l;
-   v.y:=v.y*l;
-   v.z:=v.z*l;
-  end;
-
- procedure Normalize(var v:TVec3);
-  var
-   l:single;
-  begin
-   l:=v.Length;
-   ASSERT(l>EpsilonS,'Normalize zero-length vector');
-   l:=1/l;
-   v.x:=v.x*l;
-   v.y:=v.y*l;
-   v.z:=v.z*l;
-  end;
 
  procedure VectMult(var a:TVec3d;k:double);
   begin
@@ -628,26 +573,6 @@ implementation
    result.x:=a.x*k;
    result.y:=a.y*k;
    result.z:=a.z*k;
-  end;
-
- function Distance(p1,p2:TVec3d):double; overload;
-  begin
-   result:=sqrt(sqr(p2.x-p1.x)+sqr(p2.y-p1.y)+sqr(p2.z-p1.z));
-  end;
-
- function Distance(p1,p2:TVec3):single; overload;
-  begin
-   result:=sqrt(sqr(p2.x-p1.x)+sqr(p2.y-p1.y)+sqr(p2.z-p1.z));
-  end;
-
- function Distance2(p1,p2:TVec3d):double; overload;
-  begin
-   result:=p1.Distance2(p2);
-  end;
-
- function Distance2(p1,p2:TVec3):single; overload;
-  begin
-   result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y)+sqr(p2.z-p1.z);
   end;
 
  procedure PointBetween(const p1,p2:TVec3d;t:double;out p:TVec3d); overload;
@@ -974,9 +899,9 @@ implementation
    mv:TMatrix43v absolute m;
   begin
    Transpose(m1,m2);
-   dest[3,0]:=-DotProduct(mv[0],mv[3]);
-   dest[3,1]:=-DotProduct(mv[1],mv[3]);
-   dest[3,2]:=-DotProduct(mv[2],mv[3]);
+   dest[3,0]:=-mv[0].Dot(mv[3]);
+   dest[3,1]:=-mv[1].Dot(mv[3]);
+   dest[3,2]:=-mv[2].Dot(mv[3]);
   end;
  procedure Transpose(const m:TMat34;out dest:TMat34);
   var
@@ -985,9 +910,9 @@ implementation
    mv:TMatrix43vs absolute m;
   begin
    Transpose(m1,m2);
-   dest[3,0]:=-DotProduct(mv[0],mv[3]);
-   dest[3,1]:=-DotProduct(mv[1],mv[3]);
-   dest[3,2]:=-DotProduct(mv[2],mv[3]);
+   dest[3,0]:=-mv[0].Dot(mv[3]);
+   dest[3,1]:=-mv[1].Dot(mv[3]);
+   dest[3,2]:=-mv[2].Dot(mv[3]);
   end;
  procedure Transpose(const m:TMat4d;out dest:TMat4d);
   var
@@ -1497,7 +1422,7 @@ implementation
    xy,xz,yz:single;
    co,si,nco:single;
   begin
-   Normalize(v);
+   v.Normalize;
    x2:=sqr(v.x);
    y2:=sqr(v.y);
    z2:=sqr(v.z);
@@ -1967,7 +1892,7 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
    m[0,0]:=B.x-A.x; m[0,1]:=B.y-A.y; m[0,2]:=B.z-A.z;
    m[1,0]:=C.x-A.x; m[1,1]:=C.y-A.y; m[1,2]:=C.z-A.z;
    m[2,0]:=T.x-O.x; m[2,1]:=T.y-O.y; m[2,2]:=T.z-O.z;
-   Normalize(mv[2]);
+   mv[2].Normalize;
    dt:=det(m);
    result:=false;
    if abs(dt)<0.0001 then exit;
@@ -2075,21 +2000,21 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
    mv:TMatrix43v absolute m;
   begin
    m:=mat;
-   Normalize(mv[0]);
-   Normalize(mv[1]);
-   Normalize(mv[2]);
-   skewA:=DotProduct(mv[0],mv[1]);
-   skewB:=DotProduct(mv[2],mv[0]); // !??
-   skewC:=DotProduct(mv[2],mv[1]); // !??
+   mv[0].Normalize;
+   mv[1].Normalize;
+   mv[2].Normalize;
+   skewA:=mv[0].Dot(mv[1]);
+   skewB:=mv[2].Dot(mv[0]); // !??
+   skewC:=mv[2].Dot(mv[1]); // !??
    mv[1].x:=mv[1].x-mv[0].x*skewA;
    mv[1].y:=mv[1].y-mv[0].y*skewA;
    mv[1].z:=mv[1].z-mv[0].z*skewA;
-   Normalize(mv[1]);
-   mv[2]:=CrossProduct(mv[0],mv[1]);
+   mv[1].Normalize;
+   mv[2]:=mv[0].Cross(mv[1]);
 
    v:=mv[0]; v.z:=0;
    if v.Length2<0.000001 then Yaw:=0 else begin
-    Normalize(v);
+    v.Normalize;
     if v.x<-0.999 then Yaw:=pi else begin
      Yaw:=arccos(v.x);
      if v.y<0 then Yaw:=-Yaw;
@@ -2124,8 +2049,15 @@ function TVec3d.IsValid: boolean;
  end;
 
 procedure TVec3d.Normalize;
+ var
+  l:double;
  begin
-  Apus.Geom3D.Normalize(self);
+  l:=Length;
+  ASSERT(l>Epsilon,'Normalize zero-length vector');
+  l:=1/l;
+  x:=x*l;
+  y:=y*l;
+  z:=z*l;
  end;
 
 function TVec3d.Length:double;
@@ -2200,8 +2132,15 @@ constructor TVec3.Init(p0,p1:TVec3;t:single);
  end;
 
 procedure TVec3.Normalize;
+ var
+  l:single;
  begin
-  Apus.Geom3D.Normalize(self);
+  l:=Length;
+  ASSERT(l>EpsilonS,'Normalize zero-length vector');
+  l:=1/l;
+  x:=x*l;
+  y:=y*l;
+  z:=z*l;
  end;
 
 constructor TVec3.SetBetween(p0,p1:TVec3;t:single);
