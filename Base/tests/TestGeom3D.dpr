@@ -69,7 +69,7 @@ begin
   m3:=MultMat(m3,mInv);
   Check(IsEqual(m3,IdentMat4),'InvertFull');
 
-  v:=QuaternionS(1,2,3,1);
+  v:=Quat(1,2,3,1);
   MultPnt(IdentMat4,@v,1,SizeOf(v));
   Check((Abs(v.x-1)<0.0001) and (Abs(v.y-2)<0.0001) and (Abs(v.z-3)<0.0001),'MultPnt identity');
   EndTest;
@@ -78,7 +78,7 @@ end;
 procedure TestQuaternionConversions;
 var
   m,m2:TMat3;
-  q:TQuaternionS;
+  q:TQuat;
 begin
   StartTest('Quaternion conversions');
   m:=RotationAroundVector(TVec3.Init(1,2,3),1.25);
@@ -132,7 +132,7 @@ var
   m4:TMat4;
   m4dd:TMat4d;
   q:TVec4;
-  tr,rot,sca:TQuaternionS;
+  tr,rot,sca:TQuat;
   trd,rotd,scad:TQuatd;
   qd:TQuatd;
 begin
@@ -167,16 +167,16 @@ begin
   m4d:=Matrix4(m43); // keep conversion path in test
   Check(Abs(Det(IdentMat4)-1)<0.0001,'Det');
 
-  q:=QuaternionS(1,2,3,4);
+  q:=Quat(1,2,3,4);
   v:=MatRow(IdentMat4,0);
   v:=MatCol(IdentMat4,0);
-  q:=Vector4s(p0);
-  q:=QuaternionS(0,0,0,1);
+  q:=Vec4(p0);
+  q:=Quat(0,0,0,1);
   Check(Abs(QLength(q)-1)<0.0001,'QLength');
   QNormalize(q);
   q:=QInvert(q);
-  q:=QMult(q,QuaternionS(0,0,0,1));
-  q:=QInterpolate(q,QuaternionS(0,0,0,1),0.5);
+  q:=QMult(q,Quat(0,0,0,1));
+  q:=QInterpolate(q,Quat(0,0,0,1),0.5);
   Check(q.IsValid,'Quaternion ops');
 
   m4:=TranslationMat4(5,6,7);
@@ -311,6 +311,8 @@ begin
   end;
   writeln('All OK');
 end.
+
+
 
 
 

@@ -88,14 +88,16 @@ type
   TAnimatedValue = Apus.AnimatedValues.TAnimatedValue;
 
   // Geom2D
-  TPoint2s = Apus.Geom2D.TPoint2s;
-  TVector2s = Apus.Geom2D.TVector2s;
+  TVec2 = Apus.Geom2D.TVec2;
+  TVec2 = Apus.Geom2D.TVec2;
 
   // Geom3D
-  TPoint3s = Apus.Geom3D.TPoint3s;
-  TVector3s = Apus.Geom3D.TVector3s;
-  TQuaternionS = Apus.Geom3D.TQuaternionS;
+  TVec3 = Apus.Geom3D.TVec3;
+  TVec3 = Apus.Geom3D.TVec3;
+  TQuat = Apus.Geom3D.TQuat;
 
 
 implementation
 end.
+
+

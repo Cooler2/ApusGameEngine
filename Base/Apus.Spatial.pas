@@ -1,4 +1,4 @@
-// -----------------------------------------------------
+﻿// -----------------------------------------------------
 // Spatial primitives and intersection helpers
 // Author: Apus Engine contributors
 // ------------------------------------------------------
@@ -174,7 +174,7 @@ end;
 function TBBox3.Center:TVec3;
 begin
   if IsEmpty then begin
-    exit(NullPointS);
+    exit(NullVec3);
   end;
   result:=TVec3.Init((minX+maxX)*0.5,(minY+maxY)*0.5,(minZ+maxZ)*0.5);
 end;
@@ -182,7 +182,7 @@ end;
 function TBBox3.Extents:TVec3;
 begin
   if IsEmpty then begin
-    exit(NullPointS);
+    exit(NullVec3);
   end;
   result:=TVec3.Init((maxX-minX)*0.5,(maxY-minY)*0.5,(maxZ-minZ)*0.5);
 end;
@@ -433,14 +433,14 @@ begin
   end;
 
   // near/far
-  planes[0]:=QuaternionS(mvp[3, 0] + mvp[2, 0], mvp[3, 1] + mvp[2, 1], mvp[3, 2] + mvp[2, 2], mvp[3, 3] + mvp[2, 3]);
-  planes[1]:=QuaternionS(mvp[3, 0] - mvp[2, 0], mvp[3, 1] - mvp[2, 1], mvp[3, 2] - mvp[2, 2], mvp[3, 3] - mvp[2, 3]);
+  planes[0]:=Quat(mvp[3, 0] + mvp[2, 0], mvp[3, 1] + mvp[2, 1], mvp[3, 2] + mvp[2, 2], mvp[3, 3] + mvp[2, 3]);
+  planes[1]:=Quat(mvp[3, 0] - mvp[2, 0], mvp[3, 1] - mvp[2, 1], mvp[3, 2] - mvp[2, 2], mvp[3, 3] - mvp[2, 3]);
   // left/right
-  planes[2]:=QuaternionS(mvp[3, 0] + mvp[0, 0], mvp[3, 1] + mvp[0, 1], mvp[3, 2] + mvp[0, 2], mvp[3, 3] + mvp[0, 3]);
-  planes[3]:=QuaternionS(mvp[3, 0] - mvp[0, 0], mvp[3, 1] - mvp[0, 1], mvp[3, 2] - mvp[0, 2], mvp[3, 3] - mvp[0, 3]);
+  planes[2]:=Quat(mvp[3, 0] + mvp[0, 0], mvp[3, 1] + mvp[0, 1], mvp[3, 2] + mvp[0, 2], mvp[3, 3] + mvp[0, 3]);
+  planes[3]:=Quat(mvp[3, 0] - mvp[0, 0], mvp[3, 1] - mvp[0, 1], mvp[3, 2] - mvp[0, 2], mvp[3, 3] - mvp[0, 3]);
   // top/bottom
-  planes[4]:=QuaternionS(mvp[3, 0] - mvp[1, 0], mvp[3, 1] - mvp[1, 1], mvp[3, 2] - mvp[1, 2], mvp[3, 3] - mvp[1, 3]);
-  planes[5]:=QuaternionS(mvp[3, 0] + mvp[1, 0], mvp[3, 1] + mvp[1, 1], mvp[3, 2] + mvp[1, 2], mvp[3, 3] + mvp[1, 3]);
+  planes[4]:=Quat(mvp[3, 0] - mvp[1, 0], mvp[3, 1] - mvp[1, 1], mvp[3, 2] - mvp[1, 2], mvp[3, 3] - mvp[1, 3]);
+  planes[5]:=Quat(mvp[3, 0] + mvp[1, 0], mvp[3, 1] + mvp[1, 1], mvp[3, 2] + mvp[1, 2], mvp[3, 3] + mvp[1, 3]);
 
   NormalizePlane(planes[0]);
   NormalizePlane(planes[1]);
@@ -492,4 +492,6 @@ begin
 end;
 
 end.
+
+
 

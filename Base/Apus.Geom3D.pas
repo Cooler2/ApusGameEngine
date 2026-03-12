@@ -66,20 +66,20 @@ interface
     3:( xyz:TVec3d; t:double; );
   end;
 
-  { TQuaternionS }
+  { TQuat }
 
-  TQuaternionS=record
+  TQuat=record
    constructor Init(x,y,z,w:single); overload;
    constructor Init(vec3:TVec3); overload;
    constructor Init(q:TQuatd); overload;
-   procedure Test(var q:TQuaternionS);
-   procedure Add(var q:TQuaternionS); overload;
-   procedure Add(var q:TQuaternionS;scale:single); overload;
-   procedure Middle(var q:TQuaternionS;weight:single);  // interpolate between current value and Q
-   procedure Sub(var q:TQuaternionS); overload;
+   procedure Test(var q:TQuat);
+   procedure Add(var q:TQuat); overload;
+   procedure Add(var q:TQuat;scale:single); overload;
+   procedure Middle(var q:TQuat;weight:single);  // interpolate between current value and Q
+   procedure Sub(var q:TQuat); overload;
    procedure Mul(scalar:single); overload;
-   procedure Mul(var q:TQuaternionS); overload;
-   function DotProd(var q:TQuaternionS):single;
+   procedure Mul(var q:TQuat); overload;
+   function DotProd(var q:TQuat):single;
    function Length:single;
    function Length2:single; // Square length
    procedure Normalize;
@@ -92,7 +92,7 @@ interface
 
   TVector4=TQuatd;
   PVector4=^TVector4;
-  TVec4=TQuaternionS;
+  TVec4=TQuat;
   PVec4=^TVec4;
 
   // Infinite plane in space
@@ -141,18 +141,18 @@ interface
   IdentMat4:TMat4=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
 
   NullPoint:TVec3d=(x:0;y:0;z:0);
-  NullPointS:TVec3=(x:0;y:0;z:0);
+  NullVec3:TVec3=(x:0;y:0;z:0);
   InvalidPoint3:TVec3d=(x:NaN;y:NaN;z:NaN);
-  InvalidPoint3s:TVec3=(x:NaN;y:NaN;z:NaN);
+  InvalidVec3:TVec3=(x:NaN;y:NaN;z:NaN);
 
  function Point3(x,y,z:double):TVec3d; overload; inline;
  function Point3(p:TVec3):TVec3d; overload; inline;
  function Vector3(x,y,z:double):TVec3d; overload; inline;
  function Vector3(from,target:TVec3d):TVec3d; overload; inline;
  function Vector4(vector:TVec3d):TVector4; overload; inline;
- function Vector4s(vector:TVec3):TVec4; overload; inline;
+ function Vec4(vector:TVec3):TVec4; overload; inline;
  function Quaternion(x,y,z,w:double):TQuatd; overload; inline;
- function QuaternionS(x,y,z,w:single):TQuaternionS; overload; inline;
+ function Quat(x,y,z,w:single):TQuat; overload; inline;
  // Matrix conversion
  function Matrix4(from:TMat34d):TMat4d; overload;
  function Matrix4(from:TMat4):TMat4d; overload;
@@ -164,11 +164,11 @@ interface
  function ToMat3(from:TMat4):TMat3; overload;
 
  // Extract matrix row/column
- function MatRow(const mat:TMat4; n:integer):TQuaternionS; overload; inline;
+ function MatRow(const mat:TMat4; n:integer):TQuat; overload; inline;
  function MatRow(const mat:TMat4d;  n:integer):TQuatd;  overload; inline;
  function MatRow(const mat:TMat34;n:integer):TVec3; overload; inline;
  function MatRow(const mat:TMat3; n:integer):TVec3; overload; inline;
- function MatCol(const mat:TMat4; n:integer):TQuaternionS; overload;
+ function MatCol(const mat:TMat4; n:integer):TQuat; overload;
  function MatCol(const mat:TMat4d;  n:integer):TQuatd; overload;
  function MatCol(const mat:TMat34;n:integer):TVec3; overload;
  function MatCol(const mat:TMat3; n:integer):TVec3; overload;
@@ -253,37 +253,37 @@ interface
 
  // Build rotation matrix from a NORMALIZED quaternion
  procedure MatrixFromQuaternion(const q:TQuatd;out mat:TMat3d); overload;
- procedure MatrixFromQuaternion(const q:TQuaternionS;out mat:TMat3); overload;
- procedure MatrixFromQuaternion(const q:TQuaternionS;out mat:TMat4); overload;
+ procedure MatrixFromQuaternion(const q:TQuat;out mat:TMat3); overload;
+ procedure MatrixFromQuaternion(const q:TQuat;out mat:TMat4); overload;
  procedure QuaternionToMatrix(const q:TQuatd;out mat:TMat3d); overload; inline; // alias
- procedure QuaternionToMatrix(const q:TQuaternionS;out mat:TMat3); overload; inline; // alias
+ procedure QuaternionToMatrix(const q:TQuat;out mat:TMat3); overload; inline; // alias
 
  // Convert an ORTHOGONAL matrix to quaternion
- function MatrixToQuaternion(const mat:TMat3):TQuaternionS; overload;
+ function MatrixToQuaternion(const mat:TMat3):TQuat; overload;
  function MatrixToQuaternion(const mat:TMat3d):TQuatd; overload;
 
  // Extract translation rotation and scale from transformation matrix
- procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuaternionS); overload;
+ procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat); overload;
  procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd); overload;
 
  // Quaternion operations
  function QLength(q:TQuatd):double; overload;
- function QLength(q:TQuaternionS):single; overload;
+ function QLength(q:TQuat):single; overload;
 
  procedure QScale(var q:TQuatd;val:double); overload;
- procedure QScale(var q:TQuaternionS;val:single); overload;
+ procedure QScale(var q:TQuat;val:single); overload;
 
  procedure QNormalize(var q:TQuatd); overload;
- procedure QNormalize(var q:TQuaternionS); overload;
+ procedure QNormalize(var q:TQuat); overload;
 
  function QInvert(q:TQuatd):TQuatd; overload;
- function QInvert(q:TQuaternionS):TQuaternionS; overload;
+ function QInvert(q:TQuat):TQuat; overload;
 
  function QMult(q1,q2:TQuatd):TQuatd; overload;
- function QMult(q1,q2:TQuaternionS):TQuaternionS; overload;
+ function QMult(q1,q2:TQuat):TQuat; overload;
 
  // SLERP (!??) linear interpolation from Q1 to Q2 with factor changing from 0 to 1 (factor=0 -> Q1; factor=1 -> Q2)
- function QInterpolate(Q1,Q2:TQuaternionS;factor:single):TQuaternionS;
+ function QInterpolate(Q1,Q2:TQuat;factor:single):TQuat;
 
 
  // РСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РїСЂР°РІРѕСЃС‚РѕСЂРѕРЅРЅСЏСЏ РЎРљ, РѕСЃСЊ Z - РІРІРµСЂС….
@@ -400,7 +400,7 @@ implementation
    result.w:=1;
   end;
 
- function Vector4s(vector:TVec3):TVec4; overload; inline;
+ function Vec4(vector:TVec3):TVec4; overload; inline;
   begin
    result.x:=vector.x;
    result.y:=vector.y;
@@ -416,7 +416,7 @@ implementation
    result.w:=w;
   end;
 
- function QuaternionS(x,y,z,w:single):TQuaternionS; overload; inline;
+ function Quat(x,y,z,w:single):TQuat; overload; inline;
   begin
    result.x:=x;
    result.y:=y;
@@ -510,7 +510,7 @@ implementation
    end;
   end;
 
- function MatRow(const mat:TMat4; n:integer):TQuaternionS;
+ function MatRow(const mat:TMat4; n:integer):TQuat;
   begin
    move(mat[n],result,sizeof(result));
   end;
@@ -530,7 +530,7 @@ implementation
    move(mat[n],result,sizeof(result));
   end;
 
- function MatCol(const mat:TMat4; n:integer):TQuaternionS;
+ function MatCol(const mat:TMat4; n:integer):TQuat;
   begin
    result.x:=mat[0,n];
    result.y:=mat[1,n];
@@ -1388,7 +1388,7 @@ implementation
     result.z:=result.z/t;
    end else
    if t<=0 then
-    result:=InvalidPoint3s;
+    result:=InvalidVec3;
   end;
 
  function TransformPoint(const m:TMat4d;v:PVec3d):TVec3d; overload;
@@ -1608,7 +1608,7 @@ implementation
    mat[2,0]:=xz-wy;        mat[2,1]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
   end;
 
- procedure MatrixFromQuaternion(const q:TQuaternionS;out mat:TMat3); overload;
+ procedure MatrixFromQuaternion(const q:TQuat;out mat:TMat3); overload;
   var
    wx,wy,wz,xx,yy,yz,xy,xz,zz,x2,y2,z2:single;
   begin
@@ -1624,7 +1624,7 @@ implementation
    mat[0,2]:=xz-wy;        mat[1,2]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
   end;
 
- procedure MatrixFromQuaternion(const q:TQuaternionS;out mat:TMat4); overload;
+ procedure MatrixFromQuaternion(const q:TQuat;out mat:TMat4); overload;
   var
    wx,wy,wz,xx,yy,yz,xy,xz,zz,x2,y2,z2:single;
   begin
@@ -1647,13 +1647,13 @@ implementation
   begin
    MatrixFromQuaternion(q,mat);
   end;
- procedure QuaternionToMatrix(const q:TQuaternionS;out mat:TMat3); overload;
+ procedure QuaternionToMatrix(const q:TQuat;out mat:TMat3); overload;
   begin
    MatrixFromQuaternion(q,mat);
   end;
 
  // https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
- function MatrixToQuaternion(const mat:TMat3):TQuaternionS; overload;
+ function MatrixToQuaternion(const mat:TMat3):TQuat; overload;
   var
    t,k:single;
   begin
@@ -1730,9 +1730,9 @@ implementation
   end;
 
  // If matrix is not orthogonal, the shear will be lost
- procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuaternionS);
+ procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat);
   var
-   qX,qY,qZ:TQuaternionS;
+   qX,qY,qZ:TQuat;
    mat3:TMat3;
    v:single;
   begin
@@ -1817,7 +1817,7 @@ implementation
    result:=Sqrt(q.w*q.w+q.x*q.x+q.y*q.y+q.z*q.z);
   end;
 
- function QLength(q:TQuaternionS):single; overload;
+ function QLength(q:TQuat):single; overload;
   begin
    result:=Sqrt(q.w*q.w+q.x*q.x+q.y*q.y+q.z*q.z);
   end;
@@ -1829,7 +1829,7 @@ implementation
    q.y:=q.y*val;
    q.z:=q.z*val;
   end;
- procedure QScale(var q:TQuaternionS;val:single); overload;
+ procedure QScale(var q:TQuat;val:single); overload;
   begin
    q.w:=q.w*val;
    q.x:=q.x*val;
@@ -1841,7 +1841,7 @@ implementation
   begin
    QScale(q,1/QLength(q));
   end;
- procedure QNormalize(var q:TQuaternionS); overload;
+ procedure QNormalize(var q:TQuat); overload;
   begin
    QScale(q,1/QLength(q));
   end;
@@ -1854,7 +1854,7 @@ implementation
    result.z:=-q.z;
    QNormalize(result);
   end;
- function QInvert(q:TQuaternionS):TQuaternionS; overload;
+ function QInvert(q:TQuat):TQuat; overload;
   begin
    result.w:=q.w;
    result.x:=-q.x;
@@ -1880,7 +1880,7 @@ implementation
    result.y:=-C+( E-F+G-H)*0.5;
    result.z:=-D+( E-F-G+H)*0.5;
   end;
- function QMult(q1,q2:TQuaternionS):TQuaternionS; overload;
+ function QMult(q1,q2:TQuat):TQuat; overload;
   var
    a,b,c,d,e,f,g,h:single;
   begin
@@ -1898,7 +1898,7 @@ implementation
    result.z:=-D+( E-F-G+H)*0.5;
   end;
 
- function QInterpolate(q1,q2:TQuaternionS;factor:single):TQuaternionS;
+ function QInterpolate(q1,q2:TQuat;factor:single):TQuat;
   var
     cosOmega, sinOmega, scale0, scale1: Single;
   begin
@@ -2342,34 +2342,34 @@ procedure TQuatd.Normalize;
   QNormalize(self);
  end;
 
-{ TQuaternionS }
+{ TQuat }
 
-constructor TQuaternionS.Init(x, y, z, w: single);
+constructor TQuat.Init(x, y, z, w: single);
  begin
   self.x:=x; self.y:=y; self.z:=z; self.w:=w;
  end;
 
-constructor TQuaternionS.Init(vec3:TVec3);
+constructor TQuat.Init(vec3:TVec3);
  begin
   x:=vec3.x; y:=vec3.y; z:=vec3.z; w:=0;
  end;
 
-constructor TQuaternionS.Init(q:TQuatd);
+constructor TQuat.Init(q:TQuatd);
  begin
   x:=q.x; y:=q.y; z:=q.z; w:=q.w;
  end;
 
-function TQuaternionS.IsValid:boolean;
+function TQuat.IsValid:boolean;
  begin
   result:=x=x;
  end;
 
-procedure TQuaternionS.Test;
+procedure TQuat.Test;
  begin
   self:=q;
  end;
 
-function TQuaternionS.Length:single;
+function TQuat.Length:single;
  {$IFDEF CPUx64}
  asm
   {$IFDEF MSWINDOWS}
@@ -2390,7 +2390,7 @@ function TQuaternionS.Length:single;
  end;
  {$ENDIF}
 
-function TQuaternionS.Length2:single;
+function TQuat.Length2:single;
  {$IFDEF CPUx64}
  asm
   {$IFDEF MSWINDOWS}
@@ -2411,7 +2411,7 @@ function TQuaternionS.Length2:single;
  {$ENDIF}
 
 
-procedure TQuaternionS.Normalize;
+procedure TQuat.Normalize;
  {$IFDEF CPUx64}
  asm
   // rcx=@self
@@ -2443,7 +2443,7 @@ procedure TQuaternionS.Normalize;
  {$ENDIF}
 
 
-procedure TQuaternionS.Sub(var q:TQuaternionS);
+procedure TQuat.Sub(var q:TQuat);
  {$IFDEF CPUx64}
  asm
   {$IFDEF UNIX}
@@ -2468,7 +2468,7 @@ procedure TQuaternionS.Sub(var q:TQuaternionS);
  end;
  {$ENDIF}
 
-procedure TQuaternionS.Add(var q:TQuaternionS);
+procedure TQuat.Add(var q:TQuat);
  {$IFDEF CPUx64}
  asm
   {$IFDEF UNIX}
@@ -2493,7 +2493,7 @@ procedure TQuaternionS.Add(var q:TQuaternionS);
  end;
  {$ENDIF}
 
-procedure TQuaternionS.Add(var q:TQuaternionS;scale:single);
+procedure TQuat.Add(var q:TQuat;scale:single);
  {$IFDEF CPUx64}
  asm
   {$IFDEF MSWINDOWS}
@@ -2522,7 +2522,7 @@ procedure TQuaternionS.Add(var q:TQuaternionS;scale:single);
  end;
  {$ENDIF}
 
-procedure TQuaternionS.Middle(var q:TQuaternionS;weight:single);
+procedure TQuat.Middle(var q:TQuat;weight:single);
  {$IFDEF CPUx64}
  asm
   {$IFDEF MSWINDOWS}
@@ -2558,7 +2558,7 @@ procedure TQuaternionS.Middle(var q:TQuaternionS;weight:single);
  end;
  {$ENDIF}
 
-function TQuaternionS.DotProd(var q:TQuaternionS):single;
+function TQuat.DotProd(var q:TQuat):single;
  {$IFDEF CPUx64}
  asm
   {$IFDEF MSWINDOWS}
@@ -2582,7 +2582,7 @@ function TQuaternionS.DotProd(var q:TQuaternionS):single;
  end;
  {$ENDIF}
 
-procedure TQuaternionS.Mul(var q:TQuaternionS);
+procedure TQuat.Mul(var q:TQuat);
  {$IFDEF CPUx64}
  asm
   {$IFDEF MSWINDOWS}
@@ -2607,7 +2607,7 @@ procedure TQuaternionS.Mul(var q:TQuaternionS);
  end;
  {$ENDIF}
 
-procedure TQuaternionS.Mul(scalar:single);
+procedure TQuat.Mul(scalar:single);
  {$IFDEF CPUx64}
  asm
   {$IFDEF MSWINDOWS}
@@ -2638,6 +2638,8 @@ initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
 
 end.
+
+
 
 
 

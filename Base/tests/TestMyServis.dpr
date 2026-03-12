@@ -1815,7 +1815,7 @@ procedure TestThreadStall;
 
 procedure TestSSE;
  var
-  v1,v2,v3:TQuaternionS;
+  v1,v2,v3:TQuat;
   r:single;
  begin
   ASSERT(not IsNan(single(0.0)));
@@ -2220,3 +2220,5 @@ begin
   writeln('--------------------- DONE! ---------------------'#13#10' Everything is OK!');
  if IsDebuggerPresent then readln;
 end.
+
+

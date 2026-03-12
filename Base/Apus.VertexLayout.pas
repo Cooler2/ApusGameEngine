@@ -29,14 +29,14 @@ type
   procedure Init(items:array of TVertexComponent); overload; // pass some TVertexComponent's
   function Equals(l:TVertexLayout):boolean; inline;
   // Field manipulation
-  function GetPos(var vertex):TPoint3s;
+  function GetPos(var vertex):TVec3;
   function GetColor(var vertex):cardinal;
-  function GetNormal(var vertex):TVector3s;
-  function GetUV(var vertex;idx:cardinal=0):TPoint2s;
-  procedure SetPos(var vertex;pos:TPoint3s);
+  function GetNormal(var vertex):TVec3;
+  function GetUV(var vertex;idx:cardinal=0):TVec2;
+  procedure SetPos(var vertex;pos:TVec3);
   procedure SetColor(var vertex;color:cardinal);
-  procedure SetNormal(var vertex;normal:TPoint3s);
-  procedure SetUV(var vertex;uv:TPoint2s);
+  procedure SetNormal(var vertex;normal:TVec3);
+  procedure SetUV(var vertex;uv:TVec2);
   // Describe vertex data
   function DumpVertex(var vertex):string;
  private
@@ -52,7 +52,7 @@ type
   u,v:single;
   procedure Init(x,y,z,u,v:single;color:cardinal=$FF808080); overload; inline;
   procedure Init(x,y,z:single;color:cardinal=$FF808080); overload;
-  procedure Init(pos:TPoint3s;color:cardinal=$FF808080); overload;
+  procedure Init(pos:TVec3;color:cardinal=$FF808080); overload;
   class var layoutTex,layoutNoTex:TVertexLayout;
  end;
 
@@ -76,13 +76,13 @@ type
   extra:single;
   u,v:single;
   procedure Init(x,y,z:single;color:cardinal=$FF808080); overload; inline;
-  procedure Init(pos:TPoint3s;color:cardinal=$FF808080); overload;
+  procedure Init(pos:TVec3;color:cardinal=$FF808080); overload;
   procedure SetPos(pos:TVec4); overload; inline;
-  procedure SetPos(pos:TVector3s); overload; inline;
+  procedure SetPos(pos:TVec3); overload; inline;
   procedure SetNormal(nx,ny,nz:single); overload; inline;
-  procedure SetNormal(n:TVector3s); overload;
+  procedure SetNormal(n:TVec3); overload;
   procedure SetUV(u,v:single); overload; inline;
-  procedure SetUV(uv:TPoint2s); overload;
+  procedure SetUV(uv:TVec2); overload;
   class function Layout(hasUV:boolean=true):TVertexLayout; static;
  end;
 
@@ -129,8 +129,8 @@ class function TVertexLayout.Create(items: array of TVertexComponent):TVertexLay
 
 function TVertexLayout.DumpVertex(var vertex):string;
  var
-  p:TPoint3s;
-  p2:TPoint2s;
+  p:TVec3;
+  p2:TVec2;
   c:cardinal;
  begin
   p:=GetPos(vertex);
@@ -178,16 +178,16 @@ function TVertexLayout.GetColor(var vertex):cardinal;
    else result:=InvalidColor;
  end;
 
-function TVertexLayout.GetNormal(var vertex):TVector3s;
+function TVertexLayout.GetNormal(var vertex):TVec3;
  var
   p:integer;
  begin
   p:=(layout shr 4) and $F;
   if p>0 then GetField(vertex,p*4,sizeof(result),result)
-   else result:=InvalidPoint3s;
+   else result:=InvalidVec3;
  end;
 
-function TVertexLayout.GetPos(var vertex):TPoint3s;
+function TVertexLayout.GetPos(var vertex):TVec3;
  var
   v:cardinal;
  begin
@@ -199,7 +199,7 @@ function TVertexLayout.GetPos(var vertex):TPoint3s;
    GetField(vertex,v*4,sizeof(result),result);
  end;
 
-function TVertexLayout.GetUV(var vertex;idx:cardinal):TPoint2s;
+function TVertexLayout.GetUV(var vertex;idx:cardinal):TVec2;
  var
   p:integer;
  begin
@@ -221,7 +221,7 @@ procedure TVertexLayout.SetColor(var vertex;color:cardinal);
   if p>0 then SetField(vertex,(layout and $F00) shr 6,4,color);
  end;
 
-procedure TVertexLayout.SetNormal(var vertex;normal:TPoint3s);
+procedure TVertexLayout.SetNormal(var vertex;normal:TVec3);
  var
   p:integer;
  begin
@@ -229,7 +229,7 @@ procedure TVertexLayout.SetNormal(var vertex;normal:TPoint3s);
   if p>0 then SetField(vertex,p*4,12,normal);
  end;
 
-procedure TVertexLayout.SetPos(var vertex;pos:TPoint3s);
+procedure TVertexLayout.SetPos(var vertex;pos:TVec3);
  var
   v:cardinal;
  begin
@@ -240,7 +240,7 @@ procedure TVertexLayout.SetPos(var vertex;pos:TPoint3s);
    SetField(vertex,v*4,12,pos); // position3D
  end;
 
-procedure TVertexLayout.SetUV(var vertex;uv:TPoint2s);
+procedure TVertexLayout.SetUV(var vertex;uv:TVec2);
  var
   p:integer;
  begin
@@ -269,7 +269,7 @@ procedure TVertex.Init(x,y,z:single;color:cardinal);
   self.u:=0.5; self.v:=0.5;
  end;
 
-procedure TVertex.Init(pos:TPoint3s;color:cardinal);
+procedure TVertex.Init(pos:TVec3;color:cardinal);
  begin
   Init(pos.x,pos.y,pos.z);
  end;
@@ -328,7 +328,7 @@ procedure TVertex3D.Init(x,y,z:single;color:cardinal);
   self.color:=color;
  end;
 
-procedure TVertex3D.Init(pos:TPoint3s;color:cardinal);
+procedure TVertex3D.Init(pos:TVec3;color:cardinal);
  begin
   Init(pos.x,pos.y,pos.z,color);
  end;
@@ -340,7 +340,7 @@ procedure TVertex3D.SetNormal(nx,ny,nz:single);
   self.nz:=nz;
  end;
 
-procedure TVertex3D.SetNormal(n:TVector3s);
+procedure TVertex3D.SetNormal(n:TVec3);
  begin
   SetNormal(n.x,n.y,n.z);
  end;
@@ -352,14 +352,14 @@ procedure TVertex3D.SetPos(pos:TVec4);
   z:=pos.z;
  end;
 
-procedure TVertex3D.SetPos(pos:TVector3s);
+procedure TVertex3D.SetPos(pos:TVec3);
  begin
   x:=pos.x;
   y:=pos.y;
   z:=pos.z;
  end;
 
-procedure TVertex3D.SetUV(uv:TPoint2s);
+procedure TVertex3D.SetUV(uv:TVec2);
  begin
   SetUV(uv.x,uv.y);
  end;
@@ -386,5 +386,7 @@ class function TVertex3D.Layout(hasUV:boolean=true):TVertexLayout;
 
 
 end.
+
+
 
 
