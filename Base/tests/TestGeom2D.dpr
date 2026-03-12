@@ -163,9 +163,9 @@ begin
   Check(Abs(CrossProduct(v1,v2)+2)<0.0001,'CrossProduct fn');
   Check(Abs(v1.Length-Sqrt(13))<0.0001,'Length');
   Check(Abs(v1.Length2-13)<0.0001,'Length2');
-  VectAdd(v1,v2);
+  v1:=v1+v2;
   Check((Abs(v1.x-6)<0.0001) and (Abs(v1.y-8)<0.0001),'VectAdd');
-  VectSub(v1,v2);
+  v1:=v1.Sub(v2);
   Check((Abs(v1.x-2)<0.0001) and (Abs(v1.y-3)<0.0001),'VectSub');
   v3:=VectMult(v1,v2);
   Check((Abs(v3.x-8)<0.0001) and (Abs(v3.y-15)<0.0001),'VectMult vec');

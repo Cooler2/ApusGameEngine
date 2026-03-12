@@ -128,10 +128,6 @@ interface
  function Distance2(p1,p2:TVec2):single; overload;
  procedure Normalize(var v:TVec2d); overload; inline;
  procedure Normalize(var v:TVec2); overload; inline;
- procedure VectAdd(var a:TVec2d;const b:TVec2d); overload; inline;
- procedure VectSub(var a:TVec2d;const b:TVec2d); overload; inline;
- procedure VectAdd(var a:TVec2;const b:TVec2); inline; overload;
- procedure VectSub(var a:TVec2;const b:TVec2); inline; overload;
  function VectMult(v:TVec2d;value:double):TVec2d; inline; overload;
  function VectMult(a,b:TVec2):TVec2; inline; overload;
  function VectDiv(a,b:TVec2):TVec2; inline;
@@ -284,28 +280,6 @@ implementation
    v.y:=v.y/l;
   end;
 
-
- procedure VectAdd(var a:TVec2d;const b:TVec2d); inline;
-  begin
-   a.Add(b);
-  end;
-
- procedure VectSub(var a:TVec2d;const b:TVec2d);
-  begin
-   a:=a.Sub(b);
-  end;
-
- procedure VectAdd(var a:TVec2;const b:TVec2); inline;
-  begin
-   a.x:=b.x+a.x;
-   a.y:=b.y+a.y;
-  end;
-
- procedure VectSub(var a:TVec2;const b:TVec2);
-  begin
-   a.x:=a.x-b.x;
-   a.y:=a.y-b.y;
-  end;
 
  function VectMult(v:TVec2d;value:double):TVec2d;
   begin
@@ -718,9 +692,9 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    v1,v2,v:TVec2d;
    d,d1,d2:double;
   begin
-   v1:=b; VectSub(v1,a);
-   v2:=c; VectSub(v2,a);
-   v:=pnt; VectSub(v,a);
+   v1:=b.Sub(a);
+   v2:=c.Sub(a);
+   v:=pnt.Sub(a);
    d:=v1.x*v2.y-v1.y*v2.x;
    if d<=epsilon then begin
     result:=-1; exit;
@@ -760,8 +734,8 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    p:=0; c:=0;
    while n>=3 do begin
     // пока есть что отсекать...
-    v1:=vrts^[prev[p]]; VectSub(v1,vrts^[p]);
-    v2:=vrts^[p]; VectSub(v2,vrts^[next[p]]);
+    v1:=vrts^[prev[p]].Sub(vrts^[p]);
+    v2:=vrts^[p].Sub(vrts^[next[p]]);
     // Нужно два условия: 1) угол между векторами в нужную сторону и 2) ни одна вершина не лежит внутри отсекаемого тр-ка.
     fl:=crossProduct(v1,v2)>=0;
     if fl and (n>3) then begin

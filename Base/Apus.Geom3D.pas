@@ -189,9 +189,6 @@ interface
  function CrossProduct(a,b:TVec3):TVec3; overload;
  procedure Normalize(var v:TVec3d); overload;
  procedure Normalize(var v:TVec3); overload;
- procedure VectAdd(var a:TVec3d;b:TVec3d); overload;
- procedure VectAdd(var a:TVec3;b:TVec3); overload;
- procedure VectSub(var a:TVec3d;b:TVec3d);
  procedure VectMult(var a:TVec3d;k:double); overload;
  procedure VectMult(var a:TVec3;k:double); overload;
  function VectMult(a:TVec3d;k:double):TVec3d; overload;
@@ -606,23 +603,6 @@ implementation
    v.x:=v.x*l;
    v.y:=v.y*l;
    v.z:=v.z*l;
-  end;
-
- procedure VectAdd(var a:TVec3d;b:TVec3d);
-  begin
-   a.Add(b);
-  end;
-
- procedure VectAdd(var a:TVec3;b:TVec3);
-  begin
-   a.x:=b.x+a.x;
-   a.y:=b.y+a.y;
-   a.z:=b.z+a.z;
-  end;
-
- procedure VectSub(var a:TVec3d;b:TVec3d);
-  begin
-   a:=a.Sub(b);
   end;
 
  procedure VectMult(var a:TVec3d;k:double);
