@@ -134,7 +134,7 @@ var
   q:TVec4;
   tr,rot,sca:TQuat;
   trd,rotd,scad:TQuatd;
-  qd:TQuatd;
+  qd,qdv:TQuatd;
 begin
   StartTest('Geom3D utility');
   p0:=TVec3.Init(1,2,3);
@@ -192,6 +192,8 @@ begin
   qd:=QuatInvert(qd);
   qd:=QuatMultiply(qd,Quaternion(0,0,0,1));
   Check(qd.IsValid,'Quaternion double ops');
+  qdv:=Vec4(pd);
+  Check(IsEqual(qdv,Quaternion(1,2,3,1),2),'Vec4 double overload');
   QuaternionToMatrix(qd,m3d);
   qd:=MatrixToQuaternion(m3d);
   Check(qd.IsValid,'QuaternionToMatrix double alias');

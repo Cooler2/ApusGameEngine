@@ -101,8 +101,6 @@ interface
     3:( xyz:TVec3; t:single; );
   end;
 
-  TVector4=TQuatd;
-  PVector4=^TVector4;
   TVec4=TQuat;
   PVec4=^TVec4;
 
@@ -160,7 +158,7 @@ interface
  function Point3(p:TVec3):TVec3d; overload; inline;
  function Vector3(x,y,z:double):TVec3d; overload; inline;
  function Direction3(from,target:TVec3d):TVec3d; overload; inline;
- function Vector4(vector:TVec3d):TVector4; overload; inline;
+ function Vec4(vector:TVec3d):TQuatd; overload; inline;
  function Vec4(vector:TVec3):TVec4; overload; inline;
  function Quaternion(x,y,z,w:double):TQuatd; overload; inline;
  function Quat(x,y,z,w:single):TQuat; overload; inline;
@@ -199,7 +197,7 @@ interface
  function IsEqual(v1,v2:TVec3;precision:single=2.0):boolean; overload; inline;
  function IsEqual(v1,v2:TVec4;precision:single=2.0):boolean; overload; inline;
  function IsEqual(v1,v2:TVec3d;precision:single=2.0):boolean; overload; inline;
- function IsEqual(v1,v2:TVector4;precision:single=2.0):boolean; overload; inline;
+ function IsEqual(v1,v2:TQuatd;precision:single=2.0):boolean; overload; inline;
 
  function IsEqual(m1,m2:TMat4d;precision:single=4.0):boolean; overload; inline;
  function IsEqual(m1,m2:TMat4;precision:single=4.0):boolean; overload; inline;
@@ -373,7 +371,7 @@ implementation
    result.z:=target.z-from.z;
   end;
 
- function Vector4(vector:TVec3d):TVector4; overload; inline;
+ function Vec4(vector:TVec3d):TQuatd; overload; inline;
   begin
    result.x:=vector.x;
    result.y:=vector.y;
@@ -603,7 +601,7 @@ implementation
     result:=CompareDouble(@v1,@v2,3,precision);
   end;
 
- function IsEqual(v1,v2:TVector4;precision:single=2.0):boolean; overload; inline;
+ function IsEqual(v1,v2:TQuatd;precision:single=2.0):boolean; overload; inline;
   begin
     result:=CompareDouble(@v1,@v2,4,precision);
   end;
