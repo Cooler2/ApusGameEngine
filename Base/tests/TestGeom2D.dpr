@@ -161,8 +161,8 @@ begin
   v2:=TVec2.Init(4,5);
   Check(Abs(DotProduct(v1,v2)-23)<0.0001,'DotProduct fn');
   Check(Abs(CrossProduct(v1,v2)+2)<0.0001,'CrossProduct fn');
-  Check(Abs(GetLength(v1)-Sqrt(13))<0.0001,'GetLength');
-  Check(Abs(GetSqrLength(v1)-13)<0.0001,'GetSqrLength');
+  Check(Abs(v1.Length-Sqrt(13))<0.0001,'Length');
+  Check(Abs(v1.Length2-13)<0.0001,'Length2');
   VectAdd(v1,v2);
   Check((Abs(v1.x-6)<0.0001) and (Abs(v1.y-8)<0.0001),'VectAdd');
   VectSub(v1,v2);

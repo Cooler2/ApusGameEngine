@@ -122,13 +122,10 @@ interface
  function CrossProduct(const a,b:TVec2d):double; overload; inline;
  function DotProduct(const a,b:TVec2):single; overload; inline;
  function CrossProduct(const a,b:TVec2):single; overload; inline;
- function GetLength(v:TVec2d):double; overload; inline;
- function GetLength(v:TVec2):double; overload; inline;
  function Distance(p1,p2:TVec2d):double; overload;
  function Distance(p1,p2:TVec2):single; overload;
  function Distance2(p1,p2:TVec2d):double; overload;
  function Distance2(p1,p2:TVec2):single; overload;
- function GetSqrLength(v:TVec2d):double; overload; inline;
  procedure Normalize(var v:TVec2d); overload; inline;
  procedure Normalize(var v:TVec2); overload; inline;
  function PointAdd(p:TVec2d;v:TVec2d;factor:double=1.0):TVec2d; inline; overload;
@@ -249,16 +246,6 @@ implementation
    result:=a.x*b.y-a.y*b.x;
   end;
 
- function GetLength(v:TVec2d):double;
-  begin
-   result:=v.Length;
-  end;
-
- function GetLength(v:TVec2):double;
-  begin
-   result:=sqrt(v.x*v.x+v.y*v.y);
-  end;
-
 
  function Distance(p1,p2:TVec2d):double; overload;
   begin
@@ -279,16 +266,11 @@ implementation
   end;
 
 
- function GetSqrLength(v:TVec2d):double;
-  begin
-   result:=v.Length2;
-  end;
-
  procedure Normalize(var v:TVec2d);
   var
    l:double;
   begin
-   l:=GetLength(v);
+   l:=v.Length;
    ASSERT(l>Epsilon,'Normalize zero-length vector');
    v.x:=v.x/l;
    v.y:=v.y/l;
@@ -298,7 +280,7 @@ implementation
   var
    l:double;
   begin
-   l:=GetLength(v);
+   l:=v.Length;
    ASSERT(l>EpsilonS,'Normalize zero-length vector');
    v.x:=v.x/l;
    v.y:=v.y/l;
@@ -696,8 +678,8 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    la,lb:double;
    mv:TMatrix2v absolute m;
   begin
-   la:=GetSqrLength(mv[0]);
-   lb:=GetSqrLength(mv[1]);
+   la:=mv[0].Length2;
+   lb:=mv[1].Length2;
    if (la=0) or (lb=0) then
     raise Exception.Create('Cannot invert matrix!');
    Transp2(m,dest);
@@ -709,8 +691,8 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    la,lb:double;
    mv:TMatrix2v absolute m;
   begin
-   la:=GetSqrLength(mv[0]);
-   lb:=GetSqrLength(mv[1]);
+   la:=mv[0].Length2;
+   lb:=mv[1].Length2;
    if (la=0) or (lb=0) then
     raise Exception.Create('Cannot invert matrix!');
    Transp(m,dest);

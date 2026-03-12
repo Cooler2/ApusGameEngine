@@ -143,8 +143,8 @@ begin
   Check((Abs(p2.x-3)<0.0001) and (Abs(p2.y-4)<0.0001) and (Abs(p2.z-5)<0.0001),'Vector from/to');
   Check(Abs(DotProduct(p0,p1)-40)<0.0001,'DotProduct');
   p2:=CrossProduct(p0,p1);
-  Check(Abs(GetLength(p0)-Sqrt(14))<0.0001,'GetLength');
-  Check(Abs(GetSqrLength(p0)-14)<0.0001,'GetSqrLength');
+  Check(Abs(p0.Length-Sqrt(14))<0.0001,'Length');
+  Check(Abs(p0.Length2-14)<0.0001,'Length2');
   Check(Abs(Distance(p0,p1)-Sqrt(50))<0.0001,'Distance');
   Check(Abs(Distance2(p0,p1)-50)<0.0001,'Distance2');
   pd:=Vector3(1,2,3);

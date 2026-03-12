@@ -187,10 +187,6 @@ interface
  // Векторное произведение: модуль равен площади ромба
  function CrossProduct(a,b:TVec3d):TVec3d; overload;
  function CrossProduct(a,b:TVec3):TVec3; overload;
- function GetLength(v:TVec3d):double; overload;
- function GetLength(v:TVec3):double; overload;
- function GetSqrLength(v:TVec3d):double; overload;
- function GetSqrLength(v:TVec3):single; overload;
  procedure Normalize(var v:TVec3d); overload;
  procedure Normalize(var v:TVec3); overload;
  procedure VectAdd(var a:TVec3d;b:TVec3d); overload;
@@ -590,31 +586,11 @@ implementation
    result.z:=a.x*b.y-a.y*b.x;
   end;
 
- function GetLength(v:TVec3d):double;
-  begin
-   result:=v.Length;
-  end;
-
- function GetLength(v:TVec3):double;
-  begin
-   result:=sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
-  end;
-
- function GetSqrLength(v:TVec3d):double;
-  begin
-   result:=v.Length2;
-  end;
-
- function GetSqrLength(v:TVec3):single;
-  begin
-   result:=v.x*v.x+v.y*v.y+v.z*v.z;
-  end;
-
  procedure Normalize(var v:TVec3d);
   var
    l:double;
   begin
-   l:=GetLength(v);
+   l:=v.Length;
    ASSERT(l>Epsilon,'Normalize zero-length vector');
    l:=1/l;
    v.x:=v.x*l;
@@ -626,7 +602,7 @@ implementation
   var
    l:single;
   begin
-   l:=GetLength(v);
+   l:=v.Length;
    ASSERT(l>EpsilonS,'Normalize zero-length vector');
    l:=1/l;
    v.x:=v.x*l;
@@ -1099,9 +1075,9 @@ implementation
    la,lb,lc:double;
    mv:TMatrix3v absolute m;
   begin
-   la:=GetSqrLength(mv[0]);
-   lb:=GetSqrLength(mv[1]);
-   lc:=GetSqrLength(mv[2]);
+   la:=mv[0].Length2;
+   lb:=mv[1].Length2;
+   lc:=mv[2].Length2;
    if (la=0) or (lb=0) or (lc=0) then
     raise Exception.Create('Cannot invert matrix!');
    Transpose(m,dest);
@@ -1115,9 +1091,9 @@ implementation
    la,lb,lc:double;
    mv:TMatrix43v absolute m;
   begin
-   la:=GetSqrLength(mv[0]);
-   lb:=GetSqrLength(mv[1]);
-   lc:=GetSqrLength(mv[2]);
+   la:=mv[0].Length2;
+   lb:=mv[1].Length2;
+   lc:=mv[2].Length2;
    if (la=0) or (lb=0) or (lc=0) then
     raise Exception.Create('Cannot invert matrix!');
    Transpose(m,dest);
@@ -1131,9 +1107,9 @@ implementation
    la,lb,lc:single;
    mv:TMatrix43vs absolute m;
   begin
-   la:=GetSqrLength(mv[0]);
-   lb:=GetSqrLength(mv[1]);
-   lc:=GetSqrLength(mv[2]);
+   la:=mv[0].Length2;
+   lb:=mv[1].Length2;
+   lc:=mv[2].Length2;
    if (la=0) or (lb=0) or (lc=0) then
     raise Exception.Create('Cannot invert matrix!');
    Transpose(m,dest);
@@ -2147,7 +2123,7 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
    mv[2]:=CrossProduct(mv[0],mv[1]);
 
    v:=mv[0]; v.z:=0;
-   if GetSqrLength(v)<0.000001 then Yaw:=0 else begin
+   if v.Length2<0.000001 then Yaw:=0 else begin
     Normalize(v);
     if v.x<-0.999 then Yaw:=pi else begin
      Yaw:=arccos(v.x);
