@@ -146,12 +146,12 @@ interface
  function Vec2(v:TVec2d):TVec2; overload; inline;
  function Vec2d(x,y:double):TVec2d; overload; inline;
  function Vec2d(v:TVec2):TVec2d; overload; inline;
- function PointBlend(p1,p2:TVec2d;factor:double):TVec2d; overload;
- function PointBlend(p1,p2:TVec2;factor:single):TVec2; overload;
+ function Lerp(p1,p2:TVec2d;factor:double):TVec2d; overload;
+ function Lerp(p1,p2:TVec2;factor:single):TVec2; overload;
  // Setup vector (from source to target)
- function Direction2(source,target:TVec2d):TVec2d; inline;
+ function Direction(source,target:TVec2d):TVec2d; overload; inline;
  // Unit vector with given direction (CCW from X-axis)
- function Direction(angle:double):TVec2d; inline;
+ function Direction(angle:double):TVec2d; overload; inline;
  function IntersectLines(l1,l2:TLine2;out p:TVec2d):TStatus;
 
  // Is point inside trg? (1 - inside, 0 - on border, -1 - outside)
@@ -346,19 +346,19 @@ function TLine2.Deviation(const point:TVec2d):double;
   end;
 
 
- function PointBlend(p1,p2:TVec2d;factor:double):TVec2d;
+ function Lerp(p1,p2:TVec2d;factor:double):TVec2d;
   begin
    result.x:=p1.x*(1-factor)+p2.x*factor;
    result.y:=p1.y*(1-factor)+p2.y*factor;
   end;
 
- function PointBlend(p1,p2:TVec2;factor:single):TVec2;
+ function Lerp(p1,p2:TVec2;factor:single):TVec2;
   begin
    result.x:=p1.x*(1-factor)+p2.x*factor;
    result.y:=p1.y*(1-factor)+p2.y*factor;
   end;
 
- function Direction2(source,target:TVec2d):TVec2d;
+ function Direction(source,target:TVec2d):TVec2d;
   begin
    result.x:=target.x-source.x;
    result.y:=target.y-source.y;

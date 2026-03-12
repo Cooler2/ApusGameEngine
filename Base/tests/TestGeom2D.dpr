@@ -189,6 +189,10 @@ begin
   dv:=dv.Turn90L;
   Check((Abs(dv.x-2)<0.0001) and (Abs(dv.y-3)<0.0001),'Turn90R/L');
   dv.Turn(Pi/2);
+  dv:=Lerp(Point2(0,0),Point2(2,4),0.25);
+  Check((Abs(dv.x-0.5)<0.0001) and (Abs(dv.y-1)<0.0001),'Lerp vec2d');
+  dv:=Direction(Point2(1,1),Point2(4,6));
+  Check((Abs(dv.x-3)<0.0001) and (Abs(dv.y-5)<0.0001),'Direction from-to');
 
   b0:=Point2(0,0);
   b1:=Point2(0,1);
