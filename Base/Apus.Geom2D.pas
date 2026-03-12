@@ -148,13 +148,13 @@ interface
  procedure Turn90Left(var v:TVec2d); inline;
  function Turn90L(v:TVec2d):TVec2d; inline;
  // Angle between vectors (radians)
- function VectAngle(v1,v2:TVec2d):double; overload;
- function VectAngle(v1,v2:TVec2):single; overload;
+ function AngleBetween(v1,v2:TVec2d):double; overload;
+ function AngleBetween(v1,v2:TVec2):single; overload;
  // Angle between vector and X axis (CCW direction if Y is up), -Pi..Pi
- function VectAngle(v:TVec2d):double; overload; inline;
- function VectAngle(v:TVec2):single; overload; inline;
+ function VecDirection(v:TVec2d):double; overload; inline;
+ function VecDirection(v:TVec2):single; overload; inline;
  // how much vector v1 must be rotated in clockwise direction to obtain v2 direction
- function VectAngleClockwise(v1,v2:TVec2d):double; inline;
+ function AngleBetweenCW(v1,v2:TVec2d):double; inline;
  // Difference between 2 directions (angle) (result is signed: from -Pi to +Pi)!
  function AngleDiff(a1,a2:double):double; inline;
 
@@ -406,7 +406,7 @@ implementation
    result.y:=v.x;
   end;
 
- function VectAngle(v1,v2:TVec2d):double;
+ function AngleBetween(v1,v2:TVec2d):double;
   var
    p:double;
   begin
@@ -418,12 +418,12 @@ implementation
    result:=ArcCos(p);
   end;
 
- function VectAngle(v:TVec2d):double;
+ function VecDirection(v:TVec2d):double;
   begin
    result:=ArcTan2(v.y,v.x);
   end;
 
- function VectAngle(v1,v2:TVec2):single;
+ function AngleBetween(v1,v2:TVec2):single;
   var
    p:single;
   begin
@@ -435,16 +435,16 @@ implementation
    result:=ArcCos(p);
   end;
 
- function VectAngle(v:TVec2):single;
+ function VecDirection(v:TVec2):single;
   begin
    result:=ArcTan2(v.y,v.x);
   end;
 
- function VectAngleClockwise(v1,v2:TVec2d):double;
+ function AngleBetweenCW(v1,v2:TVec2d):double;
   var
    a:double;
   begin
-   a:=VectAngle(v1,v2);
+   a:=AngleBetween(v1,v2);
    if CrossProduct(v1,v2)>0 then
     a:=2*pi-a;
    result:=a;

@@ -1,4 +1,4 @@
-﻿{$APPTYPE CONSOLE}
+{$APPTYPE CONSOLE}
 {$EXCESSPRECISION OFF}
 program TestGeom2D;
 
@@ -68,8 +68,8 @@ begin
 
   v:=TVec2.Init(10,0);
   u:=TVec2.Init(0,10);
-  a:=VectAngle(v,u);
-  Check(Abs(a-Pi/2)<0.0001,'VectAngle');
+  a:=AngleBetween(v,u);
+  Check(Abs(a-Pi/2)<0.0001,'AngleBetween');
   Check(Abs(AngleDiff(Pi,-Pi))<0.0001,'AngleDiff wrap');
 
   vd:=Point2(1.2,-0.3);
@@ -173,7 +173,7 @@ begin
   Check((Abs(v3.x-2)<0.0001) and (Abs(v3.y-1.666666)<0.01),'VectDiv');
   VectInv(v3);
   Check((Abs(v3.x-0.5)<0.0001) and (Abs(v3.y-0.6)<0.01),'VectInv');
-  Check(Abs(VectAngleClockwise(Point2(1,0),Point2(0,1))-3*Pi/2)<0.0001,'VectAngleClockwise');
+  Check(Abs(AngleBetweenCW(Point2(1,0),Point2(0,1))-3*Pi/2)<0.0001,'AngleBetweenCW');
   dv:=Point2(2,3);
   Turn90Right(dv);
   Turn90Left(dv);
