@@ -20,7 +20,7 @@ interface
   TStatus=(intNone,intPoint,intSegment,intLine);
 
   // Point on plane
-  TPoint2=packed record
+  TVec2d=packed record
    x,y:double;
    constructor Init(x,y:double); overload;
    constructor Init(pnt:TPoint); overload;
@@ -28,8 +28,10 @@ interface
    function IsValid:boolean; inline;
    procedure Wrap(max:double); inline;
   end;
-  TVector2=TPoint2; // Alias for point type
-  PPoint2=^TPoint2;
+  TPoint2=TVec2d deprecated 'Use TVec2d';
+  TVector2=TVec2d deprecated 'Use TVec2d';
+  PVec2d=^TVec2d;
+  PPoint2=^TVec2d;
 
   TVec2=packed record
    x,y:single;
@@ -45,8 +47,8 @@ interface
    procedure Wrap(max:single); inline;
    class operator Implicit(a:TPointF):TVec2;
    class operator Implicit(a:TPoint):TVec2;
-   class operator Implicit(a:TPoint2):TVec2;
-   class operator Implicit(a:TVec2):TPoint2;
+   class operator Implicit(a:TVec2d):TVec2;
+   class operator Implicit(a:TVec2):TVec2d;
    class operator Equal(a,b:TVec2):boolean;
    class operator Negative(a:TVec2):TVec2;
    class operator Add(a,b:TVec2):TVec2;
@@ -96,8 +98,8 @@ interface
   TMatrix32s=array[0..2,0..1] of single;
   TMat2=TMatrix2s;
   // Vector versions
-  TMatrix2v=array[0..1] of TVector2;
-  TMatrix32v=array[0..2] of TVector2;
+  TMatrix2v=array[0..1] of TVec2d;
+  TMatrix32v=array[0..2] of TVec2d;
   TMatrix32sv=array[0..2] of TVector2s;
 
 
@@ -108,73 +110,73 @@ interface
   IdentMatrix2s:TMatrix2s=((1,0),(0,1));
   IdentMatrix32s:TMatrix32s=((1,0),(0,1),(0,0));
 
-  InvalidPoint2:TPoint2=(x:NaN;y:NaN);
+  InvalidPoint2:TVec2d=(x:NaN;y:NaN);
   InvalidPoint2s:TPoint2s=(x:NaN;y:NaN);
 
  // Vector functions
- function DotProduct(const a,b:TVector2):double; overload; inline;
- function CrossProduct(const a,b:TVector2):double; overload; inline;
+ function DotProduct(const a,b:TVec2d):double; overload; inline;
+ function CrossProduct(const a,b:TVec2d):double; overload; inline;
  function DotProduct(const a,b:TVec2):single; overload; inline;
  function CrossProduct(const a,b:TVec2):single; overload; inline;
- function GetLength(v:TVector2):double; overload; inline;
+ function GetLength(v:TVec2d):double; overload; inline;
  function GetLength(v:TVec2):double; overload; inline;
- function Distance(p1,p2:TPoint2):double; overload;
+ function Distance(p1,p2:TVec2d):double; overload;
  function Distance(p1,p2:TVec2):single; overload;
- function Distance2(p1,p2:TPoint2):double; overload;
+ function Distance2(p1,p2:TVec2d):double; overload;
  function Distance2(p1,p2:TVec2):single; overload;
- function GetSqrLength(v:TVector2):double; overload; inline;
- procedure Normalize(var v:TVector2); overload; inline;
+ function GetSqrLength(v:TVec2d):double; overload; inline;
+ procedure Normalize(var v:TVec2d); overload; inline;
  procedure Normalize(var v:TVec2); overload; inline;
- function PointAdd(p:TPoint2;v:TVector2;factor:double=1.0):TPoint2; inline; overload;
+ function PointAdd(p:TVec2d;v:TVec2d;factor:double=1.0):TVec2d; inline; overload;
  function PointAdd(p:TVec2;v:TVec2;factor:double=1.0):TVec2; inline; overload;
- procedure VectAdd(var a:TVector2;const b:TVector2); overload; inline;
- procedure VectSub(var a:Tvector2;const b:TVector2); overload; inline;
+ procedure VectAdd(var a:TVec2d;const b:TVec2d); overload; inline;
+ procedure VectSub(var a:TVec2d;const b:TVec2d); overload; inline;
  procedure VectAdd(var a:TVec2;const b:TVec2); inline; overload;
  procedure VectSub(var a:TVec2;const b:TVec2); inline; overload;
- function VectMult(v:TVector2;value:double):TVector2; inline; overload;
+ function VectMult(v:TVec2d;value:double):TVec2d; inline; overload;
  function VectMult(a,b:TVec2):TVec2; inline; overload;
  function VectDiv(a,b:TVec2):TVec2; inline;
  procedure VectInv(var v:TVec2); inline;
  // Turn counterclockwise (angle in radians)
- procedure VectTurn(var v:TVector2;angle:double); inline;
- procedure Turn90Right(var v:TVector2);  inline;
- function Turn90R(v:TVector2):TVector2; inline;
- procedure Turn90Left(var v:TVector2); inline;
- function Turn90L(v:TVector2):TVector2; inline;
+ procedure VectTurn(var v:TVec2d;angle:double); inline;
+ procedure Turn90Right(var v:TVec2d);  inline;
+ function Turn90R(v:TVec2d):TVec2d; inline;
+ procedure Turn90Left(var v:TVec2d); inline;
+ function Turn90L(v:TVec2d):TVec2d; inline;
  // Angle between vectors (radians)
- function VectAngle(v1,v2:TVector2):double; overload;
+ function VectAngle(v1,v2:TVec2d):double; overload;
  function VectAngle(v1,v2:TVec2):single; overload;
  // Angle between vector and X axis (CCW direction if Y is up), -Pi..Pi
- function VectAngle(v:TVector2):double; overload; inline;
+ function VectAngle(v:TVec2d):double; overload; inline;
  function VectAngle(v:TVec2):single; overload; inline;
  // how much vector v1 must be rotated in clockwise direction to obtain v2 direction
- function VectAngleClockwise(v1,v2:TVector2):double; inline;
+ function VectAngleClockwise(v1,v2:TVec2d):double; inline;
  // Difference between 2 directions (angle) (result is signed: from -Pi to +Pi)!
  function AngleDiff(a1,a2:double):double; inline;
 
  // Comparison
- function AboutEqual(a,b:TPoint2):boolean; inline;
+ function AboutEqual(a,b:TVec2d):boolean; inline;
  // Lexicographical compare (-1 if a<b, 0 if a=b, 1 if a>b)
- function LexCompare(a,b:TPoint2):integer; inline;
+ function LexCompare(a,b:TVec2d):integer; inline;
 
  // Setup point
- function Point2(x,y:double):TPoint2; overload; inline;
- function Point2(pnt:TVec2):TPoint2; overload; inline;
+ function Point2(x,y:double):TVec2d; overload; inline;
+ function Point2(pnt:TVec2):TVec2d; overload; inline;
  function Point2s(x,y:double):TVec2; overload; inline;
- function Point2s(pnt:TPoint2):TVec2; overload; inline;
- function PointBlend(p1,p2:TPoint2;factor:double):TPoint2; overload;
+ function Point2s(pnt:TVec2d):TVec2; overload; inline;
+ function PointBlend(p1,p2:TVec2d;factor:double):TVec2d; overload;
  function PointBlend(p1,p2:TVec2;factor:single):TVec2; overload;
  // Setup vector (from source to target)
- function Vector2(source,target:TPoint2):TVector2; inline;
+ function Vector2(source,target:TVec2d):TVec2d; inline;
  function Vector2s(source,target:TVec2):TVec2; inline;
  // Unit vector with given direction (CCW from X-axis)
- function Direction(angle:double):TVector2; inline;
+ function Direction(angle:double):TVec2d; inline;
  // Setup line by points
- procedure SetLine(a,b:TPoint2;out line:TLine2);
- function IntersectLines(l1,l2:TLine2;out p:TPoint2):TStatus;
+ procedure SetLine(a,b:TVec2d;out line:TLine2);
+ function IntersectLines(l1,l2:TLine2;out p:TVec2d):TStatus;
 
  // Is point inside trg? (1 - inside, 0 - on border, -1 - outside)
- function PointInTrg(a,b,c,pnt:TPoint2):integer;
+ function PointInTrg(a,b,c,pnt:TVec2d):integer;
 
  // Returns random point in a circle (0,0,R)
  function RandomPointInCircle(r:single):TVec2;
@@ -184,17 +186,17 @@ interface
  function Segment2(x1,y1,x2,y2:double):TSegment2; overload;
  // Segment operations
  // Locate point at segment (parameter: 0..1, deviation is absolute)
- procedure PointOnSegment(segm:TSegment2;pnt:TPoint2;
+ procedure PointOnSegment(segm:TSegment2;pnt:TVec2d;
              out parameter,deviation:double);
  function IntersectSegm(s1,s2:Tsegment2;
-            out p:TPoint2;out param1,param2:double):TStatus;
+            out p:TVec2d;out param1,param2:double):TStatus;
  function SegmAboutZero(segm:TSegment2):boolean;
 
  // Point deviation
- function PointDev2(line:TLine2;point:TPoint2):double; inline;
+ function PointDev2(line:TLine2;point:TVec2d):double; inline;
 
  // Calculate Bezier curve from p0 to p3 with control points p1 and p2 (t = 0..1)
- function Bezier2D(var p0,p1,p2,p3:TPoint2;t:double):TPoint2;
+ function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
 
  // Integer operations
  // взаимное расположение пр-ков: 0 - не пересекаются, 1 - r1 внутри r2, 2 - r2 внутри r1, 4 - пересекаются
@@ -235,12 +237,12 @@ interface
 implementation
  uses Math, Apus.Types, Apus.Core, SysUtils;
 
- function DotProduct(const a,b:TVector2):double;
+ function DotProduct(const a,b:TVec2d):double;
   begin
    result:=a.x*b.x+a.y*b.y;
   end;
 
- function CrossProduct(const a,b:TVector2):double;
+ function CrossProduct(const a,b:TVec2d):double;
   begin
    result:=a.x*b.y-a.y*b.x;
   end;
@@ -255,7 +257,7 @@ implementation
    result:=a.x*b.y-a.y*b.x;
   end;
 
- function GetLength(v:TVector2):double;
+ function GetLength(v:TVec2d):double;
   begin
    result:=sqrt(v.x*v.x+v.y*v.y);
   end;
@@ -266,7 +268,7 @@ implementation
   end;
 
 
- function Distance(p1,p2:TPoint2):double; overload;
+ function Distance(p1,p2:TVec2d):double; overload;
   begin
    result:=sqrt(sqr(p2.x-p1.x)+sqr(p2.y-p1.y));
   end;
@@ -275,7 +277,7 @@ implementation
    result:=sqrt(sqr(p2.x-p1.x)+sqr(p2.y-p1.y));
   end;
 
- function Distance2(p1,p2:TPoint2):double; overload;
+ function Distance2(p1,p2:TVec2d):double; overload;
   begin
    result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y);
   end;
@@ -285,12 +287,12 @@ implementation
   end;
 
 
- function GetSqrLength(v:TVector2):double;
+ function GetSqrLength(v:TVec2d):double;
   begin
    result:=v.x*v.x+v.y*v.y;
   end;
 
- procedure Normalize(var v:TVector2);
+ procedure Normalize(var v:TVec2d);
   var
    l:double;
   begin
@@ -311,13 +313,13 @@ implementation
   end;
 
 
- procedure VectAdd(var a:TVector2;const b:TVector2); inline;
+ procedure VectAdd(var a:TVec2d;const b:TVec2d); inline;
   begin
    a.x:=b.x+a.x;
    a.y:=b.y+a.y;
   end;
 
- procedure VectSub(var a:TVector2;const b:TVector2);
+ procedure VectSub(var a:TVec2d;const b:TVec2d);
   begin
    a.x:=a.x-b.x;
    a.y:=a.y-b.y;
@@ -335,7 +337,7 @@ implementation
    a.y:=a.y-b.y;
   end;
 
- function VectMult(v:TVector2;value:double):TVector2;
+ function VectMult(v:TVec2d;value:double):TVec2d;
   begin
    result.x:=v.x*value;
    result.y:=v.y*value;
@@ -359,7 +361,7 @@ implementation
    v.y:=1/v.y;
   end;
 
- function PointAdd(p:TPoint2;v:TVector2;factor:double=1.0):TPoint2;
+ function PointAdd(p:TVec2d;v:TVec2d;factor:double=1.0):TVec2d;
   begin
    result.x:=p.x+v.x*factor;
    result.y:=p.y+v.y*factor;
@@ -371,7 +373,7 @@ implementation
    result.y:=p.y+v.y*factor;
   end;
 
- procedure VectTurn(var v:TVector2;angle:double);
+ procedure VectTurn(var v:TVec2d;angle:double);
   var
    nx,ny:double;
   begin
@@ -380,7 +382,7 @@ implementation
    v.x:=nx; v.y:=ny;
   end;
 
- procedure Turn90Right(var v:TVector2);
+ procedure Turn90Right(var v:TVec2d);
   var
    nx,ny:double;
   begin
@@ -390,13 +392,13 @@ implementation
    v.y:=ny;
   end;
 
- function Turn90R(v:TVector2):TVector2;
+ function Turn90R(v:TVec2d):TVec2d;
   begin
    result.x:=v.y;
    result.y:=-v.x;
   end;
 
- procedure Turn90Left(var v:TVector2);
+ procedure Turn90Left(var v:TVec2d);
   var
    nx,ny:double;
   begin
@@ -406,13 +408,13 @@ implementation
    v.y:=ny;
   end;
 
- function Turn90L(v:TVector2):TVector2;
+ function Turn90L(v:TVec2d):TVec2d;
   begin
    result.x:=-v.y;
    result.y:=v.x;
   end;
 
- function VectAngle(v1,v2:TVector2):double;
+ function VectAngle(v1,v2:TVec2d):double;
   var
    p:double;
   begin
@@ -424,7 +426,7 @@ implementation
    result:=ArcCos(p);
   end;
 
- function VectAngle(v:TVector2):double;
+ function VectAngle(v:TVec2d):double;
   begin
    result:=ArcTan2(v.y,v.x);
   end;
@@ -446,7 +448,7 @@ implementation
    result:=ArcTan2(v.y,v.x);
   end;
 
- function VectAngleClockwise(v1,v2:TVector2):double;
+ function VectAngleClockwise(v1,v2:TVec2d):double;
   var
    a:double;
   begin
@@ -481,9 +483,9 @@ implementation
    result:=0;
   end;
 
- procedure SetLine(a,b:TPoint2;out line:TLine2);
+ procedure SetLine(a,b:TVec2d;out line:TLine2);
   var
-   v:TVector2;
+   v:TVec2d;
   begin
    v.x:=b.x-a.x;
    v.y:=b.y-a.y;
@@ -494,18 +496,18 @@ implementation
    line.c:=-(line.a*a.x+line.b*a.y);
   end;
 
- function PointDev2(line:TLine2;point:TPoint2):double;
+ function PointDev2(line:TLine2;point:TVec2d):double;
   begin
    result:=line.a*point.x+line.b*point.y+line.c;
   end;
 
- function Point2(x,y:double):TPoint2;
+ function Point2(x,y:double):TVec2d;
   begin
    result.x:=x;
    result.y:=y;
   end;
 
- function Point2(pnt:TVec2):TPoint2; overload; inline;
+ function Point2(pnt:TVec2):TVec2d; overload; inline;
   begin
    result.x:=pnt.x;
    result.y:=pnt.y;
@@ -517,13 +519,13 @@ implementation
    result.y:=y;
   end;
 
- function Point2s(pnt:TPoint2):TVec2;
+ function Point2s(pnt:TVec2d):TVec2;
   begin
    result.x:=pnt.x;
    result.y:=pnt.y;
   end;
 
- function PointBlend(p1,p2:TPoint2;factor:double):TPoint2;
+ function PointBlend(p1,p2:TVec2d;factor:double):TVec2d;
   begin
    result.x:=p1.x*(1-factor)+p2.x*factor;
    result.y:=p1.y*(1-factor)+p2.y*factor;
@@ -535,7 +537,7 @@ implementation
    result.y:=p1.y*(1-factor)+p2.y*factor;
   end;
 
- function Vector2(source,target:TPoint2):TVector2;
+ function Vector2(source,target:TVec2d):TVec2d;
   begin
    result.x:=target.x-source.x;
    result.y:=target.y-source.y;
@@ -547,7 +549,7 @@ implementation
    result.y:=target.y-source.y;
   end;
 
- function Direction(angle:double):TVector2;
+ function Direction(angle:double):TVec2d;
   begin
    result.x:=cos(angle);
    result.y:=sin(angle);
@@ -571,7 +573,7 @@ implementation
 
  procedure PointOnSegment;
   var
-   v,n,d:TVector2;
+   v,n,d:TVec2d;
   begin
    v.x:=segm.x2-segm.x1;
    v.y:=segm.y2-segm.y1;
@@ -770,7 +772,7 @@ implementation
    dest[0,1]:=dest[0,1]/lb;   dest[1,1]:=dest[1,1]/lb;  dest[2,1]:=dest[2,1]/lb;
   end;
 
- function Bezier2D(var p0,p1,p2,p3:TPoint2;t:double):TPoint2;
+ function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
   var
    b0,b1,b2,b3:double;
   begin
@@ -797,9 +799,9 @@ implementation
    until sqr(result.x)+sqr(result.y)<=r2;
   end;
 
- function PointInTrg(a,b,c,pnt:TPoint2):integer;
+ function PointInTrg(a,b,c,pnt:TVec2d):integer;
   var
-   v1,v2,v:TVector2;
+   v1,v2,v:TVec2d;
    d,d1,d2:double;
   begin
    v1:=b; VectSub(v1,a);
@@ -816,11 +818,11 @@ implementation
 
  procedure Triangulate(pnts:PPoint2;count:integer);
   type
-   pa=array[0..5] of TPoint2;
+   pa=array[0..5] of TVec2d;
   var
    next,prev:array of integer; // для каждой вершины - указатель на следующую
    i,n,p,c,d:integer;
-   v1,v2:TVector2;
+   v1,v2:TVec2d;
    vrts:^PA;
    fl:boolean;
   begin
@@ -980,31 +982,31 @@ function TRect2s.Width:single;
    Include(r.x2,r.y2);
   end;
 
-{ TPoint2 }
+{ TVec2d }
 
-constructor TPoint2.Init(x,y:double);
+constructor TVec2d.Init(x,y:double);
  begin
   self.x:=x; self.y:=y;
  end;
 
-constructor TPoint2.Init(pnt:TPoint);
+constructor TVec2d.Init(pnt:TPoint);
  begin
   x:=pnt.x;
   y:=pnt.y;
  end;
 
-function TPoint2.IsValid:boolean;
+function TVec2d.IsValid:boolean;
  begin
   result:=x=x;
  end;
 
-procedure TPoint2.Wrap(max:double);
+procedure TVec2d.Wrap(max:double);
  begin
   x:=Apus.Core.Wrap(x,max);
   y:=Apus.Core.Wrap(y,max);
  end;
 
-function TPoint2.GetRound:TPoint;
+function TVec2d.GetRound:TPoint;
  begin
   result.x:=round(x);
   result.y:=round(y);
@@ -1017,7 +1019,7 @@ class operator TVec2.Implicit(a:TPoint):TVec2;
   result.x:=a.X; result.y:=a.Y;
  end;
 
-class operator TVec2.Implicit(a:TPoint2):TVec2;
+class operator TVec2.Implicit(a:TVec2d):TVec2;
  begin
   result.x:=a.X; result.y:=a.Y;
  end;
@@ -1027,7 +1029,7 @@ class operator TVec2.Implicit(a:TPointF):TVec2;
   result.x:=a.X; result.y:=a.Y;
  end;
 
-class operator TVec2.Implicit(a:TVec2):TPoint2;
+class operator TVec2.Implicit(a:TVec2):TVec2d;
 begin
  result.x:=a.x; result.y:=a.y;
 end;
@@ -1113,4 +1115,5 @@ procedure TVec2.Wrap(max:single);
  end;
 
 end.
+
 
