@@ -25,6 +25,7 @@ uses
   Apus.HashMaps,
   Apus.Geom2D,
   Apus.Geom3D,
+  Apus.Spatial,
 
   // Level 3: Higher-level data structures
   Apus.Structs,

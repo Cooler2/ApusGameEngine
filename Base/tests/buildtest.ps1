@@ -70,6 +70,7 @@ Build-Module 'Apus.Threads'
 Build-Module 'Apus.HashMaps'
 Build-Module 'Apus.Geom2D'
 Build-Module 'Apus.Geom3D'
+Build-Module 'Apus.Spatial'
 
 # === Level 3: Higher-level data structures ===
 Build-Module 'Apus.Classes'
