@@ -49,6 +49,7 @@ type
     function IntersectsBox(const box: TBBox3; out tMin, tMax: single): boolean; overload;
     function IntersectsBox(const box: TBBox3s; out tMin, tMax: single): boolean;
     function IntersectsTriangle(const a, b, c: TVec3; out t, u, v: single): boolean;
+    function IntersectsPlane(const plane: TPlane; out t: single): boolean;
   end;
 
   TFrustum = record
@@ -436,6 +437,23 @@ begin
   end;
 
   t:=edge2.Dot(qvec) * invDet;
+  result:=t >= 0;
+end;
+
+function TRay.IntersectsPlane(const plane: TPlane; out t: single): boolean;
+var
+  dirDot, originDist: double;
+begin
+  dirDot:=plane.a * dir.x + plane.b * dir.y + plane.c * dir.z;
+  originDist:=plane.a * origin.x + plane.b * origin.y + plane.c * origin.z + plane.d;
+
+  if Abs(dirDot) <= SpatialEpsilon then begin
+    t:=0;
+    result:=Abs(originDist) <= SpatialEpsilon;
+    exit;
+  end;
+
+  t:=-originDist / dirDot;
   result:=t >= 0;
 end;
 

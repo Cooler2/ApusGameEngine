@@ -83,6 +83,40 @@ begin
   // Degenerate triangle.
   c:=Point3s(2, 0, 0);
   Check(not ray.IntersectsTriangle(a, b, c, t, u, v), 'degenerate case');
+
+  // Edge hit and behind-ray case.
+  a:=Point3s(0, 0, 0);
+  b:=Point3s(1, 0, 0);
+  c:=Point3s(0, 1, 0);
+  ray:=TRay.Init(Point3s(0.5, 0, 1), Vector3s(0, 0, -1));
+  Check(ray.IntersectsTriangle(a, b, c, t, u, v), 'edge hit');
+  ray:=TRay.Init(Point3s(0.25, 0.25, -1), Vector3s(0, 0, -1));
+  Check(not ray.IntersectsTriangle(a, b, c, t, u, v), 'behind case');
+  EndTest;
+end;
+
+procedure TestRayPlane;
+var
+  ray: TRay;
+  plane: TPlane;
+  t: single;
+begin
+  StartTest('Ray-Plane');
+  InitPlane(Vector3(0, 0, 0), Vector3(0, 0, 1), plane); // z=0 plane
+
+  ray:=TRay.Init(Point3s(0, 0, 2), Vector3s(0, 0, -1));
+  Check(ray.IntersectsPlane(plane, t), 'hit case');
+  Check(Abs(t - 2) < 0.001, 'hit distance');
+
+  ray:=TRay.Init(Point3s(0, 0, 2), Vector3s(1, 0, 0));
+  Check(not ray.IntersectsPlane(plane, t), 'parallel miss');
+
+  ray:=TRay.Init(Point3s(0, 0, 0), Vector3s(1, 0, 0));
+  Check(ray.IntersectsPlane(plane, t), 'origin on plane');
+  Check(Abs(t) < 0.001, 'origin t');
+
+  ray:=TRay.Init(Point3s(0, 0, 2), Vector3s(0, 0, 1));
+  Check(not ray.IntersectsPlane(plane, t), 'behind ray');
   EndTest;
 end;
 
@@ -139,6 +173,7 @@ begin
   TestRaySphere;
   TestRayBox;
   TestRayTriangle;
+  TestRayPlane;
   TestSphereBox;
   TestFrustum;
   writeln;
