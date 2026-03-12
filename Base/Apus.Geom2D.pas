@@ -49,6 +49,7 @@ interface
    function Length:single; inline;
    function Length2:single; inline;
    function Sub(const p:TVec2):TVec2; inline;
+   function Distance2(const p:TVec2):single; inline;
    procedure Wrap(max:single); inline;
    class operator Implicit(a:TPointF):TVec2;
    class operator Implicit(a:TPoint):TVec2;
@@ -118,14 +119,6 @@ interface
   InvalidPoint2s:TVec2=(x:NaN;y:NaN);
 
  // Vector functions
- function DotProduct(const a,b:TVec2d):double; overload; inline;
- function CrossProduct(const a,b:TVec2d):double; overload; inline;
- function DotProduct(const a,b:TVec2):single; overload; inline;
- function CrossProduct(const a,b:TVec2):single; overload; inline;
- function Distance(p1,p2:TVec2d):double; overload;
- function Distance(p1,p2:TVec2):single; overload;
- function Distance2(p1,p2:TVec2d):double; overload;
- function Distance2(p1,p2:TVec2):single; overload;
  procedure Normalize(var v:TVec2d); overload; inline;
  procedure Normalize(var v:TVec2); overload; inline;
  function VectMult(v:TVec2d;value:double):TVec2d; inline; overload;
@@ -220,46 +213,6 @@ interface
 implementation
  uses Math, Apus.Types, Apus.Core, SysUtils;
 
- function DotProduct(const a,b:TVec2d):double;
-  begin
-   result:=a.Dot(b);
-  end;
-
- function CrossProduct(const a,b:TVec2d):double;
-  begin
-   result:=a.Cross(b);
-  end;
-
- function DotProduct(const a,b:TVec2):single;
-  begin
-   result:=a.x*b.x+a.y*b.y;
-  end;
-
- function CrossProduct(const a,b:TVec2):single;
-  begin
-   result:=a.x*b.y-a.y*b.x;
-  end;
-
-
- function Distance(p1,p2:TVec2d):double; overload;
-  begin
-   result:=sqrt(sqr(p2.x-p1.x)+sqr(p2.y-p1.y));
-  end;
- function Distance(p1,p2:TVec2):single; overload;
-  begin
-   result:=sqrt(sqr(p2.x-p1.x)+sqr(p2.y-p1.y));
-  end;
-
- function Distance2(p1,p2:TVec2d):double; overload;
-  begin
-   result:=p1.Distance2(p2);
-  end;
- function Distance2(p1,p2:TVec2):single; overload;
-  begin
-   result:=sqr(p2.x-p1.x)+sqr(p2.y-p1.y);
-  end;
-
-
  procedure Normalize(var v:TVec2d);
   var
    l:double;
@@ -332,7 +285,7 @@ implementation
   begin
    Normalize(v1);
    Normalize(v2);
-   p:=DotProduct(v1,v2);
+   p:=v1.Dot(v2);
    if p>1 then p:=1;
    if p<-1 then p:=-1;
    result:=ArcCos(p);
@@ -349,7 +302,7 @@ implementation
   begin
    Normalize(v1);
    Normalize(v2);
-   p:=DotProduct(v1,v2);
+   p:=v1.Dot(v2);
    if p>1 then p:=1;
    if p<-1 then p:=-1;
    result:=ArcCos(p);
@@ -365,7 +318,7 @@ implementation
    a:double;
   begin
    a:=AngleBetween(v1,v2);
-   if CrossProduct(v1,v2)>0 then
+   if v1.Cross(v2)>0 then
     a:=2*pi-a;
    result:=a;
   end;
@@ -629,8 +582,8 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
   var
    mv:TMatrix32v absolute m;
   begin
-   dest[0,0]:=m[0,0]; dest[1,0]:=m[0,1]; dest[2,0]:=-DotProduct(mv[0],mv[2]);
-   dest[0,1]:=m[1,0]; dest[1,1]:=m[1,1]; dest[2,1]:=-DotProduct(mv[1],mv[2]);
+   dest[0,0]:=m[0,0]; dest[1,0]:=m[0,1]; dest[2,0]:=-mv[0].Dot(mv[2]);
+   dest[0,1]:=m[1,0]; dest[1,1]:=m[1,1]; dest[2,1]:=-mv[1].Dot(mv[2]);
   end;
  // Вычисление обратной матрицы
  procedure Invert2(m:TMat2d;out dest:TMat2d);
@@ -737,7 +690,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
     v1:=vrts^[prev[p]].Sub(vrts^[p]);
     v2:=vrts^[p].Sub(vrts^[next[p]]);
     // Нужно два условия: 1) угол между векторами в нужную сторону и 2) ни одна вершина не лежит внутри отсекаемого тр-ка.
-    fl:=crossProduct(v1,v2)>=0;
+    fl:=v1.Cross(v2)>=0;
     if fl and (n>3) then begin
      d:=next[next[p]];
      while d<>prev[p] do begin
@@ -1005,6 +958,15 @@ function TVec2.Sub(const p:TVec2):TVec2;
  begin
   result.x:=x-p.x;
   result.y:=y-p.y;
+ end;
+
+function TVec2.Distance2(const p:TVec2):single;
+ var
+  dx,dy:single;
+ begin
+  dx:=x-p.x;
+  dy:=y-p.y;
+  result:=dx*dx+dy*dy;
  end;
 
 class operator TVec2.Multiply(a,b:TVec2):TVec2;

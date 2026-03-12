@@ -33,9 +33,9 @@ begin
   c:=-a;
   Check((Abs(c.x+3)<0.0001) and (Abs(c.y+4)<0.0001),'Neg');
 
-  d:=Distance(a,b);
+  d:=Sqrt(a.Distance2(b));
   Check(Abs(d-Sqrt(26))<0.0001,'Distance');
-  d:=Distance2(a,b);
+  d:=a.Distance2(b);
   Check(Abs(d-26)<0.0001,'Distance2');
 
   pd0:=Point2(1,2);
@@ -159,8 +159,8 @@ begin
   StartTest('Geom2D utility');
   v1:=TVec2.Init(2,3);
   v2:=TVec2.Init(4,5);
-  Check(Abs(DotProduct(v1,v2)-23)<0.0001,'DotProduct fn');
-  Check(Abs(CrossProduct(v1,v2)+2)<0.0001,'CrossProduct fn');
+  Check(Abs(v1.Dot(v2)-23)<0.0001,'Dot');
+  Check(Abs(v1.Cross(v2)+2)<0.0001,'Cross');
   Check(Abs(v1.Length-Sqrt(13))<0.0001,'Length');
   Check(Abs(v1.Length2-13)<0.0001,'Length2');
   v1:=v1+v2;
