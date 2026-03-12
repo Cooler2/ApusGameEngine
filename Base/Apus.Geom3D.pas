@@ -724,38 +724,83 @@ begin
 end;
 
 class function TMat3d.RotationAroundAxis(const v:TVec3d;angle:double):TMat3d;
+var
+  l2,m2,n2,lm,ln,mn,co,si,nco:double;
 begin
-  result:=RotationAroundVector(v,angle);
+  l2:=v.x*v.x;
+  lm:=v.x*v.y;
+  ln:=v.x*v.z;
+  m2:=v.y*v.y;
+  mn:=v.y*v.z;
+  n2:=v.z*v.z;
+  co:=cos(angle);
+  si:=sin(angle);
+  nco:=1-co;
+  result[0,0]:=l2+(m2+n2)*co; result[0,1]:=lm*nco-v.z*si; result[0,2]:=ln*nco+v.y*si;
+  result[1,0]:=lm*nco+v.z*si; result[1,1]:=m2+(l2+n2)*co; result[1,2]:=mn*nco-v.x*si;
+  result[2,0]:=ln*nco-v.y*si; result[2,1]:=mn*nco+v.x*si; result[2,2]:=n2+(l2+m2)*co;
 end;
 
 function TMat3d.Determinant:double;
 begin
-  result:=Det(self);
+  result:=v[0,0]*(v[1,1]*v[2,2]-v[1,2]*v[2,1])-
+          v[0,1]*(v[1,0]*v[2,2]-v[1,2]*v[2,0])+
+          v[0,2]*(v[1,0]*v[2,1]-v[1,1]*v[2,0]);
 end;
 
 class function TMat34d.Translation(x,y,z:double):TMat34d;
 begin
-  result:=TranslationMat(x,y,z);
+  result:=IdentMat34d;
+  result[3,0]:=x;
+  result[3,1]:=y;
+  result[3,2]:=z;
 end;
 
 class function TMat34d.RotationX(angle:double):TMat34d;
+var
+  c,s:double;
 begin
-  result:=RotationXMat(angle);
+  c:=cos(angle);
+  s:=sin(angle);
+  result:=IdentMat34d;
+  result[1,1]:=c;
+  result[1,2]:=s;
+  result[2,1]:=-s;
+  result[2,2]:=c;
 end;
 
 class function TMat34d.RotationY(angle:double):TMat34d;
+var
+  c,s:double;
 begin
-  result:=RotationYMat(angle);
+  c:=cos(angle);
+  s:=sin(angle);
+  result:=IdentMat34d;
+  result[0,0]:=c;
+  result[0,2]:=s;
+  result[2,0]:=-s;
+  result[2,2]:=c;
 end;
 
 class function TMat34d.RotationZ(angle:double):TMat34d;
+var
+  c,s:double;
 begin
-  result:=RotationZMat(angle);
+  c:=cos(angle);
+  s:=sin(angle);
+  result:=IdentMat34d;
+  result[0,0]:=c;
+  result[0,1]:=s;
+  result[1,0]:=-s;
+  result[1,1]:=c;
 end;
 
 class function TMat34d.Scale(scaleX,scaleY,scaleZ:double):TMat34d;
 begin
-  result:=ScaleMat(scaleX,scaleY,scaleZ);
+  result:=IdentMat34d;
+  result[0,0]:=scaleX;
+  result[1,1]:=scaleY;
+  result[2,2]:=scaleZ;
 end;
 
 class function TMat34d.FromYRP(yaw,roll,pitch:double):TMat34d;
@@ -764,18 +809,88 @@ begin
 end;
 
 procedure TMat34d.ToYRP(out yaw,roll,pitch:double);
+var
+  v:TVec3d;
+  skewA,skewB,skewC:double;
+  m:TMat34d;
+  mv:TMatrix43vd absolute m;
 begin
-  MatrixToYRP(self,yaw,roll,pitch);
+  m:=self;
+  mv[0].Normalize;
+  mv[1].Normalize;
+  mv[2].Normalize;
+  skewA:=mv[0].Dot(mv[1]);
+  skewB:=mv[2].Dot(mv[0]);
+  skewC:=mv[2].Dot(mv[1]);
+  mv[1].x:=mv[1].x-mv[0].x*skewA;
+  mv[1].y:=mv[1].y-mv[0].y*skewA;
+  mv[1].z:=mv[1].z-mv[0].z*skewA;
+  mv[1].Normalize;
+  mv[2]:=mv[0].Cross(mv[1]);
+
+  v:=mv[0];
+  v.z:=0;
+  if v.Length2<0.000001 then begin
+    yaw:=0;
+  end else begin
+    v.Normalize;
+    if v.x<-0.999 then begin
+      yaw:=Pi;
+    end else begin
+      yaw:=ArcCos(v.x);
+      if v.y<0 then begin
+        yaw:=-yaw;
+      end;
+    end;
+    m:=m*TMat34d.RotationZ(-yaw);
+  end;
+  if mv[0].x<-0.999 then begin
+    roll:=Pi;
+  end else begin
+    roll:=-ArcSin(mv[0].z);
+  end;
+  m:=m*TMat34d.RotationY(roll);
+  if mv[1].y<-0.999 then begin
+    pitch:=Pi;
+  end else begin
+    pitch:=ArcCos(mv[1].y);
+    if mv[1].z<0 then begin
+      pitch:=-pitch;
+    end;
+  end;
 end;
 
 class function TMat4d.Translation(x,y,z:double):TMat4d;
 begin
-  result:=TranslationMat4d(x,y,z);
+  result:=IdentMat4d;
+  result[3,0]:=x;
+  result[3,1]:=y;
+  result[3,2]:=z;
 end;
 
 function TMat4d.Determinant:double;
 begin
-  result:=Det(self);
+  result:=0;
+  if v[3,3]<>0 then begin
+    result:=result+(v[0,0]*(v[1,1]*v[2,2]-v[1,2]*v[2,1])-
+                    v[0,1]*(v[1,0]*v[2,2]-v[1,2]*v[2,0])+
+                    v[0,2]*(v[1,0]*v[2,1]-v[1,1]*v[2,0]))*v[3,3];
+  end;
+  if v[2,3]<>0 then begin
+    result:=result-(v[0,0]*(v[1,1]*v[3,2]-v[1,2]*v[3,1])-
+                    v[0,1]*(v[1,0]*v[3,2]-v[1,2]*v[3,0])+
+                    v[0,2]*(v[1,0]*v[3,1]-v[1,1]*v[3,0]))*v[2,3];
+  end;
+  if v[1,3]<>0 then begin
+    result:=result+(v[0,0]*(v[2,1]*v[3,2]-v[2,2]*v[3,1])-
+                    v[0,1]*(v[2,0]*v[3,2]-v[2,2]*v[3,0])+
+                    v[0,2]*(v[2,0]*v[3,1]-v[2,1]*v[3,0]))*v[1,3];
+  end;
+  if v[0,3]<>0 then begin
+    result:=result-(v[1,0]*(v[2,1]*v[3,2]-v[2,2]*v[3,1])-
+                    v[1,1]*(v[2,0]*v[3,2]-v[2,2]*v[3,0])+
+                    v[1,2]*(v[2,0]*v[3,1]-v[2,1]*v[3,0]))*v[0,3];
+  end;
 end;
 
 procedure TMat4d.Decompose(out translation,rotation,scale:TQuatd);
@@ -785,27 +900,57 @@ end;
 
 class function TMat4.Translation(x,y,z:single):TMat4;
 begin
-  result:=TranslationMat4(x,y,z);
+  result:=IdentMat4;
+  result[3,0]:=x;
+  result[3,1]:=y;
+  result[3,2]:=z;
 end;
 
 class function TMat4.RotationX(angle:single):TMat4;
+var
+  c,s:single;
 begin
-  result:=RotationMat4X(angle);
+  c:=cos(angle);
+  s:=sin(angle);
+  result:=IdentMat4;
+  result[1,1]:=c;
+  result[1,2]:=s;
+  result[2,1]:=-s;
+  result[2,2]:=c;
 end;
 
 class function TMat4.RotationY(angle:single):TMat4;
+var
+  c,s:single;
 begin
-  result:=RotationMat4Y(angle);
+  c:=cos(angle);
+  s:=sin(angle);
+  result:=IdentMat4;
+  result[0,0]:=c;
+  result[0,2]:=s;
+  result[2,0]:=-s;
+  result[2,2]:=c;
 end;
 
 class function TMat4.RotationZ(angle:single):TMat4;
+var
+  c,s:single;
 begin
-  result:=RotationMat4Z(angle);
+  c:=cos(angle);
+  s:=sin(angle);
+  result:=IdentMat4;
+  result[0,0]:=c;
+  result[0,1]:=s;
+  result[1,0]:=-s;
+  result[1,1]:=c;
 end;
 
 class function TMat4.Scale(scaleX,scaleY,scaleZ:single):TMat4;
 begin
-  result:=ScaleMat4(scaleX,scaleY,scaleZ);
+  result:=IdentMat4;
+  result[0,0]:=scaleX;
+  result[1,1]:=scaleY;
+  result[2,2]:=scaleZ;
 end;
 
 class function TMat4.FromYRP(yaw,roll,pitch:double):TMat4;
@@ -815,7 +960,27 @@ end;
 
 function TMat4.Determinant:single;
 begin
-  result:=Det(self);
+  result:=0;
+  if v[3,3]<>0 then begin
+    result:=result+(v[0,0]*(v[1,1]*v[2,2]-v[1,2]*v[2,1])-
+                    v[0,1]*(v[1,0]*v[2,2]-v[1,2]*v[2,0])+
+                    v[0,2]*(v[1,0]*v[2,1]-v[1,1]*v[2,0]))*v[3,3];
+  end;
+  if v[2,3]<>0 then begin
+    result:=result-(v[0,0]*(v[1,1]*v[3,2]-v[1,2]*v[3,1])-
+                    v[0,1]*(v[1,0]*v[3,2]-v[1,2]*v[3,0])+
+                    v[0,2]*(v[1,0]*v[3,1]-v[1,1]*v[3,0]))*v[2,3];
+  end;
+  if v[1,3]<>0 then begin
+    result:=result+(v[0,0]*(v[2,1]*v[3,2]-v[2,2]*v[3,1])-
+                    v[0,1]*(v[2,0]*v[3,2]-v[2,2]*v[3,0])+
+                    v[0,2]*(v[2,0]*v[3,1]-v[2,1]*v[3,0]))*v[1,3];
+  end;
+  if v[0,3]<>0 then begin
+    result:=result-(v[1,0]*(v[2,1]*v[3,2]-v[2,2]*v[3,1])-
+                    v[1,1]*(v[2,0]*v[3,2]-v[2,2]*v[3,0])+
+                    v[1,2]*(v[2,0]*v[3,1]-v[2,1]*v[3,0]))*v[0,3];
+  end;
 end;
 
 procedure TMat4.Decompose(out translation,rotation,scale:TQuat);
@@ -824,28 +989,72 @@ begin
 end;
 
 class function TMat3.RotationX(angle:single):TMat3;
+var
+  c,s:single;
 begin
-  result:=RotationMat3X(angle);
+  c:=cos(angle);
+  s:=sin(angle);
+  result:=IdentMat3;
+  result[1,1]:=c;
+  result[1,2]:=s;
+  result[2,1]:=-s;
+  result[2,2]:=c;
 end;
 
 class function TMat3.RotationY(angle:single):TMat3;
+var
+  c,s:single;
 begin
-  result:=RotationMat3Y(angle);
+  c:=cos(angle);
+  s:=sin(angle);
+  result:=IdentMat3;
+  result[0,0]:=c;
+  result[0,2]:=s;
+  result[2,0]:=-s;
+  result[2,2]:=c;
 end;
 
 class function TMat3.RotationZ(angle:single):TMat3;
+var
+  c,s:single;
 begin
-  result:=RotationMat3Z(angle);
+  c:=cos(angle);
+  s:=sin(angle);
+  result:=IdentMat3;
+  result[0,0]:=c;
+  result[0,1]:=s;
+  result[1,0]:=-s;
+  result[1,1]:=c;
 end;
 
 class function TMat3.RotationAroundAxis(const v:TVec3;angle:single):TMat3;
+var
+  vv:TVec3;
+  x2,y2,z2:single;
+  xy,xz,yz:single;
+  co,si,nco:single;
 begin
-  result:=RotationAroundVector(v,angle);
+  vv:=v;
+  vv.Normalize;
+  x2:=sqr(vv.x);
+  y2:=sqr(vv.y);
+  z2:=sqr(vv.z);
+  xy:=vv.x*vv.y;
+  xz:=vv.x*vv.z;
+  yz:=vv.y*vv.z;
+  co:=cos(angle);
+  si:=sin(angle);
+  nco:=1-co;
+  result[0,0]:=co+nco*x2; result[0,1]:=xy*nco+vv.z*si; result[0,2]:=xz*nco-vv.y*si;
+  result[1,0]:=xy*nco-vv.z*si; result[1,1]:=co+nco*y2; result[1,2]:=yz*nco+vv.x*si;
+  result[2,0]:=xz*nco+vv.y*si; result[2,1]:=yz*nco-vv.x*si; result[2,2]:=co+nco*z2;
 end;
 
 function TMat3.Determinant:single;
 begin
-  result:=Det(self);
+  result:=v[0,0]*(v[1,1]*v[2,2]-v[1,2]*v[2,1])-
+          v[0,1]*(v[1,0]*v[2,2]-v[1,2]*v[2,0])+
+          v[0,2]*(v[1,0]*v[2,1]-v[1,1]*v[2,0]);
 end;
 
 class function TMat34.FromYRP(yaw,roll,pitch:double):TMat34;
