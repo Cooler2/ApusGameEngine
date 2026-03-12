@@ -466,3 +466,16 @@ Status:
 
 Proposed next step:
 - Gate D / Step 3: add targeted Geom3D missing tests (`RotationX/Y/Z*`, `MatrixFromYawRollPitch` + `YawRollPitchFromMatrix` roundtrip, and direct `IntersectTrgLine` edge cases).
+
+### 2026-03-12 - Gate D / Step 3 completed
+
+Status:
+- Extended `Base/tests/TestGeom3D.dpr` with targeted edge coverage:
+  - `MatrixFromYawRollPitch` + `YawRollPitchFromMatrix` roundtrip validated via matrix reconstruction.
+  - `RotationXMat3s/RotationYMat3s/RotationZMat3s` consistency checks against double-precision rotation builders.
+  - direct `IntersectTrgLine` cases: hit, miss, and parallel line.
+- Validation:
+  - `Base/tests/test.bat Geom3D` passed (32/64, `TOTAL: 58 checks, FAILED: 0`)
+
+Proposed next step:
+- Gate D / Step 4: add Spatial numeric stress/epsilon tests (near-parallel rays, barycentric edge hits, and frustum tolerance edge cases) to close remaining coverage gaps.

@@ -222,6 +222,55 @@ begin
   EndTest;
 end;
 
+procedure TestGeom3DEdgeCases;
+var
+  m34,m34b:TMat34d;
+  y0,r0,p0:double;
+  y1,r1,p1:double;
+  m3s,m3sRef:TMat3;
+  a,b,c,o,tp:TVec3;
+  pb,pc,d:double;
+  hit:boolean;
+begin
+  StartTest('Geom3D edge cases');
+  y0:=0.35;
+  r0:=-0.2;
+  p0:=0.5;
+  MatrixFromYawRollPitch(m34,y0,r0,p0);
+  YawRollPitchFromMatrix(m34,y1,r1,p1);
+  MatrixFromYawRollPitch(m34b,y1,r1,p1);
+  Check(IsEqual(m34,m34b,40),'Yaw/Roll/Pitch matrix roundtrip');
+
+  m3s:=RotationXMat3s(0.4);
+  m3sRef:=Matrix3s(Matrix4(RotationXMat(0.4)));
+  Check(IsEqual(m3s,m3sRef,20),'RotationXMat3s consistency');
+  m3s:=RotationYMat3s(0.4);
+  m3sRef:=Matrix3s(Matrix4(RotationYMat(0.4)));
+  Check(IsEqual(m3s,m3sRef,20),'RotationYMat3s consistency');
+  m3s:=RotationZMat3s(0.4);
+  m3sRef:=Matrix3s(Matrix4(RotationZMat(0.4)));
+  Check(IsEqual(m3s,m3sRef,20),'RotationZMat3s consistency');
+
+  a:=Point3s(0,0,0);
+  b:=Point3s(1,0,0);
+  c:=Point3s(0,1,0);
+  o:=Point3s(0.25,0.25,1);
+  tp:=Point3s(0.25,0.25,0);
+  hit:=IntersectTrgLine(@a,@b,@c,@o,@tp,pb,pc,d);
+  Check(hit and (d>0) and (pb>=0) and (pc>=0) and (pb+pc<=1),'IntersectTrgLine hit');
+
+  o:=Point3s(2,2,1);
+  tp:=Point3s(2,2,0);
+  hit:=IntersectTrgLine(@a,@b,@c,@o,@tp,pb,pc,d);
+  Check(not hit,'IntersectTrgLine miss');
+
+  o:=Point3s(0.25,0.25,1);
+  tp:=Point3s(1.25,0.25,1);
+  hit:=IntersectTrgLine(@a,@b,@c,@o,@tp,pb,pc,d);
+  Check(not hit,'IntersectTrgLine parallel');
+  EndTest;
+end;
+
 begin
   TestVec3Core;
   TestVec3Normalize;
@@ -230,6 +279,7 @@ begin
   TestBBox;
   TestGeom3DUtility;
   TestGeom3DUtility2;
+  TestGeom3DEdgeCases;
   writeln;
   writeln('TOTAL: ',testsTotal,' checks, FAILED: ',testsFailed);
   if testsFailed>0 then begin
