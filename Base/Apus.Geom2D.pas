@@ -110,9 +110,9 @@ interface
   TMat2=array[0..1,0..1] of single;
   TMat32=array[0..2,0..1] of single;
   // Vector versions
-  TMatrix2v=array[0..1] of TVec2d;
-  TMatrix32v=array[0..2] of TVec2d;
-  TMatrix32sv=array[0..2] of TVec2;
+  TMatrix2vd=array[0..1] of TVec2d;
+  TMatrix32vd=array[0..2] of TVec2d;
+  TMatrix32v=array[0..2] of TVec2;
 
 
  const
@@ -511,7 +511,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
   end;
  procedure Transp(m:TMat32d;out dest:TMat32d);
   var
-   mv:TMatrix32v absolute m;
+   mv:TMatrix32vd absolute m;
   begin
    dest[0,0]:=m[0,0]; dest[1,0]:=m[0,1]; dest[2,0]:=-mv[0].Dot(mv[2]);
    dest[0,1]:=m[1,0]; dest[1,1]:=m[1,1]; dest[2,1]:=-mv[1].Dot(mv[2]);
@@ -520,7 +520,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
  procedure Invert2(m:TMat2d;out dest:TMat2d);
   var
    la,lb:double;
-   mv:TMatrix2v absolute m;
+   mv:TMatrix2vd absolute m;
   begin
    la:=mv[0].Length2;
    lb:=mv[1].Length2;
@@ -533,7 +533,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
  procedure Invert(m:TMat32d;out dest:TMat32d);
   var
    la,lb:double;
-   mv:TMatrix2v absolute m;
+   mv:TMatrix2vd absolute m;
   begin
    la:=mv[0].Length2;
    lb:=mv[1].Length2;
