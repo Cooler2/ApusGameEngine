@@ -464,6 +464,9 @@ interface
 implementation
  uses Apus.Core, Apus.CPU, Apus.Types, SysUtils, Math;
 
+procedure _YRPToMatrix(yaw,roll,pitch:double;m:PDouble;width:integer); forward;
+procedure _YRPToMatrixS(yaw,roll,pitch:single;m:PSingle;width:integer); forward;
+
  const
   vec0001s:TVec4=(x:0; y:0; z:0; w:1);
 
@@ -805,7 +808,10 @@ end;
 
 class function TMat34d.FromYRP(yaw,roll,pitch:double):TMat34d;
 begin
-  YRPToMatrix(result,yaw,roll,pitch);
+  _YRPToMatrix(yaw,roll,pitch,@result,3);
+  result[3,0]:=0;
+  result[3,1]:=0;
+  result[3,2]:=0;
 end;
 
 procedure TMat34d.ToYRP(out yaw,roll,pitch:double);
@@ -955,7 +961,8 @@ end;
 
 class function TMat4.FromYRP(yaw,roll,pitch:double):TMat4;
 begin
-  YRPToMatrix(result,yaw,roll,pitch);
+  result:=IdentMat4;
+  _YRPToMatrixS(yaw,roll,pitch,@result,4);
 end;
 
 function TMat4.Determinant:single;
