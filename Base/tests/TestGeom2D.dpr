@@ -175,10 +175,9 @@ begin
   Check((Abs(v3.x-0.5)<0.0001) and (Abs(v3.y-0.6)<0.01),'VectInv');
   Check(Abs(AngleBetweenCW(Point2(1,0),Point2(0,1))-3*Pi/2)<0.0001,'AngleBetweenCW');
   dv:=Point2(2,3);
-  Turn90Right(dv);
-  Turn90Left(dv);
   dv:=Turn90R(dv);
   dv:=Turn90L(dv);
+  Check((Abs(dv.x-2)<0.0001) and (Abs(dv.y-3)<0.0001),'Turn90R/L');
   VectTurn(dv,Pi/2);
 
   b0:=Point2(0,0);

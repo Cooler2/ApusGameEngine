@@ -143,9 +143,7 @@ interface
  procedure VectInv(var v:TVec2); inline;
  // Turn counterclockwise (angle in radians)
  procedure VectTurn(var v:TVec2d;angle:double); inline;
- procedure Turn90Right(var v:TVec2d);  inline;
  function Turn90R(v:TVec2d):TVec2d; inline;
- procedure Turn90Left(var v:TVec2d); inline;
  function Turn90L(v:TVec2d):TVec2d; inline;
  // Angle between vectors (radians)
  function AngleBetween(v1,v2:TVec2d):double; overload;
@@ -374,30 +372,10 @@ implementation
    v.x:=nx; v.y:=ny;
   end;
 
- procedure Turn90Right(var v:TVec2d);
-  var
-   nx,ny:double;
-  begin
-   nx:=v.y;
-   ny:=-v.x;
-   v.x:=nx;
-   v.y:=ny;
-  end;
-
  function Turn90R(v:TVec2d):TVec2d;
   begin
    result.x:=v.y;
    result.y:=-v.x;
-  end;
-
- procedure Turn90Left(var v:TVec2d);
-  var
-   nx,ny:double;
-  begin
-   nx:=-v.y;
-   ny:=v.x;
-   v.x:=nx;
-   v.y:=ny;
   end;
 
  function Turn90L(v:TVec2d):TVec2d;
@@ -481,7 +459,7 @@ class function TLine2.Init(const p1,p2:TVec2d):TLine2;
  begin
   v:=p2.Sub(p1);
   Normalize(v);
-  Turn90Right(v);
+  v:=Turn90R(v);
   result.a:=v.x;
   result.b:=v.y;
   result.c:=-(result.a*p1.x+result.b*p1.y);
@@ -553,7 +531,7 @@ function TLine2.Deviation(const point:TVec2d):double;
    v.y:=segm.y2-segm.y1;
    n:=v;
    Normalize(n);
-   Turn90Right(n);
+   n:=Turn90R(n);
    d.x:=pnt.x-segm.x1;
    d.y:=pnt.y-segm.y1;
    deviation:=n.x*d.x+n.y*d.y;
