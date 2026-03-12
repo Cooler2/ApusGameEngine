@@ -99,6 +99,8 @@ interface
    constructor Init(x,y,z,w:double); overload;
    constructor Init(vec3:TVec3d); overload;
    function ToVec3d:TVec3d; inline;
+   class operator Implicit(a:TQuatd):TVec4d;
+   class operator Implicit(a:TVec4d):TQuatd;
    procedure Add(const q:TQuatd); overload;
    procedure Add(const q:TQuatd;scale:double); overload;
    procedure Mul(scalar:double); overload;
@@ -121,6 +123,8 @@ interface
    constructor Init(vec3:TVec3); overload;
    constructor Init(q:TQuatd); overload;
    function ToVec3:TVec3; inline;
+   class operator Implicit(a:TQuat):TVec4;
+   class operator Implicit(a:TVec4):TQuat;
    procedure Assign(const q:TQuat);
    procedure Add(const q:TQuat); overload;
    procedure Add(const q:TQuat;scale:single); overload;
@@ -168,6 +172,10 @@ interface
    public
     function Row(n:integer):TVec4d; inline;
     function Col(n:integer):TVec4d; inline;
+    class operator Multiply(const a,b:TMat4d):TMat4d;
+    procedure Transpose; overload;
+    function Transposed:TMat4d; overload;
+    procedure Invert; overload;
     property Items[i,j:integer]:double read GetItem write SetItem; default; deprecated 'Use .v[i,j]';
     case integer of
     0:(v:array[0..3,0..3] of double);
@@ -181,6 +189,10 @@ interface
    public
     function Row(n:integer):TVec4; inline;
     function Col(n:integer):TVec4; inline;
+    class operator Multiply(const a,b:TMat4):TMat4;
+    procedure Transpose; overload;
+    function Transposed:TMat4; overload;
+    procedure Invert; overload;
     property Items[i,j:integer]:single read GetItem write SetItem; default; deprecated 'Use .v[i,j]';
     case integer of
     0:(v:array[0..3,0..3] of single);
@@ -375,8 +387,8 @@ interface
  procedure Transpose(const m:TMat34d;out dest:TMat34d); overload;
  procedure Transpose(const m:TMat34;out dest:TMat34); overload;
  procedure Transpose(const m:TMat4d;out dest:TMat4d); overload;
- procedure Transpose(var m:TMat4d); overload;
- procedure Transpose(var m:TMat4); overload;
+ procedure Transpose(var m:TMat4d); overload; deprecated 'Use TMat4d.Transpose';
+ procedure Transpose(var m:TMat4); overload; deprecated 'Use TMat4.Transpose';
  procedure Transpose(var m:TMat3d); overload;
  procedure Transpose(var m:TMat3); overload;
 
@@ -644,6 +656,35 @@ begin
   result.w:=v[3,n];
 end;
 
+class operator TMat4d.Multiply(const a,b:TMat4d):TMat4d;
+begin
+  MultMat(a,b,result);
+end;
+
+procedure TMat4d.Transpose;
+begin
+  Swap(v[1,0],v[0,1]);
+  Swap(v[2,0],v[0,2]);
+  Swap(v[2,1],v[1,2]);
+  Swap(v[3,0],v[0,3]);
+  Swap(v[3,1],v[1,3]);
+  Swap(v[3,2],v[2,3]);
+end;
+
+function TMat4d.Transposed:TMat4d;
+begin
+  result:=self;
+  result.Transpose;
+end;
+
+procedure TMat4d.Invert;
+var
+  inv:TMat4d;
+begin
+  InvertFull(self,inv);
+  self:=inv;
+end;
+
 function TMat4.GetItem(i,j:integer):single;
 begin
   result:=v[i,j];
@@ -665,6 +706,35 @@ begin
   result.y:=v[1,n];
   result.z:=v[2,n];
   result.w:=v[3,n];
+end;
+
+class operator TMat4.Multiply(const a,b:TMat4):TMat4;
+begin
+  MultMat(a,b,result);
+end;
+
+procedure TMat4.Transpose;
+begin
+  Swap(v[1,0],v[0,1]);
+  Swap(v[2,0],v[0,2]);
+  Swap(v[2,1],v[1,2]);
+  Swap(v[3,0],v[0,3]);
+  Swap(v[3,1],v[1,3]);
+  Swap(v[3,2],v[2,3]);
+end;
+
+function TMat4.Transposed:TMat4;
+begin
+  result:=self;
+  result.Transpose;
+end;
+
+procedure TMat4.Invert;
+var
+  inv:TMat4;
+begin
+  InvertFull(self,inv);
+  self:=inv;
 end;
 
  function MatRow(const mat:TMat34;n:integer):TVec3;
@@ -1007,22 +1077,12 @@ end;
 
  procedure Transpose(var m:TMat4d);
   begin
-   Swap(m.v[1,0],m.v[0,1]);
-   Swap(m.v[2,0],m.v[0,2]);
-   Swap(m.v[2,1],m.v[1,2]);
-   Swap(m.v[3,0],m.v[0,3]);
-   Swap(m.v[3,1],m.v[1,3]);
-   Swap(m.v[3,2],m.v[2,3]);
+   m.Transpose;
   end;
 
  procedure Transpose(var m:TMat4);
   begin
-   Swap(m.v[1,0],m.v[0,1]);
-   Swap(m.v[2,0],m.v[0,2]);
-   Swap(m.v[2,1],m.v[1,2]);
-   Swap(m.v[3,0],m.v[0,3]);
-   Swap(m.v[3,1],m.v[1,3]);
-   Swap(m.v[3,2],m.v[2,3]);
+   m.Transpose;
   end;
 
  procedure Transpose(var m:TMat3d);
@@ -2495,6 +2555,22 @@ function TQuatd.ToVec3d:TVec3d;
   result.z:=z;
  end;
 
+class operator TQuatd.Implicit(a:TQuatd):TVec4d;
+ begin
+  result.x:=a.x;
+  result.y:=a.y;
+  result.z:=a.z;
+  result.w:=a.w;
+ end;
+
+class operator TQuatd.Implicit(a:TVec4d):TQuatd;
+ begin
+  result.x:=a.x;
+  result.y:=a.y;
+  result.z:=a.z;
+  result.w:=a.w;
+ end;
+
 function TQuatd.IsValid:boolean;
  begin
   result:=x=x;
@@ -2561,6 +2637,22 @@ constructor TQuat.Init(vec3:TVec3);
 constructor TQuat.Init(q:TQuatd);
  begin
   x:=q.x; y:=q.y; z:=q.z; w:=q.w;
+ end;
+
+class operator TQuat.Implicit(a:TQuat):TVec4;
+ begin
+  result.x:=a.x;
+  result.y:=a.y;
+  result.z:=a.z;
+  result.w:=a.w;
+ end;
+
+class operator TQuat.Implicit(a:TVec4):TQuat;
+ begin
+  result.x:=a.x;
+  result.y:=a.y;
+  result.z:=a.z;
+  result.w:=a.w;
  end;
 
 function TQuat.ToVec3:TVec3;

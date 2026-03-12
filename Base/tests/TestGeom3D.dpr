@@ -57,17 +57,27 @@ end;
 
 procedure TestMatrices;
 var
-  m1,m2,m3,mInv:TMat4;
+  m1,m2,m3,mInv,mRef,mT:TMat4;
   v:TVec4;
 begin
   StartTest('Matrices');
   m1:=ScaleMat4(2,3,4);
   m2:=TranslationMat4(5,6,7);
-  m3:=MultMat(m1,m2);
+  mRef:=MultMat(m1,m2);
+  m3:=m1*m2;
+  Check(IsEqual(m3,mRef),'TMat4 operator *');
   Check(not IsEqual(m3,IdentMat4),'MultMat');
-  InvertFull(m3,mInv);
-  m3:=MultMat(m3,mInv);
+  mInv:=m3;
+  mInv.Invert;
+  m3:=m3*mInv;
   Check(IsEqual(m3,IdentMat4),'InvertFull');
+
+  mT:=mRef.Transposed;
+  mInv:=mRef;
+  mInv.Transpose;
+  Check(IsEqual(mT,mInv),'TMat4.Transposed');
+  mRef.Transpose;
+  Check(IsEqual(mRef,mInv),'TMat4.Transpose');
 
   v:=TVec4.Init(1,2,3,1);
   MultPnt(IdentMat4,@v,1,SizeOf(v));
@@ -130,7 +140,7 @@ var
   m43:TMat34d;
   m4d:TMat4d;
   m4:TMat4;
-  m4dd:TMat4d;
+  m4dd,m4dt:TMat4d;
   q:TQuat;
   tr,rot,sca:TQuat;
   trd,rotd,scad:TQuatd;
@@ -172,12 +182,25 @@ begin
   Check(IsEqual(m3b,IdentMat3),'Matrix conversion');
   m4d:=Matrix4(m43); // keep conversion path in test
   Check(Abs(Det(IdentMat4)-1)<0.0001,'Det');
+  m4d:=Matrix4(ScaleMat(2,3,4));
+  m4dd:=TranslationMat4d(1,2,3);
+  m4dt:=m4d*m4dd;
+  Check(IsEqual(m4dt,MultMat(m4d,m4dd),20),'TMat4d operator *');
+  Transpose(m4dt,m4dd);
+  Check(IsEqual(m4dt.Transposed,m4dd,20),'TMat4d.Transposed');
+  m4dd:=m4dt;
+  m4dd.Invert;
+  m4dt:=m4dt*m4dd;
+  Check(IsEqual(m4dt,IdentMat4d,20),'TMat4d.Invert full');
 
   q:=Quat(1,2,3,4);
   v:=IdentMat4.Row(0);
   v:=IdentMat4.Col(0);
   q:=TQuat.Init(p0);
   q:=Quat(0,0,0,1);
+  v:=q;
+  q:=v;
+  Check((Abs(q.x-v.x)<0.0001) and (Abs(q.y-v.y)<0.0001) and (Abs(q.z-v.z)<0.0001) and (Abs(q.w-v.w)<0.0001),'TQuat <-> TVec4 implicit');
   Check(Abs(QuatLength(q)-1)<0.0001,'QuatLength');
   QuatNormalize(q);
   q:=QuatInvert(q);
@@ -206,6 +229,9 @@ begin
   qd:=QuatInvert(qd);
   qd:=QuatMultiply(qd,Quatd(0,0,0,1));
   Check(qd.IsValid,'Quaternion double ops');
+  qdv:=qd;
+  qd:=qdv;
+  Check((Abs(qd.x-qdv.x)<0.0001) and (Abs(qd.y-qdv.y)<0.0001) and (Abs(qd.z-qdv.z)<0.0001) and (Abs(qd.w-qdv.w)<0.0001),'TQuatd <-> TVec4d implicit');
   qdv:=Vec4d(pd);
   Check(IsEqual(qdv,TVec4d.Init(pd),2),'Vec4d default w');
   Check(IsEqual(qdv,Vec4d(1,2,3,1),2),'Vec4 double overload');
