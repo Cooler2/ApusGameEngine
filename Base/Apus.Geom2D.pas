@@ -91,8 +91,10 @@ interface
    x1,y1,x2,y2:double;
   end;
 
-  TMatrix2=array[0..1,0..1] of double;
-  TMatrix32=array[0..2,0..1] of double;
+  TMat2d=array[0..1,0..1] of double;
+  TMat32d=array[0..2,0..1] of double;
+  TMatrix2=TMat2d deprecated 'Use TMat2d';
+  TMatrix32=TMat32d deprecated 'Use TMat32d';
   // Single precision version
   TMatrix2s=array[0..1,0..1] of single;
   TMatrix32s=array[0..2,0..1] of single;
@@ -105,8 +107,8 @@ interface
 
  const
   NaN = 0.0/0.0;
-  IdentMatrix2:TMatrix2=((1,0),(0,1));
-  IdentMatrix32:TMatrix32=((1,0),(0,1),(0,0));
+  IdentMatrix2:TMat2d=((1,0),(0,1));
+  IdentMatrix32:TMat32d=((1,0),(0,1),(0,0));
   IdentMatrix2s:TMatrix2s=((1,0),(0,1));
   IdentMatrix32s:TMatrix32s=((1,0),(0,1),(0,0));
 
@@ -204,25 +206,25 @@ interface
  function IntersectRects(r1,r2:TRect;out r:TRect):integer;
  procedure OrderRect(var r:TRect); // упорядочить к-ты по возрастанию
 
- procedure ToSingle32(sour:TMatrix32;out dest:TMatrix32s);
+ procedure ToSingle32(sour:TMat32d;out dest:TMatrix32s);
 
- function TranslationMat(x,y:double):TMatrix32;
- function RotationMat(angle:double):TMatrix32;
- function RotationMat2(angle:double):TMatrix2;
- function ScaleMat(scaleX,scaleY:double):TMatrix32;
+ function TranslationMat(x,y:double):TMat32d;
+ function RotationMat(angle:double):TMat32d;
+ function RotationMat2(angle:double):TMat2d;
+ function ScaleMat(scaleX,scaleY:double):TMat32d;
 
  // target = M1*M2
- procedure MultMat(m1,m2:TMatrix2;out target:TMatrix2); overload;
- procedure MultMat(m1,m2:TMatrix32;out target:TMatrix32); overload;
+ procedure MultMat(m1,m2:TMat2d;out target:TMat2d); overload;
+ procedure MultMat(m1,m2:TMat32d;out target:TMat32d); overload;
 
  procedure MultPnts(m:TMatrix32s;v:Ppoint2s;num,step:integer);
 
  // Транспонирование (для ортонормированной матрицы - это будт обратная)
- procedure Transp2(m:TMatrix2;out dest:TMatrix2);
- procedure Transp(m:TMatrix32;out dest:TMatrix32);
+ procedure Transp2(m:TMat2d;out dest:TMat2d);
+ procedure Transp(m:TMat32d;out dest:TMat32d);
  // Вычисление обратной матрицы
- procedure Invert2(m:TMatrix2;out dest:TMatrix2);
- procedure Invert(m:TMatrix32;out dest:TMatrix32);
+ procedure Invert2(m:TMat2d;out dest:TMat2d);
+ procedure Invert(m:TMat32d;out dest:TMat32d);
 
  // Rectangle
  function Rect2s(x1,y1,x2,y2:single):TRect2s; overload; inline;
@@ -661,13 +663,13 @@ implementation
    r:=r2;
   end;
 
- function TranslationMat(x,y:double):TMatrix32;
+ function TranslationMat(x,y:double):TMat32d;
   begin
    result[0,0]:=1;   result[1,0]:=0;   result[2,0]:=x;
    result[0,1]:=0;   result[1,1]:=1;   result[2,1]:=y;
   end;
 
- function RotationMat(angle:double):TMatrix32;
+ function RotationMat(angle:double):TMat32d;
   var
    c,s:single;
   begin
@@ -676,7 +678,7 @@ implementation
    result[0,1]:=s;   result[1,1]:=c;   result[2,1]:=0;
   end;
 
- function RotationMat2(angle:double):TMatrix2;
+ function RotationMat2(angle:double):TMat2d;
   var
    c,s:single;
   begin
@@ -685,21 +687,21 @@ implementation
    result[0,1]:=s;   result[1,1]:=c;
   end;
 
- function ScaleMat(scaleX,scaleY:double):TMatrix32;
+ function ScaleMat(scaleX,scaleY:double):TMat32d;
   begin
    result[0,0]:=scaleX;   result[0,1]:=0;
    result[1,0]:=0;   result[1,1]:=scaleY;
    result[2,0]:=0;        result[2,1]:=0;
   end;
 
- procedure ToSingle32(sour:TMatrix32;out dest:TMatrix32s);
+ procedure ToSingle32(sour:TMat32d;out dest:TMatrix32s);
   begin
    dest[0,0]:=sour[0,0];   dest[1,0]:=sour[1,0];   dest[2,0]:=sour[2,0];
    dest[0,1]:=sour[0,1];   dest[1,1]:=sour[1,1];   dest[2,1]:=sour[2,1];
   end;
 
  // target = M1*M2
- procedure MultMat(m1,m2:TMatrix2;out target:TMatrix2);
+ procedure MultMat(m1,m2:TMat2d;out target:TMat2d);
   begin
    target[0,0]:=m1[0,0]*m2[0,0]+m1[0,1]*m2[1,0];
    target[0,1]:=m1[0,0]*m2[0,1]+m1[0,1]*m2[1,1];
@@ -707,7 +709,7 @@ implementation
    target[1,1]:=m1[1,0]*m2[0,1]+m1[1,1]*m2[1,1];
   end;
 
- procedure MultMat(m1,m2:TMatrix32;out target:TMatrix32);
+ procedure MultMat(m1,m2:TMat32d;out target:TMat32d);
   begin
    target[0,0]:=m1[0,0]*m2[0,0]+m1[0,1]*m2[1,0];
    target[0,1]:=m1[0,0]*m2[0,1]+m1[0,1]*m2[1,1];
@@ -732,12 +734,12 @@ implementation
   end;
 
  // Транспонирование (для ортонормированной матрицы - это будт обратная)
- procedure Transp2(m:TMatrix2;out dest:TMatrix2);
+ procedure Transp2(m:TMat2d;out dest:TMat2d);
   begin
    dest[0,0]:=m[0,0]; dest[1,0]:=m[0,1];
    dest[0,1]:=m[1,0]; dest[1,1]:=m[1,1];
   end;
- procedure Transp(m:TMatrix32;out dest:TMatrix32);
+ procedure Transp(m:TMat32d;out dest:TMat32d);
   var
    mv:TMatrix32v absolute m;
   begin
@@ -745,7 +747,7 @@ implementation
    dest[0,1]:=m[1,0]; dest[1,1]:=m[1,1]; dest[2,1]:=-DotProduct(mv[1],mv[2]);
   end;
  // Вычисление обратной матрицы
- procedure Invert2(m:TMatrix2;out dest:TMatrix2);
+ procedure Invert2(m:TMat2d;out dest:TMat2d);
   var
    la,lb:double;
    mv:TMatrix2v absolute m;
@@ -758,7 +760,7 @@ implementation
    dest[0,0]:=dest[0,0]/la;   dest[1,0]:=dest[1,0]/la;
    dest[0,1]:=dest[0,1]/lb;   dest[1,1]:=dest[1,1]/lb;
   end;
- procedure Invert(m:TMatrix32;out dest:TMatrix32);
+ procedure Invert(m:TMat32d;out dest:TMat32d);
   var
    la,lb:double;
    mv:TMatrix2v absolute m;
@@ -1115,5 +1117,6 @@ procedure TVec2.Wrap(max:single);
  end;
 
 end.
+
 
 
