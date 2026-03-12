@@ -147,15 +147,15 @@ begin
   Check(Abs(p0.Length2-14)<0.0001,'Length2');
   Check(Abs(Sqrt(p0.Distance2(p1))-Sqrt(50))<0.0001,'Distance');
   Check(Abs(p0.Distance2(p1)-50)<0.0001,'Distance2');
-  pd:=Vector3(1,2,3);
+  pd:=TVec3d.Init(1,2,3);
   p2:=TVec3.Init(pd);
   Check((Abs(p2.x-1)<0.0001) and (Abs(p2.y-2)<0.0001) and (Abs(p2.z-3)<0.0001),'Vec3 from vec3d');
-  p2:=TVec3.Init(Vector3(2,3,4));
+  p2:=TVec3.Init(TVec3d.Init(2,3,4));
   Check((Abs(p2.x-2)<0.0001) and (Abs(p2.y-3)<0.0001) and (Abs(p2.z-4)<0.0001),'Point from vec3d');
   p2:=TVec3.Init(p0,p1,0.5);
   Check((Abs(p2.x-2.5)<0.0001) and (Abs(p2.y-4)<0.0001),'PointBetween');
   Check(p0.MaxDelta(p0)=0,'MaxDelta single');
-  Check(Point3(1,2,3).MaxDelta(Point3(1,2,3))=0,'MaxDelta double');
+  Check(TVec3d.Init(1,2,3).MaxDelta(TVec3d.Init(1,2,3))=0,'MaxDelta double');
   Check(not IsZero(p0),'IsZero');
   Check(IsIdentity(TVec3.Init(1,1,1)),'IsIdentity vec');
   Check(IsEqual(1.0,1.0),'IsEqual scalar');
@@ -212,10 +212,10 @@ var
   pl:TPlane;
 begin
   StartTest('Geom3D utility2');
-  pl:=TPlane.Init(Vector3(0,2,0),Vector3(0,1,0));
-  d:=pl.DistanceTo(Point3(0,2,0));
+  pl:=TPlane.Init(TVec3d.Init(0,2,0),TVec3d.Init(0,1,0));
+  d:=pl.DistanceTo(TVec3d.Init(0,2,0));
   Check(Abs(d)<0.0001,'TPlane.DistanceTo');
-  Check(Abs(pl.DistanceTo(Point3(0,1,0))+1)<0.0001,'TPlane.DistanceTo signed');
+  Check(Abs(pl.DistanceTo(TVec3d.Init(0,1,0))+1)<0.0001,'TPlane.DistanceTo signed');
 
   bbA.Clear;
   bbA.IncludePoint(TVec3.Init(1,2,3));

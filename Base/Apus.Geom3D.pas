@@ -153,9 +153,7 @@ interface
   InvalidPoint3:TVec3d=(x:NaN;y:NaN;z:NaN);
   InvalidVec3:TVec3=(x:NaN;y:NaN;z:NaN);
 
- function Point3(x,y,z:double):TVec3d; overload; inline;
  function Point3(p:TVec3):TVec3d; overload; inline;
- function Vector3(x,y,z:double):TVec3d; overload; inline;
  function Direction3(from,target:TVec3d):TVec3d; overload; inline;
  function Vec4(vector:TVec3d):TQuatd; overload; inline;
  function Vec4(vector:TVec3):TVec4; overload; inline;
@@ -342,25 +340,11 @@ implementation
   // Compensation for stack frame allocation in x64 mode
   RSP_BIAS = {$IFDEF FPC} 0 {$ELSE} 8 {$ENDIF};
 
- function Point3(x,y,z:double):TVec3d; overload; inline;
-  begin
-   result.x:=x;
-   result.y:=y;
-   result.z:=z;
-  end;
-
  function Point3(p:TVec3):TVec3d; overload; inline;
   begin
    result.x:=p.x;
    result.y:=p.y;
    result.z:=p.z;
-  end;
-
- function Vector3(x,y,z:double):TVec3d;
-  begin
-   result.x:=x;
-   result.y:=y;
-   result.z:=z;
   end;
 
  function Direction3(from,target:TVec3d):TVec3d; overload; inline;
