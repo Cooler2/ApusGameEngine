@@ -30,6 +30,9 @@ interface
    procedure Normalize; inline;
    function Dot(const p:TVec2d):double; inline;
    function Cross(const p:TVec2d):double; inline;
+   function Direction:double; inline;
+   function AngleTo(const p:TVec2d):double; inline;
+   function ClockwiseAngleTo(const p:TVec2d):double; inline;
    function Length:double; inline;
    function Length2:double; inline;
    function Sub(const p:TVec2d):TVec2d; inline;
@@ -51,6 +54,8 @@ interface
    procedure Normalize; inline;
    function Dot(const p:TVec2):single; inline;
    function Cross(const p:TVec2):single; inline;
+   function Direction:single; inline;
+   function AngleTo(const p:TVec2):single; inline;
    function Length:single; inline;
    function Length2:single; inline;
    function Sub(const p:TVec2):TVec2; inline;
@@ -126,14 +131,6 @@ interface
   InvalidVec2:TVec2=(x:NaN;y:NaN);
 
  // Vector functions
- // Angle between vectors (radians)
- function AngleBetween(v1,v2:TVec2d):double; overload;
- function AngleBetween(v1,v2:TVec2):single; overload;
- // Angle between vector and X axis (CCW direction if Y is up), -Pi..Pi
- function VecDirection(v:TVec2d):double; overload; inline;
- function VecDirection(v:TVec2):single; overload; inline;
- // how much vector v1 must be rotated in clockwise direction to obtain v2 direction
- function AngleBetweenCW(v1,v2:TVec2d):double; inline;
  // Difference between 2 directions (angle) (result is signed: from -Pi to +Pi)!
  function AngleDiff(a1,a2:double):double; inline;
 
@@ -210,49 +207,61 @@ interface
 implementation
  uses Math, Apus.Types, Apus.Core, SysUtils;
 
- function AngleBetween(v1,v2:TVec2d):double;
-  var
-   p:double;
-  begin
-   v1.Normalize;
-   v2.Normalize;
-   p:=v1.Dot(v2);
-   if p>1 then p:=1;
-   if p<-1 then p:=-1;
-   result:=ArcCos(p);
-  end;
+function TVec2d.Direction:double;
+begin
+  result:=ArcTan2(y,x);
+end;
 
- function VecDirection(v:TVec2d):double;
-  begin
-   result:=ArcTan2(v.y,v.x);
+function TVec2d.AngleTo(const p:TVec2d):double;
+var
+  n1,n2:TVec2d;
+  c:double;
+begin
+  n1:=self;
+  n2:=p;
+  n1.Normalize;
+  n2.Normalize;
+  c:=n1.Dot(n2);
+  if c>1 then begin
+    c:=1;
   end;
+  if c<-1 then begin
+    c:=-1;
+  end;
+  result:=ArcCos(c);
+end;
 
- function AngleBetween(v1,v2:TVec2):single;
-  var
-   p:single;
-  begin
-   v1.Normalize;
-   v2.Normalize;
-   p:=v1.Dot(v2);
-   if p>1 then p:=1;
-   if p<-1 then p:=-1;
-   result:=ArcCos(p);
+function TVec2d.ClockwiseAngleTo(const p:TVec2d):double;
+begin
+  result:=AngleTo(p);
+  if Cross(p)>0 then begin
+    result:=2*Pi-result;
   end;
+end;
 
- function VecDirection(v:TVec2):single;
-  begin
-   result:=ArcTan2(v.y,v.x);
-  end;
+function TVec2.Direction:single;
+begin
+  result:=ArcTan2(y,x);
+end;
 
- function AngleBetweenCW(v1,v2:TVec2d):double;
-  var
-   a:double;
-  begin
-   a:=AngleBetween(v1,v2);
-   if v1.Cross(v2)>0 then
-    a:=2*pi-a;
-   result:=a;
+function TVec2.AngleTo(const p:TVec2):single;
+var
+  n1,n2:TVec2;
+  c:single;
+begin
+  n1:=self;
+  n2:=p;
+  n1.Normalize;
+  n2.Normalize;
+  c:=n1.Dot(n2);
+  if c>1 then begin
+    c:=1;
   end;
+  if c<-1 then begin
+    c:=-1;
+  end;
+  result:=ArcCos(c);
+end;
 
  function AngleDiff(a1,a2:double):double;
   begin

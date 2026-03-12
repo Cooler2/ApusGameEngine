@@ -68,8 +68,9 @@ begin
 
   v:=TVec2.Init(10,0);
   u:=TVec2.Init(0,10);
-  a:=AngleBetween(v,u);
+  a:=v.AngleTo(u);
   Check(Abs(a-Pi/2)<0.0001,'AngleBetween');
+  Check(Abs(v.Direction)<0.0001,'TVec2.Direction');
   Check(Abs(AngleDiff(Pi,-Pi))<0.0001,'AngleDiff wrap');
 
   vd:=Point2(1.2,-0.3);
@@ -173,7 +174,8 @@ begin
   Check((Abs(v3.x-2)<0.0001) and (Abs(v3.y-1.666666)<0.01),'DivBy');
   v3.Invert;
   Check((Abs(v3.x-0.5)<0.0001) and (Abs(v3.y-0.6)<0.01),'Invert');
-  Check(Abs(AngleBetweenCW(Point2(1,0),Point2(0,1))-3*Pi/2)<0.0001,'AngleBetweenCW');
+  Check(Abs(Point2(1,0).ClockwiseAngleTo(Point2(0,1))-3*Pi/2)<0.0001,'ClockwiseAngleTo');
+  Check(Abs(Point2(0,1).Direction-Pi/2)<0.0001,'TVec2d.Direction');
   dv:=Point2(2,3);
   dv:=dv.Turn90R;
   dv:=dv.Turn90L;
