@@ -325,6 +325,8 @@ These gates are mandatory before migration to engine modules.
 
 ### Gate G: Engine migration and compile validation
 
+- Mandatory pause before migration:
+  - when library work is complete, stop for dedicated code review before any engine integration/migration.
 - After gates A-F are done and stable, start migration of engine modules to new API.
 - Replace old types/functions in module callsites.
 - Run compile validation on a representative target (preferred: `SimpleDemo`).
