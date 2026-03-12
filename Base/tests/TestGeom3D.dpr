@@ -69,7 +69,7 @@ begin
   m3:=MultMat(m3,mInv);
   Check(IsEqual(m3,IdentMat4),'InvertFull');
 
-  v:=TQuat.Init(1,2,3,1);
+  v:=TVec4.Init(1,2,3,1);
   MultPnt(IdentMat4,@v,1,SizeOf(v));
   Check((Abs(v.x-1)<0.0001) and (Abs(v.y-2)<0.0001) and (Abs(v.z-3)<0.0001),'MultPnt identity');
   EndTest;
@@ -131,10 +131,11 @@ var
   m4d:TMat4d;
   m4:TMat4;
   m4dd:TMat4d;
-  q:TVec4;
+  q:TQuat;
   tr,rot,sca:TQuat;
   trd,rotd,scad:TQuatd;
-  qd,qdv:TQuatd;
+  qd:TQuatd;
+  qdv:TVec4d;
 begin
   StartTest('Geom3D utility');
   p0:=Vec3(1,2,3);
@@ -173,8 +174,8 @@ begin
   Check(Abs(Det(IdentMat4)-1)<0.0001,'Det');
 
   q:=Quat(1,2,3,4);
-  v:=MatRow(IdentMat4,0);
-  v:=MatCol(IdentMat4,0);
+  v:=IdentMat4.Row(0);
+  v:=IdentMat4.Col(0);
   q:=TQuat.Init(p0);
   q:=Quat(0,0,0,1);
   Check(Abs(QuatLength(q)-1)<0.0001,'QuatLength');
@@ -183,14 +184,14 @@ begin
   q:=QuatMultiply(q,Quat(0,0,0,1));
   q:=QuatSlerp(q,Quat(0,0,0,1),0.5);
   Check(q.IsValid,'Quaternion ops');
-  q:=Vec4(p0);
-  Check((Abs(q.x-p0.x)<0.0001) and (Abs(q.y-p0.y)<0.0001) and (Abs(q.z-p0.z)<0.0001) and (Abs(q.w-1)<0.0001),'Vec4 default w');
-  q:=Vec4(p0,2);
-  Check(Abs(q.w-2)<0.0001,'Vec4 explicit w');
-  q:=Vec4(3,4,5,6);
-  Check((Abs(q.x-3)<0.0001) and (Abs(q.y-4)<0.0001) and (Abs(q.z-5)<0.0001) and (Abs(q.w-6)<0.0001),'Vec4 component factory');
-  Check(IsEqual(Vec3(q),TVec3.Init(q.x,q.y,q.z)),'Vec4->Vec3 factory');
-  Check(IsEqual(q.ToVec3,TVec3.Init(q.x,q.y,q.z)),'TQuat.ToVec3');
+  v:=Vec4(p0);
+  Check((Abs(v.x-p0.x)<0.0001) and (Abs(v.y-p0.y)<0.0001) and (Abs(v.z-p0.z)<0.0001) and (Abs(v.w-1)<0.0001),'Vec4 default w');
+  v:=Vec4(p0,2);
+  Check(Abs(v.w-2)<0.0001,'Vec4 explicit w');
+  v:=Vec4(3,4,5,6);
+  Check((Abs(v.x-3)<0.0001) and (Abs(v.y-4)<0.0001) and (Abs(v.z-5)<0.0001) and (Abs(v.w-6)<0.0001),'Vec4 component factory');
+  Check(IsEqual(Vec3(v),TVec3.Init(v.x,v.y,v.z)),'Vec4->Vec3 factory');
+  Check(IsEqual(v.ToVec3,TVec3.Init(v.x,v.y,v.z)),'TVec4.ToVec3');
 
   m4:=TranslationMat4(5,6,7);
   DecomposeMatrix(m4,tr,rot,sca);
@@ -206,19 +207,19 @@ begin
   qd:=QuatMultiply(qd,Quatd(0,0,0,1));
   Check(qd.IsValid,'Quaternion double ops');
   qdv:=Vec4d(pd);
-  Check(IsEqual(qdv,TQuatd.Init(pd),2),'Vec4d default w');
-  Check(IsEqual(qdv,Quatd(1,2,3,1),2),'Vec4 double overload');
+  Check(IsEqual(qdv,TVec4d.Init(pd),2),'Vec4d default w');
+  Check(IsEqual(qdv,Vec4d(1,2,3,1),2),'Vec4 double overload');
   qdv:=Vec4d(pd,2);
   Check(Abs(qdv.w-2)<0.0001,'Vec4d explicit w');
   qdv:=Vec4d(7,8,9,10);
   Check((Abs(qdv.x-7)<0.0001) and (Abs(qdv.y-8)<0.0001) and (Abs(qdv.z-9)<0.0001) and (Abs(qdv.w-10)<0.0001),'Vec4d component factory');
-  q:=Vec4(qdv);
-  Check((Abs(q.x-qdv.x)<0.0001) and (Abs(q.y-qdv.y)<0.0001) and (Abs(q.z-qdv.z)<0.0001) and (Abs(q.w-qdv.w)<0.0001),'Vec4 from vec4d');
-  qdv:=Vec4d(q);
-  Check((Abs(qdv.x-q.x)<0.0001) and (Abs(qdv.y-q.y)<0.0001) and (Abs(qdv.z-q.z)<0.0001) and (Abs(qdv.w-q.w)<0.0001),'Vec4d from vec4');
+  v:=Vec4(qdv);
+  Check((Abs(v.x-qdv.x)<0.0001) and (Abs(v.y-qdv.y)<0.0001) and (Abs(v.z-qdv.z)<0.0001) and (Abs(v.w-qdv.w)<0.0001),'Vec4 from vec4d');
+  qdv:=Vec4d(v);
+  Check((Abs(qdv.x-v.x)<0.0001) and (Abs(qdv.y-v.y)<0.0001) and (Abs(qdv.z-v.z)<0.0001) and (Abs(qdv.w-v.w)<0.0001),'Vec4d from vec4');
   Check(IsEqual(Vec3d(1,2,3),TVec3d.Init(1,2,3),2),'Vec3d factory');
   Check(IsEqual(Vec3d(qdv),TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'Vec4d->Vec3d factory');
-  Check(IsEqual(qdv.ToVec3d,TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'TQuatd.ToVec3d');
+  Check(IsEqual(qdv.ToVec3d,TVec3d.Init(qdv.x,qdv.y,qdv.z),2),'TVec4d.ToVec3d');
   QuaternionToMatrix(qd,m3d);
   qd:=MatrixToQuaternion(m3d);
   Check(qd.IsValid,'QuaternionToMatrix double alias');

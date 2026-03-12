@@ -59,6 +59,42 @@ interface
   end;
   TVec3Array=array of TVec3;
 
+  TVec4d=record
+   constructor Init(x,y,z,w:double); overload;
+   constructor Init(vec3:TVec3d); overload;
+   function ToVec3d:TVec3d; inline;
+   procedure Add(const p:TVec4d); overload;
+   procedure Add(const p:TVec4d;scale:double); overload;
+   procedure Mul(scalar:double);
+   procedure Normalize;
+   function Dot(const p:TVec4d):double;
+   function Length:double; inline;
+   function Length2:double; inline;
+   function IsValid:boolean;
+   case integer of
+    1:( x,y,z,w:double; );
+    2:( v:array[0..3] of double; );
+    3:( xyz:TVec3d; t:double; );
+  end;
+
+  TVec4=record
+   constructor Init(x,y,z,w:single); overload;
+   constructor Init(vec3:TVec3); overload;
+   function ToVec3:TVec3; inline;
+   procedure Add(const p:TVec4); overload;
+   procedure Add(const p:TVec4;scale:single); overload;
+   procedure Mul(scalar:single);
+   procedure Normalize;
+   function Dot(const p:TVec4):single;
+   function Length:single; inline;
+   function Length2:single; inline;
+   function IsValid:boolean;
+   case integer of
+    1:( x,y,z,w:single; );
+    2:( v:array[0..3] of single; );
+    3:( xyz:TVec3; t:single; );
+  end;
+
   TQuatd=record
    constructor Init(x,y,z,w:double); overload;
    constructor Init(vec3:TVec3d); overload;
@@ -103,7 +139,6 @@ interface
     3:( xyz:TVec3; t:single; );
   end;
 
-  TVec4=TQuat;
   PVec4=^TVec4;
 
   // Infinite plane in space
@@ -126,9 +161,31 @@ interface
   PMatrix43=^TMat34d;
   TMat34d=array[0..3,0..2] of double; // rotation/scale/translation
   PMatrix4=^TMat4d;
-  TMat4d=array[0..3,0..3] of double; // rotation/scale/translation
+  TMat4d=packed record // rotation/scale/translation
+   private
+    function GetItem(i,j:integer):double; inline;
+    procedure SetItem(i,j:integer;value:double); inline;
+   public
+    function Row(n:integer):TVec4d; inline;
+    function Col(n:integer):TVec4d; inline;
+    property Items[i,j:integer]:double read GetItem write SetItem; default;
+    case integer of
+    0:(v:array[0..3,0..3] of double);
+    1:(rows:array[0..3] of TVec4d);
+  end;
   PMat4=^TMat4;
-  TMat4=array[0..3,0..3] of single; // rotation/scale/translation
+  TMat4=packed record // rotation/scale/translation
+   private
+    function GetItem(i,j:integer):single; inline;
+    procedure SetItem(i,j:integer;value:single); inline;
+   public
+    function Row(n:integer):TVec4; inline;
+    function Col(n:integer):TVec4; inline;
+    property Items[i,j:integer]:single read GetItem write SetItem; default;
+    case integer of
+    0:(v:array[0..3,0..3] of single);
+    1:(rows:array[0..3] of TVec4);
+  end;
   // Synonims
   TMatrix3vd=array[0..2] of TVec3d;
   TMatrix43vd=array[0..3] of TVec3d;
@@ -148,8 +205,8 @@ interface
   IdentMat3:TMat3=((1,0,0),(0,1,0),(0,0,1));
   IdentMat34d:TMat34d=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
   IdentMat34:TMat34=((1,0,0),(0,1,0),(0,0,1),(0,0,0));
-  IdentMat4d:TMat4d=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
-  IdentMat4:TMat4=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+  IdentMat4d:TMat4d=(v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
+  IdentMat4:TMat4=(v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
 
   NullPoint:TVec3d=(x:0;y:0;z:0);
   NullVec3:TVec3=(x:0;y:0;z:0);
@@ -164,12 +221,13 @@ interface
  function Vec3d(x,y,z:double):TVec3d; overload; inline;
  function Vec3d(v:TVec3):TVec3d; overload; inline;
  function Vec3d(v:TQuatd):TVec3d; overload; inline;
+ function Vec3d(v:TVec4d):TVec3d; overload; inline;
  function Vec4(x,y,z,w:single):TVec4; overload; inline;
  function Vec4(v:TVec3;w:single=1):TVec4; overload; inline;
- function Vec4(v:TQuatd):TVec4; overload; inline;
- function Vec4d(x,y,z,w:double):TQuatd; overload; inline;
- function Vec4d(v:TVec3d;w:double=1):TQuatd; overload; inline;
- function Vec4d(v:TVec4):TQuatd; overload; inline;
+ function Vec4(v:TVec4d):TVec4; overload; inline;
+ function Vec4d(x,y,z,w:double):TVec4d; overload; inline;
+ function Vec4d(v:TVec3d;w:double=1):TVec4d; overload; inline;
+ function Vec4d(v:TVec4):TVec4d; overload; inline;
  function Quat(x,y,z,w:single):TQuat; overload; inline;
  function Quatd(x,y,z,w:double):TQuatd; overload; inline;
  // Matrix conversion
@@ -183,12 +241,8 @@ interface
  function ToMat3(from:TMat4):TMat3; overload;
 
  // Extract matrix row/column
- function MatRow(const mat:TMat4; n:integer):TQuat; overload; inline;
- function MatRow(const mat:TMat4d;  n:integer):TQuatd;  overload; inline;
  function MatRow(const mat:TMat34;n:integer):TVec3; overload; inline;
  function MatRow(const mat:TMat3; n:integer):TVec3; overload; inline;
- function MatCol(const mat:TMat4; n:integer):TQuat; overload;
- function MatCol(const mat:TMat4d;  n:integer):TQuatd; overload;
  function MatCol(const mat:TMat34;n:integer):TVec3; overload;
  function MatCol(const mat:TMat3; n:integer):TVec3; overload;
 
@@ -207,6 +261,7 @@ interface
  function IsEqual(v1,v2:TVec3;precision:single=2.0):boolean; overload; inline;
  function IsEqual(v1,v2:TVec4;precision:single=2.0):boolean; overload; inline;
  function IsEqual(v1,v2:TVec3d;precision:single=2.0):boolean; overload; inline;
+ function IsEqual(v1,v2:TVec4d;precision:single=2.0):boolean; overload; inline;
  function IsEqual(v1,v2:TQuatd;precision:single=2.0):boolean; overload; inline;
 
  function IsEqual(m1,m2:TMat4d;precision:single=4.0):boolean; overload; inline;
@@ -402,7 +457,14 @@ implementation
    result.z:=v.z;
   end;
 
- function Vec3d(v:TQuatd):TVec3d; overload; inline;
+function Vec3d(v:TQuatd):TVec3d; overload; inline;
+  begin
+   result.x:=v.x;
+   result.y:=v.y;
+   result.z:=v.z;
+  end;
+
+ function Vec3d(v:TVec4d):TVec3d; overload; inline;
   begin
    result.x:=v.x;
    result.y:=v.y;
@@ -425,7 +487,7 @@ implementation
    result.w:=w;
   end;
 
- function Vec4(v:TQuatd):TVec4; overload; inline;
+ function Vec4(v:TVec4d):TVec4; overload; inline;
   begin
    result.x:=v.x;
    result.y:=v.y;
@@ -433,7 +495,7 @@ implementation
    result.w:=v.w;
   end;
 
- function Vec4d(v:TVec3d;w:double):TQuatd; overload; inline;
+ function Vec4d(v:TVec3d;w:double):TVec4d; overload; inline;
   begin
    result.x:=v.x;
    result.y:=v.y;
@@ -441,7 +503,7 @@ implementation
    result.w:=w;
   end;
 
- function Vec4d(x,y,z,w:double):TQuatd; overload; inline;
+ function Vec4d(x,y,z,w:double):TVec4d; overload; inline;
   begin
    result.x:=x;
    result.y:=y;
@@ -449,7 +511,7 @@ implementation
    result.w:=w;
   end;
 
- function Vec4d(v:TVec4):TQuatd; overload; inline;
+ function Vec4d(v:TVec4):TVec4d; overload; inline;
   begin
    result.x:=v.x;
    result.y:=v.y;
@@ -523,18 +585,18 @@ implementation
    end;
   end;
 
- function Matrix3(from:TMat4d):TMat3d; overload;
+function Matrix3(from:TMat4d):TMat3d; overload;
   begin
-   move(from[0],result[0],sizeof(result[0]));
-   move(from[1],result[1],sizeof(result[1]));
-   move(from[2],result[2],sizeof(result[2]));
+   move(from.v[0],result[0],sizeof(result[0]));
+   move(from.v[1],result[1],sizeof(result[1]));
+   move(from.v[2],result[2],sizeof(result[2]));
   end;
 
- function ToMat3(from:TMat4):TMat3; overload;
+function ToMat3(from:TMat4):TMat3; overload;
   begin
-   move(from[0],result[0],sizeof(result[0]));
-   move(from[1],result[1],sizeof(result[1]));
-   move(from[2],result[2],sizeof(result[2]));
+   move(from.v[0],result[0],sizeof(result[0]));
+   move(from.v[1],result[1],sizeof(result[1]));
+   move(from.v[2],result[2],sizeof(result[2]));
   end;
 
  function ToMat3(from:TMat3d):TMat3; overload;
@@ -559,15 +621,51 @@ implementation
    end;
   end;
 
- function MatRow(const mat:TMat4; n:integer):TQuat;
-  begin
-   move(mat[n],result,sizeof(result));
-  end;
+function TMat4d.GetItem(i,j:integer):double;
+begin
+  result:=v[i,j];
+end;
 
- function MatRow(const mat:TMat4d; n:integer):TQuatd;
-  begin
-   move(mat[n],result,sizeof(result));
-  end;
+procedure TMat4d.SetItem(i,j:integer;value:double);
+begin
+  v[i,j]:=value;
+end;
+
+function TMat4d.Row(n:integer):TVec4d;
+begin
+  result:=rows[n];
+end;
+
+function TMat4d.Col(n:integer):TVec4d;
+begin
+  result.x:=v[0,n];
+  result.y:=v[1,n];
+  result.z:=v[2,n];
+  result.w:=v[3,n];
+end;
+
+function TMat4.GetItem(i,j:integer):single;
+begin
+  result:=v[i,j];
+end;
+
+procedure TMat4.SetItem(i,j:integer;value:single);
+begin
+  v[i,j]:=value;
+end;
+
+function TMat4.Row(n:integer):TVec4;
+begin
+  result:=rows[n];
+end;
+
+function TMat4.Col(n:integer):TVec4;
+begin
+  result.x:=v[0,n];
+  result.y:=v[1,n];
+  result.z:=v[2,n];
+  result.w:=v[3,n];
+end;
 
  function MatRow(const mat:TMat34;n:integer):TVec3;
   begin
@@ -577,22 +675,6 @@ implementation
  function MatRow(const mat:TMat3; n:integer):TVec3;
   begin
    move(mat[n],result,sizeof(result));
-  end;
-
- function MatCol(const mat:TMat4; n:integer):TQuat;
-  begin
-   result.x:=mat[0,n];
-   result.y:=mat[1,n];
-   result.z:=mat[2,n];
-   result.w:=mat[3,n];
-  end;
-
- function MatCol(const mat:TMat4d; n:integer):TQuatd;
-  begin
-   result.x:=mat[0,n];
-   result.y:=mat[1,n];
-   result.z:=mat[2,n];
-   result.w:=mat[3,n];
   end;
 
  function MatCol(const mat:TMat34;n:integer):TVec3;
@@ -668,12 +750,17 @@ implementation
 
  function IsEqual(v1,v2:TVec3d;precision:single=2.0):boolean; overload; inline;
   begin
-    result:=CompareDouble(@v1,@v2,3,precision);
+   result:=CompareDouble(@v1,@v2,3,precision);
+  end;
+
+ function IsEqual(v1,v2:TVec4d;precision:single=2.0):boolean; overload; inline;
+  begin
+   result:=CompareDouble(@v1,@v2,4,precision);
   end;
 
  function IsEqual(v1,v2:TQuatd;precision:single=2.0):boolean; overload; inline;
   begin
-    result:=CompareDouble(@v1,@v2,4,precision);
+   result:=CompareDouble(@v1,@v2,4,precision);
   end;
 
  function IsEqual(m1,m2:TMat4d;precision:single=4.0):boolean; overload;
@@ -920,22 +1007,22 @@ implementation
 
  procedure Transpose(var m:TMat4d);
   begin
-   Swap(m[1,0],m[0,1]);
-   Swap(m[2,0],m[0,2]);
-   Swap(m[2,1],m[1,2]);
-   Swap(m[3,0],m[0,3]);
-   Swap(m[3,1],m[1,3]);
-   Swap(m[3,2],m[2,3]);
+   Swap(m.v[1,0],m.v[0,1]);
+   Swap(m.v[2,0],m.v[0,2]);
+   Swap(m.v[2,1],m.v[1,2]);
+   Swap(m.v[3,0],m.v[0,3]);
+   Swap(m.v[3,1],m.v[1,3]);
+   Swap(m.v[3,2],m.v[2,3]);
   end;
 
  procedure Transpose(var m:TMat4);
   begin
-   Swap(m[1,0],m[0,1]);
-   Swap(m[2,0],m[0,2]);
-   Swap(m[2,1],m[1,2]);
-   Swap(m[3,0],m[0,3]);
-   Swap(m[3,1],m[1,3]);
-   Swap(m[3,2],m[2,3]);
+   Swap(m.v[1,0],m.v[0,1]);
+   Swap(m.v[2,0],m.v[0,2]);
+   Swap(m.v[2,1],m.v[1,2]);
+   Swap(m.v[3,0],m.v[0,3]);
+   Swap(m.v[3,1],m.v[1,3]);
+   Swap(m.v[3,2],m.v[2,3]);
   end;
 
  procedure Transpose(var m:TMat3d);
@@ -1060,26 +1147,26 @@ implementation
      if abs(v)<EpsilonS then begin // fix zero diagonal element
       for k:=i+1 to 3 do
        if abs(mat[k,i])>EpsilonS then begin
-        TVec4(dest[i]).Add(TVec4(dest[k]),1);
-        TVec4(mat[i]).Add(TVec4(mat[k]),1);
+        dest.rows[i].Add(dest.rows[k],1);
+        mat.rows[i].Add(mat.rows[k],1);
         break;
        end;
       v:=mat[i,i];
       if v=0 then raise Exception.Create('Cannot invert matrix!');
      end;
      v:=1/v;
-     TVec4(mat[i]).Mul(v);
-     TVec4(dest[i]).Mul(v);
+     mat.rows[i].Mul(v);
+     dest.rows[i].Mul(v);
 
      for k:=i+1 to 3 do begin
       v:=-mat[k,i];
-      TVec4(dest[k]).Add(TVec4(dest[i]),v);
-      TVec4(mat[k]).Add(TVec4(mat[i]),v);
+      dest.rows[k].Add(dest.rows[i],v);
+      mat.rows[k].Add(mat.rows[i],v);
      end;
     end;
    for i:=3 downto 1 do
     for k:=i-1 downto 0 do
-     TVec4(dest[k]).Add(TVec4(dest[i]),-mat[k,i]);
+     dest.rows[k].Add(dest.rows[i],-mat[k,i]);
   end;
 
  procedure MultPnt(const m:TMat4;v:PVec4;num,step:integer); overload;
@@ -1497,7 +1584,7 @@ implementation
    mat[0,1]:=xy+wz;        mat[1,1]:=1.0-(xx+zz);  mat[2,1]:=yz-wx;
    mat[0,2]:=xz-wy;        mat[1,2]:=yz+wx;        mat[2,2]:=1.0-(xx+yy);
    mat[0,3]:=0;            mat[1,3]:=0;            mat[2,3]:=0;
-   TVec4(mat[3]):=vec0001s;
+   mat.rows[3]:=vec0001s;
   end;
 
  procedure QuaternionToMatrix(const q:TQuatd;out mat:TMat3d); overload;
@@ -1587,20 +1674,22 @@ implementation
   end;
 
  // If matrix is not orthogonal, the shear will be lost
- procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat);
+procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat);
   var
-   qX,qY,qZ:TQuat;
+   qX,qY,qZ:TVec4;
+   tr:TVec4;
    mat3:TMat3;
    v:single;
   begin
-   translation:=MatRow(mat,3);
-   qX:=MatRow(mat,0);
-   qY:=MatRow(mat,1);
-   qZ:=MatRow(mat,2);
+   tr:=mat.Row(3);
+   translation:=TQuat.Init(tr.x,tr.y,tr.z,tr.w);
+   qX:=mat.Row(0);
+   qY:=mat.Row(1);
+   qZ:=mat.Row(2);
    // Scale part
-   scale.x:=QuatLength(qX);
-   scale.y:=QuatLength(qY);
-   scale.z:=QuatLength(qZ);
+   scale.x:=qX.Length;
+   scale.y:=qY.Length;
+   scale.z:=qZ.Length;
    scale.w:=0;
    qX.Mul(1/scale.x);
    qY.Mul(1/scale.y);
@@ -1628,20 +1717,22 @@ implementation
    rotation:=MatrixToQuaternion(mat3);
   end;
 
- procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd);
+procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd);
   var
-   qX,qY,qZ:TQuatd;
+   qX,qY,qZ:TVec4d;
+   tr:TVec4d;
    mat3:TMat3d;
    v:double;
   begin
-   translation:=MatRow(mat,3);
-   qX:=MatRow(mat,0);
-   qY:=MatRow(mat,1);
-   qZ:=MatRow(mat,2);
+   tr:=mat.Row(3);
+   translation:=TQuatd.Init(tr.x,tr.y,tr.z,tr.w);
+   qX:=mat.Row(0);
+   qY:=mat.Row(1);
+   qZ:=mat.Row(2);
    // Scale part
-   scale.x:=QuatLength(qX);
-   scale.y:=QuatLength(qY);
-   scale.z:=QuatLength(qZ);
+   scale.x:=qX.Length;
+   scale.y:=qY.Length;
+   scale.z:=qZ.Length;
    scale.w:=0;
    qX.Mul(1/scale.x);
    qY.Mul(1/scale.y);
@@ -2229,6 +2320,158 @@ procedure TVec3.Multiply(scalar:single);
   y:=y*scalar;
   z:=z*scalar;
  end;
+
+{ TVec4d }
+
+constructor TVec4d.Init(x,y,z,w:double);
+begin
+  self.x:=x;
+  self.y:=y;
+  self.z:=z;
+  self.w:=w;
+end;
+
+constructor TVec4d.Init(vec3:TVec3d);
+begin
+  x:=vec3.x;
+  y:=vec3.y;
+  z:=vec3.z;
+  w:=1;
+end;
+
+function TVec4d.ToVec3d:TVec3d;
+begin
+  result.x:=x;
+  result.y:=y;
+  result.z:=z;
+end;
+
+procedure TVec4d.Add(const p:TVec4d;scale:double);
+begin
+  x:=x+p.x*scale;
+  y:=y+p.y*scale;
+  z:=z+p.z*scale;
+  w:=w+p.w*scale;
+end;
+
+procedure TVec4d.Add(const p:TVec4d);
+begin
+  Add(p,1);
+end;
+
+procedure TVec4d.Mul(scalar:double);
+begin
+  x:=x*scalar;
+  y:=y*scalar;
+  z:=z*scalar;
+  w:=w*scalar;
+end;
+
+procedure TVec4d.Normalize;
+var
+  len:double;
+begin
+  len:=Length;
+  if len<>0 then begin
+    Mul(1/len);
+  end;
+end;
+
+function TVec4d.Dot(const p:TVec4d):double;
+begin
+  result:=x*p.x+y*p.y+z*p.z+w*p.w;
+end;
+
+function TVec4d.Length:double;
+begin
+  result:=Sqrt(Dot(self));
+end;
+
+function TVec4d.Length2:double;
+begin
+  result:=Dot(self);
+end;
+
+function TVec4d.IsValid:boolean;
+begin
+  result:=(x=x) and (y=y) and (z=z) and (w=w);
+end;
+
+{ TVec4 }
+
+constructor TVec4.Init(x,y,z,w:single);
+begin
+  self.x:=x;
+  self.y:=y;
+  self.z:=z;
+  self.w:=w;
+end;
+
+constructor TVec4.Init(vec3:TVec3);
+begin
+  x:=vec3.x;
+  y:=vec3.y;
+  z:=vec3.z;
+  w:=1;
+end;
+
+function TVec4.ToVec3:TVec3;
+begin
+  result.x:=x;
+  result.y:=y;
+  result.z:=z;
+end;
+
+procedure TVec4.Add(const p:TVec4;scale:single);
+begin
+  x:=x+p.x*scale;
+  y:=y+p.y*scale;
+  z:=z+p.z*scale;
+  w:=w+p.w*scale;
+end;
+
+procedure TVec4.Add(const p:TVec4);
+begin
+  Add(p,1);
+end;
+
+procedure TVec4.Mul(scalar:single);
+begin
+  x:=x*scalar;
+  y:=y*scalar;
+  z:=z*scalar;
+  w:=w*scalar;
+end;
+
+procedure TVec4.Normalize;
+var
+  len:single;
+begin
+  len:=Length;
+  if len<>0 then begin
+    Mul(1/len);
+  end;
+end;
+
+function TVec4.Dot(const p:TVec4):single;
+begin
+  result:=x*p.x+y*p.y+z*p.z+w*p.w;
+end;
+
+function TVec4.Length:single;
+begin
+  result:=Sqrt(Dot(self));
+end;
+
+function TVec4.Length2:single;
+begin
+  result:=Dot(self);
+end;
+
+function TVec4.IsValid:boolean;
+begin
+  result:=(x=x) and (y=y) and (z=z) and (w=w);
+end;
 
 { TQuatd }
 

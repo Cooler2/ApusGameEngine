@@ -414,14 +414,14 @@ begin
   end;
 
   // near/far
-  planes[0]:=TQuat.Init(mvp[3,0] + mvp[2,0],mvp[3,1] + mvp[2,1],mvp[3,2] + mvp[2,2],mvp[3,3] + mvp[2,3]);
-  planes[1]:=TQuat.Init(mvp[3,0] - mvp[2,0],mvp[3,1] - mvp[2,1],mvp[3,2] - mvp[2,2],mvp[3,3] - mvp[2,3]);
+  planes[0]:=TVec4.Init(mvp[3,0] + mvp[2,0],mvp[3,1] + mvp[2,1],mvp[3,2] + mvp[2,2],mvp[3,3] + mvp[2,3]);
+  planes[1]:=TVec4.Init(mvp[3,0] - mvp[2,0],mvp[3,1] - mvp[2,1],mvp[3,2] - mvp[2,2],mvp[3,3] - mvp[2,3]);
   // left/right
-  planes[2]:=TQuat.Init(mvp[3,0] + mvp[0,0],mvp[3,1] + mvp[0,1],mvp[3,2] + mvp[0,2],mvp[3,3] + mvp[0,3]);
-  planes[3]:=TQuat.Init(mvp[3,0] - mvp[0,0],mvp[3,1] - mvp[0,1],mvp[3,2] - mvp[0,2],mvp[3,3] - mvp[0,3]);
+  planes[2]:=TVec4.Init(mvp[3,0] + mvp[0,0],mvp[3,1] + mvp[0,1],mvp[3,2] + mvp[0,2],mvp[3,3] + mvp[0,3]);
+  planes[3]:=TVec4.Init(mvp[3,0] - mvp[0,0],mvp[3,1] - mvp[0,1],mvp[3,2] - mvp[0,2],mvp[3,3] - mvp[0,3]);
   // top/bottom
-  planes[4]:=TQuat.Init(mvp[3,0] - mvp[1,0],mvp[3,1] - mvp[1,1],mvp[3,2] - mvp[1,2],mvp[3,3] - mvp[1,3]);
-  planes[5]:=TQuat.Init(mvp[3,0] + mvp[1,0],mvp[3,1] + mvp[1,1],mvp[3,2] + mvp[1,2],mvp[3,3] + mvp[1,3]);
+  planes[4]:=TVec4.Init(mvp[3,0] - mvp[1,0],mvp[3,1] - mvp[1,1],mvp[3,2] - mvp[1,2],mvp[3,3] - mvp[1,3]);
+  planes[5]:=TVec4.Init(mvp[3,0] + mvp[1,0],mvp[3,1] + mvp[1,1],mvp[3,2] + mvp[1,2],mvp[3,3] + mvp[1,3]);
 
   NormalizePlane(planes[0]);
   NormalizePlane(planes[1]);
