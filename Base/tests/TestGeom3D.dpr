@@ -214,11 +214,11 @@ begin
   v:=q;
   q:=v;
   Check((Abs(q.x-v.x)<0.0001) and (Abs(q.y-v.y)<0.0001) and (Abs(q.z-v.z)<0.0001) and (Abs(q.w-v.w)<0.0001),'TQuat <-> TVec4 implicit');
-  Check(Abs(QuatLength(q)-1)<0.0001,'QuatLength');
-  QuatNormalize(q);
-  q:=QuatInvert(q);
-  q:=QuatMultiply(q,Quat(0,0,0,1));
-  q:=QuatSlerp(q,Quat(0,0,0,1),0.5);
+  Check(Abs(q.Length-1)<0.0001,'TQuat.Length');
+  q.Normalize;
+  q:=q.Inverted;
+  q:=q*Quat(0,0,0,1);
+  q:=TQuat.Slerp(q,Quat(0,0,0,1),0.5);
   Check(q.IsValid,'Quaternion ops');
   v:=Vec4(p0);
   Check((Abs(v.x-p0.x)<0.0001) and (Abs(v.y-p0.y)<0.0001) and (Abs(v.z-p0.z)<0.0001) and (Abs(v.w-1)<0.0001),'Vec4 default w');
@@ -235,12 +235,12 @@ begin
   Check((Abs(sca.x-1)<0.0001) and (Abs(sca.y-1)<0.0001) and (Abs(sca.z-1)<0.0001),'DecomposeMatrix scale');
 
   qd:=Quatd(0,0,0,1);
-  Check(Abs(QuatLength(qd)-1)<0.0001,'QuatLength double');
-  QuatScale(qd,2);
-  Check(Abs(QuatLength(qd)-2)<0.0001,'QuatScale double');
-  QuatNormalize(qd);
-  qd:=QuatInvert(qd);
-  qd:=QuatMultiply(qd,Quatd(0,0,0,1));
+  Check(Abs(qd.Length-1)<0.0001,'TQuatd.Length');
+  qd.Mul(2);
+  Check(Abs(qd.Length-2)<0.0001,'TQuatd.Mul scalar');
+  qd.Normalize;
+  qd:=qd.Inverted;
+  qd:=qd*Quatd(0,0,0,1);
   Check(qd.IsValid,'Quaternion double ops');
   qdv:=qd;
   qd:=qdv;

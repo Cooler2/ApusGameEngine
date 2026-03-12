@@ -105,6 +105,9 @@ interface
    procedure Add(const q:TQuatd;scale:double); overload;
    procedure Mul(scalar:double); overload;
    procedure Mul(const q:TQuatd); overload;
+   procedure Invert;
+   function Inverted:TQuatd;
+   class operator Multiply(const a,b:TQuatd):TQuatd;
    function Dot(const q:TQuatd):double;
    function Length:double;
    function Length2:double;
@@ -132,6 +135,10 @@ interface
    procedure Sub(const q:TQuat); overload;
    procedure Mul(scalar:single); overload;
    procedure Mul(const q:TQuat); overload;
+   procedure Invert;
+   function Inverted:TQuat;
+   class operator Multiply(const a,b:TQuat):TQuat;
+   class function Slerp(const q1,q2:TQuat;factor:single):TQuat; static;
    function Dot(const q:TQuat):single;
    function Length:single;
    function Length2:single; // Square length
@@ -379,25 +386,6 @@ interface
  // Extract translation rotation and scale from transformation matrix
  procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat); overload;
  procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd); overload;
-
- // Quaternion operations
- function QuatLength(q:TQuatd):double; overload;
- function QuatLength(q:TQuat):single; overload;
-
- procedure QuatScale(var q:TQuatd;val:double); overload;
- procedure QuatScale(var q:TQuat;val:single); overload;
-
- procedure QuatNormalize(var q:TQuatd); overload;
- procedure QuatNormalize(var q:TQuat); overload;
-
- function QuatInvert(q:TQuatd):TQuatd; overload;
- function QuatInvert(q:TQuat):TQuat; overload;
-
- function QuatMultiply(q1,q2:TQuatd):TQuatd; overload;
- function QuatMultiply(q1,q2:TQuat):TQuat; overload;
-
- // SLERP (!??) linear interpolation from Q1 to Q2 with factor changing from 0 to 1 (factor=0 -> Q1; factor=1 -> Q2)
- function QuatSlerp(Q1,Q2:TQuat;factor:single):TQuat;
 
 
  // Используется правосторонняя СК, ось Z - вверх.
@@ -1913,129 +1901,6 @@ procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd);
   rotation:=MatrixToQuaternion(mat3);
  end;
 
- function QuatLength(q:TQuatd):double; overload;
-  begin
-   result:=Sqrt(q.w*q.w+q.x*q.x+q.y*q.y+q.z*q.z);
-  end;
-
- function QuatLength(q:TQuat):single; overload;
-  begin
-   result:=Sqrt(q.w*q.w+q.x*q.x+q.y*q.y+q.z*q.z);
-  end;
-
- procedure QuatScale(var q:TQuatd;val:double); overload;
-  begin
-   q.w:=q.w*val;
-   q.x:=q.x*val;
-   q.y:=q.y*val;
-   q.z:=q.z*val;
-  end;
- procedure QuatScale(var q:TQuat;val:single); overload;
-  begin
-   q.w:=q.w*val;
-   q.x:=q.x*val;
-   q.y:=q.y*val;
-   q.z:=q.z*val;
-  end;
-
- procedure QuatNormalize(var q:TQuatd); overload;
-  begin
-   QuatScale(q,1/QuatLength(q));
-  end;
- procedure QuatNormalize(var q:TQuat); overload;
-  begin
-   QuatScale(q,1/QuatLength(q));
-  end;
-
- function QuatInvert(q:TQuatd):TQuatd; overload;
-  begin
-   result.w:=q.w;
-   result.x:=-q.x;
-   result.y:=-q.y;
-   result.z:=-q.z;
-   QuatNormalize(result);
-  end;
- function QuatInvert(q:TQuat):TQuat; overload;
-  begin
-   result.w:=q.w;
-   result.x:=-q.x;
-   result.y:=-q.y;
-   result.z:=-q.z;
-   QuatNormalize(result);
-  end;
-
- function QuatMultiply(q1,q2:TQuatd):TQuatd; overload;
-  var
-   a,b,c,d,e,f,g,h:double;
-  begin
-   A:=(q1.w+q1.x) * (q2.w+q2.x);
-   B:=(q1.z-q1.y) * (q2.y-q2.z);
-   C:=(q1.x-q1.w) * (q2.y+q2.z);
-   D:=(q1.y+q1.z) * (q2.x-q2.w);
-   E:=(q1.x+q1.z) * (q2.x+q2.y);
-   F:=(q1.x-q1.z) * (q2.x-q2.y);
-   G:=(q1.w+q1.y) * (q2.w-q2.z);
-   H:=(q1.w-q1.y) * (q2.w+q2.z);
-   result.w:= B+(-E-F+G+H)*0.5;
-   result.x:= A-( E+F+G+H)*0.5;
-   result.y:=-C+( E-F+G-H)*0.5;
-   result.z:=-D+( E-F-G+H)*0.5;
-  end;
- function QuatMultiply(q1,q2:TQuat):TQuat; overload;
-  var
-   a,b,c,d,e,f,g,h:single;
-  begin
-   A:=(q1.w+q1.x) * (q2.w+q2.x);
-   B:=(q1.z-q1.y) * (q2.y-q2.z);
-   C:=(q1.x-q1.w) * (q2.y+q2.z);
-   D:=(q1.y+q1.z) * (q2.x-q2.w);
-   E:=(q1.x+q1.z) * (q2.x+q2.y);
-   F:=(q1.x-q1.z) * (q2.x-q2.y);
-   G:=(q1.w+q1.y) * (q2.w-q2.z);
-   H:=(q1.w-q1.y) * (q2.w+q2.z);
-   result.w:= B+(-E-F+G+H)*0.5;
-   result.x:= A-( E+F+G+H)*0.5;
-   result.y:=-C+( E-F+G-H)*0.5;
-   result.z:=-D+( E-F-G+H)*0.5;
-  end;
-
- function QuatSlerp(q1,q2:TQuat;factor:single):TQuat;
-  var
-    cosOmega, sinOmega, scale0, scale1: Single;
-  begin
-    // Compute the cosine of the angle between the two vectors.
-    cosOmega:=Q1.x*Q2.x + Q1.y*Q2.y + Q1.z*Q2.z + Q1.w*Q2.w;
-
-    // if negative dot, use -q1. two quaternions q and -q represent the same rotation,
-    // but may produce different slerp. we chose q or -q to rotate using the shortest path.
-    if cosOmega < 0.0 then begin
-     cosOmega:=-cosOmega;
-     result.x:=-q1.x;
-     result.y:=-q1.y;
-     result.z:=-q1.z;
-     result.w:=-q1.w;
-    end else
-     result:=q1;
-
-    // Compute the scales for the linear interpolation
-    if (1.0 - cosOmega) > 1E-6 then begin
-     // Standard case (slerp)
-     sinOmega:=Sqrt(1.0 - sqr(cosOmega));
-     scale0:=Sin((1.0-factor) * ArcCos(cosOmega)) / sinOmega;
-     scale1:=Sin(factor * ArcCos(cosOmega)) / sinOmega;
-    end else begin
-     // Q1 and Q2 are very close, so do a linear interpolation
-     scale0:=1.0-factor;
-     scale1:=factor;
-    end;
-
-    // Final calculation of the interpolated quaternion
-    result.x:=scale0*result.x + scale1*q2.x;
-    result.y:=scale0*result.y + scale1*q2.y;
-    result.z:=scale0*result.z + scale1*q2.z;
-    result.w:=scale0*result.w + scale1*q2.w;
-  end;
-
 class function TPlane.Init(const point,normal:TVec3d):TPlane;
   var
    len,invLen:double;
@@ -2687,7 +2552,7 @@ function TQuatd.Dot(const q:TQuatd):double;
 
 function TQuatd.Length:double;
  begin
-  result:=QuatLength(self);
+  result:=Sqrt(w*w+x*x+y*y+z*z);
  end;
 
 function TQuatd.Length2:double;
@@ -2697,7 +2562,10 @@ function TQuatd.Length2:double;
 
 procedure TQuatd.Mul(scalar:double);
  begin
-  QuatScale(self,scalar);
+  x:=x*scalar;
+  y:=y*scalar;
+  z:=z*scalar;
+  w:=w*scalar;
  end;
 
 procedure TQuatd.Mul(const q:TQuatd);
@@ -2710,7 +2578,39 @@ procedure TQuatd.Mul(const q:TQuatd);
 
 procedure TQuatd.Normalize;
  begin
-  QuatNormalize(self);
+  Mul(1/Length);
+ end;
+
+procedure TQuatd.Invert;
+ begin
+  self:=Inverted;
+ end;
+
+function TQuatd.Inverted:TQuatd;
+ begin
+  result.w:=w;
+  result.x:=-x;
+  result.y:=-y;
+  result.z:=-z;
+  result.Normalize;
+ end;
+
+class operator TQuatd.Multiply(const a,b:TQuatd):TQuatd;
+ var
+  aa,bb,cc,dd,ee,ff,gg,hh:double;
+ begin
+  aa:=(a.w+a.x) * (b.w+b.x);
+  bb:=(a.z-a.y) * (b.y-b.z);
+  cc:=(a.x-a.w) * (b.y+b.z);
+  dd:=(a.y+a.z) * (b.x-b.w);
+  ee:=(a.x+a.z) * (b.x+b.y);
+  ff:=(a.x-a.z) * (b.x-b.y);
+  gg:=(a.w+a.y) * (b.w-b.z);
+  hh:=(a.w-a.y) * (b.w+b.z);
+  result.w:=bb+(-ee-ff+gg+hh)*0.5;
+  result.x:=aa-(ee+ff+gg+hh)*0.5;
+  result.y:=-cc+(ee-ff+gg-hh)*0.5;
+  result.z:=-dd+(ee-ff-gg+hh)*0.5;
  end;
 
 { TQuat }
@@ -2779,9 +2679,9 @@ function TQuat.Length:single;
  end;
  {$ENDIF}
  {$IFDEF CPU386}
- begin
-  result:=QuatLength(self);
- end;
+begin
+  result:=Sqrt(w*w+x*x+y*y+z*z);
+end;
  {$ENDIF}
 
 function TQuat.Length2:single;
@@ -2830,11 +2730,11 @@ procedure TQuat.Normalize;
   {$ENDIF}
  end;
  {$ENDIF}
- {$IFDEF CPU386}
- begin
-  QuatNormalize(self);
- end;
- {$ENDIF}
+{$IFDEF CPU386}
+begin
+  Mul(1/Length);
+end;
+{$ENDIF}
 
 
 procedure TQuat.Sub(const q:TQuat);
@@ -3027,6 +2927,66 @@ procedure TQuat.Mul(scalar:single);
   w:=w*scalar;
  end;
  {$ENDIF}
+
+procedure TQuat.Invert;
+ begin
+  self:=Inverted;
+ end;
+
+function TQuat.Inverted:TQuat;
+ begin
+  result.w:=w;
+  result.x:=-x;
+  result.y:=-y;
+  result.z:=-z;
+  result.Normalize;
+ end;
+
+class operator TQuat.Multiply(const a,b:TQuat):TQuat;
+ var
+  aa,bb,cc,dd,ee,ff,gg,hh:single;
+ begin
+  aa:=(a.w+a.x) * (b.w+b.x);
+  bb:=(a.z-a.y) * (b.y-b.z);
+  cc:=(a.x-a.w) * (b.y+b.z);
+  dd:=(a.y+a.z) * (b.x-b.w);
+  ee:=(a.x+a.z) * (b.x+b.y);
+  ff:=(a.x-a.z) * (b.x-b.y);
+  gg:=(a.w+a.y) * (b.w-b.z);
+  hh:=(a.w-a.y) * (b.w+b.z);
+  result.w:=bb+(-ee-ff+gg+hh)*0.5;
+  result.x:=aa-(ee+ff+gg+hh)*0.5;
+  result.y:=-cc+(ee-ff+gg-hh)*0.5;
+  result.z:=-dd+(ee-ff-gg+hh)*0.5;
+ end;
+
+class function TQuat.Slerp(const q1,q2:TQuat;factor:single):TQuat;
+ var
+  cosOmega,sinOmega,scale0,scale1:single;
+ begin
+  cosOmega:=q1.x*q2.x+q1.y*q2.y+q1.z*q2.z+q1.w*q2.w;
+  if cosOmega<0.0 then begin
+   cosOmega:=-cosOmega;
+   result.x:=-q1.x;
+   result.y:=-q1.y;
+   result.z:=-q1.z;
+   result.w:=-q1.w;
+  end else begin
+   result:=q1;
+  end;
+  if (1.0-cosOmega)>1E-6 then begin
+   sinOmega:=Sqrt(1.0-sqr(cosOmega));
+   scale0:=Sin((1.0-factor) * ArcCos(cosOmega))/sinOmega;
+   scale1:=Sin(factor * ArcCos(cosOmega))/sinOmega;
+  end else begin
+   scale0:=1.0-factor;
+   scale1:=factor;
+  end;
+  result.x:=scale0*result.x+scale1*q2.x;
+  result.y:=scale0*result.y+scale1*q2.y;
+  result.z:=scale0*result.z+scale1*q2.z;
+  result.w:=scale0*result.w+scale1*q2.w;
+ end;
 
 initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
