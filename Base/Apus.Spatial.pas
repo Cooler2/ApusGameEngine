@@ -48,10 +48,9 @@ type
 
   TFrustum = record
   private
-    class function PlaneDistance(const plane:TVec4;const p:TVec3):single; static; inline;
     class function SelectPositiveVertex(const box:TBBox3;nx,ny,nz:single):TVec3; static; inline;
   public
-    planes: array[0..5] of TVec4; // near, far, left, right, top, bottom
+    planes: array[0..5] of TPlane; // near, far, left, right, top, bottom
     planeCount: byte; // 4 or 6
     procedure InitFromMVP(const mvp: TMat4; includeNearFar: boolean = true);
     function IntersectsSphere(const sphere: TSphere): boolean;
@@ -63,17 +62,17 @@ implementation
 const
   SpatialEpsilon = 1E-5;
 
-procedure NormalizePlane(var p: TVec4); inline;
+procedure NormalizePlane(var p: TPlane); inline;
 var
   invLen: single;
 begin
-  invLen:=Sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+  invLen:=Sqrt(p.a * p.a + p.b * p.b + p.c * p.c);
   if invLen > SpatialEpsilon then begin
     invLen:=1.0 / invLen;
-    p.x:=p.x * invLen;
-    p.y:=p.y * invLen;
-    p.z:=p.z * invLen;
-    p.w:=p.w * invLen;
+    p.a:=p.a * invLen;
+    p.b:=p.b * invLen;
+    p.c:=p.c * invLen;
+    p.d:=p.d * invLen;
   end;
 end;
 
@@ -414,14 +413,14 @@ begin
   end;
 
   // near/far
-  planes[0]:=TVec4.Init(mvp[3,0] + mvp[2,0],mvp[3,1] + mvp[2,1],mvp[3,2] + mvp[2,2],mvp[3,3] + mvp[2,3]);
-  planes[1]:=TVec4.Init(mvp[3,0] - mvp[2,0],mvp[3,1] - mvp[2,1],mvp[3,2] - mvp[2,2],mvp[3,3] - mvp[2,3]);
+  planes[0].a:=mvp[3,0] + mvp[2,0]; planes[0].b:=mvp[3,1] + mvp[2,1]; planes[0].c:=mvp[3,2] + mvp[2,2]; planes[0].d:=mvp[3,3] + mvp[2,3];
+  planes[1].a:=mvp[3,0] - mvp[2,0]; planes[1].b:=mvp[3,1] - mvp[2,1]; planes[1].c:=mvp[3,2] - mvp[2,2]; planes[1].d:=mvp[3,3] - mvp[2,3];
   // left/right
-  planes[2]:=TVec4.Init(mvp[3,0] + mvp[0,0],mvp[3,1] + mvp[0,1],mvp[3,2] + mvp[0,2],mvp[3,3] + mvp[0,3]);
-  planes[3]:=TVec4.Init(mvp[3,0] - mvp[0,0],mvp[3,1] - mvp[0,1],mvp[3,2] - mvp[0,2],mvp[3,3] - mvp[0,3]);
+  planes[2].a:=mvp[3,0] + mvp[0,0]; planes[2].b:=mvp[3,1] + mvp[0,1]; planes[2].c:=mvp[3,2] + mvp[0,2]; planes[2].d:=mvp[3,3] + mvp[0,3];
+  planes[3].a:=mvp[3,0] - mvp[0,0]; planes[3].b:=mvp[3,1] - mvp[0,1]; planes[3].c:=mvp[3,2] - mvp[0,2]; planes[3].d:=mvp[3,3] - mvp[0,3];
   // top/bottom
-  planes[4]:=TVec4.Init(mvp[3,0] - mvp[1,0],mvp[3,1] - mvp[1,1],mvp[3,2] - mvp[1,2],mvp[3,3] - mvp[1,3]);
-  planes[5]:=TVec4.Init(mvp[3,0] + mvp[1,0],mvp[3,1] + mvp[1,1],mvp[3,2] + mvp[1,2],mvp[3,3] + mvp[1,3]);
+  planes[4].a:=mvp[3,0] - mvp[1,0]; planes[4].b:=mvp[3,1] - mvp[1,1]; planes[4].c:=mvp[3,2] - mvp[1,2]; planes[4].d:=mvp[3,3] - mvp[1,3];
+  planes[5].a:=mvp[3,0] + mvp[1,0]; planes[5].b:=mvp[3,1] + mvp[1,1]; planes[5].c:=mvp[3,2] + mvp[1,2]; planes[5].d:=mvp[3,3] + mvp[1,3];
 
   NormalizePlane(planes[0]);
   NormalizePlane(planes[1]);
@@ -438,7 +437,7 @@ var
 begin
   for i:=0 to planeCount - 1 do
   begin
-    d:=PlaneDistance(planes[i], sphere.center);
+    d:=planes[i].DistanceTo(sphere.center);
     if d < -sphere.radius then begin
       exit(false);
     end;
@@ -457,17 +456,12 @@ begin
 
   for i:=0 to planeCount - 1 do
   begin
-    p:=SelectPositiveVertex(box, planes[i].x, planes[i].y, planes[i].z);
-    if PlaneDistance(planes[i], p) < 0 then begin
+    p:=SelectPositiveVertex(box, planes[i].a, planes[i].b, planes[i].c);
+    if planes[i].DistanceTo(p) < 0 then begin
       exit(false);
     end;
   end;
   result:=true;
-end;
-
-class function TFrustum.PlaneDistance(const plane:TVec4;const p:TVec3):single;
-begin
-  result:=plane.x * p.x + plane.y * p.y + plane.z * p.z + plane.w;
 end;
 
 class function TFrustum.SelectPositiveVertex(const box:TBBox3;nx,ny,nz:single):TVec3;
