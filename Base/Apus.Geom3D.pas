@@ -160,8 +160,8 @@ interface
   TMatrix43s=array[0..3,0..2] of single;
   TMat34=TMatrix43s;
   // Synonims
-  TMatrix3vs=array[0..2] of TVector3s;
-  TMatrix43vs=array[0..3] of TVector3s;
+  TMatrix3vs=array[0..2] of TVec3;
+  TMatrix43vs=array[0..3] of TVec3;
 
  const
   NaN=0.0/0.0;
@@ -173,9 +173,9 @@ interface
   IdentMatrix4s:TMatrix4s=((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
 
   NullPoint:TVec3d=(x:0;y:0;z:0);
-  NullPointS:TPoint3s=(x:0;y:0;z:0);
+  NullPointS:TVec3=(x:0;y:0;z:0);
   InvalidPoint3:TVec3d=(x:NaN;y:NaN;z:NaN);
-  InvalidPoint3s:TPoint3s=(x:NaN;y:NaN;z:NaN);
+  InvalidPoint3s:TVec3=(x:NaN;y:NaN;z:NaN);
 
  function Point3(x,y,z:double):TVec3d; overload; inline;
  function Point3s(x,y,z:single):TVec3; overload; inline;
@@ -1712,7 +1712,7 @@ implementation
    result[2,0]:=xz*nco+v.y*si;  result[2,1]:=yz*nco-v.x*si;  result[2,2]:=co+nco*z2;
   end;
 
-{ function RotationAroundVector(v:TVector3s;angle:single):TMatrix3s;
+{ function RotationAroundVector(v:TVec3;angle:single):TMatrix3s;
   var
    l2,m2,n2,lm,ln,mn,co,si,nco:single;
   begin
@@ -2788,7 +2788,7 @@ procedure TBBox3.Add(const p:TVec3);
 
 procedure TBBox3.Add(p:PPoint3s;count:integer;stride:integer=0);
  begin
-  if stride<=0 then stride:=sizeof(TPoint3s);
+  if stride<=0 then stride:=sizeof(TVec3);
   while count>0 do begin
    Add(p^);
    dec(count);

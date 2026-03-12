@@ -84,7 +84,7 @@ interface
    case integer of
     0:( x1,y1,x2,y2:single; );
     1:( left,top,right,bottom:single; );
-    2:( topLeft,bottomRight:TPoint2s; );
+    2:( topLeft,bottomRight:TVec2; );
   end;
 
   TSegment2=packed record
@@ -102,7 +102,7 @@ interface
   // Vector versions
   TMatrix2v=array[0..1] of TVec2d;
   TMatrix32v=array[0..2] of TVec2d;
-  TMatrix32sv=array[0..2] of TVector2s;
+  TMatrix32sv=array[0..2] of TVec2;
 
 
  const
@@ -113,7 +113,7 @@ interface
   IdentMatrix32s:TMatrix32s=((1,0),(0,1),(0,0));
 
   InvalidPoint2:TVec2d=(x:NaN;y:NaN);
-  InvalidPoint2s:TPoint2s=(x:NaN;y:NaN);
+  InvalidPoint2s:TVec2=(x:NaN;y:NaN);
 
  // Vector functions
  function DotProduct(const a,b:TVec2d):double; overload; inline;

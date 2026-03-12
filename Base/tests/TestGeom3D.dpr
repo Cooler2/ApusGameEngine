@@ -124,8 +124,8 @@ var
   p0,p1,p2:TVec3;
   v:TVec4;
   m3b:TMat3;
-  m43:TMatrix43;
-  m4d:TMatrix4;
+  m43:TMat34d;
+  m4d:TMat4d;
   q:TVec4;
 begin
   StartTest('Geom3D utility');

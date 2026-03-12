@@ -87,10 +87,10 @@ end;
 procedure TestLinesAndSegments;
 var
   l1,l2:TLine2;
-  p:TPoint2;
+  p:TVec2d;
   st:TStatus;
   seg1,seg2:TSegment2;
-  p2:TPoint2;
+  p2:TVec2d;
   t1,t2:double;
 begin
   StartTest('Lines/segments');
@@ -108,7 +108,7 @@ end;
 
 procedure TestPolygonOps;
 var
-  a,b,c,p:TPoint2;
+  a,b,c,p:TVec2d;
 begin
   StartTest('Polygon ops');
   a:=Point2(0,0);
@@ -124,18 +124,18 @@ end;
 procedure TestGeom2DUtility;
 var
   v1,v2,v3:TVec2;
-  m2,m2b,m2i:TMatrix2;
-  m32,m32i:TMatrix32;
-  p:TPoint2;
+  m2,m2b,m2i:TMat2d;
+  m32,m32i:TMat32d;
+  p:TVec2d;
   seg:TSegment2;
   t,dev:double;
   r:TRect;
   rs:TRect2s;
   pt:TVec2;
-  poly:array[0..2] of TPoint2;
+  poly:array[0..2] of TVec2d;
   ln:TLine2;
-  dv:TPoint2;
-  b0,b1,b2,b3:TPoint2;
+  dv:TVec2d;
+  b0,b1,b2,b3:TVec2d;
 begin
   StartTest('Geom2D utility');
   v1:=TVec2.Init(2,3);
