@@ -19,8 +19,6 @@ unit Apus.Geom3D;
 interface
  uses Apus.Geom2D;
  type
-  PPoint3=^TVec3d;
-  PVector3=^TVec3d;
   TVec3d=packed record
    x,y,z:double;
    constructor Init(X,Y,Z:double);
@@ -28,8 +26,6 @@ interface
    function IsValid:boolean;
   end;
   PVec3d=^TVec3d;
-
-  PPoint3s=^TVec3;
   TVec3=packed record
    constructor Init(X,Y,Z:single); overload;
    constructor Init(p:TVec3d); overload;
@@ -108,6 +104,7 @@ interface
    function DistanceTo(const pnt:TVec3d):double; overload; inline;
    function DistanceTo(const pnt:TVec3):single; overload; inline;
   end;
+  PVec3=^TVec3;
   // Infinite oriented line in space
   TLine3=packed record
    origin:TVec3d;
@@ -322,16 +319,16 @@ interface
  function  MultMat(const m1,m2:TMat4):TMat4; overload;
 
  procedure MultPnt(const m:TMat4;v:PVector4s;num,step:integer); overload;
- procedure MultPnt(const m:TMat34d;v:PPoint3;num,step:integer); overload;
- procedure MultPnt(const m:TMat34;v:Ppoint3s;num,step:integer); overload;
- procedure MultPnt(const m:TMat3d;v:PPoint3;num,step:integer); overload;
- procedure MultPnt(const m:TMat3;v:Ppoint3s;num,step:integer); overload;
+ procedure MultPnt(const m:TMat34d;v:PVec3d;num,step:integer); overload;
+ procedure MultPnt(const m:TMat34;v:PVec3;num,step:integer); overload;
+ procedure MultPnt(const m:TMat3d;v:PVec3d;num,step:integer); overload;
+ procedure MultPnt(const m:TMat3;v:PVec3;num,step:integer); overload;
  // Same as MultPnt, but ignores the translation part
  procedure MultNormal(const m:TMat4;v:PVector4s;num,step:integer);
 
  // Complete 3D transformation (with normalization)
- function TransformPoint(const m:TMat4;v:PPoint3s):TVec3; overload;
- function TransformPoint(const m:TMat4d;v:PPoint3):TVec3d; overload;
+ function TransformPoint(const m:TMat4;v:PVec3):TVec3; overload;
+ function TransformPoint(const m:TMat4d;v:PVec3d):TVec3d; overload;
 
  // Transpose (для ортонормированной матрицы - это будт обратная)
  procedure Transpose(const m:TMat3d;out dest:TMat3d); overload;
@@ -361,7 +358,7 @@ interface
  // пересечение треугольника ABC с лучом OT
  // возвращает: pb,pc - выражение точки пересечения через вектора AB и AC (pb,pc>=0, pb+pc<=1)
  //             d - расстояние от точки пересечения до начала луча
- function IntersectTrgLine(A,B,C,O,T:PPoint3s;var pb,pc,d:double):boolean;
+ function IntersectTrgLine(A,B,C,O,T:PVec3;var pb,pc,d:double):boolean;
 
 implementation
  uses Apus.Core, Apus.CPU, Apus.Types, SysUtils, Math;
@@ -1327,7 +1324,7 @@ implementation
   {$ENDIF}
 
 
- procedure MultPnt(const m:TMat34d;v:PPoint3;num,step:integer);
+ procedure MultPnt(const m:TMat34d;v:PVec3d;num,step:integer);
   var
    i:integer;
    x,y,z:double;
@@ -1337,11 +1334,11 @@ implementation
     y:=v^.x*m[0,1]+v^.y*m[1,1]+v^.z*m[2,1]+m[3,1];
     z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2]+m[3,2];
     v^.x:=x; v^.y:=y; v^.z:=z;
-    v:=PPoint3(PtrUInt(v)+step);
+    v:=PVec3d(PtrUInt(v)+step);
    end;
   end;
 
- procedure MultPnt(const m:TMat34;v:PPoint3s;num,step:integer);
+ procedure MultPnt(const m:TMat34;v:PVec3;num,step:integer);
   var
    i:integer;
    x,y,z:single;
@@ -1351,11 +1348,11 @@ implementation
     y:=v^.x*m[0,1]+v^.y*m[1,1]+v^.z*m[2,1]+m[3,1];
     z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2]+m[3,2];
     v^.x:=x; v^.y:=y; v^.z:=z;
-    v:=PPoint3s(PtrUInt(v)+step);
+    v:=PVec3(PtrUInt(v)+step);
    end;
   end;
 
- procedure MultPnt(const m:TMat3d;v:PPoint3;num,step:integer);
+ procedure MultPnt(const m:TMat3d;v:PVec3d;num,step:integer);
   var
    i:integer;
    x,y,z:double;
@@ -1365,10 +1362,10 @@ implementation
     y:=v^.x*m[0,1]+v^.y*m[1,1]+v^.z*m[2,1];
     z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2];
     v^.x:=x; v^.y:=y; v^.z:=z;
-    v:=PPoint3(PtrUInt(v)+step);
+    v:=PVec3d(PtrUInt(v)+step);
    end;
   end;
- procedure MultPnt(const m:TMat3;v:Ppoint3s;num,step:integer);
+ procedure MultPnt(const m:TMat3;v:PVec3;num,step:integer);
   var
    i:integer;
    x,y,z:single;
@@ -1378,11 +1375,11 @@ implementation
     y:=v^.x*m[0,1]+v^.y*m[1,1]+v^.z*m[2,1];
     z:=v^.x*m[0,2]+v^.y*m[1,2]+v^.z*m[2,2];
     v^.x:=x; v^.y:=y; v^.z:=z;
-    v:=PPoint3s(PtrUInt(v)+step);
+    v:=PVec3(PtrUInt(v)+step);
    end;
   end;
 
- function TransformPoint(const m:TMat4;v:PPoint3s):TVec3; overload;
+ function TransformPoint(const m:TMat4;v:PVec3):TVec3; overload;
   var
    t:single;
   begin
@@ -1399,7 +1396,7 @@ implementation
     result:=InvalidPoint3s;
   end;
 
- function TransformPoint(const m:TMat4d;v:PPoint3):TVec3d; overload;
+ function TransformPoint(const m:TMat4d;v:PVec3d):TVec3d; overload;
   var
    t:double;
   begin
@@ -2025,7 +2022,7 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
   end;
 
 
- function IntersectTrgLine(A,B,C,O,T:PPoint3s;var pb,pc,d:double):boolean;
+ function IntersectTrgLine(A,B,C,O,T:PVec3;var pb,pc,d:double):boolean;
   var
    m:TMat3d;
    mv:TMatrix3v absolute m;

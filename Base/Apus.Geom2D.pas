@@ -29,7 +29,6 @@ interface
    procedure Wrap(max:double); inline;
   end;
   PVec2d=^TVec2d;
-  PPoint2=^TVec2d;
 
   TVec2=packed record
    x,y:single;
@@ -53,7 +52,7 @@ interface
    class operator Multiply(a:TVec2;v:single):TVec2;
    class operator Multiply(a,b:TVec2):TVec2;
   end;
-  PPoint2s=^TVec2;
+  PVec2=^TVec2;
   TPoints2s=array of TVec2;
   TVectors2s=TPoints2s;
 
@@ -208,7 +207,7 @@ interface
  procedure MultMat(m1,m2:TMat2d;out target:TMat2d); overload;
  procedure MultMat(m1,m2:TMat32d;out target:TMat32d); overload;
 
- procedure MultPnts(m:TMatrix32s;v:Ppoint2s;num,step:integer);
+ procedure MultPnts(m:TMatrix32s;v:PVec2;num,step:integer);
 
  // Транспонирование (для ортонормированной матрицы - это будт обратная)
  procedure Transp2(m:TMat2d;out dest:TMat2d);
@@ -225,7 +224,7 @@ interface
  var
   trgIndices:array of integer; // результат триангуляции
  // триангуляция замкнутого многоугольника (строит n-2 трг). !!! CLOCKWISE!
- procedure Triangulate(pnts:PPoint2;count:integer);
+ procedure Triangulate(pnts:PVec2d;count:integer);
 
 implementation
  uses Math, Apus.Types, Apus.Core, SysUtils;
@@ -694,7 +693,7 @@ implementation
    target[2,1]:=m2[2,1]+m1[2,0]*m2[0,1]+m1[2,1]*m2[1,1];
   end;
 
- procedure MultPnts(m:TMatrix32s;v:Ppoint2s;num,step:integer);
+procedure MultPnts(m:TMatrix32s;v:PVec2;num,step:integer);
   var
    x,y:single;
    i:integer;
@@ -703,7 +702,7 @@ implementation
     x:=v^.x*m[0,0]+v^.y*m[1,0]+m[2,0];
     y:=v^.x*m[0,1]+v^.y*m[1,1]+m[2,1];
     v^.x:=x; v^.y:=y;
-    v:=PPoint2s(PtrUInt(v)+step);
+    v:=PVec2(PtrUInt(v)+step);
    end;
   end;
 
@@ -792,7 +791,7 @@ implementation
    if (d1>=0) and (d2>=0) and (d1+d2<=1) then result:=1 else result:=-1;
   end;
 
- procedure Triangulate(pnts:PPoint2;count:integer);
+ procedure Triangulate(pnts:PVec2d;count:integer);
   type
    pa=array[0..5] of TVec2d;
   var
