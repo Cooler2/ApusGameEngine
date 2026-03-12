@@ -59,6 +59,11 @@ begin
   ray:=TRay.Init(Point3s(2, 2, 2), Vector3s(1, 0, 0));
   Check(ray.IntersectsBox(box, tMin, tMax), 'inside start case');
   Check(tMax >= 0, 'inside distance');
+
+  ray:=TRay.Init(Point3s(0.5, 2, 2), Vector3s(1E-6, 1, 0));
+  Check(not ray.IntersectsBox(box, tMin, tMax), 'near-parallel outside slab');
+  ray:=TRay.Init(Point3s(2, 0, 2), Vector3s(1E-6, 1, 0));
+  Check(ray.IntersectsBox(box, tMin, tMax), 'near-parallel inside slab');
   EndTest;
 end;
 
@@ -90,6 +95,10 @@ begin
   c:=Point3s(0, 1, 0);
   ray:=TRay.Init(Point3s(0.5, 0, 1), Vector3s(0, 0, -1));
   Check(ray.IntersectsTriangle(a, b, c, t, u, v), 'edge hit');
+  ray:=TRay.Init(Point3s(0, 0, 1), Vector3s(0, 0, -1));
+  Check(ray.IntersectsTriangle(a, b, c, t, u, v), 'vertex hit');
+  ray:=TRay.Init(Point3s(-0.001, 0, 1), Vector3s(0, 0, -1));
+  Check(not ray.IntersectsTriangle(a, b, c, t, u, v), 'near-edge outside');
   ray:=TRay.Init(Point3s(0.25, 0.25, -1), Vector3s(0, 0, -1));
   Check(not ray.IntersectsTriangle(a, b, c, t, u, v), 'behind case');
   EndTest;
@@ -110,6 +119,8 @@ begin
 
   ray:=TRay.Init(Point3s(0, 0, 2), Vector3s(1, 0, 0));
   Check(not ray.IntersectsPlane(plane, t), 'parallel miss');
+  ray:=TRay.Init(Point3s(0, 0, 2), Vector3s(1, 0, 1E-6));
+  Check(not ray.IntersectsPlane(plane, t), 'near-parallel miss');
 
   ray:=TRay.Init(Point3s(0, 0, 0), Vector3s(1, 0, 0));
   Check(ray.IntersectsPlane(plane, t), 'origin on plane');
@@ -155,6 +166,10 @@ begin
   Check(fr.IntersectsSphere(sphere), 'sphere hit');
   sphere:=TSphere.Init(Point3s(5, 0, 0), 0.1);
   Check(not fr.IntersectsSphere(sphere), 'sphere miss');
+  sphere:=TSphere.Init(Point3s(1.05, 0, 0), 0.05);
+  Check(fr.IntersectsSphere(sphere), 'sphere tangent');
+  sphere:=TSphere.Init(Point3s(1.051, 0, 0), 0.05);
+  Check(not fr.IntersectsSphere(sphere), 'sphere beyond tangent');
 
   box.minX:=-0.5; box.minY:=-0.5; box.minZ:=-0.5;
   box.maxX:=0.5; box.maxY:=0.5; box.maxZ:=0.5;
@@ -163,6 +178,12 @@ begin
   box.minX:=3; box.minY:=3; box.minZ:=3;
   box.maxX:=4; box.maxY:=4; box.maxZ:=4;
   Check(not fr.IntersectsBox(box), 'box miss');
+  box.minX:=1; box.minY:=-0.1; box.minZ:=-0.1;
+  box.maxX:=1.2; box.maxY:=0.1; box.maxZ:=0.1;
+  Check(fr.IntersectsBox(box), 'box tangent');
+  box.minX:=1.001; box.minY:=-0.1; box.minZ:=-0.1;
+  box.maxX:=1.2; box.maxY:=0.1; box.maxZ:=0.1;
+  Check(not fr.IntersectsBox(box), 'box beyond tangent');
 
   fr.InitFromMVP(IdentMatrix4s, false);
   Check(fr.planeCount = 4, '4-plane mode');

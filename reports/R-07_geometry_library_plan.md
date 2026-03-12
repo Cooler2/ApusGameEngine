@@ -479,3 +479,17 @@ Status:
 
 Proposed next step:
 - Gate D / Step 4: add Spatial numeric stress/epsilon tests (near-parallel rays, barycentric edge hits, and frustum tolerance edge cases) to close remaining coverage gaps.
+
+### 2026-03-12 - Gate D / Step 4 completed
+
+Status:
+- Extended `Base/tests/TestSpatial.dpr` with numeric stress/epsilon coverage:
+  - ray-box near-parallel slab behavior (`SpatialEpsilon` boundary cases)
+  - ray-triangle vertex hit and near-edge outside case
+  - ray-plane near-parallel miss case
+  - frustum tangent vs beyond-tangent checks for sphere and box
+- Validation:
+  - `Base/tests/test.bat Spatial` passed (32/64, `TOTAL: 43 checks, FAILED: 0`)
+
+Proposed next step:
+- Gate D / Step 5: refresh coverage matrix and close remaining Geom2D/Geom3D long-tail gaps (if any), then explicitly declare Gate D complete.
