@@ -76,7 +76,7 @@ type
     dir:TVec3; // expected normalized
     constructor Init(const aOrigin,aDir:TVec3);
     function IntersectsSphere(const sphere:TSphere; out t:single):boolean;
-    function IntersectsBox(const box:TBBox3s; out tMin,tMax:single):boolean;
+    function IntersectsBox(const box:TBBox3; out tMin,tMax:single):boolean;
     function IntersectsTriangle(const a,b,c:TVec3; out t,u,v:single):boolean;
   end;
 
@@ -86,7 +86,7 @@ type
     constructor Init(const aCenter:TVec3; aRadius:single);
     function ContainsPoint(const p:TVec3):boolean;
     function IntersectsSphere(const other:TSphere):boolean;
-    function IntersectsBox(const box:TBBox3s):boolean;
+    function IntersectsBox(const box:TBBox3):boolean;
   end;
 
   TFrustum = record
@@ -94,14 +94,14 @@ type
     planeCount:byte; // 4 for ortho/parallel culling, 6 for full frustum
     procedure InitFromMVP(const mvp:TMat4; includeNearFar:boolean=true);
     function IntersectsSphere(const sphere:TSphere):boolean;
-    function IntersectsBox(const box:TBBox3s):boolean;
+    function IntersectsBox(const box:TBBox3):boolean;
   end;
 ```
 
-### 4.2 Box policy (`TBBox3s`)
+### 4.2 Box policy (`TBBox3`)
 
 - Do not introduce `TAABB` as a parallel entity.
-- Extend existing `TBBox3s` API with missing operations:
+- Extend existing `TBBox3` API with missing operations:
   - `IncludePoint`
   - `IncludeBox`
   - `Center`
@@ -113,7 +113,7 @@ type
 
 ### 4.3 Function organization
 
-- Preferred: methods on `TRay`, `TSphere`, `TFrustum`, `TBBox3s`.
+- Preferred: methods on `TRay`, `TSphere`, `TFrustum`, `TBBox3`.
 - Shared math helpers that do not belong to a single primitive go to `TSpatial` static methods.
 - Keep only truly universal math (`Dot`, `Cross`, etc.) in geometry core modules.
 
@@ -139,14 +139,14 @@ Therefore:
 ### Stage 2: `Apus.Spatial` module
 
 1. Create `Base/Apus.Spatial.pas`.
-2. Add `TRay`, `TSphere`, `TFrustum` and extend `TBBox3s` usage.
+2. Add `TRay`, `TSphere`, `TFrustum` and extend `TBBox3` usage.
 3. Implement intersection methods (ray/sphere/box/frustum focus).
 4. Add `TSpatial` static helpers only where methods are not natural.
 
 ### Stage 3: Engine adoption
 
 1. Replace local frustum math in render paths with `TFrustum.Intersects*`.
-2. Use extended `TBBox3s` API in model/mesh culling paths.
+2. Use extended `TBBox3` API in model/mesh culling paths.
 3. Validate on representative scenes/demos.
 
 ### Stage 4: Optimization pass (optional after profiling)
@@ -175,7 +175,7 @@ Each intersection API must include:
 |------|------------|
 | `TVec3` SIMD expectations vs 12B layout | treat `TVec3` as storage type; explicit load/store in optimized code |
 | API sprawl via many global functions | methods-first policy + optional `TSpatial` scope record |
-| Duplicate box abstractions | extend existing `TBBox3s`; do not add `TAABB` |
+| Duplicate box abstractions | extend existing `TBBox3`; do not add `TAABB` |
 | Premature optimization complexity | SIMD only after profiling and stable baseline |
 
 ## 9. Progress Log
@@ -345,3 +345,38 @@ Status:
 
 Proposed next step:
 - Gate A / Step 2: introduce canonical `*d` type names (`TVec2d/TVec3d`, `TMat*d`, `TQuatd`) and switch public signatures to them, keeping old names as deprecated compatibility aliases.
+
+### 2026-03-12 - Gate A / Step 2 completed
+
+Status:
+- Switched public Geom signatures to canonical `*d` names:
+  - `TVec2d` in `Apus.Geom2D`
+  - `TVec3d` in `Apus.Geom3D`
+  - `TMat3d/TMat34d/TMat4d` and `TQuatd` in `Apus.Geom3D`
+- Kept old names only as deprecated compatibility aliases.
+- Removed `TBBox3s` from `Geom3D` and `Spatial` public API in favor of `TBBox3`.
+- Validation:
+  - `Base/tests/test.bat Geom2D` passed (32/64)
+  - `Base/tests/test.bat Geom3D` passed (32/64)
+  - `Base/tests/test.bat Spatial` passed (32/64)
+
+Proposed next step:
+- Gate A / Step 3: migrate tests and remaining internal helper aliases to canonical names to eliminate deprecated-type usage in active code paths.
+
+### 2026-03-12 - Gate A / Step 3 completed
+
+Status:
+- Migrated tests to canonical names:
+  - `TestGeom2D`: `TPoint2/TMatrix2/TMatrix32` -> `TVec2d/TMat2d/TMat32d`
+  - `TestGeom3D`: `TMatrix43/TMatrix4` -> `TMat34d/TMat4d`
+- Updated internal helper aliases/constants in geometry units to canonical types:
+  - `TVec2` instead of `TPoint2s/TVector2s` in active helper declarations
+  - `TVec3` instead of `TPoint3s/TVector3s` in active helper declarations
+  - `sizeof(TVec3)` in place of `sizeof(TPoint3s)` for point-array stride fallback
+- Validation:
+  - `Base/tests/test.bat Geom2D` passed (32/64)
+  - `Base/tests/test.bat Geom3D` passed (32/64)
+  - `Base/tests/test.bat Spatial` passed (32/64)
+
+Proposed next step:
+- Gate B / Step 1: produce full standalone-function inventory for `Geom2D/Geom3D/Spatial`, classify each function (move-to-record / keep-standalone with rationale), then execute the first safe migration batch.
