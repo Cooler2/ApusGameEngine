@@ -433,3 +433,16 @@ Status:
 
 Proposed next step:
 - Gate D / Step 1: create function-to-test coverage matrix for `Geom2D/Geom3D/Spatial` and identify exact uncovered functions/edge-cases before adding the missing tests.
+
+### 2026-03-12 - Gate D / Step 1 completed
+
+Status:
+- Added coverage matrix with explicit covered/missing areas:
+  - `reports/R-07_gateD_coverage_matrix.md`
+- Confirmed:
+  - `Spatial` is near-complete for current public API.
+  - `Geom2D/Geom3D` still have uncovered legacy/edge paths.
+- Declared that 100% function+edge coverage is not reached yet and listed concrete gaps.
+
+Proposed next step:
+- Gate D / Step 2: implement targeted missing tests, starting with Geom2D (`Triangulate`, `TMat32d` transform chain, `TransformRect`/`RoundRect` edge cases).
