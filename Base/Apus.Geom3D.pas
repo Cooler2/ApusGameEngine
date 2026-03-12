@@ -300,8 +300,10 @@ interface
  function MatrixToQuaternion(const mat:TMat3d):TQuatd; overload;
 
  // Extract translation rotation and scale from transformation matrix
- procedure DecomposeMartix(mat:TMat4;out translation,rotation,scale:TQuaternionS); overload;
- procedure DecomposeMartix(mat:TMat4d;out translation,rotation,scale:TQuatd); overload;
+ procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuaternionS); overload;
+ procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd); overload;
+ procedure DecomposeMartix(mat:TMat4;out translation,rotation,scale:TQuaternionS); overload; deprecated 'Use DecomposeMatrix';
+ procedure DecomposeMartix(mat:TMat4d;out translation,rotation,scale:TQuatd); overload; deprecated 'Use DecomposeMatrix';
 
  // Quaternion operations
  function QLength(q:TQuatd):double; overload;
@@ -1869,7 +1871,7 @@ implementation
   end;
 
  // If matrix is not orthogonal, the shear will be lost
- procedure DecomposeMartix(mat:TMat4;out translation,rotation,scale:TQuaternionS);
+ procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuaternionS);
   var
    qX,qY,qZ:TQuaternionS;
    mat3:TMatrix3s;
@@ -1910,7 +1912,7 @@ implementation
    rotation:=MatrixToQuaternion(mat3);
   end;
 
- procedure DecomposeMartix(mat:TMat4d;out translation,rotation,scale:TQuatd);
+ procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd);
   var
    qX,qY,qZ:TQuatd;
    mat3:TMat3d;
@@ -1948,8 +1950,18 @@ implementation
    move(qX,mat3[0],sizeof(qx));
    move(qY,mat3[1],sizeof(qy));
    move(qZ,mat3[2],sizeof(qz));
-   rotation:=MatrixToQuaternion(mat3);
-  end;
+  rotation:=MatrixToQuaternion(mat3);
+ end;
+
+ procedure DecomposeMartix(mat:TMat4;out translation,rotation,scale:TQuaternionS);
+ begin
+  DecomposeMatrix(mat,translation,rotation,scale);
+ end;
+
+ procedure DecomposeMartix(mat:TMat4d;out translation,rotation,scale:TQuatd);
+ begin
+  DecomposeMatrix(mat,translation,rotation,scale);
+ end;
 
 
  function QLength(q:TQuatd):double; overload;

@@ -419,3 +419,17 @@ Status:
 
 Proposed next step:
 - Gate C / Step 2: implement first low-risk canonical alias batch (starting with `DecomposeMatrix` alias for `DecomposeMartix`), migrate tests/new code to canonical names, and mark old names deprecated.
+
+### 2026-03-12 - Gate C / Step 2 completed
+
+Status:
+- Implemented canonical typo fix in `Apus.Geom3D`:
+  - added `DecomposeMatrix` (single/double overloads) as canonical API
+  - kept `DecomposeMartix` as deprecated compatibility wrapper (`Use DecomposeMatrix`)
+- Migrated tests to canonical call:
+  - `Base/tests/TestGeom3D.dpr` now validates `DecomposeMatrix` translation/scale extraction.
+- Validation:
+  - `Base/tests/test.bat Geom3D` passed (32/64, `TOTAL: 51 checks, FAILED: 0`)
+
+Proposed next step:
+- Gate D / Step 1: create function-to-test coverage matrix for `Geom2D/Geom3D/Spatial` and identify exact uncovered functions/edge-cases before adding the missing tests.

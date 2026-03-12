@@ -127,6 +127,8 @@ var
   m43:TMat34d;
   m4d:TMat4d;
   q:TVec4;
+  m4:TMat4;
+  tr,rot,sca:TQuaternionS;
 begin
   StartTest('Geom3D utility');
   p0:=Point3s(1,2,3);
@@ -164,6 +166,11 @@ begin
   q:=QInvert(q);
   q:=QMult(q,QuaternionS(0,0,0,1));
   Check(q.IsValid,'Quaternion ops');
+
+  m4:=TranslationMat4s(5,6,7);
+  DecomposeMatrix(m4,tr,rot,sca);
+  Check((Abs(tr.x-5)<0.0001) and (Abs(tr.y-6)<0.0001) and (Abs(tr.z-7)<0.0001),'DecomposeMatrix translation');
+  Check((Abs(sca.x-1)<0.0001) and (Abs(sca.y-1)<0.0001) and (Abs(sca.z-1)<0.0001),'DecomposeMatrix scale');
   EndTest;
 end;
 
