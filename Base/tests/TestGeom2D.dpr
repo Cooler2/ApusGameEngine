@@ -1,4 +1,4 @@
-{$APPTYPE CONSOLE}
+﻿{$APPTYPE CONSOLE}
 {$EXCESSPRECISION OFF}
 program TestGeom2D;
 
@@ -109,8 +109,8 @@ var
   t1,t2:double;
 begin
   StartTest('Lines/segments');
-  SetLine(Point2(0,0),Point2(1,1),l1);
-  SetLine(Point2(0,1),Point2(1,0),l2);
+  l1:=TLine2.Init(Point2(0,0),Point2(1,1));
+  l2:=TLine2.Init(Point2(0,1),Point2(1,0));
   st:=IntersectLines(l1,l2,p);
   Check((st=intPoint) and (Abs(p.x-0.5)<0.0001) and (Abs(p.y-0.5)<0.0001),'IntersectLines');
 
@@ -192,7 +192,7 @@ begin
   Check((Abs(t-0.3)<0.0001) and (Abs(Abs(dev)-2)<0.0001),'PointOnSegment');
   Check(SegmAboutZero(Segment2(0,0,0,0)),'SegmAboutZero');
   ln.a:=0; ln.b:=1; ln.c:=-2;
-  Check(Abs(PointDev2(ln,Point2(0,2)))<0.0001,'PointDev2');
+  Check(Abs(ln.Deviation(Point2(0,2)))<0.0001,'TLine2.Deviation');
 
   m2:=RotationMat2(Pi/4);
   m2b:=m2;
@@ -265,3 +265,4 @@ begin
   end;
   writeln('All OK');
 end.
+

@@ -66,6 +66,8 @@ interface
   // Infinite line on plane
   TLine2=packed record
    a,b,c:double;
+   class function Init(const p1,p2:TVec2d):TLine2; static;
+   function Deviation(const point:TVec2d):double; inline;
   end;
 
   PRect2=^TRect2;
@@ -169,8 +171,6 @@ interface
  function Vector2(source,target:TVec2d):TVec2d; inline;
  // Unit vector with given direction (CCW from X-axis)
  function Direction(angle:double):TVec2d; inline;
- // Setup line by points
- procedure SetLine(a,b:TVec2d;out line:TLine2);
  function IntersectLines(l1,l2:TLine2;out p:TVec2d):TStatus;
 
  // Is point inside trg? (1 - inside, 0 - on border, -1 - outside)
@@ -189,9 +189,6 @@ interface
  function IntersectSegm(s1,s2:Tsegment2;
             out p:TVec2d;out param1,param2:double):TStatus;
  function SegmAboutZero(segm:TSegment2):boolean;
-
- // Point deviation
- function PointDev2(line:TLine2;point:TVec2d):double; inline;
 
  // Calculate Bezier curve from p0 to p3 with control points p1 and p2 (t = 0..1)
  function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
@@ -479,23 +476,22 @@ implementation
    result:=0;
   end;
 
- procedure SetLine(a,b:TVec2d;out line:TLine2);
-  var
-   v:TVec2d;
-  begin
-   v.x:=b.x-a.x;
-   v.y:=b.y-a.y;
-   Normalize(v);
-   Turn90Right(v);
-   line.a:=v.x;
-   line.b:=v.y;
-   line.c:=-(line.a*a.x+line.b*a.y);
-  end;
+class function TLine2.Init(const p1,p2:TVec2d):TLine2;
+ var
+  v:TVec2d;
+ begin
+  v:=p2.Sub(p1);
+  Normalize(v);
+  Turn90Right(v);
+  result.a:=v.x;
+  result.b:=v.y;
+  result.c:=-(result.a*p1.x+result.b*p1.y);
+ end;
 
- function PointDev2(line:TLine2;point:TVec2d):double;
-  begin
-   result:=line.a*point.x+line.b*point.y+line.c;
-  end;
+function TLine2.Deviation(const point:TVec2d):double;
+ begin
+  result:=a*point.x+b*point.y+c;
+ end;
 
  function Point2(x,y:double):TVec2d;
   begin
@@ -585,8 +581,8 @@ implementation
    l1,l2:Tline2;
    d,par:double;
   begin
-   SetLine(Point2(s1.x1,s1.y1),Point2(s1.x2,s1.y2),l1);
-   SetLine(Point2(s2.x1,s2.y1),Point2(s2.x2,s2.y2),l2);
+   l1:=TLine2.Init(Point2(s1.x1,s1.y1),Point2(s1.x2,s1.y2));
+   l2:=TLine2.Init(Point2(s2.x1,s2.y1),Point2(s2.x2,s2.y2));
    result:=IntersectLines(l1,l2,p);
    if result=intLine then begin
     // maybe segment or nothing
@@ -1137,6 +1133,7 @@ procedure TVec2.Wrap(max:single);
  end;
 
 end.
+
 
 
 
