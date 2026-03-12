@@ -275,3 +275,56 @@ Status:
 
 Proposed next step:
 - Stage 2 / Step 5: create dedicated `BenchSpatial` project integrated with existing benchmark flow (`bench xxx`) to track ray/box/triangle/frustum throughput and provide baseline numbers for future optimization.
+
+## 10. Implementation Gates (added 2026-03-12)
+
+These gates are mandatory before migration to engine modules.
+
+### Gate A: Type naming consistency
+
+- Enforce rule for all public signatures:
+  - single-precision type name: no suffix (`TVec3`)
+  - double-precision type name: `d` suffix (`TVec3d`)
+- Remove old non-conforming names from signatures.
+- Legacy aliases are allowed only as compatibility layer and should be deprecated.
+
+### Gate B: Standalone vs record scope audit
+
+- Verify which standalone functions are still present in `Geom2D/Geom3D/Spatial`.
+- Move functions into record scope where natural (`TVec*`, `TPlane`, `TRay`, `TSphere`, `TFrustum`, `TBBox3`).
+- Produce a complete list of remaining standalone functions with rationale for each:
+  - kept for backward compatibility
+  - low-level utility not tied to a single record
+  - performance/ABI constraints
+
+### Gate C: Full naming review
+
+- Review names of all public functions for ambiguity/redundancy.
+- Unify names where overlapping semantics exist (for example method-vs-free-function duplicates).
+- Keep wrappers for compatibility where rename is breaking.
+
+### Gate D: Test coverage completion
+
+- Confirm every public function has tests, including edge/degenerate cases.
+- Maintain separate suites (`TestGeom2D`, `TestGeom3D`, `TestSpatial`) and keep all green on 32/64-bit.
+
+### Gate E: Benchmark pass
+
+- If all tests are green, run benchmarks for all covered function groups.
+- Use dedicated benchmark projects/scripts (`bench xxx`), not test projects.
+- Analyze results and flag suspiciously slow functions.
+
+### Gate F: x64 SSE optimization pass
+
+- Optimize most critical hot paths with SSE on x64 only.
+- Do not optimize x86 paths in this stage.
+- Carefully account for platform/compiler nuances:
+  - Win/Linux calling conventions
+  - FPC/Delphi stack alignment differences
+- Use existing ASM examples in codebase as reference patterns.
+
+### Gate G: Engine migration and compile validation
+
+- After gates A-F are done and stable, start migration of engine modules to new API.
+- Replace old types/functions in module callsites.
+- Run compile validation on a representative target (preferred: `SimpleDemo`).
