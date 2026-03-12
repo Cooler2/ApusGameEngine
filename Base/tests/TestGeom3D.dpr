@@ -154,8 +154,8 @@ begin
   Check((Abs(p2.x-2)<0.0001) and (Abs(p2.y-3)<0.0001) and (Abs(p2.z-4)<0.0001),'Point from vec3d');
   p2:=TVec3.Init(p0,p1,0.5);
   Check((Abs(p2.x-2.5)<0.0001) and (Abs(p2.y-4)<0.0001),'PointBetween');
-  Check(IsNearS(p0,p0)=0,'IsNearS');
-  Check(IsNear(Point3(1,2,3),Point3(1,2,3))=0,'IsNear');
+  Check(p0.MaxDelta(p0)=0,'MaxDelta single');
+  Check(Point3(1,2,3).MaxDelta(Point3(1,2,3))=0,'MaxDelta double');
   Check(not IsZero(p0),'IsZero');
   Check(IsIdentity(TVec3.Init(1,1,1)),'IsIdentity vec');
   Check(IsEqual(1.0,1.0),'IsEqual scalar');

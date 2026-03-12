@@ -31,6 +31,7 @@ interface
    function Cross(const p:TVec3d):TVec3d; inline;
    function Sub(const p:TVec3d):TVec3d; inline;
    function Distance2(const p:TVec3d):double; inline;
+   function MaxDelta(const p:TVec3d):double; inline;
    procedure Add(const p:TVec3d);
    procedure Multiply(scalar:double);
   end;
@@ -49,6 +50,7 @@ interface
    function Cross(const p:TVec3):TVec3; inline;
    function Sub(const p:TVec3):TVec3; inline;
    function Distance2(const p:TVec3):single; inline;
+   function MaxDelta(const p:TVec3):single; inline;
    procedure Add(const p:TVec3);
    procedure Multiply(scalar:single);
    case integer of
@@ -184,9 +186,6 @@ interface
 
  // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой
  // Векторное произведение: модуль равен площади ромба
- function IsNearS(a,b:TVec3):single;
- function IsNear(a,b:TVec3d):double;
-
  // Compare with tolerance
  function IsZero(v:TVec3d):boolean; overload; inline;
  function IsZero(v:TVec3):boolean; overload; inline;
@@ -540,29 +539,6 @@ implementation
    result.x:=mat[0,n];
    result.y:=mat[1,n];
    result.z:=mat[2,n];
-  end;
-
-
- function IsNearS(a,b:TVec3):single;
-  var
-   d:single;
-  begin
-   result:=abs(a.x-b.x);
-   d:=abs(a.y-b.y);
-   if d>result then result:=d;
-   d:=abs(a.z-b.z);
-   if d>result then result:=d;
-  end;
-
- function IsNear(a,b:TVec3d):double;
-  var
-   d:double;
-  begin
-   result:=abs(a.x-b.x);
-   d:=abs(a.y-b.y);
-   if d>result then result:=d;
-   d:=abs(a.z-b.z);
-   if d>result then result:=d;
   end;
 
  function IsZero(v:TVec3d):boolean; overload;
@@ -2052,6 +2028,17 @@ function TVec3d.Distance2(const p:TVec3d):double;
   result:=sqr(x-p.x)+sqr(y-p.y)+sqr(z-p.z);
  end;
 
+function TVec3d.MaxDelta(const p:TVec3d):double;
+ var
+  d:double;
+ begin
+  result:=abs(x-p.x);
+  d:=abs(y-p.y);
+  if d>result then result:=d;
+  d:=abs(z-p.z);
+  if d>result then result:=d;
+ end;
+
 procedure TVec3d.Add(const p:TVec3d);
  begin
   x:=x+p.x;
@@ -2160,6 +2147,17 @@ function TVec3.Distance2(const p:TVec3):single;
   dy:=y-p.y;
   dz:=z-p.z;
   result:=dx*dx+dy*dy+dz*dz;
+ end;
+
+function TVec3.MaxDelta(const p:TVec3):single;
+ var
+  d:single;
+ begin
+  result:=abs(x-p.x);
+  d:=abs(y-p.y);
+  if d>result then result:=d;
+  d:=abs(z-p.z);
+  if d>result then result:=d;
  end;
 
 procedure TVec3.Multiply(scalar:single);
