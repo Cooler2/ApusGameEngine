@@ -137,8 +137,8 @@ var
   qd,qdv:TQuatd;
 begin
   StartTest('Geom3D utility');
-  p0:=TVec3.Init(1,2,3);
-  p1:=TVec3.Init(4,6,8);
+  p0:=Vec3(1,2,3);
+  p1:=Vec3(4,6,8);
   p2:=p1.Sub(p0);
   Check((Abs(p2.x-3)<0.0001) and (Abs(p2.y-4)<0.0001) and (Abs(p2.z-5)<0.0001),'Vector from/to');
   Check(Abs(p0.Dot(p1)-40)<0.0001,'Dot');
@@ -147,6 +147,7 @@ begin
   Check(Abs(p0.Length2-14)<0.0001,'Length2');
   Check(Abs(Sqrt(p0.Distance2(p1))-Sqrt(50))<0.0001,'Distance');
   Check(Abs(p0.Distance2(p1)-50)<0.0001,'Distance2');
+  Check(IsEqual(Vec3(1,2,3),TVec3.Init(1,2,3)),'Vec3 factory');
   pd:=TVec3d.Init(1,2,3);
   p2:=TVec3.Init(pd);
   Check((Abs(p2.x-1)<0.0001) and (Abs(p2.y-2)<0.0001) and (Abs(p2.z-3)<0.0001),'Vec3 from vec3d');
@@ -167,16 +168,16 @@ begin
   m4d:=Matrix4(m43); // keep conversion path in test
   Check(Abs(Det(IdentMat4)-1)<0.0001,'Det');
 
-  q:=TQuat.Init(1,2,3,4);
+  q:=Quat(1,2,3,4);
   v:=MatRow(IdentMat4,0);
   v:=MatCol(IdentMat4,0);
   q:=TQuat.Init(p0);
-  q:=TQuat.Init(0,0,0,1);
+  q:=Quat(0,0,0,1);
   Check(Abs(QuatLength(q)-1)<0.0001,'QuatLength');
   QuatNormalize(q);
   q:=QuatInvert(q);
-  q:=QuatMultiply(q,TQuat.Init(0,0,0,1));
-  q:=QuatSlerp(q,TQuat.Init(0,0,0,1),0.5);
+  q:=QuatMultiply(q,Quat(0,0,0,1));
+  q:=QuatSlerp(q,Quat(0,0,0,1),0.5);
   Check(q.IsValid,'Quaternion ops');
 
   m4:=TranslationMat4(5,6,7);
@@ -184,16 +185,17 @@ begin
   Check((Abs(tr.x-5)<0.0001) and (Abs(tr.y-6)<0.0001) and (Abs(tr.z-7)<0.0001),'DecomposeMatrix translation');
   Check((Abs(sca.x-1)<0.0001) and (Abs(sca.y-1)<0.0001) and (Abs(sca.z-1)<0.0001),'DecomposeMatrix scale');
 
-  qd:=TQuatd.Init(0,0,0,1);
+  qd:=Quatd(0,0,0,1);
   Check(Abs(QuatLength(qd)-1)<0.0001,'QuatLength double');
   QuatScale(qd,2);
   Check(Abs(QuatLength(qd)-2)<0.0001,'QuatScale double');
   QuatNormalize(qd);
   qd:=QuatInvert(qd);
-  qd:=QuatMultiply(qd,TQuatd.Init(0,0,0,1));
+  qd:=QuatMultiply(qd,Quatd(0,0,0,1));
   Check(qd.IsValid,'Quaternion double ops');
   qdv:=TQuatd.Init(pd);
-  Check(IsEqual(qdv,TQuatd.Init(1,2,3,1),2),'Vec4 double overload');
+  Check(IsEqual(qdv,Quatd(1,2,3,1),2),'Vec4 double overload');
+  Check(IsEqual(Vec3d(1,2,3),TVec3d.Init(1,2,3),2),'Vec3d factory');
   QuaternionToMatrix(qd,m3d);
   qd:=MatrixToQuaternion(m3d);
   Check(qd.IsValid,'QuaternionToMatrix double alias');
