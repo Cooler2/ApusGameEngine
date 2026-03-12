@@ -152,7 +152,7 @@ begin
   Check((Abs(p2.x-1)<0.0001) and (Abs(p2.y-2)<0.0001) and (Abs(p2.z-3)<0.0001),'Vec3 from vec3d');
   p2:=TVec3.Init(Vector3(2,3,4));
   Check((Abs(p2.x-2)<0.0001) and (Abs(p2.y-3)<0.0001) and (Abs(p2.z-4)<0.0001),'Point from vec3d');
-  PointBetween(p0,p1,0.5,p2);
+  p2:=TVec3.Init(p0,p1,0.5);
   Check((Abs(p2.x-2.5)<0.0001) and (Abs(p2.y-4)<0.0001),'PointBetween');
   Check(IsNearS(p0,p0)=0,'IsNearS');
   Check(IsNear(Point3(1,2,3),Point3(1,2,3))=0,'IsNear');

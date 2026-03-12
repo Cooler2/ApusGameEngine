@@ -21,7 +21,8 @@ interface
  type
   TVec3d=packed record
    x,y,z:double;
-   constructor Init(X,Y,Z:double);
+   constructor Init(X,Y,Z:double); overload;
+   constructor Init(p0,p1:TVec3d;t:double); overload;
    procedure Normalize;
    function IsValid:boolean;
    function Length:double; inline;
@@ -183,9 +184,6 @@ interface
 
  // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой
  // Векторное произведение: модуль равен площади ромба
- procedure PointBetween(const p1,p2:TVec3d;t:double;out p:TVec3d); overload;
- procedure PointBetween(const p1,p2:TVec3;t:single;out p:TVec3); overload;
-
  function IsNearS(a,b:TVec3):single;
  function IsNear(a,b:TVec3d):double;
 
@@ -544,26 +542,6 @@ implementation
    result.z:=mat[2,n];
   end;
 
-
- procedure PointBetween(const p1,p2:TVec3d;t:double;out p:TVec3d); overload;
-  var
-   nt:double;
-  begin
-   nt:=1-t;
-   p.x:=p1.x*nt+p2.x*t;
-   p.y:=p1.y*nt+p2.y*t;
-   p.z:=p1.z*nt+p2.z*t;
-  end;
-
- procedure PointBetween(const p1,p2:TVec3;t:single;out p:TVec3); overload;
-  var
-   nt:single;
-  begin
-   nt:=1-t;
-   p.x:=p1.x*nt+p2.x*t;
-   p.y:=p1.y*nt+p2.y*t;
-   p.z:=p1.z*nt+p2.z*t;
-  end;
 
  function IsNearS(a,b:TVec3):single;
   var
@@ -2011,6 +1989,16 @@ var
 constructor TVec3d.Init(X,Y,Z:double);
  begin
   self.x:=X; self.y:=Y; self.z:=Z;
+ end;
+
+constructor TVec3d.Init(p0,p1:TVec3d;t:double);
+ var
+  t1:double;
+ begin
+  t1:=1-t;
+  x:=p0.x*t1+p1.x*t;
+  y:=p0.y*t1+p1.y*t;
+  z:=p0.z*t1+p1.z*t;
  end;
 
 function TVec3d.IsValid: boolean;
