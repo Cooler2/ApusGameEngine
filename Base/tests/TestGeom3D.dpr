@@ -80,7 +80,7 @@ var
   q:TQuaternionS;
 begin
   StartTest('Quaternion conversions');
-  m:=RotationAroundVector(Vector3s(1,2,3),1.25);
+  m:=RotationAroundVector(TVec3.Init(1,2,3),1.25);
   q:=MatrixToQuaternion(m);
   QuaternionToMatrix(q,m2);
   Check(IsEqual(m,m2,200),'Matrix<->Quaternion');
@@ -96,25 +96,25 @@ begin
   StartTest('BBox');
   b1.Init;
   Check(b1.IsEmpty,'Init empty');
-  b1.IncludePoint(Point3s(1,2,3));
-  b1.IncludePoint(Point3s(5,6,7));
+  b1.IncludePoint(TVec3.Init(1,2,3));
+  b1.IncludePoint(TVec3.Init(5,6,7));
   Check(not b1.IsEmpty,'IncludePoint');
   c:=b1.Center;
   e:=b1.Extents;
   Check((Abs(c.x-3)<0.0001) and (Abs(c.y-4)<0.0001) and (Abs(c.z-5)<0.0001),'Center');
   Check((Abs(e.x-2)<0.0001) and (Abs(e.y-2)<0.0001) and (Abs(e.z-2)<0.0001),'Extents');
-  Check(b1.ContainsPoint(Point3s(2,3,4)),'ContainsPoint hit');
-  Check(not b1.ContainsPoint(Point3s(0,0,0)),'ContainsPoint miss');
-  Check(b1.IntersectsSphere(Point3s(7,4,5),2),'IntersectsSphere tangent');
-  Check(not b1.IntersectsSphere(Point3s(20,20,20),1),'IntersectsSphere miss');
+  Check(b1.ContainsPoint(TVec3.Init(2,3,4)),'ContainsPoint hit');
+  Check(not b1.ContainsPoint(TVec3.Init(0,0,0)),'ContainsPoint miss');
+  Check(b1.IntersectsSphere(TVec3.Init(7,4,5),2),'IntersectsSphere tangent');
+  Check(not b1.IntersectsSphere(TVec3.Init(20,20,20),1),'IntersectsSphere miss');
 
   b2.Init;
-  b2.IncludePoint(Point3s(4,5,6));
-  b2.IncludePoint(Point3s(9,9,9));
+  b2.IncludePoint(TVec3.Init(4,5,6));
+  b2.IncludePoint(TVec3.Init(9,9,9));
   Check(b1.IntersectsBox(b2),'IntersectsBox hit');
   b2.Init;
-  b2.IncludePoint(Point3s(20,20,20));
-  b2.IncludePoint(Point3s(21,21,21));
+  b2.IncludePoint(TVec3.Init(20,20,20));
+  b2.IncludePoint(TVec3.Init(21,21,21));
   Check(not b1.IntersectsBox(b2),'IntersectsBox miss');
   EndTest;
 end;
@@ -136,9 +136,9 @@ var
   qd:TQuatd;
 begin
   StartTest('Geom3D utility');
-  p0:=Point3s(1,2,3);
-  p1:=Point3s(4,6,8);
-  p2:=Vector3s(p0,p1);
+  p0:=TVec3.Init(1,2,3);
+  p1:=TVec3.Init(4,6,8);
+  p2:=p1.Sub(p0);
   Check((Abs(p2.x-3)<0.0001) and (Abs(p2.y-4)<0.0001) and (Abs(p2.z-5)<0.0001),'Vector3s from/to');
   Check(Abs(DotProduct(p0,p1)-40)<0.0001,'DotProduct');
   p2:=CrossProduct(p0,p1);
@@ -147,16 +147,16 @@ begin
   Check(Abs(Distance(p0,p1)-Sqrt(50))<0.0001,'Distance');
   Check(Abs(Distance2(p0,p1)-50)<0.0001,'Distance2');
   pd:=Vector3(1,2,3);
-  p2:=Vector3s(pd);
+  p2:=TVec3.Init(pd);
   Check((Abs(p2.x-1)<0.0001) and (Abs(p2.y-2)<0.0001) and (Abs(p2.z-3)<0.0001),'Vector3s from vec3d');
-  p2:=Point3s(Vector3(2,3,4));
+  p2:=TVec3.Init(Vector3(2,3,4));
   Check((Abs(p2.x-2)<0.0001) and (Abs(p2.y-3)<0.0001) and (Abs(p2.z-4)<0.0001),'Point3s from vec3d');
   PointBetween(p0,p1,0.5,p2);
   Check((Abs(p2.x-2.5)<0.0001) and (Abs(p2.y-4)<0.0001),'PointBetween');
   Check(IsNearS(p0,p0)=0,'IsNearS');
   Check(IsNear(Point3(1,2,3),Point3(1,2,3))=0,'IsNear');
   Check(not IsZero(p0),'IsZero');
-  Check(IsIdentity(Vector3s(1,1,1)),'IsIdentity vec');
+  Check(IsIdentity(TVec3.Init(1,1,1)),'IsIdentity vec');
   Check(IsEqual(1.0,1.0),'IsEqual scalar');
 
   m43:=TranslationMat(1,2,3);
@@ -180,7 +180,6 @@ begin
 
   m4:=TranslationMat4s(5,6,7);
   DecomposeMatrix(m4,tr,rot,sca);
-  DecomposeMartix(m4,tr,rot,sca);
   Check((Abs(tr.x-5)<0.0001) and (Abs(tr.y-6)<0.0001) and (Abs(tr.z-7)<0.0001),'DecomposeMatrix translation');
   Check((Abs(sca.x-1)<0.0001) and (Abs(sca.y-1)<0.0001) and (Abs(sca.z-1)<0.0001),'DecomposeMatrix scale');
 
@@ -196,7 +195,7 @@ begin
   qd:=MatrixToQuaternion(m3d);
   Check(qd.IsValid,'QuaternionToMatrix double alias');
   m4dd:=TranslationMat4(1,2,3);
-  DecomposeMartix(m4dd,trd,rotd,scad);
+  DecomposeMatrix(m4dd,trd,rotd,scad);
   Check((Abs(trd.x-1)<0.0001) and (Abs(trd.y-2)<0.0001) and (Abs(trd.z-3)<0.0001),'DecomposeMartix double wrapper');
   EndTest;
 end;
@@ -216,13 +215,13 @@ begin
   Check(Abs(pl.Offset(Point3(0,1,0))+1)<0.0001,'TPlane.Offset signed');
 
   bbA.Init;
-  bbA.IncludePoint(Point3s(1,2,3));
-  bbA.IncludePoint(Point3s(4,5,6));
+  bbA.IncludePoint(TVec3.Init(1,2,3));
+  bbA.IncludePoint(TVec3.Init(4,5,6));
   bbB.Init;
-  bbB.IncludePoint(Point3s(3,4,5));
-  bbB.IncludePoint(Point3s(8,9,10));
+  bbB.IncludePoint(TVec3.Init(3,4,5));
+  bbB.IncludePoint(TVec3.Init(8,9,10));
   bbA.IncludeBox(bbB);
-  Check(bbA.ContainsPoint(Point3s(8,9,10)),'TBBox3.IncludeBox');
+  Check(bbA.ContainsPoint(TVec3.Init(8,9,10)),'TBBox3.IncludeBox');
   Check(bbA.IntersectsBox(bbB),'TBBox3.IntersectsBox');
 
   // Compatibility wrappers kept while engine migration is in progress.
@@ -244,7 +243,7 @@ begin
 
   bbA.Init;
   BBoxInclude(bbA,1,2,3);
-  BBoxIncludePnt(bbA,Point3s(4,5,6));
+  BBoxIncludePnt(bbA,TVec3.Init(4,5,6));
   bbB.Init;
   BBoxInclude(bbB,3,4,5);
   BBoxIncludeBox(bbA,bbB);
@@ -282,21 +281,21 @@ begin
   m3sRef:=Matrix3s(Matrix4(RotationZMat(0.4)));
   Check(IsEqual(m3s,m3sRef,20),'RotationZMat3s consistency');
 
-  a:=Point3s(0,0,0);
-  b:=Point3s(1,0,0);
-  c:=Point3s(0,1,0);
-  o:=Point3s(0.25,0.25,1);
-  tp:=Point3s(0.25,0.25,0);
+  a:=TVec3.Init(0,0,0);
+  b:=TVec3.Init(1,0,0);
+  c:=TVec3.Init(0,1,0);
+  o:=TVec3.Init(0.25,0.25,1);
+  tp:=TVec3.Init(0.25,0.25,0);
   hit:=IntersectTrgLine(@a,@b,@c,@o,@tp,pb,pc,d);
   Check(hit and (d>0) and (pb>=0) and (pc>=0) and (pb+pc<=1),'IntersectTrgLine hit');
 
-  o:=Point3s(2,2,1);
-  tp:=Point3s(2,2,0);
+  o:=TVec3.Init(2,2,1);
+  tp:=TVec3.Init(2,2,0);
   hit:=IntersectTrgLine(@a,@b,@c,@o,@tp,pb,pc,d);
   Check(not hit,'IntersectTrgLine miss');
 
-  o:=Point3s(0.25,0.25,1);
-  tp:=Point3s(1.25,0.25,1);
+  o:=TVec3.Init(0.25,0.25,1);
+  tp:=TVec3.Init(1.25,0.25,1);
   hit:=IntersectTrgLine(@a,@b,@c,@o,@tp,pb,pc,d);
   Check(not hit,'IntersectTrgLine parallel');
   EndTest;

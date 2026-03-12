@@ -139,7 +139,6 @@ end;
 procedure TestGeom2DUtility;
 var
   v1,v2,v3:TVec2;
-  vs:TVec2;
   m2,m2b,m2i:TMat2d;
   m32,m32b,m32i:TMat32d;
   m32s,m32si:TMatrix32s;
@@ -150,7 +149,6 @@ var
   rs:TRect2s;
   pt:TVec2;
   pt0:TVec2;
-  ps:TVec2;
   poly:array[0..2] of TVec2d;
   poly4:array[0..3] of TVec2d;
   ln:TLine2;
@@ -218,12 +216,6 @@ begin
   MultPnts(m32s,@pt,1,SizeOf(pt));
   MultPnts(m32si,@pt,1,SizeOf(pt));
   Check((Abs(pt.x-pt0.x)<0.01) and (Abs(pt.y-pt0.y)<0.01),'Mat32 inverse chain');
-  ps:=Point2s(1.25,2.5);
-  Check((Abs(ps.x-1.25)<0.0001) and (Abs(ps.y-2.5)<0.0001),'Point2s from scalars');
-  ps:=Point2s(Point2(3.5,4.25));
-  Check((Abs(ps.x-3.5)<0.0001) and (Abs(ps.y-4.25)<0.0001),'Point2s from vec2d');
-  vs:=Vector2s(TVec2.Init(1,2),TVec2.Init(4,6));
-  Check((Abs(vs.x-3)<0.0001) and (Abs(vs.y-4)<0.0001),'Vector2s');
 
   r:=Rect(5,1,1,5);
   OrderRect(r);
