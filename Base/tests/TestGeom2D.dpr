@@ -57,7 +57,7 @@ begin
   v:=TVec2.Init(0,0);
   raised:=false;
   try
-    Normalize(v);
+    v.Normalize;
   except
     on EInvalidOp do begin
       raised:=true;

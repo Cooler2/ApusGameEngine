@@ -27,6 +27,7 @@ interface
    function GetRound:TPoint;
    function IsValid:boolean; inline;
    procedure Wrap(max:double); inline;
+   procedure Normalize; inline;
    function Dot(const p:TVec2d):double; inline;
    function Cross(const p:TVec2d):double; inline;
    function Length:double; inline;
@@ -44,6 +45,7 @@ interface
    constructor Init(pnt:TPoint); overload;
    function GetRound:TPoint;
    function IsValid:boolean; inline;
+   procedure Normalize; inline;
    function Dot(const p:TVec2):single; inline;
    function Cross(const p:TVec2):single; inline;
    function Length:single; inline;
@@ -119,8 +121,6 @@ interface
   InvalidPoint2s:TVec2=(x:NaN;y:NaN);
 
  // Vector functions
- procedure Normalize(var v:TVec2d); overload; inline;
- procedure Normalize(var v:TVec2); overload; inline;
  function VectMult(v:TVec2d;value:double):TVec2d; inline; overload;
  function VectMult(a,b:TVec2):TVec2; inline; overload;
  function VectDiv(a,b:TVec2):TVec2; inline;
@@ -213,27 +213,6 @@ interface
 implementation
  uses Math, Apus.Types, Apus.Core, SysUtils;
 
- procedure Normalize(var v:TVec2d);
-  var
-   l:double;
-  begin
-   l:=v.Length;
-   ASSERT(l>Epsilon,'Normalize zero-length vector');
-   v.x:=v.x/l;
-   v.y:=v.y/l;
-  end;
-
- procedure Normalize(var v:TVec2);
-  var
-   l:double;
-  begin
-   l:=v.Length;
-   ASSERT(l>EpsilonS,'Normalize zero-length vector');
-   v.x:=v.x/l;
-   v.y:=v.y/l;
-  end;
-
-
  function VectMult(v:TVec2d;value:double):TVec2d;
   begin
    result:=v;
@@ -283,8 +262,8 @@ implementation
   var
    p:double;
   begin
-   Normalize(v1);
-   Normalize(v2);
+   v1.Normalize;
+   v2.Normalize;
    p:=v1.Dot(v2);
    if p>1 then p:=1;
    if p<-1 then p:=-1;
@@ -300,8 +279,8 @@ implementation
   var
    p:single;
   begin
-   Normalize(v1);
-   Normalize(v2);
+   v1.Normalize;
+   v2.Normalize;
    p:=v1.Dot(v2);
    if p>1 then p:=1;
    if p<-1 then p:=-1;
@@ -353,7 +332,7 @@ class function TLine2.Init(const p1,p2:TVec2d):TLine2;
   v:TVec2d;
  begin
   v:=p2.Sub(p1);
-  Normalize(v);
+  v.Normalize;
   v:=Turn90R(v);
   result.a:=v.x;
   result.b:=v.y;
@@ -425,7 +404,7 @@ function TLine2.Deviation(const point:TVec2d):double;
    v.x:=segm.x2-segm.x1;
    v.y:=segm.y2-segm.y1;
    n:=v;
-   Normalize(n);
+   n.Normalize;
    n:=Turn90R(n);
    d.x:=pnt.x-segm.x1;
    d.y:=pnt.y-segm.y1;
@@ -847,6 +826,16 @@ procedure TVec2d.Wrap(max:double);
   y:=Apus.Core.Wrap(y,max);
  end;
 
+procedure TVec2d.Normalize;
+ var
+  l:double;
+ begin
+  l:=Length;
+  ASSERT(l>Epsilon,'Normalize zero-length vector');
+  x:=x/l;
+  y:=y/l;
+ end;
+
 function TVec2d.GetRound:TPoint;
  begin
   result.x:=round(x);
@@ -932,6 +921,16 @@ constructor TVec2.Init(x,y:single);
 function TVec2.IsValid:boolean;
  begin
   result:=x=x;
+ end;
+
+procedure TVec2.Normalize;
+ var
+  l:single;
+ begin
+  l:=Length;
+  ASSERT(l>EpsilonS,'Normalize zero-length vector');
+  x:=x/l;
+  y:=y/l;
  end;
 
 function TVec2.Dot(const p:TVec2):single;
