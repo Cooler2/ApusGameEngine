@@ -142,6 +142,10 @@ interface
  // Setup point
  function Point2(x,y:double):TVec2d; overload; inline;
  function Point2(pnt:TVec2):TVec2d; overload; inline;
+ function Vec2(x,y:single):TVec2; overload; inline;
+ function Vec2(v:TVec2d):TVec2; overload; inline;
+ function Vec2d(x,y:double):TVec2d; overload; inline;
+ function Vec2d(v:TVec2):TVec2d; overload; inline;
  function PointBlend(p1,p2:TVec2d;factor:double):TVec2d; overload;
  function PointBlend(p1,p2:TVec2;factor:single):TVec2; overload;
  // Setup vector (from source to target)
@@ -315,6 +319,30 @@ function TLine2.Deviation(const point:TVec2d):double;
   begin
    result.x:=pnt.x;
    result.y:=pnt.y;
+  end;
+
+ function Vec2(x,y:single):TVec2; overload; inline;
+  begin
+   result.x:=x;
+   result.y:=y;
+  end;
+
+ function Vec2(v:TVec2d):TVec2; overload; inline;
+  begin
+   result.x:=v.x;
+   result.y:=v.y;
+  end;
+
+ function Vec2d(x,y:double):TVec2d; overload; inline;
+  begin
+   result.x:=x;
+   result.y:=y;
+  end;
+
+ function Vec2d(v:TVec2):TVec2d; overload; inline;
+  begin
+   result.x:=v.x;
+   result.y:=v.y;
   end;
 
 

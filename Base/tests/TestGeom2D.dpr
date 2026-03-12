@@ -41,6 +41,14 @@ begin
   pd0:=Point2(1,2);
   pd1:=Point2(1+1E-13,2-1E-13);
   Check(IsEqual(pd0,pd1),'IsEqual vec2d');
+  c:=Vec2(3,4);
+  Check((Abs(c.x-3)<0.0001) and (Abs(c.y-4)<0.0001),'Vec2 factory');
+  c:=Vec2(Point2(5,6));
+  Check((Abs(c.x-5)<0.0001) and (Abs(c.y-6)<0.0001),'Vec2 from vec2d');
+  pd0:=Vec2d(7,8);
+  Check((Abs(pd0.x-7)<0.0001) and (Abs(pd0.y-8)<0.0001),'Vec2d factory');
+  pd1:=Vec2d(TVec2.Init(9,10));
+  Check((Abs(pd1.x-9)<0.0001) and (Abs(pd1.y-10)<0.0001),'Vec2d from vec2');
   Check(LexCompare(Point2(1,2),Point2(1,3))<0,'LexCompare y');
   Check(LexCompare(Point2(2,10),Point2(1,9))>0,'LexCompare x');
   EndTest;
