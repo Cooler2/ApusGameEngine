@@ -260,7 +260,7 @@ begin
   result:=ArcCos(c);
 end;
 
- function AngleDiff(a1,a2:double):double;
+class function TVec2d.AngleDiff(a1,a2:double):double;
   begin
    result:=a2-a1;
    while result>Pi do result:=result-2*Pi;
@@ -269,13 +269,13 @@ end;
      result:=result-2*pi*int(result/(2*pi));}
   end;
 
- function IsEqual;
+class function TVec2d.IsEqual(const a,b:TVec2d):boolean;
   begin
    result:=(abs(a.x-b.x)<=Epsilon) and
            (abs(a.y-b.y)<=Epsilon);
   end;
 
- function LexCompare;
+class function TVec2d.LexCompare(const a,b:TVec2d):integer;
   begin
    result:=-1;
    if a.y<b.y then exit;
@@ -326,38 +326,48 @@ function TLine2.Deviation(const point:TVec2d):double;
    result.y:=v.y;
   end;
 
- function Segment2(x1,y1,x2,y2:double):TSegment2;
+function Segment2(x1,y1,x2,y2:double):TSegment2;
   begin
-   result.x1:=x1;
-   result.x2:=x2;
-   result.y1:=y1;
-   result.y2:=y2;
+   result:=TSegment2.Init(x1,y1,x2,y2);
   end;
 
  function Segment2(x1,y1,x2,y2:integer):TSegment2;
   begin
-   result.x1:=x1;
-   result.x2:=x2;
-   result.y1:=y1;
-   result.y2:=y2;
+   result:=TSegment2.Init(x1,y1,x2,y2);
   end;
 
- procedure PointOnSegment;
+class function TSegment2.Init(x1,y1,x2,y2:integer):TSegment2;
+ begin
+  result.x1:=x1;
+  result.x2:=x2;
+  result.y1:=y1;
+  result.y2:=y2;
+ end;
+
+class function TSegment2.Init(x1,y1,x2,y2:double):TSegment2;
+ begin
+  result.x1:=x1;
+  result.x2:=x2;
+  result.y1:=y1;
+  result.y2:=y2;
+ end;
+
+procedure TSegment2.PointInfo(const pnt:TVec2d;out parameter,deviation:double);
   var
    v,n,d:TVec2d;
   begin
-   v.x:=segm.x2-segm.x1;
-   v.y:=segm.y2-segm.y1;
+   v.x:=x2-x1;
+   v.y:=y2-y1;
    n:=v;
    n.Normalize;
    n:=n.Turn90R;
-   d.x:=pnt.x-segm.x1;
-   d.y:=pnt.y-segm.y1;
+   d.x:=pnt.x-x1;
+   d.y:=pnt.y-y1;
    deviation:=n.x*d.x+n.y*d.y;
    parameter:=(v.x*d.x+v.y*d.y)/(v.x*v.x+v.y*v.y);
   end;
 
- function IntersectLines;
+class function TLine2.Intersect(const l1,l2:TLine2;out p:TVec2d):TStatus;
   var
    d:double;
   begin
@@ -372,36 +382,36 @@ function TLine2.Deviation(const point:TVec2d):double;
    p.y:=(l2.c*l1.a-l1.c*l2.a)/d;
   end;
 
- function IntersectSegm;
+class function TSegment2.Intersect(const s1,s2:TSegment2;out p:TVec2d;out param1,param2:double):TStatus;
   var
    l1,l2:Tline2;
    d,par:double;
   begin
    l1:=TLine2.Init(Vec2d(s1.x1,s1.y1),Vec2d(s1.x2,s1.y2));
    l2:=TLine2.Init(Vec2d(s2.x1,s2.y1),Vec2d(s2.x2,s2.y2));
-   result:=IntersectLines(l1,l2,p);
+   result:=TLine2.Intersect(l1,l2,p);
    if result=intLine then begin
     // maybe segment or nothing
     result:=intNone;
-    PointOnSegment(s1,Vec2d(s2.x1,s2.y1),par,d);
+    s1.PointInfo(Vec2d(s2.x1,s2.y1),par,d);
     if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
-    PointOnSegment(s1,Vec2d(s2.x2,s2.y2),par,d);
+    s1.PointInfo(Vec2d(s2.x2,s2.y2),par,d);
     if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
-    PointOnSegment(s2,Vec2d(s1.x1,s1.y1),par,d);
+    s2.PointInfo(Vec2d(s1.x1,s1.y1),par,d);
     if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
-    PointOnSegment(s2,Vec2d(s1.x2,s1.y2),par,d);
+    s2.PointInfo(Vec2d(s1.x2,s1.y2),par,d);
     if (par>=0) and (par<=1) then begin result:=intSegment; exit; end;
    end;
    if result=intPoint then begin
     // explicit point or nothing
-    PointOnSegment(s1,p,param1,d);
-    PointOnSegment(s2,p,param2,d);
+    s1.PointInfo(p,param1,d);
+    s2.PointInfo(p,param2,d);
     if (param1<0) or (param1>1) or (param2<0) or (param2>1) then
      result:=intNone;
    end;
   end;
 
- function IntersectRects;
+class function TRect2.IntersectI(const r1,r2:TRect;out r:TRect):integer;
   begin
    r.left:=Apus.Core.Max(r1.left,r2.left);
    r.right:=Apus.Core.Min(r1.right,r2.right);
@@ -415,7 +425,7 @@ function TLine2.Deviation(const point:TVec2d):double;
                 (r2.top<=r1.bottom) and (r2.bottom>=r1.top))*4;
   end;
 
- procedure OrderRect;
+class procedure TRect2.OrderI(var r:TRect);
   var
    r2:TRect;
   begin
@@ -601,7 +611,7 @@ procedure MultPnts(m:TMat32;v:PVec2;num,step:integer);
    end;
   end;
 
-function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
+class function TVec2d.Bezier(const p0,p1,p2,p3:TVec2d;t:double):TVec2d;
   var
    b0,b1,b2,b3:double;
   begin
@@ -617,7 +627,7 @@ function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
    result.y:=p0.y*b0+p1.y*b1+p2.y*b2+p3.y*b3;
   end;
 
- function RandomPointInCircle(r:single):TVec2;
+class function TVec2.RandomInCircle(r:single):TVec2;
   var
    r2:single;
   begin
@@ -628,14 +638,14 @@ function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
    until sqr(result.x)+sqr(result.y)<=r2;
   end;
 
- function PointInTrg(a,b,c,pnt:TVec2d):integer;
+function TSegment2.PointInTriangle(const a,b,c:TVec2d):integer;
   var
    v1,v2,v:TVec2d;
    d,d1,d2:double;
   begin
    v1:=b.Sub(a);
    v2:=c.Sub(a);
-   v:=pnt.Sub(a);
+   v:=Vec2d(x1,y1).Sub(a);
    d:=v1.x*v2.y-v1.y*v2.x;
    if d<=epsilon then begin
     result:=-1; exit;
@@ -648,10 +658,11 @@ function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
  procedure Triangulate(pnts:PVec2d;count:integer);
   type
    pa=array[0..5] of TVec2d;
-  var
+ var
    next,prev:array of integer; // for each vertex: links to next/previous vertex
    i,n,p,c,d:integer;
    v1,v2:TVec2d;
+   probe:TSegment2;
    vrts:^PA;
    fl:boolean;
   begin
@@ -682,7 +693,9 @@ function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
     if fl and (n>3) then begin
      d:=next[next[p]];
      while d<>prev[p] do begin
-      if PointInTrg(vrts^[prev[p]],vrts^[p],vrts^[next[p]],vrts^[d])>0 then begin
+      probe.x1:=vrts^[d].x;
+      probe.y1:=vrts^[d].y;
+      if probe.PointInTriangle(vrts^[prev[p]],vrts^[p],vrts^[next[p]])>0 then begin
        fl:=false; break;
       end;
       d:=next[d];
@@ -710,21 +723,21 @@ function Bezier2D(var p0,p1,p2,p3:TVec2d;t:double):TVec2d;
    result.y2:=y2;
   end;
 
- function TransformRect(const r:TRect2;dx,dy,sx,sy:single):TRect2;
-  begin
-   result.x1:=r.x1*Sx+dx;
-   result.y1:=r.y1*Sy+dy;
-   result.x2:=r.x2*Sx+dx;
-   result.y2:=r.y2*Sy+dy;
-  end;
+function TRect2.Transform(dx,dy,sx,sy:single):TRect2;
+ begin
+  result.x1:=x1*sx+dx;
+  result.y1:=y1*sy+dy;
+  result.x2:=x2*sx+dx;
+  result.y2:=y2*sy+dy;
+ end;
 
- function RoundRect(const r:TRect2):TRect;
-  begin
-   result.Left:=SRound(r.x1);
-   result.Top:=SRound(r.y1);
-   result.Right:=SRound(r.x2);
-   result.Bottom:=SRound(r.y2);
-  end;
+function TRect2.Rounded:TRect;
+ begin
+  result.Left:=SRound(x1);
+  result.Top:=SRound(y1);
+  result.Right:=SRound(x2);
+  result.Bottom:=SRound(y2);
+ end;
 
 { TRect2 }
 
