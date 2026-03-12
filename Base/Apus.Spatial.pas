@@ -12,22 +12,23 @@ uses
   Apus.Geom3D;
 
 type
-  TBox3s = packed record
+  TBBox3 = packed record
     minX,minY,minZ:single;
     maxX,maxY,maxZ:single;
-    class function Init(const pMin,pMax:TVec3):TBox3s; static;
-    class function FromBBox(const box:TBBox3s):TBox3s; static;
+    class function Init(const pMin,pMax:TVec3):TBBox3; static;
+    class function FromBBox(const box:TBBox3s):TBBox3; static;
     function ToBBox:TBBox3s;
     procedure Clear;
     function IsEmpty:boolean;
     procedure IncludePoint(const p:TVec3);
-    procedure IncludeBox(const box:TBox3s);
+    procedure IncludeBox(const box:TBBox3);
     function Center:TVec3;
     function Extents:TVec3;
     function ContainsPoint(const p:TVec3):boolean;
-    function IntersectsBox(const other:TBox3s):boolean;
+    function IntersectsBox(const other:TBBox3):boolean;
     function IntersectsSphere(const sphereCenter:TVec3;sphereRadius:single):boolean;
   end;
+  TBox3s = TBBox3 deprecated 'Use TBBox3';
 
   TSphere = record
     center: TVec3;
@@ -35,7 +36,7 @@ type
     constructor Init(const aCenter: TVec3; aRadius: single);
     function ContainsPoint(const p: TVec3): boolean;
     function IntersectsSphere(const other: TSphere): boolean;
-    function IntersectsBox(const box: TBox3s): boolean; overload;
+    function IntersectsBox(const box: TBBox3): boolean; overload;
     function IntersectsBox(const box: TBBox3s): boolean;
   end;
 
@@ -44,7 +45,7 @@ type
     dir: TVec3; // expected normalized
     constructor Init(const aOrigin, aDir: TVec3);
     function IntersectsSphere(const sphere: TSphere; out t: single): boolean;
-    function IntersectsBox(const box: TBox3s; out tMin, tMax: single): boolean; overload;
+    function IntersectsBox(const box: TBBox3; out tMin, tMax: single): boolean; overload;
     function IntersectsBox(const box: TBBox3s; out tMin, tMax: single): boolean;
     function IntersectsTriangle(const a, b, c: TVec3; out t, u, v: single): boolean;
   end;
@@ -54,7 +55,7 @@ type
     planeCount: byte; // 4 or 6
     procedure InitFromMVP(const mvp: TMat4; includeNearFar: boolean = true);
     function IntersectsSphere(const sphere: TSphere): boolean;
-    function IntersectsBox(const box: TBox3s): boolean; overload;
+    function IntersectsBox(const box: TBBox3): boolean; overload;
     function IntersectsBox(const box: TBBox3s): boolean;
   end;
 
@@ -81,7 +82,7 @@ begin
   end;
 end;
 
-function SelectPositiveVertex(const box:TBox3s;nx,ny,nz:single):TVec3; inline;
+function SelectPositiveVertex(const box:TBBox3;nx,ny,nz:single):TVec3; inline;
 begin
   if nx>=0 then begin
     result.x:=box.maxX
@@ -100,38 +101,38 @@ begin
   end;
 end;
 
-{ TBox3s }
+{ TBBox3 }
 
-class function TBox3s.Init(const pMin,pMax:TVec3):TBox3s;
+class function TBBox3.Init(const pMin,pMax:TVec3):TBBox3;
 begin
   result.minX:=pMin.x; result.minY:=pMin.y; result.minZ:=pMin.z;
   result.maxX:=pMax.x; result.maxY:=pMax.y; result.maxZ:=pMax.z;
 end;
 
-class function TBox3s.FromBBox(const box:TBBox3s):TBox3s;
+class function TBBox3.FromBBox(const box:TBBox3s):TBBox3;
 begin
   result.minX:=box.minX; result.minY:=box.minY; result.minZ:=box.minZ;
   result.maxX:=box.maxX; result.maxY:=box.maxY; result.maxZ:=box.maxZ;
 end;
 
-function TBox3s.ToBBox:TBBox3s;
+function TBBox3.ToBBox:TBBox3s;
 begin
   result.minX:=minX; result.minY:=minY; result.minZ:=minZ;
   result.maxX:=maxX; result.maxY:=maxY; result.maxZ:=maxZ;
 end;
 
-procedure TBox3s.Clear;
+procedure TBBox3.Clear;
 begin
   minX:=NaN; minY:=NaN; minZ:=NaN;
   maxX:=NaN; maxY:=NaN; maxZ:=NaN;
 end;
 
-function TBox3s.IsEmpty:boolean;
+function TBBox3.IsEmpty:boolean;
 begin
   result:=Apus.Core.IsNaN(minX);
 end;
 
-procedure TBox3s.IncludePoint(const p:TVec3);
+procedure TBBox3.IncludePoint(const p:TVec3);
 begin
   if IsEmpty then begin
     minX:=p.x; minY:=p.y; minZ:=p.z;
@@ -158,7 +159,7 @@ begin
   end;
 end;
 
-procedure TBox3s.IncludeBox(const box:TBox3s);
+procedure TBBox3.IncludeBox(const box:TBBox3);
 begin
   if box.IsEmpty then begin
     exit;
@@ -187,7 +188,7 @@ begin
   end;
 end;
 
-function TBox3s.Center:TVec3;
+function TBBox3.Center:TVec3;
 begin
   if IsEmpty then begin
     exit(NullPointS);
@@ -195,7 +196,7 @@ begin
   result:=Point3s((minX+maxX)*0.5,(minY+maxY)*0.5,(minZ+maxZ)*0.5);
 end;
 
-function TBox3s.Extents:TVec3;
+function TBBox3.Extents:TVec3;
 begin
   if IsEmpty then begin
     exit(NullPointS);
@@ -203,7 +204,7 @@ begin
   result:=Point3s((maxX-minX)*0.5,(maxY-minY)*0.5,(maxZ-minZ)*0.5);
 end;
 
-function TBox3s.ContainsPoint(const p:TVec3):boolean;
+function TBBox3.ContainsPoint(const p:TVec3):boolean;
 begin
   if IsEmpty then begin
     exit(false);
@@ -213,7 +214,7 @@ begin
           (p.z>=minZ) and (p.z<=maxZ);
 end;
 
-function TBox3s.IntersectsBox(const other:TBox3s):boolean;
+function TBBox3.IntersectsBox(const other:TBBox3):boolean;
 begin
   if IsEmpty or other.IsEmpty then begin
     exit(false);
@@ -223,7 +224,7 @@ begin
           (minZ<=other.maxZ) and (maxZ>=other.minZ);
 end;
 
-function TBox3s.IntersectsSphere(const sphereCenter:TVec3;sphereRadius:single):boolean;
+function TBBox3.IntersectsSphere(const sphereCenter:TVec3;sphereRadius:single):boolean;
 var
   x,y,z,dx,dy,dz:single;
 begin
@@ -286,7 +287,7 @@ begin
   result:=box.IntersectsSphere(center,radius);
 end;
 
-function TSphere.IntersectsBox(const box:TBox3s):boolean;
+function TSphere.IntersectsBox(const box:TBBox3):boolean;
 begin
   result:=box.IntersectsSphere(center,radius);
 end;
@@ -327,10 +328,10 @@ end;
 
 function TRay.IntersectsBox(const box: TBBox3s; out tMin, tMax: single): boolean;
 begin
-  result:=IntersectsBox(TBox3s.FromBBox(box),tMin,tMax);
+  result:=IntersectsBox(TBBox3.FromBBox(box),tMin,tMax);
 end;
 
-function TRay.IntersectsBox(const box:TBox3s;out tMin,tMax:single):boolean;
+function TRay.IntersectsBox(const box:TBBox3;out tMin,tMax:single):boolean;
 var
   tx1, tx2, ty1, ty2, tz1, tz2, invD, tmp: single;
 begin
@@ -476,10 +477,10 @@ end;
 
 function TFrustum.IntersectsBox(const box: TBBox3s): boolean;
 begin
-  result:=IntersectsBox(TBox3s.FromBBox(box));
+  result:=IntersectsBox(TBBox3.FromBBox(box));
 end;
 
-function TFrustum.IntersectsBox(const box:TBox3s):boolean;
+function TFrustum.IntersectsBox(const box:TBBox3):boolean;
 var
   i: integer;
   p: TVec3;
@@ -506,3 +507,4 @@ begin
 end;
 
 end.
+

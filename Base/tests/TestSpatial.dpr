@@ -41,7 +41,7 @@ end;
 procedure TestRayBox;
 var
   ray: TRay;
-  box: TBox3s;
+  box: TBBox3;
   tMin, tMax: single;
 begin
   StartTest('Ray-Box');
@@ -89,7 +89,7 @@ end;
 procedure TestSphereBox;
 var
   sphere: TSphere;
-  box: TBox3s;
+  box: TBBox3;
 begin
   StartTest('Sphere-Box');
   box.minX:=-1; box.minY:=-1; box.minZ:=-1;
@@ -111,7 +111,7 @@ procedure TestFrustum;
 var
   fr: TFrustum;
   sphere: TSphere;
-  box: TBox3s;
+  box: TBBox3;
 begin
   StartTest('Frustum');
   fr.InitFromMVP(IdentMatrix4s, true);
@@ -148,3 +148,4 @@ begin
   end;
   writeln('All OK');
 end.
+
