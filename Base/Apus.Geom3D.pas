@@ -41,7 +41,6 @@ interface
    constructor Init(p:TVec3d); overload;
    constructor Init(p0,p1:TVec3;t:single); overload;
    constructor Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single); overload;
-   constructor SetBetween(p0,p1:TVec3;t:single);
    procedure Normalize;
    function IsValid:boolean;
    function Length:single;  // Vector length
@@ -2070,9 +2069,14 @@ procedure TVec3.Add(const p:TVec3);
  end;
 
 constructor TVec3.Init(p0,p1:TVec3;t:single);
- begin
-  SetBetween(p0,p1,t);
- end;
+var
+ t1:single;
+begin
+ t1:=1-t;
+ x:=p0.x*t1+p1.x*t;
+ y:=p0.y*t1+p1.y*t;
+ z:=p0.z*t1+p1.z*t;
+end;
 
 procedure TVec3.Normalize;
  var
@@ -2084,16 +2088,6 @@ procedure TVec3.Normalize;
   x:=x*l;
   y:=y*l;
   z:=z*l;
- end;
-
-constructor TVec3.SetBetween(p0,p1:TVec3;t:single);
- var
-  t1:single;
- begin
-  t1:=1-t;
-  x:=p0.x*t1+p1.x*t;
-  y:=p0.y*t1+p1.y*t;
-  z:=p0.z*t1+p1.z*t;
  end;
 
 constructor TVec3.Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single);
