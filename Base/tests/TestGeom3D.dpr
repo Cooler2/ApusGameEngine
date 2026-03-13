@@ -32,23 +32,11 @@ end;
 procedure TestVec3Normalize;
 var
   v:TVec3;
-  raised:boolean;
 begin
   StartTest('Vec3 normalize');
   v:=TVec3.Init(0,0,0);
-  raised:=false;
-  try
-    v.Normalize;
-  except
-    on EZeroDivide do begin
-      raised:=true;
-    end;
-    on EInvalidOp do begin
-      raised:=true;
-    end;
-  end;
-  // Current implementation raises on zero vector; track this behavior explicitly.
-  Check(raised or ((v.x=0) and (v.y=0) and (v.z=0)),'Normalize zero edge');
+  v.Normalize;
+  Check(not v.IsValid,'Normalize zero → NaN');
   v:=TVec3.Init(0,3,4);
   v.Normalize;
   Check(Abs(v.Length-1)<0.0002,'Normalize non-zero');

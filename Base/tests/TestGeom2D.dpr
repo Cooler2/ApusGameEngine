@@ -59,20 +59,11 @@ var
   v,u:TVec2;
   vd:TVec2d;
   a:single;
-  raised:boolean;
 begin
   StartTest('Vec2 ops');
   v:=TVec2.Init(0,0);
-  raised:=false;
-  try
-    v.Normalize;
-  except
-    on EInvalidOp do begin
-      raised:=true;
-    end;
-  end;
-  // Current implementation raises on zero vector; track this behavior explicitly.
-  Check(raised or ((v.x=0) and (v.y=0)),'Normalize zero edge');
+  v.Normalize;
+  Check(not v.IsValid,'Normalize zero → NaN');
 
   v:=TVec2.Init(10,0);
   u:=TVec2.Init(0,10);
