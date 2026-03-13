@@ -27,6 +27,12 @@
         <Projects Include="TestEventMan.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="TestCompress.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="TestTCP.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -107,14 +113,32 @@
     <Target Name="TestEventMan:Make">
         <MSBuild Projects="TestEventMan.dproj" Targets="Make"/>
     </Target>
+    <Target Name="TestCompress">
+        <MSBuild Projects="TestCompress.dproj"/>
+    </Target>
+    <Target Name="TestCompress:Clean">
+        <MSBuild Projects="TestCompress.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestCompress:Make">
+        <MSBuild Projects="TestCompress.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestTCP">
+        <MSBuild Projects="TestTCP.dproj"/>
+    </Target>
+    <Target Name="TestTCP:Clean">
+        <MSBuild Projects="TestTCP.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestTCP:Make">
+        <MSBuild Projects="TestTCP.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="BuildTest;TestCore;TestStrings;TestConv;TestThreads;TestHashMaps;TestFiles;TestEventMan"/>
+        <CallTarget Targets="BuildTest;TestCore;TestStrings;TestConv;TestThreads;TestHashMaps;TestFiles;TestEventMan;TestCompress;TestTCP"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="BuildTest:Clean;TestCore:Clean;TestStrings:Clean;TestConv:Clean;TestThreads:Clean;TestHashMaps:Clean;TestFiles:Clean;TestEventMan:Clean"/>
+        <CallTarget Targets="BuildTest:Clean;TestCore:Clean;TestStrings:Clean;TestConv:Clean;TestThreads:Clean;TestHashMaps:Clean;TestFiles:Clean;TestEventMan:Clean;TestCompress:Clean;TestTCP:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="BuildTest:Make;TestCore:Make;TestStrings:Make;TestConv:Make;TestThreads:Make;TestHashMaps:Make;TestFiles:Make;TestEventMan:Make"/>
+        <CallTarget Targets="BuildTest:Make;TestCore:Make;TestStrings:Make;TestConv:Make;TestThreads:Make;TestHashMaps:Make;TestFiles:Make;TestEventMan:Make;TestCompress:Make;TestTCP:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>
