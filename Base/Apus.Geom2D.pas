@@ -72,6 +72,10 @@ interface
    function DivBy(const p:TVec2):TVec2; inline;
    procedure Invert; inline;
    procedure Wrap(max:single); inline;
+   procedure Add(const p:TVec2); inline;
+   procedure Multiply(value:single); inline;
+   function Turn90R:TVec2; inline;
+   function Turn90L:TVec2; inline;
    class operator Implicit(a:TPointF):TVec2;
    class operator Implicit(a:TPoint):TVec2;
    class operator Implicit(a:TVec2d):TVec2;
@@ -174,10 +178,12 @@ interface
 
  const
   NaN = 0.0/0.0;
-  IdentMatrix2:TMat2d=(v:((1,0),(0,1)));
-  IdentMatrix32:TMat32d=(v:((1,0),(0,1),(0,0)));
+  IdentMat2d:TMat2d=(v:((1,0),(0,1)));
+  IdentMat32d:TMat32d=(v:((1,0),(0,1),(0,0)));
   IdentMat2:TMat2=((1,0),(0,1));
   IdentMat32:TMat32=((1,0),(0,1),(0,0));
+  IdentMatrix2:TMat2d=(v:((1,0),(0,1))) deprecated 'Use IdentMat2d';
+  IdentMatrix32:TMat32d=(v:((1,0),(0,1),(0,0))) deprecated 'Use IdentMat32d';
 
   InvalidPoint2:TVec2d=(x:NaN;y:NaN);
   InvalidVec2:TVec2=(x:NaN;y:NaN);
@@ -515,7 +521,7 @@ end;
 
 class function TMat32d.Translation(x,y:double):TMat32d;
 begin
-  result:=IdentMatrix32;
+  result:=IdentMat32d;
   result[2,0]:=x;
   result[2,1]:=y;
 end;
@@ -1084,6 +1090,30 @@ procedure TVec2.Wrap(max:single);
  begin
   x:=Apus.Core.Wrap(x,max);
   y:=Apus.Core.Wrap(y,max);
+ end;
+
+procedure TVec2.Add(const p:TVec2);
+ begin
+  x:=x+p.x;
+  y:=y+p.y;
+ end;
+
+procedure TVec2.Multiply(value:single);
+ begin
+  x:=x*value;
+  y:=y*value;
+ end;
+
+function TVec2.Turn90R:TVec2;
+ begin
+  result.x:=y;
+  result.y:=-x;
+ end;
+
+function TVec2.Turn90L:TVec2;
+ begin
+  result.x:=-y;
+  result.y:=x;
  end;
 
 { TSegment2 }
