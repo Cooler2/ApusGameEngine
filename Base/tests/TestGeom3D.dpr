@@ -388,20 +388,32 @@ begin
 end;
 
 begin
-  TestVec3Core;
-  TestVec3Normalize;
-  TestMatrices;
-  TestQuaternionConversions;
-  TestBBox;
-  TestGeom3DUtility;
-  TestGeom3DUtility2;
-  TestGeom3DEdgeCases;
-  writeln;
-  writeln('TOTAL: ',testsTotal,' checks, FAILED: ',testsFailed);
-  if testsFailed>0 then begin
-    halt(1);
+  try
+    TestVec3Core;
+    TestVec3Normalize;
+    TestMatrices;
+    TestQuaternionConversions;
+    TestBBox;
+    TestGeom3DUtility;
+    TestGeom3DUtility2;
+    TestGeom3DEdgeCases;
+    writeln;
+    writeln('TOTAL: ',testsTotal,' checks, FAILED: ',testsFailed);
+    if testsFailed>0 then
+      ExitCode:=1
+    else
+      writeln('All OK');
+  except
+    on e:Exception do begin
+      writeln;
+      writeln('TEST FAILED! Error: ',ExceptionMsg(e));
+      ExitCode:=255;
+    end;
   end;
-  writeln('All OK');
+  if IsDebuggerPresent then begin
+    writeln('Press [ENTER] to exit');
+    readln;
+  end;
 end.
 
 

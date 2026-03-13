@@ -200,18 +200,30 @@ begin
 end;
 
 begin
-  TestRaySphere;
-  TestRayBox;
-  TestRayTriangle;
-  TestRayPlane;
-  TestSphereBox;
-  TestFrustum;
-  writeln;
-  writeln('TOTAL: ', testsTotal, ' checks, FAILED: ', testsFailed);
-  if testsFailed > 0 then begin
-    halt(1);
+  try
+    TestRaySphere;
+    TestRayBox;
+    TestRayTriangle;
+    TestRayPlane;
+    TestSphereBox;
+    TestFrustum;
+    writeln;
+    writeln('TOTAL: ',testsTotal,' checks, FAILED: ',testsFailed);
+    if testsFailed>0 then
+      ExitCode:=1
+    else
+      writeln('All OK');
+  except
+    on e:Exception do begin
+      writeln;
+      writeln('TEST FAILED! Error: ',ExceptionMsg(e));
+      ExitCode:=255;
+    end;
   end;
-  writeln('All OK');
+  if IsDebuggerPresent then begin
+    writeln('Press [ENTER] to exit');
+    readln;
+  end;
 end.
 
 

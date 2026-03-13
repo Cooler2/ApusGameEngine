@@ -276,18 +276,30 @@ begin
 end;
 
 begin
-  TestVec2Core;
-  TestVec2Ops;
-  TestRect2s;
-  TestLinesAndSegments;
-  TestPolygonOps;
-  TestGeom2DUtility;
-  writeln;
-  writeln('TOTAL: ',testsTotal,' checks, FAILED: ',testsFailed);
-  if testsFailed>0 then begin
-    halt(1);
+  try
+    TestVec2Core;
+    TestVec2Ops;
+    TestRect2s;
+    TestLinesAndSegments;
+    TestPolygonOps;
+    TestGeom2DUtility;
+    writeln;
+    writeln('TOTAL: ',testsTotal,' checks, FAILED: ',testsFailed);
+    if testsFailed>0 then
+      ExitCode:=1
+    else
+      writeln('All OK');
+  except
+    on e:Exception do begin
+      writeln;
+      writeln('TEST FAILED! Error: ',ExceptionMsg(e));
+      ExitCode:=255;
+    end;
   end;
-  writeln('All OK');
+  if IsDebuggerPresent then begin
+    writeln('Press [ENTER] to exit');
+    readln;
+  end;
 end.
 
 
