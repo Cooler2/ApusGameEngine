@@ -635,7 +635,7 @@ var
  cmdList:array[0..127] of cardinal; // bits 0..7 - what to change, bits 8..9= 0 - clear, 1 - set, 2 - pop
  cmdIndex:array of byte; // total number of commands that must be executed before i-th character
  // Underlined
- linePoints:array[0..63] of TPoint2; // x,y
+ linePoints:array[0..63] of TVec2d; // x,y
  lineColors:array[0..31] of cardinal;
  lpCount:integer;
 

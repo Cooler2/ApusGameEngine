@@ -514,7 +514,7 @@ var
  color:cardinal;
  cx,cy,dx,dy:integer;
  scaleX,scaleY,centerX,centerY:double;
- savePos:TPoint2s;
+ savePos:TVec2;
 begin
  if DontPlay then begin
   onDone; exit;
@@ -757,7 +757,7 @@ var
  u,v,phase:single;
  i:integer;
  cb:array[0..3] of byte;
- cf:TVector4s;
+ cf:TQuat;
 begin
  try
   if not initialized then Initialize;

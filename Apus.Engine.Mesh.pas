@@ -17,11 +17,11 @@ type
   constructor Create(vertexLayout:TVertexLayout;vertCount,indCount:integer);
   procedure SetVertices(data:pointer;sizeInBytes:integer);
   function AddVertex(var vertexData):integer; overload;
-  function AddVertex(pos:TPoint3s;norm:TVector3s;uv:TPoint2s;color:cardinal):integer; overload;
+  function AddVertex(pos:TVec3;norm:TVec3;uv:TVec2;color:cardinal):integer; overload;
   procedure AddTrg(v0,v1,v2:integer);
-  procedure AddTriangle(p1,p2,p3:TPoint3s;color:cardinal=$FF808080);
+  procedure AddTriangle(p1,p2,p3:TVec3;color:cardinal=$FF808080);
   procedure AddMesh(mesh:TMesh);
-  procedure AddCube(center:TPoint3s;size:TVector3s;color:cardinal=$FF808080);
+  procedure AddCube(center:TVec3;size:TVec3;color:cardinal=$FF808080);
   procedure AddCylinder(p0,p1:Tpoint3s;r0,r1:single;segments:integer;color:cardinal=$FF808080;addCaps:boolean=false);
   procedure Finish; // finalize write and fix current number of written vertices/indices
   procedure Draw(tex:TTexture=nil); // draw whole mesh
@@ -76,7 +76,7 @@ function TMesh.AssertVertices(num:integer):integer;
   end;
  end;
 
-function TMesh.AddVertex(pos:TPoint3s;norm:TVector3s;uv:TPoint2s;color:cardinal):integer;
+function TMesh.AddVertex(pos:TVec3;norm:TVec3;uv:TVec2;color:cardinal):integer;
  var
   vData:PByte;
  begin
@@ -155,10 +155,10 @@ function TMesh.vPos:integer;
   result:=vIdx;
  end;
 
-procedure TMesh.AddTriangle(p1,p2,p3:TPoint3s;color:cardinal);
+procedure TMesh.AddTriangle(p1,p2,p3:TVec3;color:cardinal);
  var
-  norm:TVector3s;
-  uv:TPoint2s;
+  norm:TVec3;
+  uv:TVec2;
   base:integer;
  begin
   base:=AssertVertices(3);
@@ -201,12 +201,12 @@ procedure TMesh.AddMesh(mesh:TMesh);
   end;
  end;
 
-procedure TMesh.AddCube(center:TPoint3s;size:TVector3s;color:cardinal);
+procedure TMesh.AddCube(center:TVec3;size:TVec3;color:cardinal);
  const
   mm:array[0..3,0..1] of single=((-1,-1),(-1,1),(1,-1),(1,1));
  var
-  n:TVector3s;
-  uv:TPoint2s;
+  n:TVec3;
+  uv:TVec2;
   i,base:integer;
  begin
   base:=AssertVertices(24);
@@ -229,10 +229,10 @@ procedure TMesh.AddCube(center:TPoint3s;size:TVector3s;color:cardinal);
 procedure TMesh.AddCylinder(p0,p1:Tpoint3s;r0,r1:single;segments:integer;color:cardinal;addCaps:boolean);
  var
   i,base,vNum:integer;
-  rX,rY,rZ,r,norm:TVector3s;
-  v0,v1:TPoint3s;
+  rX,rY,rZ,r,norm:TVec3;
+  v0,v1:TVec3;
   a:single;
-  uv:TPoint2s;
+  uv:TVec2;
  begin
   base:=AssertVertices(segments*2);
   rZ:=Vector3s(p0,p1);

@@ -32,7 +32,7 @@ implementation
    time:single;
    shadowMap:TTexture;
    lightDir:TVector3;
-   lightMatrix:T3DMatrix;
+   lightMatrix:TMat4d;
    constructor Create;
    procedure Initialize; override;
    procedure Render; override;
@@ -155,7 +155,7 @@ procedure TMainScene.DrawScene(mainPass: boolean);
 procedure TMainScene.Render;
  var
   distance,zBias:single;
-  frustum,tmp:T3DMatrix;
+  frustum,tmp:TMat4d;
  begin
   // setup
   time:=MyTickCount/1000;

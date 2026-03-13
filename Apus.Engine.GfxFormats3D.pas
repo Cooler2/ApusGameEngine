@@ -20,8 +20,8 @@ implementation
    f:text;
    line:String8;
    sa:Strings8;
-   points:array of TPoint3s;
-   normals:array of TVector3s;
+   points:array of TVec3;
+   normals:array of TVec3;
    uv:TTexCoords;
    pCnt,uvCnt,nCnt:integer;
    vertices:TVertices3D;

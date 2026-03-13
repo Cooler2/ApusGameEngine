@@ -509,3 +509,21 @@ Status:
 
 Proposed next step:
 - Gate D / Step 6: add one focused degenerate-frustum matrix test block in `TestSpatial`, then re-run all three suites and decide Gate D completion status.
+
+### 2026-03-12 - Gate D / Step 6 completed
+
+Status:
+- Added degenerate-MVP robustness checks in `Base/tests/TestSpatial.dpr`:
+  - zero-matrix frustum init path
+  - fallback intersection behavior for sphere/box under degenerate planes
+- Validation (sequential, no shared-log contention):
+  - `Base/tests/test.bat Geom2D` passed (32/64, `TOTAL: 55 checks, FAILED: 0`)
+  - `Base/tests/test.bat Geom3D` passed (32/64, `TOTAL: 60 checks, FAILED: 0`)
+  - `Base/tests/test.bat Spatial` passed (32/64, `TOTAL: 45 checks, FAILED: 0`)
+
+Gate D status:
+- Major public API and requested edge-cases are now covered by dedicated tests.
+- For strict "every legacy compatibility wrapper path" 100% claim, a final symbol-by-symbol trace matrix is still needed.
+
+Proposed next step:
+- Gate D / Step 7: produce strict per-symbol coverage checklist from unit interfaces and close any remaining untested compatibility wrappers; then formally mark Gate D complete.

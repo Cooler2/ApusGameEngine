@@ -78,8 +78,8 @@ procedure TRowLayout.Layout(item:TUIElement);
   var
    i:integer;
    pos:single;
-   r:TRect2s;
-   delta:TVector2s;
+   r:TRect2;
+   delta:TVec2;
    c:TUIElement;
    list:TUIElements;
   begin

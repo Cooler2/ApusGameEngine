@@ -26,12 +26,12 @@ type
    procedure UseCustomShader; override;
    procedure ResetTexMode; override;
    procedure Restore; override;
-   function TestTransformation(source:TPoint3):TPoint3;
-   function GetMVPMatrix:T3DMatrix; override;
+   function TestTransformation(source:TVec3d):TVec3d;
+   function GetMVPMatrix:TMat4d; override;
 
  protected
    defaultShader:integer;
-   MVP:T3DMatrix;
+   MVP:TMat4d;
    uMVP,uTex1,uTexmode:integer; // uniform locations
 
    curTexMode:int64; // описание режима текстурирования, установленного клиентским кодом
@@ -88,8 +88,8 @@ var
 
 procedure TGLPainter2.SetGLMatrix(mType: TMatrixType; mat: PDouble);
  var
-  tmp:T3DMatrix;
-  m:T3DMatrixS;
+  tmp:TMat4d;
+  m:TMat4;
  begin
   MultMat4(objMatrix,viewMatrix,tmp);
   MultMat4(tmp,projMatrix,MVP);
@@ -129,7 +129,7 @@ var
  op:TPoint;
  i,n,prog:integer;
  tm:int64;
- m:TMatrix4s;
+ m:TMat4;
 begin
  // Override color blending mode for alpha only textures
  if (tex<>nil) and (state=STATE_TEXTURED2X) then

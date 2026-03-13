@@ -556,19 +556,19 @@ class function TVarTypeBtnStyle.GetValue(variable:pointer):string8;
 
 class function TVarTypePivot.GetValue(variable: pointer): string8;
  var
-  p:TPoint2s;
+  p:TVec2;
  begin
-  p:=TPoint2s(variable^);
+  p:=TVec2(variable^);
   result:=Format('(%.2f,%.2f)',[p.x,p.y]);
  end;
 
 class procedure TVarTypePivot.SetValue(variable: pointer; v: string8);
  begin
-  if SameText(v,'Center') then TPoint2s(variable^):=pivotCenter else
-  if SameText(v,'TopLeft') then TPoint2s(variable^):=pivotTopLeft else
-  if SameText(v,'TopRight') then TPoint2s(variable^):=pivotTopRight else
-  if SameText(v,'BottomLeft') then TPoint2s(variable^):=pivotBottomLeft else
-  if SameText(v,'BottomRight') then TPoint2s(variable^):=pivotBottomRight else
+  if SameText(v,'Center') then TVec2(variable^):=pivotCenter else
+  if SameText(v,'TopLeft') then TVec2(variable^):=pivotTopLeft else
+  if SameText(v,'TopRight') then TVec2(variable^):=pivotTopRight else
+  if SameText(v,'BottomLeft') then TVec2(variable^):=pivotBottomLeft else
+  if SameText(v,'BottomRight') then TVec2(variable^):=pivotBottomRight else
   raise EWarning.Create('Invalid pivot value: '+v);
  end;
 

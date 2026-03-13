@@ -35,7 +35,7 @@ implementation
    SetLength(st,l);
   end;
 
- function ParseVector3(sa:AStringArr):TPoint3s;
+ function ParseVector3(sa:AStringArr):TVec3;
   begin
    ASSERT(length(sa)>=4);
    result.x:=-ParseFloat(sa[1]);
@@ -43,7 +43,7 @@ implementation
    result.z:=ParseFloat(sa[2]);
   end;
 
- function ParseVector2(sa:AStringArr):TPoint2s;
+ function ParseVector2(sa:AStringArr):TVec2;
   begin
    ASSERT(length(sa)>=3);
    result.x:=ParseFloat(sa[1]);
@@ -57,14 +57,14 @@ implementation
    pb:PByte;
    size,lNum:integer;
    sa:AStringArr;
-   points,normals:array of TPoint3s;
-   uv:array of TPoint2s;
+   points,normals:array of TVec3;
+   uv:array of TVec2;
    pCnt,pSize:integer;
    nCnt,nSize:integer;
    tCnt,tSize:integer;
    vCnt,vSize:integer;
    iCnt,iSize:integer;
-   pnt:TPoint3s;
+   pnt:TVec3;
    vHash:TSimpleHashAS;
    // part
    minVrt,maxVrt:integer;

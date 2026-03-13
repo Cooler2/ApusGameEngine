@@ -18,14 +18,14 @@ const
  KEEP    = -1;
 
  // Predefined pivot point configuration
- pivotTopLeft:TPoint2s=(x:0; y:0);
- pivotTopRight:TPoint2s=(x:1; y:0);
- pivotBottomLeft:TPoint2s=(x:0; y:1);
- pivotBottomRight:TPoint2s=(x:1; y:1);
- pivotCenter:TPoint2s=(x:0.5; y:0.5);
+ pivotTopLeft:TVec2=(x:0; y:0);
+ pivotTopRight:TVec2=(x:1; y:0);
+ pivotBottomLeft:TVec2=(x:0; y:1);
+ pivotBottomRight:TVec2=(x:1; y:1);
+ pivotCenter:TVec2=(x:0.5; y:0.5);
 
 type
- TUIRect=TRect2s;
+ TUIRect=TRect2;
  TAnchorMode=TUIRect;
 
  // UI snapping modes
@@ -93,16 +93,16 @@ type
  // Base class of the UI element
  TUIElement=class(TNamedObject)
   // This defines element's OUTER rect - in PARENT coordinates (i.e. scale doesn't affect this)
-  position:TPoint2s;  // root point position in parent's client rect
-  size:TVector2s; // dimension of this element
-  pivot:TPoint2s; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
+  position:TVec2;  // root point position in parent's client rect
+  size:TVec2; // dimension of this element
+  pivot:TVec2; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
   anchors:TUIRect; // how much left/top/right/bottom border should absorb from parent's size change delta
   shape:TElementShape;  // define which part of the element can react on mouse input (opaque part)
   shapeRegion:TRegion;   // when shape=shapeCustom, this object define which area is considered opaque (for mouse input)
   // Inner parts - scaled
   scale:single; // scale factor for INNER parts of the element and all its children elements
   padding:TUIRect; // defines element's client area (how much to deduct from the element's area) using own scale
-  scroll:TVector2s; // Offset used to draw children elements - SUBTRACT from children pos
+  scroll:TVec2; // Offset used to draw children elements - SUBTRACT from children pos
   scrollerH,scrollerV:IScroller;  // scrollbars linked to this element scroll position
   autoScroll:boolean; // use mouse wheel to scroll
   placementMode:TUIPlacementMode;  // How element should react on parent's size change
@@ -199,16 +199,16 @@ type
   // Transformations. Element's coordinate system is (0,0 - clientWidth,clinetHeight) where
   //   0,0 - is upper-left corner of the client area. This CS is for internal use.
   // Transform to given element's CS (nil - screen space). Target must be a parent element.
-  function TransformTo(const p:TPoint2s;target:TUIElement):TPoint2s; overload;
-  function TransformTo(const r:TRect2s;target:TUIElement):TRect2s; overload;
+  function TransformTo(const p:TVec2;target:TUIElement):TVec2; overload;
+  function TransformTo(const r:TRect2;target:TUIElement):TRect2; overload;
   // Transform to/from screen space
-  function TransformToScreen(const p:TPoint2s):TPoint2s; overload;
-  function TransformToScreen(const r:TRect2s):TRect2s; overload;
-  function TransformFromScreen(const p:TPoint2s):TPoint2s; overload;
-  function TransformFromScreen(const r:TRect2s):TRect2s; overload;
-  function GetRect:TRect2s; // Get element's area in its own CS (i.e. relative to pivot point)
-  function GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
-  function GetClientRect:TRect2s; // Get element's client area in its own CS (0,0,clientWidth,clientHeight)
+  function TransformToScreen(const p:TVec2):TVec2; overload;
+  function TransformToScreen(const r:TRect2):TRect2; overload;
+  function TransformFromScreen(const p:TVec2):TVec2; overload;
+  function TransformFromScreen(const r:TRect2):TRect2; overload;
+  function GetRect:TRect2; // Get element's area in its own CS (i.e. relative to pivot point)
+  function GetRectInParentSpace:TRect2; // Get element's area in parent client space)
+  function GetClientRect:TRect2; // Get element's client area in its own CS (0,0,clientWidth,clientHeight)
 
   // получить экранные к-ты элемента
   function GetPosOnScreen:TRect;       // get full element's area in screen space
@@ -239,7 +239,7 @@ type
   procedure SetFocusToPrev;
 
   // Set element position using new pivot point
-  function SetPos(x,y:single;pivotPoint:TPoint2s;autoSnap:boolean=false):TUIElement; overload;
+  function SetPos(x,y:single;pivotPoint:TVec2;autoSnap:boolean=false):TUIElement; overload;
   function SetPos(x,y:single;autoSnap:boolean=false):TUIElement; overload;
   // Move by given screen pixels
   procedure MoveBy(dx,dy:single);
@@ -303,7 +303,7 @@ type
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
-  childrenBound:TRect2s; // bounding rect of scrollable children (including 0,0 point as well)
+  childrenBound:TRect2; // bounding rect of scrollable children (including 0,0 point as well)
 
   procedure DeleteHotkeys(vKeyCode:integer;shiftstate:byte=0);
 
@@ -311,7 +311,7 @@ type
   fStyleInfo:String8; // дополнительные сведения для стиля
   fFont:TFontHandle; // not used directly, can be inherited by children or used by custom draw routines
   fColor:cardinal; // color value to be inherited by children
-  fInitialSize:TVector2s; // element's initial size (used for proportional resize)
+  fInitialSize:TVec2; // element's initial size (used for proportional resize)
   function GetClientWidth:single;
   function GetClientHeight:single;
   function GetGlobalScale:single;
@@ -330,7 +330,7 @@ type
   property clientWidth:single read GetClientWidth;
   property clientHeight:single read GetClientHeight;
   property globalScale:single read GetGlobalScale; // how many screen pixels are in an element with size=1.0
-  property initialSize:TVector2s read fInitialSize; // size when created
+  property initialSize:TVec2 read fInitialSize; // size when created
   property styleInfo:String8 read fStyleInfo write SetStyleInfo;
   property font:TFontHandle read GetFont write fFont; // not scaled by SELF scale, scaled by PARENT scale
   property color:cardinal read GetColor write fColor;
@@ -430,7 +430,7 @@ function DescribeElement(c:TUIElement):String8;
 
  // Transform point from element own CS to the target parent element's CS (nil - to the screen)
  // I.e. (0,0) is a top-left corner of the element's CLIENT area
- function TUIElement.TransformTo(const p:TPoint2s;target:TUIElement):TPoint2s;
+ function TUIElement.TransformTo(const p:TVec2;target:TUIElement):TVec2;
   var
    parentScrollX,parentScrollY:single;
    c:TUIElement;
@@ -459,26 +459,26 @@ function DescribeElement(c:TUIElement):String8;
    until (c=nil) or (c=target);
   end;
 
- function TUIElement.TransformTo(const r:TRect2s;target:TUIElement):TRect2s;
+ function TUIElement.TransformTo(const r:TRect2;target:TUIElement):TRect2;
   var
-   p1,p2:TPoint2s;
+   p1,p2:TVec2;
   begin
    p1:=TransformTo(Point2s(r.x1,r.y1),target);
    p2:=TransformTo(Point2s(r.x2,r.y2),target);
    result:=Rect2s(p1.x,p1.y, p2.x,p2.y);
   end;
 
- function TUIElement.TransformToScreen(const p:TPoint2s):TPoint2s;
+ function TUIElement.TransformToScreen(const p:TVec2):TVec2;
   begin
    result:=TransformTo(p,nil);
   end;
 
- function TUIElement.TransformToScreen(const r:TRect2s):TRect2s;
+ function TUIElement.TransformToScreen(const r:TRect2):TRect2;
   begin
    result:=TransformTo(r,nil);
   end;
 
- function TUIElement.TransformFromScreen(const p:TPoint2s):TPoint2s;
+ function TUIElement.TransformFromScreen(const p:TVec2):TVec2;
   var
    kx,ky,bx,by:single;
    c:TUIElement;
@@ -500,7 +500,7 @@ function DescribeElement(c:TUIElement):String8;
    result.y:=(p.y-by)/ky;
   end;
 
- function TUIElement.TransformFromScreen(const r:TRect2s):TRect2s;
+ function TUIElement.TransformFromScreen(const r:TRect2):TRect2;
   begin
    result.topLeft:=TransformFromScreen(r.topLeft);
    result.bottomRight:=TransformFromScreen(r.bottomRight);
@@ -517,7 +517,7 @@ function DescribeElement(c:TUIElement):String8;
    result:=RoundRect(TransformToScreen(GetClientRect));
   end;
 
- function TUIElement.GetRect:TRect2s; // Get element's area in own CS
+ function TUIElement.GetRect:TRect2; // Get element's area in own CS
   begin
    result.x1:=-padding.Left;
    result.y1:=-padding.Top;
@@ -525,12 +525,12 @@ function DescribeElement(c:TUIElement):String8;
    result.y2:=size.y/scale-padding.Top;
   end;
 
- function TUIElement.GetClientRect:TRect2s; // Get element's client area in own CS
+ function TUIElement.GetClientRect:TRect2; // Get element's client area in own CS
   begin
    result.InitWH(0,0,clientWidth,clientHeight);
   end;
 
- function TUIElement.GetRectInParentSpace:TRect2s; // Get element's area in parent client space)
+ function TUIElement.GetRectInParentSpace:TRect2; // Get element's area in parent client space)
   begin
    result.left:=position.x-size.x*pivot.x;
    result.top:=position.y-size.y*pivot.y;
@@ -1291,9 +1291,9 @@ function TUIElement.GetClientHeight:single;
    end;
   end;
 
- function TUIElement.SetPos(x,y:single;pivotPoint:TPoint2s;autoSnap:boolean):TUIElement;
+ function TUIElement.SetPos(x,y:single;pivotPoint:TVec2;autoSnap:boolean):TUIElement;
   var
-   r:TRect2s;
+   r:TRect2;
   begin
    position:=Point2s(x,y);
    pivot:=pivotPoint;
@@ -1333,7 +1333,7 @@ function TUIElement.GetClientHeight:single;
  procedure TUIElement.MoveBy(dx,dy:single);
   var
    s:single;
-   delta:TVector2s;
+   delta:TVec2;
   begin
    s:=1/globalScale;
    dx:=dx*s; dy:=dy*s;
@@ -1429,7 +1429,7 @@ function TUIElement.GetClientHeight:single;
 
  procedure TUIElement.ParentSizeChanged(dX,dY:single);
   var
-   rect:TRect2s;
+   rect:TRect2;
    pW,pH,rX,rY:single;
   begin
    case placementMode of

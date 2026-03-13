@@ -28,11 +28,11 @@ type
   boneName:string;
   parent:integer; // index of the parent bone
   // default values
-  position:TPoint3s;
-  scale:TVector3s;
+  position:TVec3;
+  scale:TVec3;
   {$IFDEF CPUx64} padding:array[0..2] of cardinal;  {$ENDIF} // align by 16
-  rotation:TQuaternionS;
-  matrix:TMatrix4s; // model space -> bone space (in reference position)
+  rotation:TQuat;
+  matrix:TMat4; // model space -> bone space (in reference position)
  end;
  TBonesArray=array of TBone;
 
@@ -43,24 +43,24 @@ type
   frame:word;   // time marker
   boneIdx:byte; // bone index
   prop:TBoneProperty;    // which bone property is affected (position, rotation or scale)
-  value:TQuaternionS;
+  value:TQuat;
  end;
  TAnimationKeyFrames=array of TKeyFrame;
 
  // Single bone state
  TBoneState=record
-  position:TVector4s;
-  rotation:TQuaternionS;
-  scale:TVector4s;
+  position:TQuat;
+  rotation:TQuat;
+  scale:TQuat;
   function IsEqual(state:TBoneState):boolean;
  end;
  TBoneStates=array of TBoneState;
 
  // Per-frame bone states
  TTimeline=record
-  positions:array of TVector4s;
-  rotations:array of TQuaternionS;
-  scales:array of TVector4s;
+  positions:array of TQuat;
+  rotations:array of TQuat;
+  scales:array of TQuat;
  end;
 
  TModel3D=class;
@@ -80,9 +80,9 @@ type
   procedure SetLoop(fromFrame,toFrame:integer); overload;
   procedure BuildTimeline(model:TModel3D);
   // Get timeline values
-  function GetBonePosition(bone:integer;frame:single):TVector4s;
-  function GetBoneRotation(bone:integer;frame:single):TQuaternionS;
-  function GetBoneScale(bone:integer;frame:single):TVector4s;
+  function GetBonePosition(bone:integer;frame:single):TQuat;
+  function GetBoneRotation(bone:integer;frame:single):TQuat;
+  function GetBoneScale(bone:integer;frame:single):TQuat;
  private
   timeline:array of TTimeline; // timeline for each bone (can contain empty arrays)
   defaultBoneState:TBoneStates;  // state of bones with no timeline
@@ -101,7 +101,7 @@ type
   // Vertex data (no more than 64K vertices!)
   vp:TPoints3s;  // vertex positions
   vn:TVectors3s; // vertex normals (optional)
-  vt,vt2:array of TPoint2s; // texture coords (up to 2 sets, optional)
+  vt,vt2:array of TVec2; // texture coords (up to 2 sets, optional)
   vc:array of cardinal;     // vertex colors (optional)
   vb:array of TVertexBinding;  // vertex weights and indices (max 2 bones supported per vertex)
   // Surface data
@@ -165,8 +165,8 @@ type
  protected
  type
   TBoneMatrices=record
-   toModel:TMatrix4s; // transform to the model space
-   combined:TMatrix4s; // combined transformation from default pos to animated pos
+   toModel:TMat4; // transform to the model space
+   combined:TMat4; // combined transformation from default pos to animated pos
   end;
 
   // For each underlying model's animation there is a state object
@@ -214,7 +214,7 @@ procedure TAnimation.BuildTimeline(model:TModel3D);
   i,j,n,bone,frame,lastKeyFrame,firstKeyFrame:integer;
   nn,step:single;
   dwNN:cardinal absolute nn;
-  vec:TVector4s;
+  vec:TQuat;
  begin
   numBones:=length(model.bones);
   SetLength(timeline,numBones);
@@ -350,7 +350,7 @@ procedure TAnimation.BuildTimeline(model:TModel3D);
    end;
  end;
 
-function TAnimation.GetBonePosition(bone:integer;frame:single):TVector4s;
+function TAnimation.GetBonePosition(bone:integer;frame:single):TQuat;
  var
   frame1,frame2:integer;
  begin
@@ -367,7 +367,7 @@ function TAnimation.GetBonePosition(bone:integer;frame:single):TVector4s;
    result:=timeline[bone].positions[round(frame)];
  end;
 
-function TAnimation.GetBoneRotation(bone:integer;frame:single):TQuaternionS;
+function TAnimation.GetBoneRotation(bone:integer;frame:single):TQuat;
  var
   frame1,frame2:integer;
   s:single;
@@ -385,7 +385,7 @@ function TAnimation.GetBoneRotation(bone:integer;frame:single):TQuaternionS;
    result:=timeline[bone].rotations[round(frame)];
  end;
 
-function TAnimation.GetBoneScale(bone:integer;frame:single):TVector4s;
+function TAnimation.GetBoneScale(bone:integer;frame:single):TQuat;
  begin
   if timeline[bone].scales<>nil then
    result:=timeline[bone].scales[round(frame)]
@@ -434,7 +434,7 @@ function TModel3D.Animation(name:string):PAnimation;
 
 procedure TModel3D.CalcBoneMatrix(bone:integer);
  var
-  mat,mScale,mTemp:TMatrix4s;
+  mat,mScale,mTemp:TMat4;
   parent:integer;
  begin
    if not IsNAN(bones[bone].matrix[0,0]) then exit; // already calculated
@@ -454,7 +454,7 @@ procedure TModel3D.CalcBoneMatrix(bone:integer);
      mTemp:=mat;
      MultMat(mScale,mTemp,mat);
     end;
-   move(bones[bone].position,mat[3],sizeof(TPoint3s));
+   move(bones[bone].position,mat[3],sizeof(TVec3));
    // Combine with parent bone
    if (parent>=0) and bonesRelative then
     MultMat(mat,bones[parent].matrix,bones[bone].matrix)
@@ -514,7 +514,7 @@ procedure TModel3D.FlipX;
 
 procedure TModel3D.Prepare;
  var
-  mTemp:TMatrix4s;
+  mTemp:TMat4;
   i:integer;
  begin
   for i:=0 to high(bones) do
@@ -560,7 +560,7 @@ procedure TModelInstance.DrawSkeleton;
   vCnt,iCnt:integer;
   procedure AddBoneGeometry(bone,parent:integer);
    var
-    p1,p2,dir:TVector4s;
+    p1,p2,dir:TQuat;
     c:cardinal;
    begin
     p1:=MatRow(boneMatrices[bone].toModel,3);
@@ -620,9 +620,9 @@ procedure TModelInstance.DrawSkeleton;
   gfx.draw.IndexedMesh(@vertices[0],@indices[0],iCnt div 3,vCnt,nil);
  end;
 
-function BlendPnt(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte):TVector3s;
+function BlendPnt(const vec:TVec3;const m1,m2:TMat4;weight1,weight2:byte):TVec3;
  var
-  vec1,vec2:TVector4s;
+  vec1,vec2:TQuat;
  begin
   if weight1+weight2>0 then begin
    vec1:=Vector4s(vec);
@@ -638,9 +638,9 @@ function BlendPnt(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte
    result:=vec;
  end;
 
-function BlendNormal(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:byte):TVector3s;
+function BlendNormal(const vec:TVec3;const m1,m2:TMat4;weight1,weight2:byte):TVec3;
  var
-  vec1,vec2:TVector4s;
+  vec1,vec2:TQuat;
  begin
   if weight1+weight2>0 then begin
    vec1:=Vector4s(vec);
@@ -659,7 +659,7 @@ function BlendNormal(const vec:TVector3s;const m1,m2:TMatrix4s;weight1,weight2:b
 
 procedure TModelInstance.FillVertexBuffer;
  var
-  v1,v2:TVector4s;
+  v1,v2:TQuat;
   i,vCount:integer;
   rigged:boolean;
   binding:TVertexBinding;
@@ -887,9 +887,9 @@ function TModelInstance.UpdateBones:boolean;
   aCount:integer; // number of active animations
   aIdx:array[0..5] of integer;
   weights:array[0..5] of single; // max 6 active animations
-  vec:TVector4s;
+  vec:TQuat;
   bState:TBoneState;
-  q2:TQuaternionS;
+  q2:TQuat;
  begin
   result:=false;
   // Find active animations and calculate weights
@@ -953,7 +953,7 @@ function TModelInstance.UpdateBones:boolean;
 procedure TModelInstance.UpdateBoneMatrices;
  procedure CalculateBoneMatrix(bone:integer);
   var
-   mat,mScale,mTemp:TMatrix4s;
+   mat,mScale,mTemp:TMat4;
    parent:integer;
   begin
    if not IsNAN(boneMatrices[bone].toModel[0,0]) then exit; // already calculated
@@ -973,7 +973,7 @@ procedure TModelInstance.UpdateBoneMatrices;
      mTemp:=mat;
      MultMat(mScale,mTemp,mat); // TODO: !проверить порядок!
     end;
-   move(bones[bone].position.xyz,mat[3],sizeof(TPoint3s));
+   move(bones[bone].position.xyz,mat[3],sizeof(TVec3));
    // Искомая матрица получается как цепочка преобразований:
    // из дефолтной позиции (1)-> в пространство кости (2)-> в пространство кости-предка (3)-> в мировые к-ты
    // матрица (1) постоянна и вычислена заранее - это model.bones[bone].matrix

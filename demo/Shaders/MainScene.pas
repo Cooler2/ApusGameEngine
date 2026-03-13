@@ -91,8 +91,8 @@ procedure DrawRRect(x0,y0,width,height:single;r,borderWidth:single;color:cardina
   shader.UseCustomized(rShader,0);
   shader.SetUniform('bColor',TShader.VectorFromColor($FF00D0F0));
   shader.SetUniform('fillColor',TShader.VectorFromColor($FF405030));
-  shader.SetUniform('offset',TVector2s.Init(w-r,h-r));
-  shader.SetUniform('tresh',TVector4s.Init(sqr(r-1),sqr(r),sqr(r-borderWidth-1),sqr(r-borderWidth)));
+  shader.SetUniform('offset',TVec2.Init(w-r,h-r));
+  shader.SetUniform('tresh',TQuat.Init(sqr(r-1),sqr(r),sqr(r-borderWidth-1),sqr(r-borderWidth)));
   sx1:=x0-w; sx2:=x0+w;
   sy1:=y0-h; sy2:=y0+h;
   vrt[0].Init(sx1,sy1,0,-w,-h,color);
@@ -111,18 +111,18 @@ procedure TMainScene.Render;
   gfx.target.Clear($406080); // clear with blue
   t:=window.frameStartTime*0.002;
 
-  draw.RoundRect(TPoint2s.Init(150.5,20.5),16,16,8,1,$FFC0A030,$FF101010);
+  draw.RoundRect(TVec2.Init(150.5,20.5),16,16,8,1,$FFC0A030,$FF101010);
 
   //DrawRRect(250,100,150,60,10,1,$FFC0A030);
   draw.FillRRect(100,100,250,160,$FFC0A030,10);
-  draw.RoundRect(TPoint2s.Init(150,200),151,61,10,1,$FFC0A030,$FF101010);
-  draw.RoundRect(TPoint2s.Init(150,300),151,61,6,2,$FFC0A030,0);
+  draw.RoundRect(TVec2.Init(150,200),151,61,10,1,$FFC0A030,$FF101010);
+  draw.RoundRect(TVec2.Init(150,300),151,61,6,2,$FFC0A030,0);
   draw.FillRect(100,400,150,440,clBlack);
   draw.RoundRect(100,400,150,440,2,2,$FFC0A030,$FF305080);
 
   draw.RoundRect(300,100,360,140,8,2+2*sin(t),$FFC0A030,$FF305080);
   draw.RoundRect(300,150,360,190,15+14*sin(t),2,$FFC0A030,$FF305080);
-  draw.RoundRect(TPoint2s.Init(340,250),40+10*sin(t),30+6*sin(t+1),10,1.5,$FFC0A030,$FF305080);
+  draw.RoundRect(TVec2.Init(340,250),40+10*sin(t),30+6*sin(t+1),10,1.5,$FFC0A030,$FF305080);
 
   draw.Image(10,10,img,clBlack);
   draw.Image(10,50,img,clWhite);
@@ -133,7 +133,7 @@ procedure TMainScene.Render;
    for j:=0 to 28 do begin
     x:=j*80+5;
     y:=i*18;
-    draw.RoundRect(TPoint2s.Init(400+i*45,20+j*25),41,21,5,1,clWhite,0);
+    draw.RoundRect(TVec2.Init(400+i*45,20+j*25),41,21,5,1,clWhite,0);
     //txt.WriteW(0,400+i*45,25+j*25,clWhite,'Hello',taCenter);
    end;}
 

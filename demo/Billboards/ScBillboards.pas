@@ -44,7 +44,7 @@ implementation
   cameraDist:TAnimatedValue;
   texFloor,texCeil:TTexture;
   baloon1,baloon2:TTexture;
-  bb:array[0..1999] of TPoint3s;
+  bb:array[0..1999] of TVec3;
   bbCount:integer;
   colors:array[0..255] of cardinal;
 

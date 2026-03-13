@@ -1,5 +1,5 @@
 ﻿# Engine Work Ahead Log
-Last updated: 2026-03-11
+Last updated: 2026-03-12
 
 This file tracks active execution only:
 - immediate priorities;
@@ -9,6 +9,11 @@ This file tracks active execution only:
 Large feature planning lives in `engine5_feature_roadmap.md`.
 
 ## Done (recent, high impact)
+- R-03 planning kickoff (2026-03-12):
+  - created new planning/decision document: `reports/R-03_aem_pipeline_notes.md`;
+  - direction fixed: engine keeps only `OBJ` (baseline) and `AEM` (native full-featured) loaders;
+  - FBX/DAE converter path removed from R-03 scope;
+  - Blender direct exporter is the target content pipeline.
 - R-02 secondary-window render milestone (2026-03-11):
   - rendering in secondary window is confirmed working in real runtime;
   - moved from "startup-only scaffold" to active two-window render baseline.
@@ -223,6 +228,7 @@ Fields moved from TGameBase to TWindow, global `window:TWindow` added.
   - `Win+\`` opening borderless PowerShell likely external hotkey interaction; keep as low-priority verification item.
 
 ## Backlog
+- Shader loader improvements (`Apus.Engine.ShadersGL`): add `#include "file"` preprocessor support and/or make the `extra` parameter of `Load`/`Build` work as a preamble injected before both vertex and fragment sources. Goal: shared GLSL utility code (noise, structs, constants) without copy-paste across shader files.
 - MultiWindow demo: investigate ~1 Hz freezes during window resize (likely `ProcessMessages` stall from modal resize loop).
 - Secondary render thread logging: make logs context-rich and consistent (window name/thread id/startup vs frame-loop events).
 - Scene load logging cleanup: avoid "Load" log spam for scenes that keep default/empty `Load` implementation.

@@ -96,7 +96,7 @@ implementation
    if s='AUTO' then result:=amAuto;
   end;
 
- procedure DrawBtnImage(pos:TPoint2s;img:TTexture;color:cardinal;scaleX:single=1;scaleY:single=1);
+ procedure DrawBtnImage(pos:TVec2;img:TTexture;color:cardinal;scaleX:single=1;scaleY:single=1);
   begin
    draw.RotScaled(pos.x,pos.y,scaleX,scaleY,0,img,color);
 {   if (scaleX=1) and (scaleY=1) then
@@ -107,7 +107,7 @@ implementation
 
  procedure DrawButton(but:TUIButton;sNum:integer);
   var
-   bPos:TPoint2s;
+   bPos:TVec2;
    bScale:single;
    cRect:TRect;
    i,j,k,l,ix,iy,v:integer;

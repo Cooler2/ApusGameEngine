@@ -401,7 +401,7 @@ end;
 
  procedure Set2DTransform(originX,originY,scaleX,scaleY:double);
   var
-   mat:TMatrix4;
+   mat:TMat4d;
   begin
    Mem.Fill(mat,sizeof(mat),0);
    mat[0,0]:=scaleX;
@@ -415,7 +415,7 @@ end;
 
  procedure Transform2DTurnAround(centerX,centerY,scale,angle:double);
   var
-   mat:TMatrix4;
+   mat:TMat4d;
    ca,sa:double;
   begin
    Mem.Fill(mat,sizeof(mat),0);
@@ -434,7 +434,7 @@ end;
 
  procedure Transform2DScaleAround(centerX,centerY,scaleX,scaleY:double);
   var
-   mat:TMatrix4;
+   mat:TMat4d;
   begin
    Mem.Fill(mat,sizeof(mat),0);
    mat[0,0]:=scaleX;

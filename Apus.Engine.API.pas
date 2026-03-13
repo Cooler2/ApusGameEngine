@@ -150,7 +150,7 @@ type
  end;
 
  // Other types
- TRect2s = Apus.Engine.Types.TRect2s;
+ TRect2 = Apus.Engine.Types.TRect2;
  TVertexComponent = Apus.Engine.Types.TVertexComponent;
  TVertexLayout = Apus.Engine.Types.TVertexLayout;
  TPrimitiveType = Apus.Engine.Types.TPrimitiveType;
@@ -350,44 +350,44 @@ type
   // For example: scale=3 means that 1 unit in the world space is mapped to 3 pixels (in backbuffer)
   procedure Orthographic(scale,zMin,zMax:double);
   // Set arbitrary projection matrix
-  procedure SetProjection(proj:T3DMatrix);
+  procedure SetProjection(proj:TMat4d);
   // Set view transformation matrix (camera position)
   // View matrix is (R - right, D - down, F - forward, O - origin):
   // Rx Ry Rz
   // Dx Dy Dz
   // Fx Fy Fz
   // Ox Oy Oz
-  procedure SetView(view:T3DMatrix);
+  procedure SetView(view:TMat4d);
   // Alternate way to set camera position and orientation
   // (origin - camera center, target - point to look, up - any point ABOVE camera view line, so plane OTU is vertical),
   // turnCW - camera turn angle (along view axis, CW direction)
-  procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0); overload;
-  procedure SetCamera(origin,target,up:TPoint3s;turnCW:single=0); overload;
+  procedure SetCamera(origin,target,up:TVec3d;turnCW:double=0); overload;
+  procedure SetCamera(origin,target,up:TVec3;turnCW:single=0); overload;
   // Set Object (model to world) transformation matrix (must be used AFTER setting the view/camera)
-  procedure SetObj(mat:T3DMatrix); overload;
-  procedure SetObj(mat:T3DMatrixS); overload;
+  procedure SetObj(mat:TMat4d); overload;
+  procedure SetObj(mat:TMat4); overload;
   // Set object position/scale/rotate
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload;
   // Reset object matrix to default
   procedure ResetObj;
   // Get Model-View-Projection matrix (i.e. transformation from model space to screen space)
-  function MVPMatrix:T3DMatrix;
-  function ProjMatrix:T3DMatrix;
-  function ViewMatrix:T3DMatrix;
-  function ObjMatrix:T3DMatrix;
+  function MVPMatrix:TMat4d;
+  function ProjMatrix:TMat4d;
+  function ViewMatrix:TMat4d;
+  function ObjMatrix:TMat4d;
   // Transform point using combined MVP matrix
-  function Transform(source:TPoint3):TPoint3; overload;
-  function Transform(source:TPoint3s):TPoint3s; overload;
-  function ProjectPoint(source:TPoint3s):TPoint3s;
-  function ViewDir(scrX,scrY:integer):TVector3s; overload; // view direction vector
-  function ViewDir(viewPos:TPoint2s):TVector3s; overload; // viewPos in range of -1..1
-  function ViewVec:TVector3s; // camera front vector
-  function RightVec:TVector3s; // camera right (screen X+) vector
-  function DownVec:TVector3s;  // camera down (screen Y+) vector
+  function Transform(source:TVec3d):TVec3d; overload;
+  function Transform(source:TVec3):TVec3; overload;
+  function ProjectPoint(source:TVec3):TVec3;
+  function ViewDir(scrX,scrY:integer):TVec3; overload; // view direction vector
+  function ViewDir(viewPos:TVec2):TVec3; overload; // viewPos in range of -1..1
+  function ViewVec:TVec3; // camera front vector
+  function RightVec:TVec3; // camera right (screen X+) vector
+  function DownVec:TVec3;  // camera down (screen Y+) vector
   function ProjWidth:single; // screen projection width in camera view (xMax-xMin)
   function ProjHeight:single; // screen projection height in camera view (yMax-yMin)
-  function CameraPos:TPoint3s; // get current camera position
-  function Depth(pnt:TPoint3s):single; // get point depth (i.e. distance along camera view vector)
+  function CameraPos:TVec3; // get current camera position
+  function Depth(pnt:TVec3):single; // get point depth (i.e. distance along camera view vector)
   function MinDepth:single; // get minimal depth value (zMin)
   function MaxDepth:single; // get maximal depth value (zMax)
  end;
@@ -408,11 +408,11 @@ type
   // Set uniform value for the current shader
   procedure SetUniform(name:String8;value:integer); overload;
   procedure SetUniform(name:String8;value:single); overload;
-  procedure SetUniform(name:String8;const value:TVector2s); overload;
-  procedure SetUniform(name:String8;const value:TVector3s); overload;
-  procedure SetUniform(name:String8;const value:TVector4s); overload;
-  procedure SetUniform(name:String8;const value:T3DMatrix); overload;
-  procedure SetUniform(name:String8;const value:T3DMatrixS); overload;
+  procedure SetUniform(name:String8;const value:TVec2); overload;
+  procedure SetUniform(name:String8;const value:TVec3); overload;
+  procedure SetUniform(name:String8;const value:TQuat); overload;
+  procedure SetUniform(name:String8;const value:TMat4d); overload;
+  procedure SetUniform(name:String8;const value:TMat4); overload;
 
   // Built-in shader settings
   // ----
@@ -433,7 +433,7 @@ type
   // Set direction TO the light source (sun) (set power<=0 to disable)
   procedure DirectLight(direction:TVector3;power:single;color:cardinal=$FFFFFF);
   // Set point light source (set power<=0 to disable)
-  procedure PointLight(position:TPoint3;power:single;color:cardinal=$FFFFFF);
+  procedure PointLight(position:TVec3d;power:single;color:cardinal=$FFFFFF);
   // Disable lighting
   procedure LightOff;
   // Define material properties
@@ -539,14 +539,14 @@ type
  TVertices=array of TVertex;
  TVertices3D=array of TVertex3D;
  TIndices=Apus.Engine.Types.TIndices;
- TTexCoords=array of TPoint2s;
+ TTexCoords=array of TVec2;
 
  TMesh=Apus.Engine.Mesh.TMesh;
 
  PMultiTexLayer=^TMultiTexLayer;
  TMultiTexLayer=record
   texture:TTexture;
-  matrix:T2DMatrix;  // матрица трансформации текстурных к-т
+  matrix:TMat32;  // матрица трансформации текстурных к-т
   next:PMultiTexLayer;
  end;
 
@@ -599,7 +599,7 @@ type
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload; // geometry-based version
   procedure RRect(x1,y1,x2,y2:single;width,r:single;color:cardinal;steps:integer=0); overload; // geometry-based version
-  procedure RoundRect(center:TPoint2s;width,height:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload; // shader-based smooth version
+  procedure RoundRect(center:TVec2;width,height:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload; // shader-based smooth version
   procedure RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload; // shader-based smooth version
   procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
@@ -636,10 +636,10 @@ type
 
   // Draw a billboard: place this texture at the specified 3D point toward camera
   // texelSize - size of one billboard texel in world CS
-  procedure Billboard(pos:TPoint3s;texelSize:single;tex:TTexture;pivotX:single=0.5;pivotY:single=0.5;
+  procedure Billboard(pos:TVec3;texelSize:single;tex:TTexture;pivotX:single=0.5;pivotY:single=0.5;
       color:cardinal=clNeutral); overload;
   // screenScale - number of screen pixels per texel (so 2.0 results in tex upscaled 2x on screen)
-  procedure Billboard(pos:TPoint3s;tex:TTexture;screenScale:single;pivotX:single=0.5;pivotY:single=0.5;
+  procedure Billboard(pos:TVec3;tex:TTexture;screenScale:single;pivotX:single=0.5;pivotY:single=0.5;
       color:cardinal=clNeutral); overload;
 
   // Meshes ------------------
@@ -838,12 +838,12 @@ type
   // Utility functions
   // -----------------
   function MouseInRect(r:TRect):boolean; overload; virtual; abstract;
-  function MouseInRect(r:TRect2s):boolean; overload; virtual; abstract;
+  function MouseInRect(r:TRect2):boolean; overload; virtual; abstract;
   function MouseInRect(x,y,width,height:single):boolean; overload; virtual; abstract;
   function MouseIsNear(x,y,radius:single):boolean; virtual; abstract;
 
   function MouseWasInRect(r:TRect):boolean;overload; virtual; abstract;
-  function MouseWasInRect(r:TRect2s):boolean; overload; virtual; abstract;
+  function MouseWasInRect(r:TRect2):boolean; overload; virtual; abstract;
 
   function RenderSize:TSize; // returns (renderWidth,renderHeight)
 

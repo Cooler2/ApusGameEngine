@@ -45,9 +45,9 @@ type
   procedure UseDepthBuffer(test:TDepthBufferTest;writeEnable:boolean=true); override;
 
   // Set camera (view) matrix
-  procedure Set3DView(view:T3DMatrix); override;
+  procedure Set3DView(view:TMat4d); override;
   // Set model matrix
-  procedure Set3DTransform(mat:T3DMatrix); override;
+  procedure Set3DTransform(mat:TMat4d); override;
 
   // Setup projection
   procedure SetPerspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); override;
@@ -60,7 +60,7 @@ type
   // attribNames='aName1,aName2,...aNameN' - attribute names bound to indices 0..n-1
   function BuildShaderProgram(vSrc,fSrc:AnsiString;attribNames:AnsiString=''):integer;
   // Set predefined shader for color transformation (nil - go back to default shader)
-  procedure SetColorTransform(const mat:T3DMatrix);
+  procedure SetColorTransform(const mat:TMat4d);
   procedure ResetColorTransform;
 
  protected
@@ -394,7 +394,7 @@ var
  i,lMax:integer;
 // cnt:integer;
  // ïåðåâåñòè ìàòðèöó èç ïîëíîãî ìàñøòàáà ê ìàñøòàáó èçîáðàæåíèÿ â ìåòàòåêñòóðå
- procedure AdjustMatrix(const texture:TTexture;var matrix:TMatrix32s);
+ procedure AdjustMatrix(const texture:TTexture;var matrix:TMat32);
   var
    sx,sy,dx,dy:single;
    i:integer;
@@ -452,8 +452,8 @@ begin
    if texture=nil then break;
    UseTexture(texture,i);
    if texture.caps and tfTexture=0 then AdjustMatrix(texture,matrix);
-   MultPnts(matrix,PPoint2s(@vrt[0].uv[i,0]),4,sizeof(TScrPoint8));
-   MultPnts(matrix,PPoint2s(@vrt[0].uv[i,1]),4,sizeof(TScrPoint8));
+   MultPnts(matrix,PVec2(@vrt[0].uv[i,0]),4,sizeof(TScrPoint8));
+   MultPnts(matrix,PVec2(@vrt[0].uv[i,1]),4,sizeof(TScrPoint8));
    if i>0 then begin
     glClientActiveTexture(GL_TEXTURE0+i);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -732,7 +732,7 @@ begin
  CheckForGLError(1);
 end;
 
-procedure TGLPainter.Set3DView(view:T3DMatrix);
+procedure TGLPainter.Set3DView(view:TMat4d);
 var
  x,y,z:double;
 begin
@@ -753,10 +753,10 @@ begin
  {$ENDIF}
 end;
 
-procedure TGLPainter.Set3DTransform(mat:T3DMatrix);
+procedure TGLPainter.Set3DTransform(mat:TMat4d);
 var
  m:array[0..15] of double;
- ms:T3DMatrix;
+ ms:TMat4d;
 begin
  objMatrix:=mat;
  MultMat4(mat,viewMatrix,ms);
@@ -849,7 +849,7 @@ begin
  glUseProgram(0);
 end;
 
-procedure TGLPainter.SetColorTransform(const mat:T3DMatrix);
+procedure TGLPainter.SetColorTransform(const mat:TMat4d);
 begin
  if colorMatrixShader=0 then exit;
  glUseProgram(colorMatrixShader);

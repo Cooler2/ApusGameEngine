@@ -1845,7 +1845,7 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:String
 
  procedure TUIComboBox.onDropDown;
   var
-   r:TRect2s;
+   r:TRect2;
    lCount,lHeight,i:integer;
    hint:String8;
    tag:cardinal;
