@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------
+// -----------------------------------------------------
 // 3D geometry common high-precision functions
 // Author: Ivan Polyacov (C) 2003, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -373,9 +373,9 @@ interface
 
 
 implementation
- uses Apus.Core, Apus.CPU, Apus.Types, SysUtils, Math;
+uses Apus.Core, Apus.CPU, Apus.Types, SysUtils, Math;
 
- type
+type
   // Internal aliases for absolute overlays in matrix decomposition
   TMatrix3vd=array[0..2] of TVec3d;
   TMatrix43vd=array[0..3] of TVec3d;
@@ -384,26 +384,35 @@ implementation
 
 procedure _YRPToMatrix(yaw,roll,pitch:double;m:PDouble;width:integer); forward;
 procedure _YRPToMatrixS(yaw,roll,pitch:single;m:PSingle;width:integer); forward;
+procedure _MatrixToYRPCore(const mat:TMat34d; var yaw,roll,pitch:double); forward;
+procedure _TransformVec4PointsByMat4(const m:TMat4;v:PVec4;num,step:integer); overload; forward;
+procedure _TransformVec4NormalsByMat4(const m:TMat4;v:PVec4;num,step:integer); forward;
+procedure _TransformVec3dPointsByMat34d(const m:TMat34d;v:PVec3d;num,step:integer); overload; forward;
+procedure _TransformVec3PointsByMat34(const m:TMat34;v:PVec3;num,step:integer); overload; forward;
+procedure _TransformVec3dPointsByMat3d(const m:TMat3d;v:PVec3d;num,step:integer); overload; forward;
+procedure _TransformVec3PointsByMat3(const m:TMat3;v:PVec3;num,step:integer); overload; forward;
 
  const
   vec0001s:TVec4=(x:0; y:0; z:0; w:1);
 
-  // Compensation for stack frame allocation in x64 mode
+  // Stack-bias correction used by inline x64 ASM when saving/restoring XMM registers.
+  //
+  // Why needed:
+  // - Delphi x64 and FPC x64 generate different prologue/stack layouts for inline asm.
+  // - The same [rsp-..] displacement may address different memory without this correction.
+  //
+  // Value:
+  // - FPC:  0  (no extra bias needed for current prologue shape)
+  // - Delphi: 8 (stack layout is shifted by 8 bytes for these slots)
+  //
+  // How to use:
+  // - Include RSP_BIAS in every hardcoded spill/load offset around RSP.
+  // - Example:
+  //     movdqa [rsp-$10-RSP_BIAS], xmm6
+  //     ...
+  //     movdqa xmm6, [rsp-$10-RSP_BIAS]
+  //   This keeps the save/restore slot identical across compilers.
   RSP_BIAS = {$IFDEF FPC} 0 {$ELSE} 8 {$ENDIF};
-
- function Point3(p:TVec3):TVec3d; overload; inline;
-  begin
-   result.x:=p.x;
-   result.y:=p.y;
-   result.z:=p.z;
-  end;
-
- function Direction3(from,target:TVec3d):TVec3d; overload; inline;
-  begin
-   result.x:=target.x-from.x;
-   result.y:=target.y-from.y;
-   result.z:=target.z-from.z;
-  end;
 
  function Vec3(x,y,z:single):TVec3; overload; inline;
   begin
@@ -628,22 +637,22 @@ begin
   end;
 end;
 
-function Matrix4(from:TMat34d):TMat4d;
+function Matrix4(from:TMat34d):TMat4d; overload;
 begin
   result:=TMat4d.From(from);
 end;
 
-function ToMat4(from:TMat34):TMat4;
+function ToMat4(from:TMat34):TMat4; overload;
 begin
   result:=from.ToMat4;
 end;
 
-function ToMat4(from:TMat4d):TMat4;
+function ToMat4(from:TMat4d):TMat4; overload;
 begin
   result:=TMat4.From(from);
 end;
 
-function Matrix4(from:TMat4):TMat4d;
+function Matrix4(from:TMat4):TMat4d; overload;
 begin
   result:=from.ToMat4d;
 end;
@@ -757,55 +766,8 @@ begin
 end;
 
 procedure TMat34d.ToYRP(out yaw,roll,pitch:double);
-var
-  v:TVec3d;
-  skewA,skewB,skewC:double;
-  m:TMat34d;
-  mv:TMatrix43vd absolute m;
 begin
-  m:=self;
-  mv[0].Normalize;
-  mv[1].Normalize;
-  mv[2].Normalize;
-  skewA:=mv[0].Dot(mv[1]);
-  skewB:=mv[2].Dot(mv[0]);
-  skewC:=mv[2].Dot(mv[1]);
-  mv[1].x:=mv[1].x-mv[0].x*skewA;
-  mv[1].y:=mv[1].y-mv[0].y*skewA;
-  mv[1].z:=mv[1].z-mv[0].z*skewA;
-  mv[1].Normalize;
-  mv[2]:=mv[0].Cross(mv[1]);
-
-  v:=mv[0];
-  v.z:=0;
-  if v.Length2<0.000001 then begin
-    yaw:=0;
-  end else begin
-    v.Normalize;
-    if v.x<-0.999 then begin
-      yaw:=Pi;
-    end else begin
-      yaw:=ArcCos(v.x);
-      if v.y<0 then begin
-        yaw:=-yaw;
-      end;
-    end;
-    m:=m*TMat34d.RotationZ(-yaw);
-  end;
-  if mv[0].x<-0.999 then begin
-    roll:=Pi;
-  end else begin
-    roll:=-ArcSin(mv[0].z);
-  end;
-  m:=m*TMat34d.RotationY(roll);
-  if mv[1].y<-0.999 then begin
-    pitch:=Pi;
-  end else begin
-    pitch:=ArcCos(mv[1].y);
-    if mv[1].z<0 then begin
-      pitch:=-pitch;
-    end;
-  end;
+  _MatrixToYRPCore(self,yaw,roll,pitch);
 end;
 
 class function TMat4d.Translation(x,y,z:double):TMat4d;
@@ -1136,17 +1098,17 @@ end;
 
 procedure TMat4.Transform(var v:TVec4);
 begin
-  MultPnt(self,@v,1,SizeOf(v));
+  _TransformVec4PointsByMat4(self,@v,1,SizeOf(v));
 end;
 
 procedure TMat4.TransformPoints(v:PVec4;num,step:integer);
 begin
-  MultPnt(self,v,num,step);
+  _TransformVec4PointsByMat4(self,v,num,step);
 end;
 
 procedure TMat4.TransformNormals(v:PVec4;num,step:integer);
 begin
-  MultNormal(self,v,num,step);
+  _TransformVec4NormalsByMat4(self,v,num,step);
 end;
 
 function TMat4.TransformPoint(const v:TVec3):TVec3;
@@ -1596,12 +1558,16 @@ end;
 // TODO(R-07): temporary ABI-safe workaround.
 // Current operator* routes through this helper because legacy ASM was written for
 // (const m1,m2; out target) calling convention. Rework operator* to native ASM.
-procedure TMat4MultiplySSE(const m1,m2:TMat4;out target:TMat4);
- {$IFDEF CPUx64}
- asm
-  // save xmm6-7
-  movdqa [rsp-$10-RSP_BIAS],xmm6
-  movdqa [rsp-$20-RSP_BIAS],xmm7
+ procedure TMat4MultiplySSE(const m1,m2:TMat4;out target:TMat4);
+  {$IFDEF CPUx64}
+  asm
+   // x64 calling convention reminder:
+   // - Win64 (Microsoft ABI): m1=RCX, m2=RDX, target=R8
+   // - Linux x64 (System V ABI): m1=RDI, m2=RSI, target=RDX
+   // This routine currently uses the Win64 register layout.
+   // save xmm6-7
+   movdqa [rsp-$10-RSP_BIAS],xmm6
+   movdqa [rsp-$20-RSP_BIAS],xmm7
 
   // Load matrix M2
   movaps xmm4,dqword [m2+$00]
@@ -1729,34 +1695,6 @@ end;
    result:=(abs(v.x)<=EpsilonS) and (abs(v.y)<=EpsilonS) and (abs(v.z)<=EpsilonS);
   end;
 
- function IsIdentity(v:TVec3):boolean; inline;
-  begin
-   result:=((abs(v.x-1.0)<EpsilonS) and (abs(v.y-1.0)<EpsilonS) and (abs(v.z-1.0)<EpsilonS));
-  end;
-
- function IsIdentity(m:TMat34d):boolean; overload;
-  var
-   i,j:integer;
-  begin
-   result:=true;
-   for i:=0 to 3 do
-    for j:=0 to 2 do
-     if abs(m[i,j]-byte(i=j))>Epsilon then begin
-      result:=false; exit;
-     end;
-  end;
- function IsIdentity(m:TMat34):boolean; overload;
-  var
-   i,j:integer;
-  begin
-   result:=true;
-   for i:=0 to 3 do
-    for j:=0 to 2 do
-     if abs(m[i,j]-byte(i=j))>EpsilonS then begin
-      result:=false; exit;
-     end;
-  end;
-
  function IsEqual(d1,d2:double):boolean; overload;
   begin
     result:=CompareDouble(@d1,@d2,1);
@@ -1765,56 +1703,6 @@ end;
  function IsEqual(s1,s2:single):boolean; overload;
   begin
     result:=CompareSingle(@s1,@s2,1);
-  end;
-
- function IsEqual(v1,v2:TVec3;precision:single=2.0):boolean; overload; inline;
-  begin
-    result:=CompareSingle(@v1,@v2,3,precision);
-  end;
-
- function IsEqual(v1,v2:TVec4;precision:single=2.0):boolean; overload; inline;
-  begin
-    result:=CompareSingle(@v1,@v2,4,precision);
-  end;
-
- function IsEqual(v1,v2:TVec3d;precision:single=2.0):boolean; overload; inline;
-  begin
-   result:=CompareDouble(@v1,@v2,3,precision);
-  end;
-
- function IsEqual(v1,v2:TVec4d;precision:single=2.0):boolean; overload; inline;
-  begin
-   result:=CompareDouble(@v1,@v2,4,precision);
-  end;
-
- function IsEqual(v1,v2:TQuatd;precision:single=2.0):boolean; overload; inline;
-  begin
-   result:=CompareDouble(@v1,@v2,4,precision);
-  end;
-
- function IsEqual(m1,m2:TMat4d;precision:single=4.0):boolean; overload;
-  begin
-    result:=CompareDouble(@m1,@m2,16,precision);
-  end;
-
- function IsEqual(m1,m2:TMat4;precision:single=4.0):boolean; overload;
-  begin
-    result:=CompareSingle(@m1,@m2,16,precision);
-  end;
-
- function IsEqual(m1,m2:TMat34d;precision:single=4.0):boolean; overload;
-  begin
-    result:=CompareDouble(@m1,@m2,12,precision);
-  end;
-
- function IsEqual(m1,m2:TMat3d;precision:single=4.0):boolean; overload;
-  begin
-    result:=CompareDouble(@m1,@m2,9,precision);
-  end;
-
- function IsEqual(m1,m2:TMat3;precision:single=4.0):boolean; overload;
-  begin
-    result:=CompareSingle(@m1,@m2,9,precision);
   end;
 
  function CompareSingle(s1,s2:PSingle;count:integer;precision:single):boolean;
@@ -1845,16 +1733,6 @@ end;
    until false
   end;
 
- // Matrix routines
- procedure ToSingle43;
-  var
-   i,j:integer;
-  begin
-   for i:=0 to 3 do
-    for j:=0 to 2 do
-     dest[i,j]:=sour[i,j];
-  end;
-
  class function TMat34.From(const m:TMat34d):TMat34;
   var
    i,j:integer;
@@ -1865,10 +1743,14 @@ end;
   end;
 
 
- procedure MultPnt(const m:TMat4;v:PVec4;num,step:integer); overload;
+ // Transform an array of homogeneous 4D points by a 4x4 matrix in-place.
+  procedure _TransformVec4PointsByMat4(const m:TMat4;v:PVec4;num,step:integer); overload;
   {$IFDEF CPUx64}
   asm
-   // rcx=@matrix, rdx=@vector, r8=num, @r9=step
+   // x64 calling conventions for parameters:
+   // - Win64: m=RCX, v=RDX, num=R8, step=R9
+   // - Linux x64 (System V): m=RDI, v=RSI, num=RDX, step=RCX
+   // This block is written for the Win64 register mapping.
 @loop:
    movups xmm0,[rdx]
    // multiply
@@ -1914,10 +1796,14 @@ end;
   {$ENDIF}
 
  // Ignore translation part
- procedure MultNormal(const m:TMat4;v:PVec4;num,step:integer);
+ // Transform an array of homogeneous 4D normals by a 4x4 matrix, ignoring translation.
+  procedure _TransformVec4NormalsByMat4(const m:TMat4;v:PVec4;num,step:integer);
  {$IFDEF CPUx64}
   asm
-   // rcx=@matrix, rdx=@vector, r8=num, @r9=step
+   // x64 calling conventions for parameters:
+   // - Win64: m=RCX, v=RDX, num=R8, step=R9
+   // - Linux x64 (System V): m=RDI, v=RSI, num=RDX, step=RCX
+   // This block is written for the Win64 register mapping.
 @loop:
    movups xmm0,[rdx]
    // multiply
@@ -1959,7 +1845,8 @@ end;
   {$ENDIF}
 
 
- procedure MultPnt(const m:TMat34d;v:PVec3d;num,step:integer);
+ // Transform an array of 3D double-precision points by a 4x3 affine matrix in-place.
+ procedure _TransformVec3dPointsByMat34d(const m:TMat34d;v:PVec3d;num,step:integer); overload;
   var
    i:integer;
    x,y,z:double;
@@ -1973,7 +1860,8 @@ end;
    end;
   end;
 
- procedure MultPnt(const m:TMat34;v:PVec3;num,step:integer);
+ // Transform an array of 3D single-precision points by a 4x3 affine matrix in-place.
+ procedure _TransformVec3PointsByMat34(const m:TMat34;v:PVec3;num,step:integer); overload;
   var
    i:integer;
    x,y,z:single;
@@ -1987,7 +1875,8 @@ end;
    end;
   end;
 
- procedure MultPnt(const m:TMat3d;v:PVec3d;num,step:integer);
+ // Transform an array of 3D double-precision vectors by a 3x3 matrix in-place.
+ procedure _TransformVec3dPointsByMat3d(const m:TMat3d;v:PVec3d;num,step:integer); overload;
   var
    i:integer;
    x,y,z:double;
@@ -2000,7 +1889,8 @@ end;
     v:=PVec3d(PtrUInt(v)+step);
    end;
   end;
- procedure MultPnt(const m:TMat3;v:PVec3;num,step:integer);
+ // Transform an array of 3D single-precision vectors by a 3x3 matrix in-place.
+ procedure _TransformVec3PointsByMat3(const m:TMat3;v:PVec3;num,step:integer); overload;
   var
    i:integer;
    x,y,z:single;
@@ -2172,66 +2062,6 @@ end;
    result[1,1]:=scaleY;
    result[2,2]:=scaleZ;
   end;
-
- function RotationAroundVector(v:TVec3d;angle:double):TMat3d;
-  var
-   l2,m2,n2,lm,ln,mn,co,si,nco:double;
-  begin
-   l2:=v.x*v.x;
-   lm:=v.x*v.y;
-   ln:=v.x*v.z;
-   m2:=v.y*v.y;
-   mn:=v.y*v.z;
-   n2:=v.z*v.z;
-   co:=cos(angle);
-   si:=sin(angle);
-   nco:=1-co;
-   result[0,0]:=l2+(m2+n2)*co;  result[0,1]:=lm*nco-v.z*si; result[0,2]:=ln*nco+v.y*si;
-   result[1,0]:=lm*nco+v.z*si; result[1,1]:=m2+(l2+n2)*co;  result[1,2]:=mn*nco-v.x*si;
-   result[2,0]:=ln*nco-v.y*si; result[2,1]:=mn*nco+v.x*si; result[2,2]:=n2+(l2+m2)*co;
-  end;
-
- function RotationAroundVector(v:TVec3;angle:single):TMat3;
-  var
-   x2,y2,z2:single;
-   xy,xz,yz:single;
-   co,si,nco:single;
-  begin
-   v.Normalize;
-   x2:=sqr(v.x);
-   y2:=sqr(v.y);
-   z2:=sqr(v.z);
-   xy:=v.x*v.y;
-   xz:=v.x*v.z;
-   yz:=v.y*v.z;
-   co:=cos(angle);
-   si:=sin(angle);
-   nco:=1-co;
-
-   result[0,0]:=co+nco*x2;      result[0,1]:=xy*nco+v.z*si;  result[0,2]:=xz*nco-v.y*si;
-   result[1,0]:=xy*nco-v.z*si;  result[1,1]:=co+nco*y2;      result[1,2]:=yz*nco+v.x*si;
-   result[2,0]:=xz*nco+v.y*si;  result[2,1]:=yz*nco-v.x*si;  result[2,2]:=co+nco*z2;
-  end;
-
-{ function RotationAroundVector(v:TVec3;angle:single):TMat3;
-  var
-   l2,m2,n2,lm,ln,mn,co,si,nco:single;
-  begin
-   Normalize(v);
-   l2:=v.x*v.x;
-   lm:=v.x*v.y;
-   ln:=v.x*v.z;
-   m2:=v.y*v.y;
-   mn:=v.y*v.z;
-   n2:=v.z*v.z;
-   co:=cos(angle);
-   si:=sin(angle);
-   nco:=1-co;
-   result[0,0]:=l2+(m2+n2)*co;  result[1,0]:=lm*nco-v.z*si;  result[2,0]:=ln*nco+v.y*si;
-   result[0,1]:=lm*nco+v.z*si;  result[1,1]:=m2+(l2+n2)*co;  result[2,1]:=mn*nco-v.x*si;
-   result[0,2]:=ln*nco-v.y*si;  result[1,2]:=mn*nco+v.x*si;  result[2,2]:=n2+(l2+m2)*co;
-  end; }
-
 class function TMat3d.FromQuaternion(const q:TQuatd):TMat3d;
  var
   wx,wy,wz,xx,yy,yz,xy,xz,zz,x2,y2,z2:double;
@@ -2360,7 +2190,7 @@ function TMat3d.ToQuaternion:TQuatd;
  end;
 
  // If matrix is not orthogonal, the shear will be lost
-procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat);
+procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat); overload;
   var
    qX,qY,qZ:TVec4;
    tr:TVec4;
@@ -2403,7 +2233,7 @@ procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat);
    rotation:=mat3.ToQuaternion;
   end;
 
-procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd);
+procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd); overload;
   var
    qX,qY,qZ:TVec4d;
    tr:TVec4d;
@@ -2471,62 +2301,6 @@ class function TPlane.Init(const point,normal:TVec3d):TPlane;
   begin
    result:=pnt.x*a+pnt.y*b+pnt.z*c+d;
   end;
-
- function Det(const m:TMat3d):double;
-  begin
-   result:=m[0,0]*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
-           m[0,1]*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
-           m[0,2]*(m[1,0]*m[2,1]-m[1,1]*m[2,0]);
-  end;
- function Det(const m:TMat3):single;
-  begin
-   result:=m[0,0]*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
-           m[0,1]*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
-           m[0,2]*(m[1,0]*m[2,1]-m[1,1]*m[2,0]);
-  end;
-
- function Det(const m:TMat4d):double;
-  begin
-   result:=0;
-   if m[3,3]<>0 then
-    result:=result+(m[0,0]*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
-                    m[0,1]*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
-                    m[0,2]*(m[1,0]*m[2,1]-m[1,1]*m[2,0]))*m[3,3];
-   if m[2,3]<>0 then
-    result:=result-(m[0,0]*(m[1,1]*m[3,2]-m[1,2]*m[3,1])-
-                    m[0,1]*(m[1,0]*m[3,2]-m[1,2]*m[3,0])+
-                    m[0,2]*(m[1,0]*m[3,1]-m[1,1]*m[3,0]))*m[2,3];
-   if m[1,3]<>0 then
-    result:=result+(m[0,0]*(m[2,1]*m[3,2]-m[2,2]*m[3,1])-
-                    m[0,1]*(m[2,0]*m[3,2]-m[2,2]*m[3,0])+
-                    m[0,2]*(m[2,0]*m[3,1]-m[2,1]*m[3,0]))*m[1,3];
-   if m[0,3]<>0 then
-    result:=result-(m[1,0]*(m[2,1]*m[3,2]-m[2,2]*m[3,1])-
-                    m[1,1]*(m[2,0]*m[3,2]-m[2,2]*m[3,0])+
-                    m[1,2]*(m[2,0]*m[3,1]-m[2,1]*m[3,0]))*m[0,3];
-  end;
-
- function Det(const m:TMat4):single;
-  begin
-   result:=0;
-   if m[3,3]<>0 then
-    result:=result+(m[0,0]*(m[1,1]*m[2,2]-m[1,2]*m[2,1])-
-                    m[0,1]*(m[1,0]*m[2,2]-m[1,2]*m[2,0])+
-                    m[0,2]*(m[1,0]*m[2,1]-m[1,1]*m[2,0]))*m[3,3];
-   if m[2,3]<>0 then
-    result:=result-(m[0,0]*(m[1,1]*m[3,2]-m[1,2]*m[3,1])-
-                    m[0,1]*(m[1,0]*m[3,2]-m[1,2]*m[3,0])+
-                    m[0,2]*(m[1,0]*m[3,1]-m[1,1]*m[3,0]))*m[2,3];
-   if m[1,3]<>0 then
-    result:=result+(m[0,0]*(m[2,1]*m[3,2]-m[2,2]*m[3,1])-
-                    m[0,1]*(m[2,0]*m[3,2]-m[2,2]*m[3,0])+
-                    m[0,2]*(m[2,0]*m[3,1]-m[2,1]*m[3,0]))*m[1,3];
-   if m[0,3]<>0 then
-    result:=result-(m[1,0]*(m[2,1]*m[3,2]-m[2,2]*m[3,1])-
-                    m[1,1]*(m[2,0]*m[3,2]-m[2,2]*m[3,0])+
-                    m[1,2]*(m[2,0]*m[3,1]-m[2,1]*m[3,0]))*m[0,3];
-  end;
-
 procedure _YRPToMatrix(yaw,roll,pitch:double;m:PDouble;width:integer); inline;
  var
   ca,sa,cb,sb,cc,sc:double;
@@ -2568,47 +2342,10 @@ procedure _YRPToMatrixS(yaw,roll,pitch:single;m:PSingle;width:integer); inline;
    m^:=sa*sb*cc-ca*sc; inc(m);
    m^:=cb*cc; inc(m,width-2);
   end;
-
- procedure YRPToMatrix(out mat:TMat3d;yaw,roll,pitch:double); overload;
-  begin
-   _YRPToMatrix(yaw,roll,pitch,@mat,3);
-  end;
-
- procedure YRPToMatrix(out mat:TMat3;yaw,roll,pitch:double); overload;
-  begin
-   _YRPToMatrixS(yaw,roll,pitch,@mat,3);
-  end;
-
- procedure YRPToMatrix(out mat:TMat4d;yaw,roll,pitch:double); overload;
-  begin
-   _YRPToMatrix(yaw,roll,pitch,@mat,4);
-   mat[0,3]:=0; mat[1,3]:=0; mat[2,3]:=0;
-   mat[3,0]:=0; mat[3,1]:=0; mat[3,2]:=0; mat[3,3]:=1;
-  end;
-
- procedure YRPToMatrix(out mat:TMat4;yaw,roll,pitch:double); overload;
-  begin
-   _YRPToMatrixS(yaw,roll,pitch,@mat,4);
-   mat[0,3]:=0; mat[1,3]:=0; mat[2,3]:=0;
-   mat[3,0]:=0; mat[3,1]:=0; mat[3,2]:=0; mat[3,3]:=1;
-  end;
-
- procedure YRPToMatrix(out mat:TMat34d;yaw,roll,pitch:double); overload;
-  begin
-   _YRPToMatrix(yaw,roll,pitch,@mat,3);
-   mat[3,0]:=0; mat[3,1]:=0; mat[3,2]:=0;
-  end;
-
- procedure YRPToMatrix(out mat:TMat34;yaw,roll,pitch:double); overload;
-  begin
-   _YRPToMatrixS(yaw,roll,pitch,@mat,3);
-   mat[3,0]:=0; mat[3,1]:=0; mat[3,2]:=0;
-  end;
-
- procedure MatrixToYRP(const mat:TMat34d; var yaw,roll,pitch:double);
+procedure _MatrixToYRPCore(const mat:TMat34d; var yaw,roll,pitch:double);
   var
    v:TVec3d;
-   skewA,skewB,skewC:double;
+   skewA:double;
    m:TMat34d;
    mv:TMatrix43vd absolute m;
   begin
@@ -2617,8 +2354,6 @@ procedure _YRPToMatrixS(yaw,roll,pitch:single;m:PSingle;width:integer); inline;
    mv[1].Normalize;
    mv[2].Normalize;
    skewA:=mv[0].Dot(mv[1]);
-   skewB:=mv[2].Dot(mv[0]); // !??
-   skewC:=mv[2].Dot(mv[1]); // !??
    mv[1].x:=mv[1].x-mv[0].x*skewA;
    mv[1].y:=mv[1].y-mv[0].y*skewA;
    mv[1].z:=mv[1].z-mv[0].z*skewA;
@@ -2643,11 +2378,7 @@ procedure _YRPToMatrixS(yaw,roll,pitch:single;m:PSingle;width:integer); inline;
     Pitch:=arccos(mv[1].y);
     if mv[1].z<0 then pitch:=-pitch;
    end;
-  end;
-
-var
- fSet1,fset2:cardinal;
-{ TVec3d }
+  end;{ TVec3d }
 
 constructor TVec3d.Init(X,Y,Z:double);
  begin
@@ -3190,6 +2921,9 @@ procedure TQuat.Assign(const q:TQuat);
 function TQuat.Length:single;
  {$IFDEF CPUx64}
  asm
+  // x64 calling conventions for "self":
+  // - Win64: RCX = @self
+  // - Linux x64 (System V): RDI = @self
   {$IFDEF MSWINDOWS}
   movups xmm0,[rcx]
   {$ENDIF}
@@ -3211,6 +2945,9 @@ end;
 function TQuat.Length2:single;
  {$IFDEF CPUx64}
  asm
+  // x64 calling conventions for "self":
+  // - Win64: RCX = @self
+  // - Linux x64 (System V): RDI = @self
   {$IFDEF MSWINDOWS}
   movups xmm0,[rcx]
   {$ENDIF}
@@ -3232,7 +2969,9 @@ function TQuat.Length2:single;
 procedure TQuat.Normalize;
  {$IFDEF CPUx64}
  asm
-  // rcx=@self
+  // x64 calling conventions for "self":
+  // - Win64: RCX = @self
+  // - Linux x64 (System V): RDI = @self
   {$IFDEF MSWINDOWS}
   movups xmm0,[rcx]
   {$ENDIF}
@@ -3512,10 +3251,92 @@ class function TQuat.Slerp(const q1,q2:TQuat;factor:single):TQuat;
   result.w:=scale0*result.w+scale1*q2.w;
  end;
 
+function TVec3d.IsZero:boolean;
+begin
+  result:=(abs(x)<=Epsilon) and (abs(y)<=Epsilon) and (abs(z)<=Epsilon);
+end;
+
+function TVec3d.IsEqual(const p:TVec3d;precision:single):boolean;
+begin
+  result:=CompareDouble(@self,@p,3,precision);
+end;
+
+function TVec3.IsZero:boolean;
+begin
+  result:=(abs(x)<=EpsilonS) and (abs(y)<=EpsilonS) and (abs(z)<=EpsilonS);
+end;
+
+function TVec3.IsIdentity:boolean;
+begin
+  result:=(abs(x-1)<=EpsilonS) and (abs(y-1)<=EpsilonS) and (abs(z-1)<=EpsilonS);
+end;
+
+function TVec3.IsEqual(const p:TVec3;precision:single):boolean;
+begin
+  result:=CompareSingle(@self,@p,3,precision);
+end;
+
+function TVec4d.IsEqual(const p:TVec4d;precision:single):boolean;
+begin
+  result:=CompareDouble(@self,@p,4,precision);
+end;
+
+function TVec4.IsEqual(const p:TVec4;precision:single):boolean;
+begin
+  result:=CompareSingle(@self,@p,4,precision);
+end;
+
+function TQuatd.IsEqual(const q:TQuatd;precision:single):boolean;
+begin
+  result:=CompareDouble(@self,@q,4,precision);
+end;
+
+function TMat3d.IsEqual(const m:TMat3d;precision:single):boolean;
+begin
+  result:=CompareDouble(@self,@m,9,precision);
+end;
+
+function TMat34d.IsIdentity:boolean;
+begin
+  result:=CompareDouble(@self,@IdentMat34d,12,1);
+end;
+
+function TMat34d.IsEqual(const m:TMat34d;precision:single):boolean;
+begin
+  result:=CompareDouble(@self,@m,12,precision);
+end;
+
+function TMat4d.IsEqual(const m:TMat4d;precision:single):boolean;
+begin
+  result:=CompareDouble(@self,@m,16,precision);
+end;
+
+function TMat4.IsEqual(const m:TMat4;precision:single):boolean;
+begin
+  result:=CompareSingle(@self,@m,16,precision);
+end;
+
+function TMat3.IsEqual(const m:TMat3;precision:single):boolean;
+begin
+  result:=CompareSingle(@self,@m,9,precision);
+end;
+
+function TMat34.IsIdentity:boolean;
+begin
+  result:=CompareSingle(@self,@IdentMat34,12,1);
+end;
+
+function TMat34.IsEqual(const m:TMat34;precision:single):boolean;
+begin
+  result:=CompareSingle(@self,@m,12,precision);
+end;
+
 initialization
 // m:=RotationAroundVector(Vector3(0,1,0),1);
 
 end.
+
+
 
 
 
