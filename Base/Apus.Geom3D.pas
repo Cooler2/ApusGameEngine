@@ -14,11 +14,11 @@
 // Since OpenGL assume column-major matrices, only notional (imaginable) transpose occurs when matrix is
 // uploaded, so no real transpose/data modification. The same binary data is just used differently in the GLSL shaders.
 {$IFDEF FPC}{$PIC OFF}{$ENDIF}
-{$EXCESSPRECISION OFF}
+{$INCLUDE defines.inc}
 unit Apus.Geom3D;
 interface
- uses Apus.Geom2D;
- type
+uses Apus.Geom2D;
+type
   TVec3d=packed record
    x,y,z:double;
    constructor Init(X,Y,Z:double); overload;
@@ -171,7 +171,8 @@ interface
 
   // --- Transformation matrices ---
 
-  TMat3d=packed record // 3x3 rotation/scale (double)
+  // 3x3 rotation/scale (double)
+  TMat3d=record
    private
     function GetItem(i,j:integer):double; inline;
     procedure SetItem(i,j:integer;value:double); inline;
@@ -193,7 +194,9 @@ interface
     0:(v:array[0..2,0..2] of double);
     1:(rows:array[0..2] of TVec3d);
   end;
-  TMat34d=packed record // 4x3 rotation/scale/translation (double)
+
+  // 4x3 rotation/scale/translation (double)
+  TMat34d=record
    private
     function GetItem(i,j:integer):double; inline;
     procedure SetItem(i,j:integer;value:double); inline;
@@ -219,7 +222,9 @@ interface
     0:(v:array[0..3,0..2] of double);
     1:(rows:array[0..3] of TVec3d);
   end;
-  TMat4d=packed record // 4x4 full transform (double)
+
+  // 4x4 full transform (double)
+  TMat4d=record
    private
     function GetItem(i,j:integer):double; inline;
     procedure SetItem(i,j:integer;value:double); inline;
@@ -246,7 +251,9 @@ interface
 
   // Single-precision matrices
   PMat4=^TMat4;
-  TMat4=packed record // 4x4 full transform (single)
+
+  // 4x4 full transform (single)
+  TMat4=record
    private
     function GetItem(i,j:integer):single; inline;
     procedure SetItem(i,j:integer;value:single); inline;
@@ -279,6 +286,7 @@ interface
     0:(v:array[0..3,0..3] of single);
     1:(rows:array[0..3] of TVec4);
   end;
+
   // Single-precision matrices
   PMat3=^TMat3;
   TMat3=packed record
@@ -310,8 +318,11 @@ interface
     0:(v:array[0..2,0..2] of single);
     1:(rows:array[0..2] of TVec3);
   end;
+
   PMat34=^TMat34;
-  TMat34=packed record // 4x3 rotation/scale/translation (single)
+
+  // 4x3 rotation/scale/translation (single)
+  TMat34=packed record
    private
     function GetItem(i,j:integer):single; inline;
     procedure SetItem(i,j:integer;value:single); inline;
@@ -333,18 +344,21 @@ interface
     0:(v:array[0..3,0..2] of single);
     1:(rows:array[0..3] of TVec3);
   end;
- const
+
+const
+  {$IFDEF DELPHI}[Align(16)] {$ENDIF}
+  identMat4:TMat4     = (v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
+  identMat4d:TMat4d   = (v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
+  identMat3d:TMat3d   = (v:((1,0,0),(0,1,0),(0,0,1)));
+  identMat3:TMat3     = (v:((1,0,0),(0,1,0),(0,0,1)));
+  identMat34d:TMat34d = (v:((1,0,0),(0,1,0),(0,0,1),(0,0,0)));
+  identMat34:TMat34   = (v:((1,0,0),(0,1,0),(0,0,1),(0,0,0)));
+
   NaN=0.0/0.0;
-  IdentMat3d:TMat3d=(v:((1,0,0),(0,1,0),(0,0,1)));
-  IdentMat3:TMat3=(v:((1,0,0),(0,1,0),(0,0,1)));
-  IdentMat34d:TMat34d=(v:((1,0,0),(0,1,0),(0,0,1),(0,0,0)));
-  IdentMat34:TMat34=(v:((1,0,0),(0,1,0),(0,0,1),(0,0,0)));
-  IdentMat4d:TMat4d=(v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
-  IdentMat4:TMat4=(v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
 
   // Invalid (NaN) vectors
-  InvalidVec3d:TVec3d=(x:NaN;y:NaN;z:NaN);
-  InvalidVec3:TVec3=(x:NaN;y:NaN;z:NaN);
+  invalidVec3d:TVec3d = (x:NaN;y:NaN;z:NaN);
+  invalidVec3:TVec3   = (x:NaN;y:NaN;z:NaN);
 
  // --- Vector/quaternion factories ---
  function Vec3(x,y,z:single):TVec3; overload; inline;
@@ -3332,20 +3346,8 @@ begin
 end;
 
 initialization
-// m:=RotationAroundVector(Vector3(0,1,0),1);
-
+  ASSERT(UIntPtr(@IdentMat4) and $F = 0, 'Matrix constant unaligned');
 end.
-
-
-
-
-
-
-
-
-
-
-
 
 
 
