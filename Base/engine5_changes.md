@@ -1,7 +1,26 @@
-# Engine5 Refactoring — Function Rename Registry
+﻿# Engine5 Refactoring — Function Rename Registry
 
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
+
+## Recent API fixes (2026-03-11)
+
+### Apus.Spatial module skeleton
+
+- Added new base module: `Base/Apus.Spatial.pas`.
+- Introduced engine5-first geometry names and spatial primitives:
+  - `TVec2`, `TVec3` (12 bytes), `TVec4`
+  - `TMat2`, `TMat3`, `TMat34`, `TMat4`
+  - `TRay`, `TSphere`, `TFrustum`
+- Added methods-first intersection API:
+  - `TRay.IntersectsSphere/IntersectsBox/IntersectsTriangle`
+  - `TSphere.ContainsPoint/IntersectsSphere/IntersectsBox`
+  - `TFrustum.InitFromMVP/IntersectsSphere/IntersectsBox`
+  - `TFrustum.InitFromMVP(...;includeNearFar:boolean=true)` supports 4-plane mode for parallel/orthographic projection culling.
+- Extended existing box type via helper:
+  - `TBBox3sHelper.IncludePoint/IncludeBox/Center/Extents/ContainsPoint/IntersectsBox/IntersectsSphere`
+- Added scoped static helpers in `TSpatial` (`Dot3`, `Cross3`, `Distance2`) to avoid global function sprawl.
+- Compilation check: `Apus.Spatial.pas` builds with FPC in Delphi mode.
 
 ## Recent API fixes (2026-02-26)
 

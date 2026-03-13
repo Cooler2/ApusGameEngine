@@ -1,12 +1,12 @@
-# Engine5 Refactoring — Module Status
+﻿# Engine5 Refactoring — Module Status
 
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-02-26)
+## Summary (last updated: 2026-03-11)
 
 **Progress:**
-- ✅ 9 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib)
+- ✅ 10 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib, Spatial)
 - ✅ Threading and Logging blockers solved
 - ✅ Classes + Structs migrated (Foundation Level 1 complete!)
 - ✅ `UTF8.Format` added to Apus.Strings (native, no Unicode roundtrip)
@@ -29,6 +29,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-02-27):** Added `String32Helper.TryAnsiChar/AnsiChar` in `Apus.Strings` and migrated `ParseSML`/`WriteW` indexing in `Apus.Engine.TextDraw` to 0-based `String32` semantics.
 **Recent wins (2026-02-27):** Extracted `GetEnumNameSafe(typeInfo,value)` from deprecated `Apus.Common` into `Apus.Utils`, and switched `Apus.Engine.API` to explicit `uses Apus.Utils`.
 **Recent wins (2026-02-27):** Added `String32Helper.Split(delimiters,quoteChar)` overload for delimiter-set splitting with quote-aware behavior (parity with `String8.Split`).
+**Recent wins (2026-03-11):** Added new module Apus.Spatial with compile-ready spatial API skeleton (TVec2/TVec3/TVec4, TRay, TSphere, TFrustum), methods-first intersections, and TBBox3s helper extensions.
 
 ## NEW — created in engine5 refactoring
 
@@ -43,6 +44,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 | **Apus.Threads** | 714 | — | Thread synchronization (TLock with Enter/Leave methods), thread management (RegisterThread/PingThread), utilities (WaitFor). Cross-platform (Windows/Linux). **Solves blocker #1**. |
 | **Apus.Utils** | 280 | — | Misc utilities: ParseDate/ParseTime (date parsing), SplitA (string splitting with quotes), Chop (trim). Default place for functions that don't fit other modules' scope. |
 | **Apus.Lib** | 58 | — | Re-export facade (type aliases for convenient `uses`) |
+| **Apus.Spatial** | 434 | — | Spatial primitives and intersections; adds methods-first API and extends TBBox3s via record helper. |
 
 ## CLEAN — old modules, no Common dependency, no changes needed
 

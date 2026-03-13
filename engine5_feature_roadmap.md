@@ -1,5 +1,5 @@
 ﻿# Engine5 Feature Roadmap
-Last updated: 2026-03-11
+Last updated: 2026-03-12
 
 Language policy: this roadmap is maintained in English.
 
@@ -12,6 +12,23 @@ This file follows top-down planning:
 - [ ] Engine5 as a stable cross-platform foundation for 2D/3D projects.
 - [ ] A unified, predictable API across UI/Scene/Resources/Audio/3D.
 - [ ] A smooth path from demo/template to production build.
+
+## Feature Status Overview
+
+| ID | Feature | Status | Readiness | Done | Remaining |
+|----|---------|--------|-----------|------|-----------|
+| R-01 | Core GL Pipeline Modernization | done | 100% | Core profile, VBO/IBO pipeline, NSight debugging validated | — |
+| R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~65% | Shared GL context, secondary window render confirmed, scene lifecycle refactored, AddWindow API | Multi-monitor placement, runtime DPI-change scaling |
+| R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | Direction fixed: OBJ + AEM only; no FBX/DAE converter; R-03 planning doc created | Freeze AEM v1 spec, align runtime loader, implement Blender exporter MVP |
+| R-04 | Robot Interaction Layer | done | 100% | File-based protocol, all commands, FPS telemetry, UI diagnostics | — |
+| R-05 | CSS-Like UI Style System | planned | ~25% | Prototype exists in codebase, architecture decisions captured, style syntax draft v0.1 documented | Resolver implementation, transitions runtime, widget migration from legacy visual fields |
+| R-06 | 3D Material: Normal Mapping | idea | 0% | — | Shader path, tangent/bitangent handling, asset pipeline |
+| R-07 | Geometry Overhaul (Single-First + Spatial) | planned | ~15% | Detailed architecture/implementation plan captured (types, module split, staged rollout) | Stage 1 foundation in Geom2D/Geom3D, new Apus.Spatial module, engine adoption, profiling-driven SSE pass |
+| R-08 | UI Hit-Test for Out-of-Bounds Children | idea | 0% | — | Performance-safe hit-test algorithm, traversal strategy |
+| R-09 | GL Performance Modernization | idea | 0% | — | Bind-call reduction, explicit batch paths, persistent mapping |
+| R-10 | UI Widget System Refactor | planned | ~25% | Decomposition options researched (2 reports), styling direction agreed | TUIElement decomposition implementation, widget class reorganization |
+| R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
+| R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
 
 ## 2) Strategic Directions
 
@@ -124,6 +141,7 @@ Use this section for anything remembered on the fly.
 - [ ] [R-010] UI widget system refactor roadmap (TUIElement decomposition + widget-class review)
 - [ ] [R-011] Headless/NOGFX backend for CI-driven UI automation without window/OpenGL context
 - [ ] [R-012] Graphics subsystem optimizations (text path + streaming buffers)
+- [ ] [R-013] Robot API input simulation (`ui.click`/`ui.type`/`ui.focus`)
 
 ## 5) Seed Feature Cards
 
@@ -197,7 +215,7 @@ Use this section for anything remembered on the fly.
     - symmetrical multi-GPU collaborative rendering is out of native Engine5 scope.
 
 ### [R-03] Native AEM Pipeline + Blender Export
-- Status: idea
+- Status: planned
 - Priority: P1
 - Area: Resources
 - Value: Make AEM the native high-performance path for models/animations, including compact shipping formats.
@@ -210,6 +228,8 @@ Use this section for anything remembered on the fly.
   - [ ] Ultra-compact encoding mode is documented and loadable by engine.
   - [ ] Blender plugin exports valid AEM consumed by Engine5 without manual conversion.
 - Notes: define AEM versioning strategy early to avoid exporter/runtime mismatch.
+  - 2026-03-12: R-03 planning document created: `reports/R-03_aem_pipeline_notes.md`.
+  - 2026-03-12: pipeline direction fixed - only two engine loaders (`OBJ` baseline + `AEM` native); FBX/DAE converter removed from R-03 scope; Blender direct exporter is the target content path.
 
 ### [R-04] Robot Interaction Layer (MCP or File-Based Bridge)
 - Status: done
@@ -234,7 +254,7 @@ Use this section for anything remembered on the fly.
   - Post-MVP follow-ups (non-blocking): stronger command-level safety gates/policy hardening, plus reliability fixes for edge-case shutdown flows.
 
 ### [R-05] CSS-Like UI Style System Completion
-- Status: idea
+- Status: planned
 - Priority: P1
 - Area: UI
 - Value: Make UI styling declarative, reusable, and maintainable via inherited text-defined styles.
@@ -247,6 +267,7 @@ Use this section for anything remembered on the fly.
   - [ ] Style priority/conflict behavior is documented and covered by baseline tests.
   - [ ] Existing core widgets can be restyled without code changes in representative demo screens.
 - Notes: current implementation exists in initial state and needs completion to production baseline.
+  - 2026-03-12: design and scope decisions consolidated in `reports/R-05_notes.md` (drawer/style split, state model, cascade layers, variables, transitions, migration order).
 
 ### [R-06] 3D Material Pipeline: Normal Mapping (+ Optional Parallax/Occlusion)
 - Status: idea
@@ -263,20 +284,34 @@ Use this section for anything remembered on the fly.
   - [ ] Optional parallax/occlusion hooks are clearly defined (enabled where supported, safely ignored otherwise).
 - Notes: design should keep compatibility with existing assets and allow gradual adoption.
 
-### [R-07] Geometric Library for Culling and Intersection (Geom3D Extension)
-- Status: idea
+### [R-07] Geometry Library Overhaul (Single-First + Spatial Primitives)
+- Status: planned
 - Priority: P1
 - Area: Core
-- Value: Provide a reliable and convenient geometry toolkit for visibility tests and spatial queries used across engine subsystems.
-- Scope (MVP): add reusable primitives/tests for frustum culling and common intersections (ray/plane, ray/triangle, ray/AABB, sphere/AABB, AABB/frustum), with API shape consistent with `Geom3D`.
-- Out of scope: full broadphase physics engine or BVH/scene-graph replacement.
-- Dependencies: `Base/Apus.Geom3D.pas`, math types used by render/scene modules, test coverage in `Base/tests/TestMath`.
-- Risks: numerical stability/precision edge cases; API duplication with existing helpers; performance pitfalls in naive implementations.
+- Value: Make single-precision the default for game math; add spatial primitives and intersection/culling tests (DirectXMath-level coverage).
+- Scope (MVP):
+  - Stage 1: introduce `TVec2/TVec3/TVec4/TMat4` as single-precision primary types in Geom2D/Geom3D, with backward-compat aliases for existing types.
+  - Stage 2: new `Apus.Geom.Spatial` module — TRay, TSphere, TAABB, TCapsule, TFrustum + intersection/distance functions.
+  - Stage 3: engine adoption (frustum culling in render, TAABB in mesh/model code).
+  - Stage 4: SSE optimization pass for hot paths (Vec4 ops, Mat4 multiply, frustum tests).
+- Out of scope: full broadphase physics engine or BVH/scene-graph; OBB and sweep tests (deferred to follow-up).
+- Dependencies: `Base/Apus.Geom2D.pas`, `Base/Apus.Geom3D.pas`, render/scene modules for adoption.
+- Risks: TVec3 12B vs 16B layout decision; breaking existing vertex layouts if aliased wrong; FPC vs Delphi ASM differences.
 - Acceptance Criteria:
-  - [ ] Core culling/intersection routines are implemented in `Geom3D` extension API.
-  - [ ] Deterministic tests cover normal and edge cases for each routine.
-  - [ ] At least one engine-side usage path adopts the new API for practical validation.
-- Notes: keep API ergonomic for both gameplay queries and render-side visibility checks.
+  - [ ] TVec2/TVec3/TVec4/TMat4 types defined with single precision, backward-compat aliases work.
+  - [ ] SSE implementations for TVec4 and TMat4 core operations (with Pascal fallback).
+  - [ ] Spatial module with TRay, TSphere, TAABB, TCapsule, TFrustum types.
+  - [ ] Ray-plane, ray-sphere, ray-AABB, ray-triangle intersection tests.
+  - [ ] Frustum-point, frustum-sphere, frustum-AABB culling tests.
+  - [ ] Sphere-sphere, sphere-AABB, capsule-sphere, AABB-AABB intersection tests.
+  - [ ] Distance/closest-point functions for key primitive pairs.
+  - [ ] Tests cover hit/miss/edge/degenerate cases for every function.
+  - [ ] At least one engine-side usage path adopts the new API.
+- Notes:
+  - Detailed plan: `reports/R-07_geometry_library_plan.md`
+  - TVec3 = 12B (storage-compatible), TVec4 = 16B (SSE computation) — DirectXMath model.
+  - Keep API ergonomic for both gameplay queries and render-side visibility checks.
+  - 2026-03-11: implementation plan finalized in `reports/R-07_geometry_library_plan.md` (stages, type-size constraints, methods-first API, `Apus.Spatial` extraction).
 
 ### [R-08] UI Hit-Test for Out-of-Bounds Children (Performance-Safe)
 - Status: idea
