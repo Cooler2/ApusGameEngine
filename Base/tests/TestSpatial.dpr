@@ -1,4 +1,4 @@
-﻿{$APPTYPE CONSOLE}
+{$APPTYPE CONSOLE}
 {$EXCESSPRECISION OFF}
 program TestSpatial;
 
@@ -111,13 +111,13 @@ begin
   Check(m34.IsEqual(m34b,40),'Yaw/Roll/Pitch matrix roundtrip');
 
   m3s:=TMat3.RotationX(0.4);
-  m3sRef:=TMat3.From(TMat4d.From(TMat34d.RotationX(0.4)));
+  m3sRef:=TMat3.Init(TMat4d.Init(TMat34d.RotationX(0.4)));
   Check(m3s.IsEqual(m3sRef,20),'RotationMat3X consistency');
   m3s:=TMat3.RotationY(0.4);
-  m3sRef:=TMat3.From(TMat4d.From(TMat34d.RotationY(0.4)));
+  m3sRef:=TMat3.Init(TMat4d.Init(TMat34d.RotationY(0.4)));
   Check(m3s.IsEqual(m3sRef,20),'RotationMat3Y consistency');
   m3s:=TMat3.RotationZ(0.4);
-  m3sRef:=TMat3.From(TMat4d.From(TMat34d.RotationZ(0.4)));
+  m3sRef:=TMat3.Init(TMat4d.Init(TMat34d.RotationZ(0.4)));
   Check(m3s.IsEqual(m3sRef,20),'RotationMat3Z consistency');
 
   a:=TVec3.Init(0,0,0);

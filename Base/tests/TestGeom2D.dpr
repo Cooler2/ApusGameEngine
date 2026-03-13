@@ -30,6 +30,10 @@ begin
   Check((Abs(c.x-1)<0.0001) and (Abs(c.y-9)<0.0001),'Add');
   c:=a*2;
   Check((Abs(c.x-6)<0.0001) and (Abs(c.y-8)<0.0001),'Mul scalar');
+  c:=2*a;
+  Check((Abs(c.x-6)<0.0001) and (Abs(c.y-8)<0.0001),'Mul scalar (left)');
+  c:=a-b;
+  Check((Abs(c.x-5)<0.0001) and (Abs(c.y+1)<0.0001),'Subtract operator');
   c:=-a;
   Check((Abs(c.x+3)<0.0001) and (Abs(c.y+4)<0.0001),'Neg');
 
@@ -41,6 +45,14 @@ begin
   pd0:=Vec2d(1,2);
   pd1:=Vec2d(1+1E-13,2-1E-13);
   Check(TVec2d.IsEqual(pd0,pd1),'IsEqual vec2d');
+  pd1:=pd0+Vec2d(2,3);
+  Check((Abs(pd1.x-3)<0.0001) and (Abs(pd1.y-5)<0.0001),'TVec2d Add operator');
+  pd1:=pd1-Vec2d(1,1);
+  Check((Abs(pd1.x-2)<0.0001) and (Abs(pd1.y-4)<0.0001),'TVec2d Subtract operator');
+  pd1:=pd1*0.5;
+  Check((Abs(pd1.x-1)<0.0001) and (Abs(pd1.y-2)<0.0001),'TVec2d Mul scalar');
+  pd1:=2.0*pd1;
+  Check((Abs(pd1.x-2)<0.0001) and (Abs(pd1.y-4)<0.0001),'TVec2d Mul scalar (left)');
   c:=Vec2(3,4);
   Check((Abs(c.x-3)<0.0001) and (Abs(c.y-4)<0.0001),'Vec2 factory');
   c:=Vec2(Vec2d(5,6));
@@ -152,6 +164,7 @@ var
   pt0:TVec2;
   poly:array[0..2] of TVec2d;
   poly4:array[0..3] of TVec2d;
+  poly4s:array[0..3] of TVec2;
   ln:TLine2;
   dv:TVec2d;
   b0,b1,b2,b3:TVec2d;
@@ -252,14 +265,20 @@ begin
   poly[0]:=Vec2d(0,0);
   poly[1]:=Vec2d(10,0);
   poly[2]:=Vec2d(0,10);
-  Triangulate(@poly[0],3);
+  Triangulate(PVec2d(@poly[0]),3);
   Check(Length(trgIndices)=3,'Triangulate triangle');
   poly4[0]:=Vec2d(0,0);
   poly4[1]:=Vec2d(10,0);
   poly4[2]:=Vec2d(10,10);
   poly4[3]:=Vec2d(0,10);
-  Triangulate(@poly4[0],4);
+  Triangulate(PVec2d(@poly4[0]),4);
   Check(Length(trgIndices)=6,'Triangulate quad size');
+  poly4s[0]:=Vec2(0,0);
+  poly4s[1]:=Vec2(10,0);
+  poly4s[2]:=Vec2(10,10);
+  poly4s[3]:=Vec2(0,10);
+  Triangulate(PVec2(@poly4s[0]),4);
+  Check(Length(trgIndices)=6,'Triangulate quad single');
   for i:=0 to High(trgIndices) do begin
     Check((trgIndices[i]>=0) and (trgIndices[i]<=3),'Triangulate quad index range');
   end;

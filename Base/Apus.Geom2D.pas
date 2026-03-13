@@ -44,11 +44,15 @@ interface
    function Length2:double; inline;
    function Sub(const p:TVec2d):TVec2d; inline;
    function Distance2(const p:TVec2d):double; inline;
-   procedure Turn(angle:double); inline;
-   function Turn90R:TVec2d; inline;
-   function Turn90L:TVec2d; inline;
-   procedure Add(const p:TVec2d); inline;
-   procedure Multiply(value:double); inline;
+  procedure Turn(angle:double); inline;
+  function Turn90R:TVec2d; inline;
+  function Turn90L:TVec2d; inline;
+  procedure Add(const p:TVec2d); inline;
+  procedure Multiply(value:double); inline;
+  class operator Add(a,b:TVec2d):TVec2d;
+  class operator Subtract(a,b:TVec2d):TVec2d;
+  class operator Multiply(a:TVec2d;v:double):TVec2d;
+  class operator Multiply(v:double;a:TVec2d):TVec2d;
   end;
   PVec2d=^TVec2d;
 
@@ -83,7 +87,9 @@ interface
    class operator Equal(a,b:TVec2):boolean;
    class operator Negative(a:TVec2):TVec2;
    class operator Add(a,b:TVec2):TVec2;
+   class operator Subtract(a,b:TVec2):TVec2;
    class operator Multiply(a:TVec2;v:single):TVec2;
+   class operator Multiply(v:single;a:TVec2):TVec2;
    class operator Multiply(a,b:TVec2):TVec2;
   end;
   PVec2=^TVec2;
@@ -202,10 +208,12 @@ interface
 
  // Rectangle
  function Rect2(x1,y1,x2,y2:single):TRect2; overload; inline;
- var
+ threadvar
   trgIndices:array of integer; // triangulation output indices
  // Triangulation of a closed polygon (builds n-2 triangles). Must be CLOCKWISE.
- procedure Triangulate(pnts:PVec2d;count:integer);
+ procedure Triangulate(pnts:PVec2d;count:integer); overload;
+ // Single-precision overload.
+ procedure Triangulate(pnts:PVec2;count:integer); overload;
 
 implementation
  uses Math, Apus.Types, Apus.Core, SysUtils;
@@ -661,7 +669,7 @@ function TSegment2.PointInTriangle(const a,b,c:TVec2d):integer;
    if (d1>=0) and (d2>=0) and (d1+d2<=1) then result:=1 else result:=-1;
   end;
 
- procedure Triangulate(pnts:PVec2d;count:integer);
+ procedure Triangulate(pnts:PVec2d;count:integer); overload;
   type
    pa=array[0..5] of TVec2d;
  var
@@ -720,6 +728,23 @@ function TSegment2.PointInTriangle(const a,b,c:TVec2d):integer;
      if n=3 then exit else p:=next[p];
    end;
   end;
+
+ procedure Triangulate(pnts:PVec2;count:integer); overload;
+ var
+  tmp:array of TVec2d;
+  i:integer;
+  src:PVec2;
+ begin
+  ASSERT(count>=3);
+  SetLength(tmp,count);
+  src:=pnts;
+  for i:=0 to count-1 do begin
+   tmp[i].x:=src^.x;
+   tmp[i].y:=src^.y;
+   inc(src);
+  end;
+  Triangulate(PVec2d(@tmp[0]),count);
+ end;
 
  function Rect2(x1,y1,x2,y2:single):TRect2; overload;
   begin
@@ -952,6 +977,29 @@ procedure TVec2d.Multiply(value:double);
   y:=y*value;
  end;
 
+class operator TVec2d.Add(a,b:TVec2d):TVec2d;
+ begin
+  result.x:=a.x+b.x;
+  result.y:=a.y+b.y;
+ end;
+
+class operator TVec2d.Subtract(a,b:TVec2d):TVec2d;
+ begin
+  result.x:=a.x-b.x;
+  result.y:=a.y-b.y;
+ end;
+
+class operator TVec2d.Multiply(a:TVec2d;v:double):TVec2d;
+ begin
+  result.x:=a.x*v;
+  result.y:=a.y*v;
+ end;
+
+class operator TVec2d.Multiply(v:double;a:TVec2d):TVec2d;
+ begin
+  result:=a*v;
+ end;
+
 { TVec2 }
 
 class operator TVec2.Implicit(a:TPoint):TVec2;
@@ -1062,10 +1110,21 @@ class operator TVec2.Multiply(a:TVec2; v:single):TVec2;
   result.x:=a.x*v; result.y:=a.y*v;
  end;
 
+class operator TVec2.Multiply(v:single;a:TVec2):TVec2;
+ begin
+  result:=a*v;
+ end;
+
 class operator TVec2.Add(a,b:TVec2):TVec2;
  begin
   result.x:=a.x+b.x;
   result.y:=a.y+b.y;
+ end;
+
+class operator TVec2.Subtract(a,b:TVec2):TVec2;
+ begin
+  result.x:=a.x-b.x;
+  result.y:=a.y-b.y;
  end;
 
 class operator TVec2.Equal(a,b:TVec2):boolean;
@@ -1122,10 +1181,3 @@ function TSegment2.IsDegenerate:boolean;
  end;
 
 end.
-
-
-
-
-
-
-

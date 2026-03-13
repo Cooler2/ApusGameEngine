@@ -22,7 +22,7 @@ type
   procedure AddTriangle(p1,p2,p3:TVec3;color:cardinal=$FF808080);
   procedure AddMesh(mesh:TMesh);
   procedure AddCube(center:TVec3;size:TVec3;color:cardinal=$FF808080);
-  procedure AddCylinder(p0,p1:Tpoint3s;r0,r1:single;segments:integer;color:cardinal=$FF808080;addCaps:boolean=false);
+  procedure AddCylinder(p0,p1:TVec3;r0,r1:single;segments:integer;color:cardinal=$FF808080;addCaps:boolean=false);
   procedure Finish; // finalize write and fix current number of written vertices/indices
   procedure Draw(tex:TTexture=nil); // draw whole mesh
   destructor Destroy; override;
@@ -162,7 +162,7 @@ procedure TMesh.AddTriangle(p1,p2,p3:TVec3;color:cardinal);
   base:integer;
  begin
   base:=AssertVertices(3);
-  norm:=CrossProduct(Vector3s(p1,p2),Vector3s(p1,p3));
+  norm:=Vec3(p1,p2).Cross(Vec3(p1,p3));
   uv.Init(0,0);
   AddVertex(p1,norm,uv,color);
   AddVertex(p2,norm,uv,color);
@@ -213,12 +213,12 @@ procedure TMesh.AddCube(center:TVec3;size:TVec3;color:cardinal);
   size.Multiply(0.5);
   uv.Init(0,0);
   for i:=0 to 3 do begin
-   AddVertex(Point3s(center.x+size.x,center.y+size.y*mm[i,0],center.z+size.z*mm[i,1]),Vector3s(1,0,0),uv,color);
-   AddVertex(Point3s(center.x-size.x,center.y-size.y*mm[i,0],center.z-size.z*mm[i,1]),Vector3s(-1,0,0),uv,color);
-   AddVertex(Point3s(center.x+size.x*mm[i,0],center.y+size.y,center.z+size.z*mm[i,1]),Vector3s(0,1,0),uv,color);
-   AddVertex(Point3s(center.x-size.x*mm[i,0],center.y-size.y,center.z-size.z*mm[i,1]),Vector3s(0,-1,0),uv,color);
-   AddVertex(Point3s(center.x+size.x*mm[i,0],center.y+size.y*mm[i,1],center.z+size.z),Vector3s(0,0,1),uv,color);
-   AddVertex(Point3s(center.x-size.x*mm[i,0],center.y-size.y*mm[i,1],center.z-size.z),Vector3s(0,0,-1),uv,color);
+   AddVertex(Vec3(center.x+size.x,center.y+size.y*mm[i,0],center.z+size.z*mm[i,1]),Vec3(1,0,0),uv,color);
+   AddVertex(Vec3(center.x-size.x,center.y-size.y*mm[i,0],center.z-size.z*mm[i,1]),Vec3(-1,0,0),uv,color);
+   AddVertex(Vec3(center.x+size.x*mm[i,0],center.y+size.y,center.z+size.z*mm[i,1]),Vec3(0,1,0),uv,color);
+   AddVertex(Vec3(center.x-size.x*mm[i,0],center.y-size.y,center.z-size.z*mm[i,1]),Vec3(0,-1,0),uv,color);
+   AddVertex(Vec3(center.x+size.x*mm[i,0],center.y+size.y*mm[i,1],center.z+size.z),Vec3(0,0,1),uv,color);
+   AddVertex(Vec3(center.x-size.x*mm[i,0],center.y-size.y*mm[i,1],center.z-size.z),Vec3(0,0,-1),uv,color);
   end;
   for i:=0 to 5 do begin
    AddTrg(base+i,base+i+6,base+i+18);
@@ -226,7 +226,7 @@ procedure TMesh.AddCube(center:TVec3;size:TVec3;color:cardinal);
   end;
  end;
 
-procedure TMesh.AddCylinder(p0,p1:Tpoint3s;r0,r1:single;segments:integer;color:cardinal;addCaps:boolean);
+procedure TMesh.AddCylinder(p0,p1:TVec3;r0,r1:single;segments:integer;color:cardinal;addCaps:boolean);
  var
   i,base,vNum:integer;
   rX,rY,rZ,r,norm:TVec3;
@@ -235,21 +235,21 @@ procedure TMesh.AddCylinder(p0,p1:Tpoint3s;r0,r1:single;segments:integer;color:c
   uv:TVec2;
  begin
   base:=AssertVertices(segments*2);
-  rZ:=Vector3s(p0,p1);
+  rZ:=Vec3(p0,p1);
   rZ.Normalize;
-  if abs(rZ.z)>abs(rZ.y) then rX:=CrossProduct(rZ,Vector3s(0,1,0))
-   else rX:=CrossProduct(rZ,Vector3s(0,0,1));
+  if abs(rZ.z)>abs(rZ.y) then rX:=rZ.Cross(Vec3(0,1,0))
+   else rX:=rZ.Cross(Vec3(0,0,1));
   rX.Normalize;
-  rY:=CrossProduct(rZ,rX);
+  rY:=rZ.Cross(rX);
   uv.Init(0,0);
   // Create vertices
   for i:=0 to segments-1 do begin
    a:=2*Pi*i/segments;
    r.Init(rx,cos(a),ry,sin(a));
-   v0:=PointAdd(p0,r,r0);
-   v1:=PointAdd(p1,r,r1);
-   norm:=CrossProduct(Vector3s(p0,p1),r);
-   norm:=CrossProduct(norm,Vector3s(v0,v1));
+   v0:=p0+r*r0; //  PointAdd(p0,r,r0);
+   v1:=p1+r*r1;
+   norm:=Vec3(p0,p1).Cross(r);
+   norm:=norm.Cross(Vec3(v0,v1));
    norm.Normalize;
    AddVertex(v0,norm,uv,color);
    AddVertex(v1,norm,uv,color);

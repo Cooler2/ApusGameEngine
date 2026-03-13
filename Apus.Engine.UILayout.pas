@@ -99,7 +99,7 @@ procedure TRowLayout.Layout(item:TUIElement);
      if fCenter then delta.x:=((item.clientWidth-r.x2)-r.x1)/2
       else delta.x:=0;
     end;
-    VectAdd(c.position,delta);
+    c.position.Add(delta);
    end;
    if fResize then begin
     if fHorizontal then item.ResizeClient(pos-fSpaceBetween,-1)

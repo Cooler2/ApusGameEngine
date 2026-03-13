@@ -1,4 +1,4 @@
-﻿{$APPTYPE CONSOLE}
+{$APPTYPE CONSOLE}
 {$EXCESSPRECISION OFF}
 program TestGeom3D;
 
@@ -22,6 +22,14 @@ begin
   Check((Abs(c.x-10)<0.0001) and (Abs(c.y+11)<0.0001) and (Abs(c.z-4)<0.0001),'Cross');
   c:=a.Sub(b);
   Check((Abs(c.x-3)<0.0001) and (Abs(c.y-2)<0.0001) and (Abs(c.z+2)<0.0001),'Sub');
+  c:=a+b;
+  Check((Abs(c.x+1)<0.0001) and (Abs(c.y-2)<0.0001) and (Abs(c.z-8)<0.0001),'Add operator');
+  c:=a-b;
+  Check((Abs(c.x-3)<0.0001) and (Abs(c.y-2)<0.0001) and (Abs(c.z+2)<0.0001),'Subtract operator');
+  c:=a*2;
+  Check((Abs(c.x-2)<0.0001) and (Abs(c.y-4)<0.0001) and (Abs(c.z-6)<0.0001),'Mul scalar');
+  c:=2*a;
+  Check((Abs(c.x-2)<0.0001) and (Abs(c.y-4)<0.0001) and (Abs(c.z-6)<0.0001),'Mul scalar (left)');
   Check(Abs(a.Distance2(b)-17)<0.0001,'Distance2 method');
   Check(Abs(a.Length-Sqrt(14))<0.0001,'Length');
   Check(Abs(a.Length2-14)<0.0001,'Length2');
@@ -135,6 +143,14 @@ begin
   Check((Abs(p2.x-2.5)<0.0001) and (Abs(p2.y-4)<0.0001),'PointBetween');
   Check(p0.MaxDelta(p0)=0,'MaxDelta single');
   Check(TVec3d.Init(1,2,3).MaxDelta(TVec3d.Init(1,2,3))=0,'MaxDelta double');
+  pd:=TVec3d.Init(1,2,3)+TVec3d.Init(4,5,6);
+  Check((Abs(pd.x-5)<0.0001) and (Abs(pd.y-7)<0.0001) and (Abs(pd.z-9)<0.0001),'TVec3d Add operator');
+  pd:=pd-TVec3d.Init(1,1,1);
+  Check((Abs(pd.x-4)<0.0001) and (Abs(pd.y-6)<0.0001) and (Abs(pd.z-8)<0.0001),'TVec3d Subtract operator');
+  pd:=pd*0.5;
+  Check((Abs(pd.x-2)<0.0001) and (Abs(pd.y-3)<0.0001) and (Abs(pd.z-4)<0.0001),'TVec3d Mul scalar');
+  pd:=2.0*pd;
+  Check((Abs(pd.x-4)<0.0001) and (Abs(pd.y-6)<0.0001) and (Abs(pd.z-8)<0.0001),'TVec3d Mul scalar (left)');
   Check(not p0.IsZero,'IsZero');
   Check(TVec3.Init(1,1,1).IsIdentity,'IsIdentity vec');
   Check(IsEqual(1.0,1.0),'IsEqual scalar');
@@ -145,7 +161,7 @@ begin
   m43s[3,1]:=2;
   m43s[3,2]:=3;
   Check(IdentMat34.IsIdentity,'IsIdentity mat43s');
-  m3b:=TMat3.From(IdentMat4);
+  m3b:=TMat3.Init(IdentMat4);
   Check(m3b.IsEqual(IdentMat3),'Matrix conversion');
   Check(IdentMat3.Row(0).IsEqual(Vec3(1,0,0)),'TMat3.Row');
   Check(IdentMat3.Col(1).IsEqual(Vec3(0,1,0)),'TMat3.Col');
@@ -155,9 +171,9 @@ begin
   Check(m43.Col(2).IsEqual(Vec3d(0,0,1),2),'TMat34d.Col');
   Check(m43s.Row(3).IsEqual(Vec3(1,2,3)),'TMat34.Row');
   Check(m43s.Col(0).IsEqual(Vec3(1,0,0)),'TMat34.Col');
-  m4d:=TMat4d.From(m43);
+  m4d:=TMat4d.Init(m43);
   Check(Abs(IdentMat4.Determinant-1)<0.0001,'Det');
-  m4d:=TMat4d.From(TMat34d.Scale(2,3,4));
+  m4d:=TMat4d.Init(TMat34d.Scale(2,3,4));
   m4dd:=TMat4d.Translation(1,2,3);
   m4dt:=m4d*m4dd;
   Check(m4dt.IsEqual(m4d*m4dd,20),'TMat4d operator *');
@@ -207,6 +223,7 @@ begin
   qdv:=qd;
   qd:=qdv;
   Check((Abs(qd.x-qdv.x)<0.0001) and (Abs(qd.y-qdv.y)<0.0001) and (Abs(qd.z-qdv.z)<0.0001) and (Abs(qd.w-qdv.w)<0.0001),'TQuatd <-> TVec4d implicit');
+  pd:=TVec3d.Init(1,2,3);
   qdv:=Vec4d(pd);
   Check(qdv.IsEqual(TVec4d.Init(pd),2),'Vec4d default w');
   Check(qdv.IsEqual(Vec4d(1,2,3,1),2),'Vec4 double overload');

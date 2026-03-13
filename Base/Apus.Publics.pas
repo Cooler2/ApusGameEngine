@@ -854,7 +854,7 @@ class function TVarTypeRect2s.GetField(variable:pointer;fieldName:String8;
   out varClass:TVarClass):pointer;
 begin
  varClass:=TVarTypeInteger;
- with PRect2s(variable)^ do
+ with PRect2(variable)^ do
   if fieldname='x1' then result:=@(x1) else
   if fieldname='y1' then result:=@(y1) else
   if fieldname='x2' then result:=@(x2) else
@@ -864,7 +864,7 @@ end;
 
 class function TVarTypeRect2s.GetValue(variable:pointer):String8;
 begin
- with PRect2s(variable)^ do
+ with PRect2(variable)^ do
   result:=Format('(%f,%f,%f,%f)',[x1,y1,x2,y2]);
 end;
 
@@ -875,15 +875,15 @@ end;
 
 class procedure TVarTypeRect2s.SetValue(variable:pointer;v:String8);
 var
- r:PRect2s;
+ r:PRect2;
  sa:Strings8;
 begin
  r:=variable;
- if v.Same('TopLeft') then r^:=Rect2s(0,0,0,0) else
- if v.Same('TopRight') then r^:=Rect2s(1,0,1,0) else
- if v.Same('BottomLeft') then r^:=Rect2s(0,1,0,1) else
- if v.Same('BottomRight') then r^:=Rect2s(1,1,1,1) else
- if v.Same('Center') then r^:=Rect2s(0.5,0.5,0.5,0.5) else
+ if v.Same('TopLeft') then r^.Init(0,0,0,0) else
+ if v.Same('TopRight') then r^.Init(1,0,1,0) else
+ if v.Same('BottomLeft') then r^.Init(0,1,0,1) else
+ if v.Same('BottomRight') then r^.Init(1,1,1,1) else
+ if v.Same('Center') then r^.Init(0.5,0.5,0.5,0.5) else
  with r^ do begin
   sa:=v.Split(',');
   if length(sa)>0 then x1:=Conv.ToFloat(sa[0]);

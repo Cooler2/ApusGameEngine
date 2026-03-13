@@ -150,6 +150,7 @@ PPoint2s -> PVec2 [Apus.Geom2D]
 TPoint2 -> TVec2d [Apus.Geom2D]
 // 3D types
 TMatrix4s -> TMat4 [Apus.Geom3D]
+TMatrix43s -> TMat43 [Apus.Geom3D]
 TMatrix4 -> TMat4d [Apus.Geom3D]
 T3DMatrixS -> TMat4 [Apus.Geom3D]
 T3DMatrix -> TMat4d [Apus.Geom3D]
@@ -184,6 +185,8 @@ RotationYMat -> TMat34d.RotationY [Apus.Geom3D]
 RotationZMat -> TMat34d.RotationZ [Apus.Geom3D]
 ScaleMat4 -> TMat4.Scale [Apus.Geom3D]
 ScaleMat -> TMat34d.Scale [Apus.Geom3D]
+
+PRect2s -> PRect2
 
 // === Apus.Geom3D: vector factory functions ===
 // Order: Vector3s before Vec3s (avoid partial match)

@@ -41,6 +41,10 @@ type
     function MaxDelta(const p:TVec3d):double; inline;
     procedure Add(const p:TVec3d);
     procedure Multiply(scalar:double);
+    class operator Add(const a,b:TVec3d):TVec3d;
+    class operator Subtract(const a,b:TVec3d):TVec3d;
+    class operator Multiply(const a:TVec3d;scalar:double):TVec3d;
+    class operator Multiply(scalar:double;const a:TVec3d):TVec3d;
   end;
 
   // Pointer to TVec3d (for bulk transforms).
@@ -71,6 +75,10 @@ type
     function MaxDelta(const p:TVec3):single; inline;
     procedure Add(const p:TVec3);
     procedure Multiply(scalar:single);
+    class operator Add(const a,b:TVec3):TVec3;
+    class operator Subtract(const a,b:TVec3):TVec3;
+    class operator Multiply(const a:TVec3;scalar:single):TVec3;
+    class operator Multiply(scalar:single;const a:TVec3):TVec3;
     case integer of
     0:( x,y,z:single; );
     1:( v:array[0..2] of single; );
@@ -258,11 +266,11 @@ type
 
   // 4x4 transform matrix (double), supports affine and projection transforms.
   TMat4d=record
-   private
+  private
     function GetItem(i,j:integer):double; inline;
     procedure SetItem(i,j:integer;value:double); inline;
-   public
-    class function From(const m:TMat34d):TMat4d; static;
+  public
+    constructor Init(const m:TMat34d);
     function ToMat3:TMat3d;
     function Row(n:integer):TVec4d; inline;
     function Col(n:integer):TVec4d; inline;
@@ -293,8 +301,8 @@ type
    private
     function GetItem(i,j:integer):single; inline;
     procedure SetItem(i,j:integer;value:single); inline;
-   public
-    class function From(const m:TMat4d):TMat4; overload; static;
+  public
+    constructor Init(const m:TMat4d);
     function ToMat4d:TMat4d;
     function Row(n:integer):TVec4; inline;
     function Col(n:integer):TVec4; inline;
@@ -335,10 +343,10 @@ type
    private
     function GetItem(i,j:integer):single; inline;
     procedure SetItem(i,j:integer;value:single); inline;
-   public
-    class function From(const m:TMat3d):TMat3; overload; static; // double to single
-    class function From(const m:TMat4d):TMat3; overload; static; // extract 3x3
-    class function From(const m:TMat4):TMat3; overload; static; // extract 3x3
+  public
+    constructor Init(const m:TMat3d); overload; // double to single
+    constructor Init(const m:TMat4d); overload; // extract 3x3
+    constructor Init(const m:TMat4); overload; // extract 3x3
     function ToMat3d:TMat3d; // single to double
     function Row(n:integer):TVec3; inline;
     function Col(n:integer):TVec3; inline;
@@ -372,8 +380,8 @@ type
    private
     function GetItem(i,j:integer):single; inline;
     procedure SetItem(i,j:integer;value:single); inline;
-   public
-    class function From(const m:TMat34d):TMat34; static; // double to single
+  public
+    constructor Init(const m:TMat34d); // double to single
     function Row(n:integer):TVec3; inline;
     function Col(n:integer):TVec3; inline;
     // Build rotation matrix from yaw(Z), roll(Y), pitch(X).
@@ -610,17 +618,17 @@ begin
   move(v[2],result.v[2],sizeof(result.v[2]));
 end;
 
-class function TMat4d.From(const m:TMat34d):TMat4d;
+constructor TMat4d.Init(const m:TMat34d);
 var
   i:integer;
 begin
   for i:=0 to 3 do begin
-    result[i,0]:=m[i,0];
-    result[i,1]:=m[i,1];
-    result[i,2]:=m[i,2];
-    result[i,3]:=0;
+    self[i,0]:=m[i,0];
+    self[i,1]:=m[i,1];
+    self[i,2]:=m[i,2];
+    self[i,3]:=0;
   end;
-  result[3,3]:=1;
+  self[3,3]:=1;
 end;
 
 function TMat34.ToMat4:TMat4;
@@ -636,15 +644,15 @@ begin
   result[3,3]:=1;
 end;
 
-class function TMat4.From(const m:TMat4d):TMat4;
+constructor TMat4.Init(const m:TMat4d);
 var
   i:integer;
 begin
   for i:=0 to 3 do begin
-    result[i,0]:=m[i,0];
-    result[i,1]:=m[i,1];
-    result[i,2]:=m[i,2];
-    result[i,3]:=m[i,3];
+    self[i,0]:=m[i,0];
+    self[i,1]:=m[i,1];
+    self[i,2]:=m[i,2];
+    self[i,3]:=m[i,3];
   end;
 end;
 
@@ -660,33 +668,33 @@ begin
   end;
 end;
 
-class function TMat3.From(const m:TMat3d):TMat3;
+constructor TMat3.Init(const m:TMat3d);
 var
   i:integer;
 begin
   for i:=0 to 2 do begin
-    result[i,0]:=m[i,0];
-    result[i,1]:=m[i,1];
-    result[i,2]:=m[i,2];
+    self[i,0]:=m[i,0];
+    self[i,1]:=m[i,1];
+    self[i,2]:=m[i,2];
   end;
 end;
 
-class function TMat3.From(const m:TMat4d):TMat3;
+constructor TMat3.Init(const m:TMat4d);
 var
   i:integer;
 begin
   for i:=0 to 2 do begin
-    result[i,0]:=m[i,0];
-    result[i,1]:=m[i,1];
-    result[i,2]:=m[i,2];
+    self[i,0]:=m[i,0];
+    self[i,1]:=m[i,1];
+    self[i,2]:=m[i,2];
   end;
 end;
 
-class function TMat3.From(const m:TMat4):TMat3;
+constructor TMat3.Init(const m:TMat4);
 begin
-  move(m.v[0],result.v[0],sizeof(result.v[0]));
-  move(m.v[1],result.v[1],sizeof(result.v[1]));
-  move(m.v[2],result.v[2],sizeof(result.v[2]));
+  move(m.v[0],self.v[0],sizeof(self.v[0]));
+  move(m.v[1],self.v[1],sizeof(self.v[1]));
+  move(m.v[2],self.v[2],sizeof(self.v[2]));
 end;
 
 function TMat3.ToMat3d:TMat3d;
@@ -702,7 +710,7 @@ end;
 
 function Matrix4(from:TMat34d):TMat4d; overload;
 begin
-  result:=TMat4d.From(from);
+  result:=TMat4d.Init(from);
 end;
 
 function ToMat4(from:TMat34):TMat4; overload;
@@ -712,7 +720,7 @@ end;
 
 function ToMat4(from:TMat4d):TMat4; overload;
 begin
-  result:=TMat4.From(from);
+  result:=TMat4.Init(from);
 end;
 
 function Matrix4(from:TMat4):TMat4d; overload;
@@ -727,17 +735,17 @@ end;
 
 function ToMat3(from:TMat4):TMat3; overload;
 begin
-  result:=TMat3.From(from);
+  result:=TMat3.Init(from);
 end;
 
  function ToMat3(from:TMat3d):TMat3; overload;
 begin
-  result:=TMat3.From(from);
+  result:=TMat3.Init(from);
 end;
 
  function ToMat3(from:TMat4d):TMat3; overload;
 begin
-  result:=TMat3.From(from);
+  result:=TMat3.Init(from);
 end;
 
 class function TMat3d.RotationAroundAxis(const v:TVec3d;angle:double):TMat3d;
@@ -1796,13 +1804,13 @@ end;
    until false
   end;
 
- class function TMat34.From(const m:TMat34d):TMat34;
+ constructor TMat34.Init(const m:TMat34d);
   var
    i,j:integer;
   begin
    for i:=0 to 3 do
     for j:=0 to 2 do
-     result[i,j]:=m[i,j];
+     self[i,j]:=m[i,j];
   end;
 
 
@@ -2532,6 +2540,32 @@ procedure TVec3d.Multiply(scalar:double);
   z:=z*scalar;
  end;
 
+class operator TVec3d.Add(const a,b:TVec3d):TVec3d;
+ begin
+  result.x:=a.x+b.x;
+  result.y:=a.y+b.y;
+  result.z:=a.z+b.z;
+ end;
+
+class operator TVec3d.Subtract(const a,b:TVec3d):TVec3d;
+ begin
+  result.x:=a.x-b.x;
+  result.y:=a.y-b.y;
+  result.z:=a.z-b.z;
+ end;
+
+class operator TVec3d.Multiply(const a:TVec3d;scalar:double):TVec3d;
+ begin
+  result.x:=a.x*scalar;
+  result.y:=a.y*scalar;
+  result.z:=a.z*scalar;
+ end;
+
+class operator TVec3d.Multiply(scalar:double;const a:TVec3d):TVec3d;
+ begin
+  result:=a*scalar;
+ end;
+
 { TVec3 }
 constructor TVec3.Init(X,Y,Z:single);
  begin
@@ -2637,6 +2671,32 @@ procedure TVec3.Multiply(scalar:single);
   x:=x*scalar;
   y:=y*scalar;
   z:=z*scalar;
+ end;
+
+class operator TVec3.Add(const a,b:TVec3):TVec3;
+ begin
+  result.x:=a.x+b.x;
+  result.y:=a.y+b.y;
+  result.z:=a.z+b.z;
+ end;
+
+class operator TVec3.Subtract(const a,b:TVec3):TVec3;
+ begin
+  result.x:=a.x-b.x;
+  result.y:=a.y-b.y;
+  result.z:=a.z-b.z;
+ end;
+
+class operator TVec3.Multiply(const a:TVec3;scalar:single):TVec3;
+ begin
+  result.x:=a.x*scalar;
+  result.y:=a.y*scalar;
+  result.z:=a.z*scalar;
+ end;
+
+class operator TVec3.Multiply(scalar:single;const a:TVec3):TVec3;
+ begin
+  result:=a*scalar;
  end;
 
 { TVec4d }

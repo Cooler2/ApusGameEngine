@@ -1,4 +1,4 @@
-// Definition of engine's abstract classes structure
+﻿// Definition of engine's abstract classes structure
 //
 // Copyright (C) 2003 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -431,7 +431,7 @@ type
   // Ambient color is added to any pixels (set 0 to disable), RGB value, alpha component ignored
   procedure AmbientLight(color:cardinal);
   // Set direction TO the light source (sun) (set power<=0 to disable)
-  procedure DirectLight(direction:TVector3;power:single;color:cardinal=$FFFFFF);
+  procedure DirectLight(direction:TVec3;power:single;color:cardinal=$FFFFFF);
   // Set point light source (set power<=0 to disable)
   procedure PointLight(position:TVec3d;power:single;color:cardinal=$FFFFFF);
   // Disable lighting
@@ -593,8 +593,8 @@ type
  IDrawer=interface
   // Basic primitives -----------------
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
-  procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
-  procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
+  procedure Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
+  procedure Polygon(points:PVec2;cnt:integer;color:cardinal);
   procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload; // geometry-based version

@@ -92,7 +92,7 @@ type
   // Set ambient light
   procedure AmbientLight(color:cardinal);
   // Set directional light (set power<=0 to disable)
-  procedure DirectLight(direction:TVector3;power:single;color:cardinal);
+  procedure DirectLight(direction:TVec3;power:single;color:cardinal);
   // Set point light source (set power<=0 to disable)
   procedure PointLight(position:TVec3d;power:single;color:cardinal);
   // Disable lighting
@@ -266,11 +266,11 @@ procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:TMat4)
  begin
   matrixRevision:=revision;
   if uMVP>=0 then begin
-   mat:=Matrix4s(transformationAPI.MVP);
+   mat.Init(transformationAPI.MVP);
    glUniformMatrix4fv(uMVP,1,GL_FALSE,@mat);
   end;
   if uModelMat>=0 then begin
-   mat:=Matrix4s(transformationAPI.objMatrix);
+   mat.Init(transformationAPI.objMatrix);
    glUniformMatrix4fv(uModelMat,1,GL_FALSE,@mat);
   end;
   if uShadowMapMat>=0 then begin
@@ -282,7 +282,7 @@ procedure TGLShader.SetUniform(name:String8;const value:TMat4d);
  var
   m:TMat4;
  begin
-  m:=Matrix4s(value); // convert double to float
+  m.Init(value); // convert double to float
   SetUniformInternal(self,name,30,m);
  end;
 
@@ -565,12 +565,12 @@ destructor TGLShadersAPI.Destroy;
   inherited;
  end;
 
-procedure TGLShadersAPI.DirectLight(direction:TVector3; power:single; color:cardinal);
+procedure TGLShadersAPI.DirectLight(direction:TVec3; power:single; color:cardinal);
  begin
   EnsureThreadState;
-  directLightDir:=Vector3s(direction);
+  directLightDir:=direction;
   directLightDir.Normalize;
-  VectMult(directLightDir,power);
+  directLightDir.Multiply(power);
   directLightColor:=color;
   Bits.Modify(curTexMode.lighting,LIGHT_DIRECT_ON,power>0);
   directLightModified:=true;
@@ -918,7 +918,7 @@ procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:
     frustum[1,1]:=0.5; frustum[3,1]:=0.5;
     frustum[2,2]:=0.5; frustum[3,2]:=0.5-depthBias;
     frustum[3,3]:=1;
-    MultMat(viewProjMatrix,frustum,shadowMapMatrix);
+    shadowMapMatrix:=viewProjMatrix*frustum;
   end;
  begin
   EnsureThreadState;
@@ -967,8 +967,8 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
     if Bits.HasAll(curTexMode.lighting,LIGHT_DEPTHPASS) and
      Mem.IsZero(viewProjMatrix,sizeof(viewProjMatrix)) then begin
       // Save view-projection matrix used during depth rendering phase for later use
-      MultMat(transformationAPI.GetViewMatrix,transformationAPI.GetProjMatrix,mat);
-      viewProjMatrix:=Matrix4s(mat);
+      mat:=transformationAPI.GetViewMatrix*transformationAPI.GetProjMatrix;
+      viewProjMatrix.Init(mat);
     end;
    end;
   // Set uniforms (if modified)

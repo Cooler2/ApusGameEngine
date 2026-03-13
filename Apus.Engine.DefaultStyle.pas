@@ -211,7 +211,7 @@ implementation
      if hintImage=nil then
        raise EError.Create('Failed to alloc hint image!');
     end;
-    size:=Point2s(iWidth/globalScale,iHeight/globalScale);
+    size.Init(iWidth/globalScale,iHeight/globalScale);
     gfx.BeginPaint(hintImage);
     try
      gfx.target.Mask(true,true); // потенциально может вредить отрисовке следующих элементов
@@ -281,7 +281,7 @@ implementation
       // уточнить положение на экране (чтобы всегда был виден)
       savePos:=position;
       AdjustHint(x1,y1,control as TUIHint);
-      VectSub(savePos,position);
+      savePos.Sub(position);
       inc(x1,round(savepos.x));
       inc(y1,round(savepos.y));
       control.globalRect:=control.GetPosOnScreen;

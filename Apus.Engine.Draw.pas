@@ -39,8 +39,8 @@ TDrawer=class(TInterfacedObject,IDrawer)
 
   // Drawing methods
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
-  procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
-  procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
+  procedure Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
+  procedure Polygon(points:PVec2;cnt:integer;color:cardinal);
   procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload;
@@ -454,14 +454,14 @@ procedure TDrawer.Billboard(screenScale:boolean;pos:TVec3;scale:single;tex:TText
   dVec:=transformationAPI.DownVec;
   bbWidth:=scale*tex.width;
   bbHeight:=scale*tex.height;
-  pos:=PointAdd(pos,rVec,bbWidth*(pivotX-1));
-  pos:=PointAdd(pos,dVec,-bbHeight*pivotY);
+  pos.Add(rVec*(bbWidth*(pivotX-1)));
+  pos.Add(dVec*(-bbHeight*pivotY));
   vrt[0].Init(pos.x,pos.y,pos.z, tex.u1,tex.v1,color);
-  p2:=PointAdd(pos,rVec,bbWidth);
+  p2:=pos+rVec*bbWidth;
   vrt[1].Init(p2.x,p2.y,p2.z, tex.u2,tex.v1,color);
-  p2:=PointAdd(p2,dVec,bbHeight);
+  p2:=pos+dVec*bbHeight;
   vrt[2].Init(p2.x,p2.y,p2.z, tex.u2,tex.v2,color);
-  p2:=PointAdd(pos,dVec,bbHeight);
+  p2:=pos+dVec*bbHeight;
   vrt[3].Init(p2.x,p2.y,p2.z, tex.u1,tex.v2,color);
 
   renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex);
@@ -491,11 +491,11 @@ begin
  renderDevice.Draw(LINE_LIST,1,@vrt[0],TVertex.layoutTex);
 end;
 
-procedure TDrawer.Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
+procedure TDrawer.Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
 var
  vrt:array of TVertex;
  i:integer;
- pnt:PPoint2;
+ pnt:PVec2;
  minX,minY,maxX,maxY:integer;
 begin
  minX:=10000; minY:=10000; maxX:=-10000; maxY:=-10000;
@@ -721,9 +721,9 @@ begin
  glClientActiveTexture(GL_TEXTURE0);
 end; *)
 
-procedure TDrawer.Polygon(points: PPoint2; cnt: integer; color: cardinal);
+procedure TDrawer.Polygon(points: PVec2; cnt: integer; color: cardinal);
 type
- ta=array[0..5] of TVec2d;
+ ta=array[0..5] of TVec2;
 var
  vrt:array of TVertex;
  i,n:integer;
@@ -1358,7 +1358,7 @@ begin
  if (softParticlesRange>=0) and (depthTexture<>nil) then begin
   shader.UseTexture(depthTexture,1);
   shader.SetUniform('depthTex',1);
-  d:=transform.Depth(Point3s(0,0,0));
+  d:=transform.Depth(Vec3(0,0,0));
   realDepthRange:=1/d-1/(d+softParticlesRange);
  end else
   realDepthRange:=-1;
@@ -1393,7 +1393,7 @@ begin
   SetLength(rate,count);
   pb:=pointer(data);
   for i:=0 to count-1 do begin
-   rate[i]:=-DotProduct(PVec3(pb)^,frontVec);
+   rate[i]:=-frontVec.Dot(PVec3(pb)^);
    inc(pb,stride);
   end;
   QuickIndex(index,rate,0,count-1);

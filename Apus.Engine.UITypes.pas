@@ -463,9 +463,9 @@ function DescribeElement(c:TUIElement):String8;
   var
    p1,p2:TVec2;
   begin
-   p1:=TransformTo(Point2s(r.x1,r.y1),target);
-   p2:=TransformTo(Point2s(r.x2,r.y2),target);
-   result:=Rect2s(p1.x,p1.y, p2.x,p2.y);
+   p1:=TransformTo(Vec2(r.x1,r.y1),target);
+   p2:=TransformTo(Vec2(r.x2,r.y2),target);
+   result.Init(p1.x,p1.y, p2.x,p2.y);
   end;
 
  function TUIElement.TransformToScreen(const p:TVec2):TVec2;
@@ -486,11 +486,11 @@ function DescribeElement(c:TUIElement):String8;
   begin
    // Xscr = k*x+b, so test x=0 and x=1 to calculate K and B
    // This is probably not very efficient, but easier and safier
-   with TransformToScreen(Point2s(0,0)) do begin
+   with TransformToScreen(Vec2(0,0)) do begin
     bx:=x;
     by:=y;
    end;
-   with TransformToScreen(Point2s(1,1)) do begin
+   with TransformToScreen(Vec2(1,1)) do begin
     kx:=x-bx;
     ky:=y-by;
    end;
@@ -508,13 +508,13 @@ function DescribeElement(c:TUIElement):String8;
 
  function TUIElement.GetPosOnScreen:TRect;
   begin
-   globalRect:=RoundRect(TransformToScreen(GetRect));
+   globalRect:=TransformToScreen(GetRect).Rounded;
    result:=globalRect;
   end;
 
  function TUIElement.GetClientPosOnScreen:TRect;
   begin
-   result:=RoundRect(TransformToScreen(GetClientRect));
+   result:=TransformToScreen(GetClientRect).Rounded;
   end;
 
  function TUIElement.GetRect:TRect2; // Get element's area in own CS
@@ -578,7 +578,7 @@ procedure TUIElement.DeleteChildren(filter:String8='');
    try
     if filter<>'' then begin
      SetLength(keep,length(children));
-     items:=filter.split(':');
+     items:=filter.split {TODO: use st.Split(char)}(':');
      value:=items[1];
      mode:=0;
      if SameText(items[0],'start') then mode:=1;
@@ -608,10 +608,10 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    n:integer;
    wnd:TWindow;
   begin
-   position:=Point2s(0,0);
-   size:=Point2s(width,height);
+   position:=Vec2(0,0);
+   size:=Vec2(width,height);
    scale:=GetClassAttribute('defaultScale',1.0);
-   pivot:=Point2s(0,0);
+   pivot:=Vec2(0,0);
    SetPadding(GetClassAttribute('defaultPadding',0));
    padding.left:=GetClassAttribute('defaultPaddingLeft',padding.left);
    padding.right:=GetClassAttribute('defaultPaddingRight',padding.right);
@@ -638,7 +638,7 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    styleInfo:=GetClassAttribute('defaultStyleInfo','');
    canHaveFocus:=GetClassAttribute('defaultCanHaveFocus',false);
    sendSignals:=ssNone;
-   scroll:=Point2s(0,0);
+   scroll:=Vec2(0,0);
    scrollerH:=nil; scrollerV:=nil;
    focusedChild:=nil;
    shapeRegion:=nil;
@@ -1295,7 +1295,7 @@ function TUIElement.GetClientHeight:single;
   var
    r:TRect2;
   begin
-   position:=Point2s(x,y);
+   position:=Vec2(x,y);
    pivot:=pivotPoint;
    globalRect:=GetPosOnScreen;
    if autoSnap and (parent<>nil) then begin // should snap?
@@ -1337,7 +1337,7 @@ function TUIElement.GetClientHeight:single;
   begin
    s:=1/globalScale;
    dx:=dx*s; dy:=dy*s;
-   VectAdd(position,Point2s(dx,dy));
+   position.Add(Vec2(dx,dy));
   end;
 
  function TUIElement.SetAnchors(left,top,right,bottom:single):TUIElement;
@@ -1452,7 +1452,7 @@ function TUIElement.GetClientHeight:single;
      rY:=pH/(pH-dY);
      if placementMode=pmProportional then
       Resize(size.x*rX,size.y*rY);
-     VectMult(position,Point2s(rX,rY));
+     position:=position*Vec2(rX,rY);
     end;
    end;
   end;
