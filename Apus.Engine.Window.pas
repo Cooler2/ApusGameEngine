@@ -113,6 +113,7 @@ type
   procedure NotifyScenesMouseBtn(c:byte;pressed:boolean);
   procedure NotifyScenesMouseWheel(value:integer);
   procedure NotifyScenesResize;
+  procedure DPIChanged(newDPI:integer);
   function ProcessScenes(deltaTime:integer):boolean;
 
   procedure Close; virtual; abstract;
@@ -149,7 +150,7 @@ type
  function FindWindowForUIRoot(root:TObject):TWindow;
 
 implementation
- uses Apus.Structs, Apus.Engine.API;
+ uses Apus.Structs, Apus.EventMan, Apus.Log, Apus.Engine.API;
 
 var
  windowHash:TObjectHash;
@@ -421,6 +422,13 @@ procedure TWindow.NotifyScenesResize;
  begin
   for i:=low(scenes) to high(scenes) do
    scenes[i].onResize;
+ end;
+
+procedure TWindow.DPIChanged(newDPI:integer);
+ begin
+  screenDPI:=newDPI;
+  Log.Msg('DPI changed: %d for window %s',[newDPI,name]);
+  Signal('ENGINE\DPICHANGED',newDPI);
  end;
 
 function TWindow.ProcessScenes(deltaTime:integer):boolean;

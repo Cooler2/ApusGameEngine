@@ -1411,7 +1411,7 @@ begin
   Activate(tag<>0);
  end else
  if SameText(event,'DPICHANGED') then begin
-  window.screenDPI:=tag;
+  // screenDPI already updated by TWindow.DPIChanged
   screenScale:=1.0;
   if params.mode.displayScaleMode=dsmDontScale then begin
    if window.screenDPI>0.95*96*1.2 then screenScale:=1.2;
@@ -1419,8 +1419,7 @@ begin
    if window.screenDPI>0.93*96*2.0 then screenScale:=2.0;
    if window.screenDPI>0.92*96*2.5 then screenScale:=2.5;
   end;
-  Log.Msg('DPI changed: %d, screenScale=%.2f',[window.screenDPI,screenScale]);
-  Signal('ENGINE\DPICHANGED\DONE',tag); // notify app-level code
+  Signal('ENGINE\DPICHANGED\DONE',tag);
  end;
 end;
 

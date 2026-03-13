@@ -72,13 +72,17 @@ implementation
 uses Messages, Types, SysUtils, Apus.EventMan,
   Apus.Log, Apus.Strings, Apus.Engine.Types
   {$IFDEF MSWINDOWS},dglOpenGL{$ENDIF};
+
 {$IFOPT R+} {$DEFINE RANGECHECK_ON} {$ENDIF}
 type
  TwglCreateContextAttribsFn=function(hDC:HDC;hShareContext:HGLRC;const attribList:PInteger):HGLRC; stdcall;
 const
- glcsReady=0;
- glcsReleaseRequested=1;
- glcsReleased=2;
+  glcsReady=0;
+  glcsReleaseRequested=1;
+  glcsReleased=2;
+  {$IF not Declared(WM_DPICHANGED)}
+  WM_DPICHANGED = $02E0;
+  {$ENDIF}
 var
  noPenAPI:boolean=false;
  classRegistered:boolean=false;
@@ -224,12 +228,13 @@ begin
 
   WM_SIZE:if lParam<>0 then Signal('ENGINE\RESIZE',lParam);
 
-  $02E0 {WM_DPICHANGED}:begin
-   Signal('ENGINE\DPICHANGED',loword(wParam));
+  WM_DPICHANGED:begin
    // apply the suggested rect from Windows
    with PRect(lParam)^ do
     SetWindowPos(Window,0,Left,Top,Right-Left,Bottom-Top,
      SWP_NOZORDER or SWP_NOACTIVATE);
+   if Apus.Engine.API.window<>nil then
+    Apus.Engine.API.window.DPIChanged(loword(wParam));
   end;
 
   WM_PAINT:begin
