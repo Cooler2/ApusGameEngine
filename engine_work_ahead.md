@@ -1,5 +1,5 @@
 ﻿# Engine Work Ahead Log
-Last updated: 2026-03-12
+Last updated: 2026-03-13
 
 This file tracks active execution only:
 - immediate priorities;
@@ -9,6 +9,9 @@ This file tracks active execution only:
 Large feature planning lives in `engine5_feature_roadmap.md`.
 
 ## Done (recent, high impact)
+- R-07 merged and stabilized baseline (2026-03-13):
+  - task R-07 is in working state and merged into `engine5`;
+  - moved from implementation to post-merge development/support mode.
 - R-03 planning kickoff (2026-03-12):
   - created new planning/decision document: `reports/R-03_aem_pipeline_notes.md`;
   - direction fixed: engine keeps only `OBJ` (baseline) and `AEM` (native full-featured) loaders;
@@ -135,6 +138,19 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - symmetrical multi-GPU collaborative rendering is explicitly out of native Engine5 scope.
 
 ## In Progress (active now)
+- R-02 runtime DPI change support:
+  - detect WM_DPICHANGED when window moves to another monitor;
+  - recalculate actualScale = dpiScale * userZoom and re-apply to UI + fonts;
+  - UIScaleDPI demo as primary test vehicle.
+- UIScaleDPI demo known issues (good test cases for engine fixes):
+  - TGridLayout: last row center offset — cards slightly shifted right (likely by padding amount);
+  - TUIScrollBar + linked container: scroll range sometimes excessive or insufficient after layout changes.
+- R-07 post-merge support track:
+  - Linux behavior fixes and validation pass;
+  - benchmark pass for current hot paths;
+  - prioritize SSE rewrites for most impactful functions;
+  - bugfix-on-discovery workflow with immediate test additions;
+  - continue migration of remaining not-yet-migrated modules (including SDL-related paths).
 - R-02 multi-window rendering safety (stress-validation and cleanup stage):
   - `TGameBase.AddWindow(settings) / AddWindow(title,w,h) / RemoveWindow(wnd)` declared in API.pas;
   - `ExtraWindowLoop` + startup handshake + close/termination behavior are stabilized for extra windows;
@@ -150,22 +166,27 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - reduce NSight-reported useless `glBind*` churn in hot paths.
 
 ## Next (ordered)
-1. R-02: multi-window stress validation pass (`demo/MultiWindow`):
+1. R-07: fix Linux-specific issues and complete validation pass.
+2. R-07: run/update benchmarks and record baseline deltas.
+3. R-07: optimize highest-impact functions with SSE implementations (with Pascal fallback where required).
+4. R-07: keep bugfix + test expansion loop active during support period.
+5. Continue migration of remaining modules that are still not migrated (including SDL-related paths).
+6. R-02: multi-window stress validation pass (`demo/MultiWindow`):
    - repeated add/remove/open/close cycles under active rendering;
    - verify text path and shared-resource stability under stress;
    - verify cleanup/lifetime correctness after window teardown.
-2. R-02: move DPI/scale fully to per-window flow (including runtime resize/re-layout triggers).
-3. Migrate demo scenes from `Initialize` to new lifecycle (constructor + `InitGfx`) — 6 demos, low urgency.
-4. Update Pascal SDL headers/bindings baseline (currently `2.0.4`) to reduce runtime/header drift with deployed SDL `2.32.10`.
-5. Remove redundant bind churn:
+7. R-02: move DPI/scale fully to per-window flow (including runtime resize/re-layout triggers).
+8. Migrate demo scenes from `Initialize` to new lifecycle (constructor + `InitGfx`) — 6 demos, low urgency.
+9. Update Pascal SDL headers/bindings baseline (currently `2.0.4`) to reduce runtime/header drift with deployed SDL `2.32.10`.
+10. Remove redundant bind churn:
    - avoid unnecessary bind-to-zero in hot paths;
    - strengthen lightweight state-cache checks before `glBind*`;
    - unify repetitive bind/draw/unbind patterns in `Apus.Engine.Draw`.
-6. Runtime-wire shader variant selection based on actual context/profile info (`oglContextInfo`) where still compile-time split.
-7. Define first concrete R-09 implementation slice:
+11. Runtime-wire shader variant selection based on actual context/profile info (`oglContextInfo`) where still compile-time split.
+12. Define first concrete R-09 implementation slice:
    - capability-gated persistent mapped streaming path with safe fallback;
    - explicit batching entry point for high-frequency simple primitives (line-heavy cases).
-8. Start R-10 (UI widget system refactor, P0):
+13. Start R-10 (UI widget system refactor, P0):
    - document `TUIElement` decomposition variants and select implementation direction;
    - implement selected split and run focused widget-class reorganization review;
    - keep widget/layout expansion and widget/layout tests as explicit follow-ups after core refactor.

@@ -224,6 +224,14 @@ begin
 
   WM_SIZE:if lParam<>0 then Signal('ENGINE\RESIZE',lParam);
 
+  $02E0 {WM_DPICHANGED}:begin
+   Signal('ENGINE\DPICHANGED',loword(wParam));
+   // apply the suggested rect from Windows
+   with PRect(lParam)^ do
+    SetWindowPos(Window,0,Left,Top,Right-Left,Bottom-Top,
+     SWP_NOZORDER or SWP_NOACTIVATE);
+  end;
+
   WM_PAINT:begin
     Signal('ENGINE\REDRAW');
   end;

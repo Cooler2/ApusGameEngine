@@ -466,12 +466,27 @@ procedure TGameApplication.onResize;
  end;
 
 {$IFDEF MSWINDOWS}
+type
+ TSetProcessDpiAwarenessContext=function(value:THandle):BOOL; stdcall;
+const
+ DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2=THandle(-4);
 {$IF Declared(SetProcessDPIAware)} {$ELSE}
 function SetProcessDPIAware:BOOL; external user32 name 'SetProcessDPIAware';
 {$IFEND}
 procedure SetDPIAwareness;
+ var
+  lib:THandle;
+  setCtx:TSetProcessDpiAwarenessContext;
  begin
-  SetProcessDPIAware;
+  // try Per-Monitor V2 first (Win10 1703+), fall back to system DPI aware
+  lib:=GetModuleHandle('user32.dll');
+  if lib<>0 then begin
+   setCtx:=TSetProcessDpiAwarenessContext(GetProcAddress(lib,'SetProcessDpiAwarenessContext'));
+   if Assigned(setCtx) then begin
+    if setCtx(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) then exit;
+   end;
+  end;
+  SetProcessDPIAware; // fallback
  end;
 {$ENDIF}
 
@@ -607,6 +622,7 @@ procedure TGameApplication.Run;
   settings:TGameSettings;
   loadingScene:TGameScene;
  begin
+  {$IFDEF OPENGL}
   // OpenGL context request is configured on app level and used by platform backend.
   oglContextTemplate.minMajor:=glMinVersionMajor;
   oglContextTemplate.minMinor:=glMinVersionMinor;
@@ -617,23 +633,27 @@ procedure TGameApplication.Run;
    oglContextTemplate.profile:=oglpCore
   else
    oglContextTemplate.profile:=oglpCompatibility;
+  {$ENDIF}
 
   // CREATE GAME OBJECT
   // ------------------------
   {$IFDEF MSWINDOWS}
-   if usedAPI=gaAuto then begin
+  if usedAPI=gaAuto then begin
     {$IFDEF DIRECTX}
      usedAPI:=gaDirectX;
     {$ENDIF}
     {$IFDEF OPENGL}
      usedAPI:=gaOpenGL2
     {$ENDIF}
-   end;
-   {$ENDIF}
+  end;
+  {$ENDIF}
 
-  // TODO: use usedAPI to select graphics backend (currently only OpenGL exists)
-  game:=TGame.Create(sysPlatform,TOpenGL.Create);
-  if game=nil then raise EError.Create('Game object not created!');
+  {$IFDEF OPENGL}
+  if usedAPI=gaOpenGL2 then
+    game:=TGame.Create(sysPlatform,TOpenGL.Create);
+  {$ENDIF}
+
+  if game=nil then raise EFatalError.Create('Game object not created!');
 
   // CONFIGURE GAME OBJECT
   // ------------------------

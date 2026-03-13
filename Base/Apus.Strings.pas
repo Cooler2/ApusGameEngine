@@ -1481,7 +1481,7 @@ begin result:=s; {TODO: proper Unicode uppercase} end;
 class function UTF8.ToLower(const s:String8):String8;
 begin result:=s; {TODO: proper Unicode lowercase} end;
 
-{$R-}
+{$R-} // hash functions rely on unsigned overflow
 function FastHash(const st:String8):cardinal; overload;
 var
   l,i:integer;
@@ -1544,6 +1544,7 @@ begin
     result:=cardinal(result*$20844) xor byte(st[i]);
 end;
 {$ENDIF}
+{$R+}
 
 // ============================================================================
 // Format helpers (used by String8Helper.Format)
