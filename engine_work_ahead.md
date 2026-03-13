@@ -1,5 +1,5 @@
 ﻿# Engine Work Ahead Log
-Last updated: 2026-03-13
+Last updated: 2026-03-14
 
 This file tracks active execution only:
 - immediate priorities;
@@ -142,6 +142,9 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - detect WM_DPICHANGED when window moves to another monitor;
   - recalculate actualScale = dpiScale * userZoom and re-apply to UI + fonts;
   - UIScaleDPI demo as primary test vehicle.
+- UI signal normalization (new task):
+  - rename button press signal pattern from `UI\buttonName\CLICK` to `UI\buttonName\ONCLICK` (event on press);
+  - add `UI\CLICK\buttonName` signal to simulate click on the target UI element.
 - UIScaleDPI demo known issues (good test cases for engine fixes):
   - TGridLayout: last row center offset — cards slightly shifted right (likely by padding amount);
   - TUIScrollBar + linked container: scroll range sometimes excessive or insufficient after layout changes.
