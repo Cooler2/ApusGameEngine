@@ -1,4 +1,4 @@
-﻿// Project template for the Apus Game Engine framework
+// Project template for the Apus Game Engine framework
 
 // Copyright (C) 2021 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -32,7 +32,7 @@ implementation
    time:single;
    shadowMap:TTexture;
    lightDir:TVector3;
-   lightMatrix:T3DMatrix;
+   lightMatrix:TMat4d;
    constructor Create;
    procedure Initialize; override;
    procedure Render; override;
@@ -155,7 +155,7 @@ procedure TMainScene.DrawScene(mainPass: boolean);
 procedure TMainScene.Render;
  var
   distance,zBias:single;
-  frustum,tmp:T3DMatrix;
+  frustum,tmp:TMat4d;
  begin
   // setup
   time:=MyTickCount/1000;
@@ -169,7 +169,7 @@ procedure TMainScene.Render;
   gfx.target.Clear(0,1);
   shader.Shadow(shadowDepthPass);
   // Set ortho view from the light source
-  transform.SetCamera(VecMult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
+  transform.SetCamera(Vect3Mult(lightDir,20), Point3(0,0,0), Point3(0,0,1000));
   // Scale 25 should be enough to cover all scene even at minimal zoom level.
   // If scene is too large, this method won't work: you need either
   // cascaded shadow maps or (better) compressed (non-linear) shadow maps

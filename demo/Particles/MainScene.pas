@@ -60,7 +60,7 @@ constructor TMainApp.Create;
 
 procedure SetupCamera;
  var
-  cameraPos:TPoint3s;
+  cameraPos:TVec3;
  begin
   transform.Perspective(1/cameraZoom.Value,1,1000);
   cameraPos.x:=30*cos(cameraAngleX)*cos(cameraAngleY);
@@ -157,7 +157,7 @@ procedure StartGalaxy;
  var
   i:integer;
   a,r:single;
-  vec:TVector3s;
+  vec:TVec3;
  begin
   // Particles
   SetLength(particles,300000);

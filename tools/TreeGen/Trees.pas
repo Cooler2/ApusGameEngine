@@ -40,7 +40,7 @@ function TreeGenerator(treeType:TTreeType):TTreeGenerator;
 procedure TTreeGenerator.Build;
  type
   TSkeletonNode=record
-   pos:TPoint3s;
+   pos:TVec3;
    parent:integer;
    depth:integer;
    weight:single;
@@ -57,7 +57,7 @@ procedure TTreeGenerator.Build;
     i,branches,par:integer;
     w:array[0..2] of single;
     s,factor,weight:single;
-    vec,bVec:TVector3s;
+    vec,bVec:TVec3;
    begin
     // Ветвление? Сколько веток [1..3]
     branches:=Clamp(round(1.9+rand.Sum),1,3);

@@ -5,7 +5,8 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.ImageTools;
 interface
- uses Apus.Core, Apus.Images, Apus.Engine.API;
+ uses Apus.Core, Apus.Images, Apus.Engine.API,
+  Apus.Threads;
 
  var
   defaultImagesDir:String8='Images\'; // default folder to load images from
@@ -820,12 +821,13 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
 
  procedure AdjustImage(image:TTexture;brightness,contrast,saturation:single);
   var
-   mat:TMatrix43s;
+   mat:TMat34;
   begin
    ASSERT(image.PixelFormat in [ipfARGB,ipfxRGB]);
    image.lock;
    try
-    MultMat(Apus.GfxFilters.Saturation(saturation),BrightnessContrast(brightness,contrast),mat);
+    mat:=Apus.GfxFilters.Saturation(saturation) * BrightnessContrast(brightness,contrast);
+    //MultMat(,mat);
     MixRGB(image.data,image.pitch,image.width,image.height,mat);
    finally
     image.unlock;
@@ -834,12 +836,13 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
 
  procedure ImageHueSaturation(image:TTexture;hue,saturation:single);
   var
-   mat:TMatrix43s;
+   mat:TMat34;
   begin
    ASSERT(image.PixelFormat in [ipfARGB,ipfxRGB]);
    image.lock;
    try
-    MultMat(Apus.GfxFilters.Saturation(saturation),Apus.GfxFilters.Hue(hue),mat);
+    mat:=Apus.GfxFilters.Saturation(saturation) * Apus.GfxFilters.Hue(hue);
+    //MultMat(Apus.GfxFilters.Saturation(saturation),Apus.GfxFilters.Hue(hue),mat);
     MixRGB(image.data,image.pitch,image.width,image.height,mat);
    finally
     image.unlock;

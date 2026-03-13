@@ -25,22 +25,22 @@ uses
 
  procedure TestMatrices;
   var
-   m4,mInv,m4a:TMatrix4s;
-   m3:TMatrix3s;
+   m4,mInv,m4a:TMat4;
+   m3:TMat3;
    v:single;
   begin
-   MatrixFromYawRollPitch(m3,1,-1,0.5);
-   v:=Det(m3);
+   m3:=TMat3.From(TMat4d.From(TMat34d.FromYRP(1,-1,0.5)));
+   v:=m3.Determinant;
    ASSERT(IsEqual(v,1));
 
-   TVector4s(m4[0]):=QuaternionS(0,1,2,3);
-   TVector4s(m4[1]):=QuaternionS(2,0,3,1);
-   TVector4s(m4[2]):=QuaternionS(1,3,2,1);
-   TVector4s(m4[3]):=QuaternionS(2,1,3,0);
+   TVec4(m4[0]):=Quat(0,1,2,3);
+   TVec4(m4[1]):=Quat(2,0,3,1);
+   TVec4(m4[2]):=Quat(1,3,2,1);
+   TVec4(m4[3]):=Quat(2,1,3,0);
 
    InvertFull(m4,mInv);
    MultMat(m4,mInv,m4a);
-   ASSERT(IsEqual(m4a,IdentMatrix4s));
+   ASSERT(IsEqual(m4a,IdentMat4));
 
    StartTimer;
    for i:=1 to 2000000 do
@@ -54,51 +54,60 @@ uses
    writeln('Matrices OK');
   end;
 
+ procedure TestGeometryLayout;
+  begin
+   ASSERT(SizeOf(TVec2)=8,'TVec2 layout mismatch');
+   ASSERT(SizeOf(TVec3)=12,'TVec3 layout mismatch');
+   ASSERT(SizeOf(TVec4)=16,'TVec4 layout mismatch');
+   ASSERT(SizeOf(TMat4)=64,'TMat4 layout mismatch');
+   writeln('Geometry layout OK');
+  end;
+
  procedure TestRotationMat;
   var
    i:integer;
-   m1,m2,m3:TMatrix3s;
+   m1,m2,m3:TMat3;
    angle:single;
-   vec:TVector3s;
+   vec:TVec3;
   begin
    time:=MyTickCount;
 {   for i:=1 to 1000000 do
-    m2:=RotationAroundVector(Vector3s(0,0,1),angle);
+    m2:=RotationAroundVector(TVec3.Init(0,0,1),angle);
    writeln(MyTickCount-time);}
 
    for i:=-20 to 30 do begin
     angle:=i/3;
     // Z
-    MatrixFromYawRollPitch(m1,angle,0,0);
-    m2:=RotationAroundVector(Vector3s(0,0,1),angle);
-    m3:=RotationZMat3s(angle);
+    m1:=TMat3.From(TMat4d.From(TMat34d.FromYRP(angle,0,0)));
+    m2:=TMat3.RotationAroundAxis(TVec3.Init(0,0,1),angle);
+    m3:=TMat3.RotationZ(angle);
     ASSERT(IsEqual(m1,m2));
     ASSERT(IsEqual(m1,m3));
     // Y
-    MatrixFromYawRollPitch(m1,0,angle,0);
-    m2:=RotationAroundVector(Vector3s(0,1,0),angle);
-    m3:=RotationYMat3s(angle);
+    m1:=TMat3.From(TMat4d.From(TMat34d.FromYRP(0,angle,0)));
+    m2:=TMat3.RotationAroundAxis(TVec3.Init(0,1,0),angle);
+    m3:=TMat3.RotationY(angle);
     ASSERT(IsEqual(m1,m2));
     ASSERT(IsEqual(m1,m3));
     // X
-    MatrixFromYawRollPitch(m1,0,0,angle);
-    m2:=RotationAroundVector(Vector3s(1,0,0),angle);
-    m3:=RotationXMat3s(angle);
+    m1:=TMat3.From(TMat4d.From(TMat34d.FromYRP(0,0,angle)));
+    m2:=TMat3.RotationAroundAxis(TVec3.Init(1,0,0),angle);
+    m3:=TMat3.RotationX(angle);
     ASSERT(IsEqual(m1,m2));
     ASSERT(IsEqual(m1,m3));
    end;
 
-   m1:=RotationAroundVector(Vector3s(1,1,1),1);
-   m2:=RotationAroundVector(Vector3s(1,1,1),-1);
-   MultMat(m1,m2,m3);
-   ASSERT(IsEqual(m3,IdentMatrix3s));
+   m1:=TMat3.RotationAroundAxis(TVec3.Init(1,1,1),1);
+   m2:=TMat3.RotationAroundAxis(TVec3.Init(1,1,1),-1);
+   m3:=m1*m2;
+   ASSERT(IsEqual(m3,IdentMat3));
 
    for i:=1 to 100 do begin
-    vec:=Vector3s(random-random,random-random,random-random);
-    m1:=RotationAroundVector(vec,2*Pi);
-    ASSERT(IsEqual(m1,IdentMatrix3s));
-    m1:=RotationAroundVector(vec,-2*Pi);
-    ASSERT(IsEqual(m1,IdentMatrix3s));
+    vec:=TVec3.Init(random-random,random-random,random-random);
+    m1:=TMat3.RotationAroundAxis(vec,2*Pi);
+    ASSERT(IsEqual(m1,IdentMat3));
+    m1:=TMat3.RotationAroundAxis(vec,-2*Pi);
+    ASSERT(IsEqual(m1,IdentMat3));
    end;
 
    writeln('RotationMat OK');
@@ -110,52 +119,52 @@ uses
 
  procedure TestQuaternionConversions;
   var
-   q,q1,q2,q3:TQuaternionS;
-   mat:TMatrix4s;
-   m3,mm3,m:TMatrix3s;
+   q,q1,q2,q3:TQuat;
+   mat:TMat4;
+   m3,mm3,m:TMat3;
    i:integer;
-   vec:TVector3s;
+   vec:TVec3;
    a:single;
   begin
-   m3:=RotationZMat3s(0.1);
-   q:=MatrixToQuaternion(m3);
+   m3:=TMat3.RotationZ(0.1);
+   q:=m3.ToQuaternion;
    ASSERT(IsEqual(q.Length,1));
 
    // Single test
-   vec:=Vector3s(0.26242, -0.36225, 0.62695);
+   vec:=TVec3.Init(0.26242, -0.36225, 0.62695);
    a:=2.8916;
-   m3:=RotationAroundVector(vec,a);
-   q:=MatrixToQuaternion(m3);
+   m3:=TMat3.RotationAroundAxis(vec,a);
+   q:=m3.ToQuaternion;
    ASSERT(IsEqual(q.Length,1));
-   QuaternionToMatrix(q,mm3);
+   mm3:=TMat3.FromQuaternion(q);
    ASSERT(IsEqual(m3,mm3,150),Format('Fail: vec=(%.6f,%.6f,%.6f) angle=%.6f',[vec.x,vec.y,vec.z,a]));
 
    // Repeat
    for i:=1 to 1000 do begin
-    vec:=Vector3s(random-random,random-random,random-random);
+    vec:=TVec3.Init(random-random,random-random,random-random);
     a:=5*(random-random);
-    m3:=RotationAroundVector(vec,a);
-    q:=MatrixToQuaternion(m3);
+    m3:=TMat3.RotationAroundAxis(vec,a);
+    q:=m3.ToQuaternion;
     ASSERT(IsEqual(q.Length,1));
-    QuaternionToMatrix(q,mm3);
+    mm3:=TMat3.FromQuaternion(q);
     if not IsEqual(m3,mm3,150) then
      IsEqual(m3,mm3,150);
     ASSERT(IsEqual(m3,mm3,150),Format('Fail: vec=(%.7f,%.7f,%.7f) angle=%.7f',[vec.x,vec.y,vec.z,a]));
    end;
 
-   mat:=ScaleMat4s(1.5, 1.7, 1.9);
-   mat:=MultMat(mat,RotationZMat4s(0.1));
-   mat:=MultMat(mat,TranslationMat4s(2,2.5,3));
-   DecomposeMartix(mat,q1,q2,q3);
-   ASSERT(IsEqual(q1.xyz,Vector3s(2,2.5,3)));
-   ASSERT(IsEqual(q3.xyz,Vector3s(1.5, 1.7, 1.9)));
-   ASSERT(IsEqual(q2,QuaternionS(0,0,0.04998,0.99875)));
+   mat:=TMat4.Scale(1.5,1.7,1.9);
+   mat:=mat*TMat4.RotationZ(0.1);
+   mat:=mat*TMat4.Translation(2,2.5,3);
+   mat.Decompose(q1,q2,q3);
+   ASSERT(IsEqual(q1.xyz,TVec3.Init(2,2.5,3)));
+   ASSERT(IsEqual(q3.xyz,TVec3.Init(1.5, 1.7, 1.9)));
+   ASSERT(IsEqual(q2,Quat(0,0,0.04998,0.99875)));
    ASSERT(IsEqual(q2.Length,1));
 
    // Perf
    time:=MyTickCount;
    for i:=0 to 10000000 do
-    MatrixFromQuaternion(q2,mat);
+    mat:=TMat4.FromQuaternion(q2);
    writeln('Conv time: ',MyTickCount-time);
 
    writeln('Quaternion conversions OK');
@@ -165,31 +174,31 @@ uses
   var
    i:integer;
    f:single;
-   q1,q2,q:TQuaternionS;
-   m1,m2,m,mRef:TMatrix3s;
+   q1,q2,q:TQuat;
+   m1,m2,m,mRef:TMat3;
   begin
    // Rotation around X
-   m1:=IdentMatrix3s;
-   m2:=RotationXMat3s(Pi/2);
-   q1:=MatrixToQuaternion(m1);
-   q2:=MatrixToQuaternion(m2);
+   m1:=IdentMat3;
+   m2:=TMat3.RotationX(Pi/2);
+   q1:=m1.ToQuaternion;
+   q2:=m2.ToQuaternion;
    for i:=0 to 10 do begin
     f:=i/10;
-    mRef:=RotationXMat3s(f*Pi/2);
-    q:=QInterpolate(q1,q2,f);
-    QuaternionToMatrix(q,m);
+    mRef:=TMat3.RotationX(f*Pi/2);
+    q:=TQuat.Slerp(q1,q2,f);
+    m:=TMat3.FromQuaternion(q);
     ASSERT(IsEqual(m,mRef));
    end;
    // Rotation around Y
-   m1:=IdentMatrix3s;
-   m2:=RotationYMat3s(-Pi/2);
-   q1:=MatrixToQuaternion(m1);
-   q2:=MatrixToQuaternion(m2);
+   m1:=IdentMat3;
+   m2:=TMat3.RotationY(-Pi/2);
+   q1:=m1.ToQuaternion;
+   q2:=m2.ToQuaternion;
    for i:=0 to 10 do begin
     f:=i/10;
-    mRef:=RotationYMat3s(-f*Pi/2);
-    q:=QInterpolate(q1,q2,f);
-    QuaternionToMatrix(q,m);
+    mRef:=TMat3.RotationY(-f*Pi/2);
+    q:=TQuat.Slerp(q1,q2,f);
+    m:=TMat3.FromQuaternion(q);
     ASSERT(IsEqual(m,mRef));
    end;
    writeln('Slerp test OK');
@@ -461,15 +470,15 @@ type
    v:uint64;
   begin
    {
-     - Сдвинуть делитель на максимум - N слов
-     - Текущая позиция - i=3, позция вычисляемой цифры - N
-     - (1) Вычисляем цифру: делим A[i+1].A[i] на B[i]+1 (потому что B[1]+1... заведомо больше, чем B, а значит переполнения не будет)
-       - результат деления (K) прибавляем к текущей цифре
-       - умножаем S = B*K и вычитаем это из A: A := A - B*K
-       - если A всё еще >= B - продолжаем и повторяем (1)
-       - Если N=0 - завершаем цикл иначе переходим к следующей цифре
-       - N:=N-1, i:=i-1, сдвигаем B на 1 слово вправо
-     - завершение
+     - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ - N пїЅпїЅпїЅпїЅ
+     - пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ - i=3, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ - N
+     - (1) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅ A[i+1].A[i] пїЅпїЅ B[i]+1 (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ B[1]+1... пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ B, пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ)
+       - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (K) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+       - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ S = B*K пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ A: A:=A - B*K
+       - пїЅпїЅпїЅпїЅ A пїЅпїЅ пїЅпїЅпїЅ >= B - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (1)
+       - пїЅпїЅпїЅпїЅ N=0 - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+       - N:=N-1, i:=i-1, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ B пїЅпїЅ 1 пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+     - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
    }
    for i:=3 downto 0 do begin
     tmp:=b;
@@ -481,7 +490,7 @@ type
    end;
   end;
 
- // деление цифрами по 16 бит
+ // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ 16 пїЅпїЅпїЅ
 { procedure bDiv(a,m:TBigInt;var r,k:TBigInt); // r=a/m, k=a mod m
   type
    TBigInt2=array[0..15] of word;
@@ -497,25 +506,25 @@ type
    v,u,w:int64;
    d:cardinal;
   begin
-   fillchar(r,sizeof(r),0); // результат
+   fillchar(r,sizeof(r),0); // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
    l:=15;
-   while (l>=0) and (a2[l]=0) do dec(l); // сколько непустых слов в делимом
+   while (l>=0) and (a2[l]=0) do dec(l); // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
    t:=15;
-   while (t>=0) and (m2[t]=0) do dec(t); // сколько значимых слов в делителе
-   s:=l-t; // на сколько слов можно сдвинуть делитель чтобы выровнять с делимым
+   while (t>=0) and (m2[t]=0) do dec(t); // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+   s:=l-t; // пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
    n:=m;
-   if s>0 then // Сдвиг на s слов влево
+   if s>0 then // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ s пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
     for i:=15 downto 0 do
      if i>=s then n2[i]:=n2[i-s] else n2[i]:=0;
 
    if l<15 then v:=a2[l+1] else v:=0;
-   u:=m2[t]; // старшее слово делителя
-   if t>0 then u:=u shl 16+m2[t-1]; // если есть возможность добавить слово - сдвинуть и добавить
+   u:=m2[t]; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+   if t>0 then u:=u shl 16+m2[t-1]; // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
-   for i:=s downto 0 do begin // заполняем цифры
+   for i:=s downto 0 do begin // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
     v:=v shl 16+a2[l];
-     // цифра ненулевая, нужно её угадать
-     if t=0 then d:=v div u // тривиальный случай
+     // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+     if t=0 then d:=v div u // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
      else
       if l>0 then d:=(v shl 16+a2[l-1]) div u
        else d:=0;
@@ -523,7 +532,7 @@ type
      r2[i]:=d;
 
      if d<>0 then begin
-     // Умножение на d
+     // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ d
      w:=int64(n[0])*d;
      nd[0]:=w;
      for j:=1 to 7 do begin
@@ -643,20 +652,20 @@ function Inverse2(x, n: Int64): Int64;
 var
   a, b, t: Int64;
 begin
-  a := x;
-  b := n;
-  t := 0;
+  a:=x;
+  b:=n;
+  t:=0;
   while b > 0 do
   begin
-    t := t - (a div b) * t;
-    a := a mod b;
-    t := t xor b;
-    b := b mod a;
-    t := t xor a;
+    t:=t - (a div b) * t;
+    a:=a mod b;
+    t:=t xor b;
+    b:=b mod a;
+    t:=t xor a;
   end;
   if t < 0 then
-    t := t + n;
-  Result := t;
+    t:=t + n;
+  Result:=t;
 end;
 
  procedure Tmp;
@@ -712,9 +721,9 @@ end;
    Add256(c,rem);
   end;
 
-
 begin
  try
+  TestGeometryLayout;
   TestMatrices;
   TestRotationMat;
   TestQuaternions;
@@ -729,3 +738,11 @@ begin
  end;
  if HasParam('wait') then readln;
 end.
+
+
+
+
+
+
+
+

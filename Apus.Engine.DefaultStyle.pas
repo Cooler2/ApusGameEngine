@@ -211,7 +211,7 @@ implementation
      if hintImage=nil then
        raise EError.Create('Failed to alloc hint image!');
     end;
-    size:=Point2s(iWidth/globalScale,iHeight/globalScale);
+    size.Init(iWidth/globalScale,iHeight/globalScale);
     gfx.BeginPaint(hintImage);
     try
      gfx.target.Mask(true,true); // потенциально может вредить отрисовке следующих элементов
@@ -234,7 +234,7 @@ implementation
 
  procedure AdjustHint(scrX,scrY:integer;hnt:TUIHint);
   var
-   pnt:TPoint2s;
+   pnt:TVec2;
    remainer:single;
   begin
    with hnt do begin
@@ -262,7 +262,7 @@ implementation
   var
    v:integer;
    c:cardinal;
-   savePos:TPoint2s;
+   savePos:TVec2;
   begin
     with control as TUIHint do begin
      if pfRenderTargetAlpha=ipfNone then exit;
@@ -281,7 +281,7 @@ implementation
       // уточнить положение на экране (чтобы всегда был виден)
       savePos:=position;
       AdjustHint(x1,y1,control as TUIHint);
-      VectSub(savePos,position);
+      savePos.Sub(position);
       inc(x1,round(savepos.x));
       inc(y1,round(savepos.y));
       control.globalRect:=control.GetPosOnScreen;
@@ -564,7 +564,7 @@ implementation
    sStyle:string8;
    context:TContext;
    sliderVisible:boolean;
-   r:TRect2s;
+   r:TRect2;
   begin
    size:=x2-x1; width:=y2-y1;
    if not element.horizontal then Swap(size,width);

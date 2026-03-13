@@ -216,8 +216,8 @@ var
  procedure Circle(x,y,r:single;color:cardinal;width:single=1.0);
  procedure FillCircle(x,y,r:single;color:cardinal);
  procedure PieSlice(x,y,r,a1,a2:single;color:cardinal); // angles are clockwise from 0hr (Y direction)
- procedure DrawPolyline(points:PPoint2s;count:integer;closed:boolean;color:cardinal;width:single=1.0);
- procedure FillPolygon(points:PPoint2s;count:integer;color:cardinal); // not yet implemented
+ procedure DrawPolyline(points:PVec2;count:integer;closed:boolean;color:cardinal;width:single=1.0);
+ procedure FillPolygon(points:PVec2;count:integer;color:cardinal); // not yet implemented
 
 implementation
  uses Apus.Types, {$IFDEF ANDROID}SysUtils,{$ENDIF} Apus.Colors, Math, Apus.Core;
@@ -2093,10 +2093,10 @@ const
    end;
   end;
 
- procedure DrawPolyline(points:PPoint2s;count:integer;closed:boolean;color:cardinal;width:single=1.0);
+ procedure DrawPolyline(points:PVec2;count:integer;closed:boolean;color:cardinal;width:single=1.0);
   var
    i:integer;
-   firstPnt,lastPnt:TPoint2s;
+   firstPnt,lastPnt:TVec2;
   begin
    firstPnt:=points^;
    for i:=1 to count-1 do begin
@@ -2108,7 +2108,7 @@ const
     SmoothLine(points.x,points.y,firstPnt.x,firstPnt.y,color,width);
   end;
 
- procedure FillPolygon(points:PPoint2s;count:integer;color:cardinal);
+ procedure FillPolygon(points:PVec2;count:integer;color:cardinal);
   begin
 
   end;

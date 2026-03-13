@@ -7,28 +7,38 @@ interface
    Apus.Colors, Apus.VertexLayout;
 
 type
- // 2D points
- TPoint2 = Apus.Geom2D.TPoint2;
- PPoint2 = Apus.Geom2D.PPoint2;
- TPoint2s = Apus.Geom2D.TPoint2s;
- TVector2s = Apus.Geom2D.TVector2s;
- PPoint2s = ^TPoint2s;
- // 3D Points
- TPoint3 = Apus.Geom3D.TPoint3;
- TVector3 = TPoint3;
- PPoint3 = ^TPoint3;
- TPoint3s = Apus.Geom3D.TPoint3s;
- PPoint3s = ^TPoint3s;
- TVector3s = Apus.Geom3D.TVector3s;
- TVector4 = TQuaternion;
- TVector4s = TQuaternionS;
- TQuaternionS = Apus.Geom3D.TQuaternionS;
- // Matrices
- T3DMatrix = TMatrix4;
- T3DMatrixS = TMatrix4s;
- T2DMatrix = TMatrix32s;
-
- TRect2s = Apus.Geom2D.TRect2s;
+ // 2D geometry
+ TVec2d = Apus.Geom2D.TVec2d;
+ PVec2d = Apus.Geom2D.PVec2d;
+ TVec2 = Apus.Geom2D.TVec2;
+ PVec2 = Apus.Geom2D.PVec2;
+ TVec2Array = Apus.Geom2D.TVec2Array;
+ TRect2 = Apus.Geom2D.TRect2;
+ PRect2 = Apus.Geom2D.PRect2;
+ TMat2d = Apus.Geom2D.TMat2d;
+ TMat32d = Apus.Geom2D.TMat32d;
+ TMat32 = Apus.Geom2D.TMat32;
+ // 3D geometry
+ TVec3d = Apus.Geom3D.TVec3d;
+ PVec3d = Apus.Geom3D.PVec3d;
+ TVec3 = Apus.Geom3D.TVec3;
+ PVec3 = Apus.Geom3D.PVec3;
+ TVec3Array = Apus.Geom3D.TVec3Array;
+ TVec4d = Apus.Geom3D.TVec4d;
+ TVec4 = Apus.Geom3D.TVec4;
+ PVec4 = Apus.Geom3D.PVec4;
+ TQuatd = Apus.Geom3D.TQuatd;
+ TQuat = Apus.Geom3D.TQuat;
+ TMat3d = Apus.Geom3D.TMat3d;
+ TMat3 = Apus.Geom3D.TMat3;
+ PMat3 = Apus.Geom3D.PMat3;
+ TMat34d = Apus.Geom3D.TMat34d;
+ TMat34 = Apus.Geom3D.TMat34;
+ PMat34 = Apus.Geom3D.PMat34;
+ TMat4d = Apus.Geom3D.TMat4d;
+ TMat4 = Apus.Geom3D.TMat4;
+ PMat4 = Apus.Geom3D.PMat4;
+ TPlane = Apus.Geom3D.TPlane;
 
  TAsyncProc = function(param:UIntPtr):integer;
 

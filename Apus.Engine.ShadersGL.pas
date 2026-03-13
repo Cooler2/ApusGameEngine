@@ -47,12 +47,12 @@ type
   destructor Destroy; override;
   procedure SetUniform(name:String8;value:integer); overload; override;
   procedure SetUniform(name:String8;value:single); overload; override;
-  procedure SetUniform(name:String8;const value:TVector2s); overload; override;
-  procedure SetUniform(name:String8;const value:TVector3s); overload; override;
-  procedure SetUniform(name:String8;const value:T3DMatrix); overload; override;
-  procedure SetUniform(name:String8;const value:TQuaternionS); overload; override;
-  procedure SetUniform(uniLoc:integer;const value:TVector3s); overload;
-  procedure UpdateMatrices(revision:integer;const shadowMapMatrix:T3DMatrixS); // Get transformation matrices and upload them to uniforms
+  procedure SetUniform(name:String8;const value:TVec2); overload; override;
+  procedure SetUniform(name:String8;const value:TVec3); overload; override;
+  procedure SetUniform(name:String8;const value:TMat4d); overload; override;
+  procedure SetUniform(name:String8;const value:TQuat); overload; override;
+  procedure SetUniform(uniLoc:integer;const value:TVec3); overload;
+  procedure UpdateMatrices(revision:integer;const shadowMapMatrix:TMat4); // Get transformation matrices and upload them to uniforms
  end;
 
  // Shader subsystem singleton for the engine.
@@ -71,11 +71,11 @@ type
   // Set uniform value
   procedure SetUniform(name:String8;value:integer); overload;
   procedure SetUniform(name:String8;value:single); overload;
-  procedure SetUniform(name:String8;const value:TVector2s); overload;
-  procedure SetUniform(name:String8;const value:TVector3s); overload;
-  procedure SetUniform(name:String8;const value:TVector4s); overload;
-  procedure SetUniform(name:String8;const value:T3DMatrix); overload;
-  procedure SetUniform(name:String8;const value:T3DMatrixS); overload;
+  procedure SetUniform(name:String8;const value:TVec2); overload;
+  procedure SetUniform(name:String8;const value:TVec3); overload;
+  procedure SetUniform(name:String8;const value:TQuat); overload;
+  procedure SetUniform(name:String8;const value:TMat4d); overload;
+  procedure SetUniform(name:String8;const value:TMat4); overload;
 
   // Default shader settings
   // ----
@@ -92,9 +92,9 @@ type
   // Set ambient light
   procedure AmbientLight(color:cardinal);
   // Set directional light (set power<=0 to disable)
-  procedure DirectLight(direction:TVector3;power:single;color:cardinal);
+  procedure DirectLight(direction:TVec3;power:single;color:cardinal);
   // Set point light source (set power<=0 to disable)
-  procedure PointLight(position:TPoint3;power:single;color:cardinal);
+  procedure PointLight(position:TVec3d;power:single;color:cardinal);
   // Disable lighting
   procedure LightOff;
 
@@ -118,21 +118,21 @@ type
    ambientLightModified:boolean;
 
    // Current direct light
-   directLightDir:TVector3s; //< direction * power
+   directLightDir:TVec3; //< direction * power
    directLightColor:cardinal;
    directLightModified:boolean;
 
    // Current point light
-   pointLightPos:TPoint3s;
-   pointLightColor:TVector3s; // light color multiplied by power
+   pointLightPos:TVec3;
+   pointLightColor:TVec3; // light color multiplied by power
    pointLightModified:boolean;
 
    activeShader:TGLShader; // current OpenGL shader
    isCustom:boolean;
 
    matrixRevision:integer; // increments when transformation changed, so matrices can be uploaded to shaders
-   viewProjMatrix:T3DMatrixS; // lightspace matrix used for shadowmap
-   shadowMapMatrix:T3DMatrixS; // frustrum->viewport transformation matrix for the main shadow rendering phase
+   viewProjMatrix:TMat4; // lightspace matrix used for shadowmap
+   shadowMapMatrix:TMat4; // frustrum->viewport transformation matrix for the main shadow rendering phase
    shadowMap:TTexture;
 
    // Pending uniforms (for customized shader)
@@ -239,38 +239,38 @@ procedure TGLShader.SetUniform(name:String8;value:single);
   SetUniformInternal(self,name,2,value);
  end;
 
-procedure TGLShader.SetUniform(name:String8;const value:TVector2s);
+procedure TGLShader.SetUniform(name:String8;const value:TVec2);
  begin
   SetUniformInternal(self,name,22,value);
  end;
 
-procedure TGLShader.SetUniform(name:String8;const value:TVector3s);
+procedure TGLShader.SetUniform(name:String8;const value:TVec3);
  begin
   SetUniformInternal(self,name,23,value);
  end;
 
-procedure TGLShader.SetUniform(name:String8;const value:TQuaternionS);
+procedure TGLShader.SetUniform(name:String8;const value:TQuat);
  begin
   SetUniformInternal(self,name,24,value);
  end;
 
-procedure TGLShader.SetUniform(uniLoc:integer;const value:TVector3s);
+procedure TGLShader.SetUniform(uniLoc:integer;const value:TVec3);
  begin
   if uniLoc>=0 then
    glUniform3fv(uniLoc,1,@value);
  end;
 
-procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:T3DMatrixS);
+procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:TMat4);
  var
-  mat:T3DMatrixS;
+  mat:TMat4;
  begin
   matrixRevision:=revision;
   if uMVP>=0 then begin
-   mat:=Matrix4s(transformationAPI.MVP);
+   mat.Init(transformationAPI.MVP);
    glUniformMatrix4fv(uMVP,1,GL_FALSE,@mat);
   end;
   if uModelMat>=0 then begin
-   mat:=Matrix4s(transformationAPI.objMatrix);
+   mat.Init(transformationAPI.objMatrix);
    glUniformMatrix4fv(uModelMat,1,GL_FALSE,@mat);
   end;
   if uShadowMapMat>=0 then begin
@@ -278,11 +278,11 @@ procedure TGLShader.UpdateMatrices(revision:integer;const shadowMapMatrix:T3DMat
   end;
  end;
 
-procedure TGLShader.SetUniform(name:String8;const value:T3DMatrix);
+procedure TGLShader.SetUniform(name:String8;const value:TMat4d);
  var
-  m:T3DMatrixS;
+  m:TMat4;
  begin
-  m:=Matrix4s(value); // convert double to float
+  m.Init(value); // convert double to float
   SetUniformInternal(self,name,30,m);
  end;
 
@@ -565,12 +565,12 @@ destructor TGLShadersAPI.Destroy;
   inherited;
  end;
 
-procedure TGLShadersAPI.DirectLight(direction:TVector3; power:single; color:cardinal);
+procedure TGLShadersAPI.DirectLight(direction:TVec3; power:single; color:cardinal);
  begin
   EnsureThreadState;
-  directLightDir:=Vector3s(direction);
+  directLightDir:=direction;
   directLightDir.Normalize;
-  VectMult(directLightDir,power);
+  directLightDir.Multiply(power);
   directLightColor:=color;
   Bits.Modify(curTexMode.lighting,LIGHT_DIRECT_ON,power>0);
   directLightModified:=true;
@@ -598,8 +598,8 @@ procedure TGLShadersAPI.CustomizedUniform(name:string8;valueType:AnsiChar;const 
    '2':size:=8;
    '3':size:=12;
    '4':size:=16;
-   'm':size:=sizeof(T3DMatrixS);
-   'M':size:=sizeof(T3DMatrix);
+   'm':size:=sizeof(TMat4);
+   'M':size:=sizeof(TMat4d);
    else raise EError.Create('CustomizedUniform: unknown valueType: '+valueType);
   end;
   l:=length(name);
@@ -635,7 +635,7 @@ procedure TGLShadersAPI.ApplyCustomizedUniforms;
   end;
  end;
 
-procedure TGLShadersAPI.PointLight(position:TPoint3;power:single;color:cardinal);
+procedure TGLShadersAPI.PointLight(position:TVec3d;power:single;color:cardinal);
  begin
   EnsureThreadState;
   // TODO: store position, power, color and upload to shader — currently only toggles the flag bit
@@ -863,7 +863,7 @@ procedure TGLShadersAPI.SetUniform(name:String8;value:integer);
   activeShader.SetUniform(name,value);
  end;
 
-procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector2s);
+procedure TGLShadersAPI.SetUniform(name:String8;const value:TVec2);
  begin
   if IsCustomized then begin
    CustomizedUniform(name,'2',value); exit;
@@ -872,7 +872,7 @@ procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector2s);
   activeShader.SetUniform(name,value);
  end;
 
-procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector3s);
+procedure TGLShadersAPI.SetUniform(name:String8;const value:TVec3);
  begin
   if IsCustomized then begin
    CustomizedUniform(name,'3',value); exit;
@@ -881,7 +881,7 @@ procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector3s);
   activeShader.SetUniform(name,value);
  end;
 
-procedure TGLShadersAPI.SetUniform(name:String8;const value:T3DMatrixS);
+procedure TGLShadersAPI.SetUniform(name:String8;const value:TMat4);
  begin
   if IsCustomized then begin
    CustomizedUniform(name,'m',value); exit;
@@ -890,7 +890,7 @@ procedure TGLShadersAPI.SetUniform(name:String8;const value:T3DMatrixS);
   activeShader.SetUniform(name,value);
  end;
 
-procedure TGLShadersAPI.SetUniform(name:String8;const value:T3DMatrix);
+procedure TGLShadersAPI.SetUniform(name:String8;const value:TMat4d);
  begin
   if IsCustomized then begin
    CustomizedUniform(name,'M',value); exit;
@@ -899,7 +899,7 @@ procedure TGLShadersAPI.SetUniform(name:String8;const value:T3DMatrix);
   activeShader.SetUniform(name,value);
  end;
 
-procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector4s);
+procedure TGLShadersAPI.SetUniform(name:String8;const value:TQuat);
  begin
   if IsCustomized then begin
    CustomizedUniform(name,'4',value); exit;
@@ -909,16 +909,16 @@ procedure TGLShadersAPI.SetUniform(name:String8;const value:TVector4s);
  end;
 
 procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:single);
- function CalcShadowMapMatrix:TMatrix4s;
+ function CalcShadowMapMatrix:TMat4;
   var
-   frustum:T3DMatrixS;
+   frustum:TMat4;
   begin
     Mem.Clear(frustum,sizeof(frustum));
     frustum[0,0]:=0.5; frustum[3,0]:=0.5;
     frustum[1,1]:=0.5; frustum[3,1]:=0.5;
     frustum[2,2]:=0.5; frustum[3,2]:=0.5-depthBias;
     frustum[3,3]:=1;
-    MultMat(viewProjMatrix,frustum,shadowMapMatrix);
+    shadowMapMatrix:=viewProjMatrix*frustum;
   end;
  begin
   EnsureThreadState;
@@ -952,7 +952,7 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
   shader:TGLShader;
   i:integer;
   tex:TTexture;
-  mat:T3DMatrix;
+  mat:TMat4d;
   shaderChanged:boolean;
  begin
   EnsureThreadState;
@@ -967,8 +967,8 @@ procedure TGLShadersAPI.Apply(vertexLayout:TVertexLayout);
     if Bits.HasAll(curTexMode.lighting,LIGHT_DEPTHPASS) and
      Mem.IsZero(viewProjMatrix,sizeof(viewProjMatrix)) then begin
       // Save view-projection matrix used during depth rendering phase for later use
-      MultMat(transformationAPI.GetViewMatrix,transformationAPI.GetProjMatrix,mat);
-      viewProjMatrix:=Matrix4s(mat);
+      mat:=transformationAPI.GetViewMatrix*transformationAPI.GetProjMatrix;
+      viewProjMatrix.Init(mat);
     end;
    end;
   // Set uniforms (if modified)

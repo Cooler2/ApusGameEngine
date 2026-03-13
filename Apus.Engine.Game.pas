@@ -69,12 +69,12 @@ type
 
   // Utility functions
   function MouseInRect(r:TRect):boolean; overload; override;
-  function MouseInRect(r:TRect2s):boolean; overload; override;
+  function MouseInRect(r:TRect2):boolean; overload; override;
   function MouseInRect(x,y,width,height:single):boolean; overload; override;
   function MouseIsNear(x,y,radius:single):boolean; overload; override;
 
   function MouseWasInRect(r:TRect):boolean; overload; override;
-  function MouseWasInRect(r:TRect2s):boolean; overload; override;
+  function MouseWasInRect(r:TRect2):boolean; overload; override;
 
   procedure WaitFor(pb:PBoolean;msg:string=''); override;
 
@@ -464,7 +464,7 @@ begin
          (window.mouseX<r.Right) and (window.mouseY<r.Bottom);
 end;
 
-function TGame.MouseInRect(r:TRect2s):boolean;
+function TGame.MouseInRect(r:TRect2):boolean;
 begin
  result:=(window.mouseX>=r.x1) and (window.mouseY>=r.y1) and
          (window.mouseX<r.x2) and (window.mouseY<r.y2);
@@ -580,7 +580,7 @@ begin
          (window.oldmouseX<r.Right) and (window.oldmouseY<r.Bottom);
 end;
 
-function TGame.MouseWasInRect(r:TRect2s):boolean;
+function TGame.MouseWasInRect(r:TRect2):boolean;
 begin
  result:=(window.oldmouseX>=r.x1) and (window.oldmouseY>=r.y1) and
          (window.oldmouseX<r.x2) and (window.oldmouseY<r.y2);

@@ -113,13 +113,13 @@ interface
   // Set uniform value
   procedure SetUniform(name:String8;value:integer); overload; virtual; abstract;
   procedure SetUniform(name:String8;value:single); overload; virtual; abstract;
-  procedure SetUniform(name:String8;const value:TVector2s); overload; virtual; abstract;
-  procedure SetUniform(name:String8;const value:TVector3s); overload; virtual; abstract;
-  procedure SetUniform(name:String8;const value:TVector4s); overload; virtual; abstract;
-  procedure SetUniform(name:String8;const value:T3DMatrix); overload; virtual; abstract;
-  procedure SetUniform(name:String8;const value:T3DMatrixS); overload; virtual; abstract;
-  class function VectorFromColor3(color:cardinal):TVector3s;
-  class function VectorFromColor(color:cardinal):TVector4s;
+  procedure SetUniform(name:String8;const value:TVec2); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TVec3); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TQuat); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TMat4d); overload; virtual; abstract;
+  procedure SetUniform(name:String8;const value:TMat4); overload; virtual; abstract;
+  class function VectorFromColor3(color:cardinal):TVec3;
+  class function VectorFromColor(color:cardinal):TQuat;
  protected
   class function ClassHash:pointer; override;
  end;
@@ -419,7 +419,7 @@ class function TShader.ClassHash: pointer;
   result:=@shadersHash;
  end;
 
-class function TShader.VectorFromColor(color:cardinal):TVector4s;
+class function TShader.VectorFromColor(color:cardinal):TQuat;
  var
   c:PARGBColor;
  begin
@@ -430,7 +430,7 @@ class function TShader.VectorFromColor(color:cardinal):TVector4s;
   result.w:=c.a/255;
  end;
 
-class function TShader.VectorFromColor3(color:cardinal): TVector3s;
+class function TShader.VectorFromColor3(color:cardinal): TVec3;
  var
   c:PARGBColor;
  begin

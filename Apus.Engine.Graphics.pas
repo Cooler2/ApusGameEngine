@@ -1,4 +1,4 @@
-﻿// Platform-independent implementation of the graphics APIs
+// Platform-independent implementation of the graphics APIs
 //
 // Copyright (C) 2021 Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -59,12 +59,12 @@ type
  // Backend-specific renderer reads matrices from here, game code writes camera/object transforms.
  TTransformationAPI=class(TInterfacedObject,ITransformation)
   class threadvar
-   viewMatrix:T3DMatrix; // current view (camera) matrix
-   invViewMatrix:T3DMatrix; // inverted view matrix
-   invVPMatrix:T3DMatrix; // inverted view-Projection matrix
-   objMatrix:T3DMatrix; // current object (model) matrix
-   projMatrix:T3DMatrix; // current projection matrix
-   MVP:T3DMatrix; // combined matrix
+   viewMatrix:TMat4d; // current view (camera) matrix
+   invViewMatrix:TMat4d; // inverted view matrix
+   invVPMatrix:TMat4d; // inverted view-Projection matrix
+   objMatrix:TMat4d; // current object (model) matrix
+   projMatrix:TMat4d; // current projection matrix
+   MVP:TMat4d; // combined matrix
    modified,modifiedVP:boolean;
    zMin,zMax,xMax,xMin,yMax,yMin:single;
 
@@ -73,37 +73,37 @@ type
   procedure Perspective(fov:single;zMin,zMax:double); overload; virtual; // FOV in radians - on larger screen axis
   procedure Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,zMax:double); overload; virtual;
   procedure Orthographic(scale,zMin,zMax:double); virtual;
-  procedure SetProjection(proj:T3DMatrix); virtual;
-  procedure SetView(view:T3DMatrix); virtual;
-  procedure SetCamera(origin,target,up:TPoint3;turnCW:double=0); overload; virtual;
-  procedure SetCamera(origin,target,up:TPoint3s;turnCW:single=0); overload; virtual;
-  procedure SetObj(mat:T3DMatrix); overload; virtual;
-  procedure SetObj(mat:T3DMatrixS); overload; virtual;
+  procedure SetProjection(proj:TMat4d); virtual;
+  procedure SetView(view:TMat4d); virtual;
+  procedure SetCamera(origin,target,up:TVec3d;turnCW:double=0); overload; virtual;
+  procedure SetCamera(origin,target,up:TVec3;turnCW:single=0); overload; virtual;
+  procedure SetObj(mat:TMat4d); overload; virtual;
+  procedure SetObj(mat:TMat4); overload; virtual;
   procedure SetObj(oX,oY,oZ:single;scale:single=1;yaw:single=0;roll:single=0;pitch:single=0); overload; virtual;
   procedure ResetObj; virtual;
   function Update:boolean; // Calculate combined matrix (if needed), returns true if matrix was changed
-  function GetMVPMatrix:T3DMatrix;
-  function GetProjMatrix:T3DMatrix;
-  function GetViewMatrix:T3DMatrix;
-  function GetObjMatrix:T3DMatrix;
+  function GetMVPMatrix:TMat4d;
+  function GetProjMatrix:TMat4d;
+  function GetViewMatrix:TMat4d;
+  function GetObjMatrix:TMat4d;
   function ITransformation.MVPMatrix = GetMVPMatrix;
   function ITransformation.ProjMatrix = GetProjMatrix;
   function ITransformation.ViewMatrix = GetViewMatrix;
   function ITransformation.ObjMatrix = GetObjMatrix;
-  function Transform(source:TPoint3):TPoint3; overload;
-  function Transform(source:TPoint3s):TPoint3s; overload;
-  function ProjectPoint(source:TPoint3s):TPoint3s;
+  function Transform(source:TVec3d):TVec3d; overload;
+  function Transform(source:TVec3):TVec3; overload;
+  function ProjectPoint(source:TVec3):TVec3;
 
   // Unit vector from the camera towards the screen pixel
-  function ViewDir(scrX,scrY:integer):TVector3s; overload; // unit vector to pixel (scrX,scrY)
-  function ViewDir(viewPos:TPoint2s):TVector3s; overload; // viewPos in range of -1..1 (y axis is up)
-  function ViewVec:TVector3s; inline; // camera front unit vector
-  function RightVec:TVector3s; inline; // camera right unit vector
-  function DownVec:TVector3s; inline; // camera down unit vector
+  function ViewDir(scrX,scrY:integer):TVec3; overload; // unit vector to pixel (scrX,scrY)
+  function ViewDir(viewPos:TVec2):TVec3; overload; // viewPos in range of -1..1 (y axis is up)
+  function ViewVec:TVec3; inline; // camera front unit vector
+  function RightVec:TVec3; inline; // camera right unit vector
+  function DownVec:TVec3; inline; // camera down unit vector
   function ProjWidth:single; inline; // screen projection width in camera view (xMax-xMin)
   function ProjHeight:single; inline; // screen projection height in camera view (yMax-yMin)
-  function CameraPos:TPoint3s; inline; // get current camera position
-  function Depth(pnt:TPoint3s):single; overload; // get point depth (i.e. distance along camera view vector)
+  function CameraPos:TVec3; inline; // get current camera position
+  function Depth(pnt:TVec3):single; overload; // get point depth (i.e. distance along camera view vector)
   function MinDepth:single; inline; // get minimal depth value (zMin)
   function MaxDepth:single; inline; // get maximal depth value (zMax)
  type
@@ -203,26 +203,26 @@ implementation
 
 procedure TTransformationAPI.CalcMVP;
  var
-  tmp:T3DMatrix;
+  tmp:TMat4d;
  begin
-  MultMat(objMatrix,viewMatrix,tmp);
-  MultMat(tmp,projMatrix,MVP);
+  tmp:=objMatrix*viewMatrix;
+  MVP:=tmp*projMatrix;
  end;
 
 procedure TTransformationAPI.CalcInvVP;
  var
-  tmp:T3DMatrix;
+  tmp:TMat4d;
  begin
-  MultMat(viewMatrix,projMatrix,tmp);
-  InvertFull(tmp,invVPMatrix);
+  tmp:=viewMatrix*projMatrix;
+  invVPMatrix:=tmp.Inverted;
   modifiedVP:=false;
  end;
 
 constructor TTransformationAPI.Create;
  begin
-  viewMatrix:=IdentMatrix4;
-  objMatrix:=IdentMatrix4;
-  projMatrix:=IdentMatrix4;
+  viewMatrix:=identMat4d;
+  objMatrix:=identMat4d;
+  projMatrix:=identMat4d;
   modified:=true;
  end;
 
@@ -242,21 +242,21 @@ procedure TTransformationAPI.DefaultView;
   projMatrix[0,2]:=0;  projMatrix[1,2]:=0; projMatrix[2,2]:=-1; projMatrix[3,2]:=0;
   projMatrix[0,3]:=0;  projMatrix[1,3]:=0; projMatrix[2,3]:=0; projMatrix[3,3]:=1;
 
-  viewMatrix:=IdentMatrix4;
-  invViewMatrix:=IdentMatrix4;
-  objMatrix:=IdentMatrix4;
+  viewMatrix:=identMat4d;
+  invViewMatrix:=identMat4d;
+  objMatrix:=identMat4d;
 
   modified:=true;
   //Update;
  end;
 
-function TTransformationAPI.Depth(pnt:TPoint3s):single;
+function TTransformationAPI.Depth(pnt:TVec3):single;
  begin
-  pnt:=Vector3s(CameraPos,pnt);
-  result:=DotProduct(pnt,ViewVec);
+  pnt:=Vec3(CameraPos,pnt);
+  result:=pnt.Dot(ViewVec);
  end;
 
-function TTransformationAPI.GetMVPMatrix:T3DMatrix;
+function TTransformationAPI.GetMVPMatrix:TMat4d;
  begin
   if modified then begin
    CalcMVP;
@@ -265,17 +265,17 @@ function TTransformationAPI.GetMVPMatrix:T3DMatrix;
   result:=MVP;
  end;
 
-function TTransformationAPI.GetObjMatrix:T3DMatrix;
+function TTransformationAPI.GetObjMatrix:TMat4d;
  begin
   result:=objMatrix;
  end;
 
-function TTransformationAPI.GetProjMatrix:T3DMatrix;
+function TTransformationAPI.GetProjMatrix:TMat4d;
  begin
   result:=projMatrix;
  end;
 
-function TTransformationAPI.GetViewMatrix:T3DMatrix;
+function TTransformationAPI.GetViewMatrix:TMat4d;
  begin
   result:=viewMatrix;
  end;
@@ -339,7 +339,7 @@ procedure TTransformationAPI.Perspective(xMin,xMax,yMin,yMax,zScreen,zMin,
   modified:=true;
  end;
 
-function TTransformationAPI.ProjectPoint(source:TPoint3s):TPoint3s;
+function TTransformationAPI.ProjectPoint(source:TVec3):TVec3;
  begin
   result:=Transform(source);
   result.x:=renderTargetAPI.width*(1+result.x)*0.5;
@@ -368,22 +368,22 @@ procedure TTransformationAPI.Perspective(fov:single;zMin,zMax:double);
   Perspective(-x,x,-y,y,1,zMin,zMax);
  end;
 
-procedure TTransformationAPI.SetCamera(origin,target,up:TPoint3;
+procedure TTransformationAPI.SetCamera(origin,target,up:TVec3d;
   turnCW: double);
  var
-  mat:TMatrix4;
-  v1,v2,v3:TVector3;
+  mat:TMat4d;
+  v1,v2,v3:TVec3d;
   c,s:double;
   downX,downY,downZ:double;
   rightX,rightY,rightZ:double;
  begin
-  v1:=Vector3(origin,target); // front
-  Normalize(v1);
-  v2:=Vector3(origin,up);
-  v3:=CrossProduct(v1,v2); // right
-  Normalize(v3); // Right vector
-  v2:=CrossProduct(v1,v3); // Down vector
-  Normalize(v2);
+  v1:=TVec3d.Init(target.x-origin.x,target.y-origin.y,target.z-origin.z); // front
+  v1.Normalize;
+  v2:=TVec3d.Init(up.x-origin.x,up.y-origin.y,up.z-origin.z);
+  v3:=v1.Cross(v2); // right
+  v3.Normalize;
+  v2:=v1.Cross(v3); // down
+  v2.Normalize;
   if turnCW<>0 then begin
    c:=cos(turnCW);
    s:=sin(turnCW);
@@ -403,26 +403,26 @@ procedure TTransformationAPI.SetCamera(origin,target,up:TPoint3;
   SetView(mat);
  end;
 
-procedure TTransformationAPI.SetCamera(origin,target,up:TPoint3s;turnCW:single);
+procedure TTransformationAPI.SetCamera(origin,target,up:TVec3;turnCW:single);
  begin
-  SetCamera(Point3(origin),Point3(target),Point3(up),turnCW);
+  SetCamera(Vec3d(origin),Vec3d(target),Vec3d(up),turnCW);
  end;
 
 procedure TTransformationAPI.SetObj(oX,oY,oZ,scale,yaw,roll,pitch:single);
  var
-  m,m2:T3DMatrix;
+  m,m2:TMat4d;
   i,j:integer;
  begin
   // rotation
   if (yaw<>0) or (roll<>0) or (pitch<>0) then
-   MatrixFromYawRollPitch(m,yaw,roll,pitch)
+   m:=TMat4d.Init(TMat34d.FromYRP(yaw,roll,pitch))
   else begin
    if scale=1 then begin
     // translation only
-    SetObj(TranslationMat4(ox,oy,oz));
+    SetObj(TMat4d.Translation(ox,oy,oz));
     exit;
    end;
-   m:=IdentMatrix4;
+   m:=identMat4d;
   end;
   // scale
   if scale<>1 then
@@ -430,12 +430,12 @@ procedure TTransformationAPI.SetObj(oX,oY,oZ,scale,yaw,roll,pitch:single);
     for j:=0 to 2 do
      m[i,j]:=m[i,j]*scale;
   // position
-  MultMat(m,TranslationMat4(ox,oy,oz),m2);
+  m2:=m*TMat4d.Translation(ox,oy,oz);
 
   SetObj(m2);
  end;
 
-procedure TTransformationAPI.SetProjection(proj:T3DMatrix);
+procedure TTransformationAPI.SetProjection(proj:TMat4d);
  begin
   projMatrix:=proj;
   modified:=true;
@@ -444,31 +444,31 @@ procedure TTransformationAPI.SetProjection(proj:T3DMatrix);
 
 procedure TTransformationAPI.ResetObj;
  begin
-  SetObj(IdentMatrix4);
+  SetObj(identMat4d);
  end;
 
-procedure TTransformationAPI.SetObj(mat:T3DMatrix);
+procedure TTransformationAPI.SetObj(mat:TMat4d);
  begin
   objMatrix:=mat;
   modified:=true;
  end;
 
-procedure TTransformationAPI.SetObj(mat:T3DMatrixS);
+procedure TTransformationAPI.SetObj(mat:TMat4);
  begin
-  objMatrix:=Matrix4(mat);
+  objMatrix:=mat.ToMat4d;
   modified:=true;
  end;
 
-procedure TTransformationAPI.SetView(view:T3DMatrix);
+procedure TTransformationAPI.SetView(view:TMat4d);
  begin
   // Original matrix is "Camera space->World space" but we need reverse transformation: "World->Camera"
   invViewMatrix:=view;
-  InvertFull(view,viewMatrix);
+  viewMatrix:=view.Inverted;
   modified:=true;
   modifiedVP:=true;
  end;
 
-function TTransformationAPI.Transform(source:TPoint3):TPoint3;
+function TTransformationAPI.Transform(source:TVec3d):TVec3d;
  var
   x,y,z,t:double;
  begin
@@ -490,9 +490,9 @@ function TTransformationAPI.Transform(source:TPoint3):TPoint3;
   result.z:=z;
  end;
 
-function TTransformationAPI.Transform(source:TPoint3s):TPoint3s;
+function TTransformationAPI.Transform(source:TVec3):TVec3;
  begin
-  result:=Point3s(Transform(Point3(source)));
+  result:=TVec3.Init(Transform(Vec3d(source)));
  end;
 
 function TTransformationAPI.Update:boolean;
@@ -503,45 +503,45 @@ function TTransformationAPI.Update:boolean;
   result:=true;
  end;
 
-function TTransformationAPI.ViewDir(scrX,scrY:integer):TVector3s;
+function TTransformationAPI.ViewDir(scrX,scrY:integer):TVec3;
  var
-  scr:TPoint2s;
+  scr:TVec2;
  begin
   scr.x:=scrX/renderTargetAPI.width*2-1;
   scr.y:=-(scrY/renderTargetAPI.height*2-1);
   result:=ViewDir(scr);
  end;
 
-function TTransformationAPI.ViewDir(viewPos:TPoint2s):TVector3s;
+function TTransformationAPI.ViewDir(viewPos:TVec2):TVec3;
  var
-  v:TVector3;
+  v,cameraPos:TVec3d;
  begin
   if modifiedVP then CalcInvVP;
-  v.Init(viewPos.x,viewPos.y,1);
-  v:=TransformPoint(invVPMatrix,@v); // point relative to camera position
-  v:=Vector3(MatRow(invViewMatrix,3).xyz,v); // vector from camera position
+  v:=invVPMatrix.TransformPoint(TVec3d.Init(viewPos.x,viewPos.y,1));
+  cameraPos:=invViewMatrix.Row(3).xyz;
+  v:=TVec3d.Init(v.x-cameraPos.x,v.y-cameraPos.y,v.z-cameraPos.z); // vector from camera position
   v.Normalize;
   result.Init(v);
  end;
 
-function TTransformationAPI.ViewVec:TVector3s;
+function TTransformationAPI.ViewVec:TVec3;
  begin
-  result:=Vector3s(MatRow(invViewMatrix,2).xyz);
+  result:=Vec3(invViewMatrix.Row(2).xyz);
  end;
 
-function TTransformationAPI.DownVec:TVector3s;
+function TTransformationAPI.DownVec:TVec3;
  begin
-  result:=Vector3s(MatRow(invViewMatrix,1).xyz);
+  result:=Vec3(invViewMatrix.Row(1).xyz);
  end;
 
-function TTransformationAPI.RightVec:TVector3s;
+function TTransformationAPI.RightVec:TVec3;
  begin
-  result:=Vector3s(MatRow(invViewMatrix,0).xyz);
+  result:=Vec3(invViewMatrix.Row(0).xyz);
  end;
 
-function TTransformationAPI.CameraPos:TPoint3s;
+function TTransformationAPI.CameraPos:TVec3;
  begin
-  result:=Vector3s(MatRow(invViewMatrix,3).xyz);
+  result:=Vec3(invViewMatrix.Row(3).xyz);
  end;
 
 { TRenderTargetAPI }
@@ -700,18 +700,15 @@ procedure TClippingAPI.Prepare;
 
 function TClippingAPI.Prepare(r:TRect):boolean;
  var
-  outRect:TRect;
-  f1,f2:integer;
+  outRect,outRect2:TRect;
  begin
   EnsureThreadState;
   if not rejectMode then exit(true);
-  f1:=IntersectRects(r,clipRect,outRect);
-  if f1=0 then exit(false);
+  if not Types.IntersectRect(outRect,r,clipRect) then exit(false);
   result:=true;
   // Adjust the clipping area if primitive can be partially clipped
   if not EqualRect(clipRect,actualClip) then begin
-   f2:=IntersectRects(r,actualClip,outRect);
-   if (f1<>f2) or (f1>1) then begin
+   if (not Types.IntersectRect(outRect2,r,actualClip)) or (not EqualRect(outRect,outRect2)) then begin
     renderTargetAPI.ClipVirtual(clipRect);
     actualClip:=clipRect;
    end;
@@ -768,7 +765,7 @@ procedure TClippingAPI.Rect(r:TRect;combine:boolean);
   inc(stackPos);
   stack[stackPos]:=clipRect;
   if combine then begin
-   if IntersectRects(cliprect,r,cliprect)=0 then  // no intersection
+   if not Types.IntersectRect(cliprect,cliprect,r) then  // no intersection
     cliprect:=types.Rect(-1,-1,-1,-1);
   end else
    clipRect:=r;

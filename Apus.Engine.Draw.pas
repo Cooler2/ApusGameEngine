@@ -39,13 +39,13 @@ TDrawer=class(TInterfacedObject,IDrawer)
 
   // Drawing methods
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
-  procedure Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
-  procedure Polygon(points:PPoint2;cnt:integer;color:cardinal);
+  procedure Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
+  procedure Polygon(points:PVec2;cnt:integer;color:cardinal);
   procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload;
   procedure RRect(x1,y1,x2,y2:single;width,r:single;color:cardinal;steps:integer=0); overload;
-  procedure RoundRect(center:TPoint2s;width,height:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload;
+  procedure RoundRect(center:TVec2;width,height:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload;
   procedure RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure FillRect(x1,y1,x2,y2:single;color:cardinal); overload;
@@ -76,11 +76,11 @@ TDrawer=class(TInterfacedObject,IDrawer)
   procedure NoGradient;
 
   // Billboards
-  procedure Billboard(screenScale:boolean;pos:TPoint3s;scale:single;tex:TTexture;pivotX:single=0.5;
+  procedure Billboard(screenScale:boolean;pos:TVec3;scale:single;tex:TTexture;pivotX:single=0.5;
       pivotY:single=0.5;color:cardinal=clNeutral); overload;
-  procedure Billboard(pos:TPoint3s;texelSize:single;tex:TTexture;pivotX:single=0.5;
+  procedure Billboard(pos:TVec3;texelSize:single;tex:TTexture;pivotX:single=0.5;
       pivotY:single=0.5;color:cardinal=clNeutral); overload; inline;
-  procedure Billboard(pos:TPoint3s;tex:TTexture;screenScale:single;
+  procedure Billboard(pos:TVec3;tex:TTexture;screenScale:single;
       pivotX:single=0.5;pivotY:single=0.5;color:cardinal=clNeutral); overload; inline;
 
   procedure DoubleTex(x_,y_:integer;image1,image2:TTexture;color:cardinal=$FF808080);
@@ -438,12 +438,12 @@ begin
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex);
 end;
 
-procedure TDrawer.Billboard(screenScale:boolean;pos:TPoint3s;scale:single;tex:TTexture;
+procedure TDrawer.Billboard(screenScale:boolean;pos:TVec3;scale:single;tex:TTexture;
   pivotX,pivotY:single;color:cardinal);
  var
-  p2:TPoint3s;
+  p2:TVec3;
   vrt:array[0..3] of TVertex;
-  rVec,dVec:TVector3s;
+  rVec,dVec:TVec3;
   depth,bbWidth,bbHeight:single; // billboard dimension in world space
  begin
   depth:=transformationAPI.Depth(pos);
@@ -454,26 +454,26 @@ procedure TDrawer.Billboard(screenScale:boolean;pos:TPoint3s;scale:single;tex:TT
   dVec:=transformationAPI.DownVec;
   bbWidth:=scale*tex.width;
   bbHeight:=scale*tex.height;
-  pos:=PointAdd(pos,rVec,bbWidth*(pivotX-1));
-  pos:=PointAdd(pos,dVec,-bbHeight*pivotY);
+  pos.Add(rVec*(bbWidth*(pivotX-1)));
+  pos.Add(dVec*(-bbHeight*pivotY));
   vrt[0].Init(pos.x,pos.y,pos.z, tex.u1,tex.v1,color);
-  p2:=PointAdd(pos,rVec,bbWidth);
+  p2:=pos+rVec*bbWidth;
   vrt[1].Init(p2.x,p2.y,p2.z, tex.u2,tex.v1,color);
-  p2:=PointAdd(p2,dVec,bbHeight);
+  p2:=pos+dVec*bbHeight;
   vrt[2].Init(p2.x,p2.y,p2.z, tex.u2,tex.v2,color);
-  p2:=PointAdd(pos,dVec,bbHeight);
+  p2:=pos+dVec*bbHeight;
   vrt[3].Init(p2.x,p2.y,p2.z, tex.u1,tex.v2,color);
 
   renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.LayoutTex);
  end;
 
-procedure TDrawer.Billboard(pos:TPoint3s;tex:TTexture;screenScale:single;
+procedure TDrawer.Billboard(pos:TVec3;tex:TTexture;screenScale:single;
   pivotX,pivotY:single;color:cardinal);
  begin
   Billboard(false,pos,screenScale,tex,pivotX,pivotY,color);
  end;
 
-procedure TDrawer.Billboard(pos:TPoint3s;texelSize:single;tex:TTexture;
+procedure TDrawer.Billboard(pos:TVec3;texelSize:single;tex:TTexture;
   pivotX,pivotY:single;color:cardinal);
  begin
   Billboard(true,pos,texelSize,tex,pivotX,pivotY,color);
@@ -491,11 +491,11 @@ begin
  renderDevice.Draw(LINE_LIST,1,@vrt[0],TVertex.layoutTex);
 end;
 
-procedure TDrawer.Polyline(points:PPoint2;cnt:integer;color:cardinal;closed:boolean=false);
+procedure TDrawer.Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
 var
  vrt:array of TVertex;
  i:integer;
- pnt:PPoint2;
+ pnt:PVec2;
  minX,minY,maxX,maxY:integer;
 begin
  minX:=10000; minY:=10000; maxX:=-10000; maxY:=-10000;
@@ -635,7 +635,7 @@ var
  i,lMax:integer;
 // cnt:integer;
  // ïåðåâåñòè ìàòðèöó èç ïîëíîãî ìàñøòàáà ê ìàñøòàáó èçîáðàæåíèÿ â ìåòàòåêñòóðå
- procedure AdjustMatrix(const texture:TTexture;var matrix:TMatrix32s);
+ procedure AdjustMatrix(const texture:TTexture;var matrix:TMat32);
   var
    sx,sy,dx,dy:single;
    i:integer;
@@ -693,8 +693,8 @@ begin
    if texture=nil then break;
    UseTexture(texture,i);
    if texture.caps and tfTexture=0 then AdjustMatrix(texture,matrix);
-   MultPnts(matrix,PPoint2s(@vrt[0].uv[i,0]),4,sizeof(TScrPoint8));
-   MultPnts(matrix,PPoint2s(@vrt[0].uv[i,1]),4,sizeof(TScrPoint8));
+   MultPnts(matrix,PVec2(@vrt[0].uv[i,0]),4,sizeof(TScrPoint8));
+   MultPnts(matrix,PVec2(@vrt[0].uv[i,1]),4,sizeof(TScrPoint8));
    if i>0 then begin
     glClientActiveTexture(GL_TEXTURE0+i);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -721,9 +721,9 @@ begin
  glClientActiveTexture(GL_TEXTURE0);
 end; *)
 
-procedure TDrawer.Polygon(points: PPoint2; cnt: integer; color: cardinal);
+procedure TDrawer.Polygon(points: PVec2; cnt: integer; color: cardinal);
 type
- ta=array[0..5] of TPoint2;
+ ta=array[0..5] of TVec2;
 var
  vrt:array of TVertex;
  i,n:integer;
@@ -794,7 +794,7 @@ begin
  renderDevice.Draw(TRG_FAN,2,@vrt,TVertex.layoutTex);
 end;
 
-procedure TDrawer.RoundRect(center:TPoint2s;width,height,radius,borderWidth:single;
+procedure TDrawer.RoundRect(center:TVec2;width,height,radius,borderWidth:single;
   borderColor,fillColor:cardinal);
 const
  rShader=
@@ -819,8 +819,8 @@ const
   if fillColor=0 then fillColor:=borderColor and $FFFFFF;
   shader.UseCustomized(rShader,0);
   shader.SetUniform('bColor',TShader.VectorFromColor(borderColor));
-  shader.SetUniform('offset',TVector2s.Init(w-radius,h-radius));
-  shader.SetUniform('tresh',TVector4s.Init(sqr(radius-1),sqr(radius),sqr(radius-borderWidth-1),sqr(radius-borderWidth)));
+  shader.SetUniform('offset',TVec2.Init(w-radius,h-radius));
+  shader.SetUniform('tresh',TQuat.Init(sqr(radius-1),sqr(radius),sqr(radius-borderWidth-1),sqr(radius-borderWidth)));
   vrt[0].Init(sx1,sy1,0,-w,-h,fillColor);
   vrt[1].Init(sx2,sy1,0,w,-h,fillColor);
   vrt[2].Init(sx2,sy2,0,w,h,fillColor);
@@ -831,7 +831,7 @@ end;
 
 procedure TDrawer.RoundRect(x1,y1,x2,y2:single;radius,borderWidth:single;borderColor,fillColor:cardinal);
 begin
- RoundRect(TPoint2s.Init((x1+x2)*0.5,(y1+y2)*0.5),abs(x2-x1+1),abs(y2-y1+1),radius,borderWidth,borderColor,fillColor);
+ RoundRect(TVec2.Init((x1+x2)*0.5,(y1+y2)*0.5),abs(x2-x1+1),abs(y2-y1+1),radius,borderWidth,borderColor,fillColor);
 end;
 
 procedure TDrawer.Scaled(x1, y1, x2, y2: single; image: TTexture;
@@ -1330,14 +1330,14 @@ end;
 procedure TDrawer.Particles(data:PParticle;stride,count:integer;tex:TTexture;gridSize:integer;sort:boolean=true);
 type
  TParticleData=record
-  position:TPoint3s;
+  position:TVec3;
   color:cardinal;
-  uv1,uv2:TPoint2s;
+  uv1,uv2:TVec2;
   scale,res,angle:single;
  end;
 var
  i,idx,actualCount:integer;
- vrt:array[0..3] of TPoint2s; // just a 2D quad
+ vrt:array[0..3] of TVec2; // just a 2D quad
  layout,extraLayout:TVertexLayout;
  rate:FloatArray;
  index:IntArray;
@@ -1346,7 +1346,7 @@ var
  pp:PParticle;
  uu,vv:single;
  u0,v0,sizeU,sizeV:integer;
- frontVec:TVector3s;
+ frontVec:TVec3;
  d,realDepthRange:single;
 begin
  EnsureThreadState;
@@ -1358,7 +1358,7 @@ begin
  if (softParticlesRange>=0) and (depthTexture<>nil) then begin
   shader.UseTexture(depthTexture,1);
   shader.SetUniform('depthTex',1);
-  d:=transform.Depth(Point3s(0,0,0));
+  d:=transform.Depth(Vec3(0,0,0));
   realDepthRange:=1/d-1/(d+softParticlesRange);
  end else
   realDepthRange:=-1;
@@ -1393,7 +1393,7 @@ begin
   SetLength(rate,count);
   pb:=pointer(data);
   for i:=0 to count-1 do begin
-   rate[i]:=-DotProduct(PPoint3s(pb)^,frontVec);
+   rate[i]:=-frontVec.Dot(PVec3(pb)^);
    inc(pb,stride);
   end;
   QuickIndex(index,rate,0,count-1);

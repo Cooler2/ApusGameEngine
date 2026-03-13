@@ -1,4 +1,4 @@
-// Common scene effects
+﻿// Common scene effects
 //
 // Copyright (C) 2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -514,7 +514,7 @@ var
  color:cardinal;
  cx,cy,dx,dy:integer;
  scaleX,scaleY,centerX,centerY:double;
- savePos:TPoint2s;
+ savePos:TVec2;
 begin
  if DontPlay then begin
   onDone; exit;
@@ -522,7 +522,7 @@ begin
  if not initialized then Initialize;
  with target as TUIScene do begin
   savePos:=ui.position;
-  VectAdd(ui.position,Point2s(-x,-y));  // offset scene so it's visible part starts at 0,0
+  ui.position.Add(Vec2(-x,-y));  // offset scene so it's visible part starts at 0,0
  end;
  try
   if buffer=nil then  raise EError.Create('WndEffect failure: buffer not allocated!');
@@ -757,7 +757,7 @@ var
  u,v,phase:single;
  i:integer;
  cb:array[0..3] of byte;
- cf:TVector4s;
+ cf:TQuat;
 begin
  try
   if not initialized then Initialize;

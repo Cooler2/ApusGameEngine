@@ -139,6 +139,79 @@ EnterCriticalSection -> ?use TLock.Enter [Apus.Threads]
 LeaveCriticalSection -> ?use TLock.Leave [Apus.Threads]
 HasPrefix -> ?use .StartsWith [Apus.Strings]
 
+// === Apus.Geom2D / Apus.Geom3D: type renames ===
+// Order: longer/more specific names first
+// 2D types
+TRect2s -> TRect2 [Apus.Geom2D]
+TMatrix32s -> TMat32 [Apus.Geom2D]
+TVector2s -> TVec2 [Apus.Geom2D]
+TPoint2s -> TVec2 [Apus.Geom2D]
+PPoint2s -> PVec2 [Apus.Geom2D]
+TPoint2 -> TVec2d [Apus.Geom2D]
+// 3D types
+TMatrix4s -> TMat4 [Apus.Geom3D]
+TMatrix43s -> TMat43 [Apus.Geom3D]
+TMatrix4 -> TMat4d [Apus.Geom3D]
+T3DMatrixS -> TMat4 [Apus.Geom3D]
+T3DMatrix -> TMat4d [Apus.Geom3D]
+T2DMatrix -> TMat32 [Apus.Geom2D]
+TQuaternionS -> TQuat [Apus.Geom3D]
+TQuaternion -> TQuatd [Apus.Geom3D]
+TVector4s -> TQuat [Apus.Geom3D]
+TVector3s -> TVec3 [Apus.Geom3D]
+PPoint3s -> PVec3 [Apus.Geom3D]
+TPoint3s -> TVec3 [Apus.Geom3D]
+TPoint3 -> TVec3d [Apus.Geom3D]
+
+// === Apus.Geom2D: constant renames ===
+IdentMatrix32 -> IdentMat32d [Apus.Geom2D]
+IdentMatrix2 -> IdentMat2d [Apus.Geom2D]
+
+// === Apus.Geom3D: constant renames ===
+IdentMatrix4s -> IdentMat4 [Apus.Geom3D]
+IdentMatrix4 -> IdentMat4d [Apus.Geom3D]
+IdentMatrix3s -> IdentMat3 [Apus.Geom3D]
+IdentMatrix3 -> IdentMat3d [Apus.Geom3D]
+
+// === Apus.Geom3D: deprecated matrix factory functions (auto-replaceable) ===
+TranslationMat4d -> TMat4d.Translation [Apus.Geom3D]
+TranslationMat4 -> TMat4.Translation [Apus.Geom3D]
+TranslationMat -> TMat34d.Translation [Apus.Geom3D]
+RotationMat4X -> TMat4.RotationX [Apus.Geom3D]
+RotationMat4Y -> TMat4.RotationY [Apus.Geom3D]
+RotationMat4Z -> TMat4.RotationZ [Apus.Geom3D]
+RotationXMat -> TMat34d.RotationX [Apus.Geom3D]
+RotationYMat -> TMat34d.RotationY [Apus.Geom3D]
+RotationZMat -> TMat34d.RotationZ [Apus.Geom3D]
+ScaleMat4 -> TMat4.Scale [Apus.Geom3D]
+ScaleMat -> TMat34d.Scale [Apus.Geom3D]
+
+PRect2s -> PRect2
+
+// === Apus.Geom3D: vector factory functions ===
+// Order: Vector3s before Vec3s (avoid partial match)
+QuaternionS -> Quat [Apus.Geom3D]
+Vector4s -> Vec4 [Apus.Geom3D]
+Point3s -> Vec3 [Apus.Geom3D]
+Vec3s -> Vec3 [Apus.Geom3D]
+// Note: Vector3s(p0,p1) form (direction from p0 to p1) requires manual rewrite → p1.Sub(p0)
+Vector3s -> Vec3 [Apus.Geom3D]
+Point2s -> Vec2 [Apus.Geom2D]
+
+// === Manual rewrites (context-dependent, auto-replace not possible) ===
+// DotProduct(a,b) → a.Dot(b)
+// CrossProduct(a,b) → a.Cross(b)
+// VectAdd(a,b) → a.Add(b)    [mutating Add now on TVec2/TVec3/TVec2d]
+// VectMult(a,k) → a.Multiply(k)  [mutating Multiply now on TVec2/TVec3/TVec2d]
+// VectSub(a,b) → a:=a.Sub(b)  [Sub is functional, no mutating version]
+// PointAdd(p,v,f) → p.Add(v); p.Multiply(f) OR manual  [adds v*f to p]
+// MultPnt(m,v,n,step) → m.TransformPoints(v,n,step)
+// MultMat(m1,m2,out) → out:=m1*m2
+// MatRow(m,n) → m.Row(n)
+// MatCol(m,n) → m.Col(n)
+// Vector3s(p0,p1) → p1.Sub(p0)  [2-arg form: direction vector from p0 to p1]
+// YRPToMatrix(mat,...) → use deprecated wrapper or rewrite with TMat34d.FromYRP
+
 // === Apus.Compress: compression and patching ===
 PackRLE -> RLE.Pack [Apus.Compress]
 UnpackRLE -> RLE.Unpack [Apus.Compress]

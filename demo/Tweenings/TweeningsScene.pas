@@ -59,7 +59,7 @@ procedure TMainApp.CreateScenes;
 
 procedure TMainScene.Initialize;
 var
- pnt:TPoint2s;
+ pnt:TVec2;
 begin
  pnt.Init(window.renderWidth/2,window.renderHeight/2);
  pos.Assign(pnt,2);
@@ -67,7 +67,7 @@ end;
 
 procedure TMainScene.onMouseBtn(btn:byte;pressed:boolean);
 var
- pnt:TPoint2s;
+ pnt:TVec2;
 begin
  if pressed then begin
    pnt.Init(window.mouseX,window.mouseY);
@@ -77,7 +77,7 @@ end;
 
 procedure TMainScene.Render;
  var
-  pnt:TPoint2s;
+  pnt:TVec2;
  begin
   // Clear scene background
   gfx.target.Clear($406080); // clear with blue

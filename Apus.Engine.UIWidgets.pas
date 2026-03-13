@@ -844,7 +844,7 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:String8;
     dy:=(curMouseY-oldMouseY)*iScale;
     // Drag
     if area=wcHeader then begin
-     position:=PointAdd(position, Point2s(dx,dy));
+     position.Add(Vec2(dx,dy));
     end;
     // Resize
     if area and wcRightFrame>0 then Resize(size.x+dx,-1);
@@ -1845,7 +1845,7 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:String
 
  procedure TUIComboBox.onDropDown;
   var
-   r:TRect2s;
+   r:TRect2;
    lCount,lHeight,i:integer;
    hint:String8;
    tag:cardinal;
@@ -1860,7 +1860,7 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:String
   {  r:=GetRect;
     r.MoveBy(0,r.y2);}
     r:=TransformTo(GetRect,root);
-    frame.position:=Point2s(r.x1, r.y2+1);
+    frame.position:=Vec2(r.x1, r.y2+1);
     frame.size.x:=size.x;
     frame.AttachTo(root);
 
