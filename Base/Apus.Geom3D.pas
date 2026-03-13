@@ -1,4 +1,4 @@
-// -----------------------------------------------------
+﻿// -----------------------------------------------------
 // 3D geometry common high-precision functions
 // Author: Ivan Polyacov (C) 2003, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -25,6 +25,8 @@ interface
    constructor Init(p0,p1:TVec3d;t:double); overload;
    procedure Normalize;
    function IsValid:boolean;
+   function IsZero:boolean; inline;
+   function IsEqual(const p:TVec3d;precision:single=2.0):boolean; inline;
    function Length:double; inline;
    function Length2:double; inline;
    function Dot(const p:TVec3d):double; inline;
@@ -43,8 +45,11 @@ interface
    constructor Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single); overload;
    procedure Normalize;
    function IsValid:boolean;
-   function Length:single;  // Vector length
-   function Length2:single; // Square length
+   function IsZero:boolean; inline;
+   function IsIdentity:boolean; inline; // all components = 1
+   function IsEqual(const p:TVec3;precision:single=2.0):boolean; inline;
+   function Length:single;
+   function Length2:single;
    function Dot(const p:TVec3):single; inline;
    function Cross(const p:TVec3):TVec3; inline;
    function Sub(const p:TVec3):TVec3; inline;
@@ -57,6 +62,7 @@ interface
    1:( v:array[0..2] of single; );
    2:( xy:TVec2; t:single; );
   end;
+  PVec3=^TVec3;
   TVec3Array=array of TVec3;
 
   TVec4d=record
@@ -71,6 +77,7 @@ interface
    function Length:double; inline;
    function Length2:double; inline;
    function IsValid:boolean;
+   function IsEqual(const p:TVec4d;precision:single=2.0):boolean; inline;
    case integer of
     1:( x,y,z,w:double; );
     2:( v:array[0..3] of double; );
@@ -80,6 +87,7 @@ interface
   TVec4=record
    constructor Init(x,y,z,w:single); overload;
    constructor Init(vec3:TVec3); overload;
+   constructor Init(v:TVec4d); overload; // double to single
    function ToVec3:TVec3; inline;
    procedure Add(const p:TVec4); overload;
    procedure Add(const p:TVec4;scale:single); overload;
@@ -89,6 +97,7 @@ interface
    function Length:single; inline;
    function Length2:single; inline;
    function IsValid:boolean;
+   function IsEqual(const p:TVec4;precision:single=2.0):boolean; inline;
    case integer of
     1:( x,y,z,w:single; );
     2:( v:array[0..3] of single; );
@@ -113,26 +122,26 @@ interface
    function Length2:double;
    procedure Normalize;
    function IsValid:boolean;
+   function IsEqual(const q:TQuatd;precision:single=2.0):boolean; inline;
    case integer of
     1:( x,y,z,w:double; );
     2:( v:array[0..3] of double; );
     3:( xyz:TVec3d; t:double; );
   end;
 
-  { TQuat }
-
   TQuat=record
    constructor Init(x,y,z,w:single); overload;
    constructor Init(vec3:TVec3); overload;
-   constructor Init(q:TQuatd); overload;
+   constructor Init(q:TQuatd); overload; // double to single
    function ToVec3:TVec3; inline;
+   function ToQuatd:TQuatd; // single to double
    class operator Implicit(a:TQuat):TVec4;
    class operator Implicit(a:TVec4):TQuat;
    procedure Assign(const q:TQuat);
    procedure Add(const q:TQuat); overload;
    procedure Add(const q:TQuat;scale:single); overload;
-   procedure Middle(const q:TQuat;weight:single);  // interpolate between current value and Q
-   procedure Sub(const q:TQuat); overload;
+   procedure Middle(const q:TQuat;weight:single); // interpolate between self and q
+   procedure Sub(const q:TQuat);
    procedure Mul(scalar:single); overload;
    procedure Mul(const q:TQuat); overload;
    procedure Invert;
@@ -152,17 +161,17 @@ interface
 
   PVec4=^TVec4;
 
-  // Infinite plane in space
+  // Infinite plane in 3D space
   TPlane=packed record
    a,b,c,d:double;
    class function Init(const point,normal:TVec3d):TPlane; static;
    function DistanceTo(const pnt:TVec3d):double; overload; inline;
    function DistanceTo(const pnt:TVec3):single; overload; inline;
   end;
-  PVec3=^TVec3;
-  // Transformation matrices
-  PMatrix3=^TMat3d;
-  TMat3d=packed record // Rotation/scale
+
+  // --- Transformation matrices ---
+
+  TMat3d=packed record // 3x3 rotation/scale (double)
    private
     function GetItem(i,j:integer):double; inline;
     procedure SetItem(i,j:integer;value:double); inline;
@@ -178,13 +187,13 @@ interface
     procedure Transpose;
     function Transposed:TMat3d;
     procedure Invert;
+    function IsEqual(const m:TMat3d;precision:single=4.0):boolean;
     property Items[i,j:integer]:double read GetItem write SetItem; default;
     case integer of
     0:(v:array[0..2,0..2] of double);
     1:(rows:array[0..2] of TVec3d);
   end;
-  PMatrix43=^TMat34d;
-  TMat34d=packed record // rotation/scale/translation
+  TMat34d=packed record // 4x3 rotation/scale/translation (double)
    private
     function GetItem(i,j:integer):double; inline;
     procedure SetItem(i,j:integer;value:double); inline;
@@ -203,13 +212,14 @@ interface
     procedure Transpose;
     function Transposed:TMat34d;
     procedure Invert;
+    function IsIdentity:boolean;
+    function IsEqual(const m:TMat34d;precision:single=4.0):boolean;
     property Items[i,j:integer]:double read GetItem write SetItem; default;
     case integer of
     0:(v:array[0..3,0..2] of double);
     1:(rows:array[0..3] of TVec3d);
   end;
-  PMatrix4=^TMat4d;
-  TMat4d=packed record // rotation/scale/translation
+  TMat4d=packed record // 4x4 full transform (double)
    private
     function GetItem(i,j:integer):double; inline;
     procedure SetItem(i,j:integer;value:double); inline;
@@ -223,17 +233,20 @@ interface
     procedure Decompose(out translation,rotation,scale:TQuatd);
     function TransformPoint(const v:TVec3d):TVec3d;
     class operator Multiply(const a,b:TMat4d):TMat4d;
-    procedure Transpose; overload;
-    function Transposed:TMat4d; overload;
-    procedure Invert; overload;
-    function Inverted:TMat4d; overload;
-    property Items[i,j:integer]:double read GetItem write SetItem; default; deprecated 'Use .v[i,j]';
+    procedure Transpose;
+    function Transposed:TMat4d;
+    procedure Invert;
+    function Inverted:TMat4d;
+    function IsEqual(const m:TMat4d;precision:single=4.0):boolean;
+    property Items[i,j:integer]:double read GetItem write SetItem; default;
     case integer of
     0:(v:array[0..3,0..3] of double);
     1:(rows:array[0..3] of TVec4d);
   end;
+
+  // Single-precision matrices
   PMat4=^TMat4;
-  TMat4=packed record // rotation/scale/translation
+  TMat4=packed record // 4x4 full transform (single)
    private
     function GetItem(i,j:integer):single; inline;
     procedure SetItem(i,j:integer;value:single); inline;
@@ -256,29 +269,27 @@ interface
     function TransformPoint(const v:TVec3):TVec3;
     class operator Multiply(const a,b:TMat4):TMat4;
     class function FromQuaternion(const q:TQuat):TMat4; static;
-    procedure Transpose; overload;
-    function Transposed:TMat4; overload;
-    procedure Invert; overload;
-    function Inverted:TMat4; overload;
-    property Items[i,j:integer]:single read GetItem write SetItem; default; deprecated 'Use .v[i,j]';
+    procedure Transpose;
+    function Transposed:TMat4;
+    procedure Invert;
+    function Inverted:TMat4;
+    function IsEqual(const m:TMat4;precision:single=4.0):boolean;
+    property Items[i,j:integer]:single read GetItem write SetItem; default;
     case integer of
     0:(v:array[0..3,0..3] of single);
     1:(rows:array[0..3] of TVec4);
   end;
-  // Synonims
-  TMatrix3vd=array[0..2] of TVec3d;
-  TMatrix43vd=array[0..3] of TVec3d;
-
-  // Low precision matrices
+  // Single-precision matrices
   PMat3=^TMat3;
   TMat3=packed record
    private
     function GetItem(i,j:integer):single; inline;
     procedure SetItem(i,j:integer;value:single); inline;
    public
-    class function From(const m:TMat3d):TMat3; overload; static;
-    class function From(const m:TMat4d):TMat3; overload; static;
-    class function From(const m:TMat4):TMat3; overload; static;
+    class function From(const m:TMat3d):TMat3; overload; static; // double to single
+    class function From(const m:TMat4d):TMat3; overload; static; // extract 3x3
+    class function From(const m:TMat4):TMat3; overload; static; // extract 3x3
+    function ToMat3d:TMat3d; // single to double
     function Row(n:integer):TVec3; inline;
     function Col(n:integer):TVec3; inline;
     class function RotationX(angle:single):TMat3; static;
@@ -293,17 +304,19 @@ interface
     procedure Transpose;
     function Transposed:TMat3;
     procedure Invert;
+    function IsEqual(const m:TMat3;precision:single=4.0):boolean;
     property Items[i,j:integer]:single read GetItem write SetItem; default;
     case integer of
     0:(v:array[0..2,0..2] of single);
     1:(rows:array[0..2] of TVec3);
   end;
   PMat34=^TMat34;
-  TMat34=packed record
+  TMat34=packed record // 4x3 rotation/scale/translation (single)
    private
     function GetItem(i,j:integer):single; inline;
     procedure SetItem(i,j:integer;value:single); inline;
    public
+    class function From(const m:TMat34d):TMat34; static; // double to single
     function Row(n:integer):TVec3; inline;
     function Col(n:integer):TVec3; inline;
     class function FromYRP(yaw,roll,pitch:double):TMat34; static;
@@ -313,15 +326,13 @@ interface
     function Transposed:TMat34;
     procedure Invert;
     function ToMat4:TMat4;
+    function IsIdentity:boolean;
+    function IsEqual(const m:TMat34;precision:single=4.0):boolean;
     property Items[i,j:integer]:single read GetItem write SetItem; default;
     case integer of
     0:(v:array[0..3,0..2] of single);
     1:(rows:array[0..3] of TVec3);
   end;
-  // Synonims
-  TMatrix3v=array[0..2] of TVec3;
-  TMatrix43v=array[0..3] of TVec3;
-
  const
   NaN=0.0/0.0;
   IdentMat3d:TMat3d=(v:((1,0,0),(0,1,0),(0,0,1)));
@@ -331,20 +342,20 @@ interface
   IdentMat4d:TMat4d=(v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
   IdentMat4:TMat4=(v:((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)));
 
-  NullPoint:TVec3d=(x:0;y:0;z:0);
-  NullVec3:TVec3=(x:0;y:0;z:0);
-  InvalidPoint3:TVec3d=(x:NaN;y:NaN;z:NaN);
+  // Invalid (NaN) vectors
+  InvalidVec3d:TVec3d=(x:NaN;y:NaN;z:NaN);
   InvalidVec3:TVec3=(x:NaN;y:NaN;z:NaN);
 
- function Point3(p:TVec3):TVec3d; overload; inline;
- function Direction3(from,target:TVec3d):TVec3d; overload; inline;
+ // --- Vector/quaternion factories ---
  function Vec3(x,y,z:single):TVec3; overload; inline;
- function Vec3(v:TVec3d):TVec3; overload; inline;
- function Vec3(v:TVec4):TVec3; overload; inline;
+ function Vec3(v:TVec3d):TVec3; overload; inline; // double to single
+ function Vec3(v:TVec4):TVec3; overload; inline; // extract xyz
+ function Vec3(const from,target:TVec3):TVec3; overload; inline; // direction vector (target-from)
+ function Vec3Unit(const from,target:TVec3):TVec3; inline; // normalized direction
  function Vec3d(x,y,z:double):TVec3d; overload; inline;
- function Vec3d(v:TVec3):TVec3d; overload; inline;
- function Vec3d(v:TQuatd):TVec3d; overload; inline;
- function Vec3d(v:TVec4d):TVec3d; overload; inline;
+ function Vec3d(v:TVec3):TVec3d; overload; inline; // single to double
+ function Vec3d(v:TQuatd):TVec3d; overload; inline; // extract xyz
+ function Vec3d(v:TVec4d):TVec3d; overload; inline; // extract xyz
  function Vec4(x,y,z,w:single):TVec4; overload; inline;
  function Vec4(v:TVec3;w:single=1):TVec4; overload; inline;
  function Vec4(v:TVec4d):TVec4; overload; inline;
@@ -353,116 +364,23 @@ interface
  function Vec4d(v:TVec4):TVec4d; overload; inline;
  function Quat(x,y,z,w:single):TQuat; overload; inline;
  function Quatd(x,y,z,w:double):TQuatd; overload; inline;
- // Matrix conversion
- function Matrix4(from:TMat34d):TMat4d; overload; deprecated 'Use TMat4d.From(from)';
- function Matrix4(from:TMat4):TMat4d; overload; deprecated 'Use from.ToMat4d';
- function ToMat4(from:TMat34):TMat4; overload; deprecated 'Use from.ToMat4';
- function ToMat4(from:TMat4d):TMat4; overload; deprecated 'Use TMat4.From(from)';
- function Matrix3(from:TMat4d):TMat3d; overload; deprecated 'Use from.ToMat3';
- function ToMat3(from:TMat3d):TMat3; overload; deprecated 'Use TMat3.From(from)';
- function ToMat3(from:TMat4d):TMat3; overload; deprecated 'Use TMat3.From(from)';
- function ToMat3(from:TMat4):TMat3; overload; deprecated 'Use TMat3.From(from)';
-
- // Extract matrix column
-
- // Скалярное произведение векторов = произведение длин на косинус угла = проекция одного вектора на другой
- // Векторное произведение: модуль равен площади ромба
- // Compare with tolerance
- function IsZero(v:TVec3d):boolean; overload; inline;
- function IsZero(v:TVec3):boolean; overload; inline;
- function IsIdentity(v:TVec3):boolean; overload; inline;
- function IsIdentity(m:TMat34d):boolean; overload;
- function IsIdentity(m:TMat34):boolean; overload;
-
+ // --- Scalar comparison ---
  function IsEqual(d1,d2:double):boolean; overload; inline;
  function IsEqual(s1,s2:single):boolean; overload; inline;
-
- function IsEqual(v1,v2:TVec3;precision:single=2.0):boolean; overload; inline;
- function IsEqual(v1,v2:TVec4;precision:single=2.0):boolean; overload; inline;
- function IsEqual(v1,v2:TVec3d;precision:single=2.0):boolean; overload; inline;
- function IsEqual(v1,v2:TVec4d;precision:single=2.0):boolean; overload; inline;
- function IsEqual(v1,v2:TQuatd;precision:single=2.0):boolean; overload; inline;
-
- function IsEqual(m1,m2:TMat4d;precision:single=4.0):boolean; overload; inline;
- function IsEqual(m1,m2:TMat4;precision:single=4.0):boolean; overload; inline;
- function IsEqual(m1,m2:TMat34d;precision:single=4.0):boolean; overload; inline;
- function IsEqual(m1,m2:TMat3d;precision:single=4.0):boolean; overload; inline;
- function IsEqual(m1,m2:TMat3;precision:single=4.0):boolean; overload; inline;
-
+ // Low-level array comparison (used internally by IsEqual methods)
  function CompareSingle(s1,s2:PSingle;count:integer;precision:single=1.0):boolean;
  function CompareDouble(s1,s2:PDouble;count:integer;precision:single=1.0):boolean;
 
- // Convert matrix to single precision
- procedure ToSingle43(sour:TMat34d;out dest:TMat34);
-
- function TranslationMat(x,y,z:double):TMat34d; deprecated 'Use TMat34d.Translation';
- function TranslationMat4d(x,y,z:double):TMat4d; deprecated 'Use TMat4d.Translation';
- function TranslationMat4(x,y,z:single):TMat4; deprecated 'Use TMat4.Translation';
- function RotationXMat(angle:double):TMat34d; deprecated 'Use TMat34d.RotationX';
- function RotationYMat(angle:double):TMat34d; deprecated 'Use TMat34d.RotationY';
- function RotationZMat(angle:double):TMat34d; deprecated 'Use TMat34d.RotationZ';
- function RotationMat3X(angle:single):TMat3; deprecated 'Use TMat3.RotationX';
- function RotationMat3Y(angle:single):TMat3; deprecated 'Use TMat3.RotationY';
- function RotationMat3Z(angle:single):TMat3; deprecated 'Use TMat3.RotationZ';
- function RotationMat4X(angle:single):TMat4; deprecated 'Use TMat4.RotationX';
- function RotationMat4Y(angle:single):TMat4; deprecated 'Use TMat4.RotationY';
- function RotationMat4Z(angle:single):TMat4; deprecated 'Use TMat4.RotationZ';
- function ScaleMat(scaleX,scaleY,scaleZ:double):TMat34d; deprecated 'Use TMat34d.Scale';
- function ScaleMat4(scaleX,scaleY,scaleZ:single):TMat4; deprecated 'Use TMat4.Scale';
-
- // Матрица поворота вокруг вектора единичной длины!
- function RotationAroundVector(v:TVec3d;angle:double):TMat3d; overload; deprecated 'Use TMat3d.RotationAroundAxis';
- function RotationAroundVector(v:TVec3;angle:single):TMat3; overload; deprecated 'Use TMat3.RotationAroundAxis';
-
- // Extract translation rotation and scale from transformation matrix
- procedure DecomposeMatrix(mat:TMat4;out translation,rotation,scale:TQuat); overload; deprecated 'Use TMat4.Decompose';
- procedure DecomposeMatrix(mat:TMat4d;out translation,rotation,scale:TQuatd); overload; deprecated 'Use TMat4d.Decompose';
-
-
- // Используется правосторонняя СК, ось Z - вверх.
- // roll - поворот вокруг X
- // pitch - затем поворот вокруг Y
- // yaw - наконец, поворот вокруг Z
- procedure YRPToMatrix(out mat:TMat3d;yaw,roll,pitch:double); overload; deprecated 'Use TMat3d.RotationAroundAxis or TMat34d.FromYRP';
- procedure YRPToMatrix(out mat:TMat3;yaw,roll,pitch:double); overload; deprecated 'Use TMat3.RotationAroundAxis or TMat34.FromYRP';
- procedure YRPToMatrix(out mat:TMat4d;yaw,roll,pitch:double); overload; deprecated 'Use TMat4d.Translation/rotation composition';
- procedure YRPToMatrix(out mat:TMat4;yaw,roll,pitch:double); overload; deprecated 'Use TMat4.FromYRP';
- procedure YRPToMatrix(out mat:TMat34d;yaw,roll,pitch:double); overload; deprecated 'Use TMat34d.FromYRP';
- procedure YRPToMatrix(out mat:TMat34;yaw,roll,pitch:double); overload; deprecated 'Use TMat34.FromYRP';
-
- procedure MatrixToYRP(const mat:TMat34d; var yaw,roll,pitch:double); deprecated 'Use TMat34d.ToYRP';
-
- // Combined transformation M = M3*M2*M1 means do M1 then M2 and finally M3
- // target = M1*M2 (Смысл: перевести репер M1 из системы M2 в ту, где задана M2)
- // Другой смысл: суммарная трансформация: сперва M2, затем M1 (именно так!)
- procedure MultPnt(const m:TMat4;v:PVec4;num,step:integer); overload; deprecated 'Use TMat4.TransformPoints';
- procedure MultPnt(const m:TMat34d;v:PVec3d;num,step:integer); overload; deprecated 'Use TMat34d.TransformPoints';
- procedure MultPnt(const m:TMat34;v:PVec3;num,step:integer); overload; deprecated 'Use TMat34.TransformPoints';
- procedure MultPnt(const m:TMat3d;v:PVec3d;num,step:integer); overload; deprecated 'Use TMat3d.TransformPoints';
- procedure MultPnt(const m:TMat3;v:PVec3;num,step:integer); overload; deprecated 'Use TMat3.TransformPoints';
- // Same as MultPnt, but ignores the translation part
- procedure MultNormal(const m:TMat4;v:PVec4;num,step:integer); deprecated 'Use TMat4.TransformNormals';
-
- // Complete 3D transformation (with normalization)
- function TransformPoint(const m:TMat4;v:PVec3):TVec3; overload; deprecated 'Use TMat4.TransformPoint';
- function TransformPoint(const m:TMat4d;v:PVec3d):TVec3d; overload; deprecated 'Use TMat4d.TransformPoint';
-
- // Transpose (для ортонормированной матрицы - это будт обратная)
-
- // Calculate inverted matrix (for Orthogonal atrix only!)
-
- function Det(const m:TMat3d):double; overload; deprecated 'Use TMat3d.Determinant';
- function Det(const m:TMat3):single; overload; deprecated 'Use TMat3.Determinant';
- function Det(const m:TMat4d):double; overload; deprecated 'Use TMat4d.Determinant';
- function Det(const m:TMat4):single; overload; deprecated 'Use TMat4.Determinant';
-
- // Special
- // пересечение треугольника ABC с лучом OT
- // возвращает: pb,pc - выражение точки пересечения через вектора AB и AC (pb,pc>=0, pb+pc<=1)
- //             d - расстояние от точки пересечения до начала луча
 
 implementation
  uses Apus.Core, Apus.CPU, Apus.Types, SysUtils, Math;
+
+ type
+  // Internal aliases for absolute overlays in matrix decomposition
+  TMatrix3vd=array[0..2] of TVec3d;
+  TMatrix43vd=array[0..3] of TVec3d;
+  TMatrix3v=array[0..2] of TVec3;
+  TMatrix43v=array[0..3] of TVec3;
 
 procedure _YRPToMatrix(yaw,roll,pitch:double;m:PDouble;width:integer); forward;
 procedure _YRPToMatrixS(yaw,roll,pitch:single;m:PSingle;width:integer); forward;
@@ -506,6 +424,19 @@ procedure _YRPToMatrixS(yaw,roll,pitch:single;m:PSingle;width:integer); forward;
    result.x:=v.x;
    result.y:=v.y;
    result.z:=v.z;
+  end;
+
+ function Vec3(const from,target:TVec3):TVec3; overload; inline;
+  begin
+   result.x:=target.x-from.x;
+   result.y:=target.y-from.y;
+   result.z:=target.z-from.z;
+  end;
+
+ function Vec3Unit(const from,target:TVec3):TVec3; inline;
+  begin
+   result:=Vec3(from,target);
+   result.Normalize;
   end;
 
  function Vec3d(x,y,z:double):TVec3d; overload; inline;
@@ -686,22 +617,33 @@ begin
   move(m.v[2],result.v[2],sizeof(result.v[2]));
 end;
 
- function Matrix4(from:TMat34d):TMat4d;
+function TMat3.ToMat3d:TMat3d;
+var
+  i:integer;
+begin
+  for i:=0 to 2 do begin
+    result[i,0]:=v[i,0];
+    result[i,1]:=v[i,1];
+    result[i,2]:=v[i,2];
+  end;
+end;
+
+function Matrix4(from:TMat34d):TMat4d;
 begin
   result:=TMat4d.From(from);
 end;
 
- function ToMat4(from:TMat34):TMat4;
+function ToMat4(from:TMat34):TMat4;
 begin
   result:=from.ToMat4;
 end;
 
- function ToMat4(from:TMat4d):TMat4;
+function ToMat4(from:TMat4d):TMat4;
 begin
   result:=TMat4.From(from);
 end;
 
- function Matrix4(from:TMat4):TMat4d;
+function Matrix4(from:TMat4):TMat4d;
 begin
   result:=from.ToMat4d;
 end;
@@ -1188,7 +1130,7 @@ begin
     result.z:=result.z/t;
   end else
   if t<=0 then begin
-    result:=InvalidPoint3;
+    result:=InvalidVec3d;
   end;
 end;
 
@@ -1913,6 +1855,15 @@ end;
      dest[i,j]:=sour[i,j];
   end;
 
+ class function TMat34.From(const m:TMat34d):TMat34;
+  var
+   i,j:integer;
+  begin
+   for i:=0 to 3 do
+    for j:=0 to 2 do
+     result[i,j]:=m[i,j];
+  end;
+
 
  procedure MultPnt(const m:TMat4;v:PVec4;num,step:integer); overload;
   {$IFDEF CPUx64}
@@ -2094,7 +2045,7 @@ end;
     result.z:=result.z/t;
    end else
    if t<=0 then
-    result:=InvalidPoint3;
+    result:=InvalidVec3d;
   end;
 
  function TranslationMat(x,y,z:double):TMat34d;
@@ -2988,6 +2939,14 @@ begin
   w:=1;
 end;
 
+constructor TVec4.Init(v:TVec4d);
+begin
+  x:=v.x;
+  y:=v.y;
+  z:=v.z;
+  w:=v.w;
+end;
+
 function TVec4.ToVec3:TVec3;
 begin
   result.x:=x;
@@ -3208,6 +3167,14 @@ function TQuat.ToVec3:TVec3;
   result.x:=x;
   result.y:=y;
   result.z:=z;
+ end;
+
+function TQuat.ToQuatd:TQuatd;
+ begin
+  result.x:=x;
+  result.y:=y;
+  result.z:=z;
+  result.w:=w;
  end;
 
 function TQuat.IsValid:boolean;
