@@ -2722,9 +2722,7 @@ procedure TVec3d.Normalize;
  var
   l:double;
  begin
-  l:=Length;
-  ASSERT(l>Epsilon,'Normalize zero-length vector');
-  l:=1/l;
+  l:=1/Length;
   x:=x*l;
   y:=y*l;
   z:=z*l;
@@ -2821,9 +2819,7 @@ procedure TVec3.Normalize;
  var
   l:single;
  begin
-  l:=Length;
-  ASSERT(l>EpsilonS,'Normalize zero-length vector');
-  l:=1/l;
+  l:=1/Length;
   x:=x*l;
   y:=y*l;
   z:=z*l;

@@ -877,7 +877,6 @@ procedure TVec2d.Normalize;
   l:double;
  begin
   l:=Length;
-  ASSERT(l>Epsilon,'Normalize zero-length vector');
   x:=x/l;
   y:=y/l;
  end;
@@ -1002,7 +1001,6 @@ procedure TVec2.Normalize;
   l:single;
  begin
   l:=Length;
-  ASSERT(l>EpsilonS,'Normalize zero-length vector');
   x:=x/l;
   y:=y/l;
  end;
