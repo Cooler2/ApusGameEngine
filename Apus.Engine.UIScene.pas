@@ -849,7 +849,31 @@ begin
   result:=true;
 end;
 
+// update UI scale for all scenes on the current window after DPI change
+procedure OnDPIChanged(event:TEventStr;tag:TTag);
+ var
+  i:integer;
+  scene:TGameScene;
+ begin
+  if window=nil then exit;
+  window.Lock;
+  try
+   for i:=0 to high(window.scenes) do begin
+    scene:=window.scenes[i];
+    if scene is TUIScene then
+     with TUIScene(scene) do
+      if UI<>nil then begin
+       if fullscreen then UI.SetScale(defaultScale)
+        else UI.SetScale(windowScale);
+      end;
+   end;
+  finally
+   window.Unlock;
+  end;
+ end;
+
 initialization
+ SetEventHandler('ENGINE\DPICHANGED\DONE',OnDPIChanged,emInstant);
  RegisterRobotCommand('ui.tree',@RobotCmdUITree);
  RegisterRobotCommand('ui.element',@RobotCmdUIElement);
  RegisterRobotCommand('ui.hittest',@RobotCmdUIHitTest);

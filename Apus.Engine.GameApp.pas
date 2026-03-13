@@ -599,7 +599,13 @@ end;
 procedure EngineEventHandler(event:TEventStr;tag:TTag);
  begin
   if app=nil then exit;
-  if event='ENGINE\BEFORERESIZE' then app.onResize;
+  if event='ENGINE\BEFORERESIZE' then app.onResize
+  else if event='ENGINE\DPICHANGED\DONE' then begin
+   deviceDPI:=tag;
+   deviceScale:=deviceDPI/96;
+   app.SetupHighDPI;
+   app.SelectFonts;
+  end;
  end;
 
 procedure MouseEventHandler(event:TEventStr;tag:TTag);
@@ -748,11 +754,11 @@ procedure TGameApplication.SaveOptions;
  end;
 
 procedure TGameApplication.SelectFonts;
- begin
-  if msgMainFont=0 then msgMainFont:=txt.GetFont('Default',8.5);
-  if msgTitleFont=0 then msgTitleFont:=txt.GetFont('Default',11);
-  Signal('GAMEAPP\SelectFonts');
- end;
+  begin
+   msgMainFont:=txt.GetFont('Default',8.5);
+   msgTitleFont:=txt.GetFont('Default',11);
+   Signal('GAMEAPP\SelectFonts');
+  end;
 
 procedure TGameApplication.SetupGameSettings(var settings: TGameSettings);
 var

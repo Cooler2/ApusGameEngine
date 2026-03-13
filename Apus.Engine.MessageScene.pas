@@ -42,15 +42,18 @@ implementation
    x,y:integer;
   end;
 
- var
-  scene:TMessageScene;
-  queue:TObjectQueue;
-  curMsg:TQueuedMessage;
+var
+ scene:TMessageScene;
+ queue:TObjectQueue;
+ curMsg:TQueuedMessage;
+
+ procedure DPIChangedHandler(event:TEventStr;tag:TTag); forward;
 
  procedure InitMessageScene;
   begin
    queue.Init(64);
    scene:=TMessageScene.Create;
+   SetEventHandler('ENGINE\DPICHANGED\DONE',DPIChangedHandler,emInstant);
   end;
 
  procedure QueueMsg(msg,e1,e2:String8;mType,x,y:integer);
@@ -79,7 +82,7 @@ implementation
     scene.UpdateUI(msg,mType,x,y);
    // Show with transition effect.
    Log.Msg('ShowMessage: '+curMsg.msg);
-   TShowWindowEffect.Create(scene,200,sweShow,2);
+   TShowWindowEffect.Create(scene,200,sweShowModal,2);
   end;
 
  procedure ShowMessage(mes:String8;OkEvent:String8='';x:integer=0;y:integer=0);
@@ -128,6 +131,20 @@ implementation
    if close then begin
     TShowWindowEffect.Create(scene,150,sweHide,2);
     DelayedSignal('UI\Message\Next',200);
+   end;
+  end;
+
+ procedure DPIChangedHandler(event:TEventStr;tag:TTag);
+  begin
+   if scene=nil then exit;
+   if window=nil then exit;
+   window.Lock;
+   try
+    scene.wnd.font:=msgMainFont;
+    if (curMsg<>nil) and scene.IsActive then
+     scene.UpdateUI(curMsg.msg,curMsg.mType,curMsg.x,curMsg.y);
+   finally
+    window.Unlock;
    end;
   end;
 
