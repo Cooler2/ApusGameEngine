@@ -1,13 +1,13 @@
 // -----------------------------------------------------
 // Spatial primitives and intersection helpers
-// Author: Apus Engine contributors
+// Author: Ivan Polyacov (C) Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 // ------------------------------------------------------
 unit Apus.Spatial;
 
 interface
-
 uses
-  Math,
   Apus.Core,
   Apus.Geom3D;
 
@@ -154,7 +154,7 @@ end;
 function TBBox3.Center:TVec3;
 begin
   if IsEmpty then begin
-    exit(NullVec3);
+    exit(TVec3.Init(0,0,0));
   end;
   result:=TVec3.Init((minX+maxX)*0.5,(minY+maxY)*0.5,(minZ+maxZ)*0.5);
 end;
@@ -162,7 +162,7 @@ end;
 function TBBox3.Extents:TVec3;
 begin
   if IsEmpty then begin
-    exit(NullVec3);
+    exit(TVec3.Init(0,0,0));
   end;
   result:=TVec3.Init((maxX-minX)*0.5,(maxY-minY)*0.5,(maxZ-minZ)*0.5);
 end;
@@ -288,8 +288,8 @@ function TRay.IntersectsBox(const box:TBBox3;out tMin,tMax:single):boolean;
 var
   tx1, tx2, ty1, ty2, tz1, tz2, invD, tmp: single;
 begin
-  tMin:=-MaxSingle;
-  tMax:=MaxSingle;
+  tMin:=-MAX_FLOAT;
+  tMax:=MAX_FLOAT;
 
   if Abs(dir.x) <= SpatialEpsilon then begin
     if (origin.x < box.minX) or (origin.x > box.maxX) then begin
