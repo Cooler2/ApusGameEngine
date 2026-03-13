@@ -19,168 +19,196 @@ unit Apus.Geom3D;
 interface
 uses Apus.Geom2D;
 type
+  // 3D vector (double precision).
   TVec3d=packed record
-   x,y,z:double;
-   constructor Init(X,Y,Z:double); overload;
-   constructor Init(p0,p1:TVec3d;t:double); overload;
-   procedure Normalize;
-   function IsValid:boolean;
-   function IsZero:boolean; inline;
-   function IsEqual(const p:TVec3d;precision:single=2.0):boolean; inline;
-   function Length:double; inline;
-   function Length2:double; inline;
-   function Dot(const p:TVec3d):double; inline;
-   function Cross(const p:TVec3d):TVec3d; inline;
-   function Sub(const p:TVec3d):TVec3d; inline;
-   function Distance2(const p:TVec3d):double; inline;
-   function MaxDelta(const p:TVec3d):double; inline;
-   procedure Add(const p:TVec3d);
-   procedure Multiply(scalar:double);
+    x,y,z:double;
+    constructor Init(X,Y,Z:double); overload;
+    // Linear interpolation: p0*(1-t)+p1*t.
+    constructor Init(p0,p1:TVec3d;t:double); overload;
+    procedure Normalize;
+    function IsValid:boolean;
+    function IsZero:boolean; inline;
+    // Component-wise comparison with tolerance = Epsilon*precision.
+    function IsEqual(const p:TVec3d;precision:single=2.0):boolean; inline;
+    function Length:double; inline;
+    function Length2:double; inline;
+    function Dot(const p:TVec3d):double; inline;
+    function Cross(const p:TVec3d):TVec3d; inline;
+    function Sub(const p:TVec3d):TVec3d; inline;
+    // Squared Euclidean distance (no sqrt, faster than Distance).
+    function Distance2(const p:TVec3d):double; inline;
+    // Chebyshev distance: max(|dx|,|dy|,|dz|).
+    function MaxDelta(const p:TVec3d):double; inline;
+    procedure Add(const p:TVec3d);
+    procedure Multiply(scalar:double);
   end;
+
+  // Pointer to TVec3d (for bulk transforms).
   PVec3d=^TVec3d;
+
+  // 3D vector (single precision).
   TVec3=packed record
-   constructor Init(X,Y,Z:single); overload;
-   constructor Init(p:TVec3d); overload;
-   constructor Init(p0,p1:TVec3;t:single); overload;
-   constructor Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single); overload;
-   procedure Normalize;
-   function IsValid:boolean;
-   function IsZero:boolean; inline;
-   function IsIdentity:boolean; inline; // all components = 1
-   function IsEqual(const p:TVec3;precision:single=2.0):boolean; inline;
-   function Length:single;
-   function Length2:single;
-   function Dot(const p:TVec3):single; inline;
-   function Cross(const p:TVec3):TVec3; inline;
-   function Sub(const p:TVec3):TVec3; inline;
-   function Distance2(const p:TVec3):single; inline;
-   function MaxDelta(const p:TVec3):single; inline;
-   procedure Add(const p:TVec3);
-   procedure Multiply(scalar:single);
-   case integer of
-   0:( x,y,z:single; );
-   1:( v:array[0..2] of single; );
-   2:( xy:TVec2; t:single; );
+    constructor Init(X,Y,Z:single); overload;
+    constructor Init(p:TVec3d); overload;
+    // Linear interpolation: p0*(1-t)+p1*t.
+    constructor Init(p0,p1:TVec3;t:single); overload;
+    // Weighted sum: p0*weight0 + p1*weight1.
+    constructor Init(p0:TVec3;weight0:single;p1:TVec3;weight1:single); overload;
+    procedure Normalize;
+    function IsValid:boolean;
+    function IsZero:boolean; inline;
+    function IsIdentity:boolean; inline; // all components = 1
+    // Component-wise comparison with tolerance = Epsilon*precision.
+    function IsEqual(const p:TVec3;precision:single=2.0):boolean; inline;
+    function Length:single;
+    function Length2:single;
+    function Dot(const p:TVec3):single; inline;
+    function Cross(const p:TVec3):TVec3; inline;
+    function Sub(const p:TVec3):TVec3; inline;
+    // Squared Euclidean distance (no sqrt, faster than Distance).
+    function Distance2(const p:TVec3):single; inline;
+    // Chebyshev distance: max(|dx|,|dy|,|dz|).
+    function MaxDelta(const p:TVec3):single; inline;
+    procedure Add(const p:TVec3);
+    procedure Multiply(scalar:single);
+    case integer of
+    0:( x,y,z:single; );
+    1:( v:array[0..2] of single; );
+    2:( xy:TVec2; t:single; );
   end;
+  // Pointer to TVec3 (for bulk transforms).
   PVec3=^TVec3;
+  // Dynamic array of TVec3.
   TVec3Array=array of TVec3;
 
+  // 4D vector (double precision), often used for homogeneous coordinates.
   TVec4d=record
-   constructor Init(x,y,z,w:double); overload;
-   constructor Init(vec3:TVec3d); overload;
-   function ToVec3d:TVec3d; inline;
-   procedure Add(const p:TVec4d); overload;
-   procedure Add(const p:TVec4d;scale:double); overload;
-   procedure Mul(scalar:double);
-   procedure Normalize;
-   function Dot(const p:TVec4d):double;
-   function Length:double; inline;
-   function Length2:double; inline;
-   function IsValid:boolean;
-   function IsEqual(const p:TVec4d;precision:single=2.0):boolean; inline;
-   case integer of
-    1:( x,y,z,w:double; );
-    2:( v:array[0..3] of double; );
-    3:( xyz:TVec3d; t:double; );
+    constructor Init(x,y,z,w:double); overload;
+    constructor Init(vec3:TVec3d); overload;
+    function ToVec3d:TVec3d; inline;
+    procedure Add(const p:TVec4d); overload;
+    procedure Add(const p:TVec4d;scale:double); overload;
+    procedure Mul(scalar:double);
+    procedure Normalize;
+    function Dot(const p:TVec4d):double;
+    function Length:double; inline;
+    function Length2:double; inline;
+    function IsValid:boolean;
+    // Component-wise comparison with tolerance = Epsilon*precision.
+    function IsEqual(const p:TVec4d;precision:single=2.0):boolean; inline;
+    case integer of
+     1:( x,y,z,w:double; );
+     2:( v:array[0..3] of double; );
+     3:( xyz:TVec3d; t:double; );
   end;
 
+  // 4D vector (single precision), often used for homogeneous coordinates.
   TVec4=record
-   constructor Init(x,y,z,w:single); overload;
-   constructor Init(vec3:TVec3); overload;
-   constructor Init(v:TVec4d); overload; // double to single
-   function ToVec3:TVec3; inline;
-   procedure Add(const p:TVec4); overload;
-   procedure Add(const p:TVec4;scale:single); overload;
-   procedure Mul(scalar:single);
-   procedure Normalize;
-   function Dot(const p:TVec4):single;
-   function Length:single; inline;
-   function Length2:single; inline;
-   function IsValid:boolean;
-   function IsEqual(const p:TVec4;precision:single=2.0):boolean; inline;
-   case integer of
-    1:( x,y,z,w:single; );
-    2:( v:array[0..3] of single; );
-    3:( xyz:TVec3; t:single; );
+    constructor Init(x,y,z,w:single); overload;
+    constructor Init(vec3:TVec3); overload;
+    constructor Init(v:TVec4d); overload; // double to single
+    function ToVec3:TVec3; inline;
+    procedure Add(const p:TVec4); overload;
+    procedure Add(const p:TVec4;scale:single); overload;
+    procedure Mul(scalar:single);
+    procedure Normalize;
+    function Dot(const p:TVec4):single;
+    function Length:single; inline;
+    function Length2:single; inline;
+    function IsValid:boolean;
+    // Component-wise comparison with tolerance = Epsilon*precision.
+    function IsEqual(const p:TVec4;precision:single=2.0):boolean; inline;
+    case integer of
+     1:( x,y,z,w:single; );
+     2:( v:array[0..3] of single; );
+     3:( xyz:TVec3; t:single; );
   end;
 
+  // Quaternion (double precision): xyz=vector part, w=scalar part.
   TQuatd=record
-   constructor Init(x,y,z,w:double); overload;
-   constructor Init(vec3:TVec3d); overload;
-   function ToVec3d:TVec3d; inline;
-   class operator Implicit(a:TQuatd):TVec4d;
-   class operator Implicit(a:TVec4d):TQuatd;
-   procedure Add(const q:TQuatd); overload;
-   procedure Add(const q:TQuatd;scale:double); overload;
-   procedure Mul(scalar:double); overload;
-   procedure Mul(const q:TQuatd); overload;
-   procedure Invert;
-   function Inverted:TQuatd;
-   class operator Multiply(const a,b:TQuatd):TQuatd;
-   function Dot(const q:TQuatd):double;
-   function Length:double;
-   function Length2:double;
-   procedure Normalize;
-   function IsValid:boolean;
-   function IsEqual(const q:TQuatd;precision:single=2.0):boolean; inline;
-   case integer of
-    1:( x,y,z,w:double; );
-    2:( v:array[0..3] of double; );
-    3:( xyz:TVec3d; t:double; );
+    constructor Init(x,y,z,w:double); overload;
+    constructor Init(vec3:TVec3d); overload;
+    function ToVec3d:TVec3d; inline;
+    class operator Implicit(a:TQuatd):TVec4d;
+    class operator Implicit(a:TVec4d):TQuatd;
+    procedure Add(const q:TQuatd); overload;
+    procedure Add(const q:TQuatd;scale:double); overload;
+    procedure Mul(scalar:double); overload;
+    procedure Mul(const q:TQuatd); overload;
+    procedure Invert;
+    function Inverted:TQuatd;
+    class operator Multiply(const a,b:TQuatd):TQuatd;
+    function Dot(const q:TQuatd):double;
+    function Length:double;
+    function Length2:double;
+    procedure Normalize;
+    function IsValid:boolean;
+    // Component-wise comparison with tolerance = Epsilon*precision.
+    function IsEqual(const q:TQuatd;precision:single=2.0):boolean; inline;
+    case integer of
+     1:( x,y,z,w:double; );
+     2:( v:array[0..3] of double; );
+     3:( xyz:TVec3d; t:double; );
   end;
 
+  // Quaternion (single precision): xyz=vector part, w=scalar part.
   TQuat=record
-   constructor Init(x,y,z,w:single); overload;
-   constructor Init(vec3:TVec3); overload;
-   constructor Init(q:TQuatd); overload; // double to single
-   function ToVec3:TVec3; inline;
-   function ToQuatd:TQuatd; // single to double
-   class operator Implicit(a:TQuat):TVec4;
-   class operator Implicit(a:TVec4):TQuat;
-   procedure Assign(const q:TQuat);
-   procedure Add(const q:TQuat); overload;
-   procedure Add(const q:TQuat;scale:single); overload;
-   procedure Middle(const q:TQuat;weight:single); // interpolate between self and q
-   procedure Sub(const q:TQuat);
-   procedure Mul(scalar:single); overload;
-   procedure Mul(const q:TQuat); overload;
-   procedure Invert;
-   function Inverted:TQuat;
-   class operator Multiply(const a,b:TQuat):TQuat;
-   class function Slerp(const q1,q2:TQuat;factor:single):TQuat; static;
-   function Dot(const q:TQuat):single;
-   function Length:single;
-   function Length2:single; // Square length
-   procedure Normalize;
-   function IsValid:boolean;
-   case integer of
-    1:( x,y,z,w:single; );
-    2:( v:array[0..3] of single; );
-    3:( xyz:TVec3; t:single; );
+    constructor Init(x,y,z,w:single); overload;
+    constructor Init(vec3:TVec3); overload;
+    constructor Init(q:TQuatd); overload; // double to single
+    function ToVec3:TVec3; inline;
+    function ToQuatd:TQuatd; // single to double
+    class operator Implicit(a:TQuat):TVec4;
+    class operator Implicit(a:TVec4):TQuat;
+    procedure Assign(const q:TQuat);
+    procedure Add(const q:TQuat); overload;
+    procedure Add(const q:TQuat;scale:single); overload;
+    // Linear interpolation between self and q.
+    procedure Middle(const q:TQuat;weight:single);
+    procedure Sub(const q:TQuat);
+    procedure Mul(scalar:single); overload;
+    procedure Mul(const q:TQuat); overload;
+    procedure Invert;
+    function Inverted:TQuat;
+    class operator Multiply(const a,b:TQuat):TQuat;
+    // Spherical interpolation between q1 and q2, factor in [0..1].
+    class function Slerp(const q1,q2:TQuat;factor:single):TQuat; static;
+    function Dot(const q:TQuat):single;
+    function Length:single;
+    function Length2:single; // Square length
+    procedure Normalize;
+    function IsValid:boolean;
+    case integer of
+     1:( x,y,z,w:single; );
+     2:( v:array[0..3] of single; );
+     3:( xyz:TVec3; t:single; );
   end;
 
+  // Pointer to TVec4 (for bulk transforms).
   PVec4=^TVec4;
 
   // Infinite plane in 3D space
   TPlane=packed record
-   a,b,c,d:double;
-   class function Init(const point,normal:TVec3d):TPlane; static;
-   function DistanceTo(const pnt:TVec3d):double; overload; inline;
-   function DistanceTo(const pnt:TVec3):single; overload; inline;
+    a,b,c,d:double;
+    class function Init(const point,normal:TVec3d):TPlane; static;
+    function DistanceTo(const pnt:TVec3d):double; overload; inline;
+    function DistanceTo(const pnt:TVec3):single; overload; inline;
   end;
 
   // --- Transformation matrices ---
 
-  // 3x3 rotation/scale (double)
+  // 3x3 linear transform (double): rotation/scale/shear, no translation.
   TMat3d=record
-   private
+  private
     function GetItem(i,j:integer):double; inline;
     procedure SetItem(i,j:integer;value:double); inline;
-   public
+  public
     function Row(n:integer):TVec3d; inline;
     function Col(n:integer):TVec3d; inline;
+    // Axis-angle rotation matrix (axis is expected normalized).
     class function RotationAroundAxis(const v:TVec3d;angle:double):TMat3d; static;
     function Determinant:double;
+    // In-place transform for strided array of vectors/points.
     procedure TransformPoints(v:PVec3d;num,step:integer);
     class operator Multiply(const a,b:TMat3d):TMat3d;
     class function FromQuaternion(const q:TQuatd):TMat3d; static;
@@ -188,6 +216,7 @@ type
     procedure Transpose;
     function Transposed:TMat3d;
     procedure Invert;
+    // Element-wise comparison with tolerance = Epsilon*precision.
     function IsEqual(const m:TMat3d;precision:single=4.0):boolean;
     property Items[i,j:integer]:double read GetItem write SetItem; default;
     case integer of
@@ -195,7 +224,7 @@ type
     1:(rows:array[0..2] of TVec3d);
   end;
 
-  // 4x3 rotation/scale/translation (double)
+  // 4x3 affine transform (double): 3x3 basis + translation row.
   TMat34d=record
    private
     function GetItem(i,j:integer):double; inline;
@@ -208,14 +237,18 @@ type
     class function RotationY(angle:double):TMat34d; static;
     class function RotationZ(angle:double):TMat34d; static;
     class function Scale(scaleX,scaleY,scaleZ:double):TMat34d; static;
+    // Build rotation matrix from yaw(Z), roll(Y), pitch(X).
     class function FromYRP(yaw,roll,pitch:double):TMat34d; static;
+    // Extract yaw(Z), roll(Y), pitch(X); robust for non-ideal orthogonality.
     procedure ToYRP(out yaw,roll,pitch:double);
+    // In-place affine transform for strided array of points.
     procedure TransformPoints(v:PVec3d;num,step:integer);
     class operator Multiply(const a,b:TMat34d):TMat34d;
     procedure Transpose;
     function Transposed:TMat34d;
     procedure Invert;
     function IsIdentity:boolean;
+    // Element-wise comparison with tolerance = Epsilon*precision.
     function IsEqual(const m:TMat34d;precision:single=4.0):boolean;
     property Items[i,j:integer]:double read GetItem write SetItem; default;
     case integer of
@@ -223,7 +256,7 @@ type
     1:(rows:array[0..3] of TVec3d);
   end;
 
-  // 4x4 full transform (double)
+  // 4x4 transform matrix (double), supports affine and projection transforms.
   TMat4d=record
    private
     function GetItem(i,j:integer):double; inline;
@@ -235,13 +268,16 @@ type
     function Col(n:integer):TVec4d; inline;
     class function Translation(x,y,z:double):TMat4d; static;
     function Determinant:double;
+    // Decompose into translation/rotation/scale (scale returned in xyz; w is auxiliary).
     procedure Decompose(out translation,rotation,scale:TQuatd);
+    // Transform point with homogeneous divide; may return InvalidVec3d for t<=0.
     function TransformPoint(const v:TVec3d):TVec3d;
     class operator Multiply(const a,b:TMat4d):TMat4d;
     procedure Transpose;
     function Transposed:TMat4d;
     procedure Invert;
     function Inverted:TMat4d;
+    // Element-wise comparison with tolerance = Epsilon*precision.
     function IsEqual(const m:TMat4d;precision:single=4.0):boolean;
     property Items[i,j:integer]:double read GetItem write SetItem; default;
     case integer of
@@ -249,10 +285,10 @@ type
     1:(rows:array[0..3] of TVec4d);
   end;
 
-  // Single-precision matrices
+  // Pointer to TMat4 (for low-level/bulk operations).
   PMat4=^TMat4;
 
-  // 4x4 full transform (single)
+  // 4x4 transform matrix (single), supports affine and projection transforms.
   TMat4=record
    private
     function GetItem(i,j:integer):single; inline;
@@ -267,12 +303,16 @@ type
     class function RotationY(angle:single):TMat4; static;
     class function RotationZ(angle:single):TMat4; static;
     class function Scale(scaleX,scaleY,scaleZ:single):TMat4; static;
+    // Build rotation matrix from yaw(Z), roll(Y), pitch(X).
     class function FromYRP(yaw,roll,pitch:double):TMat4; static;
     function Determinant:single;
+    // Decompose into translation/rotation/scale (scale returned in xyz; w is auxiliary).
     procedure Decompose(out translation,rotation,scale:TQuat);
     procedure Transform(var v:TVec4);
     procedure TransformPoints(v:PVec4;num,step:integer);
+    // Transform directions/normals (translation is ignored).
     procedure TransformNormals(v:PVec4;num,step:integer);
+    // Transform point with homogeneous divide; may return InvalidVec3 for t<=0.
     function TransformPoint(const v:TVec3):TVec3;
     class operator Multiply(const a,b:TMat4):TMat4;
     class function FromQuaternion(const q:TQuat):TMat4; static;
@@ -280,6 +320,7 @@ type
     function Transposed:TMat4;
     procedure Invert;
     function Inverted:TMat4;
+    // Element-wise comparison with tolerance = Epsilon*precision.
     function IsEqual(const m:TMat4;precision:single=4.0):boolean;
     property Items[i,j:integer]:single read GetItem write SetItem; default;
     case integer of
@@ -287,8 +328,9 @@ type
     1:(rows:array[0..3] of TVec4);
   end;
 
-  // Single-precision matrices
+  // Pointer to TMat3 (for low-level/bulk operations).
   PMat3=^TMat3;
+  // 3x3 linear transform (single): rotation/scale/shear, no translation.
   TMat3=packed record
    private
     function GetItem(i,j:integer):single; inline;
@@ -303,8 +345,10 @@ type
     class function RotationX(angle:single):TMat3; static;
     class function RotationY(angle:single):TMat3; static;
     class function RotationZ(angle:single):TMat3; static;
+    // Axis-angle rotation matrix (axis is expected normalized).
     class function RotationAroundAxis(const v:TVec3;angle:single):TMat3; static;
     function Determinant:single;
+    // In-place transform for strided array of vectors/points.
     procedure TransformPoints(v:PVec3;num,step:integer);
     class operator Multiply(const a,b:TMat3):TMat3;
     class function FromQuaternion(const q:TQuat):TMat3; static;
@@ -312,6 +356,7 @@ type
     procedure Transpose;
     function Transposed:TMat3;
     procedure Invert;
+    // Element-wise comparison with tolerance = Epsilon*precision.
     function IsEqual(const m:TMat3;precision:single=4.0):boolean;
     property Items[i,j:integer]:single read GetItem write SetItem; default;
     case integer of
@@ -319,9 +364,10 @@ type
     1:(rows:array[0..2] of TVec3);
   end;
 
+  // Pointer to TMat34 (for low-level/bulk operations).
   PMat34=^TMat34;
 
-  // 4x3 rotation/scale/translation (single)
+  // 4x3 affine transform (single): 3x3 basis + translation row.
   TMat34=packed record
    private
     function GetItem(i,j:integer):single; inline;
@@ -330,7 +376,9 @@ type
     class function From(const m:TMat34d):TMat34; static; // double to single
     function Row(n:integer):TVec3; inline;
     function Col(n:integer):TVec3; inline;
+    // Build rotation matrix from yaw(Z), roll(Y), pitch(X).
     class function FromYRP(yaw,roll,pitch:double):TMat34; static;
+    // In-place affine transform for strided array of points.
     procedure TransformPoints(v:PVec3;num,step:integer);
     class operator Multiply(const a,b:TMat34):TMat34;
     procedure Transpose;
@@ -338,6 +386,7 @@ type
     procedure Invert;
     function ToMat4:TMat4;
     function IsIdentity:boolean;
+    // Element-wise comparison with tolerance = Epsilon*precision.
     function IsEqual(const m:TMat34;precision:single=4.0):boolean;
     property Items[i,j:integer]:single read GetItem write SetItem; default;
     case integer of
@@ -360,30 +409,30 @@ const
   invalidVec3d:TVec3d = (x:NaN;y:NaN;z:NaN);
   invalidVec3:TVec3   = (x:NaN;y:NaN;z:NaN);
 
- // --- Vector/quaternion factories ---
- function Vec3(x,y,z:single):TVec3; overload; inline;
- function Vec3(v:TVec3d):TVec3; overload; inline; // double to single
- function Vec3(v:TVec4):TVec3; overload; inline; // extract xyz
- function Vec3(const from,target:TVec3):TVec3; overload; inline; // direction vector (target-from)
- function Vec3Unit(const from,target:TVec3):TVec3; inline; // normalized direction
- function Vec3d(x,y,z:double):TVec3d; overload; inline;
- function Vec3d(v:TVec3):TVec3d; overload; inline; // single to double
- function Vec3d(v:TQuatd):TVec3d; overload; inline; // extract xyz
- function Vec3d(v:TVec4d):TVec3d; overload; inline; // extract xyz
- function Vec4(x,y,z,w:single):TVec4; overload; inline;
- function Vec4(v:TVec3;w:single=1):TVec4; overload; inline;
- function Vec4(v:TVec4d):TVec4; overload; inline;
- function Vec4d(x,y,z,w:double):TVec4d; overload; inline;
- function Vec4d(v:TVec3d;w:double=1):TVec4d; overload; inline;
- function Vec4d(v:TVec4):TVec4d; overload; inline;
- function Quat(x,y,z,w:single):TQuat; overload; inline;
- function Quatd(x,y,z,w:double):TQuatd; overload; inline;
- // --- Scalar comparison ---
- function IsEqual(d1,d2:double):boolean; overload; inline;
- function IsEqual(s1,s2:single):boolean; overload; inline;
- // Low-level array comparison (used internally by IsEqual methods)
- function CompareSingle(s1,s2:PSingle;count:integer;precision:single=1.0):boolean;
- function CompareDouble(s1,s2:PDouble;count:integer;precision:single=1.0):boolean;
+  // --- Vector/quaternion factories ---
+  function Vec3(x,y,z:single):TVec3; overload; inline;
+  function Vec3(v:TVec3d):TVec3; overload; inline; // double to single
+  function Vec3(v:TVec4):TVec3; overload; inline; // extract xyz
+  function Vec3(const from,target:TVec3):TVec3; overload; inline; // direction vector (target-from)
+  function Vec3Unit(const from,target:TVec3):TVec3; inline; // normalized direction
+  function Vec3d(x,y,z:double):TVec3d; overload; inline;
+  function Vec3d(v:TVec3):TVec3d; overload; inline; // single to double
+  function Vec3d(v:TQuatd):TVec3d; overload; inline; // extract xyz
+  function Vec3d(v:TVec4d):TVec3d; overload; inline; // extract xyz
+  function Vec4(x,y,z,w:single):TVec4; overload; inline;
+  function Vec4(v:TVec3;w:single=1):TVec4; overload; inline;
+  function Vec4(v:TVec4d):TVec4; overload; inline;
+  function Vec4d(x,y,z,w:double):TVec4d; overload; inline;
+  function Vec4d(v:TVec3d;w:double=1):TVec4d; overload; inline;
+  function Vec4d(v:TVec4):TVec4d; overload; inline;
+  function Quat(x,y,z,w:single):TQuat; overload; inline;
+  function Quatd(x,y,z,w:double):TQuatd; overload; inline;
+  // --- Scalar comparison ---
+  function IsEqual(d1,d2:double):boolean; overload; inline;
+  function IsEqual(s1,s2:single):boolean; overload; inline;
+  // Low-level array comparison (used internally by IsEqual methods)
+  function CompareSingle(s1,s2:PSingle;count:integer;precision:single=1.0):boolean;
+  function CompareDouble(s1,s2:PDouble;count:integer;precision:single=1.0):boolean;
 
 
 implementation
@@ -406,7 +455,7 @@ procedure _TransformVec3PointsByMat34(const m:TMat34;v:PVec3;num,step:integer); 
 procedure _TransformVec3dPointsByMat3d(const m:TMat3d;v:PVec3d;num,step:integer); overload; forward;
 procedure _TransformVec3PointsByMat3(const m:TMat3;v:PVec3;num,step:integer); overload; forward;
 
- const
+const
   vec0001s:TVec4=(x:0; y:0; z:0; w:1);
 
   // Stack-bias correction used by inline x64 ASM when saving/restoring XMM registers.
