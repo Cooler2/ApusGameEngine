@@ -853,6 +853,89 @@ begin
   result:=true;
 end;
 
+function RobotCmdWindowMove(const req:TRobotRequest; out body:String8):boolean;
+ var
+  g:TGame;
+  x,y,w,h:integer;
+  sx,sy:String8;
+  p:TPoint;
+ begin
+  g:=game as TGame;
+  if g=nil then begin body:='game not initialized'; exit(false) end;
+  sx:=req.Param('X');
+  sy:=req.Param('Y');
+  if (sx='') or (sy='') then begin
+   body:='X and Y parameters required';
+   exit(false);
+  end;
+  x:=Conv.ToInt(sx);
+  y:=Conv.ToInt(sy);
+  w:=Conv.ToInt(req.Param('W'));
+  h:=Conv.ToInt(req.Param('H'));
+  if ((w>0) xor (h>0)) then begin
+   body:='W and H should be both specified or both omitted';
+   exit(false);
+  end;
+  window.MoveTo(x,y,w,h);
+  window.ProcessMessages;
+  window.GetSize(window.windowWidth,window.windowHeight);
+  g.SetupRenderArea;
+  p:=Point(0,0);
+  window.ClientToScreen(p);
+  body:='x: '+Conv.ToStr(p.x)+#13#10+
+    'y: '+Conv.ToStr(p.y)+#13#10+
+    'windowWidth: '+Conv.ToStr(window.windowWidth)+#13#10+
+    'windowHeight: '+Conv.ToStr(window.windowHeight)+#13#10+
+    'renderWidth: '+Conv.ToStr(window.renderWidth)+#13#10+
+    'renderHeight: '+Conv.ToStr(window.renderHeight)+#13#10;
+  result:=true;
+ end;
+
+function RobotCmdWindowResize(const req:TRobotRequest; out body:String8):boolean;
+ var
+  g:TGame;
+  x,y,w,h:integer;
+  sx,sy:String8;
+  p:TPoint;
+ begin
+  g:=game as TGame;
+  if g=nil then begin body:='game not initialized'; exit(false) end;
+  w:=Conv.ToInt(req.Param('W'));
+  h:=Conv.ToInt(req.Param('H'));
+  if (w<=0) or (h<=0) then begin
+   body:='W and H parameters should be >0';
+   exit(false);
+  end;
+  sx:=req.Param('X');
+  sy:=req.Param('Y');
+  if (sx='') and (sy='') then begin
+   p:=Point(0,0);
+   window.ClientToScreen(p);
+   x:=p.x;
+   y:=p.y;
+  end else begin
+   if (sx='') or (sy='') then begin
+    body:='X and Y should be both specified or both omitted';
+    exit(false);
+   end;
+   x:=Conv.ToInt(sx);
+   y:=Conv.ToInt(sy);
+  end;
+  window.MoveTo(x,y,w,h);
+  window.ProcessMessages;
+  window.GetSize(window.windowWidth,window.windowHeight);
+  g.SetupRenderArea;
+  p:=Point(0,0);
+  window.ClientToScreen(p);
+  body:='x: '+Conv.ToStr(p.x)+#13#10+
+    'y: '+Conv.ToStr(p.y)+#13#10+
+    'windowWidth: '+Conv.ToStr(window.windowWidth)+#13#10+
+    'windowHeight: '+Conv.ToStr(window.windowHeight)+#13#10+
+    'renderWidth: '+Conv.ToStr(window.renderWidth)+#13#10+
+    'renderHeight: '+Conv.ToStr(window.renderHeight)+#13#10;
+  result:=true;
+ end;
+
 function RobotCmdFps(const req:TRobotRequest; out body:String8):boolean;
 var
   g:TGame;
@@ -1011,6 +1094,8 @@ end;
 procedure RegisterGameRobotCommands;
 begin
   RegisterRobotCommand('windows',@RobotCmdWindows);
+  RegisterRobotCommand('window.move',@RobotCmdWindowMove);
+  RegisterRobotCommand('window.resize',@RobotCmdWindowResize);
   RegisterRobotCommand('fps',@RobotCmdFps);
   RegisterRobotCommand('scenes',@RobotCmdScenes);
   RegisterRobotCommand('screenshot',@RobotCmdScreenshot);
