@@ -1,5 +1,5 @@
 ﻿# Engine5 Feature Roadmap
-Last updated: 2026-03-12
+Last updated: 2026-03-14
 
 Language policy: this roadmap is maintained in English.
 
@@ -18,12 +18,12 @@ This file follows top-down planning:
 | ID | Feature | Status | Readiness | Done | Remaining |
 |----|---------|--------|-----------|------|-----------|
 | R-01 | Core GL Pipeline Modernization | done | 100% | Core profile, VBO/IBO pipeline, NSight debugging validated | — |
-| R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~65% | Shared GL context, secondary window render confirmed, scene lifecycle refactored, AddWindow API | Multi-monitor placement, runtime DPI-change scaling |
+| R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~70% | Shared GL context, secondary window render confirmed, scene lifecycle refactored, AddWindow API, runtime DPI update flow improved | Multi-monitor placement, final runtime DPI-change validation |
 | R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | Direction fixed: OBJ + AEM only; no FBX/DAE converter; R-03 planning doc created | Freeze AEM v1 spec, align runtime loader, implement Blender exporter MVP |
 | R-04 | Robot Interaction Layer | done | 100% | File-based protocol, all commands, FPS telemetry, UI diagnostics | — |
 | R-05 | CSS-Like UI Style System | planned | ~25% | Prototype exists in codebase, architecture decisions captured, style syntax draft v0.1 documented | Resolver implementation, transitions runtime, widget migration from legacy visual fields |
 | R-06 | 3D Material: Normal Mapping | idea | 0% | — | Shader path, tangent/bitangent handling, asset pipeline |
-| R-07 | Geometry Overhaul (Single-First + Spatial) | planned | ~15% | Detailed architecture/implementation plan captured (types, module split, staged rollout) | Stage 1 foundation in Geom2D/Geom3D, new Apus.Spatial module, engine adoption, profiling-driven SSE pass |
+| R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~85% | Working state reached and merged into `engine5`; core geometry/spatial rollout baseline is active | Linux fixes/validation, benchmark pass, SSE optimization of top hot paths, bugfix+tests loop, remaining module migration (including SDL paths) |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | idea | 0% | — | Performance-safe hit-test algorithm, traversal strategy |
 | R-09 | GL Performance Modernization | idea | 0% | — | Bind-call reduction, explicit batch paths, persistent mapping |
 | R-10 | UI Widget System Refactor | planned | ~25% | Decomposition options researched (2 reports), styling direction agreed | TUIElement decomposition implementation, widget class reorganization |
@@ -77,6 +77,8 @@ Goal: a modern and stable UI subsystem.
 - [ ] G1. Core widgets with consistent behavior
 - [ ] G2. Layout engine (adaptive behavior, alignment, spacing)
 - [ ] G3. Testability of UI logic and events
+- [ ] G4. Widget construction pattern: minimal constructor + `.Setup(...)` + chainable base setters
+- [ ] G5. Font handles as threadvar for multi-window scale independence
 
 ### H. Graphics / Render
 Goal: a robust 2D/3D render pipeline.
@@ -213,6 +215,21 @@ Use this section for anything remembered on the fly.
     - if multiple GPUs are present, one GPU is considered primary and all rendering is executed on it;
     - multi-window path assumes shared context support, therefore resource duplication between windows is not required;
     - symmetrical multi-GPU collaborative rendering is out of native Engine5 scope.
+  - 2026-03-14: runtime DPI-change fixes (current branch):
+    - added lock-protected UI scale refresh in `UIScene` for `ENGINE\DPICHANGED\DONE`;
+    - `GameApp` now re-applies high-DPI setup and reselects message fonts on DPI change;
+    - `MessageScene` now reacts to DPI change by relayout of active dialog;
+    - modal behavior restored for message boxes (`sweShowModal`), preventing interaction with underlying UI during modal display.
+  - 2026-03-14: explicit follow-up scope added:
+    - ensure **all engine-owned service scenes** (not only `MessageScene`) are fully scale-compliant;
+    - required compliance domains: runtime DPI change and user UI scale;
+    - normalize scene UI metrics/layout to scale-driven behavior and remove fixed-pixel assumptions where needed.
+  - 2026-03-14: font handle architecture decision:
+    - font handles for direct drawing stored as **threadvar** (each window thread has own set);
+    - `game.SelectFonts(scale)` called from window thread on scale change → recalculates threadvar handles;
+    - cross-thread font access intentionally unsupported (fail-fast via zero threadvar);
+    - UI elements will NOT store font handles — fonts resolved by style system (see R-05).
+  - 2026-03-14: `game.userScale` is global (not per-window); `actualScale = dpiScale * userScale`.
 
 ### [R-03] Native AEM Pipeline + Blender Export
 - Status: planned
@@ -285,33 +302,38 @@ Use this section for anything remembered on the fly.
 - Notes: design should keep compatibility with existing assets and allow gradual adoption.
 
 ### [R-07] Geometry Library Overhaul (Single-First + Spatial Primitives)
-- Status: planned
+- Status: in-progress
 - Priority: P1
 - Area: Core
 - Value: Make single-precision the default for game math; add spatial primitives and intersection/culling tests (DirectXMath-level coverage).
 - Scope (MVP):
-  - Stage 1: introduce `TVec2/TVec3/TVec4/TMat4` as single-precision primary types in Geom2D/Geom3D, with backward-compat aliases for existing types.
-  - Stage 2: new `Apus.Geom.Spatial` module — TRay, TSphere, TAABB, TCapsule, TFrustum + intersection/distance functions.
-  - Stage 3: engine adoption (frustum culling in render, TAABB in mesh/model code).
-  - Stage 4: SSE optimization pass for hot paths (Vec4 ops, Mat4 multiply, frustum tests).
+  - Milestone A (done): geometry/spatial baseline brought to working state and merged into `engine5`.
+  - Milestone B (post-merge hardening): Linux compatibility fixes and verification.
+  - Milestone C (post-merge performance): benchmark pass + prioritized SSE optimization for highest-impact hot paths.
+  - Milestone D (post-merge support): continuous bugfix + test expansion loop.
+  - Milestone E (adjacent cleanup): continue migration of remaining not-yet-migrated modules, including SDL-related paths.
 - Out of scope: full broadphase physics engine or BVH/scene-graph; OBB and sweep tests (deferred to follow-up).
 - Dependencies: `Base/Apus.Geom2D.pas`, `Base/Apus.Geom3D.pas`, render/scene modules for adoption.
 - Risks: TVec3 12B vs 16B layout decision; breaking existing vertex layouts if aliased wrong; FPC vs Delphi ASM differences.
 - Acceptance Criteria:
-  - [ ] TVec2/TVec3/TVec4/TMat4 types defined with single precision, backward-compat aliases work.
-  - [ ] SSE implementations for TVec4 and TMat4 core operations (with Pascal fallback).
-  - [ ] Spatial module with TRay, TSphere, TAABB, TCapsule, TFrustum types.
-  - [ ] Ray-plane, ray-sphere, ray-AABB, ray-triangle intersection tests.
-  - [ ] Frustum-point, frustum-sphere, frustum-AABB culling tests.
-  - [ ] Sphere-sphere, sphere-AABB, capsule-sphere, AABB-AABB intersection tests.
-  - [ ] Distance/closest-point functions for key primitive pairs.
-  - [ ] Tests cover hit/miss/edge/degenerate cases for every function.
-  - [ ] At least one engine-side usage path adopts the new API.
+  - [x] R-07 baseline is working and merged into `engine5`.
+  - [ ] Linux behavior is fixed and validated in target paths.
+  - [ ] Benchmarks are executed and baseline deltas are recorded.
+  - [ ] Highest-impact functions receive SSE optimization (with pure Pascal fallback where required).
+  - [ ] New/updated tests are added for discovered bugs during support work.
+  - [ ] Remaining not-yet-migrated modules (including SDL-related paths) are migrated to the current foundation APIs.
 - Notes:
   - Detailed plan: `reports/R-07_geometry_library_plan.md`
   - TVec3 = 12B (storage-compatible), TVec4 = 16B (SSE computation) — DirectXMath model.
   - Keep API ergonomic for both gameplay queries and render-side visibility checks.
   - 2026-03-11: implementation plan finalized in `reports/R-07_geometry_library_plan.md` (stages, type-size constraints, methods-first API, `Apus.Spatial` extraction).
+  - 2026-03-13: R-07 reached working state and was merged into `engine5`.
+  - 2026-03-13: post-merge track defined:
+    - Linux behavior fixes and verification;
+    - benchmark runs and baseline updates;
+    - SSE optimization for highest-impact functions (with pure Pascal fallback where needed);
+    - bugfixes on discovery with immediate test additions;
+    - continue migration of remaining not-yet-migrated modules (including SDL-related paths).
 
 ### [R-08] UI Hit-Test for Out-of-Bounds Children (Performance-Safe)
 - Status: idea
@@ -393,6 +415,12 @@ Use this section for anything remembered on the fly.
     - `style` write path should call external style service (or drawer) to parse/update internal drawable state.
   - Open design question to close in R-10:
     - style syntax policy: fully shared grammar for all drawers vs shared base grammar + drawer-specific extensions.
+  - 2026-03-14: widget construction pattern decided:
+    - minimal constructor: `Create(width, height, parent, name)` — name stays mandatory;
+    - widget-specific init via `.Setup(...)` method (returns concrete type, can have overloads);
+    - then chainable base setters (SetPos, SetAnchors, etc.) from TUIElement;
+    - example: `TUIComboBox.Create(80,24,toolbar,'ScaleCombo').Setup(font, items).SetAnchors(1,0,1,0).SetPos(100,6,pivotTopRight);`
+    - old multi-param constructors: deprecate gradually, remove after migration.
   - Main scope (this task):
     - decomposition options study for `TUIElement`;
     - select best option and implement it;

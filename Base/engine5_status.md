@@ -3,7 +3,7 @@
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-03-11)
+## Summary (last updated: 2026-03-13)
 
 **Progress:**
 - ✅ 10 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib, Spatial)
@@ -11,9 +11,11 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 - ✅ Classes + Structs migrated (Foundation Level 1 complete!)
 - ✅ `UTF8.Format` added to Apus.Strings (native, no Unicode roundtrip)
 - ✅ `Conv.ToStr(double)` implemented with auto/fixed/min-max decimal modes
-- 🔧 EventMan partially migrated, needs completion
+- ✅ R-07 reached working state and was merged into `engine5` (engine-level milestone)
+- ✅ EventMan migrated to Core/Log/Threads/Strings and compiles clean
 - 🚧 35 of 52 Base modules still use Common
-- 🎯 **Next priorities:** Complete EventMan, Migrate ControlFiles, Deprecate CrossPlatform
+- 🔧 Post-merge priorities: Linux fixes + validation, benchmarks, SSE optimization of hot functions, bugfixes with test additions
+- 🎯 **Next priorities:** Continue migration of remaining not-yet-migrated modules (including SDL-related paths), migrate ControlFiles, deprecate CrossPlatform
 
 **Recent wins (2026-02-18):** Added `Conv.ToStr(double)` — locale-independent float formatting via Pascal `Str()`, supports `maxDec`/`minDec`/`decSep` params, 20 tests added to TestConv.
 

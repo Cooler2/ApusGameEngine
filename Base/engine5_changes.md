@@ -3,6 +3,17 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
+## Status note (2026-03-13)
+
+- R-07 is confirmed working and merged into `engine5`.
+- No new Base API rename/extraction entries were required in this update.
+- Current focus moved to support/development track:
+  - Linux fixes and verification;
+  - benchmark runs and baseline tracking;
+  - SSE optimization for highest-impact functions;
+  - ongoing bugfixes with test coverage expansion;
+  - continued migration of remaining not-yet-migrated modules (including SDL-related paths).
+
 ## Recent API fixes (2026-03-11)
 
 ### Apus.Spatial module skeleton

@@ -142,6 +142,15 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - detect WM_DPICHANGED when window moves to another monitor;
   - recalculate actualScale = dpiScale * userZoom and re-apply to UI + fonts;
   - UIScaleDPI demo as primary test vehicle.
+- Font handle architecture (decided 2026-03-14):
+  - direct-draw font handles stored as **threadvar** (per window thread);
+  - `game.SelectFonts(scale)` called from window thread on scale change;
+  - cross-thread access to threadvar=0 → fail-fast (intentional);
+  - UI elements will not store font handles — resolved by style system (R-05).
+  - `game.userScale` is global; `actualScale = dpiScale * userScale`.
+- Widget construction pattern (decided 2026-03-14):
+  - minimal constructor `Create(width, height, parent, name)` + `.Setup(...)` + chainable base setters;
+  - old multi-param constructors deprecated gradually.
 - UI signal normalization (new task):
   - rename button press signal pattern from `UI\buttonName\CLICK` to `UI\buttonName\ONCLICK` (event on press);
   - add `UI\CLICK\buttonName` signal to simulate click on the target UI element.
