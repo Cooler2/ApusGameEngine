@@ -556,6 +556,7 @@ function UIScene(name:String8):TUIScene;
     end;
     e:=FindElement(eName,false);
     if e=nil then exit; // element may belong to another window's handler
+    if (e.GetRoot.ownerScene=nil) then exit;
     if TGameScene(e.GetRoot.ownerScene).ownerWindow<>window then exit;
     e.setFocus;
    finally
@@ -610,6 +611,8 @@ function UIScene(name:String8):TUIScene;
    try
     e:=FindElement(name,false);
     if e=nil then exit;
+    if not e.IsVisible then exit;
+    if not e.IsEnabled then exit;
     root:=e.GetRoot;
     if (root.ownerScene=nil) or (TGameScene(root.ownerScene).ownerWindow<>window) then exit;
     e.onMouseButtons(1,true);
