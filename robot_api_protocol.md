@@ -43,6 +43,20 @@ Each response block ends with `===`. Multi-item output uses repeated key prefixe
 ### `windows` — window/render dimensions, DPI, screenScale, displayRect.
 - Returns per window: `windowWidth`, `windowHeight`, `renderWidth`, `renderHeight`, `screenDPI`, `screenScale`, `displayRect`.
 
+### `window.move` - move main window, optionally with resize in one call.
+- Scope: main window only (RobotAPI is polled in the main-loop thread, so thread-local `window` points to `mainWindow`).
+- Optional `WINDOW`: only `0`/`main` supported (other values return `STATUS: ERROR`).
+- Required: `X`, `Y`.
+- Optional: `W`, `H` (must be provided together).
+- Returns: `x`, `y`, `windowWidth`, `windowHeight`, `renderWidth`, `renderHeight`.
+
+### `window.resize` - resize main window.
+- Scope: main window only (RobotAPI is polled in the main-loop thread, so thread-local `window` points to `mainWindow`).
+- Optional `WINDOW`: only `0`/`main` supported (other values return `STATUS: ERROR`).
+- Required: `W`, `H` (>0).
+- Optional: `X`, `Y` (must be provided together; if omitted, current window position is used).
+- Returns: `x`, `y`, `windowWidth`, `windowHeight`, `renderWidth`, `renderHeight`.
+
 ### `fps` — fps, smoothFPS, frameNum, frame-time history in milliseconds.
 - Optional param: `N` (integer, `1..512`) — return last `N` frame times from ring buffer.
 - Optional param: `METRICS` (`yes/no`, default `no`).

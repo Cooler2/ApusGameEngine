@@ -838,6 +838,20 @@ var
   fpsMetricsStartFrame:int64=0;
   fpsMetricsTargetFrames:integer=0;
 
+// RobotAPI is polled from the main-loop thread, so `window` threadvar points to mainWindow here.
+// For now window control commands intentionally support only the main window.
+function ValidateMainWindowParam(const req:TRobotRequest; out error:String8):boolean;
+ var wnd:String8;
+ begin
+  wnd:=req.Param('WINDOW').ToLower;
+  if (wnd='') or (wnd='0') or (wnd='main') or (wnd='mainwnd') then begin
+   result:=true;
+   exit;
+  end;
+  error:='only main window is supported (WINDOW=0/main)';
+  result:=false;
+ end;
+
 function RobotCmdWindows(const req:TRobotRequest; out body:String8):boolean;
 begin
   if game=nil then begin body:='game not initialized'; exit(false) end;
@@ -862,6 +876,7 @@ function RobotCmdWindowMove(const req:TRobotRequest; out body:String8):boolean;
  begin
   g:=game as TGame;
   if g=nil then begin body:='game not initialized'; exit(false) end;
+  if not ValidateMainWindowParam(req,body) then exit(false);
   sx:=req.Param('X');
   sy:=req.Param('Y');
   if (sx='') or (sy='') then begin
@@ -900,6 +915,7 @@ function RobotCmdWindowResize(const req:TRobotRequest; out body:String8):boolean
  begin
   g:=game as TGame;
   if g=nil then begin body:='game not initialized'; exit(false) end;
+  if not ValidateMainWindowParam(req,body) then exit(false);
   w:=Conv.ToInt(req.Param('W'));
   h:=Conv.ToInt(req.Param('H'));
   if (w<=0) or (h<=0) then begin
