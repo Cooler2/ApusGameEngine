@@ -72,7 +72,11 @@ var
  curCursor:integer;
  initialized:boolean=false;
 
+threadvar
+ threadHandlersRegistered:boolean; // true after emQueued handlers registered for this render thread
+
  LastHandleTime:int64;
+
 
  // параметры хинтов
  curHint:TUIHint=nil;
@@ -359,6 +363,15 @@ function UIScene(name:String8):TUIScene;
  constructor TUIScene.Create;
   begin
    InitUI;
+   // Register emQueued handlers once per render thread (not per scene).
+   // emQueued binds the handler to the calling thread's queue — each window's render thread
+   // gets its own entry and processes its own signals independently.
+   // These signals are safe to send from any thread — they run in the correct render thread.
+   if not threadHandlersRegistered then begin
+    SetEventHandler('UI\CLICK',onSimulateClick,emQueued);
+    SetEventHandler('UI\SetFocus',onSetFocus,emQueued);
+    threadHandlersRegistered:=true;
+   end;
    inherited Create(fullscreen);
    if sceneName='' then sceneName:=ClassName;
    name:=scenename;
@@ -527,14 +540,27 @@ function UIScene(name:String8):TUIScene;
    needShadowValue:=tag and $FF;
   end;
 
-  //
+  // registered with emQueued from each render thread (see TUIScene.Create)
+  // safe to call from any thread: runs in the render thread owning the target element
   procedure onSetFocus(event:TEventStr;tag:TTag);
+   var e:TUIElement; eName:String8;
   begin
+   if window=nil then exit;
    delete(event,1,length('UI\SETFOCUS\'));
-   if (event<>'') and (event<>'NIL') then
-    FindElement(event,true).setFocus
-   else
-    SetFocusTo(nil);
+   eName:=event;
+   window.Lock;
+   try
+    if (eName='') or (eName='NIL') then begin
+     SetFocusTo(nil);
+     exit;
+    end;
+    e:=FindElement(eName,false);
+    if e=nil then exit; // element may belong to another window's handler
+    if TGameScene(e.GetRoot.ownerScene).ownerWindow<>window then exit;
+    e.setFocus;
+   finally
+    window.Unlock;
+   end;
   end;
 
 
@@ -571,17 +597,45 @@ function UIScene(name:String8):TUIScene;
    //EndMeasure2(11);
   end;
 
+ // signal UI\CLICK\{name}: simulate click on any UI element
+ // registered with emQueued from each render thread — runs safely during HandleSignals
+ // N handlers registered (one per render thread), only the one owning the element's window acts
+ procedure onSimulateClick(event:TEventStr;tag:TTag);
+  var name:String8; e:TUIElement; root:TUIElement;
+  begin
+   if window=nil then exit;
+   name:=copy(event,length('UI\CLICK\')+1,length(event));
+   if name='' then exit;
+   window.Lock;
+   try
+    e:=FindElement(name,false);
+    if e=nil then exit;
+    root:=e.GetRoot;
+    if (root.ownerScene=nil) or (TGameScene(root.ownerScene).ownerWindow<>window) then exit;
+    e.onMouseButtons(1,true);
+    e.onMouseButtons(1,false);
+   finally
+    window.Unlock;
+   end;
+  end;
+
+ // Called from TUIScene.Create (from whichever render thread creates the first scene).
+ // Registers emInstant handlers that are ONLY sent by the platform layer (OS event dispatch)
+ // from the render thread — Mouse, Kbd, ActivateWnd. emInstant fires in the calling thread,
+ // so the 'window' threadvar is always valid. Multi-window works because each render thread
+ // sends its own events.
+ // EventMan deduplicates emInstant by (handler, event, threadNum=-1), so the 'initialized'
+ // guard just avoids redundant lookups on subsequent TUIScene.Create calls.
+ // WARNING: do NOT add emInstant handlers for signals that can be sent from non-render threads
+ // (e.g. user signals from background logic) — 'window' threadvar will be nil there.
+ // Such signals must use emQueued registered per render thread (see TUIScene.Create).
  procedure InitUI;
   begin
    if initialized then exit;
-   // асинхронная обработка: сигналы обрабатываются в том же потоке, что и вызываются,
-   // независимо от того из какого потока вызывается ф-ция InitUI
    SetEventHandler('Mouse',MouseEventHandler,emInstant);
    SetEventHandler('Kbd',KbdEventHandler,emInstant);
    SetEventHandler('Engine\ActivateWnd',ActivateEventHandler,emInstant);
    SetEventHandler('UI\SetGlobalShadow',onSetGlobalShadow,emInstant);
-   SetEventHandler('UI\SetFocus',onSetFocus,emInstant);
-
    initialized:=true;
   end;
 
