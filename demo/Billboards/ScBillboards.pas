@@ -101,7 +101,7 @@ procedure TMainScene.CreateUI;
    .hint:='Press this button to exit';
 
   // Link the button click signal to the engine termination signal
-  Link('UI\Panel\Close\Click','Engine\Cmd\Exit');
+  Link('UI\Panel\Close\OnClick','Engine\Cmd\Exit');
  end;
 
 procedure TMainScene.Load;

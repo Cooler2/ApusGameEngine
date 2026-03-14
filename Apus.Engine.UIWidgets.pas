@@ -502,7 +502,7 @@ implementation
      end;
     if (sendSignals<>ssNone) and
        (pressed or (btnStyle=bsCheckbox)) then begin
-      Signal('UI\'+name+'\Click',byte(pressed));
+      Signal('UI\'+name+'\OnClick',byte(pressed));
       Signal('UI\Button\Down\'+name,TTag(self));
       FireClickEvent;
       if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
@@ -511,7 +511,7 @@ implementation
     if pending then exit;
     // Защита от двойных кликов
     if (sendSignals<>ssNone) and (CoreTime.Ticks>lastPressed+50) then begin
-     Signal('UI\'+name+'\Click',byte(pressed));
+     Signal('UI\'+name+'\OnClick',byte(pressed));
      Signal('UI\Button\Click\'+name,TTag(self));
      if Assigned(onClick) then begin
       Thread.Start('UIClick:'+String8(name),TThreadProc(onClick));

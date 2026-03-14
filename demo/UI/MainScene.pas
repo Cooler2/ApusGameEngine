@@ -196,7 +196,7 @@ procedure TMainScene.Initialize;
   TUIButton.Create(120,30,'Main\Buttons','Buttons',panel).onClick:=@TestButtons;
   TUIButton.Create(120,30,'Main\Layouts','Layouts',panel).onClick:=@TestLayouts;
   TUIButton.Create(120,30,'Main\Close','Exit',0,panel);
-  Link('UI\Main\Close\Click','Engine\Cmd\Exit');
+  Link('UI\Main\Close\OnClick','Engine\Cmd\Exit');
 
   // Create a placeholder UI element for demos
   root:=TUIElement.Create(-1,-1,UI,'Root');

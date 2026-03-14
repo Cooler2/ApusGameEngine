@@ -111,11 +111,11 @@ begin
 
  btn:=TUIButton.Create(220,40,'Main\NewWindow','New Tool Window',font,panel);
  btn.SetPos(150,80,pivotCenter);
- Link('UI\Main\NewWindow\Click',newWindowSignalPath);
+ Link('UI\Main\NewWindow\OnClick',newWindowSignalPath);
 
  btn:=TUIButton.Create(220,40,'Main\Exit','Exit',font,panel);
  btn.SetPos(150,140,pivotCenter);
- Link('UI\Main\Exit\Click','Engine\Cmd\Exit');
+ Link('UI\Main\Exit\OnClick','Engine\Cmd\Exit');
 
  // status feedback line
  lbl:=TUILabel.Create(280,20,'Main\Status','',panel,txt.GetFont('Default',7));

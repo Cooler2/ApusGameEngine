@@ -229,7 +229,7 @@ procedure TMainScene.Load;
 
   // === Connect signals ===
   SetEventHandler('UI\ScaleCombo\ONSELECT',OnScaleSelect,emInstant);
-  SetEventHandler('UI\TestDlgBtn\CLICK',OnTestDialog,emQueued);
+  SetEventHandler('UI\TestDlgBtn\ONCLICK',OnTestDialog,emQueued);
   SetEventHandler('ENGINE\DPICHANGED\DONE',OnDPIChanged,emQueued); // after engine-level scale update
 
   // apply initial scale: dpiScale * userZoom(100%)

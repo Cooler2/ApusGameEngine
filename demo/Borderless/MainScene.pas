@@ -75,7 +75,7 @@ procedure TMainScene.Load; // This is called from the launch thread, no draw cal
   btn.hint:='Press this button to exit';
 
   // Link the button click signal to the engine termination signal
-  Link('UI\Main\Close\Click','Engine\Cmd\Exit');
+  Link('UI\Main\Close\OnClick','Engine\Cmd\Exit');
  end;
 
 procedure TMainScene.Render;

@@ -116,14 +116,14 @@ var
 
    close:=false;
    if (event.Same('Scene\MessageScene\KEYDOWN') and (TKey(tag and $FF)=TKey.Enter)) or
-      (event.Same('UI\Message\OK\Click') or
-       event.Same('UI\Message\YES\Click')) then begin
+      (event.Same('UI\Message\OK\OnClick') or
+       event.Same('UI\Message\YES\OnClick')) then begin
     if curMsg.event1<>'' then Signal(curMsg.event1);
     close:=true;
    end;
 
    if (event.Same('Scene\MessageScene\KEYDOWN') and (TKey(tag and $FF)=TKey.Escape)) or
-       event.Same('UI\Message\NO\Click') then begin
+       event.Same('UI\Message\NO\OnClick') then begin
     if curMsg.event2<>'' then Signal(curMsg.event2);
     close:=true;
    end;
