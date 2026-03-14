@@ -3,7 +3,7 @@
         <ProjectGuid>{0D791B4A-595A-4206-8AEB-409BFD019A42}</ProjectGuid>
         <MainSource>SimpleDemo.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">SDL</Config>
+        <Config Condition="'$(Config)'==''">Debug</Config>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
         <FrameworkType>None</FrameworkType>

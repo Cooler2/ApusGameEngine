@@ -1,4 +1,4 @@
-// UIScaleDPI demo - demonstrates UI scaling and DPI awareness
+﻿// UIScaleDPI demo - demonstrates UI scaling and DPI awareness
 //
 // TODO: glyph browser mode — render A-Z glyphs into card textures via draw/FreeTypeFont,
 //  stretch to card size using integer scale. Add font size selector. This will show:
@@ -94,6 +94,11 @@ implementation
    ApplyScale; // recalculate actualScale with new DPIScale
   end;
 
+ procedure OnTestDialog(event:TEventStr;tag:TTag);
+  begin
+   application.Confirm('Does this dialog scale correctly?','','');
+  end;
+
 constructor TMainApp.Create;
 begin
   inherited;
@@ -164,6 +169,8 @@ procedure TMainScene.Load;
 
   TUILabel.Create(200,28,'','Image Viewer',toolbar,game.largerFont,$FFE0E0E0);
 
+  TUIButton.Create(90,24,'TestDlgBtn','Test Dialog',toolbar);
+
   SetLength(zoomItems,7);
   zoomItems[0]:='75%';  zoomItems[1]:='85%';  zoomItems[2]:='100%';
   zoomItems[3]:='115%'; zoomItems[4]:='125%'; zoomItems[5]:='150%'; zoomItems[6]:='175%';
@@ -222,7 +229,8 @@ procedure TMainScene.Load;
 
   // === Connect signals ===
   SetEventHandler('UI\ScaleCombo\ONSELECT',OnScaleSelect,emInstant);
-  SetEventHandler('ENGINE\DPICHANGED\DONE',OnDPIChanged,emInstant);
+  SetEventHandler('UI\TestDlgBtn\CLICK',OnTestDialog,emQueued);
+  SetEventHandler('ENGINE\DPICHANGED\DONE',OnDPIChanged,emQueued); // after engine-level scale update
 
   // apply initial scale: dpiScale * userZoom(100%)
   ApplyScale;
