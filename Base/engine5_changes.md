@@ -14,6 +14,19 @@ Use it as the primary reference when updating old code.
   - ongoing bugfixes with test coverage expansion;
   - continued migration of remaining not-yet-migrated modules (including SDL-related paths).
 
+## Recent API fixes (2026-03-14)
+
+### Apus.EventMan thread-aware handler deduplication
+
+- Fixed `SetEventHandler` deduplication identity for concurrent registrations:
+  - before: duplicate check used only `(event,handler)`;
+  - now: duplicate check uses `(event,handler,threadNum,mode)`.
+- Effect: the same handler can be registered for the same event in multiple threads when using `emQueued/emMixed`, and each thread receives its own queued callback.
+- Added regression coverage in `Base/tests/TestEventMan.dpr`:
+  - concurrent unique-handler registration;
+  - concurrent duplicate registration (same thread identity semantics);
+  - queued same-handler registration in many threads (one callback per thread).
+
 ## Recent API fixes (2026-03-11)
 
 ### Apus.Spatial module skeleton

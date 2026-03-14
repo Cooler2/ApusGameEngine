@@ -247,9 +247,10 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
     event:=event.ToUpper;
     i:=hash(event);
     // поиск имеющегося обработчика
+    // For queued/mixed handlers thread affinity is a part of registration identity.
     ph:=handlers[i];
     while ph<>nil do begin
-     if (@ph.handler=@handler) and (ph.event=event) then exit;
+     if (@ph.handler=@handler) and (ph.event=event) and (ph.threadNum=n) and (ph.mode=mode) then exit;
      ph:=ph.next;
     end;
     new(ph);

@@ -32,6 +32,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-02-27):** Extracted `GetEnumNameSafe(typeInfo,value)` from deprecated `Apus.Common` into `Apus.Utils`, and switched `Apus.Engine.API` to explicit `uses Apus.Utils`.
 **Recent wins (2026-02-27):** Added `String32Helper.Split(delimiters,quoteChar)` overload for delimiter-set splitting with quote-aware behavior (parity with `String8.Split`).
 **Recent wins (2026-03-11):** Added new module Apus.Spatial with compile-ready spatial API skeleton (TVec2/TVec3/TVec4, TRay, TSphere, TFrustum), methods-first intersections, and TBBox3s helper extensions.
+**Recent wins (2026-03-14):** Fixed `Apus.EventMan.SetEventHandler` deduplication to include thread affinity (`threadNum` + `mode`) so identical handlers can be registered from multiple queued/mixed threads; added multi-thread regression tests in `TestEventMan` (including same-handler-per-thread queued delivery).
 
 ## NEW — created in engine5 refactoring
 
