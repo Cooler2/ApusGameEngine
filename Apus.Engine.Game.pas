@@ -847,6 +847,7 @@ begin
     '  renderWidth: '+Conv.ToStr(window.renderWidth)+#13#10+
     '  renderHeight: '+Conv.ToStr(window.renderHeight)+#13#10+
     '  screenDPI: '+Conv.ToStr(window.screenDPI)+#13#10+
+    '  screenScale: '+Conv.ToStr(game.screenScale,2)+#13#10+
     '  displayRect: '+Conv.ToStr(window.displayRect.Left)+','+Conv.ToStr(window.displayRect.Top)+','+
       Conv.ToStr(window.displayRect.Right)+','+Conv.ToStr(window.displayRect.Bottom)+#13#10;
   result:=true;

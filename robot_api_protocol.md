@@ -40,7 +40,8 @@ Each response block ends with `===`. Multi-item output uses repeated key prefixe
 
 ## Commands
 
-### `windows` — window/render dimensions, DPI, displayRect.
+### `windows` — window/render dimensions, DPI, screenScale, displayRect.
+- Returns per window: `windowWidth`, `windowHeight`, `renderWidth`, `renderHeight`, `screenDPI`, `screenScale`, `displayRect`.
 
 ### `fps` — fps, smoothFPS, frameNum, frame-time history in milliseconds.
 - Optional param: `N` (integer, `1..512`) — return last `N` frame times from ring buffer.
@@ -82,10 +83,13 @@ Each response block ends with `===`. Multi-item output uses repeated key prefixe
   - base fields: name, class, position, size, pivot, scale, globalRect
   - visibility/enabled states: `visible`, `visibleInternal`, `visibleEffective`, `enabled`, `enabledInternal`, `enabledEffective`
   - misc: parentClip, clipChildren, order, caption, hint, styleInfo, color, font, parent, childCount, focused, underMouse
+  - extra geometry: `clientSize` (usable area after padding), `anchors` (left,top,right,bottom fractions)
+  - for `TUIScrollBar`: scrollMin, scrollMax, scrollPageSize, scrollValue, scrollStep, scrollHorizontal, scrollSlider (start..end)
   - layout block (if present):
     - `layout:`
       - `class: <layouterClass>`
       - plus type-specific fields (for known layouters)
+      - for `TGridLayout` with `allowResize`: computed `computedCols` and `computedItemWidth`
   - when `HIERARCHY` is enabled:
     - `hierarchyCount: N`
     - repeated `HIERARCHY: <index>` blocks with full element details for ancestors only (`1=parent`, then up to root)

@@ -47,7 +47,8 @@ type
  end;
 
  // Build a readable dump of layouter type and key configuration.
- function DescribeLayouter(layout:TLayouter;indent:String8='  '):String8;
+ // parent is the element that owns the layouter — used to compute derived values (e.g. actual cols).
+ function DescribeLayouter(layout:TLayouter;parent:TUIElement=nil;indent:String8='  '):String8;
 
 
 implementation
@@ -254,9 +255,12 @@ procedure TRowLayout.Layout(item:TUIElement);
    end;
   end;
 
-function DescribeLayouter(layout:TLayouter;indent:String8='  '):String8;
+function DescribeLayouter(layout:TLayouter;parent:TUIElement=nil;indent:String8='  '):String8;
 var
   s:String8;
+  g:TGridLayout;
+  cols:integer;
+  itemWidth:single;
 begin
   if layout=nil then exit('');
   s:='layout:'+#13#10+
@@ -272,14 +276,23 @@ begin
       indent+'vertical: '+Conv.ToStr(TFlexboxLayout(layout).vertical)+#13#10+
       indent+'spaceBetween: '+Conv.ToStr(TFlexboxLayout(layout).spaceBetween,3)+#13#10;
   end else if layout is TGridLayout then begin
+    g:=TGridLayout(layout);
     s:=s+
-      indent+'vertSpace: '+Conv.ToStr(TGridLayout(layout).vertSpace,3)+#13#10+
-      indent+'horSpace: '+Conv.ToStr(TGridLayout(layout).horSpace,3)+#13#10+
-      indent+'paddingV: '+Conv.ToStr(TGridLayout(layout).paddingV,3)+#13#10+
-      indent+'paddingH: '+Conv.ToStr(TGridLayout(layout).paddingH,3)+#13#10+
-      indent+'desiredWidth: '+Conv.ToStr(TGridLayout(layout).desiredWidth,3)+#13#10+
-      indent+'center: '+Conv.ToStr(TGridLayout(layout).center)+#13#10+
-      indent+'allowResize: '+Conv.ToStr(TGridLayout(layout).allowResize)+#13#10;
+      indent+'vertSpace: '+Conv.ToStr(g.vertSpace,3)+#13#10+
+      indent+'horSpace: '+Conv.ToStr(g.horSpace,3)+#13#10+
+      indent+'paddingV: '+Conv.ToStr(g.paddingV,3)+#13#10+
+      indent+'paddingH: '+Conv.ToStr(g.paddingH,3)+#13#10+
+      indent+'desiredWidth: '+Conv.ToStr(g.desiredWidth,3)+#13#10+
+      indent+'center: '+Conv.ToStr(g.center)+#13#10+
+      indent+'allowResize: '+Conv.ToStr(g.allowResize)+#13#10;
+    if (parent<>nil) and g.allowResize and (g.desiredWidth>0) then begin
+      // compute effective columns and item width as LayoutFlex would
+      cols:=max(1,round(parent.clientWidth/g.desiredWidth));
+      itemWidth:=round((parent.clientWidth-g.paddingH*2-(cols-1)*g.horSpace)/cols);
+      s:=s+
+        indent+'computedCols: '+Conv.ToStr(cols)+#13#10+
+        indent+'computedItemWidth: '+Conv.ToStr(itemWidth,1)+#13#10;
+    end;
   end;
   result:=s;
 end;

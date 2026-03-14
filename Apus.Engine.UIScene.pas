@@ -753,6 +753,7 @@ var
   procedure AppendElementInfo(el:TUIElement;prefix:String8);
   var
     r:TRect;
+    sb:TUIScrollBar;
   begin
     r:=el.GetPosOnScreen; // always compute current rect
     body:=body+
@@ -760,6 +761,9 @@ var
       prefix+'class: '+String8(el.ClassName)+#13#10+
       prefix+'position: '+Conv.ToStr(el.position.x,1)+','+Conv.ToStr(el.position.y,1)+#13#10+
       prefix+'size: '+Conv.ToStr(el.size.x,1)+','+Conv.ToStr(el.size.y,1)+#13#10+
+      prefix+'clientSize: '+Conv.ToStr(el.clientWidth,1)+','+Conv.ToStr(el.clientHeight,1)+#13#10+
+      prefix+'anchors: '+Conv.ToStr(el.anchors.left,2)+','+Conv.ToStr(el.anchors.top,2)+','+
+        Conv.ToStr(el.anchors.right,2)+','+Conv.ToStr(el.anchors.bottom,2)+#13#10+
       prefix+'pivot: '+Conv.ToStr(el.pivot.x,1)+','+Conv.ToStr(el.pivot.y,1)+#13#10+
       prefix+'scale: '+Conv.ToStr(el.scale,2)+#13#10+
       prefix+'globalRect: '+RectToStr(r)+#13#10+
@@ -777,8 +781,19 @@ var
       prefix+'styleInfo: '+el.styleInfo+#13#10+
       prefix+'color: '+Conv.ToHex(el.color)+#13#10+
       prefix+'font: '+Conv.ToStr(integer(el.font))+#13#10;
+    if el is TUIScrollBar then begin
+      sb:=TUIScrollBar(el);
+      body:=body+
+        prefix+'scrollMin: '+Conv.ToStr(sb.min,2)+#13#10+
+        prefix+'scrollMax: '+Conv.ToStr(sb.max,2)+#13#10+
+        prefix+'scrollPageSize: '+Conv.ToStr(sb.pagesize,2)+#13#10+
+        prefix+'scrollValue: '+Conv.ToStr(sb.value,2)+#13#10+
+        prefix+'scrollStep: '+Conv.ToStr(sb.step,2)+#13#10+
+        prefix+'scrollHorizontal: '+Conv.ToStr(sb.horizontal)+#13#10+
+        prefix+'scrollSlider: '+Conv.ToStr(sb.sliderStart,3)+'..'+Conv.ToStr(sb.sliderEnd,3)+#13#10;
+    end;
     if el.layout<>nil then
-      body:=body+PrefixLines(DescribeLayouter(el.layout),prefix);
+      body:=body+PrefixLines(DescribeLayouter(el.layout,el),prefix);
     if el.parent<>nil then
       body:=body+prefix+'parent: '+el.parent.name+#13#10
     else
