@@ -216,7 +216,7 @@ procedure TRowLayout.Layout(item:TUIElement);
     list[i].SetPos(x,y);
     x:=x+list[i].width;
     if (x>=parent.clientWidth-paddingH) and (i>last) then begin // current item should be wrapped to the next row
-     CenterRow(last,i-1,x-list[i].width-horSpace);
+     CenterRow(last,i-1,x-list[i].width-horSpace-paddingH);
      h:=0;
      for j:=last to i do
       h:=max(h,list[j].size.y);

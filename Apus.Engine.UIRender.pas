@@ -78,6 +78,8 @@ implementation
    if item.layout<>nil then begin
     item.layout.Layout(item);
     item.Resize(-1,-1);
+    if (item.scrollerV<>nil) or (item.scrollerH<>nil) then
+     item.SetupScrollers;
    end;
    // Draw self first
    if (item.size.x<=0) or (item.size.y<=0) then exit;

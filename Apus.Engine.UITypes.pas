@@ -1409,22 +1409,7 @@ function TUIElement.GetClientHeight:single;
   begin
    for i:=0 to length(children)-1 do
     children[i].ParentSizeChanged(dX,dY);
-   if scrollerH<>nil then scrollerH.SetPageSize(clientWidth);
-   if scrollerV<>nil then scrollerV.SetPageSize(clientHeight);
-
-   // Scrolling
-   // Children bounding box
-   childrenBound.Init(0,0,0,0);
-   for i:=0 to length(children)-1 do
-    if children[i].visible and not children[i].IsOutOfOrder then
-     childrenBound.Include(children[i].GetRectInParentSpace);
-   if (childrenBound.height>clientHeight) then begin
-    if scrollerV<>nil then begin
-     scrollerV.SetRange(childrenBound.y1,childrenBound.y2);
-     scrollerV.SetPageSize(clientHeight);
-     scrollerV.SetStep(clientHeight/2);
-    end;
-   end;
+   SetupScrollers;
   end;
 
  procedure TUIElement.ParentSizeChanged(dX,dY:single);
@@ -1466,7 +1451,13 @@ function TUIElement.GetClientHeight:single;
   end;
 
  procedure TUIElement.SetupScrollers;
+  var
+   i:integer;
   begin
+   childrenBound.Init(0,0,0,0);
+   for i:=0 to length(children)-1 do
+    if children[i].visible and not children[i].IsOutOfOrder then
+     childrenBound.Include(children[i].GetRectInParentSpace);
    if scrollerV<>nil then begin
     scrollerV.SetRange(childrenBound.y1,childrenBound.y2);
     scrollerV.SetPageSize(clientHeight);
