@@ -79,7 +79,7 @@ threadvar
 
 
  // параметры хинтов
- curHint:TUIHint=nil;
+ curHint:TUIHint;
  hintRect:tRect; // область, к которой относится хинт
  // переменные для работы с хинтами элементов
  hintMode:cardinal; // время (в тиках), до которого длится режим показа хинтов
@@ -358,6 +358,9 @@ function UIScene(name:String8):TUIScene;
    end;
   end;
 
+ procedure onSimulateClick(event:TEventStr;tag:TTag); forward;
+ procedure onSetFocus(event:TEventStr;tag:TTag); forward;
+
  { TUIScene }
 
  constructor TUIScene.Create;
@@ -602,25 +605,26 @@ function UIScene(name:String8):TUIScene;
  // registered with emQueued from each render thread — runs safely during HandleSignals
  // N handlers registered (one per render thread), only the one owning the element's window acts
  procedure onSimulateClick(event:TEventStr;tag:TTag);
-  var name:String8; e:TUIElement; root:TUIElement;
-  begin
+ var
+   name:String8; e:TUIElement; root:TUIElement;
+ begin
    if window=nil then exit;
    name:=copy(event,length('UI\CLICK\')+1,length(event));
    if name='' then exit;
    window.Lock;
    try
-    e:=FindElement(name,false);
-    if e=nil then exit;
-    if not e.IsVisible then exit;
-    if not e.IsEnabled then exit;
-    root:=e.GetRoot;
-    if (root.ownerScene=nil) or (TGameScene(root.ownerScene).ownerWindow<>window) then exit;
-    e.onMouseButtons(1,true);
-    e.onMouseButtons(1,false);
+     e:=FindElement(name,false);
+     if e=nil then exit;
+     if not e.IsVisible then exit;
+     if not e.IsEnabled then exit;
+     root:=e.GetRoot;
+     if (root.ownerScene=nil) or (TGameScene(root.ownerScene).ownerWindow<>window) then exit;
+     e.onMouseButtons(1,true);
+     e.onMouseButtons(1,false);
    finally
-    window.Unlock;
+     window.Unlock;
    end;
-  end;
+ end;
 
  // Called from TUIScene.Create (from whichever render thread creates the first scene).
  // Registers emInstant handlers that are ONLY sent by the platform layer (OS event dispatch)
