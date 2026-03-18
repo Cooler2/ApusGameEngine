@@ -1,60 +1,35 @@
-﻿// This is universal unit containing implementation
-// of basic structures on common types: trees, hashes etc...
+﻿// Algorithmic containers: trees, heaps, queues and object lists
+//
+// SCOPE: In-memory generic/container primitives for fast insert/search/pop operations.
+// Used by modules that need lightweight data structures without domain logic.
+//
+// ADD HERE: New container types (queues, heaps, trees, sets), container helpers.
+// DON'T ADD: Hash maps (use Apus.HashMaps), binary streams (use Apus.Types),
+// record sorting helpers (use Apus.Types), domain-specific caches/storage.
 
-// Copyright (C) 2002-2015 Ivan Polyacov, ivan@apus-software.com
+// Copyright (C) 2002-2026 Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 
 {$M-,H+,R-,Q-}
-unit Apus.Structs;
+unit Apus.Containers;
 
 {$IFDEF FPC}
   {$MODE Delphi}
 {$ENDIF}
 
 interface
-uses Apus.Core, Apus.Types, Apus.HashMaps, Classes;
+uses Apus.Core, Apus.Types, Classes;
 
 type
- TErrorState=Apus.HashMaps.TErrorState;
+ TErrorState=(
+  esNoError       =  0,
+  esEmpty         =  1,
+  esNotFound      =  2,
+  esNoMoreItems   =  3,
+  esOverflow      =  4);
 
 
- // --------------------------------------
- // Structures of arbitrary items
- // --------------------------------------
-
- // Traversing modes
- TraverseMode=(ChildrenFirst, // Handle children, then root (depth-search)
-               RootFirst,     // Handle root, then children (depth-search)
-               byLevels);     // width-search (by levels)
- // Iterator for tree traverse
- // depth - item's depth (distance from root, for depth-search only)
- // item - TGenericTree object
- TTreeIterator=procedure(depth:integer;item:TObject);
-
- // Generic tree
- TGenericTree=class
-  private
-   parent:TGenericTree;
-   selfIndex:integer; // index in parent's children list
-   children:TList;
-  public
-   data:pointer;
-   freeObjects:boolean; // treat data as objects and free them
-   preserveOrder:boolean; // true if order of children must be preserved
-   constructor Create(useObjects:boolean=false;useOrder:boolean=false);
-   destructor Destroy; override;
-   function GetParent:TGenericTree;
-   function GetIndex:integer; // return index in parent's children list
-   function GetChildrenCount:integer;
-   function GetChild(index:integer):TGenericTree;
-   // Add child to the end of the children list, return it's index
-   function AddChild(item:pointer):integer;
-   // Insert child item to specified position
-   procedure InsertChild(item:pointer;index:integer);
-   // Traverse this tree
-   procedure Traverse(mode:TraverseMode;iterator:TTreeiterator);
- end;
 
  // --------------------------------------
  // Structures of comparable items
@@ -95,37 +70,6 @@ type
   destructor Destroy; override; // Destroy the heap (but not its elements if any!)
   procedure ClearAndDestroy; virtual; // Destroy heap and all its elements
  end;
-
- // INCOMPLETED CODE
- TTreeItem=class
-  weight:integer;
-  key:integer;
-  data:pointer;
-  left,right,parent:TTreeItem;
-  function Compare(item:TTreeItem):integer;
- end;
- TTree=class
-  root:TTreeItem;
-  constructor Create;
-  destructor Destroy; override;
- end;
- // END OF INCOMPLETED CODE
-
- // --------------------------------------
- // Hash structures (moved to Apus.HashMaps)
- // --------------------------------------
- THashItem=Apus.HashMaps.THashItem;
- TCell=Apus.HashMaps.TCell;
- TStrHash=Apus.HashMaps.TStrHash;
- THash=Apus.HashMaps.THash;
- TSimpleHash=Apus.HashMaps.TSimpleHash;
- TSimpleHashS=Apus.HashMaps.TSimpleHashS;
- TSimpleHashAS=Apus.HashMaps.TSimpleHashAS;
- TSimpleHash8=Apus.HashMaps.TSimpleHash8;
- PObjectHash=Apus.HashMaps.PObjectHash;
- TObjectHash=Apus.HashMaps.TObjectHash;
- PVarHash=Apus.HashMaps.PVarHash;
- TVarHash=Apus.HashMaps.TVarHash;
 
  // Queue of strings
  TStringQueue=object
@@ -229,32 +173,64 @@ type
   procedure Init;
  end;
 
- // Bit array
- TBitStream=record
-  data:array of cardinal;
-  size:integer; // number of bits stored
-  procedure Init(estimatedSize:integer); // size in bits
-  procedure SetBit(index:integer;value:integer);
-  function GetBit(index:integer):integer;
-  procedure Put(data:cardinal;count:integer); overload;
-  procedure Put(var buf;count:integer); overload; // append count bits to the stream
-  procedure Get(var buf;count:integer); // read count bits from the stream (from readPos position)
-  function SizeInBytes:integer; // return size of stream in bytes
- private
-  capacity,readPos:integer;
-  procedure Allocate(count:integer); // ensure there is space for count bits
- end;
-
  // Simple list of variants
 { TSimpleList=record
   values:array of variant;
   procedure Add(v:variant);
  end;}
 
- // Sort array of records by an integer/float/double field at given byte offset
- procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
- procedure SortRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
- procedure SortRecordsByDouble(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+ // --------------------------------------
+ // Structures of arbitrary items
+ // --------------------------------------
+
+ // Traversing modes
+ TraverseMode=(ChildrenFirst, // Handle children, then root (depth-search)
+               RootFirst,     // Handle root, then children (depth-search)
+               byLevels);     // width-search (by levels)
+ // Iterator for tree traverse
+ // depth - item's depth (distance from root, for depth-search only)
+ // item - TGenericTree object
+ TTreeIterator=procedure(depth:integer;item:TObject);
+
+ // Generic tree
+ TGenericTree=class
+  private
+   parent:TGenericTree;
+   selfIndex:integer; // index in parent's children list
+   children:TList;
+  public
+   data:pointer;
+   freeObjects:boolean; // treat data as objects and free them
+   preserveOrder:boolean; // true if order of children must be preserved
+   constructor Create(useObjects:boolean=false;useOrder:boolean=false);
+   destructor Destroy; override;
+   function GetParent:TGenericTree;
+   function GetIndex:integer; // return index in parent's children list
+   function GetChildrenCount:integer;
+   function GetChild(index:integer):TGenericTree;
+   // Add child to the end of the children list, return it's index
+   function AddChild(item:pointer):integer;
+   // Insert child item to specified position
+   procedure InsertChild(item:pointer;index:integer);
+   // Traverse this tree
+   procedure Traverse(mode:TraverseMode;iterator:TTreeiterator);
+ end;
+
+ // INCOMPLETED CODE
+ TTreeItem=class
+  weight:integer;
+  key:integer;
+  data:pointer;
+  left,right,parent:TTreeItem;
+  function Compare(item:TTreeItem):integer;
+ end;
+ TTree=class
+  root:TTreeItem;
+  constructor Create;
+  destructor Destroy; override;
+ end;
+ // END OF INCOMPLETED CODE
+
 
 implementation
  uses SysUtils, Variants,
@@ -263,37 +239,6 @@ implementation
 
  const
   _INITIALIZED_:string='INITIALIZED'; // marker string used to check whether a structure was initialized
-
-{  constructor TVarHash.Init;
-   begin
-    KeyCount:=0;
-    SetLength(keys,100);
-    SetLength(values,100);
-   end;
-
-  procedure TVarHash.Add;
-   begin
-   end;
-
-  procedure TVarHash.Replace(key:variant;value:variant);
-   begin
-   end;
-
-  function TVarHash.Get(key:variant;index:integer=0):variant;
-   begin
-   end;
-
-  function TVarHash.Count(key:variant):integer;
-   begin
-   end;
-
-  function TVarHash.GetKey(index:integer):variant;
-   begin
-   end;
-
-  procedure TVarHash.SortKeys;
-   begin
-   end;  }
 
 
  function TBaseItem.Compare;
@@ -514,7 +459,7 @@ begin
   t.parent:=self;
   t.SelfIndex:=index;
   if PreserveOrder then begin
-   children.Insert(index,item);
+   children.Insert(index,t);
    for i:=index to children.count-1 do begin
     t:=children[i];
     t.selfIndex:=i;
@@ -528,134 +473,48 @@ begin
   end;
 end;
 
-procedure TGenericTree.Traverse(mode: TraverseMode;
-  iterator: TTreeiterator);
-
- // Depth-search: children, then root
- procedure DepthSearch(depth:integer;iterator:TTreeIterator;RootFirst:boolean);
+procedure TGenericTree.Traverse(mode:TraverseMode;iterator:TTreeIterator);
+  // Depth-search: children, then root
+  procedure DepthSearch(node:TGenericTree;depth:integer;rootFirst:boolean);
   var
-   i:integer;
- begin
-   if RootFirst then
-    iterator(depth,self);
-   for i:=0 to children.count-1 do
-    DepthSearch(depth+1,iterator,RootFirst);
-   if not RootFirst then
-    iterator(depth,self);
- end;
- // Width-search
- procedure WidthSearch;
+    i:integer;
+  begin
+    if rootFirst then
+      iterator(depth,node);
+    for i:=0 to node.children.count-1 do
+      DepthSearch(node.children[i],depth+1,rootFirst);
+    if not rootFirst then
+      iterator(depth,node);
+  end;
+  // Width-search
+  procedure WidthSearch;
   var
-   queue:TList;
-   index,i:integer;
-   item:TGenericTree;
- begin
-  queue:=TList.Create;
-  queue.add(self);
-  index:=0;
-  while index<queue.Count do begin
-   item:=queue[index];
-   inc(index);
-   iterator(0,item);
-   for i:=0 to item.children.Count-1 do
-    queue.Add(item.children[i]);
-  end;
- end;
-
-begin
- case mode of
-  ChildrenFirst:DepthSearch(0,iterator,false);
-  RootFirst:DepthSearch(0,iterator,true);
-  ByLevels:WidthSearch;
- end;
-end;
-
-// -------------------------------------------------------
-// TBitStream
-// -------------------------------------------------------
-
- procedure TBitStream.Init;
+    queue:TList;
+    index,i:integer;
+    item:TGenericTree;
   begin
-   size:=0; readPos:=0;
-   SetLength(data,(estimatedSize+31) div 32);
-   capacity:=length(data)*32;
-   FillChar(data[0],length(data),0);
-  end;
-
- procedure TBitStream.SetBit(index:integer;value:integer);
-  var
-   i:integer;
-  begin
-   i:=index shr 5;
-   if value=0 then
-    data[i]:=data[i] and not (1 shl (index and 31))
-   else
-    data[i]:=data[i] or (1 shl (index and 31))
-  end;
-
- function TBitStream.GetBit(index:integer):integer;
-  begin
-   result:=(data[index shr 5] shr (index and 31)) and 1;
-  end;
-
- procedure TBitStream.Allocate(count:Integer);
-  begin
-   if size+count>capacity then begin
-    capacity:=round((capacity+1024)*1.5);
-    SetLength(data,capacity div 32);
-   end;
-  end;
-
- // Simple non-effective version
- procedure TBitStream.Put(data:cardinal;count:integer);
-  var
-   i:integer;
-  begin
-   Allocate(count);
-   for i:=0 to count-1 do begin
-    SetBit(size,data and 1);
-    inc(size);
-    data:=data shr 1;
-   end;
-  end;
-
- procedure TBitStream.Put(var buf;count:integer); // write count bits to the stream (from curPos position)
-  var
-   pb:PByte;
-   i:integer;
-   b:byte;
-  begin
-   Allocate(count);
-   pb:=@buf; b:=pb^;
-   // простая, неэффективная версия
-   for i:=0 to count-1 do begin
-    if b and 1>0 then
-     data[size shr 3]:=data[size shr 3] or (1 shl (i and 7));
-    b:=b shr 1;
-    inc(size);
-    if i and 7=7 then begin
-     inc(pb); b:=pb^;
+    queue:=TList.Create;
+    try
+      queue.Add(self);
+      index:=0;
+      while index<queue.Count do begin
+        item:=queue[index];
+        inc(index);
+        iterator(0,item);
+        for i:=0 to item.children.Count-1 do
+          queue.Add(item.children[i]);
+      end;
+    finally
+      queue.Free;
     end;
-   end;
   end;
-
- procedure TBitStream.Get(var buf;count:integer); // read count bits from the stream (from curPos position)
-  var
-   i:integer;
-   pb:PByte;
-  begin
-   // простая, неэффективная версия
-   //pb:=@buf;
-   for i:=0 to count-1 do begin
-    GetBit(readPos);
-    inc(readPos);
-   end;
+begin
+  case mode of
+    ChildrenFirst:DepthSearch(self,0,false);
+    RootFirst:DepthSearch(self,0,true);
+    ByLevels:WidthSearch;
   end;
-
- function TBitStream.SizeInBytes:integer; // return size of stream in bytes
-  begin
-   result:=(size+7) div 8;
-  end;
+end;
 
 { TStringQueue }
 procedure TStringQueue.Add(st:String8);
@@ -1114,13 +973,16 @@ function TObjectList.Remove(obj:TObject;keepOrder:boolean=false):boolean;
  end;
 
 function TObjectList.Add(list:TObjectList):boolean;
- var
+var
   items:TObjectArray;
   obj:TObject;
- begin
-  list.GetAll;
-  for obj in items do Add(obj);
- end;
+begin
+  result:=true;
+  items:=list.GetAll;
+  for obj in items do
+    if not Add(obj) then
+      result:=false;
+end;
 
 procedure TObjectList.Clear(freeObjects:boolean=false);
  var
@@ -1188,67 +1050,6 @@ procedure TObjectList.Init;
   count:=0;
   SetLength(data,32);
   initialized:=_INITIALIZED_;
- end;
-
-// -------------------------------------------
-// Sort records by field
-// -------------------------------------------
-procedure QuickSortRecords(data:pointer;itemSize,offset,a,b,valueType:integer;asc:boolean);
- function Compare(p1,p2:pointer):boolean; {$IFDEF FPC} inline; {$ENDIF}
-  begin
-   case valueType of
-    1:result:=(PInteger(p1)^>PInteger(p2)^);
-    2:result:=(PSingle(p1)^>PSingle(p2)^);
-    3:result:=(PDouble(p1)^>PDouble(p2)^);
-    else result:=false;
-   end;
-  end;
- var
-  lo,hi,mid:integer;
-  loVal,hiVal:PByte;
-  midVal:int64; // 8 bytes - fits int, float and double
-  valSize:integer;
- begin
-  lo:=a; hi:=b;
-  mid:=(a+b) div 2;
-  loVal:=PByte(UIntPtr(data)+lo*itemSize+offset);
-  hiVal:=PByte(UIntPtr(data)+hi*itemSize+offset);
-  if valueType=3 then valSize:=8 else valSize:=4;
-  move(PByte(UIntPtr(data)+mid*itemSize+offset)^,midval,valSize);
-  repeat
-   if asc then begin
-    while Compare(@midVal,loVal) do begin inc(lo); inc(loVal,itemSize) end;
-    while Compare(hiVal,@midVal) do begin dec(hi); dec(hiVal,itemSize) end;
-   end else begin
-    while Compare(loVal,@midVal) do begin inc(lo); inc(loVal,itemSize) end;
-    while Compare(@midVal,hiVal) do begin dec(hi); dec(hiVal,itemSize) end;
-   end;
-   if lo<=hi then begin
-    Swap(pointer(UIntPtr(data)+lo*itemSize)^,pointer(UIntPtr(data)+hi*itemSize)^,itemSize);
-    inc(lo); inc(loVal,itemSize);
-    dec(hi); dec(hiVal,itemSize);
-   end;
-  until lo>hi;
-  if hi>a then QuickSortRecords(data,itemSize,offset,a,hi,valueType,asc);
-  if lo<b then QuickSortRecords(data,itemSize,offset,lo,b,valueType,asc);
- end;
-
-procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean);
- begin
-  if itemCount<2 then exit;
-  QuickSortRecords(@items,itemSize,offset,0,itemCount-1,1,asc);
- end;
-
-procedure SortRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean);
- begin
-  if itemCount<2 then exit;
-  QuickSortRecords(@items,itemSize,offset,0,itemCount-1,2,asc);
- end;
-
-procedure SortRecordsByDouble(var items;itemSize,itemCount,offset:integer;asc:boolean);
- begin
-  if itemCount<2 then exit;
-  QuickSortRecords(@items,itemSize,offset,0,itemCount-1,3,asc);
  end;
 
 end.

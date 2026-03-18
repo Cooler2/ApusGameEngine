@@ -100,6 +100,22 @@ type
     function CurrentPos:integer; inline;
   end;
 
+  // Bit array
+  TBitStream=record
+    data:array of cardinal;
+    size:integer; // number of bits stored
+    procedure Init(estimatedSize:integer); // size in bits
+    procedure SetBit(index:integer;value:integer);
+    function GetBit(index:integer):integer;
+    procedure Put(data:cardinal;count:integer); overload;
+    procedure Put(var buf;count:integer); overload; // append count bits to the stream
+    procedure Get(var buf;count:integer); // read count bits from the stream (from readPos position)
+    function SizeInBytes:integer; // return size of stream in bytes
+  private
+    capacity,readPos:integer;
+    procedure Allocate(count:integer); // ensure there is space for count bits
+  end;
+
 {  // In-memory binary buffer used to read bit fields
   TBitBuffer=record
     data:PByte;
@@ -132,6 +148,11 @@ type
   private
     data:ByteArray;
   end;
+
+  // Sort array of records by an integer/float/double field at given byte offset
+  procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+  procedure SortRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+  procedure SortRecordsByDouble(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
 
 implementation
  uses SysUtils, Generics.Defaults, Apus.Conv, Apus.Strings, Apus.Utils;
@@ -278,6 +299,158 @@ begin
   result:=Slice(CurrentPos,length);
   if advance then Skip(length);
 end;
+
+// -------------------------------------------------------
+// TBitStream
+// -------------------------------------------------------
+
+procedure TBitStream.Init(estimatedSize:integer);
+begin
+  size:=0; readPos:=0;
+  SetLength(data,(estimatedSize+31) div 32);
+  capacity:=length(data)*32;
+  if length(data)>0 then
+    FillChar(data[0],length(data),0);
+end;
+
+procedure TBitStream.SetBit(index:integer;value:integer);
+var
+  i:integer;
+begin
+  i:=index shr 5;
+  if value=0 then
+    data[i]:=data[i] and not (1 shl (index and 31))
+  else
+    data[i]:=data[i] or (1 shl (index and 31))
+end;
+
+function TBitStream.GetBit(index:integer):integer;
+begin
+  result:=(data[index shr 5] shr (index and 31)) and 1;
+end;
+
+procedure TBitStream.Allocate(count:integer);
+begin
+  if size+count>capacity then begin
+    capacity:=round((capacity+1024)*1.5);
+    SetLength(data,capacity div 32);
+  end;
+end;
+
+// Simple non-effective version
+procedure TBitStream.Put(data:cardinal;count:integer);
+var
+  i:integer;
+begin
+  Allocate(count);
+  for i:=0 to count-1 do begin
+    SetBit(size,data and 1);
+    inc(size);
+    data:=data shr 1;
+  end;
+end;
+
+procedure TBitStream.Put(var buf;count:integer); // write count bits to the stream (from curPos position)
+var
+  pb:PByte;
+  i:integer;
+  b:byte;
+begin
+  Allocate(count);
+  pb:=@buf; b:=pb^;
+  // simple, non-effective version
+  for i:=0 to count-1 do begin
+    if b and 1>0 then
+      data[size shr 3]:=data[size shr 3] or (1 shl (i and 7));
+    b:=b shr 1;
+    inc(size);
+    if i and 7=7 then begin
+      inc(pb); b:=pb^;
+    end;
+  end;
+end;
+
+procedure TBitStream.Get(var buf;count:integer); // read count bits from the stream (from curPos position)
+var
+  i:integer;
+  pb:PByte;
+begin
+  // simple, non-effective version
+  //pb:=@buf;
+  pb:=@buf;
+  FillChar(pb^,(count+7) div 8,0);
+  for i:=0 to count-1 do begin
+    if GetBit(readPos)>0 then
+      pb[i shr 3]:=pb[i shr 3] or (1 shl (i and 7));
+    inc(readPos);
+  end;
+end;
+
+function TBitStream.SizeInBytes:integer; // return size of stream in bytes
+begin
+  result:=(size+7) div 8;
+end;
+
+// -------------------------------------------
+// Sort records by field
+// -------------------------------------------
+procedure QuickSortRecords(data:pointer;itemSize,offset,a,b,valueType:integer;asc:boolean);
+ function Compare(p1,p2:pointer):boolean; {$IFDEF FPC} inline; {$ENDIF}
+  begin
+   case valueType of
+    1:result:=(PInteger(p1)^>PInteger(p2)^);
+    2:result:=(PSingle(p1)^>PSingle(p2)^);
+    3:result:=(PDouble(p1)^>PDouble(p2)^);
+    else result:=false;
+   end;
+  end;
+ var
+  lo,hi,mid:integer;
+  loVal,hiVal:PByte;
+  midVal:int64; // 8 bytes - fits int, float and double
+  valSize:integer;
+ begin
+  lo:=a; hi:=b;
+  mid:=(a+b) div 2;
+  loVal:=PByte(UIntPtr(data)+lo*itemSize+offset);
+  hiVal:=PByte(UIntPtr(data)+hi*itemSize+offset);
+  if valueType=3 then valSize:=8 else valSize:=4;
+  move(PByte(UIntPtr(data)+mid*itemSize+offset)^,midval,valSize);
+  repeat
+   if asc then begin
+    while Compare(@midVal,loVal) do begin inc(lo); inc(loVal,itemSize) end;
+    while Compare(hiVal,@midVal) do begin dec(hi); dec(hiVal,itemSize) end;
+   end else begin
+    while Compare(loVal,@midVal) do begin inc(lo); inc(loVal,itemSize) end;
+    while Compare(@midVal,hiVal) do begin dec(hi); dec(hiVal,itemSize) end;
+   end;
+   if lo<=hi then begin
+    Swap(pointer(UIntPtr(data)+lo*itemSize)^,pointer(UIntPtr(data)+hi*itemSize)^,itemSize);
+    inc(lo); inc(loVal,itemSize);
+    dec(hi); dec(hiVal,itemSize);
+   end;
+  until lo>hi;
+  if hi>a then QuickSortRecords(data,itemSize,offset,a,hi,valueType,asc);
+  if lo<b then QuickSortRecords(data,itemSize,offset,lo,b,valueType,asc);
+ end;
+
+procedure SortRecordsByInt(var items;itemSize,itemCount,offset:integer;asc:boolean);
+ begin
+  if itemCount<2 then exit;
+  QuickSortRecords(@items,itemSize,offset,0,itemCount-1,1,asc);
+ end;
+
+procedure SortRecordsByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean);
+ begin
+  if itemCount<2 then exit;
+  QuickSortRecords(@items,itemSize,offset,0,itemCount-1,2,asc);
+ end;
+
+procedure SortRecordsByDouble(var items;itemSize,itemCount,offset:integer;asc:boolean);
+ begin
+  if itemCount<2 then exit;
+  QuickSortRecords(@items,itemSize,offset,0,itemCount-1,3,asc);
+ end;
 
 { TNameValue }
 
