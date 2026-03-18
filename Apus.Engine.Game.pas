@@ -1,4 +1,4 @@
-// Main runtime unit of the engine
+﻿// Main runtime unit of the engine
 //
 // IMPORTANT: Nevertheless BasicGame is implemented as class, it is
 //            NOT thread-safe itself i.e. does not allow multiple instances!
@@ -198,7 +198,7 @@ type
  procedure Delay(time:integer);
 
 implementation
- uses SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools,
+ uses Types, SysUtils, TypInfo, Apus.Engine.CmdProc, Apus.Images, Apus.FastGFX, Apus.Engine.ImageTools,
       Apus.Engine.Resources,
       {$IFDEF VIDEOCAPTURE}Apus.Engine.VideoCapture,{$ENDIF}
       Apus.EventMan, Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene,
@@ -895,7 +895,7 @@ function RobotCmdWindowMove(const req:TRobotRequest; out body:String8):boolean;
   window.ProcessMessages;
   window.GetSize(window.windowWidth,window.windowHeight);
   g.SetupRenderArea;
-  p:=Point(0,0);
+  p:=Types.Point(0,0);
   window.ClientToScreen(p);
   body:='x: '+Conv.ToStr(p.x)+#13#10+
     'y: '+Conv.ToStr(p.y)+#13#10+
@@ -925,7 +925,7 @@ function RobotCmdWindowResize(const req:TRobotRequest; out body:String8):boolean
   sx:=req.Param('X');
   sy:=req.Param('Y');
   if (sx='') and (sy='') then begin
-   p:=Point(0,0);
+   p:=Types.Point(0,0);
    window.ClientToScreen(p);
    x:=p.x;
    y:=p.y;
@@ -941,7 +941,7 @@ function RobotCmdWindowResize(const req:TRobotRequest; out body:String8):boolean
   window.ProcessMessages;
   window.GetSize(window.windowWidth,window.windowHeight);
   g.SetupRenderArea;
-  p:=Point(0,0);
+  p:=Types.Point(0,0);
   window.ClientToScreen(p);
   body:='x: '+Conv.ToStr(p.x)+#13#10+
     'y: '+Conv.ToStr(p.y)+#13#10+

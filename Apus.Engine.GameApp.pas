@@ -526,9 +526,29 @@ procedure TGameApplication.Prepare;
     SaveOptions; // Save modified settings (if default values were added)
    end;
    for i:=1 to paramCount do HandleParam(paramstr(i));
+   {$IFDEF MSWINDOWS}
+   if HasParam('-SDL') then begin
+    usedPlatform:=spSDL;
+    Log.Force('SDL platform requested by a command line parameter');
+   end;
+   if HasParam('-WINDOWS') then begin
+    usedPlatform:=spWindows;
+    Log.Force('Windows platform requested by a command line parameter');
+   end;
+   st:=UpperCase(GetParam('-PLATFORM'));
+   if st='SDL' then begin
+    usedPlatform:=spSDL;
+    Log.Force('SDL platform requested by -PLATFORM=SDL');
+   end else
+   if (st='WINDOWS') or (st='WIN') then begin
+    usedPlatform:=spWindows;
+    Log.Force('Windows platform requested by -PLATFORM='+st);
+   end;
+   {$ENDIF}
 
    {$IFDEF MSWINDOWS}
-   if usedPlatform in [spWindows,spDefault] then sysPlatform:=TWindowsPlatform.Create;
+   if usedPlatform=spDefault then usedPlatform:=spWindows;
+   if usedPlatform=spWindows then sysPlatform:=TWindowsPlatform.Create;
    {$ELSE}
    if usedPlatform=spWindows then raise EFatalError.Create('Ooops! Windows platform on a non-windows system!');
    {$ENDIF}
@@ -543,6 +563,12 @@ procedure TGameApplication.Prepare;
      {$ENDIF}
    end;
    if sysPlatform=nil then raise EFatalError.Create('No platform interface');
+   case usedPlatform of
+    spWindows:Log.Msg('Platform backend: Windows');
+    spSDL:Log.Msg('Platform backend: SDL');
+   else
+    Log.Msg('Platform backend id: '+IntToStr(ord(usedPlatform)));
+   end;
    sysPlatform.GetScreenSize(screenWidth,screenHeight);
    sysPlatform.GetRealScreenSize(realScreenWidth,realScreenHeight);
 

@@ -63,7 +63,7 @@ type
 implementation
 uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
   SysUtils, Apus.Core, Apus.Log, Apus.Files, Apus.Strings, Apus.EventMan, Apus.Engine.Game, Apus.Images,
-  Apus.GfxFormats, Apus.Engine.Controller;
+  Apus.GfxFormats, Apus.Engine.Controller, Apus.Engine.Types;
 
 type
  TSDLController=record
@@ -707,11 +707,11 @@ procedure TSDLGLWindow.Configure(params:TGameSettings);
    w:=params.width;
    h:=params.height;
    if params.mode.displayMode=dmBorderless then
-    SDL_SetWindowBordered(wnd,SDL_FALSE);
+     SDL_SetWindowBordered(wnd,SDL_FALSE);
    case params.mode.displayMode of
     dmWindow,dmFixedWindow,dmBorderless:begin
       SDL_SetWindowFullscreen(wnd,0);
-      if params.mode.displayMode=dmWindow then
+      if params.mode.displayMode=Apus.Engine.Types.dmWindow then
         SDL_SetWindowResizable(wnd,SDL_TRUE)
       else
         SDL_SetWindowResizable(wnd,SDL_FALSE);
