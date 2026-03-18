@@ -21,6 +21,9 @@ uses Apus.Core;
   function ParseDate(st:String8;default:TDateTime=0):TDateTime;
   function GetDateFromStr(st:String8;default:TDateTime=0):TDateTime; // alias for compatibility
   function ParseTime(st:String8;default:TDateTime=0):TDateTime;
+  // command line helpers
+  function HasParam(const name:string):boolean;
+  function GetParam(const name:string):string;
 
 type
   // Text encoding types
@@ -68,6 +71,29 @@ var
 
 implementation
 uses SysUtils, TypInfo, Apus.Conv, Apus.Strings, Apus.Log;
+
+function HasParam(const name:string):boolean;
+ var
+  i:integer;
+ begin
+  result:=false;
+  for i:=1 to ParamCount do
+   if SameText(name,ParamStr(i)) then exit(true);
+ end;
+
+function GetParam(const name:string):string;
+ var
+  i,p:integer;
+  st:string;
+ begin
+  result:='';
+  for i:=1 to ParamCount do begin
+   st:=ParamStr(i);
+   p:=pos('=',st);
+   if p=0 then continue;
+   if SameText(name,copy(st,1,p-1)) then exit(copy(st,p+1,length(st)));
+  end;
+ end;
 
 function ParseDate(st:String8;default:TDateTime=0):TDateTime;
 var

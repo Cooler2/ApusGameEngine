@@ -37,6 +37,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-03-18):** Split container API into new `Apus.Containers`; removed `Apus.Structs`; replaced `TestStructs` with `TestContainers`.
 **Recent wins (2026-03-19):** Added `TestTypes` and fixed `Apus.Types` defects found by edge-case tests (`TBitStream` write/resize/bit-mask behavior and `TNameValueList.Init(st,...)` constructor delegation).
 **Recent wins (2026-03-19):** Moved record sorting API from `Apus.Types` to `Apus.Core.Sort` (`Sort.ByInt/ByFloat/ByDouble/ByStr`) and moved sorting tests to `TestCore`.
+**Recent wins (2026-03-19):** Restored `HasParam/GetParam` in `Apus.Utils` (migrated from deprecated `Apus.Common`) and switched `Apus.Engine.GameApp` command-line platform selection to these helpers (`-SDL`, `-WINDOWS`, `-PLATFORM=...`).
 
 ## NEW — created in engine5 refactoring
 
@@ -49,7 +50,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 | **Apus.HashMaps** | 1590 | TestHashMaps | Generic `THashMap<T>` is the preferred API. Supported specialized hashes: `THash` (multi-value), `TSimpleHash` (int64->int64), `TObjectHash`. Deprecated/compat: `TStrHash`, `TSimpleHashS/AS/8`, `TVarHash`. |
 | **Apus.Log** | 373 | — | Unified logging: Log.Msg/Debug/Info/Warn/Error/Fatal, Logger.UseLogFile/Flush. Replaces Common logging + base for Apus.Logging refactor. |
 | **Apus.Threads** | 714 | — | Thread synchronization (TLock with Enter/Leave methods), thread management (RegisterThread/PingThread), utilities (WaitFor). Cross-platform (Windows/Linux). **Solves blocker #1**. |
-| **Apus.Utils** | 280 | — | Misc utilities: ParseDate/ParseTime (date parsing), SplitA (string splitting with quotes), Chop (trim). Default place for functions that don't fit other modules' scope. |
+| **Apus.Utils** | 280 | — | Misc utilities: ParseDate/ParseTime (date parsing), cmdline helpers (`HasParam/GetParam`), SplitA (string splitting with quotes), Chop (trim). Default place for functions that don't fit other modules' scope. |
 | **Apus.Lib** | 58 | — | Re-export facade (type aliases for convenient `uses`) |
 | **Apus.Spatial** | 434 | — | Spatial primitives and intersections; adds methods-first API and extends TBBox3s via record helper. |
 

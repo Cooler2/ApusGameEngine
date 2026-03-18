@@ -27,6 +27,17 @@ Use it as the primary reference when updating old code.
   - concurrent duplicate registration (same thread identity semantics);
   - queued same-handler registration in many threads (one callback per thread).
 
+## Recent API fixes (2026-03-19)
+
+### Apus.Utils command-line helpers restored
+
+- Restored legacy command-line helpers in `Apus.Utils`:
+  - `HasParam(const name:string):boolean`
+  - `GetParam(const name:string):string`
+- Source parity note: implementation moved from deprecated `Apus.Common` (`SameText` search across `ParamStr`).
+- Engine integration:
+  - `Apus.Engine.GameApp.Prepare` now uses `HasParam/GetParam` for platform selection (`-SDL`, `-WINDOWS`, `-PLATFORM=...`).
+
 ## Recent API fixes (2026-03-11)
 
 ### Apus.Spatial module skeleton
