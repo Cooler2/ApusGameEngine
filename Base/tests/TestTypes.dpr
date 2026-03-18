@@ -11,13 +11,6 @@ uses
 
 {$INCLUDE Test.inc}
 
-type
-  TRecSort=packed record
-    i:integer;
-    f:single;
-    d:double;
-  end;
-
 function AlmostEqual(a,b:double;eps:double=1e-6):boolean;
 begin
   result:=Abs(a-b)<=eps;
@@ -289,40 +282,6 @@ begin
   EndTest;
 end;
 
-procedure TestSortRecords;
-var
-  arr:array of TRecSort;
-begin
-  StartTest('Types.SortRecords');
-  SetLength(arr,5);
-  arr[0].i:=5; arr[0].f:=2.0; arr[0].d:=20.0;
-  arr[1].i:=1; arr[1].f:=-1.0; arr[1].d:=10.0;
-  arr[2].i:=3; arr[2].f:=5.5; arr[2].d:=15.0;
-  arr[3].i:=3; arr[3].f:=0.0; arr[3].d:=12.0;
-  arr[4].i:=-7; arr[4].f:=1.25; arr[4].d:=-3.0;
-
-  SortRecordsByInt(arr[0],SizeOf(TRecSort),length(arr),0,true);
-  Check(arr[0].i=-7,'sort int asc first');
-  Check(arr[4].i=5,'sort int asc last');
-
-  SortRecordsByInt(arr[0],SizeOf(TRecSort),length(arr),0,false);
-  Check(arr[0].i=5,'sort int desc first');
-  Check(arr[4].i=-7,'sort int desc last');
-
-  SortRecordsByFloat(arr[0],SizeOf(TRecSort),length(arr),SizeOf(integer),true);
-  Check(AlmostEqual(arr[0].f,-1.0),'sort float asc first');
-  Check(AlmostEqual(arr[4].f,5.5),'sort float asc last');
-
-  SortRecordsByDouble(arr[0],SizeOf(TRecSort),length(arr),SizeOf(integer)+SizeOf(single),false);
-  Check(AlmostEqual(arr[0].d,20.0),'sort double desc first');
-  Check(AlmostEqual(arr[4].d,-3.0),'sort double desc last');
-
-  // edge: itemCount<2 should be no-op
-  SortRecordsByInt(arr[0],SizeOf(TRecSort),1,0,true);
-  Check(true,'sort one-item no-op');
-  EndTest;
-end;
-
 begin
   try
     TestIntRange;
@@ -333,7 +292,6 @@ begin
     TestBufferReadWrite;
     TestBufferSlicing;
     TestBitStream;
-    TestSortRecords;
 
     writeln;
     if testsFailed=0 then

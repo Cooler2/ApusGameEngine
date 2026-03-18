@@ -418,6 +418,18 @@ type
   end;
 
 // =============================================================================
+// Sort scope - low-level record sorting helpers
+// =============================================================================
+type
+  Sort=record
+    // Sort array of records by field at byte offset
+    class procedure ByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true); static;
+    class procedure ByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true); static;
+    class procedure ByDouble(var items;itemSize,itemCount,offset:integer;asc:boolean=true); static;
+    class procedure ByStr(var items;itemSize,itemCount,offset:integer;asc:boolean=true); static; // String8 field
+  end;
+
+// =============================================================================
 // Time scope - high-precision time functions
 // =============================================================================
 type
@@ -1678,7 +1690,145 @@ end;
 
 class function Bits.SwapWords(v:cardinal):cardinal;
 begin
- result:=(v shl 16) or (v shr 16);
+  result:=(v shl 16) or (v shr 16);
+end;
+
+{ Sort }
+
+class procedure Sort.ByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+  procedure QuickSort(data:pointer;a,b:integer);
+  var
+    lo,hi,mid:integer;
+    loVal,hiVal:PByte;
+    midVal:integer;
+  begin
+    lo:=a; hi:=b;
+    mid:=(a+b) div 2;
+    loVal:=PByte(UIntPtr(data)+UIntPtr(lo*itemSize+offset));
+    hiVal:=PByte(UIntPtr(data)+UIntPtr(hi*itemSize+offset));
+    midVal:=PInteger(PByte(UIntPtr(data)+UIntPtr(mid*itemSize+offset)))^;
+    repeat
+      if asc then begin
+        while PInteger(loVal)^<midVal do begin inc(lo); inc(loVal,itemSize) end;
+        while PInteger(hiVal)^>midVal do begin dec(hi); dec(hiVal,itemSize) end;
+      end else begin
+        while PInteger(loVal)^>midVal do begin inc(lo); inc(loVal,itemSize) end;
+        while PInteger(hiVal)^<midVal do begin dec(hi); dec(hiVal,itemSize) end;
+      end;
+      if lo<=hi then begin
+        Swap(pointer(UIntPtr(data)+UIntPtr(lo*itemSize))^,pointer(UIntPtr(data)+UIntPtr(hi*itemSize))^,itemSize);
+        inc(lo); inc(loVal,itemSize);
+        dec(hi); dec(hiVal,itemSize);
+      end;
+    until lo>hi;
+    if hi>a then QuickSort(data,a,hi);
+    if lo<b then QuickSort(data,lo,b);
+  end;
+begin
+  if itemCount<2 then exit;
+  QuickSort(@items,0,itemCount-1);
+end;
+
+class procedure Sort.ByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+  procedure QuickSort(data:pointer;a,b:integer);
+  var
+    lo,hi,mid:integer;
+    loVal,hiVal:PByte;
+    midVal:single;
+  begin
+    lo:=a; hi:=b;
+    mid:=(a+b) div 2;
+    loVal:=PByte(UIntPtr(data)+UIntPtr(lo*itemSize+offset));
+    hiVal:=PByte(UIntPtr(data)+UIntPtr(hi*itemSize+offset));
+    midVal:=PSingle(PByte(UIntPtr(data)+UIntPtr(mid*itemSize+offset)))^;
+    repeat
+      if asc then begin
+        while PSingle(loVal)^<midVal do begin inc(lo); inc(loVal,itemSize) end;
+        while PSingle(hiVal)^>midVal do begin dec(hi); dec(hiVal,itemSize) end;
+      end else begin
+        while PSingle(loVal)^>midVal do begin inc(lo); inc(loVal,itemSize) end;
+        while PSingle(hiVal)^<midVal do begin dec(hi); dec(hiVal,itemSize) end;
+      end;
+      if lo<=hi then begin
+        Swap(pointer(UIntPtr(data)+UIntPtr(lo*itemSize))^,pointer(UIntPtr(data)+UIntPtr(hi*itemSize))^,itemSize);
+        inc(lo); inc(loVal,itemSize);
+        dec(hi); dec(hiVal,itemSize);
+      end;
+    until lo>hi;
+    if hi>a then QuickSort(data,a,hi);
+    if lo<b then QuickSort(data,lo,b);
+  end;
+begin
+  if itemCount<2 then exit;
+  QuickSort(@items,0,itemCount-1);
+end;
+
+class procedure Sort.ByDouble(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+  procedure QuickSort(data:pointer;a,b:integer);
+  var
+    lo,hi,mid:integer;
+    loVal,hiVal:PByte;
+    midVal:double;
+  begin
+    lo:=a; hi:=b;
+    mid:=(a+b) div 2;
+    loVal:=PByte(UIntPtr(data)+UIntPtr(lo*itemSize+offset));
+    hiVal:=PByte(UIntPtr(data)+UIntPtr(hi*itemSize+offset));
+    midVal:=PDouble(PByte(UIntPtr(data)+UIntPtr(mid*itemSize+offset)))^;
+    repeat
+      if asc then begin
+        while PDouble(loVal)^<midVal do begin inc(lo); inc(loVal,itemSize) end;
+        while PDouble(hiVal)^>midVal do begin dec(hi); dec(hiVal,itemSize) end;
+      end else begin
+        while PDouble(loVal)^>midVal do begin inc(lo); inc(loVal,itemSize) end;
+        while PDouble(hiVal)^<midVal do begin dec(hi); dec(hiVal,itemSize) end;
+      end;
+      if lo<=hi then begin
+        Swap(pointer(UIntPtr(data)+UIntPtr(lo*itemSize))^,pointer(UIntPtr(data)+UIntPtr(hi*itemSize))^,itemSize);
+        inc(lo); inc(loVal,itemSize);
+        dec(hi); dec(hiVal,itemSize);
+      end;
+    until lo>hi;
+    if hi>a then QuickSort(data,a,hi);
+    if lo<b then QuickSort(data,lo,b);
+  end;
+begin
+  if itemCount<2 then exit;
+  QuickSort(@items,0,itemCount-1);
+end;
+
+class procedure Sort.ByStr(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+  procedure QuickSort(data:pointer;a,b:integer);
+  var
+    lo,hi,mid:integer;
+    loVal,hiVal:PByte;
+    midVal:String8;
+  begin
+    lo:=a; hi:=b;
+    mid:=(a+b) div 2;
+    loVal:=PByte(UIntPtr(data)+UIntPtr(lo*itemSize+offset));
+    hiVal:=PByte(UIntPtr(data)+UIntPtr(hi*itemSize+offset));
+    midVal:=PString8(PByte(UIntPtr(data)+UIntPtr(mid*itemSize+offset)))^;
+    repeat
+      if asc then begin
+        while PString8(loVal)^<midVal do begin inc(lo); inc(loVal,itemSize) end;
+        while PString8(hiVal)^>midVal do begin dec(hi); dec(hiVal,itemSize) end;
+      end else begin
+        while PString8(loVal)^>midVal do begin inc(lo); inc(loVal,itemSize) end;
+        while PString8(hiVal)^<midVal do begin dec(hi); dec(hiVal,itemSize) end;
+      end;
+      if lo<=hi then begin
+        Swap(pointer(UIntPtr(data)+UIntPtr(lo*itemSize))^,pointer(UIntPtr(data)+UIntPtr(hi*itemSize))^,itemSize);
+        inc(lo); inc(loVal,itemSize);
+        dec(hi); dec(hiVal,itemSize);
+      end;
+    until lo>hi;
+    if hi>a then QuickSort(data,a,hi);
+    if lo<b then QuickSort(data,lo,b);
+  end;
+begin
+  if itemCount<2 then exit;
+  QuickSort(@items,0,itemCount-1);
 end;
 
 // =============================================================================

@@ -9,6 +9,14 @@ uses
 
 {$INCLUDE Test.inc}
 
+type
+  TSortRec=packed record
+    i:integer;
+    f:single;
+    d:double;
+    s:String8;
+  end;
+
 procedure TestMinMax;
 begin
   StartTest('Min/Max');
@@ -775,6 +783,44 @@ begin
   EndTest;
 end;
 
+procedure TestSortScope;
+var
+  arr:array of TSortRec;
+begin
+  StartTest('Sort');
+  SetLength(arr,5);
+  arr[0].i:=5;  arr[0].f:=2.0;  arr[0].d:=20.0; arr[0].s:='beta';
+  arr[1].i:=1;  arr[1].f:=-1.0; arr[1].d:=10.0; arr[1].s:='delta';
+  arr[2].i:=3;  arr[2].f:=5.5;  arr[2].d:=15.0; arr[2].s:='alpha';
+  arr[3].i:=3;  arr[3].f:=0.0;  arr[3].d:=12.0; arr[3].s:='gamma';
+  arr[4].i:=-7; arr[4].f:=1.25; arr[4].d:=-3.0; arr[4].s:='epsilon';
+
+  Sort.ByInt(arr[0],SizeOf(TSortRec),length(arr),0,true);
+  Check(arr[0].i=-7,'ByInt asc first');
+  Check(arr[4].i=5,'ByInt asc last');
+
+  Sort.ByInt(arr[0],SizeOf(TSortRec),length(arr),0,false);
+  Check(arr[0].i=5,'ByInt desc first');
+  Check(arr[4].i=-7,'ByInt desc last');
+
+  Sort.ByFloat(arr[0],SizeOf(TSortRec),length(arr),SizeOf(integer),true);
+  Check(Abs(arr[0].f+1.0)<0.0001,'ByFloat asc first');
+  Check(Abs(arr[4].f-5.5)<0.0001,'ByFloat asc last');
+
+  Sort.ByDouble(arr[0],SizeOf(TSortRec),length(arr),SizeOf(integer)+SizeOf(single),false);
+  Check(Abs(arr[0].d-20.0)<0.0001,'ByDouble desc first');
+  Check(Abs(arr[4].d+3.0)<0.0001,'ByDouble desc last');
+
+  Sort.ByStr(arr[0],SizeOf(TSortRec),length(arr),SizeOf(integer)+SizeOf(single)+SizeOf(double),true);
+  Check(arr[0].s='alpha','ByStr asc first');
+  Check(arr[4].s='gamma','ByStr asc last');
+
+  // edge: itemCount<2 should be no-op
+  Sort.ByInt(arr[0],SizeOf(TSortRec),1,0,true);
+  Check(true,'ByInt one-item no-op');
+  EndTest;
+end;
+
 procedure TestAlignment;
 var
   p:pointer;
@@ -1046,6 +1092,7 @@ begin
     TestMemGuardedFillClear;
     TestMemUnaligned;
     TestBits;
+    TestSortScope;
     TestBitsSwapWords;
     TestBitsEdgeCases;
     TestAtomicSpin;

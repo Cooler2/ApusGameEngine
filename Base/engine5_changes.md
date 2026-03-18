@@ -537,7 +537,7 @@ Compression/decompression and binary patching utilities extracted from `Apus.Com
 | `UnicodeFrom(st,enc)` / `UnicodeTo(st,enc)` | **Apus.Conv** | Convert between WideString and 8-bit encodings (uses TTextEncoding) |
 | `Str8(s)` / `Str16(s)` | **Apus.Strings** | Cast/convert to String8/String16 |
 | `SafeStrItem(arr,i)` | **Apus.Strings** or **Apus.Utils** | Safe array indexing with bounds check |
-| `SortRecordsByInt/Double/Float` | **Apus.Structs** | ✅ Implemented: `SortRecordsByInt/Float/Double(var items; itemSize,itemCount,offset:integer; asc:boolean)` |
+| `SortRecordsByInt/Double/Float` | **Apus.Core.Sort** | ✅ Implemented as `Sort.ByInt/ByFloat/ByDouble(var items; itemSize,itemCount,offset:integer; asc:boolean)` |
 | `PackBytes(b1..b4)` / `PackWords(w1,w2)` | **Apus.Core** | Pack bytes/words into integer |
 | `AddString/RemoveString/FindString` | **Apus.Utils** or **Apus.Structs** | Array helpers for Strings8 |
 | `HasParam/GetParam` | **Apus.Utils** | Command-line argument access |
@@ -585,7 +585,17 @@ Compression/decompression and binary patching utilities extracted from `Apus.Com
 - Added new module `Apus.Containers` for non-hash algorithmic containers.
 - Removed `Apus.Structs` unit and moved container API surface to `Apus.Containers`.
 - Removed legacy `TestStructs`; added `TestContainers` in modern test format.
-- `TBitStream` and `SortRecordsByInt/Float/Double` are now in `Apus.Types`.
+- `TBitStream` is now in `Apus.Types`.
+
+## 2026-03-19 — Sort API moved to Apus.Core
+
+- Added `Sort` scope in `Apus.Core`:
+  - `Sort.ByInt`
+  - `Sort.ByFloat`
+  - `Sort.ByDouble`
+  - `Sort.ByStr` (`String8` field)
+- Removed legacy `SortRecordsByInt/Float/Double` API from `Apus.Types` (no wrappers left).
+- Moved sorting coverage from `TestTypes` to `TestCore`.
 
 ## 2026-03-19 — Apus.Types validation and fixes
 
@@ -596,7 +606,6 @@ Compression/decompression and binary patching utilities extracted from `Apus.Com
   - `TNameValue` / `TNameValueList`
   - `TBuffer` / `TWriteBuffer`
   - `TBitStream`
-  - `SortRecordsByInt/Float/Double`
 - Fixed defects found by tests:
   - `TBitStream`: proper buffer zeroing size, safe bit mask for bit 31 under range/overflow checks, correct resize rounding, correct bit-write path in `Put(var buf;...)`.
   - `TNameValueList.Init(st,...)`: constructor now assigns delegated constructor result to `self`.

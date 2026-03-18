@@ -3,7 +3,7 @@
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-03-18)
+## Summary (last updated: 2026-03-19)
 
 **Progress:**
 - ✅ 10 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib, Spatial)
@@ -36,6 +36,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-03-18):** Finalized hash type policy in `Apus.HashMaps`: `THashMap<T>` remains preferred generic API; `THash`, `TSimpleHash`, `TObjectHash` are supported specialized types; `TVarHash` moved to deprecated/compat group.
 **Recent wins (2026-03-18):** Split container API into new `Apus.Containers`; removed `Apus.Structs`; replaced `TestStructs` with `TestContainers`.
 **Recent wins (2026-03-19):** Added `TestTypes` and fixed `Apus.Types` defects found by edge-case tests (`TBitStream` write/resize/bit-mask behavior and `TNameValueList.Init(st,...)` constructor delegation).
+**Recent wins (2026-03-19):** Moved record sorting API from `Apus.Types` to `Apus.Core.Sort` (`Sort.ByInt/ByFloat/ByDouble/ByStr`) and moved sorting tests to `TestCore`.
 
 ## NEW — created in engine5 refactoring
 
@@ -56,7 +57,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 
 | Module | Lines | Notes |
 |--------|-------|-------|
-| **Apus.Types** | 760 | Foundation types, `TBuffer`, `TBitStream`, and `SortRecordsByInt/Float/Double`. Covered by `TestTypes` (x64/x86). Level 0. TEMP: uses Common for ParseDate/SplitA (need extraction). |
+| **Apus.Types** | 760 | Foundation types, `TBuffer`, `TBitStream`. Covered by `TestTypes` (x64/x86). Level 0. TEMP: uses Common for ParseDate/SplitA (need extraction). |
 | **Apus.CPU** | 157 | CPU detection, CPUID. Level 0. |
 | **Apus.Crypto** | 430 | MD5, SHA, CRC32. Level 0. |
 | **Apus.ADPCM** | 123 | Audio compression. Level 0. |
@@ -132,7 +133,7 @@ Migration = replace `uses Common` with appropriate new modules + rename function
 | **Apus.Core** (extend) | Math: FRound, PRound, SRound, FastFloor, Wrap, Ratio, Pike, FastInvSqrt. Bits: GetBits, SetBits. Pack: PackBytes, PackWords, ExtractByte, ExtractWord. Random: TRandom, PseudoRand, RandomInt, RandomStr. Checksum: CalcCheckSum, CheckSum64, FillRandom. | ~400 |
 | **Apus.Conv** (extend) | Date/Time: HowLong, NowGMT→Time.UTC, GetUTCTime→Time.Stamp, MyTickCount→removed. Encoding: ConvertToWindows/FromWindows, Win1251↔UTF8, BinToStr/StrToBin. | ~200 |
 | **Apus.Strings** (extend) | ✅ EncodeUTF8/DecodeUTF8 already as `UTF8.Encode`/`UTF8.Decode`. Still needed: Str8, Str16, SafeStrItem, LastChar, Unescape, DumpStr. | ~150 |
-| **Apus.Structs** (extend) | Sorting: SortObjects, SortRecordsByDouble/Float/Int, SortStrings, IndexRecordsByFloat. Array helpers: AddString, RemoveString, FindString, AddInteger, RemoveInteger, AddFloat, RemoveFloat, ArrayToStr, StrToArray. | ~350 |
+| **Apus.Core** (extend) | Sorting helpers: `Sort.ByInt/ByFloat/ByDouble/ByStr`, plus remaining `SortObjects/SortStrings/IndexRecordsByFloat` if still needed for migration parity. | ~350 |
 | **Apus.Core** (extend) | PackBytes/PackWords, PointerInRange | ~30 |
 | **Apus.Utils** (extend) | Str8/Str16 conversions, HasParam/GetParam, SafeStrItem, AddString/RemoveString/FindString array helpers | ~150 |
 | **Apus.Types** | TTextEncoding enum (used by Apus.Translation) | ~20 |
