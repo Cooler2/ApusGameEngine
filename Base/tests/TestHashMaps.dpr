@@ -154,6 +154,7 @@ var
   m:TStrIntMap;
   v,i:integer;
   allOk:boolean;
+  failMsg:String8;
 begin
   StartTest('GenHash.Resize');
   m.Init(4);
@@ -161,14 +162,14 @@ begin
     m.Put('key'+IntToStr(i), i);
   Check(m.count=1000, 'count=1000');
   allOk:=true;
+  failMsg:='';
   for i:=0 to 999 do
     if not (m.Get('key'+IntToStr(i),v) and (v=i)) then begin
-      Check(false, 'get key'+IntToStr(i)+' failed');
       allOk:=false;
+      failMsg:='GenHash.Resize key'+IntToStr(i)+' expected='+IntToStr(i)+' got='+IntToStr(v);
       break;
     end;
-  if allOk then
-    Check(true, 'all 1000 values correct');
+  Check(allOk,'GenHash.Resize all 1000 values correct; '+failMsg);
   EndTest;
 end;
 
@@ -176,6 +177,8 @@ procedure TestRemoveChain;
 var
   m:TStrIntMap;
   v,i:integer;
+  oddOk,evenOk,reinsertOk:boolean;
+  failMsg:String8;
 begin
   StartTest('GenHash.RemoveChain');
   m.Init(4);
@@ -185,21 +188,42 @@ begin
   for i:=0 to 24 do
     m.Remove('item'+IntToStr(i*2));
   Check(m.count=25, 'count=25 after remove');
+  oddOk:=true;
+  failMsg:='';
   for i:=0 to 24 do
-    Check(m.Get('item'+IntToStr(i*2+1),v) and (v=i*2+1),
-      'odd item '+IntToStr(i*2+1));
+    if not (m.Get('item'+IntToStr(i*2+1),v) and (v=i*2+1)) then begin
+      oddOk:=false;
+      failMsg:='odd item '+IntToStr(i*2+1)+' mismatch';
+      break;
+    end;
+  Check(oddOk,'GenHash.RemoveChain odd items intact; '+failMsg);
+  evenOk:=true;
+  failMsg:='';
   for i:=0 to 24 do
-    Check(not m.HasKey('item'+IntToStr(i*2)),
-      'even item '+IntToStr(i*2)+' removed');
+    if m.HasKey('item'+IntToStr(i*2)) then begin
+      evenOk:=false;
+      failMsg:='even item '+IntToStr(i*2)+' was not removed';
+      break;
+    end;
+  Check(evenOk,'GenHash.RemoveChain even items removed; '+failMsg);
   for i:=0 to 24 do
     m.Put('item'+IntToStr(i*2), i*200);
   Check(m.count=50, 'count=50 after reinsert');
+  reinsertOk:=true;
+  failMsg:='';
   for i:=0 to 24 do begin
-    Check(m.Get('item'+IntToStr(i*2),v) and (v=i*200),
-      'reinserted even '+IntToStr(i*2));
-    Check(m.Get('item'+IntToStr(i*2+1),v) and (v=i*2+1),
-      'still odd '+IntToStr(i*2+1));
+    if not (m.Get('item'+IntToStr(i*2),v) and (v=i*200)) then begin
+      reinsertOk:=false;
+      failMsg:='reinserted even '+IntToStr(i*2)+' mismatch';
+      break;
+    end;
+    if not (m.Get('item'+IntToStr(i*2+1),v) and (v=i*2+1)) then begin
+      reinsertOk:=false;
+      failMsg:='still odd '+IntToStr(i*2+1)+' mismatch';
+      break;
+    end;
   end;
+  Check(reinsertOk,'GenHash.RemoveChain reinsert verification; '+failMsg);
   EndTest;
 end;
 

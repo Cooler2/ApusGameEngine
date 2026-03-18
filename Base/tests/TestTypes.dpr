@@ -20,16 +20,28 @@ procedure TestIntRange;
 var
   r:TIntRange;
   i,v:integer;
+  randInBounds:boolean;
+  badIndex,badValue:integer;
 begin
   StartTest('Types.IntRange');
   r.Init(-3,7);
-  Check(r.min=-3,'min set');
-  Check(r.max=7,'max set');
-  Check(r.Width=10,'width');
+  Check(r.min=-3,'Types.IntRange min set');
+  Check(r.max=7,'Types.IntRange max set');
+  Check(r.Width=10,'Types.IntRange width');
+  randInBounds:=true;
+  badIndex:=-1;
+  badValue:=0;
   for i:=1 to 500 do begin
     v:=r.Rand;
-    Check((v>=-3) and (v<=7),'rand bounds');
+    if (v<-3) or (v>7) then begin
+      randInBounds:=false;
+      badIndex:=i;
+      badValue:=v;
+      break;
+    end;
   end;
+  Check(randInBounds,
+    'Types.IntRange rand bounds [1..500], first bad sample #'+IntToStr(badIndex)+' value='+IntToStr(badValue));
   EndTest;
 end;
 
@@ -38,16 +50,29 @@ var
   r:TFloatRange;
   i:integer;
   v:single;
+  randInBounds:boolean;
+  badIndex:integer;
+  badValue:single;
 begin
   StartTest('Types.FloatRange');
   r.Init(single(-1.5),single(2.25));
-  Check(AlmostEqual(r.min,-1.5),'min set');
-  Check(AlmostEqual(r.max,2.25),'max set');
-  Check(AlmostEqual(r.Width,3.75),'width');
+  Check(AlmostEqual(r.min,-1.5),'Types.FloatRange min set');
+  Check(AlmostEqual(r.max,2.25),'Types.FloatRange max set');
+  Check(AlmostEqual(r.Width,3.75),'Types.FloatRange width');
+  randInBounds:=true;
+  badIndex:=-1;
+  badValue:=0;
   for i:=1 to 500 do begin
     v:=r.Rand;
-    Check((v>=-1.5) and (v<=2.25),'rand bounds');
+    if (v<-1.5) or (v>2.25) then begin
+      randInBounds:=false;
+      badIndex:=i;
+      badValue:=v;
+      break;
+    end;
   end;
+  Check(randInBounds,
+    'Types.FloatRange rand bounds [1..500], first bad sample #'+IntToStr(badIndex)+' value='+FloatToStr(badValue));
   EndTest;
 end;
 
