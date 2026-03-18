@@ -7,7 +7,7 @@
 {$R-}
 unit Apus.TextUtils;
 interface
- uses Apus.Core, Apus.Structs;
+ uses Apus.Core, Apus.HashMaps;
 
  // Remove any HTML tags, return plain text
  function ExtractPlainText(const html:string):string;

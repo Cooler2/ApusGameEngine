@@ -109,7 +109,7 @@ procedure ctlDeleteKey(key:String8);
 
 
 implementation
- uses SysUtils, StrUtils, Classes, Apus.Structs, Apus.Crypto, Apus.Threads,
+ uses SysUtils, StrUtils, Classes, Apus.Containers, Apus.HashMaps, Apus.Crypto, Apus.Threads,
   Apus.Strings, Apus.Conv;
 
 type

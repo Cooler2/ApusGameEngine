@@ -4,7 +4,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.SCGI;
 interface
- uses Apus.Core, Apus.Database, Apus.Structs, SysUtils;
+ uses Apus.Core, Apus.Database, Apus.HashMaps, SysUtils;
  const
   MAX_REQUESTS = 1000;
   MAX_RQUEUE = 1023; // 2^n-1

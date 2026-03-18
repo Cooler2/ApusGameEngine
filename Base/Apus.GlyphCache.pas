@@ -8,7 +8,7 @@
 {$WRITEABLECONST ON}
 unit Apus.GlyphCache;
 interface
- uses types,Apus.Structs,Apus.Conv,Apus.Log;
+ uses types,Apus.HashMaps,Apus.Conv,Apus.Log;
 
 type
  // Item of text cache area

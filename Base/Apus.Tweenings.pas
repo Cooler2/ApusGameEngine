@@ -1,6 +1,6 @@
 ﻿unit Apus.Tweenings;
 interface
-uses Apus.Types;
+uses Apus.Types, Apus.Utils;
 
 type
  TTweening=record

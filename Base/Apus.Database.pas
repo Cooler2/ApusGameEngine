@@ -5,7 +5,7 @@
 {$IFDEF CPUX64} {$DEFINE CPU64} {$ENDIF}
 unit Apus.Database;
 interface
- uses Apus.Core, Apus.Structs, Apus.Threads,
+ uses Apus.Core, Apus.HashMaps, Apus.Threads,
    Apus.Conv;
  var
   // Credentials and options

@@ -5,7 +5,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.ProdCons;
 interface
-uses Classes, SyncObjs, Apus.Classes, Apus.Structs;
+uses Classes, SyncObjs, Apus.Classes, Apus.Containers;
 
 const
  // You can use this magic number to specify number of threads like (NUM_CPU_CORES-1) or (NUM_CPU_CORES div 2)
@@ -13,7 +13,7 @@ const
  NUM_CPU_CORES = $1000;
 
 type
- TDataItem = Apus.Structs.TDataItem; // type alias
+ TDataItem = Apus.Containers.TDataItem; // type alias
 
  TProducerConsumer=class
   // bufferSize - max number of items to queue for processing

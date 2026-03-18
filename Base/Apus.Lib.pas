@@ -26,7 +26,6 @@ uses
   Apus.Conv,
   Apus.HashMaps,
   Apus.Strings,
-  Apus.Structs,
   Apus.Files,
   Apus.Utils,
   Apus.Geom2D,
@@ -74,10 +73,8 @@ type
   Files = Apus.Files.Files;
   Folder = Apus.Files.Folder;
 
-  // --- Apus.Structs ---
-  TObjectHash = Apus.Structs.TObjectHash;
-
   // --- Apus.HashMaps ---
+  TObjectHash = Apus.HashMaps.TObjectHash;
   TObjectMap = Apus.HashMaps.THashMap<TObject>;
 
   // --- Apus.Utils ---

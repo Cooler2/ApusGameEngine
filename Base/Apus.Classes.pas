@@ -41,7 +41,7 @@ implementation
 uses SysUtils,    // Format
      Apus.Strings, // FastHash
      Apus.Conv,    // ToStr, HasValue
-     Apus.Structs;
+     Apus.HashMaps;
 
 var
   classAttributes:TVarHash;

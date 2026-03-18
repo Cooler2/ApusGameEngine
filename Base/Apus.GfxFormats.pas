@@ -70,7 +70,7 @@ uses {$IFDEF DELPHI}
       {$IFDEF FPC}FPImage,FPReadJPEG,FPWriteJPEG,FPReadPNG,FPWritePNG,{$ENDIF}
   Classes,SysUtils,
   Apus.Colors,
-  Apus.Structs,
+  Apus.HashMaps,
   Apus.Conv,
   Apus.Files,
   Apus.Strings;
@@ -685,7 +685,7 @@ const
     palette[i].color:=cHash.keys[i];
     palette[i].count:=cHash.values[i];
    end;
-   SortRecordsByInt(palette[0],sizeof(TPaletteEntry),palSize,0,false);
+   Sort.ByInt(palette[0],sizeof(TPaletteEntry),palSize,0,false);
    // Process palette
    for i:=0 to palSize-1 do begin
     if palette[i].count>1 then begin

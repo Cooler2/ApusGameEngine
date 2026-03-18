@@ -6,7 +6,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 unit Apus.HtmlTree;
 interface
-uses Apus.Core, Apus.Types, Apus.Structs;
+uses Apus.Core, Apus.Types, Apus.HashMaps;
 
 type
   THtmlNode=class;
