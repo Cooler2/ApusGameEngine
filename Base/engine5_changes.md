@@ -548,3 +548,34 @@ Compression/decompression and binary patching utilities extracted from `Apus.Com
 | `Unescape(st)` | **Apus.Strings** or **Apus.Utils** | C-style escape sequence decoding |
 | `ExtractFilePath/FileName/ExpandFileName` | **SysUtils** | RTL functions — add SysUtils to uses |
 | `TrimLeft/TrimRight` standalone | **SysUtils** or `st.TrimLeft/TrimRight` | Also available as String8 helper methods |
+
+## 2026-03-18 — Hash Maps Consolidation
+
+### Moved from `Apus.Structs` to `Apus.HashMaps`
+
+- `THashItem`, `TCell`
+- `TStrHash`
+- `THash`
+- `TSimpleHash`, `TSimpleHashS`, `TSimpleHashAS`, `TSimpleHash8`
+- `TObjectHash`, `PObjectHash`
+- `TVarHash`, `PVarHash`
+- `TErrorState`
+
+### Compatibility in `Apus.Structs`
+
+- Kept type aliases to moved hash types (`Apus.HashMaps.*`) to avoid breaking existing units.
+- `Apus.Structs` now focuses on non-hash algorithmic structures; hash implementations live in `Apus.HashMaps`.
+
+### Deprecation policy
+
+- Preferred generic API for new code: `THashMap<T>`.
+- Supported specialized hashes:
+  - `THash` (DB-oriented multi-value mode: `String8 -> variant(s)`)
+  - `TSimpleHash` (`int64 -> int64`)
+  - `TObjectHash` (`String8 -> TNamedObject`)
+- Legacy/compat hashes marked `deprecated`:
+  - `TStrHash`
+  - `TSimpleHashS`
+  - `TSimpleHashAS`
+  - `TSimpleHash8`
+  - `TVarHash`
