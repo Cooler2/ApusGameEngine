@@ -579,3 +579,24 @@ Compression/decompression and binary patching utilities extracted from `Apus.Com
   - `TSimpleHashAS`
   - `TSimpleHash8`
   - `TVarHash`
+
+## 2026-03-18 — Containers split
+
+- Added new module `Apus.Containers` for non-hash algorithmic containers.
+- Removed `Apus.Structs` unit and moved container API surface to `Apus.Containers`.
+- Removed legacy `TestStructs`; added `TestContainers` in modern test format.
+- `TBitStream` and `SortRecordsByInt/Float/Double` are now in `Apus.Types`.
+
+## 2026-03-19 — Apus.Types validation and fixes
+
+- Added new test suite: `Base/tests/TestTypes.dpr` (modern console test template).
+- Expanded edge-case coverage for:
+  - `TIntRange` / `TFloatRange`
+  - `TArray<T>`
+  - `TNameValue` / `TNameValueList`
+  - `TBuffer` / `TWriteBuffer`
+  - `TBitStream`
+  - `SortRecordsByInt/Float/Double`
+- Fixed defects found by tests:
+  - `TBitStream`: proper buffer zeroing size, safe bit mask for bit 31 under range/overflow checks, correct resize rounding, correct bit-write path in `Put(var buf;...)`.
+  - `TNameValueList.Init(st,...)`: constructor now assigns delegated constructor result to `self`.

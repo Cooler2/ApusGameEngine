@@ -34,6 +34,8 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-03-11):** Added new module Apus.Spatial with compile-ready spatial API skeleton (TVec2/TVec3/TVec4, TRay, TSphere, TFrustum), methods-first intersections, and TBBox3s helper extensions.
 **Recent wins (2026-03-14):** Fixed `Apus.EventMan.SetEventHandler` deduplication to include thread affinity (`threadNum` + `mode`) so identical handlers can be registered from multiple queued/mixed threads; added multi-thread regression tests in `TestEventMan` (including same-handler-per-thread queued delivery).
 **Recent wins (2026-03-18):** Finalized hash type policy in `Apus.HashMaps`: `THashMap<T>` remains preferred generic API; `THash`, `TSimpleHash`, `TObjectHash` are supported specialized types; `TVarHash` moved to deprecated/compat group.
+**Recent wins (2026-03-18):** Split container API into new `Apus.Containers`; removed `Apus.Structs`; replaced `TestStructs` with `TestContainers`.
+**Recent wins (2026-03-19):** Added `TestTypes` and fixed `Apus.Types` defects found by edge-case tests (`TBitStream` write/resize/bit-mask behavior and `TNameValueList.Init(st,...)` constructor delegation).
 
 ## NEW — created in engine5 refactoring
 
@@ -54,7 +56,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 
 | Module | Lines | Notes |
 |--------|-------|-------|
-| **Apus.Types** | 760 | Foundation types, TBuffer. Level 0. TEMP: uses Common for ParseDate/SplitA (need extraction). |
+| **Apus.Types** | 760 | Foundation types, `TBuffer`, `TBitStream`, and `SortRecordsByInt/Float/Double`. Covered by `TestTypes` (x64/x86). Level 0. TEMP: uses Common for ParseDate/SplitA (need extraction). |
 | **Apus.CPU** | 157 | CPU detection, CPUID. Level 0. |
 | **Apus.Crypto** | 430 | MD5, SHA, CRC32. Level 0. |
 | **Apus.ADPCM** | 123 | Audio compression. Level 0. |
@@ -63,7 +65,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 | **Apus.Geom3D** | 2759 | Matrices, quaternions, 3D math. Uses Types only. |
 | **Apus.AnimatedValues** | 328 | Animated floats. Uses Tweenings only (but Tweenings uses Common!). |
 | **Apus.Classes** | 163 | ✅ **Migrated 2026-02-17**: uses Strings (FastHash), Conv (ToHex, HasValue), Structs. Foundation module (Level 1). |
-| **Apus.Structs** | 1274 | ✅ **Migrated 2026-02-17**. Hash containers moved out to `Apus.HashMaps`; this unit now re-exports hash types for compatibility and keeps non-hash algorithmic structures. |
+| **Apus.Containers** | 1051 | TestContainers | Trees, heaps, queues and object list containers split from old `Apus.Structs`. |
 
 ## MIGRATE — old modules that use Common, need API call replacement
 
