@@ -310,18 +310,20 @@ begin
   SetLength(data,(estimatedSize+31) div 32);
   capacity:=length(data)*32;
   if length(data)>0 then
-    FillChar(data[0],length(data),0);
+    FillChar(data[0],length(data)*SizeOf(cardinal),0);
 end;
 
 procedure TBitStream.SetBit(index:integer;value:integer);
 var
   i:integer;
+  mask:cardinal;
 begin
   i:=index shr 5;
+  mask:=cardinal(1) shl (index and 31);
   if value=0 then
-    data[i]:=data[i] and not (1 shl (index and 31))
+    data[i]:=data[i] and not mask
   else
-    data[i]:=data[i] or (1 shl (index and 31))
+    data[i]:=data[i] or mask
 end;
 
 function TBitStream.GetBit(index:integer):integer;
@@ -333,7 +335,7 @@ procedure TBitStream.Allocate(count:integer);
 begin
   if size+count>capacity then begin
     capacity:=round((capacity+1024)*1.5);
-    SetLength(data,capacity div 32);
+    SetLength(data,(capacity+31) div 32);
   end;
 end;
 
@@ -360,8 +362,7 @@ begin
   pb:=@buf; b:=pb^;
   // simple, non-effective version
   for i:=0 to count-1 do begin
-    if b and 1>0 then
-      data[size shr 3]:=data[size shr 3] or (1 shl (i and 7));
+    SetBit(size,b and 1);
     b:=b shr 1;
     inc(size);
     if i and 7=7 then begin
@@ -657,7 +658,7 @@ end;
 
 constructor TNameValueList.Init(st:string8;itemSeparator,valueSeparator:string8);
 begin
-  Init(st.Split(itemSeparator[1]),valueSeparator);
+  self:=TNameValueList.Init(st.Split(itemSeparator[1]),valueSeparator);
 end;
 
 procedure TNameValueList.Add(list:TNameValueList);
