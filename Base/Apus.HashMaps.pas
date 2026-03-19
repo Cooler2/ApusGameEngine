@@ -1035,9 +1035,27 @@ begin
   end;
 end;
 procedure TSimpleHash.RemoveValue(value:int64);
+var
+  h,i,n:integer;
+  toRemove:array of int64;
 begin
   SpinLock(lock);
+  n:=0;
+  SetLength(toRemove,0);
+  for h:=0 to hMask do begin // traverse live chains to find matching slots
+    i:=links[h];
+    while i>=0 do begin
+      if values[i]=value then begin
+        SetLength(toRemove,n+1);
+        toRemove[n]:=keys[i];
+        inc(n);
+      end;
+      i:=next[i];
+    end;
+  end;
   lock:=0;
+  for i:=0 to n-1 do
+    Remove(toRemove[i]);
 end;
 function TSimpleHash.HashValue(const k:int64):integer;
 begin
@@ -1501,6 +1519,7 @@ begin
       result[n]:=keys[i];
       inc(n);
     end;
+  SetLength(result,n); // trim to actual count (may differ from field after removals)
 end;
 function TVarHash.InternalListValues:VariantArray;
 var
@@ -1535,9 +1554,9 @@ begin
     if key.Same(keys[h]) then break;
     h:=(h+1) and mask;
   end;
+  if values[h]=Unassigned then inc(count); // only for new insertions, not updates
   keys[h]:=key;
   values[h]:=value;
-  inc(count);
 end;
 function TVarHash.Get(key:String8):variant;
 var
