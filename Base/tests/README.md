@@ -16,7 +16,6 @@ If no name is given, `TestCore` is used by default.
 ```
 test.bat              → runs TestCore
 test.bat Strings      → runs TestStrings
-test.bat Math         → runs TestMath
 ```
 
 **Available tests:**
@@ -26,14 +25,11 @@ test.bat Math         → runs TestMath
 | `Core` | Memory, bits, alignment, min/max/clamp |
 | `Conv` | Type conversions (int, float, bool, hex) |
 | `Strings` | UTF-8 string operations |
-| `Math` | Matrices, quaternions, 2D/3D geometry |
 | `Structs` | Generic collections (lists, queues) |
 | `HashMaps` | Hash map operations |
 | `Files` | File I/O utilities |
 | `EventMan` | Event system |
 | `Threads` | Threading primitives |
-| `GFX` | Bilinear filtering, color math |
-| `MyServis` | Legacy string/conversion utilities |
 
 ## Running Tests on Linux
 

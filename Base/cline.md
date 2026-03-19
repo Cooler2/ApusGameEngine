@@ -117,10 +117,7 @@ Level 5:
 
 **Existing tests:**
 - `Base/tests/TestCore` - min/max, clamp, swap, alignment, memory, bits
-- `Base/tests/TestMath` - matrices, quaternions, geometry
 - `Base/tests/TestStructs` - hash tables, collections
-- `Base/tests/TestGFX` - bilinear filtering, colors
-- `Base/tests/TestMyServis` - string utils, conversions (45+ modules)
 - `tests/OpenGL` - shader pipeline, textures
 - `tests/PlatformTest` - window, events
 

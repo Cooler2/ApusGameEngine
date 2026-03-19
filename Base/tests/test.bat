@@ -5,7 +5,6 @@ REM ============================================================================
 REM
 REM Usage:
 REM   test.bat              - compile and run TestCore.dpr (default)
-REM   test.bat TestMath     - compile and run TestMath.dpr
 REM   test.bat TestStrings  - compile and run TestStrings.dpr
 REM
 REM Output:

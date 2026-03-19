@@ -6,7 +6,7 @@
         <DCC_DcuOutput>..\units</DCC_DcuOutput>
         <DCC_UnitSearchPath>..;..\extra;..\deprecated;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_Define>DELPHI;OPENGL;TXTIMAGES;$(DCC_Define)</DCC_Define>
-        <SanitizedProjectName>TestMyServis</SanitizedProjectName>
+        <SanitizedProjectName>BaseTests</SanitizedProjectName>
         <VerInfo_Locale>1059</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;Winapi;FMX;Vcl.Imaging;DUnitX;FireDAC.Phys;Vcl;Vcl.Touch;Vcl.Samples;Vcl.Shell;$(DCC_Namespace)</DCC_Namespace>
