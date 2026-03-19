@@ -1,6 +1,5 @@
 ﻿{$APPTYPE CONSOLE}
 {$R+}
-{$Q+}
 program TestContainers;
 uses
   SysUtils,
@@ -49,7 +48,7 @@ end;
 procedure TestGenericTree;
 var
   root:TGenericTree;
-  a,b,c:integer;
+  a,b,c,gc:integer;
 begin
   StartTest('Containers.GenericTree');
   a:=1; b:=2; c:=3;
@@ -84,6 +83,24 @@ begin
     Check(length(traverseValues)=4,'bylevels count');
     Check((traverseValues[0]=0) and (traverseValues[1]=1) and (traverseValues[2]=3) and (traverseValues[3]=2),
       'bylevels order');
+
+    // Deep tree: add grandchild to child[1] (data=3) → root(0)→[1, 3→[99], 2]
+    gc:=99;
+    root.GetChild(1).AddChild(@gc);
+
+    SetLength(traverseValues,0);
+    root.Traverse(RootFirst,@CollectTreeValue);
+    Check(length(traverseValues)=5,'deep rootfirst count');
+    Check((traverseValues[0]=0) and (traverseValues[1]=1) and
+      (traverseValues[2]=3) and (traverseValues[3]=99) and
+      (traverseValues[4]=2),'deep rootfirst order');
+
+    SetLength(traverseValues,0);
+    root.Traverse(ByLevels,@CollectTreeValue);
+    Check(length(traverseValues)=5,'deep bylevels count');
+    Check((traverseValues[0]=0) and (traverseValues[1]=1) and
+      (traverseValues[2]=3) and (traverseValues[3]=2) and
+      (traverseValues[4]=99),'deep bylevels order');
   finally
     root.Free;
   end;
@@ -154,6 +171,7 @@ var
   q:TObjectQueue;
   o1,o2:TObject;
   overflowCaught:boolean;
+  leakObj:TObject;
 begin
   StartTest('Containers.ObjectQueue');
   q.Init(3);
@@ -170,11 +188,13 @@ begin
     q.Clear;
     q.Add(o1);
     q.Add(o2);
+    leakObj:=TObject.Create;
     try
-      q.Add(TObject.Create);
+      q.Add(leakObj);
     except
       on EWarning do overflowCaught:=true;
     end;
+    leakObj.Free;
     Check(overflowCaught,'overflow raises EWarning');
   finally
     o1.Free;
@@ -304,6 +324,13 @@ begin
   items:=list.GetAll;
   Check(length(items)=3,'getall length=3');
   Check(items[2]=o3,'added from list2');
+
+  // swap remove: remove o2 from [o1,o2,o3] without keepOrder → o3 fills the gap
+  list.Remove(o2,false);
+  Check(list.count=2,'swap remove count');
+  Check(list.Get(0)=o1,'swap remove: o1 at pos 0');
+  Check(list.Get(1)=o3,'swap remove: o3 swapped to pos 1');
+  list.Add(o2); // restore so FreeAll covers all three
 
   list.FreeAll;
   Check(TRefObj.destroyedCount=3,'freeall destroyed all');

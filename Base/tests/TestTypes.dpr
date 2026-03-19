@@ -1,6 +1,5 @@
 ﻿{$APPTYPE CONSOLE}
 {$R+}
-{$Q+}
 program TestTypes;
 uses
   SysUtils,
@@ -127,7 +126,23 @@ begin
   Check(nv.Join='mode=on','join default');
   Check(nv.Join(':')='mode:on','join custom');
   nv.value:='true';
-  Check(nv.GetBool,'bool parse');
+  Check(nv.GetBool,'bool true');
+  nv.value:='yes';
+  Check(nv.GetBool,'bool yes');
+  nv.value:='y';
+  Check(nv.GetBool,'bool y');
+  nv.value:='YES';
+  Check(nv.GetBool,'bool YES');
+  nv.value:='1';
+  Check(nv.GetBool,'bool 1');
+  nv.value:='false';
+  Check(not nv.GetBool,'bool false');
+  nv.value:='no';
+  Check(not nv.GetBool,'bool no');
+  nv.value:='0';
+  Check(not nv.GetBool,'bool 0');
+  nv.value:='';
+  Check(not nv.GetBool,'bool empty');
 
   nv.InitFrom('  key  =  123  ','=');
   Check(nv.name='key','trimmed name');
@@ -214,6 +229,8 @@ begin
   wb.WriteFlex(127);
   wb.WriteFlex(128);
   wb.WriteFlex(16384);
+  wb.WriteFlex(16383);   // 2-byte max (14-bit LEB128)
+  wb.WriteFlex(2097151); // 3-byte max (21-bit LEB128)
   wb.WriteStr('hello');
   b:=wb.AsBuffer;
 
@@ -235,6 +252,8 @@ begin
   Check(b.ReadFlex=127,'read flex 127');
   Check(b.ReadFlex=128,'read flex 128');
   Check(b.ReadFlex=16384,'read flex 16384');
+  Check(b.ReadFlex=16383,'read flex 16383');
+  Check(b.ReadFlex=2097151,'read flex 2097151');
   s:=b.ReadString;
   Check(s='hello','read string');
   Check(b.BytesLeft=0,'bytes left 0');
@@ -246,6 +265,8 @@ var
   data:array[0..7] of byte;
   b,s1,s2:TBuffer;
   v:byte;
+  ba:ByteArray;
+  s8:String8;
 begin
   StartTest('Types.BufferSlice');
   data[0]:=10; data[1]:=11; data[2]:=12; data[3]:=13;
@@ -271,6 +292,22 @@ begin
   s2:=b.Slice(0,2);
   Check(s2.ReadByte=10,'slice from b0');
   Check(s2.ReadByte=11,'slice from b1');
+
+  // CreateFrom(ByteArray)
+  SetLength(ba,3);
+  ba[0]:=$AA; ba[1]:=$BB; ba[2]:=$CC;
+  b.CreateFrom(ba);
+  Check(b.size=3,'createfrom(array) size');
+  Check(b.ReadByte=$AA,'createfrom(array) b0');
+  Check(b.ReadByte=$BB,'createfrom(array) b1');
+  Check(b.ReadByte=$CC,'createfrom(array) b2');
+
+  // CreateFrom(String8)
+  s8:='AB';
+  b.CreateFrom(s8);
+  Check(b.size=2,'createfrom(str8) size');
+  Check(b.ReadByte=ord('A'),'createfrom(str8) b0');
+  Check(b.ReadByte=ord('B'),'createfrom(str8) b1');
   EndTest;
 end;
 
@@ -304,6 +341,18 @@ begin
   Check(bs.GetBit(1)=1,'many bit1');
   Check(bs.GetBit(126)=0,'many bit126');
   Check(bs.GetBit(127)=1,'many bit127');
+
+  // SetBit: override individual bits
+  bs.Init(4);
+  bs.Put(cardinal(0),4); // 0000
+  bs.SetBit(0,1);
+  bs.SetBit(2,1);
+  Check(bs.GetBit(0)=1,'setbit: bit0 set');
+  Check(bs.GetBit(1)=0,'setbit: bit1 unchanged');
+  Check(bs.GetBit(2)=1,'setbit: bit2 set');
+  Check(bs.GetBit(3)=0,'setbit: bit3 unchanged');
+  bs.SetBit(0,0);
+  Check(bs.GetBit(0)=0,'setbit: clear bit0');
   EndTest;
 end;
 

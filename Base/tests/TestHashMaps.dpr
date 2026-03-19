@@ -310,6 +310,7 @@ begin
     Check(h.Get('beta')=nil, 'beta removed');
 
     Check(h.FirstKey<>'', 'firstkey not empty');
+    Check(h.NextKey='','nextkey at end (single key)');
     keys:=h.GetKeys;
     values:=h.GetValues;
     Check(length(keys)=1, 'keys length=1');
@@ -395,10 +396,16 @@ begin
   h.Remove(1);
   Check(not h.HasValue(1), 'removed key=1');
   Check(h.Get(1)=-1, 'removed get=-1');
-  h.RemoveValue(1); // legacy API, ensure callable
-  Check(true, 'removevalue callable');
+  // RemoveValue: remove all keys whose value matches
+  h.Put(10,99);
+  h.Put(11,99);
+  h.Put(12,77);
+  h.RemoveValue(99);
+  Check(not h.HasValue(10),'removevalue: key=10 gone');
+  Check(not h.HasValue(11),'removevalue: key=11 gone');
+  Check(h.HasValue(12),'removevalue: key=12 intact');
   h.Clear;
-  Check(not h.HasValue(2), 'clear removed key=2');
+  Check(not h.HasValue(2),'clear removed key=2');
   EndTest;
 end;
 
@@ -512,7 +519,7 @@ begin
   Check(h.Get('a')=11, 'replace a=11');
 
   keys:=h.ListKeys;
-  Check(length(keys)>=2, 'listkeys has 2+ items');
+  Check(length(keys)=2, 'listkeys has 2 items');
 
   h.Remove('a');
   Check(not h.HasKey('a'), 'removed a');
