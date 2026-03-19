@@ -156,9 +156,8 @@ type
   function ChildIndex:integer;              // index in parent.children (-1 if no parent)
   function IsVisible:boolean;              // visible including all ancestors
   function IsEnabled:boolean;              // enabled including all ancestors
-  function IsChild(c:TUIElement):boolean;   // is c a descendant of self? (strict: c≠self)
-  function HasParent(c:TUIElement):boolean; // is self a descendant of c? (strict: HasParent(self)=false)
-  function HasChild(c:TUIElement):boolean;  // is c a descendant of self? (strict: HasChild(self)=false)
+  function HasParent(c:TUIElement):boolean; // is self a strict descendant of c?
+  function HasChild(c:TUIElement):boolean;  // is c a strict descendant of self?
 
   // --- Tree: modification ---
   procedure AttachTo(newParent:TUIElement;pos:integer=-1); // attach at position (or end if pos<0)
@@ -1001,18 +1000,6 @@ function TUIElement.IsEnabled:boolean;
  function TUIElement.IsActiveWindow: boolean;
   begin
    result:=activeWnd=self;
-  end;
-
-function TUIElement.IsChild(c:TUIElement):boolean;
-  begin
-   result:=false;
-   if c=nil then exit;
-   while c<>nil do begin
-    c:=c.parent;
-    if c=self then begin
-     result:=true; exit;
-    end;
-   end;
   end;
 
  function TUIElement.HasFocus:boolean;
