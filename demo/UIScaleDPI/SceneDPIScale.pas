@@ -197,7 +197,7 @@ procedure TMainScene.Load;
   content.SetPos(0,36);
   content.SetAnchors(0,0,1,1);
   content.Resize(UI.clientWidth,UI.clientHeight-36-24);
-  content.clipChildren:=true;
+  content.flags.dontClipChildren:=false;
   content.styleInfo:='fill:FF2E2E2E';
 
   // scrollable card container

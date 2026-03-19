@@ -13,7 +13,7 @@ uses Apus.Engine.UI;
 
 implementation
  uses Apus.Types, Apus.Images, SysUtils, Types, Apus.Core, Apus.AnimatedValues,
-    Apus.Colors, Apus.Structs, Apus.EventMan, Apus.Geom2D,
+    Apus.Colors, Apus.EventMan, Apus.Geom2D,
     Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
     Apus.Lib, Apus.Utils, Apus.Strings;
 
@@ -57,7 +57,7 @@ implementation
   //styleHash:TSimpleHash; // element pointer -> style index (may contain outdated values)
 
   hintImage,tickImage:TTexture;
-  imgHash:TSimpleHashS;  // hash of loaded images: filename -> UIntPtr(TTexture)
+  //imgHash:TObjectMap;  // hash of loaded images: filename -> TTexture
 
   blendModeChanged:boolean;
 
@@ -274,7 +274,7 @@ implementation
       except
        on e:exception do begin
         Log.Msg('Failed to build simple hint - deleted');
-        control.visible:=false;
+        control.flags.visible:=false;
         exit;
        end;
       end;
@@ -296,7 +296,7 @@ implementation
         Log.Msg('Hide expired hint '+inttohex(UIntPtr(control),SizeOf(UIntPtr)*2));
         {FreeImage(HintImage);
         HintImage:=nil;}
-        control.visible:=false;
+        control.Hide;
         exit;
       end;
      end;
@@ -428,15 +428,15 @@ implementation
       // обычная кнопка
       c:=eStyle.GetColor('color',defaultBtnColor); // main (background) color
       d:=byte(pressed);
-      if not enabled then c:=ColorMix(c,$FFA0A0A0,128);
-      if enabled and (underMouse=control) then inc(c,$101010);
+      if not flags.enabled then c:=ColorMix(c,$FFA0A0A0,128);
+      if flags.enabled and (underMouse=control) then inc(c,$101010);
       if pressed then c:=c-$282020;
       draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,ColorAdd(c,$303030),ColorSub(c,$303030),true);
       c:=eStyle.GetColor('border-light',$60000000);
       c2:=eStyle.GetColor('border-dark',$80FFFFFF);
       draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // Внешняя рамка
       if pressed then { draw.ShadedRect(x1+2,y1+2,x2-1,y2-1,1,$80FFFFFF,$50000000)}
-       else if enabled then begin
+       else if flags.enabled then begin
          c:=eStyle.GetColor('border-light',$A0FFFFFF);
          c2:=eStyle.GetColor('border-dark',$70000000);
          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
@@ -457,7 +457,7 @@ implementation
        mY:=round((y1+y2)*0.5+txt.Height(font)*0.45);
        wSt:=Str32(caption);
        if underMouse=control then c:=$FF300000;
-       if enabled then
+       if flags.enabled then
         txt.WriteW(font,(x1+x2)/2,mY+d,c,wst,taCenter)
        else begin
         txt.WriteW(font,(x1+x2)/2+1,mY+1,$E0FFFFFF,wSt,taCenter);
@@ -636,7 +636,7 @@ implementation
 
     if element.horizontal then begin
      minWidth:=Max(8,round((y2-y1)*0.75));
-     if element.enabled and (iwidth>=minWidth) and (pagesize<max-min) then begin
+     if element.flags.enabled and (iwidth>=minWidth) and (pagesize<max-min) then begin
       v:=colorMix(ColorAdd(color,$80101010),$FF6090C0,192);
       c:=colorMix(v,$FFFFFFFF,160);
       d:=colorMix(v,$FF404040,128);
@@ -800,7 +800,7 @@ implementation
    i,cx,cy:integer;
    c:cardinal;
   begin
-   if (undermouse=combo) or combo.frame.visible then
+   if (undermouse=combo) or combo.frame.flags.visible then
     draw.FillGradrect(x1+1,y1+1,x2-1,y2-1,$FFFFFFFF,$FFE0E0DC,true)
    else
     draw.FillGradrect(x1+1,y1+1,x2-1,y2-1,$FFE0E0DC,$FFFFFFFF,true);

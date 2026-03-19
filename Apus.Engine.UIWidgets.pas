@@ -419,7 +419,7 @@ implementation
    pressed:=false;
    pending:=false;
    autoPendingTime:=0;
-   CanHaveFocus:=false;
+   //flags.canHaveFocus:=false;
    sendSignals:=ssMajor;
    //CheckAndSetFocus;
    lastPressed:=0;
@@ -576,7 +576,7 @@ function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
 
  procedure TUIButton.onMouseButtons(button:byte;state:boolean);
   begin
-   if not enabled then begin
+   if not flags.enabled then begin
     Signal('UI\'+name+'\ClickDisabled',button);
     exit;
    end;
@@ -646,7 +646,7 @@ procedure TUIButton.SetPressed(pr:boolean);
    for i:=0 to high(parent.children) do begin
     if not (parent.children[i] is TUIButton) then continue;
     b:=TUIButton(parent.children[i]);
-    if not b.visible then continue;
+    if not b.flags.visible then continue;
     if abs(b.size.x-size.x)+abs(b.size.y-size.y)>=1 then continue;
     b.btnStyle:=bsSwitch;
     if @clickHandler<>nil then b.onClick:=@clickHandler;
@@ -772,7 +772,7 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:String8;
    font:=wndFont;
    header:=wcTitleHeight;
    autoBringToFront:=true;
-   canhavefocus:=false;
+   flags.canhavefocus:=false;
    moveable:=true;
    minW:=32; minH:=32;
    maxW:=1600; maxH:=1200;
@@ -905,7 +905,7 @@ constructor TUILabel.CreateCentered(width,height:single;labelname,text:String8;
    protection:=0;
    needPos:=-1;
    offset:=0;
-   canhavefocus:=true; //CheckAndSetFocus;
+   flags.canhavefocus:=true; //CheckAndSetFocus;
    sendSignals:=ssAll;
    lastClickTime:=0;
    msSelStart:=-1;
@@ -1272,7 +1272,7 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
    linkedControl:=elem;
    if horizontal then linkedControl.scrollerH:=GetScroller
     else linkedControl.scrollerV:=GetScroller;
-   if HasParent(elem) then parentClip:=false;
+   if HasParent(elem) then flags.noParentClip:=true;
    elem.SetupScrollers;
    CheckAutoHide;
   end;
@@ -1288,7 +1288,7 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
  procedure TUIScrollBar.CheckAutoHide;
   begin
    if autoHide then
-    visible:=max-min>pageSize;
+    flags.visible:=max-min>pageSize;
   end;
 
 constructor TUIScrollBar.Create(width,height,min,max,pageSize,value:single;parent:TUIElement;barName:String8);
@@ -1546,7 +1546,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    active:=false;
    adjusted:=false;
    created:=CoreTime.Ticks;
-   parentClip:=false;
+   flags.noParentClip:=true;
   end;
 
  destructor TUIHint.Destroy;
@@ -1631,13 +1631,13 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    lineHeight:=lHeight;
    selectedLine:=-1;
    hoverLine:=-1;
-   canHaveFocus:=true;
+   flags.canHaveFocus:=true;
    sendSignals:=ssMajor;
 
    scrollBar:=TUIScrollBar.Create(8,clientHeight-2,listName+'_scroll',self);
    scrollBar.SetPos(clientWidth,1,pivotTopRight).SetAnchors(1,0,1,1);
    scrollBar.horizontal:=false;
-   scrollBar.parentClip:=false;
+   scrollBar.flags.noParentClip:=true;
    scrollerV:=scrollBar.GetScroller;
    bgColor:=0;
    textColor:=$E0D0D0D0;
@@ -1734,7 +1734,7 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
    scrollerV.SetStep(lineHeight*(round(clientHeight/2) div round(lineHeight)));
    scrollerV.SetPageSize(clientHeight);
    scrollerV.GetElement.size.y:=clientHeight;
-   scrollerV.GetElement.visible:=max>clientHeight;
+   scrollerV.GetElement.flags.visible:=max>clientHeight;
   end;
 
   { TUIFrame }
@@ -1821,14 +1821,14 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:String
    end;
    curItem:=-1;
    styleClass:=0;
-   canHaveFocus:=true;
+   flags.canHaveFocus:=true;
    maxlines:=15;
    if defaultText='' then defaultText:=GetClassAttribute('defaultText');
 
    // Default properties for child controls
    frame:=TUIFrame.Create(size.x,2,1,0,self);
-   frame.visible:=false;
-   frame.parentClip:=false;
+   frame.flags.visible:=false;
+   frame.flags.noParentClip:=true;
    frame.order:=1000;
    popup:=TUIListBox.Create(size.x-2,0,20,'_ComboBoxPopUp',font,frame);
    popUp.customPtr:=self;
@@ -1851,7 +1851,7 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:String
    tag:cardinal;
    root:TUIElement;
   begin
-   if not frame.visible then begin
+   if not frame.flags.visible then begin
     // Show combo pop
     Signal('UI\COMBOBOX\ONDROP\'+name,TTag(self));
     if comboPop<>nil then comboPop.onDropDown;
@@ -1883,7 +1883,7 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:String
       else tag:=i;
      popUp.AddLine(items[i],tag,hint);
     end;
-    frame.visible:=true;
+    frame.flags.visible:=true;
     popup.hoverLine:=curItem;
     timer:=1;
     comboPop:=self;
@@ -1897,7 +1897,7 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:String
      Signal('UI\'+name+'\ONSELECT',i);
      Signal('UI\COMBOBOX\ONSELECT\'+name,TTag(self));
     end;
-    frame.visible:=false;
+    frame.flags.visible:=false;
     frame.AttachTo(self);
     timer:=0;
    end;
@@ -1915,7 +1915,7 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:String
  procedure TUIComboBox.onTimer;
   begin
    // не вызывать inherited, т.к. там поведение другое
-   if frame.visible then begin
+   if frame.flags.visible then begin
     timer:=1;
     if (popup.selectedLine>=0) or (FocusedElement<>self) then onDropDown;
    end;

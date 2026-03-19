@@ -256,7 +256,7 @@ begin
  inherited Create(parent.width-x-5-5*byte(mode in [vtAlpha..vtBlue]),18+window.renderHeight div 50,parent);
  SetPos(x,y);
  shape:=shapeFull;
- canHaveFocus:=true;
+ flags.canHaveFocus:=true;
  styleClass:=3;
  value:=iValue;
  initialValue:=initValue;

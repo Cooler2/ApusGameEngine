@@ -242,11 +242,11 @@ implementation
    int,sNum:integer;
   begin
    // Определение общих св-в элемента
-   enabl:=item.enabled;
+   enabl:=item.flags.enabled;
    con:=item;
    while con.parent<>nil do begin
     con:=con.parent;
-    enabl:=enabl and con.enabled;
+    enabl:=enabl and con.flags.enabled;
    end;
    with item.globalrect do begin
     x1:=Left; x2:=right-1;

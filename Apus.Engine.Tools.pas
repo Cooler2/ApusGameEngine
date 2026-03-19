@@ -114,10 +114,9 @@ type
 implementation
  uses SysUtils,{$IFDEF DIRECTX}DirectXGraphics,d3d8,Apus.Engine.DxImages8,{$ENDIF}
     {$IFDEF ANDROID}Apus.Android,{$ENDIF}
-    Apus.GfxFormats,Classes,Apus.Structs,Apus.Geom3D,Apus.FastGFX,Apus.GfxFilters,
+    Apus.GfxFormats,Classes,Apus.Geom3D,Apus.FastGFX,Apus.GfxFilters,
     Apus.Engine.ImgLoadQueue,Apus.Engine.ImageTools,Apus.Engine.GfxFormats3D,
-  Apus.Files,
-  Apus.Log,
+  Apus.Lib,
   Apus.Strings,
   Apus.Translation,
   Apus.Threads;
@@ -271,7 +270,7 @@ procedure SetupWindow(wnd:TUISkinnedWindow;img:TTiledImage);
   wnd.size.x:=img.width;
   wnd.size.y:=img.height;
   wnd.color:=$FF808080;
-  wnd.visible:=false;
+  wnd.flags.visible:=false;
 //  wnd.transpmode:=tmCustom;
 //  wnd.region:=TRegion.CreateFrom(img);
  end;
@@ -282,7 +281,7 @@ procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture);
   wnd.size.x:=img.width;
   wnd.size.y:=img.height;
   wnd.color:=$FF808080;
-  wnd.visible:=false;
+  wnd.flags.visible:=false;
  end;
 
 

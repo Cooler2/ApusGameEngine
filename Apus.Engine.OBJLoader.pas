@@ -14,7 +14,7 @@ uses Apus.Common, Apus.Engine.Model3D;
 
 
 implementation
- uses SysUtils, Apus.Geom3D, Apus.Geom2D, Apus.Structs;
+ uses SysUtils, Apus.Geom3D, Apus.Geom2D, Apus.HashMaps;
 
  function FetchLine(var pb:PByte;var size:integer;out st:AnsiString):boolean;
   var

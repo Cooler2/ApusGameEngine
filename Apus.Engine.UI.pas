@@ -328,7 +328,7 @@ implementation
     if not (sc is TUIScene) then continue;
     s:=TUIScene(sc);
     if s.UI=nil then continue;
-    if onlyVisible and (not s.UI.visible) then continue;
+    if onlyVisible and (not s.UI.flags.visible) then continue;
     SetLength(roots,n+1);
     SetLength(zOrders,n+1);
     roots[n]:=s.UI;
@@ -402,7 +402,7 @@ implementation
      if zOrders[i]>maxZ then begin c:=ct; maxZ:=zOrders[i]; end;
     end;
    end;
-   result:=(c<>nil) and c.enabled;
+   result:=(c<>nil) and c.flags.enabled;
    finally
     window.Unlock;
    end;
@@ -468,8 +468,8 @@ implementation
   begin
    c:=FindElement(name,false);
    if c=nil then exit;
-   c.visible:=visible;
-   c.enabled:=enabled;
+   c.flags.visible:=visible;
+   c.flags.enabled:=enabled;
   end;
 
  function DumpUITree(root:TUIElement):string8;
@@ -479,7 +479,7 @@ implementation
     begin
      result:=string8.Join([
       indent+c.ClassName+':'+c.name+' = '+IntToHex(cardinal(c),8),
-      indent+Format('%d En=%d Vis=%d trM=%d',[c.order,byte(c.enabled),byte(c.visible),ord(c.shape)]),
+      indent+Format('%d En=%d Vis=%d trM=%d',[c.order,byte(c.flags.enabled),byte(c.flags.visible),ord(c.shape)]),
       indent+Format('x=%.1f, y=%.1f, w=%.1f, h=%.1f, left=%d, top=%d',
        [c.position.x,c.position.y,c.size.x,c.size.y,c.globalRect.Left,c.globalRect.Top]),
        ''],#13#10);
@@ -514,7 +514,7 @@ implementation
    btn.btnStyle:=btnType;
    btn.group:=group;
    btn.default:=default;
-   btn.enabled:=enabled;
+   btn.flags.enabled:=enabled;
    btn.pressed:=pressed;
    if hotkey<>0 then
     btn.SetHotKey(hotkey and 255,hotkey shr 8);
@@ -527,7 +527,7 @@ implementation
    edit.styleClass:=style;
    edit.cursor:=cursor;
    edit.maxlength:=maxlength;
-   edit.enabled:=enabled;
+   edit.flags.enabled:=enabled;
    edit.password:=password;
    edit.noborder:=noborder;
   end;

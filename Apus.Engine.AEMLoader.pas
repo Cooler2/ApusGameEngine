@@ -35,7 +35,7 @@ type
 
 
 implementation
-uses Apus.Common, SysUtils, Apus.Geom3D, Apus.Geom2D, Apus.Structs;
+uses Apus.Common, SysUtils, Apus.Geom3D, Apus.Geom2D;
 
 const
  chunkDataTypes:array[0..11,0..7] of byte=(

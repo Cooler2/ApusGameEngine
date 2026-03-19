@@ -24,6 +24,7 @@ uses
   Apus.Threads,
   Apus.Classes,
   Apus.Conv,
+  Apus.Containers,
   Apus.HashMaps,
   Apus.Strings,
   Apus.Files,
@@ -73,9 +74,17 @@ type
   Files = Apus.Files.Files;
   Folder = Apus.Files.Folder;
 
+  // --- Apus.Containers ---
+  TObjectList = Apus.Containers.TObjectList;
+  TObjectQueue = Apus.Containers.TObjectQueue;
+
   // --- Apus.HashMaps ---
   TObjectHash = Apus.HashMaps.TObjectHash;
+  PObjectHash = Apus.HashMaps.PObjectHash;
   TObjectMap = Apus.HashMaps.THashMap<TObject>;
+  THash = Apus.HashMaps.THash;
+  TSimpleHash = Apus.HashMaps.TSimpleHash;
+  TVarHash = Apus.HashMaps.TVarHash;
 
   // --- Apus.Utils ---
   TSplineFunc = Apus.Utils.TSplineFunc;

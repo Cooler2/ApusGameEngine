@@ -310,7 +310,7 @@ var
   begin
    if e=nil then exit;
    with e do begin
-    if not (enabled and visible) then exit;
+    if not (flags.enabled and flags.visible) then exit;
     pnt:=GetPosOnScreen.CenterPoint;
     if e is TUIButton then activeCustomPoints:=activeCustomPoints+[pnt];
     for child in children do Traverse(child);
@@ -2329,7 +2329,7 @@ begin
     // UI Scene?
     if window.scenes[i] is TUIScene then begin
      sc:=TUIScene(window.scenes[i]);
-     if not sc.UI.enabled then continue;
+     if not sc.UI.flags.enabled then continue;
      if (modalElement<>nil) and not modalElement.HasParent(sc.UI) then continue;
     end;
     // Topmost?
@@ -2364,7 +2364,7 @@ procedure TGame.FrameLoop;
    window.keyState[i]:=window.keyState[i] and 1+(window.keyState[i] and 1) shl 1;
 
   StartMeasure(14);
-  if window.timings.phaseMetrics then StartTimer(phaseTimer);
+  if window.timings.phaseMetrics then Timer.Start(phaseTimer);
   window.ProcessMessages; // this stalls if window is moved/resized
   try
     HandleSignals;
@@ -2372,7 +2372,7 @@ procedure TGame.FrameLoop;
     on e:exception do Log.Force('Error in FrameLoop 1: '+ExceptionMsg(e));
   end;
   if window.timings.phaseMetrics then
-    window.timings.pendingMsgUs:=round(TimerSec(phaseTimer)*1000000)
+    window.timings.pendingMsgUs:=round(Timer.Get(phaseTimer)*1000000)
   else
     window.timings.pendingMsgUs:=0;
   if not window.active then
@@ -2404,19 +2404,19 @@ procedure TGame.RenderAndPresentFrame;
    window.frameStartTime:=ticks;
    deltaUs:=window.frameTimeDelta*1000;
    if window.timings.frameTimerReady then
-    deltaUs:=round(TimerSec(window.timings.frameTimer)*1000000);
-   StartTimer(window.timings.frameTimer);
+    deltaUs:=round(Timer.Get(window.timings.frameTimer)*1000000);
+   Timer.Start(window.timings.frameTimer);
    window.timings.frameTimerReady:=true;
 
    if window.frameTimeDelta>500 then
     Log.Msg('Warning: main loop stall for '+inttostr(window.frameTimeDelta)+' ms');
 
    // Обработка кадра
-   if window.timings.phaseMetrics then StartTimer(phaseTimer);
+   if window.timings.phaseMetrics then Timer.Start(phaseTimer);
    StartMeasure(3);
    if OnFrame then window.screenChanged:=true; // это чтобы можно было и в других местах выставлять флаг!
    EndMeasure(3);
-   if window.timings.phaseMetrics then onFrameUs:=round(TimerSec(phaseTimer)*1000000);
+   if window.timings.phaseMetrics then onFrameUs:=round(Timer.Get(phaseTimer)*1000000);
    try
     HandleSignals;
    except
@@ -2427,7 +2427,7 @@ procedure TGame.RenderAndPresentFrame;
    if window.active or (params.mode.displayMode<>dmSwitchResolution) then begin
     // Если программа активна, то выполним отрисовку кадра
     if window.screenChanged then begin
-     if window.timings.phaseMetrics then StartTimer(phaseTimer);
+     if window.timings.phaseMetrics then Timer.Start(phaseTimer);
      try
       PrevFrameLog:=frameLog;
       frameLog:='';
@@ -2437,20 +2437,20 @@ procedure TGame.RenderAndPresentFrame;
      except
       on E:Exception do CritMsg('Error in renderframe: '+ExceptionMsg(e)+' framelog: '+framelog);
      end;
-     if window.timings.phaseMetrics then renderUs:=round(TimerSec(phaseTimer)*1000000);
+     if window.timings.phaseMetrics then renderUs:=round(Timer.Get(phaseTimer)*1000000);
     end;
    end;
 
    // Здесь можно что-нибудь сделать
-   if window.timings.phaseMetrics then StartTimer(phaseTimer);
+   if window.timings.phaseMetrics then Timer.Start(phaseTimer);
    CoreTime.Sleep(onFrameDelay);
-   if window.timings.phaseMetrics then sleepUs:=round(TimerSec(phaseTimer)*1000000);
+   if window.timings.phaseMetrics then sleepUs:=round(Timer.Get(phaseTimer)*1000000);
    // Теперь нужно вывести кадр на экран
    if (window.active or (params.mode.displayMode<>dmSwitchResolution)) and
       window.screenChanged then begin
-    if window.timings.phaseMetrics then StartTimer(phaseTimer);
+    if window.timings.phaseMetrics then Timer.Start(phaseTimer);
     PresentFrame;
-    if window.timings.phaseMetrics then presentUs:=round(TimerSec(phaseTimer)*1000000);
+    if window.timings.phaseMetrics then presentUs:=round(Timer.Get(phaseTimer)*1000000);
     if window.capture.singleFrame or window.capture.videoMode then
      CaptureFrame;
     PollRobotAPI; // after present: pixel/screenshot read valid backbuffer
@@ -2598,8 +2598,8 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     wnd.frameStartTime:=t;
     deltaUs:=wnd.frameTimeDelta*1000;
     if wnd.timings.frameTimerReady then
-     deltaUs:=round(TimerSec(wnd.timings.frameTimer)*1000000);
-    StartTimer(wnd.timings.frameTimer);
+     deltaUs:=round(Timer.Get(wnd.timings.frameTimer)*1000000);
+    Timer.Start(wnd.timings.frameTimer);
     wnd.timings.frameTimerReady:=true;
 
     wnd.ProcessMessages;

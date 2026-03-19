@@ -154,7 +154,7 @@ procedure SetFocusCmd(cmd:string8);
     c:=FindControl(cmd,false);
    end;
    if c=nil then raise EError.Create('No object!');
-   if not c.canHaveFocus then raise EError.Create('This object can''t have focus!');
+   if not c.flags.canHaveFocus then raise EError.Create('This object can''t have focus!');
    c.SetFocus;
   finally
    window.Unlock;
@@ -322,7 +322,7 @@ begin
        result:=@TUIButton(obj).btnstyle; varClass:=TVarTypeBtnStyle;
       end;
   'c':if fieldname='canhavefocus' then begin
-       result:=@obj.canHaveFocus;
+       result:=@obj.flags.canHaveFocus;
        varClass:=TVarTypeBool;
       end else
       if fieldname='color' then begin
@@ -337,10 +337,10 @@ begin
        result:=@obj.cursor; varClass:=TVarTypeInteger;
       end else
       if fieldname='clipchildren' then begin
-       result:=@obj.clipchildren; varClass:=TVarTypeBool;
+       result:=@obj.flags.dontClipChildren; varClass:=TVarTypeBool;
       end else
       if fieldname='customdraw' then begin
-       result:=@obj.manualDraw; varClass:=TVarTypeBool;
+       result:=@obj.flags.manualDraw; varClass:=TVarTypeBool;
       end else
       if fieldname='clientwidth' then begin
        result:=obj;
@@ -365,7 +365,7 @@ begin
        result:=@TUIButton(obj).default; varClass:=TVarTypeBool;
       end;
   'e':if fieldname='enabled' then begin
-       result:=@obj.enabled; varClass:=TVarTypeBool;
+       result:=@obj.flags.enabled; varClass:=TVarTypeBool;
       end;
   'f':if fieldname='font' then begin
        result:=obj;
@@ -417,7 +417,7 @@ begin
        result:=@obj.order; varClass:=TVarTypeInteger;
       end;
   'p':if fieldname='parentclip' then begin
-       result:=@obj.parentClip; varClass:=TVarTypeBool;
+       result:=@obj.flags.noParentClip; varClass:=TVarTypeBool;
       end else
       if fieldname='parent' then begin
        result:=obj.parent; varClass:=TVarTypeUIElement;
@@ -474,7 +474,7 @@ begin
        varClass:=TVarTypeInteger; result:=@TUILabel(obj).verticalOffset;
       end;
   'v':if fieldname='visible' then begin
-       result:=@obj.visible; varClass:=TVarTypeBool;
+       result:=@obj.flags.visible; varClass:=TVarTypeBool;
 {      end else
       if (fieldname='value') and (obj is TUIScrollBar) then begin
        varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).value;}

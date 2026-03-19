@@ -7,10 +7,8 @@
 {$IF Defined(MSWINDOWS) or Defined(LINUX)} {$DEFINE DGL} {$ENDIF}
 unit Apus.Engine.ShadersGL;
 interface
-uses Apus.Core, Apus.Structs, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.Graphics,
-  Apus.Conv,
-  Apus.Files,
-  Apus.Log,
+uses Apus.Core, Apus.Engine.Types, Apus.Engine.API, Apus.Engine.Graphics,
+  Apus.Lib,
   Apus.Strings;
 
 type

@@ -59,7 +59,7 @@ type
  end;
 
 implementation
- uses Apus.Common, SysUtils, Apus.Structs,
+ uses Apus.Common, SysUtils, Apus.HashMaps,
     {$IFDEF GLES}gles20,
     {$ELSE}dglOpenGL,{$ENDIF}
     Apus.Images, Apus.Engine.GLImages, Apus.Geom2D, Apus.Geom3D;

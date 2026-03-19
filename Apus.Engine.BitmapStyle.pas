@@ -32,7 +32,7 @@ interface
 
 implementation
  uses SysUtils,
-      Apus.Common, Apus.AnimatedValues, Apus.EventMan, Apus.Colors, Apus.Structs, Apus.Publics,
+      Apus.Common, Apus.AnimatedValues, Apus.EventMan, Apus.Colors, Apus.HashMaps, Apus.Publics,
       Apus.Engine.ImageTools, Apus.Engine.UIRender;
 
  type
@@ -221,7 +221,7 @@ procedure TBitmapStyle.DrawItem(con: TUIElement);
   btn:TUIButton;
  begin
   // Определение общих св-в элемента
-  enabl:=con.enabled; // для отрисовки кнопок доступность предков значения не имеет
+  enabl:=con.flags.enabled; // для отрисовки кнопок доступность предков значения не имеет
   with con.globalrect do begin
    x1:=Left; x2:=right-1;
    y1:=top; y2:=bottom-1;

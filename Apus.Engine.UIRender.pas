@@ -74,7 +74,7 @@ implementation
    maskChange:boolean;
    clipping:boolean;
   begin
-   if not item.visible then exit;
+   if not item.flags.visible then exit;
    if item.layout<>nil then begin
     item.layout.Layout(item);
     item.Resize(-1,-1);
@@ -91,7 +91,7 @@ implementation
    if maskChange then gfx.target.Mask(true,false);}
    try
     // Draw element
-    if (item.manualDraw=manualDraw) and
+    if (item.flags.manualDraw=manualDraw) and
        (item.styleClass>=0) and
        (item.styleClass<=high(styleDrawers)) then
       DrawUIElement(item);
@@ -119,7 +119,7 @@ implementation
    cnt:=0;
    SetLength(list,n);
    for i:=0 to n-1 do
-    if item.children[i].visible then begin
+    if item.children[i].flags.visible then begin
      list[cnt]:=item.children[i];
      inc(cnt);
     end;
@@ -135,7 +135,7 @@ implementation
        list[j-1]:=tmp;
       end;
 
-    clipping:=item.clipChildren;
+    clipping:=not item.flags.dontClipChildren;
     if clipping then begin
      r:=item.GetClientPosOnScreen;
      gfx.clip.Rect(r);
@@ -143,7 +143,7 @@ implementation
 
     for i:=0 to cnt-1 do begin
      // если элемент не клипится и фон - не прозрачный - нарисовать без отсечения
-     if clipping and not list[i].parentClip and not transpBgnd then begin
+     if clipping and list[i].flags.noParentClip and not transpBgnd then begin
       gfx.clip.Nothing;
       DrawUITree(list[i],manualDraw,true);
       gfx.clip.Restore;

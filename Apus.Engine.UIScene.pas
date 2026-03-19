@@ -194,7 +194,7 @@ function UIScene(name:String8):TUIScene;
 
      // если мышь покинула прямоугольник хинта - стереть его
      {$IFNDEF IOS}
-     if (curhint<>nil) and (curhint.visible) and
+     if (curhint<>nil) and (curhint.flags.visible) and
         not PtInRect(hintRect,types.Point(curMouseX,curMouseY)) then curhint.Hide;
      {$ENDIF}
 
@@ -232,8 +232,8 @@ function UIScene(name:String8):TUIScene;
       if c2<>nil then Signal('UI\onMouseOver\'+c2.ClassName+'\'+c2.name);
      end;
 
-     if (c2<>nil) and (c2.enabled and (c2.hint<>'') or not c2.enabled and (c2.hintIfDisabled<>'')) then begin
-      if c2.enabled then st:=c2.hint
+     if (c2<>nil) and (c2.flags.enabled and (c2.hint<>'') or not c2.flags.enabled and (c2.hintIfDisabled<>'')) then begin
+      if c2.flags.enabled then st:=c2.hint
        else st:=c2.hintIfDisabled;
       if st<>lastHint then begin
        if st='' then begin
@@ -262,7 +262,7 @@ function UIScene(name:String8):TUIScene;
      if e and (c<>nil) then
       c.onMouseButtons(tag,true)
      else if c<>nil then
-      if (not c.enabled) and c.GetClassAttribute('handleMouseIfDisabled') then
+      if (not c.flags.enabled) and c.GetClassAttribute('handleMouseIfDisabled') then
        c.onMouseButtons(tag,true);
 
      // DEBUG FACILITIES
@@ -381,8 +381,8 @@ function UIScene(name:String8):TUIScene;
    if wnd=nil then wnd:=mainWindow;
    UI:=TUIElement.Create(wnd.renderWidth,wnd.renderHeight,nil,sceneName);
    UI.ownerScene:=self;
-   UI.enabled:=false;
-   UI.visible:=false;
+   UI.flags.enabled:=false;
+   UI.flags.visible:=false;
    if fullscreen then begin
     UI.shape:=shapeFull;
     UI.SetScale(defaultScale);
@@ -419,19 +419,19 @@ function UIScene(name:String8):TUIScene;
 
  procedure TUIScene.onMouseBtn(btn:byte;pressed:boolean);
   begin
-   if (UI<>nil) and (not UI.enabled) then exit;
+   if (UI<>nil) and (not UI.flags.enabled) then exit;
    inherited;
   end;
 
  procedure TUIScene.onMouseMove(x,y:integer);
   begin
-   if (UI<>nil) and (not UI.enabled) then exit;
+   if (UI<>nil) and (not UI.flags.enabled) then exit;
    inherited;
   end;
 
  procedure TUIScene.onMouseWheel(delta:integer);
   begin
-   if (UI<>nil) and (not UI.enabled) then exit;
+   if (UI<>nil) and (not UI.flags.enabled) then exit;
    inherited;
    if (modalElement=nil) or (modalElement=UI) then begin
      Signal('UI\'+name+'\MouseWheel',delta);
@@ -487,7 +487,7 @@ function UIScene(name:String8):TUIScene;
     c:=FocusedElement;
     if c<>nil then begin
      repeat
-      if not (c.visible and c.enabled) or
+      if not (c.flags.visible and c.flags.enabled) or
        ((modalElement<>nil) and (c.parent=nil) and (c<>modalElement)) then begin
        SetFocusTo(nil);
        Log.Msg(UI.name);
@@ -518,7 +518,7 @@ function UIScene(name:String8):TUIScene;
     if (itemShowHintTime>LastHandleTime) and (itemShowHintTime<=Time) then begin
      FindElementAt(window.mouseX,window.mouseY,c);
      if (c<>nil) then begin
-      if c.enabled then st:=c.hint
+      if c.flags.enabled then st:=c.hint
        else st:=c.hintIfDisabled;
       if st<>'' then begin
        ShowSimpleHint(st,nil,-1,-1,c.hintDuration);
@@ -660,13 +660,13 @@ function UIScene(name:String8):TUIScene;
     UI:=TUIElement.Create(w,h,nil);
     UI.name:=name;
     UI.ownerScene:=self;
-    UI.enabled:=false;
-    UI.visible:=false;
+    UI.flags.enabled:=false;
+    UI.flags.visible:=false;
    end;
    if UI<>nil then begin
-    UI.enabled:=status=ssActive;
-    ui.visible:=ui.enabled;
-    if ui.enabled and (UI is TUIWindow) then
+    UI.flags.enabled:=status=ssActive;
+    ui.flags.visible:=ui.flags.enabled;
+    if ui.flags.enabled and (UI is TUIWindow) then
      UI.SetFocus;
    end;
   end;
@@ -676,7 +676,7 @@ function UIScene(name:String8):TUIScene;
    scanCode:byte;
    charCode:integer;
   begin
-   if (UI<>nil) and (not UI.enabled) then exit;
+   if (UI<>nil) and (not UI.flags.enabled) then exit;
    inherited;
 
    if (FocusedElement<>nil) and (FocusedElement.HasParent(UI)) then begin
@@ -706,8 +706,8 @@ function TUIScene.GetUIRoot:TObject;
 
 function ElementFlags(e:TUIElement):String8;
 begin
-  if e.visible then result:='visible' else result:='hidden';
-  if e.enabled then result:=result+' enabled' else result:=result+' disabled';
+  if e.flags.visible then result:='visible' else result:='hidden';
+  if e.flags.enabled then result:=result+' enabled' else result:=result+' disabled';
 end;
 
 function ElementSummary(e:TUIElement; indent:integer):String8;
@@ -828,14 +828,14 @@ var
       prefix+'pivot: '+Conv.ToStr(el.pivot.x,1)+','+Conv.ToStr(el.pivot.y,1)+#13#10+
       prefix+'scale: '+Conv.ToStr(el.scale,2)+#13#10+
       prefix+'globalRect: '+RectToStr(r)+#13#10+
-      prefix+'visible: '+Conv.ToStr(el.visible)+#13#10+
-      prefix+'visibleInternal: '+Conv.ToStr(el.visible)+#13#10+
+      prefix+'visible: '+Conv.ToStr(el.flags.visible)+#13#10+
+      prefix+'visibleInternal: '+Conv.ToStr(el.flags.visible)+#13#10+
       prefix+'visibleEffective: '+Conv.ToStr(el.IsVisible)+#13#10+
-      prefix+'enabled: '+Conv.ToStr(el.enabled)+#13#10+
-      prefix+'enabledInternal: '+Conv.ToStr(el.enabled)+#13#10+
+      prefix+'enabled: '+Conv.ToStr(el.flags.enabled)+#13#10+
+      prefix+'enabledInternal: '+Conv.ToStr(el.flags.enabled)+#13#10+
       prefix+'enabledEffective: '+Conv.ToStr(el.IsEnabled)+#13#10+
-      prefix+'parentClip: '+Conv.ToStr(el.parentClip)+#13#10+
-      prefix+'clipChildren: '+Conv.ToStr(el.clipChildren)+#13#10+
+      prefix+'noParentClip: '+Conv.ToStr(el.flags.noParentClip)+#13#10+
+      prefix+'dontClipChildren: '+Conv.ToStr(el.flags.dontClipChildren)+#13#10+
       prefix+'order: '+Conv.ToStr(el.order)+#13#10+
       prefix+'caption: '+el.caption+#13#10+
       prefix+'hint: '+el.hint+#13#10+

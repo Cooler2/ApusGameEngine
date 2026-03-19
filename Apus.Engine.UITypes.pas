@@ -90,6 +90,16 @@ type
   function GetPageSize:single;
  end;
 
+ TUIElementFlags = record
+   enabled:boolean;          // can react on input (inheritable)
+   visible:boolean;
+   canHaveFocus:boolean;
+   autoScroll:boolean;       // scroll automatically with mouse wheel
+   manualDraw:boolean;       // ignored by regular DrawUI call, should be drawn manually
+   noParentClip:boolean;     // do NOT clip this element by parent's client rect
+   dontClipChildren:boolean; // do NOT clip children by self client rect
+ end;
+
  // Base class of the UI element
  TUIElement=class(TNamedObject)
   // This defines element's OUTER rect - in PARENT coordinates (i.e. scale doesn't affect this)
@@ -99,17 +109,15 @@ type
   anchors:TUIRect; // how much left/top/right/bottom border should absorb from parent's size change delta
   shape:TElementShape;  // define which part of the element can react on mouse input (opaque part)
   shapeRegion:TRegion;   // when shape=shapeCustom, this object define which area is considered opaque (for mouse input)
+
   // Inner parts - scaled
   scale:single; // scale factor for INNER parts of the element and all its children elements
   padding:TUIRect; // defines element's client area (how much to deduct from the element's area) using own scale
   scroll:TVec2; // Offset used to draw children elements - SUBTRACT from children pos
   scrollerH,scrollerV:IScroller;  // scrollbars linked to this element scroll position
-  autoScroll:boolean; // use mouse wheel to scroll
   placementMode:TUIPlacementMode;  // How element should react on parent's size change
 
-  enabled:boolean; // true if element can and should react on input events
-  visible:boolean; // true if element should be drawn
-  manualDraw:boolean; // when true - the element is ignored by a regular DrawUI call, should be drawn manually
+  flags:TUIElementFlags;
   cursor:NativeInt; // Идентификатор курсора (0 - default)
   order:integer; // Z-order used for arrangement ($10000 - StayOnTop), <0 - special (out-of-order)
 
@@ -118,17 +126,13 @@ type
   styleInfoChanged:boolean; // set true whenever styleInfo changes
   styleContext:TObject; // custom context object used by drawer
 
-  canHaveFocus:boolean; // может ли элемент обладать фокусом ввода
   hint,hintIfDisabled:String8; // tooltip text (with separate variant when this exact element is disabled, not disabled via parents)
   hintDelay:integer; // время (в мс), через которое элемент должен показать hint (в режиме показа hint'ов это время значительно меньше)
   hintDuration:integer; // длительность (в мс) показа хинта
   sendSignals:TSendSignals; // режим сигнализирования (см. выше)
   caption:String8; // some text associated with element
 
-  // Clipping: use clipChildren to allow hovering, not parentClip
-  // An element is clipped when BOTH conditions are true: parent.clipChildren AND self.parentClip
-  parentClip:boolean; // clip this element by parents client rect? (default - yes!)
-  clipChildren:boolean; // clip children elements by self client rect? (default - yes)
+  // Clipping: element is clipped when BOTH conditions are true: not parent.flags.dontClipChildren AND not self.flags.noParentClip
 
   timer:integer; // relative time to call the onTimer() handler (only once and not earlier than next frame) 0 - don't call. For example, if timer=100 then onTimer will be called in 100 ms
   linkedValue:pointer; // pointer to an external variable used to store elements state (depends on element type)
@@ -145,8 +149,6 @@ type
   ownerScene:TGameScene; // used for root element only
   parent:TUIElement; // Ссылка на элемент-предок
   children:TUIElements; // Список вложенных элементов
-  isGroupBox:boolean; // true means that only one child element should be "selected" (switches, radio buttons etc.)
-  selectedChild:integer; // index of an active child element (when isGroupBox=true), -1 if none
 
   // UI layout
   layout:TLayouter; // how to layout child elements
@@ -336,6 +338,11 @@ type
   property color:cardinal read GetColor write fColor;
  end;
 
+ TUIGroupBox=class(TUIElement)
+  selectedChild:integer; // index of active child element (-1 if none)
+  constructor Create(width,height:single;parent_:TUIElement;name_:String8='');
+ end;
+
 threadvar
  underMouse:TUIElement;     // элемент под мышью
  modalElement:TUIElement;   // Если есть модальный эл-т - он тут
@@ -356,7 +363,7 @@ procedure SetFocusTo(control:TUIElement);
  procedure DestroyQueuedElements;
 
 implementation
- uses Classes, SysUtils, Apus.EventMan, Apus.Clipboard, Apus.Structs, Apus.Engine.API,
+ uses Classes, SysUtils, Apus.EventMan, Apus.Clipboard, Apus.Engine.API,
   Apus.Geom2D,
   Apus.Conv,
   Apus.Strings;
@@ -547,7 +554,7 @@ function DescribeElement(c:TUIElement):String8;
 
  procedure TUIElement.CheckAndSetFocus;
   begin
-   if CanHaveFocus and (FocusedElement=nil) then
+   if flags.canHaveFocus and (FocusedElement=nil) then
     SetFocus;
   end;
 
@@ -603,6 +610,12 @@ procedure TUIElement.DeleteChildren(filter:String8='');
    end;
   end;
 
+constructor TUIGroupBox.Create(width,height:single;parent_:TUIElement;name_:String8='');
+  begin
+   inherited Create(width,height,parent_,name_);
+   selectedChild:=-1;
+  end;
+
 constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:String8='');
   var
    n:integer;
@@ -620,8 +633,6 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    shape:=shapeFull;
    timer:=0;
    parent:=parent_;
-   parentClip:=GetClassAttribute('defaultParentClip',true);
-   clipChildren:=GetClassAttribute('defaultClipChildren',true);
    name:=name_;
    hint:=''; hintIfDisabled:='';
    hintDelay:=GetClassAttribute('defaulthintDelay',1000);
@@ -629,20 +640,22 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    // No anchors: element's size doesn't change when parent is resized
    //anchors:=anchorNone;
    cursor:=int64(GetClassAttribute('defaultCursor',CursorID.Default));
-   enabled:=GetClassAttribute('defaultEnabled',true);
-   visible:=GetClassAttribute('defaultVisible',true);
-   manualDraw:=false;
+   flags.enabled:=GetClassAttribute('defaultEnabled',true);
+   flags.visible:=GetClassAttribute('defaultVisible',true);
+   flags.canHaveFocus:=GetClassAttribute('defaultCanHaveFocus',false);
+   flags.autoScroll:=false;
+   flags.manualDraw:=false;
+   flags.noParentClip:=not GetClassAttribute('defaultParentClip',true);
+   flags.dontClipChildren:=not GetClassAttribute('defaultClipChildren',true);
    font:=GetClassAttribute('defaultFont',0);
    color:=GetClassAttribute('defaultColor',clDefault);
    styleClass:=GetClassAttribute('defaultStyle',0);
    styleInfo:=GetClassAttribute('defaultStyleInfo','');
-   canHaveFocus:=GetClassAttribute('defaultCanHaveFocus',false);
    sendSignals:=ssNone;
    scroll:=Vec2(0,0);
    scrollerH:=nil; scrollerV:=nil;
    focusedChild:=nil;
    shapeRegion:=nil;
-   selectedChild:=-1;
    ownerScene:=nil;
 
    wnd:=GetWindow;
@@ -783,13 +796,13 @@ destructor TUIElement.Destroy;
    outside:boolean;
   begin
    // Тут нужно быть предельно внимательным!!!
-   result:=enabled and visible;
+   result:=flags.enabled and flags.visible;
    c:=nil;
-   if not visible then exit; // если элемент невидим, то уж точно ничего не спасет!
+   if not flags.visible then exit; // если элемент невидим, то уж точно ничего не спасет!
    r:=GetPosOnScreen;
    p:=Point(x,y);
    outside:=false; // ignore clipped
-   if clipChildren and not r.Contains(p) then outside:=true; // за пределами эл-та
+   if not flags.dontClipChildren and not r.Contains(p) then outside:=true; // за пределами эл-та
    if (shape=shapeFull) and r.Contains(p) then c:=self;
 
    // На данный момент известно, что точка в пределах текущего эл-та
@@ -799,7 +812,7 @@ destructor TUIElement.Destroy;
    cnt:=0;
    SetLength(ca,length(children));
    for i:=0 to length(children)-1 do with children[i] do begin
-    if not visible then continue;
+    if not flags.visible then continue;
     ca[cnt]:=self.children[i];
     inc(cnt);
    end;
@@ -813,7 +826,7 @@ destructor TUIElement.Destroy;
    // Теперь порядок правильный, нужно искать
    fl:=false;
    for i:=0 to cnt-1 do begin
-    if outside and ca[i].parentClip then continue;
+    if outside and not ca[i].flags.noParentClip then continue;
     en:=ca[i].FindElementAt(x,y,c2);
     if c2<>nil then begin
      c:=c2; result:=result and en;
@@ -839,9 +852,9 @@ destructor TUIElement.Destroy;
    cnt:byte;
   begin
    // Тут нужно быть предельно внимательным!!!
-   result:=enabled and visible;
+   result:=flags.enabled and flags.visible;
    c:=nil;
-   if not visible then exit; // если элемент невидим, то уж точно ничего не спасет!
+   if not flags.visible then exit; // если элемент невидим, то уж точно ничего не спасет!
    r:=GetPosOnScreen;
    p:=Point(x,y);
    if not PtInRect(r,p) then begin result:=false; exit; end; // за пределами эл-та
@@ -854,7 +867,7 @@ destructor TUIElement.Destroy;
    cnt:=0;
    SetLength(ca,length(children));
    for i:=0 to length(children)-1 do with children[i] do begin
-    if not visible then continue;
+    if not flags.visible then continue;
     ca[cnt]:=self.children[i];
     inc(cnt);
    end;
@@ -981,32 +994,32 @@ function TUIElement.GetWindow:TWindow;
 
 procedure TUIElement.Show;
   begin
-   visible:=true;
+   flags.visible:=true;
   end;
 
  procedure TUIElement.Hide;
   begin
-   visible:=false;
+   flags.visible:=false;
   end;
 
  procedure TUIElement.Toggle;
   begin
-   visible:=not visible;
+   flags.visible:=not flags.visible;
   end;
 
  procedure TUIElement.Enable;
   begin
-   enabled:=true;
+   flags.enabled:=true;
   end;
 
  procedure TUIElement.Disable;
   begin
-   enabled:=false;
+   flags.enabled:=false;
   end;
 
  procedure TUIElement.ToggleEnabled;
   begin
-   enabled:=not enabled;
+   flags.enabled:=not flags.enabled;
   end;
 
  function TUIElement.IsVisible:boolean;
@@ -1015,11 +1028,11 @@ procedure TUIElement.Show;
   begin
    result:=false;
    if self=nil then exit;
-   result:=visible;
+   result:=flags.visible;
    c:=self;
    while c.parent<>nil do begin
     c:=c.parent;
-    result:=result and c.visible;
+    result:=result and c.flags.visible;
    end;
   end;
 
@@ -1034,11 +1047,11 @@ function TUIElement.IsEnabled:boolean;
   begin
    result:=false;
    if self=nil then exit;
-   result:=enabled;
+   result:=flags.enabled;
    c:=self;
    while c.parent<>nil do begin
     c:=c.parent;
-    result:=result and c.enabled;
+    result:=result and c.flags.enabled;
    end;
   end;
 
@@ -1103,7 +1116,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  function TUIElement.IsOutOfOrder:boolean;
   begin
-   result:=(order<0) or (order>=$10000) or (not parentClip);
+   result:=(order<0) or (order>=$10000) or flags.noParentClip;
   end;
 
  procedure TUIElement.onChar(ch:char; scancode:byte);
@@ -1151,7 +1164,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
  procedure TUIElement.onMouseButtons(button:byte;state:boolean);
   begin
    if state then begin
-    if enabled and CanHaveFocus then SetFocus
+    if flags.enabled and flags.canHaveFocus then SetFocus
      else begin
       // если элемент, владеющий фокусом, является потомком данного, то фокус с него не убирать!
   //    if not IsChild(FocusedControl) then SetFocusTo(nil);
@@ -1184,7 +1197,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
     scrollerV.MoveRel(-scrollerV.GetStep*value/100,true);
     exit;
    end else
-   if autoScroll then begin // no scroller, but autoscroll is enabled
+   if flags.autoScroll then begin // no scroller, but autoscroll is enabled
     //scroll.y:=Clamp(scroll.y+value* // implement smooth scrolling
     onMouseMove;
     exit;
@@ -1456,7 +1469,7 @@ function TUIElement.GetClientHeight:single;
   begin
    childrenBound.Init(0,0,0,0);
    for i:=0 to length(children)-1 do
-    if children[i].visible and not children[i].IsOutOfOrder then
+    if children[i].flags.visible and not children[i].IsOutOfOrder then
      childrenBound.Include(children[i].GetRectInParentSpace);
    if scrollerV<>nil then begin
     scrollerV.SetRange(childrenBound.y1,childrenBound.y2);
@@ -1501,7 +1514,7 @@ procedure TUIElement.SafeDestroy;
    c:TUIElement;
    i:integer;
   begin
-   if not (enabled and visible) then exit;
+   if not (flags.enabled and flags.visible) then exit;
    // Сигнал о потере фокуса
    if (fControl<>nil) and (fControl<>self) then with fControl do begin
     onLostFocus;
@@ -1526,7 +1539,7 @@ procedure TUIElement.SafeDestroy;
      end else // установка фокуса на первый доступный элемент
       {$IFNDEF IOS}  // don't auto set focus for mobile devices
       for i:=0 to length(children)-1 do
-       if children[i].canHaveFocus then begin
+       if children[i].flags.canHaveFocus then begin
         children[i].SetFocus;
         exit;
        end;
@@ -1576,8 +1589,8 @@ procedure TUIElement.SafeDestroy;
      c:=c.parent;
     end else
      dir:=true; // назад идти тоже нельзя
-   until (c.enabled and c.visible and c.canHaveFocus) or (c=self);
-   if c.canHaveFocus then c.SetFocus;
+   until (c.flags.enabled and c.flags.visible and c.flags.canHaveFocus) or (c=self);
+   if c.flags.canHaveFocus then c.SetFocus;
   end;
 
  procedure TUIElement.SetFocusToPrev;
@@ -1624,7 +1637,7 @@ procedure DestroyQueuedElements;
    n:=0;
    for i:=0 to high(parent.children) do begin
     item:=parent.children[i];
-    if not item.visible or item.IsOutOfOrder then continue;
+    if not item.flags.visible or item.IsOutOfOrder then continue;
     result[n]:=item;
     inc(n);
    end;

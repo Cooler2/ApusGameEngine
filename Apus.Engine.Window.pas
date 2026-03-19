@@ -150,7 +150,7 @@ type
  function FindWindowForUIRoot(root:TObject):TWindow;
 
 implementation
- uses Apus.Structs, Apus.EventMan, Apus.Log, Apus.Engine.API;
+ uses Apus.EventMan, Apus.Lib, Apus.Engine.API;
 
 var
  windowHash:TObjectHash;
@@ -209,7 +209,7 @@ begin
  frameTimeRingPos:=0;
  frameTimeRingCount:=0;
  lastFrameTimeUs:=0;
- StartTimer(frameTimer);
+ Timer.Start(frameTimer);
  frameTimerReady:=false;
  lastFpsUpdate:=0;
  lastSmoothFpsUpdate:=0;
