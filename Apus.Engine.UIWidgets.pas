@@ -104,6 +104,7 @@ interface
 
    btnStyle:TButtonStyle; // тип кнопки (влияет как на отрисовку, так и на поведение)
    group:integer;   // Группа переключателей
+   linkedPressed:PBoolean; // optional external boolean to sync with pressed state
    onClick:TProcedure;
    onClickEvent:String8;
 {   class var onClickSender:TUIButton;
@@ -623,8 +624,8 @@ function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
 procedure TUIButton.SetPressed(pr:boolean);
   begin
    pressed:=pr;
-   if linkedValue<>nil then
-    PBoolean(linkedValue)^:=pressed;
+   if linkedPressed<>nil then
+    linkedPressed^:=pressed;
    if (sendSignals<>ssNone) then begin
     if btnStyle<>bsNormal then begin
      Signal('UI\Button\Toggle\'+name,UIntPtr(self));
@@ -1832,7 +1833,6 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:String
    frame.flags.noParentClip:=true;
    frame.order:=1000;
    popup:=TUIListBox.Create(size.x-2,0,20,'_ComboBoxPopUp',font,frame);
-   popUp.customPtr:=self;
   // popup.autoSelectMode:=true;
    popup.bgColor:=$FFFFFFFF;
    popup.textColor:=$FF000000;

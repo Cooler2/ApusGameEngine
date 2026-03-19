@@ -96,201 +96,147 @@ type
 
  // Base class of the UI element
  TUIElement=class(TNamedObject)
-  // This defines element's OUTER rect - in PARENT coordinates (i.e. scale doesn't affect this)
+  // Outer geometry: position and size in PARENT space (unaffected by self scale)
   position:TVec2;  // root point position in parent's client rect
-  size:TVec2; // dimension of this element
-  pivot:TVec2; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
-  anchors:TUIRect; // how much left/top/right/bottom border should absorb from parent's size change delta
-  shape:TUIShape;  // defines which part of the element can react on mouse input
+  size:TVec2;      // element dimensions
+  pivot:TVec2;     // relative root point: (0,0)=top-left, (1,1)=bottom-right, (0.5,0.5)=center
+  // Anchoring: how element reacts to parent resize
+  anchors:TUIRect;                // how much each border absorbs from parent's resize delta
+  placementMode:TUIPlacementMode; // algorithm used when parent resizes
 
-  // Inner parts - scaled
-  scale:single; // scale factor for INNER parts of the element and all its children elements
-  padding:TUIRect; // defines element's client area (how much to deduct from the element's area) using own scale
-  scroll:TVec2; // Offset used to draw children elements - SUBTRACT from children pos
-  placementMode:TUIPlacementMode;  // How element should react on parent's size change
+  // Inner space: scaled by self.scale, affects children
+  scale:single;    // scale factor for inner parts and all children
+  padding:TUIRect; // client area definition (deducted from element area, in own scale)
+  scroll:TVec2;    // offset applied when drawing children (subtract from child positions)
+  shape:TUIShape;  // which part of the element reacts to mouse input (in own scaled CS)
 
-  flags:TUIElementFlags;
-  cursor:NativeInt; // Идентификатор курсора (0 - default)
-  order:integer; // Z-order used for arrangement ($10000 - StayOnTop), <0 - special (out-of-order)
+  // Interaction & display
+  flags:TUIElementFlags;    // important behavioral options
+  // Clipping: clipped when BOTH: not parent.flags.dontClipChildren AND not self.flags.noParentClip
+  cursor:NativeInt;         // cursor identifier (0 = default)
+  order:integer;            // Z-order ($10000 = StayOnTop, <0 = out-of-order/special)
+  hint:String8;             // tooltip text
+  sendSignals:TSendSignals; // which signals are sent on interaction
+  caption:String8;          // primary text associated with element
+  timer:integer;            // ms until onTimer fires (0 = disabled); fires once, not earlier than next frame
 
-  // Define how the element should be displayed
-  styleClass:byte;    // Which style handler should be used to draw this element (0 - default style)
+  // Style (to be replaced by R-05 style pipeline)
+  styleClass:byte;          // which style handler draws this element (0 = default)
   styleInfoChanged:boolean; // set true whenever styleInfo changes
-  styleContext:TObject; // custom context object used by drawer
-
-  hint:String8; // tooltip text
-  sendSignals:TSendSignals; // режим сигнализирования (см. выше)
-  caption:String8; // some text associated with element
-
-  // Clipping: element is clipped when BOTH conditions are true: not parent.flags.dontClipChildren AND not self.flags.noParentClip
-
-  timer:integer; // relative time to call the onTimer() handler (only once and not earlier than next frame) 0 - don't call. For example, if timer=100 then onTimer will be called in 100 ms
-  linkedValue:pointer; // pointer to an external variable used to store elements state (depends on element type)
-
-  // Tweening and animation
-  //tweenings:array of TTweening;
+  styleContext:TObject;     // custom context object used by drawer
 
   // Custom data
-  tag:NativeInt; // custom data for manual use
-  customPtr:pointer; // custom data for manual use
-  attributes:TNameValueList; // custom attributes
+  attributes:TNameValueList; // miscellaneous named attributes
 
-  // Relationship
+  // Hierarchy
   ownerScene:TGameScene; // used for root element only
-  parent:TUIElement; // Ссылка на элемент-предок
-  children:TUIElements; // Список вложенных элементов
+  parent:TUIElement;
+  children:TUIElements;
 
-  // UI layout
-  layout:TLayouter; // how to layout child elements
-  layoutData:single; // custom data for layouter
+  // Layout
+  layout:TLayouter; // child layout manager
+  layoutData:single; // custom data for layouter (e.g. weight in flow layout)
 
-  // Derived attributes. These attributes are calculated at runtime and used for faster access, can be outdated
-  globalRect:TRect;  // положение элемента на экране (может быть устаревшим! для точного положения - GetPosOnScreen)
+  // Cached state (may be outdated; use GetPosOnScreen for accurate position)
+  globalRect:TRect;
 
-  class var sender:TUIElement; // use this value in any callback handler to find out the event sender element
+  class threadvar sender:TUIElement; // sender element in callback handlers
 
-  // Создает элемент
+  // --- Lifecycle ---
   constructor Create(width,height:single;parent_:TUIElement;name_:String8='');
-  // Удаляет элемент (а также все вложенные в него)
   destructor Destroy; override;
-  // Queue element to destroy somewhere later (before the next frame)
-  procedure SafeDestroy;
+  procedure SafeDestroy; // queue for destruction before next frame
 
-  // Найти следующий по порядку элемент того же уровня
-  function GetNext:TUIElement; virtual;
-  // Найти предыдущий по порядку элемент того же уровня
-  function GetPrev:TUIElement; virtual;
-  // Найти самого дальнего предка (корневой элемент)
-  function GetRoot:TUIElement;
-  // Resolve scene/window owner for the element tree
-  function GetScene:TGameScene;
-  function GetWindow:TWindow;
-  // Виден ли элемент (проверяет видимость всех предков)
-  function IsVisible:boolean;
-  // Доступен ли элемент (проверяет доступность всех предков)
-  function IsEnabled:boolean;
-  // Является ли указанный элемент потомком данного?
-  function IsChild(c:TUIElement):boolean;
-  // Вложен ли данный элемент в указанный (direct or indirect) (HasParent(self)=true)
-  function HasParent(c:TUIElement):boolean;
-  // Есть ли у данного элемента указанный потомок (direct or indirect) (HasChild(self)=true)
-  function HasChild(c:TUIElement):boolean;
-  // Delete all children elements (using optional filter string 'start:prefix', '!start:prefix', 'substr' etc.)
-  procedure DeleteChildren(filter:String8='');
-  // Return child index in children array (-1) if no parent
-  function ChildIndex:integer;
+  // --- Tree: navigation ---
+  function GetNext:TUIElement; virtual;     // next sibling by order
+  function GetPrev:TUIElement; virtual;     // previous sibling by order
+  function GetRoot:TUIElement;              // topmost ancestor
+  function GetScene:TGameScene;             // owning scene
+  function GetWindow:TWindow;              // owning window
+  function ChildIndex:integer;              // index in parent.children (-1 if no parent)
+  function IsVisible:boolean;              // visible including all ancestors
+  function IsEnabled:boolean;              // enabled including all ancestors
+  function IsChild(c:TUIElement):boolean;  // is c a direct child of self?
+  function HasParent(c:TUIElement):boolean; // is self a descendant of c? (HasParent(self)=true)
+  function HasChild(c:TUIElement):boolean;  // is c a descendant of self? (HasChild(self)=true)
 
-  // Attach to a new parent (at children[pos] or at the end of the children list if pos<0)
-  procedure AttachTo(newParent:TUIElement;pos:integer=-1);
-  // Detach from parent
+  // --- Tree: modification ---
+  procedure AttachTo(newParent:TUIElement;pos:integer=-1); // attach at position (or end if pos<0)
   procedure Detach(shouldAddToRootControls:boolean=true);
-  // Insert as a sibling before/after the specified element
   procedure InsertAfter(element:TUIElement);
   procedure InsertBefore(element:TUIElement);
+  procedure DeleteChildren(filter:String8=''); // filter: 'start:prefix', '!start:prefix', 'substr'
 
-  // Transformations. Element's coordinate system is (0,0 - clientWidth,clinetHeight) where
-  //   0,0 - is upper-left corner of the client area. This CS is for internal use.
-  // Transform to given element's CS (nil - screen space). Target must be a parent element.
-  function TransformTo(const p:TVec2;target:TUIElement):TVec2; overload;
+  // --- Geometry ---
+  // Element's CS: (0,0)..(clientWidth,clientHeight), origin at top-left of client area
+  function TransformTo(const p:TVec2;target:TUIElement):TVec2; overload; // to target CS (nil = screen)
   function TransformTo(const r:TRect2;target:TUIElement):TRect2; overload;
-  // Transform to/from screen space
   function TransformToScreen(const p:TVec2):TVec2; overload;
   function TransformToScreen(const r:TRect2):TRect2; overload;
   function TransformFromScreen(const p:TVec2):TVec2; overload;
   function TransformFromScreen(const r:TRect2):TRect2; overload;
-  function GetRect:TRect2; // Get element's area in its own CS (i.e. relative to pivot point)
-  function GetRectInParentSpace:TRect2; // Get element's area in parent client space)
-  function GetClientRect:TRect2; // Get element's client area in its own CS (0,0,clientWidth,clientHeight)
+  function GetRect:TRect2;              // element area in own CS (relative to pivot)
+  function GetRectInParentSpace:TRect2; // element area in parent's client CS
+  function GetClientRect:TRect2;        // client area in own CS (0,0,clientWidth,clientHeight)
+  function GetPosOnScreen:TRect;        // element area in screen pixels
+  function GetClientPosOnScreen:TRect;  // client area in screen pixels
 
-  // получить экранные к-ты элемента
-  function GetPosOnScreen:TRect;       // get full element's area in screen space
-  function GetClientPosOnScreen:TRect; // client area in screen space
+  // --- Layout & sizing ---
+  function SetPos(x,y:single;pivotPoint:TVec2;autoSnap:boolean=false):TUIElement; overload;
+  function SetPos(x,y:single;autoSnap:boolean=false):TUIElement; overload;
+  procedure MoveBy(dx,dy:single);                            // move by screen pixels
+  procedure Center(setAnchors:boolean=true);                 // center in parent
+  procedure Snap(snapTo:TSnapMode;shrinkParent:boolean=true); // snap to parent edge
+  function SetAnchors(left,top,right,bottom:single):TUIElement; overload;
+  function SetAnchors(anchorMode:TAnchorMode):TUIElement; overload;
+  function SetPadding(padding:single):TUIElement; overload;
+  function SetPaddings(left,top,right,bottom:single):TUIElement; overload;
+  function SetScale(newScale:single):TUIElement;
+  procedure Resize(newWidth,newHeight:single); virtual;      // new size in parent space; -1 = keep
+  procedure ResizeClient(newClientWidth,newClientHeight:single); virtual;
+  procedure ScrollTo(newX,newY:integer); virtual;
+  procedure SetupScrollers; virtual;
 
-  // Primary event handlers
-  // Сцена (или другой клиент) вызывает эти методы у корневого эл-та, а он
-  // перенаправляет их соответствующим элементам по принципу:
-  // - движение мыши - по точке начала и конца двжения
-  // - нажатие и скроллинг - элементу под мышью
-  // - клавиатура - элементу, имеющему фокус
+  // --- Focus ---
+  procedure SetFocus; virtual;
+  function HasFocus:boolean; virtual;
+  procedure SetFocusToNext;
+  procedure SetFocusToPrev;
+  procedure CheckAndSetFocus; // take focus if focusable and no other element has it
+
+  // --- Event handlers ---
   procedure onMouseMove; virtual;
   procedure onMouseScroll(value:integer); virtual;
   procedure onMouseButtons(button:byte;state:boolean); virtual;
-  function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual; // Нужно вернуть false для запрета дальнейшей обработки клавиши
+  function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; virtual; // return false to suppress
   procedure onChar(ch:char;scancode:byte); virtual;
   procedure onUniChar(ch:Char32;scancode:byte); virtual;
   function onHotKey(keycode:byte;shiftstate:byte):boolean; virtual;
   procedure onTimer; virtual;
   procedure onLostFocus; virtual;
 
-  // Переключить фокус на себя (с уведомлением других)
-  procedure SetFocus; virtual;
-  // Сам элемент или воженный в него владеет фокусом?
-  function HasFocus:boolean; virtual;
-  // Перевести фокус на следующий/предыдущий эл-ты
-  procedure SetFocusToNext;
-  procedure SetFocusToPrev;
-
-  // Set element position using new pivot point
-  function SetPos(x,y:single;pivotPoint:TVec2;autoSnap:boolean=false):TUIElement; overload;
-  function SetPos(x,y:single;autoSnap:boolean=false):TUIElement; overload;
-  // Move by given screen pixels
-  procedure MoveBy(dx,dy:single);
-  // Set element anchors
-  function SetAnchors(left,top,right,bottom:single):TUIElement; overload;
-  function SetAnchors(anchorMode:TAnchorMode):TUIElement; overload;
-  // Set all padding and resize client area
-  function SetPadding(padding:single):TUIElement; overload;
-  function SetPaddings(left,top,right,bottom:single):TUIElement; overload;
-  // Set same value for X/Y scale and optionally resize to keep the original dimensions
-  function SetScale(newScale:single):TUIElement;
-  // Change element size and adjust children elements !!! new size IN PARENTs space!
-  // Pass -1 to keep current value
-  procedure Resize(newWidth,newHeight:single); virtual;
-  procedure ResizeClient(newClientWidth,newClientHeight:single); virtual;
-  // Place element at the parent's center (and optionally set anchors to follow the center point)
-  procedure Center(setAnchors:boolean=true);
-  // Snap element to parent's edge
-  // Optionally cut from parent's client area, so this element will be outside the client area
-  procedure Snap(snapTo:TSnapMode;shrinkParent:boolean=true);
-  // Скроллинг в указанную позицию (с обработкой подчиненных скроллбаров если они есть)
-  procedure ScrollTo(newX,newY:integer); virtual;
-  // Setup scrollers to match client area
-  procedure SetupScrollers; virtual;
-  // Если данный элемент может обладать фокусом, но ни один другой не имеет фокуса - взять фокус на себя
-  procedure CheckAndSetFocus;
-
-  // Find a descendant UI element at the given point (in screen coordinates)
-  // Returns true if the found element (and all its parents) are enabled
-  function FindElementAt(x,y:integer;out c:TUIElement):boolean;
-  // Same as FindItemAt, but ignores elements transparency mode
-  function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;
-  // Find a descendant element by its name
+  // --- Search ---
+  function FindElementAt(x,y:integer;out c:TUIElement):boolean;    // true if found element is enabled
+  function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean; // ignores transparency mode
   function FindChildByName(const name:string8):TUIElement;
 
-  // Установить либо удалить "горячую клавишу" для данного эл-та
-  procedure SetHotKey(vKeyCode:integer;shiftstate:byte=0);
-  procedure RemoveHotKey(vKeyCode:integer;shiftstate:byte=0);
+  // --- Queries ---
+  function IsOpaque(x,y:single):boolean; virtual; // hit test in tmCustom mode (coords in 0..1 range)
+  function IsOutOfOrder:boolean; virtual;          // out-of-order elements skip layouter and group ops
+  class function IsWindow:boolean; virtual;        // windows track focused child
+  function IsActiveWindow:boolean; virtual;
 
-  // Check if point is opaque in tmCustom mode (relative coordinates in [0..1] range)
-  function IsOpaque(x,y:single):boolean; virtual;
-
-  // Out-of-order elements are not affected by layouter and other group operations
-  function IsOutOfOrder:boolean; virtual;
-
-  // Helper methods
+  // --- Helpers ---
   procedure Show;
   procedure Hide;
-  procedure Toggle; // toggle visibility
+  procedure Toggle;        // toggle visibility
   procedure Enable;
   procedure Disable;
   procedure ToggleEnabled;
-
-  // Whether element behave as window: track focused child
-  class function IsWindow:boolean; virtual;
-  function IsActiveWindow:boolean; virtual;
-
-  class procedure SetDefault(name:String8;value:variant); // SetClassAttribute('defalut'+name,value)
-  procedure SetStyle(name,value:string8); // use 'name:value' or 'state.name:value' syntax
+  procedure SetHotKey(vKeyCode:integer;shiftstate:byte=0);
+  procedure RemoveHotKey(vKeyCode:integer;shiftstate:byte=0);
+  class procedure SetDefault(name:String8;value:variant); // set class-level default attribute
+  procedure SetStyle(name,value:string8); // 'name:value' or 'state.name:value' syntax
 
 
  protected
