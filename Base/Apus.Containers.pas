@@ -417,10 +417,13 @@ begin
      item.SelfIndex:=i;
     end;
    end else begin
-    // Удалить элемент заменив его последним
-    parent.children.Move(parent.children.Count-1,SelfIndex);
-    item:=parent.children[SelfIndex];
-    item.SelfIndex:=SelfIndex;
+    // Remove by swapping with the last element, then shrinking the list
+    if SelfIndex<parent.children.Count-1 then begin
+     parent.children[SelfIndex]:=parent.children[parent.children.Count-1];
+     item:=parent.children[SelfIndex];
+     item.SelfIndex:=SelfIndex;
+    end;
+    parent.children.Delete(parent.children.Count-1);
    end;
   end;
   inherited;
