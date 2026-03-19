@@ -156,9 +156,9 @@ type
   function ChildIndex:integer;              // index in parent.children (-1 if no parent)
   function IsVisible:boolean;              // visible including all ancestors
   function IsEnabled:boolean;              // enabled including all ancestors
-  function IsChild(c:TUIElement):boolean;   // is c a strict descendant of self? (c≠self)
-  function HasParent(c:TUIElement):boolean; // is self a descendant of c, or c=self? (HasParent(self)=true)
-  function HasChild(c:TUIElement):boolean;  // is c a descendant of self, or c=self? (HasChild(self)=true)
+  function IsChild(c:TUIElement):boolean;   // is c a descendant of self? (strict: c≠self)
+  function HasParent(c:TUIElement):boolean; // is self a descendant of c? (strict: HasParent(self)=false)
+  function HasChild(c:TUIElement):boolean;  // is c a descendant of self? (strict: HasChild(self)=false)
 
   // --- Tree: modification ---
   procedure AttachTo(newParent:TUIElement;pos:integer=-1); // attach at position (or end if pos<0)
@@ -350,7 +350,7 @@ threadvar
         // Element should be visible and enabled
         if c.IsVisible and c.IsEnabled then
          // If there is a modal element - it should be parent
-         if (modalElement=nil) or (c.HasParent(modalElement)) then
+         if (modalElement=nil) or (c=modalElement) or (c.HasParent(modalElement)) then
           if c.onHotKey(keycode,shiftstate) then exit;
        end;
   end;
@@ -1034,8 +1034,8 @@ function TUIElement.IsChild(c:TUIElement):boolean;
    con:TUIElement;
   begin
    result:=false;
-   con:=self;
    if c=nil then exit;
+   con:=self.parent; // strict: self is not its own parent
    while con<>nil do begin
     if con=c then begin
      result:=true; exit;
