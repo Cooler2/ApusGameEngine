@@ -1695,30 +1695,114 @@ end;
 
 { Sort }
 
-class procedure Sort.ByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+type
+  TSortFieldCmp=function(a,b:PByte):integer;
+
+function CmpInt(a,b:PByte):integer;
+var
+  av,bv:integer;
+begin
+  av:=PInteger(a)^;
+  bv:=PInteger(b)^;
+  if av<bv then result:=-1
+  else
+  if av>bv then result:=1
+  else
+    result:=0;
+end;
+
+function CmpFloat(a,b:PByte):integer;
+var
+  av,bv:single;
+begin
+  av:=PSingle(a)^;
+  bv:=PSingle(b)^;
+  if av<bv then result:=-1
+  else
+  if av>bv then result:=1
+  else
+    result:=0;
+end;
+
+function CmpDouble(a,b:PByte):integer;
+var
+  av,bv:double;
+begin
+  av:=PDouble(a)^;
+  bv:=PDouble(b)^;
+  if av<bv then result:=-1
+  else
+  if av>bv then result:=1
+  else
+    result:=0;
+end;
+
+function CmpString8(a,b:PByte):integer;
+var
+  av,bv:String8;
+begin
+  av:=PString8(a)^;
+  bv:=PString8(b)^;
+  if av<bv then result:=-1
+  else
+  if av>bv then result:=1
+  else
+    result:=0;
+end;
+
+procedure InternalSort(var items;itemSize,itemCount,offset:integer;asc:boolean;cmp:TSortFieldCmp);
   procedure QuickSort(data:pointer;a,b:integer);
   var
-    lo,hi,mid:integer;
-    loVal,hiVal:PByte;
-    midVal:integer;
+    lo,hi,pivotIndex,c:integer;
+    loVal,hiVal,pivotVal:PByte;
   begin
-    lo:=a; hi:=b;
-    mid:=(a+b) div 2;
-    loVal:=PByte(UIntPtr(data)+UIntPtr(lo*itemSize+offset));
-    hiVal:=PByte(UIntPtr(data)+UIntPtr(hi*itemSize+offset));
-    midVal:=PInteger(PByte(UIntPtr(data)+UIntPtr(mid*itemSize+offset)))^;
+    lo:=a;
+    hi:=b;
+    pivotIndex:=(a+b) div 2;
     repeat
-      if asc then begin
-        while PInteger(loVal)^<midVal do begin inc(lo); inc(loVal,itemSize) end;
-        while PInteger(hiVal)^>midVal do begin dec(hi); dec(hiVal,itemSize) end;
-      end else begin
-        while PInteger(loVal)^>midVal do begin inc(lo); inc(loVal,itemSize) end;
-        while PInteger(hiVal)^<midVal do begin dec(hi); dec(hiVal,itemSize) end;
-      end;
+      pivotVal:=PByte(UIntPtr(data)+UIntPtr(pivotIndex*itemSize+offset));
+      loVal:=PByte(UIntPtr(data)+UIntPtr(lo*itemSize+offset));
+      c:=cmp(loVal,pivotVal);
+      if asc then
+        while c<0 do begin
+          inc(lo);
+          loVal:=PByte(UIntPtr(data)+UIntPtr(lo*itemSize+offset));
+          c:=cmp(loVal,pivotVal);
+        end
+      else
+        while c>0 do begin
+          inc(lo);
+          loVal:=PByte(UIntPtr(data)+UIntPtr(lo*itemSize+offset));
+          c:=cmp(loVal,pivotVal);
+        end;
+
+      pivotVal:=PByte(UIntPtr(data)+UIntPtr(pivotIndex*itemSize+offset));
+      hiVal:=PByte(UIntPtr(data)+UIntPtr(hi*itemSize+offset));
+      c:=cmp(hiVal,pivotVal);
+      if asc then
+        while c>0 do begin
+          dec(hi);
+          hiVal:=PByte(UIntPtr(data)+UIntPtr(hi*itemSize+offset));
+          c:=cmp(hiVal,pivotVal);
+        end
+      else
+        while c<0 do begin
+          dec(hi);
+          hiVal:=PByte(UIntPtr(data)+UIntPtr(hi*itemSize+offset));
+          c:=cmp(hiVal,pivotVal);
+        end;
+
       if lo<=hi then begin
-        Swap(pointer(UIntPtr(data)+UIntPtr(lo*itemSize))^,pointer(UIntPtr(data)+UIntPtr(hi*itemSize))^,itemSize);
-        inc(lo); inc(loVal,itemSize);
-        dec(hi); dec(hiVal,itemSize);
+        if lo<>hi then begin
+          Swap(pointer(UIntPtr(data)+UIntPtr(lo*itemSize))^,pointer(UIntPtr(data)+UIntPtr(hi*itemSize))^,itemSize);
+          if lo=pivotIndex then
+            pivotIndex:=hi
+          else
+          if hi=pivotIndex then
+            pivotIndex:=lo;
+        end;
+        inc(lo);
+        dec(hi);
       end;
     until lo>hi;
     if hi>a then QuickSort(data,a,hi);
@@ -1727,108 +1811,26 @@ class procedure Sort.ByInt(var items;itemSize,itemCount,offset:integer;asc:boole
 begin
   if itemCount<2 then exit;
   QuickSort(@items,0,itemCount-1);
+end;
+
+class procedure Sort.ByInt(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
+begin
+  InternalSort(items,itemSize,itemCount,offset,asc,@CmpInt);
 end;
 
 class procedure Sort.ByFloat(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
-  procedure QuickSort(data:pointer;a,b:integer);
-  var
-    lo,hi,mid:integer;
-    loVal,hiVal:PByte;
-    midVal:single;
-  begin
-    lo:=a; hi:=b;
-    mid:=(a+b) div 2;
-    loVal:=PByte(UIntPtr(data)+UIntPtr(lo*itemSize+offset));
-    hiVal:=PByte(UIntPtr(data)+UIntPtr(hi*itemSize+offset));
-    midVal:=PSingle(PByte(UIntPtr(data)+UIntPtr(mid*itemSize+offset)))^;
-    repeat
-      if asc then begin
-        while PSingle(loVal)^<midVal do begin inc(lo); inc(loVal,itemSize) end;
-        while PSingle(hiVal)^>midVal do begin dec(hi); dec(hiVal,itemSize) end;
-      end else begin
-        while PSingle(loVal)^>midVal do begin inc(lo); inc(loVal,itemSize) end;
-        while PSingle(hiVal)^<midVal do begin dec(hi); dec(hiVal,itemSize) end;
-      end;
-      if lo<=hi then begin
-        Swap(pointer(UIntPtr(data)+UIntPtr(lo*itemSize))^,pointer(UIntPtr(data)+UIntPtr(hi*itemSize))^,itemSize);
-        inc(lo); inc(loVal,itemSize);
-        dec(hi); dec(hiVal,itemSize);
-      end;
-    until lo>hi;
-    if hi>a then QuickSort(data,a,hi);
-    if lo<b then QuickSort(data,lo,b);
-  end;
 begin
-  if itemCount<2 then exit;
-  QuickSort(@items,0,itemCount-1);
+  InternalSort(items,itemSize,itemCount,offset,asc,@CmpFloat);
 end;
 
 class procedure Sort.ByDouble(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
-  procedure QuickSort(data:pointer;a,b:integer);
-  var
-    lo,hi,mid:integer;
-    loVal,hiVal:PByte;
-    midVal:double;
-  begin
-    lo:=a; hi:=b;
-    mid:=(a+b) div 2;
-    loVal:=PByte(UIntPtr(data)+UIntPtr(lo*itemSize+offset));
-    hiVal:=PByte(UIntPtr(data)+UIntPtr(hi*itemSize+offset));
-    midVal:=PDouble(PByte(UIntPtr(data)+UIntPtr(mid*itemSize+offset)))^;
-    repeat
-      if asc then begin
-        while PDouble(loVal)^<midVal do begin inc(lo); inc(loVal,itemSize) end;
-        while PDouble(hiVal)^>midVal do begin dec(hi); dec(hiVal,itemSize) end;
-      end else begin
-        while PDouble(loVal)^>midVal do begin inc(lo); inc(loVal,itemSize) end;
-        while PDouble(hiVal)^<midVal do begin dec(hi); dec(hiVal,itemSize) end;
-      end;
-      if lo<=hi then begin
-        Swap(pointer(UIntPtr(data)+UIntPtr(lo*itemSize))^,pointer(UIntPtr(data)+UIntPtr(hi*itemSize))^,itemSize);
-        inc(lo); inc(loVal,itemSize);
-        dec(hi); dec(hiVal,itemSize);
-      end;
-    until lo>hi;
-    if hi>a then QuickSort(data,a,hi);
-    if lo<b then QuickSort(data,lo,b);
-  end;
 begin
-  if itemCount<2 then exit;
-  QuickSort(@items,0,itemCount-1);
+  InternalSort(items,itemSize,itemCount,offset,asc,@CmpDouble);
 end;
 
 class procedure Sort.ByStr(var items;itemSize,itemCount,offset:integer;asc:boolean=true);
-  procedure QuickSort(data:pointer;a,b:integer);
-  var
-    lo,hi,mid:integer;
-    loVal,hiVal:PByte;
-    midVal:String8;
-  begin
-    lo:=a; hi:=b;
-    mid:=(a+b) div 2;
-    loVal:=PByte(UIntPtr(data)+UIntPtr(lo*itemSize+offset));
-    hiVal:=PByte(UIntPtr(data)+UIntPtr(hi*itemSize+offset));
-    midVal:=PString8(PByte(UIntPtr(data)+UIntPtr(mid*itemSize+offset)))^;
-    repeat
-      if asc then begin
-        while PString8(loVal)^<midVal do begin inc(lo); inc(loVal,itemSize) end;
-        while PString8(hiVal)^>midVal do begin dec(hi); dec(hiVal,itemSize) end;
-      end else begin
-        while PString8(loVal)^>midVal do begin inc(lo); inc(loVal,itemSize) end;
-        while PString8(hiVal)^<midVal do begin dec(hi); dec(hiVal,itemSize) end;
-      end;
-      if lo<=hi then begin
-        Swap(pointer(UIntPtr(data)+UIntPtr(lo*itemSize))^,pointer(UIntPtr(data)+UIntPtr(hi*itemSize))^,itemSize);
-        inc(lo); inc(loVal,itemSize);
-        dec(hi); dec(hiVal,itemSize);
-      end;
-    until lo>hi;
-    if hi>a then QuickSort(data,a,hi);
-    if lo<b then QuickSort(data,lo,b);
-  end;
 begin
-  if itemCount<2 then exit;
-  QuickSort(@items,0,itemCount-1);
+  InternalSort(items,itemSize,itemCount,offset,asc,@CmpString8);
 end;
 
 // =============================================================================
@@ -2215,3 +2217,4 @@ initialization
   systemMessageFlags:=[TSystemMessageFlag.smLog,TSystemMessageFlag.smStdErr];
   {$ENDIF}
 end.
+
