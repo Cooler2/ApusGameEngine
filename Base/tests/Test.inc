@@ -40,6 +40,7 @@ var
   benchLogOpen:boolean=false;
   benchTimer:int64;
   benchIterations:integer=0;
+  benchSectionStart:int64=0;
 
 procedure BenchWriteln(const s:string='');
 begin
@@ -47,10 +48,26 @@ begin
   if benchLogOpen then writeln(benchLog,s);
 end;
 
+procedure BenchSection(const s:string);
+var ms:int64; t:string;
+begin
+  if benchSectionStart>0 then begin
+    ms:=CoreTime.Ticks-benchSectionStart;
+    t:=Format('  [%d ms]',[ms]);
+    writeln(t);
+    if benchLogOpen then writeln(benchLog,t);
+    writeln;
+    if benchLogOpen then writeln(benchLog,'');
+  end;
+  benchSectionStart:=CoreTime.Ticks;
+  BenchWriteln(s);
+end;
+
 procedure OpenBenchLog(const name:string; iterations:integer);
 var
   fn:string;
 begin
+  benchSectionStart:=0;
   benchIterations:=iterations;
   fn:='bench_'+name+'_'
     +{$IFDEF DELPHI}'D'{$ELSE}'F'{$ENDIF}
@@ -63,7 +80,15 @@ begin
 end;
 
 procedure CloseBenchLog;
+var ms:int64; t:string;
 begin
+  if benchSectionStart>0 then begin
+    ms:=CoreTime.Ticks-benchSectionStart;
+    t:=Format('  [%d ms]',[ms]);
+    writeln(t);
+    if benchLogOpen then writeln(benchLog,t);
+    benchSectionStart:=0;
+  end;
   if benchLogOpen then begin
     Close(benchLog);
     benchLogOpen:=false;

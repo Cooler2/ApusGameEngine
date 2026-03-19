@@ -4,6 +4,7 @@ uses
   SysUtils,
   Variants,
   Apus.Core,
+  Apus.Classes,
   Apus.HashMaps;
 
 {$IFDEF FPC}
@@ -16,9 +17,16 @@ type
 const
   N_DEF  = 1000000;
   N_SLOW = 100000;
+  N_BULK = 200;    // iterations for put-10K benchmarks (~5-10 ms each)
+  N_REM  = N_SLOW div 10;  // for remove-100 benchmarks (~50-250 µs each)
+  N_FAST = N_DEF * 5;      // for sub-100ms benchmarks (Get miss, value type)
+
+type
+  TBenchObject=class(TNamedObject) end;
 
 var
   keys:array of String8;
+  objects:array of TNamedObject;
 
 procedure PrepareKeys(count:integer);
 var
@@ -27,6 +35,17 @@ begin
   SetLength(keys,count);
   for i:=0 to count-1 do
     keys[i]:='key_'+IntToStr(i);
+end;
+
+procedure PrepareObjects(count:integer);
+var
+  i:integer;
+begin
+  SetLength(objects,count);
+  for i:=0 to count-1 do begin
+    objects[i]:=TBenchObject.Create;
+    objects[i].name:=keys[i];
+  end;
 end;
 
 // ============================================================================
@@ -87,8 +106,8 @@ end;
 procedure BenchPut10K_HashMap;
 var i,j:integer; m:THashMap<integer>;
 begin
-  StartBench('HashMap<int>   Put 10K',N_SLOW div 10);
-  for i:=1 to N_SLOW div 10 do begin
+  StartBench('HashMap<int>   Put 10K',N_BULK);
+  for i:=1 to N_BULK do begin
     m.Init(16384);
     for j:=0 to 9999 do m.Put(keys[j],j);
     m.Clear;
@@ -99,8 +118,8 @@ end;
 procedure BenchPut10K_HashAS;
 var i,j:integer; h:TSimpleHashAS;
 begin
-  StartBench('SimpleHashAS   Put 10K',N_SLOW div 10);
-  for i:=1 to N_SLOW div 10 do begin
+  StartBench('SimpleHashAS   Put 10K',N_BULK);
+  for i:=1 to N_BULK do begin
     h.Init(16384);
     for j:=0 to 9999 do h.Put(keys[j],j);
     h.Clear;
@@ -108,7 +127,28 @@ begin
   EndBench;
 end;
 
-// THash not benchmarked at 10K: O(n) per Put causes O(n^2) total allocs -> OOM
+procedure BenchPut10K_THash;
+var i,j:integer; h:THash;
+begin
+  StartBench('THash          Put 10K',N_BULK);
+  for i:=1 to N_BULK do begin
+    h.Init(false);
+    for j:=0 to 9999 do h.Put(keys[j],j);
+  end;
+  EndBench;
+end;
+
+procedure BenchPut10K_TVarHash;
+var i,j:integer; h:TVarHash;
+begin
+  StartBench('TVarHash       Put 10K',N_BULK);
+  for i:=1 to N_BULK do begin
+    h.Init(16384);
+    for j:=0 to 9999 do h.Put(keys[j],j);
+    h.Clear;
+  end;
+  EndBench;
+end;
 
 // ============================================================================
 // Overwrite (update existing key, 100 items)
@@ -241,8 +281,8 @@ var i,j:integer; m:THashMap<integer>; v:integer;
 begin
   m.Init(128);
   for j:=0 to 99 do m.Put(keys[j],j);
-  StartBench('HashMap<int>   Get miss',N_DEF);
-  for i:=1 to N_DEF do m.Get('nonexistent_key',v);
+  StartBench('HashMap<int>   Get miss',N_FAST);
+  for i:=1 to N_FAST do m.Get('nonexistent_key',v);
   EndBench;
 end;
 
@@ -251,8 +291,8 @@ var i,j:integer; h:TSimpleHashAS;
 begin
   h.Init(128);
   for j:=0 to 99 do h.Put(keys[j],j);
-  StartBench('SimpleHashAS   Get miss',N_DEF);
-  for i:=1 to N_DEF do h.Get('nonexistent_key');
+  StartBench('SimpleHashAS   Get miss',N_FAST);
+  for i:=1 to N_FAST do h.Get('nonexistent_key');
   EndBench;
 end;
 
@@ -261,8 +301,8 @@ var i,j:integer; h:THash;
 begin
   h.Init(false);
   for j:=0 to 99 do h.Put(keys[j],j);
-  StartBench('THash          Get miss',N_DEF);
-  for i:=1 to N_DEF do h.Get('nonexistent_key');
+  StartBench('THash          Get miss',N_FAST);
+  for i:=1 to N_FAST do h.Get('nonexistent_key');
   EndBench;
 end;
 
@@ -271,8 +311,8 @@ var i,j:integer; h:TVarHash;
 begin
   h.Init;
   for j:=0 to 99 do h.Put(keys[j],j);
-  StartBench('TVarHash       Get miss',N_DEF);
-  for i:=1 to N_DEF do h.Get('nonexistent_key');
+  StartBench('TVarHash       Get miss',N_FAST);
+  for i:=1 to N_FAST do h.Get('nonexistent_key');
   EndBench;
 end;
 
@@ -327,8 +367,8 @@ end;
 procedure BenchRemove_HashMap;
 var i,j:integer; m:THashMap<integer>;
 begin
-  StartBench('HashMap<int>   Remove 100',N_SLOW);
-  for i:=1 to N_SLOW do begin
+  StartBench('HashMap<int>   Remove 100',N_REM);
+  for i:=1 to N_REM do begin
     m.Init(128);
     for j:=0 to 99 do m.Put(keys[j],j);
     for j:=0 to 99 do m.Remove(keys[j]);
@@ -340,8 +380,8 @@ end;
 procedure BenchRemove_HashAS;
 var i,j:integer; h:TSimpleHashAS;
 begin
-  StartBench('SimpleHashAS   Remove 100',N_SLOW);
-  for i:=1 to N_SLOW do begin
+  StartBench('SimpleHashAS   Remove 100',N_REM);
+  for i:=1 to N_REM do begin
     h.Init(128);
     for j:=0 to 99 do h.Put(keys[j],j);
     for j:=0 to 99 do h.Remove(keys[j]);
@@ -353,8 +393,8 @@ end;
 procedure BenchRemove_THash;
 var i,j:integer; h:THash;
 begin
-  StartBench('THash          Remove 100',N_SLOW);
-  for i:=1 to N_SLOW do begin
+  StartBench('THash          Remove 100',N_REM);
+  for i:=1 to N_REM do begin
     h.Init(false);
     for j:=0 to 99 do h.Put(keys[j],j);
     for j:=0 to 99 do h.Remove(keys[j]);
@@ -365,8 +405,8 @@ end;
 procedure BenchRemove_TVarHash;
 var i,j:integer; h:TVarHash;
 begin
-  StartBench('TVarHash       Remove 100',N_SLOW);
-  for i:=1 to N_SLOW do begin
+  StartBench('TVarHash       Remove 100',N_REM);
+  for i:=1 to N_REM do begin
     h.Init;
     for j:=0 to 99 do h.Put(keys[j],j);
     for j:=0 to 99 do h.Remove(keys[j]);
@@ -384,8 +424,8 @@ var i,j:integer; m:THashMap<integer>; v:integer;
 begin
   m.Init(128);
   for j:=0 to 99 do m.Put(keys[j],j);
-  StartBench('HashMap<int>   GetDef 100',N_DEF);
-  for i:=1 to N_DEF do v:=m.GetDef(keys[i mod 100],-1);
+  StartBench('HashMap<int>   GetDef 100',N_FAST);
+  for i:=1 to N_FAST do v:=m.GetDef(keys[i mod 100],-1);
   EndBench;
 end;
 
@@ -394,8 +434,8 @@ var i,j:integer; m:THashMap<String8>; v:String8;
 begin
   m.Init(128);
   for j:=0 to 99 do m.Put(keys[j],'val_'+IntToStr(j));
-  StartBench('HashMap<str8>  Get hit 100',N_DEF);
-  for i:=1 to N_DEF do m.Get(keys[i mod 100],v);
+  StartBench('HashMap<str8>  Get hit 100',N_FAST);
+  for i:=1 to N_FAST do m.Get(keys[i mod 100],v);
   EndBench;
 end;
 
@@ -460,84 +500,146 @@ begin
 end;
 
 // ============================================================================
+// TObjectHash
+// ============================================================================
+
+procedure BenchPut100_ObjectHash;
+var i,j:integer; h:TObjectHash;
+begin
+  StartBench('ObjectHash     Put 100',N_SLOW);
+  for i:=1 to N_SLOW do begin
+    h.Init(128);
+    for j:=0 to 99 do h.Put(objects[j]);
+    h.Clear;
+  end;
+  EndBench;
+end;
+
+procedure BenchPut10K_ObjectHash;
+var i,j:integer; h:TObjectHash;
+begin
+  StartBench('ObjectHash     Put 10K',N_BULK);
+  for i:=1 to N_BULK do begin
+    h.Init(16384);
+    for j:=0 to 9999 do h.Put(objects[j]);
+    h.Clear;
+  end;
+  EndBench;
+end;
+
+procedure BenchGetHit100_ObjectHash;
+var i,j:integer; h:TObjectHash; v:TNamedObject;
+begin
+  h.Init(128);
+  for j:=0 to 99 do h.Put(objects[j]);
+  StartBench('ObjectHash     Get hit 100',N_DEF);
+  for i:=1 to N_DEF do v:=h.Get(keys[i mod 100]);
+  EndBench;
+end;
+
+procedure BenchGetHit10K_ObjectHash;
+var i,j:integer; h:TObjectHash; v:TNamedObject;
+begin
+  h.Init(16384);
+  for j:=0 to 9999 do h.Put(objects[j]);
+  StartBench('ObjectHash     Get hit 10K',N_DEF);
+  for i:=1 to N_DEF do v:=h.Get(keys[i mod 10000]);
+  EndBench;
+end;
+
+procedure BenchGetMiss_ObjectHash;
+var i,j:integer; h:TObjectHash; v:TNamedObject;
+begin
+  h.Init(128);
+  for j:=0 to 99 do h.Put(objects[j]);
+  StartBench('ObjectHash     Get miss',N_FAST);
+  for i:=1 to N_FAST do v:=h.Get('nonexistent_key');
+  EndBench;
+end;
+
+// ============================================================================
 // Main
 // ============================================================================
 
 begin
   try
     PrepareKeys(10000);
+    PrepareObjects(10000);
     OpenBenchLog('hashmaps',N_DEF);
+    BenchWriteln('=== Hash map types overview ===');
+    BenchWriteln('  HashMap<T>    -- open addressing, FNV-1a, case-insensitive, typed value, thread-safe');
+    BenchWriteln('  SimpleHashAS  -- chaining (linked list), StrHash, case-sensitive, int64 value, thread-safe');
+    BenchWriteln('  SimpleHash    -- chaining, int64 keys, int64 values, thread-safe');
+    BenchWriteln('  THash         -- chaining, simple byte-sum hash, case-sensitive, variant/multi-value, thread-safe');
+    BenchWriteln('  TVarHash      -- open addressing, FastHash, case-insensitive, variant value, thread-safe     [deprecated]');
+    BenchWriteln('  TObjectHash   -- open addressing, FastHash, case-insensitive, TNamedObject value, thread-safe');
     BenchWriteln;
 
-    BenchWriteln('--- Put 100 (fresh fill) ---');
+    BenchSection('--- Put 100 (fresh fill) ---');
     BenchPut100_HashMap;
     BenchPut100_HashAS;
     BenchPut100_THash;
     BenchPut100_TVarHash;
-    BenchWriteln;
+    BenchPut100_ObjectHash;
 
-    BenchWriteln('--- Put 10K (fresh fill) ---');
+    BenchSection('--- Put 10K (fresh fill, N='+IntToStr(N_BULK)+') ---');
     BenchPut10K_HashMap;
     BenchPut10K_HashAS;
-    BenchWriteln;
+    BenchPut10K_THash;
+    BenchPut10K_TVarHash;
+    BenchPut10K_ObjectHash;
 
-    BenchWriteln('--- Overwrite existing key (100 items) ---');
+    BenchSection('--- Overwrite existing key (100 items) ---');
     BenchOverwrite_HashMap;
     BenchOverwrite_HashAS;
     BenchOverwrite_THash;
     BenchOverwrite_TVarHash;
-    BenchWriteln;
 
-    BenchWriteln('--- Get hit (100 items) ---');
+    BenchSection('--- Get hit (100 items) ---');
     BenchGetHit100_HashMap;
     BenchGetHit100_HashAS;
     BenchGetHit100_THash;
     BenchGetHit100_TVarHash;
-    BenchWriteln;
+    BenchGetHit100_ObjectHash;
 
-    BenchWriteln('--- Get hit (10K items) ---');
+    BenchSection('--- Get hit (10K items) ---');
     BenchGetHit10K_HashMap;
     BenchGetHit10K_HashAS;
     BenchGetHit10K_THash;
-    BenchWriteln;
+    BenchGetHit10K_ObjectHash;
 
-    BenchWriteln('--- Get miss (key absent) ---');
+    BenchSection('--- Get miss (key absent) ---');
     BenchGetMiss_HashMap;
     BenchGetMiss_HashAS;
     BenchGetMiss_THash;
     BenchGetMiss_TVarHash;
-    BenchWriteln;
+    BenchGetMiss_ObjectHash;
 
-    BenchWriteln('--- HasKey / HasValue (100 items) ---');
+    BenchSection('--- HasKey / HasValue (100 items) ---');
     BenchHasKey_HashMap;
     BenchHasKey_HashAS;
     BenchHasKey_THash;
     BenchHasKey_TVarHash;
-    BenchWriteln;
 
-    BenchWriteln('--- Remove 100 (fill + remove cycle) ---');
+    BenchSection('--- Remove 100 (fill + remove cycle) ---');
     BenchRemove_HashMap;
     BenchRemove_HashAS;
     BenchRemove_THash;
     BenchRemove_TVarHash;
-    BenchWriteln;
 
-    BenchWriteln('--- HashMap value type (int vs String8) ---');
+    BenchSection('--- HashMap value type (int vs String8) ---');
     BenchGetHit100_HashMap;
     BenchGetHit100_HashMapStr;
     BenchGetDef_HashMap;
-    BenchWriteln;
 
-    BenchWriteln('--- Increment (counter pattern) ---');
+    BenchSection('--- Increment (counter pattern) ---');
     BenchIncrement_SimpleHash;
     BenchIncrement_HashAS;
-    BenchWriteln;
 
-    BenchWriteln('--- TSimpleHash: integer keys (int64->int64) ---');
+    BenchSection('--- TSimpleHash: integer keys (int64->int64) ---');
     BenchIntKey_Put100;
     BenchIntKey_Get100;
     BenchIntKey_Get10K;
-    BenchWriteln;
 
     CloseBenchLog;
     writeln('=== BENCHMARK DONE ===');

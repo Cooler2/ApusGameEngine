@@ -321,13 +321,13 @@ begin
   EndTest;
 end;
 
-procedure TestLegacyTHashSingle;
+procedure TestTHashSingle;
 var
   h:THash;
   v:variant;
   keys:Strings8;
 begin
-  StartTest('Legacy.THash.Single');
+  StartTest('THash.Single');
   h.Init(false);
 
   h.Put('a',10);
@@ -350,12 +350,12 @@ begin
   EndTest;
 end;
 
-procedure TestLegacyTHashMulti;
+procedure TestTHashMulti;
 var
   h:THash;
   all:VariantArray;
 begin
-  StartTest('Legacy.THash.Multi');
+  StartTest('THash.Multi');
   h.Init(true);
 
   h.Put('k',1);
@@ -379,11 +379,11 @@ begin
   EndTest;
 end;
 
-procedure TestLegacySimpleHash;
+procedure TestSimpleHash;
 var
   h:TSimpleHash;
 begin
-  StartTest('Legacy.TSimpleHash');
+  StartTest('TSimpleHash');
   h.Init(8);
   Check(h.Get(1)=-1, 'missing=-1');
   h.Put(1,10);
@@ -453,14 +453,14 @@ begin
   EndTest;
 end;
 
-procedure TestLegacyObjectHash;
+procedure TestObjectHash;
 var
   h:TObjectHash;
   a,b:TTestNamedObject;
   keys:Strings8;
   objs:TNamedObjects;
 begin
-  StartTest('Legacy.TObjectHash');
+  StartTest('TObjectHash');
   h.Init(4);
   Check(h.Get('missing')=nil, 'missing=nil');
 
@@ -491,6 +491,31 @@ begin
     a.Free;
     b.Free;
   end;
+  EndTest;
+end;
+
+procedure TestTHashLargeTable;
+var
+  h:THash;
+  i:integer;
+  allOk:boolean;
+  failMsg:String8;
+begin
+  StartTest('Legacy.THash.LargeTable');
+  h.Init(false);
+  for i:=0 to 9999 do
+    h.Put('key_'+IntToStr(i), i);
+  Check(h.count=10000, 'count=10000');
+  allOk:=true;
+  failMsg:='';
+  for i:=0 to 9999 do
+    if integer(h.Get('key_'+IntToStr(i)))<>i then begin
+      allOk:=false;
+      failMsg:='key_'+IntToStr(i)+' mismatch';
+      break;
+    end;
+  Check(allOk, 'all 10K values correct; '+failMsg);
+  Check(VarIsEmpty(h.Get('nosuchkey')), 'miss returns empty');
   EndTest;
 end;
 
@@ -544,12 +569,13 @@ begin
     TestGenericEdgeCases;
 
     TestLegacyStrHash;
-    TestLegacyTHashSingle;
-    TestLegacyTHashMulti;
-    TestLegacySimpleHash;
+    TestTHashSingle;
+    TestTHashMulti;
+    TestTHashLargeTable;
+    TestSimpleHash;
     TestLegacySimpleHashS;
     TestLegacySimpleHashAS;
-    TestLegacyObjectHash;
+    TestObjectHash;
     TestLegacyVarHash;
 
     writeln;

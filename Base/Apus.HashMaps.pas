@@ -60,6 +60,7 @@ type
     items:array of THashItem;
     count,size:integer;
   end;
+
   // Hash String->Pointer (1:1), keeps references to external string keys.
   // Legacy API: prefer THashMap<T> for new code.
   TStrHash=class
@@ -81,6 +82,7 @@ type
     mask:cardinal;
     function HashValue(str:string):integer;
   end deprecated;
+
   // Specialized hash for DB-like scenarios: String8 -> variant(s)
   // Supports multi-value mode via Init(allowMultiple=true).
   // Supported specialized API (not deprecated).
@@ -113,6 +115,7 @@ type
     procedure RemoveKey(index:integer);
     procedure BuildHash;
   end;
+
   // Specialized compact numeric hash (int64 -> int64), supported API.
   TSimpleHash=object
     keys,values:array of int64;
@@ -133,6 +136,7 @@ type
     fFree:integer;
     function HashValue(const k:int64):integer; inline;
   end;
+
   // Legacy simple key-value hash families
   TSimpleHashS=object
     keys:Strings;
@@ -152,6 +156,7 @@ type
     hMask:integer;
     fFree:integer;
   end deprecated;
+
   TSimpleHashAS=object
     keys:Strings8;
     values:array of int64;
@@ -171,6 +176,8 @@ type
     fFree:integer;
   end deprecated;
   TSimpleHash8=TSimpleHashAS deprecated;
+
+  // Specialized open-address structure to lookup for Named Objects (doesn't store keys, only values: keys are inside them).
   PObjectHash=^TObjectHash;
   TObjectHash=object
     count:integer;
@@ -191,6 +198,7 @@ type
     function InternalListObjects:TNamedObjects;
     procedure InternalPut(value:TNamedObject);
   end;
+
   PVarHash=^TVarHash;
   // Transitional type: String8 -> variant.
   // Deprecated: prefer THashMap<T> for typed values or THash for multi-value scenarios.
@@ -249,14 +257,13 @@ end;
 
 function THashMap<T>.FindSlot(const key:String8):integer;
 var
-  h,cap:cardinal;
+  h:cardinal;
 begin
-  cap:=cardinal(length(fKeys));
-  if cap=0 then exit(-1);
-  h:=HashKey(key) mod cap;
+  if fKeys=nil then exit(-1);
+  h:=HashKey(key) and fMask;
   while fKeys[h]<>'' do begin
     if EqualKeys(fKeys[h],key) then exit(integer(h));
-    h:=(h+1) mod cap;
+    h:=(h+1) and fMask;
   end;
   result:=-1;
 end;
@@ -294,21 +301,19 @@ end;
 
 procedure THashMap<T>.Put(const key:String8; const value:T);
 var
-  h,cap:cardinal;
+  h:cardinal;
 begin
   if key='' then exit;
   if fKeys=nil then Init;
   SpinLock(fLock);
   try
-    cap:=cardinal(length(fKeys));
-    if cap=0 then exit;
-    h:=HashKey(key) mod cap;
+    h:=HashKey(key) and fMask;
     while fKeys[h]<>'' do begin
       if EqualKeys(fKeys[h],key) then begin
         fValues[h]:=value;
         exit;
       end;
-      h:=(h+1) mod cap;
+      h:=(h+1) and fMask;
     end;
     fKeys[h]:=key;
     fValues[h]:=value;
@@ -372,23 +377,21 @@ end;
 
 procedure THashMap<T>.Remove(const key:String8);
 var
-  i,j,k,cap:cardinal;
+  i,j,k:cardinal;
 begin
   if (fKeys=nil) or (key='') then exit;
   SpinLock(fLock);
   try
-    cap:=cardinal(length(fKeys));
-    if cap=0 then exit;
-    i:=HashKey(key) mod cap;
+    i:=HashKey(key) and fMask;
     while fKeys[i]<>'' do begin
       if EqualKeys(fKeys[i],key) then begin
         dec(count);
         // backward-shift deletion
         j:=i;
         while true do begin
-          j:=(j+1) mod cap;
+          j:=(j+1) and fMask;
           if fKeys[j]='' then break;
-          k:=HashKey(fKeys[j]) mod cap;
+          k:=HashKey(fKeys[j]) and fMask;
           if i<=j then begin
             if (i<k) and (k<=j) then continue;
           end else begin // wrapped around
@@ -402,7 +405,7 @@ begin
         fValues[i]:=Default(T);
         exit;
       end;
-      i:=(i+1) mod cap;
+      i:=(i+1) and fMask;
     end;
   finally
     fLock:=0;
@@ -426,9 +429,9 @@ begin
   SetLength(fValues,newCap);
   for i:=0 to high(oldKeys) do
     if oldKeys[i]<>'' then begin
-      h:=HashKey(oldKeys[i]) mod cardinal(length(fKeys));
+      h:=HashKey(oldKeys[i]) and fMask;
       while fKeys[h]<>'' do
-        h:=(h+1) mod cardinal(length(fKeys));
+        h:=(h+1) and fMask;
       fKeys[h]:=oldKeys[i];
       fValues[h]:=oldValues[i];
       inc(count);
@@ -788,8 +791,8 @@ begin
     index:=Find(key);
     if index<0 then index:=count;
     if index=count then begin
-      size:=count+1;
       if count>=length(keys) then begin
+        size:=length(keys)*2+8;
         SetLength(keys,size);
         SetLength(next,size);
         if multi then SetLength(vLinks,size);
