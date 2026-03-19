@@ -186,6 +186,99 @@ begin
 end;
 
 // ============================================================================
+// Legacy: TSimpleHash (int64 keys)
+// ============================================================================
+
+procedure BenchSimpleHash_Put_100;
+var
+  i,j:integer;
+  h:TSimpleHash;
+begin
+  StartBench('SimpleHash Put 100',N_SLOW);
+  for i:=1 to N_SLOW do begin
+    h.Init(128);
+    for j:=0 to 99 do
+      h.Put(j,j*10);
+    h.Clear;
+  end;
+  EndBench;
+end;
+
+procedure BenchSimpleHash_Get_100;
+var
+  i,j:integer;
+  h:TSimpleHash;
+begin
+  h.Init(128);
+  for j:=0 to 99 do h.Put(j,j*10);
+  StartBench('SimpleHash Get (100 items)',N_DEF);
+  for i:=1 to N_DEF do
+    h.Get(i mod 100);
+  EndBench;
+end;
+
+procedure BenchSimpleHash_Get_10K;
+var
+  i,j:integer;
+  h:TSimpleHash;
+begin
+  h.Init(16384);
+  for j:=0 to 9999 do h.Put(j,j*10);
+  StartBench('SimpleHash Get (10K items)',N_DEF);
+  for i:=1 to N_DEF do
+    h.Get(i mod 10000);
+  EndBench;
+end;
+
+// ============================================================================
+// Legacy: TSimpleHashAS (String8 keys)
+// ============================================================================
+
+procedure BenchSimpleHashAS_Get_100;
+var
+  i:integer;
+  h:TSimpleHashAS;
+  j:integer;
+begin
+  h.Init(128);
+  for j:=0 to 99 do h.Put(keys[j],j);
+  StartBench('SimpleHashAS Get (100 items)',N_DEF);
+  for i:=1 to N_DEF do
+    h.Get(keys[i mod 100]);
+  EndBench;
+end;
+
+procedure BenchSimpleHashAS_Increment;
+var
+  i,j:integer;
+  h:TSimpleHashAS;
+begin
+  h.Init(128);
+  for j:=0 to 99 do h.Put(keys[j],0);
+  StartBench('SimpleHashAS Increment (100)',N_DEF);
+  for i:=1 to N_DEF do
+    h.Increment(keys[i mod 100]);
+  EndBench;
+end;
+
+// ============================================================================
+// Legacy: THash (variant values)
+// ============================================================================
+
+procedure BenchTHash_Put_Get;
+var
+  i,j:integer;
+  h:THash;
+begin
+  h.Init(false);
+  for j:=0 to 99 do h.Put(keys[j],j);
+  StartBench('THash Get (100 items)',N_DEF);
+  for i:=1 to N_DEF do
+    h.Get(keys[i mod 100]);
+  EndBench;
+end;
+
+// ============================================================================
 // Main
 // ============================================================================
 
@@ -195,13 +288,13 @@ begin
     OpenBenchLog('hashmaps',N_DEF);
   BenchWriteln;
 
-  BenchWriteln('--- Put ---');
+  BenchWriteln('--- THashMap<integer>: Put ---');
   BenchPut_100;
   BenchPut_10K;
   BenchOverwrite;
   BenchWriteln;
 
-  BenchWriteln('--- Get ---');
+  BenchWriteln('--- THashMap<integer>: Get ---');
   BenchGet_100;
   BenchGet_10K;
   BenchGetMiss;
@@ -209,9 +302,24 @@ begin
   BenchPutGet_StringVal;
   BenchWriteln;
 
-  BenchWriteln('--- HasKey / Remove ---');
+  BenchWriteln('--- THashMap<integer>: HasKey / Remove ---');
   BenchHasKey;
   BenchRemove;
+  BenchWriteln;
+
+  BenchWriteln('--- TSimpleHash (int64 keys) ---');
+  BenchSimpleHash_Put_100;
+  BenchSimpleHash_Get_100;
+  BenchSimpleHash_Get_10K;
+  BenchWriteln;
+
+  BenchWriteln('--- TSimpleHashAS (String8 keys) ---');
+  BenchSimpleHashAS_Get_100;
+  BenchSimpleHashAS_Increment;
+  BenchWriteln;
+
+  BenchWriteln('--- THash (variant values) ---');
+  BenchTHash_Put_Get;
   BenchWriteln;
 
   CloseBenchLog;
