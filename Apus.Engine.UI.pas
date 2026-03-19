@@ -41,6 +41,7 @@ const
 type
   // Standard widgets
   TUIElement   = Apus.Engine.UITypes.TUIElement;
+  TUIScrollable = Apus.Engine.UITypes.TUIScrollable;
   TUISplitter  = Apus.Engine.UIWidgets.TUISplitter;
   TUIButton    = Apus.Engine.UIWidgets.TUIButton;
   TUICheckbox  = Apus.Engine.UIWidgets.TUICheckbox;

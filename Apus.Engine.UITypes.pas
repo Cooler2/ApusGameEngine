@@ -107,7 +107,6 @@ type
   scale:single; // scale factor for INNER parts of the element and all its children elements
   padding:TUIRect; // defines element's client area (how much to deduct from the element's area) using own scale
   scroll:TVec2; // Offset used to draw children elements - SUBTRACT from children pos
-  scrollerH,scrollerV:IScroller;  // scrollbars linked to this element scroll position
   placementMode:TUIPlacementMode;  // How element should react on parent's size change
 
   flags:TUIElementFlags;
@@ -119,9 +118,7 @@ type
   styleInfoChanged:boolean; // set true whenever styleInfo changes
   styleContext:TObject; // custom context object used by drawer
 
-  hint,hintIfDisabled:String8; // tooltip text (with separate variant when this exact element is disabled, not disabled via parents)
-  hintDelay:integer; // время (в мс), через которое элемент должен показать hint (в режиме показа hint'ов это время значительно меньше)
-  hintDuration:integer; // длительность (в мс) показа хинта
+  hint:String8; // tooltip text
   sendSignals:TSendSignals; // режим сигнализирования (см. выше)
   caption:String8; // some text associated with element
 
@@ -298,7 +295,6 @@ type
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
-  childrenBound:TRect2; // bounding rect of scrollable children (including 0,0 point as well)
 
   procedure DeleteHotkeys(vKeyCode:integer;shiftstate:byte=0);
 
@@ -331,20 +327,33 @@ type
   property color:cardinal read GetColor write fColor;
  end;
 
+ // Element to group/organize chindren so one of them is active (combo box etc.)
  TUIGroupBox=class(TUIElement)
   selectedChild:integer; // index of active child element (-1 if none)
   constructor Create(width,height:single;parent_:TUIElement;name_:String8='');
  end;
 
+ // Element that can have linked visual scrollbars controlling its scroll position
+ TUIScrollable=class(TUIElement)
+  scrollerH,scrollerV:IScroller; // visual scrollbars linked to this element
+  procedure SetupScrollers; override;
+  procedure ScrollTo(newX,newY:integer); override;
+  procedure onMouseScroll(value:integer); override;
+ protected
+  childrenBound:TRect2; // bounding rect of scrollable children
+ end;
+
+
 threadvar
- underMouse:TUIElement;     // элемент под мышью
- modalElement:TUIElement;   // Если есть модальный эл-т - он тут
- hooked:TUIElement;         // если установлен - теряет фокус даже если не обладал им
+  // These variables are per-winddow, thus declared as threadvar
+  underMouse:TUIElement;     // элемент под мышью
+  modalElement:TUIElement;   // Если есть модальный эл-т - он тут
+  hooked:TUIElement;         // если установлен - теряет фокус даже если не обладал им
 
- clipMouse:TClipMouse;   // Ограничивать ли движение мыши
- clipMouseRect:TRect;    // Область допустимого перемещения мыши
+  clipMouse:TClipMouse;   // Ограничивать ли движение мыши
+  clipMouseRect:TRect;    // Область допустимого перемещения мыши
 
- curMouseX,curMouseY,oldMouseX,oldMouseY:integer; // координаты курсора мыши (для onMouseMove!)
+  curMouseX,curMouseY,oldMouseX,oldMouseY:integer; // координаты курсора мыши (для onMouseMove!)
 
 function DescribeElement(c:TUIElement):String8;
 function FocusedElement:TUIElement;
@@ -627,9 +636,7 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    timer:=0;
    parent:=parent_;
    name:=name_;
-   hint:=''; hintIfDisabled:='';
-   hintDelay:=GetClassAttribute('defaulthintDelay',1000);
-   hintDuration:=GetClassAttribute('defaultHintDuration',3000);
+   hint:='';
    // No anchors: element's size doesn't change when parent is resized
    //anchors:=anchorNone;
    cursor:=int64(GetClassAttribute('defaultCursor',CursorID.Default));
@@ -646,7 +653,6 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    styleInfo:=GetClassAttribute('defaultStyleInfo','');
    sendSignals:=ssNone;
    scroll:=Vec2(0,0);
-   scrollerH:=nil; scrollerV:=nil;
    focusedChild:=nil;
    ownerScene:=nil;
 
@@ -1179,16 +1185,9 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  procedure TUIElement.onMouseScroll(value: integer);
   begin
-   if (sendSignals=ssAll) and (name<>'') then begin
+   if (sendSignals=ssAll) and (name<>'') then
     Signal('UI\'+name+'\MouseScroll',value);
-   end;
-   // Если прикреплен вертикальный скроллбар - использовать его для прокрутки
-   if scrollerV<>nil then begin
-    scrollerV.MoveRel(-scrollerV.GetStep*value/100,true);
-    exit;
-   end else
    if flags.autoScroll then begin // no scroller, but autoscroll is enabled
-    //scroll.y:=Clamp(scroll.y+value* // implement smooth scrolling
     onMouseMove;
     exit;
    end;
@@ -1454,6 +1453,20 @@ function TUIElement.GetClientHeight:single;
   end;
 
  procedure TUIElement.SetupScrollers;
+  begin
+  end;
+
+procedure TUIElement.SafeDestroy;
+  begin
+   toDelete.Add(self,true);
+  end;
+
+ procedure TUIElement.ScrollTo(newX,newY:integer);
+  begin
+   scroll.X:=newX; scroll.Y:=newY;
+  end;
+
+ procedure TUIScrollable.SetupScrollers;
   var
    i:integer;
   begin
@@ -1473,18 +1486,20 @@ function TUIElement.GetClientHeight:single;
    end;
   end;
 
-procedure TUIElement.SafeDestroy;
-  begin
-   toDelete.Add(self,true);
-  end;
-
- procedure TUIElement.ScrollTo(newX,newY:integer);
+ procedure TUIScrollable.ScrollTo(newX,newY:integer);
   begin
    scroll.X:=newX; scroll.Y:=newY;
-   if scrollerH<>nil then
-    scrollerH.SetValue(scroll.X);
-   if scrollerV<>nil then
-    scrollerV.SetValue(scroll.Y);
+   if scrollerH<>nil then scrollerH.SetValue(scroll.X);
+   if scrollerV<>nil then scrollerV.SetValue(scroll.Y);
+  end;
+
+ procedure TUIScrollable.onMouseScroll(value:integer);
+  begin
+   if scrollerV<>nil then begin
+    scrollerV.MoveRel(-scrollerV.GetStep*value/100,true);
+    exit;
+   end;
+   inherited;
   end;
 
  function TUIElement.SetAnchors(anchorMode:TAnchorMode):TUIElement;

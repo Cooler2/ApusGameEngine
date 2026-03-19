@@ -232,16 +232,16 @@ function UIScene(name:String8):TUIScene;
       if c2<>nil then Signal('UI\onMouseOver\'+c2.ClassName+'\'+c2.name);
      end;
 
-     if (c2<>nil) and (c2.flags.enabled and (c2.hint<>'') or not c2.flags.enabled and (c2.hintIfDisabled<>'')) then begin
+     if (c2<>nil) and (c2.flags.enabled and (c2.hint<>'') or not c2.flags.enabled and (c2.attributes.Item['hintIfDisabled']<>'')) then begin
       if c2.flags.enabled then st:=c2.hint
-       else st:=c2.hintIfDisabled;
+       else st:=c2.attributes.Item['hintIfDisabled'];
       if st<>lastHint then begin
        if st='' then begin
         ItemShowHintTime:=0;
        end else begin
         // этот элемент должен показать хинт
         if time<hintMode then ItemShowHintTime:=time+250
-         else ItemShowHintTime:=time+c2.hintDelay;
+         else ItemShowHintTime:=time+Conv.ToInt(c2.attributes.Item['hintDelay'],1000);
        end;
       end;
       lastHint:=st;
@@ -519,9 +519,9 @@ function UIScene(name:String8):TUIScene;
      FindElementAt(window.mouseX,window.mouseY,c);
      if (c<>nil) then begin
       if c.flags.enabled then st:=c.hint
-       else st:=c.hintIfDisabled;
+       else st:=c.attributes.Item['hintIfDisabled'];
       if st<>'' then begin
-       ShowSimpleHint(st,nil,-1,-1,c.hintDuration);
+       ShowSimpleHint(st,nil,-1,-1,Conv.ToInt(c.attributes.Item['hintDuration'],3000));
        HintRect:=c.globalRect;
        HintMode:=time+5000;
        Signal('UI\onHint\'+c.ClassName+'\'+c.name);

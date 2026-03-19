@@ -43,7 +43,7 @@ interface
   end;
 
   // Just a static image
-  TUIImage=class(TUIElement)
+  TUIImage=class(TUIScrollable)
    src:String8; // can be "file:xxx" "event:xxx", "proc:XXXXXXXX" etc...
    constructor Create(width,height:single;imgname:String8;parent_:TUIElement;source:String8='');
    procedure SetRenderProc(proc:pointer); // sugar for use "proc:XXX" src for the default style
@@ -259,7 +259,7 @@ interface
    procedure MoveTo(val:single;smooth:boolean=false); virtual;
    procedure MoveRel(delta:single;smooth:boolean=false); virtual;
    // Связать значение с внешней переменной
-   procedure Link(elem:TUIElement); virtual;
+   procedure Link(elem:TUIScrollable); virtual;
    // Сигналы от этих кнопок будут использоваться для перемещения ползунка
    procedure UseButtons(lessBtn,moreBtn:String8);
    procedure CalcSliderPos(minSize:single=0.5); // minimal slider size (relative to width)
@@ -272,13 +272,13 @@ interface
    property value:single read GetValue write SetValue;
    property isAnimating:boolean read GetAnimating;
   protected
-   linkedControl:TUIElement;
+   linkedControl:TUIScrollable;
    delta:integer; // смещение точки курсора относительно точки начала ползунка (если hooked)
    moving:boolean;
    scroller:TObject;
   end;
 
-  TUIListBox=class(TUIElement)
+  TUIListBox=class(TUIScrollable)
    lines:Strings8;
    tags:array of cardinal;
    hints:Strings8; // each element may have its own hint
@@ -1268,7 +1268,7 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
    Clamp(result,min,max-pageSize);
   end;
 
- procedure TUIScrollBar.Link(elem:TUIElement);
+ procedure TUIScrollBar.Link(elem:TUIScrollable);
   begin
    linkedControl:=elem;
    if horizontal then linkedControl.scrollerH:=GetScroller

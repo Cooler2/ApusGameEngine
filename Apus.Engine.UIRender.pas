@@ -78,7 +78,7 @@ implementation
    if item.layout<>nil then begin
     item.layout.Layout(item);
     item.Resize(-1,-1);
-    if (item.scrollerV<>nil) or (item.scrollerH<>nil) then
+    if item is TUIScrollable then
      item.SetupScrollers;
    end;
    // Draw self first

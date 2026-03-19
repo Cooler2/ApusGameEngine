@@ -83,7 +83,7 @@ implementation
 
  procedure SetProperBlendMode(element:TUIElement);
   begin
-   if transpBgnd and (element.shape<>shapeEmpty) then begin
+   if transpBgnd and (element.shape<>TUIShape.shapeEmpty) then begin
     gfx.target.BlendMode(blMove);
     blendModeChanged:=true;
    end;

@@ -201,8 +201,8 @@ procedure CreateCmd(cmd:string8);
     // ���. ��-��
     if style<>0 then c.styleClass:=style;
     if cursor<>0 then c.cursor:=cursor;
-    if HintDelay<>0 then c.hintDelay:=hintDelay;
-    if HintDuration<>0 then c.hintDuration:=hintDuration;
+    if HintDelay<>0 then c.attributes.Item['hintDelay']:=Conv.ToStr(hintDelay);
+    if HintDuration<>0 then c.attributes.Item['hintDuration']:=Conv.ToStr(hintDuration);
    end;
    curobj:=c;
    curObjClass:=TVarTypeUIElement;
