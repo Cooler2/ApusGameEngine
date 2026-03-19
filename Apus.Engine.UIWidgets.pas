@@ -15,9 +15,9 @@ interface
  {$IFDEF CPUARM} {$R-} {$ENDIF}
 
  const
-  // Константы окна (дефолтное поведение, можно менять)
-  wcFrameBorder:integer=5;   // Ширина рамки окна
-  wcTitleHeight:integer=24;  // Высота заголовка окна
+  // Window defaults (writable constants, can be changed)
+  wcFrameBorder:integer=5;   // window frame border width
+  wcTitleHeight:integer=24;  // window title bar height
 
   // Window area flags
   wcLeftFrame   =  1;
@@ -27,13 +27,8 @@ interface
   wcHeader      = 16; // area that can be used to drag and move the window
   wcClient      = 32; // client part of the window
 
+ // TODO: size constraints (minWidth/maxWidth etc.) to be added to TUIElement directly
  type
-  // Элемент с ограничениями размера
-  TUIFlexControl=class(TUIElement)
-   minWidth,minHeight:integer;
-   maxWidth,maxHeight:integer;
-  end;
-
   TUISplitter=class(TUIElement)
    canResize:boolean; // true - allow resizing neighbour elements
    constructor CreateH(height:single;parent:TUIElement;color:cardinal=0); overload;
@@ -49,8 +44,8 @@ interface
    procedure SetRenderProc(proc:pointer); // sugar for use "proc:XXX" src for the default style
   end;
 
-  // Скроллер для тачскрина - размещается независимо либо поверх другого элемента, который он и скроллит
-  // It captures mouse drag events, but passes clicks through
+  // Touch-screen scroll overlay: placed over another element to capture drag events and scroll it.
+  // Captures mouse drag events, but passes clicks through.
   TUIScrollArea=class(TUIElement)
    fullWidth,fullHeight:single; // full content area
    direction:TUIScrollDirection;
@@ -64,15 +59,13 @@ interface
    isHooked:boolean;
   end;
 
-  // Окошко хинта
-  // обычно создается незаполненным или неполностью заполненным,
-  // создающий код либо отрисовщик могут дополнить или использовать значения по умолчанию
+  // Tooltip popup. Usually created partially filled; creator or drawer may complete it.
   TUIHint=class(TUIImage)
    simpleText:String8; // plain caption text
-   active:boolean; // если true - значит хинт активный, не кэшируется и содержит вложенные эл-ты
-   created:int64; // момент создания (в мс.)
-   adjusted:boolean; // отрисовщик может использовать это для корректировки параметров хинта
-   hiding:boolean; // hint is currently hiding
+   active:boolean;     // active hint: not cached, may contain child elements
+   created:int64;      // creation timestamp in ms
+   adjusted:boolean;   // drawer may set this after adjusting hint parameters
+   hiding:boolean;     // hint is currently hiding
 
    constructor Create(x,y:single;text:String8;parent_:TUIElement);
    destructor Destroy; override;
@@ -84,7 +77,7 @@ interface
   TUILabel=class(TUIElement)
    align:TTextAlignment;
    autoSize:boolean; // render should adjust element size to match caption
-   verticalOffset:integer; // сдвиг текста вверх
+   verticalOffset:integer; // vertical text shift (positive = up)
    constructor Create(width,height:single;labelname,text:String8;color_:cardinal;bFont:TFontHandle;parent_:TUIElement); overload;
    constructor Create(width,height:single;labelname,text:String8;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault); overload;
    constructor CreateCentered(width,height:single;labelname,text:String8;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
@@ -92,18 +85,17 @@ interface
    procedure CaptionWidthIs(width:single);
   end;
 
-  // Тип кнопок
-  TButtonStyle=(bsNormal,   // обычная кнопка
-                bsSwitch,   // кнопка-переключатель (фиксирующаяся в нажатом положении)
-                bsCheckbox);    // кнопка-надпись (чекбокс)
+  TButtonStyle=(bsNormal,   // regular push button
+                bsSwitch,   // toggle button (latches in pressed state)
+                bsCheckbox); // checkbox-style button
   TUIButton=class(TUIElement)
-   default:boolean; // кнопка по умолчанию (влияет только на отрисовку, но не на поведение!!!)
-   pressed:boolean; // кнопка вдавлена
-   pending:boolean; // состояние временной недоступности (не реагирует на нажатия)
-   autoPendingTime:integer; // время (в мс) на которое кнопка переводится в состояние pending при нажатии (0 - не переводится)
+   default:boolean; // default button (affects rendering only, not behavior)
+   pressed:boolean; // button is in pressed/down state
+   pending:boolean; // temporarily unavailable (ignores input)
+   autoPendingTime:integer; // ms to stay pending after click (0 = disabled)
 
-   btnStyle:TButtonStyle; // тип кнопки (влияет как на отрисовку, так и на поведение)
-   group:integer;   // Группа переключателей
+   btnStyle:TButtonStyle; // button type (affects both rendering and behavior)
+   group:integer;   // switch group id (for radio-style button groups)
    linkedPressed:PBoolean; // optional external boolean to sync with pressed state
    onClick:TProcedure;
    onClickEvent:String8;
@@ -123,7 +115,7 @@ interface
    procedure onMouseMove; override;
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
-   procedure onTimer; override; // отжимает кнопку по таймеру
+   procedure onTimer; override; // releases button after autoPendingTime
    procedure SetPressed(pr:boolean); virtual;
    procedure MakeSwitches(sameGroup:boolean=true;clickHandler:TProcedure=nil); // make all sibling buttons with the same size - switches
    procedure Click; virtual; // simulate click
@@ -150,27 +142,26 @@ interface
      parent_:TUIElement;checked:boolean=false;btnFont:TFontHandle=0); overload;
   end;
 
-  // Рамка
+  // Decorative frame / panel border
   TUIFrame=class(TUIElement)
    constructor Create(width,height:single;depth,style_:integer;parent_:TUIElement);
    procedure SetBorderWidth(w:integer); virtual;
   protected
-   borderWidth:integer; // ширина рамки
+   borderWidth:integer; // frame border width in pixels
   end;
 
   // Basic window
   TUIWindow=class(TUIImage)
-   header:integer; // Высота заголовка
-   autoBringToFront:boolean; // автоматически переносить окно на передний план при клике по нему или любому вложенному эл-ту
-   moveable:boolean;    // окно можно перемещать
-   resizeable:boolean;  // окно можно растягивать
-   minW,minH,maxW,maxH:integer; // максимальные и минимальные размеры (для растягивающихся окон)
+   header:integer;          // title bar height
+   autoBringToFront:boolean; // bring to front on click (self or any child)
+   moveable:boolean;        // user can drag to move
+   resizeable:boolean;      // user can drag edges to resize
+   minW,minH,maxW,maxH:integer; // size constraints for resizeable windows
 
    constructor Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,wndCaption:String8;wndFont:TFontHandle;parent_:TUIElement);
 
-   // Возвращает флаги типа области в указанной точке (к-ты экранные (в пикселях)
-   // а также курсор, который нужно заюзать для этой области
-   // Эту ф-цию нужно переопределить для создания окон специальной формы или поведения
+   // Returns area flags (wcXxx) and cursor for the given screen point.
+   // Override for custom window shapes or hit-test behavior.
    function GetAreaType(x,y:integer;out cur:NativeInt):integer; virtual;
 
    procedure onMouseMove; override;
@@ -180,16 +171,14 @@ interface
    class function IsWindow:boolean; override;
   private
    hooked:boolean;
-   area:integer;   // тип области под курсором
+   area:integer;   // area type under cursor (wcXxx flags)
   end;
 
-  // Разновидность окна: окно со скином
-  // ключевые особенности: имеет фиксированный размер и зачастую непрямоугольную форму,
-  // а также фон в виде картинки
-  // такое окно создается с дефолтными параметрами и должно далее настраиваться извне
+  // Skinned window: fixed size, often non-rectangular, image background.
+  // Created with default parameters and configured externally.
   TUISkinnedWindow=class(TUIWindow)
-   dragRegion:TUIShape; // area for window dragging (if nil, any point can be used)
-   background:pointer; // некий указатель на фон окна (т.к. вопросы отрисовки в этом модуле не затрагиваются)
+   dragRegion:TUIShape; // area for window dragging (nil = any point)
+   background:pointer;  // opaque pointer to background image (rendering is external)
    constructor Create(wndName,wndCaption:String8;wndFont:TFontHandle;parent_:TUIElement;canmove:boolean=true);
    destructor Destroy; override;
    function GetAreaType(x,y:integer;out cur:NativeInt):integer; override; // x,y - screen space coordinates
@@ -201,8 +190,7 @@ interface
    defaultText:String32; // grayed background text, displayed if realText is empty
    cursorPos:integer;     // caret position in String32 (0..length, 0-based)
    maxLength:integer;      // max allowed length
-   password:boolean;    // is it password field? if true, all characters are displayed as '*'
-   noBorder:boolean;    // deprecated
+   password:boolean;    // if true, all characters are displayed as '*'
    selStart,selCount:integer; //
    cursorTimer:int64;  // time offset for cursor blinking
    needPos:integer;    // pixel position feedback from the drawer
@@ -232,7 +220,6 @@ interface
    property text:String8 read GetText write SetText;  // Current value in UTF-8 encoding
   end;
 
-  // Полоса прокрутки
   TUIScrollBar=class(TUIElement)
   private
    rValue:TAnimatedValue;
@@ -256,13 +243,10 @@ interface
    constructor Create(width,height:single;min,max,pageSize,value:single;parent:TUIElement;barName:String8=''); overload;
    function GetScroller:IScroller;
    function SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
-   // Переместить ползунок в указанную позицию
    procedure MoveTo(val:single;smooth:boolean=false); virtual;
    procedure MoveRel(delta:single;smooth:boolean=false); virtual;
-   // Связать значение с внешней переменной
-   procedure Link(elem:TUIScrollable); virtual;
-   // Сигналы от этих кнопок будут использоваться для перемещения ползунка
-   procedure UseButtons(lessBtn,moreBtn:String8);
+   procedure Link(elem:TUIScrollable); virtual; // link to a scrollable element
+   procedure UseButtons(lessBtn,moreBtn:String8); // use button signals to move the scrollbar
    procedure CalcSliderPos(minSize:single=0.5); // minimal slider size (relative to width)
    procedure onTimer; override;
 
@@ -274,7 +258,7 @@ interface
    property isAnimating:boolean read GetAnimating;
   protected
    linkedControl:TUIScrollable;
-   delta:integer; // смещение точки курсора относительно точки начала ползунка (если hooked)
+   delta:integer; // cursor offset from slider start (when hooked)
    moving:boolean;
    scroller:TObject;
   end;
@@ -287,7 +271,7 @@ interface
    selectedLine:integer; // index of selected line (or -1)
    hoverLine:integer; // index of line under mouse (or -1)
    autoSelectMode:boolean; // when true, hover line is automatically selected
-   bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // цвета отрисовки
+   bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // rendering colors (R-05: move to style)
    constructor Create(width,height:single;lHeight:single;listName:String8;font_:TFontHandle;parent:TUIElement);
    destructor Destroy; override;
    procedure AddLine(line:String8;tag:cardinal=0;hint:String8=''); virtual;
@@ -300,7 +284,6 @@ interface
    procedure UpdateScroller;
   end;
 
-  // Выпадающий список
   TUIComboBox=class(TUIButton)
    items,hints:Strings8;
    tags:IntArray;
@@ -317,7 +300,7 @@ interface
    procedure ClearItems;
    procedure onDropDown; virtual;
    procedure onMouseButtons(button:byte;state:boolean); override;
-   procedure onTimer; override; // трюк: используется для слежения за всплывающим списком, чтобы не заморачиваться с сигналами
+   procedure onTimer; override; // tracks popup list state without using signals
    procedure SetCurItem(item:integer); virtual;
    procedure SetCurItemByText(value:String8); virtual;
    procedure SetCurItemByTag(tag:integer); virtual;

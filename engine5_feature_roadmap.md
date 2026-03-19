@@ -26,7 +26,7 @@ This file follows top-down planning:
 | R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~85% | Working state reached and merged into `engine5`; core geometry/spatial rollout baseline is active | Linux fixes/validation, benchmark pass, SSE optimization of top hot paths, bugfix+tests loop, remaining module migration (including SDL paths) |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | idea | 0% | — | Performance-safe hit-test algorithm, traversal strategy |
 | R-09 | GL Performance Modernization | idea | 0% | — | Bind-call reduction, explicit batch paths, persistent mapping |
-| R-10 | UI Widget System Refactor | planned | ~25% | Decomposition options researched (2 reports), styling direction agreed | TUIElement decomposition implementation, widget class reorganization |
+| R-10 | UI Widget System Refactor | in progress | ~60% | TUIElement slimmed: hint* → attributes, scrollers → TUIScrollable, tag/customPtr/linkedValue removed, fields reordered, methods grouped, HasChild/HasParent strict | Widget comments EN, TUIFlexControl removal, noBorder removal, onClick/onClickEvent review |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
 
@@ -391,7 +391,7 @@ Use this section for anything remembered on the fly.
   - add lightweight state cache to skip redundant binds at API boundary.
 
 ### [R-10] UI Widget System Refactor (TUIElement Decomposition First)
-- Status: planned
+- Status: in progress
 - Priority: P0
 - Area: UI
 - Value: reduce UI core complexity and improve maintainability/testability by restructuring `TUIElement` and clarifying responsibilities across widget classes.
@@ -400,8 +400,8 @@ Use this section for anything remembered on the fly.
 - Dependencies: `Apus.Engine.UI`, `Apus.Engine.UIWidgets`, `Apus.Engine.UITypes`, scene/UI integration points.
 - Risks: behavioral regressions in event flow/focus/layout; migration churn across many widget descendants; temporary API instability during split.
 - Acceptance Criteria:
-  - [ ] At least 2-3 decomposition variants for `TUIElement` are documented with trade-offs.
-  - [ ] One selected decomposition approach is implemented in engine code with preserved baseline UI behavior on representative screens.
+  - [x] At least 2-3 decomposition variants for `TUIElement` are documented with trade-offs.
+  - [x] One selected decomposition approach is implemented in engine code with preserved baseline UI behavior on representative screens.
   - [ ] Widget class review is completed, with concrete reorganization actions implemented (or explicitly deferred with rationale).
   - [ ] Follow-up backlog for widget/layout expansion and test coverage is created and prioritized.
 - Notes:
@@ -421,6 +421,19 @@ Use this section for anything remembered on the fly.
     - then chainable base setters (SetPos, SetAnchors, etc.) from TUIElement;
     - example: `TUIComboBox.Create(80,24,toolbar,'ScaleCombo').Setup(font, items).SetAnchors(1,0,1,0).SetPos(100,6,pivotTopRight);`
     - old multi-param constructors: deprecate gradually, remove after migration.
+  - 2026-03-19: TUIElement slimmed down (branch feature/r-05):
+    - `hintIfDisabled`, `hintDelay`, `hintDuration` → `attributes.Item[]` (Conv.ToInt/ToStr);
+    - `scrollerH`, `scrollerV`, `childrenBound` → new `TUIScrollable` subclass; `TUIImage`, `TUIListBox` inherit it;
+    - `TUIScrollBar.Link` now takes `TUIScrollable` (explicit contract);
+    - `tag`, `customPtr`, `linkedValue` removed; `TUIButton.linkedPressed:PBoolean` added (typed);
+    - `placementMode` moved next to `anchors` (logical grouping);
+    - methods split into 10 named sections; field comments translated to English;
+    - `IsChild` removed (duplicate of `HasChild`); `HasParent`/`HasChild` made strict.
+  - Widget class review in progress (2026-03-19):
+    - `TUIFlexControl` — dead class, nobody inherits; to remove;
+    - `TUIEditBox.noBorder` — deprecated field; to remove;
+    - `onClick:TProcedure` vs `onClickEvent:String8` in TUIButton — design question open;
+    - ListBox color fields (`bgColor` etc.) — R-05 target (style pipeline).
   - Main scope (this task):
     - decomposition options study for `TUIElement`;
     - select best option and implement it;
