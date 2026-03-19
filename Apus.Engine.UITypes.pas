@@ -156,9 +156,9 @@ type
   function ChildIndex:integer;              // index in parent.children (-1 if no parent)
   function IsVisible:boolean;              // visible including all ancestors
   function IsEnabled:boolean;              // enabled including all ancestors
-  function IsChild(c:TUIElement):boolean;  // is c a direct child of self?
-  function HasParent(c:TUIElement):boolean; // is self a descendant of c? (HasParent(self)=true)
-  function HasChild(c:TUIElement):boolean;  // is c a descendant of self? (HasChild(self)=true)
+  function IsChild(c:TUIElement):boolean;   // is c a strict descendant of self? (c≠self)
+  function HasParent(c:TUIElement):boolean; // is self a descendant of c, or c=self? (HasParent(self)=true)
+  function HasChild(c:TUIElement):boolean;  // is c a descendant of self, or c=self? (HasChild(self)=true)
 
   // --- Tree: modification ---
   procedure AttachTo(newParent:TUIElement;pos:integer=-1); // attach at position (or end if pos<0)
@@ -245,7 +245,7 @@ type
   procedure DeleteHotkeys(vKeyCode:integer;shiftstate:byte=0);
 
  private
-  fStyleInfo:String8; // дополнительные сведения для стиля
+  fStyleInfo:String8; // additional style info string (see styleInfo property)
   fFont:TFontHandle; // not used directly, can be inherited by children or used by custom draw routines
   fColor:cardinal; // color value to be inherited by children
   fInitialSize:TVec2; // element's initial size (used for proportional resize)
@@ -291,15 +291,15 @@ type
 
 
 threadvar
-  // These variables are per-winddow, thus declared as threadvar
-  underMouse:TUIElement;     // элемент под мышью
-  modalElement:TUIElement;   // Если есть модальный эл-т - он тут
-  hooked:TUIElement;         // если установлен - теряет фокус даже если не обладал им
+  // These variables are per-window, thus declared as threadvar
+  underMouse:TUIElement;     // element currently under mouse cursor
+  modalElement:TUIElement;   // active modal element (only one at a time)
+  hooked:TUIElement;         // if set, receives mouse events even without focus
 
-  clipMouse:TClipMouse;   // Ограничивать ли движение мыши
-  clipMouseRect:TRect;    // Область допустимого перемещения мыши
+  clipMouse:TClipMouse;   // mouse movement clipping mode
+  clipMouseRect:TRect;    // allowed mouse movement area
 
-  curMouseX,curMouseY,oldMouseX,oldMouseY:integer; // координаты курсора мыши (для onMouseMove!)
+  curMouseX,curMouseY,oldMouseX,oldMouseY:integer; // mouse cursor coordinates (valid during onMouseMove)
 
 function DescribeElement(c:TUIElement):String8;
 function FocusedElement:TUIElement;
@@ -331,9 +331,8 @@ threadvar
   // Hotkeys
   hotKeys:array of THotKey;
 
-  fControl:TUIElement; // элемент, имеющий фокус ввода (с клавиатуры)
-                      // устанавливается автоматически либо вручную
-  activeWnd:TUIElement;  // Активное окно (автоматически устанавливается при переводе фокуса)
+  fControl:TUIElement;  // element with keyboard focus (set automatically or manually)
+  activeWnd:TUIElement; // active window (set automatically when focus moves)
 
   toDelete:TObjectList; // List of elements marked for deletion
 
