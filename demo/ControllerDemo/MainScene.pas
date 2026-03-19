@@ -70,7 +70,7 @@ procedure TMainApp.CreateScenes;
   sceneMain:=TMainScene.Create;
   TUIButton.Create(200,32,'ToggleInput','Toggle UI Test',txt.GetFont('Default',9),
    sceneMain.UI).SetPos(window.renderWidth/2,window.renderHeight-25,pivotCenter);
-  UIButton('ToggleInput').onClick:=OnToggleBtn;
+  UIButton('ToggleInput').onClickAsync:=OnToggleBtn;
   sceneMain.SetStatus(TSceneStatus.ssActive);
  end;
 

@@ -79,7 +79,7 @@ procedure InitTestLayer;
   TUIButton.Create(100,28,'Root\Close','Back',0,root).
    SetPos(root.clientWidth/2,root.clientHeight-2,pivotBottomCenter).
    SetAnchors(0.5,1,0.5,1);
-  UIButton('Root\Close').onClick:=@RootCloseClick;
+  UIButton('Root\Close').onClickAsync:=@RootCloseClick;
  end;
 
 procedure TestButtons;
@@ -192,9 +192,9 @@ procedure TMainScene.InitGfx;
   panel.color:=$FF202040;
 
   // Create menu buttons
-  TUIButton.Create(120,30,'Main\Widgets','Widgets',panel).onClick:=@TestWidgets;
-  TUIButton.Create(120,30,'Main\Buttons','Buttons',panel).onClick:=@TestButtons;
-  TUIButton.Create(120,30,'Main\Layouts','Layouts',panel).onClick:=@TestLayouts;
+  TUIButton.Create(120,30,'Main\Widgets','Widgets',panel).onClickAsync:=@TestWidgets;
+  TUIButton.Create(120,30,'Main\Buttons','Buttons',panel).onClickAsync:=@TestButtons;
+  TUIButton.Create(120,30,'Main\Layouts','Layouts',panel).onClickAsync:=@TestLayouts;
   TUIButton.Create(120,30,'Main\Close','Exit',0,panel);
   Link('UI\Main\Close\OnClick','Engine\Cmd\Exit');
 

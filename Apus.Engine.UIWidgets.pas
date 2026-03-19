@@ -96,8 +96,9 @@ interface
 
    btnStyle:TButtonStyle; // button type (affects both rendering and behavior)
    group:integer;   // switch group id (for radio-style button groups)
-   linkedPressed:PBoolean; // optional external boolean to sync with pressed state
-   onClick:TProcedure;
+   linkedPressed:PBoolean;   // optional external boolean to sync with pressed state
+   onClick:TProcedure;       // called inline on render thread (use for UI updates)
+   onClickAsync:TProcedure;  // called in a new thread (use for slow work)
    onClickEvent:String8;
 {   class var onClickSender:TUIButton;
    class var active:TUIButton; // link to the active button (can be used in click handlers)}
@@ -124,7 +125,6 @@ interface
   protected
    procedure DoClick;
    procedure CheckGroup;
-   procedure FireClickEvent;
   private
    lastPressed,pendingUntil:int64;
    lastOver:boolean; // was under mouse when onMouseMove was called last time
@@ -474,9 +474,9 @@ implementation
   var
    i:integer;
   begin
-   // Toggle switch button
    TUIElement.sender:=self;
    if btnStyle<>bsNormal then begin
+    // toggle switch/checkbox
     if group=0 then SetPressed(not pressed)
      else begin
       ASSERT(parent<>nil);
@@ -489,29 +489,21 @@ implementation
        (pressed or (btnStyle=bsCheckbox)) then begin
       Signal('UI\'+name+'\OnClick',byte(pressed));
       Signal('UI\Button\Down\'+name,TTag(self));
-      FireClickEvent;
+      if Assigned(onClick) then onClick;
+      if Assigned(onClickAsync) then Thread.Start('UIClick:'+String8(name),TThreadProc(onClickAsync));
       if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
     end;
    end else begin
     if pending then exit;
-    // Защита от двойных кликов
-    if (sendSignals<>ssNone) and (CoreTime.Ticks>lastPressed+50) then begin
+    if (sendSignals<>ssNone) and (CoreTime.Ticks>lastPressed+50) then begin // debounce double-clicks
      Signal('UI\'+name+'\OnClick',byte(pressed));
      Signal('UI\Button\Click\'+name,TTag(self));
-     if Assigned(onClick) then begin
-      Thread.Start('UIClick:'+String8(name),TThreadProc(onClick));
-     end;
+     if Assigned(onClick) then onClick;
+     if Assigned(onClickAsync) then Thread.Start('UIClick:'+String8(name),TThreadProc(onClickAsync));
      if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
      lastPressed:=CoreTime.Ticks;
     end;
    end;
-  end;
-
- procedure TUIButton.FireClickEvent;
-  begin
-   if not Assigned(onClick) then exit;
-   TUIElement.sender:=self;
-   onClick;
   end;
 
  class function TUIButton.GetSwitchIndex(parent:TUIElement):integer;
@@ -634,7 +626,7 @@ procedure TUIButton.SetPressed(pr:boolean);
     if not b.flags.visible then continue;
     if abs(b.size.x-size.x)+abs(b.size.y-size.y)>=1 then continue;
     b.btnStyle:=bsSwitch;
-    if @clickHandler<>nil then b.onClick:=@clickHandler;
+    if @clickHandler<>nil then b.onClick:=@clickHandler; // switch: inline
     if sameGroup then begin
      b.group:=1;
      if first then begin

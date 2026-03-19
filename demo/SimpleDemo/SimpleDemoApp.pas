@@ -138,7 +138,7 @@ procedure TMainScene.CreateUI;
   btn:=TUIButton.Create(100,35,'MainScene\Close','Exit',font,box);
   btn.SetPos(200,200,pivotCenter);
   btn.hint:='Press this button to exit';
-  btn.onClick:=@ExitBtnClick;
+  btn.onClickAsync:=@ExitBtnClick;
 
   // Link the button click signal to the engine termination signal
   //Link('UI\MainScene\Close\Click','Engine\Cmd\Exit');
