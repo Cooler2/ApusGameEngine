@@ -19,13 +19,13 @@ interface
   application:TMainApp;
 
 implementation
- uses Apus.CrossPlatform,Apus.Common,Apus.EventMan,Apus.Colors,
-   Apus.Engine.UI, Apus.Engine.UIShapes;
+ uses Apus.EventMan, Apus.Colors,
+   Apus.Engine.UI;
 
  type
   // This will be our single scene
   TMainScene=class(TUIScene)
-   procedure Initialize; override;
+   procedure InitGfx; override;
    procedure Render; override;
   end;
 
@@ -64,18 +64,18 @@ procedure TMainApp.CreateScenes;
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);
  begin
   inherited;
-  settings.mode.displayMode:=dmWindow; // make window resizeable
+  settings.mode.displayMode:=TDisplayMode.dmWindow; // make window resizeable
  end;
 
 procedure RootCloseCLick;
  begin
-  root.visible:=false;
+  root.Hide;
  end;
 
 procedure InitTestLayer;
  begin
   root.DeleteChildren;
-  root.visible:=true;
+  root.Show;
   TUIButton.Create(100,28,'Root\Close','Back',0,root).
    SetPos(root.clientWidth/2,root.clientHeight-2,pivotBottomCenter).
    SetAnchors(0.5,1,0.5,1);
@@ -114,7 +114,7 @@ procedure TestWidgets;
   cont.SetPos(200,10);
   cont.color:=$FF202020;
   TUIButton.Create(140,30,'Button1','Button 1',cont);
-  TUIButton.Create(140,30,'Disabled',cont).enabled:=false;
+  TUIButton.Create(140,30,'Disabled',cont).Disable;
   TUISplitter.CreateH(2,5,0,cont,$80000000);
   TUIButton.CreateSwitch(140,30,'Switch1','Toggle Button',cont);
   hCont:=CreateHorizontalContainer(30,cont,0,4);
@@ -173,7 +173,7 @@ procedure TestLayouts;
  end;
 
 { TMainScene }
-procedure TMainScene.Initialize;
+procedure TMainScene.InitGfx;
  var
   font:cardinal;
   btn:TUIButton;
@@ -203,8 +203,8 @@ procedure TMainScene.Initialize;
   root.SetAnchors(anchorAll);
   //root.styleInfo:='FFB0C0C4 80000000';
   root.styleInfo:='fill:FFB0C0C4; border:80000000';
-  root.shape:=shapeFull;
-  root.visible:=false;
+  root.shape:=TUIShape.shapeFull;
+  root.Hide;
  end;
 
 procedure TMainScene.Render;
