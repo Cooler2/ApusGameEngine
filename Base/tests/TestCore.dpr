@@ -253,7 +253,7 @@ var
   code:cardinal;
   desc:string;
   t0,t1:int64;
-  timer:int64;
+  t:int64;
   dt:double;
   saved:TSystemMessageFlags;
 begin
@@ -268,15 +268,15 @@ begin
   t1:=CoreTime.Ticks;
   Check(t1>=t0,'CoreTime.Ticks monotonic');
 
-  // StartTimer/TimerSec
-  StartTimer(timer);
+  // Timer.Start/Timer.Get
+  Timer.Start(t);
   CoreTime.Sleep(10);
-  dt:=TimerSec(timer);
-  Check(dt>=0.005,'TimerSec(out timer) after sleep');
-  StartTimer(timer);
+  dt:=Timer.Get(t);
+  Check(dt>=0.005,'Timer.Get(explicit) after sleep');
+  Timer.Start;
   CoreTime.Sleep(10);
-  dt:=TimerSec(timer);
-  Check(dt>=0.005,'TimerSec(global timer) after sleep');
+  dt:=Timer.Get;
+  Check(dt>=0.005,'Timer.Get (global) after sleep');
 
   code:=GetLastErrorCode;
   desc:=GetLastErrorDesc;

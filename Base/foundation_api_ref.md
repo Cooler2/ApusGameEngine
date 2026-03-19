@@ -26,7 +26,8 @@ Scope: `Apus.Core`, `Apus.Strings`, `Apus.Conv`, `Apus.Types`, `Apus.Threads`
 - Math helpers: `Min/Max`, `Clamp`, `Sat`, `Lerp/LerpC`, `Wrap`, `FRound/PRound/SRound`.
 - Utility: `Swap`, `GetPow2`, `Pow2`, `Log2i`, `AlignUp/Down`, `IsAligned`, `Toggle`, `IsNaN`, `HasValue`, `PtrInside`.
 - Locks/barriers: `SpinLock/SpinUnlock`, `MemoryBarrier`.
-- Time: `StartTimer/TimerSec`, `CoreTime.Now/UTC/Stamp/Ticks/Sleep`.
+- Time: `CoreTime.Now/UTC/Stamp/Ticks/Sleep`.
+- High-res timer: `Timer.Start(out t)` / `Timer.Get(t)` — QPC-based, returns seconds.
 - Memory/bit scopes: `Mem.*`, `Bits.*`.
 - Concurrency primitives: `Atomic.*`.
 - Error/diagnostics: `EBaseException` + derived classes, `ExceptionMsg`, `Stack.Trace`, `GetLastError*`.

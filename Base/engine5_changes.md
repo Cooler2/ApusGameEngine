@@ -214,8 +214,9 @@ Unified time API replacing fragmented functions:
 | `Time.UTC` | `Time.UTC` | same — high-precision UTC datetime |
 | `Time.Stamp` | `Time.Stamp` | same — HH:MM:SS.mmm for logs |
 
-**High-resolution timer** (for profiling, separate from Time scope):
-- `StartTimer(out timer)` / `TimerSec(timer)` — QPC-based, for measuring short intervals
+**High-resolution timer** (`Timer` scope in Apus.Core):
+- `Timer.Start(out t)` / `Timer.Get(t):double` — explicit timer, returns seconds
+- `Timer.Start` / `Timer.Get` — implicit internal timer (parameterless)
 
 Exception helper functions moved from `Apus.Common` to `Apus.Core`:
 

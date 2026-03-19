@@ -1147,7 +1147,7 @@ begin
     data^.implPtr:=startData^.impl;
   data^.startTime:=CoreTime.Ticks; // mark when thread actually began executing
   {$IFDEF DEBUG}
-  startupUs:=round(TimerSec(startupTimer)*1e6);
+  startupUs:=round(Timer.Get(startupTimer)*1e6);
   SpinLock;
   inc(threadStartupTotalUs,startupUs);
   inc(threadStartupCount);
@@ -1230,7 +1230,7 @@ begin
   startData^.threadData:=data;
   startData^.impl:=impl;
   {$IFDEF DEBUG}
-  StartTimer(startData^.startupTimer); // record QPC moment just before BeginThread
+  Timer.Start(startData^.startupTimer); // record QPC moment just before BeginThread
   {$ENDIF}
 
   // Start thread

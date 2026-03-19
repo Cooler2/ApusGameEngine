@@ -282,12 +282,6 @@ var
   procedure MemoryBarrier; inline;
   {$IFEND}
 
-  // High-resolution timer
-  procedure StartTimer(out timer:int64); overload; inline;
-  function TimerSec(const timer:int64):double; overload;
-  procedure StartTimer; overload;
-  function TimerSec:double; overload;
-
   // Error handling
   function GetLastErrorCode:cardinal;
   function GetLastErrorDesc:string;
@@ -458,6 +452,19 @@ type
     // Exchange and CompareExchange - map directly to RTL
     class function Exchange(var target:longint; value:longint):longint; static; inline;
     class function CmpExchange(var target:longint; newValue,comparand:longint):longint; static; inline;
+  end;
+
+// =============================================================================
+// Timer scope - high-resolution interval measurement (QPC / clock_gettime)
+// =============================================================================
+type
+  Timer=record
+    // Explicit timer: capture start into caller's variable, then read elapsed
+    class procedure Start(out t:int64); overload; static; inline;
+    class function Get(const t:int64):double; overload; static; // returns seconds
+    // Internal (global) timer: Start/Get without parameter
+    class procedure Start; overload; static;
+    class function Get:double; overload; static;
   end;
 
 implementation
@@ -717,31 +724,34 @@ begin
 end;
 {$ENDIF}
 
-procedure StartTimer(out timer:int64); inline;
+{ Timer }
+
+class procedure Timer.Start(out t:int64);
 begin
-  QPC(timer);
+  QPC(t);
 end;
 
-function TimerSec(const timer:int64):double;
+class function Timer.Get(const t:int64):double;
 var
   now:int64;
 begin
   QPC(now);
-  result:=(now-timer)*timerMul;
+  result:=(now-t)*timerMul;
 end;
 
-procedure StartTimer;
+class procedure Timer.Start;
 begin
   QPC(internalTimer);
 end;
 
-function TimerSec:double;
+class function Timer.Get:double;
 var
   now:int64;
 begin
   QPC(now);
   result:=(now-internalTimer)*timerMul;
 end;
+
 
 function GetLastErrorCode:cardinal;
 begin

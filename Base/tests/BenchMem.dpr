@@ -417,7 +417,7 @@ begin
     proc(buffer^,count,Cardinal(i));
     Inc(checksum,p^[(i*1315423911) and (count-1)]); // anti-DCE
   end;
-  elapsed:=TimerSec(benchTimer);
+  elapsed:=Timer.Get(benchTimer);
   gbps:=count*4.0*iterations/elapsed/1e9;
   EndBench(Format('%.2f GB/s',[gbps]));
 end;
@@ -441,7 +441,7 @@ begin
     proc(src^,dst^,count);
     Inc(checksum,p^[(i*1315423911) and (count-1)]); // anti-DCE
   end;
-  elapsed:=TimerSec(benchTimer);
+  elapsed:=Timer.Get(benchTimer);
   gbps:=count*4.0*iterations/elapsed/1e9; // useful data throughput
   EndBench(Format('%.2f GB/s',[gbps]));
 end;

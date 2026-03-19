@@ -95,17 +95,6 @@ begin
   end;
 end;
 
-// Simple timer stubs (replace with proper implementation if needed)
-procedure StartTimer(var timer:int64); inline;
-begin
-  timer:=CoreTime.Ticks;
-end;
-
-function TimerSec(const timer:int64):double; inline;
-begin
-  result:=(CoreTime.Ticks-timer)/1000.0;
-end;
-
 procedure StartBench(const name:string; iterations:integer=0);
 var
   s:string;
@@ -114,7 +103,7 @@ begin
   s:=Format('%-30s ... ',[name]);
   write(s);
   if benchLogOpen then write(benchLog,s);
-  StartTimer(benchTimer);
+  Timer.Start(benchTimer);
 end;
 
 procedure EndBench(const comment:string='');
@@ -122,7 +111,7 @@ var
   nsPerOp:double;
   s:string;
 begin
-  nsPerOp:=TimerSec(benchTimer)*1e9/benchIterations;
+  nsPerOp:=Timer.Get(benchTimer)*1e9/benchIterations;
   if nsPerOp>=1000 then
     s:=Format('%8.2f us/op',[nsPerOp/1000])
   else
