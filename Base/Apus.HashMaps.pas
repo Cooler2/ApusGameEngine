@@ -302,23 +302,28 @@ end;
 procedure THashMap<T>.Put(const key:String8; const value:T);
 var
   h:cardinal;
+  found:boolean;
 begin
   if key='' then exit;
   if fKeys=nil then Init;
   SpinLock(fLock);
   try
     h:=HashKey(key) and fMask;
+    found:=false;
     while fKeys[h]<>'' do begin
       if EqualKeys(fKeys[h],key) then begin
         fValues[h]:=value;
-        exit;
+        found:=true;
+        break;
       end;
       h:=(h+1) and fMask;
     end;
-    fKeys[h]:=key;
-    fValues[h]:=value;
-    inc(count);
-    if count*2>integer(fMask) then DoResize;
+    if not found then begin
+      fKeys[h]:=key;
+      fValues[h]:=value;
+      inc(count);
+      if count*2>integer(fMask) then DoResize;
+    end;
   finally
     fLock:=0;
   end;
@@ -403,7 +408,7 @@ begin
         end;
         fKeys[i]:='';
         fValues[i]:=Default(T);
-        exit;
+        break;
       end;
       i:=(i+1) and fMask;
     end;
@@ -939,27 +944,27 @@ begin
     h:=HashValue(key);
     i:=links[h];
     while (i>=0) and (keys[i]<>key) do i:=next[i];
-    if i>=0 then begin
-      values[i]:=value;
-      exit;
-    end;
-    if fFree>=0 then begin
-      i:=fFree;
-      fFree:=next[fFree];
-    end else begin
-      i:=count;
-      inc(count);
-      if count>length(keys) then begin
-        n:=length(keys)*2+64;
-        SetLength(keys,n);
-        SetLength(values,n);
-        SetLength(next,n);
+    if i>=0 then
+      values[i]:=value
+    else begin
+      if fFree>=0 then begin
+        i:=fFree;
+        fFree:=next[fFree];
+      end else begin
+        i:=count;
+        inc(count);
+        if count>length(keys) then begin
+          n:=length(keys)*2+64;
+          SetLength(keys,n);
+          SetLength(values,n);
+          SetLength(next,n);
+        end;
       end;
+      keys[i]:=key;
+      values[i]:=value;
+      next[i]:=links[h];
+      links[h]:=i;
     end;
-    keys[i]:=key;
-    values[i]:=value;
-    next[i]:=links[h];
-    links[h]:=i;
   finally
     lock:=0;
   end;
@@ -995,7 +1000,9 @@ end;
 function TSimpleHash.Increment(key:int64;v:int64=1):int64;
 var
   h,i:integer;
+  found:boolean;
 begin
+  found:=false;
   SpinLock(lock);
   try
     h:=HashValue(key);
@@ -1004,13 +1011,15 @@ begin
     if i>=0 then begin
       values[i]:=values[i]+v;
       result:=values[i];
-      exit;
+      found:=true;
     end;
   finally
     lock:=0;
   end;
-  Put(key,v);
-  result:=v;
+  if not found then begin
+    Put(key,v);
+    result:=v;
+  end;
 end;
 procedure TSimpleHash.Remove(key:int64);
 var
@@ -1102,27 +1111,27 @@ begin
     h:=StrHash(key) and hMask;
     i:=links[h];
     while (i>=0) and (keys[i]<>key) do i:=next[i];
-    if i>=0 then begin
-      values[i]:=value;
-      exit;
-    end;
-    if fFree>=0 then begin
-      i:=fFree;
-      fFree:=next[fFree];
-    end else begin
-      i:=count;
-      inc(count);
-      if count>length(keys) then begin
-        n:=length(keys)*2+64;
-        SetLength(keys,n);
-        SetLength(values,n);
-        SetLength(next,n);
+    if i>=0 then
+      values[i]:=value
+    else begin
+      if fFree>=0 then begin
+        i:=fFree;
+        fFree:=next[fFree];
+      end else begin
+        i:=count;
+        inc(count);
+        if count>length(keys) then begin
+          n:=length(keys)*2+64;
+          SetLength(keys,n);
+          SetLength(values,n);
+          SetLength(next,n);
+        end;
       end;
+      keys[i]:=key;
+      values[i]:=value;
+      next[i]:=links[h];
+      links[h]:=i;
     end;
-    keys[i]:=key;
-    values[i]:=value;
-    next[i]:=links[h];
-    links[h]:=i;
   finally
     lock:=0;
   end;
@@ -1144,7 +1153,9 @@ end;
 function TSimpleHashS.Increment(key:string;v:int64=1):int64;
 var
   h,i:integer;
+  found:boolean;
 begin
+  found:=false;
   SpinLock(lock);
   try
     h:=StrHash(key) and hMask;
@@ -1153,13 +1164,15 @@ begin
     if i>=0 then begin
       values[i]:=values[i]+v;
       result:=values[i];
-      exit;
+      found:=true;
     end;
   finally
     lock:=0;
   end;
-  Put(key,v);
-  result:=v;
+  if not found then begin
+    Put(key,v);
+    result:=v;
+  end;
 end;
 function TSimpleHashS.HasValue(key:string):boolean;
 var
@@ -1238,27 +1251,27 @@ begin
     h:=StrHash(key) and hMask;
     i:=links[h];
     while (i>=0) and (keys[i]<>key) do i:=next[i];
-    if i>=0 then begin
-      values[i]:=value;
-      exit;
-    end;
-    if fFree>=0 then begin
-      i:=fFree;
-      fFree:=next[fFree];
-    end else begin
-      i:=count;
-      inc(count);
-      if count>length(keys) then begin
-        n:=length(keys)*2+64;
-        SetLength(keys,n);
-        SetLength(values,n);
-        SetLength(next,n);
+    if i>=0 then
+      values[i]:=value
+    else begin
+      if fFree>=0 then begin
+        i:=fFree;
+        fFree:=next[fFree];
+      end else begin
+        i:=count;
+        inc(count);
+        if count>length(keys) then begin
+          n:=length(keys)*2+64;
+          SetLength(keys,n);
+          SetLength(values,n);
+          SetLength(next,n);
+        end;
       end;
+      keys[i]:=key;
+      values[i]:=value;
+      next[i]:=links[h];
+      links[h]:=i;
     end;
-    keys[i]:=key;
-    values[i]:=value;
-    next[i]:=links[h];
-    links[h]:=i;
   finally
     lock:=0;
   end;
@@ -1280,7 +1293,9 @@ end;
 function TSimpleHashAS.Increment(key:String8;v:int64=1):int64;
 var
   h,i:integer;
+  found:boolean;
 begin
+  found:=false;
   SpinLock(lock);
   try
     h:=StrHash(key) and hMask;
@@ -1289,13 +1304,15 @@ begin
     if i>=0 then begin
       values[i]:=values[i]+v;
       result:=values[i];
-      exit;
+      found:=true;
     end;
   finally
     lock:=0;
   end;
-  Put(key,v);
-  result:=v;
+  if not found then begin
+    Put(key,v);
+    result:=v;
+  end;
 end;
 function TSimpleHashAS.HasValue(key:String8):boolean;
 var
@@ -1432,12 +1449,15 @@ begin
   try
     if values=nil then Init;
     h:=h and mask;
+    result:=nil;
     while values[h]<>nil do begin
-      if IsValid(values[h]) and key.Same(values[h].name) then exit(values[h]);
+      if IsValid(values[h]) and key.Same(values[h].name) then begin
+        result:=values[h];
+        break;
+      end;
       inc(hashMiss);
       h:=(h+1) and mask;
     end;
-    result:=nil;
   finally
     lock:=0;
   end;
@@ -1452,11 +1472,13 @@ begin
   try
     h:=h and mask;
     while values[h]<>value do begin
-      if values[h]=nil then exit;
+      if values[h]=nil then break;
       h:=(h+1) and mask;
     end;
-    values[h]:=DELETED_PTR;
-    dec(count);
+    if values[h]=value then begin
+      values[h]:=DELETED_PTR;
+      dec(count);
+    end;
   finally
     lock:=0;
   end;
@@ -1569,12 +1591,15 @@ begin
   SpinLock(lock);
   try
     h:=h and mask;
+    result:=Unassigned;
     while keys[h]<>'' do begin
-      if key.Same(keys[h]) and (values[h]<>Unassigned) then exit(values[h]);
+      if key.Same(keys[h]) and (values[h]<>Unassigned) then begin
+        result:=values[h];
+        break;
+      end;
       inc(hashMiss);
       h:=(h+1) and mask;
     end;
-    result:=Unassigned;
   finally
     lock:=0;
   end;
@@ -1587,12 +1612,15 @@ begin
   SpinLock(lock);
   try
     h:=h and mask;
+    result:=false;
     while keys[h]<>'' do begin
-      if key.Same(keys[h]) and (values[h]<>Unassigned) then exit(true);
+      if key.Same(keys[h]) and (values[h]<>Unassigned) then begin
+        result:=true;
+        break;
+      end;
       inc(hashMiss);
       h:=(h+1) and mask;
     end;
-    result:=false;
   finally
     lock:=0;
   end;
@@ -1607,11 +1635,13 @@ begin
   try
     h:=h and mask;
     while keys[h]<>key do begin
-      if keys[h]='' then exit;
+      if keys[h]='' then break;
       h:=(h+1) and mask;
     end;
-    values[h]:=Unassigned;
-    dec(count);
+    if keys[h]=key then begin
+      values[h]:=Unassigned;
+      dec(count);
+    end;
   finally
     lock:=0;
   end;
