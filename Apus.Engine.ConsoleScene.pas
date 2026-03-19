@@ -214,7 +214,7 @@ begin
  wnd.color:=$80202020;
  zorder:=$FF0000;
 
- img:=TUIImage.Create(462,h-18,'ConsoleMain',wnd);
+ img:=TUIImage.Create(462,h-18,wnd,'ConsoleMain');
  img.SetAnchors(0,0,1,1);
  img.src:='proc:'+Conv.ToStr(@DrawContent);
 

@@ -248,7 +248,7 @@ implementation
    if not (c is TUILabel) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UILabel',name);
-    c:=TUILabel.Create(0,0,name,'',0,0,root);
+    c:=TUILabel.Create(0,0,root,name);
    end;
    result:=c as TUILabel;
   end;

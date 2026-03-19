@@ -167,7 +167,7 @@ procedure TMainScene.Load;
   toolbar.styleInfo:='fill:FF484848';
   toolbar.SetPaddings(8,4,8,4);
 
-  TUILabel.Create(200,28,'','Image Viewer',toolbar,game.largerFont,$FFE0E0E0);
+  TUILabel.Create(200,28,toolbar).Setup('Image Viewer',game.largerFont,$FFE0E0E0);
 
   TUIButton.Create(90,24,'TestDlgBtn','Test Dialog',toolbar);
 
@@ -179,7 +179,7 @@ procedure TMainScene.Load;
   combo.SetAnchors(1,0,1,0);
   combo.curItem:=2; // 100%
 
-  TUILabel.Create(50,24,'','Zoom:',toolbar,game.defaultFont,$FFA0A0A0).
+  TUILabel.Create(50,24,toolbar).Setup('Zoom:',game.defaultFont,$FFA0A0A0).
    SetPos(toolbar.clientWidth-96,4,pivotTopRight).
    SetAnchors(1,0,1,0);
 
@@ -190,7 +190,7 @@ procedure TMainScene.Load;
   statusBar.styleInfo:='fill:FF1A1A1A';
   statusBar.SetPaddings(10,3,10,3);
 
-  statusLabel:=TUILabel.Create(-1,18,'StatusText','',statusBar,game.defaultFont,$FFA0A0A0);
+  statusLabel:=TUILabel.Create(-1,18,statusBar,'StatusText').Setup('',game.defaultFont,$FFA0A0A0);
 
   // === Content area with scroll ===
   content:=TUIElement.Create(-1,-1,UI,'Content');
@@ -219,11 +219,11 @@ procedure TMainScene.Load;
    card.SetPaddings(6,6,6,6);
 
    // filename label at bottom
-   lab:=TUILabel.Create(-1,16,'','  '+names[i],card,game.smallFont,$FFFFFFFF);
+   lab:=TUILabel.Create(-1,16,card).Setup('  '+names[i],game.smallFont,$FFFFFFFF);
    lab.SetPos(0,card.clientHeight,pivotBottomLeft,true);
 
    // dimensions label
-   lab:=TUILabel.Create(-1,14,'','  '+sizes[i],card,game.smallFont,$B0FFFFFF);
+   lab:=TUILabel.Create(-1,14,card).Setup('  '+sizes[i],game.smallFont,$B0FFFFFF);
    lab.SetPos(0,card.clientHeight-16,pivotBottomLeft,true);
   end;
 

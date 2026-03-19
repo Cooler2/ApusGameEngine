@@ -102,20 +102,20 @@ procedure TestWidgets;
   TUILabel.SetDefault('color',$FF603000);
   TUILabel.SetDefault('font',game.largerFont);
   // Labels
-  TUILabel.Create(-1,20,'Label1','Simple label',cont).styleInfo:='hover.fill:F088EEEE; hover.radius=6; hoverTime=1000';
-  TUILabel.CreateCentered(-1,20,'Label2','Centered',cont);
-  TUILabel.CreateRight(-1,20,'Label3','Right',cont);
-  TUILabel.Create(-1,20,'Label4','With padding',cont).SetPaddings(4,2,4,2);
-  TUILabel.CreateCentered(120,20,'Label5','Too Long Text Clipped',cont);
-  TUILabel.Create(-1,18,'Label6','Shifted up',cont).verticalOffset:=2;
-  TUILabel.Create(-1,18,'Label7','Shifted down',cont).verticalOffset:=-2;
+  TUILabel.Create(-1,20,cont,'Label1').Setup('Simple label').styleInfo:='hover.fill:F088EEEE; hover.radius=6; hoverTime=1000';
+  TUILabel.Create(-1,20,cont,'Label2').Centered('Centered');
+  TUILabel.Create(-1,20,cont,'Label3').Right('Right');
+  TUILabel.Create(-1,20,cont,'Label4').Setup('With padding').SetPaddings(4,2,4,2);
+  TUILabel.Create(120,20,cont,'Label5').Centered('Too Long Text Clipped');
+  TUILabel.Create(-1,18,cont,'Label6').Setup('Shifted up').verticalOffset:=2;
+  TUILabel.Create(-1,18,cont,'Label7').Setup('Shifted down').verticalOffset:=-2;
   // Buttons
   cont:=CreateVerticalContainer(150,root,0,6,false);
   cont.SetPos(200,10);
   cont.color:=$FF202020;
   TUIButton.Create(140,30,'Button1','Button 1',cont);
   TUIButton.Create(140,30,'Disabled',cont).Disable;
-  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   TUIButton.CreateSwitch(140,30,'Switch1','Toggle Button',cont);
   hCont:=CreateHorizontalContainer(30,cont,0,4);
   TUIButton.CreateGroupSwitch(30,30,'A',hCont);
@@ -123,7 +123,7 @@ procedure TestWidgets;
   TUIButton.CreateGroupSwitch(30,30,'C',hCont);
 
   //Create
-  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Check boxes
   TUICheckBox.Create(-1,22,'Check1','checkbox 1 VERYLONG',cont,true);
   TUICheckBox.Create(-1,22,'Check2','checkbox 2 (red)',cont).SetStyle('tickColor','811');
@@ -133,7 +133,7 @@ procedure TestWidgets;
   TUIRadioButton.Create(100,22,'Radio2','radio 2',cont);
   TUIRadioButton.Create(-1,22,'Radio3','radio 3 Looooooong',cont);
 
-  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Group box
 
   cont:=CreateVerticalContainer(150,root,0,6,false);
@@ -143,13 +143,13 @@ procedure TestWidgets;
   TUIEditBox.SetDefault('color',$FF002040);
   TUIEditBox.Create(-1,24,'Edit1',0,clDefault,cont);
   TUIEditBox.Create(-1,24,'Edit Box',cont);
-  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Scroll
   TUIScrollBar.SetDefault('color',$FF405060);
   TUIScrollBar.Create(-1,18,'Scroll1',cont);
   TUIScrollBar.Create(-1,18,-10,10,0,0,cont,'Scroll2');
   TUIScrollBar.Create(-1,18,100,300,50,0,cont,'Scroll3');
-  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // ListBox
   TUIListBox.SetDefault('styleInfo','borderColor=444; borderWidth=1');
   TUIListBox.Create(-1,80,20,'List1',0,cont).SetLines(['Line 1','Line 2','Line 3','Line 4','Looong line WWWWW','Last line']);

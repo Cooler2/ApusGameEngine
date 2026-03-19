@@ -183,10 +183,10 @@ procedure CreateCmd(cmd:string8);
    end;
    with defaults do begin
     if sa[0]='UIBUTTON' then c:=TUIButton.Create(width,height,sa[1],caption,font,parentobj) else
-    if sa[0]='UIIMAGE' then c:=TUIImage.Create(width,height,sa[1],parentobj) else
+    if sa[0]='UIIMAGE' then c:=TUIImage.Create(width,height,parentobj,sa[1]) else
     if sa[0]='UIEDITBOX' then c:=TUIEditBox.Create(width,height,sa[1],font,color,parentobj) else
     if sa[0]='UILABEL' then begin
-     c:=TUILabel.Create(width,height,sa[1],caption,color,font,parentobj);
+     c:=TUILabel.Create(width,height,parentobj,sa[1]).Setup(caption,font,color);
      (c as TUILabel).align:=align;
      c.shape:=shapeEmpty;
     end else

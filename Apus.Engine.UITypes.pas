@@ -14,8 +14,10 @@ uses Types, Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Engin
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
 const
- INHERIT = -999999; // constant to inherit integer property from parent
- KEEP    = -1;
+ INHERIT     = -999999; // in Resize: take parent's client size
+ KEEP        = -1;      // in Resize: keep this dimension unchanged
+ FILL_PARENT = -1;      // in Create: fill parent's client size and set full anchors
+ USE_PARENT  = -1;      // alias for FILL_PARENT: use when intent is "match parent toolbar/panel size"
 
  // Predefined pivot point configuration
  pivotTopLeft:TVec2=(x:0; y:0);
@@ -272,7 +274,9 @@ type
   property color:cardinal read GetColor write fColor;
  end;
 
- // Element to group/organize chindren so one of them is active (combo box etc.)
+ // General-purpose container that tracks one "active" child at a time.
+ // Useful for tab panels, wizard steps, or any exclusive-visibility group.
+ // selectedChild holds the index into children[] of the active child (-1 = none).
  TUIGroupBox=class(TUIElement)
   selectedChild:integer; // index of active child element (-1 if none)
   constructor Create(width,height:single;parent_:TUIElement;name_:String8='');
@@ -326,6 +330,7 @@ implementation
  var
   // TUIElement class hash
   UIHash:TObjectHash;
+  uiElementCounter:integer=0; // global counter for auto-generated element names
 threadvar
   // Hotkeys
   hotKeys:array of THotKey;
@@ -579,7 +584,10 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    shape:=shapeFull;
    timer:=0;
    parent:=parent_;
-   name:=name_;
+   if name_='' then
+    name:=ClassName+'_'+IntToStr(AtomicIncrement(uiElementCounter))
+   else
+    name:=name_;
    hint:='';
    // No anchors: element's size doesn't change when parent is resized
    //anchors:=anchorNone;
@@ -608,11 +616,11 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
     inc(n); order:=n;
     SetLength(parent.children,n);
     parent.children[n-1]:=self;
-    if width=-1 then begin
+    if width=FILL_PARENT then begin
      size.x:=parent.clientWidth;
      anchors.left:=0; anchors.right:=1;
     end;
-    if height=-1 then begin
+    if height=FILL_PARENT then begin
      size.y:=parent.clientHeight;
      anchors.top:=0; anchors.bottom:=1;
     end;

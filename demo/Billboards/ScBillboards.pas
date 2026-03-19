@@ -82,7 +82,7 @@ procedure TMainScene.CreateUI;
   panel.SetPos(UI.width-10,UI.height-10,pivotBottomRight);
   panel.styleInfo:='E0808890'; // background color
   panel.layout:=TRowLayout.CreateVertical(5);
-  TUILabel.Create(200,30,'Panel\Label1','SETTINGS',clWhite,font,panel).align:=TTextAlignment.taCenter;
+  TUILabel.Create(200,30,panel,'Panel\Label1').Centered('SETTINGS',font,clWhite);
 
   TUIButton.CreateSwitch(200,32,'Panel\DrawMode1','No transformations',1,font,panel,true)
    .hint:='Use "draw.Billboard()" so they''re drawn as meshes in the world CS';

@@ -29,27 +29,43 @@ interface
 
  // TODO: size constraints (minWidth/maxWidth etc.) to be added to TUIElement directly
  type
+  // Horizontal or vertical separator bar that spans the full parent width (CreateH)
+  // or height (CreateV). The element has two visual zones:
+  //   outer — transparent area defined by padding (marginH, marginV);
+  //   inner — colored client area, color set via style key 'inner-fill'.
+  // Pass color=0 to leave the inner area transparent (spacer mode).
+  // canResize: intended for drag-to-resize neighboring elements (not yet implemented).
   TUISplitter=class(TUIElement)
    canResize:boolean; // true - allow resizing neighbour elements
-   constructor CreateH(height:single;parent:TUIElement;color:cardinal=0); overload;
-   constructor CreateH(innerHeight,marginH,marginV:single;parent:TUIElement;color:cardinal=0); overload;
-   constructor CreateV(width:single;parent:TUIElement;color:cardinal=0); overload;
-   constructor CreateV(innerWidth,marginH,marginV:single;parent:TUIElement;color:cardinal=0); overload;
+   // Horizontal bar: spans full parent width, height is the only meaningful dimension.
+   // Use .SetPaddings(marginH,marginV,marginH,marginV) for spacing around inner area.
+   constructor CreateH(height:single;parent:TUIElement;color:cardinal=0;name:String8='');
+   // Vertical bar: spans full parent height, width is the only meaningful dimension.
+   constructor CreateV(width:single;parent:TUIElement;color:cardinal=0;name:String8='');
   end;
 
-  // Just a static image
+  // Static image or custom-rendered area. src defines what to draw:
+  //   'file:name'       — load from file
+  //   'event:name'      — fire event to let external code draw
+  //   'proc:XXXXXXXX'   — call render procedure by pointer (see SetRenderProc)
+  //   ''                — nothing drawn (use as transparent container)
+  // shape defaults to shapeEmpty so mouse events pass through by default.
+  // Note: file/event src variants will likely move to R-05 style attributes;
+  //       the proc variant (SetRenderProc) is the unique feature of this class.
+  // Also serves as base class for TUIHint and TUIWindow.
   TUIImage=class(TUIScrollable)
-   src:String8; // can be "file:xxx" "event:xxx", "proc:XXXXXXXX" etc...
-   constructor Create(width,height:single;imgname:String8;parent_:TUIElement;source:String8='');
-   procedure SetRenderProc(proc:pointer); // sugar for use "proc:XXX" src for the default style
+   src:String8;
+   constructor Create(width,height:single;parent:TUIElement;name:String8='';source:String8='');
+   procedure SetRenderProc(proc:pointer); // shorthand for src:='proc:...'
   end;
 
   // Touch-screen scroll overlay: placed over another element to capture drag events and scroll it.
   // Captures mouse drag events, but passes clicks through.
   TUIScrollArea=class(TUIElement)
-   fullWidth,fullHeight:single; // full content area
+   fullWidth,fullHeight:single; // full content area dimensions
    direction:TUIScrollDirection;
-   constructor Create(width,height,fullW,fullH:single;dir:TUIScrollDirection;parent_:TUIElement);
+   constructor Create(width,height:single;parent:TUIElement;name:String8='');
+   function Setup(fullW,fullH:single;dir:TUIScrollDirection):TUIScrollArea;
    procedure onMouseMove; override;
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onTimer; override;
@@ -74,20 +90,28 @@ interface
    procedure onTimer; override;
   end;
 
+  // Read-only text element with configurable alignment.
+  // autoSize lets the drawer shrink/grow the element to fit the caption text.
   TUILabel=class(TUIElement)
    align:TTextAlignment;
    autoSize:boolean; // render should adjust element size to match caption
    verticalOffset:integer; // vertical text shift (positive = up)
-   constructor Create(width,height:single;labelname,text:String8;color_:cardinal;bFont:TFontHandle;parent_:TUIElement); overload;
-   constructor Create(width,height:single;labelname,text:String8;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault); overload;
-   constructor CreateCentered(width,height:single;labelname,text:String8;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
-   constructor CreateRight(width,height:single;labelname,text:String8;parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
+   constructor Create(width,height:single;parent:TUIElement;name:String8='');
+   // Set caption and optional font/color (font/color move to style in R-05):
+   function Setup(text:String8;fnt:TFontHandle=0;clr:cardinal=clDefault):TUILabel;    // left-aligned
+   function Centered(text:String8;fnt:TFontHandle=0;clr:cardinal=clDefault):TUILabel; // centered
+   function Right(text:String8;fnt:TFontHandle=0;clr:cardinal=clDefault):TUILabel;    // right-aligned
    procedure CaptionWidthIs(width:single);
   end;
 
   TButtonStyle=(bsNormal,   // regular push button
                 bsSwitch,   // toggle button (latches in pressed state)
                 bsCheckbox); // checkbox-style button
+
+  // Interactive button with three visual/behavioral styles (see TButtonStyle).
+  // Use onClick for inline UI updates (runs on render thread).
+  // Use onClickAsync for slow work (runs in a new thread).
+  // For radio-group behavior use CreateSwitch with a shared group id.
   TUIButton=class(TUIElement)
    default:boolean; // default button (affects rendering only, not behavior)
    pressed:boolean; // button is in pressed/down state
@@ -130,6 +154,8 @@ interface
    lastOver:boolean; // was under mouse when onMouseMove was called last time
   end;
 
+  // Checkbox that tracks a boolean checked state.
+  // SetPressed toggles checked; prefer TUICheckBox over raw bsCheckbox style.
   TUICheckBox=class(TUIButton)
    checked:boolean;
    constructor Create(width,height:single;btnName,caption:String8;parent_:TUIElement;
@@ -137,6 +163,7 @@ interface
    procedure SetPressed(pr:boolean); override;
   end;
 
+  // Radio button: when pressed, automatically unpresses other radio buttons in the same parent.
   TUIRadioButton=class(TUICheckbox)
    constructor Create(width,height:single;btnName,caption:String8;
      parent_:TUIElement;checked:boolean=false;btnFont:TFontHandle=0); overload;
@@ -184,6 +211,8 @@ interface
    function GetAreaType(x,y:integer;out cur:NativeInt):integer; override; // x,y - screen space coordinates
   end;
 
+  // Single-line text input. Supports Unicode, mouse selection, password masking,
+  // auto-complete (completion), placeholder (defaultText), and horizontal scroll.
   TUIEditBox=class(TUIElement)
    realText:String32; // real text value of the edit box
    completion:String32; // grayed background text, if it is not empty and enter is pressed, then it is set to realText
@@ -220,6 +249,9 @@ interface
    property text:String8 read GetText write SetText;  // Current value in UTF-8 encoding
   end;
 
+  // Horizontal or vertical scrollbar with configurable range, page size, and step.
+  // Link to a TUIScrollable element via Link() to control its scroll position.
+  // Supports smooth animation and optional auto-hide when content fits.
   TUIScrollBar=class(TUIElement)
   private
    rValue:TAnimatedValue;
@@ -263,6 +295,9 @@ interface
    scroller:TObject;
   end;
 
+  // Scrollable list of text items with single selection.
+  // Each item may carry a tag (cardinal) and a per-item hint string.
+  // Supports hover highlight and optional auto-select on hover.
   TUIListBox=class(TUIScrollable)
    lines:Strings8;
    tags:array of cardinal;
@@ -284,6 +319,8 @@ interface
    procedure UpdateScroller;
   end;
 
+  // Drop-down selector: visually a button, opens a popup TUIListBox on click.
+  // Tracks current item by index (curItem), tag (curTag), and text (text property).
   TUIComboBox=class(TUIButton)
    items,hints:Strings8;
    tags:IntArray;
@@ -336,37 +373,25 @@ implementation
 
 { TUISpacer }
 
- constructor TUISplitter.CreateH(innerHeight,marginH,marginV:single;parent:TUIElement;color:cardinal);
+ constructor TUISplitter.CreateH(height:single;parent:TUIElement;color:cardinal;name:String8);
   begin
-   inherited Create(-1,innerHeight+marginV*2,parent);
-   SetPaddings(marginH,marginV,marginH,marginV);
+   inherited Create(FILL_PARENT,height,parent,name);
    if color<>0 then
     SetStyle('inner-fill',IntToHex(color,8));
   end;
 
- constructor TUISplitter.CreateH(height:single;parent:TUIElement;color:cardinal);
+ constructor TUISplitter.CreateV(width:single;parent:TUIElement;color:cardinal;name:String8);
   begin
-   CreateH(height,0,0,parent,color);
-  end;
-
- constructor TUISplitter.CreateV(innerWidth,marginH,marginV:single;parent:TUIElement;color:cardinal);
-  begin
-   inherited Create(innerWidth+marginH*2,-1,parent);
-   SetPaddings(marginH,marginV,marginH,marginV);
+   inherited Create(width,FILL_PARENT,parent,name);
    if color<>0 then
     SetStyle('inner-fill',IntToHex(color,8));
-  end;
-
- constructor TUISplitter.CreateV(width:single;parent:TUIElement;color:cardinal);
-  begin
-   CreateV(width,0,0,parent,color);
   end;
 
  { TUIimage }
 
- constructor TUIimage.Create(width,height:single;imgname:String8;parent_:TUIElement;source:String8='');
+ constructor TUIImage.Create(width,height:single;parent:TUIElement;name:String8;source:String8);
   begin
-   inherited Create(width,height,parent_,imgName);
+   inherited Create(width,height,parent,name);
    src:=source;
    shape:=shapeEmpty;
   end;
@@ -693,39 +718,42 @@ constructor TUIRadioButton.Create(width,height:single;btnName,caption:String8;
    end;
   end;
 
-constructor TUILabel.Create(width,height:single;labelname,text:String8;color_,bFont:TFontHandle;
-    parent_: TUIElement);
+constructor TUILabel.Create(width,height:single;parent:TUIElement;name:String8);
   begin
-   inherited Create(width,height,parent_,labelName);
+   inherited Create(width,height,parent,name);
    shape:=shapeFull;
-   if color_<>clDefault then color:=color_;
-   if bFont<>0 then font:=bFont;
    align:=taLeft;
    sendSignals:=ssMajor;
    verticalOffset:=0;
+  end;
+
+function TUILabel.Setup(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
+  begin
    caption:=text;
-  end;
-
-constructor TUILabel.CreateCentered(width,height:single;labelname,text:String8;
-   parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
-  begin
-   Create(width,height,labelName,text,color_,font,parent_);
-   align:=taCenter;
-  end;
-
- constructor TUILabel.Create(width,height:single;labelname,text:String8;
-   parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
-  begin
-   Create(width,height,labelName,text,color_,font,parent_);
    align:=taLeft;
+   if fnt<>0 then font:=fnt;
+   if clr<>clDefault then color:=clr;
+   result:=self;
   end;
 
- constructor TUILabel.CreateRight(width,height:single;labelname,text:String8;
-   parent_:TUIElement;font:TFontHandle=0;color_:cardinal=clDefault);
+function TUILabel.Centered(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
   begin
-   Create(width,height,labelName,text,color_,font,parent_);
-   align:=taRight;
+   caption:=text;
+   align:=taCenter;
+   if fnt<>0 then font:=fnt;
+   if clr<>clDefault then color:=clr;
+   result:=self;
   end;
+
+function TUILabel.Right(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
+  begin
+   caption:=text;
+   align:=taRight;
+   if fnt<>0 then font:=fnt;
+   if clr<>clDefault then color:=clr;
+   result:=self;
+  end;
+
 
 { TUIWindow }
 
@@ -1553,14 +1581,18 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
 
  { TUIScrollArea }
 
- constructor TUIScrollArea.Create(width,height,fullW,fullH:single;
-    dir:TUIScrollDirection;parent_:TUIElement);
+ constructor TUIScrollArea.Create(width,height:single;parent:TUIElement;name:String8);
   begin
-   inherited Create(width,height,parent_);
+   inherited Create(width,height,parent,name);
    shape:=shapeFull;
+  end;
+
+ function TUIScrollArea.Setup(fullW,fullH:single;dir:TUIScrollDirection):TUIScrollArea;
+  begin
    fullWidth:=fullW;
    fullHeight:=fullH;
    direction:=dir;
+   result:=self;
   end;
 
  procedure TUIScrollArea.onMouseButtons(button:byte;state:boolean);
