@@ -8,7 +8,7 @@
 // ------------------------------------------------------
 unit Apus.Engine.UITypes;
 interface
-uses Types, Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Regions,
+uses Types, Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Engine.UIShapes,
   Apus.Engine.Scene, Apus.Engine.Window;
 {$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
@@ -41,11 +41,6 @@ type
       ssMajor,         // Normal mode: major signals only
       ssAll);          // Verbose mode: all signals
 
- // How element response for mouse/touch events
- TElementShape=(shapeEmpty, // whole element is transparent for mouse/touch events
-                shapeFull,      // whole element is opaque for mouse/touch events
-                shapeCustom);     // some pixels are transparent, some are not - it depends on the Region field
-
  // How mouse movement is limited between mouseDown and mouseUp
  TClipMouse=(cmNo,        // not limited
              cmVirtual,   // control see mouse as limited, while it is really not
@@ -67,7 +62,6 @@ type
  TWindow=Apus.Engine.Window.TWindow;
  TUIElement=class;
  TUIElements=array of TUIElement;
- TRegion = Apus.Regions.TRegion;
 
 
  // Base class for Layouters: objects that layout child elements or adjust elements considering its children
@@ -107,8 +101,7 @@ type
   size:TVec2; // dimension of this element
   pivot:TVec2; // relative location of the element's root point: 0,0 -> upper left corner, 1,1 - bottom right corner, 0.5,0.5 - center
   anchors:TUIRect; // how much left/top/right/bottom border should absorb from parent's size change delta
-  shape:TElementShape;  // define which part of the element can react on mouse input (opaque part)
-  shapeRegion:TRegion;   // when shape=shapeCustom, this object define which area is considered opaque (for mouse input)
+  shape:TUIShape;  // defines which part of the element can react on mouse input
 
   // Inner parts - scaled
   scale:single; // scale factor for INNER parts of the element and all its children elements
@@ -655,7 +648,6 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    scroll:=Vec2(0,0);
    scrollerH:=nil; scrollerV:=nil;
    focusedChild:=nil;
-   shapeRegion:=nil;
    ownerScene:=nil;
 
    wnd:=GetWindow;
@@ -698,7 +690,7 @@ destructor TUIElement.Destroy;
     if parent<>nil then
      Detach(false);
     DeleteChildren;
-    FreeAndNil(shapeRegion);
+    if (shape<>nil) and not shape.persistent then FreeAndNil(shape);
     FreeAndNil(styleContext);
     DeleteHotkeys(0);
     Signal('UI\ItemDestroyed',TTag(self));
@@ -835,7 +827,7 @@ destructor TUIElement.Destroy;
    end;
 
    // Ни одного непрозрачного потомка в данной точке, но сам элемент может быть непрозрачен здесь!
-   if not fl and (shape=shapeCustom) then
+   if not fl and (shape<>shapeEmpty) and (shape<>shapeFull) then
     if IsOpaque((x-r.Left)/r.Width,(y-r.Top)/r.Height) then c:=self;
 
    if c=nil then result:=false;
@@ -1109,9 +1101,7 @@ function TUIElement.IsChild(c:TUIElement):boolean;
 
  function TUIElement.IsOpaque(x,y:single):boolean;
   begin
-   result:=false;
-   if shapeRegion<>nil then
-    result:=shapeRegion.TestPoint(x,y);
+   result:=shape.IsOpaque(x,y);
   end;
 
  function TUIElement.IsOutOfOrder:boolean;

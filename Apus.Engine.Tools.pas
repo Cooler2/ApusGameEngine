@@ -10,7 +10,7 @@ unit Apus.Engine.Tools;
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 interface
  uses Apus.Core, Apus.Engine.API, Apus.Images,
-    Apus.Engine.UIWidgets, Apus.Regions,
+    Apus.Engine.UIWidgets, Apus.Engine.UIShapes,
     Apus.UnicodeFont, Apus.Types, Apus.Engine.Game;
 
 var
@@ -33,7 +33,7 @@ type
   procedure Draw(x,y:integer;color:cardinal); virtual;
   procedure Precache(part:single); virtual;
   // получить регион, определяющий непрозрачную часть (прозрачность <50%)
-  function GetRegion:TRegion; virtual;
+  function GetRegion:TUIShape; virtual;
  end;
 
  // Изображение, состоящее из нескольких кусков цельной текстуры
@@ -48,7 +48,7 @@ type
   procedure AddRect(xStart,yStart,Rwidth,Rheight:integer;posX,posY:integer); virtual;
   procedure Draw(x,y:integer;color:cardinal); override;
   procedure Precache(part:single); override;
-  function GetRegion:TRegion; override;
+  function GetRegion:TUIShape; override;
  end;
 
  TVertexHandler=procedure(var vertex:TVertex);
@@ -222,7 +222,7 @@ procedure TTiledImage.Draw(x, y: integer; color: cardinal);
     gfx.draw.Image(x+i*stepX,y+j*stepY,tiles[i,j],color);
  end;
 
-function TTiledImage.GetRegion: TRegion;
+function TTiledImage.GetRegion: TUIShape;
 {var
  r:TRegion;
  rs:array[0..7,0..7] of TRegion;
@@ -326,7 +326,7 @@ begin
   gfx.draw.ImagePart(x+points[i].x,y+points[i].Y,tex,color,rects[i]);
 end;
 
-function TPatchedImage.GetRegion: TRegion;
+function TPatchedImage.GetRegion: TUIShape;
 begin
 
 end;

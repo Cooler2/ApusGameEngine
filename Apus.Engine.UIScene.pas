@@ -56,7 +56,7 @@ type
 implementation
  uses SysUtils, Apus.Lib, Types,
    Apus.EventMan, Apus.Publics,
-   Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
+   Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UIShapes, Apus.Engine.UIRender,
    Apus.Engine.CmdProc, Apus.Engine.Console, Apus.Engine.API,
   Apus.Engine.RobotAPI,
   Apus.Engine.UILayout,

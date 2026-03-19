@@ -8,7 +8,8 @@
 
 unit Apus.Engine.UIWidgets;
 interface
- uses Apus.Core, Apus.Lib, Apus.Engine.API, Apus.Engine.Types, Apus.Engine.UITypes;
+ uses Apus.Core, Apus.Lib, Apus.Engine.API, Apus.Engine.Types, Apus.Engine.UITypes,
+  Apus.Engine.UIShapes;
 
  {$WRITEABLECONST ON}
  {$IFDEF CPUARM} {$R-} {$ENDIF}
@@ -186,7 +187,7 @@ interface
   // а также фон в виде картинки
   // такое окно создается с дефолтными параметрами и должно далее настраиваться извне
   TUISkinnedWindow=class(TUIWindow)
-   dragRegion:TRegion; // область, за которую можно таскать окно (если не задана - то за любую точку)
+   dragRegion:TUIShape; // area for window dragging (if nil, any point can be used)
    background:pointer; // некий указатель на фон окна (т.к. вопросы отрисовки в этом модуле не затрагиваются)
    constructor Create(wndName,wndCaption:String8;wndFont:TFontHandle;parent_:TUIElement;canmove:boolean=true);
    destructor Destroy; override;
@@ -1519,7 +1520,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
 
  destructor TUISkinnedWindow.Destroy;
   begin
-   dragRegion.Free;
+   if (dragRegion<>nil) and not dragRegion.persistent then dragRegion.Free;
    inherited;
   end;
 
@@ -1527,10 +1528,10 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
   begin
    result:=0; cur:=CursorID.Default;
    dec(x,globalrect.Left);
-   dec(y,globalrect.Right);
+   dec(y,globalrect.Top);
    if (x<0) or (y<0) or (x>=globalrect.width) or (y>=globalrect.height) then exit;
    if moveable then result:=wcHeader else result:=wcClient;
-   if (dragRegion<>nil) and not dragRegion.TestPoint(x,y) then
+   if (dragRegion<>nil) and not dragRegion.IsOpaque(x/globalrect.width,y/globalrect.height) then
     result:=wcClient;
   end;
 

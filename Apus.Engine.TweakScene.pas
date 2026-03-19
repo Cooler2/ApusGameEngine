@@ -12,8 +12,8 @@ interface
 
 implementation
  uses SysUtils, Apus.Core, Apus.Strings, Apus.Engine.API, Apus.Colors,
-   Apus.Publics, Math, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene, Apus.EventMan,
-   Apus.Engine.UIRender;
+   Apus.Publics, Math, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIShapes,
+   Apus.Engine.UIScene, Apus.EventMan, Apus.Engine.UIRender;
 
  type
   TTweakerScene=class(TUIScene)

@@ -7,7 +7,8 @@
 
 unit Apus.Engine.UI;
 interface
-uses Apus.Core, Apus.Engine.Types, Apus.Engine.UITypes, Apus.Engine.UILayout, Apus.Engine.UIWidgets;
+uses Apus.Core, Apus.Engine.Types, Apus.Engine.UITypes, Apus.Engine.UIShapes,
+  Apus.Engine.UILayout, Apus.Engine.UIWidgets;
 
 const
   // Predefined pivot point configuration
@@ -60,7 +61,9 @@ type
   TGridLayout = Apus.Engine.UILayout.TGridLayout;
 
   // Other types
-  TElementShape = Apus.Engine.UITypes.TElementShape;
+  TUIShape = Apus.Engine.UIShapes.TUIShape;
+  TUIBitmapShape = Apus.Engine.UIShapes.TUIBitmapShape;
+  TUIBasicShape = Apus.Engine.UIShapes.TUIBasicShape;
   TSendSignals = Apus.Engine.UITypes.TSendSignals;
   TButtonStyle = Apus.Engine.UIWidgets.TButtonStyle;
   TSnapMode = Apus.Engine.UITypes.TSnapMode;
@@ -476,10 +479,14 @@ implementation
    function DumpElement(c:TUIElement;indent:string8):string8;
     var
      i:integer;
+     shapeStr:string8;
     begin
+     if c.shape=shapeEmpty then shapeStr:='empty'
+     else if c.shape=shapeFull then shapeStr:='full'
+     else shapeStr:='custom';
      result:=string8.Join([
       indent+c.ClassName+':'+c.name+' = '+IntToHex(cardinal(c),8),
-      indent+Format('%d En=%d Vis=%d trM=%d',[c.order,byte(c.flags.enabled),byte(c.flags.visible),ord(c.shape)]),
+      indent+Format('%d En=%d Vis=%d shape=%s',[c.order,byte(c.flags.enabled),byte(c.flags.visible),shapeStr]),
       indent+Format('x=%.1f, y=%.1f, w=%.1f, h=%.1f, left=%d, top=%d',
        [c.position.x,c.position.y,c.size.x,c.size.y,c.globalRect.Left,c.globalRect.Top]),
        ''],#13#10);

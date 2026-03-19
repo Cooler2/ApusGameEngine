@@ -14,9 +14,9 @@ interface
  procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0);
 
 implementation
- uses Types, Apus.EventMan, Apus.Lib,  Apus.Strings,
-   Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UITypes, Apus.Engine.UI, Apus.Engine.UIScene,
-   Apus.Engine.SceneEffects;
+ uses Types, Apus.EventMan, Apus.Lib, Apus.Strings,
+   Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UITypes, Apus.Engine.UI,
+   Apus.Engine.UIShapes, Apus.Engine.UIScene, Apus.Engine.SceneEffects;
 
  const
   MODE_MSG = 1;

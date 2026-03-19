@@ -20,7 +20,7 @@ interface
 
 implementation
  uses Apus.CrossPlatform,Apus.Common,Apus.EventMan,Apus.Colors,
-   Apus.Engine.UI;
+   Apus.Engine.UI, Apus.Engine.UIShapes;
 
  type
   // This will be our single scene
@@ -203,7 +203,7 @@ procedure TMainScene.Initialize;
   root.SetAnchors(anchorAll);
   //root.styleInfo:='FFB0C0C4 80000000';
   root.styleInfo:='fill:FFB0C0C4; border:80000000';
-  root.shape:=TElementShape.shapeFull;
+  root.shape:=shapeFull;
   root.visible:=false;
  end;
 

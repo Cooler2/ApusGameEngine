@@ -11,7 +11,8 @@ uses Apus.Core, Apus.Publics;
 
 implementation
 uses SysUtils, Apus.EventMan, Apus.Engine.CmdProc, Apus.Engine.Types,
-   Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UITypes, Apus.Geom2d,
+   Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UITypes,
+   Apus.Engine.UIShapes, Apus.Geom2d,
   Apus.Conv,
   Apus.Strings,
   Apus.Threads;
@@ -504,18 +505,17 @@ end;
 class procedure TVarTypeTranspMode.SetValue(variable:pointer;v:string8);
  begin
   v:=lowercase {TODO: use st.ToLower}(v);
-  if v='transparent' then TElementShape(variable^):=shapeEmpty else
-  if v='custom' then TElementShape(variable^):=shapeCustom else
-  if v='opaque' then TElementShape(variable^):=shapeFull else
+  if v='transparent' then TUIShape(variable^):=shapeEmpty else
+  if v='opaque' then TUIShape(variable^):=shapeFull else
   raise EWarning.Create('Unknown transparency mode: '+v);
  end;
 class function TVarTypeTranspMode.GetValue(variable:pointer):string8;
+ var sh:TUIShape;
  begin
-  case TElementShape(variable^) of
-   shapeEmpty:result:='transparent';
-   shapeFull:result:='opaque';
-   shapeCustom:result:='custom';
-  end;
+  sh:=TUIShape(variable^);
+  if sh=shapeEmpty then result:='transparent' else
+  if sh=shapeFull then result:='opaque' else
+  result:='custom';
  end;
 
 class procedure TVarTypeSendSignals.SetValue(variable:pointer;v:string8);
