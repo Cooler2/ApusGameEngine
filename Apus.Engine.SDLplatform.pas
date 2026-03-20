@@ -203,10 +203,15 @@ function TSDLPlatform.GetShiftKeysState: cardinal;
  begin
   result:=0;
   keys:=SDL_GetModState;
-  if keys and KMOD_SHIFT>0 then inc(result,sscShift);
-  if keys and KMOD_CTRL>0 then inc(result,sscCtrl);
-  if keys and KMOD_ALT>0 then inc(result,sscAlt);
-  if keys and KMOD_GUI>0 then inc(result,sscWin);
+  if keys and KMOD_SHIFT>0 then result:=result or sscShift;
+  if keys and KMOD_CTRL>0 then result:=result or sscCtrl;
+  if keys and KMOD_ALT>0 then result:=result or sscAlt;
+  if keys and KMOD_GUI>0 then result:=result or sscWin;
+
+  if keys and KMOD_RSHIFT>0 then result:=result or sscRShift;
+  if keys and KMOD_RCTRL>0 then result:=result or sscRCtrl;
+  if keys and KMOD_RALT>0 then result:=result or sscRAlt;
+  if keys and KMOD_RGUI>0 then result:=result or sscRWin;
  end;
 
 function TSDLPlatform.GetMouseButtons: cardinal;

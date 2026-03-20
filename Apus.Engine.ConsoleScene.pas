@@ -64,7 +64,7 @@ begin
 
  // Select from command history
  if (consoleScene.activated) and
-    (window.shiftState=0) and
+    (window.shiftState and sscBaseMask=0) and
     (focusedElement=consoleScene.editbox) then
   with consoleScene do begin
    // [UP] / {DOWN] - select previous commands

@@ -409,7 +409,7 @@ begin
   draw.FillRect(menuRect.Left,menuRect.Top,menuRect.Right,menuRect.Bottom,$FF1A2230);
   draw.Rect(menuRect.Left,menuRect.Top,menuRect.Right,menuRect.Bottom,$FF3B4B60);
 
-  txt.Write(titleFont,20,30,$FFE8F0FA,'InputDemo Screens',taLeft,toAddBaseline);
+  txt.Write(titleFont,20,25,$FFE8F0FA,'InputDemo Screens',taLeft,toAddBaseline);
   txt.Write(hintFont,20,52,$FFA4B7CE,'Mouse click or keys [F1..F6]',taLeft,toAddBaseline);
 
   for i:=0 to SCREEN_COUNT-1 do begin
@@ -444,8 +444,8 @@ procedure TMainScene.DrawScreenTitle(const contentRect:TRect; const title,subtit
 begin
   draw.FillRect(contentRect.Left,contentRect.Top,contentRect.Right,contentRect.Top+screenTopOffset-10,$FF1F2A3A);
   draw.Rect(contentRect.Left,contentRect.Top,contentRect.Right,contentRect.Top+screenTopOffset-10,$FF3D5067);
-  txt.Write(titleFont,contentRect.Left+14,contentRect.Top+20,$FFEAF2FC,title,taLeft,toAddBaseline);
-  txt.Write(hintFont,contentRect.Left+14,contentRect.Top+42,$FFA8BDD5,subtitle,taLeft,toAddBaseline);
+  txt.Write(titleFont,contentRect.Left+14,contentRect.Top+16,$FFEAF2FC,title,taLeft,toAddBaseline);
+  txt.Write(hintFont,contentRect.Left+14,contentRect.Top+44,$FFA8BDD5,subtitle,taLeft,toAddBaseline);
 end;
 
 procedure TMainScene.DrawTag(x,y:integer;const st:string;color:cardinal=$FFE6EEF8);
@@ -485,6 +485,16 @@ begin
     byte(Bits.HasAll(window.mouseButtons,mbLeft)),byte(Bits.HasAll(window.mouseButtons,mbRight)),
     byte(Bits.HasAll(window.mouseButtons,mbMiddle))]);
   txt.Write(bodyFont,a.Left+20,y+8,$FFF3D39C,st,taLeft,toAddBaseline);
+  st:=Format('Mods: LS=%d RS=%d LC=%d RC=%d LA=%d RA=%d LW=%d RW=%d',
+    [byte(Bits.HasAll(window.shiftState,sscShift) and not Bits.HasAll(window.shiftState,sscRShift)),
+     byte(Bits.HasAll(window.shiftState,sscRShift)),
+     byte(Bits.HasAll(window.shiftState,sscCtrl) and not Bits.HasAll(window.shiftState,sscRCtrl)),
+     byte(Bits.HasAll(window.shiftState,sscRCtrl)),
+     byte(Bits.HasAll(window.shiftState,sscAlt) and not Bits.HasAll(window.shiftState,sscRAlt)),
+     byte(Bits.HasAll(window.shiftState,sscRAlt)),
+     byte(Bits.HasAll(window.shiftState,sscWin) and not Bits.HasAll(window.shiftState,sscRWin)),
+     byte(Bits.HasAll(window.shiftState,sscRWin))]);
+  txt.Write(bodyFont,a.Left+20,y+28,$FFF3D39C,st,taLeft,toAddBaseline);
 
   DrawTag(b.Left+20,b.Top+24,'Input Summary');
   pClient:=Point(window.mouseX,window.mouseY);

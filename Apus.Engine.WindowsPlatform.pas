@@ -159,6 +159,8 @@ end;
 function WindowProc(Window:HWnd;Message:cardinal;WParam:UIntPtr;LParam:IntPtr):LongInt; stdcall;
 var
  i,charCode,scanCode,keyCode:integer;
+ isExtended:boolean;
+ vkCode:cardinal;
 begin
  try
  result:=0;
@@ -195,15 +197,39 @@ begin
   end;
 
   WM_KEYDOWN,WM_SYSKEYDOWN:begin
-    // wParam = Virtual Code; lParam[23..16] = Scancode
-    scancode:=(lParam shr 16) and $FF;
-    keyCode:=TKey.FromWindowsVK(cardinal(wParam)).Code;
+    // wParam = Virtual Code; lParam[23..16] = scan; lParam[24] = extended key flag
+    scanCode:=(lParam shr 16) and $FF;
+    isExtended:=Bits.HasAll(cardinal(lParam shr 24),1);
+    vkCode:=wParam and $FFFF;
+    if vkCode=VK_SHIFT then
+      vkCode:=MapVirtualKey(scanCode,MAPVK_VSC_TO_VK_EX)
+    else
+    if vkCode=VK_CONTROL then begin
+      if isExtended then vkCode:=VK_RCONTROL else vkCode:=VK_LCONTROL;
+    end else
+    if vkCode=VK_MENU then begin
+      if isExtended then vkCode:=VK_RMENU else vkCode:=VK_LMENU;
+    end;
+    if isExtended then scanCode:=scanCode or $80;
+    keyCode:=TKey.FromWindowsVK(vkCode).Code;
     Signal('KBD\KEYDOWN',keyCode+scancode shl 16);
   end;
 
   WM_KEYUP,WM_SYSKEYUP:begin
-    scancode:=(lParam shr 16) and $FF;
-    keyCode:=TKey.FromWindowsVK(cardinal(wParam)).Code;
+    scanCode:=(lParam shr 16) and $FF;
+    isExtended:=Bits.HasAll(cardinal(lParam shr 24),1);
+    vkCode:=wParam and $FFFF;
+    if vkCode=VK_SHIFT then
+      vkCode:=MapVirtualKey(scanCode,MAPVK_VSC_TO_VK_EX)
+    else
+    if vkCode=VK_CONTROL then begin
+      if isExtended then vkCode:=VK_RCONTROL else vkCode:=VK_LCONTROL;
+    end else
+    if vkCode=VK_MENU then begin
+      if isExtended then vkCode:=VK_RMENU else vkCode:=VK_LMENU;
+    end;
+    if isExtended then scanCode:=scanCode or $80;
+    keyCode:=TKey.FromWindowsVK(vkCode).Code;
     Signal('KBD\KEYUP',keyCode+scancode shl 16);
     if message=WM_SYSKEYUP then exit(0);
   end;
@@ -392,11 +418,15 @@ procedure TWindowsPlatform.GetRealScreenSize(out width,height:integer);
 function TWindowsPlatform.GetShiftKeysState: cardinal;
  begin
   result:=0;
-  if GetAsyncKeyState(VK_SHIFT)<0 then inc(result,sscShift);
-  if GetAsyncKeyState(VK_CONTROL)<0 then inc(result,sscCtrl);
-  if GetAsyncKeyState(VK_MENU)<0 then inc(result,sscAlt);
-  if (GetAsyncKeyState(VK_LWIN)<0) or
-     (GetAsyncKeyState(VK_RWIN)<0) then inc(result,sscWin);
+  if (GetAsyncKeyState(VK_LSHIFT)<0) or (GetAsyncKeyState(VK_RSHIFT)<0) then result:=result or sscShift;
+  if (GetAsyncKeyState(VK_LCONTROL)<0) or (GetAsyncKeyState(VK_RCONTROL)<0) then result:=result or sscCtrl;
+  if (GetAsyncKeyState(VK_LMENU)<0) or (GetAsyncKeyState(VK_RMENU)<0) then result:=result or sscAlt;
+  if (GetAsyncKeyState(VK_LWIN)<0) or (GetAsyncKeyState(VK_RWIN)<0) then result:=result or sscWin;
+
+  if GetAsyncKeyState(VK_RSHIFT)<0 then result:=result or sscRShift;
+  if GetAsyncKeyState(VK_RCONTROL)<0 then result:=result or sscRCtrl;
+  if GetAsyncKeyState(VK_RMENU)<0 then result:=result or sscRAlt;
+  if GetAsyncKeyState(VK_RWIN)<0 then result:=result or sscRWin;
  end;
 
 function TWindowsPlatform.GetMouseButtons: cardinal;

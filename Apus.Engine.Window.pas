@@ -80,7 +80,7 @@ public
   mouseMovedTime:int64; // when mouse position last changed
   mouseButtons:byte; // button flags (bit 0=left, 1=right, 2=middle)
   oldMouseButtons:byte; // previous button state
-  shiftState:byte; // shift keys (1=shift, 2=ctrl, 4=alt, 8=win)
+  shiftState:byte; // shift keys: aggregate (sscBaseMask) + right-side bits (sscRightMask)
   // bit 0 - pressed, bit 1 - was pressed last frame (01=just pressed, 10=just released)
   keyState:array[0..255] of byte; // indexed by scancode
 

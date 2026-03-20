@@ -128,6 +128,13 @@ const
  sscCtrl  = 2;
  sscAlt   = 4;
  sscWin   = 8;
+ sscBaseMask=$0F; // aggregate modifier bits
+ // Detailed right-side bits. Left state is derived: (aggregate bit set) and (right bit clear)
+ sscRShift=$10;
+ sscRCtrl =$20;
+ sscRAlt  =$40;
+ sscRWin  =$80;
+ sscRightMask=$F0;
 
  // Mouse buttons
  mbLeft   = 1;

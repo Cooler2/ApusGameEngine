@@ -1064,24 +1064,24 @@ function TUIEditBox.GetText:String8;
     end;
 
     // Ctrl+C = Copy
-    if (keycode=ord('C')) and (shiftState=sscCtrl) and (selcount>0) then clipCopy;
+    if (keycode=ord('C')) and (shiftState and sscBaseMask=sscCtrl) and (selcount>0) then clipCopy;
     // Ctrl+X = Cut
-    if (keycode=ord('X')) and (shiftState=sscCtrl) and (selcount>0) then clipCopy(true);
+    if (keycode=ord('X')) and (shiftState and sscBaseMask=sscCtrl) and (selcount>0) then clipCopy(true);
     // Ctrl+V = Paste
-    if (keycode=ord('V')) and (shiftState=sscCtrl) then
+    if (keycode=ord('V')) and (shiftState and sscBaseMask=sscCtrl) then
      clipPaste;
     // Ctrl+A: Select all
-    if (keycode=ord('A')) and (shiftState=sscCtrl) then
+    if (keycode=ord('A')) and (shiftState and sscBaseMask=sscCtrl) then
      SelectAll;
 
     // Ctrl+Z or Alt+BkSp - undo
-    if ((keycode=ord('Z')) and (shiftState=sscCtrl)) or
-       ((TKey(keycode)=TKey.Backspace) and (shiftState=sscAlt)) then begin
+    if ((keycode=ord('Z')) and (shiftState and sscBaseMask=sscCtrl)) or
+       ((TKey(keycode)=TKey.Backspace) and (shiftState and sscBaseMask=sscAlt)) then begin
      realText:=savedText;
     end;
 
     if TKey(keycode)=TKey.Insert then begin // ins
-     if (selcount>0) and (shiftstate=sscCtrl) then clipCopy;
+     if (selcount>0) and (shiftstate and sscBaseMask=sscCtrl) then clipCopy;
      if shiftstate and sscShift>0 then clipPaste;
     end;
     if TKey(keycode)=TKey.Delete then begin // del

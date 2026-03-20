@@ -505,7 +505,7 @@ begin
   if suppressCharEvent then begin
    suppressCharEvent:=false; exit;
   end;
-  if window.shiftstate=sscCtrl then exit; // Ignore Ctrl+*
+  if window.shiftstate and sscBaseMask=sscCtrl then exit; // Ignore Ctrl+*
 
   // Send to active scene
   scene:=TopmostSceneForKbd;
