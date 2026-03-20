@@ -23,12 +23,13 @@ uses
   SysUtils,
   Types,
   Math,
-  StrUtils,
   Apus.Core,
+  Apus.Conv,
+  Apus.Strings,
   Apus.EventMan,
   Apus.Engine.Keys,
   Apus.Engine.Types,
-  Apus.Engine.UI;
+  Apus.Engine.Scene;
 
 type
   TInputLogEntry=record
@@ -43,10 +44,11 @@ type
     buttons:byte;
   end;
 
-  TMainScene=class(TUIScene)
+  TMainScene=class(TGameScene)
     titleFont,menuFont,hintFont,bodyFont:TFontHandle;
     currentScreen:integer;
     startTicks:int64;
+    textTopOpt,textBlockOpt:cardinal;
 
     layoutScale:single;
     menuWidth,menuTop,menuItemHeight,contentPadding,screenTopOffset:integer;
@@ -102,6 +104,7 @@ type
     procedure DrawHighRateTrace(const contentRect:TRect);
     procedure DrawPollingVsEvents(const contentRect:TRect);
     procedure DrawStress(const contentRect:TRect);
+    function GetArea:TRect; override;
   end;
 
 const
@@ -149,7 +152,7 @@ end;
 
 function SafeScan(tag:TTag):integer;
 begin
-  result:=(cardinal(tag) shr 24) and $FF;
+  result:=Bits.GetByte(cardinal(tag),3);
 end;
 
 procedure InputEventHandler(event:TEventStr;tag:TTag);
@@ -164,28 +167,28 @@ begin
 
   if EventOfClass(event,'MOUSE',sub) then begin
     if sub='MOVE' then begin
-      x:=SmallInt(tag and $FFFF);
-      y:=SmallInt((tag shr 16) and $FFFF);
+      x:=SmallInt(Bits.GetWord(cardinal(tag),0));
+      y:=SmallInt(Bits.GetWord(cardinal(tag),1));
       sceneMain.PushRawSample(x,y,window.mouseButtons,t);
       inc(sceneMain.moveEventsTotal);
       inc(sceneMain.secMoveEvents);
       exit;
     end;
-    if StartsText('BTNDOWN',sub) then begin
+    if sub.IndexOf('BTNDOWN')=1 then begin
       inc(sceneMain.btnDownEvents);
-      sceneMain.PushLog('MB_DOWN','btn='+IntToStr(tag));
+      sceneMain.PushLog('MB_DOWN','btn='+Conv.ToStr(tag));
       exit;
     end;
-    if StartsText('BTNUP',sub) then begin
+    if sub.IndexOf('BTNUP')=1 then begin
       inc(sceneMain.btnUpEvents);
-      sceneMain.PushLog('MB_UP','btn='+IntToStr(tag));
+      sceneMain.PushLog('MB_UP','btn='+Conv.ToStr(tag));
       exit;
     end;
   end;
 
   if EventOfClass(event,'SCENE\MAIN',sub) then begin
     if sub='KEYDOWN' then begin
-      keyCode:=tag and $FFFF;
+      keyCode:=Bits.GetWord(cardinal(tag),0);
       scan:=SafeScan(tag);
       inc(sceneMain.keyDownEvents);
       inc(sceneMain.secKeyEvents);
@@ -208,7 +211,7 @@ begin
     if sub='KEYUP' then begin
       scan:=SafeScan(tag);
       inc(sceneMain.keyUpEvents);
-      info:=Format('key=%d scan=%d',[tag and $FFFF,scan]);
+      info:=Format('key=%d scan=%d',[Bits.GetWord(cardinal(tag),0),scan]);
       sceneMain.PushLog('KU',info);
       exit;
     end;
@@ -238,7 +241,7 @@ end;
 procedure TMainApp.CreateScenes;
 begin
   inherited;
-  sceneMain:=TMainScene.Create('Main');
+  sceneMain:=TMainScene.Create('Main',true,window);
   game.SwitchToScene('Main');
 end;
 
@@ -249,6 +252,8 @@ begin
   lastDPI:=0;
   currentScreen:=0;
   traceMode:=3;
+  textTopOpt:=toAddBaseline;
+  textBlockOpt:=toDontTranslate or toWithShadow;
   UpdateMetrics;
   RebuildFonts;
   SetEventHandler('MOUSE\',InputEventHandler,emInstant);
@@ -380,9 +385,9 @@ begin
   repeat
     key:=ReadKey;
     if key=0 then break;
-    ansi:=key and $FF;
-    scan:=(key shr 8) and $FF;
-    uCode:=(key shr 16) and $FFFF;
+    ansi:=Bits.GetByte(key,0);
+    scan:=Bits.GetByte(key,1);
+    uCode:=Bits.GetWord(key,1);
     inc(charEvents);
     inc(secCharEvents);
     PushLog('CHAR',Format('ansi=%d scan=%d uni=%d',[ansi,scan,uCode]));
@@ -391,6 +396,11 @@ begin
   for i:=0 to high(TRACKED_SCANS) do
     if IsKeyPressed(TRACKED_SCANS[i]) then
       inc(pollingKeyPressCnt[i]);
+end;
+
+function TMainScene.GetArea:TRect;
+begin
+  result:=Rect(0,0,window.renderWidth,window.renderHeight);
 end;
 
 procedure TMainScene.DrawMenu(const menuRect:TRect);
@@ -430,7 +440,7 @@ begin
 
     draw.FillRRect(r.Left,r.Top,r.Right,r.Bottom,bg,8);
     draw.RRect(r.Left,r.Top,r.Right,r.Bottom,1,8,border);
-    txt.Write(menuFont,r.Left+12,r.Top+18,txtCol,IntToStr(i+1)+'. '+SCREEN_TITLES[i],taLeft,toAddBaseline);
+    txt.Write(menuFont,r.Left+12,r.Top+18,txtCol,Conv.ToStr(i+1)+'. '+SCREEN_TITLES[i],taLeft,integer(textTopOpt));
   end;
 end;
 
@@ -575,25 +585,25 @@ begin
   st:=Format('Btn events: down=%d up=%d',[btnDownEvents,btnUpEvents]);
   txt.Write(bodyFont,a.Left+20,a.Top+360,$FFE5EDF7,st,taLeft,toAddBaseline);
   txt.Write(bodyFont,a.Left+20,a.Top+380,$FFE5EDF7,
-    Format('Mouse buttons mask: %d old=%d',[window.mouseButtons,window.oldMouseButtons]),taLeft,toAddBaseline);
+    Format('Mouse buttons mask: %d old=%d',[window.mouseButtons,window.oldMouseButtons]),taLeft,integer(textTopOpt));
   txt.Write(bodyFont,a.Left+20,a.Top+400,$FFE5EDF7,
     Format('L=%d R=%d M=%d X1=%d X2=%d',
-      [byte(window.mouseButtons and 1<>0),byte(window.mouseButtons and 2<>0),
-       byte(window.mouseButtons and 4<>0),byte(window.mouseButtons and 8<>0),
-       byte(window.mouseButtons and 16<>0)]),taLeft,toAddBaseline);
+      [byte(Bits.HasAll(window.mouseButtons,1)),byte(Bits.HasAll(window.mouseButtons,2)),
+       byte(Bits.HasAll(window.mouseButtons,4)),byte(Bits.HasAll(window.mouseButtons,8)),
+       byte(Bits.HasAll(window.mouseButtons,16))]),taLeft,integer(textTopOpt));
   pClient:=Point(window.mouseX,window.mouseY);
   game.GameToClient(pClient);
   pScreen:=pClient;
   window.ClientToScreen(pScreen);
   txt.Write(bodyFont,a.Left+20,a.Top+428,$FFF3D39C,
     Format('Pos game=(%d,%d) client=(%d,%d) screen=(%d,%d)',
-      [window.mouseX,window.mouseY,pClient.X,pClient.Y,pScreen.X,pScreen.Y]),taLeft,toAddBaseline);
+      [window.mouseX,window.mouseY,pClient.X,pClient.Y,pScreen.X,pScreen.Y]),taLeft,integer(textTopOpt));
 
   DrawTag(b.Left+20,b.Top+24,'Recent Raw Mouse Samples');
   txt.Write(bodyFont,b.Left+20,b.Top+52,$FFE5EDF7,
-    Format('Raw samples: %d  move events total: %d',[rawCount,moveEventsTotal]),taLeft,toAddBaseline);
+    Format('Raw samples: %d  move events total: %d',[rawCount,moveEventsTotal]),taLeft,integer(textTopOpt));
   txt.Write(bodyFont,b.Left+20,b.Top+72,$FFE5EDF7,
-    'Fields: [time] [x,y] [buttons]',taLeft,toAddBaseline);
+    'Fields: [time] [x,y] [buttons]',taLeft,integer(textTopOpt));
 
   st:='';
   if rawCount>0 then begin
@@ -603,12 +613,12 @@ begin
       rawSamples[(rawHead-1+Length(rawSamples)) mod Length(rawSamples)].y,
       rawSamples[(rawHead-1+Length(rawSamples)) mod Length(rawSamples)].buttons]);
   end;
-  txt.Write(bodyFont,b.Left+20,b.Top+92,$FFF3D39C,st,taLeft,toAddBaseline);
+  txt.Write(bodyFont,b.Left+20,b.Top+92,$FFF3D39C,st,taLeft,integer(textTopOpt));
 
   st:=Format('rates: move=%.1f/s, samples/frame=%d (max=%d)',[rateMove,rawPerFrame,maxRawPerFrame]);
-  txt.Write(bodyFont,b.Left+20,b.Top+112,$FFD8E7F8,st,taLeft,toAddBaseline);
+  txt.Write(bodyFont,b.Left+20,b.Top+112,$FFD8E7F8,st,taLeft,integer(textTopOpt));
   txt.Write(bodyFont,b.Left+20,b.Top+140,$FF9BB0C8,
-    'Note: X1/X2 require platform support for WM_XBUTTON* (Windows) or SDL buttons 4/5.',taLeft,toAddBaseline);
+    'Note: X1/X2 require platform support for WM_XBUTTON* (Windows) or SDL buttons 4/5.',taLeft,integer(textTopOpt));
 end;
 
 procedure TMainScene.DrawHighRateTrace(const contentRect:TRect);
@@ -722,12 +732,12 @@ begin
 
     st:=Format('%-6s poll=%d  event=%d  delta=%d',
       [TRACKED_NAMES[i],pollingKeyPressCnt[i],eventKeyDownCnt[i],pollingKeyPressCnt[i]-eventKeyDownCnt[i]]);
-    txt.Write(bodyFont,r.Left+20,y,col,st,taLeft,toAddBaseline);
+    txt.Write(bodyFont,r.Left+20,y,col,st,taLeft,integer(textTopOpt));
     inc(y,20);
   end;
 
   txt.Write(bodyFont,r.Left+20,r.Bottom-26,$FF9BB0C8,
-    'green=close, yellow=moderate mismatch, red=large mismatch',taLeft,toAddBaseline);
+    'green=close, yellow=moderate mismatch, red=large mismatch',taLeft,integer(textTopOpt));
 end;
 
 procedure TMainScene.DrawStress(const contentRect:TRect);
@@ -741,10 +751,10 @@ begin
 
   st:=Format('moveEvents=%d keyDown=%d keyUp=%d char=%d rawSamples=%d logs=%d',
     [moveEventsTotal,keyDownEvents,keyUpEvents,charEvents,rawCount,logCount]);
-  txt.Write(bodyFont,r.Left+20,r.Top+56,$FFE5EDF7,st,taLeft,toAddBaseline);
+  txt.Write(bodyFont,r.Left+20,r.Top+56,$FFE5EDF7,st,taLeft,integer(textTopOpt));
   txt.Write(bodyFont,r.Left+20,r.Top+76,$FFE5EDF7,
     Format('rateMove=%.1f rateKey=%.1f rateChar=%.1f raw/frame now=%d max=%d',
-      [rateMove,rateKey,rateChar,rawPerFrame,maxRawPerFrame]),taLeft,toAddBaseline);
+      [rateMove,rateKey,rateChar,rawPerFrame,maxRawPerFrame]),taLeft,integer(textTopOpt));
 
   draw.FillRect(r.Left+20,r.Top+120,r.Right-20,r.Bottom-24,$30233A53);
   DrawTag(r.Left+24,r.Top+136,'Usage');
@@ -780,7 +790,7 @@ begin
   contentRect:=Rect(menuWidth+contentPadding,contentPadding,
     window.renderWidth-contentPadding-1,window.renderHeight-contentPadding-1);
 
-  txt.BeginBlock(toDontTranslate or toWithShadow);
+  txt.BeginBlock(textBlockOpt);
   try
     DrawMenu(menuRect);
     DrawScreenTitle(contentRect,SCREEN_TITLES[currentScreen],SCREEN_HINTS[currentScreen]);
