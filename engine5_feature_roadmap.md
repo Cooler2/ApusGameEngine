@@ -26,7 +26,7 @@ This file follows top-down planning:
 | R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~85% | Working state reached and merged into `engine5`; core geometry/spatial rollout baseline is active | Linux fixes/validation, benchmark pass, SSE optimization of top hot paths, bugfix+tests loop, remaining module migration (including SDL paths) |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | idea | 0% | — | Performance-safe hit-test algorithm, traversal strategy |
 | R-09 | GL Performance Modernization | idea | 0% | — | Bind-call reduction, explicit batch paths, persistent mapping |
-| R-10 | UI Widget System Refactor | in progress | ~60% | TUIElement slimmed: hint* → attributes, scrollers → TUIScrollable, tag/customPtr/linkedValue removed, fields reordered, methods grouped, HasChild/HasParent strict | Widget comments EN, TUIFlexControl removal, noBorder removal, onClick/onClickEvent review |
+| R-10 | UI Widget System Refactor | in progress | ~80% | TUIElement slimmed, TUIShape unified, TUIToggleButton extracted (TButtonStyle removed), onClick/onClickAsync split, TUISkinnedWindow merged, ScrollBar orientation explicit, widget docs EN, dead code removed | noBorder removal, ListBox color fields → R-05, BeginChildren/EndChildren pattern |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
 | R-14 | UI Widget Expansion | idea | 0% | — | New widget types, module split strategy |
@@ -404,8 +404,8 @@ Use this section for anything remembered on the fly.
 - Acceptance Criteria:
   - [x] At least 2-3 decomposition variants for `TUIElement` are documented with trade-offs.
   - [x] One selected decomposition approach is implemented in engine code with preserved baseline UI behavior on representative screens.
-  - [ ] Widget class review is completed, with concrete reorganization actions implemented (or explicitly deferred with rationale).
-  - [ ] Follow-up backlog for widget/layout expansion and test coverage is created and prioritized.
+  - [x] Widget class review is completed, with concrete reorganization actions implemented (or explicitly deferred with rationale).
+  - [x] Follow-up backlog for widget/layout expansion and test coverage is created and prioritized.
 - Notes:
   - 2026-03-08: implementation stages and execution plan documented in `reports/R-10_ui_widget_refactor_plan.md`.
   - 2026-03-08: decomposition research report documented in `reports/R-10_tuielement_decomposition_report_2026-03-08.md`.
@@ -436,6 +436,19 @@ Use this section for anything remembered on the fly.
     - `TUIEditBox.noBorder` — deprecated field; to remove;
     - `onClick:TProcedure` vs `onClickEvent:String8` in TUIButton — design question open;
     - ListBox color fields (`bgColor` etc.) — R-05 target (style pipeline).
+  - 2026-03-20: widget refactor wave 2 (branch feature/r-05):
+    - `TUIShape` unified: `TElementShape` enum + `shapeRegion` field replaced by single `TUIShape` type;
+    - `TUIFlexControl` removed (dead class, no descendants);
+    - `onClick` threading hack replaced with explicit `onClick:TProcedure` (main thread) + `onClickAsync:TProcedure` (any thread);
+    - `TUIToggleButton` extracted: toggle/switch/radio logic moved out of `TUIButton`; `TButtonStyle` enum and `group` field removed from `TUIButton`; `TUICheckBox`/`TUIRadioButton` now inherit from `TUIToggleButton`; plan in `reports/R-10b_switch_button_plan.md`;
+    - `TUISkinnedWindow` merged into `TUIWindow` (was empty subclass distinction);
+    - `TScrollBar` orientation made explicit via constructor parameter (was implicit from size);
+    - widget constructors standardized, UI constants renamed, dead code removed;
+    - widget interface comments fully translated to English;
+    - `BeginChildren`/`EndChildren` pattern analyzed and documented in `reports/ui_building_patterns.md` (thread-local parent stack; zero-variable UI tree construction); implementation deferred.
+  - Acceptance criteria status (2026-03-20):
+    - follow-up backlog captured in R-14 card (added 2026-03-20) ✓
+    - widget class review: substantially complete; open items deferred to R-05 (ListBox colors) or low-priority (`noBorder`).
   - Main scope (this task):
     - decomposition options study for `TUIElement`;
     - select best option and implement it;
@@ -529,24 +542,32 @@ type
     2. **TUISection** — collapsing/expanding section header; click toggles children visibility; arrow indicator
     3. **TUINumericField** — Blender-style combined display+input: shows value as text, fill bar behind it shows relative position in range; LMB drag changes value, click enters keyboard edit mode
     4. **TUITabControl** — tab strip + content area; switching tabs shows/hides child panels
-    5. **TUISpinner** — numeric EditBox with ▲▼ step buttons (fallback when NumericField is not enough)
-    6. **TUITreeView** — hierarchical list with expand/collapse nodes
-    7. **TUIColorPicker** — composite color selection control (own module due to complexity)
-    8. **TUIFileDialog** — modal dialog for file open/save (own module due to complexity)
+    5. **TUIMenu** — menu bar (top-level items) + popup/context menus (nested submenus, keyboard nav, auto-close on outside click)
+    6. **TUISpinner** — numeric EditBox with ▲▼ step buttons (fallback when NumericField is not enough)
+    7. **TUITreeView** — hierarchical list with expand/collapse nodes
+    8. **TUIColorPicker** — composite color selection control (own module due to complexity)
+    9. **TUIFileDialog** — modal dialog for file open/save (own module due to complexity)
+  - Label/button enhancements:
+    - **Icon support** — embed icons (texture region or glyph) alongside text in TUILabel, TUIButton, hints; layout: icon+text with configurable gap and alignment
+    - **Clickable labels** — TUILabel with optional link-style click behavior (already partially implemented; needs standardization)
+    - **Text copy** — Ctrl+C on a focused static label copies its text to clipboard; opt-in per element
   - Module organization strategy:
     - **UIWidgets.pas** — primitives that do not instantiate other widget types internally (Label, Button, Toggle, CheckBox, Radio, EditBox, ScrollBar, ProgressBar, NumericField, Splitter, Frame, Image)
-    - **UIComposite.pas** — medium-complexity composite widgets that own internal child widgets (ListBox, ComboBox, Window, GroupBox, Section, TabControl, Spinner, TreeView)
+    - **UIComposite.pas** — medium-complexity composite widgets that own internal child widgets (ListBox, ComboBox, Window, GroupBox, Section, TabControl, Spinner, TreeView, Menu)
     - **UIColorPicker.pas** — standalone module; complex, optional dependency
     - **UIFileDialog.pas** — standalone module; OS-tier complexity, optional dependency
     - `Apus.Engine.UI.pas` re-exports all three tiers so callers need no extra `uses`
-- Out of scope: animation/transition effects for Section; TreeView drag-drop; ColorPicker alpha editing in MVP; full OS-native FileDialog wrapper (custom UI dialog only).
-- Dependencies: `Apus.Engine.UIWidgets`, `Apus.Engine.UITypes`, `Apus.Engine.UILayout`, layout system (TGridLayout, TRowLayout), R-05 style pipeline for visual polish.
-- Risks: TUINumericField drag behavior may conflict with scroll/pan on touch targets; TreeView virtual-scroll for large datasets is a non-trivial follow-up; module split may require moving ListBox/ComboBox out of UIWidgets.pas (existing code churn).
+- Out of scope: animation/transition effects for Section; TreeView drag-drop; ColorPicker alpha editing in MVP; full OS-native FileDialog wrapper (custom UI dialog only); rich-text label with mixed fonts/colors (separate task).
+- Dependencies: `Apus.Engine.UIWidgets`, `Apus.Engine.UITypes`, `Apus.Engine.UILayout`, layout system (TGridLayout, TRowLayout), clipboard API, R-05 style pipeline for visual polish.
+- Risks: TUINumericField drag behavior may conflict with scroll/pan on touch targets; TreeView virtual-scroll for large datasets is a non-trivial follow-up; module split may require moving ListBox/ComboBox out of UIWidgets.pas (existing code churn); popup menu z-order and focus stealing need careful design.
 - Acceptance Criteria:
   - [ ] TUIProgressBar implemented and usable as a standalone display widget.
   - [ ] TUISection toggles child visibility with visual indicator.
   - [ ] TUINumericField supports drag-to-change and click-to-type for float/int values.
   - [ ] TUITabControl switches visible content panel via tab strip.
+  - [ ] TUIMenu supports at least one level of popup submenu and keyboard navigation.
+  - [ ] TUILabel and TUIButton accept an optional icon (texture region) rendered beside text.
+  - [ ] Ctrl+C on an opt-in static label copies caption text to clipboard.
   - [ ] UIComposite.pas introduced as a second widget module; UIWidgets.pas split along primitive/composite boundary.
   - [ ] UIColorPicker.pas added as optional standalone module.
   - [ ] All new widgets follow the `Create(w,h,parent,name).Setup(...).SetPos(...).SetAnchors(...)` construction pattern.
@@ -555,8 +576,12 @@ type
   - TUINumericField is the most strategically interesting widget: it would replace the custom sliders already in TweakScene and make parameter tweaking ergonomic without dedicated slider tracks.
   - TUIProgressBar priority raised above other widgets: simplest to implement, frequently needed (loading screens, health bars, progress indication).
   - Blender numeric field is the reference UX for TUINumericField: compact, precise, no wasted space.
+  - TUIMenu popup must handle z-order correctly (render above all other UI) and auto-dismiss on Escape or outside click.
+  - Icon support design question: icon as texture handle + source rect, or as glyph index from icon font? Both paths may be needed.
+  - Text copy from labels: needs focus model adjustment (static labels are currently not focusable).
   - Module split criterion: a widget is "composite" if it internally calls `Create` on another widget class. Primitives compose only via TUIElement children set by caller.
   - 2026-03-20: card created; widget list and module strategy drafted in planning discussion.
+  - 2026-03-20: added menus, icon support, clickable/copyable labels to scope.
 
 ## 6) Next Planning Session
 Prepare for the next discussion:
