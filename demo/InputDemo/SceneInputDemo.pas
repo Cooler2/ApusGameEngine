@@ -631,15 +631,15 @@ begin
   plotRect:=Rect(area.Left+20,area.Top+96,area.Right-20,area.Bottom-24);
   draw.FillRect(plotRect.Left,plotRect.Top,plotRect.Right,plotRect.Bottom,$FF1B2636);
   draw.RRect(plotRect.Left,plotRect.Top,plotRect.Right,plotRect.Bottom,1,8,$FF516883);
-  DrawTag(area.Left+24,area.Top+24,'High-Rate Mouse Trace');
+  DrawTag(area.Left+24,area.Top+14,'High-Rate Mouse Trace');
   case traceMode of
     1:modeName:='raw only (1)';
     2:modeName:='frame only (2)';
   else
     modeName:='raw + frame (3)';
   end;
-  txt.Write(bodyFont,area.Left+24,area.Top+46,$FFE5EDF7,'Mode '+modeName+'; press [1..3] to switch.',taLeft,toAddBaseline);
-  txt.Write(bodyFont,area.Left+24,area.Top+68,$FFE5EDF7,'Traces are drawn in absolute game coords; clipped by plot area.',taLeft,toAddBaseline);
+  txt.Write(bodyFont,area.Left+24,area.Top+46,$FFE5EDF7,'Mode '+modeName+'; press [1..3] to switch.');
+  txt.Write(bodyFont,area.Left+24,area.Top+68,$FFE5EDF7,'Traces are drawn in absolute game coords; clipped by plot area.');
 
   nowT:=NowSec;
   traceWindow:=2.5;
@@ -687,16 +687,16 @@ begin
     inc(frameCnt);
   end;
 
-  x1:=area.Left+24; y1:=area.Bottom-18;
+  x1:=area.Left+24; y1:=area.Bottom-10;
   x2:=x1+70; y2:=y1;
   draw.Line(x1,y1,x2,y2,$FF60E4FF);
-  txt.Write(bodyFont,round(x2+8),round(y1+2),$FFDCEEFE,'raw event samples',taLeft,toAddBaseline);
-  draw.Line(x1+210,y1,x1+280,y1,$FFFFD070);
-  txt.Write(bodyFont,round(x1+288),round(y1+2),$FFEFE4C0,'frame-latched path',taLeft,toAddBaseline);
+  txt.Write(bodyFont,round(x2+8),round(y1+4),$FFDCEEFE,'raw event samples');
+  draw.Line(x1+230,y1,x1+280,y1,$FFFFD070);
+  txt.Write(bodyFont,round(x1+288),round(y1+4),$FFEFE4C0,'frame-latched path');
 
   st:=Format('window=%.1fs rawSamples=%d frameSamples=%d rawRate=%.1f/s maxRawPerFrame=%d mode=%s',
     [traceWindow,sampleCnt,frameCnt,rateMove,maxRawPerFrame,modeName]);
-  txt.Write(bodyFont,area.Left+24,area.Top+86,$FFE5EDF7,st,taLeft,toAddBaseline);
+  txt.Write(bodyFont,area.Left+24,area.Top+86,$FFE5EDF7,st);
 end;
 
 procedure TMainScene.DrawPollingVsEvents(const contentRect:TRect);
@@ -794,7 +794,7 @@ begin
       5:DrawStress(contentRect);
     end;
 
-    txt.Write(hintFont,contentRect.Left+12,contentRect.Bottom-18,$FF9BB0C8,
+    txt.Write(hintFont,contentRect.Left+12,contentRect.Bottom-10,$FF9BB0C8,
       'Tip: switch screens with mouse or [F1..F6], trace mode [1..3] on High-Rate screen',taLeft,toAddBaseline);
   finally
     txt.EndBlock;
