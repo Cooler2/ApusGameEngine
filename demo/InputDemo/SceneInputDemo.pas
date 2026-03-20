@@ -22,7 +22,6 @@ implementation
 uses
   SysUtils,
   Types,
-  Math,
   Apus.Core,
   Apus.Conv,
   Apus.Strings,
@@ -47,7 +46,6 @@ type
   TMainScene=class(TGameScene)
     titleFont,menuFont,hintFont,bodyFont:TFontHandle;
     currentScreen:integer;
-    startTicks:int64;
     textTopOpt,textBlockOpt:cardinal;
 
     layoutScale:single;
@@ -65,12 +63,15 @@ type
 
     moveEventsTotal:integer;
     btnDownEvents,btnUpEvents:integer;
+    wheelEventsTotal:integer;
+    wheelDeltaTotal:integer;
+    lastWheelDelta:integer;
     keyDownEvents,keyUpEvents:integer;
     charEvents:integer;
 
     secWindowStart:double;
-    secMoveEvents,secKeyEvents,secCharEvents:integer;
-    rateMove,rateKey,rateChar:single;
+    secMoveEvents,secKeyEvents,secCharEvents,secWheelEvents:integer;
+    rateMove,rateKey,rateChar,rateWheel:single;
 
     lastFrameRawHead:integer;
     rawPerFrame:integer;
@@ -93,7 +94,6 @@ type
     procedure PushRawSample(x,y:integer;buttons:byte;t:double);
     procedure PushFrameSample(x,y:integer;buttons:byte;t:double);
 
-    function NowSec:double;
     procedure DrawMenu(const menuRect:TRect);
     procedure DrawScreenTitle(const contentRect:TRect; const title,subtitle:string);
     procedure DrawTag(x,y:integer;const st:string;color:cardinal=$FFE6EEF8);
@@ -143,13 +143,6 @@ begin
   result:=Bits.HasAll(window.mouseButtons,mbLeft) and not Bits.HasAll(window.oldMouseButtons,mbLeft);
 end;
 
-function ClampI(v,minV,maxV:integer):integer;
-begin
-  if v<minV then exit(minV);
-  if v>maxV then exit(maxV);
-  result:=v;
-end;
-
 function SafeScan(tag:TTag):integer;
 begin
   result:=Bits.GetByte(cardinal(tag),3);
@@ -163,7 +156,7 @@ var
   info:string;
 begin
   if sceneMain=nil then exit;
-  t:=sceneMain.NowSec;
+  t:=CoreTime.Ticks*0.001;
 
   if EventOfClass(event,'MOUSE',sub) then begin
     if sub='MOVE' then begin
@@ -184,6 +177,14 @@ begin
       sceneMain.PushLog('MB_UP','btn='+Conv.ToStr(tag));
       exit;
     end;
+    if sub='SCROLL' then begin
+      sceneMain.lastWheelDelta:=integer(tag);
+      sceneMain.wheelDeltaTotal:=sceneMain.wheelDeltaTotal+integer(tag);
+      inc(sceneMain.wheelEventsTotal);
+      inc(sceneMain.secWheelEvents);
+      sceneMain.PushLog('WHEEL',Format('delta=%d',[integer(tag)]));
+      exit;
+    end;
   end;
 
   if EventOfClass(event,'SCENE\MAIN',sub) then begin
@@ -194,18 +195,16 @@ begin
       inc(sceneMain.secKeyEvents);
       info:=Format('key=%d scan=%d',[keyCode,scan]);
       sceneMain.PushLog('KD',info);
-      if InRange(keyCode,ord(TKey.F1),ord(TKey.F6)) then
+      if (keyCode>=ord(TKey.F1)) and (keyCode<=ord(TKey.F6)) then
         sceneMain.currentScreen:=keyCode-ord(TKey.F1);
-      if InRange(scan,0,255) then begin
-        if scan=TRACKED_SCANS[0] then inc(sceneMain.eventKeyDownCnt[0]);
-        if scan=TRACKED_SCANS[1] then inc(sceneMain.eventKeyDownCnt[1]);
-        if scan=TRACKED_SCANS[2] then inc(sceneMain.eventKeyDownCnt[2]);
-        if scan=TRACKED_SCANS[3] then inc(sceneMain.eventKeyDownCnt[3]);
-        if scan=TRACKED_SCANS[4] then inc(sceneMain.eventKeyDownCnt[4]);
-        if scan=TRACKED_SCANS[5] then inc(sceneMain.eventKeyDownCnt[5]);
-        if scan=TRACKED_SCANS[6] then inc(sceneMain.eventKeyDownCnt[6]);
-        if scan=TRACKED_SCANS[7] then inc(sceneMain.eventKeyDownCnt[7]);
-      end;
+      if scan=TRACKED_SCANS[0] then inc(sceneMain.eventKeyDownCnt[0]);
+      if scan=TRACKED_SCANS[1] then inc(sceneMain.eventKeyDownCnt[1]);
+      if scan=TRACKED_SCANS[2] then inc(sceneMain.eventKeyDownCnt[2]);
+      if scan=TRACKED_SCANS[3] then inc(sceneMain.eventKeyDownCnt[3]);
+      if scan=TRACKED_SCANS[4] then inc(sceneMain.eventKeyDownCnt[4]);
+      if scan=TRACKED_SCANS[5] then inc(sceneMain.eventKeyDownCnt[5]);
+      if scan=TRACKED_SCANS[6] then inc(sceneMain.eventKeyDownCnt[6]);
+      if scan=TRACKED_SCANS[7] then inc(sceneMain.eventKeyDownCnt[7]);
       exit;
     end;
     if sub='KEYUP' then begin
@@ -247,7 +246,6 @@ end;
 
 procedure TMainScene.Load;
 begin
-  startTicks:=CoreTime.Ticks;
   secWindowStart:=0;
   lastDPI:=0;
   currentScreen:=0;
@@ -266,7 +264,7 @@ begin
   layoutScale:=window.screenDPI/96;
   if layoutScale<1 then layoutScale:=1;
   menuWidth:=MENU_WIDTH+round((layoutScale-1)*110);
-  menuWidth:=ClampI(menuWidth,340,window.renderWidth div 2);
+  menuWidth:=Clamp(menuWidth,340,window.renderWidth div 2);
   menuTop:=round(MENU_TOP*layoutScale);
   menuItemHeight:=round(MENU_ITEM_HEIGHT*layoutScale);
   contentPadding:=round(CONTENT_PADDING*layoutScale);
@@ -278,7 +276,8 @@ var
   fs:single;
   function F(baseSize:integer):integer;
   begin
-    result:=Math.Max(6,round(baseSize*fs));
+    result:=round(baseSize*fs);
+    if result<6 then result:=6;
   end;
 begin
   fs:=window.screenDPI/96;
@@ -289,17 +288,12 @@ begin
   bodyFont:=txt.GetFont('Default',F(8));
 end;
 
-function TMainScene.NowSec:double;
-begin
-  result:=(CoreTime.Ticks-startTicks)*0.001;
-end;
-
 procedure TMainScene.PushLog(const kind,info:string);
 var
   idx:integer;
 begin
   idx:=logHead;
-  logs[idx].t:=NowSec;
+  logs[idx].t:=CoreTime.Ticks*0.001;
   logs[idx].kind:=kind;
   logs[idx].info:=info;
   logHead:=(logHead+1) mod Length(logs);
@@ -350,7 +344,7 @@ begin
   if LMBClicked and (window.mouseX>=0) and (window.mouseX<menuWidth) and
      (window.mouseY>=menuTop) then begin
     item:=(window.mouseY-menuTop) div menuItemHeight;
-    if InRange(item,0,SCREEN_COUNT-1) then
+    if (item>=0) and (item<SCREEN_COUNT) then
       currentScreen:=item;
   end;
 end;
@@ -364,15 +358,17 @@ begin
   lastFrameRawHead:=rawHead;
   if rawPerFrame>maxRawPerFrame then maxRawPerFrame:=rawPerFrame;
 
-  nowT:=NowSec;
+  nowT:=CoreTime.Ticks*0.001;
   if nowT-secWindowStart>=1.0 then begin
     rateMove:=secMoveEvents/(nowT-secWindowStart);
     rateKey:=secKeyEvents/(nowT-secWindowStart);
     rateChar:=secCharEvents/(nowT-secWindowStart);
+    rateWheel:=secWheelEvents/(nowT-secWindowStart);
     secWindowStart:=nowT;
     secMoveEvents:=0;
     secKeyEvents:=0;
     secCharEvents:=0;
+    secWheelEvents:=0;
   end;
 end;
 
@@ -504,9 +500,11 @@ begin
   txt.Write(bodyFont,b.Left+20,b.Top+122,$FFE5EDF7,
     Format('Window: %dx%d render=%dx%d',[window.windowWidth,window.windowHeight,window.renderWidth,window.renderHeight]),taLeft,toAddBaseline);
   txt.Write(bodyFont,b.Left+20,b.Top+152,$FFE5EDF7,
-    Format('Events total: move=%d keyDown=%d keyUp=%d char=%d',[moveEventsTotal,keyDownEvents,keyUpEvents,charEvents]),taLeft,toAddBaseline);
+    Format('Events total: move=%d wheel=%d keyDown=%d keyUp=%d char=%d',
+      [moveEventsTotal,wheelEventsTotal,keyDownEvents,keyUpEvents,charEvents]),taLeft,toAddBaseline);
   txt.Write(bodyFont,b.Left+20,b.Top+172,$FFE5EDF7,
-    Format('Rates (/sec): move=%.1f key=%.1f char=%.1f',[rateMove,rateKey,rateChar]),taLeft,toAddBaseline);
+    Format('Rates (/sec): move=%.1f wheel=%.1f key=%.1f char=%.1f',
+      [rateMove,rateWheel,rateKey,rateChar]),taLeft,toAddBaseline);
   txt.Write(bodyFont,b.Left+20,b.Top+192,$FFE5EDF7,
     Format('Samples/frame: now=%d max=%d',[rawPerFrame,maxRawPerFrame]),taLeft,toAddBaseline);
   txt.Write(bodyFont,b.Left+20,b.Top+222,$FFF3D39C,
@@ -585,8 +583,11 @@ begin
   st:=Format('Btn events: down=%d up=%d',[btnDownEvents,btnUpEvents]);
   txt.Write(bodyFont,a.Left+20,a.Top+360,$FFE5EDF7,st,taLeft,toAddBaseline);
   txt.Write(bodyFont,a.Left+20,a.Top+380,$FFE5EDF7,
-    Format('Mouse buttons mask: %d old=%d',[window.mouseButtons,window.oldMouseButtons]),taLeft,integer(textTopOpt));
+    Format('Wheel: lastDelta=%d events=%d totalDelta=%d rate=%.1f/s',
+      [lastWheelDelta,wheelEventsTotal,wheelDeltaTotal,rateWheel]),taLeft,integer(textTopOpt));
   txt.Write(bodyFont,a.Left+20,a.Top+400,$FFE5EDF7,
+    Format('Mouse buttons mask: %d old=%d',[window.mouseButtons,window.oldMouseButtons]),taLeft,integer(textTopOpt));
+  txt.Write(bodyFont,a.Left+20,a.Top+420,$FFE5EDF7,
     Format('L=%d R=%d M=%d X1=%d X2=%d',
       [byte(Bits.HasAll(window.mouseButtons,1)),byte(Bits.HasAll(window.mouseButtons,2)),
        byte(Bits.HasAll(window.mouseButtons,4)),byte(Bits.HasAll(window.mouseButtons,8)),
@@ -595,7 +596,7 @@ begin
   game.GameToClient(pClient);
   pScreen:=pClient;
   window.ClientToScreen(pScreen);
-  txt.Write(bodyFont,a.Left+20,a.Top+428,$FFF3D39C,
+  txt.Write(bodyFont,a.Left+20,a.Top+448,$FFF3D39C,
     Format('Pos game=(%d,%d) client=(%d,%d) screen=(%d,%d)',
       [window.mouseX,window.mouseY,pClient.X,pClient.Y,pScreen.X,pScreen.Y]),taLeft,integer(textTopOpt));
 
@@ -618,7 +619,7 @@ begin
   st:=Format('rates: move=%.1f/s, samples/frame=%d (max=%d)',[rateMove,rawPerFrame,maxRawPerFrame]);
   txt.Write(bodyFont,b.Left+20,b.Top+112,$FFD8E7F8,st,taLeft,integer(textTopOpt));
   txt.Write(bodyFont,b.Left+20,b.Top+140,$FF9BB0C8,
-    'Note: X1/X2 require platform support for WM_XBUTTON* (Windows) or SDL buttons 4/5.',taLeft,integer(textTopOpt));
+    'Note: X1/X2 require platform support for'#13#10' WM_XBUTTON* (Windows) or SDL buttons 4/5.',taLeft,integer(textTopOpt));
 end;
 
 procedure TMainScene.DrawHighRateTrace(const contentRect:TRect);
@@ -651,7 +652,7 @@ begin
   txt.Write(bodyFont,area.Left+24,area.Top+46,$FFE5EDF7,'Mode '+modeName+'; press [1..3] to switch.');
   txt.Write(bodyFont,area.Left+24,area.Top+68,$FFE5EDF7,'Traces are drawn in absolute game coords; clipped by plot area.');
 
-  nowT:=NowSec;
+  nowT:=CoreTime.Ticks*0.001;
   traceWindow:=2.5;
   fromT:=nowT-traceWindow;
   prevX:=0;
@@ -753,15 +754,19 @@ begin
     [moveEventsTotal,keyDownEvents,keyUpEvents,charEvents,rawCount,logCount]);
   txt.Write(bodyFont,r.Left+20,r.Top+56,$FFE5EDF7,st,taLeft,integer(textTopOpt));
   txt.Write(bodyFont,r.Left+20,r.Top+76,$FFE5EDF7,
+    Format('wheelEvents=%d lastWheel=%d wheelTotal=%d rateWheel=%.1f/s',
+      [wheelEventsTotal,lastWheelDelta,wheelDeltaTotal,rateWheel]),taLeft,integer(textTopOpt));
+  txt.Write(bodyFont,r.Left+20,r.Top+96,$FFE5EDF7,
     Format('rateMove=%.1f rateKey=%.1f rateChar=%.1f raw/frame now=%d max=%d',
       [rateMove,rateKey,rateChar,rawPerFrame,maxRawPerFrame]),taLeft,integer(textTopOpt));
 
-  draw.FillRect(r.Left+20,r.Top+120,r.Right-20,r.Bottom-24,$30233A53);
-  DrawTag(r.Left+24,r.Top+136,'Usage');
-  txt.Write(bodyFont,r.Left+24,r.Top+162,$FFD8E7F8,'1) Move mouse in circles: check High-Rate Trace raw continuity',taLeft,toAddBaseline);
-  txt.Write(bodyFont,r.Left+24,r.Top+182,$FFD8E7F8,'2) Hold/release keys rapidly: compare Polling vs Events',taLeft,toAddBaseline);
-  txt.Write(bodyFont,r.Left+24,r.Top+202,$FFD8E7F8,'3) Click/drag in Mouse Deep zones: verify button transitions',taLeft,toAddBaseline);
-  txt.Write(bodyFont,r.Left+24,r.Top+222,$FFD8E7F8,'4) Keyboard Deep logs buffered ReadKey stream',taLeft,toAddBaseline);
+  draw.FillRect(r.Left+20,r.Top+132,r.Right-20,r.Bottom-24,$30233A53);
+  DrawTag(r.Left+24,r.Top+148,'Usage');
+  txt.Write(bodyFont,r.Left+24,r.Top+174,$FFD8E7F8,'1) Move mouse in circles: check High-Rate Trace raw continuity',taLeft,toAddBaseline);
+  txt.Write(bodyFont,r.Left+24,r.Top+194,$FFD8E7F8,'2) Scroll wheel up/down: verify WHEEL events and deltas',taLeft,toAddBaseline);
+  txt.Write(bodyFont,r.Left+24,r.Top+214,$FFD8E7F8,'3) Hold/release keys rapidly: compare Polling vs Events',taLeft,toAddBaseline);
+  txt.Write(bodyFont,r.Left+24,r.Top+234,$FFD8E7F8,'4) Click/drag in Mouse Deep zones: verify button transitions',taLeft,toAddBaseline);
+  txt.Write(bodyFont,r.Left+24,r.Top+254,$FFD8E7F8,'5) Keyboard Deep logs buffered ReadKey stream',taLeft,toAddBaseline);
 end;
 
 procedure TMainScene.Render;
@@ -781,7 +786,7 @@ begin
   ProcessInputBuffers;
   UpdateStats;
 
-  t:=NowSec;
+  t:=CoreTime.Ticks*0.001;
   PushFrameSample(window.mouseX,window.mouseY,window.mouseButtons,t);
 
   gfx.target.Clear($FF151C27);
