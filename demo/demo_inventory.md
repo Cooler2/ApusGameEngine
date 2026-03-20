@@ -18,6 +18,7 @@ Relevance categories:
 | `VertexBuffer` | Low-level mesh/vertex-buffer rendering, stress path for 3D draw pipeline. | `engine5` |
 | `Simple3D` | Basic 3D pipeline: meshes (`OBJ`), camera, transforms, textures. | `engine5` |
 | `Draw2D` | Full gallery of 2D primitive drawing (`Line/Polyline/Polygon/Rect/RRect/RoundRect/Fill*/Gradient/TexturedRect`) in a standalone modern demo. | `engine5` |
+| `InputDemo` | Input diagnostics in low-level style: overview, keyboard/mouse deep views, high-rate mouse trace, polling vs events, stress counters. | `engine5` |
 
 ## 2. UI and Gameplay Framework Demos
 

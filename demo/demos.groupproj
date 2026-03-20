@@ -24,6 +24,9 @@
         <Projects Include="Draw2D\Draw2D.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="InputDemo\InputDemo.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -95,14 +98,23 @@
     <Target Name="Draw2D:Make">
         <MSBuild Projects="Draw2D\Draw2D.dproj" Targets="Make"/>
     </Target>
+    <Target Name="InputDemo">
+        <MSBuild Projects="InputDemo\InputDemo.dproj"/>
+    </Target>
+    <Target Name="InputDemo:Clean">
+        <MSBuild Projects="InputDemo\InputDemo.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="InputDemo:Make">
+        <MSBuild Projects="InputDemo\InputDemo.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="SimpleDemo;scenes;Simple3D;VertexBuffer;MultiWindow;UIScaleDPI;Draw2D"/>
+        <CallTarget Targets="SimpleDemo;scenes;Simple3D;VertexBuffer;MultiWindow;UIScaleDPI;Draw2D;InputDemo"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="SimpleDemo:Clean;scenes:Clean;Simple3D:Clean;VertexBuffer:Clean;MultiWindow:Clean;UIScaleDPI:Clean;Draw2D:Clean"/>
+        <CallTarget Targets="SimpleDemo:Clean;scenes:Clean;Simple3D:Clean;VertexBuffer:Clean;MultiWindow:Clean;UIScaleDPI:Clean;Draw2D:Clean;InputDemo:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="SimpleDemo:Make;scenes:Make;Simple3D:Make;VertexBuffer:Make;MultiWindow:Make;UIScaleDPI:Make;Draw2D:Make"/>
+        <CallTarget Targets="SimpleDemo:Make;scenes:Make;Simple3D:Make;VertexBuffer:Make;MultiWindow:Make;UIScaleDPI:Make;Draw2D:Make;InputDemo:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

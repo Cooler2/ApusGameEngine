@@ -9,6 +9,10 @@ This file tracks active execution only:
 Large feature planning lives in `engine5_feature_roadmap.md`.
 
 ## Done (recent, high impact)
+- New standalone input diagnostics demo `demo/InputDemo` (2026-03-20):
+  - low-level menu/screens in modern style (`Overview`, `Keyboard Deep`, `Mouse Deep`, `High-Rate Trace`, `Polling vs Events`, `Stress`);
+  - captures raw `MOUSE\MOVE` event stream and draws raw-vs-frame mouse paths for high-rate input diagnostics;
+  - integrated `InputDemo` into `demo/demos.groupproj` and `demo/demo_inventory.md`.
 - New standalone 2D primitives demo `demo/Draw2D` (2026-03-20):
   - extracted and modernized primitive-gallery scope from legacy `EngineDemo`;
   - implemented compact showcase cards for all current 2D primitive APIs;
