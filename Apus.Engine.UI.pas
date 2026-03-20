@@ -36,25 +36,26 @@ const
   anchorTopCenter:TAnchorMode=    (left:0.5; top:0; right:0.5; bottom: 0);
   anchorBottomCenter:TAnchorMode= (left:0.5; top:1; right:0.5; bottom: 1);
 
-  INHERIT = Apus.Engine.UITypes.INHERIT;
+  uiInherit = Apus.Engine.UITypes.uiInherit;
 
 type
   // Standard widgets
-  TUIElement   = Apus.Engine.UITypes.TUIElement;
-  TUIScrollable = Apus.Engine.UITypes.TUIScrollable;
-  TUISplitter  = Apus.Engine.UIWidgets.TUISplitter;
+  TUIElement      = Apus.Engine.UITypes.TUIElement;
+  TUIGroupBox     = Apus.Engine.UITypes.TUIGroupBox;
+  TUIScrollable   = Apus.Engine.UITypes.TUIScrollable;
+  TUISplitter     = Apus.Engine.UIWidgets.TUISplitter;
   TUIButton       = Apus.Engine.UIWidgets.TUIButton;
   TUIToggleButton = Apus.Engine.UIWidgets.TUIToggleButton;
-  TUICheckbox  = Apus.Engine.UIWidgets.TUICheckbox;
-  TUIRadioButton = Apus.Engine.UIWidgets.TUIRadioButton;
-  TUILabel     = Apus.Engine.UIWidgets.TUILabel;
-  TUIImage     = Apus.Engine.UIWidgets.TUIImage;
-  TUIEditBox   = Apus.Engine.UIWidgets.TUIEditBox;
-  TUIScrollBar = Apus.Engine.UIWidgets.TUIScrollBar;
-  TUIHint      = Apus.Engine.UIWidgets.TUIHint;
-  TUIWindow    = Apus.Engine.UIWidgets.TUIWindow;
-  TUIComboBox  = Apus.Engine.UIWidgets.TUIComboBox;
-  TUIListBox   = Apus.Engine.UIWidgets.TUIListBox;
+  TUICheckbox     = Apus.Engine.UIWidgets.TUICheckbox;
+  TUIRadioButton  = Apus.Engine.UIWidgets.TUIRadioButton;
+  TUILabel        = Apus.Engine.UIWidgets.TUILabel;
+  TUIImage        = Apus.Engine.UIWidgets.TUIImage;
+  TUIEditBox      = Apus.Engine.UIWidgets.TUIEditBox;
+  TUIScrollBar    = Apus.Engine.UIWidgets.TUIScrollBar;
+  TUIHint         = Apus.Engine.UIWidgets.TUIHint;
+  TUIWindow       = Apus.Engine.UIWidgets.TUIWindow;
+  TUIComboBox     = Apus.Engine.UIWidgets.TUIComboBox;
+  TUIListBox      = Apus.Engine.UIWidgets.TUIListBox;
 
   // Layouters
   TLayouter  = Apus.Engine.UITypes.TLayouter;
@@ -235,7 +236,7 @@ implementation
    if not (c is TUIEditBox) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UIEditBox',name);
-    c:=TUIEditBox.Create(0,0,name,0,0,root);
+    c:=TUIEditBox.Create(0,0,root,name);
    end;
    result:=c as TUIEditBox;
   end;
@@ -261,7 +262,7 @@ implementation
    if not (c is TUIScrollBar) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UIScrollBar',name);
-    c:=TUIScrollBar.Create(0,0,name,root);
+    c:=TUIScrollBar.Create(0,0,root,name);
    end;
    result:=c as TUIScrollBar;
   end;
@@ -274,7 +275,7 @@ implementation
    if not (c is TUIComboBox) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UIComboBox',name);
-    c:=TUIComboBox.Create(0,0,0,nil,root,name);
+    c:=TUIComboBox.Create(0,0,root,name);
    end;
    result:=c as TUIComboBox;
   end;
@@ -287,7 +288,7 @@ implementation
    if not (c is TUIListBox) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UIListBox',name);
-    c:=TUIListBox.Create(0,0,0,name,0,root);
+    c:=TUIListBox.Create(0,0,root,name);
    end;
    result:=c as TUIListBox;
   end;

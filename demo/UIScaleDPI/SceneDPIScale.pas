@@ -174,7 +174,7 @@ procedure TMainScene.Load;
   SetLength(zoomItems,7);
   zoomItems[0]:='75%';  zoomItems[1]:='85%';  zoomItems[2]:='100%';
   zoomItems[3]:='115%'; zoomItems[4]:='125%'; zoomItems[5]:='150%'; zoomItems[6]:='175%';
-  combo:=TUIComboBox.Create(80,24,game.defaultFont,zoomItems,toolbar,'ScaleCombo');
+  combo:=TUIComboBox.Create(80,24,toolbar,'ScaleCombo',zoomItems,game.defaultFont);
   combo.SetPos(toolbar.clientWidth-8,4,pivotTopRight);
   combo.SetAnchors(1,0,1,0);
   combo.curItem:=2; // 100%
@@ -206,7 +206,7 @@ procedure TMainScene.Load;
   cardGrid.SetAnchors(0,0,1,0);
 
   // scroll bar
-  scroll:=TUIScrollBar.Create(12,-1,'ContentScroll',content);
+  scroll:=TUIScrollBar.Create(12,-1,content,'ContentScroll');
   scroll.autoHide:=true;
   scroll.Snap(smRight);
   scroll.Link(cardGrid);

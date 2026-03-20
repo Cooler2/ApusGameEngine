@@ -173,7 +173,7 @@ interface
 
   // Decorative frame / panel border
   TUIFrame=class(TUIElement)
-   constructor Create(width,height:single;depth,style_:integer;parent_:TUIElement);
+   constructor Create(width,height:single;parent_:TUIElement;depth:integer=1;style_:integer=0);
    procedure SetBorderWidth(w:integer); virtual;
   protected
    borderWidth:integer; // frame border width in pixels
@@ -187,7 +187,7 @@ interface
    resizeable:boolean;      // user can drag edges to resize
    minW,minH,maxW,maxH:integer; // size constraints for resizeable windows
 
-   constructor Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,wndCaption:String8;wndFont:TFontHandle;parent_:TUIElement);
+   constructor Create(innerWidth,innerHeight:single;sizeable:boolean;parent_:TUIElement;wndName:String8='';wndCaption:String8='';wndFont:TFontHandle=0);
 
    // Returns area flags (wcXxx) and cursor for the given screen point.
    // Override for custom window shapes or hit-test behavior.
@@ -208,7 +208,7 @@ interface
   TUISkinnedWindow=class(TUIWindow)
    dragRegion:TUIShape; // area for window dragging (nil = any point)
    background:pointer;  // opaque pointer to background image (rendering is external)
-   constructor Create(wndName,wndCaption:String8;wndFont:TFontHandle;parent_:TUIElement;canmove:boolean=true);
+   constructor Create(parent_:TUIElement;wndName:String8='';wndCaption:String8='';wndFont:TFontHandle=0;canmove:boolean=true);
    destructor Destroy; override;
    function GetAreaType(x,y:integer;out cur:NativeInt):integer; override; // x,y - screen space coordinates
   end;
@@ -229,8 +229,8 @@ interface
    protection:byte;    // xor all characters with this value
    offset:integer;     // shift text right by this number of pixels
 
-   constructor Create(width,height:single;boxName:String8;boxFont:TFontHandle;color_:cardinal;parent_:TUIElement); overload;
-   constructor Create(width,height:single;text:String8;parent:TUIElement;name:String8=''); overload;
+   constructor Create(width,height:single;parent_:TUIElement;name:String8=''); overload;
+   constructor Create(width,height:single;parent_:TUIElement;name:String8;font_:TFontHandle;color_:cardinal); overload;
    procedure onChar(ch:char;scancode:byte); override;
    procedure onUniChar(ch:Char32;scancode:byte); override;
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
@@ -273,7 +273,7 @@ interface
    sliderUnder:boolean; // mouse is over slider
    sliderStart,sliderEnd:single; // relative position of slider (in 0..1 range)
    autoHide:boolean; // hide if pagesize>=range
-   constructor Create(width,height:single;barName:String8;parent_:TUIElement); overload;
+   constructor Create(width,height:single;parent_:TUIElement;barName:String8=''); overload;
    constructor Create(width,height:single;min,max,pageSize,value:single;parent:TUIElement;barName:String8=''); overload;
    function GetScroller:IScroller;
    function SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
@@ -309,7 +309,7 @@ interface
    hoverLine:integer; // index of line under mouse (or -1)
    autoSelectMode:boolean; // when true, hover line is automatically selected
    bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // rendering colors (R-05: move to style)
-   constructor Create(width,height:single;lHeight:single;listName:String8;font_:TFontHandle;parent:TUIElement);
+   constructor Create(width,height:single;parent:TUIElement;listName:String8='';lHeight:single=0;font_:TFontHandle=0);
    destructor Destroy; override;
    procedure AddLine(line:String8;tag:cardinal=0;hint:String8=''); virtual;
    procedure SetLine(index:integer;line:String8;tag:cardinal=0;hint:String8=''); virtual;
@@ -332,8 +332,7 @@ interface
    frame:TUIFrame;
    popup:TUIListBox;
    maxlines:integer; // max lines to show without scrolling
-   constructor Create(width,height:single;bFont:TFontHandle;list:Strings8;parent_:TUIElement;name:String8=''); overload;
-   constructor Create(width,height:single;parent_:TUIElement;name:String8); overload;
+   constructor Create(width,height:single;parent_:TUIElement;name:String8='';list:Strings8=nil;bFont:TFontHandle=0);
    procedure AddItem(item:String8;tag:cardinal=0;hint:String8=''); virtual;
    procedure SetItem(index:integer;item:String8;tag:cardinal=0;hint:String8=''); virtual;
    procedure ClearItems;
@@ -700,8 +699,7 @@ function TUILabel.Right(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
 
 { TUIWindow }
 
- constructor TUIWindow.Create(innerWidth,innerHeight:single;sizeable:boolean;wndName,
-    wndCaption:String8;wndFont:TFontHandle;parent_:TUIElement);
+ constructor TUIWindow.Create(innerWidth,innerHeight:single;sizeable:boolean;parent_:TUIElement;wndName:String8='';wndCaption:String8='';wndFont:TFontHandle=0);
   var
    deltaX,deltaY:integer;
   begin
@@ -837,32 +835,30 @@ function TUILabel.Right(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
    if selstart+selcount>length(realtext) then selcount:=length(realtext)-selstart;
   end;
 
- constructor TUIEditBox.Create(width,height:single;boxName:String8;
-    boxFont:TFontHandle;color_:cardinal;parent_:TUIElement);
+ constructor TUIEditBox.Create(width,height:single;parent_:TUIElement;name:String8='');
   begin
-   inherited Create(width,height,parent_,boxName);
+   inherited Create(width,height,parent_,name);
    shape:=shapeFull;
    cursor:=CursorID.Input;
    selstart:=0;
    selcount:=0;
    cursorpos:=0;
-   font:=boxFont;
    maxlength:=240;
    password:=false;
-   if (color_<>clDefault) then color:=color_;
    protection:=0;
    needPos:=-1;
    offset:=0;
-   flags.canhavefocus:=true; //CheckAndSetFocus;
+   flags.canhavefocus:=true;
    sendSignals:=ssAll;
    lastClickTime:=0;
    msSelStart:=-1;
   end;
 
- constructor TUIEditBox.Create(width,height:single;text:String8;parent:TUIElement;name:String8);
+ constructor TUIEditBox.Create(width,height:single;parent_:TUIElement;name:String8;font_:TFontHandle;color_:cardinal);
   begin
-   Create(width,height,name,0,clDefault,parent);
-   self.text:=text;
+   Create(width,height,parent_,name);
+   if font_<>0 then font:=font_;
+   if color_<>clDefault then color:=color_;
   end;
 
 function TUIEditBox.GetText:String8;
@@ -1174,7 +1170,7 @@ function TUIEditBox.GetText:String8;
 
  { TUIScrollBar }
 
- constructor TUIScrollBar.Create(width,height:single;barName:String8;parent_:TUIElement);
+ constructor TUIScrollBar.Create(width,height:single;parent_:TUIElement;barName:String8='');
   begin
    inherited Create(width,height,parent_,barName);
    shape:=shapeFull;
@@ -1239,9 +1235,9 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
     flags.visible:=max-min>pageSize;
   end;
 
-constructor TUIScrollBar.Create(width,height,min,max,pageSize,value:single;parent:TUIElement;barName:String8);
+constructor TUIScrollBar.Create(width,height,min,max,pageSize,value:single;parent:TUIElement;barName:String8='');
   begin
-   Create(width,height,barName,parent);
+   Create(width,height,parent,barName);
    SetRange(min,max,pageSize);
    self.value:=value;
   end;
@@ -1454,10 +1450,9 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
 
   { TUISkinnedWindow }
 
- constructor TUISkinnedWindow.Create(wndName,wndCaption:String8;
-    wndFont:TFontHandle;parent_:TUIElement;canmove:boolean=true);
+ constructor TUISkinnedWindow.Create(parent_:TUIElement;wndName:String8='';wndCaption:String8='';wndFont:TFontHandle=0;canmove:boolean=true);
   begin
-   inherited Create(100,100,false,wndName,wndCaption,wndFont,parent_);
+   inherited Create(100,100,false,parent_,wndName,wndCaption,wndFont);
    dragRegion:=nil;
    background:=nil;
    moveable:=canmove;
@@ -1572,8 +1567,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    UpdateScroller;
   end;
 
- constructor TUIListBox.Create(width,height:single;lHeight:single;listName:String8;
-   font_:TFontHandle;parent:TUIElement);
+ constructor TUIListBox.Create(width,height:single;parent:TUIElement;listName:String8='';lHeight:single=0;font_:TFontHandle=0);
   var
    scrollbar:TUIScrollbar;
   begin
@@ -1586,7 +1580,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    flags.canHaveFocus:=true;
    sendSignals:=ssMajor;
 
-   scrollBar:=TUIScrollBar.Create(8,clientHeight-2,listName+'_scroll',self);
+   scrollBar:=TUIScrollBar.Create(8,clientHeight-2,self,listName+'_scroll');
    scrollBar.SetPos(clientWidth,1,pivotTopRight).SetAnchors(1,0,1,1);
    scrollBar.horizontal:=false;
    scrollBar.flags.noParentClip:=true;
@@ -1691,7 +1685,7 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
 
   { TUIFrame }
 
- constructor TUIFrame.Create(width,height:single;depth,style_:integer;parent_:TUIElement);
+ constructor TUIFrame.Create(width,height:single;parent_:TUIElement;depth:integer=1;style_:integer=0);
   begin
    inherited Create(width,height,parent_,'_UIFrame');
    shape:=shapeFull;
@@ -1735,19 +1729,13 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
    end;
   end;
 
- constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:String8);
-  begin
-   Create(width,height,0,nil,parent_,name);
-  end;
-
  function TUIComboBox.GetText:String8;
   begin
    if fCurItem>=0 then result:=items[fCurItem]
     else result:='';
   end;
 
-constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:Strings8;
-    parent_:TUIElement;name:String8);
+constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:String8='';list:Strings8=nil;bFont:TFontHandle=0);
   var
    btn:TUIButton;
    i,j:integer;
@@ -1778,11 +1766,11 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:String
    if defaultText='' then defaultText:=GetClassAttribute('defaultText');
 
    // Default properties for child controls
-   frame:=TUIFrame.Create(size.x,2,1,0,self);
+   frame:=TUIFrame.Create(size.x,2,self,1,0);
    frame.flags.visible:=false;
    frame.flags.noParentClip:=true;
    frame.order:=1000;
-   popup:=TUIListBox.Create(size.x-2,0,20,'_ComboBoxPopUp',font,frame);
+   popup:=TUIListBox.Create(size.x-2,0,frame,'_ComboBoxPopUp',20,font);
   // popup.autoSelectMode:=true;
    popup.bgColor:=$FFFFFFFF;
    popup.textColor:=$FF000000;

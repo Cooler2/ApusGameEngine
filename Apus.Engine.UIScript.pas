@@ -180,7 +180,7 @@ procedure CreateCmd(cmd:string8);
     if sa[0]='UIBUTTON' then c:=TUIButton.Create(width,height,parentobj,sa[1]).Setup(caption,font) else
     if sa[0]='UITOGGLEBUTTON' then c:=TUIToggleButton.Create(width,height,parentobj,sa[1]).Setup(caption,false,font) else
     if sa[0]='UIIMAGE' then c:=TUIImage.Create(width,height,parentobj,sa[1]) else
-    if sa[0]='UIEDITBOX' then c:=TUIEditBox.Create(width,height,sa[1],font,color,parentobj) else
+    if sa[0]='UIEDITBOX' then c:=TUIEditBox.Create(width,height,parentobj,sa[1],font,color) else
     if sa[0]='UILABEL' then begin
      c:=TUILabel.Create(width,height,parentobj,sa[1]).Setup(caption,font,color);
      (c as TUILabel).align:=align;
@@ -189,8 +189,8 @@ procedure CreateCmd(cmd:string8);
     if sa[0]='UICONTROL' then begin
      c:=TUIElement.Create(width,height,parentobj,sa[1]);
     end else
-    if sa[0]='UILISTBOX' then c:=TUIListBox.Create(width,height,20,sa[1],font,parentobj) else
-    if sa[0]='UICOMBOBOX' then c:=TUIComboBox.Create(width,height,font,nil,parentobj,sa[1]);
+    if sa[0]='UILISTBOX' then c:=TUIListBox.Create(width,height,parentobj,sa[1],20,font) else
+    if sa[0]='UICOMBOBOX' then c:=TUIComboBox.Create(width,height,parentobj,sa[1],nil,font);
 
 
     if c=nil then raise EError.Create('Unknown class - '+sa[0]);

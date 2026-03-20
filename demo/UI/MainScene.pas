@@ -144,26 +144,26 @@ procedure TestWidgets;
   //Edit boxes
   TUIEditBox.SetDefault('styleInfo','borderColor=444;borderWidth=1; radius=3');
   TUIEditBox.SetDefault('color',$FF002040);
-  TUIEditBox.Create(-1,24,'Edit1',0,clDefault,cont);
-  TUIEditBox.Create(-1,24,'Edit Box',cont);
+  TUIEditBox.Create(-1,24,cont,'Edit1');
+  TUIEditBox.Create(-1,24,cont);
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Scroll
   TUIScrollBar.SetDefault('color',$FF405060);
-  TUIScrollBar.Create(-1,18,'Scroll1',cont);
+  TUIScrollBar.Create(-1,18,cont,'Scroll1');
   TUIScrollBar.Create(-1,18,-10,10,0,0,cont,'Scroll2');
   TUIScrollBar.Create(-1,18,100,300,50,0,cont,'Scroll3');
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // ListBox
   TUIListBox.SetDefault('styleInfo','borderColor=444; borderWidth=1');
-  TUIListBox.Create(-1,80,20,'List1',0,cont).SetLines(['Line 1','Line 2','Line 3','Line 4','Looong line WWWWW','Last line']);
+  TUIListBox.Create(-1,80,cont,'List1',20).SetLines(['Line 1','Line 2','Line 3','Line 4','Looong line WWWWW','Last line']);
   UIListBox('List1').textColor:=$FF202020;
   UIListBox('List1').hoverTextColor:=$FF502020;
   // ComboBox
   TUIComboBox.SetDefault('text','Please select...');
-  TUIComboBox.Create(-1,22,0,['Apple','Banana','Cucumber'],cont,'Combo1');
+  TUIComboBox.Create(-1,22,cont,'Combo1',['Apple','Banana','Cucumber']);
 
   // Window
-  TUIWindow.Create(200,200,true,'wnd','Window',game.defaultFont,root).
+  TUIWindow.Create(200,200,true,root,'wnd','Window',game.defaultFont).
    SetPos(root.clientWidth/2,root.clientHeight*0.9,pivotBottomCenter);
 
  end;

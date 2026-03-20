@@ -14,10 +14,10 @@ uses Types, Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Engin
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
 const
- INHERIT     = -999999; // in Resize: take parent's client size
- KEEP        = -1;      // in Resize: keep this dimension unchanged
- FILL_PARENT = -1;      // in Create: fill parent's client size and set full anchors
- USE_PARENT  = -1;      // alias for FILL_PARENT: use when intent is "match parent toolbar/panel size"
+ uiInherit = -999999; // in Resize: take parent's client size
+ uiKeep    = -1;      // in Resize: keep this dimension unchanged (implicit: >-1 check)
+ FILL_PARENT   = -1;      // in Create: fill parent's client size
+ USE_PARENT    = -1;      // alias: use when intent is "match parent size" rather than "fill"
 
  // Predefined pivot point configuration
  pivotTopLeft:TVec2=(x:0; y:0);
@@ -304,6 +304,8 @@ threadvar
 
   curMouseX,curMouseY,oldMouseX,oldMouseY:integer; // mouse cursor coordinates (valid during onMouseMove)
 
+  lastGroupBox:TUIGroupBox; // last created TUIGroupBox (convenience reference for UI building)
+
 function DescribeElement(c:TUIElement):String8;
 function FocusedElement:TUIElement;
 procedure SetFocusTo(control:TUIElement);
@@ -565,6 +567,7 @@ constructor TUIGroupBox.Create(width,height:single;parent_:TUIElement;name_:Stri
   begin
    inherited Create(width,height,parent_,name_);
    selectedChild:=-1;
+   lastGroupBox:=self;
   end;
 
 constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:String8='');
@@ -1327,8 +1330,8 @@ function TUIElement.GetClientHeight:single;
    oldH:=clientHeight;
    if newWidth>-1 then size.x:=newWidth;
    if newHeight>-1 then size.y:=newHeight;
-   if newWidth=INHERIT then size.x:=parent.clientWidth;
-   if newHeight=INHERIT then size.y:=parent.clientHeight;
+   if newWidth=uiInherit then size.x:=parent.clientWidth;
+   if newHeight=uiInherit then size.y:=parent.clientHeight;
    ClientSizeChanged(clientWidth-oldW,clientHeight-oldH); // update children
   end;
 
