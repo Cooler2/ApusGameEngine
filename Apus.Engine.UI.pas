@@ -7,7 +7,8 @@
 
 unit Apus.Engine.UI;
 interface
-uses Apus.Core, Apus.Engine.Types, Apus.Engine.UITypes, Apus.Engine.UILayout, Apus.Engine.UIWidgets;
+uses Apus.Core, Apus.Engine.Types, Apus.Engine.UITypes, Apus.Engine.UIShapes,
+  Apus.Engine.UILayout, Apus.Engine.UIWidgets;
 
 const
   // Predefined pivot point configuration
@@ -35,23 +36,26 @@ const
   anchorTopCenter:TAnchorMode=    (left:0.5; top:0; right:0.5; bottom: 0);
   anchorBottomCenter:TAnchorMode= (left:0.5; top:1; right:0.5; bottom: 1);
 
-  INHERIT = Apus.Engine.UITypes.INHERIT;
+  uiInherit = Apus.Engine.UITypes.uiInherit;
 
 type
   // Standard widgets
-  TUIElement   = Apus.Engine.UITypes.TUIElement;
-  TUISplitter  = Apus.Engine.UIWidgets.TUISplitter;
-  TUIButton    = Apus.Engine.UIWidgets.TUIButton;
-  TUICheckbox  = Apus.Engine.UIWidgets.TUICheckbox;
-  TUIRadioButton = Apus.Engine.UIWidgets.TUIRadioButton;
-  TUILabel     = Apus.Engine.UIWidgets.TUILabel;
-  TUIImage     = Apus.Engine.UIWidgets.TUIImage;
-  TUIEditBox   = Apus.Engine.UIWidgets.TUIEditBox;
-  TUIScrollBar = Apus.Engine.UIWidgets.TUIScrollBar;
-  TUIHint      = Apus.Engine.UIWidgets.TUIHint;
-  TUIWindow    = Apus.Engine.UIWidgets.TUIWindow;
-  TUIComboBox  = Apus.Engine.UIWidgets.TUIComboBox;
-  TUIListBox   = Apus.Engine.UIWidgets.TUIListBox;
+  TUIElement      = Apus.Engine.UITypes.TUIElement;
+  TUIGroupBox     = Apus.Engine.UITypes.TUIGroupBox;
+  TUIScrollable   = Apus.Engine.UITypes.TUIScrollable;
+  TUISplitter     = Apus.Engine.UIWidgets.TUISplitter;
+  TUIButton       = Apus.Engine.UIWidgets.TUIButton;
+  TUIToggleButton = Apus.Engine.UIWidgets.TUIToggleButton;
+  TUICheckbox     = Apus.Engine.UIWidgets.TUICheckbox;
+  TUIRadioButton  = Apus.Engine.UIWidgets.TUIRadioButton;
+  TUILabel        = Apus.Engine.UIWidgets.TUILabel;
+  TUIImage        = Apus.Engine.UIWidgets.TUIImage;
+  TUIEditBox      = Apus.Engine.UIWidgets.TUIEditBox;
+  TUIScrollBar    = Apus.Engine.UIWidgets.TUIScrollBar;
+  TUIHint         = Apus.Engine.UIWidgets.TUIHint;
+  TUIWindow       = Apus.Engine.UIWidgets.TUIWindow;
+  TUIComboBox     = Apus.Engine.UIWidgets.TUIComboBox;
+  TUIListBox      = Apus.Engine.UIWidgets.TUIListBox;
 
   // Layouters
   TLayouter  = Apus.Engine.UITypes.TLayouter;
@@ -60,9 +64,10 @@ type
   TGridLayout = Apus.Engine.UILayout.TGridLayout;
 
   // Other types
-  TElementShape = Apus.Engine.UITypes.TElementShape;
+  TUIShape = Apus.Engine.UIShapes.TUIShape;
+  TUIBitmapShape = Apus.Engine.UIShapes.TUIBitmapShape;
+  TUIBasicShape = Apus.Engine.UIShapes.TUIBasicShape;
   TSendSignals = Apus.Engine.UITypes.TSendSignals;
-  TButtonStyle = Apus.Engine.UIWidgets.TButtonStyle;
   TSnapMode = Apus.Engine.UITypes.TSnapMode;
 
   procedure SetDefaultUIScale(fullScenesScale,windowedScenesScale:single);
@@ -80,7 +85,7 @@ type
   function UIRadioButton(name:string8;mustExist:boolean=false):TUIRadioButton;
 
   // Controls setup
-  procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;btnType:TButtonStyle;
+  procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;
              group:integer;default,enabled,pressed:boolean;hotkey:integer);
 
   procedure SetupEditBox(edit:TUIEditBox;text:string8;style:byte;cursor,maxlength:integer;
@@ -218,7 +223,7 @@ implementation
    if not (c is TUIButton) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UIButton',name);
-    c:=TUIButton.Create(0,0,name,'',0,root);
+    c:=TUIButton.Create(0,0,root,name);
    end;
    result:=c as TUIButton;
   end;
@@ -231,7 +236,7 @@ implementation
    if not (c is TUIEditBox) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UIEditBox',name);
-    c:=TUIEditBox.Create(0,0,name,0,0,root);
+    c:=TUIEditBox.Create(0,0,root,name);
    end;
    result:=c as TUIEditBox;
   end;
@@ -244,7 +249,7 @@ implementation
    if not (c is TUILabel) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UILabel',name);
-    c:=TUILabel.Create(0,0,name,'',0,0,root);
+    c:=TUILabel.Create(0,0,root,name);
    end;
    result:=c as TUILabel;
   end;
@@ -257,7 +262,7 @@ implementation
    if not (c is TUIScrollBar) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UIScrollBar',name);
-    c:=TUIScrollBar.Create(0,0,name,root);
+    c:=TUIScrollBar.Create(0,0,root,name);
    end;
    result:=c as TUIScrollBar;
   end;
@@ -270,7 +275,7 @@ implementation
    if not (c is TUIComboBox) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UIComboBox',name);
-    c:=TUIComboBox.Create(0,0,0,nil,root,name);
+    c:=TUIComboBox.Create(0,0,root,name);
    end;
    result:=c as TUIComboBox;
   end;
@@ -283,7 +288,7 @@ implementation
    if not (c is TUIListBox) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UIListBox',name);
-    c:=TUIListBox.Create(0,0,0,name,0,root);
+    c:=TUIListBox.Create(0,0,root,name);
    end;
    result:=c as TUIListBox;
   end;
@@ -296,7 +301,7 @@ implementation
    if not (c is TUICheckbox) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UICheckBox',name);
-    c:=TUICheckbox.Create(0,0,name,'',root);
+    c:=TUICheckbox.Create(0,0,root,name);
    end;
    result:=c as TUICheckbox;
   end;
@@ -309,7 +314,7 @@ implementation
    if not (c is TUIRadioButton) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UIRadioButton',name);
-    c:=TUIRadioButton.Create(0,0,'','',root);
+    c:=TUIRadioButton.Create(0,0,root,name);
    end;
    result:=c as TUIRadioButton;
   end;
@@ -328,7 +333,7 @@ implementation
     if not (sc is TUIScene) then continue;
     s:=TUIScene(sc);
     if s.UI=nil then continue;
-    if onlyVisible and (not s.UI.visible) then continue;
+    if onlyVisible and (not s.UI.flags.visible) then continue;
     SetLength(roots,n+1);
     SetLength(zOrders,n+1);
     roots[n]:=s.UI;
@@ -402,7 +407,7 @@ implementation
      if zOrders[i]>maxZ then begin c:=ct; maxZ:=zOrders[i]; end;
     end;
    end;
-   result:=(c<>nil) and c.enabled;
+   result:=(c<>nil) and c.flags.enabled;
    finally
     window.Unlock;
    end;
@@ -468,18 +473,22 @@ implementation
   begin
    c:=FindElement(name,false);
    if c=nil then exit;
-   c.visible:=visible;
-   c.enabled:=enabled;
+   c.flags.visible:=visible;
+   c.flags.enabled:=enabled;
   end;
 
  function DumpUITree(root:TUIElement):string8;
    function DumpElement(c:TUIElement;indent:string8):string8;
     var
      i:integer;
+     shapeStr:string8;
     begin
+     if c.shape=shapeEmpty then shapeStr:='empty'
+     else if c.shape=shapeFull then shapeStr:='full'
+     else shapeStr:='custom';
      result:=string8.Join([
       indent+c.ClassName+':'+c.name+' = '+IntToHex(cardinal(c),8),
-      indent+Format('%d En=%d Vis=%d trM=%d',[c.order,byte(c.enabled),byte(c.visible),ord(c.shape)]),
+      indent+Format('%d En=%d Vis=%d shape=%s',[c.order,byte(c.flags.enabled),byte(c.flags.visible),shapeStr]),
       indent+Format('x=%.1f, y=%.1f, w=%.1f, h=%.1f, left=%d, top=%d',
        [c.position.x,c.position.y,c.size.x,c.size.y,c.globalRect.Left,c.globalRect.Top]),
        ''],#13#10);
@@ -506,15 +515,13 @@ implementation
       result:=result+DumpUITree(roots[i])+#13#10;
   end;
 
- procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;btnType:TBUttonStyle;
+ procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;
               group:integer;default,enabled,pressed:boolean;hotkey:integer);
   begin
    btn.styleClass:=style;
    btn.cursor:=cursor;
-   btn.btnStyle:=btnType;
-   btn.group:=group;
    btn.default:=default;
-   btn.enabled:=enabled;
+   btn.flags.enabled:=enabled;
    btn.pressed:=pressed;
    if hotkey<>0 then
     btn.SetHotKey(hotkey and 255,hotkey shr 8);
@@ -527,9 +534,9 @@ implementation
    edit.styleClass:=style;
    edit.cursor:=cursor;
    edit.maxlength:=maxlength;
-   edit.enabled:=enabled;
+   edit.flags.enabled:=enabled;
    edit.password:=password;
-   edit.noborder:=noborder;
+   // noborder removed from TUIEditBox
   end;
 
  // UI-related commands: Command:elementName

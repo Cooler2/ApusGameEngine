@@ -130,7 +130,7 @@ begin
 
  wnd.Lock({$IFDEF FPC}get_caller_addr(get_frame){$ELSE}System.ReturnAddress{$ENDIF});
  try
- if target is TUIScene then (target as TUIScene).UI.enabled:=false;
+ if target is TUIScene then (target as TUIScene).UI.flags.enabled:=false;
 
  if scene.zOrder=prevScene.zOrder then begin
   inc(scene.zOrder);
@@ -159,7 +159,7 @@ begin
  if DontPlay then begin
   done:=true; prevscene.SetStatus(TSceneStatus.ssFrozen);
   if target is TUIScene then
-   TUIScene(target).UI.enabled:=true;
+   TUIScene(target).UI.flags.enabled:=true;
   exit;
  end;
  if not initialized then Initialize;
@@ -173,7 +173,7 @@ begin
  if prevscene is TUIScene then begin
   if (FocusedElement<>nil) and (FocusedElement.GetRoot=(prevscene as TUIscene).UI) then
    SetFocusTo(nil);
-  (prevscene as TUIscene).UI.enabled:=false;
+  (prevscene as TUIscene).UI.flags.enabled:=false;
  end;
  width:=game.GetSettings.width;
  height:=game.GetSettings.height;
@@ -208,7 +208,7 @@ begin
    color:=255;
    done:=true;
    prevscene.SetStatus(TSceneStatus.ssFrozen);
-   if target is TUIScene then (target as TUIScene).UI.enabled:=true;
+   if target is TUIScene then (target as TUIScene).UI.flags.enabled:=true;
   end;
   color:=color shl 24+$808080;
   if buffer<>nil then begin
@@ -237,7 +237,7 @@ begin
   nextscene.zorder:=o;
  end;
  if scene is TUIScene then
-  (scene as TUIscene).UI.enabled:=false;
+  (scene as TUIscene).UI.flags.enabled:=false;
  newscene:=nextScene;
  buffer:=nil;
  DontPlay:=DisableEffects;
@@ -291,7 +291,7 @@ begin
   if t>=255 then begin
    done:=true;
    target.SetStatus(TSceneStatus.ssFrozen);
-   if newscene is TUIScene then (newscene as TUIScene).UI.enabled:=true;
+   if newscene is TUIScene then (newscene as TUIScene).UI.flags.enabled:=true;
   end;
   gfx.BeginPaint(buffer);
   try
@@ -373,7 +373,7 @@ begin
   savedSceneStatus:=target.status;
   target.SetStatus(TSceneStatus.ssActive);
  end;
- scene.UI.enabled:=(mode<>sweHide);
+ scene.UI.flags.enabled:=(mode<>sweHide);
 
  if mode=sweShowModal then begin
   scene.shadowColor:=0;

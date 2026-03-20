@@ -12,8 +12,8 @@ interface
 
 implementation
  uses SysUtils, Apus.Core, Apus.Strings, Apus.Engine.API, Apus.Colors,
-   Apus.Publics, Math, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene, Apus.EventMan,
-   Apus.Engine.UIRender;
+   Apus.Publics, Math, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIShapes,
+   Apus.Engine.UIScene, Apus.EventMan, Apus.Engine.UIRender;
 
  type
   TTweakerScene=class(TUIScene)
@@ -140,7 +140,7 @@ begin
  edCount:=0;
 
  h:=round(11+window.renderHeight*0.01);
- listbox:=TUIListbox.Create(300,h*3+2,h,'Tweaker\List',normalFont,ui);
+ listbox:=TUIListbox.Create(300,h*3+2,ui,'Tweaker\List',h,normalFont);
  listBox.SetPos(10,10);
  listbox.bgColor:=$60303030;
  listBox.SetAnchors(0,0,1,0);
@@ -256,7 +256,7 @@ begin
  inherited Create(parent.width-x-5-5*byte(mode in [vtAlpha..vtBlue]),18+window.renderHeight div 50,parent);
  SetPos(x,y);
  shape:=shapeFull;
- canHaveFocus:=true;
+ flags.canHaveFocus:=true;
  styleClass:=3;
  value:=iValue;
  initialValue:=initValue;

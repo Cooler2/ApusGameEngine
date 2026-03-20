@@ -63,7 +63,7 @@ procedure TMainScene.Load; // This is called from the launch thread, no draw cal
  begin
   font:=txt.GetFont('Default',9);
   // Create a button
-  btn:=TUIButton.Create(100,32,'Main\Close','Exit',font,UI);
+  btn:=TUIButton.Create(100,32,UI,'Main\Close').Setup('Exit',font);
   btn.SetPos(UI.width/2,UI.height/2,pivotCenter);
   btn.hint:='Press this button to exit';
 

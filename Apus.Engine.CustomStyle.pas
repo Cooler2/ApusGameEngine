@@ -193,7 +193,7 @@ implementation
          cRect:=but.GetClientPosOnScreen;
          gfx.clip.Rect(cRect);
          //draw.TextColorX2:=true;
-         if btnStyle=bsCheckbox then begin
+         if but is TUICheckBox then begin
           ix:=cRect.left+24+ix; iy:=cRect.top+2+iy;
           mode:=TTextAlignment.taLeft;
          end else begin
@@ -242,11 +242,11 @@ implementation
    int,sNum:integer;
   begin
    // Определение общих св-в элемента
-   enabl:=item.enabled;
+   enabl:=item.flags.enabled;
    con:=item;
    while con.parent<>nil do begin
     con:=con.parent;
-    enabl:=enabl and con.enabled;
+    enabl:=enabl and con.flags.enabled;
    end;
    with item.globalrect do begin
     x1:=Left; x2:=right-1;
@@ -254,14 +254,12 @@ implementation
    end;
 
    // Элемент - окно
-   if item is TUISkinnedWindow then with item as TUISkinnedWindow do begin
-    if background<>nil then begin    // нарисовать фон окна
-     if TranspBgnd then gfx.target.BlendMode(blMove);
-     img:=background;
-     if img is TTexture then
-      draw.Image(globalRect.Left,globalRect.Top,img as TTexture,color);
-     if TranspBgnd then gfx.target.BlendMode(blAlpha);
-    end;
+   if (item is TUIWindow) and (TUIWindow(item).background<>nil) then with item as TUIWindow do begin
+    if TranspBgnd then gfx.target.BlendMode(blMove);
+    img:=background;
+    if img is TTexture then
+     draw.Image(globalRect.Left,globalRect.Top,img as TTexture,color);
+    if TranspBgnd then gfx.target.BlendMode(blAlpha);
    end;
 
    // Полоса прокрутки

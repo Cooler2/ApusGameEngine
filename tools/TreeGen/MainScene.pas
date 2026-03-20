@@ -153,8 +153,7 @@ procedure TMainScene.InitUI;
   block.layout:=TRowLayout.CreateVertical(5,true);
   block.styleInfo:='40202020';
 
-  lab:=TUILabel.Create(200,25,'title','View',clWhite,titleFont,block);
-  lab.align:=taCenter;
+  lab:=TUILabel.Create(200,25,block,'title').Centered('View',titleFont,clWhite);
   lab.styleInfo:='FF305060';
 
   // Settings block
@@ -162,8 +161,7 @@ procedure TMainScene.InitUI;
   block.layout:=TRowLayout.CreateVertical(5,true);
   block.styleInfo:='40202020';
 
-  lab:=TUILabel.Create(200,25,'title','View',clWhite,titleFont,block);
-  lab.align:=taCenter;
+  lab:=TUILabel.Create(200,25,block,'title').Centered('View',titleFont,clWhite);
   lab.styleInfo:='FF305060';
 
 

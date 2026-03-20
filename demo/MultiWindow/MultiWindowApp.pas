@@ -105,22 +105,20 @@ begin
  panel.styleinfo:='E0283848';
  panel.SetAnchors(0.5,0.5,0.5,0.5);
 
- lbl:=TUILabel.Create(280,28,'Main\Title','Multi-Window Demo',panel,font);
+ lbl:=TUILabel.Create(280,28,panel,'Main\Title').Centered('Multi-Window Demo',font);
  lbl.SetPos(150,24,pivotCenter);
- lbl.align:=taCenter;
 
- btn:=TUIButton.Create(220,40,'Main\NewWindow','New Tool Window',font,panel);
+ btn:=TUIButton.Create(220,40,panel,'Main\NewWindow').Setup('New Tool Window',font);
  btn.SetPos(150,80,pivotCenter);
  Link('UI\Main\NewWindow\OnClick',newWindowSignalPath);
 
- btn:=TUIButton.Create(220,40,'Main\Exit','Exit',font,panel);
+ btn:=TUIButton.Create(220,40,panel,'Main\Exit').Setup('Exit',font);
  btn.SetPos(150,140,pivotCenter);
  Link('UI\Main\Exit\OnClick','Engine\Cmd\Exit');
 
  // status feedback line
- lbl:=TUILabel.Create(280,20,'Main\Status','',panel,txt.GetFont('Default',7));
+ lbl:=TUILabel.Create(280,20,panel,'Main\Status').Centered('',txt.GetFont('Default',7));
  lbl.SetPos(150,195,pivotCenter);
- lbl.align:=taCenter;
 end;
 
 procedure NewWindowClick;
@@ -181,10 +179,9 @@ var
  font:TFontHandle;
 begin
  font:=txt.GetFont('Default',8);
- lbl:=TUILabel.Create(280,28,'Tool'+IntToStr(toolIndex)+'\Title',
-  'Tool Window #'+IntToStr(toolIndex),UI,font);
+ lbl:=TUILabel.Create(280,28,UI,'Tool'+IntToStr(toolIndex)+'\Title').
+  Centered('Tool Window #'+IntToStr(toolIndex),font);
  lbl.SetPos(UI.size.x/2,20,pivotCenter);
- lbl.align:=taCenter;
 end;
 
 procedure TToolScene.Render;

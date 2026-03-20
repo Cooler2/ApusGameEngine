@@ -131,14 +131,14 @@ procedure TMainScene.CreateUI;
   font:=txt.GetFont('Default',8);  // select a font for UI
 
   // Create an edit box. I don't want to use a variable for it
-  TUIEditBox.Create(250,26,'MainScene\Edit',font,$FF000030,box).SetPos(200,100,pivotCenter);
+  TUIEditBox.Create(250,26,box,'MainScene\Edit',font,$FF000030).SetPos(200,100,pivotCenter);
   UIEditBox('MainScene\Edit').defaultText:=Str32('Type something here...'); // referencing UI element by its name
 
   // Create a button (now using a variable - classic way)
-  btn:=TUIButton.Create(100,35,'MainScene\Close','Exit',font,box);
+  btn:=TUIButton.Create(100,35,box,'MainScene\Close').Setup('Exit',font);
   btn.SetPos(200,200,pivotCenter);
   btn.hint:='Press this button to exit';
-  btn.onClick:=@ExitBtnClick;
+  btn.onClickAsync:=@ExitBtnClick;
 
   // Link the button click signal to the engine termination signal
   //Link('UI\MainScene\Close\Click','Engine\Cmd\Exit');

@@ -150,7 +150,7 @@ type
  function FindWindowForUIRoot(root:TObject):TWindow;
 
 implementation
- uses Apus.Structs, Apus.EventMan, Apus.Log, Apus.Engine.API;
+ uses Apus.EventMan, Apus.Lib, Apus.Engine.API;
 
 var
  windowHash:TObjectHash;

@@ -310,7 +310,7 @@ var
   begin
    if e=nil then exit;
    with e do begin
-    if not (enabled and visible) then exit;
+    if not (flags.enabled and flags.visible) then exit;
     pnt:=GetPosOnScreen.CenterPoint;
     if e is TUIButton then activeCustomPoints:=activeCustomPoints+[pnt];
     for child in children do Traverse(child);
@@ -2329,7 +2329,7 @@ begin
     // UI Scene?
     if window.scenes[i] is TUIScene then begin
      sc:=TUIScene(window.scenes[i]);
-     if not sc.UI.enabled then continue;
+     if not sc.UI.flags.enabled then continue;
      if (modalElement<>nil) and not modalElement.HasParent(sc.UI) then continue;
     end;
     // Topmost?

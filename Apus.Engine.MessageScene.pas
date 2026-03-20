@@ -14,11 +14,9 @@ interface
  procedure Confirm(mes,OkEvent,CancelEvent:String8;x:integer=0;y:integer=0);
 
 implementation
- uses Types, Apus.EventMan, Apus.Structs,
-   Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UITypes, Apus.Engine.UI, Apus.Engine.UIScene,
-   Apus.Engine.SceneEffects,
-  Apus.Log,
-  Apus.Strings;
+ uses Types, Apus.EventMan, Apus.Lib, Apus.Strings,
+   Apus.Engine.API, Apus.Engine.UIRender, Apus.Engine.UITypes, Apus.Engine.UI,
+   Apus.Engine.UIShapes, Apus.Engine.UIScene, Apus.Engine.SceneEffects;
 
  const
   MODE_MSG = 1;
@@ -160,17 +158,17 @@ constructor TMessageScene.Create;
   wnd:=TUIElement.Create(400,200,ui,'Message\Wnd');
   wnd.SetPos(window.renderWidth/2,window.renderHeight/2,pivotCenter);
   wnd.shape:=shapeFull;
-  wnd.manualDraw:=true;
+  wnd.flags.manualDraw:=true;
   wnd.styleInfo:='border:FFD0D8E0; radius:8; fill:C0C0C8D0';
   wnd.font:=msgMainFont;
 
-  btnOk:=TUIButton.Create(90,35,'Message\OK','Ok',0,wnd);
+  btnOk:=TUIButton.Create(90,35,wnd,'Message\OK').Setup('Ok');
   btnOk.SetPos(200,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
 
-  btnYes:=TUIButton.Create(90,35,'Message\YES','Yes',0,wnd);
+  btnYes:=TUIButton.Create(90,35,wnd,'Message\YES').Setup('Yes');
   btnYes.SetPos(200-70,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
 
-  btnNo:=TUIButton.Create(90,35,'Message\NO','No',0,wnd);
+  btnNo:=TUIButton.Create(90,35,wnd,'Message\NO').Setup('No');
   btnNo.SetPos(200+70,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
  end;
 
@@ -200,9 +198,9 @@ procedure TMessageScene.UpdateUI(msgText:string8;mode,x,y:integer);
   wnd.Resize(width,height);
   wnd.font:=msgMainFont;
 
-  btnOk.visible:=(mode=MODE_MSG);
-  btnYes.visible:=(mode in [MODE_ASK,MODE_CONFIRM]);
-  btnNo.visible:=(mode in [MODE_ASK,MODE_CONFIRM]);
+  btnOk.flags.visible:=(mode=MODE_MSG);
+  btnYes.flags.visible:=(mode in [MODE_ASK,MODE_CONFIRM]);
+  btnNo.flags.visible:=(mode in [MODE_ASK,MODE_CONFIRM]);
 
   if mode=MODE_ASK then begin
    btnYes.caption:='Yes';

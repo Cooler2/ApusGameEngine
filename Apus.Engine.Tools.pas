@@ -10,7 +10,7 @@ unit Apus.Engine.Tools;
 {$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 interface
  uses Apus.Core, Apus.Engine.API, Apus.Images,
-    Apus.Engine.UIWidgets, Apus.Regions,
+    Apus.Engine.UIWidgets, Apus.Engine.UIShapes,
     Apus.UnicodeFont, Apus.Types, Apus.Engine.Game;
 
 var
@@ -33,7 +33,7 @@ type
   procedure Draw(x,y:integer;color:cardinal); virtual;
   procedure Precache(part:single); virtual;
   // получить регион, определяющий непрозрачную часть (прозрачность <50%)
-  function GetRegion:TRegion; virtual;
+  function GetRegion:TUIShape; virtual;
  end;
 
  // Изображение, состоящее из нескольких кусков цельной текстуры
@@ -48,7 +48,7 @@ type
   procedure AddRect(xStart,yStart,Rwidth,Rheight:integer;posX,posY:integer); virtual;
   procedure Draw(x,y:integer;color:cardinal); override;
   procedure Precache(part:single); override;
-  function GetRegion:TRegion; override;
+  function GetRegion:TUIShape; override;
  end;
 
  TVertexHandler=procedure(var vertex:TVertex);
@@ -60,7 +60,7 @@ type
 
 
  // установить заданное изображение в качестве фона данного окна
- procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture); overload;
+ procedure SetupSkinnedWindow(wnd:TUIWindow;img:TTexture); overload;
 
  // Рисует текст с эффектом glow/shadow в заданную текстуру
  // x,y - точка, где будет центр надписи (насколько возможно)
@@ -114,10 +114,9 @@ type
 implementation
  uses SysUtils,{$IFDEF DIRECTX}DirectXGraphics,d3d8,Apus.Engine.DxImages8,{$ENDIF}
     {$IFDEF ANDROID}Apus.Android,{$ENDIF}
-    Apus.GfxFormats,Classes,Apus.Structs,Apus.Geom3D,Apus.FastGFX,Apus.GfxFilters,
+    Apus.GfxFormats,Classes,Apus.Geom3D,Apus.FastGFX,Apus.GfxFilters,
     Apus.Engine.ImgLoadQueue,Apus.Engine.ImageTools,Apus.Engine.GfxFormats3D,
-  Apus.Files,
-  Apus.Log,
+  Apus.Lib,
   Apus.Strings,
   Apus.Translation,
   Apus.Threads;
@@ -223,7 +222,7 @@ procedure TTiledImage.Draw(x, y: integer; color: cardinal);
     gfx.draw.Image(x+i*stepX,y+j*stepY,tiles[i,j],color);
  end;
 
-function TTiledImage.GetRegion: TRegion;
+function TTiledImage.GetRegion: TUIShape;
 {var
  r:TRegion;
  rs:array[0..7,0..7] of TRegion;
@@ -265,24 +264,24 @@ procedure TTiledImage.Precache(part: single);
    end;
  end;
 
-procedure SetupWindow(wnd:TUISkinnedWindow;img:TTiledImage);
+procedure SetupWindow(wnd:TUIWindow;img:TTiledImage);
  begin
   wnd.background:=img;
   wnd.size.x:=img.width;
   wnd.size.y:=img.height;
   wnd.color:=$FF808080;
-  wnd.visible:=false;
+  wnd.flags.visible:=false;
 //  wnd.transpmode:=tmCustom;
 //  wnd.region:=TRegion.CreateFrom(img);
  end;
 
-procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture);
+procedure SetupSkinnedWindow(wnd:TUIWindow;img:TTexture);
  begin
   wnd.background:=img;
   wnd.size.x:=img.width;
   wnd.size.y:=img.height;
   wnd.color:=$FF808080;
-  wnd.visible:=false;
+  wnd.flags.visible:=false;
  end;
 
 
@@ -327,7 +326,7 @@ begin
   gfx.draw.ImagePart(x+points[i].x,y+points[i].Y,tex,color,rects[i]);
 end;
 
-function TPatchedImage.GetRegion: TRegion;
+function TPatchedImage.GetRegion: TUIShape;
 begin
 
 end;

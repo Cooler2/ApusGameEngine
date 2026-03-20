@@ -92,7 +92,7 @@ procedure DoneSoundSystem;
 
 implementation
 
-uses SysUtils, Apus.ControlFiles, Apus.Structs, Apus.Utils, Apus.EventMan, Classes
+uses SysUtils, Apus.ControlFiles, Apus.HashMaps, Apus.Utils, Apus.EventMan, Classes
   {$IFDEF IMX},Apus.Engine.SoundImx{$ENDIF}
   {$IFDEF SDLMIX},Apus.Engine.SoundSDL{$ENDIF}
   {$IFDEF ANDROID},Apus.Android,Apus.AndroidSoundPool,Apus.AndroidMediaPlayer{$ENDIF}

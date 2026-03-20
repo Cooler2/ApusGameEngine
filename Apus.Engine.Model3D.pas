@@ -6,7 +6,7 @@
 
 unit Apus.Engine.Model3D;
 interface
-uses Apus.Common, Apus.Geom2D, Apus.Geom3D, Apus.Structs, Apus.AnimatedValues, Apus.Engine.API;
+uses Apus.Common, Apus.Geom2D, Apus.Geom3D, Apus.HashMaps, Apus.AnimatedValues, Apus.Engine.API;
 const
  // Bone flags
  bfDefaultPos = 1; // default matrix updated (model->bone)

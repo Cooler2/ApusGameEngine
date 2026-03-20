@@ -18,7 +18,7 @@
         <Projects Include="MultiWindow\MultiWindow.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="UIScaleDPI\UIScaleDPI.dproj">
+        <Projects Include="UI\UI.dproj">
             <Dependencies/>
         </Projects>
         <Projects Include="Draw2D\Draw2D.dproj">
@@ -77,14 +77,14 @@
     <Target Name="MultiWindow:Make">
         <MSBuild Projects="MultiWindow\MultiWindow.dproj" Targets="Make"/>
     </Target>
-    <Target Name="UIScaleDPI">
-        <MSBuild Projects="UIScaleDPI\UIScaleDPI.dproj"/>
+    <Target Name="UI">
+        <MSBuild Projects="UI\UI.dproj"/>
     </Target>
-    <Target Name="UIScaleDPI:Clean">
-        <MSBuild Projects="UIScaleDPI\UIScaleDPI.dproj" Targets="Clean"/>
+    <Target Name="UI:Clean">
+        <MSBuild Projects="UI\UI.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="UIScaleDPI:Make">
-        <MSBuild Projects="UIScaleDPI\UIScaleDPI.dproj" Targets="Make"/>
+    <Target Name="UI:Make">
+        <MSBuild Projects="UI\UI.dproj" Targets="Make"/>
     </Target>
     <Target Name="Draw2D">
         <MSBuild Projects="Draw2D\Draw2D.dproj"/>

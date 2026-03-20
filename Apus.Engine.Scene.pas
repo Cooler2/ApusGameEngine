@@ -5,7 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 unit Apus.Engine.Scene;
 interface
-uses Apus.Core, Apus.Classes, Apus.Structs;
+uses Apus.Core, Apus.Classes, Apus.Containers;
 
 type
  TGameScene=class;
@@ -128,8 +128,8 @@ TGameScene=class(TNamedObject)
   class function ClassHash:pointer; override;
 
  private
-  // Keyboard input
- keyBuffer:TQueue;
+   // Keyboard input
+   keyBuffer:TQueue;
  end;
 
 implementation
@@ -137,7 +137,7 @@ uses SysUtils,
   Apus.Strings,
   Apus.EventMan,
   Apus.Conv,
-  Apus.Log;
+  Apus.Lib;
 
  var
   scenesHash:TObjectHash; // used to search scenes by name

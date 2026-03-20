@@ -198,7 +198,7 @@ type
 // function LoadFromFile(filename:string;format:TImagePixelFormat=ipfNone):TDxManagedTexture;
 
 implementation
- uses Apus.EventMan, Apus.Lib, SysUtils, TypInfo, Apus.Structs, Apus.GfxFormats,
+ uses Apus.EventMan, Apus.Lib, SysUtils, TypInfo, Apus.GfxFormats,
    {$IFDEF MSWINDOWS}dglOpenGl{$ENDIF}
    {$IFDEF LINUX}dglOpenGL{$ENDIF}
    {$IFDEF IOS}gles11,glext{$ENDIF}

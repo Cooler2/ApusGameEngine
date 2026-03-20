@@ -19,13 +19,13 @@ interface
   application:TMainApp;
 
 implementation
- uses Apus.CrossPlatform,Apus.Common,Apus.EventMan,Apus.Colors,
+ uses Apus.EventMan, Apus.Colors,
    Apus.Engine.UI;
 
  type
   // This will be our single scene
   TMainScene=class(TUIScene)
-   procedure Initialize; override;
+   procedure InitGfx; override;
    procedure Render; override;
   end;
 
@@ -64,22 +64,22 @@ procedure TMainApp.CreateScenes;
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);
  begin
   inherited;
-  settings.mode.displayMode:=dmWindow; // make window resizeable
+  settings.mode.displayMode:=TDisplayMode.dmWindow; // make window resizeable
  end;
 
 procedure RootCloseCLick;
  begin
-  root.visible:=false;
+  root.Hide;
  end;
 
 procedure InitTestLayer;
  begin
   root.DeleteChildren;
-  root.visible:=true;
-  TUIButton.Create(100,28,'Root\Close','Back',0,root).
+  root.Show;
+  TUIButton.Create(100,28,root,'Root\Close').Setup('Back').
    SetPos(root.clientWidth/2,root.clientHeight-2,pivotBottomCenter).
    SetAnchors(0.5,1,0.5,1);
-  UIButton('Root\Close').onClick:=@RootCloseClick;
+  UIButton('Root\Close').onClickAsync:=@RootCloseClick;
  end;
 
 procedure TestButtons;
@@ -102,38 +102,41 @@ procedure TestWidgets;
   TUILabel.SetDefault('color',$FF603000);
   TUILabel.SetDefault('font',game.largerFont);
   // Labels
-  TUILabel.Create(-1,20,'Label1','Simple label',cont).styleInfo:='hover.fill:F088EEEE; hover.radius=6; hoverTime=1000';
-  TUILabel.CreateCentered(-1,20,'Label2','Centered',cont);
-  TUILabel.CreateRight(-1,20,'Label3','Right',cont);
-  TUILabel.Create(-1,20,'Label4','With padding',cont).SetPaddings(4,2,4,2);
-  TUILabel.CreateCentered(120,20,'Label5','Too Long Text Clipped',cont);
-  TUILabel.Create(-1,18,'Label6','Shifted up',cont).verticalOffset:=2;
-  TUILabel.Create(-1,18,'Label7','Shifted down',cont).verticalOffset:=-2;
+  TUILabel.Create(-1,20,cont,'Label1').Setup('Simple label').styleInfo:='hover.fill:F088EEEE; hover.radius=6; hoverTime=1000';
+  TUILabel.Create(-1,20,cont,'Label2').Centered('Centered');
+  TUILabel.Create(-1,20,cont,'Label3').Right('Right');
+  TUILabel.Create(-1,20,cont,'Label4').Setup('With padding').SetPaddings(4,2,4,2);
+  TUILabel.Create(120,20,cont,'Label5').Centered('Too Long Text Clipped');
+  TUILabel.Create(-1,18,cont,'Label6').Setup('Shifted up').verticalOffset:=2;
+  TUILabel.Create(-1,18,cont,'Label7').Setup('Shifted down').verticalOffset:=-2;
   // Buttons
   cont:=CreateVerticalContainer(150,root,0,6,false);
   cont.SetPos(200,10);
   cont.color:=$FF202020;
-  TUIButton.Create(140,30,'Button1','Button 1',cont);
-  TUIButton.Create(140,30,'Disabled',cont).enabled:=false;
-  TUISplitter.CreateH(2,5,0,cont,$80000000);
-  TUIButton.CreateSwitch(140,30,'Switch1','Toggle Button',cont);
-  hCont:=CreateHorizontalContainer(30,cont,0,4);
-  TUIButton.CreateGroupSwitch(30,30,'A',hCont);
-  TUIButton.CreateGroupSwitch(30,30,'B',hCont);
-  TUIButton.CreateGroupSwitch(30,30,'C',hCont);
+  TUIButton.Create(140,30,cont,'Button1').Setup('Button 1');
+  TUIButton.Create(140,30,cont,'Disabled').Disable;
+  TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
+  TUIToggleButton.Create(140,30,cont,'Switch1').Setup('Toggle Button');
+  hCont:=TUIGroupBox.Create(-1,30,cont);
+  hCont.layout:=TRowLayout.Create(true,4,true);
+  TUIToggleButton.Create(30,30,hCont,'A').Setup('A',true);
+  TUIToggleButton.Create(30,30,hCont,'B').Setup('B');
+  TUIToggleButton.Create(30,30,hCont,'C').Setup('C');
 
   //Create
-  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Check boxes
-  TUICheckBox.Create(-1,22,'Check1','checkbox 1 VERYLONG',cont,true);
-  TUICheckBox.Create(-1,22,'Check2','checkbox 2 (red)',cont).SetStyle('tickColor','811');
+  TUICheckBox.Create(-1,22,cont,'Check1').Setup('checkbox 1 VERYLONG',true);
+  TUICheckBox.Create(-1,22,cont,'Check2').Setup('checkbox 2 (red)').SetStyle('tickColor','811');
   TUISplitter.CreateH(10,cont);
-  // Radio buttons
-  TUIRadioButton.Create(100,22,'Radio1','radio 1',cont);
-  TUIRadioButton.Create(100,22,'Radio2','radio 2',cont);
-  TUIRadioButton.Create(-1,22,'Radio3','radio 3 Looooooong',cont);
+  // Radio buttons (TUIGroupBox parent = radio group behavior)
+  hCont:=TUIGroupBox.Create(-1,0,cont);
+  hCont.layout:=TRowLayout.CreateVertical(0,true);
+  TUIRadioButton.Create(100,22,hCont,'Radio1').Setup('radio 1',true);
+  TUIRadioButton.Create(100,22,hCont,'Radio2').Setup('radio 2');
+  TUIRadioButton.Create(-1,22,hCont,'Radio3').Setup('radio 3 Looooooong');
 
-  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Group box
 
   cont:=CreateVerticalContainer(150,root,0,6,false);
@@ -141,26 +144,26 @@ procedure TestWidgets;
   //Edit boxes
   TUIEditBox.SetDefault('styleInfo','borderColor=444;borderWidth=1; radius=3');
   TUIEditBox.SetDefault('color',$FF002040);
-  TUIEditBox.Create(-1,24,'Edit1',0,clDefault,cont);
-  TUIEditBox.Create(-1,24,'Edit Box',cont);
-  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  TUIEditBox.Create(-1,24,cont,'Edit1');
+  TUIEditBox.Create(-1,24,cont);
+  TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Scroll
   TUIScrollBar.SetDefault('color',$FF405060);
-  TUIScrollBar.Create(-1,18,'Scroll1',cont);
-  TUIScrollBar.Create(-1,18,-10,10,0,0,cont,'Scroll2');
-  TUIScrollBar.Create(-1,18,100,300,50,0,cont,'Scroll3');
-  TUISplitter.CreateH(2,5,0,cont,$80000000);
+  TUIScrollBar.CreateH(-1,18,cont,'Scroll1');
+  TUIScrollBar.CreateH(-1,18,cont,'Scroll2').SetRange(-10,10,0);
+  TUIScrollBar.CreateH(-1,18,cont,'Scroll3').SetRange(100,300,50);
+  TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // ListBox
   TUIListBox.SetDefault('styleInfo','borderColor=444; borderWidth=1');
-  TUIListBox.Create(-1,80,20,'List1',0,cont).SetLines(['Line 1','Line 2','Line 3','Line 4','Looong line WWWWW','Last line']);
+  TUIListBox.Create(-1,80,cont,'List1',20).SetLines(['Line 1','Line 2','Line 3','Line 4','Looong line WWWWW','Last line']);
   UIListBox('List1').textColor:=$FF202020;
   UIListBox('List1').hoverTextColor:=$FF502020;
   // ComboBox
   TUIComboBox.SetDefault('text','Please select...');
-  TUIComboBox.Create(-1,22,0,['Apple','Banana','Cucumber'],cont,'Combo1');
+  TUIComboBox.Create(-1,22,cont,'Combo1',['Apple','Banana','Cucumber']);
 
   // Window
-  TUIWindow.Create(200,200,true,'wnd','Window',game.defaultFont,root).
+  TUIWindow.Create(200,200,true,root,'wnd','Window',game.defaultFont).
    SetPos(root.clientWidth/2,root.clientHeight*0.9,pivotBottomCenter);
 
  end;
@@ -173,7 +176,7 @@ procedure TestLayouts;
  end;
 
 { TMainScene }
-procedure TMainScene.Initialize;
+procedure TMainScene.InitGfx;
  var
   font:cardinal;
   btn:TUIButton;
@@ -192,10 +195,10 @@ procedure TMainScene.Initialize;
   panel.color:=$FF202040;
 
   // Create menu buttons
-  TUIButton.Create(120,30,'Main\Widgets','Widgets',panel).onClick:=@TestWidgets;
-  TUIButton.Create(120,30,'Main\Buttons','Buttons',panel).onClick:=@TestButtons;
-  TUIButton.Create(120,30,'Main\Layouts','Layouts',panel).onClick:=@TestLayouts;
-  TUIButton.Create(120,30,'Main\Close','Exit',0,panel);
+  TUIButton.Create(120,30,panel,'Main\Widgets').Setup('Widgets').onClickAsync:=@TestWidgets;
+  TUIButton.Create(120,30,panel,'Main\Buttons').Setup('Buttons').onClickAsync:=@TestButtons;
+  TUIButton.Create(120,30,panel,'Main\Layouts').Setup('Layouts').onClickAsync:=@TestLayouts;
+  TUIButton.Create(120,30,panel,'Main\Close').Setup('Exit');
   Link('UI\Main\Close\OnClick','Engine\Cmd\Exit');
 
   // Create a placeholder UI element for demos
@@ -203,8 +206,8 @@ procedure TMainScene.Initialize;
   root.SetAnchors(anchorAll);
   //root.styleInfo:='FFB0C0C4 80000000';
   root.styleInfo:='fill:FFB0C0C4; border:80000000';
-  root.shape:=TElementShape.shapeFull;
-  root.visible:=false;
+  root.shape:=TUIShape.shapeFull;
+  root.Hide;
  end;
 
 procedure TMainScene.Render;

@@ -88,7 +88,7 @@ interface
 
 
 implementation
-uses SysUtils, Apus.Lib, Apus.Strings, Apus.Structs, Apus.Geom3D, Types,
+uses SysUtils, Apus.Lib, Apus.Strings, Apus.Geom3D, Types,
    Apus.GfxFormats, Apus.Engine.ImgLoadQueue, Apus.FastGFX, Apus.Colors,
    Apus.GfxFilters, Apus.Engine.Resources, Apus.Compress;
 
