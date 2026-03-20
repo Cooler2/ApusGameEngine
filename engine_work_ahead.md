@@ -1,5 +1,5 @@
 ﻿# Engine Work Ahead Log
-Last updated: 2026-03-14
+Last updated: 2026-03-20
 
 This file tracks active execution only:
 - immediate priorities;
@@ -9,6 +9,10 @@ This file tracks active execution only:
 Large feature planning lives in `engine5_feature_roadmap.md`.
 
 ## Done (recent, high impact)
+- New standalone 2D primitives demo `demo/Draw2D` (2026-03-20):
+  - extracted and modernized primitive-gallery scope from legacy `EngineDemo`;
+  - implemented compact showcase cards for all current 2D primitive APIs;
+  - integrated `Draw2D` into `demo/demos.groupproj` build/clean/make targets.
 - R-07 merged and stabilized baseline (2026-03-13):
   - task R-07 is in working state and merged into `engine5`;
   - moved from implementation to post-merge development/support mode.
@@ -44,10 +48,10 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - no UI adapter layer for size/input abstraction at this stage;
   - keep global UI focus/hover/modal state (`underMouse`, `focusedElement`, `modalElement`, etc.) for now and revisit only if multi-window pressure requires it.
 - Build status checkpoint (after R-02 UI changes):
-  - repository-wide `rootWidth/rootHeight` references are fully removed;
-  - full `SimpleDemo` build currently fails on unrelated pre-existing issues:
-    - SDL profile: unresolved `dm*` identifiers in `Apus.Engine.SDLplatform`;
-    - non-SDL profile: unresolved OpenGL context symbols in `Apus.Engine.GameApp`.
+  - repository-wide `rootWidth/rootHeight` references are fully removed.
+- SDL compile regression fix (2026-03-18):
+  - resolved `dm*` identifier breakage in `Apus.Engine.SDLplatform`;
+  - `SimpleDemo` SDL profile (`-dSDL`) compiles and links again in a clean FPC build.
 - R-01 core-profile migration completed (mandatory path):
   - `SimpleDemo` runs on core profile;
   - runtime context negotiation and fail-fast behavior implemented;
@@ -151,9 +155,9 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
 - Widget construction pattern (decided 2026-03-14):
   - minimal constructor `Create(width, height, parent, name)` + `.Setup(...)` + chainable base setters;
   - old multi-param constructors deprecated gradually.
-- UI signal normalization (new task):
-  - rename button press signal pattern from `UI\buttonName\CLICK` to `UI\buttonName\ONCLICK` (event on press);
-  - add `UI\CLICK\buttonName` signal to simulate click on the target UI element.
+- UI signal normalization (in progress):
+  - click simulation signal path is implemented;
+  - rename of button press signal pattern `UI\buttonName\CLICK` -> `UI\buttonName\ONCLICK` still needs final verification and cleanup.
 - UIScaleDPI demo known issues (good test cases for engine fixes):
   - TGridLayout: last row center offset — cards slightly shifted right (likely by padding amount);
   - TUIScrollBar + linked container: scroll range sometimes excessive or insufficient after layout changes.
@@ -189,7 +193,7 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
    - verify cleanup/lifetime correctness after window teardown.
 7. R-02: move DPI/scale fully to per-window flow (including runtime resize/re-layout triggers).
 8. Migrate demo scenes from `Initialize` to new lifecycle (constructor + `InitGfx`) — 6 demos, low urgency.
-9. Update Pascal SDL headers/bindings baseline (currently `2.0.4`) to reduce runtime/header drift with deployed SDL `2.32.10`.
+9. Update Pascal SDL headers/bindings baseline (currently `2.0.10`) to reduce runtime/header drift with deployed SDL `2.32.10`.
 10. Remove redundant bind churn:
    - avoid unnecessary bind-to-zero in hot paths;
    - strengthen lightweight state-cache checks before `glBind*`;
@@ -272,6 +276,14 @@ Fields moved from TGameBase to TWindow, global `window:TWindow` added.
   - headless run without window/OpenGL context;
   - synthetic input-driven UI behavior tests;
   - optional later stage: CPU offscreen capture path.
+
+## Recent Updates
+- 2026-03-18: moved legacy hash implementations from `Base/Apus.Structs.pas` to `Base/Apus.HashMaps.pas`.
+- `Apus.Structs` keeps compatibility aliases for hash types; new code path is `THashMap<T>` in `Apus.HashMaps`.
+- 2026-03-18: hash type status policy finalized in `Apus.HashMaps`:
+  - preferred generic API: `THashMap<T>`;
+  - supported specialized: `THash` (multi-value), `TSimpleHash`, `TObjectHash`;
+  - deprecated/compat: `TStrHash`, `TSimpleHashS/AS/8`, `TVarHash`.
 
 ## Rules / Decisions
 - Documentation language policy: keep `engine_work_ahead.md` and `engine5_feature_roadmap.md` in English.
