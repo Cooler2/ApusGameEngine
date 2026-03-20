@@ -431,7 +431,7 @@ type
     class function Now:TDateTime; static;  // local time (high-precision)
     class function UTC:TDateTime; static;  // UTC time (high-precision)
     class function Stamp:string8; static;   // HH:MM:SS.mmm for logs
-    // Get milliseconds since system start (monotonic, no overflow). Better replacement for GetTickCount/GetTickCount64
+    // Get milliseconds since program start (monotonic, no overflow). Better replacement for GetTickCount/GetTickCount64
     class function Ticks:int64; static;
     // Sleep for specified milliseconds
     class procedure Sleep(ms:integer); static;
@@ -709,6 +709,7 @@ end;
 var
   timerMul:double; // 1/frequency, initialized in unit init
   internalTimer:int64;
+  ticksBase:int64; // subtracted from Time.Ticks to make values relative to program start
 
 procedure QPC(out value:int64); inline;
 {$IFDEF MSWINDOWS}
@@ -1986,11 +1987,17 @@ end;
 procedure InitTimer;
 var
   freq:int64;
+{$IFDEF UNIX}
+  ts:TTimeSpec;
+{$ENDIF}
 begin
 {$IFDEF MSWINDOWS}
   windows.QueryPerformanceFrequency(freq);
+  ticksBase:=Windows.GetTickCount64;
 {$ELSE}
   freq:=1000000;
+  clock_gettime(CLOCK_MONOTONIC,@ts);
+  ticksBase:=int64(ts.tv_sec)*1000+ts.tv_nsec div 1000000;
 {$ENDIF}
   timerMul:=1.0/freq;
 end;
@@ -2156,10 +2163,10 @@ var ts:TTimeSpec;
 {$ENDIF}
 begin
   {$IFDEF MSWINDOWS}
-  result:=Windows.GetTickCount64;
+  result:=Windows.GetTickCount64-ticksBase;
   {$ELSE}
   clock_gettime(CLOCK_MONOTONIC,@ts);
-  result:=int64(ts.tv_sec)*1000+ts.tv_nsec div 1000000;
+  result:=int64(ts.tv_sec)*1000+ts.tv_nsec div 1000000-ticksBase;
   {$ENDIF}
 end;
 
