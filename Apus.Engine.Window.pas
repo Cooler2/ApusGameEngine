@@ -209,7 +209,7 @@ begin
  frameTimeRingPos:=0;
  frameTimeRingCount:=0;
  lastFrameTimeUs:=0;
- StartTimer(frameTimer);
+ Timer.Start(frameTimer);
  frameTimerReady:=false;
  lastFpsUpdate:=0;
  lastSmoothFpsUpdate:=0;
