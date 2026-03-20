@@ -179,18 +179,24 @@ interface
    borderWidth:integer; // frame border width in pixels
   end;
 
-  // Basic window
+  // Basic window: moveable and optionally resizeable.
+  // When background<>nil the window operates in "skinned" mode:
+  //   - dragRegion defines the moveable area (nil = entire window)
+  //   - GetAreaType uses dragRegion for hit-testing instead of standard frame logic
+  //   - rendering of background is handled externally (e.g. by CustomStyle)
   TUIWindow=class(TUIImage)
    header:integer;          // title bar height
    autoBringToFront:boolean; // bring to front on click (self or any child)
    moveable:boolean;        // user can drag to move
    resizeable:boolean;      // user can drag edges to resize
    minW,minH,maxW,maxH:integer; // size constraints for resizeable windows
+   dragRegion:TUIShape;     // skinned mode: drag area shape (nil = whole window)
+   background:pointer;      // skinned mode: opaque ptr to background image
 
    constructor Create(innerWidth,innerHeight:single;sizeable:boolean;parent_:TUIElement;wndName:String8='';wndCaption:String8='';wndFont:TFontHandle=0);
+   destructor Destroy; override;
 
    // Returns area flags (wcXxx) and cursor for the given screen point.
-   // Override for custom window shapes or hit-test behavior.
    function GetAreaType(x,y:integer;out cur:NativeInt):integer; virtual;
 
    procedure onMouseMove; override;
@@ -201,16 +207,6 @@ interface
   private
    hooked:boolean;
    area:integer;   // area type under cursor (wcXxx flags)
-  end;
-
-  // Skinned window: fixed size, often non-rectangular, image background.
-  // Created with default parameters and configured externally.
-  TUISkinnedWindow=class(TUIWindow)
-   dragRegion:TUIShape; // area for window dragging (nil = any point)
-   background:pointer;  // opaque pointer to background image (rendering is external)
-   constructor Create(parent_:TUIElement;wndName:String8='';wndCaption:String8='';wndFont:TFontHandle=0;canmove:boolean=true);
-   destructor Destroy; override;
-   function GetAreaType(x,y:integer;out cur:NativeInt):integer; override; // x,y - screen space coordinates
   end;
 
   // Single-line text input. Supports Unicode, mouse selection, password masking,
@@ -273,8 +269,9 @@ interface
    sliderUnder:boolean; // mouse is over slider
    sliderStart,sliderEnd:single; // relative position of slider (in 0..1 range)
    autoHide:boolean; // hide if pagesize>=range
-   constructor Create(width,height:single;parent_:TUIElement;barName:String8=''); overload;
-   constructor Create(width,height:single;min,max,pageSize,value:single;parent:TUIElement;barName:String8=''); overload;
+   constructor Create(width,height:single;parent_:TUIElement;barName:String8=''); overload; // orientation from size ratio (fragile, prefer CreateH/CreateV)
+   constructor CreateH(width,height:single;parent_:TUIElement;barName:String8=''); // explicit horizontal
+   constructor CreateV(width,height:single;parent_:TUIElement;barName:String8=''); // explicit vertical
    function GetScroller:IScroller;
    function SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
    procedure MoveTo(val:single;smooth:boolean=false); virtual;
@@ -727,6 +724,12 @@ function TUILabel.Right(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
    order:=100; // выше чем прочие элементы.
   end;
 
+ destructor TUIWindow.Destroy;
+  begin
+   if (dragRegion<>nil) and not dragRegion.persistent then dragRegion.Free;
+   inherited;
+  end;
+
  function TUIWindow.GetAreaType(x,y:integer;out cur:NativeInt):integer;
   var
    c:byte;
@@ -737,6 +740,13 @@ function TUILabel.Right(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
    if (x<r.left) or (y<r.top) or (x>=r.Right) or (y>=r.Bottom) then exit;
    dec(x,r.Left);
    dec(y,r.Top);
+   // skinned mode: use dragRegion for hit-testing
+   if background<>nil then begin
+    if moveable then result:=wcHeader else result:=wcClient;
+    if (dragRegion<>nil) and not dragRegion.IsOpaque(x/r.Width,y/r.Height) then
+     result:=wcClient;
+    exit;
+   end;
    if resizeable then begin
     if x<wcFrameBorder then inc(result,wcLeftFrame);
     if y<wcFrameBorder then inc(result,wcTopFrame);
@@ -1235,11 +1245,16 @@ function TUIScrollBar.SetRange(newMin,newMax,newPageSize:single):TUIScrollBar;
     flags.visible:=max-min>pageSize;
   end;
 
-constructor TUIScrollBar.Create(width,height,min,max,pageSize,value:single;parent:TUIElement;barName:String8='');
+constructor TUIScrollBar.CreateH(width,height:single;parent_:TUIElement;barName:String8='');
   begin
-   Create(width,height,parent,barName);
-   SetRange(min,max,pageSize);
-   self.value:=value;
+   Create(width,height,parent_,barName);
+   horizontal:=true;
+  end;
+
+ constructor TUIScrollBar.CreateV(width,height:single;parent_:TUIElement;barName:String8='');
+  begin
+   Create(width,height,parent_,barName);
+   horizontal:=false;
   end;
 
 function TUIScrollBar.GetAnimating;
@@ -1448,34 +1463,6 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
 
   end;
 
-  { TUISkinnedWindow }
-
- constructor TUISkinnedWindow.Create(parent_:TUIElement;wndName:String8='';wndCaption:String8='';wndFont:TFontHandle=0;canmove:boolean=true);
-  begin
-   inherited Create(100,100,false,parent_,wndName,wndCaption,wndFont);
-   dragRegion:=nil;
-   background:=nil;
-   moveable:=canmove;
-   padding.Top:=0; padding.Left:=0;
-   padding.Right:=0; padding.Bottom:=0;
-  end;
-
- destructor TUISkinnedWindow.Destroy;
-  begin
-   if (dragRegion<>nil) and not dragRegion.persistent then dragRegion.Free;
-   inherited;
-  end;
-
- function TUISkinnedWindow.GetAreaType(x,y:integer;out cur:NativeInt):integer;
-  begin
-   result:=0; cur:=CursorID.Default;
-   dec(x,globalrect.Left);
-   dec(y,globalrect.Top);
-   if (x<0) or (y<0) or (x>=globalrect.width) or (y>=globalrect.height) then exit;
-   if moveable then result:=wcHeader else result:=wcClient;
-   if (dragRegion<>nil) and not dragRegion.IsOpaque(x/globalrect.width,y/globalrect.height) then
-    result:=wcClient;
-  end;
 
  { TUIHint }
 
@@ -1580,7 +1567,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    flags.canHaveFocus:=true;
    sendSignals:=ssMajor;
 
-   scrollBar:=TUIScrollBar.Create(8,clientHeight-2,self,listName+'_scroll');
+   scrollBar:=TUIScrollBar.CreateV(8,clientHeight-2,self,listName+'_scroll');
    scrollBar.SetPos(clientWidth,1,pivotTopRight).SetAnchors(1,0,1,1);
    scrollBar.horizontal:=false;
    scrollBar.flags.noParentClip:=true;

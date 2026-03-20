@@ -149,9 +149,9 @@ procedure TestWidgets;
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Scroll
   TUIScrollBar.SetDefault('color',$FF405060);
-  TUIScrollBar.Create(-1,18,cont,'Scroll1');
-  TUIScrollBar.Create(-1,18,-10,10,0,0,cont,'Scroll2');
-  TUIScrollBar.Create(-1,18,100,300,50,0,cont,'Scroll3');
+  TUIScrollBar.CreateH(-1,18,cont,'Scroll1');
+  TUIScrollBar.CreateH(-1,18,cont,'Scroll2').SetRange(-10,10,0);
+  TUIScrollBar.CreateH(-1,18,cont,'Scroll3').SetRange(100,300,50);
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // ListBox
   TUIListBox.SetDefault('styleInfo','borderColor=444; borderWidth=1');

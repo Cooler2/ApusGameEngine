@@ -206,7 +206,7 @@ procedure TMainScene.Load;
   cardGrid.SetAnchors(0,0,1,0);
 
   // scroll bar
-  scroll:=TUIScrollBar.Create(12,-1,content,'ContentScroll');
+  scroll:=TUIScrollBar.CreateV(12,-1,content,'ContentScroll');
   scroll.autoHide:=true;
   scroll.Snap(smRight);
   scroll.Link(cardGrid);

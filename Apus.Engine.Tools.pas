@@ -60,7 +60,7 @@ type
 
 
  // установить заданное изображение в качестве фона данного окна
- procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture); overload;
+ procedure SetupSkinnedWindow(wnd:TUIWindow;img:TTexture); overload;
 
  // Рисует текст с эффектом glow/shadow в заданную текстуру
  // x,y - точка, где будет центр надписи (насколько возможно)
@@ -264,7 +264,7 @@ procedure TTiledImage.Precache(part: single);
    end;
  end;
 
-procedure SetupWindow(wnd:TUISkinnedWindow;img:TTiledImage);
+procedure SetupWindow(wnd:TUIWindow;img:TTiledImage);
  begin
   wnd.background:=img;
   wnd.size.x:=img.width;
@@ -275,7 +275,7 @@ procedure SetupWindow(wnd:TUISkinnedWindow;img:TTiledImage);
 //  wnd.region:=TRegion.CreateFrom(img);
  end;
 
-procedure SetupSkinnedWindow(wnd:TUISkinnedWindow;img:TTexture);
+procedure SetupSkinnedWindow(wnd:TUIWindow;img:TTexture);
  begin
   wnd.background:=img;
   wnd.size.x:=img.width;

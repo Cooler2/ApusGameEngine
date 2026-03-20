@@ -225,7 +225,7 @@ begin
  TUIButton.Create(20,18,wnd,'Console\Enter').Setup('>',font).SetPos(480,h,pivotBottomRight).SetAnchors(1,1,1,1);
  Link('UI\Console\Enter\OnClick','UI\Console\Input\Enter');
 
- scroll:=TUIScrollBar.Create(18,h-19,wnd,'Console\Scroll');
+ scroll:=TUIScrollBar.CreateV(18,h-19,wnd,'Console\Scroll');
  scroll.SetPos(480,0,pivotTopRight);
  scroll.color:=$90808090;
  scroll.step:=32;

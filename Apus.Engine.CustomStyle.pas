@@ -254,14 +254,12 @@ implementation
    end;
 
    // Элемент - окно
-   if item is TUISkinnedWindow then with item as TUISkinnedWindow do begin
-    if background<>nil then begin    // нарисовать фон окна
-     if TranspBgnd then gfx.target.BlendMode(blMove);
-     img:=background;
-     if img is TTexture then
-      draw.Image(globalRect.Left,globalRect.Top,img as TTexture,color);
-     if TranspBgnd then gfx.target.BlendMode(blAlpha);
-    end;
+   if (item is TUIWindow) and (TUIWindow(item).background<>nil) then with item as TUIWindow do begin
+    if TranspBgnd then gfx.target.BlendMode(blMove);
+    img:=background;
+    if img is TTexture then
+     draw.Image(globalRect.Left,globalRect.Top,img as TTexture,color);
+    if TranspBgnd then gfx.target.BlendMode(blAlpha);
    end;
 
    // Полоса прокрутки
