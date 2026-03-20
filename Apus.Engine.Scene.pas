@@ -63,7 +63,10 @@ TGameScene=class(TNamedObject)
   // Внутренние величины
   accumTime:integer; // накопленное время (в мс)
 
-  constructor Create(fullscreen:boolean=true);
+  constructor Create(fullscreen:boolean=true); overload;
+  // Unified constructor: optional scene name and optional owner window object.
+  // If wnd=nil then scene is attached to global window (when available).
+  constructor Create(sceneName:string='';fullscreen:boolean=true;wnd:TObject=nil); overload;
   destructor Destroy; override;
 
   // Вызывается из конструктора, можно переопределить для инициализации без влезания в конструктор
@@ -137,7 +140,9 @@ uses SysUtils,
   Apus.Strings,
   Apus.EventMan,
   Apus.Conv,
-  Apus.Lib;
+  Apus.Lib,
+  Apus.Engine.Window,
+  Apus.Engine.API;
 
  var
   scenesHash:TObjectHash; // used to search scenes by name
@@ -190,6 +195,24 @@ constructor TGameScene.Create(fullScreen:boolean=true);
     SetEventHandler('SCENES\',eventHandler,emInstant);
    end;
   end;
+
+constructor TGameScene.Create(sceneName:string;fullscreen:boolean;wnd:TObject);
+ var
+  targetWnd:TWindow;
+ begin
+  Create(fullscreen);
+  if sceneName<>'' then
+   name:=sceneName;
+  if wnd=nil then
+   targetWnd:=window
+  else
+  if wnd is TWindow then
+   targetWnd:=TWindow(wnd)
+  else
+   targetWnd:=nil;
+  if (targetWnd<>nil) and (ownerWindow=nil) then
+   targetWnd.AddScene(self);
+ end;
 
  destructor TGameScene.Destroy;
   begin

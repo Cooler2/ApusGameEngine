@@ -375,10 +375,11 @@ function UIScene(name:String8):TUIScene;
     SetEventHandler('UI\SetFocus',onSetFocus,emQueued);
     threadHandlersRegistered:=true;
    end;
-   inherited Create(fullscreen);
-   if sceneName='' then sceneName:=ClassName;
-   name:=scenename;
    if wnd=nil then wnd:=mainWindow;
+   inherited Create(sceneName,fullscreen,wnd);
+   wnd:=TWindow(ownerWindow);
+   ASSERT(wnd<>nil,'Can''t resolve owner window for scene '+name);
+   if sceneName='' then sceneName:=name;
    UI:=TUIElement.Create(wnd.renderWidth,wnd.renderHeight,nil,sceneName);
    UI.ownerScene:=self;
    UI.flags.enabled:=false;
@@ -393,7 +394,6 @@ function UIScene(name:String8):TUIScene;
    end;
 
    if classType=TUIScene then onCreate;
-   wnd.AddScene(self);
   end;
 
  function TUIScene.GetArea:TRect;
