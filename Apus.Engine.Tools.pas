@@ -573,7 +573,7 @@ end;
    srcAlpha:=(color shr 24)/255;
    for i:=0 to count-1 do begin
     a:=2*Pi*i/count;
-    alpha:=(round(256*i/count)-window.frameStartTime div 3) and $FF;
+    alpha:=(round(256*i/count)-window.frameStartMs div 3) and $FF;
     c:=color and $FFFFFF+round(alpha*srcAlpha) shl 24;
     data[i*2].x:=0.55*r*sin(a);
     data[i*2].y:=-0.55*r*cos(a);
@@ -604,7 +604,7 @@ end;
    srcAlpha:=(color shr 24)/255;
    for i:=0 to count-1 do begin
     a:=2*Pi*i/count;
-    alpha:=(round(256*i/count)-window.frameStartTime div 3) and $FF;
+    alpha:=(round(256*i/count)-window.frameStartMs div 3) and $FF;
     c:=color and $FFFFFF+round(alpha*srcAlpha) shl 24;
     data[i].x:=r*sin(a);
     data[i].y:=-r*cos(a);

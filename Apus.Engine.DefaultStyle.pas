@@ -170,7 +170,7 @@ implementation
       idx:=i; break;
      end;
    if idx<0 then idx:=CreateStyleEntry(element);
-   styles[idx].lastUsed:=window.frameStartTime;
+   styles[idx].lastUsed:=window.frameStartMs;
    result:=@styles[idx];
   end;
 
@@ -365,7 +365,7 @@ implementation
    inc(x1,round(size*0.3));
    d:=round(size*0.15);
    //
-   inTransition:=context.active.IsAnimating(window.frameStartTime);
+   inTransition:=context.active.IsAnimating(window.frameStartMs);
    if element.classType=TUICheckBox then begin
     vColor:=eStyle.GetColor('tick-color',color);
     draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,vColor,0);

@@ -1142,7 +1142,7 @@ procedure Delay(time:integer);
 
 function CurValue(var av:TAnimatedValue):single;
  begin
-  result:=av.ValueAt(window.frameStartTime);
+  result:=av.ValueAt(window.frameStartMs);
  end;
 
 function IsMouseBtn(btn:integer):boolean;
@@ -1190,12 +1190,12 @@ function TGameBase.RenderSize:TSize;
 
 function TGameBase.ColorMix(var av:TAnimatedValue;color0,color1:cardinal):cardinal;
  begin
-  result:=Apus.Colors.ColorMixF(color0,color1,Clamp(av.ValueAt(window.frameStartTime),0,1));
+  result:=Apus.Colors.ColorMixF(color0,color1,Clamp(av.ValueAt(window.frameStartMs),0,1));
  end;
 
 function TGameBase.ColorAlpha(var av:TAnimatedValue;color:cardinal):cardinal;
  begin
-  result:=Apus.Colors.ColorAlpha(color,Clamp(av.ValueAt(window.frameStartTime),0,1));
+  result:=Apus.Colors.ColorAlpha(color,Clamp(av.ValueAt(window.frameStartMs),0,1));
  end;
 
 function TGameBase.AddWindow(title:string;w,h:integer):TWindow;

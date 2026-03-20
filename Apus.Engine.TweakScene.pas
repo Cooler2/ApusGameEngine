@@ -335,7 +335,7 @@ begin
    vtBlue: c:=$FFA0A0F0;
   end;
   inc(xx,x1);
-  if focused then c:=ColorAlpha(c,0.9+0.2*sin(window.frameStartTime/50));
+  if focused then c:=ColorAlpha(c,0.9+0.2*sin(window.frameStartMs/50));
   for i:=-4 to 4 do
    draw.Line(xx+i,yy-j,xx+i,yy-abs(i),c-$101010*abs(i));
  end;

@@ -101,7 +101,7 @@ implementation
      if (item=underMouse) or
         ((underMouse<>nil) and (item=underMouse.parent)) then
        with item.globalRect do begin
-         if (item=underMouse) and (window.frameStartTime and $100=0) then
+         if (item=underMouse) and (window.frameStartMs and $100=0) then
           draw.FillRect(left,top,right-1,bottom-1,$1800FF00);
          draw.Rect(left,top,right-1,bottom-1,$80FFFFFF xor ($FFFFFF*((CoreTime.Ticks shr 8) and 1)));
        end;

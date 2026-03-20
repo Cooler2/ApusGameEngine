@@ -2399,17 +2399,18 @@ procedure TGame.RenderAndPresentFrame;
    presentUs:=0;
    sleepUs:=0;
    ticks:=CoreTime.Ticks;
-   if window.frameStartTime>0 then window.frameTimeDelta:=ticks-window.frameStartTime
-    else window.frameTimeDelta:=20; // initial value
-   window.frameStartTime:=ticks;
-   deltaUs:=window.frameTimeDelta*1000;
+   if window.frameStartMs>0 then
+    window.SetFrameTiming(ticks,ticks-window.frameStartMs)
+   else
+    window.SetFrameTiming(ticks,20); // initial value
+   deltaUs:=window.frameDeltaMs*1000;
    if window.timings.frameTimerReady then
     deltaUs:=round(Timer.Get(window.timings.frameTimer)*1000000);
    Timer.Start(window.timings.frameTimer);
    window.timings.frameTimerReady:=true;
 
-   if window.frameTimeDelta>500 then
-    Log.Msg('Warning: main loop stall for '+inttostr(window.frameTimeDelta)+' ms');
+   if window.frameDeltaMs>500 then
+    Log.Msg('Warning: main loop stall for '+inttostr(window.frameDeltaMs)+' ms');
 
    // Обработка кадра
    if window.timings.phaseMetrics then Timer.Start(phaseTimer);
@@ -2482,8 +2483,7 @@ procedure TGame.MainThreadLoop;
    mainWindow:=window;
    window.screenDPI:=systemPlatform.GetScreenDPI;
    window.frameNum:=0;
-   window.frameStartTime:=0;
-   window.frameTimeDelta:=0;
+   window.ResetFrameTiming;
    PublishVar(@window.screenDPI,'ScreenDPI',TVarTypeInteger);
    gameEx.InitMainLoop; // вызывает InitGraph
 
@@ -2591,12 +2591,13 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
 
    // frame loop
    repeat
-    Thread.Ping;
-    t:=CoreTime.Ticks;
-    if wnd.frameStartTime>0 then wnd.frameTimeDelta:=t-wnd.frameStartTime
-     else wnd.frameTimeDelta:=20;
-    wnd.frameStartTime:=t;
-    deltaUs:=wnd.frameTimeDelta*1000;
+   Thread.Ping;
+   t:=CoreTime.Ticks;
+    if wnd.frameStartMs>0 then
+     wnd.SetFrameTiming(t,t-wnd.frameStartMs)
+    else
+     wnd.SetFrameTiming(t,20);
+    deltaUs:=wnd.frameDeltaMs*1000;
     if wnd.timings.frameTimerReady then
      deltaUs:=round(Timer.Get(wnd.timings.frameTimer)*1000000);
     Timer.Start(wnd.timings.frameTimer);
@@ -2608,7 +2609,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     // process scenes
     wnd.Lock;
     try
-     wnd.ProcessScenes(integer(wnd.frameTimeDelta));
+     wnd.ProcessScenes(integer(wnd.frameDeltaMs));
     finally
      wnd.Unlock;
     end;
@@ -2776,6 +2777,7 @@ class function TVarTypeGameClass.ListFields:string8;
 initialization
   PublishVar(@onFrameDelay,'onFrameDelay',TVarTypeInteger);
 end.
+
 
 
 

@@ -58,10 +58,15 @@ type
  // Base class for engine windows.
  // Platform-specific subclasses implement abstract methods.
  // Created via ISystemPlatform.CreateWindow.
- TWindow=class(TNamedObject)
- protected
+TWindow=class(TNamedObject)
+protected
   class function ClassHash:pointer; override;
- public
+private
+  frameStartMsValue:int64;
+  frameDeltaMsValue:int64;
+  frameStartSecValue:double;
+  frameDeltaSecValue:double;
+public
   // Render area
   renderWidth,renderHeight:integer; // size of render area in virtual pixels
   displayRect:TRect; // render area inside window's client area, in screen pixels
@@ -84,8 +89,6 @@ type
   paused:boolean; // pause rendering regardless of active state
   screenDPI:integer; // DPI according to system settings
   frameNum:integer; // increments every frame
-  frameStartTime:int64; // CoreTime.Ticks when frame started
-  frameTimeDelta:int64; // milliseconds elapsed from previous frame
   FPS,smoothFPS:single; // current and smoothed FPS
   // Text link (TODO: move out)
   textLink:cardinal;
@@ -98,9 +101,16 @@ type
   capture:TFrameCapture;
   scenes:TSceneArray;
   topmostScene:TGameScene; // last topmost active scene for this window
+  // Frame timing (per-window, read-only from outside).
+  property frameStartMs:int64 read frameStartMsValue; // CoreTime.Ticks when frame started
+  property frameDeltaMs:int64 read frameDeltaMsValue; // milliseconds elapsed from previous frame
+  property frameStartSec:double read frameStartSecValue;
+  property frameDeltaSec:double read frameDeltaSecValue;
 
   constructor Create(windowName:String8='MainWnd');
   destructor Destroy; override;
+  procedure SetFrameTiming(startMs,deltaMs:int64);
+  procedure ResetFrameTiming;
 
   procedure Lock(caller:pointer=nil);
   procedure Unlock;
@@ -160,12 +170,26 @@ constructor TWindow.Create(windowName:String8='MainWnd');
   inherited Create;
   name:=windowName;
   runtimeLock.Init('Window',20);
+  ResetFrameTiming;
  end;
 
 destructor TWindow.Destroy;
  begin
   runtimeLock.Cleanup;
   inherited;
+ end;
+
+procedure TWindow.SetFrameTiming(startMs,deltaMs:int64);
+ begin
+  frameStartMsValue:=startMs;
+  frameDeltaMsValue:=deltaMs;
+  frameStartSecValue:=startMs*0.001;
+  frameDeltaSecValue:=deltaMs*0.001;
+ end;
+
+procedure TWindow.ResetFrameTiming;
+ begin
+  SetFrameTiming(0,0);
  end;
 
 class function TWindow.ClassHash:pointer;

@@ -1310,7 +1310,7 @@ var
   var
    n:integer;
   begin
-   n:=(window.frameStartTime div 2000) mod 4;
+   n:=(window.frameStartMs div 2000) mod 4;
    draw.FillRect(x,y,x+textCache.width,y+textCache.height,backColors[n]);
    draw.Image(x,y,textCache,frontColors[n]);
   end;

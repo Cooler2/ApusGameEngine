@@ -833,7 +833,7 @@ procedure TModelInstance.Update(customTime:int64=-1;forceUpdate:boolean=false);
  var
   time:integer;
  begin
-  if customTime=-1 then customTime:=window.frameStartTime;
+  if customTime=-1 then customTime:=window.frameStartMs;
   if lastUpdated>0 then begin
    time:=customTime-lastUpdated;
    if (time=0) and not forceUpdate then exit; // no time elapsed since last update
@@ -858,7 +858,7 @@ procedure TModelInstance.AdvanceAnimations(time:integer);
    with animations[i] do
     if playing and not paused then begin
      t:=time;
-     if t<0 then t:=window.frameStartTime-startTime;
+     if t<0 then t:=window.frameStartMs-startTime;
      oldFrame:=round(curFrame);
      curFrame:=curFrame+t*model.animations[i].fps/1000;
      loopTo:=model.animations[i].loopTo;
