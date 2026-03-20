@@ -1,5 +1,5 @@
 ﻿# Engine5 Feature Roadmap
-Last updated: 2026-03-14
+Last updated: 2026-03-20
 
 Language policy: this roadmap is maintained in English.
 
@@ -29,6 +29,7 @@ This file follows top-down planning:
 | R-10 | UI Widget System Refactor | in progress | ~60% | TUIElement slimmed: hint* → attributes, scrollers → TUIScrollable, tag/customPtr/linkedValue removed, fields reordered, methods grouped, HasChild/HasParent strict | Widget comments EN, TUIFlexControl removal, noBorder removal, onClick/onClickEvent review |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
+| R-14 | UI Widget Expansion | idea | 0% | — | New widget types, module split strategy |
 
 ## 2) Strategic Directions
 
@@ -144,6 +145,7 @@ Use this section for anything remembered on the fly.
 - [ ] [R-011] Headless/NOGFX backend for CI-driven UI automation without window/OpenGL context
 - [ ] [R-012] Graphics subsystem optimizations (text path + streaming buffers)
 - [ ] [R-013] Robot API input simulation (`ui.click`/`ui.type`/`ui.focus`)
+- [ ] [R-014] UI widget expansion: new component types + module organization strategy
 
 ## 5) Seed Feature Cards
 
@@ -515,6 +517,46 @@ type
   end;
 ```
 
+
+### [R-14] UI Widget Expansion (New Components + Module Organization)
+- Status: idea
+- Priority: P1
+- Area: UI
+- Value: Extend the engine UI toolkit with commonly needed widgets that are absent or only available via ad-hoc custom code (e.g. TweakScene sliders), and establish a scalable module organization strategy for growing widget surface.
+- Scope (MVP):
+  - New widgets (priority order):
+    1. **TUIProgressBar** — simple display-only bar (value, min, max, fill direction); no interaction
+    2. **TUISection** — collapsing/expanding section header; click toggles children visibility; arrow indicator
+    3. **TUINumericField** — Blender-style combined display+input: shows value as text, fill bar behind it shows relative position in range; LMB drag changes value, click enters keyboard edit mode
+    4. **TUITabControl** — tab strip + content area; switching tabs shows/hides child panels
+    5. **TUISpinner** — numeric EditBox with ▲▼ step buttons (fallback when NumericField is not enough)
+    6. **TUITreeView** — hierarchical list with expand/collapse nodes
+    7. **TUIColorPicker** — composite color selection control (own module due to complexity)
+    8. **TUIFileDialog** — modal dialog for file open/save (own module due to complexity)
+  - Module organization strategy:
+    - **UIWidgets.pas** — primitives that do not instantiate other widget types internally (Label, Button, Toggle, CheckBox, Radio, EditBox, ScrollBar, ProgressBar, NumericField, Splitter, Frame, Image)
+    - **UIComposite.pas** — medium-complexity composite widgets that own internal child widgets (ListBox, ComboBox, Window, GroupBox, Section, TabControl, Spinner, TreeView)
+    - **UIColorPicker.pas** — standalone module; complex, optional dependency
+    - **UIFileDialog.pas** — standalone module; OS-tier complexity, optional dependency
+    - `Apus.Engine.UI.pas` re-exports all three tiers so callers need no extra `uses`
+- Out of scope: animation/transition effects for Section; TreeView drag-drop; ColorPicker alpha editing in MVP; full OS-native FileDialog wrapper (custom UI dialog only).
+- Dependencies: `Apus.Engine.UIWidgets`, `Apus.Engine.UITypes`, `Apus.Engine.UILayout`, layout system (TGridLayout, TRowLayout), R-05 style pipeline for visual polish.
+- Risks: TUINumericField drag behavior may conflict with scroll/pan on touch targets; TreeView virtual-scroll for large datasets is a non-trivial follow-up; module split may require moving ListBox/ComboBox out of UIWidgets.pas (existing code churn).
+- Acceptance Criteria:
+  - [ ] TUIProgressBar implemented and usable as a standalone display widget.
+  - [ ] TUISection toggles child visibility with visual indicator.
+  - [ ] TUINumericField supports drag-to-change and click-to-type for float/int values.
+  - [ ] TUITabControl switches visible content panel via tab strip.
+  - [ ] UIComposite.pas introduced as a second widget module; UIWidgets.pas split along primitive/composite boundary.
+  - [ ] UIColorPicker.pas added as optional standalone module.
+  - [ ] All new widgets follow the `Create(w,h,parent,name).Setup(...).SetPos(...).SetAnchors(...)` construction pattern.
+  - [ ] At least one demo or TweakScene updated to use new widgets.
+- Notes:
+  - TUINumericField is the most strategically interesting widget: it would replace the custom sliders already in TweakScene and make parameter tweaking ergonomic without dedicated slider tracks.
+  - TUIProgressBar priority raised above other widgets: simplest to implement, frequently needed (loading screens, health bars, progress indication).
+  - Blender numeric field is the reference UX for TUINumericField: compact, precise, no wasted space.
+  - Module split criterion: a widget is "composite" if it internally calls `Create` on another widget class. Primitives compose only via TUIElement children set by caller.
+  - 2026-03-20: card created; widget list and module strategy drafted in planning discussion.
 
 ## 6) Next Planning Session
 Prepare for the next discussion:
