@@ -119,7 +119,12 @@ interface
 
 implementation
  uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, {$ENDIF}
-    Classes, Apus.Threads, Apus.Strings, Apus.Conv, Apus.ControlFiles, Apus.Log, Apus.GeoIP;
+    Classes, Math, Apus.Threads, Apus.Strings, Apus.Conv, Apus.ControlFiles, Apus.Log, Apus.Logging, Apus.GeoIP;
+ procedure scgiLogProc(msg:String8; level:byte; msgtype:byte);
+  begin
+   Log.Msg(msg,msgtype,TSeverity(level));
+  end;
+
  type
   // Worker thread
   TWorker=class(TThread)
@@ -188,7 +193,6 @@ implementation
   startTime:TDateTime;
   requestsProcessed:int64;
 
-{
  procedure GlobalLock;
   begin
    critSect.Enter;
@@ -198,7 +202,6 @@ implementation
   begin
    critSect.Leave;
   end;
-}
 
 // -------------------------------------------------------
 // AUX CGI functions
@@ -216,21 +219,21 @@ implementation
      result:='';
      i:=pos('boundary=',cType);
      if i>0 then boundary:='--'+copy(cType,i+9,length(cType));
-     p:=PosFrom(boundary,requestBody);
+     p:=requestBody.IndexOf(boundary);
      if p=0 then exit;
      repeat
       i:=p+length(boundary)+2; // первый байт заголовка параметра
-      q:=PosFrom(#13#10#13#10,requestBody,i);
+      q:=requestBody.IndexOf(#13#10#13#10,i);
       if q=0 then break;
-      p:=PosFrom(boundary,requestBody,q); // конец данных
+      p:=requestBody.IndexOf(boundary,q); // конец данных
       if p=0 then break;
       fHeaders:=copy(requestBody,i,q-i);
       q:=q+4;
-      if (p-q-2>=0) and (PosFrom('name="'+name+'"',fHeaders,1,true)>0) then begin
+      if (p-q-2>=0) and (fHeaders.IndexOf('name="'+name+'"',1,true)>0) then begin
        result:=copy(requestBody,q,p-q-2);
        i:=Pos('filename="',fheaders);
        if i>0 then begin
-        q:=PosFrom('"',fheaders,i+10);
+        q:=fheaders.IndexOf('"',i+10);
         if q>=i+10 then uploadedFileName:=copy(fHeaders,i+10,q-i-10)
          else uploadedFileName:='';
        end;
@@ -244,8 +247,8 @@ implementation
    if httpMethod='GET' then params:=query;
    if (httpMethod='POST') then begin
     cType:=GetHeader(headers,'CONTENT_TYPE');
-    if PosFrom('application/x-www-form-urlencoded',cType,1,true)>0 then params:=requestBody;
-    if PosFrom('multipart/form-data',cType,1,true)>0 then begin
+    if cType.IndexOf('application/x-www-form-urlencoded',1,true)>0 then params:=requestBody;
+    if cType.IndexOf('multipart/form-data',1,true)>0 then begin
      result:=ExtractMultipartValue;
      exit;
     end;
@@ -256,7 +259,7 @@ implementation
     e:=p;
     while (e<=length(params)) and (params[e]<>'&') do inc(e);
     result:=copy(params,p,e-p);
-    result:=UrlDecode(result);
+    result:=result.UrlDecode;
    end;
   end;
 
@@ -273,11 +276,11 @@ implementation
   begin
    result:='';
    name:=UpperCase(name);
-   cookies:=split(';',GetHeader(headers,'HTTP_COOKIE'));
+   cookies:=GetHeader(headers,'HTTP_COOKIE').Split(';');
    for st in cookies do begin
-    items:=split('=',st);
-    if UpperCase(chop(items[0]))=name then begin
-     result:=chop(items[1]);
+    items:=st.Split('=');
+    if UpperCase(items[0].Trim)=name then begin
+     result:=items[1].Trim;
      exit;
     end;
    end;
@@ -321,7 +324,7 @@ implementation
 
  function CurrentTimeStamp:String8;
   begin
-   result:=FormatDateTime('yyyymmddhhnnss',NowGMT);
+   result:=FormatDateTime('yyyymmddhhnnss',CoreTime.UTC);
   end;
 
  function ParseTimeStamp(timestamp:String8):TDateTime;
@@ -364,7 +367,7 @@ implementation
 
  function FormatError(code:integer;msgToLog:String8):String8;
   begin
-   LogMsg('ErrorCode '+Conv.ToStr(code)+': '+msgToLog,logNormal);
+   Log.Msg('ErrorCode '+Conv.ToStr(code)+': '+msgToLog);
    result:=FormatHeaders('text/html',Conv.ToStr(code));
    case code of
     403:result:=result+'<h3>403 Forbidden</h3>';
@@ -420,7 +423,7 @@ implementation
       end;
       if q=length(st) then bad:=true;
       if not bad then begin
-       sa:=split(';',copy(st,p+1,q-p-1));
+       sa:=copy(st,p+1,q-p-1).Split(';');
        for k:=0 to high(sa) do begin
         r:=pos('=',sa[k]);
         pName:=copy(sa[k],1,r-1);
@@ -477,7 +480,7 @@ implementation
 
  function BuildTemplate(template:String8):String8;
   begin
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
    if (length(template)>1) and (template[1]='#') then begin
     delete(template,1,1);
@@ -488,7 +491,7 @@ implementation
     result:=template;
    result:=TranslateString(result);
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
   end;
 
@@ -546,18 +549,18 @@ implementation
    r,p:integer;
    date,fileDate:TDateTime;
   begin
-   EnterCriticalSection(critSect); // в принципе это больше не нужно!
+   critSect.Enter; // в принципе это больше не нужно!
    try
    r:=FindFirst('templates\*.*',faArchive,sr);
    while r=0 do begin
     // Load templates from file and update max filedate
-    mostRecentTemplate:=max2d(double(mostRecentTemplate),FileDateToDateTime(sr.Time));
+    mostRecentTemplate:=Max(double(mostRecentTemplate),FileDateToDateTime(sr.Time));
     LoadTemplatesFromFile('templates\'+sr.name);
     r:=FindNext(sr);
    end;
    SysUtils.FindClose(sr);
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
   end;
 
@@ -569,7 +572,7 @@ implementation
    r:=FindFirst('templates\*.*',faArchive,sr);
    while r=0 do begin
     if FileDateToDateTime(sr.Time)>mostRecentTemplate then begin
-     LogMsg('Templates changed, reloading...',logImportant);
+     Log.Force('Templates changed, reloading...');
      for i:=1 to WORKER_THREADS do
       if workers[i]<>nil then workers[i].reloadTemplates:=true;
      break;
@@ -585,19 +588,19 @@ implementation
 
  procedure qPut(r:integer);
   begin
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
     queue[qEnd]:=r;
     qEnd:=(qEnd+1) and MAX_RQUEUE;
     if qStart=qEnd then raise EError.Create('Queue overflow!');
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
   end;
 
  function qGet:integer;
   begin
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
    if qStart<>qEnd then begin
     result:=queue[qStart];
@@ -605,7 +608,7 @@ implementation
    end else
     result:=-1;
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
   end;
 
@@ -674,7 +677,7 @@ implementation
           end;
           totalLength:=start+size{+1}+contentLength;
         end else begin
-          LogMsg('Invalid request: '+request,logWarn);
+          Log.Warn('Invalid request: '+request);
           status:=rsFree;
           closesocket(socket);
         end;
@@ -691,7 +694,7 @@ implementation
    t:int64;
   begin
    t:=CoreTime.Ticks;
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
    res:=recv(s,buffer,sizeof(buffer),0);
    if res>=0 then begin
@@ -699,7 +702,7 @@ implementation
      with requests[i] do
       if socket=s then begin
        if res>0 then begin
-         LogMsg('Request %d: received %d bytes',[i,res],logInfo);
+         Log.Info('Request %d: received %d bytes',[i,res]);
          // copy received data
          size:=length(request);
          SetLength(request,size+res);
@@ -710,7 +713,7 @@ implementation
          if contentLength>=0 then begin
            // Content-length is already known
            if length(request)>=totalLength then begin
-             LogMsg('Request %d ready: %d >= %d',[i,length(request),totalLength],logDebug);
+             Log.Debug('Request %d ready: %d >= %d',[i,length(request),totalLength]);
              body:=copy(request,length(request)-contentLength+1,contentLength);
              request:=''; // already parsed, so not needed anymore
              status:=rsReceived;
@@ -725,16 +728,16 @@ implementation
        break; // don't look to other requests
       end;
    end else begin
-     LogMsg('RECV error: '+Conv.ToStr(WSAGetLastError),logWarn);
+     Log.Warn('RECV error: '+Conv.ToStr(WSAGetLastError));
      for i:=1 to high(requests) do
       with requests[i] do
        if socket=s then status:=rsFree;
      CloseSocket(s);
    end;
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
-   if CoreTime.Ticks>t+10 then LogMsg('WARN: long socket reading',logWarn);
+   if CoreTime.Ticks>t+10 then Log.Warn('WARN: long socket reading');
   end;
 
  // Записывает данные в сокет
@@ -744,7 +747,7 @@ implementation
    t:int64;
   begin
    t:=CoreTime.Ticks;
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
    for i:=1 to High(requests) do
     if requests[i].socket=s then
@@ -752,28 +755,28 @@ implementation
       size:=length(response)-bytesSent;
       if size>100000 then size:=100000;
       move(response[bytesSent+1],buffer,size);
-      LogMsg('Sending %d bytes to #%d',[size,i],logInfo);
+      Log.Info('Sending %d bytes to #%d',[size,i]);
       res:=send(s,buffer,size,0);
       if res=SOCKET_ERROR then begin
-       LogMsg('Send error: '+Conv.ToStr(WSAGetLastError),logWarn);
+       Log.Warn('Send error: '+Conv.ToStr(WSAGetLastError));
        CloseSocket(s);
        status:=rsFree;
-       LogMsg('Socket closed',logInfo);
+       Log.Info('Socket closed');
       end else begin
        inc(bytesSent,res);
        if bytesSent=length(response) then begin
         // Complete
         CloseSocket(s);
         status:=rsFree;
-        LogMsg('Socket closed',logInfo);
+        Log.Info('Socket closed');
        end;
       end;
       break;
      end;
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
-   if CoreTime.Ticks>t+10 then LogMsg('WARN: long socket writing',logWarn);
+   if CoreTime.Ticks>t+10 then Log.Warn('WARN: long socket writing');
   end;
 
  var
@@ -788,7 +791,7 @@ implementation
    t:int64;
   begin
     if (lastAcceptTime>0) and (CoreTime.Ticks>lastAcceptTime+40) then
-      LogMsg('WARN! Long delay for Accept! '+Conv.ToStr(CoreTime.Ticks-lastAcceptTime));
+      Log.Warn('WARN! Long delay for Accept! '+Conv.ToStr(CoreTime.Ticks-lastAcceptTime));
     lastAcceptTime:=CoreTime.Ticks;
     t:=CoreTime.Ticks;
     result:=false;
@@ -797,17 +800,17 @@ implementation
     if s=INVALID_SOCKET then begin
        res:=WSAGetLastError;
        if (res<>WSAEWOULDBLOCK) and (res<>WSAECONNREFUSED) then
-         Logmsg('ACCEPT failed with '+Conv.ToStr(res),logWarn);
+         Log.Warn('ACCEPT failed with '+Conv.ToStr(res));
     end else begin
       // Connection established
-      EnterCriticalSection(critSect);
+      critSect.Enter;
       try
       for i:=1 to High(requests) do
       with requests[i] do
        if status=rsFree then begin
-         LogMsg('New connection: '+Conv.ToStr(i),logInfo);
+         Log.Info('New connection: '+Conv.ToStr(i));
          if CoreTime.Ticks>t+20 then
-          LogMsg('Long waiting for accepted connection! ',logWarn);
+          Log.Warn('Long waiting for accepted connection!');
          socket:=s;
          status:=rsReading;
          request:=''; response:='';
@@ -820,12 +823,12 @@ implementation
          rHash.Put(s,i);
          exit;
        end;
-       LogMsg('ERROR! New connection not assigned!',logWarn);
+       Log.Warn('ERROR! New connection not assigned!');
       finally
-       LeaveCriticalSection(critSect);
+       critSect.Leave;
       end;
     end;
-   if CoreTime.Ticks>t+20 then LogMsg('WARN: long AcceptNew '+Conv.ToStr(CoreTime.Ticks-t),logWarn);
+   if CoreTime.Ticks>t+20 then Log.Warn('WARN: long AcceptNew '+Conv.ToStr(CoreTime.Ticks-t));
   end;
 
  // Проверяет сокеты, ожидающие поступления запросов, на наличие поступивших данных
@@ -892,13 +895,13 @@ implementation
    i:integer;
    uptime:int64;
   begin
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
      assign(f,'status');
      rewrite(f);
      writeln(f,'Launched at ',FormatDateTime('d.mm.yyyy hh:nn:ss',startTime));
      uptime:=round((now-startTime)*86400000);
-     writeln(f,'Uptime: '+FormatTime(uptime));
+     writeln(f,'Uptime: '+Conv.TimeToStr(uptime));
      writeln(f,'Requests: ',requestsProcessed);
      writeln(f,'RPS: ',requestsProcessed/(uptime/1000):5:2);
      writeln(f);
@@ -922,7 +925,7 @@ implementation
      end;
      close(f);
    finally
-     LeaveCriticalSection(critSect);
+     critSect.Leave;
    end;
   end;
 
@@ -931,7 +934,7 @@ implementation
    try
     // should terminate?
     if FileExists('exit') then begin
-      LogMsg('Exit requested!',logImportant);
+      Log.Force('Exit requested!');
       DeleteFile('exit');
       needExit:=true;
     end;
@@ -940,7 +943,7 @@ implementation
     if not FileExists('status') then WriteStatusFile;
 
    except
-    on e:exception do LogMsg('Error in External Control: '+ExceptionMsg(e),logError);
+    on e:exception do Log.Error('Error in External Control: '+ExceptionMsg(e));
    end;
   end;
 
@@ -975,7 +978,7 @@ implementation
 
  procedure AddHandler(uri:String8;handler:TRequestHandler);
   begin
-   EnterCriticalSection(critSect);
+   critSect.Enter;
    try
     if uri='*' then begin
      handlers[0].uri:='*';
@@ -993,7 +996,7 @@ implementation
     handlers[hCount+1].handler:=handler;
     inc(hCount);
    finally
-    LeaveCriticalSection(critSect);
+    critSect.Leave;
    end;
   end;
 
@@ -1003,12 +1006,12 @@ implementation
   begin
    // Logging
    if FileExists('scgi.log') then RenameFile('scgi.log','scgi.old');
-   UseLogFile('scgi.log');
-   LogCacheMode(true,false,false);
-   InitLogging(10,'logs',logInfo);
+   Logger.UseLogFile('scgi.log');
+   Logger.LogCacheMode(true);
+   InitLogging(10,'logs',TSeverity.Info);
 
    // Initialization
-   InitCritSect(critSect,'SCGI');
+   critSect.Init('SCGI');
    WSAStartup($0202, WSAData);
    // Load configuration
    ctl:=TControlFile.Create('config.ctl','');
@@ -1016,12 +1019,12 @@ implementation
    worker_threads:=ctl.GetInt('WorkerThreads',worker_threads);
    rootDir:=ctl.GetStr('rootDir',GetCurrentDir);
    URIprefix:=lowercase(ctl.GetStr('URIprefix',''));
-   if LastChar(rootDir)<>'\' then rootDir:=rootDir+'\';
+   if (rootDir<>'') and (rootDir[length(rootDir)]<>'\') then rootDir:=rootDir+'\';
    DB_HOST:=ctl.GetStr('MySQL\Host',DB_HOST);
    DB_LOGIN:=ctl.GetStr('MySQL\Login',DB_LOGIN);
    DB_PASSWORD:=ctl.GetStr('MySQL\Password',DB_PASSWORD);
    DB_DATABASE:=ctl.GetStr('MySQL\Database',DB_DATABASE);
-   LogMsg('SCGI Initialized',logImportant);
+   Log.Force('SCGI Initialized');
    qStart:=0; qEnd:=0;
    requestsProcessed:=0;
   end;
@@ -1036,12 +1039,12 @@ implementation
 
    {$IF Declared(SetPriorityClass)}
    if not SetPriorityClass(GetCurrentProcess,NORMAL_PRIORITY_CLASS) then
-    LogMsg('Failed to set process priority',logWarn);
+    Log.Warn('Failed to set process priority');
    {$ENDIF}
 
    {$IF Declared(SetThreadPriority)}
    if not SetThreadPriority(GetCurrentThread,THREAD_PRIORITY_ABOVE_NORMAL) then
-    LogMsg('Failed to set main thread priority',logWarn);
+    Log.Warn('Failed to set main thread priority');
    {$ENDIF}
 
    InitGeoIP;
@@ -1065,41 +1068,41 @@ implementation
    repeat
     inc(loopCounter);
     try
-      EnterCriticalSection(critSect);
+      critSect.Enter;
       try
         while AcceptNewConnection do;
         ReadIncomingData;
         CheckForTimer;
       finally
-       LeaveCriticalSection(critSect);
+       critSect.Leave;
       end;
 
       if loopCounter and $FF=0 then begin
        ExternalControl;
       end;
       if loopCounter and $1FF=0 then begin
-       FlushLog;
+       Logger.Flush;
        FlushLogs;
        CheckForTemplatesUpdate;
       end;
       sleep(1);
 
       // Send responses if ready
-      EnterCriticalSection(critSect);
+      critSect.Enter;
       try
         WriteOutgoingData;
       finally
-       LeaveCriticalSection(critSect);
+       critSect.Leave;
       end;
     except
      on e:exception do begin
-       LogMsg('Error in main thread: '+ExceptionMsg(e),logWarn);
+       Log.Warn('Error in main thread: '+ExceptionMsg(e));
        Sleep(1000);
      end;
     end;
    until needExit;
 
-   LogMsg('Terminating...',logImportant);
+   Log.Force('Terminating...');
    for i:=1 to worker_threads do
     workers[i].terminate;
 
@@ -1107,12 +1110,12 @@ implementation
     sleep(50);
     if liveWorkers=0 then break;
    end;
-   if liveWorkers>0 then LogMsg('Not all workers terminated!',logWarn);
+   if liveWorkers>0 then Log.Warn('Not all workers terminated!');
    CloseSocket(MainSock);
    WSACleanup;
    ctl.Free;
-   DeleteCritSect(critSect);
-   LogMsg('Terminated',logImportant);
+   critSect.Cleanup;
+   Log.Force('Terminated');
   end;
 
 // -------------------------------------------------------
@@ -1138,14 +1141,14 @@ function HandleRequest(pending:boolean;out resp:String8):boolean;
     if p>0 then setLength(uri,p-1);
     query:=GetHeader(headers,'QUERY_STRING');
    end;
-   if (URIPrefix<>'') and HasPrefix(uri,URIprefix,true) then Delete(uri,1,length(UriPrefix));
+   if (URIPrefix<>'') and (uri.IndexOf(URIprefix,1,true)=1) then Delete(uri,1,length(UriPrefix));
    uriUp:=UpperCase(uri);
    clientIP:=GetHeader(headers,'REMOTE_ADDR');
-   clientCountry:=GetCountryByIP(StrToIp(clientIP));
+   clientCountry:=GetCountryByIP(Conv.ToIp(clientIP));
    httpMethod:=UpperCase(GetHeader(headers,'REQUEST_METHOD'));
    if not pending then
-    LogMsg('[%d] Handling request %d: %s %s %s VID:%s (%s;%s)',
-      [workerID,requestIdx,httpMethod,uri,query,Cookie('VID'),clientIP,ClientCountry],logNormal);
+    Log.Msg('[%d] Handling request %d: %s %s %s VID:%s (%s;%s)',
+      [workerID,requestIdx,httpMethod,uri,query,Cookie('VID'),clientIP,ClientCountry]);
    // Exact match
    found:=-1;
    for i:=1 to hCount do
@@ -1166,7 +1169,7 @@ function HandleRequest(pending:boolean;out resp:String8):boolean;
    // default page handler
    if (found<0) and (handlers[0].uri='*') then begin
     found:=0;
-    LogMsg('No handler for request '+uri+', using default');
+    Log.Msg('No handler for request '+uri+', using default');
    end;
    if found>=0 then begin
     temp.Init; // Clear temporary templates
@@ -1184,7 +1187,7 @@ function HandleRequest(pending:boolean;out resp:String8):boolean;
    on e:E429 do resp:=FormatError(429,e.Message);
    on e:E500 do resp:=FormatError(500,e.Message);
    on e:exception do begin
-    LogMsg('Error 500: '+ExceptionMsg(e),logWarn);
+    Log.Warn('Error 500: '+ExceptionMsg(e));
     resp:=FormatHeaders('text/html','500')+'<h1>500 Internal Server Error!<h1>';
    end;
   end;
@@ -1193,7 +1196,7 @@ function HandleRequest(pending:boolean;out resp:String8):boolean;
    st:=copy(resp,1,180);
    st:=StringReplace(st,#13,'\r',[rfReplaceAll]);
    st:=StringReplace(st,#10,'\n',[rfReplaceAll]);
-   if result then LogMsg('[%d] Request %d handled (t=%d): %s',[workerID,requestIdx,integer(CoreTime.Ticks-t),st],logNormal);
+   if result then Log.Msg('[%d] Request %d handled (t=%d): %s',[workerID,requestIdx,integer(CoreTime.Ticks-t),st]);
   end;
  end;
 
@@ -1207,7 +1210,7 @@ procedure HandleSpecialRequest(r:integer);
    else
    if (requests[r].request='INITIALIZE') and (@initProc<>nil) then initProc;
   except
-   on e:Exception do LogMsg('Error in special request "%s": '+ExceptionMsg(e),[requests[r].request],logWarn);
+   on e:Exception do Log.Warn('Error in special request "%s": '+ExceptionMsg(e),[requests[r].request]);
   end;
  end;
 
@@ -1227,12 +1230,12 @@ procedure TWorker.Execute;
  begin
   currentRequest:=0;
   Apus.SCGI.workerID:=self.workerID;
-  LogMsg('Hello from worker '+Conv.ToStr(workerID));
+  Log.Msg('Hello from worker '+Conv.ToStr(workerID));
   try
    priority:=tpHigher;
-   AtomicIncrement(liveWorkers);
+   Atomic.Inc(liveWorkers);
    if DB_HOST<>'' then begin
-    db:=TMySQLDatabaseWithLogging.Create(logmsg,logInfo,logInfo,logNormal,2);
+    db:=TMySQLDatabaseWithLogging.Create(@scgiLogProc,1,1,2,2);
     db.Connect;
    end else
     db:=nil;
@@ -1240,8 +1243,8 @@ procedure TWorker.Execute;
    LoadTemplates;
   except
    on e:exception do begin
-    LogMsg('Failed to start worker '+Conv.ToStr(workerID)+' thread: '+ExceptionMsg(e),logError);
-    AtomicDecrement(liveWorkers);
+    Log.Error('Failed to start worker '+Conv.ToStr(workerID)+' thread: '+ExceptionMsg(e));
+    Atomic.Dec(liveWorkers);
     exit;
    end;
   end;
@@ -1266,7 +1269,7 @@ procedure TWorker.Execute;
      reloadTemplates:=false;
     end;
 
-    EnterCriticalSection(critSect);
+    critSect.Enter;
     try
      // Store request state
      if r>0 then with requests[r] do begin
@@ -1282,9 +1285,9 @@ procedure TWorker.Execute;
          // too long waiting - abort
          requests[r].response:=FormatHeaders('text/html','204 No Content');
          status:=rsCompleted;
-         LogMsg('[%d] Request %d timeout: ret 204 status',[workerId,r]);
+         Log.Msg('[%d] Request %d timeout: ret 204 status',[workerId,r]);
         end else begin
-         if not isPending then LogMsg('[%d] Request %d postponed',[workerId,r]);
+         if not isPending then Log.Info('[%d] Request %d postponed',[workerId,r]);
          status:=rsPending;
          timeToProcess:=CoreTime.Ticks+COMET_INTERVAL; // wait some time to process again
          qPut(r); // Put back to the queue to process later
@@ -1292,7 +1295,7 @@ procedure TWorker.Execute;
       end;
      end;
     finally
-     LeaveCriticalSection(critSect);
+     critSect.Leave;
     end;
     sleep(1);
     // get next request to process
@@ -1334,13 +1337,13 @@ procedure TWorker.Execute;
     end;
    except
     on e:exception do begin
-     LogMsg('ERROR IN WORKER '+Conv.ToStr(workerID)+': '+ExceptionMsg(e),logWarn);
+     Log.Warn('ERROR IN WORKER '+Conv.ToStr(workerID)+': '+ExceptionMsg(e));
      sleep(500);
     end;
    end;
   until terminated;
   FreeAndNil(db);
-  AtomicDecrement(liveWorkers);
+  Atomic.Dec(liveWorkers);
  end;
 
  procedure AddTask(task:String8;data:String8='');
@@ -1361,7 +1364,7 @@ procedure TWorker.Execute;
    sa:Strings8;
    st:String8;
   begin
-   sa:=split(#0,headers);
+   sa:=headers.Split(#0);
    st:='<html><body><table cellpadding=3 style="background-color:#e6d8ce">';
    for i:=0 to length(sa)-2 do begin
     if i and 3=2 then st:=st+'<tr>';

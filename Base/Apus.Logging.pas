@@ -1,81 +1,61 @@
-﻿// Generic support for advanced in-memory logging and log files
-// Copyright (C) 2012-2016 Ivan Polyacov, ivan@apus-software.com
+// Advanced in-memory logging with daily file rotation
+// Integrates with Apus.Log as a custom handler (in-memory store + daily rotation).
+//
+// SCOPE: Supplemental logging for long-running servers — in-memory ring buffer,
+// date-range queries, daily log rotation, flood protection, crash recovery via dump.
+// Works on top of Apus.Log: all messages come via the registered custom handler.
+//
+// ADD HERE: In-memory log queries, daily rotation, alarm dumps, persistence across restarts.
+// DON'T ADD: Basic file logging (→ Apus.Log), profiling (→ Apus.Profiling).
+//
+// Copyright (C) Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+{$I defines.inc}
 unit Apus.Logging;
 interface
- uses Apus.Core;
-
- const
-  // Степени аварийности сообщений
-  logDebug     = 0; // вспомогательные отладочные сведения
-  logInfo      = 1; // малозначительное событие
-  logNormal    = 2; // регулярное событие, имеющее значение, но не указывающее на проблему
-  logImportant = 3; // важное, ключевое событие
-  logWarn      = 3; // что-то необычное, ненормальное но не представляющее опасности
-  logError     = 4; // сбой, ошибка с возможностью продолжения работы без аварийного завершения
-  logCritical  = 5; // фатальный сбой - аварийная ситуация, вызывающая завершение работы
-
-  // Категории (группы) сообщений
-  lgHTTP     = 1;
-  lgDatabase = 2;
-  lgChat     = 3;
-  lgAI       = 4;
-  lgTurnData = 5; // данные, которыми обмениваются между собой игроки
+ uses Apus.Core, Apus.Log;
 
  var
   maxLogMsgSize:integer=2000; // larger messages will be truncated
-  avgMsgPerSecondLimit:integer = 500; // лимит на скорость поступления сообщений (в среднем в секунду)
-  minLogFileLevel:integer = logInfo; // min level of message to be stored in log file
-  minLogMemLevel:integer = logInfo; // min level of message to be stored in memory
-  logMsgCounter:int64; // global msg counter (сколько вообще сообщений было добавлено, а не сколько хранится)
-  numFailures:integer; // счётчик сообщений с уровнем logError и выше
+  avgMsgPerSecondLimit:integer=500; // message rate limit (avg per second)
+  minLogFileLevel:TSeverity=TSeverity.Info; // min level to write to daily log file
+  minLogMemLevel:TSeverity=TSeverity.Info;  // min level to store in memory
+  logMsgCounter:int64; // total messages added (not just currently stored)
+  numFailures:integer; // count of Error and Fatal messages
 
-  levelToCopyToMainLog:integer = logNormal; // copy messages with this level or higher to the MyServis log
+ // Initialize: allocate memsize MB for in-memory log, set path for daily log files
+ // Daily files are named YYMMDD.log and written to path\
+ // fileFilter: min severity to write to daily log files
+ procedure InitLogging(memsize:integer; path:string; fileFilter:TSeverity=TSeverity.Normal);
 
- // Initialize logging system:
- // Allocate "memsize" megabytes for in-memory logging (0 - keep current size, max 1024)
- // Set "path" for log files (daily rotation enabled)
- // Write messages with level>="fileFilter" to log files
- procedure InitLogging(memsize:integer;path:string;fileFilter:integer=logNormal);
-
- // level: 0 - debug, 1 - info, 2 - normal, 3 - warning, 4 - error, 5 - critical
- procedure LogMsg(st:String8;level:byte=logNormal;msgtype:byte=0); overload;
- procedure LogMsg(st:String8;params:array of const;level:byte=logNormal;msgtype:byte=0); overload;
-
- // Cброс накопленных сообщений в файл
+ // Flush daily log file cache to disk
  procedure FlushLogs;
 
- // Returns (partial) content of the in-memory log (CAUTION! May consume significant time and memory!)
- function FetchLog(fromDate,toDate:TDateTime;minLevel:byte;limit:integer=10000):Strings8;
+ // Returns messages from in-memory log filtered by date range and level
+ function FetchLog(fromDate,toDate:TDateTime; minLevel:TSeverity; limit:integer=10000):Strings8;
 
- // Аварийный сброс лога в файл (amount килобайт)
- procedure AlarmLog(filename:string;amount:integer=1024);
+ // Emergency dump of in-memory log to file (amount = max kilobytes to write)
+ procedure AlarmLog(filename:string; amount:integer=1024);
 
- // msgCount - всего сообщений
- // msgCount1 - сообщений уровня info и выше
+ // Returns in-memory usage: msgCount (total), msgCount1 (Info+), result = bytes
  function LogMemUsage(out msgCount,msgCount1:integer):integer;
 
- // Save some log messages for further use after restart
+ // Save log messages to disk for recovery after restart
  procedure SaveLogMessages;
 
 implementation
- uses SysUtils
-   {$IFDEF MSWINDOWS},windows,MMSystem{$ENDIF};
+ uses SysUtils, Apus.Files, Apus.Threads
+   {$IFDEF MSWINDOWS},Windows{$ENDIF};
 
  type
-  TMsgHeader=packed record
-   size:word;
-   level,kind:byte;
-   date:TDateTime;
-  end;
-  // Single log message
   TLogMessage=record
    date:TDateTime;
-   level,kind:byte;
+   level:TSeverity;
+   kind:byte;
    msg:String8;
   end;
-  //
+
   TLogBuffer=class
    messages:array[1..1000] of TLogMessage;
    count,count1:integer;
@@ -83,63 +63,33 @@ implementation
    next:TLogBuffer;
    constructor Create;
    destructor Destroy; override;
-   function GetDump(minLevel:integer):ByteArray;
+   function GetDump(minLevel:TSeverity):ByteArray;
   end;
+
  var
-  logCache:string8;
+  logCache:String8;
   logSect:TLock;
   logDir:string;
-  lastTime:TSystemTime; // time of the last message for log file
-  buffer:array of byte; // main buffer
-  firstUsedByte,firstFreeByte:integer; // если совпадают - буфер пуст
-  freeSpace:integer;
+  lastTime:TSystemTime; // time of last message (for daily rotation)
 
   firstBuffer,lastBuffer:TLogBuffer;
   bufferCount,maxBuffers:integer;
-  initialized:boolean=false;
+  inited:boolean=false;
 
-  avgMsgCounter:integer; // Счётчик сообщений, раз в секунду уменьшается на avgMsgPerSecondLimit, но не ниже 0
+  avgMsgCounter:integer; // flood counter, decremented by avgMsgPerSecondLimit per second
   msgBlocked:boolean=false;
 
- // Кол-во строк в логе (всего и с важностью выше Debug)
- function LogMemUsage(out msgCount,msgCount1:integer):integer;
-  var
-   buf:TLogBuffer;
-   i:integer;
-  begin
-   msgCount:=0; msgCount1:=0; result:=0;
-   logSect.Enter;
-   try
-    buf:=firstBuffer;
-    while buf<>nil do begin
-     inc(msgCount,buf.count);
-     inc(msgCount1,buf.count1);
-     inc(result,sizeof(buf.messages));
-     for i:=1 to buf.count do
-      inc(result,8+length(buf.messages[i].msg));
-     buf:=buf.next;
-    end;
-   finally
-    logSect.Leave;
-   end;
-  end;
-
- // MUST BE CALLED FROM LOGSECT!
- procedure AddLogMsg(date:TDateTime;level,kind:byte;msg:string);
+ // Must be called with logSect held
+ procedure AddLogMsg(date:TDateTime; level:TSeverity; kind:byte; const msg:String8);
   var
    buf:TLogBuffer;
   begin
-   ASSERT(logSect.lockCount>0,'LogSect!!!');
-
-   // 1. Need new buffer?
+   // must be called with logSect held
    if (lastBuffer<>nil) and (lastBuffer.count<1000) then buf:=lastBuffer
-    else begin
-     buf:=TLogBuffer.Create;
-    end;
-   // 2. Add message
+    else buf:=TLogBuffer.Create;
    inc(logMsgCounter);
    inc(buf.count);
-   if level>logDebug then inc(buf.count1);
+   if level>TSeverity.Debug then inc(buf.count1);
    buf.messages[buf.count].date:=date;
    buf.messages[buf.count].level:=level;
    buf.messages[buf.count].kind:=kind;
@@ -149,80 +99,8 @@ implementation
    while bufferCount>maxBuffers do firstBuffer.Free;
   end;
 
- procedure SaveLogMessages;
-  var
-   f:file;
-   i,n,level:integer;
-   buf:TLogBuffer;
-   dump:ByteArray;
-  begin
-   logSect.Enter;
-   try
-   Assign(f,logDir+'logDump.log');
-   Rewrite(f,1);
-   n:=0;
-   buf:=firstBuffer;
-   while buf<>nil do begin
-    inc(n); buf:=buf.next;
-   end;
-   i:=bufferCount;
-   buf:=firstBuffer;
-   LogMsg(Format('Flushing log: %d = %d buffers',[bufferCount,n]),logImportant);
-   i:=n;
-   while buf<>nil do begin
-    level:=logDebug;
-    if i>50 then level:=logInfo;
-    if i>150 then level:=logNormal;
-    if i>500 then level:=logWarn;
-    dump:=buf.GetDump(level);
-    BlockWrite(f,dump[0],length(dump));
-    buf:=buf.next;
-    dec(i);
-   end;
-   Close(f);
-   finally
-    logSect.Leave;
-   end;
-  end;
-
- procedure LoadOldMessages;
-  var
-   f:file;
-   dump:ByteArray;
-   p:integer;
-   date:TDateTime;
-   level,kind:byte;
-   size:word;
-   fname,msg:string;
-  begin
-   try
-    fname:=logDir+'logDump.log';
-    dump:=LoadFileAsBytes(fname);
-    logSect.Enter;
-    try
-    p:=0;
-    while p<high(dump) do begin
-     move(dump[p],date,8); inc(p,8);
-     kind:=dump[p]; inc(p);
-     level:=dump[p]; inc(p);
-     size:=dump[p]+dump[p+1]*256; inc(p,2);
-     SetLength(msg,size);
-     if size>0 then begin
-      move(dump[p],msg[1],size);
-      inc(p,size);
-     end;
-     AddLogMsg(date,level,kind,msg);
-    end;
-    finally
-     logSect.Leave;
-    end;
-   except
-    on e:Exception do ForceLogMessage('Error in LoadOldMessages ('+fname+'): '+e.message);
-   end;
-  end;
-
- // 12-character time: HH:MM:SS.zzz
- procedure FormatTimeStr(p:PByte;time:TSystemTime);
+ // 12-character time: HH:MM:SS.mmm
+ procedure FormatTimeStr(p:PByte; time:TSystemTime);
   begin
    {$IFDEF FPC}
    p^:=48+time.Hour div 10; inc(p);
@@ -253,89 +131,179 @@ implementation
    {$ENDIF}
   end;
 
- // Read "size" bytes from the cyclic log buffer starting from "posit"
- function ReadData(posit,size:integer;buf:PByte):integer;
+ // Custom handler called by Apus.Log for every Log.Msg call
+ procedure AdvancedLogHandler(msg:String8; category:byte; level:TSeverity);
   var
-   bufSize,d:integer;
+   time:TSystemTime;
+   date:string[14];
+   st:String8;
   begin
-   bufSize:=length(buffer);
-   if posit+size>bufSize then begin // partial?
-    d:=bufSize-posit;
-    move(buffer[posit],buf^,d);
-    posit:=0; inc(buf,d);
-    dec(size,d);
-   end;
-   move(buffer[posit],buf^,size);
-   inc(posit,size);
-   if posit>=bufSize then dec(posit,bufSize);
-   result:=posit;
-  end;
+   if level>=TSeverity.Error then inc(numFailures);
+   if length(msg)>maxLogMsgSize then SetLength(msg,maxLogMsgSize);
+   if not inited then exit;
 
- function FetchLog(fromDate,toDate:TDateTime;minLevel:byte;limit:integer):Strings8;
-  var
-   cnt,max:integer;
-   i,pos,l:integer;
-   hdr:TMsgHeader;
-   st:string;
-   sTime:TSystemTime;
-   buf:TLogBuffer;
-   timeStr:string[20];
-  begin
    logSect.Enter;
    try
-    try
-     max:=limit; // initial array size
-     cnt:=0;
-     SetLength(result,max);
-     // New code
-     buf:=firstBuffer;
-     SetLength(timeStr,12);
-     while buf<>nil do begin
-      if (buf.minDate<toDate) or (buf.maxDate>fromDate) then
-       for i:=1 to buf.count do begin
-        if cnt>=limit then break;
-        with buf.messages[i] do begin
-         if (level<minLevel) or
-            (date<fromDate) or
-            (date>ToDate) then continue;
-         DateTimeToSystemTime(date,sTime);
-         FormatTimeStr(@timestr[1],sTime);
-         result[cnt]:=Format('%s %d%d %s',[timestr,kind,level,msg]);
-        end;
-        inc(cnt);
-       end;
-      buf:=buf.next;
+    {$IFDEF MSWINDOWS}GetSystemTime(time);{$ELSE}DateTimeToSystemTime(Now,time);{$ENDIF}
+    // Day changed — flush to previous day's file
+    {$IFDEF FPC}
+    if (time.Day<>lastTime.Day) and (logCache<>'') then FlushLogs;
+    // Flood protection
+    if time.Second<>lastTime.Second then begin
+    {$ELSE}
+    if (time.wDay<>lastTime.wDay) and (logCache<>'') then FlushLogs;
+    if time.wSecond<>lastTime.wSecond then begin
+    {$ENDIF}
+     dec(avgMsgCounter,avgMsgPerSecondLimit);
+     if avgMsgCounter<0 then avgMsgCounter:=0;
+    end;
+    lastTime:=time;
+    if (avgMsgCounter>500) and (level<TSeverity.Normal) then begin
+     if not msgblocked then begin
+      st:='Log flood protection';
+      AddLogMsg(SystemTimeToDateTime(time),TSeverity.Forced,0,st);
+      logCache:=logCache+st+#13#10;
      end;
-     SetLength(result,cnt);
-    except
-     on e:Exception do begin
-      SetLength(result,0);
-      raise EError.Create('Fetch Log error: '+e.message);
-     end;
+     msgblocked:=true;
+     exit;
+    end;
+    msgblocked:=false;
+    inc(avgMsgCounter);
+
+    // Store in memory
+    if level>=minLogMemLevel then
+     AddLogMsg(SystemTimeToDateTime(time),level,category,msg);
+
+    // Write to daily log file
+    if level>=minLogFileLevel then begin
+     setLength(date,14);
+     FormatTimeStr(@date[1],time);
+     date[13]:=' ';
+     date[14]:=' ';
+     if category>0 then
+      logCache:=logCache+date+'['+IntToStr(category)+'] '+msg+#13#10
+     else
+      logCache:=logCache+date+msg+#13#10;
+     if level>=TSeverity.Warn then FlushLogs;
     end;
    finally
     logSect.Leave;
    end;
   end;
 
+ function LogMemUsage(out msgCount,msgCount1:integer):integer;
+  var
+   buf:TLogBuffer;
+   i:integer;
+  begin
+   msgCount:=0; msgCount1:=0; result:=0;
+   logSect.Enter;
+   try
+    buf:=firstBuffer;
+    while buf<>nil do begin
+     inc(msgCount,buf.count);
+     inc(msgCount1,buf.count1);
+     inc(result,sizeof(buf.messages));
+     for i:=1 to buf.count do
+      inc(result,8+length(buf.messages[i].msg));
+     buf:=buf.next;
+    end;
+   finally
+    logSect.Leave;
+   end;
+  end;
+
+ procedure SaveLogMessages;
+  var
+   f:file;
+   n,cnt:integer;
+   buf:TLogBuffer;
+   dump:ByteArray;
+  begin
+   logSect.Enter;
+   try
+    Assign(f,logDir+'logDump.log');
+    Rewrite(f,1);
+    n:=bufferCount;
+    buf:=firstBuffer;
+    cnt:=n;
+    while buf<>nil do begin
+     dump:=buf.GetDump(TSeverity.Debug);
+     if cnt>50 then dump:=buf.GetDump(TSeverity.Info);
+     if cnt>150 then dump:=buf.GetDump(TSeverity.Normal);
+     if cnt>500 then dump:=buf.GetDump(TSeverity.Warn);
+     BlockWrite(f,dump[0],length(dump));
+     buf:=buf.next;
+     dec(cnt);
+    end;
+    Close(f);
+   finally
+    logSect.Leave;
+   end;
+  end;
+
+ procedure LoadOldMessages;
+  var
+   dump:ByteArray;
+   p:integer;
+   date:TDateTime;
+   level,kind:byte;
+   sz:word;
+   fname,msg:string;
+  begin
+   try
+    fname:=logDir+'logDump.log';
+    dump:=Files.LoadAsBytes(fname);
+    logSect.Enter;
+    try
+     p:=0;
+     while p+12<=length(dump) do begin
+      move(dump[p],date,8); inc(p,8);
+      kind:=dump[p]; inc(p);
+      level:=dump[p]; inc(p);
+      sz:=dump[p]+dump[p+1]*256; inc(p,2);
+      if p+sz>length(dump) then break;
+      SetLength(msg,sz);
+      if sz>0 then begin
+       move(dump[p],msg[1],sz);
+       inc(p,sz);
+      end;
+      AddLogMsg(date,TSeverity(level),kind,String8(msg));
+     end;
+    finally
+     logSect.Leave;
+    end;
+   except
+    on e:Exception do Log.Force('Error in LoadOldMessages ('+fname+'): '+e.message);
+   end;
+  end;
+
  procedure FlushLogs;
   var
-   date:string;
+   dateStr:string;
    f:text;
    fname:string;
   begin
    logSect.Enter;
    try
     if logCache='' then exit;
-    setLength(date,6);
-    date[1]:=chr(48+(lasttime.wYear div 10) mod 10);
-    date[2]:=chr(48+lasttime.wYear mod 10);
-    date[3]:=chr(48+lasttime.wMonth div 10);
-    date[4]:=chr(48+lasttime.wMonth mod 10);
-    date[5]:=chr(48+lasttime.wDay div 10);
-    date[6]:=chr(48+lasttime.wDay mod 10);
-
-    fname:=logDir+date+'.log';
+    setLength(dateStr,6);
+    {$IFDEF FPC}
+    dateStr[1]:=chr(48+(lasttime.Year div 10) mod 10);
+    dateStr[2]:=chr(48+lasttime.Year mod 10);
+    dateStr[3]:=chr(48+lasttime.Month div 10);
+    dateStr[4]:=chr(48+lasttime.Month mod 10);
+    dateStr[5]:=chr(48+lasttime.Day div 10);
+    dateStr[6]:=chr(48+lasttime.Day mod 10);
+    {$ELSE}
+    dateStr[1]:=chr(48+(lasttime.wYear div 10) mod 10);
+    dateStr[2]:=chr(48+lasttime.wYear mod 10);
+    dateStr[3]:=chr(48+lasttime.wMonth div 10);
+    dateStr[4]:=chr(48+lasttime.wMonth mod 10);
+    dateStr[5]:=chr(48+lasttime.wDay div 10);
+    dateStr[6]:=chr(48+lasttime.wDay mod 10);
+    {$ENDIF}
+    fname:=logDir+dateStr+'.log';
     assign(f,fname);
     try
      SetTextCodePage(f,CP_UTF8);
@@ -345,143 +313,100 @@ implementation
      logCache:='';
      close(f);
     except
-     on e:exception do ForceLogMessage('ERROR: Can''t flush log to '+fname+': '+e.message);
+     on e:exception do Log.Force('ERROR: Can''t flush log to '+fname+': '+e.message);
     end;
    finally
     logSect.Leave;
    end;
   end;
 
- procedure LogMsg(st:String8;level:byte=logNormal;msgtype:byte=0);
+ function FetchLog(fromDate,toDate:TDateTime; minLevel:TSeverity; limit:integer):Strings8;
   var
-   date:string[19];
-   time:TSystemTime;
-   hdr:TMsgHeader;
-   size:word;
+   cnt:integer;
+   i:integer;
+   buf:TLogBuffer;
+   sTime:TSystemTime;
+   timeStr:string[12];
   begin
-   if level>=logError then inc(numFailures);
-   if level<minLogMemlevel then exit;
-   if length(st)>maxLogMsgSize then SetLength(st,maxLogMsgSize);
-   if level=levelToCopyToMainLog then LogMessage(st);
-   if level>levelToCopyToMainLog then ForceLogMessage(st);
-   if not initialized then exit;
    logSect.Enter;
    try
-
-    time:=GetUTCTime;
-    if (time.wDay<>lastTime.wDay) and (logCache<>'') then FlushLogs; // day changed
-    if time.wSecond<>lastTime.wSecond then begin
-     dec(avgMsgCounter,avgMsgPerSecondLimit);
-     if avgMsgCounter<0 then avgMsgCounter:=0;
-    end;
-    lastTime:=time;
-    if (avgMsgCounter>500) and (level<logNormal) then begin
-     if not msgblocked then begin
-      st:='Log flood protection';
-      AddLogMsg(SystemTimeToDateTime(time),logImportant,0,st);
-      logCache:=logCache+st+#13#10;
+    try
+     SetLength(result,limit);
+     cnt:=0;
+     buf:=firstBuffer;
+     SetLength(timeStr,12);
+     while buf<>nil do begin
+      if (buf.minDate<toDate) and (buf.maxDate>fromDate) then
+       for i:=1 to buf.count do begin
+        if cnt>=limit then break;
+        with buf.messages[i] do begin
+         if (level<minLevel) or (date<fromDate) or (date>toDate) then continue;
+         DateTimeToSystemTime(date,sTime);
+         FormatTimeStr(@timestr[1],sTime);
+         result[cnt]:=timestr+' '+IntToStr(ord(level))+IntToStr(kind)+' '+msg;
+        end;
+        inc(cnt);
+       end;
+      buf:=buf.next;
      end;
-     msgblocked:=true;
-     exit; // too many messages
-    end;
-    msgblocked:=false;
-    inc(avgMsgCounter);
-    hdr.date:=SystemTimeToDateTime(time);
-    hdr.size:=sizeof(hdr)+length(st);
-    hdr.level:=level;
-    hdr.kind:=msgtype;
-
-    AddLogMsg(hdr.date,level,msgtype,st);
-
-    if level>=minLogFileLevel then begin
-     // Write to file
-     setLength(date,14);
-     FormatTimeStr(@date[1],time);
-     date[13]:=' ';
-     date[14]:=' ';
-
-     st:=date+st;
-     logCache:=logCache+st+#13#10;
-     if level>=logWarn then FlushLogs;
+     SetLength(result,cnt);
+    except
+     on e:Exception do begin
+      SetLength(result,0);
+      raise EError.Create('FetchLog error: '+e.message);
+     end;
     end;
    finally
     logSect.Leave;
    end;
   end;
 
- procedure LogMsg(st:String8;params:array of const;level:byte=logNormal;msgtype:byte=0);
-  begin
-   LogMsg(Format(st,params),level,msgtype);
-  end;
-
- // Аварийный сброс лога в файл (amount килобайт)
- procedure AlarmLog(filename:string;amount:integer=1024);
+ procedure AlarmLog(filename:string; amount:integer=1024);
   var
-   saveFirst,space:integer;
-   size:word;
-   log:Strings8;
+   lines:Strings8;
    f:text;
    i:integer;
   begin
    try
-   amount:=amount*1024;
-   if (amount<=0) or (amount>length(buffer)) then exit;
-   logSect.Enter;
-   try
-    saveFirst:=firstUsedByte;
-    space:=length(buffer)-freeSpace;
-    while space>amount do begin
-     ReadData(firstUsedByte,2,@size);
-     inc(firstUsedByte,size);
-     if firstUsedByte>=length(buffer) then dec(firstUsedByte,length(buffer));
-     dec(space,size);
-    end;
-    log:=FetchLog(1,99999,0);
-   finally
-    firstUsedByte:=saveFirst;
-    logSect.Leave;
-   end;
-   Assign(F,filename);
-   rewrite(f);
-   for i:=0 to length(log)-1 do
-    writeln(f,log[i]);
-   close(f);
+    lines:=FetchLog(1,99999,TSeverity.Debug,amount*50); // rough limit by count
+    Assign(f,filename);
+    rewrite(f);
+    for i:=0 to length(lines)-1 do
+     writeln(f,lines[i]);
+    close(f);
    except
-    on e:exception do ForceLogMessage('Failed to create alarm log: '+e.message);
+    on e:exception do Log.Force('Failed to create alarm log: '+e.message);
    end;
   end;
 
- procedure InitLogging(memsize:integer;path:string;fileFilter:integer=logNormal);
+ procedure InitLogging(memsize:integer; path:string; fileFilter:TSeverity=TSeverity.Normal);
   begin
    if (memsize<1) or (memsize>1024) then raise EError.Create('Illegal log area size');
    try
    logSect.Enter;
    try
-    if memsize>0 then begin
-     freeSpace:=memsize*1024*1024;
-     SetLength(buffer,freeSpace);
-     firstFreeByte:=0;
-     firstUsedByte:=0;
-    end;
     if path<>'' then logDir:=path;
-    if LastChar(logDir)<>PathSeparator then logDir:=logDir+PathSeparator;
+    if logDir<>'' then begin
+     if (logDir<>'') and (logDir[length(logDir)]<>PathSeparator) then logDir:=logDir+PathSeparator;
+     ForceDirectories(logDir);
+    end;
     minLogFileLevel:=fileFilter;
-    minLogMemLevel:=0;
-
-    // New logging
+    minLogMemLevel:=TSeverity.Debug;
     maxBuffers:=memSize*16;
-    if not initialized then begin
+    if not inited then begin
      firstBuffer:=nil;
      lastBuffer:=nil;
      bufferCount:=0;
-     If FileExists(logDir+'logDump.log') then LoadOldMessages;
-     initialized:=true;
+     if FileExists(logDir+'logDump.log') then LoadOldMessages;
+     inited:=true;
     end;
+    // Register as custom handler — we add to Apus.Log pipeline
+    Logger.SetCustomHandler(@AdvancedLogHandler,false);
    finally
     logSect.Leave;
    end;
    except
-    on e:exception do ForceLogMessage('InitLogging error ('+logDir+'): '+e.message);
+    on e:exception do Log.Force('InitLogging error ('+logDir+'): '+e.message);
    end;
   end;
 
@@ -492,13 +417,11 @@ begin
  logSect.Enter;
  try
   count:=0; count1:=0;
-  minDate:=MaxDateTime;
-  maxDate:=MinDateTime;
+  minDate:=1e15; // larger than any valid TDateTime
+  maxDate:=0;
   next:=nil;
   inc(bufferCount);
-  if lastBuffer<>nil then begin
-   lastBuffer.next:=self;
-  end;
+  if lastBuffer<>nil then lastBuffer.next:=self;
   if firstBuffer=nil then firstBuffer:=self;
   lastBuffer:=self;
  finally
@@ -519,7 +442,7 @@ begin
  end;
 end;
 
-function TLogBuffer.GetDump(minLevel: integer): ByteArray;
+function TLogBuffer.GetDump(minLevel:TSeverity):ByteArray;
 var
  i,p,l:integer;
 begin
@@ -527,20 +450,20 @@ begin
  p:=0;
  logSect.Enter;
  try
- for i:=1 to count do begin
-  if messages[i].level<minLevel then continue;
-  move(messages[i].date,result[p],8); inc(p,8);
-  result[p]:=messages[i].kind; inc(p);
-  result[p]:=messages[i].level; inc(p);
-  l:=length(messages[i].msg);
-  if l>4096 then l:=4096;
-  result[p]:=l and 255; inc(p);
-  result[p]:=l shr 8; inc(p);
-  if l>0 then begin
-   move(messages[i].msg[1],result[p],l);
-   inc(p,l);
+  for i:=1 to count do begin
+   if messages[i].level<minLevel then continue;
+   move(messages[i].date,result[p],8); inc(p,8);
+   result[p]:=messages[i].kind; inc(p);
+   result[p]:=ord(messages[i].level); inc(p);
+   l:=length(messages[i].msg);
+   if l>4096 then l:=4096;
+   result[p]:=l and 255; inc(p);
+   result[p]:=l shr 8; inc(p);
+   if l>0 then begin
+    move(messages[i].msg[1],result[p],l);
+    inc(p,l);
+   end;
   end;
- end;
  finally
   logSect.Leave;
  end;
@@ -548,7 +471,5 @@ begin
 end;
 
 initialization
- InitCritSect(logSect,'Logging',190);
-finalization
- DeleteCritSect(logSect);
+ logSect.Init('Logging',190);
 end.
