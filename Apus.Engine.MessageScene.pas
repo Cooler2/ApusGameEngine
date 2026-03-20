@@ -162,13 +162,13 @@ constructor TMessageScene.Create;
   wnd.styleInfo:='border:FFD0D8E0; radius:8; fill:C0C0C8D0';
   wnd.font:=msgMainFont;
 
-  btnOk:=TUIButton.Create(90,35,'Message\OK','Ok',0,wnd);
+  btnOk:=TUIButton.Create(90,35,wnd,'Message\OK').Setup('Ok');
   btnOk.SetPos(200,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
 
-  btnYes:=TUIButton.Create(90,35,'Message\YES','Yes',0,wnd);
+  btnYes:=TUIButton.Create(90,35,wnd,'Message\YES').Setup('Yes');
   btnYes.SetPos(200-70,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
 
-  btnNo:=TUIButton.Create(90,35,'Message\NO','No',0,wnd);
+  btnNo:=TUIButton.Create(90,35,wnd,'Message\NO').Setup('No');
   btnNo.SetPos(200+70,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
  end;
 

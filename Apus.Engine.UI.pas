@@ -43,7 +43,8 @@ type
   TUIElement   = Apus.Engine.UITypes.TUIElement;
   TUIScrollable = Apus.Engine.UITypes.TUIScrollable;
   TUISplitter  = Apus.Engine.UIWidgets.TUISplitter;
-  TUIButton    = Apus.Engine.UIWidgets.TUIButton;
+  TUIButton       = Apus.Engine.UIWidgets.TUIButton;
+  TUIToggleButton = Apus.Engine.UIWidgets.TUIToggleButton;
   TUICheckbox  = Apus.Engine.UIWidgets.TUICheckbox;
   TUIRadioButton = Apus.Engine.UIWidgets.TUIRadioButton;
   TUILabel     = Apus.Engine.UIWidgets.TUILabel;
@@ -66,7 +67,6 @@ type
   TUIBitmapShape = Apus.Engine.UIShapes.TUIBitmapShape;
   TUIBasicShape = Apus.Engine.UIShapes.TUIBasicShape;
   TSendSignals = Apus.Engine.UITypes.TSendSignals;
-  TButtonStyle = Apus.Engine.UIWidgets.TButtonStyle;
   TSnapMode = Apus.Engine.UITypes.TSnapMode;
 
   procedure SetDefaultUIScale(fullScenesScale,windowedScenesScale:single);
@@ -84,7 +84,7 @@ type
   function UIRadioButton(name:string8;mustExist:boolean=false):TUIRadioButton;
 
   // Controls setup
-  procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;btnType:TButtonStyle;
+  procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;
              group:integer;default,enabled,pressed:boolean;hotkey:integer);
 
   procedure SetupEditBox(edit:TUIEditBox;text:string8;style:byte;cursor,maxlength:integer;
@@ -222,7 +222,7 @@ implementation
    if not (c is TUIButton) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UIButton',name);
-    c:=TUIButton.Create(0,0,name,'',0,root);
+    c:=TUIButton.Create(0,0,root,name);
    end;
    result:=c as TUIButton;
   end;
@@ -300,7 +300,7 @@ implementation
    if not (c is TUICheckbox) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UICheckBox',name);
-    c:=TUICheckbox.Create(0,0,name,'',root);
+    c:=TUICheckbox.Create(0,0,root,name);
    end;
    result:=c as TUICheckbox;
   end;
@@ -313,7 +313,7 @@ implementation
    if not (c is TUIRadioButton) then c:=nil;
    if c=nil then begin
     root:=RequireAutoCreateRoot('UIRadioButton',name);
-    c:=TUIRadioButton.Create(0,0,'','',root);
+    c:=TUIRadioButton.Create(0,0,root,name);
    end;
    result:=c as TUIRadioButton;
   end;
@@ -514,13 +514,11 @@ implementation
       result:=result+DumpUITree(roots[i])+#13#10;
   end;
 
- procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;btnType:TBUttonStyle;
+ procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;
               group:integer;default,enabled,pressed:boolean;hotkey:integer);
   begin
    btn.styleClass:=style;
    btn.cursor:=cursor;
-   btn.btnStyle:=btnType;
-   btn.group:=group;
    btn.default:=default;
    btn.flags.enabled:=enabled;
    btn.pressed:=pressed;
@@ -537,7 +535,7 @@ implementation
    edit.maxlength:=maxlength;
    edit.flags.enabled:=enabled;
    edit.password:=password;
-   edit.noborder:=noborder;
+   // noborder removed from TUIEditBox
   end;
 
  // UI-related commands: Command:elementName

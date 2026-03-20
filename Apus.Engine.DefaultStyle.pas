@@ -1149,8 +1149,8 @@ constructor TContext.Create(element:TUIElement;style:PElementStyle);
   v:=0;
   if element is TUIButton then
    if TUIButton(element).pressed then v:=1;
-  if element is TUICheckBox then
-   if TUICheckbox(element).checked then v:=1;
+  if element is TUIToggleButton then
+   if TUIToggleButton(element).toggled then v:=1;
   active.Init(v);
  end;
 
@@ -1172,8 +1172,8 @@ procedure TContext.Update(element:TUIElement;style:PElementStyle);
   v:=0;
   if element is TUIButton then
    if TUIButton(element).pressed then v:=1;
-  if element is TUICheckBox then
-   if TUICheckbox(element).checked then v:=1;
+  if element is TUIToggleButton then
+   if TUIToggleButton(element).toggled then v:=1;
   if active.finalValue<>v then begin
    if v=1 then duration:=120 else duration:=80; // default
    duration:=style.GetInt('pressTime',duration);

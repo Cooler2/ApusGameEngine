@@ -585,7 +585,7 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    timer:=0;
    parent:=parent_;
    if name_='' then
-    name:=ClassName+'_'+IntToStr(AtomicIncrement(uiElementCounter))
+    name:=ClassName+'_'+IntToStr(Atomic.Inc(uiElementCounter))
    else
     name:=name_;
    hint:='';

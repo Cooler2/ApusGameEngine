@@ -104,69 +104,71 @@ interface
    procedure CaptionWidthIs(width:single);
   end;
 
-  TButtonStyle=(bsNormal,   // regular push button
-                bsSwitch,   // toggle button (latches in pressed state)
-                bsCheckbox); // checkbox-style button
-
-  // Interactive button with three visual/behavioral styles (see TButtonStyle).
+  // Push button: fires onClick/onClickAsync once on click (not latching).
   // Use onClick for inline UI updates (runs on render thread).
   // Use onClickAsync for slow work (runs in a new thread).
-  // For radio-group behavior use CreateSwitch with a shared group id.
   TUIButton=class(TUIElement)
-   default:boolean; // default button (affects rendering only, not behavior)
-   pressed:boolean; // button is in pressed/down state
-   pending:boolean; // temporarily unavailable (ignores input)
-   autoPendingTime:integer; // ms to stay pending after click (0 = disabled)
-
-   btnStyle:TButtonStyle; // button type (affects both rendering and behavior)
-   group:integer;   // switch group id (for radio-style button groups)
-   linkedPressed:PBoolean;   // optional external boolean to sync with pressed state
+   default:boolean;          // default button (affects rendering only)
+   pressed:boolean;          // transient: true while mouse is held down
+   pending:boolean;          // temporarily unavailable (ignores input)
+   autoPendingTime:integer;  // ms to stay pending after click (0 = disabled)
    onClick:TProcedure;       // called inline on render thread (use for UI updates)
    onClickAsync:TProcedure;  // called in a new thread (use for slow work)
    onClickEvent:String8;
-{   class var onClickSender:TUIButton;
-   class var active:TUIButton; // link to the active button (can be used in click handlers)}
-   constructor Create(width,height:single;btnName,btnCaption:String8;btnFont:TFontHandle;parent_:TUIElement); overload;
-   constructor Create(width,height:single;btnName,btnCaption:String8;parent_:TUIElement); overload;
-   constructor Create(width,height:single;btnCaption:String8;parent_:TUIElement); overload;
-   constructor CreateSwitch(width,height:single;btnName,btnCaption:String8;group:integer;
-     btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false); overload;
-   constructor CreateSwitch(width,height:single;btnName,btnCaption:String8;parent_:TUIElement;pressed:boolean=false); overload;
-   constructor CreateSwitch(width,height:single;btnCaption:String8;parent_:TUIElement;pressed:boolean=false); overload;
-   constructor CreateGroupSwitch(width,height:single;btnCaption:String8;parent_:TUIElement;pressed:boolean=false); overload;
+   constructor Create(width,height:single;parent:TUIElement;name:String8='');
+   function Setup(caption:String8;fnt:TFontHandle=0):TUIButton;
    destructor Destroy; override;
-
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
    function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
-   procedure onTimer; override; // releases button after autoPendingTime
+   procedure onTimer; override;
    procedure SetPressed(pr:boolean); virtual;
-   procedure MakeSwitches(sameGroup:boolean=true;clickHandler:TProcedure=nil); // make all sibling buttons with the same size - switches
    procedure Click; virtual; // simulate click
-   class function GetSwitchIndex(parent:TUIElement):integer;
    class function Sender:TUIButton;
   protected
-   procedure DoClick;
-   procedure CheckGroup;
+   procedure DoClick; virtual;
   private
    lastPressed,pendingUntil:int64;
    lastOver:boolean; // was under mouse when onMouseMove was called last time
   end;
 
-  // Checkbox that tracks a boolean checked state.
-  // SetPressed toggles checked; prefer TUICheckBox over raw bsCheckbox style.
-  TUICheckBox=class(TUIButton)
-   checked:boolean;
-   constructor Create(width,height:single;btnName,caption:String8;parent_:TUIElement;
-    checked:boolean=false;btnFont:TFontHandle=0); overload;
+  // Toggle button: latches in toggled state on click.
+  // Radio-group behavior: if parent is TUIGroupBox, clicking untoggles
+  // all sibling TUIToggleButtons (only one active at a time).
+  // If parent is not TUIGroupBox, toggles independently.
+  // Renders like TUIButton by default; appearance can differ per style (e.g. iOS switch).
+  TUIToggleButton=class(TUIButton)
+   toggled:boolean;          // persistent latch state (true = on)
+   linkedToggled:PBoolean;   // optional external bool synced with toggled
+   constructor Create(width,height:single;parent:TUIElement;name:String8='');
+   function Setup(caption:String8;toggled:boolean=false;fnt:TFontHandle=0):TUIToggleButton;
+   procedure SetToggled(v:boolean); virtual;
+   class function GetSwitchIndex(parent:TUIElement):integer;
+   procedure onMouseButtons(button:byte;state:boolean); override;
+   procedure onMouseMove; override;
+   function onHotKey(keycode:byte;shiftstate:byte):boolean; override;
    procedure SetPressed(pr:boolean); override;
+  protected
+   procedure DoClick; override;
   end;
 
-  // Radio button: when pressed, automatically unpresses other radio buttons in the same parent.
-  TUIRadioButton=class(TUICheckbox)
-   constructor Create(width,height:single;btnName,caption:String8;
-     parent_:TUIElement;checked:boolean=false;btnFont:TFontHandle=0); overload;
+  // Checkbox: a TUIToggleButton with checkbox visual rendering.
+  // checked is an alias for toggled.
+  TUICheckBox=class(TUIToggleButton)
+   constructor Create(width,height:single;parent:TUIElement;name:String8='');
+   function Setup(caption:String8;checked:boolean=false;fnt:TFontHandle=0):TUICheckBox;
+  private
+   function GetChecked:boolean;
+   procedure SetChecked(v:boolean);
+  public
+   property checked:boolean read GetChecked write SetChecked;
+  end;
+
+  // Radio button: checkbox in a group (group=1); exactly one sibling is checked at a time.
+  TUIRadioButton=class(TUICheckBox)
+   constructor Create(width,height:single;parent:TUIElement;name:String8='');
+   function Setup(caption:String8;checked:boolean=false;fnt:TFontHandle=0):TUIRadioButton;
   end;
 
   // Decorative frame / panel border
@@ -410,84 +412,19 @@ implementation
    onMouseButtons(1,false);
   end;
 
- constructor TUIButton.Create(width,height:single;btnName,btnCaption:String8;btnFont:TFontHandle;parent_:TUIElement);
-  var
-   i:integer;
+ constructor TUIButton.Create(width,height:single;parent:TUIElement;name:String8);
   begin
-   inherited Create(width,height,parent_,btnName);
+   inherited Create(width,height,parent,name);
    shape:=shapeFull;
-   font:=BtnFont;
-   btnStyle:=bsNormal;
-   group:=0;
-   caption:=BtnCaption;
-   default:=true; // make it default unless there is another sibling button
-   if parent<>nil then
-    if parent.children<>nil then
-     for i:=0 to high(parent.children) do
-      if parent.children[i] is TUIButton then
-       default:=false;
-   pressed:=false;
-   pending:=false;
-   autoPendingTime:=0;
-   //flags.canHaveFocus:=false;
+   flags.canHaveFocus:=true;
    sendSignals:=ssMajor;
-   //CheckAndSetFocus;
-   lastPressed:=0;
   end;
 
- // Without font
- constructor TUIButton.Create(width,height:single;btnName,btnCaption:String8; parent_:TUIElement);
+ function TUIButton.Setup(caption:String8;fnt:TFontHandle):TUIButton;
   begin
-   Create(width,height,btnName,btnCaption,0,parent_);
-  end;
-
- constructor TUIButton.Create(width,height:single;btnCaption:String8;parent_:TUIElement);
-  begin
-   Create(width,height,'',btnCaption,0,parent_);
-  end;
-
- constructor TUIButton.CreateSwitch(width,height:single;btnName,btnCaption:String8;
-    group:integer;btnFont:TFontHandle;parent_:TUIElement;pressed:boolean=false);
-  begin
-   Create(width,height,btnName,btnCaption,btnFont,parent_);
-   btnStyle:=bsSwitch;
-   self.group:=group;
-   SetPressed(pressed);
-   CheckGroup;
-  end;
-
- constructor TUIButton.CreateSwitch(width,height:single;btnName,btnCaption:String8;
-    parent_:TUIElement;pressed:boolean=false);
-  begin
-   Create(width,height,btnName,btnCaption,0,parent_);
-   btnStyle:=bsSwitch;
-   SetPressed(pressed);
-   CheckGroup;
-  end;
-
- constructor TUIButton.CreateSwitch(width,height:single;btnCaption:String8;parent_:TUIElement;pressed:boolean=false);
-  begin
-   CreateSwitch(width,height,'',btnCaption,parent_,pressed);
-  end;
-
- constructor TUIButton.CreateGroupSwitch(width,height:single;btnCaption:String8;parent_:TUIElement;pressed:boolean=false);
-  begin
-   CreateSwitch(width,height,'',btnCaption,1,0,parent_,pressed);
-  end;
-
- // Check if there are other pressed buttons in the same group and unpress them
- procedure TUIButton.CheckGroup;
-  var
-   i:integer;
-  begin
-   if (parent=nil) or (group=0) then exit;
-   for i:=0 to length(parent.children)-1 do
-     if (parent.children[i]<>self) and
-        (parent.children[i] is TUIButton) and
-        (TUIButton(parent.children[i]).group=group) then begin
-      if pressed and TUIButton(parent.children[i]).pressed then
-       TUIButton(parent.children[i]).SetPressed(false);
-     end;
+   self.caption:=caption;
+   if fnt<>0 then font:=fnt;
+   result:=self;
   end;
 
  destructor TUIButton.Destroy;
@@ -496,75 +433,28 @@ implementation
   end;
 
  procedure TUIButton.DoClick;
-  var
-   i:integer;
   begin
    TUIElement.sender:=self;
-   if btnStyle<>bsNormal then begin
-    // toggle switch/checkbox
-    if group=0 then SetPressed(not pressed)
-     else begin
-      ASSERT(parent<>nil);
-      for i:=0 to length(parent.children)-1 do
-       if (parent.children[i] is TUIButton) and ((parent.children[i] as TUIButton).group=group) then
-        (parent.children[i] as TUIButton).SetPressed(false);
-      SetPressed(true);
-     end;
-    if (sendSignals<>ssNone) and
-       (pressed or (btnStyle=bsCheckbox)) then begin
-      Signal('UI\'+name+'\OnClick',byte(pressed));
-      Signal('UI\Button\Down\'+name,TTag(self));
-      if Assigned(onClick) then onClick;
-      if Assigned(onClickAsync) then Thread.Start('UIClick:'+String8(name),TThreadProc(onClickAsync));
-      if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
-    end;
-   end else begin
-    if pending then exit;
-    if (sendSignals<>ssNone) and (CoreTime.Ticks>lastPressed+50) then begin // debounce double-clicks
-     Signal('UI\'+name+'\OnClick',byte(pressed));
-     Signal('UI\Button\Click\'+name,TTag(self));
-     if Assigned(onClick) then onClick;
-     if Assigned(onClickAsync) then Thread.Start('UIClick:'+String8(name),TThreadProc(onClickAsync));
-     if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
-     lastPressed:=CoreTime.Ticks;
-    end;
+   if pending then exit;
+   if (sendSignals<>ssNone) and (CoreTime.Ticks>lastPressed+50) then begin
+    Signal('UI\'+name+'\OnClick',byte(pressed));
+    Signal('UI\Button\Click\'+name,TTag(self));
+    if Assigned(onClick) then onClick;
+    if Assigned(onClickAsync) then Thread.Start('UIClick:'+String8(name),TThreadProc(onClickAsync));
+    if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
+    lastPressed:=CoreTime.Ticks;
    end;
   end;
 
- class function TUIButton.GetSwitchIndex(parent:TUIElement):integer;
-  var
-   e:TUIElement;
-  begin
-   result:=-1;
-   for e in parent.children do
-    if e is TUIButton then
-     with TUIButton(e) do
-      if group>0 then begin
-       inc(result);
-       if pressed then exit;
-      end;
-   result:=-1;
-  end;
-
-function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
-  var
-   i:integer;
+ function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
   begin
    result:=false;
-   if btnStyle=bsNormal then begin
-    SetPressed(true);
-    DoClick;
-    timer:=150;
-    result:=true;
-   end else begin
-    // don't click on button if it has no effect: i.e. it is pressed and there are other group buttons
-    if pressed and (parent<>nil) and (group<>0) then
-      for i:=0 to high(parent.children) do
-       if (parent.children[i]<>self) and (parent.children[i] is TUIButton) and
-          ((parent.children[i] as TUIButton).group=group) then exit;
-     DoClick;
-     result:=true;
-   end;
+   if not flags.enabled then exit;
+   SetPressed(true);
+   DoClick;
+   SetPressed(false);
+   timer:=150;
+   result:=true;
   end;
 
  function TUIButton.onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean;
@@ -582,16 +472,13 @@ function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
     Signal('UI\'+name+'\ClickDisabled',button);
     exit;
    end;
-   // Regular button
-   if (button=1) and (btnStyle=bsNormal) then begin
-    if not pressed and state then SetPressed(true); // нажать
-    if pressed and not state then begin // отпустить и среагировать
+   if button=1 then begin
+    if not pressed and state then SetPressed(true);
+    if pressed and not state then begin
      DoClick;
      SetPressed(false);
     end;
    end;
-   // Special button
-   if (button=1) and (btnStyle<>bsNormal) and state then DoClick;
    inherited;
   end;
 
@@ -602,18 +489,14 @@ function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
     Signal('UI\Button\Over\'+name);
    if lastover and (undermouse<>self) then
     Signal('UI\Button\Out\'+name);
-   if btnStyle=bsNormal then begin
-    if pressed and (underMouse<>self) then
-     SetPressed(false);
-   end;
+   if pressed and (underMouse<>self) then
+    SetPressed(false);
    lastover:=undermouse=self;
   end;
 
  procedure TUIButton.onTimer;
   begin
-   if btnStyle=bsNormal then begin
-    SetPressed(false);
-   end;
+   SetPressed(false);
   end;
 
  class function TUIButton.Sender:TUIButton;
@@ -621,85 +504,145 @@ function TUIButton.onHotKey(keycode,shiftstate:byte):boolean;
    result:=TUIElement.sender as TUIButton;
   end;
 
-procedure TUIButton.SetPressed(pr:boolean);
+ procedure TUIButton.SetPressed(pr:boolean);
   begin
    pressed:=pr;
-   if linkedPressed<>nil then
-    linkedPressed^:=pressed;
-   if (sendSignals<>ssNone) then begin
-    if btnStyle<>bsNormal then begin
-     Signal('UI\Button\Toggle\'+name,UIntPtr(self));
-     Signal('UI\'+name+'\Toggle');
-    end else begin
-     if pr then Signal('UI\Button\Down\'+name,UIntPtr(self))
-       else     Signal('UI\Button\Up\'+name,UIntPtr(self));
-    end;
+   if sendSignals<>ssNone then begin
+    if pr then Signal('UI\Button\Down\'+name,UIntPtr(self))
+          else Signal('UI\Button\Up\'+name,UIntPtr(self));
    end;
   end;
 
- procedure TUIButton.MakeSwitches(sameGroup:boolean=true;clickHandler:TProcedure=nil); // make all sibling buttons with the same size - switches
+{ TUIToggleButton }
+
+ constructor TUIToggleButton.Create(width,height:single;parent:TUIElement;name:String8);
+  begin
+   inherited Create(width,height,parent,name);
+  end;
+
+ function TUIToggleButton.Setup(caption:String8;toggled:boolean;fnt:TFontHandle):TUIToggleButton;
+  begin
+   self.caption:=caption;
+   if fnt<>0 then font:=fnt;
+   SetToggled(toggled);
+   result:=self;
+  end;
+
+ procedure TUIToggleButton.SetToggled(v:boolean);
+  begin
+   toggled:=v;
+   pressed:=v; // keep pressed in sync for visual rendering
+   if linkedToggled<>nil then linkedToggled^:=toggled;
+   if sendSignals<>ssNone then begin
+    Signal('UI\Button\Toggle\'+name,UIntPtr(self));
+    Signal('UI\'+name+'\Toggle');
+   end;
+  end;
+
+ procedure TUIToggleButton.SetPressed(pr:boolean);
+  begin
+   SetToggled(pr);
+  end;
+
+ procedure TUIToggleButton.DoClick;
   var
    i:integer;
-   b:TUIButton;
-   first:boolean;
   begin
-   if parent=nil then exit;
-   first:=true;
-   for i:=0 to high(parent.children) do begin
-    if not (parent.children[i] is TUIButton) then continue;
-    b:=TUIButton(parent.children[i]);
-    if not b.flags.visible then continue;
-    if abs(b.size.x-size.x)+abs(b.size.y-size.y)>=1 then continue;
-    b.btnStyle:=bsSwitch;
-    if @clickHandler<>nil then b.onClick:=@clickHandler; // switch: inline
-    if sameGroup then begin
-     b.group:=1;
-     if first then begin
-      b.pressed:=true;
-      first:=false;
-     end;
-    end else
-     b.group:=i+1;
+   TUIElement.sender:=self;
+   if parent is TUIGroupBox then begin
+    // radio group: untoggle all siblings, activate self
+    for i:=0 to length(parent.children)-1 do
+     if (parent.children[i] is TUIToggleButton) and (parent.children[i]<>self) then
+      TUIToggleButton(parent.children[i]).SetToggled(false);
+    SetToggled(true);
+   end else
+    SetToggled(not toggled);
+   if sendSignals<>ssNone then begin
+    Signal('UI\'+name+'\OnClick',byte(toggled));
+    Signal('UI\Button\Down\'+name,TTag(self));
+    if Assigned(onClick) then onClick;
+    if Assigned(onClickAsync) then Thread.Start('UIClick:'+String8(name),TThreadProc(onClickAsync));
+    if onClickEvent<>'' then Signal(onClickEvent,TTag(self));
    end;
   end;
 
+ procedure TUIToggleButton.onMouseButtons(button:byte;state:boolean);
+  begin
+   if not flags.enabled then begin
+    Signal('UI\'+name+'\ClickDisabled',button);
+    exit;
+   end;
+   if (button=1) and state then DoClick; // fire on mouse DOWN
+   // don't call TUIButton.onMouseButtons (push logic)
+  end;
+
+ procedure TUIToggleButton.onMouseMove;
+  begin
+   inherited;
+  end;
+
+ function TUIToggleButton.onHotKey(keycode,shiftstate:byte):boolean;
+  begin
+   result:=false;
+   if not flags.enabled then exit;
+   // in a group box, don't click if already toggled (would have no effect)
+   if toggled and (parent is TUIGroupBox) then exit;
+   DoClick;
+   result:=true;
+  end;
+
+ class function TUIToggleButton.GetSwitchIndex(parent:TUIElement):integer;
+  var
+   e:TUIElement;
+  begin
+   result:=-1;
+   for e in parent.children do
+    if e is TUIToggleButton then begin
+     inc(result);
+     if TUIToggleButton(e).toggled then exit;
+    end;
+   result:=-1;
+  end;
 
 { TUICheckBox }
 
-constructor TUICheckBox.Create(width,height:single;btnName,caption:String8;
-   parent_:TUIElement;checked:boolean;btnFont:TFontHandle);
- begin
-  inherited Create(width,height,btnName,caption,parent_);
-  btnStyle:=bsCheckbox;
-  self.checked:=checked;
-  self.pressed:=checked;
-  if btnFont>0 then font:=btnFont;
- end;
-
-{ TUIRadioBox }
-
-constructor TUIRadioButton.Create(width,height:single;btnName,caption:String8;
-  parent_:TUIElement;checked:boolean;btnFont:TFontHandle);
- var
-  i:integer;
- begin
-  inherited Create(width,height,btnName,caption,parent_);
-  btnStyle:=bsCheckbox;
-  group:=1;
-  if btnFont>0 then font:=btnFont;
-  // Ensure there is at least one checked sibling
-  self.checked:=true;
-  for i:=0 to high(parent.children) do
-   if (parent.children[i]<>self) and (parent.children[i] is TUIRadioButton) then
-    if TUIRadioButton(parent.children[i]).checked and
-       (TUIRadioButton(parent.children[i]).group=group) then self.checked:=false;
-  if checked then DoClick;
- end;
-
- procedure TUICheckBox.SetPressed(pr:boolean);
+ constructor TUICheckBox.Create(width,height:single;parent:TUIElement;name:String8);
   begin
-   inherited;
-   checked:=pressed;
+   inherited Create(width,height,parent,name);
+  end;
+
+ function TUICheckBox.Setup(caption:String8;checked:boolean;fnt:TFontHandle):TUICheckBox;
+  begin
+   self.caption:=caption;
+   if fnt<>0 then font:=fnt;
+   SetToggled(checked);
+   result:=self;
+  end;
+
+ function TUICheckBox.GetChecked:boolean;
+  begin
+   result:=toggled;
+  end;
+
+ procedure TUICheckBox.SetChecked(v:boolean);
+  begin
+   SetToggled(v);
+  end;
+
+{ TUIRadioButton }
+
+ constructor TUIRadioButton.Create(width,height:single;parent:TUIElement;name:String8);
+  begin
+   inherited Create(width,height,parent,name);
+   // radio behavior is implicit when parent is TUIGroupBox
+  end;
+
+ function TUIRadioButton.Setup(caption:String8;checked:boolean;fnt:TFontHandle):TUIRadioButton;
+  begin
+   self.caption:=caption;
+   if fnt<>0 then font:=fnt;
+   if checked then SetToggled(true);
+   result:=self;
   end;
 
 { TUILabel }
@@ -768,7 +711,7 @@ function TUILabel.Right(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
    end else begin
     deltaX:=2; deltay:=2;
    end;
-   inherited Create(innerWidth+deltaX*2,innerHeight+deltay+wcTitleHeight,wndName,parent_);
+   inherited Create(innerWidth+deltaX*2,innerHeight+deltay+wcTitleHeight,parent_,wndName);
    padding.Left:=deltaX; padding.Top:=wcTitleHeight;
    padding.Right:=deltaX; padding.Bottom:=deltaY;
 
@@ -1543,7 +1486,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
 
  constructor TUIHint.Create(x,y:single;text:String8;parent_:TUIElement);
   begin
-   inherited Create(1,1,'hint',parent_);
+   inherited Create(1,1,parent_,'hint');
    SetPos(x,y,pivotTopLeft);
    shape:=shapeEmpty;
    font:=0;
@@ -1809,7 +1752,7 @@ constructor TUIComboBox.Create(width,height:single;bFont:TFontHandle;list:String
    btn:TUIButton;
    i,j:integer;
   begin
-   inherited Create(width,height,name,'',bFont,parent_);
+   inherited Create(width,height,parent_,name);
    shape:=shapeFull;
    font:=bFont;
    items:=Copy(list);

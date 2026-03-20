@@ -76,7 +76,7 @@ procedure InitTestLayer;
  begin
   root.DeleteChildren;
   root.Show;
-  TUIButton.Create(100,28,'Root\Close','Back',0,root).
+  TUIButton.Create(100,28,root,'Root\Close').Setup('Back').
    SetPos(root.clientWidth/2,root.clientHeight-2,pivotBottomCenter).
    SetAnchors(0.5,1,0.5,1);
   UIButton('Root\Close').onClickAsync:=@RootCloseClick;
@@ -113,25 +113,28 @@ procedure TestWidgets;
   cont:=CreateVerticalContainer(150,root,0,6,false);
   cont.SetPos(200,10);
   cont.color:=$FF202020;
-  TUIButton.Create(140,30,'Button1','Button 1',cont);
-  TUIButton.Create(140,30,'Disabled',cont).Disable;
+  TUIButton.Create(140,30,cont,'Button1').Setup('Button 1');
+  TUIButton.Create(140,30,cont,'Disabled').Disable;
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
-  TUIButton.CreateSwitch(140,30,'Switch1','Toggle Button',cont);
-  hCont:=CreateHorizontalContainer(30,cont,0,4);
-  TUIButton.CreateGroupSwitch(30,30,'A',hCont);
-  TUIButton.CreateGroupSwitch(30,30,'B',hCont);
-  TUIButton.CreateGroupSwitch(30,30,'C',hCont);
+  TUIToggleButton.Create(140,30,cont,'Switch1').Setup('Toggle Button');
+  hCont:=TUIGroupBox.Create(-1,30,cont);
+  hCont.layout:=TRowLayout.Create(true,4,true);
+  TUIToggleButton.Create(30,30,hCont,'A').Setup('A',true);
+  TUIToggleButton.Create(30,30,hCont,'B').Setup('B');
+  TUIToggleButton.Create(30,30,hCont,'C').Setup('C');
 
   //Create
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Check boxes
-  TUICheckBox.Create(-1,22,'Check1','checkbox 1 VERYLONG',cont,true);
-  TUICheckBox.Create(-1,22,'Check2','checkbox 2 (red)',cont).SetStyle('tickColor','811');
+  TUICheckBox.Create(-1,22,cont,'Check1').Setup('checkbox 1 VERYLONG',true);
+  TUICheckBox.Create(-1,22,cont,'Check2').Setup('checkbox 2 (red)').SetStyle('tickColor','811');
   TUISplitter.CreateH(10,cont);
-  // Radio buttons
-  TUIRadioButton.Create(100,22,'Radio1','radio 1',cont);
-  TUIRadioButton.Create(100,22,'Radio2','radio 2',cont);
-  TUIRadioButton.Create(-1,22,'Radio3','radio 3 Looooooong',cont);
+  // Radio buttons (TUIGroupBox parent = radio group behavior)
+  hCont:=TUIGroupBox.Create(-1,0,cont);
+  hCont.layout:=TRowLayout.CreateVertical(0,true);
+  TUIRadioButton.Create(100,22,hCont,'Radio1').Setup('radio 1',true);
+  TUIRadioButton.Create(100,22,hCont,'Radio2').Setup('radio 2');
+  TUIRadioButton.Create(-1,22,hCont,'Radio3').Setup('radio 3 Looooooong');
 
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Group box
@@ -192,10 +195,10 @@ procedure TMainScene.InitGfx;
   panel.color:=$FF202040;
 
   // Create menu buttons
-  TUIButton.Create(120,30,'Main\Widgets','Widgets',panel).onClickAsync:=@TestWidgets;
-  TUIButton.Create(120,30,'Main\Buttons','Buttons',panel).onClickAsync:=@TestButtons;
-  TUIButton.Create(120,30,'Main\Layouts','Layouts',panel).onClickAsync:=@TestLayouts;
-  TUIButton.Create(120,30,'Main\Close','Exit',0,panel);
+  TUIButton.Create(120,30,panel,'Main\Widgets').Setup('Widgets').onClickAsync:=@TestWidgets;
+  TUIButton.Create(120,30,panel,'Main\Buttons').Setup('Buttons').onClickAsync:=@TestButtons;
+  TUIButton.Create(120,30,panel,'Main\Layouts').Setup('Layouts').onClickAsync:=@TestLayouts;
+  TUIButton.Create(120,30,panel,'Main\Close').Setup('Exit');
   Link('UI\Main\Close\OnClick','Engine\Cmd\Exit');
 
   // Create a placeholder UI element for demos

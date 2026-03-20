@@ -78,7 +78,8 @@ procedure TMainApp.CreateScenes;
 procedure TMainScene.CreateUI;
  var
   img:TTexture;
-  bar,group1,group2:TUIElement;
+  bar:TUIElement;
+  group1,group2:TUIGroupBox;
  begin
   if FileExists('redPatch.png') then
    redPatch:=LoadNinePatch('redPatch.png');
@@ -90,18 +91,18 @@ procedure TMainScene.CreateUI;
   // Buttons bar
   bar:=TUIElement.Create(130,300,UI).SetPos(0,0).SetPadding(5);
   bar.layout:=TRowLayout.Create(false,10,true);
-  // 1-nd speedbuttons group
-  group1:=TUIElement.Create(120,90,bar,'Group1');
+  // 1-nd speedbuttons group (TUIGroupBox → radio behavior)
+  group1:=TUIGroupBox.Create(120,90,bar,'Group1');
   group1.layout:=TRowLayout.Create(false,0,true);
-  TUIButton.Create(120,30,'DrawTest','Draw Test',game.defaultFont,group1);
-  TUIButton.Create(120,30,'Stress1','Stress Test 1',game.defaultFont,group1);
-  TUIButton.Create(120,30,'Stress2','Stress Test 2',game.defaultFont,group1).MakeSwitches;
-  // 2-st speedbuttons group
-  group2:=TUIElement.Create(120,90,bar,'Group2');
+  TUIToggleButton.Create(120,30,group1,'DrawTest').Setup('Draw Test',true,game.defaultFont);
+  TUIToggleButton.Create(120,30,group1,'Stress1').Setup('Stress Test 1',false,game.defaultFont);
+  TUIToggleButton.Create(120,30,group1,'Stress2').Setup('Stress Test 2',false,game.defaultFont);
+  // 2-nd speedbuttons group (TUIGroupBox → radio behavior)
+  group2:=TUIGroupBox.Create(120,90,bar,'Group2');
   group2.layout:=TRowLayout.Create(false,0,true);
-  TUIButton.Create(120,30,'Patch1','Patch 1',game.defaultFont,group2);
-  TUIButton.Create(120,30,'Patch2','Patch 2',game.defaultFont,group2);
-  TUIButton.Create(120,30,'Patch3','Patch 3',game.defaultFont,group2).MakeSwitches;
+  TUIToggleButton.Create(120,30,group2,'Patch1').Setup('Patch 1',true,game.defaultFont);
+  TUIToggleButton.Create(120,30,group2,'Patch2').Setup('Patch 2',false,game.defaultFont);
+  TUIToggleButton.Create(120,30,group2,'Patch3').Setup('Patch 3',false,game.defaultFont);
  end;
 
 procedure TMainScene.Render;

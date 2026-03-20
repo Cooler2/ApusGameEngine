@@ -193,7 +193,7 @@ implementation
          cRect:=but.GetClientPosOnScreen;
          gfx.clip.Rect(cRect);
          //draw.TextColorX2:=true;
-         if btnStyle=bsCheckbox then begin
+         if but is TUICheckBox then begin
           ix:=cRect.left+24+ix; iy:=cRect.top+2+iy;
           mode:=TTextAlignment.taLeft;
          end else begin

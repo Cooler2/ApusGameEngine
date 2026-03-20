@@ -135,7 +135,7 @@ procedure TMainScene.CreateUI;
   UIEditBox('MainScene\Edit').defaultText:=Str32('Type something here...'); // referencing UI element by its name
 
   // Create a button (now using a variable - classic way)
-  btn:=TUIButton.Create(100,35,'MainScene\Close','Exit',font,box);
+  btn:=TUIButton.Create(100,35,box,'MainScene\Close').Setup('Exit',font);
   btn.SetPos(200,200,pivotCenter);
   btn.hint:='Press this button to exit';
   btn.onClickAsync:=@ExitBtnClick;

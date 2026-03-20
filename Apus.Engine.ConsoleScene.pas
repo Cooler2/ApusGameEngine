@@ -223,7 +223,7 @@ begin
  editBox.SetAnchors(0,1,1,1);
  editbox.noborder:=true;
 
- TUIButton.Create(20,18,'Console\Enter','>',font,wnd).SetPos(480,h,pivotBottomRight).SetAnchors(1,1,1,1);
+ TUIButton.Create(20,18,wnd,'Console\Enter').Setup('>',font).SetPos(480,h,pivotBottomRight).SetAnchors(1,1,1,1);
  Link('UI\Console\Enter\OnClick','UI\Console\Input\Enter');
 
  scroll:=TUIScrollBar.Create(18,h-19,'Console\Scroll',wnd);

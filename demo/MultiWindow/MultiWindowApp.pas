@@ -108,11 +108,11 @@ begin
  lbl:=TUILabel.Create(280,28,panel,'Main\Title').Centered('Multi-Window Demo',font);
  lbl.SetPos(150,24,pivotCenter);
 
- btn:=TUIButton.Create(220,40,'Main\NewWindow','New Tool Window',font,panel);
+ btn:=TUIButton.Create(220,40,panel,'Main\NewWindow').Setup('New Tool Window',font);
  btn.SetPos(150,80,pivotCenter);
  Link('UI\Main\NewWindow\OnClick',newWindowSignalPath);
 
- btn:=TUIButton.Create(220,40,'Main\Exit','Exit',font,panel);
+ btn:=TUIButton.Create(220,40,panel,'Main\Exit').Setup('Exit',font);
  btn.SetPos(150,140,pivotCenter);
  Link('UI\Main\Exit\OnClick','Engine\Cmd\Exit');
 

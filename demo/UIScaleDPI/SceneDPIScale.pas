@@ -169,7 +169,7 @@ procedure TMainScene.Load;
 
   TUILabel.Create(200,28,toolbar).Setup('Image Viewer',game.largerFont,$FFE0E0E0);
 
-  TUIButton.Create(90,24,'TestDlgBtn','Test Dialog',toolbar);
+  TUIButton.Create(90,24,toolbar,'TestDlgBtn').Setup('Test Dialog');
 
   SetLength(zoomItems,7);
   zoomItems[0]:='75%';  zoomItems[1]:='85%';  zoomItems[2]:='100%';

@@ -89,11 +89,6 @@ type
   class function GetValue(variable:pointer):string8; override;
  end;
 
- TVarTypeBtnStyle=class(TVarTypeEnum)
-  class procedure SetValue(variable:pointer;v:string8); override;
-  class function GetValue(variable:pointer):string8; override;
- end;
-
  TVarTypePivot=class(TVarTypeEnum)
   class procedure SetValue(variable:pointer;v:string8); override;
   class function GetValue(variable:pointer):string8; override;
@@ -182,7 +177,8 @@ procedure CreateCmd(cmd:string8);
     exit;
    end;
    with defaults do begin
-    if sa[0]='UIBUTTON' then c:=TUIButton.Create(width,height,sa[1],caption,font,parentobj) else
+    if sa[0]='UIBUTTON' then c:=TUIButton.Create(width,height,parentobj,sa[1]).Setup(caption,font) else
+    if sa[0]='UITOGGLEBUTTON' then c:=TUIToggleButton.Create(width,height,parentobj,sa[1]).Setup(caption,false,font) else
     if sa[0]='UIIMAGE' then c:=TUIImage.Create(width,height,parentobj,sa[1]) else
     if sa[0]='UIEDITBOX' then c:=TUIEditBox.Create(width,height,sa[1],font,color,parentobj) else
     if sa[0]='UILABEL' then begin
@@ -319,9 +315,6 @@ begin
       if (fieldname='autopendingtime') and (obj is TUIButton) then begin
        result:=@TUIButton(obj).autopendingtime; varClass:=TVarTypeInteger;
       end;
-  'b':if (fieldname='btnstyle') and (obj is TUIButton) then begin
-       result:=@TUIButton(obj).btnstyle; varClass:=TVarTypeBtnStyle;
-      end;
   'c':if fieldname='canhavefocus' then begin
        result:=@obj.flags.canHaveFocus;
        varClass:=TVarTypeBool;
@@ -372,9 +365,7 @@ begin
        result:=obj;
        varClass:=TVarTypeElementFont;
       end;
-  'g':if (fieldname='group') and (obj is TUIButton) then begin
-       result:=@TUIButton(obj).group; varClass:=TVarTypeInteger;
-      end else
+  'g':if false then begin end else // group field removed (radio behavior via parent TUIGroupBox)
       if fieldname='globalrect' then begin
        result:=@obj.globalRect; varClass:=TVarTypeRect;
       end else
@@ -387,15 +378,7 @@ begin
       if fieldname='hint' then begin
        result:=@obj.hint; varClass:=TVarTypeString;
       end else
-      if fieldname='hintifdisabled' then begin
-       result:=@obj.hintifdisabled; varClass:=TVarTypeString;
-      end else
-      if fieldname='hintdelay' then begin
-       result:=@obj.hintdelay; varClass:=TVarTypeInteger;
-      end else
-      if fieldname='hintduration' then begin
-       result:=@obj.hintduration; varClass:=TVarTypeInteger;
-      end;
+      if false then begin end; // hintifdisabled/hintdelay/hintduration moved to element.attributes
   'l':if (fieldname='lineheight') and (obj is TUIListBox) then begin
        varClass:=TVarTypeInteger; result:=@TUIListBox(obj).lineHeight;
       end;
@@ -411,9 +394,7 @@ begin
   'n':if fieldname='name' then begin
        result:=obj; varClass:=TVarTypeElementName;
       end else
-      if (fieldname='noborder') and (obj is TUIEditBox) then begin
-       result:=@TUIEditBox(obj).noborder; varClass:=TVarTypeBool;
-      end;
+      if false then begin end; // noborder removed from TUIEditBox
   'o':if fieldname='order' then begin
        result:=@obj.order; varClass:=TVarTypeInteger;
       end;
@@ -532,23 +513,6 @@ class function TVarTypeSendSignals.GetValue(variable:pointer):string8;
    ssMajor:result:='major';
    ssAll:result:='all';
    ssNone:result:='none';
-  end;
- end;
-
-class procedure TVarTypeBtnStyle.SetValue(variable:pointer;v:string8);
- begin
-  v:=lowercase {TODO: use st.ToLower}(v);
-  if v='normal' then TButtonStyle(variable^):=bsNormal else
-  if v='switch' then TButtonStyle(variable^):=bsSwitch else
-  if (v='item') or (v='checkbox') then TButtonStyle(variable^):=bsCheckbox else
-  raise EWarning.Create('Unknown BtnStyle: '+v);
- end;
-class function TVarTypeBtnStyle.GetValue(variable:pointer):string8;
- begin
-  case TButtonStyle(variable^) of
-   bsNormal:result:='normal';
-   bsSwitch:result:='switch';
-   bsCheckbox:result:='checkbox';
   end;
  end;
 
