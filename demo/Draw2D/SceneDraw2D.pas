@@ -36,6 +36,8 @@ type
     bandParts:array[0..15] of TParticle;
     titleFont,menuFont,hintFont,bodyFont:TFontHandle;
     currentScreen:integer;
+    animTime:double;
+    animTimeFrame:integer;
     layoutScale:single;
     menuWidth,menuTop,menuItemHeight,contentPadding,screenTopOffset:integer;
     lastDPI:integer;
@@ -58,6 +60,8 @@ type
     procedure DrawScreenCombo(const contentRect:TRect);
     procedure DrawScreenImageOps(const contentRect:TRect);
     procedure DrawScreenParticles(const contentRect:TRect);
+    procedure UpdateAnimTime;
+    procedure DrawSampleLabel(x,y:integer;const st:string);
   end;
 
 const
@@ -250,6 +254,8 @@ procedure TMainScene.Load;
 begin
   lastDPI:=0;
   currentScreen:=0;
+  animTime:=0;
+  animTimeFrame:=-1;
   UpdateMetrics;
   RebuildFonts;
   BuildCheckerTexture;
@@ -257,6 +263,22 @@ begin
   BuildAtlasTexture;
   InitParticles;
   loaded:=true;
+end;
+
+procedure TMainScene.UpdateAnimTime;
+begin
+  if window.frameNum=animTimeFrame then exit;
+  animTimeFrame:=window.frameNum;
+  if window.frameTimeDelta>0 then
+    animTime:=animTime+window.frameTimeDelta*0.001
+  else
+    animTime:=animTime+1/60;
+end;
+
+procedure TMainScene.DrawSampleLabel(x,y:integer;const st:string);
+begin
+  draw.FillRect(x-4,y-11,x+txt.Width(bodyFont,st)+5,y+4,$50202A38);
+  txt.Write(bodyFont,x,y,$FFE6EEF8,st,taLeft,toAddBaseline);
 end;
 
   procedure TMainScene.UpdateMetrics;
@@ -290,9 +312,12 @@ end;
 procedure TMainScene.HandleInput;
 var
   i,item:integer;
+const
+  SC_DIGIT:array[0..7] of integer=(2,3,4,5,6,7,8,9); // row keys 1..8
+  SC_NUM:array[0..7] of integer=(79,80,81,75,76,77,71,72); // numpad 1..8
 begin
   for i:=0 to SCREEN_COUNT-1 do begin
-    if IsKeyPressed(ord(TKey.D1)+i) or IsKeyPressed(ord(TKey.Num1)+i) then
+    if IsKeyPressed(SC_DIGIT[i]) or IsKeyPressed(SC_NUM[i]) then
       currentScreen:=i;
   end;
 
@@ -378,7 +403,11 @@ begin
   draw.Polyline(@p[0],7,$FFFFD070,false);
   draw.Polyline(@p[0],7,$9040E0FF,true);
 
-  t:=window.frameStartTime*0.0025;
+  DrawSampleLabel(r1.Left+24,r1.Top+26,'Line');
+  DrawSampleLabel(r2.Left+24,r2.Top+26,'Polyline');
+  DrawSampleLabel(r2.Left+24,r2.Top+210,'Line (animated)');
+
+  t:=animTime*2.5;
   for i:=0 to 5 do begin
     draw.Line(r2.Left+40,r2.Top+220,
       r2.Left+240+cos(t+i)*170,
@@ -405,7 +434,12 @@ begin
   draw.FillRRect(a.Left+140,a.Top+345,a.Right-140,a.Bottom-40,$B0B7704A,16);
   draw.RRect(a.Left+140,a.Top+345,a.Right-140,a.Bottom-40,1,16,$FFFFE9D0);
 
-  t:=window.frameStartTime*0.002;
+  DrawSampleLabel(a.Left+26,a.Top+26,'Rect');
+  DrawSampleLabel(a.Left+76,a.Top+86,'RRect');
+  DrawSampleLabel(a.Left+146,a.Top+350,'FillRRect');
+  DrawSampleLabel(b.Left+26,b.Top+26,'RoundRect');
+
+  t:=animTime*2.0;
   draw.RoundRect(
     TVec2.Init((b.Left+b.Right)*0.5,b.Top+150),
     360+sin(t)*120,170+cos(t*1.3)*45,
@@ -433,7 +467,12 @@ begin
   draw.FillGradrect(b.Left+24,b.Top+24,b.Right-24,b.Top+180,$FFF0A040,$FF7030A0,false);
   draw.FillGradrect(b.Left+24,b.Top+210,b.Right-24,b.Top+360,$FFE06060,$FF50A0E0,true);
 
-  t:=window.frameStartTime*0.0015;
+  DrawSampleLabel(a.Left+28,a.Top+28,'FillRect');
+  DrawSampleLabel(a.Left+28,a.Top+414,'FillGradrect');
+  DrawSampleLabel(b.Left+28,b.Top+28,'FillGradrect');
+  DrawSampleLabel(b.Left+74,b.Top+394,'WithGradient / NoGradient');
+
+  t:=animTime*1.5;
   draw.WithGradient($FFF1B45F,$FF4F92D8,t,0.7+0.2*sin(t));
   draw.FillRRect(b.Left+70,b.Top+390,b.Right-70,b.Bottom-120,$FFFFFFFF,18);
   g.Init($FF73DCAA,$FF4B4EA9,t+Pi*0.5,0.55);
@@ -463,9 +502,12 @@ begin
   draw.ShadedRect(b.Left+60,b.Top+160,b.Right-60,b.Top+230,1,$FFD3E0EE,$FF415266);
   draw.ShadedRect(b.Left+120,b.Top+280,b.Right-120,b.Top+360,2,$FFD0DCEC,$FF455A72);
 
+  DrawSampleLabel(a.Left+26,a.Top+26,'FillTriangle');
+  DrawSampleLabel(b.Left+26,b.Top+26,'ShadedRect');
+
   cx:=(b.Left+b.Right)*0.5;
   cy:=b.Top+500;
-  t:=window.frameStartTime*0.0022;
+  t:=animTime*2.2;
   for i:=0 to 2 do
     draw.FillTriangle(cx,cy,cx+cos(t+i*2.09)*180,cy+sin(t+i*2.09)*120,
       cx+cos(t+i*2.09+0.9)*170,cy+sin(t+i*2.09+0.9)*120,
@@ -489,7 +531,11 @@ begin
   draw.TexturedRect(a.Left+100,a.Top+330,a.Right-100,a.Bottom-40,checkerTex,0,0,1,0,0.25,1,$FFFFFFFF);
   draw.Rect(a.Left+100,a.Top+330,a.Right-100,a.Bottom-40,$FFEAF3FF);
 
-  t:=window.frameStartTime*0.0018;
+  DrawSampleLabel(a.Left+34,a.Top+34,'TexturedRect(TRect)');
+  DrawSampleLabel(a.Left+104,a.Top+334,'TexturedRect(UV)');
+  DrawSampleLabel(b.Left+44,b.Top+34,'RotScaled');
+
+  t:=animTime*1.8;
   s:=1.2+0.35*sin(t);
   draw.TexturedRect(Rect(b.Left+40,b.Top+30,b.Right-40,b.Bottom-180),checkerTex,$FF94A6C8);
   draw.RotScaled((b.Left+b.Right)*0.5,b.Bottom-95,s,s,t,checkerTex,$FFE8F0FF);
@@ -515,6 +561,8 @@ begin
   draw.ShadedRect(r[0].Left+24,r[0].Top+24,r[0].Right-24,r[0].Top+88,2,$FFD0DCEC,$FF495B70);
   draw.FillGradrect(r[0].Left+24,r[0].Top+110,r[0].Right-24,r[0].Bottom-24,$FF5C86E0,$FF2F4565,true);
   txt.Write(bodyFont,r[0].Left+28,r[0].Top+66,$FFFFFFFF,'ShadedRect + FillGradrect',taLeft,toAddBaseline);
+  DrawSampleLabel(r[0].Left+28,r[0].Top+24,'ShadedRect');
+  DrawSampleLabel(r[0].Left+28,r[0].Top+112,'FillGradrect');
 
   // lines + polygon
   p[0].Init(r[1].Left+40,r[1].Top+260);
@@ -528,7 +576,11 @@ begin
     draw.Line(r[1].Left+28,r[1].Top+24+i*28,r[1].Right-28,r[1].Top+24+i*28,$50447296);
 
   // animated path
-  t:=window.frameStartTime*0.003;
+  DrawSampleLabel(r[1].Left+30,r[1].Top+24,'Polygon + Polyline + Line');
+  DrawSampleLabel(r[2].Left+34,r[2].Top+34,'WithGradient + FillRRect + Line');
+  DrawSampleLabel(r[3].Left+34,r[3].Top+34,'TexturedRect + RoundRect + FillTriangle');
+
+  t:=animTime*3.0;
   x:=(r[2].Left+r[2].Right) div 2;
   y:=(r[2].Top+r[2].Bottom) div 2;
   draw.WithGradient($FFF1B25C,$FF4E8DD0,t);
@@ -560,12 +612,14 @@ begin
   if (checkerTex=nil) or (helperTex=nil) or (atlasTex=nil) then exit;
 
   // Image overloads + Centered
+  DrawSampleLabel(a.Left+26,a.Top+26,'Image / Centered');
   draw.Image(a.Left+24,a.Top+30,checkerTex,$FF95B0FF);
   draw.Image(a.Left+170,a.Top+94,1.35,helperTex,$FFD8F4FF,0.5,0.5);
   draw.Centered(a.Left+330,a.Top+90,atlasTex,$FFFFFFFF);
   draw.Centered(a.Left+510,a.Top+90,0.8,atlasTex,$FFC0FFD0);
 
   // ImagePart + ImagePart90 + flip
+  DrawSampleLabel(a.Left+42,a.Top+214,'ImagePart / ImagePart90 / ImageFlipped');
   uvRect:=Rect(32,32,95,95);
   draw.ImagePart(a.Left+40,a.Top+220,atlasTex,$FFFFFFFF,uvRect);
   draw.ImagePart90(a.Left+160,a.Top+220,atlasTex,$FFFFFFFF,uvRect,1);
@@ -573,10 +627,12 @@ begin
   draw.ImageFlipped(a.Left+410,a.Top+220,checkerTex,false,true,$FFFFD6A0);
 
   // Scaled overloads
+  DrawSampleLabel(a.Left+42,a.Top+354,'Scaled');
   draw.Scaled(a.Left+40,a.Top+360,a.Left+210,a.Bottom-40,checkerTex,$FFFFFFFF);
   draw.Scaled(a.Left+300,a.Top+430,0.9,helperTex,$FFD8EEFF);
 
   // SetZ demo: far then near
+  DrawSampleLabel(a.Left+422,a.Top+354,'SetZ');
   draw.SetZ(-40);
   draw.FillRRect(a.Left+420,a.Top+360,a.Right-30,a.Bottom-40,$90274A74,14);
   draw.SetZ(40);
@@ -584,16 +640,19 @@ begin
   draw.SetZ(0);
 
   // Cover / Inside + DoubleTex / DoubleRotScaled
+  DrawSampleLabel(b.Left+28,b.Top+26,'Cover');
   draw.Rect(b.Left+24,b.Top+30,b.Right-24,b.Top+250,$FF6E8CAC);
   cScale:=draw.Cover(b.Left+24,b.Top+30,b.Right-24,b.Top+250,checkerTex,$FFFFFFFF);
   iScale:=draw.Inside(b.Left+24,b.Top+270,b.Right-24,b.Bottom-24,checkerTex,$FFFFFFFF);
+  DrawSampleLabel(b.Left+28,b.Top+266,'Inside');
   draw.Rect(b.Left+24,b.Top+270,b.Right-24,b.Bottom-24,$FF6E8CAC);
   txt.Write(bodyFont,b.Left+30,b.Top+246,$FFCFE2F8,'Cover='+FormatFloat('0.00',cScale),taLeft,toAddBaseline);
   txt.Write(bodyFont,b.Left+30,b.Bottom-28,$FFCFE2F8,'Inside='+FormatFloat('0.00',iScale),taLeft,toAddBaseline);
 
+  DrawSampleLabel(b.Left+((b.Right-b.Left) div 2)-80,b.Top+120,'DoubleTex / DoubleRotScaled');
   draw.DoubleTex((b.Left+b.Right) div 2,b.Top+145,checkerTex,helperTex,$FFE8F8FF);
   draw.DoubleRotScaled((b.Left+b.Right)*0.5,b.Bottom-120,1.0,1.0,1.35,0.85,
-    window.frameStartTime*0.0018,checkerTex,helperTex,$FFE8F8FF);
+    animTime*1.8,checkerTex,helperTex,$FFE8F8FF);
 end;
 
 procedure TMainScene.DrawScreenParticles(const contentRect:TRect);
@@ -608,7 +667,10 @@ begin
   draw.FillRRect(b.Left,b.Top,b.Right,b.Bottom,$FF202D3D,10);
   if atlasTex=nil then exit;
 
-  t:=window.frameStartTime*0.0016;
+  DrawSampleLabel(a.Left+28,a.Top+28,'Particles (2D overloads)');
+  DrawSampleLabel(b.Left+28,b.Top+28,'Band');
+
+  t:=animTime*1.6;
   for i:=0 to high(particles) do begin
     particles[i].angle:=t+i*0.2;
     particles[i].x:=cos(t+i*0.31)*(190+30*sin(t*0.7+i));
@@ -634,6 +696,7 @@ var
   dpiNow:integer;
 begin
   UpdateMetrics;
+  UpdateAnimTime;
   dpiNow:=window.screenDPI;
   if dpiNow<>lastDPI then begin
     lastDPI:=dpiNow;
