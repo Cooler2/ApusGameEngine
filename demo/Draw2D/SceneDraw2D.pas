@@ -6,55 +6,53 @@
 
 unit SceneDraw2D;
 interface
- uses Apus.Engine.GameApp,Apus.Engine.API;
- type
+uses Apus.Engine.GameApp,Apus.Engine.API;
+type
   TMainApp=class(TGameApplication)
-   constructor Create;
-   procedure SetupGameSettings(var settings:TGameSettings); override;
-   procedure CreateScenes; override;
+    constructor Create;
+    procedure SetupGameSettings(var settings:TGameSettings); override;
+    procedure CreateScenes; override;
   end;
 
- var
+var
   application:TMainApp;
 
 implementation
- uses
+uses
   Types,
   Math,
   Apus.Core,
   Apus.Images,
   Apus.Colors,
   Apus.Geom2D,
+  Apus.Engine.Types,
   Apus.Engine.UI;
 
- type
-  PCardinalArray=^TCardinalArray;
-  TCardinalArray=array[0..0] of cardinal;
-
+type
   TMainScene=class(TUIScene)
-   checkerTex:TTexture;
-   titleFont,captionFont,cardFont:TFontHandle;
-   procedure Load; override;
-   procedure Render; override;
-   procedure BuildCheckerTexture;
-   procedure DrawGallery;
+    checkerTex:TTexture;
+    titleFont,captionFont,cardFont:TFontHandle;
+    procedure Load; override;
+    procedure Render; override;
+    procedure BuildCheckerTexture;
+    procedure DrawGallery;
   end;
 
 const
- CARD_COLUMNS=4;
- CARD_COUNT=12;
- CARD_MARGIN_X=14;
- CARD_GAP_X=12;
- CARD_GAP_Y=12;
- CARD_TOP=58;
- CARD_HEIGHT=180;
- HEADER_HEIGHT=34;
+  CARD_COLUMNS=4;
+  CARD_COUNT=12;
+  CARD_MARGIN_X=14;
+  CARD_GAP_X=12;
+  CARD_GAP_Y=12;
+  CARD_TOP=58;
+  CARD_HEIGHT=180;
+  HEADER_HEIGHT=34;
 
 var
- sceneMain:TMainScene;
+  sceneMain:TMainScene;
 
 constructor TMainApp.Create;
- begin
+begin
   inherited;
   gameTitle:='Apus Engine: Draw2D';
   usedAPI:=gaOpenGL2;
@@ -62,83 +60,84 @@ constructor TMainApp.Create;
   windowWidth:=1460;
   windowHeight:=720;
   windowSizeable:=true;
- end;
+end;
 
 procedure TMainApp.SetupGameSettings(var settings:TGameSettings);
- begin
+begin
   inherited;
   settings.mode.displayMode:=dmWindow;
   settings.mode.displayFitMode:=dfmFullSize;
   settings.mode.displayScaleMode:=dsmDontScale;
- end;
+end;
 
 procedure TMainApp.CreateScenes;
- begin
+begin
   inherited;
   sceneMain:=TMainScene.Create('Main');
   game.SwitchToScene('Main');
- end;
+end;
 
 procedure TMainScene.BuildCheckerTexture;
- var
+var
   x,y:integer;
-  row:PCardinalArray;
+  row:PCardinal;
   color:cardinal;
- begin
+begin
   checkerTex:=AllocImage(64,64,ipfARGB,aiTexture,'PrimitivesChecker');
   checkerTex.Lock;
   for y:=0 to checkerTex.height-1 do begin
-   row:=PCardinalArray(UIntPtr(checkerTex.data)+UIntPtr(y*checkerTex.pitch));
-   for x:=0 to checkerTex.width-1 do begin
-    if ((x div 8+y div 8) and 1)=0 then
-     color:=$FF90B0E0
-    else
-     color:=$FF204070;
-    row^[x]:=color;
-   end;
+    row:=PCardinal(UIntPtr(checkerTex.data)+UIntPtr(y*checkerTex.pitch));
+    for x:=0 to checkerTex.width-1 do begin
+      if ((x div 8+y div 8) and 1)=0 then
+        color:=$FF90B0E0
+      else
+        color:=$FF204070;
+      row^:=color;
+      inc(row);
+    end;
   end;
   checkerTex.Unlock;
- end;
+end;
 
 procedure TMainScene.Load;
- begin
+begin
   titleFont:=txt.GetFont('Default',10);
   captionFont:=txt.GetFont('Default',8);
   cardFont:=txt.GetFont('Default',7);
   BuildCheckerTexture;
   loaded:=true;
- end;
+end;
 
 procedure CardRects(index,cardWidth:integer;out outer,body:TRect);
- var
+var
   col,row,left,top:integer;
- begin
+begin
   col:=index mod CARD_COLUMNS;
   row:=index div CARD_COLUMNS;
   left:=CARD_MARGIN_X+col*(cardWidth+CARD_GAP_X);
   top:=CARD_TOP+row*(CARD_HEIGHT+CARD_GAP_Y);
   outer:=Rect(left,top,left+cardWidth-1,top+CARD_HEIGHT-1);
   body:=Rect(outer.Left+8,outer.Top+HEADER_HEIGHT,outer.Right-8,outer.Bottom-8);
- end;
+end;
 
 procedure DrawCardBase(const outer:TRect;title:string;subtitle:string;fontTitle,fontCaption:TFontHandle);
- begin
+begin
   draw.FillRRect(outer.Left,outer.Top,outer.Right,outer.Bottom,$FF1F2734,8);
   draw.RRect(outer.Left,outer.Top,outer.Right,outer.Bottom,1,8,$FF4A5F7A);
   draw.FillRect(outer.Left+1,outer.Top+1,outer.Right-1,outer.Top+HEADER_HEIGHT-1,$FF273244);
   draw.Line(outer.Left+1,outer.Top+HEADER_HEIGHT,outer.Right-1,outer.Top+HEADER_HEIGHT,$FF425268);
   txt.Write(fontTitle,outer.Left+8,outer.Top+11,$FFE8EEF8,title);
   txt.Write(fontCaption,outer.Left+8,outer.Top+25,$FF99A9C0,subtitle);
- end;
+end;
 
 procedure TMainScene.DrawGallery;
- var
+var
   i,w:integer;
   outer,body:TRect;
   p:array[0..7] of TVec2;
-  x1,y1,x2,y2,mx,my:single;
+  x1,y1,x2,y2,x3,y3,mx,my:single;
   t:single;
- begin
+begin
   w:=(window.renderWidth-CARD_MARGIN_X*2-CARD_GAP_X*(CARD_COLUMNS-1)) div CARD_COLUMNS;
 
   // 0: lines + polyline
@@ -146,7 +145,7 @@ procedure TMainScene.DrawGallery;
   CardRects(i,w,outer,body);
   DrawCardBase(outer,'Line + Polyline','basic line primitives',cardFont,cardFont);
   for i:=0 to 6 do
-   draw.Line(body.Left+10,body.Top+8+i*13,body.Right-10,body.Top+8+i*13,$FF203850+i*$00161507);
+    draw.Line(body.Left+10,body.Top+8+i*13,body.Right-10,body.Top+8+i*13,$FF203850+i*$00161507);
   p[0].x:=body.Left+14; p[0].y:=body.Bottom-40;
   p[1].x:=body.Left+34; p[1].y:=body.Bottom-58;
   p[2].x:=body.Left+58; p[2].y:=body.Bottom-34;
@@ -245,11 +244,11 @@ procedure TMainScene.DrawGallery;
   CardRects(i,w,outer,body);
   DrawCardBase(outer,'TexturedRect','with color tint and custom UV',cardFont,cardFont);
   if checkerTex<>nil then begin
-   draw.TexturedRect(Rect(body.Left+8,body.Top+10,body.Left+100,body.Top+102),checkerTex,$FF90A0FF);
-   draw.TexturedRect(Rect(body.Left+112,body.Top+10,body.Right-10,body.Top+102),checkerTex,$FFB0FFB0);
-   draw.TexturedRect(body.Left+24,body.Top+112,body.Right-20,body.Bottom-12,
-    checkerTex,0,0,1,0,0.22,1,$FFFFFFFF);
-   draw.Rect(body.Left+24,body.Top+112,body.Right-20,body.Bottom-12,$FFE5EEF8);
+    draw.TexturedRect(Rect(body.Left+8,body.Top+10,body.Left+100,body.Top+102),checkerTex,$FF90A0FF);
+    draw.TexturedRect(Rect(body.Left+112,body.Top+10,body.Right-10,body.Top+102),checkerTex,$FFB0FFB0);
+    draw.TexturedRect(body.Left+24,body.Top+112,body.Right-20,body.Bottom-12,
+      checkerTex,0,0,1,0,0.22,1,$FFFFFFFF);
+    draw.Rect(body.Left+24,body.Top+112,body.Right-20,body.Bottom-12,$FFE5EEF8);
   end;
 
   // 11: animated combination
@@ -265,18 +264,18 @@ procedure TMainScene.DrawGallery;
   draw.Line(mx,my,mx+cos(t+2.09)*56,my+sin(t+2.09)*40,$FF86E7A3);
   draw.Line(mx,my,mx+cos(t+4.18)*56,my+sin(t+4.18)*40,$FF6BA0F2);
   draw.FillRRect(round(mx-10),round(my-10),round(mx+10),round(my+10),$FFF1F4FA,8);
- end;
+end;
 
 procedure TMainScene.Render;
- begin
+begin
   gfx.target.Clear($FF151B24);
   draw.FillGradrect(0,0,window.renderWidth-1,52,$FF1E2736,$FF151B24,false);
   txt.Write(titleFont,14,16,$FFEAF1FC,'2D Primitives Gallery');
   txt.Write(captionFont,14,36,$FF9FB1CA,
-   'Modern standalone demo replacing old EngineDemo primitive section');
+    'Modern standalone demo replacing old EngineDemo primitive section');
 
   DrawGallery;
   inherited;
- end;
+end;
 
 end.
