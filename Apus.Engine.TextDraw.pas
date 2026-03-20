@@ -134,6 +134,9 @@ const
  // Font handle flags (affecting rendered glyphs)
  fhNoHinting     = $200;
  fhAutoHinting   = $400;
+ // Internal-only txt.Write option: don't apply BeginBlock textBlockOptions.
+ // Used to avoid recursion when toWithShadow is expanded into nested WriteW calls.
+ toInternalNoBlock = $40000000;
 
 type
  {$IFNDEF FREETYPE}
@@ -1319,7 +1322,8 @@ begin // -----------------------------------------------------------
   exit;
  end;
 
- if textCaching then options:=options or textBlockOptions;
+ if textCaching and (options and toInternalNoBlock=0) then
+  options:=options or textBlockOptions;
 
  if font=0 then font:=game.defaultFont;
  // Empty or too long string
@@ -1338,8 +1342,8 @@ begin // -----------------------------------------------------------
  if options and toWithShadow>0 then begin
   options:=options xor toWithShadow;
   ofs:=Max(1,round(Height(font)/12));
-  WriteW(font,x+ofs,y+ofs,color and $FE000000 shr 1,st,align,options,targetWidth);
-  WriteW(font,x,y,color,st,align,options,targetWidth);
+  WriteW(font,x+ofs,y+ofs,color and $FE000000 shr 1,st,align,options or toInternalNoBlock,targetWidth);
+  WriteW(font,x,y,color,st,align,options or toInternalNoBlock,targetWidth);
   exit;
  end;
 

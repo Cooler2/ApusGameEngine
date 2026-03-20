@@ -80,6 +80,14 @@ const
   glcsReady=0;
   glcsReleaseRequested=1;
   glcsReleased=2;
+  {$IF not Declared(XBUTTON1)}
+  XBUTTON1 = $0001;
+  XBUTTON2 = $0002;
+  {$ENDIF}
+  {$IF not Declared(VK_XBUTTON1)}
+  VK_XBUTTON1 = $05;
+  VK_XBUTTON2 = $06;
+  {$ENDIF}
   {$IF not Declared(WM_DPICHANGED)}
   WM_DPICHANGED = $02E0;
   {$ENDIF}
@@ -214,6 +222,14 @@ begin
     if message=wm_MButtonDown then i:=3;
     Signal('MOUSE\BTNDOWN',i);
   end;
+  WM_XBUTTONDOWN:begin
+    SetCapture(window);
+    i:=0;
+    if HiWord(wParam)=XBUTTON1 then i:=4 else
+    if HiWord(wParam)=XBUTTON2 then i:=5;
+    if i>0 then Signal('MOUSE\BTNDOWN',i);
+    exit(0);
+  end;
 
   WM_LBUTTONUP,WM_RBUTTONUP,WM_MBUTTONUP:begin
     ReleaseCapture;
@@ -222,6 +238,14 @@ begin
     if message=wm_RButtonUp then i:=2 else
     if message=wm_MButtonUp then i:=3;
     Signal('MOUSE\BTNUP',i);
+  end;
+  WM_XBUTTONUP:begin
+    ReleaseCapture;
+    i:=0;
+    if HiWord(wParam)=XBUTTON1 then i:=4 else
+    if HiWord(wParam)=XBUTTON2 then i:=5;
+    if i>0 then Signal('MOUSE\BTNUP',i);
+    exit(0);
   end;
 
   WM_MOUSEWHEEL:Signal('MOUSE\SCROLL',smallint(wParam shr 16));
@@ -381,6 +405,8 @@ function TWindowsPlatform.GetMouseButtons: cardinal;
   if GetAsyncKeyState(VK_LBUTTON)<0 then inc(result,mbLeft);
   if GetAsyncKeyState(VK_RBUTTON)<0 then inc(result,mbRight);
   if GetAsyncKeyState(VK_MBUTTON)<0 then inc(result,mbMiddle);
+  if GetAsyncKeyState(VK_XBUTTON1)<0 then result:=result or (1 shl 3);
+  if GetAsyncKeyState(VK_XBUTTON2)<0 then result:=result or (1 shl 4);
  end;
 
 function TWindowsPlatform.GetSystemCursor(cursorId: integer): THandle;

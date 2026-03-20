@@ -1,4 +1,5 @@
 ﻿program InputDemo;
+{$APPTYPE GUI}
   uses
     SceneInputDemo in 'SceneInputDemo.pas';
 
