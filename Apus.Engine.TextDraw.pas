@@ -68,6 +68,8 @@ interface
       options:integer=0;targetWidth:integer=0;query:cardinal=0);
    procedure WriteW(font:TFontHandle;xx,yy:single;color:cardinal;st:String32;align:TTextAlignment=taLeft;
       options:integer=0;targetWidth:integer=0;query:cardinal=0);
+   procedure WriteR(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:integer=0);
+   procedure WriteC(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:integer=0);
    // Measure text dimensions
    function Width(font:TFontHandle;st:String8):integer; // text width in pixels
    function WidthW(font:TFontHandle;st:String32):integer; // text width in pixels
@@ -605,6 +607,16 @@ procedure TTextDrawer.Write(font:cardinal;x,y:single;color:cardinal;st:string8;
    align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
  begin
   WriteW(font,x,y,color,Str32(st),align,options,targetWidth,query);
+ end;
+
+procedure TTextDrawer.WriteR(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:integer=0);
+ begin
+  WriteW(font,x,y,color,Str32(st),taRight,options);
+ end;
+
+procedure TTextDrawer.WriteC(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:integer=0);
+ begin
+  WriteW(font,x,y,color,Str32(st),taCenter,options);
  end;
 
 
