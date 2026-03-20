@@ -569,13 +569,13 @@ type
   procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
   // Text output (use handle 0 for default font)
   procedure Write(font:TFontHandle;x,y:single;color:cardinal;st:String8;align:TTextAlignment=taLeft;
-     options:integer=0;targetWidth:integer=0;query:cardinal=0);
+     options:cardinal=0;targetWidth:integer=0;query:cardinal=0);
   procedure WriteW(font:TFontHandle;x,y:single;color:cardinal;st:String32;align:TTextAlignment=taLeft;
-     options:integer=0;targetWidth:integer=0;query:cardinal=0);
+     options:cardinal=0;targetWidth:integer=0;query:cardinal=0);
   // Right-aligned: x is the right edge
-  procedure WriteR(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:integer=0);
+  procedure WriteR(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:cardinal=0);
   // Centered: x is the center
-  procedure WriteC(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:integer=0);
+  procedure WriteC(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:cardinal=0);
   // Measure text dimensions
   function Width(font:TFontHandle;st:String8):integer; // text width in pixels
   function WidthW(font:TFontHandle;st:String32):integer; // text width in pixels

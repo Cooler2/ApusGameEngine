@@ -65,11 +65,11 @@ interface
    procedure SetFontOption(handle:TFontHandle;option:cardinal;value:single);
    // Text output
    procedure Write(font:TFontHandle;x,y:single;color:cardinal;st:String8;align:TTextAlignment=taLeft;
-      options:integer=0;targetWidth:integer=0;query:cardinal=0);
+      options:cardinal=0;targetWidth:integer=0;query:cardinal=0);
    procedure WriteW(font:TFontHandle;xx,yy:single;color:cardinal;st:String32;align:TTextAlignment=taLeft;
-      options:integer=0;targetWidth:integer=0;query:cardinal=0);
-   procedure WriteR(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:integer=0);
-   procedure WriteC(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:integer=0);
+      options:cardinal=0;targetWidth:integer=0;query:cardinal=0);
+   procedure WriteR(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:cardinal=0);
+   procedure WriteC(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:cardinal=0);
    // Measure text dimensions
    function Width(font:TFontHandle;st:String8):integer; // text width in pixels
    function WidthW(font:TFontHandle;st:String32):integer; // text width in pixels
@@ -607,26 +607,27 @@ function TTextDrawer.Height(font:cardinal):integer;
  end;
 
 procedure TTextDrawer.Write(font:cardinal;x,y:single;color:cardinal;st:string8;
-   align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
+   align:TTextAlignment=taLeft;options:cardinal=0;targetWidth:integer=0;query:cardinal=0);
  begin
   WriteW(font,x,y,color,Str32(st),align,options,targetWidth,query);
  end;
 
-procedure TTextDrawer.WriteR(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:integer=0);
+procedure TTextDrawer.WriteR(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:cardinal=0);
  begin
   WriteW(font,x,y,color,Str32(st),taRight,options);
  end;
 
-procedure TTextDrawer.WriteC(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:integer=0);
+procedure TTextDrawer.WriteC(font:TFontHandle;x,y:single;color:cardinal;st:String8;options:cardinal=0);
  begin
   WriteW(font,x,y,color,Str32(st),taCenter,options);
  end;
 
 
 procedure TTextDrawer.WriteW(font:cardinal;xx,yy:single;color:cardinal;st:String32;
-   align:TTextAlignment=taLeft;options:integer=0;targetWidth:integer=0;query:cardinal=0);
+   align:TTextAlignment=taLeft;options:cardinal=0;targetWidth:integer=0;query:cardinal=0);
 var
  x,y,ofs:integer;
+
  width:integer; //text width in pixels
  uniFont:TUnicodeFontEx;
  {$IFDEF FREETYPE}
@@ -757,17 +758,17 @@ var
    obj:=GetFontObject(font);
    scale:=1; charScaleX:=1; charScaleY:=1;
 
-   boldStyle:=(options and toBold>0) or (font and fsBold>0);
-   italicStyle:=(options and toItalic>0) or (font and fsItalic>0);
-   underlineStyle:=(options and toUnderline>0) or (font and fsUnderline>0);
+   boldStyle:=Bits.HasAny(options,toBold) or Bits.HasAny(font,fsBold);
+   italicStyle:=Bits.HasAny(options,toItalic) or Bits.HasAny(font,fsItalic);
+   underlineStyle:=Bits.HasAny(options,toUnderline) or Bits.HasAny(font,fsUnderline);
 
-   if options and toComplexText>0 then begin
+   if Bits.HasAny(options,toComplexText) then begin
     Mem.Fill(stackPos,sizeof(stackPos),0);
     ParseSML;
     link:=0; linkStart:=-1;
    end;
 
-   if options and toMeasure>0 then begin
+   if Bits.HasAny(options,toMeasure) then begin
     SetLength(textMetrics,length(st)+1);
     queryX:=query and $FFFF;
     queryY:=query shr 16;
@@ -778,11 +779,11 @@ var
      ftFont:=obj as TFreeTypeFont;
      size:=20*ScaleFromHandle(font);
      ftHintMode:=0;
-     if (options and toNoHinting>0) or (font and fhNoHinting>0) then begin
+     if Bits.HasAny(options,toNoHinting) or Bits.HasAny(font,fhNoHinting) then begin
        ftHintMode:=ftHintMode or FTF_NO_HINTING;
        font:=font or fhNoHinting;
      end;
-     if (options and toAutoHinting>0) or (font and fhAutoHinting>0) then begin
+     if Bits.HasAny(options,toAutoHinting) or Bits.HasAny(font,fhAutoHinting) then begin
        ftHintMode:=ftHintMode or FTF_AUTO_HINTING;
        font:=font or fhAutoHinting;
      end;
@@ -802,11 +803,11 @@ var
    charSpacing:=0; // доп интервал между обычными символами
    spaceSpacing:=0; // доп ширина пробелов
    {$IFDEF FREETYPE}
-   if (options and toLetterSpacing>0) or (font and fsLetterSpacing>0) then
+   if Bits.HasAny(options,toLetterSpacing) or Bits.HasAny(font,fsLetterSpacing) then
     if ftFont<>nil then charSpacing:=round(ftFont.GetHeight(size)*0.1);
    {$ENDIF}
 
-   drawToBitmap:=(options and toDrawToBitmap>0);
+   drawToBitmap:=Bits.HasAny(options,toDrawToBitmap);
 
    // Adjust color
 {   if textCache.PixelFormat<>ipfA8 then begin
@@ -815,7 +816,7 @@ var
    end;}
 
    // Alignment
-   if options and toAddBaseline>0 then begin
+   if Bits.HasAny(options,toAddBaseline) then begin
      if uniFont<>nil then inc(y,round(uniFont.header.baseline*scale));
      {$IFDEF FREETYPE}
      if ftFont<>nil then inc(y,round(1.25+ftFont.GetHeight(size)));
@@ -1093,7 +1094,7 @@ var
    fHeight:integer;
   begin
    px:=x; // координата в реальных экранных пикселях
-   if options and toMeasure>0 then begin
+   if Bits.HasAny(options,toMeasure) then begin
     fHeight:=round(Height(font)*1.1);
     textMetrics[0]:=types.Rect(x,y-fHeight,x+1,y);
    end;
@@ -1113,7 +1114,7 @@ var
    for i:=0 to length(st)-1 do begin
     if st[i]=$FEFF then continue; // Skip BOM
     // Complex text
-    if options and toComplexText>0 then begin
+    if Bits.HasAny(options,toComplexText) then begin
      oldLink:=link;
      while cmdPos<cmdIndex[i] do ExecuteCmd(cmdPos);
     end;
@@ -1130,7 +1131,7 @@ var
      px:=px+advance+charSpacing;
      if st[i-1]=ord(' ') then px:=px+spaceSpacing;
      // Metrics
-     if options and toMeasure>0 then begin
+     if Bits.HasAny(options,toMeasure) then begin
        textMetrics[i]:=types.Rect(round(px),y-fHeight,round(px)+1,y);
        textMetrics[i-1].Right:=round(px)-1;
        if (oldLink<>0) and
@@ -1164,7 +1165,7 @@ var
      if lpCount>=high(linePoints) then dec(lpCount,2);
     end;
 
-    if (st[i]=32) or (options and toDontDraw>0) then continue; // space -> no glyph => skip drawing
+    if (st[i]=32) or Bits.HasAny(options,toDontDraw) then continue; // space -> no glyph => skip drawing
 
     if uniFont<>nil then begin // Unicode raster font
      idx:=unifont.IndexOfChar(st[i]);
@@ -1211,7 +1212,7 @@ var
    end; // FOR
 
    // Metrics
-   if (options and toMeasure>0) and (length(st)>0) then begin
+   if Bits.HasAny(options,toMeasure) and (length(st)>0) then begin
      i:=round(x)+width;
      textMetrics[length(st)]:=types.rect(i,y-fHeight,i,y);
      if (link>0) and
@@ -1285,19 +1286,21 @@ var
   procedure DrawMultiline;
    var
     i,j,lineHeight:integer;
+    drawOptions:integer;
   begin
    i:=0;
    j:=0;
    lineHeight:=round(Height(font)*1.65);
+   drawOptions:=options or toDontTranslate;
    while j<length(st)-1 do
     if (st[j]=13) and (st[j+1]=10) then begin
-     WriteW(font,x,y,color,copy(st,i,j-i),align,options or toDontTranslate,targetWidth,query);
+     WriteW(font,x,y,color,copy(st,i,j-i),align,drawOptions,targetWidth,query);
      inc(y,lineHeight);
      inc(j,2);
      i:=j;
     end else
      inc(j);
-   WriteW(font,x,y,color,copy(st,i,length(st)-i),align,options or toDontTranslate,targetWidth,query);
+   WriteW(font,x,y,color,copy(st,i,length(st)-i),align,drawOptions,targetWidth,query);
   end;
 
  procedure DrawTextCache;
@@ -1322,15 +1325,16 @@ begin // -----------------------------------------------------------
   exit;
  end;
 
- if textCaching and (options and toInternalNoBlock=0) then
-  options:=options or textBlockOptions;
+ if textCaching and not Bits.HasAny(options,toInternalNoBlock) then
+  Bits.SetFlag(options,textBlockOptions);
 
  if font=0 then font:=game.defaultFont;
  // Empty or too long string
  if (length(st)=0) or (length(st)>1000) then exit;
 
  // Translation
- if (font and fhDontTranslate=0) and (options and toDontTranslate=0) then st:=translate32(st);
+ if not Bits.HasAny(font,fhDontTranslate) and not Bits.HasAny(options,toDontTranslate) then
+  st:=translate32(st);
 
  // Multiline?
  if st.Contains([13,10]) then begin
@@ -1339,8 +1343,8 @@ begin // -----------------------------------------------------------
  end;
 
  // Special option: draw twice with offset
- if options and toWithShadow>0 then begin
-  options:=options xor toWithShadow;
+ if Bits.HasAny(options,toWithShadow) then begin
+  Bits.Clear(options,toWithShadow);
   ofs:=Max(1,round(Height(font)/12));
   WriteW(font,x+ofs,y+ofs,color and $FE000000 shr 1,st,align,options or toInternalNoBlock,targetWidth);
   WriteW(font,x,y,color,st,align,options or toInternalNoBlock,targetWidth);
@@ -1367,7 +1371,7 @@ begin // -----------------------------------------------------------
  end;
 
  // NORMAL TEXT RENDERING
- if (options and toDontDraw=0) then begin
+ if not Bits.HasAny(options,toDontDraw) then begin
   if not DefineRectAndSetState then exit;  // Clipping (тут косяк с многострочностью)
 
   // Prevent text cache overflow
@@ -1381,7 +1385,7 @@ begin // -----------------------------------------------------------
  if not textCaching or (lpCount>0) then FlushTextCache;
 
  // Underlines
- if (lpCount>0) and (options and toDontDraw=0) then DrawUnderlines;
+ if (lpCount>0) and not Bits.HasAny(options,toDontDraw) then DrawUnderlines;
 end;
 
 { TUnicodeFontEx }
