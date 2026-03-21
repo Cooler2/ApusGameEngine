@@ -30,6 +30,7 @@ This file follows top-down planning:
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
 | R-14 | UI Widget Expansion | idea | 0% | — | New widget types, module split strategy |
+| R-15 | Demo Suite Restructuring | planned | 0% | Target structure defined, migration map documented | Create new demos, merge/move existing, distribute EngineTest cases |
 
 ## 2) Strategic Directions
 
@@ -146,6 +147,7 @@ Use this section for anything remembered on the fly.
 - [ ] [R-012] Graphics subsystem optimizations (text path + streaming buffers)
 - [ ] [R-013] Robot API input simulation (`ui.click`/`ui.type`/`ui.focus`)
 - [ ] [R-014] UI widget expansion: new component types + module organization strategy
+- [ ] [R-015] Demo suite restructuring: 3-tier organization, new demos, merge redundant ones
 
 ## 5) Seed Feature Cards
 
@@ -582,6 +584,39 @@ type
   - Module split criterion: a widget is "composite" if it internally calls `Create` on another widget class. Primitives compose only via TUIElement children set by caller.
   - 2026-03-20: card created; widget list and module strategy drafted in planning discussion.
   - 2026-03-20: added menus, icon support, clickable/copyable labels to scope.
+
+### [R-15] Demo Suite Restructuring
+- Status: planned
+- Priority: P1
+- Area: Tooling
+- Value: Provide a coherent, progressive demo suite that serves as onboarding path, API reference, and test base for CI/Robot validation.
+- Scope (MVP):
+  - Reorganize demos into 3-tier structure: `1-start/`, `2-features/`, `3-advanced/`
+  - Create new demos: HelloEngine, Text (highest priority — biggest current gap)
+  - Merge redundant demos: Input (InputDemo+ControllerDemo), Platform (MultiWindow+UIScaleDPI+Borderless), AdvancedGfx (AdvTex+ShadowMap)
+  - Absorb Draw2D cases from NinePatch and EngineTest; absorb text cases from EngineTest into Text demo
+  - Rewrite SoundDemo as GUI application
+  - Remove SimpleDemo (replaced by HelloEngine) and EngineTest (distributed) after migration
+  - New demos created when dependencies are ready: Styles (R-05), Resources, Network (K)
+- Out of scope: rewriting performance demos (Particles, Billboards, VertexBuffer) — move as-is.
+- Dependencies: R-02 (for Platform demo), R-05 (for Styles demo), section K (for Network demo).
+- Risks: EngineTest distribution requires careful case-by-case review to avoid losing coverage.
+- Acceptance Criteria:
+  - [ ] Directory structure matches target layout (`1-start/`, `2-features/`, `3-advanced/`)
+  - [ ] HelloEngine demo created and working
+  - [ ] Text demo created with font/Unicode/formatting showcase
+  - [ ] Draw2D absorbs NinePatch and relevant EngineTest cases
+  - [ ] Input demo merges keyboard/mouse (InputDemo) and gamepad (ControllerDemo)
+  - [ ] Platform demo merges multi-window, DPI, and borderless demos
+  - [ ] AdvancedGfx demo merges AdvTex and ShadowMap
+  - [ ] SoundDemo rewritten as GUI app
+  - [ ] EngineTest fully distributed and removed
+  - [ ] All demos compile with FPC and Delphi
+  - [ ] CI can build all demos in the new structure
+- Notes:
+  - Full plan with migration map: `demo/demo_plan.md`
+  - Current inventory: `demo/demo_inventory.md`
+  - 2026-03-22: plan created and agreed.
 
 ## 6) Next Planning Session
 Prepare for the next discussion:
