@@ -852,8 +852,6 @@ type
   procedure RequestFrameCapture(obj:TObject=nil); virtual; abstract;
   procedure StartVideoCap(filename:string); virtual; abstract;
   procedure FinishVideoCap; virtual; abstract;
-  // При включенной видеозаписи вызывается видеокодером для освобождения памяти кадра
-  procedure ReleaseFrameData(obj:TObject); virtual; abstract;
 
   // Utility functions
   // -----------------

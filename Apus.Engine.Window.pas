@@ -168,6 +168,13 @@ public
   procedure ActivateGraphContext; virtual;
   procedure PresentFrame; virtual; abstract;
   function SetVSync(divider:integer):boolean; virtual; abstract;
+
+  // Frame capture
+  procedure RequestScreenshot(saveAsJpeg:boolean=true);
+  procedure RequestFrameCapture(obj:TObject=nil);
+  procedure CaptureFrame;
+  procedure StartVideoCap(filename:string);
+  procedure FinishVideoCap;
  end;
 
 function FindWindowForScene(scene:TGameScene):TWindow;
@@ -175,7 +182,10 @@ function FindWindowForUIRoot(root:TObject):TWindow;
 function ListWindows:TWindowArray;
 
 implementation
- uses Apus.EventMan, Apus.Lib, Apus.Engine.API;
+ uses SysUtils, Apus.EventMan, Apus.Lib, Apus.Images, Apus.GfxFormats, Apus.Files,
+   {$IFDEF MSWINDOWS}Apus.Clipboard,{$ENDIF}
+   {$IFDEF VIDEOCAPTURE}Apus.Engine.VideoCapture,{$ENDIF}
+   Apus.Engine.API;
 
 var
  windowHash:TObjectHash;
@@ -520,6 +530,94 @@ function TWindow.ProcessScenes(deltaTime:integer):boolean;
      result:=scenes[i].Process or result;
    end;
  end;
+
+procedure TWindow.RequestScreenshot(saveAsJpeg:boolean=true);
+begin
+ Lock;
+ try
+  if saveAsJPEG then capture.target:=2
+   else capture.target:=3;
+  capture.singleFrame:=true;
+ finally
+  Unlock;
+ end;
+end;
+
+procedure TWindow.RequestFrameCapture(obj:TObject=nil);
+begin
+ Lock;
+ try
+  capture.singleFrame:=true;
+  capture.target:=0;
+  capture.data:=obj;
+ finally
+  Unlock;
+ end;
+end;
+
+procedure TWindow.CaptureFrame;
+var
+ st:string;
+ res:ByteArray;
+ ext:string;
+ img:TBitmapImage;
+ r:TRect;
+ saveAsJPG:boolean;
+begin
+ capture.singleFrame:=false;
+
+ r:=displayRect;
+ img:=TBitmapImage.Create(r.Width,r.Height,ipfXRGB);
+ gfx.CopyFromBackbuffer(0,0,img);
+ inc(PByte(img.data),img.width*4*(img.height-1)); // move pointer to the last line
+ img.pitch:=-img.width*4; // invert pitch
+ case capture.target of
+  0:if capture.data<>nil then begin
+   Signal('Engine\FrameCaptured',UIntPtr(img));
+  end;
+  2,3:try
+   {$IFDEF OPENGL}
+   {$IFDEF MSWINDOWS}
+   // overcome windows problem with OpenGL+PrintScreen in fullscreen mode
+   PutImageToClipboard(img);
+   {$ENDIF}
+   {$ENDIF}
+   if not DirectoryExists('Screenshots') then
+    CreateDir('Screenshots');
+   saveAsJPG:=capture.target=2;
+   if saveAsJpg then ext:='.jpg' else ext:='.png';
+   st:='Screenshots'+PathSeparator+FormatDateTime('yymmdd_hhnnss',Now)+ext;
+   if saveAsJpg then
+    SaveJPEG(img,st,95)
+   else begin
+    res:=SavePNG(img);
+    Files.WriteBlock(st,@res[0],length(res),0);
+   end;
+   capture.capturedName:=st;
+   capture.capturedTime:=CoreTime.Ticks;
+  except
+   on e:Exception do Log.Force('Error saving screenshot: '+ExceptionMsg(e));
+  end;
+ end;
+end;
+
+procedure TWindow.StartVideoCap(filename:string);
+begin
+ {$IFDEF VIDEOCAPTURE}
+ if capture.videoMode then exit;
+ capture.videoMode:=true;
+ if pos('\',filename)=0 then filename:=capture.videoPath+filename;
+ StartVideoCapture(game,filename);
+ {$ENDIF}
+end;
+
+procedure TWindow.FinishVideoCap;
+begin
+ {$IFDEF VIDEOCAPTURE}
+ if capture.videoMode then FinishVideoCapture;
+ capture.videoMode:=false;
+ {$ENDIF}
+end;
 
 function FindWindowForScene(scene:TGameScene):TWindow;
  var

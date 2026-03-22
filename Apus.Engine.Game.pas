@@ -388,26 +388,12 @@ end;
 
 procedure TGame.RequestScreenshot(saveAsJpeg:boolean=true);
 begin
- Lock;
- try
-  if saveAsJPEG then window.capture.target:=2
-   else window.capture.target:=3;
-  window.capture.singleFrame:=true;
- finally
-  Unlock;
- end;
+ window.RequestScreenshot(saveAsJpeg);
 end;
 
 procedure TGame.RequestFrameCapture(obj:TObject=nil);
 begin
- Lock;
- try
-  window.capture.singleFrame:=true;
-  window.capture.target:=0;
-  window.capture.data:=obj;
- finally
-  Unlock;
- end;
+ window.RequestFrameCapture(obj);
 end;
 
 procedure TGame.ApplyNewSettings;
@@ -1254,22 +1240,14 @@ begin
  end;
 end;
 
-procedure TGame.StartVideoCap(filename: string);
+procedure TGame.StartVideoCap(filename:string);
 begin
- {$IFDEF VIDEOCAPTURE}
- if window.capture.videoMode then exit;
- window.capture.videoMode:=true;
- if pos('\',filename)=0 then filename:=window.capture.videoPath+filename;
- StartVideoCapture(game,filename);
- {$ENDIF}
+ window.StartVideoCap(filename);
 end;
 
 procedure TGame.FinishVideoCap;
 begin
- {$IFDEF VIDEOCAPTURE}
- if window.capture.videoMode then FinishVideoCapture;
- window.capture.videoMode:=false;
- {$ENDIF}
+ window.FinishVideoCap;
 end;
 
 procedure TGame.Stop;
@@ -1307,63 +1285,8 @@ begin
 end;
 
 procedure TGame.CaptureFrame;
-var
- n:integer;
- st:string;
- res:ByteArray;
- ext:string;
- img:TBitmapImage;
- r:TRect;
- buf:PByte;
- saveAsJPG:boolean;
 begin
- window.capture.singleFrame:=false;
-
- r:=window.displayRect;
- img:=TBitmapImage.Create(r.Width,r.Height,ipfXRGB);
- gfx.CopyFromBackbuffer(0,0,img);
- img.tag:=UIntPtr(buf); // save pointer
- inc(PByte(img.data),img.width*4*(img.height-1)); // move pointer to the last line
- img.pitch:=-img.width*4; // invert pitch
- (*
- {$IFDEF VIDEOCAPTURE}
- if window.capture.videoMode then begin
-  // Передача данных потоку видеосжатия
-  StoreFrame(img);
- end;
- {$ENDIF} *)
- case window.capture.target of
-  0:if window.capture.data<>nil then begin
-   Signal('Engine\FrameCaptured',UIntPtr(img));
-  end;
-  2,3:try
-   {$IFDEF OPENGL}
-   {$IFDEF MSWINDOWS}
-   // overcome windows problem with OpenGL+PrintScreen in fullscreen mode
-   PutImageToClipboard(img);
-   {$ENDIF}
-   {$ENDIF}
-   n:=1;
-   if not DirectoryExists('Screenshots') then
-    CreateDir('Screenshots');
-   saveAsJPG:=window.capture.target=2;
-   if saveAsJpg then ext:='.jpg' else ext:='.png';
-   st:='Screenshots'+PathSeparator+FormatDateTime('yymmdd_hhnnss',Now)+ext;
-   if saveAsJpg then
-    SaveJPEG(img,st,95)
-   else begin
-    res:=SavePNG(img);
-    Files.WriteBlock(st,@res[0],length(res),0);
-   end;
-   window.capture.capturedName:=st;
-   window.capture.capturedTime:=CoreTime.Ticks;
-  except
-   on e:Exception do Log.Force('Error saving screenshot: '+ExceptionMsg(e));
-  end;
- end;
- (*
- if not window.capture.videoMode then
-  ReleaseFrameData(screenshotDataRaw); *)
+ window.CaptureFrame;
 end;
 
 procedure TGame.NotifyScenesAboutMouseMove;
