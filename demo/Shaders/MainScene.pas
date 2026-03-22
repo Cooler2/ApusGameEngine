@@ -109,7 +109,7 @@ procedure TMainScene.Render;
   t:double;
  begin
   gfx.target.Clear($406080); // clear with blue
-  t:=window.frameStartTime*0.002;
+  t:=window.frameStartMs*0.002;
 
   draw.RoundRect(TVec2.Init(150.5,20.5),16,16,8,1,$FFC0A030,$FF101010);
 

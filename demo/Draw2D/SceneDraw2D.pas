@@ -1,4 +1,4 @@
-// 2D primitives gallery demo for Apus Engine
+﻿// 2D primitives gallery demo for Apus Engine
 //
 // Copyright (C) 2026 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -275,8 +275,8 @@ procedure TMainScene.UpdateAnimTime;
 begin
   if window.frameNum=animTimeFrame then exit;
   animTimeFrame:=window.frameNum;
-  if window.frameTimeDelta>0 then
-    animTime:=animTime+window.frameTimeDelta*0.001
+  if window.frameDeltaMs>0 then
+    animTime:=animTime+window.frameDeltaMs*0.001
   else
     animTime:=animTime+1/60;
 end;
