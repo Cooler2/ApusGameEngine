@@ -1,4 +1,14 @@
-﻿unit Apus.Engine.MessageScene;
+﻿// -----------------------------------------------------
+// Apus.Engine.MessageScene — modal message dialogs.
+//
+// Provides ShowMessage, Ask, and Confirm dialogs rendered
+// as overlay scenes. Fires signal events on user response.
+//
+// Copyright (C) 2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// -----------------------------------------------------
+unit Apus.Engine.MessageScene;
 interface
  uses Apus.Core;
 

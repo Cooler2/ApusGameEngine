@@ -1,17 +1,15 @@
-﻿{ Консоль представляет собой центр обработки текстовых сообщений, которые
-  могут генерироваться различными частями игры. Это могут быть отладочные
-  сообщения в лог, команды, сообщения для визуальной отладки и т.д. Консоль
-  не интерпретирует сообщения, а лишь решает что с ними делать и куда направлять.
-  Консоль может:
-  - записывать сообщения в лог-файл
-  - выводить сообщения в консольное окно (если оно есть!)
-  - сохранять сообщения в своем буфере (откуда их потом можно читать)
-  - реагировать на отладочные сигналы и воспринимать их как сообщения
-}
-
+﻿// -----------------------------------------------------
+// Apus.Engine.Console — central message hub.
+//
+// Routes text messages (debug, log, commands) to their
+// destinations: log file, console window, internal buffer.
+// Listens to debug signals and treats them as messages.
+// Does not interpret messages — only dispatches them.
+//
 // Copyright (C) 2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
+// -----------------------------------------------------
 
 unit Apus.Engine.Console;
 interface

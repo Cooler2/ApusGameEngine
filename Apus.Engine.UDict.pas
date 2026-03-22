@@ -1,6 +1,13 @@
-﻿// This file is licensed under the terms of BSD-3 license (see license.txt)
+﻿// -----------------------------------------------------
+// Apus.Engine.UDict — UI dictionary for localization.
+//
+// Manages language selection and translatable string tables
+// used by UI elements and game text.
+//
+// Copyright (C) 2004 Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
-
+// -----------------------------------------------------
 unit Apus.Engine.UDict;
 
 {$IFDEF FPC}

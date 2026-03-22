@@ -1,9 +1,14 @@
-﻿// UI API unit with most UI-related declarations and utility functions
+﻿// -----------------------------------------------------
+// Apus.Engine.UI — aggregate UI API unit.
 //
-// Author: Ivan Polyacov, Apus Software (ivan@apus-software.com)
+// Re-exports core UI types, widgets, shapes, and layouters
+// from their individual modules. Provides pivot presets and
+// high-level helper functions for building user interfaces.
+//
+// Copyright (C) 2020 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
-// ------------------------------------------------------
+// -----------------------------------------------------
 
 unit Apus.Engine.UI;
 interface
