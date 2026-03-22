@@ -51,6 +51,7 @@ type
 
   procedure Reset;
   procedure PushSample(deltaUs,msgUs,onFrameUs,renderUs,presentUs,sleepUs:integer);
+  function MaxRecentFrameUs(sampleCount:integer):integer;
   function CalcTrimmedFrameMs(windowUs,minFrames,trimPermille:integer; out avgMs:double):boolean;
   procedure UpdateFps(out fps,smoothFps:single);
  end;
@@ -62,6 +63,10 @@ TWindow=class(TNamedObject)
 protected
   class function ClassHash:pointer; override;
 private
+  // Authoritative per-frame timing source: high-precision microseconds.
+  frameStartUsValue:int64;
+  frameDeltaUsValue:int64;
+  // Compatibility projections for legacy code paths that consume ms/sec.
   frameStartMsValue:int64;
   frameDeltaMsValue:int64;
   frameStartSecValue:double;
@@ -101,15 +106,19 @@ public
   capture:TFrameCapture;
   scenes:TSceneArray;
   topmostScene:TGameScene; // last topmost active scene for this window
-  // Frame timing (per-window, read-only from outside).
-  property frameStartMs:int64 read frameStartMsValue; // CoreTime.Ticks when frame started
-  property frameDeltaMs:int64 read frameDeltaMsValue; // milliseconds elapsed from previous frame
+  // Frame timing (per-window, read-only from outside):
+  // - `*Us` is the single source of truth (high precision)
+  // - `*Ms` / `*Sec` are derived values for API compatibility
+  property frameStartUs:int64 read frameStartUsValue;
+  property frameDeltaUs:int64 read frameDeltaUsValue;
+  property frameStartMs:int64 read frameStartMsValue;
+  property frameDeltaMs:int64 read frameDeltaMsValue;
   property frameStartSec:double read frameStartSecValue;
   property frameDeltaSec:double read frameDeltaSecValue;
 
   constructor Create(windowName:String8='MainWnd');
   destructor Destroy; override;
-  procedure SetFrameTiming(startMs,deltaMs:int64);
+  procedure SetFrameTiming(startUs,deltaUs:int64);
   procedure ResetFrameTiming;
 
   procedure Lock(caller:pointer=nil);
@@ -179,12 +188,17 @@ destructor TWindow.Destroy;
   inherited;
  end;
 
-procedure TWindow.SetFrameTiming(startMs,deltaMs:int64);
+procedure TWindow.SetFrameTiming(startUs,deltaUs:int64);
  begin
-  frameStartMsValue:=startMs;
-  frameDeltaMsValue:=deltaMs;
-  frameStartSecValue:=startMs*0.001;
-  frameDeltaSecValue:=deltaMs*0.001;
+  if startUs<0 then startUs:=0;
+  if deltaUs<0 then deltaUs:=0;
+  // Keep raw high-precision values and update all derived projections in one place.
+  frameStartUsValue:=startUs;
+  frameDeltaUsValue:=deltaUs;
+  frameStartMsValue:=startUs div 1000;
+  frameDeltaMsValue:=deltaUs div 1000;
+  frameStartSecValue:=startUs*0.000001;
+  frameDeltaSecValue:=deltaUs*0.000001;
  end;
 
 procedure TWindow.ResetFrameTiming;
@@ -269,6 +283,25 @@ begin
  inc(frameTimeRingPos);
  if frameTimeRingPos>=FRAME_TIME_RING_SIZE then frameTimeRingPos:=0;
  if frameTimeRingCount<FRAME_TIME_RING_SIZE then inc(frameTimeRingCount);
+end;
+
+function TFrameTiming.MaxRecentFrameUs(sampleCount:integer):integer;
+var
+ i,n,idx,v:integer;
+begin
+ result:=0;
+ if frameTimeRingCount<=0 then exit;
+ if sampleCount<=0 then sampleCount:=1;
+ if sampleCount>frameTimeRingCount then sampleCount:=frameTimeRingCount;
+ n:=sampleCount;
+ idx:=frameTimeRingPos-1;
+ if idx<0 then idx:=FRAME_TIME_RING_SIZE-1;
+ for i:=1 to n do begin
+  v:=frameTimeRing[idx];
+  if v>result then result:=v;
+  dec(idx);
+  if idx<0 then idx:=FRAME_TIME_RING_SIZE-1;
+ end;
 end;
 
 function TFrameTiming.CalcTrimmedFrameMs(windowUs,minFrames,trimPermille:integer; out avgMs:double):boolean;

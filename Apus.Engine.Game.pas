@@ -107,8 +107,6 @@ type
   controlThreadId:TThreadID;
   cursors:array of TObject;
   crSect:TLock;
-  LastOnFrameTime:int64; // момент последнего вызова обработки кадра
-  LastRenderTime:int64; // Момент последней отрисовки кадра
 
   curPrior:integer; // приоритет текущего отображаемого курсора
   wndCursor:THandle; // current system cursor
@@ -117,9 +115,6 @@ type
   frameLog,prevFrameLog:string;
   avgTime,avgTime2:double;
   timerFrame:cardinal;
-  debugDeltaHist:array[0..9] of integer;
-  debugDeltaPos:integer;
-  debugDeltaCount:integer;
 
   customPoints,activeCustomPoints:array of TPoint; // custom navigation points
 
@@ -188,8 +183,6 @@ type
 
   // Utils
   procedure CreateDebugLogs; virtual;
-  procedure PushDebugDelta(deltaMs:int64); virtual;
-  function DebugDeltaMax:int64; virtual;
   // Draw magnified part of the screen under mouse
   procedure DrawMagnifier; virtual;
   // Internal hotkeys such as PrintScreen, Alt+F1 etc
@@ -301,22 +294,6 @@ begin
  result:=d;
  perfMeasures[id]:=perfMeasures[id]*0.9+d*0.1;
 end;
-
-procedure TGame.PushDebugDelta(deltaMs:int64);
- begin
-  debugDeltaHist[debugDeltaPos]:=deltaMs;
-  inc(debugDeltaPos);
-  if debugDeltaPos>=length(debugDeltaHist) then debugDeltaPos:=0;
- end;
-
-function TGame.DebugDeltaMax:int64;
- var
-  i:integer;
- begin
-  result:=0;
-  for i:=0 to high(debugDeltaHist) do
-   result:=Max(result,debugDeltaHist[i]);
- end;
 
 { TGame }
 
@@ -619,9 +596,6 @@ begin
  canExitNow:=false;
  useMainThread:=true;
  controlThreadId:=GetCurrentThreadId;
- Mem.Clear(debugDeltaHist,SizeOf(debugDeltaHist));
- debugDeltaPos:=0;
- debugDeltaCount:=0;
  // TODO: window fields initialized here before window is created - move to post-CreateWindow init
  mainThread:=nil;
  params.VSync:=1;
@@ -1148,8 +1122,6 @@ begin
   Log.Msg('Init main loop');
   InitGraph;
 
-  LastOnFrameTime:=CoreTime.Ticks;
-  LastRenderTime:=CoreTime.Ticks;
   window.timings.Reset;
   window.capture.Reset;
 
@@ -1726,7 +1698,7 @@ end;
 function TGame.OnFrame:boolean;
 var
  i,j,v,n:integer;
- deltaTime:int64;
+ deltaTime:integer;
  p:pointer;
 begin
  result:=false;
@@ -1759,8 +1731,7 @@ begin
  finally
    window.Unlock;
  end;
- deltaTime:=CoreTime.Ticks-LastOnFrameTime;
- LastOnFrameTime:=CoreTime.Ticks;
+ deltaTime:=integer(window.frameDeltaMs);
  result:=window.ProcessScenes(deltaTime);
 end;
 
@@ -1913,7 +1884,10 @@ end;
 procedure TGame.DrawOverlays;
 var
  i,x,y,w,h:integer;
- dMax:int64;
+ dCurUs:integer;
+ dCurMs:integer;
+ dMaxUs:integer;
+ dMaxMs:integer;
  feature:TDebugFeature;
 
  procedure DrawHelp;
@@ -1998,12 +1972,15 @@ var
       h:=SRound(30*screenScale);
       x:=window.renderWidth-w; y:=1;
       draw.FillRect(x,y,x+w-2,y+h,$80000000);
-      dMax:=DebugDeltaMax;
+      dCurUs:=window.timings.lastFrameTimeUs;
+      dCurMs:=dCurUs div 1000;
+      dMaxUs:=window.timings.MaxRecentFrameUs(10);
+      dMaxMs:=dMaxUs div 1000;
       txt.BeginBlock;
       txt.WriteC(defaultFont,x+w*0.77,y+h*0.39,$FFFFFFFF,Conv.ToStr(window.FPS,1,1));
       txt.WriteC(defaultFont,x+w*0.77,y+h*0.87,$FFFFFFFF,Conv.ToStr(window.smoothFPS,1,1));
-      txt.WriteC(defaultFont,x+w*0.24,y+h*0.39,$FFFFFFFF,Conv.ToStr(window.frameDeltaMs));
-      txt.WriteC(defaultFont,x+w*0.24,y+h*0.87,$FFFFFFFF,Conv.ToStr(dMax));
+      txt.WriteC(defaultFont,x+w*0.24,y+h*0.39,$FFFFFFFF,Conv.ToStr(dCurMs));
+      txt.WriteC(defaultFont,x+w*0.24,y+h*0.87,$FFFFFFFF,Conv.ToStr(dMaxMs));
       txt.EndBlock;
     end;
 
@@ -2048,8 +2025,7 @@ var
  {$ENDIF}
 begin
  if window.IsTerminated then exit;
- DeltaTime:=CoreTime.Ticks-LastRenderTime;
- LastRenderTime:=CoreTime.Ticks;
+ DeltaTime:=integer(window.frameDeltaMs);
  FLog('RF1');
 
  // в полноэкранном режиме вывод по центру
@@ -2418,7 +2394,7 @@ procedure TGame.FrameLoop;
 
 procedure TGame.RenderAndPresentFrame;
  var
-  ticks:int64;
+  startUs:int64;
   i:integer;
   deltaUs:int64;
   phaseTimer:int64;
@@ -2428,20 +2404,19 @@ procedure TGame.RenderAndPresentFrame;
    renderUs:=0;
    presentUs:=0;
    sleepUs:=0;
-   ticks:=CoreTime.Ticks;
-   if window.frameStartMs>0 then
-    window.SetFrameTiming(ticks,ticks-window.frameStartMs)
-   else
-    window.SetFrameTiming(ticks,20); // initial value
-   if window=mainWindow then
-    PushDebugDelta(window.frameDeltaMs);
-   deltaUs:=window.frameDeltaMs*1000;
    if window.timings.frameTimerReady then
-    deltaUs:=round(Timer.Get(window.timings.frameTimer)*1000000);
+    deltaUs:=round(Timer.Get(window.timings.frameTimer)*1000000)
+   else
+    deltaUs:=20000; // initial value
+   if window.frameNum>0 then
+    startUs:=window.frameStartUs+deltaUs
+   else
+    startUs:=0;
+   window.SetFrameTiming(startUs,deltaUs);
    Timer.Start(window.timings.frameTimer);
    window.timings.frameTimerReady:=true;
 
-   if window.frameDeltaMs>500 then
+   if window.frameDeltaUs>500000 then
     Log.Msg('Warning: main loop stall for '+inttostr(window.frameDeltaMs)+' ms');
 
    // Обработка кадра
@@ -2566,7 +2541,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
   settings:TGameSettings;
   callerReleasedMainContext:boolean;
   wnd:TWindow;
-  t:int64;
+  startUs:int64;
   deltaUs:int64;
  begin
   result:=0;
@@ -2624,14 +2599,15 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
    // frame loop
    repeat
    Thread.Ping;
-   t:=CoreTime.Ticks;
-    if wnd.frameStartMs>0 then
-     wnd.SetFrameTiming(t,t-wnd.frameStartMs)
-    else
-     wnd.SetFrameTiming(t,20);
-    deltaUs:=wnd.frameDeltaMs*1000;
     if wnd.timings.frameTimerReady then
-     deltaUs:=round(Timer.Get(wnd.timings.frameTimer)*1000000);
+     deltaUs:=round(Timer.Get(wnd.timings.frameTimer)*1000000)
+    else
+     deltaUs:=20000;
+    if wnd.frameNum>0 then
+     startUs:=wnd.frameStartUs+deltaUs
+    else
+     startUs:=0;
+    wnd.SetFrameTiming(startUs,deltaUs);
     Timer.Start(wnd.timings.frameTimer);
     wnd.timings.frameTimerReady:=true;
 
