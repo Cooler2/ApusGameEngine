@@ -204,6 +204,7 @@ implementation
       Apus.EventMan, Apus.Engine.Scene, Apus.Engine.UI, Apus.Engine.UITypes, Apus.Engine.UIScene,
       Apus.Engine.Console, Apus.Publics, Apus.GfxFormats, Apus.Clipboard, Apus.Engine.TextDraw,
       Apus.Engine.Controller,
+  Apus.Colors,
   Apus.Engine.RobotAPI,
   Apus.Files,
   Apus.Lib,
@@ -339,6 +340,10 @@ procedure TGame.HandleInternalHotkeys(keyCode:integer; pressed:boolean);
    if debugOverlay=n then debugOverlay:=0
     else debugOverlay:=n;
   end;
+ function DebugOverlayHotkeyActive:boolean;
+  begin
+   result:=(debugHotkey<>0) and Bits.HasAll(window.shiftState,debugHotkey);
+  end;
 begin
   if pressed then begin
    // Alt+Enter - switch display settings
@@ -350,16 +355,13 @@ begin
    // Alt+F11
    if (TKey(keyCode and $FF)=TKey.F11) and Bits.HasAll(window.shiftState,sscAlt) then begin
      SetVSync(params.VSync xor 1); // toggle vsync
-     if params.VSync=0 then Include(debugFeatures,dfShowFPS)
-      else Exclude(debugFeatures,dfShowFPS);
    end;
 
    // F12 or PrintScreen - screenshot (JPEG), Alt+F12 - (loseless)
    if (TKey(keyCode and $FF)=TKey.PrintScreen) or (TKey(keyCode and $FF)=TKey.F12) then
      RequestScreenshot(not Bits.HasAll(window.shiftState,sscAlt));
 
-   if Bits.HasAll(window.shiftState,sscAlt) then
-    if (debugHotKey=dhAltFx) or (debugHotkey=dhCtrlAltFx) and Bits.HasAll(window.shiftState,sscCtrl) then begin
+   if DebugOverlayHotkeyActive then begin
      if TKey(keyCode and $FF)=TKey.F1 then begin
        if debugOverlay=0 then begin
         debugOverlay:=1;
@@ -371,7 +373,7 @@ begin
      end else
      if TKey(keyCode and $FF)=TKey.F3 then
        ToggleDebugFeature(dfShowMagnifier);
-    end;
+   end;
 
    // [Alt]+[1] .. [Alt]+[9] - switch debug overlay when enabled
    if (debugOverlay>0) and (TKey(keyCode and $FF) in [TKey.D1..TKey.D9]) and Bits.HasAll(window.shiftState,sscAlt) then begin
@@ -1889,18 +1891,28 @@ end;
 procedure TGame.DrawOverlays;
 var
  i,x,y,w,h:integer;
+ j,n,idx,row,rowH,rowCount,labelW,valueW,graphX,graphW,detailW,detailH,detX,detY,gridMs,scaleMaxMs:integer;
+ usValue,maxRowUs:integer;
+ fade:single;
+ vx:integer;
+ rowColor,maxColor:cardinal;
+ rowMaxUsArr:array[0..4] of integer;
  dCurUs:integer;
  dCurMs:integer;
  dMaxUs:integer;
  dMaxMs:integer;
+ vsyncColor:cardinal;
+ showHelp:boolean;
  feature:TDebugFeature;
+ const
+  timingLabels:array[0..4] of String8=('msgs','frame','rend','pres','total');
 
  procedure DrawHelp;
   const
    lines:array[1..12] of String8=(
     'Hotkeys:',
-    '[Alt+F1] - show/hide debug overlays:',
-    '  [Alt+1] this help page',
+    '[Alt+F1] - show/hide debug overlays',
+    '  [Alt+1] this help page (hold modifier)',
     '  [Alt+2] glyphs cache',
     '  [Alt+3] scenes',
     '',
@@ -1922,13 +1934,14 @@ var
    end;
    txt.EndBlock;
   end;
+
  procedure ListScenes;
-  var
+ var
    i,n,y:integer;
    c:cardinal;
    sList:array of TGameScene;
  begin
-  Lock;
+   Lock;
    try
     n:=length(window.scenes);
     SetLength(sList,n);
@@ -1954,17 +1967,53 @@ var
      txt.WriteW(smallFont,360*screenScale,y,c,Str32(sList[i].effect.ClassName));
    end;
    txt.EndBlock;
-  end;
+ end;
+
  procedure ListUI;
   begin
 
   end;
+
+ function RingIndexByOffset(offset:integer):integer;
+  begin
+   result:=window.timings.frameTimeRingPos-1-offset;
+   while result<0 do inc(result,FRAME_TIME_RING_SIZE);
+  end;
+
+ function PhaseSampleUs(row,offset:integer):integer;
+  begin
+   idx:=RingIndexByOffset(offset);
+   case row of
+    0:result:=window.timings.phaseMsgRing[idx];
+    1:result:=window.timings.phaseOnFrameRing[idx];
+    2:result:=window.timings.phaseRenderRing[idx];
+    3:result:=window.timings.phasePresentRing[idx];
+    else
+     result:=window.timings.frameTimeRing[idx];
+   end;
+  end;
+
+ function MapMsToX(ms:single):integer;
+ var
+  t:single;
+ begin
+  if scaleMaxMs<=0 then exit(graphX);
+  t:=Sat(ms/scaleMaxMs);
+  result:=graphX+round(sqrt(t)*graphW); // nonlinear scale: stretch low values, compress high
+ end;
+
+ function IsDebugHotkeyModifierHeld:boolean;
+  begin
+   result:=(debugHotkey<>0) and Bits.HasAll(window.shiftState,debugHotkey);
+  end;
+
  begin
   Lock;
   try
   FLog('RDebug');
+  showHelp:=(window=mainWindow) and IsDebugHotkeyModifierHeld;
   case debugOverlay of
-   1:DrawHelp;
+   1:if showHelp then DrawHelp;
    2:txt.WriteW(MAGIC_TEXTCACHE,1,1,$FFFFFFFF,Str32(''));
    3:ListScenes;
    4:ListUI;
@@ -1981,12 +2030,92 @@ var
       dCurMs:=dCurUs div 1000;
       dMaxUs:=window.timings.MaxRecentFrameUs(10);
       dMaxMs:=dMaxUs div 1000;
+      if params.VSync>0 then
+       vsyncColor:=$FF70FF70
+      else
+       vsyncColor:=$FFFFB060;
       txt.BeginBlock;
-      txt.WriteC(defaultFont,x+w*0.77,y+h*0.39,$FFFFFFFF,Conv.ToStr(window.FPS,1,1));
-      txt.WriteC(defaultFont,x+w*0.77,y+h*0.87,$FFFFFFFF,Conv.ToStr(window.smoothFPS,1,1));
-      txt.WriteC(defaultFont,x+w*0.24,y+h*0.39,$FFFFFFFF,Conv.ToStr(dCurMs));
-      txt.WriteC(defaultFont,x+w*0.24,y+h*0.87,$FFFFFFFF,Conv.ToStr(dMaxMs));
+      txt.WriteC(defaultFont,x+w*0.74,y+h*0.39,vsyncColor,Conv.ToStr(window.FPS,1,1));
+      txt.WriteC(defaultFont,x+w*0.74,y+h*0.87,vsyncColor,Conv.ToStr(window.smoothFPS,1,1));
+      txt.WriteC(defaultFont,x+w*0.24,y+h*0.39,vsyncColor,Conv.ToStr(dCurMs));
+      txt.WriteC(defaultFont,x+w*0.24,y+h*0.87,vsyncColor,Conv.ToStr(dMaxMs));
       txt.EndBlock;
+
+      // Detailed frame timings
+      if Bits.HasAll(window.shiftState,sscShift) and (window.timings.frameTimeRingCount>0) then begin
+       rowCount:=5;
+       rowH:=SRound(14*screenScale);
+       if rowH<12 then rowH:=12;
+       detailW:=SRound(160*screenScale);
+       detailH:=rowCount*rowH+SRound(8*screenScale);
+       detX:=window.renderWidth-detailW;
+       detY:=y+h+2;
+       labelW:=SRound(42*screenScale);
+       valueW:=SRound(20*screenScale);
+       graphX:=detX+labelW+valueW;
+       graphW:=detailW-labelW-valueW-SRound(8*screenScale);
+       draw.FillRect(detX,detY,detX+detailW-2,detY+detailH,$68000000);
+
+       n:=window.timings.frameTimeRingCount;
+       if n>10 then n:=10;
+
+       for row:=0 to rowCount-1 do begin
+        maxRowUs:=0;
+        for j:=0 to n-1 do begin
+         usValue:=PhaseSampleUs(row,j);
+         if usValue>maxRowUs then maxRowUs:=usValue;
+        end;
+        rowMaxUsArr[row]:=maxRowUs;
+       end;
+
+       scaleMaxMs:=40; // fixed scale to keep visualization stable
+       gridMs:=5;
+       draw.BeginLines;
+       i:=0;
+       while i<=scaleMaxMs do begin
+        vx:=MapMsToX(i);
+        draw.Line(vx,detY+2,vx,detY+detailH-3,$22FFFFFF);
+        inc(i,gridMs);
+       end;
+       for row:=0 to rowCount-1 do begin
+        case row of
+         0:rowColor:=$FF60D0FF;
+         1:rowColor:=$FFF8E070;
+         2:rowColor:=$FF80FF80;
+         3:rowColor:=$FFFF9080;
+         else rowColor:=$FFC8B0FF;
+        end;
+        maxColor:=Blend(rowColor,$A0FFFFFF);
+        y:=detY+SRound(3*screenScale)+row*rowH;
+        draw.Line(detX+2,y+rowH-1,detX+detailW-4,y+rowH-1,$18FFFFFF);
+
+        vx:=MapMsToX(rowMaxUsArr[row]*0.001);
+        draw.Line(vx,y+1,vx,y+rowH-2,maxColor);
+
+        for j:=n-1 downto 0 do begin
+         usValue:=PhaseSampleUs(row,j);
+         vx:=MapMsToX(usValue*0.001);
+         fade:=0.7*(n-j)/n;
+         draw.Line(vx,y+1,vx,y+rowH-2,ReplaceAlpha(rowColor,fade));
+        end;
+       end;
+       draw.EndLines;
+
+       txt.BeginBlock;
+       for row:=0 to rowCount-1 do begin
+        case row of
+         0:rowColor:=$FF60D0FF;
+         1:rowColor:=$FFF8E070;
+         2:rowColor:=$FF80FF80;
+         3:rowColor:=$FFFF9080;
+         else rowColor:=$FFC8B0FF;
+        end;
+        y:=detY+SRound(3*screenScale)+row*rowH;
+        txt.Write(smallFont,detX+2,y+rowH-4,ReplaceAlpha(rowColor,220/255),timingLabels[row],taLeft,toDontTranslate);
+        txt.WriteC(smallFont,detX+labelW+valueW div 2-4,y+rowH-4,rowColor,Conv.ToStr(rowMaxUsArr[row]*0.001,1,1));
+       end;
+       txt.EndBlock;
+      end;
     end;
 
     dfShowMagnifier:DrawMagnifier;
@@ -2388,6 +2517,8 @@ procedure TGame.FrameLoop;
   Thread.Ping;
   // Обновление ввода с клавиатуры (и кнопок мыши)
   window.shiftState:=systemPlatform.GetShiftKeysState;
+  window.timings.phaseMetrics:=fpsMetricsPending or
+    ((dfShowFPS in debugFeatures) and Bits.HasAll(window.shiftState,sscShift));
   mb:=systemPlatform.GetMouseButtons;
   if mb<>window.mouseButtons then begin
     window.oldMouseButtons:=window.mouseButtons;
