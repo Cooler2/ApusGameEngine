@@ -203,7 +203,7 @@ begin
   target.Render;
   gfx.EndPaint;
   color:=round(255*timer/duration);
-  Log.Force('EffStage: '+Conv.ToStr(color));
+  {Log.Force('EffStage: '+Conv.ToStr(color));}
   if color>255 then begin
    color:=255;
    done:=true;
