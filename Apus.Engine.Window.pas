@@ -9,6 +9,7 @@ const
 type
  TWindow=class;
  TSceneArray=array of TGameScene;
+ TWindowArray=array of TWindow;
 
  TFrameCapture=record
   singleFrame:boolean; // request frame capture
@@ -48,6 +49,8 @@ type
   // Cached update moments for throttled FPS refresh.
   lastFpsUpdate:int64;
   lastSmoothFpsUpdate:int64;
+  // Accumulated frame time while redraw is skipped (for lazy redraw fallback).
+  idleRedrawAccUs:integer;
 
   procedure Reset;
   procedure PushSample(deltaUs,msgUs,onFrameUs,renderUs,presentUs,sleepUs:integer);
@@ -165,8 +168,9 @@ public
   function SetVSync(divider:integer):boolean; virtual; abstract;
  end;
 
- function FindWindowForScene(scene:TGameScene):TWindow;
- function FindWindowForUIRoot(root:TObject):TWindow;
+function FindWindowForScene(scene:TGameScene):TWindow;
+function FindWindowForUIRoot(root:TObject):TWindow;
+function ListWindows:TWindowArray;
 
 implementation
  uses Apus.EventMan, Apus.Lib, Apus.Engine.API;
@@ -251,6 +255,7 @@ begin
  frameTimerReady:=false;
  lastFpsUpdate:=0;
  lastSmoothFpsUpdate:=0;
+ idleRedrawAccUs:=0;
  phaseMetrics:=false;
  pendingMsgUs:=0;
  lastMsgUs:=0;
@@ -586,6 +591,23 @@ function FindWindowForUIRoot(root:TObject):TWindow;
    end;
   end;
   result:=nil;
+ end;
+
+function ListWindows:TWindowArray;
+ var
+  i,n:integer;
+  list:TNamedObjects;
+ begin
+  SetLength(result,0);
+  list:=windowHash.ListObjects;
+  n:=0;
+  SetLength(result,length(list));
+  for i:=0 to high(list) do
+   if list[i] is TWindow then begin
+    result[n]:=list[i] as TWindow;
+    inc(n);
+   end;
+  SetLength(result,n);
  end;
 
 initialization
