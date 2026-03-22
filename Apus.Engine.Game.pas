@@ -89,6 +89,8 @@ type
   function AddWindow(settings:TGameSettings):TWindow; override;
   procedure RemoveWindow(wnd:TWindow); override;
   procedure RenderScenesForWindow(wnd:TWindow);
+  procedure MarkAllWindowsDirty;
+  procedure StopExtraWindows;
 
   procedure SetSettings(s:TGameSettings); override; // этот метод служит для изменения режима или его параметров
   function GetSettings:TGameSettings; override; // этот метод служит для изменения режима или его параметров
@@ -239,6 +241,7 @@ var
  perfValues:array[1..16] of int64;
  perfMeasures:array[1..16] of double;
  extraWindowCount:integer=0; // number of active extra windows (secondary render threads)
+ extraWindows:array of TWindow; // tracked extra windows for global overlay redraw and graceful shutdown
  addWindowBusy:integer=0; // serialize AddWindow startup to avoid concurrent shared-context handshakes
 
 {$IFDEF FREETYPE}
@@ -337,7 +340,10 @@ procedure TGame.HandleInternalHotkeys(keyCode:integer; pressed:boolean);
    if debugOverlay=n then debugOverlay:=0
     else debugOverlay:=n;
   end;
+var
+ changed:boolean;
 begin
+  changed:=false;
   if pressed then begin
    // Alt+Enter - switch display settings
    if (TKey(keyCode and $FF)=TKey.Enter) and (window.shiftstate and sscAlt>0) then
@@ -350,6 +356,7 @@ begin
      SetVSync(params.VSync xor 1); // toggle vsync
      if params.VSync=0 then Include(debugFeatures,dfShowFPS)
       else Exclude(debugFeatures,dfShowFPS);
+     changed:=true;
    end;
 
    // F12 or PrintScreen - screenshot (JPEG), Alt+F12 - (loseless)
@@ -366,20 +373,25 @@ begin
         debugOverlay:=0;
         debugFeatures:=[];
        end;
+       changed:=true;
      end else
      if TKey(keyCode and $FF)=TKey.F3 then
        ToggleDebugFeature(dfShowMagnifier);
     end;
 
    // [Alt]+[1] .. [Alt]+[9] - switch debug overlay when enabled
-   if (debugOverlay>0) and (TKey(keyCode and $FF) in [TKey.D1..TKey.D9]) and Bits.HasAll(window.shiftState,sscAlt) then
+   if (debugOverlay>0) and (TKey(keyCode and $FF) in [TKey.D1..TKey.D9]) and Bits.HasAll(window.shiftState,sscAlt) then begin
     debugOverlay:=1+keyCode-byte(TKey.D1);
+    changed:=true;
+   end;
 
    // Shift+Alt+F1 - Create debug logs
    if (TKey(keyCode and $FF)=TKey.F1) and
       (window.shiftState and sscAlt>0) and
       (window.shiftState and sscShift>0) then CreateDebugLogs;
   end;
+  if changed then
+   MarkAllWindowsDirty;
 end;
 
 procedure TGame.RequestScreenshot(saveAsJpeg:boolean=true);
@@ -2217,13 +2229,62 @@ procedure TGame.DebugFeature(feature: TDebugFeature; enable: boolean);
  begin
   if enable then Include(debugFeatures,feature)
    else Exclude(debugFeatures,feature);
+  MarkAllWindowsDirty;
  end;
 
 procedure TGame.ToggleDebugFeature(feature:TDebugFeature);
  begin
   if feature in debugFeatures then Exclude(debugFeatures,feature)
    else Include(debugFeatures,feature);
+  MarkAllWindowsDirty;
  end;
+
+procedure TGame.MarkAllWindowsDirty;
+var
+ i:integer;
+begin
+ Lock;
+ try
+  if mainWindow<>nil then
+   mainWindow.screenChanged:=true;
+  for i:=0 to high(extraWindows) do
+   if extraWindows[i]<>nil then
+    extraWindows[i].screenChanged:=true;
+ finally
+  Unlock;
+ end;
+end;
+
+procedure TGame.StopExtraWindows;
+var
+ i,j,n:integer;
+ list:array of TWindow;
+begin
+ Lock;
+ try
+  n:=length(extraWindows);
+  SetLength(list,n);
+  for i:=0 to n-1 do
+   list[i]:=extraWindows[i];
+ finally
+  Unlock;
+ end;
+
+ for i:=0 to high(list) do
+  if (list[i]<>nil) and (list[i].renderThread<>nil) then
+   list[i].renderThread.Terminate;
+
+ for i:=0 to high(list) do
+  if (list[i]<>nil) and (list[i].renderThread<>nil) then begin
+   j:=0;
+   while list[i].renderThread.IsRunning and (j<4000) do begin
+    CoreTime.Sleep(1);
+    inc(j);
+   end;
+   if list[i].renderThread.IsRunning then
+    Log.Msg('Warning: extra window thread did not stop in time: '+list[i].name);
+  end;
+end;
 
 procedure TGame.ClientToGame(var p:TPoint);
  begin
@@ -2432,6 +2493,9 @@ procedure TGame.RenderAndPresentFrame;
    end;
    if window.IsTerminated then exit;
 
+   if (debugOverlay>0) or (debugFeatures<>[]) then
+    window.screenChanged:=true;
+
    if window.active or (params.mode.displayMode<>dmSwitchResolution) then begin
     // Если программа активна, то выполним отрисовку кадра
     if window.screenChanged then begin
@@ -2515,6 +2579,7 @@ procedure TGame.MainThreadLoop;
    Log.Force('Finalization');
 
    // Финализация
+   gameEx.StopExtraWindows;
    gameEx.DoneGraph;
    wnd:=window;
    if wnd<>nil then begin
@@ -2541,6 +2606,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
   settings:TGameSettings;
   callerReleasedMainContext:boolean;
   wnd:TWindow;
+  idx:integer;
   startUs:int64;
   deltaUs:int64;
  begin
@@ -2642,7 +2708,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
 
     wnd.timings.PushSample(integer(Clamp(deltaUs,0,high(integer))),0,0,0,0,0);
     wnd.timings.UpdateFps(wnd.FPS,wnd.smoothFPS);
-   until CurrentThread.Terminating;
+  until CurrentThread.Terminating;
 
    // cleanup
    Log.Msg('Extra window closing: '+wnd.name);
@@ -2652,6 +2718,21 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
    on e:Exception do
     CritMsg('Extra window error: '+ExceptionMsg(e));
   end;
+  if wnd<>nil then begin
+   gameEx.Lock;
+   try
+    for idx:=0 to high(extraWindows) do
+     if extraWindows[idx]=wnd then begin
+      extraWindows[idx]:=extraWindows[high(extraWindows)];
+      SetLength(extraWindows,length(extraWindows)-1);
+      if extraWindowCount>0 then Atomic.Dec(extraWindowCount);
+      break;
+     end;
+    multiWindowMode:=(extraWindowCount>0);
+   finally
+    gameEx.Unlock;
+   end;
+  end;
   Log.Force('Extra window thread done');
  end;
 
@@ -2660,38 +2741,46 @@ procedure TGame.RenderScenesForWindow(wnd:TWindow);
   i,j,n:integer;
   sc:array[1..50] of TGameScene;
   fl:boolean;
+  oldWindow:TWindow;
  begin
-  // sort active scenes by Z order (under lock)
-  n:=0;
-  for i:=low(wnd.scenes) to high(wnd.scenes) do
-   if wnd.scenes[i].IsActive then begin
-    ASSERT(n<high(sc),'Too many active scenes');
-    if n=0 then begin
-     sc[1]:=wnd.scenes[i]; inc(n); continue;
+  oldWindow:=window;
+  window:=wnd;
+  try
+   // sort active scenes by Z order (under lock)
+   n:=0;
+   for i:=low(wnd.scenes) to high(wnd.scenes) do
+    if wnd.scenes[i].IsActive then begin
+     ASSERT(n<high(sc),'Too many active scenes');
+     if n=0 then begin
+      sc[1]:=wnd.scenes[i]; inc(n); continue;
+     end;
+     fl:=true;
+     for j:=n downto 1 do
+      if sc[j].zorder>wnd.scenes[i].zorder then sc[j+1]:=sc[j]
+       else begin sc[j+1]:=wnd.scenes[i]; fl:=false; break; end;
+     if fl then sc[1]:=wnd.scenes[i];
+     inc(n);
     end;
-    fl:=true;
-    for j:=n downto 1 do
-     if sc[j].zorder>wnd.scenes[i].zorder then sc[j+1]:=sc[j]
-      else begin sc[j+1]:=wnd.scenes[i]; fl:=false; break; end;
-    if fl then sc[1]:=wnd.scenes[i];
-    inc(n);
-   end;
-  if n>0 then wnd.topmostScene:=sc[n]
-   else wnd.topmostScene:=nil;
+   if n>0 then wnd.topmostScene:=sc[n]
+    else wnd.topmostScene:=nil;
 
-  // render scenes
-  for i:=1 to n do try
-   if not sc[i].gfxInitialized then begin
-    sc[i].InitGfx;
-    sc[i].gfxInitialized:=true;
+   // render scenes
+   for i:=1 to n do try
+    if not sc[i].gfxInitialized then begin
+     sc[i].InitGfx;
+     sc[i].gfxInitialized:=true;
+    end;
+    if sc[i].effect<>nil then
+     sc[i].effect.DrawScene
+    else
+     sc[i].Render;
+   except
+    on e:Exception do
+     CritMsg('Extra window scene render error: '+ExceptionMsg(e));
    end;
-   if sc[i].effect<>nil then
-    sc[i].effect.DrawScene
-   else
-    sc[i].Render;
-  except
-   on e:Exception do
-    CritMsg('Extra window scene render error: '+ExceptionMsg(e));
+   DrawOverlays;
+  finally
+   window:=oldWindow;
   end;
  end;
 
@@ -2736,8 +2825,15 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
    if result=nil then
     raise EError.Create('Failed to create extra window: startup thread terminated before ready');
    result.renderThread:=th;
-   Atomic.Inc(extraWindowCount);
-   multiWindowMode:=(extraWindowCount>0); // enable texture RW-sync for shared mutable resources
+   Lock;
+   try
+    SetLength(extraWindows,length(extraWindows)+1);
+    extraWindows[high(extraWindows)]:=result;
+    Atomic.Inc(extraWindowCount);
+    multiWindowMode:=(extraWindowCount>0); // enable texture RW-sync for shared mutable resources
+   finally
+    Unlock;
+   end;
   finally
    try
     if mainContextReleased then
@@ -2749,6 +2845,8 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
  end;
 
 procedure TGame.RemoveWindow(wnd:TWindow);
+ var
+  i:integer;
  begin
   if wnd=nil then exit;
   if wnd.renderThread<>nil then begin
@@ -2757,8 +2855,19 @@ procedure TGame.RemoveWindow(wnd:TWindow);
     CoreTime.Sleep(1);
    wnd.renderThread:=nil;
   end;
-  Atomic.Dec(extraWindowCount);
-  multiWindowMode:=(extraWindowCount>0);
+  Lock;
+  try
+   for i:=0 to high(extraWindows) do
+    if extraWindows[i]=wnd then begin
+     extraWindows[i]:=extraWindows[high(extraWindows)];
+     SetLength(extraWindows,length(extraWindows)-1);
+     if extraWindowCount>0 then Atomic.Dec(extraWindowCount);
+     break;
+    end;
+   multiWindowMode:=(extraWindowCount>0);
+  finally
+   Unlock;
+  end;
   FreeAndNil(wnd);
  end;
 
