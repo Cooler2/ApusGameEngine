@@ -45,6 +45,11 @@ type
     vectorFontName,rasterFontName:string;
     vectorFontLoaded,rasterFontLoaded:boolean;
     lastLink:integer;
+    deltaHist:array[0..9] of integer;
+    deltaHistPos,deltaHistCount:integer;
+    procedure UpdateDeltaStats;
+    function MaxRecentDeltaMs:integer;
+    procedure DrawOverlayStats;
     procedure Load; override;
     procedure Render; override;
     function GetArea:TRect; override;
@@ -156,10 +161,40 @@ begin
   rasterFontLoaded:=false;
   vectorFontName:='Default';
   rasterFontName:='Default';
+  deltaHistPos:=0;
+  deltaHistCount:=0;
+  FillChar(deltaHist,SizeOf(deltaHist),0);
   UpdateMetrics;
   TryLoadDemoFonts;
   RebuildFonts;
   loaded:=true;
+end;
+
+procedure TMainScene.UpdateDeltaStats;
+begin
+  deltaHist[deltaHistPos]:=window.frameDeltaMs;
+  deltaHistPos:=(deltaHistPos+1) mod Length(deltaHist);
+  if deltaHistCount<Length(deltaHist) then inc(deltaHistCount);
+end;
+
+function TMainScene.MaxRecentDeltaMs:integer;
+var
+  i:integer;
+begin
+  result:=0;
+  for i:=0 to deltaHistCount-1 do
+    if deltaHist[i]>result then
+      result:=deltaHist[i];
+end;
+
+procedure TMainScene.DrawOverlayStats;
+var
+  st:string;
+  y:integer;
+begin
+  y:=window.renderHeight-round(6*layoutScale);
+  st:=Format('frameDelta: %d/%d ms',[window.frameDeltaMs,MaxRecentDeltaMs]);
+  txt.Write(hintFont,12,y,$FFE6F0FA,st,taLeft,toWithShadow or toDontTranslate);
 end;
 
 procedure TMainScene.TryLoadDemoFonts;
@@ -239,7 +274,7 @@ var
   i,item:integer;
 begin
   for i:=0 to SCREEN_COUNT-1 do begin
-    if IsKeyPressed(F_SCANS[i]) or IsKeyPressed(D_SCANS[i]) then
+    if (window.shiftState=0) and (IsKeyPressed(F_SCANS[i]) or IsKeyPressed(D_SCANS[i])) then
       currentScreen:=i;
   end;
 
@@ -735,6 +770,8 @@ procedure TMainScene.Render;
 var
   area,menuRect,contentRect:TRect;
 begin
+  UpdateDeltaStats;
+
   if window.screenDPI<>lastDPI then begin
     lastDPI:=window.screenDPI;
     UpdateMetrics;
@@ -767,6 +804,8 @@ begin
   finally
     txt.EndBlock;
   end;
+
+  DrawOverlayStats;
 end;
 
 end.
