@@ -195,7 +195,7 @@ begin
       inc(sceneMain.secKeyEvents);
       info:=Format('key=%d scan=%d',[keyCode,scan]);
       sceneMain.PushLog('KD',info);
-      if (keyCode>=ord(TKey.F1)) and (keyCode<=ord(TKey.F6)) then
+      if (window.shiftState=0) and (keyCode>=ord(TKey.F1)) and (keyCode<=ord(TKey.F6)) then
         sceneMain.currentScreen:=keyCode-ord(TKey.F1);
       if scan=TRACKED_SCANS[0] then inc(sceneMain.eventKeyDownCnt[0]);
       if scan=TRACKED_SCANS[1] then inc(sceneMain.eventKeyDownCnt[1]);

@@ -317,7 +317,7 @@ const
   SC_NUM:array[0..7] of integer=(79,80,81,75,76,77,71,72); // numpad 1..8
 begin
   for i:=0 to SCREEN_COUNT-1 do begin
-    if IsKeyPressed(SC_DIGIT[i]) or IsKeyPressed(SC_NUM[i]) then
+    if (window.shiftState=0) and (IsKeyPressed(SC_DIGIT[i]) or IsKeyPressed(SC_NUM[i])) then
       currentScreen:=i;
   end;
 
