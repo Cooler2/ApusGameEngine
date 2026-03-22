@@ -131,6 +131,7 @@ var
  i,h:integer;
 begin
  inherited Create('Tweaker',false);
+ frequency:=20;
  ignoreKeyboardEvents:=true;
  zorder:=1000000;
  tinyFont:=tinyFont_;

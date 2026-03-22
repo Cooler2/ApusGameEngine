@@ -180,7 +180,7 @@ constructor TGameScene.Create(fullScreen:boolean=true);
    ownerWindow:=nil;
    status:=ssFrozen;
    self.fullscreen:=fullscreen;
-   frequency:=60;
+   frequency:=0;
    keyBuffer.Init(64);
    zorder:=0;
    activated:=false;

@@ -151,6 +151,7 @@ var
 constructor TMessageScene.Create;
  begin
   inherited Create('MessageScene',false);
+  frequency:=20;
   zOrder:=100;
   SetEventHandler('UI\Message',EventHandler,emQueued);
   SetEventHandler('Scene\MessageScene',EventHandler,emMixed);
