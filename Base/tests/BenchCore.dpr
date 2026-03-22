@@ -231,12 +231,12 @@ end;
 // Misc
 // ============================================================================
 
-procedure BenchGetPow2;
+procedure BenchNextPow2;
 var i,r:integer;
 begin
-  StartBench('GetPow2',N_FAST);
+  StartBench('NextPow2',N_FAST);
   for i:=1 to N_FAST do
-    r:=GetPow2(1000);
+    r:=NextPow2(1000);
   EndBench;
 end;
 
@@ -353,6 +353,33 @@ begin
   EndBench;
 end;
 
+procedure BenchTime_Ticks;
+var i:integer; t:int64;
+begin
+  StartBench('Time.Ticks',N_FAST);
+  for i:=1 to N_FAST do
+    t:=Time.Ticks;
+  EndBench;
+end;
+
+procedure BenchTime_TicksUs;
+var i:integer; t:int64;
+begin
+  StartBench('Time.TicksUs',N_FAST);
+  for i:=1 to N_FAST do
+    t:=Time.TicksUs;
+  EndBench;
+end;
+
+procedure BenchTime_TicksSec;
+var i:integer; t:double;
+begin
+  StartBench('Time.TicksSec',N_FAST);
+  for i:=1 to N_FAST do
+    t:=Time.TicksSec;
+  EndBench;
+end;
+
 // ============================================================================
 // Main
 // ============================================================================
@@ -393,7 +420,7 @@ begin
   BenchWriteln;
 
   BenchWriteln('--- Misc ---');
-  BenchGetPow2;
+  BenchNextPow2;
   BenchLog2i;
   BenchIsNaN_Single;
   BenchHalf_ToSingle;
@@ -411,6 +438,9 @@ begin
   BenchTime_Now;
   BenchTime_Stamp;
   BenchGetTickCount64;
+  BenchTime_Ticks;
+  BenchTime_TicksUs;
+  BenchTime_TicksSec;
   BenchWriteln;
 
   CloseBenchLog;

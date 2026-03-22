@@ -431,8 +431,14 @@ type
     class function Now:TDateTime; static;  // local time (high-precision)
     class function UTC:TDateTime; static;  // UTC time (high-precision)
     class function Stamp:string8; static;   // HH:MM:SS.mmm for logs
-    // Get milliseconds since program start (monotonic, no overflow). Better replacement for GetTickCount/GetTickCount64
+    // Coarse monotonic milliseconds since program start (compatible with existing timeout logic).
+    // IMPORTANT: real update granularity is platform/timer-resolution dependent and can be >1ms
+    // (on Windows typically around 10-15ms unless timer resolution is raised).
     class function Ticks:int64; static;
+    // High-precision monotonic microseconds since program start (QPC/clock_gettime based).
+    class function TicksUs:int64; static;
+    // High-precision monotonic seconds since program start (QPC/clock_gettime based).
+    class function TicksSec:double; static;
     // Sleep for specified milliseconds
     class procedure Sleep(ms:integer); static;
   end;
@@ -709,6 +715,7 @@ end;
 var
   timerMul:double; // 1/frequency, initialized in unit init
   internalTimer:int64;
+  qpcBase:int64; // subtracted from QPC/monotonic value to make values relative to program start
   ticksBase:int64; // subtracted from Time.Ticks to make values relative to program start
 
 procedure QPC(out value:int64); inline;
@@ -1993,9 +2000,11 @@ var
 begin
 {$IFDEF MSWINDOWS}
   windows.QueryPerformanceFrequency(freq);
+  QPC(qpcBase);
   ticksBase:=Windows.GetTickCount64;
 {$ELSE}
   freq:=1000000;
+  QPC(qpcBase);
   clock_gettime(CLOCK_MONOTONIC,@ts);
   ticksBase:=int64(ts.tv_sec)*1000+ts.tv_nsec div 1000000;
 {$ENDIF}
@@ -2168,6 +2177,22 @@ begin
   clock_gettime(CLOCK_MONOTONIC,@ts);
   result:=int64(ts.tv_sec)*1000+ts.tv_nsec div 1000000-ticksBase;
   {$ENDIF}
+end;
+
+class function Time.TicksUs:int64;
+var
+  t:int64;
+begin
+  QPC(t);
+  result:=Round((t-qpcBase)*timerMul*1000000.0);
+end;
+
+class function Time.TicksSec:double;
+var
+  t:int64;
+begin
+  QPC(t);
+  result:=(t-qpcBase)*timerMul;
 end;
 
 class procedure Time.Sleep(ms:integer);

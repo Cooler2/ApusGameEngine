@@ -3,7 +3,7 @@
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-03-19)
+## Summary (last updated: 2026-03-22)
 
 **Progress:**
 - ✅ 10 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib, Spatial)
@@ -38,6 +38,8 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-03-19):** Added `TestTypes` and fixed `Apus.Types` defects found by edge-case tests (`TBitStream` write/resize/bit-mask behavior and `TNameValueList.Init(st,...)` constructor delegation).
 **Recent wins (2026-03-19):** Moved record sorting API from `Apus.Types` to `Apus.Core.Sort` (`Sort.ByInt/ByFloat/ByDouble/ByStr`) and moved sorting tests to `TestCore`.
 **Recent wins (2026-03-19):** Restored `HasParam/GetParam` in `Apus.Utils` (migrated from deprecated `Apus.Common`) and switched `Apus.Engine.GameApp` command-line platform selection to these helpers (`-SDL`, `-WINDOWS`, `-PLATFORM=...`).
+**Recent wins (2026-03-22):** Added `Time.TicksUs` and `Time.TicksSec` to `Apus.Core` as explicit high-precision monotonic APIs (QPC/clock_gettime based), while keeping `Time.Ticks` as compatibility millisecond API.
+**Recent wins (2026-03-22):** Extended `Base/tests/BenchCore` with direct timing-cost comparison for `Time.Ticks`, `Time.TicksUs`, and `Time.TicksSec`.
 
 ## NEW — created in engine5 refactoring
 

@@ -14,6 +14,21 @@ Use it as the primary reference when updating old code.
   - ongoing bugfixes with test coverage expansion;
   - continued migration of remaining not-yet-migrated modules (including SDL-related paths).
 
+## Recent API fixes (2026-03-22)
+
+### Apus.Core.Time high-precision monotonic ticks
+
+- Added explicit high-precision monotonic time API in `Apus.Core.Time`:
+  - `Time.TicksUs:int64` — microseconds since program start (QPC/clock_gettime based)
+  - `Time.TicksSec:double` — seconds since program start (QPC/clock_gettime based)
+- Clarified split of responsibilities:
+  - `Time.Ticks` stays as coarse millisecond API for compatibility/timeouts
+  - `TicksUs/TicksSec` are the preferred source for frame/input/profiling precision paths
+- Added benchmark coverage in `Base/tests/BenchCore.dpr`:
+  - `Time.Ticks`
+  - `Time.TicksUs`
+  - `Time.TicksSec`
+
 ## Recent API fixes (2026-03-14)
 
 ### Apus.EventMan thread-aware handler deduplication
