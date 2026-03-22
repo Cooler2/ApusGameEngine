@@ -134,10 +134,11 @@ begin
  if eff=nil then exit(curValues[index]);
  if time<=eff.startTime then exit(eff.startValue[index]);
  if time>=eff.endTime then exit(eff.endValue[index]);
- // spline value
- s:=eff.spline(time,eff.startTime,eff.endTime,eff.startValue[index],eff.endValue[index]);
- // compensating function: g(u) = compensation[i] * u * (1-u)^2
+ // normalize time to [0,1] using int64 arithmetic to avoid single precision loss
  u:=(time-eff.startTime)/eff.duration;
+ // spline value (pass normalized u instead of absolute timestamps)
+ s:=eff.spline(u,0,1,eff.startValue[index],eff.endValue[index]);
+ // compensating function: g(u) = compensation[i] * u * (1-u)^2
  comp:=eff.compensation[index]*u*(1-u)*(1-u);
  result:=s+comp;
 end;
@@ -271,8 +272,8 @@ begin
    if hasSpeed then begin
     // current speed (value/ms) via finite difference
     curSpeed:=CalcValue(i,time)-CalcValue(i,time-1);
-    // spline's own initial speed (value/ms)
-    splineSpeed:=spline(eff.startTime+1,eff.startTime,eff.endTime,
+    // spline's own initial speed (value/ms): evaluate at u=1/duration
+    splineSpeed:=spline(1.0/duration,0,1,
       eff.startValue[i],eff.endValue[i])-eff.startValue[i];
     eff.compensation[i]:=(curSpeed-splineSpeed)*duration;
    end else
