@@ -117,6 +117,9 @@ type
   frameLog,prevFrameLog:string;
   avgTime,avgTime2:double;
   timerFrame:cardinal;
+  debugDeltaHist:array[0..9] of integer;
+  debugDeltaPos:integer;
+  debugDeltaCount:integer;
 
   customPoints,activeCustomPoints:array of TPoint; // custom navigation points
 
@@ -185,6 +188,8 @@ type
 
   // Utils
   procedure CreateDebugLogs; virtual;
+  procedure PushDebugDelta(deltaMs:int64); virtual;
+  function DebugDeltaMax:int64; virtual;
   // Draw magnified part of the screen under mouse
   procedure DrawMagnifier; virtual;
   // Internal hotkeys such as PrintScreen, Alt+F1 etc
@@ -296,6 +301,22 @@ begin
  result:=d;
  perfMeasures[id]:=perfMeasures[id]*0.9+d*0.1;
 end;
+
+procedure TGame.PushDebugDelta(deltaMs:int64);
+ begin
+  debugDeltaHist[debugDeltaPos]:=deltaMs;
+  inc(debugDeltaPos);
+  if debugDeltaPos>=length(debugDeltaHist) then debugDeltaPos:=0;
+ end;
+
+function TGame.DebugDeltaMax:int64;
+ var
+  i:integer;
+ begin
+  result:=0;
+  for i:=0 to high(debugDeltaHist) do
+   result:=Max(result,debugDeltaHist[i]);
+ end;
 
 { TGame }
 
@@ -598,6 +619,9 @@ begin
  canExitNow:=false;
  useMainThread:=true;
  controlThreadId:=GetCurrentThreadId;
+ Mem.Clear(debugDeltaHist,SizeOf(debugDeltaHist));
+ debugDeltaPos:=0;
+ debugDeltaCount:=0;
  // TODO: window fields initialized here before window is created - move to post-CreateWindow init
  mainThread:=nil;
  params.VSync:=1;
@@ -1889,6 +1913,7 @@ end;
 procedure TGame.DrawOverlays;
 var
  i,x,y,w,h:integer;
+ dMax:int64;
  feature:TDebugFeature;
 
  procedure DrawHelp;
@@ -1969,12 +1994,17 @@ var
   for feature in debugFeatures do
    case feature of
     dfShowFPS:begin
-     w:=SRound(48*screenScale);
-     h:=SRound(36*screenScale);
-     x:=window.renderWidth-w; y:=1;
-     draw.FillRect(x,y,x+w-2,y+h,$80000000);
-     txt.WriteW(defaultFont,x+w-5,y+h*0.4,$FFFFFFFF,Str32(FloatToStrF(window.FPS,ffFixed,5,1)),taRight);
-     txt.WriteW(defaultFont,x+w-5,y+h*0.9,$FFFFFFFF,Str32(FloatToStrF(window.smoothFPS,ffFixed,5,1)),taRight);
+      w:=SRound(80*screenScale);
+      h:=SRound(30*screenScale);
+      x:=window.renderWidth-w; y:=1;
+      draw.FillRect(x,y,x+w-2,y+h,$80000000);
+      dMax:=DebugDeltaMax;
+      txt.BeginBlock;
+      txt.WriteC(defaultFont,x+w*0.77,y+h*0.39,$FFFFFFFF,Conv.ToStr(window.FPS,1,1));
+      txt.WriteC(defaultFont,x+w*0.77,y+h*0.87,$FFFFFFFF,Conv.ToStr(window.smoothFPS,1,1));
+      txt.WriteC(defaultFont,x+w*0.24,y+h*0.39,$FFFFFFFF,Conv.ToStr(window.frameDeltaMs));
+      txt.WriteC(defaultFont,x+w*0.24,y+h*0.87,$FFFFFFFF,Conv.ToStr(dMax));
+      txt.EndBlock;
     end;
 
     dfShowMagnifier:DrawMagnifier;
@@ -2403,6 +2433,8 @@ procedure TGame.RenderAndPresentFrame;
     window.SetFrameTiming(ticks,ticks-window.frameStartMs)
    else
     window.SetFrameTiming(ticks,20); // initial value
+   if window=mainWindow then
+    PushDebugDelta(window.frameDeltaMs);
    deltaUs:=window.frameDeltaMs*1000;
    if window.timings.frameTimerReady then
     deltaUs:=round(Timer.Get(window.timings.frameTimer)*1000000);
