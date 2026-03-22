@@ -1,132 +1,301 @@
-﻿unit Apus.Tweenings;
+// Lightweight tweening (animated value interpolation) with smooth interruptions
+//
+// Key difference from AnimatedValues: instead of complex overlap blending,
+// uses a compensating function to smoothly blend initial speed mismatch.
+// This works correctly with any spline type including bounce.
+//
+// Compensating function: g(u) = deltaSpeed * duration * u * (1-u)^2
+// where u = (t - startTime) / duration
+// This cubic naturally decays the speed difference while preserving
+// boundary conditions: g(0)=0, g(1)=0, g'(0)=deltaSpeed, g'(1)=0
+//
+// Copyright (C) 2021 Apus Software
+// Author: Ivan Polyacov (ivan@apus-software.com)
+// This file is licensed under the terms of BSD-3 license (see license.txt)
+// This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+unit Apus.Tweenings;
 interface
-uses Apus.Types, Apus.Utils;
+uses Apus.Utils;
 
 type
  TTweening=record
+   // Set value immediately (cancel any animation)
    procedure Assign(value:single); overload;
-   procedure Assign(values:PSingle;count:integer); overload;
+   procedure Assign(const v;count:integer); overload;
+   // Animate to new value over duration (ms), optional spline and delay
    procedure Animate(newValue:single; duration:cardinal; spline:TSplineFunc=nil;
       delay:integer=0); overload;
-   procedure Animate(newValues:PSingle; duration:cardinal; spline:TSplineFunc=nil;
+   procedure Animate(const newValues; duration:cardinal; spline:TSplineFunc=nil;
       delay:integer=0); overload;
-
-{   // То же самое, что animate, но сработает только если finalvalue<>newValue
-   procedure AnimateIf(newValue:single; duration:cardinal; spline:TSplineFunc=nil;
-      delay:integer=0);
-   // Возвращает значение анимируемой величины в текущий момент времени
+   // Get current value(s)
    function Value:single;
    function IntValue:integer; inline;
-   // Возвращает значение величины в указанный момент (0 - текущий момент)
-   function ValueAt(time:int64):single;
-   function FinalValue:single; // What the value will be when animation finished?
-   function IsAnimating(time:int64=0):boolean; // Is value animating now?}
-
+   procedure GetValue(out v; time:int64=0);
+   function FinalValue:single;
+   function IsAnimating(time:int64=0):boolean;
+   procedure Free; // release effect object
    {$IFDEF DELPHI}
-   class operator Initialize (out Dest:TTweening);
-   class operator Finalize (var Dest:TTweening);
+   class operator Initialize(out dest:TTweening);
+   class operator Finalize(var dest:TTweening);
    {$ENDIF}
  private
    lock:integer;
-   values:array of single;
-   effect:TObject;
-   lastTime:cardinal;
-   //function InternalValueAt(time:int64):single; // No lock!
+   count:integer; // number of components (1..4)
+   curValues:array[0..3] of single;
+   effect:pointer; // TTweeningEffect
+   function CalcValue(index:integer; time:int64):single;
+   procedure FinalizeEffect(time:int64);
  end;
-
 
 implementation
 uses SysUtils, Apus.Core;
 
 type
- // Full options set for ongoing tweening
  TTweeningEffect=class
   startTime,endTime:int64;
+  duration:cardinal;
   spline:TSplineFunc;
-  startValue,endValue:array[0..3] of single;
-  startSpeed:array[0..3] of single; // derivative at start
-  nextEffect:TTweeningEffect; // upcoming effect
-  //constructor Create(const value:single;count:integer=1);
+  startValue:array[0..3] of single;
+  endValue:array[0..3] of single;
+  compensation:array[0..3] of single; // deltaSpeed * duration for each component
  end;
 
 { TTweening }
+
 {$IFDEF DELPHI}
 class operator TTweening.Initialize(out dest:TTweening);
 begin
  dest.lock:=0;
+ dest.count:=0;
+ dest.effect:=nil;
 end;
 
 class operator TTweening.Finalize(var dest:TTweening);
 begin
  ASSERT(dest.lock=0);
- FreeAndNil(dest.effect);
+ if dest.effect<>nil then begin
+  TTweeningEffect(dest.effect).Free;
+  dest.effect:=nil;
+ end;
 end;
 {$ENDIF}
+
+procedure TTweening.Free;
+begin
+ SpinLock(lock);
+ try
+  if effect<>nil then begin
+   TTweeningEffect(effect).Free;
+   effect:=nil;
+  end;
+ finally lock:=0; end;
+end;
 
 procedure TTweening.Assign(value:single);
 begin
  SpinLock(lock);
  try
-  SetLength(values,1);
-  values[0]:=value;
+  count:=1;
+  curValues[0]:=value;
+  if effect<>nil then begin
+   TTweeningEffect(effect).Free;
+   effect:=nil;
+  end;
  finally lock:=0; end;
 end;
 
-procedure TTweening.Animate(newValues:PSingle;duration:cardinal;spline:TSplineFunc;delay:integer);
+procedure TTweening.Assign(const v;count:integer);
 var
- i,n:integer;
+ i:integer;
+ src:PSingle;
+begin
+ ASSERT((count>=1) and (count<=4));
+ SpinLock(lock);
+ try
+  self.count:=count;
+  src:=@v;
+  for i:=0 to count-1 do begin
+   curValues[i]:=src^;
+   inc(src);
+  end;
+  if effect<>nil then begin
+   TTweeningEffect(effect).Free;
+   effect:=nil;
+  end;
+ finally lock:=0; end;
+end;
+
+function TTweening.CalcValue(index:integer; time:int64):single;
+var
  eff:TTweeningEffect;
+ u,s,comp:single;
+begin
+ eff:=TTweeningEffect(effect);
+ if eff=nil then exit(curValues[index]);
+ if time<=eff.startTime then exit(eff.startValue[index]);
+ if time>=eff.endTime then exit(eff.endValue[index]);
+ // spline value
+ s:=eff.spline(time,eff.startTime,eff.endTime,eff.startValue[index],eff.endValue[index]);
+ // compensating function: g(u) = compensation[i] * u * (1-u)^2
+ u:=(time-eff.startTime)/eff.duration;
+ comp:=eff.compensation[index]*u*(1-u)*(1-u);
+ result:=s+comp;
+end;
+
+procedure TTweening.FinalizeEffect(time:int64);
+var
+ eff:TTweeningEffect;
+ i:integer;
+begin
+ eff:=TTweeningEffect(effect);
+ if eff=nil then exit;
+ if time>=eff.endTime then begin
+  for i:=0 to count-1 do
+   curValues[i]:=eff.endValue[i];
+  eff.Free;
+  effect:=nil;
+ end;
+end;
+
+function TTweening.Value:single;
+var
  time:int64;
 begin
  SpinLock(lock);
  try
-  n:=length(values);
-  if effect=nil then begin
-   // There is no ongoing tweening
-   eff:=TTweeningEffect.Create;
-   effect:=eff;
-   for i:=0 to n-1 do begin
-    eff.startValue[i]:=values[i];
-    eff.startSpeed[i]:=0;
-   end;
-  end else begin
-   // There is ongoing tweening: calc current values and speed
-   for i:=0 to n-1 do begin
-//     values[i]:=Value(
-   end;
-   eff:=TTweeningEffect(effect);
-   FreeAndNil(eff.nextEffect); // Discard upcoming effect
-   if delay>0 then begin
-    eff.nextEffect:=TTweeningEffect.Create;
-    eff:=eff.nextEffect;
-   end;
-  end;
-  for i:=0 to n-1 do begin
-   eff.endValue[i]:=newValues^;
-   inc(newValues);
-  end;
-  eff.startTime:=CoreTime.Ticks+delay;
-  eff.endTime:=eff.startTime+duration;
-
+  time:=CoreTime.Ticks;
+  result:=CalcValue(0,time);
+  FinalizeEffect(time);
  finally lock:=0; end;
 end;
 
-procedure TTweening.Animate(newValue:single;duration:cardinal;spline:TSplineFunc;delay:integer);
+function TTweening.IntValue:integer;
 begin
- Animate(@newValue,duration,spline,delay);
+ result:=round(Value);
 end;
 
-procedure TTweening.Assign(values:PSingle;count:integer);
+procedure TTweening.GetValue(out v; time:int64);
 var
  i:integer;
+ dst:PSingle;
 begin
  SpinLock(lock);
  try
-  SetLength(self.values,count);
+  if time<=0 then time:=CoreTime.Ticks;
+  dst:=@v;
   for i:=0 to count-1 do begin
-   self.values[i]:=values^; inc(values);
+   dst^:=CalcValue(i,time);
+   inc(dst);
   end;
+  FinalizeEffect(time);
  finally lock:=0; end;
+end;
+
+function TTweening.FinalValue:single;
+var
+ eff:TTweeningEffect;
+begin
+ SpinLock(lock);
+ try
+  eff:=TTweeningEffect(effect);
+  if eff<>nil then
+   result:=eff.endValue[0]
+  else
+   result:=curValues[0];
+ finally lock:=0; end;
+end;
+
+function TTweening.IsAnimating(time:int64):boolean;
+var
+ eff:TTweeningEffect;
+begin
+ SpinLock(lock);
+ try
+  eff:=TTweeningEffect(effect);
+  if eff<>nil then begin
+   if time<=0 then time:=CoreTime.Ticks;
+   result:=time<eff.endTime;
+  end else
+   result:=false;
+ finally lock:=0; end;
+end;
+
+procedure TTweening.Animate(const newValues; duration:cardinal;
+  spline:TSplineFunc; delay:integer);
+var
+ i:integer;
+ eff,oldEff:TTweeningEffect;
+ time:int64;
+ curSpeed,splineSpeed:single;
+ src:PSingle;
+ hasSpeed:boolean;
+begin
+ ASSERT(count>=1,'TTweening not initialized');
+ if @spline=nil then spline:=splines.linear;
+ SpinLock(lock);
+ try
+  time:=CoreTime.Ticks;
+  // capture current values and speed from running animation
+  hasSpeed:=false;
+  oldEff:=TTweeningEffect(effect);
+  if oldEff<>nil then begin
+   hasSpeed:=(time>oldEff.startTime) and (time<oldEff.endTime);
+   oldEff:=TTweeningEffect(effect); // save ref before clearing
+  end;
+  if (duration=0) and (delay=0) then begin
+   // instant assignment
+   src:=@newValues;
+   for i:=0 to count-1 do begin
+    curValues[i]:=src^;
+    inc(src);
+   end;
+   if oldEff<>nil then begin oldEff.Free; effect:=nil; end;
+   exit;
+  end;
+  // sample current state from old effect
+  if oldEff<>nil then begin
+   for i:=0 to count-1 do
+    curValues[i]:=CalcValue(i,time);
+  end;
+  // create new effect
+  eff:=TTweeningEffect.Create;
+  eff.startTime:=time+delay;
+  eff.duration:=duration;
+  eff.endTime:=eff.startTime+duration;
+  eff.spline:=spline;
+  src:=@newValues;
+  for i:=0 to count-1 do begin
+   eff.startValue[i]:=curValues[i];
+   eff.endValue[i]:=src^;
+   // compute compensation = deltaSpeed * duration
+   if hasSpeed then begin
+    // current speed (value/ms) via finite difference
+    curSpeed:=CalcValue(i,time)-CalcValue(i,time-1);
+    // spline's own initial speed (value/ms)
+    splineSpeed:=spline(eff.startTime+1,eff.startTime,eff.endTime,
+      eff.startValue[i],eff.endValue[i])-eff.startValue[i];
+    eff.compensation[i]:=(curSpeed-splineSpeed)*duration;
+   end else
+    eff.compensation[i]:=0;
+   inc(src);
+  end;
+  // release old effect after we're done reading from it
+  if oldEff<>nil then oldEff.Free;
+  effect:=eff;
+ finally lock:=0; end;
+end;
+
+procedure TTweening.Animate(newValue:single; duration:cardinal;
+  spline:TSplineFunc; delay:integer);
+var
+ val:single;
+begin
+ if count=0 then begin
+  count:=1;
+  curValues[0]:=0;
+ end;
+ val:=newValue;
+ Animate(val,duration,spline,delay);
 end;
 
 end.

@@ -32,7 +32,7 @@ uses
   Apus.Classes,
   Apus.EventMan,
   Apus.Lib,
-//  Apus.Tweenings,
+  Apus.Tweenings,
   Apus.AnimatedValues,
 
   // Level 4: Graphics primitives, network

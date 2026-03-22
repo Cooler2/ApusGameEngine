@@ -2,7 +2,7 @@ program Tweenings;
  uses
   TweeningsScene in 'TweeningsScene.pas';
 
-{$R *.res}
+{$IFDEF DELPHI}{$R *.res}{$ENDIF}
 
 begin
  application:=TMainApp.Create;
