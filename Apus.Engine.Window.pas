@@ -1,7 +1,7 @@
 ﻿unit Apus.Engine.Window;
 interface
 uses Apus.Core, Apus.Geom2D, Apus.Engine.Types, Apus.Engine.Scene, Apus.Threads,
-  Apus.Classes;
+  Apus.Classes, Apus.Engine.Resources;
 
 const
  FRAME_TIME_RING_SIZE=512;
@@ -10,6 +10,7 @@ type
  TWindow=class;
  TSceneArray=array of TGameScene;
  TWindowArray=array of TWindow;
+ TRenderProc=procedure of object;
 
  TFrameCapture=record
   singleFrame:boolean; // request frame capture
@@ -104,11 +105,16 @@ public
   textLink:cardinal;
   textLinkRect:TRect;
 
+  // Per-frame diagnostic log (cleared every frame, saved on error)
+  frameLog,prevFrameLog:string;
+
  // Per-window data
   renderThread:IThread; // nil for main window, set by AddWindow for extra windows
   runtimeLock:TLock; // protects scene list + UI access for this window
   timings:TFrameTiming;
   capture:TFrameCapture;
+  dRT:TTexture; // default render target (can be nil)
+  dRTdepth:TTexture; // depth buffer texture
   scenes:TSceneArray;
   topmostScene:TGameScene; // last topmost active scene for this window
   // Frame timing (per-window, read-only from outside):
@@ -169,6 +175,38 @@ public
   procedure PresentFrame; virtual; abstract;
   function SetVSync(divider:integer):boolean; virtual; abstract;
 
+  // Frame log
+  procedure FLog(st:string);
+
+  // Frame processing and scene rendering
+  function OnFrame:boolean;
+  procedure RenderFrame(var params:TGameSettings; aspectRatio:single;
+    drawCursor,drawOverlays:TRenderProc);
+  procedure RenderScenes(drawOverlays:TRenderProc);
+
+  // Coordinate transforms between client area and game (render) space
+  procedure ClientToGame(var p:TPoint);
+  procedure GameToClient(var p:TPoint);
+
+  // Mouse position queries in game coordinates
+  function MouseInRect(const r:TRect):boolean; overload;
+  function MouseInRect(const r:TRect2):boolean; overload;
+  function MouseInRect(x,y,width,height:single):boolean; overload;
+  function MouseIsNear(x,y,radius:single):boolean;
+  function MouseWasInRect(const r:TRect):boolean; overload;
+  function MouseWasInRect(const r:TRect2):boolean; overload;
+
+  // Render area setup
+  procedure SetupRenderArea(var params:TGameSettings; aspectRatio:single);
+
+  // Default render target
+  procedure InitDefaultRenderTarget(width,height:integer; zbuffer:byte; useDepthTex:boolean);
+  function GetDepthBufferTex:TTexture;
+  // Blit default RT to backbuffer (called before platform PresentFrame)
+  procedure BlitDefaultRT(tintColor:cardinal);
+  // Full present cycle: blit dRT + swap + update counters
+  procedure PresentRenderedFrame(tintColor:cardinal);
+
   // Frame capture
   procedure RequestScreenshot(saveAsJpeg:boolean=true);
   procedure RequestFrameCapture(obj:TObject=nil);
@@ -182,10 +220,11 @@ function FindWindowForUIRoot(root:TObject):TWindow;
 function ListWindows:TWindowArray;
 
 implementation
- uses SysUtils, Apus.EventMan, Apus.Lib, Apus.Images, Apus.GfxFormats, Apus.Files,
+ uses Types, SysUtils, Apus.EventMan, Apus.Lib, Apus.Images, Apus.GfxFormats, Apus.Files,
    {$IFDEF MSWINDOWS}Apus.Clipboard,{$ENDIF}
    {$IFDEF VIDEOCAPTURE}Apus.Engine.VideoCapture,{$ENDIF}
-   Apus.Engine.API;
+   Apus.Engine.API, Apus.Engine.Console, Apus.Engine.UIScene,
+   Apus.Engine.UITypes, Apus.Engine.TextDraw;
 
 var
  windowHash:TObjectHash;
@@ -530,6 +569,402 @@ function TWindow.ProcessScenes(deltaTime:integer):boolean;
      result:=scenes[i].Process or result;
    end;
  end;
+
+function TWindow.OnFrame:boolean;
+var
+ i,n:integer;
+ deltaTime:integer;
+begin
+ result:=false;
+ DestroyQueuedElements;
+
+ Lock;
+ try
+  // sort scenes by zOrder
+  if high(scenes)>1 then
+   for n:=1 to high(scenes) do
+    for i:=0 to n-1 do
+     if scenes[i+1].zorder>scenes[i].zorder then
+      Swap(scenes[i],scenes[i+1],sizeof(scenes[i]));
+ finally
+  Unlock;
+ end;
+
+ Lock;
+ try
+  // sync UI root order with scene zOrder
+  for i:=0 to high(scenes) do
+   if (scenes[i] is TUIScene) then
+    with scenes[i] as TUIScene do
+     if (UI<>nil) then
+      ui.order:=scenes[i].zorder;
+ finally
+  Unlock;
+ end;
+
+ deltaTime:=integer(frameDeltaMs);
+ result:=ProcessScenes(deltaTime);
+end;
+
+procedure TWindow.FLog(st:string);
+begin
+ frameLog:=frameLog+st+#13#10;
+end;
+
+procedure TWindow.RenderFrame(var params:TGameSettings; aspectRatio:single;
+  drawCursor,drawOverlays:TRenderProc);
+var
+ i,j,n:integer;
+ sc:array[1..50] of TGameScene;
+ effect:TSceneEffect;
+ deltaTime:integer;
+ fl:boolean;
+ z:single;
+ s:integer;
+begin
+ if IsTerminated then exit;
+ deltaTime:=integer(frameDeltaMs);
+ FLog('RF1');
+
+ Lock;
+ try
+  txt.ClearLink;
+  try
+   // check if any fullscreen scene covers the entire area
+   fl:=true;
+   for i:=low(scenes) to high(scenes) do
+    if scenes[i].fullscreen and scenes[i].IsActive then fl:=false;
+   FLog('Clear '+booltostr(fl));
+   if fl then begin
+    if params.zbuffer>0 then z:=1 else z:=-1;
+    if params.stencil then s:=0 else s:=-1;
+    gfx.target.Clear($FF000000,z,s);
+   end;
+  except
+   on e:exception do CritMsg('RFrame1 '+ExceptionMsg(e));
+  end;
+  FLog('Eff');
+  try
+   // process effects on all scenes
+   for i:=low(scenes) to high(scenes) do
+    if scenes[i].effect<>nil then begin
+     FLog('Eff on '+scenes[i].ClassName+' is '+scenes[i].effect.ClassName+' : '+
+      inttostr(scenes[i].effect.timer)+','+booltostr(scenes[i].effect.done));
+     effect:=scenes[i].effect;
+     FLog('Eff ret');
+     inc(effect.timer,deltaTime);
+     if effect.done then begin
+      Signal('ENGINE\EffectDone',UIntPtr(scenes[i]));
+      effect.Free;
+      scenes[i].effect:=nil;
+     end;
+    end;
+  except
+   on e:exception do CritMsg('RFrame2 '+ExceptionMsg(e));
+  end;
+
+  // sort active scenes by Z order
+  FLog('Sorting');
+  n:=0;
+  try
+   for i:=low(scenes) to high(scenes) do
+    if scenes[i].IsActive then begin
+     ASSERT(n<high(sc),'Too many active scenes');
+     if n=0 then begin
+      sc[1]:=scenes[i]; inc(n); continue;
+     end;
+     fl:=true;
+     for j:=n downto 1 do
+      if sc[j].zorder>scenes[i].zorder then sc[j+1]:=sc[j]
+       else begin sc[j+1]:=scenes[i]; fl:=false; break; end;
+     if fl then sc[1]:=scenes[i];
+     inc(n);
+    end;
+  except
+   on e:exception do CritMsg('RFrame3 '+ExceptionMsg(e));
+  end;
+  if n>0 then topmostScene:=sc[n]
+   else topmostScene:=nil;
+ finally
+  Unlock;
+ end;
+
+ gfx.BeginPaint(dRT);
+ SetupRenderArea(params,aspectRatio);
+ // draw all active scenes
+ for i:=1 to n do try
+  // draw shadow
+  if sc[i].shadowColor<>0 then
+   draw.FillRect(0,0,renderWidth,renderHeight,sc[i].shadowColor);
+
+  if not sc[i].gfxInitialized then try
+   sc[i].InitGfx;
+   sc[i].gfxInitialized:=true;
+  except
+   on e:Exception do CritMsg('Scene '+sc[i].name+' InitGfx error: '+ExceptionMsg(e));
+  end;
+
+  if IsTerminated then exit;
+  if sc[i].effect<>nil then begin
+   FLog('Drawing eff on '+sc[i].name);
+   sc[i].effect.DrawScene;
+   FLog('Drawing ret');
+  end else begin
+   FLog('Drawing '+sc[i].ClassName);
+   sc[i].Render;
+   FLog('Drawing ret');
+  end;
+ except
+  on e:exception do begin
+   if sc[i] is TUIScene then CritMsg('SceneRender '+(sc[i] as TUIScene).name+' error '+ExceptionMsg(e)+' FLog: '+frameLog)
+    else CritMsg('SceneRender '+sc[i].ClassName+' error '+ExceptionMsg(e));
+   halt;
+  end;
+ end;
+
+ if Assigned(drawCursor) then drawCursor;
+ if Assigned(drawOverlays) then drawOverlays;
+
+ gfx.EndPaint;
+ FLog('RDone');
+end;
+
+procedure TWindow.RenderScenes(drawOverlays:TRenderProc);
+var
+ i,j,n:integer;
+ sc:array[1..50] of TGameScene;
+ fl:boolean;
+ oldWindow:TWindow;
+begin
+ oldWindow:=window;
+ window:=self;
+ try
+  // sort active scenes by Z order
+  n:=0;
+  for i:=low(scenes) to high(scenes) do
+   if scenes[i].IsActive then begin
+    ASSERT(n<high(sc),'Too many active scenes');
+    if n=0 then begin
+     sc[1]:=scenes[i]; inc(n); continue;
+    end;
+    fl:=true;
+    for j:=n downto 1 do
+     if sc[j].zorder>scenes[i].zorder then sc[j+1]:=sc[j]
+      else begin sc[j+1]:=scenes[i]; fl:=false; break; end;
+    if fl then sc[1]:=scenes[i];
+    inc(n);
+   end;
+  if n>0 then topmostScene:=sc[n]
+   else topmostScene:=nil;
+
+  // render scenes
+  for i:=1 to n do try
+   if not sc[i].gfxInitialized then begin
+    sc[i].InitGfx;
+    sc[i].gfxInitialized:=true;
+   end;
+   if sc[i].effect<>nil then
+    sc[i].effect.DrawScene
+   else
+    sc[i].Render;
+  except
+   on e:Exception do
+    CritMsg('Window scene render error: '+ExceptionMsg(e));
+  end;
+  if Assigned(drawOverlays) then drawOverlays;
+ finally
+  window:=oldWindow;
+ end;
+end;
+
+function TWindow.MouseInRect(const r:TRect):boolean;
+begin
+ result:=(mouseX>=r.Left) and (mouseY>=r.Top) and
+         (mouseX<r.Right) and (mouseY<r.Bottom);
+end;
+
+function TWindow.MouseInRect(const r:TRect2):boolean;
+begin
+ result:=(mouseX>=r.x1) and (mouseY>=r.y1) and
+         (mouseX<r.x2) and (mouseY<r.y2);
+end;
+
+function TWindow.MouseInRect(x,y,width,height:single):boolean;
+begin
+ result:=(mouseX>=x) and (mouseY>=y) and
+         (mouseX<x+width) and (mouseY<y+height);
+end;
+
+function TWindow.MouseIsNear(x,y,radius:single):boolean;
+begin
+ result:=Sqr(mouseX-x)+Sqr(mouseY-y)<=sqr(radius);
+end;
+
+function TWindow.MouseWasInRect(const r:TRect):boolean;
+begin
+ result:=(oldMouseX>=r.Left) and (oldMouseY>=r.Top) and
+         (oldMouseX<r.Right) and (oldMouseY<r.Bottom);
+end;
+
+function TWindow.MouseWasInRect(const r:TRect2):boolean;
+begin
+ result:=(oldMouseX>=r.x1) and (oldMouseY>=r.y1) and
+         (oldMouseX<r.x2) and (oldMouseY<r.y2);
+end;
+
+procedure TWindow.ClientToGame(var p:TPoint);
+begin
+ p.X:=round((p.X-displayRect.Left)*renderWidth/(displayRect.Right-displayRect.Left));
+ p.Y:=round((p.Y-displayRect.Top)*renderHeight/(displayRect.Bottom-displayRect.Top));
+end;
+
+procedure TWindow.GameToClient(var p:TPoint);
+begin
+ p.X:=round(displayRect.Left+p.X*(displayRect.Right-displayRect.Left)/renderWidth);
+ p.Y:=round(displayRect.Top+p.Y*(displayRect.Bottom-displayRect.Top)/renderHeight);
+end;
+
+procedure TWindow.SetupRenderArea(var params:TGameSettings; aspectRatio:single);
+var
+ w,h:integer;
+ oldDisplayRect:TRect;
+ oldRW,oldRH:integer;
+begin
+ if (windowWidth<=0) or (windowHeight<=0) then begin
+  GetSize(windowWidth,windowHeight);
+  if windowWidth<=0 then windowWidth:=params.width;
+  if windowHeight<=0 then windowHeight:=params.height;
+ end;
+
+ oldRW:=renderWidth;
+ oldRH:=renderHeight;
+ oldDisplayRect:=displayRect;
+ w:=0; h:=0;
+ case params.mode.displayFitMode of
+  dfmCenter:begin
+   w:=params.width;
+   h:=params.height;
+  end;
+  dfmFullSize:begin
+   w:=windowWidth;
+   h:=windowHeight;
+   if params.mode.displayScaleMode=dsmDontScale then begin
+    params.width:=w;
+    params.height:=h;
+   end;
+  end;
+  dfmKeepAspectRatio:begin
+   w:=windowWidth;
+   h:=windowHeight;
+   if w>round(h*aspectRatio*1.01) then w:=round(h*aspectRatio);
+   if h>round(w/aspectRatio*1.01) then h:=round(w/aspectRatio);
+   if params.mode.displayScaleMode in [dsmDontScale] then begin
+    params.width:=w;
+    params.height:=h;
+   end;
+  end;
+ end;
+ displayRect.Left:=0;
+ displayRect.Top:=0;
+ displayRect.Right:=w;
+ displayRect.Bottom:=h;
+ OffsetRect(displayRect,(windowWidth-w) div 2,(windowHeight-h) div 2);
+
+ renderWidth:=params.width;
+ renderHeight:=params.height;
+
+ // nothing changed?
+ if (displayRect=oldDisplayRect) and
+    (renderWidth=oldRW) and (renderHeight=oldRH) then exit;
+
+ Log.Msg(Format('Set render area: (%d x %d) (%d,%d) -> (%d,%d)',
+   [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Right,displayRect.Bottom]));
+ Signal('ENGINE\BEFORERESIZE');
+ NotifyScenesResize;
+ Signal('ENGINE\RESIZED');
+
+ if (gfx<>nil) and (gfx.target<>nil) then begin
+  gfx.target.Resized(windowWidth,windowHeight);
+  w:=displayRect.Width;
+  h:=displayRect.Height;
+  if dRT=nil then begin
+   // rendering directly to the framebuffer
+   gfx.target.Viewport(displayRect.Left,windowHeight-displayRect.Bottom,
+     w,h,params.width,params.height);
+  end else begin
+   // rendering to a framebuffer texture
+   with params.mode do
+    if (displayFitMode in [dfmFullSize,dfmKeepAspectRatio]) and
+       (displayScaleMode in [dsmDontScale,dsmScale]) and
+       ((dRT.width<>w) or (dRT.height<>h)) then begin
+     Log.Msg('Resizing framebuffer');
+     gfx.resman.ResizeImage(dRT,w,h);
+     if dRTdepth<>nil then
+       gfx.resman.ResizeImage(dRTdepth,w,h);
+    end;
+   gfx.target.Viewport(0,0,dRT.width,dRT.height,params.width,params.height);
+  end;
+ end;
+end;
+
+procedure TWindow.InitDefaultRenderTarget(width,height:integer; zbuffer:byte; useDepthTex:boolean);
+var
+ flags:cardinal;
+begin
+ try
+  Log.Msg('Default RT');
+  if not gfx.config.ShouldUseTextureAsDefaultRT or
+     (gfx.config.QueryMaxRTSize<width) then exit;
+  Log.Msg('Switching to the modern rendering model');
+  flags:=aiRenderTarget;
+  if (zbuffer>0) and not useDepthTex then
+   flags:=flags+aiDepthBuffer;
+  dRT:=AllocImage(width,height,pfRenderTarget,flags,'DefaultRT');
+  if useDepthTex then begin
+   dRTdepth:=AllocImage(width,height,ipfDepth32f,aiDepthBuffer+aiRenderTarget,'DefaultDepth');
+   gfx.resman.AttachDepthBuffer(dRT,dRTdepth);
+  end;
+ except
+  on e:exception do begin
+   Log.Force('Error in InitDefaultRenderTarget: '+ExceptionMsg(e));
+   SystemMessage('Game engine failure (InitDefaultRenderTarget): '+ExceptionMsg(e));
+   Halt;
+  end;
+ end;
+end;
+
+function TWindow.GetDepthBufferTex:TTexture;
+begin
+ result:=dRTdepth;
+end;
+
+procedure TWindow.BlitDefaultRT(tintColor:cardinal);
+begin
+ if dRT=nil then exit;
+ // blit render texture to window backbuffer
+ gfx.target.Viewport(0,0,windowWidth,windowHeight,windowWidth,windowHeight);
+ gfx.BeginPaint(nil);
+ try
+  // clear unused bars (not every frame to avoid performance hit)
+  if not ((displayRect.Left=0) and (displayRect.Top=0) and
+          (displayRect.Right=windowWidth) and (displayRect.Bottom=windowHeight)) and
+     ((frameNum mod 5=0) or (frameNum<3)) then gfx.target.Clear($FF000000);
+  with displayRect do
+   draw.TexturedRect(Left,Top,right-1,bottom-1,dRT,0,0,1,0,1,1,tintColor);
+ finally
+  gfx.EndPaint;
+ end;
+end;
+
+procedure TWindow.PresentRenderedFrame(tintColor:cardinal);
+begin
+ BlitDefaultRT(tintColor);
+ FLog('Present');
+ gfx.PresentFrame;
+ inc(frameNum);
+ screenChanged:=false;
+ timings.idleRedrawAccUs:=0;
+end;
 
 procedure TWindow.RequestScreenshot(saveAsJpeg:boolean=true);
 begin
