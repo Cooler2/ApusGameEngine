@@ -415,6 +415,7 @@ begin
   // block 0: draw.Line (horizontal ramp)
   r:=GridCell(area,0,0,3,1,BLOCK_GAP);
   DrawBlock(r,'draw.Line',innerR);
+  draw.BeginLines;
   for i:=0 to 12 do
     draw.Line(innerR.Left+10,innerR.Top+14+i*((innerR.Bottom-innerR.Top-20) div 13),
       innerR.Right-10,innerR.Top+14+i*((innerR.Bottom-innerR.Top-20) div 13),
@@ -431,6 +432,7 @@ begin
       cx+cos(t+i)*((innerR.Right-innerR.Left)*0.45),
       cy+sin(t*1.2+i)*((innerR.Bottom-innerR.Top)*0.42),
       $FFA0D8FF-i*$00141000);
+  draw.EndLines;
   draw.FillRRect(round(cx-6),round(cy-6),round(cx+6),round(cy+6),$FFEEF6FF,5);
 
   // block 2: draw.Polyline + draw.Polygon
@@ -468,11 +470,13 @@ begin
   // block [0,0]: draw.Rect
   r:=GridCell(area,0,0,2,2,BLOCK_GAP);
   DrawBlock(r,'draw.Rect',innerR);
+  draw.BeginLines;
   draw.Rect(innerR.Left+14,innerR.Top+14,innerR.Right-14,innerR.Bottom-14,$FFE9BE78);
   draw.Rect(innerR.Left+34,innerR.Top+34,innerR.Right-34,innerR.Bottom-34,$FF87D3FF);
   draw.Rect(innerR.Left+54,innerR.Top+54,innerR.Right-54,innerR.Bottom-54,$FF70C090);
   // sub-pixel rect
   draw.Rect(innerR.Left+70.5,innerR.Top+70.5,innerR.Right-70.5,innerR.Bottom-70.5,$FFFFC060);
+  draw.EndLines;
 
   // block [1,0]: draw.RRect
   r:=GridCell(area,1,0,2,2,BLOCK_GAP);
