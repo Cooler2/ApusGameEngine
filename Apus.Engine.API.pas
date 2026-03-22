@@ -606,6 +606,8 @@ type
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
   procedure Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
   procedure Polygon(points:PVec2;cnt:integer;color:cardinal);
+  procedure BeginLines; // start batching line primitives
+  procedure EndLines; // flush batched lines and stop batching
   procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload; // geometry-based version
@@ -750,8 +752,15 @@ type
    dfShowNavigationPoints     // Display gamepad navigation points
  );
 
- // Hotkey used to toggle debug overlay mode
- TDebugHotkey=(dhAltFx, dhCtrlAltFx);
+ // Debug overlay hotkey presets as shiftState bitmasks.
+ const
+  dhAltFx      =sscAlt;
+  dhCtrlAltFx  =sscAlt or sscCtrl;
+  dhRAltFx     =sscAlt or sscRAlt;
+  dhCtrlRAltFx =sscAlt or sscCtrl or sscRAlt;
+
+ type
+  TDebugHotkey=byte;
 
   // Main game interface (abstract class)
  TGameBase=class
@@ -768,7 +777,7 @@ type
   // Default checkers texture 32x32 with 8x8 blocks (for debug purposes)
   defaultTexture:TTexture;
 
-  debugHotkey:TDebugHotkey; // Hotkey used to toggle debug overlays (default - Alt+F1)
+  debugHotkey:TDebugHotkey; // shiftState mask for debug hotkeys (default - Alt+F1)
 
   gamepadNavigationMode:TGamepadNavigationMode; // used to enable gamepad (DPad) navigation over UI elements and user-defined objects
 

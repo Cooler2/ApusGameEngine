@@ -20,6 +20,10 @@ TDrawer=class(TInterfacedObject,IDrawer)
   partInd:array of word; // quad indices (0,1,2, 0,2,3) ... persistent buffer (can only grow)
   bandInd:array of word; // indices for bands drawing
 
+  lineBuf:array of TVertex; // line batching buffer (2 vertices per line)
+  lineCount:integer; // number of lines in buffer
+  lineBatching:boolean; // true between BeginLines/EndLines
+
   useGradient:boolean; // use gradient to color primitives
   gradient:TColorGradient;
   stretchGradient:boolean; // stretch gradient over primitive area (i.e. use -1..1 range)
@@ -41,6 +45,8 @@ TDrawer=class(TInterfacedObject,IDrawer)
   procedure Line(x1,y1,x2,y2:single;color:cardinal);
   procedure Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
   procedure Polygon(points:PVec2;cnt:integer;color:cardinal);
+  procedure BeginLines;
+  procedure EndLines;
   procedure Rect(x1,y1,x2,y2:NativeInt;color:cardinal); overload;
   procedure Rect(x1,y1,x2,y2:single;color:cardinal); overload;
   procedure RRect(x1,y1,x2,y2:single;color:cardinal;r:single=2;steps:integer=0); overload;
@@ -111,11 +117,13 @@ TDrawer=class(TInterfacedObject,IDrawer)
  partShader3D:TShader;  // shader for 3D particles
  procedure EnsureThreadState;
  procedure EnsureMeshBuffers(layout:TVertexLayout;vrtCount,indCount:integer);
+ procedure FlushLines;
  procedure CalcGradient(width,height:single;out gx,gy:single); inline;
 end;
 
 var
  MaxParticleCount:integer=5000;
+ MaxLineBatchCount:integer=2000; // max lines per batch
 
  // Singleton object
  drawer:TDrawer;
@@ -218,6 +226,9 @@ begin
  meshVB:=nil;
  meshIB:=nil;
  softParticlesRange:=-1;
+ setLength(lineBuf,MaxLineBatchCount*2);
+ lineCount:=0;
+ lineBatching:=false;
  threadStateReady:=true;
 end;
 
@@ -480,15 +491,45 @@ procedure TDrawer.Billboard(pos:TVec3;texelSize:single;tex:TTexture;
  end;
 
 
+procedure TDrawer.FlushLines;
+begin
+ if lineCount=0 then exit;
+ shader.UseTexture(neutral);
+ renderDevice.Draw(LINE_LIST,lineCount,@lineBuf[0],TVertex.layoutTex);
+ lineCount:=0;
+end;
+
+procedure TDrawer.BeginLines;
+begin
+ EnsureThreadState;
+ lineBatching:=true;
+ lineCount:=0;
+end;
+
+procedure TDrawer.EndLines;
+begin
+ FlushLines;
+ lineBatching:=false;
+end;
+
 procedure TDrawer.Line(x1, y1, x2, y2: single; color: cardinal);
 var
  vrt:array[0..1] of TVertex;
+ idx:integer;
 begin
  if not clippingAPI.Prepare(Min(x1,x2),Min(y1,y2),Max(x1,x2),Max(y1,y2)) then exit;
- shader.UseTexture(neutral);
- vrt[0].Init(x1,y1,zPlane,color);
- vrt[1].Init(x2,y2,zPlane,color);
- renderDevice.Draw(LINE_LIST,1,@vrt[0],TVertex.layoutTex);
+ if lineBatching then begin
+  if lineCount>=MaxLineBatchCount then FlushLines;
+  idx:=lineCount*2;
+  lineBuf[idx].Init(x1,y1,zPlane,color);
+  lineBuf[idx+1].Init(x2,y2,zPlane,color);
+  inc(lineCount);
+ end else begin
+  shader.UseTexture(neutral);
+  vrt[0].Init(x1,y1,zPlane,color);
+  vrt[1].Init(x2,y2,zPlane,color);
+  renderDevice.Draw(LINE_LIST,1,@vrt[0],TVertex.layoutTex);
+ end;
 end;
 
 procedure TDrawer.Polyline(points:PVec2;cnt:integer;color:cardinal;closed:boolean=false);
@@ -991,13 +1032,20 @@ var
  vrt:array[0..4] of TVertex;
 begin
  if not clippingAPI.Prepare(x1,y1,x2+1,y2+1) then exit;
- shader.UseTexture(neutral);
- vrt[0].Init(x1,y1,zPlane,color);
- vrt[1].Init(x2,y1,zPlane,color);
- vrt[2].Init(x2,y2,zPlane,color);
- vrt[3].Init(x1,y2,zPlane,color);
- vrt[4]:=vrt[0];
- renderDevice.Draw(LINE_STRIP,4,@vrt,TVertex.layoutTex);
+ if lineBatching then begin
+  Line(x1,y1,x2,y1,color);
+  Line(x2,y1,x2,y2,color);
+  Line(x2,y2,x1,y2,color);
+  Line(x1,y2,x1,y1,color);
+ end else begin
+  shader.UseTexture(neutral);
+  vrt[0].Init(x1,y1,zPlane,color);
+  vrt[1].Init(x2,y1,zPlane,color);
+  vrt[2].Init(x2,y2,zPlane,color);
+  vrt[3].Init(x1,y2,zPlane,color);
+  vrt[4]:=vrt[0];
+  renderDevice.Draw(LINE_STRIP,4,@vrt,TVertex.layoutTex);
+ end;
 end;
 
 procedure TDrawer.Rect(x1,y1,x2,y2:single;color:cardinal);
