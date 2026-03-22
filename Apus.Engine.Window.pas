@@ -51,6 +51,8 @@ type
   lastSmoothFpsUpdate:int64;
   // Accumulated frame time while redraw is skipped (for lazy redraw fallback).
   idleRedrawAccUs:integer;
+  // Accumulated frame time since last presented frame (for FPS sampling).
+  presentSampleAccUs:integer;
 
   procedure Reset;
   procedure PushSample(deltaUs,msgUs,onFrameUs,renderUs,presentUs,sleepUs:integer);
@@ -256,6 +258,7 @@ begin
  lastFpsUpdate:=0;
  lastSmoothFpsUpdate:=0;
  idleRedrawAccUs:=0;
+ presentSampleAccUs:=0;
  phaseMetrics:=false;
  pendingMsgUs:=0;
  lastMsgUs:=0;

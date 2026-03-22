@@ -2425,6 +2425,8 @@ procedure TGame.RenderAndPresentFrame;
   startUs:int64;
   i:integer;
   deltaUs:int64;
+  sampleUs:integer;
+  presented:boolean;
   phaseTimer:int64;
   onFrameUs,renderUs,presentUs,sleepUs:integer;
  begin
@@ -2432,10 +2434,16 @@ procedure TGame.RenderAndPresentFrame;
    renderUs:=0;
    presentUs:=0;
    sleepUs:=0;
+   presented:=false;
    if window.timings.frameTimerReady then
     deltaUs:=round(Timer.Get(window.timings.frameTimer)*1000000)
    else
     deltaUs:=20000; // initial value
+   sampleUs:=integer(Clamp(deltaUs,0,high(integer)));
+   if window.timings.presentSampleAccUs<=high(integer)-sampleUs then
+    inc(window.timings.presentSampleAccUs,sampleUs)
+   else
+    window.timings.presentSampleAccUs:=high(integer);
    if window.frameNum>0 then
     startUs:=window.frameStartUs+deltaUs
    else
@@ -2496,6 +2504,7 @@ procedure TGame.RenderAndPresentFrame;
       window.screenChanged then begin
     if window.timings.phaseMetrics then Timer.Start(phaseTimer);
     PresentFrame;
+    presented:=true;
     if window.timings.phaseMetrics then presentUs:=round(Timer.Get(phaseTimer)*1000000);
     if window.capture.singleFrame or window.capture.videoMode then
      CaptureFrame;
@@ -2503,10 +2512,13 @@ procedure TGame.RenderAndPresentFrame;
    end else
     CoreTime.Sleep(5);
 
-   window.timings.PushSample(integer(Clamp(deltaUs,0,high(integer))),
-     window.timings.pendingMsgUs,onFrameUs,renderUs,presentUs,sleepUs);
-   // FPS / SmoothFPS based on trimmed mean of recent frame times.
-   window.timings.UpdateFps(window.FPS,window.smoothFPS);
+   if presented then begin
+    window.timings.PushSample(window.timings.presentSampleAccUs,
+      window.timings.pendingMsgUs,onFrameUs,renderUs,presentUs,sleepUs);
+    window.timings.presentSampleAccUs:=0;
+    // FPS / SmoothFPS based on presented frames.
+    window.timings.UpdateFps(window.FPS,window.smoothFPS);
+   end;
 
    game.Flog('LEnd');
  end;
@@ -2577,12 +2589,14 @@ procedure TGame.MainThreadLoop;
 function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
  var
   ewCtx:PExtraWindowContext;
- settings:TGameSettings;
- callerReleasedMainContext:boolean;
- wnd:TWindow;
+  settings:TGameSettings;
+  callerReleasedMainContext:boolean;
+  wnd:TWindow;
   registered:boolean;
   startUs:int64;
   deltaUs:int64;
+  sampleUs:integer;
+  presented:boolean;
  begin
   result:=0;
   ewCtx:=PExtraWindowContext(ctx.Parameter);
@@ -2641,10 +2655,16 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
    // frame loop
    repeat
    Thread.Ping;
+    presented:=false;
     if wnd.timings.frameTimerReady then
      deltaUs:=round(Timer.Get(wnd.timings.frameTimer)*1000000)
     else
      deltaUs:=20000;
+    sampleUs:=integer(Clamp(deltaUs,0,high(integer)));
+    if wnd.timings.presentSampleAccUs<=high(integer)-sampleUs then
+     inc(wnd.timings.presentSampleAccUs,sampleUs)
+    else
+     wnd.timings.presentSampleAccUs:=high(integer);
     if wnd.frameNum>0 then
      startUs:=wnd.frameStartUs+deltaUs
     else
@@ -2692,11 +2712,15 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
      inc(wnd.frameNum);
      wnd.screenChanged:=false;
      wnd.timings.idleRedrawAccUs:=0;
+     presented:=true;
     end else
      CoreTime.Sleep(5);
 
-    wnd.timings.PushSample(integer(Clamp(deltaUs,0,high(integer))),0,0,0,0,0);
-    wnd.timings.UpdateFps(wnd.FPS,wnd.smoothFPS);
+    if presented then begin
+     wnd.timings.PushSample(wnd.timings.presentSampleAccUs,0,0,0,0,0);
+     wnd.timings.presentSampleAccUs:=0;
+     wnd.timings.UpdateFps(wnd.FPS,wnd.smoothFPS);
+    end;
   until CurrentThread.Terminating;
 
    // cleanup
