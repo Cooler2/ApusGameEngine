@@ -441,6 +441,11 @@ type
     class function TicksSec:double; static;
     // Sleep for specified milliseconds
     class procedure Sleep(ms:integer); static;
+    {$IFDEF TIME_OVERRIDE}
+    // Test-only manual override for monotonic time (microseconds since program start).
+    // 0 means "override disabled".
+    class procedure Override(timeUs:int64); static;
+    {$ENDIF}
   end;
   CoreTime = Time; // Alias to avoid name clash with SysUtils.Time etc.
 
@@ -717,6 +722,9 @@ var
   internalTimer:int64;
   qpcBase:int64; // subtracted from QPC/monotonic value to make values relative to program start
   ticksBase:int64; // subtracted from Time.Ticks to make values relative to program start
+  {$IFDEF TIME_OVERRIDE}
+  timeOverrideUs:int64=0;
+  {$ENDIF}
 
 procedure QPC(out value:int64); inline;
 {$IFDEF MSWINDOWS}
@@ -2171,6 +2179,9 @@ class function Time.Ticks:int64;
 var ts:TTimeSpec;
 {$ENDIF}
 begin
+  {$IFDEF TIME_OVERRIDE}
+  if timeOverrideUs<>0 then exit(timeOverrideUs div 1000);
+  {$ENDIF}
   {$IFDEF MSWINDOWS}
   result:=Windows.GetTickCount64-ticksBase;
   {$ELSE}
@@ -2183,6 +2194,9 @@ class function Time.TicksUs:int64;
 var
   t:int64;
 begin
+  {$IFDEF TIME_OVERRIDE}
+  if timeOverrideUs<>0 then exit(timeOverrideUs);
+  {$ENDIF}
   QPC(t);
   result:=Round((t-qpcBase)*timerMul*1000000.0);
 end;
@@ -2191,6 +2205,9 @@ class function Time.TicksSec:double;
 var
   t:int64;
 begin
+  {$IFDEF TIME_OVERRIDE}
+  if timeOverrideUs<>0 then exit(timeOverrideUs*0.000001);
+  {$ENDIF}
   QPC(t);
   result:=(t-qpcBase)*timerMul;
 end;
@@ -2203,6 +2220,13 @@ begin
   SysUtils.Sleep(ms);
   {$ENDIF}
 end;
+
+{$IFDEF TIME_OVERRIDE}
+class procedure Time.Override(timeUs:int64);
+begin
+  timeOverrideUs:=timeUs;
+end;
+{$ENDIF}
 
 
 procedure SystemMessage(const msg:String8);
