@@ -105,7 +105,7 @@ bench.bat [BenchName]
 Compiles with optimizations (`-O3`) and measures performance of selected operations.
 If no name is given, `BenchStrings` is used by default.
 
-**Available benchmarks:** `Core`, `Conv`, `Strings`, `HashMaps`, `Mem`
+**Available benchmarks:** `Core`, `Conv`, `Strings`, `HashMaps`, `Mem`, `Animation`
 
 **Examples:**
 ```
