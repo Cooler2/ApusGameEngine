@@ -12,7 +12,10 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
 - Tweenings validation track updated (2026-03-23):
   - documentation synchronized for current status (`Base/tests/README.md`, `demo/demo_inventory.md`, `Base/engine5_status.md`);
   - fixed tween runtime defects in `Apus.Tweenings`: scalar overload recursion (`stack overflow`) and `duration=0` delayed retarget (`division by zero`);
-  - added focused automated coverage for `Apus.Tweenings` in `Base/tests/TestTweenings.dpr` (basic + edge scenarios).
+  - added optional deterministic time-test hook in `Apus.Core.Time` under `TIME_OVERRIDE` define (`Override(timeUs:int64)`), shared by `TicksUs/Ticks/TicksSec`.
+  - test runners (`Base/tests/test.bat`, `Base/tests/test.sh`) now build with `-dTIME_OVERRIDE` by default;
+  - added focused automated coverage for `Apus.Tweenings` in `Base/tests/TestTweenings.dpr` (basic + edge scenarios, delay/instant/boundary checks);
+  - added unified benchmark `Base/tests/BenchAnimation.dpr` for `TTweening` vs `TAnimatedValue` (read + realistic retarget scenarios).
 - Frame timing diagnostics guide documented (2026-03-22):
   - added `manual/frame_timing_diagnostics.md` with frame-loop timing instrumentation map;
   - documented Robot API `fps` workflow (`N`, `METRICS`) for phase-based stall analysis;
