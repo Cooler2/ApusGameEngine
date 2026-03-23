@@ -396,7 +396,6 @@ implementation
 
  procedure TUIImage.SetRenderProc(proc:pointer);
   begin
-   styleClass:=0;
    src:='proc:'+Conv.ToHex(UIntPtr(proc));
   end;
 
@@ -1064,24 +1063,24 @@ function TUIEditBox.GetText:String8;
     end;
 
     // Ctrl+C = Copy
-    if (keycode=ord('C')) and (shiftState and sscBaseMask=sscCtrl) and (selcount>0) then clipCopy;
+    if (keycode=ord('C')) and (shiftState=sscCtrl) and (selcount>0) then clipCopy;
     // Ctrl+X = Cut
-    if (keycode=ord('X')) and (shiftState and sscBaseMask=sscCtrl) and (selcount>0) then clipCopy(true);
+    if (keycode=ord('X')) and (shiftState=sscCtrl) and (selcount>0) then clipCopy(true);
     // Ctrl+V = Paste
-    if (keycode=ord('V')) and (shiftState and sscBaseMask=sscCtrl) then
+    if (keycode=ord('V')) and (shiftState=sscCtrl) then
      clipPaste;
     // Ctrl+A: Select all
-    if (keycode=ord('A')) and (shiftState and sscBaseMask=sscCtrl) then
+    if (keycode=ord('A')) and (shiftState=sscCtrl) then
      SelectAll;
 
     // Ctrl+Z or Alt+BkSp - undo
-    if ((keycode=ord('Z')) and (shiftState and sscBaseMask=sscCtrl)) or
-       ((TKey(keycode)=TKey.Backspace) and (shiftState and sscBaseMask=sscAlt)) then begin
+    if ((keycode=ord('Z')) and (shiftState=sscCtrl)) or
+       ((TKey(keycode)=TKey.Backspace) and (shiftState=sscAlt)) then begin
      realText:=savedText;
     end;
 
     if TKey(keycode)=TKey.Insert then begin // ins
-     if (selcount>0) and (shiftstate and sscBaseMask=sscCtrl) then clipCopy;
+     if (selcount>0) and (shiftstate=sscCtrl) then clipCopy;
      if shiftstate and sscShift>0 then clipPaste;
     end;
     if TKey(keycode)=TKey.Delete then begin // del
@@ -1579,6 +1578,8 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    bgSelColor:=$90406070;
    selTextColor:=$FFF0F0F0;
    autoSelectMode:=false;
+   // R-05: expose list colors via style for theming (drawers still use the direct fields above)
+   SetStyleText('text-color:$E0D0D0D0; :hover { text-color:$FFD8D8D8; } sel-text-color:$FFF0F0F0; sel-bg:$90406070');
    UpdateScroller;
   end;
 
