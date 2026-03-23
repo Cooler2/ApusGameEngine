@@ -548,7 +548,7 @@ procedure TWindow.FlushMouseInput;
  begin
   if mousePos.Equals(oldMousePos) then exit;
   mouseMovedTime:=CoreTime.Ticks;
-  Signal('MOUSE\MOVED',Bits.PackW(mousePos.x,mousePos.y));
+  Signal('MOUSE\MOVED',Bits.PackW(word(mousePos.x),word(mousePos.y)));
   NotifyScenesMouseMove(mousePos.x,mousePos.y);
   screenChanged:=true; // needed if cursor is rendered manually
   oldMousePos:=mousePos;

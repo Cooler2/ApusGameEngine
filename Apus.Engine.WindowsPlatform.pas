@@ -69,8 +69,8 @@ type
  end;
 
 implementation
-uses Messages, Types, SysUtils, Apus.EventMan,
-  Apus.Log, Apus.Strings, Apus.Engine.Types
+uses Messages, Types, SysUtils, Apus.Lib,
+  Apus.EventMan, Apus.Strings, Apus.Engine.Types
   {$IFDEF MSWINDOWS},dglOpenGL{$ENDIF};
 
 {$IFOPT R+} {$DEFINE RANGECHECK_ON} {$ENDIF}
@@ -165,7 +165,7 @@ var
 begin
  try
  result:=0;
- //writeln('WinMSG: ',message:10,'  W=',wParam,'  L=',lParam);
+
  case Message of
   wm_Destroy:begin
    Log.Msg('WM_Destroy hwnd=%d',[Window]);
@@ -189,7 +189,7 @@ begin
     pnt.y:=SmallInt(lParam shr 16);
     Apus.Engine.API.window.ClientToGame(pnt);
     Apus.Engine.API.window.mousePos:=pnt;
-    Signal('MOUSE\MOVE',Bits.PackW(pnt.x,pnt.y));
+    Signal('MOUSE\MOVE',Bits.PackW(word(pnt.x),word(pnt.y)));
    end;
   end;
 
@@ -313,6 +313,11 @@ begin
     Apus.Engine.API.window.DPIChanged(loword(wParam));
   end;
 
+  WM_NCHITTEST: begin
+    result := HTCLIENT;
+    exit;
+  end;
+
   WM_PAINT:begin
     Signal('ENGINE\REDRAW');
   end;
@@ -324,7 +329,6 @@ begin
    Signal('ENGINE\SETACTIVE',i);
   end;
  end;
-
  {$R-}
  result:=Longint(DefWindowProcW(Window,Message,WParam,LParam));
  {$IFDEF RANGECHECK_ON} {$R+} {$ENDIF}
@@ -552,19 +556,17 @@ procedure TWinGLWindow.ProcessMessages;
  var
   mes:TagMSG;
  begin
-  while PeekMessageW(mes,0,0,0,pm_NoRemove) do begin
-    if not GetMessageW(mes,0,0,0) then
-     raise EWarning.Create('Failed to get message');
-
-    if mes.message=wm_quit then // ���� ������� ������� �� �����
-     if self=mainWindow then
-      Signal('Engine\Cmd\Exit',0)
-     else
-      terminated:=true;
-
-    TranslateMessage(Mes);
-    DispatchMessageW(Mes);
-   end;
+  while PeekMessageW(mes,0,0,0,PM_REMOVE) do begin
+    if mes.message=WM_QUIT then begin
+      if self=mainWindow then
+        Signal('Engine\Cmd\Exit',0)
+      else
+        terminated:=true;
+      break;
+    end;
+    TranslateMessage(mes);
+    DispatchMessageW(mes);
+  end;
  end;
 
 function TWinGLWindow.IsTerminated:boolean;
