@@ -15,10 +15,6 @@
 {$I defines.inc}
 unit Apus.Containers;
 
-{$IFDEF FPC}
-  {$MODE Delphi}
-{$ENDIF}
-
 interface
 uses Apus.Core, Apus.Types, Classes;
 

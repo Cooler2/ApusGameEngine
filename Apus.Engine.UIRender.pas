@@ -7,10 +7,7 @@
 // ------------------------------------------------------
 unit Apus.Engine.UIRender;
 interface
- uses Apus.Core, Apus.Engine.API, Apus.Engine.UI;
- type
-  // процедура отрисовки элемента
-  TUIDrawer=procedure(control:TUIElement);
+ uses Apus.Core, Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UI;
 
  // Render an UI element and all its descendants (skip elements with manualDraw=true)
  procedure DrawUI(item:TUIElement);
@@ -29,6 +26,9 @@ interface
  // 10..19 - for private game styles
  // 20..50 - 3-rd party libraries
  procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string8='');
+
+ // Get registered style drawer by ID (for backward-compat numeric style APIs)
+ function GetUIStyle(n:byte):TUIDrawer;
 
  // Fill control rect with image (helper function)
  procedure DrawControlWithImage(c:TUIElement;img:TTexture;centered:boolean=false);
@@ -92,8 +92,7 @@ implementation
    try
     // Draw element
     if (item.flags.manualDraw=manualDraw) and
-       (item.styleClass>=0) and
-       (item.styleClass<=high(styleDrawers)) then
+       ((@item.drawer<>nil) or (item.styleClass<=high(styleDrawers))) then
       DrawUIElement(item);
 
     // Debug: Highlight with border when Ctrl+Alt+Win pressed
@@ -168,14 +167,26 @@ implementation
   end;
 
  procedure DrawUIElement(item:TUIElement;styleOverride:integer=-1);
+  var
+   drawerProc:TUIDrawer;
   begin
-   if styleOverride=-1 then styleOverride:=item.styleClass;
-   ASSERT(@styleDrawers[styleOverride]<>nil,'Style not registered');
+   if styleOverride=-1 then begin
+    if @item.drawer<>nil then drawerProc:=item.drawer
+     else drawerProc:=styleDrawers[item.styleClass];
+   end else
+    drawerProc:=styleDrawers[styleOverride];
+   ASSERT(@drawerProc<>nil,'Style not registered: '+item.name);
    try
-    styleDrawers[styleOverride](item);
+    drawerProc(item);
    except
     on e:Exception do raise EError.Create('Error drawing UI element: '+item.ObjInfo+' - '+ExceptionMsg(e));
    end;
+  end;
+
+ function GetUIStyle(n:byte):TUIDrawer;
+  begin
+   if n<=high(styleDrawers) then result:=styleDrawers[n]
+    else result:=nil;
   end;
 
  procedure RegisterUIStyle(style:byte;drawer:TUIDrawer;name:string8='');

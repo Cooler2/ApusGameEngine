@@ -131,7 +131,6 @@ var
  i,h:integer;
 begin
  inherited Create('Tweaker',false);
- frequency:=20;
  ignoreKeyboardEvents:=true;
  zorder:=1000000;
  tinyFont:=tinyFont_;
@@ -258,7 +257,7 @@ begin
  SetPos(x,y);
  shape:=shapeFull;
  flags.canHaveFocus:=true;
- styleClass:=3;
+ drawer:=GetUIStyle(3);
  value:=iValue;
  initialValue:=initValue;
  moving:=false;
@@ -424,7 +423,7 @@ begin
  inherited Create(parent.width-20,24+window.renderHeight div 40,parent,'Editor_'+vName);
  SetPos(10,parent.height-5);
  varName:=vName;
- styleClass:=3;
+ drawer:=GetUIStyle(3);
  varName[1]:='g';
  varName[2]:=UpCase(varName[2]);
  if varName[2]='F' then begin // Float value

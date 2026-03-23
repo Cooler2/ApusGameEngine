@@ -133,7 +133,7 @@ function UIScene(name:String8):TUIScene;
    end;
    hint:=TUIHint.Create(X/parent.scale,(Y+10)/parent.scale,msg,parent);
    hint.font:=font;
-   hint.styleClass:=defaultHintStyle;
+   if defaultHintStyle<>0 then hint.drawer:=GetUIStyle(defaultHintStyle);
    hint.timer:=time;
    hint.order:=10000; // Top
    curhint:=hint;

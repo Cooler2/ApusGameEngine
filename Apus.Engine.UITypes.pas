@@ -9,7 +9,7 @@
 unit Apus.Engine.UITypes;
 interface
 uses Types, Apus.Core, Apus.Lib, Apus.Engine.Types, Apus.Engine.Keys, Apus.Engine.UIShapes,
-  Apus.Engine.Scene, Apus.Engine.Window;
+  Apus.Engine.Scene, Apus.Engine.Window, Apus.Engine.Style;
 {$WRITEABLECONST ON}
 {$IFDEF CPUARM} {$R-} {$ENDIF}
 
@@ -64,6 +64,9 @@ type
  TWindow=Apus.Engine.Window.TWindow;
  TUIElement=class;
  TUIElements=array of TUIElement;
+
+ // Element drawer procedure type
+ TUIDrawer=procedure(element:TUIElement);
 
 
  // Base class for Layouters: objects that layout child elements or adjust elements considering its children
@@ -122,8 +125,10 @@ type
   caption:String8;          // primary text associated with element
   timer:integer;            // ms until onTimer fires (0 = disabled); fires once, not earlier than next frame
 
-  // Style (to be replaced by R-05 style pipeline)
-  styleClass:byte;          // which style handler draws this element (0 = default)
+  // Style (R-05 pipeline)
+  style:TStyleBlock;        // parsed style data (created in constructor)
+  drawer:TUIDrawer;         // direct drawer reference (nil = use styleClass fallback)
+  styleClass:byte;          // which style handler draws this element (0 = default, deprecated - use drawer)
   styleInfoChanged:boolean; // set true whenever styleInfo changes
   styleContext:TObject;     // custom context object used by drawer
 
@@ -239,6 +244,17 @@ type
   class procedure SetDefault(name:String8;value:variant); // set class-level default attribute
   procedure SetStyle(name,value:string8); // 'name:value' or 'state.name:value' syntax
 
+  // R-05: style system — use element.style.Assign/Add/SetState/GetColor etc. directly
+  function HasState(const name:String8):boolean;  // shortcut for style.HasState
+  procedure SetState(const name:String8; active:boolean);  // shortcut for style.SetState
+  // Resolve style attribute value considering cascade (own block → parent chain)
+  function GetStyleValue(const key:String8; const defVal:String8=''):String8;
+  function GetStyleColor(const key:String8; defVal:cardinal=0):cardinal;
+  function GetStyleNumber(const key:String8; defVal:single=0):single;
+  function GetStyleInt(const key:String8; defVal:integer=0):integer;
+  // Base value without state overrides — for transition blending
+  function GetBaseStyleColor(const key:String8; defVal:cardinal=0):cardinal;
+  function GetBaseStyleNumber(const key:String8; defVal:single=0):single;
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
@@ -605,6 +621,7 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    font:=GetClassAttribute('defaultFont',0);
    color:=GetClassAttribute('defaultColor',clDefault);
    styleClass:=GetClassAttribute('defaultStyle',0);
+   style:=TStyleBlock.Create;
    styleInfo:=GetClassAttribute('defaultStyleInfo','');
    sendSignals:=ssNone;
    scroll:=Vec2(0,0);
@@ -653,6 +670,7 @@ destructor TUIElement.Destroy;
     DeleteChildren;
     if (shape<>nil) and not shape.persistent then FreeAndNil(shape);
     FreeAndNil(styleContext);
+    FreeAndNil(style);
     DeleteHotkeys(0);
     Signal('UI\ItemDestroyed',TTag(self));
    except
@@ -1195,8 +1213,22 @@ function TUIElement.GetClientHeight:single;
   var
    item:TUIElement;
    upscale:single;
+   fontName:String8;
+   fontSize:single;
   begin
    if self=nil then exit(0);
+   // R-05: try to resolve from style cascade first
+   if (txt<>nil) then begin
+    fontName:=GetStyleValue('font','');
+    fontSize:=GetStyleNumber('font-size',0);
+    if (fontName<>'') or (fontSize>0) then begin
+     if fontName='' then fontName:='Default';
+     if fontSize<=0 then fontSize:=9;
+     result:=txt.GetFont(fontName,round(fontSize*globalScale));
+     if result<>0 then exit;
+    end;
+   end;
+   // Fall back to legacy fFont with parent-chain inheritance
    result:=fFont;
    upscale:=1.0;
    item:=parent;
@@ -1213,8 +1245,13 @@ function TUIElement.GetClientHeight:single;
  function TUIElement.GetColor:cardinal;
   var
    item:TUIElement;
+   c:cardinal;
   begin
    if self=nil then exit(clDefault);
+   // R-05: try to resolve from style cascade first
+   c:=GetStyleColor('color',clDefault);
+   if c<>clDefault then exit(c);
+   // Fall back to legacy fColor with parent-chain inheritance
    result:=fColor;
    item:=parent;
    while (result=clDefault) and (item<>nil) do begin
@@ -1392,7 +1429,97 @@ function TUIElement.GetClientHeight:single;
    if fStyleInfo<>sInfo then begin
     fStyleInfo:=sInfo;
     styleInfoChanged:=true;
+    style.ParseText(sInfo);  // eager: style is always non-nil
    end;
+  end;
+
+ function TUIElement.HasState(const name:String8):boolean;
+  begin
+   result:=style.HasState(name);
+  end;
+
+ procedure TUIElement.SetState(const name:String8; active:boolean);
+  begin
+   style.SetState(name,active);
+  end;
+
+ // Resolve style value: own block (with refs) → parent chain for inheritable attrs
+ function TUIElement.GetStyleValue(const key:String8; const defVal:String8):String8;
+  var
+   item:TUIElement;
+  begin
+   // own block first
+   result:=ResolveBlockAttr(style,key,'');
+   if result<>'' then exit;
+   // walk parent chain for inheritable attributes
+   item:=parent;
+   while item<>nil do begin
+    result:=ResolveBlockAttr(item.style,key,'');
+    if result<>'' then exit;
+    item:=item.parent;
+   end;
+   result:=defVal;
+  end;
+
+ function TUIElement.GetStyleColor(const key:String8; defVal:cardinal):cardinal;
+  var
+   s:String8;
+  begin
+   s:=GetStyleValue(key,'');
+   if s='' then exit(defVal);
+   result:=ParseStyleColor(s);
+   if (result=0) and (s<>'0') then result:=defVal;
+  end;
+
+ function TUIElement.GetStyleNumber(const key:String8; defVal:single):single;
+  var
+   s:String8;
+  begin
+   s:=GetStyleValue(key,'');
+   if s='' then exit(defVal);
+   result:=Conv.ToFloat(s);
+  end;
+
+ function TUIElement.GetStyleInt(const key:String8; defVal:integer):integer;
+  begin
+   result:=round(GetStyleNumber(key,defVal));
+  end;
+
+ function TUIElement.GetBaseStyleColor(const key:String8; defVal:cardinal):cardinal;
+  var
+   s:String8;
+   item:TUIElement;
+  begin
+   s:=ResolveBlockAttrBase(style,key,'');
+   if s='' then begin
+    item:=parent;
+    while item<>nil do begin
+     s:=ResolveBlockAttrBase(item.style,key,'');
+     if s<>'' then break;
+     item:=item.parent;
+    end;
+   end;
+   if s='' then exit(defVal);
+   result:=ParseStyleColor(s);
+   if (result=0) and (s<>'0') then result:=defVal;
+  end;
+
+ function TUIElement.GetBaseStyleNumber(const key:String8; defVal:single):single;
+  var
+   s:String8;
+   item:TUIElement;
+  begin
+   s:=ResolveBlockAttrBase(style,key,'');
+   if s='' then begin
+    item:=parent;
+    while item<>nil do begin
+     s:=ResolveBlockAttrBase(item.style,key,'');
+     if s<>'' then break;
+     item:=item.parent;
+    end;
+   end;
+   if s='' then exit(defVal);
+   result:=Conv.ToFloat(s);
   end;
 
  procedure TUIElement.SetupScrollers;
