@@ -1169,7 +1169,7 @@ procedure TContext.Update(element:TUIElement;style:PElementStyle);
    end;
    hover.Animate(v,duration);
   end;
-  // R-05: sync hover state to styleBlock for CSS-like :hover overrides
+  // R-05: sync hover state to element.style for CSS-like :hover overrides
   element.SetState('hover',v=1);
 
   // Click state
@@ -1186,7 +1186,7 @@ procedure TContext.Update(element:TUIElement;style:PElementStyle);
    end;
    active.Animate(v,duration);
   end;
-  // R-05: sync pressed/toggled state to styleBlock
+  // R-05: sync pressed/toggled state to element.style
   element.SetState('pressed',v=1);
 
   // Disabled state
@@ -1199,7 +1199,7 @@ procedure TContext.Update(element:TUIElement;style:PElementStyle);
    end;
    disabled.Animate(v,duration);
   end;
-  // R-05: sync disabled state to styleBlock
+  // R-05: sync disabled state to element.style
   element.SetState('disabled',v=1);
  end;
 

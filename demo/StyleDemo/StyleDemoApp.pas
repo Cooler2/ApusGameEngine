@@ -123,20 +123,20 @@ procedure TStyleDemoScene.CreateUI;
   TUIButton.Create(250, 30, panel, 'StyleDemo\Btn1').Setup('Default style', font).
     SetPos(140, 55, pivotCenter);
 
-  // Btn2: explicit color + text-color via SetStyleText
+  // Btn2: explicit color + text-color via style.Assign
   btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn2').Setup('Custom color', font);
   btn.SetPos(140, 93, pivotCenter);
-  btn.SetStyleText('color: $FF1E3D6E; text-color: $FFCCE0FF;');
+  btn.style.Assign('color: $FF1E3D6E; text-color: $FFCCE0FF;');
 
   // Btn3: @ref to named style (same result as Btn2, but via indirection)
   btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn3').Setup('@ref style', font);
   btn.SetPos(140, 131, pivotCenter);
-  btn.SetStyleText('@demo-btn;');
+  btn.style.Assign('@demo-btn;');
 
   // Btn4: CSS state blocks — :hover and :pressed override color
   btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn4').Setup('State: hover/pressed', font);
   btn.SetPos(140, 169, pivotCenter);
-  btn.SetStyleText(
+  btn.style.Assign(
     'color: $FF1E3D6E; text-color: $FFCCE0FF;'+
     ':hover { color: $FF2E5DA0; text-color: $FFFFFFFF; }'+
     ':pressed { color: $FF0E1E3A; text-color: $FF8090A0; }');
@@ -144,7 +144,7 @@ procedure TStyleDemoScene.CreateUI;
   // Btn5: disabled — :disabled overrides text-color; button color unchanged
   btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn5').Setup('Disabled button', font);
   btn.SetPos(140, 207, pivotCenter);
-  btn.SetStyleText(
+  btn.style.Assign(
     'color: $FF1E3D6E; text-color: $FFCCE0FF;'+
     ':disabled { text-color: $FF707070; }');
   btn.flags.enabled:=false;

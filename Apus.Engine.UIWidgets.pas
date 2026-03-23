@@ -1579,7 +1579,7 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    selTextColor:=$FFF0F0F0;
    autoSelectMode:=false;
    // R-05: expose list colors via style for theming (drawers still use the direct fields above)
-   SetStyleText('text-color:$E0D0D0D0; :hover { text-color:$FFD8D8D8; } sel-text-color:$FFF0F0F0; sel-bg:$90406070');
+   style.Assign('text-color:$E0D0D0D0; :hover { text-color:$FFD8D8D8; } sel-text-color:$FFF0F0F0; sel-bg:$90406070');
    UpdateScroller;
   end;
 

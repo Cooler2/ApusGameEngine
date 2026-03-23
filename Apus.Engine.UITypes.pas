@@ -126,7 +126,7 @@ type
   timer:integer;            // ms until onTimer fires (0 = disabled); fires once, not earlier than next frame
 
   // Style (R-05 pipeline)
-  styleBlock:TStyleBlock;   // parsed style data (lazy; nil = no style defined)
+  style:TStyleBlock;        // parsed style data (created in constructor)
   drawer:TUIDrawer;         // direct drawer reference (nil = use styleClass fallback)
   styleClass:byte;          // which style handler draws this element (0 = default, deprecated - use drawer)
   styleInfoChanged:boolean; // set true whenever styleInfo changes
@@ -244,17 +244,14 @@ type
   class procedure SetDefault(name:String8;value:variant); // set class-level default attribute
   procedure SetStyle(name,value:string8); // 'name:value' or 'state.name:value' syntax
 
-  // R-05: style system
-  procedure SetStyleText(const text:String8);  // parse and set full style text
-  procedure PatchStyleText(const patch:String8); // apply patch operations
-  function HasState(const name:String8):boolean;
-  procedure SetState(const name:String8; active:boolean);
+  // R-05: style system — use element.style.Assign/Add/SetState/GetColor etc. directly
+  function HasState(const name:String8):boolean;  // shortcut for style.HasState
+  procedure SetState(const name:String8; active:boolean);  // shortcut for style.SetState
   // Resolve style attribute value considering cascade (own block → parent chain)
   function GetStyleValue(const key:String8; const defVal:String8=''):String8;
   function GetStyleColor(const key:String8; defVal:cardinal=0):cardinal;
   function GetStyleNumber(const key:String8; defVal:single=0):single;
   function GetStyleInt(const key:String8; defVal:integer=0):integer;
-  function EnsureStyleBlock:TStyleBlock; // create styleBlock if nil, return it
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
@@ -621,6 +618,7 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    font:=GetClassAttribute('defaultFont',0);
    color:=GetClassAttribute('defaultColor',clDefault);
    styleClass:=GetClassAttribute('defaultStyle',0);
+   style:=TStyleBlock.Create;
    styleInfo:=GetClassAttribute('defaultStyleInfo','');
    sendSignals:=ssNone;
    scroll:=Vec2(0,0);
@@ -669,7 +667,7 @@ destructor TUIElement.Destroy;
     DeleteChildren;
     if (shape<>nil) and not shape.persistent then FreeAndNil(shape);
     FreeAndNil(styleContext);
-    FreeAndNil(styleBlock);
+    FreeAndNil(style);
     DeleteHotkeys(0);
     Signal('UI\ItemDestroyed',TTag(self));
    except
@@ -1428,50 +1426,18 @@ function TUIElement.GetClientHeight:single;
    if fStyleInfo<>sInfo then begin
     fStyleInfo:=sInfo;
     styleInfoChanged:=true;
-    // Sync to styleBlock (lazy parse)
-    if styleBlock<>nil then
-     styleBlock.ParseText(sInfo)
-    else if sInfo<>'' then begin
-     styleBlock:=TStyleBlock.Create;
-     styleBlock.ParseText(sInfo);
-    end;
+    style.ParseText(sInfo);  // eager: style is always non-nil
    end;
-  end;
-
- function TUIElement.EnsureStyleBlock:TStyleBlock;
-  begin
-   if styleBlock=nil then begin
-    styleBlock:=TStyleBlock.Create;
-    if fStyleInfo<>'' then
-     styleBlock.ParseText(fStyleInfo);
-   end;
-   result:=styleBlock;
-  end;
-
- procedure TUIElement.SetStyleText(const text:String8);
-  begin
-   EnsureStyleBlock.ParseText(text);
-   fStyleInfo:=text;
-   styleInfoChanged:=true;
-   styleBlock.dirty:=true;
-  end;
-
- procedure TUIElement.PatchStyleText(const patch:String8);
-  begin
-   EnsureStyleBlock.PatchText(patch);
-   fStyleInfo:=styleBlock.GetText;
-   styleInfoChanged:=true;
   end;
 
  function TUIElement.HasState(const name:String8):boolean;
   begin
-   if styleBlock=nil then exit(false);
-   result:=styleBlock.HasState(name);
+   result:=style.HasState(name);
   end;
 
  procedure TUIElement.SetState(const name:String8; active:boolean);
   begin
-   EnsureStyleBlock.SetState(name,active);
+   style.SetState(name,active);
   end;
 
  // Resolve style value: own block (with refs) → parent chain for inheritable attrs
@@ -1480,17 +1446,13 @@ function TUIElement.GetClientHeight:single;
    item:TUIElement;
   begin
    // own block first
-   if styleBlock<>nil then begin
-    result:=ResolveBlockAttr(styleBlock,key,'');
-    if result<>'' then exit;
-   end;
+   result:=ResolveBlockAttr(style,key,'');
+   if result<>'' then exit;
    // walk parent chain for inheritable attributes
    item:=parent;
    while item<>nil do begin
-    if item.styleBlock<>nil then begin
-     result:=ResolveBlockAttr(item.styleBlock,key,'');
-     if result<>'' then exit;
-    end;
+    result:=ResolveBlockAttr(item.style,key,'');
+    if result<>'' then exit;
     item:=item.parent;
    end;
    result:=defVal;
