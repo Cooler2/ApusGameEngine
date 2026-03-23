@@ -44,6 +44,11 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-03-22):** Extended `Base/tests/BenchCore` with direct timing-cost comparison for `Time.Ticks`, `Time.TicksUs`, and `Time.TicksSec`.
 **Recent wins (2026-03-23):** Extended `Apus.Geom2D.TRect2` with `Contains(const p:TPoint)` and `Contains(x,y:single)`; Engine window hit-testing switched to type-level methods instead of local helper functions.
 **Recent wins (2026-03-23):** `Apus.Files.TFileHandle` now supports object-style I/O (`Read/Write/Seek/Close`) plus untyped buffer overloads (`Read(var buf,...)`, `Write(const buf,...)`); raw pointer access in object API is explicit as `ReadMem/WriteMem` to avoid pointer-overload ambiguity.
+**Recent wins (2026-03-23):** Fixed `Apus.Tweenings` runtime defects: scalar `TTweening.Animate(newValue:single,...)` recursion (stack overflow) and division-by-zero in compensation path for `duration=0` with delayed re-targeting.
+**Recent wins (2026-03-23):** Added dedicated `TestTweenings` coverage for `Apus.Tweenings` (basic interpolation, vector tweening, interruption flow, zero-duration edge cases with delay).
+**Recent wins (2026-03-23):** Added optional test-time monotonic override API in `Apus.Core.Time` under `{$IFDEF TIME_OVERRIDE}` (`Override(timeUs:int64)`), applied consistently to `TicksUs/Ticks/TicksSec`, with zero runtime cost when define is off.
+**Recent wins (2026-03-23):** Updated test runner scripts (`Base/tests/test.bat`, `Base/tests/test.sh`) to compile tests with `-dTIME_OVERRIDE` by default.
+**Recent wins (2026-03-23):** Added `Base/tests/BenchAnimation.dpr` to compare `TTweening` vs `TAnimatedValue` in matched read/retarget scenarios (including realistic overlap cap).
 
 ## NEW — created in engine5 refactoring
 
@@ -71,6 +76,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 | **Apus.LongMath** | 1160 | Big integer math. Level 0. |
 | **Apus.RegExpr** | 69 | Thin wrapper for RegExpr. Level 0. |
 | **Apus.Geom3D** | 2759 | Matrices, quaternions, 3D math. Uses Types only. |
+| **Apus.Tweenings** | 302 | Tweening interpolation with smooth interruption compensation (`g(u)`), scalar and 1..4 component modes. Covered by `TestTweenings`. |
 | **Apus.AnimatedValues** | 328 | Animated floats. Uses Tweenings only. |
 | **Apus.Classes** | 163 | ✅ **Migrated 2026-02-17**: uses Strings (FastHash), Conv (ToHex, HasValue), Structs. Foundation module (Level 1). |
 | **Apus.Containers** | 1051 | TestContainers | Trees, heaps, queues and object list containers split from old `Apus.Structs`. |

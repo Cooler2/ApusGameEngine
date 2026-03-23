@@ -1,5 +1,5 @@
 ﻿# Engine Work Ahead Log
-Last updated: 2026-03-20
+Last updated: 2026-03-22
 
 This file tracks active execution only:
 - immediate priorities;
@@ -9,6 +9,17 @@ This file tracks active execution only:
 Large feature planning lives in `engine5_feature_roadmap.md`.
 
 ## Done (recent, high impact)
+- Tweenings validation track updated (2026-03-23):
+  - documentation synchronized for current status (`Base/tests/README.md`, `demo/demo_inventory.md`, `Base/engine5_status.md`);
+  - fixed tween runtime defects in `Apus.Tweenings`: scalar overload recursion (`stack overflow`) and `duration=0` delayed retarget (`division by zero`);
+  - added optional deterministic time-test hook in `Apus.Core.Time` under `TIME_OVERRIDE` define (`Override(timeUs:int64)`), shared by `TicksUs/Ticks/TicksSec`.
+  - test runners (`Base/tests/test.bat`, `Base/tests/test.sh`) now build with `-dTIME_OVERRIDE` by default;
+  - added focused automated coverage for `Apus.Tweenings` in `Base/tests/TestTweenings.dpr` (basic + edge scenarios, delay/instant/boundary checks);
+  - added unified benchmark `Base/tests/BenchAnimation.dpr` for `TTweening` vs `TAnimatedValue` (read + realistic retarget scenarios).
+- Frame timing diagnostics guide documented (2026-03-22):
+  - added `manual/frame_timing_diagnostics.md` with frame-loop timing instrumentation map;
+  - documented Robot API `fps` workflow (`N`, `METRICS`) for phase-based stall analysis;
+  - clarified overlay vs high-precision diagnostics usage and current limitations.
 - New standalone input diagnostics demo `demo/InputDemo` (2026-03-20):
   - low-level menu/screens in modern style (`Overview`, `Keyboard Deep`, `Mouse Deep`, `High-Rate Trace`, `Polling vs Events`, `Stress`);
   - captures raw `MOUSE\MOVE` event stream and draws raw-vs-frame mouse paths for high-rate input diagnostics;
@@ -177,6 +188,11 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - per-context VAO bootstrap exists in `InitGraphShared`;
   - `transform/shader/draw/txt/renderTarget/clipping/renderDevice` mutable runtime state migration is in place;
   - runtime baseline reached: secondary window renders successfully;
+  - latest checkpoint (2026-03-22, commit `275e5e0`):
+    - added global overlay invalidation (`MarkAllWindowsDirty`) and forced redraw while debug overlays are enabled;
+    - added extra-window overlay rendering path (`RenderScenesForWindow -> DrawOverlays`);
+    - added centralized extra-window thread stop before main `DoneGraph` (`StopExtraWindows`) to prevent AV on shutdown;
+    - status after user validation: shutdown AV fixed, app no longer hangs; remaining issue — debug overlay still updates only in secondary window, main window does not refresh properly in multi-window mode (deferred back to R-02).
   - next focus: stress cycles (open/render/close/add/remove), cleanup, and race/regression checks.
   - **RESOLVED (2026-03-10): shared context creation failure (0xC00710DD):**
     - root cause: `AddWindow` was called from a non-main thread (`DelayedClick`), and `ReleaseGraphContext` (`wglMakeCurrent(0,0)`) only affects the calling thread — primary GL context remained current in main thread, blocking WGL sharing;

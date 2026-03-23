@@ -15,6 +15,7 @@
  and thus - data loss. Do not use
 }
 {$H+,R-}
+{$I defines.inc}
 unit Apus.ControlFiles;
 interface
 uses Apus.Core;

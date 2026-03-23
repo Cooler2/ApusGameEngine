@@ -5,6 +5,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 
+{$I defines.inc}
 unit Apus.Images;
 
 {$IFDEF FPC}

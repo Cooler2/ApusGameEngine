@@ -8,6 +8,7 @@
 {$PIC OFF}
 {$ENDIF}
 {$R-}
+{$I defines.inc}
 unit Apus.FastGFX;
 interface
  uses Apus.Geom2D,Types;

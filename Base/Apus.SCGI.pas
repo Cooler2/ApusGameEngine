@@ -2,6 +2,7 @@
 // Copyright (C) Ivan Polyacov, ivan@apus-software.com
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+{$I defines.inc}
 unit Apus.SCGI;
 interface
  uses Apus.Core, Apus.Database, Apus.HashMaps, SysUtils;
@@ -1384,4 +1385,3 @@ begin
  handlers[0].handler:=nil;
 
 end.
-

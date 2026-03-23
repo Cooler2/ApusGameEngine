@@ -9,6 +9,7 @@
 // As of 2023 this unit is deprecated. Use Apus.Socket instead
 {$H+,I-,R-}
 //{$IFDEF IOS}{$modeswitch objectivec1}{$ENDIF}
+{$I defines.inc}
 unit Apus.Network;
 
 interface

@@ -13,6 +13,7 @@
 // Author: Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
+{$I defines.inc}
 unit Apus.Tweenings;
 interface
 uses Apus.Utils;
@@ -43,6 +44,8 @@ type
    count:integer; // number of components (1..4)
    curValues:array[0..3] of single;
    effect:pointer; // TTweeningEffect
+   procedure AnimateInternal(const newValues; duration:cardinal;
+     spline:TSplineFunc; delay:integer);
    function CalcValue(index:integer; time:int64):single;
    procedure FinalizeEffect(time:int64);
  end;
@@ -221,7 +224,7 @@ begin
  finally lock:=0; end;
 end;
 
-procedure TTweening.Animate(const newValues; duration:cardinal;
+procedure TTweening.AnimateInternal(const newValues; duration:cardinal;
   spline:TSplineFunc; delay:integer);
 var
  i:integer;
@@ -269,7 +272,7 @@ begin
    eff.startValue[i]:=curValues[i];
    eff.endValue[i]:=src^;
    // compute compensation = deltaSpeed * duration
-   if hasSpeed then begin
+   if hasSpeed and (duration>0) then begin
     // current speed (value/ms) via finite difference
     curSpeed:=CalcValue(i,time)-CalcValue(i,time-1);
     // spline's own initial speed (value/ms): evaluate at u=1/duration
@@ -286,6 +289,12 @@ begin
  finally lock:=0; end;
 end;
 
+procedure TTweening.Animate(const newValues; duration:cardinal;
+  spline:TSplineFunc; delay:integer);
+begin
+ AnimateInternal(newValues,duration,spline,delay);
+end;
+
 procedure TTweening.Animate(newValue:single; duration:cardinal;
   spline:TSplineFunc; delay:integer);
 var
@@ -296,7 +305,7 @@ begin
   curValues[0]:=0;
  end;
  val:=newValue;
- Animate(val,duration,spline,delay);
+ AnimateInternal(val,duration,spline,delay);
 end;
 
 end.

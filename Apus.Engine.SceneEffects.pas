@@ -5,6 +5,7 @@
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
 {$R-}
+{$I defines.inc}
 unit Apus.Engine.SceneEffects;
 interface
  uses Apus.Core, Types, Apus.Engine.API, Apus.EventMan, Apus.Engine.UIScene, Apus.AnimatedValues;

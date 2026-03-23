@@ -39,6 +39,29 @@ Use it as the primary reference when updating old code.
 
 ## Recent API fixes (2026-03-23)
 
+### Apus.Core.Time test-time override hook
+
+- Added optional monotonic time override hook in `Apus.Core` for deterministic time-based tests.
+- API is available only under `{$IFDEF TIME_OVERRIDE}`:
+  - `Time.Override(timeUs:int64)` where `timeUs` is microseconds since program start.
+- Time behavior under `TIME_OVERRIDE`:
+  - if override value is non-zero, `Time.TicksUs` returns it directly;
+  - `Time.Ticks` is derived from override as `timeUs div 1000`;
+  - `Time.TicksSec` is derived from override as `timeUs * 1e-6`;
+  - if override is zero, normal platform clock path is used.
+- With `TIME_OVERRIDE` undefined, override code is not compiled and has zero runtime overhead.
+- Test harness integration:
+  - `Base/tests/test.bat` and `Base/tests/test.sh` now compile tests with `-dTIME_OVERRIDE` by default.
+  - `Base/tests/TestCore.dpr` includes explicit `Time override` coverage.
+  - `Base/tests/TestTweenings.dpr` uses virtual time path under `TIME_OVERRIDE` (with fallback to `Sleep` when define is off).
+
+### Animation benchmark coverage
+
+- Added `Base/tests/BenchAnimation.dpr` as a unified benchmark comparing `TTweening` and `TAnimatedValue` on matched scenarios:
+  - active-animation read path (linear/easeOut);
+  - retarget path with realistic overlap cap (<=3).
+- Added `Animation` to available benchmark list in `Base/tests/README.md`.
+
 ### Apus.Files object-style TFileHandle I/O
 
 - `TFileHandle` in `Apus.Files` is now an opaque record with object-style methods:

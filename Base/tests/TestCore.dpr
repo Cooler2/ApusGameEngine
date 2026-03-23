@@ -1075,6 +1075,34 @@ begin
   EndTest;
 end;
 
+procedure TestTimeOverride;
+var
+  tMs,tUs:int64;
+  tSec:double;
+begin
+  StartTest('Time override');
+  {$IFDEF TIME_OVERRIDE}
+  try
+    CoreTime.Override(1234567890123);
+    tUs:=CoreTime.TicksUs;
+    tMs:=CoreTime.Ticks;
+    tSec:=CoreTime.TicksSec;
+    Check(tUs=1234567890123,'TicksUs uses override');
+    Check(tMs=1234567890,'Ticks uses override converted to ms');
+    Check(Abs(tSec-1234567.890123)<0.000001,'TicksSec uses override converted to sec');
+
+    CoreTime.Override(5000);
+    Check(CoreTime.TicksUs=5000,'TicksUs follows updated override');
+    Check(CoreTime.Ticks=5,'Ticks follows updated override');
+  finally
+    CoreTime.Override(0);
+  end;
+  {$ELSE}
+  Check(true,'TIME_OVERRIDE not enabled');
+  {$ENDIF}
+  EndTest;
+end;
+
 
 begin
   try
@@ -1104,6 +1132,7 @@ begin
     TestException;
     TestExceptionMsg;
     TestTime;
+    TestTimeOverride;
     TestSystemPrimitives;
 
     writeln;

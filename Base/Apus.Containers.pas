@@ -12,6 +12,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 
 {$M-,H+,R-,Q-}
+{$I defines.inc}
 unit Apus.Containers;
 
 {$IFDEF FPC}
