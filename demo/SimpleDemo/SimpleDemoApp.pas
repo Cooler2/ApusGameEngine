@@ -20,7 +20,8 @@ interface
 
 implementation
  uses SysUtils, Apus.EventMan, Apus.Colors, Apus.Strings,
-   Apus.Engine.Types,Apus.Engine.SceneEffects,Apus.Engine.UI;
+   Apus.Engine.Types,Apus.Engine.SceneEffects,Apus.Engine.UI,
+   Apus.Engine.Style;
 
  type
   TParticleData=record
@@ -36,12 +37,14 @@ implementation
 
    procedure InitParticles;
    procedure CreateUI;
+   procedure CreateStyleUI; // R-05 style system demo panel
    procedure HandleParticles;
    procedure Render; override;
   end;
 
  var
   mainScene:TMainScene;
+  styleRefToggle:boolean; // for the @ref update button demo
 
 { TSimpleDemoApp }
 
@@ -100,6 +103,20 @@ procedure TSimpleDemoApp.SetupGameSettings(var settings: TGameSettings);
    Ask('Are you sure?','Engine\Cmd\Exit');
  end;
 
+ // Toggle @demo-btn named style between two color schemes → Btn3 changes too
+ procedure StyleDemoUpdateRef;
+  var
+   named:TStyleBlock;
+  begin
+   styleRefToggle:=not styleRefToggle;
+   named:=FindNamedStyle('demo-btn');
+   if named=nil then exit;
+   if styleRefToggle then
+    named.ParseText('color: $FF6E1E1E; text-color: $FFFFD0CC;')  // warm red
+   else
+    named.ParseText('color: $FF1E3D6E; text-color: $FFCCE0FF;'); // cool blue
+  end;
+
 // Most app initialization is here. Default spinner is running
 procedure TSimpleDemoApp.CreateScenes;
  begin
@@ -142,6 +159,75 @@ procedure TMainScene.CreateUI;
 
   // Link the button click signal to the engine termination signal
   //Link('UI\MainScene\Close\Click','Engine\Cmd\Exit');
+
+  CreateStyleUI;
+ end;
+
+// R-05 Style System demo panel.
+// Panel position: top-left at (10,10), size 225×255.
+// For Robot API visual tests use 'ui.element name=StyleDemo\BtnN' to get screen coords,
+// then 'pixel cx cy' to sample the button background color at center.
+// Expected colors (button background center, no hover):
+//   Btn1: ~$FFB0A0C0 (defaultBtnColor, default gradient)
+//   Btn2: ~$FF1E3D6E (custom color, gradient center)
+//   Btn3: ~$FF1E3D6E (same via @demo-btn ref)
+//   Btn4: ~$FF1E3D6E idle; ~$FF2E5DA0 on hover; ~$FF0E1E3A on press
+//   Btn5: ~$FF1E3D6E (disabled, color unchanged; only text-color differs)
+procedure TMainScene.CreateStyleUI;
+ var
+  panel:TUIElement;
+  btn:TUIButton;
+  font:cardinal;
+  named:TStyleBlock;
+ begin
+  font:=txt.GetFont('Default',8);
+
+  // Register named style reused by Btn2, Btn3 and the @ref update demo
+  named:=TStyleBlock.Create;
+  named.ParseText('color: $FF1E3D6E; text-color: $FFCCE0FF;');
+  RegisterNamedStyle('demo-btn', named);
+
+  // Panel: fixed 225×255 at (10,10) — old styleinfo format (DrawCommonStyle)
+  panel:=TUIElement.Create(225, 255, UI, 'StyleDemo\Panel');
+  panel.SetPos(10, 10, pivotTopLeft);
+  panel.styleinfo:='fill: $BF102030; border-width: 1; border-color: $FF3060A0;';
+  TUILabel.Create(205,20,panel,'StyleDemo\Title').Centered('R-05 Style Demo',font,$FF80C8FF).
+    SetPos(112,15,pivotCenter);
+
+  // Btn1: no custom style — baseline (defaultBtnColor = $FFB0A0C0)
+  TUIButton.Create(195,28,panel,'StyleDemo\Btn1').Setup('Default style',font).
+    SetPos(112,45,pivotCenter);
+
+  // Btn2: explicit color+text via SetStyleText
+  btn:=TUIButton.Create(195,28,panel,'StyleDemo\Btn2').Setup('Custom color',font);
+  btn.SetPos(112,80,pivotCenter);
+  btn.SetStyleText('color: $FF1E3D6E; text-color: $FFCCE0FF;');
+
+  // Btn3: @ref to named style (same result as Btn2, but via indirection)
+  btn:=TUIButton.Create(195,28,panel,'StyleDemo\Btn3').Setup('@ref style',font);
+  btn.SetPos(112,115,pivotCenter);
+  btn.SetStyleText('@demo-btn;');
+
+  // Btn4: CSS state blocks — :hover and :pressed override color
+  btn:=TUIButton.Create(195,28,panel,'StyleDemo\Btn4').Setup('Hover: state test',font);
+  btn.SetPos(112,150,pivotCenter);
+  btn.SetStyleText(
+    'color: $FF1E3D6E; text-color: $FFCCE0FF;'+
+    ':hover { color: $FF2E5DA0; text-color: $FFFFFFFF; }'+
+    ':pressed { color: $FF0E1E3A; text-color: $FF8090A0; }');
+
+  // Btn5: disabled — :disabled overrides text-color; button color unchanged
+  btn:=TUIButton.Create(195,28,panel,'StyleDemo\Btn5').Setup('Disabled',font);
+  btn.SetPos(112,185,pivotCenter);
+  btn.SetStyleText(
+    'color: $FF1E3D6E; text-color: $FFCCE0FF;'+
+    ':disabled { text-color: $FF707070; }');
+  btn.flags.enabled:=false;
+
+  // Btn6: click to toggle @demo-btn color → Btn2 and Btn3 update together
+  btn:=TUIButton.Create(195,28,panel,'StyleDemo\Btn6').Setup('Toggle @ref color',font);
+  btn.SetPos(112,225,pivotCenter);
+  btn.onClickAsync:=@StyleDemoUpdateRef;
  end;
 
 procedure TMainScene.InitParticles;
