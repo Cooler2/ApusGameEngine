@@ -147,9 +147,6 @@ type
   procedure DrawCursor; virtual;
   procedure DrawOverlays; virtual;
 
-  procedure NotifyScenesAboutMouseMove; virtual;
-  procedure NotifyScenesAboutMouseBtn(c:byte;pressed:boolean); virtual;
-
   // находит сцену, которая должна получать сигналы о клавиатурном вводе
   function TopmostSceneForKbd:TGameScene; virtual;
 
@@ -160,19 +157,14 @@ type
   procedure onCmdEvent(event:string;tag:NativeInt); virtual;
   // Called when KBD\* event is fired
   procedure onKbdEvent(event:string;tag:NativeInt); virtual;
-  // Called when MOUSE\* event is fired
-  procedure onMouseEvent(event:string;tag:NativeInt); virtual;
   // Called when JOYSTICK\* event is fired
   procedure onJoystickEvent(event:string;tag:NativeInt); virtual;
   // Called when GAMEPAD\* event is fired
   procedure onGamepadEvent(event:string;tag:NativeInt); virtual;
 
   // Event processors
-  procedure MouseMovedTo(newX,newY:integer); virtual;
   procedure CharEntered(charCode,scanCode:integer); virtual;
   procedure KeyPressed(keyCode,scanCode:integer;pressed:boolean=true); virtual;
-  procedure MouseButtonPressed(btn:integer;pressed:boolean=true); virtual;
-  procedure MouseWheelMoved(value:integer); virtual;
   procedure SizeChanged(newWidth,newHeight:integer); virtual;
   procedure Activate(activeState:boolean); virtual;
 
@@ -460,19 +452,6 @@ begin
  result:=window.MouseIsNear(x,y,radius);
 end;
 
-procedure TGame.MouseMovedTo(newX,newY:integer);
-begin
-  window.oldMouseX:=window.mouseX;
-  window.oldMouseY:=window.mouseY;
-  window.mouseX:=newX;
-  window.mouseY:=newY;
-  window.mouseMovedTime:=CoreTime.Ticks;
-  Signal('MOUSE\MOVE',window.mouseX and $FFFF+(window.mouseY and $FFFF) shl 16);
-  TGame(game).NotifyScenesAboutMouseMove;
-  // Если курсор рисуется вручную, то нужно обновить экран
-  if not params.showSystemCursor then window.screenChanged:=true;
-end;
-
 procedure TGame.CharEntered(charCode,scanCode:integer);
 var
  i:integer;
@@ -521,16 +500,6 @@ begin
     //Log.Msg('KeyUp %d, KS[$d]=%2x ',[lParam,scanCode,window.keystate[scanCode]]);
     if scene<>nil then Signal('SCENE\'+scene.name+'\KeyUp',uCode);
   end;
-end;
-
-procedure TGame.MouseButtonPressed(btn:integer;pressed:boolean=true);
-begin
- NotifyScenesAboutMouseBtn(btn,pressed);
-end;
-
-procedure TGame.MouseWheelMoved(value:integer);
-begin
-  window.NotifyScenesMouseWheel(value);
 end;
 
 procedure TGame.SizeChanged(newWidth,newHeight:integer);
@@ -1153,12 +1122,6 @@ begin
  TGame(game).onKbdEvent(event,tag);
 end;
 
-procedure GameMouseEvent(event:TEventStr;tag:TTag);
-begin
- if game=nil then exit;
- TGame(game).onMouseEvent(event,tag);
-end;
-
 procedure GameJoystickEvent(event:TEventStr;tag:TTag);
 begin
  if game=nil then exit;
@@ -1190,7 +1153,6 @@ begin
   Signal('Engine\MainLoopInit');
  end;
  SetEventHandler('KBD\',GameKbdEvent,emInstant);
- SetEventHandler('MOUSE\',GameMouseEvent,emInstant);
  SetEventHandler('JOYSTICK\',GameJoystickEvent,emInstant);
  SetEventHandler('GAMEPAD\',GameGamepadEvent,emInstant);
 
@@ -1255,16 +1217,6 @@ begin
  window.CaptureFrame;
 end;
 
-procedure TGame.NotifyScenesAboutMouseMove;
-begin
- window.NotifyScenesMouseMove(window.mouseX,window.mouseY);
-end;
-
-procedure TGame.NotifyScenesAboutMouseBtn(c:byte;pressed:boolean);
-begin
- window.NotifyScenesMouseBtn(c,pressed);
-end;
-
 // ENGINE\*
 procedure TGame.onEngineEvent(event:string;tag:NativeInt);
 var
@@ -1301,45 +1253,36 @@ begin
  end else
  if event='SINGLETOUCHSTART' then begin
    t:=CoreTime.Ticks;
-   window.OldMouseX:=window.mouseX;
-   window.OldMouseY:=window.mouseY;
    p.x:=tag and $FFFF;
    p.y:=tag shr 16;
    ClientToGame(p);
    window.mouseX:=p.x;
    window.mouseY:=p.y;
-   window.mouseMovedTime:=CoreTime.Ticks;
    Signal('Mouse\Move',(window.mouseX and $FFFF)+window.mouseY shl 16);
-   NotifyScenesAboutMouseMove;
+   window.FlushMouseInput;
    Signal('Mouse\BtnDown\Left',1);
-   NotifyScenesAboutMouseBtn(1,true);
+   window.NotifyScenesMouseBtn(1,true);
    CoreTime.Sleep(0);
    Timing;
  end else
  if event='SINGLETOUCHMOVE' then begin
    t:=CoreTime.Ticks;
-   window.OldMouseX:=window.mouseX;
-   window.OldMouseY:=window.mouseY;
    p.x:=tag and $FFFF;
    p.y:=tag shr 16;
    ClientToGame(p);
    window.mouseX:=p.x;
    window.mouseY:=p.y;
-   window.mouseMovedTime:=CoreTime.Ticks;
    Signal('Mouse\Move',(window.mouseX and $FFFF)+window.mouseY shl 16);
-   NotifyScenesAboutMouseMove;
+   window.FlushMouseInput;
    Timing;
  end else
  if event='SINGLETOUCHRELEASE' then begin
    t:=CoreTime.Ticks;
    Signal('Mouse\BtnUp\Left',1);
-   NotifyScenesAboutMouseBtn(1,false);
-   window.OldMouseX:=window.mouseX;
-   window.OldMouseY:=window.mouseY;
+   window.NotifyScenesMouseBtn(1,false);
    window.mouseX:=4095; window.mouseY:=4095;
-   window.mouseMovedTime:=CoreTime.Ticks;
    Signal('Mouse\Move',Bits.PackW(window.mouseX,window.mouseY));
-   NotifyScenesAboutMouseMove;
+   window.FlushMouseInput;
    Timing;
  end else
  if SameText(event,'REDRAW') then begin
@@ -1393,8 +1336,10 @@ begin
  if SameText(event,'UPDATEMOUSEPOS') then begin
    pnt:=systemPlatform.GetMousePos;
    ClientToGame(pnt);
-   tag:=pnt.X+pnt.Y shl 16;
-   Signal('MOUSE\MOVE',tag);
+   window.mouseX:=pnt.X;
+   window.mouseY:=pnt.Y;
+   Signal('MOUSE\MOVE',pnt.X and $FFFF+(pnt.Y and $FFFF) shl 16);
+   window.FlushMouseInput;
  end
  else
  // Make window flash to draw attention
@@ -1415,40 +1360,6 @@ begin
  if SameText(event,'UNICHAR') then begin
    CharEntered(tag and $FFFF,tag shr 16);
  end;
-end;
-
-// Handle MOUSE\* event
-procedure TGame.onMouseEvent(event:string;tag:NativeInt);
-var
- pnt:TPoint;
-begin
- event:=Copy(event,7,200);
- /// TODO: if not params.showSystemCursor then SetCursor(0);
- // position changed in screen space
- if SameText(event,'CLIENTMOVE') then begin
-   pnt.x:=SmallInt(tag);
-   pnt.y:=SmallInt(tag shr 16);
-   ClientToGame(pnt);
-   MouseMovedTo(pnt.x,pnt.y); // process motion in game space
-   if params.showSystemCursor then
-    systemPlatform.SetCursor(wndCursor);
- end else
- if SameText(event,'GLOBALMOVE') then begin
-   pnt.x:=SmallInt(tag);
-   pnt.y:=SmallInt(tag shr 16);
-   window.ScreenToClient(pnt);
-   ClientToGame(pnt);
-   MouseMovedTo(pnt.x,pnt.y); // process motion in game space
- end else
- if SameText(event,'BTNDOWN') then begin
-   MouseButtonPressed(tag,true);
- end else
- if SameText(event,'BTNUP') then begin
-   MouseButtonPressed(tag,false);
- end else
- if SameText(event,'SCROLL') then begin
-   MouseWheelMoved(tag);
- end
 end;
 
 // Handle JOYSTICK\* event
@@ -1873,6 +1784,7 @@ procedure TGame.FrameLoop;
   EndMeasure2(14);
 
   if useMainThread and CurrentThread.Terminating then exit;
+  window.FlushMouseInput; // aggregate mouse move, notify scenes once per frame
   RenderAndPresentFrame;
 
   t:=CoreTime.Ticks-t;

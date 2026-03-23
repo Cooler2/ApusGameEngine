@@ -161,6 +161,7 @@ var
  i,charCode,scanCode,keyCode:integer;
  isExtended:boolean;
  vkCode:cardinal;
+ pnt:TPoint;
 begin
  try
  result:=0;
@@ -181,9 +182,25 @@ begin
   WM_POINTERUPDATE,WM_POINTERENTER,WM_POINTERLEAVE:ProcessPointerMessage(Message,WParam,LParam);
   {$ENDIF}
 
-  WM_MOUSEMOVE:Signal('MOUSE\CLIENTMOVE',lParam);
+  WM_MOUSEMOVE:begin
+   // Update window position directly, emit raw signal for external subscribers
+   if Apus.Engine.API.window<>nil then begin
+    pnt.x:=SmallInt(lParam);
+    pnt.y:=SmallInt(lParam shr 16);
+    Apus.Engine.API.window.ClientToGame(pnt);
+    Apus.Engine.API.window.mouseX:=pnt.x;
+    Apus.Engine.API.window.mouseY:=pnt.y;
+    Signal('MOUSE\MOVE',pnt.x and $FFFF+(pnt.y and $FFFF) shl 16);
+   end;
+  end;
 
-  WM_MOUSELEAVE:Signal('MOUSE\CLIENTMOVE',$3FFF3FFF);
+  WM_MOUSELEAVE:begin
+   if Apus.Engine.API.window<>nil then begin
+    Apus.Engine.API.window.mouseX:=$3FFF;
+    Apus.Engine.API.window.mouseY:=$3FFF;
+    Signal('MOUSE\MOVE',$3FFF3FFF);
+   end;
+  end;
 
   WM_UNICHAR:begin
 //   Log.Msg('WM_UNICHAR wParam=%d lParam=%d',[wParam,lParam]);
@@ -246,14 +263,18 @@ begin
     if message=wm_LButtonDown then i:=1 else
     if message=wm_RButtonDown then i:=2 else
     if message=wm_MButtonDown then i:=3;
-    Signal('MOUSE\BTNDOWN',i);
+    Signal('MOUSE\BTNDOWN',i); // for external subscribers
+    if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseBtn(i,true);
   end;
   WM_XBUTTONDOWN:begin
     SetCapture(window);
     i:=0;
     if HiWord(wParam)=XBUTTON1 then i:=4 else
     if HiWord(wParam)=XBUTTON2 then i:=5;
-    if i>0 then Signal('MOUSE\BTNDOWN',i);
+    if i>0 then begin
+     Signal('MOUSE\BTNDOWN',i);
+     if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseBtn(i,true);
+    end;
     exit(0);
   end;
 
@@ -263,18 +284,25 @@ begin
     if message=wm_LButtonUp then i:=1 else
     if message=wm_RButtonUp then i:=2 else
     if message=wm_MButtonUp then i:=3;
-    Signal('MOUSE\BTNUP',i);
+    Signal('MOUSE\BTNUP',i); // for external subscribers
+    if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseBtn(i,false);
   end;
   WM_XBUTTONUP:begin
     ReleaseCapture;
     i:=0;
     if HiWord(wParam)=XBUTTON1 then i:=4 else
     if HiWord(wParam)=XBUTTON2 then i:=5;
-    if i>0 then Signal('MOUSE\BTNUP',i);
+    if i>0 then begin
+     Signal('MOUSE\BTNUP',i);
+     if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseBtn(i,false);
+    end;
     exit(0);
   end;
 
-  WM_MOUSEWHEEL:Signal('MOUSE\SCROLL',smallint(wParam shr 16));
+  WM_MOUSEWHEEL:begin
+   Signal('MOUSE\SCROLL',smallint(wParam shr 16)); // for external subscribers
+   if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseWheel(smallint(wParam shr 16));
+  end;
 
   WM_SIZE:if lParam<>0 then Signal('ENGINE\RESIZE',lParam);
 

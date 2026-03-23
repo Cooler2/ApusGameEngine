@@ -93,7 +93,6 @@ threadvar
  curShadowValue,oldShadowValue,needShadowValue:integer; // 0..255
  startShadowChange,shadowChangeDuration:int64;
 
- lastShiftState:byte;
 
 function UIScene(name:String8):TUIScene;
  var
@@ -158,156 +157,11 @@ function UIScene(name:String8):TUIScene;
   end;
 
  procedure MouseEventHandler(event:TEventStr;tag:TTag);
-  var
-   c,c2:TUIElement;
-   e1,e2,e:boolean;
-   x,y:integer;
-   time:int64;
-   st:String8;
   begin
-   event:=UpperCase {TODO: use st.ToUpper}(copy(event,7,length(event)-6));
-   window.Lock;
-   time:=CoreTime.Ticks;
-   try
-    // обновить положение курсора если оно устарело
-    if event='UPDATEPOS' then begin
-     Signal('Engine\Cmd\UpdateMousePos');
-    end;
-    // Движение
-    if event='MOVE' then begin
-     oldMouseX:=curMouseX; oldMouseY:=curMouseY;
-     curMouseX:=SmallInt(tag and $FFFF); curMouseY:=SmallInt((tag shr 16) and $FFFF);
-     if ClipMouse<>cmNo then with clipMouseRect do begin
-      x:=curMouseX; y:=curMouseY;
-      if X<left then x:=left;
-      if X>=right then x:=right-1;
-      if Y<top then y:=top;
-      if Y>=bottom then y:=bottom-1;
-      if (clipMouse in [cmReal,cmLimited]) and ((curMouseX<>x) or (curMouseY<>y)) then begin
-       if clipMouse=cmReal then exit;
-      end;
-      if clipmouse=cmVirtual then begin
-       curMouseX:=x; curMouseY:=y;
-      end;
-     end;
-     if (curMouseX=oldMouseX) and (curMouseY=oldMouseY) then exit;
-
-     // если мышь покинула прямоугольник хинта - стереть его
-     {$IFNDEF IOS}
-     if (curhint<>nil) and (curhint.flags.visible) and
-        not PtInRect(hintRect,types.Point(curMouseX,curMouseY)) then curhint.Hide;
-     {$ENDIF}
-
-     if hookedItem<>nil then
-      hookedItem.MoveBy(curMouseX-oldMouseX,curMouseY-oldMouseY);
-
-     e1:=FindElementAt(oldMouseX,oldMouseY,c);
-     e2:=FindElementAt(curMouseX,curMouseY,c2);
-     if e2 then SetUnderMouse(c2)
-      else SetUnderMouse(nil);
-     if e1 then c.onMouseMove;
-     if e2 and (c2<>c) then c2.onMouseMove;
-     e2:=FindElementAt(curMouseX,curMouseY,c2);
-
-     // Курсор
-     if e2 and (c2.cursor<>curCursor) then begin
-      if curCursor<>CursorID.Default then begin
-       game.ToggleCursor(curCursor,false);
-       Signal('UI\Cursor\OFF',curCursor);
-      end;
-      curCursor:=c2.cursor;
-      game.ToggleCursor(curCursor,true);
-      Signal('UI\Cursor\ON',curCursor);
-     end;
-     if not e2 and (curCursor<>CursorID.Default) then begin
-      Signal('UI\Cursor\OFF',curCursor);
-      game.ToggleCursor(curCursor,false);
-      curCursor:=CursorID.Default;
-      game.ToggleCursor(curCursor);
-     end;
-
-     if c<>c2 then begin
-      // мышь перешла границу элемента
-      if c<>nil then Signal('UI\onMouseOut\'+c.ClassName+'\'+c.name);
-      if c2<>nil then Signal('UI\onMouseOver\'+c2.ClassName+'\'+c2.name);
-     end;
-
-     if (c2<>nil) and (c2.flags.enabled and (c2.hint<>'') or not c2.flags.enabled and (c2.attributes.Item['hintIfDisabled']<>'')) then begin
-      if c2.flags.enabled then st:=c2.hint
-       else st:=c2.attributes.Item['hintIfDisabled'];
-      if st<>lastHint then begin
-       if st='' then begin
-        ItemShowHintTime:=0;
-       end else begin
-        // этот элемент должен показать хинт
-        if time<hintMode then ItemShowHintTime:=time+250
-         else ItemShowHintTime:=time+Conv.ToInt(c2.attributes.Item['hintDelay'],1000);
-       end;
-      end;
-      lastHint:=st;
-     end else begin
-      ItemShowHintTime:=0;
-      lastHint:='';
-     end;
-
-
-     if clipMouse=cmLimited then begin // запомним скорректированное положение, чтобы не "прыгать" назад
-      curMouseX:=x; curMouseY:=y;
-     end;
-    end;
-    // Нажатие кнопки
-    if copy(event,1,7)='BTNDOWN' then begin
-     c:=nil;
-     e:=FindElementAt(curMouseX,curMouseY,c);
-     if e and (c<>nil) then
-      c.onMouseButtons(tag,true)
-     else if c<>nil then
-      if (not c.flags.enabled) and c.GetClassAttribute('handleMouseIfDisabled') then
-       c.onMouseButtons(tag,true);
-
-     // DEBUG FACILITIES
-     // Drag elements with Ctrl+RMB
-     if (tag=2) and
-        (designmode or Bits.HasAll(lastShiftState,sscCtrl)) then hookedItem:=c;
-     // Показать название и св-ва элемента
-     if (tag=3) and Bits.HasAll(lastShiftState,sscCtrl) then
-      if c<>nil then begin
-        st:=c.name;
-        c2:=c;
-        while c2.parent<>nil do begin
-         c2:=c2.parent;
-         st:=c2.name+'->'+st;
-        end;
-        ShowSimpleHint(c.ClassName+'('+st+')',c.GetRoot,-1,-1,5000);
-        PutMsg(Format('%s: pos: %.1f,%.1f pivot: %.1f %.1f size: %.1f,%.1f gRect: (%d %d %d %d) ',
-         [c.name,c.position.x,c.position.y,c.pivot.x,c.pivot.y,c.size.x,c.size.y,
-          c.globalRect.Left,c.globalRect.top,c.globalRect.right,c.globalRect.bottom]));
-        if (window.shiftState and 2>0) and (c.name<>'') then // Shift pressed => select item
-          ExecCmd('use '+c.name);
-      end else begin
-       st:='No opaque item here';
-       FindAnyElementAt(curMouseX,curMouseY,c);
-       if c<>nil then st:=st+'; '+c.ClassName+'('+c.name+')';
-       ShowSimpleHint(st,nil,-1,-1,500+4000*byte(c<>nil));
-      end;
-    end;
-    // Button release
-    if copy(event,1,5)='BTNUP' then begin
-     if (hookedItem<>nil) and (tag=2) then begin
-      PutMsg('x='+inttostr(round(hookeditem.position.x))+' y='+inttostr(round(hookeditem.position.y)));
-      hookedItem:=nil;
-     end;
-     if FindElementAt(curMouseX,curMouseY,c) then
-      c.onMouseButtons(tag,false);
-    end;
-    // Скроллинг
-    if copy(event,1,6)='SCROLL' then
-     if FindElementAt(curMouseX,curMouseY,c) then
-      c.onMouseScroll(tag);
-
-   finally
-    window.Unlock;
-   end;
+   event:=UpperCase(copy(event,7,length(event)-6));
+   // update mouse position when it is stale (e.g. after scroll or window move)
+   if event='UPDATEPOS' then
+    Signal('Engine\Cmd\UpdateMousePos');
   end;
 
  procedure PrintUIlog;
@@ -330,7 +184,6 @@ function UIScene(name:String8):TUIScene;
   begin
    window.Lock;
    try
-    lastShiftState:=window.shiftState;
     shift:=window.shiftState;
     key:=GetKeyEventVirtualCode(tag); // virtual key code
     event:=UpperCase {TODO: use st.ToUpper}(copy(event,5,length(event)-4));
@@ -418,24 +271,173 @@ function UIScene(name:String8):TUIScene;
   end;
 
  procedure TUIScene.onMouseBtn(btn:byte;pressed:boolean);
+  var
+   c,c2:TUIElement;
+   e:boolean;
+   st:String8;
   begin
    if (UI<>nil) and (not UI.flags.enabled) then exit;
    inherited;
+   window.Lock;
+   try
+    // sync UI coords from window — button events arrive before FlushMouseInput
+    curMouseX:=window.mouseX;
+    curMouseY:=window.mouseY;
+    e:=FindElementAt(curMouseX,curMouseY,c);
+    if pressed then begin
+     if e and (c<>nil) then
+      c.onMouseButtons(btn,true)
+     else if c<>nil then
+      if (not c.flags.enabled) and c.GetClassAttribute('handleMouseIfDisabled') then
+       c.onMouseButtons(btn,true);
+     // design mode: drag element with Ctrl+RMB
+     if (btn=2) and (designMode or Bits.HasAll(window.shiftState,sscCtrl)) then hookedItem:=c;
+     // debug: Ctrl+MMB shows element info
+     if (btn=3) and Bits.HasAll(window.shiftState,sscCtrl) then begin
+      if c<>nil then begin
+       st:=c.name;
+       c2:=c;
+       while c2.parent<>nil do begin
+        c2:=c2.parent;
+        st:=c2.name+'->'+st;
+       end;
+       ShowSimpleHint(c.ClassName+'('+st+')',c.GetRoot,-1,-1,5000);
+       PutMsg(Format('%s: pos: %.1f,%.1f pivot: %.1f %.1f size: %.1f,%.1f gRect: (%d %d %d %d) ',
+        [c.name,c.position.x,c.position.y,c.pivot.x,c.pivot.y,c.size.x,c.size.y,
+         c.globalRect.Left,c.globalRect.top,c.globalRect.right,c.globalRect.bottom]));
+       if (window.shiftState and 2>0) and (c.name<>'') then
+        ExecCmd('use '+c.name);
+      end else begin
+       st:='No opaque item here';
+       FindAnyElementAt(curMouseX,curMouseY,c);
+       if c<>nil then st:=st+'; '+c.ClassName+'('+c.name+')';
+       ShowSimpleHint(st,nil,-1,-1,500+4000*byte(c<>nil));
+      end;
+     end;
+    end else begin
+     if (hookedItem<>nil) and (btn=2) then begin
+      PutMsg('x='+inttostr(round(hookedItem.position.x))+' y='+inttostr(round(hookedItem.position.y)));
+      hookedItem:=nil;
+     end;
+     if e and (c<>nil) then c.onMouseButtons(btn,false);
+    end;
+   finally
+    window.Unlock;
+   end;
   end;
 
  procedure TUIScene.onMouseMove(x,y:integer);
+  var
+   c,c2:TUIElement;
+   e1,e2:boolean;
+   time:int64;
+   st:String8;
   begin
    if (UI<>nil) and (not UI.flags.enabled) then exit;
    inherited;
+   window.Lock;
+   time:=CoreTime.Ticks;
+   try
+    // apply mouse clipping
+    if ClipMouse<>cmNo then with clipMouseRect do begin
+     if X<left then x:=left;
+     if X>=right then x:=right-1;
+     if Y<top then y:=top;
+     if Y>=bottom then y:=bottom-1;
+     if (clipMouse in [cmReal,cmLimited]) and ((curMouseX<>x) or (curMouseY<>y)) then
+      if clipMouse=cmReal then exit;
+     if clipMouse=cmVirtual then begin
+      curMouseX:=x; curMouseY:=y;
+     end;
+    end;
+    oldMouseX:=curMouseX; oldMouseY:=curMouseY;
+    curMouseX:=x; curMouseY:=y;
+    if (curMouseX=oldMouseX) and (curMouseY=oldMouseY) then exit;
+
+    // hide hint if mouse left hint rect
+    {$IFNDEF IOS}
+    if (curHint<>nil) and curHint.flags.visible and
+       not PtInRect(hintRect,types.Point(curMouseX,curMouseY)) then curHint.Hide;
+    {$ENDIF}
+
+    // design mode drag
+    if hookedItem<>nil then
+     hookedItem.MoveBy(curMouseX-oldMouseX,curMouseY-oldMouseY);
+
+    // hit-test
+    e1:=FindElementAt(oldMouseX,oldMouseY,c);
+    e2:=FindElementAt(curMouseX,curMouseY,c2);
+    if e2 then SetUnderMouse(c2) else SetUnderMouse(nil);
+    if e1 then c.onMouseMove;
+    if e2 and (c2<>c) then c2.onMouseMove;
+    e2:=FindElementAt(curMouseX,curMouseY,c2);
+
+    // update cursor
+    if e2 and (c2.cursor<>curCursor) then begin
+     if curCursor<>CursorID.Default then begin
+      game.ToggleCursor(curCursor,false);
+      Signal('UI\Cursor\OFF',curCursor);
+     end;
+     curCursor:=c2.cursor;
+     game.ToggleCursor(curCursor,true);
+     Signal('UI\Cursor\ON',curCursor);
+    end;
+    if not e2 and (curCursor<>CursorID.Default) then begin
+     Signal('UI\Cursor\OFF',curCursor);
+     game.ToggleCursor(curCursor,false);
+     curCursor:=CursorID.Default;
+     game.ToggleCursor(curCursor);
+    end;
+
+    if c<>c2 then begin
+     if c<>nil then Signal('UI\onMouseOut\'+c.ClassName+'\'+c.name);
+     if c2<>nil then Signal('UI\onMouseOver\'+c2.ClassName+'\'+c2.name);
+    end;
+
+    // hint timing
+    if (c2<>nil) and (c2.flags.enabled and (c2.hint<>'') or
+       not c2.flags.enabled and (c2.attributes.Item['hintIfDisabled']<>'')) then begin
+     if c2.flags.enabled then st:=c2.hint
+      else st:=c2.attributes.Item['hintIfDisabled'];
+     if st<>lastHint then begin
+      if st='' then itemShowHintTime:=0
+      else begin
+       if time<hintMode then itemShowHintTime:=time+250
+        else itemShowHintTime:=time+Conv.ToInt(c2.attributes.Item['hintDelay'],1000);
+      end;
+     end;
+     lastHint:=st;
+    end else begin
+     itemShowHintTime:=0;
+     lastHint:='';
+    end;
+
+    if clipMouse=cmLimited then begin
+     curMouseX:=x; curMouseY:=y;
+    end;
+   finally
+    window.Unlock;
+   end;
   end;
 
  procedure TUIScene.onMouseWheel(delta:integer);
+  var
+   c:TUIElement;
   begin
    if (UI<>nil) and (not UI.flags.enabled) then exit;
    inherited;
-   if (modalElement=nil) or (modalElement=UI) then begin
-     Signal('UI\'+name+'\MouseWheel',delta);
+   window.Lock;
+   try
+    // sync UI coords from window — wheel events arrive before FlushMouseInput
+    curMouseX:=window.mouseX;
+    curMouseY:=window.mouseY;
+    if FindElementAt(curMouseX,curMouseY,c) then
+     c.onMouseScroll(delta);
+   finally
+    window.Unlock;
    end;
+   if (modalElement=nil) or (modalElement=UI) then
+    Signal('UI\'+name+'\MouseWheel',delta);
   end;
 
  procedure TUIScene.onResize;

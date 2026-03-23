@@ -154,6 +154,9 @@ public
   procedure NotifyScenesMouseBtn(c:byte;pressed:boolean);
   procedure NotifyScenesMouseWheel(value:integer);
   procedure NotifyScenesResize;
+  // Called once per frame (after ProcessMessages) to update mouse position,
+  // emit MOUSE\MOVED signal and notify scenes. Buttons are handled immediately.
+  procedure FlushMouseInput;
   procedure DPIChanged(newDPI:integer);
   function ProcessScenes(deltaTime:integer):boolean;
 
@@ -539,6 +542,17 @@ procedure TWindow.NotifyScenesMouseWheel(value:integer);
   for i:=low(scenes) to high(scenes) do
    if scenes[i].IsActive then
     scenes[i].onMouseWheel(value);
+ end;
+
+procedure TWindow.FlushMouseInput;
+ begin
+  if (mouseX=oldMouseX) and (mouseY=oldMouseY) then exit;
+  mouseMovedTime:=CoreTime.Ticks;
+  Signal('MOUSE\MOVED',mouseX and $FFFF+(mouseY and $FFFF) shl 16);
+  NotifyScenesMouseMove(mouseX,mouseY);
+  screenChanged:=true; // needed if cursor is rendered manually
+  oldMouseX:=mouseX;
+  oldMouseY:=mouseY;
  end;
 
 procedure TWindow.NotifyScenesResize;
