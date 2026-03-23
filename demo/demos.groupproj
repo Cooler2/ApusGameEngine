@@ -6,6 +6,9 @@
         <Projects Include="SimpleDemo\SimpleDemo.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="StyleDemo\StyleDemo.dproj">
+            <Dependencies/>
+        </Projects>
         <Projects Include="01-Scenes\scenes.dproj">
             <Dependencies/>
         </Projects>
