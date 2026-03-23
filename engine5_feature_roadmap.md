@@ -1,5 +1,5 @@
 ﻿# Engine5 Feature Roadmap
-Last updated: 2026-03-20
+Last updated: 2026-03-24
 
 Language policy: this roadmap is maintained in English.
 
@@ -18,31 +18,35 @@ This file follows top-down planning:
 | ID | Feature | Status | Readiness | Done | Remaining |
 |----|---------|--------|-----------|------|-----------|
 | R-01 | Core GL Pipeline Modernization | done | 100% | Core profile, VBO/IBO pipeline, NSight debugging validated | — |
-| R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~70% | Shared GL context, secondary window render confirmed, scene lifecycle refactored, AddWindow API, runtime DPI update flow improved | Multi-monitor placement, final runtime DPI-change validation |
+| R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~75% | Multi-window baseline works (AddWindow/shared context/secondary render), lifecycle refactor complete, runtime DPI flow improved | Multi-monitor placement validation, final per-window DPI/scale flow, close remaining multi-window overlay refresh issue |
 | R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | Direction fixed: OBJ + AEM only; no FBX/DAE converter; R-03 planning doc created | Freeze AEM v1 spec, align runtime loader, implement Blender exporter MVP |
 | R-04 | Robot Interaction Layer | done | 100% | File-based protocol, all commands, FPS telemetry, UI diagnostics | — |
-| R-05 | CSS-Like UI Style System | planned | ~25% | Prototype exists in codebase, architecture decisions captured, style syntax draft v0.1 documented | Resolver implementation, transitions runtime, widget migration from legacy visual fields |
+| R-05 | CSS-Like UI Style System | in-progress | ~30% | Prototype exists, architecture/syntax decisions are documented, and R-10 widget refactor prepared key style-integration prerequisites | Resolver implementation, transitions runtime, production migration of widget visual fields to style pipeline |
 | R-06 | 3D Material: Normal Mapping | idea | 0% | — | Shader path, tangent/bitangent handling, asset pipeline |
-| R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~85% | Working state reached and merged into `engine5`; core geometry/spatial rollout baseline is active | Linux fixes/validation, benchmark pass, SSE optimization of top hot paths, bugfix+tests loop, remaining module migration (including SDL paths) |
+| R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~88% | Working state merged; support track active with recent bugfixes, test expansion, and new benchmarks | Linux fixes/validation, full baseline delta pass, SSE optimization of top hot paths, remaining module migration (including SDL paths) |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | idea | 0% | — | Performance-safe hit-test algorithm, traversal strategy |
 | R-09 | GL Performance Modernization | idea | 0% | — | Bind-call reduction, explicit batch paths, persistent mapping |
-| R-10 | UI Widget System Refactor | in progress | ~80% | TUIElement slimmed, TUIShape unified, TUIToggleButton extracted (TButtonStyle removed), onClick/onClickAsync split, TUISkinnedWindow merged, ScrollBar orientation explicit, widget docs EN, dead code removed | noBorder removal, ListBox color fields → R-05, BeginChildren/EndChildren pattern |
+| R-10 | UI Widget System Refactor | in-progress | ~82% | Core decomposition and wave-2 cleanup are complete; constructor pattern and class reshaping are documented and applied in active slices | Final cleanup (`noBorder`), BeginChildren/EndChildren implementation decision, remaining handoff items into R-05 style migration |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
 | R-14 | UI Widget Expansion | idea | 0% | — | New widget types, module split strategy |
-| R-15 | Demo Suite Restructuring | planned | 0% | Target structure defined, migration map documented | Create new demos, merge/move existing, distribute EngineTest cases |
+| R-15 | Demo Suite Restructuring | in-progress | ~25% | Planning baseline documented; standalone demos (`InputDemo`, `Draw2D`, `TextDemo`) are created and integrated into demo build flow | Continue tier restructuring, merge/move remaining demos, distribute EngineTest cases |
+| R-16 | Console Modernization | planned | 0% | Plan: [reports/R-16_console_modernization.md](reports/R-16_console_modernization.md) | Remove Console.pas, own log buffer in ConsoleScene, UX improvements (filter, timestamps, clear, clipboard) |
 
 ## 2) Strategic Directions
 
 Current phase note:
 - The first migration wave is effectively complete: almost all engine modules already use the new foundation API, and `demo/SimpleDemo` builds and works.
 - Roadmap work now proceeds on top of that baseline rather than in parallel with broad compile-unblock work.
+- Recent execution focus delivered practical progress (2026-03-20..2026-03-23): several benchmark/test additions, runtime bugfixes in animation/time paths, and new diagnostics/showcase demos (`InputDemo`, `Draw2D`).
+- Immediate execution queue is currently led by R-07 support hardening and R-02 multi-window/DPI closure, while R-05 continues in parallel branch work.
 
 ### A. Engine Module Refactoring
 Goal: improve quality of migrated engine code after the first compile-rescue wave.
 - [ ] A1. Refine engine modules to use the new foundation API more idiomatically
 - [ ] A2. Remove temporary migration leftovers and compatibility-style code
 - [ ] A3. Simplify and reduce engine-module dependencies
+- [ ] A4. R-16: Console modernization — remove Console.pas, ConsoleScene owns its buffer, UX polish ([plan](reports/R-16_console_modernization.md))
 
 ### B. Targeted Base Refactoring
 Goal: continue selective Base improvements where they unlock cleaner engine code or remove remaining migration friction.
@@ -79,8 +83,8 @@ Goal: a modern and stable UI subsystem.
 - [ ] G1. Core widgets with consistent behavior
 - [ ] G2. Layout engine (adaptive behavior, alignment, spacing)
 - [ ] G3. Testability of UI logic and events
-- [ ] G4. Widget construction pattern: minimal constructor + `.Setup(...)` + chainable base setters
-- [ ] G5. Font handles as threadvar for multi-window scale independence
+- [x] G4. Widget construction pattern: minimal constructor + `.Setup(...)` + chainable base setters
+- [x] G5. Font handles as threadvar for multi-window scale independence
 
 ### H. Graphics / Render
 Goal: a robust 2D/3D render pipeline.
@@ -181,7 +185,7 @@ Use this section for anything remembered on the fly.
 - Dependencies: `Apus.Engine.WindowsPlatform`, `Apus.Engine.SDLplatform`, UI/layout scaling logic.
 - Risks: platform-specific behavior divergence; input coordinate and scaling mismatches.
 - Acceptance Criteria:
-  - [ ] Engine can create and manage more than one active window.
+  - [x] Engine can create and manage more than one active window.
   - [ ] Window placement and fullscreen behavior work on multiple monitors.
   - [ ] Runtime DPI change triggers correct viewport/UI scaling without restart.
 - Notes: hot DPI-awareness must be validated with monitor move and OS scale-change scenarios.
@@ -197,7 +201,7 @@ Use this section for anything remembered on the fly.
     - diagnostics confirmed stalls inside `SDL_PollEvent` cumulative time (not in engine event handlers/render path);
     - runtime SDL DLLs updated to `2.32.10` (`bin` and `bin64`);
     - user validation: freezes are gone, runtime is smooth;
-    - follow-up: update Pascal SDL headers (currently `2.0.4`) to reduce version drift.
+    - follow-up: update Pascal SDL headers (currently `2.0.10`) to reduce version drift.
   - 2026-03-10: scene lifecycle refactored:
     - `TUIScene.Create` takes optional `wnd:TWindow` parameter (defaults to `mainWindow`);
     - scene uses `wnd.renderWidth/Height` and `wnd.AddScene` directly (no more `game.AddScene`);
@@ -234,6 +238,10 @@ Use this section for anything remembered on the fly.
     - cross-thread font access intentionally unsupported (fail-fast via zero threadvar);
     - UI elements will NOT store font handles — fonts resolved by style system (see R-05).
   - 2026-03-14: `game.userScale` is global (not per-window); `actualScale = dpiScale * userScale`.
+  - 2026-03-22: multi-window stability checkpoint:
+    - global overlay invalidation and forced redraw path added for debug overlays;
+    - extra-window overlay rendering path wired; extra-window stop centralized before `DoneGraph` to avoid shutdown AV/hang;
+    - remaining known issue: in multi-window mode debug overlay refresh is still incorrect in main window (secondary updates correctly), deferred as active R-02 follow-up.
 
 ### [R-03] Native AEM Pipeline + Blender Export
 - Status: planned
@@ -275,7 +283,7 @@ Use this section for anything remembered on the fly.
   - Post-MVP follow-ups (non-blocking): stronger command-level safety gates/policy hardening, plus reliability fixes for edge-case shutdown flows.
 
 ### [R-05] CSS-Like UI Style System Completion
-- Status: planned
+- Status: in-progress
 - Priority: P1
 - Area: UI
 - Value: Make UI styling declarative, reusable, and maintainable via inherited text-defined styles.
@@ -289,6 +297,7 @@ Use this section for anything remembered on the fly.
   - [ ] Existing core widgets can be restyled without code changes in representative demo screens.
 - Notes: current implementation exists in initial state and needs completion to production baseline.
   - 2026-03-12: design and scope decisions consolidated in `reports/R-05_notes.md` (drawer/style split, state model, cascade layers, variables, transitions, migration order).
+  - 2026-03-20..2026-03-24: active branch work is using R-10 refactor outcomes as prerequisites for style migration (widget field cleanup and class reshaping).
 
 ### [R-06] 3D Material Pipeline: Normal Mapping (+ Optional Parallax/Occlusion)
 - Status: idea
@@ -324,7 +333,7 @@ Use this section for anything remembered on the fly.
   - [ ] Linux behavior is fixed and validated in target paths.
   - [ ] Benchmarks are executed and baseline deltas are recorded.
   - [ ] Highest-impact functions receive SSE optimization (with pure Pascal fallback where required).
-  - [ ] New/updated tests are added for discovered bugs during support work.
+  - [x] New/updated tests are added for discovered bugs during support work.
   - [ ] Remaining not-yet-migrated modules (including SDL-related paths) are migrated to the current foundation APIs.
 - Notes:
   - Detailed plan: `reports/R-07_geometry_library_plan.md`
@@ -338,6 +347,10 @@ Use this section for anything remembered on the fly.
     - SSE optimization for highest-impact functions (with pure Pascal fallback where needed);
     - bugfixes on discovery with immediate test additions;
     - continue migration of remaining not-yet-migrated modules (including SDL-related paths).
+  - 2026-03-23: support-track progress reflected in Base execution loop:
+    - fixed `Apus.Tweenings` runtime defects (scalar recursion stack overflow and `duration=0` delayed retarget divide-by-zero);
+    - added focused `TestTweenings` automated coverage;
+    - added `BenchAnimation` (`TTweening` vs `TAnimatedValue`) and expanded timing benchmark coverage.
 
 ### [R-08] UI Hit-Test for Out-of-Bounds Children (Performance-Safe)
 - Status: idea
@@ -370,10 +383,9 @@ Use this section for anything remembered on the fly.
   - [ ] Runtime mode is explicit and isolated (no accidental behavior change in normal graphics backends).
 - Notes:
   - Recommended staged delivery:
-  - Stage 1: NoGfx no-op backend + headless platform + controllable frame pump/time.
-  - Stage 2: test helpers (`click`, `move`, `type`, `advanceFrames`) + baseline UI automation scenarios.
-  - Stage 3 (optional): simplified CPU offscreen rendering/capture for layout/snapshot-oriented checks.
-- Notes: target an optimization strategy such as selective traversal only through potentially relevant overflow branches (or cached overflow-aware hit regions), not brute-force global traversal.
+    - Stage 1: NoGfx no-op backend + headless platform + controllable frame pump/time.
+    - Stage 2: test helpers (`click`, `move`, `type`, `advanceFrames`) + baseline UI automation scenarios.
+    - Stage 3 (optional): simplified CPU offscreen rendering/capture for layout/snapshot-oriented checks.
 
 ### [R-09] OpenGL Performance Modernization (Core-Profile Follow-Up)
 - Status: idea
@@ -395,7 +407,7 @@ Use this section for anything remembered on the fly.
   - add lightweight state cache to skip redundant binds at API boundary.
 
 ### [R-10] UI Widget System Refactor (TUIElement Decomposition First)
-- Status: in progress
+- Status: in-progress
 - Priority: P0
 - Area: UI
 - Value: reduce UI core complexity and improve maintainability/testability by restructuring `TUIElement` and clarifying responsibilities across widget classes.
@@ -586,7 +598,7 @@ type
   - 2026-03-20: added menus, icon support, clickable/copyable labels to scope.
 
 ### [R-15] Demo Suite Restructuring
-- Status: planned
+- Status: in-progress
 - Priority: P1
 - Area: Tooling
 - Value: Provide a coherent, progressive demo suite that serves as onboarding path, API reference, and test base for CI/Robot validation.
@@ -602,6 +614,7 @@ type
 - Dependencies: R-02 (for Platform demo), R-05 (for Styles demo), section K (for Network demo).
 - Risks: EngineTest distribution requires careful case-by-case review to avoid losing coverage.
 - Acceptance Criteria:
+  - [x] New standalone diagnostic/showcase demos (`InputDemo`, `Draw2D`, `TextDemo`) are created and integrated into demo build flow.
   - [ ] Directory structure matches target layout (`1-start/`, `2-features/`, `3-advanced/`)
   - [ ] HelloEngine demo created and working
   - [ ] Text demo created with font/Unicode/formatting showcase
@@ -617,6 +630,9 @@ type
   - Full plan with migration map: `demo/demo_plan.md`
   - Current inventory: `demo/demo_inventory.md`
   - 2026-03-22: plan created and agreed.
+  - 2026-03-20: created and integrated `demo/InputDemo` (input diagnostics focus).
+  - 2026-03-20: created and integrated `demo/Draw2D` (modernized 2D primitive showcase).
+  - Added and integrated `demo/TextDemo` (text rendering/formatting showcase).
 
 ## 6) Next Planning Session
 Prepare for the next discussion:
