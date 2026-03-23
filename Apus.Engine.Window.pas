@@ -803,7 +803,7 @@ end;
 
 function TWindow.MouseInRect(const r:TRect):boolean;
 begin
- result:=mousePos.InRect(r);
+ result:=PtInRect(r,mousePos);
 end;
 
 function TWindow.MouseInRect(const r:TRect2):boolean;
@@ -823,7 +823,7 @@ end;
 
 function TWindow.MouseWasInRect(const r:TRect):boolean;
 begin
- result:=oldMousePos.InRect(r);
+ result:=PtInRect(r,oldMousePos);
 end;
 
 function TWindow.MouseWasInRect(const r:TRect2):boolean;

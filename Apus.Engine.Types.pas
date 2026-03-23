@@ -130,10 +130,7 @@ type
   function ToString:string;
  end;
  TPointCompatHelper = record helper for TPoint
-  {$IFDEF FPC}
   function Equals(const p:TPoint):boolean; inline;
-  {$ENDIF}
-  function InRect(const r:TRect):boolean; inline;
   function IsNear(x,y,radius:single):boolean; inline;
  end;
 implementation
@@ -152,24 +149,20 @@ function TDisplayModeHelper.ToString:string;
  begin
   result:=GetEnumNameSafe(TypeInfo(TDisplayMode),ord(self));
  end;
+
 function TDisplayFitModeHelper.ToString: string;
  begin
   result:=GetEnumNameSafe(TypeInfo(TDisplayFitMode),ord(self));
  end;
+
 function TDisplayScaleModeHelper.ToString: string;
  begin
   result:=GetEnumNameSafe(TypeInfo(TDisplayScaleMode),ord(self));
  end;
-{$IFDEF FPC}
+
 function TPointCompatHelper.Equals(const p:TPoint):boolean;
  begin
   result:=(x=p.x) and (y=p.y);
- end;
-{$ENDIF}
-
-function TPointCompatHelper.InRect(const r:TRect):boolean;
- begin
-  result:=PtInRect(r,self);
  end;
 
 function TPointCompatHelper.IsNear(x,y,radius:single):boolean;
