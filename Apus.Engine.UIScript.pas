@@ -12,7 +12,7 @@ uses Apus.Core, Apus.Publics;
 implementation
 uses SysUtils, Apus.EventMan, Apus.Engine.CmdProc, Apus.Engine.Types,
    Apus.Engine.API, Apus.Engine.UI, Apus.Engine.UIWidgets, Apus.Engine.UITypes,
-   Apus.Engine.UIShapes, Apus.Geom2d,
+   Apus.Engine.UIShapes, Apus.Engine.UIRender, Apus.Geom2d,
   Apus.Conv,
   Apus.Strings,
   Apus.Threads;
@@ -195,7 +195,7 @@ procedure CreateCmd(cmd:string8);
 
     if c=nil then raise EError.Create('Unknown class - '+sa[0]);
     // ���. ��-��
-    if style<>0 then c.styleClass:=style;
+    if style<>0 then c.drawer:=GetUIStyle(style);
     if cursor<>0 then c.cursor:=cursor;
     if HintDelay<>0 then c.attributes.Item['hintDelay']:=Conv.ToStr(hintDelay);
     if HintDuration<>0 then c.attributes.Item['hintDuration']:=Conv.ToStr(hintDuration);

@@ -131,7 +131,6 @@ var
  i,h:integer;
 begin
  inherited Create('Tweaker',false);
- frequency:=20;
  ignoreKeyboardEvents:=true;
  zorder:=1000000;
  tinyFont:=tinyFont_;
@@ -185,7 +184,7 @@ begin
  end;
 
  // Adjust vertical position
- if not keepPos then ui.position.y:=window.mousePos.y-ui.height/2;
+ if not keepPos then ui.position.y:=window.mouseY-ui.height/2;
  if ui.position.y+ui.height>window.renderHeight then ui.position.y:=window.renderHeight-ui.height;
  if ui.position.y<5 then ui.position.y:=5;
 end;
@@ -198,7 +197,7 @@ begin
  if st=TSceneStatus.ssActive then begin
   // Update UI Layout
   ui.Resize(round(200+window.renderWidth*0.1),-1);
-  ui.position.x:=window.mousePos.x-ui.width/2;
+  ui.position.x:=window.mouseX-ui.width/2;
   if ui.position.x<5 then ui.position.x:=5;
   if ui.position.x+ui.width>window.renderWidth-5 then ui.position.x:=window.renderWidth-5-ui.width;
   ui.height:=listBox.height+20;
@@ -258,7 +257,7 @@ begin
  SetPos(x,y);
  shape:=shapeFull;
  flags.canHaveFocus:=true;
- styleClass:=3;
+ drawer:=GetUIStyle(3);
  value:=iValue;
  initialValue:=initValue;
  moving:=false;
@@ -336,7 +335,7 @@ begin
    vtBlue: c:=$FFA0A0F0;
   end;
   inc(xx,x1);
-  if focused then c:=ColorAlpha(c,0.9+0.2*sin(window.frameStartMs/50));
+  if focused then c:=ColorAlpha(c,0.9+0.2*sin(window.frameStartTime/50));
   for i:=-4 to 4 do
    draw.Line(xx+i,yy-j,xx+i,yy-abs(i),c-$101010*abs(i));
  end;
@@ -424,7 +423,7 @@ begin
  inherited Create(parent.width-20,24+window.renderHeight div 40,parent,'Editor_'+vName);
  SetPos(10,parent.height-5);
  varName:=vName;
- styleClass:=3;
+ drawer:=GetUIStyle(3);
  varName[1]:='g';
  varName[2]:=UpCase(varName[2]);
  if varName[2]='F' then begin // Float value

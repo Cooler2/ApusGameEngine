@@ -170,7 +170,7 @@ implementation
       idx:=i; break;
      end;
    if idx<0 then idx:=CreateStyleEntry(element);
-   styles[idx].lastUsed:=window.frameStartMs;
+   styles[idx].lastUsed:=window.frameStartTime;
    result:=@styles[idx];
   end;
 
@@ -340,7 +340,7 @@ implementation
     end;
   end;
 
- procedure DrawUICheckbox(element:TUICheckbox;eStyle:PElementStyle;x1,y1,x2,y2:integer);
+ procedure DrawUICheckbox(element:TUICheckbox;x1,y1,x2,y2:integer);
   const
    TICK_IMAGE = '20 1F ((((~SSS(SSS^SSSESSSDSSS_SSSBSSS &A(*-+&@(*+$&>(%$)*&=(*-$)*&=(*+$+*&=(*+$+*&=(*$)+*&<(%&()*'+
     '&<(*-&()*&<(*,&()/*&;(*-&(),*&<(*&()-*&<(*&().*&<(*+&()*&<(*+&()*&1(&(*&+(*.&(),*&0(*/++,*&)(*,&()+*&0(*-&().*'+
@@ -365,9 +365,9 @@ implementation
    inc(x1,round(size*0.3));
    d:=round(size*0.15);
    //
-   inTransition:=context.active.IsAnimating(window.frameStartMs);
+   inTransition:=context.active.IsAnimating(window.frameStartTime);
    if element.classType=TUICheckBox then begin
-    vColor:=eStyle.GetColor('tick-color',color);
+    vColor:=element.GetStyleColor('tick-color',color);
     draw.RoundRect(x1,y-size+d,x1+size,y+d,size*0.24,element.globalScale,vColor,0);
     if tickImage=nil then tickImage:=CreateImageFrom(TICK_IMAGE,1);
     if element.checked or inTransition then begin
@@ -417,7 +417,7 @@ implementation
      draw.Rect(x1,y1,x2,y2,color xor $808080);
   end;
 
- procedure DrawUIButton(control:TUIButton;eStyle:PElementStyle;x1,y1,x2,y2:integer);
+ procedure DrawUIButton(control:TUIButton;x1,y1,x2,y2:integer);
   var
    v,mY:integer;
    c,c2:cardinal;
@@ -426,24 +426,24 @@ implementation
   begin
     with control do begin
       // обычная кнопка
-      c:=eStyle.GetColor('color',defaultBtnColor); // main (background) color
+      c:=control.GetStyleColor('color',defaultBtnColor); // main (background) color
       d:=byte(pressed);
       if not flags.enabled then c:=ColorMix(c,$FFA0A0A0,128);
       if flags.enabled and (underMouse=control) then inc(c,$101010);
       if pressed then c:=c-$282020;
       draw.FillGradRect(x1+1,y1+1,x2-1,y2-1,ColorAdd(c,$303030),ColorSub(c,$303030),true);
-      c:=eStyle.GetColor('border-light',$60000000);
-      c2:=eStyle.GetColor('border-dark',$80FFFFFF);
+      c:=control.GetStyleColor('border-light',$60000000);
+      c2:=control.GetStyleColor('border-dark',$80FFFFFF);
       draw.ShadedRect(x1,y1,x2,y2,1,c,c2); // Внешняя рамка
       if pressed then { draw.ShadedRect(x1+2,y1+2,x2-1,y2-1,1,$80FFFFFF,$50000000)}
        else if flags.enabled then begin
-         c:=eStyle.GetColor('border-light',$A0FFFFFF);
-         c2:=eStyle.GetColor('border-dark',$70000000);
+         c:=control.GetStyleColor('border-light',$A0FFFFFF);
+         c2:=control.GetStyleColor('border-dark',$70000000);
          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
        end
          else begin
-         c:=eStyle.GetColor('disabled.border-light',$A0FFFFFF);
-         c2:=eStyle.GetColor('disabled.border-dark',$70000000);
+         c:=control.GetStyleColor('disabled.border-light',$A0FFFFFF);
+         c2:=control.GetStyleColor('disabled.border-dark',$70000000);
          draw.ShadedRect(x1+1,y1+1,x2-1,y2-1,1,c,c2);
        end;
       // Нарисовать фокус (также если кнопка дефолтная и никакая другая не имеет фокуса)
@@ -453,7 +453,7 @@ implementation
       // Вывод надписи (если есть)
       if caption<>'' then begin
        gfx.clip.Rect(Rect(x1+2,y1+2,x2-2,y2-2));
-       c:=eStyle.GetColor('text-color',clBlack);
+       c:=control.GetStyleColor('text-color',clBlack);
        mY:=round((y1+y2)*0.5+txt.Height(font)*0.45);
        wSt:=Str32(caption);
        if underMouse=control then c:=$FF300000;
@@ -468,13 +468,13 @@ implementation
     end;
   end;
 
- procedure DrawUIFrame(control:TUIFrame;eStyle:PElementStyle;x1,y1,x2,y2:integer);
+ procedure DrawUIFrame(control:TUIFrame;x1,y1,x2,y2:integer);
   var
    c1,c2:cardinal;
    i:integer;
   begin
-   c1:=eStyle.GetColor('color',clBlack);
-   c2:=eStyle.GetColor('color-dark',0);
+   c1:=control.GetStyleColor('color',clBlack);
+   c2:=control.GetStyleColor('color-dark',0);
    for i:=0 to round(control.padding.Left)-1 do begin
     if c2=0 then draw.Rect(x1+i,y1+i,x2-i,y2-i,c1)
      else draw.ShadedRect(x1+i,y1+i,x2-i,y2-i,1,c1,c2);
@@ -931,14 +931,14 @@ implementation
    else
    // Кнопка
    if element.ClassType=TUIButton then
-    DrawUIButton(element as TUIButton,eStyle,x1,y1,x2,y2)
+    DrawUIButton(element as TUIButton,x1,y1,x2,y2)
    else
    if element is TUICheckbox then
-    DrawUICheckbox(element as TUICheckbox,eStyle,x1,y1,x2,y2)
+    DrawUICheckbox(element as TUICheckbox,x1,y1,x2,y2)
    else
    // Рамка
    if element.ClassType=TUIFrame then
-    DrawUIFrame(element as TUIFrame,eStyle,x1,y1,x2,y2)
+    DrawUIFrame(element as TUIFrame,x1,y1,x2,y2)
    else
    // Произвольное изображение
    if element.ClassType=TUIImage then
@@ -1162,11 +1162,15 @@ procedure TContext.Update(element:TUIElement;style:PElementStyle);
   v:=HoverState(element,style);
   if hover.FinalValue<>v then begin
    if v=1 then duration:=120 else duration:=80; // default
-   duration:=style.GetInt('hoverTime',duration);
-   if v=1 then duration:=style.GetInt('hoverTimeUp',duration)
-    else duration:=style.GetInt('hoverTimeDown',duration);
+   if style<>nil then begin
+    duration:=style.GetInt('hoverTime',duration);
+    if v=1 then duration:=style.GetInt('hoverTimeUp',duration)
+     else duration:=style.GetInt('hoverTimeDown',duration);
+   end;
    hover.Animate(v,duration);
   end;
+  // R-05: sync hover state to styleBlock for CSS-like :hover overrides
+  element.SetState('hover',v=1);
 
   // Click state
   v:=0;
@@ -1176,19 +1180,27 @@ procedure TContext.Update(element:TUIElement;style:PElementStyle);
    if TUIToggleButton(element).toggled then v:=1;
   if active.finalValue<>v then begin
    if v=1 then duration:=120 else duration:=80; // default
-   duration:=style.GetInt('pressTime',duration);
-   if v=0 then duration:=style.GetInt('releaseTime',duration);
+   if style<>nil then begin
+    duration:=style.GetInt('pressTime',duration);
+    if v=0 then duration:=style.GetInt('releaseTime',duration);
+   end;
    active.Animate(v,duration);
   end;
+  // R-05: sync pressed/toggled state to styleBlock
+  element.SetState('pressed',v=1);
 
   // Disabled state
   if element.IsEnabled then v:=0 else v:=1;
   if disabled.FinalValue<>v then begin
    duration:=0; // default
-   duration:=style.GetInt('disableTime',duration);
-   if v=0 then duration:=style.GetInt('enableTime',duration);
+   if style<>nil then begin
+    duration:=style.GetInt('disableTime',duration);
+    if v=0 then duration:=style.GetInt('enableTime',duration);
+   end;
    disabled.Animate(v,duration);
   end;
+  // R-05: sync disabled state to styleBlock
+  element.SetState('disabled',v=1);
  end;
 
 function TContext.HoverState(element:TUIElement;style:PElementStyle):byte;
