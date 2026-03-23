@@ -89,7 +89,7 @@ procedure TMainScene.onMouseMove(x, y: integer);
   inherited;
   // Turn camera around
   if window.mouseButtons and mbLeft>0 then
-   cameraAngle:=cameraAngle-(x-window.oldMouseX)*0.01;
+   cameraAngle:=cameraAngle-(x-window.oldMousePos.x)*0.01;
  end;
 
 procedure TMainScene.onMouseWheel(delta: integer);

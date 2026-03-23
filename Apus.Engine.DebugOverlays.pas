@@ -1,6 +1,6 @@
-﻿// Debug overlay rendering: FPS, timing panel, scene list, magnifier, debug logs
+﻿// Debug overlay rendering: FPS, timing panel, scene list, magnifier
 //
-// Copyright (C) 2003-2026 Apus Software (www.apus-software.com)
+// Copyright (C) 2026 Apus Software (www.apus-software.com)
 // Author: Ivan Polyacov (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
@@ -40,8 +40,8 @@ begin
  if state.magnifierTex=nil then begin
   state.magnifierTex:=AllocImage(128,128,ipfARGB,aiTexture,'Magnifier');
  end;
- cx:=window.mouseX-64;
- cy:=window.mouseY+64;
+ cx:=window.mousePos.x-64;
+ cy:=window.mousePos.y+64;
  EditImage(state.magnifierTex);
  Apus.FastGFX.FillRect(0,0,127,127,$FF000000);
  rawImage:=state.magnifierTex.GetRawImage;
@@ -56,7 +56,7 @@ begin
  mSize:=mSize and $FFFFFFF0;
  width:=Min(mSize,round(window.renderWidth*0.4));
  height:=Min(mSize,window.renderHeight);
- if window.mouseX<window.renderWidth div 2 then left:=window.renderWidth-width
+ if window.mousePos.x<window.renderWidth div 2 then left:=window.renderWidth-width
   else left:=0;
  zoom:=round(4*scrScale);
  if (window.shiftstate and sscShift)>0 then zoom:=zoom*2;
@@ -75,7 +75,7 @@ begin
   text:=Format('%2x %2x %2x',[(color shr 16) and $FF,(color shr 8) and $FF,color and $FF]);
   txt.WriteW(game.defaultFont,ox,height-17*scrScale,$FFFFFFFF,Str32(text),taCenter);
   // Pixel coordinates
-  text:=Format('x: %d y: %d',[window.mousex,window.mouseY]);
+  text:=Format('x: %d y: %d',[window.mousePos.x,window.mousePos.y]);
   txt.WriteW(game.smallFont,ox,height-5*scrScale,$FFFFFFFF,Str32(text),taCenter);
  end;
 end;

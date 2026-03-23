@@ -97,8 +97,8 @@ public
 
   // Input state snapshot for this window: values are stored per-window (not global)
   // so they stay stable during frame processing even with multiple window threads.
-  mouseX,mouseY:integer; // mouse position in game coordinates
-  oldMouseX,oldMouseY:integer; // previous mouse position
+  mousePos:TPoint; // mouse position in game coordinates
+  oldMousePos:TPoint; // previous mouse position
   mouseMovedTime:int64; // when mouse position last changed
   mouseButtons:byte; // button flags (bit 0=left, 1=right, 2=middle)
   oldMouseButtons:byte; // previous button state
@@ -546,13 +546,12 @@ procedure TWindow.NotifyScenesMouseWheel(value:integer);
 
 procedure TWindow.FlushMouseInput;
  begin
-  if (mouseX=oldMouseX) and (mouseY=oldMouseY) then exit;
+  if mousePos.Equals(oldMousePos) then exit;
   mouseMovedTime:=CoreTime.Ticks;
-  Signal('MOUSE\MOVED',mouseX and $FFFF+(mouseY and $FFFF) shl 16);
-  NotifyScenesMouseMove(mouseX,mouseY);
+  Signal('MOUSE\MOVED',Bits.PackW(mousePos.x,mousePos.y));
+  NotifyScenesMouseMove(mousePos.x,mousePos.y);
   screenChanged:=true; // needed if cursor is rendered manually
-  oldMouseX:=mouseX;
-  oldMouseY:=mouseY;
+  oldMousePos:=mousePos;
  end;
 
 procedure TWindow.NotifyScenesResize;
@@ -804,37 +803,32 @@ end;
 
 function TWindow.MouseInRect(const r:TRect):boolean;
 begin
- result:=(mouseX>=r.Left) and (mouseY>=r.Top) and
-         (mouseX<r.Right) and (mouseY<r.Bottom);
+ result:=mousePos.InRect(r);
 end;
 
 function TWindow.MouseInRect(const r:TRect2):boolean;
 begin
- result:=(mouseX>=r.x1) and (mouseY>=r.y1) and
-         (mouseX<r.x2) and (mouseY<r.y2);
+ result:=r.Contains(mousePos);
 end;
 
 function TWindow.MouseInRect(x,y,width,height:single):boolean;
 begin
- result:=(mouseX>=x) and (mouseY>=y) and
-         (mouseX<x+width) and (mouseY<y+height);
+ result:=Rect2(x,y,x+width,y+height).Contains(mousePos);
 end;
 
 function TWindow.MouseIsNear(x,y,radius:single):boolean;
 begin
- result:=Sqr(mouseX-x)+Sqr(mouseY-y)<=sqr(radius);
+ result:=mousePos.IsNear(x,y,radius);
 end;
 
 function TWindow.MouseWasInRect(const r:TRect):boolean;
 begin
- result:=(oldMouseX>=r.Left) and (oldMouseY>=r.Top) and
-         (oldMouseX<r.Right) and (oldMouseY<r.Bottom);
+ result:=oldMousePos.InRect(r);
 end;
 
 function TWindow.MouseWasInRect(const r:TRect2):boolean;
 begin
- result:=(oldMouseX>=r.x1) and (oldMouseY>=r.y1) and
-         (oldMouseX<r.x2) and (oldMouseY<r.y2);
+ result:=r.Contains(oldMousePos);
 end;
 
 procedure TWindow.ClientToGame(var p:TPoint);

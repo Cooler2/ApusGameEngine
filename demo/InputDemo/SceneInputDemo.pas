@@ -341,9 +341,9 @@ begin
   if IsKeyPressed(3) or IsKeyPressed(31) then traceMode:=2;
   if IsKeyPressed(4) or IsKeyPressed(32) then traceMode:=3;
 
-  if LMBClicked and (window.mouseX>=0) and (window.mouseX<menuWidth) and
-     (window.mouseY>=menuTop) then begin
-    item:=(window.mouseY-menuTop) div menuItemHeight;
+  if LMBClicked and (window.mousePos.x>=0) and (window.mousePos.x<menuWidth) and
+     (window.mousePos.y>=menuTop) then begin
+    item:=(window.mousePos.y-menuTop) div menuItemHeight;
     if (item>=0) and (item<SCREEN_COUNT) then
       currentScreen:=item;
   end;
@@ -417,7 +417,7 @@ begin
     bottom:=top+menuItemHeight-6;
     r:=Rect(menuRect.Left+12,top,menuRect.Right-12,bottom);
     isActive:=i=currentScreen;
-    isHovered:=PtInRect(r,Point(window.mouseX,window.mouseY));
+    isHovered:=PtInRect(r,Point(window.mousePos.x,window.mousePos.y));
 
     if isActive then begin
       bg:=$FF34506D;
@@ -497,12 +497,12 @@ begin
   txt.Write(bodyFont,a.Left+20,y+28,$FFF3D39C,st,taLeft,toAddBaseline);
 
   DrawTag(b.Left+20,b.Top+24,'Input Summary');
-  pClient:=Point(window.mouseX,window.mouseY);
+  pClient:=Point(window.mousePos.x,window.mousePos.y);
   game.GameToClient(pClient);
   pScreen:=pClient;
   window.ClientToScreen(pScreen);
   txt.Write(bodyFont,b.Left+20,b.Top+52,$FFE5EDF7,
-    Format('Mouse game: (%d,%d) old=(%d,%d)',[window.mouseX,window.mouseY,window.oldMouseX,window.oldMouseY]),taLeft,toAddBaseline);
+    Format('Mouse game: (%d,%d) old=(%d,%d)',[window.mousePos.x,window.mousePos.y,window.oldMousePos.x,window.oldMousePos.y]),taLeft,toAddBaseline);
   txt.Write(bodyFont,b.Left+20,b.Top+72,$FFE5EDF7,
     Format('Mouse window(client): (%d,%d)',[pClient.X,pClient.Y]),taLeft,toAddBaseline);
   txt.Write(bodyFont,b.Left+20,b.Top+92,$FFE5EDF7,
@@ -581,8 +581,8 @@ begin
   zone2:=Rect(a.Left+380,a.Top+120,a.Right-50,a.Top+330);
   c1:=$404890C0;
   c2:=$4060A060;
-  if PtInRect(zone1,Point(window.mouseX,window.mouseY)) then c1:=$70A0D8FF;
-  if PtInRect(zone2,Point(window.mouseX,window.mouseY)) then c2:=$70A8F0A8;
+  if PtInRect(zone1,Point(window.mousePos.x,window.mousePos.y)) then c1:=$70A0D8FF;
+  if PtInRect(zone2,Point(window.mousePos.x,window.mousePos.y)) then c2:=$70A8F0A8;
   draw.FillRRect(zone1.Left,zone1.Top,zone1.Right,zone1.Bottom,c1,12);
   draw.FillRRect(zone2.Left,zone2.Top,zone2.Right,zone2.Bottom,c2,12);
   draw.RRect(zone1.Left,zone1.Top,zone1.Right,zone1.Bottom,2,12,$FFE8F4FF);
@@ -602,13 +602,13 @@ begin
       [byte(Bits.HasAll(window.mouseButtons,1)),byte(Bits.HasAll(window.mouseButtons,2)),
        byte(Bits.HasAll(window.mouseButtons,4)),byte(Bits.HasAll(window.mouseButtons,8)),
        byte(Bits.HasAll(window.mouseButtons,16))]),taLeft,integer(textTopOpt));
-  pClient:=Point(window.mouseX,window.mouseY);
+  pClient:=Point(window.mousePos.x,window.mousePos.y);
   game.GameToClient(pClient);
   pScreen:=pClient;
   window.ClientToScreen(pScreen);
   txt.Write(bodyFont,a.Left+20,a.Top+448,$FFF3D39C,
     Format('Pos game=(%d,%d) client=(%d,%d) screen=(%d,%d)',
-      [window.mouseX,window.mouseY,pClient.X,pClient.Y,pScreen.X,pScreen.Y]),taLeft,integer(textTopOpt));
+      [window.mousePos.x,window.mousePos.y,pClient.X,pClient.Y,pScreen.X,pScreen.Y]),taLeft,integer(textTopOpt));
 
   DrawTag(b.Left+20,b.Top+24,'Recent Raw Mouse Samples');
   txt.Write(bodyFont,b.Left+20,b.Top+52,$FFE5EDF7,
@@ -797,7 +797,7 @@ begin
   UpdateStats;
 
   t:=CoreTime.Ticks*0.001;
-  PushFrameSample(window.mouseX,window.mouseY,window.mouseButtons,t);
+  PushFrameSample(window.mousePos.x,window.mousePos.y,window.mouseButtons,t);
 
   gfx.target.Clear($FF151C27);
 

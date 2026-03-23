@@ -185,7 +185,7 @@ begin
  end;
 
  // Adjust vertical position
- if not keepPos then ui.position.y:=window.mouseY-ui.height/2;
+ if not keepPos then ui.position.y:=window.mousePos.y-ui.height/2;
  if ui.position.y+ui.height>window.renderHeight then ui.position.y:=window.renderHeight-ui.height;
  if ui.position.y<5 then ui.position.y:=5;
 end;
@@ -198,7 +198,7 @@ begin
  if st=TSceneStatus.ssActive then begin
   // Update UI Layout
   ui.Resize(round(200+window.renderWidth*0.1),-1);
-  ui.position.x:=window.mouseX-ui.width/2;
+  ui.position.x:=window.mousePos.x-ui.width/2;
   if ui.position.x<5 then ui.position.x:=5;
   if ui.position.x+ui.width>window.renderWidth-5 then ui.position.x:=window.renderWidth-5-ui.width;
   ui.height:=listBox.height+20;

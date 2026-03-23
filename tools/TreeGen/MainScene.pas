@@ -116,8 +116,8 @@ procedure TMainScene.onMouseMove(x,y:integer);
   inherited;
   // Turn camera around
   if (underMouse=ui) and (window.mouseButtons and mbLeft>0) then begin
-   cameraAngle:=cameraAngle-0.5*(x-window.oldMouseX)/window.screenDPI;
-   cameraHeight:=Clamp(cameraHeight+0.3*(y-window.oldMouseY)/window.screenDPI,0.35,1.22);
+   cameraAngle:=cameraAngle-0.5*(x-window.oldMousePos.x)/window.screenDPI;
+   cameraHeight:=Clamp(cameraHeight+0.3*(y-window.oldMousePos.y)/window.screenDPI,0.35,1.22);
   end;
  end;
 

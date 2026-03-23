@@ -902,7 +902,7 @@ begin
    
  curTextLink:=0;
  txt.WriteW(f,220,330,$FFE0E0F0,'Text with a {L=01}link{/L}!',taLeft,toMeasure+toComplexText,0,
-   window.mouseX and $FFFF+window.mouseY shl 16);
+   Bits.PackW(window.mousePos.x,window.mousePos.y));
 
 { buf.Lock;
  FillRect(buf.data,buf.pitch,0,0,buf.width-1,buf.height-1,$FFE0E0E0);

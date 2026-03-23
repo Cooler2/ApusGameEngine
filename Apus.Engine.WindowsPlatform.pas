@@ -188,16 +188,14 @@ begin
     pnt.x:=SmallInt(lParam);
     pnt.y:=SmallInt(lParam shr 16);
     Apus.Engine.API.window.ClientToGame(pnt);
-    Apus.Engine.API.window.mouseX:=pnt.x;
-    Apus.Engine.API.window.mouseY:=pnt.y;
-    Signal('MOUSE\MOVE',pnt.x and $FFFF+(pnt.y and $FFFF) shl 16);
+    Apus.Engine.API.window.mousePos:=pnt;
+    Signal('MOUSE\MOVE',Bits.PackW(pnt.x,pnt.y));
    end;
   end;
 
   WM_MOUSELEAVE:begin
    if Apus.Engine.API.window<>nil then begin
-    Apus.Engine.API.window.mouseX:=$3FFF;
-    Apus.Engine.API.window.mouseY:=$3FFF;
+    Apus.Engine.API.window.mousePos:=Types.Point($3FFF,$3FFF);
     Signal('MOUSE\MOVE',$3FFF3FFF);
    end;
   end;

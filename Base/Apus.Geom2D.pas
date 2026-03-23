@@ -107,6 +107,8 @@ interface
   TRect2=packed record
    function Width:single;
    function Height:single;
+   function Contains(const p:TPoint):boolean; overload; inline;
+   function Contains(x,y:single):boolean; overload; inline;
    class function IntersectRect(const r1,r2:TRect;out r:TRect):integer; static;
    class procedure OrderRect(var r:TRect); static;
    procedure Init; overload; inline; // init empty
@@ -829,6 +831,16 @@ function TRect2.Width:single;
   begin
    result:=x2-x1;
   end;
+
+function TRect2.Contains(const p:TPoint):boolean;
+ begin
+  result:=Contains(p.x,p.y);
+ end;
+
+function TRect2.Contains(x,y:single):boolean;
+ begin
+  result:=(x>=x1) and (y>=y1) and (x<x2) and (y<y2);
+ end;
 
  procedure TRect2.Init;
   begin

@@ -545,9 +545,8 @@ procedure TSDLGLWindow.ProcessMessages;
 
     SDL_MOUSEMOTION:begin
      // update window position directly, emit raw signal for external subscribers
-     if Apus.Engine.API.window<>nil then begin
-      Apus.Engine.API.window.mouseX:=event.motion.x;
-      Apus.Engine.API.window.mouseY:=event.motion.y;
+     if window<>nil then begin
+      window.mousePos:=Types.Point(event.motion.x,event.motion.y);
       Signal('MOUSE\MOVE',PackWords(event.motion.x,event.motion.y));
      end;
     end;

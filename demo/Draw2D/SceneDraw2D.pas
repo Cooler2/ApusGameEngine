@@ -321,9 +321,9 @@ begin
       currentScreen:=i;
   end;
 
-  if LMBClicked and (window.mouseX>=0) and (window.mouseX<menuWidth) and
-     (window.mouseY>=menuTop) then begin
-    item:=(window.mouseY-menuTop) div menuItemHeight;
+  if LMBClicked and (window.mousePos.x>=0) and (window.mousePos.x<menuWidth) and
+     (window.mousePos.y>=menuTop) then begin
+    item:=(window.mousePos.y-menuTop) div menuItemHeight;
     if InRange(item,0,SCREEN_COUNT-1) then
       currentScreen:=item;
   end;
@@ -347,7 +347,7 @@ begin
     bottom:=top+menuItemHeight-6;
     r:=Rect(menuRect.Left+12,top,menuRect.Right-12,bottom);
     isActive:=i=currentScreen;
-    isHovered:=PtInRect(r,Point(window.mouseX,window.mouseY));
+    isHovered:=PtInRect(r,Point(window.mousePos.x,window.mousePos.y));
     if isActive then begin
       bg:=$FF34506D;
       border:=$FF8CB8E8;

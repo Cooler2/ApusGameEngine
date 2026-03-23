@@ -1,4 +1,4 @@
-// Tweening demo — smooth animation with compensation for interrupted transitions
+﻿// Tweening demo — smooth animation with compensation for interrupted transitions
 // Copyright (C) 2021 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
@@ -53,7 +53,7 @@ var
  pnt:TVec2;
 begin
  if pressed then begin
-  pnt.Init(window.mouseX,window.mouseY);
+  pnt.Init(window.mousePos.x,window.mousePos.y);
   pos.Animate(pnt,500,splines.easeOut);
  end;
 end;

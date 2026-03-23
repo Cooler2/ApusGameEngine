@@ -3,7 +3,7 @@
 //
 unit Apus.Engine.Types;
 interface
- uses Apus.Core, Apus.Geom2D, Apus.Geom3D,
+ uses Types, Apus.Core, Apus.Geom2D, Apus.Geom3D,
    Apus.Colors, Apus.VertexLayout;
 
 type
@@ -129,7 +129,13 @@ type
  TDisplayScaleModeHelper = record helper for TDisplayScaleMode
   function ToString:string;
  end;
-
+ TPointCompatHelper = record helper for TPoint
+  {$IFDEF FPC}
+  function Equals(const p:TPoint):boolean; inline;
+  {$ENDIF}
+  function InRect(const r:TRect):boolean; inline;
+  function IsNear(x,y,radius:single):boolean; inline;
+ end;
 implementation
 uses Apus.Utils;
 
@@ -154,7 +160,22 @@ function TDisplayScaleModeHelper.ToString: string;
  begin
   result:=GetEnumNameSafe(TypeInfo(TDisplayScaleMode),ord(self));
  end;
+{$IFDEF FPC}
+function TPointCompatHelper.Equals(const p:TPoint):boolean;
+ begin
+  result:=(x=p.x) and (y=p.y);
+ end;
+{$ENDIF}
 
+function TPointCompatHelper.InRect(const r:TRect):boolean;
+ begin
+  result:=PtInRect(r,self);
+ end;
+
+function TPointCompatHelper.IsNear(x,y,radius:single):boolean;
+ begin
+  result:=Sqr(self.x-x)+Sqr(self.y-y)<=sqr(radius);
+ end;
 
  function TColorGradient.ColorAt(x,y:single):cardinal;
   begin

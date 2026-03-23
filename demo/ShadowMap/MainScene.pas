@@ -1,4 +1,4 @@
-// Project template for the Apus Game Engine framework
+﻿// Project template for the Apus Game Engine framework
 
 // Copyright (C) 2021 Ivan Polyacov, Apus Software (ivan@apus-software.com)
 // This file is licensed under the terms of BSD-3 license (see license.txt)
@@ -95,8 +95,8 @@ procedure TMainScene.onMouseMove(x, y: integer);
   if underMouse.GetRoot<>UI then exit;
   // Turn camera around
   if window.mouseButtons and mbLeft>0 then begin
-   cameraAngleX:=cameraAngleX-(x-window.oldMouseX)*0.01;
-   cameraAngleY:=Clamp(cameraAngleY+(y-window.oldMouseY)*0.005,0.1,1.2);
+   cameraAngleX:=cameraAngleX-(x-window.oldMousePos.x)*0.01;
+   cameraAngleY:=Clamp(cameraAngleY+(y-window.oldMousePos.y)*0.005,0.1,1.2);
   end;
  end;
 

@@ -281,8 +281,8 @@ function UIScene(name:String8):TUIScene;
    window.Lock;
    try
     // sync UI coords from window — button events arrive before FlushMouseInput
-    curMouseX:=window.mouseX;
-    curMouseY:=window.mouseY;
+    curMouseX:=window.mousePos.x;
+    curMouseY:=window.mousePos.y;
     e:=FindElementAt(curMouseX,curMouseY,c);
     if pressed then begin
      if e and (c<>nil) then
@@ -429,8 +429,8 @@ function UIScene(name:String8):TUIScene;
    window.Lock;
    try
     // sync UI coords from window — wheel events arrive before FlushMouseInput
-    curMouseX:=window.mouseX;
-    curMouseY:=window.mouseY;
+    curMouseX:=window.mousePos.x;
+    curMouseY:=window.mousePos.y;
     if FindElementAt(curMouseX,curMouseY,c) then
      c.onMouseScroll(delta);
    finally
@@ -518,7 +518,7 @@ function UIScene(name:String8):TUIScene;
 
     // обработка хинтов
     if (itemShowHintTime>LastHandleTime) and (itemShowHintTime<=Time) then begin
-     FindElementAt(window.mouseX,window.mouseY,c);
+     FindElementAt(window.mousePos.x,window.mousePos.y,c);
      if (c<>nil) then begin
       if c.flags.enabled then st:=c.hint
        else st:=c.attributes.Item['hintIfDisabled'];

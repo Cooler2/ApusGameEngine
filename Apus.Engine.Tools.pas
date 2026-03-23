@@ -126,7 +126,7 @@ var
 
 function EncodeMousePos:cardinal;
 begin
-  result:=word(window.mouseX) and $FFFF+word(window.mouseY) shl 16;
+  result:=Bits.PackW(window.mousePos.x,window.mousePos.y);
 end;
 
 function StrHash(st:string):cardinal; inline;

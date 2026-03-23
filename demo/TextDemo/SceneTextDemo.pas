@@ -278,9 +278,9 @@ begin
       currentScreen:=i;
   end;
 
-  if LMBClicked and (window.mouseX>=0) and (window.mouseX<menuWidth) and
-     (window.mouseY>=menuTop) then begin
-    item:=(window.mouseY-menuTop) div menuItemHeight;
+  if LMBClicked and (window.mousePos.x>=0) and (window.mousePos.x<menuWidth) and
+     (window.mousePos.y>=menuTop) then begin
+    item:=(window.mousePos.y-menuTop) div menuItemHeight;
     if InRange(item,0,SCREEN_COUNT-1) then
       currentScreen:=item;
   end;
@@ -309,7 +309,7 @@ begin
     bottom:=top+menuItemHeight-6;
     r:=Rect(menuRect.Left+12,top,menuRect.Right-12,bottom);
     isActive:=i=currentScreen;
-    isHovered:=PtInRect(r,Point(window.mouseX,window.mouseY));
+    isHovered:=PtInRect(r,Point(window.mousePos.x,window.mousePos.y));
     if isActive then begin
       bg:=$FF34506D;
       border:=$FF8CB8E8;
@@ -593,7 +593,7 @@ begin
 
   r:=GridCell(area,0,0,2,1,BLOCK_GAP);
   DrawBlock(r,'toMeasure + MeasuredRect()',innerR);
-  query:=cardinal(window.mouseX and $FFFF) or (cardinal(window.mouseY and $FFFF) shl 16);
+  query:=Bits.PackW(window.mousePos.x,window.mousePos.y);
   txt.ClearLink;
   txt.Write(bodyFont,innerR.Left+12,innerR.Top+34,$FFE5EDF7,'Measure {b}complex{/b} text and mark char edges.',taLeft,
     toAddBaseline or toMeasure or toComplexText);
@@ -632,7 +632,7 @@ begin
   r:=GridCell(area,1,1,2,1,BLOCK_GAP);
   DrawBlock(r,'Query source and safety',innerR);
   txt.Write(monoFont,innerR.Left+12,innerR.Top+32,$FFD8E7F8,
-    UTF8.Format('query=(x:%d y:%d) packed=%u',[window.mouseX,window.mouseY,query]),taLeft,toAddBaseline);
+    UTF8.Format('query=(x:%d y:%d) packed=%u',[window.mousePos.x,window.mousePos.y,query]),taLeft,toAddBaseline);
   txt.Write(monoFont,innerR.Left+12,innerR.Top+54,$FFD8E7F8,
     UTF8.Format('linkRect=[%d,%d..%d,%d]',[lr.Left,lr.Top,lr.Right,lr.Bottom]),taLeft,toAddBaseline);
   txt.Write(bodyFont,innerR.Left+12,innerR.Top+84,$FF90C0E8,'Move cursor over links in upper-right block.',taLeft,toAddBaseline);

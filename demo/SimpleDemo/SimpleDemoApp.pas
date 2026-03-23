@@ -162,8 +162,8 @@ procedure TMainScene.HandleParticles;
    SetLength(particles,n+count);
    SetLength(particlesData,n+count);
    for i:=n to n+count-1 do begin
-    particles[i].x:=window.mouseX;
-    particles[i].y:=window.mouseY;
+    particles[i].x:=window.mousePos.x;
+    particles[i].y:=window.mousePos.y;
     particles[i].z:=0;
     particles[i].color:=MyColor(255,40+random(100),40+random(100),40+random(100));
     particles[i].scale:=0.5+random*3;

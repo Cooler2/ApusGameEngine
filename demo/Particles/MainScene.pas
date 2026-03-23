@@ -268,8 +268,8 @@ procedure TMainScene.onMouseMove(x,y:integer);
   inherited;
   // Turn camera around
   if window.mouseButtons and mbLeft>0 then begin
-   cameraAngleX:=cameraAngleX-(x-window.oldMouseX)*0.01;
-   cameraAngleY:=Clamp(cameraAngleY+(y-window.oldMouseY)*0.005, 0.1,1.2);
+   cameraAngleX:=cameraAngleX-(x-window.oldMousePos.x)*0.01;
+   cameraAngleY:=Clamp(cameraAngleY+(y-window.oldMousePos.y)*0.005, 0.1,1.2);
   end;
  end;
 

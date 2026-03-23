@@ -3,18 +3,26 @@
 This file tracks all functions extracted from `Apus.Common` into new modules.
 Use it as the primary reference when updating old code.
 
-## Status note (2026-03-13)
+## Status note (2026-03-22)
 
 - R-07 is confirmed working and merged into `engine5`.
-- No new Base API rename/extraction entries were required in this update.
-- Current focus moved to support/development track:
+- Base migration track is complete (100%): no active `Apus.Common` dependencies remain in live `Base/*.pas` modules.
+- `Base/Apus.Common.pas` was removed; compatibility unit is kept only in `Base/Deprecated/Apus.Common.pas`.
+- No global/blocking migration tasks remain in Base; current focus is support/development:
   - Linux fixes and verification;
   - benchmark runs and baseline tracking;
   - SSE optimization for highest-impact functions;
-  - ongoing bugfixes with test coverage expansion;
-  - continued migration of remaining not-yet-migrated modules (including SDL-related paths).
+  - ongoing bugfixes with test coverage expansion.
 
 ## Recent API fixes (2026-03-22)
+
+### Apus.Geom2D TRect2 point containment API
+
+- Extended `TRect2` with point-containment methods:
+  - `Contains(const p:TPoint):boolean`
+  - `Contains(x,y:single):boolean`
+- Motivation: remove duplicated inline point-in-rect checks in Engine code and standardize containment logic in the geometry type itself.
+- Engine usage updated to call type methods directly (`TWindow.MouseInRect/MouseWasInRect`), avoiding unit-local helper functions.
 
 ### Apus.Core.Time high-precision monotonic ticks
 

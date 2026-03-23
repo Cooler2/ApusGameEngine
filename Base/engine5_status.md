@@ -13,9 +13,11 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 - ✅ `Conv.ToStr(double)` implemented with auto/fixed/min-max decimal modes
 - ✅ R-07 reached working state and was merged into `engine5` (engine-level milestone)
 - ✅ EventMan migrated to Core/Log/Threads/Strings and compiles clean
-- 🚧 35 of 52 Base modules still use Common
+- ✅ Base library no longer depends on `Apus.Common` (outside `Base/Deprecated`)
+- ✅ `Base/Apus.Common.pas` removed; compatibility copy kept in `Base/Deprecated/Apus.Common.pas`
+- ✅ Base migration is complete (100%); no global/blocking migration tasks remain
 - 🔧 Post-merge priorities: Linux fixes + validation, benchmarks, SSE optimization of hot functions, bugfixes with test additions
-- 🎯 **Next priorities:** Continue migration of remaining not-yet-migrated modules (including SDL-related paths), migrate ControlFiles, deprecate CrossPlatform
+- 🎯 **Next priorities:** stabilization, test expansion, performance tuning, and incremental cleanup of legacy Engine/Demo/Tools references
 
 **Recent wins (2026-02-18):** Added `Conv.ToStr(double)` — locale-independent float formatting via Pascal `Str()`, supports `maxDec`/`minDec`/`decSep` params, 20 tests added to TestConv.
 
@@ -40,6 +42,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-03-19):** Restored `HasParam/GetParam` in `Apus.Utils` (migrated from deprecated `Apus.Common`) and switched `Apus.Engine.GameApp` command-line platform selection to these helpers (`-SDL`, `-WINDOWS`, `-PLATFORM=...`).
 **Recent wins (2026-03-22):** Added `Time.TicksUs` and `Time.TicksSec` to `Apus.Core` as explicit high-precision monotonic APIs (QPC/clock_gettime based), while keeping `Time.Ticks` as compatibility millisecond API.
 **Recent wins (2026-03-22):** Extended `Base/tests/BenchCore` with direct timing-cost comparison for `Time.Ticks`, `Time.TicksUs`, and `Time.TicksSec`.
+**Recent wins (2026-03-23):** Extended `Apus.Geom2D.TRect2` with `Contains(const p:TPoint)` and `Contains(x,y:single)`; Engine window hit-testing switched to type-level methods instead of local helper functions.
 
 ## NEW — created in engine5 refactoring
 
@@ -60,145 +63,36 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 
 | Module | Lines | Notes |
 |--------|-------|-------|
-| **Apus.Types** | 760 | Foundation types, `TBuffer`, `TBitStream`. Covered by `TestTypes` (x64/x86). Level 0. TEMP: uses Common for ParseDate/SplitA (need extraction). |
+| **Apus.Types** | 760 | Foundation types, `TBuffer`, `TBitStream`. Covered by `TestTypes` (x64/x86). Level 0. |
 | **Apus.CPU** | 157 | CPU detection, CPUID. Level 0. |
 | **Apus.Crypto** | 430 | MD5, SHA, CRC32. Level 0. |
 | **Apus.ADPCM** | 123 | Audio compression. Level 0. |
 | **Apus.LongMath** | 1160 | Big integer math. Level 0. |
 | **Apus.RegExpr** | 69 | Thin wrapper for RegExpr. Level 0. |
 | **Apus.Geom3D** | 2759 | Matrices, quaternions, 3D math. Uses Types only. |
-| **Apus.AnimatedValues** | 328 | Animated floats. Uses Tweenings only (but Tweenings uses Common!). |
+| **Apus.AnimatedValues** | 328 | Animated floats. Uses Tweenings only. |
 | **Apus.Classes** | 163 | ✅ **Migrated 2026-02-17**: uses Strings (FastHash), Conv (ToHex, HasValue), Structs. Foundation module (Level 1). |
 | **Apus.Containers** | 1051 | TestContainers | Trees, heaps, queues and object list containers split from old `Apus.Structs`. |
 
-## MIGRATE — old modules that use Common, need API call replacement
+## Apus.Common Status (2026-03-22)
 
-These modules `uses Apus.Common` and call old API functions.
-Migration = replace `uses Common` with appropriate new modules + rename function calls.
+- `Base/*.pas` has **no** `Apus.Common` dependency outside `Base/Deprecated`.
+- Active compatibility unit is only `Base/Deprecated/Apus.Common.pas`.
+- Remaining non-deprecated references are outside Base:
+  - **Engine:** 20 files
+  - **Demo:** 6 files
+  - **Tools:** 2 files
 
-### Trivial (only type aliases or 1-2 calls)
+### Remaining `Apus.Common` references (live files)
 
-| Module | Lines | What it uses from Common |
-|--------|-------|--------------------------|
-| **Apus.RSA** | 633 | Common only under `{$IFDEF SELF_TEST}`. Production code is clean. |
-| **Apus.Huffman** | 130 | Type aliases only (ByteArray, WordArray, UIntArray) → replace with `uses Apus.Types` |
-| **Apus.Tweenings** | 130 | Clamp only → replace with `uses Apus.Core` |
-| **Apus.Regions** | 213 | FileName() call → replace with `Files.FileName()` |
-| **Apus.Profiling** | 155 | EWarning only → replace with `uses Apus.Classes` |
-| **Apus.GeoIP** | 159 | Minimal dependency |
+`Apus.Engine.AndroidGame.pas`, `Apus.Engine.AEMLoader.pas`, `Apus.Engine.BitmapStyle.pas`, `Apus.Engine.ComplexText.pas`, `Apus.Engine.DxImages8.pas`, `Apus.Engine.IOSgame.pas`, `Apus.Engine.IQMloader.pas`, `Apus.Engine.Model3D.pas`, `Apus.Engine.Networking2.pas`, `Apus.Engine.Networking3.pas`, `Apus.Engine.Objects.pas`, `Apus.Engine.OBJLoader.pas`, `Apus.Engine.PainterGL.pas`, `Apus.Engine.PainterGL2.pas`, `Apus.Engine.SoundBass.pas`, `Apus.Engine.SoundImx.pas`, `Apus.Engine.SoundSDL.pas`, `Apus.Engine.SpritePacker.pas`, `Apus.Engine.SteamAPI.pas`, `Apus.Engine.UDict.pas`, `demo/CharAnimation/MainScene.pas`, `demo/ControllerDemo/MainScene.pas`, `demo/NinePatch/MainScene.pas`, `demo/Particles/MainScene.pas`, `demo/ShadowMap/MainScene.pas`, `demo/Simple3D/MainScene.pas`, `tools/TreeGen/MainScene.pas`, `tools/TreeGen/Trees.pas`.
 
-### Light (a few old calls to replace)
+## Next priorities (updated)
 
-| Module | Lines | What it uses from Common |
-|--------|-------|--------------------------|
-| **Apus.Colors** | 535 | min2d, max2d, Clamp → Core.Min/Max/Clamp |
-| **Apus.FastGFX** | 2121 | min2, max2, Clamp → Core.Min/Max/Clamp |
-| **Apus.Geom2D** | 1080 | min2, max2, min2d, max2d, min2s, max2s, Swap → all in Core |
-| **Apus.Images** | 595 | min2, max2, Clamp + LogMessage, ForceLogMessage |
-| **Apus.VertexLayout** | 387 | FormatHex → Conv.ToHex |
-| **Apus.Clipboard** | 214 | EWarning, EError → Classes |
-| **Apus.MemoryLeakUtils** | 176 | EError → Classes |
-| **Apus.StackTrace** | 121 | FormatHex → Conv.ToHex. LogMessage in impl. |
-| **Apus.TCP** | 539 | LogMessage, ForceLogMessage |
-| **Apus.Socket** | 136 | LogMessage + InitCritSect/EnterCS/LeaveCS |
-| **Apus.ProdCons** | 219 | Clamp, MyTickCount |
-
-### Medium (multiple old API groups)
-
-| Module | Lines | What it uses from Common |
-|--------|-------|--------------------------|
-| **Apus.GfxFormats** | 1337 | LoadFileAsBytes, SaveFile, min2, max2, SplitA, ParseInt |
-| **Apus.GlyphCaches** | 671 | LogMessage, max2, PackBytes, PackWords, ExceptionMsg |
-| **Apus.TextUtils** | 260 | ParseInt, PosFrom, LastPos, SplitA, string type aliases |
-| **Apus.UnicodeFont** | 466 | LogMessage, ForceLogMessage, min2, max2, Clamp |
-| **Apus.FreeTypeFont** | 363 | LogMessage, type aliases |
-| **Apus.GfxFilters** | 1385 | Needs audit — large module |
-| **Apus.Database** | 515 | String8, StringArr, MyTickCount, parsing |
-| **Apus.Translation** | 416 | EncodeUTF8, DecodeUTF8 |
-| **Apus.HtmlTree** | 665 | String8 API (Parse/Tree/Attributes), String8.IndexOf(ignoreCase) |
-
-### Heavy (deep Common dependency, infrastructure modules)
-
-| Module | Lines | What it uses from Common | Priority |
-|--------|-------|--------------------------|----------|
-| **Apus.EventMan** | 634 | **WIP** — Partially migrated to Log/Threads/Classes. Event system (Signal/Link). Core infrastructure. Needs completion + tests. | **HIGH** |
-| **Apus.HttpRequests** | 1036 | LogMessage, ForceLogMessage, ExceptionMsg, UrlEncode, MyTickCount, InitCritSect, Enter/LeaveCS, Split | MEDIUM |
-| **Apus.ControlFiles** | 1827 | Split, SplitA, Chop, QuoteStr, UnQuoteStr, InitCritSect, Enter/LeaveCS. **Blocked by Apus.Structs**. Uses TGenericTree, TStrHash. | LOW |
-| **Apus.SCGI** | 1383 | Needs audit — large module | LOW |
-| **Apus.Android** | 465 | ForceLogMessage, EncodeUTF8, AddString, SaveFile. Platform-specific. | LOW |
-| **Apus.Publics** | 1184 | EncodeUTF8, DecodeUTF8, ParseInt, SplitA. Public variable system. | LOW |
-
-## EXTRACT — code still trapped inside Common that belongs in these modules
-
-| Target module | What to extract from Common | Est. lines |
-|---------------|---------------------------|------------|
-| **Apus.Log.Memory** (TBD) | Refactor old Apus.Logging into memory log handler that uses new Apus.Log via SetCustomHandler. Extract daily rotation, FetchLog, flood protection, SaveMessages functionality. | ~300 |
-| **Apus.Core** (extend) | Math: FRound, PRound, SRound, FastFloor, Wrap, Ratio, Pike, FastInvSqrt. Bits: GetBits, SetBits. Pack: PackBytes, PackWords, ExtractByte, ExtractWord. Random: TRandom, PseudoRand, RandomInt, RandomStr. Checksum: CalcCheckSum, CheckSum64, FillRandom. | ~400 |
-| **Apus.Conv** (extend) | Date/Time: HowLong, NowGMT→Time.UTC, GetUTCTime→Time.Stamp, MyTickCount→removed. Encoding: ConvertToWindows/FromWindows, Win1251↔UTF8, BinToStr/StrToBin. | ~200 |
-| **Apus.Strings** (extend) | ✅ EncodeUTF8/DecodeUTF8 already as `UTF8.Encode`/`UTF8.Decode`. Still needed: Str8, Str16, SafeStrItem, LastChar, Unescape, DumpStr. | ~150 |
-| **Apus.Core** (extend) | Sorting helpers: `Sort.ByInt/ByFloat/ByDouble/ByStr`, plus remaining `SortObjects/SortStrings/IndexRecordsByFloat` if still needed for migration parity. | ~350 |
-| **Apus.Core** (extend) | PackBytes/PackWords, PointerInRange | ~30 |
-| **Apus.Utils** (extend) | Str8/Str16 conversions, HasParam/GetParam, SafeStrItem, AddString/RemoveString/FindString array helpers | ~150 |
-| **Apus.Types** | TTextEncoding enum (used by Apus.Translation) | ~20 |
-| ~~**Apus.Threads**~~ | **DONE** — Extracted to new module. **BLOCKER #1 SOLVED**. | 667 |
-| ~~**Apus.Utils**~~ | **DONE** — Created new module. Default place for functions without clear home. Current: ParseDate/ParseTime, SplitA, Chop. Planned: EncodeUTF8/DecodeUTF8, AddString/RemoveString/FindString, HasParam/GetParam, SimpleEncrypt/Compress, ExecuteAndCapture (from CrossPlatform), MyTickCount(?). | 280+ |
-
-## DEPRECATED — candidates for removal or refactoring
-
-| Module | Lines | Notes |
-|--------|-------|-------|
-| **Apus.Network** | 439 | Deprecated since 2023. Replaced by Apus.Socket. Used by Engine.Networking2 only. |
-| **Apus.CrossPlatform** | 670 | Platform abstraction layer, but most functions are RTL wrappers. Extract useful parts (ExecuteAndCapture?) to Apus.Utils, remove from uses everywhere. Still uses Common (LogMessage, MyTickCount, threading). |
-
-## Key blockers
-
-1. ~~**Threading**~~: **DONE** — Apus.Threads created.
-2. ~~**Logging**~~: **DONE** — Apus.Log created.
-3. ~~**EventMan**~~: **DONE** — migrated to Core/Log/Threads/Strings, compiles clean.
-4. ~~**Classes+Structs**~~: **DONE** — migrated 2026-02-17.
-5. **Apus.Images / Apus.FastGFX** — gateway modules: ~15 other modules depend on them (Clipboard, Regions, GlyphCaches, UnicodeFont, FreeTypeFont, GfxFilters, GfxFormats, etc.). Migrating Images+FastGFX would unblock the most modules at once. **HIGH PRIORITY.**
-6. **EncodeUTF8/DecodeUTF8** — used by 5+ modules (Translation, Publics, HtmlTree, Android). Already in Apus.Strings as `UTF8.Encode`/`UTF8.Decode` — need to add upgrade rule + verify API matches.
-7. **MyTickCount** — still used in some modules. Replace with `GetTickCount64` directly (no wrapper needed).
-8. **CrossPlatform** — deprecated, extract ExecuteAndCapture to Utils, then remove from uses everywhere.
-
-## Discovered dependency chains (buildtest 2026-02-17)
-
-These modules compile cleanly themselves but are blocked transitively:
-- **Clipboard, Regions** → Apus.Images → Apus.FastGFX → Common
-- **AnimatedValues** → Apus.Tweenings → Common
-- **GlyphCaches, UnicodeFont, FreeTypeFont** → Apus.Images → Common
-- **GfxFormats, GfxFilters** → Apus.Images + Apus.FastGFX → Common
-- **Socket** → Common (direct, needs LogMessage + InitCritSect)
-- **ProdCons** → Common (direct, needs Clamp + MyTickCount)
-
-## Migration order (current priorities)
-
-### Completed ✅
-1. ✅ Create Apus.Log, Apus.Threads, Apus.Utils, Apus.Files, Apus.HashMaps
-2. ✅ Migrate Apus.Classes, Apus.Structs (Foundation Level 1)
-3. ✅ Migrate Apus.EventMan
-4. ✅ Migrate Apus.Geom2D, Apus.Colors, Apus.VertexLayout (2026-02-17)
-5. ✅ Migrate Apus.Clipboard, Apus.Regions (own code clean; blocked by Images transitively)
-6. ✅ Extend Apus.Core: Wrap, FRound/PRound/SRound, Bits.GetBits/SetBits (2026-02-17)
-
-### Next (HIGH — unblocks most modules)
-7. **Migrate Apus.FastGFX** — light-to-medium, min2/max2/Clamp only. Unblocks Images and ~10 downstream modules.
-8. **Migrate Apus.Images** — medium, min2/max2/Clamp + LogMessage. Depends on FastGFX being clean first.
-9. **Migrate Apus.Tweenings** — trivial (Clamp only → Core). Unblocks AnimatedValues.
-10. **Migrate Apus.Socket** — light (LogMessage + InitCritSect/Enter/LeaveCS → Log + Threads).
-
-### Medium priority
-11. Migrate Apus.ProdCons (Clamp + MyTickCount → Core + GetTickCount64)
-12. Extract EncodeUTF8/DecodeUTF8 into Apus.Strings → unblocks Translation, HtmlTree, Publics
-13. Migrate Apus.TCP, Apus.HttpRequests (LogMessage, MyTickCount, threading)
-14. Migrate Apus.GfxFormats, Apus.GfxFilters (after Images is clean)
-15. Migrate Apus.GlyphCaches, Apus.UnicodeFont, Apus.FreeTypeFont (after Images)
-16. Extract CrossPlatform → Utils, then remove from all uses
-
-### Low priority
-17. Migrate trivial: Huffman, Profiling, GeoIP, StackTrace, MemoryLeakUtils
-18. Migrate medium: TextUtils, Database, Translation, HtmlTree
-19. Common becomes a thin re-export facade or is removed
+1. Stabilize current Base APIs on Windows/Linux and close remaining edge cases.
+2. Expand targeted automated tests and benchmarks for already-migrated modules.
+3. Continue performance work (SSE hot paths, timing/profile-guided optimizations).
+4. Do incremental cleanup of legacy `Apus.Common` references in Engine/Demo/Tools without treating it as a blocking track.
 
 ## TODO — important tasks
 

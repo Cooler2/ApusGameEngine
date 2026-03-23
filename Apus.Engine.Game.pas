@@ -1256,9 +1256,8 @@ begin
    p.x:=tag and $FFFF;
    p.y:=tag shr 16;
    ClientToGame(p);
-   window.mouseX:=p.x;
-   window.mouseY:=p.y;
-   Signal('Mouse\Move',(window.mouseX and $FFFF)+window.mouseY shl 16);
+   window.mousePos:=p;
+   Signal('Mouse\Move',Bits.PackW(window.mousePos.x,window.mousePos.y));
    window.FlushMouseInput;
    Signal('Mouse\BtnDown\Left',1);
    window.NotifyScenesMouseBtn(1,true);
@@ -1270,9 +1269,8 @@ begin
    p.x:=tag and $FFFF;
    p.y:=tag shr 16;
    ClientToGame(p);
-   window.mouseX:=p.x;
-   window.mouseY:=p.y;
-   Signal('Mouse\Move',(window.mouseX and $FFFF)+window.mouseY shl 16);
+   window.mousePos:=p;
+   Signal('Mouse\Move',Bits.PackW(window.mousePos.x,window.mousePos.y));
    window.FlushMouseInput;
    Timing;
  end else
@@ -1280,8 +1278,8 @@ begin
    t:=CoreTime.Ticks;
    Signal('Mouse\BtnUp\Left',1);
    window.NotifyScenesMouseBtn(1,false);
-   window.mouseX:=4095; window.mouseY:=4095;
-   Signal('Mouse\Move',Bits.PackW(window.mouseX,window.mouseY));
+   window.mousePos:=Types.Point(4095,4095);
+   Signal('Mouse\Move',Bits.PackW(window.mousePos.x,window.mousePos.y));
    window.FlushMouseInput;
    Timing;
  end else
@@ -1336,9 +1334,8 @@ begin
  if SameText(event,'UPDATEMOUSEPOS') then begin
    pnt:=systemPlatform.GetMousePos;
    ClientToGame(pnt);
-   window.mouseX:=pnt.X;
-   window.mouseY:=pnt.Y;
-   Signal('MOUSE\MOVE',pnt.X and $FFFF+(pnt.Y and $FFFF) shl 16);
+   window.mousePos:=pnt;
+   Signal('MOUSE\MOVE',Bits.PackW(pnt.X,pnt.Y));
    window.FlushMouseInput;
  end
  else
@@ -1380,8 +1377,8 @@ var
    bestPnt:TPoint;
   begin
     if dragMode then begin
-      bestPnt.x:=window.mouseX+nx*20;
-      bestPnt.y:=window.mouseY+ny*20;
+      bestPnt.x:=window.mousePos.x+nx*20;
+      bestPnt.y:=window.mousePos.y+ny*20;
       window.ClientToScreen(bestPnt);
       systemPlatform.SetMousePos(bestPnt.x,bestPnt.y);
       exit;
@@ -1391,7 +1388,7 @@ var
     best:=100000;
     for i:=0 to high(activeCustomPoints) do
      with activeCustomPoints[i] do begin
-      dx:=x-window.mouseX; dy:=y-window.mouseY;
+      dx:=x-window.mousePos.x; dy:=y-window.mousePos.y;
       d:=dx*nx+dy*ny; // расстояние в направлении вектора (скалярное произведение)
       if d<=1 then continue;
       // расстояние в перпендикулярном направлении больше?
