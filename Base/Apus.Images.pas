@@ -8,10 +8,6 @@
 {$I defines.inc}
 unit Apus.Images;
 
-{$IFDEF FPC}
-  {$MODE Delphi}
-{$ENDIF}
-
 interface
  uses Apus.FastGFX;
 
