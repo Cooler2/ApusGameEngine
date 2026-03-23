@@ -19,7 +19,7 @@ setlocal
 cd /d "%~dp0"
 set FPC32=ppc386.exe
 set FPC64=fpc.exe
-set FLAGS=-MDelphi -Sd -RIntel -Fu.. -Ct -CR
+set FLAGS=-MDelphi -Sd -RIntel -Fu.. -Ct -CR -dTIME_OVERRIDE
 set LOG64=test_results_64.txt
 set LOG32=test_results_32.txt
 
