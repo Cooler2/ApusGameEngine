@@ -183,6 +183,94 @@ begin
   EndTest;
 end;
 
+procedure TestDelayedStartBehavior;
+var
+  tw:TTweening;
+  v:single;
+begin
+  StartTest('Delay before start');
+  InitTweening(tw);
+  ResetTestTime;
+  try
+    tw.Assign(10);
+    tw.Animate(30,100,splines.linear,50);
+
+    v:=tw.Value;
+    CheckNear(v,10,0.0001,'Value unchanged immediately after delayed animate');
+
+    AdvanceTestTime(40);
+    v:=tw.Value;
+    CheckNear(v,10,0.0001,'Value unchanged before delayed start');
+    Check(tw.IsAnimating,'IsAnimating true before delayed start');
+
+    AdvanceTestTime(20); // now 60ms from schedule point -> animation should have started
+    v:=tw.Value;
+    Check((v>10) and (v<30),'Value changes after delayed start');
+  finally
+    tw.Free;
+    ClearTestTime;
+  end;
+  EndTest;
+end;
+
+procedure TestInstantPath;
+var
+  tw:TTweening;
+  p1,p2,p:TVec2s;
+begin
+  StartTest('Instant path duration=0');
+  InitTweening(tw);
+  ResetTestTime;
+  try
+    tw.Assign(1);
+    tw.Animate(9,0,splines.linear,0);
+    CheckNear(tw.Value,9,0.0001,'Scalar instant animate sets value');
+    Check(not tw.IsAnimating,'Scalar instant animate has no active effect');
+
+    p1.x:=2; p1.y:=3;
+    p2.x:=7; p2.y:=11;
+    tw.Assign(p1,2);
+    tw.Animate(p2,0,splines.easeOut,0);
+    tw.GetValue(p,CoreTime.Ticks);
+    CheckNear(p.x,7,0.0001,'Vector instant animate sets x');
+    CheckNear(p.y,11,0.0001,'Vector instant animate sets y');
+    Check(not tw.IsAnimating,'Vector instant animate has no active effect');
+  finally
+    tw.Free;
+    ClearTestTime;
+  end;
+  EndTest;
+end;
+
+procedure TestBoundaryTimes;
+var
+  tw:TTweening;
+  t0:int64;
+  v:single;
+begin
+  StartTest('Boundary times');
+  InitTweening(tw);
+  ResetTestTime;
+  try
+    tw.Assign(0);
+    t0:=CoreTime.Ticks;
+    tw.Animate(100,100,splines.linear,20); // start=t0+20, end=t0+120
+
+    tw.GetValue(v,t0+20);
+    CheckNear(v,0,0.0001,'Value at startTime equals startValue');
+
+    tw.GetValue(v,t0+120);
+    CheckNear(v,100,0.0001,'Value at endTime equals endValue');
+
+    tw.GetValue(v,t0+121);
+    CheckNear(v,100,0.0001,'Value after endTime remains endValue');
+  finally
+    tw.Free;
+    ClearTestTime;
+  end;
+  EndTest;
+end;
+
 begin
   try
     TestAssignAndBasicAccess;
@@ -190,6 +278,9 @@ begin
     TestVectorAnimation;
     TestInterruptionAndZeroDurationDelay;
     TestScalarAnimateFromUninitialized;
+    TestDelayedStartBehavior;
+    TestInstantPath;
+    TestBoundaryTimes;
 
     writeln;
     if testsFailed=0 then
