@@ -15,9 +15,37 @@ type
     x,y:single;
   end;
 
+var
+  testNowUs:int64=0;
+
 procedure InitTweening(out tw:TTweening);
 begin
   FillChar(tw,SizeOf(tw),0);
+end;
+
+procedure ResetTestTime;
+begin
+  {$IFDEF TIME_OVERRIDE}
+  testNowUs:=1000000; // start from non-zero to keep 0 as "override disabled" sentinel
+  CoreTime.Override(testNowUs);
+  {$ENDIF}
+end;
+
+procedure AdvanceTestTime(ms:integer);
+begin
+  {$IFDEF TIME_OVERRIDE}
+  inc(testNowUs,int64(ms)*1000);
+  CoreTime.Override(testNowUs);
+  {$ELSE}
+  CoreTime.Sleep(ms);
+  {$ENDIF}
+end;
+
+procedure ClearTestTime;
+begin
+  {$IFDEF TIME_OVERRIDE}
+  CoreTime.Override(0);
+  {$ENDIF}
 end;
 
 procedure CheckNear(actual,expected,eps:single; const msg:string);
@@ -58,20 +86,23 @@ var
 begin
   StartTest('Linear animation');
   InitTweening(tw);
+  ResetTestTime;
+  try
+    tw.Assign(0);
+    tw.Animate(100,120,splines.linear);
+    AdvanceTestTime(20);
+    v:=tw.Value;
+    Check((v>0) and (v<100),'Value moves during animation');
+    Check(tw.IsAnimating,'IsAnimating during active tween');
 
-  tw.Assign(0);
-  tw.Animate(100,120,splines.linear);
-  CoreTime.Sleep(20);
-  v:=tw.Value;
-  Check((v>0) and (v<100),'Value moves during animation');
-  Check(tw.IsAnimating,'IsAnimating during active tween');
-
-  CoreTime.Sleep(130);
-  CheckNear(tw.Value,100,0.5,'Value reaches final');
-  CheckNear(tw.FinalValue,100,0.0001,'FinalValue equals target');
-  Check(not tw.IsAnimating,'IsAnimating false after end');
-
-  tw.Free;
+    AdvanceTestTime(130);
+    CheckNear(tw.Value,100,0.5,'Value reaches final');
+    CheckNear(tw.FinalValue,100,0.0001,'FinalValue equals target');
+    Check(not tw.IsAnimating,'IsAnimating false after end');
+  finally
+    tw.Free;
+    ClearTestTime;
+  end;
   EndTest;
 end;
 
@@ -82,23 +113,26 @@ var
 begin
   StartTest('Vector animation');
   InitTweening(tw);
+  ResetTestTime;
+  try
+    p1.x:=0; p1.y:=100;
+    p2.x:=200; p2.y:=50;
+    tw.Assign(p1,2);
+    tw.Animate(p2,100,splines.linear);
 
-  p1.x:=0; p1.y:=100;
-  p2.x:=200; p2.y:=50;
-  tw.Assign(p1,2);
-  tw.Animate(p2,100,splines.linear);
+    AdvanceTestTime(30);
+    tw.GetValue(p,CoreTime.Ticks);
+    Check((p.x>0) and (p.x<200),'Vector x interpolates');
+    Check((p.y<100) and (p.y>50),'Vector y interpolates');
 
-  CoreTime.Sleep(30);
-  tw.GetValue(p,CoreTime.Ticks);
-  Check((p.x>0) and (p.x<200),'Vector x interpolates');
-  Check((p.y<100) and (p.y>50),'Vector y interpolates');
-
-  CoreTime.Sleep(90);
-  tw.GetValue(p,CoreTime.Ticks);
-  CheckNear(p.x,200,0.5,'Vector x final');
-  CheckNear(p.y,50,0.5,'Vector y final');
-
-  tw.Free;
+    AdvanceTestTime(90);
+    tw.GetValue(p,CoreTime.Ticks);
+    CheckNear(p.x,200,0.5,'Vector x final');
+    CheckNear(p.y,50,0.5,'Vector y final');
+  finally
+    tw.Free;
+    ClearTestTime;
+  end;
   EndTest;
 end;
 
@@ -109,25 +143,28 @@ var
 begin
   StartTest('Interruption + zero-duration delay');
   InitTweening(tw);
+  ResetTestTime;
+  try
+    tw.Assign(0);
+    tw.Animate(100,200,splines.easeOut);
+    AdvanceTestTime(30);
+    // edge: old animation is active, new animation has duration=0 and delay>0
+    // this must not crash and should apply at delayed start time.
+    tw.Animate(50,0,splines.linear,60);
 
-  tw.Assign(0);
-  tw.Animate(100,200,splines.easeOut);
-  CoreTime.Sleep(30);
-  // edge: old animation is active, new animation has duration=0 and delay>0
-  // this must not crash and should apply at delayed start time.
-  tw.Animate(50,0,splines.linear,60);
+    beforeDelay:=tw.Value;
+    Check((beforeDelay>=0) and (beforeDelay<=100),
+      'Value is valid immediately after re-target');
+    Check(tw.IsAnimating,'Delayed zero-duration tween is considered animating');
 
-  beforeDelay:=tw.Value;
-  Check((beforeDelay>=0) and (beforeDelay<=100),
-    'Value is valid immediately after re-target');
-  Check(tw.IsAnimating,'Delayed zero-duration tween is considered animating');
-
-  CoreTime.Sleep(80);
-  afterDelay:=tw.Value;
-  CheckNear(afterDelay,50,0.5,'Delayed zero-duration tween applies target');
-  Check(not tw.IsAnimating,'No active tween after delayed instant set');
-
-  tw.Free;
+    AdvanceTestTime(80);
+    afterDelay:=tw.Value;
+    CheckNear(afterDelay,50,0.5,'Delayed zero-duration tween applies target');
+    Check(not tw.IsAnimating,'No active tween after delayed instant set');
+  finally
+    tw.Free;
+    ClearTestTime;
+  end;
   EndTest;
 end;
 
