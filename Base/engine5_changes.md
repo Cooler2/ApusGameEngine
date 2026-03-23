@@ -37,6 +37,23 @@ Use it as the primary reference when updating old code.
   - `Time.TicksUs`
   - `Time.TicksSec`
 
+## Recent API fixes (2026-03-23)
+
+### Apus.Files object-style TFileHandle I/O
+
+- `TFileHandle` in `Apus.Files` is now an opaque record with object-style methods:
+  - `Read(buf,size):integer`
+  - `Write(buf,size):integer`
+  - `Seek(offset,origin):int64`
+  - `Close`
+- These methods are thin wrappers over existing `Files.Read/Write/Seek/Close` and keep provider-chain behavior unchanged.
+- Existing static handle API in `Files` remains available for compatibility.
+- Added ergonomic untyped-buffer overloads:
+  - `Read(var buf; size:integer)`
+  - `Write(const buf; size:integer)`
+  in `TFileHandle`.
+- Safety tweak: raw-pointer access in `TFileHandle` is explicit (`ReadMem/WriteMem`) to avoid overload ambiguity with pointer-value serialization (`Write(ptr,sizeof(ptr))` writes pointer value via `const buf` overload).
+
 ## Recent API fixes (2026-03-14)
 
 ### Apus.EventMan thread-aware handler deduplication

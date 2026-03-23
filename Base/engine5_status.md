@@ -43,6 +43,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-03-22):** Added `Time.TicksUs` and `Time.TicksSec` to `Apus.Core` as explicit high-precision monotonic APIs (QPC/clock_gettime based), while keeping `Time.Ticks` as compatibility millisecond API.
 **Recent wins (2026-03-22):** Extended `Base/tests/BenchCore` with direct timing-cost comparison for `Time.Ticks`, `Time.TicksUs`, and `Time.TicksSec`.
 **Recent wins (2026-03-23):** Extended `Apus.Geom2D.TRect2` with `Contains(const p:TPoint)` and `Contains(x,y:single)`; Engine window hit-testing switched to type-level methods instead of local helper functions.
+**Recent wins (2026-03-23):** `Apus.Files.TFileHandle` now supports object-style I/O (`Read/Write/Seek/Close`) plus untyped buffer overloads (`Read(var buf,...)`, `Write(const buf,...)`); raw pointer access in object API is explicit as `ReadMem/WriteMem` to avoid pointer-overload ambiguity.
 
 ## NEW — created in engine5 refactoring
 

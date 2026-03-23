@@ -26,7 +26,18 @@ type
     isDirectory:boolean;
   end;
 
-  TFileHandle = pointer; // opaque type
+  TFileHandle = record
+  private
+    value:pointer;
+  public
+    class function Init(raw:pointer):TFileHandle; static; inline;
+    function Read(var buf; size:integer):integer; overload; inline;
+    function Write(const buf; size:integer):integer; overload; inline;
+    function ReadMem(buf:pointer; size:integer):integer; inline;
+    function WriteMem(buf:pointer; size:integer):integer; inline;
+    function Seek(offset:int64; origin:integer):int64; inline;
+    procedure Close; inline;
+  end;
   IFileProvider = interface;
 
   Files = record
@@ -44,8 +55,7 @@ type
     // Text save/load policy:
     // - LoadAsString removes UTF-8 BOM when reading from file start.
     // - Save(String8) writes UTF-8 BOM by default; pass addBOM=false for raw text.
-    class procedure Save(const fname:String8; const data:String8; addBOM:boolean); overload; static;
-    class procedure Save(const fname:String8; const data:String8); overload; static;
+    class procedure Save(const fname:String8; const data:String8; addBOM:boolean=true); overload; static;
     class procedure Save(const fname:String8; const data:TBuffer); overload; static;
 
     // --- Block I/O: one-shot open+seek+read/write+close ---
@@ -55,8 +65,8 @@ type
 
     // --- Handle-based I/O ---
     class function Open(const fname:String8; readOnly:boolean):TFileHandle; static;
-    class procedure Close(f:TFileHandle); static;
     class function Read(f:TFileHandle; buf:pointer; size:integer):integer; static;
+    class procedure Close(f:TFileHandle); static;
     class function Write(f:TFileHandle; buf:pointer; size:integer):integer; static;
     class function Seek(f:TFileHandle; offset:int64; origin:integer):int64; static;
     class function Position(f:TFileHandle):int64; static;
@@ -151,12 +161,49 @@ type
 
 function HandleToFile(h:THandle):TFileHandle; inline;
 begin
-  result:=TFileHandle(h);
+  result:=TFileHandle.Init(pointer(h));
 end;
 
 function FileToHandle(f:TFileHandle):THandle; inline;
 begin
-  result:=THandle(f);
+  result:=THandle(f.value);
+end;
+
+{ TFileHandle }
+
+class function TFileHandle.Init(raw:pointer):TFileHandle;
+begin
+  result.value:=raw;
+end;
+
+function TFileHandle.Read(var buf; size:integer):integer;
+begin
+  result:=Files.Read(self,@buf,size);
+end;
+
+function TFileHandle.ReadMem(buf:pointer; size:integer):integer;
+begin
+  result:=Files.Read(self,buf,size);
+end;
+
+function TFileHandle.Write(const buf; size:integer):integer;
+begin
+  result:=Files.Write(self,@buf,size);
+end;
+
+function TFileHandle.WriteMem(buf:pointer; size:integer):integer;
+begin
+  result:=Files.Write(self,buf,size);
+end;
+
+function TFileHandle.Seek(offset:int64; origin:integer):int64;
+begin
+  result:=Files.Seek(self,offset,origin);
+end;
+
+procedure TFileHandle.Close;
+begin
+  Files.Close(self);
 end;
 
 { TOSFileProvider }
@@ -423,21 +470,23 @@ begin
 end;
 
 class procedure Files.Save(const fname:String8; const data:String8; addBOM:boolean);
+const
+  BOM:array[0..2] of byte=($EF,$BB,$BF);
 var
-  st:String8;
+  f:TFileHandle;
 begin
-  st:=data;
-  if addBOM and not UTF8.HasBOM(st) then
-    st:=#$EF#$BB#$BF+st;
-  if length(st)>0 then
-    Save(fname,@st[1],length(st))
-  else
+  if length(data)=0 then begin
     Save(fname,nil,0);
-end;
-
-class procedure Files.Save(const fname:String8; const data:String8);
-begin
-  Save(fname,data,true);
+    exit;
+  end;
+  if addBOM and not UTF8.HasBOM(data) then begin
+    f:=Open(fname,false);
+    f.WriteMem(@BOM,3);
+    f.WriteMem(@data[1],length(data));
+    f.Close;
+  end else
+  if length(data)>0 then
+    Save(fname,@data[1],length(data));
 end;
 
 class procedure Files.Save(const fname:String8; const data:TBuffer);

@@ -100,30 +100,43 @@ procedure TestHandleIO;
 var
   f:TFileHandle;
   buf:array[0..3] of byte;
+  ptrIn,ptrOut:pointer;
   n:integer;
 begin
   StartTest('Handle I/O');
   // write
   f:=Files.Open(TestDir+'/handle.bin',false);
   buf[0]:=$11; buf[1]:=$22; buf[2]:=$33; buf[3]:=$44;
-  Files.Write(f,@buf,4);
+  f.Write(buf,4);
   Check(Files.Position(f)=4,'position after write');
   Check(Files.FileSize(f)=4,'filesize');
-  Files.Close(f);
+  f.Close;
 
   // read
   f:=Files.Open(TestDir+'/handle.bin',true);
   Mem.Clear(buf,4);
-  n:=Files.Read(f,@buf,4);
+  n:=f.Read(buf,4);
   Check(n=4,'read 4 bytes');
   Check((buf[0]=$11) and (buf[3]=$44),'read content');
 
   // seek
-  Files.Seek(f,1,0);
+  f.Seek(1,0);
   Check(Files.Position(f)=1,'seek to 1');
-  Files.Read(f,@buf,1);
+  f.Read(buf,1);
   Check(buf[0]=$22,'read after seek');
-  Files.Close(f);
+  f.Close;
+
+  // write/read pointer value itself (not pointed data)
+  ptrIn:=pointer(UIntPtr($12345678));
+  f:=Files.Open(TestDir+'/handle_ptr.bin',false);
+  f.Write(ptrIn,sizeof(ptrIn));
+  f.Close;
+  ptrOut:=nil;
+  f:=Files.Open(TestDir+'/handle_ptr.bin',true);
+  n:=f.Read(ptrOut,sizeof(ptrOut));
+  f.Close;
+  Check(n=sizeof(ptrOut),'read pointer-sized bytes');
+  Check(ptrOut=ptrIn,'pointer value roundtrip');
 
   EndTest;
 end;
