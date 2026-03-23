@@ -3,8 +3,7 @@
 // Style text format:
 //   key: value;                         -- attribute
 //   @refname;                           -- named style reference (lower priority than local)
-//   :state { key: value; key: value; } -- state override block
-//   [state]key: value;                  -- legacy state override (backward compat)
+//   :state { key: value; key: value; }  -- state override block
 //
 // Patch syntax (for PatchText):
 //   +key:value  -- add/overwrite attribute
@@ -60,6 +59,12 @@ type
    // Apply patch operations (modifies existing data)
    procedure PatchText(const patch:String8);
 
+   // Fluent API: Assign = full replace, Add = patch (both return Self for chaining)
+   function Assign(const text:String8):TStyleBlock;
+   function Add(const patch:String8):TStyleBlock;
+   // Reconstruct style text (alias for GetText)
+   function Text:String8;
+
    // Individual attribute manipulation
    procedure SetAttr(const key,value:String8);
    procedure RemoveAttr(const key:String8);
@@ -81,7 +86,7 @@ type
    function GetScaledNumber(const key:String8; scale,defVal:single):single;
    function GetInt(const key:String8; defVal:integer=0):integer;
 
-   // Reconstruct style text (for debug/serialization)
+   // Reconstruct style text (for debug/serialization); use Text for fluent access
    function GetText:String8;
 
   private
@@ -411,6 +416,23 @@ function TStyleBlock.GetText:String8;
   result:=result.TrimRight;
  end;
 
+function TStyleBlock.Assign(const text:String8):TStyleBlock;
+ begin
+  ParseText(text);
+  result:=self;
+ end;
+
+function TStyleBlock.Add(const patch:String8):TStyleBlock;
+ begin
+  PatchText(patch);
+  result:=self;
+ end;
+
+function TStyleBlock.Text:String8;
+ begin
+  result:=GetText;
+ end;
+
 function TStyleBlock.FindOrAddStateBlock(const stateName:String8):integer;
  var
   i,n:integer;
@@ -482,7 +504,6 @@ procedure TStyleBlock.ParseText(const text:String8);
   i,n,start,braceStart,depth:integer;
   ch:char;
   stateName:String8;
-  legacyState:String8;
  begin
   Clear;
   n:=length(text);
@@ -525,20 +546,6 @@ procedure TStyleBlock.ParseText(const text:String8);
       ParseStateBlock(stateName,text,braceStart,i-2);
     end;
     // else: just ignore ':statename' without body
-    continue;
-   end;
-
-   // Legacy prefix: [statename]key:value;
-   if ch='[' then begin
-    inc(i);
-    start:=i;
-    while (i<=n) and (text[i]<>']') do inc(i);
-    legacyState:=Copy(text,start,i-start).Trim.ToLower;
-    if i<=n then inc(i); // skip ']'
-    start:=i;
-    while (i<=n) and (text[i]<>';') do inc(i);
-    ParseKV(text,start,i-1,legacyState);
-    if i<=n then inc(i);
     continue;
    end;
 
