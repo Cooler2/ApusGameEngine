@@ -86,6 +86,10 @@ type
    function GetScaledNumber(const key:String8; scale,defVal:single):single;
    function GetInt(const key:String8; defVal:integer=0):integer;
 
+   // State-specific typed getters (for transition blending)
+   function GetStateColor(const stateName,key:String8; defVal:cardinal=0):cardinal;
+   function GetStateNumber(const stateName,key:String8; defVal:single=0):single;
+
    // Reconstruct style text (for debug/serialization); use Text for fluent access
    function GetText:String8;
 
@@ -108,6 +112,11 @@ procedure ClearNamedStyles;
 function ResolveBlockAttr(block:TStyleBlock; const key:String8; const defVal:String8=''):String8;
 function ResolveBlockColor(block:TStyleBlock; const key:String8; defVal:cardinal=0):cardinal;
 function ResolveBlockNumber(block:TStyleBlock; const key:String8; defVal:single=0):single;
+
+// Resolve base value — local attrs+refs only, ignores active state overrides
+// Useful for transition blending: base = no-state value, state = SetState override
+function ResolveBlockAttrBase(block:TStyleBlock; const key:String8; const defVal:String8=''):String8;
+function ResolveBlockColorBase(block:TStyleBlock; const key:String8; defVal:cardinal=0):cardinal;
 
 // Parse color string: $AARRGGBB, $RRGGBB, #RRGGBB, #RGB, #ARGB formats
 // Returns 0 on failure
@@ -396,6 +405,25 @@ function TStyleBlock.GetScaledNumber(const key:String8; scale,defVal:single):sin
 function TStyleBlock.GetInt(const key:String8; defVal:integer):integer;
  begin
   result:=round(GetNumber(key,defVal));
+ end;
+
+function TStyleBlock.GetStateColor(const stateName,key:String8; defVal:cardinal):cardinal;
+ var
+  s:String8;
+ begin
+  s:=GetStateValue(stateName,key,'');
+  if s='' then exit(defVal);
+  result:=ParseStyleColor(s);
+  if (result=0) and (s<>'0') then result:=defVal;
+ end;
+
+function TStyleBlock.GetStateNumber(const stateName,key:String8; defVal:single):single;
+ var
+  s:String8;
+ begin
+  s:=GetStateValue(stateName,key,'');
+  if s='' then exit(defVal);
+  result:=ParseStyleNumber(s);
  end;
 
 function TStyleBlock.GetText:String8;
@@ -696,6 +724,37 @@ function ResolveBlockNumber(block:TStyleBlock; const key:String8; defVal:single)
   s:=ResolveBlockAttr(block,key,'');
   if s='' then exit(defVal);
   result:=ParseStyleNumber(s);
+ end;
+
+{ Base resolvers: local attrs+refs only, state overrides ignored }
+
+function ResolveBlockAttrBase(block:TStyleBlock; const key:String8; const defVal:String8):String8;
+ var
+  i:integer;
+  refBlock:TStyleBlock;
+  refVal:String8;
+ begin
+  // local attrs only (no state overrides)
+  result:=block.GetLocalValue(key);
+  if result<>'' then exit;
+  // @refs in reverse order
+  for i:=high(block.refs) downto 0 do begin
+   refBlock:=FindNamedStyle(block.refs[i]);
+   if refBlock=nil then continue;
+   refVal:=ResolveBlockAttrBase(refBlock,key,'');
+   if refVal<>'' then exit(refVal);
+  end;
+  result:=defVal;
+ end;
+
+function ResolveBlockColorBase(block:TStyleBlock; const key:String8; defVal:cardinal):cardinal;
+ var
+  s:String8;
+ begin
+  s:=ResolveBlockAttrBase(block,key,'');
+  if s='' then exit(defVal);
+  result:=ParseStyleColor(s);
+  if (result=0) and (s<>'0') then result:=defVal;
  end;
 
 end.

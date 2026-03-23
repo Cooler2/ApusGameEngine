@@ -252,6 +252,9 @@ type
   function GetStyleColor(const key:String8; defVal:cardinal=0):cardinal;
   function GetStyleNumber(const key:String8; defVal:single=0):single;
   function GetStyleInt(const key:String8; defVal:integer=0):integer;
+  // Base value without state overrides — for transition blending
+  function GetBaseStyleColor(const key:String8; defVal:cardinal=0):cardinal;
+  function GetBaseStyleNumber(const key:String8; defVal:single=0):single;
 
  protected
   focusedChild:TUIElement; // child element which should get focus instead of self
@@ -1480,6 +1483,43 @@ function TUIElement.GetClientHeight:single;
  function TUIElement.GetStyleInt(const key:String8; defVal:integer):integer;
   begin
    result:=round(GetStyleNumber(key,defVal));
+  end;
+
+ function TUIElement.GetBaseStyleColor(const key:String8; defVal:cardinal):cardinal;
+  var
+   s:String8;
+   item:TUIElement;
+  begin
+   s:=ResolveBlockAttrBase(style,key,'');
+   if s='' then begin
+    item:=parent;
+    while item<>nil do begin
+     s:=ResolveBlockAttrBase(item.style,key,'');
+     if s<>'' then break;
+     item:=item.parent;
+    end;
+   end;
+   if s='' then exit(defVal);
+   result:=ParseStyleColor(s);
+   if (result=0) and (s<>'0') then result:=defVal;
+  end;
+
+ function TUIElement.GetBaseStyleNumber(const key:String8; defVal:single):single;
+  var
+   s:String8;
+   item:TUIElement;
+  begin
+   s:=ResolveBlockAttrBase(style,key,'');
+   if s='' then begin
+    item:=parent;
+    while item<>nil do begin
+     s:=ResolveBlockAttrBase(item.style,key,'');
+     if s<>'' then break;
+     item:=item.parent;
+    end;
+   end;
+   if s='' then exit(defVal);
+   result:=Conv.ToFloat(s);
   end;
 
  procedure TUIElement.SetupScrollers;
