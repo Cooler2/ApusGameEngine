@@ -5,6 +5,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 // ------------------------------------------------------
 {$R-}
+{$I defines.inc}
 unit Apus.LongMath;
 interface
 type

@@ -13,6 +13,7 @@
 //  error\ - ошибки
 //  engine\ - события в движке
 //  UI\ - события интерфейса пользователя
+{$I defines.inc}
 unit Apus.EventMan;
 interface
 uses Apus.Core;

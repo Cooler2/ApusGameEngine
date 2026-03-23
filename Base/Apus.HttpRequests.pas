@@ -6,6 +6,7 @@
 // This file is a part of the Apus Base Library (http://apus-software.com/engine/#base)
 
 {$IFDEF IOS}{$S-} {$modeswitch objectivec1}{$ENDIF}
+{$I defines.inc}
 unit Apus.HttpRequests;
 interface
  uses Apus.Core;

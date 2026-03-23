@@ -6,6 +6,7 @@
 
 {$R-}
 
+{$I defines.inc}
 unit Apus.GfxFilters;
 interface
  uses Apus.Geom3D;
