@@ -4,11 +4,10 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
+{$I defines.inc}
 unit Apus.Engine.ResManGL;
 interface
  uses Apus.Engine.API, Apus.Images, Apus.Core, Types, Apus.Engine.Resources, Apus.Threads, SyncObjs;
-{$IFDEF IOS} {$DEFINE GLES} {$DEFINE GLES11} {$DEFINE OPENGL} {$ENDIF}
-{$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE GLES20} {$DEFINE OPENGL} {$ENDIF}
 type
  // OpenGL texture object with CPU-side storage and upload/sync helpers.
  // Managed by TGLResourceManager, can also represent RT/depth/array layers.

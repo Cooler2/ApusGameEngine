@@ -5,9 +5,8 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
+{$I defines.inc}
 unit Apus.Engine.Tools;
-{$IFDEF IOS} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
-{$IFDEF ANDROID} {$DEFINE GLES} {$DEFINE OPENGL} {$ENDIF}
 interface
  uses Apus.Core, Apus.Engine.API, Apus.Images,
     Apus.Engine.UIWidgets, Apus.Engine.UIShapes,

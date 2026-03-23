@@ -4,8 +4,7 @@
 // This file is licensed under the terms of BSD-3 license (see license.txt)
 // This file is a part of the Apus Game Engine (http://apus-software.com/engine/)
 
-{$IFDEF IOS}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
-{$IFDEF ANDROID}{$DEFINE GLES} {$DEFINE GLES20} {$ENDIF}
+{$I defines.inc}
 unit Apus.Engine.PainterGL2;
 interface
  uses Types, Apus.Engine.API, Apus.Engine.PainterBase, Apus.Engine.PainterGL;
