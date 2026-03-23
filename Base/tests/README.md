@@ -30,6 +30,7 @@ test.bat Strings      → runs TestStrings
 | `Files` | File I/O utilities |
 | `EventMan` | Event system |
 | `Threads` | Threading primitives |
+| `Tweenings` | Tweening interpolation, delays, interruptions |
 
 ## Running Tests on Linux
 
@@ -82,10 +83,10 @@ Each module is reported as `[ ---- ]` (pass) or `[ FAIL ]` (fail), followed by a
 ```
 [ ---- ] Apus.Core
 [ ---- ] Apus.Conv
-[ FAIL ] Apus.Tweenings
+[ ---- ] Apus.Tweenings
 ...
 ==========================================
-SUMMARY: 46 passed, 1 failed
+SUMMARY: all modules passed
 ```
 
 On failure, the compiler output for the failing module is included in the log.

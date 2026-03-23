@@ -26,7 +26,7 @@ Relevance categories:
 |---|---|---|
 | `UI` | UI widgets, layouts, and interactions; primary UI showcase on the old path. | `engine4` |
 | `NinePatch` | Nine-patch rendering and stress checks for UI size/scaling behavior. | `engine4` |
-| `Tweenings` | Tweening API: click-to-move animation, basic interpolation/easing verification. | `engine4` |
+| `Tweenings` | Tweening API: click-to-move animation, basic interpolation/easing verification. | `engine5` |
 | `Borderless` | Borderless/resizable window mode plus basic UI (exit button). | `engine4` |
 
 ## 3. Graphics and Rendering Feature Demos

@@ -1,0 +1,175 @@
+{$APPTYPE CONSOLE}
+{$R+}
+{$Q+}
+program TestTweenings;
+uses
+  SysUtils,
+  Apus.Core,
+  Apus.Utils,
+  Apus.Tweenings;
+
+{$INCLUDE Test.inc}
+
+type
+  TVec2s=packed record
+    x,y:single;
+  end;
+
+procedure InitTweening(out tw:TTweening);
+begin
+  FillChar(tw,SizeOf(tw),0);
+end;
+
+procedure CheckNear(actual,expected,eps:single; const msg:string);
+begin
+  Check(abs(actual-expected)<=eps,msg+
+    ' (actual='+FloatToStr(actual)+', expected='+FloatToStr(expected)+')');
+end;
+
+procedure TestAssignAndBasicAccess;
+var
+  tw:TTweening;
+  p,cur:TVec2s;
+begin
+  StartTest('Assign + basic access');
+  InitTweening(tw);
+
+  tw.Assign(5.5);
+  CheckNear(tw.Value,5.5,0.0001,'Assign(single) stores value');
+  Check(not tw.IsAnimating,'Assign(single) clears animation');
+  CheckNear(tw.FinalValue,5.5,0.0001,'FinalValue after assign');
+
+  p.x:=10;
+  p.y:=20;
+  tw.Assign(p,2);
+  tw.GetValue(cur,CoreTime.Ticks);
+  CheckNear(cur.x,10,0.0001,'Assign(vector) x');
+  CheckNear(cur.y,20,0.0001,'Assign(vector) y');
+  Check(not tw.IsAnimating,'Assign(vector) clears animation');
+
+  tw.Free;
+  EndTest;
+end;
+
+procedure TestLinearAnimation;
+var
+  tw:TTweening;
+  v:single;
+begin
+  StartTest('Linear animation');
+  InitTweening(tw);
+
+  tw.Assign(0);
+  tw.Animate(100,120,splines.linear);
+  CoreTime.Sleep(20);
+  v:=tw.Value;
+  Check((v>0) and (v<100),'Value moves during animation');
+  Check(tw.IsAnimating,'IsAnimating during active tween');
+
+  CoreTime.Sleep(130);
+  CheckNear(tw.Value,100,0.5,'Value reaches final');
+  CheckNear(tw.FinalValue,100,0.0001,'FinalValue equals target');
+  Check(not tw.IsAnimating,'IsAnimating false after end');
+
+  tw.Free;
+  EndTest;
+end;
+
+procedure TestVectorAnimation;
+var
+  tw:TTweening;
+  p1,p2,p:TVec2s;
+begin
+  StartTest('Vector animation');
+  InitTweening(tw);
+
+  p1.x:=0; p1.y:=100;
+  p2.x:=200; p2.y:=50;
+  tw.Assign(p1,2);
+  tw.Animate(p2,100,splines.linear);
+
+  CoreTime.Sleep(30);
+  tw.GetValue(p,CoreTime.Ticks);
+  Check((p.x>0) and (p.x<200),'Vector x interpolates');
+  Check((p.y<100) and (p.y>50),'Vector y interpolates');
+
+  CoreTime.Sleep(90);
+  tw.GetValue(p,CoreTime.Ticks);
+  CheckNear(p.x,200,0.5,'Vector x final');
+  CheckNear(p.y,50,0.5,'Vector y final');
+
+  tw.Free;
+  EndTest;
+end;
+
+procedure TestInterruptionAndZeroDurationDelay;
+var
+  tw:TTweening;
+  beforeDelay,afterDelay:single;
+begin
+  StartTest('Interruption + zero-duration delay');
+  InitTweening(tw);
+
+  tw.Assign(0);
+  tw.Animate(100,200,splines.easeOut);
+  CoreTime.Sleep(30);
+  // edge: old animation is active, new animation has duration=0 and delay>0
+  // this must not crash and should apply at delayed start time.
+  tw.Animate(50,0,splines.linear,60);
+
+  beforeDelay:=tw.Value;
+  Check((beforeDelay>=0) and (beforeDelay<=100),
+    'Value is valid immediately after re-target');
+  Check(tw.IsAnimating,'Delayed zero-duration tween is considered animating');
+
+  CoreTime.Sleep(80);
+  afterDelay:=tw.Value;
+  CheckNear(afterDelay,50,0.5,'Delayed zero-duration tween applies target');
+  Check(not tw.IsAnimating,'No active tween after delayed instant set');
+
+  tw.Free;
+  EndTest;
+end;
+
+procedure TestScalarAnimateFromUninitialized;
+var
+  tw:TTweening;
+begin
+  StartTest('Scalar animate from uninitialized');
+  InitTweening(tw);
+
+  tw.Animate(7,0,splines.linear,0);
+  CheckNear(tw.Value,7,0.0001,'Animate(single) initializes count=1 path');
+  Check(not tw.IsAnimating,'Instant animate leaves no active tween');
+
+  tw.Free;
+  EndTest;
+end;
+
+begin
+  try
+    TestAssignAndBasicAccess;
+    TestLinearAnimation;
+    TestVectorAnimation;
+    TestInterruptionAndZeroDurationDelay;
+    TestScalarAnimateFromUninitialized;
+
+    writeln;
+    if testsFailed=0 then
+      writeln('All ',testsTotal,' tests passed!')
+    else begin
+      writeln(testsFailed,' of ',testsTotal,' tests FAILED');
+      ExitCode:=1;
+    end;
+  except
+    on e:Exception do begin
+      writeln;
+      writeln('TEST FAILED! Error: ',ExceptionMsg(e));
+      ExitCode:=255;
+    end;
+  end;
+  if IsDebuggerPresent then begin
+    writeln('Press [ENTER] to exit');
+    readln;
+  end;
+end.
