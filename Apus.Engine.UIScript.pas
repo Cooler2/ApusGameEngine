@@ -177,20 +177,20 @@ procedure CreateCmd(cmd:string8);
     exit;
    end;
    with defaults do begin
-    if sa[0]='UIBUTTON' then c:=TUIButton.Create(width,height,parentobj,sa[1]).Setup(caption,font) else
-    if sa[0]='UITOGGLEBUTTON' then c:=TUIToggleButton.Create(width,height,parentobj,sa[1]).Setup(caption,false,font) else
+    if sa[0]='UIBUTTON' then c:=TUIButton.Create(width,height,parentobj,sa[1]).Setup(caption) else
+    if sa[0]='UITOGGLEBUTTON' then c:=TUIToggleButton.Create(width,height,parentobj,sa[1]).Setup(caption) else
     if sa[0]='UIIMAGE' then c:=TUIImage.Create(width,height,parentobj,sa[1]) else
-    if sa[0]='UIEDITBOX' then c:=TUIEditBox.Create(width,height,parentobj,sa[1],font,color) else
+    if sa[0]='UIEDITBOX' then c:=TUIEditBox.Create(width,height,parentobj,sa[1]) else
     if sa[0]='UILABEL' then begin
-     c:=TUILabel.Create(width,height,parentobj,sa[1]).Setup(caption,font,color);
+     c:=TUILabel.Create(width,height,parentobj,sa[1]).Setup(caption);
      (c as TUILabel).align:=align;
      c.shape:=shapeEmpty;
     end else
     if sa[0]='UICONTROL' then begin
      c:=TUIElement.Create(width,height,parentobj,sa[1]);
     end else
-    if sa[0]='UILISTBOX' then c:=TUIListBox.Create(width,height,parentobj,sa[1],20,font) else
-    if sa[0]='UICOMBOBOX' then c:=TUIComboBox.Create(width,height,parentobj,sa[1],nil,font);
+    if sa[0]='UILISTBOX' then c:=TUIListBox.Create(width,height,parentobj,sa[1],20) else
+    if sa[0]='UICOMBOBOX' then c:=TUIComboBox.Create(width,height,parentobj,sa[1]);
 
 
     if c=nil then raise EError.Create('Unknown class - '+sa[0]);
@@ -552,12 +552,12 @@ class procedure TVarTypeStyleinfo.SetValue(variable:pointer; v:string8);
 
 class function TVarTypeElementFont.GetValue(variable:pointer):string8;
  begin
-  result:='$'+IntToHex(TUIElement(variable).font,sizeof(TFontHandle) div 2);
+  result:=TUIElement(variable).GetStyleValue('font','');
  end;
 
 class procedure TVarTypeElementFont.SetValue(variable:pointer; v:string8);
  begin
-  TUIElement(variable).font:=TFontHandle(Conv.ToInt(v));
+  // font is now style-based; set via element.style.SetAttr('font','name') + 'font-size'
  end;
 
 { TVarTypeAlignment }
@@ -604,12 +604,12 @@ class procedure TVarTypeElementName.SetValue(variable:pointer;v:string8);
 
 class function TVarTypeElementColor.GetValue(variable:pointer):string8;
  begin
-  result:='$'+IntToHex(TUIElement(variable).color,8);
+  result:='$'+IntToHex(TUIElement(variable).GetStyleColor('color',0),8);
  end;
 
 class procedure TVarTypeElementColor.SetValue(variable:pointer;v:string8);
  begin
-  TUIElement(variable).color:=Conv.ToInt('$'+v);
+  TUIElement(variable).style.SetAttr('color','$'+v);
  end;
 
 { TVarTypeElementScale }

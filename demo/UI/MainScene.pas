@@ -99,8 +99,7 @@ procedure TestWidgets;
   cont.SetPos(10,10);
   // Default properties
   TUILabel.SetDefault('styleInfo','40FFFFFF');
-  TUILabel.SetDefault('color',$FF603000);
-  TUILabel.SetDefault('font',game.largerFont);
+  TUILabel.SetDefault('style','color: $FF603000');
   // Labels
   TUILabel.Create(-1,20,cont,'Label1').Setup('Simple label').styleInfo:='hover.fill:F088EEEE; hover.radius=6; hoverTime=1000';
   TUILabel.Create(-1,20,cont,'Label2').Centered('Centered');
@@ -112,7 +111,7 @@ procedure TestWidgets;
   // Buttons
   cont:=CreateVerticalContainer(150,root,0,6,false);
   cont.SetPos(200,10);
-  cont.color:=$FF202020;
+  cont.style.SetAttr('color','$FF202020');
   TUIButton.Create(140,30,cont,'Button1').Setup('Button 1');
   TUIButton.Create(140,30,cont,'Disabled').Disable;
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
@@ -143,12 +142,12 @@ procedure TestWidgets;
   cont.SetPos(400,10);
   //Edit boxes
   TUIEditBox.SetDefault('styleInfo','borderColor=444;borderWidth=1; radius=3');
-  TUIEditBox.SetDefault('color',$FF002040);
+  TUIEditBox.SetDefault('style','color: $FF002040');
   TUIEditBox.Create(-1,24,cont,'Edit1');
   TUIEditBox.Create(-1,24,cont);
   TUISplitter.CreateH(2,cont,$80000000).SetPaddings(5,0,5,0);
   // Scroll
-  TUIScrollBar.SetDefault('color',$FF405060);
+  TUIScrollBar.SetDefault('style','color: $FF405060');
   TUIScrollBar.CreateH(-1,18,cont,'Scroll1');
   TUIScrollBar.CreateH(-1,18,cont,'Scroll2').SetRange(-10,10,0);
   TUIScrollBar.CreateH(-1,18,cont,'Scroll3').SetRange(100,300,50);
@@ -163,7 +162,7 @@ procedure TestWidgets;
   TUIComboBox.Create(-1,22,cont,'Combo1',['Apple','Banana','Cucumber']);
 
   // Window
-  TUIWindow.Create(200,200,true,root,'wnd','Window',game.defaultFont).
+  TUIWindow.Create(200,200,true,root,'wnd','Window').
    SetPos(root.clientWidth/2,root.clientHeight*0.9,pivotBottomCenter);
 
  end;
@@ -178,11 +177,9 @@ procedure TestLayouts;
 { TMainScene }
 procedure TMainScene.InitGfx;
  var
-  font:cardinal;
   btn:TUIButton;
   panel:TUIElement;
  begin
-  UI.font:=txt.GetFont('',9.0,fsBold);
   // Create menu panel
   panel:=TUIElement.Create(250,400,UI,'MainMenu');
   panel.scale:=1.2;
@@ -192,7 +189,7 @@ procedure TMainScene.InitGfx;
   panel.SetPadding(15);
   //panel.styleInfo:='40E0E0E0 60E0E0E0';
   panel.styleInfo:='Fill:4EEE; border:9EEE; radius=6;';
-  panel.color:=$FF202040;
+  panel.style.SetAttr('color','$FF202040');
 
   // Create menu buttons
   TUIButton.Create(120,30,panel,'Main\Widgets').Setup('Widgets').onClickAsync:=@TestWidgets;

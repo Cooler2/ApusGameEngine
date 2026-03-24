@@ -102,11 +102,9 @@ procedure TStyleDemoScene.CreateUI;
  var
   panel:TUIElement;
   btn:TUIButton;
-  font:cardinal;
+  lbl:TUILabel;
   named:TStyleBlock;
  begin
-  font:=txt.GetFont('Default', 8);
-
   // Register named style reused by Btn3 and the @ref toggle demo
   named:=TStyleBlock.Create;
   named.ParseText('color: $FF1E3D6E; text-color: $FFCCE0FF;');
@@ -116,25 +114,26 @@ procedure TStyleDemoScene.CreateUI;
   panel:=TUIElement.Create(280, 330, UI, 'StyleDemo\Panel');
   panel.SetPos(10, 10, pivotTopLeft);
   panel.styleinfo:='fill: $BF102030; border-width: 1; border-color: $FF3060A0;';
-  TUILabel.Create(260, 20, panel, 'StyleDemo\Title').Centered('R-05 Style System Demo', font, $FF80C8FF).
-    SetPos(140, 18, pivotCenter);
+  lbl:=TUILabel.Create(260, 20, panel, 'StyleDemo\Title');
+  lbl.Centered('R-05 Style System Demo').SetPos(140, 18, pivotCenter);
+  lbl.style.SetAttr('color','$FF80C8FF');
 
   // Btn1: no custom style — uses default drawer (baseline)
-  TUIButton.Create(250, 30, panel, 'StyleDemo\Btn1').Setup('Default style', font).
+  TUIButton.Create(250, 30, panel, 'StyleDemo\Btn1').Setup('Default style').
     SetPos(140, 55, pivotCenter);
 
   // Btn2: explicit color + text-color via style.Assign
-  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn2').Setup('Custom color', font);
+  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn2').Setup('Custom color');
   btn.SetPos(140, 93, pivotCenter);
   btn.style.Assign('color: $FF1E3D6E; text-color: $FFCCE0FF;');
 
   // Btn3: @ref to named style (same result as Btn2, but via indirection)
-  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn3').Setup('@ref style', font);
+  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn3').Setup('@ref style');
   btn.SetPos(140, 131, pivotCenter);
   btn.style.Assign('@demo-btn;');
 
   // Btn4: CSS state blocks — :hover and :pressed override color
-  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn4').Setup('State: hover/pressed', font);
+  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn4').Setup('State: hover/pressed');
   btn.SetPos(140, 169, pivotCenter);
   btn.style.Assign(
     'color: $FF1E3D6E; text-color: $FFCCE0FF;'+
@@ -142,7 +141,7 @@ procedure TStyleDemoScene.CreateUI;
     ':pressed { color: $FF0E1E3A; text-color: $FF8090A0; }');
 
   // Btn5: disabled — :disabled overrides text-color; button color unchanged
-  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn5').Setup('Disabled button', font);
+  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn5').Setup('Disabled button');
   btn.SetPos(140, 207, pivotCenter);
   btn.style.Assign(
     'color: $FF1E3D6E; text-color: $FFCCE0FF;'+
@@ -150,12 +149,12 @@ procedure TStyleDemoScene.CreateUI;
   btn.flags.enabled:=false;
 
   // Btn6: click to toggle @demo-btn → Btn3 updates (cascade demo)
-  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn6').Setup('Toggle @ref (Btn3 updates)', font);
+  btn:=TUIButton.Create(250, 30, panel, 'StyleDemo\Btn6').Setup('Toggle @ref (Btn3 updates)');
   btn.SetPos(140, 245, pivotCenter);
   btn.onClickAsync:=@StyleDemoUpdateRef;
 
   // Exit button outside the panel
-  btn:=TUIButton.Create(120, 30, UI, 'StyleDemo\Exit').Setup('Exit', font);
+  btn:=TUIButton.Create(120, 30, UI, 'StyleDemo\Exit').Setup('Exit');
   btn.SetPos(10, 355, pivotTopLeft);
   Link('UI\StyleDemo\Exit\OnClick', 'Engine\Cmd\Exit');
  end;

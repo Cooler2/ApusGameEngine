@@ -132,7 +132,7 @@ function UIScene(name:String8):TUIScene;
     curHint:=nil;
    end;
    hint:=TUIHint.Create(X/parent.scale,(Y+10)/parent.scale,msg,parent);
-   hint.font:=font;
+
    if defaultHintStyle<>0 then hint.drawer:=GetUIStyle(defaultHintStyle);
    hint.timer:=time;
    hint.order:=10000; // Top
@@ -842,8 +842,7 @@ var
       prefix+'caption: '+el.caption+#13#10+
       prefix+'hint: '+el.hint+#13#10+
       prefix+'styleInfo: '+el.styleInfo+#13#10+
-      prefix+'color: '+Conv.ToHex(el.color)+#13#10+
-      prefix+'font: '+Conv.ToStr(integer(el.font))+#13#10;
+      prefix+'color: '+el.GetStyleValue('color','')+#13#10;
     if el is TUIScrollBar then begin
       sb:=TUIScrollBar(el);
       body:=body+

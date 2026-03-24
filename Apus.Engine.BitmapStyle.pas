@@ -257,8 +257,7 @@ procedure TBitmapStyle.DrawItem(con: TUIElement);
      xc:=x2-round(con.globalrect.height/2);
     end;
 
-    btnColor:=TUIButton(con).color;
-    btnColor:=$FF808080; // пока так - чтобы не поломать везде всё
+    btnColor:=TUIButton(con).GetStyleColor('color',$FF808080);
     with buttons[bData] do
      if enabl then begin // Button enabled
       if pressed then begin

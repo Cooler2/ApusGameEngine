@@ -268,7 +268,7 @@ procedure SetupWindow(wnd:TUIWindow;img:TTiledImage);
   wnd.background:=img;
   wnd.size.x:=img.width;
   wnd.size.y:=img.height;
-  wnd.color:=$FF808080;
+  wnd.style.SetAttr('color','$FF808080');
   wnd.flags.visible:=false;
 //  wnd.transpmode:=tmCustom;
 //  wnd.region:=TRegion.CreateFrom(img);
@@ -279,7 +279,7 @@ procedure SetupSkinnedWindow(wnd:TUIWindow;img:TTexture);
   wnd.background:=img;
   wnd.size.x:=img.width;
   wnd.size.y:=img.height;
-  wnd.color:=$FF808080;
+  wnd.style.SetAttr('color','$FF808080');
   wnd.flags.visible:=false;
  end;
 

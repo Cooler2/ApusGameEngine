@@ -119,7 +119,6 @@ procedure TMainScene.CreateUI;
  var
   box:TUIElement;
   btn:TUIButton;
-  font:cardinal;
  begin
   // Let's create a simple container
   box:=TUIElement.Create(400,250,UI,'MainScene\MainMenu');
@@ -128,14 +127,12 @@ procedure TMainScene.CreateUI;
   box.styleinfo:='E0C0C8D0'; // fill color for the default style
   box.SetAnchors(0.5, 0.5, 0.5, 0.5); // make it always centered
 
-  font:=txt.GetFont('Default',8);  // select a font for UI
-
   // Create an edit box. I don't want to use a variable for it
-  TUIEditBox.Create(250,26,box,'MainScene\Edit',font,$FF000030).SetPos(200,100,pivotCenter);
+  TUIEditBox.Create(250,26,box,'MainScene\Edit').SetPos(200,100,pivotCenter);
   UIEditBox('MainScene\Edit').defaultText:=Str32('Type something here...'); // referencing UI element by its name
 
   // Create a button (now using a variable - classic way)
-  btn:=TUIButton.Create(100,35,box,'MainScene\Close').Setup('Exit',font);
+  btn:=TUIButton.Create(100,35,box,'MainScene\Close').Setup('Exit');
   btn.SetPos(200,200,pivotCenter);
   btn.hint:='Press this button to exit';
   btn.onClickAsync:=@ExitBtnClick;

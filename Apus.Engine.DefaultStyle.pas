@@ -80,14 +80,22 @@ implementation
   end;}
 
 
+ // Get font handle from element's style cascade
+ function StyleFont(element:TUIElement):TFontHandle;
+  var name:String8; size:single;
+  begin
+   name:=element.GetStyleValue('font','Default');
+   size:=element.GetStyleNumber('font-size',9);
+   result:=txt.GetFont(name,round(size*element.globalScale));
+  end;
+
  procedure DrawUIElement(element:TUIElement;x1,y1,x2,y2:integer);
   var
    color:cardinal;
   begin
    if (element.caption<>'') and (element.ClassType=TUIElement) then begin
-    color:=element.color;
-    if color=clDefault then color:=$FF808080;
-    txt.WriteW(element.font,(x1+x2)/2,(y1+y2)/2,color,Str32(element.caption),taCenter,toWithShadow);
+    color:=element.GetStyleColor('color',$FF808080);
+    txt.WriteW(StyleFont(element),(x1+x2)/2,(y1+y2)/2,color,Str32(element.caption),taCenter,toWithShadow);
    end;
   end;
 
@@ -95,13 +103,14 @@ implementation
   var
    wsa:Strings32;
    i,h,iWidth,iHeight,dw:integer;
+   font:TFontHandle;
   begin
+   font:=StyleFont(hnt);
+   if font=0 then font:=defaultHintFont;
+   if font=0 then font:=txt.GetFont('Default',7);
    with hnt do begin
     hnt.simpleText:=StringReplace(hnt.simpleText,'~','\n',[rfReplaceAll]);
     wsa:=UTF8.Decode(hnt.simpleText).Split(Str32('\n'));
-    //wsa:=DecodeUTF8A(sa);
-    if font=0 then font:=defaultHintFont;
-    if font=0 then font:=txt.GetFont('Default',7);
     h:=round(txt.Height(font)*1.5);
     iHeight:=h*length(wsa)+9;
     iWidth:=0;
@@ -224,8 +233,12 @@ implementation
    wst:String32;
    bg:cardinal;
    r:TRect;
+   font:TFontHandle;
+   color:cardinal;
   begin
-    with control do begin
+   font:=StyleFont(control);
+   color:=control.GetStyleColor('color',$FF808080);
+   with control do begin
      if autoSize then begin
 
      end;
@@ -263,8 +276,8 @@ implementation
   begin
    context:=element.styleContext as TContext;
 
-   color:=element.color;
-   font:=element.font;
+   color:=element.GetStyleColor('color',$FF808080);
+   font:=StyleFont(element);
    fontH:=txt.Height(font);
    y:=y2-round((y2-y1+1-fontH)/2);
    size:=round(fontH*1.2);
@@ -330,8 +343,10 @@ implementation
    d:integer;
    hv,av,dv:single;
    wst:String32;
+   font:TFontHandle;
   begin
-    with control do begin
+   font:=StyleFont(control);
+   with control do begin
       hv:=context.hover.Value;
       av:=context.active.Value;
       dv:=context.disabled.Value;
@@ -434,7 +449,7 @@ implementation
       end else
        raise EWarning.Create('Unsupported image SRC type: '+src);
       if tex<>nil then begin
-       draw.Scaled(x1,y1,x2-1,y2-1,tex,control.color);
+       draw.Scaled(x1,y1,x2-1,y2-1,tex,control.GetStyleColor('color',clWhite));
       end;
      end;
     end;
@@ -445,8 +460,12 @@ implementation
   var
    c:cardinal;
    tx,ty:integer;
+   color:cardinal;
+   font:TFontHandle;
   begin
-    with element do begin
+   color:=element.GetStyleColor('color',$FFB0B0C0);
+   font:=StyleFont(element);
+   with element do begin
     draw.FillRect(x1,y1,x2,y2,color);
     if element.IsActiveWindow then c:=$FF8080E0 // текущее окно
      else c:=$FFB0B0B0;
@@ -600,7 +619,11 @@ implementation
    wst:String32;
    i,j,mY,d,curX,scrollPixels,xStart,prefixWidth,selEndWidth,selX1,selX2,targetX,midX,txtLen:integer;
    c:cardinal;
+   font:TFontHandle;
+   color:cardinal;
   begin
+   font:=StyleFont(control);
+   color:=control.GetStyleColor('color',$FF202020);
    with control do begin
     wst:=realtext;
     if password then begin
@@ -683,8 +706,10 @@ implementation
    i,lY:integer;
    c,c1,c2:cardinal;
    scrollPos,lineH:single;
+   font:TFontHandle;
   begin
-    with control do begin
+   font:=StyleFont(control);
+   with control do begin
      if bgColor<>0 then draw.FillRect(x1,y1,x2,y2,bgColor);
      if scrollerV<>nil then scrollPos:=scrollerV.GetValue*globalScale
       else scrollPos:=0;
@@ -729,7 +754,7 @@ implementation
      gfx.clip.Rect(Rect(x1+1,y1+1,x2-21,y2-1));
      if curItem>=0 then st:=items[curItem]
       else st:=defaultText;
-     txt.Write(combo.font,x1+5,round(y2*0.7+y1*0.3),$FF000000,st);
+     txt.Write(StyleFont(combo),x1+5,round(y2*0.7+y1*0.3),$FF000000,st);
      gfx.clip.Restore;
     end;
     // Arrow
@@ -761,7 +786,7 @@ implementation
    var
     i:integer;
    begin
-    if (bWidth>0) and (borderColor=clDefault) then borderColor:=element.color;
+    if (bWidth>0) and (borderColor=clDefault) then borderColor:=element.GetStyleColor('color',clDefault);
     if radius>1 then begin
      draw.RoundRect(x1,y1,x2,y2,radius*scale,bWidth*scale,borderColor,fillColor);
     end else begin

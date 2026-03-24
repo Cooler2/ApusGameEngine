@@ -297,7 +297,6 @@ procedure TMainScene.Initialize;
   panel:=TUIElement.Create(200,200,UI,'Menu');
   panel.Center;
   panel.layout:=TRowLayout.CreateVertical(10,true);
-  panel.font:=txt.GetFont('Default',8.5);
   TUIButton.Create(180,35,panel,'Menu\Demo').Setup('Basic Test').onClickAsync:=StartBasicTest;
   TUIButton.Create(180,35,panel,'Menu\Demo2').Setup('3D Effect').onClickAsync:=Start3DEffect;
   TUIButton.Create(180,35,panel,'Menu\Demo3').Setup('Galaxy').onClickAsync:=StartGalaxy;

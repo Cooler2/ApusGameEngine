@@ -263,8 +263,6 @@ type
 
  private
   fStyleInfo:String8; // additional style info string (see styleInfo property)
-  fFont:TFontHandle; // not used directly, can be inherited by children or used by custom draw routines
-  fColor:cardinal; // color value to be inherited by children
   fInitialSize:TVec2; // element's initial size (used for proportional resize)
   function GetClientWidth:single;
   function GetClientHeight:single;
@@ -274,8 +272,6 @@ type
   procedure ClientSizeChanged(dX,dY:single); // client area was resized because of size or scale change
   procedure ParentSizeChanged(dX,dY:single); // parent's client area was resized - adopt element position/size
   procedure InsertRel(element:TUIElement;rel:integer);
-  function GetFont:TFontHandle; // returns own or inherited font handle
-  function GetColor:cardinal;
 
   class function ClassHash:pointer; override;
  public
@@ -286,8 +282,6 @@ type
   property globalScale:single read GetGlobalScale; // how many screen pixels are in an element with size=1.0
   property initialSize:TVec2 read fInitialSize; // size when created
   property styleInfo:String8 read fStyleInfo write SetStyleInfo;
-  property font:TFontHandle read GetFont write fFont; // not scaled by SELF scale, scaled by PARENT scale
-  property color:cardinal read GetColor write fColor;
  end;
 
  // General-purpose container that tracks one "active" child at a time.
@@ -590,6 +584,7 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
   var
    n:integer;
    wnd:TWindow;
+   defColor:cardinal;
   begin
    position:=Vec2(0,0);
    size:=Vec2(width,height);
@@ -618,11 +613,11 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    flags.manualDraw:=false;
    flags.noParentClip:=not GetClassAttribute('defaultParentClip',true);
    flags.dontClipChildren:=not GetClassAttribute('defaultClipChildren',true);
-   font:=GetClassAttribute('defaultFont',0);
-   color:=GetClassAttribute('defaultColor',clDefault);
    styleClass:=GetClassAttribute('defaultStyle',0);
    style:=TStyleBlock.Create;
    styleInfo:=GetClassAttribute('defaultStyleInfo','');
+   defColor:=GetClassAttribute('defaultColor',clDefault);
+   if defColor<>clDefault then style.SetAttr('color','$'+IntToHex(defColor,8));
    sendSignals:=ssNone;
    scroll:=Vec2(0,0);
    focusedChild:=nil;
@@ -1207,58 +1202,6 @@ procedure TUIElement.DeleteHotKeys(vKeyCode:integer;shiftstate:byte);
 function TUIElement.GetClientHeight:single;
   begin
    result:=size.y/scale-padding.Top-padding.Bottom;
-  end;
-
- function TUIElement.GetFont:TFontHandle;
-  var
-   item:TUIElement;
-   upscale:single;
-   fontName:String8;
-   fontSize:single;
-  begin
-   if self=nil then exit(0);
-   // R-05: try to resolve from style cascade first
-   if (txt<>nil) then begin
-    fontName:=GetStyleValue('font','');
-    fontSize:=GetStyleNumber('font-size',0);
-    if (fontName<>'') or (fontSize>0) then begin
-     if fontName='' then fontName:='Default';
-     if fontSize<=0 then fontSize:=9;
-     result:=txt.GetFont(fontName,round(fontSize*globalScale));
-     if result<>0 then exit;
-    end;
-   end;
-   // Fall back to legacy fFont with parent-chain inheritance
-   result:=fFont;
-   upscale:=1.0;
-   item:=parent;
-   while (result=0) and (item<>nil) do begin
-    result:=item.fFont;
-    if result=0 then
-     upscale:=upscale*item.scale;
-    item:=item.parent;
-   end;
-   if (result<>0) and (Ratio(upscale,1)>1.1) then
-    result:=txt.ScaleFont(result,upScale);
-  end;
-
- function TUIElement.GetColor:cardinal;
-  var
-   item:TUIElement;
-   c:cardinal;
-  begin
-   if self=nil then exit(clDefault);
-   // R-05: try to resolve from style cascade first
-   c:=GetStyleColor('color',clDefault);
-   if c<>clDefault then exit(c);
-   // Fall back to legacy fColor with parent-chain inheritance
-   result:=fColor;
-   item:=parent;
-   while (result=clDefault) and (item<>nil) do begin
-    result:=item.fColor;
-    item:=item.parent;
-   end;
-   if result=clDefault then result:=clWhite;
   end;
 
   function TUIElement.GetGlobalScale:single;
