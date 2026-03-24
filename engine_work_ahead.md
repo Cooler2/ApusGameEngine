@@ -1,5 +1,5 @@
 ﻿# Engine Work Ahead Log
-Last updated: 2026-03-22
+Last updated: 2026-03-24
 
 This file tracks active execution only:
 - immediate priorities;
@@ -15,6 +15,10 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - after porting, re-enable these modules in `Base/tests/buildtest.sh`.
 
 ## Done (recent, high impact)
+- GitHub Actions `engine5` is green on both Linux and Windows (2026-03-24):
+  - fixed Lazarus-toolchain instability by switching CI to direct FPC installation (`apt` on Linux, `winget` on Windows) in `.github/workflows/build_test.yml`;
+  - fixed Windows-only demo compile ambiguity in `demo/Draw2D/SceneDraw2D.pas` (`FillRRect` overload selection);
+  - normalized demo rounding calls to Base helpers (`SRound` / `PRound`) to avoid RTL `Round` edge behavior drift.
 - Demo CI stabilization follow-up (2026-03-24):
   - fixed FPC constant-range failure in `Apus.Engine.ResManGL` sync wait calls by using explicit `high(uint64)` timeout value;
   - adjusted demo CI set to build stable demos (`SimpleDemo`, `01-Scenes`, `NinePatch`, `Simple3D`) while `CharAnimation` remains blocked by legacy `Apus.Common` usage through `Apus.Engine.Model3D`.
