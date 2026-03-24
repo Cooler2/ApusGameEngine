@@ -43,7 +43,23 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          choco install fpc --version=3.2.2 -y
+          winget install --id FreePascal.FreePascalCompiler -e --silent --accept-package-agreements --accept-source-agreements
+          $fpcDirs=@(
+            "$env:ProgramFiles\FreePascal\3.2.2\bin\x86_64-win64",
+            "$env:ProgramFiles\FreePascal\3.2.2\bin\i386-win32",
+            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\x86_64-win64",
+            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\i386-win32",
+            "C:\FPC\3.2.2\bin\x86_64-win64",
+            "C:\FPC\3.2.2\bin\i386-win32"
+          )
+          foreach($dir in $fpcDirs){
+            if(Test-Path (Join-Path $dir "fpc.exe")){
+              $dir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              $env:PATH="$dir;$env:PATH"
+              break
+            }
+          }
+          where.exe fpc
           fpc -iV
 
   base-buildtest:
@@ -75,7 +91,23 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          choco install fpc --version=3.2.2 -y
+          winget install --id FreePascal.FreePascalCompiler -e --silent --accept-package-agreements --accept-source-agreements
+          $fpcDirs=@(
+            "$env:ProgramFiles\FreePascal\3.2.2\bin\x86_64-win64",
+            "$env:ProgramFiles\FreePascal\3.2.2\bin\i386-win32",
+            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\x86_64-win64",
+            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\i386-win32",
+            "C:\FPC\3.2.2\bin\x86_64-win64",
+            "C:\FPC\3.2.2\bin\i386-win32"
+          )
+          foreach($dir in $fpcDirs){
+            if(Test-Path (Join-Path $dir "fpc.exe")){
+              $dir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              $env:PATH="$dir;$env:PATH"
+              break
+            }
+          }
+          where.exe fpc
           fpc -iV
 
       - name: Build test (Linux)
@@ -125,7 +157,23 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          choco install fpc --version=3.2.2 -y
+          winget install --id FreePascal.FreePascalCompiler -e --silent --accept-package-agreements --accept-source-agreements
+          $fpcDirs=@(
+            "$env:ProgramFiles\FreePascal\3.2.2\bin\x86_64-win64",
+            "$env:ProgramFiles\FreePascal\3.2.2\bin\i386-win32",
+            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\x86_64-win64",
+            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\i386-win32",
+            "C:\FPC\3.2.2\bin\x86_64-win64",
+            "C:\FPC\3.2.2\bin\i386-win32"
+          )
+          foreach($dir in $fpcDirs){
+            if(Test-Path (Join-Path $dir "fpc.exe")){
+              $dir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              $env:PATH="$dir;$env:PATH"
+              break
+            }
+          }
+          where.exe fpc
           fpc -iV
 
       - name: Run Base tests (Linux)
@@ -189,7 +237,23 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          choco install fpc --version=3.2.2 -y
+          winget install --id FreePascal.FreePascalCompiler -e --silent --accept-package-agreements --accept-source-agreements
+          $fpcDirs=@(
+            "$env:ProgramFiles\FreePascal\3.2.2\bin\x86_64-win64",
+            "$env:ProgramFiles\FreePascal\3.2.2\bin\i386-win32",
+            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\x86_64-win64",
+            "$env:ProgramFiles(x86)\FreePascal\3.2.2\bin\i386-win32",
+            "C:\FPC\3.2.2\bin\x86_64-win64",
+            "C:\FPC\3.2.2\bin\i386-win32"
+          )
+          foreach($dir in $fpcDirs){
+            if(Test-Path (Join-Path $dir "fpc.exe")){
+              $dir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              $env:PATH="$dir;$env:PATH"
+              break
+            }
+          }
+          where.exe fpc
           fpc -iV
 
       - name: Compile selected demos (Linux)
