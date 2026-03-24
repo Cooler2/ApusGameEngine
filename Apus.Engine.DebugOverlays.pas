@@ -24,7 +24,13 @@ implementation
 uses SysUtils, Apus.Core, Apus.Lib, Apus.Strings, Apus.Colors,
   Apus.Images, Apus.FastGFX,
   Apus.Engine.Window, Apus.Engine.Scene, Apus.Engine.UIScene,
-  Apus.Engine.ImageTools, Apus.Engine.TextDraw;
+  Apus.Engine.ImageTools, Apus.Engine.TextDraw
+  {$IFDEF MSWINDOWS}
+  ,Windows
+  {$ENDIF}
+  ;
+
+// CPU overlay sampling code is intentionally disabled for now.
 
 procedure DrawDebugMagnifier(var state:TDebugState);
 var
