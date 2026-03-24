@@ -137,18 +137,34 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
-          lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
-          lazbuild -q -q demo/01-Scenes/scenes.lpi
-          lazbuild -q -q demo/NinePatch/NinePatch.lpi
-          lazbuild -q -q demo/Simple3D/Simple3D.lpi
+          compile_demo() {
+            local demo="$1"
+            local dpr="demo/${demo}/${demo}.dpr"
+            local out="demo/${demo}/_fpc"
+            rm -rf "$out"
+            mkdir -p "$out"
+            fpc -dOPENGL -MDelphi -Sd -RIntel \
+              -Fu. -Fuextra -Fuextra/sdl2 -FuBase -FuBase/extra \
+              -Fu"demo/${demo}" -FU"$out" "$dpr"
+          }
+          compile_demo "SimpleDemo"
+          compile_demo "Draw2D"
+          compile_demo "InputDemo"
+          compile_demo "TextDemo"
 
       - name: Compile selected demos (Windows)
         if: runner.os == 'Windows'
         run: |
-          lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
-          lazbuild -q -q demo/01-Scenes/scenes.lpi
-          lazbuild -q -q demo/NinePatch/NinePatch.lpi
-          lazbuild -q -q demo/Simple3D/Simple3D.lpi
+          $demos=@("SimpleDemo","Draw2D","InputDemo","TextDemo")
+          foreach($demo in $demos){
+            $out="demo/$demo/_fpc"
+            if(Test-Path $out){ Remove-Item $out -Recurse -Force }
+            New-Item -ItemType Directory -Path $out | Out-Null
+            fpc -dOPENGL -MDelphi -Sd -RIntel `
+              -Fu. -Fuextra -Fuextra/sdl2 -FuBase -FuBase/extra `
+              -Fu"demo/$demo" -FU"$out" "demo/$demo/$demo.dpr"
+            if($LASTEXITCODE -ne 0){ exit $LASTEXITCODE }
+          }
 
       - name: Upload demo build outputs on failure
         if: failure()
