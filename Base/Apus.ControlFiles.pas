@@ -34,7 +34,7 @@ type
 
  // Interface class for working with ControlFiles2 unit
  TControlFile=class
-  path:AnsiString; // Key names can be relative
+  path:String8; // Key names can be relative
 
   constructor Create(fname:String8;password:String8=''); // Create object and load specified file
   procedure Save; // Save control file
@@ -670,7 +670,7 @@ function UseControlFile;
      while not eof(f) do begin
       inc(ln);
       readln(f,st);
-      st:=trim(st);
+      st:=st.Trim;
       // Comment line
       if (length(st)=0) or (st[1] in ['#',';']) then begin
        comment:=TCommentLine.Create;
@@ -682,7 +682,7 @@ function UseControlFile;
       arg:='';
       for i:=1 to length(st) do
        if st[i] in [' ',#9] then begin
-        arg:=TrimLeft(copy(st,i+1,length(st)-i));
+        arg:=System.Copy(st,i+1,System.Length(st)-i).TrimLeft;
         SetLength(st,i-1);
         break;
        end;
@@ -690,21 +690,21 @@ function UseControlFile;
       // Директива
       if st[1]='$' then begin
        // End of section
-       if UpperCase(st)='$ENDOFSECTION' then break; // конец секции
+       if st.ToUpper='$ENDOFSECTION' then break; // конец секции
        // Section
-       if UpperCase(LeftStr(st,8))='$SECTION' then begin
+       if (System.Length(st)>=8) and (System.Copy(st,1,8).ToUpper='$SECTION') then begin
         sect:=TSection.Create;
         sect.name:=arg;
         if arg='' then
          raise EWarning.Create('CTL2: unnamed section in '+filename+' line: '+Conv.ToStr(ln));
         i:=item.AddChild(sect);
-        sect.fullname:=UpperCase(path+'\'+arg);
+         sect.fullname:=string((path+'\'+arg).ToUpper);
         hash.Put(sect.fullname,item.GetChild(i));
         LoadSection(f,item.GetChild(i),sect.fullname);
         continue;
        end;
        // Include command
-       if UpperCase(LeftStr(st,8))='$INCLUDE' then begin
+       if (System.Length(st)>=8) and (System.Copy(st,1,8).ToUpper='$INCLUDE') then begin
         incl:=TInclude.Create;
         incl.include:=arg;
         // Correct path so file is in the same directory
@@ -721,7 +721,7 @@ function UseControlFile;
 
       // Иначе - данные, нужно проверить тип
       {$IFDEF FPC}DefaultFormatSettings.{$ELSE}FormatSettings.{$ENDIF}DecimalSeparator:='.';
-      uArg:=UpperCase(arg);
+      uArg:=arg.ToUpper;
       if (uArg='ON') or (uArg='OFF') or (uArg='YES') or (uArg='NO') then begin
        // boolean
        value:=TBoolValue.Create;
@@ -744,7 +744,7 @@ function UseControlFile;
          // Multiline record
          repeat
           readln(f,st2);
-          st2:=trim(st2);
+          st2:=st2.Trim;
           arg:=arg+st2;
          until eof(f) or (st2[length(st2)]=')');
         end;
@@ -768,7 +768,7 @@ function UseControlFile;
 
       // Добавим элемент в структуры
       value.name:=st;
-      value.fullname:=path+'\'+uppercase(st);
+      value.fullname:=string((path+'\'+st).ToUpper);
       i:=item.AddChild(value);
       hash.Put(value.fullname,item.GetChild(i));
      end;
@@ -779,7 +779,7 @@ function UseControlFile;
     assignfile(f,filename);
     SetTextCodePage(f,CP_UTF8);
     reset(f);
-    LoadSection(f,item,UpperCase(ExtractFileName(filename))+':');
+    LoadSection(f,item,String8(UpperCase(string(ExtractFileName(filename))))+':');
     closefile(f);
    end;
 

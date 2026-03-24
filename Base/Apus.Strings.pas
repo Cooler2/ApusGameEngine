@@ -393,10 +393,10 @@ function String8Helper.Same(const other:String8):boolean;
 begin result:=SysUtils.SameText(string(self),string(other)); end;
 
 function String8Helper.ToUpper:String8;
-begin result:=SysUtils.UpperCase(string(self)); end;
+begin result:=UTF8.ToUpper(self); end;
 
 function String8Helper.ToLower:String8;
-begin result:=SysUtils.LowerCase(string(self)); end;
+begin result:=UTF8.ToLower(self); end;
 
 function String8Helper.Trim:String8;
 begin result:=SysUtils.Trim(string(self)); end;
@@ -521,7 +521,14 @@ begin
 end;
 
 function String8Helper.Quote(quoteChar:AnsiChar):String8;
-begin result:=quoteChar+self+quoteChar; end;
+var len:integer;
+begin
+  len:=System.Length(self);
+  SetLength(result,len+2);
+  result[1]:=quoteChar;
+  if len>0 then Move(self[1],result[2],len);
+  result[len+2]:=quoteChar;
+end;
 
 function String8Helper.Unquote:String8;
 var len:integer;
@@ -533,15 +540,20 @@ begin
 end;
 
 function String8Helper.Escape:String8;
+const
+  escN:String8='\n';
+  escR:String8='\r';
+  escT:String8='\t';
+  escSlash:String8='\\';
 var i:integer;
 begin
   result:='';
   for i:=1 to System.Length(self) do
     case self[i] of
-      #10: result:=result+'\n';
-      #13: result:=result+'\r';
-      #9:  result:=result+'\t';
-      '\': result:=result+'\\';
+      #10: result:=result+escN;
+      #13: result:=result+escR;
+      #9:  result:=result+escT;
+      '\': result:=result+escSlash;
       else result:=result+self[i];
     end;
 end;
@@ -568,7 +580,9 @@ begin
 end;
 
 function String8Helper.UrlEncode:String8;
-const HexChars:String8='0123456789ABCDEF';
+const
+  HexChars:String8='0123456789ABCDEF';
+  percent:AnsiChar='%';
 var i:integer; b:byte;
 begin
   result:='';
@@ -577,11 +591,12 @@ begin
     if (self[i] in ['A'..'Z','a'..'z','0'..'9','-','_','.','~']) then
       result:=result+self[i]
     else
-      result:=result+'%'+HexChars[1+b shr 4]+HexChars[1+b and $F];
+      result:=result+percent+HexChars[1+b shr 4]+HexChars[1+b and $F];
   end;
 end;
 
 function String8Helper.UrlDecode:String8;
+const space:AnsiChar=' ';
 var i:integer;
   function HexVal(c:AnsiChar):integer;
   begin
@@ -597,7 +612,7 @@ begin
       result:=result+AnsiChar(HexVal(self[i+1])*16+HexVal(self[i+2]));
       inc(i,3);
     end else if self[i]='+' then begin
-      result:=result+' '; inc(i);
+      result:=result+space; inc(i);
     end else begin
       result:=result+self[i]; inc(i);
     end;
@@ -605,29 +620,47 @@ begin
 end;
 
 function String8Helper.HtmlEscape:String8;
+const
+  escAmp:String8='&amp;';
+  escLt:String8='&lt;';
+  escGt:String8='&gt;';
+  escQuote:String8='&quot;';
+  escApos:String8='&#39;';
 var i:integer;
 begin
   result:='';
   for i:=1 to System.Length(self) do
     case self[i] of
-      '&': result:=result+'&amp;';
-      '<': result:=result+'&lt;';
-      '>': result:=result+'&gt;';
-      '"': result:=result+'&quot;';
-      '''':result:=result+'&#39;';
+      '&': result:=result+escAmp;
+      '<': result:=result+escLt;
+      '>': result:=result+escGt;
+      '"': result:=result+escQuote;
+      '''':result:=result+escApos;
       else result:=result+self[i];
     end;
 end;
 
 function String8Helper.HtmlUnescape:String8;
+const
+  amp:String8='&amp;';
+  lt:String8='&lt;';
+  gt:String8='&gt;';
+  quot:String8='&quot;';
+  aposNum:String8='&#39;';
+  aposName:String8='&apos;';
+  ampCh:String8='&';
+  ltCh:String8='<';
+  gtCh:String8='>';
+  quoteCh:String8='"';
+  aposCh:String8='''';
 begin
   result:=self;
-  result:=result.ReplaceAll('&amp;','&');
-  result:=result.ReplaceAll('&lt;','<');
-  result:=result.ReplaceAll('&gt;','>');
-  result:=result.ReplaceAll('&quot;','"');
-  result:=result.ReplaceAll('&#39;','''');
-  result:=result.ReplaceAll('&apos;','''');
+  result:=result.ReplaceAll(amp,ampCh);
+  result:=result.ReplaceAll(lt,ltCh);
+  result:=result.ReplaceAll(gt,gtCh);
+  result:=result.ReplaceAll(quot,quoteCh);
+  result:=result.ReplaceAll(aposNum,aposCh);
+  result:=result.ReplaceAll(aposName,aposCh);
 end;
 
 function String8Helper.CountChar(ch:AnsiChar):integer;
