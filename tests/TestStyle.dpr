@@ -86,9 +86,8 @@ var
   b:TStyleBlock;
 begin
   StartTest('StyleBlock @refs');
-  // register a named style (registry takes ownership)
-  RegisterNamedStyle('myBtn',TStyleBlock.Create);
-  FindNamedStyle('myBtn').ParseText('color: $FF0000FF; border-width: 1;');
+  // register a named style via catalog
+  Styles['myBtn']:='color: $FF0000FF; border-width: 1;';
   // element references it
   b:=TStyleBlock.Create;
   b.ParseText('@myBtn; font-size: 14;');
@@ -96,7 +95,7 @@ begin
   Check(ResolveBlockAttr(b,'border-width','')='1','ref border-width');
   Check(ResolveBlockAttr(b,'font-size','')='14','local font-size');
   b.Free;
-  ClearNamedStyles;
+  Styles.Clear;
   EndTest;
 end;
 
@@ -105,14 +104,13 @@ var
   b:TStyleBlock;
 begin
   StartTest('StyleBlock local overrides @ref');
-  RegisterNamedStyle('base',TStyleBlock.Create);
-  FindNamedStyle('base').ParseText('color: $FF0000FF; font-size: 10;');
+  Styles['base']:='color: $FF0000FF; font-size: 10;';
   b:=TStyleBlock.Create;
   b.ParseText('@base; color: $FFFF0000;'); // local color overrides ref
   Check(ResolveBlockAttr(b,'color','')='$FFFF0000','local wins over ref');
   Check(ResolveBlockAttr(b,'font-size','')='10','ref value used when no local');
   b.Free;
-  ClearNamedStyles;
+  Styles.Clear;
   EndTest;
 end;
 

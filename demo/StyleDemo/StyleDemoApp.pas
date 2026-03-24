@@ -74,16 +74,12 @@ procedure TStyleDemoApp.CreateScenes;
 
 // Toggle @demo-btn named style between warm red and cool blue → Btn3 updates too
 procedure StyleDemoUpdateRef;
- var
-  named:TStyleBlock;
  begin
   styleRefToggle:=not styleRefToggle;
-  named:=FindNamedStyle('demo-btn');
-  if named=nil then exit;
   if styleRefToggle then
-   named.ParseText('color: $FF6E1E1E; text-color: $FFFFD0CC;')  // warm red
+   Styles['demo-btn']:='color: $FF6E1E1E; text-color: $FFFFD0CC;'  // warm red
   else
-   named.ParseText('color: $FF1E3D6E; text-color: $FFCCE0FF;'); // cool blue
+   Styles['demo-btn']:='color: $FF1E3D6E; text-color: $FFCCE0FF;'; // cool blue
  end;
 
 // Panel layout (top-left at 10,10, size 280×330):
@@ -103,12 +99,9 @@ procedure TStyleDemoScene.CreateUI;
   panel:TUIElement;
   btn:TUIButton;
   lbl:TUILabel;
-  named:TStyleBlock;
  begin
   // Register named style reused by Btn3 and the @ref toggle demo
-  named:=TStyleBlock.Create;
-  named.ParseText('color: $FF1E3D6E; text-color: $FFCCE0FF;');
-  RegisterNamedStyle('demo-btn', named);
+  Styles['demo-btn']:='color: $FF1E3D6E; text-color: $FFCCE0FF;';
 
   // Panel: 280×330 at (10,10)
   panel:=TUIElement.Create(280, 330, UI, 'StyleDemo\Panel');

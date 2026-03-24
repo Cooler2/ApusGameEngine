@@ -101,11 +101,25 @@ type
    function FindOrAddStateBlock(const stateName:String8):integer;
   end;
 
-// Global named style registry
+// Global named style catalog
 // name comparison is case-insensitive
-procedure RegisterNamedStyle(const name:String8; block:TStyleBlock);
-function FindNamedStyle(const name:String8):TStyleBlock;
-procedure ClearNamedStyles;
+// Items[name] read/write style text; Block(name) returns the TStyleBlock
+TStyleCatalog=class
+private
+ function GetText(const name:String8):String8;
+ procedure SetText(const name,text:String8);
+public
+ // Read style text by name ('' if not registered)
+ // Write style text: creates or replaces the named style
+ property Items[const name:String8]:String8 read GetText write SetText; default;
+ // Direct block reference for resolvers/drawers (nil if not found)
+ function Block(const name:String8):TStyleBlock;
+ procedure Remove(const name:String8);
+ procedure Clear;
+end;
+
+var
+ Styles:TStyleCatalog; // global named style catalog
 
 // Resolve value from block (local+states+refs) — no parent cascade
 // refs are resolved recursively from the named style registry
@@ -645,9 +659,20 @@ procedure TStyleBlock.PatchText(const patch:String8);
    ApplyOp(Copy(patch,start,n-start+1));
  end;
 
-{ Named style registry }
+{ Named style registry — internal storage }
 
-procedure RegisterNamedStyle(const name:String8; block:TStyleBlock);
+function FindStyleBlock(const name:String8):TStyleBlock;
+ var
+  i:integer;
+  n:String8;
+ begin
+  n:=name.Trim.ToLower;
+  for i:=0 to namedStyleCount-1 do
+   if namedStyles[i].name=n then exit(namedStyles[i].block);
+  result:=nil;
+ end;
+
+procedure PutStyleBlock(const name:String8; block:TStyleBlock);
  var
   i:integer;
   n:String8;
@@ -660,24 +685,61 @@ procedure RegisterNamedStyle(const name:String8; block:TStyleBlock);
     namedStyles[i].block:=block;
     exit;
    end;
-  if namedStyleCount>=MAX_NAMED_STYLES then exit; // registry full
+  if namedStyleCount>=MAX_NAMED_STYLES then exit; // catalog full
   namedStyles[namedStyleCount].name:=n;
   namedStyles[namedStyleCount].block:=block;
   inc(namedStyleCount);
  end;
 
-function FindNamedStyle(const name:String8):TStyleBlock;
+procedure DeleteStyleBlock(const name:String8);
  var
   i:integer;
   n:String8;
  begin
   n:=name.Trim.ToLower;
   for i:=0 to namedStyleCount-1 do
-   if namedStyles[i].name=n then exit(namedStyles[i].block);
-  result:=nil;
+   if namedStyles[i].name=n then begin
+    namedStyles[i].block.Free;
+    namedStyles[i]:=namedStyles[namedStyleCount-1];
+    dec(namedStyleCount);
+    exit;
+   end;
  end;
 
-procedure ClearNamedStyles;
+{ TStyleCatalog }
+
+function TStyleCatalog.Block(const name:String8):TStyleBlock;
+ begin
+  result:=FindStyleBlock(name);
+ end;
+
+function TStyleCatalog.GetText(const name:String8):String8;
+ var
+  b:TStyleBlock;
+ begin
+  b:=FindStyleBlock(name);
+  if b<>nil then result:=b.GetText
+   else result:='';
+ end;
+
+procedure TStyleCatalog.SetText(const name,text:String8);
+ var
+  b:TStyleBlock;
+ begin
+  b:=FindStyleBlock(name);
+  if b=nil then begin
+   b:=TStyleBlock.Create;
+   PutStyleBlock(name,b);
+  end;
+  b.ParseText(text);
+ end;
+
+procedure TStyleCatalog.Remove(const name:String8);
+ begin
+  DeleteStyleBlock(name);
+ end;
+
+procedure TStyleCatalog.Clear;
  var
   i:integer;
  begin
@@ -699,7 +761,7 @@ function ResolveBlockAttr(block:TStyleBlock; const key:String8; const defVal:Str
   if result<>'' then exit;
   // @refs in reverse order: later listed = higher priority among refs
   for i:=high(block.refs) downto 0 do begin
-   refBlock:=FindNamedStyle(block.refs[i]);
+   refBlock:=FindStyleBlock(block.refs[i]);
    if refBlock=nil then continue;
    refVal:=ResolveBlockAttr(refBlock,key,'');
    if refVal<>'' then exit(refVal);
@@ -739,7 +801,7 @@ function ResolveBlockAttrBase(block:TStyleBlock; const key:String8; const defVal
   if result<>'' then exit;
   // @refs in reverse order
   for i:=high(block.refs) downto 0 do begin
-   refBlock:=FindNamedStyle(block.refs[i]);
+   refBlock:=FindStyleBlock(block.refs[i]);
    if refBlock=nil then continue;
    refVal:=ResolveBlockAttrBase(refBlock,key,'');
    if refVal<>'' then exit(refVal);
@@ -756,5 +818,11 @@ function ResolveBlockColorBase(block:TStyleBlock; const key:String8; defVal:card
   result:=ParseStyleColor(s);
   if (result=0) and (s<>'0') then result:=defVal;
  end;
+
+initialization
+ Styles:=TStyleCatalog.Create;
+
+finalization
+ Styles.Free;
 
 end.
