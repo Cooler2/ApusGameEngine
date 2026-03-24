@@ -32,12 +32,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Lazarus/FPC
-        uses: gcarreno/setup-lazarus@v3.2
-        with:
-          lazarus-version: 3.6
-          fpc-version: 3.2.2
-          with-cache: true
+      - name: Install FPC (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fpc
+          fpc -iV
+
+      - name: Install FPC (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          choco install fpc --version=3.2.2 -y
+          fpc -iV
 
   base-buildtest:
     name: Base BuildTest (${{ matrix.os_name }})
@@ -57,12 +64,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Lazarus/FPC
-        uses: gcarreno/setup-lazarus@v3.2
-        with:
-          lazarus-version: 3.6
-          fpc-version: 3.2.2
-          with-cache: true
+      - name: Install FPC (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fpc
+          fpc -iV
+
+      - name: Install FPC (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          choco install fpc --version=3.2.2 -y
+          fpc -iV
 
       - name: Build test (Linux)
         if: runner.os == 'Linux'
@@ -100,12 +114,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Lazarus/FPC
-        uses: gcarreno/setup-lazarus@v3.2
-        with:
-          lazarus-version: 3.6
-          fpc-version: 3.2.2
-          with-cache: true
+      - name: Install FPC (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fpc
+          fpc -iV
+
+      - name: Install FPC (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          choco install fpc --version=3.2.2 -y
+          fpc -iV
 
       - name: Run Base tests (Linux)
         if: runner.os == 'Linux'
@@ -157,12 +178,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Lazarus/FPC
-        uses: gcarreno/setup-lazarus@v3.2
-        with:
-          lazarus-version: 3.6
-          fpc-version: 3.2.2
-          with-cache: true
+      - name: Install FPC (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fpc
+          fpc -iV
+
+      - name: Install FPC (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          choco install fpc --version=3.2.2 -y
+          fpc -iV
 
       - name: Compile selected demos (Linux)
         if: runner.os == 'Linux'
