@@ -91,8 +91,7 @@ implementation
    if maskChange then gfx.target.Mask(true,false);}
    try
     // Draw element
-    if (item.flags.manualDraw=manualDraw) and
-       ((@item.drawer<>nil) or (item.styleClass<=high(styleDrawers))) then
+    if item.flags.manualDraw=manualDraw then
       DrawUIElement(item);
 
     // Debug: Highlight with border when Ctrl+Alt+Win pressed
@@ -172,7 +171,7 @@ implementation
   begin
    if styleOverride=-1 then begin
     if @item.drawer<>nil then drawerProc:=item.drawer
-     else drawerProc:=styleDrawers[item.styleClass];
+     else drawerProc:=styleDrawers[0];
    end else
     drawerProc:=styleDrawers[styleOverride];
    ASSERT(@drawerProc<>nil,'Style not registered: '+item.name);

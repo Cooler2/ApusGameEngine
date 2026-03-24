@@ -431,10 +431,7 @@ begin
       if (fieldname='pagesize') and (obj is TUIScrollBar) then begin
        varClass:=TVarTypeInteger; result:=@TUIScrollBar(obj).pagesize;
       end;
-  's':if fieldname='style' then begin
-       result:=@obj.styleClass; varClass:=TVarTypeInteger;
-      end else
-      if fieldname='styleinfo' then begin
+  's':if fieldname='styleinfo' then begin
        result:=obj; varClass:=TVarTypeStyleinfo;
       end else
       if fieldname='scale' then begin

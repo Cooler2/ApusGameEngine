@@ -127,8 +127,7 @@ type
 
   // Style (R-05 pipeline)
   style:TStyleBlock;        // parsed style data (created in constructor)
-  drawer:TUIDrawer;         // direct drawer reference (nil = use styleClass fallback)
-  styleClass:byte;          // which style handler draws this element (0 = default, deprecated - use drawer)
+  drawer:TUIDrawer;         // direct drawer reference (nil = use default style drawer)
   styleInfoChanged:boolean; // set true whenever styleInfo changes
   styleContext:TObject;     // custom context object used by drawer
 
@@ -613,7 +612,6 @@ constructor TUIElement.Create(width,height:single;parent_:TUIElement;name_:Strin
    flags.manualDraw:=false;
    flags.noParentClip:=not GetClassAttribute('defaultParentClip',true);
    flags.dontClipChildren:=not GetClassAttribute('defaultClipChildren',true);
-   styleClass:=GetClassAttribute('defaultStyle',0);
    style:=TStyleBlock.Create;
    styleInfo:=GetClassAttribute('defaultStyleInfo','');
    defColor:=GetClassAttribute('defaultColor',clDefault);

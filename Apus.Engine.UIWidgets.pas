@@ -347,7 +347,7 @@ interface
 
 implementation
  uses SysUtils, Types, Apus.Types, Apus.Utils, Apus.EventMan, Apus.Geom2D, Apus.Clipboard,
-  Apus.Strings, Apus.Threads;
+  Apus.Strings, Apus.Threads, Apus.Engine.UIRender;
 
  type
   TScrollBarInterface=class(TInterfacedObject, IScroller)
@@ -1657,7 +1657,7 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
    inherited Create(width,height,parent_,'_UIFrame');
    shape:=shapeFull;
    borderWidth:=depth;
-   styleClass:=style_;
+   if style_<>0 then drawer:=GetUIStyle(style_);
    padding.Left:=depth;  padding.Top:=depth;
    padding.Right:=depth; padding.Bottom:=depth;
   end;
@@ -1726,7 +1726,6 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
     end;
    end;
    curItem:=-1;
-   styleClass:=0;
    flags.canHaveFocus:=true;
    maxlines:=15;
    if defaultText='' then defaultText:=GetClassAttribute('defaultText');
