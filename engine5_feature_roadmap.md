@@ -21,7 +21,7 @@ This file follows top-down planning:
 | R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~70% | Shared GL context, secondary window render confirmed, scene lifecycle refactored, AddWindow API, runtime DPI update flow improved | Multi-monitor placement, final runtime DPI-change validation |
 | R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | Direction fixed: OBJ + AEM only; no FBX/DAE converter; R-03 planning doc created | Freeze AEM v1 spec, align runtime loader, implement Blender exporter MVP |
 | R-04 | Robot Interaction Layer | done | 100% | File-based protocol, all commands, FPS telemetry, UI diagnostics | — |
-| R-05 | CSS-Like UI Style System | done | 100% | TStyleBlock, resolver, @refs, state blocks, patch, named catalog (TStyleCatalog), transitions (Tweenings), draw migration, StyleDemo, font/color/styleClass removed from TUIElement | — |
+| R-05 | CSS-Like UI Style System | in-progress | ~75% | TStyleBlock, resolver, @refs, state blocks, patch, named catalog (TStyleCatalog), transitions (Tweenings), draw migration, StyleDemo, font/color/styleClass removed from TUIElement | Practical validation on real screens, resolver performance/caching, $varName support, visual regression tests |
 | R-06 | 3D Material: Normal Mapping | idea | 0% | — | Shader path, tangent/bitangent handling, asset pipeline |
 | R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~85% | Working state reached and merged into `engine5`; core geometry/spatial rollout baseline is active | Linux fixes/validation, benchmark pass, SSE optimization of top hot paths, bugfix+tests loop, remaining module migration (including SDL paths) |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | idea | 0% | — | Performance-safe hit-test algorithm, traversal strategy |
@@ -137,7 +137,7 @@ Use this section for anything remembered on the fly.
 - [ ] [R-002] Multi-window + multi-monitor support with hot DPI-awareness
 - [ ] [R-003] Native model/animation format (AEM) with ultra-compact data encodings + Blender export plugin
 - [x] [R-004] Robot interaction layer (MCP server or file-dialog bridge)
-- [x] [R-005] CSS-like UI style system completion (text-defined inherited styles, from prototype to production-ready)
+- [ ] [R-005] CSS-like UI style system completion (text-defined inherited styles, from prototype to production-ready)
 - [ ] [R-006] 3D material pipeline: normal mapping (optional parallax/occlusion extensions)
 - [ ] [R-007] Geometric utility library for object culling and intersections (Geom3D extension)
 - [ ] [R-008] UI input hit-test for out-of-bounds children without full-tree mouse-move traversal
@@ -275,7 +275,7 @@ Use this section for anything remembered on the fly.
   - Post-MVP follow-ups (non-blocking): stronger command-level safety gates/policy hardening, plus reliability fixes for edge-case shutdown flows.
 
 ### [R-05] CSS-Like UI Style System Completion
-- Status: done
+- Status: in-progress
 - Priority: P1
 - Area: UI
 - Value: Make UI styling declarative, reusable, and maintainable via inherited text-defined styles.
@@ -287,6 +287,9 @@ Use this section for anything remembered on the fly.
   - [x] UI elements can resolve effective style from inherited text-defined style rules.
   - [x] Style priority/conflict behavior is documented and covered by baseline tests.
   - [x] Existing core widgets can be restyled without code changes in representative demo screens.
+  - [ ] Style resolution is validated on real project screens (not only StyleDemo).
+  - [ ] Resolver performance is profiled; caching added if needed.
+  - [ ] Visual regression tests via Robot API `pixel` command cover baseline widget colors.
 - Notes:
   - 2026-03-12: design and scope decisions consolidated in `reports/R-05_notes.md`.
   - 2026-03-23: Phase 1+2 done — `TStyleBlock`, resolver, @refs, state blocks, patch; draw procedure migration; `StyleDemo` with 6 interactive examples.
