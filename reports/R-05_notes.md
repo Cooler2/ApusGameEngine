@@ -219,22 +219,33 @@ Overflow/clipping/z-index — свойства элемента, не style-си
 - Мигрированы: TweakScene, CustomStyle, UIScene (hint), UIScript
 - `DrawCommonStyle`, `DrawUIScrollbar` — **не мигрированы** (используют AnimatedValue hover-переходы, нужны Tweenings)
 
+### Фаза 3 — DONE: Transitions (2026-03-24)
+
+- `TContext` (DefaultStyle): `TAnimatedValue` → `TTweening` для hover/active/disabled; добавлен `Destroy`
+- `DrawCommonStyle`: мигрирован на `element.style` (CSS `:hover {}` блоки + blend с `context.hover.Value`)
+- `DrawUIButton`: smooth transitions hover/press/disabled через TTweening факторы
+- `TStyleBlock`: добавлены `GetStateColor`, `GetStateNumber` (typed accessor для state-блоков)
+- `TUIElement`: добавлены `GetBaseStyleColor`, `GetBaseStyleNumber` (cascade без state overrides)
+- `ResolveBlockAttrBase`, `ResolveBlockColorBase` — resolve без активных состояний
+- Исправлены дублирующие `{$MODE DELPHI}` в `Base/Apus.Containers.pas` и `Base/Apus.Images.pas`
+
 ### Демо — DONE
 
 - `demo/StyleDemo/` — отдельный проект, 6 кнопок:
   - Btn1: default style (baseline)
-  - Btn2: `SetStyleText` с явным цветом
+  - Btn2: `style.Assign` с явным цветом
   - Btn3: `@demo-btn` (named ref)
-  - Btn4: `:hover` / `:pressed` state blocks
-  - Btn5: disabled + `:disabled { text-color }`
+  - Btn4: `:hover` / `:pressed` state blocks + smooth transitions
+  - Btn5: disabled + `:disabled { text-color }` + smooth disabled transition
   - Btn6: Toggle @ref — меняет `@demo-btn`, Btn3 обновляется автоматически
 
 ---
 
 ## Следующие шаги
 
-- [ ] `DrawCommonStyle` — перевести на новую систему (блокирует: Tweenings)
-- [ ] Transitions через Tweenings (когда будут готовы)
+- [x] `DrawCommonStyle` — переведён на новую систему (2026-03-24)
+- [x] Transitions через Tweenings (2026-03-24)
+- [x] `DrawUIScrollbar` — мигрирован на `element.style`; `TElementStyle` удалён полностью (2026-03-24)
 - [ ] Убрать `fFont`/`fColor` из TUIElement (после полного перехода всех виджетов)
 - [ ] Поддержка переменных через Apus.Publics (`$varName` в style text)
 - [x] `element.style` как единая точка доступа: поле `style:TStyleBlock` создаётся в конструкторе (eager), `SetStyleText`/`PatchStyleText`/`EnsureStyleBlock` удалены — используется `style.Assign`/`style.Add` (2026-03-23)
