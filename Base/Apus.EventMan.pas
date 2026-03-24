@@ -308,7 +308,6 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    trID:TThreadID;
    cnt:integer;
    hndlist:array[1..150] of TEventHandler;
-   allowBubble:boolean;
   begin
    if tag=0 then begin
     i:=event.LastIndexOf('::');
@@ -323,7 +322,6 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
    trID:=GetCurrentThreadID;
    try
    repeat
-    allowBubble:=true;
     cnt:=0;
     // Поиск обработчиков
     h:=Hash(event);

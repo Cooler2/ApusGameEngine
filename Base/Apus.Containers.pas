@@ -661,8 +661,6 @@ function TQueue.Add(const item:TDataItem):boolean;
  end;
 
 procedure TQueue.Clear;
- var
-  i:integer;
  begin
   SpinLock(lock);
   used:=0; free:=0;
@@ -733,8 +731,6 @@ function TGenQueue<T>.Add(const item:T):boolean;
  end;
 
 procedure TGenQueue<T>.Clear;
- var
-  i:integer;
  begin
   SpinLock(lock);
   used:=0; free:=0;
@@ -849,13 +845,12 @@ function TPriorityQueue.Get(out item:TDataItem):boolean;
 procedure TPriorityQueue.UpdatePriorities(priorityFunc:TPriorityFunc);
  var
   tmp:TDataItems;
-  i,cnt,p:integer;
+  i,p:integer;
  begin
   if count=0 then exit;
   SpinLock(lock);
   try
    tmp:=Copy(data,1,count);
-   cnt:=count;
    count:=0;
    for i:=0 to high(tmp) do begin
     tmp[i].value:=PriorityFunc(tmp[i]);
@@ -985,9 +980,7 @@ begin
 end;
 
 procedure TObjectList.Clear(freeObjects:boolean=false);
- var
-  i:integer;
-  list:TObjectArray;
+ var list:TObjectArray;
   obj:TObject;
  begin
   if initialized='' then Init;

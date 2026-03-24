@@ -106,7 +106,7 @@ type
   aspectRatio:single;  // Initial aspect ratio (width/height)
   altWidth,altHeight:integer; // saved window size for Alt+Enter
   mainThread:IThread;
-  mainThreadErrorMsg:string;
+  mainThreadErrorMsg:string8;
   controlThreadId:TThreadID;
   cursors:array of TObject;
   crSect:TLock;
@@ -152,15 +152,15 @@ type
 
   // Events
   // Called when ENGINE\* event is fired
-  procedure onEngineEvent(event:string;tag:NativeInt); virtual;
+  procedure onEngineEvent(event:String8;tag:NativeInt); virtual;
   // Called when ENGINE\CMD\* event is fired
-  procedure onCmdEvent(event:string;tag:NativeInt); virtual;
+  procedure onCmdEvent(event:String8;tag:NativeInt); virtual;
   // Called when KBD\* event is fired
-  procedure onKbdEvent(event:string;tag:NativeInt); virtual;
+  procedure onKbdEvent(event:String8;tag:NativeInt); virtual;
   // Called when JOYSTICK\* event is fired
-  procedure onJoystickEvent(event:string;tag:NativeInt); virtual;
+  procedure onJoystickEvent(event:String8;tag:NativeInt); virtual;
   // Called when GAMEPAD\* event is fired
-  procedure onGamepadEvent(event:string;tag:NativeInt); virtual;
+  procedure onGamepadEvent(event:String8;tag:NativeInt); virtual;
 
   // Event processors
   procedure CharEntered(charCode,scanCode:integer); virtual;
@@ -287,7 +287,6 @@ end;
 
 procedure TGame.HandleGamepadNavigation;
 var
- i:integer;
  scene:TUIScene;
  procedure Traverse(e:TUIElement);
   var
@@ -383,11 +382,7 @@ begin
 end;
 
 procedure TGame.ApplyNewSettings;
-var
- resChanged,pfChanged:boolean;
 begin
- resChanged:=(newParams.width<>params.width) or (newParams.height<>params.height);
- pfChanged:=newParams.colorDepth<>params.colorDepth;
  params:=newParams;
  if (params.mode.displayMode=dmFullScreen) and ((altWidth=0) or (altHeight=0)) then begin
   // save size for windowed mode
@@ -454,7 +449,6 @@ end;
 
 procedure TGame.CharEntered(charCode,scanCode:integer);
 var
- i:integer;
  scene:TGameScene;
  key:cardinal;
  wst:WideString;
@@ -481,10 +475,9 @@ end;
 procedure TGame.KeyPressed(keyCode,scanCode:integer;pressed:boolean=true);
 var
  scene:TGameScene;
- code,uCode:cardinal;
+ uCode:cardinal;
 begin
   ASSERT(scancode in [0..255]);
-  code:=keyCode and $FFFF+window.shiftstate shl 16+scancode shl 24;
   uCode:=keyCode and $FFFF+scanCode shl 24;
   scene:=TopmostSceneForKbd;
   if pressed and (scene<>nil) then
@@ -695,11 +688,11 @@ begin
  // Choose pixel formats
  gfx.config.ChoosePixelFormats(pfTrueColor,pfTrueColorAlpha,pfRenderTarget,pfRenderTargetAlpha);
  Log.Msg('Selected pixel formats:');
- Log.Msg('      TrueColor: '+PixFmt2Str(pfTrueColor));
- Log.Msg(' TrueColorAlpha: '+PixFmt2Str(pfTrueColorAlpha));
+ Log.Msg('      TrueColor: %s',[PixFmt2Str(pfTrueColor)]);
+ Log.Msg(' TrueColorAlpha: %s',[PixFmt2Str(pfTrueColorAlpha)]);
  Log.Msg(' as render target:');
- Log.Msg('    Opaque: '+PixFmt2Str(pfRenderTarget));
- Log.Msg('     Alpha: '+PixFmt2Str(pfRenderTargetAlpha));
+ Log.Msg('    Opaque: %s',[PixFmt2Str(pfRenderTarget)]);
+ Log.Msg('     Alpha: %s',[PixFmt2Str(pfRenderTargetAlpha)]);
 
  SetVSync(params.VSync);
 
@@ -1045,12 +1038,12 @@ begin
   {$IFDEF ANDROID}
   window.active:=true; // window is initially active
   {$ENDIF}
- except
-  on e:Exception do begin
-   Log.Force('Error in InitMainLoop: '+ExceptionMsg(e));
-   SystemMessage(ExceptionMsg(e));
-   running:=false;
-   Halt(254);
+  except
+   on e:Exception do begin
+    Log.Force('Error in InitMainLoop: %s',[ExceptionMsg(e)]);
+    SystemMessage(ExceptionMsg(e));
+    running:=false;
+    Halt(254);
   end;
  end;
 end;
@@ -1159,8 +1152,8 @@ begin
  for i:=1 to 400 do
   if not running then CoreTime.Sleep(50) else break;
 
- if not running then begin
-  Log.Force('Main thread timeout');
+  if not running then begin
+   Log.Force('Main thread timeout');
   {$IFDEF MSWINDOWS}
    if mainThreadErrorMsg<>'' then SystemMessage(mainThreadErrorMsg);
   {$ENDIF}
@@ -1218,7 +1211,7 @@ begin
 end;
 
 // ENGINE\*
-procedure TGame.onEngineEvent(event:string;tag:NativeInt);
+procedure TGame.onEngineEvent(event:String8;tag:NativeInt);
 var
   t,fr:int64;
   p:TPoint;
@@ -1236,23 +1229,23 @@ procedure Timing;
  end;
 begin
  event:=Copy(event,8,200);
- if SameText(event,'ONFRAME') then begin
+ if event.Same('ONFRAME') then begin
   try
    FrameLoop;
   except
-   on e:Exception do CritMsg('Error in main loop: '+ExceptionMsg(e));
+   on e:Exception do CritMsg(Format('Error in main loop: %s',[ExceptionMsg(e)]));
   end;
- end else
- if SameText(event,'SETGLOBALTINTCOLOR') then globalTintColor:=tag
- else
- if SameText(event,'MAINLOOPINIT') then begin
-  InitMainLoop;
- end else
- if SameText(event,'MAINLOOPDONE') then begin
-  DoneGraph;
- end else
- if event='SINGLETOUCHSTART' then begin
-   t:=CoreTime.Ticks;
+  end else
+ if event.Same('SETGLOBALTINTCOLOR') then globalTintColor:=tag
+  else
+ if event.Same('MAINLOOPINIT') then begin
+   InitMainLoop;
+  end else
+ if event.Same('MAINLOOPDONE') then begin
+   DoneGraph;
+  end else
+ if event.Same('SINGLETOUCHSTART') then begin
+    t:=CoreTime.Ticks;
    p.x:=tag and $FFFF;
    p.y:=tag shr 16;
    ClientToGame(p);
@@ -1264,7 +1257,7 @@ begin
    CoreTime.Sleep(0);
    Timing;
  end else
- if event='SINGLETOUCHMOVE' then begin
+ if event.Same('SINGLETOUCHMOVE') then begin
    t:=CoreTime.Ticks;
    p.x:=tag and $FFFF;
    p.y:=tag shr 16;
@@ -1274,7 +1267,7 @@ begin
    window.FlushMouseInput;
    Timing;
  end else
- if event='SINGLETOUCHRELEASE' then begin
+ if event.Same('SINGLETOUCHRELEASE') then begin
    t:=CoreTime.Ticks;
    Signal('Mouse\BtnUp\Left',1);
    window.NotifyScenesMouseBtn(1,false);
@@ -1283,17 +1276,17 @@ begin
    window.FlushMouseInput;
    Timing;
  end else
- if SameText(event,'REDRAW') then begin
+ if event.Same('REDRAW') then begin
   if game.running then
    RenderAndPresentFrame;
- end else
- if SameText(event,'RESIZE') then begin
+  end else
+ if event.Same('RESIZE') then begin
   SizeChanged(Bits.GetWord(cardinal(tag),0),Bits.GetWord(cardinal(tag),1));
- end else
- if SameText(event,'SETACTIVE') then begin
+  end else
+ if event.Same('SETACTIVE') then begin
   Activate(tag<>0);
- end else
- if SameText(event,'DPICHANGED') then begin
+  end else
+ if event.Same('DPICHANGED') then begin
   // screenDPI already updated by TWindow.DPIChanged
   screenScale:=1.0;
   if params.mode.displayScaleMode=dsmDontScale then begin
@@ -1307,65 +1300,67 @@ begin
 end;
 
 // Обработка событий, являющихся командами движку
-procedure TGame.onCmdEvent(event:string;tag:NativeInt);
+procedure TGame.onCmdEvent(event:String8;tag:NativeInt);
 var
  pnt:TPoint;
+ rawEvent:String8;
+ arg:String8;
 begin
- event:=Copy(event,12,200);
- if SameText(event,'CHANGESETTINGS') then ApplyNewSettings
+ rawEvent:=Copy(event,12,200);
+ if rawEvent.Same('CHANGESETTINGS') then ApplyNewSettings
  else
- if SameText(event,'EXIT') then begin
+ if rawEvent.Same('EXIT') then begin
   if mainThread<>nil then mainThread.Terminate;
  end
- else
- if event.StartsWith('SWITCHTOSCENE\',true) then begin
-  SwitchToScene(Copy(event,15,100));
- end else
- if event.StartsWith('SHOWWINDOW\',true) then begin
-  ShowWindowScene(Copy(event,15,100));
- end else
- if event.StartsWith('HIDEWINDOW\',true) then begin
-  HideWindowScene(Copy(event,15,100));
- end else
- if SameText(event,'SETSWAPINTERVAL') then begin
+   else
+ if EventOfClass(rawEvent,'SWITCHTOSCENE\',arg) then begin
+   SwitchToScene(arg);
+  end else
+ if EventOfClass(rawEvent,'SHOWWINDOW\',arg) then begin
+   ShowWindowScene(arg);
+  end else
+ if EventOfClass(rawEvent,'HIDEWINDOW\',arg) then begin
+   HideWindowScene(arg);
+  end else
+ if rawEvent.Same('SETSWAPINTERVAL') then begin
   SetVSync(tag);
  end else
- // Update mouse position when it is obsolete
- if SameText(event,'UPDATEMOUSEPOS') then begin
+  // Update mouse position when it is obsolete
+ if rawEvent.Same('UPDATEMOUSEPOS') then begin
    pnt:=systemPlatform.GetMousePos;
    ClientToGame(pnt);
    window.mousePos:=pnt;
    Signal('MOUSE\MOVE',Bits.PackW(pnt.X,pnt.Y));
    window.FlushMouseInput;
- end
- else
- // Make window flash to draw attention
- if SameText(event,'FLASH') then
+  end
+  else
+  // Make window flash to draw attention
+ if rawEvent.Same('FLASH') then
   window.FlashWindow(tag);
 end;
 
 // Handle KBD\* event
-procedure TGame.onKbdEvent(event:string;tag:NativeInt);
+procedure TGame.onKbdEvent(event:String8;tag:NativeInt);
 begin
  event:=Copy(event,5,200);
- if SameText(event,'KEYDOWN') then begin
+ if event.Same('KEYDOWN') then begin
    KeyPressed(tag and $FFFF,tag shr 16,true);
- end else
- if SameText(event,'KEYUP') then begin
+  end else
+ if event.Same('KEYUP') then begin
    KeyPressed(tag and $FFFF,tag shr 16,false);
- end else
- if SameText(event,'UNICHAR') then begin
+  end else
+ if event.Same('UNICHAR') then begin
    CharEntered(tag and $FFFF,tag shr 16);
- end;
+  end;
 end;
 
 // Handle JOYSTICK\* event
-procedure TGame.onJoystickEvent(event:string;tag:NativeInt);
+procedure TGame.onJoystickEvent(event:String8;tag:NativeInt);
 begin
 end;
 
 // Handle GAMEPAD\* event
-procedure TGame.onGamepadEvent(event:string;tag:NativeInt);
+procedure TGame.onGamepadEvent(event:String8;tag:NativeInt);
 var
  evt:TEventStr;
  btn:TConButtonType;
@@ -1523,10 +1518,11 @@ begin
  i:=0;
  if msg='' then msg:=Conv.ToStr(Stack.Caller);
  while not pb^ do begin
-  if i mod 10=0 then Log.Msg('WaitFor '+msg);
+  if i mod 10=0 then Log.Msg('WaitFor %s',[msg]);
   ToggleCursor(CursorID.Wait,true);
   CoreTime.Sleep(30);
   ToggleCursor(CursorID.Wait,false);
+  inc(i);
  end;
 end;
 
@@ -1568,10 +1564,10 @@ procedure TGame.SwitchToScene(name:string);
   scene:TGameScene;
  begin
   scene:=TGameScene.FindByName(name) as TGameScene;
-  if scene.loaded then
+   if scene.loaded then
    TSceneSwitcher.defaultSwitcher.SwitchToScene(name)
   else
-   Thread.Start('SwitchToScene:'+scene.name,@WaitAndSwitch,pointer(scene));
+   Thread.Start('SwitchToScene',@WaitAndSwitch,pointer(scene));
  end;
 
 procedure TGame.ShowWindowScene(name:string;modal:boolean);
@@ -1616,7 +1612,7 @@ begin
     inc(j);
    end;
    if list[i].renderThread.IsRunning then
-    Log.Msg('Warning: extra window thread did not stop in time: '+list[i].name);
+    Log.Msg('Warning: extra window thread did not stop in time: %s',[list[i].name]);
   end;
 end;
 
@@ -1770,7 +1766,7 @@ procedure TGame.FrameLoop;
   try
     HandleSignals;
   except
-    on e:exception do Log.Force('Error in FrameLoop 1: '+ExceptionMsg(e));
+    on e:exception do Log.Force('Error in FrameLoop 1: %s',[ExceptionMsg(e)]);
   end;
   if window.timings.phaseMetrics then
     window.timings.pendingMsgUs:=round(Timer.Get(phaseTimer)*1000000)
@@ -1821,7 +1817,7 @@ procedure TGame.RenderAndPresentFrame;
    window.timings.frameTimerReady:=true;
 
    if window.frameDeltaUs>500000 then
-    Log.Msg('Warning: main loop stall for '+inttostr(window.frameDeltaMs)+' ms');
+    Log.Msg('Warning: main loop stall for %d ms',[window.frameDeltaMs]);
 
    // Обработка кадра
    if window.timings.phaseMetrics then Timer.Start(phaseTimer);
@@ -1832,7 +1828,7 @@ procedure TGame.RenderAndPresentFrame;
   try
    HandleSignals;
   except
-   on e:exception do Log.Force('Error in FrameLoop 2: '+ExceptionMsg(e));
+   on e:exception do Log.Force('Error in FrameLoop 2: %s',[ExceptionMsg(e)]);
   end;
   if window.IsTerminated then exit;
 
@@ -1857,7 +1853,7 @@ procedure TGame.RenderAndPresentFrame;
       RenderFrame;
       EndMeasure2(2);
      except
-      on E:Exception do CritMsg('Error in renderframe: '+ExceptionMsg(e)+' framelog: '+window.frameLog);
+      on E:Exception do CritMsg(Format('Error in renderframe: %s framelog: %s',[ExceptionMsg(e),window.frameLog]));
      end;
      if window.timings.phaseMetrics then renderUs:=round(Timer.Get(phaseTimer)*1000000);
     end;
@@ -1898,7 +1894,7 @@ procedure TGame.MainThreadLoop;
   // Инициализация
   mainThreadErrorMsg:='';
   try
-   Log.Msg(CoreTime.Stamp+' Main thread started - '+inttostr(cardinal(GetCurrentThreadID)));
+   Log.Msg('%s Main thread started - %d',[CoreTime.Stamp,cardinal(GetCurrentThreadID)]);
    // TODO: restore detailed system info logging after GetSystemInfo replacement is finalized.
    Log.Msg('System info: TODO');
    SetEventHandler('Engine\',EngineEvent,emInstant);
@@ -1919,7 +1915,7 @@ procedure TGame.MainThreadLoop;
     try
      gameEx.FrameLoop;
     except
-     on e:Exception do CritMsg('Error in main loop: '+ExceptionMsg(e));
+     on e:Exception do CritMsg(Format('Error in main loop: %s',[ExceptionMsg(e)]));
     end;
     if (window<>nil) and window.IsTerminated then
      break;
@@ -1943,9 +1939,9 @@ procedure TGame.MainThreadLoop;
    end;
   except
    on e:Exception do begin
-    mainThreadErrorMsg:=ExceptionMsg(e);
-    CritMsg('Global error: '+ExceptionMsg(e));
-   end;
+     mainThreadErrorMsg:=ExceptionMsg(e);
+     CritMsg(Format('Global error: %s',[ExceptionMsg(e)]));
+    end;
   end;
 
   Log.Force('Main thread done');
@@ -1972,7 +1968,7 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
   callerReleasedMainContext:=ewCtx^.callerReleasedMainContext;
   registered:=false;
   wnd:=nil;
-  Log.Msg('Extra window thread started: '+settings.title);
+  Log.Msg('Extra window thread started: %s',[settings.title]);
   try
    // startup phase: must report success/failure back to AddWindow
    try
@@ -1999,14 +1995,14 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
     ewCtx^.resultWnd:=wnd;
     ewCtx^.startDone:=true;
     registered:=true;
-    Log.Msg('Extra window ready: '+wnd.name);
+    Log.Msg('Extra window ready: %s',[wnd.name]);
    except
     on e:Exception do begin
      ewCtx^.startFailed:=true;
      ewCtx^.errorMsg:=ExceptionMsg(e);
      ewCtx^.startDone:=true;
      ewCtx:=nil; // startup context is no longer valid after reporting result
-     CritMsg('Extra window startup error: '+ExceptionMsg(e));
+      CritMsg(Format('Extra window startup error: %s',[ExceptionMsg(e)]));
      if wnd<>nil then begin
       try
        wnd.DoneGraph;
@@ -2086,12 +2082,12 @@ function ExtraWindowLoop(ctx:TThreadContext):UIntPtr;
   until CurrentThread.Terminating;
 
    // cleanup
-   Log.Msg('Extra window closing: '+wnd.name);
+   Log.Msg('Extra window closing: %s',[wnd.name]);
    wnd.DoneGraph;
    wnd.Close;
   except
    on e:Exception do
-    CritMsg('Extra window error: '+ExceptionMsg(e));
+    CritMsg(Format('Extra window error: %s',[ExceptionMsg(e)]));
   end;
   if registered and (extraWindowCount>0) then Atomic.Dec(extraWindowCount);
   multiWindowMode:=(extraWindowCount>0);
@@ -2112,7 +2108,6 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
  begin
   // Serialize only AddWindow startup path; do not block the whole game state lock.
   // Serialize extra-window startup across all callers/threads.
-  callerIsMainThread:=false;
   mainContextReleased:=false;
   while Atomic.CmpExchange(addWindowBusy,1,0)<>0 do
    CoreTime.Sleep(1);
@@ -2130,7 +2125,7 @@ function TGame.AddWindow(settings:TGameSettings):TWindow;
    ewCtx.startDone:=false;
    ewCtx.startFailed:=false;
    ewCtx.errorMsg:='';
-   th:=Thread.Start('WndThread_'+settings.title,ExtraWindowLoop,@ewCtx);
+   th:=Thread.Start('WndThread',ExtraWindowLoop,@ewCtx);
    // wait until startup result is reported (or thread dies unexpectedly)
    while (not ewCtx.startDone) and th.IsRunning do
     CoreTime.Sleep(1);
