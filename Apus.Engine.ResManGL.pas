@@ -1983,7 +1983,7 @@ procedure TVertexBufferGL.WaitForPublish;
 begin
  if publishedSync=nil then exit;
  if @glWaitSync<>nil then
-  glWaitSync(GLsync(publishedSync),0,GL_TIMEOUT_IGNORED)
+  glWaitSync(GLsync(publishedSync),0,high(uint64))
  else
  if @glClientWaitSync<>nil then
   glClientWaitSync(GLsync(publishedSync),GL_SYNC_FLUSH_COMMANDS_BIT,high(uint64));
@@ -2011,7 +2011,7 @@ procedure TIndexBufferGL.WaitForPublish;
 begin
  if publishedSync=nil then exit;
  if @glWaitSync<>nil then
-  glWaitSync(GLsync(publishedSync),0,GL_TIMEOUT_IGNORED)
+  glWaitSync(GLsync(publishedSync),0,high(uint64))
  else
  if @glClientWaitSync<>nil then
   glClientWaitSync(GLsync(publishedSync),GL_SYNC_FLUSH_COMMANDS_BIT,high(uint64));

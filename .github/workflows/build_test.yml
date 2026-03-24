@@ -141,7 +141,6 @@ jobs:
           lazbuild -q -q demo/01-Scenes/scenes.lpi
           lazbuild -q -q demo/NinePatch/NinePatch.lpi
           lazbuild -q -q demo/Simple3D/Simple3D.lpi
-          lazbuild -q -q demo/CharAnimation/CharAnimation.lpi
 
       - name: Compile selected demos (Windows)
         if: runner.os == 'Windows'
@@ -150,7 +149,6 @@ jobs:
           lazbuild -q -q demo/01-Scenes/scenes.lpi
           lazbuild -q -q demo/NinePatch/NinePatch.lpi
           lazbuild -q -q demo/Simple3D/Simple3D.lpi
-          lazbuild -q -q demo/CharAnimation/CharAnimation.lpi
 
       - name: Upload demo build outputs on failure
         if: failure()

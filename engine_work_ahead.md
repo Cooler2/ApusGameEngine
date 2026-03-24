@@ -15,6 +15,9 @@ Large feature planning lives in `engine5_feature_roadmap.md`.
   - after porting, re-enable these modules in `Base/tests/buildtest.sh`.
 
 ## Done (recent, high impact)
+- Demo CI stabilization follow-up (2026-03-24):
+  - fixed FPC constant-range failure in `Apus.Engine.ResManGL` sync wait calls by using explicit `high(uint64)` timeout value;
+  - adjusted demo CI set to build stable demos (`SimpleDemo`, `01-Scenes`, `NinePatch`, `Simple3D`) while `CharAnimation` remains blocked by legacy `Apus.Common` usage through `Apus.Engine.Model3D`.
 - CI split and refresh for `engine5` (2026-03-24):
   - unified workflow `.github/workflows/build_test.yml` now has dedicated jobs:
     - Base module compile sweep (`buildtest`) on Windows/Linux;
