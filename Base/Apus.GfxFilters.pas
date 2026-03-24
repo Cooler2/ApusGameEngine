@@ -105,7 +105,7 @@ procedure paddsb(var src; var dst; count:integer); pascal;
 
 
 implementation
-uses Apus.FastGfx,Apus.Colors;
+uses Apus.FastGFX,Apus.Colors;
 
 type
  ByteArray=array[0..1000] of byte;

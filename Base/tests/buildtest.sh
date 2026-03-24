@@ -76,7 +76,9 @@ build Apus.AnimatedValues
 build Apus.Containers
 build Apus.FastGFX
 build Apus.VertexLayout
-build Apus.Socket
+# Network low-level sockets are currently WinSock-centric in code path; Linux porting is pending
+# (socket()/PHostEnt/WSA* compatibility layer).
+# build Apus.Socket
 
 # === Level 5: Images and collections ===
 build Apus.Images
@@ -87,7 +89,7 @@ build Apus.Huffman
 
 # === Level 6: Network and files ===
 build Apus.ControlFiles
-build Apus.TCP
+# build Apus.TCP
 
 # === Level 7: High-level network ===
 build Apus.HttpRequests
@@ -113,7 +115,7 @@ build Apus.Clipboard
 build Apus.MemoryLeakUtils
 build Apus.Publics
 build Apus.RSA
-build Apus.SCGI
+# build Apus.SCGI
 
 # === Summary ===
 echo "" | tee -a "$LOG"
