@@ -8,6 +8,12 @@ This file tracks active execution only:
 
 Large feature planning lives in `engine5_feature_roadmap.md`.
 
+## Immediate priorities
+- Linux network modules portability follow-up (from Base buildtest stabilization):
+  - restore Linux build compatibility for `Base/Apus.Socket.pas`, `Base/Apus.TCP.pas`, `Base/Apus.SCGI.pas`;
+  - replace WinSock-only paths (`socket`/`ioctlsocket`/`WSA*`/`PHostEnt`) with cross-platform wrappers (`Sockets`/`BaseUnix` or unified abstraction);
+  - after porting, re-enable these modules in `Base/tests/buildtest.sh`.
+
 ## Done (recent, high impact)
 - CI split and refresh for `engine5` (2026-03-24):
   - unified workflow `.github/workflows/build_test.yml` now has dedicated jobs:
