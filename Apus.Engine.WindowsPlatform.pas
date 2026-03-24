@@ -934,7 +934,10 @@ procedure TWinGLWindow.PresentFrame;
 
 function TWinGLWindow.SetVSync(divider: integer): boolean;
  begin
-  result:=false;
+  result:=WGL_EXT_swap_control;
+  if result then wglSwapIntervalEXT(divider);
+  if result then
+   Log.Msg('VSync (window): swap interval=%d',[divider]);
  end;
 
 procedure TWinGLWindow.DoneGraph;

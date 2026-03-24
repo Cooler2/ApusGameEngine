@@ -158,12 +158,14 @@ end; *)
 
 // подогнать формат пикселя под поддерживаемый системой
 procedure AdjustFormat(var ForceFormat:TImagePixelFormat);
+{$IFDEF DIRECTX}
 var
  i:integer;
+{$ENDIF}
 begin
- i:=0;
- {$IFDEF DIRECTX}
- if draw.texman.InheritsFrom(TDxTextureMan) then begin
+  {$IFDEF DIRECTX}
+  i:=0;
+  if draw.texman.InheritsFrom(TDxTextureMan) then begin
   // 1-я итерация - проверка альтернативных форматов
   case ForceFormat of
    ipfRGB:if supportRGB then exit else ForceFormat:=ipfXRGB;
@@ -204,13 +206,39 @@ begin
  {$ENDIF}
 end;
 
+function ExtractFileExt8(const fname:String8):String8;
+var
+  i:integer;
+begin
+  for i:=System.Length(fname) downto 1 do begin
+    if (fname[i]='\') or (fname[i]='/') then break;
+    if fname[i]='.' then begin
+      result:=System.Copy(fname,i,System.Length(fname)-i+1);
+      exit;
+    end;
+  end;
+  result:='';
+end;
+
+function ExtractFilePath8(const fname:String8):String8;
+var
+  i:integer;
+begin
+  for i:=System.Length(fname) downto 1 do
+    if (fname[i]='\') or (fname[i]='/') then begin
+      result:=System.Copy(fname,1,i);
+      exit;
+    end;
+  result:='';
+end;
+
 
 procedure NormalizeFName(var fname:string8);
 var
   ext:string8;
 begin
   fname:=fname.ToUpper;
-  ext:=ExtractFileExt(fname);
+  ext:=ExtractFileExt8(fname);
   if ext<>'' then fname:=fname.Replace(ext,'');
   {$IFDEF IOS}
   fname:=fname.Replace('\','/');
@@ -225,7 +253,7 @@ var
   st,path:String8;
 begin
  try
-  path:=ExtractFilePath(fname);
+  path:=ExtractFilePath8(fname);
   assign(f,Files.FixName(fname+'.atl'));
   SetTextCodePage(f,CP_UTF8);
   reset(f);
@@ -263,11 +291,8 @@ function LoadTexture(fname:string8;downscale:single;format:TImagePixelFormat=ipf
 var
  i,j:integer;
  tex:TTexture;
- f:file;
  buf:ByteArray;
- size:integer;
  conversion:boolean;
- srcformat:TImageFileType;
  width,height:integer;
  levels:array[0..12] of TMipLevelData; // DDS mip levels staged for upload
  sp,dp:PByte;
@@ -289,7 +314,6 @@ begin
   // загружаем DDS
   buf:=Files.LoadAsBytes(fname);
   CheckImageFormat(buf);
-  srcformat:=ifDDS;
   if format=ipfNone then format:=imgInfo.format;
   AdjustFormat(format);
   conversion:=(format<>imginfo.format) or (imgInfo.miplevels<3);
@@ -435,15 +459,11 @@ var
  texName:String8;
  tex:TTexture;
  img,txtImage,preloaded:TRawImage;
- aFlags,mtWidth,mtHeight:integer;
- f:file;
+ aFlags:integer;
  data,rawData:ByteArray;
- size2:integer;
  format:TImageFileType;
- sp,dp:PByte;
- time,timeJ:int64;
- linebuf:pointer;
- doScale:boolean;
+ dp:PByte;
+ time:int64;
  st:String8;
 begin
  try
@@ -465,7 +485,7 @@ begin
     else if FileExists(fname+'.pvr') then fname:=fname+'.pvr'
      else raise EError.Create(fname+' not found');
   {$ELSE}
-  if ExtractFileExt(fname)='' then begin // find file
+  if ExtractFileExt8(fname)='' then begin // find file
    fName:=FindProperFile(fName,Bits.HasAll(flags,liffNoFail));
    if fName='' then exit(nil);
   end;
@@ -500,8 +520,7 @@ begin
 
    // 2.5 FOR JPEG: LOAD SEPARATE ALPHA CHANNEL (IF EXISTS)
    if format=ifJPEG then begin
-    timeJ:=CoreTime.Ticks;
-    st:=fname.Replace(ExtractFileExt(fname),'.raw');
+    st:=fname.Replace(ExtractFileExt8(fname),'.raw');
     Log.Force('Checking '+st);
     if Files.Exists(st) then begin
      Log.Force('Loading RAW alpha ');
@@ -720,7 +739,7 @@ procedure CropImage(image:TTexture;x1,y1,x2,y2:integer);
 
  function ExpandImage(image:TTexture;x1,x2,y1,y2:integer;overlap:integer):TTexture;
   var
-   w,h,imgW,img,dw,dh,i,j,sx,sy,dx,dy,bw,bh:integer;
+   w,h,dw,dh,i,j,sx,sy,dx,dy,bw,bh:integer;
   begin
    dw:=x2-x1;
    dh:=y2-y1;

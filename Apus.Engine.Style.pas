@@ -1,4 +1,4 @@
-// R-05: CSS-like style system for UI elements
+﻿// R-05: CSS-like style system for UI elements
 //
 // Style text format:
 //   key: value;                         -- attribute
@@ -544,7 +544,7 @@ procedure TStyleBlock.ParseStateBlock(const stateName,text:String8; from,last:in
 procedure TStyleBlock.ParseText(const text:String8);
  var
   i,n,start,braceStart,depth:integer;
-  ch:char;
+  ch:AnsiChar;
   stateName:String8;
  begin
   Clear;

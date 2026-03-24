@@ -747,7 +747,7 @@ begin
     v:=CharValue(st[i]) shl 12 + CharValue(st[i+1]) shl 6 + CharValue(st[i+2]);
     v:=v shr 2;
     pb^:=v shr 8; inc(pb); inc(cnt);
-    pb^:=v and $FF; inc(pb); inc(cnt);
+    pb^:=v and $FF; inc(cnt);
   end else
   if i<=length(st)-1 then begin
     v:=CharValue(st[i]) shl 6 + CharValue(st[i+1]);
