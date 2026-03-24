@@ -30,7 +30,67 @@ uses SysUtils, Apus.Core, Apus.Lib, Apus.Strings, Apus.Colors,
   {$ENDIF}
   ;
 
-// CPU overlay sampling code is intentionally disabled for now.
+(* CPU overlay sampling code is intentionally disabled for now.
+
+Disabled CPU sampling code (kept for quick restore):
+var
+ cpuSampleLastTick:uint64=0;
+ cpuSampleLastProc:uint64=0;
+ cpuSampleLastThread:uint64=0;
+ cpuSampleProcPct:single=0;
+ cpuSampleThreadPct:single=0;
+ cpuSampleReady:boolean=false;
+ cpuLogicalCount:integer=0;
+
+function FileTimeToUInt64(const ft:TFileTime):uint64; inline;
+ begin
+  result:=(uint64(ft.dwHighDateTime) shl 32) or ft.dwLowDateTime;
+ end;
+
+procedure UpdateCpuOverlaySamples;
+const
+ SAMPLE_INTERVAL_MS=400;
+var
+ nowTick,dtMs:uint64;
+ ct,et,pk,pu,tk,tu:TFileTime;
+ procTotal,threadTotal:uint64;
+ dProc,dThread:uint64;
+ sysInfo:TSystemInfo;
+ begin
+  nowTick:=GetTickCount64;
+  if (cpuSampleReady) and (nowTick<cpuSampleLastTick+SAMPLE_INTERVAL_MS) then exit;
+  if cpuLogicalCount<=0 then begin
+   GetSystemInfo(sysInfo);
+   cpuLogicalCount:=sysInfo.dwNumberOfProcessors;
+   if cpuLogicalCount<=0 then cpuLogicalCount:=1;
+  end;
+  if not GetProcessTimes(GetCurrentProcess,ct,et,pk,pu) then exit;
+  if not GetThreadTimes(GetCurrentThread,ct,et,tk,tu) then exit;
+  procTotal:=FileTimeToUInt64(pk)+FileTimeToUInt64(pu);
+  threadTotal:=FileTimeToUInt64(tk)+FileTimeToUInt64(tu);
+  if cpuSampleReady and (nowTick>cpuSampleLastTick) then begin
+   dtMs:=nowTick-cpuSampleLastTick;
+   dProc:=procTotal-cpuSampleLastProc;
+   dThread:=threadTotal-cpuSampleLastThread;
+   cpuSampleProcPct:=100.0*dProc/(dtMs*10000.0);
+   cpuSampleThreadPct:=100.0*dThread/(dtMs*10000.0);
+   if cpuSampleProcPct<0 then cpuSampleProcPct:=0;
+   if cpuSampleThreadPct<0 then cpuSampleThreadPct:=0;
+   if cpuSampleThreadPct>100 then cpuSampleThreadPct:=100;
+  end;
+  cpuSampleLastTick:=nowTick;
+  cpuSampleLastProc:=procTotal;
+  cpuSampleLastThread:=threadTotal;
+  cpuSampleReady:=true;
+ end;
+
+Disabled overlay output snippet (dfShowFPS):
+ UpdateCpuOverlaySamples;
+ procCpuText:='P:'+Conv.ToStr(cpuSampleProcPct,1,0)+'%';
+ threadCpuText:='T:'+Conv.ToStr(cpuSampleThreadPct,1,0)+'%';
+ txt.WriteC(game.smallFont,x+w*0.27,y+h*0.95,$FF80C8FF,procCpuText);
+ txt.WriteC(game.smallFont,x+w*0.75,y+h*0.95,$FFFFC060,threadCpuText);
+*)
 
 procedure DrawDebugMagnifier(var state:TDebugState);
 var
