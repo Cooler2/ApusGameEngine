@@ -63,6 +63,7 @@ build Apus.Threads
 build Apus.HashMaps
 build Apus.Geom2D
 build Apus.Geom3D
+build Apus.Spatial
 
 # === Level 3: Higher-level data structures ===
 build Apus.Classes
@@ -72,7 +73,7 @@ build Apus.Tweenings
 build Apus.AnimatedValues
 
 # === Level 4: Structs and graphics primitives ===
-build Apus.Structs
+build Apus.Containers
 build Apus.FastGFX
 build Apus.VertexLayout
 build Apus.Socket
@@ -101,7 +102,7 @@ build Apus.Database
 # === Level 9: Specialized ===
 build Apus.HtmlTree
 build Apus.FreeTypeFont
-build Apus.GlyphCaches
+build Apus.GlyphCache
 build Apus.GeoIP
 
 # === Level 10: Diagnostics and extras ===

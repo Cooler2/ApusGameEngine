@@ -1,0 +1,171 @@
+name: Engine5 CI
+
+on:
+  push:
+    branches: [ engine5 ]
+  pull_request:
+    branches: [ engine5 ]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  base-buildtest:
+    name: Base BuildTest (${{ matrix.os_name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_name: linux
+            runner: ubuntu-latest
+          - os_name: windows
+            runner: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Lazarus/FPC
+        uses: gcarreno/setup-lazarus@v3.2
+        with:
+          lazarus-version: stable
+          with-cache: ${{ runner.os != 'Windows' }}
+
+      - name: Build test (Linux)
+        if: runner.os == 'Linux'
+        run: bash Base/tests/buildtest.sh
+
+      - name: Build test (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Base\tests\buildtest.bat
+
+      - name: Upload buildtest log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildtest-${{ matrix.os_name }}
+          path: Base/tests/buildtest_results.txt
+          if-no-files-found: warn
+
+  base-tests:
+    name: Base Tests (${{ matrix.os_name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    needs: base-buildtest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_name: linux
+            runner: ubuntu-latest
+          - os_name: windows
+            runner: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Lazarus/FPC
+        uses: gcarreno/setup-lazarus@v3.2
+        with:
+          lazarus-version: stable
+          with-cache: ${{ runner.os != 'Windows' }}
+
+      - name: Run Base tests (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          tests=(Core Conv Strings Types Containers HashMaps Files EventMan Threads Tweenings Geom2D Geom3D Spatial)
+          for t in "${tests[@]}"; do
+            echo "::group::Base test $t"
+            bash Base/tests/test.sh "$t"
+            echo "::endgroup::"
+          done
+
+      - name: Run Base tests (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          @echo on
+          for %%T in (Core Conv Strings Types Containers HashMaps Files EventMan Threads Tweenings Geom2D Geom3D Spatial) do (
+            call Base\tests\test.bat %%T || exit /b 1
+          )
+
+      - name: Upload Base test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: base-tests-${{ matrix.os_name }}
+          path: |
+            Base/tests/test_results_64.txt
+            Base/tests/test_results_32.txt
+            Base/tests/test_results_L64.txt
+          if-no-files-found: warn
+
+  demo-build:
+    name: Demo Build (${{ matrix.os_name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    needs: base-buildtest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_name: linux
+            runner: ubuntu-latest
+          - os_name: windows
+            runner: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Lazarus/FPC
+        uses: gcarreno/setup-lazarus@v3.2
+        with:
+          lazarus-version: stable
+          with-cache: ${{ runner.os != 'Windows' }}
+
+      - name: Compile selected demos (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
+          lazbuild -q -q demo/01-Scenes/scenes.lpi
+          lazbuild -q -q demo/NinePatch/NinePatch.lpi
+          lazbuild -q -q demo/Simple3D/Simple3D.lpi
+          lazbuild -q -q demo/CharAnimation/CharAnimation.lpi
+
+      - name: Compile selected demos (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          lazbuild -q -q demo/SimpleDemo/SimpleDemo.lpi
+          lazbuild -q -q demo/01-Scenes/scenes.lpi
+          lazbuild -q -q demo/NinePatch/NinePatch.lpi
+          lazbuild -q -q demo/Simple3D/Simple3D.lpi
+          lazbuild -q -q demo/CharAnimation/CharAnimation.lpi
+
+      - name: Upload demo build outputs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-build-${{ matrix.os_name }}
+          path: |
+            demo/**/lib/
+            demo/**/*.compiled
+          if-no-files-found: ignore
+
+  engine-tests:
+    name: Engine Tests Placeholder
+    runs-on: ubuntu-latest
+    needs: [ base-tests, demo-build ]
+    steps:
+      - name: Placeholder
+        run: |
+          echo "Engine tests are not available yet."
+          echo "This job is reserved for future automated engine test suites."

@@ -9,6 +9,14 @@ This file tracks active execution only:
 Large feature planning lives in `engine5_feature_roadmap.md`.
 
 ## Done (recent, high impact)
+- CI split and refresh for `engine5` (2026-03-24):
+  - unified workflow `.github/workflows/build_test.yml` now has dedicated jobs:
+    - Base module compile sweep (`buildtest`) on Windows/Linux;
+    - Base test suite run on Windows/Linux;
+    - selected demo compilation on Windows/Linux;
+    - placeholder job reserved for future engine tests.
+  - removed legacy `install_fpc.yml` bound to `engine4` to avoid duplicate/obsolete CI behavior.
+  - synchronized Linux `Base/tests/buildtest.sh` module list with current Base units (`Containers`, `GlyphCache`, `Spatial`).
 - Tweenings validation track updated (2026-03-23):
   - documentation synchronized for current status (`Base/tests/README.md`, `demo/demo_inventory.md`, `Base/engine5_status.md`);
   - fixed tween runtime defects in `Apus.Tweenings`: scalar overload recursion (`stack overflow`) and `duration=0` delayed retarget (`division by zero`);
