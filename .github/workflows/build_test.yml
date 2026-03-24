@@ -35,7 +35,7 @@ jobs:
       - name: Setup Lazarus/FPC
         uses: gcarreno/setup-lazarus@v3.2
         with:
-          lazarus-version: 3.8
+          lazarus-version: 3.6
           fpc-version: 3.2.2
           with-cache: true
 
@@ -60,7 +60,7 @@ jobs:
       - name: Setup Lazarus/FPC
         uses: gcarreno/setup-lazarus@v3.2
         with:
-          lazarus-version: 3.8
+          lazarus-version: 3.6
           fpc-version: 3.2.2
           with-cache: true
 
@@ -103,7 +103,7 @@ jobs:
       - name: Setup Lazarus/FPC
         uses: gcarreno/setup-lazarus@v3.2
         with:
-          lazarus-version: 3.8
+          lazarus-version: 3.6
           fpc-version: 3.2.2
           with-cache: true
 
@@ -160,7 +160,7 @@ jobs:
       - name: Setup Lazarus/FPC
         uses: gcarreno/setup-lazarus@v3.2
         with:
-          lazarus-version: 3.8
+          lazarus-version: 3.6
           fpc-version: 3.2.2
           with-cache: true
 
