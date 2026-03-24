@@ -33,7 +33,7 @@ jobs:
         uses: gcarreno/setup-lazarus@v3.2
         with:
           lazarus-version: stable
-          with-cache: ${{ runner.os != 'Windows' }}
+          with-cache: false
 
       - name: Build test (Linux)
         if: runner.os == 'Linux'
@@ -74,7 +74,7 @@ jobs:
         uses: gcarreno/setup-lazarus@v3.2
         with:
           lazarus-version: stable
-          with-cache: ${{ runner.os != 'Windows' }}
+          with-cache: false
 
       - name: Run Base tests (Linux)
         if: runner.os == 'Linux'
@@ -129,7 +129,7 @@ jobs:
         uses: gcarreno/setup-lazarus@v3.2
         with:
           lazarus-version: stable
-          with-cache: ${{ runner.os != 'Windows' }}
+          with-cache: false
 
       - name: Compile selected demos (Linux)
         if: runner.os == 'Linux'
