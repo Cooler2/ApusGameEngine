@@ -80,7 +80,7 @@ Build-Module 'Apus.Tweenings'
 Build-Module 'Apus.AnimatedValues'
 
 # === Level 4: Structs and graphics primitives ===
-Build-Module 'Apus.Structs'
+Build-Module 'Apus.Containers'
 Build-Module 'Apus.FastGFX'
 Build-Module 'Apus.VertexLayout'
 Build-Module 'Apus.Socket'
