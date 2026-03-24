@@ -90,10 +90,10 @@ type
   function UIRadioButton(name:string8;mustExist:boolean=false):TUIRadioButton;
 
   // Controls setup
-  procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;
+  procedure SetupButton(btn:TUIButton;cursor:integer;
              group:integer;default,enabled,pressed:boolean;hotkey:integer);
 
-  procedure SetupEditBox(edit:TUIEditBox;text:string8;style:byte;cursor,maxlength:integer;
+  procedure SetupEditBox(edit:TUIEditBox;text:string8;cursor,maxlength:integer;
              enabled,password,noborder:boolean);
 
   // Установка свойств элемента по имени
@@ -520,10 +520,9 @@ implementation
       result:=result+DumpUITree(roots[i])+#13#10;
   end;
 
- procedure SetupButton(btn:TUIButton;style:byte;cursor:integer;
+ procedure SetupButton(btn:TUIButton;cursor:integer;
               group:integer;default,enabled,pressed:boolean;hotkey:integer);
   begin
-   btn.styleClass:=style;
    btn.cursor:=cursor;
    btn.default:=default;
    btn.flags.enabled:=enabled;
@@ -532,11 +531,10 @@ implementation
     btn.SetHotKey(hotkey and 255,hotkey shr 8);
   end;
 
- procedure SetupEditBox(edit:TUIEditBox;text:string8;style:byte;cursor,maxlength:integer;
+ procedure SetupEditBox(edit:TUIEditBox;text:string8;cursor,maxlength:integer;
                  enabled,password,noborder:boolean);
   begin
    edit.text:=text;
-   edit.styleClass:=style;
    edit.cursor:=cursor;
    edit.maxlength:=maxlength;
    edit.flags.enabled:=enabled;

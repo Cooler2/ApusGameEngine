@@ -94,15 +94,15 @@ procedure TMainScene.CreateUI;
   // 1-nd speedbuttons group (TUIGroupBox → radio behavior)
   group1:=TUIGroupBox.Create(120,90,bar,'Group1');
   group1.layout:=TRowLayout.Create(false,0,true);
-  TUIToggleButton.Create(120,30,group1,'DrawTest').Setup('Draw Test',true,game.defaultFont);
-  TUIToggleButton.Create(120,30,group1,'Stress1').Setup('Stress Test 1',false,game.defaultFont);
-  TUIToggleButton.Create(120,30,group1,'Stress2').Setup('Stress Test 2',false,game.defaultFont);
+  TUIToggleButton.Create(120,30,group1,'DrawTest').Setup('Draw Test',true);
+  TUIToggleButton.Create(120,30,group1,'Stress1').Setup('Stress Test 1',false);
+  TUIToggleButton.Create(120,30,group1,'Stress2').Setup('Stress Test 2',false);
   // 2-nd speedbuttons group (TUIGroupBox → radio behavior)
   group2:=TUIGroupBox.Create(120,90,bar,'Group2');
   group2.layout:=TRowLayout.Create(false,0,true);
-  TUIToggleButton.Create(120,30,group2,'Patch1').Setup('Patch 1',true,game.defaultFont);
-  TUIToggleButton.Create(120,30,group2,'Patch2').Setup('Patch 2',false,game.defaultFont);
-  TUIToggleButton.Create(120,30,group2,'Patch3').Setup('Patch 3',false,game.defaultFont);
+  TUIToggleButton.Create(120,30,group2,'Patch1').Setup('Patch 1',true);
+  TUIToggleButton.Create(120,30,group2,'Patch2').Setup('Patch 2',false);
+  TUIToggleButton.Create(120,30,group2,'Patch3').Setup('Patch 3',false);
  end;
 
 procedure TMainScene.Render;

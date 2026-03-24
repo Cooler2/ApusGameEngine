@@ -140,7 +140,7 @@ begin
  edCount:=0;
 
  h:=round(11+window.renderHeight*0.01);
- listbox:=TUIListbox.Create(300,h*3+2,ui,'Tweaker\List',h,normalFont);
+ listbox:=TUIListbox.Create(300,h*3+2,ui,'Tweaker\List',h);
  listBox.SetPos(10,10);
  listbox.bgColor:=$60303030;
  listBox.SetAnchors(0,0,1,0);

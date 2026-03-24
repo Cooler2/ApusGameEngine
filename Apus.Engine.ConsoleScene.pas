@@ -207,27 +207,28 @@ begin
 
  font:=txt.GetFont('Default',7*ui.scale,fsIgnoreScale);
  h:=round(ui.clientHeight*0.7);
- wnd:=TUIWindow.Create(480,h,true,UI,'ConsoleWnd','Console',font);
+ wnd:=TUIWindow.Create(480,h,true,UI,'ConsoleWnd','Console');
  wnd.SetPos(10,10,pivotTopLeft);
  wnd.moveable:=true;
  wnd.minW:=120; wnd.minH:=160;
- wnd.color:=$80202020;
+ wnd.style.SetAttr('color','$80202020');
  zorder:=$FF0000;
 
  img:=TUIImage.Create(462,h-18,wnd,'ConsoleMain');
  img.SetAnchors(0,0,1,1);
  img.src:='proc:'+Conv.ToStr(@DrawContent);
 
- editbox:=TUIEditBox.Create(460,18,wnd,'Console\Input',font,$FFE0FFD0);
+ editbox:=TUIEditBox.Create(460,18,wnd,'Console\Input');
+ editbox.style.SetAttr('color','$FFE0FFD0');
  editBox.SetPos(0,h,pivotBottomLeft);
  editBox.SetAnchors(0,1,1,1);
 
- TUIButton.Create(20,18,wnd,'Console\Enter').Setup('>',font).SetPos(480,h,pivotBottomRight).SetAnchors(1,1,1,1);
+ TUIButton.Create(20,18,wnd,'Console\Enter').Setup('>').SetPos(480,h,pivotBottomRight).SetAnchors(1,1,1,1);
  Link('UI\Console\Enter\OnClick','UI\Console\Input\Enter');
 
  scroll:=TUIScrollBar.CreateV(18,h-19,wnd,'Console\Scroll');
  scroll.SetPos(480,0,pivotTopRight);
- scroll.color:=$90808090;
+ scroll.style.SetAttr('color','$90808090');
  scroll.step:=32;
  scroll.SetAnchors(1,0,1,1);
  scroll.Link(img);

@@ -21,12 +21,12 @@ This file follows top-down planning:
 | R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~75% | Multi-window baseline works (AddWindow/shared context/secondary render), lifecycle refactor complete, runtime DPI flow improved | Multi-monitor placement validation, final per-window DPI/scale flow, close remaining multi-window overlay refresh issue |
 | R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | Direction fixed: OBJ + AEM only; no FBX/DAE converter; R-03 planning doc created | Freeze AEM v1 spec, align runtime loader, implement Blender exporter MVP |
 | R-04 | Robot Interaction Layer | done | 100% | File-based protocol, all commands, FPS telemetry, UI diagnostics | — |
-| R-05 | CSS-Like UI Style System | in-progress | ~30% | Prototype exists, architecture/syntax decisions are documented, and R-10 widget refactor prepared key style-integration prerequisites | Resolver implementation, transitions runtime, production migration of widget visual fields to style pipeline |
+| R-05 | CSS-Like UI Style System | in-progress | ~75% | TStyleBlock, resolver, @refs, state blocks, patch, named catalog (TStyleCatalog), transitions (Tweenings), draw migration, StyleDemo, font/color/styleClass removed from TUIElement | Practical validation on real screens, resolver performance/caching, $varName support, visual regression tests |
 | R-06 | 3D Material: Normal Mapping | idea | 0% | — | Shader path, tangent/bitangent handling, asset pipeline |
 | R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~88% | Working state merged; support track active with recent bugfixes, test expansion, and new benchmarks | Linux fixes/validation, full baseline delta pass, SSE optimization of top hot paths, remaining module migration (including SDL paths) |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | idea | 0% | — | Performance-safe hit-test algorithm, traversal strategy |
 | R-09 | GL Performance Modernization | idea | 0% | — | Bind-call reduction, explicit batch paths, persistent mapping |
-| R-10 | UI Widget System Refactor | in-progress | ~82% | Core decomposition and wave-2 cleanup are complete; constructor pattern and class reshaping are documented and applied in active slices | Final cleanup (`noBorder`), BeginChildren/EndChildren implementation decision, remaining handoff items into R-05 style migration |
+| R-10 | UI Widget System Refactor | done | 100% | TUIElement slimmed, TUIShape unified, TUIToggleButton extracted, onClick/onClickAsync split, TUISkinnedWindow merged, ScrollBar orientation explicit, widget docs EN, dead code removed; ListBox color fields deferred (R-05 handles it via style pipeline) | — |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
 | R-14 | UI Widget Expansion | idea | 0% | — | New widget types, module split strategy |
@@ -292,12 +292,21 @@ Use this section for anything remembered on the fly.
 - Dependencies: `Apus.Engine.UI`, `Apus.Engine.UIScript`, widget/style binding points, serialization/parsing support.
 - Risks: style precedence ambiguity; runtime overhead from style resolution; regressions in existing widget appearance.
 - Acceptance Criteria:
-  - [ ] UI elements can resolve effective style from inherited text-defined style rules.
-  - [ ] Style priority/conflict behavior is documented and covered by baseline tests.
-  - [ ] Existing core widgets can be restyled without code changes in representative demo screens.
-- Notes: current implementation exists in initial state and needs completion to production baseline.
-  - 2026-03-12: design and scope decisions consolidated in `reports/R-05_notes.md` (drawer/style split, state model, cascade layers, variables, transitions, migration order).
-  - 2026-03-20..2026-03-24: active branch work is using R-10 refactor outcomes as prerequisites for style migration (widget field cleanup and class reshaping).
+  - [x] UI elements can resolve effective style from inherited text-defined style rules.
+  - [x] Style priority/conflict behavior is documented and covered by baseline tests.
+  - [x] Existing core widgets can be restyled without code changes in representative demo screens.
+  - [ ] Style resolution is validated on real project screens (not only StyleDemo).
+  - [ ] Resolver performance is profiled; caching added if needed.
+  - [ ] Visual regression tests via Robot API `pixel` command cover baseline widget colors.
+- Notes:
+  - 2026-03-12: design and scope decisions consolidated in `reports/R-05_notes.md`.
+  - 2026-03-23: Phase 1+2 done — `TStyleBlock`, resolver, @refs, state blocks, patch; draw procedure migration; `StyleDemo` with 6 interactive examples.
+  - 2026-03-24: Phase 3 done — transitions via `TTweening` (hover/pressed/disabled); `DrawCommonStyle`/`DrawUIScrollbar` migrated.
+  - 2026-03-24: `font`/`color` fields removed from `TUIElement`; rendering via `StyleFont()`/`GetStyleColor()`.
+  - 2026-03-24: `styleClass:byte` removed from `TUIElement`; `TUIFrame.Create` resolves via `GetUIStyle()`; `RegisterUIStyle`/`GetUIStyle` remain for game-specific custom drawers.
+  - 2026-03-24: `TStyleCatalog` added — `Styles['name'] := 'color: ...;'` replaces procedural `RegisterNamedStyle`/`FindNamedStyle`; `Styles.Block('name')` for drawers.
+  - 38/38 style unit tests pass on x86 and x64.
+  - Follow-ups (post-MVP, non-blocking): `$varName` substitution via `Apus.Publics`; visual regression tests via Robot API `pixel` command.
 
 ### [R-06] 3D Material Pipeline: Normal Mapping (+ Optional Parallax/Occlusion)
 - Status: idea
@@ -463,6 +472,7 @@ Use this section for anything remembered on the fly.
   - Acceptance criteria status (2026-03-20):
     - follow-up backlog captured in R-14 card (added 2026-03-20) ✓
     - widget class review: substantially complete; open items deferred to R-05 (ListBox colors) or low-priority (`noBorder`).
+  - 2026-03-24: R-05 done — all R-10 open widget visual items (ListBox color fields, font/color in TUIElement) resolved through the style pipeline. R-10 closed.
   - Main scope (this task):
     - decomposition options study for `TUIElement`;
     - select best option and implement it;

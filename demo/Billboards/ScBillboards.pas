@@ -72,35 +72,33 @@ procedure TMainApp.CreateScenes;
 { TMainScene }
 procedure TMainScene.CreateUI;
  var
-  font:cardinal;
   panel:TUIElement;
   grp:TUIGroupBox;
   btn:TUIToggleButton;
  begin
-  font:=txt.GetFont('Default',9);
   // Create a panel
   panel:=TUIElement.Create(250,220,UI,'Panel');
   panel.SetPos(UI.width-10,UI.height-10,pivotBottomRight);
   panel.styleInfo:='E0808890'; // background color
   panel.layout:=TRowLayout.CreateVertical(5);
-  TUILabel.Create(200,30,panel,'Panel\Label1').Centered('SETTINGS',font,clWhite);
+  TUILabel.Create(200,30,panel,'Panel\Label1').Centered('SETTINGS',clWhite);
 
   grp:=TUIGroupBox.Create(-1,0,panel);
   grp.layout:=TRowLayout.CreateVertical(0,true);
-  btn:=TUIToggleButton.Create(200,32,grp,'Panel\DrawMode1').Setup('No transformations',true,font);
+  btn:=TUIToggleButton.Create(200,32,grp,'Panel\DrawMode1').Setup('No transformations',true);
   btn.hint:='Use "draw.Billboard()" so they''re drawn as meshes in the world CS';
-//  TUIToggleButton.Create(200,32,grp,'Panel\DrawMode2').Setup('Use transformations',false,font);
-  btn:=TUIToggleButton.Create(200,32,grp,'Panel\DrawMode0').Setup('Don''t draw',false,font);
+//  TUIToggleButton.Create(200,32,grp,'Panel\DrawMode2').Setup('Use transformations',false);
+  btn:=TUIToggleButton.Create(200,32,grp,'Panel\DrawMode0').Setup('Don''t draw',false);
   btn.hint:='Don''t draw billboards';
 
   TUIElement.Create(100,10,panel,'Panel\Spacer1');
-  TUICheckbox.Create(200,32,panel,'Panel\Scale').Setup('screen space',true,font)
+  TUICheckbox.Create(200,32,panel,'Panel\Scale').Setup('screen space',true)
    .hint:='';
 
   TUIElement.Create(100,10,panel,'Panel\Spacer2');
 
   // Create exit button
-  TUIButton.Create(100,32,panel,'Panel\Close').Setup('Exit',font)
+  TUIButton.Create(100,32,panel,'Panel\Close').Setup('Exit')
    .hint:='Press this button to exit';
 
   // Link the button click signal to the engine termination signal

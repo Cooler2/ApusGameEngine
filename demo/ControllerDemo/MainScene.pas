@@ -68,7 +68,7 @@ procedure TMainApp.CreateScenes;
   imgGamepad:=LoadImageFromFile(baseDir+'gamepad');
   // initialize our main scene
   sceneMain:=TMainScene.Create;
-  TUIButton.Create(200,32,sceneMain.UI,'ToggleInput').Setup('Toggle UI Test',txt.GetFont('Default',9))
+  TUIButton.Create(200,32,sceneMain.UI,'ToggleInput').Setup('Toggle UI Test')
    .SetPos(window.renderWidth/2,window.renderHeight-25,pivotCenter);
   UIButton('ToggleInput').onClickAsync:=OnToggleBtn;
   sceneMain.SetStatus(TSceneStatus.ssActive);

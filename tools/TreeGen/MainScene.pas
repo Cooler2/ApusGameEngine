@@ -133,12 +133,10 @@ procedure TMainScene.onMouseWheel(delta:integer);
 
 procedure TMainScene.InitUI;
  var
-  font:cardinal;
   btn:TUIButton;
   panel,block:TUIElement;
   lab:TUILabel;
  begin
-  font:=txt.GetFont('Default',9);
   UI.SetScale(window.screenDPI/96);
 
   // UI container
@@ -146,7 +144,6 @@ procedure TMainScene.InitUI;
   panel.SetPos(ui.clientWidth,0,pivotTopRight);
   panel.SetPadding(5);
   panel.layout:=TRowLayout.CreateVertical(10,true);
-  panel.font:=mainFont;
 
   // View block
   block:=TUIElement.Create(200,100,panel,'Block1');

@@ -148,7 +148,6 @@ var
    if window=nil then exit;
    window.Lock;
    try
-    scene.wnd.font:=msgMainFont;
     if (curMsg<>nil) and scene.IsActive then
      scene.UpdateUI(curMsg.msg,curMsg.mType,curMsg.x,curMsg.y);
    finally
@@ -171,7 +170,6 @@ constructor TMessageScene.Create;
   wnd.shape:=shapeFull;
   wnd.flags.manualDraw:=true;
   wnd.styleInfo:='border:FFD0D8E0; radius:8; fill:C0C0C8D0';
-  wnd.font:=msgMainFont;
 
   btnOk:=TUIButton.Create(90,35,wnd,'Message\OK').Setup('Ok');
   btnOk.SetPos(200,165,pivotCenter).SetAnchors(0.5,1,0.5,1);
@@ -207,7 +205,6 @@ procedure TMessageScene.UpdateUI(msgText:string8;mode,x,y:integer);
   height:=120+30*length(lines)+40*byte(title<>'');
 
   wnd.Resize(width,height);
-  wnd.font:=msgMainFont;
 
   btnOk.flags.visible:=(mode=MODE_MSG);
   btnYes.flags.visible:=(mode in [MODE_ASK,MODE_CONFIRM]);

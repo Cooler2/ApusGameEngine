@@ -9,7 +9,6 @@ interface
 uses Apus.Engine.UI;
  var
   defaultBtnColor:cardinal=$FFB0A0C0;
-  supportOldStyles:boolean=true;
 
 implementation
  uses Apus.Types, Apus.Images, SysUtils, Types, Apus.Core, Apus.Tweenings,
@@ -17,45 +16,7 @@ implementation
     Apus.Engine.Types, Apus.Engine.API, Apus.Engine.UITypes, Apus.Engine.UIWidgets, Apus.Engine.UIRender,
     Apus.Lib, Apus.Utils, Apus.Strings;
 
- type
-  TAttributeType=(atColor,atNumber,atString);
-
-  TAttribute=record
-   name:string;
-   aType:TAttributeType;
-  end;
-
-  TElementStyle=record
-   fastHash:cardinal;
-   fullStyleInfo:String8; // element's original style text
-   lastUsed:int64;
-   attributes:TVarHash;
-   procedure Parse;
-   function HasAttr(name:string8):boolean; inline;
-   function GetColor(name:string8;default:cardinal=0):cardinal; inline;
-   function GetInt(name:string8;default:integer=0):integer; inline;
-   function GetNumber(name:string8;default:single=0):single; inline;
-   function GetScaled(element:TUIElement;name:string8;default:single=0):single;  inline;
-   function GetString(name:string8;default:string8=''):string8; inline;
-  private
-   function GetAttr(name:string8;default:variant):variant;
-   function ActualStyleInfo:string8;
-  end;
-  PElementStyle=^TElementStyle;
-
- const
-  // All non-string attributes must be listed here
-  attribList:array[0..3] of TAttribute=(
-    (name:'fill'; aType:atColor),
-    (name:'bordercolor'; aType:atColor),
-    (name:'innerfill'; aType:atColor),
-    (name:'innerborder'; aType:atColor)
-   );
  var
-  styles:array[0..127] of TElementStyle;
-  maxStyle:integer; // max index of used style entry
-  //styleHash:TSimpleHash; // element pointer -> style index (may contain outdated values)
-
   hintImage,tickImage:TTexture;
   //imgHash:TObjectMap;  // hash of loaded images: filename -> TTexture
 
@@ -98,21 +59,6 @@ implementation
    end;
   end;
 
-{ function GetStyleNumber(name:string8;style:PElementStyle;context:TContext;default:single;defaultOver):single;
-  var
-   normValue,:single;
-  begin
-   normValue:=style.GetNumber(name,default);
-   if CurValue(context.active)>0 then begin
-
-   end;
-   if CurValue(context.disabled)>0 then begin
-
-   end else begin
-
-   end;
-  end;}
-
  // styleinfo="00000000 11111111 22222222 33333333" - list of colors (hex)
 { function GetStyleColor(control:TUIElement;index:integer=0):cardinal;
   var
@@ -133,46 +79,14 @@ implementation
    end;
   end;}
 
- // Creates a style entry for the element, returns its index
- function CreateStyleEntry(element:TUIElement):integer;
-  var
-   i,best:integer;
-   min:int64;
-  begin
-   min:=MAX_INT64;
-   for i:=0 to high(styles) do
-    if styles[i].fullStyleInfo='' then begin
-      if i>maxStyle then maxStyle:=i;
-      best:=i; min:=0;
-      break;
-     end else begin
-      if styles[i].lastUsed<min then begin
-       min:=styles[i].lastUsed; best:=i;
-      end;
-     end;
-   ASSERT(min<MAX_INT64);
-   styles[best].fullStyleInfo:=element.styleInfo;
-   styles[best].fastHash:=FastHash(styles[best].fullStyleInfo);
-   styles[best].Parse;
-   result:=best;
-  end;
 
- function GetElementStyle(element:TUIElement):PElementStyle;
-  var
-   i,idx:integer;
-   fHash:cardinal;
+ // Get font handle from element's style cascade
+ function StyleFont(element:TUIElement):TFontHandle;
+  var name:String8; size:single;
   begin
-   idx:=-1;
-   if element.styleInfo='' then exit(nil);
-   fHash:=FastHash(element.styleInfo);
-   for i:=0 to maxStyle do
-    if styles[i].fastHash=fHash then
-     if SameText(styles[i].fullStyleInfo,element.styleInfo) then begin
-      idx:=i; break;
-     end;
-   if idx<0 then idx:=CreateStyleEntry(element);
-   styles[idx].lastUsed:=window.frameStartMs;
-   result:=@styles[idx];
+   name:=element.GetStyleValue('font','Default');
+   size:=element.GetStyleNumber('font-size',9);
+   result:=txt.GetFont(name,round(size*element.globalScale));
   end;
 
  procedure DrawUIElement(element:TUIElement;x1,y1,x2,y2:integer);
@@ -180,9 +94,8 @@ implementation
    color:cardinal;
   begin
    if (element.caption<>'') and (element.ClassType=TUIElement) then begin
-    color:=element.color;
-    if color=clDefault then color:=$FF808080;
-    txt.WriteW(element.font,(x1+x2)/2,(y1+y2)/2,color,Str32(element.caption),taCenter,toWithShadow);
+    color:=element.GetStyleColor('color',$FF808080);
+    txt.WriteW(StyleFont(element),(x1+x2)/2,(y1+y2)/2,color,Str32(element.caption),taCenter,toWithShadow);
    end;
   end;
 
@@ -190,13 +103,14 @@ implementation
   var
    wsa:Strings32;
    i,h,iWidth,iHeight,dw:integer;
+   font:TFontHandle;
   begin
+   font:=StyleFont(hnt);
+   if font=0 then font:=defaultHintFont;
+   if font=0 then font:=txt.GetFont('Default',7);
    with hnt do begin
     hnt.simpleText:=StringReplace(hnt.simpleText,'~','\n',[rfReplaceAll]);
     wsa:=UTF8.Decode(hnt.simpleText).Split(Str32('\n'));
-    //wsa:=DecodeUTF8A(sa);
-    if font=0 then font:=defaultHintFont;
-    if font=0 then font:=txt.GetFont('Default',7);
     h:=round(txt.Height(font)*1.5);
     iHeight:=h*length(wsa)+9;
     iWidth:=0;
@@ -319,8 +233,12 @@ implementation
    wst:String32;
    bg:cardinal;
    r:TRect;
+   font:TFontHandle;
+   color:cardinal;
   begin
-    with control do begin
+   font:=StyleFont(control);
+   color:=control.GetStyleColor('color',$FF808080);
+   with control do begin
      if autoSize then begin
 
      end;
@@ -358,8 +276,8 @@ implementation
   begin
    context:=element.styleContext as TContext;
 
-   color:=element.color;
-   font:=element.font;
+   color:=element.GetStyleColor('color',$FF808080);
+   font:=StyleFont(element);
    fontH:=txt.Height(font);
    y:=y2-round((y2-y1+1-fontH)/2);
    size:=round(fontH*1.2);
@@ -425,8 +343,10 @@ implementation
    d:integer;
    hv,av,dv:single;
    wst:String32;
+   font:TFontHandle;
   begin
-    with control do begin
+   font:=StyleFont(control);
+   with control do begin
       hv:=context.hover.Value;
       av:=context.active.Value;
       dv:=context.disabled.Value;
@@ -529,7 +449,7 @@ implementation
       end else
        raise EWarning.Create('Unsupported image SRC type: '+src);
       if tex<>nil then begin
-       draw.Scaled(x1,y1,x2-1,y2-1,tex,control.color);
+       draw.Scaled(x1,y1,x2-1,y2-1,tex,control.GetStyleColor('color',clWhite));
       end;
      end;
     end;
@@ -540,8 +460,12 @@ implementation
   var
    c:cardinal;
    tx,ty:integer;
+   color:cardinal;
+   font:TFontHandle;
   begin
-    with element do begin
+   color:=element.GetStyleColor('color',$FFB0B0C0);
+   font:=StyleFont(element);
+   with element do begin
     draw.FillRect(x1,y1,x2,y2,color);
     if element.IsActiveWindow then c:=$FF8080E0 // текущее окно
      else c:=$FFB0B0B0;
@@ -567,7 +491,7 @@ implementation
    end;
   end;
 
- procedure DrawUIScrollbar(element:TUIScrollbar;style:PElementStyle;x1,y1,x2,y2:integer);
+ procedure DrawUIScrollbar(element:TUIScrollbar;x1,y1,x2,y2:integer);
   var
    c,d,v,color,trackColor:cardinal;
    size,width,startPos,endPos,minSize:integer;
@@ -580,24 +504,23 @@ implementation
    size:=x2-x1; width:=y2-y1;
    if not element.horizontal then Swap(size,width);
    // Calculate parameters
-   element.CalcSliderPos(style.GetAttr('minSize',0.75));
+   element.CalcSliderPos(element.GetStyleNumber('min-size',0.75));
    sliderVisible:=(element.sliderEnd>element.sliderStart) and (element.sliderEnd-element.sliderStart<1);
 
    // Draw
    context:=TContext(element.styleContext);
-   sStyle:=style.GetAttr('style','flat');
-   color:=element.color;
-   if color=clDefault then color:=$FFA8B0BC;
+   sStyle:=element.GetStyleValue('style','flat');
+   color:=element.GetStyleColor('color',$FFA8B0BC);
    scale:=element.globalScale;
 
    if SameText(sStyle,'flat') then begin
     // Flat style
-    trackWidth:=style.GetNumber('trackWidth',1);
-    sliderWidth:=style.GetNumber('sliderWidth',0.9);
-    sliderRadius:=style.getNumber('radius',0)*width*sliderWidth;
+    trackWidth:=element.GetStyleNumber('track-width',1);
+    sliderWidth:=element.GetStyleNumber('slider-width',0.9);
+    sliderRadius:=element.GetStyleNumber('radius',0)*width*sliderWidth;
     // Draw track
-    trackColor:=style.GetAttr('trackColor',ColorAlpha(color,0.5));
-    trackColor:=ColorMixF(trackColor,style.GetAttr('hover.trackColor',trackColor),context.hover.Value);
+    trackColor:=element.GetBaseStyleColor('track-color',ColorAlpha(color,0.5));
+    trackColor:=ColorMixF(trackColor,element.style.GetStateColor('hover','track-color',trackColor),context.hover.Value);
     r.Init(x1,y1,x2,y2);
     f:=(1-trackWidth)/2;
     if element.horizontal then begin
@@ -626,7 +549,7 @@ implementation
      end;
      // color
      if element.sliderUnder then
-      color:=style.GetAttr('hover.color',ColorAdd(color,$202020)); // hover color
+      color:=element.style.GetStateColor('hover','color',ColorAdd(color,$202020)); // hover color
      if sliderRadius=0 then
       draw.FillRect(r.left,r.top,r.right,r.bottom,color)
      else begin
@@ -696,7 +619,11 @@ implementation
    wst:String32;
    i,j,mY,d,curX,scrollPixels,xStart,prefixWidth,selEndWidth,selX1,selX2,targetX,midX,txtLen:integer;
    c:cardinal;
+   font:TFontHandle;
+   color:cardinal;
   begin
+   font:=StyleFont(control);
+   color:=control.GetStyleColor('color',$FF202020);
    with control do begin
     wst:=realtext;
     if password then begin
@@ -779,8 +706,10 @@ implementation
    i,lY:integer;
    c,c1,c2:cardinal;
    scrollPos,lineH:single;
+   font:TFontHandle;
   begin
-    with control do begin
+   font:=StyleFont(control);
+   with control do begin
      if bgColor<>0 then draw.FillRect(x1,y1,x2,y2,bgColor);
      if scrollerV<>nil then scrollPos:=scrollerV.GetValue*globalScale
       else scrollPos:=0;
@@ -825,7 +754,7 @@ implementation
      gfx.clip.Rect(Rect(x1+1,y1+1,x2-21,y2-1));
      if curItem>=0 then st:=items[curItem]
       else st:=defaultText;
-     txt.Write(combo.font,x1+5,round(y2*0.7+y1*0.3),$FF000000,st);
+     txt.Write(StyleFont(combo),x1+5,round(y2*0.7+y1*0.3),$FF000000,st);
      gfx.clip.Restore;
     end;
     // Arrow
@@ -837,17 +766,6 @@ implementation
      draw.Line(cx,cy+2+i,cx+4,cy-2+i,c);
     end;
    end;
-  end;
-
- function MixColor(style:PElementStyle;name:string8;baseValue:cardinal;t:single):cardinal;
-  var
-   c:cardinal;
-  begin
-   c:=style.GetColor(name,clDefault);
-   if c<>clDefault then
-    result:=ColorMixF(baseValue,c,t)
-   else
-    result:=baseValue;
   end;
 
  procedure DrawCommonStyle(element:TUIElement;context:TContext);
@@ -868,7 +786,7 @@ implementation
    var
     i:integer;
    begin
-    if (bWidth>0) and (borderColor=clDefault) then borderColor:=element.color;
+    if (bWidth>0) and (borderColor=clDefault) then borderColor:=element.GetStyleColor('color',clDefault);
     if radius>1 then begin
      draw.RoundRect(x1,y1,x2,y2,radius*scale,bWidth*scale,borderColor,fillColor);
     end else begin
@@ -921,7 +839,6 @@ implementation
  procedure DefaultDrawer(element:TUIElement);
   var
    x1,y1,x2,y2:integer;
-   eStyle:PElementStyle;
    context:TContext;
   begin
    context:=PrepareContext(element);
@@ -965,10 +882,9 @@ implementation
     DrawUIWindow(element as TUIWindow,x1,y1,x2,y2)
    else
    // Scrollbar
-   if element.ClassType=TUIScrollBar then begin
-    eStyle:=GetElementStyle(element);
-    DrawUIScrollbar(element as TUIScrollBar,eStyle,x1,y1,x2,y2)
-   end else
+   if element.ClassType=TUIScrollBar then
+    DrawUIScrollbar(element as TUIScrollBar,x1,y1,x2,y2)
+   else
    // EditBox
    if element.ClassType=TUIEditBox then
     DrawUIEditBox(element as TUIEditBox,x1,y1,x2,y2)
@@ -984,172 +900,7 @@ implementation
     DrawUIElement(element,x1,y1,x2,y2);}
   end;
 
-{ TElementStyle }
-
-function TElementStyle.GetAttr(name:string8;default:variant):variant;
-  begin
-   if @self=nil then exit(default);
-   result:=attributes.Get(name);
-   if not HasValue(result) then result:=default;
-  end;
-
- function TElementStyle.GetColor(name:string8;default:cardinal):cardinal;
-  begin
-   result:=GetAttr(name,default)
-  end;
-
- function TElementStyle.GetInt(name:string8;default:integer):integer;
-  begin
-   result:=GetAttr(name,default);
-  end;
-
-function TElementStyle.GetNumber(name:string8;default:single):single;
-  begin
-   result:=GetAttr(name,default);
-  end;
-
- function TElementStyle.GetScaled(element:TUIElement;name:string8;default:single=0):single;
-  begin
-   result:=GetAttr(name,default);
-   result:=result*element.globalScale;
-  end;
-
- function TElementStyle.GetString(name,default:string8):string8;
-  begin
-   result:=GetAttr(name,default);
-  end;
-
- function TElementStyle.HasAttr(name:string8):boolean;
-  begin
-   if @self=nil then exit(false);
-   result:=attributes.HasKey(name);
-  end;
-
-function TElementStyle.ActualStyleInfo:string8;
-  var
-   i:integer;
-   notOldStyle:boolean;
-   items:Strings8;
-  begin
-   result:=fullStyleInfo;
-   if supportOldStyles and (fullStyleInfo<>'') then begin
-    // Check for old
-    notOldStyle:=false;
-    for i:=1 to length(fullStyleInfo) do
-     if not (fullStyleInfo[i] in ['0'..'9','A'..'F','a'..'f','$',' ']) then begin
-      notOldStyle:=true; break;
-     end;
-    if not notOldStyle then begin
-     items:=fullStyleInfo.Split(' ');
-     result:='';
-     if (length(items)>0) and (items[0]<>'') then
-      result:='fill:'+items[0];
-     if (length(items)>1) and (items[1]<>'') then begin
-      if result<>'' then result:=result+'; ';
-      result:=result+'borderColor:'+items[1];
-     end;
-     exit;
-    end;
-   end;
-  end;
-
- procedure TElementStyle.Parse;
-  var
-   i,start:integer;
-   prefix:string8;
-   actualStyle:string8;
-
-  function ParseColor(s:string8):cardinal;
-   begin
-    result:=clDefault;
-    if length(s)<2 then exit;
-    if s[1] in ['#','$'] then delete(s,1,1);
-    if length(s)=8 then result:=Conv.ToInt('$'+s)
-    else
-    if length(s)=6 then result:=Conv.ToInt('$FF'+s)
-    else if length(s)=3 then begin
-     s:='$FF'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3];
-     result:=Conv.ToInt(s);
-    end else
-    if length(s)=4 then begin
-     s:='$'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3]+s[4]+s[4];
-     result:=Conv.ToInt(s);
-    end;
-   end;
-
-  function ParseValue(name,s:string8):variant;
-   var
-    i,p:integer;
-   begin
-    if length(s)<1 then exit(false);
-    p:=pos('.',name);
-    if p>0 then delete(name,1,p);
-    for i:=0 to high(attribList) do
-     if name=attribList[i].name then begin
-      case attribList[i].aType of
-       atColor:result:=ParseColor(s);
-       atNumber:result:=Conv.ToFloat(s);
-       atString:result:=s;
-      end;
-      exit;
-     end;
-    if (s<>'') and (s[length(s)]='%') then begin
-     result:=Conv.ToFloat(s)*0.01;
-     exit;
-    end;
-    result:=s;
-   end;
-
-  procedure ParsePart(from,last:integer);
-   var
-    p:integer;
-    attr,aVal:string8;
-    value:variant;
-   begin
-    if actualStyle[from]='[' then begin
-     p:=actualStyle.IndexOf(']',from+1);
-     if p>from then begin
-       prefix:=Copy(actualStyle,from+1,p-from-1).ToLower;
-      from:=p+1;
-     end else
-      raise EWarning.Create('Style syntax error at %d: "%s"',[from,actualStyle]);
-    end;
-    p:=actualStyle.IndexOf(':',from+1);
-    if (p=0) or (p>last) then p:=actualStyle.IndexOf('=',from+1);
-    if p>last then p:=0;
-    if p>0 then begin
-     // name:value pair
-     attr:=Copy(actualStyle,from,p-from).Trim.ToLower;
-     aVal:=Copy(actualStyle,p+1,last-p).Trim;
-     value:=ParseValue(attr,aVal);
-    end else begin
-     // valueless attribute -> value=true
-     attr:=copy(actualStyle,from,last-from+1).Trim.ToLower;
-     value:=true;
-    end;
-    if prefix<>'' then attr:=prefix+'.'+attr.ToLower;
-    attributes.Put(attr,value);
-   end;
-  begin
-   actualStyle:=ActualStyleInfo;
-   attributes.Init(32);
-   start:=1; i:=start;
-   while i<=length(actualStyle) do begin
-    if (i=start) and (actualStyle[i]<=' ') then begin
-     inc(start); inc(i); continue;
-    end;
-    if actualStyle[i]=';' then begin
-     ParsePart(start,i-1);
-     start:=i+1;
-     i:=start;
-    end else
-     inc(i);
-   end;
-   if start<length(actualStyle) then
-    ParsePart(start,length(actualStyle));
-  end;
-
-{ TCheckboxContext }
+{ TContext }
 
 destructor TContext.Destroy;
  begin

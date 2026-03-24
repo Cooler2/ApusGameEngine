@@ -97,10 +97,9 @@ interface
    autoSize:boolean; // render should adjust element size to match caption
    verticalOffset:integer; // vertical text shift (positive = up)
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
-   // Set caption and optional font/color (font/color move to style in R-05):
-   function Setup(text:String8;fnt:TFontHandle=0;clr:cardinal=clDefault):TUILabel;    // left-aligned
-   function Centered(text:String8;fnt:TFontHandle=0;clr:cardinal=clDefault):TUILabel; // centered
-   function Right(text:String8;fnt:TFontHandle=0;clr:cardinal=clDefault):TUILabel;    // right-aligned
+   function Setup(text:String8):TUILabel;    // left-aligned
+   function Centered(text:String8):TUILabel; // centered
+   function Right(text:String8):TUILabel;    // right-aligned
    procedure CaptionWidthIs(width:single);
   end;
 
@@ -116,7 +115,7 @@ interface
    onClickAsync:TProcedure;  // called in a new thread (use for slow work)
    onClickEvent:String8;
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
-   function Setup(caption:String8;fnt:TFontHandle=0):TUIButton;
+   function Setup(caption:String8):TUIButton;
    destructor Destroy; override;
    procedure onMouseButtons(button:byte;state:boolean); override;
    procedure onMouseMove; override;
@@ -142,7 +141,7 @@ interface
    toggled:boolean;          // persistent latch state (true = on)
    linkedToggled:PBoolean;   // optional external bool synced with toggled
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
-   function Setup(caption:String8;toggled:boolean=false;fnt:TFontHandle=0):TUIToggleButton;
+   function Setup(caption:String8;toggled:boolean=false):TUIToggleButton;
    procedure SetToggled(v:boolean); virtual;
    class function GetSwitchIndex(parent:TUIElement):integer;
    procedure onMouseButtons(button:byte;state:boolean); override;
@@ -157,7 +156,7 @@ interface
   // checked is an alias for toggled.
   TUICheckBox=class(TUIToggleButton)
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
-   function Setup(caption:String8;checked:boolean=false;fnt:TFontHandle=0):TUICheckBox;
+   function Setup(caption:String8;checked:boolean=false):TUICheckBox;
   private
    function GetChecked:boolean;
    procedure SetChecked(v:boolean);
@@ -168,7 +167,7 @@ interface
   // Radio button: checkbox in a group (group=1); exactly one sibling is checked at a time.
   TUIRadioButton=class(TUICheckBox)
    constructor Create(width,height:single;parent:TUIElement;name:String8='');
-   function Setup(caption:String8;checked:boolean=false;fnt:TFontHandle=0):TUIRadioButton;
+   function Setup(caption:String8;checked:boolean=false):TUIRadioButton;
   end;
 
   // Decorative frame / panel border
@@ -193,7 +192,7 @@ interface
    dragRegion:TUIShape;     // skinned mode: drag area shape (nil = whole window)
    background:pointer;      // skinned mode: opaque ptr to background image
 
-   constructor Create(innerWidth,innerHeight:single;sizeable:boolean;parent_:TUIElement;wndName:String8='';wndCaption:String8='';wndFont:TFontHandle=0);
+   constructor Create(innerWidth,innerHeight:single;sizeable:boolean;parent_:TUIElement;wndName:String8='';wndCaption:String8='');
    destructor Destroy; override;
 
    // Returns area flags (wcXxx) and cursor for the given screen point.
@@ -225,8 +224,7 @@ interface
    protection:byte;    // xor all characters with this value
    offset:integer;     // shift text right by this number of pixels
 
-   constructor Create(width,height:single;parent_:TUIElement;name:String8=''); overload;
-   constructor Create(width,height:single;parent_:TUIElement;name:String8;font_:TFontHandle;color_:cardinal); overload;
+   constructor Create(width,height:single;parent_:TUIElement;name:String8='');
    procedure onChar(ch:char;scancode:byte); override;
    procedure onUniChar(ch:Char32;scancode:byte); override;
    function onKey(keycode:byte;pressed:boolean;shiftstate:byte):boolean; override;
@@ -306,7 +304,7 @@ interface
    hoverLine:integer; // index of line under mouse (or -1)
    autoSelectMode:boolean; // when true, hover line is automatically selected
    bgColor,bgHoverColor,bgSelColor,textColor,hoverTextColor,selTextColor:cardinal; // rendering colors (R-05: move to style)
-   constructor Create(width,height:single;parent:TUIElement;listName:String8='';lHeight:single=0;font_:TFontHandle=0);
+   constructor Create(width,height:single;parent:TUIElement;listName:String8='';lHeight:single=0);
    destructor Destroy; override;
    procedure AddLine(line:String8;tag:cardinal=0;hint:String8=''); virtual;
    procedure SetLine(index:integer;line:String8;tag:cardinal=0;hint:String8=''); virtual;
@@ -329,7 +327,7 @@ interface
    frame:TUIFrame;
    popup:TUIListBox;
    maxlines:integer; // max lines to show without scrolling
-   constructor Create(width,height:single;parent_:TUIElement;name:String8='';list:Strings8=nil;bFont:TFontHandle=0);
+   constructor Create(width,height:single;parent_:TUIElement;name:String8='';list:Strings8=nil);
    procedure AddItem(item:String8;tag:cardinal=0;hint:String8=''); virtual;
    procedure SetItem(index:integer;item:String8;tag:cardinal=0;hint:String8=''); virtual;
    procedure ClearItems;
@@ -349,7 +347,7 @@ interface
 
 implementation
  uses SysUtils, Types, Apus.Types, Apus.Utils, Apus.EventMan, Apus.Geom2D, Apus.Clipboard,
-  Apus.Strings, Apus.Threads;
+  Apus.Strings, Apus.Threads, Apus.Engine.UIRender;
 
  type
   TScrollBarInterface=class(TInterfacedObject, IScroller)
@@ -415,10 +413,9 @@ implementation
    sendSignals:=ssMajor;
   end;
 
- function TUIButton.Setup(caption:String8;fnt:TFontHandle):TUIButton;
+ function TUIButton.Setup(caption:String8):TUIButton;
   begin
    self.caption:=caption;
-   if fnt<>0 then font:=fnt;
    result:=self;
   end;
 
@@ -515,10 +512,9 @@ implementation
    inherited Create(width,height,parent,name);
   end;
 
- function TUIToggleButton.Setup(caption:String8;toggled:boolean;fnt:TFontHandle):TUIToggleButton;
+ function TUIToggleButton.Setup(caption:String8;toggled:boolean):TUIToggleButton;
   begin
    self.caption:=caption;
-   if fnt<>0 then font:=fnt;
    SetToggled(toggled);
    result:=self;
   end;
@@ -606,10 +602,9 @@ implementation
    inherited Create(width,height,parent,name);
   end;
 
- function TUICheckBox.Setup(caption:String8;checked:boolean;fnt:TFontHandle):TUICheckBox;
+ function TUICheckBox.Setup(caption:String8;checked:boolean):TUICheckBox;
   begin
    self.caption:=caption;
-   if fnt<>0 then font:=fnt;
    SetToggled(checked);
    result:=self;
   end;
@@ -632,10 +627,9 @@ implementation
    // radio behavior is implicit when parent is TUIGroupBox
   end;
 
- function TUIRadioButton.Setup(caption:String8;checked:boolean;fnt:TFontHandle):TUIRadioButton;
+ function TUIRadioButton.Setup(caption:String8;checked:boolean):TUIRadioButton;
   begin
    self.caption:=caption;
-   if fnt<>0 then font:=fnt;
    if checked then SetToggled(true);
    result:=self;
   end;
@@ -665,37 +659,31 @@ constructor TUILabel.Create(width,height:single;parent:TUIElement;name:String8);
    verticalOffset:=0;
   end;
 
-function TUILabel.Setup(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
+function TUILabel.Setup(text:String8):TUILabel;
   begin
    caption:=text;
    align:=taLeft;
-   if fnt<>0 then font:=fnt;
-   if clr<>clDefault then color:=clr;
    result:=self;
   end;
 
-function TUILabel.Centered(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
+function TUILabel.Centered(text:String8):TUILabel;
   begin
    caption:=text;
    align:=taCenter;
-   if fnt<>0 then font:=fnt;
-   if clr<>clDefault then color:=clr;
    result:=self;
   end;
 
-function TUILabel.Right(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
+function TUILabel.Right(text:String8):TUILabel;
   begin
    caption:=text;
    align:=taRight;
-   if fnt<>0 then font:=fnt;
-   if clr<>clDefault then color:=clr;
    result:=self;
   end;
 
 
 { TUIWindow }
 
- constructor TUIWindow.Create(innerWidth,innerHeight:single;sizeable:boolean;parent_:TUIElement;wndName:String8='';wndCaption:String8='';wndFont:TFontHandle=0);
+ constructor TUIWindow.Create(innerWidth,innerHeight:single;sizeable:boolean;parent_:TUIElement;wndName:String8='';wndCaption:String8='');
   var
    deltaX,deltaY:integer;
   begin
@@ -711,14 +699,13 @@ function TUILabel.Right(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
 
    shape:=shapeFull;
    caption:=wndCaption;
-   font:=wndFont;
    header:=wcTitleHeight;
    autoBringToFront:=true;
    flags.canhavefocus:=false;
    moveable:=true;
    minW:=32; minH:=32;
    maxW:=1600; maxH:=1200;
-   color:=$FFBCB8B0;
+   style.SetAttr('color','$FFBCB8B0');
    area:=0;
    order:=100; // выше чем прочие элементы.
   end;
@@ -863,12 +850,6 @@ function TUILabel.Right(text:String8;fnt:TFontHandle;clr:cardinal):TUILabel;
    msSelStart:=-1;
   end;
 
- constructor TUIEditBox.Create(width,height:single;parent_:TUIElement;name:String8;font_:TFontHandle;color_:cardinal);
-  begin
-   Create(width,height,parent_,name);
-   if font_<>0 then font:=font_;
-   if color_<>clDefault then color:=color_;
-  end;
 
 function TUIEditBox.GetText:String8;
   begin
@@ -1470,7 +1451,6 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    inherited Create(1,1,parent_,'hint');
    SetPos(x,y,pivotTopLeft);
    shape:=shapeEmpty;
-   font:=0;
    simpleText:=text;
    active:=false;
    adjusted:=false;
@@ -1553,13 +1533,12 @@ procedure TUIScrollBar.UseButtons(lessBtn,moreBtn:String8);
    UpdateScroller;
   end;
 
- constructor TUIListBox.Create(width,height:single;parent:TUIElement;listName:String8='';lHeight:single=0;font_:TFontHandle=0);
+ constructor TUIListBox.Create(width,height:single;parent:TUIElement;listName:String8='';lHeight:single=0);
   var
    scrollbar:TUIScrollbar;
   begin
    inherited Create(width,height,parent,listName);
    shape:=shapeFull;
-   font:=font_;
    lineHeight:=lHeight;
    selectedLine:=-1;
    hoverLine:=-1;
@@ -1678,7 +1657,7 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
    inherited Create(width,height,parent_,'_UIFrame');
    shape:=shapeFull;
    borderWidth:=depth;
-   styleClass:=style_;
+   if style_<>0 then drawer:=GetUIStyle(style_);
    padding.Left:=depth;  padding.Top:=depth;
    padding.Right:=depth; padding.Bottom:=depth;
   end;
@@ -1723,14 +1702,13 @@ procedure TUIListBox.SetLine(index:integer;line:String8;tag:cardinal=0;hint:Stri
     else result:='';
   end;
 
-constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:String8='';list:Strings8=nil;bFont:TFontHandle=0);
+constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:String8='';list:Strings8=nil);
   var
    btn:TUIButton;
    i,j:integer;
   begin
    inherited Create(width,height,parent_,name);
    shape:=shapeFull;
-   font:=bFont;
    items:=Copy(list);
    SetLength(tags,length(items));
    // Исходные строки могут быть в формате "tag|text|hint" либо "tag|text" либо "text"
@@ -1748,7 +1726,6 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
     end;
    end;
    curItem:=-1;
-   styleClass:=0;
    flags.canHaveFocus:=true;
    maxlines:=15;
    if defaultText='' then defaultText:=GetClassAttribute('defaultText');
@@ -1758,7 +1735,7 @@ constructor TUIComboBox.Create(width,height:single;parent_:TUIElement;name:Strin
    frame.flags.visible:=false;
    frame.flags.noParentClip:=true;
    frame.order:=1000;
-   popup:=TUIListBox.Create(size.x-2,0,frame,'_ComboBoxPopUp',20,font);
+   popup:=TUIListBox.Create(size.x-2,0,frame,'_ComboBoxPopUp',20);
   // popup.autoSelectMode:=true;
    popup.bgColor:=$FFFFFFFF;
    popup.textColor:=$FF000000;
