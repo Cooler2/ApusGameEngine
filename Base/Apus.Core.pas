@@ -207,9 +207,9 @@ var
   function Wrap(value,max:double):double; overload; inline;
 
   // Rounding helpers
-  function FRound(v:double):integer; inline;  // fast round: 0.5->1, 1.5->2 (slightly biased)
-  function PRound(v:double):integer; inline;  // precise round
-  function SRound(v:single):integer;          // SSE-accelerated round
+  function FRound(v:double):integer; inline;  // fast round, slightly biased near .5
+  function PRound(v:double):integer; inline;  // symmetric nearest (away from zero on .5)
+  function SRound(v:single):integer;          // stable nearest for rendering: floor(v+0.5), keeps SRound(x+1)=SRound(x)+1
 
   // Swap
   procedure Swap(var a,b:integer); overload; inline;
@@ -1031,7 +1031,11 @@ asm
 end;
 {$ELSE}
 begin
-  result:=trunc(v+0.5);
+  // Keep behavior identical to SSE path: floor(v+0.5), not trunc(v+0.5).
+  // This preserves translation invariance: SRound(x+1)=SRound(x)+1.
+  v:=v+0.5;
+  result:=trunc(v);
+  if result>v then dec(result);
 end;
 {$ENDIF}
 

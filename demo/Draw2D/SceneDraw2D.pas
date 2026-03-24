@@ -184,7 +184,7 @@ begin
       dist:=sqrt(dx*dx+dy*dy);
       alpha:=Clamp((58-dist)*0.08,0,1);
       col:=ColorMixF($FF3D6EA8,$FF9DD2F0,Clamp((x+y)/(w+h),0,1));
-      row^:=(round(alpha*255) shl 24) or (col and $FFFFFF);
+      row^:=(SRound(alpha*255) shl 24) or (col and $FFFFFF);
       inc(row);
     end;
   end;
@@ -246,12 +246,12 @@ begin
   for i:=0 to high(bandParts) do begin
     t:=i/(high(bandParts)+1);
     bandParts[i].x:=20+i*40;
-    bandParts[i].y:=60+round(sin(t*Pi*2)*20);
+    bandParts[i].y:=60+PRound(sin(t*Pi*2)*20);
     bandParts[i].z:=0;
     bandParts[i].color:=ColorMixF($FF60D0FF,$FFFFD080,t);
     bandParts[i].scale:=0.8+0.4*sin(t*Pi);
     bandParts[i].angle:=0;
-    bandParts[i].index:=round(255*t);
+    bandParts[i].index:=SRound(255*t);
   end;
   bandParts[high(bandParts)].index:=bandParts[high(bandParts)].index or partEndpoint;
 end;
@@ -285,12 +285,12 @@ procedure TMainScene.UpdateMetrics;
 begin
   layoutScale:=window.screenDPI/96;
   if layoutScale<1 then layoutScale:=1;
-  menuWidth:=MENU_WIDTH+round((layoutScale-1)*110);
+  menuWidth:=MENU_WIDTH+SRound((layoutScale-1)*110);
   menuWidth:=ClampI(menuWidth,340,window.renderWidth div 2);
-  menuTop:=round(MENU_TOP*layoutScale);
-  menuItemHeight:=round(MENU_ITEM_HEIGHT*layoutScale);
-  contentPadding:=round(CONTENT_PADDING*layoutScale);
-  screenTopOffset:=round(84*layoutScale);
+  menuTop:=SRound(MENU_TOP*layoutScale);
+  menuItemHeight:=SRound(MENU_ITEM_HEIGHT*layoutScale);
+  contentPadding:=SRound(CONTENT_PADDING*layoutScale);
+  screenTopOffset:=SRound(84*layoutScale);
 end;
 
 procedure TMainScene.RebuildFonts;
@@ -298,7 +298,7 @@ var
   fs:single;
   function F(baseSize:integer):integer;
   begin
-    result:=Math.Max(6,round(baseSize*fs));
+    result:=Math.Max(6,SRound(baseSize*fs));
   end;
 begin
   fs:=window.screenDPI/96;
@@ -433,7 +433,7 @@ begin
       cy+sin(t*1.2+i)*((innerR.Bottom-innerR.Top)*0.42),
       $FFA0D8FF-i*$00141000);
   draw.EndLines;
-  draw.FillRRect(round(cx-6),round(cy-6),round(cx+6),round(cy+6),$FFEEF6FF,5);
+  draw.FillRRect(cx-6,cy-6,cx+6,cy+6,$FFEEF6FF,5);
 
   // block 2: draw.Polyline + draw.Polygon
   r:=GridCell(area,2,0,3,1,BLOCK_GAP);
@@ -582,7 +582,7 @@ begin
       cx+cos(t+i*2.09+0.9)*((innerR.Right-innerR.Left)*0.42),
       cy+sin(t+i*2.09+0.9)*((innerR.Bottom-innerR.Top)*0.42),
       $30FF8060+i*$00202020,$50A0C0FF,$30A0FFB0);
-  draw.FillRRect(round(cx-12),round(cy-12),round(cx+12),round(cy+12),$FFEFF5FC,10);
+  draw.FillRRect(cx-12,cy-12,cx+12,cy+12,$FFEFF5FC,10);
 
   // block 2: draw.ShadedRect (three variants)
   r:=GridCell(area,2,0,3,1,BLOCK_GAP);
@@ -674,8 +674,8 @@ begin
   draw.FillRRect(innerR.Left+16,innerR.Top+16,innerR.Right-16,innerR.Bottom-16,$FFFFFFFF,16);
   draw.NoGradient;
   for i:=0 to 6 do
-    draw.Line(cx,cy,cx+round(cos(t+i*0.7)*((innerR.Right-innerR.Left) div 2-20)),
-      cy+round(sin(t*1.2+i*0.7)*((innerR.Bottom-innerR.Top) div 2-20)),$FFD8EEFF);
+    draw.Line(cx,cy,cx+PRound(cos(t+i*0.7)*((innerR.Right-innerR.Left) div 2-20)),
+      cy+PRound(sin(t*1.2+i*0.7)*((innerR.Bottom-innerR.Top) div 2-20)),$FFD8EEFF);
   draw.FillRRect(cx-10,cy-10,cx+10,cy+10,$FFFFFFFF,8);
 
   // block [1,1]: TexturedRect + RoundRect + FillTriangle
@@ -791,7 +791,7 @@ begin
   DrawBlock(r,'draw.Band  [animated]',innerR);
   for i:=0 to high(bandParts) do begin
     bandParts[i].x:=innerR.Left+10+i*((innerR.Right-innerR.Left-20) div high(bandParts));
-    bandParts[i].y:=(innerR.Top+innerR.Bottom) div 2+round(sin(t*1.8+i*0.5)*((innerR.Bottom-innerR.Top)*0.28));
+    bandParts[i].y:=(innerR.Top+innerR.Bottom) div 2+PRound(sin(t*1.8+i*0.5)*((innerR.Bottom-innerR.Top)*0.28));
   end;
   draw.FillRect(innerR.Left,innerR.Top,innerR.Right,innerR.Bottom,$30203854);
   draw.Band(0,0,@bandParts[0],length(bandParts),atlasTex,Rect(0,0,31,31));
