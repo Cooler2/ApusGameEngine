@@ -107,7 +107,7 @@ build Apus.GeoIP
 
 # === Level 10: Diagnostics and extras ===
 build Apus.Logging
-build Apus.Profiling
+# Apus.Profiling is Windows-only (uses unit Windows in implementation)
 build Apus.StackTrace
 build Apus.Clipboard
 build Apus.MemoryLeakUtils

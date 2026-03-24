@@ -24,6 +24,9 @@ uses Apus.Core, SysUtils{$IFDEF MSWINDOWS}, Windows{$ENDIF}{$IFDEF UNIX}, pthrea
 {$IF Declared(SRWLOCK)}
 {$DEFINE USE_SRW}  // Disable this to debug fallback RW lock
 {$ENDIF}
+{$IF Defined(UNIX) and Declared(pthread_rwlock_t)}
+{$DEFINE USE_PTHREAD_RWLOCK}
+{$ENDIF}
 
 type
   PLock=^TLock;
@@ -67,7 +70,7 @@ type
   private
    {$IF Defined(USE_SRW)}
    lock:SRWLock;          // OS SRW lock (Vista+) — zero overhead, no allocation
-   {$ELSEIF Defined(UNIX)}
+   {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
    rwl:pthread_rwlock_t;  // POSIX RW lock
    {$ELSE}
    // Software RW-lock using atomic CAS: state>0 = reader count, -1 = writer, 0 = free.
@@ -96,7 +99,7 @@ type
   private
    {$IF Defined(USE_SRW)}
    lock:SRWLock;
-   {$ELSEIF Defined(UNIX)}
+   {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
    rwl:pthread_rwlock_t;
    {$ELSE}
    state:integer; // same software RW-lock as TRWLock fallback
@@ -661,7 +664,7 @@ begin
  // name ignored — lean mode stores nothing
  {$IF Defined(USE_SRW)}
  InitializeSRWLock(lock);
- {$ELSEIF Defined(UNIX)}
+ {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
  if pthread_rwlock_init(rwl,nil)<>0 then
   raise EError.Create('TRWLock.Init: pthread_rwlock_init failed');
  {$ELSE}
@@ -674,7 +677,7 @@ procedure TRWLock.Cleanup;
 begin
  {$IF Defined(USE_SRW)}
  // SRW locks don't need explicit cleanup
- {$ELSEIF Defined(UNIX)}
+ {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
  if pthread_rwlock_destroy(rwl)<>0 then
   raise EError.Create('TRWLock.Cleanup: pthread_rwlock_destroy failed');
  {$ELSE}
@@ -691,7 +694,7 @@ var curr:integer;
 begin
  {$IF Defined(USE_SRW)}
  AcquireSRWLockShared(lock);
- {$ELSEIF Defined(UNIX)}
+ {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
  if pthread_rwlock_rdlock(rwl)<>0 then
   raise EError.Create('TRWLock.EnterRead: pthread_rwlock_rdlock failed');
  {$ELSE}
@@ -709,7 +712,7 @@ procedure TRWLock.LeaveRead;
 begin
  {$IF Defined(USE_SRW)}
  ReleaseSRWLockShared(lock);
- {$ELSEIF Defined(UNIX)}
+ {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
  if pthread_rwlock_unlock(rwl)<>0 then
   raise EError.Create('TRWLock.LeaveRead: pthread_rwlock_unlock failed');
  {$ELSE}
@@ -721,7 +724,7 @@ procedure TRWLock.EnterWrite;
 begin
  {$IF Defined(USE_SRW)}
  AcquireSRWLockExclusive(lock);
- {$ELSEIF Defined(UNIX)}
+ {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
  if pthread_rwlock_wrlock(rwl)<>0 then
   raise EError.Create('TRWLock.EnterWrite: pthread_rwlock_wrlock failed');
  {$ELSE}
@@ -743,7 +746,7 @@ procedure TRWLock.LeaveWrite;
 begin
  {$IF Defined(USE_SRW)}
  ReleaseSRWLockExclusive(lock);
- {$ELSEIF Defined(UNIX)}
+ {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
  if pthread_rwlock_unlock(rwl)<>0 then
   raise EError.Create('TRWLock.LeaveWrite: pthread_rwlock_unlock failed');
  {$ELSE}
@@ -762,7 +765,7 @@ begin
  lastReadCaller:=nil;
  {$IF Defined(USE_SRW)}
  InitializeSRWLock(lock);
- {$ELSEIF Defined(UNIX)}
+ {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
  if pthread_rwlock_init(rwl,nil)<>0 then
   raise EError.Create('TRWLockD.Init: pthread_rwlock_init failed');
  {$ELSE}
@@ -779,7 +782,7 @@ begin
    'TRWLockD.Cleanup: '+Conv.ToStr(readerCount)+' read lock(s) still held in "'+name+'"');
  {$IF Defined(USE_SRW)}
  // SRW locks don't need explicit cleanup
- {$ELSEIF Defined(UNIX)}
+ {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
  if pthread_rwlock_destroy(rwl)<>0 then
   raise EError.Create('TRWLockD.Cleanup: pthread_rwlock_destroy failed');
  {$ELSE}
@@ -803,7 +806,7 @@ begin
  {$ENDIF}
  {$IF Defined(USE_SRW)}
  AcquireSRWLockShared(lock);
- {$ELSEIF Defined(UNIX)}
+ {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
  if pthread_rwlock_rdlock(rwl)<>0 then
   raise EError.Create('TRWLockD.EnterRead: pthread_rwlock_rdlock failed');
  {$ELSE}
@@ -839,7 +842,7 @@ begin
  Atomic.Sub(readerCount,1);
  {$IF Defined(USE_SRW)}
  ReleaseSRWLockShared(lock);
- {$ELSEIF Defined(UNIX)}
+ {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
  if pthread_rwlock_unlock(rwl)<>0 then
   raise EError.Create('TRWLockD.LeaveRead: pthread_rwlock_unlock failed');
  {$ELSE}
@@ -865,7 +868,7 @@ begin
  {$ENDIF}
  {$IF Defined(USE_SRW)}
  AcquireSRWLockExclusive(lock);
- {$ELSEIF Defined(UNIX)}
+ {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
  if pthread_rwlock_wrlock(rwl)<>0 then
   raise EError.Create('TRWLockD.EnterWrite: pthread_rwlock_wrlock failed');
  {$ELSE}
@@ -890,7 +893,7 @@ begin
  writerThread:=0; // clear before releasing — prevents false positives in assertions
  {$IF Defined(USE_SRW)}
  ReleaseSRWLockExclusive(lock);
- {$ELSEIF Defined(UNIX)}
+ {$ELSEIF Defined(USE_PTHREAD_RWLOCK)}
  if pthread_rwlock_unlock(rwl)<>0 then
   raise EError.Create('TRWLockD.LeaveWrite: pthread_rwlock_unlock failed');
  {$ELSE}
