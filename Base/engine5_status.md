@@ -3,7 +3,7 @@
 Status of every module in `Base/Apus.*.pas`.
 Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEPRECATED**
 
-## Summary (last updated: 2026-03-22)
+## Summary (last updated: 2026-03-24)
 
 **Progress:**
 - ✅ 10 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib, Spatial)
@@ -49,6 +49,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-03-23):** Added optional test-time monotonic override API in `Apus.Core.Time` under `{$IFDEF TIME_OVERRIDE}` (`Override(timeUs:int64)`), applied consistently to `TicksUs/Ticks/TicksSec`, with zero runtime cost when define is off.
 **Recent wins (2026-03-23):** Updated test runner scripts (`Base/tests/test.bat`, `Base/tests/test.sh`) to compile tests with `-dTIME_OVERRIDE` by default.
 **Recent wins (2026-03-23):** Added `Base/tests/BenchAnimation.dpr` to compare `TTweening` vs `TAnimatedValue` in matched read/retarget scenarios (including realistic overlap cap).
+**Recent wins (2026-03-24):** Standardized `Apus.Core.SRound` behavior across SSE and non-ASM paths to the same rule (`floor(v+0.5)`), and documented intended usage split (`SRound` for translation-invariant render math, `PRound` for symmetric nearest rounding).
 
 ## NEW — created in engine5 refactoring
 

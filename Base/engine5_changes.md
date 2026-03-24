@@ -62,6 +62,18 @@ Use it as the primary reference when updating old code.
   - retarget path with realistic overlap cap (<=3).
 - Added `Animation` to available benchmark list in `Base/tests/README.md`.
 
+## Recent API fixes (2026-03-24)
+
+### Apus.Core stable SRound semantics across code paths
+
+- Clarified and documented rounding helper intent in `Apus.Core`:
+  - `PRound` is symmetric nearest (away from zero on `.5`);
+  - `SRound` is rendering-stable nearest defined as `floor(v+0.5)`.
+- Updated non-ASM `SRound` fallback to match SSE behavior exactly (`floor(v+0.5)`), replacing old `trunc(v+0.5)` fallback.
+- Motivation:
+  - keep identical rounding behavior across CPU/compiler paths;
+  - preserve translation invariance used by rendering math: `SRound(x+1)=SRound(x)+1`.
+
 ### Apus.Files object-style TFileHandle I/O
 
 - `TFileHandle` in `Apus.Files` is now an opaque record with object-style methods:
