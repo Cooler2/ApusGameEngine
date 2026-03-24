@@ -687,7 +687,7 @@ end;
 
 procedure TRWLock.EnterRead;
 {$IFNDEF USE_SRW}
- {$IFNDEF UNIX}
+ {$IFNDEF USE_PTHREAD_RWLOCK}
 var curr:integer;
  {$ENDIF}
 {$ENDIF}
@@ -792,7 +792,7 @@ end;
 
 procedure TRWLockD.EnterRead;
 {$IFNDEF USE_SRW}
- {$IFNDEF UNIX}
+ {$IFNDEF USE_PTHREAD_RWLOCK}
 var curr:integer;
  {$ENDIF}
 {$ENDIF}
