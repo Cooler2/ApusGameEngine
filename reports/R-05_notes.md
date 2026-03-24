@@ -246,10 +246,10 @@ Overflow/clipping/z-index — свойства элемента, не style-си
 - [x] `DrawCommonStyle` — переведён на новую систему (2026-03-24)
 - [x] Transitions через Tweenings (2026-03-24)
 - [x] `DrawUIScrollbar` — мигрирован на `element.style`; `TElementStyle` удалён полностью (2026-03-24)
-- [ ] Убрать `fFont`/`fColor` из TUIElement (после полного перехода всех виджетов)
+- [x] Убрать `fFont`/`fColor` из TUIElement — `font`/`color` property, GetFont/GetColor, Setup params удалены; rendering читает через `StyleFont()`/`GetStyleColor()`; UIScript GetValue обновлён (2026-03-24)
 - [ ] Поддержка переменных через Apus.Publics (`$varName` в style text)
 - [x] `element.style` как единая точка доступа: поле `style:TStyleBlock` создаётся в конструкторе (eager), `SetStyleText`/`PatchStyleText`/`EnsureStyleBlock` удалены — используется `style.Assign`/`style.Add` (2026-03-23)
-- [ ] TStyleCatalog с индексером `Styles['name'] := '...'` (целевой API для глобального реестра)
+- [x] TStyleCatalog с индексером `Styles['name'] := '...'` — `RegisterNamedStyle`/`FindNamedStyle`/`ClearNamedStyles` удалены из интерфейса; `Styles.Block('name')` для drawers (2026-03-24)
 - [ ] Visual regression tests через Robot API `pixel` + `ui.element`
 
 ---

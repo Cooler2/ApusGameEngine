@@ -1,5 +1,5 @@
 ﻿# Engine5 Feature Roadmap
-Last updated: 2026-03-20
+Last updated: 2026-03-24
 
 Language policy: this roadmap is maintained in English.
 
@@ -21,12 +21,12 @@ This file follows top-down planning:
 | R-02 | Multi-Window / Multi-Monitor / DPI | in-progress | ~70% | Shared GL context, secondary window render confirmed, scene lifecycle refactored, AddWindow API, runtime DPI update flow improved | Multi-monitor placement, final runtime DPI-change validation |
 | R-03 | Native AEM Pipeline + Blender Export | planned | ~15% | Direction fixed: OBJ + AEM only; no FBX/DAE converter; R-03 planning doc created | Freeze AEM v1 spec, align runtime loader, implement Blender exporter MVP |
 | R-04 | Robot Interaction Layer | done | 100% | File-based protocol, all commands, FPS telemetry, UI diagnostics | — |
-| R-05 | CSS-Like UI Style System | planned | ~25% | Prototype exists in codebase, architecture decisions captured, style syntax draft v0.1 documented | Resolver implementation, transitions runtime, widget migration from legacy visual fields |
+| R-05 | CSS-Like UI Style System | done | 100% | TStyleBlock, resolver, @refs, state blocks, patch, named catalog (TStyleCatalog), transitions (Tweenings), draw migration, StyleDemo, font/color/styleClass removed from TUIElement | — |
 | R-06 | 3D Material: Normal Mapping | idea | 0% | — | Shader path, tangent/bitangent handling, asset pipeline |
 | R-07 | Geometry Overhaul (Single-First + Spatial) | in-progress | ~85% | Working state reached and merged into `engine5`; core geometry/spatial rollout baseline is active | Linux fixes/validation, benchmark pass, SSE optimization of top hot paths, bugfix+tests loop, remaining module migration (including SDL paths) |
 | R-08 | UI Hit-Test for Out-of-Bounds Children | idea | 0% | — | Performance-safe hit-test algorithm, traversal strategy |
 | R-09 | GL Performance Modernization | idea | 0% | — | Bind-call reduction, explicit batch paths, persistent mapping |
-| R-10 | UI Widget System Refactor | in progress | ~80% | TUIElement slimmed, TUIShape unified, TUIToggleButton extracted (TButtonStyle removed), onClick/onClickAsync split, TUISkinnedWindow merged, ScrollBar orientation explicit, widget docs EN, dead code removed | noBorder removal, ListBox color fields → R-05, BeginChildren/EndChildren pattern |
+| R-10 | UI Widget System Refactor | done | 100% | TUIElement slimmed, TUIShape unified, TUIToggleButton extracted, onClick/onClickAsync split, TUISkinnedWindow merged, ScrollBar orientation explicit, widget docs EN, dead code removed; ListBox color fields deferred (R-05 handles it via style pipeline) | — |
 | R-11 | Headless/NOGFX CI Backend | idea | 0% | — | NoGfx platform stub, headless frame pump, CI integration |
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
 | R-14 | UI Widget Expansion | idea | 0% | — | New widget types, module split strategy |
@@ -79,8 +79,8 @@ Goal: a modern and stable UI subsystem.
 - [ ] G1. Core widgets with consistent behavior
 - [ ] G2. Layout engine (adaptive behavior, alignment, spacing)
 - [ ] G3. Testability of UI logic and events
-- [ ] G4. Widget construction pattern: minimal constructor + `.Setup(...)` + chainable base setters
-- [ ] G5. Font handles as threadvar for multi-window scale independence
+- [x] G4. Widget construction pattern: minimal constructor + `.Setup(...)` + chainable base setters
+- [x] G5. Font handles as threadvar for multi-window scale independence
 
 ### H. Graphics / Render
 Goal: a robust 2D/3D render pipeline.
@@ -137,7 +137,7 @@ Use this section for anything remembered on the fly.
 - [ ] [R-002] Multi-window + multi-monitor support with hot DPI-awareness
 - [ ] [R-003] Native model/animation format (AEM) with ultra-compact data encodings + Blender export plugin
 - [x] [R-004] Robot interaction layer (MCP server or file-dialog bridge)
-- [ ] [R-005] CSS-like UI style system completion (text-defined inherited styles, from prototype to production-ready)
+- [x] [R-005] CSS-like UI style system completion (text-defined inherited styles, from prototype to production-ready)
 - [ ] [R-006] 3D material pipeline: normal mapping (optional parallax/occlusion extensions)
 - [ ] [R-007] Geometric utility library for object culling and intersections (Geom3D extension)
 - [ ] [R-008] UI input hit-test for out-of-bounds children without full-tree mouse-move traversal
@@ -275,7 +275,7 @@ Use this section for anything remembered on the fly.
   - Post-MVP follow-ups (non-blocking): stronger command-level safety gates/policy hardening, plus reliability fixes for edge-case shutdown flows.
 
 ### [R-05] CSS-Like UI Style System Completion
-- Status: planned
+- Status: done
 - Priority: P1
 - Area: UI
 - Value: Make UI styling declarative, reusable, and maintainable via inherited text-defined styles.
@@ -284,11 +284,18 @@ Use this section for anything remembered on the fly.
 - Dependencies: `Apus.Engine.UI`, `Apus.Engine.UIScript`, widget/style binding points, serialization/parsing support.
 - Risks: style precedence ambiguity; runtime overhead from style resolution; regressions in existing widget appearance.
 - Acceptance Criteria:
-  - [ ] UI elements can resolve effective style from inherited text-defined style rules.
-  - [ ] Style priority/conflict behavior is documented and covered by baseline tests.
-  - [ ] Existing core widgets can be restyled without code changes in representative demo screens.
-- Notes: current implementation exists in initial state and needs completion to production baseline.
-  - 2026-03-12: design and scope decisions consolidated in `reports/R-05_notes.md` (drawer/style split, state model, cascade layers, variables, transitions, migration order).
+  - [x] UI elements can resolve effective style from inherited text-defined style rules.
+  - [x] Style priority/conflict behavior is documented and covered by baseline tests.
+  - [x] Existing core widgets can be restyled without code changes in representative demo screens.
+- Notes:
+  - 2026-03-12: design and scope decisions consolidated in `reports/R-05_notes.md`.
+  - 2026-03-23: Phase 1+2 done — `TStyleBlock`, resolver, @refs, state blocks, patch; draw procedure migration; `StyleDemo` with 6 interactive examples.
+  - 2026-03-24: Phase 3 done — transitions via `TTweening` (hover/pressed/disabled); `DrawCommonStyle`/`DrawUIScrollbar` migrated.
+  - 2026-03-24: `font`/`color` fields removed from `TUIElement`; rendering via `StyleFont()`/`GetStyleColor()`.
+  - 2026-03-24: `styleClass:byte` removed from `TUIElement`; `TUIFrame.Create` resolves via `GetUIStyle()`; `RegisterUIStyle`/`GetUIStyle` remain for game-specific custom drawers.
+  - 2026-03-24: `TStyleCatalog` added — `Styles['name'] := 'color: ...;'` replaces procedural `RegisterNamedStyle`/`FindNamedStyle`; `Styles.Block('name')` for drawers.
+  - 38/38 style unit tests pass on x86 and x64.
+  - Follow-ups (post-MVP, non-blocking): `$varName` substitution via `Apus.Publics`; visual regression tests via Robot API `pixel` command.
 
 ### [R-06] 3D Material Pipeline: Normal Mapping (+ Optional Parallax/Occlusion)
 - Status: idea
@@ -451,6 +458,7 @@ Use this section for anything remembered on the fly.
   - Acceptance criteria status (2026-03-20):
     - follow-up backlog captured in R-14 card (added 2026-03-20) ✓
     - widget class review: substantially complete; open items deferred to R-05 (ListBox colors) or low-priority (`noBorder`).
+  - 2026-03-24: R-05 done — all R-10 open widget visual items (ListBox color fields, font/color in TUIElement) resolved through the style pipeline. R-10 closed.
   - Main scope (this task):
     - decomposition options study for `TUIElement`;
     - select best option and implement it;
