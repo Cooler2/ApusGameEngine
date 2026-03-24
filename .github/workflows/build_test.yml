@@ -11,11 +11,14 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  base-buildtest:
-    name: Base BuildTest (${{ matrix.os_name }})
+  prepare-toolchain:
+    name: Prepare Toolchain (${{ matrix.os_name }})
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 25
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -27,13 +30,39 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Lazarus/FPC
         uses: gcarreno/setup-lazarus@v3.2
         with:
-          lazarus-version: stable
-          with-cache: false
+          lazarus-version: 3.8
+          fpc-version: 3.2.2
+          with-cache: true
+
+  base-buildtest:
+    name: Base BuildTest (${{ matrix.os_name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    needs: prepare-toolchain
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_name: linux
+            runner: ubuntu-latest
+          - os_name: windows
+            runner: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Lazarus/FPC
+        uses: gcarreno/setup-lazarus@v3.2
+        with:
+          lazarus-version: 3.8
+          fpc-version: 3.2.2
+          with-cache: true
 
       - name: Build test (Linux)
         if: runner.os == 'Linux'
@@ -46,7 +75,7 @@ jobs:
 
       - name: Upload buildtest log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: buildtest-${{ matrix.os_name }}
           path: Base/tests/buildtest_results.txt
@@ -56,7 +85,7 @@ jobs:
     name: Base Tests (${{ matrix.os_name }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
-    needs: base-buildtest
+    needs: [prepare-toolchain, base-buildtest]
     if: always()
     strategy:
       fail-fast: false
@@ -69,13 +98,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Lazarus/FPC
         uses: gcarreno/setup-lazarus@v3.2
         with:
-          lazarus-version: stable
-          with-cache: false
+          lazarus-version: 3.8
+          fpc-version: 3.2.2
+          with-cache: true
 
       - name: Run Base tests (Linux)
         if: runner.os == 'Linux'
@@ -99,7 +129,7 @@ jobs:
 
       - name: Upload Base test logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: base-tests-${{ matrix.os_name }}
           path: |
@@ -112,7 +142,7 @@ jobs:
     name: Demo Build (${{ matrix.os_name }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
-    needs: base-buildtest
+    needs: [prepare-toolchain, base-buildtest]
     if: always()
     strategy:
       fail-fast: false
@@ -125,13 +155,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Lazarus/FPC
         uses: gcarreno/setup-lazarus@v3.2
         with:
-          lazarus-version: stable
-          with-cache: false
+          lazarus-version: 3.8
+          fpc-version: 3.2.2
+          with-cache: true
 
       - name: Compile selected demos (Linux)
         if: runner.os == 'Linux'
@@ -168,7 +199,7 @@ jobs:
 
       - name: Upload demo build outputs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: demo-build-${{ matrix.os_name }}
           path: |
