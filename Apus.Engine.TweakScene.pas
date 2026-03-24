@@ -345,13 +345,14 @@ end;
 function TTracker.onKey(keycode: byte; pressed: boolean;
   shiftstate: byte): boolean;
 begin
+ result:=false;
  if pressed then
   case TKey(keyCode) of
-   TKey.Left:ChangeValue(-1);
-   TKey.Right:ChangeValue(+1);
-   TKey.Up:SetFocusToPrev;
-   TKey.Down:SetFocusToNext;
-   TKey.R:value:=initialValue;   // [R] - reset to initial value
+   TKey.Left:begin ChangeValue(-1); result:=true; end;
+   TKey.Right:begin ChangeValue(+1); result:=true; end;
+   TKey.Up:begin SetFocusToPrev; result:=true; end;
+   TKey.Down:begin SetFocusToNext; result:=true; end;
+   TKey.R:begin value:=initialValue; result:=true; end;   // [R] - reset to initial value
   end;
 end;
 

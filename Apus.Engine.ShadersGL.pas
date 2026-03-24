@@ -907,7 +907,7 @@ procedure TGLShadersAPI.SetUniform(name:String8;const value:TQuat);
  end;
 
 procedure TGLShadersAPI.Shadow(mode:TShadowMapMode;shadowMap:TTexture;depthBias:single);
- function CalcShadowMapMatrix:TMat4;
+ procedure CalcShadowMapMatrix;
   var
    frustum:TMat4;
   begin

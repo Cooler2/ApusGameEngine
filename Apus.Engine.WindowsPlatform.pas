@@ -127,7 +127,7 @@ var
  ast:AnsiString;
 begin
  wst:=WideChar(unicode);
- ast:=wst; // conversion
+ ast:=AnsiString(wst); // conversion
  result:=byte(ast[1]);
 end;
 

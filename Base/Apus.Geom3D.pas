@@ -623,12 +623,12 @@ var
   i:integer;
 begin
   for i:=0 to 3 do begin
-    self[i,0]:=m[i,0];
-    self[i,1]:=m[i,1];
-    self[i,2]:=m[i,2];
-    self[i,3]:=0;
+    v[i,0]:=m.v[i,0];
+    v[i,1]:=m.v[i,1];
+    v[i,2]:=m.v[i,2];
+    v[i,3]:=0;
   end;
-  self[3,3]:=1;
+  v[3,3]:=1;
 end;
 
 function TMat34.ToMat4:TMat4;
@@ -636,12 +636,12 @@ var
   i:integer;
 begin
   for i:=0 to 3 do begin
-    result[i,0]:=v[i,0];
-    result[i,1]:=v[i,1];
-    result[i,2]:=v[i,2];
-    result[i,3]:=0;
+    result.v[i,0]:=v[i,0];
+    result.v[i,1]:=v[i,1];
+    result.v[i,2]:=v[i,2];
+    result.v[i,3]:=0;
   end;
-  result[3,3]:=1;
+  result.v[3,3]:=1;
 end;
 
 constructor TMat4.Init(const m:TMat4d);
@@ -649,10 +649,10 @@ var
   i:integer;
 begin
   for i:=0 to 3 do begin
-    self[i,0]:=m[i,0];
-    self[i,1]:=m[i,1];
-    self[i,2]:=m[i,2];
-    self[i,3]:=m[i,3];
+    v[i,0]:=m.v[i,0];
+    v[i,1]:=m.v[i,1];
+    v[i,2]:=m.v[i,2];
+    v[i,3]:=m.v[i,3];
   end;
 end;
 
@@ -661,10 +661,10 @@ var
   i:integer;
 begin
   for i:=0 to 3 do begin
-    result[i,0]:=v[i,0];
-    result[i,1]:=v[i,1];
-    result[i,2]:=v[i,2];
-    result[i,3]:=v[i,3];
+    result.v[i,0]:=v[i,0];
+    result.v[i,1]:=v[i,1];
+    result.v[i,2]:=v[i,2];
+    result.v[i,3]:=v[i,3];
   end;
 end;
 
@@ -673,9 +673,9 @@ var
   i:integer;
 begin
   for i:=0 to 2 do begin
-    self[i,0]:=m[i,0];
-    self[i,1]:=m[i,1];
-    self[i,2]:=m[i,2];
+    v[i,0]:=m.v[i,0];
+    v[i,1]:=m.v[i,1];
+    v[i,2]:=m.v[i,2];
   end;
 end;
 
@@ -684,9 +684,9 @@ var
   i:integer;
 begin
   for i:=0 to 2 do begin
-    self[i,0]:=m[i,0];
-    self[i,1]:=m[i,1];
-    self[i,2]:=m[i,2];
+    v[i,0]:=m.v[i,0];
+    v[i,1]:=m.v[i,1];
+    v[i,2]:=m.v[i,2];
   end;
 end;
 
@@ -702,9 +702,9 @@ var
   i:integer;
 begin
   for i:=0 to 2 do begin
-    result[i,0]:=v[i,0];
-    result[i,1]:=v[i,1];
-    result[i,2]:=v[i,2];
+    result.v[i,0]:=v[i,0];
+    result.v[i,1]:=v[i,1];
+    result.v[i,2]:=v[i,2];
   end;
 end;
 
@@ -761,9 +761,9 @@ begin
   co:=cos(angle);
   si:=sin(angle);
   nco:=1-co;
-  result[0,0]:=l2+(m2+n2)*co; result[0,1]:=lm*nco-v.z*si; result[0,2]:=ln*nco+v.y*si;
-  result[1,0]:=lm*nco+v.z*si; result[1,1]:=m2+(l2+n2)*co; result[1,2]:=mn*nco-v.x*si;
-  result[2,0]:=ln*nco-v.y*si; result[2,1]:=mn*nco+v.x*si; result[2,2]:=n2+(l2+m2)*co;
+  result.v[0,0]:=l2+(m2+n2)*co; result.v[0,1]:=lm*nco-v.z*si; result.v[0,2]:=ln*nco+v.y*si;
+  result.v[1,0]:=lm*nco+v.z*si; result.v[1,1]:=m2+(l2+n2)*co; result.v[1,2]:=mn*nco-v.x*si;
+  result.v[2,0]:=ln*nco-v.y*si; result.v[2,1]:=mn*nco+v.x*si; result.v[2,2]:=n2+(l2+m2)*co;
 end;
 
 function TMat3d.Determinant:double;
@@ -776,9 +776,9 @@ end;
 class function TMat34d.Translation(x,y,z:double):TMat34d;
 begin
   result:=IdentMat34d;
-  result[3,0]:=x;
-  result[3,1]:=y;
-  result[3,2]:=z;
+  result.v[3,0]:=x;
+  result.v[3,1]:=y;
+  result.v[3,2]:=z;
 end;
 
 class function TMat34d.RotationX(angle:double):TMat34d;
@@ -788,10 +788,10 @@ begin
   c:=cos(angle);
   s:=sin(angle);
   result:=IdentMat34d;
-  result[1,1]:=c;
-  result[1,2]:=s;
-  result[2,1]:=-s;
-  result[2,2]:=c;
+  result.v[1,1]:=c;
+  result.v[1,2]:=s;
+  result.v[2,1]:=-s;
+  result.v[2,2]:=c;
 end;
 
 class function TMat34d.RotationY(angle:double):TMat34d;
@@ -801,10 +801,10 @@ begin
   c:=cos(angle);
   s:=sin(angle);
   result:=IdentMat34d;
-  result[0,0]:=c;
-  result[0,2]:=s;
-  result[2,0]:=-s;
-  result[2,2]:=c;
+  result.v[0,0]:=c;
+  result.v[0,2]:=s;
+  result.v[2,0]:=-s;
+  result.v[2,2]:=c;
 end;
 
 class function TMat34d.RotationZ(angle:double):TMat34d;
@@ -814,26 +814,26 @@ begin
   c:=cos(angle);
   s:=sin(angle);
   result:=IdentMat34d;
-  result[0,0]:=c;
-  result[0,1]:=s;
-  result[1,0]:=-s;
-  result[1,1]:=c;
+  result.v[0,0]:=c;
+  result.v[0,1]:=s;
+  result.v[1,0]:=-s;
+  result.v[1,1]:=c;
 end;
 
 class function TMat34d.Scale(scaleX,scaleY,scaleZ:double):TMat34d;
 begin
   result:=IdentMat34d;
-  result[0,0]:=scaleX;
-  result[1,1]:=scaleY;
-  result[2,2]:=scaleZ;
+  result.v[0,0]:=scaleX;
+  result.v[1,1]:=scaleY;
+  result.v[2,2]:=scaleZ;
 end;
 
 class function TMat34d.FromYRP(yaw,roll,pitch:double):TMat34d;
 begin
   _YRPToMatrix(yaw,roll,pitch,@result,3);
-  result[3,0]:=0;
-  result[3,1]:=0;
-  result[3,2]:=0;
+  result.v[3,0]:=0;
+  result.v[3,1]:=0;
+  result.v[3,2]:=0;
 end;
 
 procedure TMat34d.ToYRP(out yaw,roll,pitch:double);
@@ -844,9 +844,9 @@ end;
 class function TMat4d.Translation(x,y,z:double):TMat4d;
 begin
   result:=IdentMat4d;
-  result[3,0]:=x;
-  result[3,1]:=y;
-  result[3,2]:=z;
+  result.v[3,0]:=x;
+  result.v[3,1]:=y;
+  result.v[3,2]:=z;
 end;
 
 function TMat4d.Determinant:double;
@@ -881,11 +881,11 @@ var
   mat3:TMat3d;
   v:double;
 begin
-  tr:=self.Row(3);
+  tr:=rows[3];
   translation:=TQuatd.Init(tr.x,tr.y,tr.z,tr.w);
-  qX:=self.Row(0);
-  qY:=self.Row(1);
-  qZ:=self.Row(2);
+  qX:=rows[0];
+  qY:=rows[1];
+  qZ:=rows[2];
   scale.x:=qX.Length;
   scale.y:=qY.Length;
   scale.z:=qZ.Length;
@@ -917,9 +917,9 @@ end;
 class function TMat4.Translation(x,y,z:single):TMat4;
 begin
   result:=IdentMat4;
-  result[3,0]:=x;
-  result[3,1]:=y;
-  result[3,2]:=z;
+  result.v[3,0]:=x;
+  result.v[3,1]:=y;
+  result.v[3,2]:=z;
 end;
 
 class function TMat4.RotationX(angle:single):TMat4;
@@ -929,10 +929,10 @@ begin
   c:=cos(angle);
   s:=sin(angle);
   result:=IdentMat4;
-  result[1,1]:=c;
-  result[1,2]:=s;
-  result[2,1]:=-s;
-  result[2,2]:=c;
+  result.v[1,1]:=c;
+  result.v[1,2]:=s;
+  result.v[2,1]:=-s;
+  result.v[2,2]:=c;
 end;
 
 class function TMat4.RotationY(angle:single):TMat4;
@@ -942,10 +942,10 @@ begin
   c:=cos(angle);
   s:=sin(angle);
   result:=IdentMat4;
-  result[0,0]:=c;
-  result[0,2]:=s;
-  result[2,0]:=-s;
-  result[2,2]:=c;
+  result.v[0,0]:=c;
+  result.v[0,2]:=s;
+  result.v[2,0]:=-s;
+  result.v[2,2]:=c;
 end;
 
 class function TMat4.RotationZ(angle:single):TMat4;
@@ -955,18 +955,18 @@ begin
   c:=cos(angle);
   s:=sin(angle);
   result:=IdentMat4;
-  result[0,0]:=c;
-  result[0,1]:=s;
-  result[1,0]:=-s;
-  result[1,1]:=c;
+  result.v[0,0]:=c;
+  result.v[0,1]:=s;
+  result.v[1,0]:=-s;
+  result.v[1,1]:=c;
 end;
 
 class function TMat4.Scale(scaleX,scaleY,scaleZ:single):TMat4;
 begin
   result:=IdentMat4;
-  result[0,0]:=scaleX;
-  result[1,1]:=scaleY;
-  result[2,2]:=scaleZ;
+  result.v[0,0]:=scaleX;
+  result.v[1,1]:=scaleY;
+  result.v[2,2]:=scaleZ;
 end;
 
 class function TMat4.FromYRP(yaw,roll,pitch:double):TMat4;
@@ -1007,11 +1007,11 @@ var
   mat3:TMat3;
   v:single;
 begin
-  tr:=self.Row(3);
+  tr:=rows[3];
   translation:=TQuat.Init(tr.x,tr.y,tr.z,tr.w);
-  qX:=self.Row(0);
-  qY:=self.Row(1);
-  qZ:=self.Row(2);
+  qX:=rows[0];
+  qY:=rows[1];
+  qZ:=rows[2];
   scale.x:=qX.Length;
   scale.y:=qY.Length;
   scale.z:=qZ.Length;
@@ -1047,10 +1047,10 @@ begin
   c:=cos(angle);
   s:=sin(angle);
   result:=IdentMat3;
-  result[1,1]:=c;
-  result[1,2]:=s;
-  result[2,1]:=-s;
-  result[2,2]:=c;
+  result.v[1,1]:=c;
+  result.v[1,2]:=s;
+  result.v[2,1]:=-s;
+  result.v[2,2]:=c;
 end;
 
 class function TMat3.RotationY(angle:single):TMat3;
@@ -1060,10 +1060,10 @@ begin
   c:=cos(angle);
   s:=sin(angle);
   result:=IdentMat3;
-  result[0,0]:=c;
-  result[0,2]:=s;
-  result[2,0]:=-s;
-  result[2,2]:=c;
+  result.v[0,0]:=c;
+  result.v[0,2]:=s;
+  result.v[2,0]:=-s;
+  result.v[2,2]:=c;
 end;
 
 class function TMat3.RotationZ(angle:single):TMat3;
@@ -1073,10 +1073,10 @@ begin
   c:=cos(angle);
   s:=sin(angle);
   result:=IdentMat3;
-  result[0,0]:=c;
-  result[0,1]:=s;
-  result[1,0]:=-s;
-  result[1,1]:=c;
+  result.v[0,0]:=c;
+  result.v[0,1]:=s;
+  result.v[1,0]:=-s;
+  result.v[1,1]:=c;
 end;
 
 class function TMat3.RotationAroundAxis(const v:TVec3;angle:single):TMat3;
@@ -1097,9 +1097,9 @@ begin
   co:=cos(angle);
   si:=sin(angle);
   nco:=1-co;
-  result[0,0]:=co+nco*x2; result[0,1]:=xy*nco+vv.z*si; result[0,2]:=xz*nco-vv.y*si;
-  result[1,0]:=xy*nco-vv.z*si; result[1,1]:=co+nco*y2; result[1,2]:=yz*nco+vv.x*si;
-  result[2,0]:=xz*nco+vv.y*si; result[2,1]:=yz*nco-vv.x*si; result[2,2]:=co+nco*z2;
+  result.v[0,0]:=co+nco*x2; result.v[0,1]:=xy*nco+vv.z*si; result.v[0,2]:=xz*nco-vv.y*si;
+  result.v[1,0]:=xy*nco-vv.z*si; result.v[1,1]:=co+nco*y2; result.v[1,2]:=yz*nco+vv.x*si;
+  result.v[2,0]:=xz*nco+vv.y*si; result.v[2,1]:=yz*nco-vv.x*si; result.v[2,2]:=co+nco*z2;
 end;
 
 function TMat3.Determinant:single;
@@ -1112,9 +1112,9 @@ end;
 class function TMat34.FromYRP(yaw,roll,pitch:double):TMat34;
 begin
   _YRPToMatrixS(yaw,roll,pitch,@result,3);
-  result[3,0]:=0;
-  result[3,1]:=0;
-  result[3,2]:=0;
+  result.v[3,0]:=0;
+  result.v[3,1]:=0;
+  result.v[3,2]:=0;
 end;
 
 procedure TMat3d.TransformPoints(v:PVec3d;num,step:integer);
@@ -1123,9 +1123,9 @@ var
   x,y,z:double;
 begin
   for i:=1 to num do begin
-    x:=v^.x*self[0,0]+v^.y*self[1,0]+v^.z*self[2,0];
-    y:=v^.x*self[0,1]+v^.y*self[1,1]+v^.z*self[2,1];
-    z:=v^.x*self[0,2]+v^.y*self[1,2]+v^.z*self[2,2];
+    x:=v^.x*self.v[0,0]+v^.y*self.v[1,0]+v^.z*self.v[2,0];
+    y:=v^.x*self.v[0,1]+v^.y*self.v[1,1]+v^.z*self.v[2,1];
+    z:=v^.x*self.v[0,2]+v^.y*self.v[1,2]+v^.z*self.v[2,2];
     v^.x:=x;
     v^.y:=y;
     v^.z:=z;
@@ -1139,9 +1139,9 @@ var
   x,y,z:double;
 begin
   for i:=1 to num do begin
-    x:=v^.x*self[0,0]+v^.y*self[1,0]+v^.z*self[2,0]+self[3,0];
-    y:=v^.x*self[0,1]+v^.y*self[1,1]+v^.z*self[2,1]+self[3,1];
-    z:=v^.x*self[0,2]+v^.y*self[1,2]+v^.z*self[2,2]+self[3,2];
+    x:=v^.x*self.v[0,0]+v^.y*self.v[1,0]+v^.z*self.v[2,0]+self.v[3,0];
+    y:=v^.x*self.v[0,1]+v^.y*self.v[1,1]+v^.z*self.v[2,1]+self.v[3,1];
+    z:=v^.x*self.v[0,2]+v^.y*self.v[1,2]+v^.z*self.v[2,2]+self.v[3,2];
     v^.x:=x;
     v^.y:=y;
     v^.z:=z;
@@ -1153,10 +1153,10 @@ function TMat4d.TransformPoint(const v:TVec3d):TVec3d;
 var
   t:double;
 begin
-  result.x:=v.x*self[0,0]+v.y*self[1,0]+v.z*self[2,0]+self[3,0];
-  result.y:=v.x*self[0,1]+v.y*self[1,1]+v.z*self[2,1]+self[3,1];
-  result.z:=v.x*self[0,2]+v.y*self[1,2]+v.z*self[2,2]+self[3,2];
-  t:=v.x*self[0,3]+v.y*self[1,3]+v.z*self[2,3]+self[3,3];
+  result.x:=v.x*self.v[0,0]+v.y*self.v[1,0]+v.z*self.v[2,0]+self.v[3,0];
+  result.y:=v.x*self.v[0,1]+v.y*self.v[1,1]+v.z*self.v[2,1]+self.v[3,1];
+  result.z:=v.x*self.v[0,2]+v.y*self.v[1,2]+v.z*self.v[2,2]+self.v[3,2];
+  t:=v.x*self.v[0,3]+v.y*self.v[1,3]+v.z*self.v[2,3]+self.v[3,3];
   if (t<>1) and (t>0) then begin
     result.x:=result.x/t;
     result.y:=result.y/t;
@@ -1186,10 +1186,10 @@ function TMat4.TransformPoint(const v:TVec3):TVec3;
 var
   t:single;
 begin
-  result.x:=v.x*self[0,0]+v.y*self[1,0]+v.z*self[2,0]+self[3,0];
-  result.y:=v.x*self[0,1]+v.y*self[1,1]+v.z*self[2,1]+self[3,1];
-  result.z:=v.x*self[0,2]+v.y*self[1,2]+v.z*self[2,2]+self[3,2];
-  t:=v.x*self[0,3]+v.y*self[1,3]+v.z*self[2,3]+self[3,3];
+  result.x:=v.x*self.v[0,0]+v.y*self.v[1,0]+v.z*self.v[2,0]+self.v[3,0];
+  result.y:=v.x*self.v[0,1]+v.y*self.v[1,1]+v.z*self.v[2,1]+self.v[3,1];
+  result.z:=v.x*self.v[0,2]+v.y*self.v[1,2]+v.z*self.v[2,2]+self.v[3,2];
+  t:=v.x*self.v[0,3]+v.y*self.v[1,3]+v.z*self.v[2,3]+self.v[3,3];
   if (t<>1) and (t>0) then begin
     result.x:=result.x/t;
     result.y:=result.y/t;
@@ -1206,9 +1206,9 @@ var
   x,y,z:single;
 begin
   for i:=1 to num do begin
-    x:=v^.x*self[0,0]+v^.y*self[1,0]+v^.z*self[2,0];
-    y:=v^.x*self[0,1]+v^.y*self[1,1]+v^.z*self[2,1];
-    z:=v^.x*self[0,2]+v^.y*self[1,2]+v^.z*self[2,2];
+    x:=v^.x*self.v[0,0]+v^.y*self.v[1,0]+v^.z*self.v[2,0];
+    y:=v^.x*self.v[0,1]+v^.y*self.v[1,1]+v^.z*self.v[2,1];
+    z:=v^.x*self.v[0,2]+v^.y*self.v[1,2]+v^.z*self.v[2,2];
     v^.x:=x;
     v^.y:=y;
     v^.z:=z;
@@ -1222,9 +1222,9 @@ var
   x,y,z:single;
 begin
   for i:=1 to num do begin
-    x:=v^.x*self[0,0]+v^.y*self[1,0]+v^.z*self[2,0]+self[3,0];
-    y:=v^.x*self[0,1]+v^.y*self[1,1]+v^.z*self[2,1]+self[3,1];
-    z:=v^.x*self[0,2]+v^.y*self[1,2]+v^.z*self[2,2]+self[3,2];
+    x:=v^.x*self.v[0,0]+v^.y*self.v[1,0]+v^.z*self.v[2,0]+self.v[3,0];
+    y:=v^.x*self.v[0,1]+v^.y*self.v[1,1]+v^.z*self.v[2,1]+self.v[3,1];
+    z:=v^.x*self.v[0,2]+v^.y*self.v[1,2]+v^.z*self.v[2,2]+self.v[3,2];
     v^.x:=x;
     v^.y:=y;
     v^.z:=z;
@@ -1322,15 +1322,15 @@ end;
 
 class operator TMat3d.Multiply(const a,b:TMat3d):TMat3d;
 begin
-  result[0,0]:=a[0,0]*b[0,0] + a[0,1]*b[1,0] + a[0,2]*b[2,0];
-  result[0,1]:=a[0,0]*b[0,1] + a[0,1]*b[1,1] + a[0,2]*b[2,1];
-  result[0,2]:=a[0,0]*b[0,2] + a[0,1]*b[1,2] + a[0,2]*b[2,2];
-  result[1,0]:=a[1,0]*b[0,0] + a[1,1]*b[1,0] + a[1,2]*b[2,0];
-  result[1,1]:=a[1,0]*b[0,1] + a[1,1]*b[1,1] + a[1,2]*b[2,1];
-  result[1,2]:=a[1,0]*b[0,2] + a[1,1]*b[1,2] + a[1,2]*b[2,2];
-  result[2,0]:=a[2,0]*b[0,0] + a[2,1]*b[1,0] + a[2,2]*b[2,0];
-  result[2,1]:=a[2,0]*b[0,1] + a[2,1]*b[1,1] + a[2,2]*b[2,1];
-  result[2,2]:=a[2,0]*b[0,2] + a[2,1]*b[1,2] + a[2,2]*b[2,2];
+  result.v[0,0]:=a.v[0,0]*b.v[0,0] + a.v[0,1]*b.v[1,0] + a.v[0,2]*b.v[2,0];
+  result.v[0,1]:=a.v[0,0]*b.v[0,1] + a.v[0,1]*b.v[1,1] + a.v[0,2]*b.v[2,1];
+  result.v[0,2]:=a.v[0,0]*b.v[0,2] + a.v[0,1]*b.v[1,2] + a.v[0,2]*b.v[2,2];
+  result.v[1,0]:=a.v[1,0]*b.v[0,0] + a.v[1,1]*b.v[1,0] + a.v[1,2]*b.v[2,0];
+  result.v[1,1]:=a.v[1,0]*b.v[0,1] + a.v[1,1]*b.v[1,1] + a.v[1,2]*b.v[2,1];
+  result.v[1,2]:=a.v[1,0]*b.v[0,2] + a.v[1,1]*b.v[1,2] + a.v[1,2]*b.v[2,2];
+  result.v[2,0]:=a.v[2,0]*b.v[0,0] + a.v[2,1]*b.v[1,0] + a.v[2,2]*b.v[2,0];
+  result.v[2,1]:=a.v[2,0]*b.v[0,1] + a.v[2,1]*b.v[1,1] + a.v[2,2]*b.v[2,1];
+  result.v[2,2]:=a.v[2,0]*b.v[0,2] + a.v[2,1]*b.v[1,2] + a.v[2,2]*b.v[2,2];
 end;
 
 procedure TMat3d.Transpose;
@@ -1363,15 +1363,15 @@ end;
 
 class operator TMat3.Multiply(const a,b:TMat3):TMat3;
 begin
-  result[0,0]:=a[0,0]*b[0,0] + a[0,1]*b[1,0] + a[0,2]*b[2,0];
-  result[0,1]:=a[0,0]*b[0,1] + a[0,1]*b[1,1] + a[0,2]*b[2,1];
-  result[0,2]:=a[0,0]*b[0,2] + a[0,1]*b[1,2] + a[0,2]*b[2,2];
-  result[1,0]:=a[1,0]*b[0,0] + a[1,1]*b[1,0] + a[1,2]*b[2,0];
-  result[1,1]:=a[1,0]*b[0,1] + a[1,1]*b[1,1] + a[1,2]*b[2,1];
-  result[1,2]:=a[1,0]*b[0,2] + a[1,1]*b[1,2] + a[1,2]*b[2,2];
-  result[2,0]:=a[2,0]*b[0,0] + a[2,1]*b[1,0] + a[2,2]*b[2,0];
-  result[2,1]:=a[2,0]*b[0,1] + a[2,1]*b[1,1] + a[2,2]*b[2,1];
-  result[2,2]:=a[2,0]*b[0,2] + a[2,1]*b[1,2] + a[2,2]*b[2,2];
+  result.v[0,0]:=a.v[0,0]*b.v[0,0] + a.v[0,1]*b.v[1,0] + a.v[0,2]*b.v[2,0];
+  result.v[0,1]:=a.v[0,0]*b.v[0,1] + a.v[0,1]*b.v[1,1] + a.v[0,2]*b.v[2,1];
+  result.v[0,2]:=a.v[0,0]*b.v[0,2] + a.v[0,1]*b.v[1,2] + a.v[0,2]*b.v[2,2];
+  result.v[1,0]:=a.v[1,0]*b.v[0,0] + a.v[1,1]*b.v[1,0] + a.v[1,2]*b.v[2,0];
+  result.v[1,1]:=a.v[1,0]*b.v[0,1] + a.v[1,1]*b.v[1,1] + a.v[1,2]*b.v[2,1];
+  result.v[1,2]:=a.v[1,0]*b.v[0,2] + a.v[1,1]*b.v[1,2] + a.v[1,2]*b.v[2,2];
+  result.v[2,0]:=a.v[2,0]*b.v[0,0] + a.v[2,1]*b.v[1,0] + a.v[2,2]*b.v[2,0];
+  result.v[2,1]:=a.v[2,0]*b.v[0,1] + a.v[2,1]*b.v[1,1] + a.v[2,2]*b.v[2,1];
+  result.v[2,2]:=a.v[2,0]*b.v[0,2] + a.v[2,1]*b.v[1,2] + a.v[2,2]*b.v[2,2];
 end;
 
 procedure TMat3.Transpose;
@@ -1404,18 +1404,18 @@ end;
 
 class operator TMat34d.Multiply(const a,b:TMat34d):TMat34d;
 begin
-  result[0,0]:=a[0,0]*b[0,0] + a[0,1]*b[1,0] + a[0,2]*b[2,0];
-  result[0,1]:=a[0,0]*b[0,1] + a[0,1]*b[1,1] + a[0,2]*b[2,1];
-  result[0,2]:=a[0,0]*b[0,2] + a[0,1]*b[1,2] + a[0,2]*b[2,2];
-  result[1,0]:=a[1,0]*b[0,0] + a[1,1]*b[1,0] + a[1,2]*b[2,0];
-  result[1,1]:=a[1,0]*b[0,1] + a[1,1]*b[1,1] + a[1,2]*b[2,1];
-  result[1,2]:=a[1,0]*b[0,2] + a[1,1]*b[1,2] + a[1,2]*b[2,2];
-  result[2,0]:=a[2,0]*b[0,0] + a[2,1]*b[1,0] + a[2,2]*b[2,0];
-  result[2,1]:=a[2,0]*b[0,1] + a[2,1]*b[1,1] + a[2,2]*b[2,1];
-  result[2,2]:=a[2,0]*b[0,2] + a[2,1]*b[1,2] + a[2,2]*b[2,2];
-  result[3,0]:=a[3,0]*b[0,0] + a[3,1]*b[1,0] + a[3,2]*b[2,0] + b[3,0];
-  result[3,1]:=a[3,0]*b[0,1] + a[3,1]*b[1,1] + a[3,2]*b[2,1] + b[3,1];
-  result[3,2]:=a[3,0]*b[0,2] + a[3,1]*b[1,2] + a[3,2]*b[2,2] + b[3,2];
+  result.v[0,0]:=a.v[0,0]*b.v[0,0] + a.v[0,1]*b.v[1,0] + a.v[0,2]*b.v[2,0];
+  result.v[0,1]:=a.v[0,0]*b.v[0,1] + a.v[0,1]*b.v[1,1] + a.v[0,2]*b.v[2,1];
+  result.v[0,2]:=a.v[0,0]*b.v[0,2] + a.v[0,1]*b.v[1,2] + a.v[0,2]*b.v[2,2];
+  result.v[1,0]:=a.v[1,0]*b.v[0,0] + a.v[1,1]*b.v[1,0] + a.v[1,2]*b.v[2,0];
+  result.v[1,1]:=a.v[1,0]*b.v[0,1] + a.v[1,1]*b.v[1,1] + a.v[1,2]*b.v[2,1];
+  result.v[1,2]:=a.v[1,0]*b.v[0,2] + a.v[1,1]*b.v[1,2] + a.v[1,2]*b.v[2,2];
+  result.v[2,0]:=a.v[2,0]*b.v[0,0] + a.v[2,1]*b.v[1,0] + a.v[2,2]*b.v[2,0];
+  result.v[2,1]:=a.v[2,0]*b.v[0,1] + a.v[2,1]*b.v[1,1] + a.v[2,2]*b.v[2,1];
+  result.v[2,2]:=a.v[2,0]*b.v[0,2] + a.v[2,1]*b.v[1,2] + a.v[2,2]*b.v[2,2];
+  result.v[3,0]:=a.v[3,0]*b.v[0,0] + a.v[3,1]*b.v[1,0] + a.v[3,2]*b.v[2,0] + b.v[3,0];
+  result.v[3,1]:=a.v[3,0]*b.v[0,1] + a.v[3,1]*b.v[1,1] + a.v[3,2]*b.v[2,1] + b.v[3,1];
+  result.v[3,2]:=a.v[3,0]*b.v[0,2] + a.v[3,1]*b.v[1,2] + a.v[3,2]*b.v[2,2] + b.v[3,2];
 end;
 
 procedure TMat34d.Transpose;
@@ -1455,18 +1455,18 @@ end;
 
 class operator TMat34.Multiply(const a,b:TMat34):TMat34;
 begin
-  result[0,0]:=a[0,0]*b[0,0] + a[0,1]*b[1,0] + a[0,2]*b[2,0];
-  result[0,1]:=a[0,0]*b[0,1] + a[0,1]*b[1,1] + a[0,2]*b[2,1];
-  result[0,2]:=a[0,0]*b[0,2] + a[0,1]*b[1,2] + a[0,2]*b[2,2];
-  result[1,0]:=a[1,0]*b[0,0] + a[1,1]*b[1,0] + a[1,2]*b[2,0];
-  result[1,1]:=a[1,0]*b[0,1] + a[1,1]*b[1,1] + a[1,2]*b[2,1];
-  result[1,2]:=a[1,0]*b[0,2] + a[1,1]*b[1,2] + a[1,2]*b[2,2];
-  result[2,0]:=a[2,0]*b[0,0] + a[2,1]*b[1,0] + a[2,2]*b[2,0];
-  result[2,1]:=a[2,0]*b[0,1] + a[2,1]*b[1,1] + a[2,2]*b[2,1];
-  result[2,2]:=a[2,0]*b[0,2] + a[2,1]*b[1,2] + a[2,2]*b[2,2];
-  result[3,0]:=a[3,0]*b[0,0] + a[3,1]*b[1,0] + a[3,2]*b[2,0] + b[3,0];
-  result[3,1]:=a[3,0]*b[0,1] + a[3,1]*b[1,1] + a[3,2]*b[2,1] + b[3,1];
-  result[3,2]:=a[3,0]*b[0,2] + a[3,1]*b[1,2] + a[3,2]*b[2,2] + b[3,2];
+  result.v[0,0]:=a.v[0,0]*b.v[0,0] + a.v[0,1]*b.v[1,0] + a.v[0,2]*b.v[2,0];
+  result.v[0,1]:=a.v[0,0]*b.v[0,1] + a.v[0,1]*b.v[1,1] + a.v[0,2]*b.v[2,1];
+  result.v[0,2]:=a.v[0,0]*b.v[0,2] + a.v[0,1]*b.v[1,2] + a.v[0,2]*b.v[2,2];
+  result.v[1,0]:=a.v[1,0]*b.v[0,0] + a.v[1,1]*b.v[1,0] + a.v[1,2]*b.v[2,0];
+  result.v[1,1]:=a.v[1,0]*b.v[0,1] + a.v[1,1]*b.v[1,1] + a.v[1,2]*b.v[2,1];
+  result.v[1,2]:=a.v[1,0]*b.v[0,2] + a.v[1,1]*b.v[1,2] + a.v[1,2]*b.v[2,2];
+  result.v[2,0]:=a.v[2,0]*b.v[0,0] + a.v[2,1]*b.v[1,0] + a.v[2,2]*b.v[2,0];
+  result.v[2,1]:=a.v[2,0]*b.v[0,1] + a.v[2,1]*b.v[1,1] + a.v[2,2]*b.v[2,1];
+  result.v[2,2]:=a.v[2,0]*b.v[0,2] + a.v[2,1]*b.v[1,2] + a.v[2,2]*b.v[2,2];
+  result.v[3,0]:=a.v[3,0]*b.v[0,0] + a.v[3,1]*b.v[1,0] + a.v[3,2]*b.v[2,0] + b.v[3,0];
+  result.v[3,1]:=a.v[3,0]*b.v[0,1] + a.v[3,1]*b.v[1,1] + a.v[3,2]*b.v[2,1] + b.v[3,1];
+  result.v[3,2]:=a.v[3,0]*b.v[0,2] + a.v[3,1]*b.v[1,2] + a.v[3,2]*b.v[2,2] + b.v[3,2];
 end;
 
 procedure TMat34.Transpose;
@@ -1533,7 +1533,7 @@ var
 begin
   for i:=0 to 3 do
    for j:=0 to 3 do
-    result[i,j]:=a[i,0]*b[0,j]+a[i,1]*b[1,j]+a[i,2]*b[2,j]+a[i,3]*b[3,j];
+    result.v[i,j]:=a.v[i,0]*b.v[0,j]+a.v[i,1]*b.v[1,j]+a.v[i,2]*b.v[2,j]+a.v[i,3]*b.v[3,j];
 end;
 
 procedure TMat4d.Transpose;
@@ -1566,41 +1566,41 @@ var
   var
    i:integer;
  begin
-  for i:=0 to 3 do begin
-   mat[target,i]:=mat[target,i]+factor*mat[src,i];
-   result[target,i]:=result[target,i]+factor*result[src,i];
-  end;
+   for i:=0 to 3 do begin
+    mat.v[target,i]:=mat.v[target,i]+factor*mat.v[src,i];
+    result.v[target,i]:=result.v[target,i]+factor*result.v[src,i];
+   end;
  end;
  procedure MultRow(row:integer;factor:double);
   var
    i:integer;
  begin
-  for i:=0 to 3 do begin
-   mat[row,i]:=mat[row,i]*factor;
-   result[row,i]:=result[row,i]*factor;
-  end;
+   for i:=0 to 3 do begin
+    mat.v[row,i]:=mat.v[row,i]*factor;
+    result.v[row,i]:=result.v[row,i]*factor;
+   end;
  end;
 begin
   mat:=self;
   result:=IdentMat4d;
   for i:=0 to 3 do begin
-   v:=mat[i,i];
+   v:=mat.v[i,i];
    if abs(v)<EpsilonS then begin
     for k:=i+1 to 3 do
-     if abs(mat[k,i])>EpsilonS then begin
+     if abs(mat.v[k,i])>EpsilonS then begin
       AddRow(k,i,1);
       break;
      end;
-    v:=mat[i,i];
+    v:=mat.v[i,i];
     if v=0 then raise Exception.Create('Cannot invert matrix!');
    end;
    MultRow(i,1/v);
    for k:=i+1 to 3 do
-    AddRow(i,k,-mat[k,i]);
+    AddRow(i,k,-mat.v[k,i]);
   end;
   for i:=3 downto 1 do
    for k:=i-1 downto 0 do
-    AddRow(i,k,-mat[k,i]);
+    AddRow(i,k,-mat.v[k,i]);
 end;
 
 function TMat4.GetItem(i,j:integer):single;
@@ -1681,7 +1681,7 @@ var
 begin
   for i:=0 to 3 do begin
    for j:=0 to 3 do begin
-    target[i,j]:=m1[i,0]*m2[0,j]+m1[i,1]*m2[1,j]+m1[i,2]*m2[2,j]+m1[i,3]*m2[3,j];
+    target.v[i,j]:=m1.v[i,0]*m2.v[0,j]+m1.v[i,1]*m2.v[1,j]+m1.v[i,2]*m2.v[2,j]+m1.v[i,3]*m2.v[3,j];
    end;
   end;
 end;
@@ -1696,7 +1696,7 @@ begin
  {$ELSE}
   for i:=0 to 3 do begin
    for j:=0 to 3 do begin
-    result[i,j]:=a[i,0]*b[0,j]+a[i,1]*b[1,j]+a[i,2]*b[2,j]+a[i,3]*b[3,j];
+    result.v[i,j]:=a.v[i,0]*b.v[0,j]+a.v[i,1]*b.v[1,j]+a.v[i,2]*b.v[2,j]+a.v[i,3]*b.v[3,j];
    end;
   end;
  {$ENDIF}
