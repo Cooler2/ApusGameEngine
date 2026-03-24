@@ -849,7 +849,9 @@ var
  w,h:integer;
  oldDisplayRect:TRect;
  oldRW,oldRH:integer;
+ gfxWasReady:boolean;
 begin
+ gfxWasReady:=(gfx<>nil) and (gfx.target<>nil);
  if (windowWidth<=0) or (windowHeight<=0) then begin
   GetSize(windowWidth,windowHeight);
   if windowWidth<=0 then windowWidth:=params.width;
@@ -893,9 +895,10 @@ begin
  renderWidth:=params.width;
  renderHeight:=params.height;
 
- // nothing changed?
+ // nothing changed? skip only if gfx was already set up (avoids skipping the first proper
+ // viewport setup when displayRect was pre-initialized to prevent ClientToGame div-by-zero).
  if (displayRect=oldDisplayRect) and
-    (renderWidth=oldRW) and (renderHeight=oldRH) then exit;
+    (renderWidth=oldRW) and (renderHeight=oldRH) and gfxWasReady then exit;
 
  Log.Msg(Format('Set render area: (%d x %d) (%d,%d) -> (%d,%d)',
    [renderWidth,renderHeight,displayRect.Left,displayRect.Top,displayRect.Right,displayRect.Bottom]));

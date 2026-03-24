@@ -1011,6 +1011,12 @@ procedure TWinGLWindow.Configure(params:TGameSettings);
    Log.Msg('WindowRect: %d:%d',[r.Right-r.Left,r.Bottom-r.top]);
    GetClientRect(window,r);
    Log.Msg('ClientRect: %d:%d',[r.Right-r.Left,r.Bottom-r.top]);
+   // Eagerly initialize displayRect so ClientToGame is safe before SetupRenderArea runs.
+   if (displayRect.Width=0) or (displayRect.Height=0) then begin
+    windowWidth:=r.Width; windowHeight:=r.Height;
+    displayRect:=r;
+    renderWidth:=r.Width; renderHeight:=r.Height;
+   end;
    Signal('ENGINE\RESIZE',r.Width+r.height shl 16);
  end;
 
