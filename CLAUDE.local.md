@@ -11,10 +11,10 @@
    - заменяем `styleClass:byte` + `styleInfo:String8` на полноценную style-систему
    - убираем `font/color` из TUIElement (переходят в style)
    - вводим Drawer, Style, ResolvedStyle, state-модель, cascade, transitions
-   - подробности: `reports/R-05_notes.md`
+   - подробности: `Work/reports/R-05_notes.md`
 
 ## Принятые решения по R-05
-Все в `reports/R-05_notes.md`. Ключевые:
+Все в `Work/reports/R-05_notes.md`. Ключевые:
 - `styleInfo` → переименовывается в `style`
 - `styleClass` → заменяется на ссылку на Drawer-объект (class-based, не экземпляр)
 - Drawer fallback по предкам → default style если нигде не задан

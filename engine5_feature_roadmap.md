@@ -31,7 +31,7 @@ This file follows top-down planning:
 | R-12 | Graphics: Text + Streaming Buffers | planned | ~5% | Detailed design complete (API contract, invalidation/LRU strategy) | Ring-buffer implementation, persistent text cache, profiling |
 | R-14 | UI Widget Expansion | idea | 0% | — | New widget types, module split strategy |
 | R-15 | Demo Suite Restructuring | in-progress | ~25% | Planning baseline documented; standalone demos (`InputDemo`, `Draw2D`, `TextDemo`) are created and integrated into demo build flow | Continue tier restructuring, merge/move remaining demos, distribute EngineTest cases |
-| R-16 | Console Modernization | planned | 0% | Plan: [reports/R-16_console_modernization.md](reports/R-16_console_modernization.md) | Remove Console.pas, own log buffer in ConsoleScene, UX improvements (filter, timestamps, clear, clipboard) |
+| R-16 | Console Modernization | planned | 0% | Plan: [Work/reports/R-16_console_modernization.md](Work/reports/R-16_console_modernization.md) | Remove Console.pas, own log buffer in ConsoleScene, UX improvements (filter, timestamps, clear, clipboard) |
 
 ## 2) Strategic Directions
 
@@ -46,7 +46,7 @@ Goal: improve quality of migrated engine code after the first compile-rescue wav
 - [ ] A1. Refine engine modules to use the new foundation API more idiomatically
 - [ ] A2. Remove temporary migration leftovers and compatibility-style code
 - [ ] A3. Simplify and reduce engine-module dependencies
-- [ ] A4. R-16: Console modernization — remove Console.pas, ConsoleScene owns its buffer, UX polish ([plan](reports/R-16_console_modernization.md))
+- [ ] A4. R-16: Console modernization — remove Console.pas, ConsoleScene owns its buffer, UX polish ([plan](Work/reports/R-16_console_modernization.md))
 
 ### B. Targeted Base Refactoring
 Goal: continue selective Base improvements where they unlock cleaner engine code or remove remaining migration friction.
@@ -189,7 +189,7 @@ Use this section for anything remembered on the fly.
   - [ ] Window placement and fullscreen behavior work on multiple monitors.
   - [ ] Runtime DPI change triggers correct viewport/UI scaling without restart.
 - Notes: hot DPI-awareness must be validated with monitor move and OS scale-change scenarios.
-  - 2026-03-08: architecture draft and decisions v1 are documented in `reports/R-02_multiwindow_plan.md`.
+  - 2026-03-08: architecture draft and decisions v1 are documented in `Work/reports/R-02_multiwindow_plan.md`.
   - 2026-03-08: phase-1 implementation started (Windows path): `TWindow` abstraction extracted, API naming normalized, OpenGL context flow moved out of `Engine.API` into `Engine.OpenGL`.
   - 2026-03-09: implementation sequence updated to target-first (no temporary single-thread multi-window stage): next architectural step is `TWindowRuntime` as `window+thread` pair while keeping `TGame -> windows[]:TWindow` / `mainWindow` as the primary public model.
   - 2026-03-09: phase-1 foundation closed:
@@ -257,7 +257,7 @@ Use this section for anything remembered on the fly.
   - [ ] Ultra-compact encoding mode is documented and loadable by engine.
   - [ ] Blender plugin exports valid AEM consumed by Engine5 without manual conversion.
 - Notes: define AEM versioning strategy early to avoid exporter/runtime mismatch.
-  - 2026-03-12: R-03 planning document created: `reports/R-03_aem_pipeline_notes.md`.
+  - 2026-03-12: R-03 planning document created: `Work/reports/R-03_aem_pipeline_notes.md`.
   - 2026-03-12: pipeline direction fixed - only two engine loaders (`OBJ` baseline + `AEM` native); FBX/DAE converter removed from R-03 scope; Blender direct exporter is the target content path.
 
 ### [R-04] Robot Interaction Layer (MCP or File-Based Bridge)
@@ -299,7 +299,7 @@ Use this section for anything remembered on the fly.
   - [ ] Resolver performance is profiled; caching added if needed.
   - [ ] Visual regression tests via Robot API `pixel` command cover baseline widget colors.
 - Notes:
-  - 2026-03-12: design and scope decisions consolidated in `reports/R-05_notes.md`.
+  - 2026-03-12: design and scope decisions consolidated in `Work/reports/R-05_notes.md`.
   - 2026-03-23: Phase 1+2 done — `TStyleBlock`, resolver, @refs, state blocks, patch; draw procedure migration; `StyleDemo` with 6 interactive examples.
   - 2026-03-24: Phase 3 done — transitions via `TTweening` (hover/pressed/disabled); `DrawCommonStyle`/`DrawUIScrollbar` migrated.
   - 2026-03-24: `font`/`color` fields removed from `TUIElement`; rendering via `StyleFont()`/`GetStyleColor()`.
@@ -345,10 +345,10 @@ Use this section for anything remembered on the fly.
   - [x] New/updated tests are added for discovered bugs during support work.
   - [ ] Remaining not-yet-migrated modules (including SDL-related paths) are migrated to the current foundation APIs.
 - Notes:
-  - Detailed plan: `reports/R-07_geometry_library_plan.md`
+  - Detailed plan: `Work/reports/R-07_geometry_library_plan.md`
   - TVec3 = 12B (storage-compatible), TVec4 = 16B (SSE computation) — DirectXMath model.
   - Keep API ergonomic for both gameplay queries and render-side visibility checks.
-  - 2026-03-11: implementation plan finalized in `reports/R-07_geometry_library_plan.md` (stages, type-size constraints, methods-first API, `Apus.Spatial` extraction).
+  - 2026-03-11: implementation plan finalized in `Work/reports/R-07_geometry_library_plan.md` (stages, type-size constraints, methods-first API, `Apus.Spatial` extraction).
   - 2026-03-13: R-07 reached working state and was merged into `engine5`.
   - 2026-03-13: post-merge track defined:
     - Linux behavior fixes and verification;
@@ -430,8 +430,8 @@ Use this section for anything remembered on the fly.
   - [x] Widget class review is completed, with concrete reorganization actions implemented (or explicitly deferred with rationale).
   - [x] Follow-up backlog for widget/layout expansion and test coverage is created and prioritized.
 - Notes:
-  - 2026-03-08: implementation stages and execution plan documented in `reports/R-10_ui_widget_refactor_plan.md`.
-  - 2026-03-08: decomposition research report documented in `reports/R-10_tuielement_decomposition_report_2026-03-08.md`.
+  - 2026-03-08: implementation stages and execution plan documented in `Work/reports/R-10_ui_widget_refactor_plan.md`.
+  - 2026-03-08: decomposition research report documented in `Work/reports/R-10_tuielement_decomposition_report_2026-03-08.md`.
   - 2026-03-10: styling/drawer direction agreed (kept out of R-02 scope, tracked under R-10):
     - replace per-element draw procedure idea with drawer object contract (`draw + style apply/parse`);
     - drawer resolution is inherited: current element -> parents -> root -> fallback to `DefaultDrawer`;
@@ -463,12 +463,12 @@ Use this section for anything remembered on the fly.
     - `TUIShape` unified: `TElementShape` enum + `shapeRegion` field replaced by single `TUIShape` type;
     - `TUIFlexControl` removed (dead class, no descendants);
     - `onClick` threading hack replaced with explicit `onClick:TProcedure` (main thread) + `onClickAsync:TProcedure` (any thread);
-    - `TUIToggleButton` extracted: toggle/switch/radio logic moved out of `TUIButton`; `TButtonStyle` enum and `group` field removed from `TUIButton`; `TUICheckBox`/`TUIRadioButton` now inherit from `TUIToggleButton`; plan in `reports/R-10b_switch_button_plan.md`;
+    - `TUIToggleButton` extracted: toggle/switch/radio logic moved out of `TUIButton`; `TButtonStyle` enum and `group` field removed from `TUIButton`; `TUICheckBox`/`TUIRadioButton` now inherit from `TUIToggleButton`; plan in `Work/reports/R-10b_switch_button_plan.md`;
     - `TUISkinnedWindow` merged into `TUIWindow` (was empty subclass distinction);
     - `TScrollBar` orientation made explicit via constructor parameter (was implicit from size);
     - widget constructors standardized, UI constants renamed, dead code removed;
     - widget interface comments fully translated to English;
-    - `BeginChildren`/`EndChildren` pattern analyzed and documented in `reports/ui_building_patterns.md` (thread-local parent stack; zero-variable UI tree construction); implementation deferred.
+    - `BeginChildren`/`EndChildren` pattern analyzed and documented in `Work/reports/ui_building_patterns.md` (thread-local parent stack; zero-variable UI tree construction); implementation deferred.
   - Acceptance criteria status (2026-03-20):
     - follow-up backlog captured in R-14 card (added 2026-03-20) ✓
     - widget class review: substantially complete; open items deferred to R-05 (ListBox colors) or low-priority (`noBorder`).

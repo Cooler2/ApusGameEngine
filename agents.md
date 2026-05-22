@@ -218,5 +218,5 @@ BSD-3 - see `license.txt`
 - Result policy: after test run, read result logs from `base/tests/test_results_64.txt` and `base/tests/test_results_32.txt` (or benchmark logs for benches).
 - Base Library docs policy: treat `base/engine5_changes.md` and `base/engine5_status.md` as mandatory reference docs.
 - Base library docs update rule: when interfaces or APIs are changed, update `base/engine5_changes.md` and `base/engine5_status.md` in the same task (or explicitly note why no update is required).
-- Use and maintain Engine5 work ahead log in `engine_work_ahead.md`
+- Use and maintain Engine5 work ahead log in `Work/engine_work_ahead.md`
 - Code quality escalation rule: if a change introduces or reveals sloppy/duplicated local code, stop and design a reusable solution first. Prefer extending base types (including operators/methods), or adding shared helpers in Base modules, instead of one-off local workarounds.
