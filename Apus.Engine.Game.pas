@@ -1250,8 +1250,7 @@ begin
    p.y:=tag shr 16;
    ClientToGame(p);
    window.mousePos:=p;
-   Signal('Mouse\Move',Bits.PackW(window.mousePos.x,window.mousePos.y));
-   window.FlushMouseInput;
+   window.FlushMouseInput; // emits MOUSE\MOVE if position changed
    Signal('Mouse\BtnDown\Left',1);
    window.NotifyScenesMouseBtn(1,true);
    CoreTime.Sleep(0);
@@ -1263,7 +1262,6 @@ begin
    p.y:=tag shr 16;
    ClientToGame(p);
    window.mousePos:=p;
-   Signal('Mouse\Move',Bits.PackW(window.mousePos.x,window.mousePos.y));
    window.FlushMouseInput;
    Timing;
  end else
@@ -1272,7 +1270,6 @@ begin
    Signal('Mouse\BtnUp\Left',1);
    window.NotifyScenesMouseBtn(1,false);
    window.mousePos:=Types.Point(4095,4095);
-   Signal('Mouse\Move',Bits.PackW(window.mousePos.x,window.mousePos.y));
    window.FlushMouseInput;
    Timing;
  end else
@@ -1302,7 +1299,6 @@ end;
 // Обработка событий, являющихся командами движку
 procedure TGame.onCmdEvent(event:String8;tag:NativeInt);
 var
- pnt:TPoint;
  rawEvent:String8;
  arg:String8;
 begin
@@ -1327,10 +1323,7 @@ begin
  end else
   // Update mouse position when it is obsolete
  if rawEvent.Same('UPDATEMOUSEPOS') then begin
-   pnt:=systemPlatform.GetMousePos;
-   ClientToGame(pnt);
-   window.mousePos:=pnt;
-   Signal('MOUSE\MOVE',Bits.PackW(pnt.X,pnt.Y));
+   window.SamplePointer; // poll OS, set window.mousePos in game coords
    window.FlushMouseInput;
   end
   else
@@ -1777,6 +1770,7 @@ procedure TGame.FrameLoop;
   EndMeasure2(14);
 
   if useMainThread and CurrentThread.Terminating then exit;
+  window.SamplePointer; // poll cursor once per frame (frame-synced mouse input)
   window.FlushMouseInput; // aggregate mouse move, notify scenes once per frame
   RenderAndPresentFrame;
 

@@ -28,6 +28,7 @@ type
    function IsTerminated:boolean; override;
    procedure ScreenToClient(var p:TPoint); override;
    procedure ClientToScreen(var p:TPoint); override;
+   procedure SamplePointer; override;
     // Graphics lifecycle (implemented via WGL)
   procedure InitGraph; override;
   procedure InitGraphShared(primary:TWindow;mainContextReleased:boolean=false); override;
@@ -162,7 +163,6 @@ var
  i,charCode,scanCode,keyCode:integer;
  isExtended:boolean;
  vkCode:cardinal;
- pnt:TPoint;
 begin
  try
  result:=0;
@@ -183,23 +183,9 @@ begin
   WM_POINTERUPDATE,WM_POINTERENTER,WM_POINTERLEAVE:ProcessPointerMessage(Message,WParam,LParam);
   {$ENDIF}
 
-  WM_MOUSEMOVE:begin
-   // Update window position directly, emit raw signal for external subscribers
-   if Apus.Engine.API.window<>nil then begin
-    pnt.x:=SmallInt(lParam);
-    pnt.y:=SmallInt(lParam shr 16);
-    Apus.Engine.API.window.ClientToGame(pnt);
-    Apus.Engine.API.window.mousePos:=pnt;
-    Signal('MOUSE\MOVE',Bits.PackW(word(pnt.x),word(pnt.y)));
-   end;
-  end;
-
-  WM_MOUSELEAVE:begin
-   if Apus.Engine.API.window<>nil then begin
-    Apus.Engine.API.window.mousePos:=Types.Point($3FFF,$3FFF);
-    Signal('MOUSE\MOVE',$3FFF3FFF);
-   end;
-  end;
+  // WM_MOUSEMOVE / WM_MOUSELEAVE intentionally not handled here:
+  // mouse position is sampled once per frame via TWindow.SamplePointer,
+  // which avoids OS-rate event flood on high-polling-rate mice.
 
   WM_UNICHAR:begin
 //   Log.Msg('WM_UNICHAR wParam=%d lParam=%d',[wParam,lParam]);
@@ -263,7 +249,10 @@ begin
     if message=wm_RButtonDown then i:=2 else
     if message=wm_MButtonDown then i:=3;
     Signal('MOUSE\BTNDOWN',i); // for external subscribers
-    if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseBtn(i,true);
+    if Apus.Engine.API.window<>nil then begin
+     Apus.Engine.API.window.SamplePointer; // fresh coords for hit-test at click moment
+     Apus.Engine.API.window.NotifyScenesMouseBtn(i,true);
+    end;
   end;
   WM_XBUTTONDOWN:begin
     SetCapture(window);
@@ -272,7 +261,10 @@ begin
     if HiWord(wParam)=XBUTTON2 then i:=5;
     if i>0 then begin
      Signal('MOUSE\BTNDOWN',i);
-     if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseBtn(i,true);
+     if Apus.Engine.API.window<>nil then begin
+      Apus.Engine.API.window.SamplePointer;
+      Apus.Engine.API.window.NotifyScenesMouseBtn(i,true);
+     end;
     end;
     exit(0);
   end;
@@ -284,7 +276,10 @@ begin
     if message=wm_RButtonUp then i:=2 else
     if message=wm_MButtonUp then i:=3;
     Signal('MOUSE\BTNUP',i); // for external subscribers
-    if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseBtn(i,false);
+    if Apus.Engine.API.window<>nil then begin
+     Apus.Engine.API.window.SamplePointer;
+     Apus.Engine.API.window.NotifyScenesMouseBtn(i,false);
+    end;
   end;
   WM_XBUTTONUP:begin
     ReleaseCapture;
@@ -293,14 +288,20 @@ begin
     if HiWord(wParam)=XBUTTON2 then i:=5;
     if i>0 then begin
      Signal('MOUSE\BTNUP',i);
-     if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseBtn(i,false);
+     if Apus.Engine.API.window<>nil then begin
+      Apus.Engine.API.window.SamplePointer;
+      Apus.Engine.API.window.NotifyScenesMouseBtn(i,false);
+     end;
     end;
     exit(0);
   end;
 
   WM_MOUSEWHEEL:begin
    Signal('MOUSE\SCROLL',smallint(wParam shr 16)); // for external subscribers
-   if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseWheel(smallint(wParam shr 16));
+   if Apus.Engine.API.window<>nil then begin
+    Apus.Engine.API.window.SamplePointer;
+    Apus.Engine.API.window.NotifyScenesMouseWheel(smallint(wParam shr 16));
+   end;
   end;
 
   WM_SIZE:if lParam<>0 then Signal('ENGINE\RESIZE',lParam);
@@ -402,6 +403,22 @@ procedure TWinGLWindow.FlashWindow(count: integer);
 procedure TWinGLWindow.ScreenToClient(var p: TPoint);
  begin
   windows.ScreenToClient(window,p);
+ end;
+
+procedure TWinGLWindow.SamplePointer;
+ var
+  pnt:TPoint;
+ begin
+  Windows.GetCursorPos(pnt);
+  Windows.ScreenToClient(self.window,pnt);
+  // pointer outside client area → use off-screen sentinel
+  if (pnt.x<0) or (pnt.y<0) or
+     (pnt.x>=windowWidth) or (pnt.y>=windowHeight) then begin
+   mousePos:=Types.Point($3FFF,$3FFF);
+   exit;
+  end;
+  ClientToGame(pnt);
+  mousePos:=pnt;
  end;
 
 function TWindowsPlatform.GetMousePos: TPoint;

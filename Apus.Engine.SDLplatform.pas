@@ -26,6 +26,7 @@ type
   function IsTerminated:boolean; override;
   procedure ScreenToClient(var p:TPoint); override;
   procedure ClientToScreen(var p:TPoint); override;
+  procedure SamplePointer; override;
   procedure InitGraph; override;
   procedure DoneGraph; override;
   procedure PresentFrame; override;
@@ -143,6 +144,20 @@ procedure TSDLGLWindow.ClientToScreen(var p:TPoint);
 procedure TSDLGLWindow.ScreenToClient(var p:TPoint);
  begin
 
+ end;
+
+procedure TSDLGLWindow.SamplePointer;
+ var
+  pnt:TPoint;
+ begin
+  SDL_GetMouseState(@pnt.x,@pnt.y); // already client-relative to focused window
+  if (pnt.x<0) or (pnt.y<0) or
+     (pnt.x>=windowWidth) or (pnt.y>=windowHeight) then begin
+   mousePos:=Types.Point($3FFF,$3FFF);
+   exit;
+  end;
+  ClientToGame(pnt);
+  mousePos:=pnt;
  end;
 
 procedure TSDLGLWindow.Close;
@@ -543,13 +558,9 @@ procedure TSDLGLWindow.ProcessMessages;
      end;
     end;
 
-    SDL_MOUSEMOTION:begin
-     // update window position directly, emit raw signal for external subscribers
-     if window<>nil then begin
-      window.mousePos:=Types.Point(event.motion.x,event.motion.y);
-      Signal('MOUSE\MOVE',PackWords(event.motion.x,event.motion.y));
-     end;
-    end;
+    // SDL_MOUSEMOTION intentionally not handled here:
+    // mouse position is sampled once per frame via TWindow.SamplePointer,
+    // which avoids OS-rate event flood on high-polling-rate mice.
 
     SDL_MOUSEBUTTONDOWN:begin
      if not game.GetSettings.showSystemCursor then SetCursor(0);
@@ -557,7 +568,10 @@ procedure TSDLGLWindow.ProcessMessages;
      if mBtn in [1..5] then
       mouseState:=mouseState or (1 shl (mbtn-1));
      Signal('MOUSE\BTNDOWN',mbtn); // for external subscribers
-     if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseBtn(mbtn,true);
+     if Apus.Engine.API.window<>nil then begin
+      Apus.Engine.API.window.SamplePointer; // fresh coords for hit-test at click moment
+      Apus.Engine.API.window.NotifyScenesMouseBtn(mbtn,true);
+     end;
     end;
 
     SDL_MOUSEBUTTONUP:begin
@@ -566,12 +580,18 @@ procedure TSDLGLWindow.ProcessMessages;
      if mBtn in [1..5] then
       mouseState:=mouseState and not (1 shl (mbtn-1));
      Signal('MOUSE\BTNUP',mbtn); // for external subscribers
-     if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseBtn(mbtn,false);
+     if Apus.Engine.API.window<>nil then begin
+      Apus.Engine.API.window.SamplePointer;
+      Apus.Engine.API.window.NotifyScenesMouseBtn(mbtn,false);
+     end;
     end;
 
     SDL_MOUSEWHEEL:begin
      Signal('MOUSE\SCROLL',event.wheel.y); // for external subscribers
-     if Apus.Engine.API.window<>nil then Apus.Engine.API.window.NotifyScenesMouseWheel(event.wheel.y);
+     if Apus.Engine.API.window<>nil then begin
+      Apus.Engine.API.window.SamplePointer;
+      Apus.Engine.API.window.NotifyScenesMouseWheel(event.wheel.y);
+     end;
     end;
 
     SDL_KEYDOWN:begin

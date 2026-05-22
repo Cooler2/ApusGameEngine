@@ -156,7 +156,7 @@ public
   procedure NotifyScenesMouseWheel(value:integer);
   procedure NotifyScenesResize;
   // Called once per frame (after ProcessMessages) to update mouse position,
-  // emit MOUSE\MOVED signal and notify scenes. Buttons are handled immediately.
+  // emit MOUSE\MOVE signal and notify scenes. Buttons are handled immediately.
   procedure FlushMouseInput;
   procedure DPIChanged(newDPI:integer);
   function ProcessScenes(deltaTime:integer):boolean;
@@ -177,6 +177,11 @@ public
   function IsTerminated:boolean; virtual; abstract;
   procedure ScreenToClient(var p:TPoint); virtual; abstract;
   procedure ClientToScreen(var p:TPoint); virtual; abstract;
+  // Sample the OS pointer position for this window and update mousePos
+  // in game coordinates. Called once per frame from FrameLoop before
+  // FlushMouseInput. If pointer is outside the client area, mousePos is
+  // set to the off-screen sentinel ($3FFF,$3FFF).
+  procedure SamplePointer; virtual; abstract;
   // Graphics backend lifecycle for this window
   // Create/activate graphics context and initialize backend-facing window surface state.
   procedure InitGraph; virtual; abstract;
@@ -549,7 +554,7 @@ procedure TWindow.FlushMouseInput;
  begin
   if mousePos.Equals(oldMousePos) then exit;
   mouseMovedTime:=CoreTime.Ticks;
-  Signal('MOUSE\MOVED',Bits.PackW(word(mousePos.x),word(mousePos.y)));
+  Signal('MOUSE\MOVE',Bits.PackW(word(mousePos.x),word(mousePos.y)));
   NotifyScenesMouseMove(mousePos.x,mousePos.y);
   screenChanged:=true; // needed if cursor is rendered manually
   oldMousePos:=mousePos;
