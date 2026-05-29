@@ -221,14 +221,8 @@ type
   procedure onLostFocus; virtual;
 
   // --- Search ---
-  function FindElementAt(x,y:integer;out c:TUIElement):boolean; overload;    // true if found element is enabled
-  function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;           // ignores transparency (any visible element)
-  // Clip-threaded traversal shared by both public find methods (R-08).
-  // clip = screen-space rect inside which this element is actually visible;
-  // ignoreDisabled=true switches to "any visible" semantics (FindAnyElementAt);
-  // escapingOnly=true means this whole subtree is out-of-clip — only noParentClip
-  // descendants (which reset the clip) can still produce a hit; self is skipped.
-  function FindElementAt(x,y:integer;const clip:TRect;ignoreDisabled,escapingOnly:boolean;out c:TUIElement):boolean; overload;
+  function FindElementAt(x,y:integer;out c:TUIElement):boolean;    // true if found element is enabled
+  function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean; // ignores transparency (any visible element)
   function FindChildByName(const name:string8):TUIElement;
 
   // --- Queries ---
@@ -760,7 +754,20 @@ destructor TUIElement.Destroy;
  const
   UNCLIPPED_RECT:TRect=(Left:-1000000000;Top:-1000000000;Right:1000000000;Bottom:1000000000);
 
- function TUIElement.FindElementAt(x,y:integer;const clip:TRect;ignoreDisabled,escapingOnly:boolean;out c:TUIElement):boolean;
+ // Clip-threaded hit-test traversal (R-08). Internal helper for the two public
+ // find methods; kept out of the interface because its extra parameters carry
+ // recursion state, not caller intent.
+ // - clip = screen-space rect inside which `elem` is actually visible (the
+ //   accumulated intersection of ancestor clips, reset to UNCLIPPED_RECT at a
+ //   noParentClip boundary, just like DrawUITree's GL clip stack).
+ // - ignoreDisabled = true switches to "any visible element" semantics used by
+ //   FindAnyElementAt (shape/IsOpaque tests no longer let the point fall
+ //   through; disabled elements still claim hits).
+ // - escapingOnly = true means we are walking a subtree that is itself fully
+ //   out-of-clip; self is not a candidate, and only noParentClip descendants
+ //   (which reset the clip) can still produce a hit.
+ function FindElementAtImpl(elem:TUIElement;x,y:integer;const clip:TRect;
+                            ignoreDisabled,escapingOnly:boolean;out c:TUIElement):boolean;
   var
    selfRect,clientRect,childClip,effChildClip:TRect;
    p:TPoint;
@@ -769,23 +776,17 @@ destructor TUIElement.Destroy;
    c2:TUIElement;
    ca:array of TUIElement;
   begin
-   // Mirrors DrawUITree's clip stack: a child is descended into normally when
-   // the point lies inside its effective clip rect (clip ∩ parent client rect,
-   // or the full screen for a noParentClip child). When the point is OUTSIDE
-   // the effective clip, we still descend — but in "escapingOnly" mode — to
-   // catch noParentClip descendants of deeper nesting (a clipping intermediate
-   // would otherwise hide them from hit-test). See R-08_hittest_overlay_notes.
-   result:=flags.enabled and flags.visible;
+   result:=elem.flags.enabled and elem.flags.visible;
    c:=nil;
-   if not flags.visible then exit; // an invisible element hits nothing
+   if not elem.flags.visible then exit; // an invisible element hits nothing
    p:=Point(x,y);
-   selfRect:=GetPosOnScreen; // also refreshes globalRect
+   selfRect:=elem.GetPosOnScreen; // also refreshes elem.globalRect
    // Compute clip passed down to non-escaping children (used only when we
    // ourselves are reachable, i.e. not escapingOnly)
-   if escapingOnly or flags.dontClipChildren then
+   if escapingOnly or elem.flags.dontClipChildren then
     childClip:=clip
    else begin
-    clientRect:=GetClientPosOnScreen;
+    clientRect:=elem.GetClientPosOnScreen;
     childClip.Left  :=Apus.Core.Max(clip.Left  ,clientRect.Left);
     childClip.Top   :=Apus.Core.Max(clip.Top   ,clientRect.Top);
     childClip.Right :=Apus.Core.Min(clip.Right ,clientRect.Right);
@@ -793,10 +794,10 @@ destructor TUIElement.Destroy;
    end;
    // Collect visible children
    cnt:=0;
-   SetLength(ca,length(children));
-   for i:=0 to length(children)-1 do
-    if children[i].flags.visible then begin
-     ca[cnt]:=children[i];
+   SetLength(ca,length(elem.children));
+   for i:=0 to length(elem.children)-1 do
+    if elem.children[i].flags.visible then begin
+     ca[cnt]:=elem.children[i];
      inc(cnt);
     end;
    // Sort topmost first (order descending) — matches the reverse of DrawUITree
@@ -823,7 +824,7 @@ destructor TUIElement.Destroy;
      // not hittable here, but a deeper noParentClip descendant still might be.
      childEscaping:=not effChildClip.Contains(p);
     end;
-    en:=ca[i].FindElementAt(x,y,effChildClip,ignoreDisabled,childEscaping,c2);
+    en:=FindElementAtImpl(ca[i],x,y,effChildClip,ignoreDisabled,childEscaping,c2);
     if c2<>nil then begin
      c:=c2; result:=result and en;
      fl:=true; break;
@@ -832,24 +833,24 @@ destructor TUIElement.Destroy;
    // Self is a candidate only when this subtree is itself reachable (not
    // escapingOnly), the point is inside the incoming clip and inside own rect.
    if not fl and not escapingOnly and clip.Contains(p) and selfRect.Contains(p) then begin
-    if shape=shapeFull then c:=self
-    else if shape=shapeEmpty then begin
-     if ignoreDisabled then c:=self; // FindAnyElementAt: any visible element under point counts
+    if elem.shape=shapeFull then c:=elem
+    else if elem.shape=shapeEmpty then begin
+     if ignoreDisabled then c:=elem; // FindAnyElementAt: any visible element under point counts
     end else
-     if IsOpaque((x-selfRect.Left)/selfRect.Width,(y-selfRect.Top)/selfRect.Height) then c:=self
-     else if ignoreDisabled then c:=self;
+     if elem.IsOpaque((x-selfRect.Left)/selfRect.Width,(y-selfRect.Top)/selfRect.Height) then c:=elem
+     else if ignoreDisabled then c:=elem;
    end;
    if c=nil then result:=false;
   end;
 
  function TUIElement.FindElementAt(x,y:integer; out c:TUIElement):boolean;
   begin
-   result:=FindElementAt(x,y,UNCLIPPED_RECT,false,false,c);
+   result:=FindElementAtImpl(self,x,y,UNCLIPPED_RECT,false,false,c);
   end;
 
  function TUIElement.FindAnyElementAt(x,y:integer; out c:TUIElement):boolean;
   begin
-   result:=FindElementAt(x,y,UNCLIPPED_RECT,true,false,c);
+   result:=FindElementAtImpl(self,x,y,UNCLIPPED_RECT,true,false,c);
   end;
 
  procedure TUIElement.SetName(n:String8);
