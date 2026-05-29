@@ -34,12 +34,20 @@ if "%1"=="" (
 set LOG64=bench_!BENCHNAME!_64.txt
 set LOG32=bench_!BENCHNAME!_32.txt
 
+REM Capture current git revision for result headers (+dirty if uncommitted changes)
+set REV=unknown
+set DIRTY=
+for /f "delims=" %%i in ('git rev-parse --short HEAD 2^>nul') do set REV=%%i
+for /f "delims=" %%i in ('git status --porcelain 2^>nul') do set DIRTY=+dirty
+set REV=!REV!!DIRTY!
+
 REM Delete old results and stale .ppu/.o from Base/ (left by IDE)
 del /q !LOG64! !LOG32! bench_!BENCHNAME!_F64.txt bench_!BENCHNAME!_F32.txt 2>nul
 del /q ..\*.ppu ..\*.o 2>nul
 
 REM === 64-bit ===
 echo Benchmarking !BENCH! (64-bit) - %date% %time% > !LOG64!
+echo Revision: !REV!  Flags: %FLAGS% >> !LOG64!
 echo. >> !LOG64!
 echo === Compiling with -O3 === >> !LOG64!
 if exist out64 rmdir /s /q out64 2>nul
@@ -52,12 +60,13 @@ if errorlevel 1 (
 )
 echo. >> !LOG64!
 echo === Running === >> !LOG64!
-bin64\!BENCH!.exe >> !LOG64! 2>&1
+bin64\!BENCH!.exe !REV! >> !LOG64! 2>&1
 echo Exit code: %errorlevel% >> !LOG64!
 
 :compile32
 REM === 32-bit ===
 echo Benchmarking !BENCH! (32-bit) - %date% %time% > !LOG32!
+echo Revision: !REV!  Flags: %FLAGS% >> !LOG32!
 echo. >> !LOG32!
 echo === Compiling with -O3 === >> !LOG32!
 if exist out32 rmdir /s /q out32 2>nul
@@ -70,7 +79,7 @@ if errorlevel 1 (
 )
 echo. >> !LOG32!
 echo === Running === >> !LOG32!
-bin32\!BENCH!.exe >> !LOG32! 2>&1
+bin32\!BENCH!.exe !REV! >> !LOG32! 2>&1
 echo Exit code: %errorlevel% >> !LOG32!
 
 :done

@@ -6,9 +6,38 @@ var
   testsTotal:integer=0;
   groupFailed:integer;
   groupName:string;
+  // benchmark state (also used by EmitBuildHeader below)
+  benchLog:Text;
+  benchLogOpen:boolean=false;
+  benchTimer:int64;
+  benchIterations:integer=0;
+  benchSectionStart:int64=0;
+  // one-shot build header
+  buildHeaderEmitted:boolean=false;
+
+// revision string passed by test.bat/bench.bat as the first command-line arg
+function BuildRevision:string;
+begin
+  if ParamCount>=1 then result:=ParamStr(1)
+  else result:='unknown';
+end;
+
+// print revision + build target once, to stdout and (if open) the bench log
+procedure EmitBuildHeader;
+var s:string;
+begin
+  if buildHeaderEmitted then exit;
+  buildHeaderEmitted:=true;
+  s:='Revision: '+BuildRevision+'  ['
+    +{$IFDEF DELPHI}'Delphi'{$ELSE}'FPC'{$ENDIF}+'/'
+    +{$IFDEF CPU64}'x64'{$ELSE}'x86'{$ENDIF}+']';
+  writeln(s);
+  if benchLogOpen then writeln(benchLog,s);
+end;
 
 procedure StartTest(const name:string);
 begin
+  EmitBuildHeader;
   groupName:=name;
   groupFailed:=testsFailed;
   write('Testing ',name,'... ');
@@ -35,13 +64,6 @@ end;
 // ============================================================================
 // Benchmark support
 // ============================================================================
-var
-  benchLog:Text;
-  benchLogOpen:boolean=false;
-  benchTimer:int64;
-  benchIterations:integer=0;
-  benchSectionStart:int64=0;
-
 procedure BenchWriteln(const s:string='');
 begin
   writeln(s);
@@ -77,6 +99,7 @@ begin
   Rewrite(benchLog);
   benchLogOpen:=true;
   BenchWriteln(fn);
+  EmitBuildHeader;
 end;
 
 procedure CloseBenchLog;

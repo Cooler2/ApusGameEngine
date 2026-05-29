@@ -23,6 +23,11 @@ set FLAGS=-MDelphi -Sd -RIntel -Fu.. -Ct -CR -dTIME_OVERRIDE
 set LOG64=test_results_64.txt
 set LOG32=test_results_32.txt
 
+REM Capture current git revision for result headers (+dirty if uncommitted changes)
+set REV=unknown
+for /f "delims=" %%i in ('git rev-parse --short HEAD 2^>nul') do set REV=%%i
+for /f "delims=" %%i in ('git status --porcelain 2^>nul') do set REV=%REV%+dirty
+
 if "%1"=="" (
   set TEST=TestCore
 ) else (
@@ -39,6 +44,7 @@ del /q ..\*.ppu ..\*.o 2>nul
 
 REM === 64-bit ===
 echo Testing %TEST% (64-bit) - %date% %time% > %LOG64%
+echo Revision: %REV%  Flags: %FLAGS% >> %LOG64%
 echo. >> %LOG64%
 echo === Compiling === >> %LOG64%
 REM Clean 64-bit output directory
@@ -52,12 +58,13 @@ if errorlevel 1 (
 )
 echo. >> %LOG64%
 echo === Running === >> %LOG64%
-bin64\%TEST%.exe >> %LOG64% 2>&1
+bin64\%TEST%.exe %REV% >> %LOG64% 2>&1
 echo Exit code: %errorlevel% >> %LOG64%
 
 :compile32
 REM === 32-bit ===
 echo Testing %TEST% (32-bit) - %date% %time% > %LOG32%
+echo Revision: %REV%  Flags: %FLAGS% >> %LOG32%
 echo. >> %LOG32%
 echo === Compiling === >> %LOG32%
 REM Clean 32-bit output directory
@@ -71,7 +78,7 @@ if errorlevel 1 (
 )
 echo. >> %LOG32%
 echo === Running === >> %LOG32%
-bin32\%TEST%.exe >> %LOG32% 2>&1
+bin32\%TEST%.exe %REV% >> %LOG32% 2>&1
 echo Exit code: %errorlevel% >> %LOG32%
 
 :done
