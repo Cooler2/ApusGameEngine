@@ -10,7 +10,7 @@ uses
 {$IFDEF MSWINDOWS}
   Windows, WinSock2,
 {$ELSE}
-  Sockets,
+  Sockets, Apus.SocketCompat,
 {$ENDIF}
   Apus.Types;
 
@@ -76,7 +76,11 @@ begin
  addr.sin_family:=PF_INET;
  addr.sin_port:=htons(port);
  addr.sin_addr.S_addr:=htonl(ip);
+ {$IFDEF MSWINDOWS}
  res:=_bind(sock,PSockAddr(@addr),sizeof(addr));
+ {$ELSE}
+ res:=Apus.SocketCompat.bind(sock,PSockAddr(@addr),sizeof(addr));
+ {$ENDIF}
  if res<>0 then begin
    lastError:=WSAGetLastError;
    result:=false;
@@ -95,9 +99,11 @@ begin
  s:=WSAAccept(sock,@addr,@addrlen,nil,0);
  if s=INVALID_SOCKET then begin
   lastError:=WSAGetLastError;
+  res:=lastError;
   if (res<>WSAEWOULDBLOCK) and (res<>WSAECONNREFUSED) then
    exit(false);
- end;
+ end else
+  newSocket.sock:=s;
 end;
 
 procedure TSocket.Close;
@@ -108,7 +114,7 @@ end;
 
 function TSocket.Listen: integer;
 begin
-
+ result:=Apus.SocketCompat.listen(sock,SOMAXCONN);
 end;
 
 (*

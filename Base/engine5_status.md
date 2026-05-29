@@ -53,7 +53,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 
 ## Live module inventory (2026-05-29)
 
-Generated from the 55 live `Base/Apus.*.pas` files. Build sweep status is based
+Generated from the 56 live `Base/Apus.*.pas` files. Build sweep status is based
 on `Base/tests/buildtest.ps1` and `Base/tests/buildtest.sh`; "not in sweep"
 means the module is live but is not currently compiled by those sweep scripts.
 
@@ -100,12 +100,13 @@ means the module is live but is not currently compiled by those sweep scripts.
 | `Apus.RegExpr` | Win/Linux | - | |
 | `Apus.Regions` | Win/Linux | - | |
 | `Apus.RSA` | Win/Linux | - | |
-| `Apus.SCGI` | Win; Linux skipped | - | Linux porting pending with socket abstraction cleanup. |
-| `Apus.Socket` | Win; Linux skipped | - | Linux porting pending; currently WinSock-centric path. |
+| `Apus.SCGI` | Win/Linux | - | |
+| `Apus.Socket` | Win/Linux | - | |
+| `Apus.SocketCompat` | Linux | - | Internal FPC/Unix socket compatibility helper used by network modules. |
 | `Apus.Spatial` | Win/Linux | TestSpatial | |
 | `Apus.StackTrace` | Win/Linux | - | |
 | `Apus.Strings` | Win/Linux | TestStrings, BenchStrings | |
-| `Apus.TCP` | Win; Linux skipped | TestTCP | Linux porting pending with socket abstraction cleanup. |
+| `Apus.TCP` | Win/Linux | TestTCP | |
 | `Apus.TextUtils` | Win/Linux | - | |
 | `Apus.Threads` | Win/Linux | TestThreads | |
 | `Apus.Translation` | Win/Linux | - | |

@@ -6,7 +6,7 @@
 {$I defines.inc}
 unit Apus.TCP;
 interface
-uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, {$ENDIF}
+uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, Apus.SocketCompat, {$ENDIF}
   Apus.Core, Apus.Types;
 
 type
@@ -82,6 +82,7 @@ type
 
 implementation
 uses SysUtils, Apus.Log,
+  {$IFNDEF MSWINDOWS}CNetDB,{$ENDIF}
   Apus.Conv;
 {$IFNDEF FPC}
 {$IFNDEF DELPHI}
@@ -125,15 +126,27 @@ begin
    for i:=1 to length(address) do
     if not (address[i] in ['0'..'9','.']) then fl:=false;
    if fl then begin
+    {$IFDEF MSWINDOWS}
     address:=address+#0;
     ip:=inet_addr(@address[1]);
+    {$ELSE}
+    ip:=StrToNetAddr(address).s_addr;
+    {$ENDIF}
    end else begin
     address:=address+#0;
     h:=GetHostByName(@address[1]);
     if h=nil then begin
      ip:=0;
-    end else
+    end else begin
+     {$IFDEF MSWINDOWS}
      move(h^.h_addr^[0],ip,4);
+     {$ELSE}
+     if h^.h_addr_list<>nil then
+      move(h^.h_addr_list^^,ip,4)
+     else
+      ip:=0;
+     {$ENDIF}
+    end;
    end;
   end else
    ip:=$FFFFFFFF;
@@ -473,7 +486,11 @@ begin
 
   connecting:=true;
   disconnected:=false;
+  {$IFDEF MSWINDOWS}
   res:=WinSock2.Connect(sock,TSockAddr(addr),sizeof(addr));
+  {$ELSE}
+  res:=SocketConnect(sock,TSockAddr(addr),sizeof(addr));
+  {$ENDIF}
   if (res<>0) then begin
    res:=WSAGetLastError;
    if res<>WSAEWOULDBLOCK then begin

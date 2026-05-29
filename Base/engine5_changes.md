@@ -14,6 +14,17 @@ Use it as the primary reference when updating old code.
   - SSE optimization for highest-impact functions;
   - ongoing bugfixes with test coverage expansion.
 
+## Recent API fixes (2026-05-29)
+
+### Base Linux socket compatibility
+
+- Added `Apus.SocketCompat` as an internal FPC/Unix compatibility layer for the WinSock-style calls still used by legacy Base network modules.
+- Linux/FPC compile sweep now includes:
+  - `Apus.Socket`
+  - `Apus.TCP`
+  - `Apus.SCGI`
+- `Apus.Profiling` remains Windows-only because its implementation directly uses the Windows unit.
+
 ## Recent API fixes (2026-03-22)
 
 ### Apus.Geom2D TRect2 point containment API

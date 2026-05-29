@@ -119,7 +119,7 @@ interface
  function ListHeaders:String8; stdcall;
 
 implementation
- uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, {$ENDIF}
+ uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, Apus.SocketCompat, {$ENDIF}
     Classes, Math, Apus.Threads, Apus.Strings, Apus.Conv, Apus.ControlFiles, Apus.Log, Apus.Logging, Apus.GeoIP;
  procedure scgiLogProc(msg:String8; level:byte; msgtype:byte);
   begin
@@ -1002,8 +1002,10 @@ implementation
   end;
 
  procedure Initialize;
+  {$IFDEF MSWINDOWS}
   var
    WSAdata:TWSAData;
+  {$ENDIF}
   begin
    // Logging
    if FileExists('scgi.log') then RenameFile('scgi.log','scgi.old');
@@ -1013,7 +1015,9 @@ implementation
 
    // Initialization
    critSect.Init('SCGI');
+   {$IFDEF MSWINDOWS}
    WSAStartup($0202, WSAData);
+   {$ENDIF}
    // Load configuration
    ctl:=TControlFile.Create('config.ctl','');
    port:=ctl.GetInt('PORT',port);
@@ -1113,7 +1117,9 @@ implementation
    end;
    if liveWorkers>0 then Log.Warn('Not all workers terminated!');
    CloseSocket(MainSock);
+   {$IFDEF MSWINDOWS}
    WSACleanup;
+   {$ENDIF}
    ctl.Free;
    critSect.Cleanup;
    Log.Force('Terminated');
