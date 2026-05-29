@@ -79,6 +79,7 @@ modules/
 
 /Base/tests/bench_*.txt
 /Base/tests/test_results*
+/Base/tests/buildtest_results.txt
 /Base/tests/*.res
 /Base/work/
 *.log
