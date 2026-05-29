@@ -8,6 +8,7 @@ uses
   {$ENDIF}
   Apus.EventMan,
   Apus.Engine.API,
+  Apus.Engine.Types,
   Apus.Engine.Game,
   Apus.Engine.SDLplatform,
   Apus.Engine.OpenGL;
@@ -40,9 +41,9 @@ begin
    width:=800;
    height:=600;
    colorDepth:=32;
-   mode.displayMode:=dmWindow;
-   mode.displayFitMode:=dfmFullSize;
-   mode.displayScaleMode:=dsmDontScale;
+   mode.displayMode:=Apus.Engine.Types.dmWindow;
+   mode.displayFitMode:=Apus.Engine.Types.dfmFullSize;
+   mode.displayScaleMode:=Apus.Engine.Types.dsmDontScale;
   end;
   wnd:=plat.CreateWindow('Platform Test: '+plat.GetPlatformName);
   wnd.Configure(params);

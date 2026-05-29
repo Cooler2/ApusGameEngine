@@ -19,8 +19,7 @@ Use it as the primary reference when updating old code.
 ### Engine Linux SDL/OpenGL compile sweep
 
 - Fixed `Apus.Engine.API` display-mode exports for API-only users:
-  - `TDisplayScaleMode` now aliases `Apus.Engine.Types.TDisplayScaleMode`;
-  - display mode/fit/scale constants are re-exported from `Apus.Engine.API`.
+  - `TDisplayScaleMode` now aliases `Apus.Engine.Types.TDisplayScaleMode`.
 - Fixed Linux SDL mouse-button cursor handling to call `systemPlatform.SetCursor`.
 - Updated `tests/PlatformTest.dpr` and `tests/OpenGL.dpr` to the current `TWindow`/`IGraphicsSystem` lifecycle and modern Base units instead of deprecated `Apus.Common`.
 - Linux/FPC compile-only checks now pass for:

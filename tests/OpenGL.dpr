@@ -10,6 +10,7 @@ uses
   Apus.EventMan,
   Apus.Geom3D,
   Apus.Engine.API,
+  Apus.Engine.Types,
   Apus.Engine.SDLplatform,
   Apus.Engine.OpenGL;
 
@@ -274,9 +275,9 @@ begin
    width:=900;
    height:=700;
    colorDepth:=32;
-   mode.displayMode:=dmWindow;
-   mode.displayFitMode:=dfmFullSize;
-   mode.displayScaleMode:=dsmDontScale;
+   mode.displayMode:=Apus.Engine.Types.dmWindow;
+   mode.displayFitMode:=Apus.Engine.Types.dfmFullSize;
+   mode.displayScaleMode:=Apus.Engine.Types.dsmDontScale;
    VSync:=0;
   end;
   wnd:=systemPlatform.CreateWindow('Platform Test: '+systemPlatform.GetPlatformName);

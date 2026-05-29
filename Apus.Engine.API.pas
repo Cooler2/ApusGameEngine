@@ -176,22 +176,6 @@ type
  TWindow = Apus.Engine.Window.TWindow;
 
 const
- // Display mode aliases exported for users that import Apus.Engine.API only.
- dmNone = Apus.Engine.Types.dmNone;
- dmSwitchResolution = Apus.Engine.Types.dmSwitchResolution;
- dmFullScreen = Apus.Engine.Types.dmFullScreen;
- dmFixedWindow = Apus.Engine.Types.dmFixedWindow;
- dmWindow = Apus.Engine.Types.dmWindow;
- dmBorderless = Apus.Engine.Types.dmBorderless;
-
- dfmCenter = Apus.Engine.Types.dfmCenter;
- dfmFullSize = Apus.Engine.Types.dfmFullSize;
- dfmKeepAspectRatio = Apus.Engine.Types.dfmKeepAspectRatio;
-
- dsmDontScale = Apus.Engine.Types.dsmDontScale;
- dsmStretch = Apus.Engine.Types.dsmStretch;
- dsmScale = Apus.Engine.Types.dsmScale;
-
  // Vertex layout with 3 attributes: position[3] (location=0), color[3] (location=1) and uv[2] (location=2)
  DEFAULT_VERTEX_LAYOUT : TVertexLayout = (layout:$4300; stride:6*4;);
 
@@ -1236,9 +1220,9 @@ function TGameBase.AddWindow(title:string;w,h:integer):TWindow;
   s.title:=title;
   s.width:=w;
   s.height:=h;
-  s.mode.displayMode:=dmWindow;
-  s.mode.displayFitMode:=dfmFullSize;
-  s.mode.displayScaleMode:=dsmDontScale;
+  s.mode.displayMode:=Apus.Engine.Types.dmWindow;
+  s.mode.displayFitMode:=Apus.Engine.Types.dfmFullSize;
+  s.mode.displayScaleMode:=Apus.Engine.Types.dsmDontScale;
   s.showSystemCursor:=true;
   s.vSync:=1;
   result:=AddWindow(s);
