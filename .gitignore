@@ -80,5 +80,6 @@ modules/
 /Base/tests/bench_*.txt
 /Base/tests/test_results*
 /Base/tests/*.res
+/Base/work/
 *.log
 *.old
