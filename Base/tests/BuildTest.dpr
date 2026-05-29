@@ -28,14 +28,14 @@ uses
   Apus.Spatial,
 
   // Level 3: Higher-level data structures
-  Apus.Structs,
   Apus.Classes,
   Apus.EventMan,
   Apus.Lib,
   Apus.Tweenings,
   Apus.AnimatedValues,
 
-  // Level 4: Graphics primitives, network
+  // Level 4: Containers, graphics primitives, network
+  Apus.Containers,
   Apus.FastGFX,
   Apus.VertexLayout,
   Apus.Socket,
@@ -52,7 +52,7 @@ uses
   Apus.TCP,
 
   // Level 7: High-level network
-//  Apus.HttpRequests,
+  Apus.HttpRequests,
   Apus.GfxFormats,
 
   // Level 8: Text and data
@@ -68,14 +68,14 @@ uses
   Apus.GeoIP,
 
   // Level 10: Diagnostics and extras
-//  Apus.Logging,
+  Apus.Logging,
   Apus.Profiling,
   Apus.StackTrace,
   Apus.Clipboard,
   Apus.MemoryLeakUtils,
   Apus.Publics,
-  Apus.RSA
-//  Apus.SCGI
+  Apus.RSA,
+  Apus.SCGI
  ;
 
 begin
