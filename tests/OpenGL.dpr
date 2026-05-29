@@ -2,7 +2,7 @@
 program OpenGL;
 
 uses
-  Apus.Common, Apus.CrossPlatform, SysUtils,
+  Apus.Core, Apus.Log, SysUtils,
   dglOpenGL,
   {$IFDEF MSWINDOWS}
   Apus.Engine.WindowsPlatform,
@@ -15,12 +15,13 @@ uses
 
 var
  params:TGameSettings;
+ wnd:TWindow;
  sn:integer;
  shader:GLint;
  tex:GLint;
  shader1,shader2:GLint;
  frame:integer;
- time:int64;
+ startTime:int64;
 
 procedure EventHandler(event:TEventStr;tag:TTag);
 begin
@@ -118,10 +119,11 @@ procedure CreateShader;
    errorLog:PAnsiChar;
   begin
    glGetShaderiv(shader,GL_INFO_LOG_LENGTH,@maxlen);
-   errorLog:=AnsiStrAlloc(maxlen);
+   GetMem(errorLog,maxlen);
    glGetShaderInfoLog(shader,maxLen,@maxLen,errorLog);
    glDeleteShader(shader);
    result:=errorLog;
+   FreeMem(errorLog);
   end;
  begin
   vsh:=glCreateShader(GL_VERTEX_SHADER);
@@ -190,12 +192,11 @@ procedure Prepare;
 
 procedure SetProjection;
  var
-  m:T3DMatrix;
-  ms:T3DMatrixS;
+  m:TMat4;
   loc:integer;
   w,h:integer;
  begin
-  systemPlatform.GetWindowSize(w,h);
+  wnd.GetSize(w,h);
   //glViewport(0,0,w,h);
   //glScissor(0,0,w,h);
 
@@ -204,13 +205,11 @@ procedure SetProjection;
   m[0,2]:=0;  m[1,2]:=0; m[2,2]:=-1; m[3,2]:=0;
   m[0,3]:=0;  m[1,3]:=0; m[2,3]:=0; m[3,3]:=1;
   loc:=glGetUniformLocation(shader,'MVP');
-  ms:=Matrix4s(m);
-  glUniformMatrix4fv(loc,1,false,@ms);
+  glUniformMatrix4fv(loc,1,false,@m);
  end;
 
 procedure DrawFrame;
  var
-  m:T3DMatrix;
   loc:integer;
   vertices:array[0..5] of TVertex;
   i,j:integer;
@@ -261,7 +260,7 @@ procedure DrawFrame;
  end;
 
 begin
-  UseLogFile('OpenGL.log');
+  Logger.UseLogFile('OpenGL.log');
   SetEventHandler('Engine,Mouse,Kbd,Joystick',EventHandler);
   {$IFDEF MSWINDOWS}
   systemPlatform:=TWindowsPlatform.Create;
@@ -280,25 +279,25 @@ begin
    mode.displayScaleMode:=dsmDontScale;
    VSync:=0;
   end;
-  systemPlatform.CreateWindow('Platform Test: '+systemPlatform.GetPlatformName);
-  systemPlatform.SetupWindow(params);
+  wnd:=systemPlatform.CreateWindow('Platform Test: '+systemPlatform.GetPlatformName);
+  wnd.Configure(params);
 
-  gfx.Init(systemPlatform);
+  gfx.Init(wnd);
   gfx.config.SetVSyncDivider(0);
 
   Prepare;
-  time:=MyTickCount;
+  startTime:=Apus.Core.Time.Ticks;
   repeat
-   systemPlatform.ProcessSystemMessages;
+   wnd.ProcessMessages;
    DrawFrame;
    gfx.PresentFrame;
    //sleep(1);
    inc(frame);
    if frame mod 10=0 then begin
-    systemPlatform.SetWindowCaption(Format('FPS: %.1f (%d)',[1000*frame/(MyTickCount-time),frame]));
+    wnd.SetCaption(Format('FPS: %.1f (%d)',[1000*frame/(Apus.Core.Time.Ticks-startTime),frame]));
    end;
-  until systemPlatform.isTerminated;
+  until wnd.isTerminated;
 
   gfx.Done;
-  systemPlatform.DestroyWindow;
+  wnd.Close;
 end.

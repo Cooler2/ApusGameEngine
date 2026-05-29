@@ -16,6 +16,17 @@ Use it as the primary reference when updating old code.
 
 ## Recent API fixes (2026-05-29)
 
+### Engine Linux SDL/OpenGL compile sweep
+
+- Fixed `Apus.Engine.API` display-mode exports for API-only users:
+  - `TDisplayScaleMode` now aliases `Apus.Engine.Types.TDisplayScaleMode`;
+  - display mode/fit/scale constants are re-exported from `Apus.Engine.API`.
+- Fixed Linux SDL mouse-button cursor handling to call `systemPlatform.SetCursor`.
+- Updated `tests/PlatformTest.dpr` and `tests/OpenGL.dpr` to the current `TWindow`/`IGraphicsSystem` lifecycle and modern Base units instead of deprecated `Apus.Common`.
+- Linux/FPC compile-only checks now pass for:
+  - `tests/PlatformTest.dpr`
+  - `tests/OpenGL.dpr`
+
 ### Base Linux socket compatibility
 
 - Added `Apus.SocketCompat` as an internal FPC/Unix compatibility layer for the WinSock-style calls still used by legacy Base network modules.

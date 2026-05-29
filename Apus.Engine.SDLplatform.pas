@@ -563,7 +563,7 @@ procedure TSDLGLWindow.ProcessMessages;
     // which avoids OS-rate event flood on high-polling-rate mice.
 
     SDL_MOUSEBUTTONDOWN:begin
-     if not game.GetSettings.showSystemCursor then SetCursor(0);
+     if not game.GetSettings.showSystemCursor then systemPlatform.SetCursor(0);
      mbtn:=GetMouseButtonNum(event.button.button);
      if mBtn in [1..5] then
       mouseState:=mouseState or (1 shl (mbtn-1));
@@ -575,7 +575,7 @@ procedure TSDLGLWindow.ProcessMessages;
     end;
 
     SDL_MOUSEBUTTONUP:begin
-     if not game.GetSettings.showSystemCursor then SetCursor(0);
+     if not game.GetSettings.showSystemCursor then systemPlatform.SetCursor(0);
      mbtn:=GetMouseButtonNum(event.button.button);
      if mBtn in [1..5] then
       mouseState:=mouseState and not (1 shl (mbtn-1));

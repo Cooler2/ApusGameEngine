@@ -171,11 +171,27 @@ type
 
  TDisplayMode = Apus.Engine.Types.TDisplayMode;
  TDisplayFitMode = Apus.Engine.Types.TDisplayFitMode;
- TDisplayScaleMode = Apus.Engine.Types.TDisplayFitMode;
+ TDisplayScaleMode = Apus.Engine.Types.TDisplayScaleMode;
  TGameSettings = Apus.Engine.Types.TGameSettings;
  TWindow = Apus.Engine.Window.TWindow;
 
 const
+ // Display mode aliases exported for users that import Apus.Engine.API only.
+ dmNone = Apus.Engine.Types.dmNone;
+ dmSwitchResolution = Apus.Engine.Types.dmSwitchResolution;
+ dmFullScreen = Apus.Engine.Types.dmFullScreen;
+ dmFixedWindow = Apus.Engine.Types.dmFixedWindow;
+ dmWindow = Apus.Engine.Types.dmWindow;
+ dmBorderless = Apus.Engine.Types.dmBorderless;
+
+ dfmCenter = Apus.Engine.Types.dfmCenter;
+ dfmFullSize = Apus.Engine.Types.dfmFullSize;
+ dfmKeepAspectRatio = Apus.Engine.Types.dfmKeepAspectRatio;
+
+ dsmDontScale = Apus.Engine.Types.dsmDontScale;
+ dsmStretch = Apus.Engine.Types.dsmStretch;
+ dsmScale = Apus.Engine.Types.dsmScale;
+
  // Vertex layout with 3 attributes: position[3] (location=0), color[3] (location=1) and uv[2] (location=2)
  DEFAULT_VERTEX_LAYOUT : TVertexLayout = (layout:$4300; stride:6*4;);
 

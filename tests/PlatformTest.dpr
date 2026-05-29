@@ -1,7 +1,7 @@
 {$APPTYPE CONSOLE}
 program PlatformTest;
 uses
-  Apus.Common, Apus.CrossPlatform, SysUtils,
+  Apus.Core, Apus.Log, SysUtils,
   dglOpenGL,
   {$IFDEF MSWINDOWS}
   Apus.Engine.WindowsPlatform,
@@ -16,6 +16,7 @@ var
  plat:ISystemPlatform;
  params:TGameSettings;
  game:TGameBase;
+ wnd:TWindow;
  sn:integer;
 
 procedure EventHandler(event:TEventStr;tag:TTag);
@@ -25,7 +26,7 @@ begin
 end;
 
 begin
-  UseLogFile('platformTest.log');
+  Logger.UseLogFile('platformTest.log');
   SetEventHandler('Engine,Mouse,Kbd,Joystick',EventHandler);
   {$IFDEF MSWINDOWS}
   //plat:=TWindowsPlatform.Create;
@@ -43,13 +44,13 @@ begin
    mode.displayFitMode:=dfmFullSize;
    mode.displayScaleMode:=dsmDontScale;
   end;
-  plat.CreateWindow('Platform Test: '+plat.GetPlatformName);
-  plat.SetupWindow(params);
+  wnd:=plat.CreateWindow('Platform Test: '+plat.GetPlatformName);
+  wnd.Configure(params);
 
   repeat
-   plat.ProcessSystemMessages;
+   wnd.ProcessMessages;
    sleep(1);
-  until plat.isTerminated;
+  until wnd.isTerminated;
 
-  plat.DestroyWindow;
+  wnd.Close;
 end.
