@@ -62,9 +62,14 @@
 __history/
 __recovery/
 *.~*
+*.bak
+*.backup
+*.orig
+*.tmp
 
 # FPC files
 *.ppu
+*.rsj
 *.compiled
 *.dbg
 *.lps
@@ -80,7 +85,19 @@ modules/
 /Base/tests/bench_*.txt
 /Base/tests/test_results*
 /Base/tests/buildtest_results.txt
+/Base/tests/out*.txt
+/Base/tests/out*/
+/Base/tests/bin*/
+/Base/tests/units/
 /Base/tests/*.res
 /Base/work/
+/tmp/
+/tmp_*.csv
+/.codexignore
+/.claude/agents/
+*.zip
+robot_in.txt
+robot_out.txt
+log.txt
 *.log
 *.old
