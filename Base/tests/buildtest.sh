@@ -61,6 +61,7 @@ build Apus.Utils
 build Apus.Files
 build Apus.Threads
 build Apus.HashMaps
+build Apus.Compress
 build Apus.Geom2D
 build Apus.Geom3D
 build Apus.Spatial

@@ -35,6 +35,7 @@ Use it as the primary reference when updating old code.
   - `Apus.Socket`
   - `Apus.TCP`
   - `Apus.SCGI`
+  - `Apus.Compress`
 - `Apus.Profiling` remains Windows-only because its implementation directly uses the Windows unit.
 
 ## Recent API fixes (2026-03-22)

@@ -18,6 +18,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 - ✅ Base migration is complete (100%); no global/blocking migration tasks remain
 - 🔧 Post-merge priorities: Linux fixes + validation, benchmarks, SSE optimization of hot functions, bugfixes with test additions
 - ✅ Linux/FPC engine smoke coverage added for SDL/OpenGL compile-only paths (`tests/PlatformTest.dpr`, `tests/OpenGL.dpr`)
+- ✅ Linux/FPC Base build sweep includes `Apus.Compress`
 - 🎯 **Next priorities:** stabilization, test expansion, performance tuning, and incremental cleanup of legacy Engine/Demo/Tools references
 
 **Recent wins (2026-02-18):** Added `Conv.ToStr(double)` — locale-independent float formatting via Pascal `Str()`, supports `maxDec`/`minDec`/`decSep` params, 20 tests added to TestConv.
@@ -52,6 +53,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-03-23):** Added `Base/tests/BenchAnimation.dpr` to compare `TTweening` vs `TAnimatedValue` in matched read/retarget scenarios (including realistic overlap cap).
 **Recent wins (2026-03-24):** Standardized `Apus.Core.SRound` behavior across SSE and non-ASM paths to the same rule (`floor(v+0.5)`), and documented intended usage split (`SRound` for translation-invariant render math, `PRound` for symmetric nearest rounding).
 **Recent wins (2026-05-29):** Linux/FPC engine compile sweep now reaches and passes SDL/OpenGL smoke tests after fixing `Apus.Engine.API` display aliases, SDL cursor dispatch, and old window/gfx lifecycle plus deprecated Base-unit usage in `tests/PlatformTest.dpr` and `tests/OpenGL.dpr`.
+**Recent wins (2026-05-30):** Added `Apus.Compress` to the Linux/FPC Base build sweep.
 
 ## Live module inventory (2026-05-29)
 
@@ -67,7 +69,7 @@ means the module is live but is not currently compiled by those sweep scripts.
 | `Apus.Classes` | Win/Linux | - | Foundation module; uses `Apus.HashMaps` in implementation. |
 | `Apus.Clipboard` | Win/Linux | - | |
 | `Apus.Colors` | Win/Linux | - | |
-| `Apus.Compress` | not in sweep | TestCompress | Add to build sweep or document why it is excluded. |
+| `Apus.Compress` | Win/Linux | TestCompress | |
 | `Apus.Containers` | Win/Linux | TestContainers, BenchContainers | |
 | `Apus.ControlFiles` | Win/Linux | - | |
 | `Apus.Conv` | Win/Linux | TestConv, BenchConv | |
