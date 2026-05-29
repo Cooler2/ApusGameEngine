@@ -8,7 +8,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Progress:**
 - ✅ 10 new modules created (Core, Conv, Strings, Files, HashMaps, Log, Threads, Utils, Lib, Spatial)
 - ✅ Threading and Logging blockers solved
-- ✅ Classes + Structs migrated (Foundation Level 1 complete!)
+- ✅ Classes migrated and legacy Structs split completed (Foundation Level 1 complete!)
 - ✅ `UTF8.Format` added to Apus.Strings (native, no Unicode roundtrip)
 - ✅ `Conv.ToStr(double)` implemented with auto/fixed/min-max decimal modes
 - ✅ R-07 reached working state and was merged into `engine5` (engine-level milestone)
@@ -21,7 +21,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 
 **Recent wins (2026-02-18):** Added `Conv.ToStr(double)` — locale-independent float formatting via Pascal `Str()`, supports `maxDec`/`minDec`/`decSep` params, 20 tests added to TestConv.
 
-**Recent wins (2026-02-17):** Migrated Apus.Classes and Apus.Structs together (cyclic dependency resolved). Added FastHash/StrHash to Strings, `Same`/`Compare` to String8Helper, HasValue to Conv. Added `UTF8.Format(fmt, args)` — native String8 formatter, no SysUtils dependency.
+**Recent wins (2026-02-17):** Migrated the Classes/Structs dependency knot as part of the foundation refactor. Added FastHash/StrHash to Strings, `Same`/`Compare` to String8Helper, HasValue to Conv. Added `UTF8.Format(fmt, args)` — native String8 formatter, no SysUtils dependency.
 
 **Recent wins (2026-02-19):** Fixed `Apus.Core` API defects in `Min/Max` overload return types (`cardinal/int64/uint64`, and 3-arg `single`). Removed lossy `trunc()` logic from `Min/Max(a,b,c:single)`.
 
@@ -51,7 +51,75 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-03-23):** Added `Base/tests/BenchAnimation.dpr` to compare `TTweening` vs `TAnimatedValue` in matched read/retarget scenarios (including realistic overlap cap).
 **Recent wins (2026-03-24):** Standardized `Apus.Core.SRound` behavior across SSE and non-ASM paths to the same rule (`floor(v+0.5)`), and documented intended usage split (`SRound` for translation-invariant render math, `PRound` for symmetric nearest rounding).
 
-## NEW — created in engine5 refactoring
+## Live module inventory (2026-05-29)
+
+Generated from the 55 live `Base/Apus.*.pas` files. Build sweep status is based
+on `Base/tests/buildtest.ps1` and `Base/tests/buildtest.sh`; "not in sweep"
+means the module is live but is not currently compiled by those sweep scripts.
+
+| Module | Build sweep | Focused tests/benches | Notes |
+|---|---|---|---|
+| `Apus.ADPCM` | Win/Linux | - | |
+| `Apus.Android` | not in sweep | - | Android-specific module. |
+| `Apus.AnimatedValues` | Win/Linux | - | Covered indirectly by `BenchAnimation`. |
+| `Apus.Classes` | Win/Linux | - | Foundation module; uses `Apus.HashMaps` in implementation. |
+| `Apus.Clipboard` | Win/Linux | - | |
+| `Apus.Colors` | Win/Linux | - | |
+| `Apus.Compress` | not in sweep | TestCompress | Add to build sweep or document why it is excluded. |
+| `Apus.Containers` | Win/Linux | TestContainers, BenchContainers | |
+| `Apus.ControlFiles` | Win/Linux | - | |
+| `Apus.Conv` | Win/Linux | TestConv, BenchConv | |
+| `Apus.Core` | Win/Linux | TestCore, BenchCore, BenchMem | |
+| `Apus.CPU` | Win/Linux | - | |
+| `Apus.Crypto` | Win/Linux | - | |
+| `Apus.Database` | Win/Linux | - | |
+| `Apus.EventMan` | Win/Linux | TestEventMan | |
+| `Apus.FastGFX` | Win/Linux | BenchFastGFX | Add focused regression tests if software-rendering changes are made. |
+| `Apus.Files` | Win/Linux | TestFiles | |
+| `Apus.FreeTypeFont` | Win/Linux | - | |
+| `Apus.GeoIP` | Win/Linux | - | |
+| `Apus.Geom2D` | Win/Linux | TestGeom2D | |
+| `Apus.Geom3D` | Win/Linux | TestGeom3D | |
+| `Apus.GfxFilters` | Win/Linux | - | |
+| `Apus.GfxFormats` | Win/Linux | - | |
+| `Apus.GlyphCache` | Win/Linux | - | |
+| `Apus.HashMaps` | Win/Linux | TestHashMaps, BenchHashMaps | |
+| `Apus.HtmlTree` | Win/Linux | - | |
+| `Apus.HttpRequests` | Win/Linux | - | |
+| `Apus.Huffman` | Win/Linux | - | |
+| `Apus.Images` | Win/Linux | - | |
+| `Apus.Lib` | Win/Linux | - | |
+| `Apus.Log` | Win/Linux | - | |
+| `Apus.Logging` | Win/Linux | - | |
+| `Apus.LongMath` | Win/Linux | - | |
+| `Apus.MemoryLeakUtils` | Win/Linux | - | |
+| `Apus.Network` | not in sweep | - | Deprecated/legacy network module; prefer `Apus.Socket`. |
+| `Apus.ProdCons` | Win/Linux | - | |
+| `Apus.Profiling` | Win | - | Linux build skipped because implementation uses Windows unit. |
+| `Apus.Publics` | Win/Linux | - | |
+| `Apus.RegExpr` | Win/Linux | - | |
+| `Apus.Regions` | Win/Linux | - | |
+| `Apus.RSA` | Win/Linux | - | |
+| `Apus.SCGI` | Win; Linux skipped | - | Linux porting pending with socket abstraction cleanup. |
+| `Apus.Socket` | Win; Linux skipped | - | Linux porting pending; currently WinSock-centric path. |
+| `Apus.Spatial` | Win/Linux | TestSpatial | |
+| `Apus.StackTrace` | Win/Linux | - | |
+| `Apus.Strings` | Win/Linux | TestStrings, BenchStrings | |
+| `Apus.TCP` | Win; Linux skipped | TestTCP | Linux porting pending with socket abstraction cleanup. |
+| `Apus.TextUtils` | Win/Linux | - | |
+| `Apus.Threads` | Win/Linux | TestThreads | |
+| `Apus.Translation` | Win/Linux | - | |
+| `Apus.Tweenings` | Win/Linux | TestTweenings, BenchAnimation | |
+| `Apus.Types` | Win/Linux | TestTypes | |
+| `Apus.UnicodeFont` | Win/Linux | - | |
+| `Apus.Utils` | Win/Linux | - | |
+| `Apus.VertexLayout` | Win/Linux | - | |
+
+## Historical summary — created in engine5 refactoring
+
+The live module inventory above is the authoritative full module list. The
+tables below are a compact historical summary of major refactoring groups and
+are not intended to enumerate every live `Base/Apus.*.pas` unit.
 
 | Module | Lines | Tests | Notes |
 |--------|-------|-------|-------|
@@ -66,7 +134,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 | **Apus.Lib** | 58 | — | Re-export facade (type aliases for convenient `uses`) |
 | **Apus.Spatial** | 434 | — | Spatial primitives and intersections; adds methods-first API and extends TBBox3s via record helper. |
 
-## CLEAN — old modules, no Common dependency, no changes needed
+## Historical summary — old modules already cleaned
 
 | Module | Lines | Notes |
 |--------|-------|-------|
@@ -79,21 +147,48 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 | **Apus.Geom3D** | 2759 | Matrices, quaternions, 3D math. Uses Types only. |
 | **Apus.Tweenings** | 302 | Tweening interpolation with smooth interruption compensation (`g(u)`), scalar and 1..4 component modes. Covered by `TestTweenings`. |
 | **Apus.AnimatedValues** | 328 | Animated floats. Uses Tweenings only. |
-| **Apus.Classes** | 163 | ✅ **Migrated 2026-02-17**: uses Strings (FastHash), Conv (ToHex, HasValue), Structs. Foundation module (Level 1). |
+| **Apus.Classes** | 163 | ✅ **Migrated 2026-02-17**: now uses Core/Types in the interface and HashMaps in implementation. Foundation module (Level 1). |
 | **Apus.Containers** | 1051 | TestContainers | Trees, heaps, queues and object list containers split from old `Apus.Structs`. |
 
-## Apus.Common Status (2026-03-22)
+## Apus.Common Status (2026-05-29)
 
 - `Base/*.pas` has **no** `Apus.Common` dependency outside `Base/Deprecated`.
 - Active compatibility unit is only `Base/Deprecated/Apus.Common.pas`.
 - Remaining non-deprecated references are outside Base:
   - **Engine:** 20 files
-  - **Demo:** 6 files
-  - **Tools:** 2 files
+  - **Demo:** 8 files
+  - **Base demo:** 1 file
+  - **Root tests:** 2 files
+  - **Tools:** 6 files
 
 ### Remaining `Apus.Common` references (live files)
 
-`Apus.Engine.AndroidGame.pas`, `Apus.Engine.AEMLoader.pas`, `Apus.Engine.BitmapStyle.pas`, `Apus.Engine.ComplexText.pas`, `Apus.Engine.DxImages8.pas`, `Apus.Engine.IOSgame.pas`, `Apus.Engine.IQMloader.pas`, `Apus.Engine.Model3D.pas`, `Apus.Engine.Networking2.pas`, `Apus.Engine.Networking3.pas`, `Apus.Engine.Objects.pas`, `Apus.Engine.OBJLoader.pas`, `Apus.Engine.PainterGL.pas`, `Apus.Engine.PainterGL2.pas`, `Apus.Engine.SoundBass.pas`, `Apus.Engine.SoundImx.pas`, `Apus.Engine.SoundSDL.pas`, `Apus.Engine.SpritePacker.pas`, `Apus.Engine.SteamAPI.pas`, `Apus.Engine.UDict.pas`, `demo/CharAnimation/MainScene.pas`, `demo/ControllerDemo/MainScene.pas`, `demo/NinePatch/MainScene.pas`, `demo/Particles/MainScene.pas`, `demo/ShadowMap/MainScene.pas`, `demo/Simple3D/MainScene.pas`, `tools/TreeGen/MainScene.pas`, `tools/TreeGen/Trees.pas`.
+Generated with `rg "Apus\.Common"` over `*.pas`, `*.dpr`, `*.lpr`, and `*.inc`,
+excluding `tmp/**` and `Base/Deprecated/**`.
+
+**Engine (20):** `Apus.Engine.AEMLoader.pas`, `Apus.Engine.AndroidGame.pas`,
+`Apus.Engine.BitmapStyle.pas`, `Apus.Engine.ComplexText.pas`,
+`Apus.Engine.DxImages8.pas`, `Apus.Engine.IOSgame.pas`,
+`Apus.Engine.IQMloader.pas`, `Apus.Engine.Model3D.pas`,
+`Apus.Engine.Networking2.pas`, `Apus.Engine.Networking3.pas`,
+`Apus.Engine.Objects.pas`, `Apus.Engine.OBJLoader.pas`,
+`Apus.Engine.PainterGL.pas`, `Apus.Engine.PainterGL2.pas`,
+`Apus.Engine.SoundBass.pas`, `Apus.Engine.SoundImx.pas`,
+`Apus.Engine.SoundSDL.pas`, `Apus.Engine.SpritePacker.pas`,
+`Apus.Engine.SteamAPI.pas`, `Apus.Engine.UDict.pas`.
+
+**Demo (8):** `demo/AdvTex/AdvTex.dpr`, `demo/ControllerDemo/MainScene.pas`,
+`demo/EngineTest/EngineDemo.dpr`, `demo/NinePatch/MainScene.pas`,
+`demo/Particles/MainScene.pas`, `demo/ShadowMap/MainScene.pas`,
+`demo/Simple3D/MainScene.pas`, `demo/SoundDemo/soundDemo.dpr`.
+
+**Base demo (1):** `Base/demo/tcp/TestTCP.dpr`.
+
+**Root tests (2):** `tests/OpenGL.dpr`, `tests/PlatformTest.dpr`.
+
+**Tools (6):** `tools/Convert3d.dpr`, `tools/ConvertStr.dpr`,
+`tools/SliceImg.dpr`, `tools/TreeGen/MainScene.pas`,
+`tools/TreeGen/Trees.pas`, `tools/upgrade.dpr`.
 
 ## Next priorities (updated)
 

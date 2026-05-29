@@ -615,26 +615,36 @@ Compression/decompression and binary patching utilities extracted from `Apus.Com
 | `CreateBackupPatch(orig,mod,size)` | `Patch.Create(orig,mod,size)` | |
 | `ApplyBackupPatch(data,size,patch,patchSize)` | `Patch.Apply(data,size,patchBuf,patchSize)` | |
 
-## Not yet extracted (still only in Apus.Common)
+## Remaining legacy Common surface
 
-| Function | Target module | Notes |
+This section tracks old `Apus.Common` helpers that still matter for migration.
+Do not treat it as a list of functions to reintroduce under the old names.
+
+### Resolved replacements
+
+| Old name | Replacement | Notes |
 |---|---|---|
-| `EncodeUTF8(st)` / `DecodeUTF8(st)` | **Apus.Conv** | Standalone `EncodeUTF8(WideString):String8` / `DecodeUTF8(RawByteString):WideString` |
-| `IsUTF8(st)` | **Apus.Conv** | Check if string starts with UTF-8 BOM |
-| `UnicodeFrom(st,enc)` / `UnicodeTo(st,enc)` | **Apus.Conv** | Convert between WideString and 8-bit encodings (uses TTextEncoding) |
-| `Str8(s)` / `Str16(s)` | **Apus.Strings** | Cast/convert to String8/String16 |
-| `SafeStrItem(arr,i)` | **Apus.Strings** or **Apus.Utils** | Safe array indexing with bounds check |
-| `SortRecordsByInt/Double/Float` | **Apus.Core.Sort** | ✅ Implemented as `Sort.ByInt/ByFloat/ByDouble(var items; itemSize,itemCount,offset:integer; asc:boolean)` |
-| `PackBytes(b1..b4)` / `PackWords(w1,w2)` | **Apus.Core** | Pack bytes/words into integer |
-| `AddString/RemoveString/FindString` | **Apus.Utils** or **Apus.Structs** | Array helpers for Strings8 |
-| `HasParam/GetParam` | **Apus.Utils** | Command-line argument access |
-| `TTextEncoding/teUnknown` | **Apus.Core** | ✅ Defined: `TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8)` |
-| `PointerInRange(p,min,max)` | **Apus.Core** | Pointer range check |
-| `ErrorMessage(msg)` | **Apus.Core** `SystemMessage(msg)` | ✅ Configurable critical message output (log/stderr/msgbox/raise) |
-| `LastChar(st)` | **Apus.Strings** | Return last character of string |
-| `Unescape(st)` | **Apus.Strings** or **Apus.Utils** | C-style escape sequence decoding |
-| `ExtractFilePath/FileName/ExpandFileName` | **SysUtils** | RTL functions — add SysUtils to uses |
-| `TrimLeft/TrimRight` standalone | **SysUtils** or `st.TrimLeft/TrimRight` | Also available as String8 helper methods |
+| `EncodeUTF8(st)` / `DecodeUTF8(st)` | `UTF8.Encode`, `UTF8.ToWide`, `UTF8.FromWide`, `Str8`, `Str16` in **Apus.Strings** | Prefer explicit UTF-8 helpers and string conversion helpers, not standalone Common names. |
+| `UnicodeFrom(st,enc)` / `UnicodeTo(st,enc)` | **Apus.Utils** | `TTextEncoding` and the encoding conversion helpers live together in `Apus.Utils`. |
+| `Str8(s)` / `Str16(s)` | **Apus.Strings** | Cast/convert to `String8` / `String16`. |
+| `SortRecordsByInt/Double/Float` | **Apus.Core.Sort** | Implemented as `Sort.ByInt/ByFloat/ByDouble(var items; itemSize,itemCount,offset:integer; asc:boolean)`. |
+| `HasParam/GetParam` | **Apus.Utils** | Command-line argument access. |
+| `TTextEncoding/teUnknown` | **Apus.Utils** | Defined as `TTextEncoding=(teUnknown,teANSI,teWin1251,teUTF8)`. |
+| `ErrorMessage(msg)` | **Apus.Core** `SystemMessage(msg)` | Configurable critical message output (log/stderr/msgbox/raise). |
+| `LastChar(st)` | **Apus.Strings** | Available as string helper methods. |
+| `Unescape(st)` | **Apus.Strings** | Available as `String8Helper.Unescape`. |
+| `ExtractFilePath/FileName/ExpandFileName` | **SysUtils** | RTL functions; add `SysUtils` to `uses`. |
+| `TrimLeft/TrimRight` standalone | **SysUtils** or `st.TrimLeft/TrimRight` | Also available as `String8` helper methods. |
+
+### Still unresolved or intentionally absent
+
+| Old name | Current status | Notes |
+|---|---|---|
+| `IsUTF8(st)` | Not reintroduced as a Common-compatible helper | Old behavior checked for UTF-8 BOM. Prefer explicit BOM handling or `UTF8.IsValid`, depending on intent. |
+| `SafeStrItem(arr,i)` | Still only in deprecated Common | Add a small helper only when a live migration needs this exact behavior. |
+| `PackBytes(b1..b4)` / `PackWords(w1,w2)` | Still only in deprecated Common | Candidate for `Apus.Core` if live users need it. |
+| `PointerInRange(p,base,size)` | Still only in deprecated Common | Candidate for `Apus.Core` if live pointer-range checks need it. |
+| `AddString/RemoveString/FindString` | Still only in deprecated Common under the old names | Prefer typed dynamic-array helpers or capacity-aware builders for new code. `Base/Apus.Android.pas` still has legacy-name users behind Android-specific code paths. |
 
 ## 2026-03-18 — Hash Maps Consolidation
 
@@ -648,10 +658,13 @@ Compression/decompression and binary patching utilities extracted from `Apus.Com
 - `TVarHash`, `PVarHash`
 - `TErrorState`
 
-### Compatibility in `Apus.Structs`
+### Final `Apus.Structs` state
 
-- Kept type aliases to moved hash types (`Apus.HashMaps.*`) to avoid breaking existing units.
-- `Apus.Structs` now focuses on non-hash algorithmic structures; hash implementations live in `Apus.HashMaps`.
+- `Apus.Structs` is removed from live Base.
+- No compatibility aliases are kept in `Apus.Structs`; update old units to use
+  `Apus.HashMaps` or `Apus.Containers` explicitly.
+- Hash implementations live in `Apus.HashMaps`.
+- Non-hash algorithmic containers live in `Apus.Containers`.
 
 ### Deprecation policy
 
