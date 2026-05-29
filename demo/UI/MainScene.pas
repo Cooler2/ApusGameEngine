@@ -174,6 +174,55 @@ procedure TestLayouts;
 
  end;
 
+// R-08 fixture: clipping panel containing two out-of-bounds children.
+// - "Popup" has noParentClip → must be hit-testable outside the panel.
+// - "Clipped" sibling without noParentClip → must NOT be hit-testable outside.
+procedure TestHitTest;
+ var
+  panel,popup,clipped,deep:TUIElement;
+ begin
+  InitTestLayer;
+  // Clipping panel near top-left
+  panel:=TUIElement.Create(200,150,root,'HT\Panel');
+  panel.SetPos(50,50);
+  panel.styleInfo:='fill:FF505080; border:FFFFFFFF; radius=4';
+  panel.shape:=TUIShape.shapeFull;
+
+  // noParentClip popup hanging off panel's right edge
+  popup:=TUIElement.Create(160,80,panel,'HT\Popup');
+  popup.SetPos(220,30); // x=220 is beyond panel.width=200 → outside panel rect
+  popup.flags.noParentClip:=true;
+  popup.styleInfo:='fill:FFE08040; border:FFFFFFFF; radius=4';
+  popup.shape:=TUIShape.shapeFull;
+  TUILabel.Create(-1,20,popup,'HT\Popup\Label').Centered('noParentClip');
+
+  // Negative control: a sibling at the same X offset WITHOUT noParentClip.
+  // It must be visually clipped and NOT hit-testable outside the panel.
+  clipped:=TUIElement.Create(160,30,panel,'HT\Clipped');
+  clipped.SetPos(220,110); // also outside panel
+  clipped.styleInfo:='fill:FFE04040; border:FFFFFFFF';
+  clipped.shape:=TUIShape.shapeFull;
+  TUILabel.Create(-1,20,clipped,'HT\Clipped\Label').Centered('clipped');
+
+  // Deep-nesting case: panel(clips) → mid(clips) → deep(noParentClip).
+  // The bug fixed by R-08 is that "deep" was unreachable because the outer
+  // panel skipped the mid container (mid has no noParentClip).
+  panel:=TUIElement.Create(200,150,root,'HT\Panel2');
+  panel.SetPos(50,260);
+  panel.styleInfo:='fill:FF508050; border:FFFFFFFF; radius=4';
+  panel.shape:=TUIShape.shapeFull;
+  popup:=TUIElement.Create(180,120,panel,'HT\Mid');     // intermediate clipper
+  popup.SetPos(10,10);
+  popup.styleInfo:='fill:FF306030';
+  popup.shape:=TUIShape.shapeFull;
+  deep:=TUIElement.Create(160,40,popup,'HT\Deep');
+  deep.SetPos(230,20); // outside both Mid and Panel2
+  deep.flags.noParentClip:=true;
+  deep.styleInfo:='fill:FF40C0E0; border:FFFFFFFF; radius=4';
+  deep.shape:=TUIShape.shapeFull;
+  TUILabel.Create(-1,20,deep,'HT\Deep\Label').Centered('deep noParentClip');
+ end;
+
 { TMainScene }
 procedure TMainScene.InitGfx;
  var
@@ -195,6 +244,7 @@ procedure TMainScene.InitGfx;
   TUIButton.Create(120,30,panel,'Main\Widgets').Setup('Widgets').onClickAsync:=@TestWidgets;
   TUIButton.Create(120,30,panel,'Main\Buttons').Setup('Buttons').onClickAsync:=@TestButtons;
   TUIButton.Create(120,30,panel,'Main\Layouts').Setup('Layouts').onClickAsync:=@TestLayouts;
+  TUIButton.Create(120,30,panel,'Main\HitTest').Setup('HitTest').onClickAsync:=@TestHitTest;
   TUIButton.Create(120,30,panel,'Main\Close').Setup('Exit');
   Link('UI\Main\Close\OnClick','Engine\Cmd\Exit');
 
