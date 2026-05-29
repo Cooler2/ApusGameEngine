@@ -106,6 +106,38 @@ begin
   EndBench;
 end;
 
+procedure BenchString8_Trim_Long;
+var i:integer; s:String8; trimmed:String8;
+begin
+  StartBench('String8.Trim(long ASCII)',N_SLOW);
+  s:=String8(StringOfChar(' ',256)+StringOfChar('a',4096)+StringOfChar(' ',256));
+  for i:=1 to N_SLOW do
+    trimmed:=s.Trim;
+  EndBench;
+end;
+
+procedure BenchString8_Compare_Long;
+var i,cmp:integer; s1,s2:String8;
+begin
+  StartBench('String8.Compare(long,ignoreCase)',N_SLOW);
+  s1:=String8(StringOfChar('a',4096)+'X');
+  s2:=String8(StringOfChar('A',4096)+'y');
+  for i:=1 to N_SLOW do
+    cmp:=s1.Compare(s2,true);
+  EndBench;
+end;
+
+procedure BenchString8_Same_Long;
+var i:integer; s1,s2:String8; same:boolean;
+begin
+  StartBench('String8.Same(long)',N_SLOW);
+  s1:=String8(StringOfChar('a',4096)+'X');
+  s2:=String8(StringOfChar('A',4096)+'x');
+  for i:=1 to N_SLOW do
+    same:=s1.Same(s2);
+  EndBench;
+end;
+
 procedure BenchString8_PadLeft;
 var i:integer; s:String8; padded:String8;
 begin
@@ -152,6 +184,18 @@ begin
   StartBench('String8.ReplaceAll',N_DEF);
   s:='one two one two';
   for i:=1 to N_DEF do
+    result:=s.ReplaceAll('one','1');
+  EndBench;
+end;
+
+procedure BenchString8_ReplaceAll_Many;
+var i,j:integer; s,result:String8;
+begin
+  StartBench('String8.ReplaceAll(many)',N_SLOW);
+  s:='';
+  for j:=1 to 512 do
+    s:=s+'one two ';
+  for i:=1 to N_SLOW do
     result:=s.ReplaceAll('one','1');
   EndBench;
 end;
@@ -493,11 +537,15 @@ begin
   BenchString8_ToUpper;
   BenchString8_ToLower;
   BenchString8_Trim;
+  BenchString8_Trim_Long;
+  BenchString8_Compare_Long;
+  BenchString8_Same_Long;
   BenchString8_PadLeft;
   BenchString8_Insert;
   BenchString8_Remove;
   BenchString8_Replace;
   BenchString8_ReplaceAll;
+  BenchString8_ReplaceAll_Many;
   BenchString8_Split;
   BenchString8_Join;
   BenchString8_Quote;

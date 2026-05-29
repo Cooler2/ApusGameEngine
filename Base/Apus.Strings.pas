@@ -268,6 +268,44 @@ function StrHash(const st:string):cardinal; overload;
 implementation
 uses SysUtils, Apus.Conv;
 
+function UpAscii(ch:AnsiChar):AnsiChar; inline;
+begin
+  if (ch>='a') and (ch<='z') then dec(ch,ord('a')-ord('A'));
+  result:=ch;
+end;
+
+function CompareString8Bytes(const a,b:String8;ignoreCase:boolean):integer;
+var
+  i,lenA,lenB,minLen:integer;
+  c1,c2:AnsiChar;
+begin
+  lenA:=System.Length(a);
+  lenB:=System.Length(b);
+  if lenA<lenB then minLen:=lenA
+  else minLen:=lenB;
+  for i:=1 to minLen do begin
+    c1:=a[i]; c2:=b[i];
+    if ignoreCase then begin
+      c1:=UpAscii(c1);
+      c2:=UpAscii(c2);
+    end;
+    if c1<>c2 then
+      exit(ord(c1)-ord(c2));
+  end;
+  result:=lenA-lenB;
+end;
+
+function SameString8Bytes(const a,b:String8;ignoreCase:boolean):boolean;
+begin
+  result:=(System.Length(a)=System.Length(b)) and
+    (CompareString8Bytes(a,b,ignoreCase)=0);
+end;
+
+function IsTrimByte(ch:AnsiChar):boolean; inline;
+begin
+  result:=ord(ch)<=32;
+end;
+
 // ============================================================================
 // String8Helper
 // ============================================================================
@@ -367,30 +405,45 @@ function String8Helper.Contains(ch:AnsiChar):boolean;
 begin result:=IndexOf(ch)>0; end;
 
 function String8Helper.StartsWith(const prefix:String8;ignoreCase:boolean):boolean;
-var s:String8;
+var i,len:integer; c1,c2:AnsiChar;
 begin
-  s:=System.Copy(self,1,System.Length(prefix));
-  if ignoreCase then result:=s.Same(prefix)
-  else result:=s=prefix;
+  len:=System.Length(prefix);
+  if len>System.Length(self) then exit(false);
+  for i:=1 to len do begin
+    c1:=self[i]; c2:=prefix[i];
+    if ignoreCase then begin
+      c1:=UpAscii(c1);
+      c2:=UpAscii(c2);
+    end;
+    if c1<>c2 then exit(false);
+  end;
+  result:=true;
 end;
 
 function String8Helper.EndsWith(const suffix:String8;ignoreCase:boolean):boolean;
-var len:integer; s:String8;
+var i,len,ofs:integer; c1,c2:AnsiChar;
 begin
   len:=System.Length(suffix);
-  s:=System.Copy(self,System.Length(self)-len+1,len);
-  if ignoreCase then result:=s.Same(suffix)
-  else result:=s=suffix;
+  if len>System.Length(self) then exit(false);
+  ofs:=System.Length(self)-len;
+  for i:=1 to len do begin
+    c1:=self[ofs+i]; c2:=suffix[i];
+    if ignoreCase then begin
+      c1:=UpAscii(c1);
+      c2:=UpAscii(c2);
+    end;
+    if c1<>c2 then exit(false);
+  end;
+  result:=true;
 end;
 
 function String8Helper.Compare(const other:String8;ignoreCase:boolean):integer;
 begin
- if ignoreCase then result:=SysUtils.CompareText(string(self),string(other))
-  else result:=SysUtils.CompareStr(string(self),string(other));
+  result:=CompareString8Bytes(self,other,ignoreCase);
 end;
 
 function String8Helper.Same(const other:String8):boolean;
-begin result:=SysUtils.SameText(string(self),string(other)); end;
+begin result:=SameString8Bytes(self,other,true); end;
 
 function String8Helper.ToUpper:String8;
 begin result:=UTF8.ToUpper(self); end;
@@ -399,13 +452,32 @@ function String8Helper.ToLower:String8;
 begin result:=UTF8.ToLower(self); end;
 
 function String8Helper.Trim:String8;
-begin result:=SysUtils.Trim(string(self)); end;
+var first,last:integer;
+begin
+  first:=1; last:=System.Length(self);
+  while (first<=last) and IsTrimByte(self[first]) do inc(first);
+  while (last>=first) and IsTrimByte(self[last]) do dec(last);
+  if (first=1) and (last=System.Length(self)) then result:=self
+  else result:=System.Copy(self,first,last-first+1);
+end;
 
 function String8Helper.TrimLeft:String8;
-begin result:=SysUtils.TrimLeft(string(self)); end;
+var first,last:integer;
+begin
+  first:=1; last:=System.Length(self);
+  while (first<=last) and IsTrimByte(self[first]) do inc(first);
+  if first=1 then result:=self
+  else result:=System.Copy(self,first,last-first+1);
+end;
 
 function String8Helper.TrimRight:String8;
-begin result:=SysUtils.TrimRight(string(self)); end;
+var last:integer;
+begin
+  last:=System.Length(self);
+  while (last>=1) and IsTrimByte(self[last]) do dec(last);
+  if last=System.Length(self) then result:=self
+  else result:=System.Copy(self,1,last);
+end;
 
 function String8Helper.PadLeft(totalWidth:integer;paddingChar:AnsiChar):String8;
 var pad:integer;
@@ -448,10 +520,55 @@ begin
 end;
 
 function String8Helper.Replace(const oldStr,newStr:String8):String8;
-begin result:=SysUtils.StringReplace(string(self),string(oldStr),string(newStr),[]); end;
+var
+  p,oldLen,newLen,selfLen:integer;
+begin
+  oldLen:=System.Length(oldStr);
+  if oldLen=0 then exit(self);
+  p:=IndexOf(oldStr);
+  if p=0 then exit(self);
+  newLen:=System.Length(newStr);
+  selfLen:=System.Length(self);
+  SetLength(result,selfLen-oldLen+newLen);
+  if p>1 then Move(self[1],result[1],p-1);
+  if newLen>0 then Move(newStr[1],result[p],newLen);
+  if p+oldLen<=selfLen then
+    Move(self[p+oldLen],result[p+newLen],selfLen-p-oldLen+1);
+end;
 
 function String8Helper.ReplaceAll(const oldStr,newStr:String8):String8;
-begin result:=SysUtils.StringReplace(string(self),string(oldStr),string(newStr),[rfReplaceAll]); end;
+var
+  p,nextP,src,dst,cnt,oldLen,newLen,selfLen,resultLen,segLen:integer;
+begin
+  oldLen:=System.Length(oldStr);
+  if oldLen=0 then exit(self);
+  selfLen:=System.Length(self);
+  newLen:=System.Length(newStr);
+  cnt:=0; p:=1;
+  repeat
+    p:=IndexOf(oldStr,p);
+    if p>0 then begin
+      inc(cnt);
+      inc(p,oldLen);
+    end;
+  until p=0;
+  if cnt=0 then exit(self);
+  resultLen:=selfLen+cnt*(newLen-oldLen);
+  SetLength(result,resultLen);
+  src:=1; dst:=1; p:=1;
+  repeat
+    nextP:=IndexOf(oldStr,p);
+    if nextP=0 then break;
+    segLen:=nextP-src;
+    if segLen>0 then Move(self[src],result[dst],segLen);
+    inc(dst,segLen);
+    if newLen>0 then Move(newStr[1],result[dst],newLen);
+    inc(dst,newLen);
+    src:=nextP+oldLen;
+    p:=src;
+  until false;
+  if src<=selfLen then Move(self[src],result[dst],selfLen-src+1);
+end;
 
 function String8Helper.Split(delimiter:AnsiChar;quoteChar:AnsiChar):Strings8;
 var i,start,cnt:integer; inQuote:boolean;
@@ -1509,10 +1626,24 @@ begin
 end;
 
 class function UTF8.ToUpper(const s:String8):String8;
-begin result:=s; {TODO: proper Unicode uppercase} end;
+var i:integer; ch:AnsiChar;
+begin
+  result:=s;
+  for i:=1 to System.Length(result) do begin
+    ch:=result[i];
+    if (ch>='a') and (ch<='z') then dec(result[i],ord('a')-ord('A'));
+  end;
+end;
 
 class function UTF8.ToLower(const s:String8):String8;
-begin result:=s; {TODO: proper Unicode lowercase} end;
+var i:integer; ch:AnsiChar;
+begin
+  result:=s;
+  for i:=1 to System.Length(result) do begin
+    ch:=result[i];
+    if (ch>='A') and (ch<='Z') then inc(result[i],ord('a')-ord('A'));
+  end;
+end;
 
 {$R-} // hash functions rely on unsigned overflow
 function FastHash(const st:String8):cardinal; overload;

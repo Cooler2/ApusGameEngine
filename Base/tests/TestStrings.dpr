@@ -146,10 +146,14 @@ begin
   Check(s.Compare('World',false)<0,'Compare case-sensitive less');
   Check(s.Compare('hello')=0,'Compare case-insensitive');
   Check(s.Compare('HELLO')=0,'Compare case-insensitive upper');
+  Check(s.Compare('hellp')<0,'Compare case-insensitive less');
+  Check(s.Compare('helln')>0,'Compare case-insensitive greater');
+  Check(s.Compare('Hello!')<0,'Compare length less');
   Check(s='Hello','= equal');
   Check(not (s='hello'),'= case-sensitive');
   Check(s.Same('hello'),'Same');
   Check(s.Same('HELLO'),'Same upper');
+  Check(not s.Same('Hello!'),'Same different length');
   EndTest;
 end;
 
@@ -174,6 +178,12 @@ begin
   Check(s.Trim='Hello','Trim');
   Check(s.TrimLeft='Hello  ','TrimLeft');
   Check(s.TrimRight='  Hello','TrimRight');
+  s:=#9#13'Hello'#10#32;
+  Check(s.Trim='Hello','Trim control whitespace');
+  Check(s.TrimLeft='Hello'#10#32,'TrimLeft control whitespace');
+  Check(s.TrimRight=#9#13'Hello','TrimRight control whitespace');
+  s:='   ';
+  Check(s.Trim='','Trim only spaces');
   s:='NoSpaces';
   Check(s.Trim='NoSpaces','Trim no change');
   s:='';
@@ -204,9 +214,15 @@ begin
   Check(s.Remove(6)='Hello','Remove(6)');
   Check(s.Remove(7,5)='Hello ','Remove(7,5)');
   Check(s.Replace('World','Pascal')='Hello Pascal','Replace');
+  Check(s.Replace('xxx','Pascal')='Hello World','Replace no match');
+  Check(s.Replace('','Pascal')='Hello World','Replace empty pattern');
   s:='one two one two';
   Check(s.Replace('one','1')='1 two one two','Replace first');
   Check(s.ReplaceAll('one','1')='1 two 1 two','ReplaceAll');
+  Check(s.ReplaceAll('one','')=' two  two','ReplaceAll delete');
+  Check(s.ReplaceAll('','1')=s,'ReplaceAll empty pattern');
+  s:='aaaa';
+  Check(s.ReplaceAll('aa','b')='bb','ReplaceAll non-overlap');
   EndTest;
 end;
 
