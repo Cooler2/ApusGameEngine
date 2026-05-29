@@ -221,8 +221,14 @@ type
   procedure onLostFocus; virtual;
 
   // --- Search ---
-  function FindElementAt(x,y:integer;out c:TUIElement):boolean;    // true if found element is enabled
-  function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean; // ignores transparency mode
+  function FindElementAt(x,y:integer;out c:TUIElement):boolean; overload;    // true if found element is enabled
+  function FindAnyElementAt(x,y:integer;out c:TUIElement):boolean;           // ignores transparency (any visible element)
+  // Clip-threaded traversal shared by both public find methods (R-08).
+  // clip = screen-space rect inside which this element is actually visible;
+  // ignoreDisabled=true switches to "any visible" semantics (FindAnyElementAt);
+  // escapingOnly=true means this whole subtree is out-of-clip — only noParentClip
+  // descendants (which reset the clip) can still produce a hit; self is skipped.
+  function FindElementAt(x,y:integer;const clip:TRect;ignoreDisabled,escapingOnly:boolean;out c:TUIElement):boolean; overload;
   function FindChildByName(const name:string8):TUIElement;
 
   // --- Queries ---
@@ -748,114 +754,102 @@ destructor TUIElement.Destroy;
    result:=nil;
   end;
 
- function TUIElement.FindElementAt(x,y:integer; out c:TUIElement):boolean;
+ // Sentinel "no clip" rect used to seed the recursion and to represent the
+ // unclipped region a noParentClip child sees. Picked large enough to contain
+ // any plausible screen coordinate without overflowing in TRect.Contains math.
+ const
+  UNCLIPPED_RECT:TRect=(Left:-1000000000;Top:-1000000000;Right:1000000000;Bottom:1000000000);
+
+ function TUIElement.FindElementAt(x,y:integer;const clip:TRect;ignoreDisabled,escapingOnly:boolean;out c:TUIElement):boolean;
   var
-   r,r2:Trect;
+   selfRect,clientRect,childClip,effChildClip:TRect;
    p:TPoint;
-   i,j:integer;
-   fl,en:boolean;
+   i,j,cnt:integer;
+   fl,en,childEscaping:boolean;
    c2:TUIElement;
    ca:array of TUIElement;
-   cnt:byte;
-   outside:boolean;
   begin
-   // Тут нужно быть предельно внимательным!!!
+   // Mirrors DrawUITree's clip stack: a child is descended into normally when
+   // the point lies inside its effective clip rect (clip ∩ parent client rect,
+   // or the full screen for a noParentClip child). When the point is OUTSIDE
+   // the effective clip, we still descend — but in "escapingOnly" mode — to
+   // catch noParentClip descendants of deeper nesting (a clipping intermediate
+   // would otherwise hide them from hit-test). See R-08_hittest_overlay_notes.
    result:=flags.enabled and flags.visible;
    c:=nil;
-   if not flags.visible then exit; // если элемент невидим, то уж точно ничего не спасет!
-   r:=GetPosOnScreen;
+   if not flags.visible then exit; // an invisible element hits nothing
    p:=Point(x,y);
-   outside:=false; // ignore clipped
-   if not flags.dontClipChildren and not r.Contains(p) then outside:=true; // за пределами эл-та
-   if (shape=shapeFull) and r.Contains(p) then c:=self;
-
-   // На данный момент известно, что точка в пределах текущего эл-та
-   // Но возможно здесь есть кто-то из вложенных эл-тов! Нужно их проверить:
-   // выполнить поиск по ним в порядке обратном отрисовке.
-   // В невидимых и запредельных искать ессно не нужно, а вот в прозрачных - нужно!
+   selfRect:=GetPosOnScreen; // also refreshes globalRect
+   // Compute clip passed down to non-escaping children (used only when we
+   // ourselves are reachable, i.e. not escapingOnly)
+   if escapingOnly or flags.dontClipChildren then
+    childClip:=clip
+   else begin
+    clientRect:=GetClientPosOnScreen;
+    childClip.Left  :=Apus.Core.Max(clip.Left  ,clientRect.Left);
+    childClip.Top   :=Apus.Core.Max(clip.Top   ,clientRect.Top);
+    childClip.Right :=Apus.Core.Min(clip.Right ,clientRect.Right);
+    childClip.Bottom:=Apus.Core.Min(clip.Bottom,clientRect.Bottom);
+   end;
+   // Collect visible children
    cnt:=0;
    SetLength(ca,length(children));
-   for i:=0 to length(children)-1 do with children[i] do begin
-    if not flags.visible then continue;
-    ca[cnt]:=self.children[i];
-    inc(cnt);
-   end;
-   // Список создан, теперь его отсортируем
+   for i:=0 to length(children)-1 do
+    if children[i].flags.visible then begin
+     ca[cnt]:=children[i];
+     inc(cnt);
+    end;
+   // Sort topmost first (order descending) — matches the reverse of DrawUITree
    if cnt>1 then
     for i:=0 to cnt-2 do
      for j:=cnt-1 downto i+1 do
       if ca[j-1].order<ca[j].order then begin
        c2:=ca[j]; ca[j]:=ca[j-1]; ca[j-1]:=c2;
       end;
-   // Теперь порядок правильный, нужно искать
+   // Descend topmost-first; first hit wins
    fl:=false;
    for i:=0 to cnt-1 do begin
-    if outside and not ca[i].flags.noParentClip then continue;
-    en:=ca[i].FindElementAt(x,y,c2);
+    if ca[i].flags.noParentClip then begin
+     // The child resets clipping to the whole screen — descend normally.
+     effChildClip:=UNCLIPPED_RECT;
+     childEscaping:=false;
+    end else if escapingOnly then begin
+     // We are already in an out-of-clip walk; keep digging for escape boundaries.
+     effChildClip:=clip; // unused inside the child; kept defined
+     childEscaping:=true;
+    end else begin
+     effChildClip:=childClip;
+     // If the point is outside the child's clipped region, the child itself is
+     // not hittable here, but a deeper noParentClip descendant still might be.
+     childEscaping:=not effChildClip.Contains(p);
+    end;
+    en:=ca[i].FindElementAt(x,y,effChildClip,ignoreDisabled,childEscaping,c2);
     if c2<>nil then begin
      c:=c2; result:=result and en;
      fl:=true; break;
     end;
    end;
-
-   // Ни одного непрозрачного потомка в данной точке, но сам элемент может быть непрозрачен здесь!
-   if not fl and (shape<>shapeEmpty) and (shape<>shapeFull) then
-    if IsOpaque((x-r.Left)/r.Width,(y-r.Top)/r.Height) then c:=self;
-
+   // Self is a candidate only when this subtree is itself reachable (not
+   // escapingOnly), the point is inside the incoming clip and inside own rect.
+   if not fl and not escapingOnly and clip.Contains(p) and selfRect.Contains(p) then begin
+    if shape=shapeFull then c:=self
+    else if shape=shapeEmpty then begin
+     if ignoreDisabled then c:=self; // FindAnyElementAt: any visible element under point counts
+    end else
+     if IsOpaque((x-selfRect.Left)/selfRect.Width,(y-selfRect.Top)/selfRect.Height) then c:=self
+     else if ignoreDisabled then c:=self;
+   end;
    if c=nil then result:=false;
   end;
 
- function TUIElement.FindAnyElementAt(x,y:integer; out c:TUIElement):boolean;
-  var
-   r,r2:Trect;
-   p:TPoint;
-   i,j:integer;
-   fl,en:boolean;
-   c2:TUIElement;
-   ca:array of TUIElement;
-   cnt:byte;
+ function TUIElement.FindElementAt(x,y:integer; out c:TUIElement):boolean;
   begin
-   // Тут нужно быть предельно внимательным!!!
-   result:=flags.enabled and flags.visible;
-   c:=nil;
-   if not flags.visible then exit; // если элемент невидим, то уж точно ничего не спасет!
-   r:=GetPosOnScreen;
-   p:=Point(x,y);
-   if not PtInRect(r,p) then begin result:=false; exit; end; // за пределами эл-та
-   c:=self;
+   result:=FindElementAt(x,y,UNCLIPPED_RECT,false,false,c);
+  end;
 
-   // На данный момент известно, что точка в пределах текущего эл-та
-   // Но возможно здесь есть кто-то из вложенных эл-тов! Нужно их проверить:
-   // выполнить поиск по ним в порядке обратном отрисовке.
-   // В невидимых и запредельных искать ессно не нужно, а вот в прозрачных - нужно!
-   cnt:=0;
-   SetLength(ca,length(children));
-   for i:=0 to length(children)-1 do with children[i] do begin
-    if not flags.visible then continue;
-    ca[cnt]:=self.children[i];
-    inc(cnt);
-   end;
-   // Список создан, теперь его отсортируем
-   if cnt>1 then
-    for i:=0 to cnt-2 do
-     for j:=cnt-1 downto i+1 do
-      if ca[j-1].order<ca[j].order then begin
-       c2:=ca[j]; ca[j]:=ca[j-1]; ca[j-1]:=c2;
-      end;
-   // Теперь порядок правильный, нужно искать
-   fl:=false;
-   for i:=0 to cnt-1 do begin
-    en:=ca[i].FindElementAt(x,y,c2);
-    if c2<>nil then begin
-     c:=c2; result:=result and en;
-     fl:=true; break;
-    end;
-   end;
-
-   // Ни одного непрозрачного потомка в данной точке, но сам элемент может быть непрозрачен здесь!
-   if not fl then c:=self;
-
-   if c=nil then result:=false;
+ function TUIElement.FindAnyElementAt(x,y:integer; out c:TUIElement):boolean;
+  begin
+   result:=FindElementAt(x,y,UNCLIPPED_RECT,true,false,c);
   end;
 
  procedure TUIElement.SetName(n:String8);
