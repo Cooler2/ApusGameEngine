@@ -199,7 +199,6 @@ excluding `tmp/**` and `Base/Deprecated/**`.
 
 ## TODO — important tasks
 
-* **TScopedLock in FPC**: Investigate if RAII (Initialize/Finalize operators) can work in FPC. If not possible, remove TScopedLock entirely — engine should only include features that work with both compilers (Delphi + FPC).
 * **Vector math operations**: Add Clamp/Wrap/Lerp/Min/Max for vector types (TPoint2s, TPoint3s, TVector2, TVector3, TVector4). Currently scalar-only. Belongs in Apus.Geom2D/Geom3D helper methods or a dedicated Apus.VectorMath module.
 
 ## Would be nice to do (but not required)

@@ -557,7 +557,7 @@ Threading primitives and thread management utilities extracted from `Apus.Common
 | Type | Description |
 |---|---|
 | `TLightweightEvent` | Lightweight event using WaitOnAddress (Win8+) or futex (Linux) |
-| `TScopedLock` | RAII lock wrapper with automatic cleanup |
+| `TScopedLock` | Delphi-only RAII lock wrapper with automatic cleanup (`{$IFDEF DELPHI}`) |
 | `Thread` | Static record for thread operations |
 
 ### Backward compatibility aliases
