@@ -104,7 +104,6 @@ means the module is live but is not currently compiled by those sweep scripts.
 | `Apus.RSA` | Win/Linux | - | |
 | `Apus.SCGI` | Win/Linux | - | |
 | `Apus.Socket` | Win/Linux | - | |
-| `Apus.SocketCompat` | Linux | - | Internal FPC/Unix socket compatibility helper used by network modules. |
 | `Apus.Spatial` | Win/Linux | TestSpatial | |
 | `Apus.StackTrace` | Win/Linux | - | |
 | `Apus.Strings` | Win/Linux | TestStrings, BenchStrings | |

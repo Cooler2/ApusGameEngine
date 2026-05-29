@@ -119,8 +119,8 @@ interface
  function ListHeaders:String8; stdcall;
 
 implementation
- uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, Apus.SocketCompat, {$ENDIF}
-    Classes, Math, Apus.Threads, Apus.Strings, Apus.Conv, Apus.ControlFiles, Apus.Log, Apus.Logging, Apus.GeoIP;
+ uses Apus.Socket, Classes, Math, Apus.Threads, Apus.Strings, Apus.Conv,
+    Apus.ControlFiles, Apus.Log, Apus.Logging, Apus.GeoIP;
  procedure scgiLogProc(msg:String8; level:byte; msgtype:byte);
   begin
    Log.Msg(msg,msgtype,TSeverity(level));
@@ -149,7 +149,7 @@ implementation
    status:TRequestStatus;
    timestamp:int64; // when status changed last time? (CoreTime.Ticks used)
    executionTime:integer;  // total time spent (including pending/waiting) to complete request
-   socket:TSocket;
+   socket:TNativeSocket;
    request,response:String8;
    contentLength,totalLength,bytesSent:integer;
    headers,body:String8;
@@ -166,7 +166,7 @@ implementation
   ctl:TControlFile;
   critSect:TLock;
 
-  mainSock:TSocket;
+  mainSock:TNativeSocket;
   requests:array[1..MAX_REQUESTS] of TRequest; // all requests
   rHash:TSimpleHash; // socket->request num
 
@@ -613,17 +613,6 @@ implementation
    end;
   end;
 
- {$IFDEF MSWINDOWS}
-  // many routines have different declaration in different WinSock2 import units
-  {$IFDEF DELPHI}
-  function bind(s: TSocket; name: PSockAddr; namelen: Integer): Integer; stdcall; external 'ws2_32.dll';
-  {$ENDIF}
-  {$IFDEF FPC}
-  function WSAAccept(s:TSocket; addr:PSockAddr; addrlen:PLongint; lpfnCondition:LPCONDITIONPROC; dwCallbackData:DWORD ):TSocket; stdcall; external 'ws2_32.dll' name 'WSAAccept';
-  {$ENDIF}
- {$ENDIF}
-
-
 // ---------------------------------------------------------------
 // Main thread internal functions
 // ---------------------------------------------------------------
@@ -689,7 +678,7 @@ implementation
 
  // Read data from socket to request buffer and check if a complete response is received
  // (always called inside critsect)
- procedure ReadData(s:TSocket);
+ procedure ReadData(s:TNativeSocket);
   var
    i,res,size,p,start:integer;
    t:int64;
@@ -742,7 +731,7 @@ implementation
   end;
 
  // Записывает данные в сокет
- procedure WriteData(s:TSocket);
+ procedure WriteData(s:TNativeSocket);
   var
    i,res,size:integer;
    t:int64;
@@ -785,7 +774,7 @@ implementation
 
  function AcceptNewConnection:boolean;
   var
-   s:TSocket;
+   s:TNativeSocket;
    i,res:integer;
    addr:TSockAddr;
    addrLen:integer;
@@ -1002,10 +991,6 @@ implementation
   end;
 
  procedure Initialize;
-  {$IFDEF MSWINDOWS}
-  var
-   WSAdata:TWSAData;
-  {$ENDIF}
   begin
    // Logging
    if FileExists('scgi.log') then RenameFile('scgi.log','scgi.old');
@@ -1015,9 +1000,6 @@ implementation
 
    // Initialization
    critSect.Init('SCGI');
-   {$IFDEF MSWINDOWS}
-   WSAStartup($0202, WSAData);
-   {$ENDIF}
    // Load configuration
    ctl:=TControlFile.Create('config.ctl','');
    port:=ctl.GetInt('PORT',port);
@@ -1117,9 +1099,6 @@ implementation
    end;
    if liveWorkers>0 then Log.Warn('Not all workers terminated!');
    CloseSocket(MainSock);
-   {$IFDEF MSWINDOWS}
-   WSACleanup;
-   {$ENDIF}
    ctl.Free;
    critSect.Cleanup;
    Log.Force('Terminated');

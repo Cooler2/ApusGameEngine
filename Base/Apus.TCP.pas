@@ -6,8 +6,7 @@
 {$I defines.inc}
 unit Apus.TCP;
 interface
-uses {$IFDEF MSWINDOWS}Windows, WinSock2,{$ELSE}Sockets, Apus.SocketCompat, {$ENDIF}
-  Apus.Core, Apus.Types;
+uses Apus.Socket, Apus.Core, Apus.Types;
 
 type
  // This object is created on server side for each connected client.
@@ -29,7 +28,7 @@ type
   procedure onDisconnected; virtual;
   function GetUserName:string; virtual; // return something to identify user
  private
-  sock:TSocket;
+  sock:TNativeSocket;
   readPos,writePos:integer;
   data:ByteArray;
   sendBuf:ByteArray;
@@ -48,7 +47,7 @@ type
   procedure Poll; // Call this periodically to keep the server running
  protected
   listenPort:word;
-  sock:TSocket;
+  sock:TNativeSocket;
   userClass:TTCPServerUserClass;
   function AcceptNewConnection:boolean;
   procedure ReadData;
@@ -72,7 +71,7 @@ type
   procedure onDisconnect; virtual;
   procedure onDataReceived(var buf:TBuffer); virtual;
  protected
-  sock:TSocket;
+  sock:TNativeSocket;
   data:ByteArray;
   readPos,writePos:integer;
   sendBuf:ByteArray;
@@ -81,9 +80,7 @@ type
  end;
 
 implementation
-uses SysUtils, Apus.Log,
-  {$IFNDEF MSWINDOWS}CNetDB,{$ENDIF}
-  Apus.Conv;
+uses SysUtils, Apus.Log, Apus.Conv;
 {$IFNDEF FPC}
 {$IFNDEF DELPHI}
   Define "DELPHI" symbol if you're using Delphi
@@ -94,25 +91,12 @@ const
  local_IP:cardinal=$7F000001; // localhost
  PAGE_SIZE = 30000;
 
-
- {$IFDEF MSWINDOWS}
-  // many routines have different declaration in different WinSock2 import units
-  {$IFDEF DELPHI}
-  function bind(s: TSocket; name: PSockAddr; namelen: Integer): Integer; stdcall; external 'ws2_32.dll';
-  {$ENDIF}
-  {$IFDEF FPC}
-  function WSAAccept(s:TSocket; addr:PSockAddr; addrlen:PLongint; lpfnCondition:LPCONDITIONPROC; dwCallbackData:DWORD ):TSocket; stdcall; external 'ws2_32.dll' name 'WSAAccept';
-  {$ENDIF}
- {$ENDIF}
-
 procedure ResolveAddress(resolveAdr:AnsiString;var resolvedIP:cardinal;var resolvedPort:word);
 var
   i:integer;
   address:AnsiString;
   port:word;
   ip:cardinal;
-  h:PHostEnt;
-  fl:boolean;
 begin
   address:=ResolveAdr;
   port:=0;
@@ -121,34 +105,9 @@ begin
    port:=Conv.ToInt(copy(address,i+1,length(address)-i));
    SetLength(address,i-1);
   end;
-  if address<>'' then begin
-   fl:=true;
-   for i:=1 to length(address) do
-    if not (address[i] in ['0'..'9','.']) then fl:=false;
-   if fl then begin
-    {$IFDEF MSWINDOWS}
-    address:=address+#0;
-    ip:=inet_addr(@address[1]);
-    {$ELSE}
-    ip:=StrToNetAddr(address).s_addr;
-    {$ENDIF}
-   end else begin
-    address:=address+#0;
-    h:=GetHostByName(@address[1]);
-    if h=nil then begin
-     ip:=0;
-    end else begin
-     {$IFDEF MSWINDOWS}
-     move(h^.h_addr^[0],ip,4);
-     {$ELSE}
-     if h^.h_addr_list<>nil then
-      move(h^.h_addr_list^^,ip,4)
-     else
-      ip:=0;
-     {$ENDIF}
-    end;
-   end;
-  end else
+  if address<>'' then
+   ip:=ResolveIPv4Address(address)
+  else
    ip:=$FFFFFFFF;
 
   ResolveAdr:='';
@@ -217,7 +176,7 @@ end;
 
 function TTCPServer.AcceptNewConnection:boolean;
 var
-  s:TSocket;
+  s:TNativeSocket;
   i,res,n:integer;
   addr:SockAddr_IN;
   addrLen:integer;
@@ -486,11 +445,7 @@ begin
 
   connecting:=true;
   disconnected:=false;
-  {$IFDEF MSWINDOWS}
-  res:=WinSock2.Connect(sock,TSockAddr(addr),sizeof(addr));
-  {$ELSE}
   res:=SocketConnect(sock,TSockAddr(addr),sizeof(addr));
-  {$ENDIF}
   if (res<>0) then begin
    res:=WSAGetLastError;
    if res<>WSAEWOULDBLOCK then begin

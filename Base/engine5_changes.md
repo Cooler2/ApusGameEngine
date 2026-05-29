@@ -29,7 +29,9 @@ Use it as the primary reference when updating old code.
 
 ### Base Linux socket compatibility
 
-- Added `Apus.SocketCompat` as an internal FPC/Unix compatibility layer for the WinSock-style calls still used by legacy Base network modules.
+- Extended `Apus.Socket` into the shared socket compatibility layer for the WinSock-style calls still used by legacy Base network modules.
+- `Apus.TCP` and `Apus.SCGI` now depend on `Apus.Socket` instead of importing platform socket units directly.
+- Unix-only resolver bindings are kept behind `{$IFDEF UNIX}` inside `Apus.Socket`.
 - Linux/FPC compile sweep now includes:
   - `Apus.Socket`
   - `Apus.TCP`

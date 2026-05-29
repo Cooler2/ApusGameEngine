@@ -76,7 +76,6 @@ build Apus.AnimatedValues
 build Apus.Containers
 build Apus.FastGFX
 build Apus.VertexLayout
-build Apus.SocketCompat
 build Apus.Socket
 
 # === Level 5: Images and collections ===
