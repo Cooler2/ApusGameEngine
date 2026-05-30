@@ -83,6 +83,8 @@ Use it as the primary reference when updating old code.
   entrypoints so engine applications can start thread-backed game loops on Linux.
 - Implemented SDL scan-code to virtual-key mapping instead of returning an
   uninitialized value from `TSDLPlatform.MapScanCodeToVirtualKey`.
+- Fixed SDL controller initialization to skip `InitJoystick(0)` when no
+  joysticks are connected.
 
 ## Recent API fixes (2026-03-22)
 

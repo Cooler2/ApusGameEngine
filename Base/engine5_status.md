@@ -65,6 +65,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-05-30):** Implemented the previously missing SDL shared OpenGL context lifecycle for secondary windows; Linux/WSL `MultiWindow` runtime verification created and closed a live `Tool 1` window successfully.
 **Recent wins (2026-05-30):** Added the required FPC/Unix `cthreads` driver to maintained demo entrypoints so thread-backed engine applications can start on Linux.
 **Recent wins (2026-05-30):** Implemented the missing SDL scan-code to virtual-key mapping and removed an uninitialized-result path.
+**Recent wins (2026-05-30):** Fixed SDL startup to avoid probing joystick index `0` when no controllers are connected.
 
 ## Live module inventory (2026-05-29)
 

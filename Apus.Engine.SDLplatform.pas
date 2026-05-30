@@ -121,6 +121,7 @@ procedure InitControllers;
   i,n:integer;
  begin
   n:=SDL_NumJoysticks;
+  if n<=0 then exit;
   for i:=0 to Clamp(n-1,0,3) do begin
    InitJoystick(i);
   end;
