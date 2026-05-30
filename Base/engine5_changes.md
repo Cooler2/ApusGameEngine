@@ -65,6 +65,10 @@ Use it as the primary reference when updating old code.
   the caller. Matching remains case-insensitive, while handlers now receive the
   same spelling behavior as direct `Signal` calls.
 - `TestEventMan` now passes on Linux/FPC (`39` checks).
+- Fixed zero-length `TVec2.Normalize` and `TVec2d.Normalize` to produce explicit
+  NaN coordinates without executing runtime `0/0`. `IsValid` now uses `IsNan`
+  for both coordinates, avoiding Linux/FPC floating-point traps.
+- `TestGeom2D` now passes on Linux/FPC (`78` checks).
 
 ## Recent API fixes (2026-03-22)
 

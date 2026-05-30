@@ -59,6 +59,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-05-30):** Updated `TestConv` to the current `Conv.FormatIp` and boolean formatting contracts; all `135` checks pass on Linux/FPC.
 **Recent wins (2026-05-30):** Fixed Linux/FPC `Thread.Start` range-check failures by preserving the POSIX `pthread_t` return value without narrowing through `THandle`; all `65` `TestThreads` checks pass.
 **Recent wins (2026-05-30):** Fixed `Apus.EventMan.Link` to preserve linked-event spelling for handlers while retaining case-insensitive matching; all `39` `TestEventMan` checks pass on Linux/FPC.
+**Recent wins (2026-05-30):** Made zero-length `TVec2`/`TVec2d` normalization explicitly produce NaN without Linux/FPC floating-point traps; all `78` `TestGeom2D` checks pass.
 
 ## Live module inventory (2026-05-29)
 
