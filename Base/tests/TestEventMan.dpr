@@ -167,12 +167,9 @@ begin
 end;
 
 procedure TestLink;
-var
-  linked:boolean;
 begin
   StartTest('Link events');
   ResetCounters;
-  linked:=false;
   SetEventHandler('Linked\Target',TestHandler);
   Link('Test\Source','Linked\Target',789);
   Signal('Test\Source',0);

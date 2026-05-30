@@ -541,7 +541,7 @@ function EventOfClass(event,eventClass:TEventStr;var subEvent:TEventStr):boolean
     links[n]:=link;
 
     link.event:=event;
-    link.LinkedEvent:=newEvent.ToUpper;
+    link.LinkedEvent:=newEvent;
     link.tag:=tag;
     link.redirect:=redirect;
     link.keepOriginalTag:=tag=-1;

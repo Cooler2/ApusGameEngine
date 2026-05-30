@@ -61,6 +61,10 @@ Use it as the primary reference when updating old code.
   `TThreadID`.
 - `TestThreads` now passes on Linux/FPC (`65` checks); `TestEventMan` concurrent
   thread scenarios also run without range-check exceptions.
+- Fixed `Apus.EventMan.Link` to preserve the linked event name casing passed by
+  the caller. Matching remains case-insensitive, while handlers now receive the
+  same spelling behavior as direct `Signal` calls.
+- `TestEventMan` now passes on Linux/FPC (`39` checks).
 
 ## Recent API fixes (2026-03-22)
 
