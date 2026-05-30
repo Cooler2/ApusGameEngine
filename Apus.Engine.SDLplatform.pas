@@ -38,6 +38,7 @@ type
   wnd:PSDL_Window;
   ctx:TSDL_GLContext;
   contextVAO:cardinal; // per-context VAO for shared secondary window
+  terminated:boolean;
   graphInfo:TOpenGLContextDesc;
   function CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWithCurrent:boolean=false):UIntPtr;
  end;
@@ -68,7 +69,7 @@ type
 implementation
 uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
   SysUtils, Apus.Core, Apus.Log, Apus.Files, Apus.Strings, Apus.EventMan, Apus.Engine.Game, Apus.Images,
-  Apus.GfxFormats, Apus.Engine.Controller, Apus.Engine.Types
+  Apus.GfxFormats, Apus.Engine.Controller, Apus.Engine.Types, Apus.Engine.Window
   {$IFDEF OPENGL},dglOpenGL{$ENDIF};
 
 type
@@ -81,7 +82,6 @@ const
  glcsReleaseRequested=1;
  glcsReleased=2;
 var
- terminated:boolean;
  mouseState:byte;
  savedLogHandler:TSDL_LogOutputFunction;
  glShareState:integer=glcsReady;
@@ -135,6 +135,7 @@ constructor TSDLGLWindow.Create(aWnd:PSDL_Window;windowName:string='MainWnd');
   wnd:=aWnd;
   ctx:=nil;
   contextVAO:=0;
+  terminated:=false;
  end;
 
 { TSDLPlatform }
@@ -433,6 +434,16 @@ function GetKeyCode(sdl_keycode:integer):integer;
    end;
   end;
 
+function FindSDLWindow(windowID:cardinal):TSDLGLWindow;
+ var
+  item:TWindow;
+ begin
+  for item in ListWindows do
+   if (item is TSDLGLWindow) and (item.GetHandle=windowID) then
+    exit(TSDLGLWindow(item));
+  result:=nil;
+ end;
+
 procedure ProcessControllerEvent(event:TSDL_Event);
  var
   n,axis,button:integer;
@@ -525,6 +536,7 @@ procedure ProcessControllerEvent(event:TSDL_Event);
 procedure TSDLGLWindow.ProcessMessages;
  var
   event:TSDL_Event;
+  eventWindow:TSDLGLWindow;
   ust:String8;
   wst:String16;
   i,len:integer;
@@ -563,6 +575,12 @@ procedure TSDLGLWindow.ProcessMessages;
       end;
       SDL_WINDOWEVENT_CLOSE:begin
        Log.Msg('Window close');
+       eventWindow:=FindSDLWindow(event.window.windowID);
+       if eventWindow<>nil then begin
+        eventWindow.terminated:=true;
+        if eventWindow=mainWindow then
+         Signal('Engine\Cmd\Exit',0);
+       end;
        Signal('ENGINE\WINDOW\CLOSE');
       end;
       SDL_WINDOWEVENT_RESIZED:Signal('ENGINE\RESIZE',PackWords(event.window.data1,event.window.data2));
@@ -630,7 +648,8 @@ procedure TSDLGLWindow.ProcessMessages;
     end;
 
     SDL_QUITEV:begin
-     terminated:=true;
+     if mainWindow is TSDLGLWindow then
+      TSDLGLWindow(mainWindow).terminated:=true;
      Signal('Engine\Cmd\Exit',0);
     end;
 

@@ -87,6 +87,10 @@ Use it as the primary reference when updating old code.
   joysticks are connected.
 - Fixed SDL screen-coordinate helpers: `ScreenToClient` now subtracts the
   native window position, and `GetMousePos` uses `SDL_GetGlobalMouseState`.
+- Made SDL window termination state per-window and routed close events by SDL
+  window ID, so closing a secondary window does not terminate every window.
+  Verified on Linux/WSL by closing a live `Tool 1` window while the main loop
+  continued running.
 
 ## Recent API fixes (2026-03-22)
 

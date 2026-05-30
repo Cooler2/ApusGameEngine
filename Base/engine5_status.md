@@ -67,6 +67,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-05-30):** Implemented the missing SDL scan-code to virtual-key mapping and removed an uninitialized-result path.
 **Recent wins (2026-05-30):** Fixed SDL startup to avoid probing joystick index `0` when no controllers are connected.
 **Recent wins (2026-05-30):** Fixed SDL screen-coordinate helpers for window-relative conversion and global mouse position queries.
+**Recent wins (2026-05-30):** Made SDL close handling multi-window aware: termination state is per-window and close events are routed by native SDL window ID. Linux/WSL runtime verification closed `Tool 1` while the main window continued running.
 
 ## Live module inventory (2026-05-29)
 
