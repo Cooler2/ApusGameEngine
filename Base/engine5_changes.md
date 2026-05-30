@@ -75,6 +75,12 @@ Use it as the primary reference when updating old code.
 - Fixed `Base/tests/test.sh` to return compilation and runtime failures to its
   caller. Added `Base/tests/test_all.sh` for the deterministic Linux-compatible
   Base regression set.
+- Implemented SDL shared OpenGL context lifecycle for secondary windows,
+  including cross-thread handoff, context sharing, reactivation, and
+  per-context VAO setup for core profiles. Verified `MultiWindow` secondary
+  startup and shutdown on Linux/WSL with a live `Tool 1` window.
+- Added `cthreads` as the first unit for FPC/Unix builds of maintained demo
+  entrypoints so engine applications can start thread-backed game loops on Linux.
 
 ## Recent API fixes (2026-03-22)
 

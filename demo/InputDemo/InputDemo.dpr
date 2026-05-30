@@ -1,6 +1,7 @@
 ﻿program InputDemo;
 {$APPTYPE GUI}
   uses
+    {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
     SceneInputDemo in 'SceneInputDemo.pas';
 
 begin

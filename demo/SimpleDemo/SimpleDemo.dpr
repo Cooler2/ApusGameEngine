@@ -1,5 +1,6 @@
 program SimpleDemo;
  uses
+  {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
   SimpleDemoApp in 'SimpleDemoApp.pas';
 
 {$R *.res}

@@ -1,5 +1,6 @@
 program Scenes;
- uses Apus.Core, SysUtils, Types, Apus.EventMan, Apus.Engine.API,
+ uses {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
+   Apus.Core, SysUtils, Types, Apus.EventMan, Apus.Engine.API,
    Apus.Engine.GameApp, Apus.Engine.UIScene, Apus.Engine.UI,
    Apus.Engine.SceneEffects, Apus.Engine.UIRender;
 

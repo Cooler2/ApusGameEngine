@@ -51,7 +51,7 @@ Relevance categories:
 
 | Demo | What it demonstrates / tests | Relevance |
 |---|---|---|
-| `MultiWindow` | Multi-window support (R-02): main window + tool windows, `AddWindow`/window-scene flow. | `engine5`, `scaffold` |
+| `MultiWindow` | Multi-window support (R-02): main window + tool windows, `AddWindow`/window-scene flow. | `engine5` |
 | `ProjectTemplate` | Minimal starter project skeleton (window + simple scene + Exit button). | `scaffold` |
 | `EngineTest` | Large old set of manual graphics/resource tests (many modes, includes deprecated API paths). | `legacy` |
 
@@ -60,4 +60,4 @@ Relevance categories:
 - `engine5` status was assigned to demos explicitly tracked as active in `engine_work_ahead.md` (for example `SimpleDemo`, `01-Scenes`, `VertexBuffer`, `MultiWindow`, `UIScaleDPI`) and/or used as current test vehicles.
 - Most remaining demos still sit on older API layers (`Apus.Common`, `Apus.CrossPlatform`) and were marked `engine4`.
 - `EngineTest` is marked `legacy` because it is a historical monolithic test program with deprecated branches.
-- `ProjectTemplate` and `MultiWindow` are marked `scaffold` due to template/incomplete functional scope.
+- `ProjectTemplate` is marked `scaffold` due to its template/incomplete functional scope.

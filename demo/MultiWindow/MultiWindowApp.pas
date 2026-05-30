@@ -4,8 +4,7 @@
 // Main window has buttons to spawn tool windows and exit.
 // Each tool window has its own scene and title ("Tool 1", "Tool 2", ...).
 //
-// Current state: scaffold — second window creation is not yet supported
-// by the engine. This demo will evolve together with the engine.
+// The demo exercises shared GL context startup and per-window render threads.
 
 unit MultiWindowApp;
 interface

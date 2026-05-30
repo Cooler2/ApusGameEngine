@@ -1,5 +1,6 @@
 program StyleDemo;
  uses
+  {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
   StyleDemoApp in 'StyleDemoApp.pas';
 
 begin

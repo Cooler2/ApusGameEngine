@@ -28,14 +28,18 @@ type
   procedure ClientToScreen(var p:TPoint); override;
   procedure SamplePointer; override;
   procedure InitGraph; override;
+  procedure InitGraphShared(primary:TWindow;mainContextReleased:boolean=false); override;
   procedure DoneGraph; override;
+  procedure ReleaseGraphContext; override;
+  procedure ActivateGraphContext; override;
   procedure PresentFrame; override;
   function SetVSync(divider:integer):boolean; override;
  private
   wnd:PSDL_Window;
   ctx:TSDL_GLContext;
+  contextVAO:cardinal; // per-context VAO for shared secondary window
   graphInfo:TOpenGLContextDesc;
-  function CreateOpenGLContext(var graph:TOpenGLContextDesc):UIntPtr;
+  function CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWithCurrent:boolean=false):UIntPtr;
  end;
 
  { TSDLPlatform }
@@ -64,17 +68,23 @@ type
 implementation
 uses {$IFDEF MSWINDOWS}Windows,{$ENDIF}
   SysUtils, Apus.Core, Apus.Log, Apus.Files, Apus.Strings, Apus.EventMan, Apus.Engine.Game, Apus.Images,
-  Apus.GfxFormats, Apus.Engine.Controller, Apus.Engine.Types;
+  Apus.GfxFormats, Apus.Engine.Controller, Apus.Engine.Types
+  {$IFDEF OPENGL},dglOpenGL{$ENDIF};
 
 type
  TSDLController=record
   joystick:PSDL_Joystick;
   controller:PSDL_GameController;
- end;
+end;
+const
+ glcsReady=0;
+ glcsReleaseRequested=1;
+ glcsReleased=2;
 var
  terminated:boolean;
  mouseState:byte;
  savedLogHandler:TSDL_LogOutputFunction;
+ glShareState:integer=glcsReady;
  SDLcontrollers:array[0..high(controllers)] of TSDLController;
 
 procedure InitJoystick(idx:integer);
@@ -123,6 +133,7 @@ constructor TSDLGLWindow.Create(aWnd:PSDL_Window;windowName:string='MainWnd');
   inherited Create(windowName);
   wnd:=aWnd;
   ctx:=nil;
+  contextVAO:=0;
  end;
 
 { TSDLPlatform }
@@ -643,7 +654,7 @@ procedure TSDLGLWindow.MoveTo(x,y:integer;width:integer;
   SDL_SetWindowPosition(wnd,x,y);
  end;
 
-function TSDLGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc):UIntPtr;
+function TSDLGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc;shareWithCurrent:boolean=false):UIntPtr;
  var
   major,minor,profile,flags,profileMask:integer;
   requestedProfile:TOpenGLContextProfile;
@@ -670,7 +681,14 @@ function TSDLGLWindow.CreateOpenGLContext(var graph:TOpenGLContextDesc):UIntPtr;
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,minor);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,profileMask);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,flags);
-  ctx:=SDL_GL_CreateContext(wnd);
+  if shareWithCurrent then
+   SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT,1);
+  try
+   ctx:=SDL_GL_CreateContext(wnd);
+  finally
+   if shareWithCurrent then
+    SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT,0);
+  end;
   result:=UIntPtr(ctx);
 
   graph.actualMajor:=0;
@@ -711,8 +729,63 @@ procedure TSDLGLWindow.InitGraph;
   oglContextInfo:=graphInfo;
  end;
 
+procedure TSDLGLWindow.InitGraphShared(primary:TWindow;mainContextReleased:boolean=false);
+ var
+  src:TSDLGLWindow;
+  vao:cardinal;
+ begin
+  ASSERT(primary<>nil);
+  ASSERT(primary is TSDLGLWindow,'Primary must be TSDLGLWindow');
+  src:=TSDLGLWindow(primary);
+  ASSERT(src.ctx<>nil,'Primary window has no GL context');
+  graphInfo:=src.graphInfo;
+  graphInfo.actualMajor:=0;
+  graphInfo.actualMinor:=0;
+  graphInfo.requestAccepted:=false;
+  if not mainContextReleased then begin
+   Atomic.Exchange(glShareState,glcsReleaseRequested);
+   Log.Msg('AddWindow: requesting SDL GL context release from main thread');
+   while glShareState<>glcsReleased do
+    CoreTime.Sleep(1);
+   Log.Msg('AddWindow: main thread released SDL GL context');
+  end else
+   Log.Msg('AddWindow: main thread SDL GL context already released by caller');
+  try
+   if SDL_GL_MakeCurrent(src.wnd,src.ctx)<>0 then
+    raise EError.Create('Can''t activate primary SDL GL context for sharing: '+SDL_GetError);
+   try
+    if CreateOpenGLContext(graphInfo,true)=0 then
+     raise EError.Create('Can''t create shared OpenGL context: '+SDL_GetError);
+   except
+    SDL_GL_MakeCurrent(src.wnd,nil);
+    raise;
+   end;
+   oglContextInfo:=graphInfo;
+   SetupGLDebugOutputForCurrentContext(graphInfo,'secondary:'+name);
+   if graphInfo.profile=oglpCore then begin
+    vao:=0;
+    glGenVertexArrays(1,@vao);
+    glBindVertexArray(vao);
+    contextVAO:=vao;
+    Log.Msg('Extra window VAO created: %d',[vao]);
+   end;
+  finally
+   if not mainContextReleased then
+    Atomic.Exchange(glShareState,glcsReady);
+  end;
+ end;
+
 procedure TSDLGLWindow.PresentFrame;
  begin
+  if self=mainWindow then
+   if Atomic.CmpExchange(glShareState,glcsReleased,glcsReleaseRequested)=glcsReleaseRequested then begin
+    ReleaseGraphContext;
+    Log.Msg('Main thread released SDL GL context for AddWindow');
+    while glShareState<>glcsReady do
+     CoreTime.Sleep(1);
+    ActivateGraphContext;
+    Log.Msg('Main thread reacquired SDL GL context');
+   end;
   SDL_GL_SwapWindow(wnd);
  end;
 
@@ -723,9 +796,26 @@ end;
 
 procedure TSDLGLWindow.DoneGraph;
  begin
+  if contextVAO<>0 then begin
+   glDeleteVertexArrays(1,@contextVAO);
+   Log.Msg('Extra window VAO deleted: %d',[contextVAO]);
+   contextVAO:=0;
+  end;
   if ctx<>nil then
    SDL_GL_DeleteContext(ctx);
   ctx:=nil;
+ end;
+
+procedure TSDLGLWindow.ReleaseGraphContext;
+ begin
+  SDL_GL_MakeCurrent(wnd,nil);
+ end;
+
+procedure TSDLGLWindow.ActivateGraphContext;
+ begin
+  if ctx=nil then exit;
+  if SDL_GL_MakeCurrent(wnd,ctx)<>0 then
+   Log.Warn('Failed to activate SDL GL context: '+SDL_GetError);
  end;
 
 procedure TSDLGLWindow.Configure(params:TGameSettings);

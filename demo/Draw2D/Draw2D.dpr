@@ -1,5 +1,6 @@
 program Draw2D;
   uses
+    {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
     SceneDraw2D in 'SceneDraw2D.pas';
 
 begin

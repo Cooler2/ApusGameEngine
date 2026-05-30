@@ -1,5 +1,6 @@
 program Tweenings;
  uses
+  {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
   TweeningsScene in 'TweeningsScene.pas';
 
 {$IFDEF DELPHI}{$R *.res}{$ENDIF}

@@ -1,5 +1,6 @@
 program MultiWindow;
  uses
+  {$IFDEF FPC}{$IFDEF UNIX}cthreads,{$ENDIF}{$ENDIF}
   MultiWindowApp in 'MultiWindowApp.pas';
 
 {$R *.res}
