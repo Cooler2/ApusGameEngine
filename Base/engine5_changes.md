@@ -50,6 +50,13 @@ Use it as the primary reference when updating old code.
   - `Apus.Compress`
 - `Apus.Profiling` remains Windows-only because its implementation directly uses the Windows unit.
 
+### Base Linux runtime validation
+
+- Updated `Base/tests/TestConv.dpr` to the current `Conv` API:
+  - IP formatting uses `Conv.FormatIp(cardinal)`.
+  - `Conv.ToStr(boolean)` expectations match the documented `short=false` default.
+- `TestConv` now compiles and passes on Linux/FPC (`135` checks).
+
 ## Recent API fixes (2026-03-22)
 
 ### Apus.Geom2D TRect2 point containment API

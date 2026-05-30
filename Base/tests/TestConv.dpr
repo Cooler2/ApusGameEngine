@@ -120,13 +120,13 @@ begin
   EndTest;
 end;
 
-procedure TestToIpFormat;
+procedure TestFormatIp;
 begin
-  StartTest('Conv.ToIp(cardinal)');
-  Check(Conv.ToIp(cardinal(0))='0.0.0.0','ToIp(0)');
-  Check(Conv.ToIp(cardinal($0100007F))='127.0.0.1','ToIp localhost');
-  Check(Conv.ToIp(cardinal($6401A8C0))='192.168.1.100','ToIp 192.168.1.100');
-  Check(Conv.ToIp(cardinal($FFFFFFFF))='255.255.255.255','ToIp broadcast');
+  StartTest('Conv.FormatIp(cardinal)');
+  Check(Conv.FormatIp(cardinal(0))='0.0.0.0','FormatIp(0)');
+  Check(Conv.FormatIp(cardinal($0100007F))='127.0.0.1','FormatIp localhost');
+  Check(Conv.FormatIp(cardinal($6401A8C0))='192.168.1.100','FormatIp 192.168.1.100');
+  Check(Conv.FormatIp(cardinal($FFFFFFFF))='255.255.255.255','FormatIp broadcast');
   EndTest;
 end;
 
@@ -155,10 +155,10 @@ end;
 procedure TestToStrBool;
 begin
   StartTest('Conv.ToStr(bool)');
-  Check(Conv.ToStr(true)='1','ToStr(true) short');
-  Check(Conv.ToStr(false)='0','ToStr(false) short');
-  Check(Conv.ToStr(true,false)='true','ToStr(true) long');
-  Check(Conv.ToStr(false,false)='false','ToStr(false) long');
+  Check(Conv.ToStr(true)='true','ToStr(true) long');
+  Check(Conv.ToStr(false)='false','ToStr(false) long');
+  Check(Conv.ToStr(true,true)='1','ToStr(true) short');
+  Check(Conv.ToStr(false,true)='0','ToStr(false) short');
   EndTest;
 end;
 
@@ -316,7 +316,7 @@ begin
     TestToIp;
     TestToHex;
     TestToStrPointer;
-    TestToIpFormat;
+    TestFormatIp;
     TestToStrInt;
     TestToStrBool;
     TestToStrDouble;
