@@ -56,6 +56,11 @@ Use it as the primary reference when updating old code.
   - IP formatting uses `Conv.FormatIp(cardinal)`.
   - `Conv.ToStr(boolean)` expectations match the documented `short=false` default.
 - `TestConv` now compiles and passes on Linux/FPC (`135` checks).
+- Fixed Linux/FPC thread startup: POSIX `BeginThread` returns a `pthread_t`, which
+  must not be assigned through the narrower `THandle` type before being stored as
+  `TThreadID`.
+- `TestThreads` now passes on Linux/FPC (`65` checks); `TestEventMan` concurrent
+  thread scenarios also run without range-check exceptions.
 
 ## Recent API fixes (2026-03-22)
 

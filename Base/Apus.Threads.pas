@@ -1238,10 +1238,12 @@ begin
 
   // Start thread
   {$IFDEF FPC}
-  // Use 3-arg overload to get real thread ID separate from handle.
-  // BeginThread return value is handle on Windows, pthread_t on POSIX.
+  // BeginThread returns a Windows handle on Windows and pthread_t on POSIX.
+  // THandle is narrower than pthread_t on Linux, so don't assign through it.
+  {$IFDEF MSWINDOWS}
   handle:=BeginThread(@ThreadStartWrapper,startData,threadID);
-  {$IFNDEF MSWINDOWS}
+  {$ELSE}
+  threadID:=BeginThread(@ThreadStartWrapper,startData);
   handle:=0; // POSIX: use pthread_join with threadID instead
   {$ENDIF}
   {$ELSE}

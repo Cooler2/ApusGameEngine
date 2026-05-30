@@ -57,6 +57,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-05-30):** Added `Apus.Compress` to the Linux/FPC Base build sweep.
 **Recent wins (2026-05-30):** Fixed Linux case-sensitive include lookup in `tests/TestStyle.dpr`; the style regression test passes on Linux/FPC. Added `tests/linux_smoke.sh` for repeatable Linux/FPC checks of the style test, SDL/OpenGL smoke tests, and compatible modern demos.
 **Recent wins (2026-05-30):** Updated `TestConv` to the current `Conv.FormatIp` and boolean formatting contracts; all `135` checks pass on Linux/FPC.
+**Recent wins (2026-05-30):** Fixed Linux/FPC `Thread.Start` range-check failures by preserving the POSIX `pthread_t` return value without narrowing through `THandle`; all `65` `TestThreads` checks pass.
 
 ## Live module inventory (2026-05-29)
 
