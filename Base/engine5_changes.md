@@ -69,6 +69,9 @@ Use it as the primary reference when updating old code.
   NaN coordinates without executing runtime `0/0`. `IsValid` now uses `IsNan`
   for both coordinates, avoiding Linux/FPC floating-point traps.
 - `TestGeom2D` now passes on Linux/FPC (`78` checks).
+- Disabled Win64-ABI-only `TMat4` SSE helpers on Linux x64 so System V builds
+  use the existing Pascal fallback for matrix multiplication and Vec4 point/normal transforms.
+- `TestGeom3D` now passes on Linux/FPC (`80` checks).
 
 ## Recent API fixes (2026-03-22)
 

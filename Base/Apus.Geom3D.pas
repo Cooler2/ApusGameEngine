@@ -1630,7 +1630,7 @@ end;
 // Current operator* routes through this helper because legacy ASM was written for
 // (const m1,m2; out target) calling convention. Rework operator* to native ASM.
  procedure TMat4MultiplySSE(const m1,m2:TMat4;out target:TMat4);
-  {$IFDEF CPUx64}
+  {$IF Defined(CPUx64) and Defined(MSWINDOWS)}
   asm
    // x64 calling convention reminder:
    // - Win64 (Microsoft ABI): m1=RCX, m2=RDX, target=R8
@@ -1816,7 +1816,7 @@ end;
 
  // Transform an array of homogeneous 4D points by a 4x4 matrix in-place.
   procedure _TransformVec4PointsByMat4(const m:TMat4;v:PVec4;num,step:integer); overload;
-  {$IFDEF CPUx64}
+  {$IF Defined(CPUx64) and Defined(MSWINDOWS)}
   asm
    // x64 calling conventions for parameters:
    // - Win64: m=RCX, v=RDX, num=R8, step=R9
@@ -1869,7 +1869,7 @@ end;
  // Ignore translation part
  // Transform an array of homogeneous 4D normals by a 4x4 matrix, ignoring translation.
   procedure _TransformVec4NormalsByMat4(const m:TMat4;v:PVec4;num,step:integer);
- {$IFDEF CPUx64}
+ {$IF Defined(CPUx64) and Defined(MSWINDOWS)}
   asm
    // x64 calling conventions for parameters:
    // - Win64: m=RCX, v=RDX, num=R8, step=R9
