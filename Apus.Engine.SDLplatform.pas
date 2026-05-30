@@ -878,7 +878,7 @@ procedure TSDLGLWindow.Show(show:boolean);
 
 function TSDLPlatform.MapScanCodeToVirtualKey(key:integer):integer;
  begin
-  //result:=MapVirtualKey(key,MAPVK_VSC_TO_VK);
+  result:=GetKeyCode(SDL_GetKeyFromScancode(TSDL_Scancode(key)));
  end;
 
 

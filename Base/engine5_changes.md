@@ -81,6 +81,8 @@ Use it as the primary reference when updating old code.
   startup and shutdown on Linux/WSL with a live `Tool 1` window.
 - Added `cthreads` as the first unit for FPC/Unix builds of maintained demo
   entrypoints so engine applications can start thread-backed game loops on Linux.
+- Implemented SDL scan-code to virtual-key mapping instead of returning an
+  uninitialized value from `TSDLPlatform.MapScanCodeToVirtualKey`.
 
 ## Recent API fixes (2026-03-22)
 
