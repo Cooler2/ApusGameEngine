@@ -7,7 +7,7 @@ uses
   Apus.Strings,
   Apus.Engine.Style;
 
-{$I ..\Base\tests\test.inc}
+{$I ..\Base\tests\Test.inc}
 
 // --- Test procedures ---
 

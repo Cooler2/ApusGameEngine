@@ -22,9 +22,15 @@ Use it as the primary reference when updating old code.
   - `TDisplayScaleMode` now aliases `Apus.Engine.Types.TDisplayScaleMode`.
 - Fixed Linux SDL mouse-button cursor handling to call `systemPlatform.SetCursor`.
 - Updated `tests/PlatformTest.dpr` and `tests/OpenGL.dpr` to the current `TWindow`/`IGraphicsSystem` lifecycle and modern Base units instead of deprecated `Apus.Common`.
+- Fixed case-sensitive include lookup in `tests/TestStyle.dpr` (`Test.inc`).
 - Linux/FPC compile-only checks now pass for:
   - `tests/PlatformTest.dpr`
   - `tests/OpenGL.dpr`
+  - `demo/SimpleDemo/SimpleDemo.dpr`
+  - `demo/StyleDemo/StyleDemo.dpr`
+  - `demo/MultiWindow/MultiWindow.dpr`
+- Linux/FPC runtime check now passes for:
+  - `tests/TestStyle.dpr`
 
 ### Base Linux socket compatibility
 

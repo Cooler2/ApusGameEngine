@@ -19,6 +19,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 - 🔧 Post-merge priorities: Linux fixes + validation, benchmarks, SSE optimization of hot functions, bugfixes with test additions
 - ✅ Linux/FPC engine smoke coverage added for SDL/OpenGL compile-only paths (`tests/PlatformTest.dpr`, `tests/OpenGL.dpr`)
 - ✅ Linux/FPC Base build sweep includes `Apus.Compress`
+- ✅ Linux/FPC style test and modern SDL/OpenGL demo compile coverage verified
 - 🎯 **Next priorities:** stabilization, test expansion, performance tuning, and incremental cleanup of legacy Engine/Demo/Tools references
 
 **Recent wins (2026-02-18):** Added `Conv.ToStr(double)` — locale-independent float formatting via Pascal `Str()`, supports `maxDec`/`minDec`/`decSep` params, 20 tests added to TestConv.
@@ -54,6 +55,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-03-24):** Standardized `Apus.Core.SRound` behavior across SSE and non-ASM paths to the same rule (`floor(v+0.5)`), and documented intended usage split (`SRound` for translation-invariant render math, `PRound` for symmetric nearest rounding).
 **Recent wins (2026-05-29):** Linux/FPC engine compile sweep now reaches and passes SDL/OpenGL smoke tests after fixing `Apus.Engine.API` display aliases, SDL cursor dispatch, and old window/gfx lifecycle plus deprecated Base-unit usage in `tests/PlatformTest.dpr` and `tests/OpenGL.dpr`.
 **Recent wins (2026-05-30):** Added `Apus.Compress` to the Linux/FPC Base build sweep.
+**Recent wins (2026-05-30):** Fixed Linux case-sensitive include lookup in `tests/TestStyle.dpr`; the style regression test passes on Linux/FPC, and SDL/OpenGL compile-only checks pass for `demo/SimpleDemo`, `demo/StyleDemo`, and `demo/MultiWindow`.
 
 ## Live module inventory (2026-05-29)
 
