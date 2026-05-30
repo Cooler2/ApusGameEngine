@@ -40,18 +40,21 @@ mkdir -p out64 bin64
 
 # Run FPC [cite: 3]
 $FPC64 $FLAGS -FU"out64" -FE"bin64" "${TEST}.dpr" >> "$LOG64" 2>&1
+STATUS=$?
 
-if [ $? -ne 0 ]; then
+if [ $STATUS -ne 0 ]; then
   echo "COMPILE FAILED" >> "$LOG64"
 else
   echo "" >> "$LOG64"
   echo "=== Running ===" >> "$LOG64"
   # Execute the compiled binary 
   ./bin64/"$TEST" >> "$LOG64" 2>&1
-  echo "Exit code: $?" >> "$LOG64"
+  STATUS=$?
+  echo "Exit code: $STATUS" >> "$LOG64"
 fi
 
 # Output results to console [cite: 7]
 echo ""
 echo "=== 64-bit results ==="
 cat "$LOG64"
+exit $STATUS

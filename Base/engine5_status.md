@@ -61,6 +61,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-05-30):** Fixed `Apus.EventMan.Link` to preserve linked-event spelling for handlers while retaining case-insensitive matching; all `39` `TestEventMan` checks pass on Linux/FPC.
 **Recent wins (2026-05-30):** Made zero-length `TVec2`/`TVec2d` normalization explicitly produce NaN without Linux/FPC floating-point traps; all `78` `TestGeom2D` checks pass.
 **Recent wins (2026-05-30):** Disabled Win64-ABI-only `TMat4` SSE helpers on Linux x64 so System V builds use the existing Pascal fallback; all `80` `TestGeom3D` checks pass.
+**Recent wins (2026-05-30):** Fixed Linux Base test-runner exit status propagation and added `Base/tests/test_all.sh` for the deterministic Linux-compatible regression set.
 
 ## Live module inventory (2026-05-29)
 

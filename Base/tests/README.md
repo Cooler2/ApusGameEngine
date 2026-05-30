@@ -25,12 +25,17 @@ test.bat Strings      → runs TestStrings
 | `Core` | Memory, bits, alignment, min/max/clamp |
 | `Conv` | Type conversions (int, float, bool, hex) |
 | `Strings` | UTF-8 string operations |
-| `Structs` | Generic collections (lists, queues) |
+| `Containers` | Generic collections (lists, queues) |
 | `HashMaps` | Hash map operations |
 | `Files` | File I/O utilities |
 | `EventMan` | Event system |
 | `Threads` | Threading primitives |
 | `Tweenings` | Tweening interpolation, delays, interruptions |
+| `Types` | Base types, buffers, bit streams |
+| `Geom2D` | 2D geometry |
+| `Geom3D` | 3D geometry |
+| `Spatial` | Spatial primitives |
+| `Compress` | Compression helpers |
 
 ## Running Tests on Linux
 
@@ -48,6 +53,15 @@ Usage and test names are identical to `test.bat`.
 ```
 
 Result is written to `test_results_L64.txt`.
+
+Run the deterministic Linux-compatible Base regression set with:
+
+```
+bash test_all.sh
+```
+
+This excludes tests with external-service or platform-specific requirements.
+The summary is written to `test_results_all.txt`.
 
 ## Reading Test Results
 

@@ -72,6 +72,9 @@ Use it as the primary reference when updating old code.
 - Disabled Win64-ABI-only `TMat4` SSE helpers on Linux x64 so System V builds
   use the existing Pascal fallback for matrix multiplication and Vec4 point/normal transforms.
 - `TestGeom3D` now passes on Linux/FPC (`80` checks).
+- Fixed `Base/tests/test.sh` to return compilation and runtime failures to its
+  caller. Added `Base/tests/test_all.sh` for the deterministic Linux-compatible
+  Base regression set.
 
 ## Recent API fixes (2026-03-22)
 
