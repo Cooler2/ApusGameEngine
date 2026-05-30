@@ -55,7 +55,7 @@ Categories: **NEW** | **CLEAN** | **MIGRATE** | **EXTRACT** | **REWORK** | **DEP
 **Recent wins (2026-03-24):** Standardized `Apus.Core.SRound` behavior across SSE and non-ASM paths to the same rule (`floor(v+0.5)`), and documented intended usage split (`SRound` for translation-invariant render math, `PRound` for symmetric nearest rounding).
 **Recent wins (2026-05-29):** Linux/FPC engine compile sweep now reaches and passes SDL/OpenGL smoke tests after fixing `Apus.Engine.API` display aliases, SDL cursor dispatch, and old window/gfx lifecycle plus deprecated Base-unit usage in `tests/PlatformTest.dpr` and `tests/OpenGL.dpr`.
 **Recent wins (2026-05-30):** Added `Apus.Compress` to the Linux/FPC Base build sweep.
-**Recent wins (2026-05-30):** Fixed Linux case-sensitive include lookup in `tests/TestStyle.dpr`; the style regression test passes on Linux/FPC, and SDL/OpenGL compile-only checks pass for `demo/SimpleDemo`, `demo/StyleDemo`, and `demo/MultiWindow`.
+**Recent wins (2026-05-30):** Fixed Linux case-sensitive include lookup in `tests/TestStyle.dpr`; the style regression test passes on Linux/FPC. Added `tests/linux_smoke.sh` for repeatable Linux/FPC checks of the style test, SDL/OpenGL smoke tests, and compatible modern demos.
 
 ## Live module inventory (2026-05-29)
 

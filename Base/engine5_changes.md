@@ -29,8 +29,14 @@ Use it as the primary reference when updating old code.
   - `demo/SimpleDemo/SimpleDemo.dpr`
   - `demo/StyleDemo/StyleDemo.dpr`
   - `demo/MultiWindow/MultiWindow.dpr`
+  - `demo/Draw2D/Draw2D.dpr`
+  - `demo/InputDemo/InputDemo.dpr`
+  - `demo/UI/UI.dpr`
+  - `demo/TextDemo/TextDemo.dpr`
+  - `demo/Tweenings/Tweenings.dpr`
 - Linux/FPC runtime check now passes for:
   - `tests/TestStyle.dpr`
+- Added `tests/linux_smoke.sh` to run these Linux/FPC checks without leaving build artifacts in the repository.
 
 ### Base Linux socket compatibility
 
