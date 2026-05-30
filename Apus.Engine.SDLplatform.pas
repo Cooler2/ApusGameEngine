@@ -154,8 +154,12 @@ procedure TSDLGLWindow.ClientToScreen(var p:TPoint);
  end;
 
 procedure TSDLGLWindow.ScreenToClient(var p:TPoint);
+ var
+  x,y:integer;
  begin
-
+  SDL_GetWindowPosition(wnd,@x,@y);
+  dec(p.x,x);
+  dec(p.y,y);
  end;
 
 procedure TSDLGLWindow.SamplePointer;
@@ -184,7 +188,7 @@ procedure TSDLGLWindow.FlashWindow(count:integer);
 
 function TSDLPlatform.GetMousePos:TPoint;
  begin
-  SDL_GetMouseState(@result.X, @result.Y)
+  SDL_GetGlobalMouseState(@result.X,@result.Y);
  end;
 
 procedure TSDLPlatform.SetMousePos(scrX,scrY:integer);

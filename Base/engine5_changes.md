@@ -85,6 +85,8 @@ Use it as the primary reference when updating old code.
   uninitialized value from `TSDLPlatform.MapScanCodeToVirtualKey`.
 - Fixed SDL controller initialization to skip `InitJoystick(0)` when no
   joysticks are connected.
+- Fixed SDL screen-coordinate helpers: `ScreenToClient` now subtracts the
+  native window position, and `GetMousePos` uses `SDL_GetGlobalMouseState`.
 
 ## Recent API fixes (2026-03-22)
 
