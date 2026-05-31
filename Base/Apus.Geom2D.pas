@@ -900,7 +900,7 @@ class function TVec2d.FromAngle(angle:double):TVec2d;
 
 function TVec2d.IsValid:boolean;
  begin
-  result:=not IsNan(x) and not IsNan(y);
+  result:=not IsNan(x);
  end;
 
 procedure TVec2d.Wrap(max:double);
@@ -1058,7 +1058,7 @@ class function TVec2.Lerp(const p1,p2:TVec2;factor:single):TVec2;
 
 function TVec2.IsValid:boolean;
  begin
-  result:=not IsNan(x) and not IsNan(y);
+  result:=not IsNan(x);
  end;
 
 procedure TVec2.Normalize;
