@@ -94,13 +94,9 @@ implementation
  uses Apus.Images, Apus.Geom2D, Apus.Geom3D,
       {$IFDEF OPENGL}dglOpenGL, {$ENDIF}
       {$IFDEF ANDROID}gles20, Apus.Engine.PainterGL, {$ENDIF}
-      Apus.Colors,Apus.Engine.UI,Apus.Engine.UIRender,
+      Apus.Colors,Apus.Engine.UI,Apus.Engine.UITypes,Apus.Engine.UIRender,
       Apus.Engine.Window,
       Apus.Lib, Apus.Utils;
-
- var
- ModalStack:array[1..8] of TUIElement;
-  modalStackSize:integer;
 
 { TFullScreenEffect }
 
@@ -320,28 +316,11 @@ begin
  end;
 end;
 
-procedure LogModalStack;
-var
- st:string8;
- i:integer;
-begin
- st:='';
- for i:=1 to modalstacksize do
-  st:=st+modalstack[i].name+' > ';
- if modalElement<>nil then
-  st:=st+'('+modalElement.name+')'
- else
-  st:=st+'(nil)';
- Log.Msg('ModalStack: %s #%d',[st,modalStackSize]);
-end;
-
-
 { TShowWindowEffect }
 constructor TShowWindowEffect.Create(scene: TUIScene; duration: integer;
   effMode: TShowMode;effect:integer);
 var
- c:TUIElement;
- i:integer;
+ wnd:TWindow; // window that owns the modal state for this scene
 begin
  try
  if (effMode in [sweSHow,sweShowModal]) and scene.IsActive then begin
@@ -375,70 +354,34 @@ begin
   target.SetStatus(TSceneStatus.ssActive);
  end;
  scene.UI.flags.enabled:=(mode<>sweHide);
+ wnd:=scene.UI.GetWindow; // modal state lives on the owning window
 
  if mode=sweShowModal then begin
   scene.shadowColor:=0;
-  // симуляция отпускания кнопок мыши
-  SetFocusTo(nil);
-  if modalElement<>nil then begin
-   // поищем, какой сцене принадлежит текущий модальный элемент и если
-   // новое окно находится в том же слое - поместим его поверху. В противном случае
-   // вставим новую сцену в нужное место в стэке
-   c:=modalElement;
-   while c.parent<>nil do c:=c.parent;
-   if (c.order and $FF0000=scene.UI.order and $FF0000) and
-      (c.order>scene.UI.order) then scene.UI.order:=c.order+1;
-  end else
+  SetFocusTo(nil); // simulate mouse buttons release
+  // first modal opened? raise the global "under modal" shadow
+  if wnd.modal.Root=nil then
    Signal('UI\SetGlobalShadow',$FF+duration shl 8);
-
-  if scene.zorder<scene.UI.order then scene.zorder:=scene.ui.order
-   else scene.UI.order:=scene.zorder;
-
-  inc(modalStackSize);
-  if modalStackSize>High(modalStack) then begin
+  // Push handles order layering and stack insertion. It must run before the
+  // zorder/order sync below, which reads the possibly bumped scene.UI.order.
+  if not wnd.modal.Push(scene.UI) then begin
    Log.Error('Modal stack overflow in TShowWindowEffect.Create for scene %s',[scene.name]);
-   modalStackSize:=High(modalStack);
    dontPlay:=true;
    duration:=1;
   end;
-  i:=ModalStackSize;
-  while (i>1) and (c<>nil) and (modalstack[i-1]<>nil) and (modalStack[i-1].order>c.order) do begin
-   modalStack[i]:=modalStack[i-1];
-   dec(i);
-   Log.Msg('ModalStack: insert');
-  end;
-  modalStack[i]:=modalElement;
-  if i=modalStackSize then begin
-   SetModalElement((target as TUIScene).UI);
-   modalElement.SetFocus;
-  end;
-  LogModalStack;
+  if scene.zorder<scene.UI.order then scene.zorder:=scene.ui.order
+   else scene.UI.order:=scene.zorder;
+  Log.Msg('ModalStack: %s',[wnd.modal.Info]);
  end;
- // сцена закрывается
+ // scene is being closed
  if (mode=sweHide) then begin
   if (focusedElement<>nil) and (focusedElement.GetRoot=scene.UI) then
     SetFocusTo(nil);
   scene.activated:=false;
-  // проверим, есть ли данная сцена в стеке модальности
-  if modalStackSize>0 then begin
-   i:=1;
-   while (i<=modalStackSize) and (modalStack[i]<>scene.UI) do inc(i);
-   if (i>modalStackSize) and (modalElement=scene.UI) then begin // сцена на вершине стека
-    SetModalElement(modalStack[modalStackSize]);
-    if modalElement<>nil then modalElement.SetFocus;
-    dec(modalStackSize);
-   end;
-   if (i>1) and (i<=modalStackSize) then begin // Сцена где-то внутре
-    Log.Msg('ModalStack: unshift '+Conv.ToStr(i));
-    while i<modalStackSize do begin
-     modalStack[i]:=modalStack[i+1];
-     inc(i);
-    end;
-    dec(modalStackSize);
-   end;
-  end;
-  LogModalStack;
-  if modalElement=nil then
+  wnd.modal.Pop(scene.UI); // remove from the modal stack, reactivate previous (if any)
+  Log.Msg('ModalStack: %s',[wnd.modal.Info]);
+  // last modal closed? drop the global "under modal" shadow
+  if wnd.modal.Root=nil then
     Signal('UI\SetGlobalShadow',duration shl 8);
  end;
 

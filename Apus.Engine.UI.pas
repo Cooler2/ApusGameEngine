@@ -123,8 +123,7 @@ type
   function UnderMouseName:string8;
   function FocusedElement:TUIElement;
   procedure SetFocusTo(e:TUIElement);
-  function ModalElement:TUIElement;
-  procedure SetModalElement(e:TUIElement);
+  function ModalElement:TUIElement; // active modal root of the current window (render thread)
 
   // Найти элемент по имени (через хэш - среди всех)
   function FindElement(name:string8;mustExist:boolean=true):TUIElement;
@@ -405,9 +404,8 @@ implementation
     if ct<>nil then begin
      c2:=ct; // найдем корневого предка ct (вдруг это не rootControls[i]?)
      while c2.parent<>nil do c2:=c2.parent;
-     if (modalElement<>nil) and (c2<>modalElement) then begin
-      continue;
-     end;
+     // skip roots blocked by an active modal in this window
+     if not window.modal.Allows(c2) then continue;
      // выбор элемента с максимальным уровнем Z
      if zOrders[i]>maxZ then begin c:=ct; maxZ:=zOrders[i]; end;
     end;
@@ -440,7 +438,7 @@ implementation
 
  function ModalElement:TUIElement;
   begin
-   result:=Apus.Engine.UITypes.ModalElement;
+   result:=window.modal.Root; // current window's active modal (render thread)
   end;
 
  function UnderMouse:TUIElement;
@@ -467,10 +465,6 @@ implementation
    Apus.Engine.UITypes.SetFocusTo(e);
   end;
 
- procedure SetModalElement(e:TUIElement);
-  begin
-   Apus.Engine.UITypes.ModalElement:=e;
-  end;
 
  procedure SetElementState(name:string8;visible:boolean;enabled:boolean=true);
   var
@@ -511,7 +505,7 @@ implementation
    zOrders:TIntArray;
   begin
     result:=string8.Join([
-     'Modal: '+Conv.ToStr(modalElement),
+     'Modal: '+Conv.ToStr(window.modal.Root),
      'Focused: '+Conv.ToStr(FocusedElement),
      'Hooked: '+Conv.ToStr(hooked),
      ''],#13#10);

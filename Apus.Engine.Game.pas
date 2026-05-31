@@ -1706,11 +1706,13 @@ var
  i:integer;
  maxZ:integer;
  sc:TUIScene;
+ modal:TUIElement;
 begin
  window.Lock;
  try
   result:=nil;
   maxZ:=-10000000;
+  modal:=window.modal.Root; // active modal in this window (blocks kbd in other scenes)
   for i:=low(window.scenes) to high(window.scenes) do
    if (window.scenes[i].IsActive) and
       not window.scenes[i].ignoreKeyboardEvents then begin
@@ -1718,7 +1720,7 @@ begin
     if window.scenes[i] is TUIScene then begin
      sc:=TUIScene(window.scenes[i]);
      if not sc.UI.flags.enabled then continue;
-     if (modalElement<>nil) and not modalElement.HasParent(sc.UI) then continue;
+     if (modal<>nil) and not modal.HasParent(sc.UI) then continue;
     end;
     // Topmost?
     if window.scenes[i].zorder>maxZ then begin

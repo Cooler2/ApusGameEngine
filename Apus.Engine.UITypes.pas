@@ -301,11 +301,23 @@ type
   childrenBound:TRect2; // bounding rect of scrollable children
  end;
 
+ // Typed, behavior-rich access to TWindow.modal (declared as raw TObject fields
+ // in Apus.Engine.Window). Confines all TObject<->TUIElement casts to one place.
+ // Push/Pop manage the modal stack; Allows() is the mouse hit-test gate.
+ TModalStateHelper=record helper for TModalState
+  function Root:TUIElement;                  // active modal UI root (nil if none)
+  function Allows(uiRoot:TUIElement):boolean; // true if no modal, or uiRoot is the active modal root
+  function Push(uiRoot:TUIElement):boolean;  // activate uiRoot as modal; false on stack overflow
+  procedure Pop(uiRoot:TUIElement);          // remove uiRoot from the stack, reactivate previous
+  function Info:String8;                      // human-readable stack dump for logging
+ end;
+
 
 threadvar
-  // These variables are per-window, thus declared as threadvar
+  // These variables are per-window, thus declared as threadvar.
+  // NOTE: modal state is NOT here — it lives in TWindow.modal (window state),
+  // because modal dialogs may be opened from any thread (e.g. onClickAsync).
   underMouse:TUIElement;     // element currently under mouse cursor
-  modalElement:TUIElement;   // active modal element (only one at a time)
   hooked:TUIElement;         // if set, receives mouse events even without focus
 
   clipMouse:TClipMouse;   // mouse movement clipping mode
@@ -354,7 +366,8 @@ threadvar
  procedure ProcessHotKey(keycode:integer;shiftstate:byte);
   var
    i:integer;
-   c:TUIElement;
+   c,modal:TUIElement;
+   wnd:TWindow;
   begin
    for i:=0 to high(hotKeys) do
     if (hotKeys[i].vKey=keycode) then
@@ -363,12 +376,98 @@ threadvar
        begin
         c:=hotkeys[i].element;
         // Element should be visible and enabled
-        if c.IsVisible and c.IsEnabled then
-         // If there is a modal element - it should be parent
-         if (modalElement=nil) or (c=modalElement) or (c.HasParent(modalElement)) then
+        if c.IsVisible and c.IsEnabled then begin
+         // If the element's window has a modal element - it should be parent
+         wnd:=c.GetWindow;
+         if wnd<>nil then modal:=wnd.modal.Root else modal:=nil;
+         if (modal=nil) or (c=modal) or (c.HasParent(modal)) then
           if c.onHotKey(keycode,shiftstate) then exit;
+        end;
        end;
   end;
+
+{ TModalStateHelper }
+
+function TModalStateHelper.Root:TUIElement;
+ begin
+  result:=TUIElement(element);
+ end;
+
+function TModalStateHelper.Allows(uiRoot:TUIElement):boolean;
+ begin
+  result:=(element=nil) or (uiRoot=TUIElement(element)); // no modal, or this is the modal root
+ end;
+
+// Activate uiRoot as the modal element. The previously active modal (if any) is
+// pushed onto the stack at a position determined by its order, so closing dialogs
+// reactivates them in the right sequence.
+// Returns false if the modal stack overflowed (caller may skip the effect).
+function TModalStateHelper.Push(uiRoot:TUIElement):boolean;
+ var
+  cur:TUIElement;
+  i:integer;
+ begin
+  result:=true;
+  cur:=Root; // currently active modal (may be nil)
+  if cur<>nil then begin
+   cur:=cur.GetRoot;
+   // keep the new modal above the current one within the same order layer
+   if (cur.order and $FF0000=uiRoot.order and $FF0000) and
+      (cur.order>uiRoot.order) then uiRoot.order:=cur.order+1;
+  end;
+  inc(stackSize);
+  if stackSize>High(stack) then begin
+   stackSize:=High(stack);
+   result:=false; // overflow: clamp and still place at top
+  end;
+  i:=stackSize;
+  while (i>1) and (cur<>nil) and (stack[i-1]<>nil) and
+        (TUIElement(stack[i-1]).order>cur.order) do begin
+   stack[i]:=stack[i-1];
+   dec(i);
+  end;
+  stack[i]:=element;  // suspend the previously active modal
+  if i=stackSize then begin
+   element:=uiRoot;   // uiRoot becomes the active modal
+   uiRoot.SetFocus;
+  end;
+ end;
+
+// Remove uiRoot from the modal stack. If it was the active modal, the topmost
+// suspended modal is reactivated.
+procedure TModalStateHelper.Pop(uiRoot:TUIElement);
+ var
+  i:integer;
+ begin
+  if stackSize<=0 then exit;
+  i:=1;
+  while (i<=stackSize) and (stack[i]<>uiRoot) do inc(i);
+  if (i>stackSize) and (element=uiRoot) then begin // uiRoot is the active (top) modal
+   element:=stack[stackSize];
+   if element<>nil then TUIElement(element).SetFocus;
+   dec(stackSize);
+  end;
+  if (i>1) and (i<=stackSize) then begin // uiRoot found somewhere inside the stack
+   while i<stackSize do begin
+    stack[i]:=stack[i+1];
+    inc(i);
+   end;
+   dec(stackSize);
+  end;
+ end;
+
+function TModalStateHelper.Info:String8;
+ var
+  i:integer;
+ begin
+  result:='';
+  for i:=1 to stackSize do
+   if stack[i]<>nil then result:=result+TUIElement(stack[i]).name+' > '
+    else result:=result+'empty > ';
+  if element<>nil then result:=result+'('+TUIElement(element).name+')'
+   else result:=result+'(nil)';
+  result:=result+' #'+Conv.ToStr(stackSize);
+ end;
 
 function DescribeElement(c:TUIElement):String8;
  begin

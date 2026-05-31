@@ -172,7 +172,7 @@ function UIScene(name:String8):TUIScene;
      inttostr(clipMouserect.left)+','+inttostr(clipMouserect.top)+':'+
      inttostr(clipMouserect.right)+','+inttostr(clipMouserect.bottom)+')'#13#10;
    st:=st+' Modal element: ';
-   if modalElement<>nil then st:=st+modalElement.name else st:=st+'none';
+   if window.modal.Root<>nil then st:=st+window.modal.Root.name else st:=st+'none';
    Log.Force('UI state'#13#10+st);
   end;
 
@@ -436,7 +436,7 @@ function UIScene(name:String8):TUIScene;
    finally
     window.Unlock;
    end;
-   if (modalElement=nil) or (modalElement=UI) then
+   if (window.modal.Root=nil) or (window.modal.Root=UI) then
     Signal('UI\'+name+'\MouseWheel',delta);
   end;
 
@@ -490,7 +490,7 @@ function UIScene(name:String8):TUIScene;
     if c<>nil then begin
      repeat
       if not (c.flags.visible and c.flags.enabled) or
-       ((modalElement<>nil) and (c.parent=nil) and (c<>modalElement)) then begin
+       ((window.modal.Root<>nil) and (c.parent=nil) and (c<>window.modal.Root)) then begin
        SetFocusTo(nil);
        Log.Msg(UI.name);
        break;
@@ -501,7 +501,7 @@ function UIScene(name:String8):TUIScene;
     // Обработка захвата: если элемент, захвативший мышь, невидим или недоступен - убрать захват и фокус
     if hooked<>nil then begin
      if not (hooked.IsVisible and hooked.IsEnabled) or
-      ((modalElement<>nil) and (hooked.GetRoot<>modalElement)) then begin
+      ((window.modal.Root<>nil) and (hooked.GetRoot<>window.modal.Root)) then begin
       hooked.onLostFocus;
       hooked:=nil;
       clipMouse:=cmNo;
@@ -919,8 +919,8 @@ begin
       'chain: '+chain+#13#10+
       'enabled: '+Conv.ToStr(enabled)+#13#10;
   end;
-  if modalElement<>nil then
-    body:=body+'modal: '+modalElement.name+#13#10
+  if window.modal.Root<>nil then
+    body:=body+'modal: '+window.modal.Root.name+#13#10
   else
     body:=body+'modal: (none)'+#13#10;
   result:=true;

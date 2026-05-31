@@ -74,6 +74,16 @@ type
   procedure UpdateFps(out fps,smoothFps:single);
  end;
 
+ // Per-window modal dialog state: a stack of modal UI roots.
+ // Fields are typed TObject because TWindow's interface section cannot see
+ // TUIElement (Apus.Engine.UITypes uses this unit). Typed, behavior-rich
+ // access is provided by TModalStateHelper (record helper) in Apus.Engine.UITypes.
+ TModalState=record
+  element:TObject;               // active modal UI root (TUIElement), nil if none
+  stack:array[1..8] of TObject;  // suspended modal roots below the active one
+  stackSize:integer;
+ end;
+
  // Base class for engine windows.
  // Platform-specific subclasses implement abstract methods.
  // Created via ISystemPlatform.CreateWindow.
@@ -129,6 +139,7 @@ public
   dRTdepth:TTexture; // depth buffer texture
   scenes:TSceneArray;
   topmostScene:TGameScene; // last topmost active scene for this window
+  modal:TModalState; // modal dialog state for this window (see TModalStateHelper)
   // Frame timing (per-window, read-only from outside):
   // - `*Us` is the single source of truth (high precision)
   // - `*Ms` / `*Sec` are derived values for API compatibility
