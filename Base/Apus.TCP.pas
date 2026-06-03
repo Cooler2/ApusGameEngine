@@ -625,18 +625,4 @@ procedure TTCPClient.onDisconnect;
 begin
 end;
 
-{$IFDEF MSWINDOWS}
-var
-   WSAdata:TWSAData;
-{$ENDIF}
-
-initialization
- {$IFDEF MSWINDOWS}
- WSAStartup($0202, WSAData);
- {$ENDIF}
-finalization
- {$IFDEF MSWINDOWS}
- WSACleanup;
- {$ENDIF}
 end.
-
